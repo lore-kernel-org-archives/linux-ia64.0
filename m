@@ -1,7 +1,7 @@
 From: Hanjun Guo <hanjun.guo@linaro.org>
-Date: Mon, 02 Sep 2013 03:57:38 +0000
-Subject: [PATCH v2 5/6] ACPI / processor: remove unnecessary if (!pr) check
-Message-Id: <1378094259-5922-6-git-send-email-hanjun.guo@linaro.org>
+Date: Mon, 02 Sep 2013 03:57:36 +0000
+Subject: [PATCH v2 3/6] x86 / ACPI: simplify _acpi_map_lsapic()
+Message-Id: <1378094259-5922-4-git-send-email-hanjun.guo@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1378094259-5922-1-git-send-email-hanjun.guo@linaro.org>
 In-Reply-To: <1378094259-5922-1-git-send-email-hanjun.guo@linaro.org>
@@ -11,48 +11,163 @@ Content-Transfer-Encoding: 7bit
 To: "Rafael J. Wysocki" <rjw@sisk.pl>
 Cc: Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, Ingo Molnar <mingo@redhat.com>, Jiang Liu <jiang.liu@huawei.com>, linux-acpi@vger.kernel.org, x86@kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, patches@linaro.org, linaro-kernel@lists.linaro.org, linaro-acpi@lists.linaro.org, Hanjun Guo <hanjun.guo@linaro.org>
 
-acpi_processor_errata() is only called in acpi_processor_get_info(),
-and the argument 'pr' passed to acpi_processor_errata() will never be
-NULL, so the if (!pr) check is unnecessary and can be removed.
+From: Jiang Liu <jiang.liu@huawei.com>
 
-Since the 'pr' argument is not used by acpi_processor_errata() any more,
-so change the argument into void too.
+In acpi_register_lapic(), it will generates a new logical cpu
+number and maps to the local APIC id, this logical cpu number
+can be returned to simplify _acpi_map_lsapic() implementation.
 
+Signed-off-by: Jiang Liu <jiang.liu@huawei.com>
 Signed-off-by: Hanjun Guo <hanjun.guo@linaro.org>
 ---
- drivers/acpi/acpi_processor.c |    8 ++------
- 1 file changed, 2 insertions(+), 6 deletions(-)
+ arch/x86/include/asm/mpspec.h |    2 +-
+ arch/x86/kernel/acpi/boot.c   |   50 +++++++++++++----------------------------
+ arch/x86/kernel/apic/apic.c   |    8 ++++---
+ 3 files changed, 22 insertions(+), 38 deletions(-)
 
-diff --git a/drivers/acpi/acpi_processor.c b/drivers/acpi/acpi_processor.c
-index 5364d02..7ce0750 100644
---- a/drivers/acpi/acpi_processor.c
-+++ b/drivers/acpi/acpi_processor.c
-@@ -140,15 +140,11 @@ static int acpi_processor_errata_piix4(struct pci_dev *dev)
+diff --git a/arch/x86/include/asm/mpspec.h b/arch/x86/include/asm/mpspec.h
+index 626cf70..3142a94 100644
+--- a/arch/x86/include/asm/mpspec.h
++++ b/arch/x86/include/asm/mpspec.h
+@@ -94,7 +94,7 @@ static inline void early_reserve_e820_mpc_new(void) { }
+ #define default_get_smp_config x86_init_uint_noop
+ #endif
+ 
+-void generic_processor_info(int apicid, int version);
++int generic_processor_info(int apicid, int version);
+ #ifdef CONFIG_ACPI
+ extern void mp_register_ioapic(int id, u32 address, u32 gsi_base);
+ extern void mp_override_legacy_irq(u8 bus_irq, u8 polarity, u8 trigger,
+diff --git a/arch/x86/kernel/acpi/boot.c b/arch/x86/kernel/acpi/boot.c
+index 3e186d1..ab89c2b 100644
+--- a/arch/x86/kernel/acpi/boot.c
++++ b/arch/x86/kernel/acpi/boot.c
+@@ -195,24 +195,31 @@ static int __init acpi_parse_madt(struct acpi_table_header *table)
  	return 0;
  }
  
--static int acpi_processor_errata(struct acpi_processor *pr)
-+static int acpi_processor_errata(void)
+-static void acpi_register_lapic(int id, u8 enabled)
++/**
++ * acpi_register_lapic - register a local apic and generates a logic cpu number
++ * @id: local apic id to register
++ * @enabled: this cpu is enabled or not
++ *
++ * Returns the logic cpu number which maps to the local apic
++ */
++static int acpi_register_lapic(int id, u8 enabled)
  {
- 	int result = 0;
- 	struct pci_dev *dev = NULL;
+ 	unsigned int ver = 0;
  
+ 	if (id >= (MAX_LOCAL_APIC-1)) {
+ 		printk(KERN_INFO PREFIX "skipped apicid that is too big\n");
+-		return;
++		return -EINVAL;
+ 	}
+ 
+ 	if (!enabled) {
+ 		++disabled_cpus;
+-		return;
++		return -EINVAL;
+ 	}
+ 
+ 	if (boot_cpu_physical_apicid != -1U)
+ 		ver = apic_version[boot_cpu_physical_apicid];
+ 
+-	generic_processor_info(id, ver);
++	return generic_processor_info(id, ver);
+ }
+ 
+ static int __init
+@@ -622,44 +629,19 @@ static void acpi_map_cpu2node(acpi_handle handle, int cpu, int physid)
+ 
+ static int _acpi_map_lsapic(acpi_handle handle, int physid, int *pcpu)
+ {
+-	cpumask_var_t tmp_map, new_map;
+ 	int cpu;
+-	int retval = -ENOMEM;
 -
--	if (!pr)
--		return -EINVAL;
+-	if (!alloc_cpumask_var(&tmp_map, GFP_KERNEL))
+-		goto out;
+ 
+-	if (!alloc_cpumask_var(&new_map, GFP_KERNEL))
+-		goto free_tmp_map;
 -
- 	/*
- 	 * PIIX4
- 	 */
-@@ -220,7 +216,7 @@ static int acpi_processor_get_info(struct acpi_device *device)
- 	acpi_status status = AE_OK;
- 	static int cpu0_initialized;
+-	cpumask_copy(tmp_map, cpu_present_mask);
+-	acpi_register_lapic(physid, ACPI_MADT_ENABLED);
+-
+-	/*
+-	 * If acpi_register_lapic successfully generates a new logical cpu
+-	 * number, then the following will get us exactly what was mapped
+-	 */
+-	cpumask_andnot(new_map, cpu_present_mask, tmp_map);
+-	if (cpumask_empty(new_map)) {
+-		printk ("Unable to map lapic to logical cpu number\n");
+-		retval = -EINVAL;
+-		goto free_new_map;
++	cpu = acpi_register_lapic(physid, ACPI_MADT_ENABLED);
++	if (cpu < 0) {
++		pr_info(PREFIX "Unable to map lapic to logical cpu number\n");
++		return cpu;
+ 	}
  
--	acpi_processor_errata(pr);
-+	acpi_processor_errata();
+ 	acpi_processor_set_pdc(handle);
+-
+-	cpu = cpumask_first(new_map);
+ 	acpi_map_cpu2node(handle, cpu, physid);
  
- 	/*
- 	 * Check to see if we have bus mastering arbitration control.  This
+ 	*pcpu = cpu;
+-	retval = 0;
+-
+-free_new_map:
+-	free_cpumask_var(new_map);
+-free_tmp_map:
+-	free_cpumask_var(tmp_map);
+-out:
+-	return retval;
++	return 0;
+ }
+ 
+ /* wrapper to silence section mismatch warning */
+diff --git a/arch/x86/kernel/apic/apic.c b/arch/x86/kernel/apic/apic.c
+index eca89c5..c98fe31 100644
+--- a/arch/x86/kernel/apic/apic.c
++++ b/arch/x86/kernel/apic/apic.c
+@@ -2107,7 +2107,7 @@ void disconnect_bsp_APIC(int virt_wire_setup)
+ 	apic_write(APIC_LVT1, value);
+ }
+ 
+-void generic_processor_info(int apicid, int version)
++int generic_processor_info(int apicid, int version)
+ {
+ 	int cpu, max = nr_cpu_ids;
+ 	bool boot_cpu_detected = physid_isset(boot_cpu_physical_apicid,
+@@ -2127,7 +2127,7 @@ void generic_processor_info(int apicid, int version)
+ 			"  Processor %d/0x%x ignored.\n", max, thiscpu, apicid);
+ 
+ 		disabled_cpus++;
+-		return;
++		return -ENODEV;
+ 	}
+ 
+ 	if (num_processors >= nr_cpu_ids) {
+@@ -2138,7 +2138,7 @@ void generic_processor_info(int apicid, int version)
+ 			"  Processor %d/0x%x ignored.\n", max, thiscpu, apicid);
+ 
+ 		disabled_cpus++;
+-		return;
++		return -EINVAL;
+ 	}
+ 
+ 	num_processors++;
+@@ -2183,6 +2183,8 @@ void generic_processor_info(int apicid, int version)
+ #endif
+ 	set_cpu_possible(cpu, true);
+ 	set_cpu_present(cpu, true);
++
++	return cpu;
+ }
+ 
+ int hard_smp_processor_id(void)
 -- 
 1.7.9.5
 
