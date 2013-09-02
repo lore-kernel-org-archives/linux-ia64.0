@@ -1,55 +1,41 @@
-From: Yann Droneaud <ydroneaud@opteya.com>
-Date: Fri, 06 Sep 2013 10:39:51 +0000
-Subject: [PATCH v3 1/8] ia64: use get_unused_fd_flags(0) instead of get_unused_fd()
-Message-Id: <7dbd986a286a51b882f08192da8399c65dc5d1e4.1378460926.git.ydroneaud@opteya.com>
+From: Hanjun Guo <hanjun.guo@linaro.org>
+Date: Mon, 02 Sep 2013 03:57:39 +0000
+Subject: [PATCH v2 6/6] ACPI / processor: Remove outdated comments
+Message-Id: <1378094259-5922-7-git-send-email-hanjun.guo@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1378460926.git.ydroneaud@opteya.com>
-In-Reply-To: <cover.1378460926.git.ydroneaud@opteya.com>
+References: <1378094259-5922-1-git-send-email-hanjun.guo@linaro.org>
+In-Reply-To: <1378094259-5922-1-git-send-email-hanjun.guo@linaro.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Al Viro <viro@zeniv.linux.org.uk>
-Cc: linux-ia64@vger.kernel.org, Yann Droneaud <ydroneaud@opteya.com>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Cc: Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, Ingo Molnar <mingo@redhat.com>, Jiang Liu <jiang.liu@huawei.com>, linux-acpi@vger.kernel.org, x86@kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, patches@linaro.org, linaro-kernel@lists.linaro.org, linaro-acpi@lists.linaro.org, Hanjun Guo <hanjun.guo@linaro.org>
 
-Macro get_unused_fd() is used to allocate a file descriptor with
-default flags. Those default flags (0) can be "unsafe":
-O_CLOEXEC must be used by default to not leak file descriptor
-across exec().
+acpi_get_processor_id() can be find nowhere, and the acpi id
+is synchronized to APIC id when acpi_get_cpuid() is called, so
+the comments can be removed.
 
-Instead of macro get_unused_fd(), functions anon_inode_getfd()
-or get_unused_fd_flags() should be used with flags given by userspace.
-If not possible, flags should be set to O_CLOEXEC to provide userspace
-with a default safe behavor.
-
-In a further patch, get_unused_fd() will be removed so that
-new code start using anon_inode_getfd() or get_unused_fd_flags()
-with correct flags.
-
-This patch replaces calls to get_unused_fd() with equivalent call to
-get_unused_fd_flags(0) to preserve current behavor for existing code.
-
-The hard coded flag value (0) should be reviewed on a per-subsystem basis,
-and, if possible, set to O_CLOEXEC.
-
-Signed-off-by: Yann Droneaud <ydroneaud@opteya.com>
-Link: http://lkml.kernel.org/r/cover.1378460926.git.ydroneaud@opteya.com
+Signed-off-by: Hanjun Guo <hanjun.guo@linaro.org>
 ---
- arch/ia64/kernel/perfmon.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/acpi/acpi_processor.c |    5 -----
+ 1 file changed, 5 deletions(-)
 
-diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
-index 5a9ff1c..64757c1 100644
---- a/arch/ia64/kernel/perfmon.c
-+++ b/arch/ia64/kernel/perfmon.c
-@@ -2668,7 +2668,7 @@ pfm_context_create(pfm_context_t *ctx, void *arg, int count, struct pt_regs *reg
+diff --git a/drivers/acpi/acpi_processor.c b/drivers/acpi/acpi_processor.c
+index 7ce0750..da42892 100644
+--- a/drivers/acpi/acpi_processor.c
++++ b/drivers/acpi/acpi_processor.c
+@@ -240,11 +240,6 @@ static int acpi_processor_get_info(struct acpi_device *device)
+ 			return -ENODEV;
+ 		}
  
- 	ret = -ENOMEM;
- 
--	fd = get_unused_fd();
-+	fd = get_unused_fd_flags(0);
- 	if (fd < 0)
- 		return fd;
- 
+-		/*
+-		 * TBD: Synch processor ID (via LAPIC/LSAPIC structures) on SMP.
+-		 *      >>> 'acpi_get_processor_id(acpi_id, &id)' in
+-		 *      arch/xxx/acpi.c
+-		 */
+ 		pr->acpi_id = object.processor.proc_id;
+ 	} else {
+ 		/*
 -- 
-1.8.3.1
+1.7.9.5
 
