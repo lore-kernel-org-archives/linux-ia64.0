@@ -1,22 +1,90 @@
-From: <johntaylor@morriswatanabe.onmicrosoft.com>
-Date: Fri, 27 Sep 2013 22:06:37 +0000
-Subject: All in one place. Visit today!
-Message-Id: <05a3ca5d-611b-40f9-b58b-ea50b30e1d68@DB3PR01MB027.eurprd01.prod.exchangelabs.com>
+From: Hanjun Guo <hanjun.guo@linaro.org>
+Date: Mon, 02 Sep 2013 02:13:54 +0000
+Subject: Re: [PATCH 3/6] x86: simplify _acpi_map_lsapic()
+Message-Id: <5223F462.7090500@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <e24c364a-12df-4429-9455-abe30001a861@AMSPR04MB065.eurprd04.prod.outlook.com>
-In-Reply-To: <e24c364a-12df-4429-9455-abe30001a861@AMSPR04MB065.eurprd04.prod.outlook.com>
+References: <1377944162-18574-1-git-send-email-hanjun.guo@linaro.org> <1377944162-18574-3-git-send-email-hanjun.guo@linaro.org> <8575859.HxOyLiBtGF@vostro.rjw.lan>
+In-Reply-To: <8575859.HxOyLiBtGF@vostro.rjw.lan>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="macroman"
-Content-Transfer-Encoding: base64
-To: linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Cc: Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, Ingo Molnar <mingo@redhat.com>, linux-acpi@vger.kernel.org, x86@kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, patches@linaro.org, linaro-kernel@lists.linaro.org, linaro-acpi@lists.linaro.org, Jiang Liu <jiang.liu@huawei.com>
 
-CgkJRGVhciBDdXN0b21lciAKCkJyaW5nIGJhY2sgeW91ciBoYXBwaW5lc3MhIFNvbWV0aW1lcyB2
-ZXJ5IGxpdHRsZSBpcyBuZWVkZWQgdG8gbWFrZSBhIGhhcHB5IGxpZmUuCk5vIGRvY3RvciB2aXNp
-dHMKTG93ZXN0IHByaWNlIFdvcmxkIFdpZGUgCkRpc2NyZWV0IFBhY2thZ2luZwoKaHR0cDovL3Ry
-YW5zbGF0ZS5nb29nbGV1c2VyY29udGVudC5jb20vdHJhbnNsYXRlX2M/ZGVwdGg9MSZobD1hdXRv
-JnNs3iZ1cmw9d3d3Lmdvb2dsZS52dSZ1PWh0dHA6Ly9vbmxpbmVzaG9wNTUueW9sYXNpdGUuY29t
-L3Nob3AmdXNnPUFMa0pyaGhBczdYekdhc21FWFkyUFloaXUyVDI4dGpIemcKCkJlc3QgUmVnYXJk
-cywKCQkKLS0KVG8gdW5zdWJzY3JpYmUgZnJvbSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVu
-c3Vic2NyaWJlIGxpbnV4LWlhNjQiIGluCnRoZSBib2R5IG9mIGEgbWVzc2FnZSB0byBtYWpvcmRv
-bW9Admdlci5rZXJuZWwub3JnCk1vcmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92Z2VyLmtl
-cm5lbC5vcmcvbWFqb3Jkb21vLWluZm8uaHRtbA==
+On 2013-9-1 4:14, Rafael J. Wysocki wrote:
+> On Saturday, August 31, 2013 06:15:58 PM Hanjun Guo wrote:
+[...]
+>> +static int acpi_register_lapic(int id, u8 enabled)
+>>  {
+>>  	unsigned int ver = 0;
+>>  
+>>  	if (id >= (MAX_LOCAL_APIC-1)) {
+>>  		printk(KERN_INFO PREFIX "skipped apicid that is too big\n");
+>> -		return;
+>> +		return -1;
+>>  	}
+>>  
+>>  	if (!enabled) {
+>>  		++disabled_cpus;
+>> -		return;
+>> +		return -1;
+>>  	}
+> 
+> If this returned -EINVAL instead of just -1, ->
+> 
+>>  
+>>  	if (boot_cpu_physical_apicid != -1U)
+>>  		ver = apic_version[boot_cpu_physical_apicid];
+>>  
+>> -	generic_processor_info(id, ver);
+>> +	return generic_processor_info(id, ver);
+> 
+> -> and this too (on errors), -->
+> 
+>>  }
+>>  
+>>  static int __init
+>> @@ -622,44 +629,19 @@ static void acpi_map_cpu2node(acpi_handle handle, int cpu, int physid)
+>>  
+>>  static int _acpi_map_lsapic(acpi_handle handle, int physid, int *pcpu)
+>>  {
+>> -	cpumask_var_t tmp_map, new_map;
+>>  	int cpu;
+>> -	int retval = -ENOMEM;
+>> -
+>> -	if (!alloc_cpumask_var(&tmp_map, GFP_KERNEL))
+>> -		goto out;
+>>  
+>> -	if (!alloc_cpumask_var(&new_map, GFP_KERNEL))
+>> -		goto free_tmp_map;
+>> -
+>> -	cpumask_copy(tmp_map, cpu_present_mask);
+>> -	acpi_register_lapic(physid, ACPI_MADT_ENABLED);
+>> -
+>> -	/*
+>> -	 * If acpi_register_lapic successfully generates a new logical cpu
+>> -	 * number, then the following will get us exactly what was mapped
+>> -	 */
+>> -	cpumask_andnot(new_map, cpu_present_mask, tmp_map);
+>> -	if (cpumask_empty(new_map)) {
+>> +	cpu = acpi_register_lapic(physid, ACPI_MADT_ENABLED);
+>> +	if (cpu = -1) {
+>>  		printk ("Unable to map lapic to logical cpu number\n");
+>> -		retval = -EINVAL;
+>> -		goto free_new_map;
+>> +		return -EINVAL;
+>>  	}
+> 
+> --> then this could be
+> 
+> 	if (cpu < 0) {
+> 		...
+> 		return cpu;
+> 	}
+
+Thanks for the suggestion, and I find out some grammar mistake in the
+changelog too, I will update this patch set and send out soon.
+
+Thanks
+Hanjun
+
