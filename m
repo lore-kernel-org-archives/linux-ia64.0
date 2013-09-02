@@ -1,38 +1,58 @@
-From: Leif Lindholm <leif.lindholm@linaro.org>
-Date: Thu, 05 Sep 2013 10:34:53 +0000
-Subject: [PATCH v4 1/3] ia64: add early_memremap() alias for early_ioremap()
-Message-Id: <1378377295-32758-2-git-send-email-leif.lindholm@linaro.org>
+From: Hanjun Guo <hanjun.guo@linaro.org>
+Date: Mon, 02 Sep 2013 03:57:38 +0000
+Subject: [PATCH v2 5/6] ACPI / processor: remove unnecessary if (!pr) check
+Message-Id: <1378094259-5922-6-git-send-email-hanjun.guo@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1378377295-32758-1-git-send-email-leif.lindholm@linaro.org>
-In-Reply-To: <1378377295-32758-1-git-send-email-leif.lindholm@linaro.org>
+References: <1378094259-5922-1-git-send-email-hanjun.guo@linaro.org>
+In-Reply-To: <1378094259-5922-1-git-send-email-hanjun.guo@linaro.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-efi@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, matt.fleming@intel.com, tony.luck@gmail.com, grant.likely@secretlab.ca, Leif Lindholm <leif.lindholm@linaro.org>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Cc: Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, Ingo Molnar <mingo@redhat.com>, Jiang Liu <jiang.liu@huawei.com>, linux-acpi@vger.kernel.org, x86@kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, patches@linaro.org, linaro-kernel@lists.linaro.org, linaro-acpi@lists.linaro.org, Hanjun Guo <hanjun.guo@linaro.org>
 
-early_ioremap() on IA64 chooses its mapping type based on the EFI
-memory map. This patch adds an alias "early_memremap()" to be used
-where the targeted location is memory rather than an i/o device.
+acpi_processor_errata() is only called in acpi_processor_get_info(),
+and the argument 'pr' passed to acpi_processor_errata() will never be
+NULL, so the if (!pr) check is unnecessary and can be removed.
 
-Signed-off-by: Leif Lindholm <leif.lindholm@linaro.org>
-Acked-by: Tony Luck <tony.luck@intel.com>
+Since the 'pr' argument is not used by acpi_processor_errata() any more,
+so change the argument into void too.
+
+Signed-off-by: Hanjun Guo <hanjun.guo@linaro.org>
 ---
- arch/ia64/include/asm/io.h |    1 +
- 1 file changed, 1 insertion(+)
+ drivers/acpi/acpi_processor.c |    8 ++------
+ 1 file changed, 2 insertions(+), 6 deletions(-)
 
-diff --git a/arch/ia64/include/asm/io.h b/arch/ia64/include/asm/io.h
-index 74a7cc3..0d2bcb3 100644
---- a/arch/ia64/include/asm/io.h
-+++ b/arch/ia64/include/asm/io.h
-@@ -424,6 +424,7 @@ extern void __iomem * ioremap(unsigned long offset, unsigned long size);
- extern void __iomem * ioremap_nocache (unsigned long offset, unsigned long size);
- extern void iounmap (volatile void __iomem *addr);
- extern void __iomem * early_ioremap (unsigned long phys_addr, unsigned long size);
-+#define early_memremap(phys_addr, size)        early_ioremap(phys_addr, size)
- extern void early_iounmap (volatile void __iomem *addr, unsigned long size);
- static inline void __iomem * ioremap_cache (unsigned long phys_addr, unsigned long size)
+diff --git a/drivers/acpi/acpi_processor.c b/drivers/acpi/acpi_processor.c
+index 5364d02..7ce0750 100644
+--- a/drivers/acpi/acpi_processor.c
++++ b/drivers/acpi/acpi_processor.c
+@@ -140,15 +140,11 @@ static int acpi_processor_errata_piix4(struct pci_dev *dev)
+ 	return 0;
+ }
+ 
+-static int acpi_processor_errata(struct acpi_processor *pr)
++static int acpi_processor_errata(void)
  {
+ 	int result = 0;
+ 	struct pci_dev *dev = NULL;
+ 
+-
+-	if (!pr)
+-		return -EINVAL;
+-
+ 	/*
+ 	 * PIIX4
+ 	 */
+@@ -220,7 +216,7 @@ static int acpi_processor_get_info(struct acpi_device *device)
+ 	acpi_status status = AE_OK;
+ 	static int cpu0_initialized;
+ 
+-	acpi_processor_errata(pr);
++	acpi_processor_errata();
+ 
+ 	/*
+ 	 * Check to see if we have bus mastering arbitration control.  This
 -- 
-1.7.10.4
+1.7.9.5
 
