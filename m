@@ -1,35 +1,41 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Fri, 06 Sep 2013 19:00:30 +0000
-Subject: [GIT PULL] ia64 fixes for 3.12
-Message-Id: <522a264e1762d54a3@agluck-desk.sc.intel.com>
+From: Hanjun Guo <hanjun.guo@linaro.org>
+Date: Mon, 02 Sep 2013 03:57:37 +0000
+Subject: [PATCH v2 4/6] ACPI / processor: remove some dead code in acpi_processor_get_info()
+Message-Id: <1378094259-5922-5-git-send-email-hanjun.guo@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1378094259-5922-1-git-send-email-hanjun.guo@linaro.org>
+In-Reply-To: <1378094259-5922-1-git-send-email-hanjun.guo@linaro.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Cc: Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, Ingo Molnar <mingo@redhat.com>, Jiang Liu <jiang.liu@huawei.com>, linux-acpi@vger.kernel.org, x86@kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, patches@linaro.org, linaro-kernel@lists.linaro.org, linaro-acpi@lists.linaro.org, Hanjun Guo <hanjun.guo@linaro.org>
 
-The following changes since commit b36f4be3de1b123d8601de062e7dbfc904f305fb:
+From: Jiang Liu <jiang.liu@huawei.com>
 
-  Linux 3.11-rc6 (2013-08-18 14:36:53 -0700)
+errata.smp is used by nowhere, so the variable assignment is meanless,
+remove it.
 
-are available in the git repository at:
+Signed-off-by: Jiang Liu <jiang.liu@huawei.com>
+Signed-off-by: Hanjun Guo <hanjun.guo@linaro.org>
+---
+ drivers/acpi/acpi_processor.c |    3 ---
+ 1 file changed, 3 deletions(-)
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git tags/please-pull-misc-3.12
+diff --git a/drivers/acpi/acpi_processor.c b/drivers/acpi/acpi_processor.c
+index 66c9b70..5364d02 100644
+--- a/drivers/acpi/acpi_processor.c
++++ b/drivers/acpi/acpi_processor.c
+@@ -220,9 +220,6 @@ static int acpi_processor_get_info(struct acpi_device *device)
+ 	acpi_status status = AE_OK;
+ 	static int cpu0_initialized;
+ 
+-	if (num_online_cpus() > 1)
+-		errata.smp = TRUE;
+-
+ 	acpi_processor_errata(pr);
+ 
+ 	/*
+-- 
+1.7.9.5
 
-for you to fetch changes up to 44fd81fe7eb8029a37ec83f15d4ef3585dd81bb6:
-
-  [IA64] Use asm-generic/bitops/builtin-ffs.h (2013-08-26 14:22:58 -0700)
-
-----------------------------------------------------------------
-Couple of small cleanups for ia64
-
-----------------------------------------------------------------
-Akinobu Mita (1):
-      [IA64] Use asm-generic/bitops/builtin-ffs.h
-
-Joe Perches (1):
-      [IA64] dmi.h: Make dmi_alloc use kzalloc
-
- arch/ia64/include/asm/bitops.h | 8 +-------
- arch/ia64/include/asm/dmi.h    | 2 +-
- 2 files changed, 2 insertions(+), 8 deletions(-)
