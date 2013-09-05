@@ -1,21 +1,39 @@
-From: <ChrisClark@MichaelStrelnik.onmicrosoft.com>
-Date: Fri, 27 Sep 2013 23:34:49 +0000
-Subject: Twice the action, double the fun!
-Message-Id: <3368325b-6ea3-46d3-9a04-564ccf972f9c@DB4PR02MB030.eurprd02.prod.outlook.com>
+From: Leif Lindholm <leif.lindholm@linaro.org>
+Date: Thu, 05 Sep 2013 10:34:52 +0000
+Subject: [PATCH v4 0/3] Make commonly useful UEFI functions common
+Message-Id: <1378377295-32758-1-git-send-email-leif.lindholm@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <9c1ab2ad-17b7-42b9-8c71-ceb03969d9d0@DBXPR01MB045.eurprd01.prod.exchangelabs.com>
-In-Reply-To: <9c1ab2ad-17b7-42b9-8c71-ceb03969d9d0@DBXPR01MB045.eurprd01.prod.exchangelabs.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="macroman"
-Content-Transfer-Encoding: base64
-To: linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-efi@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, matt.fleming@intel.com, tony.luck@gmail.com, grant.likely@secretlab.ca, Leif Lindholm <leif.lindholm@linaro.org>
 
-CgkJRGVhciBDdXN0b21lciAKCkRvdWJsaW5nIHlvdXIgbW9uZXkgYmVmb3JlIHlvdSBoYXZlIGV2
-ZW4gc3RhcnRlZCBwbGF5aW5nIQoKaHR0cDovL3RyYW5zbGF0ZS5nb29nbGV1c2VyY29udGVudC5j
-b20vdHJhbnNsYXRlX2M/ZGVwdGg9MSZobD1hdXRvJnNs3iZ1cmw9d3d3Lmdvb2dsZS5maSZ1PWh0
-dHA6Ly9vbmxpbmVjYXNpbm8yNy55b2xhc2l0ZS5jb20vY2FzaW5vMiZ1c2c9QUxrSnJoaWdvMkR4
-ZUtucDhrNkNZN0otcS1yVk1VUHFCdwoKQmVzdCBSZWdhcmRzLCAKCQkKLS0KVG8gdW5zdWJzY3Jp
-YmUgZnJvbSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVuc3Vic2NyaWJlIGxpbnV4LWlhNjQi
-IGluCnRoZSBib2R5IG9mIGEgbWVzc2FnZSB0byBtYWpvcmRvbW9Admdlci5rZXJuZWwub3JnCk1v
-cmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21vLWlu
-Zm8uaHRtbA==
+This set breaks out some common code from x86/ia64 EFI support
+code and puts it into drivers/firmware/efi.
+
+First it takes the definition of the global "efi" data structure
+and moves it into global efi.c. Then it implements a common version
+of efi_config_init().
+
+Secondly it breaks the efi_lookup_mapped_addr() function out of x86
+and places it in global efi.c, for shared use with future ARM
+patches.
+
+IA64 code compile tested only.
+
+Leif Lindholm (3):
+  ia64: add early_memremap() alias for early_ioremap()
+  efi: x86: ia64: provide a generic efi_config_init()
+  efi: x86: make efi_lookup_mapped_addr() a common function
+
+ arch/ia64/include/asm/io.h  |    1 +
+ arch/ia64/kernel/efi.c      |   54 ++++-------------
+ arch/x86/platform/efi/efi.c |  126 ++++----------------------------------
+ drivers/firmware/efi/efi.c  |  140 +++++++++++++++++++++++++++++++++++++++++++
+ include/linux/efi.h         |    8 +++
+ 5 files changed, 170 insertions(+), 159 deletions(-)
+
+-- 
+1.7.10.4
+
