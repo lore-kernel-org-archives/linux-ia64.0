@@ -1,173 +1,63 @@
-From: Hanjun Guo <hanjun.guo@linaro.org>
-Date: Mon, 02 Sep 2013 03:57:36 +0000
-Subject: [PATCH v2 3/6] x86 / ACPI: simplify _acpi_map_lsapic()
-Message-Id: <1378094259-5922-4-git-send-email-hanjun.guo@linaro.org>
+From: Jiang Liu <liuj97@gmail.com>
+Date: Wed, 11 Sep 2013 16:07:12 +0000
+Subject: [RFC PATCH v2 08/25] smp, IA64: kill SMP single function call interrupt
+Message-Id: <1378915649-16395-9-git-send-email-liuj97@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1378094259-5922-1-git-send-email-hanjun.guo@linaro.org>
-In-Reply-To: <1378094259-5922-1-git-send-email-hanjun.guo@linaro.org>
+References: <1378915649-16395-1-git-send-email-liuj97@gmail.com>
+In-Reply-To: <1378915649-16395-1-git-send-email-liuj97@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Rafael J. Wysocki" <rjw@sisk.pl>
-Cc: Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, Ingo Molnar <mingo@redhat.com>, Jiang Liu <jiang.liu@huawei.com>, linux-acpi@vger.kernel.org, x86@kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, patches@linaro.org, linaro-kernel@lists.linaro.org, linaro-acpi@lists.linaro.org, Hanjun Guo <hanjun.guo@linaro.org>
+To: Andrew Morton <akpm@linux-foundation.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Shaohua Li <shli@kernel.org>
+Cc: liuj97@gmail.com, Jiang Liu <jiang.liu@huawei.com>, Ingo Molnar <mingo@elte.hu>, Peter Zijlstra <a.p.zijlstra@chello.nl>, Steven Rostedt <rostedt@goodmis.org>, Jiri Kosina <trivial@kernel.org>, Wang YanQing <udknight@gmail.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org
 
 From: Jiang Liu <jiang.liu@huawei.com>
 
-In acpi_register_lapic(), it will generates a new logical cpu
-number and maps to the local APIC id, this logical cpu number
-can be returned to simplify _acpi_map_lsapic() implementation.
+Commit 9a46ad6d6df3b54 "smp: make smp_call_function_many() use logic
+similar to smp_call_function_single()" has unified the way to handle
+single and multiple cross-CPU function calls. Now only one interrupt
+is needed for architecture specific code to support generic SMP function
+call interfaces, so kill the redundant single function call interrupt.
 
 Signed-off-by: Jiang Liu <jiang.liu@huawei.com>
-Signed-off-by: Hanjun Guo <hanjun.guo@linaro.org>
+Cc: Jiang Liu <liuj97@gmail.com>
 ---
- arch/x86/include/asm/mpspec.h |    2 +-
- arch/x86/kernel/acpi/boot.c   |   50 +++++++++++++----------------------------
- arch/x86/kernel/apic/apic.c   |    8 ++++---
- 3 files changed, 22 insertions(+), 38 deletions(-)
+ arch/ia64/kernel/smp.c | 8 ++------
+ 1 file changed, 2 insertions(+), 6 deletions(-)
 
-diff --git a/arch/x86/include/asm/mpspec.h b/arch/x86/include/asm/mpspec.h
-index 626cf70..3142a94 100644
---- a/arch/x86/include/asm/mpspec.h
-+++ b/arch/x86/include/asm/mpspec.h
-@@ -94,7 +94,7 @@ static inline void early_reserve_e820_mpc_new(void) { }
- #define default_get_smp_config x86_init_uint_noop
- #endif
+diff --git a/arch/ia64/kernel/smp.c b/arch/ia64/kernel/smp.c
+index 9fcd4e6..0532909 100644
+--- a/arch/ia64/kernel/smp.c
++++ b/arch/ia64/kernel/smp.c
+@@ -62,8 +62,7 @@ static DEFINE_PER_CPU_SHARED_ALIGNED(unsigned short [NR_CPUS],
  
--void generic_processor_info(int apicid, int version);
-+int generic_processor_info(int apicid, int version);
- #ifdef CONFIG_ACPI
- extern void mp_register_ioapic(int id, u32 address, u32 gsi_base);
- extern void mp_override_legacy_irq(u8 bus_irq, u8 polarity, u8 trigger,
-diff --git a/arch/x86/kernel/acpi/boot.c b/arch/x86/kernel/acpi/boot.c
-index 3e186d1..ab89c2b 100644
---- a/arch/x86/kernel/acpi/boot.c
-+++ b/arch/x86/kernel/acpi/boot.c
-@@ -195,24 +195,31 @@ static int __init acpi_parse_madt(struct acpi_table_header *table)
- 	return 0;
- }
+ #define IPI_CALL_FUNC		0
+ #define IPI_CPU_STOP		1
+-#define IPI_CALL_FUNC_SINGLE	2
+-#define IPI_KDUMP_CPU_STOP	3
++#define IPI_KDUMP_CPU_STOP	2
  
--static void acpi_register_lapic(int id, u8 enabled)
-+/**
-+ * acpi_register_lapic - register a local apic and generates a logic cpu number
-+ * @id: local apic id to register
-+ * @enabled: this cpu is enabled or not
-+ *
-+ * Returns the logic cpu number which maps to the local apic
-+ */
-+static int acpi_register_lapic(int id, u8 enabled)
+ /* This needs to be cacheline aligned because it is written to by *other* CPUs.  */
+ static DEFINE_PER_CPU_SHARED_ALIGNED(unsigned long, ipi_operation);
+@@ -116,9 +115,6 @@ handle_IPI (int irq, void *dev_id)
+ 			case IPI_CALL_FUNC:
+ 				generic_smp_call_function_interrupt();
+ 				break;
+-			case IPI_CALL_FUNC_SINGLE:
+-				generic_smp_call_function_single_interrupt();
+-				break;
+ #ifdef CONFIG_KEXEC
+ 			case IPI_KDUMP_CPU_STOP:
+ 				unw_init_running(kdump_cpu_freeze, NULL);
+@@ -318,7 +314,7 @@ smp_flush_tlb_mm (struct mm_struct *mm)
+ 
+ void arch_send_call_function_single_ipi(int cpu)
  {
- 	unsigned int ver = 0;
- 
- 	if (id >= (MAX_LOCAL_APIC-1)) {
- 		printk(KERN_INFO PREFIX "skipped apicid that is too big\n");
--		return;
-+		return -EINVAL;
- 	}
- 
- 	if (!enabled) {
- 		++disabled_cpus;
--		return;
-+		return -EINVAL;
- 	}
- 
- 	if (boot_cpu_physical_apicid != -1U)
- 		ver = apic_version[boot_cpu_physical_apicid];
- 
--	generic_processor_info(id, ver);
-+	return generic_processor_info(id, ver);
+-	send_IPI_single(cpu, IPI_CALL_FUNC_SINGLE);
++	send_IPI_single(cpu, IPI_CALL_FUNC);
  }
  
- static int __init
-@@ -622,44 +629,19 @@ static void acpi_map_cpu2node(acpi_handle handle, int cpu, int physid)
- 
- static int _acpi_map_lsapic(acpi_handle handle, int physid, int *pcpu)
- {
--	cpumask_var_t tmp_map, new_map;
- 	int cpu;
--	int retval = -ENOMEM;
--
--	if (!alloc_cpumask_var(&tmp_map, GFP_KERNEL))
--		goto out;
- 
--	if (!alloc_cpumask_var(&new_map, GFP_KERNEL))
--		goto free_tmp_map;
--
--	cpumask_copy(tmp_map, cpu_present_mask);
--	acpi_register_lapic(physid, ACPI_MADT_ENABLED);
--
--	/*
--	 * If acpi_register_lapic successfully generates a new logical cpu
--	 * number, then the following will get us exactly what was mapped
--	 */
--	cpumask_andnot(new_map, cpu_present_mask, tmp_map);
--	if (cpumask_empty(new_map)) {
--		printk ("Unable to map lapic to logical cpu number\n");
--		retval = -EINVAL;
--		goto free_new_map;
-+	cpu = acpi_register_lapic(physid, ACPI_MADT_ENABLED);
-+	if (cpu < 0) {
-+		pr_info(PREFIX "Unable to map lapic to logical cpu number\n");
-+		return cpu;
- 	}
- 
- 	acpi_processor_set_pdc(handle);
--
--	cpu = cpumask_first(new_map);
- 	acpi_map_cpu2node(handle, cpu, physid);
- 
- 	*pcpu = cpu;
--	retval = 0;
--
--free_new_map:
--	free_cpumask_var(new_map);
--free_tmp_map:
--	free_cpumask_var(tmp_map);
--out:
--	return retval;
-+	return 0;
- }
- 
- /* wrapper to silence section mismatch warning */
-diff --git a/arch/x86/kernel/apic/apic.c b/arch/x86/kernel/apic/apic.c
-index eca89c5..c98fe31 100644
---- a/arch/x86/kernel/apic/apic.c
-+++ b/arch/x86/kernel/apic/apic.c
-@@ -2107,7 +2107,7 @@ void disconnect_bsp_APIC(int virt_wire_setup)
- 	apic_write(APIC_LVT1, value);
- }
- 
--void generic_processor_info(int apicid, int version)
-+int generic_processor_info(int apicid, int version)
- {
- 	int cpu, max = nr_cpu_ids;
- 	bool boot_cpu_detected = physid_isset(boot_cpu_physical_apicid,
-@@ -2127,7 +2127,7 @@ void generic_processor_info(int apicid, int version)
- 			"  Processor %d/0x%x ignored.\n", max, thiscpu, apicid);
- 
- 		disabled_cpus++;
--		return;
-+		return -ENODEV;
- 	}
- 
- 	if (num_processors >= nr_cpu_ids) {
-@@ -2138,7 +2138,7 @@ void generic_processor_info(int apicid, int version)
- 			"  Processor %d/0x%x ignored.\n", max, thiscpu, apicid);
- 
- 		disabled_cpus++;
--		return;
-+		return -EINVAL;
- 	}
- 
- 	num_processors++;
-@@ -2183,6 +2183,8 @@ void generic_processor_info(int apicid, int version)
- #endif
- 	set_cpu_possible(cpu, true);
- 	set_cpu_present(cpu, true);
-+
-+	return cpu;
- }
- 
- int hard_smp_processor_id(void)
+ void arch_send_call_function_ipi_mask(const struct cpumask *mask)
 -- 
-1.7.9.5
+1.8.1.2
 
