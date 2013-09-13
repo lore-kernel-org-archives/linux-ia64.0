@@ -1,122 +1,167 @@
-From: Yann Droneaud <ydroneaud@opteya.com>
-Date: Fri, 06 Sep 2013 10:39:50 +0000
-Subject: [PATCH v3 0/8] Getting rid of get_unused_fd() / use O_CLOEXEC
-Message-Id: <cover.1378460926.git.ydroneaud@opteya.com>
+From: andrdom <fr.an.kbilli.o.ner.d.o.l.l.ars@gmail.com>
+Date: Fri, 13 Sep 2013 12:17:56 +0000
+Subject: Blackbox Unarc.dll
+Message-Id: <1379074676770-5710867.post@n5.nabble.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Al Viro <viro@zeniv.linux.org.uk>, linux-ia64@vger.kernel.org, Jeremy Kerr <jk@ozlabs.org>, Arnd Bergmann <arnd@arndb.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, linuxppc-dev@lists.ozlabs.org, cbe-oss-dev@lists.ozlabs.org, linux-fsdevel@vger.kernel.org, Eric Paris <eparis@redhat.com>, Peter Zijlstra <a.p.zijlstra@chello.nl>, Ingo Molnar <mingo@redhat.com>, Arnaldo Carvalho de Melo <acme@ghostprotocols.net>, Jonathan Cameron <jic23@cam.ac.uk>, linux-iio@vger.kernel.org
-Cc: Yann Droneaud <ydroneaud@opteya.com>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: linux-ia64@vger.kernel.org
 
-Hi,
 
-With help from subsystem maintainers, I've managed to get some of
-get_unused_fd() calls converted to use get_unused_fd_flags(O_CLOEXEC)
-instead. [ANDROID][IB][VFIO]
+Related Tags:
 
-KVM subsystem maintainers helped me to change calls to anon_inode_getfd()
-to use O_CLOEXEC by default. [KVM]
+ 800752f415  23musicreader-pdf-4-0-crack-rapidshare incl
+keygen-downloads-torrent
+Etrto standard download
+[Extra quality] sample closing remarks speech.zip
+audi a4 b6 b7 sam naprawiam samochod wkl pdf
+<http://bilforum.46928.x6.nabble.com/Audi-A4-B6-B7-Sam-Naprawiam-Samochod-W=
+kl-Pdf-tp9.html> =20
 
-Some maintainers applied my patches to convert get_unused_fd() to
-get_unused_fd_flags(0) were using O_CLOEXEC wasn't possible without breaking ABI.
-[SCTP][XFS]
+tomas taveira catarina furtado a foder.rar
+<http://vidya-balan-hot.7910.n7.nabble.com/Tomas-Taveira-Catarina-Furtado-A=
+-Foder-rar-tp11.html> =20
 
-So, still in the hope to get rid of get_unused_fd(), please find a another
-attempt to remove get_unused_fd() macro and encourage subsystems to use
-get_unused_fd_flags(O_CLOEXEC) or anon_inode_getfd(O_CLOEXEC) by default
-were appropriate.
+archicad 11 fr gratuit telechargement gratuit
+<http://logback.10977.n7.nabble.com/Archicad-11-Fr-Gratuit-Telechargement-G=
+ratuit-tp12863.html> =20
 
-The patchset convert all calls to get_unused_fd()
-to get_unused_fd_flags(0) before removing get_unused_fd() macro.
+Tarzan hindi cartoon serials 3gp download
+<http://imet-blog.2311292.n4.nabble.com/Tarzan-Hindi-Cartoon-Serials-3gp-Do=
+wnload-tp4635728.html> =20
 
-Without get_unused_fd() macro, more subsystems are likely to use
-anon_inode_getfd() and be teached to provide an API that let userspace
-choose the opening flags of the file descriptor.
+The Beach =EF=BF=BD-? 2000 =EF=BF=BD-? HDTV =EF=BF=BD-? 720p
+chrome download stuck on 0 secs left
+*Roula (1995)*
+CodeCharge Studio v5.0.0.16254.rar
+football playbook 010 register key downloads torrent
+detective comics 12 download
+Windows 8 advertisement song 2012 Mp3 download
+<http://bald-eagles-of-broward-county-florida.1638815.n2.nabble.com/Windows=
+-8-Advertisement-Song-2012-Mp3-Download-tp7573088.html> =20
 
-Additionally I'm suggesting Industrial IO (IIO) subsystem to use
-anon_inode_getfd(O_CLOEXEC): it's the only subsystem using anon_inode_getfd()
-with a fixed set of flags not including O_CLOEXEC.
+101 malayalam ayyappa saranam vilikal download | added by users
+<http://html-formfu.2387840.n2.nabble.com/101-Malayalam-Ayyappa-Saranam-Vil=
+ikal-Download-Added-By-Users-tp7572428.html> =20
 
-Not using O_CLOEXEC by default or not letting userspace provide the "open" flags
-should be considered bad practice from security point of view:
-in most case O_CLOEXEC must be used to not leak file descriptor across exec().
-Using O_CLOEXEC by default when flags are not provided by userspace allows it
-to choose, without race, if the file descriptor is going to be inherited
-across exec().
+jazz greats the essential masterpieces trilogy download utorrent
+[New release] sp flash tool for mt6516 only
+viber nokia n82 download
+Almanya La mia famiglia va in Germania XviD Ita Ac3 5 1
+<http://los-desadaptados.991038.n3.nabble.com/Almanya-La-Mia-Famiglia-Va-In=
+-Germania-XviD-Ita-Ac3-5-1-tp4023391.html> =20
 
-Status:
+down to you ebook torrent.zip
+<http://openstreetmap-australia.2291470.n4.nabble.com/Down-To-You-Ebook-Tor=
+rent-zip-tp4641984.html> =20
 
-In linux-next tag 20130906, they're currently:
+Les Valeurs De La Famille Addams.FRENCH.DVDRiP.XviD.avi
+libro de anatomia humana fernando quiroz tomo 2 | added by users
+<http://entrevista-yoani-sanchez.13699.n7.nabble.com/Libro-De-Anatomia-Huma=
+na-Fernando-Quiroz-Tomo-2-Added-By-Users-tp327.html> =20
 
-- 22 calls to get_unused_fd_flags()     (+3)
-     not counting get_unused_fd() and anon_inode_getfd()
--  7 calls to get_unused_fd()           (-3)
-- 11 calls to anon_inode_getfd()        (0)
+autocad 2010 64 bit activation code crack
+[FULL] sofia wars money hack
+Tamil actress sex stories download
+<http://bio-quimica.3928998.n2.nabble.com/Tamil-Actress-Sex-Stories-Downloa=
+d-tp7559238.html> =20
 
-Changes from patchset v2 [PATCHSETv2]:
+*naskah_drama_romeo_dan_juliet_dalam_bahasa_indonesia-adds*
+[TRUSTED DOWNLOAD] ciel auto entrepreneur.rar
+[G Area] 20110315 Perfect G Gallery Maasa.7z.rar
+the calculus 7 leithold pdf free download rar
+khmer school girl sex-adds
+<http://the-jewish-przemysl-forum.983740.n3.nabble.com/Khmer-School-Girl-Se=
+x-adds-tp4024176.html> =20
 
-- android/sw_sync: use get_unused_fd_flags(O_CLOEXEC) instead of get_unused_fd()
-  DROPPED: applied upstream
+free download aplikasi theme untuk hp china maxtron
+SkyGrabber 2 8 6 4 CracK-adds
+Wowza Media Server 3 0 3
+toyosha cs 100 pdf
+DR.. STUART McGILL Building the Ultimate Back: From rehabilitation ....pdf
+fm 2012 skidrow 12.2.2 patch winrar key 	1
+<http://helen-bolg.16434.n7.nabble.com/Fm-2012-Skidrow-12-2-2-Patch-Winrar-=
+Key-1-tp13.html> =20
 
-- android/sync: use get_unused_fd_flags(O_CLOEXEC) instead of get_unused_fd()
-  DROPPED: applied upstream
+Free_Download_Software_Editing_Video_Edius_6_Full_Versi...-adds
+<http://firebird-net-provider.3732322.n2.nabble.com/Free-Download-Software-=
+Editing-Video-Edius-6-Full-Versi-adds-tp7572572.html> =20
 
-- vfio: use get_unused_fd_flags(0) instead of get_unused_fd()
-  DROPPED: applied upstream.
-  Additionally subsystem maintainer applied another patch on top
-  to set the flags to O_CLOEXEC.
+Lisa Jane Smith I Diari delle Streghe La Fuga.pdf
+/jurnal riset perputaran kas dan perputaran piutang terhadap rentabilitas
+zip/
+JDownloader 0 9581 Multilanguage Portable
+Download Flower Girl movie
+<http://swift-club-brunei-forum.5576.x6.nabble.com/Download-Flower-Girl-Mov=
+ie-tp5000639.html> =20
 
-- industrialio: use anon_inode_getfd() with O_CLOEXEC flag
-  NEW: propose to use O_CLOEXEC as default flag.
+/serial do Sothink Movie DVD Maker 3.8 Build 27047.full.rar/
+lisa kleypas dreaming of you pdf
+<http://vivarium-seed-forum.1063745.n5.nabble.com/Lisa-Kleypas-Dreaming-Of-=
+You-Pdf-tp5705666.html> =20
 
-Links:
+Led Zeppelin Celebration Day 2012 DVDRiP XViD AC3 PSiG.avi.zip ZIP archive
+unpacked si
+<http://fier-forjat.50039.x6.nabble.com/Led-Zeppelin-Celebration-Day-2012-D=
+VDRiP-XViD-AC3-PSiG-avi-zip-ZIP-Archive-Unpacked-Si-tp2.html> =20
 
-[ANDROID]
-  http://lkml.kernel.org/r/CACSP8SjXGMk2_kX_+RgzqqQwqKernvF1Wt3K5tw991W5dfAnCA@mail.gmail.com
-  http://lkml.kernel.org/r/CACSP8SjZcpcpEtQHzcGYhf-MP7QGo0XpN7-uN7rmD=vNtopG=w@mail.gmail.com
+CES EduPack 2005 4.5 (Cambridge Engeneering Selector).rar
+<http://missouri.19762.n7.nabble.com/CES-EduPack-2005-4-5-Cambridge-Engenee=
+ring-Selector-rar-tp12.html> =20
 
-[IB]
-  http://lkml.kernel.org/r/CAL1RGDXV1_BjSLrQDFdVQ1_D75+bMtOtikHOUp8VBiy_OJUf=w@mail.gmail.com
+Oreilly.Mobile.Design.and.Development.Aug.2009.rar
+The.Little.Prince.DVDRip Xvid AC3 Legend Rg
+<http://radiology-cafe-forum.1051571.n5.nabble.com/The-Little-Prince-DVDRip=
+-Xvid-AC3-Legend-Rg-tp5705055.html> =20
 
-[VFIO]
-  http://lkml.kernel.org/r/20130822171744.1297.13711.stgit@bling.home
+[FULL] Boku no Pico OVA 1-adds
+<http://linux-kernel.2935.n7.nabble.com/FULL-Boku-No-Pico-OVA-1-adds-tp7195=
+14.html> =20
 
-[KVM]
-  http://lkml.kernel.org/r/5219A8FC.8090307@redhat.com
-  http://lkml.kernel.org/r/3557EF65-4327-4DAE-999A-B0EE13C433F5@suse.de
-  http://lkml.kernel.org/r/20130826102023.GA8218@redhat.com
+ps3 patch blocker free download
+Jitka.06.02.2011.rar
+flowers in the attic free ebook download for ipod.rar
+<http://vietnamese-social-escorts-in-ho-chi-minh-city.4532585.n2.nabble.com=
+/Flowers-In-The-Attic-Free-Ebook-Download-For-Ipod-rar-tp7559196.html> =20
 
-[SCTP]
-  http://lkml.kernel.org/r/51D312E8.6090702@gmail.com
-  http://lkml.kernel.org/r/20130702.161428.1703028286206350504.davem@davemloft.net
+[Top rated] torrent ita hotel transilvania dvdrip divx
+/The End of Reason by Ravi Zacharias a review.pdf/
+Mad cars crack Full Version.rar
+The Hidden Messages in Water Masaru Emoto..pdf
+mapdata taeu1 v12
+booklet creator 1 3 license key mediafire incl crack downloads torrent.
+Blackbox Unarc.dll
 
-[XFS]
-  http://lkml.kernel.org/r/20130709205321.GV20932@sgi.com
 
-[PATCHSETv2]
-  http://lkml.kernel.org/r/cover.1376327678.git.ydroneaud@opteya.com
+<img
+src=3D"http://awarefinance.com/defogger/evict/ZG93bmxvYWR8MTM3OTAyNjgzMg.Qm=
+xhY2tib3ggdW5hcmMuZGxsbGtqaAQmx?upperparts=3Dgrizzled.idenity&refractor=3D&=
+jaydanm=3D.jpg"/>
+<http://awarefinance.com/defogger/evict/ZG93bmxvYWR8MTM3OTAyNjgzMg.QmxhY2ti=
+b3ggdW5hcmMuZGxsbGtqaAQmx?choreographic=3Dgrizzled.idenity&refractor=3D&jay=
+danm=3D> =20
 
-Yann Droneaud (8):
-  ia64: use get_unused_fd_flags(0) instead of get_unused_fd()
-  ppc/cell: use get_unused_fd_flags(0) instead of get_unused_fd()
-  binfmt_misc: use get_unused_fd_flags(0) instead of get_unused_fd()
-  file: use get_unused_fd_flags(0) instead of get_unused_fd()
-  fanotify: use get_unused_fd_flags(0) instead of get_unused_fd()
-  events: use get_unused_fd_flags(0) instead of get_unused_fd()
-  file: remove get_unused_fd()
-  industrialio: use anon_inode_getfd() with O_CLOEXEC flag
+<img
+src=3D"http://awarefinance.com/bavarian/ZG93bmxvYWR8MTM3OTAyNjgzMg/QmxhY2ti=
+b3ggdW5hcmMuZGxsbGtqaAQmx/decisional/formal/samskaras/innkeeper/williamsbur=
+gh/sugar/.jpg"/>
+<http://awarefinance.com/bavarian/ZG93bmxvYWR8MTM3OTAyNjgzMg/QmxhY2tib3ggdW=
+5hcmMuZGxsbGtqaAQmx/decisional/formal/samskaras/innkeeper/fabulouscookies/s=
+ugar/> =20
 
- arch/ia64/kernel/perfmon.c                | 2 +-
- arch/powerpc/platforms/cell/spufs/inode.c | 4 ++--
- drivers/iio/industrialio-event.c          | 2 +-
- fs/binfmt_misc.c                          | 2 +-
- fs/file.c                                 | 2 +-
- fs/notify/fanotify/fanotify_user.c        | 2 +-
- include/linux/file.h                      | 1 -
- kernel/events/core.c                      | 2 +-
- 8 files changed, 8 insertions(+), 9 deletions(-)
+<img
+src=3D"http://awarefinance.com/paleo.QmxhY2tib3ggdW5hcmMuZGxsbGtqaAQmx?ZG93=
+bmxvYWR8MTM3OTAyNjgzMg=CArers&enjoyments=3Dexcitant.extremadura&curumsey=3D=
+neuroectodermal.jpg"/>
+<http://awarefinance.com/quicktest.QmxhY2tib3ggdW5hcmMuZGxsbGtqaAQmx?ZG93bm=
+xvYWR8MTM3OTAyNjgzMg=CArers&enjoyments=3Dexcitant.extremadura&curumsey=3Dne=
+uroectodermal> =20
 
--- 
-1.8.3.1
 
+
+
+--
+View this message in context: http://linux-ia64.1045702.n5.nabble.com/Black=
+box-Unarc-dll-tp5710867.html
+Sent from the linux-ia64 mailing list archive at Nabble.com.
