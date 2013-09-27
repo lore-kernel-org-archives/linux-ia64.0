@@ -1,22 +1,22 @@
-From: <ROBERTMELDRUM@dantonweimer.onmicrosoft.com>
-Date: Tue, 17 Sep 2013 21:37:00 +0000
+From: <johntaylor@morriswatanabe.onmicrosoft.com>
+Date: Fri, 27 Sep 2013 22:06:37 +0000
 Subject: All in one place. Visit today!
-Message-Id: <e24c364a-12df-4429-9455-abe30001a861@AMSPR04MB065.eurprd04.prod.outlook.com>
+Message-Id: <05a3ca5d-611b-40f9-b58b-ea50b30e1d68@DB3PR01MB027.eurprd01.prod.exchangelabs.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <e24c364a-12df-4429-9455-abe30001a861@AMSPR04MB065.eurprd04.prod.outlook.com>
+In-Reply-To: <e24c364a-12df-4429-9455-abe30001a861@AMSPR04MB065.eurprd04.prod.outlook.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="macroman"
+Content-Transfer-Encoding: base64
 To: linux-ia64@vger.kernel.org
 
-
-		Dear Customer 
-
-Bring back your happiness! Sometimes very little is needed to make a happy life.
-No doctor visits
-Lowest price World Wide 
-Discreet Packaging
-
-http://onlineshop14.webnode.com/shop
-
-Best Regards,
-		
+CgkJRGVhciBDdXN0b21lciAKCkJyaW5nIGJhY2sgeW91ciBoYXBwaW5lc3MhIFNvbWV0aW1lcyB2
+ZXJ5IGxpdHRsZSBpcyBuZWVkZWQgdG8gbWFrZSBhIGhhcHB5IGxpZmUuCk5vIGRvY3RvciB2aXNp
+dHMKTG93ZXN0IHByaWNlIFdvcmxkIFdpZGUgCkRpc2NyZWV0IFBhY2thZ2luZwoKaHR0cDovL3Ry
+YW5zbGF0ZS5nb29nbGV1c2VyY29udGVudC5jb20vdHJhbnNsYXRlX2M/ZGVwdGg9MSZobD1hdXRv
+JnNs3iZ1cmw9d3d3Lmdvb2dsZS52dSZ1PWh0dHA6Ly9vbmxpbmVzaG9wNTUueW9sYXNpdGUuY29t
+L3Nob3AmdXNnPUFMa0pyaGhBczdYekdhc21FWFkyUFloaXUyVDI4dGpIemcKCkJlc3QgUmVnYXJk
+cywKCQkKLS0KVG8gdW5zdWJzY3JpYmUgZnJvbSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxpbmUgInVu
+c3Vic2NyaWJlIGxpbnV4LWlhNjQiIGluCnRoZSBib2R5IG9mIGEgbWVzc2FnZSB0byBtYWpvcmRv
+bW9Admdlci5rZXJuZWwub3JnCk1vcmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92Z2VyLmtl
+cm5lbC5vcmcvbWFqb3Jkb21vLWluZm8uaHRtbA==
