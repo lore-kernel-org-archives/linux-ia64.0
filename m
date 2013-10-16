@@ -1,25 +1,23 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Date: Tue, 15 Oct 2013 23:23:13 +0000
+From: Bjorn Helgaas <bhelgaas@google.com>
+Date: Wed, 16 Oct 2013 23:55:41 +0000
 Subject: Re: [Resend PATCH 5/5] IA64/PCI/ACPI: Rework PCI root bridge ACPI resource conversion
-Message-Id: <1822653.HJEJ98oBhV@vostro.rjw.lan>
+Message-Id: <20131016235541.GD17866@google.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1381493941-4650-1-git-send-email-tianyu.lan@intel.com> <1381493941-4650-6-git-send-email-tianyu.lan@intel.com>
+References: <1381493941-4650-1-git-send-email-tianyu.lan@intel.com>
+ <1381493941-4650-6-git-send-email-tianyu.lan@intel.com>
 In-Reply-To: <1381493941-4650-6-git-send-email-tianyu.lan@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: tianyu.lan@intel.com, tony.luck@intel.com
-Cc: bhelgaas@google.com, lenb@kernel.org, yinghai@kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org
+To: tianyu.lan@intel.com
+Cc: tony.luck@intel.com, lenb@kernel.org, rjw@sisk.pl, yinghai@kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org
 
-On Friday, October 11, 2013 08:19:01 PM tianyu.lan@intel.com wrote:
+On Fri, Oct 11, 2013 at 08:19:01PM +0800, tianyu.lan@intel.com wrote:
 > From: Lan Tianyu <tianyu.lan@intel.com>
 > 
 > Using ACPI resource functions to convert ACPI resource to generic resource
 > 
 > Signed-off-by: Lan Tianyu <tianyu.lan@intel.com>
-
-Tony, any objections against this?
-
 > ---
 > This patch just passes through compilation test due to no ia64 machine on hand.
 > 
@@ -106,9 +104,33 @@ Tony, any objections against this?
 > +		 * io space address translation offset depends
 > +		 * on the return value of add_io_space(). So
 > +		 * Repopulate resource->start and end here.
+
+"Repopulate" makes it sound like "resource->start" got clobbered
+somewhere.  But it didn't.  I think it's just that each bridge can
+support its own I/O port range, and the PCI port numbers reported
+in the acpi_resource may not be distinct, and add_io_space() adds
+an offset so all the I/O port ranges fit into one global I/O port
+space.
+
+For example, I think these two bridges have the same port numbers
+(0x0-0xfff) in their acpi_resource, but the second has an offset
+of 0x1000000 in the system I/O port space, and I think this offset
+is what add_io_space() returns:
+
+  HWP0002:00: host bridge window [io  0x0000-0x0fff]	   (PCI [0x0-0xfff])
+  HWP0002:09: host bridge window [io  0x1000000-0x1000fff] (PCI [0x0-0xfff])
+
 > +		 */
 > +		resource->start = addr.minimum + offset;
 > +		resource->end = resource->start + addr.address_length - 1;
+
+Can't we use this:
+
+		resource->start += offset;
+		resource->end += offset;
+
+to avoid breaking the encapsulation of struct acpi_resource_address64?
+
 >  	} else
 >  		return AE_OK;
 >  
@@ -120,7 +142,6 @@ Tony, any objections against this?
 >  	info->res_offset[info->res_num] = offset;
 >  
 >  	if (insert_resource(root, resource)) {
+> -- 
+> 1.8.2.1
 > 
--- 
-I speak only for myself.
-Rafael J. Wysocki, Intel Open Source Technology Center.
