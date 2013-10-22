@@ -1,115 +1,77 @@
-From: Yann Droneaud <ydroneaud@opteya.com>
-Date: Wed, 30 Oct 2013 19:47:40 +0000
-Subject: [PATCH v4 0/7] Getting rid of get_unused_fd()
-Message-Id: <cover.1383121137.git.ydroneaud@opteya.com>
+From: Joe Perches <joe@perches.com>
+Date: Tue, 22 Oct 2013 22:29:45 +0000
+Subject: [PATCH 02/24] ia64: Convert use of typedef ctl_table to struct ctl_table
+Message-Id: <afc5f51789e13121442988f18bed7539eeb912d7.1382480758.git.joe@perches.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <cover.1382480758.git.joe@perches.com>
+In-Reply-To: <cover.1382480758.git.joe@perches.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Al Viro <viro@zeniv.linux.org.uk>, linux-ia64@vger.kernel.org, Jeremy Kerr <jk@ozlabs.org>, Arnd Bergmann <arnd@arndb.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, linuxppc-dev@lists.ozlabs.org, cbe-oss-dev@lists.ozlabs.org, linux-fsdevel@vger.kernel.org, Eric Paris <eparis@redhat.com>, Peter Zijlstra <a.p.zijlstra@chello.nl>, Ingo Molnar <mingo@redhat.com>, Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-Cc: Yann Droneaud <ydroneaud@opteya.com>, linux-kernel@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-Hi,
+This typedef is unnecessary and should just be removed.
 
-Please find the fourth revision of my patchset to remove get_unused_fd()
-macro in order to encourage subsystems to use get_unused_fd_flags() or
-anon_inode_getfd() with open flags set to O_CLOEXEC were appropriate.
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ arch/ia64/kernel/crash.c   | 4 ++--
+ arch/ia64/kernel/perfmon.c | 6 +++---
+ 2 files changed, 5 insertions(+), 5 deletions(-)
 
-The patchset convert all calls to get_unused_fd() to
-get_unused_fd_flags(0) before removing get_unused_fd() macro.
-
-Without get_unused_fd() macro, more subsystems are likely to use
-anon_inode_getfd() and be teached to provide an API that let userspace
-choose the opening flags of the file descriptor.
-
-Not using O_CLOEXEC by default or not letting userspace provide the
-"open" flags should be considered bad practice from security point
-of view: in most case O_CLOEXEC must be used to not leak file descriptor
-across exec().
-
-Using O_CLOEXEC by default when flags are not provided by userspace
-allows userspace to set, using fcntl(), without any risk of race, 
-if the file descriptor is going to be inherited or not across exec().
-
-Status:
-
-In linux-next tag 20131029, they're currently:
-
-- 32 calls to fd_install()
-- 23 calls to get_unused_fd_flags()
-- 11 calls to anon_inode_getfd()
--  7 calls to get_unused_fd()
-
-Changes from patchset v3 [PATCHSETv3]:
-
-- industrialio: use anon_inode_getfd() with O_CLOEXEC flag
-  DROPPED: applied upstream
-
-Changes from patchset v2 [PATCHSETv2]:
-
-- android/sw_sync: use get_unused_fd_flags(O_CLOEXEC) instead of get_unused_fd()
-  DROPPED: applied upstream
-
-- android/sync: use get_unused_fd_flags(O_CLOEXEC) instead of get_unused_fd()
-  DROPPED: applied upstream
-
-- vfio: use get_unused_fd_flags(0) instead of get_unused_fd()
-  DROPPED: applied upstream.
-  Additionally subsystem maintainer applied another patch on top
-  to set the flags to O_CLOEXEC.
-
-- industrialio: use anon_inode_getfd() with O_CLOEXEC flag
-  NEW: propose to use O_CLOEXEC as default flag.
-
-Changes from patchset v1 [PATCHSETv1]:
-
-- explicitly added subsystem maintainers as mail recepients.
-
-- infiniband: use get_unused_fd_flags(0) instead of get_unused_fd()
-  DROPPED: subsystem maintainer applied another patch
-           using get_unused_fd_flags(O_CLOEXEC) as suggested.
-
-- android/sw_sync: use get_unused_fd_flags(0) instead of get_unused_fd()
-  MODIFIED: use get_unused_fd_flags(O_CLOEXEC) as suggested
-
-- android/sync: use get_unused_fd_flags(0) instead of get_unused_fd()
-  MODIFIED: use get_unused_fd_flags(O_CLOEXEC) as suggested
-
-- xfs: use get_unused_fd_flags(0) instead of get_unused_fd()
-  DROPPED: applied asis by subsystem maintainer.
-
-- sctp: use get_unused_fd_flags(0) instead of get_unused_fd()
-  DROPPED: applied asis by subsystem maintainer.
-
-Links:
-
-[PATCHSETv3]
-  http://lkml.kernel.org/r/cover.1378460926.git.ydroneaud@opteya.com
-
-[PATCHSETv2]
-  http://lkml.kernel.org/r/cover.1376327678.git.ydroneaud@opteya.com
-
-[PATCHSETv1]
-  http://lkml.kernel.org/r/cover.1372777600.git.ydroneaud@opteya.com
-
-Yann Droneaud (7):
-  ia64: use get_unused_fd_flags(0) instead of get_unused_fd()
-  ppc/cell: use get_unused_fd_flags(0) instead of get_unused_fd()
-  binfmt_misc: use get_unused_fd_flags(0) instead of get_unused_fd()
-  file: use get_unused_fd_flags(0) instead of get_unused_fd()
-  fanotify: use get_unused_fd_flags(0) instead of get_unused_fd()
-  events: use get_unused_fd_flags(0) instead of get_unused_fd()
-  file: remove get_unused_fd()
-
- arch/ia64/kernel/perfmon.c                | 2 +-
- arch/powerpc/platforms/cell/spufs/inode.c | 4 ++--
- fs/binfmt_misc.c                          | 2 +-
- fs/file.c                                 | 2 +-
- fs/notify/fanotify/fanotify_user.c        | 2 +-
- include/linux/file.h                      | 1 -
- kernel/events/core.c                      | 2 +-
- 7 files changed, 7 insertions(+), 8 deletions(-)
-
+diff --git a/arch/ia64/kernel/crash.c b/arch/ia64/kernel/crash.c
+index b942f40..2955f35 100644
+--- a/arch/ia64/kernel/crash.c
++++ b/arch/ia64/kernel/crash.c
+@@ -237,7 +237,7 @@ kdump_init_notifier(struct notifier_block *self, unsigned long val, void *data)
+ }
+ 
+ #ifdef CONFIG_SYSCTL
+-static ctl_table kdump_ctl_table[] = {
++static struct ctl_table kdump_ctl_table[] = {
+ 	{
+ 		.procname = "kdump_on_init",
+ 		.data = &kdump_on_init,
+@@ -255,7 +255,7 @@ static ctl_table kdump_ctl_table[] = {
+ 	{ }
+ };
+ 
+-static ctl_table sys_table[] = {
++static struct ctl_table sys_table[] = {
+ 	{
+ 	  .procname = "kernel",
+ 	  .mode = 0555,
+diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
+index 5a9ff1c..81c962b 100644
+--- a/arch/ia64/kernel/perfmon.c
++++ b/arch/ia64/kernel/perfmon.c
+@@ -521,7 +521,7 @@ static pmu_config_t		*pmu_conf;
+ pfm_sysctl_t pfm_sysctl;
+ EXPORT_SYMBOL(pfm_sysctl);
+ 
+-static ctl_table pfm_ctl_table[]={
++static struct ctl_table pfm_ctl_table[] = {
+ 	{
+ 		.procname	= "debug",
+ 		.data		= &pfm_sysctl.debug,
+@@ -552,7 +552,7 @@ static ctl_table pfm_ctl_table[]={
+ 	},
+ 	{}
+ };
+-static ctl_table pfm_sysctl_dir[] = {
++static struct ctl_table pfm_sysctl_dir[] = {
+ 	{
+ 		.procname	= "perfmon",
+ 		.mode		= 0555,
+@@ -560,7 +560,7 @@ static ctl_table pfm_sysctl_dir[] = {
+ 	},
+  	{}
+ };
+-static ctl_table pfm_sysctl_root[] = {
++static struct ctl_table pfm_sysctl_root[] = {
+ 	{
+ 		.procname	= "kernel",
+ 		.mode		= 0555,
 -- 
-1.8.3.1
+1.8.1.2.459.gbcd45b4.dirty
 
