@@ -1,41 +1,55 @@
-From: Jan Kara <jack@suse.cz>
-Date: Wed, 02 Oct 2013 14:27:43 +0000
-Subject: [PATCH 02/26] ia64: Use get_user_pages_fast() in err_inject.c
-Message-Id: <1380724087-13927-3-git-send-email-jack@suse.cz>
+From: Yann Droneaud <ydroneaud@opteya.com>
+Date: Wed, 30 Oct 2013 19:47:41 +0000
+Subject: [PATCH v4 1/7] ia64: use get_unused_fd_flags(0) instead of get_unused_fd()
+Message-Id: <4d85c4d8c6b1ef6d8dcef6c3550a21b22a45d9a9.1383121137.git.ydroneaud@opteya.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1380724087-13927-1-git-send-email-jack@suse.cz>
-In-Reply-To: <1380724087-13927-1-git-send-email-jack@suse.cz>
+References: <cover.1383121137.git.ydroneaud@opteya.com>
+In-Reply-To: <cover.1383121137.git.ydroneaud@opteya.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: LKML <linux-kernel@vger.kernel.org>
-Cc: linux-mm@kvack.org, Jan Kara <jack@suse.cz>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Al Viro <viro@zeniv.linux.org.uk>
+Cc: Yann Droneaud <ydroneaud@opteya.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Convert get_user_pages() call to get_user_pages_fast(). This actually
-fixes an apparent bug where get_user_pages() has been called without
-mmap_sem for an arbitrary user-provided address.
+Macro get_unused_fd() is used to allocate a file descriptor with
+default flags. Those default flags (0) can be "unsafe":
+O_CLOEXEC must be used by default to not leak file descriptor
+across exec().
 
-CC: Tony Luck <tony.luck@intel.com>
-CC: linux-ia64@vger.kernel.org
-Signed-off-by: Jan Kara <jack@suse.cz>
+Instead of macro get_unused_fd(), functions anon_inode_getfd()
+or get_unused_fd_flags() should be used with flags given by userspace.
+If not possible, flags should be set to O_CLOEXEC to provide userspace
+with a default safe behavor.
+
+In a further patch, get_unused_fd() will be removed so that
+new code start using anon_inode_getfd() or get_unused_fd_flags()
+with correct flags.
+
+This patch replaces calls to get_unused_fd() with equivalent call to
+get_unused_fd_flags(0) to preserve current behavor for existing code.
+
+The hard coded flag value (0) should be reviewed on a per-subsystem basis,
+and, if possible, set to O_CLOEXEC.
+
+Signed-off-by: Yann Droneaud <ydroneaud@opteya.com>
+Link: http://lkml.kernel.org/r/cover.1383121137.git.ydroneaud@opteya.com
 ---
- arch/ia64/kernel/err_inject.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ arch/ia64/kernel/perfmon.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/ia64/kernel/err_inject.c b/arch/ia64/kernel/err_inject.c
-index f59c0b844e88..75d35906a86b 100644
---- a/arch/ia64/kernel/err_inject.c
-+++ b/arch/ia64/kernel/err_inject.c
-@@ -142,8 +142,7 @@ store_virtual_to_phys(struct device *dev, struct device_attribute *attr,
- 	u64 virt_addr=simple_strtoull(buf, NULL, 16);
- 	int ret;
+diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
+index 5a9ff1c..64757c1 100644
+--- a/arch/ia64/kernel/perfmon.c
++++ b/arch/ia64/kernel/perfmon.c
+@@ -2668,7 +2668,7 @@ pfm_context_create(pfm_context_t *ctx, void *arg, int count, struct pt_regs *reg
  
--        ret = get_user_pages(current, current->mm, virt_addr,
--                        1, VM_READ, 0, NULL, NULL);
-+	ret = get_user_pages_fast(virt_addr, 1, VM_READ, NULL);
- 	if (ret<=0) {
- #ifdef ERR_INJ_DEBUG
- 		printk("Virtual address %lx is not existing.\n",virt_addr);
+ 	ret = -ENOMEM;
+ 
+-	fd = get_unused_fd();
++	fd = get_unused_fd_flags(0);
+ 	if (fd < 0)
+ 		return fd;
+ 
 -- 
-1.8.1.4
+1.8.3.1
 
