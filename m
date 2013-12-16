@@ -1,33 +1,26 @@
-From: Dmitry Torokhov <dmitry.torokhov@gmail.com>
-Date: Mon, 16 Dec 2013 04:59:00 +0000
+From: Ralf Baechle <ralf@linux-mips.org>
+Date: Mon, 16 Dec 2013 16:23:47 +0000
 Subject: Re: [PATCH 10/10] Kconfig: cleanup SERIO_I8042 dependencies
-Message-Id: <20131216045859.GA4322@core.coreip.homeip.net>
+Message-Id: <20131216162346.GA19285@linux-mips.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <52ACA43F.2040402@zytor.com>
- <20131215103657.GB20197@core.coreip.homeip.net>
- <1387122626.1979.136.camel@deneb.redhat.com>
- <20131215.202725.1549146673897801643.davem@davemloft.net>
-In-Reply-To: <20131215.202725.1549146673897801643.davem@davemloft.net>
+References: <1387040376-26906-1-git-send-email-msalter@redhat.com>
+ <1387040376-26906-11-git-send-email-msalter@redhat.com>
+In-Reply-To: <1387040376-26906-11-git-send-email-msalter@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-arm-kernel@lists.infradead.org
 
-On Sun, Dec 15, 2013 at 08:27:25PM -0500, David Miller wrote:
-> From: Mark Salter <msalter@redhat.com>
-> Date: Sun, 15 Dec 2013 10:50:26 -0500
-> 
-> > On Sun, 2013-12-15 at 02:36 -0800, Dmitry Torokhov wrote:
-> >> How are we going to merge this? In bulk through input tree or peacemeal
-> >> through all arches first?
-> >
-> > They should all go together to eliminate the chance of bisect breakage.
-> > Either the input tree or maybe akpm tree.
-> 
-> This sounds good to me.
+On Sat, Dec 14, 2013 at 11:59:36AM -0500, Mark Salter wrote:
 
-OK, then I'll pick it up once I collect more acks from the arch
-maintainers.
+> -	depends on !PARISC && (!ARM || FOOTBRIDGE_HOST) && \
+> -		   (!SUPERH || SH_CAYMAN) && !M68K && !BLACKFIN && !S390 && \
+> -		   !ARC
+> +	depends on ARCH_MIGHT_HAVE_PC_SERIO
 
--- 
-Dmitry
+Most dependencies on an architecture's kconfig symbol outside arch/
+should probably be treated as a bug.
+
+Acked-by: Ralf Baechle <ralf@linux-mips.org>
+
+  Ralf
