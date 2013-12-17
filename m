@@ -1,69 +1,75 @@
-From: Jiang Liu <liuj97@gmail.com>
-Date: Sun, 15 Dec 2013 16:36:29 +0000
-Subject: [PATCH v3 [resend] 07/18] smp, IA64: kill SMP single function call interrupt
-Message-Id: <1387125400-28849-8-git-send-email-liuj97@gmail.com>
+From: Mark Salter <msalter@redhat.com>
+Date: Tue, 17 Dec 2013 15:48:53 +0000
+Subject: [PATCH v2 10/10] Kconfig: cleanup SERIO_I8042 dependencies
+Message-Id: <1387295333-24684-11-git-send-email-msalter@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1387125400-28849-1-git-send-email-liuj97@gmail.com>
-In-Reply-To: <1387125400-28849-1-git-send-email-liuj97@gmail.com>
+References: <1387295333-24684-1-git-send-email-msalter@redhat.com>
+In-Reply-To: <1387295333-24684-1-git-send-email-msalter@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>, Shaohua Li <shli@kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
-Cc: Jiang Liu <liuj97@gmail.com>, Ingo Molnar <mingo@elte.hu>, Peter Zijlstra <a.p.zijlstra@chello.nl>, Steven Rostedt <rostedt@goodmis.org>, Jiri Kosina <trivial@kernel.org>, Wang YanQing <udknight@gmail.com>, linux-arch@vger.kernel.org
+To: linux-arm-kernel@lists.infradead.org
 
-Commit 9a46ad6d6df3b54 "smp: make smp_call_function_many() use logic
-similar to smp_call_function_single()" has unified the way to handle
-single and multiple cross-CPU function calls. Now only one interrupt
-is needed for architecture specific code to support generic SMP function
-call interfaces, so kill the redundant single function call interrupt.
+Remove messy dependencies from SERIO_I8042 by having it depend on one
+Kconfig symbol (ARCH_MIGHT_HAVE_PC_SERIO) and having architectures
+which need it select ARCH_MIGHT_HAVE_PC_SERIO in arch/*/Kconfig.
+New architectures are unlikely to need SERIO_I8042, so this avoids
+having an ever growing list of architectures to exclude.
 
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: Shaohua Li <shli@kernel.org>
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Cc: Ingo Molnar <mingo@elte.hu>
-Cc: Steven Rostedt <rostedt@goodmis.org>
-Cc: Jiri Kosina <trivial@kernel.org>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org
-Signed-off-by: Jiang Liu <liuj97@gmail.com>
+Signed-off-by: Mark Salter <msalter@redhat.com>
+Acked-by: "H. Peter Anvin" <hpa@zytor.com>
+Acked-by: Ralf Baechle <ralf@linux-mips.org>
+Acked-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+CC: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+CC: Richard Henderson <rth@twiddle.net>
+CC: linux-alpha@vger.kernel.org
+CC: Russell King <linux@arm.linux.org.uk>
+CC: linux-arm-kernel@lists.infradead.org
+CC: Tony Luck <tony.luck@intel.com>
+CC: Fenghua Yu <fenghua.yu@intel.com>
+CC: linux-ia64@vger.kernel.org
+CC: linux-mips@linux-mips.org
+CC: Paul Mackerras <paulus@samba.org>
+CC: linuxppc-dev@lists.ozlabs.org
+CC: Paul Mundt <lethal@linux-sh.org>
+CC: linux-sh@vger.kernel.org
+CC: "David S. Miller" <davem@davemloft.net>
+CC: sparclinux@vger.kernel.org
+CC: Guan Xuetao <gxt@mprc.pku.edu.cn>
+CC: Ingo Molnar <mingo@redhat.com>
+CC: Thomas Gleixner <tglx@linutronix.de>
+CC: x86@kernel.org
 ---
- arch/ia64/kernel/smp.c | 8 ++------
- 1 file changed, 2 insertions(+), 6 deletions(-)
+ drivers/input/serio/Kconfig | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
 
-diff --git a/arch/ia64/kernel/smp.c b/arch/ia64/kernel/smp.c
-index 9fcd4e6..0532909 100644
---- a/arch/ia64/kernel/smp.c
-+++ b/arch/ia64/kernel/smp.c
-@@ -62,8 +62,7 @@ static DEFINE_PER_CPU_SHARED_ALIGNED(unsigned short [NR_CPUS],
+diff --git a/drivers/input/serio/Kconfig b/drivers/input/serio/Kconfig
+index 8541f94..1f5cec2 100644
+--- a/drivers/input/serio/Kconfig
++++ b/drivers/input/serio/Kconfig
+@@ -16,14 +16,19 @@ config SERIO
+ 	  To compile this driver as a module, choose M here: the
+ 	  module will be called serio.
  
- #define IPI_CALL_FUNC		0
- #define IPI_CPU_STOP		1
--#define IPI_CALL_FUNC_SINGLE	2
--#define IPI_KDUMP_CPU_STOP	3
-+#define IPI_KDUMP_CPU_STOP	2
++config ARCH_MIGHT_HAVE_PC_SERIO
++	bool
++	help
++	  Select this config option from the architecture Kconfig if
++	  the architecture might use a PC serio device (i8042) to
++          communicate with keyboard, mouse, etc.
++
+ if SERIO
  
- /* This needs to be cacheline aligned because it is written to by *other* CPUs.  */
- static DEFINE_PER_CPU_SHARED_ALIGNED(unsigned long, ipi_operation);
-@@ -116,9 +115,6 @@ handle_IPI (int irq, void *dev_id)
- 			case IPI_CALL_FUNC:
- 				generic_smp_call_function_interrupt();
- 				break;
--			case IPI_CALL_FUNC_SINGLE:
--				generic_smp_call_function_single_interrupt();
--				break;
- #ifdef CONFIG_KEXEC
- 			case IPI_KDUMP_CPU_STOP:
- 				unw_init_running(kdump_cpu_freeze, NULL);
-@@ -318,7 +314,7 @@ smp_flush_tlb_mm (struct mm_struct *mm)
- 
- void arch_send_call_function_single_ipi(int cpu)
- {
--	send_IPI_single(cpu, IPI_CALL_FUNC_SINGLE);
-+	send_IPI_single(cpu, IPI_CALL_FUNC);
- }
- 
- void arch_send_call_function_ipi_mask(const struct cpumask *mask)
+ config SERIO_I8042
+ 	tristate "i8042 PC Keyboard controller"
+ 	default y
+-	depends on !PARISC && (!ARM || FOOTBRIDGE_HOST) && \
+-		   (!SUPERH || SH_CAYMAN) && !M68K && !BLACKFIN && !S390 && \
+-		   !ARC
++	depends on ARCH_MIGHT_HAVE_PC_SERIO
+ 	help
+ 	  i8042 is the chip over which the standard AT keyboard and PS/2
+ 	  mouse are connected to the computer. If you use these devices,
 -- 
-1.8.1.2
+1.8.3.1
 
