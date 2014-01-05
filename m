@@ -1,77 +1,56 @@
-From: Bjorn Helgaas <bhelgaas@google.com>
-Date: Wed, 29 Jan 2014 18:19:25 +0000
-Subject: [PATCH 16/17] ACPI / numa: Make __acpi_map_pxm_to_node(), acpi_get_pxm() static
-Message-Id: <20140129181925.15476.24730.stgit@bhelgaas-glaptop.roam.corp.google.com>
+From: Yann Droneaud <ydroneaud@opteya.com>
+Date: Sun, 05 Jan 2014 20:36:28 +0000
+Subject: [PATCHv5 1/7] ia64: use get_unused_fd_flags(0) instead of get_unused_fd()
+Message-Id: <d8999c560d6348e40b5f037bc73f4e48bc3ad977.1388952061.git.ydroneaud@opteya.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20140129174106.15476.7075.stgit@bhelgaas-glaptop.roam.corp.google.com>
-In-Reply-To: <20140129174106.15476.7075.stgit@bhelgaas-glaptop.roam.corp.google.com>
+References: <cover.1388952061.git.ydroneaud@opteya.com>
+In-Reply-To: <cover.1388952061.git.ydroneaud@opteya.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-pci@vger.kernel.org
-Cc: linux-acpi@vger.kernel.org, x86@kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: Yann Droneaud <ydroneaud@opteya.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>, Andrew Morton <akpm@linux-foundation.org>
 
-__acpi_map_pxm_to_node() and acpi_get_pxm() are only used within
-drivers/acpi/numa.c.  This makes them static and removes their
-declarations.
+Macro get_unused_fd() is used to allocate a file descriptor with
+default flags. Those default flags (0) can be "unsafe":
+O_CLOEXEC must be used by default to not leak file descriptor
+across exec().
 
-Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
+Instead of macro get_unused_fd(), function get_unused_fd_flags()
+(or anon_inode_getfd()) should be used with flags given by userspace.
+If not possible, flags should be set to O_CLOEXEC to provide userspace
+with a default safe behavor.
+
+In a further patch, get_unused_fd() will be removed so that new code
+start using get_unused_fd_flags() (or anon_inode_getfd()) with correct
+flags.
+
+This patch replaces calls to get_unused_fd() with equivalent call to
+get_unused_fd_flags(0) to preserve current behavor for existing code.
+
+The hard coded flag value (0) should be reviewed on a per-subsystem
+basis, and, if possible, set to O_CLOEXEC.
+
+Cc: Al Viro <viro@zeniv.linux.org.uk>
+Signed-off-by: Yann Droneaud <ydroneaud@opteya.com>
+Link: http://lkml.kernel.org/r/cover.1388952061.git.ydroneaud@opteya.com
 ---
- drivers/acpi/numa.c      |    4 ++--
- include/acpi/acpi_numa.h |    1 -
- include/linux/acpi.h     |    5 -----
- 3 files changed, 2 insertions(+), 8 deletions(-)
+ arch/ia64/kernel/perfmon.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/acpi/numa.c b/drivers/acpi/numa.c
-index a7e779bfa2f6..359a43bdd948 100644
---- a/drivers/acpi/numa.c
-+++ b/drivers/acpi/numa.c
-@@ -60,7 +60,7 @@ int node_to_pxm(int node)
- 	return node_to_pxm_map[node];
- }
+diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
+index cb592773c78b..44b148fbb560 100644
+--- a/arch/ia64/kernel/perfmon.c
++++ b/arch/ia64/kernel/perfmon.c
+@@ -2662,7 +2662,7 @@ pfm_context_create(pfm_context_t *ctx, void *arg, int count, struct pt_regs *reg
  
--void __acpi_map_pxm_to_node(int pxm, int node)
-+static void __acpi_map_pxm_to_node(int pxm, int node)
- {
- 	if (pxm_to_node_map[pxm] = NUMA_NO_NODE || node < pxm_to_node_map[pxm])
- 		pxm_to_node_map[pxm] = node;
-@@ -314,7 +314,7 @@ int __init acpi_numa_init(void)
- 	return 0;
- }
+ 	ret = -ENOMEM;
  
--int acpi_get_pxm(acpi_handle h)
-+static int acpi_get_pxm(acpi_handle h)
- {
- 	unsigned long long pxm;
- 	acpi_status status;
-diff --git a/include/acpi/acpi_numa.h b/include/acpi/acpi_numa.h
-index 451823cb8837..94a37cd7fbda 100644
---- a/include/acpi/acpi_numa.h
-+++ b/include/acpi/acpi_numa.h
-@@ -13,7 +13,6 @@
+-	fd = get_unused_fd();
++	fd = get_unused_fd_flags(0);
+ 	if (fd < 0)
+ 		return fd;
  
- extern int pxm_to_node(int);
- extern int node_to_pxm(int);
--extern void __acpi_map_pxm_to_node(int, int);
- extern int acpi_map_pxm_to_node(int);
- extern unsigned char acpi_srat_revision;
- 
-diff --git a/include/linux/acpi.h b/include/linux/acpi.h
-index 17bee650a0cb..6c29abbefd41 100644
---- a/include/linux/acpi.h
-+++ b/include/linux/acpi.h
-@@ -259,13 +259,8 @@ extern void acpi_dmi_osi_linux(int enable, const struct dmi_system_id *d);
- extern void acpi_osi_setup(char *str);
- 
- #ifdef CONFIG_ACPI_NUMA
--int acpi_get_pxm(acpi_handle handle);
- int acpi_get_node(acpi_handle handle);
- #else
--static inline int acpi_get_pxm(acpi_handle handle)
--{
--	return 0;
--}
- static inline int acpi_get_node(acpi_handle handle)
- {
- 	return 0;
+-- 
+1.8.4.2
 
