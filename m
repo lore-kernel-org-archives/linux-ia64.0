@@ -1,67 +1,58 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Tue, 28 Jan 2014 16:21:44 +0000
-Subject: Re: [PATCH RFC 00/73] tree-wide: clean up some no longer required #include <linux/init.h>
-Message-Id: <52E7D918.5020704@windriver.com>
+Date: Thu, 16 Jan 2014 22:18:05 +0000
+Subject: [PATCH] ia6: don't use module_init in non-modular sim/simscsi.c code
+Message-Id: <1389910685-3958-1-git-send-email-paul.gortmaker@windriver.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1390339396-3479-1-git-send-email-paul.gortmaker@windriver.com>	 <20140122180023.dd90d34cba38d9f9ac516349@canb.auug.org.au>	 <20140123003838.GA10182@windriver.com> <1390878783.3872.63.camel@pasglop>
-In-Reply-To: <1390878783.3872.63.camel@pasglop>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>, linux-arch@vger.kernel.org, linux-mips@linux-mips.org, linux-m68k@vger.kernel.org, rusty@rustcorp.com.au, linux-ia64@vger.kernel.org, kvm@vger.kernel.org, linux-s390@vger.kernel.org, netdev@vger.kernel.org, x86@kernel.org, linux-kernel@vger.kernel.org, torvalds@linux-foundation.org, gregkh@linuxfoundation.org, linux-alpha@vger.kernel.org, sparclinux@vger.kernel.org, akpm@linux-foundation.org, linuxppc-dev@lists.ozlabs.org, linux-arm-kernel@lists.infradead.org
+To: linux-kernel@vger.kernel.org
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-On 14-01-27 10:13 PM, Benjamin Herrenschmidt wrote:
-> On Wed, 2014-01-22 at 19:38 -0500, Paul Gortmaker wrote:
-> 
->> Thanks, it was a great help as it uncovered a few issues in fringe arch
->> that I didn't have toolchains for, and I've fixed all of those up.
->>
->> I've noticed that powerpc has been un-buildable for a while now; I have
->> used this hack patch locally so I could run the ppc defconfigs to check
->> that I didn't break anything.  Maybe useful for linux-next in the
->> interim?  It is a hack patch -- Not-Signed-off-by: Paul Gortmaker.  :)
-> 
-> Can you and/or Aneesh submit that as a proper patch (with S-O-B
-> etc...) ?
+The simscsi.o is built for HP_SIMSCSI -- which is bool, and hence
+this code is either present or absent.  It will never be modular,
+so using module_init as an alias for __initcall can be somewhat
+misleading.
 
-I'd updated toolchains and didn't realize it was still broken.  Patch sent.
+Fix this up now, so that we can relocate module_init from
+init.h into module.h in the future.  If we don't do this, we'd
+have to add module.h to obviously non-modular code, and that
+would be a worse thing.
 
-http://patchwork.ozlabs.org/patch/314749/
+Note that direct use of __initcall is discouraged, vs. one
+of the priority categorized subgroups.  As __initcall gets
+mapped onto device_initcall, our use of device_initcall
+directly in this change means that the runtime impact is
+zero -- it will remain at level 6 in initcall ordering.
 
-Paul.
---
+And since it can't be modular, we remove all the __exitcall
+stuff related to module_exit() -- it is dead code that won't
+ever be executed.
 
-> 
-> Thanks !
-> 
-> Cheers,
-> Ben.
-> 
->> Paul.
->> --
->>
->> diff --git a/arch/powerpc/include/asm/pgtable-ppc64.h b/arch/powerpc/include/asm/pgtable-ppc64.h
->> index d27960c89a71..d0f070a2b395 100644
->> --- a/arch/powerpc/include/asm/pgtable-ppc64.h
->> +++ b/arch/powerpc/include/asm/pgtable-ppc64.h
->> @@ -560,9 +560,9 @@ extern void pmdp_invalidate(struct vm_area_struct *vma, unsigned long address,
->>  			    pmd_t *pmdp);
->>  
->>  #define pmd_move_must_withdraw pmd_move_must_withdraw
->> -typedef struct spinlock spinlock_t;
->> -static inline int pmd_move_must_withdraw(spinlock_t *new_pmd_ptl,
->> -					 spinlock_t *old_pmd_ptl)
->> +struct spinlock;
->> +static inline int pmd_move_must_withdraw(struct spinlock *new_pmd_ptl,
->> +					 struct spinlock *old_pmd_ptl)
->>  {
->>  	/*
->>  	 * Archs like ppc64 use pgtable to store per pmd
->>
->> _______________________________________________
->> Linuxppc-dev mailing list
->> Linuxppc-dev@lists.ozlabs.org
->> https://lists.ozlabs.org/listinfo/linuxppc-dev
-> 
-> 
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+
+diff --git a/arch/ia64/hp/sim/simscsi.c b/arch/ia64/hp/sim/simscsi.c
+index 3a428f19a001..085047f3a545 100644
+--- a/arch/ia64/hp/sim/simscsi.c
++++ b/arch/ia64/hp/sim/simscsi.c
+@@ -368,13 +368,4 @@ simscsi_init(void)
+ 	scsi_host_put(host);
+ 	return error;
+ }
+-
+-static void __exit
+-simscsi_exit(void)
+-{
+-	scsi_remove_host(host);
+-	scsi_host_put(host);
+-}
+-
+-module_init(simscsi_init);
+-module_exit(simscsi_exit);
++device_initcall(simscsi_init);
+-- 
+1.8.5.2
+
