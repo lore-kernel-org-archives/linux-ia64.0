@@ -1,52 +1,46 @@
-From: Bjorn Helgaas <bhelgaas@google.com>
-Date: Wed, 29 Jan 2014 18:17:33 +0000
-Subject: [PATCH 01/17] x86/PCI: Drop pcibios_scan_root() check for bus already scanned
-Message-Id: <20140129181732.15476.79292.stgit@bhelgaas-glaptop.roam.corp.google.com>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Date: Thu, 16 Jan 2014 22:16:39 +0000
+Subject: [PATCH] ia64: don't use module_init for non-modular core kernel/mca.c code
+Message-Id: <1389910599-3883-1-git-send-email-paul.gortmaker@windriver.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20140129174106.15476.7075.stgit@bhelgaas-glaptop.roam.corp.google.com>
-In-Reply-To: <20140129174106.15476.7075.stgit@bhelgaas-glaptop.roam.corp.google.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-pci@vger.kernel.org
-Cc: linux-acpi@vger.kernel.org, x86@kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-The PCI core checks to see whether we've already scanned a bus, so we don't
-need to do it in pcibios_scan_root().  Here's where it happens in the core:
+The mca.c code is always built in.  It will never be modular,
+so using module_init as an alias for __initcall is rather
+misleading.
 
-  pcibios_scan_root
-    pci_scan_bus_on_node
-      pci_scan_root_bus
-        pci_create_root_bus
-	  b2 = pci_find_bus(pci_domain_nr(b), bus)
-	  if (b2)
-	    goto err_out;    # already scanned this bus
+Fix this up now, so that we can relocate module_init from
+init.h into module.h in the future.  If we don't do this, we'd
+have to add module.h to obviously non-modular code, and that
+would be a worse thing.
 
-This removes the check from pcibios_scan_root().
+Direct use of __initcall is discouraged, vs prioritized ones.
+Use of device_initcall is consistent with what __initcall
+maps onto, and hence does not change the init order, making the
+impact of this change zero.   Should someone with real hardware
+for boot testing want to change it later to arch_initcall or
+something different, they can do that at a later date.
 
-Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
----
- arch/x86/pci/common.c |    9 ---------
- 1 file changed, 9 deletions(-)
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 
-diff --git a/arch/x86/pci/common.c b/arch/x86/pci/common.c
-index 981c2dbd72cc..c47bb2288bb9 100644
---- a/arch/x86/pci/common.c
-+++ b/arch/x86/pci/common.c
-@@ -458,15 +458,6 @@ void __init dmi_check_pciprobe(void)
- 
- struct pci_bus *pcibios_scan_root(int busnum)
- {
--	struct pci_bus *bus = NULL;
--
--	while ((bus = pci_find_next_bus(bus)) != NULL) {
--		if (bus->number = busnum) {
--			/* Already scanned */
--			return bus;
--		}
--	}
--
- 	return pci_scan_bus_on_node(busnum, &pci_root_ops,
- 					get_mp_bus_to_node(busnum));
+diff --git a/arch/ia64/sn/kernel/mca.c b/arch/ia64/sn/kernel/mca.c
+index 27793f7aa99c..5b799d4deb74 100644
+--- a/arch/ia64/sn/kernel/mca.c
++++ b/arch/ia64/sn/kernel/mca.c
+@@ -142,5 +142,4 @@ static int __init sn_salinfo_init(void)
+ 		salinfo_platform_oemdata = &sn_salinfo_platform_oemdata;
+ 	return 0;
  }
+-
+-module_init(sn_salinfo_init)
++device_initcall(sn_salinfo_init);
+-- 
+1.8.5.2
 
