@@ -1,33 +1,15 @@
-From: Eddy Brown <eddybrown.loanhome2010@gmail.com>
-Date: Wed, 15 Jan 2014 11:40:46 +0000
+From: Mrs Mary Mike <halebozkurt@adu.edu.tr>
+Date: Thu, 16 Jan 2014 12:04:29 +0000
 Subject: Legit Lening bieden
-Message-Id: <CAFJ=YmuaPAGqPSTjZN6MdVSfNC7mjJj7cY6PJZR-rn6GXjaibg@mail.gmail.com>
+Message-Id: <629952521.1828801.1389873869095.JavaMail.zimbra@adu.edu.tr>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <CAFJ=YmuaPAGqPSTjZN6MdVSfNC7mjJj7cY6PJZR-rn6GXjaibg@mail.gmail.com>
+In-Reply-To: <CAFJ=YmuaPAGqPSTjZN6MdVSfNC7mjJj7cY6PJZR-rn6GXjaibg@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Heeft u behoefte aan een lening als ja van toepassing voor u lening
-now.we bieden zakelijke lening, geld lening, goede lening, woekeraar,
-oke alles wat je hoeft te doen om uw lening te krijgen is om ons te
-sturen
 
-Application Information
 
-Uw naam .......
-Lening Duur ........
-Beroep ........
-Bedrag dat nodig is .........
-Land .........
-telefoonnummer .......
-Maandsalaris ........
-Doel van de lening ........
-Sex .........
-Burgerlijke staat ......
-
-Nadat u antwoord op al deze gegevens die u ontvangen wij uw lening
-okay.and kunt u
-contact opnemen met de heer Eddy Brown om uw lening te krijgen voor
-you.and u kunt ons mailen op
-(eddybrown.loanhome2010@gmail.com)
+Lening bieden aan alle personen, als belanghebbende via e-mail voor meer inlichtingen: roman.lee201@live.com Emailbij: roman.lee201@live.com
