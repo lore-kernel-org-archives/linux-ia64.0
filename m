@@ -1,180 +1,115 @@
-From: Bjorn Helgaas <bhelgaas@google.com>
-Date: Wed, 29 Jan 2014 18:19:02 +0000
-Subject: [PATCH 13/17] ia64: Remove acpi_get_pxm() usage
-Message-Id: <20140129181902.15476.86815.stgit@bhelgaas-glaptop.roam.corp.google.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Mon, 20 Jan 2014 17:25:36 +0000
+Subject: [GIT PULL] ia64 - drop the unmaintained/broken Xen code
+Message-Id: <52dd5c102220811c45@agluck-desk.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20140129174106.15476.7075.stgit@bhelgaas-glaptop.roam.corp.google.com>
-In-Reply-To: <20140129174106.15476.7075.stgit@bhelgaas-glaptop.roam.corp.google.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-pci@vger.kernel.org
-Cc: linux-acpi@vger.kernel.org, x86@kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-The IOMMU, LSAPIC, IOSAPIC, and PCI host bridge code doesn't care about
-_PXM values directly; it only needs to know what NUMA node the hardware is
-on.
+The following changes since commit 374b105797c3d4f29c685f3be535c35f5689b30e:
 
-This uses acpi_get_node() directly and removes the _PXM stuff.
+  Linux 3.13-rc3 (2013-12-06 09:34:04 -0800)
 
-Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
----
- arch/ia64/hp/common/sba_iommu.c |   22 +++++-----------------
- arch/ia64/include/asm/pci.h     |    2 +-
- arch/ia64/kernel/acpi.c         |   28 +++++++---------------------
- arch/ia64/pci/pci.c             |   10 ++--------
- 4 files changed, 15 insertions(+), 47 deletions(-)
+are available in the git repository at:
 
-diff --git a/arch/ia64/hp/common/sba_iommu.c b/arch/ia64/hp/common/sba_iommu.c
-index a52d6b49b7ce..007361d59aa6 100644
---- a/arch/ia64/hp/common/sba_iommu.c
-+++ b/arch/ia64/hp/common/sba_iommu.c
-@@ -2017,31 +2017,19 @@ sba_connect_bus(struct pci_bus *bus)
- 	printk(KERN_WARNING "No IOC for PCI Bus %04x:%02x in ACPI\n", pci_domain_nr(bus), bus->number);
- }
- 
--#ifdef CONFIG_NUMA
- static void __init
- sba_map_ioc_to_node(struct ioc *ioc, acpi_handle handle)
- {
-+#ifdef CONFIG_NUMA
- 	unsigned int node;
--	int pxm;
--
--	ioc->node = NUMA_NO_NODE;
--
--	pxm = acpi_get_pxm(handle);
--
--	if (pxm < 0)
--		return;
- 
--	node = pxm_to_node(pxm);
--
--	if (node = NUMA_NO_NODE || !node_online(node))
--		return;
-+	node = acpi_get_node(handle);
-+	if (node != NUMA_NO_NODE && !node_online(node))
-+		node = NUMA_NO_NODE;
- 
- 	ioc->node = node;
--	return;
--}
--#else
--#define sba_map_ioc_to_node(ioc, handle)
- #endif
-+}
- 
- static int __init
- acpi_sba_ioc_add(struct acpi_device *device,
-diff --git a/arch/ia64/include/asm/pci.h b/arch/ia64/include/asm/pci.h
-index 71fbaaa495cc..7d41cc089822 100644
---- a/arch/ia64/include/asm/pci.h
-+++ b/arch/ia64/include/asm/pci.h
-@@ -98,7 +98,7 @@ struct pci_controller {
- 	struct acpi_device *companion;
- 	void *iommu;
- 	int segment;
--	int node;		/* nearest node with memory or -1 for global allocation */
-+	int node;		/* nearest node with memory or NUMA_NO_NODE for global allocation */
- 
- 	void *platform_data;
- };
-diff --git a/arch/ia64/kernel/acpi.c b/arch/ia64/kernel/acpi.c
-index 07d209c9507f..5a585ebe9df3 100644
---- a/arch/ia64/kernel/acpi.c
-+++ b/arch/ia64/kernel/acpi.c
-@@ -803,14 +803,9 @@ int acpi_isa_irq_to_gsi(unsigned isa_irq, u32 *gsi)
-  *  ACPI based hotplug CPU support
-  */
- #ifdef CONFIG_ACPI_HOTPLUG_CPU
--static
--int acpi_map_cpu2node(acpi_handle handle, int cpu, int physid)
-+static int acpi_map_cpu2node(acpi_handle handle, int cpu, int physid)
- {
- #ifdef CONFIG_ACPI_NUMA
--	int pxm_id;
--	int nid;
--
--	pxm_id = acpi_get_pxm(handle);
- 	/*
- 	 * We don't have cpu-only-node hotadd. But if the system equips
- 	 * SRAT table, pxm is already found and node is ready.
-@@ -818,11 +813,10 @@ int acpi_map_cpu2node(acpi_handle handle, int cpu, int physid)
- 	 * This code here is for the system which doesn't have full SRAT
-   	 * table for possible cpus.
- 	 */
--	nid = acpi_map_pxm_to_node(pxm_id);
- 	node_cpuid[cpu].phys_id = physid;
--	node_cpuid[cpu].nid = nid;
-+	node_cpuid[cpu].nid = acpi_get_node(handle);
- #endif
--	return (0);
-+	return 0;
- }
- 
- int additional_cpus __initdata = -1;
-@@ -929,7 +923,7 @@ static acpi_status acpi_map_iosapic(acpi_handle handle, u32 depth,
- 	union acpi_object *obj;
- 	struct acpi_madt_io_sapic *iosapic;
- 	unsigned int gsi_base;
--	int pxm, node;
-+	int node;
- 
- 	/* Only care about objects w/ a method that returns the MADT */
- 	if (ACPI_FAILURE(acpi_evaluate_object(handle, "_MAT", NULL, &buffer)))
-@@ -956,17 +950,9 @@ static acpi_status acpi_map_iosapic(acpi_handle handle, u32 depth,
- 
- 	kfree(buffer.pointer);
- 
--	/*
--	 * OK, it's an IOSAPIC MADT entry, look for a _PXM value to tell
--	 * us which node to associate this with.
--	 */
--	pxm = acpi_get_pxm(handle);
--	if (pxm < 0)
--		return AE_OK;
--
--	node = pxm_to_node(pxm);
--
--	if (node >= MAX_NUMNODES || !node_online(node) ||
-+	/* OK, it's an IOSAPIC MADT entry; associate it with a node */
-+	node = acpi_get_node(handle);
-+	if (node = NUMA_NO_NODE || !node_online(node) ||
- 	    cpumask_empty(cpumask_of_node(node)))
- 		return AE_OK;
- 
-diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
-index 9e4938d8ca4d..291a582777cf 100644
---- a/arch/ia64/pci/pci.c
-+++ b/arch/ia64/pci/pci.c
-@@ -126,7 +126,6 @@ static struct pci_controller *alloc_pci_controller(int seg)
- 		return NULL;
- 
- 	controller->segment = seg;
--	controller->node = -1;
- 	return controller;
- }
- 
-@@ -430,19 +429,14 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
- 	struct pci_root_info *info = NULL;
- 	int busnum = root->secondary.start;
- 	struct pci_bus *pbus;
--	int pxm, ret;
-+	int ret;
- 
- 	controller = alloc_pci_controller(domain);
- 	if (!controller)
- 		return NULL;
- 
- 	controller->companion = device;
--
--	pxm = acpi_get_pxm(device->handle);
--#ifdef CONFIG_NUMA
--	if (pxm >= 0)
--		controller->node = pxm_to_node(pxm);
--#endif
-+	controller->node = acpi_get_node(device->handle);
- 
- 	info = kzalloc(sizeof(*info), GFP_KERNEL);
- 	if (!info) {
+  git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git tags/please-pull-rm_xen
 
+for you to fetch changes up to d52eefb47d4eb6fe40d4c92bc711dd34a8ce1747:
+
+  ia64/xen: Remove Xen support for ia64 (2013-12-10 16:11:07 -0800)
+
+----------------------------------------------------------------
+Nobody has been maintaining xen in ia64 for a long time.
+Rip it all out so people do not waste time making updates
+to broken/dead code.
+
+----------------------------------------------------------------
+Boris Ostrovsky (1):
+      ia64/xen: Remove Xen support for ia64
+
+ arch/ia64/Kconfig                         |   12 -
+ arch/ia64/Makefile                        |    2 -
+ arch/ia64/configs/xen_domu_defconfig      |  199 -----
+ arch/ia64/include/asm/acpi.h              |    2 -
+ arch/ia64/include/asm/machvec.h           |    2 -
+ arch/ia64/include/asm/machvec_xen.h       |   22 -
+ arch/ia64/include/asm/meminit.h           |    1 -
+ arch/ia64/include/asm/paravirt.h          |    1 -
+ arch/ia64/include/asm/pvclock-abi.h       |    2 +-
+ arch/ia64/include/asm/sync_bitops.h       |   51 --
+ arch/ia64/include/asm/xen/events.h        |   41 --
+ arch/ia64/include/asm/xen/hypercall.h     |  265 -------
+ arch/ia64/include/asm/xen/hypervisor.h    |   61 --
+ arch/ia64/include/asm/xen/inst.h          |  486 ------------
+ arch/ia64/include/asm/xen/interface.h     |  363 ---------
+ arch/ia64/include/asm/xen/irq.h           |   44 --
+ arch/ia64/include/asm/xen/minstate.h      |  143 ----
+ arch/ia64/include/asm/xen/page-coherent.h |   38 -
+ arch/ia64/include/asm/xen/page.h          |   65 --
+ arch/ia64/include/asm/xen/patchlist.h     |   38 -
+ arch/ia64/include/asm/xen/privop.h        |  135 ----
+ arch/ia64/include/asm/xen/xcom_hcall.h    |   51 --
+ arch/ia64/include/asm/xen/xencomm.h       |   42 --
+ arch/ia64/include/uapi/asm/break.h        |    9 -
+ arch/ia64/kernel/acpi.c                   |    3 -
+ arch/ia64/kernel/asm-offsets.c            |   32 -
+ arch/ia64/kernel/head.S                   |    3 -
+ arch/ia64/kernel/nr-irqs.c                |    4 -
+ arch/ia64/kernel/paravirt_inst.h          |    3 -
+ arch/ia64/kernel/paravirt_patchlist.h     |    4 -
+ arch/ia64/kernel/vmlinux.lds.S            |    6 -
+ arch/ia64/xen/Kconfig                     |   25 -
+ arch/ia64/xen/Makefile                    |   37 -
+ arch/ia64/xen/gate-data.S                 |    3 -
+ arch/ia64/xen/grant-table.c               |   94 ---
+ arch/ia64/xen/hypercall.S                 |   88 ---
+ arch/ia64/xen/hypervisor.c                |   97 ---
+ arch/ia64/xen/irq_xen.c                   |  443 -----------
+ arch/ia64/xen/irq_xen.h                   |   34 -
+ arch/ia64/xen/machvec.c                   |    4 -
+ arch/ia64/xen/suspend.c                   |   59 --
+ arch/ia64/xen/time.c                      |  257 -------
+ arch/ia64/xen/time.h                      |   24 -
+ arch/ia64/xen/xcom_hcall.c                |  441 -----------
+ arch/ia64/xen/xen_pv_ops.c                | 1141 -----------------------------
+ arch/ia64/xen/xencomm.c                   |  106 ---
+ arch/ia64/xen/xenivt.S                    |   52 --
+ arch/ia64/xen/xensetup.S                  |   80 --
+ include/xen/interface/callback.h          |    2 +-
+ include/xen/interface/io/protocols.h      |    3 -
+ 50 files changed, 2 insertions(+), 5118 deletions(-)
+ delete mode 100644 arch/ia64/configs/xen_domu_defconfig
+ delete mode 100644 arch/ia64/include/asm/machvec_xen.h
+ delete mode 100644 arch/ia64/include/asm/sync_bitops.h
+ delete mode 100644 arch/ia64/include/asm/xen/events.h
+ delete mode 100644 arch/ia64/include/asm/xen/hypercall.h
+ delete mode 100644 arch/ia64/include/asm/xen/hypervisor.h
+ delete mode 100644 arch/ia64/include/asm/xen/inst.h
+ delete mode 100644 arch/ia64/include/asm/xen/interface.h
+ delete mode 100644 arch/ia64/include/asm/xen/irq.h
+ delete mode 100644 arch/ia64/include/asm/xen/minstate.h
+ delete mode 100644 arch/ia64/include/asm/xen/page-coherent.h
+ delete mode 100644 arch/ia64/include/asm/xen/page.h
+ delete mode 100644 arch/ia64/include/asm/xen/patchlist.h
+ delete mode 100644 arch/ia64/include/asm/xen/privop.h
+ delete mode 100644 arch/ia64/include/asm/xen/xcom_hcall.h
+ delete mode 100644 arch/ia64/include/asm/xen/xencomm.h
+ delete mode 100644 arch/ia64/xen/Kconfig
+ delete mode 100644 arch/ia64/xen/Makefile
+ delete mode 100644 arch/ia64/xen/gate-data.S
+ delete mode 100644 arch/ia64/xen/grant-table.c
+ delete mode 100644 arch/ia64/xen/hypercall.S
+ delete mode 100644 arch/ia64/xen/hypervisor.c
+ delete mode 100644 arch/ia64/xen/irq_xen.c
+ delete mode 100644 arch/ia64/xen/irq_xen.h
+ delete mode 100644 arch/ia64/xen/machvec.c
+ delete mode 100644 arch/ia64/xen/suspend.c
+ delete mode 100644 arch/ia64/xen/time.c
+ delete mode 100644 arch/ia64/xen/time.h
+ delete mode 100644 arch/ia64/xen/xcom_hcall.c
+ delete mode 100644 arch/ia64/xen/xen_pv_ops.c
+ delete mode 100644 arch/ia64/xen/xencomm.c
+ delete mode 100644 arch/ia64/xen/xenivt.S
+ delete mode 100644 arch/ia64/xen/xensetup.S
