@@ -1,56 +1,63 @@
-From: Yann Droneaud <ydroneaud@opteya.com>
-Date: Sun, 05 Jan 2014 20:36:28 +0000
-Subject: [PATCHv5 1/7] ia64: use get_unused_fd_flags(0) instead of get_unused_fd()
-Message-Id: <d8999c560d6348e40b5f037bc73f4e48bc3ad977.1388952061.git.ydroneaud@opteya.com>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Date: Tue, 21 Jan 2014 21:22:29 +0000
+Subject: [PATCH 26/73] ia64: don't use module_init in non-modular sim/simscsi.c code
+Message-Id: <1390339396-3479-27-git-send-email-paul.gortmaker@windriver.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1388952061.git.ydroneaud@opteya.com>
-In-Reply-To: <cover.1388952061.git.ydroneaud@opteya.com>
+References: <1390339396-3479-1-git-send-email-paul.gortmaker@windriver.com>
+In-Reply-To: <1390339396-3479-1-git-send-email-paul.gortmaker@windriver.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
-Cc: Yann Droneaud <ydroneaud@opteya.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>, Andrew Morton <akpm@linux-foundation.org>
+To: linux-kernel@vger.kernel.org
+Cc: linux-arch@vger.kernel.org, Paul Gortmaker <paul.gortmaker@windriver.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-Macro get_unused_fd() is used to allocate a file descriptor with
-default flags. Those default flags (0) can be "unsafe":
-O_CLOEXEC must be used by default to not leak file descriptor
-across exec().
+The simscsi.o is built for HP_SIMSCSI -- which is bool, and hence
+this code is either present or absent.  It will never be modular,
+so using module_init as an alias for __initcall can be somewhat
+misleading.
 
-Instead of macro get_unused_fd(), function get_unused_fd_flags()
-(or anon_inode_getfd()) should be used with flags given by userspace.
-If not possible, flags should be set to O_CLOEXEC to provide userspace
-with a default safe behavor.
+Fix this up now, so that we can relocate module_init from
+init.h into module.h in the future.  If we don't do this, we'd
+have to add module.h to obviously non-modular code, and that
+would be a worse thing.
 
-In a further patch, get_unused_fd() will be removed so that new code
-start using get_unused_fd_flags() (or anon_inode_getfd()) with correct
-flags.
+Note that direct use of __initcall is discouraged, vs. one
+of the priority categorized subgroups.  As __initcall gets
+mapped onto device_initcall, our use of device_initcall
+directly in this change means that the runtime impact is
+zero -- it will remain at level 6 in initcall ordering.
 
-This patch replaces calls to get_unused_fd() with equivalent call to
-get_unused_fd_flags(0) to preserve current behavor for existing code.
+And since it can't be modular, we remove all the __exitcall
+stuff related to module_exit() -- it is dead code that won't
+ever be executed.
 
-The hard coded flag value (0) should be reviewed on a per-subsystem
-basis, and, if possible, set to O_CLOEXEC.
-
-Cc: Al Viro <viro@zeniv.linux.org.uk>
-Signed-off-by: Yann Droneaud <ydroneaud@opteya.com>
-Link: http://lkml.kernel.org/r/cover.1388952061.git.ydroneaud@opteya.com
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- arch/ia64/kernel/perfmon.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ arch/ia64/hp/sim/simscsi.c | 11 +----------
+ 1 file changed, 1 insertion(+), 10 deletions(-)
 
-diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
-index cb592773c78b..44b148fbb560 100644
---- a/arch/ia64/kernel/perfmon.c
-+++ b/arch/ia64/kernel/perfmon.c
-@@ -2662,7 +2662,7 @@ pfm_context_create(pfm_context_t *ctx, void *arg, int count, struct pt_regs *reg
- 
- 	ret = -ENOMEM;
- 
--	fd = get_unused_fd();
-+	fd = get_unused_fd_flags(0);
- 	if (fd < 0)
- 		return fd;
- 
+diff --git a/arch/ia64/hp/sim/simscsi.c b/arch/ia64/hp/sim/simscsi.c
+index 3a428f1..085047f 100644
+--- a/arch/ia64/hp/sim/simscsi.c
++++ b/arch/ia64/hp/sim/simscsi.c
+@@ -368,13 +368,4 @@ simscsi_init(void)
+ 	scsi_host_put(host);
+ 	return error;
+ }
+-
+-static void __exit
+-simscsi_exit(void)
+-{
+-	scsi_remove_host(host);
+-	scsi_host_put(host);
+-}
+-
+-module_init(simscsi_init);
+-module_exit(simscsi_exit);
++device_initcall(simscsi_init);
 -- 
-1.8.4.2
+1.8.4.1
 
