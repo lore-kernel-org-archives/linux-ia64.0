@@ -1,7 +1,7 @@
 From: "Luck, Tony" <tony.luck@intel.com>
-Date: Wed, 22 Jan 2014 00:53:39 +0000
+Date: Wed, 22 Jan 2014 00:58:41 +0000
 Subject: RE: Kernel compiled with gcc-4.6+ fails to boot on ia64
-Message-Id: <3908561D78D1C84285E8C5FCA982C28F31DB359D@ORSMSX106.amr.corp.intel.com>
+Message-Id: <3908561D78D1C84285E8C5FCA982C28F31DB35AC@ORSMSX106.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <3908561D78D1C84285E8C5FCA982C28F31DB1BDA@ORSMSX106.amr.corp.intel.com>
 In-Reply-To: <3908561D78D1C84285E8C5FCA982C28F31DB1BDA@ORSMSX106.amr.corp.intel.com>
@@ -9,6 +9,26 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+H.J.
+
+Would the approach below help debug an issue with why ia64 kernel is completely[*]
+broken with gcc-4.7.3, but works with gcc-4.5.4?
+
+If not - do you have a better suggestion on how to narrow the scope of the
+problem.
+
+-Tony
+
+[*] No output to serial console at all - not even with the ia64 early console enabled.
+
+
+-----Original Message-----
+From: Luck, Tony 
+Sent: Tuesday, January 21, 2014 4:54 PM
+To: 'Dennis Schridde'
+Cc: Yu, Fenghua; linux-ia64@vger.kernel.org
+Subject: RE: Kernel compiled with gcc-4.6+ fails to boot on ia64
 
 >> I'd start off with using the old compiler
 >> for arch/ia64/kernel/* (perhaps arch/ia64/mm/* too) and the new
