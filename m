@@ -1,93 +1,64 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Wed, 22 Jan 2014 07:00:23 +0000
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Date: Thu, 23 Jan 2014 00:38:39 +0000
 Subject: Re: [PATCH RFC 00/73] tree-wide: clean up some no longer required #include <linux/init.h>
-Message-Id: <20140122180023.dd90d34cba38d9f9ac516349@canb.auug.org.au>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="Signature=_Wed__22_Jan_2014_18_00_23_+1100_zcOtMRV1NI/h=88n"
+Message-Id: <20140123003838.GA10182@windriver.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1390339396-3479-1-git-send-email-paul.gortmaker@windriver.com>
-In-Reply-To: <1390339396-3479-1-git-send-email-paul.gortmaker@windriver.com>
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
+ <20140122180023.dd90d34cba38d9f9ac516349@canb.auug.org.au>
+In-Reply-To: <20140122180023.dd90d34cba38d9f9ac516349@canb.auug.org.au>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Stephen Rothwell <sfr@canb.auug.org.au>
 Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@vger.kernel.org, linux-mips@linux-mips.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, x86@kernel.org, netdev@vger.kernel.org, kvm@vger.kernel.org, rusty@rustcorp.com.au, gregkh@linuxfoundation.org, akpm@linux-foundation.org, torvalds@linux-foundation.org
 
---Signature=_Wed__22_Jan_2014_18_00_23_+1100_zcOtMRV1NI/h=88n
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+[Re: [PATCH RFC 00/73] tree-wide: clean up some no longer required #include <linux/init.h>] On 22/01/2014 (Wed 18:00) Stephen Rothwell wrote:
 
-Hi Paul,
+> Hi Paul,
+> 
+> On Tue, 21 Jan 2014 16:22:03 -0500 Paul Gortmaker <paul.gortmaker@windriver.com> wrote:
+> >
+> > Where: This work exists as a queue of patches that I apply to
+> > linux-next; since the changes are fixing some things that currently
+> > can only be found there.  The patch series can be found at:
+> > 
+> >    http://git.kernel.org/cgit/linux/kernel/git/paulg/init.git
+> >    git://git.kernel.org/pub/scm/linux/kernel/git/paulg/init.git
+> > 
+> > I've avoided annoying Stephen with another queue of patches for
+> > linux-next while the development content was in flux, but now that
+> > the merge window has opened, and new additions are fewer, perhaps he
+> > wouldn't mind tacking it on the end...  Stephen?
+> 
+> OK, I have added this to the end of linux-next today - we will see how we
+> go.  It is called "init".
 
-On Tue, 21 Jan 2014 16:22:03 -0500 Paul Gortmaker <paul.gortmaker@windriver=
-.com> wrote:
->
-> Where: This work exists as a queue of patches that I apply to
-> linux-next; since the changes are fixing some things that currently
-> can only be found there.  The patch series can be found at:
->=20
->    http://git.kernel.org/cgit/linux/kernel/git/paulg/init.git
->    git://git.kernel.org/pub/scm/linux/kernel/git/paulg/init.git
->=20
-> I've avoided annoying Stephen with another queue of patches for
-> linux-next while the development content was in flux, but now that
-> the merge window has opened, and new additions are fewer, perhaps he
-> wouldn't mind tacking it on the end...  Stephen?
+Thanks, it was a great help as it uncovered a few issues in fringe arch
+that I didn't have toolchains for, and I've fixed all of those up.
 
-OK, I have added this to the end of linux-next today - we will see how we
-go.  It is called "init".
+I've noticed that powerpc has been un-buildable for a while now; I have
+used this hack patch locally so I could run the ppc defconfigs to check
+that I didn't break anything.  Maybe useful for linux-next in the
+interim?  It is a hack patch -- Not-Signed-off-by: Paul Gortmaker.  :)
 
-Thanks for adding your subsystem tree as a participant of linux-next.  As
-you may know, this is not a judgment of your code.  The purpose of
-linux-next is for integration testing and to lower the impact of
-conflicts between subsystems in the next merge window.=20
+Paul.
+--
 
-You will need to ensure that the patches/commits in your tree/series have
-been:
-     * submitted under GPL v2 (or later) and include the Contributor's
-	Signed-off-by,
-     * posted to the relevant mailing list,
-     * reviewed by you (or another maintainer of your subsystem tree),
-     * successfully unit tested, and=20
-     * destined for the current or next Linux merge window.
+diff --git a/arch/powerpc/include/asm/pgtable-ppc64.h b/arch/powerpc/include/asm/pgtable-ppc64.h
+index d27960c89a71..d0f070a2b395 100644
+--- a/arch/powerpc/include/asm/pgtable-ppc64.h
++++ b/arch/powerpc/include/asm/pgtable-ppc64.h
+@@ -560,9 +560,9 @@ extern void pmdp_invalidate(struct vm_area_struct *vma, unsigned long address,
+ 			    pmd_t *pmdp);
+ 
+ #define pmd_move_must_withdraw pmd_move_must_withdraw
+-typedef struct spinlock spinlock_t;
+-static inline int pmd_move_must_withdraw(spinlock_t *new_pmd_ptl,
+-					 spinlock_t *old_pmd_ptl)
++struct spinlock;
++static inline int pmd_move_must_withdraw(struct spinlock *new_pmd_ptl,
++					 struct spinlock *old_pmd_ptl)
+ {
+ 	/*
+ 	 * Archs like ppc64 use pgtable to store per pmd
 
-Basically, this should be just what you would send to Linus (or ask him
-to fetch).  It is allowed to be rebased if you deem it necessary.
-
---=20
-Cheers,
-Stephen Rothwell=20
-sfr@canb.auug.org.au
-
-Legal Stuff:
-By participating in linux-next, your subsystem tree contributions are
-public and will be included in the linux-next trees.  You may be sent
-e-mail messages indicating errors or other issues when the
-patches/commits from your subsystem tree are merged and tested in
-linux-next.  These messages may also be cross-posted to the linux-next
-mailing list, the linux-kernel mailing list, etc.  The linux-next tree
-project and IBM (my employer) make no warranties regarding the linux-next
-project, the testing procedures, the results, the e-mails, etc.  If you
-don't agree to these ground rules, let me know and I'll remove your tree
-from participation in linux-next.
-
---Signature=_Wed__22_Jan_2014_18_00_23_+1100_zcOtMRV1NI/h=88n
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-
-iQIcBAEBCAAGBQJS32yLAAoJEMDTa8Ir7ZwVm18P/i9+tdEJe4LadVgjePUgRka0
-guzWVBgQs96hVeg/7h+LJWNRsMgu90m1S6n0BhoA/maJqSb1zHJ5VhWbPuDkCdRo
-EEB1J/lW35ziCkBg+ejAQm1c+5QIsoyi0MbuFEGyX7a8FgFJrzC3bJCQCysNHsxR
-mKYtXKdpPzpluxSzjCdecZyfWA6SU3Lbvgh6Th3yyQaAlm/QOk/k3wGGvQND/ODS
-37ktKXITCAnhCZ6HvVanJvim6pK78dDJPL1h7yVZ/heYJbEqEONfFuHeg+j1RVZg
-ilcnhvmkg6jEJoQkHB+ZopLVwv+QEnkPxzDPwmNNcAIexxvHXXpOkc3geeWtNsHp
-NNvJFXIWMbzemktgVNM3r5uxgnPmAcHCU6vaZTv/kodSZDuGrkvbOscwEpNyr1Bw
-rVm5gSiLyfA8eecFymGhPXvPvrAbmcA11lxZCh0V4gmgC5eKrUwiTIFGhm6n9WCy
-FartKLucuqCzLOgLujCC+c+7BOwTjc1vyMBbQtBwSCfPc/tyZZLvI9QTyv3tJKro
-G4Jimb7wth9sm93N7n9uplshLbNrNvTbE3Q9OU+mOKMzj0uD9ck/htxfh1vEZKWd
-vfuOCJrgnQdOA/TeZQmlKfIy/t2hkJXAV/oipKVrGg45oJZB72Tt7BA4FhUi/PeE
-2qfphmmDreRrUP/I4bqp
-=j4pk
------END PGP SIGNATURE-----
-
---Signature=_Wed__22_Jan_2014_18_00_23_+1100_zcOtMRV1NI/h=88n--
