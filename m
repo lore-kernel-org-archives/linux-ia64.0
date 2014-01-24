@@ -1,51 +1,95 @@
-From: Bjorn Helgaas <bhelgaas@google.com>
-Date: Wed, 29 Jan 2014 18:18:19 +0000
-Subject: [PATCH 07/17] x86/PCI: Use x86_pci_root_bus_node() instead of get_mp_bus_to_node()
-Message-Id: <20140129181819.15476.16563.stgit@bhelgaas-glaptop.roam.corp.google.com>
+From: Mikulas Patocka <mpatocka@redhat.com>
+Date: Fri, 24 Jan 2014 01:53:09 +0000
+Subject: [PATCH 4/5] ia64 simscsi: fix race condition and simplify the code
+Message-Id: <alpine.LRH.2.02.1401232046500.16873@file01.intranet.prod.int.rdu2.redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20140129174106.15476.7075.stgit@bhelgaas-glaptop.roam.corp.google.com>
-In-Reply-To: <20140129174106.15476.7075.stgit@bhelgaas-glaptop.roam.corp.google.com>
+References: <alpine.LRH.2.02.1401232041520.16873@file01.intranet.prod.int.rdu2.redhat.com> <alpine.LRH.2.02.1401232043320.16873@file01.intranet.prod.int.rdu2.redhat.com> <alpine.LRH.2.02.1401232044180.16873@file01.intranet.prod.int.rdu2.redhat.com>
+ <alpine.LRH.2.02.1401232045350.16873@file01.intranet.prod.int.rdu2.redhat.com>
+In-Reply-To: <alpine.LRH.2.02.1401232045350.16873@file01.intranet.prod.int.rdu2.redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-pci@vger.kernel.org
-Cc: linux-acpi@vger.kernel.org, x86@kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-scsi@vger.kernel.org
 
-This replaces all uses of get_mp_bus_to_node() with x86_pci_root_bus_node().
+The simscsi driver processes the requests in the request routine and then
+offloads the completion callback to a tasklet. This is buggy because there
+is parallel unsynchronized access to the completion queue from the request
+routine and from the tasklet.
 
-I think these uses are all on root buses, except possibly for blind
-probing, where NUMA node information is unimportant.
+With current SCSI architecture, requests can be completed directly from
+the requets routine. So I removed the tasklet code.
 
-Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
+Signed-off-by: Mikulas Patocka <mpatocka@redhat.com>
+
 ---
- arch/x86/pci/acpi.c   |    2 +-
- arch/x86/pci/common.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ arch/ia64/hp/sim/simscsi.c |   34 ++--------------------------------
+ 1 file changed, 2 insertions(+), 32 deletions(-)
 
-diff --git a/arch/x86/pci/acpi.c b/arch/x86/pci/acpi.c
-index 4f25ec077552..3f42c5c05bf6 100644
---- a/arch/x86/pci/acpi.c
-+++ b/arch/x86/pci/acpi.c
-@@ -503,7 +503,7 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
- 		set_mp_bus_to_node(busnum, node);
- 	else
- #endif
--		node = get_mp_bus_to_node(busnum);
-+		node = x86_pci_root_bus_node(busnum);
+Index: linux-2.6-ia64/arch/ia64/hp/sim/simscsi.c
+=================================--- linux-2.6-ia64.orig/arch/ia64/hp/sim/simscsi.c	2014-01-24 01:23:08.000000000 +0100
++++ linux-2.6-ia64/arch/ia64/hp/sim/simscsi.c	2014-01-24 01:26:16.000000000 +0100
+@@ -47,9 +47,6 @@
  
- 	if (node != -1 && !node_online(node))
- 		node = -1;
-diff --git a/arch/x86/pci/common.c b/arch/x86/pci/common.c
-index 600e5925f1a4..f7d6800f10d1 100644
---- a/arch/x86/pci/common.c
-+++ b/arch/x86/pci/common.c
-@@ -467,7 +467,7 @@ void pcibios_scan_root(int busnum)
- 		printk(KERN_ERR "PCI: OOM, skipping PCI bus %02x\n", busnum);
- 		return;
+ static struct Scsi_Host *host;
+ 
+-static void simscsi_interrupt (unsigned long val);
+-static DECLARE_TASKLET(simscsi_tasklet, simscsi_interrupt, 0);
+-
+ struct disk_req {
+ 	unsigned long addr;
+ 	unsigned len;
+@@ -64,13 +61,6 @@ static int desc[16] = {
+ 	-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1
+ };
+ 
+-static struct queue_entry {
+-	struct scsi_cmnd *sc;
+-} queue[SIMSCSI_REQ_QUEUE_LEN];
+-
+-static int rd, wr;
+-static atomic_t num_reqs = ATOMIC_INIT(0);
+-
+ /* base name for default disks */
+ static char *simscsi_root = DEFAULT_SIMSCSI_ROOT;
+ 
+@@ -95,21 +85,6 @@ simscsi_setup (char *s)
+ 
+ __setup("simscsi=", simscsi_setup);
+ 
+-static void
+-simscsi_interrupt (unsigned long val)
+-{
+-	struct scsi_cmnd *sc;
+-
+-	while ((sc = queue[rd].sc) != NULL) {
+-		atomic_dec(&num_reqs);
+-		queue[rd].sc = NULL;
+-		if (DBG)
+-			printk("simscsi_interrupt: done with %ld\n", sc->serial_number);
+-		(*sc->scsi_done)(sc);
+-		rd = (rd + 1) % SIMSCSI_REQ_QUEUE_LEN;
+-	}
+-}
+-
+ static int
+ simscsi_biosparam (struct scsi_device *sdev, struct block_device *n,
+ 		sector_t capacity, int ip[])
+@@ -315,14 +290,9 @@ simscsi_queuecommand_lck (struct scsi_cm
+ 		sc->sense_buffer[0] = 0x70;
+ 		sc->sense_buffer[2] = 0x00;
  	}
--	sd->node = get_mp_bus_to_node(busnum);
-+	sd->node = x86_pci_root_bus_node(busnum);
- 	x86_pci_root_bus_resources(busnum, &resources);
- 	printk(KERN_DEBUG "PCI: Probing PCI hardware (bus %02x)\n", busnum);
- 	bus = pci_scan_root_bus(NULL, busnum, &pci_root_ops, sd, &resources);
+-	if (atomic_read(&num_reqs) >= SIMSCSI_REQ_QUEUE_LEN) {
+-		panic("Attempt to queue command while command is pending!!");
+-	}
+-	atomic_inc(&num_reqs);
+-	queue[wr].sc = sc;
+-	wr = (wr + 1) % SIMSCSI_REQ_QUEUE_LEN;
+ 
+-	tasklet_schedule(&simscsi_tasklet);
++	(*sc->scsi_done)(sc);
++
+ 	return 0;
+ }
+ 
 
