@@ -1,26 +1,17 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 27 Jan 2014 21:14:16 +0000
-Subject: RE: Kernel compiled with gcc-4.6+ fails to boot on ia64
-Message-Id: <3908561D78D1C84285E8C5FCA982C28F31DBA315@ORSMSX106.amr.corp.intel.com>
+From: Mikulas Patocka <mpatocka@redhat.com>
+Date: Fri, 24 Jan 2014 01:52:44 +0000
+Subject: [PATCH 0/5] ia64 ski emulator patches
+Message-Id: <alpine.LRH.2.02.1401232041520.16873@file01.intranet.prod.int.rdu2.redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <3908561D78D1C84285E8C5FCA982C28F31DB1BDA@ORSMSX106.amr.corp.intel.com>
-In-Reply-To: <3908561D78D1C84285E8C5FCA982C28F31DB1BDA@ORSMSX106.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-> Tony, is GDB working correctly with your gcc 4.8.2-compiled kernel?
-> Indeed, one noticeable evidence of optimization's breakage is GDB
-> stopping with SIGTRAP at address 0 as soon as GDB's run command is
-> executed [1].
+Hi
 
-Seems ok.  Tested using "GNU gdb (GDB) SUSE (7.5.1-0.7.29) I took a
-"Hello World" program. Set a breakpoint at "main". Started running.
-It stopped at the breakpoint. "s" stepped a line and printed the
-Hello World. "c" continued until child terminated.
+Here I'm sending some ia64 patches to make it work in the ski emulator. 
+This has been broken for a long time.
 
-Kernel is the latest linux next (tag = next-20140124).
-
--Tony
-
+Mikulas
