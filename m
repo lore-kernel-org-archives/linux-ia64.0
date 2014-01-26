@@ -1,8 +1,10 @@
-From: Abdul Nasser <nasser500@justin.ddo.jp>
-Date: Sun, 26 Jan 2014 21:31:17 +0000
+From: Abdul Nasser <abdulnas500@justin.ddo.jp>
+Date: Sun, 26 Jan 2014 21:52:34 +0000
 Subject: Kind Regards
-Message-Id: <SECEXCHANGEir3wSimD0000396f@mail.standardelectronics.com>
+Message-Id: <SECEXCHANGEdAefpGtS00004096@mail.standardelectronics.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <SECEXCHANGEir3wSimD0000396f@mail.standardelectronics.com>
+In-Reply-To: <SECEXCHANGEir3wSimD0000396f@mail.standardelectronics.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
