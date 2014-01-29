@@ -1,7 +1,7 @@
 From: Bjorn Helgaas <bhelgaas@google.com>
-Date: Wed, 29 Jan 2014 18:17:41 +0000
-Subject: [PATCH 02/17] x86/PCI: Use pcibios_scan_root() instead of pci_scan_bus_with_sysdata()
-Message-Id: <20140129181741.15476.52860.stgit@bhelgaas-glaptop.roam.corp.google.com>
+Date: Wed, 29 Jan 2014 18:17:56 +0000
+Subject: [PATCH 04/17] x86/PCI: Merge pci_scan_bus_on_node() into pcibios_scan_root()
+Message-Id: <20140129181756.15476.8169.stgit@bhelgaas-glaptop.roam.corp.google.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20140129174106.15476.7075.stgit@bhelgaas-glaptop.roam.corp.google.com>
 In-Reply-To: <20140129174106.15476.7075.stgit@bhelgaas-glaptop.roam.corp.google.com>
@@ -11,120 +11,96 @@ Content-Transfer-Encoding: 7bit
 To: linux-pci@vger.kernel.org
 Cc: linux-acpi@vger.kernel.org, x86@kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-pci_scan_bus_with_sysdata() and pcibios_scan_root() are quite similar:
-
-  pci_scan_bus_with_sysdata
-    pci_scan_bus_on_node(..., &pci_root_ops, -1)
-
-  pcibios_scan_root
-    pci_scan_bus_on_node(..., &pci_root_ops, get_mp_bus_to_node(busnum))
-
-get_mp_bus_to_node() returns -1 if it couldn't find the node number, so
-this removes pci_scan_bus_with_sysdata() and uses pcibios_scan_root()
-instead.
+pci_scan_bus_on_node() is only called by pcibios_scan_root().
+This merges pci_scan_bus_on_node() into pcibios_scan_root() and removes
+pci_scan_bus_on_node().
 
 Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
 ---
- arch/x86/include/asm/pci.h |    1 -
- arch/x86/pci/common.c      |    5 -----
- arch/x86/pci/fixup.c       |    6 +++---
- arch/x86/pci/numaq_32.c    |    6 +++---
- arch/x86/pci/visws.c       |    4 ++--
- 5 files changed, 8 insertions(+), 14 deletions(-)
+ arch/x86/include/asm/pci.h |    4 ----
+ arch/x86/pci/common.c      |   49 +++++++++++++++++---------------------------
+ 2 files changed, 19 insertions(+), 34 deletions(-)
 
 diff --git a/arch/x86/include/asm/pci.h b/arch/x86/include/asm/pci.h
-index 1ac6114c9ea5..4e891abf8b48 100644
+index 4e891abf8b48..b52f9c0ec5fb 100644
 --- a/arch/x86/include/asm/pci.h
 +++ b/arch/x86/include/asm/pci.h
-@@ -29,7 +29,6 @@ extern int noioapicreroute;
- /* scan a bus after allocating a pci_sysdata for it */
- extern struct pci_bus *pci_scan_bus_on_node(int busno, struct pci_ops *ops,
- 					    int node);
--extern struct pci_bus *pci_scan_bus_with_sysdata(int busno);
+@@ -26,10 +26,6 @@ extern int pci_routeirq;
+ extern int noioapicquirk;
+ extern int noioapicreroute;
  
+-/* scan a bus after allocating a pci_sysdata for it */
+-extern struct pci_bus *pci_scan_bus_on_node(int busno, struct pci_ops *ops,
+-					    int node);
+-
  #ifdef CONFIG_PCI
  
+ #ifdef CONFIG_PCI_DOMAINS
 diff --git a/arch/x86/pci/common.c b/arch/x86/pci/common.c
-index c47bb2288bb9..f530c7e93250 100644
+index f530c7e93250..52ad00c2e198 100644
 --- a/arch/x86/pci/common.c
 +++ b/arch/x86/pci/common.c
-@@ -697,11 +697,6 @@ struct pci_bus *pci_scan_bus_on_node(int busno, struct pci_ops *ops, int node)
- 	return bus;
+@@ -458,8 +458,25 @@ void __init dmi_check_pciprobe(void)
+ 
+ struct pci_bus *pcibios_scan_root(int busnum)
+ {
+-	return pci_scan_bus_on_node(busnum, &pci_root_ops,
+-					get_mp_bus_to_node(busnum));
++	struct pci_bus *bus;
++	struct pci_sysdata *sd;
++	LIST_HEAD(resources);
++
++	sd = kzalloc(sizeof(*sd), GFP_KERNEL);
++	if (!sd) {
++		printk(KERN_ERR "PCI: OOM, skipping PCI bus %02x\n", busnum);
++		return NULL;
++	}
++	sd->node = get_mp_bus_to_node(busnum);
++	x86_pci_root_bus_resources(busnum, &resources);
++	printk(KERN_DEBUG "PCI: Probing PCI hardware (bus %02x)\n", busnum);
++	bus = pci_scan_root_bus(NULL, busnum, &pci_root_ops, sd, &resources);
++	if (!bus) {
++		pci_free_resource_list(&resources);
++		kfree(sd);
++	}
++
++	return bus;
  }
  
--struct pci_bus *pci_scan_bus_with_sysdata(int busno)
+ void __init pcibios_set_cache_line_size(void)
+@@ -669,34 +686,6 @@ int pci_ext_cfg_avail(void)
+ 		return 0;
+ }
+ 
+-struct pci_bus *pci_scan_bus_on_node(int busno, struct pci_ops *ops, int node)
 -{
--	return pci_scan_bus_on_node(busno, &pci_root_ops, -1);
+-	LIST_HEAD(resources);
+-	struct pci_bus *bus = NULL;
+-	struct pci_sysdata *sd;
+-
+-	/*
+-	 * Allocate per-root-bus (not per bus) arch-specific data.
+-	 * TODO: leak; this memory is never freed.
+-	 * It's arguable whether it's worth the trouble to care.
+-	 */
+-	sd = kzalloc(sizeof(*sd), GFP_KERNEL);
+-	if (!sd) {
+-		printk(KERN_ERR "PCI: OOM, skipping PCI bus %02x\n", busno);
+-		return NULL;
+-	}
+-	sd->node = node;
+-	x86_pci_root_bus_resources(busno, &resources);
+-	printk(KERN_DEBUG "PCI: Probing PCI hardware (bus %02x)\n", busno);
+-	bus = pci_scan_root_bus(NULL, busno, ops, sd, &resources);
+-	if (!bus) {
+-		pci_free_resource_list(&resources);
+-		kfree(sd);
+-	}
+-
+-	return bus;
 -}
 -
  /*
   * NUMA info for PCI busses
   *
-diff --git a/arch/x86/pci/fixup.c b/arch/x86/pci/fixup.c
-index bca9e85daaa5..201833f5f1bc 100644
---- a/arch/x86/pci/fixup.c
-+++ b/arch/x86/pci/fixup.c
-@@ -25,9 +25,9 @@ static void pci_fixup_i450nx(struct pci_dev *d)
- 		dev_dbg(&d->dev, "i450NX PXB %d: %02x/%02x/%02x\n", pxb, busno,
- 			suba, subb);
- 		if (busno)
--			pci_scan_bus_with_sysdata(busno);	/* Bus A */
-+			pcibios_scan_root(busno);	/* Bus A */
- 		if (suba < subb)
--			pci_scan_bus_with_sysdata(suba+1);	/* Bus B */
-+			pcibios_scan_root(suba+1);	/* Bus B */
- 	}
- 	pcibios_last_bus = -1;
- }
-@@ -42,7 +42,7 @@ static void pci_fixup_i450gx(struct pci_dev *d)
- 	u8 busno;
- 	pci_read_config_byte(d, 0x4a, &busno);
- 	dev_info(&d->dev, "i440KX/GX host bridge; secondary bus %02x\n", busno);
--	pci_scan_bus_with_sysdata(busno);
-+	pcibios_scan_root(busno);
- 	pcibios_last_bus = -1;
- }
- DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82454GX, pci_fixup_i450gx);
-diff --git a/arch/x86/pci/numaq_32.c b/arch/x86/pci/numaq_32.c
-index 72c229f9ebcf..080eb0374fff 100644
---- a/arch/x86/pci/numaq_32.c
-+++ b/arch/x86/pci/numaq_32.c
-@@ -135,11 +135,11 @@ static void pci_fixup_i450nx(struct pci_dev *d)
- 			pxb, busno, suba, subb);
- 		if (busno) {
- 			/* Bus A */
--			pci_scan_bus_with_sysdata(QUADLOCAL2BUS(quad, busno));
-+			pcibios_scan_root(QUADLOCAL2BUS(quad, busno));
- 		}
- 		if (suba < subb) {
- 			/* Bus B */
--			pci_scan_bus_with_sysdata(QUADLOCAL2BUS(quad, suba+1));
-+			pcibios_scan_root(QUADLOCAL2BUS(quad, suba+1));
- 		}
- 	}
- 	pcibios_last_bus = -1;
-@@ -159,7 +159,7 @@ int __init pci_numaq_init(void)
- 				continue;
- 			printk("Scanning PCI bus %d for quad %d\n", 
- 				QUADLOCAL2BUS(quad,0), quad);
--			pci_scan_bus_with_sysdata(QUADLOCAL2BUS(quad, 0));
-+			pcibios_scan_root(QUADLOCAL2BUS(quad, 0));
- 		}
- 	return 0;
- }
-diff --git a/arch/x86/pci/visws.c b/arch/x86/pci/visws.c
-index 3e6d2a6db866..cd9d4d1681d2 100644
---- a/arch/x86/pci/visws.c
-+++ b/arch/x86/pci/visws.c
-@@ -78,8 +78,8 @@ int __init pci_visws_init(void)
- 		"bridge B (PIIX4) bus: %u\n", pci_bus1, pci_bus0);
- 
- 	raw_pci_ops = &pci_direct_conf1;
--	pci_scan_bus_with_sysdata(pci_bus0);
--	pci_scan_bus_with_sysdata(pci_bus1);
-+	pcibios_scan_root(pci_bus0);
-+	pcibios_scan_root(pci_bus1);
- 	pci_fixup_irqs(pci_common_swizzle, visws_map_irq);
- 	pcibios_resource_survey();
- 	/* Request bus scan */
 
