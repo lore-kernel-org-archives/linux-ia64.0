@@ -1,112 +1,74 @@
-From: Sander Eikelenboom <linux@eikelenboom.it>
-Date: Fri, 31 Jan 2014 09:28:23 +0000
-Subject: [PATCH v2] Setting the IORESOURCE_ROM_SHADOW flag on a VGA card other than the primary prevents it f
-Message-Id: <1391160503-11122-2-git-send-email-linux@eikelenboom.it>
+From: Bjorn Helgaas <bhelgaas@google.com>
+Date: Wed, 29 Jan 2014 18:17:25 +0000
+Subject: [PATCH 00/17] x86, ia64 NUMA cleanup
+Message-Id: <20140129174106.15476.7075.stgit@bhelgaas-glaptop.roam.corp.google.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20140130000831.GJ16825@google.com>
- <1391160503-11122-1-git-send-email-linux@eikelenboom.it>
-In-Reply-To: <1391160503-11122-1-git-send-email-linux@eikelenboom.it>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>, Tony Luck <tony.luck@intel.com>, Dave Airlie <airlied@redhat.com>, Eiichiro Oiwa <eiichiro.oiwa.nm@hitachi.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: Sander Eikelenboom <linux@eikelenboom.it>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, "linux-kernel @ vger . kernel . org" <linux-kernel@vger.kernel.org>, "linux-pci @ vger . kernel . org" <linux-pci@vger.kernel.org>, linux-ia64@vger.kernel.org
+To: linux-pci@vger.kernel.org
+Cc: linux-acpi@vger.kernel.org, x86@kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Fix this by checking if the arch code or vga-arbitration has already
-determined the vga_default_device, if so only apply the fix to this
-primary video device and let the comment reflect this.
+This is all cleanup: it adds no new functionality and should make no
+functional difference at all except a printk change or two.
 
-Signed-off-by: Sander Eikelenboom <linux@eikelenboom.it>
+The main ideas are:
+
+  - Clean up the x86 PCI bus scanning interfaces.  We had:
+      struct pci_bus *pci_scan_bus_on_node(int bus, struct pci_ops *, int node)
+      struct pci_bus *pcibios_scan_root(int bus)
+      struct pci_bus *pci_scan_bus_with_sysdata(int bus)
+      void pcibios_scan_specific_bus(int bus)
+    These were all basically the same, so I kept only pcibios_scan_root().
+
+  - Get rid of mp_bus_to_node[].  This was basically a way of passing node
+    info from the AMD "native host bridg driver" (amd_bus.c) into the PCI
+    core.  It was clunky and inconsistent between x86-64 and i386.  I
+    replaced it with x86_pci_root_bus_node(), analogous to the existing
+    x86_pci_root_bus_resources().
+
+  - Remove _PXM knowledge from the PCI host bridge, IOMMU, and APIC code.
+    They really only care about the NUMA node number, not the raw _PXM
+    value.
+
 ---
- arch/ia64/pci/fixup.c |   24 +++++++++++++-----------
- arch/x86/pci/fixup.c  |   18 ++++++++++--------
- 2 files changed, 23 insertions(+), 19 deletions(-)
 
-diff --git a/arch/ia64/pci/fixup.c b/arch/ia64/pci/fixup.c
-index 5dc969d..7762255 100644
---- a/arch/ia64/pci/fixup.c
-+++ b/arch/ia64/pci/fixup.c
-@@ -19,9 +19,10 @@
-  * IORESOURCE_ROM_SHADOW is used to associate the boot video
-  * card with this copy. On laptops this copy has to be used since
-  * the main ROM may be compressed or combined with another image.
-- * See pci_map_rom() for use of this flag. IORESOURCE_ROM_SHADOW
-- * is marked here since the boot video device will be the only enabled
-- * video device at this point.
-+ * See pci_map_rom() for use of this flag. Before marking the device
-+ * with IORESOURCE_ROM_SHADOW check if a vga_default_device is already set
-+ * by either arch cde or vga-arbitration, if so only apply the fixup to this
-+ * already determined primary video card.
-  */
- 
- static void pci_fixup_video(struct pci_dev *pdev)
-@@ -35,9 +36,6 @@ static void pci_fixup_video(struct pci_dev *pdev)
- 		return;
- 	/* Maybe, this machine supports legacy memory map. */
- 
--	if ((pdev->class >> 8) != PCI_CLASS_DISPLAY_VGA)
--		return;
--
- 	/* Is VGA routed to us? */
- 	bus = pdev->bus;
- 	while (bus) {
-@@ -60,10 +58,14 @@ static void pci_fixup_video(struct pci_dev *pdev)
- 		}
- 		bus = bus->parent;
- 	}
--	pci_read_config_word(pdev, PCI_COMMAND, &config);
--	if (config & (PCI_COMMAND_IO | PCI_COMMAND_MEMORY)) {
--		pdev->resource[PCI_ROM_RESOURCE].flags |= IORESOURCE_ROM_SHADOW;
--		dev_printk(KERN_DEBUG, &pdev->dev, "Boot video device\n");
-+	if (!vga_default_device() || pdev = vga_default_device()) {
-+		pci_read_config_word(pdev, PCI_COMMAND, &config);
-+		if (config & (PCI_COMMAND_IO | PCI_COMMAND_MEMORY)) {
-+			pdev->resource[PCI_ROM_RESOURCE].flags |= IORESOURCE_ROM_SHADOW;
-+			dev_printk(KERN_DEBUG, &pdev->dev, "Boot video device\n");
-+			vga_set_default_device(pdev);
-+		}
- 	}
- }
--DECLARE_PCI_FIXUP_HEADER(PCI_ANY_ID, PCI_ANY_ID, pci_fixup_video);
-+DECLARE_PCI_FIXUP_CLASS_FINAL(PCI_ANY_ID, PCI_ANY_ID,
-+				PCI_CLASS_DISPLAY_VGA, 8, pci_fixup_video);
-diff --git a/arch/x86/pci/fixup.c b/arch/x86/pci/fixup.c
-index b046e07..34528a7 100644
---- a/arch/x86/pci/fixup.c
-+++ b/arch/x86/pci/fixup.c
-@@ -314,9 +314,10 @@ DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL,	PCI_DEVICE_ID_INTEL_MCH_PC1,	pcie_r
-  * IORESOURCE_ROM_SHADOW is used to associate the boot video
-  * card with this copy. On laptops this copy has to be used since
-  * the main ROM may be compressed or combined with another image.
-- * See pci_map_rom() for use of this flag. IORESOURCE_ROM_SHADOW
-- * is marked here since the boot video device will be the only enabled
-- * video device at this point.
-+ * See pci_map_rom() for use of this flag. Before marking the device
-+ * with IORESOURCE_ROM_SHADOW check if a vga_default_device is already set
-+ * by either arch cde or vga-arbitration, if so only apply the fixup to this
-+ * already determined primary video card.
-  */
- 
- static void pci_fixup_video(struct pci_dev *pdev)
-@@ -347,12 +348,13 @@ static void pci_fixup_video(struct pci_dev *pdev)
- 		}
- 		bus = bus->parent;
- 	}
--	pci_read_config_word(pdev, PCI_COMMAND, &config);
--	if (config & (PCI_COMMAND_IO | PCI_COMMAND_MEMORY)) {
--		pdev->resource[PCI_ROM_RESOURCE].flags |= IORESOURCE_ROM_SHADOW;
--		dev_printk(KERN_DEBUG, &pdev->dev, "Boot video device\n");
--		if (!vga_default_device())
-+	if (!vga_default_device() || pdev = vga_default_device()) {
-+		pci_read_config_word(pdev, PCI_COMMAND, &config);
-+		if (config & (PCI_COMMAND_IO | PCI_COMMAND_MEMORY)) {
-+			pdev->resource[PCI_ROM_RESOURCE].flags |= IORESOURCE_ROM_SHADOW;
-+			dev_printk(KERN_DEBUG, &pdev->dev, "Boot video device\n");
- 			vga_set_default_device(pdev);
-+		}
- 	}
- }
- DECLARE_PCI_FIXUP_CLASS_FINAL(PCI_ANY_ID, PCI_ANY_ID,
--- 
-1.7.10.4
+Bjorn Helgaas (17):
+      x86/PCI: Drop pcibios_scan_root() check for bus already scanned
+      x86/PCI: Use pcibios_scan_root() instead of pci_scan_bus_with_sysdata()
+      x86/PCI: Use pcibios_scan_root() instead of pci_scan_bus_on_node()
+      x86/PCI: Merge pci_scan_bus_on_node() into pcibios_scan_root()
+      x86/PCI: Drop return value of pcibios_scan_root()
+      x86/PCI: Add x86_pci_root_bus_node() to look up NUMA node from PCI bus
+      x86/PCI: Use x86_pci_root_bus_node() instead of get_mp_bus_to_node()
+      x86/PCI: Remove mp_bus_to_node[], set_mp_bus_to_node(), get_mp_bus_to_node()
+      x86/PCI: Remove unnecessary list_empty(&pci_root_infos) check
+      x86/PCI: Use NUMA_NO_NODE, not -1, for unknown node
+      x86/PCI: Remove acpi_get_pxm() usage
+      ia64 / sba_iommu: Use NUMA_NO_NODE, not MAX_NUMNODES, for unknown node
+      ia64: Remove acpi_get_pxm() usage
+      ACPI / numa: Fix acpi_get_node() prototype
+      ACPI / numa: Simplify acpi_get_node() style
+      ACPI / numa: Make __acpi_map_pxm_to_node(), acpi_get_pxm() static
+      ACPI / numa: Use __weak, not the gcc-specific version
 
+
+ arch/ia64/hp/common/sba_iommu.c |   32 +++-------
+ arch/ia64/include/asm/pci.h     |    2 -
+ arch/ia64/kernel/acpi.c         |   28 ++-------
+ arch/ia64/pci/pci.c             |   10 +--
+ arch/x86/include/asm/pci.h      |    7 --
+ arch/x86/include/asm/topology.h |   14 ----
+ arch/x86/pci/acpi.c             |   29 ++-------
+ arch/x86/pci/amd_bus.c          |   10 ---
+ arch/x86/pci/bus_numa.c         |   13 +++-
+ arch/x86/pci/common.c           |  128 +++++----------------------------------
+ arch/x86/pci/fixup.c            |    6 +-
+ arch/x86/pci/irq.c              |    6 --
+ arch/x86/pci/legacy.c           |    4 -
+ arch/x86/pci/numaq_32.c         |    6 +-
+ arch/x86/pci/visws.c            |    4 +
+ drivers/acpi/numa.c             |   16 ++---
+ include/acpi/acpi_numa.h        |    1 
+ include/linux/acpi.h            |    9 +--
+ 18 files changed, 75 insertions(+), 250 deletions(-)
