@@ -1,91 +1,84 @@
-From: Mikulas Patocka <mpatocka@redhat.com>
-Date: Fri, 24 Jan 2014 01:53:14 +0000
-Subject: [PATCH 5/5] ia64: fix warnings
-Message-Id: <alpine.LRH.2.02.1401232047560.16873@file01.intranet.prod.int.rdu2.redhat.com>
+From: Bjorn Helgaas <bhelgaas@google.com>
+Date: Wed, 29 Jan 2014 18:18:03 +0000
+Subject: [PATCH 05/17] x86/PCI: Drop return value of pcibios_scan_root()
+Message-Id: <20140129181803.15476.65726.stgit@bhelgaas-glaptop.roam.corp.google.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <alpine.LRH.2.02.1401232041520.16873@file01.intranet.prod.int.rdu2.redhat.com> <alpine.LRH.2.02.1401232043320.16873@file01.intranet.prod.int.rdu2.redhat.com> <alpine.LRH.2.02.1401232044180.16873@file01.intranet.prod.int.rdu2.redhat.com>
- <alpine.LRH.2.02.1401232045350.16873@file01.intranet.prod.int.rdu2.redhat.com> <alpine.LRH.2.02.1401232046500.16873@file01.intranet.prod.int.rdu2.redhat.com>
-In-Reply-To: <alpine.LRH.2.02.1401232046500.16873@file01.intranet.prod.int.rdu2.redhat.com>
+References: <20140129174106.15476.7075.stgit@bhelgaas-glaptop.roam.corp.google.com>
+In-Reply-To: <20140129174106.15476.7075.stgit@bhelgaas-glaptop.roam.corp.google.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-pci@vger.kernel.org
+Cc: linux-acpi@vger.kernel.org, x86@kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Fix some warnings in ia64:
+Nobody really uses the return value of pcibios_scan_root() (one place uses
+it to control a printk, but the printk is not very useful).  This converts
+pcibios_scan_root() to a void function.
 
-arch/ia64/kernel/sys_ia64.c:29:20: warning: unused variable 'mm'
-[-Wunused-variable]
-
-arch/ia64/sn/kernel/setup.c:582:23: warning: argument to 'sizeof' in
-'memset' call is the same pointer type 'struct pda_s *' as the
-destination; expected 'struct pda_s' or an explicit length
-[-Wsizeof-pointer-memaccess]	(this is a real bug!)
-
-arch/ia64/sn/kernel/bte.c:117:22: warning: cast from pointer to integer of
-different size [-Wpointer-to-int-cast]
-
-arch/ia64/sn/kernel/bte.c:125:22: warning: cast from pointer to integer of
-different size [-Wpointer-to-int-cast]
-
-Signed-off-by: Mikulas Patocka <mpatocka@redhat.com
-
+Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
 ---
- arch/ia64/kernel/sys_ia64.c |    3 +--
- arch/ia64/sn/kernel/bte.c   |    4 ++--
- arch/ia64/sn/kernel/setup.c |    2 +-
- 3 files changed, 4 insertions(+), 5 deletions(-)
+ arch/x86/include/asm/pci.h |    2 +-
+ arch/x86/pci/common.c      |    6 ++----
+ arch/x86/pci/irq.c         |    4 +---
+ 3 files changed, 4 insertions(+), 8 deletions(-)
 
-Index: linux-2.6-ia64/arch/ia64/kernel/sys_ia64.c
-=================================--- linux-2.6-ia64.orig/arch/ia64/kernel/sys_ia64.c	2014-01-24 02:20:52.000000000 +0100
-+++ linux-2.6-ia64/arch/ia64/kernel/sys_ia64.c	2014-01-24 02:21:16.000000000 +0100
-@@ -26,7 +26,6 @@ arch_get_unmapped_area (struct file *fil
+diff --git a/arch/x86/include/asm/pci.h b/arch/x86/include/asm/pci.h
+index b52f9c0ec5fb..96ae4f4040bb 100644
+--- a/arch/x86/include/asm/pci.h
++++ b/arch/x86/include/asm/pci.h
+@@ -65,7 +65,7 @@ extern unsigned long pci_mem_start;
+ 
+ extern int pcibios_enabled;
+ void pcibios_config_init(void);
+-struct pci_bus *pcibios_scan_root(int bus);
++void pcibios_scan_root(int bus);
+ 
+ void pcibios_set_master(struct pci_dev *dev);
+ void pcibios_penalize_isa_irq(int irq, int active);
+diff --git a/arch/x86/pci/common.c b/arch/x86/pci/common.c
+index 52ad00c2e198..600e5925f1a4 100644
+--- a/arch/x86/pci/common.c
++++ b/arch/x86/pci/common.c
+@@ -456,7 +456,7 @@ void __init dmi_check_pciprobe(void)
+ 	dmi_check_system(pciprobe_dmi_table);
+ }
+ 
+-struct pci_bus *pcibios_scan_root(int busnum)
++void pcibios_scan_root(int busnum)
  {
- 	long map_shared = (flags & MAP_SHARED);
- 	unsigned long align_mask = 0;
--	struct mm_struct *mm = current->mm;
- 	struct vm_unmapped_area_info info;
- 
- 	if (len > RGN_MAP_LIMIT)
-@@ -34,7 +33,7 @@ arch_get_unmapped_area (struct file *fil
- 
- 	/* handle fixed mapping: prevent overlap with huge pages */
- 	if (flags & MAP_FIXED) {
--		if (is_hugepage_only_range(mm, addr, len))
-+		if (is_hugepage_only_range(current->mm, addr, len))
- 			return -EINVAL;
- 		return addr;
+ 	struct pci_bus *bus;
+ 	struct pci_sysdata *sd;
+@@ -465,7 +465,7 @@ struct pci_bus *pcibios_scan_root(int busnum)
+ 	sd = kzalloc(sizeof(*sd), GFP_KERNEL);
+ 	if (!sd) {
+ 		printk(KERN_ERR "PCI: OOM, skipping PCI bus %02x\n", busnum);
+-		return NULL;
++		return;
  	}
-Index: linux-2.6-ia64/arch/ia64/sn/kernel/bte.c
-=================================--- linux-2.6-ia64.orig/arch/ia64/sn/kernel/bte.c	2014-01-24 02:20:43.000000000 +0100
-+++ linux-2.6-ia64/arch/ia64/sn/kernel/bte.c	2014-01-24 02:21:16.000000000 +0100
-@@ -114,7 +114,7 @@ bte_result_t bte_copy(u64 src, u64 dest,
- 		if (mode & BTE_USE_ANY) {
- 			nasid_to_try[1] = my_nasid;
- 		} else {
--			nasid_to_try[1] = (int)NULL;
-+			nasid_to_try[1] = 0;
- 		}
- 	} else {
- 		/* try local then remote */
-@@ -122,7 +122,7 @@ bte_result_t bte_copy(u64 src, u64 dest,
- 		if (mode & BTE_USE_ANY) {
- 			nasid_to_try[1] = NASID_GET(dest);
- 		} else {
--			nasid_to_try[1] = (int)NULL;
-+			nasid_to_try[1] = 0;
- 		}
+ 	sd->node = get_mp_bus_to_node(busnum);
+ 	x86_pci_root_bus_resources(busnum, &resources);
+@@ -475,8 +475,6 @@ struct pci_bus *pcibios_scan_root(int busnum)
+ 		pci_free_resource_list(&resources);
+ 		kfree(sd);
  	}
+-
+-	return bus;
+ }
  
-Index: linux-2.6-ia64/arch/ia64/sn/kernel/setup.c
-=================================--- linux-2.6-ia64.orig/arch/ia64/sn/kernel/setup.c	2014-01-24 02:20:43.000000000 +0100
-+++ linux-2.6-ia64/arch/ia64/sn/kernel/setup.c	2014-01-24 02:21:16.000000000 +0100
-@@ -579,7 +579,7 @@ void sn_cpu_init(void)
- 		       (sn_prom_type = 1) ? "real" : "fake");
+ void __init pcibios_set_cache_line_size(void)
+diff --git a/arch/x86/pci/irq.c b/arch/x86/pci/irq.c
+index 8658874165c2..84112f55dd7a 100644
+--- a/arch/x86/pci/irq.c
++++ b/arch/x86/pci/irq.c
+@@ -138,9 +138,7 @@ static void __init pirq_peer_trick(void)
+ 	for (i = 1; i < 256; i++) {
+ 		if (!busmap[i] || pci_find_bus(0, i))
+ 			continue;
+-		if (pcibios_scan_root(i))
+-			printk(KERN_INFO "PCI: Discovered primary peer "
+-			       "bus %02x [IRQ]\n", i);
++		pcibios_scan_root(i);
  	}
- 
--	memset(pda, 0, sizeof(pda));
-+	memset(pda, 0, sizeof(*pda));
- 	if (ia64_sn_get_sn_info(0, &sn_hub_info->shub2,
- 				&sn_hub_info->nasid_bitmask,
- 				&sn_hub_info->nasid_shift,
+ 	pcibios_last_bus = -1;
+ }
+
