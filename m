@@ -1,95 +1,74 @@
-From: Mikulas Patocka <mpatocka@redhat.com>
-Date: Fri, 24 Jan 2014 01:53:09 +0000
-Subject: [PATCH 4/5] ia64 simscsi: fix race condition and simplify the code
-Message-Id: <alpine.LRH.2.02.1401232046500.16873@file01.intranet.prod.int.rdu2.redhat.com>
+From: Bjorn Helgaas <bhelgaas@google.com>
+Date: Wed, 29 Jan 2014 18:18:55 +0000
+Subject: [PATCH 12/17] ia64 / sba_iommu: Use NUMA_NO_NODE, not MAX_NUMNODES, for unknown node
+Message-Id: <20140129181855.15476.93329.stgit@bhelgaas-glaptop.roam.corp.google.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <alpine.LRH.2.02.1401232041520.16873@file01.intranet.prod.int.rdu2.redhat.com> <alpine.LRH.2.02.1401232043320.16873@file01.intranet.prod.int.rdu2.redhat.com> <alpine.LRH.2.02.1401232044180.16873@file01.intranet.prod.int.rdu2.redhat.com>
- <alpine.LRH.2.02.1401232045350.16873@file01.intranet.prod.int.rdu2.redhat.com>
-In-Reply-To: <alpine.LRH.2.02.1401232045350.16873@file01.intranet.prod.int.rdu2.redhat.com>
+References: <20140129174106.15476.7075.stgit@bhelgaas-glaptop.roam.corp.google.com>
+In-Reply-To: <20140129174106.15476.7075.stgit@bhelgaas-glaptop.roam.corp.google.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-scsi@vger.kernel.org
+To: linux-pci@vger.kernel.org
+Cc: linux-acpi@vger.kernel.org, x86@kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-The simscsi driver processes the requests in the request routine and then
-offloads the completion callback to a tasklet. This is buggy because there
-is parallel unsynchronized access to the completion queue from the request
-routine and from the tasklet.
+MAX_NUMNODES is typically used for sizing arrays.  NUMA_NO_NODE is the
+usual value for "we don't know what node this is on," e.g., it is the
+error return from acpi_get_node().
 
-With current SCSI architecture, requests can be completed directly from
-the requets routine. So I removed the tasklet code.
+This changes the ioc->node value for unknown nodes from MAX_NUMNODES to
+NUMA_NO_NODE.
 
-Signed-off-by: Mikulas Patocka <mpatocka@redhat.com>
-
+Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
 ---
- arch/ia64/hp/sim/simscsi.c |   34 ++--------------------------------
- 1 file changed, 2 insertions(+), 32 deletions(-)
+ arch/ia64/hp/common/sba_iommu.c |   14 ++++++++------
+ 1 file changed, 8 insertions(+), 6 deletions(-)
 
-Index: linux-2.6-ia64/arch/ia64/hp/sim/simscsi.c
-=================================--- linux-2.6-ia64.orig/arch/ia64/hp/sim/simscsi.c	2014-01-24 01:23:08.000000000 +0100
-+++ linux-2.6-ia64/arch/ia64/hp/sim/simscsi.c	2014-01-24 01:26:16.000000000 +0100
-@@ -47,9 +47,6 @@
+diff --git a/arch/ia64/hp/common/sba_iommu.c b/arch/ia64/hp/common/sba_iommu.c
+index 8e858b593e4f..a52d6b49b7ce 100644
+--- a/arch/ia64/hp/common/sba_iommu.c
++++ b/arch/ia64/hp/common/sba_iommu.c
+@@ -1140,11 +1140,13 @@ sba_alloc_coherent(struct device *dev, size_t size, dma_addr_t *dma_handle,
  
- static struct Scsi_Host *host;
+ #ifdef CONFIG_NUMA
+ 	{
++		int node = ioc->node;
+ 		struct page *page;
+-		page = alloc_pages_exact_node(ioc->node = MAX_NUMNODES ?
+-		                        numa_node_id() : ioc->node, flags,
+-		                        get_order(size));
  
--static void simscsi_interrupt (unsigned long val);
--static DECLARE_TASKLET(simscsi_tasklet, simscsi_interrupt, 0);
--
- struct disk_req {
- 	unsigned long addr;
- 	unsigned len;
-@@ -64,13 +61,6 @@ static int desc[16] = {
- 	-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1
- };
- 
--static struct queue_entry {
--	struct scsi_cmnd *sc;
--} queue[SIMSCSI_REQ_QUEUE_LEN];
--
--static int rd, wr;
--static atomic_t num_reqs = ATOMIC_INIT(0);
--
- /* base name for default disks */
- static char *simscsi_root = DEFAULT_SIMSCSI_ROOT;
- 
-@@ -95,21 +85,6 @@ simscsi_setup (char *s)
- 
- __setup("simscsi=", simscsi_setup);
- 
--static void
--simscsi_interrupt (unsigned long val)
--{
--	struct scsi_cmnd *sc;
--
--	while ((sc = queue[rd].sc) != NULL) {
--		atomic_dec(&num_reqs);
--		queue[rd].sc = NULL;
--		if (DBG)
--			printk("simscsi_interrupt: done with %ld\n", sc->serial_number);
--		(*sc->scsi_done)(sc);
--		rd = (rd + 1) % SIMSCSI_REQ_QUEUE_LEN;
--	}
--}
--
- static int
- simscsi_biosparam (struct scsi_device *sdev, struct block_device *n,
- 		sector_t capacity, int ip[])
-@@ -315,14 +290,9 @@ simscsi_queuecommand_lck (struct scsi_cm
- 		sc->sense_buffer[0] = 0x70;
- 		sc->sense_buffer[2] = 0x00;
- 	}
--	if (atomic_read(&num_reqs) >= SIMSCSI_REQ_QUEUE_LEN) {
--		panic("Attempt to queue command while command is pending!!");
--	}
--	atomic_inc(&num_reqs);
--	queue[wr].sc = sc;
--	wr = (wr + 1) % SIMSCSI_REQ_QUEUE_LEN;
- 
--	tasklet_schedule(&simscsi_tasklet);
-+	(*sc->scsi_done)(sc);
++		if (node = NUMA_NO_NODE)
++			node = numa_node_id();
 +
- 	return 0;
- }
++		page = alloc_pages_exact_node(node, flags, get_order(size));
+ 		if (unlikely(!page))
+ 			return NULL;
  
+@@ -1914,7 +1916,7 @@ ioc_show(struct seq_file *s, void *v)
+ 	seq_printf(s, "Hewlett Packard %s IOC rev %d.%d\n",
+ 		ioc->name, ((ioc->rev >> 4) & 0xF), (ioc->rev & 0xF));
+ #ifdef CONFIG_NUMA
+-	if (ioc->node != MAX_NUMNODES)
++	if (ioc->node != NUMA_NO_NODE)
+ 		seq_printf(s, "NUMA node       : %d\n", ioc->node);
+ #endif
+ 	seq_printf(s, "IOVA size       : %ld MB\n", ((ioc->pdir_size >> 3) * iovp_size)/(1024*1024));
+@@ -2022,7 +2024,7 @@ sba_map_ioc_to_node(struct ioc *ioc, acpi_handle handle)
+ 	unsigned int node;
+ 	int pxm;
+ 
+-	ioc->node = MAX_NUMNODES;
++	ioc->node = NUMA_NO_NODE;
+ 
+ 	pxm = acpi_get_pxm(handle);
+ 
+@@ -2031,7 +2033,7 @@ sba_map_ioc_to_node(struct ioc *ioc, acpi_handle handle)
+ 
+ 	node = pxm_to_node(pxm);
+ 
+-	if (node >= MAX_NUMNODES || !node_online(node))
++	if (node = NUMA_NO_NODE || !node_online(node))
+ 		return;
+ 
+ 	ioc->node = node;
 
