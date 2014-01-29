@@ -1,7 +1,7 @@
 From: Bjorn Helgaas <bhelgaas@google.com>
-Date: Wed, 29 Jan 2014 18:18:11 +0000
-Subject: [PATCH 06/17] x86/PCI: Add x86_pci_root_bus_node() to look up NUMA node from PCI bus
-Message-Id: <20140129181811.15476.19897.stgit@bhelgaas-glaptop.roam.corp.google.com>
+Date: Wed, 29 Jan 2014 18:19:10 +0000
+Subject: [PATCH 14/17] ACPI / numa: Fix acpi_get_node() prototype
+Message-Id: <20140129181910.15476.66581.stgit@bhelgaas-glaptop.roam.corp.google.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20140129174106.15476.7075.stgit@bhelgaas-glaptop.roam.corp.google.com>
 In-Reply-To: <20140129174106.15476.7075.stgit@bhelgaas-glaptop.roam.corp.google.com>
@@ -11,57 +11,46 @@ Content-Transfer-Encoding: 7bit
 To: linux-pci@vger.kernel.org
 Cc: linux-acpi@vger.kernel.org, x86@kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-The AMD early_fill_mp_bus_info() already allocates a struct pci_root_info
-for each PCI host bridge it finds, and that structure contains the NUMA
-node number.  We don't need to keep the same information in the
-mp_bus_to_node[] table.
-
-This adds x86_pci_root_bus_node(), which returns the NUMA node number, or
-NUMA_NO_NODE if the node is unknown.
-
-Note that unlike get_mp_bus_to_node(), x86_pci_root_bus_node() only works
-for root buses.  For example, if amd_bus.c finds a host bridge on node 1 to
-[bus 00-0f], get_mp_bus_to_node() returns 1 for any bus between 00 and 0f,
-but x86_pci_root_bus_node() returns 1 for bus 00 and NUMA_NO_NODE for buses
-01-0f.
+acpi_get_node() takes an acpi_handle, not an "acpi_handle *".  This
+fixes the prototype and the definitions.
 
 Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
 ---
- arch/x86/include/asm/topology.h |    1 +
- arch/x86/pci/bus_numa.c         |   10 ++++++++++
- 2 files changed, 11 insertions(+)
+ drivers/acpi/numa.c  |    2 +-
+ include/linux/acpi.h |    4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/arch/x86/include/asm/topology.h b/arch/x86/include/asm/topology.h
-index d35f24e231cd..09046a1a6c35 100644
---- a/arch/x86/include/asm/topology.h
-+++ b/arch/x86/include/asm/topology.h
-@@ -131,6 +131,7 @@ static inline void arch_fix_phys_package_id(int num, u32 slot)
+diff --git a/drivers/acpi/numa.c b/drivers/acpi/numa.c
+index 9e6816ef280a..dab7dac6b1a8 100644
+--- a/drivers/acpi/numa.c
++++ b/drivers/acpi/numa.c
+@@ -331,7 +331,7 @@ int acpi_get_pxm(acpi_handle h)
+ 	return -1;
  }
  
- struct pci_bus;
-+int x86_pci_root_bus_node(int bus);
- void x86_pci_root_bus_resources(int bus, struct list_head *resources);
- 
- #ifdef CONFIG_SMP
-diff --git a/arch/x86/pci/bus_numa.c b/arch/x86/pci/bus_numa.c
-index c2735feb2508..2e36a4469549 100644
---- a/arch/x86/pci/bus_numa.c
-+++ b/arch/x86/pci/bus_numa.c
-@@ -20,6 +20,16 @@ static struct pci_root_info *x86_find_pci_root_info(int bus)
- 	return NULL;
- }
- 
-+int x86_pci_root_bus_node(int bus)
-+{
-+	struct pci_root_info *info = x86_find_pci_root_info(bus);
-+
-+	if (!info)
-+		return NUMA_NO_NODE;
-+
-+	return info->node;
-+}
-+
- void x86_pci_root_bus_resources(int bus, struct list_head *resources)
+-int acpi_get_node(acpi_handle *handle)
++int acpi_get_node(acpi_handle handle)
  {
- 	struct pci_root_info *info = x86_find_pci_root_info(bus);
+ 	int pxm, node = NUMA_NO_NODE;
+ 
+diff --git a/include/linux/acpi.h b/include/linux/acpi.h
+index 1151a1dcfe41..17bee650a0cb 100644
+--- a/include/linux/acpi.h
++++ b/include/linux/acpi.h
+@@ -260,13 +260,13 @@ extern void acpi_osi_setup(char *str);
+ 
+ #ifdef CONFIG_ACPI_NUMA
+ int acpi_get_pxm(acpi_handle handle);
+-int acpi_get_node(acpi_handle *handle);
++int acpi_get_node(acpi_handle handle);
+ #else
+ static inline int acpi_get_pxm(acpi_handle handle)
+ {
+ 	return 0;
+ }
+-static inline int acpi_get_node(acpi_handle *handle)
++static inline int acpi_get_node(acpi_handle handle)
+ {
+ 	return 0;
+ }
 
