@@ -1,53 +1,50 @@
-From: Mikael Pettersson <mikpelinux@gmail.com>
-Date: Tue, 28 Jan 2014 14:46:21 +0000
-Subject: Re: [PATCH 0/5] ia64 ski emulator patches
-Message-Id: <21223.49853.281661.425847@gargle.gargle.HOWL>
+From: Sander Eikelenboom <linux@eikelenboom.it>
+Date: Fri, 31 Jan 2014 09:28:22 +0000
+Subject: [PATCH v2] Setting the IORESOURCE_ROM_SHADOW flag on a VGA card other than the primary prevents it f
+Message-Id: <1391160503-11122-1-git-send-email-linux@eikelenboom.it>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <alpine.LRH.2.02.1401232041520.16873@file01.intranet.prod.int.rdu2.redhat.com>
-	<21218.28095.779306.523187@gargle.gargle.HOWL>
-	<alpine.LRH.2.02.1401240937020.28468@file01.intranet.prod.int.rdu2.redhat.com>
-	<21219.63903.326798.277717@gargle.gargle.HOWL>
-	<alpine.LRH.2.02.1401251536550.27200@file01.intranet.prod.int.rdu2.redhat.com>
-	<21220.10175.311714.796806@gargle.gargle.HOWL>
-In-Reply-To: <21220.10175.311714.796806@gargle.gargle.HOWL>
+References: <20140130000831.GJ16825@google.com>
+In-Reply-To: <20140130000831.GJ16825@google.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Mikael Pettersson <mikpelinux@gmail.com>
-Cc: Mikulas Patocka <mpatocka@redhat.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Bjorn Helgaas <bhelgaas@google.com>, Tony Luck <tony.luck@intel.com>, Dave Airlie <airlied@redhat.com>, Eiichiro Oiwa <eiichiro.oiwa.nm@hitachi.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: Sander Eikelenboom <linux@eikelenboom.it>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, "linux-kernel @ vger . kernel . org" <linux-kernel@vger.kernel.org>, "linux-pci @ vger . kernel . org" <linux-pci@vger.kernel.org>, linux-ia64@vger.kernel.org
 
-Mikael Pettersson writes:
- > Mikulas Patocka writes:
- >  > 
- >  > 
- >  > On Sat, 25 Jan 2014, Mikael Pettersson wrote:
- >  > 
- >  > > My ski patches are in <http://user.it.uu.se/~mikpe/linux/patches/ia64/ski-1.3.2/>
- >  > > for now.  I'll post the kernel patches to linux-ia64 @ vger in a few minutes.
- >  > > 
- >  > > /Mikael
- >  > 
- >  > Thanks for the patches.
- >  > 
- >  > Isn't this subject to races? - could it lock up if the signal happens just 
- >  > before the pause syscall?
- >  > 
- >  > +    case SSC_HALT_LIGHT:
- >  > +      /* Sleep until SIGIO or SIGALRM is received; this relies on
- >  > +        keyboard/ethernet input being detected via SIGIO, and the
- >  > +        ITC now being emulated via setitimer() and SIGALRM.  */
- >  > +      pause ();
- >  > +      break;
- >  > +
- > 
- > Thanks for the review. You're right, the pause mustn't happen if
- > itc_itimer_fired = 1.  Let me ponder this for a while...
+Hi Bjorn / Tony,
 
-Ok, I've fixed this in two different ways: one patch which uses pselect,
-and one patch which uses plain select + the self-pipe trick.  Both work
-in limited testing, but the pselect one is much nicer and appears to have
-a little less host CPU overhead, so that's the one I'm stress-testing now.
+I fixed up ia64 as well and brought it inline again with the x86 code,
+but i don't have a ia64 machine, so that part is untested.
+Perhaps Tony is able to review/test it ?
 
-Both patches have been uploaded to the same place as before.
+Sander
 
-/Mikael
+
+
+Setting the IORESOURCE_ROM_SHADOW flag on a VGA card other than the primary
+prevents it from reading it's own rom. It will get the content of the shadowrom
+at C000 instead, which is of the primary VGA card and the driver of the
+secondary card will bail out.
+
+Fix this by checking if the arch code or vga-arbitration has already
+determined the vga_default_device, if so only apply the fix to this
+primary video device and let the comment reflect this.
+
+v2:
+    - Fix pci_fixup_video both in x86 and ia64
+
+
+Sander Eikelenboom (1):
+  Setting the IORESOURCE_ROM_SHADOW flag on a VGA card other than the
+    primary     prevents it from reading it's own rom. It will get the
+    content of the shadowrom     at C000 instead, which is of the
+    primary VGA card and the driver of the     secondary card will bail
+    out.
+
+ arch/ia64/pci/fixup.c |   24 +++++++++++++-----------
+ arch/x86/pci/fixup.c  |   18 ++++++++++--------
+ 2 files changed, 23 insertions(+), 19 deletions(-)
+
+-- 
+1.7.10.4
+
