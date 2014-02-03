@@ -1,83 +1,84 @@
 From: Bjorn Helgaas <bhelgaas@google.com>
-Date: Fri, 14 Feb 2014 20:26:43 +0000
-Subject: Re: [PATCH v2] Setting the IORESOURCE_ROM_SHADOW flag on a VGA card other than the primary prevents 
-Message-Id: <20140214202643.GF31093@google.com>
+Date: Mon, 03 Feb 2014 19:23:28 +0000
+Subject: Re: [PATCH 00/17] x86, ia64 NUMA cleanup
+Message-Id: <CAErSpo5whsUH0aM8iocKdn4FOQLEjCQoM+ShjVjzWDxSWTzQnA@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20140130000831.GJ16825@google.com>
- <1391160503-11122-1-git-send-email-linux@eikelenboom.it>
- <20140203145205.GB2992@phenom.dumpdata.com>
- <939539486.20140213104824@eikelenboom.it>
-In-Reply-To: <939539486.20140213104824@eikelenboom.it>
+References: <20140129174106.15476.7075.stgit@bhelgaas-glaptop.roam.corp.google.com>
+In-Reply-To: <20140129174106.15476.7075.stgit@bhelgaas-glaptop.roam.corp.google.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Sander Eikelenboom <linux@eikelenboom.it>
-Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Tony Luck <tony.luck@intel.com>, Dave Airlie <airlied@redhat.com>, Eiichiro Oiwa <eiichiro.oiwa.nm@hitachi.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, "linux-kernel @ vger . kernel . org" <linux-kernel@vger.kernel.org>, "linux-pci @ vger . kernel . org" <linux-pci@vger.kernel.org>, linux-ia64@vger.kernel.org
+To: "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
+Cc: "linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>, "x86@kernel.org" <x86@kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Tony Luck <tony.luck@intel.com>
 
-On Thu, Feb 13, 2014 at 10:48:24AM +0100, Sander Eikelenboom wrote:
-> Hi Bjorn,
-> 
-> I have given it another email and another week, but without gaining any reviewed or acked-by's.
-> It seems the only way forward is to shovel it in linux-next earlier, give it a good soak and see if
-> anyone starts to squeal .. or that everything seems to be ok :-)
-> 
-> Would you need a v3 with the acked and reviewed-by from Konrad for x86 in it ?
+[+cc Tony]
 
-No need, I applied this to my pci/misc branch for v3.15.
+On Wed, Jan 29, 2014 at 11:17 AM, Bjorn Helgaas <bhelgaas@google.com> wrote:
+> This is all cleanup: it adds no new functionality and should make no
+> functional difference at all except a printk change or two.
+>
+> The main ideas are:
+>
+>   - Clean up the x86 PCI bus scanning interfaces.  We had:
+>       struct pci_bus *pci_scan_bus_on_node(int bus, struct pci_ops *, int node)
+>       struct pci_bus *pcibios_scan_root(int bus)
+>       struct pci_bus *pci_scan_bus_with_sysdata(int bus)
+>       void pcibios_scan_specific_bus(int bus)
+>     These were all basically the same, so I kept only pcibios_scan_root().
+>
+>   - Get rid of mp_bus_to_node[].  This was basically a way of passing node
+>     info from the AMD "native host bridg driver" (amd_bus.c) into the PCI
+>     core.  It was clunky and inconsistent between x86-64 and i386.  I
+>     replaced it with x86_pci_root_bus_node(), analogous to the existing
+>     x86_pci_root_bus_resources().
+>
+>   - Remove _PXM knowledge from the PCI host bridge, IOMMU, and APIC code.
+>     They really only care about the NUMA node number, not the raw _PXM
+>     value.
+>
+> ---
+>
+> Bjorn Helgaas (17):
+>       x86/PCI: Drop pcibios_scan_root() check for bus already scanned
+>       x86/PCI: Use pcibios_scan_root() instead of pci_scan_bus_with_sysdata()
+>       x86/PCI: Use pcibios_scan_root() instead of pci_scan_bus_on_node()
+>       x86/PCI: Merge pci_scan_bus_on_node() into pcibios_scan_root()
+>       x86/PCI: Drop return value of pcibios_scan_root()
+>       x86/PCI: Add x86_pci_root_bus_node() to look up NUMA node from PCI bus
+>       x86/PCI: Use x86_pci_root_bus_node() instead of get_mp_bus_to_node()
+>       x86/PCI: Remove mp_bus_to_node[], set_mp_bus_to_node(), get_mp_bus_to_node()
+>       x86/PCI: Remove unnecessary list_empty(&pci_root_infos) check
+>       x86/PCI: Use NUMA_NO_NODE, not -1, for unknown node
+>       x86/PCI: Remove acpi_get_pxm() usage
+>       ia64 / sba_iommu: Use NUMA_NO_NODE, not MAX_NUMNODES, for unknown node
+>       ia64: Remove acpi_get_pxm() usage
+>       ACPI / numa: Fix acpi_get_node() prototype
+>       ACPI / numa: Simplify acpi_get_node() style
+>       ACPI / numa: Make __acpi_map_pxm_to_node(), acpi_get_pxm() static
+>       ACPI / numa: Use __weak, not the gcc-specific version
+>
+>
+>  arch/ia64/hp/common/sba_iommu.c |   32 +++-------
+>  arch/ia64/include/asm/pci.h     |    2 -
+>  arch/ia64/kernel/acpi.c         |   28 ++-------
+>  arch/ia64/pci/pci.c             |   10 +--
+>  arch/x86/include/asm/pci.h      |    7 --
+>  arch/x86/include/asm/topology.h |   14 ----
+>  arch/x86/pci/acpi.c             |   29 ++-------
+>  arch/x86/pci/amd_bus.c          |   10 ---
+>  arch/x86/pci/bus_numa.c         |   13 +++-
+>  arch/x86/pci/common.c           |  128 +++++----------------------------------
+>  arch/x86/pci/fixup.c            |    6 +-
+>  arch/x86/pci/irq.c              |    6 --
+>  arch/x86/pci/legacy.c           |    4 -
+>  arch/x86/pci/numaq_32.c         |    6 +-
+>  arch/x86/pci/visws.c            |    4 +
+>  drivers/acpi/numa.c             |   16 ++---
+>  include/acpi/acpi_numa.h        |    1
+>  include/linux/acpi.h            |    9 +--
+>  18 files changed, 75 insertions(+), 250 deletions(-)
 
-Tony, let me know if you have any issues with this.
+I added this series to my "next" branch for v3.14.  Tony, let me know
+if you see any ia64 issues.
 
 Bjorn
-
-> Monday, February 3, 2014, 3:52:05 PM, you wrote:
-> 
-> > On Fri, Jan 31, 2014 at 10:28:22AM +0100, Sander Eikelenboom wrote:
-> >> Hi Bjorn / Tony,
-> >> 
-> >> I fixed up ia64 as well and brought it inline again with the x86 code,
-> >> but i don't have a ia64 machine, so that part is untested.
-> >> Perhaps Tony is able to review/test it ?
-> >> 
-> >> Sander
-> >> 
-> >> 
-> >> 
-> >> Setting the IORESOURCE_ROM_SHADOW flag on a VGA card other than the primary
-> >> prevents it from reading it's own rom. It will get the content of the shadowrom
-> >> at C000 instead, which is of the primary VGA card and the driver of the
-> >> secondary card will bail out.
-> >> 
-> >> Fix this by checking if the arch code or vga-arbitration has already
-> >> determined the vga_default_device, if so only apply the fix to this
-> >> primary video device and let the comment reflect this.
-> >> 
-> >> v2:
-> >>     - Fix pci_fixup_video both in x86 and ia64
-> >> 
-> >> 
-> >> Sander Eikelenboom (1):
-> >>   Setting the IORESOURCE_ROM_SHADOW flag on a VGA card other than the
-> >>     primary     prevents it from reading it's own rom. It will get the
-> >>     content of the shadowrom     at C000 instead, which is of the
-> >>     primary VGA card and the driver of the     secondary card will bail
-> >>     out.
-> 
-> > Your editor mutilated your subject line. It ought to have been just
-> > one line.
-> 
-> > Anyhow, you can also add 'Reviewed-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com'
-> > on the patch for the x86 part.
-> 
-> > The ia64 "looks" OK to me, but my ia64 box won't boot v3.11 or later
-> > so I can't give it a 'Tested-by' yet.
-> 
-> >> 
-> >>  arch/ia64/pci/fixup.c |   24 +++++++++++++-----------
-> >>  arch/x86/pci/fixup.c  |   18 ++++++++++--------
-> >>  2 files changed, 23 insertions(+), 19 deletions(-)
-> >> 
-> >> -- 
-> >> 1.7.10.4
-> >> 
-> 
-> 
