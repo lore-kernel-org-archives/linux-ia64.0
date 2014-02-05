@@ -1,7 +1,7 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Date: Wed, 05 Feb 2014 22:17:23 +0000
-Subject: [PATCH 04/51] ia64, salinfo: Fix hotplug callback registration
-Message-Id: <20140205220523.19080.78240.stgit@srivatsabhat.in.ibm.com>
+Date: Wed, 05 Feb 2014 22:17:33 +0000
+Subject: [PATCH 05/51] ia64, palinfo: Fix CPU hotplug callback registration
+Message-Id: <20140205220532.19080.79983.stgit@srivatsabhat.in.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20140205220251.19080.92336.stgit@srivatsabhat.in.ibm.com>
 In-Reply-To: <20140205220251.19080.92336.stgit@srivatsabhat.in.ibm.com>
@@ -42,7 +42,7 @@ registration is:
 	cpu_maps_update_done();
 
 
-Fix the salinfo code in ia64 by using this latter form of callback
+Fix the palinfo code in ia64 by using this latter form of callback
 registration.
 
 Cc: Tony Luck <tony.luck@intel.com>
@@ -51,28 +51,27 @@ Cc: linux-ia64@vger.kernel.org
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- arch/ia64/kernel/salinfo.c |    6 +++++-
+ arch/ia64/kernel/palinfo.c |    6 +++++-
  1 file changed, 5 insertions(+), 1 deletion(-)
 
-diff --git a/arch/ia64/kernel/salinfo.c b/arch/ia64/kernel/salinfo.c
-index 960a396..e630bce 100644
---- a/arch/ia64/kernel/salinfo.c
-+++ b/arch/ia64/kernel/salinfo.c
-@@ -635,6 +635,8 @@ salinfo_init(void)
- 					   (void *)salinfo_entries[i].feature);
- 	}
+diff --git a/arch/ia64/kernel/palinfo.c b/arch/ia64/kernel/palinfo.c
+index ab33328..cfaa06f 100644
+--- a/arch/ia64/kernel/palinfo.c
++++ b/arch/ia64/kernel/palinfo.c
+@@ -996,13 +996,17 @@ palinfo_init(void)
+ 	if (!palinfo_dir)
+ 		return -ENOMEM;
  
 +	cpu_maps_update_begin();
 +
- 	for (i = 0; i < ARRAY_SIZE(salinfo_log_name); i++) {
- 		data = salinfo_data + i;
- 		data->type = i;
-@@ -669,7 +671,9 @@ salinfo_init(void)
- 	salinfo_timer.function = &salinfo_timeout;
- 	add_timer(&salinfo_timer);
+ 	/* Create palinfo dirs in /proc for all online cpus */
+ 	for_each_online_cpu(i) {
+ 		create_palinfo_proc_entries(i);
+ 	}
  
--	register_hotcpu_notifier(&salinfo_cpu_notifier);
-+	__register_hotcpu_notifier(&salinfo_cpu_notifier);
+ 	/* Register for future delivery via notify registration */
+-	register_hotcpu_notifier(&palinfo_cpu_notifier);
++	__register_hotcpu_notifier(&palinfo_cpu_notifier);
 +
 +	cpu_maps_update_done();
  
