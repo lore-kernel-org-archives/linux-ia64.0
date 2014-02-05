@@ -1,58 +1,79 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Thu, 06 Feb 2014 22:25:05 +0000
-Subject: Re: [GIT PULL] tree-wide: clean up no longer required #include <linux/init.h>
-Message-Id: <20140207092505.4c42d130faff151659a908f9@canb.auug.org.au>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="Signature=_Fri__7_Feb_2014_09_25_05_+1100_5G4DE1j7Qv3c23/u"
+From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Date: Wed, 05 Feb 2014 22:17:42 +0000
+Subject: [PATCH 06/51] ia64, topology: Fix CPU hotplug callback registration
+Message-Id: <20140205220542.19080.42353.stgit@srivatsabhat.in.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1391547118-21967-1-git-send-email-paul.gortmaker@windriver.com>
-In-Reply-To: <1391547118-21967-1-git-send-email-paul.gortmaker@windriver.com>
-To: torvalds@linux-foundation.org
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>, linux-alpha@vger.kernel.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@vger.kernel.org, linux-mips@linux-mips.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, x86@kernel.org, netdev@vger.kernel.org, kvm@vger.kernel.org, rusty@rustcorp.com.au, gregkh@linuxfoundation.org, akpm@linux-foundation.org
+References: <20140205220251.19080.92336.stgit@srivatsabhat.in.ibm.com>
+In-Reply-To: <20140205220251.19080.92336.stgit@srivatsabhat.in.ibm.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: paulus@samba.org, oleg@redhat.com, rusty@rustcorp.com.au, peterz@infradead.org, tglx@linutronix.de, akpm@linux-foundation.org
+Cc: mingo@kernel.org, paulmck@linux.vnet.ibm.com, tj@kernel.org, walken@google.com, ego@linux.vnet.ibm.com, linux@arm.linux.org.uk, linux-kernel@vger.kernel.org, srivatsa.bhat@linux.vnet.ibm.com, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
 
---Signature=_Fri__7_Feb_2014_09_25_05_+1100_5G4DE1j7Qv3c23/u
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Subsystems that want to register CPU hotplug callbacks, as well as perform
+initialization for the CPUs that are already online, often do it as shown
+below:
 
-Hi Linus,
+	get_online_cpus();
 
-On Tue, 4 Feb 2014 15:51:58 -0500 Paul Gortmaker <paul.gortmaker@windriver.=
-com> wrote:
->
-> We've had this in linux-next for 2+ weeks (thanks Stephen!) as a
-> linux-stable like queue of patches, and as can be seen here:
->=20
->   https://git.kernel.org/pub/scm/linux/kernel/git/paulg/init.git
->=20
-> most of the changes in the last week have been trivial adding acks
-> or dropping patches that maintainers decided to take themselves.
+	for_each_online_cpu(cpu)
+		init_cpu(cpu);
 
-Any thoughts on merging this?  I can feel it bitrotting :-(
+	register_cpu_notifier(&foobar_cpu_notifier);
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+	put_online_cpus();
 
---Signature=_Fri__7_Feb_2014_09_25_05_+1100_5G4DE1j7Qv3c23/u
-Content-Type: application/pgp-signature
+This is wrong, since it is prone to ABBA deadlocks involving the
+cpu_add_remove_lock and the cpu_hotplug.lock (when running concurrently
+with CPU hotplug operations).
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
+Instead, the correct and race-free way of performing the callback
+registration is:
 
-iQIcBAEBCAAGBQJS9AvOAAoJEMDTa8Ir7ZwVgtAP/0JLUjtgIOoRu0wcAutXabJX
-FYj8RB3kSvX1YCe+fyEXCiHYTCnMnoLSrGWNqRjga5M/zdrw7P0v+E4MDv+ZLME6
-n4njMVl56NGUE0ULzj09ZwV0oANJ0u34mkTpzUs3SmQkuoi3XnseaoLgL3hBavOY
-QAq/OK/J90jBjm3h9JjAEGDBdcFEgY5qsiQJNU2o47QRfX+/VWsGT3WwQs2Iy5Ih
-YNzju/qmBczjlTJouCfrXBKeOG48uMgtalV9hLiaTxubLQRSjJ0Gy7h4runSPJ6Z
-sqvFMePFjfBD0WSZ/WB50ArXxpeR2YR1qWw0BDFAKr8NXvR2Zb7a0nIkdOIs5Zep
-BRjtC0xMJfTW9GG2g220PyrsYchl2WW31AC9VhjGXk8/d2Gk5A1XfO1lrVohTTMs
-bZyk3rIpXrRTdzTqAmVI+6gsZ+Xd1B9gTGmlvw89CFZz5K/5AvdzkmuD/3AI/yv9
-XFJi5zBOAhbw2D+u3EqqMCV+arE4mxQVPXOjiI2hakGy5NvANrLZHd136aCA/rjH
-Iv4WGKgGQ2rf/GykI1T5vmlRf5k2RLrxG3MPYqS+0IL9OY9S3iswDib+jnRpWjN5
-e1r23hmT1lrb2N7Q4+pzRpX4GRnP5hiAHGFfgijXiPlz/PXj9oqmvIreOtc4jCX6
-gqAy38tkyQhHVjVxOgF9
-=rXtU
------END PGP SIGNATURE-----
+	cpu_maps_update_begin();
 
---Signature=_Fri__7_Feb_2014_09_25_05_+1100_5G4DE1j7Qv3c23/u--
+	for_each_online_cpu(cpu)
+		init_cpu(cpu);
+
+	/* Note the use of the double underscored version of the API */
+	__register_cpu_notifier(&foobar_cpu_notifier);
+
+	cpu_maps_update_done();
+
+
+Fix the topology code in ia64 by using this latter form of callback
+registration.
+
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
+Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
+---
+
+ arch/ia64/kernel/topology.c |    6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/arch/ia64/kernel/topology.c b/arch/ia64/kernel/topology.c
+index ca69a5a..a6aa6ed 100644
+--- a/arch/ia64/kernel/topology.c
++++ b/arch/ia64/kernel/topology.c
+@@ -454,12 +454,16 @@ static int __init cache_sysfs_init(void)
+ {
+ 	int i;
+ 
++	cpu_maps_update_begin();
++
+ 	for_each_online_cpu(i) {
+ 		struct device *sys_dev = get_cpu_device((unsigned int)i);
+ 		cache_add_dev(sys_dev);
+ 	}
+ 
+-	register_hotcpu_notifier(&cache_cpu_notifier);
++	__register_hotcpu_notifier(&cache_cpu_notifier);
++
++	cpu_maps_update_done();
+ 
+ 	return 0;
+ }
+
