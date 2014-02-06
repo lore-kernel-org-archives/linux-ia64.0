@@ -1,64 +1,58 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Wed, 05 Feb 2014 14:28:25 +0000
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Thu, 06 Feb 2014 22:25:05 +0000
 Subject: Re: [GIT PULL] tree-wide: clean up no longer required #include <linux/init.h>
-Message-Id: <20140205142824.GA23780@windriver.com>
+Message-Id: <20140207092505.4c42d130faff151659a908f9@canb.auug.org.au>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Signature=_Fri__7_Feb_2014_09_25_05_+1100_5G4DE1j7Qv3c23/u"
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1391547118-21967-1-git-send-email-paul.gortmaker@windriver.com>
- <CAP=VYLp+zus5591g-1YQBCJifbk+UY59yJ7rV06ZN3QhhdnK7w@mail.gmail.com>
- <20140205060633.GE30094@gmail.com>
- <20140205172723.3fa841793b3fa3f3f534937f@canb.auug.org.au>
- <20140205064150.GA31568@gmail.com>
-In-Reply-To: <20140205064150.GA31568@gmail.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Ingo Molnar <mingo@kernel.org>
-Cc: linux-arch@vger.kernel.org, Stephen Rothwell <sfr@canb.auug.org.au>, linux-m68k@vger.kernel.org, rusty@rustcorp.com.au, linux-ia64@vger.kernel.org, kvm@vger.kernel.org, linux-mips@linux-mips.org, linuxppc-dev@lists.ozlabs.org, x86@kernel.org, linux-alpha@vger.kernel.org, netdev@vger.kernel.org, gregkh@linuxfoundation.org, sparclinux@vger.kernel.org, akpm@linux-foundation.org, Linus Torvalds <torvalds@linux-foundation.org>, linux-arm-kernel@lists.infradead.org, linux-s390@vger.kernel.org
+In-Reply-To: <1391547118-21967-1-git-send-email-paul.gortmaker@windriver.com>
+To: torvalds@linux-foundation.org
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>, linux-alpha@vger.kernel.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@vger.kernel.org, linux-mips@linux-mips.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, x86@kernel.org, netdev@vger.kernel.org, kvm@vger.kernel.org, rusty@rustcorp.com.au, gregkh@linuxfoundation.org, akpm@linux-foundation.org
 
-[Re: [GIT PULL] tree-wide: clean up no longer required #include <linux/init.h>] On 05/02/2014 (Wed 07:41) Ingo Molnar wrote:
+--Signature=_Fri__7_Feb_2014_09_25_05_+1100_5G4DE1j7Qv3c23/u
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> 
-> * Stephen Rothwell <sfr@canb.auug.org.au> wrote:
-> 
-> > Hi Ingo,
-> > 
-> > On Wed, 5 Feb 2014 07:06:33 +0100 Ingo Molnar <mingo@kernel.org> wrote:
-> > > 
-> > > So, if you meant Linus to pull it, you probably want to cite a real 
-> > > Git URI along the lines of:
-> > > 
-> > >    git://git.kernel.org/pub/scm/linux/kernel/git/paulg/init.git
-> > 
-> > Paul provided the proper git url further down in the mail along with the
-> > usual pull request message (I guess he should have put that bit at the
-> > top).
-> 
-> Yeah, indeed, and it even comes with a signed tag, which is an extra 
-> nice touch:
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/paulg/linux.git tags/init-cleanup
-> 
-> (I guess the https was mentioned first to lower expectations.)
+Hi Linus,
 
-Just to clarify, the init.git was the repo of raw commits+series file
-that was used for testing on linux next; now useless, except for showing
-the last several weeks of history (hence the visual http link).  The
-signed tag [separate repo] is the application of those commits against
-the 3.14-rc1 tag, which was the end goal from the beginning.
+On Tue, 4 Feb 2014 15:51:58 -0500 Paul Gortmaker <paul.gortmaker@windriver.=
+com> wrote:
+>
+> We've had this in linux-next for 2+ weeks (thanks Stephen!) as a
+> linux-stable like queue of patches, and as can be seen here:
+>=20
+>   https://git.kernel.org/pub/scm/linux/kernel/git/paulg/init.git
+>=20
+> most of the changes in the last week have been trivial adding acks
+> or dropping patches that maintainers decided to take themselves.
 
-Does history matter?  In the case of a cleanup like this, it does only
-in the immediate context of this pull request; to help distinguish this
-work from some short lived half baked idea that also had its testing
-invalidated by arbitrarily rebasing onto the latest shiny tag.
+Any thoughts on merging this?  I can feel it bitrotting :-(
 
-I wouldn't have even mentioned the patch repo, except for the fact that
-I know how Linus loves arbitrary rebases [and malformed pull requests]  :)
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-Thanks,
-Paul.
---
+--Signature=_Fri__7_Feb_2014_09_25_05_+1100_5G4DE1j7Qv3c23/u
+Content-Type: application/pgp-signature
 
-> 
-> Thanks,
-> 
-> 	Ingo
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAEBCAAGBQJS9AvOAAoJEMDTa8Ir7ZwVgtAP/0JLUjtgIOoRu0wcAutXabJX
+FYj8RB3kSvX1YCe+fyEXCiHYTCnMnoLSrGWNqRjga5M/zdrw7P0v+E4MDv+ZLME6
+n4njMVl56NGUE0ULzj09ZwV0oANJ0u34mkTpzUs3SmQkuoi3XnseaoLgL3hBavOY
+QAq/OK/J90jBjm3h9JjAEGDBdcFEgY5qsiQJNU2o47QRfX+/VWsGT3WwQs2Iy5Ih
+YNzju/qmBczjlTJouCfrXBKeOG48uMgtalV9hLiaTxubLQRSjJ0Gy7h4runSPJ6Z
+sqvFMePFjfBD0WSZ/WB50ArXxpeR2YR1qWw0BDFAKr8NXvR2Zb7a0nIkdOIs5Zep
+BRjtC0xMJfTW9GG2g220PyrsYchl2WW31AC9VhjGXk8/d2Gk5A1XfO1lrVohTTMs
+bZyk3rIpXrRTdzTqAmVI+6gsZ+Xd1B9gTGmlvw89CFZz5K/5AvdzkmuD/3AI/yv9
+XFJi5zBOAhbw2D+u3EqqMCV+arE4mxQVPXOjiI2hakGy5NvANrLZHd136aCA/rjH
+Iv4WGKgGQ2rf/GykI1T5vmlRf5k2RLrxG3MPYqS+0IL9OY9S3iswDib+jnRpWjN5
+e1r23hmT1lrb2N7Q4+pzRpX4GRnP5hiAHGFfgijXiPlz/PXj9oqmvIreOtc4jCX6
+gqAy38tkyQhHVjVxOgF9
+=rXtU
+-----END PGP SIGNATURE-----
+
+--Signature=_Fri__7_Feb_2014_09_25_05_+1100_5G4DE1j7Qv3c23/u--
