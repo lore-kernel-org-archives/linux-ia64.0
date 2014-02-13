@@ -1,41 +1,27 @@
 From: Sander Eikelenboom <linux@eikelenboom.it>
-Date: Fri, 07 Feb 2014 11:03:57 +0000
-Subject: Re: [PATCH v2] Setting the IORESOURCE_ROM_SHADOW flag on a VGA card other than the primary prevents
-Message-Id: <652007466.20140207120357@eikelenboom.it>
+Date: Thu, 13 Feb 2014 09:48:24 +0000
+Subject: Re: [PATCH v2] Setting the IORESOURCE_ROM_SHADOW flag on a VGA card other than the primary prevents 
+Message-Id: <939539486.20140213104824@eikelenboom.it>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20140130000831.GJ16825@google.com> <1391160503-11122-1-git-send-email-linux@eikelenboom.it> <20140203145205.GB2992@phenom.dumpdata.com>
 In-Reply-To: <20140203145205.GB2992@phenom.dumpdata.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Tony Luck <tony.luck@intel.com>, Dave Airlie <airlied@redhat.com>, Eiichiro Oiwa <eiichiro.oiwa.nm@hitachi.com>
-Cc: Bjorn Helgaas <bhelgaas@google.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, "linux-kernel @ vger . kernel . org" <linux-kernel@vger.kernel.org>, "linux-pci @ vger . kernel . org" <linux-pci@vger.kernel.org>, linux-ia64@vger.kernel.org
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Tony Luck <tony.luck@intel.com>, Dave Airlie <airlied@redhat.com>, Eiichiro Oiwa <eiichiro.oiwa.nm@hitachi.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, "linux-kernel @ vger . kernel . org" <linux-kernel@vger.kernel.org>, "linux-pci @ vger . kernel . org" <linux-pci@vger.kernel.org>, linux-ia64@vger.kernel.org
 
-Hi All,
+Hi Bjorn,
 
-Still trying to collect tested and acked-by's ..
+I have given it another email and another week, but without gaining any reviewed or acked-by's.
+It seems the only way forward is to shovel it in linux-next earlier, give it a good soak and see if
+anyone starts to squeal .. or that everything seems to be ok :-)
 
-Dave,
-          In commit 6cf20beec4b91c240cf759b4db72669e251f1fc4 you changed pci_fixup_video saying:
-          "This fixes the switcheroo on my T410s."
-          Do you still have the machine and could you verify if it still works with this patch applied ?
-
-Eiichiro,
-          Most of last major overhaul of pci_fixup_video was in commit 6b5c76b8e2ff204fa8d7201acce461188873bf2b saying:
-          "PCI: fix pci_fixup_video as it blows up on sparc64"
-          Is it possible for you to verify you can still boot on sparc64 with this patch applied ?
-
-Tony,
-          Since ia64's pci_fixup_video is also changed to be inline with x86, could you verify it still compiles and boots for you ?
-
-
-Konrad,
-          Thanks for reviewing and testing !
+Would you need a v3 with the acked and reviewed-by from Konrad for x86 in it ?
 
 --
+
 Sander
-
-
 
 
 Monday, February 3, 2014, 3:52:05 PM, you wrote:
