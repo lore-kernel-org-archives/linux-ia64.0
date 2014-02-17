@@ -1,19 +1,39 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Tue, 04 Feb 2014 18:32:23 +0000
-Subject: RE: [PATCH 00/17] x86, ia64 NUMA cleanup
-Message-Id: <3908561D78D1C84285E8C5FCA982C28F31DC030A@ORSMSX106.amr.corp.intel.com>
+From: Jiang Liu <jiang.liu@linux.intel.com>
+Date: Mon, 17 Feb 2014 05:58:00 +0000
+Subject: [PATCH] IA64, sba_iommu: fix section mismatch
+Message-Id: <1392616684-8410-1-git-send-email-jiang.liu@linux.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20140129174106.15476.7075.stgit@bhelgaas-glaptop.roam.corp.google.com>
- <CAErSpo5whsUH0aM8iocKdn4FOQLEjCQoM+ShjVjzWDxSWTzQnA@mail.gmail.com>
-In-Reply-To: <CAErSpo5whsUH0aM8iocKdn4FOQLEjCQoM+ShjVjzWDxSWTzQnA@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>, "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>
-Cc: "linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>, "x86@kernel.org" <x86@kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>
+Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-PiBJIGFkZGVkIHRoaXMgc2VyaWVzIHRvIG15ICJuZXh0IiBicmFuY2ggZm9yIHYzLjE0LiAgVG9u
-eSwgbGV0IG1lIGtub3cNCj4gaWYgeW91IHNlZSBhbnkgaWE2NCBpc3N1ZXMuDQoNCkl0IHNob3dl
-ZCB1cCBpbiBuZXh0LTIwMTQwMjA0IC0gYW5kIGRvZXNuJ3Qgc2VlbSB0byBoYXZlIGNhdXNlZCBh
-bnkgYnVpbGQgb3IgYm9vdA0KcHJvYmxlbXMgb24gbXkgdGVzdCBtYWNoaW5lcy4NCg0KLVRvbnkN
-Cg=
+Fix the section mismatch warning by remove __init annotate for function
+acpi_sba_ioc_add() because it may be called at runtime.
+
+WARNING: vmlinux.o(.data+0x66ee0): Section mismatch in reference from the variable acpi_sba_ioc_handler to the function .init.text:acpi_sba_ioc_add()
+The variable acpi_sba_ioc_handler references
+the function __init acpi_sba_ioc_add()
+
+Signed-off-by: Jiang Liu <jiang.liu@linux.intel.com>
+---
+ arch/ia64/hp/common/sba_iommu.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/ia64/hp/common/sba_iommu.c b/arch/ia64/hp/common/sba_iommu.c
+index 8e858b5..c9d6f0b 100644
+--- a/arch/ia64/hp/common/sba_iommu.c
++++ b/arch/ia64/hp/common/sba_iommu.c
+@@ -2041,7 +2041,7 @@ sba_map_ioc_to_node(struct ioc *ioc, acpi_handle handle)
+ #define sba_map_ioc_to_node(ioc, handle)
+ #endif
+ 
+-static int __init
++static int
+ acpi_sba_ioc_add(struct acpi_device *device,
+ 		 const struct acpi_device_id *not_used)
+ {
+-- 
+1.7.10.4
+
