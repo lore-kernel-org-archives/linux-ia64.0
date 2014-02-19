@@ -1,80 +1,108 @@
-From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Date: Wed, 05 Feb 2014 22:17:33 +0000
-Subject: [PATCH 05/51] ia64, palinfo: Fix CPU hotplug callback registration
-Message-Id: <20140205220532.19080.79983.stgit@srivatsabhat.in.ibm.com>
+From: Sudeep Holla <sudeep.holla@arm.com>
+Date: Wed, 19 Feb 2014 16:06:07 +0000
+Subject: [PATCH RFC/RFT v3 0/9] drivers: cacheinfo support
+Message-Id: <1392825976-17633-1-git-send-email-sudeep.holla@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20140205220251.19080.92336.stgit@srivatsabhat.in.ibm.com>
-In-Reply-To: <20140205220251.19080.92336.stgit@srivatsabhat.in.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: paulus@samba.org, oleg@redhat.com, rusty@rustcorp.com.au, peterz@infradead.org, tglx@linutronix.de, akpm@linux-foundation.org
-Cc: mingo@kernel.org, paulmck@linux.vnet.ibm.com, tj@kernel.org, walken@google.com, ego@linux.vnet.ibm.com, linux@arm.linux.org.uk, linux-kernel@vger.kernel.org, srivatsa.bhat@linux.vnet.ibm.com, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+To: linux-kernel@vger.kernel.org
+Cc: sudeep.holla@arm.com, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-ia64@vger.kernel.org, linux390@de.ibm.com, linux-s390@vger.kernel.org, x86@kernel.org, linuxppc-dev@lists.ozlabs.org, linux-arm-kernel@lists.infradead.org
 
-Subsystems that want to register CPU hotplug callbacks, as well as perform
-initialization for the CPUs that are already online, often do it as shown
-below:
+From: Sudeep Holla <sudeep.holla@arm.com>
 
-	get_online_cpus();
+Hi,
 
-	for_each_online_cpu(cpu)
-		init_cpu(cpu);
+This series adds a generic cacheinfo support similar to topology. The
+implementation is based on x86 cacheinfo support. Currently x86, powerpc,
+ia64 and s390 have their own implementations. While adding similar support
+to ARM and ARM64, here is the attempt to make it generic quite similar to
+topology info support. It also adds the missing ABI documentation for
+the cacheinfo sysfs which is already being used.
 
-	register_cpu_notifier(&foobar_cpu_notifier);
+It moves all the existing different implementations on x86, ia64, powerpc
+and s390 to use the generic cacheinfo infrastructure introduced here.
+These changes on non-ARM platforms are only compile tested and hence
+the request for testing too.
 
-	put_online_cpus();
+This series also adds support for ARM and ARM64 architectures based on
+the generic support.
 
-This is wrong, since it is prone to ABBA deadlocks involving the
-cpu_add_remove_lock and the cpu_hotplug.lock (when running concurrently
-with CPU hotplug operations).
+Changes v2[2]->v3:
+	- Added new class "cpu" to group all cpu devices
+	- Converted all "raw" kobjects used in cacheinfo to device_attr
+	  by creating cache index devices
+	- Added back s390 show_cacheinfo for /proc/cpuinfo
+	- Added disable_sysfs to cache_info for preventing a cache node
+	  to be exposed through sysfs if required(used on s390)
 
-Instead, the correct and race-free way of performing the callback
-registration is:
+Changes v1[1]->v2[2]:
+	- Extended the generic cacheinfo support to accomodate all
+	  the existing implementations
+	- Moved all the existing implementations to use this new
+	  generic infrastructure
+	- Added missing ABI documentation as suggested by Greg KH
+	- Added support for unimplemented CTR on pre-ARMv6 implementations
+	  as suggested by Russell. However the ctr_info_list is not yet
+	  populated
+	- not yet changed to device_attr as suggested by Greg KH,
+	  registering cache as device won't eliminate the need of kobject
+	  unless each index of cache is registered as a device which don't
+	  seem to be good idea, but now it's unified it can be done easily
+	  in one place if needed
 
-	cpu_maps_update_begin();
+[1] https://lkml.org/lkml/2014/1/8/523
+[2] https://lkml.org/lkml/2014/2/7/654
 
-	for_each_online_cpu(cpu)
-		init_cpu(cpu);
-
-	/* Note the use of the double underscored version of the API */
-	__register_cpu_notifier(&foobar_cpu_notifier);
-
-	cpu_maps_update_done();
-
-
-Fix the palinfo code in ia64 by using this latter form of callback
-registration.
-
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 Cc: linux-ia64@vger.kernel.org
-Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
+Cc: linux390@de.ibm.com
+Cc: linux-s390@vger.kernel.org
+Cc: x86@kernel.org
+Cc: linuxppc-dev@lists.ozlabs.org
+Cc: linux-arm-kernel@lists.infradead.org
 ---
+Sudeep Holla (9):
+  drivers: base: add new class "cpu" to group cpu devices
+  drivers: base: support cpu cache information interface to userspace
+    via sysfs
+  ia64: move cacheinfo sysfs to generic cacheinfo infrastructure
+  s390: move cacheinfo sysfs to generic cacheinfo infrastructure
+  x86: move cacheinfo sysfs to generic cacheinfo infrastructure
+  powerpc: move cacheinfo sysfs to generic cacheinfo infrastructure
+  ARM64: kernel: add support for cpu cache information
+  ARM: kernel: add support for cpu cache information
+  ARM: kernel: add outer cache support for cacheinfo implementation
 
- arch/ia64/kernel/palinfo.c |    6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+ Documentation/ABI/testing/sysfs-devices-system-cpu |  40 +
+ arch/arm/include/asm/outercache.h                  |  13 +
+ arch/arm/kernel/Makefile                           |   1 +
+ arch/arm/kernel/cacheinfo.c                        | 248 ++++++
+ arch/arm/mm/Kconfig                                |  13 +
+ arch/arm/mm/cache-l2x0.c                           |  14 +
+ arch/arm/mm/cache-tauros2.c                        |  35 +
+ arch/arm/mm/cache-xsc3l2.c                         |  15 +
+ arch/arm64/kernel/Makefile                         |   2 +-
+ arch/arm64/kernel/cacheinfo.c                      | 134 ++++
+ arch/ia64/kernel/topology.c                        | 399 ++--------
+ arch/powerpc/kernel/cacheinfo.c                    | 831 +++------------------
+ arch/powerpc/kernel/cacheinfo.h                    |   8 -
+ arch/powerpc/kernel/sysfs.c                        |   4 -
+ arch/s390/kernel/cache.c                           | 388 +++-------
+ arch/x86/kernel/cpu/intel_cacheinfo.c              | 647 ++++------------
+ drivers/base/Makefile                              |   2 +-
+ drivers/base/cacheinfo.c                           | 485 ++++++++++++
+ drivers/base/core.c                                |  35 +-
+ drivers/base/cpu.c                                 |   7 +
+ include/linux/cacheinfo.h                          |  55 ++
+ include/linux/cpu.h                                |   2 +
+ 22 files changed, 1523 insertions(+), 1855 deletions(-)
+ create mode 100644 arch/arm/kernel/cacheinfo.c
+ create mode 100644 arch/arm64/kernel/cacheinfo.c
+ delete mode 100644 arch/powerpc/kernel/cacheinfo.h
+ create mode 100644 drivers/base/cacheinfo.c
+ create mode 100644 include/linux/cacheinfo.h
 
-diff --git a/arch/ia64/kernel/palinfo.c b/arch/ia64/kernel/palinfo.c
-index ab33328..cfaa06f 100644
---- a/arch/ia64/kernel/palinfo.c
-+++ b/arch/ia64/kernel/palinfo.c
-@@ -996,13 +996,17 @@ palinfo_init(void)
- 	if (!palinfo_dir)
- 		return -ENOMEM;
- 
-+	cpu_maps_update_begin();
-+
- 	/* Create palinfo dirs in /proc for all online cpus */
- 	for_each_online_cpu(i) {
- 		create_palinfo_proc_entries(i);
- 	}
- 
- 	/* Register for future delivery via notify registration */
--	register_hotcpu_notifier(&palinfo_cpu_notifier);
-+	__register_hotcpu_notifier(&palinfo_cpu_notifier);
-+
-+	cpu_maps_update_done();
- 
- 	return 0;
- }
+-- 
+1.8.3.2
 
