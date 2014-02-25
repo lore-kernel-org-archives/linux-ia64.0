@@ -1,43 +1,88 @@
-From: Michael Ellerman <mpe@ellerman.id.au>
-Date: Wed, 26 Feb 2014 12:31:36 +0000
-Subject: Re: [PATCH v2 1/1] audit: Add CONFIG_HAVE_ARCH_AUDITSYSCALL
-Message-Id: <1393417896.17341.2.camel@concordia>
+From: Rashika Kheria <rashika.kheria@gmail.com>
+Date: Tue, 25 Feb 2014 07:56:17 +0000
+Subject: [PATCH 3/8] lib: Move prototype declaration to header file include/linux/swiotlb.h
+Message-Id: <f95be69d8113dc58603894701e5a3114723b7acc.1393313946.git.rashika.kheria@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1391407232-4623-1-git-send-email-takahiro.akashi@linaro.org>
- <1393319784-2758-1-git-send-email-takahiro.akashi@linaro.org>
- <1393319784-2758-2-git-send-email-takahiro.akashi@linaro.org>
-In-Reply-To: <1393319784-2758-2-git-send-email-takahiro.akashi@linaro.org>
+References: <7bf34999aea7f3d1441dc8fc344882a814da6e06.1393313946.git.rashika.kheria@gmail.com>
+In-Reply-To: <7bf34999aea7f3d1441dc8fc344882a814da6e06.1393313946.git.rashika.kheria@gmail.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-arm-kernel@lists.infradead.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: linux-kernel@vger.kernel.org
+Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Bjorn Helgaas <bhelgaas@google.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Rashika Kheria <rashika.kheria@gmail.com>, "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>, Toshi Kani <toshi.kani@hp.com>, Yijing Wang <wangyijing@huawei.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-ia64@vger.kernel.org, linux-pci@vger.kernel.org, josh@joshtriplett.org
 
-On Tue, 2014-02-25 at 18:16 +0900, AKASHI Takahiro wrote:
-> Currently AUDITSYSCALL has a long list of architecture depencency:
->        depends on AUDIT && (X86 || PARISC || PPC || S390 || IA64 || UML ||
-> 		SPARC64 || SUPERH || (ARM && AEABI && !OABI_COMPAT) || ALPHA)
-> The purpose of this patch is to replace it with HAVE_ARCH_AUDITSYSCALL
-> for simplicity.
-> 
-> Signed-off-by: AKASHI Takahiro <takahiro.akashi@linaro.org>
->
-> diff --git a/arch/powerpc/Kconfig b/arch/powerpc/Kconfig
-> index 957bf34..7b3b8fe 100644
-> --- a/arch/powerpc/Kconfig
-> +++ b/arch/powerpc/Kconfig
-> @@ -141,6 +141,7 @@ config PPC
->  	select HAVE_DEBUG_STACKOVERFLOW
->  	select HAVE_IRQ_EXIT_ON_IRQ_STACK
->  	select ARCH_USE_CMPXCHG_LOCKREF if PPC64
-> +	select HAVE_ARCH_AUDITSYSCALL
->  
->  config GENERIC_CSUM
->  	def_bool CPU_LITTLE_ENDIAN
+Move prototype declaration of function to header file
+include/linux/swiotlb.h from arch/ia64/hp/common/hwsw_iommu.c,
+arch/ia64/hp/common/sba_iommu.c and arch/x86/pci/sta2x11-fixup.c because
+it is used by more than one file.
 
-Looks good for powerpc.
+This eliminates the following warning in lib/swiotlb.c:
+lib/swiotlb.c:240:1: warning: no previous prototype for ‘swiotlb_late_init_with_default_size’ [-Wmissing-prototypes]
+lib/swiotlb.c:537:13: warning: no previous prototype for ‘map_single’ [-Wmissing-prototypes]
 
-Acked-by: Michael Ellerman <mpe@ellerman.id.au>
+Signed-off-by: Rashika Kheria <rashika.kheria@gmail.com>
+Reviewed-by: Josh Triplett <josh@joshtriplett.org>
+---
+ arch/ia64/hp/common/hwsw_iommu.c |    3 ---
+ arch/ia64/hp/common/sba_iommu.c  |    2 --
+ arch/x86/pci/sta2x11-fixup.c     |    1 -
+ include/linux/swiotlb.h          |    4 +++-
+ 4 files changed, 3 insertions(+), 7 deletions(-)
 
-cheers
-
+diff --git a/arch/ia64/hp/common/hwsw_iommu.c b/arch/ia64/hp/common/hwsw_iommu.c
+index 1e4cae5..b14cab1 100644
+--- a/arch/ia64/hp/common/hwsw_iommu.c
++++ b/arch/ia64/hp/common/hwsw_iommu.c
+@@ -20,9 +20,6 @@
+ 
+ extern struct dma_map_ops sba_dma_ops, swiotlb_dma_ops;
+ 
+-/* swiotlb declarations & definitions: */
+-extern int swiotlb_late_init_with_default_size (size_t size);
+-
+ /*
+  * Note: we need to make the determination of whether or not to use
+  * the sw I/O TLB based purely on the device structure.  Anything else
+diff --git a/arch/ia64/hp/common/sba_iommu.c b/arch/ia64/hp/common/sba_iommu.c
+index 8e858b5..b341994 100644
+--- a/arch/ia64/hp/common/sba_iommu.c
++++ b/arch/ia64/hp/common/sba_iommu.c
+@@ -46,8 +46,6 @@
+ 
+ #include <asm/acpi-ext.h>
+ 
+-extern int swiotlb_late_init_with_default_size (size_t size);
+-
+ #define PFX "IOC: "
+ 
+ /*
+diff --git a/arch/x86/pci/sta2x11-fixup.c b/arch/x86/pci/sta2x11-fixup.c
+index 9d8a509..a39000b 100644
+--- a/arch/x86/pci/sta2x11-fixup.c
++++ b/arch/x86/pci/sta2x11-fixup.c
+@@ -28,7 +28,6 @@
+ #include <linux/list.h>
+ 
+ #define STA2X11_SWIOTLB_SIZE (4*1024*1024)
+-extern int swiotlb_late_init_with_default_size(size_t default_size);
+ 
+ /*
+  * We build a list of bus numbers that are under the ConneXt. The
+diff --git a/include/linux/swiotlb.h b/include/linux/swiotlb.h
+index a5ffd32..7f419b6 100644
+--- a/include/linux/swiotlb.h
++++ b/include/linux/swiotlb.h
+@@ -27,7 +27,9 @@ int swiotlb_init_with_tbl(char *tlb, unsigned long nslabs, int verbose);
+ extern unsigned long swiotlb_nr_tbl(void);
+ unsigned long swiotlb_size_or_default(void);
+ extern int swiotlb_late_init_with_tbl(char *tlb, unsigned long nslabs);
+-
++int swiotlb_late_init_with_default_size (size_t );
++phys_addr_t map_single(struct device *hwdev, phys_addr_t phys, size_t size,
++		       enum dma_data_direction dir);
+ /*
+  * Enumeration for sync targets
+  */
+-- 
+1.7.9.5
 
