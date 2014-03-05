@@ -1,37 +1,60 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 31 Mar 2014 16:00:08 +0000
-Subject: [GIT PULL] Miscellaneous ia64 fixes
-Message-Id: <5339910820500464fb@agluck-desk.sc.intel.com>
+From: Richard Guy Briggs <rgb@redhat.com>
+Date: Wed, 05 Mar 2014 21:27:03 +0000
+Subject: [PATCH 2/6][RFC] audit: add arch field to seccomp event log
+Message-Id: <7f3959e9f2c971e91d63287518beb30aff56d917.1393974970.git.rgb@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <cover.1393974970.git.rgb@redhat.com>
+In-Reply-To: <cover.1393974970.git.rgb@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-audit@redhat.com, linux-kernel@vger.kernel.org
+Cc: linux-arch@vger.kernel.org, linux-mips@linux-mips.org, linux-ia64@vger.kernel.org, user-mode-linux-devel@lists.sourceforge.net, linux-parisc@vger.kernel.org, linux-s390@vger.kernel.org, Richard Guy Briggs <rgb@redhat.com>, microblaze-uclinux@itee.uq.edu.au, linux@openrisc.net, x86@kernel.org, oleg@redhat.com, eparis@redhat.com, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, sgrubb@redhat.com, linuxppc-dev@lists.ozlabs.org, linux-arm-kernel@lists.infradead.org
 
-The following changes since commit cfbf8d4857c26a8a307fb7cd258074c9dcd8c691:
+The AUDIT_SECCOMP record looks something like this:
 
-  Linux 3.14-rc4 (2014-02-23 17:40:03 -0800)
+type=SECCOMP msg=audit(1373478171.953:32775): auidC25 uidC25 gidC25 ses=1 subj=unconfined_u:unconfined_r:unconfined_t:s0 pid381 comm="test" sig1 syscall#1 compat=0 ip=0x39ea8bca89 code=0x0
 
-are available in the git repository at:
+In order to determine what syscall 231 maps to, we need to have the arch= field right before it.
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git tags/please-pull-misc-3.15
+To see the event, compile this test.c program:
 
-for you to fetch changes up to 4c332c3238ab41fa9bc18d6ccb8e8aec1c87a426:
+==int main(void)
+{
+        return seccomp_load(seccomp_init(SCMP_ACT_KILL));
+}
+==
+gcc -g test.c -o test -lseccomp
 
-  [IA64] Keep format strings from leaking into printk (2014-03-28 15:49:04 -0700)
+After running the program, find the record by:  ausearch --start recent -m SECCOMP -i
 
-----------------------------------------------------------------
-Miscellaneous ia64 fixes for 3.15 merge window
+Signed-off-by: Richard Guy Briggs <rgb@redhat.com>
 
-----------------------------------------------------------------
-Jiang Liu (2):
-      [IA64] sba_iommu: fix section mismatch     To: linux-kernel@vger.kernel.org
-      Fix warning in make defconfig
+---
+ kernel/auditsc.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-Kees Cook (1):
-      [IA64] Keep format strings from leaking into printk
+diff --git a/kernel/auditsc.c b/kernel/auditsc.c
+index 3bc12d2..7317f46 100644
+--- a/kernel/auditsc.c
++++ b/kernel/auditsc.c
+@@ -67,6 +67,7 @@
+ #include <linux/binfmts.h>
+ #include <linux/highmem.h>
+ #include <linux/syscalls.h>
++#include <asm/syscall.h>
+ #include <linux/capability.h>
+ #include <linux/fs_struct.h>
+ #include <linux/compat.h>
+@@ -2415,6 +2416,8 @@ void __audit_seccomp(unsigned long syscall, long signr, int code)
+ 		return;
+ 	audit_log_task(ab);
+ 	audit_log_format(ab, " sig=%ld", signr);
++	audit_log_format(ab, " arch=%x",
++			 syscall_get_arch(current, task_pt_regs(current)));
+ 	audit_log_format(ab, " syscall=%ld", syscall);
+ 	audit_log_format(ab, " compat=%d", is_compat_task());
+ 	audit_log_format(ab, " ip=0x%lx", KSTK_EIP(current));
+-- 
+1.7.1
 
- arch/ia64/configs/generic_defconfig | 4 ++--
- arch/ia64/hp/common/sba_iommu.c     | 6 +++---
- arch/ia64/kernel/mca.c              | 4 ++--
- 3 files changed, 7 insertions(+), 7 deletions(-)
