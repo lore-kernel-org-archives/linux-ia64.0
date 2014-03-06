@@ -1,63 +1,181 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Date: Mon, 24 Mar 2014 10:45:10 +0000
-Subject: Re: [RESEND][PATCH 1/2] lib/scatterlist: Make ARCH_HAS_SG_CHAIN an actual Kconfig
-Message-Id: <20140324104510.GQ7528@n2100.arm.linux.org.uk>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Date: Thu, 06 Mar 2014 02:57:43 +0000
+Subject: Re: [patch 10/20] kallsyms: fix absolute addresses for kASLR
+Message-Id: <87k3c8yr9u.fsf@rustcorp.com.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1395512032-20575-1-git-send-email-lauraa@codeaurora.org> <1395512032-20575-2-git-send-email-lauraa@codeaurora.org> <1395523881.2143.58.camel@dabdike.int.hansenpartnership.com> <20140322222306.GM7528@n2100.arm.linux.org.uk> <1395527860.2143.61.camel@dabdike.int.hansenpartnership.com> <20140322225201.GN7528@n2100.arm.linux.org.uk> <1395529151.2143.64.camel@dabdike.int.hansenpartnership.com>
-In-Reply-To: <1395529151.2143.64.camel@dabdike.int.hansenpartnership.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: James Bottomley <James.Bottomley@HansenPartnership.com>
-Cc: Laura Abbott <lauraa@codeaurora.org>, Fenghua Yu <fenghua.yu@intel.com>, Tony Luck <tony.luck@intel.com>, Andrew Morton <akpm@linux-foundation.org>, linux-scsi@vger.kernel.org, linux-s390@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, x86@kernel.org, Heiko Carstens <heiko.carstens@de.ibm.com>, linux-kernel@vger.kernel.org, linux390@de.ibm.com, sparclinux@vger.kernel.org, Ingo Molnar <mingo@redhat.com>, Paul Mackerras <paulus@samba.org>, "H. Peter Anvin" <hpa@zytor.com>, Martin Schwidefsky <schwidefsky@de.ibm.com>, linux-ia64@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, linuxppc-dev@lists.ozlabs.org, "David S. Miller" <davem@davemloft.net>, linux-arm-kernel@lists.infradead.org
+To: linux-ia64@vger.kernel.org
 
-On Sat, Mar 22, 2014 at 03:59:11PM -0700, James Bottomley wrote:
-> On Sat, 2014-03-22 at 22:52 +0000, Russell King - ARM Linux wrote:
-> > And I'm disagreeing with that statement which implies that it's something
-> > that is an architecture wide property for any particular architecture.
-> > 
-> > Right now in mainline, if ARM has IOMMU support enabled, then SG_CHAIN
-> > support will also be enabled.  I've a patch out of tree which I've been
-> > using for years which enables SG_CHAIN for a particular SoC (Dove).
-> > Otherwise, it doesn't have support for SG_CHAIN.
-> > 
-> > PARISC on the other hand (as you list) has no support to enable SG_CHAIN
-> > under any circumstances.
-> > 
-> > Where we're disagreeing is whether this is something that is always-on or
-> > always-off for any particular architecture.
-> 
-> Actually, I don't disagree with that.  PA used to share sb_iommu with
-> ia64 (it's the same chipset for the HP versions), but we can't now
-> because ia64 is chained and we're not and there's no way to say chained
-> for this platform but not for these other more legacy ones.  If you have
-> a proposal for this, I'd be interested, so I don't have to do an all or
-> nothing conversion, but the config option isn't it because our platform
-> configuration is runtime determined (we usually select every driver and
-> let the actual one be chosen at runtime from the config table).
+Kees Cook <keescook@chromium.org> writes:
+> [+x86 folks]
+>
+> On Tue, Mar 4, 2014 at 7:57 AM, Linus Torvalds
+> <torvalds@linux-foundation.org> wrote:
+>> On Mon, Mar 3, 2014 at 3:55 PM, Kees Cook <keescook@chromium.org> wrote:
+>>> This got NAKed, please don't apply -- this patch works for x86 and
+>>> ARM, but may cause problems for others:
+>>
+>> I'd much rather fix x86 and ARM, than worry about avr32.
+>>
+>> Priorities, people.
+>>
+>> Somebody who knows how "fix this properly" is supposed to work?
+>
+> I have not yet had a chance to more carefully examine the options, but
+> AIUI, the problem is that (at least) the "per cpu" variables are
+> neither absolute nor relative addresses from a relocation perspective.
+> They're relative to the per cpu area, but the linker tools don't know
+> about that state. So, I think, to fix this correctly, we need to teach
+> the linker tools about this third state. This may also help
+> arch/x86/tools/relocs, which is currently using a whitelist for
+> mis-identified variables.
 
-At runtime, it's obviously a lot harder to resolve.  However, that's not
-what we're trying to do with this patch.
+Well, __per_cpu_start points into a real section, within the discarded
+init region.  Makes me wonder why it's zero in /proc/kallsyms (it is on
+my Ubuntu system here too).
 
-The main issue is that Laura is trying to add SG chain support to ARM64.
-At the moment, ARM64 uses the asm-generic version of scatterlist.h
-directly.
+... digging ...
 
-Her first spin of the patch involved creating
-arch/arm64/include/asm/scatterlist.h, which was nothing more than an
-include of the asm-generic header file of the same name, and the
-definition of ARCH_HAS_SG_CHAIN.  That seemed to be extremely wasteful
-and sub-optimal way to handle this.
+Ah, the zero-based percpu patches, of course.  Gah.
 
-Moving this symbol into the Kconfig means that ARM64 no longer has to
-have this additional file (and probably a bunch of other architectures
-fall into that same camp) and the ARM specific CONFIG_ARM_HAS_SG_CHAIN
-can be eliminated in favour of the now generic cross-arch config symbol.
+How's this?  Did I break IA64?
 
-We have plenty of other Kconfig symbols which control similar features
-throughout the kernel source, there is no reason that this one should
-not be the same.
+=kallsyms: make zero-based __per_cpu_start & __per_cpu_end absolute symbols.
 
--- 
-FTTC broadband for 0.8mile line: now at 9.7Mbps down 460kbps up... slowly
-improving, and getting towards what was expected from it.
+Andy reported that x86-64 with CONFIG_RANDOMIZE_BASE has bogus values
+for __per_cpu_start and __per_cpu_end in /proc/kallsyms:
+
+    Several kallsyms output in different boot states for comparison:
+
+    $ egrep '_(stext|_per_cpu_(start|end))' /root/kallsyms.nokaslr
+    0000000000000000 D __per_cpu_start
+    0000000000014280 D __per_cpu_end
+    ffffffff810001c8 T _stext
+    $ egrep '_(stext|_per_cpu_(start|end))' /root/kallsyms.kaslr1
+    000000001f200000 D __per_cpu_start
+    000000001f214280 D __per_cpu_end
+    ffffffffa02001c8 T _stext
+    $ egrep '_(stext|_per_cpu_(start|end))' /root/kallsyms.kaslr2
+    000000000d400000 D __per_cpu_start
+    000000000d414280 D __per_cpu_end
+    ffffffff8e4001c8 T _stext
+    $ egrep '_(stext|_per_cpu_(start|end))' /root/kallsyms.kaslr-fixed
+    0000000000000000 D __per_cpu_start
+    0000000000014280 D __per_cpu_end
+    ffffffffadc001c8 T _stext
+
+x86-64 pretends that the per_cpu section is at address 0, and thus the
+__per_cpu_start and __per_cpu_end resolve to 0 and <smallnum>.
+
+kallsyms encodes the addresses in the kallsyms_addresses[] as relative
+to _text: this means they get automatically relocated when the kernel
+gets moved.  But that's clearly wrong for the case where these are
+fixed addresses.
+
+/proc/kallsyms already handles absolute symbols, so just make
+__per_cpu_start and __per_cpu_end absolute, and add them to the
+inclusive list so kallsyms doesn't filter them out.
+
+We make the change to absolute symbols in the PERCPU_VADDR linker
+script macro, which is only used by x86 (when !CONFIG_X86_32) and
+ia64, to place the per-cpu section at a specific address.  This means
+that using PERCPU_VADDR is wrong if you don't want an absolute
+address, so we remove the comment about the vaddr arg being optional.
+
+The comment on PERCPU_VADDR says __per_cpu_load is an absolute symbol,
+but it isn't (and I don't think it should be).  Delete that.
+
+Reported-by: Andy Honig <ahonig@google.com>
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+
+diff --git a/include/asm-generic/vmlinux.lds.h b/include/asm-generic/vmlinux.lds.h
+index bc2121fa9132..c70e6242d1d6 100644
+--- a/include/asm-generic/vmlinux.lds.h
++++ b/include/asm-generic/vmlinux.lds.h
+@@ -674,6 +674,16 @@
+ 	*(.discard.*)							\
+ 	}
+ 
++#define __PERCPU_INPUT(cacheline)					\
++	*(.data..percpu..first)						\
++	. = ALIGN(PAGE_SIZE);						\
++	*(.data..percpu..page_aligned)					\
++	. = ALIGN(cacheline);						\
++	*(.data..percpu..readmostly)					\
++	. = ALIGN(cacheline);						\
++	*(.data..percpu)						\
++	*(.data..percpu..shared_aligned)				\
++
+ /**
+  * PERCPU_INPUT - the percpu input sections
+  * @cacheline: cacheline size
+@@ -686,20 +697,13 @@
+  */
+ #define PERCPU_INPUT(cacheline)						\
+ 	VMLINUX_SYMBOL(__per_cpu_start) = .;				\
+-	*(.data..percpu..first)						\
+-	. = ALIGN(PAGE_SIZE);						\
+-	*(.data..percpu..page_aligned)					\
+-	. = ALIGN(cacheline);						\
+-	*(.data..percpu..readmostly)					\
+-	. = ALIGN(cacheline);						\
+-	*(.data..percpu)						\
+-	*(.data..percpu..shared_aligned)				\
++	__PERCPU_INPUT(cacheline)					\
+ 	VMLINUX_SYMBOL(__per_cpu_end) = .;
+ 
+ /**
+  * PERCPU_VADDR - define output section for percpu area
+  * @cacheline: cacheline size
+- * @vaddr: explicit base address (optional)
++ * @vaddr: explicit base address
+  * @phdr: destination PHDR (optional)
+  *
+  * Macro which expands to output section for percpu area.
+@@ -707,24 +711,25 @@
+  * @cacheline is used to align subsections to avoid false cacheline
+  * sharing between subsections for different purposes.
+  *
+- * If @vaddr is not blank, it specifies explicit base address and all
+- * percpu symbols will be offset from the given address.  If blank,
+- * @vaddr always equals @laddr + LOAD_OFFSET.
++ * @vaddr specifies explicit base address and all
++ * percpu symbols will be offset from the given address.
+  *
+  * @phdr defines the output PHDR to use if not blank.  Be warned that
+  * output PHDR is sticky.  If @phdr is specified, the next output
+  * section in the linker script will go there too.  @phdr should have
+  * a leading colon.
+  *
+- * Note that this macros defines __per_cpu_load as an absolute symbol.
+- * If there is no need to put the percpu section at a predetermined
+- * address, use PERCPU_SECTION.
++ * Note that this macros define __per_cpu_start and __per_cpu_end as
++ * absolute addresses.  If there is no need to put the percpu section
++ * at a predetermined address, use PERCPU_SECTION.
+  */
+ #define PERCPU_VADDR(cacheline, vaddr, phdr)				\
+ 	VMLINUX_SYMBOL(__per_cpu_load) = .;				\
+ 	.data..percpu vaddr : AT(VMLINUX_SYMBOL(__per_cpu_load)		\
+ 				- LOAD_OFFSET) {			\
+-		PERCPU_INPUT(cacheline)					\
++		VMLINUX_SYMBOL(__per_cpu_start) = ABSOLUTE(.);		\
++		__PERCPU_INPUT(cacheline)				\
++		VMLINUX_SYMBOL(__per_cpu_end) = ABSOLUTE(.);		\
+ 	} phdr								\
+ 	. = VMLINUX_SYMBOL(__per_cpu_load) + SIZEOF(.data..percpu);
+ 
+diff --git a/scripts/kallsyms.c b/scripts/kallsyms.c
+index 10085de886fe..d6782918fe17 100644
+--- a/scripts/kallsyms.c
++++ b/scripts/kallsyms.c
+@@ -138,6 +138,7 @@ static int read_symbol(FILE *in, struct sym_entry *s)
+ 		if (strcmp(sym, "__kernel_syscall_via_break") &&
+ 		    strcmp(sym, "__kernel_syscall_via_epc") &&
+ 		    strcmp(sym, "__kernel_sigtramp") &&
++		    strncmp(sym, "__per_cpu", strlen("__per_cpu")) &&
+ 		    strcmp(sym, "__gp"))
+ 			return -1;
+ 
