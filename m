@@ -1,7 +1,7 @@
 From: Kees Cook <keescook@chromium.org>
-Date: Thu, 06 Mar 2014 19:15:44 +0000
+Date: Thu, 06 Mar 2014 21:25:27 +0000
 Subject: Re: [patch 10/20] kallsyms: fix absolute addresses for kASLR
-Message-Id: <CAGXu5j+c22zt-ZSwBDTOmyDe7R5ebc7q5U2f-W2yRwyZZ__6mw@mail.gmail.com>
+Message-Id: <CAGXu5jKHa1-N5WGxpYq8k_w8rGaMwWUwCC7L1kCq=iZkaNuKFA@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <87k3c8yr9u.fsf@rustcorp.com.au>
 In-Reply-To: <87k3c8yr9u.fsf@rustcorp.com.au>
@@ -49,6 +49,11 @@ On Wed, Mar 5, 2014 at 6:50 PM, Rusty Russell <rusty@rustcorp.com.au> wrote:
 >
 > Andy reported that x86-64 with CONFIG_RANDOMIZE_BASE has bogus values
 > for __per_cpu_start and __per_cpu_end in /proc/kallsyms:
+
+Well, just to make sure it's clear: __per_cpu_start/_end are just
+markers, and everything between them is mishandled as well, not just
+things named "__per_cpu" ...
+
 >
 >     Several kallsyms output in different boot states for comparison:
 >
@@ -167,6 +172,11 @@ On Wed, Mar 5, 2014 at 6:50 PM, Rusty Russell <rusty@rustcorp.com.au> wrote:
 > +               VMLINUX_SYMBOL(__per_cpu_start) = ABSOLUTE(.);          \
 > +               __PERCPU_INPUT(cacheline)                               \
 > +               VMLINUX_SYMBOL(__per_cpu_end) = ABSOLUTE(.);            \
+
+I think this portion interacts badly with the x86 relocs tool which is
+trying to find the per_cpu area via percpu_init(), which looks for the
+section name ".data..percpu".
+
 >         } phdr                                                          \
 >         . = VMLINUX_SYMBOL(__per_cpu_load) + SIZEOF(.data..percpu);
 >
@@ -181,13 +191,24 @@ On Wed, Mar 5, 2014 at 6:50 PM, Rusty Russell <rusty@rustcorp.com.au> wrote:
 > +                   strncmp(sym, "__per_cpu", strlen("__per_cpu")) &&
 >                     strcmp(sym, "__gp"))
 >                         return -1;
->
 
-This fails to build for me. The x86 relocs tool fails:
+We need to keep everything between _start and _end, and they don't
+have the __per_cpu prefix:
 
-Invalid absolute R_X86_64_32S relocation: __per_cpu_start
-
-I'll see if I can figure out what went wrong...
+0000000000000000 D irq_stack_union
+0000000000000000 D __per_cpu_start
+0000000000004000 D gdt_page
+0000000000005000 d exception_stacks
+000000000000b000 D cpu_llc_shared_map
+000000000000b008 D cpu_core_map
+000000000000b010 D cpu_sibling_map
+000000000000b018 D cpu_llc_id
+...
+0000000000013fc0 d call_single_queue
+0000000000014000 d cfd_data
+0000000000014040 d csd_data
+0000000000014080 D softnet_data
+0000000000014280 D __per_cpu_end
 
 -Kees
 
