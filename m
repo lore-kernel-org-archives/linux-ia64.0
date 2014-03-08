@@ -1,30 +1,16 @@
-From: Tejun Heo <tj@kernel.org>
-Date: Fri, 07 Mar 2014 12:25:09 +0000
-Subject: Re: [PATCH 2/2] kallsyms: handle special absolute symbols
-Message-Id: <20140307122509.GA30778@htj.dyndns.org>
+From: Kees Cook <keescook@chromium.org>
+Date: Sat, 08 Mar 2014 01:00:23 +0000
+Subject: [PATCH v2 0/2] kallsyms: handle special absolute symbols
+Message-Id: <1394240425-11647-1-git-send-email-keescook@chromium.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1394152324-26304-1-git-send-email-keescook@chromium.org>
- <1394152324-26304-3-git-send-email-keescook@chromium.org>
-In-Reply-To: <1394152324-26304-3-git-send-email-keescook@chromium.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Kees Cook <keescook@chromium.org>
-Cc: Rusty Russell <rusty@rustcorp.com.au>, Linus Torvalds <torvalds@linux-foundation.org>, Andrew Morton <akpm@linux-foundation.org>, Andrew Honig <ahonig@google.com>, Michal Marek <mmarek@suse.cz>, "x86@kernel.org" <x86@kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Rusty Russell <rusty@rustcorp.com.au>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>, Andrew Morton <akpm@linux-foundation.org>, Andrew Honig <ahonig@google.com>, Michal Marek <mmarek@suse.cz>, "x86@kernel.org" <x86@kernel.org>, Tejun Heo <tj@kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, keescook@chromium.org, linux-kernel@vger.kernel.org
 
-> diff --git a/scripts/kallsyms.c b/scripts/kallsyms.c
-> index 3c6224728960..4dcda98427cb 100644
-> --- a/scripts/kallsyms.c
-> +++ b/scripts/kallsyms.c
-> @@ -34,6 +34,7 @@ struct sym_entry {
->  	unsigned int len;
->  	unsigned int start_pos;
->  	unsigned char *sym;
-> +	int force_absolute;
+Handles 0-based per_cpu variables as being absolute so they are
+not relocated under kASLR on x86_64.
 
-bool?
+-Kees
 
-Thanks.
-
--- 
-tejun
