@@ -1,360 +1,162 @@
-From: Laura Abbott <lauraa@codeaurora.org>
-Date: Fri, 14 Mar 2014 22:58:49 +0000
-Subject: [PATCH 1/2] lib/scatterlist: Make ARCH_HAS_SG_CHAIN an actual Kconfig
-Message-Id: <1394837930-27731-1-git-send-email-lauraa@codeaurora.org>
+From: Kees Cook <keescook@chromium.org>
+Date: Sat, 08 Mar 2014 01:00:24 +0000
+Subject: [PATCH v2 1/2] kallsyms: generalize address range checking
+Message-Id: <1394240425-11647-2-git-send-email-keescook@chromium.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1394240425-11647-1-git-send-email-keescook@chromium.org>
+In-Reply-To: <1394240425-11647-1-git-send-email-keescook@chromium.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Russell King <linux@arm.linux.org.uk>, "David S. Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, "James E.J. Bottomley" <JBottomley@parallels.com>, Fenghua Yu <fenghua.yu@intel.com>, Tony Luck <tony.luck@intel.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, Andrew Morton <akpm@linux-foundation.org>
-Cc: Laura Abbott <lauraa@codeaurora.org>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-scsi@vger.kernel.org, linux-ia64@vger.kernel.org, linux390@de.ibm.com, linux-arm-kernel@lists.infradead.org
+To: Rusty Russell <rusty@rustcorp.com.au>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>, Andrew Morton <akpm@linux-foundation.org>, Andrew Honig <ahonig@google.com>, Michal Marek <mmarek@suse.cz>, "x86@kernel.org" <x86@kernel.org>, Tejun Heo <tj@kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, keescook@chromium.org, linux-kernel@vger.kernel.org
 
-Rather than have architectures #define ARCH_HAS_SG_CHAIN in an architecture
-specific scatterlist.h, make it a proper Kconfig option and use that
-instead. At same time, remove the header files are are now mostly
-useless and just include asm-generic/scatterlist.h.
+This refactors the address range checks to be generalized instead of
+specific to text range checks, in preparation for other range checks.
+Also extracts logic for "is the symbol absolute" into a function.
 
-Cc: Russell King <linux@arm.linux.org.uk>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Paul Mackerras <paulus@samba.org>
-Signed-off-by: Laura Abbott <lauraa@codeaurora.org>
+Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- arch/arm/Kconfig                       |  1 +
- arch/arm/include/asm/Kbuild            |  1 +
- arch/arm/include/asm/scatterlist.h     | 12 ------------
- arch/arm64/Kconfig                     |  1 +
- arch/ia64/Kconfig                      |  1 +
- arch/ia64/include/asm/Kbuild           |  1 +
- arch/ia64/include/asm/scatterlist.h    |  7 -------
- arch/powerpc/Kconfig                   |  1 +
- arch/powerpc/include/asm/Kbuild        |  1 +
- arch/powerpc/include/asm/scatterlist.h | 17 -----------------
- arch/s390/Kconfig                      |  1 +
- arch/s390/include/asm/Kbuild           |  1 +
- arch/s390/include/asm/scatterlist.h    |  3 ---
- arch/sparc/Kconfig                     |  1 +
- arch/sparc/include/asm/Kbuild          |  1 +
- arch/sparc/include/asm/scatterlist.h   |  8 --------
- arch/x86/Kconfig                       |  1 +
- arch/x86/include/asm/Kbuild            |  1 +
- arch/x86/include/asm/scatterlist.h     |  8 --------
- include/linux/scatterlist.h            |  2 +-
- include/scsi/scsi.h                    |  2 +-
- lib/Kconfig                            |  7 +++++++
- lib/scatterlist.c                      |  4 ++--
- 23 files changed, 24 insertions(+), 59 deletions(-)
- delete mode 100644 arch/arm/include/asm/scatterlist.h
- delete mode 100644 arch/ia64/include/asm/scatterlist.h
- delete mode 100644 arch/powerpc/include/asm/scatterlist.h
- delete mode 100644 arch/s390/include/asm/scatterlist.h
- delete mode 100644 arch/sparc/include/asm/scatterlist.h
- delete mode 100644 arch/x86/include/asm/scatterlist.h
+v2:
+ - return which range entry index an address was found in.
+---
+ scripts/kallsyms.c |   58 +++++++++++++++++++++++++++++++---------------------
+ 1 file changed, 35 insertions(+), 23 deletions(-)
 
-diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
-index 1594945..8122294 100644
---- a/arch/arm/Kconfig
-+++ b/arch/arm/Kconfig
-@@ -82,6 +82,7 @@ config ARM
- 	  <http://www.arm.linux.org.uk/>.
+diff --git a/scripts/kallsyms.c b/scripts/kallsyms.c
+index 276e84b8a8e5..08f30ac5b07d 100644
+--- a/scripts/kallsyms.c
++++ b/scripts/kallsyms.c
+@@ -36,13 +36,13 @@ struct sym_entry {
+ 	unsigned char *sym;
+ };
  
- config ARM_HAS_SG_CHAIN
-+	select ARCH_HAS_SG_CHAIN
- 	bool
+-struct text_range {
+-	const char *stext, *etext;
++struct addr_range {
++	const char *start_sym, *end_sym;
+ 	unsigned long long start, end;
+ };
  
- config NEED_SG_DMA_LENGTH
-diff --git a/arch/arm/include/asm/Kbuild b/arch/arm/include/asm/Kbuild
-index 3278afe..2357ed6 100644
---- a/arch/arm/include/asm/Kbuild
-+++ b/arch/arm/include/asm/Kbuild
-@@ -18,6 +18,7 @@ generic-y += param.h
- generic-y += parport.h
- generic-y += poll.h
- generic-y += resource.h
-+generic-y += scatterlist.h
- generic-y += sections.h
- generic-y += segment.h
- generic-y += sembuf.h
-diff --git a/arch/arm/include/asm/scatterlist.h b/arch/arm/include/asm/scatterlist.h
-deleted file mode 100644
-index cefdb8f..0000000
---- a/arch/arm/include/asm/scatterlist.h
-+++ /dev/null
-@@ -1,12 +0,0 @@
--#ifndef _ASMARM_SCATTERLIST_H
--#define _ASMARM_SCATTERLIST_H
--
--#ifdef CONFIG_ARM_HAS_SG_CHAIN
--#define ARCH_HAS_SG_CHAIN
--#endif
--
--#include <asm/memory.h>
--#include <asm/types.h>
--#include <asm-generic/scatterlist.h>
--
--#endif /* _ASMARM_SCATTERLIST_H */
-diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
-index 27bbcfc..f2f95f4 100644
---- a/arch/arm64/Kconfig
-+++ b/arch/arm64/Kconfig
-@@ -2,6 +2,7 @@ config ARM64
- 	def_bool y
- 	select ARCH_HAS_ATOMIC64_DEC_IF_POSITIVE
- 	select ARCH_USE_CMPXCHG_LOCKREF
-+	select ARCH_HAS_SG_CHAIN
- 	select ARCH_HAS_TICK_BROADCAST if GENERIC_CLOCKEVENTS_BROADCAST
- 	select ARCH_WANT_OPTIONAL_GPIOLIB
- 	select ARCH_WANT_COMPAT_IPC_PARSE_VERSION
-diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-index 0c8e553..13e2e8b 100644
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -44,6 +44,7 @@ config IA64
- 	select HAVE_MOD_ARCH_SPECIFIC
- 	select MODULES_USE_ELF_RELA
- 	select ARCH_USE_CMPXCHG_LOCKREF
-+	select ARCH_HAS_SG_CHAIN
- 	default y
- 	help
- 	  The Itanium Processor Family is Intel's 64-bit successor to
-diff --git a/arch/ia64/include/asm/Kbuild b/arch/ia64/include/asm/Kbuild
-index 283a831..3906865 100644
---- a/arch/ia64/include/asm/Kbuild
-+++ b/arch/ia64/include/asm/Kbuild
-@@ -2,6 +2,7 @@
- generic-y += clkdev.h
- generic-y += exec.h
- generic-y += kvm_para.h
-+generic-y += scatterlist.h
- generic-y += trace_clock.h
- generic-y += preempt.h
- generic-y += vtime.h
-diff --git a/arch/ia64/include/asm/scatterlist.h b/arch/ia64/include/asm/scatterlist.h
-deleted file mode 100644
-index 08fd93b..0000000
---- a/arch/ia64/include/asm/scatterlist.h
-+++ /dev/null
-@@ -1,7 +0,0 @@
--#ifndef _ASM_IA64_SCATTERLIST_H
--#define _ASM_IA64_SCATTERLIST_H
--
--#include <asm-generic/scatterlist.h>
--#define ARCH_HAS_SG_CHAIN
--
--#endif /* _ASM_IA64_SCATTERLIST_H */
-diff --git a/arch/powerpc/Kconfig b/arch/powerpc/Kconfig
-index 957bf34..659aee2 100644
---- a/arch/powerpc/Kconfig
-+++ b/arch/powerpc/Kconfig
-@@ -141,6 +141,7 @@ config PPC
- 	select HAVE_DEBUG_STACKOVERFLOW
- 	select HAVE_IRQ_EXIT_ON_IRQ_STACK
- 	select ARCH_USE_CMPXCHG_LOCKREF if PPC64
-+	select ARCH_HAS_SG_CHAIN
+ static unsigned long long _text;
+-static struct text_range text_ranges[] = {
++static struct addr_range text_ranges[] = {
+ 	{ "_stext",     "_etext"     },
+ 	{ "_sinittext", "_einittext" },
+ 	{ "_stext_l1",  "_etext_l1"  },	/* Blackfin on-chip L1 inst SRAM */
+@@ -83,19 +83,20 @@ static inline int is_arm_mapping_symbol(const char *str)
+ 	       && (str[2] = '\0' || str[2] = '.');
+ }
  
- config GENERIC_CSUM
- 	def_bool CPU_LITTLE_ENDIAN
-diff --git a/arch/powerpc/include/asm/Kbuild b/arch/powerpc/include/asm/Kbuild
-index 6c0a955..ca596ec 100644
---- a/arch/powerpc/include/asm/Kbuild
-+++ b/arch/powerpc/include/asm/Kbuild
-@@ -1,6 +1,7 @@
- 
- generic-y += clkdev.h
- generic-y += rwsem.h
-+generic-y += scatterlist.h
- generic-y += trace_clock.h
- generic-y += preempt.h
- generic-y += vtime.h
-diff --git a/arch/powerpc/include/asm/scatterlist.h b/arch/powerpc/include/asm/scatterlist.h
-deleted file mode 100644
-index de1f620..0000000
---- a/arch/powerpc/include/asm/scatterlist.h
-+++ /dev/null
-@@ -1,17 +0,0 @@
--#ifndef _ASM_POWERPC_SCATTERLIST_H
--#define _ASM_POWERPC_SCATTERLIST_H
--/*
-- * Copyright (C) 2001 PPC64 Team, IBM Corp
-- *
-- * This program is free software; you can redistribute it and/or
-- * modify it under the terms of the GNU General Public License
-- * as published by the Free Software Foundation; either version
-- * 2 of the License, or (at your option) any later version.
-- */
--
--#include <asm/dma.h>
--#include <asm-generic/scatterlist.h>
--
--#define ARCH_HAS_SG_CHAIN
--
--#endif /* _ASM_POWERPC_SCATTERLIST_H */
-diff --git a/arch/s390/Kconfig b/arch/s390/Kconfig
-index 65a0775..d6c2059 100644
---- a/arch/s390/Kconfig
-+++ b/arch/s390/Kconfig
-@@ -142,6 +142,7 @@ config S390
- 	select SYSCTL_EXCEPTION_TRACE
- 	select VIRT_CPU_ACCOUNTING
- 	select VIRT_TO_BUS
-+	select ARCH_HAS_SG_CHAIN
- 
- config SCHED_OMIT_FRAME_POINTER
- 	def_bool y
-diff --git a/arch/s390/include/asm/Kbuild b/arch/s390/include/asm/Kbuild
-index 8386a4a..14be6d0 100644
---- a/arch/s390/include/asm/Kbuild
-+++ b/arch/s390/include/asm/Kbuild
-@@ -4,3 +4,4 @@ generic-y += clkdev.h
- generic-y += trace_clock.h
- generic-y += preempt.h
- generic-y += hash.h
-+generic-y += scatterlist.h
-diff --git a/arch/s390/include/asm/scatterlist.h b/arch/s390/include/asm/scatterlist.h
-deleted file mode 100644
-index 6d45ef6..0000000
---- a/arch/s390/include/asm/scatterlist.h
-+++ /dev/null
-@@ -1,3 +0,0 @@
--#include <asm-generic/scatterlist.h>
--
--#define ARCH_HAS_SG_CHAIN
-diff --git a/arch/sparc/Kconfig b/arch/sparc/Kconfig
-index 7d8b7e9..7a179fe 100644
---- a/arch/sparc/Kconfig
-+++ b/arch/sparc/Kconfig
-@@ -42,6 +42,7 @@ config SPARC
- 	select MODULES_USE_ELF_RELA
- 	select ODD_RT_SIGACTION
- 	select OLD_SIGSUSPEND
-+	select ARCH_HAS_SG_CHAIN
- 
- config SPARC32
- 	def_bool !64BIT
-diff --git a/arch/sparc/include/asm/Kbuild b/arch/sparc/include/asm/Kbuild
-index 4b60a0c..437f0c6 100644
---- a/arch/sparc/include/asm/Kbuild
-+++ b/arch/sparc/include/asm/Kbuild
-@@ -18,3 +18,4 @@ generic-y += types.h
- generic-y += word-at-a-time.h
- generic-y += preempt.h
- generic-y += hash.h
-+generic-y += scatterlist.h
-diff --git a/arch/sparc/include/asm/scatterlist.h b/arch/sparc/include/asm/scatterlist.h
-deleted file mode 100644
-index 92bb638..0000000
---- a/arch/sparc/include/asm/scatterlist.h
-+++ /dev/null
-@@ -1,8 +0,0 @@
--#ifndef _SPARC_SCATTERLIST_H
--#define _SPARC_SCATTERLIST_H
--
--#include <asm-generic/scatterlist.h>
--
--#define ARCH_HAS_SG_CHAIN
--
--#endif /* !(_SPARC_SCATTERLIST_H) */
-diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
-index 0af5250..76997dc 100644
---- a/arch/x86/Kconfig
-+++ b/arch/x86/Kconfig
-@@ -127,6 +127,7 @@ config X86
- 	select HAVE_DEBUG_STACKOVERFLOW
- 	select HAVE_IRQ_EXIT_ON_IRQ_STACK if X86_64
- 	select HAVE_CC_STACKPROTECTOR
-+	select ARCH_HAS_SG_CHAIN
- 
- config INSTRUCTION_DECODER
- 	def_bool y
-diff --git a/arch/x86/include/asm/Kbuild b/arch/x86/include/asm/Kbuild
-index 7f66985..9b3d749 100644
---- a/arch/x86/include/asm/Kbuild
-+++ b/arch/x86/include/asm/Kbuild
-@@ -5,3 +5,4 @@ genhdr-y += unistd_64.h
- genhdr-y += unistd_x32.h
- 
- generic-y += clkdev.h
-+generic-y += scatterlist.h
-diff --git a/arch/x86/include/asm/scatterlist.h b/arch/x86/include/asm/scatterlist.h
-deleted file mode 100644
-index 4240878..0000000
---- a/arch/x86/include/asm/scatterlist.h
-+++ /dev/null
-@@ -1,8 +0,0 @@
--#ifndef _ASM_X86_SCATTERLIST_H
--#define _ASM_X86_SCATTERLIST_H
--
--#include <asm-generic/scatterlist.h>
--
--#define ARCH_HAS_SG_CHAIN
--
--#endif /* _ASM_X86_SCATTERLIST_H */
-diff --git a/include/linux/scatterlist.h b/include/linux/scatterlist.h
-index a964f72..4b152c8 100644
---- a/include/linux/scatterlist.h
-+++ b/include/linux/scatterlist.h
-@@ -136,7 +136,7 @@ static inline void sg_set_buf(struct scatterlist *sg, const void *buf,
- static inline void sg_chain(struct scatterlist *prv, unsigned int prv_nents,
- 			    struct scatterlist *sgl)
+-static int read_symbol_tr(const char *sym, unsigned long long addr)
++static int check_symbol_range(const char *sym, unsigned long long addr,
++			      struct addr_range *ranges, int entries)
  {
--#ifndef ARCH_HAS_SG_CHAIN
-+#ifndef CONFIG_ARCH_HAS_SG_CHAIN
- 	BUG();
- #endif
+ 	size_t i;
+-	struct text_range *tr;
++	struct addr_range *ar;
  
-diff --git a/include/scsi/scsi.h b/include/scsi/scsi.h
-index 0a4edfe..d34cf2d 100644
---- a/include/scsi/scsi.h
-+++ b/include/scsi/scsi.h
-@@ -31,7 +31,7 @@ enum scsi_timeouts {
-  * Like SCSI_MAX_SG_SEGMENTS, but for archs that have sg chaining. This limit
-  * is totally arbitrary, a setting of 2048 will get you at least 8mb ios.
-  */
--#ifdef ARCH_HAS_SG_CHAIN
-+#ifdef CONFIG_ARCH_HAS_SG_CHAIN
- #define SCSI_MAX_SG_CHAIN_SEGMENTS	2048
- #else
- #define SCSI_MAX_SG_CHAIN_SEGMENTS	SCSI_MAX_SG_SEGMENTS
-diff --git a/lib/Kconfig b/lib/Kconfig
-index 991c98b..32c68d3 100644
---- a/lib/Kconfig
-+++ b/lib/Kconfig
-@@ -451,4 +451,11 @@ config UCS2_STRING
+-	for (i = 0; i < ARRAY_SIZE(text_ranges); ++i) {
+-		tr = &text_ranges[i];
++	for (i = 0; i < entries; ++i) {
++		ar = &ranges[i];
  
- source "lib/fonts/Kconfig"
+-		if (strcmp(sym, tr->stext) = 0) {
+-			tr->start = addr;
++		if (strcmp(sym, ar->start_sym) = 0) {
++			ar->start = addr;
+ 			return 0;
+-		} else if (strcmp(sym, tr->etext) = 0) {
+-			tr->end = addr;
++		} else if (strcmp(sym, ar->end_sym) = 0) {
++			ar->end = addr;
+ 			return 0;
+ 		}
+ 	}
+@@ -130,7 +131,8 @@ static int read_symbol(FILE *in, struct sym_entry *s)
+ 	/* Ignore most absolute/undefined (?) symbols. */
+ 	if (strcmp(sym, "_text") = 0)
+ 		_text = s->addr;
+-	else if (read_symbol_tr(sym, s->addr) = 0)
++	else if (check_symbol_range(sym, s->addr, text_ranges,
++				    ARRAY_SIZE(text_ranges)) = 0)
+ 		/* nothing to do */;
+ 	else if (toupper(stype) = 'A')
+ 	{
+@@ -167,19 +169,21 @@ static int read_symbol(FILE *in, struct sym_entry *s)
+ 	return 0;
+ }
  
-+#
-+# sg chaining option
-+#
-+
-+config ARCH_HAS_SG_CHAIN
-+	def_bool n
-+
- endmenu
-diff --git a/lib/scatterlist.c b/lib/scatterlist.c
-index 3a8e8e8..4251cbd 100644
---- a/lib/scatterlist.c
-+++ b/lib/scatterlist.c
-@@ -73,7 +73,7 @@ EXPORT_SYMBOL(sg_nents);
-  **/
- struct scatterlist *sg_last(struct scatterlist *sgl, unsigned int nents)
+-static int symbol_valid_tr(struct sym_entry *s)
++/* Return which addr_range index an entry matches, or -1 if not found. */
++static int symbol_in_range(struct sym_entry *s, struct addr_range *ranges,
++			   int entries)
  {
--#ifndef ARCH_HAS_SG_CHAIN
-+#ifndef CONFIG_ARCH_HAS_SG_CHAIN
- 	struct scatterlist *ret = &sgl[nents - 1];
- #else
- 	struct scatterlist *sg, *ret = NULL;
-@@ -251,7 +251,7 @@ int __sg_alloc_table(struct sg_table *table, unsigned int nents,
+ 	size_t i;
+-	struct text_range *tr;
++	struct addr_range *ar;
  
- 	if (nents = 0)
- 		return -EINVAL;
--#ifndef ARCH_HAS_SG_CHAIN
-+#ifndef CONFIG_ARCH_HAS_SG_CHAIN
- 	if (WARN_ON_ONCE(nents > max_ents))
- 		return -EINVAL;
- #endif
+-	for (i = 0; i < ARRAY_SIZE(text_ranges); ++i) {
+-		tr = &text_ranges[i];
++	for (i = 0; i < entries; ++i) {
++		ar = &ranges[i];
+ 
+-		if (s->addr >= tr->start && s->addr <= tr->end)
+-			return 1;
++		if (s->addr >= ar->start && s->addr <= ar->end)
++			return i;
+ 	}
+ 
+-	return 0;
++	return -1;
+ }
+ 
+ static int symbol_valid(struct sym_entry *s)
+@@ -214,7 +218,8 @@ static int symbol_valid(struct sym_entry *s)
+ 	/* if --all-symbols is not specified, then symbols outside the text
+ 	 * and inittext sections are discarded */
+ 	if (!all_symbols) {
+-		if (symbol_valid_tr(s) = 0)
++		if (symbol_in_range(s, text_ranges,
++				    ARRAY_SIZE(text_ranges)) < 0)
+ 			return 0;
+ 		/* Corner case.  Discard any symbols with the same value as
+ 		 * _etext _einittext; they can move between pass 1 and 2 when
+@@ -223,9 +228,11 @@ static int symbol_valid(struct sym_entry *s)
+ 		 * rules.
+ 		 */
+ 		if ((s->addr = text_range_text->end &&
+-				strcmp((char *)s->sym + offset, text_range_text->etext)) ||
++				strcmp((char *)s->sym + offset,
++				       text_range_text->end_sym)) ||
+ 		    (s->addr = text_range_inittext->end &&
+-				strcmp((char *)s->sym + offset, text_range_inittext->etext)))
++				strcmp((char *)s->sym + offset,
++				       text_range_inittext->end_sym)))
+ 			return 0;
+ 	}
+ 
+@@ -298,6 +305,11 @@ static int expand_symbol(unsigned char *data, int len, char *result)
+ 	return total;
+ }
+ 
++static int symbol_absolute(struct sym_entry *s)
++{
++	return toupper(s->sym[0]) = 'A';
++}
++
+ static void write_src(void)
+ {
+ 	unsigned int i, k, off;
+@@ -325,7 +337,7 @@ static void write_src(void)
+ 	 */
+ 	output_label("kallsyms_addresses");
+ 	for (i = 0; i < table_cnt; i++) {
+-		if (toupper(table[i].sym[0]) != 'A') {
++		if (!symbol_absolute(&table[i])) {
+ 			if (_text <= table[i].addr)
+ 				printf("\tPTR\t_text + %#llx\n",
+ 					table[i].addr - _text);
 -- 
-The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum,
-hosted by The Linux Foundation
+1.7.9.5
 
