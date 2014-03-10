@@ -1,129 +1,100 @@
-From: Michael Opdenacker <michael.opdenacker@free-electrons.com>
-Date: Tue, 04 Mar 2014 20:29:13 +0000
-Subject: [PATCH] [RESEND] ia64: remove deprecated IRQF_DISABLED
-Message-Id: <1393964953-17002-1-git-send-email-michael.opdenacker@free-electrons.com>
+From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Date: Mon, 10 Mar 2014 20:47:10 +0000
+Subject: [PATCH v3 08/52] ia64, err-inject: Fix CPU hotplug callback registration
+Message-Id: <20140310203510.10746.62381.stgit@srivatsabhat.in.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1386397276-12288-1-git-send-email-michael.opdenacker@free-electrons.com>
-In-Reply-To: <1386397276-12288-1-git-send-email-michael.opdenacker@free-electrons.com>
+References: <20140310203312.10746.310.stgit@srivatsabhat.in.ibm.com>
+In-Reply-To: <20140310203312.10746.310.stgit@srivatsabhat.in.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: fenghua.yu@intel.com, tony.luck@intel.com
-Cc: paul.gortmaker@windriver.com, tglx@linutronix.de, viro@zeniv.linux.org.uk, srivatsa.bhat@linux.vnet.ibm.com, andriy.shevchenko@linux.intel.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Michael Opdenacker <michael.opdenacker@free-electrons.com>
+To: paulus@samba.org, oleg@redhat.com, mingo@kernel.org, rjw@rjwysocki.net, rusty@rustcorp.com.au, peterz@infradead.org, tglx@linutronix.de, akpm@linux-foundation.org
+Cc: paulmck@linux.vnet.ibm.com, tj@kernel.org, walken@google.com, ego@linux.vnet.ibm.com, linux@arm.linux.org.uk, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, linux-pm@vger.kernel.org, linuxppc-dev@ozlabs.org, srivatsa.bhat@linux.vnet.ibm.com, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
 
-This patch removes the IRQF_DISABLED flag from ia64 architecture
-code. It's a NOOP since 2.6.35 and it will be removed one day.
+Subsystems that want to register CPU hotplug callbacks, as well as perform
+initialization for the CPUs that are already online, often do it as shown
+below:
 
-Signed-off-by: Michael Opdenacker <michael.opdenacker@free-electrons.com>
+	get_online_cpus();
+
+	for_each_online_cpu(cpu)
+		init_cpu(cpu);
+
+	register_cpu_notifier(&foobar_cpu_notifier);
+
+	put_online_cpus();
+
+This is wrong, since it is prone to ABBA deadlocks involving the
+cpu_add_remove_lock and the cpu_hotplug.lock (when running concurrently
+with CPU hotplug operations).
+
+Instead, the correct and race-free way of performing the callback
+registration is:
+
+	cpu_notifier_register_begin();
+
+	for_each_online_cpu(cpu)
+		init_cpu(cpu);
+
+	/* Note the use of the double underscored version of the API */
+	__register_cpu_notifier(&foobar_cpu_notifier);
+
+	cpu_notifier_register_done();
+
+
+Fix the error injection code in ia64 by using this latter form of callback
+registration.
+
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: Ingo Molnar <mingo@kernel.org>
+Cc: linux-ia64@vger.kernel.org
+Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
- arch/ia64/kernel/irq_ia64.c | 4 ----
- arch/ia64/kernel/mca.c      | 6 ------
- arch/ia64/kernel/perfmon.c  | 1 -
- arch/ia64/kernel/time.c     | 2 +-
- 4 files changed, 1 insertion(+), 12 deletions(-)
 
-diff --git a/arch/ia64/kernel/irq_ia64.c b/arch/ia64/kernel/irq_ia64.c
-index 1034884b77da..b5a7dba56366 100644
---- a/arch/ia64/kernel/irq_ia64.c
-+++ b/arch/ia64/kernel/irq_ia64.c
-@@ -364,7 +364,6 @@ static irqreturn_t smp_irq_move_cleanup_interrupt(int irq, void *dev_id)
+ arch/ia64/kernel/err_inject.c |   15 +++++++++++++--
+ 1 file changed, 13 insertions(+), 2 deletions(-)
+
+diff --git a/arch/ia64/kernel/err_inject.c b/arch/ia64/kernel/err_inject.c
+index f59c0b8..0c161ed 100644
+--- a/arch/ia64/kernel/err_inject.c
++++ b/arch/ia64/kernel/err_inject.c
+@@ -269,12 +269,17 @@ err_inject_init(void)
+ #ifdef ERR_INJ_DEBUG
+ 	printk(KERN_INFO "Enter error injection driver.\n");
+ #endif
++
++	cpu_notifier_register_begin();
++
+ 	for_each_online_cpu(i) {
+ 		err_inject_cpu_callback(&err_inject_cpu_notifier, CPU_ONLINE,
+ 				(void *)(long)i);
+ 	}
  
- static struct irqaction irq_move_irqaction = {
- 	.handler =	smp_irq_move_cleanup_interrupt,
--	.flags =	IRQF_DISABLED,
- 	.name =		"irq_move"
- };
+-	register_hotcpu_notifier(&err_inject_cpu_notifier);
++	__register_hotcpu_notifier(&err_inject_cpu_notifier);
++
++	cpu_notifier_register_done();
  
-@@ -602,7 +601,6 @@ static irqreturn_t dummy_handler (int irq, void *dev_id)
+ 	return 0;
+ }
+@@ -288,11 +293,17 @@ err_inject_exit(void)
+ #ifdef ERR_INJ_DEBUG
+ 	printk(KERN_INFO "Exit error injection driver.\n");
+ #endif
++
++	cpu_notifier_register_begin();
++
+ 	for_each_online_cpu(i) {
+ 		sys_dev = get_cpu_device(i);
+ 		sysfs_remove_group(&sys_dev->kobj, &err_inject_attr_group);
+ 	}
+-	unregister_hotcpu_notifier(&err_inject_cpu_notifier);
++
++	__unregister_hotcpu_notifier(&err_inject_cpu_notifier);
++
++	cpu_notifier_register_done();
+ }
  
- static struct irqaction ipi_irqaction = {
- 	.handler =	handle_IPI,
--	.flags =	IRQF_DISABLED,
- 	.name =		"IPI"
- };
- 
-@@ -611,13 +609,11 @@ static struct irqaction ipi_irqaction = {
-  */
- static struct irqaction resched_irqaction = {
- 	.handler =	dummy_handler,
--	.flags =	IRQF_DISABLED,
- 	.name =		"resched"
- };
- 
- static struct irqaction tlb_irqaction = {
- 	.handler =	dummy_handler,
--	.flags =	IRQF_DISABLED,
- 	.name =		"tlb_flush"
- };
- 
-diff --git a/arch/ia64/kernel/mca.c b/arch/ia64/kernel/mca.c
-index b8edfa75a83f..33f1462b3379 100644
---- a/arch/ia64/kernel/mca.c
-+++ b/arch/ia64/kernel/mca.c
-@@ -1772,38 +1772,32 @@ __setup("disable_cpe_poll", ia64_mca_disable_cpe_polling);
- 
- static struct irqaction cmci_irqaction = {
- 	.handler =	ia64_mca_cmc_int_handler,
--	.flags =	IRQF_DISABLED,
- 	.name =		"cmc_hndlr"
- };
- 
- static struct irqaction cmcp_irqaction = {
- 	.handler =	ia64_mca_cmc_int_caller,
--	.flags =	IRQF_DISABLED,
- 	.name =		"cmc_poll"
- };
- 
- static struct irqaction mca_rdzv_irqaction = {
- 	.handler =	ia64_mca_rendez_int_handler,
--	.flags =	IRQF_DISABLED,
- 	.name =		"mca_rdzv"
- };
- 
- static struct irqaction mca_wkup_irqaction = {
- 	.handler =	ia64_mca_wakeup_int_handler,
--	.flags =	IRQF_DISABLED,
- 	.name =		"mca_wkup"
- };
- 
- #ifdef CONFIG_ACPI
- static struct irqaction mca_cpe_irqaction = {
- 	.handler =	ia64_mca_cpe_int_handler,
--	.flags =	IRQF_DISABLED,
- 	.name =		"cpe_hndlr"
- };
- 
- static struct irqaction mca_cpep_irqaction = {
- 	.handler =	ia64_mca_cpe_int_caller,
--	.flags =	IRQF_DISABLED,
- 	.name =		"cpe_poll"
- };
- #endif /* CONFIG_ACPI */
-diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
-index cb592773c78b..d841c4bd6864 100644
---- a/arch/ia64/kernel/perfmon.c
-+++ b/arch/ia64/kernel/perfmon.c
-@@ -6387,7 +6387,6 @@ pfm_flush_pmds(struct task_struct *task, pfm_context_t *ctx)
- 
- static struct irqaction perfmon_irqaction = {
- 	.handler = pfm_interrupt_handler,
--	.flags   = IRQF_DISABLED,
- 	.name    = "perfmon"
- };
- 
-diff --git a/arch/ia64/kernel/time.c b/arch/ia64/kernel/time.c
-index fbaac1afb844..71c52bc7c28d 100644
---- a/arch/ia64/kernel/time.c
-+++ b/arch/ia64/kernel/time.c
-@@ -380,7 +380,7 @@ static cycle_t itc_get_cycles(struct clocksource *cs)
- 
- static struct irqaction timer_irqaction = {
- 	.handler =	timer_interrupt,
--	.flags =	IRQF_DISABLED | IRQF_IRQPOLL,
-+	.flags =	IRQF_IRQPOLL,
- 	.name =		"timer"
- };
- 
--- 
-1.8.3.2
+ module_init(err_inject_init);
 
