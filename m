@@ -1,45 +1,57 @@
-From: Daniel Kiper <daniel.kiper@oracle.com>
-Date: Tue, 25 Mar 2014 20:57:51 +0000
-Subject: [PATCH v3 0/5] xen: Add EFI support
-Message-Id: <1395781076-12000-1-git-send-email-daniel.kiper@oracle.com>
+From: Yann Droneaud <ydroneaud@opteya.com>
+Date: Tue, 11 Mar 2014 10:23:40 +0000
+Subject: [PATCHv6 1/6] ia64: use get_unused_fd_flags(0) instead of get_unused_fd()
+Message-Id: <195ea19bd9d5fc1ed629dfcca9af9a8382d31cf1.1394532336.git.ydroneaud@opteya.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <cover.1394532336.git.ydroneaud@opteya.com>
+In-Reply-To: <cover.1394532336.git.ydroneaud@opteya.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-efi@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, x86@kernel.org, xen-devel@lists.xenproject.org
-Cc: boris.ostrovsky@oracle.com, david.vrabel@citrix.com, eshelton@pobox.com, fenghua.yu@intel.com, hpa@zytor.com, ian.campbell@citrix.com, jbeulich@suse.com, jeremy@goop.org, konrad.wilk@oracle.com, matt.fleming@intel.com, mingo@redhat.com, stefano.stabellini@eu.citrix.com, tglx@linutronix.de, tony.luck@intel.com
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: Yann Droneaud <ydroneaud@opteya.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>, Andrew Morton <akpm@linux-foundation.org>
 
-Hey,
+Macro get_unused_fd() is used to allocate a file descriptor with
+default flags. Those default flags (0) can be "unsafe":
+O_CLOEXEC must be used by default to not leak file descriptor
+across exec().
 
-This patch series adds EFI support for Xen dom0 guests.
-It is based on Jan Beulich and Tang Liang work. I was
-trying to take into account all previous comments,
-however, if I missed something sorry for that.
+Instead of macro get_unused_fd(), function get_unused_fd_flags()
+(or anon_inode_getfd()) should be used with flags given by userspace.
+If not possible, flags should be set to O_CLOEXEC to provide userspace
+with a default safe behavor.
 
-Additionally, I attempted to leave all credits as is and
-put SOB in relevant places. If I made any mistake drop me
-a line and I will fix it in next version.
+In a further patch, get_unused_fd() will be removed so that new code
+start using get_unused_fd_flags() (or anon_inode_getfd()) with correct
+flags.
 
-Feel free to play with it. I am looking forward for your comments.
+This patch replaces calls to get_unused_fd() with equivalent call to
+get_unused_fd_flags(0) to preserve current behavor for existing code.
 
-Daniel
+The hard coded flag value (0) should be reviewed on a per-subsystem
+basis, and, if possible, set to O_CLOEXEC.
 
- arch/ia64/kernel/efi.c           |   30 ++++--
- arch/x86/kernel/setup.c          |    2 +-
- arch/x86/platform/efi/efi.c      |   20 ++--
- arch/x86/xen/enlighten.c         |   10 ++
- drivers/firmware/efi/efi.c       |   26 ++++++
- drivers/xen/Kconfig              |    3 +
- drivers/xen/Makefile             |    1 +
- drivers/xen/efi.c                |  425 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- include/linux/efi.h              |   10 ++
- include/xen/interface/platform.h |  123 +++++++++++++++++++++++-
- 10 files changed, 633 insertions(+), 17 deletions(-)
+Link: http://lkml.kernel.org/r/cover.1394532336.git.ydroneaud@opteya.com
+Cc: Al Viro <viro@zeniv.linux.org.uk>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Yann Droneaud <ydroneaud@opteya.com>
+---
+ arch/ia64/kernel/perfmon.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Daniel Kiper (5):
-      efi: Add efi_init_ops variable
-      efi: Export arch_tables variable
-      x86: Call efi_memblock_x86_reserve_range() on native EFI platform only
-      xen: Define EFI related stuff
-      xen: Put EFI machinery in place
+diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
+index cb592773c78b..44b148fbb560 100644
+--- a/arch/ia64/kernel/perfmon.c
++++ b/arch/ia64/kernel/perfmon.c
+@@ -2662,7 +2662,7 @@ pfm_context_create(pfm_context_t *ctx, void *arg, int count, struct pt_regs *reg
+ 
+ 	ret = -ENOMEM;
+ 
+-	fd = get_unused_fd();
++	fd = get_unused_fd_flags(0);
+ 	if (fd < 0)
+ 		return fd;
+ 
+-- 
+1.8.5.3
 
