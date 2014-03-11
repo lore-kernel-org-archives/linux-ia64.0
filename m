@@ -1,308 +1,295 @@
-From: Richard Guy Briggs <rgb@redhat.com>
-Date: Wed, 05 Mar 2014 21:27:06 +0000
-Subject: [PATCH 5/6][RFC] audit: drop args from syscall_get_arch() interface
-Message-Id: <46abd0fd000ac83cf5c4344cdfe1e349a09cb565.1393974970.git.rgb@redhat.com>
+From: Yann Droneaud <ydroneaud@opteya.com>
+Date: Tue, 11 Mar 2014 10:23:39 +0000
+Subject: [PATCHv6 0/6] Getting rid of get_unused_fd() / enable close-on-exec
+Message-Id: <cover.1394532336.git.ydroneaud@opteya.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1393974970.git.rgb@redhat.com>
-In-Reply-To: <cover.1393974970.git.rgb@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-audit@redhat.com, linux-kernel@vger.kernel.org
-Cc: Richard Guy Briggs <rgb@redhat.com>, eparis@redhat.com, sgrubb@redhat.com, oleg@redhat.com, linux-arm-kernel@lists.infradead.org, x86@kernel.org, linux-ia64@vger.kernel.org, microblaze-uclinux@itee.uq.edu.au, linux-mips@linux-mips.org, linux@openrisc.net, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, user-mode-linux-devel@lists.sourceforge.net, linux-arch@vger.kernel.org
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Al Viro <viro@zeniv.linux.org.uk>, linux-ia64@vger.kernel.org, Jeremy Kerr <jk@ozlabs.org>, Arnd Bergmann <arnd@arndb.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, linuxppc-dev@lists.ozlabs.org, cbe-oss-dev@lists.ozlabs.org, linux-fsdevel@vger.kernel.org, Eric Paris <eparis@redhat.com>, Andrew Morton <akpm@linux-foundation.org>
+Cc: Yann Droneaud <ydroneaud@opteya.com>, linux-kernel@vger.kernel.org, Ulrich Drepper <drepper@gmail.com>
 
-Since all callers of syscall_get_arch() call with task "current" and none of
-the arch-dependent functions use the "regs" parameter (which could just as
-easily be found with task_pt_regs()), delete both parameters.
+Hi,
 
-Signed-off-by: Richard Guy Briggs <rgb@redhat.com>
+Please find the sixth revision of my patchset to remove get_unused_fd()
+macro in order to help subsystems to use get_unused_fd_flags() (or
+anon_inode_getfd()) with flags either provided by the userspace or
+set to O_CLOEXEC by default where appropriate.
 
----
- arch/arm/include/asm/syscall.h        |    3 +--
- arch/ia64/include/asm/syscall.h       |    3 +--
- arch/microblaze/include/asm/syscall.h |    3 +--
- arch/mips/include/asm/syscall.h       |    8 +-------
- arch/openrisc/include/asm/syscall.h   |    3 +--
- arch/parisc/include/asm/syscall.h     |    3 +--
- arch/powerpc/include/asm/syscall.h    |    3 +--
- arch/s390/include/asm/syscall.h       |    5 ++---
- arch/sh/include/asm/syscall.h         |    3 +--
- arch/sparc/include/asm/syscall.h      |    3 +--
- arch/x86/include/asm/syscall.h        |    8 +++-----
- include/asm-generic/syscall.h         |    6 ++----
- include/linux/audit.h                 |    2 +-
- kernel/auditsc.c                      |    5 ++---
- kernel/seccomp.c                      |    4 ++--
- 15 files changed, 21 insertions(+), 41 deletions(-)
+Without get_unused_fd() macro, more subsystems are likely to use
+get_unused_fd_flags() (or anon_inode_getfd()) and be taught to
+provide an API that let userspace choose the opening flags
+of the file descriptor.
 
-diff --git a/arch/arm/include/asm/syscall.h b/arch/arm/include/asm/syscall.h
-index a749123..4651f69 100644
---- a/arch/arm/include/asm/syscall.h
-+++ b/arch/arm/include/asm/syscall.h
-@@ -103,8 +103,7 @@ static inline void syscall_set_arguments(struct task_struct *task,
- 	memcpy(&regs->ARM_r0 + i, args, n * sizeof(args[0]));
- }
- 
--static inline int syscall_get_arch(struct task_struct *task,
--				   struct pt_regs *regs)
-+static inline int syscall_get_arch(void)
- {
- 	/* ARM tasks don't change audit architectures on the fly. */
- 	return AUDIT_ARCH_ARM;
-diff --git a/arch/ia64/include/asm/syscall.h b/arch/ia64/include/asm/syscall.h
-index 9c82767..1ae443a 100644
---- a/arch/ia64/include/asm/syscall.h
-+++ b/arch/ia64/include/asm/syscall.h
-@@ -81,8 +81,7 @@ static inline void syscall_set_arguments(struct task_struct *task,
- 	ia64_syscall_get_set_arguments(task, regs, i, n, args, 1);
- }
- 
--static inline int syscall_get_arch(struct task_struct *tsk,
--				   struct pt_regs *regs)
-+static inline int syscall_get_arch(void)
- {
- 	return AUDIT_ARCH_IA64;
- }
-diff --git a/arch/microblaze/include/asm/syscall.h b/arch/microblaze/include/asm/syscall.h
-index e1acf8a..5292281 100644
---- a/arch/microblaze/include/asm/syscall.h
-+++ b/arch/microblaze/include/asm/syscall.h
-@@ -100,8 +100,7 @@ static inline void syscall_set_arguments(struct task_struct *task,
- asmlinkage long do_syscall_trace_enter(struct pt_regs *regs);
- asmlinkage void do_syscall_trace_leave(struct pt_regs *regs);
- 
--static inline int syscall_get_arch(struct tast_struct *tsk,
--				   struct pt_regs *regs)
-+static inline int syscall_get_arch(void)
- {
- 	return AUDIT_ARCH_MICROBLAZE;
- }
-diff --git a/arch/mips/include/asm/syscall.h b/arch/mips/include/asm/syscall.h
-index a8234f2..992b6ab 100644
---- a/arch/mips/include/asm/syscall.h
-+++ b/arch/mips/include/asm/syscall.h
-@@ -101,7 +101,7 @@ extern const unsigned long sys_call_table[];
- extern const unsigned long sys32_call_table[];
- extern const unsigned long sysn32_call_table[];
- 
--static inline int __syscall_get_arch(void)
-+static inline int syscall_get_arch(void)
- {
- 	int arch = AUDIT_ARCH_MIPS;
- #ifdef CONFIG_64BIT
-@@ -113,10 +113,4 @@ static inline int __syscall_get_arch(void)
- 	return arch;
- }
- 
--static inline int syscall_get_arch(struct task_struct *task,
--				   struct pt_regs *regs)
--{
--	return __syscall_get_arch();
--}
--
- #endif	/* __ASM_MIPS_SYSCALL_H */
-diff --git a/arch/openrisc/include/asm/syscall.h b/arch/openrisc/include/asm/syscall.h
-index 2bbe0e9..e598095 100644
---- a/arch/openrisc/include/asm/syscall.h
-+++ b/arch/openrisc/include/asm/syscall.h
-@@ -72,8 +72,7 @@ syscall_set_arguments(struct task_struct *task, struct pt_regs *regs,
- 	memcpy(&regs->gpr[3 + i], args, n * sizeof(args[0]));
- }
- 
--static inline int syscall_get_arch(struct task_struct *tsk,
--				   struct pt_regs *regs)
-+static inline int syscall_get_arch(void)
- {
- 	return AUDIT_ARCH_OPENRISC;
- }
-diff --git a/arch/parisc/include/asm/syscall.h b/arch/parisc/include/asm/syscall.h
-index 2bf23b1..87cc53d 100644
---- a/arch/parisc/include/asm/syscall.h
-+++ b/arch/parisc/include/asm/syscall.h
-@@ -39,8 +39,7 @@ static inline void syscall_get_arguments(struct task_struct *tsk,
- 	}
- }
- 
--static inline int syscall_get_arch(struct task_struct *tsk,
--				   struct pt_regs *regs)
-+static inline int syscall_get_arch(void)
- {
- 	int arch = AUDIT_ARCH_PARISC;
- #ifdef CONFIG_64BIT
-diff --git a/arch/powerpc/include/asm/syscall.h b/arch/powerpc/include/asm/syscall.h
-index 36bd9ef..616705b 100644
---- a/arch/powerpc/include/asm/syscall.h
-+++ b/arch/powerpc/include/asm/syscall.h
-@@ -88,8 +88,7 @@ static inline void syscall_set_arguments(struct task_struct *task,
- 	memcpy(&regs->gpr[3 + i], args, n * sizeof(args[0]));
- }
- 
--static inline int syscall_get_arch(struct task_struct *tsk,
--				   struct pt_regs *regs)
-+static inline int syscall_get_arch(void)
- {
- 	int arch = AUDIT_ARCH_PPC;
- 
-diff --git a/arch/s390/include/asm/syscall.h b/arch/s390/include/asm/syscall.h
-index 79d1805..32cd7f7 100644
---- a/arch/s390/include/asm/syscall.h
-+++ b/arch/s390/include/asm/syscall.h
-@@ -89,11 +89,10 @@ static inline void syscall_set_arguments(struct task_struct *task,
- 		regs->orig_gpr2 = args[0];
- }
- 
--static inline int syscall_get_arch(struct task_struct *task,
--				   struct pt_regs *regs)
-+static inline int syscall_get_arch(void)
- {
- #ifdef CONFIG_COMPAT
--	if (test_tsk_thread_flag(task, TIF_31BIT))
-+	if (test_thread_flag(TIF_31BIT))
- 		return AUDIT_ARCH_S390;
- #endif
- 	return sizeof(long) = 8 ? AUDIT_ARCH_S390X : AUDIT_ARCH_S390;
-diff --git a/arch/sh/include/asm/syscall.h b/arch/sh/include/asm/syscall.h
-index 33e60e0..aac9800 100644
---- a/arch/sh/include/asm/syscall.h
-+++ b/arch/sh/include/asm/syscall.h
-@@ -11,8 +11,7 @@ extern const unsigned long sys_call_table[];
- 
- # include <uapi/linux/audit.h>
- 
--static inline int syscall_get_arch(struct task_struct *tsk,
--				   struct pt_regs *regs)
-+static inline int syscall_get_arch(void)
- {
- 	int arch = AUDIT_ARCH_SH;
- 
-diff --git a/arch/sparc/include/asm/syscall.h b/arch/sparc/include/asm/syscall.h
-index eddc60e..82b5b96 100644
---- a/arch/sparc/include/asm/syscall.h
-+++ b/arch/sparc/include/asm/syscall.h
-@@ -125,8 +125,7 @@ static inline void syscall_set_arguments(struct task_struct *task,
- 		regs->u_regs[UREG_I0 + i + j] = args[j];
- }
- 
--static inline int syscall_get_arch(struct task_struct *tsk,
--				   struct pt_regs *regs)
-+static inline int syscall_get_arch(void)
- {
- 	return test_thread_flag(TIF_32BIT) ? AUDIT_ARCH_SPARC
- 					   : AUDIT_ARCH_SPARC64;
-diff --git a/arch/x86/include/asm/syscall.h b/arch/x86/include/asm/syscall.h
-index c98e0ec..d6a756a 100644
---- a/arch/x86/include/asm/syscall.h
-+++ b/arch/x86/include/asm/syscall.h
-@@ -91,8 +91,7 @@ static inline void syscall_set_arguments(struct task_struct *task,
- 	memcpy(&regs->bx + i, args, n * sizeof(args[0]));
- }
- 
--static inline int syscall_get_arch(struct task_struct *task,
--				   struct pt_regs *regs)
-+static inline int syscall_get_arch(void)
- {
- 	return AUDIT_ARCH_I386;
- }
-@@ -221,8 +220,7 @@ static inline void syscall_set_arguments(struct task_struct *task,
- 		}
- }
- 
--static inline int syscall_get_arch(struct task_struct *task,
--				   struct pt_regs *regs)
-+static inline int syscall_get_arch(void)
- {
- #ifdef CONFIG_IA32_EMULATION
- 	/*
-@@ -234,7 +232,7 @@ static inline int syscall_get_arch(struct task_struct *task,
- 	 *
- 	 * x32 tasks should be considered AUDIT_ARCH_X86_64.
- 	 */
--	if (task_thread_info(task)->status & TS_COMPAT)
-+	if (task_thread_info(current)->status & TS_COMPAT)
- 		return AUDIT_ARCH_I386;
- #endif
- 	/* Both x32 and x86_64 are considered "64-bit". */
-diff --git a/include/asm-generic/syscall.h b/include/asm-generic/syscall.h
-index 5b09392..0c938a4 100644
---- a/include/asm-generic/syscall.h
-+++ b/include/asm-generic/syscall.h
-@@ -144,16 +144,14 @@ void syscall_set_arguments(struct task_struct *task, struct pt_regs *regs,
- 
- /**
-  * syscall_get_arch - return the AUDIT_ARCH for the current system call
-- * @task:	task of interest, must be in system call entry tracing
-- * @regs:	task_pt_regs() of @task
-  *
-  * Returns the AUDIT_ARCH_* based on the system call convention in use.
-  *
-- * It's only valid to call this when @task is stopped on entry to a system
-+ * It's only valid to call this when current is stopped on entry to a system
-  * call, due to %TIF_SYSCALL_TRACE, %TIF_SYSCALL_AUDIT, or %TIF_SECCOMP.
-  *
-  * Architectures which permit CONFIG_HAVE_ARCH_SECCOMP_FILTER must
-  * provide an implementation of this.
-  */
--int syscall_get_arch(struct task_struct *task, struct pt_regs *regs);
-+int syscall_get_arch(void);
- #endif	/* _ASM_SYSCALL_H */
-diff --git a/include/linux/audit.h b/include/linux/audit.h
-index 0e63eb1..ee452f1 100644
---- a/include/linux/audit.h
-+++ b/include/linux/audit.h
-@@ -133,7 +133,7 @@ static inline void audit_syscall_entry(int major, unsigned long a0,
- 				       unsigned long a3)
- {
- 	if (unlikely(current->audit_context))
--		__audit_syscall_entry(syscall_get_arch(current, NULL), major, a0, a1, a2, a3);
-+		__audit_syscall_entry(syscall_get_arch(), major, a0, a1, a2, a3);
- }
- static inline void audit_syscall_exit(void *pt_regs)
- {
-diff --git a/kernel/auditsc.c b/kernel/auditsc.c
-index 0c9fe06..565f7b7 100644
---- a/kernel/auditsc.c
-+++ b/kernel/auditsc.c
-@@ -1461,7 +1461,7 @@ void __audit_syscall_entry(int arch, int major,
- 	if (!audit_enabled)
- 		return;
- 
--	context->arch	    = syscall_get_arch(current, NULL);
-+	context->arch	    = syscall_get_arch();
- 	context->major      = major;
- 	context->argv[0]    = a1;
- 	context->argv[1]    = a2;
-@@ -2416,8 +2416,7 @@ void __audit_seccomp(unsigned long syscall, long signr, int code)
- 		return;
- 	audit_log_task(ab);
- 	audit_log_format(ab, " sig=%ld", signr);
--	audit_log_format(ab, " arch=%x",
--			 syscall_get_arch(current, task_pt_regs(current)));
-+	audit_log_format(ab, " arch=%x", syscall_get_arch());
- 	audit_log_format(ab, " syscall=%ld", syscall);
- 	audit_log_format(ab, " compat=%d", is_compat_task());
- 	audit_log_format(ab, " ip=0x%lx", KSTK_EIP(current));
-diff --git a/kernel/seccomp.c b/kernel/seccomp.c
-index b7a1004..eda2da3 100644
---- a/kernel/seccomp.c
-+++ b/kernel/seccomp.c
-@@ -95,7 +95,7 @@ u32 seccomp_bpf_load(int off)
- 	if (off = BPF_DATA(nr))
- 		return syscall_get_nr(current, regs);
- 	if (off = BPF_DATA(arch))
--		return syscall_get_arch(current, regs);
-+		return syscall_get_arch();
- 	if (off >= BPF_DATA(args[0]) && off < BPF_DATA(args[6])) {
- 		unsigned long value;
- 		int arg = (off - BPF_DATA(args[0])) / sizeof(u64);
-@@ -351,7 +351,7 @@ static void seccomp_send_sigsys(int syscall, int reason)
- 	info.si_code = SYS_SECCOMP;
- 	info.si_call_addr = (void __user *)KSTK_EIP(current);
- 	info.si_errno = reason;
--	info.si_arch = syscall_get_arch(current, task_pt_regs(current));
-+	info.si_arch = syscall_get_arch();
- 	info.si_syscall = syscall;
- 	force_sig_info(SIGSYS, &info, current);
- }
+Not allowing userspace to provide the "open" flags or not using O_CLOEXEC
+by default should be considered bad practice from security point of view:
+in most case O_CLOEXEC must be used to not leak file descriptor across
+exec().
+
+Not allowing userspace to atomically set close-on-exec flag and not using
+O_CLOEXEC should be avoided to protect multi-threaded program
+from race condition when it tried to set close-on-exec flag using
+fcntl(fd, F_SETFD, FD_CLOEXEC) after opening the file descriptor.
+
+Example:
+
+    int fd;
+    int ret;
+
+    fd = open(filename, O_RDONLY);
+    if (fd < 0) {
+        perror("open");
+        return -1;
+    }
+
+    /*
+     * window opened for another thread to call fork(),
+     * then the new process can call exec() at any time
+     * and the file descriptor would be inherited
+     */
+
+    ret = fcntl(fd, F_SETFD, FD_CLOEXEC)
+    if (ret < 0) {
+        perror("fnctl()");
+        close(fd);
+        return -1;
+    }
+
+vs.:
+
+    int fd;
+    fd = open(filaneme, O_RDONLY | O_CLOEXEC);
+    if (fd < 0) {
+        perror("open");
+        return -1;
+    }
+
+Using O_CLOEXEC by default when flags are not (eg. cannot be) provided
+by userspace is the safest bet as it allows userspace to choose, if, when
+and where the file descriptor is going to be inherited across exec():
+userspace is free to call fcntl() to remove FD_CLOEXEC flag in the child
+process that will call exec().
+
+Unfortunately, O_CLOEXEC cannot be made the default for most existing system
+calls as it's not the default behavior for POSIX / Unix. Reader interested
+in this issue could have a look at "Ghosts of Unix past, part 2: Conflated
+designs" [1] article by Neil Brown.
+
+FAQ:
+
+- Why do one want close-on-exec ?
+
+Setting close-on-exec flag on file descriptor ensure it won't be inherited
+silently by child, child of child, etc. when executing another program.
+
+If the file descriptor is not closed, some kernel resources can be locked
+until the last process with the opened file descriptor exit.
+
+If the file descriptor is not closed, this can lead to a security issue,
+eg. making resources available to a less privileged program allowing
+information leak and/or deny of service.
+
+- Why do one need atomic close-on-exec ?
+
+Even if it's possible to set close-on-exec flag through call to fcntl()
+as shown previously, it introduces a race condition in multi-threaded
+process, where a thread call fork() / exec() while another thread
+is between call to open() and fcntl().
+
+Additionally, using close-on-exec free the programmer from tracking manually
+which file descriptor is to close in a child before calling exec():
+in a program using multiple third-party libraries, it's difficult to know
+which file descriptor must be closed.
+AFAIK, while there's a atexit(), pthread_atfork(), there's no atexec()
+userspace function in libc to allow libraries to register a handler in
+order to close its opened file descriptor before exec().
+
+- Why default to close-on-exec ?
+
+Some kernel interfaces don't allow userspace to pass a O_CLOEXEC-like
+flag when creating a new file descriptor.
+
+In such cases, if possible (see below), O_CLOEXEC must be made
+the default so that userspace doesn't have to call fcntl()
+which, as demonstrated previously, is open to race condition in
+multi-threaded program.
+
+- How to choose between flag 0 or O_CLOEXEC in call to
+  get_unused_fd_flags() (or anon_inode_getfd()) ?
+
+Short: Will it break existing application ? Will it break kernel ABI ?
+
+       If answer is no, use O_CLOEXEC.
+       If answer is yes, use 0.
+
+Long: If userspace expect to retrieve a file descriptor with plain
+      old Unix(tm) semantics, O_CLOEXEC must not be the default, as it
+      could break some applications expecting that the file descriptor
+      will be inherited across exec().
+
+      But for some subsystems, such as InfiniBand, KVM, VFIO, it makes
+      no sense to have file descriptors inherited across exec() since
+      those are tied to resources that will vanish when a another program
+      will replace the current one by mean of exec(), so it's safe to use
+      O_CLOEXEC in such cases.
+
+      For others, like XFS, the file descriptor is retrieved by one
+      program and will be used by a different program, executed as a
+      child. In this case, setting O_CLOEXEC would break existing
+      application which do not expect to have to call fcntl(fd,
+      F_SETFD, 0) to make it available across exec().
+
+      If file descriptor created by a subsystem is not tied to the
+      current process resources, it's likely legal to use it in a
+      different process context, thus O_CLOEXEC must not be the default.
+
+      If one, as a subsystem maintainer, cannot tell for sure that
+      no userspace program ever rely current behavior, eg. file descriptor
+      being inherited across exec(), then the default flag *must*
+      be kept 0 to not break application.
+
+- This subsystem cannot be turned to use O_CLOEXEC by default:
+
+If O_CLOEXEC cannot be made the default, it would be interesting
+to think to extend the API to have a (set of) function(s) taking
+a flag parameter so that userspace can atomically request close-on-exec
+if it need it (and it should need it).
+
+- Background:
+
+One might want to read "Secure File Descriptor Handling" [2] by
+Ulrich Drepper who is responsible of adding O_CLOEXEC flag on open(),
+and flags alike on other syscalls.
+
+One might also want to read PEP-446 "Make newly created file descriptors
+non-inheritable" [3] by Victor Stinner since it has lot more background
+information on file descriptor leaking.
+
+One also like to read "Excuse me son, but your code is leaking !!!" [4]
+by Dan Walsh for advice.
+
+[1] http://lwn.net/Articles/412131/
+[2] http://udrepper.livejournal.com/20407.html
+[3] http://www.python.org/dev/peps/pep-0446/
+[4] http://danwalsh.livejournal.com/53603.html
+
+- Statistics:
+
+In linux-next tag 20140307, they're currently:
+
+- 32 calls to fd_install()
+       with one call part of anon_inode_getfd()
+- 25 calls to get_unused_fd_flags()
+       with one call part of anon_inode_getfd()
+       with another part of get_unused_fd() macro
+- 11 calls to anon_inode_getfd()
+-  9 calls to anon_inode_getfile()
+       with one call part of anon_inode_getfd()
+-  6 calls to get_unused_fd()
+
+Changes from patchset v5 [PATCHSETv5]
+
+- perf: introduce a flag to enable close-on-exec in perf_event_open()
+  DROPPED: applied upstream, commit a21b0b354d4a.
+
+Changes from patchset v4 [PATCHSETv4]:
+
+- rewrote cover letter following discussion with perf maintainer.
+  Thanks to Peter Zijlstra.
+
+- modified a bit some commit messages.
+
+- events: use get_unused_fd_flags(0) instead of get_unused_fd()
+  DROPPED: replaced by following patch.
+
+- perf: introduce a flag to enable close-on-exec in perf_event_open()
+  NEW: instead of hard coding the flags to 0, this patch
+       allows userspace to specify close-on-exec flag.
+
+- fanotify: use get_unused_fd_flags(0) instead of get_unused_fd()
+  DROPPED: replaced by following patch.
+
+- fanotify: enable close-on-exec on events' fd when requested in
+    fanotify_init()
+  NEW: instead of hard coding the flags to 0, this patch
+       enable close-on-exec if userspace request it.
+
+Changes from patchset v3 [PATCHSETv3]:
+
+- industrialio: use anon_inode_getfd() with O_CLOEXEC flag
+  DROPPED: applied upstream, commit a646fbf0fd11.
+
+Changes from patchset v2 [PATCHSETv2]:
+
+- android/sw_sync: use get_unused_fd_flags(O_CLOEXEC) instead of get_unused_fd()
+  DROPPED: applied upstream, commit 45acea57335e.
+
+- android/sync: use get_unused_fd_flags(O_CLOEXEC) instead of get_unused_fd()
+  DROPPED: applied upstream, commit 9c6cd3b39048.
+
+- vfio: use get_unused_fd_flags(0) instead of get_unused_fd()
+  DROPPED: applied upstream, commit a5d550703d2c.
+  Additionally subsystem maintainer applied another patch on top
+  to set the flags to O_CLOEXEC, commit 5d042fbdbb2d.
+
+- industrialio: use anon_inode_getfd() with O_CLOEXEC flag
+  NEW: propose to use O_CLOEXEC as default flag.
+
+Changes from patchset v1 [PATCHSETv1]:
+
+- explicitly added subsystem maintainers as mail recepients.
+
+- infiniband: use get_unused_fd_flags(0) instead of get_unused_fd()
+  DROPPED: subsystem maintainer applied another patch
+           using get_unused_fd_flags(O_CLOEXEC) as suggested,
+	   commit da183c7af844.
+
+- android/sw_sync: use get_unused_fd_flags(0) instead of get_unused_fd()
+  MODIFIED: use get_unused_fd_flags(O_CLOEXEC) as suggested.
+
+- android/sync: use get_unused_fd_flags(0) instead of get_unused_fd()
+  MODIFIED: use get_unused_fd_flags(O_CLOEXEC) as suggested.
+
+- xfs: use get_unused_fd_flags(0) instead of get_unused_fd()
+  DROPPED: applied asis by subsystem maintainer, commit 862a62937e76.
+
+- sctp: use get_unused_fd_flags(0) instead of get_unused_fd()
+  DROPPED: applied asis by subsystem maintainer, commit 8a59bd3e9b29.
+
+Links:
+
+[PATCHSETv5]
+  http://lkml.kernel.org/r/cover.1388952061.git.ydroneaud@opteya.com
+
+[PATCHSETv4]
+  http://lkml.kernel.org/r/cover.1383121137.git.ydroneaud@opteya.com
+
+[PATCHSETv3]
+  http://lkml.kernel.org/r/cover.1378460926.git.ydroneaud@opteya.com
+
+[PATCHSETv2]
+  http://lkml.kernel.org/r/cover.1376327678.git.ydroneaud@opteya.com
+
+[PATCHSETv1]
+  http://lkml.kernel.org/r/cover.1372777600.git.ydroneaud@opteya.com
+
+Yann Droneaud (6):
+  ia64: use get_unused_fd_flags(0) instead of get_unused_fd()
+  ppc/cell: use get_unused_fd_flags(0) instead of get_unused_fd()
+  binfmt_misc: use get_unused_fd_flags(0) instead of get_unused_fd()
+  file: use get_unused_fd_flags(0) instead of get_unused_fd()
+  fanotify: enable close-on-exec on events' fd when requested in
+    fanotify_init()
+  file: remove macro get_unused_fd()
+
+ arch/ia64/kernel/perfmon.c                | 2 +-
+ arch/powerpc/platforms/cell/spufs/inode.c | 4 ++--
+ fs/binfmt_misc.c                          | 2 +-
+ fs/file.c                                 | 2 +-
+ fs/notify/fanotify/fanotify_user.c        | 2 +-
+ include/linux/file.h                      | 1 -
+ 6 files changed, 6 insertions(+), 7 deletions(-)
+
 -- 
-1.7.1
+1.8.5.3
 
