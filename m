@@ -1,47 +1,92 @@
-From: Matt Fleming <matt@console-pimps.org>
-Date: Wed, 26 Mar 2014 13:53:46 +0000
-Subject: Re: [PATCH v3 5/5] xen: Put EFI machinery in place
-Message-Id: <20140326135346.GF24856@console-pimps.org>
+From: Laura Abbott <lauraa@codeaurora.org>
+Date: Sat, 22 Mar 2014 18:13:50 +0000
+Subject: [RESEND][PATCH 0/2] Cleanup asm/scatterlist.h
+Message-Id: <1395512032-20575-1-git-send-email-lauraa@codeaurora.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1395781076-12000-1-git-send-email-daniel.kiper@oracle.com>
- <1395781076-12000-6-git-send-email-daniel.kiper@oracle.com>
- <20140326131214.GC24856@console-pimps.org>
- <5332E4A802000078000025B6@nat28.tlf.novell.com>
- <20140326134617.GE24856@console-pimps.org>
-In-Reply-To: <20140326134617.GE24856@console-pimps.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jan Beulich <JBeulich@suse.com>
-Cc: david.vrabel@citrix.com, ian.campbell@citrix.com, stefano.stabellini@eu.citrix.com, jeremy@goop.org, fenghua.yu@intel.com, matt.fleming@intel.com, tony.luck@intel.com, x86@kernel.org, tglx@linutronix.de, xen-devel@lists.xenproject.org, boris.ostrovsky@oracle.com, Daniel Kiper <daniel.kiper@oracle.com>, konrad.wilk@oracle.com, Tang Liang <liang.tang@oracle.com>, eshelton@pobox.com, mingo@redhat.com, linux-efi@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, hpa@zytor.com
+To: Russell King <linux@arm.linux.org.uk>, "David S. Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, "James E.J. Bottomley" <JBottomley@parallels.com>, Fenghua Yu <fenghua.yu@intel.com>, Tony Luck <tony.luck@intel.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, Andrew Morton <akpm@linux-foundation.org>, Mikael Starvik <starvik@axis.com>, Jesper Nilsson <jesper.nilsson@axis.com>, Hirokazu Takata <takata@linux-m32r.org>, Koichi Yasutake <yasutake.koichi@jp.panasonic.com>, David Howells <dhowells@redhat.com>, Michal Simek <monstr@monstr.eu>, Chen Liqin <liqin.linux@gmail.com>, Lennox Wu <lennox.wu@gmail.com>
+Cc: Laura Abbott <lauraa@codeaurora.org>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-scsi@vger.kernel.org, linux-ia64@vger.kernel.org, linux390@de.ibm.com, linux-arm-kernel@lists.infradead.org, linux-alpha@vger.kernel.org, linux-cris-kernel@axis.com, linux-m32r@ml.linux-m32r.org, microblaze-uclinux@itee.uq.edu.au, linux-am33-list@redhat.com
 
-On Wed, 26 Mar, at 01:46:17PM, Matt Fleming wrote:
-> On Wed, 26 Mar, at 01:31:04PM, Jan Beulich wrote:
-> > >>> On 26.03.14 at 14:12, <matt@console-pimps.org> wrote:
-> > > 
-> > > Is there a reason that you can't just populate an efi_system_table_t
-> > > object, which could be used by efi_init(), so that we can save you the
-> > > trouble of duplicating all of this code?
-> > 
-> > Would the generic function cope with all other fields being NULL (or
-> > equivalent)?
->  
-> I've no idea, but it shouldn't be difficult to make that work. And by
-> making it work in the generic code
 
-Guh, hit Send too soon... sorry.
 
-What I was trying to say was that there's a real benefit to keeping all
-these idiosyncrasies, such as "This field may be NULL on some platforms,
-or this field, or that", in one place, because it gives you an immediate
-view of what platforms Linux supports and what assumptions we can make.
+I haven't gotten many responses so I'm going to try sending again
+(this time with a cover letter which I probably should have done in
+the first place...)
 
-It also helps immensely when the time comes to do some refactoring -
-because it's all contained in one central place all the use cases are in
-front of you.
+ARCH_HAS_SG_CHAIN is currently defined as needed in asm/scatterlist.h.
+It was suggested[1] that this should probably be a proper Kconfig.
+At the same time, we can clean up most of the asm/scatterlist.h files
+to reduce redundancy. This makes parisc the only architecture that still
+has an asm/scatterlist.h file due to the #define sg_virt_addr (which
+could probably be cleaned up further still)
 
-Obviously this approach doesn't work for super-platform specific stuff,
-but it's not clear to me that these patches fall into that category.
+Andrew, once we get a few more Acked-bys can we take this through your tree
+as suggested by Will?
+
+Thanks,
+Laura
+
+[1] http://lists.infradead.org/pipermail/linux-arm-kernel/2014-March/240435.html
+
+Laura Abbott (2):
+  lib/scatterlist: Make ARCH_HAS_SG_CHAIN an actual Kconfig
+  Cleanup useless architecture versions of scatterlist.h
+
+ arch/alpha/include/asm/Kbuild             |  1 +
+ arch/alpha/include/asm/scatterlist.h      |  6 ------
+ arch/arm/Kconfig                          |  1 +
+ arch/arm/include/asm/Kbuild               |  1 +
+ arch/arm/include/asm/scatterlist.h        | 12 ------------
+ arch/arm64/Kconfig                        |  1 +
+ arch/cris/include/asm/Kbuild              |  1 +
+ arch/cris/include/asm/scatterlist.h       |  6 ------
+ arch/frv/include/asm/Kbuild               |  1 +
+ arch/frv/include/asm/scatterlist.h        |  6 ------
+ arch/ia64/Kconfig                         |  1 +
+ arch/ia64/include/asm/Kbuild              |  1 +
+ arch/ia64/include/asm/scatterlist.h       |  7 -------
+ arch/m32r/include/asm/Kbuild              |  1 +
+ arch/m32r/include/asm/scatterlist.h       |  6 ------
+ arch/microblaze/include/asm/Kbuild        |  1 +
+ arch/microblaze/include/asm/scatterlist.h |  1 -
+ arch/mn10300/include/asm/Kbuild           |  1 +
+ arch/mn10300/include/asm/scatterlist.h    | 16 ----------------
+ arch/powerpc/Kconfig                      |  1 +
+ arch/powerpc/include/asm/Kbuild           |  1 +
+ arch/powerpc/include/asm/scatterlist.h    | 17 -----------------
+ arch/s390/Kconfig                         |  1 +
+ arch/s390/include/asm/Kbuild              |  1 +
+ arch/s390/include/asm/scatterlist.h       |  3 ---
+ arch/score/include/asm/Kbuild             |  2 +-
+ arch/score/include/asm/scatterlist.h      |  6 ------
+ arch/sparc/Kconfig                        |  1 +
+ arch/sparc/include/asm/Kbuild             |  1 +
+ arch/sparc/include/asm/scatterlist.h      |  8 --------
+ arch/x86/Kconfig                          |  1 +
+ arch/x86/include/asm/Kbuild               |  1 +
+ arch/x86/include/asm/scatterlist.h        |  8 --------
+ include/linux/scatterlist.h               |  2 +-
+ include/scsi/scsi.h                       |  2 +-
+ lib/Kconfig                               |  7 +++++++
+ lib/scatterlist.c                         |  4 ++--
+ 37 files changed, 31 insertions(+), 107 deletions(-)
+ delete mode 100644 arch/alpha/include/asm/scatterlist.h
+ delete mode 100644 arch/arm/include/asm/scatterlist.h
+ delete mode 100644 arch/cris/include/asm/scatterlist.h
+ delete mode 100644 arch/frv/include/asm/scatterlist.h
+ delete mode 100644 arch/ia64/include/asm/scatterlist.h
+ delete mode 100644 arch/m32r/include/asm/scatterlist.h
+ delete mode 100644 arch/microblaze/include/asm/scatterlist.h
+ delete mode 100644 arch/mn10300/include/asm/scatterlist.h
+ delete mode 100644 arch/powerpc/include/asm/scatterlist.h
+ delete mode 100644 arch/s390/include/asm/scatterlist.h
+ delete mode 100644 arch/score/include/asm/scatterlist.h
+ delete mode 100644 arch/sparc/include/asm/scatterlist.h
+ delete mode 100644 arch/x86/include/asm/scatterlist.h
 
 -- 
-Matt Fleming, Intel Open Source Technology Center
+The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum,
+hosted by The Linux Foundation
+
