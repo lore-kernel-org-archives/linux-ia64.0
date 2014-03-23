@@ -1,59 +1,32 @@
-From: James Bottomley <James.Bottomley@HansenPartnership.com>
-Date: Sat, 22 Mar 2014 22:59:11 +0000
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Date: Sun, 23 Mar 2014 03:04:46 +0000
 Subject: Re: [RESEND][PATCH 1/2] lib/scatterlist: Make ARCH_HAS_SG_CHAIN an actual Kconfig
-Message-Id: <1395529151.2143.64.camel@dabdike.int.hansenpartnership.com>
+Message-Id: <1395543886.3460.95.camel@pasglop>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1395512032-20575-1-git-send-email-lauraa@codeaurora.org>
 	 <1395512032-20575-2-git-send-email-lauraa@codeaurora.org>
-	 <1395523881.2143.58.camel@dabdike.int.hansenpartnership.com>
-	 <20140322222306.GM7528@n2100.arm.linux.org.uk>
-	 <1395527860.2143.61.camel@dabdike.int.hansenpartnership.com>
-	 <20140322225201.GN7528@n2100.arm.linux.org.uk>
-In-Reply-To: <20140322225201.GN7528@n2100.arm.linux.org.uk>
+In-Reply-To: <1395512032-20575-2-git-send-email-lauraa@codeaurora.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Cc: Laura Abbott <lauraa@codeaurora.org>, Fenghua Yu <fenghua.yu@intel.com>, Tony Luck <tony.luck@intel.com>, Andrew Morton <akpm@linux-foundation.org>, linux-scsi@vger.kernel.org, linux-s390@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, x86@kernel.org, Heiko Carstens <heiko.carstens@de.ibm.com>, linux-kernel@vger.kernel.org, linux390@de.ibm.com, sparclinux@vger.kernel.org, Ingo Molnar <mingo@redhat.com>, Paul Mackerras <paulus@samba.org>, "H. Peter Anvin" <hpa@zytor.com>, Martin Schwidefsky <schwidefsky@de.ibm.com>, linux-ia64@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, linuxppc-dev@lists.ozlabs.org, "David S. Miller" <davem@davemloft.net>, linux-arm-kernel@lists.infradead.org
+To: Laura Abbott <lauraa@codeaurora.org>
+Cc: Russell King <linux@arm.linux.org.uk>, "David S. Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, "James E.J. Bottomley" <JBottomley@parallels.com>, Fenghua Yu <fenghua.yu@intel.com>, Tony Luck <tony.luck@intel.com>, Paul Mackerras <paulus@samba.org>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, Andrew Morton <akpm@linux-foundation.org>, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-scsi@vger.kernel.org, linux-ia64@vger.kernel.org, linux390@de.ibm.com, linux-arm-kernel@lists.infradead.org
 
-On Sat, 2014-03-22 at 22:52 +0000, Russell King - ARM Linux wrote:
-> On Sat, Mar 22, 2014 at 03:37:40PM -0700, James Bottomley wrote:
-> > On Sat, 2014-03-22 at 22:23 +0000, Russell King - ARM Linux wrote:
-> > > On Sat, Mar 22, 2014 at 02:31:21PM -0700, James Bottomley wrote:
-> > > > Perhaps now might be the time to ask which are the remaining
-> > > > architectures that cannot do SG chaining and then we can fix them and
-> > > > pull the whole thing out.
-> > > 
-> > > Not quite.  You're making the assumption that we can be sure that all
-> > > the scatterlist users on an architecture have been converted - that's
-> > > simply not true on ARM.
-> > 
-> > No I'm not, I said "now might be the time to ask which are the remaining
-> > architectures that cannot do SG chaining"
-> 
-> And I'm disagreeing with that statement which implies that it's something
-> that is an architecture wide property for any particular architecture.
-> 
-> Right now in mainline, if ARM has IOMMU support enabled, then SG_CHAIN
-> support will also be enabled.  I've a patch out of tree which I've been
-> using for years which enables SG_CHAIN for a particular SoC (Dove).
-> Otherwise, it doesn't have support for SG_CHAIN.
-> 
-> PARISC on the other hand (as you list) has no support to enable SG_CHAIN
-> under any circumstances.
-> 
-> Where we're disagreeing is whether this is something that is always-on or
-> always-off for any particular architecture.
 
-Actually, I don't disagree with that.  PA used to share sb_iommu with
-ia64 (it's the same chipset for the HP versions), but we can't now
-because ia64 is chained and we're not and there's no way to say chained
-for this platform but not for these other more legacy ones.  If you have
-a proposal for this, I'd be interested, so I don't have to do an all or
-nothing conversion, but the config option isn't it because our platform
-configuration is runtime determined (we usually select every driver and
-let the actual one be chosen at runtime from the config table).
+> diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
+> index 1594945..8122294 100644
+> --- a/arch/arm/Kconfig
+> +++ b/arch/arm/Kconfig
+> @@ -82,6 +82,7 @@ config ARM
+>  	  <http://www.arm.linux.org.uk/>.
+>  
+>  config ARM_HAS_SG_CHAIN
+> +	select ARCH_HAS_SG_CHAIN
+>  	bool
+>  
 
-James
+Heh, a self-selecting config option... I didn't know that trick !
+
+Ben.
 
 
