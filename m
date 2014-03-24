@@ -1,149 +1,190 @@
-From: Richard Guy Briggs <rgb@redhat.com>
-Date: Wed, 05 Mar 2014 21:27:07 +0000
-Subject: [PATCH 6/6][RFC] audit: drop arch from __audit_syscall_entry() interface
-Message-Id: <fdcaea27c06177b1d5a23b08e42c5e68bbdc8e76.1393974970.git.rgb@redhat.com>
+From: Hanjun Guo <hanjun.guo@linaro.org>
+Date: Mon, 24 Mar 2014 09:51:42 +0000
+Subject: [PATCH][Resend] ACPI / processor_core: Rework _PDC related stuff to make it more arch-independent
+Message-Id: <1395654702-12846-1-git-send-email-hanjun.guo@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1393974970.git.rgb@redhat.com>
-In-Reply-To: <cover.1393974970.git.rgb@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-audit@redhat.com, linux-kernel@vger.kernel.org
-Cc: Richard Guy Briggs <rgb@redhat.com>, eparis@redhat.com, sgrubb@redhat.com, oleg@redhat.com, linux-arm-kernel@lists.infradead.org, x86@kernel.org, linux-ia64@vger.kernel.org, microblaze-uclinux@itee.uq.edu.au, linux-mips@linux-mips.org, linux@openrisc.net, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, user-mode-linux-devel@lists.sourceforge.net, linux-arch@vger.kernel.org, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, rostedt@goodmis.org, peterz@infradead.org
+To: "Rafael J. Wysocki" <rjw@rjwysocki.net>
+Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, linaro-acpi@lists.linaro.org, Hanjun Guo <hanjun.guo@linaro.org>, Graeme Gregory <graeme.gregory@linaro.org>
 
-Since arch is found locally in __audit_syscall_entry(), there is no need to
-pass it in as a parameter.  Delete it from the parameter list.
+_PDC related stuff in processor_core.c is little bit X86/IA64
+dependent, macros of ACPI_PDC_* are _PDC bit definitions for
+Intel processors, if we use these macros in processor_core.c,
+we will meet compile error when ACPI is enabled on ARM64.
 
-x86* was the only arch to call __audit_syscall_entry() directly and did so from
-assembly code.
+This patch reworks the code to make it more arch-independent,
+moving Intel related _PDC bits into architecture directory,
+no functional change.
 
-Signed-off-by: Richard Guy Briggs <rgb@redhat.com>
-
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: "H. Peter Anvin" <hpa@zytor.com>
+Cc: x86@kernel.org
+Cc: linux-ia64@vger.kernel.org
+Signed-off-by: Hanjun Guo <hanjun.guo@linaro.org>
+Signed-off-by: Graeme Gregory <graeme.gregory@linaro.org>
 ---
-Can I get some constructive scrutiny from the x86 asm guys here?  It has been a
-long time since I've played with x86 assembly code (and never x86_64).  I've
-done automated build/regression tests on i686 and x86_64, and I've done manual
-tests on an x86_64 virtual machine and everything appears to work fine.  Thanks!
+ arch/ia64/include/asm/acpi.h  |    5 +----
+ arch/ia64/kernel/acpi.c       |   15 +++++++++++++++
+ arch/x86/include/asm/acpi.h   |   19 +------------------
+ arch/x86/kernel/acpi/cstate.c |   27 +++++++++++++++++++++++++++
+ drivers/acpi/processor_core.c |   19 +------------------
+ 5 files changed, 45 insertions(+), 40 deletions(-)
 
- arch/x86/ia32/ia32entry.S  |   12 ++++++------
- arch/x86/kernel/entry_32.S |   11 +++++------
- arch/x86/kernel/entry_64.S |   11 +++++------
- include/linux/audit.h      |    7 ++-----
- kernel/auditsc.c           |    2 +-
- 5 files changed, 19 insertions(+), 24 deletions(-)
-
-diff --git a/arch/x86/ia32/ia32entry.S b/arch/x86/ia32/ia32entry.S
-index 4299eb0..f5bdd28 100644
---- a/arch/x86/ia32/ia32entry.S
-+++ b/arch/x86/ia32/ia32entry.S
-@@ -186,12 +186,12 @@ sysexit_from_sys_call:
+diff --git a/arch/ia64/include/asm/acpi.h b/arch/ia64/include/asm/acpi.h
+index d651102..d2b8b9d 100644
+--- a/arch/ia64/include/asm/acpi.h
++++ b/arch/ia64/include/asm/acpi.h
+@@ -152,10 +152,7 @@ extern int __initdata nid_to_pxm_map[MAX_NUMNODES];
+ #endif
  
- #ifdef CONFIG_AUDITSYSCALL
- 	.macro auditsys_entry_common
--	movl %esi,%r9d			/* 6th arg: 4th syscall arg */
--	movl %edx,%r8d			/* 5th arg: 3rd syscall arg */
--	/* (already in %ecx)		   4th arg: 2nd syscall arg */
--	movl %ebx,%edx			/* 3rd arg: 1st syscall arg */
--	movl %eax,%esi			/* 2nd arg: syscall number */
--	movl $AUDIT_ARCH_I386,%edi	/* 1st arg: audit arch */
-+	movl %esi,%r8d			/* 5th arg: 4th syscall arg */
-+	movl %ecx,%r9d			/*swap with edx*/
-+	movl %edx,%ecx			/* 4th arg: 3rd syscall arg */
-+	movl %r9d,%edx			/* 3rd arg: 2nd syscall arg */
-+	movl %ebx,%esi			/* 2nd arg: 1st syscall arg */
-+	movl %eax,%edi			/* 1st arg: syscall number */
- 	call __audit_syscall_entry
- 	movl RAX-ARGOFFSET(%rsp),%eax	/* reload syscall number */
- 	cmpq $(IA32_NR_syscalls-1),%rax
-diff --git a/arch/x86/kernel/entry_32.S b/arch/x86/kernel/entry_32.S
-index a2a4f46..078053e 100644
---- a/arch/x86/kernel/entry_32.S
-+++ b/arch/x86/kernel/entry_32.S
-@@ -456,12 +456,11 @@ sysenter_audit:
- 	jnz syscall_trace_entry
- 	addl $4,%esp
- 	CFI_ADJUST_CFA_OFFSET -4
--	/* %esi already in 8(%esp)	   6th arg: 4th syscall arg */
--	/* %edx already in 4(%esp)	   5th arg: 3rd syscall arg */
--	/* %ecx already in 0(%esp)	   4th arg: 2nd syscall arg */
--	movl %ebx,%ecx			/* 3rd arg: 1st syscall arg */
--	movl %eax,%edx			/* 2nd arg: syscall number */
--	movl $AUDIT_ARCH_I386,%eax	/* 1st arg: audit arch */
-+	movl %esi,4(%esp)		/* 5th arg: 4th syscall arg */
-+	movl %edx,(%esp)		/* 4th arg: 3rd syscall arg */
-+	/* %ecx already in %ecx		   3rd arg: 2nd syscall arg */
-+	movl %ebx,%edx			/* 2nd arg: 1st syscall arg */
-+	/* %eax already in %eax		   1st arg: syscall number */
- 	call __audit_syscall_entry
- 	pushl_cfi %ebx
- 	movl PT_EAX(%esp),%eax		/* reload syscall number */
-diff --git a/arch/x86/kernel/entry_64.S b/arch/x86/kernel/entry_64.S
-index 1e96c36..8292ff7 100644
---- a/arch/x86/kernel/entry_64.S
-+++ b/arch/x86/kernel/entry_64.S
-@@ -694,12 +694,11 @@ badsys:
- 	 * jump back to the normal fast path.
- 	 */
- auditsys:
--	movq %r10,%r9			/* 6th arg: 4th syscall arg */
--	movq %rdx,%r8			/* 5th arg: 3rd syscall arg */
--	movq %rsi,%rcx			/* 4th arg: 2nd syscall arg */
--	movq %rdi,%rdx			/* 3rd arg: 1st syscall arg */
--	movq %rax,%rsi			/* 2nd arg: syscall number */
--	movl $AUDIT_ARCH_X86_64,%edi	/* 1st arg: audit arch */
-+	movq %r10,%r8			/* 5th arg: 4th syscall arg */
-+	movq %rdx,%rcx			/* 4th arg: 3rd syscall arg */
-+	movq %rsi,%rdx			/* 3rd arg: 2nd syscall arg */
-+	movq %rdi,%rsi			/* 2nd arg: 1st syscall arg */
-+	movq %rax,%rdi			/* 1st arg: syscall number */
- 	call __audit_syscall_entry
- 	LOAD_ARGS 0		/* reload call-clobbered registers */
- 	jmp system_call_fastpath
-diff --git a/include/linux/audit.h b/include/linux/audit.h
-index ee452f1..278bc9d 100644
---- a/include/linux/audit.h
-+++ b/include/linux/audit.h
-@@ -27,8 +27,6 @@
- #include <linux/ptrace.h>
- #include <uapi/linux/audit.h>
+ static inline bool arch_has_acpi_pdc(void) { return true; }
+-static inline void arch_acpi_set_pdc_bits(u32 *buf)
+-{
+-	buf[2] |= ACPI_PDC_EST_CAPABILITY_SMP;
+-}
++extern void arch_acpi_set_pdc_bits(u32 *buf);
  
--#include <asm/syscall.h>
--
- struct audit_sig_info {
- 	uid_t		uid;
- 	pid_t		pid;
-@@ -100,8 +98,7 @@ extern void audit_log_session_info(struct audit_buffer *ab);
- 				/* Public API */
- extern int  audit_alloc(struct task_struct *task);
- extern void __audit_free(struct task_struct *task);
--extern void __audit_syscall_entry(int arch,
--				  int major, unsigned long a0, unsigned long a1,
-+extern void __audit_syscall_entry(int major, unsigned long a0, unsigned long a1,
- 				  unsigned long a2, unsigned long a3);
- extern void __audit_syscall_exit(int ret_success, long ret_value);
- extern struct filename *__audit_reusename(const __user char *uptr);
-@@ -133,7 +130,7 @@ static inline void audit_syscall_entry(int major, unsigned long a0,
- 				       unsigned long a3)
- {
- 	if (unlikely(current->audit_context))
--		__audit_syscall_entry(syscall_get_arch(), major, a0, a1, a2, a3);
-+		__audit_syscall_entry(major, a0, a1, a2, a3);
- }
- static inline void audit_syscall_exit(void *pt_regs)
- {
-diff --git a/kernel/auditsc.c b/kernel/auditsc.c
-index 565f7b7..a4e4447 100644
---- a/kernel/auditsc.c
-+++ b/kernel/auditsc.c
-@@ -1445,7 +1445,7 @@ void __audit_free(struct task_struct *tsk)
-  * will only be written if another part of the kernel requests that it
-  * be written).
+ #define acpi_unlazy_tlb(x)
+ 
+diff --git a/arch/ia64/kernel/acpi.c b/arch/ia64/kernel/acpi.c
+index 467497a..7b15c2c 100644
+--- a/arch/ia64/kernel/acpi.c
++++ b/arch/ia64/kernel/acpi.c
+@@ -1010,3 +1010,18 @@ EXPORT_SYMBOL(acpi_unregister_ioapic);
+  * TBD when when IA64 starts to support suspend...
   */
--void __audit_syscall_entry(int arch, int major,
-+void __audit_syscall_entry(int major,
- 			 unsigned long a1, unsigned long a2,
- 			 unsigned long a3, unsigned long a4)
+ int acpi_suspend_lowlevel(void) { return 0; }
++
++void arch_acpi_set_pdc_bits(u32 *buf)
++{
++	/* Enable coordination with firmware's _TSD info */
++	buf[2] |= ACPI_PDC_SMP_T_SWCOORD | ACPI_PDC_EST_CAPABILITY_SMP;
++
++	if (boot_option_idle_override = IDLE_NOMWAIT) {
++		/*
++		 * If mwait is disabled for CPU C-states, the C2C3_FFH access
++		 * mode will be disabled in the parameter of _PDC object.
++		 * Of course C1_FFH access mode will also be disabled.
++		 */
++		buf[2] &= ~(ACPI_PDC_C_C2C3_FFH | ACPI_PDC_C_C1_FFH);
++	}
++}
+diff --git a/arch/x86/include/asm/acpi.h b/arch/x86/include/asm/acpi.h
+index c8c1e70..e9f71bc 100644
+--- a/arch/x86/include/asm/acpi.h
++++ b/arch/x86/include/asm/acpi.h
+@@ -147,24 +147,7 @@ static inline bool arch_has_acpi_pdc(void)
+ 		c->x86_vendor = X86_VENDOR_CENTAUR);
+ }
+ 
+-static inline void arch_acpi_set_pdc_bits(u32 *buf)
+-{
+-	struct cpuinfo_x86 *c = &cpu_data(0);
+-
+-	buf[2] |= ACPI_PDC_C_CAPABILITY_SMP;
+-
+-	if (cpu_has(c, X86_FEATURE_EST))
+-		buf[2] |= ACPI_PDC_EST_CAPABILITY_SWSMP;
+-
+-	if (cpu_has(c, X86_FEATURE_ACPI))
+-		buf[2] |= ACPI_PDC_T_FFH;
+-
+-	/*
+-	 * If mwait/monitor is unsupported, C2/C3_FFH will be disabled
+-	 */
+-	if (!cpu_has(c, X86_FEATURE_MWAIT))
+-		buf[2] &= ~(ACPI_PDC_C_C2C3_FFH);
+-}
++extern void arch_acpi_set_pdc_bits(u32 *buf);
+ 
+ #else /* !CONFIG_ACPI */
+ 
+diff --git a/arch/x86/kernel/acpi/cstate.c b/arch/x86/kernel/acpi/cstate.c
+index e69182f..035a4ea72 100644
+--- a/arch/x86/kernel/acpi/cstate.c
++++ b/arch/x86/kernel/acpi/cstate.c
+@@ -16,6 +16,33 @@
+ #include <asm/mwait.h>
+ #include <asm/special_insns.h>
+ 
++void arch_acpi_set_pdc_bits(u32 *buf)
++{
++	struct cpuinfo_x86 *c = &cpu_data(0);
++
++	/* Enable coordination with firmware's _TSD info */
++	buf[2] |= ACPI_PDC_SMP_T_SWCOORD | ACPI_PDC_C_CAPABILITY_SMP;
++
++	if (cpu_has(c, X86_FEATURE_EST))
++		buf[2] |= ACPI_PDC_EST_CAPABILITY_SWSMP;
++
++	if (cpu_has(c, X86_FEATURE_ACPI))
++		buf[2] |= ACPI_PDC_T_FFH;
++
++	/* If mwait/monitor is unsupported, C2/C3_FFH will be disabled */
++	if (!cpu_has(c, X86_FEATURE_MWAIT))
++		buf[2] &= ~(ACPI_PDC_C_C2C3_FFH);
++
++	if (boot_option_idle_override = IDLE_NOMWAIT) {
++		/*
++		 * If mwait is disabled for CPU C-states, the C2C3_FFH access
++		 * mode will be disabled in the parameter of _PDC object.
++		 * Of course C1_FFH access mode will also be disabled.
++		 */
++		buf[2] &= ~(ACPI_PDC_C_C2C3_FFH | ACPI_PDC_C_C1_FFH);
++	}
++}
++
+ /*
+  * Initialize bm_flags based on the CPU cache properties
+  * On SMP it depends on cache configuration
+diff --git a/drivers/acpi/processor_core.c b/drivers/acpi/processor_core.c
+index 86d73d5..30183eb 100644
+--- a/drivers/acpi/processor_core.c
++++ b/drivers/acpi/processor_core.c
+@@ -281,9 +281,6 @@ static void acpi_set_pdc_bits(u32 *buf)
+ 	buf[0] = ACPI_PDC_REVISION_ID;
+ 	buf[1] = 1;
+ 
+-	/* Enable coordination with firmware's _TSD info */
+-	buf[2] = ACPI_PDC_SMP_T_SWCOORD;
+-
+ 	/* Twiddle arch-specific bits needed for _PDC */
+ 	arch_acpi_set_pdc_bits(buf);
+ }
+@@ -308,7 +305,7 @@ static struct acpi_object_list *acpi_processor_alloc_pdc(void)
+ 		return NULL;
+ 	}
+ 
+-	buf = kmalloc(12, GFP_KERNEL);
++	buf = kzalloc(12, GFP_KERNEL);
+ 	if (!buf) {
+ 		printk(KERN_ERR "Memory allocation error\n");
+ 		kfree(obj);
+@@ -336,20 +333,6 @@ acpi_processor_eval_pdc(acpi_handle handle, struct acpi_object_list *pdc_in)
  {
+ 	acpi_status status = AE_OK;
+ 
+-	if (boot_option_idle_override = IDLE_NOMWAIT) {
+-		/*
+-		 * If mwait is disabled for CPU C-states, the C2C3_FFH access
+-		 * mode will be disabled in the parameter of _PDC object.
+-		 * Of course C1_FFH access mode will also be disabled.
+-		 */
+-		union acpi_object *obj;
+-		u32 *buffer = NULL;
+-
+-		obj = pdc_in->pointer;
+-		buffer = (u32 *)(obj->buffer.pointer);
+-		buffer[2] &= ~(ACPI_PDC_C_C2C3_FFH | ACPI_PDC_C_C1_FFH);
+-
+-	}
+ 	status = acpi_evaluate_object(handle, "_PDC", pdc_in, NULL);
+ 
+ 	if (ACPI_FAILURE(status))
 -- 
-1.7.1
+1.7.9.5
 
