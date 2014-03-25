@@ -1,49 +1,45 @@
-From: Kees Cook <keescook@chromium.org>
-Date: Sat, 15 Mar 2014 20:11:18 +0000
-Subject: [PATCH] ia64: keep format strings from leaking into printk
-Message-Id: <20140315201118.GA29753@www.outflux.net>
+From: Daniel Kiper <daniel.kiper@oracle.com>
+Date: Tue, 25 Mar 2014 20:57:51 +0000
+Subject: [PATCH v3 0/5] xen: Add EFI support
+Message-Id: <1395781076-12000-1-git-send-email-daniel.kiper@oracle.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Paul Gortmaker <paul.gortmaker@windriver.com>, linux-ia64@vger.kernel.org
+To: linux-efi@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, x86@kernel.org, xen-devel@lists.xenproject.org
+Cc: boris.ostrovsky@oracle.com, david.vrabel@citrix.com, eshelton@pobox.com, fenghua.yu@intel.com, hpa@zytor.com, ian.campbell@citrix.com, jbeulich@suse.com, jeremy@goop.org, konrad.wilk@oracle.com, matt.fleming@intel.com, mingo@redhat.com, stefano.stabellini@eu.citrix.com, tglx@linutronix.de, tony.luck@intel.com
 
-The buffer being sent to printk has already had format strings
-resolved. The string should not be reinterpreted again to avoid any
-unintended format strings from leaking into printk.
+Hey,
 
-Signed-off-by: Kees Cook <keescook@chromium.org>
----
- arch/ia64/kernel/mca.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+This patch series adds EFI support for Xen dom0 guests.
+It is based on Jan Beulich and Tang Liang work. I was
+trying to take into account all previous comments,
+however, if I missed something sorry for that.
 
-diff --git a/arch/ia64/kernel/mca.c b/arch/ia64/kernel/mca.c
-index b8edfa75a83f..601502ab7141 100644
---- a/arch/ia64/kernel/mca.c
-+++ b/arch/ia64/kernel/mca.c
-@@ -217,7 +217,7 @@ void ia64_mca_printk(const char *fmt, ...)
- 	/* Copy the output into mlogbuf */
- 	if (oops_in_progress) {
- 		/* mlogbuf was abandoned, use printk directly instead. */
--		printk(temp_buf);
-+		printk("%s", temp_buf);
- 	} else {
- 		spin_lock(&mlogbuf_wlock);
- 		for (p = temp_buf; *p; p++) {
-@@ -268,7 +268,7 @@ void ia64_mlogbuf_dump(void)
- 		}
- 		*p = '\0';
- 		if (temp_buf[0])
--			printk(temp_buf);
-+			printk("%s", temp_buf);
- 		mlogbuf_start = index;
- 
- 		mlogbuf_timestamp = 0;
--- 
-1.7.9.5
+Additionally, I attempted to leave all credits as is and
+put SOB in relevant places. If I made any mistake drop me
+a line and I will fix it in next version.
 
+Feel free to play with it. I am looking forward for your comments.
 
--- 
-Kees Cook
-Chrome OS Security
+Daniel
+
+ arch/ia64/kernel/efi.c           |   30 ++++--
+ arch/x86/kernel/setup.c          |    2 +-
+ arch/x86/platform/efi/efi.c      |   20 ++--
+ arch/x86/xen/enlighten.c         |   10 ++
+ drivers/firmware/efi/efi.c       |   26 ++++++
+ drivers/xen/Kconfig              |    3 +
+ drivers/xen/Makefile             |    1 +
+ drivers/xen/efi.c                |  425 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ include/linux/efi.h              |   10 ++
+ include/xen/interface/platform.h |  123 +++++++++++++++++++++++-
+ 10 files changed, 633 insertions(+), 17 deletions(-)
+
+Daniel Kiper (5):
+      efi: Add efi_init_ops variable
+      efi: Export arch_tables variable
+      x86: Call efi_memblock_x86_reserve_range() on native EFI platform only
+      xen: Define EFI related stuff
+      xen: Put EFI machinery in place
+
