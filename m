@@ -1,198 +1,112 @@
-From: Richard Guy Briggs <rgb@redhat.com>
-Date: Wed, 05 Mar 2014 21:27:04 +0000
-Subject: [PATCH 3/6][RFC] audit: __audit_syscall_entry: ignore arch arg and call syscall_get_arch() directly
-Message-Id: <fc170f50376a56ea82d25fbf1587f64b76177e0f.1393974970.git.rgb@redhat.com>
+From: Andrew Cooper <andrew.cooper3@citrix.com>
+Date: Wed, 26 Mar 2014 22:35:39 +0000
+Subject: Re: [Xen-devel] [PATCH v3 3/5] x86: Call efi_memblock_x86_reserve_range() on native EFI platform onl
+Message-Id: <5333563B.2060601@citrix.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1393974970.git.rgb@redhat.com>
-In-Reply-To: <cover.1393974970.git.rgb@redhat.com>
+References: <1395781076-12000-1-git-send-email-daniel.kiper@oracle.com>	<1395781076-12000-4-git-send-email-daniel.kiper@oracle.com>	<20140326130009.GB24856@console-pimps.org>	<5332E2B9020000780000255D@nat28.tlf.novell.com>	<20140326133119.GD24856@console-pimps.org>	<5332E6AE02000078000025F0@nat28.tlf.novell.com>	<20140326134845.GN3454@olila.local.net-space.pl>	<20140326135723.GG24856@console-pimps.org> <20140326220132.GQ3454@olila.local.net-space.pl>
+In-Reply-To: <20140326220132.GQ3454@olila.local.net-space.pl>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-audit@redhat.com, linux-kernel@vger.kernel.org
-Cc: Richard Guy Briggs <rgb@redhat.com>, eparis@redhat.com, sgrubb@redhat.com, oleg@redhat.com, linux-arm-kernel@lists.infradead.org, x86@kernel.org, linux-ia64@vger.kernel.org, microblaze-uclinux@itee.uq.edu.au, linux-mips@linux-mips.org, linux@openrisc.net, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, user-mode-linux-devel@lists.sourceforge.net, linux-arch@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: Daniel Kiper <daniel.kiper@oracle.com>, Matt Fleming <matt@console-pimps.org>
+Cc: fenghua.yu@intel.com, jeremy@goop.org, matt.fleming@intel.com, linux-ia64@vger.kernel.org, ian.campbell@citrix.com, stefano.stabellini@eu.citrix.com, linux-efi@vger.kernel.org, x86@kernel.org, linux-kernel@vger.kernel.org, tony.luck@intel.com, david.vrabel@citrix.com, Jan Beulich <JBeulich@suse.com>, hpa@zytor.com, xen-devel@lists.xenproject.org, tglx@linutronix.de, mingo@redhat.com, boris.ostrovsky@oracle.com, eshelton@pobox.com
 
-Since all the callers of syscall_get_arch() presently pass "current" and none
-of the arch-specific syscall_get_arch() implementations use the regs parameter,
-ignore the passed in arch parameter to __audit_syscall_entry() and call
-syscall_get_arch() directly.
+On 26/03/2014 22:01, Daniel Kiper wrote:
+> On Wed, Mar 26, 2014 at 01:57:23PM +0000, Matt Fleming wrote:
+>> On Wed, 26 Mar, at 02:48:45PM, Daniel Kiper wrote:
+>>> On my machine this function crashes on Xen so that is why I have changed
+>>> condition. However, if you say that this issue could be solved in
+>>> another way I will investigate it further.
+>> Daniel, could you paste the crash? Do you get a stack trace?
+> Here it is:
+>
+> [...]
+>
+> mapping kernel into physical memory
+> about to get started...
+> (XEN) traps.c:458:d0v0 Unhandled divide error fault/trap [#0] on VCPU 0 [=
+ec=0000]
+> (XEN) domain_crash_sync called from entry.S: fault at ffff82d080229d30 in=
+t80_direct_trap+0x200/0x210
+> (XEN) Domain 0 (vcpu#0) crashed on cpu#0:
+> (XEN) ----[ Xen-4.5-unstable  x86_64  debug=3Dy  Tainted:    C ]----
+> (XEN) CPU:    0
+> (XEN) RIP:    e033:[<ffffffff816987c5>]
+> (XEN) RFLAGS: 0000000000000246   EM: 1   CONTEXT: pv guest
+> (XEN) rax: 0000000000000000   rbx: 0000000001000000   rcx: 00000000000000=
+00
+> (XEN) rdx: 0000000000000000   rsi: ffffffff814d7e7e   rdi: 00000000000000=
+00
+> (XEN) rbp: ffffffff81601e88   rsp: ffffffff81601e48   r8:  00000000000000=
+00
+> (XEN) r9:  0000000000007ff0   r10: 00000000deadbeef   r11: ffffffff81601d=
+f8
+> (XEN) r12: ffffffff816fe010   r13: ffffffff81601f00   r14: 00000000000000=
+00
+> (XEN) r15: 0000000000000000   cr0: 0000000080050033   cr4: 00000000000026=
+f0
+> (XEN) cr3: 000000007b60d000   cr2: 0000000000000000
+> (XEN) ds: 0000   es: 0000   fs: 0000   gs: 0000   ss: e02b   cs: e033
+> (XEN) Guest stack trace from rsp=FFffffff81601e48:
+> (XEN)    0000000000000000 ffffffff81601df8 ffffffff816987c5 000000010000e=
+030
+> (XEN)    0000000000010046 ffffffff81601e88 000000000000e02b ffffffff81601=
+f00
+> (XEN)    ffffffff81601ed8 ffffffff8168a1a4 ffffffff81601ee8 ffffffff81601=
+ea8
+> (XEN)    ffff880001e16490 ffffffffffffffff ffffffff816fe010 0000000000000=
+000
+> (XEN)    0000000000000000 0000000000000000 ffffffff81601f28 ffffffff81685=
+a3e
+> (XEN)    0000000000000000 0000000000000000 0000000000000000 0000000000000=
+000
+> (XEN)    ffff880001e16000 0000000000000000 0000000000000000 0000000000000=
+000
+> (XEN)    ffffffff81601f38 ffffffff816854c8 ffffffff81601ff8 ffffffff81687=
+442
+> (XEN)    0000000100000000 0000080000000623 0789cbf580802001 0300000100000=
+032
+> (XEN)    0000000000000005 0000000000000000 0000000000000000 0000000000000=
+000
+> (XEN)    0000000000000000 0000000000000000 0000000000000000 0000000000000=
+000
+> (XEN)    0000000000000000 0000000000000000 0000000000000000 0000000000000=
+000
+> (XEN)    0000000000000000 0000000000000000 0000000000000000 0000000000000=
+000
+> (XEN)    0000000000000000 0000000000000000 0000000000000000 0f00000060c0c=
+748
+> (XEN)    ccccccccccccc305 cccccccccccccccc cccccccccccccccc ccccccccccccc=
+ccc
+> (XEN)    cccccccccccccccc cccccccccccccccc cccccccccccccccc ccccccccccccc=
+ccc
+> (XEN)    cccccccccccccccc cccccccccccccccc cccccccccccccccc ccccccccccccc=
+ccc
+> (XEN)    cccccccccccccccc cccccccccccccccc cccccccccccccccc ccccccccccccc=
+ccc
+> (XEN)    cccccccccccccccc cccccccccccccccc cccccccccccccccc ccccccccccccc=
+ccc
+> (XEN)    cccccccccccccccc cccccccccccccccc cccccccccccccccc ccccccccccccc=
+ccc
+> (XEN) Domain 0 crashed: rebooting machine in 5 seconds.
+>
+> Some addresses are solved to:
+> 0xffffffff816987c5: efi_memblock_x86_reserve_range at arch/x86/platform/e=
+fi/efi.c:393
+> 0xffffffff8168a1a4: setup_arch at arch/x86/kernel/setup.c:940
+> 0xffffffff81685a3e: setup_command_line at init/main.c:353
+> 0xffffffff816854c8: x86_64_start_reservations at arch/x86/kernel/head64.c=
+:194
+> 0xffffffff81687442: xen_start_kernel at arch/x86/xen/enlighten.c:1733
+>
+> I am using Linus tree with latest commit b098d6726bbfb94c06d6e1097466187a=
+fddae61f
+> (Linux 3.14-rc8) with my patches applied excluding patch 3.
+>
+> Daniel
 
-Change the audit header file from the kernel internal to the user api version
-to get the architecture numbers, but to avoid a circular header reference
-between audit and syscall.h
+Then all you need to do is look up ffffffff816987c5 in your linux
+symbols, and whichever variable is being divided on that line of source
+has ether has the value 0 or -1.=20
 
-Signed-off-by: Richard Guy Briggs <rgb@redhat.com>
-
----
- arch/arm/include/asm/syscall.h        |    2 +-
- arch/ia64/include/asm/syscall.h       |    2 +-
- arch/microblaze/include/asm/syscall.h |    2 +-
- arch/mips/include/asm/syscall.h       |    2 +-
- arch/openrisc/include/asm/syscall.h   |    2 +-
- arch/parisc/include/asm/syscall.h     |    2 +-
- arch/powerpc/include/asm/syscall.h    |    2 +-
- arch/s390/include/asm/syscall.h       |    2 +-
- arch/sh/include/asm/syscall.h         |    2 +-
- arch/sparc/include/asm/syscall.h      |    2 +-
- arch/x86/include/asm/syscall.h        |    2 +-
- kernel/auditsc.c                      |    2 +-
- 12 files changed, 12 insertions(+), 12 deletions(-)
-
-diff --git a/arch/arm/include/asm/syscall.h b/arch/arm/include/asm/syscall.h
-index 73ddd72..a749123 100644
---- a/arch/arm/include/asm/syscall.h
-+++ b/arch/arm/include/asm/syscall.h
-@@ -7,7 +7,7 @@
- #ifndef _ASM_ARM_SYSCALL_H
- #define _ASM_ARM_SYSCALL_H
- 
--#include <linux/audit.h> /* for AUDIT_ARCH_* */
-+#include <uapi/linux/audit.h> /* for AUDIT_ARCH_* */
- #include <linux/elf.h> /* for ELF_EM */
- #include <linux/err.h>
- #include <linux/sched.h>
-diff --git a/arch/ia64/include/asm/syscall.h b/arch/ia64/include/asm/syscall.h
-index 0fd2a7a..9c82767 100644
---- a/arch/ia64/include/asm/syscall.h
-+++ b/arch/ia64/include/asm/syscall.h
-@@ -15,7 +15,7 @@
- 
- #include <linux/sched.h>
- #include <linux/err.h>
--#include <linux/audit.h>
-+#include <uapi/linux/audit.h>
- 
- static inline long syscall_get_nr(struct task_struct *task,
- 				  struct pt_regs *regs)
-diff --git a/arch/microblaze/include/asm/syscall.h b/arch/microblaze/include/asm/syscall.h
-index 06854da..e1acf8a 100644
---- a/arch/microblaze/include/asm/syscall.h
-+++ b/arch/microblaze/include/asm/syscall.h
-@@ -3,7 +3,7 @@
- 
- #include <linux/kernel.h>
- #include <linux/sched.h>
--#include <linux/audit.h>
-+#include <uapi/linux/audit.h>
- #include <asm/ptrace.h>
- 
- /* The system call number is given by the user in R12 */
-diff --git a/arch/mips/include/asm/syscall.h b/arch/mips/include/asm/syscall.h
-index 41ecde4..a8234f2 100644
---- a/arch/mips/include/asm/syscall.h
-+++ b/arch/mips/include/asm/syscall.h
-@@ -13,7 +13,7 @@
- #ifndef __ASM_MIPS_SYSCALL_H
- #define __ASM_MIPS_SYSCALL_H
- 
--#include <linux/audit.h>
-+#include <uapi/linux/audit.h>
- #include <linux/elf-em.h>
- #include <linux/kernel.h>
- #include <linux/sched.h>
-diff --git a/arch/openrisc/include/asm/syscall.h b/arch/openrisc/include/asm/syscall.h
-index 534b9c3..2bbe0e9 100644
---- a/arch/openrisc/include/asm/syscall.h
-+++ b/arch/openrisc/include/asm/syscall.h
-@@ -21,7 +21,7 @@
- 
- #include <linux/err.h>
- #include <linux/sched.h>
--#include <linux/audit.h>
-+#include <uapi/linux/audit.h>
- 
- static inline int
- syscall_get_nr(struct task_struct *task, struct pt_regs *regs)
-diff --git a/arch/parisc/include/asm/syscall.h b/arch/parisc/include/asm/syscall.h
-index b3b604f..2bf23b1 100644
---- a/arch/parisc/include/asm/syscall.h
-+++ b/arch/parisc/include/asm/syscall.h
-@@ -5,7 +5,7 @@
- 
- #include <linux/err.h>
- #include <linux/compat.h>
--#include <linux/audit.h>
-+#include <uapi/linux/audit.h>
- #include <asm/ptrace.h>
- 
- static inline long syscall_get_nr(struct task_struct *tsk,
-diff --git a/arch/powerpc/include/asm/syscall.h b/arch/powerpc/include/asm/syscall.h
-index b824eb2..36bd9ef 100644
---- a/arch/powerpc/include/asm/syscall.h
-+++ b/arch/powerpc/include/asm/syscall.h
-@@ -15,7 +15,7 @@
- 
- #include <linux/sched.h>
- #include <linux/compat.h>
--#include <linux/audit.h>
-+#include <uapi/linux/audit.h>
- 
- /* ftrace syscalls requires exporting the sys_call_table */
- #ifdef CONFIG_FTRACE_SYSCALLS
-diff --git a/arch/s390/include/asm/syscall.h b/arch/s390/include/asm/syscall.h
-index cd29d2f..79d1805 100644
---- a/arch/s390/include/asm/syscall.h
-+++ b/arch/s390/include/asm/syscall.h
-@@ -12,7 +12,7 @@
- #ifndef _ASM_SYSCALL_H
- #define _ASM_SYSCALL_H	1
- 
--#include <linux/audit.h>
-+#include <uapi/linux/audit.h>
- #include <linux/sched.h>
- #include <linux/err.h>
- #include <asm/ptrace.h>
-diff --git a/arch/sh/include/asm/syscall.h b/arch/sh/include/asm/syscall.h
-index f1a79d4..33e60e0 100644
---- a/arch/sh/include/asm/syscall.h
-+++ b/arch/sh/include/asm/syscall.h
-@@ -9,7 +9,7 @@ extern const unsigned long sys_call_table[];
- # include <asm/syscall_64.h>
- #endif
- 
--# include <linux/audit.h>
-+# include <uapi/linux/audit.h>
- 
- static inline int syscall_get_arch(struct task_struct *tsk,
- 				   struct pt_regs *regs)
-diff --git a/arch/sparc/include/asm/syscall.h b/arch/sparc/include/asm/syscall.h
-index c7a8f75..eddc60e 100644
---- a/arch/sparc/include/asm/syscall.h
-+++ b/arch/sparc/include/asm/syscall.h
-@@ -3,7 +3,7 @@
- 
- #include <linux/kernel.h>
- #include <linux/sched.h>
--#include <linux/audit.h>
-+#include <uapi/linux/audit.h>
- #include <asm/ptrace.h>
- 
- /*
-diff --git a/arch/x86/include/asm/syscall.h b/arch/x86/include/asm/syscall.h
-index aea284b..c98e0ec 100644
---- a/arch/x86/include/asm/syscall.h
-+++ b/arch/x86/include/asm/syscall.h
-@@ -13,7 +13,7 @@
- #ifndef _ASM_X86_SYSCALL_H
- #define _ASM_X86_SYSCALL_H
- 
--#include <linux/audit.h>
-+#include <uapi/linux/audit.h>
- #include <linux/sched.h>
- #include <linux/err.h>
- #include <asm/asm-offsets.h>	/* For NR_syscalls */
-diff --git a/kernel/auditsc.c b/kernel/auditsc.c
-index 7317f46..0c9fe06 100644
---- a/kernel/auditsc.c
-+++ b/kernel/auditsc.c
-@@ -1461,7 +1461,7 @@ void __audit_syscall_entry(int arch, int major,
- 	if (!audit_enabled)
- 		return;
- 
--	context->arch	    = arch;
-+	context->arch	    = syscall_get_arch(current, NULL);
- 	context->major      = major;
- 	context->argv[0]    = a1;
- 	context->argv[1]    = a2;
--- 
-1.7.1
-
+~Andrew
