@@ -1,10 +1,10 @@
 From: Lv Zheng <lv.zheng@intel.com>
-Date: Wed, 23 Apr 2014 06:54:14 +0000
-Subject: [PATCH v2 4/5] ACPICA: Cleanup redudant definitions that already have defaults in <acpi/platform/ace
-Message-Id: <9e881bb73577488890dbd098a02eef4884d6e3b9.1398232409.git.lv.zheng@intel.com>
+Date: Tue, 08 Apr 2014 07:57:04 +0000
+Subject: [PATCH 3/4] ACPICA: Cleanup redudant definitions that already have defaults in <acpi/platform/acenv.
+Message-Id: <c2ff25bb3a3383d6e40317577918b803089c9df4.1396930406.git.lv.zheng@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1396930406.git.lv.zheng@intel.com> <cover.1398232408.git.lv.zheng@intel.com>
-In-Reply-To: <cover.1398232408.git.lv.zheng@intel.com>
+References: <cover.1385110130.git.lv.zheng@intel.com> <cover.1396930406.git.lv.zheng@intel.com>
+In-Reply-To: <cover.1396930406.git.lv.zheng@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -86,7 +86,7 @@ index 6978584..6687329 100644
  
  #define ACPI_FLUSH_CPU_CACHE()	wbinvd()
 diff --git a/include/acpi/platform/aclinux.h b/include/acpi/platform/aclinux.h
-index 99d0546..90eea12 100644
+index a12e9e0..943c167 100644
 --- a/include/acpi/platform/aclinux.h
 +++ b/include/acpi/platform/aclinux.h
 @@ -48,7 +48,6 @@
