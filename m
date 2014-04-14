@@ -1,39 +1,77 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Fri, 25 Apr 2014 09:18:33 +0000
-Subject: [PATCH 11/13] PCI, acpiphp: Use new pci_is_bridge() to simplify code
-Message-Id: <1398417515-8740-12-git-send-email-wangyijing@huawei.com>
+From: Joe Perches <joe@perches.com>
+Date: Mon, 14 Apr 2014 01:55:34 +0000
+Subject: [PATCH -next 3.16 02/19] ia64: Convert use of typedef ctl_table to struct ctl_table
+Message-Id: <5ab16fc6560e333f3a9f8645ea3eb9485d9ee5a9.1397438826.git.joe@perches.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1398417515-8740-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1398417515-8740-1-git-send-email-wangyijing@huawei.com>
+References: <cover.1397438826.git.joe@perches.com>
+In-Reply-To: <cover.1397438826.git.joe@perches.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, x86@kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Yijing Wang <wangyijing@huawei.com>
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Now we can use new pci_is_bridge() helper function
-to simplify code.
+This typedef is unnecessary and should just be removed.
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/pci/hotplug/acpiphp_glue.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+ arch/ia64/kernel/crash.c   | 4 ++--
+ arch/ia64/kernel/perfmon.c | 6 +++---
+ 2 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/pci/hotplug/acpiphp_glue.c b/drivers/pci/hotplug/acpiphp_glue.c
-index bccc27e..f1f9bd1 100644
---- a/drivers/pci/hotplug/acpiphp_glue.c
-+++ b/drivers/pci/hotplug/acpiphp_glue.c
-@@ -516,8 +516,7 @@ static void __ref enable_slot(struct acpiphp_slot *slot)
- 			if (PCI_SLOT(dev->devfn) != slot->device)
- 				continue;
+diff --git a/arch/ia64/kernel/crash.c b/arch/ia64/kernel/crash.c
+index b942f40..2955f35 100644
+--- a/arch/ia64/kernel/crash.c
++++ b/arch/ia64/kernel/crash.c
+@@ -237,7 +237,7 @@ kdump_init_notifier(struct notifier_block *self, unsigned long val, void *data)
+ }
  
--			if (dev->hdr_type = PCI_HEADER_TYPE_BRIDGE ||
--			    dev->hdr_type = PCI_HEADER_TYPE_CARDBUS) {
-+			if (pci_is_bridge(dev)) {
- 				max = pci_scan_bridge(bus, dev, max, pass);
- 				if (pass && dev->subordinate) {
- 					check_hotplug_bridge(slot, dev);
+ #ifdef CONFIG_SYSCTL
+-static ctl_table kdump_ctl_table[] = {
++static struct ctl_table kdump_ctl_table[] = {
+ 	{
+ 		.procname = "kdump_on_init",
+ 		.data = &kdump_on_init,
+@@ -255,7 +255,7 @@ static ctl_table kdump_ctl_table[] = {
+ 	{ }
+ };
+ 
+-static ctl_table sys_table[] = {
++static struct ctl_table sys_table[] = {
+ 	{
+ 	  .procname = "kernel",
+ 	  .mode = 0555,
+diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
+index d841c4b..5845ffe 100644
+--- a/arch/ia64/kernel/perfmon.c
++++ b/arch/ia64/kernel/perfmon.c
+@@ -521,7 +521,7 @@ static pmu_config_t		*pmu_conf;
+ pfm_sysctl_t pfm_sysctl;
+ EXPORT_SYMBOL(pfm_sysctl);
+ 
+-static ctl_table pfm_ctl_table[]={
++static struct ctl_table pfm_ctl_table[] = {
+ 	{
+ 		.procname	= "debug",
+ 		.data		= &pfm_sysctl.debug,
+@@ -552,7 +552,7 @@ static ctl_table pfm_ctl_table[]={
+ 	},
+ 	{}
+ };
+-static ctl_table pfm_sysctl_dir[] = {
++static struct ctl_table pfm_sysctl_dir[] = {
+ 	{
+ 		.procname	= "perfmon",
+ 		.mode		= 0555,
+@@ -560,7 +560,7 @@ static ctl_table pfm_sysctl_dir[] = {
+ 	},
+  	{}
+ };
+-static ctl_table pfm_sysctl_root[] = {
++static struct ctl_table pfm_sysctl_root[] = {
+ 	{
+ 		.procname	= "kernel",
+ 		.mode		= 0555,
 -- 
-1.7.1
-
+1.8.1.2.459.gbcd45b4.dirty
 
