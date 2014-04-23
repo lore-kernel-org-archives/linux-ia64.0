@@ -1,206 +1,356 @@
-From: Grant Likely <grant.likely@linaro.org>
-Date: Tue, 29 Apr 2014 09:36:37 +0000
-Subject: Re: [PATCH v3 part1 01/11] ACPI / processor: Rework _PDC related stuff to make it more arch-independ
-Message-Id: <20140429093637.75573C4095B@trevor.secretlab.ca>
+From: Lv Zheng <lv.zheng@intel.com>
+Date: Wed, 23 Apr 2014 06:54:06 +0000
+Subject: [PATCH v2 3/5] ACPICA: Add <asm/acenv.h> to remove mis-ordered inclusion of <asm/acpi.h> from <acpi/
+Message-Id: <522ac0c3a52f1697d75363cc808a213773dca295.1398232409.git.lv.zheng@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1398432017-8506-1-git-send-email-hanjun.guo@linaro.org>
-	<1398432017-8506-2-git-send-email-hanjun.guo@linaro.org>
-In-Reply-To: <1398432017-8506-2-git-send-email-hanjun.guo@linaro.org>
+References: <cover.1396930406.git.lv.zheng@intel.com> <cover.1398232408.git.lv.zheng@intel.com>
+In-Reply-To: <cover.1398232408.git.lv.zheng@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-arm-kernel@lists.infradead.org, linux-acpi@vger.kernel.org
-Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>, Catalin Marinas <catalin.marinas@arm.com>, Arnd Bergmann <arnd@arndb.de>, Mark Brown <broonie@linaro.org>, Sudeep Holla <Sudeep.Holla@arm.com>, Olof Johansson <olof@lixom.net>, Mark Rutland <mark.rutland@arm.com>, Rob Herring <robh@kernel.org>, Will Deacon <will.deacon@arm.com>, Charles.Garcia-Tobin@arm.com, linaro-acpi@lists.linaro.org, Hanjun Guo <hanjun.guo@linaro.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, linux-ia64@vger.kernel.org, Graeme Gregory <graeme.gregory@linaro.org>
+To: "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>, Len Brown <len.brown@intel.com>
+Cc: Lv Zheng <lv.zheng@intel.com>, Lv Zheng <zetalog@gmail.com>, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org
 
-On Fri, 25 Apr 2014 21:20:07 +0800, Hanjun Guo <hanjun.guo@linaro.org> wrote:
-> _PDC related stuff in processor_core.c is little bit X86/IA64
-> dependent, macros of ACPI_PDC_* are _PDC bit definitions for
-> Intel processors, if we use these macros in processor_core.c,
-> we will meet compile error when ACPI is enabled on ARM64.
-> 
-> This patch reworks the code to make it more arch-independent,
-> moving Intel related _PDC bits into architecture directory,
-> no functional change.
-> 
-> Cc: Tony Luck <tony.luck@intel.com>
-> Cc: Fenghua Yu <fenghua.yu@intel.com>
-> Cc: Thomas Gleixner <tglx@linutronix.de>
-> Cc: "H. Peter Anvin" <hpa@zytor.com>
-> Cc: x86@kernel.org
-> Cc: linux-ia64@vger.kernel.org
-> Signed-off-by: Hanjun Guo <hanjun.guo@linaro.org>
-> Signed-off-by: Graeme Gregory <graeme.gregory@linaro.org>
-> ---
->  arch/ia64/include/asm/acpi.h  |    5 +----
->  arch/ia64/kernel/acpi.c       |   15 +++++++++++++++
->  arch/x86/include/asm/acpi.h   |   19 +------------------
->  arch/x86/kernel/acpi/cstate.c |   27 +++++++++++++++++++++++++++
->  drivers/acpi/processor_core.c |   19 +------------------
->  5 files changed, 45 insertions(+), 40 deletions(-)
-> 
-> diff --git a/arch/ia64/include/asm/acpi.h b/arch/ia64/include/asm/acpi.h
-> index d651102..d2b8b9d 100644
-> --- a/arch/ia64/include/asm/acpi.h
-> +++ b/arch/ia64/include/asm/acpi.h
-> @@ -152,10 +152,7 @@ extern int __initdata nid_to_pxm_map[MAX_NUMNODES];
->  #endif
->  
->  static inline bool arch_has_acpi_pdc(void) { return true; }
-> -static inline void arch_acpi_set_pdc_bits(u32 *buf)
-> -{
-> -	buf[2] |= ACPI_PDC_EST_CAPABILITY_SMP;
-> -}
-> +extern void arch_acpi_set_pdc_bits(u32 *buf);
->  
->  #define acpi_unlazy_tlb(x)
->  
-> diff --git a/arch/ia64/kernel/acpi.c b/arch/ia64/kernel/acpi.c
-> index 0d407b3..23e9b40 100644
-> --- a/arch/ia64/kernel/acpi.c
-> +++ b/arch/ia64/kernel/acpi.c
-> @@ -996,3 +996,18 @@ EXPORT_SYMBOL(acpi_unregister_ioapic);
->   * TBD when when IA64 starts to support suspend...
->   */
->  int acpi_suspend_lowlevel(void) { return 0; }
-> +
-> +void arch_acpi_set_pdc_bits(u32 *buf)
-> +{
-> +	/* Enable coordination with firmware's _TSD info */
-> +	buf[2] |= ACPI_PDC_SMP_T_SWCOORD | ACPI_PDC_EST_CAPABILITY_SMP;
-> +
-> +	if (boot_option_idle_override = IDLE_NOMWAIT) {
-> +		/*
-> +		 * If mwait is disabled for CPU C-states, the C2C3_FFH access
-> +		 * mode will be disabled in the parameter of _PDC object.
-> +		 * Of course C1_FFH access mode will also be disabled.
-> +		 */
-> +		buf[2] &= ~(ACPI_PDC_C_C2C3_FFH | ACPI_PDC_C_C1_FFH);
-> +	}
-> +}
+There is a mis-order inclusion for <asm/acpi.h>.
 
-The commit text makes no comment about why this function is being moved
-from a static inline to an extern in the acpi.c file. I assume it is
-because it needs access to the boot_option_idle_override global
-variable, but it isn't immediately obvious, and should be described in
-the commit text.
+As we will enforce including <linux/acpi.h> for all Linux ACPI users, we
+can find the inclusion order is as follows:
 
-Otherwise, the patch looks sane.
+<linux/acpi.h>
+  <acpi/acpi.h>
+   <acpi/platform/acenv.h>
+    (acenv.h before including aclinux.h)
+    <acpi/platform/aclinux.h>
+...........................................................................
+     (aclinux.h before including asm/acpi.h)
+     <asm/acpi.h>                             @Redundant@
+      (ACPICA specific stuff)
+...........................................................................
+...........................................................................
+      (Linux ACPI specific stuff) ? - - - - - - - - - - - - +
+     (aclinux.h after including asm/acpi.h)   @Invisible@   |
+    (acenv.h after including aclinux.h)       @Invisible@   |
+   other ACPICA headers                       @Invisible@   |
+............................................................|..............
+  <acpi/acpi_bus.h>                                         |
+  <acpi/acpi_drivers.h>                                     |
+  <asm/acpi.h> (Excluded)                                   |
+   (Linux ACPI specific stuff) ! <- - - - - - - - - - - - - +
 
-Reviewed-by: Grant Likely <grant.likely@linaro.org>
+NOTE that, in ACPICA, <acpi/platform/acenv.h> is more like Kconfig
+generated <generated/autoconf.h> for Linux, it is meant to be included
+before including any ACPICA code.
 
-> diff --git a/arch/x86/include/asm/acpi.h b/arch/x86/include/asm/acpi.h
-> index c8c1e70..e9f71bc 100644
-> --- a/arch/x86/include/asm/acpi.h
-> +++ b/arch/x86/include/asm/acpi.h
-> @@ -147,24 +147,7 @@ static inline bool arch_has_acpi_pdc(void)
->  		c->x86_vendor = X86_VENDOR_CENTAUR);
->  }
->  
-> -static inline void arch_acpi_set_pdc_bits(u32 *buf)
-> -{
-> -	struct cpuinfo_x86 *c = &cpu_data(0);
-> -
-> -	buf[2] |= ACPI_PDC_C_CAPABILITY_SMP;
-> -
-> -	if (cpu_has(c, X86_FEATURE_EST))
-> -		buf[2] |= ACPI_PDC_EST_CAPABILITY_SWSMP;
-> -
-> -	if (cpu_has(c, X86_FEATURE_ACPI))
-> -		buf[2] |= ACPI_PDC_T_FFH;
-> -
-> -	/*
-> -	 * If mwait/monitor is unsupported, C2/C3_FFH will be disabled
-> -	 */
-> -	if (!cpu_has(c, X86_FEATURE_MWAIT))
-> -		buf[2] &= ~(ACPI_PDC_C_C2C3_FFH);
-> -}
-> +extern void arch_acpi_set_pdc_bits(u32 *buf);
->  
->  #else /* !CONFIG_ACPI */
->  
-> diff --git a/arch/x86/kernel/acpi/cstate.c b/arch/x86/kernel/acpi/cstate.c
-> index 4b28159..95127d0 100644
-> --- a/arch/x86/kernel/acpi/cstate.c
-> +++ b/arch/x86/kernel/acpi/cstate.c
-> @@ -16,6 +16,33 @@
->  #include <asm/mwait.h>
->  #include <asm/special_insns.h>
->  
-> +void arch_acpi_set_pdc_bits(u32 *buf)
-> +{
-> +	struct cpuinfo_x86 *c = &cpu_data(0);
-> +
-> +	/* Enable coordination with firmware's _TSD info */
-> +	buf[2] |= ACPI_PDC_SMP_T_SWCOORD | ACPI_PDC_C_CAPABILITY_SMP;
-> +
-> +	if (cpu_has(c, X86_FEATURE_EST))
-> +		buf[2] |= ACPI_PDC_EST_CAPABILITY_SWSMP;
-> +
-> +	if (cpu_has(c, X86_FEATURE_ACPI))
-> +		buf[2] |= ACPI_PDC_T_FFH;
-> +
-> +	/* If mwait/monitor is unsupported, C2/C3_FFH will be disabled */
-> +	if (!cpu_has(c, X86_FEATURE_MWAIT))
-> +		buf[2] &= ~(ACPI_PDC_C_C2C3_FFH);
-> +
-> +	if (boot_option_idle_override = IDLE_NOMWAIT) {
-> +		/*
-> +		 * If mwait is disabled for CPU C-states, the C2C3_FFH access
-> +		 * mode will be disabled in the parameter of _PDC object.
-> +		 * Of course C1_FFH access mode will also be disabled.
-> +		 */
-> +		buf[2] &= ~(ACPI_PDC_C_C2C3_FFH | ACPI_PDC_C_C1_FFH);
-> +	}
-> +}
-> +
->  /*
->   * Initialize bm_flags based on the CPU cache properties
->   * On SMP it depends on cache configuration
-> diff --git a/drivers/acpi/processor_core.c b/drivers/acpi/processor_core.c
-> index 71e2065..5250327 100644
-> --- a/drivers/acpi/processor_core.c
-> +++ b/drivers/acpi/processor_core.c
-> @@ -254,9 +254,6 @@ static void acpi_set_pdc_bits(u32 *buf)
->  	buf[0] = ACPI_PDC_REVISION_ID;
->  	buf[1] = 1;
->  
-> -	/* Enable coordination with firmware's _TSD info */
-> -	buf[2] = ACPI_PDC_SMP_T_SWCOORD;
-> -
->  	/* Twiddle arch-specific bits needed for _PDC */
->  	arch_acpi_set_pdc_bits(buf);
->  }
-> @@ -281,7 +278,7 @@ static struct acpi_object_list *acpi_processor_alloc_pdc(void)
->  		return NULL;
->  	}
->  
-> -	buf = kmalloc(12, GFP_KERNEL);
-> +	buf = kzalloc(12, GFP_KERNEL);
->  	if (!buf) {
->  		printk(KERN_ERR "Memory allocation error\n");
->  		kfree(obj);
-> @@ -309,20 +306,6 @@ acpi_processor_eval_pdc(acpi_handle handle, struct acpi_object_list *pdc_in)
->  {
->  	acpi_status status = AE_OK;
->  
-> -	if (boot_option_idle_override = IDLE_NOMWAIT) {
-> -		/*
-> -		 * If mwait is disabled for CPU C-states, the C2C3_FFH access
-> -		 * mode will be disabled in the parameter of _PDC object.
-> -		 * Of course C1_FFH access mode will also be disabled.
-> -		 */
-> -		union acpi_object *obj;
-> -		u32 *buffer = NULL;
-> -
-> -		obj = pdc_in->pointer;
-> -		buffer = (u32 *)(obj->buffer.pointer);
-> -		buffer[2] &= ~(ACPI_PDC_C_C2C3_FFH | ACPI_PDC_C_C1_FFH);
-> -
-> -	}
->  	status = acpi_evaluate_object(handle, "_PDC", pdc_in, NULL);
->  
->  	if (ACPI_FAILURE(status))
-> -- 
-> 1.7.9.5
-> 
+In the above figure, there is a question mark for "Linux ACPI specific
+stuff" in <asm/acpi.h> which should be included after including all other
+ACPICA header files.  Thus they really need to be moved to the position
+marked with exclaimation mark or the definitions in the blocks marked with
+"@Invisible@" will be invisible to such architecture specific "Linux ACPI
+specific stuff" header blocks.  This leaves 2 issues:
+1. All environmental definitions in these blocks should have a copy in the
+   area marked with "@Redundant@" if they are required by the "Linux ACPI
+   specific stuff".
+2. We cannot use any ACPICA defined types in <asm/acpi.h>.
+
+This patch splits architecture specific ACPICA stuff from <asm/acpi.h> to
+fix this issue.
+
+Signed-off-by: Lv Zheng <lv.zheng@intel.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Ingo Molnar <mingo@redhat.com>
+Cc: "H. Peter Anvin" <hpa@zytor.com>
+Cc: x86@kernel.org
+---
+ arch/ia64/include/asm/acenv.h   |   71 +++++++++++++++++++++++++++++++++++++++
+ arch/ia64/include/asm/acpi.h    |   50 ---------------------------
+ arch/x86/include/asm/acenv.h    |   65 +++++++++++++++++++++++++++++++++++
+ arch/x86/include/asm/acpi.h     |   45 -------------------------
+ include/acpi/platform/aclinux.h |    2 +-
+ 5 files changed, 137 insertions(+), 96 deletions(-)
+ create mode 100644 arch/ia64/include/asm/acenv.h
+ create mode 100644 arch/x86/include/asm/acenv.h
+
+diff --git a/arch/ia64/include/asm/acenv.h b/arch/ia64/include/asm/acenv.h
+new file mode 100644
+index 0000000..e0896eb
+--- /dev/null
++++ b/arch/ia64/include/asm/acenv.h
+@@ -0,0 +1,71 @@
++/*
++ * IA64 specific ACPICA environments and implementation
++ *
++ * Copyright (C) 2014, Intel Corporation
++ *   Author: Lv Zheng <lv.zheng@intel.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++
++#ifndef _ASM_IA64_ACENV_H
++#define _ASM_IA64_ACENV_H
++
++#include <asm/intrinsics.h>
++
++#define COMPILER_DEPENDENT_INT64	long
++#define COMPILER_DEPENDENT_UINT64	unsigned long
++
++/*
++ * Calling conventions:
++ *
++ * ACPI_SYSTEM_XFACE        - Interfaces to host OS (handlers, threads)
++ * ACPI_EXTERNAL_XFACE      - External ACPI interfaces
++ * ACPI_INTERNAL_XFACE      - Internal ACPI interfaces
++ * ACPI_INTERNAL_VAR_XFACE  - Internal variable-parameter list interfaces
++ */
++#define ACPI_SYSTEM_XFACE
++#define ACPI_EXTERNAL_XFACE
++#define ACPI_INTERNAL_XFACE
++#define ACPI_INTERNAL_VAR_XFACE
++
++/* Asm macros */
++
++#define ACPI_FLUSH_CPU_CACHE()
++
++#ifdef CONFIG_ACPI
++
++static inline int
++ia64_acpi_acquire_global_lock(unsigned int *lock)
++{
++	unsigned int old, new, val;
++	do {
++		old = *lock;
++		new = (((old & ~0x3) + 2) + ((old >> 1) & 0x1));
++		val = ia64_cmpxchg4_acq(lock, new, old);
++	} while (unlikely (val != old));
++	return (new < 3) ? -1 : 0;
++}
++
++static inline int
++ia64_acpi_release_global_lock(unsigned int *lock)
++{
++	unsigned int old, new, val;
++	do {
++		old = *lock;
++		new = old & ~0x3;
++		val = ia64_cmpxchg4_acq(lock, new, old);
++	} while (unlikely (val != old));
++	return old & 0x1;
++}
++
++#define ACPI_ACQUIRE_GLOBAL_LOCK(facs, Acq)				\
++	((Acq) = ia64_acpi_acquire_global_lock(&facs->global_lock))
++
++#define ACPI_RELEASE_GLOBAL_LOCK(facs, Acq)				\
++	((Acq) = ia64_acpi_release_global_lock(&facs->global_lock))
++
++#endif
++
++#endif /* _ASM_IA64_ACENV_H */
+diff --git a/arch/ia64/include/asm/acpi.h b/arch/ia64/include/asm/acpi.h
+index d651102..b0ddcfd 100644
+--- a/arch/ia64/include/asm/acpi.h
++++ b/arch/ia64/include/asm/acpi.h
+@@ -34,56 +34,6 @@
+ #include <linux/numa.h>
+ #include <asm/numa.h>
+ 
+-#define COMPILER_DEPENDENT_INT64	long
+-#define COMPILER_DEPENDENT_UINT64	unsigned long
+-
+-/*
+- * Calling conventions:
+- *
+- * ACPI_SYSTEM_XFACE        - Interfaces to host OS (handlers, threads)
+- * ACPI_EXTERNAL_XFACE      - External ACPI interfaces
+- * ACPI_INTERNAL_XFACE      - Internal ACPI interfaces
+- * ACPI_INTERNAL_VAR_XFACE  - Internal variable-parameter list interfaces
+- */
+-#define ACPI_SYSTEM_XFACE
+-#define ACPI_EXTERNAL_XFACE
+-#define ACPI_INTERNAL_XFACE
+-#define ACPI_INTERNAL_VAR_XFACE
+-
+-/* Asm macros */
+-
+-#define ACPI_FLUSH_CPU_CACHE()
+-
+-static inline int
+-ia64_acpi_acquire_global_lock (unsigned int *lock)
+-{
+-	unsigned int old, new, val;
+-	do {
+-		old = *lock;
+-		new = (((old & ~0x3) + 2) + ((old >> 1) & 0x1));
+-		val = ia64_cmpxchg4_acq(lock, new, old);
+-	} while (unlikely (val != old));
+-	return (new < 3) ? -1 : 0;
+-}
+-
+-static inline int
+-ia64_acpi_release_global_lock (unsigned int *lock)
+-{
+-	unsigned int old, new, val;
+-	do {
+-		old = *lock;
+-		new = old & ~0x3;
+-		val = ia64_cmpxchg4_acq(lock, new, old);
+-	} while (unlikely (val != old));
+-	return old & 0x1;
+-}
+-
+-#define ACPI_ACQUIRE_GLOBAL_LOCK(facs, Acq)				\
+-	((Acq) = ia64_acpi_acquire_global_lock(&facs->global_lock))
+-
+-#define ACPI_RELEASE_GLOBAL_LOCK(facs, Acq)				\
+-	((Acq) = ia64_acpi_release_global_lock(&facs->global_lock))
+-
+ #ifdef	CONFIG_ACPI
+ #define acpi_disabled 0	/* ACPI always enabled on IA64 */
+ #define acpi_noirq 0	/* ACPI always enabled on IA64 */
+diff --git a/arch/x86/include/asm/acenv.h b/arch/x86/include/asm/acenv.h
+new file mode 100644
+index 0000000..6978584
+--- /dev/null
++++ b/arch/x86/include/asm/acenv.h
+@@ -0,0 +1,65 @@
++/*
++ * X86 specific ACPICA environments and implementation
++ *
++ * Copyright (C) 2014, Intel Corporation
++ *   Author: Lv Zheng <lv.zheng@intel.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++
++#ifndef _ASM_X86_ACENV_H
++#define _ASM_X86_ACENV_H
++
++#include <asm/special_insns.h>
++
++#define COMPILER_DEPENDENT_INT64   long long
++#define COMPILER_DEPENDENT_UINT64  unsigned long long
++
++/*
++ * Calling conventions:
++ *
++ * ACPI_SYSTEM_XFACE        - Interfaces to host OS (handlers, threads)
++ * ACPI_EXTERNAL_XFACE      - External ACPI interfaces
++ * ACPI_INTERNAL_XFACE      - Internal ACPI interfaces
++ * ACPI_INTERNAL_VAR_XFACE  - Internal variable-parameter list interfaces
++ */
++#define ACPI_SYSTEM_XFACE
++#define ACPI_EXTERNAL_XFACE
++#define ACPI_INTERNAL_XFACE
++#define ACPI_INTERNAL_VAR_XFACE
++
++/* Asm macros */
++
++#define ACPI_FLUSH_CPU_CACHE()	wbinvd()
++
++#ifdef CONFIG_ACPI
++
++int __acpi_acquire_global_lock(unsigned int *lock);
++int __acpi_release_global_lock(unsigned int *lock);
++
++#define ACPI_ACQUIRE_GLOBAL_LOCK(facs, Acq) \
++	((Acq) = __acpi_acquire_global_lock(&facs->global_lock))
++
++#define ACPI_RELEASE_GLOBAL_LOCK(facs, Acq) \
++	((Acq) = __acpi_release_global_lock(&facs->global_lock))
++
++/*
++ * Math helper asm macros
++ */
++#define ACPI_DIV_64_BY_32(n_hi, n_lo, d32, q32, r32) \
++	asm("divl %2;"				     \
++	    : "=a"(q32), "=d"(r32)		     \
++	    : "r"(d32),				     \
++	     "0"(n_lo), "1"(n_hi))
++
++#define ACPI_SHIFT_RIGHT_64(n_hi, n_lo) \
++	asm("shrl   $1,%2	;"	\
++	    "rcrl   $1,%3;"		\
++	    : "=r"(n_hi), "=r"(n_lo)	\
++	    : "0"(n_hi), "1"(n_lo))
++
++#endif
++
++#endif /* _ASM_X86_ACENV_H */
+diff --git a/arch/x86/include/asm/acpi.h b/arch/x86/include/asm/acpi.h
+index c8c1e70..e06225e 100644
+--- a/arch/x86/include/asm/acpi.h
++++ b/arch/x86/include/asm/acpi.h
+@@ -32,51 +32,6 @@
+ #include <asm/mpspec.h>
+ #include <asm/realmode.h>
+ 
+-#define COMPILER_DEPENDENT_INT64   long long
+-#define COMPILER_DEPENDENT_UINT64  unsigned long long
+-
+-/*
+- * Calling conventions:
+- *
+- * ACPI_SYSTEM_XFACE        - Interfaces to host OS (handlers, threads)
+- * ACPI_EXTERNAL_XFACE      - External ACPI interfaces
+- * ACPI_INTERNAL_XFACE      - Internal ACPI interfaces
+- * ACPI_INTERNAL_VAR_XFACE  - Internal variable-parameter list interfaces
+- */
+-#define ACPI_SYSTEM_XFACE
+-#define ACPI_EXTERNAL_XFACE
+-#define ACPI_INTERNAL_XFACE
+-#define ACPI_INTERNAL_VAR_XFACE
+-
+-/* Asm macros */
+-
+-#define ACPI_FLUSH_CPU_CACHE()	wbinvd()
+-
+-int __acpi_acquire_global_lock(unsigned int *lock);
+-int __acpi_release_global_lock(unsigned int *lock);
+-
+-#define ACPI_ACQUIRE_GLOBAL_LOCK(facs, Acq) \
+-	((Acq) = __acpi_acquire_global_lock(&facs->global_lock))
+-
+-#define ACPI_RELEASE_GLOBAL_LOCK(facs, Acq) \
+-	((Acq) = __acpi_release_global_lock(&facs->global_lock))
+-
+-/*
+- * Math helper asm macros
+- */
+-#define ACPI_DIV_64_BY_32(n_hi, n_lo, d32, q32, r32) \
+-	asm("divl %2;"				     \
+-	    : "=a"(q32), "=d"(r32)		     \
+-	    : "r"(d32),				     \
+-	     "0"(n_lo), "1"(n_hi))
+-
+-
+-#define ACPI_SHIFT_RIGHT_64(n_hi, n_lo) \
+-	asm("shrl   $1,%2	;"	\
+-	    "rcrl   $1,%3;"		\
+-	    : "=r"(n_hi), "=r"(n_lo)	\
+-	    : "0"(n_hi), "1"(n_lo))
+-
+ #ifdef CONFIG_ACPI
+ extern int acpi_lapic;
+ extern int acpi_ioapic;
+diff --git a/include/acpi/platform/aclinux.h b/include/acpi/platform/aclinux.h
+index a20f051..99d0546 100644
+--- a/include/acpi/platform/aclinux.h
++++ b/include/acpi/platform/aclinux.h
+@@ -71,7 +71,7 @@
+ #ifdef EXPORT_ACPI_INTERFACES
+ #include <linux/export.h>
+ #endif
+-#include <asm/acpi.h>
++#include <asm/acenv.h>
+ 
+ /* Host-dependent types and defines for in-kernel ACPICA */
+ 
+-- 
+1.7.10
 
