@@ -1,92 +1,39 @@
-From: "Zheng, Lv" <lv.zheng@intel.com>
-Date: Tue, 29 Apr 2014 07:49:13 +0000
-Subject: RE: [PATCH v2 3/5] ACPICA: Add <asm/acenv.h> to remove mis-ordered inclusion of <asm/acpi.h> from <a
-Message-Id: <1AE640813FDE7649BE1B193DEA596E8802558BA5@SHSMSX101.ccr.corp.intel.com>
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Fri, 25 Apr 2014 09:18:30 +0000
+Subject: [PATCH 08/13] PCI, rpaphp: Use new pci_is_bridge() to simplify code
+Message-Id: <1398417515-8740-9-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1396930406.git.lv.zheng@intel.com>
- <cover.1398232408.git.lv.zheng@intel.com>
- <522ac0c3a52f1697d75363cc808a213773dca295.1398232409.git.lv.zheng@intel.com>
- <1469560.3p9s15HIYZ@vostro.rjw.lan>
- <1AE640813FDE7649BE1B193DEA596E880255865E@SHSMSX101.ccr.corp.intel.com>
- <535EBA4B.5090305@intel.com>
-In-Reply-To: <535EBA4B.5090305@intel.com>
+References: <1398417515-8740-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1398417515-8740-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Wysocki, Rafael J" <rafael.j.wysocki@intel.com>, "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Cc: "Brown, Len" <len.brown@intel.com>, Lv Zheng <zetalog@gmail.com>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>, "Luck, Tony" <tony.luck@intel.com>, "Yu, Fenghua" <fenghua.yu@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, "x86@kernel.org" <x86@kernel.org>
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, x86@kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Yijing Wang <wangyijing@huawei.com>
 
-SGksIFJhZmFlbA0KDQo+IEZyb206IFd5c29ja2ksIFJhZmFlbCBKDQo+IFNlbnQ6IFR1ZXNkYXks
-IEFwcmlsIDI5LCAyMDE0IDQ6MzAgQU0NCj4gDQo+IE9uIDQvMjgvMjAxNCA1OjAyIEFNLCBaaGVu
-ZywgTHYgd3JvdGU6DQo+ID4gSGksIFJhZmFlbA0KPiA+DQo+ID4+IEZyb206IGxpbnV4LWFjcGkt
-b3duZXJAdmdlci5rZXJuZWwub3JnIFttYWlsdG86bGludXgtYWNwaS1vd25lckB2Z2VyLmtlcm5l
-bC5vcmddIE9uIEJlaGFsZiBPZiBSYWZhZWwgSi4gV3lzb2NraQ0KPiA+PiBTZW50OiBNb25kYXks
-IEFwcmlsIDI4LCAyMDE0IDU6MzcgQU0NCj4gPj4gVG86IFpoZW5nLCBMdg0KPiA+Pg0KPiA+PiBP
-biBXZWRuZXNkYXksIEFwcmlsIDIzLCAyMDE0IDAyOjU0OjA2IFBNIEx2IFpoZW5nIHdyb3RlOg0K
-PiA+Pj4gVGhlcmUgaXMgYSBtaXMtb3JkZXIgaW5jbHVzaW9uIGZvciA8YXNtL2FjcGkuaD4uDQo+
-ID4+Pg0KPiA+Pj4gQXMgd2Ugd2lsbCBlbmZvcmNlIGluY2x1ZGluZyA8bGludXgvYWNwaS5oPiBm
-b3IgYWxsIExpbnV4IEFDUEkgdXNlcnMsIHdlDQo+ID4+PiBjYW4gZmluZCB0aGUgaW5jbHVzaW9u
-IG9yZGVyIGlzIGFzIGZvbGxvd3M6DQo+ID4+Pg0KPiA+Pj4gPGxpbnV4L2FjcGkuaD4NCj4gPj4+
-ICAgIDxhY3BpL2FjcGkuaD4NCj4gPj4+ICAgICA8YWNwaS9wbGF0Zm9ybS9hY2Vudi5oPg0KPiA+
-Pj4gICAgICAoYWNlbnYuaCBiZWZvcmUgaW5jbHVkaW5nIGFjbGludXguaCkNCj4gPj4+ICAgICAg
-PGFjcGkvcGxhdGZvcm0vYWNsaW51eC5oPg0KPiA+Pj4gLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4u
-Li4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uDQo+ID4+
-PiAgICAgICAoYWNsaW51eC5oIGJlZm9yZSBpbmNsdWRpbmcgYXNtL2FjcGkuaCkNCj4gPj4+ICAg
-ICAgIDxhc20vYWNwaS5oPiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgQFJlZHVuZGFudEAN
-Cj4gPj4+ICAgICAgICAoQUNQSUNBIHNwZWNpZmljIHN0dWZmKQ0KPiA+Pj4gLi4uLi4uLi4uLi4u
-Li4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4u
-Li4uLi4uDQo+ID4+PiAuLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4u
-Li4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4NCj4gPj4+ICAgICAgICAoTGludXggQUNQ
-SSBzcGVjaWZpYyBzdHVmZikgPyAtIC0gLSAtIC0gLSAtIC0gLSAtIC0gLSArDQo+ID4+PiAgICAg
-ICAoYWNsaW51eC5oIGFmdGVyIGluY2x1ZGluZyBhc20vYWNwaS5oKSAgIEBJbnZpc2libGVAICAg
-fA0KPiA+Pj4gICAgICAoYWNlbnYuaCBhZnRlciBpbmNsdWRpbmcgYWNsaW51eC5oKSAgICAgICBA
-SW52aXNpYmxlQCAgIHwNCj4gPj4+ICAgICBvdGhlciBBQ1BJQ0EgaGVhZGVycyAgICAgICAgICAg
-ICAgICAgICAgICAgQEludmlzaWJsZUAgICB8DQo+ID4+PiAuLi4uLi4uLi4uLi4uLi4uLi4uLi4u
-Li4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi58Li4uLi4uLi4uLi4uLi4NCj4g
-Pj4+ICAgIDxhY3BpL2FjcGlfYnVzLmg+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICB8DQo+ID4+PiAgICA8YWNwaS9hY3BpX2RyaXZlcnMuaD4gICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgfA0KPiA+Pj4gICAgPGFzbS9hY3BpLmg+IChFeGNsdWRlZCkg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwNCj4gPj4+ICAgICAoTGludXggQUNQ
-SSBzcGVjaWZpYyBzdHVmZikgISA8LSAtIC0gLSAtIC0gLSAtIC0gLSAtIC0gLSArDQo+ID4+Pg0K
-PiA+Pj4gTk9URSB0aGF0LCBpbiBBQ1BJQ0EsIDxhY3BpL3BsYXRmb3JtL2FjZW52Lmg+IGlzIG1v
-cmUgbGlrZSBLY29uZmlnDQo+ID4+PiBnZW5lcmF0ZWQgPGdlbmVyYXRlZC9hdXRvY29uZi5oPiBm
-b3IgTGludXgsIGl0IGlzIG1lYW50IHRvIGJlIGluY2x1ZGVkDQo+ID4+PiBiZWZvcmUgaW5jbHVk
-aW5nIGFueSBBQ1BJQ0EgY29kZS4NCj4gPj4+DQo+ID4+PiBJbiB0aGUgYWJvdmUgZmlndXJlLCB0
-aGVyZSBpcyBhIHF1ZXN0aW9uIG1hcmsgZm9yICJMaW51eCBBQ1BJIHNwZWNpZmljDQo+ID4+PiBz
-dHVmZiIgaW4gPGFzbS9hY3BpLmg+IHdoaWNoIHNob3VsZCBiZSBpbmNsdWRlZCBhZnRlciBpbmNs
-dWRpbmcgYWxsIG90aGVyDQo+ID4+PiBBQ1BJQ0EgaGVhZGVyIGZpbGVzLiAgVGh1cyB0aGV5IHJl
-YWxseSBuZWVkIHRvIGJlIG1vdmVkIHRvIHRoZSBwb3NpdGlvbg0KPiA+Pj4gbWFya2VkIHdpdGgg
-ZXhjbGFpbWF0aW9uIG1hcmsgb3IgdGhlIGRlZmluaXRpb25zIGluIHRoZSBibG9ja3MgbWFya2Vk
-IHdpdGgNCj4gPj4+ICJASW52aXNpYmxlQCIgd2lsbCBiZSBpbnZpc2libGUgdG8gc3VjaCBhcmNo
-aXRlY3R1cmUgc3BlY2lmaWMgIkxpbnV4IEFDUEkNCj4gPj4+IHNwZWNpZmljIHN0dWZmIiBoZWFk
-ZXIgYmxvY2tzLiAgVGhpcyBsZWF2ZXMgMiBpc3N1ZXM6DQo+ID4+PiAxLiBBbGwgZW52aXJvbm1l
-bnRhbCBkZWZpbml0aW9ucyBpbiB0aGVzZSBibG9ja3Mgc2hvdWxkIGhhdmUgYSBjb3B5IGluIHRo
-ZQ0KPiA+Pj4gICAgIGFyZWEgbWFya2VkIHdpdGggIkBSZWR1bmRhbnRAIiBpZiB0aGV5IGFyZSBy
-ZXF1aXJlZCBieSB0aGUgIkxpbnV4IEFDUEkNCj4gPj4+ICAgICBzcGVjaWZpYyBzdHVmZiIuDQo+
-ID4+PiAyLiBXZSBjYW5ub3QgdXNlIGFueSBBQ1BJQ0EgZGVmaW5lZCB0eXBlcyBpbiA8YXNtL2Fj
-cGkuaD4uDQo+ID4+Pg0KPiA+Pj4gVGhpcyBwYXRjaCBzcGxpdHMgYXJjaGl0ZWN0dXJlIHNwZWNp
-ZmljIEFDUElDQSBzdHVmZiBmcm9tIDxhc20vYWNwaS5oPiB0bw0KPiA+Pj4gZml4IHRoaXMgaXNz
-dWUuDQo+ID4+Pg0KPiA+Pj4gU2lnbmVkLW9mZi1ieTogTHYgWmhlbmcgPGx2LnpoZW5nQGludGVs
-LmNvbT4NCj4gPj4+IENjOiBUb255IEx1Y2sgPHRvbnkubHVja0BpbnRlbC5jb20+DQo+ID4+PiBD
-YzogRmVuZ2h1YSBZdSA8ZmVuZ2h1YS55dUBpbnRlbC5jb20+DQo+ID4+PiBDYzogbGludXgtaWE2
-NEB2Z2VyLmtlcm5lbC5vcmcNCj4gPj4+IENjOiBUaG9tYXMgR2xlaXhuZXIgPHRnbHhAbGludXRy
-b25peC5kZT4NCj4gPj4+IENjOiBJbmdvIE1vbG5hciA8bWluZ29AcmVkaGF0LmNvbT4NCj4gPj4+
-IENjOiAiSC4gUGV0ZXIgQW52aW4iIDxocGFAenl0b3IuY29tPg0KPiA+Pj4gQ2M6IHg4NkBrZXJu
-ZWwub3JnDQo+ID4+PiAtLS0NCj4gPj4+ICAgYXJjaC9pYTY0L2luY2x1ZGUvYXNtL2FjZW52Lmgg
-ICB8ICAgNzEgKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrDQo+ID4+PiAg
-IGFyY2gvaWE2NC9pbmNsdWRlL2FzbS9hY3BpLmggICAgfCAgIDUwIC0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLQ0KPiA+Pj4gICBhcmNoL3g4Ni9pbmNsdWRlL2FzbS9hY2Vudi5oICAgIHwgICA2
-NSArKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKw0KPiA+Pj4gICBhcmNoL3g4Ni9p
-bmNsdWRlL2FzbS9hY3BpLmggICAgIHwgICA0NSAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tDQo+
-ID4+PiAgIGluY2x1ZGUvYWNwaS9wbGF0Zm9ybS9hY2xpbnV4LmggfCAgICAyICstDQo+ID4+IFBs
-ZWFzZSByZW5hbWUgdGhlIGZpbGVzIGZpcnN0IChpbiBhIHNlcGFyYXRlIHBhdGNoKSBhbmQgdGhl
-biBtb2RpZnkgdGhlDQo+ID4+IHJlbmFtZWQgb25lcy4gIFRoYXQgd2lsbCBtYWtlIGNoYW5nZXMg
-bXVjaCBlYXNpZXIgdG8gZm9sbG93Lg0KPiA+IFRoaXMgcGF0Y2ggZG9lc24ndCBwcm92aWRlIGEg
-cmVuYW1lLg0KPiA+IEN1cnJlbnRseSwgPGFzbS9hY3BpLmg+IGluY2x1ZGVzOg0KPiA+IDEuIGFy
-Y2ggc3BlY2lmaWMgQUNQSSBzdHVmZg0KPiA+IDIuIGFyY2ggc3BlY2lmaWMgQUNQSUNBIHN0dWZm
-DQo+ID4gVGhpcyBwYXRjaCBtb3ZlcyAiMiIgdG8gYSBzZXBhcmF0ZSBmaWxlIDxhc20vYWNlbnYu
-aD4sIHRodXMgbm8gcmVuYW1pbmcgaGFwcGVucyBoZXJlLg0KPiANCj4gQWgsIEkgb3Zlcmxvb2tl
-ZCB0aGF0LCBzb3JyeS4NCj4gDQo+IFdoaWNoIEkgbWlnaHQgbm90IGRvIGlmIHRoZSBjaGFuZ2Vs
-b2cgc2FpZCB3aGF0IHRoZSBwYXRjaCB3YXMgcmVhbGx5IGRvaW5nLg0KDQpIbW0sIEknbGwgcmVm
-aW5lIHRoZSBjaGFuZ2Vsb2cgaW4gdGhlIG5leHQgcmV2aXNpb24uIDotKQ0KVGhhbmtzIGZvciB0
-aGUgaGVscGluZy4NCg0KQmVzdCByZWdhcmRzDQotTHYNCg=
+Now we can use new pci_is_bridge() helper function
+to simplify code.
+
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+---
+ drivers/pci/hotplug/rpadlpar_core.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/pci/hotplug/rpadlpar_core.c b/drivers/pci/hotplug/rpadlpar_core.c
+index 4fcdeed..7660232 100644
+--- a/drivers/pci/hotplug/rpadlpar_core.c
++++ b/drivers/pci/hotplug/rpadlpar_core.c
+@@ -157,8 +157,7 @@ static void dlpar_pci_add_bus(struct device_node *dn)
+ 	}
+ 
+ 	/* Scan below the new bridge */
+-	if (dev->hdr_type = PCI_HEADER_TYPE_BRIDGE ||
+-	    dev->hdr_type = PCI_HEADER_TYPE_CARDBUS)
++	if (pci_is_bridge(dev))
+ 		of_scan_pci_bridge(dev);
+ 
+ 	/* Map IO space for child bus, which may or may not succeed */
+-- 
+1.7.1
+
+
