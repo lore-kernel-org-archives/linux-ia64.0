@@ -1,7 +1,7 @@
 From: Yijing Wang <wangyijing@huawei.com>
-Date: Fri, 25 Apr 2014 09:18:31 +0000
-Subject: [PATCH 09/13] PCI, shpchp: Use new pci_is_bridge() to simplify code
-Message-Id: <1398417515-8740-10-git-send-email-wangyijing@huawei.com>
+Date: Fri, 25 Apr 2014 09:18:26 +0000
+Subject: [PATCH 04/13] x86/PCI: Use new pci_is_bridge() to simplify code
+Message-Id: <1398417515-8740-5-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1398417515-8740-1-git-send-email-wangyijing@huawei.com>
 In-Reply-To: <1398417515-8740-1-git-send-email-wangyijing@huawei.com>
@@ -16,23 +16,24 @@ to simplify code.
 
 Signed-off-by: Yijing Wang <wangyijing@huawei.com>
 ---
- drivers/pci/hotplug/shpchp_pci.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+ arch/x86/pci/fixup.c |    4 +---
+ 1 files changed, 1 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/pci/hotplug/shpchp_pci.c b/drivers/pci/hotplug/shpchp_pci.c
-index 2bf69fe..ea8ad31 100644
---- a/drivers/pci/hotplug/shpchp_pci.c
-+++ b/drivers/pci/hotplug/shpchp_pci.c
-@@ -64,8 +64,7 @@ int __ref shpchp_configure_device(struct slot *p_slot)
- 	list_for_each_entry(dev, &parent->devices, bus_list) {
- 		if (PCI_SLOT(dev->devfn) != p_slot->device)
- 			continue;
--		if ((dev->hdr_type = PCI_HEADER_TYPE_BRIDGE) ||
--		    (dev->hdr_type = PCI_HEADER_TYPE_CARDBUS))
-+		if (pci_is_bridge(dev))
- 			pci_hp_add_bridge(dev);
- 	}
- 
+diff --git a/arch/x86/pci/fixup.c b/arch/x86/pci/fixup.c
+index 94ae9ae..e5f000c 100644
+--- a/arch/x86/pci/fixup.c
++++ b/arch/x86/pci/fixup.c
+@@ -337,9 +337,7 @@ static void pci_fixup_video(struct pci_dev *pdev)
+ 		 * type BRIDGE, or CARDBUS. Host to PCI controllers use
+ 		 * PCI header type NORMAL.
+ 		 */
+-		if (bridge
+-		    && ((bridge->hdr_type = PCI_HEADER_TYPE_BRIDGE)
+-		       || (bridge->hdr_type = PCI_HEADER_TYPE_CARDBUS))) {
++		if (bridge && (pci_is_bridge(bridge))) {
+ 			pci_read_config_word(bridge, PCI_BRIDGE_CONTROL,
+ 						&config);
+ 			if (!(config & PCI_BRIDGE_CTL_VGA))
 -- 
 1.7.1
 
