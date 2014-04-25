@@ -1,7 +1,7 @@
 From: Yijing Wang <wangyijing@huawei.com>
-Date: Fri, 25 Apr 2014 09:18:27 +0000
-Subject: [PATCH 05/13] IA64/PCI: Use new pci_is_bridge() to simplify code
-Message-Id: <1398417515-8740-6-git-send-email-wangyijing@huawei.com>
+Date: Fri, 25 Apr 2014 09:18:35 +0000
+Subject: [PATCH 13/13] PCI, pciehp: Use new pci_is_bridge() to simplify code
+Message-Id: <1398417515-8740-14-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1398417515-8740-1-git-send-email-wangyijing@huawei.com>
 In-Reply-To: <1398417515-8740-1-git-send-email-wangyijing@huawei.com>
@@ -16,24 +16,23 @@ to simplify code.
 
 Signed-off-by: Yijing Wang <wangyijing@huawei.com>
 ---
- arch/ia64/pci/fixup.c |    4 +---
- 1 files changed, 1 insertions(+), 3 deletions(-)
+ drivers/pci/hotplug/pciehp_pci.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
-diff --git a/arch/ia64/pci/fixup.c b/arch/ia64/pci/fixup.c
-index eee069a..1fe9aa5 100644
---- a/arch/ia64/pci/fixup.c
-+++ b/arch/ia64/pci/fixup.c
-@@ -49,9 +49,7 @@ static void pci_fixup_video(struct pci_dev *pdev)
- 		 * type BRIDGE, or CARDBUS. Host to PCI controllers use
- 		 * PCI header type NORMAL.
- 		 */
--		if (bridge
--		    &&((bridge->hdr_type = PCI_HEADER_TYPE_BRIDGE)
--		       ||(bridge->hdr_type = PCI_HEADER_TYPE_CARDBUS))) {
-+		if (bridge && (pci_is_bridge(bridge))) {
- 			pci_read_config_word(bridge, PCI_BRIDGE_CONTROL,
- 						&config);
- 			if (!(config & PCI_BRIDGE_CTL_VGA))
+diff --git a/drivers/pci/hotplug/pciehp_pci.c b/drivers/pci/hotplug/pciehp_pci.c
+index 1b53306..b6cb1df 100644
+--- a/drivers/pci/hotplug/pciehp_pci.c
++++ b/drivers/pci/hotplug/pciehp_pci.c
+@@ -62,8 +62,7 @@ int pciehp_configure_device(struct slot *p_slot)
+ 	}
+ 
+ 	list_for_each_entry(dev, &parent->devices, bus_list)
+-		if ((dev->hdr_type = PCI_HEADER_TYPE_BRIDGE) ||
+-				(dev->hdr_type = PCI_HEADER_TYPE_CARDBUS))
++		if (pci_is_bridge(dev))
+ 			pci_hp_add_bridge(dev);
+ 
+ 	pci_assign_unassigned_bridge_resources(bridge);
 -- 
 1.7.1
 
