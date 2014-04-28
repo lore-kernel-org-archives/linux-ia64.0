@@ -1,363 +1,249 @@
-From: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Date: Sun, 27 Apr 2014 21:36:48 +0000
-Subject: Re: [PATCH v2 3/5] ACPICA: Add <asm/acenv.h> to remove mis-ordered inclusion of <asm/acpi.h> from <a
-Message-Id: <1469560.3p9s15HIYZ@vostro.rjw.lan>
+From: "Zheng, Lv" <lv.zheng@intel.com>
+Date: Mon, 28 Apr 2014 03:02:12 +0000
+Subject: RE: [PATCH v2 3/5] ACPICA: Add <asm/acenv.h> to remove mis-ordered inclusion of <asm/acpi.h> from <a
+Message-Id: <1AE640813FDE7649BE1B193DEA596E880255865E@SHSMSX101.ccr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1396930406.git.lv.zheng@intel.com> <cover.1398232408.git.lv.zheng@intel.com> <522ac0c3a52f1697d75363cc808a213773dca295.1398232409.git.lv.zheng@intel.com>
-In-Reply-To: <522ac0c3a52f1697d75363cc808a213773dca295.1398232409.git.lv.zheng@intel.com>
+References: <cover.1396930406.git.lv.zheng@intel.com>
+ <cover.1398232408.git.lv.zheng@intel.com>
+ <522ac0c3a52f1697d75363cc808a213773dca295.1398232409.git.lv.zheng@intel.com>
+ <1469560.3p9s15HIYZ@vostro.rjw.lan>
+In-Reply-To: <1469560.3p9s15HIYZ@vostro.rjw.lan>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Lv Zheng <lv.zheng@intel.com>
-Cc: "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>, Len Brown <len.brown@intel.com>, Lv Zheng <zetalog@gmail.com>, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org
+To: "Rafael J. Wysocki" <rjw@rjwysocki.net>
+Cc: "Wysocki, Rafael J" <rafael.j.wysocki@intel.com>, "Brown, Len" <len.brown@intel.com>, Lv Zheng <zetalog@gmail.com>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>, "Luck, Tony" <tony.luck@intel.com>, "Yu, Fenghua" <fenghua.yu@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, "x86@kernel.org" <x86@kernel.org>
 
-On Wednesday, April 23, 2014 02:54:06 PM Lv Zheng wrote:
-> There is a mis-order inclusion for <asm/acpi.h>.
-> 
-> As we will enforce including <linux/acpi.h> for all Linux ACPI users, we
-> can find the inclusion order is as follows:
-> 
-> <linux/acpi.h>
->   <acpi/acpi.h>
->    <acpi/platform/acenv.h>
->     (acenv.h before including aclinux.h)
->     <acpi/platform/aclinux.h>
-> ...........................................................................
->      (aclinux.h before including asm/acpi.h)
->      <asm/acpi.h>                             @Redundant@
->       (ACPICA specific stuff)
-> ...........................................................................
-> ...........................................................................
->       (Linux ACPI specific stuff) ? - - - - - - - - - - - - +
->      (aclinux.h after including asm/acpi.h)   @Invisible@   |
->     (acenv.h after including aclinux.h)       @Invisible@   |
->    other ACPICA headers                       @Invisible@   |
-> ............................................................|..............
->   <acpi/acpi_bus.h>                                         |
->   <acpi/acpi_drivers.h>                                     |
->   <asm/acpi.h> (Excluded)                                   |
->    (Linux ACPI specific stuff) ! <- - - - - - - - - - - - - +
-> 
-> NOTE that, in ACPICA, <acpi/platform/acenv.h> is more like Kconfig
-> generated <generated/autoconf.h> for Linux, it is meant to be included
-> before including any ACPICA code.
-> 
-> In the above figure, there is a question mark for "Linux ACPI specific
-> stuff" in <asm/acpi.h> which should be included after including all other
-> ACPICA header files.  Thus they really need to be moved to the position
-> marked with exclaimation mark or the definitions in the blocks marked with
-> "@Invisible@" will be invisible to such architecture specific "Linux ACPI
-> specific stuff" header blocks.  This leaves 2 issues:
-> 1. All environmental definitions in these blocks should have a copy in the
->    area marked with "@Redundant@" if they are required by the "Linux ACPI
->    specific stuff".
-> 2. We cannot use any ACPICA defined types in <asm/acpi.h>.
-> 
-> This patch splits architecture specific ACPICA stuff from <asm/acpi.h> to
-> fix this issue.
-> 
-> Signed-off-by: Lv Zheng <lv.zheng@intel.com>
-> Cc: Tony Luck <tony.luck@intel.com>
-> Cc: Fenghua Yu <fenghua.yu@intel.com>
-> Cc: linux-ia64@vger.kernel.org
-> Cc: Thomas Gleixner <tglx@linutronix.de>
-> Cc: Ingo Molnar <mingo@redhat.com>
-> Cc: "H. Peter Anvin" <hpa@zytor.com>
-> Cc: x86@kernel.org
-> ---
->  arch/ia64/include/asm/acenv.h   |   71 +++++++++++++++++++++++++++++++++++++++
->  arch/ia64/include/asm/acpi.h    |   50 ---------------------------
->  arch/x86/include/asm/acenv.h    |   65 +++++++++++++++++++++++++++++++++++
->  arch/x86/include/asm/acpi.h     |   45 -------------------------
->  include/acpi/platform/aclinux.h |    2 +-
-
-Please rename the files first (in a separate patch) and then modify the
-renamed ones.  That will make changes much easier to follow.
-
->  5 files changed, 137 insertions(+), 96 deletions(-)
->  create mode 100644 arch/ia64/include/asm/acenv.h
->  create mode 100644 arch/x86/include/asm/acenv.h
-> 
-> diff --git a/arch/ia64/include/asm/acenv.h b/arch/ia64/include/asm/acenv.h
-> new file mode 100644
-> index 0000000..e0896eb
-> --- /dev/null
-> +++ b/arch/ia64/include/asm/acenv.h
-> @@ -0,0 +1,71 @@
-> +/*
-> + * IA64 specific ACPICA environments and implementation
-> + *
-> + * Copyright (C) 2014, Intel Corporation
-> + *   Author: Lv Zheng <lv.zheng@intel.com>
-> + *
-> + * This program is free software; you can redistribute it and/or modify
-> + * it under the terms of the GNU General Public License version 2 as
-> + * published by the Free Software Foundation.
-> + */
-> +
-> +#ifndef _ASM_IA64_ACENV_H
-> +#define _ASM_IA64_ACENV_H
-> +
-> +#include <asm/intrinsics.h>
-> +
-> +#define COMPILER_DEPENDENT_INT64	long
-> +#define COMPILER_DEPENDENT_UINT64	unsigned long
-> +
-> +/*
-> + * Calling conventions:
-> + *
-> + * ACPI_SYSTEM_XFACE        - Interfaces to host OS (handlers, threads)
-> + * ACPI_EXTERNAL_XFACE      - External ACPI interfaces
-> + * ACPI_INTERNAL_XFACE      - Internal ACPI interfaces
-> + * ACPI_INTERNAL_VAR_XFACE  - Internal variable-parameter list interfaces
-> + */
-> +#define ACPI_SYSTEM_XFACE
-> +#define ACPI_EXTERNAL_XFACE
-> +#define ACPI_INTERNAL_XFACE
-> +#define ACPI_INTERNAL_VAR_XFACE
-> +
-> +/* Asm macros */
-> +
-> +#define ACPI_FLUSH_CPU_CACHE()
-> +
-> +#ifdef CONFIG_ACPI
-> +
-> +static inline int
-> +ia64_acpi_acquire_global_lock(unsigned int *lock)
-> +{
-> +	unsigned int old, new, val;
-> +	do {
-> +		old = *lock;
-> +		new = (((old & ~0x3) + 2) + ((old >> 1) & 0x1));
-> +		val = ia64_cmpxchg4_acq(lock, new, old);
-> +	} while (unlikely (val != old));
-> +	return (new < 3) ? -1 : 0;
-> +}
-> +
-> +static inline int
-> +ia64_acpi_release_global_lock(unsigned int *lock)
-> +{
-> +	unsigned int old, new, val;
-> +	do {
-> +		old = *lock;
-> +		new = old & ~0x3;
-> +		val = ia64_cmpxchg4_acq(lock, new, old);
-> +	} while (unlikely (val != old));
-> +	return old & 0x1;
-> +}
-> +
-> +#define ACPI_ACQUIRE_GLOBAL_LOCK(facs, Acq)				\
-> +	((Acq) = ia64_acpi_acquire_global_lock(&facs->global_lock))
-> +
-> +#define ACPI_RELEASE_GLOBAL_LOCK(facs, Acq)				\
-> +	((Acq) = ia64_acpi_release_global_lock(&facs->global_lock))
-> +
-> +#endif
-> +
-> +#endif /* _ASM_IA64_ACENV_H */
-> diff --git a/arch/ia64/include/asm/acpi.h b/arch/ia64/include/asm/acpi.h
-> index d651102..b0ddcfd 100644
-> --- a/arch/ia64/include/asm/acpi.h
-> +++ b/arch/ia64/include/asm/acpi.h
-> @@ -34,56 +34,6 @@
->  #include <linux/numa.h>
->  #include <asm/numa.h>
->  
-> -#define COMPILER_DEPENDENT_INT64	long
-> -#define COMPILER_DEPENDENT_UINT64	unsigned long
-> -
-> -/*
-> - * Calling conventions:
-> - *
-> - * ACPI_SYSTEM_XFACE        - Interfaces to host OS (handlers, threads)
-> - * ACPI_EXTERNAL_XFACE      - External ACPI interfaces
-> - * ACPI_INTERNAL_XFACE      - Internal ACPI interfaces
-> - * ACPI_INTERNAL_VAR_XFACE  - Internal variable-parameter list interfaces
-> - */
-> -#define ACPI_SYSTEM_XFACE
-> -#define ACPI_EXTERNAL_XFACE
-> -#define ACPI_INTERNAL_XFACE
-> -#define ACPI_INTERNAL_VAR_XFACE
-> -
-> -/* Asm macros */
-> -
-> -#define ACPI_FLUSH_CPU_CACHE()
-> -
-> -static inline int
-> -ia64_acpi_acquire_global_lock (unsigned int *lock)
-> -{
-> -	unsigned int old, new, val;
-> -	do {
-> -		old = *lock;
-> -		new = (((old & ~0x3) + 2) + ((old >> 1) & 0x1));
-> -		val = ia64_cmpxchg4_acq(lock, new, old);
-> -	} while (unlikely (val != old));
-> -	return (new < 3) ? -1 : 0;
-> -}
-> -
-> -static inline int
-> -ia64_acpi_release_global_lock (unsigned int *lock)
-> -{
-> -	unsigned int old, new, val;
-> -	do {
-> -		old = *lock;
-> -		new = old & ~0x3;
-> -		val = ia64_cmpxchg4_acq(lock, new, old);
-> -	} while (unlikely (val != old));
-> -	return old & 0x1;
-> -}
-> -
-> -#define ACPI_ACQUIRE_GLOBAL_LOCK(facs, Acq)				\
-> -	((Acq) = ia64_acpi_acquire_global_lock(&facs->global_lock))
-> -
-> -#define ACPI_RELEASE_GLOBAL_LOCK(facs, Acq)				\
-> -	((Acq) = ia64_acpi_release_global_lock(&facs->global_lock))
-> -
->  #ifdef	CONFIG_ACPI
->  #define acpi_disabled 0	/* ACPI always enabled on IA64 */
->  #define acpi_noirq 0	/* ACPI always enabled on IA64 */
-> diff --git a/arch/x86/include/asm/acenv.h b/arch/x86/include/asm/acenv.h
-> new file mode 100644
-> index 0000000..6978584
-> --- /dev/null
-> +++ b/arch/x86/include/asm/acenv.h
-> @@ -0,0 +1,65 @@
-> +/*
-> + * X86 specific ACPICA environments and implementation
-> + *
-> + * Copyright (C) 2014, Intel Corporation
-> + *   Author: Lv Zheng <lv.zheng@intel.com>
-> + *
-> + * This program is free software; you can redistribute it and/or modify
-> + * it under the terms of the GNU General Public License version 2 as
-> + * published by the Free Software Foundation.
-> + */
-> +
-> +#ifndef _ASM_X86_ACENV_H
-> +#define _ASM_X86_ACENV_H
-> +
-> +#include <asm/special_insns.h>
-> +
-> +#define COMPILER_DEPENDENT_INT64   long long
-> +#define COMPILER_DEPENDENT_UINT64  unsigned long long
-> +
-> +/*
-> + * Calling conventions:
-> + *
-> + * ACPI_SYSTEM_XFACE        - Interfaces to host OS (handlers, threads)
-> + * ACPI_EXTERNAL_XFACE      - External ACPI interfaces
-> + * ACPI_INTERNAL_XFACE      - Internal ACPI interfaces
-> + * ACPI_INTERNAL_VAR_XFACE  - Internal variable-parameter list interfaces
-> + */
-> +#define ACPI_SYSTEM_XFACE
-> +#define ACPI_EXTERNAL_XFACE
-> +#define ACPI_INTERNAL_XFACE
-> +#define ACPI_INTERNAL_VAR_XFACE
-> +
-> +/* Asm macros */
-> +
-> +#define ACPI_FLUSH_CPU_CACHE()	wbinvd()
-> +
-> +#ifdef CONFIG_ACPI
-> +
-> +int __acpi_acquire_global_lock(unsigned int *lock);
-> +int __acpi_release_global_lock(unsigned int *lock);
-> +
-> +#define ACPI_ACQUIRE_GLOBAL_LOCK(facs, Acq) \
-> +	((Acq) = __acpi_acquire_global_lock(&facs->global_lock))
-> +
-> +#define ACPI_RELEASE_GLOBAL_LOCK(facs, Acq) \
-> +	((Acq) = __acpi_release_global_lock(&facs->global_lock))
-> +
-> +/*
-> + * Math helper asm macros
-> + */
-> +#define ACPI_DIV_64_BY_32(n_hi, n_lo, d32, q32, r32) \
-> +	asm("divl %2;"				     \
-> +	    : "=a"(q32), "=d"(r32)		     \
-> +	    : "r"(d32),				     \
-> +	     "0"(n_lo), "1"(n_hi))
-> +
-> +#define ACPI_SHIFT_RIGHT_64(n_hi, n_lo) \
-> +	asm("shrl   $1,%2	;"	\
-> +	    "rcrl   $1,%3;"		\
-> +	    : "=r"(n_hi), "=r"(n_lo)	\
-> +	    : "0"(n_hi), "1"(n_lo))
-> +
-> +#endif
-> +
-> +#endif /* _ASM_X86_ACENV_H */
-> diff --git a/arch/x86/include/asm/acpi.h b/arch/x86/include/asm/acpi.h
-> index c8c1e70..e06225e 100644
-> --- a/arch/x86/include/asm/acpi.h
-> +++ b/arch/x86/include/asm/acpi.h
-> @@ -32,51 +32,6 @@
->  #include <asm/mpspec.h>
->  #include <asm/realmode.h>
->  
-> -#define COMPILER_DEPENDENT_INT64   long long
-> -#define COMPILER_DEPENDENT_UINT64  unsigned long long
-> -
-> -/*
-> - * Calling conventions:
-> - *
-> - * ACPI_SYSTEM_XFACE        - Interfaces to host OS (handlers, threads)
-> - * ACPI_EXTERNAL_XFACE      - External ACPI interfaces
-> - * ACPI_INTERNAL_XFACE      - Internal ACPI interfaces
-> - * ACPI_INTERNAL_VAR_XFACE  - Internal variable-parameter list interfaces
-> - */
-> -#define ACPI_SYSTEM_XFACE
-> -#define ACPI_EXTERNAL_XFACE
-> -#define ACPI_INTERNAL_XFACE
-> -#define ACPI_INTERNAL_VAR_XFACE
-> -
-> -/* Asm macros */
-> -
-> -#define ACPI_FLUSH_CPU_CACHE()	wbinvd()
-> -
-> -int __acpi_acquire_global_lock(unsigned int *lock);
-> -int __acpi_release_global_lock(unsigned int *lock);
-> -
-> -#define ACPI_ACQUIRE_GLOBAL_LOCK(facs, Acq) \
-> -	((Acq) = __acpi_acquire_global_lock(&facs->global_lock))
-> -
-> -#define ACPI_RELEASE_GLOBAL_LOCK(facs, Acq) \
-> -	((Acq) = __acpi_release_global_lock(&facs->global_lock))
-> -
-> -/*
-> - * Math helper asm macros
-> - */
-> -#define ACPI_DIV_64_BY_32(n_hi, n_lo, d32, q32, r32) \
-> -	asm("divl %2;"				     \
-> -	    : "=a"(q32), "=d"(r32)		     \
-> -	    : "r"(d32),				     \
-> -	     "0"(n_lo), "1"(n_hi))
-> -
-> -
-> -#define ACPI_SHIFT_RIGHT_64(n_hi, n_lo) \
-> -	asm("shrl   $1,%2	;"	\
-> -	    "rcrl   $1,%3;"		\
-> -	    : "=r"(n_hi), "=r"(n_lo)	\
-> -	    : "0"(n_hi), "1"(n_lo))
-> -
->  #ifdef CONFIG_ACPI
->  extern int acpi_lapic;
->  extern int acpi_ioapic;
-> diff --git a/include/acpi/platform/aclinux.h b/include/acpi/platform/aclinux.h
-> index a20f051..99d0546 100644
-> --- a/include/acpi/platform/aclinux.h
-> +++ b/include/acpi/platform/aclinux.h
-> @@ -71,7 +71,7 @@
->  #ifdef EXPORT_ACPI_INTERFACES
->  #include <linux/export.h>
->  #endif
-> -#include <asm/acpi.h>
-> +#include <asm/acenv.h>
->  
->  /* Host-dependent types and defines for in-kernel ACPICA */
->  
-> 
-
--- 
-I speak only for myself.
-Rafael J. Wysocki, Intel Open Source Technology Center.
+SGksIFJhZmFlbA0KDQo+IEZyb206IGxpbnV4LWFjcGktb3duZXJAdmdlci5rZXJuZWwub3JnIFtt
+YWlsdG86bGludXgtYWNwaS1vd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uIEJlaGFsZiBPZiBSYWZh
+ZWwgSi4gV3lzb2NraQ0KPiBTZW50OiBNb25kYXksIEFwcmlsIDI4LCAyMDE0IDU6MzcgQU0NCj4g
+VG86IFpoZW5nLCBMdg0KPiANCj4gT24gV2VkbmVzZGF5LCBBcHJpbCAyMywgMjAxNCAwMjo1NDow
+NiBQTSBMdiBaaGVuZyB3cm90ZToNCj4gPiBUaGVyZSBpcyBhIG1pcy1vcmRlciBpbmNsdXNpb24g
+Zm9yIDxhc20vYWNwaS5oPi4NCj4gPg0KPiA+IEFzIHdlIHdpbGwgZW5mb3JjZSBpbmNsdWRpbmcg
+PGxpbnV4L2FjcGkuaD4gZm9yIGFsbCBMaW51eCBBQ1BJIHVzZXJzLCB3ZQ0KPiA+IGNhbiBmaW5k
+IHRoZSBpbmNsdXNpb24gb3JkZXIgaXMgYXMgZm9sbG93czoNCj4gPg0KPiA+IDxsaW51eC9hY3Bp
+Lmg+DQo+ID4gICA8YWNwaS9hY3BpLmg+DQo+ID4gICAgPGFjcGkvcGxhdGZvcm0vYWNlbnYuaD4N
+Cj4gPiAgICAgKGFjZW52LmggYmVmb3JlIGluY2x1ZGluZyBhY2xpbnV4LmgpDQo+ID4gICAgIDxh
+Y3BpL3BsYXRmb3JtL2FjbGludXguaD4NCj4gPiAuLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4u
+Li4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4NCj4gPiAgICAg
+IChhY2xpbnV4LmggYmVmb3JlIGluY2x1ZGluZyBhc20vYWNwaS5oKQ0KPiA+ICAgICAgPGFzbS9h
+Y3BpLmg+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICBAUmVkdW5kYW50QA0KPiA+ICAgICAg
+IChBQ1BJQ0Egc3BlY2lmaWMgc3R1ZmYpDQo+ID4gLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4u
+Li4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uDQo+ID4gLi4u
+Li4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4u
+Li4uLi4uLi4uLi4uLi4uDQo+ID4gICAgICAgKExpbnV4IEFDUEkgc3BlY2lmaWMgc3R1ZmYpID8g
+LSAtIC0gLSAtIC0gLSAtIC0gLSAtIC0gKw0KPiA+ICAgICAgKGFjbGludXguaCBhZnRlciBpbmNs
+dWRpbmcgYXNtL2FjcGkuaCkgICBASW52aXNpYmxlQCAgIHwNCj4gPiAgICAgKGFjZW52LmggYWZ0
+ZXIgaW5jbHVkaW5nIGFjbGludXguaCkgICAgICAgQEludmlzaWJsZUAgICB8DQo+ID4gICAgb3Ro
+ZXIgQUNQSUNBIGhlYWRlcnMgICAgICAgICAgICAgICAgICAgICAgIEBJbnZpc2libGVAICAgfA0K
+PiA+IC4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4u
+Li4uLi4uLnwuLi4uLi4uLi4uLi4uLg0KPiA+ICAgPGFjcGkvYWNwaV9idXMuaD4gICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwNCj4gPiAgIDxhY3BpL2FjcGlfZHJpdmVy
+cy5oPiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8DQo+ID4gICA8YXNtL2Fj
+cGkuaD4gKEV4Y2x1ZGVkKSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgfA0KPiA+
+ICAgIChMaW51eCBBQ1BJIHNwZWNpZmljIHN0dWZmKSAhIDwtIC0gLSAtIC0gLSAtIC0gLSAtIC0g
+LSAtICsNCj4gPg0KPiA+IE5PVEUgdGhhdCwgaW4gQUNQSUNBLCA8YWNwaS9wbGF0Zm9ybS9hY2Vu
+di5oPiBpcyBtb3JlIGxpa2UgS2NvbmZpZw0KPiA+IGdlbmVyYXRlZCA8Z2VuZXJhdGVkL2F1dG9j
+b25mLmg+IGZvciBMaW51eCwgaXQgaXMgbWVhbnQgdG8gYmUgaW5jbHVkZWQNCj4gPiBiZWZvcmUg
+aW5jbHVkaW5nIGFueSBBQ1BJQ0EgY29kZS4NCj4gPg0KPiA+IEluIHRoZSBhYm92ZSBmaWd1cmUs
+IHRoZXJlIGlzIGEgcXVlc3Rpb24gbWFyayBmb3IgIkxpbnV4IEFDUEkgc3BlY2lmaWMNCj4gPiBz
+dHVmZiIgaW4gPGFzbS9hY3BpLmg+IHdoaWNoIHNob3VsZCBiZSBpbmNsdWRlZCBhZnRlciBpbmNs
+dWRpbmcgYWxsIG90aGVyDQo+ID4gQUNQSUNBIGhlYWRlciBmaWxlcy4gIFRodXMgdGhleSByZWFs
+bHkgbmVlZCB0byBiZSBtb3ZlZCB0byB0aGUgcG9zaXRpb24NCj4gPiBtYXJrZWQgd2l0aCBleGNs
+YWltYXRpb24gbWFyayBvciB0aGUgZGVmaW5pdGlvbnMgaW4gdGhlIGJsb2NrcyBtYXJrZWQgd2l0
+aA0KPiA+ICJASW52aXNpYmxlQCIgd2lsbCBiZSBpbnZpc2libGUgdG8gc3VjaCBhcmNoaXRlY3R1
+cmUgc3BlY2lmaWMgIkxpbnV4IEFDUEkNCj4gPiBzcGVjaWZpYyBzdHVmZiIgaGVhZGVyIGJsb2Nr
+cy4gIFRoaXMgbGVhdmVzIDIgaXNzdWVzOg0KPiA+IDEuIEFsbCBlbnZpcm9ubWVudGFsIGRlZmlu
+aXRpb25zIGluIHRoZXNlIGJsb2NrcyBzaG91bGQgaGF2ZSBhIGNvcHkgaW4gdGhlDQo+ID4gICAg
+YXJlYSBtYXJrZWQgd2l0aCAiQFJlZHVuZGFudEAiIGlmIHRoZXkgYXJlIHJlcXVpcmVkIGJ5IHRo
+ZSAiTGludXggQUNQSQ0KPiA+ICAgIHNwZWNpZmljIHN0dWZmIi4NCj4gPiAyLiBXZSBjYW5ub3Qg
+dXNlIGFueSBBQ1BJQ0EgZGVmaW5lZCB0eXBlcyBpbiA8YXNtL2FjcGkuaD4uDQo+ID4NCj4gPiBU
+aGlzIHBhdGNoIHNwbGl0cyBhcmNoaXRlY3R1cmUgc3BlY2lmaWMgQUNQSUNBIHN0dWZmIGZyb20g
+PGFzbS9hY3BpLmg+IHRvDQo+ID4gZml4IHRoaXMgaXNzdWUuDQo+ID4NCj4gPiBTaWduZWQtb2Zm
+LWJ5OiBMdiBaaGVuZyA8bHYuemhlbmdAaW50ZWwuY29tPg0KPiA+IENjOiBUb255IEx1Y2sgPHRv
+bnkubHVja0BpbnRlbC5jb20+DQo+ID4gQ2M6IEZlbmdodWEgWXUgPGZlbmdodWEueXVAaW50ZWwu
+Y29tPg0KPiA+IENjOiBsaW51eC1pYTY0QHZnZXIua2VybmVsLm9yZw0KPiA+IENjOiBUaG9tYXMg
+R2xlaXhuZXIgPHRnbHhAbGludXRyb25peC5kZT4NCj4gPiBDYzogSW5nbyBNb2xuYXIgPG1pbmdv
+QHJlZGhhdC5jb20+DQo+ID4gQ2M6ICJILiBQZXRlciBBbnZpbiIgPGhwYUB6eXRvci5jb20+DQo+
+ID4gQ2M6IHg4NkBrZXJuZWwub3JnDQo+ID4gLS0tDQo+ID4gIGFyY2gvaWE2NC9pbmNsdWRlL2Fz
+bS9hY2Vudi5oICAgfCAgIDcxICsrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysr
+Kw0KPiA+ICBhcmNoL2lhNjQvaW5jbHVkZS9hc20vYWNwaS5oICAgIHwgICA1MCAtLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0NCj4gPiAgYXJjaC94ODYvaW5jbHVkZS9hc20vYWNlbnYuaCAgICB8
+ICAgNjUgKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysNCj4gPiAgYXJjaC94ODYv
+aW5jbHVkZS9hc20vYWNwaS5oICAgICB8ICAgNDUgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQ0K
+PiA+ICBpbmNsdWRlL2FjcGkvcGxhdGZvcm0vYWNsaW51eC5oIHwgICAgMiArLQ0KPiANCj4gUGxl
+YXNlIHJlbmFtZSB0aGUgZmlsZXMgZmlyc3QgKGluIGEgc2VwYXJhdGUgcGF0Y2gpIGFuZCB0aGVu
+IG1vZGlmeSB0aGUNCj4gcmVuYW1lZCBvbmVzLiAgVGhhdCB3aWxsIG1ha2UgY2hhbmdlcyBtdWNo
+IGVhc2llciB0byBmb2xsb3cuDQoNClRoaXMgcGF0Y2ggZG9lc24ndCBwcm92aWRlIGEgcmVuYW1l
+Lg0KQ3VycmVudGx5LCA8YXNtL2FjcGkuaD4gaW5jbHVkZXM6DQoxLiBhcmNoIHNwZWNpZmljIEFD
+UEkgc3R1ZmYNCjIuIGFyY2ggc3BlY2lmaWMgQUNQSUNBIHN0dWZmDQpUaGlzIHBhdGNoIG1vdmVz
+ICIyIiB0byBhIHNlcGFyYXRlIGZpbGUgPGFzbS9hY2Vudi5oPiwgdGh1cyBubyByZW5hbWluZyBo
+YXBwZW5zIGhlcmUuDQoNClRoYW5rcyBhbmQgYmVzdCByZWdhcmRzDQotTHYNCg0KPiANCj4gPiAg
+NSBmaWxlcyBjaGFuZ2VkLCAxMzcgaW5zZXJ0aW9ucygrKSwgOTYgZGVsZXRpb25zKC0pDQo+ID4g
+IGNyZWF0ZSBtb2RlIDEwMDY0NCBhcmNoL2lhNjQvaW5jbHVkZS9hc20vYWNlbnYuaA0KPiA+ICBj
+cmVhdGUgbW9kZSAxMDA2NDQgYXJjaC94ODYvaW5jbHVkZS9hc20vYWNlbnYuaA0KPiA+DQo+ID4g
+ZGlmZiAtLWdpdCBhL2FyY2gvaWE2NC9pbmNsdWRlL2FzbS9hY2Vudi5oIGIvYXJjaC9pYTY0L2lu
+Y2x1ZGUvYXNtL2FjZW52LmgNCj4gPiBuZXcgZmlsZSBtb2RlIDEwMDY0NA0KPiA+IGluZGV4IDAw
+MDAwMDAuLmUwODk2ZWINCj4gPiAtLS0gL2Rldi9udWxsDQo+ID4gKysrIGIvYXJjaC9pYTY0L2lu
+Y2x1ZGUvYXNtL2FjZW52LmgNCj4gPiBAQCAtMCwwICsxLDcxIEBADQo+ID4gKy8qDQo+ID4gKyAq
+IElBNjQgc3BlY2lmaWMgQUNQSUNBIGVudmlyb25tZW50cyBhbmQgaW1wbGVtZW50YXRpb24NCj4g
+PiArICoNCj4gPiArICogQ29weXJpZ2h0IChDKSAyMDE0LCBJbnRlbCBDb3Jwb3JhdGlvbg0KPiA+
+ICsgKiAgIEF1dGhvcjogTHYgWmhlbmcgPGx2LnpoZW5nQGludGVsLmNvbT4NCj4gPiArICoNCj4g
+PiArICogVGhpcyBwcm9ncmFtIGlzIGZyZWUgc29mdHdhcmU7IHlvdSBjYW4gcmVkaXN0cmlidXRl
+IGl0IGFuZC9vciBtb2RpZnkNCj4gPiArICogaXQgdW5kZXIgdGhlIHRlcm1zIG9mIHRoZSBHTlUg
+R2VuZXJhbCBQdWJsaWMgTGljZW5zZSB2ZXJzaW9uIDIgYXMNCj4gPiArICogcHVibGlzaGVkIGJ5
+IHRoZSBGcmVlIFNvZnR3YXJlIEZvdW5kYXRpb24uDQo+ID4gKyAqLw0KPiA+ICsNCj4gPiArI2lm
+bmRlZiBfQVNNX0lBNjRfQUNFTlZfSA0KPiA+ICsjZGVmaW5lIF9BU01fSUE2NF9BQ0VOVl9IDQo+
+ID4gKw0KPiA+ICsjaW5jbHVkZSA8YXNtL2ludHJpbnNpY3MuaD4NCj4gPiArDQo+ID4gKyNkZWZp
+bmUgQ09NUElMRVJfREVQRU5ERU5UX0lOVDY0CWxvbmcNCj4gPiArI2RlZmluZSBDT01QSUxFUl9E
+RVBFTkRFTlRfVUlOVDY0CXVuc2lnbmVkIGxvbmcNCj4gPiArDQo+ID4gKy8qDQo+ID4gKyAqIENh
+bGxpbmcgY29udmVudGlvbnM6DQo+ID4gKyAqDQo+ID4gKyAqIEFDUElfU1lTVEVNX1hGQUNFICAg
+ICAgICAtIEludGVyZmFjZXMgdG8gaG9zdCBPUyAoaGFuZGxlcnMsIHRocmVhZHMpDQo+ID4gKyAq
+IEFDUElfRVhURVJOQUxfWEZBQ0UgICAgICAtIEV4dGVybmFsIEFDUEkgaW50ZXJmYWNlcw0KPiA+
+ICsgKiBBQ1BJX0lOVEVSTkFMX1hGQUNFICAgICAgLSBJbnRlcm5hbCBBQ1BJIGludGVyZmFjZXMN
+Cj4gPiArICogQUNQSV9JTlRFUk5BTF9WQVJfWEZBQ0UgIC0gSW50ZXJuYWwgdmFyaWFibGUtcGFy
+YW1ldGVyIGxpc3QgaW50ZXJmYWNlcw0KPiA+ICsgKi8NCj4gPiArI2RlZmluZSBBQ1BJX1NZU1RF
+TV9YRkFDRQ0KPiA+ICsjZGVmaW5lIEFDUElfRVhURVJOQUxfWEZBQ0UNCj4gPiArI2RlZmluZSBB
+Q1BJX0lOVEVSTkFMX1hGQUNFDQo+ID4gKyNkZWZpbmUgQUNQSV9JTlRFUk5BTF9WQVJfWEZBQ0UN
+Cj4gPiArDQo+ID4gKy8qIEFzbSBtYWNyb3MgKi8NCj4gPiArDQo+ID4gKyNkZWZpbmUgQUNQSV9G
+TFVTSF9DUFVfQ0FDSEUoKQ0KPiA+ICsNCj4gPiArI2lmZGVmIENPTkZJR19BQ1BJDQo+ID4gKw0K
+PiA+ICtzdGF0aWMgaW5saW5lIGludA0KPiA+ICtpYTY0X2FjcGlfYWNxdWlyZV9nbG9iYWxfbG9j
+ayh1bnNpZ25lZCBpbnQgKmxvY2spDQo+ID4gK3sNCj4gPiArCXVuc2lnbmVkIGludCBvbGQsIG5l
+dywgdmFsOw0KPiA+ICsJZG8gew0KPiA+ICsJCW9sZCA9ICpsb2NrOw0KPiA+ICsJCW5ldyA9ICgo
+KG9sZCAmIH4weDMpICsgMikgKyAoKG9sZCA+PiAxKSAmIDB4MSkpOw0KPiA+ICsJCXZhbCA9IGlh
+NjRfY21weGNoZzRfYWNxKGxvY2ssIG5ldywgb2xkKTsNCj4gPiArCX0gd2hpbGUgKHVubGlrZWx5
+ICh2YWwgIT0gb2xkKSk7DQo+ID4gKwlyZXR1cm4gKG5ldyA8IDMpID8gLTEgOiAwOw0KPiA+ICt9
+DQo+ID4gKw0KPiA+ICtzdGF0aWMgaW5saW5lIGludA0KPiA+ICtpYTY0X2FjcGlfcmVsZWFzZV9n
+bG9iYWxfbG9jayh1bnNpZ25lZCBpbnQgKmxvY2spDQo+ID4gK3sNCj4gPiArCXVuc2lnbmVkIGlu
+dCBvbGQsIG5ldywgdmFsOw0KPiA+ICsJZG8gew0KPiA+ICsJCW9sZCA9ICpsb2NrOw0KPiA+ICsJ
+CW5ldyA9IG9sZCAmIH4weDM7DQo+ID4gKwkJdmFsID0gaWE2NF9jbXB4Y2hnNF9hY3EobG9jaywg
+bmV3LCBvbGQpOw0KPiA+ICsJfSB3aGlsZSAodW5saWtlbHkgKHZhbCAhPSBvbGQpKTsNCj4gPiAr
+CXJldHVybiBvbGQgJiAweDE7DQo+ID4gK30NCj4gPiArDQo+ID4gKyNkZWZpbmUgQUNQSV9BQ1FV
+SVJFX0dMT0JBTF9MT0NLKGZhY3MsIEFjcSkJCQkJXA0KPiA+ICsJKChBY3EpID0gaWE2NF9hY3Bp
+X2FjcXVpcmVfZ2xvYmFsX2xvY2soJmZhY3MtPmdsb2JhbF9sb2NrKSkNCj4gPiArDQo+ID4gKyNk
+ZWZpbmUgQUNQSV9SRUxFQVNFX0dMT0JBTF9MT0NLKGZhY3MsIEFjcSkJCQkJXA0KPiA+ICsJKChB
+Y3EpID0gaWE2NF9hY3BpX3JlbGVhc2VfZ2xvYmFsX2xvY2soJmZhY3MtPmdsb2JhbF9sb2NrKSkN
+Cj4gPiArDQo+ID4gKyNlbmRpZg0KPiA+ICsNCj4gPiArI2VuZGlmIC8qIF9BU01fSUE2NF9BQ0VO
+Vl9IICovDQo+ID4gZGlmZiAtLWdpdCBhL2FyY2gvaWE2NC9pbmNsdWRlL2FzbS9hY3BpLmggYi9h
+cmNoL2lhNjQvaW5jbHVkZS9hc20vYWNwaS5oDQo+ID4gaW5kZXggZDY1MTEwMi4uYjBkZGNmZCAx
+MDA2NDQNCj4gPiAtLS0gYS9hcmNoL2lhNjQvaW5jbHVkZS9hc20vYWNwaS5oDQo+ID4gKysrIGIv
+YXJjaC9pYTY0L2luY2x1ZGUvYXNtL2FjcGkuaA0KPiA+IEBAIC0zNCw1NiArMzQsNiBAQA0KPiA+
+ICAjaW5jbHVkZSA8bGludXgvbnVtYS5oPg0KPiA+ICAjaW5jbHVkZSA8YXNtL251bWEuaD4NCj4g
+Pg0KPiA+IC0jZGVmaW5lIENPTVBJTEVSX0RFUEVOREVOVF9JTlQ2NAlsb25nDQo+ID4gLSNkZWZp
+bmUgQ09NUElMRVJfREVQRU5ERU5UX1VJTlQ2NAl1bnNpZ25lZCBsb25nDQo+ID4gLQ0KPiA+IC0v
+Kg0KPiA+IC0gKiBDYWxsaW5nIGNvbnZlbnRpb25zOg0KPiA+IC0gKg0KPiA+IC0gKiBBQ1BJX1NZ
+U1RFTV9YRkFDRSAgICAgICAgLSBJbnRlcmZhY2VzIHRvIGhvc3QgT1MgKGhhbmRsZXJzLCB0aHJl
+YWRzKQ0KPiA+IC0gKiBBQ1BJX0VYVEVSTkFMX1hGQUNFICAgICAgLSBFeHRlcm5hbCBBQ1BJIGlu
+dGVyZmFjZXMNCj4gPiAtICogQUNQSV9JTlRFUk5BTF9YRkFDRSAgICAgIC0gSW50ZXJuYWwgQUNQ
+SSBpbnRlcmZhY2VzDQo+ID4gLSAqIEFDUElfSU5URVJOQUxfVkFSX1hGQUNFICAtIEludGVybmFs
+IHZhcmlhYmxlLXBhcmFtZXRlciBsaXN0IGludGVyZmFjZXMNCj4gPiAtICovDQo+ID4gLSNkZWZp
+bmUgQUNQSV9TWVNURU1fWEZBQ0UNCj4gPiAtI2RlZmluZSBBQ1BJX0VYVEVSTkFMX1hGQUNFDQo+
+ID4gLSNkZWZpbmUgQUNQSV9JTlRFUk5BTF9YRkFDRQ0KPiA+IC0jZGVmaW5lIEFDUElfSU5URVJO
+QUxfVkFSX1hGQUNFDQo+ID4gLQ0KPiA+IC0vKiBBc20gbWFjcm9zICovDQo+ID4gLQ0KPiA+IC0j
+ZGVmaW5lIEFDUElfRkxVU0hfQ1BVX0NBQ0hFKCkNCj4gPiAtDQo+ID4gLXN0YXRpYyBpbmxpbmUg
+aW50DQo+ID4gLWlhNjRfYWNwaV9hY3F1aXJlX2dsb2JhbF9sb2NrICh1bnNpZ25lZCBpbnQgKmxv
+Y2spDQo+ID4gLXsNCj4gPiAtCXVuc2lnbmVkIGludCBvbGQsIG5ldywgdmFsOw0KPiA+IC0JZG8g
+ew0KPiA+IC0JCW9sZCA9ICpsb2NrOw0KPiA+IC0JCW5ldyA9ICgoKG9sZCAmIH4weDMpICsgMikg
+KyAoKG9sZCA+PiAxKSAmIDB4MSkpOw0KPiA+IC0JCXZhbCA9IGlhNjRfY21weGNoZzRfYWNxKGxv
+Y2ssIG5ldywgb2xkKTsNCj4gPiAtCX0gd2hpbGUgKHVubGlrZWx5ICh2YWwgIT0gb2xkKSk7DQo+
+ID4gLQlyZXR1cm4gKG5ldyA8IDMpID8gLTEgOiAwOw0KPiA+IC19DQo+ID4gLQ0KPiA+IC1zdGF0
+aWMgaW5saW5lIGludA0KPiA+IC1pYTY0X2FjcGlfcmVsZWFzZV9nbG9iYWxfbG9jayAodW5zaWdu
+ZWQgaW50ICpsb2NrKQ0KPiA+IC17DQo+ID4gLQl1bnNpZ25lZCBpbnQgb2xkLCBuZXcsIHZhbDsN
+Cj4gPiAtCWRvIHsNCj4gPiAtCQlvbGQgPSAqbG9jazsNCj4gPiAtCQluZXcgPSBvbGQgJiB+MHgz
+Ow0KPiA+IC0JCXZhbCA9IGlhNjRfY21weGNoZzRfYWNxKGxvY2ssIG5ldywgb2xkKTsNCj4gPiAt
+CX0gd2hpbGUgKHVubGlrZWx5ICh2YWwgIT0gb2xkKSk7DQo+ID4gLQlyZXR1cm4gb2xkICYgMHgx
+Ow0KPiA+IC19DQo+ID4gLQ0KPiA+IC0jZGVmaW5lIEFDUElfQUNRVUlSRV9HTE9CQUxfTE9DSyhm
+YWNzLCBBY3EpCQkJCVwNCj4gPiAtCSgoQWNxKSA9IGlhNjRfYWNwaV9hY3F1aXJlX2dsb2JhbF9s
+b2NrKCZmYWNzLT5nbG9iYWxfbG9jaykpDQo+ID4gLQ0KPiA+IC0jZGVmaW5lIEFDUElfUkVMRUFT
+RV9HTE9CQUxfTE9DSyhmYWNzLCBBY3EpCQkJCVwNCj4gPiAtCSgoQWNxKSA9IGlhNjRfYWNwaV9y
+ZWxlYXNlX2dsb2JhbF9sb2NrKCZmYWNzLT5nbG9iYWxfbG9jaykpDQo+ID4gLQ0KPiA+ICAjaWZk
+ZWYJQ09ORklHX0FDUEkNCj4gPiAgI2RlZmluZSBhY3BpX2Rpc2FibGVkIDAJLyogQUNQSSBhbHdh
+eXMgZW5hYmxlZCBvbiBJQTY0ICovDQo+ID4gICNkZWZpbmUgYWNwaV9ub2lycSAwCS8qIEFDUEkg
+YWx3YXlzIGVuYWJsZWQgb24gSUE2NCAqLw0KPiA+IGRpZmYgLS1naXQgYS9hcmNoL3g4Ni9pbmNs
+dWRlL2FzbS9hY2Vudi5oIGIvYXJjaC94ODYvaW5jbHVkZS9hc20vYWNlbnYuaA0KPiA+IG5ldyBm
+aWxlIG1vZGUgMTAwNjQ0DQo+ID4gaW5kZXggMDAwMDAwMC4uNjk3ODU4NA0KPiA+IC0tLSAvZGV2
+L251bGwNCj4gPiArKysgYi9hcmNoL3g4Ni9pbmNsdWRlL2FzbS9hY2Vudi5oDQo+ID4gQEAgLTAs
+MCArMSw2NSBAQA0KPiA+ICsvKg0KPiA+ICsgKiBYODYgc3BlY2lmaWMgQUNQSUNBIGVudmlyb25t
+ZW50cyBhbmQgaW1wbGVtZW50YXRpb24NCj4gPiArICoNCj4gPiArICogQ29weXJpZ2h0IChDKSAy
+MDE0LCBJbnRlbCBDb3Jwb3JhdGlvbg0KPiA+ICsgKiAgIEF1dGhvcjogTHYgWmhlbmcgPGx2Lnpo
+ZW5nQGludGVsLmNvbT4NCj4gPiArICoNCj4gPiArICogVGhpcyBwcm9ncmFtIGlzIGZyZWUgc29m
+dHdhcmU7IHlvdSBjYW4gcmVkaXN0cmlidXRlIGl0IGFuZC9vciBtb2RpZnkNCj4gPiArICogaXQg
+dW5kZXIgdGhlIHRlcm1zIG9mIHRoZSBHTlUgR2VuZXJhbCBQdWJsaWMgTGljZW5zZSB2ZXJzaW9u
+IDIgYXMNCj4gPiArICogcHVibGlzaGVkIGJ5IHRoZSBGcmVlIFNvZnR3YXJlIEZvdW5kYXRpb24u
+DQo+ID4gKyAqLw0KPiA+ICsNCj4gPiArI2lmbmRlZiBfQVNNX1g4Nl9BQ0VOVl9IDQo+ID4gKyNk
+ZWZpbmUgX0FTTV9YODZfQUNFTlZfSA0KPiA+ICsNCj4gPiArI2luY2x1ZGUgPGFzbS9zcGVjaWFs
+X2luc25zLmg+DQo+ID4gKw0KPiA+ICsjZGVmaW5lIENPTVBJTEVSX0RFUEVOREVOVF9JTlQ2NCAg
+IGxvbmcgbG9uZw0KPiA+ICsjZGVmaW5lIENPTVBJTEVSX0RFUEVOREVOVF9VSU5UNjQgIHVuc2ln
+bmVkIGxvbmcgbG9uZw0KPiA+ICsNCj4gPiArLyoNCj4gPiArICogQ2FsbGluZyBjb252ZW50aW9u
+czoNCj4gPiArICoNCj4gPiArICogQUNQSV9TWVNURU1fWEZBQ0UgICAgICAgIC0gSW50ZXJmYWNl
+cyB0byBob3N0IE9TIChoYW5kbGVycywgdGhyZWFkcykNCj4gPiArICogQUNQSV9FWFRFUk5BTF9Y
+RkFDRSAgICAgIC0gRXh0ZXJuYWwgQUNQSSBpbnRlcmZhY2VzDQo+ID4gKyAqIEFDUElfSU5URVJO
+QUxfWEZBQ0UgICAgICAtIEludGVybmFsIEFDUEkgaW50ZXJmYWNlcw0KPiA+ICsgKiBBQ1BJX0lO
+VEVSTkFMX1ZBUl9YRkFDRSAgLSBJbnRlcm5hbCB2YXJpYWJsZS1wYXJhbWV0ZXIgbGlzdCBpbnRl
+cmZhY2VzDQo+ID4gKyAqLw0KPiA+ICsjZGVmaW5lIEFDUElfU1lTVEVNX1hGQUNFDQo+ID4gKyNk
+ZWZpbmUgQUNQSV9FWFRFUk5BTF9YRkFDRQ0KPiA+ICsjZGVmaW5lIEFDUElfSU5URVJOQUxfWEZB
+Q0UNCj4gPiArI2RlZmluZSBBQ1BJX0lOVEVSTkFMX1ZBUl9YRkFDRQ0KPiA+ICsNCj4gPiArLyog
+QXNtIG1hY3JvcyAqLw0KPiA+ICsNCj4gPiArI2RlZmluZSBBQ1BJX0ZMVVNIX0NQVV9DQUNIRSgp
+CXdiaW52ZCgpDQo+ID4gKw0KPiA+ICsjaWZkZWYgQ09ORklHX0FDUEkNCj4gPiArDQo+ID4gK2lu
+dCBfX2FjcGlfYWNxdWlyZV9nbG9iYWxfbG9jayh1bnNpZ25lZCBpbnQgKmxvY2spOw0KPiA+ICtp
+bnQgX19hY3BpX3JlbGVhc2VfZ2xvYmFsX2xvY2sodW5zaWduZWQgaW50ICpsb2NrKTsNCj4gPiAr
+DQo+ID4gKyNkZWZpbmUgQUNQSV9BQ1FVSVJFX0dMT0JBTF9MT0NLKGZhY3MsIEFjcSkgXA0KPiA+
+ICsJKChBY3EpID0gX19hY3BpX2FjcXVpcmVfZ2xvYmFsX2xvY2soJmZhY3MtPmdsb2JhbF9sb2Nr
+KSkNCj4gPiArDQo+ID4gKyNkZWZpbmUgQUNQSV9SRUxFQVNFX0dMT0JBTF9MT0NLKGZhY3MsIEFj
+cSkgXA0KPiA+ICsJKChBY3EpID0gX19hY3BpX3JlbGVhc2VfZ2xvYmFsX2xvY2soJmZhY3MtPmds
+b2JhbF9sb2NrKSkNCj4gPiArDQo+ID4gKy8qDQo+ID4gKyAqIE1hdGggaGVscGVyIGFzbSBtYWNy
+b3MNCj4gPiArICovDQo+ID4gKyNkZWZpbmUgQUNQSV9ESVZfNjRfQllfMzIobl9oaSwgbl9sbywg
+ZDMyLCBxMzIsIHIzMikgXA0KPiA+ICsJYXNtKCJkaXZsICUyOyIJCQkJICAgICBcDQo+ID4gKwkg
+ICAgOiAiPWEiKHEzMiksICI9ZCIocjMyKQkJICAgICBcDQo+ID4gKwkgICAgOiAiciIoZDMyKSwJ
+CQkJICAgICBcDQo+ID4gKwkgICAgICIwIihuX2xvKSwgIjEiKG5faGkpKQ0KPiA+ICsNCj4gPiAr
+I2RlZmluZSBBQ1BJX1NISUZUX1JJR0hUXzY0KG5faGksIG5fbG8pIFwNCj4gPiArCWFzbSgic2hy
+bCAgICQxLCUyCTsiCVwNCj4gPiArCSAgICAicmNybCAgICQxLCUzOyIJCVwNCj4gPiArCSAgICA6
+ICI9ciIobl9oaSksICI9ciIobl9sbykJXA0KPiA+ICsJICAgIDogIjAiKG5faGkpLCAiMSIobl9s
+bykpDQo+ID4gKw0KPiA+ICsjZW5kaWYNCj4gPiArDQo+ID4gKyNlbmRpZiAvKiBfQVNNX1g4Nl9B
+Q0VOVl9IICovDQo+ID4gZGlmZiAtLWdpdCBhL2FyY2gveDg2L2luY2x1ZGUvYXNtL2FjcGkuaCBi
+L2FyY2gveDg2L2luY2x1ZGUvYXNtL2FjcGkuaA0KPiA+IGluZGV4IGM4YzFlNzAuLmUwNjIyNWUg
+MTAwNjQ0DQo+ID4gLS0tIGEvYXJjaC94ODYvaW5jbHVkZS9hc20vYWNwaS5oDQo+ID4gKysrIGIv
+YXJjaC94ODYvaW5jbHVkZS9hc20vYWNwaS5oDQo+ID4gQEAgLTMyLDUxICszMiw2IEBADQo+ID4g
+ICNpbmNsdWRlIDxhc20vbXBzcGVjLmg+DQo+ID4gICNpbmNsdWRlIDxhc20vcmVhbG1vZGUuaD4N
+Cj4gPg0KPiA+IC0jZGVmaW5lIENPTVBJTEVSX0RFUEVOREVOVF9JTlQ2NCAgIGxvbmcgbG9uZw0K
+PiA+IC0jZGVmaW5lIENPTVBJTEVSX0RFUEVOREVOVF9VSU5UNjQgIHVuc2lnbmVkIGxvbmcgbG9u
+Zw0KPiA+IC0NCj4gPiAtLyoNCj4gPiAtICogQ2FsbGluZyBjb252ZW50aW9uczoNCj4gPiAtICoN
+Cj4gPiAtICogQUNQSV9TWVNURU1fWEZBQ0UgICAgICAgIC0gSW50ZXJmYWNlcyB0byBob3N0IE9T
+IChoYW5kbGVycywgdGhyZWFkcykNCj4gPiAtICogQUNQSV9FWFRFUk5BTF9YRkFDRSAgICAgIC0g
+RXh0ZXJuYWwgQUNQSSBpbnRlcmZhY2VzDQo+ID4gLSAqIEFDUElfSU5URVJOQUxfWEZBQ0UgICAg
+ICAtIEludGVybmFsIEFDUEkgaW50ZXJmYWNlcw0KPiA+IC0gKiBBQ1BJX0lOVEVSTkFMX1ZBUl9Y
+RkFDRSAgLSBJbnRlcm5hbCB2YXJpYWJsZS1wYXJhbWV0ZXIgbGlzdCBpbnRlcmZhY2VzDQo+ID4g
+LSAqLw0KPiA+IC0jZGVmaW5lIEFDUElfU1lTVEVNX1hGQUNFDQo+ID4gLSNkZWZpbmUgQUNQSV9F
+WFRFUk5BTF9YRkFDRQ0KPiA+IC0jZGVmaW5lIEFDUElfSU5URVJOQUxfWEZBQ0UNCj4gPiAtI2Rl
+ZmluZSBBQ1BJX0lOVEVSTkFMX1ZBUl9YRkFDRQ0KPiA+IC0NCj4gPiAtLyogQXNtIG1hY3JvcyAq
+Lw0KPiA+IC0NCj4gPiAtI2RlZmluZSBBQ1BJX0ZMVVNIX0NQVV9DQUNIRSgpCXdiaW52ZCgpDQo+
+ID4gLQ0KPiA+IC1pbnQgX19hY3BpX2FjcXVpcmVfZ2xvYmFsX2xvY2sodW5zaWduZWQgaW50ICps
+b2NrKTsNCj4gPiAtaW50IF9fYWNwaV9yZWxlYXNlX2dsb2JhbF9sb2NrKHVuc2lnbmVkIGludCAq
+bG9jayk7DQo+ID4gLQ0KPiA+IC0jZGVmaW5lIEFDUElfQUNRVUlSRV9HTE9CQUxfTE9DSyhmYWNz
+LCBBY3EpIFwNCj4gPiAtCSgoQWNxKSA9IF9fYWNwaV9hY3F1aXJlX2dsb2JhbF9sb2NrKCZmYWNz
+LT5nbG9iYWxfbG9jaykpDQo+ID4gLQ0KPiA+IC0jZGVmaW5lIEFDUElfUkVMRUFTRV9HTE9CQUxf
+TE9DSyhmYWNzLCBBY3EpIFwNCj4gPiAtCSgoQWNxKSA9IF9fYWNwaV9yZWxlYXNlX2dsb2JhbF9s
+b2NrKCZmYWNzLT5nbG9iYWxfbG9jaykpDQo+ID4gLQ0KPiA+IC0vKg0KPiA+IC0gKiBNYXRoIGhl
+bHBlciBhc20gbWFjcm9zDQo+ID4gLSAqLw0KPiA+IC0jZGVmaW5lIEFDUElfRElWXzY0X0JZXzMy
+KG5faGksIG5fbG8sIGQzMiwgcTMyLCByMzIpIFwNCj4gPiAtCWFzbSgiZGl2bCAlMjsiCQkJCSAg
+ICAgXA0KPiA+IC0JICAgIDogIj1hIihxMzIpLCAiPWQiKHIzMikJCSAgICAgXA0KPiA+IC0JICAg
+IDogInIiKGQzMiksCQkJCSAgICAgXA0KPiA+IC0JICAgICAiMCIobl9sbyksICIxIihuX2hpKSkN
+Cj4gPiAtDQo+ID4gLQ0KPiA+IC0jZGVmaW5lIEFDUElfU0hJRlRfUklHSFRfNjQobl9oaSwgbl9s
+bykgXA0KPiA+IC0JYXNtKCJzaHJsICAgJDEsJTIJOyIJXA0KPiA+IC0JICAgICJyY3JsICAgJDEs
+JTM7IgkJXA0KPiA+IC0JICAgIDogIj1yIihuX2hpKSwgIj1yIihuX2xvKQlcDQo+ID4gLQkgICAg
+OiAiMCIobl9oaSksICIxIihuX2xvKSkNCj4gPiAtDQo+ID4gICNpZmRlZiBDT05GSUdfQUNQSQ0K
+PiA+ICBleHRlcm4gaW50IGFjcGlfbGFwaWM7DQo+ID4gIGV4dGVybiBpbnQgYWNwaV9pb2FwaWM7
+DQo+ID4gZGlmZiAtLWdpdCBhL2luY2x1ZGUvYWNwaS9wbGF0Zm9ybS9hY2xpbnV4LmggYi9pbmNs
+dWRlL2FjcGkvcGxhdGZvcm0vYWNsaW51eC5oDQo+ID4gaW5kZXggYTIwZjA1MS4uOTlkMDU0NiAx
+MDA2NDQNCj4gPiAtLS0gYS9pbmNsdWRlL2FjcGkvcGxhdGZvcm0vYWNsaW51eC5oDQo+ID4gKysr
+IGIvaW5jbHVkZS9hY3BpL3BsYXRmb3JtL2FjbGludXguaA0KPiA+IEBAIC03MSw3ICs3MSw3IEBA
+DQo+ID4gICNpZmRlZiBFWFBPUlRfQUNQSV9JTlRFUkZBQ0VTDQo+ID4gICNpbmNsdWRlIDxsaW51
+eC9leHBvcnQuaD4NCj4gPiAgI2VuZGlmDQo+ID4gLSNpbmNsdWRlIDxhc20vYWNwaS5oPg0KPiA+
+ICsjaW5jbHVkZSA8YXNtL2FjZW52Lmg+DQo+ID4NCj4gPiAgLyogSG9zdC1kZXBlbmRlbnQgdHlw
+ZXMgYW5kIGRlZmluZXMgZm9yIGluLWtlcm5lbCBBQ1BJQ0EgKi8NCj4gPg0KPiA+DQo+IA0KPiAt
+LQ0KPiBJIHNwZWFrIG9ubHkgZm9yIG15c2VsZi4NCj4gUmFmYWVsIEouIFd5c29ja2ksIEludGVs
+IE9wZW4gU291cmNlIFRlY2hub2xvZ3kgQ2VudGVyLg0KPiAtLQ0KPiBUbyB1bnN1YnNjcmliZSBm
+cm9tIHRoaXMgbGlzdDogc2VuZCB0aGUgbGluZSAidW5zdWJzY3JpYmUgbGludXgtYWNwaSIgaW4N
+Cj4gdGhlIGJvZHkgb2YgYSBtZXNzYWdlIHRvIG1ham9yZG9tb0B2Z2VyLmtlcm5lbC5vcmcNCj4g
+TW9yZSBtYWpvcmRvbW8gaW5mbyBhdCAgaHR0cDovL3ZnZXIua2VybmVsLm9yZy9tYWpvcmRvbW8t
+aW5mby5odG1sDQo
