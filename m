@@ -1,75 +1,77 @@
-From: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Date: Tue, 06 May 2014 23:58:15 +0000
-Subject: Re: [PATCH] ACPI / PCI: Stub out pci_acpi_crs_quirks() and make it x86 specific
-Message-Id: <1439713.BEKT8361rO@vostro.rjw.lan>
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Sun, 04 May 2014 04:16:06 +0000
+Subject: Re: [PATCH 00/13] Refactor pci_is_brdige() to simplify code
+Message-Id: <5365BF06.7050108@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1399346670-6525-1-git-send-email-hanjun.guo@linaro.org> <1758433.vFPxG3NoOj@vostro.rjw.lan> <CAErSpo5q1dH1OURw23Qp313sDWPn61dzY5qfkpHB5JJvEQtrpg@mail.gmail.com>
-In-Reply-To: <CAErSpo5q1dH1OURw23Qp313sDWPn61dzY5qfkpHB5JJvEQtrpg@mail.gmail.com>
+References: <1398417515-8740-1-git-send-email-wangyijing@huawei.com> <CAErSpo4fa=fmajhxGA7PRm42S1fS2wV_7w+EWaVh_qiawRAQxA@mail.gmail.com>
+In-Reply-To: <CAErSpo4fa=fmajhxGA7PRm42S1fS2wV_7w+EWaVh_qiawRAQxA@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: Hanjun Guo <hanjun.guo@linaro.org>, Arnd Bergmann <arnd@arndb.de>, Lv Zheng <lv.zheng@intel.com>, Tony Luck <tony.luck@intel.com>, Yijing Wang <wangyijing@huawei.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>, linaro-acpi@lists.linaro.org
+Cc: linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Tony Luck <tony.luck@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, "x86@kernel.org" <x86@kernel.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>
 
-On Tuesday, May 06, 2014 01:24:38 PM Bjorn Helgaas wrote:
-> On Tue, May 6, 2014 at 5:28 AM, Rafael J. Wysocki <rjw@rjwysocki.net> wrote:
-> > On Tuesday, May 06, 2014 11:24:30 AM Hanjun Guo wrote:
-> >> For pci_acpi_crs_quirks(), ia64 already doesn't use it, and we can
-> >> not foresee it should be used in ARM64, so stub out pci_acpi_crs_quirks()
-> >> to avoid introducing platform specific dummy stub function.
-> >>
-> >> Signed-off-by: Hanjun Guo <hanjun.guo@linaro.org>
-> >
-> > Bjorn, what do you think?
+> This needs to be posted to the linux-pci list.  The fact that it
+> wasn't means it's not in patchwork, so it's not on my to-do list.
 > 
-> Looks OK to me.  If you want to avoid the ifdef, we could put an empty
-> weak version in pci_root.c.  Either way,
+> Currently we have one interface: pci_is_bridge().
 > 
-> Reviewed-by: Bjorn Helgaas <bhelgaas@google.com>
+> After your series, we would have two interfaces: pci_is_bridge() and
+> pci_has_subordinate().  Presumably, both are used, and you should
+> explain how you decided which to use at each place.
+> 
+> I assume the difference is that the old pci_is_bridge() is true for a
+> bridge that has a subordinate bus.  The new pci_is_bridge() is true
+> for any bridge, even if there is no subordinate bus.  When do we even
+> have a bridge with no subordinate bus?  This is the sort of stuff you
+> need to explain so we know why we should apply these patches.
+> 
 
-OK, I've queued this up for 3.16.  Thanks!
+Hi Bjorn, sorry forgot to cc pci list, will resend the v2 patchset with
+some new description for new pci_is_bridge().
 
+> 
+>> Yijing Wang (13):
+>>   PCI: rename pci_is_bridge() to pci_has_subordinate()
+>>   PCI: Introduce new pci_is_bridge() helper function
+>>   PCI: Use new pci_is_bridge() to simplify code
+>>   x86/PCI: Use new pci_is_bridge() to simplify code
+>>   IA64/PCI: Use new pci_is_bridge() to simplify code
+>>   powerpc/PCI: Use new pci_is_bridge() to simplify code
+>>   sparc/PCI: Use new pci_is_bridge() to simplify code
+>>   PCI, rpaphp: Use new pci_is_bridge() to simplify code
+>>   PCI, shpchp: Use new pci_is_bridge() to simplify code
+>>   PCI, cpcihp: Use new pci_is_bridge() to simplify code
+>>   PCI, acpiphp: Use new pci_is_bridge() to simplify code
+>>   PCI, pcmcia: Use new pci_is_bridge() to simplify code
+>>   PCI, pciehp: Use new pci_is_bridge() to simplify code
+>>
+>>  arch/ia64/pci/fixup.c                  |    4 +---
+>>  arch/powerpc/kernel/pci-hotplug.c      |    3 +--
+>>  arch/powerpc/kernel/pci_of_scan.c      |    3 +--
+>>  arch/sparc/kernel/pci.c                |    3 +--
+>>  arch/x86/pci/fixup.c                   |    4 +---
+>>  drivers/pci/hotplug/acpiphp_glue.c     |    3 +--
+>>  drivers/pci/hotplug/cpci_hotplug_pci.c |    3 +--
+>>  drivers/pci/hotplug/pciehp_pci.c       |    3 +--
+>>  drivers/pci/hotplug/rpadlpar_core.c    |    3 +--
+>>  drivers/pci/hotplug/shpchp_pci.c       |    3 +--
+>>  drivers/pci/pci-acpi.c                 |    8 +-------
+>>  drivers/pci/pci-driver.c               |    8 ++++----
+>>  drivers/pci/pci.h                      |    2 +-
+>>  drivers/pci/probe.c                    |    3 +--
+>>  drivers/pci/setup-bus.c                |    4 +---
+>>  drivers/pcmcia/cardbus.c               |    3 +--
+>>  include/linux/pci.h                    |    6 ++++++
+>>  17 files changed, 25 insertions(+), 41 deletions(-)
+>>
+>>
+> 
+> .
+> 
 
-> >> ---
-> >>  arch/ia64/include/asm/acpi.h |    1 -
-> >>  include/acpi/acpi_drivers.h  |    5 +++++
-> >>  2 files changed, 5 insertions(+), 1 deletion(-)
-> >>
-> >> diff --git a/arch/ia64/include/asm/acpi.h b/arch/ia64/include/asm/acpi.h
-> >> index d651102..97cb160 100644
-> >> --- a/arch/ia64/include/asm/acpi.h
-> >> +++ b/arch/ia64/include/asm/acpi.h
-> >> @@ -92,7 +92,6 @@ ia64_acpi_release_global_lock (unsigned int *lock)
-> >>  #endif
-> >>  #define acpi_processor_cstate_check(x) (x) /* no idle limits on IA64 :) */
-> >>  static inline void disable_acpi(void) { }
-> >> -static inline void pci_acpi_crs_quirks(void) { }
-> >>
-> >>  #ifdef CONFIG_IA64_GENERIC
-> >>  const char *acpi_get_sysname (void);
-> >> diff --git a/include/acpi/acpi_drivers.h b/include/acpi/acpi_drivers.h
-> >> index d504613..ea6428b 100644
-> >> --- a/include/acpi/acpi_drivers.h
-> >> +++ b/include/acpi/acpi_drivers.h
-> >> @@ -96,7 +96,12 @@ struct pci_dev *acpi_get_pci_dev(acpi_handle);
-> >>  /* Arch-defined function to add a bus to the system */
-> >>
-> >>  struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root);
-> >> +
-> >> +#ifdef CONFIG_X86
-> >>  void pci_acpi_crs_quirks(void);
-> >> +#else
-> >> +static inline void pci_acpi_crs_quirks(void) { }
-> >> +#endif
-> >>
-> >>  /* --------------------------------------------------------------------------
-> >>                                      Processor
-> >>
-> >
-> > --
-> > I speak only for myself.
-> > Rafael J. Wysocki, Intel Open Source Technology Center.
 
 -- 
-I speak only for myself.
-Rafael J. Wysocki, Intel Open Source Technology Center.
+Thanks!
+Yijing
+
