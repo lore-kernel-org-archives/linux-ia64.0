@@ -1,161 +1,72 @@
-From: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
-Date: Fri, 30 May 2014 03:18:38 +0000
-Subject: [RFT PATCH -next v3] [BUGFIX] kprobes: Fix "Failed to find blacklist" error on ia64 and ppc64
-Message-Id: <20140530031838.17427.75896.stgit@ltc230.yrl.intra.hitachi.co.jp>
+From: Hanjun Guo <hanjun.guo@linaro.org>
+Date: Sun, 04 May 2014 08:56:28 +0000
+Subject: Re: [PATCH v3 part1 01/11] ACPI / processor: Rework _PDC related stuff to make it more arch-independ
+Message-Id: <536600BC.3060205@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <5387F150.5000307@hitachi.com>
-In-Reply-To: <5387F150.5000307@hitachi.com>
+References: <1398432017-8506-1-git-send-email-hanjun.guo@linaro.org>	<1398432017-8506-2-git-send-email-hanjun.guo@linaro.org> <20140429093637.75573C4095B@trevor.secretlab.ca>
+In-Reply-To: <20140429093637.75573C4095B@trevor.secretlab.ca>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, "Suzuki K. Poulose" <suzuki@in.ibm.com>, Tony Luck <tony.luck@gmail.com>, Paul Mackerras <paulus@samba.org>
-Cc: Jeremy Fitzhardinge <jeremy@goop.org>, linux-ia64@vger.kernel.org, sparse@chrisli.org, "H. Peter Anvin" <hpa@zytor.com>, Thomas Gleixner <tglx@linutronix.de>, linux-tip-commits@vger.kernel.org, anil.s.keshavamurthy@intel.com, Ingo Molnar <mingo@kernel.org>, Fenghua Yu <fenghua.yu@intel.com>, Arnd Bergmann <arnd@arndb.de>, Rusty Russell <rusty@rustcorp.com.au>, Chris Wright <chrisw@sous-sol.org>, yrl.pp-manager.tt@hitachi.com, akataria@vmware.com, Tony Luck <tony.luck@intel.com>, Kevin Hao <haokexin@gmail.com>, Ananth N Mavinakayanahalli <ananth@in.ibm.com>, linuxppc-dev@lists.ozlabs.org, rdunlap@infradead.org, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, dl9pf@gmx.de, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="macroman"
+Content-Transfer-Encoding: base64
+To: Grant Likely <grant.likely@linaro.org>, linux-arm-kernel@lists.infradead.org, linux-acpi@vger.kernel.org
+Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>, Catalin Marinas <catalin.marinas@arm.com>, Arnd Bergmann <arnd@arndb.de>, Mark Brown <broonie@linaro.org>, Sudeep Holla <Sudeep.Holla@arm.com>, Olof Johansson <olof@lixom.net>, Mark Rutland <mark.rutland@arm.com>, Rob Herring <robh@kernel.org>, Will Deacon <will.deacon@arm.com>, Charles.Garcia-Tobin@arm.com, linaro-acpi@lists.linaro.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, linux-ia64@vger.kernel.org, Graeme Gregory <graeme.gregory@linaro.org>
 
-On ia64 and ppc64, the function pointer does not point the
-entry address of the function, but the address of function
-discriptor (which contains the entry address and misc
-data.) Since the kprobes passes the function pointer stored
-by NOKPROBE_SYMBOL() to kallsyms_lookup_size_offset() for
-initalizing its blacklist, it fails and reports many errors
-as below.
-
-  Failed to find blacklist 0001013168300000
-  Failed to find blacklist 0001013000f0a000
-  Failed to find blacklist 000101315f70a000
-  Failed to find blacklist 000101324c80a000
-  Failed to find blacklist 0001013063f0a000
-  Failed to find blacklist 000101327800a000
-  Failed to find blacklist 0001013277f0a000
-  Failed to find blacklist 000101315a70a000
-  Failed to find blacklist 0001013277e0a000
-  Failed to find blacklist 000101305a20a000
-  Failed to find blacklist 0001013277d0a000
-  Failed to find blacklist 00010130bdc0a000
-  Failed to find blacklist 00010130dc20a000
-  Failed to find blacklist 000101309a00a000
-  Failed to find blacklist 0001013277c0a000
-  Failed to find blacklist 0001013277b0a000
-  Failed to find blacklist 0001013277a0a000
-  Failed to find blacklist 000101327790a000
-  Failed to find blacklist 000101303140a000
-  Failed to find blacklist 0001013a3280a000
-
-To fix this bug, this introduces function_entry() macro to
-retrieve the entry address from the given function pointer,
-and uses for kallsyms_lookup_size_offset() while initializing
-blacklist.
-
-Changes in v3:
- - Fix a bug to get blacklist address based on function entry
-   instead of function descriptor. (Suzuki's work, Thanks!)
-
-Changes in V2:
- - Use function_entry() macro when lookin up symbols instead
-   of storing it.
- - Update for the latest -next.
-
-Signed-off-by: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
-Signed-off-by: Suzuki K. Poulose <suzuki@in.ibm.com>
-Reported-by: Tony Luck <tony.luck@gmail.com>
-Cc: Suzuki K. Poulose <suzuki@in.ibm.com>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Cc: Paul Mackerras <paulus@samba.org>
-Cc: Ananth N Mavinakayanahalli <ananth@in.ibm.com>
-Cc: Kevin Hao <haokexin@gmail.com>
-Cc: linux-ia64@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Cc: linuxppc-dev@lists.ozlabs.org
----
- arch/ia64/include/asm/types.h    |    2 ++
- arch/powerpc/include/asm/types.h |   11 +++++++++++
- include/linux/types.h            |    4 ++++
- kernel/kprobes.c                 |   11 +++++++----
- 4 files changed, 24 insertions(+), 4 deletions(-)
-
-diff --git a/arch/ia64/include/asm/types.h b/arch/ia64/include/asm/types.h
-index 4c351b1..95279dd 100644
---- a/arch/ia64/include/asm/types.h
-+++ b/arch/ia64/include/asm/types.h
-@@ -27,5 +27,7 @@ struct fnptr {
- 	unsigned long gp;
- };
- 
-+#define function_entry(fn) (((struct fnptr *)(fn))->ip)
-+
- #endif /* !__ASSEMBLY__ */
- #endif /* _ASM_IA64_TYPES_H */
-diff --git a/arch/powerpc/include/asm/types.h b/arch/powerpc/include/asm/types.h
-index bfb6ded..8b89d65 100644
---- a/arch/powerpc/include/asm/types.h
-+++ b/arch/powerpc/include/asm/types.h
-@@ -25,6 +25,17 @@ typedef struct {
- 	unsigned long env;
- } func_descr_t;
- 
-+#if defined(CONFIG_PPC64) && (!defined(_CALL_ELF) || _CALL_ELF = 1)
-+/*
-+ * On PPC64 ABIv1 the function pointer actually points to the
-+ * function's descriptor. The first entry in the descriptor is the
-+ * address of the function text.
-+ */
-+#define function_entry(fn)	(((func_descr_t *)(fn))->entry)
-+#else
-+#define function_entry(fn)	((unsigned long)(fn))
-+#endif
-+
- #endif /* __ASSEMBLY__ */
- 
- #endif /* _ASM_POWERPC_TYPES_H */
-diff --git a/include/linux/types.h b/include/linux/types.h
-index a0bb704..3b95369 100644
---- a/include/linux/types.h
-+++ b/include/linux/types.h
-@@ -213,5 +213,9 @@ struct callback_head {
- };
- #define rcu_head callback_head
- 
-+#ifndef function_entry
-+#define function_entry(fn)	((unsigned long)(fn))
-+#endif
-+
- #endif /*  __ASSEMBLY__ */
- #endif /* _LINUX_TYPES_H */
-diff --git a/kernel/kprobes.c b/kernel/kprobes.c
-index 2ac9f13..3f2d6d4 100644
---- a/kernel/kprobes.c
-+++ b/kernel/kprobes.c
-@@ -32,6 +32,7 @@
-  *		<prasanna@in.ibm.com> added function-return probes.
-  */
- #include <linux/kprobes.h>
-+#include <linux/types.h>
- #include <linux/hash.h>
- #include <linux/init.h>
- #include <linux/slab.h>
-@@ -2042,16 +2043,18 @@ static int __init populate_kprobe_blacklist(unsigned long *start,
- 	unsigned long offset = 0, size = 0;
- 
- 	for (iter = start; iter < end; iter++) {
--		if (!kallsyms_lookup_size_offset(*iter, &size, &offset)) {
--			pr_err("Failed to find blacklist %p\n", (void *)*iter);
-+		unsigned long entry = function_entry(*iter);
-+		if (!kallsyms_lookup_size_offset(entry, &size, &offset)) {
-+			pr_err("Failed to find blacklist at %p\n",
-+			       (void *)entry);
- 			continue;
- 		}
- 
- 		ent = kmalloc(sizeof(*ent), GFP_KERNEL);
- 		if (!ent)
- 			return -ENOMEM;
--		ent->start_addr = *iter;
--		ent->end_addr = *iter + size;
-+		ent->start_addr = entry;
-+		ent->end_addr = entry + size;
- 		INIT_LIST_HEAD(&ent->list);
- 		list_add_tail(&ent->list, &kprobe_blacklist);
- 	}
-
-
+SGkgR3JhbnQsCgpPbiAyMDE0LTQtMjkgMTc6MzYsIEdyYW50IExpa2VseSB3cm90ZToKPiBPbiBG
+cmksIDI1IEFwciAyMDE0IDIxOjIwOjA3ICswODAwLCBIYW5qdW4gR3VvIDxoYW5qdW4uZ3VvQGxp
+bmFyby5vcmc+IHdyb3RlOgo+PiBfUERDIHJlbGF0ZWQgc3R1ZmYgaW4gcHJvY2Vzc29yX2NvcmUu
+YyBpcyBsaXR0bGUgYml0IFg4Ni9JQTY0Cj4+IGRlcGVuZGVudCwgbWFjcm9zIG9mIEFDUElfUERD
+XyogYXJlIF9QREMgYml0IGRlZmluaXRpb25zIGZvcgo+PiBJbnRlbCBwcm9jZXNzb3JzLCBpZiB3
+ZSB1c2UgdGhlc2UgbWFjcm9zIGluIHByb2Nlc3Nvcl9jb3JlLmMsCj4+IHdlIHdpbGwgbWVldCBj
+b21waWxlIGVycm9yIHdoZW4gQUNQSSBpcyBlbmFibGVkIG9uIEFSTTY0Lgo+Pgo+PiBUaGlzIHBh
+dGNoIHJld29ya3MgdGhlIGNvZGUgdG8gbWFrZSBpdCBtb3JlIGFyY2gtaW5kZXBlbmRlbnQsCj4+
+IG1vdmluZyBJbnRlbCByZWxhdGVkIF9QREMgYml0cyBpbnRvIGFyY2hpdGVjdHVyZSBkaXJlY3Rv
+cnksCj4+IG5vIGZ1bmN0aW9uYWwgY2hhbmdlLgo+Pgo+PiBDYzogVG9ueSBMdWNrIDx0b255Lmx1
+Y2tAaW50ZWwuY29tPgo+PiBDYzogRmVuZ2h1YSBZdSA8ZmVuZ2h1YS55dUBpbnRlbC5jb20+Cj4+
+IENjOiBUaG9tYXMgR2xlaXhuZXIgPHRnbHhAbGludXRyb25peC5kZT4KPj4gQ2M6ICJILiBQZXRl
+ciBBbnZpbiIgPGhwYUB6eXRvci5jb20+Cj4+IENjOiB4ODZAa2VybmVsLm9yZwo+PiBDYzogbGlu
+dXgtaWE2NEB2Z2VyLmtlcm5lbC5vcmcKPj4gU2lnbmVkLW9mZi1ieTogSGFuanVuIEd1byA8aGFu
+anVuLmd1b0BsaW5hcm8ub3JnPgo+PiBTaWduZWQtb2ZmLWJ5OiBHcmFlbWUgR3JlZ29yeSA8Z3Jh
+ZW1lLmdyZWdvcnlAbGluYXJvLm9yZz4KPj4gLS0tCj4+ICBhcmNoL2lhNjQvaW5jbHVkZS9hc20v
+YWNwaS5oICB8ICAgIDUgKy0tLS0KPj4gIGFyY2gvaWE2NC9rZXJuZWwvYWNwaS5jICAgICAgIHwg
+ICAxNSArKysrKysrKysrKysrKysKPj4gIGFyY2gveDg2L2luY2x1ZGUvYXNtL2FjcGkuaCAgIHwg
+ICAxOSArLS0tLS0tLS0tLS0tLS0tLS0tCj4+ICBhcmNoL3g4Ni9rZXJuZWwvYWNwaS9jc3RhdGUu
+YyB8ICAgMjcgKysrKysrKysrKysrKysrKysrKysrKysrKysrCj4+ICBkcml2ZXJzL2FjcGkvcHJv
+Y2Vzc29yX2NvcmUuYyB8ICAgMTkgKy0tLS0tLS0tLS0tLS0tLS0tLQo+PiAgNSBmaWxlcyBjaGFu
+Z2VkLCA0NSBpbnNlcnRpb25zKCspLCA0MCBkZWxldGlvbnMoLSkKPj4KPj4gZGlmZiAtLWdpdCBh
+L2FyY2gvaWE2NC9pbmNsdWRlL2FzbS9hY3BpLmggYi9hcmNoL2lhNjQvaW5jbHVkZS9hc20vYWNw
+aS5oCj4+IGluZGV4IGQ2NTExMDIuLmQyYjhiOWQgMTAwNjQ0Cj4+IC0tLSBhL2FyY2gvaWE2NC9p
+bmNsdWRlL2FzbS9hY3BpLmgKPj4gKysrIGIvYXJjaC9pYTY0L2luY2x1ZGUvYXNtL2FjcGkuaAo+
+PiBAQCAtMTUyLDEwICsxNTIsNyBAQCBleHRlcm4gaW50IF9faW5pdGRhdGEgbmlkX3RvX3B4bV9t
+YXBbTUFYX05VTU5PREVTXTsKPj4gICNlbmRpZgo+PiAgCj4+ICBzdGF0aWMgaW5saW5lIGJvb2wg
+YXJjaF9oYXNfYWNwaV9wZGModm9pZCkgeyByZXR1cm4gdHJ1ZTsgfQo+PiAtc3RhdGljIGlubGlu
+ZSB2b2lkIGFyY2hfYWNwaV9zZXRfcGRjX2JpdHModTMyICpidWYpCj4+IC17Cj4+IC0JYnVmWzJd
+IHw9IEFDUElfUERDX0VTVF9DQVBBQklMSVRZX1NNUDsKPj4gLX0KPj4gK2V4dGVybiB2b2lkIGFy
+Y2hfYWNwaV9zZXRfcGRjX2JpdHModTMyICpidWYpOwo+PiAgCj4+ICAjZGVmaW5lIGFjcGlfdW5s
+YXp5X3RsYih4KQo+PiAgCj4+IGRpZmYgLS1naXQgYS9hcmNoL2lhNjQva2VybmVsL2FjcGkuYyBi
+L2FyY2gvaWE2NC9rZXJuZWwvYWNwaS5jCj4+IGluZGV4IDBkNDA3YjMuLjIzZTliNDAgMTAwNjQ0
+Cj4+IC0tLSBhL2FyY2gvaWE2NC9rZXJuZWwvYWNwaS5jCj4+ICsrKyBiL2FyY2gvaWE2NC9rZXJu
+ZWwvYWNwaS5jCj4+IEBAIC05OTYsMyArOTk2LDE4IEBAIEVYUE9SVF9TWU1CT0woYWNwaV91bnJl
+Z2lzdGVyX2lvYXBpYyk7Cj4+ICAgKiBUQkQgd2hlbiB3aGVuIElBNjQgc3RhcnRzIHRvIHN1cHBv
+cnQgc3VzcGVuZC4uLgo+PiAgICovCj4+ICBpbnQgYWNwaV9zdXNwZW5kX2xvd2xldmVsKHZvaWQp
+IHsgcmV0dXJuIDA7IH0KPj4gKwo+PiArdm9pZCBhcmNoX2FjcGlfc2V0X3BkY19iaXRzKHUzMiAq
+YnVmKQo+PiArewo+PiArCS8qIEVuYWJsZSBjb29yZGluYXRpb24gd2l0aCBmaXJtd2FyZSdzIF9U
+U0QgaW5mbyAqLwo+PiArCWJ1ZlsyXSB8PSBBQ1BJX1BEQ19TTVBfVF9TV0NPT1JEIHwgQUNQSV9Q
+RENfRVNUX0NBUEFCSUxJVFlfU01QOwo+PiArCj4+ICsJaWYgKGJvb3Rfb3B0aW9uX2lkbGVfb3Zl
+cnJpZGUgPSBJRExFX05PTVdBSVQpIHsKPj4gKwkJLyoKPj4gKwkJICogSWYgbXdhaXQgaXMgZGlz
+YWJsZWQgZm9yIENQVSBDLXN0YXRlcywgdGhlIEMyQzNfRkZIIGFjY2Vzcwo+PiArCQkgKiBtb2Rl
+IHdpbGwgYmUgZGlzYWJsZWQgaW4gdGhlIHBhcmFtZXRlciBvZiBfUERDIG9iamVjdC4KPj4gKwkJ
+ICogT2YgY291cnNlIEMxX0ZGSCBhY2Nlc3MgbW9kZSB3aWxsIGFsc28gYmUgZGlzYWJsZWQuCj4+
+ICsJCSAqLwo+PiArCQlidWZbMl0gJj0gfihBQ1BJX1BEQ19DX0MyQzNfRkZIIHwgQUNQSV9QRENf
+Q19DMV9GRkgpOwo+PiArCX0KPj4gK30KPiAKPiBUaGUgY29tbWl0IHRleHQgbWFrZXMgbm8gY29t
+bWVudCBhYm91dCB3aHkgdGhpcyBmdW5jdGlvbiBpcyBiZWluZyBtb3ZlZAo+IGZyb20gYSBzdGF0
+aWMgaW5saW5lIHRvIGFuIGV4dGVybiBpbiB0aGUgYWNwaS5jIGZpbGUuIEkgYXNzdW1lIGl0IGlz
+Cj4gYmVjYXVzZSBpdCBuZWVkcyBhY2Nlc3MgdG8gdGhlIGJvb3Rfb3B0aW9uX2lkbGVfb3ZlcnJp
+ZGUgZ2xvYmFsCj4gdmFyaWFibGUsIGJ1dCBpdCBpc24ndCBpbW1lZGlhdGVseSBvYnZpb3VzLCBh
+bmQgc2hvdWxkIGJlIGRlc2NyaWJlZCBpbgo+IHRoZSBjb21taXQgdGV4dC4KCk9rLCB3ZSB3aWxs
+IHVwZGF0ZSB0aGUgY29tbWl0IHRleHQgYXMgeW91IHN1Z2dlc3RlZC4KCj4gCj4gT3RoZXJ3aXNl
+LCB0aGUgcGF0Y2ggbG9va3Mgc2FuZS4KPiAKPiBSZXZpZXdlZC1ieTogR3JhbnQgTGlrZWx5IDxn
+cmFudC5saWtlbHlAbGluYXJvLm9yZz4KClRoYW5rc++8gQoKSGFuanVuCgotLQpUbyB1bnN1YnNj
+cmliZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0aGUgbGluZSAidW5zdWJzY3JpYmUgbGludXgtaWE2
+NCIgaW4KdGhlIGJvZHkgb2YgYSBtZXNzYWdlIHRvIG1ham9yZG9tb0B2Z2VyLmtlcm5lbC5vcmcK
+TW9yZSBtYWpvcmRvbW8gaW5mbyBhdCAgaHR0cDovL3ZnZXIua2VybmVsLm9yZy9tYWpvcmRvbW8t
+aW5mby5odG1s
