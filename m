@@ -1,7 +1,7 @@
 From: Yijing Wang <wangyijing@huawei.com>
-Date: Sun, 04 May 2014 04:23:37 +0000
-Subject: [PATCH v2 02/13] PCI: Introduce new pci_is_bridge() helper function
-Message-Id: <1399177428-3784-3-git-send-email-wangyijing@huawei.com>
+Date: Sun, 04 May 2014 04:23:45 +0000
+Subject: [PATCH v2 10/13] PCI, cpcihp: Use new pci_is_bridge() to simplify code
+Message-Id: <1399177428-3784-11-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1399177428-3784-1-git-send-email-wangyijing@huawei.com>
 In-Reply-To: <1399177428-3784-1-git-send-email-wangyijing@huawei.com>
@@ -11,39 +11,28 @@ Content-Transfer-Encoding: 7bit
 To: Bjorn Helgaas <bhelgaas@google.com>
 Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, linux-pci@vger.kernel.org, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, x86@kernel.org, Yijing Wang <wangyijing@huawei.com>
 
-PCIe Spec define the PCI bridge is the PCI device
-which header type(bit 0 through 6) is 0x1(PCI bridge)
-or 0x2(CardBus bridge).
+Now we can use new pci_is_bridge() helper function
+to simplify code.
 
 Signed-off-by: Yijing Wang <wangyijing@huawei.com>
 ---
- include/linux/pci.h |   13 +++++++++++++
- 1 files changed, 13 insertions(+), 0 deletions(-)
+ drivers/pci/hotplug/cpci_hotplug_pci.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/pci.h b/include/linux/pci.h
-index aab57b4..9f5f89e 100644
---- a/include/linux/pci.h
-+++ b/include/linux/pci.h
-@@ -477,6 +477,19 @@ static inline bool pci_is_root_bus(struct pci_bus *pbus)
- 	return !(pbus->parent);
- }
+diff --git a/drivers/pci/hotplug/cpci_hotplug_pci.c b/drivers/pci/hotplug/cpci_hotplug_pci.c
+index 8c14648..9843371 100644
+--- a/drivers/pci/hotplug/cpci_hotplug_pci.c
++++ b/drivers/pci/hotplug/cpci_hotplug_pci.c
+@@ -289,8 +289,7 @@ int __ref cpci_configure_slot(struct slot *slot)
+ 	list_for_each_entry(dev, &parent->devices, bus_list)
+ 		if (PCI_SLOT(dev->devfn) != PCI_SLOT(slot->devfn))
+ 			continue;
+-		if ((dev->hdr_type = PCI_HEADER_TYPE_BRIDGE) ||
+-		    (dev->hdr_type = PCI_HEADER_TYPE_CARDBUS))
++		if (pci_is_bridge(dev))
+ 			pci_hp_add_bridge(dev);
  
-+/**
-+ * pci_is_bridge - check if the PCI device is a bridge
-+ * @dev: PCI device
-+ *
-+ * Return true if the PCI device is bridge whether it has subordinate
-+ * or not.
-+ */
-+static inline bool pci_is_bridge(struct pci_dev *dev)
-+{
-+	return dev->hdr_type = PCI_HEADER_TYPE_BRIDGE ||
-+		dev->hdr_type = PCI_HEADER_TYPE_CARDBUS;
-+}
-+
- static inline struct pci_dev *pci_upstream_bridge(struct pci_dev *dev)
- {
- 	dev = pci_physfn(dev);
+ 
 -- 
 1.7.1
 
