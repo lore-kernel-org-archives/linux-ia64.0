@@ -1,36 +1,56 @@
-From: =?UTF-8?Q?=C3=89meric_MASCHINO?= <emeric.maschino@gmail.com>
-Date: Thu, 22 May 2014 17:09:52 +0000
-Subject: Outdated configuration files in arch/ia64/configs
-Message-Id: <CAA9xbM4urvd_S=S66p-6=YN0VK0NuyoDRctsVgHZ9vu3Nrhh0w@mail.gmail.com>
+From: Baoquan He <bhe@redhat.com>
+Date: Mon, 05 May 2014 04:48:26 +0000
+Subject: [Patch v3 2/2] lapic need be checked if available when initialize acpi processor id
+Message-Id: <1399265306-8553-2-git-send-email-bhe@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1399265306-8553-1-git-send-email-bhe@redhat.com>
+In-Reply-To: <1399265306-8553-1-git-send-email-bhe@redhat.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
-To: linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: rjw@rjwysocki.net, linux-acpi@vger.kernel.org, linux-ia64@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, dyoung@redhat.com, Baoquan He <bhe@redhat.com>
 
-Hi,
+In acpi_processor_get_info(), acpi processor info is initialized including
+id, namely cpu index. Currently, if on UP system running SMP kerenl with
+no LAPIC in MADT, cpu0_initialized is checked if acpi processor id is
+initialized.
 
-As alluded to earlier [1], I'm wondering how the various ia64 default
-kernel configuration files in arch/ia64/configs are maintained?
+However this check maybe is not sufficient for kdump kernel. Most of time
+only 1 CPU is supported because of known problems in kdump kernel. So in
+1st kernel multiple CPUs are present, then crash happened in one specific
+CPU, say 2nd CPU. Then it jumped into kdump kernel with "nr_cpus=1" specified
+in cmdline. In this situation, since kdump kernel is warm reset, it will
+reuse the ACPI resource passed from crashed kernel directly, namely 1st
+kernel. It means in MADT all LAPIC is enabled while only 1 CPU is
+present in running system. The kdump kernel usually is the same as the
+crashed 1st kernel. So now in kdump kernel, x86_cpu_to_apicid stored the
+apicid and its related cpu id. If only check cpu0_initialized, it will
+assign 0 to the acpi processor id of 1st CPU, it's not correct.
 
-For example, the zx1_defconfig file is pretty outdated, leading to
-e.g. broken 3D hardware acceleration on zx1-based systems for many
-years [1], just because the timer interrupt frequency hasn't been
-overidden there appropriately when the selectable timer interrupt
-frequency was introduced in May 2005 [2]. zx1-based systems thus
-inherit a default 250 HZ timer frequency from other generic (read,
-non-ia64) default kernel configuration files that is unfortunately
-used by the various Linux distributions to provide prebuilt kernel
-binary packages.
+So in this patch, check acpi_lapic too. If acpi_lapic is 0, then LAPIC in
+MADT is not available, assigne 0 to the handling acpi processor id. If
+acpi_lapic is 1, then LAPIC in MADT is available, let's get apic processor
+id from x86_cpu_to_apicid.
 
-Similarly, the zx1_defconfig file still adds to the kernel the CMD649
-chipset using the deprecated ATA/ATAPI/MFM/RLL API (CONFIG_IDE=3Dy,
-CONFIG_BLK_DEV_IDECD=3Dy, CONFIG_BLK_DEV_CMD64X=3Dy) whereas the SATA/PATA
-API is the way to go nowadays (CONFIG_ATA_SFF=3Dy, CONFIG_ATA_BMDMA=3Dy,
-CONFIG_PATA_CMD64X=3Dy).
+Signed-off-by: Baoquan He <bhe@redhat.com>
+---
+ drivers/acpi/acpi_processor.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-     =C3=89meric
+diff --git a/drivers/acpi/acpi_processor.c b/drivers/acpi/acpi_processor.c
+index b06f5f5..bf0cce9 100644
+--- a/drivers/acpi/acpi_processor.c
++++ b/drivers/acpi/acpi_processor.c
+@@ -268,7 +268,7 @@ static int acpi_processor_get_info(struct acpi_device *device)
+ 	pr->apic_id = apic_id;
+ 
+ 	cpu_index = acpi_map_cpuid(pr->apic_id, pr->acpi_id);
+-	if (!cpu0_initialized) {
++	if (!cpu0_initialized && !acpi_lapic) {
+ 		cpu0_initialized = 1;
+ 		/* Handle UP system running SMP kernel, with no LAPIC in MADT */
+ 		if ((cpu_index = -1) && (num_online_cpus() = 1))
+-- 
+1.8.5.3
 
-
-[1] http://marc.info/?l=3Dlinux-ia64&m=140077543819871&w=3D2
-[2] http://marc.info/?l=3Dlinux-ia64&m=111643909323936&w=3D2
