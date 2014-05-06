@@ -1,31 +1,53 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Date: Wed, 28 May 2014 22:46:27 +0000
-Subject: Re: ia64: CONFIG_PARAVIRT_GUEST_ASM_CLOBBER_CHECK?
-Message-Id: <1401317187.6186.36.camel@x220>
+From: Hanjun Guo <hanjun.guo@linaro.org>
+Date: Tue, 06 May 2014 03:24:30 +0000
+Subject: [PATCH] ACPI / PCI: Stub out pci_acpi_crs_quirks() and make it x86 specific
+Message-Id: <1399346670-6525-1-git-send-email-hanjun.guo@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1400748416.16832.7.camel@x220>
-In-Reply-To: <1400748416.16832.7.camel@x220>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: "Rafael J. Wysocki" <rjw@rjwysocki.net>
+Cc: Arnd Bergmann <arnd@arndb.de>, Lv Zheng <lv.zheng@intel.com>, Tony Luck <tony.luck@intel.com>, Yijing Wang <wangyijing@huawei.com>, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, linaro-acpi@lists.linaro.org, Hanjun Guo <hanjun.guo@linaro.org>
 
-On Wed, 2014-05-28 at 22:34 +0000, Luck, Tony wrote:
-> > Was this macro intended to be set through the kconfig tools? Or was it
-> > perhaps intended to be set manually whenever one wanted to use it?
-> > Either way, is that macro and the code currently hidden behind it still
-> > needed?
-> 
-> I think it may be moot.  Xen support was ripped out in December last
-> year by commit d52eefb47d4 ... so this even if this PARAVIRT piece
-> one did something, it is all history now.
+For pci_acpi_crs_quirks(), ia64 already doesn't use it, and we can
+not foresee it should be used in ARM64, so stub out pci_acpi_crs_quirks()
+to avoid introducing platform specific dummy stub function.
 
-Should I draft an (untested, I'm afraid) patch to remove
-CONFIG_PARAVIRT_GUEST_ASM_CLOBBER_CHECK and everything hidden behind it?
-Or would you prefer to do that yourself?
+Signed-off-by: Hanjun Guo <hanjun.guo@linaro.org>
+---
+ arch/ia64/include/asm/acpi.h |    1 -
+ include/acpi/acpi_drivers.h  |    5 +++++
+ 2 files changed, 5 insertions(+), 1 deletion(-)
 
-Thanks,
-
-
-Paul Bolle
+diff --git a/arch/ia64/include/asm/acpi.h b/arch/ia64/include/asm/acpi.h
+index d651102..97cb160 100644
+--- a/arch/ia64/include/asm/acpi.h
++++ b/arch/ia64/include/asm/acpi.h
+@@ -92,7 +92,6 @@ ia64_acpi_release_global_lock (unsigned int *lock)
+ #endif
+ #define acpi_processor_cstate_check(x) (x) /* no idle limits on IA64 :) */
+ static inline void disable_acpi(void) { }
+-static inline void pci_acpi_crs_quirks(void) { }
+ 
+ #ifdef CONFIG_IA64_GENERIC
+ const char *acpi_get_sysname (void);
+diff --git a/include/acpi/acpi_drivers.h b/include/acpi/acpi_drivers.h
+index d504613..ea6428b 100644
+--- a/include/acpi/acpi_drivers.h
++++ b/include/acpi/acpi_drivers.h
+@@ -96,7 +96,12 @@ struct pci_dev *acpi_get_pci_dev(acpi_handle);
+ /* Arch-defined function to add a bus to the system */
+ 
+ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root);
++
++#ifdef CONFIG_X86
+ void pci_acpi_crs_quirks(void);
++#else
++static inline void pci_acpi_crs_quirks(void) { }
++#endif
+ 
+ /* --------------------------------------------------------------------------
+                                     Processor
+-- 
+1.7.9.5
 
