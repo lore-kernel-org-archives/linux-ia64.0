@@ -1,72 +1,64 @@
-From: Hanjun Guo <hanjun.guo@linaro.org>
-Date: Sun, 04 May 2014 08:56:28 +0000
-Subject: Re: [PATCH v3 part1 01/11] ACPI / processor: Rework _PDC related stuff to make it more arch-independ
-Message-Id: <536600BC.3060205@linaro.org>
+From: =?UTF-8?Q?=C3=89meric_MASCHINO?= <emeric.maschino@gmail.com>
+Date: Thu, 15 May 2014 00:32:33 +0000
+Subject: [regression][bisected] zx1 AGP GART no more detected since merge of 'acpi-scan' branch
+Message-Id: <CAA9xbM4=Rt3hVYEUv2GoWNex8cCeaxnBUWEc4_6mF_cLRLZZ2A@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1398432017-8506-1-git-send-email-hanjun.guo@linaro.org>	<1398432017-8506-2-git-send-email-hanjun.guo@linaro.org> <20140429093637.75573C4095B@trevor.secretlab.ca>
-In-Reply-To: <20140429093637.75573C4095B@trevor.secretlab.ca>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="macroman"
-Content-Transfer-Encoding: base64
-To: Grant Likely <grant.likely@linaro.org>, linux-arm-kernel@lists.infradead.org, linux-acpi@vger.kernel.org
-Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>, Catalin Marinas <catalin.marinas@arm.com>, Arnd Bergmann <arnd@arndb.de>, Mark Brown <broonie@linaro.org>, Sudeep Holla <Sudeep.Holla@arm.com>, Olof Johansson <olof@lixom.net>, Mark Rutland <mark.rutland@arm.com>, Rob Herring <robh@kernel.org>, Will Deacon <will.deacon@arm.com>, Charles.Garcia-Tobin@arm.com, linaro-acpi@lists.linaro.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, linux-ia64@vger.kernel.org, Graeme Gregory <graeme.gregory@linaro.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: quoted-printable
+To: linux-ia64@vger.kernel.org
 
-SGkgR3JhbnQsCgpPbiAyMDE0LTQtMjkgMTc6MzYsIEdyYW50IExpa2VseSB3cm90ZToKPiBPbiBG
-cmksIDI1IEFwciAyMDE0IDIxOjIwOjA3ICswODAwLCBIYW5qdW4gR3VvIDxoYW5qdW4uZ3VvQGxp
-bmFyby5vcmc+IHdyb3RlOgo+PiBfUERDIHJlbGF0ZWQgc3R1ZmYgaW4gcHJvY2Vzc29yX2NvcmUu
-YyBpcyBsaXR0bGUgYml0IFg4Ni9JQTY0Cj4+IGRlcGVuZGVudCwgbWFjcm9zIG9mIEFDUElfUERD
-XyogYXJlIF9QREMgYml0IGRlZmluaXRpb25zIGZvcgo+PiBJbnRlbCBwcm9jZXNzb3JzLCBpZiB3
-ZSB1c2UgdGhlc2UgbWFjcm9zIGluIHByb2Nlc3Nvcl9jb3JlLmMsCj4+IHdlIHdpbGwgbWVldCBj
-b21waWxlIGVycm9yIHdoZW4gQUNQSSBpcyBlbmFibGVkIG9uIEFSTTY0Lgo+Pgo+PiBUaGlzIHBh
-dGNoIHJld29ya3MgdGhlIGNvZGUgdG8gbWFrZSBpdCBtb3JlIGFyY2gtaW5kZXBlbmRlbnQsCj4+
-IG1vdmluZyBJbnRlbCByZWxhdGVkIF9QREMgYml0cyBpbnRvIGFyY2hpdGVjdHVyZSBkaXJlY3Rv
-cnksCj4+IG5vIGZ1bmN0aW9uYWwgY2hhbmdlLgo+Pgo+PiBDYzogVG9ueSBMdWNrIDx0b255Lmx1
-Y2tAaW50ZWwuY29tPgo+PiBDYzogRmVuZ2h1YSBZdSA8ZmVuZ2h1YS55dUBpbnRlbC5jb20+Cj4+
-IENjOiBUaG9tYXMgR2xlaXhuZXIgPHRnbHhAbGludXRyb25peC5kZT4KPj4gQ2M6ICJILiBQZXRl
-ciBBbnZpbiIgPGhwYUB6eXRvci5jb20+Cj4+IENjOiB4ODZAa2VybmVsLm9yZwo+PiBDYzogbGlu
-dXgtaWE2NEB2Z2VyLmtlcm5lbC5vcmcKPj4gU2lnbmVkLW9mZi1ieTogSGFuanVuIEd1byA8aGFu
-anVuLmd1b0BsaW5hcm8ub3JnPgo+PiBTaWduZWQtb2ZmLWJ5OiBHcmFlbWUgR3JlZ29yeSA8Z3Jh
-ZW1lLmdyZWdvcnlAbGluYXJvLm9yZz4KPj4gLS0tCj4+ICBhcmNoL2lhNjQvaW5jbHVkZS9hc20v
-YWNwaS5oICB8ICAgIDUgKy0tLS0KPj4gIGFyY2gvaWE2NC9rZXJuZWwvYWNwaS5jICAgICAgIHwg
-ICAxNSArKysrKysrKysrKysrKysKPj4gIGFyY2gveDg2L2luY2x1ZGUvYXNtL2FjcGkuaCAgIHwg
-ICAxOSArLS0tLS0tLS0tLS0tLS0tLS0tCj4+ICBhcmNoL3g4Ni9rZXJuZWwvYWNwaS9jc3RhdGUu
-YyB8ICAgMjcgKysrKysrKysrKysrKysrKysrKysrKysrKysrCj4+ICBkcml2ZXJzL2FjcGkvcHJv
-Y2Vzc29yX2NvcmUuYyB8ICAgMTkgKy0tLS0tLS0tLS0tLS0tLS0tLQo+PiAgNSBmaWxlcyBjaGFu
-Z2VkLCA0NSBpbnNlcnRpb25zKCspLCA0MCBkZWxldGlvbnMoLSkKPj4KPj4gZGlmZiAtLWdpdCBh
-L2FyY2gvaWE2NC9pbmNsdWRlL2FzbS9hY3BpLmggYi9hcmNoL2lhNjQvaW5jbHVkZS9hc20vYWNw
-aS5oCj4+IGluZGV4IGQ2NTExMDIuLmQyYjhiOWQgMTAwNjQ0Cj4+IC0tLSBhL2FyY2gvaWE2NC9p
-bmNsdWRlL2FzbS9hY3BpLmgKPj4gKysrIGIvYXJjaC9pYTY0L2luY2x1ZGUvYXNtL2FjcGkuaAo+
-PiBAQCAtMTUyLDEwICsxNTIsNyBAQCBleHRlcm4gaW50IF9faW5pdGRhdGEgbmlkX3RvX3B4bV9t
-YXBbTUFYX05VTU5PREVTXTsKPj4gICNlbmRpZgo+PiAgCj4+ICBzdGF0aWMgaW5saW5lIGJvb2wg
-YXJjaF9oYXNfYWNwaV9wZGModm9pZCkgeyByZXR1cm4gdHJ1ZTsgfQo+PiAtc3RhdGljIGlubGlu
-ZSB2b2lkIGFyY2hfYWNwaV9zZXRfcGRjX2JpdHModTMyICpidWYpCj4+IC17Cj4+IC0JYnVmWzJd
-IHw9IEFDUElfUERDX0VTVF9DQVBBQklMSVRZX1NNUDsKPj4gLX0KPj4gK2V4dGVybiB2b2lkIGFy
-Y2hfYWNwaV9zZXRfcGRjX2JpdHModTMyICpidWYpOwo+PiAgCj4+ICAjZGVmaW5lIGFjcGlfdW5s
-YXp5X3RsYih4KQo+PiAgCj4+IGRpZmYgLS1naXQgYS9hcmNoL2lhNjQva2VybmVsL2FjcGkuYyBi
-L2FyY2gvaWE2NC9rZXJuZWwvYWNwaS5jCj4+IGluZGV4IDBkNDA3YjMuLjIzZTliNDAgMTAwNjQ0
-Cj4+IC0tLSBhL2FyY2gvaWE2NC9rZXJuZWwvYWNwaS5jCj4+ICsrKyBiL2FyY2gvaWE2NC9rZXJu
-ZWwvYWNwaS5jCj4+IEBAIC05OTYsMyArOTk2LDE4IEBAIEVYUE9SVF9TWU1CT0woYWNwaV91bnJl
-Z2lzdGVyX2lvYXBpYyk7Cj4+ICAgKiBUQkQgd2hlbiB3aGVuIElBNjQgc3RhcnRzIHRvIHN1cHBv
-cnQgc3VzcGVuZC4uLgo+PiAgICovCj4+ICBpbnQgYWNwaV9zdXNwZW5kX2xvd2xldmVsKHZvaWQp
-IHsgcmV0dXJuIDA7IH0KPj4gKwo+PiArdm9pZCBhcmNoX2FjcGlfc2V0X3BkY19iaXRzKHUzMiAq
-YnVmKQo+PiArewo+PiArCS8qIEVuYWJsZSBjb29yZGluYXRpb24gd2l0aCBmaXJtd2FyZSdzIF9U
-U0QgaW5mbyAqLwo+PiArCWJ1ZlsyXSB8PSBBQ1BJX1BEQ19TTVBfVF9TV0NPT1JEIHwgQUNQSV9Q
-RENfRVNUX0NBUEFCSUxJVFlfU01QOwo+PiArCj4+ICsJaWYgKGJvb3Rfb3B0aW9uX2lkbGVfb3Zl
-cnJpZGUgPSBJRExFX05PTVdBSVQpIHsKPj4gKwkJLyoKPj4gKwkJICogSWYgbXdhaXQgaXMgZGlz
-YWJsZWQgZm9yIENQVSBDLXN0YXRlcywgdGhlIEMyQzNfRkZIIGFjY2Vzcwo+PiArCQkgKiBtb2Rl
-IHdpbGwgYmUgZGlzYWJsZWQgaW4gdGhlIHBhcmFtZXRlciBvZiBfUERDIG9iamVjdC4KPj4gKwkJ
-ICogT2YgY291cnNlIEMxX0ZGSCBhY2Nlc3MgbW9kZSB3aWxsIGFsc28gYmUgZGlzYWJsZWQuCj4+
-ICsJCSAqLwo+PiArCQlidWZbMl0gJj0gfihBQ1BJX1BEQ19DX0MyQzNfRkZIIHwgQUNQSV9QRENf
-Q19DMV9GRkgpOwo+PiArCX0KPj4gK30KPiAKPiBUaGUgY29tbWl0IHRleHQgbWFrZXMgbm8gY29t
-bWVudCBhYm91dCB3aHkgdGhpcyBmdW5jdGlvbiBpcyBiZWluZyBtb3ZlZAo+IGZyb20gYSBzdGF0
-aWMgaW5saW5lIHRvIGFuIGV4dGVybiBpbiB0aGUgYWNwaS5jIGZpbGUuIEkgYXNzdW1lIGl0IGlz
-Cj4gYmVjYXVzZSBpdCBuZWVkcyBhY2Nlc3MgdG8gdGhlIGJvb3Rfb3B0aW9uX2lkbGVfb3ZlcnJp
-ZGUgZ2xvYmFsCj4gdmFyaWFibGUsIGJ1dCBpdCBpc24ndCBpbW1lZGlhdGVseSBvYnZpb3VzLCBh
-bmQgc2hvdWxkIGJlIGRlc2NyaWJlZCBpbgo+IHRoZSBjb21taXQgdGV4dC4KCk9rLCB3ZSB3aWxs
-IHVwZGF0ZSB0aGUgY29tbWl0IHRleHQgYXMgeW91IHN1Z2dlc3RlZC4KCj4gCj4gT3RoZXJ3aXNl
-LCB0aGUgcGF0Y2ggbG9va3Mgc2FuZS4KPiAKPiBSZXZpZXdlZC1ieTogR3JhbnQgTGlrZWx5IDxn
-cmFudC5saWtlbHlAbGluYXJvLm9yZz4KClRoYW5rc++8gQoKSGFuanVuCgotLQpUbyB1bnN1YnNj
-cmliZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0aGUgbGluZSAidW5zdWJzY3JpYmUgbGludXgtaWE2
-NCIgaW4KdGhlIGJvZHkgb2YgYSBtZXNzYWdlIHRvIG1ham9yZG9tb0B2Z2VyLmtlcm5lbC5vcmcK
-TW9yZSBtYWpvcmRvbW8gaW5mbyBhdCAgaHR0cDovL3ZnZXIua2VybmVsLm9yZy9tYWpvcmRvbW8t
-aW5mby5odG1s
+Hi,
+
+Up to kernel 3.10.40, zx1 AGP GART was successfully detected:
+[   15.896075] Linux agpgart interface v0.103
+[   17.272674] agpgart: HP ZX1 IOC: IOPDIR shared with sba_iommu
+[   17.272980]  (null): AGP aperture is 512M @ 0x60000000
+[   17.273015] agpgart: Detected HP ZX1 HWP0003 AGP chipset (ioc=FEd01000, =
+lba=3Df
+ed28000)
+<snip>
+[   29.602989] radeon 0000:80:00.0: putting AGP V2 device into 2x mode
+[   29.603306] radeon 0000:80:00.0: GTT: 512M 0x60000000 - 0x7FFFFFFF
+[   29.603399] [drm] Generation 1 PCI interface in multifunction mode
+
+Starting with kernel 3.11-rc1, zx1 AGP GART is no more detected and my
+ATI FireGL X1 AGP graphics adapter is set to PCI mode:
+[    5.442563] Linux agpgart interface v0.103
+[    5.937458] agpgart: HP ZX1 IOC: IOPDIR shared with sba_iommu
+[    5.937491] agpgart: No reserved IO PDIR entry found; GART disabled
+<snip>
+[    6.028511] [drm:radeon_agp_init] *ERROR* Unable to acquire AGP: -19
+[    6.028543] [drm] Forcing AGP to PCI mode
+[    6.028631] [drm] Generation 1 PCI interface in multifunction mode
+
+Note: Nevermind the timing, timer frequency isn't the same between the
+two runs (250 Hz vs 1000 Hz).
+
+I've managed to nearly bisect the regression. I say nearly, because
+some commits made the kernel unbuildable and must be skipped.
+
+So, the offending candidates are:
+- 66345d5f79fcfa0214f5d98763643d4ee8e6965d (ACPI / ia64 / sba_iommu:
+Use ACPI scan handler for device discovery);
+- 24071f472d813fccacc1ef7356b1f41422a1b968 (ACPI / scan: Do not bind
+ACPI drivers to objects with scan handlers);
+- d9e455f53f6fb93c764de2399c3894bbdfd2caa7 (ACPI / scan: Simplify ACPI
+driver probing).
+These were merged with 8e9914d5efe460600f5948da7ae4c1b6c038a4c0 (Merge
+branch 'acpi-scan').
+
+I bet that the culprit is 66345d5f79fcfa0214f5d98763643d4ee8e6965d as
+it is zx1 specific, but I can't verify for sure as reverting it makes
+the kernel panics:
+IOC IOMMU Driver: probe of HWP0001:00 failed with error -22
+Kernel panic - not syncinc: Unable to find SBA IOMMU: Try a generic or
+DIG kernel
+(Yep, I'm running HP-zx1/sx1000, i.e. CONFIG_IA64_HP_ZX1=3Dy kernel).
+
+What's your opinion ia64 gurus? How to fix the breakage with the zx1
+AGP GART detection?
+
+Thanks,
+
+     =C3=89meric
