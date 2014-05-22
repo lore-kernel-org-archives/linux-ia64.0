@@ -1,102 +1,36 @@
-From: Lv Zheng <lv.zheng@intel.com>
-Date: Mon, 12 May 2014 07:46:49 +0000
-Subject: [PATCH v3 4/4] ACPICA: Cleanup redudant definitions that already have defaults in <acpi/platform/ace
-Message-Id: <850210c29ead4d890888690afc0818c650c7b005.1399880022.git.lv.zheng@intel.com>
+From: =?UTF-8?Q?=C3=89meric_MASCHINO?= <emeric.maschino@gmail.com>
+Date: Thu, 22 May 2014 17:09:52 +0000
+Subject: Outdated configuration files in arch/ia64/configs
+Message-Id: <CAA9xbM4urvd_S=S66p-6=YN0VK0NuyoDRctsVgHZ9vu3Nrhh0w@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1396930406.git.lv.zheng@intel.com> <cover.1399880022.git.lv.zheng@intel.com>
-In-Reply-To: <cover.1399880022.git.lv.zheng@intel.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>, Len Brown <len.brown@intel.com>
-Cc: Lv Zheng <lv.zheng@intel.com>, Lv Zheng <zetalog@gmail.com>, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: quoted-printable
+To: linux-ia64@vger.kernel.org
 
-Since mis-order issues have been solved, we can cleanup redundant
-definitions that already have defaults in <acpi/platform/acenv.h>.
+Hi,
 
-This patch removes redudant environments for __KERNEL__ surrounded code.
+As alluded to earlier [1], I'm wondering how the various ia64 default
+kernel configuration files in arch/ia64/configs are maintained?
 
-Signed-off-by: Lv Zheng <lv.zheng@intel.com>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: Ingo Molnar <mingo@redhat.com>
-Cc: "H. Peter Anvin" <hpa@zytor.com>
-Cc: x86@kernel.org
----
- arch/ia64/include/asm/acenv.h   |   15 ---------------
- arch/x86/include/asm/acenv.h    |   16 ----------------
- include/acpi/platform/aclinux.h |    1 -
- 3 files changed, 32 deletions(-)
+For example, the zx1_defconfig file is pretty outdated, leading to
+e.g. broken 3D hardware acceleration on zx1-based systems for many
+years [1], just because the timer interrupt frequency hasn't been
+overidden there appropriately when the selectable timer interrupt
+frequency was introduced in May 2005 [2]. zx1-based systems thus
+inherit a default 250 HZ timer frequency from other generic (read,
+non-ia64) default kernel configuration files that is unfortunately
+used by the various Linux distributions to provide prebuilt kernel
+binary packages.
 
-diff --git a/arch/ia64/include/asm/acenv.h b/arch/ia64/include/asm/acenv.h
-index e0896eb..3f9eaee 100644
---- a/arch/ia64/include/asm/acenv.h
-+++ b/arch/ia64/include/asm/acenv.h
-@@ -17,23 +17,8 @@
- #define COMPILER_DEPENDENT_INT64	long
- #define COMPILER_DEPENDENT_UINT64	unsigned long
- 
--/*
-- * Calling conventions:
-- *
-- * ACPI_SYSTEM_XFACE        - Interfaces to host OS (handlers, threads)
-- * ACPI_EXTERNAL_XFACE      - External ACPI interfaces
-- * ACPI_INTERNAL_XFACE      - Internal ACPI interfaces
-- * ACPI_INTERNAL_VAR_XFACE  - Internal variable-parameter list interfaces
-- */
--#define ACPI_SYSTEM_XFACE
--#define ACPI_EXTERNAL_XFACE
--#define ACPI_INTERNAL_XFACE
--#define ACPI_INTERNAL_VAR_XFACE
--
- /* Asm macros */
- 
--#define ACPI_FLUSH_CPU_CACHE()
--
- #ifdef CONFIG_ACPI
- 
- static inline int
-diff --git a/arch/x86/include/asm/acenv.h b/arch/x86/include/asm/acenv.h
-index 6978584..6687329 100644
---- a/arch/x86/include/asm/acenv.h
-+++ b/arch/x86/include/asm/acenv.h
-@@ -14,22 +14,6 @@
- 
- #include <asm/special_insns.h>
- 
--#define COMPILER_DEPENDENT_INT64   long long
--#define COMPILER_DEPENDENT_UINT64  unsigned long long
--
--/*
-- * Calling conventions:
-- *
-- * ACPI_SYSTEM_XFACE        - Interfaces to host OS (handlers, threads)
-- * ACPI_EXTERNAL_XFACE      - External ACPI interfaces
-- * ACPI_INTERNAL_XFACE      - Internal ACPI interfaces
-- * ACPI_INTERNAL_VAR_XFACE  - Internal variable-parameter list interfaces
-- */
--#define ACPI_SYSTEM_XFACE
--#define ACPI_EXTERNAL_XFACE
--#define ACPI_INTERNAL_XFACE
--#define ACPI_INTERNAL_VAR_XFACE
--
- /* Asm macros */
- 
- #define ACPI_FLUSH_CPU_CACHE()	wbinvd()
-diff --git a/include/acpi/platform/aclinux.h b/include/acpi/platform/aclinux.h
-index 5d27e56..e700129 100644
---- a/include/acpi/platform/aclinux.h
-+++ b/include/acpi/platform/aclinux.h
-@@ -48,7 +48,6 @@
- 
- #define ACPI_USE_SYSTEM_CLIBRARY
- #define ACPI_USE_DO_WHILE_0
--#define ACPI_MUTEX_TYPE             ACPI_BINARY_SEMAPHORE
- 
- #ifdef __KERNEL__
- 
--- 
-1.7.10
+Similarly, the zx1_defconfig file still adds to the kernel the CMD649
+chipset using the deprecated ATA/ATAPI/MFM/RLL API (CONFIG_IDE=3Dy,
+CONFIG_BLK_DEV_IDECD=3Dy, CONFIG_BLK_DEV_CMD64X=3Dy) whereas the SATA/PATA
+API is the way to go nowadays (CONFIG_ATA_SFF=3Dy, CONFIG_ATA_BMDMA=3Dy,
+CONFIG_PATA_CMD64X=3Dy).
 
+     =C3=89meric
+
+
+[1] http://marc.info/?l=3Dlinux-ia64&m=140077543819871&w=3D2
+[2] http://marc.info/?l=3Dlinux-ia64&m=111643909323936&w=3D2
