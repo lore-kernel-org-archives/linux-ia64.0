@@ -1,439 +1,110 @@
-From: Christoph Lameter <cl@linux.com>
-Date: Thu, 08 May 2014 18:19:51 +0000
-Subject: ia64: Replace __get_cpu_var uses
-Message-Id: <alpine.DEB.2.10.1405081317560.25479@gentwo.org>
+From: =?UTF-8?Q?=C3=89meric_MASCHINO?= <emeric.maschino@gmail.com>
+Date: Thu, 22 May 2014 16:17:13 +0000
+Subject: Stable DRI/DRM 3D hardware acceleration on Linux/ia64 (zx1)? The solution: timer frequency
+Message-Id: <CAA9xbM6PA3_xM963Ep4KRWJS7KhFVg-nN_OFuGp_RgmyQH1qeQ@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-Could you see if this works? No change to code behavior expected.
-Will enable some optimizations for ia64 if someone has the time to update
-the percpu arch code.
-
-
-
-__get_cpu_var() is used for multiple purposes in the kernel source. One of
-them is address calculation via the form &__get_cpu_var(x).  This calculates
-the address for the instance of the percpu variable of the current processor
-based on an offset.
-
-Other use cases are for storing and retrieving data from the current
-processors percpu area.  __get_cpu_var() can be used as an lvalue when
-writing data or on the right side of an assignment.
-
-__get_cpu_var() is defined as :
-
-
-#define __get_cpu_var(var) (*this_cpu_ptr(&(var)))
-
-
-
-__get_cpu_var() always only does an address determination. However, store
-and retrieve operations could use a segment prefix (or global register on
-other platforms) to avoid the address calculation.
-
-this_cpu_write() and this_cpu_read() can directly take an offset into a
-percpu area and use optimized assembly code to read and write per cpu
-variables.
-
-
-This patch converts __get_cpu_var into either an explicit address
-calculation using this_cpu_ptr() or into a use of this_cpu operations that
-use the offset.  Thereby address calculations are avoided and less registers
-are used when code is generated.
-
-At the end of the patch set all uses of __get_cpu_var have been removed so
-the macro is removed too.
-
-The patch set includes passes over all arches as well. Once these operations
-are used throughout then specialized macros can be defined in non -x86
-arches as well in order to optimize per cpu access by f.e.  using a global
-register that may be set to the per cpu base.
-
-
-
-
-Transformations done to __get_cpu_var()
-
-
-1. Determine the address of the percpu instance of the current processor.
-
-	DEFINE_PER_CPU(int, y);
-	int *x = &__get_cpu_var(y);
-
-    Converts to
-
-	int *x = this_cpu_ptr(&y);
-
-
-2. Same as #1 but this time an array structure is involved.
-
-	DEFINE_PER_CPU(int, y[20]);
-	int *x = __get_cpu_var(y);
-
-    Converts to
-
-	int *x = this_cpu_ptr(y);
-
-
-3. Retrieve the content of the current processors instance of a per cpu
-variable.
-
-	DEFINE_PER_CPU(int, y);
-	int x = __get_cpu_var(y)
-
-   Converts to
-
-	int x = __this_cpu_read(y);
-
-
-4. Retrieve the content of a percpu struct
-
-	DEFINE_PER_CPU(struct mystruct, y);
-	struct mystruct x = __get_cpu_var(y);
-
-   Converts to
-
-	memcpy(&x, this_cpu_ptr(&y), sizeof(x));
-
-
-5. Assignment to a per cpu variable
-
-	DEFINE_PER_CPU(int, y)
-	__get_cpu_var(y) = x;
-
-   Converts to
-
-	__this_cpu_write(y, x);
-
-
-6. Increment/Decrement etc of a per cpu variable
-
-	DEFINE_PER_CPU(int, y);
-	__get_cpu_var(y)++
-
-   Converts to
-
-	__this_cpu_inc(y)
-
-
-Signed-off-by: Christoph Lameter <cl@linux.com>
-
-Index: linux/arch/alpha/kernel/perf_event.c
-=================================--- linux.orig/arch/alpha/kernel/perf_event.c	2014-04-14 13:36:20.800075813 -0500
-+++ linux/arch/alpha/kernel/perf_event.c	2014-04-14 13:36:20.784076124 -0500
-@@ -814,7 +814,7 @@
- 	struct hw_perf_event *hwc;
- 	int idx, j;
-
--	__get_cpu_var(irq_pmi_count)++;
-+	__this_cpu_inc(irq_pmi_count);
- 	cpuc = &__get_cpu_var(cpu_hw_events);
-
- 	/* Completely counting through the PMC's period to trigger a new PMC
-Index: linux/arch/ia64/kernel/irq.c
-=================================--- linux.orig/arch/ia64/kernel/irq.c	2014-04-14 13:36:20.800075813 -0500
-+++ linux/arch/ia64/kernel/irq.c	2014-04-14 13:36:20.788076046 -0500
-@@ -42,7 +42,7 @@
-
- unsigned int __ia64_local_vector_to_irq (ia64_vector vec)
- {
--	return __get_cpu_var(vector_irq)[vec];
-+	return __this_cpu_read(vector_irq[vec]);
- }
- #endif
-
-Index: linux/arch/ia64/kernel/irq_ia64.c
-=================================--- linux.orig/arch/ia64/kernel/irq_ia64.c	2014-04-14 13:36:20.800075813 -0500
-+++ linux/arch/ia64/kernel/irq_ia64.c	2014-04-14 13:36:20.788076046 -0500
-@@ -338,7 +338,7 @@
- 		int irq;
- 		struct irq_desc *desc;
- 		struct irq_cfg *cfg;
--		irq = __get_cpu_var(vector_irq)[vector];
-+		irq = __this_cpu_read(vector_irq[vector]);
- 		if (irq < 0)
- 			continue;
-
-@@ -352,7 +352,7 @@
- 			goto unlock;
-
- 		spin_lock_irqsave(&vector_lock, flags);
--		__get_cpu_var(vector_irq)[vector] = -1;
-+		__this_cpu_write(vector_irq[vector], -1);
- 		cpu_clear(me, vector_table[vector]);
- 		spin_unlock_irqrestore(&vector_lock, flags);
- 		cfg->move_cleanup_count--;
-Index: linux/arch/ia64/kernel/kprobes.c
-=================================--- linux.orig/arch/ia64/kernel/kprobes.c	2014-04-14 13:36:20.800075813 -0500
-+++ linux/arch/ia64/kernel/kprobes.c	2014-04-14 13:36:20.788076046 -0500
-@@ -396,7 +396,7 @@
- {
- 	unsigned int i;
- 	i = atomic_read(&kcb->prev_kprobe_index);
--	__get_cpu_var(current_kprobe) = kcb->prev_kprobe[i-1].kp;
-+	__this_cpu_write(current_kprobe, kcb->prev_kprobe[i-1].kp);
- 	kcb->kprobe_status = kcb->prev_kprobe[i-1].status;
- 	atomic_sub(1, &kcb->prev_kprobe_index);
- }
-@@ -404,7 +404,7 @@
- static void __kprobes set_current_kprobe(struct kprobe *p,
- 			struct kprobe_ctlblk *kcb)
- {
--	__get_cpu_var(current_kprobe) = p;
-+	__this_cpu_write(current_kprobe, p);
- }
-
- static void kretprobe_trampoline(void)
-@@ -823,7 +823,7 @@
- 			/*
- 			 * jprobe instrumented function just completed
- 			 */
--			p = __get_cpu_var(current_kprobe);
-+			p = __this_cpu_read(current_kprobe);
- 			if (p->break_handler && p->break_handler(p, regs)) {
- 				goto ss_probe;
- 			}
-Index: linux/arch/ia64/kernel/mca.c
-=================================--- linux.orig/arch/ia64/kernel/mca.c	2014-04-14 13:36:20.800075813 -0500
-+++ linux/arch/ia64/kernel/mca.c	2014-04-14 13:36:20.788076046 -0500
-@@ -1341,7 +1341,7 @@
- 		ia64_mlogbuf_finish(1);
- 	}
-
--	if (__get_cpu_var(ia64_mca_tr_reload)) {
-+	if (__this_cpu_read(ia64_mca_tr_reload)) {
- 		mca_insert_tr(0x1); /*Reload dynamic itrs*/
- 		mca_insert_tr(0x2); /*Reload dynamic itrs*/
- 	}
-@@ -1868,14 +1868,14 @@
- 		"MCA", cpu);
- 	format_mca_init_stack(data, offsetof(struct ia64_mca_cpu, init_stack),
- 		"INIT", cpu);
--	__get_cpu_var(ia64_mca_data) = __per_cpu_mca[cpu] = __pa(data);
-+	__this_cpu_write(ia64_mca_data, (__per_cpu_mca[cpu] = __pa(data)));
-
- 	/*
- 	 * Stash away a copy of the PTE needed to map the per-CPU page.
- 	 * We may need it during MCA recovery.
- 	 */
--	__get_cpu_var(ia64_mca_per_cpu_pte) -		pte_val(mk_pte_phys(__pa(cpu_data), PAGE_KERNEL));
-+	__this_cpu_write(ia64_mca_per_cpu_pte,
-+		pte_val(mk_pte_phys(__pa(cpu_data), PAGE_KERNEL)));
-
- 	/*
- 	 * Also, stash away a copy of the PAL address and the PTE
-@@ -1884,10 +1884,10 @@
- 	pal_vaddr = efi_get_pal_addr();
- 	if (!pal_vaddr)
- 		return;
--	__get_cpu_var(ia64_mca_pal_base) -		GRANULEROUNDDOWN((unsigned long) pal_vaddr);
--	__get_cpu_var(ia64_mca_pal_pte) = pte_val(mk_pte_phys(__pa(pal_vaddr),
--							      PAGE_KERNEL));
-+	__this_cpu_write(ia64_mca_pal_base,
-+		GRANULEROUNDDOWN((unsigned long) pal_vaddr));
-+	__this_cpu_write(ia64_mca_pal_pte, pte_val(mk_pte_phys(__pa(pal_vaddr),
-+							      PAGE_KERNEL)));
- }
-
- static void ia64_mca_cmc_vector_adjust(void *dummy)
-Index: linux/arch/ia64/kernel/process.c
-=================================--- linux.orig/arch/ia64/kernel/process.c	2014-04-14 13:36:20.800075813 -0500
-+++ linux/arch/ia64/kernel/process.c	2014-04-14 13:36:20.792075969 -0500
-@@ -215,7 +215,7 @@
- 	unsigned int this_cpu = smp_processor_id();
-
- 	/* Ack it */
--	__get_cpu_var(cpu_state) = CPU_DEAD;
-+	__this_cpu_write(cpu_state, CPU_DEAD);
-
- 	max_xtp();
- 	local_irq_disable();
-@@ -273,7 +273,7 @@
- 	if ((task->thread.flags & IA64_THREAD_PM_VALID) != 0)
- 		pfm_save_regs(task);
-
--	info = __get_cpu_var(pfm_syst_info);
-+	info = __this_cpu_read(pfm_syst_info);
- 	if (info & PFM_CPUINFO_SYST_WIDE)
- 		pfm_syst_wide_update_task(task, info, 0);
- #endif
-@@ -293,7 +293,7 @@
- 	if ((task->thread.flags & IA64_THREAD_PM_VALID) != 0)
- 		pfm_load_regs(task);
-
--	info = __get_cpu_var(pfm_syst_info);
-+	info = __this_cpu_read(pfm_syst_info);
- 	if (info & PFM_CPUINFO_SYST_WIDE)
- 		pfm_syst_wide_update_task(task, info, 1);
- #endif
-Index: linux/arch/ia64/sn/kernel/sn2/sn2_smp.c
-=================================--- linux.orig/arch/ia64/sn/kernel/sn2/sn2_smp.c	2014-04-14 13:36:20.800075813 -0500
-+++ linux/arch/ia64/sn/kernel/sn2/sn2_smp.c	2014-04-14 13:36:20.792075969 -0500
-@@ -134,8 +134,8 @@
- 	itc = ia64_get_itc();
- 	smp_flush_tlb_cpumask(*mm_cpumask(mm));
- 	itc = ia64_get_itc() - itc;
--	__get_cpu_var(ptcstats).shub_ipi_flushes_itc_clocks += itc;
--	__get_cpu_var(ptcstats).shub_ipi_flushes++;
-+	__this_cpu_add(ptcstats.shub_ipi_flushes_itc_clocks, itc);
-+	__this_cpu_inc(ptcstats.shub_ipi_flushes);
- }
-
- /**
-@@ -199,14 +199,14 @@
- 			start += (1UL << nbits);
- 		} while (start < end);
- 		ia64_srlz_i();
--		__get_cpu_var(ptcstats).ptc_l++;
-+		__this_cpu_inc(ptcstats.ptc_l);
- 		preempt_enable();
- 		return;
- 	}
-
- 	if (atomic_read(&mm->mm_users) = 1 && mymm) {
- 		flush_tlb_mm(mm);
--		__get_cpu_var(ptcstats).change_rid++;
-+		__this_cpu_inc(ptcstats.change_rid);
- 		preempt_enable();
- 		return;
- 	}
-@@ -250,11 +250,11 @@
- 	spin_lock_irqsave(PTC_LOCK(shub1), flags);
- 	itc2 = ia64_get_itc();
-
--	__get_cpu_var(ptcstats).lock_itc_clocks += itc2 - itc;
--	__get_cpu_var(ptcstats).shub_ptc_flushes++;
--	__get_cpu_var(ptcstats).nodes_flushed += nix;
-+	__this_cpu_add(ptcstats.lock_itc_clocks, itc2 - itc);
-+	__this_cpu_inc(ptcstats.shub_ptc_flushes);
-+	__this_cpu_add(ptcstats.nodes_flushed, nix);
- 	if (!mymm)
--		 __get_cpu_var(ptcstats).shub_ptc_flushes_not_my_mm++;
-+		 __this_cpu_inc(ptcstats.shub_ptc_flushes_not_my_mm);
-
- 	if (use_cpu_ptcga && !mymm) {
- 		old_rr = ia64_get_rr(start);
-@@ -299,9 +299,9 @@
-
- done:
- 	itc2 = ia64_get_itc() - itc2;
--	__get_cpu_var(ptcstats).shub_itc_clocks += itc2;
--	if (itc2 > __get_cpu_var(ptcstats).shub_itc_clocks_max)
--		__get_cpu_var(ptcstats).shub_itc_clocks_max = itc2;
-+	__this_cpu_add(ptcstats)shub_itc_clocks, itc2);
-+	if (itc2 > __this_cpu_read(ptcstats.shub_itc_clocks_max))
-+		__this_cpu_write(ptcstats).shub_itc_clocks_max, itc2);
-
- 	if (old_rr) {
- 		ia64_set_rr(start, old_rr);
-@@ -311,7 +311,7 @@
- 	spin_unlock_irqrestore(PTC_LOCK(shub1), flags);
-
- 	if (flush_opt = 1 && deadlock) {
--		__get_cpu_var(ptcstats).deadlocks++;
-+		__this_cpu_inc(ptcstats.deadlocks);
- 		sn2_ipi_flush_all_tlb(mm);
- 	}
-
-@@ -334,7 +334,7 @@
- 	short nasid, i;
- 	unsigned long *piows, zeroval, n;
-
--	__get_cpu_var(ptcstats).deadlocks++;
-+	__this_cpu_inc(ptcstats.deadlocks);
-
- 	piows = (unsigned long *) pda->pio_write_status_addr;
- 	zeroval = pda->pio_write_status_val;
-@@ -349,7 +349,7 @@
- 			ptc1 = CHANGE_NASID(nasid, ptc1);
-
- 		n = sn2_ptc_deadlock_recovery_core(ptc0, data0, ptc1, data1, piows, zeroval);
--		__get_cpu_var(ptcstats).deadlocks2 += n;
-+		__this_cpu_add(ptcstats.deadlocks2, n);
- 	}
-
- }
-Index: linux/arch/ia64/include/asm/hw_irq.h
-=================================--- linux.orig/arch/ia64/include/asm/hw_irq.h	2014-04-14 13:36:20.800075813 -0500
-+++ linux/arch/ia64/include/asm/hw_irq.h	2014-04-14 13:36:20.792075969 -0500
-@@ -160,7 +160,7 @@
- static inline unsigned int
- __ia64_local_vector_to_irq (ia64_vector vec)
- {
--	return __get_cpu_var(vector_irq)[vec];
-+	return __this_cpu_read(vector_irq[vec]);
- }
- #endif
-
-Index: linux/arch/ia64/include/asm/sn/nodepda.h
-=================================--- linux.orig/arch/ia64/include/asm/sn/nodepda.h	2014-04-14 13:36:20.800075813 -0500
-+++ linux/arch/ia64/include/asm/sn/nodepda.h	2014-04-14 13:36:20.792075969 -0500
-@@ -70,7 +70,7 @@
-  */
-
- DECLARE_PER_CPU(struct nodepda_s *, __sn_nodepda);
--#define sn_nodepda		(__get_cpu_var(__sn_nodepda))
-+#define sn_nodepda		__this_cpu_read(__sn_nodepda)
- #define	NODEPDA(cnodeid)	(sn_nodepda->pernode_pdaindr[cnodeid])
-
- /*
-Index: linux/arch/ia64/include/asm/switch_to.h
-=================================--- linux.orig/arch/ia64/include/asm/switch_to.h	2014-04-14 13:36:20.800075813 -0500
-+++ linux/arch/ia64/include/asm/switch_to.h	2014-04-14 13:36:20.792075969 -0500
-@@ -32,7 +32,7 @@
-
- #ifdef CONFIG_PERFMON
-   DECLARE_PER_CPU(unsigned long, pfm_syst_info);
--# define PERFMON_IS_SYSWIDE() (__get_cpu_var(pfm_syst_info) & 0x1)
-+# define PERFMON_IS_SYSWIDE() (__this_cpu_read(pfm_syst_info) & 0x1)
- #else
- # define PERFMON_IS_SYSWIDE() (0)
- #endif
-Index: linux/arch/ia64/include/asm/sn/arch.h
-=================================--- linux.orig/arch/ia64/include/asm/sn/arch.h	2014-04-14 13:36:20.800075813 -0500
-+++ linux/arch/ia64/include/asm/sn/arch.h	2014-04-14 13:36:20.792075969 -0500
-@@ -57,7 +57,7 @@
- 	u16 nasid_bitmask;
- };
- DECLARE_PER_CPU(struct sn_hub_info_s, __sn_hub_info);
--#define sn_hub_info 	(&__get_cpu_var(__sn_hub_info))
-+#define sn_hub_info 	this_cpu_ptr(&__sn_hub_info)
- #define is_shub2()	(sn_hub_info->shub2)
- #define is_shub1()	(sn_hub_info->shub2 = 0)
-
-@@ -72,7 +72,7 @@
-  * cpu.
-  */
- DECLARE_PER_CPU(short, __sn_cnodeid_to_nasid[MAX_COMPACT_NODES]);
--#define sn_cnodeid_to_nasid	(&__get_cpu_var(__sn_cnodeid_to_nasid[0]))
-+#define sn_cnodeid_to_nasid	this_cpu_ptr(&__sn_cnodeid_to_nasid[0])
-
-
- extern u8 sn_partition_id;
-Index: linux/arch/ia64/include/asm/uv/uv_hub.h
-=================================--- linux.orig/arch/ia64/include/asm/uv/uv_hub.h	2014-04-14 13:36:20.800075813 -0500
-+++ linux/arch/ia64/include/asm/uv/uv_hub.h	2014-04-14 13:36:20.792075969 -0500
-@@ -108,7 +108,7 @@
- 	unsigned char	n_val;
- };
- DECLARE_PER_CPU(struct uv_hub_info_s, __uv_hub_info);
--#define uv_hub_info 		(&__get_cpu_var(__uv_hub_info))
-+#define uv_hub_info 		this_cpu_ptr(&__uv_hub_info)
- #define uv_cpu_hub_info(cpu)	(&per_cpu(__uv_hub_info, cpu))
-
- /*
-Index: linux/arch/ia64/kernel/traps.c
-=================================--- linux.orig/arch/ia64/kernel/traps.c	2014-04-14 13:36:20.800075813 -0500
-+++ linux/arch/ia64/kernel/traps.c	2014-04-14 13:36:20.796075891 -0500
-@@ -299,7 +299,7 @@
-
- 	if (!(current->thread.flags & IA64_THREAD_FPEMU_NOPRINT))  {
- 		unsigned long count, current_jiffies = jiffies;
--		struct fpu_swa_msg *cp = &__get_cpu_var(cpulast);
-+		struct fpu_swa_msg *cp = this_cpu_ptr(&cpulast);
-
- 		if (unlikely(current_jiffies > cp->time))
- 			cp->count = 0;
+Hi,
+
+[Summary]
+
+For years (as old as 2006), 3D hardware acceleration on ia64 has been
+plagued with breakages and stability issues. I found a 2010 post of
+mine [1] summarizing all these problems, ranging from the libpci
+rewrite, to the switch from UMS to KMS or the switch from Mesa Classic
+to Gallium3D driver architecture. In the end, results were always the
+same: when DRI is working, my hp workstation zx6000 with its ATI
+FireGL X1 AGP graphics adapter and r300g driver randomly freezes
+within seconds or minutes, as soon as a serious OpenGL application
+(i.e. not glxinfo or glxgears) is run.
+
+[Full story]
+
+Completely unrelated, I eventually stumble upon this 2002 post talking
+about timer frequency on i386 (don't ask me how I ended up there, I
+don't even remember what I was looking for). There, I found
+interesting thoughts, e.g. that ia64 was rumored to use a 1024 HZ
+timer frequency [3] whereas Linus pretended that it was in fact 1000
+HZ, leading to a reportedly dramatic overhead in CPU cycles due to
+increased cache misses that were worrying Intel people at the time
+[4]. The alleged overhead in CPU cycles using 1000 HZ timer frequency
+was ultimately proven wrong by David Mosberger [5].
+
+Then, selectable timer interrupt frequency came into the kernel, in
+May 2005 for ia64 [6]. Looking at the patch there, it's noteworthy
+that the HZ variable definition has been changed from 1024 (so, Linus
+was wrong) to CONFIG_HZ. By curiosity, I've checked my kernel
+configuration: 250 HZ. This is the value selected by default on ia64
+with an empty/non-existent .config file. It's noteworthy that this
+value is inherited from generic (read non-ia64) kernel configuration
+file, as it's not overriden in any of the ia64 default kernel
+configuration file (that will lead to another interesting question
+that I'll ask separately in this list: who's maintening these default
+kernel configuration files and thus ensure their accuracy with today's
+kernel code?). Anyway, parsing the timer frequency documentation, I
+thought that the right option for me for desktop use would be 1000 HZ
+rather than the inherited 250 HZ (plus the fact that ia64 was using
+1000 HZ timer frequency in the past, before the inclusion of the
+selectable timer frequency).
+
+Upon reboot, the first thing that I immediately noticed was a much
+faster boot time. Now that I remember, there was indeed a regression
+in boot time during the 2.6 kernel era, but I never care about this
+more than this. Retrospectively, I bet that this regression coincides
+with the change of the HZ variable value from 1024 to CONFIG_HZ (so
+250 HZ for what matters). Days and weeks passed and today I asked
+myself: "Hey, this is quite some time now that you didn't experience
+stability issues with your OpenGL apps. What's going on"? Looking for
+what could have changed on my system explaining this, I nearly
+accidentally remembered that I'm now running a kernel with 1000 HZ
+timer frequency. Could this be the key? As a triple-check, I've
+recompiled my kernel with 100 HZ, 250 HZ and 1000 HZ timer frequency.
+Here are the results:
+- 100 HZ: OpenGL apps lock the system (machine checks) within seconds;
+- 250 HZ: OpenGL apps freeze the system (no machine check but huge CPU
+activity making the system barely usable) within minutes;
+- 1000 HZ: OpenGL apps rock-stable for several weeks now. Bingo!
+
+[Conclusion]
+
+I don't know how do you all run your kernels today, but all prebuilt
+ia64 kernels from Fedora, Debian, openSUSE are configured with 250 HZ
+timer frequency, explaining the stability issues during all these
+years. In my personal case, this also explains why I've never had
+stability issues with the proprietary ATI fglrx driver: this driver
+was in use during the 2.4-early 2.6 kernels, so before the selectable
+timer interrupt frequency was introduced into the kernel and hence
+with the HZ variable set to 1024.
+
+[Epilog]
+
+What do you mean about all this story? From the dmesg logs with the
+above tested timer frequencies, there can be performance penalties in
+some aspects:
+- 100 HZ: ~89 secs. boot time, ia64 xor function: 3113.600 MB/sec,
+raid6 int64x16 algorithm: 2969 MB/s;
+- 250 HZ: ~53 secs. boot time, ia64 xor function: 3116.000 MB/sec,
+raid6 int64x16 algorithm: 2965 MB/s;
+- 1000 HZ: ~35 sec. boot time, ia64 xor function: 3104.000 MB/sec,
+raid6 int64x16 algorithm: 2941 MB/s.
+
+But if I had to chose between stability and performance, I'll chose
+stability. BTW, while increasing timer frequency to 1000 HZ might
+affect performances in some ways, it definitely makes system more
+responsive. So, at least for zx1-based systems, I greatly encourage
+people to select 1000 HZ timer frequency and make it the default
+choice in zx1_defconfig file.
+
+     =C3=89meric
+
+
+[1] http://marc.info/?l=3Ddri-devel&m=126494456828755&w=3D2
+[2] http://marc.info/?l=3Dlinux-kernel&m=101894484713495&w=3D4
+[3] http://marc.info/?l=3Dlinux-kernel&m=101895197818781&w=3D4
+[4] http://marc.info/?l=3Dlinux-kernel&m=101897461907954&w=3D4
+[5] http://marc.info/?l=3Dlinux-kernel&m=101900471105628&w=3D4
+[6] http://marc.info/?l=3Dlinux-ia64&m=111643909323936&w=3D2
