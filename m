@@ -1,43 +1,30 @@
-From: Pedro Miguel Teixeira <pmsjt@texair.net>
-Date: Thu, 22 May 2014 23:09:24 +0000
-Subject: RE: How to deal with ia32 binary support nowadays?
-Message-Id: <b351b1f6bdc844e4b0c9c7bc4cc94322@BY2PR05MB048.namprd05.prod.outlook.com>
+From: =?UTF-8?Q?=C3=89meric_MASCHINO?= <emeric.maschino@gmail.com>
+Date: Fri, 23 May 2014 08:57:23 +0000
+Subject: Re: How to deal with ia32 binary support nowadays?
+Message-Id: <CAA9xbM4jH6tFYjO5Fo+2XVAeYw3FoBz==+AVde25ExdUC5j6tA@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <CAA9xbM5FcvA3Ps5-wmsHzpYw8Pn89Sy3sS2L2Nn1=ae9A827mQ@mail.gmail.com>
 In-Reply-To: <CAA9xbM5FcvA3Ps5-wmsHzpYw8Pn89Sy3sS2L2Nn1=ae9A827mQ@mail.gmail.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-DQpFdmVuIGlmIHlvdSB3ZXJlIHRvIHVzZSBJQTMyRUwsIHlvdSB3b3VsZCBzdGlsbCBuZWVkIGlh
-MzIgYmluYXJpZXMuIElBMzJFTCBpcyBqdXN0IGEgZGlmZmVyZW50IHdheSB0byBleGVjdXRlIHg4
-NiBiaW5hcmllcywgYnV0IHlvdSBzdGlsbCBuZWVkIHRoZW0uDQoNClBlZHJvDQoNCg0KLS0tLS1P
-cmlnaW5hbCBNZXNzYWdlLS0tLS0NCkZyb206IGxpbnV4LWlhNjQtb3duZXJAdmdlci5rZXJuZWwu
-b3JnIFttYWlsdG86bGludXgtaWE2NC1vd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uIEJlaGFsZiBP
-ZiDDiW1lcmljIE1BU0NISU5PDQpTZW50OiBUaHVyc2RheSwgTWF5IDIyLCAyMDE0IDE2OjAzDQpU
-bzogbGludXgtaWE2NEB2Z2VyLmtlcm5lbC5vcmcNClN1YmplY3Q6IEhvdyB0byBkZWFsIHdpdGgg
-aWEzMiBiaW5hcnkgc3VwcG9ydCBub3dhZGF5cz8NCg0KSGksDQoNClRvbnkgcmVtb3ZlZCBzdXBw
-b3J0IG9mIGlhMzIgYmluYXJpZXMgYmFjayBpbiAyMDEwLiBpYTMyIHN1cHBvcnQgd2FzIHN1cHBv
-c2VkbHkgYnJva2VuIHNpbmNlIEFsIFZpcm8ga2lsbGVkIGFsdHJvb3QgaW4gMjAwOCBbMl0uIEkn
-dmUgbm8gY2x1ZSB3aGF0IGFsdHJvb3QgaXMgYW5kIHdoYXQncyBpdHMgcmVsYXRpb25zaGlwIHdp
-dGggaWEzMiBzdXBwb3J0LCBidXQgZXZlbiB3aXRob3V0IGFsdHJvb3QsIHg4Nl82NCBzdGlsbCBj
-YW4gZXhlY3V0ZSBpYTMyIGJpbmFyaWVzLCBhDQoobGFyZ2U/KSBwYXJ0IG9mIHRoZSBpYTMyIHN1
-cHBvcnQgY29taW5nIGZyb20gaWE2NCBbM10uIEhvdyBpcyB0aGF0DQp4ODZfNjQgY2FuIHJ1biBp
-YTMyIGJpbmFyaWVzIGFuZCBubyBtb3JlIGlhNjQ/IFRoZXJlIHdhcyBhbHNvIHRhbGsgYWJvdXQg
-bWVyZ2luZyBpYTY0IGltcGxlbWVudGF0aW9uIHdpdGggeDg2XzY0IG9uZSBzb21lIHRpbWVzIGFn
-byBbNF0sIGJ1dCBJIGRvbid0IGtub3cgaG93IGFsbCB0aGlzIGVuZGVkIChieSBjb3B5aW5nIHBh
-cnQgb2YgaWE2NCBpbXBsZW1lbnRhdGlvbiBpbnRvIHg4Nl82NCBhcyBhbGx1ZGVkIHRvIGVhcmxp
-ZXI/IEluIHRoaXMgY2FzZSwgaXQncyBjb2RlIGR1cGxpY2F0aW9uLCBub3QgbWVyZ2UpLg0KDQpB
-biBhbHRlcm5hdGl2ZSBpcyB1c2luZyBJbnRlbCdzIHByb3ByaWV0YXJ5IElBLTMyIEVMIHNvZnR3
-YXJlLCB0aGF0IGNhbm5vdCBiZSBmb3VuZCBhbnltb3JlIG9uIEVhcnRoLi4uDQoNCkhvdyBkbyB5
-b3UgZGVhbCB3aXRoIChyYXJlKSBpYTMyIGJpbmFyaWVzIG9uIGlhNjQgbm93YWRheXM/DQoNCiAg
-ICAgw4ltZXJpYw0KDQoNClsxXSBodHRwOi8vbWFyYy5pbmZvLz9sPWxpbnV4LWlhNjQmbT0xMjY1
-NjU3MzUwMTIzNjcmdz0yDQpbMl0gaHR0cDovL2dpdC5rZXJuZWwub3JnL2NnaXQvbGludXgva2Vy
-bmVsL2dpdC90b3J2YWxkcy9saW51eC5naXQvY29tbWl0Lz9pZD03ZjJkYTFlN2QwMzMwMzk1ZTVl
-OWUzNTBiODc5Yjk4YTFlYTQ5NWRmDQpbM10gaHR0cDovL21hcmMuaW5mby8/bD1saW51eC1pYTY0
-Jm09MTI2NjY1ODI5ODA2NDI4Jnc9Mg0KWzRdIGh0dHA6Ly9tYXJjLmluZm8vP2w9bGludXgtaWE2
-NCZtPTExNDg1MTU1NjQwOTYzMyZ3PTINCi0tDQpUbyB1bnN1YnNjcmliZSBmcm9tIHRoaXMgbGlz
-dDogc2VuZCB0aGUgbGluZSAidW5zdWJzY3JpYmUgbGludXgtaWE2NCIgaW4gdGhlIGJvZHkgb2Yg
-YSBtZXNzYWdlIHRvIG1ham9yZG9tb0B2Z2VyLmtlcm5lbC5vcmcgTW9yZSBtYWpvcmRvbW8gaW5m
-byBhdCAgaHR0cDovL3ZnZXIua2VybmVsLm9yZy9tYWpvcmRvbW8taW5mby5odG1sDQo
+Hi,
+
+2014-05-23 1:09 GMT+02:00 Pedro Miguel Teixeira <pmsjt@texair.net>:
+>
+> Even if you were to use IA32EL, you would still need ia32 binaries. IA32E=
+L is just a different way to execute x86 binaries, but you still need them.
+
+Sure, but ia32 binaries are available in all Linux distributions,
+whereas IA-32 EL is only found on commercial ones.
+
+IA-32 EL was freely available for everybody on Intel website a long
+time ago [1]. Does anybody still own a backup copy of these resources?
+
+     =C3=89meric
+
+
+[1] http://web.archive.org/web/20070423060135/http://www.intel.com/cd/softw=
+are/products/asmo-na/eng/219740.htm
