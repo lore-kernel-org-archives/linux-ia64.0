@@ -1,30 +1,42 @@
-From: =?UTF-8?Q?=C3=89meric_MASCHINO?= <emeric.maschino@gmail.com>
-Date: Fri, 23 May 2014 08:57:23 +0000
-Subject: Re: How to deal with ia32 binary support nowadays?
-Message-Id: <CAA9xbM4jH6tFYjO5Fo+2XVAeYw3FoBz==+AVde25ExdUC5j6tA@mail.gmail.com>
+From: Pedro Miguel Teixeira <pmsjt@texair.net>
+Date: Sun, 25 May 2014 09:23:07 +0000
+Subject: RE: How to deal with ia32 binary support nowadays?
+Message-Id: <199186707d22475884f8f5beafd1bbb2@BY2PR05MB048.namprd05.prod.outlook.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <CAA9xbM5FcvA3Ps5-wmsHzpYw8Pn89Sy3sS2L2Nn1=ae9A827mQ@mail.gmail.com>
 In-Reply-To: <CAA9xbM5FcvA3Ps5-wmsHzpYw8Pn89Sy3sS2L2Nn1=ae9A827mQ@mail.gmail.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
-
-2014-05-23 1:09 GMT+02:00 Pedro Miguel Teixeira <pmsjt@texair.net>:
->
-> Even if you were to use IA32EL, you would still need ia32 binaries. IA32E=
-L is just a different way to execute x86 binaries, but you still need them.
-
-Sure, but ia32 binaries are available in all Linux distributions,
-whereas IA-32 EL is only found on commercial ones.
-
-IA-32 EL was freely available for everybody on Intel website a long
-time ago [1]. Does anybody still own a backup copy of these resources?
-
-     =C3=89meric
-
-
-[1] http://web.archive.org/web/20070423060135/http://www.intel.com/cd/softw=
-are/products/asmo-na/eng/219740.htm
+DQpZZXMsIHlvdSBhcmUgcmlnaHQuIFdoYXQgSSB3YXMgc2F5aW5nIGlzIHRoYXQgdGhlIGJpbmFy
+aWVzIGFuZCBPUyBmZWF0dXJlcyB0aGF0IGFyZSByZXF1aXJlZCB0byBzdXBwb3J0IGlhMzIgcHJv
+Z3JhbXMgb24gaWE2NCwgYW5kIHRoZSBtZWNoYW5pc20gdGhlIHVzZWQgdG8gZXhlY3V0ZSBpYTMy
+IGluc3RydWN0aW9ucywgaVZFIG9yIDMyRUwsIGFyZSBpbmRlcGVuZGVudCBwcm9ibGVtcy4gRm9y
+IGV4YW1wbGUsIGlmIGl0IGlzIGRlcGVuZHMgb24gYW4gYWx0cm9vdCB0aGF0IGhhcyBiZWVuIHJl
+bW92ZWQgc2luY2UsIGhhdmluZyAzMkVMIHdvbid0IHNvbHZlIHRoYXQgcHJvYmxlbS4NCg0KQnkg
+dGhlIHdheSwgV2luZG93cyBmb3IgSXRhbml1bSwgaWYgeW91IGNhbiBnZXQgeW91ciBoYW5kcyBv
+biBpdCwgaW5jbHVkZXMgSUEzMkV4ZWMuYmluLiBBcyBmYXIgYXMgSSBjYW4gcmVtZW1iZXIsIElu
+dGVsIGtlcHQgdGhlIGJpbmFyeSBPUyBpbmRlcGVuZGVudCBhbmQgYWRkZWQgYW4gYWJzdHJhY3Rp
+b24gbGF5ZXIgYW5kIGNvcnJlc3BvbmRpbmcgbG9hZGVyIHRvIGJvdGggT1NzLg0KDQpQZWRybw0K
+DQotLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KRnJvbTogbGludXgtaWE2NC1vd25lckB2Z2Vy
+Lmtlcm5lbC5vcmcgW21haWx0bzpsaW51eC1pYTY0LW93bmVyQHZnZXIua2VybmVsLm9yZ10gT24g
+QmVoYWxmIE9mIMOJbWVyaWMgTUFTQ0hJTk8NClNlbnQ6IEZyaWRheSwgTWF5IDIzLCAyMDE0IDAx
+OjU3DQpUbzogUGVkcm8gTWlndWVsIFRlaXhlaXJhDQpDYzogbGludXgtaWE2NEB2Z2VyLmtlcm5l
+bC5vcmcNClN1YmplY3Q6IFJlOiBIb3cgdG8gZGVhbCB3aXRoIGlhMzIgYmluYXJ5IHN1cHBvcnQg
+bm93YWRheXM/DQoNCkhpLA0KDQoyMDE0LTA1LTIzIDE6MDkgR01UKzAyOjAwIFBlZHJvIE1pZ3Vl
+bCBUZWl4ZWlyYSA8cG1zanRAdGV4YWlyLm5ldD46DQo+DQo+IEV2ZW4gaWYgeW91IHdlcmUgdG8g
+dXNlIElBMzJFTCwgeW91IHdvdWxkIHN0aWxsIG5lZWQgaWEzMiBiaW5hcmllcy4gSUEzMkVMIGlz
+IGp1c3QgYSBkaWZmZXJlbnQgd2F5IHRvIGV4ZWN1dGUgeDg2IGJpbmFyaWVzLCBidXQgeW91IHN0
+aWxsIG5lZWQgdGhlbS4NCg0KU3VyZSwgYnV0IGlhMzIgYmluYXJpZXMgYXJlIGF2YWlsYWJsZSBp
+biBhbGwgTGludXggZGlzdHJpYnV0aW9ucywgd2hlcmVhcyBJQS0zMiBFTCBpcyBvbmx5IGZvdW5k
+IG9uIGNvbW1lcmNpYWwgb25lcy4NCg0KSUEtMzIgRUwgd2FzIGZyZWVseSBhdmFpbGFibGUgZm9y
+IGV2ZXJ5Ym9keSBvbiBJbnRlbCB3ZWJzaXRlIGEgbG9uZyB0aW1lIGFnbyBbMV0uIERvZXMgYW55
+Ym9keSBzdGlsbCBvd24gYSBiYWNrdXAgY29weSBvZiB0aGVzZSByZXNvdXJjZXM/DQoNCiAgICAg
+w4ltZXJpYw0KDQoNClsxXSBodHRwOi8vd2ViLmFyY2hpdmUub3JnL3dlYi8yMDA3MDQyMzA2MDEz
+NS9odHRwOi8vd3d3LmludGVsLmNvbS9jZC9zb2Z0d2FyZS9wcm9kdWN0cy9hc21vLW5hL2VuZy8y
+MTk3NDAuaHRtDQotLQ0KVG8gdW5zdWJzY3JpYmUgZnJvbSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxp
+bmUgInVuc3Vic2NyaWJlIGxpbnV4LWlhNjQiIGluIHRoZSBib2R5IG9mIGEgbWVzc2FnZSB0byBt
+YWpvcmRvbW9Admdlci5rZXJuZWwub3JnIE1vcmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92
+Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21vLWluZm8uaHRtbA0K
