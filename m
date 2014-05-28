@@ -1,7 +1,7 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Date: Thu, 22 May 2014 08:51:30 +0000
-Subject: Re: ia64: CONFIG_PARAVIRT_GUEST_ASM_CLOBBER_CHECK?
-Message-Id: <1400748690.16832.10.camel@x220>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Wed, 28 May 2014 22:34:55 +0000
+Subject: RE: ia64: CONFIG_PARAVIRT_GUEST_ASM_CLOBBER_CHECK?
+Message-Id: <3908561D78D1C84285E8C5FCA982C28F32820E0B@ORSMSX114.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1400748416.16832.7.camel@x220>
 In-Reply-To: <1400748416.16832.7.camel@x220>
@@ -10,25 +10,11 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Tony, Fenghua,
-
-On Thu, 2014-05-22 at 10:46 +0200, Paul Bolle wrote:
-> v2.6.27 shipped with commit e92e8c68a61a ("[IA64] pvops: define
-> paravirtualized instructions for native."). That commit added a
-> preprocessor test for CONFIG_PARAVIRT_GUEST_ASM_CLOBBER_CHECK to
-> arch/ia64/include/asm/native/inst.h.
-> 
-> There never was a Kconfig symbol PARAVIRT_GUEST_ASM_CLOBBER_CHECK, so
-> this test has always evaluated to false.
-> 
-> Was this macro intended to be set through the kconfig tools? Or was it
-> perhaps intended to be set manually whenever one wanted to use it?
-> Either way, is that macro and the code currently hidden behind it still
-> needed?
-
-Isaku's address bounces. So I'm not likely to get a reply from Isaku.
-Could one of you please have a look at this?
-
-
-Paul Bolle
-
+PiBXYXMgdGhpcyBtYWNybyBpbnRlbmRlZCB0byBiZSBzZXQgdGhyb3VnaCB0aGUga2NvbmZpZyB0
+b29scz8gT3Igd2FzIGl0DQo+IHBlcmhhcHMgaW50ZW5kZWQgdG8gYmUgc2V0IG1hbnVhbGx5IHdo
+ZW5ldmVyIG9uZSB3YW50ZWQgdG8gdXNlIGl0Pw0KPiBFaXRoZXIgd2F5LCBpcyB0aGF0IG1hY3Jv
+IGFuZCB0aGUgY29kZSBjdXJyZW50bHkgaGlkZGVuIGJlaGluZCBpdCBzdGlsbA0KPiBuZWVkZWQ/
+DQoNCkkgdGhpbmsgaXQgbWF5IGJlIG1vb3QuICBYZW4gc3VwcG9ydCB3YXMgcmlwcGVkIG91dCBp
+biBEZWNlbWJlciBsYXN0DQp5ZWFyIGJ5IGNvbW1pdCBkNTJlZWZiNDdkNCAuLi4gc28gdGhpcyBl
+dmVuIGlmIHRoaXMgUEFSQVZJUlQgcGllY2UNCm9uZSBkaWQgc29tZXRoaW5nLCBpdCBpcyBhbGwg
+aGlzdG9yeSBub3cuDQoNCi1Ub255IA0K
