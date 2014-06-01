@@ -1,39 +1,35 @@
-From: =?UTF-8?B?VG9yYWxmIEbDtnJzdGVy?= <toralf.foerster@gmx.de>
-Date: Sun, 08 Jun 2014 13:56:35 +0000
-Subject: is sba_map_ioc_to_node() needed in arch/ia64/hp/common/sba_iommu.c
-Message-Id: <53946B93.2070900@gmx.de>
+From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+Date: Sun, 01 Jun 2014 21:46:45 +0000
+Subject: [PATCH] arch: ia64: kernel: smpboot.c:  Optimization of the Code
+Message-Id: <1401659205-17907-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>, Paul Gortmaker <paul.gortmaker@windriver.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-I'm playing with cppcheck which complains about :
+From what I know, AND is faster then modulo.
+Not sure if this is worth changing though.
 
-        /* setup NUMA node association */
-        sba_map_ioc_to_node(ioc, device->handle);
-        return 0;<--- Memory leak: ioc
-}
+Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+---
+ arch/ia64/kernel/smpboot.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Well, cppcheck produces a fair amount of false positives, but in this
-case I'm just wondering if there is really just one caller of the
-function sba_map_ioc_to_node and furthermore if the function itself is
-needed b/c its whole body is #ifdef'ed ? :
-
-static void __init
-sba_map_ioc_to_node(struct ioc *ioc, acpi_handle handle)
-{
-#ifdef CONFIG_NUMA
-        unsigned int node;
-
-        node = acpi_get_node(handle);
-        if (node != NUMA_NO_NODE && !node_online(node))
-                node = NUMA_NO_NODE;
-
-        ioc->node = node;
-#endif
-}
-
+diff --git a/arch/ia64/kernel/smpboot.c b/arch/ia64/kernel/smpboot.c
+index 547a48d..8d41119 100644
+--- a/arch/ia64/kernel/smpboot.c
++++ b/arch/ia64/kernel/smpboot.c
+@@ -237,7 +237,7 @@ get_delta (long *rt, long *master)
+ 
+ 	/* average best_t0 and best_t1 without overflow: */
+ 	tcenter = (best_t0/2 + best_t1/2);
+-	if (best_t0 % 2 + best_t1 % 2 = 2)
++	if ((best_t0 & 1) + (best_t1 & 1) = 2)
+ 		++tcenter;
+ 	return tcenter - best_tm;
+ }
 -- 
-Toralf
+1.7.10.4
 
