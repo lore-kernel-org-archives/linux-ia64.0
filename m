@@ -1,57 +1,36 @@
-From: Yann Droneaud <ydroneaud@opteya.com>
-Date: Sun, 01 Jun 2014 13:58:42 +0000
-Subject: [PATCHv7 1/6] ia64: use get_unused_fd_flags(0) instead of get_unused_fd()
-Message-Id: <fabcf31ff028e2f15c5e3dcd0d1bac21c21fd79e.1401630396.git.ydroneaud@opteya.com>
+From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+Date: Sun, 01 Jun 2014 21:43:39 +0000
+Subject: [PATCH] arch: ia64: kernel: palinfo.c:  Optimization of the Code
+Message-Id: <1401659019-17586-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1401630396.git.ydroneaud@opteya.com>
-In-Reply-To: <cover.1401630396.git.ydroneaud@opteya.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
-Cc: Yann Droneaud <ydroneaud@opteya.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>, Andrew Morton <akpm@linux-foundation.org>, trivial@kernel.org
+Cc: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>, Paul Gortmaker <paul.gortmaker@windriver.com>, "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>, "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Macro get_unused_fd() is used to allocate a file descriptor with
-default flags. Those default flags (0) can be "unsafe":
-O_CLOEXEC must be used by default to not leak file descriptor
-across exec().
+From what I know, AND is faster then modulo.
+Not sure if this is worth changing though.
 
-Instead of macro get_unused_fd(), function get_unused_fd_flags()
-(or anon_inode_getfd()) should be used with flags given by userspace.
-If not possible, flags should be set to O_CLOEXEC to provide userspace
-with a default safe behavor.
-
-In a further patch, get_unused_fd() will be removed so that new code
-start using get_unused_fd_flags() (or anon_inode_getfd()) with correct
-flags.
-
-This patch replaces calls to get_unused_fd() with equivalent call to
-get_unused_fd_flags(0) to preserve current behavor for existing code.
-
-The hard coded flag value (0) should be reviewed on a per-subsystem
-basis, and, if possible, set to O_CLOEXEC.
-
-Link: http://lkml.kernel.org/r/cover.1401630396.git.ydroneaud@opteya.com
-Cc: Al Viro <viro@zeniv.linux.org.uk>
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Signed-off-by: Yann Droneaud <ydroneaud@opteya.com>
+Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
 ---
- arch/ia64/kernel/perfmon.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ arch/ia64/kernel/palinfo.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
-index 5845ffea67c3..dc063fe6646a 100644
---- a/arch/ia64/kernel/perfmon.c
-+++ b/arch/ia64/kernel/perfmon.c
-@@ -2662,7 +2662,7 @@ pfm_context_create(pfm_context_t *ctx, void *arg, int count, struct pt_regs *reg
+diff --git a/arch/ia64/kernel/palinfo.c b/arch/ia64/kernel/palinfo.c
+index c39c3cd..7915b02 100644
+--- a/arch/ia64/kernel/palinfo.c
++++ b/arch/ia64/kernel/palinfo.c
+@@ -156,7 +156,8 @@ static void bitregister_process(struct seq_file *m, u64 *reg_info, int max)
  
- 	ret = -ENOMEM;
+ 	for(; i < max; i++ ) {
  
--	fd = get_unused_fd();
-+	fd = get_unused_fd_flags(0);
- 	if (fd < 0)
- 		return fd;
+-		if (i != 0 && (i%64) = 0) value = *++reg_info;
++		if (i != 0 && (i&63) = 0)
++			value = *++reg_info;
  
+ 		if ((value & 0x1) = 0 && skip = 0) {
+ 			if (begin  <= i - 2)
 -- 
-1.9.3
+1.7.10.4
 
