@@ -1,91 +1,76 @@
-From: Sudeep Holla <sudeep.holla@arm.com>
-Date: Wed, 25 Jun 2014 17:30:35 +0000
-Subject: [PATCH 0/9] drivers: cacheinfo support
-Message-Id: <1403717444-23559-1-git-send-email-sudeep.holla@arm.com>
+From: Meelis Roos <mroos@linux.ee>
+Date: Fri, 06 Jun 2014 11:38:02 +0000
+Subject: [PATCH] ia64: fix unwcheck.py for python3
+Message-Id: <alpine.SOC.1.00.1406061434000.8408@math.ut.ee>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: sudeep.holla@arm.com, Heiko Carstens <heiko.carstens@de.ibm.com>, Lorenzo Pieralisi <Lorenzo.Pieralisi@arm.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-ia64@vger.kernel.org, linux390@de.ibm.com, linux-s390@vger.kernel.org, x86@kernel.org, linuxppc-dev@lists.ozlabs.org, linux-arm-kernel@lists.infradead.org
+To: linux-ia64@vger.kernel.org
 
-From: Sudeep Holla <sudeep.holla@arm.com>
+In Gentoo, Python3 is the default Python and our unwcheck.py breaks with 
+Python 3. Fix it:
 
-This series adds a generic cacheinfo support similar to topology. The
-implementation is based on x86 cacheinfo support. Currently x86, powerpc,
-ia64 and s390 have their own implementations. While adding similar support
-to ARM and ARM64, here is the attempt to make it generic quite similar to
-topology info support. It also adds the missing ABI documentation for
-the cacheinfo sysfs which is already being used.
+ * Close % substitutions of strings in parens to avoid syntax errors
+ * make long code portable as per 
+   http://python3porting.com/differences.html#long - define long for 
+   Python3 and use long(0) instead of 0L for Python2.
 
-It moves all the existing different implementations on x86, ia64, powerpc
-and s390 to use the generic cacheinfo infrastructure introduced here.
-These changes on non-ARM platforms are only compile tested and tested on x86.
+Tested to still work with Python2 too (at least it omits no errors).
 
-This series also adds support for ARM and ARM64 architectures based on
-the generic support.
+Signed-off-by: Meelis Roos <mroos@linux.ee>
 
-Since there was no objection to the idea in RFC, I am posting non-RFC
-version here.
+diff --git a/arch/ia64/scripts/unwcheck.py b/arch/ia64/scripts/unwcheck.py
+index 2bfd941..679c02d 100644
+--- a/arch/ia64/scripts/unwcheck.py
++++ b/arch/ia64/scripts/unwcheck.py
+@@ -15,9 +15,12 @@ import re
+ import sys
+ 
+ if len(sys.argv) != 2:
+-    print "Usage: %s FILE" % sys.argv[0]
++    print ("Usage: %s FILE" % sys.argv[0])
+     sys.exit(2)
+ 
++if sys.version > '3':
++    long = int # dummy conversion for Python 3
++
+ readelf = os.getenv("READELF", "readelf")
+ 
+ start_pattern = re.compile("<([^>]*)>: \[0x([0-9a-f]+)-0x([0-9a-f]+)\]")
+@@ -28,7 +31,7 @@ def check_func (func, slots, rlen_sum):
+         global num_errors
+         num_errors += 1
+         if not func: func = "[%#x-%#x]" % (start, end)
+-        print "ERROR: %s: %lu slots, total region length = %lu" % (func, slots, rlen_sum)
++        print ("ERROR: %s: %lu slots, total region length = %lu" % (func, slots, rlen_sum))
+     return
+ 
+ num_funcs = 0
+@@ -45,7 +48,7 @@ for line in os.popen("%s -u %s" % (readelf, sys.argv[1])):
+         start = long(m.group(2), 16)
+         end   = long(m.group(3), 16)
+         slots = 3 * (end - start) / 16
+-        rlen_sum = 0L
++        rlen_sum = long(0)
+         num_funcs += 1
+     else:
+         m = rlen_pattern.match(line)
+@@ -54,11 +57,11 @@ for line in os.popen("%s -u %s" % (readelf, sys.argv[1])):
+ check_func(func, slots, rlen_sum)
+ 
+ if num_errors = 0:
+-    print "No errors detected in %u functions." % num_funcs
++    print ("No errors detected in %u functions." % num_funcs)
+ else:
+     if num_errors > 1:
+         err="errors"
+     else:
+         err="error"
+-    print "%u %s detected in %u functions." % (num_errors, err, num_funcs)
++    print ("%u %s detected in %u functions." % (num_errors, err, num_funcs))
+     sys.exit(1)
 
-The code can be fetched from:
- git://linux-arm.org/linux-skn cacheinfo
-
-Previous RFCs:
-[1] https://lkml.org/lkml/2014/1/8/523
-[2] https://lkml.org/lkml/2014/2/7/654
-[3] https://lkml.org/lkml/2014/2/19/391
-
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: linux-ia64@vger.kernel.org
-Cc: linux390@de.ibm.com
-Cc: linux-s390@vger.kernel.org
-Cc: x86@kernel.org
-Cc: linuxppc-dev@lists.ozlabs.org
-Cc: linux-arm-kernel@lists.infradead.org
-
----
-Sudeep Holla (9):
-  drivers: base: add new class "cpu" to group cpu devices
-  drivers: base: support cpu cache information interface to userspace
-    via sysfs
-  ia64: move cacheinfo sysfs to generic cacheinfo infrastructure
-  s390: move cacheinfo sysfs to generic cacheinfo infrastructure
-  x86: move cacheinfo sysfs to generic cacheinfo infrastructure
-  powerpc: move cacheinfo sysfs to generic cacheinfo infrastructure
-  ARM64: kernel: add support for cpu cache information
-  ARM: kernel: add support for cpu cache information
-  ARM: kernel: add outer cache support for cacheinfo implementation
-
- Documentation/ABI/testing/sysfs-devices-system-cpu |  41 ++
- arch/arm/include/asm/outercache.h                  |  13 +
- arch/arm/kernel/Makefile                           |   1 +
- arch/arm/kernel/cacheinfo.c                        | 249 +++++++
- arch/arm/mm/Kconfig                                |  13 +
- arch/arm/mm/cache-l2x0.c                           |  10 +
- arch/arm/mm/cache-tauros2.c                        |  34 +
- arch/arm/mm/cache-xsc3l2.c                         |  15 +
- arch/arm64/kernel/Makefile                         |   3 +-
- arch/arm64/kernel/cacheinfo.c                      | 135 ++++
- arch/ia64/kernel/topology.c                        | 401 ++--------
- arch/powerpc/kernel/cacheinfo.c                    | 813 +++------------------
- arch/powerpc/kernel/cacheinfo.h                    |   8 -
- arch/powerpc/kernel/sysfs.c                        |  12 +-
- arch/s390/kernel/cache.c                           | 388 +++-------
- arch/x86/kernel/cpu/intel_cacheinfo.c              | 655 ++++-------------
- drivers/base/Makefile                              |   2 +-
- drivers/base/cacheinfo.c                           | 564 ++++++++++++++
- drivers/base/core.c                                |  39 +-
- drivers/base/cpu.c                                 |   7 +
- include/linux/cacheinfo.h                          |  56 ++
- include/linux/cpu.h                                |   2 +
- 22 files changed, 1590 insertions(+), 1871 deletions(-)
- create mode 100644 arch/arm/kernel/cacheinfo.c
- create mode 100644 arch/arm64/kernel/cacheinfo.c
- delete mode 100644 arch/powerpc/kernel/cacheinfo.h
- create mode 100644 drivers/base/cacheinfo.c
- create mode 100644 include/linux/cacheinfo.h
 
 -- 
-1.8.3.2
-
+Meelis Roos (mroos@linux.ee)
