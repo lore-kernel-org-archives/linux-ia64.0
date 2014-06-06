@@ -1,123 +1,101 @@
-From: Mark Salter <msalter@redhat.com>
-Date: Mon, 23 Jun 2014 21:27:50 +0000
-Subject: Re: [PATCH] rtc: ia64: allow other architectures to use EFI RTC
-Message-Id: <1403558870.755.60.camel@deneb.redhat.com>
+From: Jan Kiszka <jan.kiszka@siemens.com>
+Date: Fri, 06 Jun 2014 17:18:41 +0000
+Subject: [PATCH v8 00/22] Add gdb python scripts as kernel debugging helpers
+Message-Id: <cover.1402075136.git.jan.kiszka@siemens.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1402685430-32591-1-git-send-email-msalter@redhat.com>
-In-Reply-To: <1402685430-32591-1-git-send-email-msalter@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Alessandro Zummo <a.zummo@towertech.it>
-Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, rtc-linux@googlegroups.com, linux-kernel@vger.kernel.org
+To: Thomas Gleixner <tglx@linutronix.de>, Andrew Morton <akpm@linux-foundation.org>, linux-kernel@vger.kernel.org
+Cc: Jason Wessel <jason.wessel@windriver.com>, kgdb-bugreport@lists.sourceforge.net, Andi Kleen <andi@firstfloor.org>, Tom Tromey <tromey@redhat.com>, Ben Widawsky <ben@bwidawsk.net>, Borislav Petkov <bp@suse.de>, Tatiana Al-Chueyr Martins <tatiana.alchueyr@gmail.com>, "David S. Miller" <davem@davemloft.net>, Fenghua Yu <fenghua.yu@intel.com>, Kay Sievers <kay@vrfy.org>, linux-doc@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kbuild@vger.kernel.org, Michal Marek <mmarek@suse.cz>, Pantelis Koukousoulas <pktoss@gmail.com>, Rob Landley <rob@landley.net>, Rusty Russell <rusty@rustcorp.com.au>, sparclinux@vger.kernel.org, Tony Luck <tony.luck@intel.com>
 
-Ping.
+Some time passed since the last posting. Basically, this round comes
+with two changes:
+ - make the code Python 3 compatible [Pantelis Koukousoulas]
+ - rebase over recent Linux version, resolving a trivial conflict
 
-On Fri, 2014-06-13 at 14:50 -0400, Mark Salter wrote:
-> Currently, the rtc-efi driver is restricted to ia64 only.
-> Newer architectures with EFI support may want to also use
-> that driver. This patch moves the platform device setup
-> from ia64 into drivers/rtc and allow any architecture with
-> CONFIG_EFI=y to use the rtc-efi driver.
-> 
-> Signed-off-by: Mark Salter <msalter@redhat.com>
-> ---
->  arch/ia64/kernel/time.c        | 15 ---------------
->  drivers/rtc/Kconfig            |  2 +-
->  drivers/rtc/Makefile           |  4 ++++
->  drivers/rtc/rtc-efi-platform.c | 30 ++++++++++++++++++++++++++++++
->  4 files changed, 35 insertions(+), 16 deletions(-)
->  create mode 100644 drivers/rtc/rtc-efi-platform.c
-> 
-> diff --git a/arch/ia64/kernel/time.c b/arch/ia64/kernel/time.c
-> index 71c52bc..a149c67 100644
-> --- a/arch/ia64/kernel/time.c
-> +++ b/arch/ia64/kernel/time.c
-> @@ -384,21 +384,6 @@ static struct irqaction timer_irqaction = {
->  	.name =		"timer"
->  };
->  
-> -static struct platform_device rtc_efi_dev = {
-> -	.name = "rtc-efi",
-> -	.id = -1,
-> -};
-> -
-> -static int __init rtc_init(void)
-> -{
-> -	if (platform_device_register(&rtc_efi_dev) < 0)
-> -		printk(KERN_ERR "unable to register rtc device...\n");
-> -
-> -	/* not necessarily an error */
-> -	return 0;
-> -}
-> -module_init(rtc_init);
-> -
->  void read_persistent_clock(struct timespec *ts)
->  {
->  	efi_gettimeofday(ts);
-> diff --git a/drivers/rtc/Kconfig b/drivers/rtc/Kconfig
-> index 0754f5c..4478a59 100644
-> --- a/drivers/rtc/Kconfig
-> +++ b/drivers/rtc/Kconfig
-> @@ -789,7 +789,7 @@ config RTC_DRV_DA9063
->  
->  config RTC_DRV_EFI
->  	tristate "EFI RTC"
-> -	depends on IA64
-> +	depends on EFI
->  	help
->  	  If you say yes here you will get support for the EFI
->  	  Real Time Clock.
-> diff --git a/drivers/rtc/Makefile b/drivers/rtc/Makefile
-> index 70347d0..f1dfc36 100644
-> --- a/drivers/rtc/Makefile
-> +++ b/drivers/rtc/Makefile
-> @@ -10,6 +10,10 @@ obj-$(CONFIG_RTC_SYSTOHC)	+= systohc.o
->  obj-$(CONFIG_RTC_CLASS)		+= rtc-core.o
->  rtc-core-y			:= class.o interface.o
->  
-> +ifdef CONFIG_RTC_DRV_EFI
-> +rtc-core-y			+= rtc-efi-platform.o
-> +endif
-> +
->  rtc-core-$(CONFIG_RTC_INTF_DEV)	+= rtc-dev.o
->  rtc-core-$(CONFIG_RTC_INTF_PROC) += rtc-proc.o
->  rtc-core-$(CONFIG_RTC_INTF_SYSFS) += rtc-sysfs.o
-> diff --git a/drivers/rtc/rtc-efi-platform.c b/drivers/rtc/rtc-efi-platform.c
-> new file mode 100644
-> index 0000000..1a7f890
-> --- /dev/null
-> +++ b/drivers/rtc/rtc-efi-platform.c
-> @@ -0,0 +1,30 @@
-> +/*
-> + * Moved from arch/ia64/kernel/time.c
-> + *
-> + * Copyright (C) 1998-2003 Hewlett-Packard Co
-> + *	Stephane Eranian <eranian@hpl.hp.com>
-> + *	David Mosberger <davidm@hpl.hp.com>
-> + * Copyright (C) 1999 Don Dugger <don.dugger@intel.com>
-> + * Copyright (C) 1999-2000 VA Linux Systems
-> + * Copyright (C) 1999-2000 Walt Drummond <drummond@valinux.com>
-> + */
-> +#include <linux/init.h>
-> +#include <linux/kernel.h>
-> +#include <linux/module.h>
-> +#include <linux/efi.h>
-> +#include <linux/platform_device.h>
-> +
-> +static struct platform_device rtc_efi_dev = {
-> +	.name = "rtc-efi",
-> +	.id = -1,
-> +};
-> +
-> +static int __init rtc_init(void)
-> +{
-> +	if (platform_device_register(&rtc_efi_dev) < 0)
-> +		pr_err("unable to register rtc device...\n");
-> +
-> +	/* not necessarily an error */
-> +	return 0;
-> +}
-> +module_init(rtc_init);
+See http://lkml.indiana.edu/hypermail/linux/kernel/1210.0/01598.html for
+the original description and
 
+    git://git.kiszka.org/linux.git queues/gdb-scripts
+
+for the latest version.
+
+I'm still hoping someone will move this forward via his tree towards
+upstream. Please let me know if any changes are required to enable this.
+
+Jan
+
+CC: "David S. Miller" <davem@davemloft.net>
+CC: Fenghua Yu <fenghua.yu@intel.com>
+CC: Kay Sievers <kay@vrfy.org>
+CC: linux-doc@vger.kernel.org
+CC: linux-ia64@vger.kernel.org
+CC: linux-kbuild@vger.kernel.org
+CC: Michal Marek <mmarek@suse.cz>
+CC: Pantelis Koukousoulas <pktoss@gmail.com>
+CC: Rob Landley <rob@landley.net>
+CC: Rusty Russell <rusty@rustcorp.com.au>
+CC: sparclinux@vger.kernel.org
+CC: Tony Luck <tony.luck@intel.com>
+
+Jan Kiszka (21):
+  scripts/gdb: Add infrastructure
+  scripts/gdb: Add cache for type objects
+  scripts/gdb: Add container_of helper and convenience function
+  scripts/gdb: Add module iteration class
+  scripts/gdb: Add lx-symbols command
+  module: Do not inline do_init_module
+  scripts/gdb: Add automatic symbol reloading on module insertion
+  scripts/gdb: Add internal helper and convenience function to look up a
+    module
+  scripts/gdb: Add get_target_endianness helper
+  scripts/gdb: Add read_u16/32/64 helpers
+  scripts/gdb: Add lx-dmesg command
+  scripts/gdb: Add task iteration class
+  scripts/gdb: Add helper and convenience function to look up tasks
+  scripts/gdb: Add is_target_arch helper
+  scripts/gdb: Add internal helper and convenience function to retrieve
+    thread_info
+  scripts/gdb: Add get_gdbserver_type helper
+  scripts/gdb: Add internal helper and convenience function for per-cpu
+    lookup
+  scripts/gdb: Add lx_current convenience function
+  scripts/gdb: Add class to iterate over CPU masks
+  scripts/gdb: Add lx-lsmod command
+  scripts/gdb: Add basic documentation
+
+Pantelis Koukousoulas (1):
+  scripts/gdb: Port to python3 / gdb7.7
+
+ Documentation/gdb-kernel-debugging.txt | 160 +++++++++++++++++++++++++++++++
+ Makefile                               |   6 +-
+ kernel/module.c                        |   9 +-
+ lib/Kconfig.debug                      |  11 +++
+ scripts/Makefile                       |   3 +-
+ scripts/gdb/Makefile                   |  11 +++
+ scripts/gdb/linux/Makefile             |   9 ++
+ scripts/gdb/linux/__init__.py          |   0
+ scripts/gdb/linux/cpus.py              | 142 ++++++++++++++++++++++++++++
+ scripts/gdb/linux/dmesg.py             |  65 +++++++++++++
+ scripts/gdb/linux/modules.py           | 114 ++++++++++++++++++++++
+ scripts/gdb/linux/symbols.py           | 166 +++++++++++++++++++++++++++++++++
+ scripts/gdb/linux/tasks.py             | 110 ++++++++++++++++++++++
+ scripts/gdb/linux/utils.py             | 156 +++++++++++++++++++++++++++++++
+ scripts/gdb/vmlinux-gdb.py             |  30 ++++++
+ 15 files changed, 988 insertions(+), 4 deletions(-)
+ create mode 100644 Documentation/gdb-kernel-debugging.txt
+ create mode 100644 scripts/gdb/Makefile
+ create mode 100644 scripts/gdb/linux/Makefile
+ create mode 100644 scripts/gdb/linux/__init__.py
+ create mode 100644 scripts/gdb/linux/cpus.py
+ create mode 100644 scripts/gdb/linux/dmesg.py
+ create mode 100644 scripts/gdb/linux/modules.py
+ create mode 100644 scripts/gdb/linux/symbols.py
+ create mode 100644 scripts/gdb/linux/tasks.py
+ create mode 100644 scripts/gdb/linux/utils.py
+ create mode 100644 scripts/gdb/vmlinux-gdb.py
+
+-- 
+1.8.1.1.298.ge7eed54
 
