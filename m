@@ -1,43 +1,91 @@
-From: Daniel Kiper <daniel.kiper@oracle.com>
-Date: Mon, 30 Jun 2014 17:52:55 +0000
-Subject: [PATCH v7 01/10] arch/ia64: Define early_memunmap()
-Message-Id: <1404150784-27921-2-git-send-email-daniel.kiper@oracle.com>
+From: Sudeep Holla <sudeep.holla@arm.com>
+Date: Wed, 25 Jun 2014 17:30:35 +0000
+Subject: [PATCH 0/9] drivers: cacheinfo support
+Message-Id: <1403717444-23559-1-git-send-email-sudeep.holla@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1404150784-27921-1-git-send-email-daniel.kiper@oracle.com>
-In-Reply-To: <1404150784-27921-1-git-send-email-daniel.kiper@oracle.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-efi@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, x86@kernel.org, xen-devel@lists.xenproject.org
-Cc: andrew.cooper3@citrix.com, boris.ostrovsky@oracle.com, david.vrabel@citrix.com, eshelton@pobox.com, fenghua.yu@intel.com, hpa@zytor.com, ian.campbell@citrix.com, jbeulich@suse.com, jeremy@goop.org, konrad.wilk@oracle.com, matt.fleming@intel.com, mingo@redhat.com, mjg59@srcf.ucam.org, stefano.stabellini@eu.citrix.com, tglx@linutronix.de, tony.luck@intel.com
+To: linux-kernel@vger.kernel.org
+Cc: sudeep.holla@arm.com, Heiko Carstens <heiko.carstens@de.ibm.com>, Lorenzo Pieralisi <Lorenzo.Pieralisi@arm.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-ia64@vger.kernel.org, linux390@de.ibm.com, linux-s390@vger.kernel.org, x86@kernel.org, linuxppc-dev@lists.ozlabs.org, linux-arm-kernel@lists.infradead.org
 
-This is odd to use early_iounmap() function do tear down mapping
-created by early_memremap() function, even if it works right now,
-because they belong to different set of functions. The former is
-I/O related function and the later is memory related. So, create
-early_memunmap() macro which in real is early_iounmap(). This
-thing will help to not confuse code readers longer by mixing
-functions from different classes.
+From: Sudeep Holla <sudeep.holla@arm.com>
 
-EFI patches following this patch uses that functionality.
+This series adds a generic cacheinfo support similar to topology. The
+implementation is based on x86 cacheinfo support. Currently x86, powerpc,
+ia64 and s390 have their own implementations. While adding similar support
+to ARM and ARM64, here is the attempt to make it generic quite similar to
+topology info support. It also adds the missing ABI documentation for
+the cacheinfo sysfs which is already being used.
 
-Signed-off-by: Daniel Kiper <daniel.kiper@oracle.com>
+It moves all the existing different implementations on x86, ia64, powerpc
+and s390 to use the generic cacheinfo infrastructure introduced here.
+These changes on non-ARM platforms are only compile tested and tested on x86.
+
+This series also adds support for ARM and ARM64 architectures based on
+the generic support.
+
+Since there was no objection to the idea in RFC, I am posting non-RFC
+version here.
+
+The code can be fetched from:
+ git://linux-arm.org/linux-skn cacheinfo
+
+Previous RFCs:
+[1] https://lkml.org/lkml/2014/1/8/523
+[2] https://lkml.org/lkml/2014/2/7/654
+[3] https://lkml.org/lkml/2014/2/19/391
+
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: linux-ia64@vger.kernel.org
+Cc: linux390@de.ibm.com
+Cc: linux-s390@vger.kernel.org
+Cc: x86@kernel.org
+Cc: linuxppc-dev@lists.ozlabs.org
+Cc: linux-arm-kernel@lists.infradead.org
+
 ---
- arch/ia64/include/asm/io.h |    1 +
- 1 file changed, 1 insertion(+)
+Sudeep Holla (9):
+  drivers: base: add new class "cpu" to group cpu devices
+  drivers: base: support cpu cache information interface to userspace
+    via sysfs
+  ia64: move cacheinfo sysfs to generic cacheinfo infrastructure
+  s390: move cacheinfo sysfs to generic cacheinfo infrastructure
+  x86: move cacheinfo sysfs to generic cacheinfo infrastructure
+  powerpc: move cacheinfo sysfs to generic cacheinfo infrastructure
+  ARM64: kernel: add support for cpu cache information
+  ARM: kernel: add support for cpu cache information
+  ARM: kernel: add outer cache support for cacheinfo implementation
 
-diff --git a/arch/ia64/include/asm/io.h b/arch/ia64/include/asm/io.h
-index 0d2bcb3..bee0acd 100644
---- a/arch/ia64/include/asm/io.h
-+++ b/arch/ia64/include/asm/io.h
-@@ -426,6 +426,7 @@ extern void iounmap (volatile void __iomem *addr);
- extern void __iomem * early_ioremap (unsigned long phys_addr, unsigned long size);
- #define early_memremap(phys_addr, size)        early_ioremap(phys_addr, size)
- extern void early_iounmap (volatile void __iomem *addr, unsigned long size);
-+#define early_memunmap(addr, size)             early_iounmap(addr, size)
- static inline void __iomem * ioremap_cache (unsigned long phys_addr, unsigned long size)
- {
- 	return ioremap(phys_addr, size);
+ Documentation/ABI/testing/sysfs-devices-system-cpu |  41 ++
+ arch/arm/include/asm/outercache.h                  |  13 +
+ arch/arm/kernel/Makefile                           |   1 +
+ arch/arm/kernel/cacheinfo.c                        | 249 +++++++
+ arch/arm/mm/Kconfig                                |  13 +
+ arch/arm/mm/cache-l2x0.c                           |  10 +
+ arch/arm/mm/cache-tauros2.c                        |  34 +
+ arch/arm/mm/cache-xsc3l2.c                         |  15 +
+ arch/arm64/kernel/Makefile                         |   3 +-
+ arch/arm64/kernel/cacheinfo.c                      | 135 ++++
+ arch/ia64/kernel/topology.c                        | 401 ++--------
+ arch/powerpc/kernel/cacheinfo.c                    | 813 +++------------------
+ arch/powerpc/kernel/cacheinfo.h                    |   8 -
+ arch/powerpc/kernel/sysfs.c                        |  12 +-
+ arch/s390/kernel/cache.c                           | 388 +++-------
+ arch/x86/kernel/cpu/intel_cacheinfo.c              | 655 ++++-------------
+ drivers/base/Makefile                              |   2 +-
+ drivers/base/cacheinfo.c                           | 564 ++++++++++++++
+ drivers/base/core.c                                |  39 +-
+ drivers/base/cpu.c                                 |   7 +
+ include/linux/cacheinfo.h                          |  56 ++
+ include/linux/cpu.h                                |   2 +
+ 22 files changed, 1590 insertions(+), 1871 deletions(-)
+ create mode 100644 arch/arm/kernel/cacheinfo.c
+ create mode 100644 arch/arm64/kernel/cacheinfo.c
+ delete mode 100644 arch/powerpc/kernel/cacheinfo.h
+ create mode 100644 drivers/base/cacheinfo.c
+ create mode 100644 include/linux/cacheinfo.h
+
 -- 
-1.7.10.4
+1.8.3.2
 
