@@ -1,23 +1,39 @@
-From: Dave Hansen <dave.hansen@intel.com>
-Date: Fri, 18 Jul 2014 15:00:43 +0000
-Subject: Re: [PATCH 1/5] memory-hotplug: x86_64: suitable memory should go to ZONE_MOVABLE
-Message-Id: <53C9369B.4070608@intel.com>
+From: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
+Date: Tue, 01 Jul 2014 02:21:02 +0000
+Subject: Re: Re: [PATCH v4] [BUGFIX] kprobes: Fix "Failed to find blacklist" error on ia64 and ppc64
+Message-Id: <53B21B0E.8010707@hitachi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1405670163-53747-1-git-send-email-wangnan0@huawei.com> <1405670163-53747-2-git-send-email-wangnan0@huawei.com>
-In-Reply-To: <1405670163-53747-2-git-send-email-wangnan0@huawei.com>
+References: <20140620022307.23075.55858.stgit@kbuild-fedora.novalocal>  <53B0D61B.9010104@hitachi.com> <1404128176.7888.1.camel@concordia>
+In-Reply-To: <1404128176.7888.1.camel@concordia>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Wang Nan <wangnan0@huawei.com>, Ingo Molnar <mingo@redhat.com>, Yinghai Lu <yinghai@kernel.org>, Mel Gorman <mgorman@suse.de>, Andrew Morton <akpm@linux-foundation.org>
-Cc: Pei Feiyue <peifeiyue@huawei.com>, linux-mm@kvack.org, x86@kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Michael Ellerman <mpe@ellerman.id.au>
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Tony Luck <tony.luck@gmail.com>, Jeremy Fitzhardinge <jeremy@goop.org>, linux-ia64@vger.kernel.org, sparse@chrisli.org, "H. Peter Anvin" <hpa@zytor.com>, Ingo Molnar <mingo@kernel.org>, linux-tip-commits@vger.kernel.org, akataria@vmware.com, anil.s.keshavamurthy@intel.com, "Suzuki K. Poulose" <suzuki@in.ibm.com>, Fenghua Yu <fenghua.yu@intel.com>, Arnd Bergmann <arnd@arndb.de>, Rusty Russell <rusty@rustcorp.com.au>, Chris Wright <chrisw@sous-sol.org>, yrl.pp-manager.tt@hitachi.com, Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, Kevin Hao <haokexin@gmail.com>, Ananth N Mavinakayanahalli <ananth@in.ibm.com>, linuxppc-dev@lists.ozlabs.org, rdunlap@infradead.org, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, dl9pf@gmx.de, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, "David S. Miller" <davem@davemloft.net>
 
-On 07/18/2014 12:55 AM, Wang Nan wrote:
-> +	if (!zone_is_empty(movable_zone))
-> +		if (zone_spans_pfn(movable_zone, start_pfn) ||
-> +				(zone_end_pfn(movable_zone) <= start_pfn))
-> +			zone = movable_zone;
-> +
+(2014/06/30 20:36), Michael Ellerman wrote:
+> On Mon, 2014-06-30 at 12:14 +0900, Masami Hiramatsu wrote:
+>> Ping? :)
+> 
+> Yeah sorry. I started looking at this and got dragged into another mess.
+> 
+> You seem to have duplicated the functionality of arch_deref_entry_point(),
+> which was also added for kprobes, and for the same reason - ie. because some
+> arches have strange function pointers. Is there some reason you can't use it?
 
-It's nice that you hit so many architectures, but is there a way to do
-this that doesn't involve copying and pasting the same bit of code in to
-each architecture?
+Ah, right! Hmm, it seems some more work to update it. but basically, we can do.
+BTW, is there any other users who need to access the actual function entry (for
+kallsyms case)?
+
+If so, I guess it'd better to merge this version and replace kprobe's local
+arch_deref_entry_point() with generic function_entry() macro.
+
+Thank you,
+
+-- 
+Masami HIRAMATSU
+Software Platform Research Dept. Linux Technology Research Center
+Hitachi, Ltd., Yokohama Research Laboratory
+E-mail: masami.hiramatsu.pt@hitachi.com
+
+
