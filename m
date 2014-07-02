@@ -1,164 +1,124 @@
-From: Wang Nan <wangnan0@huawei.com>
-Date: Fri, 18 Jul 2014 09:56:14 +0000
-Subject: Re: [PATCH 0/5] memory-hotplug: suitable memory should go to ZONE_MOVABLE
-Message-Id: <53C8EF3E.1090706@huawei.com>
+From: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
+Date: Wed, 02 Jul 2014 07:00:29 +0000
+Subject: [PATCH v5 2/2] [BUGFIX] kprobes: Fix "Failed to find blacklist" error on ia64 and ppc64
+Message-Id: <20140702070029.14689.18485.stgit@kbuild-fedora.novalocal>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1405670163-53747-1-git-send-email-wangnan0@huawei.com> <53C8E602.1060301@cn.fujitsu.com>
-In-Reply-To: <53C8E602.1060301@cn.fujitsu.com>
+References: <1404276081.7254.1.camel@concordia>
+In-Reply-To: <1404276081.7254.1.camel@concordia>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Zhang Yanfei <zhangyanfei@cn.fujitsu.com>
-Cc: Ingo Molnar <mingo@redhat.com>, Yinghai Lu <yinghai@kernel.org>, Mel Gorman <mgorman@suse.de>, Andrew Morton <akpm@linux-foundation.org>, Pei Feiyue <peifeiyue@huawei.com>, linux-mm@kvack.org, x86@kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Tony Luck <tony.luck@gmail.com>
+Cc: Jeremy Fitzhardinge <jeremy@goop.org>, linux-ia64@vger.kernel.org, sparse@chrisli.org, "H. Peter Anvin" <hpa@zytor.com>, Ingo Molnar <mingo@kernel.org>, linux-tip-commits@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>, akataria@vmware.com, anil.s.keshavamurthy@intel.com, "Suzuki K. Poulose" <suzuki@in.ibm.com>, Fenghua Yu <fenghua.yu@intel.com>, Arnd Bergmann <arnd@arndb.de>, Rusty Russell <rusty@rustcorp.com.au>, Chris Wright <chrisw@sous-sol.org>, yrl.pp-manager.tt@hitachi.com, Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, Kevin Hao <haokexin@gmail.com>, Ananth N Mavinakayanahalli <ananth@in.ibm.com>, linuxppc-dev@lists.ozlabs.org, rdunlap@infradead.org, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, dl9pf@gmx.de, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, "David S. Miller" <davem@davemloft.net>
 
-On 2014/7/18 17:16, Zhang Yanfei wrote:
-> Hello,
-> 
-> On 07/18/2014 03:55 PM, Wang Nan wrote:
->> This series of patches fix a problem when adding memory in bad manner.
->> For example: for a x86_64 machine booted with "mem@0M" and with 2GiB
->> memory installed, following commands cause problem:
->>
->>  # echo 0x40000000 > /sys/devices/system/memory/probe
->> [   28.613895] init_memory_mapping: [mem 0x40000000-0x47ffffff]
->>  # echo 0x48000000 > /sys/devices/system/memory/probe
->> [   28.693675] init_memory_mapping: [mem 0x48000000-0x4fffffff]
->>  # echo online_movable > /sys/devices/system/memory/memory9/state
->>  # echo 0x50000000 > /sys/devices/system/memory/probe 
->> [   29.084090] init_memory_mapping: [mem 0x50000000-0x57ffffff]
->>  # echo 0x58000000 > /sys/devices/system/memory/probe 
->> [   29.151880] init_memory_mapping: [mem 0x58000000-0x5fffffff]
->>  # echo online_movable > /sys/devices/system/memory/memory11/state
->>  # echo online> /sys/devices/system/memory/memory8/state
->>  # echo online> /sys/devices/system/memory/memory10/state
->>  # echo offline> /sys/devices/system/memory/memory9/state
->> [   30.558819] Offlined Pages 32768
->>  # free
->>              total       used       free     shared    buffers     cached
->> Mem:        780588 18014398509432020     830552          0          0      51180
->> -/+ buffers/cache: 18014398509380840     881732
->> Swap:            0          0          0
->>
->> This is because the above commands probe higher memory after online a
->> section with online_movable, which causes ZONE_HIGHMEM (or ZONE_NORMAL
->> for systems without ZONE_HIGHMEM) overlaps ZONE_MOVABLE.
-> 
-> Yeah, this is rare in reality but can happen. Could you please also
-> include the free result and zoneinfo after applying your patch?
-> 
-> Thanks.
-> 
+On ia64 and ppc64, the function pointer does not point the
+entry address of the function, but the address of function
+discriptor (which contains the entry address and misc
+data.) Since the kprobes passes the function pointer stored
+by NOKPROBE_SYMBOL() to kallsyms_lookup_size_offset() for
+initalizing its blacklist, it fails and reports many errors
+as below.
 
-OK.
+  Failed to find blacklist 0001013168300000
+  Failed to find blacklist 0001013000f0a000
+  Failed to find blacklist 000101315f70a000
+  Failed to find blacklist 000101324c80a000
+  Failed to find blacklist 0001013063f0a000
+  Failed to find blacklist 000101327800a000
+  Failed to find blacklist 0001013277f0a000
+  Failed to find blacklist 000101315a70a000
+  Failed to find blacklist 0001013277e0a000
+  Failed to find blacklist 000101305a20a000
+  Failed to find blacklist 0001013277d0a000
+  Failed to find blacklist 00010130bdc0a000
+  Failed to find blacklist 00010130dc20a000
+  Failed to find blacklist 000101309a00a000
+  Failed to find blacklist 0001013277c0a000
+  Failed to find blacklist 0001013277b0a000
+  Failed to find blacklist 0001013277a0a000
+  Failed to find blacklist 000101327790a000
+  Failed to find blacklist 000101303140a000
+  Failed to find blacklist 0001013a3280a000
 
-I paste the free result and zoneinfo at the end of this mail. This is a x86_64 result,
-generated on qemu, after applying my patches.
+To fix this bug, this introduces function_entry() macro to
+retrieve the entry address from the given function pointer,
+and uses for kallsyms_lookup_size_offset() while initializing
+blacklist.
 
-I only tested x86_64 and x86_32 (and found a typo). Could any one can help me verify
-other platforms?
+Changes in v5:
+ - Use arch_deref_entry_point() instead of function_entry().
 
-Thanks.
+Changes in v4:
+ - Add kernel_text_address() check for verifying the address.
+ - Moved on the latest linus tree.
 
->>
->> After the second online_movable, the problem can be observed from
->> zoneinfo:
->>
->>  # cat /proc/zoneinfo
->> ...
->> Node 0, zone  Movable
->>   pages free     65491
->>         min      250
->>         low      312
->>         high     375
->>         scanned  0
->>         spanned  18446744073709518848
->>         present  65536
->>         managed  65536
->> ...
->>
->> This series of patches solve the problem by checking ZONE_MOVABLE when
->> choosing zone for new memory. If new memory is inside or higher than
->> ZONE_MOVABLE, makes it go there instead.
->>
->>
->> Wang Nan (5):
->>   memory-hotplug: x86_64: suitable memory should go to ZONE_MOVABLE
->>   memory-hotplug: x86_32: suitable memory should go to ZONE_MOVABLE
->>   memory-hotplug: ia64: suitable memory should go to ZONE_MOVABLE
->>   memory-hotplug: sh: suitable memory should go to ZONE_MOVABLE
->>   memory-hotplug: powerpc: suitable memory should go to ZONE_MOVABLE
->>
->>  arch/ia64/mm/init.c   |  7 +++++++
->>  arch/powerpc/mm/mem.c |  6 ++++++
->>  arch/sh/mm/init.c     | 13 ++++++++-----
->>  arch/x86/mm/init_32.c |  6 ++++++
->>  arch/x86/mm/init_64.c | 10 ++++++++--
->>  5 files changed, 35 insertions(+), 7 deletions(-)
->>
-> 
-> 
+Changes in v3:
+ - Fix a bug to get blacklist address based on function entry
+   instead of function descriptor. (Suzuki's work, Thanks!)
 
-After applying the above patches, here is the free result and zoneinfo (after offline memory9):
+Changes in V2:
+ - Use function_entry() macro when lookin up symbols instead
+   of storing it.
+ - Update for the latest -next.
 
-bash-4.2# free
-             total       used       free     shared    buffers     cached
-Mem:        780588      80860     699728          0          0      51180
--/+ buffers/cache:      29680     750908
-Swap:            0          0          0
+Signed-off-by: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
+Reported-by: Tony Luck <tony.luck@gmail.com>
+Tested-by: Tony Luck <tony.luck@intel.com>
+Cc: Michael Ellerman <mpe@ellerman.id.au>
+Cc: Suzuki K. Poulose <suzuki@in.ibm.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Ananth N Mavinakayanahalli <ananth@in.ibm.com>
+Cc: Kevin Hao <haokexin@gmail.com>
+Cc: linux-ia64@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Cc: linuxppc-dev@lists.ozlabs.org
+---
+ kernel/kprobes.c |   15 ++++++++++-----
+ 1 file changed, 10 insertions(+), 5 deletions(-)
 
-bash-4.2# cat /proc/zoneinfo
-
-Node 0, zone      DMA
-  pages free     3272
-        min      14
-        low      17
-        high     21
-        scanned  0
-        spanned  4095
-        present  3998
-        managed  3977
-    nr_free_pages 3272
-...
-  start_pfn:         1
-  inactive_ratio:    1
-Node 0, zone    DMA32
-  pages free     73548
-        min      341
-        low      426
-        high     511
-        scanned  0
-        spanned  98304
-        present  98304
-        managed  92866
-    nr_free_pages 73548
-...
-  start_pfn:         4096
-  inactive_ratio:    1
-Node 0, zone   Normal
-  pages free     32630
-        min      120
-        low      150
-        high     180
-        scanned  0
-        spanned  32768
-        present  32768
-        managed  32768
-    nr_free_pages 32630
-...
-  start_pfn:         262144
-  inactive_ratio:    1
-Node 0, zone  Movable
-  pages free     65491
-        min      241
-        low      301
-        high     361
-        scanned  0
-        spanned  98304
-        present  65536
-        managed  65536
-    nr_free_pages 65491
-...
-  start_pfn:         294912
-  inactive_ratio:    1
+diff --git a/kernel/kprobes.c b/kernel/kprobes.c
+index 3214289..ec370cc 100644
+--- a/kernel/kprobes.c
++++ b/kernel/kprobes.c
+@@ -32,6 +32,7 @@
+  *		<prasanna@in.ibm.com> added function-return probes.
+  */
+ #include <linux/kprobes.h>
++#include <linux/types.h>
+ #include <linux/hash.h>
+ #include <linux/init.h>
+ #include <linux/slab.h>
+@@ -2037,19 +2038,23 @@ static int __init populate_kprobe_blacklist(unsigned long *start,
+ {
+ 	unsigned long *iter;
+ 	struct kprobe_blacklist_entry *ent;
+-	unsigned long offset = 0, size = 0;
++	unsigned long entry, offset = 0, size = 0;
+ 
+ 	for (iter = start; iter < end; iter++) {
+-		if (!kallsyms_lookup_size_offset(*iter, &size, &offset)) {
+-			pr_err("Failed to find blacklist %p\n", (void *)*iter);
++		entry = arch_deref_entry_point((void *)*iter);
++
++		if (!kernel_text_address(entry) ||
++		    !kallsyms_lookup_size_offset(entry, &size, &offset)) {
++			pr_err("Failed to find blacklist at %p\n",
++				(void *)entry);
+ 			continue;
+ 		}
+ 
+ 		ent = kmalloc(sizeof(*ent), GFP_KERNEL);
+ 		if (!ent)
+ 			return -ENOMEM;
+-		ent->start_addr = *iter;
+-		ent->end_addr = *iter + size;
++		ent->start_addr = entry;
++		ent->end_addr = entry + size;
+ 		INIT_LIST_HEAD(&ent->list);
+ 		list_add_tail(&ent->list, &kprobe_blacklist);
+ 	}
 
 
