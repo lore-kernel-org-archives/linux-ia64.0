@@ -1,35 +1,35 @@
-From: Michael Ellerman <mpe@ellerman.id.au>
-Date: Tue, 29 Jul 2014 02:19:16 +0000
-Subject: Re: [PATCH v4] arm64, ia64, ppc, s390, sh, tile, um, x86, mm: Remove default gate area
-Message-Id: <1406600356.11977.4.camel@concordia>
+From: Matt Fleming <matt@console-pimps.org>
+Date: Mon, 07 Jul 2014 14:50:16 +0000
+Subject: Re: [PATCH v7 01/10] arch/ia64: Define early_memunmap()
+Message-Id: <20140707145016.GB2914@console-pimps.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <6435254cc74d6e9172931f27be3854d522ad299b.1406232860.git.luto@amacapital.net>
-In-Reply-To: <6435254cc74d6e9172931f27be3854d522ad299b.1406232860.git.luto@amacapital.net>
+References: <1404150784-27921-1-git-send-email-daniel.kiper@oracle.com>
+ <1404150784-27921-2-git-send-email-daniel.kiper@oracle.com>
+In-Reply-To: <1404150784-27921-2-git-send-email-daniel.kiper@oracle.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andy Lutomirski <luto@amacapital.net>
-Cc: Andrew Morton <akpm@linux-foundation.org>, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Catalin Marinas <catalin.marinas@arm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, linux-mm@kvack.org, Paul Mackerras <paulus@samba.org>, "H. Peter Anvin" <hpa@zytor.com>, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, Richard Weinberger <richard@nod.at>, x86@kernel.org, Ingo Molnar <mingo@redhat.com>, Fenghua Yu <fenghua.yu@intel.com>, user-mode-linux-devel@lists.sourceforge.net, Will Deacon <will.deacon@arm.com>, Jeff Dike <jdike@addtoit.com>, Chris Metcalf <cmetcalf@tilera.com>, Thomas Gleixner <tglx@linutronix.de>, linux-arm-kernel@lists.infradead.org, Tony Luck <tony.luck@intel.com>, Nathan Lynch <Nathan_Lynch@mentor.com>, linux-kernel@vger.kernel.org, Martin Schwidefsky <schwidefsky@de.ibm.com>, linux390@de.ibm.com, linuxppc-dev@lists.ozlabs.org
+To: Tony Luck <tony.luck@gmail.com>
+Cc: linux-efi@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, x86@kernel.org, xen-devel@lists.xenproject.org, andrew.cooper3@citrix.com, boris.ostrovsky@oracle.com, david.vrabel@citrix.com, eshelton@pobox.com, fenghua.yu@intel.com, hpa@zytor.com, ian.campbell@citrix.com, jbeulich@suse.com, jeremy@goop.org, konrad.wilk@oracle.com, matt.fleming@intel.com, mingo@redhat.com, mjg59@srcf.ucam.org, stefano.stabellini@eu.citrix.com, tglx@linutronix.de, Daniel Kiper <daniel.kiper@oracle.com>, tony.luck@intel.com
 
-On Thu, 2014-07-24 at 13:56 -0700, Andy Lutomirski wrote:
-> The core mm code will provide a default gate area based on
-> FIXADDR_USER_START and FIXADDR_USER_END if
-> !defined(__HAVE_ARCH_GATE_AREA) && defined(AT_SYSINFO_EHDR).
+On Mon, 30 Jun, at 07:52:55PM, Daniel Kiper wrote:
+> This is odd to use early_iounmap() function do tear down mapping
+> created by early_memremap() function, even if it works right now,
+> because they belong to different set of functions. The former is
+> I/O related function and the later is memory related. So, create
+> early_memunmap() macro which in real is early_iounmap(). This
+> thing will help to not confuse code readers longer by mixing
+> functions from different classes.
 > 
-> This default is only useful for ia64.  arm64, ppc, s390, sh, tile,
-> 64-bit UML, and x86_32 have their own code just to disable it.  arm,
-> 32-bit UML, and x86_64 have gate areas, but they have their own
-> implementations.
+> EFI patches following this patch uses that functionality.
 > 
-> This gets rid of the default and moves the code into ia64.
-> 
-> This should save some code on architectures without a gate area: it's
-> now possible to inline the gate_area functions in the default case.
+> Signed-off-by: Daniel Kiper <daniel.kiper@oracle.com>
+> ---
+>  arch/ia64/include/asm/io.h |    1 +
+>  1 file changed, 1 insertion(+)
 
-Looks good to me. Booted and everything seems happy, I still have a vdso etc.
+Tony, this looks pretty straight forward but I'd be much obliged if you
+could give me an Acked-by.
 
-Tested-by: Michael Ellerman <mpe@ellerman.id.au> (for powerpc)
-
-cheers
-
-
+-- 
+Matt Fleming, Intel Open Source Technology Center
