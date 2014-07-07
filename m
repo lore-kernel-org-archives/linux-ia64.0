@@ -1,159 +1,88 @@
-From: Nishanth Aravamudan <nacc@linux.vnet.ibm.com>
-Date: Thu, 17 Jul 2014 23:15:12 +0000
-Subject: [RFC 2/2] powerpc: reorder per-cpu NUMA information's initialization
-Message-Id: <20140717231512.GC32660@linux.vnet.ibm.com>
+From: Lv Zheng <lv.zheng@intel.com>
+Date: Mon, 07 Jul 2014 04:16:36 +0000
+Subject: [PATCH v2 0/7] ACPICA: Enable ACPICA prototypes for CONFIG_ACPI=n builds.
+Message-Id: <cover.1404706298.git.lv.zheng@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20140717230923.GA32660@linux.vnet.ibm.com>
- <20140717230958.GB32660@linux.vnet.ibm.com>
-In-Reply-To: <20140717230958.GB32660@linux.vnet.ibm.com>
+References: <cover.1387336613.git.lv.zheng@intel.com>
+In-Reply-To: <cover.1387336613.git.lv.zheng@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: benh@kernel.crashing.org
-Cc: Joonsoo Kim <iamjoonsoo.kim@lge.com>, David Rientjes <rientjes@google.com>, Wanpeng Li <liwanp@linux.vnet.ibm.com>, Jiang Liu <jiang.liu@linux.intel.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-mm@kvack.org, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org
+To: "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>, Len Brown <len.brown@intel.com>
+Cc: Lv Zheng <lv.zheng@intel.com>, Lv Zheng <zetalog@gmail.com>, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, x86@kernel.org, linux-ia64@vger.kernel.org, sfi-devel@simplefirmware.org, alsa-devel@alsa-project.org
 
-There is an issue currently where NUMA information is used on powerpc
-(and possibly ia64) before it has been read from the device-tree, which
-leads to large slab consumption with CONFIG_SLUB and memoryless nodes.
+This is the last series for ACPICA header inclusion cleanups.
+The whole story can be found below:
+  1. Unsafe inclusions:
+     origin: https://lkml.org/lkml/2013/11/22/510
+     merged: https://lkml.org/lkml/2013/12/6/79
+  2. Header orders:
+     origin: https://lkml.org/lkml/2014/4/8/57
+     merged: https://lkml.org/lkml/2014/5/12/111
+  3. Header stubs:
+     origin: https://lkml.org/lkml/2014/12/18/149
+     merged: https://lkml.org/lkml/2014/4/29/716
 
-NUMA powerpc non-boot CPU's cpu_to_node/cpu_to_mem is only accurate
-after start_secondary(), similar to ia64, which is invoked via
-smp_init().
+This patchset contains patches that are parts of the last series sent
+before, so it is marked as v2 belonging to the same thread as this series:
+  https://lkml.org/lkml/2014/12/18/149
 
-Commit 6ee0578b4daae ("workqueue: mark init_workqueues() as
-early_initcall()") made init_workqueues() be invoked via
-do_pre_smp_initcalls(), which is obviously before the secondary
-processors are online.
+Now we have cleaned up all mis-ordered ACPICA headers and implemented stubs
+for ACPICA prototypes (functions, global variables, macros), we finally can
+enable ACPICA headers for CONFIG_ACPI=n builds so that all ACPICA defined
+types are visible to all kernel source files.
 
-Additionally, the following commits changed init_workqueues() to use
-cpu_to_node to determine the node to use for kthread_create_on_node:
+After exposing ACPICA types to all kernel sources, we can also sort the
+final wrong <acpi/acpi.h> inclusion out of <linux/sfi_acpi.h>.
 
-bce903809ab3f ("workqueue: add wq_numa_tbl_len and
-wq_numa_possible_cpumask[]")
-f3f90ad469342 ("workqueue: determine NUMA node of workers accourding to
-the allowed cpumask")
+This patchset also includes a rule enforcement patch to avoid future
+inclusion mistakes.
 
-Therefore, when init_workqueues() runs, it sees all CPUs as being on
-Node 0. On LPARs or KVM guests where Node 0 is memoryless, this leads to
-a high number of slab deactivations
-(http://www.spinics.net/lists/linux-mm/msg67489.html).
+The patch set has passed a build/boot test on the following machines:
+Dell Inspiron Mini 1010 (i386)
+HP Compaq 8200 Elite SFF PC (x86-64)
+With the following kernel configuration items enabled:
+  All drivers/acpi configurations
+  All platform drivers
+  All ACPI drivers
+  4 DRM drivers that implement ACPI opregion
+  All buses with ACPI bindings
+  All cpufreq configurations
+  All xen configurations
+  All ACPI table drivers
+They are tested twice with CONFIG_ACPI enabled/disabled.
 
-Fix this by initializing the powerpc-specific CPU<->node/local memory
-node mapping as early as possible, which on powerpc is
-do_init_bootmem(). Currently that function initializes the mapping for
-the boot CPU, but we extend it to setup the mapping for all possible
-CPUs. Then, in smp_prepare_cpus(), we can correspondingly set the
-per-cpu values for all possible CPUs. That ensures that before the
-early_initcalls run (and really as early as possible), the per-cpu NUMA
-mapping is accurate.
+Also allyes/allno/allmod tests are done for ARCH=i386 and ARCH=x86_64.
 
-While testing memoryless nodes on PowerKVM guests with a fix to the
-workqueue logic to use cpu_to_mem() instead of cpu_to_node(), with a
-guest topology of:
+A boot test has been done to ARCH=x86_64 default configuration and it is
+confirmed that the ACPI devices are successfully created under
+/sys/bus/acpi/devices when CONFIG_ACPI is enabled.
 
-available: 2 nodes (0-1)
-node 0 cpus: 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49
-node 0 size: 0 MB
-node 0 free: 0 MB
-node 1 cpus: 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96 97 98 99
-node 1 size: 16336 MB
-node 1 free: 15329 MB
-node distances:
-node   0   1
-  0:  10  40
-  1:  40  10
+Lv Zheng (7):
+  ACPICA: Linux: Add stub support for Linux specific variables and
+    functions.
+  ACPICA: Linux: Add stub implementation of ACPICA 64-bit mathematics.
+  ACPICA: Linux: Add configuration item to indicate the architecture
+    specific support.
+  ACPICA: Linux: Allow ACPICA inclusion for CONFIG_ACPI=n builds.
+  ACPI/SFI: Fix wrong <acpi/acpi.h> inclusion in SFI/ACPI wrapper -
+    table definitions.
+  ACPI: Cleanup useless ACPI inclusion.
+  ACPI: Add support to force header inclusion rules for <acpi/acpi.h>.
 
-the slab consumption decreases from
+ arch/ia64/Kconfig                 |    1 +
+ arch/x86/Kconfig                  |    1 +
+ drivers/acpi/Kconfig              |    4 ++++
+ drivers/acpi/acpica/Makefile      |    2 +-
+ drivers/acpi/bus.c                |    3 ---
+ include/acpi/acpixf.h             |   28 +++++++++++++++++-----------
+ include/acpi/platform/aclinux.h   |   12 ++++++++++++
+ include/acpi/platform/aclinuxex.h |   22 ++++++++++++++++++++++
+ include/linux/acpi.h              |    6 +++---
+ include/linux/sfi_acpi.h          |    3 ---
+ sound/soc/intel/sst-haswell-dsp.c |    3 ---
+ 11 files changed, 61 insertions(+), 24 deletions(-)
 
-Slab:             932416 kB
-SUnreclaim:       902336 kB
-
-to
-
-Slab:             395264 kB
-SUnreclaim:       359424 kB
-
-And we a corresponding increase in the slab efficiency from
-
-slab                                   mem     objs    slabs
-                                      used   active   active
-------------------------------------------------------------
-kmalloc-16384                       337 MB   11.28%  100.00%
-task_struct                         288 MB    9.93%  100.00%
-
-to
-
-slab                                   mem     objs    slabs
-                                      used   active   active
-------------------------------------------------------------
-kmalloc-16384                        37 MB  100.00%  100.00%
-task_struct                          31 MB  100.00%  100.00%
-
-Powerpc didn't support memoryless nodes until recently (64bb80d87f01
-"powerpc/numa: Enable CONFIG_HAVE_MEMORYLESS_NODES" and 8c272261194d
-"powerpc/numa: Enable USE_PERCPU_NUMA_NODE_ID"). Those commits also
-helped improve memory consumption with these kind of environments.
-
-Signed-off-by: Nishanth Aravamudan <nacc@linux.vnet.ibm.com>
-
-diff --git a/arch/powerpc/kernel/smp.c b/arch/powerpc/kernel/smp.c
-index 51a3ff7..91ff531 100644
---- a/arch/powerpc/kernel/smp.c
-+++ b/arch/powerpc/kernel/smp.c
-@@ -376,6 +376,11 @@ void __init smp_prepare_cpus(unsigned int max_cpus)
- 					GFP_KERNEL, cpu_to_node(cpu));
- 		zalloc_cpumask_var_node(&per_cpu(cpu_core_map, cpu),
- 					GFP_KERNEL, cpu_to_node(cpu));
-+		/*
-+		 * numa_node_id() works after this.
-+		 */
-+		set_cpu_numa_node(cpu, numa_cpu_lookup_table[cpu]);
-+		set_cpu_numa_mem(cpu, local_memory_node(numa_cpu_lookup_table[cpu]));
- 	}
- 
- 	cpumask_set_cpu(boot_cpuid, cpu_sibling_mask(boot_cpuid));
-@@ -723,12 +728,6 @@ void start_secondary(void *unused)
- 	}
- 	traverse_core_siblings(cpu, true);
- 
--	/*
--	 * numa_node_id() works after this.
--	 */
--	set_numa_node(numa_cpu_lookup_table[cpu]);
--	set_numa_mem(local_memory_node(numa_cpu_lookup_table[cpu]));
--
- 	smp_wmb();
- 	notify_cpu_starting(cpu);
- 	set_cpu_online(cpu, true);
-diff --git a/arch/powerpc/mm/numa.c b/arch/powerpc/mm/numa.c
-index 3b181b2..b1f0b86 100644
---- a/arch/powerpc/mm/numa.c
-+++ b/arch/powerpc/mm/numa.c
-@@ -1049,7 +1049,7 @@ static void __init mark_reserved_regions_for_nid(int nid)
- 
- void __init do_init_bootmem(void)
- {
--	int nid;
-+	int nid, cpu;
- 
- 	min_low_pfn = 0;
- 	max_low_pfn = memblock_end_of_DRAM() >> PAGE_SHIFT;
-@@ -1122,8 +1122,15 @@ void __init do_init_bootmem(void)
- 
- 	reset_numa_cpu_lookup_table();
- 	register_cpu_notifier(&ppc64_numa_nb);
--	cpu_numa_callback(&ppc64_numa_nb, CPU_UP_PREPARE,
--			  (void *)(unsigned long)boot_cpuid);
-+	/*
-+	 * We need the numa_cpu_lookup_table to be accurate for all CPUs,
-+	 * even before we online them, so that we can use cpu_to_{node,mem}
-+	 * early in boot, cf. smp_prepare_cpus().
-+	 */
-+	for_each_possible_cpu(cpu) {
-+		cpu_numa_callback(&ppc64_numa_nb, CPU_UP_PREPARE,
-+				  (void *)(unsigned long)cpu);
-+	}
- }
- 
- void __init paging_init(void)
+-- 
+1.7.10
 
