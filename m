@@ -1,41 +1,32 @@
-From: Wang Nan <wangnan0@huawei.com>
-Date: Mon, 21 Jul 2014 03:46:40 +0000
-Subject: [PATCH v2 5/7] memory-hotplug: ppc: suitable memory should go to ZONE_MOVABLE
-Message-Id: <1405914402-66212-6-git-send-email-wangnan0@huawei.com>
+From: Richard Weinberger <richard@nod.at>
+Date: Sun, 13 Jul 2014 14:58:56 +0000
+Subject: [RFC] Remove remaining users of exec domains
+Message-Id: <1405263538-27589-1-git-send-email-richard@nod.at>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1405914402-66212-1-git-send-email-wangnan0@huawei.com>
-In-Reply-To: <1405914402-66212-1-git-send-email-wangnan0@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ingo Molnar <mingo@redhat.com>, Yinghai Lu <yinghai@kernel.org>, Mel Gorman <mgorman@suse.de>, Andrew Morton <akpm@linux-foundation.org>, Dave Hansen <dave.hansen@intel.com>, Zhang Yanfei <zhangyanfei@cn.fujitsu.com>
-Cc: peifeiyue@huawei.com, linux-mm@kvack.org, x86@kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org, wangnan0@huawei.com
+To: tony.luck@intel.com, fenghua.yu@intel.com, linux@arm.linux.org.uk
+Cc: linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-This patch introduces zone_for_memory() to arch_add_memory() on powerpc
-to ensure new, higher memory added into ZONE_MOVABLE if movable zone has
-already setup.
+These two patches remove the last two in-tree users of exec domains.
+Both seem to be abandoned and historical.
+Russel, Tony, are you fine with that? 
 
-Signed-off-by: Wang Nan <wangnan0@huawei.com>
-Cc: Zhang Yanfei <zhangyanfei@cn.fujitsu.com>
-Cc: Dave Hansen <dave.hansen@intel.com>
----
- arch/powerpc/mm/mem.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+The plan is to get rid of exec domains at all. IOW no more register_exec_domain,
+no signal translation.
+I have a follow up series for that already in my local tree.
 
-diff --git a/arch/powerpc/mm/mem.c b/arch/powerpc/mm/mem.c
-index 2c8e90f..e0f7a18 100644
---- a/arch/powerpc/mm/mem.c
-+++ b/arch/powerpc/mm/mem.c
-@@ -128,7 +128,8 @@ int arch_add_memory(int nid, u64 start, u64 size)
- 		return -EINVAL;
- 
- 	/* this should work for most non-highmem platforms */
--	zone = pgdata->node_zones;
-+	zone = pgdata->node_zones +
-+		zone_for_memory(nid, start, size, 0);
- 
- 	return __add_pages(nid, zone, start_pfn, nr_pages);
- }
--- 
-1.8.4
+Thanks,
+//richard
+
+[PATCH 1/2] arm: Remove RISC OS personality
+[PATCH 2/2] ia64: Remove Linux/x86 domain support
+
+ arch/arm/kernel/arthur.c          |   94 ------------------------------------
+ arch/arm/Kconfig                  |   12 ----
+ arch/arm/configs/badge4_defconfig |    1 
+ arch/arm/kernel/Makefile          |    1 
+ arch/ia64/mm/init.c               |   25 ---------
+ 5 files changed, 133 deletions(-)
 
