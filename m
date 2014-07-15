@@ -1,39 +1,46 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Date: Tue, 15 Jul 2014 07:16:42 +0000
-Subject: Re: [PATCH v5 2/2] [BUGFIX] kprobes: Fix "Failed to find blacklist" error on ia64 and ppc64
-Message-Id: <1405408602.9343.75.camel@pasglop>
+From: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
+Date: Tue, 15 Jul 2014 10:09:12 +0000
+Subject: Re: Re: [PATCH v5 2/2] [BUGFIX] kprobes: Fix "Failed to find blacklist" error on ia64 and ppc64
+Message-Id: <53C4FDC8.9050801@hitachi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1404276081.7254.1.camel@concordia>
-	 <20140702070029.14689.18485.stgit@kbuild-fedora.novalocal>
-	 <1405394370.17767.7.camel@concordia>
-In-Reply-To: <1405394370.17767.7.camel@concordia>
+References: <1404276081.7254.1.camel@concordia>  <20140702070029.14689.18485.stgit@kbuild-fedora.novalocal>  <1405394370.17767.7.camel@concordia> <1405408602.9343.75.camel@pasglop>
+In-Reply-To: <1405408602.9343.75.camel@pasglop>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Michael Ellerman <mpe@ellerman.id.au>
-Cc: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>, Paul Mackerras <paulus@samba.org>, Tony Luck <tony.luck@gmail.com>, Jeremy Fitzhardinge <jeremy@goop.org>, linux-ia64@vger.kernel.org, sparse@chrisli.org, "H. Peter Anvin" <hpa@zytor.com>, Ingo Molnar <mingo@kernel.org>, linux-tip-commits@vger.kernel.org, akataria@vmware.com, anil.s.keshavamurthy@intel.com, "Suzuki K. Poulose" <suzuki@in.ibm.com>, Fenghua Yu <fenghua.yu@intel.com>, Arnd Bergmann <arnd@arndb.de>, Rusty Russell <rusty@rustcorp.com.au>, Chris Wright <chrisw@sous-sol.org>, yrl.pp-manager.tt@hitachi.com, Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, Kevin Hao <haokexin@gmail.com>, Ananth N Mavinakayanahalli <ananth@in.ibm.com>, linuxppc-dev@lists.ozlabs.org, rdunlap@infradead.org, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, dl9pf@gmx.de, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, "David S. Miller" <davem@davemloft.net>
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Ingo Molnar <mingo@kernel.org>
+Cc: Michael Ellerman <mpe@ellerman.id.au>, Paul Mackerras <paulus@samba.org>, Tony Luck <tony.luck@gmail.com>, Jeremy Fitzhardinge <jeremy@goop.org>, linux-ia64@vger.kernel.org, sparse@chrisli.org, "H. Peter Anvin" <hpa@zytor.com>, linux-tip-commits@vger.kernel.org, akataria@vmware.com, anil.s.keshavamurthy@intel.com, "Suzuki K. Poulose" <suzuki@in.ibm.com>, Fenghua Yu <fenghua.yu@intel.com>, Arnd Bergmann <arnd@arndb.de>, Rusty Russell <rusty@rustcorp.com.au>, Chris Wright <chrisw@sous-sol.org>, yrl.pp-manager.tt@hitachi.com, Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, Kevin Hao <haokexin@gmail.com>, Ananth N Mavinakayanahalli <ananth@in.ibm.com>, linuxppc-dev@lists.ozlabs.org, rdunlap@infradead.org, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, dl9pf@gmx.de, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, "David S. Miller" <davem@davemloft.net>
 
-On Tue, 2014-07-15 at 13:19 +1000, Michael Ellerman wrote:
-
-> > Signed-off-by: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
-> > Reported-by: Tony Luck <tony.luck@gmail.com>
-> > Tested-by: Tony Luck <tony.luck@intel.com>
-> > Cc: Michael Ellerman <mpe@ellerman.id.au>
+(2014/07/15 16:16), Benjamin Herrenschmidt wrote:
+> On Tue, 2014-07-15 at 13:19 +1000, Michael Ellerman wrote:
 > 
-> Tested-by: Michael Ellerman <mpe@ellerman.id.au>
-> Acked-by: Michael Ellerman <mpe@ellerman.id.au> (for powerpc)
+>>> Signed-off-by: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
+>>> Reported-by: Tony Luck <tony.luck@gmail.com>
+>>> Tested-by: Tony Luck <tony.luck@intel.com>
+>>> Cc: Michael Ellerman <mpe@ellerman.id.au>
+>>
+>> Tested-by: Michael Ellerman <mpe@ellerman.id.au>
+>> Acked-by: Michael Ellerman <mpe@ellerman.id.au> (for powerpc)
+>>
+>> Ben, can you take this in your tree?
 > 
-> Ben, can you take this in your tree?
+> Acked-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+> 
+> That looks more like generic material. Do we have a kprobes maintainer ?
+> Andrew, do you want to take this ?
 
-Acked-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Yeah, I usually use Ingo's tip tree for kprobes maintenance.
+Ingo, could you pull this as urgent-for-linus patch?
 
-That looks more like generic material. Do we have a kprobes maintainer ?
-Andrew, do you want to take this ?
+> I'm happy to put it in powerpc and send it to Linus tomorrow if nobody
+> cares :-)
 
-I'm happy to put it in powerpc and send it to Linus tomorrow if nobody
-cares :-)
+Thank you!
 
-Cheers,
-Ben.
+-- 
+Masami HIRAMATSU
+Software Platform Research Dept. Linux Technology Research Center
+Hitachi, Ltd., Yokohama Research Laboratory
+E-mail: masami.hiramatsu.pt@hitachi.com
 
 
