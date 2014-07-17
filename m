@@ -1,63 +1,48 @@
-From: Ingo Molnar <mingo@kernel.org>
-Date: Thu, 17 Jul 2014 09:40:45 +0000
-Subject: Re: Re: Re: [PATCH v5 2/2] [BUGFIX] kprobes: Fix "Failed to find blacklist" error on ia64 and ppc64
-Message-Id: <20140717094045.GC4232@gmail.com>
+From: Nishanth Aravamudan <nacc@linux.vnet.ibm.com>
+Date: Thu, 17 Jul 2014 23:09:58 +0000
+Subject: [RFC 1/2] workqueue: use the nearest NUMA node, not the local one
+Message-Id: <20140717230958.GB32660@linux.vnet.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1404276081.7254.1.camel@concordia>
- <20140702070029.14689.18485.stgit@kbuild-fedora.novalocal>
- <1405394370.17767.7.camel@concordia>
- <1405408602.9343.75.camel@pasglop>
- <53C4FDC8.9050801@hitachi.com>
- <20140716132838.GA18597@gmail.com>
- <53C776ED.3050001@hitachi.com>
-In-Reply-To: <53C776ED.3050001@hitachi.com>
+References: <20140717230923.GA32660@linux.vnet.ibm.com>
+In-Reply-To: <20140717230923.GA32660@linux.vnet.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Michael Ellerman <mpe@ellerman.id.au>, Paul Mackerras <paulus@samba.org>, Tony Luck <tony.luck@gmail.com>, Jeremy Fitzhardinge <jeremy@goop.org>, linux-ia64@vger.kernel.org, sparse@chrisli.org, "H. Peter Anvin" <hpa@zytor.com>, linux-tip-commits@vger.kernel.org, akataria@vmware.com, anil.s.keshavamurthy@intel.com, "Suzuki K. Poulose" <suzuki@in.ibm.com>, Fenghua Yu <fenghua.yu@intel.com>, Arnd Bergmann <arnd@arndb.de>, Rusty Russell <rusty@rustcorp.com.au>, Chris Wright <chrisw@sous-sol.org>, yrl.pp-manager.tt@hitachi.com, Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, Kevin Hao <haokexin@gmail.com>, Ananth N Mavinakayanahalli <ananth@in.ibm.com>, linuxppc-dev@lists.ozlabs.org, rdunlap@infradead.org, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, dl9pf@gmx.de, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, "David S. Miller" <davem@davemloft.net>
+To: benh@kernel.crashing.org
+Cc: Joonsoo Kim <iamjoonsoo.kim@lge.com>, David Rientjes <rientjes@google.com>, Wanpeng Li <liwanp@linux.vnet.ibm.com>, Jiang Liu <jiang.liu@linux.intel.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-mm@kvack.org, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org
 
+In the presence of memoryless nodes, the workqueue code incorrectly uses
+cpu_to_node() to determine what node to prefer memory allocations come
+from. cpu_to_mem() should be used instead, which will use the nearest
+NUMA node with memory.
 
-* Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com> wrote:
+Signed-off-by: Nishanth Aravamudan <nacc@linux.vnet.ibm.com>
 
-> (2014/07/16 22:28), Ingo Molnar wrote:
-> > 
-> > * Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com> wrote:
-> > 
-> >> (2014/07/15 16:16), Benjamin Herrenschmidt wrote:
-> >>> On Tue, 2014-07-15 at 13:19 +1000, Michael Ellerman wrote:
-> >>>
-> >>>>> Signed-off-by: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
-> >>>>> Reported-by: Tony Luck <tony.luck@gmail.com>
-> >>>>> Tested-by: Tony Luck <tony.luck@intel.com>
-> >>>>> Cc: Michael Ellerman <mpe@ellerman.id.au>
-> >>>>
-> >>>> Tested-by: Michael Ellerman <mpe@ellerman.id.au>
-> >>>> Acked-by: Michael Ellerman <mpe@ellerman.id.au> (for powerpc)
-> >>>>
-> >>>> Ben, can you take this in your tree?
-> >>>
-> >>> Acked-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-> >>>
-> >>> That looks more like generic material. Do we have a kprobes maintainer ?
-> >>> Andrew, do you want to take this ?
-> >>
-> >> Yeah, I usually use Ingo's tip tree for kprobes maintenance.
-> >> Ingo, could you pull this as urgent-for-linus patch?
-> > 
-> > Mind resending it in a separate thread with all acks added, etc?
-> 
-> OK, I'll resend that soon.
-> BTW, I missed Suzuki's Signed-off-by in this version,
-> I'd like to recover that since he made a big bugfix on this.
+diff --git a/kernel/workqueue.c b/kernel/workqueue.c
+index 35974ac..0bba022 100644
+--- a/kernel/workqueue.c
++++ b/kernel/workqueue.c
+@@ -3547,7 +3547,12 @@ static struct worker_pool *get_unbound_pool(const struct workqueue_attrs *attrs)
+ 		for_each_node(node) {
+ 			if (cpumask_subset(pool->attrs->cpumask,
+ 					   wq_numa_possible_cpumask[node])) {
+-				pool->node = node;
++				/*
++				 * We could use local_memory_node(node) here,
++				 * but it is expensive and the following caches
++				 * the same value.
++				 */
++				pool->node = cpu_to_mem(cpumask_first(pool->attrs->cpumask));
+ 				break;
+ 			}
+ 		}
+@@ -4921,7 +4926,7 @@ static int __init init_workqueues(void)
+ 			pool->cpu = cpu;
+ 			cpumask_copy(pool->attrs->cpumask, cpumask_of(cpu));
+ 			pool->attrs->nice = std_nice[i++];
+-			pool->node = cpu_to_node(cpu);
++			pool->node = cpu_to_mem(cpu);
+ 
+ 			/* alloc pool ID */
+ 			mutex_lock(&wq_pool_mutex);
 
-That kind of credit can be added as:
-
-  Fixed-by: Suzuki K. Poulose <suzuki@in.ibm.com>
-
-and by also adding a sentence to the log message (outside of the 
-version changelogs which get stripped ususally).
-
-Thanks,
-
-	Ingo
