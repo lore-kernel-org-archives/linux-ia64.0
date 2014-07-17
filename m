@@ -1,103 +1,159 @@
-From: Sudeep Holla <sudeep.holla@arm.com>
-Date: Fri, 25 Jul 2014 16:44:43 +0000
-Subject: [PATCH v2 0/9] drivers: cacheinfo support
-Message-Id: <1406306692-7135-1-git-send-email-sudeep.holla@arm.com>
+From: Nishanth Aravamudan <nacc@linux.vnet.ibm.com>
+Date: Thu, 17 Jul 2014 23:15:12 +0000
+Subject: [RFC 2/2] powerpc: reorder per-cpu NUMA information's initialization
+Message-Id: <20140717231512.GC32660@linux.vnet.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1403717444-23559-1-git-send-email-sudeep.holla@arm.com>
-In-Reply-To: <1403717444-23559-1-git-send-email-sudeep.holla@arm.com>
+References: <20140717230923.GA32660@linux.vnet.ibm.com>
+ <20140717230958.GB32660@linux.vnet.ibm.com>
+In-Reply-To: <20140717230958.GB32660@linux.vnet.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: LKML <linux-kernel@vger.kernel.org>
-Cc: sudeep.holla@arm.com, Heiko Carstens <heiko.carstens@de.ibm.com>, Lorenzo Pieralisi <Lorenzo.Pieralisi@arm.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-ia64@vger.kernel.org, linux390@de.ibm.com, linux-s390@vger.kernel.org, x86@kernel.org, linuxppc-dev@lists.ozlabs.org
+To: benh@kernel.crashing.org
+Cc: Joonsoo Kim <iamjoonsoo.kim@lge.com>, David Rientjes <rientjes@google.com>, Wanpeng Li <liwanp@linux.vnet.ibm.com>, Jiang Liu <jiang.liu@linux.intel.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-mm@kvack.org, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org
 
-From: Sudeep Holla <sudeep.holla@arm.com>
+There is an issue currently where NUMA information is used on powerpc
+(and possibly ia64) before it has been read from the device-tree, which
+leads to large slab consumption with CONFIG_SLUB and memoryless nodes.
 
-This series adds a generic cacheinfo support similar to topology. The
-implementation is based on x86 cacheinfo support. Currently x86, powerpc,
-ia64 and s390 have their own implementations. While adding similar support
-to ARM and ARM64, here is the attempt to make it generic quite similar to
-topology info support. It also adds the missing ABI documentation for
-the cacheinfo sysfs which is already being used.
+NUMA powerpc non-boot CPU's cpu_to_node/cpu_to_mem is only accurate
+after start_secondary(), similar to ia64, which is invoked via
+smp_init().
 
-It moves all the existing different implementations on x86, ia64, powerpc
-and s390 to use the generic cacheinfo infrastructure introduced here.
-These changes on non-ARM platforms are only compile tested and tested on x86.
+Commit 6ee0578b4daae ("workqueue: mark init_workqueues() as
+early_initcall()") made init_workqueues() be invoked via
+do_pre_smp_initcalls(), which is obviously before the secondary
+processors are online.
 
-This series also adds support for ARM and ARM64 architectures based on
-the generic support.
+Additionally, the following commits changed init_workqueues() to use
+cpu_to_node to determine the node to use for kthread_create_on_node:
 
-Since there was no objection to the idea in RFC, I am posting non-RFC
-version here.
+bce903809ab3f ("workqueue: add wq_numa_tbl_len and
+wq_numa_possible_cpumask[]")
+f3f90ad469342 ("workqueue: determine NUMA node of workers accourding to
+the allowed cpumask")
 
-The code can be fetched from:
- git://linux-arm.org/linux-skn cacheinfo
+Therefore, when init_workqueues() runs, it sees all CPUs as being on
+Node 0. On LPARs or KVM guests where Node 0 is memoryless, this leads to
+a high number of slab deactivations
+(http://www.spinics.net/lists/linux-mm/msg67489.html).
 
+Fix this by initializing the powerpc-specific CPU<->node/local memory
+node mapping as early as possible, which on powerpc is
+do_init_bootmem(). Currently that function initializes the mapping for
+the boot CPU, but we extend it to setup the mapping for all possible
+CPUs. Then, in smp_prepare_cpus(), we can correspondingly set the
+per-cpu values for all possible CPUs. That ensures that before the
+early_initcalls run (and really as early as possible), the per-cpu NUMA
+mapping is accurate.
 
-Changes v1->v2:
-- removed custom device_{add,remove}_attrs, using is_visible callback
-  instead(suggested by GregKH)
-- arm64: changes as per MarkR review comments
-- Moved smp_call_function_single to architectures using it(arm, arm64,
-  x86) (suggested by Stephen Boyd)
-- arm (mostly changes as per RMK's review comments)
-	- fixed to allow v7 + v6 build
-	- l2 cache changes to remove extra structure
-	- populated CTR for few StrongARM CPU's not implementing CTR
+While testing memoryless nodes on PowerKVM guests with a fix to the
+workqueue logic to use cpu_to_mem() instead of cpu_to_node(), with a
+guest topology of:
 
-Previous RFCs:
-[1] https://lkml.org/lkml/2014/1/8/523
-[2] https://lkml.org/lkml/2014/2/7/654
-[3] https://lkml.org/lkml/2014/2/19/391
+available: 2 nodes (0-1)
+node 0 cpus: 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49
+node 0 size: 0 MB
+node 0 free: 0 MB
+node 1 cpus: 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96 97 98 99
+node 1 size: 16336 MB
+node 1 free: 15329 MB
+node distances:
+node   0   1
+  0:  10  40
+  1:  40  10
 
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: linux-ia64@vger.kernel.org
-Cc: linux390@de.ibm.com
-Cc: linux-s390@vger.kernel.org
-Cc: x86@kernel.org
-Cc: linuxppc-dev@lists.ozlabs.org
+the slab consumption decreases from
 
-Sudeep Holla (9):
-  drivers: base: add new class "cpu" to group cpu devices
-  drivers: base: support cpu cache information interface to userspace
-    via sysfs
-  ia64: move cacheinfo sysfs to generic cacheinfo infrastructure
-  s390: move cacheinfo sysfs to generic cacheinfo infrastructure
-  x86: move cacheinfo sysfs to generic cacheinfo infrastructure
-  powerpc: move cacheinfo sysfs to generic cacheinfo infrastructure
-  ARM64: kernel: add support for cpu cache information
-  ARM: kernel: add support for cpu cache information
-  ARM: kernel: add outer cache support for cacheinfo implementation
+Slab:             932416 kB
+SUnreclaim:       902336 kB
 
- Documentation/ABI/testing/sysfs-devices-system-cpu |  41 ++
- arch/arm/include/asm/outercache.h                  |   9 +
- arch/arm/kernel/Makefile                           |   1 +
- arch/arm/kernel/cacheinfo.c                        | 284 +++++++
- arch/arm/mm/Kconfig                                |  13 +
- arch/arm/mm/cache-l2x0.c                           |  35 +-
- arch/arm/mm/cache-tauros2.c                        |  35 +
- arch/arm/mm/cache-xsc3l2.c                         |  16 +
- arch/arm64/kernel/Makefile                         |   3 +-
- arch/arm64/kernel/cacheinfo.c                      | 142 ++++
- arch/ia64/kernel/topology.c                        | 401 ++--------
- arch/powerpc/kernel/cacheinfo.c                    | 813 +++------------------
- arch/powerpc/kernel/cacheinfo.h                    |   8 -
- arch/powerpc/kernel/sysfs.c                        |  12 +-
- arch/s390/kernel/cache.c                           | 388 +++-------
- arch/x86/kernel/cpu/intel_cacheinfo.c              | 680 +++++------------
- drivers/base/Makefile                              |   2 +-
- drivers/base/cacheinfo.c                           | 539 ++++++++++++++
- drivers/base/core.c                                |  39 +-
- drivers/base/cpu.c                                 |   7 +
- include/linux/cacheinfo.h                          |  73 ++
- include/linux/cpu.h                                |   2 +
- 22 files changed, 1660 insertions(+), 1883 deletions(-)
- create mode 100644 arch/arm/kernel/cacheinfo.c
- create mode 100644 arch/arm64/kernel/cacheinfo.c
- delete mode 100644 arch/powerpc/kernel/cacheinfo.h
- create mode 100644 drivers/base/cacheinfo.c
- create mode 100644 include/linux/cacheinfo.h
+to
 
--- 
-1.8.3.2
+Slab:             395264 kB
+SUnreclaim:       359424 kB
+
+And we a corresponding increase in the slab efficiency from
+
+slab                                   mem     objs    slabs
+                                      used   active   active
+------------------------------------------------------------
+kmalloc-16384                       337 MB   11.28%  100.00%
+task_struct                         288 MB    9.93%  100.00%
+
+to
+
+slab                                   mem     objs    slabs
+                                      used   active   active
+------------------------------------------------------------
+kmalloc-16384                        37 MB  100.00%  100.00%
+task_struct                          31 MB  100.00%  100.00%
+
+Powerpc didn't support memoryless nodes until recently (64bb80d87f01
+"powerpc/numa: Enable CONFIG_HAVE_MEMORYLESS_NODES" and 8c272261194d
+"powerpc/numa: Enable USE_PERCPU_NUMA_NODE_ID"). Those commits also
+helped improve memory consumption with these kind of environments.
+
+Signed-off-by: Nishanth Aravamudan <nacc@linux.vnet.ibm.com>
+
+diff --git a/arch/powerpc/kernel/smp.c b/arch/powerpc/kernel/smp.c
+index 51a3ff7..91ff531 100644
+--- a/arch/powerpc/kernel/smp.c
++++ b/arch/powerpc/kernel/smp.c
+@@ -376,6 +376,11 @@ void __init smp_prepare_cpus(unsigned int max_cpus)
+ 					GFP_KERNEL, cpu_to_node(cpu));
+ 		zalloc_cpumask_var_node(&per_cpu(cpu_core_map, cpu),
+ 					GFP_KERNEL, cpu_to_node(cpu));
++		/*
++		 * numa_node_id() works after this.
++		 */
++		set_cpu_numa_node(cpu, numa_cpu_lookup_table[cpu]);
++		set_cpu_numa_mem(cpu, local_memory_node(numa_cpu_lookup_table[cpu]));
+ 	}
+ 
+ 	cpumask_set_cpu(boot_cpuid, cpu_sibling_mask(boot_cpuid));
+@@ -723,12 +728,6 @@ void start_secondary(void *unused)
+ 	}
+ 	traverse_core_siblings(cpu, true);
+ 
+-	/*
+-	 * numa_node_id() works after this.
+-	 */
+-	set_numa_node(numa_cpu_lookup_table[cpu]);
+-	set_numa_mem(local_memory_node(numa_cpu_lookup_table[cpu]));
+-
+ 	smp_wmb();
+ 	notify_cpu_starting(cpu);
+ 	set_cpu_online(cpu, true);
+diff --git a/arch/powerpc/mm/numa.c b/arch/powerpc/mm/numa.c
+index 3b181b2..b1f0b86 100644
+--- a/arch/powerpc/mm/numa.c
++++ b/arch/powerpc/mm/numa.c
+@@ -1049,7 +1049,7 @@ static void __init mark_reserved_regions_for_nid(int nid)
+ 
+ void __init do_init_bootmem(void)
+ {
+-	int nid;
++	int nid, cpu;
+ 
+ 	min_low_pfn = 0;
+ 	max_low_pfn = memblock_end_of_DRAM() >> PAGE_SHIFT;
+@@ -1122,8 +1122,15 @@ void __init do_init_bootmem(void)
+ 
+ 	reset_numa_cpu_lookup_table();
+ 	register_cpu_notifier(&ppc64_numa_nb);
+-	cpu_numa_callback(&ppc64_numa_nb, CPU_UP_PREPARE,
+-			  (void *)(unsigned long)boot_cpuid);
++	/*
++	 * We need the numa_cpu_lookup_table to be accurate for all CPUs,
++	 * even before we online them, so that we can use cpu_to_{node,mem}
++	 * early in boot, cf. smp_prepare_cpus().
++	 */
++	for_each_possible_cpu(cpu) {
++		cpu_numa_callback(&ppc64_numa_nb, CPU_UP_PREPARE,
++				  (void *)(unsigned long)cpu);
++	}
+ }
+ 
+ void __init paging_init(void)
 
