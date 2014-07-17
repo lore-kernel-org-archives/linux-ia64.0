@@ -1,169 +1,119 @@
-From: Richard Weinberger <richard@sigma-star.at>
-Date: Mon, 21 Jul 2014 14:02:55 +0000
-Subject: [PATCH 09/43] ia64: Use get_signal() signal_setup_done()
-Message-Id: <1405951409-16953-10-git-send-email-richard@sigma-star.at>
+From: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
+Date: Thu, 17 Jul 2014 11:44:11 +0000
+Subject: [PATCH v6] [BUGFIX] kprobes: Fix "Failed to find blacklist" error on ia64 and ppc64
+Message-Id: <20140717114411.13401.2632.stgit@kbuild-fedora.novalocal>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1405951409-16953-1-git-send-email-richard@sigma-star.at>
-In-Reply-To: <1405951409-16953-1-git-send-email-richard@sigma-star.at>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@linux-foundation.org
-Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, Richard Weinberger <richard@nod.at>, Tony Luck <tony.luck@intel.com>, fenghua.yu@intel.com, linux-ia64@vger.kernel.org
+To: Ingo Molnar <mingo@kernel.org>
+Cc: Jeremy Fitzhardinge <jeremy@goop.org>, linux-ia64@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, sparse@chrisli.org, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Paul Mackerras <paulus@samba.org>, "H. Peter Anvin" <hpa@zytor.com>, akataria@vmware.com, linux-tip-commits@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>, anil.s.keshavamurthy@intel.com, "Suzuki K. Poulose" <suzuki@in.ibm.com>, Fenghua Yu <fenghua.yu@intel.com>, Arnd Bergmann <arnd@arndb.de>, Rusty Russell <rusty@rustcorp.com.au>, Chris Wright <chrisw@sous-sol.org>, yrl.pp-manager.tt@hitachi.com, Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, Kevin Hao <haokexin@gmail.com>, Ananth N Mavinakayanahalli <ananth@in.ibm.com>, linuxppc-dev@lists.ozlabs.org, rdunlap@infradead.org, Tony Luck <tony.luck@gmail.com>, dl9pf@gmx.de, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, "David S. Miller" <davem@davemloft.net>
 
-From: Richard Weinberger <richard@nod.at>
+On ia64 and ppc64, the function pointer does not point the
+entry address of the function, but the address of function
+discriptor (which contains the entry address and misc
+data.) Since the kprobes passes the function pointer stored
+by NOKPROBE_SYMBOL() to kallsyms_lookup_size_offset() for
+initalizing its blacklist, it fails and reports many errors
+as below.
 
-Use the more generic functions get_signal() signal_setup_done()
-for signal delivery.
-This inverts also the return codes of force_sigsegv_info()
-and setup_frame() to follow the kernel convention.
+  Failed to find blacklist 0001013168300000
+  Failed to find blacklist 0001013000f0a000
+  Failed to find blacklist 000101315f70a000
+  Failed to find blacklist 000101324c80a000
+  Failed to find blacklist 0001013063f0a000
+  Failed to find blacklist 000101327800a000
+  Failed to find blacklist 0001013277f0a000
+  Failed to find blacklist 000101315a70a000
+  Failed to find blacklist 0001013277e0a000
+  Failed to find blacklist 000101305a20a000
+  Failed to find blacklist 0001013277d0a000
+  Failed to find blacklist 00010130bdc0a000
+  Failed to find blacklist 00010130dc20a000
+  Failed to find blacklist 000101309a00a000
+  Failed to find blacklist 0001013277c0a000
+  Failed to find blacklist 0001013277b0a000
+  Failed to find blacklist 0001013277a0a000
+  Failed to find blacklist 000101327790a000
+  Failed to find blacklist 000101303140a000
+  Failed to find blacklist 0001013a3280a000
 
-Signed-off-by: Richard Weinberger <richard@nod.at>
+To fix this bug, this uses arch_deref_entry_point() to get
+the function entry address for kallsyms_lookup_size_offset()
+instead of the raw function pointer.
+Suzuki also pointed out that blacklist entries should also
+be updated by that too.
+
+Changes in v6:
+ - Update patch description.
+ - Remove "#include <linux/types.h>" which is no more needed
+   because we don't use new function_entry() macro any more.
+
+Changes in v5:
+ - Use arch_deref_entry_point() instead of function_entry().
+
+Changes in v4:
+ - Add kernel_text_address() check for verifying the address.
+ - Moved on the latest linus tree.
+
+Changes in v3:
+ - Fix a bug to get blacklist address based on function entry
+   instead of function descriptor. (Suzuki's work, Thanks!)
+
+Changes in V2:
+ - Use function_entry() macro when lookin up symbols instead
+   of storing it.
+ - Update for the latest -next.
+
+Signed-off-by: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
+Fixed-by: Suzuki K. Poulose <suzuki@in.ibm.com>
+Reported-by: Tony Luck <tony.luck@gmail.com>
+Tested-by: Tony Luck <tony.luck@intel.com>
+Tested-by: Michael Ellerman <mpe@ellerman.id.au>
+Acked-by: Michael Ellerman <mpe@ellerman.id.au> (for powerpc)
+Acked-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Ananth N Mavinakayanahalli <ananth@in.ibm.com>
+Cc: Kevin Hao <haokexin@gmail.com>
+Cc: linux-ia64@vger.kernel.org
+Cc: linuxppc-dev@lists.ozlabs.org
 ---
- arch/ia64/kernel/signal.c | 46 +++++++++++++++++++++-------------------------
- 1 file changed, 21 insertions(+), 25 deletions(-)
+ kernel/kprobes.c |   14 +++++++++-----
+ 1 file changed, 9 insertions(+), 5 deletions(-)
 
-diff --git a/arch/ia64/kernel/signal.c b/arch/ia64/kernel/signal.c
-index 33cab9a..6d92170 100644
---- a/arch/ia64/kernel/signal.c
-+++ b/arch/ia64/kernel/signal.c
-@@ -309,12 +309,11 @@ force_sigsegv_info (int sig, void __user *addr)
- 	si.si_uid = from_kuid_munged(current_user_ns(), current_uid());
- 	si.si_addr = addr;
- 	force_sig_info(SIGSEGV, &si, current);
--	return 0;
-+	return 1;
- }
- 
- static long
--setup_frame (int sig, struct k_sigaction *ka, siginfo_t *info, sigset_t *set,
--	     struct sigscratch *scr)
-+setup_frame(struct ksignal *ksig, sigset_t *set, struct sigscratch *scr)
+diff --git a/kernel/kprobes.c b/kernel/kprobes.c
+index 3214289..734e9a7 100644
+--- a/kernel/kprobes.c
++++ b/kernel/kprobes.c
+@@ -2037,19 +2037,23 @@ static int __init populate_kprobe_blacklist(unsigned long *start,
  {
- 	extern char __kernel_sigtramp[];
- 	unsigned long tramp_addr, new_rbs = 0, new_sp;
-@@ -323,7 +322,7 @@ setup_frame (int sig, struct k_sigaction *ka, siginfo_t *info, sigset_t *set,
+ 	unsigned long *iter;
+ 	struct kprobe_blacklist_entry *ent;
+-	unsigned long offset = 0, size = 0;
++	unsigned long entry, offset = 0, size = 0;
  
- 	new_sp = scr->pt.r12;
- 	tramp_addr = (unsigned long) __kernel_sigtramp;
--	if (ka->sa.sa_flags & SA_ONSTACK) {
-+	if (ksig->ka.sa.sa_flags & SA_ONSTACK) {
- 		int onstack = sas_ss_flags(new_sp);
- 
- 		if (onstack = 0) {
-@@ -347,29 +346,29 @@ setup_frame (int sig, struct k_sigaction *ka, siginfo_t *info, sigset_t *set,
- 			 */
- 			check_sp = (new_sp - sizeof(*frame)) & -STACK_ALIGN;
- 			if (!likely(on_sig_stack(check_sp)))
--				return force_sigsegv_info(sig, (void __user *)
-+				return force_sigsegv_info(ksig->sig, (void __user *)
- 							  check_sp);
+ 	for (iter = start; iter < end; iter++) {
+-		if (!kallsyms_lookup_size_offset(*iter, &size, &offset)) {
+-			pr_err("Failed to find blacklist %p\n", (void *)*iter);
++		entry = arch_deref_entry_point((void *)*iter);
++
++		if (!kernel_text_address(entry) ||
++		    !kallsyms_lookup_size_offset(entry, &size, &offset)) {
++			pr_err("Failed to find blacklist at %p\n",
++				(void *)entry);
+ 			continue;
  		}
+ 
+ 		ent = kmalloc(sizeof(*ent), GFP_KERNEL);
+ 		if (!ent)
+ 			return -ENOMEM;
+-		ent->start_addr = *iter;
+-		ent->end_addr = *iter + size;
++		ent->start_addr = entry;
++		ent->end_addr = entry + size;
+ 		INIT_LIST_HEAD(&ent->list);
+ 		list_add_tail(&ent->list, &kprobe_blacklist);
  	}
- 	frame = (void __user *) ((new_sp - sizeof(*frame)) & -STACK_ALIGN);
- 
- 	if (!access_ok(VERIFY_WRITE, frame, sizeof(*frame)))
--		return force_sigsegv_info(sig, frame);
-+		return force_sigsegv_info(ksig->sig, frame);
- 
--	err  = __put_user(sig, &frame->arg0);
-+	err  = __put_user(ksig->sig, &frame->arg0);
- 	err |= __put_user(&frame->info, &frame->arg1);
- 	err |= __put_user(&frame->sc, &frame->arg2);
- 	err |= __put_user(new_rbs, &frame->sc.sc_rbs_base);
- 	err |= __put_user(0, &frame->sc.sc_loadrs);	/* initialize to zero */
--	err |= __put_user(ka->sa.sa_handler, &frame->handler);
-+	err |= __put_user(ksig->ka.sa.sa_handler, &frame->handler);
- 
--	err |= copy_siginfo_to_user(&frame->info, info);
-+	err |= copy_siginfo_to_user(&frame->info, &ksig->info);
- 
- 	err |= __save_altstack(&frame->sc.sc_stack, scr->pt.r12);
- 	err |= setup_sigcontext(&frame->sc, set, scr);
- 
- 	if (unlikely(err))
--		return force_sigsegv_info(sig, frame);
-+		return force_sigsegv_info(ksig->sig, frame);
- 
- 	scr->pt.r12 = (unsigned long) frame - 16;	/* new stack pointer */
- 	scr->pt.ar_fpsr = FPSR_DEFAULT;			/* reset fpsr for signal handler */
-@@ -394,22 +393,20 @@ setup_frame (int sig, struct k_sigaction *ka, siginfo_t *info, sigset_t *set,
- 
- #if DEBUG_SIG
- 	printk("SIG deliver (%s:%d): sig=%d sp=%lx ip=%lx handler=%p\n",
--	       current->comm, current->pid, sig, scr->pt.r12, frame->sc.sc_ip, frame->handler);
-+	       current->comm, current->pid, ksig->sig, scr->pt.r12, frame->sc.sc_ip, frame->handler);
- #endif
--	return 1;
-+	return 0;
- }
- 
- static long
--handle_signal (unsigned long sig, struct k_sigaction *ka, siginfo_t *info,
--	       struct sigscratch *scr)
-+handle_signal (struct ksignal *ksig, struct sigscratch *scr)
- {
--	if (!setup_frame(sig, ka, info, sigmask_to_save(), scr))
--		return 0;
-+	int ret = setup_frame(ksig, sigmask_to_save(), scr);
- 
--	signal_delivered(sig, info, ka, &scr->pt,
--				 test_thread_flag(TIF_SINGLESTEP));
-+	if (!ret)
-+		signal_setup_done(ret, ksig, test_thread_flag(TIF_SINGLESTEP));
- 
--	return 1;
-+	return ret;
- }
- 
- /*
-@@ -419,17 +416,16 @@ handle_signal (unsigned long sig, struct k_sigaction *ka, siginfo_t *info,
- void
- ia64_do_signal (struct sigscratch *scr, long in_syscall)
- {
--	struct k_sigaction ka;
--	siginfo_t info;
- 	long restart = in_syscall;
- 	long errno = scr->pt.r8;
-+	struct ksignal ksig;
- 
- 	/*
- 	 * This only loops in the rare cases of handle_signal() failing, in which case we
- 	 * need to push through a forced SIGSEGV.
- 	 */
- 	while (1) {
--		int signr = get_signal_to_deliver(&info, &ka, &scr->pt, NULL);
-+		get_signal(&ksig);
- 
- 		/*
- 		 * get_signal_to_deliver() may have run a debugger (via notify_parent())
-@@ -446,7 +442,7 @@ ia64_do_signal (struct sigscratch *scr, long in_syscall)
- 			 */
- 			restart = 0;
- 
--		if (signr <= 0)
-+		if (ksig.sig <= 0)
- 			break;
- 
- 		if (unlikely(restart)) {
-@@ -458,7 +454,7 @@ ia64_do_signal (struct sigscratch *scr, long in_syscall)
- 				break;
- 
- 			      case ERESTARTSYS:
--				if ((ka.sa.sa_flags & SA_RESTART) = 0) {
-+				if ((ksig.ka.sa.sa_flags & SA_RESTART) = 0) {
- 					scr->pt.r8 = EINTR;
- 					/* note: scr->pt.r10 is already -1 */
- 					break;
-@@ -473,7 +469,7 @@ ia64_do_signal (struct sigscratch *scr, long in_syscall)
- 		 * Whee!  Actually deliver the signal.  If the delivery failed, we need to
- 		 * continue to iterate in this loop so we can deliver the SIGSEGV...
- 		 */
--		if (handle_signal(signr, &ka, &info, scr))
-+		if (handle_signal(&ksig, scr))
- 			return;
- 	}
- 
--- 
-1.8.4.5
+
 
