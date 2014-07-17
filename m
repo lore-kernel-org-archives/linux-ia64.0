@@ -1,58 +1,72 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Mon, 21 Jul 2014 17:19:54 +0000
-Subject: Re: [PATCH v2 1/7] memory-hotplug: add zone_for_memory() for selecting zone for new memory
-Message-Id: <53CD4BBA.1050706@cogentembedded.com>
+From: Nishanth Aravamudan <nacc@linux.vnet.ibm.com>
+Date: Thu, 17 Jul 2014 23:09:23 +0000
+Subject: [RFC 0/2] Memoryless nodes and kworker
+Message-Id: <20140717230923.GA32660@linux.vnet.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1405914402-66212-1-git-send-email-wangnan0@huawei.com> <1405914402-66212-2-git-send-email-wangnan0@huawei.com>
-In-Reply-To: <1405914402-66212-2-git-send-email-wangnan0@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Wang Nan <wangnan0@huawei.com>, Ingo Molnar <mingo@redhat.com>, Yinghai Lu <yinghai@kernel.org>, Mel Gorman <mgorman@suse.de>, Andrew Morton <akpm@linux-foundation.org>, Dave Hansen <dave.hansen@intel.com>, Zhang Yanfei <zhangyanfei@cn.fujitsu.com>
-Cc: peifeiyue@huawei.com, linux-mm@kvack.org, x86@kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org
+To: benh@kernel.crashing.org
+Cc: Joonsoo Kim <iamjoonsoo.kim@lge.com>, David Rientjes <rientjes@google.com>, Wanpeng Li <liwanp@linux.vnet.ibm.com>, Jiang Liu <jiang.liu@linux.intel.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-mm@kvack.org, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org
 
-Hello.
+[Apologies for the large Cc list, but I believe we have the following
+interested parties:
 
-On 07/21/2014 07:46 AM, Wang Nan wrote:
+x86 (recently posted memoryless node support)
+ia64 (existing memoryless node support)
+ppc (existing memoryless node support)
+previous discussion of how to solve Anton's issue with slab usage
+workqueue contributors/maintainers]
 
-    Some grammar nitpicking.
+There is an issue currently where NUMA information is used on powerpc
+(and possibly ia64) before it has been read from the device-tree, which
+leads to large slab consumption with CONFIG_SLUB and memoryless nodes.
 
-> This patch introduces a zone_for_memory function in arch independent
-> code for arch_add_memory() using.
+While testing memoryless nodes on PowerKVM guests with the patches in
+this series, with a guest topology of
+    
+    available: 2 nodes (0-1)
+    node 0 cpus: 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49
+    node 0 size: 0 MB
+    node 0 free: 0 MB
+    node 1 cpus: 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77 78 79 80 81 82 83 84 85 86 87 88 89 90 91 92 93 94 95 96 97 98 99
+    node 1 size: 16336 MB
+    node 1 free: 15329 MB
+    node distances:
+    node   0   1
+      0:  10  40
+      1:  40  10
+    
+the slab consumption decreases from
+    
+    Slab:             932416 kB
+    SUnreclaim:       902336 kB
+    
+to
+    
+    Slab:             395264 kB
+    SUnreclaim:       359424 kB
+    
+And we see a corresponding increase in the slab efficiency from
+    
+    slab                                   mem     objs    slabs
+                                          used   active   active
+    ------------------------------------------------------------
+    kmalloc-16384                       337 MB   11.28%  100.00%
+    task_struct                         288 MB    9.93%  100.00%
+    
+to
+    
+    slab                                   mem     objs    slabs
+                                          used   active   active
+    ------------------------------------------------------------
+    kmalloc-16384                        37 MB  100.00%  100.00%
+    task_struct                          31 MB  100.00%  100.00%
 
-    s/ using/'s use/.
-
-> Many arch_add_memory() function simply selects ZONE_HIGHMEM or
-
-    Plural needed with "many".
-
-> ZONE_NORMAL and add new memory into it. However, with the existance of
-> ZONE_MOVABLE, the selection method should be carefully considered: if
-> new, higher memory is added after ZONE_MOVABLE is setup, the default
-> zone and ZONE_MOVABLE may overlap each other.
-
-> should_add_memory_movable() checks the status of ZONE_MOVABLE. If it has
-> already contain memory, compare the address of new memory and movable
-> memory. If new memory is higher than movable, it should be added into
-> ZONE_MOVABLE instead of default zone.
-
-> Signed-off-by: Wang Nan <wangnan0@huawei.com>
-> Cc: Zhang Yanfei <zhangyanfei@cn.fujitsu.com>
-> Cc: Dave Hansen <dave.hansen@intel.com>
-[...]
-
-> diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
-> index 469bbf5..348fda7 100644
-> --- a/mm/memory_hotplug.c
-> +++ b/mm/memory_hotplug.c
-> @@ -1156,6 +1156,34 @@ static int check_hotplug_memory_range(u64 start, u64 size)
->   	return 0;
->   }
->
-> +/*
-> + * If movable zone has already been setup, newly added memory should be check.
-
-    Checked.
-
-WBR, Sergei
+It turns out we see this large slab usage due to using the wrong NUMA
+information when creating kthreads.
+    
+Two changes are required, one of which is in the workqueue code and one
+of which is in the powerpc initialization. Note that ia64 may want to
+consider something similar.
 
