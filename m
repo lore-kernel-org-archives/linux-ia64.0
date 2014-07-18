@@ -1,7 +1,7 @@
 From: Wang Nan <wangnan0@huawei.com>
-Date: Fri, 18 Jul 2014 07:56:03 +0000
-Subject: [PATCH 5/5] memory-hotplug: powerpc: suitable memory should go to ZONE_MOVABLE
-Message-Id: <1405670163-53747-6-git-send-email-wangnan0@huawei.com>
+Date: Fri, 18 Jul 2014 07:56:02 +0000
+Subject: [PATCH 4/5] memory-hotplug: sh: suitable memory should go to ZONE_MOVABLE
+Message-Id: <1405670163-53747-5-git-send-email-wangnan0@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1405670163-53747-1-git-send-email-wangnan0@huawei.com>
 In-Reply-To: <1405670163-53747-1-git-send-email-wangnan0@huawei.com>
@@ -12,37 +12,42 @@ To: Ingo Molnar <mingo@redhat.com>, Yinghai Lu <yinghai@kernel.org>, Mel Gorman 
 Cc: Pei Feiyue <peifeiyue@huawei.com>, linux-mm@kvack.org, x86@kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org
 
 This patch add new memory to ZONE_MOVABLE if movable zone is setup
-and lower than newly added memory for powerpc.
+and lower than newly added memory for sh.
 
 Signed-off-by: Wang Nan <wangnan0@huawei.com>
 ---
- arch/powerpc/mm/mem.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ arch/sh/mm/init.c | 13 ++++++++-----
+ 1 file changed, 8 insertions(+), 5 deletions(-)
 
-diff --git a/arch/powerpc/mm/mem.c b/arch/powerpc/mm/mem.c
-index 2c8e90f..2d869ef 100644
---- a/arch/powerpc/mm/mem.c
-+++ b/arch/powerpc/mm/mem.c
-@@ -118,6 +118,7 @@ int arch_add_memory(int nid, u64 start, u64 size)
+diff --git a/arch/sh/mm/init.c b/arch/sh/mm/init.c
+index 2d089fe..ff9decc 100644
+--- a/arch/sh/mm/init.c
++++ b/arch/sh/mm/init.c
+@@ -487,16 +487,19 @@ void free_initrd_mem(unsigned long start, unsigned long end)
+ #ifdef CONFIG_MEMORY_HOTPLUG
+ int arch_add_memory(int nid, u64 start, u64 size)
  {
- 	struct pglist_data *pgdata;
- 	struct zone *zone;
-+	struct zone *movable_zone;
+-	pg_data_t *pgdat;
++	pg_data_t *pgdat = NODE_DATA(nid);
  	unsigned long start_pfn = start >> PAGE_SHIFT;
  	unsigned long nr_pages = size >> PAGE_SHIFT;
++	struct zone *zone = pgdat->node_zones + ZONE_NORMAL;
++	struct zone *movable_zone = pgdat->node_zones + ZONE_MOVABLE;
+ 	int ret;
  
-@@ -129,6 +130,11 @@ int arch_add_memory(int nid, u64 start, u64 size)
- 
- 	/* this should work for most non-highmem platforms */
- 	zone = pgdata->node_zones;
-+	movable_zone = pgdat->node_zones + ZONE_MOVABLE;
+-	pgdat = NODE_DATA(nid);
 +	if (!zone_is_empty(movable_zone))
 +		if (zone_spans_pfn(movable_zone, start_pfn) ||
 +				(zone_end_pfn(movable_zone) <= start_pfn))
 +			zone = movable_zone;
  
- 	return __add_pages(nid, zone, start_pfn, nr_pages);
- }
+-	/* We only have ZONE_NORMAL, so this is easy.. */
+-	ret = __add_pages(nid, pgdat->node_zones + ZONE_NORMAL,
+-				start_pfn, nr_pages);
++	ret = __add_pages(nid, zone, start_pfn, nr_pages);
+ 	if (unlikely(ret))
+ 		printk("%s: Failed, __add_pages() = %d\n", __func__, ret);
+ 
 -- 
 1.8.4
 
