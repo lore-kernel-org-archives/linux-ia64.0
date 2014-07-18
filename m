@@ -1,194 +1,70 @@
-From: Sudeep Holla <sudeep.holla@arm.com>
-Date: Thu, 10 Jul 2014 13:37:23 +0000
-Subject: Re: [PATCH 2/9] drivers: base: support cpu cache information interface to userspace via sysfs
-Message-Id: <53BE9713.8090700@arm.com>
+From: Masahiro Yamada <yamada.m@jp.panasonic.com>
+Date: Fri, 18 Jul 2014 04:40:11 +0000
+Subject: [PATCH] kbuild: allow to override Python command name
+Message-Id: <1405658411-27346-1-git-send-email-yamada.m@jp.panasonic.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1403717444-23559-1-git-send-email-sudeep.holla@arm.com> <1403717444-23559-3-git-send-email-sudeep.holla@arm.com> <20140710000905.GA18025@kroah.com>
-In-Reply-To: <20140710000905.GA18025@kroah.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: Sudeep Holla <sudeep.holla@arm.com>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Heiko Carstens <heiko.carstens@de.ibm.com>, Lorenzo Pieralisi <Lorenzo.Pieralisi@arm.com>, Rob Herring <robh@kernel.org>, "linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux390@de.ibm.com" <linux390@de.ibm.com>, "linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>, "x86@kernel.org" <x86@kernel.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>
+To: linux-kbuild@vger.kernel.org
+Cc: Masahiro Yamada <yamada.m@jp.panasonic.com>, linux-ia64@vger.kernel.org, Michal Marek <mmarek@suse.cz>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-kernel@vger.kernel.org
 
-Hi Greg,
+The specification of Python 3 is largely different from that of
+Python 2.
 
-Thanks for reviewing this.
+For example, arch/ia64/scripts/unwcheck.py seems to be written
+in Python 2, not compatible with Python 3.
 
-On 10/07/14 01:09, Greg Kroah-Hartman wrote:
-> On Wed, Jun 25, 2014 at 06:30:37PM +0100, Sudeep Holla wrote:
->> +static const struct device_attribute *cache_optional_attrs[] = {
->> +	&dev_attr_coherency_line_size,
->> +	&dev_attr_ways_of_associativity,
->> +	&dev_attr_number_of_sets,
->> +	&dev_attr_size,
->> +	&dev_attr_attributes,
->> +	&dev_attr_physical_line_partition,
->> +	NULL
->> +};
->> +
->> +static int device_add_attrs(struct device *dev,
->> +			    const struct device_attribute **dev_attrs)
->> +{
->> +	int i, error = 0;
->> +	struct device_attribute *dev_attr;
->> +	char *buf;
->> +
->> +	if (!dev_attrs)
->> +		return 0;
->> +
->> +	buf = kmalloc(PAGE_SIZE, GFP_KERNEL);
->> +	if (!buf)
->> +		return -ENOMEM;
->> +
->> +	for (i = 0; dev_attrs[i]; i++) {
->> +		dev_attr = (struct device_attribute *)dev_attrs[i];
->> +
->> +		/* create attributes that provides meaningful value */
->> +		if (dev_attr->show(dev, dev_attr, buf) < 0)
->> +			continue;
->> +
->> +		error = device_create_file(dev, dev_attrs[i]);
->> +		if (error) {
->> +			while (--i >= 0)
->> +				device_remove_file(dev, dev_attrs[i]);
->> +			break;
->> +		}
->> +	}
->> +
->> +	kfree(buf);
->> +	return error;
->> +}
->
-> Ick, why create your own function for this when the driver core has this
-> functionality built into it?  Look at the is_visible() callback, and how
-> it is use for an attribute group please.
->
+It is not a good idea to invoke python scripts with the hard-coded
+command name 'python'. The command 'python' could possibly be
+Python 3 on some systems.
+For that case, it is reasonable to allow to override the command name
+by giving 'PYTHON=python2' from the command line.
 
-I agree even I added this function hesitantly as didn't realize that I can use
-is_visible for this purpose. Thanks for pointing that out I will have a look
-at it.
+The 'python' in arch/ia64/Makefile should be replaced with '$(PYTHON)'.
 
->> +static void device_remove_attrs(struct device *dev,
->> +				const struct device_attribute **dev_attrs)
->> +{
->> +	int i;
->> +
->> +	if (!dev_attrs)
->> +		return;
->> +
->> +	for (i = 0; dev_attrs[i]; dev_attrs++, i++)
->> +		device_remove_file(dev, dev_attrs[i]);
->> +}
->
-> You should just remove a whole group at once, not individually.
->
+Signed-off-by: Masahiro Yamada <yamada.m@jp.panasonic.com>
+Cc: linux-ia64@vger.kernel.org
+---
 
-Right, I must be able to get rid of these 2 functions once I use
-is_visible callback.
+ Makefile           | 3 ++-
+ arch/ia64/Makefile | 2 +-
+ 2 files changed, 3 insertions(+), 2 deletions(-)
 
->> +
->> +const struct device_attribute **
->> +__weak cache_get_priv_attr(struct device *cache_idx_dev)
->> +{
->> +	return NULL;
->> +}
->> +
->> +/* Add/Remove cache interface for CPU device */
->> +static void cpu_cache_sysfs_exit(unsigned int cpu)
->> +{
->> +	int i;
->> +	struct device *tmp_dev;
->> +	const struct device_attribute **ci_priv_attr;
->> +
->> +	if (per_cpu_index_dev(cpu)) {
->> +		for (i = 0; i < cache_leaves(cpu); i++) {
->> +			tmp_dev = per_cache_index_dev(cpu, i);
->> +			if (!tmp_dev)
->> +				continue;
->> +			ci_priv_attr = cache_get_priv_attr(tmp_dev);
->> +			device_remove_attrs(tmp_dev, ci_priv_attr);
->> +			device_remove_attrs(tmp_dev, cache_optional_attrs);
->> +			device_unregister(tmp_dev);
->> +		}
->> +		kfree(per_cpu_index_dev(cpu));
->> +		per_cpu_index_dev(cpu) = NULL;
->> +	}
->> +	device_unregister(per_cpu_cache_dev(cpu));
->> +	per_cpu_cache_dev(cpu) = NULL;
->> +}
->> +
->> +static int cpu_cache_sysfs_init(unsigned int cpu)
->> +{
->> +	struct device *dev = get_cpu_device(cpu);
->> +
->> +	if (per_cpu_cacheinfo(cpu) = NULL)
->> +		return -ENOENT;
->> +
->> +	per_cpu_cache_dev(cpu) = device_create(dev->class, dev, cpu,
->> +					       NULL, "cache");
->> +	if (IS_ERR_OR_NULL(per_cpu_cache_dev(cpu)))
->> +		return PTR_ERR(per_cpu_cache_dev(cpu));
->> +
->> +	/* Allocate all required memory */
->> +	per_cpu_index_dev(cpu) = kzalloc(sizeof(struct device *) *
->> +					 cache_leaves(cpu), GFP_KERNEL);
->> +	if (unlikely(per_cpu_index_dev(cpu) = NULL))
->> +		goto err_out;
->> +
->> +	return 0;
->> +
->> +err_out:
->> +	cpu_cache_sysfs_exit(cpu);
->> +	return -ENOMEM;
->> +}
->> +
->> +static int cache_add_dev(unsigned int cpu)
->> +{
->> +	unsigned short i;
->> +	int rc;
->> +	struct device *tmp_dev, *parent;
->> +	struct cacheinfo *this_leaf;
->> +	const struct device_attribute **ci_priv_attr;
->> +	struct cpu_cacheinfo *this_cpu_ci = get_cpu_cacheinfo(cpu);
->> +
->> +	rc = cpu_cache_sysfs_init(cpu);
->> +	if (unlikely(rc < 0))
->> +		return rc;
->> +
->> +	parent = per_cpu_cache_dev(cpu);
->> +	for (i = 0; i < cache_leaves(cpu); i++) {
->> +		this_leaf = this_cpu_ci->info_list + i;
->> +		if (this_leaf->disable_sysfs)
->> +			continue;
->> +		tmp_dev = device_create_with_groups(parent->class, parent, i,
->> +						    this_leaf,
->> +						    cache_default_groups,
->> +						    "index%1u", i);
->> +		if (IS_ERR_OR_NULL(tmp_dev)) {
->> +			rc = PTR_ERR(tmp_dev);
->> +			goto err;
->> +		}
->> +
->> +		rc = device_add_attrs(tmp_dev, cache_optional_attrs);
->> +		if (unlikely(rc))
->> +			goto err;
->> +
->> +		ci_priv_attr = cache_get_priv_attr(tmp_dev);
->> +		rc = device_add_attrs(tmp_dev, ci_priv_attr);
->> +		if (unlikely(rc))
->> +			goto err;
->
-> You just raced with userspace here, creating these files _after_ the
-> device was announced to userspace, causing problems with anyone wanting
-> to read these attributes :(
->
-> I think if you fix up the is_visible() thing above, these calls will go
-> away, right?
->
-
-Yes I agree.
-
-Regards,
-Sudeep
+diff --git a/Makefile b/Makefile
+index f3c543d..7f5f301 100644
+--- a/Makefile
++++ b/Makefile
+@@ -372,6 +372,7 @@ GENKSYMS	= scripts/genksyms/genksyms
+ INSTALLKERNEL  := installkernel
+ DEPMOD		= /sbin/depmod
+ PERL		= perl
++PYTHON		= python
+ CHECK		= sparse
+ 
+ CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
+@@ -422,7 +423,7 @@ KERNELVERSION = $(VERSION)$(if $(PATCHLEVEL),.$(PATCHLEVEL)$(if $(SUBLEVEL),.$(S
+ export VERSION PATCHLEVEL SUBLEVEL KERNELRELEASE KERNELVERSION
+ export ARCH SRCARCH CONFIG_SHELL HOSTCC HOSTCFLAGS CROSS_COMPILE AS LD CC
+ export CPP AR NM STRIP OBJCOPY OBJDUMP
+-export MAKE AWK GENKSYMS INSTALLKERNEL PERL UTS_MACHINE
++export MAKE AWK GENKSYMS INSTALLKERNEL PERL PYTHON UTS_MACHINE
+ export HOSTCXX HOSTCXXFLAGS LDFLAGS_MODULE CHECK CHECKFLAGS
+ 
+ export KBUILD_CPPFLAGS NOSTDINC_FLAGS LINUXINCLUDE OBJCOPYFLAGS LDFLAGS
+diff --git a/arch/ia64/Makefile b/arch/ia64/Makefile
+index f37238f..5441b14 100644
+--- a/arch/ia64/Makefile
++++ b/arch/ia64/Makefile
+@@ -76,7 +76,7 @@ vmlinux.gz: vmlinux
+ 	$(Q)$(MAKE) $(build)=$(boot) $@
+ 
+ unwcheck: vmlinux
+-	-$(Q)READELF=$(READELF) python $(srctree)/arch/ia64/scripts/unwcheck.py $<
++	-$(Q)READELF=$(READELF) $(PYTHON) $(srctree)/arch/ia64/scripts/unwcheck.py $<
+ 
+ archclean:
+ 	$(Q)$(MAKE) $(clean)=$(boot)
+-- 
+1.9.1
 
