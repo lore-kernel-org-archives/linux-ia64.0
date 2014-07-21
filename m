@@ -1,94 +1,41 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Date: Tue, 29 Jul 2014 15:16:42 +0000
-Subject: [PATCH 0/9] use correct structure type name in sizeof
-Message-Id: <1406647011-8543-1-git-send-email-Julia.Lawall@lip6.fr>
+From: Wang Nan <wangnan0@huawei.com>
+Date: Mon, 21 Jul 2014 03:46:37 +0000
+Subject: [PATCH v2 2/7] memory-hotplug: x86_64: suitable memory should go to ZONE_MOVABLE
+Message-Id: <1405914402-66212-3-git-send-email-wangnan0@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1405914402-66212-1-git-send-email-wangnan0@huawei.com>
+In-Reply-To: <1405914402-66212-1-git-send-email-wangnan0@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-wireless@vger.kernel.org
-Cc: kernel-janitors@vger.kernel.org, linux-ia64@vger.kernel.org, ceph-devel@vger.kernel.org, toralf.foerster@gmx.de, hmh@hmh.eng.br, linux-gpio@vger.kernel.org, reiserfs-devel@vger.kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org, linux-media@vger.kernel.org, devel@driverdev.osuosl.org, e1000-devel@lists.sourceforge.net, linux-scsi@vger.kernel.org, linux-usb@vger.kernel.org
+To: Ingo Molnar <mingo@redhat.com>, Yinghai Lu <yinghai@kernel.org>, Mel Gorman <mgorman@suse.de>, Andrew Morton <akpm@linux-foundation.org>, Dave Hansen <dave.hansen@intel.com>, Zhang Yanfei <zhangyanfei@cn.fujitsu.com>
+Cc: peifeiyue@huawei.com, linux-mm@kvack.org, x86@kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org, wangnan0@huawei.com
 
-These patches fix typos in the name of a type referenced in a sizeof
-command.  These problems are not caught by the compiler, because they have
-no impact on execution - the size of a pointer is independent of the size
-of the pointed value.
+This patch introduces zone_for_memory() to arch_add_memory() on x86_64
+to ensure new, higher memory added into ZONE_MOVABLE if movable zone has
+already setup.
 
-The semantic patch that finds these problems is shown below
-(http://coccinelle.lip6.fr/).  This semantic patch distinguishes between
-structures that are defined in C files, and thus are expected to be visible
-in only that file, and structures that are defined in header files, which
-could potential be visible everywhere.  This distinction seems to be
-unnecessary in practice, though.
+Signed-off-by: Wang Nan <wangnan0@huawei.com>
+Cc: Zhang Yanfei <zhangyanfei@cn.fujitsu.com>
+Cc: Dave Hansen <dave.hansen@intel.com>
+---
+ arch/x86/mm/init_64.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-<smpl>
-virtual after_start
-
-@initialize:ocaml@
-@@
-
-type fl = C of string | H
-
-let structures = Hashtbl.create 101
-let restarted = ref false
-
-let add_if_not_present _   if not !restarted
-  then
-    begin
-      restarted := true;
-      let it = new iteration() in
-      it#add_virtual_rule After_start;
-      it#register()
-    end
-
-let hashadd str file   let cell     try Hashtbl.find structures str
-    with Not_found ->
-      let cell = ref [] in
-      Hashtbl.add structures str cell;
-      cell in
-  if not (List.mem file !cell) then cell := file :: !cell
-
-let get_file fl   if Filename.check_suffix fl ".c"
-  then C fl
-  else H
-
-@script:ocaml depends on !after_start@
-@@
-add_if_not_present()
-
-@r depends on !after_start@
-identifier nm;
-position p;
-@@
-
-struct nm@p { ... };
-
-@script:ocaml@
-nm << r.nm;
-p << r.p;
-@@
-
-hashadd nm (get_file (List.hd p).file)
-
-// -------------------------------------------------------------------------
-
-@sz depends on after_start@
-identifier nm;
-position p;
-@@
-
-sizeof(struct nm@p *)
-
-@script:ocaml@
-nm << sz.nm;
-p << sz.p;
-@@
-
-try
-  let allowed = !(Hashtbl.find structures nm) in
-  if List.mem H allowed or List.mem (get_file (List.hd p).file) allowed
-  then ()
-  else print_main nm p
-with Not_found -> print_main nm p
-</smpl>
+diff --git a/arch/x86/mm/init_64.c b/arch/x86/mm/init_64.c
+index df1a992..5621c47 100644
+--- a/arch/x86/mm/init_64.c
++++ b/arch/x86/mm/init_64.c
+@@ -691,7 +691,8 @@ static void  update_end_of_memory_vars(u64 start, u64 size)
+ int arch_add_memory(int nid, u64 start, u64 size)
+ {
+ 	struct pglist_data *pgdat = NODE_DATA(nid);
+-	struct zone *zone = pgdat->node_zones + ZONE_NORMAL;
++	struct zone *zone = pgdat->node_zones +
++		zone_for_memory(nid, start, size, ZONE_NORMAL);
+ 	unsigned long start_pfn = start >> PAGE_SHIFT;
+ 	unsigned long nr_pages = size >> PAGE_SHIFT;
+ 	int ret;
+-- 
+1.8.4
 
