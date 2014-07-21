@@ -1,58 +1,41 @@
-From: Thierry Reding <thierry.reding@gmail.com>
-Date: Mon, 28 Jul 2014 15:01:49 +0000
-Subject: [PATCH 2/2] [IA64] Do not needlessly convert between pointers and integers
-Message-Id: <1406559709-9401-2-git-send-email-thierry.reding@gmail.com>
+From: Wang Nan <wangnan0@huawei.com>
+Date: Mon, 21 Jul 2014 03:46:40 +0000
+Subject: [PATCH v2 5/7] memory-hotplug: ppc: suitable memory should go to ZONE_MOVABLE
+Message-Id: <1405914402-66212-6-git-send-email-wangnan0@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1406559709-9401-1-git-send-email-thierry.reding@gmail.com>
-In-Reply-To: <1406559709-9401-1-git-send-email-thierry.reding@gmail.com>
+References: <1405914402-66212-1-git-send-email-wangnan0@huawei.com>
+In-Reply-To: <1405914402-66212-1-git-send-email-wangnan0@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Ingo Molnar <mingo@redhat.com>, Yinghai Lu <yinghai@kernel.org>, Mel Gorman <mgorman@suse.de>, Andrew Morton <akpm@linux-foundation.org>, Dave Hansen <dave.hansen@intel.com>, Zhang Yanfei <zhangyanfei@cn.fujitsu.com>
+Cc: peifeiyue@huawei.com, linux-mm@kvack.org, x86@kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org, wangnan0@huawei.com
 
-From: Thierry Reding <treding@nvidia.com>
+This patch introduces zone_for_memory() to arch_add_memory() on powerpc
+to ensure new, higher memory added into ZONE_MOVABLE if movable zone has
+already setup.
 
-The nasid_to_try variable is an array of integers, so plain integers can
-be used when assigning values to the elements rather than casting a NULL
-pointer to an integer, which results in the following warning from GCC:
-
-	arch/ia64/sn/kernel/bte.c:117:22: warning: cast from pointer to integer of different size [-Wpointer-to-int-cast]
-	    nasid_to_try[1] = (int)NULL;
-	                      ^
-	arch/ia64/sn/kernel/bte.c:125:22: warning: cast from pointer to integer of different size [-Wpointer-to-int-cast]
-	    nasid_to_try[1] = (int)NULL;
-	                      ^
-
-Replace (int)NULL with a simple 0 to silence these warnings.
-
-Signed-off-by: Thierry Reding <treding@nvidia.com>
+Signed-off-by: Wang Nan <wangnan0@huawei.com>
+Cc: Zhang Yanfei <zhangyanfei@cn.fujitsu.com>
+Cc: Dave Hansen <dave.hansen@intel.com>
 ---
- arch/ia64/sn/kernel/bte.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ arch/powerpc/mm/mem.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/arch/ia64/sn/kernel/bte.c b/arch/ia64/sn/kernel/bte.c
-index cad775a1a157..b2eb48490754 100644
---- a/arch/ia64/sn/kernel/bte.c
-+++ b/arch/ia64/sn/kernel/bte.c
-@@ -114,7 +114,7 @@ bte_result_t bte_copy(u64 src, u64 dest, u64 len, u64 mode, void *notification)
- 		if (mode & BTE_USE_ANY) {
- 			nasid_to_try[1] = my_nasid;
- 		} else {
--			nasid_to_try[1] = (int)NULL;
-+			nasid_to_try[1] = 0;
- 		}
- 	} else {
- 		/* try local then remote */
-@@ -122,7 +122,7 @@ bte_result_t bte_copy(u64 src, u64 dest, u64 len, u64 mode, void *notification)
- 		if (mode & BTE_USE_ANY) {
- 			nasid_to_try[1] = NASID_GET(dest);
- 		} else {
--			nasid_to_try[1] = (int)NULL;
-+			nasid_to_try[1] = 0;
- 		}
- 	}
+diff --git a/arch/powerpc/mm/mem.c b/arch/powerpc/mm/mem.c
+index 2c8e90f..e0f7a18 100644
+--- a/arch/powerpc/mm/mem.c
++++ b/arch/powerpc/mm/mem.c
+@@ -128,7 +128,8 @@ int arch_add_memory(int nid, u64 start, u64 size)
+ 		return -EINVAL;
  
+ 	/* this should work for most non-highmem platforms */
+-	zone = pgdata->node_zones;
++	zone = pgdata->node_zones +
++		zone_for_memory(nid, start, size, 0);
+ 
+ 	return __add_pages(nid, zone, start_pfn, nr_pages);
+ }
 -- 
-2.0.2
+1.8.4
 
