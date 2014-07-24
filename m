@@ -1,29 +1,27 @@
-From: David Miller <davem@davemloft.net>
-Date: Thu, 31 Jul 2014 02:14:05 +0000
-Subject: Re: [PATCH 2/9] CAPI: use correct structure type name in sizeof
-Message-Id: <20140730.191405.497343033042623279.davem@davemloft.net>
+From: =?UTF-8?B?VG9yYWxmIEbDtnJzdGVy?= <toralf.foerster@gmx.de>
+Date: Thu, 24 Jul 2014 18:20:16 +0000
+Subject: sizeof (struct tYpO *) : it is just a typo or rather a bug ?
+Message-Id: <53D14E60.1010105@gmx.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1406647011-8543-1-git-send-email-Julia.Lawall@lip6.fr>
-	<1406647011-8543-3-git-send-email-Julia.Lawall@lip6.fr>
-In-Reply-To: <1406647011-8543-3-git-send-email-Julia.Lawall@lip6.fr>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Julia.Lawall@lip6.fr
-Cc: isdn@linux-pingi.de, kernel-janitors@vger.kernel.org, linux-ia64@vger.kernel.org, ceph-devel@vger.kernel.org, toralf.foerster@gmx.de, hmh@hmh.eng.br, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org, ceph-devel@vger.kernel.org
+Cc: Linux Kernel <linux-kernel@vger.kernel.org>
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Date: Tue, 29 Jul 2014 17:16:44 +0200
+Inspired by this "typo" fix 
+http://article.gmane.org/gmane.linux.kernel/1754640
+I grep'ed the current git tree of linus for similar issues.
 
-> From: Julia Lawall <Julia.Lawall@lip6.fr>
-> 
-> Correct typo in the name of the type given to sizeof.  Because it is the
-> size of a pointer that is wanted, the typo has no impact on compilation or
-> execution.
-> 
-> This problem was found using Coccinelle (http://coccinelle.lip6.fr/).  The
-> semantic patch used can be found in message 0 of this patch series.
-> 
-> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+For these 4 places I'm wondering where the appropriate struct definition is located :
 
-Relatively harmless, so applied to net-next, thanks.
+arch/ia64/sn/kernel/io_acpi_init.c:         sizeof(struct pci_devdev_info *)) {
+tools/perf/builtin-sched.c:     sched->tasks = realloc(sched->tasks, sched->nr_tasks * sizeof(struct task_task *));
+fs/ceph/xattr.c:                xattrs = kcalloc(numattr, sizeof(struct ceph_xattr *),
+fs/ceph/xattr.c:                memset(xattrs, 0, numattr*sizeof(struct ceph_xattr *));
+
+Nevertheless I was told, that gcc doesn't complain about such things due to eventually evaluating it to "sizeof(null)". I'm however curious if at least a warning should be emitted in such a case, or?
+
+-- 
+Toralf
+
