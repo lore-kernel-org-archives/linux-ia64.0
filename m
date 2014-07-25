@@ -1,56 +1,41 @@
-From: =?UTF-8?B?VG9yYWxmIEbDtnJzdGVy?= <toralf.foerster@gmx.de>
-Date: Thu, 24 Jul 2014 18:37:52 +0000
+From: Henrique de Moraes Holschuh <hmh@hmh.eng.br>
+Date: Fri, 25 Jul 2014 11:20:39 +0000
 Subject: Re: sizeof (struct tYpO *) : it is just a typo or rather a bug ?
-Message-Id: <53D15280.5070407@gmx.de>
+Message-Id: <20140725112038.GA401@khazad-dum.debian.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <53D14E60.1010105@gmx.de> <CALFYKtAyB6xGEgJ65Ti5vPx9xf4ipX9__FZBwosBYg1y9z7cKg@mail.gmail.com>
-In-Reply-To: <CALFYKtAyB6xGEgJ65Ti5vPx9xf4ipX9__FZBwosBYg1y9z7cKg@mail.gmail.com>
+References: <53D14E60.1010105@gmx.de>
+In-Reply-To: <53D14E60.1010105@gmx.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
-To: Ilya Dryomov <ilya.dryomov@inktank.com>
-Cc: linux-ia64@vger.kernel.org, Ceph Development <ceph-devel@vger.kernel.org>, Linux Kernel <linux-kernel@vger.kernel.org>
+To: Toralf =?iso-8859-1?Q?F=F6rster?= <toralf.foerster@gmx.de>
+Cc: linux-ia64@vger.kernel.org, ceph-devel@vger.kernel.org, Linux Kernel <linux-kernel@vger.kernel.org>
 
-On 07/24/2014 08:33 PM, Ilya Dryomov wrote:
-> On Thu, Jul 24, 2014 at 10:20 PM, Toralf F=C3=B6rster <toralf.foerster@gm=
-x.de> wrote:
->> Inspired by this "typo" fix
->> http://article.gmane.org/gmane.linux.kernel/1754640
->> I grep'ed the current git tree of linus for similar issues.
->>
->> For these 4 places I'm wondering where the appropriate struct definition=
- is located :
->>
->> arch/ia64/sn/kernel/io_acpi_init.c:         sizeof(struct pci_devdev_inf=
-o *)) {
->> tools/perf/builtin-sched.c:     sched->tasks =3D realloc(sched->tasks, s=
-ched->nr_tasks * sizeof(struct task_task *));
->> fs/ceph/xattr.c:                xattrs =3D kcalloc(numattr, sizeof(struc=
-t ceph_xattr *),
->> fs/ceph/xattr.c:                memset(xattrs, 0, numattr*sizeof(struct =
-ceph_xattr *));
->=20
-> Heh, the ceph one is a five year old typo..  Looks like it should be
-> struct ceph_inode_xattr, I'll fix it up.  I'm curious though, how did
-> you grep for these?
->=20
-> Thanks,
->=20
->                 Ilya
->=20
+On Thu, 24 Jul 2014, Toralf F=F6rster wrote:
+> Inspired by this "typo" fix=20
+> http://article.gmane.org/gmane.linux.kernel/1754640
+> I grep'ed the current git tree of linus for similar issues.
 
-1:
-	grep -Hr "sizeof[ *(]struct .* \*.)"  | cut -f2- -d':' | tee ~/tmp/out
+I wonder if we couldn't use Coccinelle to do that?  I would say it would be
+not as cool as deep grep magick, but Coccinelle is cool by definition and
+therefore immune from any such comparisons :-)
 
-2:
-	cat ~/tmp/out | perl -wane 'chomp(); my ($left, $right) =3D split (/sizeof=
-\(/); print $right, "\n";' | cut -f2 -d' ' | sort -u | cut -f1 -d')' | grep=
- -v '^+' | while read i; do echo $i; git grep -q "struct $i {" || echo erro=
-r; echo; done
+> Nevertheless I was told, that gcc doesn't complain about such things due
+> to eventually evaluating it to "sizeof(null)". I'm however curious if at
+> least a warning should be emitted in such a case, or?
 
-3:
-	ignore false positives
+Well, it cannot become a real bug because the moment the code changes to
+actually access/derreference such a typo, it will cause the compiler to
+abort with an error.  If gcc will have to waste a measurable amount of time
+to issue such a warning, it is not worth it.
+
+OTOH, such typos could confuse someone reading the code into thinking
+they're dealing with a different structure or something, and it _is_
+incorrect code no matter how harmless, so it makes sense to fix all such
+typos eventually.
 
 --=20
-Toralf
-
+  "One disk to rule them all, One disk to find them. One disk to bring
+  them all and in the darkness grind them. In the Land of Redmond
+  where the shadows lie." -- The Silicon Valley Tarot
+  Henrique Holschuh
