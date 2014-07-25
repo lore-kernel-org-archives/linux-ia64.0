@@ -1,119 +1,131 @@
-From: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
-Date: Thu, 17 Jul 2014 11:44:11 +0000
-Subject: [PATCH v6] [BUGFIX] kprobes: Fix "Failed to find blacklist" error on ia64 and ppc64
-Message-Id: <20140717114411.13401.2632.stgit@kbuild-fedora.novalocal>
+From: Mark Salter <msalter@redhat.com>
+Date: Fri, 25 Jul 2014 20:00:21 +0000
+Subject: [PATCH v2] rtc: ia64: allow other architectures to use EFI RTC
+Message-Id: <1406318421.27055.29.camel@deneb.redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1402685430-32591-1-git-send-email-msalter@redhat.com>
+In-Reply-To: <1402685430-32591-1-git-send-email-msalter@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ingo Molnar <mingo@kernel.org>
-Cc: Jeremy Fitzhardinge <jeremy@goop.org>, linux-ia64@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, sparse@chrisli.org, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Paul Mackerras <paulus@samba.org>, "H. Peter Anvin" <hpa@zytor.com>, akataria@vmware.com, linux-tip-commits@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>, anil.s.keshavamurthy@intel.com, "Suzuki K. Poulose" <suzuki@in.ibm.com>, Fenghua Yu <fenghua.yu@intel.com>, Arnd Bergmann <arnd@arndb.de>, Rusty Russell <rusty@rustcorp.com.au>, Chris Wright <chrisw@sous-sol.org>, yrl.pp-manager.tt@hitachi.com, Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, Kevin Hao <haokexin@gmail.com>, Ananth N Mavinakayanahalli <ananth@in.ibm.com>, linuxppc-dev@lists.ozlabs.org, rdunlap@infradead.org, Tony Luck <tony.luck@gmail.com>, dl9pf@gmx.de, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, "David S. Miller" <davem@davemloft.net>
+To: Alessandro Zummo <a.zummo@towertech.it>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org, rtc-linux@googlegroups.com, linux-kernel@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>
 
-On ia64 and ppc64, the function pointer does not point the
-entry address of the function, but the address of function
-discriptor (which contains the entry address and misc
-data.) Since the kprobes passes the function pointer stored
-by NOKPROBE_SYMBOL() to kallsyms_lookup_size_offset() for
-initalizing its blacklist, it fails and reports many errors
-as below.
+Currently, the rtc-efi driver is restricted to ia64 only.  Newer
+architectures with EFI support may want to also use that driver. This
+patch moves the platform device setup from ia64 into drivers/rtc and allow
+any architecture with CONFIG_EFI=y to use the rtc-efi driver.
 
-  Failed to find blacklist 0001013168300000
-  Failed to find blacklist 0001013000f0a000
-  Failed to find blacklist 000101315f70a000
-  Failed to find blacklist 000101324c80a000
-  Failed to find blacklist 0001013063f0a000
-  Failed to find blacklist 000101327800a000
-  Failed to find blacklist 0001013277f0a000
-  Failed to find blacklist 000101315a70a000
-  Failed to find blacklist 0001013277e0a000
-  Failed to find blacklist 000101305a20a000
-  Failed to find blacklist 0001013277d0a000
-  Failed to find blacklist 00010130bdc0a000
-  Failed to find blacklist 00010130dc20a000
-  Failed to find blacklist 000101309a00a000
-  Failed to find blacklist 0001013277c0a000
-  Failed to find blacklist 0001013277b0a000
-  Failed to find blacklist 0001013277a0a000
-  Failed to find blacklist 000101327790a000
-  Failed to find blacklist 000101303140a000
-  Failed to find blacklist 0001013a3280a000
+This is v2 of the patch to fix a boot problem with kernels building in
+rtc-efi but not being booted via EFI. In that case, runtime services are
+not available so there is no point in registering the platform device.
 
-To fix this bug, this uses arch_deref_entry_point() to get
-the function entry address for kallsyms_lookup_size_offset()
-instead of the raw function pointer.
-Suzuki also pointed out that blacklist entries should also
-be updated by that too.
-
-Changes in v6:
- - Update patch description.
- - Remove "#include <linux/types.h>" which is no more needed
-   because we don't use new function_entry() macro any more.
-
-Changes in v5:
- - Use arch_deref_entry_point() instead of function_entry().
-
-Changes in v4:
- - Add kernel_text_address() check for verifying the address.
- - Moved on the latest linus tree.
-
-Changes in v3:
- - Fix a bug to get blacklist address based on function entry
-   instead of function descriptor. (Suzuki's work, Thanks!)
-
-Changes in V2:
- - Use function_entry() macro when lookin up symbols instead
-   of storing it.
- - Update for the latest -next.
-
-Signed-off-by: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
-Fixed-by: Suzuki K. Poulose <suzuki@in.ibm.com>
-Reported-by: Tony Luck <tony.luck@gmail.com>
-Tested-by: Tony Luck <tony.luck@intel.com>
-Tested-by: Michael Ellerman <mpe@ellerman.id.au>
-Acked-by: Michael Ellerman <mpe@ellerman.id.au> (for powerpc)
-Acked-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Signed-off-by: Mark Salter <msalter@redhat.com>
+Cc: Alessandro Zummo <a.zummo@towertech.it>
+Cc: Tony Luck <tony.luck@intel.com>
 Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: Paul Mackerras <paulus@samba.org>
-Cc: Ananth N Mavinakayanahalli <ananth@in.ibm.com>
-Cc: Kevin Hao <haokexin@gmail.com>
-Cc: linux-ia64@vger.kernel.org
-Cc: linuxppc-dev@lists.ozlabs.org
+Cc: Andrew Morton <akpm@linux-foundation.org>
 ---
- kernel/kprobes.c |   14 +++++++++-----
- 1 file changed, 9 insertions(+), 5 deletions(-)
+ arch/ia64/kernel/time.c        | 15 ---------------
+ drivers/rtc/Kconfig            |  2 +-
+ drivers/rtc/Makefile           |  4 ++++
+ drivers/rtc/rtc-efi-platform.c | 31 +++++++++++++++++++++++++++++++
+ 4 files changed, 36 insertions(+), 16 deletions(-)
+ create mode 100644 drivers/rtc/rtc-efi-platform.c
 
-diff --git a/kernel/kprobes.c b/kernel/kprobes.c
-index 3214289..734e9a7 100644
---- a/kernel/kprobes.c
-+++ b/kernel/kprobes.c
-@@ -2037,19 +2037,23 @@ static int __init populate_kprobe_blacklist(unsigned long *start,
+diff --git a/arch/ia64/kernel/time.c b/arch/ia64/kernel/time.c
+index 71c52bc..a149c67 100644
+--- a/arch/ia64/kernel/time.c
++++ b/arch/ia64/kernel/time.c
+@@ -384,21 +384,6 @@ static struct irqaction timer_irqaction = {
+ 	.name =		"timer"
+ };
+ 
+-static struct platform_device rtc_efi_dev = {
+-	.name = "rtc-efi",
+-	.id = -1,
+-};
+-
+-static int __init rtc_init(void)
+-{
+-	if (platform_device_register(&rtc_efi_dev) < 0)
+-		printk(KERN_ERR "unable to register rtc device...\n");
+-
+-	/* not necessarily an error */
+-	return 0;
+-}
+-module_init(rtc_init);
+-
+ void read_persistent_clock(struct timespec *ts)
  {
- 	unsigned long *iter;
- 	struct kprobe_blacklist_entry *ent;
--	unsigned long offset = 0, size = 0;
-+	unsigned long entry, offset = 0, size = 0;
+ 	efi_gettimeofday(ts);
+diff --git a/drivers/rtc/Kconfig b/drivers/rtc/Kconfig
+index 0754f5c..4478a59 100644
+--- a/drivers/rtc/Kconfig
++++ b/drivers/rtc/Kconfig
+@@ -789,7 +789,7 @@ config RTC_DRV_DA9063
  
- 	for (iter = start; iter < end; iter++) {
--		if (!kallsyms_lookup_size_offset(*iter, &size, &offset)) {
--			pr_err("Failed to find blacklist %p\n", (void *)*iter);
-+		entry = arch_deref_entry_point((void *)*iter);
+ config RTC_DRV_EFI
+ 	tristate "EFI RTC"
+-	depends on IA64
++	depends on EFI
+ 	help
+ 	  If you say yes here you will get support for the EFI
+ 	  Real Time Clock.
+diff --git a/drivers/rtc/Makefile b/drivers/rtc/Makefile
+index 70347d0..f1dfc36 100644
+--- a/drivers/rtc/Makefile
++++ b/drivers/rtc/Makefile
+@@ -10,6 +10,10 @@ obj-$(CONFIG_RTC_SYSTOHC)	+= systohc.o
+ obj-$(CONFIG_RTC_CLASS)		+= rtc-core.o
+ rtc-core-y			:= class.o interface.o
+ 
++ifdef CONFIG_RTC_DRV_EFI
++rtc-core-y			+= rtc-efi-platform.o
++endif
 +
-+		if (!kernel_text_address(entry) ||
-+		    !kallsyms_lookup_size_offset(entry, &size, &offset)) {
-+			pr_err("Failed to find blacklist at %p\n",
-+				(void *)entry);
- 			continue;
- 		}
- 
- 		ent = kmalloc(sizeof(*ent), GFP_KERNEL);
- 		if (!ent)
- 			return -ENOMEM;
--		ent->start_addr = *iter;
--		ent->end_addr = *iter + size;
-+		ent->start_addr = entry;
-+		ent->end_addr = entry + size;
- 		INIT_LIST_HEAD(&ent->list);
- 		list_add_tail(&ent->list, &kprobe_blacklist);
- 	}
+ rtc-core-$(CONFIG_RTC_INTF_DEV)	+= rtc-dev.o
+ rtc-core-$(CONFIG_RTC_INTF_PROC) += rtc-proc.o
+ rtc-core-$(CONFIG_RTC_INTF_SYSFS) += rtc-sysfs.o
+diff --git a/drivers/rtc/rtc-efi-platform.c b/drivers/rtc/rtc-efi-platform.c
+new file mode 100644
+index 0000000..b40fbe3
+--- /dev/null
++++ b/drivers/rtc/rtc-efi-platform.c
+@@ -0,0 +1,31 @@
++/*
++ * Moved from arch/ia64/kernel/time.c
++ *
++ * Copyright (C) 1998-2003 Hewlett-Packard Co
++ *	Stephane Eranian <eranian@hpl.hp.com>
++ *	David Mosberger <davidm@hpl.hp.com>
++ * Copyright (C) 1999 Don Dugger <don.dugger@intel.com>
++ * Copyright (C) 1999-2000 VA Linux Systems
++ * Copyright (C) 1999-2000 Walt Drummond <drummond@valinux.com>
++ */
++#include <linux/init.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/efi.h>
++#include <linux/platform_device.h>
++
++static struct platform_device rtc_efi_dev = {
++	.name = "rtc-efi",
++	.id = -1,
++};
++
++static int __init rtc_init(void)
++{
++	if (efi_enabled(EFI_RUNTIME_SERVICES))
++		if (platform_device_register(&rtc_efi_dev) < 0)
++			pr_err("unable to register rtc device...\n");
++
++	/* not necessarily an error */
++	return 0;
++}
++module_init(rtc_init);
+-- 
+1.8.3.1
+
 
 
