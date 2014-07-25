@@ -1,153 +1,103 @@
-From: Wang Nan <wangnan0@huawei.com>
-Date: Mon, 21 Jul 2014 03:46:35 +0000
-Subject: [PATCH v2 0/7] memory-hotplug: suitable memory should go to ZONE_MOVABLE
-Message-Id: <1405914402-66212-1-git-send-email-wangnan0@huawei.com>
+From: Sudeep Holla <sudeep.holla@arm.com>
+Date: Fri, 25 Jul 2014 16:44:43 +0000
+Subject: [PATCH v2 0/9] drivers: cacheinfo support
+Message-Id: <1406306692-7135-1-git-send-email-sudeep.holla@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1403717444-23559-1-git-send-email-sudeep.holla@arm.com>
+In-Reply-To: <1403717444-23559-1-git-send-email-sudeep.holla@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ingo Molnar <mingo@redhat.com>, Yinghai Lu <yinghai@kernel.org>, Mel Gorman <mgorman@suse.de>, Andrew Morton <akpm@linux-foundation.org>, Dave Hansen <dave.hansen@intel.com>, Zhang Yanfei <zhangyanfei@cn.fujitsu.com>
-Cc: peifeiyue@huawei.com, linux-mm@kvack.org, x86@kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org, wangnan0@huawei.com
+To: LKML <linux-kernel@vger.kernel.org>
+Cc: sudeep.holla@arm.com, Heiko Carstens <heiko.carstens@de.ibm.com>, Lorenzo Pieralisi <Lorenzo.Pieralisi@arm.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-ia64@vger.kernel.org, linux390@de.ibm.com, linux-s390@vger.kernel.org, x86@kernel.org, linuxppc-dev@lists.ozlabs.org
 
-This series of patches fix a problem when adding memory in bad manner.
-For example: for a x86_64 machine booted with "mem@0M" and with 2GiB
-memory installed, following commands cause problem:
+From: Sudeep Holla <sudeep.holla@arm.com>
 
-  # echo 0x40000000 > /sys/devices/system/memory/probe
- [   28.613895] init_memory_mapping: [mem 0x40000000-0x47ffffff]
-  # echo 0x48000000 > /sys/devices/system/memory/probe
- [   28.693675] init_memory_mapping: [mem 0x48000000-0x4fffffff]
-  # echo online_movable > /sys/devices/system/memory/memory9/state
-  # echo 0x50000000 > /sys/devices/system/memory/probe 
- [   29.084090] init_memory_mapping: [mem 0x50000000-0x57ffffff]
-  # echo 0x58000000 > /sys/devices/system/memory/probe 
- [   29.151880] init_memory_mapping: [mem 0x58000000-0x5fffffff]
-  # echo online_movable > /sys/devices/system/memory/memory11/state
-  # echo online> /sys/devices/system/memory/memory8/state
-  # echo online> /sys/devices/system/memory/memory10/state
-  # echo offline> /sys/devices/system/memory/memory9/state
- [   30.558819] Offlined Pages 32768
-  # free
-              total       used       free     shared    buffers     cached
- Mem:        780588 18014398509432020     830552          0          0      51180
- -/+ buffers/cache: 18014398509380840     881732
- Swap:            0          0          0
+This series adds a generic cacheinfo support similar to topology. The
+implementation is based on x86 cacheinfo support. Currently x86, powerpc,
+ia64 and s390 have their own implementations. While adding similar support
+to ARM and ARM64, here is the attempt to make it generic quite similar to
+topology info support. It also adds the missing ABI documentation for
+the cacheinfo sysfs which is already being used.
 
-This is because the above commands probe higher memory after online a
-section with online_movable, which causes ZONE_HIGHMEM (or ZONE_NORMAL
-for systems without ZONE_HIGHMEM) overlaps ZONE_MOVABLE.
+It moves all the existing different implementations on x86, ia64, powerpc
+and s390 to use the generic cacheinfo infrastructure introduced here.
+These changes on non-ARM platforms are only compile tested and tested on x86.
 
-After the second online_movable, the problem can be observed from
-zoneinfo:
+This series also adds support for ARM and ARM64 architectures based on
+the generic support.
 
- # cat /proc/zoneinfo
-...
-Node 0, zone  Movable
-  pages free     65491
-        min      250
-        low      312
-        high     375
-        scanned  0
-        spanned  18446744073709518848
-        present  65536
-        managed  65536
-...
+Since there was no objection to the idea in RFC, I am posting non-RFC
+version here.
 
-This series of patches solve the problem by checking ZONE_MOVABLE when
-choosing zone for new memory. If new memory is inside or higher than
-ZONE_MOVABLE, makes it go there instead.
+The code can be fetched from:
+ git://linux-arm.org/linux-skn cacheinfo
 
-After applying this series of patches, following are free and zoneinfo
-result (after offlining memory9):
 
-bash-4.2# free
-              total       used       free     shared    buffers     cached
- Mem:        780956      80112     700844          0          0      51180
- -/+ buffers/cache:      28932     752024
- Swap:            0          0          0
+Changes v1->v2:
+- removed custom device_{add,remove}_attrs, using is_visible callback
+  instead(suggested by GregKH)
+- arm64: changes as per MarkR review comments
+- Moved smp_call_function_single to architectures using it(arm, arm64,
+  x86) (suggested by Stephen Boyd)
+- arm (mostly changes as per RMK's review comments)
+	- fixed to allow v7 + v6 build
+	- l2 cache changes to remove extra structure
+	- populated CTR for few StrongARM CPU's not implementing CTR
 
-bash-4.2# cat /proc/zoneinfo
+Previous RFCs:
+[1] https://lkml.org/lkml/2014/1/8/523
+[2] https://lkml.org/lkml/2014/2/7/654
+[3] https://lkml.org/lkml/2014/2/19/391
 
-Node 0, zone      DMA
-  pages free     3389
-        min      14
-        low      17
-        high     21
-        scanned  0
-        spanned  4095
-        present  3998
-        managed  3977
-    nr_free_pages 3389
-...
-  start_pfn:         1
-  inactive_ratio:    1
-Node 0, zone    DMA32
-  pages free     73724
-        min      341
-        low      426
-        high     511
-        scanned  0
-        spanned  98304
-        present  98304
-        managed  92958
-    nr_free_pages 73724
-...
-  start_pfn:         4096
-  inactive_ratio:    1
-Node 0, zone   Normal
-  pages free     32630
-        min      120
-        low      150
-        high     180
-        scanned  0
-        spanned  32768
-        present  32768
-        managed  32768
-    nr_free_pages 32630
-...
-  start_pfn:         262144
-  inactive_ratio:    1
-Node 0, zone  Movable
-  pages free     65476
-        min      241
-        low      301
-        high     361
-        scanned  0
-        spanned  98304
-        present  65536
-        managed  65536
-    nr_free_pages 65476
-...
-  start_pfn:         294912
-  inactive_ratio:    1
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: linux-ia64@vger.kernel.org
+Cc: linux390@de.ibm.com
+Cc: linux-s390@vger.kernel.org
+Cc: x86@kernel.org
+Cc: linuxppc-dev@lists.ozlabs.org
 
-v1 -> v2:
- - introduce zone_for_memory() to arch independent code to make arch
-   dependent code simpler, following Dave Hansen's comments.
- - Paste free and zoneinfo result in patch 0 as a response to
-   Zhang Yanfei.
- - Fix a problem in tile to add memory into ZONE_HIGHMEM by default.
+Sudeep Holla (9):
+  drivers: base: add new class "cpu" to group cpu devices
+  drivers: base: support cpu cache information interface to userspace
+    via sysfs
+  ia64: move cacheinfo sysfs to generic cacheinfo infrastructure
+  s390: move cacheinfo sysfs to generic cacheinfo infrastructure
+  x86: move cacheinfo sysfs to generic cacheinfo infrastructure
+  powerpc: move cacheinfo sysfs to generic cacheinfo infrastructure
+  ARM64: kernel: add support for cpu cache information
+  ARM: kernel: add support for cpu cache information
+  ARM: kernel: add outer cache support for cacheinfo implementation
 
-Wang Nan (7):
-  memory-hotplug: add zone_for_memory() for selecting zone for new
-    memory
-  memory-hotplug: x86_64: suitable memory should go to ZONE_MOVABLE
-  memory-hotplug: x86_32: suitable memory should go to ZONE_MOVABLE
-  memory-hotplug: ia64: suitable memory should go to ZONE_MOVABLE
-  memory-hotplug: ppc: suitable memory should go to ZONE_MOVABLE
-  memory-hotplug: sh: suitable memory should go to ZONE_MOVABLE
-  memory-hotplug: tile: suitable memory should go to ZONE_MOVABLE
-
- arch/ia64/mm/init.c            |  3 ++-
- arch/powerpc/mm/mem.c          |  3 ++-
- arch/sh/mm/init.c              |  5 +++--
- arch/tile/mm/init.c            |  3 ++-
- arch/x86/mm/init_32.c          |  3 ++-
- arch/x86/mm/init_64.c          |  3 ++-
- include/linux/memory_hotplug.h |  1 +
- mm/memory_hotplug.c            | 28 ++++++++++++++++++++++++++++
- 8 files changed, 42 insertions(+), 7 deletions(-)
+ Documentation/ABI/testing/sysfs-devices-system-cpu |  41 ++
+ arch/arm/include/asm/outercache.h                  |   9 +
+ arch/arm/kernel/Makefile                           |   1 +
+ arch/arm/kernel/cacheinfo.c                        | 284 +++++++
+ arch/arm/mm/Kconfig                                |  13 +
+ arch/arm/mm/cache-l2x0.c                           |  35 +-
+ arch/arm/mm/cache-tauros2.c                        |  35 +
+ arch/arm/mm/cache-xsc3l2.c                         |  16 +
+ arch/arm64/kernel/Makefile                         |   3 +-
+ arch/arm64/kernel/cacheinfo.c                      | 142 ++++
+ arch/ia64/kernel/topology.c                        | 401 ++--------
+ arch/powerpc/kernel/cacheinfo.c                    | 813 +++------------------
+ arch/powerpc/kernel/cacheinfo.h                    |   8 -
+ arch/powerpc/kernel/sysfs.c                        |  12 +-
+ arch/s390/kernel/cache.c                           | 388 +++-------
+ arch/x86/kernel/cpu/intel_cacheinfo.c              | 680 +++++------------
+ drivers/base/Makefile                              |   2 +-
+ drivers/base/cacheinfo.c                           | 539 ++++++++++++++
+ drivers/base/core.c                                |  39 +-
+ drivers/base/cpu.c                                 |   7 +
+ include/linux/cacheinfo.h                          |  73 ++
+ include/linux/cpu.h                                |   2 +
+ 22 files changed, 1660 insertions(+), 1883 deletions(-)
+ create mode 100644 arch/arm/kernel/cacheinfo.c
+ create mode 100644 arch/arm64/kernel/cacheinfo.c
+ delete mode 100644 arch/powerpc/kernel/cacheinfo.h
+ create mode 100644 drivers/base/cacheinfo.c
+ create mode 100644 include/linux/cacheinfo.h
 
 -- 
-1.8.4
+1.8.3.2
 
