@@ -1,36 +1,42 @@
-From: Richard Weinberger <richard@nod.at>
-Date: Thu, 17 Jul 2014 07:47:05 +0000
-Subject: Re: [PATCH 2/2] ia64: Remove Linux/x86 domain support
-Message-Id: <53C77F79.2010508@nod.at>
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Date: Tue, 29 Jul 2014 15:16:45 +0000
+Subject: [PATCH 3/9] i40e: use correct structure type name in sizeof
+Message-Id: <1406647011-8543-4-git-send-email-Julia.Lawall@lip6.fr>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1405263538-27589-1-git-send-email-richard@nod.at>	<1405263538-27589-3-git-send-email-richard@nod.at> <CA+8MBbKA5UppTjLP6JYAeLMAyeUPBfF73j91xDCfoF_Vewy5=A@mail.gmail.com>
-In-Reply-To: <CA+8MBbKA5UppTjLP6JYAeLMAyeUPBfF73j91xDCfoF_Vewy5=A@mail.gmail.com>
+References: <1406647011-8543-1-git-send-email-Julia.Lawall@lip6.fr>
+In-Reply-To: <1406647011-8543-1-git-send-email-Julia.Lawall@lip6.fr>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@gmail.com>
-Cc: "Yu, Fenghua" <fenghua.yu@intel.com>, Russell King - ARM Linux <linux@arm.linux.org.uk>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: kernel-janitors@vger.kernel.org, linux-ia64@vger.kernel.org, ceph-devel@vger.kernel.org, toralf.foerster@gmx.de, hmh@hmh.eng.br, Jesse Brandeburg <jesse.brandeburg@intel.com>, Bruce Allan <bruce.w.allan@intel.com>, Carolyn Wyborny <carolyn.wyborny@intel.com>, Don Skidmore <donald.c.skidmore@intel.com>, Greg Rose <gregory.v.rose@intel.com>, Alex Duyck <alexander.h.duyck@intel.com>, John Ronciak <john.ronciak@intel.com>, Mitch Williams <mitch.a.williams@intel.com>, Linux NICS <linux.nics@intel.com>, e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Am 17.07.2014 01:20, schrieb Tony Luck:
-> On Sun, Jul 13, 2014 at 7:58 AM, Richard Weinberger <richard@nod.at> wrote:
-> 
-> Did you read the comment?
+From: Julia Lawall <Julia.Lawall@lip6.fr>
 
-Sure, please see my comment below.
+Correct typo in the name of the type given to sizeof.  Because it is the
+size of a pointer that is wanted, the typo has no impact on compilation or
+execution.
 
->> -/*
->> - * Even when CONFIG_IA32_SUPPORT is not enabled it is
->> - * useful to have the Linux/x86 domain registered to
->> - * avoid an attempted module load when emulators call
->> - * personality(PER_LINUX32). This saves several milliseconds
->> - * on each such call.
->> - */
-> 
-> I don't know if there are still people using ia32el to run x86 binaries
-> on ia64 ... but if there are, they may be sad at the extra delays.
+This problem was found using Coccinelle (http://coccinelle.lip6.fr/).  The
+semantic patch used can be found in message 0 of this patch series.
 
-As written in 0/, the plan is to get rid of exec domains at all.
-Therefore personality(PER_LINUX32) would no longer try to request a module.
+Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
-Thanks,
-//richard
+---
+ drivers/net/ethernet/intel/i40e/i40e_main.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 821fcc1..b913c27 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -6137,7 +6137,7 @@ static int i40e_vsi_alloc_arrays(struct i40e_vsi *vsi, bool alloc_qvectors)
+ 
+ 	if (alloc_qvectors) {
+ 		/* allocate memory for q_vector pointers */
+-		size = sizeof(struct i40e_q_vectors *) * vsi->num_q_vectors;
++		size = sizeof(struct i40e_q_vector *) * vsi->num_q_vectors;
+ 		vsi->q_vectors = kzalloc(size, GFP_KERNEL);
+ 		if (!vsi->q_vectors) {
+ 			ret = -ENOMEM;
+
