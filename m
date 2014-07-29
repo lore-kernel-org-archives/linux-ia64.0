@@ -1,42 +1,35 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Date: Tue, 29 Jul 2014 15:16:49 +0000
-Subject: [PATCH 7/9] scsi: use correct structure type name in sizeof
-Message-Id: <1406647011-8543-8-git-send-email-Julia.Lawall@lip6.fr>
+From: Michael Ellerman <mpe@ellerman.id.au>
+Date: Tue, 29 Jul 2014 02:19:16 +0000
+Subject: Re: [PATCH v4] arm64, ia64, ppc, s390, sh, tile, um, x86, mm: Remove default gate area
+Message-Id: <1406600356.11977.4.camel@concordia>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1406647011-8543-1-git-send-email-Julia.Lawall@lip6.fr>
-In-Reply-To: <1406647011-8543-1-git-send-email-Julia.Lawall@lip6.fr>
+References: <6435254cc74d6e9172931f27be3854d522ad299b.1406232860.git.luto@amacapital.net>
+In-Reply-To: <6435254cc74d6e9172931f27be3854d522ad299b.1406232860.git.luto@amacapital.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Dario Ballabio <ballabio_dario@emc.com>
-Cc: kernel-janitors@vger.kernel.org, linux-ia64@vger.kernel.org, ceph-devel@vger.kernel.org, toralf.foerster@gmx.de, hmh@hmh.eng.br, "James E.J. Bottomley" <JBottomley@parallels.com>, linux-scsi@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Andy Lutomirski <luto@amacapital.net>
+Cc: Andrew Morton <akpm@linux-foundation.org>, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Catalin Marinas <catalin.marinas@arm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, linux-mm@kvack.org, Paul Mackerras <paulus@samba.org>, "H. Peter Anvin" <hpa@zytor.com>, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, Richard Weinberger <richard@nod.at>, x86@kernel.org, Ingo Molnar <mingo@redhat.com>, Fenghua Yu <fenghua.yu@intel.com>, user-mode-linux-devel@lists.sourceforge.net, Will Deacon <will.deacon@arm.com>, Jeff Dike <jdike@addtoit.com>, Chris Metcalf <cmetcalf@tilera.com>, Thomas Gleixner <tglx@linutronix.de>, linux-arm-kernel@lists.infradead.org, Tony Luck <tony.luck@intel.com>, Nathan Lynch <Nathan_Lynch@mentor.com>, linux-kernel@vger.kernel.org, Martin Schwidefsky <schwidefsky@de.ibm.com>, linux390@de.ibm.com, linuxppc-dev@lists.ozlabs.org
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
+On Thu, 2014-07-24 at 13:56 -0700, Andy Lutomirski wrote:
+> The core mm code will provide a default gate area based on
+> FIXADDR_USER_START and FIXADDR_USER_END if
+> !defined(__HAVE_ARCH_GATE_AREA) && defined(AT_SYSINFO_EHDR).
+> 
+> This default is only useful for ia64.  arm64, ppc, s390, sh, tile,
+> 64-bit UML, and x86_32 have their own code just to disable it.  arm,
+> 32-bit UML, and x86_64 have gate areas, but they have their own
+> implementations.
+> 
+> This gets rid of the default and moves the code into ia64.
+> 
+> This should save some code on architectures without a gate area: it's
+> now possible to inline the gate_area functions in the default case.
 
-Correct typo in the name of the type given to sizeof.  Because it is the
-size of a pointer that is wanted, the typo has no impact on compilation or
-execution.
+Looks good to me. Booted and everything seems happy, I still have a vdso etc.
 
-This problem was found using Coccinelle (http://coccinelle.lip6.fr/).  The
-semantic patch used can be found in message 0 of this patch series.
+Tested-by: Michael Ellerman <mpe@ellerman.id.au> (for powerpc)
 
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+cheers
 
----
- drivers/scsi/u14-34f.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/scsi/u14-34f.c b/drivers/scsi/u14-34f.c
-index 4e76fe8..617d72a 100644
---- a/drivers/scsi/u14-34f.c
-+++ b/drivers/scsi/u14-34f.c
-@@ -585,7 +585,7 @@ struct mscp {
-    struct sg_list *sglist; /* pointer to the allocated SG list */
-    };
- 
--#define CP_TAIL_SIZE (sizeof(struct sglist *) + sizeof(dma_addr_t))
-+#define CP_TAIL_SIZE (sizeof(struct sg_list *) + sizeof(dma_addr_t))
- 
- struct hostdata {
-    struct mscp cp[MAX_MAILBOXES];       /* Mailboxes for this board */
 
