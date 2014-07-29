@@ -1,48 +1,42 @@
-From: Wang Nan <wangnan0@huawei.com>
-Date: Fri, 18 Jul 2014 09:52:12 +0000
-Subject: Re: [PATCH 2/5] memory-hotplug: x86_32: suitable memory should go to ZONE_MOVABLE
-Message-Id: <53C8EE4C.1000204@huawei.com>
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Date: Tue, 29 Jul 2014 15:16:43 +0000
+Subject: [PATCH 1/9] drivers/staging/media/davinci_vpfe/vpfe_mc_capture.c: use correct structure type name in
+Message-Id: <1406647011-8543-2-git-send-email-Julia.Lawall@lip6.fr>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1405670163-53747-1-git-send-email-wangnan0@huawei.com> <1405670163-53747-3-git-send-email-wangnan0@huawei.com>
-In-Reply-To: <1405670163-53747-3-git-send-email-wangnan0@huawei.com>
+References: <1406647011-8543-1-git-send-email-Julia.Lawall@lip6.fr>
+In-Reply-To: <1406647011-8543-1-git-send-email-Julia.Lawall@lip6.fr>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ingo Molnar <mingo@redhat.com>, Yinghai Lu <yinghai@kernel.org>, Mel Gorman <mgorman@suse.de>, Andrew Morton <akpm@linux-foundation.org>
-Cc: Pei Feiyue <peifeiyue@huawei.com>, linux-mm@kvack.org, x86@kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Mauro Carvalho Chehab <m.chehab@samsung.com>
+Cc: kernel-janitors@vger.kernel.org, linux-ia64@vger.kernel.org, ceph-devel@vger.kernel.org, toralf.foerster@gmx.de, hmh@hmh.eng.br, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-media@vger.kernel.org, devel@driverdev.osuosl.org, linux-kernel@vger.kernel.org
 
-On 2014/7/18 15:56, Wang Nan wrote:
-> This patch add new memory to ZONE_MOVABLE if movable zone is setup
-> and lower than newly added memory for x86_32.
-> 
-> Signed-off-by: Wang Nan <wangnan0@huawei.com>
-> ---
->  arch/x86/mm/init_32.c | 6 ++++++
->  1 file changed, 6 insertions(+)
-> 
-> diff --git a/arch/x86/mm/init_32.c b/arch/x86/mm/init_32.c
-> index e395048..dd69833 100644
-> --- a/arch/x86/mm/init_32.c
-> +++ b/arch/x86/mm/init_32.c
-> @@ -826,9 +826,15 @@ int arch_add_memory(int nid, u64 start, u64 size)
->  {
->  	struct pglist_data *pgdata = NODE_DATA(nid);
->  	struct zone *zone = pgdata->node_zones + ZONE_HIGHMEM;
-> +	struct zone *movable_zone = pgdat->node_zones + ZONE_MOVABLE;
+From: Julia Lawall <Julia.Lawall@lip6.fr>
 
-Sorry. pgdat should be pgdata.
+Correct typo in the name of the type given to sizeof.  Because it is the
+size of a pointer that is wanted, the typo has no impact on compilation or
+execution.
 
->  	unsigned long start_pfn = start >> PAGE_SHIFT;
->  	unsigned long nr_pages = size >> PAGE_SHIFT;
->  
-> +	if (!zone_is_empty(movable_zone))
-> +		if (zone_spans_pfn(movable_zone, start_pfn) ||
-> +				(zone_end_pfn(movable_zone) <= start_pfn))
-> +			zone = movable_zone;
-> +
->  	return __add_pages(nid, zone, start_pfn, nr_pages);
->  }
->  
-> 
+This problem was found using Coccinelle (http://coccinelle.lip6.fr/).  The
+semantic patch used can be found in message 0 of this patch series.
 
+Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+
+---
+ drivers/staging/media/davinci_vpfe/vpfe_mc_capture.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/staging/media/davinci_vpfe/vpfe_mc_capture.c b/drivers/staging/media/davinci_vpfe/vpfe_mc_capture.c
+index cda8388..255590f 100644
+--- a/drivers/staging/media/davinci_vpfe/vpfe_mc_capture.c
++++ b/drivers/staging/media/davinci_vpfe/vpfe_mc_capture.c
+@@ -227,7 +227,7 @@ static int vpfe_enable_clock(struct vpfe_device *vpfe_dev)
+ 		return 0;
+ 
+ 	vpfe_dev->clks = kzalloc(vpfe_cfg->num_clocks *
+-				   sizeof(struct clock *), GFP_KERNEL);
++				   sizeof(struct clk *), GFP_KERNEL);
+ 	if (vpfe_dev->clks = NULL) {
+ 		v4l2_err(vpfe_dev->pdev->driver, "Memory allocation failed\n");
+ 		return -ENOMEM;
 
