@@ -1,53 +1,42 @@
-From: Wang Nan <wangnan0@huawei.com>
-Date: Fri, 18 Jul 2014 07:56:02 +0000
-Subject: [PATCH 4/5] memory-hotplug: sh: suitable memory should go to ZONE_MOVABLE
-Message-Id: <1405670163-53747-5-git-send-email-wangnan0@huawei.com>
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Date: Tue, 29 Jul 2014 15:16:51 +0000
+Subject: [PATCH 9/9] uwb/whci: use correct structure type name in sizeof
+Message-Id: <1406647011-8543-10-git-send-email-Julia.Lawall@lip6.fr>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1405670163-53747-1-git-send-email-wangnan0@huawei.com>
-In-Reply-To: <1405670163-53747-1-git-send-email-wangnan0@huawei.com>
+References: <1406647011-8543-1-git-send-email-Julia.Lawall@lip6.fr>
+In-Reply-To: <1406647011-8543-1-git-send-email-Julia.Lawall@lip6.fr>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ingo Molnar <mingo@redhat.com>, Yinghai Lu <yinghai@kernel.org>, Mel Gorman <mgorman@suse.de>, Andrew Morton <akpm@linux-foundation.org>
-Cc: Pei Feiyue <peifeiyue@huawei.com>, linux-mm@kvack.org, x86@kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-usb@vger.kernel.org
+Cc: kernel-janitors@vger.kernel.org, linux-ia64@vger.kernel.org, ceph-devel@vger.kernel.org, toralf.foerster@gmx.de, hmh@hmh.eng.br, linux-kernel@vger.kernel.org
 
-This patch add new memory to ZONE_MOVABLE if movable zone is setup
-and lower than newly added memory for sh.
+From: Julia Lawall <Julia.Lawall@lip6.fr>
 
-Signed-off-by: Wang Nan <wangnan0@huawei.com>
+Correct typo in the name of the type given to sizeof.  Because it is the
+size of a pointer that is wanted, the typo has no impact on compilation or
+execution.
+
+This problem was found using Coccinelle (http://coccinelle.lip6.fr/).  The
+semantic patch used can be found in message 0 of this patch series.
+
+Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+
 ---
- arch/sh/mm/init.c | 13 ++++++++-----
- 1 file changed, 8 insertions(+), 5 deletions(-)
+ drivers/uwb/whci.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/sh/mm/init.c b/arch/sh/mm/init.c
-index 2d089fe..ff9decc 100644
---- a/arch/sh/mm/init.c
-+++ b/arch/sh/mm/init.c
-@@ -487,16 +487,19 @@ void free_initrd_mem(unsigned long start, unsigned long end)
- #ifdef CONFIG_MEMORY_HOTPLUG
- int arch_add_memory(int nid, u64 start, u64 size)
- {
--	pg_data_t *pgdat;
-+	pg_data_t *pgdat = NODE_DATA(nid);
- 	unsigned long start_pfn = start >> PAGE_SHIFT;
- 	unsigned long nr_pages = size >> PAGE_SHIFT;
-+	struct zone *zone = pgdat->node_zones + ZONE_NORMAL;
-+	struct zone *movable_zone = pgdat->node_zones + ZONE_MOVABLE;
- 	int ret;
+diff --git a/drivers/uwb/whci.c b/drivers/uwb/whci.c
+index c9df8ba..46b7cfc 100644
+--- a/drivers/uwb/whci.c
++++ b/drivers/uwb/whci.c
+@@ -175,7 +175,7 @@ static int whci_probe(struct pci_dev *pci, const struct pci_device_id *id)
  
--	pgdat = NODE_DATA(nid);
-+	if (!zone_is_empty(movable_zone))
-+		if (zone_spans_pfn(movable_zone, start_pfn) ||
-+				(zone_end_pfn(movable_zone) <= start_pfn))
-+			zone = movable_zone;
- 
--	/* We only have ZONE_NORMAL, so this is easy.. */
--	ret = __add_pages(nid, pgdat->node_zones + ZONE_NORMAL,
--				start_pfn, nr_pages);
-+	ret = __add_pages(nid, zone, start_pfn, nr_pages);
- 	if (unlikely(ret))
- 		printk("%s: Failed, __add_pages() = %d\n", __func__, ret);
- 
--- 
-1.8.4
+ 	err = -ENOMEM;
+ 	card = kzalloc(sizeof(struct whci_card)
+-		       + sizeof(struct whci_dev *) * (n_caps + 1),
++		       + sizeof(struct umc_dev *) * (n_caps + 1),
+ 		       GFP_KERNEL);
+ 	if (card = NULL)
+ 		goto error_kzalloc;
 
