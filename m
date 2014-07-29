@@ -1,54 +1,42 @@
-From: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
-Date: Wed, 02 Jul 2014 07:16:15 +0000
-Subject: Re: Re: Re: Re: [PATCH v4] [BUGFIX] kprobes: Fix "Failed to find blacklist" error on ia64 and ppc64
-Message-Id: <53B3B1BF.2040404@hitachi.com>
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Date: Tue, 29 Jul 2014 15:16:48 +0000
+Subject: [PATCH 6/9] gpiolib: devres: use correct structure type name in sizeof
+Message-Id: <1406647011-8543-7-git-send-email-Julia.Lawall@lip6.fr>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20140620022307.23075.55858.stgit@kbuild-fedora.novalocal>    <53B0D61B.9010104@hitachi.com> <1404128176.7888.1.camel@concordia>   <53B21B0E.8010707@hitachi.com> <1404276081.7254.1.camel@concordia>  <53B3A91D.2040107@hitachi.com> <1404284165.7254.2.camel@concordia>
-In-Reply-To: <1404284165.7254.2.camel@concordia>
+References: <1406647011-8543-1-git-send-email-Julia.Lawall@lip6.fr>
+In-Reply-To: <1406647011-8543-1-git-send-email-Julia.Lawall@lip6.fr>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Michael Ellerman <mpe@ellerman.id.au>
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Tony Luck <tony.luck@gmail.com>, Jeremy Fitzhardinge <jeremy@goop.org>, linux-ia64@vger.kernel.org, sparse@chrisli.org, "H. Peter Anvin" <hpa@zytor.com>, Ingo Molnar <mingo@kernel.org>, linux-tip-commits@vger.kernel.org, akataria@vmware.com, anil.s.keshavamurthy@intel.com, "Suzuki K. Poulose" <suzuki@in.ibm.com>, Fenghua Yu <fenghua.yu@intel.com>, Arnd Bergmann <arnd@arndb.de>, Rusty Russell <rusty@rustcorp.com.au>, Chris Wright <chrisw@sous-sol.org>, yrl.pp-manager.tt@hitachi.com, Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, Kevin Hao <haokexin@gmail.com>, Ananth N Mavinakayanahalli <ananth@in.ibm.com>, linuxppc-dev@lists.ozlabs.org, rdunlap@infradead.org, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, dl9pf@gmx.de, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, "David S. Miller" <davem@davemloft.net>
+To: Linus Walleij <linus.walleij@linaro.org>
+Cc: kernel-janitors@vger.kernel.org, linux-ia64@vger.kernel.org, ceph-devel@vger.kernel.org, toralf.foerster@gmx.de, hmh@hmh.eng.br, Alexandre Courbot <gnurou@gmail.com>, linux-gpio@vger.kernel.org, linux-kernel@vger.kernel.org
 
-(2014/07/02 15:56), Michael Ellerman wrote:
-> On Wed, 2014-07-02 at 15:39 +0900, Masami Hiramatsu wrote:
->> (2014/07/02 13:41), Michael Ellerman wrote:
->>> On Tue, 2014-07-01 at 11:21 +0900, Masami Hiramatsu wrote:
->>>> (2014/06/30 20:36), Michael Ellerman wrote:
->>>>> On Mon, 2014-06-30 at 12:14 +0900, Masami Hiramatsu wrote:
->>>>>> Ping? :)
->>>>>
->>>>> Yeah sorry. I started looking at this and got dragged into another mess.
->>>>>
->>>>> You seem to have duplicated the functionality of arch_deref_entry_point(),
->>>>> which was also added for kprobes, and for the same reason - ie. because some
->>>>> arches have strange function pointers. Is there some reason you can't use it?
->>>>
->>>> Ah, right! Hmm, it seems some more work to update it. but basically, we can do.
->>>> BTW, is there any other users who need to access the actual function entry (for
->>>> kallsyms case)?
->>>
->>> Not that I'm aware of. We have had function descriptors on 64-bit powerpc for
->>> ever, so in theory by now we should have already found any cases where we need
->>> that sort of wrapper.
->>
->> OK, then I'll update this patch to use arch_deref_entry_point(), and add additional
->> patch which update to support PPC64 ABIv2.
-> 
-> I've already done the latter:
-> 
->   https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id/0143c91d30823f6f6e7d94d7fa818f7ab18a18
+From: Julia Lawall <Julia.Lawall@lip6.fr>
 
-Oh, thanks!
+Correct typo in the name of the type given to sizeof.  Because it is the
+size of a pointer that is wanted, the typo has no impact on compilation or
+execution.
 
-In that case, my 1/2 patch should be dropped.
+This problem was found using Coccinelle (http://coccinelle.lip6.fr/).  The
+semantic patch used can be found in message 0 of this patch series.
 
+Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
--- 
-Masami HIRAMATSU
-Software Platform Research Dept. Linux Technology Research Center
-Hitachi, Ltd., Yokohama Research Laboratory
-E-mail: masami.hiramatsu.pt@hitachi.com
+---
+ drivers/gpio/devres.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
+diff --git a/drivers/gpio/devres.c b/drivers/gpio/devres.c
+index 65978cf..4a63207 100644
+--- a/drivers/gpio/devres.c
++++ b/drivers/gpio/devres.c
+@@ -84,7 +84,7 @@ struct gpio_desc *__must_check devm_gpiod_get_index(struct device *dev,
+ 	struct gpio_desc **dr;
+ 	struct gpio_desc *desc;
+ 
+-	dr = devres_alloc(devm_gpiod_release, sizeof(struct gpiod_desc *),
++	dr = devres_alloc(devm_gpiod_release, sizeof(struct gpio_desc *),
+ 			  GFP_KERNEL);
+ 	if (!dr)
+ 		return ERR_PTR(-ENOMEM);
 
