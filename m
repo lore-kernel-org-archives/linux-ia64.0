@@ -1,40 +1,42 @@
-From: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
-Date: Thu, 17 Jul 2014 11:40:57 +0000
-Subject: Re: Re: [RESEND PATCH v5] [BUGFIX] kprobes: Fix "Failed to find blacklist" error on ia64 and ppc64
-Message-Id: <53C7B649.1070004@hitachi.com>
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Date: Tue, 29 Jul 2014 15:16:44 +0000
+Subject: [PATCH 2/9] CAPI: use correct structure type name in sizeof
+Message-Id: <1406647011-8543-3-git-send-email-Julia.Lawall@lip6.fr>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20140717071121.3130.86341.stgit@kbuild-fedora.novalocal> <20140717093832.GB4232@gmail.com> <53C7B0E6.1050503@hitachi.com>
-In-Reply-To: <53C7B0E6.1050503@hitachi.com>
+References: <1406647011-8543-1-git-send-email-Julia.Lawall@lip6.fr>
+In-Reply-To: <1406647011-8543-1-git-send-email-Julia.Lawall@lip6.fr>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ingo Molnar <mingo@kernel.org>
-Cc: Jeremy Fitzhardinge <jeremy@goop.org>, linux-ia64@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, sparse@chrisli.org, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Paul Mackerras <paulus@samba.org>, "H. Peter Anvin" <hpa@zytor.com>, akataria@vmware.com, linux-tip-commits@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>, anil.s.keshavamurthy@intel.com, "Suzuki K. Poulose" <suzuki@in.ibm.com>, Fenghua Yu <fenghua.yu@intel.com>, Arnd Bergmann <arnd@arndb.de>, Rusty Russell <rusty@rustcorp.com.au>, Chris Wright <chrisw@sous-sol.org>, yrl.pp-manager.tt@hitachi.com, Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, Kevin Hao <haokexin@gmail.com>, Ananth N Mavinakayanahalli <ananth@in.ibm.com>, linuxppc-dev@lists.ozlabs.org, rdunlap@infradead.org, Tony Luck <tony.luck@gmail.com>, dl9pf@gmx.de, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, "David S. Miller" <davem@davemloft.net>
+To: Karsten Keil <isdn@linux-pingi.de>
+Cc: kernel-janitors@vger.kernel.org, linux-ia64@vger.kernel.org, ceph-devel@vger.kernel.org, toralf.foerster@gmx.de, hmh@hmh.eng.br, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 
-(2014/07/17 20:17), Masami Hiramatsu wrote:
-> (2014/07/17 18:38), Ingo Molnar wrote:
->>
->> * Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com> wrote:
->>
->>> Signed-off-by: Masami Hiramatsu <masami.hiramatsu.pt@hitachi.com>
->>> Signed-off-by: Suzuki K. Poulose <suzuki@in.ibm.com>
->>
->> Looks good, but this is not a valid SOB sequence: if Suzuki wrote the 
->> patch then he should be the first SOB (and should have a From line as 
->> well), if he acked it along the way then it should be an Acked-by - or 
->> Reviewed-by.
-> 
-> Ah, OK, so I'll add his name as Fixed-by:.
+From: Julia Lawall <Julia.Lawall@lip6.fr>
 
-Oops, I also found that an old comment in the patch description
-and unneeded "include". I'll fix and send that asap.
+Correct typo in the name of the type given to sizeof.  Because it is the
+size of a pointer that is wanted, the typo has no impact on compilation or
+execution.
 
-Thank you,
+This problem was found using Coccinelle (http://coccinelle.lip6.fr/).  The
+semantic patch used can be found in message 0 of this patch series.
 
--- 
-Masami HIRAMATSU
-Software Platform Research Dept. Linux Technology Research Center
-Hitachi, Ltd., Yokohama Research Laboratory
-E-mail: masami.hiramatsu.pt@hitachi.com
+Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
+---
+ drivers/isdn/capi/capi.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/isdn/capi/capi.c b/drivers/isdn/capi/capi.c
+index f9a87ed..6a2df32 100644
+--- a/drivers/isdn/capi/capi.c
++++ b/drivers/isdn/capi/capi.c
+@@ -1260,7 +1260,7 @@ static int __init capinc_tty_init(void)
+ 	if (capi_ttyminors <= 0)
+ 		capi_ttyminors = CAPINC_NR_PORTS;
+ 
+-	capiminors = kzalloc(sizeof(struct capi_minor *) * capi_ttyminors,
++	capiminors = kzalloc(sizeof(struct capiminor *) * capi_ttyminors,
+ 			     GFP_KERNEL);
+ 	if (!capiminors)
+ 		return -ENOMEM;
 
