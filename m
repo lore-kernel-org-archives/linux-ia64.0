@@ -1,15 +1,15 @@
 From: Julia Lawall <Julia.Lawall@lip6.fr>
-Date: Tue, 29 Jul 2014 15:16:51 +0000
-Subject: [PATCH 9/9] uwb/whci: use correct structure type name in sizeof
-Message-Id: <1406647011-8543-10-git-send-email-Julia.Lawall@lip6.fr>
+Date: Tue, 29 Jul 2014 15:16:49 +0000
+Subject: [PATCH 7/9] scsi: use correct structure type name in sizeof
+Message-Id: <1406647011-8543-8-git-send-email-Julia.Lawall@lip6.fr>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1406647011-8543-1-git-send-email-Julia.Lawall@lip6.fr>
 In-Reply-To: <1406647011-8543-1-git-send-email-Julia.Lawall@lip6.fr>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-usb@vger.kernel.org
-Cc: kernel-janitors@vger.kernel.org, linux-ia64@vger.kernel.org, ceph-devel@vger.kernel.org, toralf.foerster@gmx.de, hmh@hmh.eng.br, linux-kernel@vger.kernel.org
+To: Dario Ballabio <ballabio_dario@emc.com>
+Cc: kernel-janitors@vger.kernel.org, linux-ia64@vger.kernel.org, ceph-devel@vger.kernel.org, toralf.foerster@gmx.de, hmh@hmh.eng.br, "James E.J. Bottomley" <JBottomley@parallels.com>, linux-scsi@vger.kernel.org, linux-kernel@vger.kernel.org
 
 From: Julia Lawall <Julia.Lawall@lip6.fr>
 
@@ -23,20 +23,20 @@ semantic patch used can be found in message 0 of this patch series.
 Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
 ---
- drivers/uwb/whci.c |    2 +-
+ drivers/scsi/u14-34f.c |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/uwb/whci.c b/drivers/uwb/whci.c
-index c9df8ba..46b7cfc 100644
---- a/drivers/uwb/whci.c
-+++ b/drivers/uwb/whci.c
-@@ -175,7 +175,7 @@ static int whci_probe(struct pci_dev *pci, const struct pci_device_id *id)
+diff --git a/drivers/scsi/u14-34f.c b/drivers/scsi/u14-34f.c
+index 4e76fe8..617d72a 100644
+--- a/drivers/scsi/u14-34f.c
++++ b/drivers/scsi/u14-34f.c
+@@ -585,7 +585,7 @@ struct mscp {
+    struct sg_list *sglist; /* pointer to the allocated SG list */
+    };
  
- 	err = -ENOMEM;
- 	card = kzalloc(sizeof(struct whci_card)
--		       + sizeof(struct whci_dev *) * (n_caps + 1),
-+		       + sizeof(struct umc_dev *) * (n_caps + 1),
- 		       GFP_KERNEL);
- 	if (card = NULL)
- 		goto error_kzalloc;
+-#define CP_TAIL_SIZE (sizeof(struct sglist *) + sizeof(dma_addr_t))
++#define CP_TAIL_SIZE (sizeof(struct sg_list *) + sizeof(dma_addr_t))
+ 
+ struct hostdata {
+    struct mscp cp[MAX_MAILBOXES];       /* Mailboxes for this board */
 
