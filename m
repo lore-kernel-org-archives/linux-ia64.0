@@ -1,35 +1,89 @@
-From: Matt Fleming <matt@console-pimps.org>
-Date: Mon, 07 Jul 2014 14:50:16 +0000
-Subject: Re: [PATCH v7 01/10] arch/ia64: Define early_memunmap()
-Message-Id: <20140707145016.GB2914@console-pimps.org>
+From: Chen Gang <gang.chen.5i5j@gmail.com>
+Date: Mon, 11 Aug 2014 21:18:44 +0000
+Subject: [PATCH] arch: Kconfig: Let all little endian architectures define CPU_LITTLE_ENDIAN explicitly
+Message-Id: <53E93334.5000205@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1404150784-27921-1-git-send-email-daniel.kiper@oracle.com>
- <1404150784-27921-2-git-send-email-daniel.kiper@oracle.com>
-In-Reply-To: <1404150784-27921-2-git-send-email-daniel.kiper@oracle.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@gmail.com>
-Cc: linux-efi@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, x86@kernel.org, xen-devel@lists.xenproject.org, andrew.cooper3@citrix.com, boris.ostrovsky@oracle.com, david.vrabel@citrix.com, eshelton@pobox.com, fenghua.yu@intel.com, hpa@zytor.com, ian.campbell@citrix.com, jbeulich@suse.com, jeremy@goop.org, konrad.wilk@oracle.com, matt.fleming@intel.com, mingo@redhat.com, mjg59@srcf.ucam.org, stefano.stabellini@eu.citrix.com, tglx@linutronix.de, Daniel Kiper <daniel.kiper@oracle.com>, tony.luck@intel.com
+To: Arnd Bergmann <arnd@arndb.de>, akpm@linux-foundation.org
+Cc: Geert Uytterhoeven <geert@linux-m68k.org>, Jean Delvare <jdelvare@suse.de>, linux@arm.linux.org.uk, catalin.marinas@arm.com, will.deacon@arm.com, tony.luck@intel.com, fenghua.yu@intel.com, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, x86@kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 
-On Mon, 30 Jun, at 07:52:55PM, Daniel Kiper wrote:
-> This is odd to use early_iounmap() function do tear down mapping
-> created by early_memremap() function, even if it works right now,
-> because they belong to different set of functions. The former is
-> I/O related function and the later is memory related. So, create
-> early_memunmap() macro which in real is early_iounmap(). This
-> thing will help to not confuse code readers longer by mixing
-> functions from different classes.
-> 
-> EFI patches following this patch uses that functionality.
-> 
-> Signed-off-by: Daniel Kiper <daniel.kiper@oracle.com>
-> ---
->  arch/ia64/include/asm/io.h |    1 +
->  1 file changed, 1 insertion(+)
+x86, ia64, and arm(64) are little endian, and also another architectures
+may be little endian (mips, sh, powerpc, and m32r) which already marked
+CPU_LITTLE_ENDIAN explicitly.
 
-Tony, this looks pretty straight forward but I'd be much obliged if you
-could give me an Acked-by.
+Some drivers (e.g. some of "drivers/isdn/hisax") may only support little
+endian (CPU_LITTLE_ENDIAN), and some drivers may only support big endian
+(!CPU_LITTLE_ENDIAN).
 
+So export all little endian architectures within kernel wide, so can let
+Kconfig easier for the modules which only support little endian or only
+big endian.
+
+Signed-off-by: Chen Gang <gang.chen.5i5j@gmail.com>
+---
+ arch/arm/Kconfig   | 3 +++
+ arch/arm64/Kconfig | 3 +++
+ arch/ia64/Kconfig  | 3 +++
+ arch/x86/Kconfig   | 3 +++
+ 4 files changed, 12 insertions(+)
+
+diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
+index c49a775..bfc2c65 100644
+--- a/arch/arm/Kconfig
++++ b/arch/arm/Kconfig
+@@ -199,6 +199,9 @@ config NEED_DMA_MAP_STATE
+ config ARCH_SUPPORTS_UPROBES
+ 	def_bool y
+ 
++config CPU_LITTLE_ENDIAN
++	def_bool y
++
+ config ARCH_HAS_DMA_SET_COHERENT_MASK
+ 	bool
+ 
+diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
+index 62b4ae1..69b893e 100644
+--- a/arch/arm64/Kconfig
++++ b/arch/arm64/Kconfig
+@@ -129,6 +129,9 @@ config KERNEL_MODE_NEON
+ config FIX_EARLYCON_MEM
+ 	def_bool y
+ 
++config CPU_LITTLE_ENDIAN
++	def_bool y
++
+ source "init/Kconfig"
+ 
+ source "kernel/Kconfig.freezer"
+diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+index 64aefb7..fa12d34 100644
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -133,6 +133,9 @@ config AUDIT_ARCH
+ 	bool
+ 	default y
+ 
++config CPU_LITTLE_ENDIAN
++	def_bool y
++
+ menuconfig PARAVIRT_GUEST
+ 	bool "Paravirtualized guest support"
+ 	depends on BROKEN
+diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
+index 541e7cc..a1b3568 100644
+--- a/arch/x86/Kconfig
++++ b/arch/x86/Kconfig
+@@ -270,6 +270,9 @@ config ARCH_SUPPORTS_UPROBES
+ config FIX_EARLYCON_MEM
+ 	def_bool y
+ 
++config CPU_LITTLE_ENDIAN
++	def_bool y
++
+ source "init/Kconfig"
+ source "kernel/Kconfig.freezer"
+ 
 -- 
-Matt Fleming, Intel Open Source Technology Center
+1.7.11.7
