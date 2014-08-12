@@ -1,126 +1,109 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Wed, 13 Aug 2014 01:16:46 +0000
-Subject: Re: [RFC PATCH 07/20] x86/MSI: Use msi_chip instead of arch func to configure MSI/MSI-X
-Message-Id: <53EABC7E.6080103@huawei.com>
+From: Chen Gang <gang.chen.5i5j@gmail.com>
+Date: Tue, 12 Aug 2014 22:48:35 +0000
+Subject: [PATCH v2] arch: Kconfig: Let all little endian architectures define CPU_LITTLE_ENDIAN explicitly
+Message-Id: <53EA99C3.90203@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1407828373-24322-1-git-send-email-wangyijing@huawei.com> <1407828373-24322-8-git-send-email-wangyijing@huawei.com> <20140812190947.GD13996@laptop.dumpdata.com>
-In-Reply-To: <20140812190947.GD13996@laptop.dumpdata.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Cc: Bjorn Helgaas <bhelgaas@google.com>, linux-kernel@vger.kernel.org, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-pci@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, arnab.basu@freescale.com, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Thomas Gleixner <tglx@linutronix.de>, "H. Peter Anvin" <hpa@zytor.com>, xen-devel@lists.xenproject.org, Joerg Roedel <joro@8bytes.org>, iommu@lists.linux-foundation.org, linux-mips@linux-mips.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, Sebastian Ott <sebott@linux.vnet.ibm.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Chris Metcalf <cmetcalf@tilera.com>
+To: Arnd Bergmann <arnd@arndb.de>
+Cc: akpm@linux-foundation.org, Geert Uytterhoeven <geert@linux-m68k.org>, Jean Delvare <jdelvare@suse.de>, linux@arm.linux.org.uk, catalin.marinas@arm.com, will.deacon@arm.com, msalter@redhat.com, a-jacquiot@ti.com, tony.luck@intel.com, fenghua.yu@intel.com, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, x86@kernel.org, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org, linux-ia64@vger.kernel.org, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, linux-arch@vger.kernel.org
 
-On 2014/8/13 3:09, Konrad Rzeszutek Wilk wrote:
-> On Tue, Aug 12, 2014 at 03:26:00PM +0800, Yijing Wang wrote:
->> Introduce a new struct msi_chip apic_msi_chip instead of weak arch
->> functions to configure MSI/MSI-X in x86.
-> 
-> Why not 'x86_msi_ops' (see  arch/x86/kernel/x86_init.c)
+x86 and ia64 are always little endian. And another architectures may be
+little endian: mips, sh, powerpc, and m32r (may mark CPU_LITTLE_ENDIAN
+explicitly); also arm(64) and c6x (which may be !CPU_BIG_ENDIAN).
 
-Hi Konrad, I think currently lots of weak arch functions make MSI code
-complex, we have following weak arch functions
+Some drivers (e.g. some of "drivers/isdn/hisax") may only support little
+endian (CPU_LITTLE_ENDIAN), and some drivers may only support big endian
+(!CPU_LITTLE_ENDIAN).
 
-arch_setup_msi_irqs
-arch_setup_msi_irq
-arch_msi_check_device
-arch_teardown_msi_irqs
-arch_teardown_msi_irq
-arch_restore_msi_irqs
-arch_msi_mask_irq
-arch_msix_mask_irq
-
-And Thierry Reding and Thomas Petazzoni introduce a new MSI chip infrastructure which
-is used in arm platform now. Use msi_chip let us focus on implementing msi_chip ops functions(no need to implement all),
-but now, we should know much of MSI enable flow, then override the weak functions.
-I think use the unified MSI framework in all platforms is better.
-Also this series is preparation to support Non-PCI MSI device use common MSI framework in linux. Non-PCI MSI devices
-include hpet, dmar and the coming consolidator(introduced in ARM GICv3 spec, which is similar to MSI relay device).
+So export all little endian architectures within kernel wide, so can let
+Kconfig easier for the modules which only support little endian or only
+for big endian (assume !CPU_LITTLE_ENDIAN is same as CPU_BIG_ENDIAN).
 
 
-Thanks!
-Yijing.
+Signed-off-by: Chen Gang <gang.chen.5i5j@gmail.com>
+---
+ arch/arm/Kconfig   | 5 +++++
+ arch/arm64/Kconfig | 4 ++++
+ arch/c6x/Kconfig   | 4 ++++
+ arch/ia64/Kconfig  | 3 +++
+ arch/x86/Kconfig   | 3 +++
+ 5 files changed, 19 insertions(+)
 
->>
->> Signed-off-by: Yijing Wang <wangyijing@huawei.com>
->> ---
->>  arch/x86/include/asm/pci.h     |    1 +
->>  arch/x86/kernel/apic/io_apic.c |   20 ++++++++++++++++----
->>  2 files changed, 17 insertions(+), 4 deletions(-)
->>
->> diff --git a/arch/x86/include/asm/pci.h b/arch/x86/include/asm/pci.h
->> index 0892ea0..878a06d 100644
->> --- a/arch/x86/include/asm/pci.h
->> +++ b/arch/x86/include/asm/pci.h
->> @@ -101,6 +101,7 @@ void native_teardown_msi_irq(unsigned int irq);
->>  void native_restore_msi_irqs(struct pci_dev *dev);
->>  int setup_msi_irq(struct pci_dev *dev, struct msi_desc *msidesc,
->>  		  unsigned int irq_base, unsigned int irq_offset);
->> +extern struct msi_chip *x86_msi_chip;
->>  #else
->>  #define native_setup_msi_irqs		NULL
->>  #define native_teardown_msi_irq		NULL
->> diff --git a/arch/x86/kernel/apic/io_apic.c b/arch/x86/kernel/apic/io_apic.c
->> index 2609dcd..eb8ab7c 100644
->> --- a/arch/x86/kernel/apic/io_apic.c
->> +++ b/arch/x86/kernel/apic/io_apic.c
->> @@ -3077,24 +3077,25 @@ int setup_msi_irq(struct pci_dev *dev, struct msi_desc *msidesc,
->>  	return 0;
->>  }
->>  
->> -int native_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
->> +int native_setup_msi_irqs(struct device *dev, int nvec, int type)
->>  {
->>  	struct msi_desc *msidesc;
->>  	unsigned int irq;
->>  	int node, ret;
->> +	struct pci_dev *pdev = to_pci_dev(dev);
->>  
->>  	/* Multiple MSI vectors only supported with interrupt remapping */
->>  	if (type = PCI_CAP_ID_MSI && nvec > 1)
->>  		return 1;
->>  
->> -	node = dev_to_node(&dev->dev);
->> +	node = dev_to_node(dev);
->>  
->> -	list_for_each_entry(msidesc, &dev->msi_list, list) {
->> +	list_for_each_entry(msidesc, &pdev->msi_list, list) {
->>  		irq = irq_alloc_hwirq(node);
->>  		if (!irq)
->>  			return -ENOSPC;
->>  
->> -		ret = setup_msi_irq(dev, msidesc, irq, 0);
->> +		ret = setup_msi_irq(pdev, msidesc, irq, 0);
->>  		if (ret < 0) {
->>  			irq_free_hwirq(irq);
->>  			return ret;
->> @@ -3214,6 +3215,17 @@ int default_setup_hpet_msi(unsigned int irq, unsigned int id)
->>  }
->>  #endif
->>  
->> +struct msi_chip apic_msi_chip = {
->> +	.setup_irqs = native_setup_msi_irqs,
->> +	.teardown_irq = native_teardown_msi_irq,
->> +};
->> +
->> +struct msi_chip *arch_get_match_msi_chip(struct device *dev)
->> +{
->> +	return x86_msi_chip;
->> +}
->> +
->> +struct msi_chip *x86_msi_chip = &apic_msi_chip;
->>  #endif /* CONFIG_PCI_MSI */
->>  /*
->>   * Hypertransport interrupt support
->> -- 
->> 1.7.1
->>
-> 
-> .
-> 
-
-
+diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
+index c49a775..0510a5d 100644
+--- a/arch/arm/Kconfig
++++ b/arch/arm/Kconfig
+@@ -199,6 +199,11 @@ config NEED_DMA_MAP_STATE
+ config ARCH_SUPPORTS_UPROBES
+ 	def_bool y
+ 
++config CPU_LITTLE_ENDIAN
++	depends on !CPU_BIG_ENDIAN
++	def_bool y
++
++
+ config ARCH_HAS_DMA_SET_COHERENT_MASK
+ 	bool
+ 
+diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
+index 62b4ae1..290a253 100644
+--- a/arch/arm64/Kconfig
++++ b/arch/arm64/Kconfig
+@@ -129,6 +129,10 @@ config KERNEL_MODE_NEON
+ config FIX_EARLYCON_MEM
+ 	def_bool y
+ 
++config CPU_LITTLE_ENDIAN
++	depends on !CPU_BIG_ENDIAN
++	def_bool y
++
+ source "init/Kconfig"
+ 
+ source "kernel/Kconfig.freezer"
+diff --git a/arch/c6x/Kconfig b/arch/c6x/Kconfig
+index 77ea09b..56a8f53 100644
+--- a/arch/c6x/Kconfig
++++ b/arch/c6x/Kconfig
+@@ -48,6 +48,10 @@ config C6X_BIG_KERNEL
+ 
+ 	  If unsure, say N.
+ 
++config CPU_LITTLE_ENDIAN
++	depends on !CPU_BIG_ENDIAN
++	def_bool y
++
+ source "init/Kconfig"
+ 
+ # Use the generic interrupt handling code in kernel/irq/
+diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+index 64aefb7..fa12d34 100644
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -133,6 +133,9 @@ config AUDIT_ARCH
+ 	bool
+ 	default y
+ 
++config CPU_LITTLE_ENDIAN
++	def_bool y
++
+ menuconfig PARAVIRT_GUEST
+ 	bool "Paravirtualized guest support"
+ 	depends on BROKEN
+diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
+index 541e7cc..a1b3568 100644
+--- a/arch/x86/Kconfig
++++ b/arch/x86/Kconfig
+@@ -270,6 +270,9 @@ config ARCH_SUPPORTS_UPROBES
+ config FIX_EARLYCON_MEM
+ 	def_bool y
+ 
++config CPU_LITTLE_ENDIAN
++	def_bool y
++
+ source "init/Kconfig"
+ source "kernel/Kconfig.freezer"
+ 
 -- 
-Thanks!
-Yijing
-
+1.7.11.7
