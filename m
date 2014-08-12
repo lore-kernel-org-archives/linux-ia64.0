@@ -1,73 +1,67 @@
-From: Jan Kiszka <jan.kiszka@siemens.com>
-Date: Wed, 27 Aug 2014 15:21:30 +0000
-Subject: [PATCH v9 15/23] scripts/gdb: Add internal helper and convenience function to retrieve thread_info
-Message-Id: <02c6115ad9be1d673dd7d74aa24ff4a5262b99d0.1409152897.git.jan.kiszka@siemens.com>
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Tue, 12 Aug 2014 07:26:08 +0000
+Subject: [RFC PATCH 15/20] s390/MSI: Use msi_chip instead of arch func to configure MSI/MSI-X
+Message-Id: <1407828373-24322-16-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1409152897.git.jan.kiszka@siemens.com>
-In-Reply-To: <cover.1409152897.git.jan.kiszka@siemens.com>
+References: <1407828373-24322-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1407828373-24322-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thomas Gleixner <tglx@linutronix.de>, Andrew Morton <akpm@linux-foundation.org>, linux-kernel@vger.kernel.org
-Cc: Jason Wessel <jason.wessel@windriver.com>, kgdb-bugreport@lists.sourceforge.net, Andi Kleen <andi@firstfloor.org>, Tom Tromey <tromey@redhat.com>, Ben Widawsky <ben@bwidawsk.net>, Borislav Petkov <bp@suse.de>, Tatiana Al-Chueyr Martins <tatiana.alchueyr@gmail.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: linux-kernel@vger.kernel.org, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-pci@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, arnab.basu@freescale.com, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Thomas Gleixner <tglx@linutronix.de>, "H. Peter Anvin" <hpa@zytor.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, xen-devel@lists.xenproject.org, Joerg Roedel <joro@8bytes.org>, iommu@lists.linux-foundation.org, linux-mips@linux-mips.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, Sebastian Ott <sebott@linux.vnet.ibm.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Chris Metcalf <cmetcalf@tilera.com>, Yijing Wang <wangyijing@huawei.com>
 
-Add the internal helper get_thread_info that calculates the thread_info
-from a given task variable. Also export this service as a convenience
-function.
+Introduce a new struct msi_chip zpci_msi_chip instead of weak arch
+functions to configure MSI/MSI-X.
 
-Note: ia64 version is untested.
-
-CC: Tony Luck <tony.luck@intel.com>
-CC: Fenghua Yu <fenghua.yu@intel.com>
-CC: linux-ia64@vger.kernel.org
-Signed-off-by: Jan Kiszka <jan.kiszka@siemens.com>
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
 ---
- scripts/gdb/linux/tasks.py | 35 +++++++++++++++++++++++++++++++++++
- 1 file changed, 35 insertions(+)
+ arch/s390/pci/pci.c |   16 ++++++++++++++--
+ 1 files changed, 14 insertions(+), 2 deletions(-)
 
-diff --git a/scripts/gdb/linux/tasks.py b/scripts/gdb/linux/tasks.py
-index 13bb97c..63cd6c5 100644
---- a/scripts/gdb/linux/tasks.py
-+++ b/scripts/gdb/linux/tasks.py
-@@ -71,3 +71,38 @@ return that task_struct variable which PID matches."""
+diff --git a/arch/s390/pci/pci.c b/arch/s390/pci/pci.c
+index 9ddc51e..ee7b05c 100644
+--- a/arch/s390/pci/pci.c
++++ b/arch/s390/pci/pci.c
+@@ -398,8 +398,9 @@ static void zpci_irq_handler(struct airq_struct *airq)
+ 	}
+ }
  
+-int arch_setup_msi_irqs(struct pci_dev *pdev, int nvec, int type)
++int zpci_setup_msi_irqs(struct device *dev, int nvec, int type)
+ {
++	struct pci_dev *pdev = to_pci_dev(dev);
+ 	struct zpci_dev *zdev = get_zdev(pdev);
+ 	unsigned int hwirq, msi_vecs;
+ 	unsigned long aisb;
+@@ -474,8 +475,9 @@ out:
+ 	return rc;
+ }
  
- LxTaskByPidFunc()
+-void arch_teardown_msi_irqs(struct pci_dev *pdev)
++void zpci_teardown_msi_irqs(struct device *dev)
+ {
++	struct pci_dev *pdev = to_pci_dev(dev);
+ 	struct zpci_dev *zdev = get_zdev(pdev);
+ 	struct msi_desc *msi;
+ 	int rc;
+@@ -501,6 +503,16 @@ void arch_teardown_msi_irqs(struct pci_dev *pdev)
+ 	airq_iv_free_bit(zpci_aisb_iv, zdev->aisb);
+ }
+ 
++struct msi_chip zpci_msi_chip = {
++	.setup_irqs = zpci_setup_msi_irqs,
++	.teardown_irqs = zpci_teardown_msi_irqs,
++};
 +
++struct msi_chip *arch_get_match_msi_chip(struct device *dev)
++{
++	return &zpci_msi_chip;
++}
 +
-+thread_info_type = utils.CachedType("struct thread_info")
-+
-+ia64_task_size = None
-+
-+
-+def get_thread_info(task):
-+    global thread_info_type
-+    thread_info_ptr_type = thread_info_type.get_type().pointer()
-+    if utils.is_target_arch("ia64"):
-+        global ia64_task_size
-+        if ia64_task_size is None:
-+            ia64_task_size = gdb.parse_and_eval("sizeof(struct task_struct)")
-+        thread_info_addr = task.address + ia64_task_size
-+        thread_info = thread_info_addr.cast(thread_info_ptr_type)
-+    else:
-+        thread_info = task['stack'].cast(thread_info_ptr_type)
-+    return thread_info.dereference()
-+
-+
-+class LxThreadInfoFunc (gdb.Function):
-+    """Calculate Linux thread_info from task variable.
-+
-+$lx_thread_info(TASK): Given TASK, return the corresponding thread_info
-+variable."""
-+
-+    def __init__(self):
-+        super(LxThreadInfoFunc, self).__init__("lx_thread_info")
-+
-+    def invoke(self, task):
-+        return get_thread_info(task)
-+
-+
-+LxThreadInfoFunc()
+ static void zpci_map_resources(struct zpci_dev *zdev)
+ {
+ 	struct pci_dev *pdev = zdev->pdev;
 -- 
-1.8.1.1.298.ge7eed54
+1.7.1
 
