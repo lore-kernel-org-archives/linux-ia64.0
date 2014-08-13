@@ -1,102 +1,169 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Tue, 12 Aug 2014 07:25:59 +0000
-Subject: [RFC PATCH 06/20] PCI/MSI: Introduce arch_get_match_msi_chip() to find the match msi_chip
-Message-Id: <1407828373-24322-7-git-send-email-wangyijing@huawei.com>
+From: Thierry Reding <thierry.reding@gmail.com>
+Date: Wed, 13 Aug 2014 10:28:55 +0000
+Subject: [PATCH v4 5/8] /dev/mem: Use more consistent data types
+Message-Id: <1407925738-26170-6-git-send-email-thierry.reding@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1407828373-24322-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1407828373-24322-1-git-send-email-wangyijing@huawei.com>
+References: <1407925738-26170-1-git-send-email-thierry.reding@gmail.com>
+In-Reply-To: <1407925738-26170-1-git-send-email-thierry.reding@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: linux-kernel@vger.kernel.org, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-pci@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, arnab.basu@freescale.com, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Thomas Gleixner <tglx@linutronix.de>, "H. Peter Anvin" <hpa@zytor.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, xen-devel@lists.xenproject.org, Joerg Roedel <joro@8bytes.org>, iommu@lists.linux-foundation.org, linux-mips@linux-mips.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, Sebastian Ott <sebott@linux.vnet.ibm.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Chris Metcalf <cmetcalf@tilera.com>, Yijing Wang <wangyijing@huawei.com>
+To: Arnd Bergmann <arnd@arndb.de>
+Cc: Russell King <linux@arm.linux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Stephen Boyd <sboyd@codeaurora.org>, Sam Ravnborg <sam@ravnborg.org>, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, x86@kernel.org, linux-serial@vger.kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Introduce __weak arch_get_match_msi_chip() to find the match msi_chip.
-We prepare to use struct msi_chip to eliminate arch_xxx functions
-in all platforms. The MSI device and the msi_chip binding is platform
-specific. For instance, in x86, LAPICs receive all MSI irq, but in
-arm, PCI device usually deliver their MSI to PCI hostbridge, if more
-than one msi_chip found in system, DTS file will report the binding
-between MSI devices and target msi_chip. So we need a platform implemented
-interface to do that.
+From: Thierry Reding <treding@nvidia.com>
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+The xlate_dev_{kmem,mem}_ptr() functions take either a physical address
+or a kernel virtual address, so data types should be phys_addr_t and
+void *. They both return a kernel virtual address which is only ever
+used in calls to copy_{from,to}_user(), so make variables that store it
+void * rather than char * for consistency.
+
+Also only define a weak unxlate_dev_mem_ptr() function if architectures
+haven't overridden them in the asm/io.h header file.
+
+Signed-off-by: Thierry Reding <treding@nvidia.com>
 ---
- drivers/pci/msi.c |   30 ++++++++++++++++++++++++++----
- 1 files changed, 26 insertions(+), 4 deletions(-)
+Changes in v4:
+- new patch
 
-diff --git a/drivers/pci/msi.c b/drivers/pci/msi.c
-index 7b7abe9..feba5dd 100644
---- a/drivers/pci/msi.c
-+++ b/drivers/pci/msi.c
-@@ -29,10 +29,22 @@ static int pci_msi_enable = 1;
+ arch/s390/include/asm/io.h |  5 +++--
+ arch/s390/mm/maccess.c     |  4 ++--
+ arch/x86/include/asm/io.h  |  4 ++--
+ arch/x86/mm/ioremap.c      |  4 ++--
+ drivers/char/mem.c         | 13 ++++++++-----
+ 5 files changed, 17 insertions(+), 13 deletions(-)
+
+diff --git a/arch/s390/include/asm/io.h b/arch/s390/include/asm/io.h
+index cd6b9ee7b69c..d22c2eeae78f 100644
+--- a/arch/s390/include/asm/io.h
++++ b/arch/s390/include/asm/io.h
+@@ -13,9 +13,10 @@
+ #include <asm/page.h>
+ #include <asm/pci_io.h>
  
- /* Arch hooks */
+-void *xlate_dev_mem_ptr(unsigned long phys);
+ #define xlate_dev_mem_ptr xlate_dev_mem_ptr
+-void unxlate_dev_mem_ptr(unsigned long phys, void *addr);
++void *xlate_dev_mem_ptr(phys_addr_t phys);
++#define unxlate_dev_mem_ptr unxlate_dev_mem_ptr
++void unxlate_dev_mem_ptr(phys_addr_t phys, void *addr);
  
--int __weak arch_setup_msi_irq(struct pci_dev *dev, struct msi_desc *desc)
-+struct msi_chip * __weak arch_get_match_msi_chip(struct device *dev)
-+{
-+	if (dev_is_pci(dev)) {
-+		struct pci_dev *pdev = to_pci_dev(dev);
-+		struct msi_chip *chip = pdev->bus->msi;
-+
-+		return chip;
-+	}
-+
-+	return NULL;
-+}
-+
-+int __weak arch_setup_msi_irq(struct pci_dev *dev, struct msi_desc *desc)
+ /*
+  * Convert a virtual cached pointer to an uncached pointer
+diff --git a/arch/s390/mm/maccess.c b/arch/s390/mm/maccess.c
+index 2a2e35416d2f..2eb34bdfc613 100644
+--- a/arch/s390/mm/maccess.c
++++ b/arch/s390/mm/maccess.c
+@@ -176,7 +176,7 @@ static int is_swapped(unsigned long addr)
+  * For swapped prefix pages a new buffer is returned that contains a copy of
+  * the absolute memory. The buffer size is maximum one page large.
+  */
+-void *xlate_dev_mem_ptr(unsigned long addr)
++void *xlate_dev_mem_ptr(phys_addr_t addr)
  {
--	struct msi_chip *chip = dev->bus->msi;
- 	int err;
-+	struct msi_chip *chip = arch_get_match_msi_chip(&dev->dev);
- 
- 	if (!chip || !chip->setup_irq)
- 		return -EINVAL;
-@@ -46,7 +58,8 @@ int __weak arch_setup_msi_irq(struct pci_dev *dev, struct msi_desc *desc)
- 
- void __weak arch_teardown_msi_irq(unsigned int irq)
+ 	void *bounce = (void *) addr;
+ 	unsigned long size;
+@@ -197,7 +197,7 @@ void *xlate_dev_mem_ptr(unsigned long addr)
+ /*
+  * Free converted buffer for /dev/mem access (if necessary)
+  */
+-void unxlate_dev_mem_ptr(unsigned long addr, void *buf)
++void unxlate_dev_mem_ptr(phys_addr_t addr, void *buf)
  {
--	struct msi_chip *chip = irq_get_chip_data(irq);
-+	struct msi_desc *entry = irq_get_msi_desc(irq);
-+	struct msi_chip *chip = arch_get_match_msi_chip(&entry->dev->dev);
+ 	if ((void *) addr != buf)
+ 		free_page((unsigned long) buf);
+diff --git a/arch/x86/include/asm/io.h b/arch/x86/include/asm/io.h
+index b8237d8a1e0c..ae2b593e7c6e 100644
+--- a/arch/x86/include/asm/io.h
++++ b/arch/x86/include/asm/io.h
+@@ -310,8 +310,8 @@ BUILDIO(b, b, char)
+ BUILDIO(w, w, short)
+ BUILDIO(l, , int)
  
- 	if (!chip || !chip->teardown_irq)
- 		return;
-@@ -56,7 +69,7 @@ void __weak arch_teardown_msi_irq(unsigned int irq)
+-extern void *xlate_dev_mem_ptr(unsigned long phys);
+-extern void unxlate_dev_mem_ptr(unsigned long phys, void *addr);
++extern void *xlate_dev_mem_ptr(phys_addr_t phys);
++extern void unxlate_dev_mem_ptr(phys_addr_t phys, void *addr);
  
- int __weak arch_msi_check_device(struct pci_dev *dev, int nvec, int type)
+ extern int ioremap_change_attr(unsigned long vaddr, unsigned long size,
+ 				unsigned long prot_val);
+diff --git a/arch/x86/mm/ioremap.c b/arch/x86/mm/ioremap.c
+index baff1da354e0..6d9cc45123e5 100644
+--- a/arch/x86/mm/ioremap.c
++++ b/arch/x86/mm/ioremap.c
+@@ -315,7 +315,7 @@ EXPORT_SYMBOL(iounmap);
+  * Convert a physical pointer to a virtual kernel pointer for /dev/mem
+  * access
+  */
+-void *xlate_dev_mem_ptr(unsigned long phys)
++void *xlate_dev_mem_ptr(phys_addr_t phys)
  {
--	struct msi_chip *chip = dev->bus->msi;
-+	struct msi_chip *chip = arch_get_match_msi_chip(&dev->dev);
- 
- 	if (!chip || !chip->check_device)
- 		return 0;
-@@ -68,7 +81,12 @@ int __weak arch_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
- {
- 	struct msi_desc *entry;
- 	int ret;
-+	struct msi_chip *chip;
- 
-+	chip = arch_get_match_msi_chip(&dev->dev);
-+	if (chip && chip->setup_irqs)
-+		return chip->setup_irqs(&dev->dev, nvec, type);
-+
- 	/*
- 	 * If an architecture wants to support multiple MSI, it needs to
- 	 * override arch_setup_msi_irqs()
-@@ -133,6 +151,10 @@ static void default_restore_msi_irq(struct pci_dev *dev, int irq)
- 
- void __weak arch_restore_msi_irqs(struct pci_dev *dev)
- {
-+	struct msi_chip *chip = arch_get_msi_chip(&dev->dev);
-+	if (chip && chip->restore_irqs)
-+		return chip->restore_irqs(&dev->dev);
-+
- 	return default_restore_msi_irqs(dev);
+ 	void *addr;
+ 	unsigned long start = phys & PAGE_MASK;
+@@ -331,7 +331,7 @@ void *xlate_dev_mem_ptr(unsigned long phys)
+ 	return addr;
  }
  
+-void unxlate_dev_mem_ptr(unsigned long phys, void *addr)
++void unxlate_dev_mem_ptr(phys_addr_t phys, void *addr)
+ {
+ 	if (page_is_ram(phys >> PAGE_SHIFT))
+ 		return;
+diff --git a/drivers/char/mem.c b/drivers/char/mem.c
+index 917403fe10da..a304e8a6ebf2 100644
+--- a/drivers/char/mem.c
++++ b/drivers/char/mem.c
+@@ -84,9 +84,12 @@ static inline int range_is_allowed(unsigned long pfn, unsigned long size)
+ }
+ #endif
+ 
+-void __weak unxlate_dev_mem_ptr(unsigned long phys, void *addr)
++#ifndef unxlate_dev_mem_ptr
++#define unxlate_dev_mem_ptr unxlate_dev_mem_ptr
++void __weak unxlate_dev_mem_ptr(phys_addr_t phys, void *addr)
+ {
+ }
++#endif
+ 
+ /*
+  * This funcion reads the *physical* memory. The f_pos points directly to the
+@@ -97,7 +100,7 @@ static ssize_t read_mem(struct file *file, char __user *buf,
+ {
+ 	phys_addr_t p = *ppos;
+ 	ssize_t read, sz;
+-	char *ptr;
++	void *ptr;
+ 
+ 	if (p != *ppos)
+ 		return 0;
+@@ -400,7 +403,7 @@ static ssize_t read_kmem(struct file *file, char __user *buf,
+ 			 * uncached, then it must also be accessed uncached
+ 			 * by the kernel or data corruption may occur
+ 			 */
+-			kbuf = xlate_dev_kmem_ptr((char *)p);
++			kbuf = xlate_dev_kmem_ptr((void *)p);
+ 
+ 			if (copy_to_user(buf, kbuf, sz))
+ 				return -EFAULT;
+@@ -461,7 +464,7 @@ static ssize_t do_write_kmem(unsigned long p, const char __user *buf,
+ #endif
+ 
+ 	while (count > 0) {
+-		char *ptr;
++		void *ptr;
+ 
+ 		sz = size_inside_page(p, count);
+ 
+@@ -470,7 +473,7 @@ static ssize_t do_write_kmem(unsigned long p, const char __user *buf,
+ 		 * it must also be accessed uncached by the kernel or data
+ 		 * corruption may occur.
+ 		 */
+-		ptr = xlate_dev_kmem_ptr((char *)p);
++		ptr = xlate_dev_kmem_ptr((void *)p);
+ 
+ 		copied = copy_from_user(ptr, buf, sz);
+ 		if (copied) {
 -- 
-1.7.1
+2.0.4
 
