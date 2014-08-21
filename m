@@ -1,169 +1,525 @@
-From: Thierry Reding <thierry.reding@gmail.com>
-Date: Wed, 13 Aug 2014 10:28:55 +0000
-Subject: [PATCH v4 5/8] /dev/mem: Use more consistent data types
-Message-Id: <1407925738-26170-6-git-send-email-thierry.reding@gmail.com>
+From: Sudeep Holla <sudeep.holla@arm.com>
+Date: Thu, 21 Aug 2014 10:59:48 +0000
+Subject: [PATCH v3 05/11] ia64: move cacheinfo sysfs to generic cacheinfo infrastructure
+Message-Id: <1408618794-28497-6-git-send-email-sudeep.holla@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1407925738-26170-1-git-send-email-thierry.reding@gmail.com>
-In-Reply-To: <1407925738-26170-1-git-send-email-thierry.reding@gmail.com>
+References: <1406306692-7135-1-git-send-email-sudeep.holla@arm.com>
+ <1408618794-28497-1-git-send-email-sudeep.holla@arm.com>
+In-Reply-To: <1408618794-28497-1-git-send-email-sudeep.holla@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Arnd Bergmann <arnd@arndb.de>
-Cc: Russell King <linux@arm.linux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Stephen Boyd <sboyd@codeaurora.org>, Sam Ravnborg <sam@ravnborg.org>, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, x86@kernel.org, linux-serial@vger.kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
+To: LKML <linux-kernel@vger.kernel.org>
+Cc: sudeep.holla@arm.com, Heiko Carstens <heiko.carstens@de.ibm.com>, Lorenzo Pieralisi <Lorenzo.Pieralisi@arm.com>, Stephen Boyd <sboyd@codeaurora.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-From: Thierry Reding <treding@nvidia.com>
+From: Sudeep Holla <sudeep.holla@arm.com>
 
-The xlate_dev_{kmem,mem}_ptr() functions take either a physical address
-or a kernel virtual address, so data types should be phys_addr_t and
-void *. They both return a kernel virtual address which is only ever
-used in calls to copy_{from,to}_user(), so make variables that store it
-void * rather than char * for consistency.
+This patch removes the redundant sysfs cacheinfo code by making use of
+the newly introduced generic cacheinfo infrastructure.
 
-Also only define a weak unxlate_dev_mem_ptr() function if architectures
-haven't overridden them in the asm/io.h header file.
-
-Signed-off-by: Thierry Reding <treding@nvidia.com>
+Signed-off-by: Sudeep Holla <sudeep.holla@arm.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
 ---
-Changes in v4:
-- new patch
+ arch/ia64/kernel/topology.c | 421 ++++++++++++--------------------------------
+ 1 file changed, 111 insertions(+), 310 deletions(-)
 
- arch/s390/include/asm/io.h |  5 +++--
- arch/s390/mm/maccess.c     |  4 ++--
- arch/x86/include/asm/io.h  |  4 ++--
- arch/x86/mm/ioremap.c      |  4 ++--
- drivers/char/mem.c         | 13 ++++++++-----
- 5 files changed, 17 insertions(+), 13 deletions(-)
-
-diff --git a/arch/s390/include/asm/io.h b/arch/s390/include/asm/io.h
-index cd6b9ee7b69c..d22c2eeae78f 100644
---- a/arch/s390/include/asm/io.h
-+++ b/arch/s390/include/asm/io.h
-@@ -13,9 +13,10 @@
- #include <asm/page.h>
- #include <asm/pci_io.h>
+diff --git a/arch/ia64/kernel/topology.c b/arch/ia64/kernel/topology.c
+index f295f9abba4b..3d6749cb53ec 100644
+--- a/arch/ia64/kernel/topology.c
++++ b/arch/ia64/kernel/topology.c
+@@ -13,6 +13,7 @@
+  *	Populate cpu cache entries in sysfs for cpu cache info
+  */
  
--void *xlate_dev_mem_ptr(unsigned long phys);
- #define xlate_dev_mem_ptr xlate_dev_mem_ptr
--void unxlate_dev_mem_ptr(unsigned long phys, void *addr);
-+void *xlate_dev_mem_ptr(phys_addr_t phys);
-+#define unxlate_dev_mem_ptr unxlate_dev_mem_ptr
-+void unxlate_dev_mem_ptr(phys_addr_t phys, void *addr);
- 
++#include <linux/cacheinfo.h>
+ #include <linux/cpu.h>
+ #include <linux/kernel.h>
+ #include <linux/mm.h>
+@@ -21,7 +22,6 @@
+ #include <linux/init.h>
+ #include <linux/bootmem.h>
+ #include <linux/nodemask.h>
+-#include <linux/notifier.h>
+ #include <linux/export.h>
+ #include <asm/mmzone.h>
+ #include <asm/numa.h>
+@@ -103,60 +103,25 @@ subsys_initcall(topology_init);
  /*
-  * Convert a virtual cached pointer to an uncached pointer
-diff --git a/arch/s390/mm/maccess.c b/arch/s390/mm/maccess.c
-index 2a2e35416d2f..2eb34bdfc613 100644
---- a/arch/s390/mm/maccess.c
-+++ b/arch/s390/mm/maccess.c
-@@ -176,7 +176,7 @@ static int is_swapped(unsigned long addr)
-  * For swapped prefix pages a new buffer is returned that contains a copy of
-  * the absolute memory. The buffer size is maximum one page large.
+  * Export cpu cache information through sysfs
   */
--void *xlate_dev_mem_ptr(unsigned long addr)
-+void *xlate_dev_mem_ptr(phys_addr_t addr)
+-
+-/*
+- *  A bunch of string array to get pretty printing
+- */
+-static const char *cache_types[] = {
+-	"",			/* not used */
+-	"Instruction",
+-	"Data",
+-	"Unified"	/* unified */
+-};
+-
+-static const char *cache_mattrib[]={
+-	"WriteThrough",
+-	"WriteBack",
+-	"",		/* reserved */
+-	""		/* reserved */
+-};
+-
+-struct cache_info {
+-	pal_cache_config_info_t	cci;
+-	cpumask_t shared_cpu_map;
+-	int level;
+-	int type;
+-	struct kobject kobj;
+-};
+-
+-struct cpu_cache_info {
+-	struct cache_info *cache_leaves;
+-	int	num_cache_leaves;
+-	struct kobject kobj;
+-};
+-
+-static struct cpu_cache_info	all_cpu_cache_info[NR_CPUS];
+-#define LEAF_KOBJECT_PTR(x,y)    (&all_cpu_cache_info[x].cache_leaves[y])
+-
+ #ifdef CONFIG_SMP
+-static void cache_shared_cpu_map_setup(unsigned int cpu,
+-		struct cache_info * this_leaf)
++static int __cache_cpumap_setup(unsigned int cpu, struct cacheinfo *this_leaf)
  {
- 	void *bounce = (void *) addr;
- 	unsigned long size;
-@@ -197,7 +197,7 @@ void *xlate_dev_mem_ptr(unsigned long addr)
- /*
-  * Free converted buffer for /dev/mem access (if necessary)
-  */
--void unxlate_dev_mem_ptr(unsigned long addr, void *buf)
-+void unxlate_dev_mem_ptr(phys_addr_t addr, void *buf)
- {
- 	if ((void *) addr != buf)
- 		free_page((unsigned long) buf);
-diff --git a/arch/x86/include/asm/io.h b/arch/x86/include/asm/io.h
-index b8237d8a1e0c..ae2b593e7c6e 100644
---- a/arch/x86/include/asm/io.h
-+++ b/arch/x86/include/asm/io.h
-@@ -310,8 +310,8 @@ BUILDIO(b, b, char)
- BUILDIO(w, w, short)
- BUILDIO(l, , int)
+ 	pal_cache_shared_info_t	csi;
+-	int num_shared, i = 0;
+-	unsigned int j;
++	int num_shared, i = 0, j;
++	enum cache_type type = this_leaf->type;
  
--extern void *xlate_dev_mem_ptr(unsigned long phys);
--extern void unxlate_dev_mem_ptr(unsigned long phys, void *addr);
-+extern void *xlate_dev_mem_ptr(phys_addr_t phys);
-+extern void unxlate_dev_mem_ptr(phys_addr_t phys, void *addr);
+ 	if (cpu_data(cpu)->threads_per_core <= 1 &&
+ 		cpu_data(cpu)->cores_per_socket <= 1) {
+ 		cpu_set(cpu, this_leaf->shared_cpu_map);
+-		return;
++		return 0;
+ 	}
  
- extern int ioremap_change_attr(unsigned long vaddr, unsigned long size,
- 				unsigned long prot_val);
-diff --git a/arch/x86/mm/ioremap.c b/arch/x86/mm/ioremap.c
-index baff1da354e0..6d9cc45123e5 100644
---- a/arch/x86/mm/ioremap.c
-+++ b/arch/x86/mm/ioremap.c
-@@ -315,7 +315,7 @@ EXPORT_SYMBOL(iounmap);
-  * Convert a physical pointer to a virtual kernel pointer for /dev/mem
-  * access
-  */
--void *xlate_dev_mem_ptr(unsigned long phys)
-+void *xlate_dev_mem_ptr(phys_addr_t phys)
- {
- 	void *addr;
- 	unsigned long start = phys & PAGE_MASK;
-@@ -331,7 +331,7 @@ void *xlate_dev_mem_ptr(unsigned long phys)
- 	return addr;
+-	if (ia64_pal_cache_shared_info(this_leaf->level,
+-					this_leaf->type,
+-					0,
+-					&csi) != PAL_STATUS_SUCCESS)
+-		return;
++	if (type = CACHE_TYPE_UNIFIED)
++		type = CACHE_TYPE_DATA;
++
++	if (ia64_pal_cache_shared_info(this_leaf->level, type, 0,
++				       &csi) != PAL_STATUS_SUCCESS)
++		return -EIO;
+ 
+ 	num_shared = (int) csi.num_shared;
+ 	do {
+@@ -168,305 +133,141 @@ static void cache_shared_cpu_map_setup(unsigned int cpu,
+ 
+ 		i++;
+ 	} while (i < num_shared &&
+-		ia64_pal_cache_shared_info(this_leaf->level,
+-				this_leaf->type,
+-				i,
+-				&csi) = PAL_STATUS_SUCCESS);
+-}
+-#else
+-static void cache_shared_cpu_map_setup(unsigned int cpu,
+-		struct cache_info * this_leaf)
+-{
+-	cpu_set(cpu, this_leaf->shared_cpu_map);
+-	return;
+-}
+-#endif
+-
+-static ssize_t show_coherency_line_size(struct cache_info *this_leaf,
+-					char *buf)
+-{
+-	return sprintf(buf, "%u\n", 1 << this_leaf->cci.pcci_line_size);
++		 ia64_pal_cache_shared_info(this_leaf->level, type, i,
++					    &csi) = PAL_STATUS_SUCCESS);
++	return 0;
  }
  
--void unxlate_dev_mem_ptr(unsigned long phys, void *addr)
-+void unxlate_dev_mem_ptr(phys_addr_t phys, void *addr)
+-static ssize_t show_ways_of_associativity(struct cache_info *this_leaf,
+-					char *buf)
++static int cache_shared_cpu_map_setup(unsigned int cpu)
  {
- 	if (page_is_ram(phys >> PAGE_SHIFT))
- 		return;
-diff --git a/drivers/char/mem.c b/drivers/char/mem.c
-index 917403fe10da..a304e8a6ebf2 100644
---- a/drivers/char/mem.c
-+++ b/drivers/char/mem.c
-@@ -84,9 +84,12 @@ static inline int range_is_allowed(unsigned long pfn, unsigned long size)
+-	return sprintf(buf, "%u\n", this_leaf->cci.pcci_assoc);
++	unsigned int idx;
++	int ret = 0;
++	struct cpu_cacheinfo *this_cpu_ci = get_cpu_cacheinfo(cpu);
++	struct cacheinfo *this_leaf = this_cpu_ci->info_list;
++
++	for (idx = 0; idx < this_cpu_ci->num_leaves; idx++, this_leaf++) {
++		ret = __cache_cpumap_setup(cpu, this_leaf);
++		if (ret)
++			break;
++	}
++	return ret;
  }
- #endif
- 
--void __weak unxlate_dev_mem_ptr(unsigned long phys, void *addr)
-+#ifndef unxlate_dev_mem_ptr
-+#define unxlate_dev_mem_ptr unxlate_dev_mem_ptr
-+void __weak unxlate_dev_mem_ptr(phys_addr_t phys, void *addr)
+-
+-static ssize_t show_attributes(struct cache_info *this_leaf, char *buf)
++#else
++static int cache_shared_cpu_map_setup(unsigned int cpu)
  {
+-	return sprintf(buf,
+-			"%s\n",
+-			cache_mattrib[this_leaf->cci.pcci_cache_attr]);
+-}
++	int idx;
++	struct cpu_cacheinfo *this_cpu_ci = get_cpu_cacheinfo(cpu);
++	struct cacheinfo *this_leaf = this_cpu_ci->info_list;
+ 
+-static ssize_t show_size(struct cache_info *this_leaf, char *buf)
+-{
+-	return sprintf(buf, "%uK\n", this_leaf->cci.pcci_cache_size / 1024);
++	for (idx = 0; idx < this_cpu_ci->num_leaves; idx++, this_leaf++)
++		cpu_set(cpu, this_leaf->shared_cpu_map);
++	return 0;
  }
 +#endif
  
- /*
-  * This funcion reads the *physical* memory. The f_pos points directly to the
-@@ -97,7 +100,7 @@ static ssize_t read_mem(struct file *file, char __user *buf,
+-static ssize_t show_number_of_sets(struct cache_info *this_leaf, char *buf)
++static ssize_t attributes_show(struct device *dev,
++			       struct device_attribute *attr, char *buf)
  {
- 	phys_addr_t p = *ppos;
- 	ssize_t read, sz;
--	char *ptr;
-+	void *ptr;
+-	unsigned number_of_sets = this_leaf->cci.pcci_cache_size;
+-	number_of_sets /= this_leaf->cci.pcci_assoc;
+-	number_of_sets /= 1 << this_leaf->cci.pcci_line_size;
+-
+-	return sprintf(buf, "%u\n", number_of_sets);
++	struct cacheinfo *this_leaf = dev_get_drvdata(dev);
++	unsigned int ci_attr = this_leaf->attributes;
++	int n = 0;
++
++	if (ci_attr & CACHE_WRITE_THROUGH)
++		n = sprintf(buf, "WriteThrough\n");
++	else if (ci_attr & CACHE_WRITE_BACK)
++		n = sprintf(buf, "WriteBack\n");
++	return n;
+ }
  
- 	if (p != *ppos)
- 		return 0;
-@@ -400,7 +403,7 @@ static ssize_t read_kmem(struct file *file, char __user *buf,
- 			 * uncached, then it must also be accessed uncached
- 			 * by the kernel or data corruption may occur
- 			 */
--			kbuf = xlate_dev_kmem_ptr((char *)p);
-+			kbuf = xlate_dev_kmem_ptr((void *)p);
+-static ssize_t show_shared_cpu_map(struct cache_info *this_leaf, char *buf)
+-{
+-	ssize_t	len;
+-	cpumask_t shared_cpu_map;
+-
+-	cpumask_and(&shared_cpu_map,
+-				&this_leaf->shared_cpu_map, cpu_online_mask);
+-	len = cpumask_scnprintf(buf, NR_CPUS+1, &shared_cpu_map);
+-	len += sprintf(buf+len, "\n");
+-	return len;
+-}
++static DEVICE_ATTR_RO(attributes);
  
- 			if (copy_to_user(buf, kbuf, sz))
- 				return -EFAULT;
-@@ -461,7 +464,7 @@ static ssize_t do_write_kmem(unsigned long p, const char __user *buf,
- #endif
+-static ssize_t show_type(struct cache_info *this_leaf, char *buf)
++static umode_t
++cache_private_attrs_is_visible(struct kobject *kobj,
++			       struct attribute *attr, int unused)
+ {
+-	int type = this_leaf->type + this_leaf->cci.pcci_unified;
+-	return sprintf(buf, "%s\n", cache_types[type]);
+-}
++	struct device *dev = kobj_to_dev(kobj);
++	struct cacheinfo *this_leaf = dev_get_drvdata(dev);
  
- 	while (count > 0) {
--		char *ptr;
-+		void *ptr;
+-static ssize_t show_level(struct cache_info *this_leaf, char *buf)
+-{
+-	return sprintf(buf, "%u\n", this_leaf->level);
++	if ((attr = &dev_attr_attributes.attr) && this_leaf->attributes)
++		return attr->mode;
++	return 0;
+ }
  
- 		sz = size_inside_page(p, count);
+-struct cache_attr {
+-	struct attribute attr;
+-	ssize_t (*show)(struct cache_info *, char *);
+-	ssize_t (*store)(struct cache_info *, const char *, size_t count);
+-};
+-
+-#ifdef define_one_ro
+-	#undef define_one_ro
+-#endif
+-#define define_one_ro(_name) \
+-	static struct cache_attr _name = \
+-__ATTR(_name, 0444, show_##_name, NULL)
+-
+-define_one_ro(level);
+-define_one_ro(type);
+-define_one_ro(coherency_line_size);
+-define_one_ro(ways_of_associativity);
+-define_one_ro(size);
+-define_one_ro(number_of_sets);
+-define_one_ro(shared_cpu_map);
+-define_one_ro(attributes);
+-
+-static struct attribute * cache_default_attrs[] = {
+-	&type.attr,
+-	&level.attr,
+-	&coherency_line_size.attr,
+-	&ways_of_associativity.attr,
+-	&attributes.attr,
+-	&size.attr,
+-	&number_of_sets.attr,
+-	&shared_cpu_map.attr,
++static struct attribute *cache_priv_attrs[] = {
++	&dev_attr_attributes.attr,
+ 	NULL
+ };
  
-@@ -470,7 +473,7 @@ static ssize_t do_write_kmem(unsigned long p, const char __user *buf,
- 		 * it must also be accessed uncached by the kernel or data
- 		 * corruption may occur.
- 		 */
--		ptr = xlate_dev_kmem_ptr((char *)p);
-+		ptr = xlate_dev_kmem_ptr((void *)p);
+-#define to_object(k) container_of(k, struct cache_info, kobj)
+-#define to_attr(a) container_of(a, struct cache_attr, attr)
+-
+-static ssize_t ia64_cache_show(struct kobject * kobj, struct attribute * attr, char * buf)
+-{
+-	struct cache_attr *fattr = to_attr(attr);
+-	struct cache_info *this_leaf = to_object(kobj);
+-	ssize_t ret;
+-
+-	ret = fattr->show ? fattr->show(this_leaf, buf) : 0;
+-	return ret;
+-}
+-
+-static const struct sysfs_ops cache_sysfs_ops = {
+-	.show   = ia64_cache_show
+-};
+-
+-static struct kobj_type cache_ktype = {
+-	.sysfs_ops	= &cache_sysfs_ops,
+-	.default_attrs	= cache_default_attrs,
++static struct attribute_group cache_private_group = {
++	.attrs = cache_priv_attrs,
++	.is_visible = cache_private_attrs_is_visible,
+ };
  
- 		copied = copy_from_user(ptr, buf, sz);
- 		if (copied) {
+-static struct kobj_type cache_ktype_percpu_entry = {
+-	.sysfs_ops	= &cache_sysfs_ops,
+-};
+-
+-static void cpu_cache_sysfs_exit(unsigned int cpu)
++const struct attribute_group *
++cache_get_priv_group(struct cacheinfo *this_leaf)
+ {
+-	kfree(all_cpu_cache_info[cpu].cache_leaves);
+-	all_cpu_cache_info[cpu].cache_leaves = NULL;
+-	all_cpu_cache_info[cpu].num_cache_leaves = 0;
+-	memset(&all_cpu_cache_info[cpu].kobj, 0, sizeof(struct kobject));
+-	return;
+-}
+-
+-static int cpu_cache_sysfs_init(unsigned int cpu)
+-{
+-	unsigned long i, levels, unique_caches;
+-	pal_cache_config_info_t cci;
+-	int j;
+-	long status;
+-	struct cache_info *this_cache;
+-	int num_cache_leaves = 0;
+-
+-	if ((status = ia64_pal_cache_summary(&levels, &unique_caches)) != 0) {
+-		printk(KERN_ERR "ia64_pal_cache_summary=%ld\n", status);
+-		return -1;
+-	}
+-
+-	this_cache=kzalloc(sizeof(struct cache_info)*unique_caches,
+-			GFP_KERNEL);
+-	if (this_cache = NULL)
+-		return -ENOMEM;
+-
+-	for (i=0; i < levels; i++) {
+-		for (j=2; j >0 ; j--) {
+-			if ((status=ia64_pal_cache_config_info(i,j, &cci)) !-					PAL_STATUS_SUCCESS)
+-				continue;
+-
+-			this_cache[num_cache_leaves].cci = cci;
+-			this_cache[num_cache_leaves].level = i + 1;
+-			this_cache[num_cache_leaves].type = j;
+-
+-			cache_shared_cpu_map_setup(cpu,
+-					&this_cache[num_cache_leaves]);
+-			num_cache_leaves ++;
+-		}
+-	}
+-
+-	all_cpu_cache_info[cpu].cache_leaves = this_cache;
+-	all_cpu_cache_info[cpu].num_cache_leaves = num_cache_leaves;
+-
+-	memset(&all_cpu_cache_info[cpu].kobj, 0, sizeof(struct kobject));
+-
+-	return 0;
++	return &cache_private_group;
+ }
+ 
+-/* Add cache interface for CPU device */
+-static int cache_add_dev(struct device *sys_dev)
++static void ci_leaf_init(struct cacheinfo *this_leaf,
++			 pal_cache_config_info_t *cci,
++			 enum cache_type type, unsigned int level)
+ {
+-	unsigned int cpu = sys_dev->id;
+-	unsigned long i, j;
+-	struct cache_info *this_object;
+-	int retval = 0;
+-	cpumask_t oldmask;
+-
+-	if (all_cpu_cache_info[cpu].kobj.parent)
+-		return 0;
+-
+-	oldmask = current->cpus_allowed;
+-	retval = set_cpus_allowed_ptr(current, cpumask_of(cpu));
+-	if (unlikely(retval))
+-		return retval;
+-
+-	retval = cpu_cache_sysfs_init(cpu);
+-	set_cpus_allowed_ptr(current, &oldmask);
+-	if (unlikely(retval < 0))
+-		return retval;
+-
+-	retval = kobject_init_and_add(&all_cpu_cache_info[cpu].kobj,
+-				      &cache_ktype_percpu_entry, &sys_dev->kobj,
+-				      "%s", "cache");
+-	if (unlikely(retval < 0)) {
+-		cpu_cache_sysfs_exit(cpu);
+-		return retval;
+-	}
+-
+-	for (i = 0; i < all_cpu_cache_info[cpu].num_cache_leaves; i++) {
+-		this_object = LEAF_KOBJECT_PTR(cpu,i);
+-		retval = kobject_init_and_add(&(this_object->kobj),
+-					      &cache_ktype,
+-					      &all_cpu_cache_info[cpu].kobj,
+-					      "index%1lu", i);
+-		if (unlikely(retval)) {
+-			for (j = 0; j < i; j++) {
+-				kobject_put(&(LEAF_KOBJECT_PTR(cpu,j)->kobj));
+-			}
+-			kobject_put(&all_cpu_cache_info[cpu].kobj);
+-			cpu_cache_sysfs_exit(cpu);
+-			return retval;
+-		}
+-		kobject_uevent(&(this_object->kobj), KOBJ_ADD);
+-	}
+-	kobject_uevent(&all_cpu_cache_info[cpu].kobj, KOBJ_ADD);
+-	return retval;
++	unsigned number_of_sets = cci->pcci_cache_size;
++
++	number_of_sets /= cci->pcci_assoc;
++	number_of_sets /= 1 << cci->pcci_line_size;
++	this_leaf->level = level;
++	this_leaf->type = cci->pcci_unified ? CACHE_TYPE_UNIFIED : type;
++	this_leaf->coherency_line_size = cci->pcci_line_size;
++	this_leaf->ways_of_associativity = cci->pcci_assoc;
++	this_leaf->size = cci->pcci_cache_size;
++	this_leaf->attributes = cci->pcci_cache_attr;
++	this_leaf->number_of_sets = number_of_sets;
+ }
+ 
+-/* Remove cache interface for CPU device */
+-static int cache_remove_dev(struct device *sys_dev)
++int init_cache_level(unsigned int cpu)
+ {
+-	unsigned int cpu = sys_dev->id;
+-	unsigned long i;
++	struct cpu_cacheinfo *this_cpu_ci = get_cpu_cacheinfo(cpu);
++	unsigned long levels, unique_caches;
++	long status;
+ 
+-	for (i = 0; i < all_cpu_cache_info[cpu].num_cache_leaves; i++)
+-		kobject_put(&(LEAF_KOBJECT_PTR(cpu,i)->kobj));
++	if (!this_cpu_ci)
++		return -EINVAL;
+ 
+-	if (all_cpu_cache_info[cpu].kobj.parent) {
+-		kobject_put(&all_cpu_cache_info[cpu].kobj);
+-		memset(&all_cpu_cache_info[cpu].kobj,
+-			0,
+-			sizeof(struct kobject));
++	status = ia64_pal_cache_summary(&levels, &unique_caches);
++	if (status != PAL_STATUS_SUCCESS) {
++		pr_err("ia64_pal_cache_summary = %ld\n", status);
++		return -EIO;
+ 	}
+-
+-	cpu_cache_sysfs_exit(cpu);
++	this_cpu_ci->num_levels = levels;
++	this_cpu_ci->num_leaves = unique_caches;
+ 
+ 	return 0;
+ }
+ 
+-/*
+- * When a cpu is hot-plugged, do a check and initiate
+- * cache kobject if necessary
+- */
+-static int cache_cpu_callback(struct notifier_block *nfb,
+-		unsigned long action, void *hcpu)
+-{
+-	unsigned int cpu = (unsigned long)hcpu;
+-	struct device *sys_dev;
+-
+-	sys_dev = get_cpu_device(cpu);
+-	switch (action) {
+-	case CPU_ONLINE:
+-	case CPU_ONLINE_FROZEN:
+-		cache_add_dev(sys_dev);
+-		break;
+-	case CPU_DEAD:
+-	case CPU_DEAD_FROZEN:
+-		cache_remove_dev(sys_dev);
+-		break;
+-	}
+-	return NOTIFY_OK;
+-}
+-
+-static struct notifier_block cache_cpu_notifier -{
+-	.notifier_call = cache_cpu_callback
+-};
+-
+-static int __init cache_sysfs_init(void)
++int populate_cache_leaves(unsigned int cpu)
+ {
+-	int i;
+-
+-	cpu_notifier_register_begin();
+-
+-	for_each_online_cpu(i) {
+-		struct device *sys_dev = get_cpu_device((unsigned int)i);
+-		cache_add_dev(sys_dev);
++	unsigned int level, idx;
++	s64 status;
++	pal_cache_config_info_t cci;
++	enum cache_type type;
++	struct cpu_cacheinfo *this_cpu_ci = get_cpu_cacheinfo(cpu);
++	struct cacheinfo *this_leaf = this_cpu_ci->info_list;
++
++	for (idx = 0, level = 1; level <= this_cpu_ci->num_levels &&
++	     idx < this_cpu_ci->num_leaves; idx++, level++) {
++		if (!this_leaf)
++			return -EINVAL;
++
++		type = CACHE_TYPE_INST;
++		status = ia64_pal_cache_config_info(level - 1, type, &cci);
++		if (status = PAL_STATUS_SUCCESS)
++			ci_leaf_init(this_leaf++, &cci, type, level);
++		type = CACHE_TYPE_DATA;
++		status = ia64_pal_cache_config_info(level - 1, type, &cci);
++		if (status = PAL_STATUS_SUCCESS)
++			ci_leaf_init(this_leaf++, &cci, type, level);
+ 	}
+-
+-	__register_hotcpu_notifier(&cache_cpu_notifier);
+-
+-	cpu_notifier_register_done();
+-
+-	return 0;
++	return cache_shared_cpu_map_setup(cpu);
+ }
+-
+-device_initcall(cache_sysfs_init);
+-
 -- 
-2.0.4
+1.8.3.2
 
