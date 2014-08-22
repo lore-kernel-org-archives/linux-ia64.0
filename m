@@ -1,18 +1,17 @@
-From: Chen Gang <gang.chen.5i5j@gmail.com>
-Date: Wed, 13 Aug 2014 08:16:32 +0000
+From: Michal Marek <mmarek@suse.cz>
+Date: Fri, 22 Aug 2014 11:09:17 +0000
 Subject: Re: [PATCH v2] arch: Kconfig: Let all little endian architectures define CPU_LITTLE_ENDIAN explicitl
-Message-Id: <53EB1EE0.20002@gmail.com>
+Message-Id: <53F724DD.1080605@suse.cz>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <53EA99C3.90203@gmail.com> <CAMuHMdV_2b-A+eE--cXEFA68=72HK6mqx8+TCXRMVkyhESLYxQ@mail.gmail.com>
 In-Reply-To: <CAMuHMdV_2b-A+eE--cXEFA68=72HK6mqx8+TCXRMVkyhESLYxQ@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Geert Uytterhoeven <geert@linux-m68k.org>
+To: Geert Uytterhoeven <geert@linux-m68k.org>, Chen Gang <gang.chen.5i5j@gmail.com>
 Cc: Arnd Bergmann <arnd@arndb.de>, Andrew Morton <akpm@linux-foundation.org>, Jean Delvare <jdelvare@suse.de>, Russell King <linux@arm.linux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>, Mark Salter <msalter@redhat.com>, "a-jacquiot@ti.com" <a-jacquiot@ti.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, the arch/x86 maintainers <x86@kernel.org>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, linux-c6x-dev@linux-c6x.org, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Linux-Arch <linux-arch@vger.kernel.org>, linux-kbuild <linux-kbuild@vger.kernel.org>
 
-
-On 8/13/14 16:03, Geert Uytterhoeven wrote:
+Dne 13.8.2014 10:03, Geert Uytterhoeven napsal(a):
 > CC kbuild
 > 
 > On Wed, Aug 13, 2014 at 12:48 AM, Chen Gang <gang.chen.5i5j@gmail.com> wrote:
@@ -36,20 +35,14 @@ On 8/13/14 16:03, Geert Uytterhoeven wrote:
 > I'm wondering if we should have the "config CPU_LITTLE_ENDIAN" in
 > common Kconfig code instead, and make the individual architectures do a
 > "select CPU_LITTLE_ENDIAN"?
-> 
 
-That sounds a good idea to me.
+Yes!
+
 
 > Also we could have "config CPU_BIG_ENDIAN", too, and error out
 > if none or both are selected (can Kconfig error out?).
-> 
 
-It is a good idea to me, welcome any members ideas, especially Kbuild
-members' ideas, suggestions or completions.
+We can error out in the Makefile, if there is consensus that we should
+be doing so.
 
-
-Thanks.
--- 
-Chen Gang
-
-Open, share, and attitude like air, water, and life which God blessed
+Michal
