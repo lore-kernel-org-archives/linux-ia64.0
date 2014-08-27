@@ -1,118 +1,73 @@
-From: Sudeep Holla <sudeep.holla@arm.com>
-Date: Thu, 21 Aug 2014 10:59:43 +0000
-Subject: [PATCH v3 00/11] drivers: cacheinfo support
-Message-Id: <1408618794-28497-1-git-send-email-sudeep.holla@arm.com>
+From: Jan Kiszka <jan.kiszka@siemens.com>
+Date: Wed, 27 Aug 2014 15:21:30 +0000
+Subject: [PATCH v9 15/23] scripts/gdb: Add internal helper and convenience function to retrieve thread_info
+Message-Id: <02c6115ad9be1d673dd7d74aa24ff4a5262b99d0.1409152897.git.jan.kiszka@siemens.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1406306692-7135-1-git-send-email-sudeep.holla@arm.com>
-In-Reply-To: <1406306692-7135-1-git-send-email-sudeep.holla@arm.com>
+References: <cover.1409152897.git.jan.kiszka@siemens.com>
+In-Reply-To: <cover.1409152897.git.jan.kiszka@siemens.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: LKML <linux-kernel@vger.kernel.org>
-Cc: sudeep.holla@arm.com, Heiko Carstens <heiko.carstens@de.ibm.com>, Lorenzo Pieralisi <Lorenzo.Pieralisi@arm.com>, Stephen Boyd <sboyd@codeaurora.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-ia64@vger.kernel.org, linux390@de.ibm.com, linux-s390@vger.kernel.org, x86@kernel.org, linuxppc-dev@lists.ozlabs.org, linux-arm-kernel@lists.infradead.org
+To: Thomas Gleixner <tglx@linutronix.de>, Andrew Morton <akpm@linux-foundation.org>, linux-kernel@vger.kernel.org
+Cc: Jason Wessel <jason.wessel@windriver.com>, kgdb-bugreport@lists.sourceforge.net, Andi Kleen <andi@firstfloor.org>, Tom Tromey <tromey@redhat.com>, Ben Widawsky <ben@bwidawsk.net>, Borislav Petkov <bp@suse.de>, Tatiana Al-Chueyr Martins <tatiana.alchueyr@gmail.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-From: Sudeep Holla <sudeep.holla@arm.com>
+Add the internal helper get_thread_info that calculates the thread_info
+from a given task variable. Also export this service as a convenience
+function.
 
-This series adds a generic cacheinfo support similar to topology. The
-implementation is based on x86 cacheinfo support. Currently x86, powerpc,
-ia64 and s390 have their own implementations. While adding similar support
-to ARM and ARM64, here is the attempt to make it generic quite similar to
-topology info support. It also adds the missing ABI documentation for
-the cacheinfo sysfs which is already being used.
+Note: ia64 version is untested.
 
-It moves all the existing different implementations on x86, ia64, powerpc
-and s390 to use the generic cacheinfo infrastructure introduced here.
-These changes on non-ARM platforms are only compile tested and tested on x86.
+CC: Tony Luck <tony.luck@intel.com>
+CC: Fenghua Yu <fenghua.yu@intel.com>
+CC: linux-ia64@vger.kernel.org
+Signed-off-by: Jan Kiszka <jan.kiszka@siemens.com>
+---
+ scripts/gdb/linux/tasks.py | 35 +++++++++++++++++++++++++++++++++++
+ 1 file changed, 35 insertions(+)
 
-This series also adds support for ARM and ARM64 architectures based on
-the generic support.
-
-The code can be fetched from:
- git://linux-arm.org/linux-skn cacheinfo
-
-Changes v2->v3:
-	- Added {allocation,write}_policy instead of single attributes sysfs
-	  (attributes retained on ia64 privately as it was used only on that)
-	- factored out show_cpumap into separate helper in cpumask.h
-	- populate cpu_{map,list} for non-DT system if they are not populated
-	  by arch specific callbacks
-	- removed use of sysfs *_show callback in cache_attrs_is_visible
-	- all the review comments from Stephen Boyd implemented
-
-Changes v1->v2:
-	- removed custom device_{add,remove}_attrs, using is_visible callback
-	  instead(suggested by GregKH)
-	- arm64: changes as per MarkR review comments
-	- Moved smp_call_function_single to architectures using it(arm, arm64,
-	  x86) (suggested by Stephen Boyd)
-	- arm (mostly changes as per RMK's review comments)
-		- fixed to allow v7 + v6 build
-		- l2 cache changes to remove extra structure
-		- populated CTR for few StrongARM CPU's not implementing CTR
-
-[v1] https://lkml.org/lkml/2014/6/25/603
-[v2] https://lkml.org/lkml/2014/7/25/467
-
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: linux-ia64@vger.kernel.org
-Cc: linux390@de.ibm.com
-Cc: linux-s390@vger.kernel.org
-Cc: x86@kernel.org
-Cc: linuxppc-dev@lists.ozlabs.org
-Cc: linux-arm-kernel@lists.infradead.org
-
-Sudeep Holla (11):
-  cpumask: factor out show_cpumap into separate helper function
-  topology: replace custom attribute macros with standard DEVICE_ATTR*
-  drivers: base: add new class "cpu" to group cpu devices
-  drivers: base: support cpu cache information interface to userspace
-    via sysfs
-  ia64: move cacheinfo sysfs to generic cacheinfo infrastructure
-  s390: move cacheinfo sysfs to generic cacheinfo infrastructure
-  x86: move cacheinfo sysfs to generic cacheinfo infrastructure
-  powerpc: move cacheinfo sysfs to generic cacheinfo infrastructure
-  ARM64: kernel: add support for cpu cache information
-  ARM: kernel: add support for cpu cache information
-  ARM: kernel: add outer cache support for cacheinfo implementation
-
- Documentation/ABI/testing/sysfs-devices-system-cpu |  47 ++
- arch/arm/include/asm/outercache.h                  |   9 +
- arch/arm/kernel/Makefile                           |   1 +
- arch/arm/kernel/cacheinfo.c                        | 287 ++++++++
- arch/arm/mm/Kconfig                                |  13 +
- arch/arm/mm/cache-l2x0.c                           |  35 +-
- arch/arm/mm/cache-tauros2.c                        |  36 +
- arch/arm/mm/cache-xsc3l2.c                         |  17 +
- arch/arm64/kernel/Makefile                         |   2 +-
- arch/arm64/kernel/cacheinfo.c                      | 142 ++++
- arch/ia64/kernel/topology.c                        | 421 +++--------
- arch/powerpc/kernel/cacheinfo.c                    | 812 +++------------------
- arch/powerpc/kernel/cacheinfo.h                    |   8 -
- arch/powerpc/kernel/sysfs.c                        |  12 +-
- arch/s390/kernel/cache.c                           | 388 +++-------
- arch/x86/kernel/cpu/intel_cacheinfo.c              | 709 +++++-------------
- arch/x86/kernel/cpu/perf_event_amd_iommu.c         |   5 +-
- arch/x86/kernel/cpu/perf_event_amd_uncore.c        |   6 +-
- arch/x86/kernel/cpu/perf_event_intel_rapl.c        |   6 +-
- arch/x86/kernel/cpu/perf_event_intel_uncore.c      |   6 +-
- drivers/acpi/acpi_pad.c                            |   6 +-
- drivers/base/Makefile                              |   2 +-
- drivers/base/cacheinfo.c                           | 543 ++++++++++++++
- drivers/base/core.c                                |  39 +-
- drivers/base/cpu.c                                 |  12 +-
- drivers/base/node.c                                |  14 +-
- drivers/base/topology.c                            |  71 +-
- drivers/pci/pci-sysfs.c                            |  39 +-
- include/linux/cacheinfo.h                          | 100 +++
- include/linux/cpu.h                                |   2 +
- include/linux/cpumask.h                            |  27 +
- 31 files changed, 1826 insertions(+), 1991 deletions(-)
- create mode 100644 arch/arm/kernel/cacheinfo.c
- create mode 100644 arch/arm64/kernel/cacheinfo.c
- delete mode 100644 arch/powerpc/kernel/cacheinfo.h
- create mode 100644 drivers/base/cacheinfo.c
- create mode 100644 include/linux/cacheinfo.h
-
+diff --git a/scripts/gdb/linux/tasks.py b/scripts/gdb/linux/tasks.py
+index 13bb97c..63cd6c5 100644
+--- a/scripts/gdb/linux/tasks.py
++++ b/scripts/gdb/linux/tasks.py
+@@ -71,3 +71,38 @@ return that task_struct variable which PID matches."""
+ 
+ 
+ LxTaskByPidFunc()
++
++
++thread_info_type = utils.CachedType("struct thread_info")
++
++ia64_task_size = None
++
++
++def get_thread_info(task):
++    global thread_info_type
++    thread_info_ptr_type = thread_info_type.get_type().pointer()
++    if utils.is_target_arch("ia64"):
++        global ia64_task_size
++        if ia64_task_size is None:
++            ia64_task_size = gdb.parse_and_eval("sizeof(struct task_struct)")
++        thread_info_addr = task.address + ia64_task_size
++        thread_info = thread_info_addr.cast(thread_info_ptr_type)
++    else:
++        thread_info = task['stack'].cast(thread_info_ptr_type)
++    return thread_info.dereference()
++
++
++class LxThreadInfoFunc (gdb.Function):
++    """Calculate Linux thread_info from task variable.
++
++$lx_thread_info(TASK): Given TASK, return the corresponding thread_info
++variable."""
++
++    def __init__(self):
++        super(LxThreadInfoFunc, self).__init__("lx_thread_info")
++
++    def invoke(self, task):
++        return get_thread_info(task)
++
++
++LxThreadInfoFunc()
 -- 
-1.8.3.2
+1.8.1.1.298.ge7eed54
 
