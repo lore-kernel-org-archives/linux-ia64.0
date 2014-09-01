@@ -1,48 +1,39 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Fri, 05 Sep 2014 09:46:39 +0000
-Subject: [PATCH v1 12/21] MIPS/Xlp: Remove the dead function destroy_irq() to fix build error
-Message-Id: <1409911806-10519-13-git-send-email-wangyijing@huawei.com>
+From: Laszlo Ersek <lersek@redhat.com>
+Date: Mon, 01 Sep 2014 00:53:36 +0000
+Subject: [PATCH 1/5] efi: add macro for EFI_MEMORY_UCE memory attribute
+Message-Id: <1409532820-5027-2-git-send-email-lersek@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1409911806-10519-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1409911806-10519-1-git-send-email-wangyijing@huawei.com>
+References: <1409532820-5027-1-git-send-email-lersek@redhat.com>
+In-Reply-To: <1409532820-5027-1-git-send-email-lersek@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-pci@vger.kernel.org, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, linux-arch@vger.kernel.org, arnab.basu@freescale.com, Bharat.Bhushan@freescale.com, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Thomas Gleixner <tglx@linutronix.de>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, xen-devel@lists.xenproject.org, Joerg Roedel <joro@8bytes.org>, iommu@lists.linux-foundation.org, linux-mips@linux-mips.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, Sebastian Ott <sebott@linux.vnet.ibm.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Chris Metcalf <cmetcalf@tilera.com>
+To: linux-efi@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, x86@kernel.org, linux-ia64@vger.kernel.org, matt.fleming@intel.com, msalter@redhat.com, lersek@redhat.com
 
-Commit 465665f78a7 ("mips: Kill pointless destroy_irq()") removed
-the destroy_irq(). So remove the leftover one in xlp_setup_msix()
-to fix build error.
+Add the following macro from the UEFI spec, for completeness:
 
-arch/mips/pci/msi-xlp.c: In function 'xlp_setup_msix':
-arch/mips/pci/msi-xlp.c:447:3: error: implicit declaration of function 'destroy_irq'..
-cc1: some warnings being treated as errors
-make[1]: *** [arch/mips/pci/msi-xlp.o] Error 1
-make: *** [arch/mips/pci/] Error 2
+  EFI_MEMORY_UCE  Memory cacheability attribute: The memory region
+                  supports being configured as not cacheable, exported,
+                  and supports the "fetch and add" semaphore mechanism.
 
-Signed-off-by: Yijing Wang <wangyiijng@huawei.com>
-Cc: Thomas Gleixner <tglx@linutronix.de>
+Signed-off-by: Laszlo Ersek <lersek@redhat.com>
 ---
- arch/mips/pci/msi-xlp.c |    4 +---
- 1 files changed, 1 insertions(+), 3 deletions(-)
+ include/linux/efi.h | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/arch/mips/pci/msi-xlp.c b/arch/mips/pci/msi-xlp.c
-index fa374fe..e469dc7 100644
---- a/arch/mips/pci/msi-xlp.c
-+++ b/arch/mips/pci/msi-xlp.c
-@@ -443,10 +443,8 @@ static int xlp_setup_msix(uint64_t lnkbase, int node, int link,
- 	msg.data = 0xc00 | msixvec;
- 
- 	ret = irq_set_msi_desc(xirq, desc);
--	if (ret < 0) {
--		destroy_irq(xirq);
-+	if (ret < 0)
- 		return ret;
--	}
- 
- 	write_msi_msg(xirq, &msg);
- 	return 0;
+diff --git a/include/linux/efi.h b/include/linux/efi.h
+index 45cb4ff..b4b1d8d 100644
+--- a/include/linux/efi.h
++++ b/include/linux/efi.h
+@@ -92,6 +92,7 @@ typedef	struct {
+ #define EFI_MEMORY_WC		((u64)0x0000000000000002ULL)	/* write-coalescing */
+ #define EFI_MEMORY_WT		((u64)0x0000000000000004ULL)	/* write-through */
+ #define EFI_MEMORY_WB		((u64)0x0000000000000008ULL)	/* write-back */
++#define EFI_MEMORY_UCE		((u64)0x0000000000000010ULL)	/* uncached, exported */
+ #define EFI_MEMORY_WP		((u64)0x0000000000001000ULL)	/* write-protect */
+ #define EFI_MEMORY_RP		((u64)0x0000000000002000ULL)	/* read-protect */
+ #define EFI_MEMORY_XP		((u64)0x0000000000004000ULL)	/* execute-protect */
 -- 
-1.7.1
+1.8.3.1
+
 
