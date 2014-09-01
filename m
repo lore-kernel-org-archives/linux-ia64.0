@@ -1,140 +1,120 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Fri, 26 Sep 2014 03:12:30 +0000
-Subject: Re: [PATCH v2 04/22] x86/xen/MSI: Eliminate arch_msix_mask_irq() and arch_msi_mask_irq()
-Message-Id: <5424D99E.2000900@huawei.com>
+From: Laszlo Ersek <lersek@redhat.com>
+Date: Mon, 01 Sep 2014 00:53:37 +0000
+Subject: [PATCH 2/5] efi: introduce efi_md_typeattr_format()
+Message-Id: <1409532820-5027-3-git-send-email-lersek@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1411614872-4009-1-git-send-email-wangyijing@huawei.com> <1411614872-4009-5-git-send-email-wangyijing@huawei.com> <20140925143346.GF20089@laptop.dumpdata.com>
-In-Reply-To: <20140925143346.GF20089@laptop.dumpdata.com>
+References: <1409532820-5027-1-git-send-email-lersek@redhat.com>
+In-Reply-To: <1409532820-5027-1-git-send-email-lersek@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Cc: Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, linux-arch@vger.kernel.org, arnab.basu@freescale.com, Bharat.Bhushan@freescale.com, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Thomas Gleixner <tglx@linutronix.de>, xen-devel@lists.xenproject.org, Joerg Roedel <joro@8bytes.org>, iommu@lists.linux-foundation.org, linux-mips@linux-mips.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, Sebastian Ott <sebott@linux.vnet.ibm.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Chris Metcalf <cmetcalf@tilera.com>, Ralf Baechle <ralf@linux-mips.org>, Lucas Stach <l.stach@pengutronix.de>, David Vrabel <david.vrabel@citrix.com>, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>, Michael Ellerman <mpe@ellerman.id.au>, Thierry Reding <thierry.reding@gmail.com>, Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+To: linux-efi@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, x86@kernel.org, linux-ia64@vger.kernel.org, matt.fleming@intel.com, msalter@redhat.com, lersek@redhat.com
 
-On 2014/9/25 22:33, Konrad Rzeszutek Wilk wrote:
-> On Thu, Sep 25, 2014 at 11:14:14AM +0800, Yijing Wang wrote:
->> Commit 0e4ccb150 added two __weak arch functions arch_msix_mask_irq()
->> and arch_msi_mask_irq() to fix a bug found when running xen in x86.
->> Introduced these two funcntions make MSI code complex. And mask/unmask
-> 
-> "These two functions made the MSI code more complex."
+At the moment, there are three architectures debug-printing the EFI memory
+map at initialization: x86, ia64, and arm64. They all use different format
+strings, plus the EFI memory type and the EFI memory attributes are
+similarly hard to decode for a human reader.
 
-OK, will update, thanks.
+Introduce a helper __init function that formats the memory type and the
+memory attributes in a unified way, to a user-provided character buffer.
 
->> is the irq actions related to interrupt controller, should not use
->> weak arch functions to override mask/unmask interfaces. This patch
-> 
-> I am bit baffled of what you are saying.
+The array "memory_type_name" is copied from the arm64 code, temporarily
+duplicating it. The (otherwise optional) braces around each string literal
+in the initializer list are dropped in order to match the kernel coding
+style more closely. The element size is tightened from 32 to 20 bytes
+(maximum actual string length + 1) so that we can derive the field width
+from the element size.
 
-Sorry for my poor English. The meaning is that I think override irq_chip
-mask/unmask irq is better than introduced weak functions.
+Signed-off-by: Laszlo Ersek <lersek@redhat.com>
+---
+ include/linux/efi.h        |  7 ++++++
+ drivers/firmware/efi/efi.c | 57 ++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 64 insertions(+)
 
->> reverted commit 0e4ccb150 and export struct irq_chip msi_chip, modify
->> msi_chip->irq_mask/irq_unmask() in xen init functions to fix this
->> bug for simplicity. Also this is preparation for using struct
->> msi_chip instead of weak arch MSI functions in all platforms.
->> Keep default_msi_mask_irq() and default_msix_mask_irq() in
->> linux/msi.h to make s390 MSI code compile happy, they wiil be removed
-> 
-> s/wiil/will.
-
-Will update, thanks.
-
-> 
->> in the later patch.
->>
->> Tested-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-> 
-> I don't even remember testing it - I guess I did the earlier version.
-
-Yes, I added your tested-by because in last version, you help to test the whole series in xen.
-And I didn't change something in xen part patches in this new version.
-
-> 
-> So a couple of questions since I've totally forgotten about this:
-> 
->> diff --git a/drivers/pci/msi.c b/drivers/pci/msi.c
->> index 50f67a3..5f8f3af 100644
->> --- a/drivers/pci/msi.c
->> +++ b/drivers/pci/msi.c
-...
->>  static void msi_set_mask_bit(struct irq_data *data, u32 flag)
->> @@ -852,7 +842,7 @@ void pci_msi_shutdown(struct pci_dev *dev)
->>  	/* Return the device with MSI unmasked as initial states */
->>  	mask = msi_mask(desc->msi_attrib.multi_cap);
->>  	/* Keep cached state to be restored */
->> -	arch_msi_mask_irq(desc, mask, ~mask);
->> +	__msi_mask_irq(desc, mask, ~mask);
-> 
-> If I am reading this right, it will call the old 'default_msi_mask_irq'
-> which is exactly what we don't want to do under Xen. We want to call
-> the NOP code.
-
-Good catch. I missed this one, it will also be called in xen.
-I need to rework this patch.
-
->>  
->>  	/* Restore dev->irq to its default pin-assertion irq */
->>  	dev->irq = desc->msi_attrib.default_irq;
->> @@ -950,7 +940,7 @@ void pci_msix_shutdown(struct pci_dev *dev)
->>  	/* Return the device with MSI-X masked as initial states */
->>  	list_for_each_entry(entry, &dev->msi_list, list) {
->>  		/* Keep cached states to be restored */
->> -		arch_msix_mask_irq(entry, 1);
->> +		__msix_mask_irq(entry, 1);
-> 
-> Ditto here.
-> 
-> Looking more at this code I have to retract my Reviewed-by and Tested-by
-> on the whole series.
-
-OK, because this patch still need some enhancement.
-
-> 
-> Is it possible to get a git tree for this please?
-
-I will provide a git tree as soon as possible.
-
-Thanks!
-Yijing.
-
-> 
->>  	}
->>  
->>  	msix_clear_and_set_ctrl(dev, PCI_MSIX_FLAGS_ENABLE, 0);
->> diff --git a/include/linux/msi.h b/include/linux/msi.h
->> index 45ef8cb..cc46a62 100644
->> --- a/include/linux/msi.h
->> +++ b/include/linux/msi.h
->> @@ -19,6 +19,8 @@ void read_msi_msg(struct msi_desc *entry, struct msi_msg *msg);
->>  void get_cached_msi_msg(struct msi_desc *entry, struct msi_msg *msg);
->>  void __write_msi_msg(struct msi_desc *entry, struct msi_msg *msg);
->>  void write_msi_msg(unsigned int irq, struct msi_msg *msg);
->> +u32 __msix_mask_irq(struct msi_desc *desc, u32 flag);
->> +u32 __msi_mask_irq(struct msi_desc *desc, u32 mask, u32 flag);
->>  
->>  struct msi_desc {
->>  	struct {
->> @@ -59,8 +61,8 @@ void arch_restore_msi_irqs(struct pci_dev *dev);
->>  
->>  void default_teardown_msi_irqs(struct pci_dev *dev);
->>  void default_restore_msi_irqs(struct pci_dev *dev);
->> -u32 default_msi_mask_irq(struct msi_desc *desc, u32 mask, u32 flag);
->> -u32 default_msix_mask_irq(struct msi_desc *desc, u32 flag);
->> +#define default_msi_mask_irq	__msi_mask_irq
->> +#define default_msix_mask_irq	__msix_mask_irq
->>  
->>  struct msi_chip {
->>  	struct module *owner;
->> -- 
->> 1.7.1
->>
-> 
-> .
-> 
-
-
+diff --git a/include/linux/efi.h b/include/linux/efi.h
+index b4b1d8d..d04d618 100644
+--- a/include/linux/efi.h
++++ b/include/linux/efi.h
+@@ -887,6 +887,13 @@ extern bool efi_poweroff_required(void);
+ 	     (md) <= (efi_memory_desc_t *)((m)->map_end - (m)->desc_size); \
+ 	     (md) = (void *)(md) + (m)->desc_size)
+ 
++/*
++ * Format an EFI memory descriptor's type and attributes to a user-provided
++ * character buffer, as per snprintf(), and return the buffer.
++ */
++char * __init efi_md_typeattr_format(char *buf, size_t size,
++				     const efi_memory_desc_t *md);
++
+ /**
+  * efi_range_is_wc - check the WC bit on an address range
+  * @start: starting kvirt address
+diff --git a/drivers/firmware/efi/efi.c b/drivers/firmware/efi/efi.c
+index 64ecbb5..43d9d25 100644
+--- a/drivers/firmware/efi/efi.c
++++ b/drivers/firmware/efi/efi.c
+@@ -423,3 +423,60 @@ int __init efi_get_fdt_params(struct efi_fdt_params *params, int verbose)
+ 	return ret;
+ }
+ #endif /* CONFIG_EFI_PARAMS_FROM_FDT */
++
++static __initdata char memory_type_name[][20] = {
++	"Reserved",
++	"Loader Code",
++	"Loader Data",
++	"Boot Code",
++	"Boot Data",
++	"Runtime Code",
++	"Runtime Data",
++	"Conventional Memory",
++	"Unusable Memory",
++	"ACPI Reclaim Memory",
++	"ACPI Memory NVS",
++	"Memory Mapped I/O",
++	"MMIO Port Space",
++	"PAL Code"
++};
++
++char * __init efi_md_typeattr_format(char *buf, size_t size,
++				     const efi_memory_desc_t *md)
++{
++	char *pos;
++	int type_len;
++	register u64 attr;
++
++	pos = buf;
++	if (md->type >= ARRAY_SIZE(memory_type_name))
++		type_len = snprintf(pos, size, "[type=%u", md->type);
++	else
++		type_len = snprintf(pos, size, "[%-*s",
++				    (int)(sizeof(memory_type_name[0]) - 1),
++				    memory_type_name[md->type]);
++	if (type_len >= size)
++		return buf;
++
++	pos += type_len;
++	size -= type_len;
++
++	attr = md->attribute;
++	if (attr & ~(EFI_MEMORY_UC | EFI_MEMORY_WC | EFI_MEMORY_WT |
++		     EFI_MEMORY_WB | EFI_MEMORY_UCE | EFI_MEMORY_WP |
++		     EFI_MEMORY_RP | EFI_MEMORY_XP | EFI_MEMORY_RUNTIME))
++		snprintf(pos, size, "|attr=0x%016llx]",
++			 (unsigned long long)attr);
++	else
++		snprintf(pos, size, "|%3s|%2s|%2s|%2s|%3s|%2s|%2s|%2s|%2s]",
++			 attr & EFI_MEMORY_RUNTIME ? "RUN" : "",
++			 attr & EFI_MEMORY_XP      ? "XP"  : "",
++			 attr & EFI_MEMORY_RP      ? "RP"  : "",
++			 attr & EFI_MEMORY_WP      ? "WP"  : "",
++			 attr & EFI_MEMORY_UCE     ? "UCE" : "",
++			 attr & EFI_MEMORY_WB      ? "WB"  : "",
++			 attr & EFI_MEMORY_WT      ? "WT"  : "",
++			 attr & EFI_MEMORY_WC      ? "WC"  : "",
++			 attr & EFI_MEMORY_UC      ? "UC"  : "");
++	return buf;
++}
 -- 
-Thanks!
-Yijing
+1.8.3.1
+
 
