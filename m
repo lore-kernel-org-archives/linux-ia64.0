@@ -1,7 +1,7 @@
 From: Laszlo Ersek <lersek@redhat.com>
-Date: Mon, 01 Sep 2014 00:53:36 +0000
-Subject: [PATCH 1/5] efi: add macro for EFI_MEMORY_UCE memory attribute
-Message-Id: <1409532820-5027-2-git-send-email-lersek@redhat.com>
+Date: Mon, 01 Sep 2014 00:53:39 +0000
+Subject: [PATCH 4/5] ia64: efi: format EFI memory type & attrs with efi_md_typeattr_format()
+Message-Id: <1409532820-5027-5-git-send-email-lersek@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1409532820-5027-1-git-send-email-lersek@redhat.com>
 In-Reply-To: <1409532820-5027-1-git-send-email-lersek@redhat.com>
@@ -10,29 +10,36 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-efi@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, x86@kernel.org, linux-ia64@vger.kernel.org, matt.fleming@intel.com, msalter@redhat.com, lersek@redhat.com
 
-Add the following macro from the UEFI spec, for completeness:
-
-  EFI_MEMORY_UCE  Memory cacheability attribute: The memory region
-                  supports being configured as not cacheable, exported,
-                  and supports the "fetch and add" semaphore mechanism.
-
 Signed-off-by: Laszlo Ersek <lersek@redhat.com>
 ---
- include/linux/efi.h | 1 +
- 1 file changed, 1 insertion(+)
+ arch/ia64/kernel/efi.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/efi.h b/include/linux/efi.h
-index 45cb4ff..b4b1d8d 100644
---- a/include/linux/efi.h
-+++ b/include/linux/efi.h
-@@ -92,6 +92,7 @@ typedef	struct {
- #define EFI_MEMORY_WC		((u64)0x0000000000000002ULL)	/* write-coalescing */
- #define EFI_MEMORY_WT		((u64)0x0000000000000004ULL)	/* write-through */
- #define EFI_MEMORY_WB		((u64)0x0000000000000008ULL)	/* write-back */
-+#define EFI_MEMORY_UCE		((u64)0x0000000000000010ULL)	/* uncached, exported */
- #define EFI_MEMORY_WP		((u64)0x0000000000001000ULL)	/* write-protect */
- #define EFI_MEMORY_RP		((u64)0x0000000000002000ULL)	/* read-protect */
- #define EFI_MEMORY_XP		((u64)0x0000000000004000ULL)	/* execute-protect */
+diff --git a/arch/ia64/kernel/efi.c b/arch/ia64/kernel/efi.c
+index 741b99c..c52d754 100644
+--- a/arch/ia64/kernel/efi.c
++++ b/arch/ia64/kernel/efi.c
+@@ -568,6 +568,7 @@ efi_init (void)
+ 		{
+ 			const char *unit;
+ 			unsigned long size;
++			char buf[64];
+ 
+ 			md = p;
+ 			size = md->num_pages << EFI_PAGE_SHIFT;
+@@ -586,9 +587,10 @@ efi_init (void)
+ 				unit = "KB";
+ 			}
+ 
+-			printk("mem%02d: type=%2u, attr=0x%016lx, "
++			printk("mem%02d: %s "
+ 			       "range=[0x%016lx-0x%016lx) (%4lu%s)\n",
+-			       i, md->type, md->attribute, md->phys_addr,
++			       i, efi_md_typeattr_format(buf, sizeof(buf), md),
++			       md->phys_addr,
+ 			       md->phys_addr + efi_md_size(md), size, unit);
+ 		}
+ 	}
 -- 
 1.8.3.1
 
