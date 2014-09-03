@@ -1,56 +1,149 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Thu, 25 Sep 2014 02:52:14 +0000
-Subject: [PATCH v2 21/22] tile/MSI: Use MSI chip framework to configure MSI/MSI-X irq
-Message-Id: <1411614872-4009-22-git-send-email-wangyijing@huawei.com>
+From: Laszlo Ersek <lersek@redhat.com>
+Date: Wed, 03 Sep 2014 11:32:23 +0000
+Subject: [PATCH v2 5/5] arm64: efi: format EFI memory type & attrs with efi_md_typeattr_format()
+Message-Id: <1409743943-16934-6-git-send-email-lersek@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1411614872-4009-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1411614872-4009-1-git-send-email-wangyijing@huawei.com>
+References: <1409743943-16934-1-git-send-email-lersek@redhat.com>
+In-Reply-To: <1409743943-16934-1-git-send-email-lersek@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, linux-arch@vger.kernel.org, arnab.basu@freescale.com, Bharat.Bhushan@freescale.com, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Thomas Gleixner <tglx@linutronix.de>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, xen-devel@lists.xenproject.org, Joerg Roedel <joro@8bytes.org>, iommu@lists.linux-foundation.org, linux-mips@linux-mips.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, Sebastian Ott <sebott@linux.vnet.ibm.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Chris Metcalf <cmetcalf@tilera.com>, Ralf Baechle <ralf@linux-mips.org>, Lucas Stach <l.stach@pengutronix.de>, David Vrabel <david.vrabel@citrix.com>, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>, Michael Ellerman <mpe@ellerman.id.au>, Thierry Reding <thierry.reding@gmail.com>, Thomas Petazzoni <thomas.petazzoni@free-electrons.com>, Yijing Wang <wangyijing@huawei.com>
+To: mingo@kernel.org, linux-efi@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, x86@kernel.org, linux-ia64@vger.kernel.org, matt.fleming@intel.com, msalter@redhat.com, lersek@redhat.com
 
-Use MSI chip framework instead of arch MSI functions to configure
-MSI/MSI-X irq. So we can manage MSI/MSI-X irq in a unified framework.
+An example log excerpt demonstrating the change:
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+Before the patch:
+
+> Processing EFI memory map:
+>   0x000040000000-0x000040000fff [Loader Data]
+>   0x000040001000-0x00004007ffff [Conventional Memory]
+>   0x000040080000-0x00004072afff [Loader Data]
+>   0x00004072b000-0x00005fdfffff [Conventional Memory]
+>   0x00005fe00000-0x00005fe0ffff [Loader Data]
+>   0x00005fe10000-0x0000964e8fff [Conventional Memory]
+>   0x0000964e9000-0x0000964e9fff [Loader Data]
+>   0x0000964ea000-0x000096c52fff [Loader Code]
+>   0x000096c53000-0x00009709dfff [Boot Code]*
+>   0x00009709e000-0x0000970b3fff [Runtime Code]*
+>   0x0000970b4000-0x0000970f4fff [Runtime Data]*
+>   0x0000970f5000-0x000097117fff [Runtime Code]*
+>   0x000097118000-0x000097199fff [Runtime Data]*
+>   0x00009719a000-0x0000971dffff [Runtime Code]*
+>   0x0000971e0000-0x0000997f8fff [Conventional Memory]
+>   0x0000997f9000-0x0000998f1fff [Boot Data]*
+>   0x0000998f2000-0x0000999eafff [Conventional Memory]
+>   0x0000999eb000-0x00009af09fff [Boot Data]*
+>   0x00009af0a000-0x00009af21fff [Conventional Memory]
+>   0x00009af22000-0x00009af46fff [Boot Data]*
+>   0x00009af47000-0x00009af5bfff [Conventional Memory]
+>   0x00009af5c000-0x00009afe1fff [Boot Data]*
+>   0x00009afe2000-0x00009afe2fff [Conventional Memory]
+>   0x00009afe3000-0x00009c01ffff [Boot Data]*
+>   0x00009c020000-0x00009efbffff [Conventional Memory]
+>   0x00009efc0000-0x00009f14efff [Boot Code]*
+>   0x00009f14f000-0x00009f162fff [Runtime Code]*
+>   0x00009f163000-0x00009f194fff [Runtime Data]*
+>   0x00009f195000-0x00009f197fff [Boot Data]*
+>   0x00009f198000-0x00009f198fff [Runtime Data]*
+>   0x00009f199000-0x00009f1acfff [Conventional Memory]
+>   0x00009f1ad000-0x00009f1affff [Boot Data]*
+>   0x00009f1b0000-0x00009f1b0fff [Runtime Data]*
+>   0x00009f1b1000-0x00009fffffff [Boot Data]*
+>   0x000004000000-0x000007ffffff [Memory Mapped I/O]
+>   0x000009010000-0x000009010fff [Memory Mapped I/O]
+
+After the patch:
+
+> Processing EFI memory map:
+>   0x000040000000-0x000040000fff [Loader Data        |   |  |  |  |   |WB|WT|WC|UC]
+>   0x000040001000-0x00004007ffff [Conventional Memory|   |  |  |  |   |WB|WT|WC|UC]
+>   0x000040080000-0x00004072afff [Loader Data        |   |  |  |  |   |WB|WT|WC|UC]
+>   0x00004072b000-0x00005fdfffff [Conventional Memory|   |  |  |  |   |WB|WT|WC|UC]
+>   0x00005fe00000-0x00005fe0ffff [Loader Data        |   |  |  |  |   |WB|WT|WC|UC]
+>   0x00005fe10000-0x0000964e8fff [Conventional Memory|   |  |  |  |   |WB|WT|WC|UC]
+>   0x0000964e9000-0x0000964e9fff [Loader Data        |   |  |  |  |   |WB|WT|WC|UC]
+>   0x0000964ea000-0x000096c52fff [Loader Code        |   |  |  |  |   |WB|WT|WC|UC]
+>   0x000096c53000-0x00009709dfff [Boot Code          |   |  |  |  |   |WB|WT|WC|UC]*
+>   0x00009709e000-0x0000970b3fff [Runtime Code       |RUN|  |  |  |   |WB|WT|WC|UC]*
+>   0x0000970b4000-0x0000970f4fff [Runtime Data       |RUN|  |  |  |   |WB|WT|WC|UC]*
+>   0x0000970f5000-0x000097117fff [Runtime Code       |RUN|  |  |  |   |WB|WT|WC|UC]*
+>   0x000097118000-0x000097199fff [Runtime Data       |RUN|  |  |  |   |WB|WT|WC|UC]*
+>   0x00009719a000-0x0000971dffff [Runtime Code       |RUN|  |  |  |   |WB|WT|WC|UC]*
+>   0x0000971e0000-0x0000997f8fff [Conventional Memory|   |  |  |  |   |WB|WT|WC|UC]
+>   0x0000997f9000-0x0000998f1fff [Boot Data          |   |  |  |  |   |WB|WT|WC|UC]*
+>   0x0000998f2000-0x0000999eafff [Conventional Memory|   |  |  |  |   |WB|WT|WC|UC]
+>   0x0000999eb000-0x00009af09fff [Boot Data          |   |  |  |  |   |WB|WT|WC|UC]*
+>   0x00009af0a000-0x00009af21fff [Conventional Memory|   |  |  |  |   |WB|WT|WC|UC]
+>   0x00009af22000-0x00009af46fff [Boot Data          |   |  |  |  |   |WB|WT|WC|UC]*
+>   0x00009af47000-0x00009af5bfff [Conventional Memory|   |  |  |  |   |WB|WT|WC|UC]
+>   0x00009af5c000-0x00009afe1fff [Boot Data          |   |  |  |  |   |WB|WT|WC|UC]*
+>   0x00009afe2000-0x00009afe2fff [Conventional Memory|   |  |  |  |   |WB|WT|WC|UC]
+>   0x00009afe3000-0x00009c01ffff [Boot Data          |   |  |  |  |   |WB|WT|WC|UC]*
+>   0x00009c020000-0x00009efbffff [Conventional Memory|   |  |  |  |   |WB|WT|WC|UC]
+>   0x00009efc0000-0x00009f14efff [Boot Code          |   |  |  |  |   |WB|WT|WC|UC]*
+>   0x00009f14f000-0x00009f162fff [Runtime Code       |RUN|  |  |  |   |WB|WT|WC|UC]*
+>   0x00009f163000-0x00009f194fff [Runtime Data       |RUN|  |  |  |   |WB|WT|WC|UC]*
+>   0x00009f195000-0x00009f197fff [Boot Data          |   |  |  |  |   |WB|WT|WC|UC]*
+>   0x00009f198000-0x00009f198fff [Runtime Data       |RUN|  |  |  |   |WB|WT|WC|UC]*
+>   0x00009f199000-0x00009f1acfff [Conventional Memory|   |  |  |  |   |WB|WT|WC|UC]
+>   0x00009f1ad000-0x00009f1affff [Boot Data          |   |  |  |  |   |WB|WT|WC|UC]*
+>   0x00009f1b0000-0x00009f1b0fff [Runtime Data       |RUN|  |  |  |   |WB|WT|WC|UC]*
+>   0x00009f1b1000-0x00009fffffff [Boot Data          |   |  |  |  |   |WB|WT|WC|UC]*
+>   0x000004000000-0x000007ffffff [Memory Mapped I/O  |RUN|  |  |  |   |  |  |  |UC]
+>   0x000009010000-0x000009010fff [Memory Mapped I/O  |RUN|  |  |  |   |  |  |  |UC]
+
+The attribute bitmap is now displayed, in decoded form.
+
+Signed-off-by: Laszlo Ersek <lersek@redhat.com>
 ---
- arch/tile/kernel/pci_gx.c |   14 ++++++++++++--
- 1 files changed, 12 insertions(+), 2 deletions(-)
+ arch/arm64/kernel/efi.c | 26 ++++++--------------------
+ 1 file changed, 6 insertions(+), 20 deletions(-)
 
-diff --git a/arch/tile/kernel/pci_gx.c b/arch/tile/kernel/pci_gx.c
-index e39f9c5..4912b75 100644
---- a/arch/tile/kernel/pci_gx.c
-+++ b/arch/tile/kernel/pci_gx.c
-@@ -1485,7 +1485,7 @@ static struct irq_chip tilegx_msi_chip = {
- 	/* TBD: support set_affinity. */
- };
- 
--int arch_setup_msi_irq(struct pci_dev *pdev, struct msi_desc *desc)
-+static int tile_setup_msi_irq(struct pci_dev *pdev, struct msi_desc *desc)
- {
- 	struct pci_controller *controller;
- 	gxio_trio_context_t *trio_context;
-@@ -1604,7 +1604,17 @@ is_64_failure:
- 	return ret;
+diff --git a/arch/arm64/kernel/efi.c b/arch/arm64/kernel/efi.c
+index 03aaa99..3b1f23c 100644
+--- a/arch/arm64/kernel/efi.c
++++ b/arch/arm64/kernel/efi.c
+@@ -119,23 +119,6 @@ static int __init uefi_init(void)
+ 	return retval;
  }
  
--void arch_teardown_msi_irq(unsigned int irq)
-+void tile_teardown_msi_irq(unsigned int irq)
- {
- 	irq_free_hwirq(irq);
- }
+-static __initdata char memory_type_name[][32] = {
+-	{"Reserved"},
+-	{"Loader Code"},
+-	{"Loader Data"},
+-	{"Boot Code"},
+-	{"Boot Data"},
+-	{"Runtime Code"},
+-	{"Runtime Data"},
+-	{"Conventional Memory"},
+-	{"Unusable Memory"},
+-	{"ACPI Reclaim Memory"},
+-	{"ACPI Memory NVS"},
+-	{"Memory Mapped I/O"},
+-	{"MMIO Port Space"},
+-	{"PAL Code"},
+-};
+-
+ /*
+  * Return true for RAM regions we want to permanently reserve.
+  */
+@@ -166,10 +149,13 @@ static __init void reserve_regions(void)
+ 		paddr = md->phys_addr;
+ 		npages = md->num_pages;
+ 
+-		if (uefi_debug)
+-			pr_info("  0x%012llx-0x%012llx [%s]",
++		if (uefi_debug) {
++			char buf[64];
 +
-+static struct msi_chip tile_msi_chip = {
-+	.setup_irq = tile_setup_msi_irq,
-+	.teardown_irq = tile_teardown_msi_irq,
-+};
-+
-+struct msi_chip *arch_find_msi_chip(struct pci_dev *dev)
-+{
-+	return &tile_msi_chip;
-+}
++			pr_info("  0x%012llx-0x%012llx %s",
+ 				paddr, paddr + (npages << EFI_PAGE_SHIFT) - 1,
+-				memory_type_name[md->type]);
++				efi_md_typeattr_format(buf, sizeof(buf), md));
++		}
+ 
+ 		memrange_efi_to_native(&paddr, &npages);
+ 		size = npages << PAGE_SHIFT;
 -- 
-1.7.1
+1.8.3.1
 
