@@ -1,32 +1,24 @@
-From: Peter Hurley <peter@hurleysoftware.com>
-Date: Thu, 04 Sep 2014 19:42:35 +0000
+From: "H. Peter Anvin" <hpa@zytor.com>
+Date: Thu, 04 Sep 2014 22:14:48 +0000
 Subject: Re: bit fields && data tearing
-Message-Id: <5408C0AB.6050801@hurleysoftware.com>
+Message-Id: <5408E458.3@zytor.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20140712181328.GA8738@redhat.com>	<54079B70.4050200@hurleysoftware.com>	<1409785893.30640.118.camel@pasglop>	<21512.10628.412205.873477@gargle.gargle.HOWL>	<20140904090952.GW17454@tucnak.redhat.com>	<540859EC.5000407@hurleysoftware.com> <20140904175044.4697aee4@alan.etchedpixels.co.uk>
-In-Reply-To: <20140904175044.4697aee4@alan.etchedpixels.co.uk>
+References: <20140712181328.GA8738@redhat.com>	 <54079B70.4050200@hurleysoftware.com> <1409785893.30640.118.camel@pasglop>	 <063D6719AE5E284EB5DD2968C1650D6D17487172@AcuExch.aculab.com> <1409824374.4246.62.camel@pasglop>
+In-Reply-To: <1409824374.4246.62.camel@pasglop>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
-Cc: Jakub Jelinek <jakub@redhat.com>, Mikael Pettersson <mikpelinux@gmail.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, Richard Henderson <rth@twiddle.net>, Oleg Nesterov <oleg@redhat.com>, Miroslav Franc <mfranc@redhat.com>, Paul Mackerras <paulus@samba.org>, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, David Laight <David.Laight@ACULAB.COM>
+Cc: Peter Hurley <peter@hurleysoftware.com>, Jakub Jelinek <jakub@redhat.com>, "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>, Tony Luck <tony.luck@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Oleg Nesterov <oleg@redhat.com>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Paul Mackerras <paulus@samba.org>, "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, Miroslav Franc <mfranc@redhat.com>, Richard Henderson <rth@twiddle.net>
 
-On 09/04/2014 12:50 PM, One Thousand Gnomes wrote:
->> Besides updating the documentation, it may make sense to do something
->> arch-specific. Just bumping out storage on arches that don't need it
->> seems wasteful, as does generating bus locks on arches that don't need it.
->> Unfortunately, the code churn looks unavoidable.
+On 09/04/2014 02:52 AM, Benjamin Herrenschmidt wrote:
 > 
-> The arch specific is pretty much set_bit and friends. Bus locks on a
-> locally owned cache line should not be very expensive on anything vaguely
-> modern, while uniprocessor boxes usually only have to generate set_bit
-> as a single instruction so it is interrupt safe.
+> Yeah correct, alpha and bytes right ? Is there any other ? That's why I
+> suggested int.
+> 
 
-Or we could give up on the Alpha.
+Even for Alpha it is only the 21064 AFAIK.
 
-It's not just the non-atomic bytes; we could do away with the
-read_barrier_depends() which hardly any code gets correctly anyway.
+	-hpa
 
-Regards,
-Peter Hurley
 
