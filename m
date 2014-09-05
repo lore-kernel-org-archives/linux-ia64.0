@@ -1,63 +1,28 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Date: Fri, 05 Sep 2014 12:37:17 +0000
-Subject: RE: bit fields && data tearing
-Message-Id: <063D6719AE5E284EB5DD2968C1650D6D17488265@AcuExch.aculab.com>
+From: Peter Hurley <peter@hurleysoftware.com>
+Date: Fri, 05 Sep 2014 15:31:57 +0000
+Subject: Re: bit fields && data tearing
+Message-Id: <5409D76D.2070203@hurleysoftware.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <54079B70.4050200@hurleysoftware.com>
- <1409785893.30640.118.camel@pasglop>
- <21512.10628.412205.873477@gargle.gargle.HOWL>
- <20140904090952.GW17454@tucnak.redhat.com>
- <540859EC.5000407@hurleysoftware.com>
- <20140904175044.4697aee4@alan.etchedpixels.co.uk>
- <5408C0AB.6050801@hurleysoftware.com>
- <20140905001751.GL5001@linux.vnet.ibm.com>
- <1409883098.5078.14.camel@jarvis.lan> <5409243C.4080704@hurleysoftware.com>
- <20140905040645.GO5001@linux.vnet.ibm.com>
- <063D6719AE5E284EB5DD2968C1650D6D17487F66@AcuExch.aculab.com>
- <5409AD0A.5090305@hurleysoftware.com>
-In-Reply-To: <5409AD0A.5090305@hurleysoftware.com>
+References: <20140712181328.GA8738@redhat.com>	 <54079B70.4050200@hurleysoftware.com> <1409785893.30640.118.camel@pasglop>	 <063D6719AE5E284EB5DD2968C1650D6D17487172@AcuExch.aculab.com> <1409824374.4246.62.camel@pasglop> <5408E458.3@zytor.com> <54090AF4.7060406@hurleysoftware.com> <54091B30.7080100@zytor.com>
+In-Reply-To: <54091B30.7080100@zytor.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: 'Peter Hurley' <peter@hurleysoftware.com>, "'paulmck@linux.vnet.ibm.com'" <paulmck@linux.vnet.ibm.com>
-Cc: Jakub Jelinek <jakub@redhat.com>, One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>, "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Mikael Pettersson <mikpelinux@gmail.com>, Oleg Nesterov <oleg@redhat.com>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, James Bottomley <James.Bottomley@HansenPartnership.com>, Tony Luck <tony.luck@intel.com>, Paul Mackerras <paulus@samba.org>, "H. Peter Anvin" <hpa@zytor.com>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, Miroslav Franc <mfranc@redhat.com>, Richard Henderson <rth@twiddle.net>, "linux-arm@vger.kernel.org" <linux-arm@vger.kernel.org>
+To: "H. Peter Anvin" <hpa@zytor.com>
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>, David Laight <David.Laight@ACULAB.COM>, Jakub Jelinek <jakub@redhat.com>, "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>, Tony Luck <tony.luck@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Oleg Nesterov <oleg@redhat.com>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Paul Mackerras <paulus@samba.org>, "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, Miroslav Franc <mfranc@redhat.com>, Richard Henderson <rth@twiddle.net>, linux-alpha@vger.kernel.org
 
-RnJvbTogUGV0ZXIgSHVybGV5DQo+IFsgK2NjIGxpbnV4LWFybSBdDQo+IA0KPiBIaSBEYXZpZCwN
-Cj4gDQo+IE9uIDA5LzA1LzIwMTQgMDQ6MzAgQU0sIERhdmlkIExhaWdodCB3cm90ZToNCj4gPiBJ
-J3ZlIHNlZW4gZ2NjIGdlbmVyYXRlIDMyYml0IGFjY2Vzc2VzIGZvciAxNmJpdCBzdHJ1Y3R1cmUg
-bWVtYmVycyBvbiBhcm0uDQo+ID4gSXQgZG9lcyB0aGlzIGJlY2F1c2Ugb2YgdGhlIG1vcmUgbGlt
-aXRlZCByYW5nZSBvZiB0aGUgb2Zmc2V0cyBmb3IgdGhlIDE2Yml0IGFjY2Vzcy4NCj4gPiBPVE9I
-IEkgZG9uJ3Qga25vdyBpZiBpdCBldmVyIGRpZCB0aGlzIGZvciB3cml0ZXMgLSBzbyBpdCBtYXkg
-YmUgbW9vdC4NCj4gDQo+IENhbiB5b3UgcmVjYWxsIHRoZSBwYXJ0aWN1bGFycywgbGlrZSB3aGF0
-IEFSTSBjb25maWcgb3Igd2hhdCBjb2RlPw0KPiANCj4gSSB0cmllZCBhbiBvdmVybHktc2ltcGxl
-IHRlc3QgdG8gc2VlIGlmIGdjYyB3b3VsZCBidW1wIHVwIHRvIHRoZSB3b3JkIGxvYWQgZm9yDQo+
-IHRoZSAxMi1iaXQgb2Zmc2V0IG1vZGUsIGJ1dCBpdCBzdHVjayB3aXRoIHJlZ2lzdGVyIG9mZnNl
-dCByYXRoZXIgdGhhbiBpbW1lZGlhdGUNCj4gb2Zmc2V0LiBbSSB1c2VkIHRoZSBjb21waWxlciBv
-cHRpb25zIGZvciBhbGxtb2Rjb25maWcgYW5kIGEgNC44IGNyb3NzLWNvbXBpbGVyLl0NCj4gDQo+
-IE1heWJlIHRoZSB0ZXN0IGRvZXNuJ3QgZ2VuZXJhdGUgZW5vdWdoIHJlZ2lzdGVyIHByZXNzdXJl
-IG9uIHRoZSBjb21waWxlcj8NCg0KRHVubm8sIEkgd291bGQgaGF2ZSBiZWVuIHVzaW5nIGEgbXVj
-aCBvbGRlciB2ZXJzaW9uIG9mIHRoZSBjb21waWxlci4NCkl0IGlzIHBvc3NpYmxlIHRoYXQgaXQg
-ZG9lc24ndCBkbyBpdCBhbnkgbW9yZS4NCkl0IG1pZ2h0IG9ubHkgaGF2ZSBkb25lIGl0IGZvciBs
-b2Fkcy4NCg0KVGhlIGNvbXBpbGVyIHVzZWQgdG8gdXNlIG1pc2FsaWduZWQgMzJiaXQgbG9hZHMg
-Zm9yIHN0cnVjdHVyZQ0KbWVtYmVycyBvbiBsYXJnZSA0bisyIGJ5dGUgYm91bmRhcmllcyBhcyB3
-ZWxsLg0KSSdtIHByZXR0eSBzdXJlIGl0IGRvZXNuJ3QgZG8gdGhhdCBlaXRoZXIuDQoNClRoZXJl
-IGhhdmUgYmVlbiBhIGxvdCBvZiBjb21waWxlciB2ZXJzaW9ucyBzaW5jZSBJIHdhcyBjb21waWxp
-bmcNCmFueXRoaW5nIGZvciBhcm0uDQoNCglEYXZpZA0KDQo+IFJlZ2FyZHMsDQo+IFBldGVyIEh1
-cmxleQ0KPiANCj4gI2RlZmluZSBBUlJBWV9TSVpFKHgpICAoc2l6ZW9mKHgpL3NpemVvZigoeClb
-MF0pKQ0KPiANCj4gc3RydWN0IHggew0KPiAJbG9uZyB1bnVzZWRbNjRdOw0KPiAJc2hvcnQgYlsx
-Ml07DQo+IAlpbnQgdW51c2VkMlsxMF07DQo+IAlzaG9ydCBjOw0KPiB9Ow0KPiANCj4gdm9pZCBz
-dG9yZV9jKHN0cnVjdCB4ICpwLCBzaG9ydCBhW10pIHsNCj4gCWludCBpOw0KPiANCj4gCWZvciAo
-aSA9IDA7IGkgPCBBUlJBWV9TSVpFKHAtPmIpOyBpKyspDQo+IAkJcC0+YltpXSA9IGFbaV07DQo+
-IAlwLT5jID0gMjsNCj4gfQ0KPiANCj4gDQo+IHZvaWQgc3RvcmVfYyhzdHJ1Y3QgeCAqcCwgc2hv
-cnQgYVtdKSB7DQo+ICAgIDA6CWUxYTBjMDBkIAltb3YJaXAsIHNwDQo+ICAgIDQ6CWUzYTAzMDAw
-IAltb3YJcjMsICMwDQo+ICAgIDg6CWU5MmRkODAwIAlwdXNoCXtmcCwgaXAsIGxyLCBwY30NCj4g
-ICAgYzoJZTI0Y2IwMDQgCXN1YglmcCwgaXAsICM0DQo+IAlpbnQgaTsNCj4gDQo+IAlmb3IgKGkg
-PSAwOyBpIDwgQVJSQVlfU0laRShwLT5iKTsgaSsrKQ0KPiAJCXAtPmJbaV0gPSBhW2ldOw0KPiAg
-IDEwOgllMTkxYzBiMyAJbGRyaAlpcCwgW3IxLCByM10NCj4gICAxNDoJZTA4MDIwMDMgCWFkZAly
-MiwgcjAsIHIzDQo+ICAgMTg6CWUyODIyYzAxIAlhZGQJcjIsIHIyLCAjMjU2CTsgMHgxMDANCj4g
-ICAxYzoJZTI4MzMwMDIgCWFkZAlyMywgcjMsICMyDQo+ICAgMjA6CWUzNTMwMDE4IAljbXAJcjMs
-ICMyNA0KPiAgIDI0OgllMWMyYzBiMCAJc3RyaAlpcCwgW3IyXQ0KPiAgIDI4OgkxYWZmZmZmOCAJ
-Ym5lCTEwIDxzdG9yZV9jKzB4MTA+DQo+IAlwLT5jID0gMjsNCj4gICAyYzoJZTNhMDNkMDUgCW1v
-dglyMywgIzMyMAk7IDB4MTQwDQo+ICAgMzA6CWUzYTAyMDAyIAltb3YJcjIsICMyDQo+ICAgMzQ6
-CWUxODAyMGIzIAlzdHJoCXIyLCBbcjAsIHIzXQ0KPiAgIDM4OgllODlkYTgwMCAJbGRtCXNwLCB7
-ZnAsIHNwLCBwY30NCg0K
+On 09/04/2014 10:08 PM, H. Peter Anvin wrote:
+> On 09/04/2014 05:59 PM, Peter Hurley wrote:
+>> I have no idea how prevalent the ev56 is compared to the ev5.
+>> Still we're talking about a chip that came out in 1996.
+> 
+> Ah yes, I stand corrected.  According to Wikipedia, the affected CPUs
+> were all the 2106x CPUs (EV4, EV45, LCA4, LCA45) plus the 21164 with no
+> suffix (EV5).  However, we're still talking about museum pieces here.
+> 
+> I wonder what the one I have in my garage is... I'm sure I could emulate
+> it faster, though.
+
+Which is a bit ironic because I remember when Digital had a team
+working on emulating native x86 apps on Alpha/NT.
+
