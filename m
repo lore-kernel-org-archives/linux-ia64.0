@@ -1,7 +1,7 @@
-From: Michael Cree <mcree@orcon.net.nz>
-Date: Fri, 05 Sep 2014 20:42:55 +0000
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Date: Fri, 05 Sep 2014 20:43:12 +0000
 Subject: Re: bit fields && data tearing
-Message-Id: <20140905204255.GB4053@omega>
+Message-Id: <20140905204312.GA5001@linux.vnet.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <5408E458.3@zytor.com>
  <54090AF4.7060406@hurleysoftware.com>
@@ -18,7 +18,7 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: "H. Peter Anvin" <hpa@zytor.com>
-Cc: Peter Hurley <peter@hurleysoftware.com>, Marc Gauthier <marc@cadence.com>, "paulmck@linux.vnet.ibm.com" <paulmck@linux.vnet.ibm.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, David Laight <David.Laight@ACULAB.COM>, Jakub Jelinek <jakub@redhat.com>, "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>, Tony Luck <tony.luck@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Oleg Nesterov <oleg@redhat.com>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Paul Mackerras <paulus@samba.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, Miroslav Franc <mfranc@redhat.com>, Richard Henderson <rth@twiddle.net>, "linux-alpha@vger.kernel.org" <linux-alpha@vger.kernel.org>
+Cc: Peter Hurley <peter@hurleysoftware.com>, Marc Gauthier <marc@cadence.com>, Michael Cree <mcree@orcon.net.nz>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, David Laight <David.Laight@ACULAB.COM>, Jakub Jelinek <jakub@redhat.com>, "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>, Tony Luck <tony.luck@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Oleg Nesterov <oleg@redhat.com>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Paul Mackerras <paulus@samba.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, Miroslav Franc <mfranc@redhat.com>, Richard Henderson <rth@twiddle.net>, "linux-alpha@vger.kernel.org" <linux-alpha@vger.kernel.org>
 
 On Fri, Sep 05, 2014 at 01:34:52PM -0700, H. Peter Anvin wrote:
 > On 09/05/2014 01:14 PM, Peter Hurley wrote:
@@ -40,7 +40,8 @@ On Fri, Sep 05, 2014 at 01:34:52PM -0700, H. Peter Anvin wrote:
 > non-SMP configurations would still have problems if interrupted in the
 > wrong place...
 
-Yes.
+And preemption could cause problems, too.  So I believe that it needs
+to be universal.
 
-Cheers
-Michael.
+							Thanx, Paul
+
