@@ -1,77 +1,64 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Date: Fri, 05 Sep 2014 00:17:51 +0000
+From: Peter Hurley <peter@hurleysoftware.com>
+Date: Fri, 05 Sep 2014 00:59:32 +0000
 Subject: Re: bit fields && data tearing
-Message-Id: <20140905001751.GL5001@linux.vnet.ibm.com>
+Message-Id: <54090AF4.7060406@hurleysoftware.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20140712181328.GA8738@redhat.com>
- <54079B70.4050200@hurleysoftware.com>
- <1409785893.30640.118.camel@pasglop>
- <21512.10628.412205.873477@gargle.gargle.HOWL>
- <20140904090952.GW17454@tucnak.redhat.com>
- <540859EC.5000407@hurleysoftware.com>
- <20140904175044.4697aee4@alan.etchedpixels.co.uk>
- <5408C0AB.6050801@hurleysoftware.com>
- <5408E4A3.2060303@zytor.com>
-In-Reply-To: <5408E4A3.2060303@zytor.com>
+References: <20140712181328.GA8738@redhat.com>	 <54079B70.4050200@hurleysoftware.com> <1409785893.30640.118.camel@pasglop>	 <063D6719AE5E284EB5DD2968C1650D6D17487172@AcuExch.aculab.com> <1409824374.4246.62.camel@pasglop> <5408E458.3@zytor.com>
+In-Reply-To: <5408E458.3@zytor.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "H. Peter Anvin" <hpa@zytor.com>
-Cc: Peter Hurley <peter@hurleysoftware.com>, One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>, Jakub Jelinek <jakub@redhat.com>, Mikael Pettersson <mikpelinux@gmail.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Richard Henderson <rth@twiddle.net>, Oleg Nesterov <oleg@redhat.com>, Miroslav Franc <mfranc@redhat.com>, Paul Mackerras <paulus@samba.org>, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org
+To: "H. Peter Anvin" <hpa@zytor.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, David Laight <David.Laight@ACULAB.COM>
+Cc: Jakub Jelinek <jakub@redhat.com>, "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>, Tony Luck <tony.luck@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Oleg Nesterov <oleg@redhat.com>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Paul Mackerras <paulus@samba.org>, "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, Miroslav Franc <mfranc@redhat.com>, Richard Henderson <rth@twiddle.net>, linux-alpha@vger.kernel.org
 
-On Thu, Sep 04, 2014 at 03:16:03PM -0700, H. Peter Anvin wrote:
-> On 09/04/2014 12:42 PM, Peter Hurley wrote:
-> > 
-> > Or we could give up on the Alpha.
-> > 
+[ +cc linux-alpha ]
+
+On 09/04/2014 06:14 PM, H. Peter Anvin wrote:
+> On 09/04/2014 02:52 AM, Benjamin Herrenschmidt wrote:
+>>
+>> Yeah correct, alpha and bytes right ? Is there any other ? That's why I
+>> suggested int.
+>>
 > 
-> If Alpha is turning into Voyager (kept alive only as a museum piece, but
-> actively causing problems) then please let's kill it.
+> Even for Alpha it is only the 21064 AFAIK.
 
-Sorry for being slow to join this thread, but I propose the following
-patch.  If we can remove support for all CPUs that to not support
-direct access to bytes and shorts (which I would very much like to
-see happen), I will remove the last non-guarantee.
+For -mcpu=ev5 (21164) and the following test
 
-							Thanx, Paul
+struct x {
+	long a;
+	char b;
+	char c;
+	char d;
+	char e;
+};
 
-------------------------------------------------------------------------
+void store_b(struct x *p) {
+	p->b = 1;
+}
 
-documentation: Record limitations of bitfields and small variables
+gcc generates:
 
-This commit documents the fact that it is not safe to use bitfields
-as shared variables in synchronization algorithms.
+void store_b(struct x *p) {
+   0:	08 00 30 a0 	ldl	t0,8(a0)
+   4:	01 f1 3f 44 	andnot	t0,0xff,t0
+   8:	01 34 20 44 	or	t0,0x1,t0
+   c:	08 00 30 b0 	stl	t0,8(a0)
+  10:	01 80 fa 6b 	ret
 
-Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+IOW, rmw on 3 adjacent bytes, which is bad :)
+For -mcpu=ev56 (21164A), the generated code is:
 
-diff --git a/Documentation/memory-barriers.txt b/Documentation/memory-barriers.txt
-index 87be0a8a78de..a28bfe4fd759 100644
---- a/Documentation/memory-barriers.txt
-+++ b/Documentation/memory-barriers.txt
-@@ -269,6 +269,26 @@ And there are a number of things that _must_ or _must_not_ be assumed:
- 	STORE *(A + 4) = Y; STORE *A = X;
- 	STORE {*A, *(A + 4) } = {X, Y};
- 
-+And there are anti-guarantees:
-+
-+ (*) These guarantees do not apply to bitfields, because compilers often
-+     generate code to modify these using non-atomic read-modify-write
-+     sequences.  Do not attempt to use bitfields to synchronize parallel
-+     algorithms.
-+
-+ (*) Even in cases where bitfields are protected by locks, all fields
-+     in a given bitfield must be protected by one lock.  If two fields
-+     in a given bitfield are protected by different locks, the compiler's
-+     non-atomic read-modify-write sequences can cause an update to one
-+     field to corrupt the value of an adjacent field.
-+
-+ (*) These guarantees apply only to properly aligned and sized scalar
-+     variables.  "Properly sized" currently means "int" and "long",
-+     because some CPU families do not support loads and stores of
-+     other sizes.  ("Some CPU families" is currently believed to
-+     be only Alpha 21064.  If this is actually the case, a different
-+     non-guarantee is likely to be formulated.)
-+
- 
- ============ WHAT ARE MEMORY BARRIERS?
+void store_b(struct x *p) {
+   0:	01 00 3f 20 	lda	t0,1
+   4:	08 00 30 38 	stb	t0,8(a0)
+   8:	01 80 fa 6b 	ret
+
+which is ok.
+I have no idea how prevalent the ev56 is compared to the ev5.
+Still we're talking about a chip that came out in 1996.
+
+I still hate split caches though.
+
+Regards,
+Peter Hurley
 
