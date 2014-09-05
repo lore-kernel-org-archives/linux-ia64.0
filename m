@@ -1,46 +1,109 @@
-From: Laszlo Ersek <lersek@redhat.com>
-Date: Mon, 01 Sep 2014 00:53:39 +0000
-Subject: [PATCH 4/5] ia64: efi: format EFI memory type & attrs with efi_md_typeattr_format()
-Message-Id: <1409532820-5027-5-git-send-email-lersek@redhat.com>
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Fri, 05 Sep 2014 09:46:51 +0000
+Subject: [PATCH v1 17/21] arm/iop13xx/MSI: Use MSI chip framework to configure MSI/MSI-X irq
+Message-Id: <1409911806-10519-18-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1409532820-5027-1-git-send-email-lersek@redhat.com>
-In-Reply-To: <1409532820-5027-1-git-send-email-lersek@redhat.com>
+References: <1409911806-10519-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1409911806-10519-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-efi@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, x86@kernel.org, linux-ia64@vger.kernel.org, matt.fleming@intel.com, msalter@redhat.com, lersek@redhat.com
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-pci@vger.kernel.org, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, linux-arch@vger.kernel.org, arnab.basu@freescale.com, Bharat.Bhushan@freescale.com, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Thomas Gleixner <tglx@linutronix.de>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, xen-devel@lists.xenproject.org, Joerg Roedel <joro@8bytes.org>, iommu@lists.linux-foundation.org, linux-mips@linux-mips.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, Sebastian Ott <sebott@linux.vnet.ibm.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Chris Metcalf <cmetcalf@tilera.com>
 
-Signed-off-by: Laszlo Ersek <lersek@redhat.com>
+Use MSI chip framework instead of arch MSI functions to configure
+MSI/MSI-X irq. So we can manage MSI/MSI-X irq in a unified framework.
+
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
 ---
- arch/ia64/kernel/efi.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ arch/arm/mach-iop13xx/include/mach/pci.h |    2 ++
+ arch/arm/mach-iop13xx/iq81340mc.c        |    1 +
+ arch/arm/mach-iop13xx/iq81340sc.c        |    1 +
+ arch/arm/mach-iop13xx/msi.c              |    9 +++++++--
+ arch/arm/mach-iop13xx/pci.c              |    6 ++++++
+ 5 files changed, 17 insertions(+), 2 deletions(-)
 
-diff --git a/arch/ia64/kernel/efi.c b/arch/ia64/kernel/efi.c
-index 741b99c..c52d754 100644
---- a/arch/ia64/kernel/efi.c
-+++ b/arch/ia64/kernel/efi.c
-@@ -568,6 +568,7 @@ efi_init (void)
- 		{
- 			const char *unit;
- 			unsigned long size;
-+			char buf[64];
+diff --git a/arch/arm/mach-iop13xx/include/mach/pci.h b/arch/arm/mach-iop13xx/include/mach/pci.h
+index 59f42b5..7a073cb 100644
+--- a/arch/arm/mach-iop13xx/include/mach/pci.h
++++ b/arch/arm/mach-iop13xx/include/mach/pci.h
+@@ -10,6 +10,8 @@ struct pci_bus *iop13xx_scan_bus(int nr, struct pci_sys_data *);
+ void iop13xx_atu_select(struct hw_pci *plat_pci);
+ void iop13xx_pci_init(void);
+ void iop13xx_map_pci_memory(void);
++void iop13xx_add_bus(struct pci_bus *bus);
++extern struct msi_chip iop13xx_msi_chip;
  
- 			md = p;
- 			size = md->num_pages << EFI_PAGE_SHIFT;
-@@ -586,9 +587,10 @@ efi_init (void)
- 				unit = "KB";
- 			}
+ #define IOP_PCI_STATUS_ERROR (PCI_STATUS_PARITY |	     \
+ 			       PCI_STATUS_SIG_TARGET_ABORT | \
+diff --git a/arch/arm/mach-iop13xx/iq81340mc.c b/arch/arm/mach-iop13xx/iq81340mc.c
+index 9cd07d3..19d47cb 100644
+--- a/arch/arm/mach-iop13xx/iq81340mc.c
++++ b/arch/arm/mach-iop13xx/iq81340mc.c
+@@ -59,6 +59,7 @@ static struct hw_pci iq81340mc_pci __initdata = {
+ 	.map_irq	= iq81340mc_pcix_map_irq,
+ 	.scan		= iop13xx_scan_bus,
+ 	.preinit	= iop13xx_pci_init,
++	.add_bus	= iop13xx_add_bus;
+ };
  
--			printk("mem%02d: type=%2u, attr=0x%016lx, "
-+			printk("mem%02d: %s "
- 			       "range=[0x%016lx-0x%016lx) (%4lu%s)\n",
--			       i, md->type, md->attribute, md->phys_addr,
-+			       i, efi_md_typeattr_format(buf, sizeof(buf), md),
-+			       md->phys_addr,
- 			       md->phys_addr + efi_md_size(md), size, unit);
- 		}
+ static int __init iq81340mc_pci_init(void)
+diff --git a/arch/arm/mach-iop13xx/iq81340sc.c b/arch/arm/mach-iop13xx/iq81340sc.c
+index b3ec11c..4d56993 100644
+--- a/arch/arm/mach-iop13xx/iq81340sc.c
++++ b/arch/arm/mach-iop13xx/iq81340sc.c
+@@ -61,6 +61,7 @@ static struct hw_pci iq81340sc_pci __initdata = {
+ 	.scan		= iop13xx_scan_bus,
+ 	.map_irq	= iq81340sc_atux_map_irq,
+ 	.preinit	= iop13xx_pci_init
++	.add_bus	= iop13xx_add_bus;
+ };
+ 
+ static int __init iq81340sc_pci_init(void)
+diff --git a/arch/arm/mach-iop13xx/msi.c b/arch/arm/mach-iop13xx/msi.c
+index e7730cf..1a8cb2f 100644
+--- a/arch/arm/mach-iop13xx/msi.c
++++ b/arch/arm/mach-iop13xx/msi.c
+@@ -132,7 +132,7 @@ static struct irq_chip iop13xx_msi_chip = {
+ 	.irq_unmask = unmask_msi_irq,
+ };
+ 
+-int arch_setup_msi_irq(struct pci_dev *pdev, struct msi_desc *desc)
++static int iop13xx_setup_msi_irq(struct pci_dev *dev, struct msi_desc *desc)
+ {
+ 	int id, irq = irq_alloc_desc_from(IRQ_IOP13XX_MSI_0, -1);
+ 	struct msi_msg msg;
+@@ -159,7 +159,12 @@ int arch_setup_msi_irq(struct pci_dev *pdev, struct msi_desc *desc)
+ 	return 0;
+ }
+ 
+-void arch_teardown_msi_irq(unsigned int irq)
++static void iop13xx_teardown_msi_irq(unsigned int irq)
+ {
+ 	irq_free_desc(irq);
+ }
++
++struct msi_chip iop13xx_chip = {
++	.setup_irq = iop13xx_setup_msi_irq,
++	.teardown_irq = iop13xx_teardown_msi_irq,
++};
+diff --git a/arch/arm/mach-iop13xx/pci.c b/arch/arm/mach-iop13xx/pci.c
+index 9082b84..f498800 100644
+--- a/arch/arm/mach-iop13xx/pci.c
++++ b/arch/arm/mach-iop13xx/pci.c
+@@ -962,6 +962,12 @@ void __init iop13xx_atu_select(struct hw_pci *plat_pci)
  	}
+ }
+ 
++void iop13xx_add_bus(struct pci_bus *bus)
++{
++	if (IS_ENABLED(CONFIG_PCI_MSI))
++		bus->msi = &iop13xx_msi_chip;
++}
++
+ void __init iop13xx_pci_init(void)
+ {
+ 	/* clear pre-existing south bridge errors */
 -- 
-1.8.3.1
-
+1.7.1
 
