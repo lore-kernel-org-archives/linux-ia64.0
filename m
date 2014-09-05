@@ -1,7 +1,7 @@
 From: "H. Peter Anvin" <hpa@zytor.com>
 Date: Fri, 05 Sep 2014 02:08:48 +0000
 Subject: Re: bit fields && data tearing
-Message-Id: <54091B30.2090509@zytor.com>
+Message-Id: <54091B30.7080100@zytor.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20140712181328.GA8738@redhat.com>	 <54079B70.4050200@hurleysoftware.com> <1409785893.30640.118.camel@pasglop>	 <063D6719AE5E284EB5DD2968C1650D6D17487172@AcuExch.aculab.com> <1409824374.4246.62.camel@pasglop> <5408E458.3@zytor.com> <54090AF4.7060406@hurleysoftware.com>
 In-Reply-To: <54090AF4.7060406@hurleysoftware.com>
