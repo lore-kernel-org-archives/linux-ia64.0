@@ -1,149 +1,143 @@
-From: Laszlo Ersek <lersek@redhat.com>
-Date: Wed, 03 Sep 2014 11:32:23 +0000
-Subject: [PATCH v2 5/5] arm64: efi: format EFI memory type & attrs with efi_md_typeattr_format()
-Message-Id: <1409743943-16934-6-git-send-email-lersek@redhat.com>
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Fri, 05 Sep 2014 09:49:12 +0000
+Subject: [PATCH v1 11/21] MIPS/Octeon/MSI: Use MSI chip framework to configure MSI/MSI-X irq
+Message-Id: <1409911806-10519-12-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1409743943-16934-1-git-send-email-lersek@redhat.com>
-In-Reply-To: <1409743943-16934-1-git-send-email-lersek@redhat.com>
+References: <1409911806-10519-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1409911806-10519-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: mingo@kernel.org, linux-efi@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, x86@kernel.org, linux-ia64@vger.kernel.org, matt.fleming@intel.com, msalter@redhat.com, lersek@redhat.com
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-pci@vger.kernel.org, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, linux-arch@vger.kernel.org, arnab.basu@freescale.com, Bharat.Bhushan@freescale.com, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Thomas Gleixner <tglx@linutronix.de>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, xen-devel@lists.xenproject.org, Joerg Roedel <joro@8bytes.org>, iommu@lists.linux-foundation.org, linux-mips@linux-mips.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, Sebastian Ott <sebott@linux.vnet.ibm.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Chris Metcalf <cmetcalf@tilera.com>, Ralf Baechle <ralf@linux-mips.org>, Yijing Wang <wangyijing@huawei.com>
 
-An example log excerpt demonstrating the change:
+Use MSI chip framework instead of arch MSI functions to configure
+MSI/MSI-X irq. So we can manage MSI/MSI-X irq in a unified framework.
 
-Before the patch:
-
-> Processing EFI memory map:
->   0x000040000000-0x000040000fff [Loader Data]
->   0x000040001000-0x00004007ffff [Conventional Memory]
->   0x000040080000-0x00004072afff [Loader Data]
->   0x00004072b000-0x00005fdfffff [Conventional Memory]
->   0x00005fe00000-0x00005fe0ffff [Loader Data]
->   0x00005fe10000-0x0000964e8fff [Conventional Memory]
->   0x0000964e9000-0x0000964e9fff [Loader Data]
->   0x0000964ea000-0x000096c52fff [Loader Code]
->   0x000096c53000-0x00009709dfff [Boot Code]*
->   0x00009709e000-0x0000970b3fff [Runtime Code]*
->   0x0000970b4000-0x0000970f4fff [Runtime Data]*
->   0x0000970f5000-0x000097117fff [Runtime Code]*
->   0x000097118000-0x000097199fff [Runtime Data]*
->   0x00009719a000-0x0000971dffff [Runtime Code]*
->   0x0000971e0000-0x0000997f8fff [Conventional Memory]
->   0x0000997f9000-0x0000998f1fff [Boot Data]*
->   0x0000998f2000-0x0000999eafff [Conventional Memory]
->   0x0000999eb000-0x00009af09fff [Boot Data]*
->   0x00009af0a000-0x00009af21fff [Conventional Memory]
->   0x00009af22000-0x00009af46fff [Boot Data]*
->   0x00009af47000-0x00009af5bfff [Conventional Memory]
->   0x00009af5c000-0x00009afe1fff [Boot Data]*
->   0x00009afe2000-0x00009afe2fff [Conventional Memory]
->   0x00009afe3000-0x00009c01ffff [Boot Data]*
->   0x00009c020000-0x00009efbffff [Conventional Memory]
->   0x00009efc0000-0x00009f14efff [Boot Code]*
->   0x00009f14f000-0x00009f162fff [Runtime Code]*
->   0x00009f163000-0x00009f194fff [Runtime Data]*
->   0x00009f195000-0x00009f197fff [Boot Data]*
->   0x00009f198000-0x00009f198fff [Runtime Data]*
->   0x00009f199000-0x00009f1acfff [Conventional Memory]
->   0x00009f1ad000-0x00009f1affff [Boot Data]*
->   0x00009f1b0000-0x00009f1b0fff [Runtime Data]*
->   0x00009f1b1000-0x00009fffffff [Boot Data]*
->   0x000004000000-0x000007ffffff [Memory Mapped I/O]
->   0x000009010000-0x000009010fff [Memory Mapped I/O]
-
-After the patch:
-
-> Processing EFI memory map:
->   0x000040000000-0x000040000fff [Loader Data        |   |  |  |  |   |WB|WT|WC|UC]
->   0x000040001000-0x00004007ffff [Conventional Memory|   |  |  |  |   |WB|WT|WC|UC]
->   0x000040080000-0x00004072afff [Loader Data        |   |  |  |  |   |WB|WT|WC|UC]
->   0x00004072b000-0x00005fdfffff [Conventional Memory|   |  |  |  |   |WB|WT|WC|UC]
->   0x00005fe00000-0x00005fe0ffff [Loader Data        |   |  |  |  |   |WB|WT|WC|UC]
->   0x00005fe10000-0x0000964e8fff [Conventional Memory|   |  |  |  |   |WB|WT|WC|UC]
->   0x0000964e9000-0x0000964e9fff [Loader Data        |   |  |  |  |   |WB|WT|WC|UC]
->   0x0000964ea000-0x000096c52fff [Loader Code        |   |  |  |  |   |WB|WT|WC|UC]
->   0x000096c53000-0x00009709dfff [Boot Code          |   |  |  |  |   |WB|WT|WC|UC]*
->   0x00009709e000-0x0000970b3fff [Runtime Code       |RUN|  |  |  |   |WB|WT|WC|UC]*
->   0x0000970b4000-0x0000970f4fff [Runtime Data       |RUN|  |  |  |   |WB|WT|WC|UC]*
->   0x0000970f5000-0x000097117fff [Runtime Code       |RUN|  |  |  |   |WB|WT|WC|UC]*
->   0x000097118000-0x000097199fff [Runtime Data       |RUN|  |  |  |   |WB|WT|WC|UC]*
->   0x00009719a000-0x0000971dffff [Runtime Code       |RUN|  |  |  |   |WB|WT|WC|UC]*
->   0x0000971e0000-0x0000997f8fff [Conventional Memory|   |  |  |  |   |WB|WT|WC|UC]
->   0x0000997f9000-0x0000998f1fff [Boot Data          |   |  |  |  |   |WB|WT|WC|UC]*
->   0x0000998f2000-0x0000999eafff [Conventional Memory|   |  |  |  |   |WB|WT|WC|UC]
->   0x0000999eb000-0x00009af09fff [Boot Data          |   |  |  |  |   |WB|WT|WC|UC]*
->   0x00009af0a000-0x00009af21fff [Conventional Memory|   |  |  |  |   |WB|WT|WC|UC]
->   0x00009af22000-0x00009af46fff [Boot Data          |   |  |  |  |   |WB|WT|WC|UC]*
->   0x00009af47000-0x00009af5bfff [Conventional Memory|   |  |  |  |   |WB|WT|WC|UC]
->   0x00009af5c000-0x00009afe1fff [Boot Data          |   |  |  |  |   |WB|WT|WC|UC]*
->   0x00009afe2000-0x00009afe2fff [Conventional Memory|   |  |  |  |   |WB|WT|WC|UC]
->   0x00009afe3000-0x00009c01ffff [Boot Data          |   |  |  |  |   |WB|WT|WC|UC]*
->   0x00009c020000-0x00009efbffff [Conventional Memory|   |  |  |  |   |WB|WT|WC|UC]
->   0x00009efc0000-0x00009f14efff [Boot Code          |   |  |  |  |   |WB|WT|WC|UC]*
->   0x00009f14f000-0x00009f162fff [Runtime Code       |RUN|  |  |  |   |WB|WT|WC|UC]*
->   0x00009f163000-0x00009f194fff [Runtime Data       |RUN|  |  |  |   |WB|WT|WC|UC]*
->   0x00009f195000-0x00009f197fff [Boot Data          |   |  |  |  |   |WB|WT|WC|UC]*
->   0x00009f198000-0x00009f198fff [Runtime Data       |RUN|  |  |  |   |WB|WT|WC|UC]*
->   0x00009f199000-0x00009f1acfff [Conventional Memory|   |  |  |  |   |WB|WT|WC|UC]
->   0x00009f1ad000-0x00009f1affff [Boot Data          |   |  |  |  |   |WB|WT|WC|UC]*
->   0x00009f1b0000-0x00009f1b0fff [Runtime Data       |RUN|  |  |  |   |WB|WT|WC|UC]*
->   0x00009f1b1000-0x00009fffffff [Boot Data          |   |  |  |  |   |WB|WT|WC|UC]*
->   0x000004000000-0x000007ffffff [Memory Mapped I/O  |RUN|  |  |  |   |  |  |  |UC]
->   0x000009010000-0x000009010fff [Memory Mapped I/O  |RUN|  |  |  |   |  |  |  |UC]
-
-The attribute bitmap is now displayed, in decoded form.
-
-Signed-off-by: Laszlo Ersek <lersek@redhat.com>
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
 ---
- arch/arm64/kernel/efi.c | 26 ++++++--------------------
- 1 file changed, 6 insertions(+), 20 deletions(-)
+ arch/mips/pci/msi-octeon.c |   35 ++++++++++++++++++++++-------------
+ 1 files changed, 22 insertions(+), 13 deletions(-)
 
-diff --git a/arch/arm64/kernel/efi.c b/arch/arm64/kernel/efi.c
-index 03aaa99..3b1f23c 100644
---- a/arch/arm64/kernel/efi.c
-+++ b/arch/arm64/kernel/efi.c
-@@ -119,23 +119,6 @@ static int __init uefi_init(void)
- 	return retval;
+diff --git a/arch/mips/pci/msi-octeon.c b/arch/mips/pci/msi-octeon.c
+index ab0c5d1..0335d75 100644
+--- a/arch/mips/pci/msi-octeon.c
++++ b/arch/mips/pci/msi-octeon.c
+@@ -57,7 +57,7 @@ static int msi_irq_size;
+  *
+  * Returns 0 on success.
+  */
+-int arch_setup_msi_irq(struct pci_dev *dev, struct msi_desc *desc)
++static int octeon_setup_msi_irq(struct pci_dev *dev, struct msi_desc *desc)
+ {
+ 	struct msi_msg msg;
+ 	u16 control;
+@@ -133,12 +133,12 @@ msi_irq_allocated:
+ 	/* Make sure the search for available interrupts didn't fail */
+ 	if (irq >= 64) {
+ 		if (request_private_bits) {
+-			pr_err("arch_setup_msi_irq: Unable to find %d free interrupts, trying just one",
++			pr_err("octeon_setup_msi_irq: Unable to find %d free interrupts, trying just one",
+ 			       1 << request_private_bits);
+ 			request_private_bits = 0;
+ 			goto try_only_one;
+ 		} else
+-			panic("arch_setup_msi_irq: Unable to find a free MSI interrupt");
++			panic("octeon_setup_msi_irq: Unable to find a free MSI interrupt");
+ 	}
+ 
+ 	/* MSI interrupts start at logical IRQ OCTEON_IRQ_MSI_BIT0 */
+@@ -169,7 +169,7 @@ msi_irq_allocated:
+ 		msg.address_hi = (0 + CVMX_SLI_PCIE_MSI_RCV) >> 32;
+ 		break;
+ 	default:
+-		panic("arch_setup_msi_irq: Invalid octeon_dma_bar_type");
++		panic("octeon_setup_msi_irq: Invalid octeon_dma_bar_type");
+ 	}
+ 	msg.data = irq - OCTEON_IRQ_MSI_BIT0;
+ 
+@@ -184,7 +184,7 @@ msi_irq_allocated:
+ 	return 0;
  }
  
--static __initdata char memory_type_name[][32] = {
--	{"Reserved"},
--	{"Loader Code"},
--	{"Loader Data"},
--	{"Boot Code"},
--	{"Boot Data"},
--	{"Runtime Code"},
--	{"Runtime Data"},
--	{"Conventional Memory"},
--	{"Unusable Memory"},
--	{"ACPI Reclaim Memory"},
--	{"ACPI Memory NVS"},
--	{"Memory Mapped I/O"},
--	{"MMIO Port Space"},
--	{"PAL Code"},
--};
+-int arch_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
++static int octeon_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
+ {
+ 	struct msi_desc *entry;
+ 	int ret;
+@@ -203,7 +203,7 @@ int arch_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
+ 		return 1;
+ 
+ 	list_for_each_entry(entry, &dev->msi_list, list) {
+-		ret = arch_setup_msi_irq(dev, entry);
++		ret = octeon_setup_msi_irq(dev, entry);
+ 		if (ret < 0)
+ 			return ret;
+ 		if (ret > 0)
+@@ -212,14 +212,13 @@ int arch_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
+ 
+ 	return 0;
+ }
 -
- /*
-  * Return true for RAM regions we want to permanently reserve.
+ /**
+  * Called when a device no longer needs its MSI interrupts. All
+  * MSI interrupts for the device are freed.
+  *
+  * @irq:    The devices first irq number. There may be multple in sequence.
   */
-@@ -166,10 +149,13 @@ static __init void reserve_regions(void)
- 		paddr = md->phys_addr;
- 		npages = md->num_pages;
+-void arch_teardown_msi_irq(unsigned int irq)
++static void octeon_teardown_msi_irq(unsigned int irq)
+ {
+ 	int number_irqs;
+ 	u64 bitmask;
+@@ -228,8 +227,8 @@ void arch_teardown_msi_irq(unsigned int irq)
  
--		if (uefi_debug)
--			pr_info("  0x%012llx-0x%012llx [%s]",
-+		if (uefi_debug) {
-+			char buf[64];
+ 	if ((irq < OCTEON_IRQ_MSI_BIT0)
+ 		|| (irq > msi_irq_size + OCTEON_IRQ_MSI_BIT0))
+-		panic("arch_teardown_msi_irq: Attempted to teardown illegal "
+-		      "MSI interrupt (%d)", irq);
++		panic("octeon_teardown_msi_irq: Attempted to teardown illegal "
++			"MSI interrupt (%d)", irq);
+ 
+ 	irq -= OCTEON_IRQ_MSI_BIT0;
+ 	index = irq / 64;
+@@ -242,7 +241,7 @@ void arch_teardown_msi_irq(unsigned int irq)
+ 	 */
+ 	number_irqs = 0;
+ 	while ((irq0 + number_irqs < 64) &&
+-	       (msi_multiple_irq_bitmask[index]
++		(msi_multiple_irq_bitmask[index]
+ 		& (1ull << (irq0 + number_irqs))))
+ 		number_irqs++;
+ 	number_irqs++;
+@@ -251,8 +250,8 @@ void arch_teardown_msi_irq(unsigned int irq)
+ 	/* Shift the mask to the correct bit location */
+ 	bitmask <<= irq0;
+ 	if ((msi_free_irq_bitmask[index] & bitmask) != bitmask)
+-		panic("arch_teardown_msi_irq: Attempted to teardown MSI "
+-		      "interrupt (%d) not in use", irq);
++		panic("octeon_teardown_msi_irq: Attempted to teardown MSI "
++			"interrupt (%d) not in use", irq);
+ 
+ 	/* Checks are done, update the in use bitmask */
+ 	spin_lock(&msi_free_irq_bitmask_lock);
+@@ -261,6 +260,16 @@ void arch_teardown_msi_irq(unsigned int irq)
+ 	spin_unlock(&msi_free_irq_bitmask_lock);
+ }
+ 
++static struct msi_chip octeon_msi_chip = {
++	.setup_irqs = octeon_setup_msi_irqs,
++	.teardown_irq = octeon_teardown_msi_irq,
++};
 +
-+			pr_info("  0x%012llx-0x%012llx %s",
- 				paddr, paddr + (npages << EFI_PAGE_SHIFT) - 1,
--				memory_type_name[md->type]);
-+				efi_md_typeattr_format(buf, sizeof(buf), md));
-+		}
++struct msi_chip *arch_find_msi_chip(struct pci_dev *dev)
++{
++	return &octeon_msi_chip;
++}
++
+ static DEFINE_RAW_SPINLOCK(octeon_irq_msi_lock);
  
- 		memrange_efi_to_native(&paddr, &npages);
- 		size = npages << PAGE_SHIFT;
+ static u64 msi_rcv_reg[4];
 -- 
-1.8.3.1
+1.7.1
 
