@@ -1,57 +1,110 @@
-From: Michael Cree <mcree@orcon.net.nz>
-Date: Fri, 05 Sep 2014 21:27:27 +0000
+From: James Bottomley <James.Bottomley@HansenPartnership.com>
+Date: Sun, 07 Sep 2014 05:07:22 +0000
 Subject: Re: bit fields && data tearing
-Message-Id: <20140905212727.GA6169@omega>
+Message-Id: <1410066442.12512.13.camel@jarvis.lan>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <54090AF4.7060406@hurleysoftware.com>
- <54091B30.2090509@zytor.com>
- <20140905081648.GB5281@omega>
- <20140905180950.GU5001@linux.vnet.ibm.com>
- <540A05F7.1070202@hurleysoftware.com>
- <20140905190506.GV5001@linux.vnet.ibm.com>
- <8CA974F497CA064FA9926E10ABCC061F05F97E7B77@MAILSJ4.global.cadence.com>
- <540A19B8.4010907@hurleysoftware.com>
- <20140905203951.GA4053@omega>
- <540A273C.7020804@hurleysoftware.com>
-In-Reply-To: <540A273C.7020804@hurleysoftware.com>
+References: <54079B70.4050200@hurleysoftware.com>
+	 <1409785893.30640.118.camel@pasglop>
+	 <21512.10628.412205.873477@gargle.gargle.HOWL>
+	 <20140904090952.GW17454@tucnak.redhat.com>
+	 <540859EC.5000407@hurleysoftware.com>
+	 <20140904175044.4697aee4@alan.etchedpixels.co.uk>
+	 <5408C0AB.6050801@hurleysoftware.com>
+	 <20140905001751.GL5001@linux.vnet.ibm.com>
+	 <1409883098.5078.14.camel@jarvis.lan> <5409243C.4080704@hurleysoftware.com>
+	 <20140905040645.GO5001@linux.vnet.ibm.com>
+In-Reply-To: <20140905040645.GO5001@linux.vnet.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Peter Hurley <peter@hurleysoftware.com>
-Cc: Marc Gauthier <marc@cadence.com>, "paulmck@linux.vnet.ibm.com" <paulmck@linux.vnet.ibm.com>, "H. Peter Anvin" <hpa@zytor.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, David Laight <David.Laight@ACULAB.COM>, Jakub Jelinek <jakub@redhat.com>, "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>, Tony Luck <tony.luck@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Oleg Nesterov <oleg@redhat.com>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Paul Mackerras <paulus@samba.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, Miroslav Franc <mfranc@redhat.com>, Richard Henderson <rth@twiddle.net>, "linux-alpha@vger.kernel.org" <linux-alpha@vger.kernel.org>
+To: paulmck@linux.vnet.ibm.com
+Cc: Peter Hurley <peter@hurleysoftware.com>, "H. Peter Anvin" <hpa@zytor.com>, One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>, Jakub Jelinek <jakub@redhat.com>, Mikael Pettersson <mikpelinux@gmail.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Richard Henderson <rth@twiddle.net>, Oleg Nesterov <oleg@redhat.com>, Miroslav Franc <mfranc@redhat.com>, Paul Mackerras <paulus@samba.org>, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org
 
-On Fri, Sep 05, 2014 at 05:12:28PM -0400, Peter Hurley wrote:
-> On 09/05/2014 04:39 PM, Michael Cree wrote:
-> > On Fri, Sep 05, 2014 at 04:14:48PM -0400, Peter Hurley wrote:
-> >> Second, in the body of the document:
-> >>
-> >> "The Linux kernel no longer supports pre-EV56 Alpha CPUs, because these
-> >> older CPUs _do not provide_ atomic one-byte and two-byte loads and stores."
+On Thu, 2014-09-04 at 21:06 -0700, Paul E. McKenney wrote:
+> On Thu, Sep 04, 2014 at 10:47:24PM -0400, Peter Hurley wrote:
+> > Hi James,
 > > 
-> > Let's be clear here, the pre-EV56 Alpha CPUs do provide an atomic
-> > one-byte and two-byte load and store; it's just that one must use
-> > locked load and store sequences to achieve atomicity.  The point,
-> > I think, is that the pre-EV56 Alpha CPUs provide non-atomic one-byte
-> > and two-byte load and stores as the norm, and that is the problem.
+> > On 09/04/2014 10:11 PM, James Bottomley wrote:
+> > > On Thu, 2014-09-04 at 17:17 -0700, Paul E. McKenney wrote:
+> > >> +And there are anti-guarantees:
+> > >> +
+> > >> + (*) These guarantees do not apply to bitfields, because compilers often
+> > >> +     generate code to modify these using non-atomic read-modify-write
+> > >> +     sequences.  Do not attempt to use bitfields to synchronize parallel
+> > >> +     algorithms.
+> > >> +
+> > >> + (*) Even in cases where bitfields are protected by locks, all fields
+> > >> +     in a given bitfield must be protected by one lock.  If two fields
+> > >> +     in a given bitfield are protected by different locks, the compiler's
+> > >> +     non-atomic read-modify-write sequences can cause an update to one
+> > >> +     field to corrupt the value of an adjacent field.
+> > >> +
+> > >> + (*) These guarantees apply only to properly aligned and sized scalar
+> > >> +     variables.  "Properly sized" currently means "int" and "long",
+> > >> +     because some CPU families do not support loads and stores of
+> > >> +     other sizes.  ("Some CPU families" is currently believed to
+> > >> +     be only Alpha 21064.  If this is actually the case, a different
+> > >> +     non-guarantee is likely to be formulated.)
+> > > 
+> > > This is a bit unclear.  Presumably you're talking about definiteness of
+> > > the outcome (as in what's seen after multiple stores to the same
+> > > variable).
+> > 
+> > No, the last conditions refers to adjacent byte stores from different
+> > cpu contexts (either interrupt or SMP).
+> > 
+> > > The guarantees are only for natural width on Parisc as well,
+> > > so you would get a mess if you did byte stores to adjacent memory
+> > > locations.
+> > 
+> > For a simple test like:
+> > 
+> > struct x {
+> > 	long a;
+> > 	char b;
+> > 	char c;
+> > 	char d;
+> > 	char e;
+> > };
+> > 
+> > void store_bc(struct x *p) {
+> > 	p->b = 1;
+> > 	p->c = 2;
+> > }
+> > 
+> > on parisc, gcc generates separate byte stores
+> > 
+> > void store_bc(struct x *p) {
+> >    0:	34 1c 00 02 	ldi 1,ret0
+> >    4:	0f 5c 12 08 	stb ret0,4(r26)
+> >    8:	34 1c 00 04 	ldi 2,ret0
+> >    c:	e8 40 c0 00 	bv r0(rp)
+> >   10:	0f 5c 12 0a 	stb ret0,5(r26)
+> > 
+> > which appears to confirm that on parisc adjacent byte data
+> > is safe from corruption by concurrent cpu updates; that is,
+> > 
+> > CPU 0                | CPU 1
+> >                      |
+> > p->b = 1             | p->c = 2
+> >                      |
+> > 
+> > will result in p->b = 1 && p->c = 2 (assume both values
+> > were 0 before the call to store_bc()).
 > 
-> I'm all for an Alpha expert to jump in here and meet the criteria;
-> which is that byte stores cannot corrupt adjacent storage (nor can
-> aligned short stores).
+> What Peter said.  I would ask for suggestions for better wording, but
+> I would much rather be able to say that single-byte reads and writes
+> are atomic and that aligned-short reads and writes are also atomic.
 > 
-> To my mind, a quick look at Documentation/circular-buffers.txt will
-> pretty much convince anyone that trying to differentiate by execution
-> context is undoable.
-> 
-> If someone wants to make Alphas do cmpxchg loops for every byte store,
-> then ok. Or any other solution that doesn't require subsystem code
-> changes.
+> Thus far, it looks like we lose only very old Alpha systems, so unless
+> I hear otherwise, I update my patch to outlaw these very old systems.
 
-I am not suggesting that anyone do that work.  I'm certainly not going
-to do it.
+This isn't universally true according to the architecture manual.  The
+PARISC CPU can make byte to long word stores atomic against the memory
+bus but not against the I/O bus for instance.  Atomicity is a property
+of the underlying substrate, not of the CPU.  Implying that atomicity is
+a CPU property is incorrect.
 
-All I was pointing out is that the claim that "_do not provide_" made
-above with emphasis is, strictly interpreted, not true, thus should not
-be committed to the documentation without further clarification.
+James
 
-Cheers
-Michael.
+
