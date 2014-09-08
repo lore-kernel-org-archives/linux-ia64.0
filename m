@@ -1,62 +1,219 @@
 From: Peter Hurley <peter@hurleysoftware.com>
-Date: Mon, 08 Sep 2014 22:47:35 +0000
+Date: Mon, 08 Sep 2014 23:30:07 +0000
 Subject: Re: bit fields && data tearing
-Message-Id: <540E3207.7090007@hurleysoftware.com>
+Message-Id: <540E3BFF.7080307@hurleysoftware.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20140712181328.GA8738@redhat.com>	<54079B70.4050200@hurleysoftware.com>	<1409785893.30640.118.camel@pasglop>	<063D6719AE5E284EB5DD2968C1650D6D17487172@AcuExch.aculab.com>	<1409824374.4246.62.camel@pasglop>	<5408E458.3@zytor.com>	<54090AF4.7060406@hurleysoftware.com>	<54091B30.7080100@zytor.com>	<5409D76D.2070203@hurleysoftware.com>	<5409D9C0.7030403@zytor.com> <20140908185240.21f52ca0@alan.etchedpixels.co.uk> <540DEE6C.2060904@zytor.com>
-In-Reply-To: <540DEE6C.2060904@zytor.com>
+References: <21512.10628.412205.873477@gargle.gargle.HOWL>		 <20140904090952.GW17454@tucnak.redhat.com>		 <540859EC.5000407@hurleysoftware.com>		 <20140904175044.4697aee4@alan.etchedpixels.co.uk>		 <5408C0AB.6050801@hurleysoftware.com>		 <20140905001751.GL5001@linux.vnet.ibm.com>		 <1409883098.5078.14.camel@jarvis.lan>	 <5409243C.4080704@hurleysoftware.com>		 <20140905040645.GO5001@linux.vnet.ibm.com>		 <1410066442.12512.13.camel@jarvis.lan>		 <20140907162146.GK5001@linux.vnet.ibm.com>	 <1410116687.2027.19.camel@jarvis.lan> <540CC305.8010407@hurleysoftware.com> <1410155407.2027.29.camel@jarvis.lan>
+In-Reply-To: <1410155407.2027.29.camel@jarvis.lan>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "H. Peter Anvin" <hpa@zytor.com>, One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
-Cc: David Laight <David.Laight@ACULAB.COM>, Jakub Jelinek <jakub@redhat.com>, "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>, Tony Luck <tony.luck@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Oleg Nesterov <oleg@redhat.com>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Paul Mackerras <paulus@samba.org>, "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, Miroslav Franc <mfranc@redhat.com>, Richard Henderson <rth@twiddle.net>, linux-alpha@vger.kernel.org
+To: James Bottomley <James.Bottomley@HansenPartnership.com>
+Cc: paulmck@linux.vnet.ibm.com, "H. Peter Anvin" <hpa@zytor.com>, One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>, Jakub Jelinek <jakub@redhat.com>, Mikael Pettersson <mikpelinux@gmail.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Richard Henderson <rth@twiddle.net>, Oleg Nesterov <oleg@redhat.com>, Miroslav Franc <mfranc@redhat.com>, Paul Mackerras <paulus@samba.org>, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org
 
-On 09/08/2014 01:59 PM, H. Peter Anvin wrote:
-> On 09/08/2014 10:52 AM, One Thousand Gnomes wrote:
->> On Fri, 05 Sep 2014 08:41:52 -0700
->> "H. Peter Anvin" <hpa@zytor.com> wrote:
+On 09/08/2014 01:50 AM, James Bottomley wrote:
+> On Sun, 2014-09-07 at 16:41 -0400, Peter Hurley wrote:
+>> On 09/07/2014 03:04 PM, James Bottomley wrote:
+>>> On Sun, 2014-09-07 at 09:21 -0700, Paul E. McKenney wrote:
+>>>> On Sat, Sep 06, 2014 at 10:07:22PM -0700, James Bottomley wrote:
+>>>>> On Thu, 2014-09-04 at 21:06 -0700, Paul E. McKenney wrote:
+>>>>>> On Thu, Sep 04, 2014 at 10:47:24PM -0400, Peter Hurley wrote:
+>>>>>>> Hi James,
+>>>>>>>
+>>>>>>> On 09/04/2014 10:11 PM, James Bottomley wrote:
+>>>>>>>> On Thu, 2014-09-04 at 17:17 -0700, Paul E. McKenney wrote:
+>>>>>>>>> +And there are anti-guarantees:
+>>>>>>>>> +
+>>>>>>>>> + (*) These guarantees do not apply to bitfields, because compilers often
+>>>>>>>>> +     generate code to modify these using non-atomic read-modify-write
+>>>>>>>>> +     sequences.  Do not attempt to use bitfields to synchronize parallel
+>>>>>>>>> +     algorithms.
+>>>>>>>>> +
+>>>>>>>>> + (*) Even in cases where bitfields are protected by locks, all fields
+>>>>>>>>> +     in a given bitfield must be protected by one lock.  If two fields
+>>>>>>>>> +     in a given bitfield are protected by different locks, the compiler's
+>>>>>>>>> +     non-atomic read-modify-write sequences can cause an update to one
+>>>>>>>>> +     field to corrupt the value of an adjacent field.
+>>>>>>>>> +
+>>>>>>>>> + (*) These guarantees apply only to properly aligned and sized scalar
+>>>>>>>>> +     variables.  "Properly sized" currently means "int" and "long",
+>>>>>>>>> +     because some CPU families do not support loads and stores of
+>>>>>>>>> +     other sizes.  ("Some CPU families" is currently believed to
+>>>>>>>>> +     be only Alpha 21064.  If this is actually the case, a different
+>>>>>>>>> +     non-guarantee is likely to be formulated.)
+>>>>>>>>
+>>>>>>>> This is a bit unclear.  Presumably you're talking about definiteness of
+>>>>>>>> the outcome (as in what's seen after multiple stores to the same
+>>>>>>>> variable).
+>>>>>>>
+>>>>>>> No, the last conditions refers to adjacent byte stores from different
+>>>>>>> cpu contexts (either interrupt or SMP).
+>>>>>>>
+>>>>>>>> The guarantees are only for natural width on Parisc as well,
+>>>>>>>> so you would get a mess if you did byte stores to adjacent memory
+>>>>>>>> locations.
+>>>>>>>
+>>>>>>> For a simple test like:
+>>>>>>>
+>>>>>>> struct x {
+>>>>>>> 	long a;
+>>>>>>> 	char b;
+>>>>>>> 	char c;
+>>>>>>> 	char d;
+>>>>>>> 	char e;
+>>>>>>> };
+>>>>>>>
+>>>>>>> void store_bc(struct x *p) {
+>>>>>>> 	p->b = 1;
+>>>>>>> 	p->c = 2;
+>>>>>>> }
+>>>>>>>
+>>>>>>> on parisc, gcc generates separate byte stores
+>>>>>>>
+>>>>>>> void store_bc(struct x *p) {
+>>>>>>>    0:	34 1c 00 02 	ldi 1,ret0
+>>>>>>>    4:	0f 5c 12 08 	stb ret0,4(r26)
+>>>>>>>    8:	34 1c 00 04 	ldi 2,ret0
+>>>>>>>    c:	e8 40 c0 00 	bv r0(rp)
+>>>>>>>   10:	0f 5c 12 0a 	stb ret0,5(r26)
+>>>>>>>
+>>>>>>> which appears to confirm that on parisc adjacent byte data
+>>>>>>> is safe from corruption by concurrent cpu updates; that is,
+>>>>>>>
+>>>>>>> CPU 0                | CPU 1
+>>>>>>>                      |
+>>>>>>> p->b = 1             | p->c = 2
+>>>>>>>                      |
+>>>>>>>
+>>>>>>> will result in p->b = 1 && p->c = 2 (assume both values
+>>>>>>> were 0 before the call to store_bc()).
+>>>>>>
+>>>>>> What Peter said.  I would ask for suggestions for better wording, but
+>>>>>> I would much rather be able to say that single-byte reads and writes
+>>>>>> are atomic and that aligned-short reads and writes are also atomic.
+>>>>>>
+>>>>>> Thus far, it looks like we lose only very old Alpha systems, so unless
+>>>>>> I hear otherwise, I update my patch to outlaw these very old systems.
+>>>>>
+>>>>> This isn't universally true according to the architecture manual.  The
+>>>>> PARISC CPU can make byte to long word stores atomic against the memory
+>>>>> bus but not against the I/O bus for instance.  Atomicity is a property
+>>>>> of the underlying substrate, not of the CPU.  Implying that atomicity is
+>>>>> a CPU property is incorrect.
 >>
->>> On 09/05/2014 08:31 AM, Peter Hurley wrote:
->>>>
->>>> Which is a bit ironic because I remember when Digital had a team
->>>> working on emulating native x86 apps on Alpha/NT.
->>>>
->>>
->>> Right, because the x86 architecture was obsolete and would never scale...
->>
->> Talking about "not scaling" can anyone explain how a "you need to use
->> set_bit() and friends" bug report scaled into a hundred message plus
->> discussion about ambiguous properties of processors (and nobody has
->> audited all the embedded platforms we support yet, or the weirder ARMs)
->> and a propsal to remove Alpha support.
->>
->> Wouldn't it be *much* simpler to do what I suggested in the first place
->> and use the existing intended for purpose, deliberately put there,
->> functions for atomic bitops, because they are fast on sane processors and
->> they work on everything else.
->>
->> I think the whole "removing Alpha EV5" support is basically bonkers. Just
->> use set_bit in the tty layer. Alpha will continue to work as well as it
->> always has done and you won't design out support for any future processor
->> that turns out not to do byte aligned stores.
->>
->> Alan
->>
+>> To go back to this briefly, while it's true that atomicity is not
+>> a CPU property, atomicity is not possible if the CPU is not cooperating.
 > 
-> Is *that* what we are talking about?  I was added to this conversation
-> in the middle where it had already generalized, so I had no idea.
+> You mean if it doesn't have the bus logic to emit?  Like ia32 mostly
+> can't do 64 bit writes ... sure.
 
-No, this is just what brought this craziness to my attention.
+Yeah, or Alphas that do rmw for byte storage.
 
-For example, byte- and short-sized circular buffers could not possibly
-be safe either, when the head nears the tail.
+>>>> OK, fair point.
+>>>>
+>>>> But are there in-use-for-Linux PARISC memory fabrics (for normal memory,
+>>>> not I/O) that do not support single-byte and double-byte stores?
+>>>
+>>> For aligned access, I believe that's always the case for the memory bus
+>>> (on both 32 and 64 bit systems).  However, it only applies to machine
+>>> instruction loads and stores of the same width..  If you mix the widths
+>>> on the loads and stores, all bets are off.  That means you have to
+>>> beware of the gcc penchant for coalescing loads and stores: if it sees
+>>> two adjacent byte stores it can coalesce them into a short store
+>>> instead ... that screws up the atomicity guarantees.
+>>
+>> Two things: I think that gcc has given up on combining adjacent writes,
+>> perhaps because unaligned writes on some arches are prohibitive, so
+>> whatever minor optimization was believed to be gained was quickly lost,
+>> multi-fold. (Although this might not be the reason since one would
+>> expect that gcc would know the alignment of the promoted store).
+> 
+> Um, gcc assumes architecturally correct alignment; that's why it pads
+> structures.  Only when accessing packed structures will it use the
+> lowest unit load/store.
+> 
+> if you have a struct { char a, char b }; and load first a then b with a
+> constant gcc will obligingly optimise to a short store.
 
-Who has audited global storage and ensured that _every_ byte-sized write
-doesn't happen to be adjacent to some other storage that may not happen
-to be protected by the same (or any) lock?
+Um, please re-look at the test above. The exact test you describe is
+coded above and compiled with gcc 4.6.3 cross-compiler for parisc using
+the kernel compiler options.
+
+In the generated code, please note the _absence_ of a combined write
+to two adjacent byte stores.
+
+
+>> But additionally, even if gcc combines adjacent writes _that are part
+>> of the program flow_ then I believe the situation is no worse than
+>> would otherwise exist.
+>>
+>> For instance, given the following:
+>>
+>> struct x {
+>> 	spinlock_t lock;
+>> 	long a;
+>> 	byte b;
+>> 	byte c;
+>> };
+>>
+>> void locked_store_b(struct x *p)
+>> {
+>> 	spin_lock(&p->lock);
+>> 	p->b = 1;
+>> 	spin_unlock(&p->lock);
+>> 	p->c = 2;
+>> }
+>>
+>> Granted, the author probably expects ordered writes of
+>> 	STORE B
+>> 	STORE C
+>> but that's not guaranteed because there is no memory barrier
+>> ordering B before C.
+> 
+> Yes, there is: loads and stores may not migrate into or out of critical
+> sections.
+
+That's a common misconception.
+
+The processor is free to re-order this to:
+
+	STORE C
+	STORE B
+	UNLOCK
+
+That's because the unlock() only guarantees that:
+
+Stores before the unlock in program order are guaranteed to complete
+before the unlock completes. Stores after the unlock _may_ complete
+before the unlock completes.
+
+My point was that even if compiler barriers had the same semantics
+as memory barriers, the situation would be no worse. That is, code
+that is sensitive to memory barriers (like the example I gave above)
+would merely have the same fragility with one-way compiler barriers
+(with respect to the compiler combining writes).
+
+That's what I meant by "no worse than would otherwise exist".
+
+>> I see no problem with gcc write-combining in the absence of
+>> memory barriers (as long as alignment is still respected,
+>> ie., the size-promoted write is still naturally aligned). The
+>> combined write is still atomic.
+> 
+> Actual alignment is pretty irrelevant.  That's why all architectures
+> which require alignment also have to implement misaligned traps ... this
+> is a fundamental requirement of the networking code, for instance.
+> 
+> The main problem is gcc thinking there's a misalignment (or a packed
+> structure).  That causes splitting of loads and stores and that destroys
+> atomicity.
+
+Yeah, the extra requirement I added is basically nonsense, since the
+only issue is what instructions the compiler is emitting. So if compiler
+thinks the alignment is natural and combines the writes -- ok. If the
+compiler thinks the alignment is off and doesn't combine the writes --
+also ok.
 
 Regards,
 Peter Hurley
-
-
 
