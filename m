@@ -1,32 +1,45 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Date: Mon, 08 Sep 2014 19:12:50 +0000
+From: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
+Date: Mon, 08 Sep 2014 19:17:22 +0000
 Subject: Re: bit fields && data tearing
-Message-Id: <540DFFB2.9040101@zytor.com>
+Message-Id: <20140908201722.66bc6492@alan.etchedpixels.co.uk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <5408C0AB.6050801@hurleysoftware.com>		 <20140905001751.GL5001@linux.vnet.ibm.com>		 <1409883098.5078.14.camel@jarvis.lan>	 <5409243C.4080704@hurleysoftware.com>		 <20140905040645.GO5001@linux.vnet.ibm.com>		 <1410066442.12512.13.camel@jarvis.lan>		 <20140907162146.GK5001@linux.vnet.ibm.com>		 <1410116687.2027.19.camel@jarvis.lan>		 <20140907230019.GO5001@linux.vnet.ibm.com>		 <6092b453-e0c9-4f6d-922b-48bce988f774@email.android.com>		 <20140907233655.GR5001@linux.vnet.ibm.com>		 <154b540a-df47-4f3e-bdda-ab5d2e72723a@email.android.com>	 <1410155802.2027.36.camel@jarvis.lan> <540DF17C.9080509@zytor.com> <1410203369.2027.56.camel@jarvis.lan>
-In-Reply-To: <1410203369.2027.56.camel@jarvis.lan>
+References: <20140712181328.GA8738@redhat.com>
+	<54079B70.4050200@hurleysoftware.com>
+	<1409785893.30640.118.camel@pasglop>
+	<063D6719AE5E284EB5DD2968C1650D6D17487172@AcuExch.aculab.com>
+	<1409824374.4246.62.camel@pasglop>
+	<5408E458.3@zytor.com>
+	<54090AF4.7060406@hurleysoftware.com>
+	<54091B30.7080100@zytor.com>
+	<5409D76D.2070203@hurleysoftware.com>
+	<5409D9C0.7030403@zytor.com>
+	<20140908185240.21f52ca0@alan.etchedpixels.co.uk>
+	<540DEE6C.2060904@zytor.com>
+In-Reply-To: <540DEE6C.2060904@zytor.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: James Bottomley <James.Bottomley@HansenPartnership.com>
-Cc: paulmck@linux.vnet.ibm.com, Peter Hurley <peter@hurleysoftware.com>, One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>, Jakub Jelinek <jakub@redhat.com>, Mikael Pettersson <mikpelinux@gmail.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Richard Henderson <rth@twiddle.net>, Oleg Nesterov <oleg@redhat.com>, Miroslav Franc <mfranc@redhat.com>, Paul Mackerras <paulus@samba.org>, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org
+To: "H. Peter Anvin" <hpa@zytor.com>
+Cc: Peter Hurley <peter@hurleysoftware.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, David Laight <David.Laight@ACULAB.COM>, Jakub Jelinek <jakub@redhat.com>, "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>, Tony Luck <tony.luck@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Oleg Nesterov <oleg@redhat.com>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Paul Mackerras <paulus@samba.org>, "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, Miroslav Franc <mfranc@redhat.com>, Richard Henderson <rth@twiddle.net>, linux-alpha@vger.kernel.org
 
-On 09/08/2014 12:09 PM, James Bottomley wrote:
+> > I think the whole "removing Alpha EV5" support is basically bonkers. Just
+> > use set_bit in the tty layer. Alpha will continue to work as well as it
+> > always has done and you won't design out support for any future processor
+> > that turns out not to do byte aligned stores.
+> > 
+> > Alan
+> > 
 > 
-> Um, I think you need to re-read the thread; that's not what I said at
-> all. It's even written lower down: "PA can't do atomic bit sets (no
-> atomic RMW except the ldcw operation) it can do atomic writes to
-> fundamental sizes (byte, short, int, long) provided gcc emits the
-> correct primitive".  The original question was whether atomicity
-> required native bus width access, which we currently assume, so there's
-> no extant problem.
+> Is *that* what we are talking about?  I was added to this conversation
+> in the middle where it had already generalized, so I had no idea.
 > 
+> 	-hpa
 
-The issue at hand was whether or not partially overlapped (but natually
-aligned) writes can pass each other.  *This* is the aggressive
-relaxation to which I am referring.
+Yes there are some flags in the tty layer that are vulnerable to this
+(although they've been vulnerable to it and missing a lock since last
+century with no known ill effects).
 
-I would guess that that is a very unusual constraint.
+It's not as if this is causing any work to anyone beyond using the
+standard API, no API needs to change.
 
-	-hpa
-
+Alan
