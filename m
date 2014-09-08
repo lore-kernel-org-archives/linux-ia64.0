@@ -1,7 +1,7 @@
 From: "H. Peter Anvin" <hpa@zytor.com>
 Date: Mon, 08 Sep 2014 19:12:50 +0000
 Subject: Re: bit fields && data tearing
-Message-Id: <540DFFB2.4000509@zytor.com>
+Message-Id: <540DFFB2.9040101@zytor.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <5408C0AB.6050801@hurleysoftware.com>		 <20140905001751.GL5001@linux.vnet.ibm.com>		 <1409883098.5078.14.camel@jarvis.lan>	 <5409243C.4080704@hurleysoftware.com>		 <20140905040645.GO5001@linux.vnet.ibm.com>		 <1410066442.12512.13.camel@jarvis.lan>		 <20140907162146.GK5001@linux.vnet.ibm.com>		 <1410116687.2027.19.camel@jarvis.lan>		 <20140907230019.GO5001@linux.vnet.ibm.com>		 <6092b453-e0c9-4f6d-922b-48bce988f774@email.android.com>		 <20140907233655.GR5001@linux.vnet.ibm.com>		 <154b540a-df47-4f3e-bdda-ab5d2e72723a@email.android.com>	 <1410155802.2027.36.camel@jarvis.lan> <540DF17C.9080509@zytor.com> <1410203369.2027.56.camel@jarvis.lan>
 In-Reply-To: <1410203369.2027.56.camel@jarvis.lan>
