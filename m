@@ -1,55 +1,53 @@
 From: James Bottomley <James.Bottomley@HansenPartnership.com>
-Date: Mon, 08 Sep 2014 22:39:54 +0000
+Date: Mon, 08 Sep 2014 22:43:48 +0000
 Subject: Re: bit fields && data tearing
-Message-Id: <1410215994.2027.86.camel@jarvis.lan>
+Message-Id: <1410216228.2027.88.camel@jarvis.lan>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <5408C0AB.6050801@hurleysoftware.com>
+References: <21512.10628.412205.873477@gargle.gargle.HOWL>
+			 <20140904090952.GW17454@tucnak.redhat.com>
+			 <540859EC.5000407@hurleysoftware.com>
+			 <20140904175044.4697aee4@alan.etchedpixels.co.uk>
+			 <5408C0AB.6050801@hurleysoftware.com>
 			 <20140905001751.GL5001@linux.vnet.ibm.com>
 			 <1409883098.5078.14.camel@jarvis.lan>
 		 <5409243C.4080704@hurleysoftware.com>
 			 <20140905040645.GO5001@linux.vnet.ibm.com>
 			 <1410066442.12512.13.camel@jarvis.lan>
 			 <20140907162146.GK5001@linux.vnet.ibm.com>
-			 <1410116687.2027.19.camel@jarvis.lan>
-			 <20140907230019.GO5001@linux.vnet.ibm.com>
-			 <6092b453-e0c9-4f6d-922b-48bce988f774@email.android.com>
-			 <20140907233655.GR5001@linux.vnet.ibm.com>
-			 <154b540a-df47-4f3e-bdda-ab5d2e72723a@email.android.com>
-		 <1410155802.2027.36.camel@jarvis.lan> <540DF17C.9080509@zytor.com>
-	 <1410203369.2027.56.camel@jarvis.lan> <540DFFB2.4000509@zytor.com>
-In-Reply-To: <540DFFB2.4000509@zytor.com>
+		 <1410116687.2027.19.camel@jarvis.lan>
+	 <540CC305.8010407@hurleysoftware.com> <1410155407.2027.29.camel@jarvis.lan>
+	 <540E1587.3060108@tilera.com>
+In-Reply-To: <540E1587.3060108@tilera.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "H. Peter Anvin" <hpa@zytor.com>
-Cc: paulmck@linux.vnet.ibm.com, Peter Hurley <peter@hurleysoftware.com>, One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>, Jakub Jelinek <jakub@redhat.com>, Mikael Pettersson <mikpelinux@gmail.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Richard Henderson <rth@twiddle.net>, Oleg Nesterov <oleg@redhat.com>, Miroslav Franc <mfranc@redhat.com>, Paul Mackerras <paulus@samba.org>, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org
+To: Chris Metcalf <cmetcalf@tilera.com>
+Cc: Peter Hurley <peter@hurleysoftware.com>, paulmck@linux.vnet.ibm.com, "H. Peter Anvin" <hpa@zytor.com>, One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>, Jakub Jelinek <jakub@redhat.com>, Mikael Pettersson <mikpelinux@gmail.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Richard Henderson <rth@twiddle.net>, Oleg Nesterov <oleg@redhat.com>, Miroslav Franc <mfranc@redhat.com>, Paul Mackerras <paulus@samba.org>, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org
 
-On Mon, 2014-09-08 at 12:12 -0700, H. Peter Anvin wrote:
-> On 09/08/2014 12:09 PM, James Bottomley wrote:
-> > 
-> > Um, I think you need to re-read the thread; that's not what I said at
-> > all. It's even written lower down: "PA can't do atomic bit sets (no
-> > atomic RMW except the ldcw operation) it can do atomic writes to
-> > fundamental sizes (byte, short, int, long) provided gcc emits the
-> > correct primitive".  The original question was whether atomicity
-> > required native bus width access, which we currently assume, so there's
-> > no extant problem.
-> > 
+On Mon, 2014-09-08 at 16:45 -0400, Chris Metcalf wrote:
+> On 9/8/2014 1:50 AM, James Bottomley wrote:
+> > Actual alignment is pretty irrelevant.  That's why all architectures
+> > which require alignment also have to implement misaligned traps ... this
+> > is a fundamental requirement of the networking code, for instance.
 > 
-> The issue at hand was whether or not partially overlapped (but natually
-> aligned) writes can pass each other.  *This* is the aggressive
-> relaxation to which I am referring.
+> Can you clarify what you think the requirement is?  The tile architecture
+> doesn't support misaligned load/store in general, but we do support it for
+> userspace (using a nifty JIT approach with a direct-map hash table kept
+> in userspace), and also for get_user/put_user.  But that's it, and,
+> the networking subsystem works fine for us.
 
-I don't understand what you mean by "pass each other".  Atomicity
-guarantees are not ordering guarantees in a SMP environment.  The
-guarantee is that if you follow the rules when two CPUs update the same
-natural width aligned object simultaneously using the same primitive,
-the result is either one or the other of their updates.  Which one wins
-(the ordering) isn't defined.
+This was years ago (possibly decades).  We had to implement in-kernel
+unaligned traps for the networking layer because it could access short
+and int fields that weren't of the correct alignment when processing
+packets.  It that's all corrected now, we wouldn't really notice (except
+a bit of a speed up since an unaligned trap effectively places the
+broken out instructions into the bit stream).
 
 James
 
 
-> I would guess that that is a very unusual constraint.
+> Occasionally we report bugs for driver code that doesn't use the
+> get_unaligned_xxx() macros and friends, and our fixes are generally taken
+> upstream.
 
 
