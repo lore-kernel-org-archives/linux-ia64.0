@@ -1,93 +1,79 @@
 From: Peter Hurley <peter@hurleysoftware.com>
-Date: Tue, 09 Sep 2014 10:40:41 +0000
+Date: Tue, 09 Sep 2014 11:14:23 +0000
 Subject: Re: bit fields && data tearing
-Message-Id: <540ED929.5040305@hurleysoftware.com>
+Message-Id: <540EE10F.5050802@hurleysoftware.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <21512.10628.412205.873477@gargle.gargle.HOWL>			 <20140904090952.GW17454@tucnak.redhat.com>			 <540859EC.5000407@hurleysoftware.com>			 <20140904175044.4697aee4@alan.etchedpixels.co.uk>			 <5408C0AB.6050801@hurleysoftware.com>			 <20140905001751.GL5001@linux.vnet.ibm.com>			 <1409883098.5078.14.camel@jarvis.lan>		 <5409243C.4080704@hurleysoftware.com>			 <20140905040645.GO5001@linux.vnet.ibm.com>			 <1410066442.12512.13.camel@jarvis.lan>			 <20140907162146.GK5001@linux.vnet.ibm.com>		 <1410116687.2027.19.camel@jarvis.lan>	 <540CC305.8010407@hurleysoftware.com> <1410155407.2027.29.camel@jarvis.lan>	 <540E3BFF.7080307@hurleysoftware.com> <1410231392.2028.15.camel@jarvis.lan>
-In-Reply-To: <1410231392.2028.15.camel@jarvis.lan>
+References: <20140712181328.GA8738@redhat.com>	<54079B70.4050200@hurleysoftware.com>	<1409785893.30640.118.camel@pasglop>	<063D6719AE5E284EB5DD2968C1650D6D17487172@AcuExch.aculab.com>	<1409824374.4246.62.camel@pasglop>	<5408E458.3@zytor.com>	<54090AF4.7060406@hurleysoftware.com>	<54091B30.7080100@zytor.com>	<5409D76D.2070203@hurleysoftware.com>	<5409D9C0.7030403@zytor.com> <20140908185240.21f52ca0@alan.etchedpixels.co.uk> <540DEE6C.2060904@zytor.com> <540E3207.7090007@hurleysoftware.com>
+In-Reply-To: <540E3207.7090007@hurleysoftware.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: James Bottomley <James.Bottomley@HansenPartnership.com>
-Cc: paulmck@linux.vnet.ibm.com, "H. Peter Anvin" <hpa@zytor.com>, One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>, Jakub Jelinek <jakub@redhat.com>, Mikael Pettersson <mikpelinux@gmail.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Richard Henderson <rth@twiddle.net>, Oleg Nesterov <oleg@redhat.com>, Miroslav Franc <mfranc@redhat.com>, Paul Mackerras <paulus@samba.org>, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org
+To: "H. Peter Anvin" <hpa@zytor.com>, One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
+Cc: David Laight <David.Laight@ACULAB.COM>, Jakub Jelinek <jakub@redhat.com>, "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>, Tony Luck <tony.luck@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Oleg Nesterov <oleg@redhat.com>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Paul Mackerras <paulus@samba.org>, "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, Miroslav Franc <mfranc@redhat.com>, Richard Henderson <rth@twiddle.net>, linux-alpha@vger.kernel.org
 
-On 09/08/2014 10:56 PM, James Bottomley wrote:
-> On Mon, 2014-09-08 at 19:30 -0400, Peter Hurley wrote:
->> On 09/08/2014 01:50 AM, James Bottomley wrote:
->>>> But additionally, even if gcc combines adjacent writes _that are part
->>>> of the program flow_ then I believe the situation is no worse than
->>>> would otherwise exist.
->>>>
->>>> For instance, given the following:
->>>>
->>>> struct x {
->>>> 	spinlock_t lock;
->>>> 	long a;
->>>> 	byte b;
->>>> 	byte c;
->>>> };
->>>>
->>>> void locked_store_b(struct x *p)
->>>> {
->>>> 	spin_lock(&p->lock);
->>>> 	p->b = 1;
->>>> 	spin_unlock(&p->lock);
->>>> 	p->c = 2;
->>>> }
->>>>
->>>> Granted, the author probably expects ordered writes of
->>>> 	STORE B
->>>> 	STORE C
->>>> but that's not guaranteed because there is no memory barrier
->>>> ordering B before C.
+On 09/08/2014 06:47 PM, Peter Hurley wrote:
+> On 09/08/2014 01:59 PM, H. Peter Anvin wrote:
+>> On 09/08/2014 10:52 AM, One Thousand Gnomes wrote:
+>>> On Fri, 05 Sep 2014 08:41:52 -0700
+>>> "H. Peter Anvin" <hpa@zytor.com> wrote:
 >>>
->>> Yes, there is: loads and stores may not migrate into or out of critical
->>> sections.
->>
->> That's a common misconception.
->>
->> The processor is free to re-order this to:
->>
->> 	STORE C
->> 	STORE B
->> 	UNLOCK
->>
->> That's because the unlock() only guarantees that:
->>
->> Stores before the unlock in program order are guaranteed to complete
->> before the unlock completes. Stores after the unlock _may_ complete
->> before the unlock completes.
->>
->> My point was that even if compiler barriers had the same semantics
->> as memory barriers, the situation would be no worse. That is, code
->> that is sensitive to memory barriers (like the example I gave above)
->> would merely have the same fragility with one-way compiler barriers
->> (with respect to the compiler combining writes).
->>
->> That's what I meant by "no worse than would otherwise exist".
+>>>> On 09/05/2014 08:31 AM, Peter Hurley wrote:
+>>>>>
+>>>>> Which is a bit ironic because I remember when Digital had a team
+>>>>> working on emulating native x86 apps on Alpha/NT.
+>>>>>
+>>>>
+>>>> Right, because the x86 architecture was obsolete and would never scale...
+>>>
+>>> Talking about "not scaling" can anyone explain how a "you need to use
+>>> set_bit() and friends" bug report scaled into a hundred message plus
+>>> discussion about ambiguous properties of processors (and nobody has
+>>> audited all the embedded platforms we support yet, or the weirder ARMs)
+>>> and a propsal to remove Alpha support.
+>>>
+>>> Wouldn't it be *much* simpler to do what I suggested in the first place
+>>> and use the existing intended for purpose, deliberately put there,
+>>> functions for atomic bitops, because they are fast on sane processors and
+>>> they work on everything else.
+
+And much simpler how?
+
+By turning a 4- line patch into a 400- line patch?
+
+And what about multi-value assignments for which set_bit() doesn't work, like
+the byte-sized ->ctrl_status field? Is the expectation to submit a patch
+which fixes that for a system from 1995, but already works for everything else?
+
+The extra complexity comes with real cost; reduced reliability for every other
+arch .
+
+>>> I think the whole "removing Alpha EV5" support is basically bonkers. Just
+>>> use set_bit in the tty layer. Alpha will continue to work as well as it
+>>> always has done and you won't design out support for any future processor
+>>> that turns out not to do byte aligned stores.
+
+I thought the overriding design principle of this kernel was to support
+what exists now, not design-in support for the future which may have
+different requirements than expected anyway.
+
+
+>> Is *that* what we are talking about?  I was added to this conversation
+>> in the middle where it had already generalized, so I had no idea.
 > 
-> Actually, that's not correct.  This is actually deja vu with me on the
-> other side of the argument.  When we first did spinlocks on PA, I argued
-> as you did: lock only a barrier for code after and unlock for code
-> before.  The failing case is that you can have a critical section which
-> performs an atomically required operation and a following unit which
-> depends on it being performed.  If you begin the following unit before
-> the atomic requirement, you may end up losing.  It turns out this kind
-> of pattern is inherent in a lot of mail box device drivers: you need to
-> set up the mailbox atomically then poke it.  Setup is usually atomic,
-> deciding which mailbox to prime and actually poking it is in the
-> following unit.  Priming often involves an I/O bus transaction and if
-> you poke before priming, you get a misfire.
+> No, this is just what brought this craziness to my attention.
+> 
+> For example, byte- and short-sized circular buffers could not possibly
+> be safe either, when the head nears the tail.
+> 
+> Who has audited global storage and ensured that _every_ byte-sized write
+> doesn't happen to be adjacent to some other storage that may not happen
+> to be protected by the same (or any) lock?
 
-Take it up with the man because this was discussed extensively last
-year and it was decided that unlocks would not be full barriers.
-Thus the changes to memory-barriers.txt that explicitly note this
-and the addition of smp_mb__after_unlock_lock() (for two different
-locks; an unlock followed by a lock on the same lock is a full barrier).
-
-Code that expects ordered writes after an unlock needs to explicitly
-add the memory barrier.
+And add to this list all bitfields because gcc ignores the type
+specifier and only allocates the minimum number of bytes to contain the
+declared fields.
 
 Regards,
 Peter Hurley
+
 
