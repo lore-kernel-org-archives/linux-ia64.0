@@ -1,77 +1,75 @@
-From: Will Deacon <will.deacon@arm.com>
-Date: Thu, 11 Sep 2014 10:23:56 +0000
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Date: Thu, 11 Sep 2014 16:16:53 +0000
 Subject: Re: bit fields && data tearing
-Message-Id: <20140911102356.GA6158@arm.com>
+Message-Id: <20140911161653.GA4775@linux.vnet.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20140905040645.GO5001@linux.vnet.ibm.com>
- <1410066442.12512.13.camel@jarvis.lan>
- <20140907162146.GK5001@linux.vnet.ibm.com>
- <1410116687.2027.19.camel@jarvis.lan>
- <540CC305.8010407@hurleysoftware.com>
- <1410155407.2027.29.camel@jarvis.lan>
- <540E3BFF.7080307@hurleysoftware.com>
- <1410231392.2028.15.camel@jarvis.lan>
- <540ED929.5040305@hurleysoftware.com>
- <1410385686.28237.5.camel@jarvis>
-In-Reply-To: <1410385686.28237.5.camel@jarvis>
+References: <1409824374.4246.62.camel@pasglop>
+ <5408E458.3@zytor.com>
+ <54090AF4.7060406@hurleysoftware.com>
+ <54091B30.7080100@zytor.com>
+ <5409D76D.2070203@hurleysoftware.com>
+ <5409D9C0.7030403@zytor.com>
+ <20140908185240.21f52ca0@alan.etchedpixels.co.uk>
+ <540DEE6C.2060904@zytor.com>
+ <540E3207.7090007@hurleysoftware.com>
+ <20140911110411.2de01944@alan.etchedpixels.co.uk>
+In-Reply-To: <20140911110411.2de01944@alan.etchedpixels.co.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: James Bottomley <James.Bottomley@HansenPartnership.com>
-Cc: Peter Hurley <peter@hurleysoftware.com>, "paulmck@linux.vnet.ibm.com" <paulmck@linux.vnet.ibm.com>, "H. Peter Anvin" <hpa@zytor.com>, One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>, Jakub Jelinek <jakub@redhat.com>, Mikael Pettersson <mikpelinux@gmail.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Richard Henderson <rth@twiddle.net>, Oleg Nesterov <oleg@redhat.com>, Miroslav Franc <mfranc@redhat.com>, Paul Mackerras <paulus@samba.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>, Tony Luck <tony.luck@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
+To: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
+Cc: Peter Hurley <peter@hurleysoftware.com>, "H. Peter Anvin" <hpa@zytor.com>, David Laight <David.Laight@ACULAB.COM>, Jakub Jelinek <jakub@redhat.com>, "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>, Tony Luck <tony.luck@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Oleg Nesterov <oleg@redhat.com>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Paul Mackerras <paulus@samba.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, Miroslav Franc <mfranc@redhat.com>, Richard Henderson <rth@twiddle.net>, linux-alpha@vger.kernel.org
 
-On Wed, Sep 10, 2014 at 10:48:06PM +0100, James Bottomley wrote:
-> On Tue, 2014-09-09 at 06:40 -0400, Peter Hurley wrote:
-> > >> The processor is free to re-order this to:
-> > >>
-> > >> 	STORE C
-> > >> 	STORE B
-> > >> 	UNLOCK
-> > >>
-> > >> That's because the unlock() only guarantees that:
-> > >>
-> > >> Stores before the unlock in program order are guaranteed to complete
-> > >> before the unlock completes. Stores after the unlock _may_ complete
-> > >> before the unlock completes.
-> > >>
-> > >> My point was that even if compiler barriers had the same semantics
-> > >> as memory barriers, the situation would be no worse. That is, code
-> > >> that is sensitive to memory barriers (like the example I gave above)
-> > >> would merely have the same fragility with one-way compiler barriers
-> > >> (with respect to the compiler combining writes).
-> > >>
-> > >> That's what I meant by "no worse than would otherwise exist".
-> > > 
-> > > Actually, that's not correct.  This is actually deja vu with me on the
-> > > other side of the argument.  When we first did spinlocks on PA, I argued
-> > > as you did: lock only a barrier for code after and unlock for code
-> > > before.  The failing case is that you can have a critical section which
-> > > performs an atomically required operation and a following unit which
-> > > depends on it being performed.  If you begin the following unit before
-> > > the atomic requirement, you may end up losing.  It turns out this kind
-> > > of pattern is inherent in a lot of mail box device drivers: you need to
-> > > set up the mailbox atomically then poke it.  Setup is usually atomic,
-> > > deciding which mailbox to prime and actually poking it is in the
-> > > following unit.  Priming often involves an I/O bus transaction and if
-> > > you poke before priming, you get a misfire.
+On Thu, Sep 11, 2014 at 11:04:11AM +0100, One Thousand Gnomes wrote:
+> > > Is *that* what we are talking about?  I was added to this conversation
+> > > in the middle where it had already generalized, so I had no idea.
 > > 
-> > Take it up with the man because this was discussed extensively last
-> > year and it was decided that unlocks would not be full barriers.
-> > Thus the changes to memory-barriers.txt that explicitly note this
-> > and the addition of smp_mb__after_unlock_lock() (for two different
-> > locks; an unlock followed by a lock on the same lock is a full barrier).
-> > 
-> > Code that expects ordered writes after an unlock needs to explicitly
-> > add the memory barrier.
+> > No, this is just what brought this craziness to my attention.
 > 
-> I don't really care what ARM does; spin locks are full barriers on
-> architectures that need them.  The driver problem we had that detected
-> our semi permeable spinlocks was an LSI 53c875 which is enterprise class
-> PCI, so presumably not relevant to ARM anyway.
+> None of it is craziness. It's the real world leaking into the crazy
+> delusional world of sequential programming. Machines are going to get
+> more not less parallel.
 
-FWIW, unlock is always fully ordered against non-relaxed IO accesses. We
-have pretty heavy barriers in readX/writeX to ensure this on ARM/arm64.
+Amen to that!!!
 
-PPC do tricks in their unlock to avoid the overhead on each IO access.
+> > For example, byte- and short-sized circular buffers could not possibly
+> > be safe either, when the head nears the tail.
+> > 
+> > Who has audited global storage and ensured that _every_ byte-sized write
+> > doesn't happen to be adjacent to some other storage that may not happen
+> > to be protected by the same (or any) lock?
+> 
+> Thats a meaningless question. Have you audited it all for correctness of
+> any other form. Have you mathematically verified the functionality as a
+> set of formal proofs ? If you can't prove its formally mathematically
+> functionally correct why are you worried about this ?
+> 
+> Alpha works, maybe it has a near theoretical race on that point. It's not
+> any worse than it was 15 years ago and nobody has really hit a problem
+> with it. So from that you can usefully infer that those buffer cases are
+> not proving a real problem.
 
-Will
+Fair enough, I guess.
+
+But Alpha's limitations were given as a reason to restrict
+smp_store_release() and smp_load_acquire() from providing one-byte and
+two-byte variants.  Of course, I am OK "probabilistically supporting"
+pre-EV56 Alpha CPUs, but only if they don't get in the way of us doing
+smp_store_release() and smp_load_acquire() on chars and shorts.  So if
+pre-EV56 support has to go in order to allow smp_store_release() and
+smp_load_acquire() on small data types, then pre-EV56 support simply
+has to go.
+
+Alternatively, one way to support this old hardware on a more
+deterministic basis is to make the compiler use ll/sc sequences to do
+byte and short accesses.  That would be fine as well.
+
+						Thanx, Paul
+
+> The tty locks together on the other hand are asking to hit it, and the
+> problem you were trying to fix were the ones that need set_bit() to make
+> the guarantees.
+> 
+> Alan
+> 
+
