@@ -1,131 +1,144 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Tue, 16 Sep 2014 02:08:43 +0000
-Subject: Re: [PATCH v1 05/21] PCI/MSI: Introduce weak arch_find_msi_chip() to find MSI chip
-Message-Id: <54179BAB.7030506@huawei.com>
+From: Bjorn Helgaas <bhelgaas@google.com>
+Date: Mon, 22 Sep 2014 23:08:40 +0000
+Subject: Re: [PATCH v2 4/5] MSI: Use __get_cached_msi_msg() instead of get_cached_msi_msg()
+Message-Id: <20140922230840.GM1880@google.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1409911806-10519-1-git-send-email-wangyijing@huawei.com>	 <1409911806-10519-6-git-send-email-wangyijing@huawei.com> <1410792154.3314.7.camel@pengutronix.de>
-In-Reply-To: <1410792154.3314.7.camel@pengutronix.de>
+References: <1408694880-8260-1-git-send-email-wangyijing@huawei.com>
+ <1408694880-8260-5-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1408694880-8260-5-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Lucas Stach <l.stach@pengutronix.de>
-Cc: Bjorn Helgaas <bhelgaas@google.com>, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-pci@vger.kernel.org, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, linux-arch@vger.kernel.org, arnab.basu@freescale.com, Bharat.Bhushan@freescale.com, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Thomas Gleixner <tglx@linutronix.de>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, xen-devel@lists.xenproject.org, Joerg Roedel <joro@8bytes.org>, iommu@lists.linux-foundation.org, linux-mips@linux-mips.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, Sebastian Ott <sebott@linux.vnet.ibm.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Chris Metcalf <cmetca>
+To: Yijing Wang <wangyijing@huawei.com>
+Cc: linux-pci@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Thomas Gleixner <tglx@linutronix.de>, x86@kernel.org, linux-ia64@vger.kernel.org
 
-On 2014/9/15 22:42, Lucas Stach wrote:
-> Am Freitag, den 05.09.2014, 18:09 +0800 schrieb Yijing Wang:
->> Introduce weak arch_find_msi_chip() to find the match msi_chip.
->> Currently, MSI chip associates pci bus to msi_chip. Because in
->> ARM platform, there may be more than one MSI controller in system.
->> Associate pci bus to msi_chip help pci device to find the match
->> msi_chip and setup MSI/MSI-X irq correctly. But in other platform,
->> like in x86. we only need one MSI chip, because all device use
->> the same MSI address/data and irq etc. So it's no need to associate
->> pci bus to MSI chip, just use a arch function, arch_find_msi_chip()
->> to return the MSI chip for simplicity. The default weak
->> arch_find_msi_chip() used in ARM platform, find the MSI chip
->> by pci bus.
->>
-> Hm, while one weak function sounds much better than the plethora we have
-> now, I wonder how much work it would be to associate the msi_chip with
-> the pci bus on other arches the same way as done on ARM. This way we
-> could kill this calling into arch specific functions which would make
-> things a bit clearer to follow I think.
-
-That's a heavy work to associate msi_chip with the pci_bus in all platforms,
-And only in ARM platform, there are two or more different msi_chips which maybe
-associate pci hostbridge or irq chip. In other platforms, only one MSI chip
-exists at the same time. Another reason is I don't think associate the msi_chip
-with pci bus is a good idea to make PCI device find its own msi_chip.
-All PCI devices under the same PCI hostbridge should have the same msi_chip,
-and now a property "msi-parent" is defined to help pci hostbridge to find its matched
-msi_chip. I like to associate the msi_chip with a pci hostbridge. So we don't need to
-add a lot of pcibios_add_bus() to do that.
-
-I inspected all MSI chip drivers, and found there are two different relations between msi_chip and PCI hostbridge
-1. MSI chip is a irq chip, like irq_armada_370_xp, PCI hostbridge platform device use "msi-parent" to find msi_chip by of_node.
-2. MSI chip is integrated into PCI hostbridge, so msi_chip->dev is the PCI hostbridge platform device.
-
-So long as we use PCI hostbridge platform device as the parent of PCI hostbridge, every PCI device under the hostbridge
-can find the msi_chip by it.
-
-All MSI chip drivers now except pci-mvebu have been passed the hostbridge platform dev as the parent.
-pci_common_init_dev(pcie->dev, &hw);
-			^
-Pseudo code like:
-
-struct msi_chip *pcibios_find_msi_chip(struct pci_dev *dev)
- {
-       struct pci_bus *root;
-       struct pci_host_bridge *bridge;
-       struct msi_chip *chip;
-       struct device_node *node, *msi_node;
-
-       /* First we find msi_chip by the phb of_node */    <-------- MSI chip is a irq chip
-       root = pci_find_root_bus(dev->bus);
-       node = pcibios_get_phb_of_node(root);
-       if (node) {
-               msi_node = of_parse_phandle(n, "msi-parent", 0);
-               of_node_put(node);
-               if (msi_node)
-                       return of_pci_find_msi_chip_by_node(msi_node);
-       }
-
-
-       /* Some msi_chip are integrated into pci hostbridge,
-        * we find it by phb device pointer.
-        */
-       if (bridge && bridge->dev.parent) {		<-----------MSI chip is integrated into PCI hostbridge
-               down_read(&pci_msi_chip_sem);
-               list_for_each_entry(chip, &pci_msi_chip_list, list) {
-                       if (chip->dev = bridge->dev.parent) {
-                               up_read(pci_msi_chip_sem);
-                               return chip;
-                       }
-                }
-               up_read(&pci_msi_chip_sem);
-        }
-
-
-        return NULL;
- }
-
-Thanks!
-Yijing.
-
-
+On Fri, Aug 22, 2014 at 04:07:59PM +0800, Yijing Wang wrote:
+> Get_cached_msi_msg() only be called in two places,
+> ia64_set_msi_irq_affinity() and sn_set_msi_irq_affinity().
 > 
-> Regards,
-> Lucas
+> The code flow is:
+> irq = irq_data->irq
+>     get_cached_msi_msg(irq)
+> 	    irq_get_msi_desc(irq)
+> 		    irq_get_irq_data(irq)
+> 			    msi_desc = irq_data->desc
+>         __get_cached_msi_msg(msi_desc, msg)
 > 
->> Signed-off-by: Yijing Wang <wangyijing@huawei.com>
->> ---
->>  drivers/pci/msi.c |    7 ++++++-
->>  1 files changed, 6 insertions(+), 1 deletions(-)
->>
->> diff --git a/drivers/pci/msi.c b/drivers/pci/msi.c
->> index a77e7f7..539c11d 100644
->> --- a/drivers/pci/msi.c
->> +++ b/drivers/pci/msi.c
->> @@ -29,9 +29,14 @@ static int pci_msi_enable = 1;
->>  
->>  /* Arch hooks */
->>  
->> +struct msi_chip * __weak arch_find_msi_chip(struct pci_dev *dev)
->> +{
->> +	return dev->bus->msi;
->> +}
->> +
->>  int __weak arch_setup_msi_irq(struct pci_dev *dev, struct msi_desc *desc)
->>  {
->> -	struct msi_chip *chip = dev->bus->msi;
->> +	struct msi_chip *chip = arch_find_msi_chip(dev);
->>  	int err;
->>  
->>  	if (!chip || !chip->setup_irq)
+> This is crazy, we should use __get_cached_msi_msg(irq_data->desc, msg)
+> directly to simplify the flow, and remove get_cached_msi_msg().
+> Finally, rename __get_cached_msi_msg() to get_cached_msi_msg().
+
+This looks like a nice cleanup.  It'd be easier to review if this were two
+patches:
+
+  1) Convert all callers to use __get_cached_msi_msg() rather than
+     get_cached_msi_msg().
+  2) Remove the unused get_cached_msi_msg() and rename
+     __get_cached_msi_msg() to get_cached_msi_msg().
+
+Maybe even the second patch should be split into remove and rename patches.
+
+> Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+> CC: Tony Luck <tony.luck@intel.com>
+> CC: Thomas Gleixner <tglx@linutronix.de>
+> CC: x86@kernel.org
+> CC: linux-ia64@vger.kernel.org
+> ---
+>  arch/ia64/kernel/msi_ia64.c    |    2 +-
+>  arch/ia64/sn/kernel/msi_sn.c   |    4 ++--
+>  arch/x86/kernel/apic/io_apic.c |    2 +-
+>  drivers/pci/msi.c              |    9 +--------
+>  include/linux/msi.h            |    3 +--
+>  5 files changed, 6 insertions(+), 14 deletions(-)
 > 
-
-
--- 
-Thanks!
-Yijing
-
+> diff --git a/arch/ia64/kernel/msi_ia64.c b/arch/ia64/kernel/msi_ia64.c
+> index c430f91..4efe748 100644
+> --- a/arch/ia64/kernel/msi_ia64.c
+> +++ b/arch/ia64/kernel/msi_ia64.c
+> @@ -23,7 +23,7 @@ static int ia64_set_msi_irq_affinity(struct irq_data *idata,
+>  	if (irq_prepare_move(irq, cpu))
+>  		return -1;
+>  
+> -	get_cached_msi_msg(irq, &msg);
+> +	get_cached_msi_msg(idata->msi_desc, &msg);
+>  
+>  	addr = msg.address_lo;
+>  	addr &= MSI_ADDR_DEST_ID_MASK;
+> diff --git a/arch/ia64/sn/kernel/msi_sn.c b/arch/ia64/sn/kernel/msi_sn.c
+> index afc58d2..8bec242 100644
+> --- a/arch/ia64/sn/kernel/msi_sn.c
+> +++ b/arch/ia64/sn/kernel/msi_sn.c
+> @@ -175,8 +175,8 @@ static int sn_set_msi_irq_affinity(struct irq_data *data,
+>  	 * Release XIO resources for the old MSI PCI address
+>  	 */
+>  
+> -	get_cached_msi_msg(irq, &msg);
+> -        sn_pdev = (struct pcidev_info *)sn_irq_info->irq_pciioinfo;
+> +	get_cached_msi_msg(data->msi_desc, &msg);
+> +	sn_pdev = (struct pcidev_info *)sn_irq_info->irq_pciioinfo;
+>  	pdev = sn_pdev->pdi_linux_pcidev;
+>  	provider = SN_PCIDEV_BUSPROVIDER(pdev);
+>  
+> diff --git a/arch/x86/kernel/apic/io_apic.c b/arch/x86/kernel/apic/io_apic.c
+> index 29290f5..e877cfb 100644
+> --- a/arch/x86/kernel/apic/io_apic.c
+> +++ b/arch/x86/kernel/apic/io_apic.c
+> @@ -3145,7 +3145,7 @@ msi_set_affinity(struct irq_data *data, const struct cpumask *mask, bool force)
+>  	if (ret)
+>  		return ret;
+>  
+> -	__get_cached_msi_msg(data->msi_desc, &msg);
+> +	get_cached_msi_msg(data->msi_desc, &msg);
+>  
+>  	msg.data &= ~MSI_DATA_VECTOR_MASK;
+>  	msg.data |= MSI_DATA_VECTOR(cfg->vector);
+> diff --git a/drivers/pci/msi.c b/drivers/pci/msi.c
+> index 0d0f163..8746ecd 100644
+> --- a/drivers/pci/msi.c
+> +++ b/drivers/pci/msi.c
+> @@ -296,7 +296,7 @@ void read_msi_msg(unsigned int irq, struct msi_msg *msg)
+>  	__read_msi_msg(entry, msg);
+>  }
+>  
+> -void __get_cached_msi_msg(struct msi_desc *entry, struct msi_msg *msg)
+> +void get_cached_msi_msg(struct msi_desc *entry, struct msi_msg *msg)
+>  {
+>  	/* Assert that the cache is valid, assuming that
+>  	 * valid messages are not all-zeroes. */
+> @@ -306,13 +306,6 @@ void __get_cached_msi_msg(struct msi_desc *entry, struct msi_msg *msg)
+>  	*msg = entry->msg;
+>  }
+>  
+> -void get_cached_msi_msg(unsigned int irq, struct msi_msg *msg)
+> -{
+> -	struct msi_desc *entry = irq_get_msi_desc(irq);
+> -
+> -	__get_cached_msi_msg(entry, msg);
+> -}
+> -
+>  void __write_msi_msg(struct msi_desc *entry, struct msi_msg *msg)
+>  {
+>  	if (entry->dev->current_state != PCI_D0) {
+> diff --git a/include/linux/msi.h b/include/linux/msi.h
+> index fff7201..329ec73 100644
+> --- a/include/linux/msi.h
+> +++ b/include/linux/msi.h
+> @@ -16,10 +16,9 @@ struct msi_desc;
+>  void mask_msi_irq(struct irq_data *data);
+>  void unmask_msi_irq(struct irq_data *data);
+>  void __read_msi_msg(struct msi_desc *entry, struct msi_msg *msg);
+> -void __get_cached_msi_msg(struct msi_desc *entry, struct msi_msg *msg);
+> +void get_cached_msi_msg(struct msi_desc *entry, struct msi_msg *msg);
+>  void __write_msi_msg(struct msi_desc *entry, struct msi_msg *msg);
+>  void read_msi_msg(unsigned int irq, struct msi_msg *msg);
+> -void get_cached_msi_msg(unsigned int irq, struct msi_msg *msg);
+>  void write_msi_msg(unsigned int irq, struct msi_msg *msg);
+>  
+>  struct msi_desc {
+> -- 
+> 1.7.1
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-pci" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
