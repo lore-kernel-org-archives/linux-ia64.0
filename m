@@ -1,124 +1,66 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Date: Tue, 30 Sep 2014 18:00:40 +0000
-Subject: [RFC PATCH 00/16] kernel: Add support for poweroff handler call chain
-Message-Id: <1412100056-15517-1-git-send-email-linux@roeck-us.net>
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Tue, 23 Sep 2014 05:27:25 +0000
+Subject: [PATCH v3 4/9] MSI: Use __get_cached_msi_msg() instead of get_cached_msi_msg()
+Message-Id: <1411450050-1510-5-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1411450050-1510-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1411450050-1510-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-arm-kernel@lists.infradead.org
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: linux-pci@vger.kernel.org, Yijing Wang <wangyijing@huawei.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org
 
-Various drivers implement architecture and/or device specific means to
-remove power from the system.  For the most part, those drivers set the
-global variable pm_power_off to point to a function within the driver.
+Get_cached_msi_msg() only be called in two places,
+ia64_set_msi_irq_affinity() and sn_set_msi_irq_affinity().
 
-This mechanism has a number of drawbacks.  Typically only one scheme
-to remove power is supported (at least if pm_power_off is used).
-At least in theory there can be multiple means remove power, some of
-which may be less desirable.  For example, some mechanisms may only
-power off the CPU or the CPU card, while another may power off the
-entire system.  Others may really just execute a restart sequence
-or drop into the ROM monitor.  Using pm_power_off can also be racy
-if the function pointer is set from a driver built as module, as the
-driver may be in the process of being unloaded when pm_power_off is
-called.  If there are multiple poweroff handlers in the system, removing
-a module with such a handler may inadvertently reset the pointer to
-pm_power_off to NULL, leaving the system with no means to remove power.
+The code flow is:
+irq = irq_data->irq
+    get_cached_msi_msg(irq)
+	    irq_get_msi_desc(irq)
+		    irq_get_irq_data(irq)
+			    msi_desc = irq_data->desc
+        __get_cached_msi_msg(msi_desc, msg)
 
-Introduce a system poweroff handler call chain to solve the described
-problems.  This call chain is expected to be executed from the
-architecture specific machine_power_off() function.  Drivers providing
-system poweroff functionality are expected to register with this call chain.
-By using the priority field in the notifier block, callers can control
-poweroff handler execution sequence and thus ensure that the poweroff
-handler with the optimal capabilities to remove power for a given system
-is called first.
+This is crazy, we should use __get_cached_msi_msg(irq_data->desc, msg)
+directly to simplify the flow.
 
-The poweroff handler is introduced in multiple steps
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+CC: Tony Luck <tony.luck@intel.com>
+CC: linux-ia64@vger.kernel.org
+---
+ arch/ia64/kernel/msi_ia64.c  |    2 +-
+ arch/ia64/sn/kernel/msi_sn.c |    4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-1) Implement poweroff handler API.
-   Patch 01/16.
-2) Ensure that pm_power_off is only called from machine_restart.
-   Patches 02/16 and 03/16.
-3) Implement call to poweroff handler in architecture specific
-   machine_restart code.
-   Patches 03/16 to 13/16.
-4) Convert all drivers to register with poweroff handler
-   instead of setting pm_power_off directly.
-   Patches 15/16 and 16/16 (examples).
-   This can be done in two steps: First convert all drivers which can
-   be built as modules, then convert the remaining drivers (possibly after
-   unexporting pm_powr_off).
-5) Unexport pm_power_off for all architectures,
-   and drop it entirely for architectures where it is not really used.
-6) [optional] Convert machine specific architecture code to register 
-   with poweroff handler instead of setting pm_power_off directly,
-   and remove pm_power_off entirely from the system.
+diff --git a/arch/ia64/kernel/msi_ia64.c b/arch/ia64/kernel/msi_ia64.c
+index c430f91..8c3730c 100644
+--- a/arch/ia64/kernel/msi_ia64.c
++++ b/arch/ia64/kernel/msi_ia64.c
+@@ -23,7 +23,7 @@ static int ia64_set_msi_irq_affinity(struct irq_data *idata,
+ 	if (irq_prepare_move(irq, cpu))
+ 		return -1;
+ 
+-	get_cached_msi_msg(irq, &msg);
++	__get_cached_msi_msg(idata->msi_desc, &msg);
+ 
+ 	addr = msg.address_lo;
+ 	addr &= MSI_ADDR_DEST_ID_MASK;
+diff --git a/arch/ia64/sn/kernel/msi_sn.c b/arch/ia64/sn/kernel/msi_sn.c
+index afc58d2..446e779 100644
+--- a/arch/ia64/sn/kernel/msi_sn.c
++++ b/arch/ia64/sn/kernel/msi_sn.c
+@@ -175,8 +175,8 @@ static int sn_set_msi_irq_affinity(struct irq_data *data,
+ 	 * Release XIO resources for the old MSI PCI address
+ 	 */
+ 
+-	get_cached_msi_msg(irq, &msg);
+-        sn_pdev = (struct pcidev_info *)sn_irq_info->irq_pciioinfo;
++	__get_cached_msi_msg(data->msi_desc, &msg);
++	sn_pdev = (struct pcidev_info *)sn_irq_info->irq_pciioinfo;
+ 	pdev = sn_pdev->pdi_linux_pcidev;
+ 	provider = SN_PCIDEV_BUSPROVIDER(pdev);
+ 
+-- 
+1.7.1
 
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: Heiko Stuebner <heiko@sntech.de>
-Cc: Romain Perier <romain.perier@gmail.com>
-Cc: James E.J. Bottomley <jejb@parisc-linux.org>
-Cc: Helge Deller <deller@gmx.de>
-Cc: Russell King <linux@arm.linux.org.uk>
-Cc: Catalin Marinas <catalin.marinas@arm.com>
-Cc: Will Deacon <will.deacon@arm.com>
-Cc: Haavard Skinnemoen <hskinnemoen@gmail.com>
-Cc: Hans-Christian Egtvedt <egtvedt@samfundet.no>
-Cc: Mark Salter <msalter@redhat.com>
-Cc: Aurelien Jacquiot <a-jacquiot@ti.com>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: James Hogan <james.hogan@imgtec.com>
-Cc: Ralf Baechle <ralf@linux-mips.org>
-Cc: Guan Xuetao <gxt@mprc.pku.edu.cn>
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: Ingo Molnar <mingo@redhat.com>
-Cc: H. Peter Anvin <hpa@zytor.com>
-Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Cc: Boris Ostrovsky <boris.ostrovsky@oracle.com>
-Cc: Sebastian Reichel <sre@kernel.org>
-Cc: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-Cc: David Woodhouse <dwmw2@infradead.org>
-Cc: Samuel Ortiz <sameo@linux.intel.com>
-Cc: Lee Jones <lee.jones@linaro.org>
-
-----------------------------------------------------------------
-Guenter Roeck (16):
-      kernel: Add support for poweroff handler call chain
-      hwmon: (ab8500) Call kernel_power_off instead of pm_power_off
-      parisc: support poweroff through poweroff handler call chain
-      arm: support poweroff through poweroff handler call chain
-      arm64: support poweroff through poweroff handler call chain
-      avr32: support poweroff through poweroff handler call chain
-      c6x: support poweroff through poweroff handler call chain
-      ia64: support poweroff through poweroff handler call chain
-      metag: support poweroff through poweroff handler call chain
-      mips: support poweroff through poweroff handler call chain
-      sh: support poweroff through poweroff handler call chain
-      unicore32: support poweroff through poweroff handler call chain
-      x86: support poweroff through poweroff handler call chain
-      x86/xen: support poweroff through poweroff handler call chain
-      power/reset: restart-poweroff: Register with kernel poweroff handler
-      mfd: palmas: Register with kernel poweroff handler
-
- arch/arm/kernel/process.c              |  2 +
- arch/arm64/kernel/process.c            |  2 +
- arch/avr32/kernel/process.c            |  2 +
- arch/c6x/kernel/process.c              |  2 +
- arch/ia64/kernel/process.c             |  2 +
- arch/metag/kernel/process.c            |  2 +
- arch/mips/kernel/reset.c               |  2 +
- arch/parisc/kernel/process.c           |  7 ++-
- arch/sh/kernel/reboot.c                |  2 +
- arch/unicore32/kernel/process.c        |  2 +
- arch/x86/kernel/reboot.c               |  4 ++
- arch/x86/xen/enlighten.c               |  2 +
- drivers/hwmon/ab8500.c                 |  5 ++-
- drivers/mfd/palmas.c                   | 30 +++++++------
- drivers/parisc/power.c                 |  3 +-
- drivers/power/reset/restart-poweroff.c | 24 +++++-----
- include/linux/mfd/palmas.h             |  3 ++
- include/linux/reboot.h                 |  4 ++
- kernel/reboot.c                        | 81 ++++++++++++++++++++++++++++++++++
- 19 files changed, 149 insertions(+), 32 deletions(-)
