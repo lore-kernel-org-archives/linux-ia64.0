@@ -1,66 +1,45 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Tue, 23 Sep 2014 05:27:25 +0000
-Subject: [PATCH v3 4/9] MSI: Use __get_cached_msi_msg() instead of get_cached_msi_msg()
-Message-Id: <1411450050-1510-5-git-send-email-wangyijing@huawei.com>
+From: Yann Droneaud <ydroneaud@opteya.com>
+Date: Wed, 24 Sep 2014 13:11:07 +0000
+Subject: [PATCHv8 2/6] ia64: trivial: replace get_unused_fd() by get_unused_fd_flags(0)
+Message-Id: <5dfa58ca48b5f6361d2902bd82f2e76dd95630b6.1411562410.git.ydroneaud@opteya.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1411450050-1510-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1411450050-1510-1-git-send-email-wangyijing@huawei.com>
+References: <cover.1411562410.git.ydroneaud@opteya.com>
+In-Reply-To: <cover.1411562410.git.ydroneaud@opteya.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: linux-pci@vger.kernel.org, Yijing Wang <wangyijing@huawei.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Al Viro <viro@zeniv.linux.org.uk>, Andrew Morton <akpm@linux-foundation.org>, Jiri Kosina <trivial@kernel.org>
+Cc: linux-kernel@vger.kernel.org, Yann Droneaud <ydroneaud@opteya.com>, linux-ia64@vger.kernel.org, linux-fsdevel@vger.kernel.org
 
-Get_cached_msi_msg() only be called in two places,
-ia64_set_msi_irq_affinity() and sn_set_msi_irq_affinity().
+This patch replaces calls to get_unused_fd() with equivalent call to
+get_unused_fd_flags(0) to preserve current behavor for existing code.
 
-The code flow is:
-irq = irq_data->irq
-    get_cached_msi_msg(irq)
-	    irq_get_msi_desc(irq)
-		    irq_get_irq_data(irq)
-			    msi_desc = irq_data->desc
-        __get_cached_msi_msg(msi_desc, msg)
+In a further patch, get_unused_fd() will be removed so that new code
+start using get_unused_fd_flags(), with the hope O_CLOEXEC could be
+used, either by default or choosen by userspace.
 
-This is crazy, we should use __get_cached_msi_msg(irq_data->desc, msg)
-directly to simplify the flow.
-
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
-CC: Tony Luck <tony.luck@intel.com>
-CC: linux-ia64@vger.kernel.org
+Link: http://lkml.kernel.org/r/cover.1411562410.git.ydroneaud@opteya.com
+Cc: Al Viro <viro@zeniv.linux.org.uk>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: trivial@kernel.org
+Signed-off-by: Yann Droneaud <ydroneaud@opteya.com>
 ---
- arch/ia64/kernel/msi_ia64.c  |    2 +-
- arch/ia64/sn/kernel/msi_sn.c |    4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
+ arch/ia64/kernel/perfmon.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/ia64/kernel/msi_ia64.c b/arch/ia64/kernel/msi_ia64.c
-index c430f91..8c3730c 100644
---- a/arch/ia64/kernel/msi_ia64.c
-+++ b/arch/ia64/kernel/msi_ia64.c
-@@ -23,7 +23,7 @@ static int ia64_set_msi_irq_affinity(struct irq_data *idata,
- 	if (irq_prepare_move(irq, cpu))
- 		return -1;
+diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
+index 5845ffea67c3..dc063fe6646a 100644
+--- a/arch/ia64/kernel/perfmon.c
++++ b/arch/ia64/kernel/perfmon.c
+@@ -2662,7 +2662,7 @@ pfm_context_create(pfm_context_t *ctx, void *arg, int count, struct pt_regs *reg
  
--	get_cached_msi_msg(irq, &msg);
-+	__get_cached_msi_msg(idata->msi_desc, &msg);
+ 	ret = -ENOMEM;
  
- 	addr = msg.address_lo;
- 	addr &= MSI_ADDR_DEST_ID_MASK;
-diff --git a/arch/ia64/sn/kernel/msi_sn.c b/arch/ia64/sn/kernel/msi_sn.c
-index afc58d2..446e779 100644
---- a/arch/ia64/sn/kernel/msi_sn.c
-+++ b/arch/ia64/sn/kernel/msi_sn.c
-@@ -175,8 +175,8 @@ static int sn_set_msi_irq_affinity(struct irq_data *data,
- 	 * Release XIO resources for the old MSI PCI address
- 	 */
- 
--	get_cached_msi_msg(irq, &msg);
--        sn_pdev = (struct pcidev_info *)sn_irq_info->irq_pciioinfo;
-+	__get_cached_msi_msg(data->msi_desc, &msg);
-+	sn_pdev = (struct pcidev_info *)sn_irq_info->irq_pciioinfo;
- 	pdev = sn_pdev->pdi_linux_pcidev;
- 	provider = SN_PCIDEV_BUSPROVIDER(pdev);
+-	fd = get_unused_fd();
++	fd = get_unused_fd_flags(0);
+ 	if (fd < 0)
+ 		return fd;
  
 -- 
-1.7.1
+1.9.3
 
