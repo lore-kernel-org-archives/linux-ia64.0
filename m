@@ -1,76 +1,56 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Date: Tue, 30 Sep 2014 18:00:43 +0000
-Subject: [RFC PATCH 03/16] parisc: support poweroff through poweroff handler call chain
-Message-Id: <1412100056-15517-4-git-send-email-linux@roeck-us.net>
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Thu, 25 Sep 2014 02:52:14 +0000
+Subject: [PATCH v2 21/22] tile/MSI: Use MSI chip framework to configure MSI/MSI-X irq
+Message-Id: <1411614872-4009-22-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1412100056-15517-1-git-send-email-linux@roeck-us.net>
-In-Reply-To: <1412100056-15517-1-git-send-email-linux@roeck-us.net>
+References: <1411614872-4009-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1411614872-4009-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-arm-kernel@lists.infradead.org
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, linux-arch@vger.kernel.org, arnab.basu@freescale.com, Bharat.Bhushan@freescale.com, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Thomas Gleixner <tglx@linutronix.de>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, xen-devel@lists.xenproject.org, Joerg Roedel <joro@8bytes.org>, iommu@lists.linux-foundation.org, linux-mips@linux-mips.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, Sebastian Ott <sebott@linux.vnet.ibm.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Chris Metcalf <cmetcalf@tilera.com>, Ralf Baechle <ralf@linux-mips.org>, Lucas Stach <l.stach@pengutronix.de>, David Vrabel <david.vrabel@citrix.com>, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>, Michael Ellerman <mpe@ellerman.id.au>, Thierry Reding <thierry.reding@gmail.com>, Thomas Petazzoni <thomas.petazzoni@free-electrons.com>, Yijing Wang <wangyijing@huawei.com>
 
-The kernel core now supports a poweroff handler call chain
-to remove power from the system. Call it from machine_power_off.
+Use MSI chip framework instead of arch MSI functions to configure
+MSI/MSI-X irq. So we can manage MSI/MSI-X irq in a unified framework.
 
-Also, do not use pm_power_off as alternate pointer to machine_power_off.
-Have the parisc/power driver call kernel_power_off() which in turn will
-call machine_power_off().
-
-Cc: James E.J. Bottomley <jejb@parisc-linux.org>
-Cc: Helge Deller <deller@gmx.de>
-Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
 ---
- arch/parisc/kernel/process.c | 7 +++++--
- drivers/parisc/power.c       | 3 +--
- 2 files changed, 6 insertions(+), 4 deletions(-)
+ arch/tile/kernel/pci_gx.c |   14 ++++++++++++--
+ 1 files changed, 12 insertions(+), 2 deletions(-)
 
-diff --git a/arch/parisc/kernel/process.c b/arch/parisc/kernel/process.c
-index 0bbbf0d..21d1ab3 100644
---- a/arch/parisc/kernel/process.c
-+++ b/arch/parisc/kernel/process.c
-@@ -42,6 +42,7 @@
- #include <linux/module.h>
- #include <linux/personality.h>
- #include <linux/ptrace.h>
-+#include <linux/reboot.h>
- #include <linux/sched.h>
- #include <linux/slab.h>
- #include <linux/stddef.h>
-@@ -133,7 +134,9 @@ void machine_power_off(void)
- 	pdc_soft_power_button(0);
- 	
- 	pdc_chassis_send_status(PDC_CHASSIS_DIRECT_SHUTDOWN);
--		
-+
-+	do_kernel_poweroff();
-+
- 	/* It seems we have no way to power the system off via
- 	 * software. The user has to press the button himself. */
+diff --git a/arch/tile/kernel/pci_gx.c b/arch/tile/kernel/pci_gx.c
+index e39f9c5..4912b75 100644
+--- a/arch/tile/kernel/pci_gx.c
++++ b/arch/tile/kernel/pci_gx.c
+@@ -1485,7 +1485,7 @@ static struct irq_chip tilegx_msi_chip = {
+ 	/* TBD: support set_affinity. */
+ };
  
-@@ -141,7 +144,7 @@ void machine_power_off(void)
- 	       "Please power this system off now.");
+-int arch_setup_msi_irq(struct pci_dev *pdev, struct msi_desc *desc)
++static int tile_setup_msi_irq(struct pci_dev *pdev, struct msi_desc *desc)
+ {
+ 	struct pci_controller *controller;
+ 	gxio_trio_context_t *trio_context;
+@@ -1604,7 +1604,17 @@ is_64_failure:
+ 	return ret;
  }
  
--void (*pm_power_off)(void) = machine_power_off;
-+void (*pm_power_off)(void);
- EXPORT_SYMBOL(pm_power_off);
- 
- /*
-diff --git a/drivers/parisc/power.c b/drivers/parisc/power.c
-index 90cca5e..de5b2ff 100644
---- a/drivers/parisc/power.c
-+++ b/drivers/parisc/power.c
-@@ -95,8 +95,7 @@ static void process_shutdown(void)
- 		/* send kill signal */
- 		if (kill_cad_pid(SIGINT, 1)) {
- 			/* just in case killing init process failed */
--			if (pm_power_off)
--				pm_power_off();
-+			kernel_power_off();
- 		}
- 	}
+-void arch_teardown_msi_irq(unsigned int irq)
++void tile_teardown_msi_irq(unsigned int irq)
+ {
+ 	irq_free_hwirq(irq);
  }
++
++static struct msi_chip tile_msi_chip = {
++	.setup_irq = tile_setup_msi_irq,
++	.teardown_irq = tile_teardown_msi_irq,
++};
++
++struct msi_chip *arch_find_msi_chip(struct pci_dev *dev)
++{
++	return &tile_msi_chip;
++}
 -- 
-1.9.1
+1.7.1
 
