@@ -1,70 +1,91 @@
-From: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
-Date: Tue, 23 Sep 2014 18:39:55 +0000
+From: Pavel Machek <pavel@ucw.cz>
+Date: Thu, 25 Sep 2014 16:12:12 +0000
 Subject: Re: bit fields && data tearing
-Message-Id: <20140923193955.2fb9cb14@alan.etchedpixels.co.uk>
+Message-Id: <20140925161212.GA27218@xo-6d-61-c0.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20140712181328.GA8738@redhat.com>
-	<54079B70.4050200@hurleysoftware.com>
-	<1409785893.30640.118.camel@pasglop>
-	<063D6719AE5E284EB5DD2968C1650D6D17487172@AcuExch.aculab.com>
-	<1409824374.4246.62.camel@pasglop>
-	<5408E458.3@zytor.com>
-	<54090AF4.7060406@hurleysoftware.com>
-	<54091B30.7080100@zytor.com>
-	<5409D76D.2070203@hurleysoftware.com>
-	<5409D9C0.7030403@zytor.com>
-	<20140908185240.21f52ca0@alan.etchedpixels.co.uk>
-	<540DEE6C.2060904@zytor.com>
-	<540E3207.7090007@hurleysoftware.com>
-	<20140911110411.2de01944@alan.etchedpixels.co.uk>
-	<5411FFB6.2080702@hurleysoftware.com>
-	<20140915002427.6ce18965@alan.etchedpixels.co.uk>
-	<5421B9A6.5020408@hurleysoftware.com>
-In-Reply-To: <5421B9A6.5020408@hurleysoftware.com>
+References: <20140904175044.4697aee4@alan.etchedpixels.co.uk>
+ <5408C0AB.6050801@hurleysoftware.com>
+ <20140905001751.GL5001@linux.vnet.ibm.com>
+ <1409883098.5078.14.camel@jarvis.lan>
+ <5409243C.4080704@hurleysoftware.com>
+ <20140905040645.GO5001@linux.vnet.ibm.com>
+ <063D6719AE5E284EB5DD2968C1650D6D17487F66@AcuExch.aculab.com>
+ <5409AD0A.5090305@hurleysoftware.com>
+ <063D6719AE5E284EB5DD2968C1650D6D17488265@AcuExch.aculab.com>
+ <5409E20C.3050004@hurleysoftware.com>
+In-Reply-To: <5409E20C.3050004@hurleysoftware.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Peter Hurley <peter@hurleysoftware.com>
-Cc: "H. Peter Anvin" <hpa@zytor.com>, David Laight <David.Laight@ACULAB.COM>, Jakub Jelinek <jakub@redhat.com>, "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>, Tony Luck <tony.luck@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Oleg Nesterov <oleg@redhat.com>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Paul Mackerras <paulus@samba.org>, "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, Miroslav Franc <mfranc@redhat.com>, Richard Henderson <rth@twiddle.net>, linux-alpha@vger.kernel.org
+Cc: David Laight <David.Laight@ACULAB.COM>, "'paulmck@linux.vnet.ibm.com'" <paulmck@linux.vnet.ibm.com>, Jakub Jelinek <jakub@redhat.com>, One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>, "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Mikael Pettersson <mikpelinux@gmail.com>, Oleg Nesterov <oleg@redhat.com>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, James Bottomley <James.Bottomley@HansenPartnership.com>, Tony Luck <tony.luck@intel.com>, Paul Mackerras <paulus@samba.org>, "H. Peter Anvin" <hpa@zytor.com>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, Miroslav Franc <mfranc@redhat.com>, Richard Henderson <rth@twiddle.net>, "linux-arm@vger.kernel.org" <linux-arm@vger.kernel.org>
 
-> > Yes - because if you think about it that tells you that nobody is hitting
-> > it with the old code and it probably doesn't matter.
+On Fri 2014-09-05 12:17:16, Peter Hurley wrote:
+> On 09/05/2014 08:37 AM, David Laight wrote:
+> > From: Peter Hurley
+> >> On 09/05/2014 04:30 AM, David Laight wrote:
+> >>> I've seen gcc generate 32bit accesses for 16bit structure members on arm.
+> >>> It does this because of the more limited range of the offsets for the 16bit access.
+> >>> OTOH I don't know if it ever did this for writes - so it may be moot.
+> >>
+> >> Can you recall the particulars, like what ARM config or what code?
+> >>
+> >> I tried an overly-simple test to see if gcc would bump up to the word load for
+> >> the 12-bit offset mode, but it stuck with register offset rather than immediate
+> >> offset. [I used the compiler options for allmodconfig and a 4.8 cross-compiler.]
+> >>
+> >> Maybe the test doesn't generate enough register pressure on the compiler?
+> > 
+> > Dunno, I would have been using a much older version of the compiler.
+> > It is possible that it doesn't do it any more.
+> > It might only have done it for loads.
+> > 
+> > The compiler used to use misaligned 32bit loads for structure
+> > members on large 4n+2 byte boundaries as well.
+> > I'm pretty sure it doesn't do that either.
+> > 
+> > There have been a lot of compiler versions since I was compiling
+> > anything for arm.
 > 
-> I don't understand this reply.
+> Yeah, it seems gcc for ARM no longer uses the larger operand size as a
+> substitute for 12-bit immediate offset addressing mode, even for reads.
+> 
+> While this test:
+> 
+> struct x {
+> 	short b[12];
+> };
+> 
+> short load_b(struct x *p) {
+> 	return p->b[8];
+> }
+> 
+> generates the 8-bit immediate offset form,
+> 
+> short load_b(struct x *p) {
+>    0:	e1d001f0 	ldrsh	r0, [r0, #16]
+>    4:	e12fff1e 	bx	lr
+> 
+> 
+> pushing the offset out past 256:
+> 
+> struct x {
+> 	long unused[64];
+> 	short b[12];
+> };
+> 
+> short load_b(struct x *p) {
+> 	return p->b[8];
+> }
+> 
+> generates the register offset addressing mode instead of 12-bit immediate:
+> 
+> short load_b(struct x *p) {
+>    0:	e3a03e11 	mov	r3, #272	; 0x110
+>    4:	e19000f3 	ldrsh	r0, [r0, r3]
+>    8:	e12fff1e 	bx	lr
 
-It's a matter of priorities. There are hundreds of potential security
-holes turned up by scanners, 2,500+ filed bugs in kernel bugzilla alone.
-
-Which matters more - fixing the bugs people hit or the ones that they
-don't and which have a very high cost impact on other users ?
-
-> Likewise, I'm pointing that byte-sized circular buffers will also be 
-> corrupted under certain circumstances (when the head comes near the tail).
-
-Yes. I believe the classic wording is "this problem has not been observed
-in the field"
- 
-> 2. I'm not sure where you arrived at the conclusion that set_bit() et.al. is
-> fast on x86. Besides the heavy-duty instructions (lgdt, mov cr0, etc), the
-> bus-locked bit instructions are among the most expensive instructions in the
-> kernel.
-
-> I've attached a smoke test I use for lightweight validation of pty slave reads.
-> If you run this smoke test under perf, almost every high-value hit is a
-> bus-locked bit instruction. Check out canon_copy_from_read_buf() which performs
-> the actual copy of data from the line discipline input buffer to the __user
-> buffer; the clear_bit() is the performance hit. Check out cpu_idle_loop()...
-
-And then go and instrument whether its the bit instructions or the cache
-misses ?
-
-
-If there is a significant performance improvement by spacing the fields
-carefully, and you don't have other ordering problems as a result
-(remembering that the compiler has a lot of re-ordering options provided
-the re-ordering cannot be observed)
-
-If that's the case then fine - submit a patch with numbers and the fields
-spaced and quote the performance data.
-
-Alan
+If we rely on new gcc features for correctness, does minimum compiler version need to be updated?
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
