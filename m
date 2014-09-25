@@ -1,778 +1,109 @@
-From: Sudeep Holla <sudeep.holla@arm.com>
-Date: Tue, 30 Sep 2014 13:48:25 +0000
-Subject: [PATCH v5 04/11] drivers: base: support cpu cache information interface to userspace via sysfs
-Message-Id: <1412084912-2767-5-git-send-email-sudeep.holla@arm.com>
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Thu, 25 Sep 2014 02:52:39 +0000
+Subject: [PATCH v2 18/22] arm/iop13xx/MSI: Use MSI chip framework to configure MSI/MSI-X irq
+Message-Id: <1411614872-4009-19-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1412084912-2767-1-git-send-email-sudeep.holla@arm.com>
-In-Reply-To: <1412084912-2767-1-git-send-email-sudeep.holla@arm.com>
+References: <1411614872-4009-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1411614872-4009-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: LKML <linux-kernel@vger.kernel.org>
-Cc: Sudeep Holla <sudeep.holla@arm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, Lorenzo Pieralisi <Lorenzo.Pieralisi@arm.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-api@vger.kernel.org, linux390@de.ibm.com, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, x86@kernel.org
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, linux-arch@vger.kernel.org, arnab.basu@freescale.com, Bharat.Bhushan@freescale.com, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Thomas Gleixner <tglx@linutronix.de>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, xen-devel@lists.xenproject.org, Joerg Roedel <joro@8bytes.org>, iommu@lists.linux-foundation.org, linux-mips@linux-mips.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, Sebastian Ott <sebott@linux.vnet.ibm.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Chris Metcalf <cmetcalf@tilera.com>, Ralf Baechle <ralf@linux-mips.org>, Lucas Stach <l.stach@pengutronix.de>, David Vrabel <david.vrabel@citrix.com>, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>, Michael Ellerman <mpe@ellerman.id.au>, Thierry Reding <thierry.reding@gmail.com>, Thomas Petazzoni <thomas.petazzoni@free-electrons.com>, Yijing Wang <wangyijing@huawei.com>
 
-This patch adds initial support for providing processor cache information
-to userspace through sysfs interface. This is based on already existing
-implementations(x86, ia64, s390 and powerpc) and hence the interface is
-intended to be fully compatible.
+Use MSI chip framework instead of arch MSI functions to configure
+MSI/MSI-X irq. So we can manage MSI/MSI-X irq in a unified framework.
 
-The main purpose of this generic support is to avoid further code
-duplication to support new architectures and also to unify all the existing
-different implementations.
-
-This implementation maintains the hierarchy of cache objects which reflects
-the system's cache topology. Cache devices are instantiated as needed as
-CPUs come online. The cache information is replicated per-cpu even if they are
-shared. A per-cpu array of cache information maintained is used mainly for
-sysfs-related book keeping.
-
-It also implements the shared_cpu_map attribute, which is essential for
-enabling both kernel and user-space to discover the system's overall cache
-topology.
-
-This patch also add the missing ABI documentation for the cacheinfo sysfs
-interface already, which is well defined and widely used.
-
-Signed-off-by: Sudeep Holla <sudeep.holla@arm.com>
-Reviewed-by: Stephen Boyd <sboyd@codeaurora.org>
-Tested-by: Stephen Boyd <sboyd@codeaurora.org>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: linux-api@vger.kernel.org
-Cc: linux390@de.ibm.com
-Cc: linux-arm-kernel@lists.infradead.org
-Cc: linux-ia64@vger.kernel.org
-Cc: linuxppc-dev@lists.ozlabs.org
-Cc: linux-s390@vger.kernel.org
-Cc: x86@kernel.org
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
 ---
- Documentation/ABI/testing/sysfs-devices-system-cpu |  47 ++
- drivers/base/Makefile                              |   2 +-
- drivers/base/cacheinfo.c                           | 541 +++++++++++++++++++++
- include/linux/cacheinfo.h                          | 100 ++++
- 4 files changed, 689 insertions(+), 1 deletion(-)
- create mode 100644 drivers/base/cacheinfo.c
- create mode 100644 include/linux/cacheinfo.h
+ arch/arm/mach-iop13xx/include/mach/pci.h |    2 ++
+ arch/arm/mach-iop13xx/iq81340mc.c        |    1 +
+ arch/arm/mach-iop13xx/iq81340sc.c        |    1 +
+ arch/arm/mach-iop13xx/msi.c              |    9 +++++++--
+ arch/arm/mach-iop13xx/pci.c              |    6 ++++++
+ 5 files changed, 17 insertions(+), 2 deletions(-)
 
-diff --git a/Documentation/ABI/testing/sysfs-devices-system-cpu b/Documentation/ABI/testing/sysfs-devices-system-cpu
-index acb9bfc89b48..99983e67c13c 100644
---- a/Documentation/ABI/testing/sysfs-devices-system-cpu
-+++ b/Documentation/ABI/testing/sysfs-devices-system-cpu
-@@ -224,3 +224,50 @@ Description:	Parameters for the Intel P-state driver
- 		frequency range.
+diff --git a/arch/arm/mach-iop13xx/include/mach/pci.h b/arch/arm/mach-iop13xx/include/mach/pci.h
+index 59f42b5..7a073cb 100644
+--- a/arch/arm/mach-iop13xx/include/mach/pci.h
++++ b/arch/arm/mach-iop13xx/include/mach/pci.h
+@@ -10,6 +10,8 @@ struct pci_bus *iop13xx_scan_bus(int nr, struct pci_sys_data *);
+ void iop13xx_atu_select(struct hw_pci *plat_pci);
+ void iop13xx_pci_init(void);
+ void iop13xx_map_pci_memory(void);
++void iop13xx_add_bus(struct pci_bus *bus);
++extern struct msi_chip iop13xx_msi_chip;
  
- 		More details can be found in Documentation/cpu-freq/intel-pstate.txt
+ #define IOP_PCI_STATUS_ERROR (PCI_STATUS_PARITY |	     \
+ 			       PCI_STATUS_SIG_TARGET_ABORT | \
+diff --git a/arch/arm/mach-iop13xx/iq81340mc.c b/arch/arm/mach-iop13xx/iq81340mc.c
+index 9cd07d3..19d47cb 100644
+--- a/arch/arm/mach-iop13xx/iq81340mc.c
++++ b/arch/arm/mach-iop13xx/iq81340mc.c
+@@ -59,6 +59,7 @@ static struct hw_pci iq81340mc_pci __initdata = {
+ 	.map_irq	= iq81340mc_pcix_map_irq,
+ 	.scan		= iop13xx_scan_bus,
+ 	.preinit	= iop13xx_pci_init,
++	.add_bus	= iop13xx_add_bus;
+ };
+ 
+ static int __init iq81340mc_pci_init(void)
+diff --git a/arch/arm/mach-iop13xx/iq81340sc.c b/arch/arm/mach-iop13xx/iq81340sc.c
+index b3ec11c..4d56993 100644
+--- a/arch/arm/mach-iop13xx/iq81340sc.c
++++ b/arch/arm/mach-iop13xx/iq81340sc.c
+@@ -61,6 +61,7 @@ static struct hw_pci iq81340sc_pci __initdata = {
+ 	.scan		= iop13xx_scan_bus,
+ 	.map_irq	= iq81340sc_atux_map_irq,
+ 	.preinit	= iop13xx_pci_init
++	.add_bus	= iop13xx_add_bus;
+ };
+ 
+ static int __init iq81340sc_pci_init(void)
+diff --git a/arch/arm/mach-iop13xx/msi.c b/arch/arm/mach-iop13xx/msi.c
+index e7730cf..1a8cb2f 100644
+--- a/arch/arm/mach-iop13xx/msi.c
++++ b/arch/arm/mach-iop13xx/msi.c
+@@ -132,7 +132,7 @@ static struct irq_chip iop13xx_msi_chip = {
+ 	.irq_unmask = unmask_msi_irq,
+ };
+ 
+-int arch_setup_msi_irq(struct pci_dev *pdev, struct msi_desc *desc)
++static int iop13xx_setup_msi_irq(struct pci_dev *dev, struct msi_desc *desc)
+ {
+ 	int id, irq = irq_alloc_desc_from(IRQ_IOP13XX_MSI_0, -1);
+ 	struct msi_msg msg;
+@@ -159,7 +159,12 @@ int arch_setup_msi_irq(struct pci_dev *pdev, struct msi_desc *desc)
+ 	return 0;
+ }
+ 
+-void arch_teardown_msi_irq(unsigned int irq)
++static void iop13xx_teardown_msi_irq(unsigned int irq)
+ {
+ 	irq_free_desc(irq);
+ }
 +
-+What:		/sys/devices/system/cpu/cpu*/cache/index*/<set_of_attributes_mentioned_below>
-+Date:		July 2014(documented, existed before August 2008)
-+Contact:	Sudeep Holla <sudeep.holla@arm.com>
-+		Linux kernel mailing list <linux-kernel@vger.kernel.org>
-+Description:	Parameters for the CPU cache attributes
-+
-+		allocation_policy:
-+			- WriteAllocate: allocate a memory location to a cache line
-+					 on a cache miss because of a write
-+			- ReadAllocate: allocate a memory location to a cache line
-+					on a cache miss because of a read
-+			- ReadWriteAllocate: both writeallocate and readallocate
-+
-+		attributes: LEGACY used only on IA64 and is same as write_policy
-+
-+		coherency_line_size: the minimum amount of data in bytes that gets
-+				     transferred from memory to cache
-+
-+		level: the cache hierarcy in the multi-level cache configuration
-+
-+		number_of_sets: total number of sets in the cache, a set is a
-+				collection of cache lines with the same cache index
-+
-+		physical_line_partition: number of physical cache line per cache tag
-+
-+		shared_cpu_list: the list of logical cpus sharing the cache
-+
-+		shared_cpu_map: logical cpu mask containing the list of cpus sharing
-+				the cache
-+
-+		size: the total cache size in kB
-+
-+		type:
-+			- Instruction: cache that only holds instructions
-+			- Data: cache that only caches data
-+			- Unified: cache that holds both data and instructions
-+
-+		ways_of_associativity: degree of freedom in placing a particular block
-+					of memory in the cache
-+
-+		write_policy:
-+			- WriteThrough: data is written to both the cache line
-+					and to the block in the lower-level memory
-+			- WriteBack: data is written only to the cache line and
-+				     the modified cache line is written to main
-+				     memory only when it is replaced
-diff --git a/drivers/base/Makefile b/drivers/base/Makefile
-index 4aab26ec0292..f901bc1cffc8 100644
---- a/drivers/base/Makefile
-+++ b/drivers/base/Makefile
-@@ -4,7 +4,7 @@ obj-y			:= component.o core.o bus.o dd.o syscore.o \
- 			   driver.o class.o platform.o \
- 			   cpu.o firmware.o init.o map.o devres.o \
- 			   attribute_container.o transport_class.o \
--			   topology.o container.o
-+			   topology.o container.o cacheinfo.o
- obj-$(CONFIG_DEVTMPFS)	+= devtmpfs.o
- obj-$(CONFIG_DMA_CMA) += dma-contiguous.o
- obj-y			+= power/
-diff --git a/drivers/base/cacheinfo.c b/drivers/base/cacheinfo.c
-new file mode 100644
-index 000000000000..8ed4ea1f3716
---- /dev/null
-+++ b/drivers/base/cacheinfo.c
-@@ -0,0 +1,541 @@
-+/*
-+ * cacheinfo support - processor cache information via sysfs
-+ *
-+ * Based on arch/x86/kernel/cpu/intel_cacheinfo.c
-+ * Author: Sudeep Holla <sudeep.holla@arm.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ *
-+ * This program is distributed "as is" WITHOUT ANY WARRANTY of any
-+ * kind, whether express or implied; without even the implied warranty
-+ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
-+ */
-+#include <linux/bitops.h>
-+#include <linux/cacheinfo.h>
-+#include <linux/compiler.h>
-+#include <linux/cpu.h>
-+#include <linux/device.h>
-+#include <linux/init.h>
-+#include <linux/of.h>
-+#include <linux/sched.h>
-+#include <linux/slab.h>
-+#include <linux/smp.h>
-+#include <linux/sysfs.h>
-+
-+/* pointer to per cpu cacheinfo */
-+static DEFINE_PER_CPU(struct cpu_cacheinfo, ci_cpu_cacheinfo);
-+#define ci_cacheinfo(cpu)	(&per_cpu(ci_cpu_cacheinfo, cpu))
-+#define cache_leaves(cpu)	(ci_cacheinfo(cpu)->num_leaves)
-+#define per_cpu_cacheinfo(cpu)	(ci_cacheinfo(cpu)->info_list)
-+
-+struct cpu_cacheinfo *get_cpu_cacheinfo(unsigned int cpu)
-+{
-+	return ci_cacheinfo(cpu);
-+}
-+
-+#ifdef CONFIG_OF
-+static int cache_setup_of_node(unsigned int cpu)
-+{
-+	struct device_node *np;
-+	struct cacheinfo *this_leaf;
-+	struct device *cpu_dev = get_cpu_device(cpu);
-+	struct cpu_cacheinfo *this_cpu_ci = get_cpu_cacheinfo(cpu);
-+	unsigned int index = 0;
-+
-+	/* skip if of_node is already populated */
-+	if (this_cpu_ci->info_list->of_node)
-+		return 0;
-+
-+	if (!cpu_dev) {
-+		pr_err("No cpu device for CPU %d\n", cpu);
-+		return -ENODEV;
-+	}
-+	np = cpu_dev->of_node;
-+	if (!np) {
-+		pr_err("Failed to find cpu%d device node\n", cpu);
-+		return -ENOENT;
-+	}
-+
-+	while (np && index < cache_leaves(cpu)) {
-+		this_leaf = this_cpu_ci->info_list + index;
-+		if (this_leaf->level != 1)
-+			np = of_find_next_cache_node(np);
-+		else
-+			np = of_node_get(np);/* cpu node itself */
-+		this_leaf->of_node = np;
-+		index++;
-+	}
-+	return 0;
-+}
-+
-+static inline bool cache_leaves_are_shared(struct cacheinfo *this_leaf,
-+					   struct cacheinfo *sib_leaf)
-+{
-+	return sib_leaf->of_node = this_leaf->of_node;
-+}
-+#else
-+static inline int cache_setup_of_node(unsigned int cpu) { return 0; }
-+static inline bool cache_leaves_are_shared(struct cacheinfo *this_leaf,
-+					   struct cacheinfo *sib_leaf)
-+{
-+	/*
-+	 * For non-DT systems, assume unique level 1 cache, system-wide
-+	 * shared caches for all other levels. This will be used only if
-+	 * arch specific code has not populated shared_cpu_map
-+	 */
-+	return !(this_leaf->level = 1);
-+}
-+#endif
-+
-+static int cache_shared_cpu_map_setup(unsigned int cpu)
-+{
-+	struct cpu_cacheinfo *this_cpu_ci = get_cpu_cacheinfo(cpu);
-+	struct cacheinfo *this_leaf, *sib_leaf;
-+	unsigned int index;
-+	int ret;
-+
-+	ret = cache_setup_of_node(cpu);
-+	if (ret)
-+		return ret;
-+
-+	for (index = 0; index < cache_leaves(cpu); index++) {
-+		unsigned int i;
-+
-+		this_leaf = this_cpu_ci->info_list + index;
-+		/* skip if shared_cpu_map is already populated */
-+		if (!cpumask_empty(&this_leaf->shared_cpu_map))
-+			continue;
-+
-+		cpumask_set_cpu(cpu, &this_leaf->shared_cpu_map);
-+		for_each_online_cpu(i) {
-+			struct cpu_cacheinfo *sib_cpu_ci = get_cpu_cacheinfo(i);
-+
-+			if (i = cpu || !sib_cpu_ci->info_list)
-+				continue;/* skip if itself or no cacheinfo */
-+			sib_leaf = sib_cpu_ci->info_list + index;
-+			if (cache_leaves_are_shared(this_leaf, sib_leaf)) {
-+				cpumask_set_cpu(cpu, &sib_leaf->shared_cpu_map);
-+				cpumask_set_cpu(i, &this_leaf->shared_cpu_map);
-+			}
-+		}
-+	}
-+
-+	return 0;
-+}
-+
-+static void cache_shared_cpu_map_remove(unsigned int cpu)
-+{
-+	struct cpu_cacheinfo *this_cpu_ci = get_cpu_cacheinfo(cpu);
-+	struct cacheinfo *this_leaf, *sib_leaf;
-+	unsigned int sibling, index;
-+
-+	for (index = 0; index < cache_leaves(cpu); index++) {
-+		this_leaf = this_cpu_ci->info_list + index;
-+		for_each_cpu(sibling, &this_leaf->shared_cpu_map) {
-+			struct cpu_cacheinfo *sib_cpu_ci;
-+
-+			if (sibling = cpu) /* skip itself */
-+				continue;
-+			sib_cpu_ci = get_cpu_cacheinfo(sibling);
-+			sib_leaf = sib_cpu_ci->info_list + index;
-+			cpumask_clear_cpu(cpu, &sib_leaf->shared_cpu_map);
-+			cpumask_clear_cpu(sibling, &this_leaf->shared_cpu_map);
-+		}
-+		of_node_put(this_leaf->of_node);
-+	}
-+}
-+
-+static void free_cache_attributes(unsigned int cpu)
-+{
-+	cache_shared_cpu_map_remove(cpu);
-+
-+	kfree(per_cpu_cacheinfo(cpu));
-+	per_cpu_cacheinfo(cpu) = NULL;
-+}
-+
-+int __weak init_cache_level(unsigned int cpu)
-+{
-+	return -ENOENT;
-+}
-+
-+int __weak populate_cache_leaves(unsigned int cpu)
-+{
-+	return -ENOENT;
-+}
-+
-+static int detect_cache_attributes(unsigned int cpu)
-+{
-+	int ret;
-+
-+	if (init_cache_level(cpu))
-+		return -ENOENT;
-+
-+	per_cpu_cacheinfo(cpu) = kcalloc(cache_leaves(cpu),
-+					 sizeof(struct cacheinfo), GFP_KERNEL);
-+	if (per_cpu_cacheinfo(cpu) = NULL)
-+		return -ENOMEM;
-+
-+	ret = populate_cache_leaves(cpu);
-+	if (ret)
-+		goto free_ci;
-+	/*
-+	 * For systems using DT for cache hierarcy, of_node and shared_cpu_map
-+	 * will be set up here only if they are not populated already
-+	 */
-+	ret = cache_shared_cpu_map_setup(cpu);
-+	if (ret)
-+		goto free_ci;
-+	return 0;
-+
-+free_ci:
-+	free_cache_attributes(cpu);
-+	return ret;
-+}
-+
-+/* pointer to cpuX/cache device */
-+static DEFINE_PER_CPU(struct device *, ci_cache_dev);
-+#define per_cpu_cache_dev(cpu)	(per_cpu(ci_cache_dev, cpu))
-+
-+static cpumask_t cache_dev_map;
-+
-+/* pointer to array of devices for cpuX/cache/indexY */
-+static DEFINE_PER_CPU(struct device **, ci_index_dev);
-+#define per_cpu_index_dev(cpu)	(per_cpu(ci_index_dev, cpu))
-+#define per_cache_index_dev(cpu, idx)	((per_cpu_index_dev(cpu))[idx])
-+
-+#define show_one(file_name, object)				\
-+static ssize_t file_name##_show(struct device *dev,		\
-+		struct device_attribute *attr, char *buf)	\
-+{								\
-+	struct cacheinfo *this_leaf = dev_get_drvdata(dev);	\
-+	return sprintf(buf, "%u\n", this_leaf->object);		\
-+}
-+
-+show_one(level, level);
-+show_one(coherency_line_size, coherency_line_size);
-+show_one(number_of_sets, number_of_sets);
-+show_one(physical_line_partition, physical_line_partition);
-+show_one(ways_of_associativity, ways_of_associativity);
-+
-+static ssize_t size_show(struct device *dev,
-+			 struct device_attribute *attr, char *buf)
-+{
-+	struct cacheinfo *this_leaf = dev_get_drvdata(dev);
-+
-+	return sprintf(buf, "%uK\n", this_leaf->size >> 10);
-+}
-+
-+static ssize_t shared_cpumap_show_func(struct device *dev, bool list, char *buf)
-+{
-+	struct cacheinfo *this_leaf = dev_get_drvdata(dev);
-+	const struct cpumask *mask = &this_leaf->shared_cpu_map;
-+
-+	return cpumap_print_to_pagebuf(list, buf, mask);
-+}
-+
-+static ssize_t shared_cpu_map_show(struct device *dev,
-+				   struct device_attribute *attr, char *buf)
-+{
-+	return shared_cpumap_show_func(dev, false, buf);
-+}
-+
-+static ssize_t shared_cpu_list_show(struct device *dev,
-+				    struct device_attribute *attr, char *buf)
-+{
-+	return shared_cpumap_show_func(dev, true, buf);
-+}
-+
-+static ssize_t type_show(struct device *dev,
-+			 struct device_attribute *attr, char *buf)
-+{
-+	struct cacheinfo *this_leaf = dev_get_drvdata(dev);
-+
-+	switch (this_leaf->type) {
-+	case CACHE_TYPE_DATA:
-+		return sprintf(buf, "Data\n");
-+	case CACHE_TYPE_INST:
-+		return sprintf(buf, "Instruction\n");
-+	case CACHE_TYPE_UNIFIED:
-+		return sprintf(buf, "Unified\n");
-+	default:
-+		return -EINVAL;
-+	}
-+}
-+
-+static ssize_t allocation_policy_show(struct device *dev,
-+				      struct device_attribute *attr, char *buf)
-+{
-+	struct cacheinfo *this_leaf = dev_get_drvdata(dev);
-+	unsigned int ci_attr = this_leaf->attributes;
-+	int n = 0;
-+
-+	if ((ci_attr & CACHE_READ_ALLOCATE) && (ci_attr & CACHE_WRITE_ALLOCATE))
-+		n = sprintf(buf, "ReadWriteAllocate\n");
-+	else if (ci_attr & CACHE_READ_ALLOCATE)
-+		n = sprintf(buf, "ReadAllocate\n");
-+	else if (ci_attr & CACHE_WRITE_ALLOCATE)
-+		n = sprintf(buf, "WriteAllocate\n");
-+	return n;
-+}
-+
-+static ssize_t write_policy_show(struct device *dev,
-+				 struct device_attribute *attr, char *buf)
-+{
-+	struct cacheinfo *this_leaf = dev_get_drvdata(dev);
-+	unsigned int ci_attr = this_leaf->attributes;
-+	int n = 0;
-+
-+	if (ci_attr & CACHE_WRITE_THROUGH)
-+		n = sprintf(buf, "WriteThrough\n");
-+	else if (ci_attr & CACHE_WRITE_BACK)
-+		n = sprintf(buf, "WriteBack\n");
-+	return n;
-+}
-+
-+static DEVICE_ATTR_RO(level);
-+static DEVICE_ATTR_RO(type);
-+static DEVICE_ATTR_RO(coherency_line_size);
-+static DEVICE_ATTR_RO(ways_of_associativity);
-+static DEVICE_ATTR_RO(number_of_sets);
-+static DEVICE_ATTR_RO(size);
-+static DEVICE_ATTR_RO(allocation_policy);
-+static DEVICE_ATTR_RO(write_policy);
-+static DEVICE_ATTR_RO(shared_cpu_map);
-+static DEVICE_ATTR_RO(shared_cpu_list);
-+static DEVICE_ATTR_RO(physical_line_partition);
-+
-+static struct attribute *cache_default_attrs[] = {
-+	&dev_attr_type.attr,
-+	&dev_attr_level.attr,
-+	&dev_attr_shared_cpu_map.attr,
-+	&dev_attr_shared_cpu_list.attr,
-+	&dev_attr_coherency_line_size.attr,
-+	&dev_attr_ways_of_associativity.attr,
-+	&dev_attr_number_of_sets.attr,
-+	&dev_attr_size.attr,
-+	&dev_attr_allocation_policy.attr,
-+	&dev_attr_write_policy.attr,
-+	&dev_attr_physical_line_partition.attr,
-+	NULL
++struct msi_chip iop13xx_chip = {
++	.setup_irq = iop13xx_setup_msi_irq,
++	.teardown_irq = iop13xx_teardown_msi_irq,
 +};
-+
-+static umode_t
-+cache_default_attrs_is_visible(struct kobject *kobj,
-+			       struct attribute *attr, int unused)
+diff --git a/arch/arm/mach-iop13xx/pci.c b/arch/arm/mach-iop13xx/pci.c
+index 9082b84..f498800 100644
+--- a/arch/arm/mach-iop13xx/pci.c
++++ b/arch/arm/mach-iop13xx/pci.c
+@@ -962,6 +962,12 @@ void __init iop13xx_atu_select(struct hw_pci *plat_pci)
+ 	}
+ }
+ 
++void iop13xx_add_bus(struct pci_bus *bus)
 +{
-+	struct device *dev = kobj_to_dev(kobj);
-+	struct cacheinfo *this_leaf = dev_get_drvdata(dev);
-+	const struct cpumask *mask = &this_leaf->shared_cpu_map;
-+	umode_t mode = attr->mode;
-+
-+	if ((attr = &dev_attr_type.attr) && this_leaf->type)
-+		return mode;
-+	if ((attr = &dev_attr_level.attr) && this_leaf->level)
-+		return mode;
-+	if ((attr = &dev_attr_shared_cpu_map.attr) && !cpumask_empty(mask))
-+		return mode;
-+	if ((attr = &dev_attr_shared_cpu_list.attr) && !cpumask_empty(mask))
-+		return mode;
-+	if ((attr = &dev_attr_coherency_line_size.attr) &&
-+	    this_leaf->coherency_line_size)
-+		return mode;
-+	if ((attr = &dev_attr_ways_of_associativity.attr) &&
-+	    this_leaf->size) /* allow 0 = full associativity */
-+		return mode;
-+	if ((attr = &dev_attr_number_of_sets.attr) &&
-+	    this_leaf->number_of_sets)
-+		return mode;
-+	if ((attr = &dev_attr_size.attr) && this_leaf->size)
-+		return mode;
-+	if ((attr = &dev_attr_write_policy.attr) &&
-+	    (this_leaf->attributes & CACHE_WRITE_POLICY_MASK))
-+		return mode;
-+	if ((attr = &dev_attr_allocation_policy.attr) &&
-+	    (this_leaf->attributes & CACHE_ALLOCATE_POLICY_MASK))
-+		return mode;
-+	if ((attr = &dev_attr_physical_line_partition.attr) &&
-+	    this_leaf->physical_line_partition)
-+		return mode;
-+
-+	return 0;
++	if (IS_ENABLED(CONFIG_PCI_MSI)) 
++		bus->msi = &iop13xx_msi_chip;
 +}
 +
-+static const struct attribute_group cache_default_group = {
-+	.attrs = cache_default_attrs,
-+	.is_visible = cache_default_attrs_is_visible,
-+};
-+
-+static const struct attribute_group *cache_default_groups[] = {
-+	&cache_default_group,
-+	NULL,
-+};
-+
-+static const struct attribute_group *cache_private_groups[] = {
-+	&cache_default_group,
-+	NULL, /* Place holder for private group */
-+	NULL,
-+};
-+
-+const struct attribute_group *
-+__weak cache_get_priv_group(struct cacheinfo *this_leaf)
-+{
-+	return NULL;
-+}
-+
-+static const struct attribute_group **
-+cache_get_attribute_groups(struct cacheinfo *this_leaf)
-+{
-+	const struct attribute_group *priv_group +			cache_get_priv_group(this_leaf);
-+
-+	if (!priv_group)
-+		return cache_default_groups;
-+
-+	if (!cache_private_groups[1])
-+		cache_private_groups[1] = priv_group;
-+
-+	return cache_private_groups;
-+}
-+
-+/* Add/Remove cache interface for CPU device */
-+static void cpu_cache_sysfs_exit(unsigned int cpu)
-+{
-+	int i;
-+	struct device *ci_dev;
-+
-+	if (per_cpu_index_dev(cpu)) {
-+		for (i = 0; i < cache_leaves(cpu); i++) {
-+			ci_dev = per_cache_index_dev(cpu, i);
-+			if (!ci_dev)
-+				continue;
-+			device_unregister(ci_dev);
-+		}
-+		kfree(per_cpu_index_dev(cpu));
-+		per_cpu_index_dev(cpu) = NULL;
-+	}
-+	device_unregister(per_cpu_cache_dev(cpu));
-+	per_cpu_cache_dev(cpu) = NULL;
-+}
-+
-+static int cpu_cache_sysfs_init(unsigned int cpu)
-+{
-+	struct device *dev = get_cpu_device(cpu);
-+
-+	if (per_cpu_cacheinfo(cpu) = NULL)
-+		return -ENOENT;
-+
-+	per_cpu_cache_dev(cpu) = cpu_device_create(dev, NULL, NULL, "cache");
-+	if (IS_ERR(per_cpu_cache_dev(cpu)))
-+		return PTR_ERR(per_cpu_cache_dev(cpu));
-+
-+	/* Allocate all required memory */
-+	per_cpu_index_dev(cpu) = kcalloc(cache_leaves(cpu),
-+					 sizeof(struct device *), GFP_KERNEL);
-+	if (unlikely(per_cpu_index_dev(cpu) = NULL))
-+		goto err_out;
-+
-+	return 0;
-+
-+err_out:
-+	cpu_cache_sysfs_exit(cpu);
-+	return -ENOMEM;
-+}
-+
-+static int cache_add_dev(unsigned int cpu)
-+{
-+	unsigned int i;
-+	int rc;
-+	struct device *ci_dev, *parent;
-+	struct cacheinfo *this_leaf;
-+	struct cpu_cacheinfo *this_cpu_ci = get_cpu_cacheinfo(cpu);
-+	const struct attribute_group **cache_groups;
-+
-+	rc = cpu_cache_sysfs_init(cpu);
-+	if (unlikely(rc < 0))
-+		return rc;
-+
-+	parent = per_cpu_cache_dev(cpu);
-+	for (i = 0; i < cache_leaves(cpu); i++) {
-+		this_leaf = this_cpu_ci->info_list + i;
-+		if (this_leaf->disable_sysfs)
-+			continue;
-+		cache_groups = cache_get_attribute_groups(this_leaf);
-+		ci_dev = cpu_device_create(parent, this_leaf, cache_groups,
-+					   "index%1u", i);
-+		if (IS_ERR(ci_dev)) {
-+			rc = PTR_ERR(ci_dev);
-+			goto err;
-+		}
-+		per_cache_index_dev(cpu, i) = ci_dev;
-+	}
-+	cpumask_set_cpu(cpu, &cache_dev_map);
-+
-+	return 0;
-+err:
-+	cpu_cache_sysfs_exit(cpu);
-+	return rc;
-+}
-+
-+static void cache_remove_dev(unsigned int cpu)
-+{
-+	if (!cpumask_test_cpu(cpu, &cache_dev_map))
-+		return;
-+	cpumask_clear_cpu(cpu, &cache_dev_map);
-+
-+	cpu_cache_sysfs_exit(cpu);
-+}
-+
-+static int cacheinfo_cpu_callback(struct notifier_block *nfb,
-+				  unsigned long action, void *hcpu)
-+{
-+	unsigned int cpu = (unsigned long)hcpu;
-+	int rc = 0;
-+
-+	switch (action & ~CPU_TASKS_FROZEN) {
-+	case CPU_ONLINE:
-+		rc = detect_cache_attributes(cpu);
-+		if (!rc)
-+			rc = cache_add_dev(cpu);
-+		break;
-+	case CPU_DEAD:
-+		cache_remove_dev(cpu);
-+		if (per_cpu_cacheinfo(cpu))
-+			free_cache_attributes(cpu);
-+		break;
-+	}
-+	return notifier_from_errno(rc);
-+}
-+
-+static int __init cacheinfo_sysfs_init(void)
-+{
-+	int cpu, rc = 0;
-+
-+	cpu_notifier_register_begin();
-+
-+	for_each_online_cpu(cpu) {
-+		rc = detect_cache_attributes(cpu);
-+		if (rc) {
-+			pr_err("error detecting cacheinfo..cpu%d\n", cpu);
-+			goto out;
-+		}
-+		rc = cache_add_dev(cpu);
-+		if (rc) {
-+			free_cache_attributes(cpu);
-+			pr_err("error populating cacheinfo..cpu%d\n", cpu);
-+			goto out;
-+		}
-+	}
-+	__hotcpu_notifier(cacheinfo_cpu_callback, 0);
-+
-+out:
-+	cpu_notifier_register_done();
-+	return rc;
-+}
-+
-+device_initcall(cacheinfo_sysfs_init);
-diff --git a/include/linux/cacheinfo.h b/include/linux/cacheinfo.h
-new file mode 100644
-index 000000000000..3daf5ed392c9
---- /dev/null
-+++ b/include/linux/cacheinfo.h
-@@ -0,0 +1,100 @@
-+#ifndef _LINUX_CACHEINFO_H
-+#define _LINUX_CACHEINFO_H
-+
-+#include <linux/bitops.h>
-+#include <linux/cpumask.h>
-+#include <linux/smp.h>
-+
-+struct device_node;
-+struct attribute;
-+
-+enum cache_type {
-+	CACHE_TYPE_NOCACHE = 0,
-+	CACHE_TYPE_INST = BIT(0),
-+	CACHE_TYPE_DATA = BIT(1),
-+	CACHE_TYPE_SEPARATE = CACHE_TYPE_INST | CACHE_TYPE_DATA,
-+	CACHE_TYPE_UNIFIED = BIT(2),
-+};
-+
-+/**
-+ * struct cacheinfo - represent a cache leaf node
-+ * @type: type of the cache - data, inst or unified
-+ * @level: represents the hierarcy in the multi-level cache
-+ * @coherency_line_size: size of each cache line usually representing
-+ *	the minimum amount of data that gets transferred from memory
-+ * @number_of_sets: total number of sets, a set is a collection of cache
-+ *	lines sharing the same index
-+ * @ways_of_associativity: number of ways in which a particular memory
-+ *	block can be placed in the cache
-+ * @physical_line_partition: number of physical cache lines sharing the
-+ *	same cachetag
-+ * @size: Total size of the cache
-+ * @shared_cpu_map: logical cpumask representing all the cpus sharing
-+ *	this cache node
-+ * @attributes: bitfield representing various cache attributes
-+ * @of_node: if devicetree is used, this represents either the cpu node in
-+ *	case there's no explicit cache node or the cache node itself in the
-+ *	device tree
-+ * @disable_sysfs: indicates whether this node is visible to the user via
-+ *	sysfs or not
-+ * @priv: pointer to any private data structure specific to particular
-+ *	cache design
-+ *
-+ * While @of_node, @disable_sysfs and @priv are used for internal book
-+ * keeping, the remaining members form the core properties of the cache
-+ */
-+struct cacheinfo {
-+	enum cache_type type;
-+	unsigned int level;
-+	unsigned int coherency_line_size;
-+	unsigned int number_of_sets;
-+	unsigned int ways_of_associativity;
-+	unsigned int physical_line_partition;
-+	unsigned int size;
-+	cpumask_t shared_cpu_map;
-+	unsigned int attributes;
-+#define CACHE_WRITE_THROUGH	BIT(0)
-+#define CACHE_WRITE_BACK	BIT(1)
-+#define CACHE_WRITE_POLICY_MASK		\
-+	(CACHE_WRITE_THROUGH | CACHE_WRITE_BACK)
-+#define CACHE_READ_ALLOCATE	BIT(2)
-+#define CACHE_WRITE_ALLOCATE	BIT(3)
-+#define CACHE_ALLOCATE_POLICY_MASK	\
-+	(CACHE_READ_ALLOCATE | CACHE_WRITE_ALLOCATE)
-+
-+	struct device_node *of_node;
-+	bool disable_sysfs;
-+	void *priv;
-+};
-+
-+struct cpu_cacheinfo {
-+	struct cacheinfo *info_list;
-+	unsigned int num_levels;
-+	unsigned int num_leaves;
-+};
-+
-+/*
-+ * Helpers to make sure "func" is executed on the cpu whose cache
-+ * attributes are being detected
-+ */
-+#define DEFINE_SMP_CALL_CACHE_FUNCTION(func)			\
-+static inline void _##func(void *ret)				\
-+{								\
-+	int cpu = smp_processor_id();				\
-+	*(int *)ret = __##func(cpu);				\
-+}								\
-+								\
-+int func(unsigned int cpu)					\
-+{								\
-+	int ret;						\
-+	smp_call_function_single(cpu, _##func, &ret, true);	\
-+	return ret;						\
-+}
-+
-+struct cpu_cacheinfo *get_cpu_cacheinfo(unsigned int cpu);
-+int init_cache_level(unsigned int cpu);
-+int populate_cache_leaves(unsigned int cpu);
-+
-+const struct attribute_group *cache_get_priv_group(struct cacheinfo *this_leaf);
-+
-+#endif /* _LINUX_CACHEINFO_H */
+ void __init iop13xx_pci_init(void)
+ {
+ 	/* clear pre-existing south bridge errors */
 -- 
-1.9.1
+1.7.1
 
