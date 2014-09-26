@@ -1,7 +1,7 @@
 From: Yijing Wang <wangyijing@huawei.com>
-Date: Fri, 26 Sep 2014 02:33:24 +0000
+Date: Fri, 26 Sep 2014 02:44:26 +0000
 Subject: Re: [PATCH v2 06/22] PCI/MSI: Introduce weak arch_find_msi_chip() to find MSI chip
-Message-Id: <5424D074.60102@huawei.com>
+Message-Id: <5424D30A.6040900@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1411614872-4009-1-git-send-email-wangyijing@huawei.com> <1411614872-4009-7-git-send-email-wangyijing@huawei.com> <alpine.DEB.2.10.1409251220570.4604@nanos>
 In-Reply-To: <alpine.DEB.2.10.1409251220570.4604@nanos>
@@ -29,23 +29,24 @@ On 2014/9/25 18:38, Thomas Gleixner wrote:
 > This is really backwards. On one hand you try to get rid of the weak
 > arch functions zoo and then you invent new ones for no good
 > reason. Why can't x86 store the chip in the pci bus?
-
-Hi Thomas, I introduced this weak function , because I thought all platforms
-except arm always have only one msi chip, and I hoped to provide a simplest
-solution, less code changes. I consider several solutions to associate msi chip
-and PCI device. In my reply to Thierry in first reply,
-http://marc.info/?l=linux-pci&m1169658208255&w=2
-Could you give me some advices ?
-
-Thanks!
-Yijing.
-
-
 > 
 > Looking deeper, I'm questioning the whole notion of different
 > msi_chips. Are this really different MSI controllers with a different
 > feature set or are this defacto multiple instances of the same
 > controller which just need a different data set?
+
+MSI chip in this series is to setup MSI irq, including IRQ allocation, Map,
+compose MSI msg ..., in different platform, many arch specific MSI irq details in it.
+It's difficult to extract the common data and code.
+
+I have a plan to rework MSI related irq_chips in kernel, PCI and Non-PCI, currently,
+HPET, DMAR and PCI have their own irq_chip and MSI related functions, write_msi_msg(),
+mask_msi_irq(), etc... I want to extract the common data set for that, so we can
+remove lots of unnecessary MSI code.
+
+Thanks!
+Yijing.
+
 > 
 > Thanks,
 > 
