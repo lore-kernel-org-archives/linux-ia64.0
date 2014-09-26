@@ -1,105 +1,105 @@
-From: Liviu Dudau <liviu@dudau.co.uk>
-Date: Thu, 25 Sep 2014 17:16:12 +0000
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Fri, 26 Sep 2014 02:47:58 +0000
 Subject: Re: [PATCH v2 00/22] Use MSI chip framework to configure MSI/MSI-X in all platforms
-Message-Id: <20140925171612.GC31157@bart.dudau.co.uk>
+Message-Id: <5424D3DE.8080406@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1411614872-4009-1-git-send-email-wangyijing@huawei.com>
- <20140925074235.GN12423@ulmo>
- <20140925144855.GB31157@bart.dudau.co.uk>
- <20140925164937.GB30382@ulmo>
-In-Reply-To: <20140925164937.GB30382@ulmo>
+References: <1411614872-4009-1-git-send-email-wangyijing@huawei.com> <20140925142340.GE20089@laptop.dumpdata.com>
+In-Reply-To: <20140925142340.GE20089@laptop.dumpdata.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thierry Reding <thierry.reding@gmail.com>
-Cc: Yijing Wang <wangyijing@huawei.com>, Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, linux-arch@vger.kernel.org, arnab.basu@freescale.com, Bharat.Bhushan@freescale.com, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Thomas Gleixner <tglx@linutronix.de>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, xen-devel@lists.xenproject.org, Joerg Roedel <joro@8bytes.org>, iommu@lists.linux-foundation.org, linux-mips@linux-mips.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, Sebastian Ott <sebott@linux.vnet.ibm.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Chris Metcalf <cmetcalf@tilera.com>, Ralf Baechle <ralf@linux-mips.org>, Lucas Stach <l.stach@pengutronix.de>, David Vrabel <david.vrabel@citrix.com>, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>, Michael Ellerman <mpe@ellerman.id.au>, Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Cc: Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, linux-arch@vger.kernel.org, arnab.basu@freescale.com, Bharat.Bhushan@freescale.com, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Thomas Gleixner <tglx@linutronix.de>, xen-devel@lists.xenproject.org, Joerg Roedel <joro@8bytes.org>, iommu@lists.linux-foundation.org, linux-mips@linux-mips.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, Sebastian Ott <sebott@linux.vnet.ibm.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Chris Metcalf <cmetcalf@tilera.com>, Ralf Baechle <ralf@linux-mips.org>, Lucas Stach <l.stach@pengutronix.de>, David Vrabel <david.vrabel@citrix.com>, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>, Michael Ellerman <mpe@ellerman.id.au>, Thierry Reding <thierry.reding@gmail.com>, Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 
-On Thu, Sep 25, 2014 at 06:49:38PM +0200, Thierry Reding wrote:
-> On Thu, Sep 25, 2014 at 03:48:55PM +0100, Liviu Dudau wrote:
-> > On Thu, Sep 25, 2014 at 09:42:36AM +0200, Thierry Reding wrote:
-> > > On Thu, Sep 25, 2014 at 11:14:10AM +0800, Yijing Wang wrote:
-> > > > This series is based Bjorn's pci/msi branch
-> > > > git://git.kernel.org/pub/scm/linux/kernel/git/helgaas/pci.git pci/msi
-> > > > 
-> > > > Currently, there are a lot of weak arch functions in MSI code.
-> > > > Thierry Reding Introduced MSI chip framework to configure MSI/MSI-X in arm.
-> > > > This series use MSI chip framework to refactor MSI code across all platforms
-> > > > to eliminate weak arch functions. Then all MSI irqs will be managed in a 
-> > > > unified framework. Because this series changed a lot of ARCH MSI code,
-> > > > so tests in the platforms which MSI code modified are warmly welcomed!
-> > > 
-> > > Apart from the comments to the individual patches I very much like where
-> > > this is going. Thanks for taking care of this.
-> > > 
-> > > Thierry
-> > 
-> > I am actually in disagreement with you, Thierry. I don't like the general direction
-> > of the patches, or at least I don't like the fact that we don't have a portable
-> > way of setting up the msi_chip without having to rely on weak architectural hooks.
+On 2014/9/25 22:23, Konrad Rzeszutek Wilk wrote:
+> On Thu, Sep 25, 2014 at 11:14:10AM +0800, Yijing Wang wrote:
+>> This series is based Bjorn's pci/msi branch
+>> git://git.kernel.org/pub/scm/linux/kernel/git/helgaas/pci.git pci/msi
 > 
-> Oh, good. That's actually one of the things I said I wasn't happy with
-> either. =)
+> Is there a git tree for these patches?
+
+Hi Konrad, my git tree in company can not be pulled from outside.
+I will try to update this series to github these days.
+
+
+>>
+>> Currently, there are a lot of weak arch functions in MSI code.
+>> Thierry Reding Introduced MSI chip framework to configure MSI/MSI-X in arm.
+>> This series use MSI chip framework to refactor MSI code across all platforms
+>> to eliminate weak arch functions. Then all MSI irqs will be managed in a 
+>> unified framework. Because this series changed a lot of ARCH MSI code,
+>> so tests in the platforms which MSI code modified are warmly welcomed!
+>>
+>> v1->v2:
+>> Add a patch to make s390 MSI code build happy between patch "x86/xen/MSI: E.."
+>> and "s390/MSI: Use MSI..". Fix several typo problems found by Lucas.
+>>
+>> RFC->v1: 
+>> Updated "[patch 4/21] x86/xen/MSI: Eliminate...", export msi_chip instead
+>> of #ifdef to fix MSI bug in xen running in x86. 
+>> Rename arch_get_match_msi_chip() to arch_find_msi_chip().
+>> Drop use struct device as the msi_chip argument, we will do that
+>> later in another patchset.
+>>
+>> Yijing Wang (22):
+>>   PCI/MSI: Clean up struct msi_chip argument
+>>   PCI/MSI: Remove useless bus->msi assignment
+>>   MSI: Remove the redundant irq_set_chip_data()
+>>   x86/xen/MSI: Eliminate arch_msix_mask_irq() and arch_msi_mask_irq()
+>>   s390/MSI: Use __msi_mask_irq() instead of default_msi_mask_irq()
+>>   PCI/MSI: Introduce weak arch_find_msi_chip() to find MSI chip
+>>   PCI/MSI: Refactor struct msi_chip to make it become more common
+>>   x86/MSI: Use MSI chip framework to configure MSI/MSI-X irq
+>>   x86/xen/MSI: Use MSI chip framework to configure MSI/MSI-X irq
+>>   Irq_remapping/MSI: Use MSI chip framework to configure MSI/MSI-X irq
+>>   x86/MSI: Remove unused MSI weak arch functions
+>>   MIPS/Octeon/MSI: Use MSI chip framework to configure MSI/MSI-X irq
+>>   MIPS/Xlp: Remove the dead function destroy_irq() to fix build error
+>>   MIPS/Xlp/MSI: Use MSI chip framework to configure MSI/MSI-X irq
+>>   MIPS/Xlr/MSI: Use MSI chip framework to configure MSI/MSI-X irq
+>>   Powerpc/MSI: Use MSI chip framework to configure MSI/MSI-X irq
+>>   s390/MSI: Use MSI chip framework to configure MSI/MSI-X irq
+>>   arm/iop13xx/MSI: Use MSI chip framework to configure MSI/MSI-X irq
+>>   IA64/MSI: Use MSI chip framework to configure MSI/MSI-X irq
+>>   Sparc/MSI: Use MSI chip framework to configure MSI/MSI-X irq
+>>   tile/MSI: Use MSI chip framework to configure MSI/MSI-X irq
+>>   PCI/MSI: Clean up unused MSI arch functions
+>>
+>>  arch/arm/mach-iop13xx/include/mach/pci.h |    2 +
+>>  arch/arm/mach-iop13xx/iq81340mc.c        |    1 +
+>>  arch/arm/mach-iop13xx/iq81340sc.c        |    1 +
+>>  arch/arm/mach-iop13xx/msi.c              |    9 ++-
+>>  arch/arm/mach-iop13xx/pci.c              |    6 ++
+>>  arch/ia64/kernel/msi_ia64.c              |   18 ++++-
+>>  arch/mips/pci/msi-octeon.c               |   35 ++++++----
+>>  arch/mips/pci/msi-xlp.c                  |   18 ++++--
+>>  arch/mips/pci/pci-xlr.c                  |   15 ++++-
+>>  arch/powerpc/kernel/msi.c                |   14 +++-
+>>  arch/s390/pci/pci.c                      |   18 ++++-
+>>  arch/sparc/kernel/pci.c                  |   14 +++-
+>>  arch/tile/kernel/pci_gx.c                |   14 +++-
+>>  arch/x86/include/asm/apic.h              |    4 +
+>>  arch/x86/include/asm/pci.h               |    4 +-
+>>  arch/x86/include/asm/x86_init.h          |    7 --
+>>  arch/x86/kernel/apic/io_apic.c           |   16 ++++-
+>>  arch/x86/kernel/x86_init.c               |   34 ---------
+>>  arch/x86/pci/xen.c                       |   60 +++++++++-------
+>>  drivers/iommu/irq_remapping.c            |    9 ++-
+>>  drivers/irqchip/irq-armada-370-xp.c      |    8 +--
+>>  drivers/pci/host/pci-tegra.c             |    8 ++-
+>>  drivers/pci/host/pcie-designware.c       |    4 +-
+>>  drivers/pci/host/pcie-rcar.c             |    8 ++-
+>>  drivers/pci/msi.c                        |  114 ++++++++++++++----------------
+>>  drivers/pci/probe.c                      |    1 -
+>>  include/linux/msi.h                      |   26 ++-----
+>>  27 files changed, 266 insertions(+), 202 deletions(-)
+>>
 > 
-> > I'm surprised no one considers the case of a platform having more than one host
-> > bridge and possibly more than one MSI unit. With the current proposed patchset I
-> > can't see how that would work.
+> .
 > 
-> The PCI core can already deal with that. An MSI chip can be set per bus
-> and the weak pcibios_add_bus() can be used to set that. Often it might
-> not even be necessary to do it via pcibios_add_bus() if you create the
-> root bus directly, since you can attach the MSI chip at that time.
-
-But I'm thinking that we need to move away from pcibios_add_bus() interface to do
-something that should be generic. You don't need to be called for every bus when all
-you want is just the root bus in order to add the MSI chip. Also, from looking at
-the current patchset, a lot of architectures would set the MSI chip to a global
-variable, which means you don't have an option to choose the MSI chip based on the
-bus.
-
-> 
-> > What I would like to see is a way of creating the pci_host_bridge structure outside
-> > the pci_create_root_bus(). That would then allow us to pass this sort of platform
-> > details like associated msi_chip into the host bridge and the child busses will
-> > have an easy way of finding the information needed by finding the root bus and then
-> > the host bridge structure. Then the generic pci_scan_root_bus() can be used by (mostly)
-> > everyone and the drivers can remove their kludges that try to work around the
-> > current limitations.
-> 
-> I think both issues are orthogonal. Last time I checked a lot of work
-> was still necessary to unify host bridges enough so that it could be
-> shared across architectures. But perhaps some of that work has
-> happened in the meantime.
-
-Breaking out the host bridge creation from root bus creation is not difficult, just not
-agree upon. That would be the first step in making the generic host brige structure
-useful for sharing, specially if used as a sort of "parent" structure that you can
-wrap with your actual host bridge structure.
-
-> 
-> But like I said, when you create the root bus, you can easily attach the
-> MSI chip to it.
-
-Not if you want to use the generic pci_scan_root_bus() function. One needs to copy the code
-and add their own needed modifications. Which makes it hard to fix bugs and prevents code
-reuse.
-
-Best regards,
-Liviu
-
-> 
-> Thierry
-
 
 
 -- 
--------------------
-   .oooO
-   (   )
-    \ (  Oooo.
-     \_) (   )
-          ) /
-         (_/
-
- One small step
-   for me ...
+Thanks!
+Yijing
 
