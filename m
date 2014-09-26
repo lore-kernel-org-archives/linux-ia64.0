@@ -1,39 +1,45 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Date: Thu, 25 Sep 2014 10:38:34 +0000
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Fri, 26 Sep 2014 02:10:23 +0000
 Subject: Re: [PATCH v2 06/22] PCI/MSI: Introduce weak arch_find_msi_chip() to find MSI chip
-Message-Id: <alpine.DEB.2.10.1409251220570.4604@nanos>
+Message-Id: <5424CB0F.2030406@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1411614872-4009-1-git-send-email-wangyijing@huawei.com> <1411614872-4009-7-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1411614872-4009-7-git-send-email-wangyijing@huawei.com>
+References: <1411614872-4009-1-git-send-email-wangyijing@huawei.com> <1411614872-4009-7-git-send-email-wangyijing@huawei.com> <20140925072619.GI12423@ulmo>
+In-Reply-To: <20140925072619.GI12423@ulmo>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Yijing Wang <wangyijing@huawei.com>
-Cc: Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, linux-arch@vger.kernel.org, arnab.basu@freescale.com, Bharat.Bhushan@freescale.com, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, xen-devel@lists.xenproject.org, Joerg Roedel <joro@8bytes.org>, iommu@lists.linux-foundation.org, linux-mips@linux-mips.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, Sebastian Ott <sebott@linux.vnet.ibm.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Chris Metcalf <cmetcalf@tilera.com>, Ralf Baechle <ralf@linux-mips.org>, Lucas Stach <l.stach@pengutronix.de>, David Vrabel <david.vrabel@citrix.com>, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>, Michael Ellerman <mpe@ellerman.id.au>, Thierry Reding <thierry.reding@gmail.com>, Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+To: Thierry Reding <thierry.reding@gmail.com>
+Cc: Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, linux-arch@vger.kernel.org, arnab.basu@freescale.com, Bharat.Bhushan@freescale.com, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Thomas Gleixner <tglx@linutronix.de>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, xen-devel@lists.xenproject.org, Joerg Roedel <joro@8bytes.org>, iommu@lists.linux-foundation.org, linux-mips@linux-mips.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, Sebastian Ott <sebott@linux.vnet.ibm.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Chris Metcalf <cmetcalf@tilera.com>, Ralf Baechle <ralf@linux-mips.org>, Lucas Stach <l.stach@pengutronix.de>, David Vrabel <david.vrabel@citrix.com>, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>, Michael Ellerman <mpe@ellerman.id.au>, Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 
-On Thu, 25 Sep 2014, Yijing Wang wrote:
+On 2014/9/25 15:26, Thierry Reding wrote:
+> On Thu, Sep 25, 2014 at 11:14:16AM +0800, Yijing Wang wrote:
+>> Introduce weak arch_find_msi_chip() to find the match msi_chip.
+>> Currently, MSI chip associates pci bus to msi_chip. Because in
+>> ARM platform, there may be more than one MSI controller in system.
+>> Associate pci bus to msi_chip help pci device to find the match
+>> msi_chip and setup MSI/MSI-X irq correctly. But in other platform,
+>> like in x86. we only need one MSI chip, because all device use
+>> the same MSI address/data and irq etc. So it's no need to associate
+>> pci bus to MSI chip, just use a arch function, arch_find_msi_chip()
+>> to return the MSI chip for simplicity. The default weak
+>> arch_find_msi_chip() used in ARM platform, find the MSI chip
+>> by pci bus.
+> 
+> Can't x86 simply set the bus' .msi field anyway? It would seem to be
+> easy to do and unifies the code rather than driving it further apart
+> using even more of the __weak functions.
 
-> Introduce weak arch_find_msi_chip() to find the match msi_chip.
-> Currently, MSI chip associates pci bus to msi_chip. Because in
-> ARM platform, there may be more than one MSI controller in system.
-> Associate pci bus to msi_chip help pci device to find the match
-> msi_chip and setup MSI/MSI-X irq correctly. But in other platform,
-> like in x86. we only need one MSI chip, because all device use
-> the same MSI address/data and irq etc. So it's no need to associate
-> pci bus to MSI chip, just use a arch function, arch_find_msi_chip()
-> to return the MSI chip for simplicity. The default weak
-> arch_find_msi_chip() used in ARM platform, find the MSI chip
-> by pci bus.
+As mentioned in the first reply, I will rework this one when we find a better solution.
 
-This is really backwards. On one hand you try to get rid of the weak
-arch functions zoo and then you invent new ones for no good
-reason. Why can't x86 store the chip in the pci bus?
+Thanks!
+Yijing.
 
-Looking deeper, I'm questioning the whole notion of different
-msi_chips. Are this really different MSI controllers with a different
-feature set or are this defacto multiple instances of the same
-controller which just need a different data set?
+> 
+> Thierry
+> 
 
-Thanks,
 
-	tglx
+-- 
+Thanks!
+Yijing
+
