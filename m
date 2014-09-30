@@ -1,65 +1,37 @@
-From: Laszlo Ersek <lersek@redhat.com>
-Date: Mon, 01 Sep 2014 00:53:40 +0000
-Subject: [PATCH 5/5] arm64: efi: format EFI memory type & attrs with efi_md_typeattr_format()
-Message-Id: <1409532820-5027-6-git-send-email-lersek@redhat.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Date: Tue, 30 Sep 2014 18:00:51 +0000
+Subject: [RFC PATCH 11/16] sh: support poweroff through poweroff handler call chain
+Message-Id: <1412100056-15517-12-git-send-email-linux@roeck-us.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1409532820-5027-1-git-send-email-lersek@redhat.com>
-In-Reply-To: <1409532820-5027-1-git-send-email-lersek@redhat.com>
+References: <1412100056-15517-1-git-send-email-linux@roeck-us.net>
+In-Reply-To: <1412100056-15517-1-git-send-email-linux@roeck-us.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-efi@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, x86@kernel.org, linux-ia64@vger.kernel.org, matt.fleming@intel.com, msalter@redhat.com, lersek@redhat.com
+To: linux-arm-kernel@lists.infradead.org
 
-Signed-off-by: Laszlo Ersek <lersek@redhat.com>
+The kernel core now supports a poweroff handler call chain
+to remove power from the system. Call it if pm_power_off
+is set to NULL.
+
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 ---
- arch/arm64/kernel/efi.c | 26 ++++++--------------------
- 1 file changed, 6 insertions(+), 20 deletions(-)
+ arch/sh/kernel/reboot.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/arch/arm64/kernel/efi.c b/arch/arm64/kernel/efi.c
-index 03aaa99..3b1f23c 100644
---- a/arch/arm64/kernel/efi.c
-+++ b/arch/arm64/kernel/efi.c
-@@ -119,23 +119,6 @@ static int __init uefi_init(void)
- 	return retval;
+diff --git a/arch/sh/kernel/reboot.c b/arch/sh/kernel/reboot.c
+index 04afe5b..8e68926 100644
+--- a/arch/sh/kernel/reboot.c
++++ b/arch/sh/kernel/reboot.c
+@@ -53,6 +53,8 @@ static void native_machine_power_off(void)
+ {
+ 	if (pm_power_off)
+ 		pm_power_off();
++	else
++		do_kernel_poweroff();
  }
  
--static __initdata char memory_type_name[][32] = {
--	{"Reserved"},
--	{"Loader Code"},
--	{"Loader Data"},
--	{"Boot Code"},
--	{"Boot Data"},
--	{"Runtime Code"},
--	{"Runtime Data"},
--	{"Conventional Memory"},
--	{"Unusable Memory"},
--	{"ACPI Reclaim Memory"},
--	{"ACPI Memory NVS"},
--	{"Memory Mapped I/O"},
--	{"MMIO Port Space"},
--	{"PAL Code"},
--};
--
- /*
-  * Return true for RAM regions we want to permanently reserve.
-  */
-@@ -166,10 +149,13 @@ static __init void reserve_regions(void)
- 		paddr = md->phys_addr;
- 		npages = md->num_pages;
- 
--		if (uefi_debug)
--			pr_info("  0x%012llx-0x%012llx [%s]",
-+		if (uefi_debug) {
-+			char buf[64];
-+
-+			pr_info("  0x%012llx-0x%012llx %s",
- 				paddr, paddr + (npages << EFI_PAGE_SHIFT) - 1,
--				memory_type_name[md->type]);
-+				efi_md_typeattr_format(buf, sizeof(buf), md));
-+		}
- 
- 		memrange_efi_to_native(&paddr, &npages);
- 		size = npages << PAGE_SHIFT;
+ static void native_machine_halt(void)
 -- 
-1.8.3.1
+1.9.1
 
