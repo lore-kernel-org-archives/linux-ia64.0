@@ -1,57 +1,124 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Thu, 25 Sep 2014 02:53:46 +0000
-Subject: [PATCH v2 16/22] Powerpc/MSI: Use MSI chip framework to configure MSI/MSI-X irq
-Message-Id: <1411614872-4009-17-git-send-email-wangyijing@huawei.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Date: Tue, 30 Sep 2014 18:00:56 +0000
+Subject: [RFC PATCH 16/16] mfd: palmas: Register with kernel poweroff handler
+Message-Id: <1412100056-15517-17-git-send-email-linux@roeck-us.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1411614872-4009-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1411614872-4009-1-git-send-email-wangyijing@huawei.com>
+References: <1412100056-15517-1-git-send-email-linux@roeck-us.net>
+In-Reply-To: <1412100056-15517-1-git-send-email-linux@roeck-us.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, linux-arch@vger.kernel.org, arnab.basu@freescale.com, Bharat.Bhushan@freescale.com, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Thomas Gleixner <tglx@linutronix.de>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, xen-devel@lists.xenproject.org, Joerg Roedel <joro@8bytes.org>, iommu@lists.linux-foundation.org, linux-mips@linux-mips.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, Sebastian Ott <sebott@linux.vnet.ibm.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Chris Metcalf <cmetcalf@tilera.com>, Ralf Baechle <ralf@linux-mips.org>, Lucas Stach <l.stach@pengutronix.de>, David Vrabel <david.vrabel@citrix.com>, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>, Michael Ellerman <mpe@ellerman.id.au>, Thierry Reding <thierry.reding@gmail.com>, Thomas Petazzoni <thomas.petazzoni@free-electrons.com>, Yijing Wang <wangyijing@huawei.com>
+To: linux-arm-kernel@lists.infradead.org
 
-Use MSI chip framework instead of arch MSI functions to configure
-MSI/MSI-X irq. So we can manage MSI/MSI-X irq in a unified framework.
+Register with kernel poweroff handler instead of setting pm_power_off
+directly.
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
-Acked-by: Michael Ellerman <mpe@ellerman.id.au>
+Cc: Samuel Ortiz <sameo@linux.intel.com>
+Cc: Lee Jones <lee.jones@linaro.org>
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 ---
- arch/powerpc/kernel/msi.c |   14 ++++++++++++--
- 1 files changed, 12 insertions(+), 2 deletions(-)
+ drivers/mfd/palmas.c       | 30 +++++++++++++++++-------------
+ include/linux/mfd/palmas.h |  3 +++
+ 2 files changed, 20 insertions(+), 13 deletions(-)
 
-diff --git a/arch/powerpc/kernel/msi.c b/arch/powerpc/kernel/msi.c
-index 71bd161..01781a4 100644
---- a/arch/powerpc/kernel/msi.c
-+++ b/arch/powerpc/kernel/msi.c
-@@ -13,7 +13,7 @@
- 
- #include <asm/machdep.h>
- 
--int arch_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
-+static int ppc_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
- {
- 	if (!ppc_md.setup_msi_irqs || !ppc_md.teardown_msi_irqs) {
- 		pr_debug("msi: Platform doesn't provide MSI callbacks.\n");
-@@ -27,7 +27,17 @@ int arch_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
- 	return ppc_md.setup_msi_irqs(dev, nvec, type);
+diff --git a/drivers/mfd/palmas.c b/drivers/mfd/palmas.c
+index 28cb048..e8ef345a 100644
+--- a/drivers/mfd/palmas.c
++++ b/drivers/mfd/palmas.c
+@@ -19,6 +19,7 @@
+ #include <linux/i2c.h>
+ #include <linux/interrupt.h>
+ #include <linux/irq.h>
++#include <linux/reboot.h>
+ #include <linux/regmap.h>
+ #include <linux/err.h>
+ #include <linux/mfd/core.h>
+@@ -425,20 +426,18 @@ static void palmas_dt_to_pdata(struct i2c_client *i2c,
+ 			"ti,system-power-controller");
  }
  
--void arch_teardown_msi_irqs(struct pci_dev *dev)
-+static void ppc_teardown_msi_irqs(struct pci_dev *dev)
+-static struct palmas *palmas_dev;
+-static void palmas_power_off(void)
++static int palmas_power_off(struct notifier_block *this, unsigned long unused1,
++			    void *unused2)
  {
- 	ppc_md.teardown_msi_irqs(dev);
++	struct palmas *palmas = container_of(this, struct palmas, poweroff_nb);
+ 	unsigned int addr;
+ 	int ret, slave;
+ 
+-	if (!palmas_dev)
+-		return;
+-
+ 	slave = PALMAS_BASE_TO_SLAVE(PALMAS_PMU_CONTROL_BASE);
+ 	addr = PALMAS_BASE_TO_REG(PALMAS_PMU_CONTROL_BASE, PALMAS_DEV_CTRL);
+ 
+ 	ret = regmap_update_bits(
+-			palmas_dev->regmap[slave],
++			palmas->regmap[slave],
+ 			addr,
+ 			PALMAS_DEV_CTRL_DEV_ON,
+ 			0);
+@@ -446,6 +445,8 @@ static void palmas_power_off(void)
+ 	if (ret)
+ 		pr_err("%s: Unable to write to DEV_CTRL_DEV_ON: %d\n",
+ 				__func__, ret);
++
++	return NOTIFY_DONE;
  }
+ 
+ static unsigned int palmas_features = PALMAS_PMIC_FEATURE_SMPS10_BOOST;
+@@ -668,9 +669,15 @@ no_irq:
+ 		ret = of_platform_populate(node, NULL, NULL, &i2c->dev);
+ 		if (ret < 0) {
+ 			goto err_irq;
+-		} else if (pdata->pm_off && !pm_power_off) {
+-			palmas_dev = palmas;
+-			pm_power_off = palmas_power_off;
++		} else if (pdata->pm_off) {
++			palmas->poweroff_nb.notifier_call = palmas_power_off;
++			palmas->poweroff_nb.priority = 128;
++			ret = register_poweroff_handler(&palmas->poweroff_nb);
++			if (ret) {
++				dev_err(palmas->dev,
++					"cannot register poweroff handler");
++				ret = 0;
++			}
+ 		}
+ 	}
+ 
+@@ -698,10 +705,7 @@ static int palmas_i2c_remove(struct i2c_client *i2c)
+ 			i2c_unregister_device(palmas->i2c_clients[i]);
+ 	}
+ 
+-	if (palmas = palmas_dev) {
+-		pm_power_off = NULL;
+-		palmas_dev = NULL;
+-	}
++	unregister_poweroff_handler(&palmas->poweroff_nb);
+ 
+ 	return 0;
+ }
+diff --git a/include/linux/mfd/palmas.h b/include/linux/mfd/palmas.h
+index fb0390a..4715057 100644
+--- a/include/linux/mfd/palmas.h
++++ b/include/linux/mfd/palmas.h
+@@ -18,6 +18,7 @@
+ 
+ #include <linux/usb/otg.h>
+ #include <linux/leds.h>
++#include <linux/notifier.h>
+ #include <linux/regmap.h>
+ #include <linux/regulator/driver.h>
+ #include <linux/extcon.h>
+@@ -68,6 +69,8 @@ struct palmas {
+ 	struct i2c_client *i2c_clients[PALMAS_NUM_CLIENTS];
+ 	struct regmap *regmap[PALMAS_NUM_CLIENTS];
+ 
++	struct notifier_block poweroff_nb;
 +
-+static struct msi_chip ppc_msi_chip = {
-+	.setup_irqs = ppc_setup_msi_irqs,
-+	.teardown_irqs = ppc_teardown_msi_irqs,
-+};
-+
-+struct msi_chip *arch_find_msi_chip(struct pci_dev *dev)
-+{
-+	return &ppc_msi_chip;
-+}
+ 	/* Stored chip id */
+ 	int id;
+ 
 -- 
-1.7.1
+1.9.1
 
