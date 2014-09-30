@@ -1,85 +1,181 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Thu, 25 Sep 2014 02:50:51 +0000
-Subject: [PATCH v2 07/22] PCI/MSI: Refactor struct msi_chip to make it become more common
-Message-Id: <1411614872-4009-8-git-send-email-wangyijing@huawei.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Date: Tue, 30 Sep 2014 18:00:41 +0000
+Subject: [RFC PATCH 01/16] kernel: Add support for poweroff handler call chain
+Message-Id: <1412100056-15517-2-git-send-email-linux@roeck-us.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1411614872-4009-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1411614872-4009-1-git-send-email-wangyijing@huawei.com>
+References: <1412100056-15517-1-git-send-email-linux@roeck-us.net>
+In-Reply-To: <1412100056-15517-1-git-send-email-linux@roeck-us.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, linux-arch@vger.kernel.org, arnab.basu@freescale.com, Bharat.Bhushan@freescale.com, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Thomas Gleixner <tglx@linutronix.de>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, xen-devel@lists.xenproject.org, Joerg Roedel <joro@8bytes.org>, iommu@lists.linux-foundation.org, linux-mips@linux-mips.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, Sebastian Ott <sebott@linux.vnet.ibm.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Chris Metcalf <cmetcalf@tilera.com>, Ralf Baechle <ralf@linux-mips.org>, Lucas Stach <l.stach@pengutronix.de>, David Vrabel <david.vrabel@citrix.com>, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>, Michael Ellerman <mpe@ellerman.id.au>, Thierry Reding <thierry.reding@gmail.com>, Thomas Petazzoni <thomas.petazzoni@free-electrons.com>, Yijing Wang <wangyijing@huawei.com>
+To: linux-arm-kernel@lists.infradead.org
 
-Now there are a lot of __weak arch functions in MSI code.
-These functions make MSI driver complex. Thierry Reding Introduced
-a new MSI chip framework to configure MSI/MSI-X irq in ARM. Use
-the new MSI chip framework to refactor all other platform MSI
-arch code to eliminate weak arch MSI functions. This patch add
-.restore_irq() and .setup_irqs() to make it become more common.
+Various drivers implement architecture and/or device specific means to
+remove power from the system.  For the most part, those drivers set the
+global variable pm_power_off to point to a function within the driver.
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
-Reviewed-by: Lucas Stach <l.stach@pengutronix.de>
+This mechanism has a number of drawbacks.  Typically only one scheme
+to remove power is supported (at least if pm_power_off is used).
+At least in theory there can be multiple means remove power, some of
+which may be less desirable. For example, some mechanisms may only
+power off the CPU or the CPU card, while another may power off the
+entire system.  Others may really just execute a restart sequence
+or drop into the ROM monitor. Using pm_power_off can also be racy
+if the function pointer is set from a driver built as module, as the
+driver may be in the process of being unloaded when pm_power_off is
+called. If there are multiple poweroff handlers in the system, removing
+a module with such a handler may inadvertently reset the pointer to
+pm_power_off to NULL, leaving the system with no means to remove power.
+
+Introduce a system poweroff handler call chain to solve the described
+problems.  This call chain is expected to be executed from the
+architecture specific machine_power_off() function.  Drivers providing
+system poweroff functionality are expected to register with this call chain.
+By using the priority field in the notifier block, callers can control
+poweroff handler execution sequence and thus ensure that the poweroff
+handler with the optimal capabilities to remove power for a given system
+is called first.
+
+Cc: Andrew Morton <akpm@linux-foundation.org>
+cc: Heiko Stuebner <heiko@sntech.de>
+Cc: Romain Perier <romain.perier@gmail.com>
+Cc: James E.J. Bottomley <jejb@parisc-linux.org>
+Cc: Helge Deller <deller@gmx.de>
+Cc: Russell King <linux@arm.linux.org.uk>
+Cc: Catalin Marinas <catalin.marinas@arm.com>
+Cc: Will Deacon <will.deacon@arm.com>
+Cc: Haavard Skinnemoen <hskinnemoen@gmail.com>
+Cc: Hans-Christian Egtvedt <egtvedt@samfundet.no>
+Cc: Mark Salter <msalter@redhat.com>
+Cc: Aurelien Jacquiot <a-jacquiot@ti.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: James Hogan <james.hogan@imgtec.com>
+Cc: Ralf Baechle <ralf@linux-mips.org>
+Cc: Guan Xuetao <gxt@mprc.pku.edu.cn>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Ingo Molnar <mingo@redhat.com>
+Cc: H. Peter Anvin <hpa@zytor.com>
+Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Cc: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+Cc: Sebastian Reichel <sre@kernel.org>
+Cc: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+Cc: David Woodhouse <dwmw2@infradead.org>
+Cc: Samuel Ortiz <sameo@linux.intel.com>
+Cc: Lee Jones <lee.jones@linaro.org>
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 ---
- drivers/pci/msi.c   |   15 +++++++++++++++
- include/linux/msi.h |    3 +++
- 2 files changed, 18 insertions(+), 0 deletions(-)
+ include/linux/reboot.h |  4 +++
+ kernel/reboot.c        | 81 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 85 insertions(+)
 
-diff --git a/drivers/pci/msi.c b/drivers/pci/msi.c
-index 3acbe65..d10edee 100644
---- a/drivers/pci/msi.c
-+++ b/drivers/pci/msi.c
-@@ -64,6 +64,11 @@ int __weak arch_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
- {
- 	struct msi_desc *entry;
- 	int ret;
-+	struct msi_chip *chip;
+diff --git a/include/linux/reboot.h b/include/linux/reboot.h
+index 67fc8fc..b172951 100644
+--- a/include/linux/reboot.h
++++ b/include/linux/reboot.h
+@@ -38,6 +38,10 @@ extern int reboot_force;
+ extern int register_reboot_notifier(struct notifier_block *);
+ extern int unregister_reboot_notifier(struct notifier_block *);
+ 
++extern int register_poweroff_handler(struct notifier_block *);
++extern int unregister_poweroff_handler(struct notifier_block *);
++extern void do_kernel_poweroff(void);
 +
-+	chip = arch_find_msi_chip(dev);
-+	if (chip && chip->setup_irqs)
-+		return chip->setup_irqs(dev, nvec, type);
+ extern int register_restart_handler(struct notifier_block *);
+ extern int unregister_restart_handler(struct notifier_block *);
+ extern void do_kernel_restart(char *cmd);
+diff --git a/kernel/reboot.c b/kernel/reboot.c
+index 5925f5a..bdfab65 100644
+--- a/kernel/reboot.c
++++ b/kernel/reboot.c
+@@ -106,6 +106,87 @@ EXPORT_SYMBOL(unregister_reboot_notifier);
  
- 	/*
- 	 * If an architecture wants to support multiple MSI, it needs to
-@@ -106,6 +111,11 @@ void default_teardown_msi_irqs(struct pci_dev *dev)
- 
- void __weak arch_teardown_msi_irqs(struct pci_dev *dev)
- {
-+	struct msi_chip *chip = arch_find_msi_chip(dev);
+ /*
+  *	Notifier list for kernel code which wants to be called
++ *	to power off the system.
++ */
++static ATOMIC_NOTIFIER_HEAD(poweroff_handler_list);
 +
-+	if (chip && chip->teardown_irqs)
-+		return chip->teardown_irqs(dev);
++/**
++ *	register_poweroff_handler - Register function to be called to power off
++ *				    the system
++ *	@nb: Info about handler function to be called
++ *	@nb->priority:	Handler priority. Handlers should follow the
++ *			following guidelines for setting priorities.
++ *			0:	Poweroff handler of last resort,
++ *				with limited poweroff capabilities
++ *			128:	Default poweroff handler; use if no other
++ *				poweroff handler is expected to be available,
++ *				and/or if poweroff functionality is
++ *				sufficient to poweroff the entire system
++ *			255:	Highest priority poweroff handler, will
++ *				preempt all other poweroff handlers
++ *
++ *	Registers a function with code to be called to poweroff the
++ *	system.
++ *
++ *	Registered functions will be called from machine_power_off as last
++ *	step of the poweroff sequence (if the architecture specific
++ *	machine_power_off function calls do_kernel_poweroff - see below
++ *	for details).
++ *	Registered functions are expected to poweroff the system immediately.
++ *	If more than one function is registered, the poweroff handler priority
++ *	selects which function will be called first.
++ *
++ *	Poweroff handlers are expected to be registered from non-architecture
++ *	code, typically from drivers. A typical use case would be a system
++ *	where poweroff functionality is provided through a mfd driver. Multiple
++ *	poweroff handlers may exist; for example, one poweroff handler might
++ *	poweroff the entire system, while another only powers off the CPU.
++ *	In such cases, the poweroff handler which only powers off part of the
++ *	hardware is expected to register with low priority to ensure that
++ *	it only runs if no other means to poweroff the system is available.
++ *
++ *	Currently always returns zero, as atomic_notifier_chain_register()
++ *	always returns zero.
++ */
++int register_poweroff_handler(struct notifier_block *nb)
++{
++	return atomic_notifier_chain_register(&poweroff_handler_list, nb);
++}
++EXPORT_SYMBOL(register_poweroff_handler);
 +
- 	return default_teardown_msi_irqs(dev);
- }
- 
-@@ -129,6 +139,11 @@ static void default_restore_msi_irq(struct pci_dev *dev, int irq)
- 
- void __weak arch_restore_msi_irqs(struct pci_dev *dev)
- {
-+	struct msi_chip *chip = arch_find_msi_chip(dev);
++/**
++ *	unregister_poweroff_handler - Unregister previously registered
++ *				      poweroff handler
++ *	@nb: Hook to be unregistered
++ *
++ *	Unregisters a previously registered poweroff handler function.
++ *
++ *	Returns zero on success, or %-ENOENT on failure.
++ */
++int unregister_poweroff_handler(struct notifier_block *nb)
++{
++	return atomic_notifier_chain_unregister(&poweroff_handler_list, nb);
++}
++EXPORT_SYMBOL(unregister_poweroff_handler);
 +
-+	if (chip && chip->restore_irqs)
-+		return chip->restore_irqs(dev);
++/**
++ *	do_kernel_poweroff - Execute kernel poweroff handler call chain
++ *
++ *	Calls functions registered with register_poweroff_handler.
++ *
++ *	Expected to be called from machine_poweroff as last step of the poweroff
++ *	sequence.
++ *
++ *	Powers off the system immediately if a poweroff handler function
++ *	has been registered. Otherwise does nothing.
++ */
++void do_kernel_poweroff(void)
++{
++	atomic_notifier_call_chain(&poweroff_handler_list, 0, NULL);
++}
 +
- 	return default_restore_msi_irqs(dev);
- }
- 
-diff --git a/include/linux/msi.h b/include/linux/msi.h
-index 6fdc5c6..4cf1f31 100644
---- a/include/linux/msi.h
-+++ b/include/linux/msi.h
-@@ -69,7 +69,10 @@ struct msi_chip {
- 	struct list_head list;
- 
- 	int (*setup_irq)(struct pci_dev *dev, struct msi_desc *desc);
-+	int (*setup_irqs)(struct pci_dev *dev, int nvec, int type);
- 	void (*teardown_irq)(unsigned int irq);
-+	void (*teardown_irqs)(struct pci_dev *dev);
-+	void (*restore_irqs)(struct pci_dev *dev);
- };
- 
- #endif /* LINUX_MSI_H */
++/*
++ *	Notifier list for kernel code which wants to be called
+  *	to restart the system.
+  */
+ static ATOMIC_NOTIFIER_HEAD(restart_handler_list);
 -- 
-1.7.1
+1.9.1
 
