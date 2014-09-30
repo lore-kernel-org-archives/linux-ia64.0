@@ -1,45 +1,39 @@
-From: Yann Droneaud <ydroneaud@opteya.com>
-Date: Wed, 24 Sep 2014 13:11:07 +0000
-Subject: [PATCHv8 2/6] ia64: trivial: replace get_unused_fd() by get_unused_fd_flags(0)
-Message-Id: <5dfa58ca48b5f6361d2902bd82f2e76dd95630b6.1411562410.git.ydroneaud@opteya.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Date: Tue, 30 Sep 2014 18:00:48 +0000
+Subject: [RFC PATCH 08/16] ia64: support poweroff through poweroff handler call chain
+Message-Id: <1412100056-15517-9-git-send-email-linux@roeck-us.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1411562410.git.ydroneaud@opteya.com>
-In-Reply-To: <cover.1411562410.git.ydroneaud@opteya.com>
+References: <1412100056-15517-1-git-send-email-linux@roeck-us.net>
+In-Reply-To: <1412100056-15517-1-git-send-email-linux@roeck-us.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Al Viro <viro@zeniv.linux.org.uk>, Andrew Morton <akpm@linux-foundation.org>, Jiri Kosina <trivial@kernel.org>
-Cc: linux-kernel@vger.kernel.org, Yann Droneaud <ydroneaud@opteya.com>, linux-ia64@vger.kernel.org, linux-fsdevel@vger.kernel.org
+To: linux-arm-kernel@lists.infradead.org
 
-This patch replaces calls to get_unused_fd() with equivalent call to
-get_unused_fd_flags(0) to preserve current behavor for existing code.
+The kernel core now supports a poweroff handler call chain
+to remove power from the system. Call it if pm_power_off
+is set to NULL.
 
-In a further patch, get_unused_fd() will be removed so that new code
-start using get_unused_fd_flags(), with the hope O_CLOEXEC could be
-used, either by default or choosen by userspace.
-
-Link: http://lkml.kernel.org/r/cover.1411562410.git.ydroneaud@opteya.com
-Cc: Al Viro <viro@zeniv.linux.org.uk>
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: trivial@kernel.org
-Signed-off-by: Yann Droneaud <ydroneaud@opteya.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 ---
- arch/ia64/kernel/perfmon.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ arch/ia64/kernel/process.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
-index 5845ffea67c3..dc063fe6646a 100644
---- a/arch/ia64/kernel/perfmon.c
-+++ b/arch/ia64/kernel/perfmon.c
-@@ -2662,7 +2662,7 @@ pfm_context_create(pfm_context_t *ctx, void *arg, int count, struct pt_regs *reg
- 
- 	ret = -ENOMEM;
- 
--	fd = get_unused_fd();
-+	fd = get_unused_fd_flags(0);
- 	if (fd < 0)
- 		return fd;
+diff --git a/arch/ia64/kernel/process.c b/arch/ia64/kernel/process.c
+index deed6fa..489b0d8 100644
+--- a/arch/ia64/kernel/process.c
++++ b/arch/ia64/kernel/process.c
+@@ -677,6 +677,8 @@ machine_power_off (void)
+ {
+ 	if (pm_power_off)
+ 		pm_power_off();
++	else
++		do_kernel_poweroff();
+ 	machine_halt();
+ }
  
 -- 
-1.9.3
+1.9.1
 
