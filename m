@@ -1,160 +1,166 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Mon, 27 Oct 2014 12:47:00 +0000
-Subject: [PATCH 07/16] MIPS/Octeon/MSI: Use MSI controller framework to configure MSI/MSI-X irq
-Message-Id: <1414416142-31239-8-git-send-email-wangyijing@huawei.com>
+From: Thierry Reding <thierry.reding@gmail.com>
+Date: Mon, 06 Oct 2014 13:52:37 +0000
+Subject: [PATCH 5/9] /dev/mem: Use more consistent data types
+Message-Id: <1412603561-27653-6-git-send-email-thierry.reding@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1414416142-31239-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1414416142-31239-1-git-send-email-wangyijing@huawei.com>
+References: <1412603561-27653-1-git-send-email-thierry.reding@gmail.com>
+In-Reply-To: <1412603561-27653-1-git-send-email-thierry.reding@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, xen-devel@lists.xenproject.org, Joerg Roedel <joro@8bytes.org>, iommu@lists.linux-foundation.org, linux-mips@linux-mips.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, Sebastian Ott <sebott@linux.vnet.ibm.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Chris Metcalf <cmetcalf@tilera.com>, Ralf Baechle <ralf@linux-mips.org>, Lucas Stach <l.stach@pengutronix.de>, David Vrabel <david.vrabel@citrix.com>, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>, Michael Ellerman <mpe@ellerman.id.au>, Thierry Reding <thierry.reding@gmail.com>, Thomas Petazzoni <thomas.petazzoni@free-electrons.com>, Yijing Wang <wangyijing@huawei.com>
+To: Arnd Bergmann <arnd@arndb.de>, Olof Johansson <olof@lixom.net>, Fengguang Wu <fengguang.wu@intel.com>
+Cc: Russell King <linux@arm.linux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Stephen Boyd <sboyd@codeaurora.org>, Sam Ravnborg <sam@ravnborg.org>, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, x86@kernel.org, linux-serial@vger.kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Use MSI controller framework instead of arch MSI functions to configure
-MSI/MSI-X irq. So we can manage MSI/MSI-X irq in a unified framework.
+From: Thierry Reding <treding@nvidia.com>
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+The xlate_dev_{kmem,mem}_ptr() functions take either a physical address
+or a kernel virtual address, so data types should be phys_addr_t and
+void *. They both return a kernel virtual address which is only ever
+used in calls to copy_{from,to}_user(), so make variables that store it
+void * rather than char * for consistency.
+
+Also only define a weak unxlate_dev_mem_ptr() function if architectures
+haven't overridden them in the asm/io.h header file.
+
+Signed-off-by: Thierry Reding <treding@nvidia.com>
 ---
- arch/mips/include/asm/octeon/pci-octeon.h |    4 +++
- arch/mips/pci/msi-octeon.c                |   31 ++++++++++++++++------------
- arch/mips/pci/pci-octeon.c                |    3 ++
- 3 files changed, 25 insertions(+), 13 deletions(-)
+ arch/s390/include/asm/io.h |  5 +++--
+ arch/s390/mm/maccess.c     |  4 ++--
+ arch/x86/include/asm/io.h  |  4 ++--
+ arch/x86/mm/ioremap.c      |  4 ++--
+ drivers/char/mem.c         | 13 ++++++++-----
+ 5 files changed, 17 insertions(+), 13 deletions(-)
 
-diff --git a/arch/mips/include/asm/octeon/pci-octeon.h b/arch/mips/include/asm/octeon/pci-octeon.h
-index 64ba56a..61c038d 100644
---- a/arch/mips/include/asm/octeon/pci-octeon.h
-+++ b/arch/mips/include/asm/octeon/pci-octeon.h
-@@ -66,4 +66,8 @@ enum octeon_dma_bar_type {
-  */
- extern enum octeon_dma_bar_type octeon_dma_bar_type;
+diff --git a/arch/s390/include/asm/io.h b/arch/s390/include/asm/io.h
+index cd6b9ee7b69c..d22c2eeae78f 100644
+--- a/arch/s390/include/asm/io.h
++++ b/arch/s390/include/asm/io.h
+@@ -13,9 +13,10 @@
+ #include <asm/page.h>
+ #include <asm/pci_io.h>
  
-+#ifdef CONFIG_PCI_MSI
-+extern struct msi_controller octeon_msi_ctrl;
-+#endif
-+
+-void *xlate_dev_mem_ptr(unsigned long phys);
+ #define xlate_dev_mem_ptr xlate_dev_mem_ptr
+-void unxlate_dev_mem_ptr(unsigned long phys, void *addr);
++void *xlate_dev_mem_ptr(phys_addr_t phys);
++#define unxlate_dev_mem_ptr unxlate_dev_mem_ptr
++void unxlate_dev_mem_ptr(phys_addr_t phys, void *addr);
+ 
+ /*
+  * Convert a virtual cached pointer to an uncached pointer
+diff --git a/arch/s390/mm/maccess.c b/arch/s390/mm/maccess.c
+index 2a2e35416d2f..2eb34bdfc613 100644
+--- a/arch/s390/mm/maccess.c
++++ b/arch/s390/mm/maccess.c
+@@ -176,7 +176,7 @@ static int is_swapped(unsigned long addr)
+  * For swapped prefix pages a new buffer is returned that contains a copy of
+  * the absolute memory. The buffer size is maximum one page large.
+  */
+-void *xlate_dev_mem_ptr(unsigned long addr)
++void *xlate_dev_mem_ptr(phys_addr_t addr)
+ {
+ 	void *bounce = (void *) addr;
+ 	unsigned long size;
+@@ -197,7 +197,7 @@ void *xlate_dev_mem_ptr(unsigned long addr)
+ /*
+  * Free converted buffer for /dev/mem access (if necessary)
+  */
+-void unxlate_dev_mem_ptr(unsigned long addr, void *buf)
++void unxlate_dev_mem_ptr(phys_addr_t addr, void *buf)
+ {
+ 	if ((void *) addr != buf)
+ 		free_page((unsigned long) buf);
+diff --git a/arch/x86/include/asm/io.h b/arch/x86/include/asm/io.h
+index b8237d8a1e0c..ae2b593e7c6e 100644
+--- a/arch/x86/include/asm/io.h
++++ b/arch/x86/include/asm/io.h
+@@ -310,8 +310,8 @@ BUILDIO(b, b, char)
+ BUILDIO(w, w, short)
+ BUILDIO(l, , int)
+ 
+-extern void *xlate_dev_mem_ptr(unsigned long phys);
+-extern void unxlate_dev_mem_ptr(unsigned long phys, void *addr);
++extern void *xlate_dev_mem_ptr(phys_addr_t phys);
++extern void unxlate_dev_mem_ptr(phys_addr_t phys, void *addr);
+ 
+ extern int ioremap_change_attr(unsigned long vaddr, unsigned long size,
+ 				unsigned long prot_val);
+diff --git a/arch/x86/mm/ioremap.c b/arch/x86/mm/ioremap.c
+index af78e50ca6ce..b12f43c192cf 100644
+--- a/arch/x86/mm/ioremap.c
++++ b/arch/x86/mm/ioremap.c
+@@ -327,7 +327,7 @@ EXPORT_SYMBOL(iounmap);
+  * Convert a physical pointer to a virtual kernel pointer for /dev/mem
+  * access
+  */
+-void *xlate_dev_mem_ptr(unsigned long phys)
++void *xlate_dev_mem_ptr(phys_addr_t phys)
+ {
+ 	void *addr;
+ 	unsigned long start = phys & PAGE_MASK;
+@@ -343,7 +343,7 @@ void *xlate_dev_mem_ptr(unsigned long phys)
+ 	return addr;
+ }
+ 
+-void unxlate_dev_mem_ptr(unsigned long phys, void *addr)
++void unxlate_dev_mem_ptr(phys_addr_t phys, void *addr)
+ {
+ 	if (page_is_ram(phys >> PAGE_SHIFT))
+ 		return;
+diff --git a/drivers/char/mem.c b/drivers/char/mem.c
+index 524b707894ef..4c58333b4257 100644
+--- a/drivers/char/mem.c
++++ b/drivers/char/mem.c
+@@ -84,9 +84,12 @@ static inline int range_is_allowed(unsigned long pfn, unsigned long size)
+ }
  #endif
-diff --git a/arch/mips/pci/msi-octeon.c b/arch/mips/pci/msi-octeon.c
-index 63bbe07..30976da 100644
---- a/arch/mips/pci/msi-octeon.c
-+++ b/arch/mips/pci/msi-octeon.c
-@@ -57,7 +57,7 @@ static int msi_irq_size;
-  *
-  * Returns 0 on success.
-  */
--int arch_setup_msi_irq(struct pci_dev *dev, struct msi_desc *desc)
-+static int octeon_setup_msi_irq(struct pci_dev *dev, struct msi_desc *desc)
+ 
+-void __weak unxlate_dev_mem_ptr(unsigned long phys, void *addr)
++#ifndef unxlate_dev_mem_ptr
++#define unxlate_dev_mem_ptr unxlate_dev_mem_ptr
++void __weak unxlate_dev_mem_ptr(phys_addr_t phys, void *addr)
  {
- 	struct msi_msg msg;
- 	u16 control;
-@@ -132,12 +132,12 @@ msi_irq_allocated:
- 	/* Make sure the search for available interrupts didn't fail */
- 	if (irq >= 64) {
- 		if (request_private_bits) {
--			pr_err("arch_setup_msi_irq: Unable to find %d free interrupts, trying just one",
--			       1 << request_private_bits);
-+			pr_err("%s: Unable to find %d free interrupts, trying just one",
-+			       __func__, 1 << request_private_bits);
- 			request_private_bits = 0;
- 			goto try_only_one;
- 		} else
--			panic("arch_setup_msi_irq: Unable to find a free MSI interrupt");
-+			panic("%s: Unable to find a free MSI interrupt", __func__);
- 	}
- 
- 	/* MSI interrupts start at logical IRQ OCTEON_IRQ_MSI_BIT0 */
-@@ -168,7 +168,7 @@ msi_irq_allocated:
- 		msg.address_hi = (0 + CVMX_SLI_PCIE_MSI_RCV) >> 32;
- 		break;
- 	default:
--		panic("arch_setup_msi_irq: Invalid octeon_dma_bar_type");
-+		panic("%s: Invalid octeon_dma_bar_type", __func__);
- 	}
- 	msg.data = irq - OCTEON_IRQ_MSI_BIT0;
- 
-@@ -182,7 +182,8 @@ msi_irq_allocated:
- 	return 0;
  }
- 
--int arch_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
-+static int octeon_setup_msi_irqs(struct msi_controller *ctrl, struct pci_dev *dev,
-+		int nvec, int type)
- {
- 	struct msi_desc *entry;
- 	int ret;
-@@ -201,7 +202,7 @@ int arch_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
- 		return 1;
- 
- 	list_for_each_entry(entry, &dev->msi_list, list) {
--		ret = arch_setup_msi_irq(dev, entry);
-+		ret = octeon_setup_msi_irq(dev, entry);
- 		if (ret < 0)
- 			return ret;
- 		if (ret > 0)
-@@ -210,14 +211,13 @@ int arch_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
- 
- 	return 0;
- }
--
- /**
-  * Called when a device no longer needs its MSI interrupts. All
-  * MSI interrupts for the device are freed.
-  *
-  * @irq:    The devices first irq number. There may be multple in sequence.
-  */
--void arch_teardown_msi_irq(unsigned int irq)
-+static void octeon_teardown_msi_irq(struct msi_controller *ctrl, unsigned int irq)
- {
- 	int number_irqs;
- 	u64 bitmask;
-@@ -226,8 +226,8 @@ void arch_teardown_msi_irq(unsigned int irq)
- 
- 	if ((irq < OCTEON_IRQ_MSI_BIT0)
- 		|| (irq > msi_irq_size + OCTEON_IRQ_MSI_BIT0))
--		panic("arch_teardown_msi_irq: Attempted to teardown illegal "
--		      "MSI interrupt (%d)", irq);
-+		panic("%s: Attempted to teardown illegal "
-+			"MSI interrupt (%d)", __func__, irq);
- 
- 	irq -= OCTEON_IRQ_MSI_BIT0;
- 	index = irq / 64;
-@@ -249,8 +249,8 @@ void arch_teardown_msi_irq(unsigned int irq)
- 	/* Shift the mask to the correct bit location */
- 	bitmask <<= irq0;
- 	if ((msi_free_irq_bitmask[index] & bitmask) != bitmask)
--		panic("arch_teardown_msi_irq: Attempted to teardown MSI "
--		      "interrupt (%d) not in use", irq);
-+		panic("%s: Attempted to teardown MSI "
-+			"interrupt (%d) not in use", __func__, irq);
- 
- 	/* Checks are done, update the in use bitmask */
- 	spin_lock(&msi_free_irq_bitmask_lock);
-@@ -259,6 +259,11 @@ void arch_teardown_msi_irq(unsigned int irq)
- 	spin_unlock(&msi_free_irq_bitmask_lock);
- }
- 
-+struct msi_controller octeon_msi_ctrl = {
-+	.setup_irqs = octeon_setup_msi_irqs,
-+	.teardown_irq = octeon_teardown_msi_irq,
-+};
-+
- static DEFINE_RAW_SPINLOCK(octeon_irq_msi_lock);
- 
- static u64 msi_rcv_reg[4];
-diff --git a/arch/mips/pci/pci-octeon.c b/arch/mips/pci/pci-octeon.c
-index 59cccd9..9935448 100644
---- a/arch/mips/pci/pci-octeon.c
-+++ b/arch/mips/pci/pci-octeon.c
-@@ -356,6 +356,9 @@ static struct pci_controller octeon_pci_controller = {
- 	.io_resource = &octeon_pci_io_resource,
- 	.io_offset = 0,
- 	.io_map_base = OCTEON_PCI_IOSPACE_BASE,
-+#ifdef CONFIG_PCI_MSI
-+	.msi_ctrl = &octeon_msi_ctrl,
 +#endif
- };
  
+ /*
+  * This funcion reads the *physical* memory. The f_pos points directly to the
+@@ -97,7 +100,7 @@ static ssize_t read_mem(struct file *file, char __user *buf,
+ {
+ 	phys_addr_t p = *ppos;
+ 	ssize_t read, sz;
+-	char *ptr;
++	void *ptr;
  
+ 	if (p != *ppos)
+ 		return 0;
+@@ -400,7 +403,7 @@ static ssize_t read_kmem(struct file *file, char __user *buf,
+ 			 * uncached, then it must also be accessed uncached
+ 			 * by the kernel or data corruption may occur
+ 			 */
+-			kbuf = xlate_dev_kmem_ptr((char *)p);
++			kbuf = xlate_dev_kmem_ptr((void *)p);
+ 
+ 			if (copy_to_user(buf, kbuf, sz))
+ 				return -EFAULT;
+@@ -461,7 +464,7 @@ static ssize_t do_write_kmem(unsigned long p, const char __user *buf,
+ #endif
+ 
+ 	while (count > 0) {
+-		char *ptr;
++		void *ptr;
+ 
+ 		sz = size_inside_page(p, count);
+ 
+@@ -470,7 +473,7 @@ static ssize_t do_write_kmem(unsigned long p, const char __user *buf,
+ 		 * it must also be accessed uncached by the kernel or data
+ 		 * corruption may occur.
+ 		 */
+-		ptr = xlate_dev_kmem_ptr((char *)p);
++		ptr = xlate_dev_kmem_ptr((void *)p);
+ 
+ 		copied = copy_from_user(ptr, buf, sz);
+ 		if (copied) {
 -- 
-1.7.1
+2.1.0
 
