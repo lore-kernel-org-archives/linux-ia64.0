@@ -1,62 +1,82 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Mon, 27 Oct 2014 12:47:33 +0000
-Subject: [PATCH 04/16] Irq_remapping/MSI: Use MSI controller framework to configure MSI/MSI-X irq
-Message-Id: <1414416142-31239-5-git-send-email-wangyijing@huawei.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Date: Tue, 07 Oct 2014 05:28:43 +0000
+Subject: [PATCH 41/44] x86: pmc_atom: Register poweroff handler with kernel poweroff handler
+Message-Id: <1412659726-29957-42-git-send-email-linux@roeck-us.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1414416142-31239-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1414416142-31239-1-git-send-email-wangyijing@huawei.com>
+References: <1412659726-29957-1-git-send-email-linux@roeck-us.net>
+In-Reply-To: <1412659726-29957-1-git-send-email-linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, xen-devel@lists.xenproject.org, Joerg Roedel <joro@8bytes.org>, iommu@lists.linux-foundation.org, linux-mips@linux-mips.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, Sebastian Ott <sebott@linux.vnet.ibm.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Chris Metcalf <cmetcalf@tilera.com>, Ralf Baechle <ralf@linux-mips.org>, Lucas Stach <l.stach@pengutronix.de>, David Vrabel <david.vrabel@citrix.com>, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>, Michael Ellerman <mpe@ellerman.id.au>, Thierry Reding <thierry.reding@gmail.com>, Thomas Petazzoni <thomas.petazzoni@free-electrons.com>, Yijing Wang <wangyijing@huawei.com>
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: adi-buildroot-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-alpha-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-am33-list-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-cris-kernel-VrBV9hrLPhE@public.gmane.org, linux-efi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-hexagon-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-m32r-ja-rQhvJZKUsGBRYuoOT4C5/9i2O/JbrIOy@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org, openipmi-developer-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, user-mode-linux-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-c6x-dev-jPsnJVOj+W6hPH1hqNUYSQ@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-m68k-cunTk1MwBs8S/qaLPR03pWD2FQJk+8+b@public.gmane.org, linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, linux-parisc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-pm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org, Guenter Roeck <linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>, Thomas
 
-Use MSI controller framework instead of arch MSI functions to configure
-MSI/MSI-X irq. So we can manage MSI/MSI-X irq in a unified framework.
+Register with kernel poweroff handler instead of setting pm_power_off
+directly. Register with a low priority value of 64 to reflect that
+the original code only sets pm_power_off if it was not already set.
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Ingo Molnar <mingo@redhat.com>
+Cc: H. Peter Anvin <hpa@zytor.com>
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 ---
- drivers/iommu/irq_remapping.c |   11 ++++++++---
- 1 files changed, 8 insertions(+), 3 deletions(-)
+ arch/x86/kernel/pmc_atom.c | 20 +++++++++++++++++---
+ 1 file changed, 17 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/iommu/irq_remapping.c b/drivers/iommu/irq_remapping.c
-index 74a1767..6db1459 100644
---- a/drivers/iommu/irq_remapping.c
-+++ b/drivers/iommu/irq_remapping.c
-@@ -140,8 +140,8 @@ error:
- 	return ret;
+diff --git a/arch/x86/kernel/pmc_atom.c b/arch/x86/kernel/pmc_atom.c
+index 0c424a6..79331a2 100644
+--- a/arch/x86/kernel/pmc_atom.c
++++ b/arch/x86/kernel/pmc_atom.c
+@@ -20,6 +20,8 @@
+ #include <linux/pci.h>
+ #include <linux/device.h>
+ #include <linux/debugfs.h>
++#include <linux/notifier.h>
++#include <linux/pm.h>
+ #include <linux/seq_file.h>
+ #include <linux/io.h>
+ 
+@@ -92,7 +94,8 @@ static inline void pmc_reg_write(struct pmc_dev *pmc, int reg_offset, u32 val)
+ 	writel(val, pmc->regmap + reg_offset);
  }
  
--static int irq_remapping_setup_msi_irqs(struct pci_dev *dev,
--					int nvec, int type)
-+static int irq_remapping_setup_msi_irqs(struct msi_controller *ctrl,
-+		struct pci_dev *dev, int nvec, int type)
+-static void pmc_power_off(void)
++static int pmc_power_off(struct notifier_block *this, unsigned long unused1,
++			 void *unused2)
  {
- 	if (type = PCI_CAP_ID_MSI)
- 		return do_setup_msi_irqs(dev, nvec);
-@@ -149,6 +149,11 @@ static int irq_remapping_setup_msi_irqs(struct pci_dev *dev,
- 		return do_setup_msix_irqs(dev, nvec);
+ 	u16	pm1_cnt_port;
+ 	u32	pm1_cnt_value;
+@@ -107,8 +110,15 @@ static void pmc_power_off(void)
+ 	pm1_cnt_value |= SLEEP_ENABLE;
+ 
+ 	outl(pm1_cnt_value, pm1_cnt_port);
++
++	return NOTIFY_DONE;
  }
  
-+static struct msi_controller remap_msi_ctrl = {
-+	.setup_irqs = irq_remapping_setup_msi_irqs,
-+	.teardown_irq = native_teardown_msi_irq,
++static struct notifier_block pmc_poweroff_nb = {
++	.notifier_call = pmc_power_off,
++	.priority = 64,
 +};
 +
- static void eoi_ioapic_pin_remapped(int apic, int pin, int vector)
+ static void pmc_hw_reg_setup(struct pmc_dev *pmc)
  {
  	/*
-@@ -166,9 +171,9 @@ static void __init irq_remapping_modify_x86_ops(void)
- 	x86_io_apic_ops.set_affinity	= set_remapped_irq_affinity;
- 	x86_io_apic_ops.setup_entry	= setup_ioapic_remapped_entry;
- 	x86_io_apic_ops.eoi_ioapic_pin	= eoi_ioapic_pin_remapped;
--	x86_msi.setup_msi_irqs		= irq_remapping_setup_msi_irqs;
- 	x86_msi.setup_hpet_msi		= setup_hpet_msi_remapped;
- 	x86_msi.compose_msi_msg		= compose_remapped_msi_msg;
-+	x86_msi_ctrl = &remap_msi_ctrl;
- }
+@@ -247,8 +257,12 @@ static int pmc_setup_dev(struct pci_dev *pdev)
+ 	acpi_base_addr &= ACPI_BASE_ADDR_MASK;
  
- static __init int setup_nointremap(char *str)
+ 	/* Install power off function */
+-	if (acpi_base_addr != 0 && pm_power_off = NULL)
+-		pm_power_off = pmc_power_off;
++	if (acpi_base_addr != 0) {
++		ret = register_poweroff_handler(&pmc_poweroff_nb);
++		if (ret)
++			dev_err(&pdev->dev,
++				"Failed to install poweroff handler\n");
++	}
+ 
+ 	pci_read_config_dword(pdev, PMC_BASE_ADDR_OFFSET, &pmc->base_addr);
+ 	pmc->base_addr &= PMC_BASE_ADDR_MASK;
 -- 
-1.7.1
+1.9.1
 
