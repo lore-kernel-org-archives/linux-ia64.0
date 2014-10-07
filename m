@@ -1,119 +1,103 @@
 From: Guenter Roeck <linux@roeck-us.net>
-Date: Tue, 07 Oct 2014 05:28:21 +0000
-Subject: [PATCH 19/44] ipmi: Register with kernel poweroff handler
-Message-Id: <1412659726-29957-20-git-send-email-linux@roeck-us.net>
+Date: Tue, 07 Oct 2014 05:28:12 +0000
+Subject: [PATCH 10/44] mfd: axp20x: Register with kernel poweroff handler
+Message-Id: <1412659726-29957-11-git-send-email-linux@roeck-us.net>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1412659726-29957-1-git-send-email-linux@roeck-us.net>
-In-Reply-To: <1412659726-29957-1-git-send-email-linux@roeck-us.net>
+In-Reply-To: <1412659726-29957-1-git-send-email-linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: adi-buildroot-devel@lists.sourceforge.net, devel@driverdev.osuosl.org, devicetree@vger.kernel.org, lguest@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-alpha@vger.kernel.org, linux-am33-list@redhat.com, linux-cris-kernel@axis.com, linux-efi@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-m32r-ja@ml.linux-m32r.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-tegra@vger.kernel.org, linux-xtensa@linux-xtensa.org, openipmi-developer@lists.sourceforge.net, user-mode-linux-devel@lists.sourceforge.net, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linux-pm@vger.kernel.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, Guenter Roeck <linux@roeck-us.net>, Corey
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: adi-buildroot-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-alpha-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-am33-list-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-cris-kernel-VrBV9hrLPhE@public.gmane.org, linux-efi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-hexagon-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-m32r-ja-rQhvJZKUsGBRYuoOT4C5/9i2O/JbrIOy@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org, openipmi-developer-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, user-mode-linux-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-c6x-dev-jPsnJVOj+W6hPH1hqNUYSQ@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-m68k-cunTk1MwBs8S/qaLPR03pWD2FQJk+8+b@public.gmane.org, linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, linux-parisc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-pm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org, Guenter Roeck <linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>
 
 Register with kernel poweroff handler instead of setting pm_power_off
-directly. Register with a high priority value of 192 to reflect that
-the original code overwrites pm_power_off unconditionally.
+directly. Register with a low priority value of 64 to reflect that
+the original code only sets pm_power_off if it was not already set.
 
-Register poweroff handler after the ipmi system is ready, and unregister
-it prior to cleanup. This avoids having to check for the ready variable
-in the poweroff callback.
-
-Cc: Corey Minyard <minyard@acm.org>
+Cc: Lee Jones <lee.jones@linaro.org>
+Cc: Samuel Ortiz <sameo@linux.intel.com>
 Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 ---
- drivers/char/ipmi/ipmi_poweroff.c | 30 +++++++++++++++++++-----------
- 1 file changed, 19 insertions(+), 11 deletions(-)
+ drivers/mfd/axp20x.c       | 30 +++++++++++++++++-------------
+ include/linux/mfd/axp20x.h |  1 +
+ 2 files changed, 18 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/char/ipmi/ipmi_poweroff.c b/drivers/char/ipmi/ipmi_poweroff.c
-index 9f2e3be..a942a41 100644
---- a/drivers/char/ipmi/ipmi_poweroff.c
-+++ b/drivers/char/ipmi/ipmi_poweroff.c
-@@ -36,6 +36,7 @@
- #include <linux/proc_fs.h>
- #include <linux/string.h>
- #include <linux/completion.h>
+diff --git a/drivers/mfd/axp20x.c b/drivers/mfd/axp20x.c
+index dee6539..238db4c 100644
+--- a/drivers/mfd/axp20x.c
++++ b/drivers/mfd/axp20x.c
+@@ -17,7 +17,8 @@
+ #include <linux/interrupt.h>
+ #include <linux/kernel.h>
+ #include <linux/module.h>
+-#include <linux/pm_runtime.h>
 +#include <linux/notifier.h>
- #include <linux/pm.h>
- #include <linux/kdev_t.h>
- #include <linux/ipmi.h>
-@@ -63,9 +64,6 @@ static ipmi_user_t ipmi_user;
- static int ipmi_ifnum;
- static void (*specific_poweroff_func)(ipmi_user_t user);
++#include <linux/pm.h>
+ #include <linux/regmap.h>
+ #include <linux/slab.h>
+ #include <linux/regulator/consumer.h>
+@@ -161,11 +162,16 @@ static struct mfd_cell axp20x_cells[] = {
+ 	},
+ };
  
--/* Holds the old poweroff function so we can restore it on removal. */
--static void (*old_poweroff_func)(void);
--
- static int set_param_ifnum(const char *val, struct kernel_param *kp)
+-static struct axp20x_dev *axp20x_pm_power_off;
+-static void axp20x_power_off(void)
++static int axp20x_power_off(struct notifier_block *this, unsigned long unused1,
++			    void *unused2)
++
  {
- 	int rv = param_set_int(val, kp);
-@@ -544,15 +542,20 @@ static struct poweroff_function poweroff_functions[] = {
- 
- 
- /* Called on a powerdown request. */
--static void ipmi_poweroff_function(void)
-+static int ipmi_poweroff_function(struct notifier_block *this,
-+				  unsigned long unused1, void *unused2)
- {
--	if (!ready)
--		return;
--
- 	/* Use run-to-completion mode, since interrupts may be off. */
- 	specific_poweroff_func(ipmi_user);
+-	regmap_write(axp20x_pm_power_off->regmap, AXP20X_OFF_CTRL,
+-		     AXP20X_OFF);
++	struct axp20x_dev *axp20x = container_of(this, struct axp20x_dev,
++						 poweroff_nb);
++
++	regmap_write(axp20x->regmap, AXP20X_OFF_CTRL, AXP20X_OFF);
 +
 +	return NOTIFY_DONE;
  }
  
-+static struct notifier_block ipmi_poweroff_nb = {
-+	.notifier_call = ipmi_poweroff_function,
-+	.priority = 192,
-+};
-+
- /* Wait for an IPMI interface to be installed, the first one installed
-    will be grabbed by this code and used to perform the powerdown. */
- static void ipmi_po_new_smi(int if_num, struct device *device)
-@@ -631,9 +634,12 @@ static void ipmi_po_new_smi(int if_num, struct device *device)
- 	printk(KERN_INFO PFX "Found a %s style poweroff function\n",
- 	       poweroff_functions[i].platform_type);
- 	specific_poweroff_func = poweroff_functions[i].poweroff_func;
--	old_poweroff_func = pm_power_off;
--	pm_power_off = ipmi_poweroff_function;
-+
- 	ready = 1;
-+
-+	rv = register_poweroff_handler(&ipmi_poweroff_nb);
-+	if (rv)
-+		pr_err(PFX "failed to register poweroff handler\n");
- }
- 
- static void ipmi_po_smi_gone(int if_num)
-@@ -644,9 +650,10 @@ static void ipmi_po_smi_gone(int if_num)
- 	if (ipmi_ifnum != if_num)
- 		return;
- 
-+	unregister_poweroff_handler(&ipmi_poweroff_nb);
-+
- 	ready = 0;
- 	ipmi_destroy_user(ipmi_user);
--	pm_power_off = old_poweroff_func;
- }
- 
- static struct ipmi_smi_watcher smi_watcher = {
-@@ -732,12 +739,13 @@ static void __exit ipmi_poweroff_cleanup(void)
- 
- 	ipmi_smi_watcher_unregister(&smi_watcher);
- 
-+	unregister_poweroff_handler(&ipmi_poweroff_nb);
-+
- 	if (ready) {
- 		rv = ipmi_destroy_user(ipmi_user);
- 		if (rv)
- 			printk(KERN_ERR PFX "could not cleanup the IPMI"
- 			       " user: 0x%x\n", rv);
--		pm_power_off = old_poweroff_func;
+ static int axp20x_i2c_probe(struct i2c_client *i2c,
+@@ -215,10 +221,11 @@ static int axp20x_i2c_probe(struct i2c_client *i2c,
+ 		return ret;
  	}
- }
- module_exit(ipmi_poweroff_cleanup);
+ 
+-	if (!pm_power_off) {
+-		axp20x_pm_power_off = axp20x;
+-		pm_power_off = axp20x_power_off;
+-	}
++	axp20x->poweroff_nb.notifier_call = axp20x_power_off;
++	axp20x->poweroff_nb.priority = 64;
++	ret = register_poweroff_handler(&axp20x->poweroff_nb);
++	if (ret)
++		dev_err(&i2c->dev, "failed to register poweroff handler\n");
+ 
+ 	dev_info(&i2c->dev, "AXP20X driver loaded\n");
+ 
+@@ -229,10 +236,7 @@ static int axp20x_i2c_remove(struct i2c_client *i2c)
+ {
+ 	struct axp20x_dev *axp20x = i2c_get_clientdata(i2c);
+ 
+-	if (axp20x = axp20x_pm_power_off) {
+-		axp20x_pm_power_off = NULL;
+-		pm_power_off = NULL;
+-	}
++	unregister_poweroff_handler(&axp20x->poweroff_nb);
+ 
+ 	mfd_remove_devices(axp20x->dev);
+ 	regmap_del_irq_chip(axp20x->i2c_client->irq, axp20x->regmap_irqc);
+diff --git a/include/linux/mfd/axp20x.h b/include/linux/mfd/axp20x.h
+index d0e31a2..8f23b39 100644
+--- a/include/linux/mfd/axp20x.h
++++ b/include/linux/mfd/axp20x.h
+@@ -175,6 +175,7 @@ struct axp20x_dev {
+ 	struct regmap			*regmap;
+ 	struct regmap_irq_chip_data	*regmap_irqc;
+ 	long				variant;
++	struct notifier_block		poweroff_nb;
+ };
+ 
+ #endif /* __LINUX_MFD_AXP20X_H */
 -- 
 1.9.1
 
