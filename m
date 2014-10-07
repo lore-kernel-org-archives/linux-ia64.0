@@ -1,53 +1,74 @@
-From: Qiaowei Ren <qiaowei.ren@intel.com>
-Date: Sun, 12 Oct 2014 04:41:51 +0000
-Subject: [PATCH v9 08/12] ia64: sync struct siginfo with general version
-Message-Id: <1413088915-13428-9-git-send-email-qiaowei.ren@intel.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Date: Tue, 07 Oct 2014 05:28:32 +0000
+Subject: [PATCH 30/44] acpi: Register poweroff handler with kernel poweroff handler
+Message-Id: <1412659726-29957-31-git-send-email-linux@roeck-us.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1413088915-13428-1-git-send-email-qiaowei.ren@intel.com>
-In-Reply-To: <1413088915-13428-1-git-send-email-qiaowei.ren@intel.com>
+References: <1412659726-29957-1-git-send-email-linux@roeck-us.net>
+In-Reply-To: <1412659726-29957-1-git-send-email-linux@roeck-us.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "H. Peter Anvin" <hpa@zytor.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Dave Hansen <dave.hansen@intel.com>
-Cc: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, Qiaowei Ren <qiaowei.ren@intel.com>
+To: linux-kernel@vger.kernel.org
+Cc: adi-buildroot-devel@lists.sourceforge.net, devel@driverdev.osuosl.org, devicetree@vger.kernel.org, lguest@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-alpha@vger.kernel.org, linux-am33-list@redhat.com, linux-cris-kernel@axis.com, linux-efi@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-m32r-ja@ml.linux-m32r.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-tegra@vger.kernel.org, linux-xtensa@linux-xtensa.org, openipmi-developer@lists.sourceforge.net, user-mode-linux-devel@lists.sourceforge.net, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linux-pm@vger.kernel.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, Guenter Roeck <linux@roeck-us.net>, Rafael
 
-New fields about bound violation are added into general struct
-siginfo. This will impact MIPS and IA64, which extend general
-struct siginfo. This patch syncs this struct for IA64 with
-general version.
+Register with kernel poweroff handler instead of setting pm_power_off
+directly. Register with high priority value of 192 to reflect that
+the driver explicitly overrides existing poweroff handlers.
 
-Signed-off-by: Qiaowei Ren <qiaowei.ren@intel.com>
+Cc: Rafael J. Wysocki <rjw@rjwysocki.net>
+Cc: Len Brown <lenb@kernel.org>
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 ---
- arch/ia64/include/uapi/asm/siginfo.h |    8 ++++++--
- 1 files changed, 6 insertions(+), 2 deletions(-)
+ drivers/acpi/sleep.c | 15 +++++++++++++--
+ 1 file changed, 13 insertions(+), 2 deletions(-)
 
-diff --git a/arch/ia64/include/uapi/asm/siginfo.h b/arch/ia64/include/uapi/asm/siginfo.h
-index 4ea6225..bce9bc1 100644
---- a/arch/ia64/include/uapi/asm/siginfo.h
-+++ b/arch/ia64/include/uapi/asm/siginfo.h
-@@ -63,6 +63,10 @@ typedef struct siginfo {
- 			unsigned int _flags;	/* see below */
- 			unsigned long _isr;	/* isr */
- 			short _addr_lsb;	/* lsb of faulting address */
-+			struct {
-+				void __user *_lower;
-+				void __user *_upper;
-+			} _addr_bnd;
- 		} _sigfault;
+diff --git a/drivers/acpi/sleep.c b/drivers/acpi/sleep.c
+index 54da4a3..25aad22 100644
+--- a/drivers/acpi/sleep.c
++++ b/drivers/acpi/sleep.c
+@@ -15,6 +15,8 @@
+ #include <linux/dmi.h>
+ #include <linux/device.h>
+ #include <linux/suspend.h>
++#include <linux/notifier.h>
++#include <linux/pm.h>
+ #include <linux/reboot.h>
+ #include <linux/acpi.h>
+ #include <linux/module.h>
+@@ -811,14 +813,22 @@ static void acpi_power_off_prepare(void)
+ 	acpi_disable_all_gpes();
+ }
  
- 		/* SIGPOLL */
-@@ -110,9 +114,9 @@ typedef struct siginfo {
- /*
-  * SIGSEGV si_codes
-  */
--#define __SEGV_PSTKOVF	(__SI_FAULT|3)	/* paragraph stack overflow */
-+#define __SEGV_PSTKOVF	(__SI_FAULT|4)	/* paragraph stack overflow */
- #undef NSIGSEGV
--#define NSIGSEGV	3
-+#define NSIGSEGV	4
+-static void acpi_power_off(void)
++static int acpi_power_off(struct notifier_block *this,
++			  unsigned long unused1, void *unused2)
+ {
+ 	/* acpi_sleep_prepare(ACPI_STATE_S5) should have already been called */
+ 	printk(KERN_DEBUG "%s called\n", __func__);
+ 	local_irq_disable();
+ 	acpi_enter_sleep_state(ACPI_STATE_S5);
++
++	return NOTIFY_DONE;
+ }
  
- #undef NSIGTRAP
- #define NSIGTRAP	4
++static struct notifier_block acpi_poweroff_nb = {
++	.notifier_call = acpi_power_off,
++	.priority = 192,
++};
++
+ int __init acpi_sleep_init(void)
+ {
+ 	char supported[ACPI_S_STATE_COUNT * 3 + 1];
+@@ -835,7 +845,8 @@ int __init acpi_sleep_init(void)
+ 	if (acpi_sleep_state_supported(ACPI_STATE_S5)) {
+ 		sleep_states[ACPI_STATE_S5] = 1;
+ 		pm_power_off_prepare = acpi_power_off_prepare;
+-		pm_power_off = acpi_power_off;
++		if (register_poweroff_handler(&acpi_poweroff_nb))
++			pr_err("acpi: Failed to register poweroff handler\n");
+ 	}
+ 
+ 	supported[0] = 0;
 -- 
-1.7.1
+1.9.1
 
