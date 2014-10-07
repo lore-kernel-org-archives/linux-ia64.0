@@ -1,147 +1,107 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Wed, 15 Oct 2014 02:32:46 +0000
-Subject: [PATCH v3 15/27] x86/MSI: Remove unused MSI weak arch functions
-Message-Id: <1413342435-7876-16-git-send-email-wangyijing@huawei.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Date: Tue, 07 Oct 2014 05:28:39 +0000
+Subject: [PATCH 37/44] sh: Register with kernel poweroff handler
+Message-Id: <1412659726-29957-38-git-send-email-linux@roeck-us.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1413342435-7876-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1413342435-7876-1-git-send-email-wangyijing@huawei.com>
+References: <1412659726-29957-1-git-send-email-linux@roeck-us.net>
+In-Reply-To: <1412659726-29957-1-git-send-email-linux@roeck-us.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, linux-arch@vger.kernel.org, arnab.basu@freescale.com, Bharat.Bhushan@freescale.com, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Thomas Gleixner <tglx@linutronix.de>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, xen-devel@lists.xenproject.org, Joerg Roedel <joro@8bytes.org>, iommu@lists.linux-foundation.org, linux-mips@linux-mips.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, Sebastian Ott <sebott@linux.vnet.ibm.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Chris Metcalf <cmetcalf@tilera.com>, Ralf Baechle <ralf@linux-mips.org>, Lucas Stach <l.stach@pengutronix.de>, David Vrabel <david.vrabel@citrix.com>, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>, Michael Ellerman <mpe@ellerman.id.au>, Thierry Reding <thierry.reding@gmail.com>, Thomas Petazzoni <thomas.petazzoni@free-electrons.com>, Liviu Dudau <liviu@dudau.co.uk>, Yijing Wang <wangyijing@huawei.com>
+To: linux-kernel@vger.kernel.org
+Cc: adi-buildroot-devel@lists.sourceforge.net, devel@driverdev.osuosl.org, devicetree@vger.kernel.org, lguest@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-alpha@vger.kernel.org, linux-am33-list@redhat.com, linux-cris-kernel@axis.com, linux-efi@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-m32r-ja@ml.linux-m32r.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-tegra@vger.kernel.org, linux-xtensa@linux-xtensa.org, openipmi-developer@lists.sourceforge.net, user-mode-linux-devel@lists.sourceforge.net, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linux-pm@vger.kernel.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, Guenter Roeck <linux@roeck-us.net>
 
-Now we can clean up MSI weak arch functions in x86.
+Register with kernel poweroff handler instead of setting pm_power_off
+directly.
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 ---
- arch/x86/include/asm/pci.h      |    5 +----
- arch/x86/include/asm/x86_init.h |    4 ----
- arch/x86/kernel/apic/io_apic.c  |   21 +++++----------------
- arch/x86/kernel/x86_init.c      |   24 ------------------------
- 4 files changed, 6 insertions(+), 48 deletions(-)
+ arch/sh/boards/board-sh7785lcr.c       | 2 +-
+ arch/sh/boards/board-urquell.c         | 2 +-
+ arch/sh/boards/mach-highlander/setup.c | 2 +-
+ arch/sh/boards/mach-landisk/setup.c    | 2 +-
+ arch/sh/boards/mach-r2d/setup.c        | 2 +-
+ arch/sh/boards/mach-sdk7786/setup.c    | 2 +-
+ 6 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/arch/x86/include/asm/pci.h b/arch/x86/include/asm/pci.h
-index f41b58a..3a5cf19 100644
---- a/arch/x86/include/asm/pci.h
-+++ b/arch/x86/include/asm/pci.h
-@@ -108,14 +108,11 @@ extern void pci_iommu_alloc(void);
- #ifdef CONFIG_PCI_MSI
- /* implemented in arch/x86/kernel/apic/io_apic. */
- struct msi_desc;
--int native_setup_msi_irqs(struct pci_dev *dev, int nvec, int type);
--void native_teardown_msi_irq(unsigned int irq);
--void native_restore_msi_irqs(struct pci_dev *dev);
-+void native_teardown_msi_irq(struct msi_chip *chip, unsigned int irq);
- int setup_msi_irq(struct pci_dev *dev, struct msi_desc *msidesc,
- 		  unsigned int irq_base, unsigned int irq_offset);
- extern struct msi_chip *x86_msi_chip;
- #else
--#define native_setup_msi_irqs		NULL
- #define native_teardown_msi_irq		NULL
- #endif
+diff --git a/arch/sh/boards/board-sh7785lcr.c b/arch/sh/boards/board-sh7785lcr.c
+index 2c4771e..c092402 100644
+--- a/arch/sh/boards/board-sh7785lcr.c
++++ b/arch/sh/boards/board-sh7785lcr.c
+@@ -332,7 +332,7 @@ static void __init sh7785lcr_setup(char **cmdline_p)
  
-diff --git a/arch/x86/include/asm/x86_init.h b/arch/x86/include/asm/x86_init.h
-index f58a9c7..2514f67 100644
---- a/arch/x86/include/asm/x86_init.h
-+++ b/arch/x86/include/asm/x86_init.h
-@@ -174,13 +174,9 @@ struct pci_dev;
- struct msi_msg;
+ 	printk(KERN_INFO "Renesas Technology Corp. R0P7785LC0011RL support.\n");
  
- struct x86_msi_ops {
--	int (*setup_msi_irqs)(struct pci_dev *dev, int nvec, int type);
- 	void (*compose_msi_msg)(struct pci_dev *dev, unsigned int irq,
- 				unsigned int dest, struct msi_msg *msg,
- 			       u8 hpet_id);
--	void (*teardown_msi_irq)(unsigned int irq);
--	void (*teardown_msi_irqs)(struct pci_dev *dev);
--	void (*restore_msi_irqs)(struct pci_dev *dev);
- 	int  (*setup_hpet_msi)(unsigned int irq, unsigned int id);
- };
+-	pm_power_off = sh7785lcr_power_off;
++	register_poweroff_handler_simple(sh7785lcr_power_off, 128);
  
-diff --git a/arch/x86/kernel/apic/io_apic.c b/arch/x86/kernel/apic/io_apic.c
-index ec79b38..11d353f 100644
---- a/arch/x86/kernel/apic/io_apic.c
-+++ b/arch/x86/kernel/apic/io_apic.c
-@@ -3200,7 +3200,8 @@ int setup_msi_irq(struct pci_dev *dev, struct msi_desc *msidesc,
- 	return 0;
- }
- 
--int native_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
-+static int native_setup_msi_irqs(struct msi_chip *chip,
-+		struct pci_dev *dev, int nvec, int type)
+ 	/* sm501 DRAM configuration */
+ 	sm501_reg = ioremap_nocache(SM107_REG_ADDR, SM501_DRAM_CONTROL);
+diff --git a/arch/sh/boards/board-urquell.c b/arch/sh/boards/board-urquell.c
+index b52abcc..b3fa56f 100644
+--- a/arch/sh/boards/board-urquell.c
++++ b/arch/sh/boards/board-urquell.c
+@@ -204,7 +204,7 @@ static void __init urquell_setup(char **cmdline_p)
  {
- 	struct msi_desc *msidesc;
- 	unsigned int irq;
-@@ -3227,26 +3228,14 @@ int native_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
- 	return 0;
+ 	printk(KERN_INFO "Renesas Technology Corp. Urquell support.\n");
+ 
+-	pm_power_off = urquell_power_off;
++	register_poweroff_handler_simple(urquell_power_off, 128);
+ 
+ 	register_smp_ops(&shx3_smp_ops);
+ }
+diff --git a/arch/sh/boards/mach-highlander/setup.c b/arch/sh/boards/mach-highlander/setup.c
+index 4a52590..998f1a5 100644
+--- a/arch/sh/boards/mach-highlander/setup.c
++++ b/arch/sh/boards/mach-highlander/setup.c
+@@ -385,7 +385,7 @@ static void __init highlander_setup(char **cmdline_p)
+ 
+ 	__raw_writew(__raw_readw(PA_IVDRCTL) | 0x01, PA_IVDRCTL);	/* Si13112 */
+ 
+-	pm_power_off = r7780rp_power_off;
++	register_poweroff_handler_simple(r7780rp_power_off, 128);
  }
  
--static int __native_setup_msi_irqs(struct msi_chip *chip, 
--		struct pci_dev *dev, int nvec, int type)
--{
--	return native_setup_msi_irqs(dev, nvec, type);
--}
--
--void native_teardown_msi_irq(unsigned int irq)
-+void native_teardown_msi_irq(struct msi_chip *chip, unsigned int irq)
- {
- 	irq_free_hwirq(irq);
+ static unsigned char irl2irq[HL_NR_IRL];
+diff --git a/arch/sh/boards/mach-landisk/setup.c b/arch/sh/boards/mach-landisk/setup.c
+index f1147ca..c817d80 100644
+--- a/arch/sh/boards/mach-landisk/setup.c
++++ b/arch/sh/boards/mach-landisk/setup.c
+@@ -89,7 +89,7 @@ static void __init landisk_setup(char **cmdline_p)
+ 	__raw_writeb(__raw_readb(PA_LED) | 0x03, PA_LED);
+ 
+ 	printk(KERN_INFO "I-O DATA DEVICE, INC. \"LANDISK Series\" support.\n");
+-	pm_power_off = landisk_power_off;
++	register_poweroff_handler_simple(landisk_power_off, 128);
  }
  
--static void __native_teardown_msi_irq(struct msi_chip *chip, 
--		unsigned int irq)
--{
--	native_teardown_msi_irq(irq);
--}
--
- static struct msi_chip native_msi_chip = {
--	.setup_irqs = __native_setup_msi_irqs,
--	.teardown_irq = __native_teardown_msi_irq,
-+	.setup_irqs = native_setup_msi_irqs,
-+	.teardown_irq = native_teardown_msi_irq,
- };
+ /*
+diff --git a/arch/sh/boards/mach-r2d/setup.c b/arch/sh/boards/mach-r2d/setup.c
+index 4b98a52..a759d39 100644
+--- a/arch/sh/boards/mach-r2d/setup.c
++++ b/arch/sh/boards/mach-r2d/setup.c
+@@ -279,7 +279,7 @@ static void __init rts7751r2d_setup(char **cmdline_p)
+ 					(ver >> 4) & 0xf, ver & 0xf);
  
- struct msi_chip *x86_msi_chip = &native_msi_chip;
-diff --git a/arch/x86/kernel/x86_init.c b/arch/x86/kernel/x86_init.c
-index 234b072..cc32568 100644
---- a/arch/x86/kernel/x86_init.c
-+++ b/arch/x86/kernel/x86_init.c
-@@ -110,34 +110,10 @@ EXPORT_SYMBOL_GPL(x86_platform);
+ 	__raw_writew(0x0000, PA_OUTPORT);
+-	pm_power_off = rts7751r2d_power_off;
++	register_poweroff_handler_simple(rts7751r2d_power_off, 128);
  
- #if defined(CONFIG_PCI_MSI)
- struct x86_msi_ops x86_msi = {
--	.setup_msi_irqs		= native_setup_msi_irqs,
- 	.compose_msi_msg	= native_compose_msi_msg,
--	.teardown_msi_irq	= native_teardown_msi_irq,
--	.teardown_msi_irqs	= default_teardown_msi_irqs,
--	.restore_msi_irqs	= default_restore_msi_irqs,
- 	.setup_hpet_msi		= default_setup_hpet_msi,
- };
+ 	/* sm501 dram configuration:
+ 	 * ColSizeX = 11 - External Memory Column Size: 256 words.
+diff --git a/arch/sh/boards/mach-sdk7786/setup.c b/arch/sh/boards/mach-sdk7786/setup.c
+index c29268b..cb26336 100644
+--- a/arch/sh/boards/mach-sdk7786/setup.c
++++ b/arch/sh/boards/mach-sdk7786/setup.c
+@@ -252,7 +252,7 @@ static void __init sdk7786_setup(char **cmdline_p)
+ 	pr_info("\tPCB revision:\t%d\n", fpga_read_reg(PCBRR) & 0xf);
  
--/* MSI arch specific hooks */
--int arch_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
--{
--	return x86_msi.setup_msi_irqs(dev, nvec, type);
--}
--
--void arch_teardown_msi_irqs(struct pci_dev *dev)
--{
--	x86_msi.teardown_msi_irqs(dev);
--}
--
--void arch_teardown_msi_irq(unsigned int irq)
--{
--	x86_msi.teardown_msi_irq(irq);
--}
--
--void arch_restore_msi_irqs(struct pci_dev *dev)
--{
--	x86_msi.restore_msi_irqs(dev);
--}
- #endif
+ 	machine_ops.restart = sdk7786_restart;
+-	pm_power_off = sdk7786_power_off;
++	register_poweroff_handler_simple(sdk7786_power_off, 128);
  
- struct x86_io_apic_ops x86_io_apic_ops = {
+ 	register_smp_ops(&shx3_smp_ops);
+ }
 -- 
-1.7.1
+1.9.1
 
