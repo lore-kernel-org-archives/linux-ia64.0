@@ -1,89 +1,95 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Mon, 27 Oct 2014 12:48:18 +0000
-Subject: [PATCH 11/16] s390/MSI: Use MSI controller framework to configure MSI/MSI-X irq
-Message-Id: <1414416142-31239-12-git-send-email-wangyijing@huawei.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Date: Tue, 07 Oct 2014 05:28:28 +0000
+Subject: [PATCH 26/44] x86: iris: Register with kernel poweroff handler
+Message-Id: <1412659726-29957-27-git-send-email-linux@roeck-us.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1414416142-31239-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1414416142-31239-1-git-send-email-wangyijing@huawei.com>
+References: <1412659726-29957-1-git-send-email-linux@roeck-us.net>
+In-Reply-To: <1412659726-29957-1-git-send-email-linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, xen-devel@lists.xenproject.org, Joerg Roedel <joro@8bytes.org>, iommu@lists.linux-foundation.org, linux-mips@linux-mips.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, Sebastian Ott <sebott@linux.vnet.ibm.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Chris Metcalf <cmetcalf@tilera.com>, Ralf Baechle <ralf@linux-mips.org>, Lucas Stach <l.stach@pengutronix.de>, David Vrabel <david.vrabel@citrix.com>, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>, Michael Ellerman <mpe@ellerman.id.au>, Thierry Reding <thierry.reding@gmail.com>, Thomas Petazzoni <thomas.petazzoni@free-electrons.com>, Yijing Wang <wangyijing@huawei.com>
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: adi-buildroot-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-alpha-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-am33-list-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-cris-kernel-VrBV9hrLPhE@public.gmane.org, linux-efi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-hexagon-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-m32r-ja-rQhvJZKUsGBRYuoOT4C5/9i2O/JbrIOy@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org, openipmi-developer-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, user-mode-linux-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-c6x-dev-jPsnJVOj+W6hPH1hqNUYSQ@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-m68k-cunTk1MwBs8S/qaLPR03pWD2FQJk+8+b@public.gmane.org, linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, linux-parisc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-pm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org, Guenter Roeck <linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>, Thomas
 
-Use MSI controller framework instead of arch MSI functions to configure
-MSI/MSI-X irq. So we can manage MSI/MSI-X irq in a unified framework.
+Register with kernel poweroff handler instead of setting pm_power_off
+directly. Register with high priority value of 192 to reflect that
+the original code overwrites existing poweroff handlers.
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
-Acked-by: Sebastian Ott <sebott@linux.vnet.ibm.com>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Ingo Molnar <mingo@redhat.com>
+Cc: H. Peter Anvin <hpa@zytor.com>
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 ---
- arch/s390/include/asm/pci.h |    1 +
- arch/s390/pci/pci.c         |   19 +++++++++++++++++--
- 2 files changed, 18 insertions(+), 2 deletions(-)
+ arch/x86/platform/iris/iris.c | 25 +++++++++++++++++++------
+ 1 file changed, 19 insertions(+), 6 deletions(-)
 
-diff --git a/arch/s390/include/asm/pci.h b/arch/s390/include/asm/pci.h
-index c030900..bf14da2 100644
---- a/arch/s390/include/asm/pci.h
-+++ b/arch/s390/include/asm/pci.h
-@@ -88,6 +88,7 @@ struct zpci_dev {
- 	u32 uid;			/* user defined id */
- 	u8 util_str[CLP_UTIL_STR_LEN];	/* utility string */
+diff --git a/arch/x86/platform/iris/iris.c b/arch/x86/platform/iris/iris.c
+index 4d171e8..662c4e8 100644
+--- a/arch/x86/platform/iris/iris.c
++++ b/arch/x86/platform/iris/iris.c
+@@ -23,6 +23,7 @@
  
-+	struct msi_controller *msi_ctrl;
- 	/* IRQ stuff */
- 	u64		msi_addr;	/* MSI address */
- 	struct airq_iv *aibv;		/* adapter interrupt bit vector */
-diff --git a/arch/s390/pci/pci.c b/arch/s390/pci/pci.c
-index 552b990..beed5ab 100644
---- a/arch/s390/pci/pci.c
-+++ b/arch/s390/pci/pci.c
-@@ -358,7 +358,15 @@ static void zpci_irq_handler(struct airq_struct *airq)
- 	}
- }
+ #include <linux/moduleparam.h>
+ #include <linux/module.h>
++#include <linux/notifier.h>
+ #include <linux/platform_device.h>
+ #include <linux/kernel.h>
+ #include <linux/errno.h>
+@@ -47,15 +48,21 @@ static bool force;
+ module_param(force, bool, 0);
+ MODULE_PARM_DESC(force, "Set to one to force poweroff handler installation.");
  
--int arch_setup_msi_irqs(struct pci_dev *pdev, int nvec, int type)
-+struct msi_controller *pcibios_msi_controller(struct pci_bus *bus)
-+{
-+	struct zpci_dev *zpci = bus->sysdata;
-+
-+	return zpci->msi_ctrl;
-+}
-+
-+static int zpci_setup_msi_irqs(struct msi_controller *ctrl,
-+		struct pci_dev *pdev, int nvec, int type)
+-static void (*old_pm_power_off)(void);
+-
+-static void iris_power_off(void)
++static int iris_power_off(struct notifier_block *this, unsigned long unused1,
++			  void *unused2)
  {
- 	struct zpci_dev *zdev = get_zdev(pdev);
- 	unsigned int hwirq, msi_vecs;
-@@ -434,7 +442,8 @@ out:
- 	return rc;
+ 	outb(IRIS_GIO_PULSE, IRIS_GIO_OUTPUT);
+ 	msleep(850);
+ 	outb(IRIS_GIO_REST, IRIS_GIO_OUTPUT);
++
++	return NOTIFY_DONE;
  }
  
--void arch_teardown_msi_irqs(struct pci_dev *pdev)
-+static void zpci_teardown_msi_irqs(struct msi_controller *ctrl,
-+		struct pci_dev *pdev)
- {
- 	struct zpci_dev *zdev = get_zdev(pdev);
- 	struct msi_desc *msi;
-@@ -464,6 +473,11 @@ void arch_teardown_msi_irqs(struct pci_dev *pdev)
- 	airq_iv_free_bit(zpci_aisb_iv, zdev->aisb);
- }
- 
-+static struct msi_controller zpci_msi_ctrl = {
-+	.setup_irqs = zpci_setup_msi_irqs,
-+	.teardown_irqs = zpci_teardown_msi_irqs,
++static struct notifier_block iris_poweroff_nb = {
++	.notifier_call = iris_power_off,
++	.priority = 192,
 +};
 +
- static void zpci_map_resources(struct zpci_dev *zdev)
+ /*
+  * Before installing the power_off handler, try to make sure the OS is
+  * running on an Iris.  Since Iris does not support DMI, this is done
+@@ -65,20 +72,26 @@ static void iris_power_off(void)
+ static int iris_probe(struct platform_device *pdev)
  {
- 	struct pci_dev *pdev = zdev->pdev;
-@@ -749,6 +763,7 @@ static int zpci_scan_bus(struct zpci_dev *zdev)
- 	if (ret)
- 		return ret;
+ 	unsigned char status = inb(IRIS_GIO_INPUT);
++	int ret;
++
+ 	if (status = IRIS_GIO_NODEV) {
+ 		printk(KERN_ERR "This machine does not seem to be an Iris. "
+ 			"Power off handler not installed.\n");
+ 		return -ENODEV;
+ 	}
+-	old_pm_power_off = pm_power_off;
+-	pm_power_off = &iris_power_off;
++
++	ret = register_poweroff_handler(&iris_poweroff_nb);
++	if (ret) {
++		dev_err(&pdev->dev, "Failed to register poweroff handler\n");
++		return ret;
++	}
+ 	printk(KERN_INFO "Iris power_off handler installed.\n");
+ 	return 0;
+ }
  
-+	zdev->msi_ctrl = &zpci_msi_ctrl;
- 	zdev->bus = pci_scan_root_bus(NULL, ZPCI_BUS_NR, &pci_root_ops,
- 				      zdev, &resources);
- 	if (!zdev->bus) {
+ static int iris_remove(struct platform_device *pdev)
+ {
+-	pm_power_off = old_pm_power_off;
++	unregister_poweroff_handler(&iris_poweroff_nb);
+ 	printk(KERN_INFO "Iris power_off handler uninstalled.\n");
+ 	return 0;
+ }
 -- 
-1.7.1
+1.9.1
 
