@@ -1,89 +1,102 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Wed, 15 Oct 2014 02:27:42 +0000
-Subject: [PATCH v3 26/27] tile/MSI: Use MSI chip framework to configure MSI/MSI-X irq
-Message-Id: <1413342435-7876-27-git-send-email-wangyijing@huawei.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Date: Tue, 07 Oct 2014 05:28:24 +0000
+Subject: [PATCH 22/44] power/reset: as3722-poweroff: Register with kernel poweroff handler
+Message-Id: <1412659726-29957-23-git-send-email-linux@roeck-us.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1413342435-7876-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1413342435-7876-1-git-send-email-wangyijing@huawei.com>
+References: <1412659726-29957-1-git-send-email-linux@roeck-us.net>
+In-Reply-To: <1412659726-29957-1-git-send-email-linux@roeck-us.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, linux-arch@vger.kernel.org, arnab.basu@freescale.com, Bharat.Bhushan@freescale.com, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Thomas Gleixner <tglx@linutronix.de>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, xen-devel@lists.xenproject.org, Joerg Roedel <joro@8bytes.org>, iommu@lists.linux-foundation.org, linux-mips@linux-mips.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, Sebastian Ott <sebott@linux.vnet.ibm.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Chris Metcalf <cmetcalf@tilera.com>, Ralf Baechle <ralf@linux-mips.org>, Lucas Stach <l.stach@pengutronix.de>, David Vrabel <david.vrabel@citrix.com>, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>, Michael Ellerman <mpe@ellerman.id.au>, Thierry Reding <thierry.reding@gmail.com>, Thomas Petazzoni <thomas.petazzoni@free-electrons.com>, Liviu Dudau <liviu@dudau.co.uk>, Yijing Wang <wangyijing@huawei.com>
+To: linux-kernel@vger.kernel.org
+Cc: adi-buildroot-devel@lists.sourceforge.net, devel@driverdev.osuosl.org, devicetree@vger.kernel.org, lguest@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-alpha@vger.kernel.org, linux-am33-list@redhat.com, linux-cris-kernel@axis.com, linux-efi@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-m32r-ja@ml.linux-m32r.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-tegra@vger.kernel.org, linux-xtensa@linux-xtensa.org, openipmi-developer@lists.sourceforge.net, user-mode-linux-devel@lists.sourceforge.net, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linux-pm@vger.kernel.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, Guenter Roeck <linux@roeck-us.net>, Sebastian
 
-Use MSI chip framework instead of arch MSI functions to configure
-MSI/MSI-X irq. So we can manage MSI/MSI-X irq in a unified framework.
+Register with kernel poweroff handler instead of setting pm_power_off
+directly. Register with a low priority value of 64 to reflect that
+the original code only sets pm_power_off if it was not already set.
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+Cc: Sebastian Reichel <sre@kernel.org>
+Cc: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+Cc: David Woodhouse <dwmw2@infradead.org>
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 ---
- arch/tile/include/asm/pci.h |   10 ++++++++++
- arch/tile/kernel/pci_gx.c   |   13 +++++++++++--
- 2 files changed, 21 insertions(+), 2 deletions(-)
+ drivers/power/reset/as3722-poweroff.c | 36 ++++++++++++++++++-----------------
+ 1 file changed, 19 insertions(+), 17 deletions(-)
 
-diff --git a/arch/tile/include/asm/pci.h b/arch/tile/include/asm/pci.h
-index dfedd7a..d27d9ec 100644
---- a/arch/tile/include/asm/pci.h
-+++ b/arch/tile/include/asm/pci.h
-@@ -152,6 +152,7 @@ struct pci_controller {
- 	int pio_io_index;	/* PIO region index for I/O space access */
- #endif
+diff --git a/drivers/power/reset/as3722-poweroff.c b/drivers/power/reset/as3722-poweroff.c
+index 6849711..7ebaed9 100644
+--- a/drivers/power/reset/as3722-poweroff.c
++++ b/drivers/power/reset/as3722-poweroff.c
+@@ -17,32 +17,33 @@
  
-+	struct msi_chip *msi_chip;
- 	/*
- 	 * Mem-Map regions for all the memory controllers so that Linux can
- 	 * map all of its physical memory space to the PCI bus.
-@@ -179,6 +180,15 @@ struct pci_controller {
- 	int irq_intx_table[4];
+ #include <linux/mfd/as3722.h>
+ #include <linux/module.h>
++#include <linux/notifier.h>
+ #include <linux/of.h>
+ #include <linux/of_device.h>
+ #include <linux/platform_device.h>
++#include <linux/pm.h>
+ #include <linux/slab.h>
+ 
+ struct as3722_poweroff {
+ 	struct device *dev;
+ 	struct as3722 *as3722;
++	struct notifier_block poweroff_nb;
  };
  
-+extern struct msi_chip tilegx_msi;
-+
-+static inline struct msi_chip *pci_msi_chip(struct pci_bus *bus)
-+{
-+	struct pci_controller *controller = bus->sysdata;
-+
-+	return controller->msi_chip;
-+}
-+
- extern struct pci_controller pci_controllers[TILEGX_NUM_TRIO * TILEGX_TRIO_PCIES];
- extern gxio_trio_context_t trio_contexts[TILEGX_NUM_TRIO];
- extern int num_trio_shims;
-diff --git a/arch/tile/kernel/pci_gx.c b/arch/tile/kernel/pci_gx.c
-index e39f9c5..ba66517 100644
---- a/arch/tile/kernel/pci_gx.c
-+++ b/arch/tile/kernel/pci_gx.c
-@@ -887,6 +887,7 @@ int __init pcibios_init(void)
- 					controller->mem_offset);
- 		pci_add_resource(&resources, &controller->io_space);
- 		controller->first_busno = next_busno;
-+		controller->msi_chip = &tilegx_msi;
- 		bus = pci_scan_root_bus(NULL, next_busno, controller->ops,
- 					controller, &resources);
- 		controller->root_bus = bus;
-@@ -1485,7 +1486,8 @@ static struct irq_chip tilegx_msi_chip = {
- 	/* TBD: support set_affinity. */
- };
- 
--int arch_setup_msi_irq(struct pci_dev *pdev, struct msi_desc *desc)
-+static int tile_setup_msi_irq(struct msi_chip *chip,
-+		struct pci_dev *pdev, struct msi_desc *desc)
+-static struct as3722_poweroff *as3722_pm_poweroff;
+-
+-static void as3722_pm_power_off(void)
++static int as3722_power_off(struct notifier_block *this, unsigned long unused1,
++			    void *unused2)
  {
- 	struct pci_controller *controller;
- 	gxio_trio_context_t *trio_context;
-@@ -1604,7 +1606,12 @@ is_64_failure:
- 	return ret;
++	struct as3722_poweroff *as3722_poweroff +		container_of(this, struct as3722_poweroff, poweroff_nb);
+ 	int ret;
+ 
+-	if (!as3722_pm_poweroff) {
+-		pr_err("AS3722 poweroff is not initialised\n");
+-		return;
+-	}
+-
+-	ret = as3722_update_bits(as3722_pm_poweroff->as3722,
++	ret = as3722_update_bits(as3722_poweroff->as3722,
+ 		AS3722_RESET_CONTROL_REG, AS3722_POWER_OFF, AS3722_POWER_OFF);
+ 	if (ret < 0)
+-		dev_err(as3722_pm_poweroff->dev,
++		dev_err(as3722_poweroff->dev,
+ 			"RESET_CONTROL_REG update failed, %d\n", ret);
++
++	return NOTIFY_DONE;
  }
  
--void arch_teardown_msi_irq(unsigned int irq)
-+static void tile_teardown_msi_irq(struct msi_chip *chip, unsigned int irq)
- {
- 	irq_free_hwirq(irq);
- }
+ static int as3722_poweroff_probe(struct platform_device *pdev)
+@@ -63,18 +64,19 @@ static int as3722_poweroff_probe(struct platform_device *pdev)
+ 
+ 	as3722_poweroff->as3722 = dev_get_drvdata(pdev->dev.parent);
+ 	as3722_poweroff->dev = &pdev->dev;
+-	as3722_pm_poweroff = as3722_poweroff;
+-	if (!pm_power_off)
+-		pm_power_off = as3722_pm_power_off;
++	as3722_poweroff->poweroff_nb.notifier_call = as3722_power_off;
++	as3722_poweroff->poweroff_nb.priority = 64;
+ 
+-	return 0;
++	platform_set_drvdata(pdev, as3722_poweroff);
 +
-+struct msi_chip tilegx_msi = {
-+	.setup_irq = tile_setup_msi_irq,
-+	.teardown_irq = tile_teardown_msi_irq,
-+};
++	return register_poweroff_handler(&as3722_poweroff->poweroff_nb);
+ }
+ 
+ static int as3722_poweroff_remove(struct platform_device *pdev)
+ {
+-	if (pm_power_off = as3722_pm_power_off)
+-		pm_power_off = NULL;
+-	as3722_pm_poweroff = NULL;
++	struct as3722_poweroff *as3722_poweroff = platform_get_drvdata(pdev);
++
++	unregister_poweroff_handler(&as3722_poweroff->poweroff_nb);
+ 
+ 	return 0;
+ }
 -- 
-1.7.1
+1.9.1
 
