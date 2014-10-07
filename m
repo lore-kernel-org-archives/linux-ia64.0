@@ -1,86 +1,42 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Date: Tue, 28 Oct 2014 10:42:45 +0000
-Subject: Re: [PATCH v9 11/12] x86, mpx: cleanup unused bound tables
-Message-Id: <alpine.DEB.2.11.1410281044420.5308@nanos>
+From: Guenter Roeck <linux@roeck-us.net>
+Date: Tue, 07 Oct 2014 05:28:09 +0000
+Subject: [PATCH 07/44] qnap-poweroff: Drop reference to pm_power_off from devicetree bindings
+Message-Id: <1412659726-29957-8-git-send-email-linux@roeck-us.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1413088915-13428-1-git-send-email-qiaowei.ren@intel.com> <1413088915-13428-12-git-send-email-qiaowei.ren@intel.com> <alpine.DEB.2.11.1410241451280.5308@nanos> <544DB873.1010207@intel.com> <alpine.DEB.2.11.1410272138540.5308@nanos>
- <544F300B.7050002@intel.com>
-In-Reply-To: <544F300B.7050002@intel.com>
+References: <1412659726-29957-1-git-send-email-linux@roeck-us.net>
+In-Reply-To: <1412659726-29957-1-git-send-email-linux@roeck-us.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ren Qiaowei <qiaowei.ren@intel.com>
-Cc: "H. Peter Anvin" <hpa@zytor.com>, Ingo Molnar <mingo@redhat.com>, Dave Hansen <dave.hansen@intel.com>, x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org
+To: linux-kernel@vger.kernel.org
+Cc: adi-buildroot-devel@lists.sourceforge.net, devel@driverdev.osuosl.org, devicetree@vger.kernel.org, lguest@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-alpha@vger.kernel.org, linux-am33-list@redhat.com, linux-cris-kernel@axis.com, linux-efi@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-m32r-ja@ml.linux-m32r.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-tegra@vger.kernel.org, linux-xtensa@linux-xtensa.org, openipmi-developer@lists.sourceforge.net, user-mode-linux-devel@lists.sourceforge.net, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linux-pm@vger.kernel.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, Guenter Roeck <linux@roeck-us.net>, Rob
 
-On Tue, 28 Oct 2014, Ren Qiaowei wrote:
-> On 10/28/2014 04:49 AM, Thomas Gleixner wrote:
-> > On Mon, 27 Oct 2014, Ren Qiaowei wrote:
-> > > If so, I guess that there are some questions needed to be considered:
-> > > 
-> > > 1) Almost all palces which call do_munmap() will need to add
-> > > mpx_pre_unmap/post_unmap calls, like vm_munmap(), mremap(), shmdt(), etc..
-> > 
-> > What's the problem with that?
-> > 
-> 
-> For example:
-> 
-> shmdt()
->     down_write(mm->mmap_sem);
->     vma = find_vma();
->     while (vma)
->         do_munmap();
->     up_write(mm->mmap_sem);
-> 
-> We could not simply add mpx_pre_unmap() before do_munmap() or down_write().
-> And seems like it is a little hard for shmdt() to be changed to match this
-> solution, right?
+Replace reference to pm_power_off (which is an implementation detail)
+and replace it with a more generic description of the driver's functionality.
 
-Everything which does not fall in place right away seems to be a
-little hard, heavy weight or whatever excuses you have for it.
+Cc: Rob Herring <robh+dt@kernel.org>
+Cc: Pawel Moll <pawel.moll@arm.com>
+Cc: Mark Rutland <mark.rutland@arm.com>
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+---
+ Documentation/devicetree/bindings/power_supply/qnap-poweroff.txt | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-It's not that hard, really. We can simply split out the search code
-into a seperate function and use it for both problems.
-
-Yes, it is quite some work to do, but its straight forward.
-
-> > > 3) According to Dave, those bounds tables related to adjacent VMAs within
-> > > the
-> > > start and the end possibly don't have to be fully unmmaped, and we only
-> > > need
-> > > free the part of backing physical memory.
-> > 
-> > Care to explain why that's a problem?
-> > 
-> 
-> I guess you mean one new field mm->bd_remove_vmas should be added into staruct
-> mm, right?
-
-That was just to demonstrate the approach. I'm giving you a hint how
-to do it, I'm not telling you what the exact solution will be. If I
-need to do that, then I can implement it myself right away.
-
-> For those VMAs which we only need to free part of backing physical memory, we
-> could not clear bounds directory entries and should also mark the range of
-> backing physical memory within this vma. If so, maybe there are too many new
-> fields which will be added into mm struct, right?
-
-If we need more data to carry over from pre to post, we can allocate a
-proper data structure and just add a pointer to that to mm. And it's
-not written in stone, that you need to carry that information from pre
-to post. You could do the unmap/zap work in the pre phase already and
-reduce mpx_post_unmap() to up_write(mm->bt_sem).
-
-I gave you an idea and the center point of that idea is to have a
-separate rwsem to protect against the various races, fault handling
-etc. You still have to think about the implementation details.
-
-Thanks,
-
-	tglx
-
-
-
-
-
+diff --git a/Documentation/devicetree/bindings/power_supply/qnap-poweroff.txt b/Documentation/devicetree/bindings/power_supply/qnap-poweroff.txt
+index af25e77..1e2260a 100644
+--- a/Documentation/devicetree/bindings/power_supply/qnap-poweroff.txt
++++ b/Documentation/devicetree/bindings/power_supply/qnap-poweroff.txt
+@@ -3,8 +3,8 @@
+ QNAP NAS devices have a microcontroller controlling the main power
+ supply. This microcontroller is connected to UART1 of the Kirkwood and
+ Orion5x SoCs. Sending the character 'A', at 19200 baud, tells the
+-microcontroller to turn the power off. This driver adds a handler to
+-pm_power_off which is called to turn the power off.
++microcontroller to turn the power off. This driver installs a handler
++to power off the system.
+ 
+ Synology NAS devices use a similar scheme, but a different baud rate,
+ 9600, and a different character, '1'.
+-- 
+1.9.1
 
