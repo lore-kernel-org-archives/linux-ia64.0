@@ -1,49 +1,103 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Wed, 15 Oct 2014 02:32:00 +0000
-Subject: [PATCH v3 01/27] MSI: Remove the redundant irq_set_chip_data()
-Message-Id: <1413342435-7876-2-git-send-email-wangyijing@huawei.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Date: Tue, 07 Oct 2014 05:28:18 +0000
+Subject: [PATCH 16/44] mfd: tps6586x: Register with kernel poweroff handler
+Message-Id: <1412659726-29957-17-git-send-email-linux@roeck-us.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1413342435-7876-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1413342435-7876-1-git-send-email-wangyijing@huawei.com>
+References: <1412659726-29957-1-git-send-email-linux@roeck-us.net>
+In-Reply-To: <1412659726-29957-1-git-send-email-linux@roeck-us.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, linux-arch@vger.kernel.org, arnab.basu@freescale.com, Bharat.Bhushan@freescale.com, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Thomas Gleixner <tglx@linutronix.de>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, xen-devel@lists.xenproject.org, Joerg Roedel <joro@8bytes.org>, iommu@lists.linux-foundation.org, linux-mips@linux-mips.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, Sebastian Ott <sebott@linux.vnet.ibm.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Chris Metcalf <cmetcalf@tilera.com>, Ralf Baechle <ralf@linux-mips.org>, Lucas Stach <l.stach@pengutronix.de>, David Vrabel <david.vrabel@citrix.com>, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>, Michael Ellerman <mpe@ellerman.id.au>, Thierry Reding <thierry.reding@gmail.com>, Thomas Petazzoni <thomas.petazzoni@free-electrons.com>, Liviu Dudau <liviu@dudau.co.uk>, Yijing Wang <wangyijing@huawei.com>
+To: linux-kernel@vger.kernel.org
+Cc: adi-buildroot-devel@lists.sourceforge.net, devel@driverdev.osuosl.org, devicetree@vger.kernel.org, lguest@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-alpha@vger.kernel.org, linux-am33-list@redhat.com, linux-cris-kernel@axis.com, linux-efi@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-m32r-ja@ml.linux-m32r.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-tegra@vger.kernel.org, linux-xtensa@linux-xtensa.org, openipmi-developer@lists.sourceforge.net, user-mode-linux-devel@lists.sourceforge.net, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linux-pm@vger.kernel.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, Guenter Roeck <linux@roeck-us.net>, Samuel
 
-Currently, pcie-designware, pcie-rcar and pci-tegra drivers
-use irq chip_data to save the msi_chip pointer. They
-already call irq_set_chip_data() in their own MSI irq map
-functions. And chip_data is an opaque pointer, how to use
-it is arch dependent. It should not be placed in MSI core.
+Register with kernel poweroff handler instead of setting pm_power_off
+directly. Register with a low priority value of 64 to reflect that
+the original code only sets pm_power_off if it was not already set.
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
-Reviewed-by: Thierry Reding <treding@nvidia.com>
+Cc: Samuel Ortiz <sameo@linux.intel.com>
+Cc: Lee Jones <lee.jones@linaro.org>
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 ---
- drivers/pci/msi.c |    5 ++---
- 1 files changed, 2 insertions(+), 3 deletions(-)
+ drivers/mfd/tps6586x.c | 31 +++++++++++++++++++++++--------
+ 1 file changed, 23 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/pci/msi.c b/drivers/pci/msi.c
-index 2f7c92c..ecb92a5 100644
---- a/drivers/pci/msi.c
-+++ b/drivers/pci/msi.c
-@@ -41,14 +41,13 @@ int __weak arch_setup_msi_irq(struct pci_dev *dev, struct msi_desc *desc)
- 	if (err < 0)
- 		return err;
+diff --git a/drivers/mfd/tps6586x.c b/drivers/mfd/tps6586x.c
+index 8e1dbc4..bc14509 100644
+--- a/drivers/mfd/tps6586x.c
++++ b/drivers/mfd/tps6586x.c
+@@ -21,10 +21,12 @@
+ #include <linux/kernel.h>
+ #include <linux/module.h>
+ #include <linux/mutex.h>
++#include <linux/notifier.h>
+ #include <linux/slab.h>
+ #include <linux/err.h>
+ #include <linux/i2c.h>
+ #include <linux/platform_device.h>
++#include <linux/pm.h>
+ #include <linux/regmap.h>
+ #include <linux/of.h>
  
--	irq_set_chip_data(desc->irq, chip);
--
- 	return 0;
+@@ -133,6 +135,8 @@ struct tps6586x {
+ 	u32			irq_en;
+ 	u8			mask_reg[5];
+ 	struct irq_domain	*irq_domain;
++
++	struct notifier_block	poweroff_nb;
+ };
+ 
+ static inline struct tps6586x *dev_to_tps6586x(struct device *dev)
+@@ -472,13 +476,18 @@ static const struct regmap_config tps6586x_regmap_config = {
+ 	.cache_type = REGCACHE_RBTREE,
+ };
+ 
+-static struct device *tps6586x_dev;
+-static void tps6586x_power_off(void)
++static int tps6586x_power_off(struct notifier_block *this,
++			      unsigned long unused1, void *unused2)
+ {
+-	if (tps6586x_clr_bits(tps6586x_dev, TPS6586X_SUPPLYENE, EXITSLREQ_BIT))
+-		return;
++	struct tps6586x *tps6586x = container_of(this, struct tps6586x,
++						 poweroff_nb);
++
++	if (tps6586x_clr_bits(tps6586x->dev, TPS6586X_SUPPLYENE, EXITSLREQ_BIT))
++		return NOTIFY_DONE;
+ 
+-	tps6586x_set_bits(tps6586x_dev, TPS6586X_SUPPLYENE, SLEEP_MODE_BIT);
++	tps6586x_set_bits(tps6586x->dev, TPS6586X_SUPPLYENE, SLEEP_MODE_BIT);
++
++	return NOTIFY_DONE;
  }
  
- void __weak arch_teardown_msi_irq(unsigned int irq)
- {
--	struct msi_chip *chip = irq_get_chip_data(irq);
-+	struct msi_desc *entry = irq_get_msi_desc(irq);
-+	struct msi_chip *chip = entry->dev->bus->msi;
+ static void tps6586x_print_version(struct i2c_client *client, int version)
+@@ -575,9 +584,13 @@ static int tps6586x_i2c_probe(struct i2c_client *client,
+ 		goto err_add_devs;
+ 	}
  
- 	if (!chip || !chip->teardown_irq)
- 		return;
+-	if (pdata->pm_off && !pm_power_off) {
+-		tps6586x_dev = &client->dev;
+-		pm_power_off = tps6586x_power_off;
++	if (pdata->pm_off) {
++		tps6586x->poweroff_nb.notifier_call = tps6586x_power_off;
++		tps6586x->poweroff_nb.priority = 64;
++		ret = register_poweroff_handler(&tps6586x->poweroff_nb);
++		if (ret)
++			dev_err(&client->dev,
++				"failed to register poweroff handler\n");
+ 	}
+ 
+ 	return 0;
+@@ -594,6 +607,8 @@ static int tps6586x_i2c_remove(struct i2c_client *client)
+ {
+ 	struct tps6586x *tps6586x = i2c_get_clientdata(client);
+ 
++	unregister_poweroff_handler(&tps6586x->poweroff_nb);
++
+ 	tps6586x_remove_subdevs(tps6586x);
+ 	mfd_remove_devices(tps6586x->dev);
+ 	if (client->irq)
 -- 
-1.7.1
+1.9.1
 
