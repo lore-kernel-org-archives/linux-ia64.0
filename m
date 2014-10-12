@@ -1,102 +1,53 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Date: Tue, 07 Oct 2014 05:28:24 +0000
-Subject: [PATCH 22/44] power/reset: as3722-poweroff: Register with kernel poweroff handler
-Message-Id: <1412659726-29957-23-git-send-email-linux@roeck-us.net>
+From: Qiaowei Ren <qiaowei.ren@intel.com>
+Date: Sun, 12 Oct 2014 04:41:51 +0000
+Subject: [PATCH v9 08/12] ia64: sync struct siginfo with general version
+Message-Id: <1413088915-13428-9-git-send-email-qiaowei.ren@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1412659726-29957-1-git-send-email-linux@roeck-us.net>
-In-Reply-To: <1412659726-29957-1-git-send-email-linux@roeck-us.net>
+References: <1413088915-13428-1-git-send-email-qiaowei.ren@intel.com>
+In-Reply-To: <1413088915-13428-1-git-send-email-qiaowei.ren@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: adi-buildroot-devel@lists.sourceforge.net, devel@driverdev.osuosl.org, devicetree@vger.kernel.org, lguest@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-alpha@vger.kernel.org, linux-am33-list@redhat.com, linux-cris-kernel@axis.com, linux-efi@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-m32r-ja@ml.linux-m32r.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-tegra@vger.kernel.org, linux-xtensa@linux-xtensa.org, openipmi-developer@lists.sourceforge.net, user-mode-linux-devel@lists.sourceforge.net, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linux-pm@vger.kernel.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, Guenter Roeck <linux@roeck-us.net>, Sebastian
+To: "H. Peter Anvin" <hpa@zytor.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Dave Hansen <dave.hansen@intel.com>
+Cc: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, Qiaowei Ren <qiaowei.ren@intel.com>
 
-Register with kernel poweroff handler instead of setting pm_power_off
-directly. Register with a low priority value of 64 to reflect that
-the original code only sets pm_power_off if it was not already set.
+New fields about bound violation are added into general struct
+siginfo. This will impact MIPS and IA64, which extend general
+struct siginfo. This patch syncs this struct for IA64 with
+general version.
 
-Cc: Sebastian Reichel <sre@kernel.org>
-Cc: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-Cc: David Woodhouse <dwmw2@infradead.org>
-Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+Signed-off-by: Qiaowei Ren <qiaowei.ren@intel.com>
 ---
- drivers/power/reset/as3722-poweroff.c | 36 ++++++++++++++++++-----------------
- 1 file changed, 19 insertions(+), 17 deletions(-)
+ arch/ia64/include/uapi/asm/siginfo.h |    8 ++++++--
+ 1 files changed, 6 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/power/reset/as3722-poweroff.c b/drivers/power/reset/as3722-poweroff.c
-index 6849711..7ebaed9 100644
---- a/drivers/power/reset/as3722-poweroff.c
-+++ b/drivers/power/reset/as3722-poweroff.c
-@@ -17,32 +17,33 @@
+diff --git a/arch/ia64/include/uapi/asm/siginfo.h b/arch/ia64/include/uapi/asm/siginfo.h
+index 4ea6225..bce9bc1 100644
+--- a/arch/ia64/include/uapi/asm/siginfo.h
++++ b/arch/ia64/include/uapi/asm/siginfo.h
+@@ -63,6 +63,10 @@ typedef struct siginfo {
+ 			unsigned int _flags;	/* see below */
+ 			unsigned long _isr;	/* isr */
+ 			short _addr_lsb;	/* lsb of faulting address */
++			struct {
++				void __user *_lower;
++				void __user *_upper;
++			} _addr_bnd;
+ 		} _sigfault;
  
- #include <linux/mfd/as3722.h>
- #include <linux/module.h>
-+#include <linux/notifier.h>
- #include <linux/of.h>
- #include <linux/of_device.h>
- #include <linux/platform_device.h>
-+#include <linux/pm.h>
- #include <linux/slab.h>
+ 		/* SIGPOLL */
+@@ -110,9 +114,9 @@ typedef struct siginfo {
+ /*
+  * SIGSEGV si_codes
+  */
+-#define __SEGV_PSTKOVF	(__SI_FAULT|3)	/* paragraph stack overflow */
++#define __SEGV_PSTKOVF	(__SI_FAULT|4)	/* paragraph stack overflow */
+ #undef NSIGSEGV
+-#define NSIGSEGV	3
++#define NSIGSEGV	4
  
- struct as3722_poweroff {
- 	struct device *dev;
- 	struct as3722 *as3722;
-+	struct notifier_block poweroff_nb;
- };
- 
--static struct as3722_poweroff *as3722_pm_poweroff;
--
--static void as3722_pm_power_off(void)
-+static int as3722_power_off(struct notifier_block *this, unsigned long unused1,
-+			    void *unused2)
- {
-+	struct as3722_poweroff *as3722_poweroff +		container_of(this, struct as3722_poweroff, poweroff_nb);
- 	int ret;
- 
--	if (!as3722_pm_poweroff) {
--		pr_err("AS3722 poweroff is not initialised\n");
--		return;
--	}
--
--	ret = as3722_update_bits(as3722_pm_poweroff->as3722,
-+	ret = as3722_update_bits(as3722_poweroff->as3722,
- 		AS3722_RESET_CONTROL_REG, AS3722_POWER_OFF, AS3722_POWER_OFF);
- 	if (ret < 0)
--		dev_err(as3722_pm_poweroff->dev,
-+		dev_err(as3722_poweroff->dev,
- 			"RESET_CONTROL_REG update failed, %d\n", ret);
-+
-+	return NOTIFY_DONE;
- }
- 
- static int as3722_poweroff_probe(struct platform_device *pdev)
-@@ -63,18 +64,19 @@ static int as3722_poweroff_probe(struct platform_device *pdev)
- 
- 	as3722_poweroff->as3722 = dev_get_drvdata(pdev->dev.parent);
- 	as3722_poweroff->dev = &pdev->dev;
--	as3722_pm_poweroff = as3722_poweroff;
--	if (!pm_power_off)
--		pm_power_off = as3722_pm_power_off;
-+	as3722_poweroff->poweroff_nb.notifier_call = as3722_power_off;
-+	as3722_poweroff->poweroff_nb.priority = 64;
- 
--	return 0;
-+	platform_set_drvdata(pdev, as3722_poweroff);
-+
-+	return register_poweroff_handler(&as3722_poweroff->poweroff_nb);
- }
- 
- static int as3722_poweroff_remove(struct platform_device *pdev)
- {
--	if (pm_power_off = as3722_pm_power_off)
--		pm_power_off = NULL;
--	as3722_pm_poweroff = NULL;
-+	struct as3722_poweroff *as3722_poweroff = platform_get_drvdata(pdev);
-+
-+	unregister_poweroff_handler(&as3722_poweroff->poweroff_nb);
- 
- 	return 0;
- }
+ #undef NSIGTRAP
+ #define NSIGTRAP	4
 -- 
-1.9.1
+1.7.1
 
