@@ -1,245 +1,190 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Mon, 27 Oct 2014 12:45:20 +0000
-Subject: [PATCH 16/16] PCI/MSI: Clean up unused MSI arch functions
-Message-Id: <1414416142-31239-17-git-send-email-wangyijing@huawei.com>
+From: Qiaowei Ren <qiaowei.ren@intel.com>
+Date: Sun, 12 Oct 2014 04:41:46 +0000
+Subject: [PATCH v9 03/12] x86, mpx: add MPX specific mmap interface
+Message-Id: <1413088915-13428-4-git-send-email-qiaowei.ren@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1414416142-31239-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1414416142-31239-1-git-send-email-wangyijing@huawei.com>
+References: <1413088915-13428-1-git-send-email-qiaowei.ren@intel.com>
+In-Reply-To: <1413088915-13428-1-git-send-email-qiaowei.ren@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, xen-devel@lists.xenproject.org, Joerg Roedel <joro@8bytes.org>, iommu@lists.linux-foundation.org, linux-mips@linux-mips.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, Sebastian Ott <sebott@linux.vnet.ibm.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Chris Metcalf <cmetcalf@tilera.com>, Ralf Baechle <ralf@linux-mips.org>, Lucas Stach <l.stach@pengutronix.de>, David Vrabel <david.vrabel@citrix.com>, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>, Michael Ellerman <mpe@ellerman.id.au>, Thierry Reding <thierry.reding@gmail.com>, Thomas Petazzoni <thomas.petazzoni@free-electrons.com>, Yijing Wang <wangyijing@huawei.com>
+To: "H. Peter Anvin" <hpa@zytor.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Dave Hansen <dave.hansen@intel.com>
+Cc: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, Qiaowei Ren <qiaowei.ren@intel.com>
 
-Now we use MSI controller in all platforms to configure
-MSI/MSI-X. We can clean up the unused arch functions.
+We have to do the allocation of bounds tables in kernel (See the patch
+"on-demand kernel allocation of bounds tables"). Moreover, if we want
+to track MPX VMAs we need to be able to stick new VM_MPX flag and a
+specific vm_ops for MPX in the vma_area_struct.
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
-Reviewed-by: Lucas Stach <l.stach@pengutronix.de>
+But there are not suitable interfaces to do this in current kernel.
+Existing interfaces, like do_mmap_pgoff(), could not stick specific
+->vm_ops in the vma_area_struct when a VMA is created. So, this patch
+adds MPX specific mmap interface to do the allocation of bounds tables.
+
+Signed-off-by: Qiaowei Ren <qiaowei.ren@intel.com>
 ---
- drivers/pci/msi.c   |   90 ++++++++++++++++++--------------------------------
- include/linux/msi.h |   11 ------
- 2 files changed, 33 insertions(+), 68 deletions(-)
+ arch/x86/Kconfig           |    4 ++
+ arch/x86/include/asm/mpx.h |   38 +++++++++++++++++++++
+ arch/x86/mm/Makefile       |    2 +
+ arch/x86/mm/mpx.c          |   79 ++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 123 insertions(+), 0 deletions(-)
+ create mode 100644 arch/x86/include/asm/mpx.h
+ create mode 100644 arch/x86/mm/mpx.c
 
-diff --git a/drivers/pci/msi.c b/drivers/pci/msi.c
-index 0e1da3e..cdb4634 100644
---- a/drivers/pci/msi.c
-+++ b/drivers/pci/msi.c
-@@ -27,7 +27,6 @@ int pci_msi_ignore_mask;
+diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
+index 4b663e1..e5bcc70 100644
+--- a/arch/x86/Kconfig
++++ b/arch/x86/Kconfig
+@@ -243,6 +243,10 @@ config HAVE_INTEL_TXT
+ 	def_bool y
+ 	depends on INTEL_IOMMU && ACPI
  
- #define msix_table_size(flags)	((flags & PCI_MSIX_FLAGS_QSIZE) + 1)
- 
--
- /* Arch hooks */
- 
- struct msi_controller * __weak pcibios_msi_controller(struct pci_bus *bus)
-@@ -35,56 +34,31 @@ struct msi_controller * __weak pcibios_msi_controller(struct pci_bus *bus)
- 	return NULL;
- }
- 
--struct msi_controller *pci_msi_controller(struct pci_bus *bus)
--{
--	return pcibios_msi_controller(bus);
--}
--
--int __weak arch_setup_msi_irq(struct pci_dev *dev, struct msi_desc *desc)
--{
--	struct msi_controller *ctrl = pci_msi_controller(dev->bus);
--	int err;
--
--	if (!ctrl || !ctrl->setup_irq)
--		return -EINVAL;
--
--	err = ctrl->setup_irq(ctrl, dev, desc);
--	if (err < 0)
--		return err;
--
--	return 0;
--}
--
--void __weak arch_teardown_msi_irq(unsigned int irq)
--{
--	struct msi_desc *entry = irq_get_msi_desc(irq);
--	struct msi_controller *ctrl = pci_msi_controller(entry->dev->bus);
--
--	if (!ctrl || !ctrl->teardown_irq)
--		return;
--
--	ctrl->teardown_irq(ctrl, irq);
--}
--
--int __weak arch_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
-+int setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
- {
- 	struct msi_desc *entry;
- 	int ret;
- 	struct msi_controller *ctrl;
- 
--	ctrl = pci_msi_controller(dev->bus);
--	if (ctrl && ctrl->setup_irqs)
-+	ctrl = pcibios_msi_controller(dev->bus);
-+	if (!ctrl)
-+		return -EINVAL;
++config X86_INTEL_MPX
++	def_bool y
++	depends on CPU_SUP_INTEL
 +
-+	if (ctrl->setup_irqs)
- 		return ctrl->setup_irqs(ctrl, dev, nvec, type);
- 
- 	/*
- 	 * If an architecture wants to support multiple MSI, it needs to
--	 * override arch_setup_msi_irqs()
-+	 * implement ctrl->setup_irqs().
- 	 */
- 	if (type = PCI_CAP_ID_MSI && nvec > 1)
- 		return 1;
- 
-+	if (!ctrl->setup_irq)
-+		return -EINVAL;
+ config X86_32_SMP
+ 	def_bool y
+ 	depends on X86_32 && SMP
+diff --git a/arch/x86/include/asm/mpx.h b/arch/x86/include/asm/mpx.h
+new file mode 100644
+index 0000000..5725ac4
+--- /dev/null
++++ b/arch/x86/include/asm/mpx.h
+@@ -0,0 +1,38 @@
++#ifndef _ASM_X86_MPX_H
++#define _ASM_X86_MPX_H
 +
- 	list_for_each_entry(entry, &dev->msi_list, list) {
--		ret = arch_setup_msi_irq(dev, entry);
-+		ret = ctrl->setup_irq(ctrl, dev, entry);
- 		if (ret < 0)
- 			return ret;
- 		if (ret > 0)
-@@ -101,6 +75,10 @@ int __weak arch_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
- void default_teardown_msi_irqs(struct pci_dev *dev)
- {
- 	struct msi_desc *entry;
-+	struct msi_controller *ctrl = pcibios_msi_controller(dev->bus);
++#include <linux/types.h>
++#include <asm/ptrace.h>
 +
-+	if (!ctrl->teardown_irq)
-+		return;
++#ifdef CONFIG_X86_64
++
++/* upper 28 bits [47:20] of the virtual address in 64-bit used to
++ * index into bounds directory (BD).
++ */
++#define MPX_BD_ENTRY_OFFSET	28
++#define MPX_BD_ENTRY_SHIFT	3
++/* bits [19:3] of the virtual address in 64-bit used to index into
++ * bounds table (BT).
++ */
++#define MPX_BT_ENTRY_OFFSET	17
++#define MPX_BT_ENTRY_SHIFT	5
++#define MPX_IGN_BITS		3
++
++#else
++
++#define MPX_BD_ENTRY_OFFSET	20
++#define MPX_BD_ENTRY_SHIFT	2
++#define MPX_BT_ENTRY_OFFSET	10
++#define MPX_BT_ENTRY_SHIFT	4
++#define MPX_IGN_BITS		2
++
++#endif
++
++#define MPX_BD_SIZE_BYTES (1UL<<(MPX_BD_ENTRY_OFFSET+MPX_BD_ENTRY_SHIFT))
++#define MPX_BT_SIZE_BYTES (1UL<<(MPX_BT_ENTRY_OFFSET+MPX_BT_ENTRY_SHIFT))
++
++#define MPX_BNDSTA_ERROR_CODE	0x3
++
++unsigned long mpx_mmap(unsigned long len);
++
++#endif /* _ASM_X86_MPX_H */
+diff --git a/arch/x86/mm/Makefile b/arch/x86/mm/Makefile
+index 6a19ad9..ecfdc46 100644
+--- a/arch/x86/mm/Makefile
++++ b/arch/x86/mm/Makefile
+@@ -30,3 +30,5 @@ obj-$(CONFIG_ACPI_NUMA)		+= srat.o
+ obj-$(CONFIG_NUMA_EMU)		+= numa_emulation.o
  
- 	list_for_each_entry(entry, &dev->msi_list, list) {
- 		int i, nvec;
-@@ -111,18 +89,18 @@ void default_teardown_msi_irqs(struct pci_dev *dev)
- 		else
- 			nvec = 1 << entry->msi_attrib.multiple;
- 		for (i = 0; i < nvec; i++)
--			arch_teardown_msi_irq(entry->irq + i);
-+			ctrl->teardown_irq(ctrl, entry->irq + i);
- 	}
- }
- 
--void __weak arch_teardown_msi_irqs(struct pci_dev *dev)
-+static void teardown_msi_irqs(struct pci_dev *dev)
- {
--	struct msi_controller *ctrl = pci_msi_controller(dev->bus);
-+	struct msi_controller *ctrl = pcibios_msi_controller(dev->bus);
- 
- 	if (ctrl && ctrl->teardown_irqs)
- 		return ctrl->teardown_irqs(ctrl, dev);
- 
--	return default_teardown_msi_irqs(dev);
-+	default_teardown_msi_irqs(dev);
- }
- 
- static void default_restore_msi_irq(struct pci_dev *dev, int irq)
-@@ -143,10 +121,17 @@ static void default_restore_msi_irq(struct pci_dev *dev, int irq)
- 		__write_msi_msg(entry, &entry->msg);
- }
- 
--void __weak arch_restore_msi_irqs(struct pci_dev *dev)
-+void default_restore_msi_irqs(struct pci_dev *dev)
- {
--	struct msi_controller *ctrl = pci_msi_controller(dev->bus);
-+	struct msi_desc *entry;
- 
-+	list_for_each_entry(entry, &dev->msi_list, list)
-+		default_restore_msi_irq(dev, entry->irq);
+ obj-$(CONFIG_MEMTEST)		+= memtest.o
++
++obj-$(CONFIG_X86_INTEL_MPX)	+= mpx.o
+diff --git a/arch/x86/mm/mpx.c b/arch/x86/mm/mpx.c
+new file mode 100644
+index 0000000..e1b28e6
+--- /dev/null
++++ b/arch/x86/mm/mpx.c
+@@ -0,0 +1,79 @@
++#include <linux/kernel.h>
++#include <linux/syscalls.h>
++#include <asm/mpx.h>
++#include <asm/mman.h>
++#include <linux/sched/sysctl.h>
++
++static const char *mpx_mapping_name(struct vm_area_struct *vma)
++{
++	return "[mpx]";
 +}
 +
-+static void restore_msi_irqs(struct pci_dev *dev)
++static struct vm_operations_struct mpx_vma_ops = {
++	.name = mpx_mapping_name,
++};
++
++/*
++ * this is really a simplified "vm_mmap". it only handles mpx
++ * related maps, including bounds table and bounds directory.
++ *
++ * here we can stick new vm_flag VM_MPX in the vma_area_struct
++ * when create a bounds table or bounds directory, in order to
++ * track MPX specific memory.
++ */
++unsigned long mpx_mmap(unsigned long len)
 +{
-+	struct msi_controller *ctrl = pcibios_msi_controller(dev->bus);
- 	if (ctrl && ctrl->restore_irqs)
-              return ctrl->restore_irqs(ctrl, dev);
- 
-@@ -259,15 +244,6 @@ void unmask_msi_irq(struct irq_data *data)
- 	msi_set_mask_bit(data, 0);
- }
- 
--void default_restore_msi_irqs(struct pci_dev *dev)
--{
--	struct msi_desc *entry;
--
--	list_for_each_entry(entry, &dev->msi_list, list) {
--		default_restore_msi_irq(dev, entry->irq);
--	}
--}
--
- void __read_msi_msg(struct msi_desc *entry, struct msi_msg *msg)
- {
- 	BUG_ON(entry->dev->current_state != PCI_D0);
-@@ -387,7 +363,7 @@ static void free_msi_irqs(struct pci_dev *dev)
- 			BUG_ON(irq_has_action(entry->irq + i));
- 	}
- 
--	arch_teardown_msi_irqs(dev);
-+	teardown_msi_irqs(dev);
- 
- 	list_for_each_entry_safe(entry, tmp, &dev->msi_list, list) {
- 		if (entry->msi_attrib.is_msix) {
-@@ -446,7 +422,7 @@ static void __pci_restore_msi_state(struct pci_dev *dev)
- 
- 	pci_intx_for_msi(dev, 0);
- 	msi_set_enable(dev, 0);
--	arch_restore_msi_irqs(dev);
-+	restore_msi_irqs(dev);
- 
- 	pci_read_config_word(dev, dev->msi_cap + PCI_MSI_FLAGS, &control);
- 	msi_mask_irq(entry, msi_mask(entry->msi_attrib.multi_cap),
-@@ -469,7 +445,7 @@ static void __pci_restore_msix_state(struct pci_dev *dev)
- 	msix_clear_and_set_ctrl(dev, 0,
- 				PCI_MSIX_FLAGS_ENABLE | PCI_MSIX_FLAGS_MASKALL);
- 
--	arch_restore_msi_irqs(dev);
-+	restore_msi_irqs(dev);
- 	list_for_each_entry(entry, &dev->msi_list, list) {
- 		msix_mask_irq(entry, entry->masked);
- 	}
-@@ -639,7 +615,7 @@ static int msi_capability_init(struct pci_dev *dev, int nvec)
- 	list_add_tail(&entry->list, &dev->msi_list);
- 
- 	/* Configure MSI capability structure */
--	ret = arch_setup_msi_irqs(dev, nvec, PCI_CAP_ID_MSI);
-+	ret = setup_msi_irqs(dev, nvec, PCI_CAP_ID_MSI);
- 	if (ret) {
- 		msi_mask_irq(entry, mask, ~mask);
- 		free_msi_irqs(dev);
-@@ -754,7 +730,7 @@ static int msix_capability_init(struct pci_dev *dev,
- 	if (ret)
- 		return ret;
- 
--	ret = arch_setup_msi_irqs(dev, nvec, PCI_CAP_ID_MSIX);
-+	ret = setup_msi_irqs(dev, nvec, PCI_CAP_ID_MSIX);
- 	if (ret)
- 		goto out_avail;
- 
-diff --git a/include/linux/msi.h b/include/linux/msi.h
-index 4426cb4..e4eb137 100644
---- a/include/linux/msi.h
-+++ b/include/linux/msi.h
-@@ -51,19 +51,8 @@ struct msi_desc {
- 	struct msi_msg msg;
- };
- 
--/*
-- * The arch hooks to setup up msi irqs. Those functions are
-- * implemented as weak symbols so that they /can/ be overriden by
-- * architecture specific code if needed.
-- */
--int arch_setup_msi_irq(struct pci_dev *dev, struct msi_desc *desc);
--void arch_teardown_msi_irq(unsigned int irq);
--int arch_setup_msi_irqs(struct pci_dev *dev, int nvec, int type);
--void arch_teardown_msi_irqs(struct pci_dev *dev);
--void arch_restore_msi_irqs(struct pci_dev *dev);
- 
- void default_teardown_msi_irqs(struct pci_dev *dev);
--void default_restore_msi_irqs(struct pci_dev *dev);
- 
- struct msi_controller {
- 	struct module *owner;
++	unsigned long ret;
++	unsigned long addr, pgoff;
++	struct mm_struct *mm = current->mm;
++	vm_flags_t vm_flags;
++	struct vm_area_struct *vma;
++
++	/* Only bounds table and bounds directory can be allocated here */
++	if (len != MPX_BD_SIZE_BYTES && len != MPX_BT_SIZE_BYTES)
++		return -EINVAL;
++
++	down_write(&mm->mmap_sem);
++
++	/* Too many mappings? */
++	if (mm->map_count > sysctl_max_map_count) {
++		ret = -ENOMEM;
++		goto out;
++	}
++
++	/* Obtain the address to map to. we verify (or select) it and ensure
++	 * that it represents a valid section of the address space.
++	 */
++	addr = get_unmapped_area(NULL, 0, len, 0, MAP_ANONYMOUS | MAP_PRIVATE);
++	if (addr & ~PAGE_MASK) {
++		ret = addr;
++		goto out;
++	}
++
++	vm_flags = VM_READ | VM_WRITE | VM_MPX |
++			mm->def_flags | VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC;
++
++	/* Set pgoff according to addr for anon_vma */
++	pgoff = addr >> PAGE_SHIFT;
++
++	ret = mmap_region(NULL, addr, len, vm_flags, pgoff);
++	if (IS_ERR_VALUE(ret))
++		goto out;
++
++	vma = find_vma(mm, ret);
++	if (!vma) {
++		ret = -ENOMEM;
++		goto out;
++	}
++	vma->vm_ops = &mpx_vma_ops;
++
++	if (vm_flags & VM_LOCKED) {
++		up_write(&mm->mmap_sem);
++		mm_populate(ret, len);
++		return ret;
++	}
++
++out:
++	up_write(&mm->mmap_sem);
++	return ret;
++}
 -- 
 1.7.1
 
