@@ -1,126 +1,75 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Wed, 15 Oct 2014 02:36:06 +0000
-Subject: [PATCH v3 12/27] x86/MSI: Use MSI chip framework to configure MSI/MSI-X irq
-Message-Id: <1413342435-7876-13-git-send-email-wangyijing@huawei.com>
+From: Qiaowei Ren <qiaowei.ren@intel.com>
+Date: Sun, 12 Oct 2014 04:41:49 +0000
+Subject: [PATCH v9 06/12] mpx: extend siginfo structure to include bound violation information
+Message-Id: <1413088915-13428-7-git-send-email-qiaowei.ren@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1413342435-7876-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1413342435-7876-1-git-send-email-wangyijing@huawei.com>
+References: <1413088915-13428-1-git-send-email-qiaowei.ren@intel.com>
+In-Reply-To: <1413088915-13428-1-git-send-email-qiaowei.ren@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, linux-arch@vger.kernel.org, arnab.basu@freescale.com, Bharat.Bhushan@freescale.com, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Thomas Gleixner <tglx@linutronix.de>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, xen-devel@lists.xenproject.org, Joerg Roedel <joro@8bytes.org>, iommu@lists.linux-foundation.org, linux-mips@linux-mips.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, Sebastian Ott <sebott@linux.vnet.ibm.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Chris Metcalf <cmetcalf@tilera.com>, Ralf Baechle <ralf@linux-mips.org>, Lucas Stach <l.stach@pengutronix.de>, David Vrabel <david.vrabel@citrix.com>, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>, Michael Ellerman <mpe@ellerman.id.au>, Thierry Reding <thierry.reding@gmail.com>, Thomas Petazzoni <thomas.petazzoni@free-electrons.com>, Liviu Dudau <liviu@dudau.co.uk>, Yijing Wang <wangyijing@huawei.com>
+To: "H. Peter Anvin" <hpa@zytor.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Dave Hansen <dave.hansen@intel.com>
+Cc: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, Qiaowei Ren <qiaowei.ren@intel.com>
 
-Use MSI chip framework instead of arch MSI functions to configure
-MSI/MSI-X irq. So we can manage MSI/MSI-X irq in a unified framework.
+This patch adds new fields about bound violation into siginfo
+structure. si_lower and si_upper are respectively lower bound
+and upper bound when bound violation is caused.
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+Signed-off-by: Qiaowei Ren <qiaowei.ren@intel.com>
 ---
- arch/x86/include/asm/pci.h     |   13 +++++++++++++
- arch/x86/kernel/apic/io_apic.c |   19 +++++++++++++++++++
- arch/x86/pci/acpi.c            |    1 +
- arch/x86/pci/common.c          |    3 +++
- 4 files changed, 36 insertions(+), 0 deletions(-)
+ include/uapi/asm-generic/siginfo.h |    9 ++++++++-
+ kernel/signal.c                    |    4 ++++
+ 2 files changed, 12 insertions(+), 1 deletions(-)
 
-diff --git a/arch/x86/include/asm/pci.h b/arch/x86/include/asm/pci.h
-index 0892ea0..f41b58a 100644
---- a/arch/x86/include/asm/pci.h
-+++ b/arch/x86/include/asm/pci.h
-@@ -20,6 +20,9 @@ struct pci_sysdata {
- #ifdef CONFIG_X86_64
- 	void		*iommu;		/* IOMMU private data */
+diff --git a/include/uapi/asm-generic/siginfo.h b/include/uapi/asm-generic/siginfo.h
+index ba5be7f..1e35520 100644
+--- a/include/uapi/asm-generic/siginfo.h
++++ b/include/uapi/asm-generic/siginfo.h
+@@ -91,6 +91,10 @@ typedef struct siginfo {
+ 			int _trapno;	/* TRAP # which caused the signal */
  #endif
-+#ifdef CONFIG_PCI_MSI
-+	struct msi_chip *msi_chip;
-+#endif
- };
+ 			short _addr_lsb; /* LSB of the reported address */
++			struct {
++				void __user *_lower;
++				void __user *_upper;
++			} _addr_bnd;
+ 		} _sigfault;
  
- extern int pci_routeirq;
-@@ -41,6 +44,15 @@ static inline int pci_proc_domain(struct pci_bus *bus)
- }
+ 		/* SIGPOLL */
+@@ -131,6 +135,8 @@ typedef struct siginfo {
+ #define si_trapno	_sifields._sigfault._trapno
  #endif
+ #define si_addr_lsb	_sifields._sigfault._addr_lsb
++#define si_lower	_sifields._sigfault._addr_bnd._lower
++#define si_upper	_sifields._sigfault._addr_bnd._upper
+ #define si_band		_sifields._sigpoll._band
+ #define si_fd		_sifields._sigpoll._fd
+ #ifdef __ARCH_SIGSYS
+@@ -199,7 +205,8 @@ typedef struct siginfo {
+  */
+ #define SEGV_MAPERR	(__SI_FAULT|1)	/* address not mapped to object */
+ #define SEGV_ACCERR	(__SI_FAULT|2)	/* invalid permissions for mapped object */
+-#define NSIGSEGV	2
++#define SEGV_BNDERR	(__SI_FAULT|3)  /* failed address bound checks */
++#define NSIGSEGV	3
  
-+#ifdef CONFIG_PCI_MSI
-+static inline struct msi_chip *pci_msi_chip(struct pci_bus *bus)
-+{
-+	struct pci_sysdata *sd = bus->sysdata;
-+
-+	return sd->msi_chip;
-+}
+ /*
+  * SIGBUS si_codes
+diff --git a/kernel/signal.c b/kernel/signal.c
+index 8f0876f..2c403a4 100644
+--- a/kernel/signal.c
++++ b/kernel/signal.c
+@@ -2748,6 +2748,10 @@ int copy_siginfo_to_user(siginfo_t __user *to, const siginfo_t *from)
+ 		if (from->si_code = BUS_MCEERR_AR || from->si_code = BUS_MCEERR_AO)
+ 			err |= __put_user(from->si_addr_lsb, &to->si_addr_lsb);
+ #endif
++#ifdef SEGV_BNDERR
++		err |= __put_user(from->si_lower, &to->si_lower);
++		err |= __put_user(from->si_upper, &to->si_upper);
 +#endif
-+
- /* Can be used to override the logic in pci_scan_bus for skipping
-    already-configured bus numbers - to be used for buggy BIOSes
-    or architectures with incomplete PCI setup by the loader */
-@@ -101,6 +113,7 @@ void native_teardown_msi_irq(unsigned int irq);
- void native_restore_msi_irqs(struct pci_dev *dev);
- int setup_msi_irq(struct pci_dev *dev, struct msi_desc *msidesc,
- 		  unsigned int irq_base, unsigned int irq_offset);
-+extern struct msi_chip *x86_msi_chip;
- #else
- #define native_setup_msi_irqs		NULL
- #define native_teardown_msi_irq		NULL
-diff --git a/arch/x86/kernel/apic/io_apic.c b/arch/x86/kernel/apic/io_apic.c
-index 29290f5..ec79b38 100644
---- a/arch/x86/kernel/apic/io_apic.c
-+++ b/arch/x86/kernel/apic/io_apic.c
-@@ -3227,11 +3227,30 @@ int native_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
- 	return 0;
- }
- 
-+static int __native_setup_msi_irqs(struct msi_chip *chip,
-+		struct pci_dev *dev, int nvec, int type)
-+{
-+	return native_setup_msi_irqs(dev, nvec, type);
-+}
-+
- void native_teardown_msi_irq(unsigned int irq)
- {
- 	irq_free_hwirq(irq);
- }
- 
-+static void __native_teardown_msi_irq(struct msi_chip *chip,
-+		unsigned int irq)
-+{
-+	native_teardown_msi_irq(irq);
-+}
-+
-+static struct msi_chip native_msi_chip = {
-+	.setup_irqs = __native_setup_msi_irqs,
-+	.teardown_irq = __native_teardown_msi_irq,
-+};
-+
-+struct msi_chip *x86_msi_chip = &native_msi_chip;
-+
- #ifdef CONFIG_DMAR_TABLE
- static int
- dmar_msi_set_affinity(struct irq_data *data, const struct cpumask *mask,
-diff --git a/arch/x86/pci/acpi.c b/arch/x86/pci/acpi.c
-index cfd1b13..6341d6d 100644
---- a/arch/x86/pci/acpi.c
-+++ b/arch/x86/pci/acpi.c
-@@ -508,6 +508,7 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
- 
- 	sd = &info->sd;
- 	sd->domain = domain;
-+	sd->msi_chip = x86_msi_chip;
- 	sd->node = node;
- 	sd->companion = device;
- 
-diff --git a/arch/x86/pci/common.c b/arch/x86/pci/common.c
-index 7b20bcc..0b2319a 100644
---- a/arch/x86/pci/common.c
-+++ b/arch/x86/pci/common.c
-@@ -468,6 +468,9 @@ void pcibios_scan_root(int busnum)
- 		return;
- 	}
- 	sd->node = x86_pci_root_bus_node(busnum);
-+#ifdef CONFIG_PCI_MSI
-+	sd->msi_chip = x86_msi_chip;
-+#endif
- 	x86_pci_root_bus_resources(busnum, &resources);
- 	printk(KERN_DEBUG "PCI: Probing PCI hardware (bus %02x)\n", busnum);
- 	bus = pci_scan_root_bus(NULL, busnum, &pci_root_ops, sd, &resources);
+ 		break;
+ 	case __SI_CHLD:
+ 		err |= __put_user(from->si_pid, &to->si_pid);
 -- 
 1.7.1
 
