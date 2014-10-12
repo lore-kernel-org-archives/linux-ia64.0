@@ -1,82 +1,82 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Date: Tue, 07 Oct 2014 05:28:43 +0000
-Subject: [PATCH 41/44] x86: pmc_atom: Register poweroff handler with kernel poweroff handler
-Message-Id: <1412659726-29957-42-git-send-email-linux@roeck-us.net>
+From: Qiaowei Ren <qiaowei.ren@intel.com>
+Date: Sun, 12 Oct 2014 04:41:44 +0000
+Subject: [PATCH v9 01/12] x86, mpx: introduce VM_MPX to indicate that a VMA is MPX specific
+Message-Id: <1413088915-13428-2-git-send-email-qiaowei.ren@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1412659726-29957-1-git-send-email-linux@roeck-us.net>
-In-Reply-To: <1412659726-29957-1-git-send-email-linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>
+References: <1413088915-13428-1-git-send-email-qiaowei.ren@intel.com>
+In-Reply-To: <1413088915-13428-1-git-send-email-qiaowei.ren@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: adi-buildroot-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-alpha-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-am33-list-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-cris-kernel-VrBV9hrLPhE@public.gmane.org, linux-efi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-hexagon-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-m32r-ja-rQhvJZKUsGBRYuoOT4C5/9i2O/JbrIOy@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org, openipmi-developer-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, user-mode-linux-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-c6x-dev-jPsnJVOj+W6hPH1hqNUYSQ@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-m68k-cunTk1MwBs8S/qaLPR03pWD2FQJk+8+b@public.gmane.org, linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, linux-parisc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-pm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org, Guenter Roeck <linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>, Thomas
+To: "H. Peter Anvin" <hpa@zytor.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Dave Hansen <dave.hansen@intel.com>
+Cc: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, Qiaowei Ren <qiaowei.ren@intel.com>
 
-Register with kernel poweroff handler instead of setting pm_power_off
-directly. Register with a low priority value of 64 to reflect that
-the original code only sets pm_power_off if it was not already set.
+MPX-enabled applications using large swaths of memory can potentially
+have large numbers of bounds tables in process address space to save
+bounds information. These tables can take up huge swaths of memory
+(as much as 80% of the memory on the system) even if we clean them
+up aggressively. In the worst-case scenario, the tables can be 4x the
+size of the data structure being tracked. IOW, a 1-page structure can
+require 4 bounds-table pages.
 
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: Ingo Molnar <mingo@redhat.com>
-Cc: H. Peter Anvin <hpa@zytor.com>
-Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+Being this huge, our expectation is that folks using MPX are going to
+be keen on figuring out how much memory is being dedicated to it. So
+we need a way to track memory use for MPX.
+
+If we want to specifically track MPX VMAs we need to be able to
+distinguish them from normal VMAs, and keep them from getting merged
+with normal VMAs. A new VM_ flag set only on MPX VMAs does both of
+those things. With this flag, MPX bounds-table VMAs can be distinguished
+from other VMAs, and userspace can also walk /proc/$pid/smaps to get
+memory usage for MPX.
+
+Except this flag, we also introduce a specific ->vm_ops for MPX VMAs
+(see the patch "add MPX specific mmap interface"), but currently vmas
+with different ->vm_ops could be not prevented from merging. We
+understand that VM_ flags are scarce and are open to other options.
+
+Signed-off-by: Qiaowei Ren <qiaowei.ren@intel.com>
 ---
- arch/x86/kernel/pmc_atom.c | 20 +++++++++++++++++---
- 1 file changed, 17 insertions(+), 3 deletions(-)
+ fs/proc/task_mmu.c |    1 +
+ include/linux/mm.h |    6 ++++++
+ 2 files changed, 7 insertions(+), 0 deletions(-)
 
-diff --git a/arch/x86/kernel/pmc_atom.c b/arch/x86/kernel/pmc_atom.c
-index 0c424a6..79331a2 100644
---- a/arch/x86/kernel/pmc_atom.c
-+++ b/arch/x86/kernel/pmc_atom.c
-@@ -20,6 +20,8 @@
- #include <linux/pci.h>
- #include <linux/device.h>
- #include <linux/debugfs.h>
-+#include <linux/notifier.h>
-+#include <linux/pm.h>
- #include <linux/seq_file.h>
- #include <linux/io.h>
+diff --git a/fs/proc/task_mmu.c b/fs/proc/task_mmu.c
+index dfc791c..cc31520 100644
+--- a/fs/proc/task_mmu.c
++++ b/fs/proc/task_mmu.c
+@@ -549,6 +549,7 @@ static void show_smap_vma_flags(struct seq_file *m, struct vm_area_struct *vma)
+ 		[ilog2(VM_GROWSDOWN)]	= "gd",
+ 		[ilog2(VM_PFNMAP)]	= "pf",
+ 		[ilog2(VM_DENYWRITE)]	= "dw",
++		[ilog2(VM_MPX)]		= "mp",
+ 		[ilog2(VM_LOCKED)]	= "lo",
+ 		[ilog2(VM_IO)]		= "io",
+ 		[ilog2(VM_SEQ_READ)]	= "sr",
+diff --git a/include/linux/mm.h b/include/linux/mm.h
+index 8981cc8..942be8a 100644
+--- a/include/linux/mm.h
++++ b/include/linux/mm.h
+@@ -127,6 +127,7 @@ extern unsigned int kobjsize(const void *objp);
+ #define VM_HUGETLB	0x00400000	/* Huge TLB Page VM */
+ #define VM_NONLINEAR	0x00800000	/* Is non-linear (remap_file_pages) */
+ #define VM_ARCH_1	0x01000000	/* Architecture-specific flag */
++#define VM_ARCH_2	0x02000000
+ #define VM_DONTDUMP	0x04000000	/* Do not include in the core dump */
  
-@@ -92,7 +94,8 @@ static inline void pmc_reg_write(struct pmc_dev *pmc, int reg_offset, u32 val)
- 	writel(val, pmc->regmap + reg_offset);
- }
+ #ifdef CONFIG_MEM_SOFT_DIRTY
+@@ -154,6 +155,11 @@ extern unsigned int kobjsize(const void *objp);
+ # define VM_MAPPED_COPY	VM_ARCH_1	/* T if mapped copy of data (nommu mmap) */
+ #endif
  
--static void pmc_power_off(void)
-+static int pmc_power_off(struct notifier_block *this, unsigned long unused1,
-+			 void *unused2)
- {
- 	u16	pm1_cnt_port;
- 	u32	pm1_cnt_value;
-@@ -107,8 +110,15 @@ static void pmc_power_off(void)
- 	pm1_cnt_value |= SLEEP_ENABLE;
- 
- 	outl(pm1_cnt_value, pm1_cnt_port);
++#if defined(CONFIG_X86)
++/* MPX specific bounds table or bounds directory */
++# define VM_MPX		VM_ARCH_2
++#endif
 +
-+	return NOTIFY_DONE;
- }
- 
-+static struct notifier_block pmc_poweroff_nb = {
-+	.notifier_call = pmc_power_off,
-+	.priority = 64,
-+};
-+
- static void pmc_hw_reg_setup(struct pmc_dev *pmc)
- {
- 	/*
-@@ -247,8 +257,12 @@ static int pmc_setup_dev(struct pci_dev *pdev)
- 	acpi_base_addr &= ACPI_BASE_ADDR_MASK;
- 
- 	/* Install power off function */
--	if (acpi_base_addr != 0 && pm_power_off = NULL)
--		pm_power_off = pmc_power_off;
-+	if (acpi_base_addr != 0) {
-+		ret = register_poweroff_handler(&pmc_poweroff_nb);
-+		if (ret)
-+			dev_err(&pdev->dev,
-+				"Failed to install poweroff handler\n");
-+	}
- 
- 	pci_read_config_dword(pdev, PMC_BASE_ADDR_OFFSET, &pmc->base_addr);
- 	pmc->base_addr &= PMC_BASE_ADDR_MASK;
+ #ifndef VM_GROWSUP
+ # define VM_GROWSUP	VM_NONE
+ #endif
 -- 
-1.9.1
+1.7.1
 
