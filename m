@@ -1,216 +1,327 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Thu, 23 Oct 2014 07:45:32 +0000
-Subject: Re: [PATCH v3 00/27] Use MSI chip framework to configure MSI/MSI-X in all platforms
-Message-Id: <5448B21C.1020906@huawei.com>
+From: Qiaowei Ren <qiaowei.ren@intel.com>
+Date: Sun, 12 Oct 2014 04:41:48 +0000
+Subject: [PATCH v9 05/12] x86, mpx: on-demand kernel allocation of bounds tables
+Message-Id: <1413088915-13428-6-git-send-email-qiaowei.ren@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1413342435-7876-1-git-send-email-wangyijing@huawei.com> <20141023054326.GF4795@google.com>
-In-Reply-To: <20141023054326.GF4795@google.com>
+References: <1413088915-13428-1-git-send-email-qiaowei.ren@intel.com>
+In-Reply-To: <1413088915-13428-1-git-send-email-qiaowei.ren@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, linux-arch@vger.kernel.org, arnab.basu@freescale.com, Bharat.Bhushan@freescale.com, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Thomas Gleixner <tglx@linutronix.de>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, xen-devel@lists.xenproject.org, Joerg Roedel <joro@8bytes.org>, iommu@lists.linux-foundation.org, linux-mips@linux-mips.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, Sebastian Ott <sebott@linux.vnet.ibm.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Chris Metcalf <cmetcalf@tilera.com>, Ralf Baechle <ralf@linux-mips.org>, Lucas Stach <l.stach@pengutronix.de>, David Vrabel <david.vrabel@citrix.com>, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>, Michael Ellerman <mpe@ellerman.id.au>, Thierry Reding <thierry.reding@gmail.com>, Thomas Petazzoni <thomas.petazzoni@free-electrons.com>, Liviu Dudau <liviu@dudau.co.uk>
+To: "H. Peter Anvin" <hpa@zytor.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Dave Hansen <dave.hansen@intel.com>
+Cc: x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, Qiaowei Ren <qiaowei.ren@intel.com>
 
->> v1->v2:
->> Add a patch to make s390 MSI code build happy between patch "x86/xen/MSI: E.."
->> and "s390/MSI: Use MSI..". Fix several typo problems found by Lucas.
->>
->> RFC->v1: 
->> Updated "[patch 4/21] x86/xen/MSI: Eliminate...", export msi_chip instead
->> of #ifdef to fix MSI bug in xen running in x86. 
->> Rename arch_get_match_msi_chip() to arch_find_msi_chip().
->> Drop use struct device as the msi_chip argument, we will do that
->> later in another patchset.
->>
->> Yijing Wang (27):
-> 
-> This is a lot of stuff, and it's not all related, so putting it all
-> together in one series makes it hard for me to deal with it.
-> 
->>   MSI: Remove the redundant irq_set_chip_data()
+MPX only has 4 hardware registers for storing bounds information.
+If MPX-enabled code needs more than these 4 registers, it needs to
+spill them somewhere. It has two special instructions for this
+which allow the bounds to be moved between the bounds registers
+and some new "bounds tables".
 
-OK, will post it out separately.
+They are similar conceptually to a page fault and will be raised by
+the MPX hardware during both bounds violations or when the tables
+are not present. This patch handles those #BR exceptions for
+not-present tables by carving the space out of the normal processes
+address space (essentially calling the new mmap() interface indroduced
+earlier in this patch set.) and then pointing the bounds-directory
+over to it.
 
-> 
-> This doesn't seem related to eliminating weak functions.
-> 
->>   x86/xen/MSI: Eliminate arch_msix_mask_irq() and arch_msi_mask_irq()
->>   s390/MSI: Use __msi_mask_irq() instead of default_msi_mask_irq()
+The tables *need* to be accessed and controlled by userspace because
+the instructions for moving bounds in and out of them are extremely
+frequent. They potentially happen every time a register pointing to
+memory is dereferenced. Any direct kernel involvement (like a syscall)
+to access the tables would obviously destroy performance.
 
-Will update your comments and post these together.
+== Why not do this in userspace? ==
 
-> 
-> These two seem to go together.
-> 
->>   arm/MSI: Save MSI chip in pci_sys_data
->>   PCI: tegra: Save msi chip in pci_sys_data
->>   PCI: designware: Save msi chip in pci_sys_data
->>   PCI: rcar: Save msi chip in pci_sys_data
->>   PCI: mvebu: Save msi chip in pci_sys_data
->>   arm/PCI: Clean unused pcibios_add_bus() and pcibios_remove_bus()
->>   PCI/MSI: Remove useless bus->msi assignment
-> 
-> These seem to go together (it'd be nice if they were all capitalized the
-> same).
+This patch is obviously doing this allocation in the kernel.
+However, MPX does not strictly *require* anything in the kernel.
+It can theoretically be done completely from userspace. Here are
+a few ways this *could* be done. I don't think any of them are
+practical in the real-world, but here they are.
 
-OK, will update the titles and post together.
+Q: Can virtual space simply be reserved for the bounds tables so
+   that we never have to allocate them?
+A: As noted earlier, these tables are *HUGE*. An X-GB virtual
+   area needs 4*X GB of virtual space, plus 2GB for the bounds
+   directory. If we were to preallocate them for the 128TB of
+   user virtual address space, we would need to reserve 512TB+2GB,
+   which is larger than the entire virtual address space today.
+   This means they can not be reserved ahead of time. Also, a
+   single process's pre-popualated bounds directory consumes 2GB
+   of virtual *AND* physical memory. IOW, it's completely
+   infeasible to prepopulate bounds directories.
 
-> 
-> I don't like the "msi_chip" name because the "chip" part doesn't convey
-> much information, other than telling us that apparently some sort of
-> semiconductor integrated circuit is involved.  I sort of assumed that
-> much :)
+Q: Can we preallocate bounds table space at the same time memory
+   is allocated which might contain pointers that might eventually
+   need bounds tables?
+A: This would work if we could hook the site of each and every
+   memory allocation syscall. This can be done for small,
+   constrained applications. But, it isn't practical at a larger
+   scale since a given app has no way of controlling how all the
+   parts of the app might allocate memory (think libraries). The
+   kernel is really the only place to intercept these calls.
 
-I think so, msi_chip easily make me confuse with x86 irq_chip msi_chip.
+Q: Could a bounds fault be handed to userspace and the tables
+   allocated there in a signal handler instead of in the kernel?
+A: (thanks to tglx) mmap() is not on the list of safe async
+   handler functions and even if mmap() would work it still
+   requires locking or nasty tricks to keep track of the
+   allocation state there.
 
-> 
-> Something like "msi_controller" would be more descriptive since we're
-> talking about an interrupt controller that accepts writes from a device and
-> turns them into CPU interrupts, e.g., a LAPIC.
+Having ruled out all of the userspace-only approaches for managing
+bounds tables that we could think of, we create them on demand in
+the kernel.
 
-Hm, it's a better one, arm also use "msi-controller" to represent the msi related
-object in DTS file.
+Signed-off-by: Qiaowei Ren <qiaowei.ren@intel.com>
+---
+ arch/x86/include/asm/mpx.h |   20 +++++++++
+ arch/x86/kernel/Makefile   |    1 +
+ arch/x86/kernel/mpx.c      |  101 ++++++++++++++++++++++++++++++++++++++++++++
+ arch/x86/kernel/traps.c    |   52 ++++++++++++++++++++++-
+ 4 files changed, 173 insertions(+), 1 deletions(-)
+ create mode 100644 arch/x86/kernel/mpx.c
 
-
-> 
->>   PCI/MSI: Refactor struct msi_chip to make it become more common
->>   x86/MSI: Use MSI chip framework to configure MSI/MSI-X irq
->>   x86/xen/MSI: Use MSI chip framework to configure MSI/MSI-X irq
->>   Irq_remapping/MSI: Use MSI chip framework to configure MSI/MSI-X irq
->>   x86/MSI: Remove unused MSI weak arch functions
->>   Mips/MSI: Save msi chip in pci sysdata
->>   MIPS/Octeon/MSI: Use MSI chip framework to configure MSI/MSI-X irq
->>   MIPS/Xlp: Remove the dead function destroy_irq() to fix build error
->>   MIPS/Xlp/MSI: Use MSI chip framework to configure MSI/MSI-X irq
->>   MIPS/Xlr/MSI: Use MSI chip framework to configure MSI/MSI-X irq
->>   Powerpc/MSI: Use MSI chip framework to configure MSI/MSI-X irq
->>   s390/MSI: Use MSI chip framework to configure MSI/MSI-X irq
->>   arm/iop13xx/MSI: Use MSI chip framework to configure MSI/MSI-X irq
->>   IA64/MSI: Use MSI chip framework to configure MSI/MSI-X irq
->>   Sparc/MSI: Use MSI chip framework to configure MSI/MSI-X irq
->>   tile/MSI: Use MSI chip framework to configure MSI/MSI-X irq
->>   PCI/MSI: Clean up unused MSI arch functions
->>
->>  arch/arm/include/asm/mach/pci.h                 |   10 +-
->>  arch/arm/include/asm/pci.h                      |    9 ++
->>  arch/arm/kernel/bios32.c                        |   19 +---
->>  arch/arm/mach-iop13xx/include/mach/pci.h        |    4 +
->>  arch/arm/mach-iop13xx/iq81340mc.c               |    3 +
->>  arch/arm/mach-iop13xx/iq81340sc.c               |    5 +-
->>  arch/arm/mach-iop13xx/msi.c                     |   11 ++-
->>  arch/ia64/include/asm/pci.h                     |   10 ++
->>  arch/ia64/kernel/msi_ia64.c                     |   14 ++-
->>  arch/ia64/pci/pci.c                             |    1 +
->>  arch/mips/include/asm/netlogic/xlp-hal/pcibus.h |    1 +
->>  arch/mips/include/asm/octeon/pci-octeon.h       |    4 +
->>  arch/mips/include/asm/pci.h                     |   14 +++
->>  arch/mips/pci/msi-octeon.c                      |   31 +++---
->>  arch/mips/pci/msi-xlp.c                         |   15 ++-
->>  arch/mips/pci/pci-octeon.c                      |    3 +
->>  arch/mips/pci/pci-xlp.c                         |    3 +
->>  arch/mips/pci/pci-xlr.c                         |   17 +++-
->>  arch/powerpc/include/asm/pci-bridge.h           |   15 +++
->>  arch/powerpc/kernel/msi.c                       |   12 ++-
->>  arch/powerpc/kernel/pci-common.c                |    3 +
->>  arch/s390/include/asm/pci.h                     |    9 ++
->>  arch/s390/pci/pci.c                             |   16 ++-
->>  arch/sparc/kernel/pci.c                         |   14 ++-
->>  arch/sparc/kernel/pci_impl.h                    |   12 ++
->>  arch/tile/include/asm/pci.h                     |   10 ++
->>  arch/tile/kernel/pci_gx.c                       |   13 ++-
->>  arch/x86/include/asm/pci.h                      |   18 +++-
->>  arch/x86/include/asm/x86_init.h                 |    7 --
->>  arch/x86/kernel/apic/io_apic.c                  |   12 ++-
->>  arch/x86/kernel/x86_init.c                      |   34 ------
->>  arch/x86/pci/acpi.c                             |    1 +
->>  arch/x86/pci/common.c                           |    3 +
->>  arch/x86/pci/xen.c                              |   72 +++++++------
->>  drivers/iommu/irq_remapping.c                   |   13 ++-
->>  drivers/pci/host/pci-mvebu.c                    |   10 +--
->>  drivers/pci/host/pci-tegra.c                    |   13 +--
->>  drivers/pci/host/pcie-designware.c              |   15 +--
->>  drivers/pci/host/pcie-rcar.c                    |   13 +--
->>  drivers/pci/msi.c                               |  133 ++++++++++-------------
->>  drivers/pci/probe.c                             |    1 -
->>  include/linux/msi.h                             |   24 ++---
->>  include/linux/pci.h                             |    1 +
->>  43 files changed, 379 insertions(+), 269 deletions(-)
-> 
-> Huh.  I was hoping this was going to simplify things, and maybe it does
-> somehow, but it's unfortunate that it adds 110 lines of code overall.  Does
-> that seem right to you?  Why does it add code?
-
-I filter out these patches which add code.
-
-[PATCH v3 04/27] arm/MSI: Save MSI chip in pci_sys_data
- 5 files changed, 33 insertions(+), 0 deletions(-)
-Insertions code mainly to introduce arch specific pci_msi_chip() to extract msi_chip from pci_sys_data, and temporary #ifdef
-
-[PATCH v3 11/27] PCI/MSI: Refactor struct msi_chip to make it become more common
- 2 files changed, 19 insertions(+), 0 deletions(-)
-Insertions here is to add msi ops like restore, teardown to msi_chip.
-
-[PATCH v3 12/27] x86/MSI: Use MSI chip framework to configure MSI/MSI-X irq
- 4 files changed, 36 insertions(+), 0 deletions(-)
-Arch specific pci_msi_chip() and declaration of msi_chip in x86, also some temporary code to compile ok.
-
-[PATCH v3 13/27] x86/xen/MSI: Use MSI chip framework to configure MSI/MSI-X irq
- 1 files changed, 39 insertions(+), 19 deletions(-)
-To avoid call default_teardown_msi_irq(), copy the default_teardown_msi_irq() code in this file.
-
-[PATCH v3 16/27] Mips/MSI: Save msi chip in pci sysdata
- 1 files changed, 14 insertions(+), 0 deletions(-)
-Arch specific pci_msi_chip() and some #ifdef code
-
-[PATCH v3 17/27] MIPS/Octeon/MSI: Use MSI chip framework to configure MSI/MSI-X irq
- 3 files changed, 25 insertions(+), 13 deletions(-)
-
-Archs Use msi chip framework to configure MSI/MSI-x
- 3 files changed, 13 insertions(+), 2 deletions(-)
- 1 files changed, 15 insertions(+), 2 deletions(-)
- 3 files changed, 28 insertions(+), 2 deletions(-)
- 2 files changed, 19 insertions(+), 2 deletions(-)
- 4 files changed, 20 insertions(+), 3 deletions(-)
- 3 files changed, 21 insertions(+), 4 deletions(-)
- 2 files changed, 24 insertions(+), 2 deletions(-)
- 2 files changed, 21 insertions(+), 2 deletions(-)
-
-So the most adding code is to introduce arch specific pci_msi_chip(), this one will be removed after we make
-pci_host_bridge generic and save msi_chip in it. There are also lots of #ifdef in arm code for msi_chip.
-
-> 
-> Who do you want to apply this?  I can take it if that makes the most sense,
-
-I hope you can apply this.
-
-> but I'd like acks from the architecture folks for their pieces, and
-> especially one from Thomas for the overall direction and the x86 parts.
-
-OK.
-
-> 
-> If you want me to take this, can you refresh it to be based on v3.18-rc1?
-> I tried to apply it on v3.18-rc1, but [15/27] didn't apply because of
-> conflicts in arch/x86/kernel/apic/io_apic.c.
-
-OK.
-
-> 
-> I'll look at these more tomorrow, I'm getting bleary-eyed tonight.
-
-Thanks for your review and comments very much!
-
-Thanks!
-Yijing.
-
-> 
-> Bjorn
-> 
-> .
-> 
-
-
+diff --git a/arch/x86/include/asm/mpx.h b/arch/x86/include/asm/mpx.h
+index 5725ac4..b7598ac 100644
+--- a/arch/x86/include/asm/mpx.h
++++ b/arch/x86/include/asm/mpx.h
+@@ -18,6 +18,8 @@
+ #define MPX_BT_ENTRY_SHIFT	5
+ #define MPX_IGN_BITS		3
+ 
++#define MPX_BD_ENTRY_TAIL	3
++
+ #else
+ 
+ #define MPX_BD_ENTRY_OFFSET	20
+@@ -26,13 +28,31 @@
+ #define MPX_BT_ENTRY_SHIFT	4
+ #define MPX_IGN_BITS		2
+ 
++#define MPX_BD_ENTRY_TAIL	2
++
+ #endif
+ 
++#define MPX_BNDSTA_TAIL		2
++#define MPX_BNDCFG_TAIL		12
++#define MPX_BNDSTA_ADDR_MASK	(~((1UL<<MPX_BNDSTA_TAIL)-1))
++#define MPX_BNDCFG_ADDR_MASK	(~((1UL<<MPX_BNDCFG_TAIL)-1))
++#define MPX_BT_ADDR_MASK	(~((1UL<<MPX_BD_ENTRY_TAIL)-1))
++
+ #define MPX_BD_SIZE_BYTES (1UL<<(MPX_BD_ENTRY_OFFSET+MPX_BD_ENTRY_SHIFT))
+ #define MPX_BT_SIZE_BYTES (1UL<<(MPX_BT_ENTRY_OFFSET+MPX_BT_ENTRY_SHIFT))
+ 
+ #define MPX_BNDSTA_ERROR_CODE	0x3
++#define MPX_BD_ENTRY_VALID_FLAG	0x1
+ 
+ unsigned long mpx_mmap(unsigned long len);
+ 
++#ifdef CONFIG_X86_INTEL_MPX
++int do_mpx_bt_fault(struct xsave_struct *xsave_buf);
++#else
++static inline int do_mpx_bt_fault(struct xsave_struct *xsave_buf)
++{
++	return -EINVAL;
++}
++#endif /* CONFIG_X86_INTEL_MPX */
++
+ #endif /* _ASM_X86_MPX_H */
+diff --git a/arch/x86/kernel/Makefile b/arch/x86/kernel/Makefile
+index ada2e2d..9ece662 100644
+--- a/arch/x86/kernel/Makefile
++++ b/arch/x86/kernel/Makefile
+@@ -43,6 +43,7 @@ obj-$(CONFIG_PREEMPT)	+= preempt.o
+ 
+ obj-y				+= process.o
+ obj-y				+= i387.o xsave.o
++obj-$(CONFIG_X86_INTEL_MPX)	+= mpx.o
+ obj-y				+= ptrace.o
+ obj-$(CONFIG_X86_32)		+= tls.o
+ obj-$(CONFIG_IA32_EMULATION)	+= tls.o
+diff --git a/arch/x86/kernel/mpx.c b/arch/x86/kernel/mpx.c
+new file mode 100644
+index 0000000..2103b5e
+--- /dev/null
++++ b/arch/x86/kernel/mpx.c
+@@ -0,0 +1,101 @@
++/*
++ * mpx.c - Memory Protection eXtensions
++ *
++ * Copyright (c) 2014, Intel Corporation.
++ * Qiaowei Ren <qiaowei.ren@intel.com>
++ * Dave Hansen <dave.hansen@intel.com>
++ */
++
++#include <linux/kernel.h>
++#include <linux/syscalls.h>
++#include <asm/mpx.h>
++
++/*
++ * With 32-bit mode, MPX_BT_SIZE_BYTES is 4MB, and the size of each
++ * bounds table is 16KB. With 64-bit mode, MPX_BT_SIZE_BYTES is 2GB,
++ * and the size of each bounds table is 4MB.
++ */
++static int allocate_bt(long __user *bd_entry)
++{
++	unsigned long bt_addr;
++	unsigned long expected_old_val = 0;
++	unsigned long actual_old_val = 0;
++	int ret = 0;
++
++	/*
++	 * Carve the virtual space out of userspace for the new
++	 * bounds table:
++	 */
++	bt_addr = mpx_mmap(MPX_BT_SIZE_BYTES);
++	if (IS_ERR((void *)bt_addr))
++		return PTR_ERR((void *)bt_addr);
++	/*
++	 * Set the valid flag (kinda like _PAGE_PRESENT in a pte)
++	 */
++	bt_addr = bt_addr | MPX_BD_ENTRY_VALID_FLAG;
++
++	/*
++	 * Go poke the address of the new bounds table in to the
++	 * bounds directory entry out in userspace memory.  Note:
++	 * we may race with another CPU instantiating the same table.
++	 * In that case the cmpxchg will see an unexpected
++	 * 'actual_old_val'.
++	 */
++	ret = user_atomic_cmpxchg_inatomic(&actual_old_val, bd_entry,
++					   expected_old_val, bt_addr);
++	if (ret)
++		goto out;
++
++	/*
++	 * The user_atomic_cmpxchg_inatomic() will only return nonzero
++	 * for faults, *not* if the cmpxchg itself fails.  This verifies
++	 * that the existing value was still empty like we expected.
++	 *
++	 * Note, we might get in here if there is a value in the existing
++	 * bd_entry but it did not have the VALID_FLAG set.  In that case
++	 * we do _not_ replace it.  We only replace completely empty
++	 * entries.
++	 */
++	if (expected_old_val != actual_old_val)
++		goto out;
++
++	return 0;
++
++out:
++	vm_munmap(bt_addr & MPX_BT_ADDR_MASK, MPX_BT_SIZE_BYTES);
++	return ret;
++}
++
++/*
++ * When a BNDSTX instruction attempts to save bounds to a BD entry
++ * with the lack of the valid bit being set, a #BR is generated.
++ * This is an indication that no BT exists for this entry. In this
++ * case the fault handler will allocate a new BT.
++ *
++ * With 32-bit mode, the size of BD is 4MB, and the size of each
++ * bound table is 16KB. With 64-bit mode, the size of BD is 2GB,
++ * and the size of each bound table is 4MB.
++ */
++int do_mpx_bt_fault(struct xsave_struct *xsave_buf)
++{
++	unsigned long status;
++	unsigned long bd_entry, bd_base;
++
++	bd_base = xsave_buf->bndcsr.bndcfgu & MPX_BNDCFG_ADDR_MASK;
++	status = xsave_buf->bndcsr.bndstatus;
++
++	/*
++	 * The hardware provides the address of the missing or invalid
++	 * entry via BNDSTATUS, so we don't have to go look it up.
++	 */
++	bd_entry = status & MPX_BNDSTA_ADDR_MASK;
++	/*
++	 * Make sure the directory entry is within where we think
++	 * the directory is.
++	 */
++	if ((bd_entry < bd_base) ||
++	    (bd_entry >= bd_base + MPX_BD_SIZE_BYTES))
++		return -EINVAL;
++
++	return allocate_bt((long __user *)bd_entry);
++}
+diff --git a/arch/x86/kernel/traps.c b/arch/x86/kernel/traps.c
+index 0d0e922..611b6ec 100644
+--- a/arch/x86/kernel/traps.c
++++ b/arch/x86/kernel/traps.c
+@@ -60,6 +60,7 @@
+ #include <asm/fixmap.h>
+ #include <asm/mach_traps.h>
+ #include <asm/alternative.h>
++#include <asm/mpx.h>
+ 
+ #ifdef CONFIG_X86_64
+ #include <asm/x86_init.h>
+@@ -228,7 +229,6 @@ dotraplinkage void do_##name(struct pt_regs *regs, long error_code)	\
+ 
+ DO_ERROR(X86_TRAP_DE,     SIGFPE,  "divide error",		divide_error)
+ DO_ERROR(X86_TRAP_OF,     SIGSEGV, "overflow",			overflow)
+-DO_ERROR(X86_TRAP_BR,     SIGSEGV, "bounds",			bounds)
+ DO_ERROR(X86_TRAP_UD,     SIGILL,  "invalid opcode",		invalid_op)
+ DO_ERROR(X86_TRAP_OLD_MF, SIGFPE,  "coprocessor segment overrun",coprocessor_segment_overrun)
+ DO_ERROR(X86_TRAP_TS,     SIGSEGV, "invalid TSS",		invalid_TSS)
+@@ -278,6 +278,56 @@ dotraplinkage void do_double_fault(struct pt_regs *regs, long error_code)
+ }
+ #endif
+ 
++dotraplinkage void do_bounds(struct pt_regs *regs, long error_code)
++{
++	enum ctx_state prev_state;
++	unsigned long status;
++	struct xsave_struct *xsave_buf;
++	struct task_struct *tsk = current;
++
++	prev_state = exception_enter();
++	if (notify_die(DIE_TRAP, "bounds", regs, error_code,
++			X86_TRAP_BR, SIGSEGV) = NOTIFY_STOP)
++		goto exit;
++	conditional_sti(regs);
++
++	if (!user_mode(regs))
++		die("bounds", regs, error_code);
++
++	if (!cpu_feature_enabled(X86_FEATURE_MPX)) {
++		/* The exception is not from Intel MPX */
++		do_trap(X86_TRAP_BR, SIGSEGV, "bounds", regs, error_code, NULL);
++		goto exit;
++	}
++
++	fpu_xsave(&tsk->thread.fpu);
++	xsave_buf = &(tsk->thread.fpu.state->xsave);
++	status = xsave_buf->bndcsr.bndstatus;
++
++	/*
++	 * The error code field of the BNDSTATUS register communicates status
++	 * information of a bound range exception #BR or operation involving
++	 * bound directory.
++	 */
++	switch (status & MPX_BNDSTA_ERROR_CODE) {
++	case 2: /* Bound directory has invalid entry. */
++		if (do_mpx_bt_fault(xsave_buf))
++			force_sig(SIGSEGV, tsk);
++		break;
++
++	case 1: /* Bound violation. */
++	case 0: /* No exception caused by Intel MPX operations. */
++		do_trap(X86_TRAP_BR, SIGSEGV, "bounds", regs, error_code, NULL);
++		break;
++
++	default:
++		die("bounds", regs, error_code);
++	}
++
++exit:
++	exception_exit(prev_state);
++}
++
+ dotraplinkage void
+ do_general_protection(struct pt_regs *regs, long error_code)
+ {
 -- 
-Thanks!
-Yijing
+1.7.1
 
