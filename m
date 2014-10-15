@@ -1,34 +1,39 @@
-From: Ren Qiaowei <qiaowei.ren@intel.com>
-Date: Tue, 28 Oct 2014 05:57:16 +0000
-Subject: Re: [PATCH v9 10/12] x86, mpx: add prctl commands PR_MPX_ENABLE_MANAGEMENT, PR_MPX_DISABLE_MANAGEMEN
-Message-Id: <544F303C.10903@intel.com>
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Wed, 15 Oct 2014 02:33:49 +0000
+Subject: [PATCH v3 10/27] PCI/MSI: Remove useless bus->msi assignment
+Message-Id: <1413342435-7876-11-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1413088915-13428-1-git-send-email-qiaowei.ren@intel.com> <1413088915-13428-11-git-send-email-qiaowei.ren@intel.com> <alpine.DEB.2.11.1410241436560.5308@nanos> <9E0BE1322F2F2246BD820DA9FC397ADE0180ED65@shsmsx102.ccr.corp.intel.com> <alpine.DEB.2.11.1410272137140.5308@nanos>
-In-Reply-To: <alpine.DEB.2.11.1410272137140.5308@nanos>
+References: <1413342435-7876-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1413342435-7876-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thomas Gleixner <tglx@linutronix.de>
-Cc: "H. Peter Anvin" <hpa@zytor.com>, Ingo Molnar <mingo@redhat.com>, "Hansen, Dave" <dave.hansen@intel.com>, "x86@kernel.org" <x86@kernel.org>, "linux-mm@kvack.org" <linux-mm@kvack.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-mips@linux-mips.org" <linux-mips@linux-mips.org>
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, linux-arch@vger.kernel.org, arnab.basu@freescale.com, Bharat.Bhushan@freescale.com, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Thomas Gleixner <tglx@linutronix.de>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, xen-devel@lists.xenproject.org, Joerg Roedel <joro@8bytes.org>, iommu@lists.linux-foundation.org, linux-mips@linux-mips.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, Sebastian Ott <sebott@linux.vnet.ibm.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Chris Metcalf <cmetcalf@tilera.com>, Ralf Baechle <ralf@linux-mips.org>, Lucas Stach <l.stach@pengutronix.de>, David Vrabel <david.vrabel@citrix.com>, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>, Michael Ellerman <mpe@ellerman.id.au>, Thierry Reding <thierry.reding@gmail.com>, Thomas Petazzoni <thomas.petazzoni@free-electrons.com>, Liviu Dudau <liviu@dudau.co.uk>, Yijing Wang <wangyijing@huawei.com>
 
-On 10/28/2014 04:38 AM, Thomas Gleixner wrote:
-> On Mon, 27 Oct 2014, Ren, Qiaowei wrote:
->> On 2014-10-24, Thomas Gleixner wrote:
->>> On Sun, 12 Oct 2014, Qiaowei Ren wrote:
->>>> +int mpx_enable_management(struct task_struct *tsk) {
->>>> +	struct mm_struct *mm = tsk->mm;
->>>> +	void __user *bd_base = MPX_INVALID_BOUNDS_DIR;
->>>
->>> What's the point of initializing bd_base here. I had to look twice to
->>> figure out that it gets overwritten by task_get_bounds_dir()
->>>
->>
->> I just want to put task_get_bounds_dir() outside mm->mmap_sem holding.
->
-> What you want is not interesting at all. What's interesting is what
-> you do and what you send for review.
->
+Now msi chip is saved in pci_sys_data in arm,
+we could clean the bus->msi assignment in
+pci core.
 
-I see. Thanks.
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+CC: Thierry Reding <thierry.reding@gmail.com>
+CC: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+---
+ drivers/pci/probe.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-- Qiaowei
+diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
+index efa48dc..98bf4c3 100644
+--- a/drivers/pci/probe.c
++++ b/drivers/pci/probe.c
+@@ -682,7 +682,6 @@ static struct pci_bus *pci_alloc_child_bus(struct pci_bus *parent,
+ 
+ 	child->parent = parent;
+ 	child->ops = parent->ops;
+-	child->msi = parent->msi;
+ 	child->sysdata = parent->sysdata;
+ 	child->bus_flags = parent->bus_flags;
+ 
+-- 
+1.7.1
+
