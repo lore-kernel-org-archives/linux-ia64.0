@@ -1,54 +1,56 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Date: Tue, 07 Oct 2014 15:57:13 +0000
-Subject: Re: [PATCH 07/44] qnap-poweroff: Drop reference to pm_power_off from devicetree bindings
-Message-Id: <20141007155713.GB28835@roeck-us.net>
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Wed, 15 Oct 2014 02:33:14 +0000
+Subject: [PATCH v3 16/27] Mips/MSI: Save msi chip in pci sysdata
+Message-Id: <1413342435-7876-17-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1412659726-29957-1-git-send-email-linux@roeck-us.net>
- <1412659726-29957-8-git-send-email-linux@roeck-us.net>
- <20141007110219.GE24725@leverpostej>
-In-Reply-To: <20141007110219.GE24725@leverpostej>
+References: <1413342435-7876-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1413342435-7876-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Mark Rutland <mark.rutland@arm.com>
-Cc: "linux-m32r-ja@ml.linux-m32r.org" <linux-m32r-ja@ml.linux-m32r.org>, "linux-mips@linux-mips.org" <linux-mips@linux-mips.org>, "linux-m68k@vger.kernel.org" <linux-m68k@vger.kernel.org>, "linux-efi@vger.kernel.org" <linux-efi@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-xtensa@linux-xtensa.org" <linux-xtensa@linux-xtensa.org>, "devel@driverdev.osuosl.org" <devel@driverdev.osuosl.org>, "linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>, "lguest@lists.ozlabs.org" <lguest@lists.ozlabs.org>, "linux-c6x-dev@linux-c6x.org" <linux-c6x-dev@linux-c6x.org>, "linux-hexagon@vger.kernel.org" <linux-hexagon@vger.kernel.org>, "linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>, "linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>, Pawel Moll <Pawel.Moll@arm.com>, "xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>, dev
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, linux-arch@vger.kernel.org, arnab.basu@freescale.com, Bharat.Bhushan@freescale.com, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Thomas Gleixner <tglx@linutronix.de>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, xen-devel@lists.xenproject.org, Joerg Roedel <joro@8bytes.org>, iommu@lists.linux-foundation.org, linux-mips@linux-mips.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, Sebastian Ott <sebott@linux.vnet.ibm.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Chris Metcalf <cmetcalf@tilera.com>, Ralf Baechle <ralf@linux-mips.org>, Lucas Stach <l.stach@pengutronix.de>, David Vrabel <david.vrabel@citrix.com>, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>, Michael Ellerman <mpe@ellerman.id.au>, Thierry Reding <thierry.reding@gmail.com>, Thomas Petazzoni <thomas.petazzoni@free-electrons.com>, Liviu Dudau <liviu@dudau.co.uk>, Yijing Wang <wangyijing@huawei.com>
 
-On Tue, Oct 07, 2014 at 12:02:19PM +0100, Mark Rutland wrote:
-> On Tue, Oct 07, 2014 at 06:28:09AM +0100, Guenter Roeck wrote:
-> > Replace reference to pm_power_off (which is an implementation detail)
-> > and replace it with a more generic description of the driver's functionality.
-> > 
-> > Cc: Rob Herring <robh+dt@kernel.org>
-> > Cc: Pawel Moll <pawel.moll@arm.com>
-> > Cc: Mark Rutland <mark.rutland@arm.com>
-> > Signed-off-by: Guenter Roeck <linux@roeck-us.net>
-> > ---
-> >  Documentation/devicetree/bindings/power_supply/qnap-poweroff.txt | 4 ++--
-> >  1 file changed, 2 insertions(+), 2 deletions(-)
-> > 
-> > diff --git a/Documentation/devicetree/bindings/power_supply/qnap-poweroff.txt b/Documentation/devicetree/bindings/power_supply/qnap-poweroff.txt
-> > index af25e77..1e2260a 100644
-> > --- a/Documentation/devicetree/bindings/power_supply/qnap-poweroff.txt
-> > +++ b/Documentation/devicetree/bindings/power_supply/qnap-poweroff.txt
-> > @@ -3,8 +3,8 @@
-> >  QNAP NAS devices have a microcontroller controlling the main power
-> >  supply. This microcontroller is connected to UART1 of the Kirkwood and
-> >  Orion5x SoCs. Sending the character 'A', at 19200 baud, tells the
-> > -microcontroller to turn the power off. This driver adds a handler to
-> > -pm_power_off which is called to turn the power off.
-> > +microcontroller to turn the power off. This driver installs a handler
-> > +to power off the system.
-> 
-> I'd remove the last sentence -- the driver is also independent of the
-> HW, and the description of how the power off works at the HW level is
-> sufficient.
-> 
-Done.
+Save msi chip in pci sysdata, add arch pci_find_msi_chip()
+to extract out msi chip.
 
-> With that:
-> 
-> Acked-by: Mark Rutland <mark.rutland@arm.com>
-> 
-Thanks!
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+---
+ arch/mips/include/asm/pci.h |   14 ++++++++++++++
+ 1 files changed, 14 insertions(+), 0 deletions(-)
 
-Guenter
+diff --git a/arch/mips/include/asm/pci.h b/arch/mips/include/asm/pci.h
+index 974b0e3..287661b 100644
+--- a/arch/mips/include/asm/pci.h
++++ b/arch/mips/include/asm/pci.h
+@@ -43,6 +43,9 @@ struct pci_controller {
+ 
+ 	int iommu;
+ 
++#ifdef CONFIG_PCI_MSI
++	struct msi_chip *msi_chip;
++#endif
+ 	/* Optional access methods for reading/writing the bus number
+ 	   of the PCI controller */
+ 	int (*get_busno)(void);
+@@ -54,6 +57,17 @@ struct pci_controller {
+  */
+ extern void register_pci_controller(struct pci_controller *hose);
+ 
++#ifdef CONFIG_PCI_MSI
++
++static inline struct msi_chip *pci_msi_chip(struct pci_bus *bus)
++{
++	struct pci_controller *control = (struct pci_controller *)bus->sysdata;
++
++	return control->msi_chip;
++}
++
++#endif
++
+ /*
+  * board supplied pci irq fixup routine
+  */
+-- 
+1.7.1
+
