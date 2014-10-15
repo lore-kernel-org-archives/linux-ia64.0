@@ -1,136 +1,122 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Date: Tue, 07 Oct 2014 16:00:56 +0000
-Subject: Re: [PATCH 21/44] power/reset: gpio-poweroff: Register with kernel poweroff handler
-Message-Id: <20141007160056.GC19005@lunn.ch>
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Wed, 15 Oct 2014 02:35:10 +0000
+Subject: [PATCH v3 00/27] Use MSI chip framework to configure MSI/MSI-X in all platforms
+Message-Id: <1413342435-7876-1-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1412659726-29957-1-git-send-email-linux@roeck-us.net>
- <1412659726-29957-22-git-send-email-linux@roeck-us.net>
-In-Reply-To: <1412659726-29957-22-git-send-email-linux@roeck-us.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Guenter Roeck <linux@roeck-us.net>
-Cc: linux-kernel@vger.kernel.org, linux-m32r-ja@ml.linux-m32r.org, linux-mips@linux-mips.org, linux-efi@vger.kernel.org, linux-ia64@vger.kernel.org, linux-xtensa@linux-xtensa.org, devel@driverdev.osuosl.org, linux-s390@vger.kernel.org, lguest@lists.ozlabs.org, linux-c6x-dev@linux-c6x.org, Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>, linux-hexagon@vger.kernel.org, linux-sh@vger.kernel.org, linux-acpi@vger.kernel.org, xen-devel@lists.xenproject.org, devicetree@vger.kernel.org, user-mode-linux-devel@lists.sourceforge.net, linux-pm@vger.kernel.org, adi-buildroot-devel@lists.sourceforge.net, linux-m68k@lists.linux-m68k.org, linux-am33-list@redhat.com, linux-tegra@vger.kernel.org, openipmi-developer@lists.sourceforge.net, linux-metag@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-parisc@vger.kernel.org, linux-cris-kernel@axis.com, David Woodhouse <dwmw2@infrad>
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, linux-arch@vger.kernel.org, arnab.basu@freescale.com, Bharat.Bhushan@freescale.com, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Thomas Gleixner <tglx@linutronix.de>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, xen-devel@lists.xenproject.org, Joerg Roedel <joro@8bytes.org>, iommu@lists.linux-foundation.org, linux-mips@linux-mips.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, Sebastian Ott <sebott@linux.vnet.ibm.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Chris Metcalf <cmetcalf@tilera.com>, Ralf Baechle <ralf@linux-mips.org>, Lucas Stach <l.stach@pengutronix.de>, David Vrabel <david.vrabel@citrix.com>, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>, Michael Ellerman <mpe@ellerman.id.au>, Thierry Reding <thierry.reding@gmail.com>, Thomas Petazzoni <thomas.petazzoni@free-electrons.com>, Liviu Dudau <liviu@dudau.co.uk>, Yijing Wang <wangyijing@huawei.com>
 
-On Mon, Oct 06, 2014 at 10:28:23PM -0700, Guenter Roeck wrote:
-> Register with kernel poweroff handler instead of setting pm_power_off
-> directly. Register with a low priority value of 64 to reflect that
-> the original code only sets pm_power_off if it was not already set.
-> 
-> Other changes:
-> 
-> Drop note that there can not be an additional instance of this driver.
-> The original reason no longer applies, it should be obvious that there
-> can only be one instance of the driver if static variables are used to
-> reflect its state, and support for multiple instances can now be added
-> easily if needed by avoiding static variables.
-> 
-> Do not create an error message if another poweroff handler has already been
-> registered. This is perfectly normal and acceptable.
-> 
-> Do not display a warning traceback if the poweroff handler fails to
-> power off the system. There may be other poweroff handlers.
+Now there are a lot of weak arch functions in MSI code.
+Thierry Reding Introduced MSI chip framework to configure MSI/MSI-X in arm,
+that's a better solution than overriding lots of existing weak arch functionsin. 
+This series use MSI chip framework to refactor MSI code across all platforms 
+to eliminate weak arch functions. Then all MSI irqs will be managed in a 
+unified framework. Because this series changed a lot of ARCH MSI code, 
+so tests in the related platforms are warmly welcomed!
 
-I would prefer to keep the warning traceback. We found on some
-hardware the GPIO transitions were too fast and it failed to power
-off. Seeing the traceback gives an idea where to go look for the
-problem.
+And you may access it at:
+https://github.com/YijingWang/msi-chip-v3.git master
 
-Other than that,
+v2->v3:
+1. For patch "x86/xen/MSI: Eliminate...", introduce a new global flag "pci_msi_ignore_mask"
+to control the msi mask instead of replacing the irqchip->mask with nop function,
+the latter method has problem pointed out by Konrad Rzeszutek Wilk.
+2. Save msi chip in arch pci sysdata instead of associating msi chip to pci bus.
+Because pci devices under same host share the same msi chip, so I think associate
+msi chip to pci host/pci sysdata is better than to bother every pci bus/devices.
+A better solution suggested by Liviu is to rip out pci_host_bridge from pci_create_root_bus(), 
+then we can save some pci host common attributes like domain_nr, msi_chip, resources,
+into the generic pci_host_bridge. Because this changes to pci host bridge is also 
+a large series, so I think we should go step by step, I will try to post it in another
+series later.
+4. Clean up arm pcibios_add_bus() and pcibios_remove_bus() which were used to associate
+msi chip to pci bus.
 
-Acked-by: Andrew Lunn <andrew@lunn.ch>
+v1->v2:
+Add a patch to make s390 MSI code build happy between patch "x86/xen/MSI: E.."
+and "s390/MSI: Use MSI..". Fix several typo problems found by Lucas.
 
-> 
-> Cc: Sebastian Reichel <sre@kernel.org>
-> Cc: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-> Cc: David Woodhouse <dwmw2@infradead.org>
-> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
-> ---
->  drivers/power/reset/gpio-poweroff.c | 36 ++++++++++++++++++------------------
->  1 file changed, 18 insertions(+), 18 deletions(-)
-> 
-> diff --git a/drivers/power/reset/gpio-poweroff.c b/drivers/power/reset/gpio-poweroff.c
-> index ce849bc..e95a7a1 100644
-> --- a/drivers/power/reset/gpio-poweroff.c
-> +++ b/drivers/power/reset/gpio-poweroff.c
-> @@ -14,18 +14,18 @@
->  #include <linux/kernel.h>
->  #include <linux/init.h>
->  #include <linux/delay.h>
-> +#include <linux/notifier.h>
-> +#include <linux/pm.h>
->  #include <linux/platform_device.h>
->  #include <linux/gpio/consumer.h>
->  #include <linux/of_platform.h>
->  #include <linux/module.h>
->  
-> -/*
-> - * Hold configuration here, cannot be more than one instance of the driver
-> - * since pm_power_off itself is global.
-> - */
->  static struct gpio_desc *reset_gpio;
->  
-> -static void gpio_poweroff_do_poweroff(void)
-> +static int gpio_poweroff_do_poweroff(struct notifier_block *this,
-> +				     unsigned long unused1, void *unused2)
-> +
->  {
->  	BUG_ON(!reset_gpio);
->  
-> @@ -42,20 +42,18 @@ static void gpio_poweroff_do_poweroff(void)
->  	/* give it some time */
->  	mdelay(3000);
->  
-> -	WARN_ON(1);
-> +	return NOTIFY_DONE;
->  }
->  
-> +static struct notifier_block gpio_poweroff_nb = {
-> +	.notifier_call = gpio_poweroff_do_poweroff,
-> +	.priority = 64,
-> +};
-> +
->  static int gpio_poweroff_probe(struct platform_device *pdev)
->  {
->  	bool input = false;
-> -
-> -	/* If a pm_power_off function has already been added, leave it alone */
-> -	if (pm_power_off != NULL) {
-> -		dev_err(&pdev->dev,
-> -			"%s: pm_power_off function already registered",
-> -		       __func__);
-> -		return -EBUSY;
-> -	}
-> +	int err;
->  
->  	reset_gpio = devm_gpiod_get(&pdev->dev, NULL);
->  	if (IS_ERR(reset_gpio))
-> @@ -77,14 +75,16 @@ static int gpio_poweroff_probe(struct platform_device *pdev)
->  		}
->  	}
->  
-> -	pm_power_off = &gpio_poweroff_do_poweroff;
-> -	return 0;
-> +	err = register_poweroff_handler(&gpio_poweroff_nb);
-> +	if (err)
-> +		dev_err(&pdev->dev, "Failed to register poweroff handler\n");
-> +
-> +	return err;
->  }
->  
->  static int gpio_poweroff_remove(struct platform_device *pdev)
->  {
-> -	if (pm_power_off = &gpio_poweroff_do_poweroff)
-> -		pm_power_off = NULL;
-> +	unregister_poweroff_handler(&gpio_poweroff_nb);
->  
->  	return 0;
->  }
-> -- 
-> 1.9.1
-> 
-> 
-> _______________________________________________
-> linux-arm-kernel mailing list
-> linux-arm-kernel@lists.infradead.org
-> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+RFC->v1: 
+Updated "[patch 4/21] x86/xen/MSI: Eliminate...", export msi_chip instead
+of #ifdef to fix MSI bug in xen running in x86. 
+Rename arch_get_match_msi_chip() to arch_find_msi_chip().
+Drop use struct device as the msi_chip argument, we will do that
+later in another patchset.
+
+Yijing Wang (27):
+  MSI: Remove the redundant irq_set_chip_data()
+  x86/xen/MSI: Eliminate arch_msix_mask_irq() and arch_msi_mask_irq()
+  s390/MSI: Use __msi_mask_irq() instead of default_msi_mask_irq()
+  arm/MSI: Save MSI chip in pci_sys_data
+  PCI: tegra: Save msi chip in pci_sys_data
+  PCI: designware: Save msi chip in pci_sys_data
+  PCI: rcar: Save msi chip in pci_sys_data
+  PCI: mvebu: Save msi chip in pci_sys_data
+  arm/PCI: Clean unused pcibios_add_bus() and pcibios_remove_bus()
+  PCI/MSI: Remove useless bus->msi assignment
+  PCI/MSI: Refactor struct msi_chip to make it become more common
+  x86/MSI: Use MSI chip framework to configure MSI/MSI-X irq
+  x86/xen/MSI: Use MSI chip framework to configure MSI/MSI-X irq
+  Irq_remapping/MSI: Use MSI chip framework to configure MSI/MSI-X irq
+  x86/MSI: Remove unused MSI weak arch functions
+  Mips/MSI: Save msi chip in pci sysdata
+  MIPS/Octeon/MSI: Use MSI chip framework to configure MSI/MSI-X irq
+  MIPS/Xlp: Remove the dead function destroy_irq() to fix build error
+  MIPS/Xlp/MSI: Use MSI chip framework to configure MSI/MSI-X irq
+  MIPS/Xlr/MSI: Use MSI chip framework to configure MSI/MSI-X irq
+  Powerpc/MSI: Use MSI chip framework to configure MSI/MSI-X irq
+  s390/MSI: Use MSI chip framework to configure MSI/MSI-X irq
+  arm/iop13xx/MSI: Use MSI chip framework to configure MSI/MSI-X irq
+  IA64/MSI: Use MSI chip framework to configure MSI/MSI-X irq
+  Sparc/MSI: Use MSI chip framework to configure MSI/MSI-X irq
+  tile/MSI: Use MSI chip framework to configure MSI/MSI-X irq
+  PCI/MSI: Clean up unused MSI arch functions
+
+ arch/arm/include/asm/mach/pci.h                 |   10 +-
+ arch/arm/include/asm/pci.h                      |    9 ++
+ arch/arm/kernel/bios32.c                        |   19 +---
+ arch/arm/mach-iop13xx/include/mach/pci.h        |    4 +
+ arch/arm/mach-iop13xx/iq81340mc.c               |    3 +
+ arch/arm/mach-iop13xx/iq81340sc.c               |    5 +-
+ arch/arm/mach-iop13xx/msi.c                     |   11 ++-
+ arch/ia64/include/asm/pci.h                     |   10 ++
+ arch/ia64/kernel/msi_ia64.c                     |   14 ++-
+ arch/ia64/pci/pci.c                             |    1 +
+ arch/mips/include/asm/netlogic/xlp-hal/pcibus.h |    1 +
+ arch/mips/include/asm/octeon/pci-octeon.h       |    4 +
+ arch/mips/include/asm/pci.h                     |   14 +++
+ arch/mips/pci/msi-octeon.c                      |   31 +++---
+ arch/mips/pci/msi-xlp.c                         |   15 ++-
+ arch/mips/pci/pci-octeon.c                      |    3 +
+ arch/mips/pci/pci-xlp.c                         |    3 +
+ arch/mips/pci/pci-xlr.c                         |   17 +++-
+ arch/powerpc/include/asm/pci-bridge.h           |   15 +++
+ arch/powerpc/kernel/msi.c                       |   12 ++-
+ arch/powerpc/kernel/pci-common.c                |    3 +
+ arch/s390/include/asm/pci.h                     |    9 ++
+ arch/s390/pci/pci.c                             |   16 ++-
+ arch/sparc/kernel/pci.c                         |   14 ++-
+ arch/sparc/kernel/pci_impl.h                    |   12 ++
+ arch/tile/include/asm/pci.h                     |   10 ++
+ arch/tile/kernel/pci_gx.c                       |   13 ++-
+ arch/x86/include/asm/pci.h                      |   18 +++-
+ arch/x86/include/asm/x86_init.h                 |    7 --
+ arch/x86/kernel/apic/io_apic.c                  |   12 ++-
+ arch/x86/kernel/x86_init.c                      |   34 ------
+ arch/x86/pci/acpi.c                             |    1 +
+ arch/x86/pci/common.c                           |    3 +
+ arch/x86/pci/xen.c                              |   72 +++++++------
+ drivers/iommu/irq_remapping.c                   |   13 ++-
+ drivers/pci/host/pci-mvebu.c                    |   10 +--
+ drivers/pci/host/pci-tegra.c                    |   13 +--
+ drivers/pci/host/pcie-designware.c              |   15 +--
+ drivers/pci/host/pcie-rcar.c                    |   13 +--
+ drivers/pci/msi.c                               |  133 ++++++++++-------------
+ drivers/pci/probe.c                             |    1 -
+ include/linux/msi.h                             |   24 ++---
+ include/linux/pci.h                             |    1 +
+ 43 files changed, 379 insertions(+), 269 deletions(-)
+
