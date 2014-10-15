@@ -1,88 +1,49 @@
 From: Yijing Wang <wangyijing@huawei.com>
-Date: Mon, 27 Oct 2014 12:45:46 +0000
-Subject: [PATCH 15/16] tile/MSI: Use MSI controller framework to configure MSI/MSI-X irq
-Message-Id: <1414416142-31239-16-git-send-email-wangyijing@huawei.com>
+Date: Wed, 15 Oct 2014 02:32:00 +0000
+Subject: [PATCH v3 01/27] MSI: Remove the redundant irq_set_chip_data()
+Message-Id: <1413342435-7876-2-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1414416142-31239-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1414416142-31239-1-git-send-email-wangyijing@huawei.com>
+References: <1413342435-7876-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1413342435-7876-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, xen-devel@lists.xenproject.org, Joerg Roedel <joro@8bytes.org>, iommu@lists.linux-foundation.org, linux-mips@linux-mips.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, Sebastian Ott <sebott@linux.vnet.ibm.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Chris Metcalf <cmetcalf@tilera.com>, Ralf Baechle <ralf@linux-mips.org>, Lucas Stach <l.stach@pengutronix.de>, David Vrabel <david.vrabel@citrix.com>, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>, Michael Ellerman <mpe@ellerman.id.au>, Thierry Reding <thierry.reding@gmail.com>, Thomas Petazzoni <thomas.petazzoni@free-electrons.com>, Yijing Wang <wangyijing@huawei.com>
+Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, linux-arch@vger.kernel.org, arnab.basu@freescale.com, Bharat.Bhushan@freescale.com, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Thomas Gleixner <tglx@linutronix.de>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, xen-devel@lists.xenproject.org, Joerg Roedel <joro@8bytes.org>, iommu@lists.linux-foundation.org, linux-mips@linux-mips.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, Sebastian Ott <sebott@linux.vnet.ibm.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Chris Metcalf <cmetcalf@tilera.com>, Ralf Baechle <ralf@linux-mips.org>, Lucas Stach <l.stach@pengutronix.de>, David Vrabel <david.vrabel@citrix.com>, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>, Michael Ellerman <mpe@ellerman.id.au>, Thierry Reding <thierry.reding@gmail.com>, Thomas Petazzoni <thomas.petazzoni@free-electrons.com>, Liviu Dudau <liviu@dudau.co.uk>, Yijing Wang <wangyijing@huawei.com>
 
-Use MSI controller framework instead of arch MSI functions to configure
-MSI/MSI-X irq. So we can manage MSI/MSI-X irq in a unified framework.
+Currently, pcie-designware, pcie-rcar and pci-tegra drivers
+use irq chip_data to save the msi_chip pointer. They
+already call irq_set_chip_data() in their own MSI irq map
+functions. And chip_data is an opaque pointer, how to use
+it is arch dependent. It should not be placed in MSI core.
 
 Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+Reviewed-by: Thierry Reding <treding@nvidia.com>
 ---
- arch/tile/include/asm/pci.h |    2 ++
- arch/tile/kernel/pci_gx.c   |   18 ++++++++++++++++--
- 2 files changed, 18 insertions(+), 2 deletions(-)
+ drivers/pci/msi.c |    5 ++---
+ 1 files changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/arch/tile/include/asm/pci.h b/arch/tile/include/asm/pci.h
-index dfedd7a..3ebd66b 100644
---- a/arch/tile/include/asm/pci.h
-+++ b/arch/tile/include/asm/pci.h
-@@ -152,6 +152,7 @@ struct pci_controller {
- 	int pio_io_index;	/* PIO region index for I/O space access */
- #endif
+diff --git a/drivers/pci/msi.c b/drivers/pci/msi.c
+index 2f7c92c..ecb92a5 100644
+--- a/drivers/pci/msi.c
++++ b/drivers/pci/msi.c
+@@ -41,14 +41,13 @@ int __weak arch_setup_msi_irq(struct pci_dev *dev, struct msi_desc *desc)
+ 	if (err < 0)
+ 		return err;
  
-+	struct msi_controller *msi_ctrl;
- 	/*
- 	 * Mem-Map regions for all the memory controllers so that Linux can
- 	 * map all of its physical memory space to the PCI bus.
-@@ -179,6 +180,7 @@ struct pci_controller {
- 	int irq_intx_table[4];
- };
- 
-+extern struct msi_controller tilegx_msi_ctrl;
- extern struct pci_controller pci_controllers[TILEGX_NUM_TRIO * TILEGX_TRIO_PCIES];
- extern gxio_trio_context_t trio_contexts[TILEGX_NUM_TRIO];
- extern int num_trio_shims;
-diff --git a/arch/tile/kernel/pci_gx.c b/arch/tile/kernel/pci_gx.c
-index e39f9c5..6bf5a24 100644
---- a/arch/tile/kernel/pci_gx.c
-+++ b/arch/tile/kernel/pci_gx.c
-@@ -887,6 +887,7 @@ int __init pcibios_init(void)
- 					controller->mem_offset);
- 		pci_add_resource(&resources, &controller->io_space);
- 		controller->first_busno = next_busno;
-+		controller->msi_ctrl = &tilegx_msi_ctrl;
- 		bus = pci_scan_root_bus(NULL, next_busno, controller->ops,
- 					controller, &resources);
- 		controller->root_bus = bus;
-@@ -1485,7 +1486,15 @@ static struct irq_chip tilegx_msi_chip = {
- 	/* TBD: support set_affinity. */
- };
- 
--int arch_setup_msi_irq(struct pci_dev *pdev, struct msi_desc *desc)
-+struct msi_controller *pcibios_msi_controller(struct pci_bus *bus)
-+{
-+	struct pci_controller *controller = bus->sysdata;
-+
-+	return controller->msi_ctrl;
-+}
-+
-+static int tile_setup_msi_irq(struct msi_controller *ctrl,
-+		struct pci_dev *pdev, struct msi_desc *desc)
- {
- 	struct pci_controller *controller;
- 	gxio_trio_context_t *trio_context;
-@@ -1604,7 +1613,12 @@ is_64_failure:
- 	return ret;
+-	irq_set_chip_data(desc->irq, chip);
+-
+ 	return 0;
  }
  
--void arch_teardown_msi_irq(unsigned int irq)
-+static void tile_teardown_msi_irq(struct msi_controller *ctrl, unsigned int irq)
+ void __weak arch_teardown_msi_irq(unsigned int irq)
  {
- 	irq_free_hwirq(irq);
- }
-+
-+struct msi_controller tilegx_msi_ctrl = {
-+	.setup_irq = tile_setup_msi_irq,
-+	.teardown_irq = tile_teardown_msi_irq,
-+};
+-	struct msi_chip *chip = irq_get_chip_data(irq);
++	struct msi_desc *entry = irq_get_msi_desc(irq);
++	struct msi_chip *chip = entry->dev->bus->msi;
+ 
+ 	if (!chip || !chip->teardown_irq)
+ 		return;
 -- 
 1.7.1
 
