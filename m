@@ -1,143 +1,103 @@
-From: Lee Jones <lee.jones@linaro.org>
-Date: Tue, 07 Oct 2014 07:52:38 +0000
-Subject: Re: [PATCH 18/44] mfd: twl4030-power: Register with kernel poweroff handler
-Message-Id: <20141007075238.GA25331@lee--X1>
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Wed, 15 Oct 2014 02:26:59 +0000
+Subject: [PATCH v3 24/27] IA64/MSI: Use MSI chip framework to configure MSI/MSI-X irq
+Message-Id: <1413342435-7876-25-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1412659726-29957-1-git-send-email-linux@roeck-us.net>
- <1412659726-29957-19-git-send-email-linux@roeck-us.net>
-In-Reply-To: <1412659726-29957-19-git-send-email-linux@roeck-us.net>
+References: <1413342435-7876-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1413342435-7876-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
-To: Guenter Roeck <linux@roeck-us.net>
-Cc: linux-kernel@vger.kernel.org, adi-buildroot-devel@lists.sourceforge.net, devel@driverdev.osuosl.org, devicetree@vger.kernel.org, lguest@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-alpha@vger.kernel.org, linux-am33-list@redhat.com, linux-cris-kernel@axis.com, linux-efi@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-m32r-ja@ml.linux-m32r.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-tegra@vger.kernel.org, linux-xtensa@linux-xtensa.org, openipmi-developer@lists.sourceforge.net, user-mode-linux-devel@lists.sourceforge.net, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linux-pm@vger.kernel.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, Samuel Ortiz <same>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, linux-arch@vger.kernel.org, arnab.basu@freescale.com, Bharat.Bhushan@freescale.com, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Thomas Gleixner <tglx@linutronix.de>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, xen-devel@lists.xenproject.org, Joerg Roedel <joro@8bytes.org>, iommu@lists.linux-foundation.org, linux-mips@linux-mips.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, Sebastian Ott <sebott@linux.vnet.ibm.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Chris Metcalf <cmetcalf@tilera.com>, Ralf Baechle <ralf@linux-mips.org>, Lucas Stach <l.stach@pengutronix.de>, David Vrabel <david.vrabel@citrix.com>, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>, Michael Ellerman <mpe@ellerman.id.au>, Thierry Reding <thierry.reding@gmail.com>, Thomas Petazzoni <thomas.petazzoni@free-electrons.com>, Liviu Dudau <liviu@dudau.co.uk>, Yijing Wang <wangyijing@huawei.com>
 
-On Mon, 06 Oct 2014, Guenter Roeck wrote:
+Use MSI chip framework instead of arch MSI functions to configure
+MSI/MSI-X irq. So we can manage MSI/MSI-X irq in a unified framework.
 
-> Register with kernel poweroff handler instead of setting pm_power_off
-> directly. Register with a low priority value of 64 to reflect that
-> the original code only sets pm_power_off if it was not already set.
->=20
-> Make twl4030_power_off static as it is only called from the twl4030-power
-> driver.
->=20
-> Cc: Samuel Ortiz <sameo@linux.intel.com>
-> Cc: Lee Jones <lee.jones@linaro.org>
-> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
-> ---
->  drivers/mfd/twl4030-power.c | 25 +++++++++++++++++++++----
->  include/linux/i2c/twl.h     |  1 -
->  2 files changed, 21 insertions(+), 5 deletions(-)
->=20
-> diff --git a/drivers/mfd/twl4030-power.c b/drivers/mfd/twl4030-power.c
-> index 4d3ff37..bd6b830 100644
-> --- a/drivers/mfd/twl4030-power.c
-> +++ b/drivers/mfd/twl4030-power.c
-> @@ -25,9 +25,10 @@
->   */
-> =20
->  #include <linux/module.h>
-> -#include <linux/pm.h>
-> +#include <linux/notifier.h>
->  #include <linux/i2c/twl.h>
->  #include <linux/platform_device.h>
-> +#include <linux/pm.h>
->  #include <linux/of.h>
->  #include <linux/of_device.h>
-> =20
-> @@ -611,7 +612,8 @@ twl4030_power_configure_resources(const struct twl403=
-0_power_data *pdata)
->   * After a successful execution, TWL shuts down the power to the SoC
->   * and all peripherals connected to it.
->   */
-> -void twl4030_power_off(void)
-> +static int twl4030_power_off(struct notifier_block *this, unsigned long =
-unused1,
-> +			     void *unused2)
->  {
->  	int err;
-> =20
-> @@ -619,8 +621,15 @@ void twl4030_power_off(void)
->  			       TWL4030_PM_MASTER_P1_SW_EVENTS);
->  	if (err)
->  		pr_err("TWL4030 Unable to power off\n");
-> +
-> +	return NOTIFY_DONE;
->  }
-> =20
-> +static struct notifier_block twl4030_poweroff_nb =3D {
-> +	.notifier_call =3D twl4030_power_off,
-> +	.priority =3D 64,
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+---
+ arch/ia64/include/asm/pci.h |   10 ++++++++++
+ arch/ia64/kernel/msi_ia64.c |   14 ++++++++++----
+ arch/ia64/pci/pci.c         |    1 +
+ 3 files changed, 21 insertions(+), 4 deletions(-)
 
-64 out of what?  How is this calculated?  Wouldn't it be better to
-define these?
+diff --git a/arch/ia64/include/asm/pci.h b/arch/ia64/include/asm/pci.h
+index 52af5ed..907dcba 100644
+--- a/arch/ia64/include/asm/pci.h
++++ b/arch/ia64/include/asm/pci.h
+@@ -94,6 +94,7 @@ struct pci_controller {
+ 	int segment;
+ 	int node;		/* nearest node with memory or NUMA_NO_NODE for global allocation */
+ 
++	struct msi_chip *msi_chip;
+ 	void *platform_data;
+ };
+ 
+@@ -101,6 +102,15 @@ struct pci_controller {
+ #define PCI_CONTROLLER(busdev) ((struct pci_controller *) busdev->sysdata)
+ #define pci_domain_nr(busdev)    (PCI_CONTROLLER(busdev)->segment)
+ 
++extern struct msi_chip chip;
++
++static inline struct msi_chip *pci_msi_chip(struct pci_bus *bus)
++{
++	struct pci_controller *ctrl = bus->sysdata;
++
++	return ctrl->msi_chip;
++}
++
+ extern struct pci_ops pci_root_ops;
+ 
+ static inline int pci_proc_domain(struct pci_bus *bus)
+diff --git a/arch/ia64/kernel/msi_ia64.c b/arch/ia64/kernel/msi_ia64.c
+index 8c3730c..401fc98 100644
+--- a/arch/ia64/kernel/msi_ia64.c
++++ b/arch/ia64/kernel/msi_ia64.c
+@@ -112,15 +112,16 @@ static struct irq_chip ia64_msi_chip = {
+ };
+ 
+ 
+-int arch_setup_msi_irq(struct pci_dev *pdev, struct msi_desc *desc)
++static int arch_ia64_setup_msi_irq(struct msi_chip *chip,
++		struct pci_dev *dev, struct msi_desc *desc)
+ {
+ 	if (platform_setup_msi_irq)
+-		return platform_setup_msi_irq(pdev, desc);
++		return platform_setup_msi_irq(dev, desc);
+ 
+-	return ia64_setup_msi_irq(pdev, desc);
++	return ia64_setup_msi_irq(dev, desc);
+ }
+ 
+-void arch_teardown_msi_irq(unsigned int irq)
++static void arch_ia64_teardown_msi_irq(struct msi_chip *chip, unsigned int irq)
+ {
+ 	if (platform_teardown_msi_irq)
+ 		return platform_teardown_msi_irq(irq);
+@@ -128,6 +129,11 @@ void arch_teardown_msi_irq(unsigned int irq)
+ 	return ia64_teardown_msi_irq(irq);
+ }
+ 
++struct msi_chip chip = {
++	.setup_irq = arch_ia64_setup_msi_irq,
++	.teardown_irq = arch_ia64_teardown_msi_irq,
++};
++
+ #ifdef CONFIG_INTEL_IOMMU
+ #ifdef CONFIG_SMP
+ static int dmar_msi_set_affinity(struct irq_data *data,
+diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
+index 291a582..299b67d 100644
+--- a/arch/ia64/pci/pci.c
++++ b/arch/ia64/pci/pci.c
+@@ -437,6 +437,7 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
+ 
+ 	controller->companion = device;
+ 	controller->node = acpi_get_node(device->handle);
++	controller->msi_chip = &chip;
+ 
+ 	info = kzalloc(sizeof(*info), GFP_KERNEL);
+ 	if (!info) {
+-- 
+1.7.1
 
-> +};
-> +
->  static bool twl4030_power_use_poweroff(const struct twl4030_power_data *=
-pdata,
->  					struct device_node *node)
->  {
-> @@ -836,7 +845,7 @@ static int twl4030_power_probe(struct platform_device=
- *pdev)
->  	}
-> =20
->  	/* Board has to be wired properly to use this feature */
-> -	if (twl4030_power_use_poweroff(pdata, node) && !pm_power_off) {
-> +	if (twl4030_power_use_poweroff(pdata, node)) {
->  		/* Default for SEQ_OFFSYNC is set, lets ensure this */
->  		err =3D twl_i2c_read_u8(TWL_MODULE_PM_MASTER, &val,
->  				      TWL4030_PM_MASTER_CFG_P123_TRANSITION);
-> @@ -853,7 +862,13 @@ static int twl4030_power_probe(struct platform_devic=
-e *pdev)
->  			}
->  		}
-> =20
-> -		pm_power_off =3D twl4030_power_off;
-> +		err =3D register_poweroff_handler(&twl4030_poweroff_nb);
-> +		if (err) {
-> +			dev_err(&pdev->dev,
-> +				"Failed to register poweroff handler\n");
-
-If this is not fatal, you should issue a dev_warn() instead.
-
-> +			/* Not a fatal error */
-> +			err =3D 0;
-
-How about using your own variable for this?  Then you don't have to
-worry about resetting it.
-
-> +		}
->  	}
-> =20
->  relock:
-> @@ -869,6 +884,8 @@ relock:
-> =20
->  static int twl4030_power_remove(struct platform_device *pdev)
->  {
-> +	unregister_poweroff_handler(&twl4030_poweroff_nb);
-
-Perhaps a naive question, but is there any way you can do this using
-devres (devm_* managed resources)?
-
->  	return 0;
->  }
-> =20
-> diff --git a/include/linux/i2c/twl.h b/include/linux/i2c/twl.h
-> index 8cfb50f..f8544f1 100644
-> --- a/include/linux/i2c/twl.h
-> +++ b/include/linux/i2c/twl.h
-> @@ -680,7 +680,6 @@ struct twl4030_power_data {
->  };
-> =20
->  extern int twl4030_remove_script(u8 flags);
-> -extern void twl4030_power_off(void);
-> =20
->  struct twl4030_codec_data {
->  	unsigned int digimic_delay; /* in ms */
-
---=20
-Lee Jones
-Linaro STMicroelectronics Landing Team Lead
-Linaro.org =E2=94=82 Open source software for ARM SoCs
-Follow Linaro: Facebook | Twitter | Blog
