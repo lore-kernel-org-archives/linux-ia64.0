@@ -1,124 +1,160 @@
-From: Meelis Roos <mroos@linux.ee>
-Date: Tue, 21 Oct 2014 06:59:51 +0000
-Subject: Re: kernel BUG at kernel/sched/core.c:2702!
-Message-Id: <alpine.LRH.2.11.1410210956090.28680@adalberg.ut.ee>
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Wed, 15 Oct 2014 02:30:35 +0000
+Subject: [PATCH v3 17/27] MIPS/Octeon/MSI: Use MSI chip framework to configure MSI/MSI-X irq
+Message-Id: <1413342435-7876-18-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <alpine.LRH.2.11.1410171401110.25429@adalberg.ut.ee> <alpine.LRH.2.11.1410191515150.32417@adalberg.ut.ee>
-In-Reply-To: <alpine.LRH.2.11.1410191515150.32417@adalberg.ut.ee>
+References: <1413342435-7876-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1413342435-7876-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, linux-arch@vger.kernel.org, arnab.basu@freescale.com, Bharat.Bhushan@freescale.com, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Thomas Gleixner <tglx@linutronix.de>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, xen-devel@lists.xenproject.org, Joerg Roedel <joro@8bytes.org>, iommu@lists.linux-foundation.org, linux-mips@linux-mips.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, Sebastian Ott <sebott@linux.vnet.ibm.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Chris Metcalf <cmetcalf@tilera.com>, Ralf Baechle <ralf@linux-mips.org>, Lucas Stach <l.stach@pengutronix.de>, David Vrabel <david.vrabel@citrix.com>, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>, Michael Ellerman <mpe@ellerman.id.au>, Thierry Reding <thierry.reding@gmail.com>, Thomas Petazzoni <thomas.petazzoni@free-electrons.com>, Liviu Dudau <liviu@dudau.co.uk>, Yijing Wang <wangyijing@huawei.com>
 
-> > I am seeing this BUG on 3 different sparc64 machines with yesterdays=20
-> > git. sparc64-specific known problems were just fixed before,=20
-> > 3.17.0-07551-g052db7e + slab alignment fix patch + sparc64 SIGBUS fix=20
-> > patch is working stable for me, whereas 3.17.0-09670-g0429fbc + SIGBUS =
+Use MSI chip framework instead of arch MSI functions to configure
+MSI/MSI-X irq. So we can manage MSI/MSI-X irq in a unified framework.
 
-> > patch fails on 3 machines (all I tried). Will try bisecting later if I =
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+---
+ arch/mips/include/asm/octeon/pci-octeon.h |    4 +++
+ arch/mips/pci/msi-octeon.c                |   31 ++++++++++++++++------------
+ arch/mips/pci/pci-octeon.c                |    3 ++
+ 3 files changed, 25 insertions(+), 13 deletions(-)
 
-> > get time.
->=20
-> Dave Miller identified it as a sparc64-specific problem with=20
-> CONFIG_SCHED_STACK_END_CHECK in another thread and his fix is working=20
-> for me.
+diff --git a/arch/mips/include/asm/octeon/pci-octeon.h b/arch/mips/include/asm/octeon/pci-octeon.h
+index 64ba56a..27ffe42 100644
+--- a/arch/mips/include/asm/octeon/pci-octeon.h
++++ b/arch/mips/include/asm/octeon/pci-octeon.h
+@@ -66,4 +66,8 @@ enum octeon_dma_bar_type {
+  */
+ extern enum octeon_dma_bar_type octeon_dma_bar_type;
+ 
++#ifdef CONFIG_PCI_MSI
++extern struct msi_chip octeon_msi_chip;
++#endif
++
+ #endif
+diff --git a/arch/mips/pci/msi-octeon.c b/arch/mips/pci/msi-octeon.c
+index 63bbe07..fd4d698 100644
+--- a/arch/mips/pci/msi-octeon.c
++++ b/arch/mips/pci/msi-octeon.c
+@@ -57,7 +57,7 @@ static int msi_irq_size;
+  *
+  * Returns 0 on success.
+  */
+-int arch_setup_msi_irq(struct pci_dev *dev, struct msi_desc *desc)
++static int octeon_setup_msi_irq(struct pci_dev *dev, struct msi_desc *desc)
+ {
+ 	struct msi_msg msg;
+ 	u16 control;
+@@ -132,12 +132,12 @@ msi_irq_allocated:
+ 	/* Make sure the search for available interrupts didn't fail */
+ 	if (irq >= 64) {
+ 		if (request_private_bits) {
+-			pr_err("arch_setup_msi_irq: Unable to find %d free interrupts, trying just one",
+-			       1 << request_private_bits);
++			pr_err("%s: Unable to find %d free interrupts, trying just one",
++			       __func__, 1 << request_private_bits);
+ 			request_private_bits = 0;
+ 			goto try_only_one;
+ 		} else
+-			panic("arch_setup_msi_irq: Unable to find a free MSI interrupt");
++			panic("%s: Unable to find a free MSI interrupt", __func__);
+ 	}
+ 
+ 	/* MSI interrupts start at logical IRQ OCTEON_IRQ_MSI_BIT0 */
+@@ -168,7 +168,7 @@ msi_irq_allocated:
+ 		msg.address_hi = (0 + CVMX_SLI_PCIE_MSI_RCV) >> 32;
+ 		break;
+ 	default:
+-		panic("arch_setup_msi_irq: Invalid octeon_dma_bar_type");
++		panic("%s: Invalid octeon_dma_bar_type", __func__);
+ 	}
+ 	msg.data = irq - OCTEON_IRQ_MSI_BIT0;
+ 
+@@ -182,7 +182,8 @@ msi_irq_allocated:
+ 	return 0;
+ }
+ 
+-int arch_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
++static int octeon_setup_msi_irqs(struct msi_chip *chip, struct pci_dev *dev,
++		int nvec, int type)
+ {
+ 	struct msi_desc *entry;
+ 	int ret;
+@@ -201,7 +202,7 @@ int arch_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
+ 		return 1;
+ 
+ 	list_for_each_entry(entry, &dev->msi_list, list) {
+-		ret = arch_setup_msi_irq(dev, entry);
++		ret = octeon_setup_msi_irq(dev, entry);
+ 		if (ret < 0)
+ 			return ret;
+ 		if (ret > 0)
+@@ -210,14 +211,13 @@ int arch_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
+ 
+ 	return 0;
+ }
+-
+ /**
+  * Called when a device no longer needs its MSI interrupts. All
+  * MSI interrupts for the device are freed.
+  *
+  * @irq:    The devices first irq number. There may be multple in sequence.
+  */
+-void arch_teardown_msi_irq(unsigned int irq)
++static void octeon_teardown_msi_irq(struct msi_chip *chip, unsigned int irq)
+ {
+ 	int number_irqs;
+ 	u64 bitmask;
+@@ -226,8 +226,8 @@ void arch_teardown_msi_irq(unsigned int irq)
+ 
+ 	if ((irq < OCTEON_IRQ_MSI_BIT0)
+ 		|| (irq > msi_irq_size + OCTEON_IRQ_MSI_BIT0))
+-		panic("arch_teardown_msi_irq: Attempted to teardown illegal "
+-		      "MSI interrupt (%d)", irq);
++		panic("%s: Attempted to teardown illegal "
++			"MSI interrupt (%d)", __func__, irq);
+ 
+ 	irq -= OCTEON_IRQ_MSI_BIT0;
+ 	index = irq / 64;
+@@ -249,8 +249,8 @@ void arch_teardown_msi_irq(unsigned int irq)
+ 	/* Shift the mask to the correct bit location */
+ 	bitmask <<= irq0;
+ 	if ((msi_free_irq_bitmask[index] & bitmask) != bitmask)
+-		panic("arch_teardown_msi_irq: Attempted to teardown MSI "
+-		      "interrupt (%d) not in use", irq);
++		panic("%s: Attempted to teardown MSI "
++			"interrupt (%d) not in use", __func__, irq);
+ 
+ 	/* Checks are done, update the in use bitmask */
+ 	spin_lock(&msi_free_irq_bitmask_lock);
+@@ -259,6 +259,11 @@ void arch_teardown_msi_irq(unsigned int irq)
+ 	spin_unlock(&msi_free_irq_bitmask_lock);
+ }
+ 
++struct msi_chip octeon_msi_chip = {
++	.setup_irqs = octeon_setup_msi_irqs,
++	.teardown_irq = octeon_teardown_msi_irq,
++};
++
+ static DEFINE_RAW_SPINLOCK(octeon_irq_msi_lock);
+ 
+ static u64 msi_rcv_reg[4];
+diff --git a/arch/mips/pci/pci-octeon.c b/arch/mips/pci/pci-octeon.c
+index 59cccd9..aefaa8a 100644
+--- a/arch/mips/pci/pci-octeon.c
++++ b/arch/mips/pci/pci-octeon.c
+@@ -356,6 +356,9 @@ static struct pci_controller octeon_pci_controller = {
+ 	.io_resource = &octeon_pci_io_resource,
+ 	.io_offset = 0,
+ 	.io_map_base = OCTEON_PCI_IOSPACE_BASE,
++#ifdef CONFIG_PCI_MSI
++	.msi_chip = &octeon_msi_chip,
++#endif
+ };
+ 
+ 
+-- 
+1.7.1
 
-The fix commit was=20
-http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=
-=E2653143d7d79a49f1a961aeae1d82612838b12c=20
-for sparc64 (for background).
-
-Now I hit the same problem on ia64 (rx2620) with 3.18-rc1 and=20
-CONFIG_SCHED_STACK_END_CHECK enabled:
-
-[    0.000000] Early memory node ranges
-[    0.000000]   node   0: [mem 0x01000000-0x3e873fff]
-[    0.000000]   node   0: [mem 0x3eb90000-0x3ee77fff]
-[    0.000000]   node   0: [mem 0x3fc00000-0x3fe27fff]
-[    0.000000]   node   0: [mem 0x100000000-0x5ffffbfff]
-[    0.000000]   node   0: [mem 0x4040000000-0x40feffbfff]
-[    0.000000]   node   0: [mem 0x40ff000000-0x40ffc2ffff]
-[    0.000000]   node   0: [mem 0x40ffc9c000-0x40ffe03fff]
-[    0.000000]   node   0: [mem 0x40ffe80000-0x40fffe3fff]
-[    0.000000] Initmem setup node 0 [mem 0x01000000-0x40fffe3fff]
-[    0.000000] Built 1 zonelists in Node order, mobility grouping on.  Tota=
-l pages: 1565221
-[    0.000000] Policy zone: Normal
-[    0.000000] Kernel command line: BOOT_IMAGE=3Dscsi0:/EFI/gentoo/boot/vml=
-inuz root=3D/dev/sda3  ro
-[    0.000000] PID hash table entries: 4096 (order: 1, 32768 bytes)
-[    0.000000] Sorting __ex_table...
-[    0.000000] Memory: 25028864K/25129440K available (8621K kernel code, 52=
-8K rwdata, 932K rodata, 656K init, 286K bss, 100576K reserved)
-[    0.000000] SLUB: HWalign=128, Order=3D0-3, MinObjects=3D0, CPUs=3D2, No=
-des=3D8
-[    0.000000] Hierarchical RCU implementation.
-[    0.000000]  RCU restricting CPUs from NR_CPUS=3D4 to nr_cpu_ids=3D2.
-[    0.000000] RCU: Adjusting geometry for rcu_fanout_leaf=16, nr_cpu_ids=
-=3D2
-[    0.000000] NR_IRQS:384
-[    0.000000] ACPI: Local APIC address c0000000fee00000
-[    0.000000] GSI 36 (level, low) -> CPU 0 (0x0000) vector 48
-[    0.000000] Console: colour VGA+ 80x25
-[    0.008000] Calibrating delay loop... 2390.01 BogoMIPS (lpjG80032)
-[    0.016088] pid_max: default: 32768 minimum: 301
-[    0.016225] ACPI: Core revision 20140828
-[    0.020263] ACPI: All ACPI Tables successfully acquired
-[    0.021734] Dentry cache hash table entries: 4194304 (order: 11, 3355443=
-2 bytes)
-[    0.050128] Inode-cache hash table entries: 2097152 (order: 10, 16777216=
- bytes)
-[    0.062884] Mount-cache hash table entries: 65536 (order: 5, 524288 byte=
-s)
-[    0.063092] Mountpoint-cache hash table entries: 65536 (order: 5, 524288=
- bytes)
-[    0.064677] kernel BUG at kernel/sched/core.c:2702!
-[    0.064811] swapper/0[0]: bugcheck! 0 [1]
-[    0.068000] Modules linked in:
-[    0.068000]=20
-[    0.068000] CPU: 0 PID: 0 Comm: swapper/0 Not tainted 3.18.0-rc1 #13
-[    0.068000] task: a000000100b40000 ti: a000000100b40cb0 task.ti: a000000=
-100b40cb0
-[    0.068000] psr : 00001010084a6010 ifs : 80000000000015ae ip  : [<a00000=
-01008624e0>]    Not tainted (3.18.0-rc1)
-[    0.068000] ip is at __schedule+0x1100/0x1520
-[    0.068000] unat: 0000000000000000 pfs : 00000000000015ae rsc : 00000000=
-00000003
-[    0.068000] rnat: e000000001200880 bsps: a000000100b40000 pr  : 80000000=
-ff509669
-[    0.068000] ldrs: 0000000000000000 ccv : 0000000003dad2c2 fpsr: 0009804c=
-8a70433f
-[    0.068000] csd : 0000000000000000 ssd : 0000000000000000
-[    0.068000] b0  : a0000001008624e0 b6  : a000000100a50350 b7  : a0000001=
-0049ff00
-[    0.068000] f6  : 000000000000000000000 f7  : 1003e0044b82fa09b5a53
-[    0.068000] f8  : 1003e0000000000000084 f9  : 1003e00000000007b5ccd
-[    0.068000] f10 : 1003e20c49ba5e353f7cf f11 : 1003e00000000000fca57
-[    0.068000] r1  : a000000100dab340 r2  : a000000100b934d8 r3  : a0000001=
-00b934e0
-[    0.068000] r8  : 0000000000000027 r9  : 00000000000004d8 r10 : 00000000=
-0000fffe
-[    0.068000] r11 : 00000000000004d6 r12 : a000000100b47e20 r13 : a0000001=
-00b40000
-[    0.068000] r14 : a000000100babbc0 r15 : a000000100b934e0 r16 : 00000000=
-0000026b
-[    0.068000] r17 : 0000000000007fff r18 : a000000100b83ca8 r19 : 00000000=
-0000000f
-[    0.068000] r20 : 000000000000000f r21 : 0000000000000004 r22 : 00000000=
-00000004
-[    0.068000] r23 : 0000000000000000 r24 : a000000100a10588 r25 : 00000000=
-00000000
-[    0.068000] r26 : 0000000000000000 r27 : a000000100b69a28 r28 : a0000001=
-00b83b30
-[    0.068000] r29 : 0000000000000005 r30 : c0000000f4050000 r31 : a0000001=
-00b83b30
-[    0.068000]=20
-[    0.068000] Call Trace:
-[    0.068000]  [<a000000100013090>] show_stack+0x90/0xc0
-[    0.068000]                                 sp=A000000100b47a00 bsp=A000=
-000100b41198
-[    0.068000] Disabling lock debugging due to kernel taint
-[    0.184005] Kernel panic - not syncing: Attempted to kill the idle task!
-
---=20
-Meelis Roos (mroos@linux.ee)
