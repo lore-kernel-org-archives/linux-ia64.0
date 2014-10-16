@@ -1,39 +1,40 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Date: Tue, 07 Oct 2014 05:28:35 +0000
-Subject: [PATCH 33/44] avr32: atngw100: Register with kernel poweroff handler
-Message-Id: <1412659726-29957-34-git-send-email-linux@roeck-us.net>
+From: Peter Hurley <peter@hurleysoftware.com>
+Date: Thu, 16 Oct 2014 19:10:53 +0000
+Subject: [PATCH] ia64: Pin controlling tty for unaligned fault message
+Message-Id: <1413486653-26010-1-git-send-email-peter@hurleysoftware.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1412659726-29957-1-git-send-email-linux@roeck-us.net>
-In-Reply-To: <1412659726-29957-1-git-send-email-linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: adi-buildroot-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-alpha-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-am33-list-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-cris-kernel-VrBV9hrLPhE@public.gmane.org, linux-efi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-hexagon-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-m32r-ja-rQhvJZKUsGBRYuoOT4C5/9i2O/JbrIOy@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org, openipmi-developer-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, user-mode-linux-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-c6x-dev-jPsnJVOj+W6hPH1hqNUYSQ@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-m68k-cunTk1MwBs8S/qaLPR03pWD2FQJk+8+b@public.gmane.org, linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, linux-parisc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-pm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org, Guenter Roeck <linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>, Haavard
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Peter Hurley <peter@hurleysoftware.com>
 
-Register with kernel poweroff handler instead of setting pm_power_off
-directly.
+Prevent destruction of the controlling tty before tty_write_message()
+can determine if the tty is safe to use.
 
-Cc: Haavard Skinnemoen <hskinnemoen@gmail.com>
-Cc: Hans-Christian Egtvedt <egtvedt@samfundet.no>
-Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+Signed-off-by: Peter Hurley <peter@hurleysoftware.com>
 ---
- arch/avr32/boards/atngw100/mrmt.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ arch/ia64/kernel/unaligned.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/arch/avr32/boards/atngw100/mrmt.c b/arch/avr32/boards/atngw100/mrmt.c
-index 91146b4..54d0c27 100644
---- a/arch/avr32/boards/atngw100/mrmt.c
-+++ b/arch/avr32/boards/atngw100/mrmt.c
-@@ -274,7 +274,7 @@ static int __init mrmt1_init(void)
- {
- 	gpio_set_value( PIN_PWR_ON, 1 );	/* Ensure PWR_ON is enabled */
- 
--	pm_power_off = mrmt_power_off;
-+	register_poweroff_handler_simple(mrmt_power_off, 128);
- 
- 	/* Setup USARTS (other than console) */
- 	at32_map_usart(2, 1, 0);	/* USART 2: /dev/ttyS1, RMT1:DB9M */
+diff --git a/arch/ia64/kernel/unaligned.c b/arch/ia64/kernel/unaligned.c
+index 622772b..e7ae608 100644
+--- a/arch/ia64/kernel/unaligned.c
++++ b/arch/ia64/kernel/unaligned.c
+@@ -1336,8 +1336,11 @@ ia64_handle_unaligned (unsigned long ifa, struct pt_regs *regs)
+ 			 * Don't call tty_write_message() if we're in the kernel; we might
+ 			 * be holding locks...
+ 			 */
+-			if (user_mode(regs))
+-				tty_write_message(current->signal->tty, buf);
++			if (user_mode(regs)) {
++				struct tty_struct *tty = get_current_tty();
++				tty_write_message(tty, buf);
++				tty_kref_put(tty);
++			}
+ 			buf[len-1] = '\0';	/* drop '\r' */
+ 			/* watch for command names containing %s */
+ 			printk(KERN_WARNING "%s", buf);
 -- 
-1.9.1
+2.1.1
 
