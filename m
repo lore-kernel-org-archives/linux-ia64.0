@@ -1,95 +1,89 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Date: Tue, 07 Oct 2014 05:28:30 +0000
-Subject: [PATCH 28/44] x86: olpc: Register xo1 poweroff handler with kernel poweroff handler
-Message-Id: <1412659726-29957-29-git-send-email-linux@roeck-us.net>
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Mon, 27 Oct 2014 12:48:18 +0000
+Subject: [PATCH 11/16] s390/MSI: Use MSI controller framework to configure MSI/MSI-X irq
+Message-Id: <1414416142-31239-12-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1412659726-29957-1-git-send-email-linux@roeck-us.net>
-In-Reply-To: <1412659726-29957-1-git-send-email-linux@roeck-us.net>
+References: <1414416142-31239-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1414416142-31239-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: adi-buildroot-devel@lists.sourceforge.net, devel@driverdev.osuosl.org, devicetree@vger.kernel.org, lguest@lists.ozlabs.org, linux-acpi@vger.kernel.org, linux-alpha@vger.kernel.org, linux-am33-list@redhat.com, linux-cris-kernel@axis.com, linux-efi@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-m32r-ja@ml.linux-m32r.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-tegra@vger.kernel.org, linux-xtensa@linux-xtensa.org, openipmi-developer@lists.sourceforge.net, user-mode-linux-devel@lists.sourceforge.net, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linux-pm@vger.kernel.org, linux-sh@vger.kernel.org, xen-devel@lists.xenproject.org, Guenter Roeck <linux@roeck-us.net>, Thomas
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, xen-devel@lists.xenproject.org, Joerg Roedel <joro@8bytes.org>, iommu@lists.linux-foundation.org, linux-mips@linux-mips.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, Sebastian Ott <sebott@linux.vnet.ibm.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Chris Metcalf <cmetcalf@tilera.com>, Ralf Baechle <ralf@linux-mips.org>, Lucas Stach <l.stach@pengutronix.de>, David Vrabel <david.vrabel@citrix.com>, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>, Michael Ellerman <mpe@ellerman.id.au>, Thierry Reding <thierry.reding@gmail.com>, Thomas Petazzoni <thomas.petazzoni@free-electrons.com>, Yijing Wang <wangyijing@huawei.com>
 
-Register with kernel poweroff handler instead of setting pm_power_off
-directly. Register with high priority value of 192 to reflect that
-the driver explicitly wants to override default poweroff handlers.
+Use MSI controller framework instead of arch MSI functions to configure
+MSI/MSI-X irq. So we can manage MSI/MSI-X irq in a unified framework.
 
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: Ingo Molnar <mingo@redhat.com>
-Cc: H. Peter Anvin <hpa@zytor.com>
-Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+Acked-by: Sebastian Ott <sebott@linux.vnet.ibm.com>
 ---
- arch/x86/platform/olpc/olpc-xo1-pm.c | 20 +++++++++++++++++---
- 1 file changed, 17 insertions(+), 3 deletions(-)
+ arch/s390/include/asm/pci.h |    1 +
+ arch/s390/pci/pci.c         |   19 +++++++++++++++++--
+ 2 files changed, 18 insertions(+), 2 deletions(-)
 
-diff --git a/arch/x86/platform/olpc/olpc-xo1-pm.c b/arch/x86/platform/olpc/olpc-xo1-pm.c
-index a9acde7..96fba36 100644
---- a/arch/x86/platform/olpc/olpc-xo1-pm.c
-+++ b/arch/x86/platform/olpc/olpc-xo1-pm.c
-@@ -15,6 +15,7 @@
- #include <linux/cs5535.h>
- #include <linux/platform_device.h>
- #include <linux/export.h>
-+#include <linux/notifier.h>
- #include <linux/pm.h>
- #include <linux/mfd/core.h>
- #include <linux/suspend.h>
-@@ -92,7 +93,8 @@ asmlinkage __visible int xo1_do_sleep(u8 sleep_state)
- 	return 0;
+diff --git a/arch/s390/include/asm/pci.h b/arch/s390/include/asm/pci.h
+index c030900..bf14da2 100644
+--- a/arch/s390/include/asm/pci.h
++++ b/arch/s390/include/asm/pci.h
+@@ -88,6 +88,7 @@ struct zpci_dev {
+ 	u32 uid;			/* user defined id */
+ 	u8 util_str[CLP_UTIL_STR_LEN];	/* utility string */
+ 
++	struct msi_controller *msi_ctrl;
+ 	/* IRQ stuff */
+ 	u64		msi_addr;	/* MSI address */
+ 	struct airq_iv *aibv;		/* adapter interrupt bit vector */
+diff --git a/arch/s390/pci/pci.c b/arch/s390/pci/pci.c
+index 552b990..beed5ab 100644
+--- a/arch/s390/pci/pci.c
++++ b/arch/s390/pci/pci.c
+@@ -358,7 +358,15 @@ static void zpci_irq_handler(struct airq_struct *airq)
+ 	}
  }
  
--static void xo1_power_off(void)
-+static int xo1_power_off(struct notifier_block *this, unsigned long unused1,
-+			 void *unused2)
- {
- 	printk(KERN_INFO "OLPC XO-1 power off sequence...\n");
- 
-@@ -108,8 +110,15 @@ static void xo1_power_off(void)
- 
- 	/* Write SLP_EN bit to start the machinery */
- 	outl(0x00002000, acpi_base + CS5536_PM1_CNT);
+-int arch_setup_msi_irqs(struct pci_dev *pdev, int nvec, int type)
++struct msi_controller *pcibios_msi_controller(struct pci_bus *bus)
++{
++	struct zpci_dev *zpci = bus->sysdata;
 +
-+	return NOTIFY_DONE;
++	return zpci->msi_ctrl;
++}
++
++static int zpci_setup_msi_irqs(struct msi_controller *ctrl,
++		struct pci_dev *pdev, int nvec, int type)
+ {
+ 	struct zpci_dev *zdev = get_zdev(pdev);
+ 	unsigned int hwirq, msi_vecs;
+@@ -434,7 +442,8 @@ out:
+ 	return rc;
  }
  
-+static struct notifier_block xo1_poweroff_nb = {
-+	.notifier_call = xo1_power_off,
-+	.priority = 192,
+-void arch_teardown_msi_irqs(struct pci_dev *pdev)
++static void zpci_teardown_msi_irqs(struct msi_controller *ctrl,
++		struct pci_dev *pdev)
+ {
+ 	struct zpci_dev *zdev = get_zdev(pdev);
+ 	struct msi_desc *msi;
+@@ -464,6 +473,11 @@ void arch_teardown_msi_irqs(struct pci_dev *pdev)
+ 	airq_iv_free_bit(zpci_aisb_iv, zdev->aisb);
+ }
+ 
++static struct msi_controller zpci_msi_ctrl = {
++	.setup_irqs = zpci_setup_msi_irqs,
++	.teardown_irqs = zpci_teardown_msi_irqs,
 +};
 +
- static int xo1_power_state_valid(suspend_state_t pm_state)
+ static void zpci_map_resources(struct zpci_dev *zdev)
  {
- 	/* suspend-to-RAM only */
-@@ -146,8 +155,12 @@ static int xo1_pm_probe(struct platform_device *pdev)
+ 	struct pci_dev *pdev = zdev->pdev;
+@@ -749,6 +763,7 @@ static int zpci_scan_bus(struct zpci_dev *zdev)
+ 	if (ret)
+ 		return ret;
  
- 	/* If we have both addresses, we can override the poweroff hook */
- 	if (pms_base && acpi_base) {
-+		err = register_poweroff_handler(&xo1_poweroff_nb);
-+		if (err) {
-+			dev_err(&pdev->dev, "Failed to register poweroff handler\n");
-+			return err;
-+		}
- 		suspend_set_ops(&xo1_suspend_ops);
--		pm_power_off = xo1_power_off;
- 		printk(KERN_INFO "OLPC XO-1 support registered\n");
- 	}
- 
-@@ -158,12 +171,13 @@ static int xo1_pm_remove(struct platform_device *pdev)
- {
- 	mfd_cell_disable(pdev);
- 
-+	unregister_poweroff_handler(&xo1_poweroff_nb);
-+
- 	if (strcmp(pdev->name, "cs5535-pms") = 0)
- 		pms_base = 0;
- 	else if (strcmp(pdev->name, "olpc-xo1-pm-acpi") = 0)
- 		acpi_base = 0;
- 
--	pm_power_off = NULL;
- 	return 0;
- }
- 
++	zdev->msi_ctrl = &zpci_msi_ctrl;
+ 	zdev->bus = pci_scan_root_bus(NULL, ZPCI_BUS_NR, &pci_root_ops,
+ 				      zdev, &resources);
+ 	if (!zdev->bus) {
 -- 
-1.9.1
+1.7.1
 
