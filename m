@@ -1,103 +1,94 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Date: Tue, 07 Oct 2014 05:28:12 +0000
-Subject: [PATCH 10/44] mfd: axp20x: Register with kernel poweroff handler
-Message-Id: <1412659726-29957-11-git-send-email-linux@roeck-us.net>
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Mon, 27 Oct 2014 12:45:59 +0000
+Subject: [PATCH 01/16] PCI/MSI: Refactor MSI controller to make it become more common
+Message-Id: <1414416142-31239-2-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1412659726-29957-1-git-send-email-linux@roeck-us.net>
-In-Reply-To: <1412659726-29957-1-git-send-email-linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>
+References: <1414416142-31239-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1414416142-31239-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: adi-buildroot-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-alpha-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-am33-list-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-cris-kernel-VrBV9hrLPhE@public.gmane.org, linux-efi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-hexagon-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-m32r-ja-rQhvJZKUsGBRYuoOT4C5/9i2O/JbrIOy@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org, openipmi-developer-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, user-mode-linux-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-c6x-dev-jPsnJVOj+W6hPH1hqNUYSQ@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-m68k-cunTk1MwBs8S/qaLPR03pWD2FQJk+8+b@public.gmane.org, linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, linux-parisc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-pm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org, Guenter Roeck <linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, xen-devel@lists.xenproject.org, Joerg Roedel <joro@8bytes.org>, iommu@lists.linux-foundation.org, linux-mips@linux-mips.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, Sebastian Ott <sebott@linux.vnet.ibm.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Chris Metcalf <cmetcalf@tilera.com>, Ralf Baechle <ralf@linux-mips.org>, Lucas Stach <l.stach@pengutronix.de>, David Vrabel <david.vrabel@citrix.com>, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>, Michael Ellerman <mpe@ellerman.id.au>, Thierry Reding <thierry.reding@gmail.com>, Thomas Petazzoni <thomas.petazzoni@free-electrons.com>, Yijing Wang <wangyijing@huawei.com>
 
-Register with kernel poweroff handler instead of setting pm_power_off
-directly. Register with a low priority value of 64 to reflect that
-the original code only sets pm_power_off if it was not already set.
+Now there are a lot of weak arch MSI functions in MSI code.
+These functions make MSI driver complex. Because people need
+to know much which arch MSI function should be overrode and
+which is not. Thierry introduced MSI chip framework to configure
+MSI/MSI-X irq in arm. MSI chip framework is better than raw arch
+MSI functions, people can clearly know they should implement which
+MSI ops in specific platform. Use MSI chip framework to refactor all
+other platform MSI code to eliminate weak arch MSI functions.
+This patch add .restore_irqs(), .teardown_irqs() and .setup_irqs()
+to make it become more common.
 
-Cc: Lee Jones <lee.jones@linaro.org>
-Cc: Samuel Ortiz <sameo@linux.intel.com>
-Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+Reviewed-by: Lucas Stach <l.stach@pengutronix.de>
 ---
- drivers/mfd/axp20x.c       | 30 +++++++++++++++++-------------
- include/linux/mfd/axp20x.h |  1 +
- 2 files changed, 18 insertions(+), 13 deletions(-)
+ drivers/pci/msi.c   |   15 +++++++++++++++
+ include/linux/msi.h |    8 ++++++--
+ 2 files changed, 21 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/mfd/axp20x.c b/drivers/mfd/axp20x.c
-index dee6539..238db4c 100644
---- a/drivers/mfd/axp20x.c
-+++ b/drivers/mfd/axp20x.c
-@@ -17,7 +17,8 @@
- #include <linux/interrupt.h>
- #include <linux/kernel.h>
- #include <linux/module.h>
--#include <linux/pm_runtime.h>
-+#include <linux/notifier.h>
-+#include <linux/pm.h>
- #include <linux/regmap.h>
- #include <linux/slab.h>
- #include <linux/regulator/consumer.h>
-@@ -161,11 +162,16 @@ static struct mfd_cell axp20x_cells[] = {
- 	},
- };
- 
--static struct axp20x_dev *axp20x_pm_power_off;
--static void axp20x_power_off(void)
-+static int axp20x_power_off(struct notifier_block *this, unsigned long unused1,
-+			    void *unused2)
-+
+diff --git a/drivers/pci/msi.c b/drivers/pci/msi.c
+index 27b6a54..0e1da3e 100644
+--- a/drivers/pci/msi.c
++++ b/drivers/pci/msi.c
+@@ -70,6 +70,11 @@ int __weak arch_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
  {
--	regmap_write(axp20x_pm_power_off->regmap, AXP20X_OFF_CTRL,
--		     AXP20X_OFF);
-+	struct axp20x_dev *axp20x = container_of(this, struct axp20x_dev,
-+						 poweroff_nb);
+ 	struct msi_desc *entry;
+ 	int ret;
++	struct msi_controller *ctrl;
 +
-+	regmap_write(axp20x->regmap, AXP20X_OFF_CTRL, AXP20X_OFF);
++	ctrl = pci_msi_controller(dev->bus);
++	if (ctrl && ctrl->setup_irqs)
++		return ctrl->setup_irqs(ctrl, dev, nvec, type);
+ 
+ 	/*
+ 	 * If an architecture wants to support multiple MSI, it needs to
+@@ -112,6 +117,11 @@ void default_teardown_msi_irqs(struct pci_dev *dev)
+ 
+ void __weak arch_teardown_msi_irqs(struct pci_dev *dev)
+ {
++	struct msi_controller *ctrl = pci_msi_controller(dev->bus);
 +
-+	return NOTIFY_DONE;
++	if (ctrl && ctrl->teardown_irqs)
++		return ctrl->teardown_irqs(ctrl, dev);
++
+ 	return default_teardown_msi_irqs(dev);
  }
  
- static int axp20x_i2c_probe(struct i2c_client *i2c,
-@@ -215,10 +221,11 @@ static int axp20x_i2c_probe(struct i2c_client *i2c,
- 		return ret;
- 	}
+@@ -135,6 +145,11 @@ static void default_restore_msi_irq(struct pci_dev *dev, int irq)
  
--	if (!pm_power_off) {
--		axp20x_pm_power_off = axp20x;
--		pm_power_off = axp20x_power_off;
--	}
-+	axp20x->poweroff_nb.notifier_call = axp20x_power_off;
-+	axp20x->poweroff_nb.priority = 64;
-+	ret = register_poweroff_handler(&axp20x->poweroff_nb);
-+	if (ret)
-+		dev_err(&i2c->dev, "failed to register poweroff handler\n");
- 
- 	dev_info(&i2c->dev, "AXP20X driver loaded\n");
- 
-@@ -229,10 +236,7 @@ static int axp20x_i2c_remove(struct i2c_client *i2c)
+ void __weak arch_restore_msi_irqs(struct pci_dev *dev)
  {
- 	struct axp20x_dev *axp20x = i2c_get_clientdata(i2c);
++	struct msi_controller *ctrl = pci_msi_controller(dev->bus);
++
++	if (ctrl && ctrl->restore_irqs)
++             return ctrl->restore_irqs(ctrl, dev);
++
+ 	return default_restore_msi_irqs(dev);
+ }
  
--	if (axp20x = axp20x_pm_power_off) {
--		axp20x_pm_power_off = NULL;
--		pm_power_off = NULL;
--	}
-+	unregister_poweroff_handler(&axp20x->poweroff_nb);
+diff --git a/include/linux/msi.h b/include/linux/msi.h
+index 6704991..4426cb4 100644
+--- a/include/linux/msi.h
++++ b/include/linux/msi.h
+@@ -71,9 +71,13 @@ struct msi_controller {
+ 	struct device_node *of_node;
+ 	struct list_head list;
  
- 	mfd_remove_devices(axp20x->dev);
- 	regmap_del_irq_chip(axp20x->i2c_client->irq, axp20x->regmap_irqc);
-diff --git a/include/linux/mfd/axp20x.h b/include/linux/mfd/axp20x.h
-index d0e31a2..8f23b39 100644
---- a/include/linux/mfd/axp20x.h
-+++ b/include/linux/mfd/axp20x.h
-@@ -175,6 +175,7 @@ struct axp20x_dev {
- 	struct regmap			*regmap;
- 	struct regmap_irq_chip_data	*regmap_irqc;
- 	long				variant;
-+	struct notifier_block		poweroff_nb;
+-	int (*setup_irq)(struct msi_controller *chip, struct pci_dev *dev,
++	int (*setup_irq)(struct msi_controller *ctrl, struct pci_dev *dev,
+ 			 struct msi_desc *desc);
+-	void (*teardown_irq)(struct msi_controller *chip, unsigned int irq);
++	int (*setup_irqs)(struct msi_controller *ctrl, struct pci_dev *dev,
++			int nvec, int type);
++	void (*teardown_irq)(struct msi_controller *ctrl, unsigned int irq);
++	void (*teardown_irqs)(struct msi_controller *ctrl, struct pci_dev *dev);
++	void (*restore_irqs)(struct msi_controller *ctrl, struct pci_dev *dev);
  };
  
- #endif /* __LINUX_MFD_AXP20X_H */
+ #endif /* LINUX_MSI_H */
 -- 
-1.9.1
+1.7.1
 
