@@ -1,7 +1,7 @@
 From: Yijing Wang <wangyijing@huawei.com>
-Date: Mon, 27 Oct 2014 12:46:02 +0000
-Subject: [PATCH 03/16] x86/xen/MSI: Use MSI controller framework to configure MSI/MSI-X irq
-Message-Id: <1414416142-31239-4-git-send-email-wangyijing@huawei.com>
+Date: Mon, 27 Oct 2014 12:41:45 +0000
+Subject: [PATCH 10/16] Powerpc/MSI: Use MSI controller framework to configure MSI/MSI-X irq
+Message-Id: <1414416142-31239-11-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1414416142-31239-1-git-send-email-wangyijing@huawei.com>
 In-Reply-To: <1414416142-31239-1-git-send-email-wangyijing@huawei.com>
@@ -15,124 +15,89 @@ Use MSI controller framework instead of arch MSI functions to configure
 MSI/MSI-X irq. So we can manage MSI/MSI-X irq in a unified framework.
 
 Signed-off-by: Yijing Wang <wangyijing@huawei.com>
-CC: David Vrabel <david.vrabel@citrix.com>
-CC: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Acked-by: Michael Ellerman <mpe@ellerman.id.au>
 ---
- arch/x86/pci/xen.c |   45 +++++++++++++++++++++++++++------------------
- 1 files changed, 27 insertions(+), 18 deletions(-)
+ arch/powerpc/include/asm/pci-bridge.h |    8 ++++++++
+ arch/powerpc/kernel/msi.c             |   19 +++++++++++++++++--
+ arch/powerpc/kernel/pci-common.c      |    3 +++
+ 3 files changed, 28 insertions(+), 2 deletions(-)
 
-diff --git a/arch/x86/pci/xen.c b/arch/x86/pci/xen.c
-index 466b978..83d8d50 100644
---- a/arch/x86/pci/xen.c
-+++ b/arch/x86/pci/xen.c
-@@ -157,7 +157,8 @@ static int acpi_register_gsi_xen(struct device *dev, u32 gsi,
- struct xen_pci_frontend_ops *xen_pci_frontend;
- EXPORT_SYMBOL_GPL(xen_pci_frontend);
+diff --git a/arch/powerpc/include/asm/pci-bridge.h b/arch/powerpc/include/asm/pci-bridge.h
+index 4ca90a3..f7d09d0 100644
+--- a/arch/powerpc/include/asm/pci-bridge.h
++++ b/arch/powerpc/include/asm/pci-bridge.h
+@@ -32,6 +32,10 @@ struct pci_controller {
+ 	int self_busno;
+ 	struct resource busn;
  
--static int xen_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
-+static int xen_setup_msi_irqs(struct msi_controller *ctrl,
-+		struct pci_dev *dev, int nvec, int type)
- {
- 	int irq, ret, i;
- 	struct msi_desc *msidesc;
-@@ -219,7 +220,8 @@ static void xen_msi_compose_msg(struct pci_dev *pdev, unsigned int pirq,
- 	msg->data = XEN_PIRQ_MSI_DATA;
- }
++#ifdef CONFIG_PCI_MSI
++	struct msi_controller *msi_ctrl;
++#endif
++
+ 	void __iomem *io_base_virt;
+ #ifdef CONFIG_PPC64
+ 	void *io_base_alloc;
+@@ -94,6 +98,10 @@ struct pci_controller {
+ 	void *private_data;
+ };
  
--static int xen_hvm_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
-+static int xen_hvm_setup_msi_irqs(struct msi_controller *ctrl,
-+		struct pci_dev *dev, int nvec, int type)
- {
- 	int irq, pirq;
- 	struct msi_desc *msidesc;
-@@ -267,7 +269,8 @@ error:
- #ifdef CONFIG_XEN_DOM0
- static bool __read_mostly pci_seg_supported = true;
++#ifdef CONFIG_PCI_MSI
++extern struct msi_controller ppc_msi_ctrl;
++#endif
++
+ /* These are used for config access before all the PCI probing
+    has been done. */
+ extern int early_read_config_byte(struct pci_controller *hose, int bus,
+diff --git a/arch/powerpc/kernel/msi.c b/arch/powerpc/kernel/msi.c
+index 71bd161..64a16f3 100644
+--- a/arch/powerpc/kernel/msi.c
++++ b/arch/powerpc/kernel/msi.c
+@@ -13,7 +13,15 @@
  
--static int xen_initdom_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
-+static int xen_initdom_setup_msi_irqs(struct msi_controller *ctrl,
-+		struct pci_dev *dev, int nvec, int type)
- {
- 	int ret = 0;
- 	struct msi_desc *msidesc;
-@@ -349,7 +352,8 @@ out:
- 	return ret;
- }
+ #include <asm/machdep.h>
  
--static void xen_initdom_restore_msi_irqs(struct pci_dev *dev)
-+static void xen_initdom_restore_msi_irqs(struct msi_controller *ctrl,
-+		struct pci_dev *dev)
- {
- 	int ret = 0;
- 
-@@ -376,7 +380,13 @@ static void xen_initdom_restore_msi_irqs(struct pci_dev *dev)
- }
- #endif
- 
--static void xen_teardown_msi_irqs(struct pci_dev *dev)
-+static void xen_teardown_msi_irq(struct msi_controller *ctrl, unsigned int irq)
+-int arch_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
++struct msi_controller *pcibios_msi_controller(struct pci_bus *bus)
 +{
-+	xen_destroy_irq(irq);
++	struct pci_controller *hose = bus->sysdata;
++
++	return hose->msi_ctrl;
 +}
 +
-+static void xen_teardown_msi_irqs(struct msi_controller *ctrl,
++static int ppc_setup_msi_irqs(struct msi_controller *ctrl,
++		struct pci_dev *dev, int nvec, int type)
+ {
+ 	if (!ppc_md.setup_msi_irqs || !ppc_md.teardown_msi_irqs) {
+ 		pr_debug("msi: Platform doesn't provide MSI callbacks.\n");
+@@ -27,7 +35,13 @@ int arch_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
+ 	return ppc_md.setup_msi_irqs(dev, nvec, type);
+ }
+ 
+-void arch_teardown_msi_irqs(struct pci_dev *dev)
++static void ppc_teardown_msi_irqs(struct msi_controller *ctrl,
 +		struct pci_dev *dev)
  {
- 	struct msi_desc *msidesc;
- 
-@@ -390,11 +400,7 @@ static void xen_teardown_msi_irqs(struct pci_dev *dev)
- 	default_teardown_msi_irqs(dev);
+ 	ppc_md.teardown_msi_irqs(dev);
  }
++
++struct msi_controller ppc_msi_ctrl = {
++	.setup_irqs = ppc_setup_msi_irqs,
++	.teardown_irqs = ppc_teardown_msi_irqs,
++};
+diff --git a/arch/powerpc/kernel/pci-common.c b/arch/powerpc/kernel/pci-common.c
+index e5dad9a..c3f28c5 100644
+--- a/arch/powerpc/kernel/pci-common.c
++++ b/arch/powerpc/kernel/pci-common.c
+@@ -1597,6 +1597,9 @@ void pcibios_scan_phb(struct pci_controller *hose)
+ 	/* Wire up PHB bus resources */
+ 	pcibios_setup_phb_resources(hose, &resources);
  
--static void xen_teardown_msi_irq(unsigned int irq)
--{
--	xen_destroy_irq(irq);
--}
--
-+struct msi_controller xen_msi_ctrl;
- #endif
- 
- int __init pci_xen_init(void)
-@@ -415,9 +421,10 @@ int __init pci_xen_init(void)
- #endif
- 
- #ifdef CONFIG_PCI_MSI
--	x86_msi.setup_msi_irqs = xen_setup_msi_irqs;
--	x86_msi.teardown_msi_irq = xen_teardown_msi_irq;
--	x86_msi.teardown_msi_irqs = xen_teardown_msi_irqs;
-+	xen_msi_ctrl.setup_irqs = xen_setup_msi_irqs;
-+	xen_msi_ctrl.teardown_irq = xen_teardown_msi_irq;
-+	xen_msi_ctrl.teardown_irqs = xen_teardown_msi_irqs;
-+	x86_msi_ctrl = &xen_msi_ctrl;
- 	pci_msi_ignore_mask = 1;
- #endif
- 	return 0;
-@@ -437,8 +444,9 @@ int __init pci_xen_hvm_init(void)
- #endif
- 
- #ifdef CONFIG_PCI_MSI
--	x86_msi.setup_msi_irqs = xen_hvm_setup_msi_irqs;
--	x86_msi.teardown_msi_irq = xen_teardown_msi_irq;
-+	xen_msi_ctrl.setup_irqs = xen_hvm_setup_msi_irqs;
-+	xen_msi_ctrl.teardown_irq = xen_teardown_msi_irq;
-+	x86_msi_ctrl = &xen_msi_ctrl;
- #endif
- 	return 0;
- }
-@@ -495,9 +503,10 @@ int __init pci_xen_initial_domain(void)
- 	int irq;
- 
- #ifdef CONFIG_PCI_MSI
--	x86_msi.setup_msi_irqs = xen_initdom_setup_msi_irqs;
--	x86_msi.teardown_msi_irq = xen_teardown_msi_irq;
--	x86_msi.restore_msi_irqs = xen_initdom_restore_msi_irqs;
-+	xen_msi_ctrl.setup_irqs = xen_initdom_setup_msi_irqs;
-+	xen_msi_ctrl.teardown_irq = xen_teardown_msi_irq;
-+	xen_msi_ctrl.restore_irqs = xen_initdom_restore_msi_irqs;
-+	x86_msi_ctrl = &xen_msi_ctrl;
- 	pci_msi_ignore_mask = 1;
- #endif
- 	xen_setup_acpi_sci();
++#ifdef CONFIG_PCI_MSI
++	hose->msi_ctrl = &ppc_msi_ctrl;
++#endif
+ 	hose->busn.start = hose->first_busno;
+ 	hose->busn.end	 = hose->last_busno;
+ 	hose->busn.flags = IORESOURCE_BUS;
 -- 
 1.7.1
 
