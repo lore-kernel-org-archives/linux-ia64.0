@@ -1,7 +1,7 @@
 From: Yijing Wang <wangyijing@huawei.com>
-Date: Mon, 27 Oct 2014 12:46:50 +0000
-Subject: [PATCH 02/16] x86/MSI: Use MSI controller framework to configure MSI/MSI-X irq
-Message-Id: <1414416142-31239-3-git-send-email-wangyijing@huawei.com>
+Date: Mon, 27 Oct 2014 12:44:47 +0000
+Subject: [PATCH 09/16] MIPS/Xlr/MSI: Use MSI controller framework to configure MSI/MSI-X irq
+Message-Id: <1414416142-31239-10-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1414416142-31239-1-git-send-email-wangyijing@huawei.com>
 In-Reply-To: <1414416142-31239-1-git-send-email-wangyijing@huawei.com>
@@ -16,101 +16,61 @@ MSI/MSI-X irq. So we can manage MSI/MSI-X irq in a unified framework.
 
 Signed-off-by: Yijing Wang <wangyijing@huawei.com>
 ---
- arch/x86/include/asm/pci.h     |    4 ++++
- arch/x86/kernel/apic/io_apic.c |   25 +++++++++++++++++++++++++
- arch/x86/pci/acpi.c            |    1 +
- arch/x86/pci/common.c          |    3 +++
- 4 files changed, 33 insertions(+), 0 deletions(-)
+ arch/mips/pci/pci-xlr.c |   17 +++++++++++++++--
+ 1 files changed, 15 insertions(+), 2 deletions(-)
 
-diff --git a/arch/x86/include/asm/pci.h b/arch/x86/include/asm/pci.h
-index 0892ea0..1af3d77 100644
---- a/arch/x86/include/asm/pci.h
-+++ b/arch/x86/include/asm/pci.h
-@@ -20,6 +20,9 @@ struct pci_sysdata {
- #ifdef CONFIG_X86_64
- 	void		*iommu;		/* IOMMU private data */
- #endif
+diff --git a/arch/mips/pci/pci-xlr.c b/arch/mips/pci/pci-xlr.c
+index 0dde803..1e43c70 100644
+--- a/arch/mips/pci/pci-xlr.c
++++ b/arch/mips/pci/pci-xlr.c
+@@ -149,6 +149,8 @@ static struct resource nlm_pci_io_resource = {
+ 	.flags		= IORESOURCE_IO,
+ };
+ 
++static struct msi_controller xlr_msi_ctrl;
++
+ struct pci_controller nlm_pci_controller = {
+ 	.index		= 0,
+ 	.pci_ops	= &nlm_pci_ops,
+@@ -156,6 +158,9 @@ struct pci_controller nlm_pci_controller = {
+ 	.mem_offset	= 0x00000000UL,
+ 	.io_resource	= &nlm_pci_io_resource,
+ 	.io_offset	= 0x00000000UL,
 +#ifdef CONFIG_PCI_MSI
-+	struct msi_controller *msi_ctrl;
++	.msi_ctrl = &xlr_msi_ctrl,
 +#endif
  };
  
- extern int pci_routeirq;
-@@ -101,6 +104,7 @@ void native_teardown_msi_irq(unsigned int irq);
- void native_restore_msi_irqs(struct pci_dev *dev);
- int setup_msi_irq(struct pci_dev *dev, struct msi_desc *msidesc,
- 		  unsigned int irq_base, unsigned int irq_offset);
-+extern struct msi_controller *x86_msi_ctrl;
- #else
- #define native_setup_msi_irqs		NULL
- #define native_teardown_msi_irq		NULL
-diff --git a/arch/x86/kernel/apic/io_apic.c b/arch/x86/kernel/apic/io_apic.c
-index 1183d54..8b8c671 100644
---- a/arch/x86/kernel/apic/io_apic.c
-+++ b/arch/x86/kernel/apic/io_apic.c
-@@ -3234,11 +3234,36 @@ int native_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
+ /*
+@@ -214,11 +219,13 @@ static int get_irq_vector(const struct pci_dev *dev)
+ }
+ 
+ #ifdef CONFIG_PCI_MSI
+-void arch_teardown_msi_irq(unsigned int irq)
++static void xlr_teardown_msi_irq(struct msi_controller *ctrl,
++		unsigned int irq)
+ {
+ }
+ 
+-int arch_setup_msi_irq(struct pci_dev *dev, struct msi_desc *desc)
++static int xlr_setup_msi_irq(struct msi_controller *ctrl,
++		struct pci_dev *dev, struct msi_desc *desc)
+ {
+ 	struct msi_msg msg;
+ 	struct pci_dev *lnk;
+@@ -263,6 +270,12 @@ int arch_setup_msi_irq(struct pci_dev *dev, struct msi_desc *desc)
+ 	write_msi_msg(irq, &msg);
  	return 0;
  }
- 
-+static int __native_setup_msi_irqs(struct msi_controller *ctrl,
-+		struct pci_dev *dev, int nvec, int type)
-+{
-+	return native_setup_msi_irqs(dev, nvec, type);
-+}
 +
- void native_teardown_msi_irq(unsigned int irq)
- {
- 	irq_free_hwirq(irq);
- }
- 
-+static void __native_teardown_msi_irq(struct msi_controller *ctrl,
-+		unsigned int irq)
-+{
-+	native_teardown_msi_irq(irq);
-+}
-+
-+static struct msi_controller native_msi_ctrl = {
-+	.setup_irqs = __native_setup_msi_irqs,
-+	.teardown_irq = __native_teardown_msi_irq,
++static struct msi_controller xlr_msi_ctrl = {
++	.setup_irq = xlr_setup_msi_irq,
++	.teardown_irq = xlr_teardown_msi_irq,
 +};
 +
-+struct msi_controller *pcibios_msi_controller(struct pci_bus *bus)
-+{
-+	struct pci_sysdata *sys = bus->sysdata;
-+
-+	return sys->msi_ctrl;
-+}
-+struct msi_controller *x86_msi_ctrl = &native_msi_ctrl;
-+
- #ifdef CONFIG_DMAR_TABLE
- static int
- dmar_msi_set_affinity(struct irq_data *data, const struct cpumask *mask,
-diff --git a/arch/x86/pci/acpi.c b/arch/x86/pci/acpi.c
-index cfd1b13..edb14dd 100644
---- a/arch/x86/pci/acpi.c
-+++ b/arch/x86/pci/acpi.c
-@@ -508,6 +508,7 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
+ #endif
  
- 	sd = &info->sd;
- 	sd->domain = domain;
-+	sd->msi_ctrl = x86_msi_ctrl;
- 	sd->node = node;
- 	sd->companion = device;
- 
-diff --git a/arch/x86/pci/common.c b/arch/x86/pci/common.c
-index 7b20bcc..4deb240 100644
---- a/arch/x86/pci/common.c
-+++ b/arch/x86/pci/common.c
-@@ -468,6 +468,9 @@ void pcibios_scan_root(int busnum)
- 		return;
- 	}
- 	sd->node = x86_pci_root_bus_node(busnum);
-+#ifdef CONFIG_PCI_MSI
-+	sd->msi_ctrl = x86_msi_ctrl;
-+#endif
- 	x86_pci_root_bus_resources(busnum, &resources);
- 	printk(KERN_DEBUG "PCI: Probing PCI hardware (bus %02x)\n", busnum);
- 	bus = pci_scan_root_bus(NULL, busnum, &pci_root_ops, sd, &resources);
+ /* Extra ACK needed for XLR on chip PCI controller */
 -- 
 1.7.1
 
