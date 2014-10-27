@@ -1,88 +1,54 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Mon, 27 Oct 2014 12:47:49 +0000
-Subject: [PATCH 08/16] MIPS/Xlp/MSI: Use MSI controller framework to configure MSI/MSI-X irq
-Message-Id: <1414416142-31239-9-git-send-email-wangyijing@huawei.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Date: Mon, 27 Oct 2014 15:55:45 +0000
+Subject: [PATCH v3 38/47] ia64: Register with kernel power-off handler
+Message-Id: <1414425354-10359-39-git-send-email-linux@roeck-us.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1414416142-31239-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1414416142-31239-1-git-send-email-wangyijing@huawei.com>
+References: <1414425354-10359-1-git-send-email-linux@roeck-us.net>
+In-Reply-To: <1414425354-10359-1-git-send-email-linux@roeck-us.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, xen-devel@lists.xenproject.org, Joerg Roedel <joro@8bytes.org>, iommu@lists.linux-foundation.org, linux-mips@linux-mips.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, Sebastian Ott <sebott@linux.vnet.ibm.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Chris Metcalf <cmetcalf@tilera.com>, Ralf Baechle <ralf@linux-mips.org>, Lucas Stach <l.stach@pengutronix.de>, David Vrabel <david.vrabel@citrix.com>, Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>, Michael Ellerman <mpe@ellerman.id.au>, Thierry Reding <thierry.reding@gmail.com>, Thomas Petazzoni <thomas.petazzoni@free-electrons.com>, Yijing Wang <wangyijing@huawei.com>
+To: linux-kernel@vger.kernel.org
+Cc: linux-pm@vger.kernel.org, Guenter Roeck <linux@roeck-us.net>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-Use MSI controller framework instead of arch MSI functions to configure
-MSI/MSI-X IRQ. So we can manage MSI/MSI-X irq in a unified framework.
+Register with kernel power-off handler instead of setting pm_power_off
+directly. Register with low priority to reflect that the call is expected
+to be replaced at some point in the future.
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 ---
- arch/mips/include/asm/netlogic/xlp-hal/pcibus.h |    1 +
- arch/mips/pci/msi-xlp.c                         |   11 +++++++++--
- arch/mips/pci/pci-xlp.c                         |    3 +++
- 3 files changed, 13 insertions(+), 2 deletions(-)
+v3:
+- Replace poweroff in all newly introduced variables and in text
+  with power_off or power-off as appropriate
+- Replace POWEROFF_PRIORITY_xxx with POWER_OFF_PRIORITY_xxx
+v2:
+- Use define to specify poweroff handler priority
 
-diff --git a/arch/mips/include/asm/netlogic/xlp-hal/pcibus.h b/arch/mips/include/asm/netlogic/xlp-hal/pcibus.h
-index 91540f4..8e6869a 100644
---- a/arch/mips/include/asm/netlogic/xlp-hal/pcibus.h
-+++ b/arch/mips/include/asm/netlogic/xlp-hal/pcibus.h
-@@ -103,6 +103,7 @@
+ arch/ia64/sn/kernel/setup.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/arch/ia64/sn/kernel/setup.c b/arch/ia64/sn/kernel/setup.c
+index 5f6b6b4..fc9905e 100644
+--- a/arch/ia64/sn/kernel/setup.c
++++ b/arch/ia64/sn/kernel/setup.c
+@@ -488,12 +488,13 @@ void __init sn_setup(char **cmdline_p)
+ 	sn_timer_init();
  
- #ifdef CONFIG_PCI_MSI
- void xlp_init_node_msi_irqs(int node, int link);
-+extern struct msi_controller xlp_msi_ctrl;
- #else
- static inline void xlp_init_node_msi_irqs(int node, int link) {}
- #endif
-diff --git a/arch/mips/pci/msi-xlp.c b/arch/mips/pci/msi-xlp.c
-index fa374fe..d18a162 100644
---- a/arch/mips/pci/msi-xlp.c
-+++ b/arch/mips/pci/msi-xlp.c
-@@ -245,7 +245,8 @@ static struct irq_chip xlp_msix_chip = {
- 	.irq_unmask	= unmask_msi_irq,
- };
- 
--void arch_teardown_msi_irq(unsigned int irq)
-+static void xlp_teardown_msi_irq(struct msi_controller *ctrl,
-+		unsigned int irq)
- {
+ 	/*
+-	 * set pm_power_off to a SAL call to allow
++	 * set power-off handler to a SAL call to allow
+ 	 * sn machines to power off. The SAL call can be replaced
+ 	 * by an ACPI interface call when ACPI is fully implemented
+ 	 * for sn.
+ 	 */
+-	pm_power_off = ia64_sn_power_down;
++	register_power_off_handler_simple(ia64_sn_power_down,
++					  POWER_OFF_PRIORITY_LOW);
+ 	current->thread.flags |= IA64_THREAD_MIGRATION;
  }
  
-@@ -452,7 +453,8 @@ static int xlp_setup_msix(uint64_t lnkbase, int node, int link,
- 	return 0;
- }
- 
--int arch_setup_msi_irq(struct pci_dev *dev, struct msi_desc *desc)
-+static int xlp_setup_msi_irq(struct msi_controller *ctrl,
-+		struct pci_dev *dev, struct msi_desc *desc)
- {
- 	struct pci_dev *lnkdev;
- 	uint64_t lnkbase;
-@@ -474,6 +476,11 @@ int arch_setup_msi_irq(struct pci_dev *dev, struct msi_desc *desc)
- 		return xlp_setup_msi(lnkbase, node, link, desc);
- }
- 
-+struct msi_controller xlp_msi_ctrl = {
-+	.setup_irq = xlp_setup_msi_irq,
-+	.teardown_irq = xlp_teardown_msi_irq,
-+};
-+
- void __init xlp_init_node_msi_irqs(int node, int link)
- {
- 	struct nlm_soc_info *nodep;
-diff --git a/arch/mips/pci/pci-xlp.c b/arch/mips/pci/pci-xlp.c
-index 7babf01..ab80417 100644
---- a/arch/mips/pci/pci-xlp.c
-+++ b/arch/mips/pci/pci-xlp.c
-@@ -174,6 +174,9 @@ struct pci_controller nlm_pci_controller = {
- 	.mem_offset	= 0x00000000UL,
- 	.io_resource	= &nlm_pci_io_resource,
- 	.io_offset	= 0x00000000UL,
-+#ifdef CONFIG_PCI_MSI
-+	.msi_ctrl = &xlp_msi_ctrl,
-+#endif
- };
- 
- struct pci_dev *xlp_get_pcie_link(const struct pci_dev *dev)
 -- 
-1.7.1
+1.9.1
 
