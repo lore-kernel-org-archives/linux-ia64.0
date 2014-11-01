@@ -1,78 +1,44 @@
-From: Paolo Bonzini <pbonzini@redhat.com>
-Date: Thu, 20 Nov 2014 13:49:41 +0000
-Subject: Re: [PATCH] KVM: ia64: remove
-Message-Id: <546DF175.7040009@redhat.com>
+From: Hans-Christian Egtvedt <egtvedt@samfundet.no>
+Date: Sat, 01 Nov 2014 10:16:37 +0000
+Subject: Re: [PATCH 33/44] avr32: atngw100: Register with kernel poweroff handler
+Message-Id: <20141101101637.GA5765@samfundet.no>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1416431143-31843-1-git-send-email-pbonzini@redhat.com> <20141120133809.GA30792@potion.brq.redhat.com>
-In-Reply-To: <20141120133809.GA30792@potion.brq.redhat.com>
+References: <1412659726-29957-1-git-send-email-linux@roeck-us.net>
+ <1412659726-29957-34-git-send-email-linux@roeck-us.net>
+In-Reply-To: <1412659726-29957-34-git-send-email-linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: =?UTF-8?B?UmFkaW0gS3LEjW3DocWZ?= <rkrcmar@redhat.com>
-Cc: linux-kernel@vger.kernel.org, kvm@vger.kernel.org, linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Guenter Roeck <linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, adi-buildroot-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, lguest-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-alpha-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-am33-list-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-cris-kernel-VrBV9hrLPhE@public.gmane.org, linux-efi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-hexagon-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-m32r-ja-rQhvJZKUsGBRYuoOT4C5/9i2O/JbrIOy@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org, openipmi-developer-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, user-mode-linux-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-c6x-dev-jPsnJVOj+W6hPH1hqNUYSQ@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-m68k-cunTk1MwBs8S/qaLPR03pWD2FQJk+8+b@public.gmane.org, linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, linux-parisc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-pm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org, Haavard
 
+Around Mon 06 Oct 2014 22:28:35 -0700 or thereabout, Guenter Roeck wrote:
+> Register with kernel poweroff handler instead of setting pm_power_off
+> directly.
+> 
+> Cc: Haavard Skinnemoen <hskinnemoen@gmail.com>
+> Cc: Hans-Christian Egtvedt <egtvedt@samfundet.no>
+> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 
+Acked-by: Hans-Christian Egtvedt <egtvedt@samfundet.no>
 
-On 20/11/2014 14:38, Radim Krčmář wrote:
-> I propose another removal.
-> (The reasoning below wasn't confirmed with ia64 compiler.
-> I'd remove the ioctls even if they worked.)
-
-Checked and applied, thanks.
-
-Paolo
-
-> ---8<---
-> KVM: remove buggy ia64 specific ioctls
-> 
-> IA64 is no longer present so new applications shouldn't use them.
-> 
-> The main problem is that they most likely didn't work even before,
-> because we have misused ioctl
-> 
->   #define KVM_SET_GUEST_DEBUG       _IOW(KVMIO,  0x9b, struct kvm_guest_debug)
->   #define KVM_IA64_VCPU_SET_STACK   _IOW(KVMIO,  0x9b, void *)
-> 
-> as
-> 
->   struct kvm_guest_debug {
->   	__u32 control;
->   	__u32 pad;
->   	struct kvm_guest_debug_arch arch;
->   };
-> 
-> and
-> 
->   struct kvm_guest_debug_arch {
->   };
-> 
-> mean that
-> 
->   sizeof(struct kvm_guest_debug) = sizeof(void *) = 8
-> 
-> thus
-> 
->   KVM_SET_GUEST_DEBUG = KVM_IA64_VCPU_SET_STACK
-> 
-> and KVM_SET_GUEST_DEBUG is handled before KVM_IA64_VCPU_SET_STACK.
-> 
-> Signed-off-by: Radim Krčmář <rkrcmar@redhat.com>
 > ---
->  include/uapi/linux/kvm.h | 3 ---
->  1 file changed, 3 deletions(-)
+>  arch/avr32/boards/atngw100/mrmt.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 > 
-> diff --git a/include/uapi/linux/kvm.h b/include/uapi/linux/kvm.h
-> index 6d59e5b..a37fd12 100644
-> --- a/include/uapi/linux/kvm.h
-> +++ b/include/uapi/linux/kvm.h
-> @@ -1099,9 +1099,6 @@ struct kvm_s390_ucas_mapping {
->  #define KVM_X86_SETUP_MCE         _IOW(KVMIO,  0x9c, __u64)
->  #define KVM_X86_GET_MCE_CAP_SUPPORTED _IOR(KVMIO,  0x9d, __u64)
->  #define KVM_X86_SET_MCE           _IOW(KVMIO,  0x9e, struct kvm_x86_mce)
-> -/* IA64 stack access */
-> -#define KVM_IA64_VCPU_GET_STACK   _IOR(KVMIO,  0x9a, void *)
-> -#define KVM_IA64_VCPU_SET_STACK   _IOW(KVMIO,  0x9b, void *)
->  /* Available with KVM_CAP_VCPU_EVENTS */
->  #define KVM_GET_VCPU_EVENTS       _IOR(KVMIO,  0x9f, struct kvm_vcpu_events)
->  #define KVM_SET_VCPU_EVENTS       _IOW(KVMIO,  0xa0, struct kvm_vcpu_events)
-> 
+> diff --git a/arch/avr32/boards/atngw100/mrmt.c b/arch/avr32/boards/atngw100/mrmt.c
+> index 91146b4..54d0c27 100644
+> --- a/arch/avr32/boards/atngw100/mrmt.c
+> +++ b/arch/avr32/boards/atngw100/mrmt.c
+> @@ -274,7 +274,7 @@ static int __init mrmt1_init(void)
+>  {
+>  	gpio_set_value( PIN_PWR_ON, 1 );	/* Ensure PWR_ON is enabled */
+>  
+> -	pm_power_off = mrmt_power_off;
+> +	register_poweroff_handler_simple(mrmt_power_off, 128);
+>  
+>  	/* Setup USARTS (other than console) */
+>  	at32_map_usart(2, 1, 0);	/* USART 2: /dev/ttyS1, RMT1:DB9M */
+-- 
+mvh
+Hans-Christian Egtvedt
