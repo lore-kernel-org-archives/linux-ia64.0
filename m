@@ -1,77 +1,56 @@
-From: Dave Hansen <dave@sr71.net>
-Date: Fri, 14 Nov 2014 15:18:19 +0000
-Subject: [PATCH 02/11] mpx: extend siginfo structure to include bound violation information
-Message-Id: <20141114151819.1908C900@viggo.jf.intel.com>
+From: Dave Hansen <dave.hansen@intel.com>
+Date: Mon, 03 Nov 2014 20:53:59 +0000
+Subject: Re: [PATCH v9 11/12] x86, mpx: cleanup unused bound tables
+Message-Id: <5457EB67.70904@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20141114151816.F56A3072@viggo.jf.intel.com>
-In-Reply-To: <20141114151816.F56A3072@viggo.jf.intel.com>
+References: <1413088915-13428-1-git-send-email-qiaowei.ren@intel.com> <1413088915-13428-12-git-send-email-qiaowei.ren@intel.com> <alpine.DEB.2.11.1410241451280.5308@nanos> <544DB873.1010207@intel.com> <alpine.DEB.2.11.1410272138540.5308@nanos>
+In-Reply-To: <alpine.DEB.2.11.1410272138540.5308@nanos>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: hpa@zytor.com
-Cc: tglx@linutronix.de, mingo@redhat.com, x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, qiaowei.ren@intel.com, Dave Hansen <dave@sr71.net>, dave.hansen@linux.intel.com
+To: Thomas Gleixner <tglx@linutronix.de>, Ren Qiaowei <qiaowei.ren@intel.com>
+Cc: "H. Peter Anvin" <hpa@zytor.com>, Ingo Molnar <mingo@redhat.com>, x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, Linux-MM <linux-mm@kvack.org>
 
+On 10/27/2014 01:49 PM, Thomas Gleixner wrote:
+> Errm. Before user space can use the bounds table for the new mapping
+> it needs to add the entries, right? So:
+> 
+> CPU 0					CPU 1
+> 
+> down_write(mm->bd_sem);
+> mpx_pre_unmap();
+>    clear bounds directory entries	
+> unmap();
+> 					map()
+> 					write_bounds_entry()
+> 					trap()
+> 					  down_read(mm->bd_sem);
+> mpx_post_unmap(); 
+> up_write(mm->bd_sem);
+> 					  allocate_bounds_table();
+> 
+> That's the whole point of bd_sem.
 
-From: Dave Hansen <dave.hansen@linux.intel.com>
+This does, indeed, seem to work for the normal munmap() cases.  However,
+take a look at shmdt().  We don't know the size of the segment being
+unmapped until after we acquire mmap_sem for write, so we wouldn't be
+able to do do a mpx_pre_unmap() for those.
 
+mremap() is similar.  We don't know if the area got expanded (and we
+don't need to modify bounds tables) or moved (and we need to free the
+old location's tables) until well after we've taken mmap_sem for write.
 
-This patch adds new fields about bound violation into siginfo
-structure. si_lower and si_upper are respectively lower bound
-and upper bound when bound violation is caused.
+I propose we keep mm->bd_sem.  But, I think we need to keep a list
+during each of the unmapping operations of VMAs that got unmapped, and
+then keep them on a list without freeing then.  At up_write() time, we
+look at the list, if it is empty, we just do an up_write() and we are done.
 
-Signed-off-by: Qiaowei Ren <qiaowei.ren@intel.com>
-Signed-off-by: Dave Hansen <dave.hansen@linux.intel.com>
----
+If *not* empty, downgrade_write(mm->mmap_sem), and do the work you
+spelled out in mpx_pre_unmap() above: clear the bounds directory entries
+and gather the VMAs while still holding mm->bd_sem for write.
 
- b/include/uapi/asm-generic/siginfo.h |    9 ++++++++-
- b/kernel/signal.c                    |    4 ++++
- 2 files changed, 12 insertions(+), 1 deletion(-)
-
-diff -puN include/uapi/asm-generic/siginfo.h~mpx-v11-mpx-extend-siginfo-structure-to-include-bound-violation-information include/uapi/asm-generic/siginfo.h
---- a/include/uapi/asm-generic/siginfo.h~mpx-v11-mpx-extend-siginfo-structure-to-include-bound-violation-information	2014-11-14 07:06:21.148558419 -0800
-+++ b/include/uapi/asm-generic/siginfo.h	2014-11-14 07:06:21.153558645 -0800
-@@ -91,6 +91,10 @@ typedef struct siginfo {
- 			int _trapno;	/* TRAP # which caused the signal */
- #endif
- 			short _addr_lsb; /* LSB of the reported address */
-+			struct {
-+				void __user *_lower;
-+				void __user *_upper;
-+			} _addr_bnd;
- 		} _sigfault;
- 
- 		/* SIGPOLL */
-@@ -131,6 +135,8 @@ typedef struct siginfo {
- #define si_trapno	_sifields._sigfault._trapno
- #endif
- #define si_addr_lsb	_sifields._sigfault._addr_lsb
-+#define si_lower	_sifields._sigfault._addr_bnd._lower
-+#define si_upper	_sifields._sigfault._addr_bnd._upper
- #define si_band		_sifields._sigpoll._band
- #define si_fd		_sifields._sigpoll._fd
- #ifdef __ARCH_SIGSYS
-@@ -199,7 +205,8 @@ typedef struct siginfo {
-  */
- #define SEGV_MAPERR	(__SI_FAULT|1)	/* address not mapped to object */
- #define SEGV_ACCERR	(__SI_FAULT|2)	/* invalid permissions for mapped object */
--#define NSIGSEGV	2
-+#define SEGV_BNDERR	(__SI_FAULT|3)  /* failed address bound checks */
-+#define NSIGSEGV	3
- 
- /*
-  * SIGBUS si_codes
-diff -puN kernel/signal.c~mpx-v11-mpx-extend-siginfo-structure-to-include-bound-violation-information kernel/signal.c
---- a/kernel/signal.c~mpx-v11-mpx-extend-siginfo-structure-to-include-bound-violation-information	2014-11-14 07:06:21.150558509 -0800
-+++ b/kernel/signal.c	2014-11-14 07:06:21.155558734 -0800
-@@ -2748,6 +2748,10 @@ int copy_siginfo_to_user(siginfo_t __use
- 		if (from->si_code = BUS_MCEERR_AR || from->si_code = BUS_MCEERR_AO)
- 			err |= __put_user(from->si_addr_lsb, &to->si_addr_lsb);
- #endif
-+#ifdef SEGV_BNDERR
-+		err |= __put_user(from->si_lower, &to->si_lower);
-+		err |= __put_user(from->si_upper, &to->si_upper);
-+#endif
- 		break;
- 	case __SI_CHLD:
- 		err |= __put_user(from->si_pid, &to->si_pid);
-_
+Here's the other wrinkle: This would invert the ->bd_sem vs. ->mmap_sem
+ordering (bd_sem nests outside mmap_sem with the above scheme).  We
+_could_ always acquire bd_sem for write whenever mmap_sem is acquired,
+although that seems a bit heavyweight.  I can't think of anything better
+at the moment, though.
