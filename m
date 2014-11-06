@@ -1,84 +1,58 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Mon, 17 Nov 2014 09:43:37 +0000
-Subject: [RFC PATCH 10/16] PCI: Add of_scan_bus() to pci_host_info
-Message-Id: <1416219710-26088-11-git-send-email-wangyijing@huawei.com>
+From: Guenter Roeck <linux@roeck-us.net>
+Date: Thu, 06 Nov 2014 16:43:22 +0000
+Subject: [PATCH v5 38/48] ia64: Register with kernel power-off handler
+Message-Id: <1415292213-28652-39-git-send-email-linux@roeck-us.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1416219710-26088-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1416219710-26088-1-git-send-email-wangyijing@huawei.com>
+References: <1415292213-28652-1-git-send-email-linux@roeck-us.net>
+In-Reply-To: <1415292213-28652-1-git-send-email-linux@roeck-us.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Thierry Reding <thierry.reding@gmail.com>, Liviu Dudau <liviu@dudau.co.uk>, Suravee.Suthikulpanit@amd.com, Yijing Wang <wangyijing@huawei.com>
+To: linux-kernel@vger.kernel.org
+Cc: linux-pm@vger.kernel.org, Guenter Roeck <linux@roeck-us.net>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-Add of_scan_bus() to support some platforms
-scan bus by of_node.
+Register with kernel power-off handler instead of setting pm_power_off
+directly. Register with low priority to reflect that the call is expected
+to be replaced at some point in the future.
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 ---
- drivers/pci/host-bridge.c |    1 +
- drivers/pci/probe.c       |   10 +++++++---
- include/linux/pci.h       |    3 +++
- 3 files changed, 11 insertions(+), 3 deletions(-)
+v5:
+- Rebase to v3.18-rc3
+v4:
+- No change
+v3:
+- Replace poweroff in all newly introduced variables and in text
+  with power_off or power-off as appropriate
+- Replace POWEROFF_PRIORITY_xxx with POWER_OFF_PRIORITY_xxx
+v2:
+- Use define to specify poweroff handler priority
 
-diff --git a/drivers/pci/host-bridge.c b/drivers/pci/host-bridge.c
-index 872cae1..1a1f81b 100644
---- a/drivers/pci/host-bridge.c
-+++ b/drivers/pci/host-bridge.c
-@@ -52,6 +52,7 @@ struct pci_host_bridge *pci_create_host_bridge(
- 		return NULL;
+ arch/ia64/sn/kernel/setup.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/arch/ia64/sn/kernel/setup.c b/arch/ia64/sn/kernel/setup.c
+index 5f6b6b4..fc9905e 100644
+--- a/arch/ia64/sn/kernel/setup.c
++++ b/arch/ia64/sn/kernel/setup.c
+@@ -488,12 +488,13 @@ void __init sn_setup(char **cmdline_p)
+ 	sn_timer_init();
  
- 	host->sysdata = info->arg;
-+	host->node = info->node;
- 	host->busnum = PCI_BUSNUM(db);
- 	host->domain = PCI_DOMAIN(db);
- 	host->ops = ops;
-diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
-index 42158fd..2729c41 100644
---- a/drivers/pci/probe.c
-+++ b/drivers/pci/probe.c
-@@ -2126,9 +2126,13 @@ struct pci_host_bridge *pci_scan_host_bridge(
- 		pci_bus_insert_busn_res(host->bus, host->busnum, 255);
- 	}
+ 	/*
+-	 * set pm_power_off to a SAL call to allow
++	 * set power-off handler to a SAL call to allow
+ 	 * sn machines to power off. The SAL call can be replaced
+ 	 * by an ACPI interface call when ACPI is fully implemented
+ 	 * for sn.
+ 	 */
+-	pm_power_off = ia64_sn_power_down;
++	register_power_off_handler_simple(ia64_sn_power_down,
++					  POWER_OFF_PRIORITY_LOW);
+ 	current->thread.flags |= IA64_THREAD_MIGRATION;
+ }
  
--	max = pci_scan_child_bus(host->bus);
--	if (!found)
--		pci_bus_update_busn_res_end(host->bus, max);
-+	if (info->of_scan_bus) {
-+		info->of_scan_bus(host);
-+	} else {
-+		max = pci_scan_child_bus(host->bus);
-+		if (!found)
-+			pci_bus_update_busn_res_end(host->bus, max);
-+	}
- 
- 	return host;
- 
-diff --git a/include/linux/pci.h b/include/linux/pci.h
-index af1ee86..c4f4438 100644
---- a/include/linux/pci.h
-+++ b/include/linux/pci.h
-@@ -407,6 +407,7 @@ struct pci_host_bridge {
- 	int busnum;
- 	int domain;
- 	void *sysdata;
-+	struct device_node *node;
- 	struct pci_ops *ops;
- 	struct msi_controller *(*get_msi_ctrl)(struct pci_dev *pdev);
- 	void (*release_fn)(struct pci_host_bridge *);
-@@ -416,10 +417,12 @@ struct pci_host_bridge {
- struct pci_host_info {
- 	u8 res_type;
- 	void *arg;
-+	struct device_node *node;
- 	struct list_head *resources; /*just for build, will clean up later */
- 	struct msi_controller *(*get_msi_ctrl)(struct pci_dev *pdev);
- 	int (*init_res)(struct pci_host_bridge *host, 
- 			struct pci_host_info *info);
-+	void (*of_scan_bus)(struct pci_host_bridge *host);
- };
- 
- static inline void init_pci_host_info(struct pci_host_info *info)
 -- 
-1.7.1
+1.9.1
 
