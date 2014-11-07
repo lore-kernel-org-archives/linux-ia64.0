@@ -1,60 +1,80 @@
-From: Ulf Hansson <ulf.hansson@linaro.org>
-Date: Fri, 14 Nov 2014 07:30:01 +0000
-Subject: Re: [PATCH] PM / Runtime: Kconfig: move ia64 dependency to arch/ia64/Kconfig
-Message-Id: <CAPDyKFraCAVKL8cas79p_K6g-mbu-BuSPUqF0jfMw2Rz3DBrRQ@mail.gmail.com>
+From: support2341@millionaire.com
+Date: Fri, 07 Nov 2014 17:58:17 +0000
+Subject: A recommendation from Support
+Message-Id: <20141107175817.E99F8157977@vps91566031.123-vps.co.uk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1415917702-6742-1-git-send-email-khilman@kernel.org>
-In-Reply-To: <1415917702-6742-1-git-send-email-khilman@kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Kevin Hilman <khilman@kernel.org>
-Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>, Geert Uytterhoeven <geert+renesas@glider.be>, "linux-pm@vger.kernel.org" <linux-pm@vger.kernel.org>, linaro-kernel <linaro-kernel@lists.linaro.org>, Kevin Hilman <khilman@linaro.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Pavel Machek <pavel@ucw.cz>, Len Brown <len.brown@intel.com>, "open list:IA64 (Itanium) PL..." <linux-ia64@vger.kernel.org>, open list <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: quoted-printable
+To: linux-ia64@vger.kernel.org
 
-On 13 November 2014 23:28, Kevin Hilman <khilman@kernel.org> wrote:
-> From: Kevin Hilman <khilman@linaro.org>
->
-> The IA64_HP_SIM dependency on PM_RUNTIME should be done in the arch
-> Kconfig instead of in the PM core.  Move it accordingly.
->
-> NOTE: arch/ia64/Kconfig currently does a 'select PM', which since
-> commit 1eb208aea317 (PM: Make CONFIG_PM depend on (CONFIG_PM_SLEEP ||
-> CONFIG_PM_RUNTIME)) is effectively a noop unless PM_SLEEP or
-> PM_RUNTIME are set elsewhere.
->
-> Signed-off-by: Kevin Hilman <khilman@linaro.org>
 
-Reviewed-by: Ulf Hansson <ulf.hansson@linaro.org>
+Hello,
 
-> ---
->  arch/ia64/Kconfig    | 1 +
->  kernel/power/Kconfig | 1 -
->  2 files changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-> index c84c88bbbbd7..55bc92ca2ce6 100644
-> --- a/arch/ia64/Kconfig
-> +++ b/arch/ia64/Kconfig
-> @@ -233,6 +233,7 @@ config IA64_SGI_UV
->  config IA64_HP_SIM
->         bool "Ski-simulator"
->         select SWIOTLB
-> +       depends on !PM_RUNTIME
->
->  endchoice
->
-> diff --git a/kernel/power/Kconfig b/kernel/power/Kconfig
-> index bbef57f5bdfd..3d39cc0228e9 100644
-> --- a/kernel/power/Kconfig
-> +++ b/kernel/power/Kconfig
-> @@ -131,7 +131,6 @@ config PM_WAKELOCKS_GC
->
->  config PM_RUNTIME
->         bool "Run-time PM core functionality"
-> -       depends on !IA64_HP_SIM
->         ---help---
->           Enable functionality allowing I/O devices to be put into energy-saving
->           (low power) states at run time (or autosuspended) after a specified
-> --
-> 2.1.3
->
+Hey Friend,
+
+As you know, I=92m always on the lookout for=20
+real ways to make decent money.      =20
+                                                    =20
+Not just a measly $20 or $30 a day; I mean real money.=20
+
+$20,000 or $30,000 A DAY?!?! Now THAT is=85
+
+DAMN GOOD REAL MONEY!
+
+His 6 figure bank accounts now are a pretty good=20
+indicator that Trevor Haynes has figured it out.
+
+Check this out -  http://tinyurl.com/ko7bljk
+
+The Millionaire Money Machine has nothing to do with=20
+eBooks, websites, T-shirts, MLM, gambling, writing,=20
+flipping sites or any of that.
+
+THIS isn=92t about making ten buck here or there.=20
+
+It=92s about making TENS OF THOUSANDS DAILY.
+
+You=92ll meet one Millionaire Money Machine user who=20
+banked over $30K overnight=85=20
+
+While he was asleep!
+
+Take a look -  http://tinyurl.com/ko7bljk =20
+
+For a VERY LIMITED number, Haynes is giving away his=20
+Millionaire Money Machine. No strings, No BS.
+
+But DO NOT WAIT on this!
+
+Check it out here:
+
+-  http://tinyurl.com/ko7bljk
+
+
+
+
+
+
+
+
+
+NOTE: If your email account doesn't automatically turn the URL above into a=
+ link,=20
+      you can copy and paste it into your browser.              =20
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+If the link is broken please use this: http://nikkanares.mmmachine.cpa.clic=
+ksure.com  =20
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+
+
+Click below to view the webpage that your friend has recommended:
+
+
+Support has used the Tell-a-Friend form to send you this link.
+
+We look forward to your visit!
+
+
