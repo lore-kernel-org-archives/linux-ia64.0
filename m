@@ -1,8 +1,10 @@
 From: support2341@millionaire.com
-Date: Fri, 07 Nov 2014 17:58:17 +0000
+Date: Mon, 10 Nov 2014 05:55:48 +0000
 Subject: A recommendation from Support
-Message-Id: <20141107175817.E99F8157977@vps91566031.123-vps.co.uk>
+Message-Id: <20141110055548.31A675204E@vps91566031.123-vps.co.uk>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20141107175817.E99F8157977@vps91566031.123-vps.co.uk>
+In-Reply-To: <20141107175817.E99F8157977@vps91566031.123-vps.co.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: quoted-printable
