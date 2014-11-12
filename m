@@ -1,10 +1,10 @@
 From: Dave Hansen <dave@sr71.net>
-Date: Fri, 14 Nov 2014 15:18:20 +0000
-Subject: [PATCH 03/11] mips: sync struct siginfo with general version
-Message-Id: <20141114151820.F7EDC3CC@viggo.jf.intel.com>
+Date: Wed, 12 Nov 2014 17:04:56 +0000
+Subject: [PATCH 04/11] ia64: sync struct siginfo with general version
+Message-Id: <20141112170456.AD302D1B@viggo.jf.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20141114151816.F56A3072@viggo.jf.intel.com>
-In-Reply-To: <20141114151816.F56A3072@viggo.jf.intel.com>
+References: <20141112170443.B4BD0899@viggo.jf.intel.com>
+In-Reply-To: <20141112170443.B4BD0899@viggo.jf.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -17,28 +17,40 @@ From: Dave Hansen <dave.hansen@linux.intel.com>
 
 New fields about bound violation are added into general struct
 siginfo. This will impact MIPS and IA64, which extend general
-struct siginfo. This patch syncs this struct for MIPS with
+struct siginfo. This patch syncs this struct for IA64 with
 general version.
 
 Signed-off-by: Qiaowei Ren <qiaowei.ren@intel.com>
 Signed-off-by: Dave Hansen <dave.hansen@linux.intel.com>
 ---
 
- b/arch/mips/include/uapi/asm/siginfo.h |    4 ++++
- 1 file changed, 4 insertions(+)
+ b/arch/ia64/include/uapi/asm/siginfo.h |    8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
 
-diff -puN arch/mips/include/uapi/asm/siginfo.h~mpx-v11-mips-sync-struct-siginfo-with-general-version arch/mips/include/uapi/asm/siginfo.h
---- a/arch/mips/include/uapi/asm/siginfo.h~mpx-v11-mips-sync-struct-siginfo-with-general-version	2014-11-14 07:06:21.551576596 -0800
-+++ b/arch/mips/include/uapi/asm/siginfo.h	2014-11-14 07:06:21.554576731 -0800
-@@ -92,6 +92,10 @@ typedef struct siginfo {
- 			int _trapno;	/* TRAP # which caused the signal */
- #endif
- 			short _addr_lsb;
+diff -puN arch/ia64/include/uapi/asm/siginfo.h~2014-10-14-08_12-ia64-sync-struct-siginfo-with-general-version arch/ia64/include/uapi/asm/siginfo.h
+--- a/arch/ia64/include/uapi/asm/siginfo.h~2014-10-14-08_12-ia64-sync-struct-siginfo-with-general-version	2014-11-12 08:49:24.584830328 -0800
++++ b/arch/ia64/include/uapi/asm/siginfo.h	2014-11-12 08:49:24.587830463 -0800
+@@ -63,6 +63,10 @@ typedef struct siginfo {
+ 			unsigned int _flags;	/* see below */
+ 			unsigned long _isr;	/* isr */
+ 			short _addr_lsb;	/* lsb of faulting address */
 +			struct {
 +				void __user *_lower;
 +				void __user *_upper;
 +			} _addr_bnd;
  		} _sigfault;
  
- 		/* SIGPOLL, SIGXFSZ (To do ...)	 */
+ 		/* SIGPOLL */
+@@ -110,9 +114,9 @@ typedef struct siginfo {
+ /*
+  * SIGSEGV si_codes
+  */
+-#define __SEGV_PSTKOVF	(__SI_FAULT|3)	/* paragraph stack overflow */
++#define __SEGV_PSTKOVF	(__SI_FAULT|4)	/* paragraph stack overflow */
+ #undef NSIGSEGV
+-#define NSIGSEGV	3
++#define NSIGSEGV	4
+ 
+ #undef NSIGTRAP
+ #define NSIGTRAP	4
 _
