@@ -1,82 +1,44 @@
-From: support2341@millionaire.com
-Date: Mon, 10 Nov 2014 05:55:48 +0000
-Subject: A recommendation from Support
-Message-Id: <20141110055548.31A675204E@vps91566031.123-vps.co.uk>
+From: Dave Hansen <dave@sr71.net>
+Date: Wed, 12 Nov 2014 17:04:53 +0000
+Subject: [PATCH 03/11] mips: sync struct siginfo with general version
+Message-Id: <20141112170453.04589D81@viggo.jf.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20141107175817.E99F8157977@vps91566031.123-vps.co.uk>
-In-Reply-To: <20141107175817.E99F8157977@vps91566031.123-vps.co.uk>
+References: <20141112170443.B4BD0899@viggo.jf.intel.com>
+In-Reply-To: <20141112170443.B4BD0899@viggo.jf.intel.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
-To: linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: hpa@zytor.com
+Cc: tglx@linutronix.de, mingo@redhat.com, x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, qiaowei.ren@intel.com, Dave Hansen <dave@sr71.net>, dave.hansen@linux.intel.com
 
 
-Hello,
-
-Hey Friend,
-
-As you know, I=92m always on the lookout for=20
-real ways to make decent money.      =20
-                                                    =20
-Not just a measly $20 or $30 a day; I mean real money.=20
-
-$20,000 or $30,000 A DAY?!?! Now THAT is=85
-
-DAMN GOOD REAL MONEY!
-
-His 6 figure bank accounts now are a pretty good=20
-indicator that Trevor Haynes has figured it out.
-
-Check this out -  http://tinyurl.com/ko7bljk
-
-The Millionaire Money Machine has nothing to do with=20
-eBooks, websites, T-shirts, MLM, gambling, writing,=20
-flipping sites or any of that.
-
-THIS isn=92t about making ten buck here or there.=20
-
-It=92s about making TENS OF THOUSANDS DAILY.
-
-You=92ll meet one Millionaire Money Machine user who=20
-banked over $30K overnight=85=20
-
-While he was asleep!
-
-Take a look -  http://tinyurl.com/ko7bljk =20
-
-For a VERY LIMITED number, Haynes is giving away his=20
-Millionaire Money Machine. No strings, No BS.
-
-But DO NOT WAIT on this!
-
-Check it out here:
-
--  http://tinyurl.com/ko7bljk
+From: Dave Hansen <dave.hansen@linux.intel.com>
 
 
+New fields about bound violation are added into general struct
+siginfo. This will impact MIPS and IA64, which extend general
+struct siginfo. This patch syncs this struct for MIPS with
+general version.
 
+Signed-off-by: Qiaowei Ren <qiaowei.ren@intel.com>
+Signed-off-by: Dave Hansen <dave.hansen@linux.intel.com>
+---
 
+ b/arch/mips/include/uapi/asm/siginfo.h |    4 ++++
+ 1 file changed, 4 insertions(+)
 
-
-
-
-
-NOTE: If your email account doesn't automatically turn the URL above into a=
- link,=20
-      you can copy and paste it into your browser.              =20
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-If the link is broken please use this: http://nikkanares.mmmachine.cpa.clic=
-ksure.com  =20
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-
-
-Click below to view the webpage that your friend has recommended:
-
-
-Support has used the Tell-a-Friend form to send you this link.
-
-We look forward to your visit!
-
-
+diff -puN arch/mips/include/uapi/asm/siginfo.h~2014-10-14-07_12-mips-sync-struct-siginfo-with-general-version arch/mips/include/uapi/asm/siginfo.h
+--- a/arch/mips/include/uapi/asm/siginfo.h~2014-10-14-07_12-mips-sync-struct-siginfo-with-general-version	2014-11-12 08:49:24.242814903 -0800
++++ b/arch/mips/include/uapi/asm/siginfo.h	2014-11-12 08:49:24.245815038 -0800
+@@ -92,6 +92,10 @@ typedef struct siginfo {
+ 			int _trapno;	/* TRAP # which caused the signal */
+ #endif
+ 			short _addr_lsb;
++			struct {
++				void __user *_lower;
++				void __user *_upper;
++			} _addr_bnd;
+ 		} _sigfault;
+ 
+ 		/* SIGPOLL, SIGXFSZ (To do ...)	 */
+_
