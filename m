@@ -1,145 +1,101 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Mon, 17 Nov 2014 09:43:00 +0000
-Subject: [RFC PATCH 15/16] arm/PCI: Use pci_scan_host_bridge() instead of pci_scan_root_bus()
-Message-Id: <1416219710-26088-16-git-send-email-wangyijing@huawei.com>
+From: Liviu Dudau <Liviu.Dudau@arm.com>
+Date: Thu, 13 Nov 2014 18:39:43 +0000
+Subject: [PATCH] ia64: Be consistent in the type of the PCI_CONTROLLER() macro argument.
+Message-Id: <1415903983-32588-1-git-send-email-Liviu.Dudau@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1416219710-26088-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1416219710-26088-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Thierry Reding <thierry.reding@gmail.com>, Liviu Dudau <liviu@dudau.co.uk>, Suravee.Suthikulpanit@amd.com, Yijing Wang <wangyijing@huawei.com>
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: Bjorn Helgaas <bhelgaas@google.com>, Aaron Lu <aaron.lu@intel.com>, Jiang Liu <jiang.liu@linux.intel.com>, Mika Westerberg <mika.westerberg@linux.intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+PCI_CONTROLLER() macro in include/asm/pci.h expects an argument "busdev"
+which implies a 'struct pci_bus *' type of variable (or at least that
+is the type of most of the invocations). Correct the cases where the
+macro is called with a 'struct pci_dev *' variable as argument.
+
+Signed-off-by: Liviu Dudau <Liviu.Dudau@arm.com>
 ---
- arch/arm/include/asm/mach/pci.h |    1 +
- arch/arm/kernel/bios32.c        |   52 +++++++++++++++++++++++---------------
- 2 files changed, 32 insertions(+), 21 deletions(-)
+ arch/ia64/hp/common/sba_iommu.c    | 2 +-
+ arch/ia64/sn/kernel/io_acpi_init.c | 9 +++++----
+ arch/ia64/sn/kernel/io_common.c    | 2 +-
+ arch/ia64/sn/kernel/io_init.c      | 2 +-
+ 4 files changed, 8 insertions(+), 7 deletions(-)
 
-diff --git a/arch/arm/include/asm/mach/pci.h b/arch/arm/include/asm/mach/pci.h
-index 370b3bd..a26eb3a 100644
---- a/arch/arm/include/asm/mach/pci.h
-+++ b/arch/arm/include/asm/mach/pci.h
-@@ -46,6 +46,7 @@ struct hw_pci {
- struct pci_sys_data {
- 	struct list_head node;
- 	int		busnr;		/* primary bus number			*/
-+	u8		nr;
- 	u64		mem_offset;	/* bus->cpu memory mapping offset	*/
- 	unsigned long	io_offset;	/* bus->cpu IO mapping offset		*/
- 	struct pci_bus	*bus;		/* PCI bus				*/
-diff --git a/arch/arm/kernel/bios32.c b/arch/arm/kernel/bios32.c
-index 3fe56f1..535d7ec 100644
---- a/arch/arm/kernel/bios32.c
-+++ b/arch/arm/kernel/bios32.c
-@@ -426,33 +426,41 @@ static int pcibios_map_irq(const struct pci_dev *dev, u8 slot, u8 pin)
- 	return irq;
- }
+diff --git a/arch/ia64/hp/common/sba_iommu.c b/arch/ia64/hp/common/sba_iommu.c
+index 344387a..fb5b085 100644
+--- a/arch/ia64/hp/common/sba_iommu.c
++++ b/arch/ia64/hp/common/sba_iommu.c
+@@ -256,7 +256,7 @@ static u64 prefetch_spill_page;
  
--static int pcibios_init_resources(int busnr, struct pci_sys_data *sys)
-+static int pcibios_init_resources(struct pci_host_bridge *host,
-+		struct pci_host_info *info)
- {
- 	int ret;
--	struct pci_host_bridge_window *window;
-+	struct pci_sys_data *sys = info->arg;
-+	struct pci_host_bridge_window *window, *n;
+ #ifdef CONFIG_PCI
+ # define GET_IOC(dev)	((dev_is_pci(dev))						\
+-			 ? ((struct ioc *) PCI_CONTROLLER(to_pci_dev(dev))->iommu) : NULL)
++			 ? ((struct ioc *) PCI_CONTROLLER((to_pci_dev(dev))->bus)->iommu) : NULL)
+ #else
+ # define GET_IOC(dev)	NULL
+ #endif
+diff --git a/arch/ia64/sn/kernel/io_acpi_init.c b/arch/ia64/sn/kernel/io_acpi_init.c
+index 0640739..426ea8e 100644
+--- a/arch/ia64/sn/kernel/io_acpi_init.c
++++ b/arch/ia64/sn/kernel/io_acpi_init.c
+@@ -358,18 +358,19 @@ sn_acpi_get_pcidev_info(struct pci_dev *dev, struct pcidev_info **pcidev_info,
+ 	acpi_handle rootbus_handle;
+ 	unsigned long long segment;
+ 	acpi_status status;
++	struct pci_bus *bus = dev->bus;
+ 	struct acpi_buffer name_buffer = { ACPI_ALLOCATE_BUFFER, NULL };
  
- 	if (list_empty(&sys->resources)) {
--		pci_add_resource_offset(&sys->resources,
-+		pci_add_resource_offset(&host->windows,
- 			 &iomem_resource, sys->mem_offset);
-+	} else {
-+		list_for_each_entry_safe(window, n,
-+				&sys->resources, list) {
-+			list_move_tail(&window->list,
-+					&host->windows);
-+		}
- 	}
- 
--	list_for_each_entry(window, &sys->resources, list) {
-+	list_for_each_entry(window, &host->windows, list) {
- 		if (resource_type(window->res) = IORESOURCE_IO)
- 			return 0;
- 	}
- 
--	sys->io_res.start = (busnr * SZ_64K) ?  : pcibios_min_io;
--	sys->io_res.end = (busnr + 1) * SZ_64K - 1;
-+	sys->io_res.start = (sys->nr * SZ_64K) ?  : pcibios_min_io;
-+	sys->io_res.end = (sys->nr + 1) * SZ_64K - 1;
- 	sys->io_res.flags = IORESOURCE_IO;
- 	sys->io_res.name = sys->io_res_name;
--	sprintf(sys->io_res_name, "PCI%d I/O", busnr);
-+	sprintf(sys->io_res_name, "PCI%d I/O", sys->nr);
- 
- 	ret = request_resource(&ioport_resource, &sys->io_res);
- 	if (ret) {
- 		pr_err("PCI: unable to allocate I/O port region (%d)\n", ret);
- 		return ret;
- 	}
--	pci_add_resource_offset(&sys->resources, &sys->io_res,
-+	pci_add_resource_offset(&host->windows, &sys->io_res,
- 				sys->io_offset);
- 
+-	rootbus_handle = acpi_device_handle(PCI_CONTROLLER(dev)->companion);
++	rootbus_handle = acpi_device_handle(PCI_CONTROLLER(bus)->companion);
+         status = acpi_evaluate_integer(rootbus_handle, METHOD_NAME__SEG, NULL,
+                                        &segment);
+         if (ACPI_SUCCESS(status)) {
+-		if (segment != pci_domain_nr(dev)) {
++		if (segment != pci_domain_nr(bus)) {
+ 			acpi_get_name(rootbus_handle, ACPI_FULL_PATHNAME,
+ 				&name_buffer);
+ 			printk(KERN_ERR
+ 			       "%s: Segment number mismatch, 0x%llx vs 0x%x for: %s\n",
+-			       __func__, segment, pci_domain_nr(dev),
++			       __func__, segment, pci_domain_nr(bus),
+ 			       (char *)name_buffer.pointer);
+ 			kfree(name_buffer.pointer);
+ 			return 1;
+@@ -407,7 +408,7 @@ sn_acpi_get_pcidev_info(struct pci_dev *dev, struct pcidev_info **pcidev_info,
+ 	/* Build up the pcidev_info.pdi_slot_host_handle */
+ 	host_devfn = get_host_devfn(pcidev_match.handle, rootbus_handle);
+ 	(*pcidev_info)->pdi_slot_host_handle -			((unsigned long) pci_domain_nr(dev) << 40) |
++			((unsigned long) pci_domain_nr(bus) << 40) |
+ 					/* bus = 0 */
+ 					host_devfn;
  	return 0;
-@@ -462,8 +470,9 @@ static void pcibios_init_hw(struct device *parent, struct hw_pci *hw,
- 			    struct list_head *head)
- {
- 	struct pci_sys_data *sys = NULL;
--	int ret;
--	int nr, busnr;
-+	int ret, nr, busnr, domain;
-+	struct pci_host_bridge *host;
-+	struct pci_host_info info;
+diff --git a/arch/ia64/sn/kernel/io_common.c b/arch/ia64/sn/kernel/io_common.c
+index 11f2275..e7d5d07 100644
+--- a/arch/ia64/sn/kernel/io_common.c
++++ b/arch/ia64/sn/kernel/io_common.c
+@@ -108,7 +108,7 @@ sn_pcidev_info_get(struct pci_dev *dev)
+ 	struct pcidev_info *pcidev;
  
- 	for (nr = busnr = 0; nr < hw->nr_controllers; nr++) {
- 		sys = kzalloc(sizeof(struct pci_sys_data), GFP_KERNEL);
-@@ -471,6 +480,7 @@ static void pcibios_init_hw(struct device *parent, struct hw_pci *hw,
- 			panic("PCI: unable to allocate sys data!");
+ 	list_for_each_entry(pcidev,
+-			    &(SN_PLATFORM_DATA(dev)->pcidev_info), pdi_list) {
++			    &(SN_PLATFORM_DATA(dev->bus)->pcidev_info), pdi_list) {
+ 		if (pcidev->pdi_linux_pcidev = dev)
+ 			return pcidev;
+ 	}
+diff --git a/arch/ia64/sn/kernel/io_init.c b/arch/ia64/sn/kernel/io_init.c
+index 0b5ce82..eaff214 100644
+--- a/arch/ia64/sn/kernel/io_init.c
++++ b/arch/ia64/sn/kernel/io_init.c
+@@ -164,7 +164,7 @@ sn_io_slot_fixup(struct pci_dev *dev)
+ 		panic("%s: Unable to alloc memory for sn_irq_info", __func__);
  
- 		sys->busnr   = busnr;
-+		sys->nr		 = nr;
- 		sys->swizzle = hw->swizzle;
- 		sys->map_irq = hw->map_irq;
- 		sys->align_resource = hw->align_resource;
-@@ -482,25 +492,25 @@ static void pcibios_init_hw(struct device *parent, struct hw_pci *hw,
- 			sys->private_data = hw->private_data[nr];
- 
- 		ret = hw->setup(nr, sys);
--
- 		if (ret > 0) {
--			ret = pcibios_init_resources(nr, sys);
--			if (ret)  {
--				kfree(sys);
--				break;
--			}
--
-+			init_pci_host_info(&info);
-+			info.arg = sys;
-+			info.init_res = pcibios_init_resources;
-+			domain = pci_get_domain_nr(parent);
- 			if (hw->scan)
- 				sys->bus = hw->scan(nr, sys);
--			else
--				sys->bus = pci_scan_root_bus(parent, sys->busnr,
--						hw->ops, sys, &sys->resources);
-+			else {
-+				host = pci_scan_host_bridge(parent, 
-+						PCI_DOMBUS(domain, sys->busnr),
-+						hw->ops, &info);
-+				if (host)
-+					sys->bus = host->bus;
-+			}
- 
- 			if (!sys->bus)
- 				panic("PCI: unable to scan bus!");
- 
- 			busnr = sys->bus->busn_res.end + 1;
--
- 			list_add(&sys->node, head);
- 		} else {
- 			kfree(sys);
+ 	/* Call to retrieve pci device information needed by kernel. */
+-	status = sal_get_pcidev_info((u64) pci_domain_nr(dev),
++	status = sal_get_pcidev_info((u64) pci_domain_nr(dev->bus),
+ 		(u64) dev->bus->number,
+ 		dev->devfn,
+ 		(u64) __pa(pcidev_info),
 -- 
-1.7.1
+2.1.3
 
