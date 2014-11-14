@@ -1,10 +1,10 @@
 From: Dave Hansen <dave@sr71.net>
-Date: Wed, 12 Nov 2014 17:04:59 +0000
+Date: Fri, 14 Nov 2014 15:18:23 +0000
 Subject: [PATCH 05/11] x86, mpx: add MPX to disaabled features
-Message-Id: <20141112170459.096F1B2E@viggo.jf.intel.com>
+Message-Id: <20141114151823.B358EAD2@viggo.jf.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20141112170443.B4BD0899@viggo.jf.intel.com>
-In-Reply-To: <20141112170443.B4BD0899@viggo.jf.intel.com>
+References: <20141114151816.F56A3072@viggo.jf.intel.com>
+In-Reply-To: <20141114151816.F56A3072@viggo.jf.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -29,9 +29,9 @@ Signed-off-by: Qiaowei Ren <qiaowei.ren@intel.com>
  b/arch/x86/include/asm/disabled-features.h |    8 +++++++-
  1 file changed, 7 insertions(+), 1 deletion(-)
 
-diff -puN arch/x86/include/asm/disabled-features.h~2014-10-14-04_12-x86-mpx-add-MPX-to-disaabled-features arch/x86/include/asm/disabled-features.h
---- a/arch/x86/include/asm/disabled-features.h~2014-10-14-04_12-x86-mpx-add-MPX-to-disaabled-features	2014-11-12 08:49:24.951846882 -0800
-+++ b/arch/x86/include/asm/disabled-features.h	2014-11-12 08:49:24.954847017 -0800
+diff -puN arch/x86/include/asm/disabled-features.h~mpx-v11-add-MPX-to-disaabled-features arch/x86/include/asm/disabled-features.h
+--- a/arch/x86/include/asm/disabled-features.h~mpx-v11-add-MPX-to-disaabled-features	2014-11-14 07:06:22.297610243 -0800
++++ b/arch/x86/include/asm/disabled-features.h	2014-11-14 07:06:22.300610378 -0800
 @@ -10,6 +10,12 @@
   * cpu_feature_enabled().
   */
