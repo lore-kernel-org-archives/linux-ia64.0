@@ -1,174 +1,189 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Mon, 17 Nov 2014 09:43:17 +0000
-Subject: [RFC PATCH 13/16] ia64/PCI: Use pci_scan_host_bridge() to refactor pci_acpi_scan_root()
-Message-Id: <1416219710-26088-14-git-send-email-wangyijing@huawei.com>
+From: Dave Hansen <dave@sr71.net>
+Date: Fri, 14 Nov 2014 15:18:16 +0000
+Subject: [PATCH 00/11] [v11] Intel MPX support
+Message-Id: <20141114151816.F56A3072@viggo.jf.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1416219710-26088-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1416219710-26088-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Thierry Reding <thierry.reding@gmail.com>, Liviu Dudau <liviu@dudau.co.uk>, Suravee.Suthikulpanit@amd.com, Yijing Wang <wangyijing@huawei.com>
+To: hpa@zytor.com
+Cc: tglx@linutronix.de, mingo@redhat.com, x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, qiaowei.ren@intel.com, Dave Hansen <dave@sr71.net>
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+From: Dave Hansen <dave.hansen@linux.intel.com>
+
+Changes since v10:
+ * get rid of some generic #ifdefs and add mpx_mm_init(mm)
+ * add comment about reasons for doing xsaves
+ * Cleanups in "on-demand allocation" patch, and add a missing
+   return
+ * Changes in some of the unmapping code error handling.  Make
+   it more strict not to ever ignore unmapping errors.
+ * Add the get_xsave_addr() to one spot which was missed
+
+----
+
+Why am I cc'ing you on this?
+
+mips/ia64 folks: the only patch that applies to you is the'
+	 	 'struct siginfo' one.
+mm folks: the most interesting patches are the last 2 (excluding
+	  the Documentation/ one).
+
 ---
- arch/ia64/pci/pci.c |   84 +++++++++++++++++++++++---------------------------
- 1 files changed, 39 insertions(+), 45 deletions(-)
 
-diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
-index aac3220..c7d97ae 100644
---- a/arch/ia64/pci/pci.c
-+++ b/arch/ia64/pci/pci.c
-@@ -115,23 +115,10 @@ struct pci_ops pci_root_ops = {
- 	.write = pci_write,
- };
- 
--/* Called by ACPI when it finds a new root bus.  */
--
--static struct pci_controller *alloc_pci_controller(int seg)
--{
--	struct pci_controller *controller;
--
--	controller = kzalloc(sizeof(*controller), GFP_KERNEL);
--	if (!controller)
--		return NULL;
--
--	controller->segment = seg;
--	return controller;
--}
--
- struct pci_root_info {
- 	struct acpi_device *bridge;
--	struct pci_controller *controller;
-+	struct pci_controller controller;
-+	struct acpi_pci_root *root;
- 	struct list_head resources;
- 	struct resource *res;
- 	resource_size_t *res_offset;
-@@ -340,8 +327,6 @@ static void free_pci_root_info_res(struct pci_root_info *info)
- 	kfree(info->res_offset);
- 	info->res_offset = NULL;
- 	info->res_num = 0;
--	kfree(info->controller);
--	info->controller = NULL;
- }
- 
- static void __release_pci_root_info(struct pci_root_info *info)
-@@ -395,7 +380,7 @@ probe_pci_root_info(struct pci_root_info *info, struct acpi_device *device,
- 	if (info->res_num) {
- 		info->res  			kzalloc_node(sizeof(*info->res) * info->res_num,
--				     GFP_KERNEL, info->controller->node);
-+				     GFP_KERNEL, info->controller.node);
- 		if (!info->res) {
- 			kfree(name);
- 			return -ENOMEM;
-@@ -403,7 +388,7 @@ probe_pci_root_info(struct pci_root_info *info, struct acpi_device *device,
- 
- 		info->res_offset  			kzalloc_node(sizeof(*info->res_offset) * info->res_num,
--					GFP_KERNEL, info->controller->node);
-+					GFP_KERNEL, info->controller.node);
- 		if (!info->res_offset) {
- 			kfree(name);
- 			kfree(info->res);
-@@ -420,6 +405,27 @@ probe_pci_root_info(struct pci_root_info *info, struct acpi_device *device,
- 	return 0;
- }
- 
-+static int pci_acpi_init_res(struct pci_host_bridge *host,
-+		struct pci_host_info *info)
-+{
-+	int ret;
-+	struct pci_host_bridge_window *window, *n;
-+	struct pci_controller *ctrl = info->arg;
-+	struct pci_root_info *arg = container_of(ctrl,
-+			struct pci_root_info, controller);
-+
-+	ret = probe_pci_root_info(arg, arg->root->device, 
-+			host->busnum, host->domain);
-+	if (ret) 
-+		return -1;
-+	list_for_each_entry_safe(window, n, &arg->resources,
-+			list)
-+		list_move_tail(&window->list, &host->windows);
-+	/* insert busn resource at first */
-+	pci_add_resource(&host->windows, &arg->root->secondary);
-+	return 0;
-+}
-+
- struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
- {
- 	struct acpi_device *device = root->device;
-@@ -427,55 +433,43 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
- 	struct pci_controller *controller;
- 	struct pci_root_info *info = NULL;
- 	int busnum = root->secondary.start;
--	struct pci_bus *pbus;
--	int ret;
--
--	controller = alloc_pci_controller(domain);
--	if (!controller)
--		return NULL;
--
--	controller->companion = device;
--	controller->node = acpi_get_node(device->handle);
-+	struct pci_host_bridge *host;
-+	struct pci_host_info arg;
- 
- 	info = kzalloc(sizeof(*info), GFP_KERNEL);
- 	if (!info) {
- 		dev_err(&device->dev,
- 				"pci_bus %04x:%02x: ignored (out of memory)\n",
- 				domain, busnum);
--		kfree(controller);
- 		return NULL;
- 	}
- 
--	info->controller = controller;
-+	controller = &info->controller;
-+	controller->segment = domain;
-+	controller->companion = device;
-+	controller->node = acpi_get_node(device->handle);
- 	INIT_LIST_HEAD(&info->io_resources);
- 	INIT_LIST_HEAD(&info->resources);
-+	init_pci_host_info(&arg);
-+	arg.arg = controller;
-+	arg.init_res = pci_acpi_init_res;
- 
--	ret = probe_pci_root_info(info, device, busnum, domain);
--	if (ret) {
--		kfree(info->controller);
--		kfree(info);
--		return NULL;
--	}
--	/* insert busn resource at first */
--	pci_add_resource(&info->resources, &root->secondary);
- 	/*
- 	 * See arch/x86/pci/acpi.c.
- 	 * The desired pci bus might already be scanned in a quirk. We
- 	 * should handle the case here, but it appears that IA64 hasn't
- 	 * such quirk. So we just ignore the case now.
- 	 */
--	pbus = pci_create_root_bus(NULL, busnum, &pci_root_ops, controller,
--				   &info->resources);
--	if (!pbus) {
--		pci_free_resource_list(&info->resources);
-+	host = pci_scan_host_bridge(NULL, PCI_DOMBUS(domain, busnum), 
-+			&pci_root_ops, &arg);
-+	if (!host) {
- 		__release_pci_root_info(info);
- 		return NULL;
- 	}
- 
--	pci_set_host_bridge_release(to_pci_host_bridge(pbus->bridge),
-+	pci_set_host_bridge_release(host,
- 			release_pci_root_info, info);
--	pci_scan_child_bus(pbus);
--	return pbus;
-+	return host->bus;
- }
- 
- int pcibios_root_bridge_prepare(struct pci_host_bridge *bridge)
--- 
-1.7.1
+We (Intel) are also trying to get some code merged in to GCC for
+MPX.  It will be calling the new prctl()s introduced in this set.
+We need to get those numbers locked down an reserved in the
+kernel before we push the GCC code, though.
 
+This currently requires booting with 'noxsaves' to work around
+what I presume is an issue in the x86 'xsaves' code.  I'll work
+with the folks responsible to get it fixed up properlye
+
+---
+
+This patch set adds support for the Memory Protection eXtensions
+(MPX) feature found in future Intel processors. MPX is used in
+conjunction with compiler changes to check memory references, and
+can be used to catch buffer overflow or underflow.
+
+For MPX to work, changes are required in the kernel, binutils and
+compiler. No source changes are required for applications, just a
+recompile.
+
+There are a lot of moving parts of this to all work right:
+
+=== Example Compiler / Application / Kernel Interaction ==
+1. Application developer compiles with -fmpx.  The compiler will add the
+   instrumentation as well as some setup code called early after the app
+   starts. New instruction prefixes are noops for old CPUs.
+2. That setup code allocates (virtual) space for the "bounds directory",
+   points the "bndcfgu" register to the directory and notifies the
+   kernel (via the new prctl(PR_MPX_ENABLE_MANAGEMENT)) that the app will
+   be using MPX.
+3. The kernel detects that the CPU has MPX, allows the new prctl() to
+   succeed, and notes the location of the bounds directory. Userspace is
+   expected to keep the bounds directory at that location. We note it
+   instead of reading it each time because the 'xsave' operation needed
+   to access the bounds directory register is an expensive operation.
+4. If the application needs to spill bounds out of the 4 registers, it
+   issues a bndstx instruction.  Since the bounds directory is empty at
+   this point, a bounds fault (#BR) is raised, the kernel allocates a
+   bounds table (in the user address space) and makes the relevant
+   entry in the bounds directory point to the new table. [1]
+5. If the application violates the bounds specified in the bounds
+   registers, a separate kind of #BR is raised which will deliver a
+   signal with information about the violation in the 'struct siginfo'.
+6. Whenever memory is freed, we know that it can no longer contain
+   valid pointers, and we attempt to free the associated space in the
+   bounds tables. If an entire table becomes unused, we will attempt
+   to free the table and remove the entry in the directory.
+
+To summarize, there are essentially three things interacting here:
+
+GCC with -fmpx:
+ * enables annotation of code with MPX instructions and prefixes
+ * inserts code early in the application to call in to the "gcc runtime"
+GCC MPX Runtime:
+ * Checks for hardware MPX support in cpuid leaf
+ * allocates virtual space for the bounds directory (malloc()
+   essentially)
+ * points the hardware BNDCFGU register at the directory
+ * calls a new prctl() to notify the kernel to start managing the
+   bounds directories
+Kernel MPX Code:
+ * Checks for hardware MPX support in cpuid leaf
+ * Handles #BR exceptions and sends SIGSEGV to the app when it violates
+   bounds, like during a buffer overflow.
+ * When bounds are spilled in to an unallocated bounds table, the kernel
+   notices in the #BR exception, allocates the virtual space, then
+   updates the bounds directory to point to the new table. It keeps
+   special track of the memory with a specific ->vm_ops for MPX.
+ * Frees unused bounds tables at the time that the memory they described
+   is unmapped. (See "cleanup unused bound tables")
+
+=== Testing ==
+This patchset has been tested on real internal hardware platform at Intel.
+We have some simple unit tests in user space, which directly call MPX
+instructions to produce #BR to let kernel allocate bounds tables and cause
+bounds violations. We also compiled several benchmarks with an MPX-enabled
+compiler and ran them with this patch set. We found a number of bugs in this
+code in these tests.
+
+1. For more info on why the kernel does these allocations, see the patch
+"on-demand kernel allocation of bounds tables"
+
+Future TODO items:
+1) support 32-bit binaries on 64-bit kernels.
+2) Remove dependence on mmap_sem for ->bd_addr serialization
+3) Lots of performance work
+4) Manpage (not a kernel patch, but worth mentioning)  I have a
+   patch to do it and will submit once this is merged.
+5) prctl() so we can write wrappers to disable MPX in children
+6) Tracepoints to help diagnose what's going on
+
+Changes since v1:
+  * check to see if #BR occurred in userspace or kernel space.
+  * use generic structure and macro as much as possible when
+    decode mpx instructions.
+
+Changes since v2:
+  * fix some compile warnings.
+  * update documentation.
+
+Changes since v3:
+  * correct some syntax errors at documentation, and document
+    extended struct siginfo.
+  * for kill the process when the error code of BNDSTATUS is 3.
+  * add some comments.
+  * remove new prctl() commands.
+  * fix some compile warnings for 32-bit.
+
+Changes since v4:
+  * raise SIGBUS if the allocations of the bound tables fail.
+
+Changes since v5:
+  * hook unmap() path to cleanup unused bounds tables, and use
+    new prctl() command to register bounds directory address to
+    struct mm_struct to check whether one process is MPX enabled
+    during unmap().
+  * in order track precisely MPX memory usage, add MPX specific
+    mmap interface and one VM_MPX flag to check whether a VMA
+    is MPX bounds table.
+  * add macro cpu_has_mpx to do performance optimization.
+  * sync struct figinfo for mips with general version to avoid
+    build issue.
+
+Changes since v6:
+  * because arch_vma_name is removed, this patchset have toset MPX
+    specific ->vm_ops to do the same thing.
+  * fix warnings for 32 bit arch.
+  * add more description into these patches.
+
+Changes since v7:
+  * introduce VM_ARCH_2 flag. 
+  * remove all of the pr_debug()s.
+  * fix prctl numbers in documentation.
+  * fix some bugs on bounds tables freeing.
+
+Changes since v8:
+  * add new patch to rename cfg_reg_u and status_reg.
+  * add new patch to use disabled features from Dave's patches.
+  * add new patch to sync struct siginfo for IA64.
+  * rename two new prctl() commands to PR_MPX_ENABLE_MANAGEMENT and
+    PR_MPX_DISABLE_MANAGEMENT, check whether the management of bounds
+    tables in kernel is enabled at #BR fault time, and add locking to
+    protect the access to 'bd_addr'.
+  * update the documentation file to add more content about on-demand
+    allocation of bounds tables, etc..
+
+Changes since v9:
+ * New instruction decoder.  Uses generic infrastructure instead
+   of "private" MPX decoder. (details in that patch)
+ * Switched over to using get_user_pages() to handle faults when
+   we touch userspace.
+ * Lots of clarified comments and grammar fixups.
+ * Merged arch/x86/kernel/mpx.c and arch/x86/mm/mpx.c
+ * #ifdef'd the smaps display of the MPX flag (compile error on
+   non-x86)
+ * Added code to use new functions to access the "xsaves" compact
