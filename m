@@ -1,10 +1,10 @@
 From: Dave Hansen <dave@sr71.net>
-Date: Wed, 12 Nov 2014 17:05:15 +0000
+Date: Fri, 14 Nov 2014 15:18:32 +0000
 Subject: [PATCH 11/11] x86, mpx: add documentation on Intel MPX
-Message-Id: <20141112170515.9D0F129A@viggo.jf.intel.com>
+Message-Id: <20141114151832.7FDB1720@viggo.jf.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20141112170443.B4BD0899@viggo.jf.intel.com>
-In-Reply-To: <20141112170443.B4BD0899@viggo.jf.intel.com>
+References: <20141114151816.F56A3072@viggo.jf.intel.com>
+In-Reply-To: <20141114151816.F56A3072@viggo.jf.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -27,7 +27,7 @@ Signed-off-by: Dave Hansen <dave.hansen@linux.intel.com>
 
 diff -puN /dev/null Documentation/x86/intel_mpx.txt
 --- /dev/null	2014-10-10 16:10:57.316716958 -0700
-+++ b/Documentation/x86/intel_mpx.txt	2014-11-12 08:49:27.611966858 -0800
++++ b/Documentation/x86/intel_mpx.txt	2014-11-14 07:06:25.065735091 -0800
 @@ -0,0 +1,234 @@
 +1. Intel(R) MPX Overview
 +============
