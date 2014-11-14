@@ -1,10 +1,10 @@
 From: Dave Hansen <dave@sr71.net>
-Date: Wed, 12 Nov 2014 17:05:03 +0000
+Date: Fri, 14 Nov 2014 15:18:25 +0000
 Subject: [PATCH 06/11] x86, mpx: introduce VM_MPX to indicate that a VMA is MPX specific
-Message-Id: <20141112170503.AB389ADC@viggo.jf.intel.com>
+Message-Id: <20141114151825.565625B3@viggo.jf.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20141112170443.B4BD0899@viggo.jf.intel.com>
-In-Reply-To: <20141112170443.B4BD0899@viggo.jf.intel.com>
+References: <20141114151816.F56A3072@viggo.jf.intel.com>
+In-Reply-To: <20141114151816.F56A3072@viggo.jf.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -50,9 +50,9 @@ Signed-off-by: Dave Hansen <dave.hansen@linux.intel.com>
  b/include/linux/mm.h |    6 ++++++
  2 files changed, 9 insertions(+)
 
-diff -puN fs/proc/task_mmu.c~2014-10-14-01_12-x86-mpx-introduce-VM-MPX-to-indicate-that-a-VMA-is-MPX-specific fs/proc/task_mmu.c
---- a/fs/proc/task_mmu.c~2014-10-14-01_12-x86-mpx-introduce-VM-MPX-to-indicate-that-a-VMA-is-MPX-specific	2014-11-12 08:49:25.303862758 -0800
-+++ b/fs/proc/task_mmu.c	2014-11-12 08:49:25.308862983 -0800
+diff -puN fs/proc/task_mmu.c~mpx-v11-introduce-VM-MPX-to-indicate-that-a-VMA-is-MPX-specific fs/proc/task_mmu.c
+--- a/fs/proc/task_mmu.c~mpx-v11-introduce-VM-MPX-to-indicate-that-a-VMA-is-MPX-specific	2014-11-14 07:06:22.670627067 -0800
++++ b/fs/proc/task_mmu.c	2014-11-14 07:06:22.676627338 -0800
 @@ -552,6 +552,9 @@ static void show_smap_vma_flags(struct s
  		[ilog2(VM_GROWSDOWN)]	= "gd",
  		[ilog2(VM_PFNMAP)]	= "pf",
@@ -63,9 +63,9 @@ diff -puN fs/proc/task_mmu.c~2014-10-14-01_12-x86-mpx-introduce-VM-MPX-to-indica
  		[ilog2(VM_LOCKED)]	= "lo",
  		[ilog2(VM_IO)]		= "io",
  		[ilog2(VM_SEQ_READ)]	= "sr",
-diff -puN include/linux/mm.h~2014-10-14-01_12-x86-mpx-introduce-VM-MPX-to-indicate-that-a-VMA-is-MPX-specific include/linux/mm.h
---- a/include/linux/mm.h~2014-10-14-01_12-x86-mpx-introduce-VM-MPX-to-indicate-that-a-VMA-is-MPX-specific	2014-11-12 08:49:25.305862848 -0800
-+++ b/include/linux/mm.h	2014-11-12 08:49:25.309863029 -0800
+diff -puN include/linux/mm.h~mpx-v11-introduce-VM-MPX-to-indicate-that-a-VMA-is-MPX-specific include/linux/mm.h
+--- a/include/linux/mm.h~mpx-v11-introduce-VM-MPX-to-indicate-that-a-VMA-is-MPX-specific	2014-11-14 07:06:22.672627157 -0800
++++ b/include/linux/mm.h	2014-11-14 07:06:22.676627338 -0800
 @@ -128,6 +128,7 @@ extern unsigned int kobjsize(const void
  #define VM_HUGETLB	0x00400000	/* Huge TLB Page VM */
  #define VM_NONLINEAR	0x00800000	/* Is non-linear (remap_file_pages) */
