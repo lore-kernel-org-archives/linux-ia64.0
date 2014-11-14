@@ -1,10 +1,10 @@
 From: Dave Hansen <dave@sr71.net>
-Date: Wed, 12 Nov 2014 17:05:05 +0000
+Date: Fri, 14 Nov 2014 15:18:27 +0000
 Subject: [PATCH 07/11] x86, mpx: add MPX-specific mmap interface
-Message-Id: <20141112170505.692BC764@viggo.jf.intel.com>
+Message-Id: <20141114151827.CE440F67@viggo.jf.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20141112170443.B4BD0899@viggo.jf.intel.com>
-In-Reply-To: <20141112170443.B4BD0899@viggo.jf.intel.com>
+References: <20141114151816.F56A3072@viggo.jf.intel.com>
+In-Reply-To: <20141114151816.F56A3072@viggo.jf.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -43,7 +43,7 @@ Signed-off-by: Dave Hansen <dave.hansen@linux.intel.com>
 
 diff -puN /dev/null arch/x86/include/asm/mpx.h
 --- /dev/null	2014-10-10 16:10:57.316716958 -0700
-+++ b/arch/x86/include/asm/mpx.h	2014-11-12 08:49:25.689880168 -0800
++++ b/arch/x86/include/asm/mpx.h	2014-11-14 07:06:23.077645424 -0800
 @@ -0,0 +1,36 @@
 +#ifndef _ASM_X86_MPX_H
 +#define _ASM_X86_MPX_H
@@ -81,9 +81,9 @@ diff -puN /dev/null arch/x86/include/asm/mpx.h
 +#define MPX_BNDSTA_ERROR_CODE	0x3
 +
 +#endif /* _ASM_X86_MPX_H */
-diff -puN arch/x86/Kconfig~2014-10-14-03_12-x86-mpx-add-MPX-specific-mmap-interface arch/x86/Kconfig
---- a/arch/x86/Kconfig~2014-10-14-03_12-x86-mpx-add-MPX-specific-mmap-interface	2014-11-12 08:49:25.684879943 -0800
-+++ b/arch/x86/Kconfig	2014-11-12 08:49:25.690880213 -0800
+diff -puN arch/x86/Kconfig~mpx-v11-add-MPX-specific-mmap-interface arch/x86/Kconfig
+--- a/arch/x86/Kconfig~mpx-v11-add-MPX-specific-mmap-interface	2014-11-14 07:06:23.072645199 -0800
++++ b/arch/x86/Kconfig	2014-11-14 07:06:23.078645470 -0800
 @@ -244,6 +244,10 @@ config HAVE_INTEL_TXT
  	def_bool y
  	depends on INTEL_IOMMU && ACPI
@@ -95,9 +95,9 @@ diff -puN arch/x86/Kconfig~2014-10-14-03_12-x86-mpx-add-MPX-specific-mmap-interf
  config X86_32_SMP
  	def_bool y
  	depends on X86_32 && SMP
-diff -puN arch/x86/mm/Makefile~2014-10-14-03_12-x86-mpx-add-MPX-specific-mmap-interface arch/x86/mm/Makefile
---- a/arch/x86/mm/Makefile~2014-10-14-03_12-x86-mpx-add-MPX-specific-mmap-interface	2014-11-12 08:49:25.686880033 -0800
-+++ b/arch/x86/mm/Makefile	2014-11-12 08:49:25.690880213 -0800
+diff -puN arch/x86/mm/Makefile~mpx-v11-add-MPX-specific-mmap-interface arch/x86/mm/Makefile
+--- a/arch/x86/mm/Makefile~mpx-v11-add-MPX-specific-mmap-interface	2014-11-14 07:06:23.074645289 -0800
++++ b/arch/x86/mm/Makefile	2014-11-14 07:06:23.078645470 -0800
 @@ -30,3 +30,5 @@ obj-$(CONFIG_ACPI_NUMA)		+= srat.o
  obj-$(CONFIG_NUMA_EMU)		+= numa_emulation.o
  
@@ -106,7 +106,7 @@ diff -puN arch/x86/mm/Makefile~2014-10-14-03_12-x86-mpx-add-MPX-specific-mmap-in
 +obj-$(CONFIG_X86_INTEL_MPX)	+= mpx.o
 diff -puN /dev/null arch/x86/mm/mpx.c
 --- /dev/null	2014-10-10 16:10:57.316716958 -0700
-+++ b/arch/x86/mm/mpx.c	2014-11-12 08:49:25.690880213 -0800
++++ b/arch/x86/mm/mpx.c	2014-11-14 07:06:23.078645470 -0800
 @@ -0,0 +1,86 @@
 +/*
 + * mpx.c - Memory Protection eXtensions
