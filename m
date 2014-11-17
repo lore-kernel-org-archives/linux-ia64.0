@@ -1,83 +1,69 @@
 From: Yijing Wang <wangyijing@huawei.com>
-Date: Thu, 20 Nov 2014 01:53:48 +0000
-Subject: Re: [PATCH 3/5] PCI: Use pci_scan_bus_simple() in simple scene.
-Message-Id: <546D49AC.4020207@huawei.com>
+Date: Mon, 17 Nov 2014 09:43:09 +0000
+Subject: [RFC PATCH 14/16] arm/PCI: Introduce pci_get_domain_nr()
+Message-Id: <1416219710-26088-15-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1416382369-13587-1-git-send-email-wangyijing@huawei.com> <1416382369-13587-4-git-send-email-wangyijing@huawei.com> <3577231.2krnYe8yCU@wuerfel>
-In-Reply-To: <3577231.2krnYe8yCU@wuerfel>
+References: <1416219710-26088-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1416219710-26088-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Arnd Bergmann <arnd@arndb.de>, linux-arm-kernel@lists.infradead.org
-Cc: Bjorn Helgaas <bhelgaas@google.com>, Liviu Dudau <liviu@dudau.co.uk>, Tony Luck <tony.luck@intel.com>, Russell King <linux@arm.linux.org.uk>, linux-pci@vger.kernel.org, x86@kernel.org, Geert Uytterhoeven <geert@linux-m68k.org>, linux-ia64@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Thierry Reding <thierry.reding@gmail.com>, Liviu Dudau <liviu@dudau.co.uk>, Suravee.Suthikulpanit@amd.com, Yijing Wang <wangyijing@huawei.com>
 
-On 2014/11/19 20:28, Arnd Bergmann wrote:
-> On Wednesday 19 November 2014 15:32:47 Yijing Wang wrote:
->> Use pci_scan_bus_simple() to scan pci buses with
->> the default IO/MEM/BUS resources. Use it instead
->> of pci_scan_bus() and pci_scan_bus_parented().
->>
->> Signed-off-by: Yijing Wang <wangyijing@huawei.com>
->>
-> 
-> I think we should replace pci_scan_bus_parented() with something better
-> by making the xen code use pci_scan_root_bus() (see below for a draft
-> patch). After that we no longer need the 'parent' argument here and we
-> can just keep using the pci_scan_bus() function for the legacy users,
-> or rename it if that helps.
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+---
+ arch/arm/include/asm/mach/pci.h |    9 +++++++++
+ arch/arm/kernel/bios32.c        |    8 ++++++--
+ 2 files changed, 15 insertions(+), 2 deletions(-)
 
-It make sense to me, and we could rename pci_scan_bus() to pci_scan_bus_legacy().
-Thanks, I will add this to my series,
-
-
-> 
-> 	Arnd
-> 
-> 
-> 8<---
-> 
-> diff --git a/drivers/pci/xen-pcifront.c b/drivers/pci/xen-pcifront.c
-> index 116ca3746adb..45a4843a608a 100644
-> --- a/drivers/pci/xen-pcifront.c
-> +++ b/drivers/pci/xen-pcifront.c
-> @@ -448,6 +448,7 @@ static int pcifront_scan_root(struct pcifront_device *pdev,
->  	struct pci_bus *b;
->  	struct pcifront_sd *sd = NULL;
->  	struct pci_bus_entry *bus_entry = NULL;
-> +	LIST_HEAD(resources);
->  	int err = 0;
->  
->  #ifndef CONFIG_PCI_DOMAINS
-> @@ -470,17 +471,20 @@ static int pcifront_scan_root(struct pcifront_device *pdev,
->  		err = -ENOMEM;
->  		goto err_out;
->  	}
-> +	pci_add_resource(&resources, &ioport_resource);
-> +	pci_add_resource(&resources, &iomem_resource);
->  	pcifront_init_sd(sd, domain, bus, pdev);
->  
->  	pci_lock_rescan_remove();
->  
-> -	b = pci_scan_bus_parented(&pdev->xdev->dev, bus,
-> -				  &pcifront_bus_ops, sd);
-> +	b = pci_scan_root_bus(&pdev->xdev->dev, bus, &pcifront_bus_ops, sd,
-> +			      &resources);
->  	if (!b) {
->  		dev_err(&pdev->xdev->dev,
->  			"Error creating PCI Frontend Bus!\n");
->  		err = -ENOMEM;
->  		pci_unlock_rescan_remove();
-> +		pci_free_resource_list(&resources);
->  		goto err_out;
->  	}
->  
-> 
-> 
-> .
-> 
-
-
+diff --git a/arch/arm/include/asm/mach/pci.h b/arch/arm/include/asm/mach/pci.h
+index f19f627..370b3bd 100644
+--- a/arch/arm/include/asm/mach/pci.h
++++ b/arch/arm/include/asm/mach/pci.h
+@@ -90,6 +90,15 @@ extern void pci_map_io_early(unsigned long pfn);
+ static inline void pci_map_io_early(unsigned long pfn) {}
+ #endif
+ 
++#ifdef CONFIG_PCI_DOMAINS_GENERIC
++int pci_get_domain_nr(struct device *parent)
++#else
++static inline int pci_get_domain_nr(struct device *parent)
++{
++	return 0;
++}
++#endif
++
+ /*
+  * PCI controllers
+  */
+diff --git a/arch/arm/kernel/bios32.c b/arch/arm/kernel/bios32.c
+index d8c2b4e..3fe56f1 100644
+--- a/arch/arm/kernel/bios32.c
++++ b/arch/arm/kernel/bios32.c
+@@ -513,7 +513,7 @@ static void pcibios_init_hw(struct device *parent, struct hw_pci *hw,
+ #ifdef CONFIG_PCI_DOMAINS_GENERIC
+ static bool dt_domain_found;
+ 
+-void pci_bus_assign_domain_nr(struct pci_bus *bus, struct device *parent)
++int pci_get_domain_nr(struct device *parent)
+ {
+ 	int domain = of_get_pci_domain_nr(parent->of_node);
+ 
+@@ -526,8 +526,12 @@ void pci_bus_assign_domain_nr(struct pci_bus *bus, struct device *parent)
+ 	} else {
+ 		domain = pci_get_new_domain_nr();
+ 	}
++	return domain;
++}
+ 
+-	bus->domain_nr = domain;
++void pci_bus_assign_domain_nr(struct pci_bus *bus, struct device *parent)
++{
++	bus->domain_nr = pci_get_domain_nr(parent);
+ }
+ #endif
+ 
 -- 
-Thanks!
-Yijing
+1.7.1
 
