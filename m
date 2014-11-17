@@ -1,89 +1,56 @@
-From: Dave Hansen <dave@sr71.net>
-Date: Fri, 14 Nov 2014 15:18:25 +0000
-Subject: [PATCH 06/11] x86, mpx: introduce VM_MPX to indicate that a VMA is MPX specific
-Message-Id: <20141114151825.565625B3@viggo.jf.intel.com>
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Mon, 17 Nov 2014 09:43:36 +0000
+Subject: [RFC PATCH 09/16] PCI: Associate .get_msi_ctrl() with pci_host_bridge
+Message-Id: <1416219710-26088-10-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20141114151816.F56A3072@viggo.jf.intel.com>
-In-Reply-To: <20141114151816.F56A3072@viggo.jf.intel.com>
+References: <1416219710-26088-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1416219710-26088-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: hpa@zytor.com
-Cc: tglx@linutronix.de, mingo@redhat.com, x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, qiaowei.ren@intel.com, Dave Hansen <dave@sr71.net>, dave.hansen@linux.intel.com
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Thierry Reding <thierry.reding@gmail.com>, Liviu Dudau <liviu@dudau.co.uk>, Suravee.Suthikulpanit@amd.com, Yijing Wang <wangyijing@huawei.com>, Yijing Wang <wangyijing0307@gmail.com>
 
+From: Yijing Wang <wangyijing0307@gmail.com>
 
-From: Dave Hansen <dave.hansen@linux.intel.com>
-
-MPX-enabled applications using large swaths of memory can
-potentially have large numbers of bounds tables in process
-address space to save bounds information. These tables can take
-up huge swaths of memory (as much as 80% of the memory on the
-system) even if we clean them up aggressively. In the worst-case
-scenario, the tables can be 4x the size of the data structure
-being tracked. IOW, a 1-page structure can require 4 bounds-table
-pages.
-
-Being this huge, our expectation is that folks using MPX are
-going to be keen on figuring out how much memory is being
-dedicated to it. So we need a way to track memory use for MPX.
-
-If we want to specifically track MPX VMAs we need to be able to
-distinguish them from normal VMAs, and keep them from getting
-merged with normal VMAs. A new VM_ flag set only on MPX VMAs does
-both of those things. With this flag, MPX bounds-table VMAs can
-be distinguished from other VMAs, and userspace can also walk
-/proc/$pid/smaps to get memory usage for MPX.
-
-In addition to this flag, we also introduce a special ->vm_ops
-specific to MPX VMAs (see the patch "add MPX specific mmap
-interface"), but currently different ->vm_ops do not by
-themselves prevent VMA merging, so we still need this flag.
-
-We understand that VM_ flags are scarce and are open to other
-options.
-
-Signed-off-by: Qiaowei Ren <qiaowei.ren@intel.com>
-Signed-off-by: Dave Hansen <dave.hansen@linux.intel.com>
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
 ---
+ drivers/pci/host-bridge.c |    1 +
+ include/linux/pci.h       |    2 ++
+ 2 files changed, 3 insertions(+), 0 deletions(-)
 
- b/fs/proc/task_mmu.c |    3 +++
- b/include/linux/mm.h |    6 ++++++
- 2 files changed, 9 insertions(+)
+diff --git a/drivers/pci/host-bridge.c b/drivers/pci/host-bridge.c
+index 49b6c21..872cae1 100644
+--- a/drivers/pci/host-bridge.c
++++ b/drivers/pci/host-bridge.c
+@@ -58,6 +58,7 @@ struct pci_host_bridge *pci_create_host_bridge(
+ 	host->dev.parent = parent;
+ 	INIT_LIST_HEAD(&host->windows);
+ 	host->dev.release = pci_release_host_bridge_dev;
++	host->get_msi_ctrl = info->get_msi_ctrl;
+ 
+ 	/* this is hack, just for build, will be removed later*/
+ 	b = kzalloc(sizeof(*b), GFP_KERNEL);
+diff --git a/include/linux/pci.h b/include/linux/pci.h
+index a51f5f5..af1ee86 100644
+--- a/include/linux/pci.h
++++ b/include/linux/pci.h
+@@ -408,6 +408,7 @@ struct pci_host_bridge {
+ 	int domain;
+ 	void *sysdata;
+ 	struct pci_ops *ops;
++	struct msi_controller *(*get_msi_ctrl)(struct pci_dev *pdev);
+ 	void (*release_fn)(struct pci_host_bridge *);
+ 	void *release_data;
+ };
+@@ -416,6 +417,7 @@ struct pci_host_info {
+ 	u8 res_type;
+ 	void *arg;
+ 	struct list_head *resources; /*just for build, will clean up later */
++	struct msi_controller *(*get_msi_ctrl)(struct pci_dev *pdev);
+ 	int (*init_res)(struct pci_host_bridge *host, 
+ 			struct pci_host_info *info);
+ };
+-- 
+1.7.1
 
-diff -puN fs/proc/task_mmu.c~mpx-v11-introduce-VM-MPX-to-indicate-that-a-VMA-is-MPX-specific fs/proc/task_mmu.c
---- a/fs/proc/task_mmu.c~mpx-v11-introduce-VM-MPX-to-indicate-that-a-VMA-is-MPX-specific	2014-11-14 07:06:22.670627067 -0800
-+++ b/fs/proc/task_mmu.c	2014-11-14 07:06:22.676627338 -0800
-@@ -552,6 +552,9 @@ static void show_smap_vma_flags(struct s
- 		[ilog2(VM_GROWSDOWN)]	= "gd",
- 		[ilog2(VM_PFNMAP)]	= "pf",
- 		[ilog2(VM_DENYWRITE)]	= "dw",
-+#ifdef CONFIG_X86_INTEL_MPX
-+		[ilog2(VM_MPX)]		= "mp",
-+#endif
- 		[ilog2(VM_LOCKED)]	= "lo",
- 		[ilog2(VM_IO)]		= "io",
- 		[ilog2(VM_SEQ_READ)]	= "sr",
-diff -puN include/linux/mm.h~mpx-v11-introduce-VM-MPX-to-indicate-that-a-VMA-is-MPX-specific include/linux/mm.h
---- a/include/linux/mm.h~mpx-v11-introduce-VM-MPX-to-indicate-that-a-VMA-is-MPX-specific	2014-11-14 07:06:22.672627157 -0800
-+++ b/include/linux/mm.h	2014-11-14 07:06:22.676627338 -0800
-@@ -128,6 +128,7 @@ extern unsigned int kobjsize(const void
- #define VM_HUGETLB	0x00400000	/* Huge TLB Page VM */
- #define VM_NONLINEAR	0x00800000	/* Is non-linear (remap_file_pages) */
- #define VM_ARCH_1	0x01000000	/* Architecture-specific flag */
-+#define VM_ARCH_2	0x02000000
- #define VM_DONTDUMP	0x04000000	/* Do not include in the core dump */
- 
- #ifdef CONFIG_MEM_SOFT_DIRTY
-@@ -155,6 +156,11 @@ extern unsigned int kobjsize(const void
- # define VM_MAPPED_COPY	VM_ARCH_1	/* T if mapped copy of data (nommu mmap) */
- #endif
- 
-+#if defined(CONFIG_X86)
-+/* MPX specific bounds table or bounds directory */
-+# define VM_MPX		VM_ARCH_2
-+#endif
-+
- #ifndef VM_GROWSUP
- # define VM_GROWSUP	VM_NONE
- #endif
-_
