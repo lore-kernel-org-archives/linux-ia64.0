@@ -1,266 +1,398 @@
-From: Dave Hansen <dave@sr71.net>
-Date: Fri, 14 Nov 2014 15:18:32 +0000
-Subject: [PATCH 11/11] x86, mpx: add documentation on Intel MPX
-Message-Id: <20141114151832.7FDB1720@viggo.jf.intel.com>
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Mon, 17 Nov 2014 09:45:55 +0000
+Subject: [RFC PATCH 07/16] PCI: Separate pci_host_bridge creation out of pci_create_root_bus()
+Message-Id: <1416219710-26088-8-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20141114151816.F56A3072@viggo.jf.intel.com>
-In-Reply-To: <20141114151816.F56A3072@viggo.jf.intel.com>
+References: <1416219710-26088-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1416219710-26088-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: hpa@zytor.com
-Cc: tglx@linutronix.de, mingo@redhat.com, x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, qiaowei.ren@intel.com, Dave Hansen <dave@sr71.net>, dave.hansen@linux.intel.com
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Thierry Reding <thierry.reding@gmail.com>, Liviu Dudau <liviu@dudau.co.uk>, Suravee.Suthikulpanit@amd.com, Yijing Wang <wangyijing@huawei.com>
 
+There are some common PCI infos like domain, msi_controller, these
+infos are saved in arch PCI sysdata, and lots arch specific functions
+like pci_domain_nr() and pcibios_msi_controller() required.
+We could separate pci_host_bridge creation out of pci_create_root_bus(),
+then we could put the common infos in, then we could eliminate
+the arch specifc functions.
 
-From: Dave Hansen <dave.hansen@linux.intel.com>
-
-
-This patch adds the Documentation/x86/intel_mpx.txt file with some
-information about Intel MPX.
-
-Signed-off-by: Qiaowei Ren <qiaowei.ren@intel.com>
-Signed-off-by: Dave Hansen <dave.hansen@linux.intel.com>
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
 ---
+ drivers/pci/host-bridge.c |   99 +++++++++++++++++++++++++++++++++
+ drivers/pci/probe.c       |  134 ++++++++++++++++----------------------------
+ include/linux/pci.h       |   11 +++-
+ 3 files changed, 158 insertions(+), 86 deletions(-)
 
- b/Documentation/x86/intel_mpx.txt |  234 ++++++++++++++++++++++++++++++++++++++
- 1 file changed, 234 insertions(+)
+diff --git a/drivers/pci/host-bridge.c b/drivers/pci/host-bridge.c
+index 0e5f3c9..e31604f 100644
+--- a/drivers/pci/host-bridge.c
++++ b/drivers/pci/host-bridge.c
+@@ -8,6 +8,105 @@
+ 
+ #include "pci.h"
+ 
++LIST_HEAD(pci_host_bridge_list);
++DECLARE_RWSEM(pci_host_bridge_sem);
++
++static struct resource busn_resource = {
++	.name	= "PCI busn",
++	.start	= 0,
++	.end	= 255,
++	.flags	= IORESOURCE_BUS,
++};
++
++static void pci_release_host_bridge_dev(struct device *dev)
++{
++	struct pci_host_bridge *bridge = to_pci_host_bridge(dev);
++
++	if (bridge->release_fn)
++		bridge->release_fn(bridge);
++	pci_free_resource_list(&bridge->windows);
++	kfree(bridge);
++}
++
++struct pci_host_bridge *pci_create_host_bridge(
++		struct device *parent, u32 db, 
++		struct pci_ops *ops, void *sysdata, 
++		struct list_head *resources)
++{
++	int error;
++	struct pci_bus *b;
++	struct pci_host_bridge *host, *h;
++	struct pci_host_bridge_window *window, *n;
++
++	down_read(&pci_host_bridge_sem);
++	list_for_each_entry(h, &pci_host_bridge_list, list) {
++		if (h->domain = PCI_DOMAIN(db) &&
++				h->busnum = PCI_BUSNUM(db)) {
++			dev_dbg(&h->dev, "pci host bridge exist\n");
++			up_read(&pci_host_bridge_sem);
++			return NULL;
++		}
++	}
++	up_read(&pci_host_bridge_sem);
++
++	host = kzalloc(sizeof(*host), GFP_KERNEL);
++	if (!host)
++		return NULL;
++
++	host->sysdata = sysdata;
++	host->busnum = PCI_BUSNUM(db);
++	host->domain = PCI_DOMAIN(db);
++	host->ops = ops;
++	host->dev.parent = parent;
++	INIT_LIST_HEAD(&host->windows);
++	host->dev.release = pci_release_host_bridge_dev;
++
++	/* this is hack, just for build, will be removed later*/
++	b = kzalloc(sizeof(*b), GFP_KERNEL);
++	b->sysdata = sysdata;
++	pci_bus_assign_domain_nr(b, parent);
++	host->domain = pci_domain_nr(b);
++
++	if (!resources) {
++		/* Use default IO/MEM/BUS resources*/
++		pci_add_resource(&host->windows, &ioport_resource);
++		pci_add_resource(&host->windows, &iomem_resource);
++		pci_add_resource(&host->windows, &busn_resource);
++	} else {
++		list_for_each_entry_safe(window, n, resources, list)
++			list_move_tail(&window->list, &host->windows);
++	}
++
++	dev_set_name(&host->dev, "pci%04x:%02x", host->domain, 
++			host->busnum);
++	error = pcibios_root_bridge_prepare(host);
++	if(error) {
++		kfree(host);
++		return NULL;
++	}
++
++	error = device_register(&host->dev);
++	if (error) {
++		put_device(&host->dev);
++		return NULL;
++	}
++
++	down_write(&pci_host_bridge_sem);
++	list_add_tail(&host->list, &pci_host_bridge_list);
++	up_write(&pci_host_bridge_sem);
++	return host;
++}
++EXPORT_SYMBOL(pci_create_host_bridge);
++
++void pci_free_host_bridge(struct pci_host_bridge *host)
++{
++	down_write(&pci_host_bridge_sem);
++	list_del(&host->list);
++	up_write(&pci_host_bridge_sem);
++
++	device_unregister(&host->dev);
++}
++
+ static struct pci_bus *find_pci_root_bus(struct pci_bus *bus)
+ {
+ 	while (bus->parent)
+diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
+index adf4d09..d472da4 100644
+--- a/drivers/pci/probe.c
++++ b/drivers/pci/probe.c
+@@ -17,13 +17,6 @@
+ #define CARDBUS_LATENCY_TIMER	176	/* secondary latency timer */
+ #define CARDBUS_RESERVE_BUSNR	3
+ 
+-static struct resource busn_resource = {
+-	.name	= "PCI busn",
+-	.start	= 0,
+-	.end	= 255,
+-	.flags	= IORESOURCE_BUS,
+-};
+-
+ /* Ugh.  Need to stop exporting this to modules. */
+ LIST_HEAD(pci_root_buses);
+ EXPORT_SYMBOL(pci_root_buses);
+@@ -508,31 +501,6 @@ static struct pci_bus *pci_alloc_bus(struct pci_bus *parent)
+ 	return b;
+ }
+ 
+-static void pci_release_host_bridge_dev(struct device *dev)
+-{
+-	struct pci_host_bridge *bridge = to_pci_host_bridge(dev);
+-
+-	if (bridge->release_fn)
+-		bridge->release_fn(bridge);
+-
+-	pci_free_resource_list(&bridge->windows);
+-
+-	kfree(bridge);
+-}
+-
+-static struct pci_host_bridge *pci_alloc_host_bridge(struct pci_bus *b)
+-{
+-	struct pci_host_bridge *bridge;
+-
+-	bridge = kzalloc(sizeof(*bridge), GFP_KERNEL);
+-	if (!bridge)
+-		return NULL;
+-
+-	INIT_LIST_HEAD(&bridge->windows);
+-	bridge->bus = b;
+-	return bridge;
+-}
+-
+ static const unsigned char pcix_bus_speed[] = {
+ 	PCI_SPEED_UNKNOWN,		/* 0 */
+ 	PCI_SPEED_66MHz_PCIX,		/* 1 */
+@@ -1895,52 +1863,33 @@ void __weak pcibios_remove_bus(struct pci_bus *bus)
+ {
+ }
+ 
+-struct pci_bus *pci_create_root_bus(struct device *parent, u32 db,
+-		struct pci_ops *ops, void *sysdata, struct list_head *resources)
++struct pci_bus *__pci_create_root_bus(struct pci_host_bridge *bridge)
+ {
+ 	int error;
+-	struct pci_host_bridge *bridge;
+ 	struct pci_bus *b, *b2;
+-	struct pci_host_bridge_window *window, *n;
++	struct pci_host_bridge_window *window;
+ 	struct resource *res;
+ 	resource_size_t offset;
+ 	char bus_addr[64];
+ 	char *fmt;
+-	u8	bus = PCI_BUSNUM(db);
++	struct device *parent = bridge->dev.parent;
+ 
+ 	b = pci_alloc_bus(NULL);
+ 	if (!b)
+ 		return NULL;
+ 
+-	b->sysdata = sysdata;
+-	b->ops = ops;
+-	b->number = b->busn_res.start = bus;
++	b->sysdata = bridge->sysdata;
++	b->ops = bridge->ops;
++	b->number = b->busn_res.start = bridge->busnum;
+ 	pci_bus_assign_domain_nr(b, parent);
+-	b2 = pci_find_bus(pci_domain_nr(b), bus);
++	bridge->domain = pci_domain_nr(b);
++	b2 = pci_find_bus(pci_domain_nr(b), bridge->busnum);
+ 	if (b2) {
+ 		/* If we already got to this bus through a different bridge, ignore it */
+ 		dev_dbg(&b2->dev, "bus already known\n");
+ 		goto err_out;
+ 	}
+ 
+-	bridge = pci_alloc_host_bridge(b);
+-	if (!bridge)
+-		goto err_out;
+-
+-	bridge->dev.parent = parent;
+-	bridge->dev.release = pci_release_host_bridge_dev;
+-	dev_set_name(&bridge->dev, "pci%04x:%02x", pci_domain_nr(b), bus);
+-	error = pcibios_root_bridge_prepare(bridge);
+-	if (error) {
+-		kfree(bridge);
+-		goto err_out;
+-	}
+-
+-	error = device_register(&bridge->dev);
+-	if (error) {
+-		put_device(&bridge->dev);
+-		goto err_out;
+-	}
+ 	b->bridge = get_device(&bridge->dev);
+ 	device_enable_async_suspend(b->bridge);
+ 	pci_set_bus_of_node(b);
+@@ -1950,7 +1899,7 @@ struct pci_bus *pci_create_root_bus(struct device *parent, u32 db,
+ 
+ 	b->dev.class = &pcibus_class;
+ 	b->dev.parent = b->bridge;
+-	dev_set_name(&b->dev, "%04x:%02x", pci_domain_nr(b), bus);
++	dev_set_name(&b->dev, "%04x:%02x", pci_domain_nr(b), b->number);
+ 	error = device_register(&b->dev);
+ 	if (error)
+ 		goto class_dev_reg_err;
+@@ -1966,12 +1915,11 @@ struct pci_bus *pci_create_root_bus(struct device *parent, u32 db,
+ 		printk(KERN_INFO "PCI host bridge to bus %s\n", dev_name(&b->dev));
+ 
+ 	/* Add initial resources to the bus */
+-	list_for_each_entry_safe(window, n, resources, list) {
+-		list_move_tail(&window->list, &bridge->windows);
++	list_for_each_entry(window, &bridge->windows, list) {
+ 		res = window->res;
+ 		offset = window->offset;
+ 		if (res->flags & IORESOURCE_BUS)
+-			pci_bus_insert_busn_res(b, bus, res->end);
++			pci_bus_insert_busn_res(b, b->number, res->end);
+ 		else
+ 			pci_bus_add_resource(b, res, 0);
+ 		if (offset) {
+@@ -2001,6 +1949,25 @@ err_out:
+ 	return NULL;
+ }
+ 
++struct pci_bus *pci_create_root_bus(struct device *parent, u32 bus,
++		struct pci_ops *ops, void *sysdata, struct list_head *resources)
++{
++	struct pci_host_bridge *host;
++
++	host = pci_create_host_bridge(parent, bus, ops, 
++			sysdata ,resources);
++	if (!host)
++		return NULL;
++
++	host->bus = __pci_create_root_bus(host);
++	if (!host->bus) {
++		pci_free_host_bridge(host);
++		return NULL;
++	}
++		
++	return host->bus;
++}
++
+ int pci_bus_insert_busn_res(struct pci_bus *b, int bus, int bus_max)
+ {
+ 	struct resource *res = &b->busn_res;
+@@ -2069,40 +2036,37 @@ struct pci_bus *pci_scan_root_bus(struct device *parent, u32 db,
+ {
+ 	struct pci_host_bridge_window *window;
+ 	bool found = false;
+-	struct pci_bus *b;
+-	LIST_HEAD(default_res);
++	struct pci_host_bridge *host;
+ 	int max;
+ 
+-	if (!resources) {
+-		pci_add_resource(&default_res, &ioport_resource);
+-		pci_add_resource(&default_res, &iomem_resource);
+-		pci_add_resource(&default_res, &busn_resource);
+-	} else {
+-		list_for_each_entry(window, resources, list)
+-			if (window->res->flags & IORESOURCE_BUS) {
+-				found = true;
+-				break;
+-			}
+-	}
++	host = pci_create_host_bridge(parent, db, ops, sysdata, resources);
++	if (!host)
++		return NULL;
+ 
+-	b = pci_create_root_bus(parent, db, ops, sysdata, 
+-			resources ? resources : &default_res);
+-	if (!b)
++	list_for_each_entry(window, &host->windows, list)
++		if (window->res->flags & IORESOURCE_BUS) {
++			found = true;
++			break;
++		}
++
++	host->bus = __pci_create_root_bus(host);
++	if (!host->bus) {
++		pci_free_host_bridge(host);
+ 		return NULL;
++	}
+ 
+ 	if (!found) {
+-		dev_info(&b->dev,
++		dev_info(&host->bus->dev,
+ 		 "No busn resource found for root bus, will use [bus %02x-ff]\n",
+ 			PCI_BUSNUM(db));
+-		pci_bus_insert_busn_res(b, PCI_BUSNUM(db), 255);
++		pci_bus_insert_busn_res(host->bus, PCI_BUSNUM(db), 255);
+ 	}
+ 
+-	max = pci_scan_child_bus(b);
+-
++	max = pci_scan_child_bus(host->bus);
+ 	if (!found)
+-		pci_bus_update_busn_res_end(b, max);
++		pci_bus_update_busn_res_end(host->bus, max);
+ 
+-	return b;
++	return host->bus;
+ }
+ EXPORT_SYMBOL(pci_scan_root_bus);
+ 
+diff --git a/include/linux/pci.h b/include/linux/pci.h
+index 8b11b38..daa7f40 100644
+--- a/include/linux/pci.h
++++ b/include/linux/pci.h
+@@ -402,7 +402,12 @@ struct pci_host_bridge_window {
+ struct pci_host_bridge {
+ 	struct device dev;
+ 	struct pci_bus *bus;		/* root bus */
++	struct list_head list;
+ 	struct list_head windows;	/* pci_host_bridge_windows */
++	int busnum;
++	int domain;
++	void *sysdata;
++	struct pci_ops *ops;
+ 	void (*release_fn)(struct pci_host_bridge *);
+ 	void *release_data;
+ };
+@@ -413,7 +418,9 @@ void pci_set_host_bridge_release(struct pci_host_bridge *bridge,
+ 		     void *release_data);
+ 
+ int pcibios_root_bridge_prepare(struct pci_host_bridge *bridge);
+-
++struct pci_host_bridge *pci_create_host_bridge(
++		struct device *parent, u32 db, struct pci_ops *ops, 
++		void *sys, struct list_head *resources);
+ /*
+  * The first PCI_BRIDGE_RESOURCE_NUM PCI bus resources (those that correspond
+  * to P2P or CardBus bridge windows) go in a table.  Additional ones (for
+@@ -770,6 +777,8 @@ void pci_bus_add_devices(const struct pci_bus *bus);
+ struct pci_bus *pci_create_root_bus(struct device *parent, u32 bus,
+ 				    struct pci_ops *ops, void *sysdata,
+ 				    struct list_head *resources);
++struct pci_bus *__pci_create_root_bus(struct pci_host_bridge *host);
++void pci_free_host_bridge(struct pci_host_bridge *host);
+ int pci_bus_insert_busn_res(struct pci_bus *b, int bus, int busmax);
+ int pci_bus_update_busn_res_end(struct pci_bus *b, int busmax);
+ void pci_bus_release_busn_res(struct pci_bus *b);
+-- 
+1.7.1
 
-diff -puN /dev/null Documentation/x86/intel_mpx.txt
---- /dev/null	2014-10-10 16:10:57.316716958 -0700
-+++ b/Documentation/x86/intel_mpx.txt	2014-11-14 07:06:25.065735091 -0800
-@@ -0,0 +1,234 @@
-+1. Intel(R) MPX Overview
-+============
-+
-+Intel(R) Memory Protection Extensions (Intel(R) MPX) is a new capability
-+introduced into Intel Architecture. Intel MPX provides hardware features
-+that can be used in conjunction with compiler changes to check memory
-+references, for those references whose compile-time normal intentions are
-+usurped at runtime due to buffer overflow or underflow.
-+
-+For more information, please refer to Intel(R) Architecture Instruction
-+Set Extensions Programming Reference, Chapter 9: Intel(R) Memory Protection
-+Extensions.
-+
-+Note: Currently no hardware with MPX ISA is available but it is always
-+possible to use SDE (Intel(R) Software Development Emulator) instead, which
-+can be downloaded from
-+http://software.intel.com/en-us/articles/intel-software-development-emulator
-+
-+
-+2. How to get the advantage of MPX
-+=================
-+
-+For MPX to work, changes are required in the kernel, binutils and compiler.
-+No source changes are required for applications, just a recompile.
-+
-+There are a lot of moving parts of this to all work right. The following
-+is how we expect the compiler, application and kernel to work together.
-+
-+1) Application developer compiles with -fmpx. The compiler will add the
-+   instrumentation as well as some setup code called early after the app
-+   starts. New instruction prefixes are noops for old CPUs.
-+2) That setup code allocates (virtual) space for the "bounds directory",
-+   points the "bndcfgu" register to the directory and notifies the kernel
-+   (via the new prctl(PR_MPX_ENABLE_MANAGEMENT)) that the app will be using
-+   MPX.
-+3) The kernel detects that the CPU has MPX, allows the new prctl() to
-+   succeed, and notes the location of the bounds directory. Userspace is
-+   expected to keep the bounds directory at that locationWe note it
-+   instead of reading it each time because the 'xsave' operation needed
-+   to access the bounds directory register is an expensive operation.
-+4) If the application needs to spill bounds out of the 4 registers, it
-+   issues a bndstx instruction. Since the bounds directory is empty at
-+   this point, a bounds fault (#BR) is raised, the kernel allocates a
-+   bounds table (in the user address space) and makes the relevant entry
-+   in the bounds directory point to the new table.
-+5) If the application violates the bounds specified in the bounds registers,
-+   a separate kind of #BR is raised which will deliver a signal with
-+   information about the violation in the 'struct siginfo'.
-+6) Whenever memory is freed, we know that it can no longer contain valid
-+   pointers, and we attempt to free the associated space in the bounds
-+   tables. If an entire table becomes unused, we will attempt to free
-+   the table and remove the entry in the directory.
-+
-+To summarize, there are essentially three things interacting here:
-+
-+GCC with -fmpx:
-+ * enables annotation of code with MPX instructions and prefixes
-+ * inserts code early in the application to call in to the "gcc runtime"
-+GCC MPX Runtime:
-+ * Checks for hardware MPX support in cpuid leaf
-+ * allocates virtual space for the bounds directory (malloc() essentially)
-+ * points the hardware BNDCFGU register at the directory
-+ * calls a new prctl(PR_MPX_ENABLE_MANAGEMENT) to notify the kernel to
-+   start managing the bounds directories
-+Kernel MPX Code:
-+ * Checks for hardware MPX support in cpuid leaf
-+ * Handles #BR exceptions and sends SIGSEGV to the app when it violates
-+   bounds, like during a buffer overflow.
-+ * When bounds are spilled in to an unallocated bounds table, the kernel
-+   notices in the #BR exception, allocates the virtual space, then
-+   updates the bounds directory to point to the new table. It keeps
-+   special track of the memory with a VM_MPX flag.
-+ * Frees unused bounds tables at the time that the memory they described
-+   is unmapped.
-+
-+
-+3. How does MPX kernel code work
-+================
-+
-+Handling #BR faults caused by MPX
-+---------------------------------
-+
-+When MPX is enabled, there are 2 new situations that can generate
-+#BR faults.
-+  * new bounds tables (BT) need to be allocated to save bounds.
-+  * bounds violation caused by MPX instructions.
-+
-+We hook #BR handler to handle these two new situations.
-+
-+On-demand kernel allocation of bounds tables
-+--------------------------------------------
-+
-+MPX only has 4 hardware registers for storing bounds information. If
-+MPX-enabled code needs more than these 4 registers, it needs to spill
-+them somewhere. It has two special instructions for this which allow
-+the bounds to be moved between the bounds registers and some new "bounds
-+tables".
-+
-+#BR exceptions are a new class of exceptions just for MPX. They are
-+similar conceptually to a page fault and will be raised by the MPX
-+hardware during both bounds violations or when the tables are not
-+present. The kernel handles those #BR exceptions for not-present tables
-+by carving the space out of the normal processes address space and then
-+pointing the bounds-directory over to it.
-+
-+The tables need to be accessed and controlled by userspace because
-+the instructions for moving bounds in and out of them are extremely
-+frequent. They potentially happen every time a register points to
-+memory. Any direct kernel involvement (like a syscall) to access the
-+tables would obviously destroy performance.
-+
-+Why not do this in userspace? MPX does not strictly require anything in
-+the kernel. It can theoretically be done completely from userspace. Here
-+are a few ways this could be done. We don't think any of them are practical
-+in the real-world, but here they are.
-+
-+Q: Can virtual space simply be reserved for the bounds tables so that we
-+   never have to allocate them?
-+A: MPX-enabled application will possibly create a lot of bounds tables in
-+   process address space to save bounds information. These tables can take
-+   up huge swaths of memory (as much as 80% of the memory on the system)
-+   even if we clean them up aggressively. In the worst-case scenario, the
-+   tables can be 4x the size of the data structure being tracked. IOW, a
-+   1-page structure can require 4 bounds-table pages. An X-GB virtual
-+   area needs 4*X GB of virtual space, plus 2GB for the bounds directory.
-+   If we were to preallocate them for the 128TB of user virtual address
-+   space, we would need to reserve 512TB+2GB, which is larger than the
-+   entire virtual address space today. This means they can not be reserved
-+   ahead of time. Also, a single process's pre-popualated bounds directory
-+   consumes 2GB of virtual *AND* physical memory. IOW, it's completely
-+   infeasible to prepopulate bounds directories.
-+
-+Q: Can we preallocate bounds table space at the same time memory is
-+   allocated which might contain pointers that might eventually need
-+   bounds tables?
-+A: This would work if we could hook the site of each and every memory
-+   allocation syscall. This can be done for small, constrained applications.
-+   But, it isn't practical at a larger scale since a given app has no
-+   way of controlling how all the parts of the app might allocate memory
-+   (think libraries). The kernel is really the only place to intercept
-+   these calls.
-+
-+Q: Could a bounds fault be handed to userspace and the tables allocated
-+   there in a signal handler intead of in the kernel?
-+A: mmap() is not on the list of safe async handler functions and even
-+   if mmap() would work it still requires locking or nasty tricks to
-+   keep track of the allocation state there.
-+
-+Having ruled out all of the userspace-only approaches for managing
-+bounds tables that we could think of, we create them on demand in
-+the kernel.
-+
-+Decoding MPX instructions
-+-------------------------
-+
-+If a #BR is generated due to a bounds violation caused by MPX.
-+We need to decode MPX instructions to get violation address and
-+set this address into extended struct siginfo.
-+
-+The _sigfault feild of struct siginfo is extended as follow:
-+
-+87		/* SIGILL, SIGFPE, SIGSEGV, SIGBUS */
-+88		struct {
-+89			void __user *_addr; /* faulting insn/memory ref. */
-+90 #ifdef __ARCH_SI_TRAPNO
-+91			int _trapno;	/* TRAP # which caused the signal */
-+92 #endif
-+93			short _addr_lsb; /* LSB of the reported address */
-+94			struct {
-+95				void __user *_lower;
-+96				void __user *_upper;
-+97			} _addr_bnd;
-+98		} _sigfault;
-+
-+The '_addr' field refers to violation address, and new '_addr_and'
-+field refers to the upper/lower bounds when a #BR is caused.
-+
-+Glibc will be also updated to support this new siginfo. So user
-+can get violation address and bounds when bounds violations occur.
-+
-+Cleanup unused bounds tables
-+----------------------------
-+
-+When a BNDSTX instruction attempts to save bounds to a bounds directory
-+entry marked as invalid, a #BR is generated. This is an indication that
-+no bounds table exists for this entry. In this case the fault handler
-+will allocate a new bounds table on demand.
-+
-+Since the kernel allocated those tables on-demand without userspace
-+knowledge, it is also responsible for freeing them when the associated
-+mappings go away.
-+
-+Here, the solution for this issue is to hook do_munmap() to check
-+whether one process is MPX enabled. If yes, those bounds tables covered
-+in the virtual address region which is being unmapped will be freed also.
-+
-+Adding new prctl commands
-+-------------------------
-+
-+Two new prctl commands are added to enable and disable MPX bounds tables
-+management in kernel.
-+
-+155	#define PR_MPX_ENABLE_MANAGEMENT	43
-+156	#define PR_MPX_DISABLE_MANAGEMENT	44
-+
-+Runtime library in userspace is responsible for allocation of bounds
-+directory. So kernel have to use XSAVE instruction to get the base
-+of bounds directory from BNDCFG register.
-+
-+But XSAVE is expected to be very expensive. In order to do performance
-+optimization, we have to get the base of bounds directory and save it
-+into struct mm_struct to be used in future during PR_MPX_ENABLE_MANAGEMENT
-+command execution.
-+
-+
-+4. Special rules
-+========
-+
-+1) If userspace is requesting help from the kernel to do the management
-+of bounds tables, it may not create or modify entries in the bounds directory.
-+
-+Certainly users can allocate bounds tables and forcibly point the bounds
-+directory at them through XSAVE instruction, and then set valid bit
-+of bounds entry to have this entry valid.  But, the kernel will decline
-+to assist in managing these tables.
-+
-+2) Userspace may not take multiple bounds directory entries and point
-+them at the same bounds table.
-+
-+This is allowed architecturally.  See more information "Intel(R) Architecture
-+Instruction Set Extensions Programming Reference" (9.3.4).
-+
-+However, if users did this, the kernel might be fooled in to unmaping an
-+in-use bounds table since it does not recognize sharing.
-_
