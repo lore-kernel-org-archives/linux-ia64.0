@@ -1,207 +1,193 @@
-From: Jiang Liu <jiang.liu@linux.intel.com>
-Date: Tue, 25 Nov 2014 05:53:28 +0000
-Subject: [Patch Part2 v6 19/27] iommu/vt-d: Refine the interfaces to create IRQ for DMAR unit
-Message-Id: <1416894816-23245-20-git-send-email-jiang.liu@linux.intel.com>
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Mon, 17 Nov 2014 09:45:55 +0000
+Subject: [RFC PATCH 11/16] x86/PCI: Use pci_scan_host_bridge() instead of pci_create_root_bus()
+Message-Id: <1416219710-26088-12-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1416894816-23245-1-git-send-email-jiang.liu@linux.intel.com>
-In-Reply-To: <1416894816-23245-1-git-send-email-jiang.liu-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+References: <1416219710-26088-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1416219710-26088-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>, Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>, Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, "H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>, "Rafael J. Wysocki" <rjw-LthD3rsA81gm4RdzfppkhA@public.gmane.org>, Randy Dunlap <rdunlap-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>, Yinghai Lu <yinghai-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Borislav Petkov <bp-Gina5bIWoIWzQB+pC5nmwQ@public.gmane.org>, Tony Luck <tony.luck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, Fenghua Yu <fenghua.yu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, Joerg Roedel <joro-zLv9SwRftAIdnm+yROfE0A@public.gmane.org>, Vinod Koul <vinod.koul-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, Jiang Liu <jiang.liu-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Cc: linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dmaengine-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Thierry Reding <thierry.reding@gmail.com>, Liviu Dudau <liviu@dudau.co.uk>, Suravee.Suthikulpanit@amd.com, Yijing Wang <wangyijing@huawei.com>
 
-Refine the interfaces to create IRQ for DMAR unit. It's a preparation
-for converting DMAR IRQ to hierarchy irqdomain on x86.
+Now we could use pci_scan_host_bridge() to refactor
+pci_acpi_scan_root().
 
-It also moves dmar_alloc_hwirq()/dmar_free_hwirq() from irq_remapping.h
-to dmar.h. They are not irq_remapping specific.
-
-Signed-off-by: Jiang Liu <jiang.liu@linux.intel.com>
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
 ---
- arch/ia64/include/asm/irq_remapping.h |    2 --
- arch/ia64/kernel/msi_ia64.c           |   30 +++++++++++++++++++-----------
- arch/x86/include/asm/irq_remapping.h  |    4 ----
- arch/x86/kernel/apic/msi.c            |   24 +++++++++++++-----------
- drivers/iommu/dmar.c                  |   19 +++++--------------
- include/linux/dmar.h                  |    3 ++-
- 6 files changed, 39 insertions(+), 43 deletions(-)
+ arch/x86/pci/acpi.c   |   65 ++++++++++++++++++++++++++++++-------------------
+ arch/x86/pci/common.c |   23 ++++++++++++-----
+ 2 files changed, 56 insertions(+), 32 deletions(-)
 
-diff --git a/arch/ia64/include/asm/irq_remapping.h b/arch/ia64/include/asm/irq_remapping.h
-index e3b3556e2e1b..a8687b1d8906 100644
---- a/arch/ia64/include/asm/irq_remapping.h
-+++ b/arch/ia64/include/asm/irq_remapping.h
-@@ -1,6 +1,4 @@
- #ifndef __IA64_INTR_REMAPPING_H
- #define __IA64_INTR_REMAPPING_H
- #define irq_remapping_enabled 0
--#define dmar_alloc_hwirq	create_irq
--#define dmar_free_hwirq		destroy_irq
- #endif
-diff --git a/arch/ia64/kernel/msi_ia64.c b/arch/ia64/kernel/msi_ia64.c
-index 8ae36ea177d3..3f6b76135645 100644
---- a/arch/ia64/kernel/msi_ia64.c
-+++ b/arch/ia64/kernel/msi_ia64.c
-@@ -166,7 +166,7 @@ static struct irq_chip dmar_msi_type = {
- 	.irq_retrigger = ia64_msi_retrigger_irq,
- };
- 
--static int
-+static void
- msi_compose_msg(struct pci_dev *pdev, unsigned int irq, struct msi_msg *msg)
- {
- 	struct irq_cfg *cfg = irq_cfg + irq;
-@@ -188,21 +188,29 @@ msi_compose_msg(struct pci_dev *pdev, unsigned int irq, struct msi_msg *msg)
- 		MSI_DATA_LEVEL_ASSERT |
- 		MSI_DATA_DELIVERY_FIXED |
- 		MSI_DATA_VECTOR(cfg->vector);
--	return 0;
+diff --git a/arch/x86/pci/acpi.c b/arch/x86/pci/acpi.c
+index cfd1b13..528fca3 100644
+--- a/arch/x86/pci/acpi.c
++++ b/arch/x86/pci/acpi.c
+@@ -13,6 +13,7 @@ struct pci_root_info {
+ 	unsigned int res_num;
+ 	struct resource *res;
+ 	resource_size_t *res_offset;
++	struct acpi_pci_root *root;
+ 	struct pci_sysdata sd;
+ #ifdef	CONFIG_PCI_MMCONFIG
+ 	bool mcfg_added;
+@@ -467,16 +468,40 @@ static void probe_pci_root_info(struct pci_root_info *info,
+ 				info);
  }
  
--int arch_setup_dmar_msi(unsigned int irq)
-+int dmar_alloc_hwirq(int id, int node, void *arg)
- {
--	int ret;
-+	int irq;
- 	struct msi_msg msg;
- 
--	ret = msi_compose_msg(NULL, irq, &msg);
--	if (ret < 0)
--		return ret;
--	dmar_msi_write(irq, &msg);
--	irq_set_chip_and_handler_name(irq, &dmar_msi_type, handle_edge_irq,
--				      "edge");
--	return 0;
-+	irq = create_irq();
-+	if (irq > 0) {
-+		irq_set_handler_data(irq, arg);
-+		irq_set_chip_and_handler_name(irq, &dmar_msi_type,
-+					      handle_edge_irq, "edge");
-+		msi_compose_msg(NULL, irq, &msg);
-+		dmar_msi_write(irq, &msg);
-+	}
++static int pci_acpi_init_res(struct pci_host_bridge *host,
++		struct pci_host_info *arg)
++{
++	struct pci_sysdata *sd = arg->arg;
++	struct pci_root_info *info = container_of(sd,
++			struct pci_root_info, sd);
 +
-+	return irq;
++	/* insert busn res at first */
++	pci_add_resource(&host->windows,  &info->root->secondary);
++	/*
++	 * _CRS with no apertures is normal, so only fall back to
++	 * defaults or native bridge info if we're ignoring _CRS.
++	 */
++	if (pci_use_crs)
++		add_resources(info, &host->windows);
++	else {
++		free_pci_root_info_res(info);
++		x86_pci_root_bus_resources(host->busnum, &host->windows);
++	}
++	
++	return 0;
 +}
 +
-+void dmar_free_hwirq(int irq)
+ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
+ {
+ 	struct acpi_device *device = root->device;
+ 	struct pci_root_info *info;
+ 	int domain = root->segment;
+ 	int busnum = root->secondary.start;
+-	LIST_HEAD(resources);
+ 	struct pci_bus *bus;
+ 	struct pci_sysdata *sd;
+ 	int node;
++	struct pci_host_info arg;
++	struct pci_host_bridge *host;
+ 
+ 	if (pci_ignore_seg)
+ 		domain = 0;
+@@ -506,10 +531,14 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
+ 		return NULL;
+ 	}
+ 
++	info->root = root;
+ 	sd = &info->sd;
+ 	sd->domain = domain;
+ 	sd->node = node;
+ 	sd->companion = device;
++	init_pci_host_info(&arg);
++	arg.arg = sd;
++	arg.init_res = pci_acpi_init_res;
+ 
+ 	bus = pci_find_bus(domain, busnum);
+ 	if (bus) {
+@@ -522,33 +551,19 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
+ 	} else {
+ 		probe_pci_root_info(info, device, busnum, domain);
+ 
+-		/* insert busn res at first */
+-		pci_add_resource(&resources,  &root->secondary);
+-		/*
+-		 * _CRS with no apertures is normal, so only fall back to
+-		 * defaults or native bridge info if we're ignoring _CRS.
+-		 */
+-		if (pci_use_crs)
+-			add_resources(info, &resources);
+-		else {
+-			free_pci_root_info_res(info);
+-			x86_pci_root_bus_resources(busnum, &resources);
++		if (!setup_mcfg_map(info, domain, (u8)root->secondary.start,
++				    (u8)root->secondary.end, root->mcfg_addr)) {
++			host = pci_scan_host_bridge(NULL, PCI_DOMBUS(domain, busnum), 
++					&pci_root_ops, &arg);
++			bus = host->bus;
+ 		}
+ 
+-		if (!setup_mcfg_map(info, domain, (u8)root->secondary.start,
+-				    (u8)root->secondary.end, root->mcfg_addr))
+-			bus = pci_create_root_bus(NULL, busnum, &pci_root_ops,
+-						  sd, &resources);
+-
+-		if (bus) {
+-			pci_scan_child_bus(bus);
+-			pci_set_host_bridge_release(
+-				to_pci_host_bridge(bus->bridge),
++		if (bus) 
++			pci_set_host_bridge_release(host,
+ 				release_pci_root_info, info);
+-		} else {
+-			pci_free_resource_list(&resources);
++		else 
+ 			__release_pci_root_info(info);
+-		}
++		
+ 	}
+ 
+ 	/* After the PCI-E bus has been walked and all devices discovered,
+@@ -568,7 +583,7 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
+ 
+ int pcibios_root_bridge_prepare(struct pci_host_bridge *bridge)
+ {
+-	struct pci_sysdata *sd = bridge->bus->sysdata;
++	struct pci_sysdata *sd = bridge->sysdata;
+ 
+ 	ACPI_COMPANION_SET(&bridge->dev, sd->companion);
+ 	return 0;
+diff --git a/arch/x86/pci/common.c b/arch/x86/pci/common.c
+index b16632b..0032065 100644
+--- a/arch/x86/pci/common.c
++++ b/arch/x86/pci/common.c
+@@ -456,11 +456,18 @@ void __init dmi_check_pciprobe(void)
+ 	dmi_check_system(pciprobe_dmi_table);
+ }
+ 
++static int pcibios_init_res(struct pci_host_bridge *host,
++		struct pci_host_info *info)
 +{
-+	irq_set_handler_data(irq, NULL);
-+	destroy_irq(irq);
- }
- #endif /* CONFIG_INTEL_IOMMU */
- 
-diff --git a/arch/x86/include/asm/irq_remapping.h b/arch/x86/include/asm/irq_remapping.h
-index 9c39650acbdd..82507c560589 100644
---- a/arch/x86/include/asm/irq_remapping.h
-+++ b/arch/x86/include/asm/irq_remapping.h
-@@ -121,8 +121,4 @@ irq_remapping_get_irq_domain(struct irq_alloc_info *info)
- 
- #define	irq_remapping_print_chip	NULL
- #endif /* CONFIG_IRQ_REMAP */
--
--extern int dmar_alloc_hwirq(void);
--extern void dmar_free_hwirq(int irq);
--
- #endif /* __X86_IRQ_REMAPPING_H */
-diff --git a/arch/x86/kernel/apic/msi.c b/arch/x86/kernel/apic/msi.c
-index afaaa1166a7d..695c82bbd682 100644
---- a/arch/x86/kernel/apic/msi.c
-+++ b/arch/x86/kernel/apic/msi.c
-@@ -228,25 +228,27 @@ static struct irq_chip dmar_msi_type = {
- 	.flags			= IRQCHIP_SKIP_SET_WAKE,
- };
- 
--int arch_setup_dmar_msi(unsigned int irq)
-+int dmar_alloc_hwirq(int id, int node, void *arg)
++	x86_pci_root_bus_resources(host->busnum, &host->windows);
++	return 0;
++}
++
+ void pcibios_scan_root(int busnum)
  {
-+	int irq;
- 	struct msi_msg msg;
--	struct irq_cfg *cfg = irq_cfg(irq);
+-	struct pci_bus *bus;
+ 	struct pci_sysdata *sd;
+-	LIST_HEAD(resources);
++	struct pci_host_info info;
++	struct pci_host_bridge *host;
  
--	native_compose_msi_msg(cfg, &msg);
--	dmar_msi_write(irq, &msg);
--	irq_set_chip_and_handler_name(irq, &dmar_msi_type, handle_edge_irq,
--				      "edge");
--	return 0;
--}
-+	irq = irq_domain_alloc_irqs(NULL, 1, node, NULL);
-+	if (irq > 0) {
-+		irq_set_handler_data(irq, arg);
-+		irq_set_chip_and_handler_name(irq, &dmar_msi_type,
-+					      handle_edge_irq, "edge");
-+		native_compose_msi_msg(irq_cfg(irq), &msg);
-+		dmar_msi_write(irq, &msg);
-+	}
- 
--int dmar_alloc_hwirq(void)
--{
--	return irq_domain_alloc_irqs(NULL, 1, NUMA_NO_NODE, NULL);
-+	return irq;
+ 	sd = kzalloc(sizeof(*sd), GFP_KERNEL);
+ 	if (!sd) {
+@@ -468,14 +475,16 @@ void pcibios_scan_root(int busnum)
+ 		return;
+ 	}
+ 	sd->node = x86_pci_root_bus_node(busnum);
+-	x86_pci_root_bus_resources(busnum, &resources);
++	init_pci_host_info(&info);
++	info.init_res = pcibios_init_res;
++	info.arg = sd;
+ 	printk(KERN_DEBUG "PCI: Probing PCI hardware (bus %02x)\n", busnum);
+-	bus = pci_scan_root_bus(NULL, busnum, &pci_root_ops, sd, &resources);
+-	if (bus) {
+-		pci_bus_add_devices(bus);
++	host = pci_scan_host_bridge(NULL, PCI_DOMBUS(0, busnum),
++		   	&pci_root_ops, &info);
++	if (host) {
++		pci_bus_add_devices(host->bus);
+ 		return;
+ 	} 
+-	pci_free_resource_list(&resources);
+ 	kfree(sd);
  }
  
- void dmar_free_hwirq(int irq)
- {
-+	irq_set_handler_data(irq, NULL);
-+	irq_set_handler(irq, NULL);
- 	irq_domain_free_irqs(irq, 1);
- }
- #endif
-diff --git a/drivers/iommu/dmar.c b/drivers/iommu/dmar.c
-index 9847613085e1..536f2d8ea41a 100644
---- a/drivers/iommu/dmar.c
-+++ b/drivers/iommu/dmar.c
-@@ -1087,8 +1087,8 @@ static void free_iommu(struct intel_iommu *iommu)
- 
- 	if (iommu->irq) {
- 		free_irq(iommu->irq, iommu);
--		irq_set_handler_data(iommu->irq, NULL);
- 		dmar_free_hwirq(iommu->irq);
-+		iommu->irq = 0;
- 	}
- 
- 	if (iommu->qi) {
-@@ -1642,23 +1642,14 @@ int dmar_set_interrupt(struct intel_iommu *iommu)
- 	if (iommu->irq)
- 		return 0;
- 
--	irq = dmar_alloc_hwirq();
--	if (irq <= 0) {
-+	irq = dmar_alloc_hwirq(iommu->seq_id, iommu->node, iommu);
-+	if (irq > 0) {
-+		iommu->irq = irq;
-+	} else {
- 		pr_err("IOMMU: no free vectors\n");
- 		return -EINVAL;
- 	}
- 
--	irq_set_handler_data(irq, iommu);
--	iommu->irq = irq;
--
--	ret = arch_setup_dmar_msi(irq);
--	if (ret) {
--		irq_set_handler_data(irq, NULL);
--		iommu->irq = 0;
--		dmar_free_hwirq(irq);
--		return ret;
--	}
--
- 	ret = request_irq(irq, dmar_fault, IRQF_NO_THREAD, iommu->name, iommu);
- 	if (ret)
- 		pr_err("IOMMU: can't request irq\n");
-diff --git a/include/linux/dmar.h b/include/linux/dmar.h
-index 30624954dec5..84737565c1fd 100644
---- a/include/linux/dmar.h
-+++ b/include/linux/dmar.h
-@@ -227,6 +227,7 @@ extern void dmar_msi_read(int irq, struct msi_msg *msg);
- extern void dmar_msi_write(int irq, struct msi_msg *msg);
- extern int dmar_set_interrupt(struct intel_iommu *iommu);
- extern irqreturn_t dmar_fault(int irq, void *dev_id);
--extern int arch_setup_dmar_msi(unsigned int irq);
-+extern int dmar_alloc_hwirq(int id, int node, void *arg);
-+extern void dmar_free_hwirq(int irq);
- 
- #endif /* __DMAR_H__ */
 -- 
-1.7.10.4
+1.7.1
 
