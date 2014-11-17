@@ -1,73 +1,67 @@
-From: Jan Kiszka <jan.kiszka@siemens.com>
-Date: Thu, 20 Nov 2014 17:01:52 +0000
-Subject: [PATCH v10 15/27] scripts/gdb: Add internal helper and convenience function to retrieve thread_info
-Message-Id: <bc0fb92e96ba956f71ae780d6fa64f5f1de587cc.1416502923.git.jan.kiszka@siemens.com>
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Mon, 17 Nov 2014 09:40:56 +0000
+Subject: [RFC PATCH 03/16] PCI: Clean up pci_scan_bus()
+Message-Id: <1416219710-26088-4-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1416502923.git.jan.kiszka@siemens.com>
-In-Reply-To: <cover.1416502923.git.jan.kiszka@siemens.com>
+References: <1416219710-26088-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1416219710-26088-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thomas Gleixner <tglx@linutronix.de>, linux-kernel@vger.kernel.org
-Cc: Andrew Morton <akpm@linux-foundation.org>, Jason Wessel <jason.wessel@windriver.com>, kgdb-bugreport@lists.sourceforge.net, Andi Kleen <andi@firstfloor.org>, Tom Tromey <tromey@redhat.com>, Ben Widawsky <ben@bwidawsk.net>, Borislav Petkov <bp@suse.de>, Tatiana Al-Chueyr Martins <tatiana.alchueyr@gmail.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Thierry Reding <thierry.reding@gmail.com>, Liviu Dudau <liviu@dudau.co.uk>, Suravee.Suthikulpanit@amd.com, Yijing Wang <wangyijing@huawei.com>
 
-Add the internal helper get_thread_info that calculates the thread_info
-from a given task variable. Also export this service as a convenience
-function.
+No one uses it, clean up.
 
-Note: ia64 version is untested.
-
-CC: Tony Luck <tony.luck@intel.com>
-CC: Fenghua Yu <fenghua.yu@intel.com>
-CC: linux-ia64@vger.kernel.org
-Signed-off-by: Jan Kiszka <jan.kiszka@siemens.com>
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
 ---
- scripts/gdb/linux/tasks.py | 35 +++++++++++++++++++++++++++++++++++
- 1 file changed, 35 insertions(+)
+ drivers/pci/probe.c |   20 --------------------
+ include/linux/pci.h |    1 -
+ 2 files changed, 0 insertions(+), 21 deletions(-)
 
-diff --git a/scripts/gdb/linux/tasks.py b/scripts/gdb/linux/tasks.py
-index 13bb97c..63cd6c5 100644
---- a/scripts/gdb/linux/tasks.py
-+++ b/scripts/gdb/linux/tasks.py
-@@ -71,3 +71,38 @@ return that task_struct variable which PID matches."""
+diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
+index fc99e88..0a02fc2 100644
+--- a/drivers/pci/probe.c
++++ b/drivers/pci/probe.c
+@@ -2125,26 +2125,6 @@ struct pci_bus *pci_scan_bus_parented(struct device *parent,
+ }
+ EXPORT_SYMBOL(pci_scan_bus_parented);
  
- 
- LxTaskByPidFunc()
-+
-+
-+thread_info_type = utils.CachedType("struct thread_info")
-+
-+ia64_task_size = None
-+
-+
-+def get_thread_info(task):
-+    global thread_info_type
-+    thread_info_ptr_type = thread_info_type.get_type().pointer()
-+    if utils.is_target_arch("ia64"):
-+        global ia64_task_size
-+        if ia64_task_size is None:
-+            ia64_task_size = gdb.parse_and_eval("sizeof(struct task_struct)")
-+        thread_info_addr = task.address + ia64_task_size
-+        thread_info = thread_info_addr.cast(thread_info_ptr_type)
-+    else:
-+        thread_info = task['stack'].cast(thread_info_ptr_type)
-+    return thread_info.dereference()
-+
-+
-+class LxThreadInfoFunc (gdb.Function):
-+    """Calculate Linux thread_info from task variable.
-+
-+$lx_thread_info(TASK): Given TASK, return the corresponding thread_info
-+variable."""
-+
-+    def __init__(self):
-+        super(LxThreadInfoFunc, self).__init__("lx_thread_info")
-+
-+    def invoke(self, task):
-+        return get_thread_info(task)
-+
-+
-+LxThreadInfoFunc()
+-struct pci_bus *pci_scan_bus(int bus, struct pci_ops *ops,
+-					void *sysdata)
+-{
+-	LIST_HEAD(resources);
+-	struct pci_bus *b;
+-
+-	pci_add_resource(&resources, &ioport_resource);
+-	pci_add_resource(&resources, &iomem_resource);
+-	pci_add_resource(&resources, &busn_resource);
+-	b = pci_create_root_bus(NULL, bus, ops, sysdata, &resources);
+-	if (b) {
+-		pci_scan_child_bus(b);
+-		pci_bus_add_devices(b);
+-	} else {
+-		pci_free_resource_list(&resources);
+-	}
+-	return b;
+-}
+-EXPORT_SYMBOL(pci_scan_bus);
+-
+ /**
+  * pci_rescan_bus_bridge_resize - scan a PCI bus for devices.
+  * @bridge: PCI bridge for the bus to scan
+diff --git a/include/linux/pci.h b/include/linux/pci.h
+index 5be8db4..f8045d6 100644
+--- a/include/linux/pci.h
++++ b/include/linux/pci.h
+@@ -769,7 +769,6 @@ struct pci_bus *pci_find_bus(int domain, int busnr);
+ void pci_bus_add_devices(const struct pci_bus *bus);
+ struct pci_bus *pci_scan_bus_parented(struct device *parent, int bus,
+ 				      struct pci_ops *ops, void *sysdata);
+-struct pci_bus *pci_scan_bus(int bus, struct pci_ops *ops, void *sysdata);
+ struct pci_bus *pci_create_root_bus(struct device *parent, int bus,
+ 				    struct pci_ops *ops, void *sysdata,
+ 				    struct list_head *resources);
 -- 
-1.8.4.5
+1.7.1
 
