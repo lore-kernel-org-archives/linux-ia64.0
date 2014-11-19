@@ -1,66 +1,82 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Date: Tue, 11 Nov 2014 21:36:39 +0000
-Subject: Re: [PATCH v9 11/12] x86, mpx: cleanup unused bound tables
-Message-Id: <alpine.DEB.2.11.1411112233180.3935@nanos>
+From: David Vrabel <david.vrabel@citrix.com>
+Date: Wed, 19 Nov 2014 16:01:59 +0000
+Subject: [PATCH 2/4] ia64: use common dma_get_required_mask_from_pfn()
+Message-Id: <1416412921-23671-3-git-send-email-david.vrabel@citrix.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1413088915-13428-1-git-send-email-qiaowei.ren@intel.com> <1413088915-13428-12-git-send-email-qiaowei.ren@intel.com> <alpine.DEB.2.11.1410241451280.5308@nanos> <545BED0B.8000001@intel.com> <alpine.DEB.2.11.1411111213450.3935@nanos>
- <54627512.7060806@intel.com>
-In-Reply-To: <54627512.7060806@intel.com>
+References: <1416412921-23671-1-git-send-email-david.vrabel@citrix.com>
+In-Reply-To: <1416412921-23671-1-git-send-email-david.vrabel@citrix.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Dave Hansen <dave.hansen@intel.com>
-Cc: Qiaowei Ren <qiaowei.ren@intel.com>, "H. Peter Anvin" <hpa@zytor.com>, Ingo Molnar <mingo@redhat.com>, x86@kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org
+To: linux-kernel@vger.kernel.org
+Cc: David Vrabel <david.vrabel@citrix.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, xen-devel@lists.xenproject.org, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-On Tue, 11 Nov 2014, Dave Hansen wrote:
-> On 11/11/2014 10:27 AM, Thomas Gleixner wrote:
-> > On Thu, 6 Nov 2014, Dave Hansen wrote:
-> >> Instead of all of these games with dropping and reacquiring mmap_sem and
-> >> adding other locks, or deferring the work, why don't we just do a
-> >> get_user_pages()?  Something along the lines of:
-> >>
-> >> while (1) {
-> >> 	ret = cmpxchg(addr)
-> >> 	if (!ret)
-> >> 		break;
-> >> 	if (ret = -EFAULT)
-> >> 		get_user_pages(addr);
-> >> }
-> >>
-> >> Does anybody see a problem with that?
-> > 
-> > You want to do that under mmap_sem write held, right? Not a problem per
-> > se, except that you block normal faults for a possibly long time when
-> > the page(s) need to be swapped in.
-> 
-> Yeah, it might hold mmap_sem for write while doing this in the unmap
-> path.  But, that's only if the bounds directory entry has been swapped
-> out.  There's only 1 pointer of bounds directory entries there for every
-> 1MB of data, so it _should_ be relatively rare.  It would mean that
-> nobody's been accessing a 512MB swath of data controlled by the same
-> page of the bounds directory.
-> 
-> If it gets to be an issue, we can always add some code to fault it in
-> before mmap_sem is acquired.
+Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
+---
+ arch/ia64/include/asm/machvec.h      |    2 +-
+ arch/ia64/include/asm/machvec_init.h |    1 -
+ arch/ia64/pci/pci.c                  |   20 --------------------
+ 3 files changed, 1 insertion(+), 22 deletions(-)
 
-I don't think it's a real issue.
+diff --git a/arch/ia64/include/asm/machvec.h b/arch/ia64/include/asm/machvec.h
+index 9c39bdf..beaa47d 100644
+--- a/arch/ia64/include/asm/machvec.h
++++ b/arch/ia64/include/asm/machvec.h
+@@ -287,7 +287,7 @@ extern struct dma_map_ops *dma_get_ops(struct device *);
+ # define platform_dma_get_ops		dma_get_ops
+ #endif
+ #ifndef platform_dma_get_required_mask
+-# define  platform_dma_get_required_mask	ia64_dma_get_required_mask
++# define  platform_dma_get_required_mask	dma_get_required_mask_from_max_pfn
+ #endif
+ #ifndef platform_irq_to_vector
+ # define platform_irq_to_vector		__ia64_irq_to_vector
+diff --git a/arch/ia64/include/asm/machvec_init.h b/arch/ia64/include/asm/machvec_init.h
+index 37a4698..ef964b2 100644
+--- a/arch/ia64/include/asm/machvec_init.h
++++ b/arch/ia64/include/asm/machvec_init.h
+@@ -3,7 +3,6 @@
  
-> FWIW, I believe we have a fairly long road ahead of us to optimize MPX
-> in practice.  I have a list of things I want to go investigate, but I
-> have not looked in to it in detail at all.
-
-:)
+ extern ia64_mv_send_ipi_t ia64_send_ipi;
+ extern ia64_mv_global_tlb_purge_t ia64_global_tlb_purge;
+-extern ia64_mv_dma_get_required_mask ia64_dma_get_required_mask;
+ extern ia64_mv_irq_to_vector __ia64_irq_to_vector;
+ extern ia64_mv_local_vector_to_irq __ia64_local_vector_to_irq;
+ extern ia64_mv_pci_get_legacy_mem_t ia64_pci_get_legacy_mem;
+diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
+index 291a582..79da21b 100644
+--- a/arch/ia64/pci/pci.c
++++ b/arch/ia64/pci/pci.c
+@@ -791,26 +791,6 @@ static void __init set_pci_dfl_cacheline_size(void)
+ 	pci_dfl_cache_line_size = (1 << cci.pcci_line_size) / 4;
+ }
  
-> > But yes, this might solve most of the issues at hand. Did not think
-> > about GUP at all :(
-> 
-> Whew.  Fixing it was getting nasty and complicated. :)
+-u64 ia64_dma_get_required_mask(struct device *dev)
+-{
+-	u32 low_totalram = ((max_pfn - 1) << PAGE_SHIFT);
+-	u32 high_totalram = ((max_pfn - 1) >> (32 - PAGE_SHIFT));
+-	u64 mask;
+-
+-	if (!high_totalram) {
+-		/* convert to mask just covering totalram */
+-		low_totalram = (1 << (fls(low_totalram) - 1));
+-		low_totalram += low_totalram - 1;
+-		mask = low_totalram;
+-	} else {
+-		high_totalram = (1 << (fls(high_totalram) - 1));
+-		high_totalram += high_totalram - 1;
+-		mask = (((u64)high_totalram) << 32) + 0xffffffff;
+-	}
+-	return mask;
+-}
+-EXPORT_SYMBOL_GPL(ia64_dma_get_required_mask);
+-
+ u64 dma_get_required_mask(struct device *dev)
+ {
+ 	return platform_dma_get_required_mask(dev);
+-- 
+1.7.10.4
 
-Indeed. Though I think that distangling specific parts of MPX from
-mmap_sem is still a worthwhile exercise. So not all of the complex
-ideas we came up with during the discussion are lost in the pointless
-complexity universe :)
-
-Thanks,
-
-	tglx
