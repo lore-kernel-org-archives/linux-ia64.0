@@ -1,57 +1,43 @@
 From: Yijing Wang <wangyijing@huawei.com>
-Date: Wed, 19 Nov 2014 06:52:10 +0000
-Subject: [PATCH 2/5] PCI: Introduce pci_scan_bus_simple()
-Message-Id: <1416382369-13587-3-git-send-email-wangyijing@huawei.com>
+Date: Wed, 19 Nov 2014 06:52:08 +0000
+Subject: [PATCH 0/5] PCI scan interfaces clean up
+Message-Id: <1416382369-13587-1-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1416382369-13587-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1416382369-13587-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Bjorn Helgaas <bhelgaas@google.com>
 Cc: linux-pci@vger.kernel.org, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>
 
-Now pci_scan_bus() and pci_scan_bus_parented()
-are almost the same except parent device.
-There is no need to use two similar scan interfaces.
-Introduce pci_scan_bus_simple() which is same
-as pci_scan_bus_parented(). And remove pci_scan_bus()
-and pci_scan_bus_parented() in later patch.
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
----
- drivers/pci/probe.c |   18 ++++++++++++++++++
- 1 files changed, 18 insertions(+), 0 deletions(-)
+Yijing Wang (5):
+  PCI: Rip out pci_bus_add_devices() from pci_scan_bus()
+  PCI: Introduce pci_scan_bus_simple()
+  PCI: Use pci_scan_bus_simple() in simple scene.
+  PCI: Remove pci_scan_bus() and pci_scan_bus_parented()
+  PCI: Rip out pci_bus_add_devices() from pci_scan_root_bus()
 
-diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
-index 5c5e01e..a8d90d4 100644
---- a/drivers/pci/probe.c
-+++ b/drivers/pci/probe.c
-@@ -2089,6 +2089,24 @@ struct pci_bus *pci_scan_root_bus(struct device *parent, int bus,
- }
- EXPORT_SYMBOL(pci_scan_root_bus);
- 
-+struct pci_bus *pci_scan_bus_simple(struct device *parent,
-+		int bus, struct pci_ops *ops, void *sysdata)
-+{
-+	LIST_HEAD(resources);
-+	struct pci_bus *b;
-+
-+	pci_add_resource(&resources, &ioport_resource);
-+	pci_add_resource(&resources, &iomem_resource);
-+	pci_add_resource(&resources, &busn_resource);
-+	b = pci_create_root_bus(parent, bus, ops, sysdata, &resources);
-+	if (b)
-+		pci_scan_child_bus(b);
-+	else
-+		pci_free_resource_list(&resources);
-+	return b;
-+}
-+EXPORT_SYMBOL(pci_scan_bus_simple);
-+
- /* Deprecated; use pci_scan_root_bus() instead */
- struct pci_bus *pci_scan_bus_parented(struct device *parent,
- 		int bus, struct pci_ops *ops, void *sysdata)
--- 
-1.7.1
+ arch/alpha/kernel/pci.c           |    2 ++
+ arch/alpha/kernel/sys_nautilus.c  |    3 ++-
+ arch/frv/mb93090-mb00/pci-vdk.c   |    6 ++++--
+ arch/ia64/sn/kernel/io_init.c     |    1 +
+ arch/m68k/coldfire/pci.c          |    3 ++-
+ arch/microblaze/pci/pci-common.c  |    1 +
+ arch/mips/pci/pci.c               |    1 +
+ arch/mn10300/unit-asb2305/pci.c   |    5 ++++-
+ arch/s390/pci/pci.c               |    2 +-
+ arch/sh/drivers/pci/pci.c         |    1 +
+ arch/sparc/kernel/leon_pci.c      |    1 +
+ arch/sparc/kernel/pcic.c          |    5 ++++-
+ arch/tile/kernel/pci.c            |    2 ++
+ arch/tile/kernel/pci_gx.c         |    2 ++
+ arch/unicore32/kernel/pci.c       |   15 +++++----------
+ arch/x86/pci/common.c             |    1 +
+ arch/xtensa/kernel/pci.c          |    2 ++
+ drivers/pci/host/pci-xgene.c      |    1 +
+ drivers/pci/hotplug/ibmphp_core.c |    7 +++++--
+ drivers/pci/probe.c               |   26 ++------------------------
+ drivers/pci/xen-pcifront.c        |    2 +-
+ include/linux/pci.h               |    3 +--
+ 22 files changed, 46 insertions(+), 46 deletions(-)
 
