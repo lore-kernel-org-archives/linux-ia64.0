@@ -1,360 +1,371 @@
-From: Paolo Bonzini <pbonzini@redhat.com>
-Date: Wed, 19 Nov 2014 21:05:43 +0000
-Subject: [PATCH] KVM: ia64: remove
-Message-Id: <1416431143-31843-1-git-send-email-pbonzini@redhat.com>
+From: "Chen, Tiejun" <tiejun.chen@intel.com>
+Date: Thu, 20 Nov 2014 01:16:08 +0000
+Subject: Re: [PATCH] KVM: ia64: remove
+Message-Id: <546D40D8.2030407@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1416431143-31843-1-git-send-email-pbonzini@redhat.com>
+In-Reply-To: <1416431143-31843-1-git-send-email-pbonzini@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, kvm@vger.kernel.org
+To: Paolo Bonzini <pbonzini@redhat.com>, linux-kernel@vger.kernel.org, kvm@vger.kernel.org
 Cc: linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
 
-KVM for ia64 has been marked as broken not just once, but twice even,
-and the last patch from the maintainer is now roughly 5 years old.
-Time for it to rest in piece.
+On 2014/11/20 5:05, Paolo Bonzini wrote:
+> KVM for ia64 has been marked as broken not just once, but twice even,
+> and the last patch from the maintainer is now roughly 5 years old.
+> Time for it to rest in piece.
+>
+> Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+> ---
 
-Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+I think we also need to sync this in Documentation:
+
+Documentation: virtual: kvm: remove ia64
+
+kvm/ia64 would be gone so just clean Documentation.
+
+Signed-off-by: Tiejun Chen <tiejun.chen@intel.com>
 ---
-	The patch was edited to keep its size decent, by dropping
-	all the removed lines from the deleted files.
+  Documentation/ia64/kvm.txt          | 83 
+-------------------------------------
+  Documentation/ia64/paravirt_ops.txt |  8 ++--
+  Documentation/virtual/kvm/api.txt   | 45 ++++++++++----------
+  3 files changed, 26 insertions(+), 110 deletions(-)
+  delete mode 100644 Documentation/ia64/kvm.txt
 
- MAINTAINERS                         |    9 -
- arch/ia64/Kconfig                   |    3 -
- arch/ia64/Makefile                  |    1 -
- arch/ia64/include/asm/kvm_host.h    |  609 ----------
- arch/ia64/include/asm/pvclock-abi.h |   48 -
- arch/ia64/include/uapi/asm/kvm.h    |  268 -----
- arch/ia64/kvm/Kconfig               |   66 --
- arch/ia64/kvm/Makefile              |   67 --
- arch/ia64/kvm/asm-offsets.c         |  241 ----
- arch/ia64/kvm/irq.h                 |   33 -
- arch/ia64/kvm/kvm-ia64.c            | 1942 ------------------------------
- arch/ia64/kvm/kvm_fw.c              |  674 -----------
- arch/ia64/kvm/kvm_lib.c             |   21 -
- arch/ia64/kvm/kvm_minstate.h        |  266 -----
- arch/ia64/kvm/lapic.h               |   30 -
- arch/ia64/kvm/memcpy.S              |    1 -
- arch/ia64/kvm/memset.S              |    1 -
- arch/ia64/kvm/misc.h                |   94 --
- arch/ia64/kvm/mmio.c                |  336 ------
- arch/ia64/kvm/optvfault.S           | 1090 -----------------
- arch/ia64/kvm/process.c             | 1024 ----------------
- arch/ia64/kvm/trampoline.S          | 1038 ----------------
- arch/ia64/kvm/vcpu.c                | 2209 -----------------------------------
- arch/ia64/kvm/vcpu.h                |  752 ------------
- arch/ia64/kvm/vmm.c                 |   99 --
- arch/ia64/kvm/vmm_ivt.S             | 1392 ----------------------
- arch/ia64/kvm/vti.h                 |  290 -----
- arch/ia64/kvm/vtlb.c                |  640 ----------
- virt/kvm/ioapic.c                   |  5 -
- virt/kvm/ioapic.h                   |  1 -
- virt/kvm/irq_comm.c                 | 22 -
- 31 files changed, 13272 deletions(-)
- delete mode 100644 arch/ia64/include/asm/kvm_host.h
- delete mode 100644 arch/ia64/include/asm/pvclock-abi.h
- delete mode 100644 arch/ia64/include/uapi/asm/kvm.h
- delete mode 100644 arch/ia64/kvm/Kconfig
- delete mode 100644 arch/ia64/kvm/Makefile
- delete mode 100644 arch/ia64/kvm/asm-offsets.c
- delete mode 100644 arch/ia64/kvm/irq.h
- delete mode 100644 arch/ia64/kvm/kvm-ia64.c
- delete mode 100644 arch/ia64/kvm/kvm_fw.c
- delete mode 100644 arch/ia64/kvm/kvm_lib.c
- delete mode 100644 arch/ia64/kvm/kvm_minstate.h
- delete mode 100644 arch/ia64/kvm/lapic.h
- delete mode 100644 arch/ia64/kvm/memcpy.S
- delete mode 100644 arch/ia64/kvm/memset.S
- delete mode 100644 arch/ia64/kvm/misc.h
- delete mode 100644 arch/ia64/kvm/mmio.c
- delete mode 100644 arch/ia64/kvm/optvfault.S
- delete mode 100644 arch/ia64/kvm/process.c
- delete mode 100644 arch/ia64/kvm/trampoline.S
- delete mode 100644 arch/ia64/kvm/vcpu.c
- delete mode 100644 arch/ia64/kvm/vcpu.h
- delete mode 100644 arch/ia64/kvm/vmm.c
- delete mode 100644 arch/ia64/kvm/vmm_ivt.S
- delete mode 100644 arch/ia64/kvm/vti.h
- delete mode 100644 arch/ia64/kvm/vtlb.c
-
-diff --git a/MAINTAINERS b/MAINTAINERS
-index a12edf2624e5..56705138ca74 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -5244,15 +5244,6 @@ S:       Supported
- F:     arch/powerpc/include/asm/kvm*
- F:     arch/powerpc/kvm/
-
--KERNEL VIRTUAL MACHINE For Itanium (KVM/IA64)
--M:     Xiantao Zhang <xiantao.zhang@intel.com>
--L:     kvm-ia64@vger.kernel.org
--W:     http://kvm.qumranet.com
--S:     Supported
--F:     Documentation/ia64/kvm.txt
--F:     arch/ia64/include/asm/kvm*
--F:     arch/ia64/kvm/
+diff --git a/Documentation/ia64/kvm.txt b/Documentation/ia64/kvm.txt
+deleted file mode 100644
+index ffb5c80..0000000
+--- a/Documentation/ia64/kvm.txt
++++ /dev/null
+@@ -1,83 +0,0 @@
+-Currently, kvm module is in EXPERIMENTAL stage on IA64. This means that
+-interfaces are not stable enough to use. So, please don't run critical
+-applications in virtual machine.
+-We will try our best to improve it in future versions!
 -
- KERNEL VIRTUAL MACHINE for s390 (KVM/s390)
- M:     Christian Borntraeger <borntraeger@de.ibm.com>
- M:     Cornelia Huck <cornelia.huck@de.ibm.com>
-diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-index c84c88bbbbd7..11afe7ab1981 100644
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -21,7 +21,6 @@ config IA64
- 	select HAVE_DYNAMIC_FTRACE if (!ITANIUM)
- 	select HAVE_FUNCTION_TRACER
- 	select HAVE_DMA_ATTRS
--	select HAVE_KVM
- 	select TTY
- 	select HAVE_ARCH_TRACEHOOK
- 	select HAVE_DMA_API_DEBUG
-@@ -640,8 +639,6 @@ source "security/Kconfig"
- 
- source "crypto/Kconfig"
- 
--source "arch/ia64/kvm/Kconfig"
+-                               Guide: How to boot up guests on kvm/ia64
 -
- source "lib/Kconfig"
- 
- config IOMMU_HELPER
-diff --git a/arch/ia64/Makefile b/arch/ia64/Makefile
-index 5441b14994fc..970d0bd99621 100644
---- a/arch/ia64/Makefile
-+++ b/arch/ia64/Makefile
-@@ -53,7 +53,6 @@ core-$(CONFIG_IA64_HP_ZX1)	+= arch/ia64/dig/
- core-$(CONFIG_IA64_HP_ZX1_SWIOTLB) += arch/ia64/dig/
- core-$(CONFIG_IA64_SGI_SN2)	+= arch/ia64/sn/
- core-$(CONFIG_IA64_SGI_UV)	+= arch/ia64/uv/
--core-$(CONFIG_KVM) 		+= arch/ia64/kvm/
- 
- drivers-$(CONFIG_PCI)		+= arch/ia64/pci/
- drivers-$(CONFIG_IA64_HP_SIM)	+= arch/ia64/hp/sim/
-diff --git a/arch/ia64/include/asm/kvm_host.h b/arch/ia64/include/asm/kvm_host.h
-deleted file mode 100644
-index 4729752b7256..000000000000
---- a/arch/ia64/include/asm/kvm_host.h
-+++ /dev/null
-@@ -1,609 +0,0 @@
-diff --git a/arch/ia64/include/asm/pvclock-abi.h b/arch/ia64/include/asm/pvclock-abi.h
-deleted file mode 100644
-index 42b233bedeb5..000000000000
---- a/arch/ia64/include/asm/pvclock-abi.h
-+++ /dev/null
-@@ -1,48 +0,0 @@
-diff --git a/arch/ia64/include/uapi/asm/kvm.h b/arch/ia64/include/uapi/asm/kvm.h
-deleted file mode 100644
-index 99503c284400..000000000000
---- a/arch/ia64/include/uapi/asm/kvm.h
-+++ /dev/null
-@@ -1,268 +0,0 @@
-diff --git a/arch/ia64/kvm/Kconfig b/arch/ia64/kvm/Kconfig
-deleted file mode 100644
-index 3d50ea955c4c..000000000000
---- a/arch/ia64/kvm/Kconfig
-+++ /dev/null
-@@ -1,66 +0,0 @@
-diff --git a/arch/ia64/kvm/Makefile b/arch/ia64/kvm/Makefile
-deleted file mode 100644
-index 18e45ec49bbf..000000000000
---- a/arch/ia64/kvm/Makefile
-+++ /dev/null
-@@ -1,67 +0,0 @@
-diff --git a/arch/ia64/kvm/asm-offsets.c b/arch/ia64/kvm/asm-offsets.c
-deleted file mode 100644
-index 9324c875caf5..000000000000
---- a/arch/ia64/kvm/asm-offsets.c
-+++ /dev/null
-@@ -1,241 +0,0 @@
-diff --git a/arch/ia64/kvm/irq.h b/arch/ia64/kvm/irq.h
-deleted file mode 100644
-index c0785a728271..000000000000
---- a/arch/ia64/kvm/irq.h
-+++ /dev/null
-@@ -1,33 +0,0 @@
-diff --git a/arch/ia64/kvm/kvm-ia64.c b/arch/ia64/kvm/kvm-ia64.c
-deleted file mode 100644
-index ec6b9acb6bea..000000000000
---- a/arch/ia64/kvm/kvm-ia64.c
-+++ /dev/null
-@@ -1,1942 +0,0 @@
-diff --git a/arch/ia64/kvm/kvm_fw.c b/arch/ia64/kvm/kvm_fw.c
-deleted file mode 100644
-index cb548ee9fcae..000000000000
---- a/arch/ia64/kvm/kvm_fw.c
-+++ /dev/null
-@@ -1,674 +0,0 @@
-diff --git a/arch/ia64/kvm/kvm_lib.c b/arch/ia64/kvm/kvm_lib.c
-deleted file mode 100644
-index f1268b8e6f9e..000000000000
---- a/arch/ia64/kvm/kvm_lib.c
-+++ /dev/null
-@@ -1,21 +0,0 @@
-diff --git a/arch/ia64/kvm/kvm_minstate.h b/arch/ia64/kvm/kvm_minstate.h
-deleted file mode 100644
-index b2bcaa2787aa..000000000000
---- a/arch/ia64/kvm/kvm_minstate.h
-+++ /dev/null
-@@ -1,266 +0,0 @@
-diff --git a/arch/ia64/kvm/lapic.h b/arch/ia64/kvm/lapic.h
-deleted file mode 100644
-index c5f92a926a9a..000000000000
---- a/arch/ia64/kvm/lapic.h
-+++ /dev/null
-@@ -1,30 +0,0 @@
-diff --git a/arch/ia64/kvm/memcpy.S b/arch/ia64/kvm/memcpy.S
-deleted file mode 100644
-index c04cdbe9f80f..000000000000
---- a/arch/ia64/kvm/memcpy.S
-+++ /dev/null
-@@ -1 +0,0 @@
-diff --git a/arch/ia64/kvm/memset.S b/arch/ia64/kvm/memset.S
-deleted file mode 100644
-index 83c3066d844a..000000000000
---- a/arch/ia64/kvm/memset.S
-+++ /dev/null
-@@ -1 +0,0 @@
-diff --git a/arch/ia64/kvm/misc.h b/arch/ia64/kvm/misc.h
-deleted file mode 100644
-index dd979e00b574..000000000000
---- a/arch/ia64/kvm/misc.h
-+++ /dev/null
-@@ -1,94 +0,0 @@
-diff --git a/arch/ia64/kvm/mmio.c b/arch/ia64/kvm/mmio.c
-deleted file mode 100644
-index f1e17d3d6cd9..000000000000
---- a/arch/ia64/kvm/mmio.c
-+++ /dev/null
-@@ -1,336 +0,0 @@
-diff --git a/arch/ia64/kvm/optvfault.S b/arch/ia64/kvm/optvfault.S
-deleted file mode 100644
-index f793be3effff..000000000000
---- a/arch/ia64/kvm/optvfault.S
-+++ /dev/null
-@@ -1,1090 +0,0 @@
-diff --git a/arch/ia64/kvm/process.c b/arch/ia64/kvm/process.c
-deleted file mode 100644
-index b0398740b48d..000000000000
---- a/arch/ia64/kvm/process.c
-+++ /dev/null
-@@ -1,1024 +0,0 @@
-diff --git a/arch/ia64/kvm/trampoline.S b/arch/ia64/kvm/trampoline.S
-deleted file mode 100644
-index 30897d44d61e..000000000000
---- a/arch/ia64/kvm/trampoline.S
-+++ /dev/null
-@@ -1,1038 +0,0 @@
-diff --git a/arch/ia64/kvm/vcpu.c b/arch/ia64/kvm/vcpu.c
-deleted file mode 100644
-index 958815c9787d..000000000000
---- a/arch/ia64/kvm/vcpu.c
-+++ /dev/null
-@@ -1,2209 +0,0 @@
-diff --git a/arch/ia64/kvm/vcpu.h b/arch/ia64/kvm/vcpu.h
-deleted file mode 100644
-index 988911b4cc7a..000000000000
---- a/arch/ia64/kvm/vcpu.h
-+++ /dev/null
-@@ -1,752 +0,0 @@
-diff --git a/arch/ia64/kvm/vmm.c b/arch/ia64/kvm/vmm.c
-deleted file mode 100644
-index 176a12cd56de..000000000000
---- a/arch/ia64/kvm/vmm.c
-+++ /dev/null
-@@ -1,99 +0,0 @@
-diff --git a/arch/ia64/kvm/vmm_ivt.S b/arch/ia64/kvm/vmm_ivt.S
-deleted file mode 100644
-index 397e34a63e18..000000000000
---- a/arch/ia64/kvm/vmm_ivt.S
-+++ /dev/null
-@@ -1,1392 +0,0 @@
-diff --git a/arch/ia64/kvm/vti.h b/arch/ia64/kvm/vti.h
-deleted file mode 100644
-index b214b5b0432d..000000000000
---- a/arch/ia64/kvm/vti.h
-+++ /dev/null
-@@ -1,290 +0,0 @@
-diff --git a/arch/ia64/kvm/vtlb.c b/arch/ia64/kvm/vtlb.c
-deleted file mode 100644
-index a7869f8f49a6..000000000000
---- a/arch/ia64/kvm/vtlb.c
-+++ /dev/null
-@@ -1,640 +0,0 @@
-diff --git a/virt/kvm/ioapic.c b/virt/kvm/ioapic.c
-index 381077d8cc5d..1cb8af07bf2b 100644
---- a/virt/kvm/ioapic.c
-+++ b/virt/kvm/ioapic.c
-@@ -544,11 +544,6 @@ static int ioapic_mmio_write(struct kvm_io_device *this, gpa_t addr, int len,
- 	case IOAPIC_REG_WINDOW:
- 		ioapic_write_indirect(ioapic, data);
- 		break;
--#ifdef	CONFIG_IA64
--	case IOAPIC_REG_EOI:
--		__kvm_ioapic_update_eoi(NULL, ioapic, data, IOAPIC_LEVEL_TRIG);
--		break;
--#endif
- 
- 	default:
- 		break;
-diff --git a/virt/kvm/ioapic.h b/virt/kvm/ioapic.h
-index 35c0e3ed72bf..e2d34012ac7e 100644
---- a/virt/kvm/ioapic.h
-+++ b/virt/kvm/ioapic.h
-@@ -19,7 +19,6 @@ struct kvm_vcpu;
- /* Direct registers. */
- #define IOAPIC_REG_SELECT  0x00
- #define IOAPIC_REG_WINDOW  0x10
--#define IOAPIC_REG_EOI     0x40	/* IA64 IOSAPIC only */
- 
- /* Indirect registers. */
- #define IOAPIC_REG_APIC_ID 0x00	/* x86 IOAPIC only */
-diff --git a/virt/kvm/irq_comm.c b/virt/kvm/irq_comm.c
-index 963b8995a9e8..1345bde064f5 100644
---- a/virt/kvm/irq_comm.c
-+++ b/virt/kvm/irq_comm.c
-@@ -26,9 +26,6 @@
- #include <trace/events/kvm.h>
- 
- #include <asm/msidef.h>
--#ifdef CONFIG_IA64
--#include <asm/iosapic.h>
--#endif
- 
- #include "irq.h"
- 
-@@ -57,12 +54,7 @@ static int kvm_set_ioapic_irq(struct kvm_kernel_irq_routing_entry *e,
- 
- inline static bool kvm_is_dm_lowest_prio(struct kvm_lapic_irq *irq)
- {
--#ifdef CONFIG_IA64
--	return irq->delivery_mode =
--		(IOSAPIC_LOWEST_PRIORITY << IOSAPIC_DELIVERY_SHIFT);
--#else
- 	return irq->delivery_mode = APIC_DM_LOWEST;
--#endif
- }
- 
- int kvm_irq_delivery_to_apic(struct kvm *kvm, struct kvm_lapic *src,
-@@ -346,20 +338,6 @@ static const struct kvm_irq_routing_entry default_routing[] = {
- 	ROUTING_ENTRY1(18), ROUTING_ENTRY1(19),
- 	ROUTING_ENTRY1(20), ROUTING_ENTRY1(21),
- 	ROUTING_ENTRY1(22), ROUTING_ENTRY1(23),
--#ifdef CONFIG_IA64
--	ROUTING_ENTRY1(24), ROUTING_ENTRY1(25),
--	ROUTING_ENTRY1(26), ROUTING_ENTRY1(27),
--	ROUTING_ENTRY1(28), ROUTING_ENTRY1(29),
--	ROUTING_ENTRY1(30), ROUTING_ENTRY1(31),
--	ROUTING_ENTRY1(32), ROUTING_ENTRY1(33),
--	ROUTING_ENTRY1(34), ROUTING_ENTRY1(35),
--	ROUTING_ENTRY1(36), ROUTING_ENTRY1(37),
--	ROUTING_ENTRY1(38), ROUTING_ENTRY1(39),
--	ROUTING_ENTRY1(40), ROUTING_ENTRY1(41),
--	ROUTING_ENTRY1(42), ROUTING_ENTRY1(43),
--	ROUTING_ENTRY1(44), ROUTING_ENTRY1(45),
--	ROUTING_ENTRY1(46), ROUTING_ENTRY1(47),
--#endif
- };
- 
- int kvm_setup_default_irq_routing(struct kvm *kvm)
+-This guide is to describe how to enable kvm support for IA-64 systems.
+-
+-1. Get the kvm source from git.kernel.org.
+-       Userspace source:
+-               git clone 
+git://git.kernel.org/pub/scm/virt/kvm/kvm-userspace.git
+-       Kernel Source:
+-               git clone 
+git://git.kernel.org/pub/scm/linux/kernel/git/xiantao/kvm-ia64.git
+-
+-2. Compile the source code.
+-       2.1 Compile userspace code:
+-               (1)cd ./kvm-userspace
+-               (2)./configure
+-               (3)cd kernel
+-               (4)make sync LINUX= $kernel_dir (kernel_dir is the 
+directory of kernel source.)
+-               (5)cd ..
+-               (6)make qemu
+-               (7)cd qemu; make install
+-
+-       2.2 Compile kernel source code:
+-               (1) cd ./$kernel_dir
+-               (2) Make menuconfig
+-               (3) Enter into virtualization option, and choose kvm.
+-               (4) make
+-               (5) Once (4) done, make modules_install
+-               (6) Make initrd, and use new kernel to reboot up host 
+machine.
+-               (7) Once (6) done, cd $kernel_dir/arch/ia64/kvm
+-               (8) insmod kvm.ko; insmod kvm-intel.ko
+-
+-Note: For step 2, please make sure that host page size = 
+TARGET_PAGE_SIZE of qemu, otherwise, may fail.
+-
+-3. Get Guest Firmware named as Flash.fd, and put it under right place:
+-       (1) If you have the guest firmware (binary) released by Intel 
+Corp for Xen, use it directly.
+-
+-       (2) If you have no firmware at hand, Please download its source from
+-               hg clone http://xenbits.xensource.com/ext/efi-vfirmware.hg
+-           you can get the firmware's binary in the directory of 
+efi-vfirmware.hg/binaries.
+-
+-       (3) Rename the firmware you owned to Flash.fd, and copy it to 
+/usr/local/share/qemu
+-
+-4. Boot up Linux or Windows guests:
+-       4.1 Create or install a image for guest boot. If you have xen 
+experience, it should be easy.
+-
+-       4.2 Boot up guests use the following command.
+-               /usr/local/bin/qemu-system-ia64 -smp xx -m 512 -hda 
+$your_image
+-               (xx is the number of virtual processors for the guest, 
+now the maximum value is 4)
+-
+-5. Known possible issue on some platforms with old Firmware.
+-
+-In the event of strange host crash issues, try to solve it through 
+either of the following ways:
+-
+-(1): Upgrade your Firmware to the latest one.
+-
+-(2): Applying the below patch to kernel source.
+-diff --git a/arch/ia64/kernel/pal.S b/arch/ia64/kernel/pal.S
+-index 0b53344..f02b0f7 100644
+---- a/arch/ia64/kernel/pal.S
+-+++ b/arch/ia64/kernel/pal.S
+-@@ -84,7 +84,8 @@ GLOBAL_ENTRY(ia64_pal_call_static)
+-       mov ar.pfs = loc1
+-       mov rp = loc0
+-       ;;
+--      srlz.d                          // serialize restoration of psr.l
+-+      srlz.i                  // serialize restoration of psr.l
+-+      ;;
+-       br.ret.sptk.many b0
+- END(ia64_pal_call_static)
+-
+-6. Bug report:
+-       If you found any issues when use kvm/ia64, Please post the bug 
+info to kvm-ia64-devel mailing list.
+-       https://lists.sourceforge.net/lists/listinfo/kvm-ia64-devel/
+-
+-Thanks for your interest! Let's work together, and make kvm/ia64 
+stronger and stronger!
+-
+-
+-                                                               Xiantao 
+Zhang <xiantao.zhang@intel.com>
+- 
+                 2008.3.10
+diff --git a/Documentation/ia64/paravirt_ops.txt 
+b/Documentation/ia64/paravirt_ops.txt
+index 39ded02..3a1f36b 100644
+--- a/Documentation/ia64/paravirt_ops.txt
++++ b/Documentation/ia64/paravirt_ops.txt
+@@ -12,7 +12,7 @@ paravirt_ops (pv_ops in short) is a way for 
+virtualization support of
+  Linux kernel on x86. Several ways for virtualization support were
+  proposed, paravirt_ops is the winner.
+  On the other hand, now there are also several IA64 virtualization
+-technologies like kvm/IA64, xen/IA64 and many other academic IA64
++technologies like xen/IA64 and many other academic IA64
+  hypervisors so that it is good to add generic virtualization
+  infrastructure on Linux/IA64.
+
+@@ -69,9 +69,9 @@ But paravirt_ops approach was taken because
+    and the overhead of paravirt_ops on native environment should be as
+    small as possible.
+
+-- for full virtualization technology, e.g. KVM/IA64 or
+-  Xen/IA64 HVM domain, the result would be
+-  (the emulated platform machine vector. probably dig) + (pv_ops).
++- for full virtualization technology, e.g. Xen/IA64 HVM domain, the
++  result would be (the emulated platform machine vector. probably
++  dig) + (pv_ops).
+    This means that the virtualization support layer should be under
+    the machine vector layer.
+
+diff --git a/Documentation/virtual/kvm/api.txt 
+b/Documentation/virtual/kvm/api.txt
+index 7a943c2..80bfe59 100644
+--- a/Documentation/virtual/kvm/api.txt
++++ b/Documentation/virtual/kvm/api.txt
+@@ -607,7 +607,7 @@ struct kvm_fpu {
+  4.24 KVM_CREATE_IRQCHIP
+
+  Capability: KVM_CAP_IRQCHIP, KVM_CAP_S390_IRQCHIP (s390)
+-Architectures: x86, ia64, ARM, arm64, s390
++Architectures: x86, ARM, arm64, s390
+  Type: vm ioctl
+  Parameters: none
+  Returns: 0 on success, -1 on error
+@@ -615,7 +615,7 @@ Returns: 0 on success, -1 on error
+  Creates an interrupt controller model in the kernel.  On x86, creates 
+a virtual
+  ioapic, a virtual PIC (two PICs, nested), and sets up future vcpus to 
+have a
+  local APIC.  IRQ routing for GSIs 0-15 is set to both PIC and IOAPIC; 
+GSI 16-23
+-only go to the IOAPIC.  On ia64, a IOSAPIC is created. On ARM/arm64, a 
+GIC is
++only go to the IOAPIC.  On ARM/arm64, a GIC is
+  created. On s390, a dummy irq routing table is created.
+
+  Note that on s390 the KVM_CAP_S390_IRQCHIP vm capability needs to be 
+enabled
+@@ -625,7 +625,7 @@ before KVM_CREATE_IRQCHIP can be used.
+  4.25 KVM_IRQ_LINE
+
+  Capability: KVM_CAP_IRQCHIP
+-Architectures: x86, ia64, arm, arm64
++Architectures: x86, arm, arm64
+  Type: vm ioctl
+  Parameters: struct kvm_irq_level
+  Returns: 0 on success, -1 on error
+@@ -679,7 +679,7 @@ struct kvm_irq_level {
+  4.26 KVM_GET_IRQCHIP
+
+  Capability: KVM_CAP_IRQCHIP
+-Architectures: x86, ia64
++Architectures: x86
+  Type: vm ioctl
+  Parameters: struct kvm_irqchip (in/out)
+  Returns: 0 on success, -1 on error
+@@ -701,7 +701,7 @@ struct kvm_irqchip {
+  4.27 KVM_SET_IRQCHIP
+
+  Capability: KVM_CAP_IRQCHIP
+-Architectures: x86, ia64
++Architectures: x86
+  Type: vm ioctl
+  Parameters: struct kvm_irqchip (in)
+  Returns: 0 on success, -1 on error
+@@ -994,7 +994,7 @@ for vm-wide capabilities.
+  4.38 KVM_GET_MP_STATE
+
+  Capability: KVM_CAP_MP_STATE
+-Architectures: x86, ia64, s390
++Architectures: x86, s390
+  Type: vcpu ioctl
+  Parameters: struct kvm_mp_state (out)
+  Returns: 0 on success; -1 on error
+@@ -1008,16 +1008,15 @@ uniprocessor guests).
+
+  Possible values are:
+
+- - KVM_MP_STATE_RUNNABLE:        the vcpu is currently running [x86, ia64]
++ - KVM_MP_STATE_RUNNABLE:        the vcpu is currently running [x86]
+   - KVM_MP_STATE_UNINITIALIZED:   the vcpu is an application processor (AP)
+-                                 which has not yet received an INIT 
+signal [x86,
+-                                 ia64]
++                                 which has not yet received an INIT 
+signal [x86]
+   - KVM_MP_STATE_INIT_RECEIVED:   the vcpu has received an INIT signal, 
+and is
+-                                 now ready for a SIPI [x86, ia64]
++                                 now ready for a SIPI [x86]
+   - KVM_MP_STATE_HALTED:          the vcpu has executed a HLT 
+instruction and
+-                                 is waiting for an interrupt [x86, ia64]
++                                 is waiting for an interrupt [x86]
+   - KVM_MP_STATE_SIPI_RECEIVED:   the vcpu has just received a SIPI (vector
+-                                 accessible via KVM_GET_VCPU_EVENTS) 
+[x86, ia64]
++                                 accessible via KVM_GET_VCPU_EVENTS) [x86]
+   - KVM_MP_STATE_STOPPED:         the vcpu is stopped [s390]
+   - KVM_MP_STATE_CHECK_STOP:      the vcpu is in a special error state 
+[s390]
+   - KVM_MP_STATE_OPERATING:       the vcpu is operating (running or halted)
+@@ -1025,7 +1024,7 @@ Possible values are:
+   - KVM_MP_STATE_LOAD:            the vcpu is in a special load/startup 
+state
+                                   [s390]
+
+-On x86 and ia64, this ioctl is only useful after KVM_CREATE_IRQCHIP. 
+Without an
++On x86, this ioctl is only useful after KVM_CREATE_IRQCHIP. Without an
+  in-kernel irqchip, the multiprocessing state must be maintained by 
+userspace on
+  these architectures.
+
+@@ -1033,7 +1032,7 @@ these architectures.
+  4.39 KVM_SET_MP_STATE
+
+  Capability: KVM_CAP_MP_STATE
+-Architectures: x86, ia64, s390
++Architectures: x86, s390
+  Type: vcpu ioctl
+  Parameters: struct kvm_mp_state (in)
+  Returns: 0 on success; -1 on error
+@@ -1041,7 +1040,7 @@ Returns: 0 on success; -1 on error
+  Sets the vcpu's current "multiprocessing state"; see KVM_GET_MP_STATE for
+  arguments.
+
+-On x86 and ia64, this ioctl is only useful after KVM_CREATE_IRQCHIP. 
+Without an
++On x86, this ioctl is only useful after KVM_CREATE_IRQCHIP. Without an
+  in-kernel irqchip, the multiprocessing state must be maintained by 
+userspace on
+  these architectures.
+
+@@ -1068,7 +1067,7 @@ documentation when it pops into existence).
+  4.41 KVM_SET_BOOT_CPU_ID
+
+  Capability: KVM_CAP_SET_BOOT_CPU_ID
+-Architectures: x86, ia64
++Architectures: x86
+  Type: vm ioctl
+  Parameters: unsigned long vcpu_id
+  Returns: 0 on success, -1 on error
+@@ -1261,7 +1260,7 @@ The flags bitmap is defined as:
+  4.48 KVM_ASSIGN_PCI_DEVICE
+
+  Capability: none
+-Architectures: x86 ia64
++Architectures: x86
+  Type: vm ioctl
+  Parameters: struct kvm_assigned_pci_dev (in)
+  Returns: 0 on success, -1 on error
+@@ -1311,7 +1310,7 @@ Errors:
+  4.49 KVM_DEASSIGN_PCI_DEVICE
+
+  Capability: none
+-Architectures: x86 ia64
++Architectures: x86
+  Type: vm ioctl
+  Parameters: struct kvm_assigned_pci_dev (in)
+  Returns: 0 on success, -1 on error
+@@ -1330,7 +1329,7 @@ Errors:
+  4.50 KVM_ASSIGN_DEV_IRQ
+
+  Capability: KVM_CAP_ASSIGN_DEV_IRQ
+-Architectures: x86 ia64
++Architectures: x86
+  Type: vm ioctl
+  Parameters: struct kvm_assigned_irq (in)
+  Returns: 0 on success, -1 on error
+@@ -1370,7 +1369,7 @@ Errors:
+  4.51 KVM_DEASSIGN_DEV_IRQ
+
+  Capability: KVM_CAP_ASSIGN_DEV_IRQ
+-Architectures: x86 ia64
++Architectures: x86
+  Type: vm ioctl
+  Parameters: struct kvm_assigned_irq (in)
+  Returns: 0 on success, -1 on error
+@@ -1385,7 +1384,7 @@ KVM_ASSIGN_DEV_IRQ. Partial deassignment of host 
+or guest IRQ is allowed.
+  4.52 KVM_SET_GSI_ROUTING
+
+  Capability: KVM_CAP_IRQ_ROUTING
+-Architectures: x86 ia64 s390
++Architectures: x86 s390
+  Type: vm ioctl
+  Parameters: struct kvm_irq_routing (in)
+  Returns: 0 on success, -1 on error
+@@ -1444,7 +1443,7 @@ struct kvm_irq_routing_s390_adapter {
+  4.53 KVM_ASSIGN_SET_MSIX_NR
+
+  Capability: none
+-Architectures: x86 ia64
++Architectures: x86
+  Type: vm ioctl
+  Parameters: struct kvm_assigned_msix_nr (in)
+  Returns: 0 on success, -1 on error
+@@ -1466,7 +1465,7 @@ struct kvm_assigned_msix_nr {
+  4.54 KVM_ASSIGN_SET_MSIX_ENTRY
+
+  Capability: none
+-Architectures: x86 ia64
++Architectures: x86
+  Type: vm ioctl
+  Parameters: struct kvm_assigned_msix_entry (in)
+  Returns: 0 on success, -1 on error
 -- 
-2.1.0
 
+
+Thanks
+Tiejun
