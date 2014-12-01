@@ -1,67 +1,37 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Mon, 17 Nov 2014 09:40:56 +0000
-Subject: [RFC PATCH 03/16] PCI: Clean up pci_scan_bus()
-Message-Id: <1416219710-26088-4-git-send-email-wangyijing@huawei.com>
+From: =?UTF-8?Q?=C3=89meric_MASCHINO?= <emeric.maschino@gmail.com>
+Date: Mon, 01 Dec 2014 22:23:59 +0000
+Subject: Rebuilding a kernel for a proprietary closed-source ia64 module: possible or not?
+Message-Id: <CAA9xbM4fj75nf0=EX7W-6PWZn=SitQSk4htbJXx2wijPPF1yhA@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1416219710-26088-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1416219710-26088-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Xinwei Hu <huxinwei@huawei.com>, Wuyun <wuyun.wu@huawei.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Thierry Reding <thierry.reding@gmail.com>, Liviu Dudau <liviu@dudau.co.uk>, Suravee.Suthikulpanit@amd.com, Yijing Wang <wangyijing@huawei.com>
+To: linux-ia64@vger.kernel.org
 
-No one uses it, clean up.
+Hi,
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
----
- drivers/pci/probe.c |   20 --------------------
- include/linux/pci.h |    1 -
- 2 files changed, 0 insertions(+), 21 deletions(-)
+Say that I have a proprietary closed-source ia64 kernel module that I
+can't rebuild because I'm missing some additional bits (IP library and
+Intel compiler runtime library). Guess who I'm talking about ;-)
 
-diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
-index fc99e88..0a02fc2 100644
---- a/drivers/pci/probe.c
-+++ b/drivers/pci/probe.c
-@@ -2125,26 +2125,6 @@ struct pci_bus *pci_scan_bus_parented(struct device *parent,
- }
- EXPORT_SYMBOL(pci_scan_bus_parented);
- 
--struct pci_bus *pci_scan_bus(int bus, struct pci_ops *ops,
--					void *sysdata)
--{
--	LIST_HEAD(resources);
--	struct pci_bus *b;
--
--	pci_add_resource(&resources, &ioport_resource);
--	pci_add_resource(&resources, &iomem_resource);
--	pci_add_resource(&resources, &busn_resource);
--	b = pci_create_root_bus(NULL, bus, ops, sysdata, &resources);
--	if (b) {
--		pci_scan_child_bus(b);
--		pci_bus_add_devices(b);
--	} else {
--		pci_free_resource_list(&resources);
--	}
--	return b;
--}
--EXPORT_SYMBOL(pci_scan_bus);
--
- /**
-  * pci_rescan_bus_bridge_resize - scan a PCI bus for devices.
-  * @bridge: PCI bridge for the bus to scan
-diff --git a/include/linux/pci.h b/include/linux/pci.h
-index 5be8db4..f8045d6 100644
---- a/include/linux/pci.h
-+++ b/include/linux/pci.h
-@@ -769,7 +769,6 @@ struct pci_bus *pci_find_bus(int domain, int busnr);
- void pci_bus_add_devices(const struct pci_bus *bus);
- struct pci_bus *pci_scan_bus_parented(struct device *parent, int bus,
- 				      struct pci_ops *ops, void *sysdata);
--struct pci_bus *pci_scan_bus(int bus, struct pci_ops *ops, void *sysdata);
- struct pci_bus *pci_create_root_bus(struct device *parent, int bus,
- 				    struct pci_ops *ops, void *sysdata,
- 				    struct list_head *resources);
--- 
-1.7.1
+I however know the exact kernel source and gcc versions that were used
+to build this module. I'm however missing the original kernel
+configuration, so had to guess it (among other things). Using
+zx1_defconfig as first attempt, I've built a kernel that cannot load
+the module at the moment.
 
+But diff'ing System.map of the kernel that I've just recompiled with
+the one of the kernel that was used to build the proprietary module
+shows that the entry points of matching symbols are identical.
+Similarly, diff'ing the Module.symvers of my kernel against the one of
+the kernel that was used to build the proprietary module shows the
+same exported functions, but different hex signatures.
+
+I'm thus wondering if there's a way to rebuild a kernel, passing it in
+some ways the information in a given System.map and/or Module.symvers
+file in order to impose the entry points of the kernel symbols and the
+hex signatures of the exported functions.
+
+Thanks,
+
+     Emeric
