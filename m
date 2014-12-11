@@ -1,7 +1,7 @@
 From: =?UTF-8?Q?=C3=89meric_MASCHINO?= <emeric.maschino@gmail.com>
-Date: Thu, 11 Dec 2014 15:11:26 +0000
+Date: Thu, 11 Dec 2014 15:16:37 +0000
 Subject: Re: Rebuilding a kernel for a proprietary closed-source ia64 module: possible or not?
-Message-Id: <CAA9xbM48W+LYmiwdMvhdWb2jSPzX16ABeUdzRx=0hgj1ApuWoA@mail.gmail.com>
+Message-Id: <CAA9xbM6ruXTwM=9QfYmzqXnKG1Vy9MxHhqezhs8EKpKts-hQzg@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <CAA9xbM4fj75nf0=EX7W-6PWZn=SitQSk4htbJXx2wijPPF1yhA@mail.gmail.com>
 In-Reply-To: <CAA9xbM4fj75nf0=EX7W-6PWZn=SitQSk4htbJXx2wijPPF1yhA@mail.gmail.com>
@@ -10,17 +10,17 @@ Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-Hi,
+Hi again,
 
-Sorry for the late reply, was out of town the passed days.
+> Isn't it a /src/linux-rtgfx-2.6.5-7.244-obj/ia64/rtgfx/.config
+> from the kernel-rtgfx-source-2.6.5-7.244.ia64.rpm?
 
-> And CONFIG_MODVERSIONS=3Dn is your solution to running proprietary
-> modules without their recompilation on a different kernel.
+I'm indeed talking about fglrx, but not the one in SLES.
+So don't know how was the kernel that created it configured.
 
-No go if the kABI has evolved. You can even rebuild a "fake" kernel
-with a totally different version but nevertheless naming it with what
-the module was targeted for or forcing CONFIG_MODVERSIONS=3Dy, but
-sooner or later (quite sooner!), you'll get kernel panics, hard locks
-and/or other unwanted reboots ;-)
+BTW, I've also tried to rebuild the SLES rtgfx kernel, but changing
+from SN2 to ZX1. Same problem as previously posted: function hex
+signatures differ while I'm however using the same kernel tree, but
+with a different configuration.
 
      =C3=89meric
