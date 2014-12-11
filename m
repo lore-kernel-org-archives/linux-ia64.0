@@ -1,25 +1,26 @@
-From: Alex <lausgans@gmail.com>
-Date: Thu, 04 Dec 2014 08:16:45 +0000
+From: =?UTF-8?Q?=C3=89meric_MASCHINO?= <emeric.maschino@gmail.com>
+Date: Thu, 11 Dec 2014 15:11:26 +0000
 Subject: Re: Rebuilding a kernel for a proprietary closed-source ia64 module: possible or not?
-Message-Id: <loom.20141204T091415-758@post.gmane.org>
+Message-Id: <CAA9xbM48W+LYmiwdMvhdWb2jSPzX16ABeUdzRx=0hgj1ApuWoA@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <CAA9xbM4fj75nf0=EX7W-6PWZn=SitQSk4htbJXx2wijPPF1yhA@mail.gmail.com>
 In-Reply-To: <CAA9xbM4fj75nf0=EX7W-6PWZn=SitQSk4htbJXx2wijPPF1yhA@mail.gmail.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-> Isn't it a /src/linux-rtgfx-2.6.5-7.244-obj/ia64/rtgfx/.config
-> from the kernel-rtgfx-source-2.6.5-7.244.ia64.rpm?
-> 
-> Please note that it's for sgi machines, not hp ones:
-> # CONFIG_IA64_HP_ZX1 is not set
-> CONFIG_IA64_SGI_SN2=y
-> So it's not usable as is
+Hi,
 
-And CONFIG_MODVERSIONS=n is your solution to running proprietary
-modules without their recompilation on a different kernel.
+Sorry for the late reply, was out of town the passed days.
 
+> And CONFIG_MODVERSIONS=3Dn is your solution to running proprietary
+> modules without their recompilation on a different kernel.
 
+No go if the kABI has evolved. You can even rebuild a "fake" kernel
+with a totally different version but nevertheless naming it with what
+the module was targeted for or forcing CONFIG_MODVERSIONS=3Dy, but
+sooner or later (quite sooner!), you'll get kernel panics, hard locks
+and/or other unwanted reboots ;-)
 
+     =C3=89meric
