@@ -1,115 +1,40 @@
-From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-Date: Sat, 20 Dec 2014 22:54:39 +0000
-Subject: [PATCH] arch: ia64: kernel: irq_ia64.c:  Remove some unused functions
-Message-Id: <1419116079-13052-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Thu, 25 Dec 2014 09:28:55 +0000
+Subject: [PATCH repost 07/16] ia64/uaccess: fix sparse errors
+Message-Id: <1419499661-8566-8-git-send-email-mst@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1419095222-9942-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-In-Reply-To: <1419095222-9942-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+References: <1419499661-8566-1-git-send-email-mst@redhat.com>
+In-Reply-To: <1419499661-8566-1-git-send-email-mst@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
-Cc: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>, Thomas Gleixner <tglx@linutronix.de>, Grant Likely <grant.likely@linaro.org>, Christoph Lameter <cl@linux.com>, Tejun Heo <tj@kernel.org>, Michael Opdenacker <michael.opdenacker@free-electrons.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thierry Reding <treding@nvidia.com>, linux-ia64@vger.kernel.org
 
-Removes some functions that are not used anywhere:
-rnat_consumption() inat_page_consumption() privilege_reg()
-unimpl_daddr() privilege_op() rsv_reg_field() illegal_dep()
+virtio wants to read bitwise types from userspace using get_user.  At the
+moment this triggers sparse errors, since the value is passed through an
+integer.
 
-This was partially found by using a static code analysis program called cppcheck.
+Fix that up using __force.
 
-Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- arch/ia64/kvm/process.c |   70 -----------------------------------------------
- 1 file changed, 70 deletions(-)
+ arch/ia64/include/asm/uaccess.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/ia64/kvm/process.c b/arch/ia64/kvm/process.c
-index b039874..ab9d9e7 100644
---- a/arch/ia64/kvm/process.c
-+++ b/arch/ia64/kvm/process.c
-@@ -302,56 +302,6 @@ void illegal_op(struct kvm_vcpu *vcpu)
- 	_general_exception(vcpu);
- }
+diff --git a/arch/ia64/include/asm/uaccess.h b/arch/ia64/include/asm/uaccess.h
+index 103bedc..a540705 100644
+--- a/arch/ia64/include/asm/uaccess.h
++++ b/arch/ia64/include/asm/uaccess.h
+@@ -197,7 +197,7 @@ extern void __get_user_unknown (void);
+ 		      case 8: __get_user_size(__gu_val, __gu_ptr, 8, __gu_err); break;	\
+ 		      default: __get_user_unknown(); break;				\
+ 		}									\
+-	(x) = (__typeof__(*(__gu_ptr))) __gu_val;					\
++	(x) = (__force __typeof__(*(__gu_ptr))) __gu_val;					\
+ 	__gu_err;									\
+ })
  
--/*
-- * Illegal Dependency Fault
-- *  @ General Exception Vector
-- * Refer to SDM Vol2 Table 5-6 & 8-1
-- */
--void illegal_dep(struct kvm_vcpu *vcpu)
--{
--	_general_exception(vcpu);
--}
--
--/*
-- * Reserved Register/Field Fault
-- *  @ General Exception Vector
-- * Refer to SDM Vol2 Table 5-6 & 8-1
-- */
--void rsv_reg_field(struct kvm_vcpu *vcpu)
--{
--	_general_exception(vcpu);
--}
--/*
-- * Privileged Operation Fault
-- *  @ General Exception Vector
-- * Refer to SDM Vol2 Table 5-6 & 8-1
-- */
--
--void privilege_op(struct kvm_vcpu *vcpu)
--{
--	_general_exception(vcpu);
--}
--
--/*
-- * Unimplement Data Address Fault
-- *  @ General Exception Vector
-- * Refer to SDM Vol2 Table 5-6 & 8-1
-- */
--void unimpl_daddr(struct kvm_vcpu *vcpu)
--{
--	_general_exception(vcpu);
--}
--
--/*
-- * Privileged Register Fault
-- *  @ General Exception Vector
-- * Refer to SDM Vol2 Table 5-6 & 8-1
-- */
--void privilege_reg(struct kvm_vcpu *vcpu)
--{
--	_general_exception(vcpu);
--}
--
- /* Deal with
-  *  Nat consumption vector
-  * Parameter:
-@@ -370,26 +320,6 @@ static void _nat_consumption_fault(struct kvm_vcpu *vcpu, u64 vadr,
- }
- 
- /*
-- * Instruction Nat Page Consumption Fault
-- *  @ Nat Consumption Vector
-- * Refer to SDM Vol2 Table 5-6 & 8-1
-- */
--void inat_page_consumption(struct kvm_vcpu *vcpu, u64 vadr)
--{
--	_nat_consumption_fault(vcpu, vadr, INSTRUCTION);
--}
--
--/*
-- * Register Nat Consumption Fault
-- *  @ Nat Consumption Vector
-- * Refer to SDM Vol2 Table 5-6 & 8-1
-- */
--void rnat_consumption(struct kvm_vcpu *vcpu)
--{
--	_nat_consumption_fault(vcpu, 0, REGISTER);
--}
--
--/*
-  * Data Nat Page Consumption Fault
-  *  @ Nat Consumption Vector
-  * Refer to SDM Vol2 Table 5-6 & 8-1
 -- 
-1.7.10.4
+MST
 
