@@ -1,83 +1,14 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Date: Fri, 05 Dec 2014 14:08:01 +0000
-Subject: [PATCH 2/4] ia64: use common dma_get_required_mask_from_pfn()
-Message-Id: <1417788483-662-3-git-send-email-david.vrabel@citrix.com>
+From: Christoph Hellwig <hch@infradead.org>
+Date: Tue, 30 Dec 2014 15:50:57 +0000
+Subject: status of ia64 / hpsim
+Message-Id: <20141230155057.GA23826@infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1417788483-662-1-git-send-email-david.vrabel@citrix.com>
-In-Reply-To: <1417788483-662-1-git-send-email-david.vrabel@citrix.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: David Vrabel <david.vrabel@citrix.com>, linux-kernel@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, xen-devel@lists.xenproject.org, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Signed-off-by: David Vrabel <david.vrabel@citrix.com>
-Reviewed-by: Stefano Stabellini <stefano.stabellini@eu.citrix.com>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org
----
- arch/ia64/include/asm/machvec.h      |    2 +-
- arch/ia64/include/asm/machvec_init.h |    1 -
- arch/ia64/pci/pci.c                  |   20 --------------------
- 3 files changed, 1 insertion(+), 22 deletions(-)
-
-diff --git a/arch/ia64/include/asm/machvec.h b/arch/ia64/include/asm/machvec.h
-index 9c39bdf..beaa47d 100644
---- a/arch/ia64/include/asm/machvec.h
-+++ b/arch/ia64/include/asm/machvec.h
-@@ -287,7 +287,7 @@ extern struct dma_map_ops *dma_get_ops(struct device *);
- # define platform_dma_get_ops		dma_get_ops
- #endif
- #ifndef platform_dma_get_required_mask
--# define  platform_dma_get_required_mask	ia64_dma_get_required_mask
-+# define  platform_dma_get_required_mask	dma_get_required_mask_from_max_pfn
- #endif
- #ifndef platform_irq_to_vector
- # define platform_irq_to_vector		__ia64_irq_to_vector
-diff --git a/arch/ia64/include/asm/machvec_init.h b/arch/ia64/include/asm/machvec_init.h
-index 37a4698..ef964b2 100644
---- a/arch/ia64/include/asm/machvec_init.h
-+++ b/arch/ia64/include/asm/machvec_init.h
-@@ -3,7 +3,6 @@
- 
- extern ia64_mv_send_ipi_t ia64_send_ipi;
- extern ia64_mv_global_tlb_purge_t ia64_global_tlb_purge;
--extern ia64_mv_dma_get_required_mask ia64_dma_get_required_mask;
- extern ia64_mv_irq_to_vector __ia64_irq_to_vector;
- extern ia64_mv_local_vector_to_irq __ia64_local_vector_to_irq;
- extern ia64_mv_pci_get_legacy_mem_t ia64_pci_get_legacy_mem;
-diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
-index 291a582..79da21b 100644
---- a/arch/ia64/pci/pci.c
-+++ b/arch/ia64/pci/pci.c
-@@ -791,26 +791,6 @@ static void __init set_pci_dfl_cacheline_size(void)
- 	pci_dfl_cache_line_size = (1 << cci.pcci_line_size) / 4;
- }
- 
--u64 ia64_dma_get_required_mask(struct device *dev)
--{
--	u32 low_totalram = ((max_pfn - 1) << PAGE_SHIFT);
--	u32 high_totalram = ((max_pfn - 1) >> (32 - PAGE_SHIFT));
--	u64 mask;
--
--	if (!high_totalram) {
--		/* convert to mask just covering totalram */
--		low_totalram = (1 << (fls(low_totalram) - 1));
--		low_totalram += low_totalram - 1;
--		mask = low_totalram;
--	} else {
--		high_totalram = (1 << (fls(high_totalram) - 1));
--		high_totalram += high_totalram - 1;
--		mask = (((u64)high_totalram) << 32) + 0xffffffff;
--	}
--	return mask;
--}
--EXPORT_SYMBOL_GPL(ia64_dma_get_required_mask);
--
- u64 dma_get_required_mask(struct device *dev)
- {
- 	return platform_dma_get_required_mask(dev);
--- 
-1.7.10.4
-
+IS the ia64 hpsim architecture still in use?  I noticed it because it
+has a fairly rudimentary SCSI driver under arch/ia64, which doesn't
+look very maintained.
