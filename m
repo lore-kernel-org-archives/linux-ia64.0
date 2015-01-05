@@ -1,73 +1,33 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Fri, 16 Jan 2015 01:44:01 +0000
-Subject: [PATCH 03/28] xen/PCI: Don't use deprecated function pci_scan_bus_parented()
-Message-Id: <1421372666-12288-4-git-send-email-wangyijing@huawei.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Mon, 05 Jan 2015 21:22:24 +0000
+Subject: [GIT PULL] Add execveat syscall for ia64
+Message-Id: <54ab0090287432ac67@agluck-desk.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1421372666-12288-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1421372666-12288-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, xen-devel@lists.xenproject.org
+To: linux-ia64@vger.kernel.org
 
-From: Arnd Bergmann <arnd@arndb.de>
+The following changes since commit 693a30b8f19a964087a3762d09fb2e1cbad6b0d4:
 
-Use pci_scan_root_bus() instead of deprecated function
-pci_scan_bus_parented().
+  Merge branch 'for-linus' of git://git.kernel.org/pub/scm/linux/kernel/git/rw/uml (2015-01-04 11:46:43 -0800)
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
-CC: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-CC: xen-devel@lists.xenproject.org
----
- drivers/pci/xen-pcifront.c |   10 +++++++---
- 1 files changed, 7 insertions(+), 3 deletions(-)
+are available in the git repository at:
 
-diff --git a/drivers/pci/xen-pcifront.c b/drivers/pci/xen-pcifront.c
-index b1ffebe..240ddbc 100644
---- a/drivers/pci/xen-pcifront.c
-+++ b/drivers/pci/xen-pcifront.c
-@@ -446,6 +446,7 @@ static int pcifront_scan_root(struct pcifront_device *pdev,
- 				 unsigned int domain, unsigned int bus)
- {
- 	struct pci_bus *b;
-+	LIST_HEAD(resources);
- 	struct pcifront_sd *sd = NULL;
- 	struct pci_bus_entry *bus_entry = NULL;
- 	int err = 0;
-@@ -470,17 +471,20 @@ static int pcifront_scan_root(struct pcifront_device *pdev,
- 		err = -ENOMEM;
- 		goto err_out;
- 	}
-+	pci_add_resource(&resources, &ioport_resource);
-+	pci_add_resource(&resources, &iomem_resource);
- 	pcifront_init_sd(sd, domain, bus, pdev);
- 
- 	pci_lock_rescan_remove();
- 
--	b = pci_scan_bus_parented(&pdev->xdev->dev, bus,
--				  &pcifront_bus_ops, sd);
-+	b = pci_scan_root_bus(&pdev->xdev->dev, bus,
-+				  &pcifront_bus_ops, sd, &resources);
- 	if (!b) {
- 		dev_err(&pdev->xdev->dev,
- 			"Error creating PCI Frontend Bus!\n");
- 		err = -ENOMEM;
- 		pci_unlock_rescan_remove();
-+		pci_free_resource_list(&resources);
- 		goto err_out;
- 	}
- 
-@@ -488,7 +492,7 @@ static int pcifront_scan_root(struct pcifront_device *pdev,
- 
- 	list_add(&bus_entry->list, &pdev->root_buses);
- 
--	/* pci_scan_bus_parented skips devices which do not have a have
-+	/* pci_scan_root_bus skips devices which do not have a have
- 	* devfn=0. The pcifront_scan_bus enumerates all devfn. */
- 	err = pcifront_scan_bus(pdev, domain, bus, b);
- 
--- 
-1.7.1
+  git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git tags/please-pull-syscall
 
+for you to fetch changes up to b739896dd262ca523497913b0ea232da56d6ee69:
+
+  [IA64] Enable execveat syscall for ia64 (2015-01-05 11:25:19 -0800)
+
+----------------------------------------------------------------
+Add execveat syscall
+
+----------------------------------------------------------------
+Tony Luck (1):
+      [IA64] Enable execveat syscall for ia64
+
+ arch/ia64/include/asm/unistd.h      | 2 +-
+ arch/ia64/include/uapi/asm/unistd.h | 1 +
+ arch/ia64/kernel/entry.S            | 1 +
+ 3 files changed, 3 insertions(+), 1 deletion(-)
