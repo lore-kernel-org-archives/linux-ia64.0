@@ -1,153 +1,206 @@
-From: "Zheng, Lv" <lv.zheng@intel.com>
-Date: Mon, 26 Jan 2015 01:59:45 +0000
-Subject: RE: [RFC PATCH] ACPI: Introduce acpi_unload_parent_table() usages in Linux kernel.
-Message-Id: <1AE640813FDE7649BE1B193DEA596E88026BA9F1@SHSMSX101.ccr.corp.intel.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Date: Thu, 08 Jan 2015 01:10:05 +0000
+Subject: [PATCH 1/3] module_arch_freeing_init(): new hook for archs before module->module_init freed.
+Message-Id: <1420678687-30548-2-git-send-email-rusty@rustcorp.com.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1418746353-3481-2-git-send-email-octavian.purdila@intel.com>
- <0d37f4eecdd2c7e3203fca7adb1c2c03a16a40dd.1421907258.git.lv.zheng@intel.com>
- <8541914.sW9yU28g98@vostro.rjw.lan>
-In-Reply-To: <8541914.sW9yU28g98@vostro.rjw.lan>
+References: <1420678687-30548-1-git-send-email-rusty@rustcorp.com.au>
+In-Reply-To: <1420678687-30548-1-git-send-email-rusty@rustcorp.com.au>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Cc: "Wysocki, Rafael J" <rafael.j.wysocki@intel.com>, "Brown, Len" <len.brown@intel.com>, Lv Zheng <zetalog@gmail.com>, "linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>, "Purdila, Octavian" <octavian.purdila@intel.com>, Prarit Bhargava <prarit@sgi.com>, Bjorn Helgaas <bhelgaas@google.com>, "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>, "Luck, Tony" <tony.luck@intel.com>, "Yu, Fenghua" <fenghua.yu@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
+To: linux-kernel@vger.kernel.org
+Cc: Rusty Russell <rusty@rustcorp.com.au>, Chris Metcalf <cmetcalf@ezchip.com>, Haavard Skinnemoen <hskinnemoen@gmail.com>, Hans-Christian Egtvedt <egtvedt@samfundet.no>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "James E.J. Bottomley" <jejb@parisc-linux.org>, Helge Deller <deller@gmx.de>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-s390@vger.kernel.org
 
-SGksIFJhZmFlbA0KDQo+IEZyb206IFJhZmFlbCBKLiBXeXNvY2tpIFttYWlsdG86cmp3QHJqd3lz
-b2NraS5uZXRdDQo+IFNlbnQ6IEZyaWRheSwgSmFudWFyeSAyMywgMjAxNSA2OjQzIEFNDQo+IA0K
-PiBPbiBUaHVyc2RheSwgSmFudWFyeSAyMiwgMjAxNSAwMjozNzo0OSBQTSBMdiBaaGVuZyB3cm90
-ZToNCj4gPiBBQ1BJQ0EgaGFzIGltcGxlbWVudGVkIGFjcGlfdW5sb2FkX3BhcmVudF90YWJsZSgp
-IHdoaWNoIGNhbiBleGFjdGx5IHJlcGxhY2UNCj4gPiB0aGUgYWNwaV9nZXRfaWQoKS9hY3BpX3Vu
-bG9hZF90YWJsZV9pZCgpIGltcGxlbWVudGVkIGluIExpbnV4IGtlcm5lbC4gIFRoZQ0KPiA+IGFj
-cGlfdW5sb2FkX3BhcmVudF90YWJsZSgpIGhhcyBiZWVuIHVuaXQgdGVzdGVkIGluIEFDUElDQSBz
-aW11bGF0aW9uDQo+ID4gZW52aXJvbm1lbnQuDQo+ID4NCj4gPiBUaGlzIHBhdGNoIGNhbiBhbHNv
-IGhlbHAgdG8gcmVkdWNlIHRoZSBzb3VyY2UgY29kZSBkaWZmZXJlbmNlcyBiZXR3ZWVuDQo+ID4g
-TGludXggYW5kIEFDUElDQS4NCj4gDQo+IExvb2tzIE9LIHRvIG1lLg0KPiANCj4gRG8geW91IHdh
-bnQgbWUgdG8gcGljayBpdCB1cD8NCg0KVGhvdWdoIHNnaS1ob3RwbHVnLmMgaXMgdGhlIG9ubHkg
-c291cmNlIGZpbGUgdXNpbmcgdGhlIGRlbGV0ZWQgZnVuY3Rpb25zLA0KSSBvbmx5IGNyb3NzLWNv
-bXBpbGVkIGFuIGFwcGxpZWQga2VybmVsIHdpdGggYW4gaWE2NCB0b29sIGNoYWluLA0KaXQncyBu
-b3QgZnVuY3Rpb25hbGx5IHRlc3RlZC4NClNoYWxsIHdlIHdhaXQgZm9yIE9jdGF2aWFuJ3MgY29u
-ZmlybWF0aW9uPw0KDQpBbmQgaW4gbGludXgtbmV4dCBicmFuY2gsIHRoZXJlIGlzIGEgY29uZmxp
-Y3Qgd2l0aCB0aGlzIG9sZCBwYXRjaC4NClNoYWxsIEkgcmViYXNlIGl0Pw0KDQpUaGFua3MgYW5k
-IGJlc3QgcmVnYXJkcw0KLUx2DQoNCj4gDQo+ID4gU2lnbmVkLW9mZi1ieTogTHYgWmhlbmcgPGx2
-LnpoZW5nQGludGVsLmNvbT4NCj4gPiBDYzogT2N0YXZpYW4gUHVyZGlsYSA8b2N0YXZpYW4ucHVy
-ZGlsYUBpbnRlbC5jb20+DQo+ID4gQ2M6IFByYXJpdCBCaGFyZ2F2YSA8cHJhcml0QHNnaS5jb20+
-DQo+ID4gQ2M6IEJqb3JuIEhlbGdhYXMgPGJoZWxnYWFzQGdvb2dsZS5jb20+DQo+ID4gQ2M6IGxp
-bnV4LXBjaUB2Z2VyLmtlcm5lbC5vcmcNCj4gPiBDYzogVG9ueSBMdWNrIDx0b255Lmx1Y2tAaW50
-ZWwuY29tPg0KPiA+IENjOiBGZW5naHVhIFl1IDxmZW5naHVhLnl1QGludGVsLmNvbT4NCj4gPiBD
-YzogbGludXgtaWE2NEB2Z2VyLmtlcm5lbC5vcmcNCj4gPiAtLS0NCj4gPiAgZHJpdmVycy9hY3Bp
-L2FjcGljYS9uc3hmb2JqLmMgICAgIHwgICA0NCAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tDQo+ID4gIGRyaXZlcnMvYWNwaS9hY3BpY2EvdGJ4ZmFjZS5jICAgICB8ICAgMzkg
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0NCj4gPiAgZHJpdmVycy9wY2kvaG90cGx1
-Zy9zZ2lfaG90cGx1Zy5jIHwgICAxMyArKysrKystLS0tLQ0KPiA+ICBpbmNsdWRlL2FjcGkvYWNw
-aXhmLmggICAgICAgICAgICAgfCAgICA2IC0tLS0tDQo+ID4gIDQgZmlsZXMgY2hhbmdlZCwgNyBp
-bnNlcnRpb25zKCspLCA5NSBkZWxldGlvbnMoLSkNCj4gPg0KPiA+IGRpZmYgLS1naXQgYS9kcml2
-ZXJzL2FjcGkvYWNwaWNhL25zeGZvYmouYyBiL2RyaXZlcnMvYWNwaS9hY3BpY2EvbnN4Zm9iai5j
-DQo+ID4gaW5kZXggZGFlOTQwMS4uNTFhODMyOSAxMDA2NDQNCj4gPiAtLS0gYS9kcml2ZXJzL2Fj
-cGkvYWNwaWNhL25zeGZvYmouYw0KPiA+ICsrKyBiL2RyaXZlcnMvYWNwaS9hY3BpY2EvbnN4Zm9i
-ai5jDQo+ID4gQEAgLTUzLDUwICs1Myw2IEBAIEFDUElfTU9EVUxFX05BTUUoIm5zeGZvYmoiKQ0K
-PiA+DQo+ID4gIC8qKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioq
-KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqDQo+ID4gICAqDQo+ID4gLSAqIEZVTkNU
-SU9OOiAgICBhY3BpX2dldF9pZA0KPiA+IC0gKg0KPiA+IC0gKiBQQVJBTUVURVJTOiAgSGFuZGxl
-ICAgICAgICAgIC0gSGFuZGxlIG9mIG9iamVjdCB3aG9zZSBpZCBpcyBkZXNpcmVkDQo+ID4gLSAq
-ICAgICAgICAgICAgICByZXRfaWQgICAgICAgICAgLSBXaGVyZSB0aGUgaWQgd2lsbCBiZSBwbGFj
-ZWQNCj4gPiAtICoNCj4gPiAtICogUkVUVVJOOiAgICAgIFN0YXR1cw0KPiA+IC0gKg0KPiA+IC0g
-KiBERVNDUklQVElPTjogVGhpcyByb3V0aW5lIHJldHVybnMgdGhlIG93bmVyIGlkIGFzc29jaWF0
-ZWQgd2l0aCBhIGhhbmRsZQ0KPiA+IC0gKg0KPiA+IC0gKioqKioqKioqKioqKioqKioqKioqKioq
-KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqLw0K
-PiA+IC1hY3BpX3N0YXR1cyBhY3BpX2dldF9pZChhY3BpX2hhbmRsZSBoYW5kbGUsIGFjcGlfb3du
-ZXJfaWQgKiByZXRfaWQpDQo+ID4gLXsNCj4gPiAtCXN0cnVjdCBhY3BpX25hbWVzcGFjZV9ub2Rl
-ICpub2RlOw0KPiA+IC0JYWNwaV9zdGF0dXMgc3RhdHVzOw0KPiA+IC0NCj4gPiAtCS8qIFBhcmFt
-ZXRlciBWYWxpZGF0aW9uICovDQo+ID4gLQ0KPiA+IC0JaWYgKCFyZXRfaWQpIHsNCj4gPiAtCQly
-ZXR1cm4gKEFFX0JBRF9QQVJBTUVURVIpOw0KPiA+IC0JfQ0KPiA+IC0NCj4gPiAtCXN0YXR1cyA9
-IGFjcGlfdXRfYWNxdWlyZV9tdXRleChBQ1BJX01UWF9OQU1FU1BBQ0UpOw0KPiA+IC0JaWYgKEFD
-UElfRkFJTFVSRShzdGF0dXMpKSB7DQo+ID4gLQkJcmV0dXJuIChzdGF0dXMpOw0KPiA+IC0JfQ0K
-PiA+IC0NCj4gPiAtCS8qIENvbnZlcnQgYW5kIHZhbGlkYXRlIHRoZSBoYW5kbGUgKi8NCj4gPiAt
-DQo+ID4gLQlub2RlID0gYWNwaV9uc192YWxpZGF0ZV9oYW5kbGUoaGFuZGxlKTsNCj4gPiAtCWlm
-ICghbm9kZSkgew0KPiA+IC0JCSh2b2lkKWFjcGlfdXRfcmVsZWFzZV9tdXRleChBQ1BJX01UWF9O
-QU1FU1BBQ0UpOw0KPiA+IC0JCXJldHVybiAoQUVfQkFEX1BBUkFNRVRFUik7DQo+ID4gLQl9DQo+
-ID4gLQ0KPiA+IC0JKnJldF9pZCA9IG5vZGUtPm93bmVyX2lkOw0KPiA+IC0NCj4gPiAtCXN0YXR1
-cyA9IGFjcGlfdXRfcmVsZWFzZV9tdXRleChBQ1BJX01UWF9OQU1FU1BBQ0UpOw0KPiA+IC0JcmV0
-dXJuIChzdGF0dXMpOw0KPiA+IC19DQo+ID4gLQ0KPiA+IC1BQ1BJX0VYUE9SVF9TWU1CT0woYWNw
-aV9nZXRfaWQpDQo+ID4gLQ0KPiA+IC0vKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioq
-KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKg0KPiA+IC0gKg0K
-PiA+ICAgKiBGVU5DVElPTjogICAgYWNwaV9nZXRfdHlwZQ0KPiA+ICAgKg0KPiA+ICAgKiBQQVJB
-TUVURVJTOiAgaGFuZGxlICAgICAgICAgIC0gSGFuZGxlIG9mIG9iamVjdCB3aG9zZSB0eXBlIGlz
-IGRlc2lyZWQNCj4gPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9hY3BpL2FjcGljYS90YnhmYWNlLmMg
-Yi9kcml2ZXJzL2FjcGkvYWNwaWNhL3RieGZhY2UuYw0KPiA+IGluZGV4IDY0ODJiMGQuLjBmOWRk
-ODAgMTAwNjQ0DQo+ID4gLS0tIGEvZHJpdmVycy9hY3BpL2FjcGljYS90YnhmYWNlLmMNCj4gPiAr
-KysgYi9kcml2ZXJzL2FjcGkvYWNwaWNhL3RieGZhY2UuYw0KPiA+IEBAIC0yNjUsNDUgKzI2NSw2
-IEBAIEFDUElfRVhQT1JUX1NZTUJPTChhY3BpX2dldF90YWJsZV9oZWFkZXIpDQo+ID4NCj4gPiAg
-LyoqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioq
-KioqKioqKioqKioqKioqKioqKioqKioNCj4gPiAgICoNCj4gPiAtICogRlVOQ1RJT046ICAgIGFj
-cGlfdW5sb2FkX3RhYmxlX2lkDQo+ID4gLSAqDQo+ID4gLSAqIFBBUkFNRVRFUlM6ICBpZCAgICAg
-ICAgICAgIC0gT3duZXIgSUQgb2YgdGhlIHRhYmxlIHRvIGJlIHJlbW92ZWQuDQo+ID4gLSAqDQo+
-ID4gLSAqIFJFVFVSTjogICAgICBTdGF0dXMNCj4gPiAtICoNCj4gPiAtICogREVTQ1JJUFRJT046
-IFRoaXMgcm91dGluZSBpcyB1c2VkIHRvIGZvcmNlIHRoZSB1bmxvYWQgb2YgYSB0YWJsZSAoYnkg
-aWQpDQo+ID4gLSAqDQo+ID4gLSAqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioq
-KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKiovDQo+ID4gLWFjcGlfc3Rh
-dHVzIGFjcGlfdW5sb2FkX3RhYmxlX2lkKGFjcGlfb3duZXJfaWQgaWQpDQo+ID4gLXsNCj4gPiAt
-CWludCBpOw0KPiA+IC0JYWNwaV9zdGF0dXMgc3RhdHVzID0gQUVfTk9UX0VYSVNUOw0KPiA+IC0N
-Cj4gPiAtCUFDUElfRlVOQ1RJT05fVFJBQ0UoYWNwaV91bmxvYWRfdGFibGVfaWQpOw0KPiA+IC0N
-Cj4gPiAtCS8qIEZpbmQgdGFibGUgaW4gdGhlIGdsb2JhbCB0YWJsZSBsaXN0ICovDQo+ID4gLQlm
-b3IgKGkgPSAwOyBpIDwgYWNwaV9nYmxfcm9vdF90YWJsZV9saXN0LmN1cnJlbnRfdGFibGVfY291
-bnQ7ICsraSkgew0KPiA+IC0JCWlmIChpZCAhPSBhY3BpX2dibF9yb290X3RhYmxlX2xpc3QudGFi
-bGVzW2ldLm93bmVyX2lkKSB7DQo+ID4gLQkJCWNvbnRpbnVlOw0KPiA+IC0JCX0NCj4gPiAtCQkv
-Kg0KPiA+IC0JCSAqIERlbGV0ZSBhbGwgbmFtZXNwYWNlIG9iamVjdHMgb3duZWQgYnkgdGhpcyB0
-YWJsZS4gTm90ZSB0aGF0IHRoZXNlDQo+ID4gLQkJICogb2JqZWN0cyBjYW4gYXBwZWFyIGFueXdo
-ZXJlIGluIHRoZSBuYW1lc3BhY2UgYnkgdmlydHVlIG9mIHRoZSBBTUwNCj4gPiAtCQkgKiAiU2Nv
-cGUiIG9wZXJhdG9yLiBUaHVzLCB3ZSBuZWVkIHRvIHRyYWNrIG93bmVyc2hpcCBieSBhbiBJRCwg
-bm90DQo+ID4gLQkJICogc2ltcGx5IGEgcG9zaXRpb24gd2l0aGluIHRoZSBoaWVyYXJjaHkNCj4g
-PiAtCQkgKi8NCj4gPiAtCQlhY3BpX3RiX2RlbGV0ZV9uYW1lc3BhY2VfYnlfb3duZXIoaSk7DQo+
-ID4gLQkJc3RhdHVzID0gYWNwaV90Yl9yZWxlYXNlX293bmVyX2lkKGkpOw0KPiA+IC0JCWFjcGlf
-dGJfc2V0X3RhYmxlX2xvYWRlZF9mbGFnKGksIEZBTFNFKTsNCj4gPiAtCQlicmVhazsNCj4gPiAt
-CX0NCj4gPiAtCXJldHVybl9BQ1BJX1NUQVRVUyhzdGF0dXMpOw0KPiA+IC19DQo+ID4gLQ0KPiA+
-IC1BQ1BJX0VYUE9SVF9TWU1CT0woYWNwaV91bmxvYWRfdGFibGVfaWQpDQo+ID4gLQ0KPiA+IC0v
-KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioq
-KioqKioqKioqKioqKioqKioqKioqKg0KPiA+IC0gKg0KPiA+ICAgKiBGVU5DVElPTjogICAgYWNw
-aV9nZXRfdGFibGVfd2l0aF9zaXplDQo+ID4gICAqDQo+ID4gICAqIFBBUkFNRVRFUlM6ICBzaWdu
-YXR1cmUgICAgICAgICAgIC0gQUNQSSBzaWduYXR1cmUgb2YgbmVlZGVkIHRhYmxlDQo+ID4gZGlm
-ZiAtLWdpdCBhL2RyaXZlcnMvcGNpL2hvdHBsdWcvc2dpX2hvdHBsdWcuYyBiL2RyaXZlcnMvcGNp
-L2hvdHBsdWcvc2dpX2hvdHBsdWcuYw0KPiA+IGluZGV4IGJhZGEyMDk5Li5jMzJmYjc4IDEwMDY0
-NA0KPiA+IC0tLSBhL2RyaXZlcnMvcGNpL2hvdHBsdWcvc2dpX2hvdHBsdWcuYw0KPiA+ICsrKyBi
-L2RyaXZlcnMvcGNpL2hvdHBsdWcvc2dpX2hvdHBsdWcuYw0KPiA+IEBAIC00NzUsNyArNDc1LDcg
-QEAgc3RhdGljIGludCBkaXNhYmxlX3Nsb3Qoc3RydWN0IGhvdHBsdWdfc2xvdCAqYnNzX2hvdHBs
-dWdfc2xvdCkNCj4gPiAgCXN0cnVjdCBzbG90ICpzbG90ID0gYnNzX2hvdHBsdWdfc2xvdC0+cHJp
-dmF0ZTsNCj4gPiAgCXN0cnVjdCBwY2lfZGV2ICpkZXYsICp0ZW1wOw0KPiA+ICAJaW50IHJjOw0K
-PiA+IC0JYWNwaV9vd25lcl9pZCBzc2R0X2lkID0gMDsNCj4gPiArCWFjcGlfaGFuZGxlIHNzZHRf
-aGRsID0gTlVMTDsNCj4gPg0KPiA+ICAJLyogQWNxdWlyZSB1cGRhdGUgYWNjZXNzIHRvIHRoZSBi
-dXMgKi8NCj4gPiAgCW11dGV4X2xvY2soJnNuX2hvdHBsdWdfbXV0ZXgpOw0KPiA+IEBAIC01MjIs
-NyArNTIyLDcgQEAgc3RhdGljIGludCBkaXNhYmxlX3Nsb3Qoc3RydWN0IGhvdHBsdWdfc2xvdCAq
-YnNzX2hvdHBsdWdfc2xvdCkNCj4gPiAgCQkJaWYgKEFDUElfU1VDQ0VTUyhyZXQpICYmDQo+ID4g
-IAkJCSAgICAoYWRyPj4xNikgPT0gKHNsb3QtPmRldmljZV9udW0gKyAxKSkgew0KPiA+ICAJCQkJ
-LyogcmV0YWluIHRoZSBvd25lciBpZCAqLw0KPiA+IC0JCQkJYWNwaV9nZXRfaWQoY2hhbmRsZSwg
-JnNzZHRfaWQpOw0KPiA+ICsJCQkJc3NkdF9oZGwgPSBjaGFuZGxlOw0KPiA+DQo+ID4gIAkJCQly
-ZXQgPSBhY3BpX2J1c19nZXRfZGV2aWNlKGNoYW5kbGUsDQo+ID4gIAkJCQkJCQkgICZkZXZpY2Up
-Ow0KPiA+IEBAIC01NDcsMTIgKzU0NywxMyBAQCBzdGF0aWMgaW50IGRpc2FibGVfc2xvdChzdHJ1
-Y3QgaG90cGx1Z19zbG90ICpic3NfaG90cGx1Z19zbG90KQ0KPiA+ICAJcGNpX3VubG9ja19yZXNj
-YW5fcmVtb3ZlKCk7DQo+ID4NCj4gPiAgCS8qIFJlbW92ZSB0aGUgU1NEVCBmb3IgdGhlIHNsb3Qg
-ZnJvbSB0aGUgQUNQSSBuYW1lc3BhY2UgKi8NCj4gPiAtCWlmIChTTl9BQ1BJX0JBU0VfU1VQUE9S
-VCgpICYmIHNzZHRfaWQpIHsNCj4gPiArCWlmIChTTl9BQ1BJX0JBU0VfU1VQUE9SVCgpICYmIHNz
-ZHRfaGRsKSB7DQo+ID4gIAkJYWNwaV9zdGF0dXMgcmV0Ow0KPiA+IC0JCXJldCA9IGFjcGlfdW5s
-b2FkX3RhYmxlX2lkKHNzZHRfaWQpOw0KPiA+ICsJCXJldCA9IGFjcGlfdW5sb2FkX3BhcmVudF90
-YWJsZShzc2R0X2hkbCk7DQo+ID4gIAkJaWYgKEFDUElfRkFJTFVSRShyZXQpKSB7DQo+ID4gLQkJ
-CXByaW50ayhLRVJOX0VSUiAiJXM6IGFjcGlfdW5sb2FkX3RhYmxlX2lkIGZhaWxlZCAoMHgleCkg
-Zm9yIGlkICVkXG4iLA0KPiA+IC0JCQkgICAgICAgX19mdW5jX18sIHJldCwgc3NkdF9pZCk7DQo+
-ID4gKwkJCWFjcGlfaGFuZGxlX2Vycihzc2R0X2hkbCwNCj4gPiArCQkJCQkiJXM6IGFjcGlfdW5s
-b2FkX3BhcmVudF90YWJsZSBmYWlsZWQgKDB4JXgpXG4iLA0KPiA+ICsJCQkJCV9fZnVuY19fLCBy
-ZXQpOw0KPiA+ICAJCQkvKiB0cnkgdG8gY29udGludWUgb24gKi8NCj4gPiAgCQl9DQo+ID4gIAl9
-DQo+ID4gZGlmZiAtLWdpdCBhL2luY2x1ZGUvYWNwaS9hY3BpeGYuaCBiL2luY2x1ZGUvYWNwaS9h
-Y3BpeGYuaA0KPiA+IGluZGV4IDViYTc4NDYuLjVkZDIxYmMgMTAwNjQ0DQo+ID4gLS0tIGEvaW5j
-bHVkZS9hY3BpL2FjcGl4Zi5oDQo+ID4gKysrIGIvaW5jbHVkZS9hY3BpL2FjcGl4Zi5oDQo+ID4g
-QEAgLTg5MSwxMiArODkxLDYgQEAgQUNQSV9BUFBfREVQRU5ERU5UX1JFVFVSTl9WT0lEKEFDUElf
-UFJJTlRGX0xJS0UoMSkNCj4gPiAgQUNQSV9HTE9CQUwodTgsIGFjcGlfZ2JsX3Blcm1hbmVudF9t
-bWFwKTsNCj4gPg0KPiA+ICBBQ1BJX0VYVEVSTkFMX1JFVFVSTl9TVEFUVVMoYWNwaV9zdGF0dXMN
-Cj4gPiAtCQkJICAgIGFjcGlfZ2V0X2lkKGFjcGlfaGFuZGxlIG9iamVjdCwNCj4gPiAtCQkJCQlh
-Y3BpX293bmVyX2lkICogb3V0X3R5cGUpKQ0KPiA+IC0NCj4gPiAtQUNQSV9FWFRFUk5BTF9SRVRV
-Uk5fU1RBVFVTKGFjcGlfc3RhdHVzIGFjcGlfdW5sb2FkX3RhYmxlX2lkKGFjcGlfb3duZXJfaWQg
-aWQpKQ0KPiA+IC0NCj4gPiAtQUNQSV9FWFRFUk5BTF9SRVRVUk5fU1RBVFVTKGFjcGlfc3RhdHVz
-DQo+ID4gIAkJCSAgICBhY3BpX2dldF90YWJsZV93aXRoX3NpemUoYWNwaV9zdHJpbmcgc2lnbmF0
-dXJlLA0KPiA+ICAJCQkJCQkgICAgIHUzMiBpbnN0YW5jZSwNCj4gPiAgCQkJCQkJICAgICBzdHJ1
-Y3QgYWNwaV90YWJsZV9oZWFkZXINCj4gPg0KPiANCj4gLS0NCj4gSSBzcGVhayBvbmx5IGZvciBt
-eXNlbGYuDQo+IFJhZmFlbCBKLiBXeXNvY2tpLCBJbnRlbCBPcGVuIFNvdXJjZSBUZWNobm9sb2d5
-IENlbnRlci4NCg=
+Archs have been abusing module_free() to clean up their arch-specific
+allocations.  Since module_free() is also (ab)used by BPF and trace code,
+let's keep it to simple allocations, and provide a hook called before
+that.
+
+This means that avr32, ia64, parisc and s390 no longer need to implement
+their own module_free() at all.  avr32 doesn't need module_finalize()
+either.
+
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+Cc: Chris Metcalf <cmetcalf@ezchip.com>
+Cc: Haavard Skinnemoen <hskinnemoen@gmail.com>
+Cc: Hans-Christian Egtvedt <egtvedt@samfundet.no>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: "James E.J. Bottomley" <jejb@parisc-linux.org>
+Cc: Helge Deller <deller@gmx.de>
+Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
+Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
+Cc: linux-kernel@vger.kernel.org
+Cc: linux-ia64@vger.kernel.org
+Cc: linux-parisc@vger.kernel.org
+Cc: linux-s390@vger.kernel.org
+---
+ arch/avr32/kernel/module.c   | 13 +------------
+ arch/ia64/kernel/module.c    |  6 ++----
+ arch/parisc/kernel/module.c  |  6 +-----
+ arch/s390/kernel/module.c    | 10 +++-------
+ arch/tile/kernel/module.c    |  2 +-
+ include/linux/moduleloader.h |  2 ++
+ kernel/module.c              |  7 +++++++
+ 7 files changed, 17 insertions(+), 29 deletions(-)
+
+diff --git a/arch/avr32/kernel/module.c b/arch/avr32/kernel/module.c
+index 2c9412908024..164efa009e5b 100644
+--- a/arch/avr32/kernel/module.c
++++ b/arch/avr32/kernel/module.c
+@@ -19,12 +19,10 @@
+ #include <linux/moduleloader.h>
+ #include <linux/vmalloc.h>
+ 
+-void module_free(struct module *mod, void *module_region)
++void module_arch_freeing_init(struct module *mod)
+ {
+ 	vfree(mod->arch.syminfo);
+ 	mod->arch.syminfo = NULL;
+-
+-	vfree(module_region);
+ }
+ 
+ static inline int check_rela(Elf32_Rela *rela, struct module *module,
+@@ -291,12 +289,3 @@ int apply_relocate_add(Elf32_Shdr *sechdrs, const char *strtab,
+ 
+ 	return ret;
+ }
+-
+-int module_finalize(const Elf_Ehdr *hdr, const Elf_Shdr *sechdrs,
+-		    struct module *module)
+-{
+-	vfree(module->arch.syminfo);
+-	module->arch.syminfo = NULL;
+-
+-	return 0;
+-}
+diff --git a/arch/ia64/kernel/module.c b/arch/ia64/kernel/module.c
+index 24603be24c14..29754aae5177 100644
+--- a/arch/ia64/kernel/module.c
++++ b/arch/ia64/kernel/module.c
+@@ -305,14 +305,12 @@ plt_target (struct plt_entry *plt)
+ #endif /* !USE_BRL */
+ 
+ void
+-module_free (struct module *mod, void *module_region)
++module_arch_freeing_init (struct module *mod)
+ {
+-	if (mod && mod->arch.init_unw_table &&
+-	    module_region = mod->module_init) {
++	if (mod->arch.init_unw_table) {
+ 		unw_remove_unwind_table(mod->arch.init_unw_table);
+ 		mod->arch.init_unw_table = NULL;
+ 	}
+-	vfree(module_region);
+ }
+ 
+ /* Have we already seen one of these relocations? */
+diff --git a/arch/parisc/kernel/module.c b/arch/parisc/kernel/module.c
+index 50dfafc3f2c1..5822e8e200e6 100644
+--- a/arch/parisc/kernel/module.c
++++ b/arch/parisc/kernel/module.c
+@@ -298,14 +298,10 @@ static inline unsigned long count_stubs(const Elf_Rela *rela, unsigned long n)
+ }
+ #endif
+ 
+-
+-/* Free memory returned from module_alloc */
+-void module_free(struct module *mod, void *module_region)
++void module_arch_freeing_init(struct module *mod)
+ {
+ 	kfree(mod->arch.section);
+ 	mod->arch.section = NULL;
+-
+-	vfree(module_region);
+ }
+ 
+ /* Additional bytes needed in front of individual sections */
+diff --git a/arch/s390/kernel/module.c b/arch/s390/kernel/module.c
+index b89b59158b95..409d152585be 100644
+--- a/arch/s390/kernel/module.c
++++ b/arch/s390/kernel/module.c
+@@ -55,14 +55,10 @@ void *module_alloc(unsigned long size)
+ }
+ #endif
+ 
+-/* Free memory returned from module_alloc */
+-void module_free(struct module *mod, void *module_region)
++void module_arch_freeing_init(struct module *mod)
+ {
+-	if (mod) {
+-		vfree(mod->arch.syminfo);
+-		mod->arch.syminfo = NULL;
+-	}
+-	vfree(module_region);
++	vfree(mod->arch.syminfo);
++	mod->arch.syminfo = NULL;
+ }
+ 
+ static void check_rela(Elf_Rela *rela, struct module *me)
+diff --git a/arch/tile/kernel/module.c b/arch/tile/kernel/module.c
+index 96447c9160a0..62a597e810d6 100644
+--- a/arch/tile/kernel/module.c
++++ b/arch/tile/kernel/module.c
+@@ -83,7 +83,7 @@ void module_free(struct module *mod, void *module_region)
+ 		     0, 0, 0, NULL, NULL, 0);
+ 
+ 	/*
+-	 * FIXME: If module_region = mod->module_init, trim exception
++	 * FIXME: Add module_arch_freeing_init to trim exception
+ 	 * table entries.
+ 	 */
+ }
+diff --git a/include/linux/moduleloader.h b/include/linux/moduleloader.h
+index 7eeb9bbfb816..054eac853090 100644
+--- a/include/linux/moduleloader.h
++++ b/include/linux/moduleloader.h
+@@ -82,4 +82,6 @@ int module_finalize(const Elf_Ehdr *hdr,
+ /* Any cleanup needed when module leaves. */
+ void module_arch_cleanup(struct module *mod);
+ 
++/* Any cleanup before freeing mod->module_init */
++void module_arch_freeing_init(struct module *mod);
+ #endif
+diff --git a/kernel/module.c b/kernel/module.c
+index 3965511ae133..68be0b1f9e7f 100644
+--- a/kernel/module.c
++++ b/kernel/module.c
+@@ -1804,6 +1804,10 @@ void __weak module_arch_cleanup(struct module *mod)
+ {
+ }
+ 
++void __weak module_arch_freeing_init(struct module *mod)
++{
++}
++
+ /* Free a module, remove from lists, etc. */
+ static void free_module(struct module *mod)
+ {
+@@ -1841,6 +1845,7 @@ static void free_module(struct module *mod)
+ 
+ 	/* This may be NULL, but that's OK */
+ 	unset_module_init_ro_nx(mod);
++	module_arch_freeing_init(mod);
+ 	module_free(mod, mod->module_init);
+ 	kfree(mod->args);
+ 	percpu_modfree(mod);
+@@ -2930,6 +2935,7 @@ static struct module *layout_and_allocate(struct load_info *info, int flags)
+ static void module_deallocate(struct module *mod, struct load_info *info)
+ {
+ 	percpu_modfree(mod);
++	module_arch_freeing_init(mod);
+ 	module_free(mod, mod->module_init);
+ 	module_free(mod, mod->module_core);
+ }
+@@ -3055,6 +3061,7 @@ static int do_init_module(struct module *mod)
+ 	mod->strtab = mod->core_strtab;
+ #endif
+ 	unset_module_init_ro_nx(mod);
++	module_arch_freeing_init(mod);
+ 	module_free(mod, mod->module_init);
+ 	mod->module_init = NULL;
+ 	mod->init_size = 0;
+-- 
+2.1.0
+
