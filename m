@@ -1,152 +1,107 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Fri, 16 Jan 2015 01:44:04 +0000
-Subject: [PATCH 06/28] PCI: Combine PCI domain and bus number in u32 arg
-Message-Id: <1421372666-12288-7-git-send-email-wangyijing@huawei.com>
+From: Yinghai Lu <yinghai@kernel.org>
+Date: Thu, 15 Jan 2015 04:31:32 +0000
+Subject: [PATCH v2 05/10] PCI, ia64: clip firmware assigned resource under parent bridge's
+Message-Id: <1421296297-6371-6-git-send-email-yinghai@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1421372666-12288-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1421372666-12288-1-git-send-email-wangyijing@huawei.com>
+References: <1421296297-6371-1-git-send-email-yinghai@kernel.org>
+In-Reply-To: <1421296297-6371-1-git-send-email-yinghai@kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: quoted-printable
 To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>
+Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>, linux-ia64@vger.kernel.org
 
-Currently, we use int type for bus number in
-pci_create_root_bus(), pci_scan_root_bus() and
-pci_scan_bus_legacy. Because PCI bus number
-always <= 255, so we could change the bus number
-argument type to u32, and combine PCI domain and
-bus number in one. Also add a domain member in
-pci_host_bridge to save domain number. Finally,
-we could eliminate lots of the platform specific
-pci_domain_nr() in the last of the series.
+Some bios put range that is not fully coverred by root bus resources.
+Try to clip them and update them in pci bridge bars.
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+We'd like to fix other arches instead of just x86.
+
+Link: https://bugzilla.kernel.org/show_bug.cgi?id=85491
+Reported-by: Marek Kordik <kordikmarek@gmail.com>
+Fixes: 5b28541552ef ("PCI: Restrict 64-bit prefetchable bridge windows to 6=
+4-bit resources")
+Signed-off-by: Yinghai Lu <yinghai@kernel.org>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>
+Cc: linux-ia64@vger.kernel.org
 ---
- drivers/pci/probe.c      |   16 +++++++++-------
- include/linux/pci.h      |    7 ++++---
- include/uapi/linux/pci.h |    3 +++
- 3 files changed, 16 insertions(+), 10 deletions(-)
+ arch/ia64/pci/pci.c | 48 +++++++++++++++++++++---------------------------
+ 1 file changed, 21 insertions(+), 27 deletions(-)
 
-diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
-index ed894cb..50f58b3 100644
---- a/drivers/pci/probe.c
-+++ b/drivers/pci/probe.c
-@@ -1889,7 +1889,7 @@ void __weak pcibios_remove_bus(struct pci_bus *bus)
- {
+diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
+index 291a582..900cc93 100644
+--- a/arch/ia64/pci/pci.c
++++ b/arch/ia64/pci/pci.c
+@@ -487,45 +487,39 @@ int pcibios_root_bridge_prepare(struct pci_host_bridg=
+e *bridge)
+ 	return 0;
  }
- 
--struct pci_bus *pci_create_root_bus(struct device *parent, int bus,
-+struct pci_bus *pci_create_root_bus(struct device *parent, u32 db,
- 		struct pci_ops *ops, void *sysdata, struct list_head *resources)
+=20
+-static int is_valid_resource(struct pci_dev *dev, int idx)
++void pcibios_fixup_device_resources(struct pci_dev *dev)
  {
- 	int error;
-@@ -1900,6 +1900,7 @@ struct pci_bus *pci_create_root_bus(struct device *parent, int bus,
- 	resource_size_t offset;
- 	char bus_addr[64];
- 	char *fmt;
-+	u8	bus = PCI_BUSNUM(db);
- 
- 	b = pci_alloc_bus(NULL);
- 	if (!b)
-@@ -1920,6 +1921,7 @@ struct pci_bus *pci_create_root_bus(struct device *parent, int bus,
- 	if (!bridge)
- 		goto err_out;
- 
-+	bridge->domain = PCI_DOMAIN(db);
- 	bridge->dev.parent = parent;
- 	bridge->dev.release = pci_release_host_bridge_dev;
- 	dev_set_name(&bridge->dev, "pci%04x:%02x", pci_domain_nr(b), bus);
-@@ -2057,7 +2059,7 @@ void pci_bus_release_busn_res(struct pci_bus *b)
- 			res, ret ? "can not be" : "is");
+-	unsigned int i, type_mask =3D IORESOURCE_IO | IORESOURCE_MEM;
+-	struct resource *devr =3D &dev->resource[idx], *busr;
++	int idx;
+=20
+ 	if (!dev->bus)
+-		return 0;
+-
+-	pci_bus_for_each_resource(dev->bus, busr, i) {
+-		if (!busr || ((busr->flags ^ devr->flags) & type_mask))
+-			continue;
+-		if ((devr->start) && (devr->start >=3D busr->start) &&
+-				(devr->end <=3D busr->end))
+-			return 1;
+-	}
+-	return 0;
+-}
++		return;
+=20
+-static void pcibios_fixup_resources(struct pci_dev *dev, int start, int li=
+mit)
+-{
+-	int i;
++	for (idx =3D 0; idx < PCI_BRIDGE_RESOURCES; idx++) {
++		struct resource *r =3D &dev->resource[idx];
+=20
+-	for (i =3D start; i < limit; i++) {
+-		if (!dev->resource[i].flags)
++		if (!r->flags || r->parent || !r->start)
+ 			continue;
+-		if ((is_valid_resource(dev, i)))
+-			pci_claim_resource(dev, i);
+-	}
+-}
+=20
+-void pcibios_fixup_device_resources(struct pci_dev *dev)
+-{
+-	pcibios_fixup_resources(dev, 0, PCI_BRIDGE_RESOURCES);
++		pci_claim_resource(dev, idx);
++	}
  }
- 
--struct pci_bus *pci_scan_root_bus(struct device *parent, int bus,
-+struct pci_bus *pci_scan_root_bus(struct device *parent, u32 db,
- 		struct pci_ops *ops, void *sysdata, struct list_head *resources)
+ EXPORT_SYMBOL_GPL(pcibios_fixup_device_resources);
+=20
+ static void pcibios_fixup_bridge_resources(struct pci_dev *dev)
  {
- 	struct pci_host_bridge_window *window;
-@@ -2071,15 +2073,15 @@ struct pci_bus *pci_scan_root_bus(struct device *parent, int bus,
- 			break;
- 		}
- 
--	b = pci_create_root_bus(parent, bus, ops, sysdata, resources);
-+	b = pci_create_root_bus(parent, db, ops, sysdata, resources);
- 	if (!b)
- 		return NULL;
- 
- 	if (!found) {
- 		dev_info(&b->dev,
- 		 "No busn resource found for root bus, will use [bus %02x-ff]\n",
--			bus);
--		pci_bus_insert_busn_res(b, bus, 255);
-+			PCI_BUSNUM(db));
-+		pci_bus_insert_busn_res(b, PCI_BUSNUM(db), 255);
- 	}
- 
- 	max = pci_scan_child_bus(b);
-@@ -2091,7 +2093,7 @@ struct pci_bus *pci_scan_root_bus(struct device *parent, int bus,
+-	pcibios_fixup_resources(dev, PCI_BRIDGE_RESOURCES, PCI_NUM_RESOURCES);
++	int idx;
++
++	if (!dev->bus)
++		return;
++
++	for (idx =3D PCI_BRIDGE_RESOURCES; idx < PCI_NUM_RESOURCES; idx++) {
++		struct resource *r =3D &dev->resource[idx];
++
++		if (!r->flags || r->parent || !r->start)
++			continue;
++
++		pci_claim_bridge_resource(dev, idx);
++	}
  }
- EXPORT_SYMBOL(pci_scan_root_bus);
- 
--struct pci_bus *pci_scan_bus_legacy(int bus, struct pci_ops *ops,
-+struct pci_bus *pci_scan_bus_legacy(u32 db, struct pci_ops *ops,
- 					void *sysdata)
- {
- 	LIST_HEAD(resources);
-@@ -2100,7 +2102,7 @@ struct pci_bus *pci_scan_bus_legacy(int bus, struct pci_ops *ops,
- 	pci_add_resource(&resources, &ioport_resource);
- 	pci_add_resource(&resources, &iomem_resource);
- 	pci_add_resource(&resources, &busn_resource);
--	b = pci_create_root_bus(NULL, bus, ops, sysdata, &resources);
-+	b = pci_create_root_bus(NULL, db, ops, sysdata, &resources);
- 	if (b) {
- 		pci_scan_child_bus(b);
- 	} else {
-diff --git a/include/linux/pci.h b/include/linux/pci.h
-index a6fa2f1..c771508 100644
---- a/include/linux/pci.h
-+++ b/include/linux/pci.h
-@@ -402,6 +402,7 @@ struct pci_host_bridge_window {
- };
- 
- struct pci_host_bridge {
-+	u16	domain;
- 	struct device dev;
- 	struct pci_bus *bus;		/* root bus */
- 	struct list_head windows;	/* pci_host_bridge_windows */
-@@ -769,14 +770,14 @@ void pcibios_bus_to_resource(struct pci_bus *bus, struct resource *res,
- void pcibios_scan_specific_bus(int busn);
- struct pci_bus *pci_find_bus(int domain, int busnr);
- void pci_bus_add_devices(const struct pci_bus *bus);
--struct pci_bus *pci_scan_bus_legacy(int bus, struct pci_ops *ops, void *sysdata);
--struct pci_bus *pci_create_root_bus(struct device *parent, int bus,
-+struct pci_bus *pci_scan_bus_legacy(u32 dombus, struct pci_ops *ops, void *sysdata);
-+struct pci_bus *pci_create_root_bus(struct device *parent, u32 dombus,
- 				    struct pci_ops *ops, void *sysdata,
- 				    struct list_head *resources);
- int pci_bus_insert_busn_res(struct pci_bus *b, int bus, int busmax);
- int pci_bus_update_busn_res_end(struct pci_bus *b, int busmax);
- void pci_bus_release_busn_res(struct pci_bus *b);
--struct pci_bus *pci_scan_root_bus(struct device *parent, int bus,
-+struct pci_bus *pci_scan_root_bus(struct device *parent, u32 dombus,
- 					     struct pci_ops *ops, void *sysdata,
- 					     struct list_head *resources);
- struct pci_bus *pci_add_new_bus(struct pci_bus *parent, struct pci_dev *dev,
-diff --git a/include/uapi/linux/pci.h b/include/uapi/linux/pci.h
-index 3c292bc..89c6f15 100644
---- a/include/uapi/linux/pci.h
-+++ b/include/uapi/linux/pci.h
-@@ -30,6 +30,9 @@
- #define PCI_DEVFN(slot, func)	((((slot) & 0x1f) << 3) | ((func) & 0x07))
- #define PCI_SLOT(devfn)		(((devfn) >> 3) & 0x1f)
- #define PCI_FUNC(devfn)		((devfn) & 0x07)
-+#define PCI_DOMAIN(db)		((db) >> 16)
-+#define PCI_BUSNUM(db)		((db) & 0xffff)
-+#define PCI_DOMBUS(domain, bus)		(((domain) << 16) | (bus))
- 
- /* Ioctls for /proc/bus/pci/X/Y nodes. */
- #define PCIIOC_BASE		('P' << 24 | 'C' << 16 | 'I' << 8)
--- 
-1.7.1
+=20
+ /*
+--=20
+1.8.4.5
 
