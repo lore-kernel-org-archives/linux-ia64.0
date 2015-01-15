@@ -1,89 +1,63 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Fri, 23 Jan 2015 02:12:16 +0000
-Subject: Re: [PATCH v2 03/30] xen/PCI: Don't use deprecated function pci_scan_bus_parented()
-Message-Id: <54C1AE00.3020804@huawei.com>
+From: Davidlohr Bueso <dave@stgolabs.net>
+Date: Thu, 15 Jan 2015 07:50:00 +0000
+Subject: ia64: use current->state helpers
+Message-Id: <1421308200.17403.3.camel@stgolabs.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1421800225-26230-1-git-send-email-wangyijing@huawei.com> <1421800225-26230-4-git-send-email-wangyijing@huawei.com> <20150122202523.GC5813@l.oracle.com>
-In-Reply-To: <20150122202523.GC5813@l.oracle.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Cc: Bjorn Helgaas <bhelgaas@google.com>, Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, xen-devel@lists.xenproject.org
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, Davidlohr Bueso <dave@stgolabs.net>
 
-On 2015/1/23 4:25, Konrad Rzeszutek Wilk wrote:
-> On Wed, Jan 21, 2015 at 08:29:58AM +0800, Yijing Wang wrote:
->> From: Arnd Bergmann <arnd@arndb.de>
->>
->> Use pci_scan_root_bus() instead of deprecated function
->> pci_scan_bus_parented().
->>
->> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
->> Signed-off-by: Yijing Wang <wangyijing@huawei.com>
->> CC: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
->> CC: xen-devel@lists.xenproject.org
-> 
-> It looks OK to me thought I need to test it first.
+Call __set_current_state() instead of assigning the new state directly.
+These interfaces also aid CONFIG_DEBUG_ATOMIC_SLEEP environments, keeping
+track of who changed the state.
 
-Thanks!
+Signed-off-by: Davidlohr Bueso <dbueso@suse.de>
+---
+Completely untested.
 
->> ---
->>  drivers/pci/xen-pcifront.c |   10 +++++++---
->>  1 files changed, 7 insertions(+), 3 deletions(-)
->>
->> diff --git a/drivers/pci/xen-pcifront.c b/drivers/pci/xen-pcifront.c
->> index b1ffebe..240ddbc 100644
->> --- a/drivers/pci/xen-pcifront.c
->> +++ b/drivers/pci/xen-pcifront.c
->> @@ -446,6 +446,7 @@ static int pcifront_scan_root(struct pcifront_device *pdev,
->>  				 unsigned int domain, unsigned int bus)
->>  {
->>  	struct pci_bus *b;
->> +	LIST_HEAD(resources);
->>  	struct pcifront_sd *sd = NULL;
->>  	struct pci_bus_entry *bus_entry = NULL;
->>  	int err = 0;
->> @@ -470,17 +471,20 @@ static int pcifront_scan_root(struct pcifront_device *pdev,
->>  		err = -ENOMEM;
->>  		goto err_out;
->>  	}
->> +	pci_add_resource(&resources, &ioport_resource);
->> +	pci_add_resource(&resources, &iomem_resource);
->>  	pcifront_init_sd(sd, domain, bus, pdev);
->>  
->>  	pci_lock_rescan_remove();
->>  
->> -	b = pci_scan_bus_parented(&pdev->xdev->dev, bus,
->> -				  &pcifront_bus_ops, sd);
->> +	b = pci_scan_root_bus(&pdev->xdev->dev, bus,
->> +				  &pcifront_bus_ops, sd, &resources);
->>  	if (!b) {
->>  		dev_err(&pdev->xdev->dev,
->>  			"Error creating PCI Frontend Bus!\n");
->>  		err = -ENOMEM;
->>  		pci_unlock_rescan_remove();
->> +		pci_free_resource_list(&resources);
->>  		goto err_out;
->>  	}
->>  
->> @@ -488,7 +492,7 @@ static int pcifront_scan_root(struct pcifront_device *pdev,
->>  
->>  	list_add(&bus_entry->list, &pdev->root_buses);
->>  
->> -	/* pci_scan_bus_parented skips devices which do not have a have
->> +	/* pci_scan_root_bus skips devices which do not have a have
->>  	* devfn=0. The pcifront_scan_bus enumerates all devfn. */
->>  	err = pcifront_scan_bus(pdev, domain, bus, b);
->>  
->> -- 
->> 1.7.1
->>
-> 
-> .
-> 
+ arch/ia64/kernel/mca.c    | 2 +-
+ arch/ia64/kernel/ptrace.c | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-
+diff --git a/arch/ia64/kernel/mca.c b/arch/ia64/kernel/mca.c
+index 8bfd36a..9797d01 100644
+--- a/arch/ia64/kernel/mca.c
++++ b/arch/ia64/kernel/mca.c
+@@ -1821,7 +1821,7 @@ format_mca_init_stack(void *mca_data, unsigned long offset,
+ 	ti->task = p;
+ 	ti->cpu = cpu;
+ 	p->stack = ti;
+-	p->state = TASK_UNINTERRUPTIBLE;
++	__set_task_state(p, TASK_UNINTERRUPTIBLE);
+ 	cpu_set(cpu, p->cpus_allowed);
+ 	INIT_LIST_HEAD(&p->tasks);
+ 	p->parent = p->real_parent = p->group_leader = p;
+diff --git a/arch/ia64/kernel/ptrace.c b/arch/ia64/kernel/ptrace.c
+index 6f54d51..67bb42c 100644
+--- a/arch/ia64/kernel/ptrace.c
++++ b/arch/ia64/kernel/ptrace.c
+@@ -643,7 +643,7 @@ ptrace_attach_sync_user_rbs (struct task_struct *child)
+ 		    !test_and_set_tsk_thread_flag(child, TIF_RESTORE_RSE)) {
+ 			set_notify_resume(child);
+ 
+-			child->state = TASK_TRACED;
++			__set_task_state(child, TASK_TRACED);
+ 			stopped = 1;
+ 		}
+ 		spin_unlock_irq(&child->sighand->siglock);
+@@ -665,7 +665,7 @@ ptrace_attach_sync_user_rbs (struct task_struct *child)
+ 		spin_lock_irq(&child->sighand->siglock);
+ 		if (child->state = TASK_TRACED &&
+ 		    (child->signal->flags & SIGNAL_STOP_STOPPED)) {
+-			child->state = TASK_STOPPED;
++			__set_task_state(child, TASK_STOPPED);
+ 		}
+ 		spin_unlock_irq(&child->sighand->siglock);
+ 	}
 -- 
-Thanks!
-Yijing
+2.1.2
+
+
 
