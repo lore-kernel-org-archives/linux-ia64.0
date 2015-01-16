@@ -1,45 +1,43 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Fri, 16 Jan 2015 10:12:43 +0000
-Subject: Re: [PATCH 00/28] Refine PCI scan interfaces and make generic pci host bridge
-Message-Id: <3853153.SqP6BVNhms@wuerfel>
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Fri, 16 Jan 2015 01:44:21 +0000
+Subject: [PATCH 23/28] PCI/designware: Use pci_scan_root_bus() for simplicity
+Message-Id: <1421372666-12288-24-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1421372666-12288-1-git-send-email-wangyijing@huawei.com>
 In-Reply-To: <1421372666-12288-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Yijing Wang <wangyijing@huawei.com>
-Cc: Bjorn Helgaas <bhelgaas@google.com>, Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Geert Uytterhoeven <geert@linux-m68k.org>
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>
 
-On Friday 16 January 2015 09:43:58 Yijing Wang wrote:
-> This series is based on Bjorn's pci-next branch.
+Use pci_scan_root_bus() instead of pci_create_root_bus() +
+pci_scan_child_bus() for simplicity.
 
-I think this is a very nice series, hope we can get this into 3.20.
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+---
+ drivers/pci/host/pcie-designware.c |    4 +---
+ 1 files changed, 1 insertions(+), 3 deletions(-)
 
-I've replied with a few specific comments, but I see no show-stoppers
-and I've already retracted a few comments after seeing the bigger
-picture.
+diff --git a/drivers/pci/host/pcie-designware.c b/drivers/pci/host/pcie-designware.c
+index eef3111..d37fe27 100644
+--- a/drivers/pci/host/pcie-designware.c
++++ b/drivers/pci/host/pcie-designware.c
+@@ -725,13 +725,11 @@ static struct pci_bus *dw_pcie_scan_bus(int nr, struct pci_sys_data *sys)
+ 	struct pcie_port *pp = sys_to_pcie(sys);
+ 
+ 	pp->root_bus_nr = sys->busnr;
+-	bus = pci_create_root_bus(pp->dev, sys->busnr,
++	bus = pci_scan_root_bus(pp->dev, sys->busnr,
+ 				  &dw_pcie_ops, sys, &sys->resources);
+ 	if (!bus)
+ 		return NULL;
+ 
+-	pci_scan_child_bus(bus);
+-
+ 	if (bus && pp->ops->scan_bus)
+ 		pp->ops->scan_bus(pp);
+ 
+-- 
+1.7.1
 
-> After applied this series, we have following scan interfaces:
-> 
-> 1. pci_scan_bus_legacy() 
->    parent = NULL, default io/mem/bus resources.
->    for legacy pci scan
-> 
-> 2. pci_scan_root_bus()
->    for callers provide its own parent and io/mem/bus resources
->    but no platform specific pci_host_bridge operations
-> 
-> 3. pci_scan_root_bridge()
->    for callers provide its own parent and io/mem/bus resources
->    and pci_host_bridge_ops.
-
-I still think we will need a split interface for drivers to use
-that want to call pci_create_host_bridge() manually, but that can
-come later as we try to migrate the arm32 host bridge drivers to
-a generic interface away from pci_common_init_dev().
-
-Another follow-up would be to move more of the pcibios_*() functions
-into pci_host_bridge_ops.
-
-	Arnd
