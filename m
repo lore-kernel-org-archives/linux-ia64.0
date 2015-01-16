@@ -1,106 +1,71 @@
 From: Yijing Wang <wangyijing@huawei.com>
-Date: Wed, 21 Jan 2015 00:30:17 +0000
-Subject: [PATCH v2 22/30] PCI/Parisc: Use pci_scan_root_bus() for simplicity
-Message-Id: <1421800225-26230-23-git-send-email-wangyijing@huawei.com>
+Date: Fri, 16 Jan 2015 01:44:15 +0000
+Subject: [PATCH 17/28] PCI: Remove weak pcibios_root_bridge_prepare()
+Message-Id: <1421372666-12288-18-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1421800225-26230-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1421800225-26230-1-git-send-email-wangyijing@huawei.com>
+References: <1421372666-12288-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1421372666-12288-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@lists.linux-m68k.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>, Yijing Wang <wangyijing0307@gmail.com>, "James E.J. Bottomley" <jejb@parisc-linux.org>, linux-parisc@vger.kernel.org
+Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>
 
-From: Yijing Wang <wangyijing0307@gmail.com>
-
-Now pci_bus_add_devices() has been ripped out
-from pci_scan_root_bus(), we could use pci_scan_root_bus()
-instead of pci_create_root_bus() + pci_scan_child_bus()
-for simplicity. We could also remove the pci bus
-resource(dino_current_bus,255) and pci_bus_update_busn_res_end(),
-because pci_scan_root_bus() would do the same thing.
+Now no one use weak pcibios_root_bridge_prepare(),
+we could remove it.
 
 Signed-off-by: Yijing Wang <wangyijing@huawei.com>
-CC: "James E.J. Bottomley" <jejb@parisc-linux.org>
-CC: linux-parisc@vger.kernel.org
 ---
- drivers/parisc/dino.c    |   11 ++---------
- drivers/parisc/lba_pci.c |    7 ++-----
- 2 files changed, 4 insertions(+), 14 deletions(-)
+ drivers/pci/probe.c |   15 ---------------
+ include/linux/pci.h |    2 --
+ 2 files changed, 0 insertions(+), 17 deletions(-)
 
-diff --git a/drivers/parisc/dino.c b/drivers/parisc/dino.c
-index a0580af..e5ee339 100644
---- a/drivers/parisc/dino.c
-+++ b/drivers/parisc/dino.c
-@@ -977,15 +977,11 @@ static int __init dino_probe(struct parisc_device *dev)
- 	if (dino_dev->hba.gmmio_space.flags)
- 		pci_add_resource(&resources, &dino_dev->hba.gmmio_space);
+diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
+index 51d69c3..30323ac 100644
+--- a/drivers/pci/probe.c
++++ b/drivers/pci/probe.c
+@@ -1844,18 +1844,6 @@ unsigned int pci_scan_child_bus(struct pci_bus *bus)
+ }
+ EXPORT_SYMBOL_GPL(pci_scan_child_bus);
  
--	dino_dev->hba.bus_num.start = dino_current_bus;
--	dino_dev->hba.bus_num.end = 255;
--	dino_dev->hba.bus_num.flags = IORESOURCE_BUS;
--	pci_add_resource(&resources, &dino_dev->hba.bus_num);
- 	/*
- 	** It's not used to avoid chicken/egg problems
- 	** with configuration accessor functions.
- 	*/
--	dino_dev->hba.hba_bus = bus = pci_create_root_bus(&dev->dev,
-+	dino_dev->hba.hba_bus = bus = pci_scan_root_bus(&dev->dev,
- 			 dino_current_bus, &dino_cfg_ops, NULL, &resources);
- 	if (!bus) {
- 		printk(KERN_ERR "ERROR: failed to scan PCI bus on %s (duplicate bus number %d?)\n",
-@@ -996,13 +992,10 @@ static int __init dino_probe(struct parisc_device *dev)
- 		return 0;
- 	}
- 
--	max = pci_scan_child_bus(bus);
--	pci_bus_update_busn_res_end(bus, max);
+-/**
+- * pcibios_root_bridge_prepare - Platform-specific host bridge setup.
+- * @bridge: Host bridge to set up.
+- *
+- * Default empty implementation.  Replace with an architecture-specific setup
+- * routine, if necessary.
+- */
+-int __weak pcibios_root_bridge_prepare(struct pci_host_bridge *bridge)
+-{
+-	return 0;
+-}
 -
- 	/* This code *depends* on scanning being single threaded
- 	 * if it isn't, this global bus number count will fail
- 	 */
--	dino_current_bus = max + 1;
-+	dino_current_bus = bus->busn_res.end + 1;
- 	pci_bus_assign_resources(bus);
- 	pci_bus_add_devices(bus);
- 	return 0;
-diff --git a/drivers/parisc/lba_pci.c b/drivers/parisc/lba_pci.c
-index 37e71ff..254bf1a 100644
---- a/drivers/parisc/lba_pci.c
-+++ b/drivers/parisc/lba_pci.c
-@@ -1423,7 +1423,6 @@ lba_driver_probe(struct parisc_device *dev)
- 	void *tmp_obj;
- 	char *version;
- 	void __iomem *addr = ioremap_nocache(dev->hpa.start, 4096);
--	int max;
+ void __weak pcibios_add_bus(struct pci_bus *bus)
+ {
+ }
+@@ -1890,9 +1878,6 @@ static struct pci_bus *__pci_create_root_bus(
+ 	b->bridge = get_device(&bridge->dev);
+ 	if (bridge->ops && bridge->ops->phb_set_root_bus_speed)
+ 		bridge->ops->phb_set_root_bus_speed(bridge);
+-	error = pcibios_root_bridge_prepare(bridge);
+-	if (error)
+-		goto err_out;
  
- 	/* Read HW Rev First */
- 	func_class = READ_REG32(addr + LBA_FCLASS);
-@@ -1564,15 +1563,13 @@ lba_driver_probe(struct parisc_device *dev)
- 
- 	dev->dev.platform_data = lba_dev;
- 	lba_bus = lba_dev->hba.hba_bus -		pci_create_root_bus(&dev->dev, lba_dev->hba.bus_num.start,
-+		pci_scan_root_bus(&dev->dev, lba_dev->hba.bus_num.start,
- 				    cfg_ops, NULL, &resources);
- 	if (!lba_bus) {
- 		pci_free_resource_list(&resources);
- 		return 0;
- 	}
- 
--	max = pci_scan_child_bus(lba_bus);
+ 	device_enable_async_suspend(b->bridge);
+ 	pci_set_bus_of_node(b);
+diff --git a/include/linux/pci.h b/include/linux/pci.h
+index 5592737..da3a071 100644
+--- a/include/linux/pci.h
++++ b/include/linux/pci.h
+@@ -428,8 +428,6 @@ struct pci_host_bridge {
+ void pci_set_host_bridge_release(struct pci_host_bridge *bridge,
+ 		     void (*release_fn)(struct pci_host_bridge *),
+ 		     void *release_data);
 -
- 	/* This is in lieu of calling pci_assign_unassigned_resources() */
- 	if (is_pdc_pat()) {
- 		/* assign resources to un-initialized devices */
-@@ -1600,7 +1597,7 @@ lba_driver_probe(struct parisc_device *dev)
- 		lba_dev->flags |= LBA_FLAG_SKIP_PROBE;
- 	}
- 
--	lba_next_bus = max + 1;
-+	lba_next_bus = pci_bus_child_max_busnr(lba_bus) + 1;
- 	pci_bus_add_devices(lba_bus);
- 
- 	/* Whew! Finally done! Tell services we got this one covered. */
+-int pcibios_root_bridge_prepare(struct pci_host_bridge *bridge);
+ struct pci_host_bridge *pci_create_host_bridge(
+ 		struct device *parent, u32 dombus, struct list_head *resources, 
+ 		void *sysdata, struct pci_host_bridge_ops *ops);
 -- 
 1.7.1
 
