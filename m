@@ -1,212 +1,370 @@
-From: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Date: Mon, 26 Jan 2015 12:56:10 +0000
-Subject: Re: [RFC PATCH 1/2] ACPI: Introduce acpi_unload_parent_table() usages in Linux kernel.
-Message-Id: <5726958.AyKQ3E4zaU@vostro.rjw.lan>
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Fri, 16 Jan 2015 01:44:07 +0000
+Subject: [PATCH 09/28] PCI: Separate pci_host_bridge creation out of pci_create_root_bus()
+Message-Id: <1421372666-12288-10-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1422261662.git.lv.zheng@intel.com> <3e56be94135c911d80f52df1ea7f32c71f50d8fd.1422261662.git.lv.zheng@intel.com>
-In-Reply-To: <3e56be94135c911d80f52df1ea7f32c71f50d8fd.1422261662.git.lv.zheng@intel.com>
+References: <1421372666-12288-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1421372666-12288-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Lv Zheng <lv.zheng@intel.com>
-Cc: "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>, Len Brown <len.brown@intel.com>, Lv Zheng <zetalog@gmail.com>, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, Octavian Purdila <octavian.purdila@intel.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-pci@vger.kernel.org, linux-ia64@vger.kernel.org
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>
 
-On Monday, January 26, 2015 04:58:48 PM Lv Zheng wrote:
-> ACPICA has implemented acpi_unload_parent_table() which can exactly replace
-> the acpi_get_id()/acpi_unload_table_id() implemented in Linux kernel.  The
-> acpi_unload_parent_table() has been unit tested in ACPICA simulation
-> environment.
-> 
-> This patch can also help to reduce the source code differences between
-> Linux and ACPICA.
+We want to make a generic pci_host_bridge, then we could
+place common PCI infos like domain number in it. Ripping
+out pci_host_bridge creation from pci_create_root_bus()
+make code more better readability. Further more, we could
+use the generic pci_host_bridge to hold host bridge specific
+operations like pcibios_root_bridge_prepare().
 
-Is this any different from the one that you sent previously?
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+---
+ drivers/pci/host-bridge.c |   78 +++++++++++++++++++++++++++++
+ drivers/pci/probe.c       |  121 +++++++++++++++++++--------------------------
+ include/linux/pci.h       |    6 ++-
+ 3 files changed, 134 insertions(+), 71 deletions(-)
 
-> Signed-off-by: Lv Zheng <lv.zheng@intel.com>
-> Acked-by: Bjorn Helgaas <bhelgaas@google.com>
-> Cc: Octavian Purdila <octavian.purdila@intel.com>
-> Cc: Tony Luck <tony.luck@intel.com>
-> Cc: Fenghua Yu <fenghua.yu@intel.com>
-> Cc: linux-pci@vger.kernel.org
-> Cc: linux-ia64@vger.kernel.org
-> ---
->  drivers/acpi/acpica/nsxfobj.c     |   44 -----------------------------------
->  drivers/acpi/acpica/tbxface.c     |   46 -------------------------------------
->  drivers/pci/hotplug/sgi_hotplug.c |   13 ++++++-----
->  include/acpi/acpixf.h             |    6 -----
->  4 files changed, 7 insertions(+), 102 deletions(-)
-> 
-> diff --git a/drivers/acpi/acpica/nsxfobj.c b/drivers/acpi/acpica/nsxfobj.c
-> index dae9401..51a8329 100644
-> --- a/drivers/acpi/acpica/nsxfobj.c
-> +++ b/drivers/acpi/acpica/nsxfobj.c
-> @@ -53,50 +53,6 @@ ACPI_MODULE_NAME("nsxfobj")
->  
->  /*******************************************************************************
->   *
-> - * FUNCTION:    acpi_get_id
-> - *
-> - * PARAMETERS:  Handle          - Handle of object whose id is desired
-> - *              ret_id          - Where the id will be placed
-> - *
-> - * RETURN:      Status
-> - *
-> - * DESCRIPTION: This routine returns the owner id associated with a handle
-> - *
-> - ******************************************************************************/
-> -acpi_status acpi_get_id(acpi_handle handle, acpi_owner_id * ret_id)
-> -{
-> -	struct acpi_namespace_node *node;
-> -	acpi_status status;
-> -
-> -	/* Parameter Validation */
-> -
-> -	if (!ret_id) {
-> -		return (AE_BAD_PARAMETER);
-> -	}
-> -
-> -	status = acpi_ut_acquire_mutex(ACPI_MTX_NAMESPACE);
-> -	if (ACPI_FAILURE(status)) {
-> -		return (status);
-> -	}
-> -
-> -	/* Convert and validate the handle */
-> -
-> -	node = acpi_ns_validate_handle(handle);
-> -	if (!node) {
-> -		(void)acpi_ut_release_mutex(ACPI_MTX_NAMESPACE);
-> -		return (AE_BAD_PARAMETER);
-> -	}
-> -
-> -	*ret_id = node->owner_id;
-> -
-> -	status = acpi_ut_release_mutex(ACPI_MTX_NAMESPACE);
-> -	return (status);
-> -}
-> -
-> -ACPI_EXPORT_SYMBOL(acpi_get_id)
-> -
-> -/*******************************************************************************
-> - *
->   * FUNCTION:    acpi_get_type
->   *
->   * PARAMETERS:  handle          - Handle of object whose type is desired
-> diff --git a/drivers/acpi/acpica/tbxface.c b/drivers/acpi/acpica/tbxface.c
-> index 9520ae1..0f9dd80 100644
-> --- a/drivers/acpi/acpica/tbxface.c
-> +++ b/drivers/acpi/acpica/tbxface.c
-> @@ -265,52 +265,6 @@ ACPI_EXPORT_SYMBOL(acpi_get_table_header)
->  
->  /*******************************************************************************
->   *
-> - * FUNCTION:    acpi_unload_table_id
-> - *
-> - * PARAMETERS:  id            - Owner ID of the table to be removed.
-> - *
-> - * RETURN:      Status
-> - *
-> - * DESCRIPTION: This routine is used to force the unload of a table (by id)
-> - *
-> - ******************************************************************************/
-> -acpi_status acpi_unload_table_id(acpi_owner_id id)
-> -{
-> -	int i;
-> -	acpi_status status = AE_NOT_EXIST;
-> -
-> -	ACPI_FUNCTION_TRACE(acpi_unload_table_id);
-> -
-> -	status = acpi_ut_acquire_mutex(ACPI_MTX_INTERPRETER);
-> -	if (ACPI_FAILURE(status)) {
-> -		return_ACPI_STATUS(status);
-> -	}
-> -
-> -	/* Find table in the global table list */
-> -	for (i = 0; i < acpi_gbl_root_table_list.current_table_count; ++i) {
-> -		if (id != acpi_gbl_root_table_list.tables[i].owner_id) {
-> -			continue;
-> -		}
-> -		/*
-> -		 * Delete all namespace objects owned by this table. Note that these
-> -		 * objects can appear anywhere in the namespace by virtue of the AML
-> -		 * "Scope" operator. Thus, we need to track ownership by an ID, not
-> -		 * simply a position within the hierarchy
-> -		 */
-> -		acpi_tb_delete_namespace_by_owner(i);
-> -		status = acpi_tb_release_owner_id(i);
-> -		acpi_tb_set_table_loaded_flag(i, FALSE);
-> -		break;
-> -	}
-> -
-> -	(void)acpi_ut_release_mutex(ACPI_MTX_INTERPRETER);
-> -	return_ACPI_STATUS(status);
-> -}
-> -
-> -ACPI_EXPORT_SYMBOL(acpi_unload_table_id)
-> -
-> -/*******************************************************************************
-> - *
->   * FUNCTION:    acpi_get_table_with_size
->   *
->   * PARAMETERS:  signature           - ACPI signature of needed table
-> diff --git a/drivers/pci/hotplug/sgi_hotplug.c b/drivers/pci/hotplug/sgi_hotplug.c
-> index bada2099..c32fb78 100644
-> --- a/drivers/pci/hotplug/sgi_hotplug.c
-> +++ b/drivers/pci/hotplug/sgi_hotplug.c
-> @@ -475,7 +475,7 @@ static int disable_slot(struct hotplug_slot *bss_hotplug_slot)
->  	struct slot *slot = bss_hotplug_slot->private;
->  	struct pci_dev *dev, *temp;
->  	int rc;
-> -	acpi_owner_id ssdt_id = 0;
-> +	acpi_handle ssdt_hdl = NULL;
->  
->  	/* Acquire update access to the bus */
->  	mutex_lock(&sn_hotplug_mutex);
-> @@ -522,7 +522,7 @@ static int disable_slot(struct hotplug_slot *bss_hotplug_slot)
->  			if (ACPI_SUCCESS(ret) &&
->  			    (adr>>16) = (slot->device_num + 1)) {
->  				/* retain the owner id */
-> -				acpi_get_id(chandle, &ssdt_id);
-> +				ssdt_hdl = chandle;
->  
->  				ret = acpi_bus_get_device(chandle,
->  							  &device);
-> @@ -547,12 +547,13 @@ static int disable_slot(struct hotplug_slot *bss_hotplug_slot)
->  	pci_unlock_rescan_remove();
->  
->  	/* Remove the SSDT for the slot from the ACPI namespace */
-> -	if (SN_ACPI_BASE_SUPPORT() && ssdt_id) {
-> +	if (SN_ACPI_BASE_SUPPORT() && ssdt_hdl) {
->  		acpi_status ret;
-> -		ret = acpi_unload_table_id(ssdt_id);
-> +		ret = acpi_unload_parent_table(ssdt_hdl);
->  		if (ACPI_FAILURE(ret)) {
-> -			printk(KERN_ERR "%s: acpi_unload_table_id failed (0x%x) for id %d\n",
-> -			       __func__, ret, ssdt_id);
-> +			acpi_handle_err(ssdt_hdl,
-> +					"%s: acpi_unload_parent_table failed (0x%x)\n",
-> +					__func__, ret);
->  			/* try to continue on */
->  		}
->  	}
-> diff --git a/include/acpi/acpixf.h b/include/acpi/acpixf.h
-> index 5ba7846..5dd21bc 100644
-> --- a/include/acpi/acpixf.h
-> +++ b/include/acpi/acpixf.h
-> @@ -891,12 +891,6 @@ ACPI_APP_DEPENDENT_RETURN_VOID(ACPI_PRINTF_LIKE(1)
->  ACPI_GLOBAL(u8, acpi_gbl_permanent_mmap);
->  
->  ACPI_EXTERNAL_RETURN_STATUS(acpi_status
-> -			    acpi_get_id(acpi_handle object,
-> -					acpi_owner_id * out_type))
-> -
-> -ACPI_EXTERNAL_RETURN_STATUS(acpi_status acpi_unload_table_id(acpi_owner_id id))
-> -
-> -ACPI_EXTERNAL_RETURN_STATUS(acpi_status
->  			    acpi_get_table_with_size(acpi_string signature,
->  						     u32 instance,
->  						     struct acpi_table_header
-> 
-
+diff --git a/drivers/pci/host-bridge.c b/drivers/pci/host-bridge.c
+index 0e5f3c9..c9ee582 100644
+--- a/drivers/pci/host-bridge.c
++++ b/drivers/pci/host-bridge.c
+@@ -8,6 +8,84 @@
+ 
+ #include "pci.h"
+ 
++static LIST_HEAD(pci_host_bridge_list);
++static DEFINE_MUTEX(phb_mutex);
++
++static void pci_release_host_bridge_dev(struct device *dev)
++{
++	struct pci_host_bridge *bridge = to_pci_host_bridge(dev);
++
++	if (bridge->release_fn)
++		bridge->release_fn(bridge);
++
++	pci_free_resource_list(&bridge->windows);
++	kfree(bridge);
++}
++
++struct pci_host_bridge *pci_create_host_bridge(
++		struct device *parent, u32 db, struct list_head *resources)
++{
++	int error;
++	int bus = PCI_BUSNUM(db);
++	int domain = PCI_DOMAIN(db);
++	struct pci_host_bridge *host, *temp;
++	struct pci_host_bridge_window *window, *n;
++
++	host = kzalloc(sizeof(*host), GFP_KERNEL);
++	if (!host)
++		return NULL;
++
++	host->busnum = bus;
++	host->domain = domain;
++	/* If support CONFIG_PCI_DOMAINS_GENERIC, use
++	 * pci_host_assign_domain_nr() to assign domain
++	 * number instead argu u32 db.
++	 */
++	pci_host_assign_domain_nr(host);
++
++	mutex_lock(&phb_mutex);
++	list_for_each_entry(temp, &pci_host_bridge_list, list)
++		if (temp->domain = host->domain
++				&& host->busnum = temp->busnum) {
++			dev_dbg(&host->dev, "pci host bridge pci%04x:%02x exist\n",
++					host->domain, host->busnum);
++			mutex_unlock(&phb_mutex);
++			kfree(host);
++			return NULL;
++		}
++	mutex_unlock(&phb_mutex);
++
++	host->dev.parent = parent;
++	INIT_LIST_HEAD(&host->windows);
++	host->dev.release = pci_release_host_bridge_dev;
++	dev_set_name(&host->dev, "pci%04x:%02x", host->domain,
++			host->busnum);
++
++	error = device_register(&host->dev);
++	if (error) {
++		put_device(&host->dev);
++		return NULL;
++	}
++
++	list_for_each_entry_safe(window, n, resources, list)
++		list_move_tail(&window->list, &host->windows);
++
++	mutex_lock(&phb_mutex);
++	list_add_tail(&host->list, &pci_host_bridge_list);
++	mutex_unlock(&phb_mutex);
++	return host;
++}
++EXPORT_SYMBOL(pci_create_host_bridge);
++
++void pci_free_host_bridge(struct pci_host_bridge *host)
++{
++	mutex_lock(&phb_mutex);
++	list_del(&host->list);
++	mutex_unlock(&phb_mutex);
++
++	device_unregister(&host->dev);
++}
++
+ static struct pci_bus *find_pci_root_bus(struct pci_bus *bus)
+ {
+ 	while (bus->parent)
+diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
+index 50f58b3..2e0b952 100644
+--- a/drivers/pci/probe.c
++++ b/drivers/pci/probe.c
+@@ -502,31 +502,6 @@ static struct pci_bus *pci_alloc_bus(struct pci_bus *parent)
+ 	return b;
+ }
+ 
+-static void pci_release_host_bridge_dev(struct device *dev)
+-{
+-	struct pci_host_bridge *bridge = to_pci_host_bridge(dev);
+-
+-	if (bridge->release_fn)
+-		bridge->release_fn(bridge);
+-
+-	pci_free_resource_list(&bridge->windows);
+-
+-	kfree(bridge);
+-}
+-
+-static struct pci_host_bridge *pci_alloc_host_bridge(struct pci_bus *b)
+-{
+-	struct pci_host_bridge *bridge;
+-
+-	bridge = kzalloc(sizeof(*bridge), GFP_KERNEL);
+-	if (!bridge)
+-		return NULL;
+-
+-	INIT_LIST_HEAD(&bridge->windows);
+-	bridge->bus = b;
+-	return bridge;
+-}
+-
+ static const unsigned char pcix_bus_speed[] = {
+ 	PCI_SPEED_UNKNOWN,		/* 0 */
+ 	PCI_SPEED_66MHz_PCIX,		/* 1 */
+@@ -1889,54 +1864,35 @@ void __weak pcibios_remove_bus(struct pci_bus *bus)
+ {
+ }
+ 
+-struct pci_bus *pci_create_root_bus(struct device *parent, u32 db,
+-		struct pci_ops *ops, void *sysdata, struct list_head *resources)
++static struct pci_bus *__pci_create_root_bus(
++		struct pci_host_bridge *bridge, struct pci_ops *ops,
++		void *sysdata)
+ {
+ 	int error;
+-	struct pci_host_bridge *bridge;
+-	struct pci_bus *b, *b2;
+-	struct pci_host_bridge_window *window, *n;
++	struct pci_bus *b;
++	struct pci_host_bridge_window *window;
++	struct device *parent;
+ 	struct resource *res;
+ 	resource_size_t offset;
+ 	char bus_addr[64];
+ 	char *fmt;
+-	u8	bus = PCI_BUSNUM(db);
+ 
++	parent = bridge->dev.parent;
+ 	b = pci_alloc_bus(NULL);
+ 	if (!b)
+ 		return NULL;
+ 
+ 	b->sysdata = sysdata;
+ 	b->ops = ops;
+-	b->number = b->busn_res.start = bus;
++	b->number = b->busn_res.start = bridge->busnum;
+ 	pci_bus_assign_domain_nr(b, parent);
+-	b2 = pci_find_bus(pci_domain_nr(b), bus);
+-	if (b2) {
+-		/* If we already got to this bus through a different bridge, ignore it */
+-		dev_dbg(&b2->dev, "bus already known\n");
+-		goto err_out;
+-	}
+ 
+-	bridge = pci_alloc_host_bridge(b);
+-	if (!bridge)
+-		goto err_out;
+-
+-	bridge->domain = PCI_DOMAIN(db);
+-	bridge->dev.parent = parent;
+-	bridge->dev.release = pci_release_host_bridge_dev;
+-	dev_set_name(&bridge->dev, "pci%04x:%02x", pci_domain_nr(b), bus);
++	bridge->bus = b;
++	b->bridge = get_device(&bridge->dev);
+ 	error = pcibios_root_bridge_prepare(bridge);
+-	if (error) {
+-		kfree(bridge);
++	if (error)
+ 		goto err_out;
+-	}
+ 
+-	error = device_register(&bridge->dev);
+-	if (error) {
+-		put_device(&bridge->dev);
+-		goto err_out;
+-	}
+-	b->bridge = get_device(&bridge->dev);
+ 	device_enable_async_suspend(b->bridge);
+ 	pci_set_bus_of_node(b);
+ 
+@@ -1945,10 +1901,11 @@ struct pci_bus *pci_create_root_bus(struct device *parent, u32 db,
+ 
+ 	b->dev.class = &pcibus_class;
+ 	b->dev.parent = b->bridge;
+-	dev_set_name(&b->dev, "%04x:%02x", pci_domain_nr(b), bus);
++	dev_set_name(&b->dev, "%04x:%02x", bridge->domain,
++			bridge->busnum);
+ 	error = device_register(&b->dev);
+ 	if (error)
+-		goto class_dev_reg_err;
++		goto err_out;
+ 
+ 	pcibios_add_bus(b);
+ 
+@@ -1961,12 +1918,11 @@ struct pci_bus *pci_create_root_bus(struct device *parent, u32 db,
+ 		printk(KERN_INFO "PCI host bridge to bus %s\n", dev_name(&b->dev));
+ 
+ 	/* Add initial resources to the bus */
+-	list_for_each_entry_safe(window, n, resources, list) {
+-		list_move_tail(&window->list, &bridge->windows);
++	list_for_each_entry(window, &bridge->windows, list) {
+ 		res = window->res;
+ 		offset = window->offset;
+ 		if (res->flags & IORESOURCE_BUS)
+-			pci_bus_insert_busn_res(b, bus, res->end);
++			pci_bus_insert_busn_res(b, bridge->busnum, res->end);
+ 		else
+ 			pci_bus_add_resource(b, res, 0);
+ 		if (offset) {
+@@ -1988,14 +1944,23 @@ struct pci_bus *pci_create_root_bus(struct device *parent, u32 db,
+ 
+ 	return b;
+ 
+-class_dev_reg_err:
+-	put_device(&bridge->dev);
+-	device_unregister(&bridge->dev);
+ err_out:
+ 	kfree(b);
+ 	return NULL;
+ }
+ 
++struct pci_bus *pci_create_root_bus(struct device *parent, u32 db,
++		struct pci_ops *ops, void *sysdata, struct list_head *resources)
++{
++	struct pci_host_bridge *host;
++
++	host = pci_create_host_bridge(parent, db, resources);
++	if (!host)
++		return NULL;
++
++	return __pci_create_root_bus(host, ops, sysdata);
++}
++
+ int pci_bus_insert_busn_res(struct pci_bus *b, int bus, int bus_max)
+ {
+ 	struct resource *res = &b->busn_res;
+@@ -2059,29 +2024,33 @@ void pci_bus_release_busn_res(struct pci_bus *b)
+ 			res, ret ? "can not be" : "is");
+ }
+ 
+-struct pci_bus *pci_scan_root_bus(struct device *parent, u32 db,
+-		struct pci_ops *ops, void *sysdata, struct list_head *resources)
++static struct pci_bus *__pci_scan_root_bus(
++		struct pci_host_bridge *host, struct pci_ops *ops,
++		void *sysdata)
+ {
++
+ 	struct pci_host_bridge_window *window;
+ 	bool found = false;
+ 	struct pci_bus *b;
+ 	int max;
+ 
+-	list_for_each_entry(window, resources, list)
++	list_for_each_entry(window, &host->windows, list)
+ 		if (window->res->flags & IORESOURCE_BUS) {
+ 			found = true;
+ 			break;
+ 		}
+ 
+-	b = pci_create_root_bus(parent, db, ops, sysdata, resources);
+-	if (!b)
++	b = __pci_create_root_bus(host, ops, sysdata);
++	if (!b) {
++		pci_free_host_bridge(host);
+ 		return NULL;
++	}
+ 
+ 	if (!found) {
+ 		dev_info(&b->dev,
+ 		 "No busn resource found for root bus, will use [bus %02x-ff]\n",
+-			PCI_BUSNUM(db));
+-		pci_bus_insert_busn_res(b, PCI_BUSNUM(db), 255);
++			host->busnum);
++		pci_bus_insert_busn_res(b, host->busnum, 255);
+ 	}
+ 
+ 	max = pci_scan_child_bus(b);
+@@ -2091,6 +2060,18 @@ struct pci_bus *pci_scan_root_bus(struct device *parent, u32 db,
+ 
+ 	return b;
+ }
++
++struct pci_bus *pci_scan_root_bus(struct device *parent, u32 db,
++		struct pci_ops *ops, void *sysdata, struct list_head *resources)
++{
++	struct pci_host_bridge *host;
++
++	host = pci_create_host_bridge(parent, db, resources);
++	if (!host)
++		return NULL;
++
++	return __pci_scan_root_bus(host, ops, sysdata);
++}
+ EXPORT_SYMBOL(pci_scan_root_bus);
+ 
+ struct pci_bus *pci_scan_bus_legacy(u32 db, struct pci_ops *ops,
+diff --git a/include/linux/pci.h b/include/linux/pci.h
+index 1b9c799..5ee0033 100644
+--- a/include/linux/pci.h
++++ b/include/linux/pci.h
+@@ -403,8 +403,10 @@ struct pci_host_bridge_window {
+ 
+ struct pci_host_bridge {
+ 	u16	domain;
++	u16 busnum;
+ 	struct device dev;
+ 	struct pci_bus *bus;		/* root bus */
++	struct list_head list;
+ 	struct list_head windows;	/* pci_host_bridge_windows */
+ 	void (*release_fn)(struct pci_host_bridge *);
+ 	void *release_data;
+@@ -416,7 +418,8 @@ void pci_set_host_bridge_release(struct pci_host_bridge *bridge,
+ 		     void *release_data);
+ 
+ int pcibios_root_bridge_prepare(struct pci_host_bridge *bridge);
+-
++struct pci_host_bridge *pci_create_host_bridge(
++		struct device *parent, u32 dombus, struct list_head *resources);
+ /*
+  * The first PCI_BRIDGE_RESOURCE_NUM PCI bus resources (those that correspond
+  * to P2P or CardBus bridge windows) go in a table.  Additional ones (for
+@@ -774,6 +777,7 @@ struct pci_bus *pci_scan_bus_legacy(u32 dombus, struct pci_ops *ops, void *sysda
+ struct pci_bus *pci_create_root_bus(struct device *parent, u32 dombus,
+ 				    struct pci_ops *ops, void *sysdata,
+ 				    struct list_head *resources);
++void pci_free_host_bridge(struct pci_host_bridge *host);
+ int pci_bus_insert_busn_res(struct pci_bus *b, int bus, int busmax);
+ int pci_bus_update_busn_res_end(struct pci_bus *b, int busmax);
+ void pci_bus_release_busn_res(struct pci_bus *b);
 -- 
-I speak only for myself.
-Rafael J. Wysocki, Intel Open Source Technology Center.
+1.7.1
+
