@@ -1,7 +1,7 @@
 From: Yijing Wang <wangyijing@huawei.com>
-Date: Fri, 16 Jan 2015 01:44:23 +0000
-Subject: [PATCH 25/28] PCI: Rename __pci_create_root_bus() to pci_create_root_bus()
-Message-Id: <1421372666-12288-26-git-send-email-wangyijing@huawei.com>
+Date: Fri, 16 Jan 2015 01:44:14 +0000
+Subject: [PATCH 16/28] PCI/powerpc: Use pci_scan_root_bridge() for simplicity
+Message-Id: <1421372666-12288-17-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1421372666-12288-1-git-send-email-wangyijing@huawei.com>
 In-Reply-To: <1421372666-12288-1-git-send-email-wangyijing@huawei.com>
@@ -11,95 +11,117 @@ Content-Transfer-Encoding: 7bit
 To: Bjorn Helgaas <bhelgaas@google.com>
 Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>
 
-Now no one use pci_create_root_bus(), we could remove it
-and rename __pci_create_root_bus() to pci_create_root_bus().
+Now we could use pci_scan_root_bridge() to scan
+pci buses, provide powerpc specific pci_host_bridge_ops.
 
-Signed-off-by: wangyijing@huawei.com
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
 ---
- drivers/pci/probe.c |   27 ++++++++-------------------
- include/linux/pci.h |    3 ---
- 2 files changed, 8 insertions(+), 22 deletions(-)
+ arch/powerpc/kernel/pci-common.c |   57 ++++++++++++++++++++++++--------------
+ 1 files changed, 36 insertions(+), 21 deletions(-)
 
-diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
-index 30323ac..0817910 100644
---- a/drivers/pci/probe.c
-+++ b/drivers/pci/probe.c
-@@ -1852,7 +1852,7 @@ void __weak pcibios_remove_bus(struct pci_bus *bus)
- {
+diff --git a/arch/powerpc/kernel/pci-common.c b/arch/powerpc/kernel/pci-common.c
+index 2cf941e..0c7fb81 100644
+--- a/arch/powerpc/kernel/pci-common.c
++++ b/arch/powerpc/kernel/pci-common.c
+@@ -767,7 +767,8 @@ int pci_proc_domain(struct pci_bus *bus)
+ 	return 1;
  }
  
--static struct pci_bus *__pci_create_root_bus(
-+static struct pci_bus *pci_create_root_bus(
- 		struct pci_host_bridge *bridge, struct pci_ops *ops)
+-int pcibios_root_bridge_prepare(struct pci_host_bridge *bridge)
++static int pci_host_bridge_set_root_bus_speed(
++		struct pci_host_bridge *bridge)
  {
- 	int error;
-@@ -1935,18 +1935,6 @@ err_out:
- 	return NULL;
+ 	if (ppc_md.pcibios_set_root_bus_speed)
+ 		return ppc_md.pcibios_set_root_bus_speed(bridge);
+@@ -775,6 +776,27 @@ int pcibios_root_bridge_prepare(struct pci_host_bridge *bridge)
+ 	return 0;
  }
  
--struct pci_bus *pci_create_root_bus(struct device *parent, u32 db,
--		struct pci_ops *ops, void *sysdata, struct list_head *resources)
--{
--	struct pci_host_bridge *host;
--
--	host = pci_create_host_bridge(parent, db, resources, sysdata, NULL);
--	if (!host)
--		return NULL;
--	
--	return __pci_create_root_bus(host, ops);
--}
--
- int pci_bus_insert_busn_res(struct pci_bus *b, int bus, int bus_max)
- {
- 	struct resource *res = &b->busn_res;
-@@ -2025,7 +2013,7 @@ static struct pci_bus *__pci_scan_root_bus(
- 			break;
- 		}
++static void pci_host_bridge_probe_mode(struct pci_host_bridge *host)
++{
++	int mode = PCI_PROBE_NORMAL;
++	struct pci_bus *bus = host->bus;
++	struct pci_controller *hose = dev_get_drvdata(&host->dev);
++
++	/* Get probe mode and perform scan */
++	if (hose->dn && ppc_md.pci_probe_mode)
++		mode = ppc_md.pci_probe_mode(bus);
++
++	pr_debug("    probe mode: %d\n", mode);
++	if (mode = PCI_PROBE_DEVTREE)
++		host->of_scan = true;
++}
++
++static void pci_host_bridge_of_scan_bus(struct pci_host_bridge *host)
++{
++	struct pci_controller *hose = dev_get_drvdata(&host->dev);
++
++	of_scan_bus(host->dn, bus);
++}
+ /* This header fixup will do the resource fixup for all devices as they are
+  * probed, but not for bridge ranges
+  */
+@@ -1577,6 +1599,12 @@ struct device_node *pcibios_get_phb_of_node(struct pci_bus *bus)
+ 	return of_node_get(hose->dn);
+ }
  
--	b = __pci_create_root_bus(host, ops);
-+	b = pci_create_root_bus(host, ops);
- 	if (!b) {
- 		pci_free_host_bridge(host);
- 		return NULL;
-@@ -2091,18 +2079,19 @@ struct pci_bus *pci_scan_bus_legacy(u32 db, struct pci_ops *ops,
- 					void *sysdata)
++static struct pci_host_bridge_ops *phb_ops = {
++	.phb_set_root_bus_speed = pci_host_bridge_set_root_bus_speed,
++	.phb_probe_mode = pci_host_bridge_probe_mode,
++	.phb_of_scan_bus = pci_host_bridge_of_scan_bus,
++};
++
+ /**
+  * pci_scan_phb - Given a pci_controller, setup and scan the PCI bus
+  * @hose: Pointer to the PCI host controller instance structure
+@@ -1584,9 +1612,9 @@ struct device_node *pcibios_get_phb_of_node(struct pci_bus *bus)
+ void pcibios_scan_phb(struct pci_controller *hose)
  {
  	LIST_HEAD(resources);
--	struct pci_bus *b;
 +	struct pci_host_bridge *host;
+ 	struct pci_bus *bus;
+ 	struct device_node *node = hose->dn;
+-	int mode;
  
- 	pci_add_resource(&resources, &ioport_resource);
- 	pci_add_resource(&resources, &iomem_resource);
- 	pci_add_resource(&resources, &busn_resource);
--	b = pci_create_root_bus(NULL, db, ops, sysdata, &resources);
--	if (b) {
--		pci_scan_child_bus(b);
-+	host = pci_create_host_bridge(NULL, db, sysdata, &resources, NULL);
-+	if (host) {
-+		__pci_scan_root_bus(host, ops);
-+		return host->bus;
- 	} else {
+ 	pr_debug("PCI: Scanning PHB %s\n", of_node_full_name(node));
+ 
+@@ -1602,30 +1630,17 @@ void pcibios_scan_phb(struct pci_controller *hose)
+ 	pci_add_resource(&resources, &hose->busn);
+ 
+ 	/* Create an empty bus for the toplevel */
+-	bus = pci_create_root_bus(hose->parent, 
++	host = pci_scan_root_bridge(hose->parent,
+ 			PCI_DOMBUS(hose->global_number, hose->first_busno),
+-			hose->ops, hose, &resources);
+-	if (bus = NULL) {
+-		pr_err("Failed to create bus for PCI domain %04x\n",
++			hose->ops, hose, &resources, &phb_ops);
++	if (host = NULL) {
++		pr_err("Failed to create host bridge for PCI domain %04x\n",
+ 			hose->global_number);
  		pci_free_resource_list(&resources);
+ 		return;
  	}
--	return b;
-+	return NULL;
- }
- EXPORT_SYMBOL(pci_scan_bus_legacy);
+-	hose->bus = bus;
+-
+-	/* Get probe mode and perform scan */
+-	mode = PCI_PROBE_NORMAL;
+-	if (node && ppc_md.pci_probe_mode)
+-		mode = ppc_md.pci_probe_mode(bus);
+-	pr_debug("    probe mode: %d\n", mode);
+-	if (mode = PCI_PROBE_DEVTREE)
+-		of_scan_bus(node, bus);
+-
+-	if (mode = PCI_PROBE_NORMAL) {
+-		pci_bus_update_busn_res_end(bus, 255);
+-		hose->last_busno = pci_scan_child_bus(bus);
+-		pci_bus_update_busn_res_end(bus, hose->last_busno);
+-	}
++	hose->bus = host->bus;
++	hose->last_busno = host->bus->busn_res.end;
  
-diff --git a/include/linux/pci.h b/include/linux/pci.h
-index 2970a84..9ddca3b 100644
---- a/include/linux/pci.h
-+++ b/include/linux/pci.h
-@@ -785,9 +785,6 @@ void pcibios_scan_specific_bus(int busn);
- struct pci_bus *pci_find_bus(int domain, int busnr);
- void pci_bus_add_devices(const struct pci_bus *bus);
- struct pci_bus *pci_scan_bus_legacy(u32 dombus, struct pci_ops *ops, void *sysdata);
--struct pci_bus *pci_create_root_bus(struct device *parent, u32 dombus,
--				    struct pci_ops *ops, void *sysdata,
--				    struct list_head *resources);
- void pci_free_host_bridge(struct pci_host_bridge *host);
- int pci_bus_insert_busn_res(struct pci_bus *b, int bus, int busmax);
- int pci_bus_update_busn_res_end(struct pci_bus *b, int busmax);
+ 	/* Platform gets a chance to do some global fixups before
+ 	 * we proceed to resource allocation
 -- 
 1.7.1
 
