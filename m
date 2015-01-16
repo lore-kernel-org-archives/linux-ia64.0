@@ -1,73 +1,87 @@
-From: Jan Kiszka <jan.kiszka@siemens.com>
-Date: Thu, 29 Jan 2015 06:46:34 +0000
-Subject: [PATCH v11 15/28] scripts/gdb: Add internal helper and convenience function to retrieve thread_info
-Message-Id: <20dac87a0153e7983c872ba7804beade610ce55d.1422514006.git.jan.kiszka@siemens.com>
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Fri, 16 Jan 2015 01:44:12 +0000
+Subject: [PATCH 14/28] PCI/IA64: Refine pci_acpi_scan_root() with generic pci_host_bridge
+Message-Id: <1421372666-12288-15-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1422514006.git.jan.kiszka@siemens.com>
-In-Reply-To: <cover.1422514006.git.jan.kiszka@siemens.com>
+References: <1421372666-12288-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1421372666-12288-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>, linux-kernel@vger.kernel.org
-Cc: Thomas Gleixner <tglx@linutronix.de>, Jason Wessel <jason.wessel@windriver.com>, kgdb-bugreport@lists.sourceforge.net, Andi Kleen <andi@firstfloor.org>, Tom Tromey <tromey@redhat.com>, Ben Widawsky <ben@bwidawsk.net>, Borislav Petkov <bp@suse.de>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>, Yijing Wang <wangyijing0307@gmail.com>
 
-Add the internal helper get_thread_info that calculates the thread_info
-from a given task variable. Also export this service as a convenience
-function.
+From: Yijing Wang <wangyijing0307@gmail.com>
 
-Note: ia64 version is untested.
-
-CC: Tony Luck <tony.luck@intel.com>
-CC: Fenghua Yu <fenghua.yu@intel.com>
-CC: linux-ia64@vger.kernel.org
-Signed-off-by: Jan Kiszka <jan.kiszka@siemens.com>
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
 ---
- scripts/gdb/linux/tasks.py | 35 +++++++++++++++++++++++++++++++++++
- 1 file changed, 35 insertions(+)
+ arch/ia64/pci/pci.c |   34 ++++++++++++++++++----------------
+ 1 files changed, 18 insertions(+), 16 deletions(-)
 
-diff --git a/scripts/gdb/linux/tasks.py b/scripts/gdb/linux/tasks.py
-index 13bb97c..63cd6c5 100644
---- a/scripts/gdb/linux/tasks.py
-+++ b/scripts/gdb/linux/tasks.py
-@@ -71,3 +71,38 @@ return that task_struct variable which PID matches."""
+diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
+index e457015..7736c02 100644
+--- a/arch/ia64/pci/pci.c
++++ b/arch/ia64/pci/pci.c
+@@ -420,6 +420,18 @@ probe_pci_root_info(struct pci_root_info *info, struct acpi_device *device,
+ 	return 0;
+ }
  
++static int pci_host_bridge_prepare(struct pci_host_bridge *bridge)
++{
++	struct pci_sysdata *sd = dev_get_drvdata(&bridge->dev);
++
++	ACPI_COMPANION_SET(&bridge->dev, sd->companion);
++	return 0;
++}
++
++static struct pci_host_bridge_ops phb_ops = {
++	.phb_prepare = pci_host_bridge_prepare,
++};
++
+ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
+ {
+ 	struct acpi_device *device = root->device;
+@@ -428,7 +440,7 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
+ 	struct pci_controller *controller;
+ 	struct pci_root_info *info = NULL;
+ 	int busnum = root->secondary.start;
+-	struct pci_bus *pbus;
++	struct pci_host_bridge *host;
+ 	int ret;
  
- LxTaskByPidFunc()
-+
-+
-+thread_info_type = utils.CachedType("struct thread_info")
-+
-+ia64_task_size = None
-+
-+
-+def get_thread_info(task):
-+    global thread_info_type
-+    thread_info_ptr_type = thread_info_type.get_type().pointer()
-+    if utils.is_target_arch("ia64"):
-+        global ia64_task_size
-+        if ia64_task_size is None:
-+            ia64_task_size = gdb.parse_and_eval("sizeof(struct task_struct)")
-+        thread_info_addr = task.address + ia64_task_size
-+        thread_info = thread_info_addr.cast(thread_info_ptr_type)
-+    else:
-+        thread_info = task['stack'].cast(thread_info_ptr_type)
-+    return thread_info.dereference()
-+
-+
-+class LxThreadInfoFunc (gdb.Function):
-+    """Calculate Linux thread_info from task variable.
-+
-+$lx_thread_info(TASK): Given TASK, return the corresponding thread_info
-+variable."""
-+
-+    def __init__(self):
-+        super(LxThreadInfoFunc, self).__init__("lx_thread_info")
-+
-+    def invoke(self, task):
-+        return get_thread_info(task)
-+
-+
-+LxThreadInfoFunc()
+ 	controller = alloc_pci_controller(domain);
+@@ -465,26 +477,16 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
+ 	 * should handle the case here, but it appears that IA64 hasn't
+ 	 * such quirk. So we just ignore the case now.
+ 	 */
+-	pbus = pci_create_root_bus(NULL, PCI_DOMBUS(domain, bus), 
+-			&pci_root_ops, controller, &info->resources);
+-	if (!pbus) {
++	host = pci_scan_root_bridge(NULL, PCI_DOMBUS(domain, bus),
++			&pci_root_ops, controller, &info->resources, &phb_ops);
++	if (!host) {
+ 		pci_free_resource_list(&info->resources);
+ 		__release_pci_root_info(info);
+ 		return NULL;
+ 	}
+ 
+-	pci_set_host_bridge_release(to_pci_host_bridge(pbus->bridge),
+-			release_pci_root_info, info);
+-	pci_scan_child_bus(pbus);
+-	return pbus;
+-}
+-
+-int pcibios_root_bridge_prepare(struct pci_host_bridge *bridge)
+-{
+-	struct pci_controller *controller = bridge->bus->sysdata;
+-
+-	ACPI_COMPANION_SET(&bridge->dev, controller->companion);
+-	return 0;
++	pci_set_host_bridge_release(host, release_pci_root_info, info);
++	return host->bus;
+ }
+ 
+ static int is_valid_resource(struct pci_dev *dev, int idx)
 -- 
-2.1.4
+1.7.1
 
