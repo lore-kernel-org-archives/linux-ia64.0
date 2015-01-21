@@ -1,80 +1,105 @@
-From: al.stone@linaro.org
-Date: Fri, 23 Jan 2015 00:44:42 +0000
-Subject: [PATCH 5/7] arm64: ACPI: create arch-dependent version of acpi_osi_handler()
-Message-Id: <1421973884-13029-6-git-send-email-al.stone@linaro.org>
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Wed, 21 Jan 2015 00:30:22 +0000
+Subject: [PATCH v2 27/30] PCI: Rename __pci_create_root_bus() to pci_create_root_bus()
+Message-Id: <1421800225-26230-28-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1421973884-13029-1-git-send-email-al.stone@linaro.org>
-In-Reply-To: <1421973884-13029-1-git-send-email-al.stone@linaro.org>
+References: <1421800225-26230-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1421800225-26230-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: tony.luck@intel.com, fenghua.yu@intel.com, rjw@rjwysocki.net, catalin.marinas@arm.com, will.deacon@arm.com, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, lenb@kernel.org, robert.moore@intel.com
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org, devel@acpica.org, linaro-acpi@lists.linaro.org, linaro-kernel@lists.linaro.org, patches@linaro.org
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>
 
-From: Al Stone <ahs3@redhat.com>
+Now no one use pci_create_root_bus(), we could remove it
+and rename __pci_create_root_bus() to pci_create_root_bus().
 
-In order to deprecate the use of _OSI for arm64 or other new architectures,
-we need to make the default handler something we can change for various
-platforms.  This patch moves the definition of acpi_osi_handler() -- the
-function used by ACPICA as a callback for evaluating _OSI -- into arch-
-dependent ACPI files.  The declaration of acpi_os_handler() was moved in
-a previous patch.
-
-Previously, _OSI behaved on arm64 as it did on x86.  This patch changes
-_OSI so that on arm64 it will issue a warning if invoked, and tell the
-firmware that no features have been implemented (i.e., it will always
-return false).
-
-In some distant future version of ACPI where _OSI has been completely
-deprecated, this implementation and all other architecture implementations
-should be removed.
-
-Signed-off-by: Al Stone <al.stone@linaro.org>
+Signed-off-by: wangyijing@huawei.com
 ---
- arch/arm64/kernel/acpi/Makefile |  2 +-
- arch/arm64/kernel/acpi/osi.c    | 26 ++++++++++++++++++++++++++
- 2 files changed, 27 insertions(+), 1 deletion(-)
- create mode 100644 arch/arm64/kernel/acpi/osi.c
+ drivers/pci/probe.c |   27 ++++++++-------------------
+ include/linux/pci.h |    3 ---
+ 2 files changed, 8 insertions(+), 22 deletions(-)
 
-diff --git a/arch/arm64/kernel/acpi/Makefile b/arch/arm64/kernel/acpi/Makefile
-index e049f94..15a6172 100644
---- a/arch/arm64/kernel/acpi/Makefile
-+++ b/arch/arm64/kernel/acpi/Makefile
-@@ -1 +1 @@
--obj-$(CONFIG_ACPI)		+= acpi.o
-+obj-$(CONFIG_ACPI)		+= acpi.o osi.o
-diff --git a/arch/arm64/kernel/acpi/osi.c b/arch/arm64/kernel/acpi/osi.c
-new file mode 100644
-index 0000000..fa711dc
---- /dev/null
-+++ b/arch/arm64/kernel/acpi/osi.c
-@@ -0,0 +1,26 @@
-+/*
-+ *  ARM64 Specific ACPI _OSI Support
-+ *
-+ *  Copyright (C) 2015, Linaro Ltd.
-+ *	Author: Al Stone <al.stone@linaro.org>
-+ *
-+ *  This program is free software; you can redistribute it and/or modify
-+ *  it under the terms of the GNU General Public License version 2 as
-+ *  published by the Free Software Foundation.
-+ */
-+
-+#define pr_fmt(fmt) "ACPI: " fmt
-+
-+#include <linux/acpi.h>
-+
-+/*
-+ * Consensus is to deprecate _OSI for all new ACPI-supported architectures.
-+ * So, for arm64, reduce _OSI to a warning message, and tell the firmware
-+ * nothing of value.
-+ */
-+u32 acpi_osi_handler(acpi_string interface, u32 supported)
-+{
-+	pr_warn("_OSI was called, but is deprecated for this architecture.\n");
-+	return false;
-+}
-+
+diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
+index 79b5aca..70e28d9 100644
+--- a/drivers/pci/probe.c
++++ b/drivers/pci/probe.c
+@@ -1852,7 +1852,7 @@ void __weak pcibios_remove_bus(struct pci_bus *bus)
+ {
+ }
+ 
+-static struct pci_bus *__pci_create_root_bus(
++static struct pci_bus *pci_create_root_bus(
+ 		struct pci_host_bridge *bridge, struct pci_ops *ops)
+ {
+ 	int error;
+@@ -1935,18 +1935,6 @@ err_out:
+ 	return NULL;
+ }
+ 
+-struct pci_bus *pci_create_root_bus(struct device *parent, u32 db,
+-		struct pci_ops *ops, void *sysdata, struct list_head *resources)
+-{
+-	struct pci_host_bridge *host;
+-
+-	host = pci_create_host_bridge(parent, db, resources, sysdata, NULL);
+-	if (!host)
+-		return NULL;
+-	
+-	return __pci_create_root_bus(host, ops);
+-}
+-
+ int pci_bus_insert_busn_res(struct pci_bus *b, int bus, int bus_max)
+ {
+ 	struct resource *res = &b->busn_res;
+@@ -2025,7 +2013,7 @@ static struct pci_bus *__pci_scan_root_bus(
+ 			break;
+ 		}
+ 
+-	b = __pci_create_root_bus(host, ops);
++	b = pci_create_root_bus(host, ops);
+ 	if (!b) {
+ 		pci_free_host_bridge(host);
+ 		return NULL;
+@@ -2087,18 +2075,19 @@ struct pci_bus *pci_scan_bus_legacy(u32 db, struct pci_ops *ops,
+ 					void *sysdata)
+ {
+ 	LIST_HEAD(resources);
+-	struct pci_bus *b;
++	struct pci_host_bridge *host;
+ 
+ 	pci_add_resource(&resources, &ioport_resource);
+ 	pci_add_resource(&resources, &iomem_resource);
+ 	pci_add_resource(&resources, &busn_resource);
+-	b = pci_create_root_bus(NULL, db, ops, sysdata, &resources);
+-	if (b) {
+-		pci_scan_child_bus(b);
++	host = pci_create_host_bridge(NULL, db, sysdata, &resources, NULL);
++	if (host) {
++		__pci_scan_root_bus(host, ops);
++		return host->bus;
+ 	} else {
+ 		pci_free_resource_list(&resources);
+ 	}
+-	return b;
++	return NULL;
+ }
+ EXPORT_SYMBOL(pci_scan_bus_legacy);
+ 
+diff --git a/include/linux/pci.h b/include/linux/pci.h
+index 4c4c9e4..4d9d471 100644
+--- a/include/linux/pci.h
++++ b/include/linux/pci.h
+@@ -781,9 +781,6 @@ void pcibios_scan_specific_bus(int busn);
+ struct pci_bus *pci_find_bus(int domain, int busnr);
+ void pci_bus_add_devices(const struct pci_bus *bus);
+ struct pci_bus *pci_scan_bus_legacy(u32 dombus, struct pci_ops *ops, void *sysdata);
+-struct pci_bus *pci_create_root_bus(struct device *parent, u32 dombus,
+-				    struct pci_ops *ops, void *sysdata,
+-				    struct list_head *resources);
+ void pci_free_host_bridge(struct pci_host_bridge *host);
+ int pci_bus_insert_busn_res(struct pci_bus *b, int bus, int busmax);
+ int pci_bus_update_busn_res_end(struct pci_bus *b, int busmax);
 -- 
-2.1.0
+1.7.1
 
