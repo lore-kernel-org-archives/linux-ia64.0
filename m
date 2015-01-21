@@ -1,121 +1,152 @@
-From: Jan Kiszka <jan.kiszka@siemens.com>
-Date: Fri, 30 Jan 2015 07:24:29 +0000
-Subject: [PATCH v12 00/28] Add gdb python scripts as kernel debugging helpers
-Message-Id: <cover.1422602696.git.jan.kiszka@siemens.com>
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Wed, 21 Jan 2015 00:30:01 +0000
+Subject: [PATCH v2 06/30] PCI: Combine PCI domain and bus number in u32 arg
+Message-Id: <1421800225-26230-7-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1421800225-26230-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1421800225-26230-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>, linux-kernel@vger.kernel.org
-Cc: Thomas Gleixner <tglx@linutronix.de>, Jason Wessel <jason.wessel@windriver.com>, kgdb-bugreport@lists.sourceforge.net, Andi Kleen <andi@firstfloor.org>, Ben Widawsky <ben@bwidawsk.net>, Borislav Petkov <bp@suse.de>, Daniel Thompson <daniel.thompson@linaro.org>, Daniel Wagner <daniel.wagner@bmw-carit.de>, "David S. Miller" <davem@davemloft.net>, Fenghua Yu <fenghua.yu@intel.com>, Kay Sievers <kay@vrfy.org>, linux-doc@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kbuild@vger.kernel.org, Michal Marek <mmarek@suse.cz>, Pantelis Koukousoulas <pktoss@gmail.com>, Rob Landley <rob@landley.net>, Rusty Russell <rusty@rustcorp.com.au>, sparclinux@vger.kernel.org, Tony Luck <tony.luck@intel.com>
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>
 
-Hi Andrew,
+Currently, we use int type for bus number in
+pci_create_root_bus(), pci_scan_root_bus() and
+pci_scan_bus_legacy. Because PCI bus number
+always <= 255, so we could change the bus number
+argument type to u32, and combine PCI domain and
+bus number in one. Also add a domain member in
+pci_host_bridge to save domain number. Finally,
+we could eliminate lots of the platform specific
+pci_domain_nr() in the last of the series.
 
-this is an update to address the review comments provided by Michal
-Marek on v11.
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+---
+ drivers/pci/probe.c      |   16 +++++++++-------
+ include/linux/pci.h      |    7 ++++---
+ include/uapi/linux/pci.h |    3 +++
+ 3 files changed, 16 insertions(+), 10 deletions(-)
 
-Changes since v11:
- - drop redundant subdir rule
- - fold *.pyo into existing clean-files rules
-
-See http://lkml.indiana.edu/hypermail/linux/kernel/1210.0/01598.html for
-the original description and
-
-    git://git.kiszka.org/linux.git queues/gdb-scripts
-
-for the latest version.
-
-Jan
-
-CC: Daniel Thompson <daniel.thompson@linaro.org>
-CC: Daniel Wagner <daniel.wagner@bmw-carit.de>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Fenghua Yu <fenghua.yu@intel.com>
-Cc: Jan Kiszka <jan.kiszka@siemens.com>
-CC: Kay Sievers <kay@vrfy.org>
-CC: linux-doc@vger.kernel.org
-CC: linux-ia64@vger.kernel.org
-Cc: linux-kbuild@vger.kernel.org
-CC: linux-kbuild@vger.kernel.org
-Cc: Michal Marek <mmarek@suse.cz>
-CC: Michal Marek <mmarek@suse.cz>
-CC: Pantelis Koukousoulas <pktoss@gmail.com>
-CC: Rob Landley <rob@landley.net>
-CC: Rusty Russell <rusty@rustcorp.com.au>
-CC: sparclinux@vger.kernel.org
-CC: Tony Luck <tony.luck@intel.com>
-
-Daniel Thompson (1):
-  scripts/gdb: Ignore byte-compiled python files
-
-Daniel Wagner (1):
-  scripts/gdb: Use a generator instead of iterator for task list
-
-Jan Kiszka (25):
-  scripts/gdb: Add infrastructure
-  scripts/gdb: Add cache for type objects
-  scripts/gdb: Add container_of helper and convenience function
-  scripts/gdb: Add module iteration class
-  scripts/gdb: Add lx-symbols command
-  module: Do not inline do_init_module
-  scripts/gdb: Add automatic symbol reloading on module insertion
-  scripts/gdb: Add internal helper and convenience function to look up a
-    module
-  scripts/gdb: Add get_target_endianness helper
-  scripts/gdb: Add read_u16/32/64 helpers
-  scripts/gdb: Add lx-dmesg command
-  scripts/gdb: Add task iteration class
-  scripts/gdb: Add helper and convenience function to look up tasks
-  scripts/gdb: Add is_target_arch helper
-  scripts/gdb: Add internal helper and convenience function to retrieve
-    thread_info
-  scripts/gdb: Add get_gdbserver_type helper
-  scripts/gdb: Add internal helper and convenience function for per-cpu
-    lookup
-  scripts/gdb: Add lx_current convenience function
-  scripts/gdb: Add class to iterate over CPU masks
-  scripts/gdb: Add lx-lsmod command
-  scripts/gdb: Add basic documentation
-  scripts/gdb: Convert ModuleList to generator function
-  scripts/gdb: Convert CpuList to generator function
-  scripts/gdb: Define maintainer
-  scripts/gdb: Disable pagination while printing from breakpoint handler
-
-Pantelis Koukousoulas (1):
-  scripts/gdb: Port to python3 / gdb7.7
-
- .gitignore                             |   1 +
- Documentation/gdb-kernel-debugging.txt | 160 +++++++++++++++++++++++++++++
- MAINTAINERS                            |   5 +
- Makefile                               |   5 +-
- kernel/module.c                        |   9 +-
- lib/Kconfig.debug                      |  11 ++
- scripts/Makefile                       |   1 +
- scripts/gdb/Makefile                   |   1 +
- scripts/gdb/linux/.gitignore           |   2 +
- scripts/gdb/linux/Makefile             |  11 ++
- scripts/gdb/linux/__init__.py          |   0
- scripts/gdb/linux/cpus.py              | 135 +++++++++++++++++++++++++
- scripts/gdb/linux/dmesg.py             |  65 ++++++++++++
- scripts/gdb/linux/modules.py           | 103 +++++++++++++++++++
- scripts/gdb/linux/symbols.py           | 177 +++++++++++++++++++++++++++++++++
- scripts/gdb/linux/tasks.py             | 100 +++++++++++++++++++
- scripts/gdb/linux/utils.py             | 156 +++++++++++++++++++++++++++++
- scripts/gdb/vmlinux-gdb.py             |  30 ++++++
- 18 files changed, 969 insertions(+), 3 deletions(-)
- create mode 100644 Documentation/gdb-kernel-debugging.txt
- create mode 100644 scripts/gdb/Makefile
- create mode 100644 scripts/gdb/linux/.gitignore
- create mode 100644 scripts/gdb/linux/Makefile
- create mode 100644 scripts/gdb/linux/__init__.py
- create mode 100644 scripts/gdb/linux/cpus.py
- create mode 100644 scripts/gdb/linux/dmesg.py
- create mode 100644 scripts/gdb/linux/modules.py
- create mode 100644 scripts/gdb/linux/symbols.py
- create mode 100644 scripts/gdb/linux/tasks.py
- create mode 100644 scripts/gdb/linux/utils.py
- create mode 100644 scripts/gdb/vmlinux-gdb.py
-
+diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
+index ed894cb..50f58b3 100644
+--- a/drivers/pci/probe.c
++++ b/drivers/pci/probe.c
+@@ -1889,7 +1889,7 @@ void __weak pcibios_remove_bus(struct pci_bus *bus)
+ {
+ }
+ 
+-struct pci_bus *pci_create_root_bus(struct device *parent, int bus,
++struct pci_bus *pci_create_root_bus(struct device *parent, u32 db,
+ 		struct pci_ops *ops, void *sysdata, struct list_head *resources)
+ {
+ 	int error;
+@@ -1900,6 +1900,7 @@ struct pci_bus *pci_create_root_bus(struct device *parent, int bus,
+ 	resource_size_t offset;
+ 	char bus_addr[64];
+ 	char *fmt;
++	u8	bus = PCI_BUSNUM(db);
+ 
+ 	b = pci_alloc_bus(NULL);
+ 	if (!b)
+@@ -1920,6 +1921,7 @@ struct pci_bus *pci_create_root_bus(struct device *parent, int bus,
+ 	if (!bridge)
+ 		goto err_out;
+ 
++	bridge->domain = PCI_DOMAIN(db);
+ 	bridge->dev.parent = parent;
+ 	bridge->dev.release = pci_release_host_bridge_dev;
+ 	dev_set_name(&bridge->dev, "pci%04x:%02x", pci_domain_nr(b), bus);
+@@ -2057,7 +2059,7 @@ void pci_bus_release_busn_res(struct pci_bus *b)
+ 			res, ret ? "can not be" : "is");
+ }
+ 
+-struct pci_bus *pci_scan_root_bus(struct device *parent, int bus,
++struct pci_bus *pci_scan_root_bus(struct device *parent, u32 db,
+ 		struct pci_ops *ops, void *sysdata, struct list_head *resources)
+ {
+ 	struct pci_host_bridge_window *window;
+@@ -2071,15 +2073,15 @@ struct pci_bus *pci_scan_root_bus(struct device *parent, int bus,
+ 			break;
+ 		}
+ 
+-	b = pci_create_root_bus(parent, bus, ops, sysdata, resources);
++	b = pci_create_root_bus(parent, db, ops, sysdata, resources);
+ 	if (!b)
+ 		return NULL;
+ 
+ 	if (!found) {
+ 		dev_info(&b->dev,
+ 		 "No busn resource found for root bus, will use [bus %02x-ff]\n",
+-			bus);
+-		pci_bus_insert_busn_res(b, bus, 255);
++			PCI_BUSNUM(db));
++		pci_bus_insert_busn_res(b, PCI_BUSNUM(db), 255);
+ 	}
+ 
+ 	max = pci_scan_child_bus(b);
+@@ -2091,7 +2093,7 @@ struct pci_bus *pci_scan_root_bus(struct device *parent, int bus,
+ }
+ EXPORT_SYMBOL(pci_scan_root_bus);
+ 
+-struct pci_bus *pci_scan_bus_legacy(int bus, struct pci_ops *ops,
++struct pci_bus *pci_scan_bus_legacy(u32 db, struct pci_ops *ops,
+ 					void *sysdata)
+ {
+ 	LIST_HEAD(resources);
+@@ -2100,7 +2102,7 @@ struct pci_bus *pci_scan_bus_legacy(int bus, struct pci_ops *ops,
+ 	pci_add_resource(&resources, &ioport_resource);
+ 	pci_add_resource(&resources, &iomem_resource);
+ 	pci_add_resource(&resources, &busn_resource);
+-	b = pci_create_root_bus(NULL, bus, ops, sysdata, &resources);
++	b = pci_create_root_bus(NULL, db, ops, sysdata, &resources);
+ 	if (b) {
+ 		pci_scan_child_bus(b);
+ 	} else {
+diff --git a/include/linux/pci.h b/include/linux/pci.h
+index a6fa2f1..c771508 100644
+--- a/include/linux/pci.h
++++ b/include/linux/pci.h
+@@ -402,6 +402,7 @@ struct pci_host_bridge_window {
+ };
+ 
+ struct pci_host_bridge {
++	u16	domain;
+ 	struct device dev;
+ 	struct pci_bus *bus;		/* root bus */
+ 	struct list_head windows;	/* pci_host_bridge_windows */
+@@ -769,14 +770,14 @@ void pcibios_bus_to_resource(struct pci_bus *bus, struct resource *res,
+ void pcibios_scan_specific_bus(int busn);
+ struct pci_bus *pci_find_bus(int domain, int busnr);
+ void pci_bus_add_devices(const struct pci_bus *bus);
+-struct pci_bus *pci_scan_bus_legacy(int bus, struct pci_ops *ops, void *sysdata);
+-struct pci_bus *pci_create_root_bus(struct device *parent, int bus,
++struct pci_bus *pci_scan_bus_legacy(u32 dombus, struct pci_ops *ops, void *sysdata);
++struct pci_bus *pci_create_root_bus(struct device *parent, u32 dombus,
+ 				    struct pci_ops *ops, void *sysdata,
+ 				    struct list_head *resources);
+ int pci_bus_insert_busn_res(struct pci_bus *b, int bus, int busmax);
+ int pci_bus_update_busn_res_end(struct pci_bus *b, int busmax);
+ void pci_bus_release_busn_res(struct pci_bus *b);
+-struct pci_bus *pci_scan_root_bus(struct device *parent, int bus,
++struct pci_bus *pci_scan_root_bus(struct device *parent, u32 dombus,
+ 					     struct pci_ops *ops, void *sysdata,
+ 					     struct list_head *resources);
+ struct pci_bus *pci_add_new_bus(struct pci_bus *parent, struct pci_dev *dev,
+diff --git a/include/uapi/linux/pci.h b/include/uapi/linux/pci.h
+index 3c292bc..89c6f15 100644
+--- a/include/uapi/linux/pci.h
++++ b/include/uapi/linux/pci.h
+@@ -30,6 +30,9 @@
+ #define PCI_DEVFN(slot, func)	((((slot) & 0x1f) << 3) | ((func) & 0x07))
+ #define PCI_SLOT(devfn)		(((devfn) >> 3) & 0x1f)
+ #define PCI_FUNC(devfn)		((devfn) & 0x07)
++#define PCI_DOMAIN(db)		((db) >> 16)
++#define PCI_BUSNUM(db)		((db) & 0xffff)
++#define PCI_DOMBUS(domain, bus)		(((domain) << 16) | (bus))
+ 
+ /* Ioctls for /proc/bus/pci/X/Y nodes. */
+ #define PCIIOC_BASE		('P' << 24 | 'C' << 16 | 'I' << 8)
 -- 
-2.1.4
+1.7.1
 
