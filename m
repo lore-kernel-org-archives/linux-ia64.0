@@ -1,42 +1,73 @@
-From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-Date: Tue, 06 Jan 2015 18:28:18 +0000
-Subject: Re: [PATCH] arch: ia64: kernel: irq_ia64.c: Remove unused function
-Message-Id: <CAKXHbyMxv_wEH8ZT5jymiipiYS_Y52cDRJ8QS97tr3VAk6LPaQ@mail.gmail.com>
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Wed, 21 Jan 2015 00:29:58 +0000
+Subject: [PATCH v2 03/30] xen/PCI: Don't use deprecated function pci_scan_bus_parented()
+Message-Id: <1421800225-26230-4-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1419095222-9942-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-	<CA+8MBbKKp7+mAk49G=Qsnm7tZC_6YUqPN9yeo8BE_X9YRSSbRQ@mail.gmail.com>
-In-Reply-To: <CA+8MBbKKp7+mAk49G=Qsnm7tZC_6YUqPN9yeo8BE_X9YRSSbRQ@mail.gmail.com>
+References: <1421800225-26230-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1421800225-26230-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@gmail.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Grant Likely <grant.likely@linaro.org>, Christoph Lameter <cl@linux.com>, Tejun Heo <tj@kernel.org>, Michael Opdenacker <michael.opdenacker@free-electrons.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, xen-devel@lists.xenproject.org
 
-2015-01-05 20:33 GMT+01:00 Tony Luck <tony.luck@gmail.com>:
-> On Sat, Dec 20, 2014 at 9:07 AM, Rickard Strandqvist
-> <rickard_strandqvist@spectrumdigital.se> wrote:
->> Remove the function ia64_handle_irq() that is not used anywhere.
->>
->> This was partially found by using a static code analysis program called cppcheck.
->
-> $ git grep ia64_handle_irq
-> arch/ia64/kernel/irq_ia64.c:ia64_handle_irq (ia64_vector vector,
-> struct pt_regs *regs)
-> arch/ia64/kernel/irq_ia64.c:
-> printk("ia64_handle_irq: DANGER: less than "
-> arch/ia64/kernel/irq_ia64.c:                     * Now try calling
-> normal ia64_handle_irq as it would have got called
-> arch/ia64/kernel/ivt.S: br.call.sptk.many b6=ia64_handle_irq
->
-> Note that last line. ia64_handle_irq() is called from assembly code
->
-> -Tony
+From: Arnd Bergmann <arnd@arndb.de>
 
+Use pci_scan_root_bus() instead of deprecated function
+pci_scan_bus_parented().
 
-Hi Tony
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+CC: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+CC: xen-devel@lists.xenproject.org
+---
+ drivers/pci/xen-pcifront.c |   10 +++++++---
+ 1 files changed, 7 insertions(+), 3 deletions(-)
 
-Excuse me, this was a totally unnecessary patch :(
-I have otherwise tried to pay attention to just that.
+diff --git a/drivers/pci/xen-pcifront.c b/drivers/pci/xen-pcifront.c
+index b1ffebe..240ddbc 100644
+--- a/drivers/pci/xen-pcifront.c
++++ b/drivers/pci/xen-pcifront.c
+@@ -446,6 +446,7 @@ static int pcifront_scan_root(struct pcifront_device *pdev,
+ 				 unsigned int domain, unsigned int bus)
+ {
+ 	struct pci_bus *b;
++	LIST_HEAD(resources);
+ 	struct pcifront_sd *sd = NULL;
+ 	struct pci_bus_entry *bus_entry = NULL;
+ 	int err = 0;
+@@ -470,17 +471,20 @@ static int pcifront_scan_root(struct pcifront_device *pdev,
+ 		err = -ENOMEM;
+ 		goto err_out;
+ 	}
++	pci_add_resource(&resources, &ioport_resource);
++	pci_add_resource(&resources, &iomem_resource);
+ 	pcifront_init_sd(sd, domain, bus, pdev);
+ 
+ 	pci_lock_rescan_remove();
+ 
+-	b = pci_scan_bus_parented(&pdev->xdev->dev, bus,
+-				  &pcifront_bus_ops, sd);
++	b = pci_scan_root_bus(&pdev->xdev->dev, bus,
++				  &pcifront_bus_ops, sd, &resources);
+ 	if (!b) {
+ 		dev_err(&pdev->xdev->dev,
+ 			"Error creating PCI Frontend Bus!\n");
+ 		err = -ENOMEM;
+ 		pci_unlock_rescan_remove();
++		pci_free_resource_list(&resources);
+ 		goto err_out;
+ 	}
+ 
+@@ -488,7 +492,7 @@ static int pcifront_scan_root(struct pcifront_device *pdev,
+ 
+ 	list_add(&bus_entry->list, &pdev->root_buses);
+ 
+-	/* pci_scan_bus_parented skips devices which do not have a have
++	/* pci_scan_root_bus skips devices which do not have a have
+ 	* devfn=0. The pcifront_scan_bus enumerates all devfn. */
+ 	err = pcifront_scan_bus(pdev, domain, bus, b);
+ 
+-- 
+1.7.1
 
-Kind regards
-Rickard Strandqvist
