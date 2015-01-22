@@ -1,62 +1,201 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Mon, 19 Jan 2015 02:39:42 +0000
-Subject: Re: [PATCH 09/28] PCI: Separate pci_host_bridge creation out of pci_create_root_bus()
-Message-Id: <54BC6E6E.9090200@huawei.com>
+From: Lv Zheng <lv.zheng@intel.com>
+Date: Thu, 22 Jan 2015 06:37:49 +0000
+Subject: [RFC PATCH] ACPI: Introduce acpi_unload_parent_table() usages in Linux kernel.
+Message-Id: <0d37f4eecdd2c7e3203fca7adb1c2c03a16a40dd.1421907258.git.lv.zheng@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1421372666-12288-1-git-send-email-wangyijing@huawei.com> <1421372666-12288-10-git-send-email-wangyijing@huawei.com> <11966423.5s0rO0b8cE@wuerfel>
-In-Reply-To: <11966423.5s0rO0b8cE@wuerfel>
+References: <1418746353-3481-2-git-send-email-octavian.purdila@intel.com>
+In-Reply-To: <1418746353-3481-2-git-send-email-octavian.purdila@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Arnd Bergmann <arnd@arndb.de>, linux-arm-kernel@lists.infradead.org
-Cc: Bjorn Helgaas <bhelgaas@google.com>, Liviu Dudau <liviu@dudau.co.uk>, Tony Luck <tony.luck@intel.com>, Russell King <linux@arm.linux.org.uk>, Marc Zyngier <marc.zyngier@arm.com>, linux-pci@vger.kernel.org, x86@kernel.org, linux-kernel@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, linux-m68k@vger.kernel.org, Geert Uytterhoeven <geert@linux-m68k.org>, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, Guan Xuetao <gxt@mprc.pku.edu.cn>, Yinghai Lu <yinghai@kernel.org>, Jiang Liu <jiang.liu@linux.intel.com>
+To: "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>, Len Brown <len.brown@intel.com>
+Cc: Lv Zheng <lv.zheng@intel.com>, Lv Zheng <zetalog@gmail.com>, linux-acpi@vger.kernel.org, Octavian Purdila <octavian.purdila@intel.com>, Prarit Bhargava <prarit@sgi.com>, Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-On 2015/1/16 17:34, Arnd Bergmann wrote:
-> On Friday 16 January 2015 09:44:07 Yijing Wang wrote:
->> We want to make a generic pci_host_bridge, then we could
->> place common PCI infos like domain number in it. Ripping
->> out pci_host_bridge creation from pci_create_root_bus()
->> make code more better readability. Further more, we could
->> use the generic pci_host_bridge to hold host bridge specific
->> operations like pcibios_root_bridge_prepare().
->>
->> Signed-off-by: Yijing Wang <wangyijing@huawei.com>
->>
-> 
-> I assume this patch is doing the right thing, but the description
-> above doesn't really tell me enough to be sure.
-> 
-> This is supposed to be transparent to the callers, right? If
-> so, please mention it explicitly in the text.
+ACPICA has implemented acpi_unload_parent_table() which can exactly replace
+the acpi_get_id()/acpi_unload_table_id() implemented in Linux kernel.  The
+acpi_unload_parent_table() has been unit tested in ACPICA simulation
+environment.
 
-Sorry, I will refresh the patch log for better description.
+This patch can also help to reduce the source code differences between
+Linux and ACPICA.
 
-In this series I have no plan to export the pci_create_host_bridge()
-to callers, because I think pci_host_bridge_ops could make callers
-have the ability to setup the platform specific operations. But if this
-is needed, we could introduce another patches to export it.
+Signed-off-by: Lv Zheng <lv.zheng@intel.com>
+Cc: Octavian Purdila <octavian.purdila@intel.com>
+Cc: Prarit Bhargava <prarit@sgi.com>
+Cc: Bjorn Helgaas <bhelgaas@google.com>
+Cc: linux-pci@vger.kernel.org
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
+---
+ drivers/acpi/acpica/nsxfobj.c     |   44 -------------------------------------
+ drivers/acpi/acpica/tbxface.c     |   39 --------------------------------
+ drivers/pci/hotplug/sgi_hotplug.c |   13 ++++++-----
+ include/acpi/acpixf.h             |    6 -----
+ 4 files changed, 7 insertions(+), 95 deletions(-)
 
-> 
-> Also you don't explain what the list of host bridges is
-> used for. Maybe you can split this out into a separate patch
-> so you have one patch that just moves code from one file
-> to the other but no functional changes, and a second patch
-> that exports pci_create_host_bridge and introduces the list,
-> with an explanation of what it is used for.
-> 
-
-pci_host_bridge_list is used to find out whether the pci_host_bridge
-in domain:bus is already existed, I will split the related code
-to another patch, thanks.
-
-
-> 	Arnd
-> 
-> .
-> 
-
-
+diff --git a/drivers/acpi/acpica/nsxfobj.c b/drivers/acpi/acpica/nsxfobj.c
+index dae9401..51a8329 100644
+--- a/drivers/acpi/acpica/nsxfobj.c
++++ b/drivers/acpi/acpica/nsxfobj.c
+@@ -53,50 +53,6 @@ ACPI_MODULE_NAME("nsxfobj")
+ 
+ /*******************************************************************************
+  *
+- * FUNCTION:    acpi_get_id
+- *
+- * PARAMETERS:  Handle          - Handle of object whose id is desired
+- *              ret_id          - Where the id will be placed
+- *
+- * RETURN:      Status
+- *
+- * DESCRIPTION: This routine returns the owner id associated with a handle
+- *
+- ******************************************************************************/
+-acpi_status acpi_get_id(acpi_handle handle, acpi_owner_id * ret_id)
+-{
+-	struct acpi_namespace_node *node;
+-	acpi_status status;
+-
+-	/* Parameter Validation */
+-
+-	if (!ret_id) {
+-		return (AE_BAD_PARAMETER);
+-	}
+-
+-	status = acpi_ut_acquire_mutex(ACPI_MTX_NAMESPACE);
+-	if (ACPI_FAILURE(status)) {
+-		return (status);
+-	}
+-
+-	/* Convert and validate the handle */
+-
+-	node = acpi_ns_validate_handle(handle);
+-	if (!node) {
+-		(void)acpi_ut_release_mutex(ACPI_MTX_NAMESPACE);
+-		return (AE_BAD_PARAMETER);
+-	}
+-
+-	*ret_id = node->owner_id;
+-
+-	status = acpi_ut_release_mutex(ACPI_MTX_NAMESPACE);
+-	return (status);
+-}
+-
+-ACPI_EXPORT_SYMBOL(acpi_get_id)
+-
+-/*******************************************************************************
+- *
+  * FUNCTION:    acpi_get_type
+  *
+  * PARAMETERS:  handle          - Handle of object whose type is desired
+diff --git a/drivers/acpi/acpica/tbxface.c b/drivers/acpi/acpica/tbxface.c
+index 6482b0d..0f9dd80 100644
+--- a/drivers/acpi/acpica/tbxface.c
++++ b/drivers/acpi/acpica/tbxface.c
+@@ -265,45 +265,6 @@ ACPI_EXPORT_SYMBOL(acpi_get_table_header)
+ 
+ /*******************************************************************************
+  *
+- * FUNCTION:    acpi_unload_table_id
+- *
+- * PARAMETERS:  id            - Owner ID of the table to be removed.
+- *
+- * RETURN:      Status
+- *
+- * DESCRIPTION: This routine is used to force the unload of a table (by id)
+- *
+- ******************************************************************************/
+-acpi_status acpi_unload_table_id(acpi_owner_id id)
+-{
+-	int i;
+-	acpi_status status = AE_NOT_EXIST;
+-
+-	ACPI_FUNCTION_TRACE(acpi_unload_table_id);
+-
+-	/* Find table in the global table list */
+-	for (i = 0; i < acpi_gbl_root_table_list.current_table_count; ++i) {
+-		if (id != acpi_gbl_root_table_list.tables[i].owner_id) {
+-			continue;
+-		}
+-		/*
+-		 * Delete all namespace objects owned by this table. Note that these
+-		 * objects can appear anywhere in the namespace by virtue of the AML
+-		 * "Scope" operator. Thus, we need to track ownership by an ID, not
+-		 * simply a position within the hierarchy
+-		 */
+-		acpi_tb_delete_namespace_by_owner(i);
+-		status = acpi_tb_release_owner_id(i);
+-		acpi_tb_set_table_loaded_flag(i, FALSE);
+-		break;
+-	}
+-	return_ACPI_STATUS(status);
+-}
+-
+-ACPI_EXPORT_SYMBOL(acpi_unload_table_id)
+-
+-/*******************************************************************************
+- *
+  * FUNCTION:    acpi_get_table_with_size
+  *
+  * PARAMETERS:  signature           - ACPI signature of needed table
+diff --git a/drivers/pci/hotplug/sgi_hotplug.c b/drivers/pci/hotplug/sgi_hotplug.c
+index bada2099..c32fb78 100644
+--- a/drivers/pci/hotplug/sgi_hotplug.c
++++ b/drivers/pci/hotplug/sgi_hotplug.c
+@@ -475,7 +475,7 @@ static int disable_slot(struct hotplug_slot *bss_hotplug_slot)
+ 	struct slot *slot = bss_hotplug_slot->private;
+ 	struct pci_dev *dev, *temp;
+ 	int rc;
+-	acpi_owner_id ssdt_id = 0;
++	acpi_handle ssdt_hdl = NULL;
+ 
+ 	/* Acquire update access to the bus */
+ 	mutex_lock(&sn_hotplug_mutex);
+@@ -522,7 +522,7 @@ static int disable_slot(struct hotplug_slot *bss_hotplug_slot)
+ 			if (ACPI_SUCCESS(ret) &&
+ 			    (adr>>16) = (slot->device_num + 1)) {
+ 				/* retain the owner id */
+-				acpi_get_id(chandle, &ssdt_id);
++				ssdt_hdl = chandle;
+ 
+ 				ret = acpi_bus_get_device(chandle,
+ 							  &device);
+@@ -547,12 +547,13 @@ static int disable_slot(struct hotplug_slot *bss_hotplug_slot)
+ 	pci_unlock_rescan_remove();
+ 
+ 	/* Remove the SSDT for the slot from the ACPI namespace */
+-	if (SN_ACPI_BASE_SUPPORT() && ssdt_id) {
++	if (SN_ACPI_BASE_SUPPORT() && ssdt_hdl) {
+ 		acpi_status ret;
+-		ret = acpi_unload_table_id(ssdt_id);
++		ret = acpi_unload_parent_table(ssdt_hdl);
+ 		if (ACPI_FAILURE(ret)) {
+-			printk(KERN_ERR "%s: acpi_unload_table_id failed (0x%x) for id %d\n",
+-			       __func__, ret, ssdt_id);
++			acpi_handle_err(ssdt_hdl,
++					"%s: acpi_unload_parent_table failed (0x%x)\n",
++					__func__, ret);
+ 			/* try to continue on */
+ 		}
+ 	}
+diff --git a/include/acpi/acpixf.h b/include/acpi/acpixf.h
+index 5ba7846..5dd21bc 100644
+--- a/include/acpi/acpixf.h
++++ b/include/acpi/acpixf.h
+@@ -891,12 +891,6 @@ ACPI_APP_DEPENDENT_RETURN_VOID(ACPI_PRINTF_LIKE(1)
+ ACPI_GLOBAL(u8, acpi_gbl_permanent_mmap);
+ 
+ ACPI_EXTERNAL_RETURN_STATUS(acpi_status
+-			    acpi_get_id(acpi_handle object,
+-					acpi_owner_id * out_type))
+-
+-ACPI_EXTERNAL_RETURN_STATUS(acpi_status acpi_unload_table_id(acpi_owner_id id))
+-
+-ACPI_EXTERNAL_RETURN_STATUS(acpi_status
+ 			    acpi_get_table_with_size(acpi_string signature,
+ 						     u32 instance,
+ 						     struct acpi_table_header
 -- 
-Thanks!
-Yijing
+1.7.10
 
