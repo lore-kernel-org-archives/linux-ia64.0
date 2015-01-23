@@ -1,133 +1,63 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Fri, 16 Jan 2015 01:44:03 +0000
-Subject: [PATCH 05/28] PCI: Rename pci_scan_bus() to pci_scan_bus_legacy()
-Message-Id: <1421372666-12288-6-git-send-email-wangyijing@huawei.com>
+From: Jiang Liu <jiang.liu@linux.intel.com>
+Date: Fri, 23 Jan 2015 05:36:43 +0000
+Subject: [Resend Patch v4 04/16] smp, IA64: Kill SMP single function call interrupt
+Message-Id: <1421991416-20297-5-git-send-email-jiang.liu@linux.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1421372666-12288-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1421372666-12288-1-git-send-email-wangyijing@huawei.com>
+References: <1421991416-20297-1-git-send-email-jiang.liu@linux.intel.com>
+In-Reply-To: <1421991416-20297-1-git-send-email-jiang.liu@linux.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>
+To: Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Jiang Liu <jiang.liu@linux.intel.com>
+Cc: Borislav Petkov <bp@alien8.de>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-Pci_scan_bus() is called by legacy pci host drivers,
-the legacy host drivers mean they use NUll as parent
-device, use all IO/MEM as default resources. Rename
-pci_scan_bus() to pci_scan_bus_legacy() for better
-readability.
+Commit 9a46ad6d6df3b54 "smp: make smp_call_function_many() use logic
+similar to smp_call_function_single()" has unified the way to handle
+single and multiple cross-CPU function calls. Now only one interrupt
+is needed for architecture specific code to support generic SMP function
+call interfaces, so kill the redundant single function call interrupt.
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
+Signed-off-by: Jiang Liu <jiang.liu@linux.intel.com>
 ---
- arch/alpha/kernel/sys_nautilus.c  |    2 +-
- arch/m68k/coldfire/pci.c          |    2 +-
- arch/sparc/kernel/pcic.c          |    2 +-
- arch/unicore32/kernel/pci.c       |    2 +-
- drivers/pci/hotplug/ibmphp_core.c |    2 +-
- drivers/pci/probe.c               |    4 ++--
- include/linux/pci.h               |    2 +-
- 7 files changed, 8 insertions(+), 8 deletions(-)
+ arch/ia64/kernel/smp.c |    8 ++------
+ 1 file changed, 2 insertions(+), 6 deletions(-)
 
-diff --git a/arch/alpha/kernel/sys_nautilus.c b/arch/alpha/kernel/sys_nautilus.c
-index 4ae4a40..2c864bb 100644
---- a/arch/alpha/kernel/sys_nautilus.c
-+++ b/arch/alpha/kernel/sys_nautilus.c
-@@ -206,7 +206,7 @@ nautilus_init_pci(void)
- 	unsigned long memtop = max_low_pfn << PAGE_SHIFT;
+diff --git a/arch/ia64/kernel/smp.c b/arch/ia64/kernel/smp.c
+index 9fcd4e63048f..0532909b6e8e 100644
+--- a/arch/ia64/kernel/smp.c
++++ b/arch/ia64/kernel/smp.c
+@@ -62,8 +62,7 @@ static DEFINE_PER_CPU_SHARED_ALIGNED(unsigned short [NR_CPUS],
  
- 	/* Scan our single hose.  */
--	bus = pci_scan_bus(0, alpha_mv.pci_ops, hose);
-+	bus = pci_scan_bus_legacy(0, alpha_mv.pci_ops, hose);
- 	hose->bus = bus;
- 	pcibios_claim_one_bus(bus);
+ #define IPI_CALL_FUNC		0
+ #define IPI_CPU_STOP		1
+-#define IPI_CALL_FUNC_SINGLE	2
+-#define IPI_KDUMP_CPU_STOP	3
++#define IPI_KDUMP_CPU_STOP	2
  
-diff --git a/arch/m68k/coldfire/pci.c b/arch/m68k/coldfire/pci.c
-index d45f087..0ef4dd4 100644
---- a/arch/m68k/coldfire/pci.c
-+++ b/arch/m68k/coldfire/pci.c
-@@ -312,7 +312,7 @@ static int __init mcf_pci_init(void)
- 	set_current_state(TASK_UNINTERRUPTIBLE);
- 	schedule_timeout(msecs_to_jiffies(200));
+ /* This needs to be cacheline aligned because it is written to by *other* CPUs.  */
+ static DEFINE_PER_CPU_SHARED_ALIGNED(unsigned long, ipi_operation);
+@@ -116,9 +115,6 @@ handle_IPI (int irq, void *dev_id)
+ 			case IPI_CALL_FUNC:
+ 				generic_smp_call_function_interrupt();
+ 				break;
+-			case IPI_CALL_FUNC_SINGLE:
+-				generic_smp_call_function_single_interrupt();
+-				break;
+ #ifdef CONFIG_KEXEC
+ 			case IPI_KDUMP_CPU_STOP:
+ 				unw_init_running(kdump_cpu_freeze, NULL);
+@@ -318,7 +314,7 @@ smp_flush_tlb_mm (struct mm_struct *mm)
  
--	rootbus = pci_scan_bus(0, &mcf_pci_ops, NULL);
-+	rootbus = pci_scan_bus_legacy(0, &mcf_pci_ops, NULL);
- 	rootbus->resource[0] = &mcf_pci_io;
- 	rootbus->resource[1] = &mcf_pci_mem;
- 
-diff --git a/arch/sparc/kernel/pcic.c b/arch/sparc/kernel/pcic.c
-index 7a82fe2..f7edc97 100644
---- a/arch/sparc/kernel/pcic.c
-+++ b/arch/sparc/kernel/pcic.c
-@@ -390,7 +390,7 @@ static void __init pcic_pbm_scan_bus(struct linux_pcic *pcic)
+ void arch_send_call_function_single_ipi(int cpu)
  {
- 	struct linux_pbm_info *pbm = &pcic->pbm;
- 
--	pbm->pci_bus = pci_scan_bus(pbm->pci_first_busno, &pcic_ops, pbm);
-+	pbm->pci_bus = pci_scan_bus_legacy(pbm->pci_first_busno, &pcic_ops, pbm);
- 	if (pbm->pci_bus)
- 		pci_bus_add_devices(pbm->pci_bus);
- #if 0 /* deadwood transplanted from sparc64 */
-diff --git a/arch/unicore32/kernel/pci.c b/arch/unicore32/kernel/pci.c
-index 3d82024..2e238b4 100644
---- a/arch/unicore32/kernel/pci.c
-+++ b/arch/unicore32/kernel/pci.c
-@@ -258,7 +258,7 @@ static int __init pci_common_init(void)
- 
- 	pci_puv3_preinit();
- 
--	puv3_bus = pci_scan_bus(0, &pci_puv3_ops, NULL);
-+	puv3_bus = pci_scan_bus_legacy(0, &pci_puv3_ops, NULL);
- 
- 	if (!puv3_bus)
- 		panic("PCI: unable to scan bus!");
-diff --git a/drivers/pci/hotplug/ibmphp_core.c b/drivers/pci/hotplug/ibmphp_core.c
-index 86e3bfd..4ade1b4 100644
---- a/drivers/pci/hotplug/ibmphp_core.c
-+++ b/drivers/pci/hotplug/ibmphp_core.c
-@@ -765,7 +765,7 @@ static u8 bus_structure_fixup(u8 busno)
- 					(l != 0x0000) && (l != 0xffff)) {
- 			debug("%s - Inside bus_structure_fixup()\n",
- 							__func__);
--			b = pci_scan_bus(busno, ibmphp_pci_bus->ops, NULL);
-+			b = pci_scan_bus_legacy(busno, ibmphp_pci_bus->ops, NULL);
- 			if (b)
- 				pci_bus_add_devices(b);
- 			break;
-diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
-index e44de73..ed894cb 100644
---- a/drivers/pci/probe.c
-+++ b/drivers/pci/probe.c
-@@ -2091,7 +2091,7 @@ struct pci_bus *pci_scan_root_bus(struct device *parent, int bus,
+-	send_IPI_single(cpu, IPI_CALL_FUNC_SINGLE);
++	send_IPI_single(cpu, IPI_CALL_FUNC);
  }
- EXPORT_SYMBOL(pci_scan_root_bus);
  
--struct pci_bus *pci_scan_bus(int bus, struct pci_ops *ops,
-+struct pci_bus *pci_scan_bus_legacy(int bus, struct pci_ops *ops,
- 					void *sysdata)
- {
- 	LIST_HEAD(resources);
-@@ -2108,7 +2108,7 @@ struct pci_bus *pci_scan_bus(int bus, struct pci_ops *ops,
- 	}
- 	return b;
- }
--EXPORT_SYMBOL(pci_scan_bus);
-+EXPORT_SYMBOL(pci_scan_bus_legacy);
- 
- /**
-  * pci_rescan_bus_bridge_resize - scan a PCI bus for devices.
-diff --git a/include/linux/pci.h b/include/linux/pci.h
-index 55b2c81..a6fa2f1 100644
---- a/include/linux/pci.h
-+++ b/include/linux/pci.h
-@@ -769,7 +769,7 @@ void pcibios_bus_to_resource(struct pci_bus *bus, struct resource *res,
- void pcibios_scan_specific_bus(int busn);
- struct pci_bus *pci_find_bus(int domain, int busnr);
- void pci_bus_add_devices(const struct pci_bus *bus);
--struct pci_bus *pci_scan_bus(int bus, struct pci_ops *ops, void *sysdata);
-+struct pci_bus *pci_scan_bus_legacy(int bus, struct pci_ops *ops, void *sysdata);
- struct pci_bus *pci_create_root_bus(struct device *parent, int bus,
- 				    struct pci_ops *ops, void *sysdata,
- 				    struct list_head *resources);
+ void arch_send_call_function_ipi_mask(const struct cpumask *mask)
 -- 
-1.7.1
+1.7.10.4
 
