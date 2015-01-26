@@ -1,214 +1,153 @@
-From: Bjorn Helgaas <bhelgaas@google.com>
-Date: Thu, 22 Jan 2015 22:43:43 +0000
-Subject: Re: [RFC PATCH] ACPI: Introduce acpi_unload_parent_table() usages in Linux kernel.
-Message-Id: <CAErSpo4G9cgoruHbnuHz_6NUV2bkkAprwR6Fce98zXmfvdBGpA@mail.gmail.com>
+From: "Zheng, Lv" <lv.zheng@intel.com>
+Date: Mon, 26 Jan 2015 01:59:45 +0000
+Subject: RE: [RFC PATCH] ACPI: Introduce acpi_unload_parent_table() usages in Linux kernel.
+Message-Id: <1AE640813FDE7649BE1B193DEA596E88026BA9F1@SHSMSX101.ccr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1418746353-3481-2-git-send-email-octavian.purdila@intel.com>
- <0d37f4eecdd2c7e3203fca7adb1c2c03a16a40dd.1421907258.git.lv.zheng@intel.com> <8541914.sW9yU28g98@vostro.rjw.lan>
+ <0d37f4eecdd2c7e3203fca7adb1c2c03a16a40dd.1421907258.git.lv.zheng@intel.com>
+ <8541914.sW9yU28g98@vostro.rjw.lan>
 In-Reply-To: <8541914.sW9yU28g98@vostro.rjw.lan>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Cc: Lv Zheng <lv.zheng@intel.com>, "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>, Len Brown <len.brown@intel.com>, Lv Zheng <zetalog@gmail.com>, "linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>, Octavian Purdila <octavian.purdila@intel.com>, Prarit Bhargava <prarit@sgi.com>, "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
+Cc: "Wysocki, Rafael J" <rafael.j.wysocki@intel.com>, "Brown, Len" <len.brown@intel.com>, Lv Zheng <zetalog@gmail.com>, "linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>, "Purdila, Octavian" <octavian.purdila@intel.com>, Prarit Bhargava <prarit@sgi.com>, Bjorn Helgaas <bhelgaas@google.com>, "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>, "Luck, Tony" <tony.luck@intel.com>, "Yu, Fenghua" <fenghua.yu@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
 
-On Thu, Jan 22, 2015 at 4:43 PM, Rafael J. Wysocki <rjw@rjwysocki.net> wrote:
-> On Thursday, January 22, 2015 02:37:49 PM Lv Zheng wrote:
->> ACPICA has implemented acpi_unload_parent_table() which can exactly replace
->> the acpi_get_id()/acpi_unload_table_id() implemented in Linux kernel.  The
->> acpi_unload_parent_table() has been unit tested in ACPICA simulation
->> environment.
->>
->> This patch can also help to reduce the source code differences between
->> Linux and ACPICA.
->
-> Looks OK to me.
->
-> Do you want me to pick it up?
-
-OK by me if you take it.
-
-Acked-by: Bjorn Helgaas <bhelgaas@google.com>
-
->> Signed-off-by: Lv Zheng <lv.zheng@intel.com>
->> Cc: Octavian Purdila <octavian.purdila@intel.com>
->> Cc: Prarit Bhargava <prarit@sgi.com>
->> Cc: Bjorn Helgaas <bhelgaas@google.com>
->> Cc: linux-pci@vger.kernel.org
->> Cc: Tony Luck <tony.luck@intel.com>
->> Cc: Fenghua Yu <fenghua.yu@intel.com>
->> Cc: linux-ia64@vger.kernel.org
->> ---
->>  drivers/acpi/acpica/nsxfobj.c     |   44 -------------------------------------
->>  drivers/acpi/acpica/tbxface.c     |   39 --------------------------------
->>  drivers/pci/hotplug/sgi_hotplug.c |   13 ++++++-----
->>  include/acpi/acpixf.h             |    6 -----
->>  4 files changed, 7 insertions(+), 95 deletions(-)
->>
->> diff --git a/drivers/acpi/acpica/nsxfobj.c b/drivers/acpi/acpica/nsxfobj.c
->> index dae9401..51a8329 100644
->> --- a/drivers/acpi/acpica/nsxfobj.c
->> +++ b/drivers/acpi/acpica/nsxfobj.c
->> @@ -53,50 +53,6 @@ ACPI_MODULE_NAME("nsxfobj")
->>
->>  /*******************************************************************************
->>   *
->> - * FUNCTION:    acpi_get_id
->> - *
->> - * PARAMETERS:  Handle          - Handle of object whose id is desired
->> - *              ret_id          - Where the id will be placed
->> - *
->> - * RETURN:      Status
->> - *
->> - * DESCRIPTION: This routine returns the owner id associated with a handle
->> - *
->> - ******************************************************************************/
->> -acpi_status acpi_get_id(acpi_handle handle, acpi_owner_id * ret_id)
->> -{
->> -     struct acpi_namespace_node *node;
->> -     acpi_status status;
->> -
->> -     /* Parameter Validation */
->> -
->> -     if (!ret_id) {
->> -             return (AE_BAD_PARAMETER);
->> -     }
->> -
->> -     status = acpi_ut_acquire_mutex(ACPI_MTX_NAMESPACE);
->> -     if (ACPI_FAILURE(status)) {
->> -             return (status);
->> -     }
->> -
->> -     /* Convert and validate the handle */
->> -
->> -     node = acpi_ns_validate_handle(handle);
->> -     if (!node) {
->> -             (void)acpi_ut_release_mutex(ACPI_MTX_NAMESPACE);
->> -             return (AE_BAD_PARAMETER);
->> -     }
->> -
->> -     *ret_id = node->owner_id;
->> -
->> -     status = acpi_ut_release_mutex(ACPI_MTX_NAMESPACE);
->> -     return (status);
->> -}
->> -
->> -ACPI_EXPORT_SYMBOL(acpi_get_id)
->> -
->> -/*******************************************************************************
->> - *
->>   * FUNCTION:    acpi_get_type
->>   *
->>   * PARAMETERS:  handle          - Handle of object whose type is desired
->> diff --git a/drivers/acpi/acpica/tbxface.c b/drivers/acpi/acpica/tbxface.c
->> index 6482b0d..0f9dd80 100644
->> --- a/drivers/acpi/acpica/tbxface.c
->> +++ b/drivers/acpi/acpica/tbxface.c
->> @@ -265,45 +265,6 @@ ACPI_EXPORT_SYMBOL(acpi_get_table_header)
->>
->>  /*******************************************************************************
->>   *
->> - * FUNCTION:    acpi_unload_table_id
->> - *
->> - * PARAMETERS:  id            - Owner ID of the table to be removed.
->> - *
->> - * RETURN:      Status
->> - *
->> - * DESCRIPTION: This routine is used to force the unload of a table (by id)
->> - *
->> - ******************************************************************************/
->> -acpi_status acpi_unload_table_id(acpi_owner_id id)
->> -{
->> -     int i;
->> -     acpi_status status = AE_NOT_EXIST;
->> -
->> -     ACPI_FUNCTION_TRACE(acpi_unload_table_id);
->> -
->> -     /* Find table in the global table list */
->> -     for (i = 0; i < acpi_gbl_root_table_list.current_table_count; ++i) {
->> -             if (id != acpi_gbl_root_table_list.tables[i].owner_id) {
->> -                     continue;
->> -             }
->> -             /*
->> -              * Delete all namespace objects owned by this table. Note that these
->> -              * objects can appear anywhere in the namespace by virtue of the AML
->> -              * "Scope" operator. Thus, we need to track ownership by an ID, not
->> -              * simply a position within the hierarchy
->> -              */
->> -             acpi_tb_delete_namespace_by_owner(i);
->> -             status = acpi_tb_release_owner_id(i);
->> -             acpi_tb_set_table_loaded_flag(i, FALSE);
->> -             break;
->> -     }
->> -     return_ACPI_STATUS(status);
->> -}
->> -
->> -ACPI_EXPORT_SYMBOL(acpi_unload_table_id)
->> -
->> -/*******************************************************************************
->> - *
->>   * FUNCTION:    acpi_get_table_with_size
->>   *
->>   * PARAMETERS:  signature           - ACPI signature of needed table
->> diff --git a/drivers/pci/hotplug/sgi_hotplug.c b/drivers/pci/hotplug/sgi_hotplug.c
->> index bada2099..c32fb78 100644
->> --- a/drivers/pci/hotplug/sgi_hotplug.c
->> +++ b/drivers/pci/hotplug/sgi_hotplug.c
->> @@ -475,7 +475,7 @@ static int disable_slot(struct hotplug_slot *bss_hotplug_slot)
->>       struct slot *slot = bss_hotplug_slot->private;
->>       struct pci_dev *dev, *temp;
->>       int rc;
->> -     acpi_owner_id ssdt_id = 0;
->> +     acpi_handle ssdt_hdl = NULL;
->>
->>       /* Acquire update access to the bus */
->>       mutex_lock(&sn_hotplug_mutex);
->> @@ -522,7 +522,7 @@ static int disable_slot(struct hotplug_slot *bss_hotplug_slot)
->>                       if (ACPI_SUCCESS(ret) &&
->>                           (adr>>16) = (slot->device_num + 1)) {
->>                               /* retain the owner id */
->> -                             acpi_get_id(chandle, &ssdt_id);
->> +                             ssdt_hdl = chandle;
->>
->>                               ret = acpi_bus_get_device(chandle,
->>                                                         &device);
->> @@ -547,12 +547,13 @@ static int disable_slot(struct hotplug_slot *bss_hotplug_slot)
->>       pci_unlock_rescan_remove();
->>
->>       /* Remove the SSDT for the slot from the ACPI namespace */
->> -     if (SN_ACPI_BASE_SUPPORT() && ssdt_id) {
->> +     if (SN_ACPI_BASE_SUPPORT() && ssdt_hdl) {
->>               acpi_status ret;
->> -             ret = acpi_unload_table_id(ssdt_id);
->> +             ret = acpi_unload_parent_table(ssdt_hdl);
->>               if (ACPI_FAILURE(ret)) {
->> -                     printk(KERN_ERR "%s: acpi_unload_table_id failed (0x%x) for id %d\n",
->> -                            __func__, ret, ssdt_id);
->> +                     acpi_handle_err(ssdt_hdl,
->> +                                     "%s: acpi_unload_parent_table failed (0x%x)\n",
->> +                                     __func__, ret);
->>                       /* try to continue on */
->>               }
->>       }
->> diff --git a/include/acpi/acpixf.h b/include/acpi/acpixf.h
->> index 5ba7846..5dd21bc 100644
->> --- a/include/acpi/acpixf.h
->> +++ b/include/acpi/acpixf.h
->> @@ -891,12 +891,6 @@ ACPI_APP_DEPENDENT_RETURN_VOID(ACPI_PRINTF_LIKE(1)
->>  ACPI_GLOBAL(u8, acpi_gbl_permanent_mmap);
->>
->>  ACPI_EXTERNAL_RETURN_STATUS(acpi_status
->> -                         acpi_get_id(acpi_handle object,
->> -                                     acpi_owner_id * out_type))
->> -
->> -ACPI_EXTERNAL_RETURN_STATUS(acpi_status acpi_unload_table_id(acpi_owner_id id))
->> -
->> -ACPI_EXTERNAL_RETURN_STATUS(acpi_status
->>                           acpi_get_table_with_size(acpi_string signature,
->>                                                    u32 instance,
->>                                                    struct acpi_table_header
->>
->
-> --
-> I speak only for myself.
-> Rafael J. Wysocki, Intel Open Source Technology Center.
+SGksIFJhZmFlbA0KDQo+IEZyb206IFJhZmFlbCBKLiBXeXNvY2tpIFttYWlsdG86cmp3QHJqd3lz
+b2NraS5uZXRdDQo+IFNlbnQ6IEZyaWRheSwgSmFudWFyeSAyMywgMjAxNSA2OjQzIEFNDQo+IA0K
+PiBPbiBUaHVyc2RheSwgSmFudWFyeSAyMiwgMjAxNSAwMjozNzo0OSBQTSBMdiBaaGVuZyB3cm90
+ZToNCj4gPiBBQ1BJQ0EgaGFzIGltcGxlbWVudGVkIGFjcGlfdW5sb2FkX3BhcmVudF90YWJsZSgp
+IHdoaWNoIGNhbiBleGFjdGx5IHJlcGxhY2UNCj4gPiB0aGUgYWNwaV9nZXRfaWQoKS9hY3BpX3Vu
+bG9hZF90YWJsZV9pZCgpIGltcGxlbWVudGVkIGluIExpbnV4IGtlcm5lbC4gIFRoZQ0KPiA+IGFj
+cGlfdW5sb2FkX3BhcmVudF90YWJsZSgpIGhhcyBiZWVuIHVuaXQgdGVzdGVkIGluIEFDUElDQSBz
+aW11bGF0aW9uDQo+ID4gZW52aXJvbm1lbnQuDQo+ID4NCj4gPiBUaGlzIHBhdGNoIGNhbiBhbHNv
+IGhlbHAgdG8gcmVkdWNlIHRoZSBzb3VyY2UgY29kZSBkaWZmZXJlbmNlcyBiZXR3ZWVuDQo+ID4g
+TGludXggYW5kIEFDUElDQS4NCj4gDQo+IExvb2tzIE9LIHRvIG1lLg0KPiANCj4gRG8geW91IHdh
+bnQgbWUgdG8gcGljayBpdCB1cD8NCg0KVGhvdWdoIHNnaS1ob3RwbHVnLmMgaXMgdGhlIG9ubHkg
+c291cmNlIGZpbGUgdXNpbmcgdGhlIGRlbGV0ZWQgZnVuY3Rpb25zLA0KSSBvbmx5IGNyb3NzLWNv
+bXBpbGVkIGFuIGFwcGxpZWQga2VybmVsIHdpdGggYW4gaWE2NCB0b29sIGNoYWluLA0KaXQncyBu
+b3QgZnVuY3Rpb25hbGx5IHRlc3RlZC4NClNoYWxsIHdlIHdhaXQgZm9yIE9jdGF2aWFuJ3MgY29u
+ZmlybWF0aW9uPw0KDQpBbmQgaW4gbGludXgtbmV4dCBicmFuY2gsIHRoZXJlIGlzIGEgY29uZmxp
+Y3Qgd2l0aCB0aGlzIG9sZCBwYXRjaC4NClNoYWxsIEkgcmViYXNlIGl0Pw0KDQpUaGFua3MgYW5k
+IGJlc3QgcmVnYXJkcw0KLUx2DQoNCj4gDQo+ID4gU2lnbmVkLW9mZi1ieTogTHYgWmhlbmcgPGx2
+LnpoZW5nQGludGVsLmNvbT4NCj4gPiBDYzogT2N0YXZpYW4gUHVyZGlsYSA8b2N0YXZpYW4ucHVy
+ZGlsYUBpbnRlbC5jb20+DQo+ID4gQ2M6IFByYXJpdCBCaGFyZ2F2YSA8cHJhcml0QHNnaS5jb20+
+DQo+ID4gQ2M6IEJqb3JuIEhlbGdhYXMgPGJoZWxnYWFzQGdvb2dsZS5jb20+DQo+ID4gQ2M6IGxp
+bnV4LXBjaUB2Z2VyLmtlcm5lbC5vcmcNCj4gPiBDYzogVG9ueSBMdWNrIDx0b255Lmx1Y2tAaW50
+ZWwuY29tPg0KPiA+IENjOiBGZW5naHVhIFl1IDxmZW5naHVhLnl1QGludGVsLmNvbT4NCj4gPiBD
+YzogbGludXgtaWE2NEB2Z2VyLmtlcm5lbC5vcmcNCj4gPiAtLS0NCj4gPiAgZHJpdmVycy9hY3Bp
+L2FjcGljYS9uc3hmb2JqLmMgICAgIHwgICA0NCAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tDQo+ID4gIGRyaXZlcnMvYWNwaS9hY3BpY2EvdGJ4ZmFjZS5jICAgICB8ICAgMzkg
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0NCj4gPiAgZHJpdmVycy9wY2kvaG90cGx1
+Zy9zZ2lfaG90cGx1Zy5jIHwgICAxMyArKysrKystLS0tLQ0KPiA+ICBpbmNsdWRlL2FjcGkvYWNw
+aXhmLmggICAgICAgICAgICAgfCAgICA2IC0tLS0tDQo+ID4gIDQgZmlsZXMgY2hhbmdlZCwgNyBp
+bnNlcnRpb25zKCspLCA5NSBkZWxldGlvbnMoLSkNCj4gPg0KPiA+IGRpZmYgLS1naXQgYS9kcml2
+ZXJzL2FjcGkvYWNwaWNhL25zeGZvYmouYyBiL2RyaXZlcnMvYWNwaS9hY3BpY2EvbnN4Zm9iai5j
+DQo+ID4gaW5kZXggZGFlOTQwMS4uNTFhODMyOSAxMDA2NDQNCj4gPiAtLS0gYS9kcml2ZXJzL2Fj
+cGkvYWNwaWNhL25zeGZvYmouYw0KPiA+ICsrKyBiL2RyaXZlcnMvYWNwaS9hY3BpY2EvbnN4Zm9i
+ai5jDQo+ID4gQEAgLTUzLDUwICs1Myw2IEBAIEFDUElfTU9EVUxFX05BTUUoIm5zeGZvYmoiKQ0K
+PiA+DQo+ID4gIC8qKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioq
+KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqDQo+ID4gICAqDQo+ID4gLSAqIEZVTkNU
+SU9OOiAgICBhY3BpX2dldF9pZA0KPiA+IC0gKg0KPiA+IC0gKiBQQVJBTUVURVJTOiAgSGFuZGxl
+ICAgICAgICAgIC0gSGFuZGxlIG9mIG9iamVjdCB3aG9zZSBpZCBpcyBkZXNpcmVkDQo+ID4gLSAq
+ICAgICAgICAgICAgICByZXRfaWQgICAgICAgICAgLSBXaGVyZSB0aGUgaWQgd2lsbCBiZSBwbGFj
+ZWQNCj4gPiAtICoNCj4gPiAtICogUkVUVVJOOiAgICAgIFN0YXR1cw0KPiA+IC0gKg0KPiA+IC0g
+KiBERVNDUklQVElPTjogVGhpcyByb3V0aW5lIHJldHVybnMgdGhlIG93bmVyIGlkIGFzc29jaWF0
+ZWQgd2l0aCBhIGhhbmRsZQ0KPiA+IC0gKg0KPiA+IC0gKioqKioqKioqKioqKioqKioqKioqKioq
+KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqLw0K
+PiA+IC1hY3BpX3N0YXR1cyBhY3BpX2dldF9pZChhY3BpX2hhbmRsZSBoYW5kbGUsIGFjcGlfb3du
+ZXJfaWQgKiByZXRfaWQpDQo+ID4gLXsNCj4gPiAtCXN0cnVjdCBhY3BpX25hbWVzcGFjZV9ub2Rl
+ICpub2RlOw0KPiA+IC0JYWNwaV9zdGF0dXMgc3RhdHVzOw0KPiA+IC0NCj4gPiAtCS8qIFBhcmFt
+ZXRlciBWYWxpZGF0aW9uICovDQo+ID4gLQ0KPiA+IC0JaWYgKCFyZXRfaWQpIHsNCj4gPiAtCQly
+ZXR1cm4gKEFFX0JBRF9QQVJBTUVURVIpOw0KPiA+IC0JfQ0KPiA+IC0NCj4gPiAtCXN0YXR1cyA9
+IGFjcGlfdXRfYWNxdWlyZV9tdXRleChBQ1BJX01UWF9OQU1FU1BBQ0UpOw0KPiA+IC0JaWYgKEFD
+UElfRkFJTFVSRShzdGF0dXMpKSB7DQo+ID4gLQkJcmV0dXJuIChzdGF0dXMpOw0KPiA+IC0JfQ0K
+PiA+IC0NCj4gPiAtCS8qIENvbnZlcnQgYW5kIHZhbGlkYXRlIHRoZSBoYW5kbGUgKi8NCj4gPiAt
+DQo+ID4gLQlub2RlID0gYWNwaV9uc192YWxpZGF0ZV9oYW5kbGUoaGFuZGxlKTsNCj4gPiAtCWlm
+ICghbm9kZSkgew0KPiA+IC0JCSh2b2lkKWFjcGlfdXRfcmVsZWFzZV9tdXRleChBQ1BJX01UWF9O
+QU1FU1BBQ0UpOw0KPiA+IC0JCXJldHVybiAoQUVfQkFEX1BBUkFNRVRFUik7DQo+ID4gLQl9DQo+
+ID4gLQ0KPiA+IC0JKnJldF9pZCA9IG5vZGUtPm93bmVyX2lkOw0KPiA+IC0NCj4gPiAtCXN0YXR1
+cyA9IGFjcGlfdXRfcmVsZWFzZV9tdXRleChBQ1BJX01UWF9OQU1FU1BBQ0UpOw0KPiA+IC0JcmV0
+dXJuIChzdGF0dXMpOw0KPiA+IC19DQo+ID4gLQ0KPiA+IC1BQ1BJX0VYUE9SVF9TWU1CT0woYWNw
+aV9nZXRfaWQpDQo+ID4gLQ0KPiA+IC0vKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioq
+KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKg0KPiA+IC0gKg0K
+PiA+ICAgKiBGVU5DVElPTjogICAgYWNwaV9nZXRfdHlwZQ0KPiA+ICAgKg0KPiA+ICAgKiBQQVJB
+TUVURVJTOiAgaGFuZGxlICAgICAgICAgIC0gSGFuZGxlIG9mIG9iamVjdCB3aG9zZSB0eXBlIGlz
+IGRlc2lyZWQNCj4gPiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9hY3BpL2FjcGljYS90YnhmYWNlLmMg
+Yi9kcml2ZXJzL2FjcGkvYWNwaWNhL3RieGZhY2UuYw0KPiA+IGluZGV4IDY0ODJiMGQuLjBmOWRk
+ODAgMTAwNjQ0DQo+ID4gLS0tIGEvZHJpdmVycy9hY3BpL2FjcGljYS90YnhmYWNlLmMNCj4gPiAr
+KysgYi9kcml2ZXJzL2FjcGkvYWNwaWNhL3RieGZhY2UuYw0KPiA+IEBAIC0yNjUsNDUgKzI2NSw2
+IEBAIEFDUElfRVhQT1JUX1NZTUJPTChhY3BpX2dldF90YWJsZV9oZWFkZXIpDQo+ID4NCj4gPiAg
+LyoqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioq
+KioqKioqKioqKioqKioqKioqKioqKioNCj4gPiAgICoNCj4gPiAtICogRlVOQ1RJT046ICAgIGFj
+cGlfdW5sb2FkX3RhYmxlX2lkDQo+ID4gLSAqDQo+ID4gLSAqIFBBUkFNRVRFUlM6ICBpZCAgICAg
+ICAgICAgIC0gT3duZXIgSUQgb2YgdGhlIHRhYmxlIHRvIGJlIHJlbW92ZWQuDQo+ID4gLSAqDQo+
+ID4gLSAqIFJFVFVSTjogICAgICBTdGF0dXMNCj4gPiAtICoNCj4gPiAtICogREVTQ1JJUFRJT046
+IFRoaXMgcm91dGluZSBpcyB1c2VkIHRvIGZvcmNlIHRoZSB1bmxvYWQgb2YgYSB0YWJsZSAoYnkg
+aWQpDQo+ID4gLSAqDQo+ID4gLSAqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioq
+KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKiovDQo+ID4gLWFjcGlfc3Rh
+dHVzIGFjcGlfdW5sb2FkX3RhYmxlX2lkKGFjcGlfb3duZXJfaWQgaWQpDQo+ID4gLXsNCj4gPiAt
+CWludCBpOw0KPiA+IC0JYWNwaV9zdGF0dXMgc3RhdHVzID0gQUVfTk9UX0VYSVNUOw0KPiA+IC0N
+Cj4gPiAtCUFDUElfRlVOQ1RJT05fVFJBQ0UoYWNwaV91bmxvYWRfdGFibGVfaWQpOw0KPiA+IC0N
+Cj4gPiAtCS8qIEZpbmQgdGFibGUgaW4gdGhlIGdsb2JhbCB0YWJsZSBsaXN0ICovDQo+ID4gLQlm
+b3IgKGkgPSAwOyBpIDwgYWNwaV9nYmxfcm9vdF90YWJsZV9saXN0LmN1cnJlbnRfdGFibGVfY291
+bnQ7ICsraSkgew0KPiA+IC0JCWlmIChpZCAhPSBhY3BpX2dibF9yb290X3RhYmxlX2xpc3QudGFi
+bGVzW2ldLm93bmVyX2lkKSB7DQo+ID4gLQkJCWNvbnRpbnVlOw0KPiA+IC0JCX0NCj4gPiAtCQkv
+Kg0KPiA+IC0JCSAqIERlbGV0ZSBhbGwgbmFtZXNwYWNlIG9iamVjdHMgb3duZWQgYnkgdGhpcyB0
+YWJsZS4gTm90ZSB0aGF0IHRoZXNlDQo+ID4gLQkJICogb2JqZWN0cyBjYW4gYXBwZWFyIGFueXdo
+ZXJlIGluIHRoZSBuYW1lc3BhY2UgYnkgdmlydHVlIG9mIHRoZSBBTUwNCj4gPiAtCQkgKiAiU2Nv
+cGUiIG9wZXJhdG9yLiBUaHVzLCB3ZSBuZWVkIHRvIHRyYWNrIG93bmVyc2hpcCBieSBhbiBJRCwg
+bm90DQo+ID4gLQkJICogc2ltcGx5IGEgcG9zaXRpb24gd2l0aGluIHRoZSBoaWVyYXJjaHkNCj4g
+PiAtCQkgKi8NCj4gPiAtCQlhY3BpX3RiX2RlbGV0ZV9uYW1lc3BhY2VfYnlfb3duZXIoaSk7DQo+
+ID4gLQkJc3RhdHVzID0gYWNwaV90Yl9yZWxlYXNlX293bmVyX2lkKGkpOw0KPiA+IC0JCWFjcGlf
+dGJfc2V0X3RhYmxlX2xvYWRlZF9mbGFnKGksIEZBTFNFKTsNCj4gPiAtCQlicmVhazsNCj4gPiAt
+CX0NCj4gPiAtCXJldHVybl9BQ1BJX1NUQVRVUyhzdGF0dXMpOw0KPiA+IC19DQo+ID4gLQ0KPiA+
+IC1BQ1BJX0VYUE9SVF9TWU1CT0woYWNwaV91bmxvYWRfdGFibGVfaWQpDQo+ID4gLQ0KPiA+IC0v
+KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioq
+KioqKioqKioqKioqKioqKioqKioqKg0KPiA+IC0gKg0KPiA+ICAgKiBGVU5DVElPTjogICAgYWNw
+aV9nZXRfdGFibGVfd2l0aF9zaXplDQo+ID4gICAqDQo+ID4gICAqIFBBUkFNRVRFUlM6ICBzaWdu
+YXR1cmUgICAgICAgICAgIC0gQUNQSSBzaWduYXR1cmUgb2YgbmVlZGVkIHRhYmxlDQo+ID4gZGlm
+ZiAtLWdpdCBhL2RyaXZlcnMvcGNpL2hvdHBsdWcvc2dpX2hvdHBsdWcuYyBiL2RyaXZlcnMvcGNp
+L2hvdHBsdWcvc2dpX2hvdHBsdWcuYw0KPiA+IGluZGV4IGJhZGEyMDk5Li5jMzJmYjc4IDEwMDY0
+NA0KPiA+IC0tLSBhL2RyaXZlcnMvcGNpL2hvdHBsdWcvc2dpX2hvdHBsdWcuYw0KPiA+ICsrKyBi
+L2RyaXZlcnMvcGNpL2hvdHBsdWcvc2dpX2hvdHBsdWcuYw0KPiA+IEBAIC00NzUsNyArNDc1LDcg
+QEAgc3RhdGljIGludCBkaXNhYmxlX3Nsb3Qoc3RydWN0IGhvdHBsdWdfc2xvdCAqYnNzX2hvdHBs
+dWdfc2xvdCkNCj4gPiAgCXN0cnVjdCBzbG90ICpzbG90ID0gYnNzX2hvdHBsdWdfc2xvdC0+cHJp
+dmF0ZTsNCj4gPiAgCXN0cnVjdCBwY2lfZGV2ICpkZXYsICp0ZW1wOw0KPiA+ICAJaW50IHJjOw0K
+PiA+IC0JYWNwaV9vd25lcl9pZCBzc2R0X2lkID0gMDsNCj4gPiArCWFjcGlfaGFuZGxlIHNzZHRf
+aGRsID0gTlVMTDsNCj4gPg0KPiA+ICAJLyogQWNxdWlyZSB1cGRhdGUgYWNjZXNzIHRvIHRoZSBi
+dXMgKi8NCj4gPiAgCW11dGV4X2xvY2soJnNuX2hvdHBsdWdfbXV0ZXgpOw0KPiA+IEBAIC01MjIs
+NyArNTIyLDcgQEAgc3RhdGljIGludCBkaXNhYmxlX3Nsb3Qoc3RydWN0IGhvdHBsdWdfc2xvdCAq
+YnNzX2hvdHBsdWdfc2xvdCkNCj4gPiAgCQkJaWYgKEFDUElfU1VDQ0VTUyhyZXQpICYmDQo+ID4g
+IAkJCSAgICAoYWRyPj4xNikgPT0gKHNsb3QtPmRldmljZV9udW0gKyAxKSkgew0KPiA+ICAJCQkJ
+LyogcmV0YWluIHRoZSBvd25lciBpZCAqLw0KPiA+IC0JCQkJYWNwaV9nZXRfaWQoY2hhbmRsZSwg
+JnNzZHRfaWQpOw0KPiA+ICsJCQkJc3NkdF9oZGwgPSBjaGFuZGxlOw0KPiA+DQo+ID4gIAkJCQly
+ZXQgPSBhY3BpX2J1c19nZXRfZGV2aWNlKGNoYW5kbGUsDQo+ID4gIAkJCQkJCQkgICZkZXZpY2Up
+Ow0KPiA+IEBAIC01NDcsMTIgKzU0NywxMyBAQCBzdGF0aWMgaW50IGRpc2FibGVfc2xvdChzdHJ1
+Y3QgaG90cGx1Z19zbG90ICpic3NfaG90cGx1Z19zbG90KQ0KPiA+ICAJcGNpX3VubG9ja19yZXNj
+YW5fcmVtb3ZlKCk7DQo+ID4NCj4gPiAgCS8qIFJlbW92ZSB0aGUgU1NEVCBmb3IgdGhlIHNsb3Qg
+ZnJvbSB0aGUgQUNQSSBuYW1lc3BhY2UgKi8NCj4gPiAtCWlmIChTTl9BQ1BJX0JBU0VfU1VQUE9S
+VCgpICYmIHNzZHRfaWQpIHsNCj4gPiArCWlmIChTTl9BQ1BJX0JBU0VfU1VQUE9SVCgpICYmIHNz
+ZHRfaGRsKSB7DQo+ID4gIAkJYWNwaV9zdGF0dXMgcmV0Ow0KPiA+IC0JCXJldCA9IGFjcGlfdW5s
+b2FkX3RhYmxlX2lkKHNzZHRfaWQpOw0KPiA+ICsJCXJldCA9IGFjcGlfdW5sb2FkX3BhcmVudF90
+YWJsZShzc2R0X2hkbCk7DQo+ID4gIAkJaWYgKEFDUElfRkFJTFVSRShyZXQpKSB7DQo+ID4gLQkJ
+CXByaW50ayhLRVJOX0VSUiAiJXM6IGFjcGlfdW5sb2FkX3RhYmxlX2lkIGZhaWxlZCAoMHgleCkg
+Zm9yIGlkICVkXG4iLA0KPiA+IC0JCQkgICAgICAgX19mdW5jX18sIHJldCwgc3NkdF9pZCk7DQo+
+ID4gKwkJCWFjcGlfaGFuZGxlX2Vycihzc2R0X2hkbCwNCj4gPiArCQkJCQkiJXM6IGFjcGlfdW5s
+b2FkX3BhcmVudF90YWJsZSBmYWlsZWQgKDB4JXgpXG4iLA0KPiA+ICsJCQkJCV9fZnVuY19fLCBy
+ZXQpOw0KPiA+ICAJCQkvKiB0cnkgdG8gY29udGludWUgb24gKi8NCj4gPiAgCQl9DQo+ID4gIAl9
+DQo+ID4gZGlmZiAtLWdpdCBhL2luY2x1ZGUvYWNwaS9hY3BpeGYuaCBiL2luY2x1ZGUvYWNwaS9h
+Y3BpeGYuaA0KPiA+IGluZGV4IDViYTc4NDYuLjVkZDIxYmMgMTAwNjQ0DQo+ID4gLS0tIGEvaW5j
+bHVkZS9hY3BpL2FjcGl4Zi5oDQo+ID4gKysrIGIvaW5jbHVkZS9hY3BpL2FjcGl4Zi5oDQo+ID4g
+QEAgLTg5MSwxMiArODkxLDYgQEAgQUNQSV9BUFBfREVQRU5ERU5UX1JFVFVSTl9WT0lEKEFDUElf
+UFJJTlRGX0xJS0UoMSkNCj4gPiAgQUNQSV9HTE9CQUwodTgsIGFjcGlfZ2JsX3Blcm1hbmVudF9t
+bWFwKTsNCj4gPg0KPiA+ICBBQ1BJX0VYVEVSTkFMX1JFVFVSTl9TVEFUVVMoYWNwaV9zdGF0dXMN
+Cj4gPiAtCQkJICAgIGFjcGlfZ2V0X2lkKGFjcGlfaGFuZGxlIG9iamVjdCwNCj4gPiAtCQkJCQlh
+Y3BpX293bmVyX2lkICogb3V0X3R5cGUpKQ0KPiA+IC0NCj4gPiAtQUNQSV9FWFRFUk5BTF9SRVRV
+Uk5fU1RBVFVTKGFjcGlfc3RhdHVzIGFjcGlfdW5sb2FkX3RhYmxlX2lkKGFjcGlfb3duZXJfaWQg
+aWQpKQ0KPiA+IC0NCj4gPiAtQUNQSV9FWFRFUk5BTF9SRVRVUk5fU1RBVFVTKGFjcGlfc3RhdHVz
+DQo+ID4gIAkJCSAgICBhY3BpX2dldF90YWJsZV93aXRoX3NpemUoYWNwaV9zdHJpbmcgc2lnbmF0
+dXJlLA0KPiA+ICAJCQkJCQkgICAgIHUzMiBpbnN0YW5jZSwNCj4gPiAgCQkJCQkJICAgICBzdHJ1
+Y3QgYWNwaV90YWJsZV9oZWFkZXINCj4gPg0KPiANCj4gLS0NCj4gSSBzcGVhayBvbmx5IGZvciBt
+eXNlbGYuDQo+IFJhZmFlbCBKLiBXeXNvY2tpLCBJbnRlbCBPcGVuIFNvdXJjZSBUZWNobm9sb2d5
+IENlbnRlci4NCg=
