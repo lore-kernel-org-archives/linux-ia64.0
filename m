@@ -1,157 +1,73 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Fri, 16 Jan 2015 01:44:26 +0000
-Subject: [PATCH 28/28] PCI: Remove pci_bus_assign_domain_nr()
-Message-Id: <1421372666-12288-29-git-send-email-wangyijing@huawei.com>
+From: Jan Kiszka <jan.kiszka@siemens.com>
+Date: Thu, 29 Jan 2015 06:46:34 +0000
+Subject: [PATCH v11 15/28] scripts/gdb: Add internal helper and convenience function to retrieve thread_info
+Message-Id: <20dac87a0153e7983c872ba7804beade610ce55d.1422514006.git.jan.kiszka@siemens.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1421372666-12288-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1421372666-12288-1-git-send-email-wangyijing@huawei.com>
+References: <cover.1422514006.git.jan.kiszka@siemens.com>
+In-Reply-To: <cover.1422514006.git.jan.kiszka@siemens.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>
+To: Andrew Morton <akpm@linux-foundation.org>, linux-kernel@vger.kernel.org
+Cc: Thomas Gleixner <tglx@linutronix.de>, Jason Wessel <jason.wessel@windriver.com>, kgdb-bugreport@lists.sourceforge.net, Andi Kleen <andi@firstfloor.org>, Tom Tromey <tromey@redhat.com>, Ben Widawsky <ben@bwidawsk.net>, Borislav Petkov <bp@suse.de>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-Now we save the domain number in pci_host_bridge,
-we could remove pci_bus_assign_domain_nr() and
-clean the domain member in pci_bus.
+Add the internal helper get_thread_info that calculates the thread_info
+from a given task variable. Also export this service as a convenience
+function.
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+Note: ia64 version is untested.
+
+CC: Tony Luck <tony.luck@intel.com>
+CC: Fenghua Yu <fenghua.yu@intel.com>
+CC: linux-ia64@vger.kernel.org
+Signed-off-by: Jan Kiszka <jan.kiszka@siemens.com>
 ---
- drivers/pci/pci.c   |   48 +-----------------------------------------------
- drivers/pci/probe.c |   12 ++++--------
- include/linux/pci.h |    3 ---
- 3 files changed, 5 insertions(+), 58 deletions(-)
+ scripts/gdb/linux/tasks.py | 35 +++++++++++++++++++++++++++++++++++
+ 1 file changed, 35 insertions(+)
 
-diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
-index 72232d4..3eb3d8e 100644
---- a/drivers/pci/pci.c
-+++ b/drivers/pci/pci.c
-@@ -4472,6 +4472,7 @@ int pci_domain_nr(struct pci_bus *bus)
- 	return host->domain;
- }
- EXPORT_SYMBOL_GPL(pci_domain_nr);
-+#endif
+diff --git a/scripts/gdb/linux/tasks.py b/scripts/gdb/linux/tasks.py
+index 13bb97c..63cd6c5 100644
+--- a/scripts/gdb/linux/tasks.py
++++ b/scripts/gdb/linux/tasks.py
+@@ -71,3 +71,38 @@ return that task_struct variable which PID matches."""
  
- #ifdef CONFIG_PCI_DOMAINS_GENERIC
- void pci_host_assign_domain_nr(struct pci_host_bridge *host)
-@@ -4519,53 +4520,6 @@ void pci_host_assign_domain_nr(struct pci_host_bridge *host)
  
- 	host->domain_nr = domain;
- }
--
--
--void pci_bus_assign_domain_nr(struct pci_bus *bus, struct device *parent)
--{
--	static int use_dt_domains = -1;
--	int domain = of_get_pci_domain_nr(parent->of_node);
--
--	/*
--	 * Check DT domain and use_dt_domains values.
--	 *
--	 * If DT domain property is valid (domain >= 0) and
--	 * use_dt_domains != 0, the DT assignment is valid since this means
--	 * we have not previously allocated a domain number by using
--	 * pci_get_new_domain_nr(); we should also update use_dt_domains to
--	 * 1, to indicate that we have just assigned a domain number from
--	 * DT.
--	 *
--	 * If DT domain property value is not valid (ie domain < 0), and we
--	 * have not previously assigned a domain number from DT
--	 * (use_dt_domains != 1) we should assign a domain number by
--	 * using the:
--	 *
--	 * pci_get_new_domain_nr()
--	 *
--	 * API and update the use_dt_domains value to keep track of method we
--	 * are using to assign domain numbers (use_dt_domains = 0).
--	 *
--	 * All other combinations imply we have a platform that is trying
--	 * to mix domain numbers obtained from DT and pci_get_new_domain_nr(),
--	 * which is a recipe for domain mishandling and it is prevented by
--	 * invalidating the domain value (domain = -1) and printing a
--	 * corresponding error.
--	 */
--	if (domain >= 0 && use_dt_domains) {
--		use_dt_domains = 1;
--	} else if (domain < 0 && use_dt_domains != 1) {
--		use_dt_domains = 0;
--		domain = pci_get_new_domain_nr();
--	} else {
--		dev_err(parent, "Node %s has inconsistent \"linux,pci-domain\" property in DT\n",
--			parent->of_node->full_name);
--		domain = -1;
--	}
--
--	bus->domain_nr = domain;
--}
--#endif
- #endif
- 
- /**
-diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
-index 0817910..d8b76ef 100644
---- a/drivers/pci/probe.c
-+++ b/drivers/pci/probe.c
-@@ -480,7 +480,7 @@ void pci_read_bridge_bases(struct pci_bus *child)
- 	}
- }
- 
--static struct pci_bus *pci_alloc_bus(struct pci_bus *parent)
-+static struct pci_bus *pci_alloc_bus(void)
- {
- 	struct pci_bus *b;
- 
-@@ -495,10 +495,7 @@ static struct pci_bus *pci_alloc_bus(struct pci_bus *parent)
- 	INIT_LIST_HEAD(&b->resources);
- 	b->max_bus_speed = PCI_SPEED_UNKNOWN;
- 	b->cur_bus_speed = PCI_SPEED_UNKNOWN;
--#ifdef CONFIG_PCI_DOMAINS_GENERIC
--	if (parent)
--		b->domain_nr = parent->domain_nr;
--#endif
+ LxTaskByPidFunc()
 +
- 	return b;
- }
- 
-@@ -645,7 +642,7 @@ static struct pci_bus *pci_alloc_child_bus(struct pci_bus *parent,
- 	/*
- 	 * Allocate a new bus, and inherit stuff from the parent..
- 	 */
--	child = pci_alloc_bus(parent);
-+	child = pci_alloc_bus();
- 	if (!child)
- 		return NULL;
- 
-@@ -1865,14 +1862,13 @@ static struct pci_bus *pci_create_root_bus(
- 	char *fmt;
- 
- 	parent = bridge->dev.parent;
--	b = pci_alloc_bus(NULL);
-+	b = pci_alloc_bus();
- 	if (!b)
- 		return NULL;
- 
- 	b->sysdata = dev_get_drvdata(&bridge->dev);
- 	b->ops = ops;
- 	b->number = b->busn_res.start = bridge->busnum;
--	pci_bus_assign_domain_nr(b, parent);
- 
- 	bridge->bus = b;
- 	b->bridge = get_device(&bridge->dev);
-diff --git a/include/linux/pci.h b/include/linux/pci.h
-index e7ca546..ac25d2a 100644
---- a/include/linux/pci.h
-+++ b/include/linux/pci.h
-@@ -475,9 +475,6 @@ struct pci_bus {
- 	unsigned char	primary;	/* number of primary bridge */
- 	unsigned char	max_bus_speed;	/* enum pci_bus_speed */
- 	unsigned char	cur_bus_speed;	/* enum pci_bus_speed */
--#ifdef CONFIG_PCI_DOMAINS_GENERIC
--	int		domain_nr;
--#endif
- 
- 	char		name[48];
- 
++
++thread_info_type = utils.CachedType("struct thread_info")
++
++ia64_task_size = None
++
++
++def get_thread_info(task):
++    global thread_info_type
++    thread_info_ptr_type = thread_info_type.get_type().pointer()
++    if utils.is_target_arch("ia64"):
++        global ia64_task_size
++        if ia64_task_size is None:
++            ia64_task_size = gdb.parse_and_eval("sizeof(struct task_struct)")
++        thread_info_addr = task.address + ia64_task_size
++        thread_info = thread_info_addr.cast(thread_info_ptr_type)
++    else:
++        thread_info = task['stack'].cast(thread_info_ptr_type)
++    return thread_info.dereference()
++
++
++class LxThreadInfoFunc (gdb.Function):
++    """Calculate Linux thread_info from task variable.
++
++$lx_thread_info(TASK): Given TASK, return the corresponding thread_info
++variable."""
++
++    def __init__(self):
++        super(LxThreadInfoFunc, self).__init__("lx_thread_info")
++
++    def invoke(self, task):
++        return get_thread_info(task)
++
++
++LxThreadInfoFunc()
 -- 
-1.7.1
+2.1.4
 
