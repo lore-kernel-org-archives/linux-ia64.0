@@ -1,63 +1,121 @@
-From: Jiang Liu <jiang.liu@linux.intel.com>
-Date: Fri, 23 Jan 2015 05:36:43 +0000
-Subject: [Resend Patch v4 04/16] smp, IA64: Kill SMP single function call interrupt
-Message-Id: <1421991416-20297-5-git-send-email-jiang.liu@linux.intel.com>
+From: Jan Kiszka <jan.kiszka@siemens.com>
+Date: Fri, 30 Jan 2015 07:24:29 +0000
+Subject: [PATCH v12 00/28] Add gdb python scripts as kernel debugging helpers
+Message-Id: <cover.1422602696.git.jan.kiszka@siemens.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1421991416-20297-1-git-send-email-jiang.liu@linux.intel.com>
-In-Reply-To: <1421991416-20297-1-git-send-email-jiang.liu@linux.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Jiang Liu <jiang.liu@linux.intel.com>
-Cc: Borislav Petkov <bp@alien8.de>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>, linux-kernel@vger.kernel.org
+Cc: Thomas Gleixner <tglx@linutronix.de>, Jason Wessel <jason.wessel@windriver.com>, kgdb-bugreport@lists.sourceforge.net, Andi Kleen <andi@firstfloor.org>, Ben Widawsky <ben@bwidawsk.net>, Borislav Petkov <bp@suse.de>, Daniel Thompson <daniel.thompson@linaro.org>, Daniel Wagner <daniel.wagner@bmw-carit.de>, "David S. Miller" <davem@davemloft.net>, Fenghua Yu <fenghua.yu@intel.com>, Kay Sievers <kay@vrfy.org>, linux-doc@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kbuild@vger.kernel.org, Michal Marek <mmarek@suse.cz>, Pantelis Koukousoulas <pktoss@gmail.com>, Rob Landley <rob@landley.net>, Rusty Russell <rusty@rustcorp.com.au>, sparclinux@vger.kernel.org, Tony Luck <tony.luck@intel.com>
 
-Commit 9a46ad6d6df3b54 "smp: make smp_call_function_many() use logic
-similar to smp_call_function_single()" has unified the way to handle
-single and multiple cross-CPU function calls. Now only one interrupt
-is needed for architecture specific code to support generic SMP function
-call interfaces, so kill the redundant single function call interrupt.
+Hi Andrew,
 
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org
-Signed-off-by: Jiang Liu <jiang.liu@linux.intel.com>
----
- arch/ia64/kernel/smp.c |    8 ++------
- 1 file changed, 2 insertions(+), 6 deletions(-)
+this is an update to address the review comments provided by Michal
+Marek on v11.
 
-diff --git a/arch/ia64/kernel/smp.c b/arch/ia64/kernel/smp.c
-index 9fcd4e63048f..0532909b6e8e 100644
---- a/arch/ia64/kernel/smp.c
-+++ b/arch/ia64/kernel/smp.c
-@@ -62,8 +62,7 @@ static DEFINE_PER_CPU_SHARED_ALIGNED(unsigned short [NR_CPUS],
- 
- #define IPI_CALL_FUNC		0
- #define IPI_CPU_STOP		1
--#define IPI_CALL_FUNC_SINGLE	2
--#define IPI_KDUMP_CPU_STOP	3
-+#define IPI_KDUMP_CPU_STOP	2
- 
- /* This needs to be cacheline aligned because it is written to by *other* CPUs.  */
- static DEFINE_PER_CPU_SHARED_ALIGNED(unsigned long, ipi_operation);
-@@ -116,9 +115,6 @@ handle_IPI (int irq, void *dev_id)
- 			case IPI_CALL_FUNC:
- 				generic_smp_call_function_interrupt();
- 				break;
--			case IPI_CALL_FUNC_SINGLE:
--				generic_smp_call_function_single_interrupt();
--				break;
- #ifdef CONFIG_KEXEC
- 			case IPI_KDUMP_CPU_STOP:
- 				unw_init_running(kdump_cpu_freeze, NULL);
-@@ -318,7 +314,7 @@ smp_flush_tlb_mm (struct mm_struct *mm)
- 
- void arch_send_call_function_single_ipi(int cpu)
- {
--	send_IPI_single(cpu, IPI_CALL_FUNC_SINGLE);
-+	send_IPI_single(cpu, IPI_CALL_FUNC);
- }
- 
- void arch_send_call_function_ipi_mask(const struct cpumask *mask)
+Changes since v11:
+ - drop redundant subdir rule
+ - fold *.pyo into existing clean-files rules
+
+See http://lkml.indiana.edu/hypermail/linux/kernel/1210.0/01598.html for
+the original description and
+
+    git://git.kiszka.org/linux.git queues/gdb-scripts
+
+for the latest version.
+
+Jan
+
+CC: Daniel Thompson <daniel.thompson@linaro.org>
+CC: Daniel Wagner <daniel.wagner@bmw-carit.de>
+CC: "David S. Miller" <davem@davemloft.net>
+CC: Fenghua Yu <fenghua.yu@intel.com>
+Cc: Jan Kiszka <jan.kiszka@siemens.com>
+CC: Kay Sievers <kay@vrfy.org>
+CC: linux-doc@vger.kernel.org
+CC: linux-ia64@vger.kernel.org
+Cc: linux-kbuild@vger.kernel.org
+CC: linux-kbuild@vger.kernel.org
+Cc: Michal Marek <mmarek@suse.cz>
+CC: Michal Marek <mmarek@suse.cz>
+CC: Pantelis Koukousoulas <pktoss@gmail.com>
+CC: Rob Landley <rob@landley.net>
+CC: Rusty Russell <rusty@rustcorp.com.au>
+CC: sparclinux@vger.kernel.org
+CC: Tony Luck <tony.luck@intel.com>
+
+Daniel Thompson (1):
+  scripts/gdb: Ignore byte-compiled python files
+
+Daniel Wagner (1):
+  scripts/gdb: Use a generator instead of iterator for task list
+
+Jan Kiszka (25):
+  scripts/gdb: Add infrastructure
+  scripts/gdb: Add cache for type objects
+  scripts/gdb: Add container_of helper and convenience function
+  scripts/gdb: Add module iteration class
+  scripts/gdb: Add lx-symbols command
+  module: Do not inline do_init_module
+  scripts/gdb: Add automatic symbol reloading on module insertion
+  scripts/gdb: Add internal helper and convenience function to look up a
+    module
+  scripts/gdb: Add get_target_endianness helper
+  scripts/gdb: Add read_u16/32/64 helpers
+  scripts/gdb: Add lx-dmesg command
+  scripts/gdb: Add task iteration class
+  scripts/gdb: Add helper and convenience function to look up tasks
+  scripts/gdb: Add is_target_arch helper
+  scripts/gdb: Add internal helper and convenience function to retrieve
+    thread_info
+  scripts/gdb: Add get_gdbserver_type helper
+  scripts/gdb: Add internal helper and convenience function for per-cpu
+    lookup
+  scripts/gdb: Add lx_current convenience function
+  scripts/gdb: Add class to iterate over CPU masks
+  scripts/gdb: Add lx-lsmod command
+  scripts/gdb: Add basic documentation
+  scripts/gdb: Convert ModuleList to generator function
+  scripts/gdb: Convert CpuList to generator function
+  scripts/gdb: Define maintainer
+  scripts/gdb: Disable pagination while printing from breakpoint handler
+
+Pantelis Koukousoulas (1):
+  scripts/gdb: Port to python3 / gdb7.7
+
+ .gitignore                             |   1 +
+ Documentation/gdb-kernel-debugging.txt | 160 +++++++++++++++++++++++++++++
+ MAINTAINERS                            |   5 +
+ Makefile                               |   5 +-
+ kernel/module.c                        |   9 +-
+ lib/Kconfig.debug                      |  11 ++
+ scripts/Makefile                       |   1 +
+ scripts/gdb/Makefile                   |   1 +
+ scripts/gdb/linux/.gitignore           |   2 +
+ scripts/gdb/linux/Makefile             |  11 ++
+ scripts/gdb/linux/__init__.py          |   0
+ scripts/gdb/linux/cpus.py              | 135 +++++++++++++++++++++++++
+ scripts/gdb/linux/dmesg.py             |  65 ++++++++++++
+ scripts/gdb/linux/modules.py           | 103 +++++++++++++++++++
+ scripts/gdb/linux/symbols.py           | 177 +++++++++++++++++++++++++++++++++
+ scripts/gdb/linux/tasks.py             | 100 +++++++++++++++++++
+ scripts/gdb/linux/utils.py             | 156 +++++++++++++++++++++++++++++
+ scripts/gdb/vmlinux-gdb.py             |  30 ++++++
+ 18 files changed, 969 insertions(+), 3 deletions(-)
+ create mode 100644 Documentation/gdb-kernel-debugging.txt
+ create mode 100644 scripts/gdb/Makefile
+ create mode 100644 scripts/gdb/linux/.gitignore
+ create mode 100644 scripts/gdb/linux/Makefile
+ create mode 100644 scripts/gdb/linux/__init__.py
+ create mode 100644 scripts/gdb/linux/cpus.py
+ create mode 100644 scripts/gdb/linux/dmesg.py
+ create mode 100644 scripts/gdb/linux/modules.py
+ create mode 100644 scripts/gdb/linux/symbols.py
+ create mode 100644 scripts/gdb/linux/tasks.py
+ create mode 100644 scripts/gdb/linux/utils.py
+ create mode 100644 scripts/gdb/vmlinux-gdb.py
+
 -- 
-1.7.10.4
+2.1.4
 
