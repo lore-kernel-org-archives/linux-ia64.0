@@ -1,49 +1,73 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Fri, 16 Jan 2015 01:44:24 +0000
-Subject: [PATCH 26/28] PCI: Export find_pci_host_bridge()
-Message-Id: <1421372666-12288-27-git-send-email-wangyijing@huawei.com>
+From: Jan Kiszka <jan.kiszka@siemens.com>
+Date: Fri, 30 Jan 2015 07:24:44 +0000
+Subject: [PATCH v12 15/28] scripts/gdb: Add internal helper and convenience function to retrieve thread_info
+Message-Id: <969cb7245b1f71e3dd5dcee685f15472a69a6aca.1422602696.git.jan.kiszka@siemens.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1421372666-12288-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1421372666-12288-1-git-send-email-wangyijing@huawei.com>
+References: <cover.1422602696.git.jan.kiszka@siemens.com>
+In-Reply-To: <cover.1422602696.git.jan.kiszka@siemens.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>
+To: Andrew Morton <akpm@linux-foundation.org>, linux-kernel@vger.kernel.org
+Cc: Thomas Gleixner <tglx@linutronix.de>, Jason Wessel <jason.wessel@windriver.com>, kgdb-bugreport@lists.sourceforge.net, Andi Kleen <andi@firstfloor.org>, Ben Widawsky <ben@bwidawsk.net>, Borislav Petkov <bp@suse.de>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-Export find_pci_host_bridge().
+Add the internal helper get_thread_info that calculates the thread_info
+from a given task variable. Also export this service as a convenience
+function.
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+Note: ia64 version is untested.
+
+CC: Tony Luck <tony.luck@intel.com>
+CC: Fenghua Yu <fenghua.yu@intel.com>
+CC: linux-ia64@vger.kernel.org
+Signed-off-by: Jan Kiszka <jan.kiszka@siemens.com>
 ---
- drivers/pci/host-bridge.c |    2 +-
- include/linux/pci.h       |    1 +
- 2 files changed, 2 insertions(+), 1 deletions(-)
+ scripts/gdb/linux/tasks.py | 35 +++++++++++++++++++++++++++++++++++
+ 1 file changed, 35 insertions(+)
 
-diff --git a/drivers/pci/host-bridge.c b/drivers/pci/host-bridge.c
-index ccbf168..74f7572 100644
---- a/drivers/pci/host-bridge.c
-+++ b/drivers/pci/host-bridge.c
-@@ -104,7 +104,7 @@ static struct pci_bus *find_pci_root_bus(struct pci_bus *bus)
- 	return bus;
- }
+diff --git a/scripts/gdb/linux/tasks.py b/scripts/gdb/linux/tasks.py
+index 13bb97c..63cd6c5 100644
+--- a/scripts/gdb/linux/tasks.py
++++ b/scripts/gdb/linux/tasks.py
+@@ -71,3 +71,38 @@ return that task_struct variable which PID matches."""
  
--static struct pci_host_bridge *find_pci_host_bridge(struct pci_bus *bus)
-+struct pci_host_bridge *find_pci_host_bridge(struct pci_bus *bus)
- {
- 	struct pci_bus *root_bus = find_pci_root_bus(bus);
  
-diff --git a/include/linux/pci.h b/include/linux/pci.h
-index 9ddca3b..3ebee9d 100644
---- a/include/linux/pci.h
-+++ b/include/linux/pci.h
-@@ -431,6 +431,7 @@ void pci_set_host_bridge_release(struct pci_host_bridge *bridge,
- struct pci_host_bridge *pci_create_host_bridge(
- 		struct device *parent, u32 dombus, struct list_head *resources, 
- 		void *sysdata, struct pci_host_bridge_ops *ops);
-+struct pci_host_bridge *find_pci_host_bridge(struct pci_bus* bus);
- /*
-  * The first PCI_BRIDGE_RESOURCE_NUM PCI bus resources (those that correspond
-  * to P2P or CardBus bridge windows) go in a table.  Additional ones (for
+ LxTaskByPidFunc()
++
++
++thread_info_type = utils.CachedType("struct thread_info")
++
++ia64_task_size = None
++
++
++def get_thread_info(task):
++    global thread_info_type
++    thread_info_ptr_type = thread_info_type.get_type().pointer()
++    if utils.is_target_arch("ia64"):
++        global ia64_task_size
++        if ia64_task_size is None:
++            ia64_task_size = gdb.parse_and_eval("sizeof(struct task_struct)")
++        thread_info_addr = task.address + ia64_task_size
++        thread_info = thread_info_addr.cast(thread_info_ptr_type)
++    else:
++        thread_info = task['stack'].cast(thread_info_ptr_type)
++    return thread_info.dereference()
++
++
++class LxThreadInfoFunc (gdb.Function):
++    """Calculate Linux thread_info from task variable.
++
++$lx_thread_info(TASK): Given TASK, return the corresponding thread_info
++variable."""
++
++    def __init__(self):
++        super(LxThreadInfoFunc, self).__init__("lx_thread_info")
++
++    def invoke(self, task):
++        return get_thread_info(task)
++
++
++LxThreadInfoFunc()
 -- 
-1.7.1
+2.1.4
 
