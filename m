@@ -1,68 +1,87 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Thu, 26 Feb 2015 08:11:58 +0000
-Subject: [PATCH v4 04/30] PCI: Remove deprecated pci_scan_bus_parented()
-Message-Id: <1424938344-4017-5-git-send-email-wangyijing@huawei.com>
+From: al.stone@linaro.org
+Date: Wed, 04 Feb 2015 00:21:39 +0000
+Subject: [PATCH v2 0/5] Start deprecating _OSI on new architectures
+Message-Id: <1423009304-5007-1-git-send-email-al.stone@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1424938344-4017-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1424938344-4017-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>
+To: rjw@rjwysocki.net, lenb@kernel.org, catalin.marinas@arm.com, will.deacon@arm.com, robert.moore@intel.com, tony.luck@intel.com, fenghua.yu@intel.com
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org, linux-arm-kernel@lists.infradead.org, linaro-acpi@lists.linaro.org, linaro-kernel@lists.linaro.org, patches@linaro.org
 
-No one uses pci_scan_bus_parented() any more,
-remove it.
+From: Al Stone <al.stone@linaro.org>
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
----
- drivers/pci/probe.c |   19 -------------------
- include/linux/pci.h |    2 --
- 2 files changed, 0 insertions(+), 21 deletions(-)
+The use of the ACPI _OSI method in Linux has a long and sordid history.
+Instead of perpetuating past complications on new architectures, the 
+consensus amongst those writing the ACPI specification and those using
+it seems to be to ultimately deprecate the use of _OSI.  A change request
+has been submitted (but not yet decided upon) to modify the ACPI specification
+accordingly.
 
-diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
-index 8ef0375..699a238 100644
---- a/drivers/pci/probe.c
-+++ b/drivers/pci/probe.c
-@@ -2091,25 +2091,6 @@ struct pci_bus *pci_scan_root_bus(struct device *parent, int bus,
- }
- EXPORT_SYMBOL(pci_scan_root_bus);
- 
--/* Deprecated; use pci_scan_root_bus() instead */
--struct pci_bus *pci_scan_bus_parented(struct device *parent,
--		int bus, struct pci_ops *ops, void *sysdata)
--{
--	LIST_HEAD(resources);
--	struct pci_bus *b;
--
--	pci_add_resource(&resources, &ioport_resource);
--	pci_add_resource(&resources, &iomem_resource);
--	pci_add_resource(&resources, &busn_resource);
--	b = pci_create_root_bus(parent, bus, ops, sysdata, &resources);
--	if (b)
--		pci_scan_child_bus(b);
--	else
--		pci_free_resource_list(&resources);
--	return b;
--}
--EXPORT_SYMBOL(pci_scan_bus_parented);
--
- struct pci_bus *pci_scan_bus(int bus, struct pci_ops *ops,
- 					void *sysdata)
- {
-diff --git a/include/linux/pci.h b/include/linux/pci.h
-index 211e9da..36effb8 100644
---- a/include/linux/pci.h
-+++ b/include/linux/pci.h
-@@ -769,8 +769,6 @@ void pcibios_bus_to_resource(struct pci_bus *bus, struct resource *res,
- void pcibios_scan_specific_bus(int busn);
- struct pci_bus *pci_find_bus(int domain, int busnr);
- void pci_bus_add_devices(const struct pci_bus *bus);
--struct pci_bus *pci_scan_bus_parented(struct device *parent, int bus,
--				      struct pci_ops *ops, void *sysdata);
- struct pci_bus *pci_scan_bus(int bus, struct pci_ops *ops, void *sysdata);
- struct pci_bus *pci_create_root_bus(struct device *parent, int bus,
- 				    struct pci_ops *ops, void *sysdata,
+In the meantime, these patches rearrange the implementation of _OSI so
+that it can be deprecated, or ultimately removed completely, on at least
+arm64 platforms.  This is done by separating out the _OSI implementation
+and moving it into a new file.  For x86 and ia64, there is no change in
+functionality.  But, this allows us to provide a separate implementation
+of _OSI for arm64 that generates a warning that it has been deprecated, 
+and always returns false; i.e., that the capability being queried for, 
+whether OS name or functionality, is not supported.  This is the first
+four of the patches.
+
+The final patch changes the default value for the _OS_ method for arm64
+only.  Since there is no need to pretend to be older versions of Windows,
+or any other OS at all, the _OS_ method will return "Linux" on arm64.
+One can still use the acpi_os_name kernel parameter if there is a need
+to use some other value.
+
+The first three patches do not depend on arm64 support for ACPI and could
+be used independently.  The last two patches make much more sense when used
+in conjunction with Hanjun's patches for ACPI 5.1 on arm64 [0].
+
+These have been through some simple testing on two different x86 laptops,
+and all seems well (Lenovo t440s and t430s ThinkPads).  The arm64 code has
+been tested on an AMD Seattle system.  Unfortunately, for ia64, all I could
+do was cross-compile the code; I have no access to hardware to test on.
+
+NB: the first two patches do not pass checkpatch.pl; since this is existing
+code being moved, I have not repaired the reported errors for now, but will
+do so once the disposition of these patches have been resolved.
+
+
+Changes in v2:
+  -- significant simplification based on Rafael's comments
+  -- ACPI spec change request has now been submitted
+
+
+[0] https://lkml.org/lkml/2015/2/2/261
+
+
+Al Stone (4):
+  ACPI: move acpi_os_handler() so it can be made arch-dependent later
+  ACPI: move _OSI support functions to allow arch-dependent
+    implementation
+  ACPI: add arch-specific compilation for _OSI and the blacklist
+  ACPI: arm64: use the arch-specific ACPI _OSI method and ACPI blacklist
+
+Hanjun Guo (1):
+  ACPI: arm64: use "Linux" as ACPI_OS_NAME for _OS on arm64
+
+ arch/arm64/Kconfig              |   7 ++
+ drivers/acpi/Kconfig            |  22 ++++
+ drivers/acpi/Makefile           |  17 +++
+ drivers/acpi/blacklist-arm.c    |  20 ++++
+ drivers/acpi/blacklist.c        |   9 ++
+ drivers/acpi/osi-arm.c          |  25 ++++
+ drivers/acpi/osi.c              | 255 ++++++++++++++++++++++++++++++++++++++++
+ drivers/acpi/osl.c              | 217 ----------------------------------
+ include/acpi/acconfig.h         |   2 +
+ include/acpi/platform/aclinux.h |   4 +
+ include/linux/acpi.h            |   4 +-
+ 11 files changed, 362 insertions(+), 220 deletions(-)
+ create mode 100644 drivers/acpi/blacklist-arm.c
+ create mode 100644 drivers/acpi/osi-arm.c
+ create mode 100644 drivers/acpi/osi.c
+
 -- 
-1.7.1
+2.1.0
 
