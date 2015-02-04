@@ -1,348 +1,191 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Thu, 26 Feb 2015 08:12:03 +0000
-Subject: [PATCH v4 09/30] PCI: Separate pci_host_bridge creation out of pci_create_root_bus()
-Message-Id: <1424938344-4017-10-git-send-email-wangyijing@huawei.com>
+From: al.stone@linaro.org
+Date: Wed, 04 Feb 2015 00:21:42 +0000
+Subject: [PATCH v2 3/5] ACPI: add arch-specific compilation for _OSI and the blacklist
+Message-Id: <1423009304-5007-4-git-send-email-al.stone@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1424938344-4017-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1424938344-4017-1-git-send-email-wangyijing@huawei.com>
+References: <1423009304-5007-1-git-send-email-al.stone@linaro.org>
+In-Reply-To: <1423009304-5007-1-git-send-email-al.stone@linaro.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>
+To: rjw@rjwysocki.net, lenb@kernel.org, catalin.marinas@arm.com, will.deacon@arm.com, robert.moore@intel.com, tony.luck@intel.com, fenghua.yu@intel.com
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org, linux-arm-kernel@lists.infradead.org, linaro-acpi@lists.linaro.org, linaro-kernel@lists.linaro.org, patches@linaro.org
 
-This patch separate pci_host_bridge creation out
-of pci_create_root_bus(), and try to make a generic
-pci_host_bridge, then we could place generic PCI
-infos like domain number in it. Also Ripping out
-pci_host_bridge creation from pci_create_root_bus()
-make code more better readability. Further more,
-we could use the generic pci_host_bridge to hold
-host bridge specific operations like
-pcibios_root_bridge_prepare(). The changes are
-transparent to platform host bridge drivers.
+From: Al Stone <al.stone@linaro.org>
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+Now that all of the _OSI functionality has been separated out, we can
+provide arch-specific functionality for it.  This also allows us to do
+the same for the acpi_blacklisted() function.
+
+Whether arch-specific functions are used or not now depends on the config
+options CONFIG_ACPI_ARCH_SPECIFIC_OSI and CONFIG_ARCH_SPECIFIC_BLACKLIST.
+By default, both are set false which causes the x86/ia64 versions to be
+used, just as is done today.  Setting one or both of these options true
+will cause architecture-specific implementations to be built instead; this
+patch also provides arm64 implementations.
+
+For x86/ia64, there is no functional change.
+
+For arm64, any use of _OSI will issue a warning that it is deprecated.
+All use of _OSI will return false -- i.e., it will return no useful
+information to any firmware using it.  The ability to temporarily turn
+on _OSI, or turn off _OSI, or affect it in other ways from the command
+line is no longer available for arm64, either.  The blacklist for ACPI
+on arm64 is empty.  This will, of course, require ACPI to be enabled
+for arm64.
+
+Signed-off-by: Al Stone <al.stone@linaro.org>
 ---
- drivers/pci/host-bridge.c |   56 ++++++++++++++++++++++
- drivers/pci/probe.c       |  114 ++++++++++++++++++++-------------------------
- include/linux/pci.h       |    5 ++-
- 3 files changed, 110 insertions(+), 65 deletions(-)
+ drivers/acpi/Kconfig         | 22 ++++++++++++++++++++++
+ drivers/acpi/Makefile        | 19 ++++++++++++++++++-
+ drivers/acpi/blacklist-arm.c | 20 ++++++++++++++++++++
+ drivers/acpi/blacklist.c     |  5 +++++
+ drivers/acpi/osi-arm.c       | 25 +++++++++++++++++++++++++
+ 5 files changed, 90 insertions(+), 1 deletion(-)
+ create mode 100644 drivers/acpi/blacklist-arm.c
+ create mode 100644 drivers/acpi/osi-arm.c
 
-diff --git a/drivers/pci/host-bridge.c b/drivers/pci/host-bridge.c
-index 39b2dbe..f304f26 100644
---- a/drivers/pci/host-bridge.c
-+++ b/drivers/pci/host-bridge.c
-@@ -8,6 +8,62 @@
+diff --git a/drivers/acpi/Kconfig b/drivers/acpi/Kconfig
+index 3e3bd35..4190940 100644
+--- a/drivers/acpi/Kconfig
++++ b/drivers/acpi/Kconfig
+@@ -369,6 +369,28 @@ config ACPI_REDUCED_HARDWARE_ONLY
  
- #include "pci.h"
+ 	  If you are unsure what to do, do not enable this option.
  
-+static void pci_release_host_bridge_dev(struct device *dev)
++config ACPI_ARCH_SPECIFIC_OSI
++	bool "Use an arch-specific _OSI implementation" if EXPERT
++	def_bool n
++	help
++	  If this option is set, the ACPI driver will use an
++	  implementation of _OSI that is specific to the target
++	  architecture, instead of the default implementation
++	  originally created for x86 and then used on ia64.
++
++	  If you are unsure what to do, do not enable this option.
++
++config ACPI_ARCH_SPECIFIC_BLACKLIST
++	bool "Use an arch-specific ACPI blacklist" if EXPERT
++	def_bool n
++	help
++	  If this option is set, the ACPI driver will use a blacklist
++	  that is specific to the target architecture, instead of the
++	  default implementation originally created for x86 and then
++	  used on ia64.
++
++	  If you are unsure what to do, do not enable this option.
++
+ source "drivers/acpi/apei/Kconfig"
+ 
+ config ACPI_EXTLOG
+diff --git a/drivers/acpi/Makefile b/drivers/acpi/Makefile
+index df348b3..beefb17 100644
+--- a/drivers/acpi/Makefile
++++ b/drivers/acpi/Makefile
+@@ -18,9 +18,26 @@ obj-y				+= acpi.o \
+ 					acpica/
+ 
+ # All the builtin files are in the "acpi." module_param namespace.
+-acpi-y				+= osl.o utils.o reboot.o osi.o
++acpi-y				+= osl.o utils.o reboot.o
+ acpi-y				+= nvs.o
+ 
++# _OSI related files
++ifeq ($(CONFIG_ACPI_ARCH_SPECIFIC_OSI), y)
++ifeq ($(ARCH), arm64)
++acpi-y				+= osi-arm.o
++endif
++else # X86, IA64
++acpi-y				+= osi.o
++endif
++
++ifeq ($(CONFIG_ACPI_ARCH_SPECIFIC_BLACKLIST), y)
++ifeq ($(ARCH), arm64)
++acpi-y				+= blacklist-arm.o
++endif
++else # X86, IA64
++acpi-y				+= blacklist.o
++endif
++
+ # Power management related files
+ acpi-y				+= wakeup.o
+ ifeq ($(ARCH), arm64)
+diff --git a/drivers/acpi/blacklist-arm.c b/drivers/acpi/blacklist-arm.c
+new file mode 100644
+index 0000000..1be6a56
+--- /dev/null
++++ b/drivers/acpi/blacklist-arm.c
+@@ -0,0 +1,20 @@
++/*
++ *  ARM64 Specific ACPI Blacklist Support
++ *
++ *  Copyright (C) 2015, Linaro Ltd.
++ *	Author: Al Stone <al.stone@linaro.org>
++ *
++ *  This program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License version 2 as
++ *  published by the Free Software Foundation.
++ */
++
++#define pr_fmt(fmt) "ACPI: " fmt
++
++#include <linux/acpi.h>
++
++/* The arm64 ACPI blacklist is currently empty.  */
++int __init acpi_blacklisted(void)
 +{
-+	struct pci_host_bridge *bridge = to_pci_host_bridge(dev);
-+
-+	if (bridge->release_fn)
-+		bridge->release_fn(bridge);
-+
-+	pci_free_resource_list(&bridge->windows);
-+	kfree(bridge);
++	return 0;
 +}
+diff --git a/drivers/acpi/blacklist.c b/drivers/acpi/blacklist.c
+index 3931e19..222c82d 100644
+--- a/drivers/acpi/blacklist.c
++++ b/drivers/acpi/blacklist.c
+@@ -34,9 +34,14 @@
+ 
+ #include "internal.h"
+ 
++#ifdef CONFIG_ACPI_ARCH_SPECIFIC_OSI
++void __init acpi_dmi_osi_linux(int enable, const struct dmi_system_id *d) { }
++void __init acpi_osi_setup(char *str) { }
++#else
+ extern void __init acpi_dmi_osi_linux(int enable,
+ 				      const struct dmi_system_id *d);
+ extern void __init acpi_osi_setup(char *str);
++#endif
+ 
+ enum acpi_blacklist_predicates {
+ 	all_versions,
+diff --git a/drivers/acpi/osi-arm.c b/drivers/acpi/osi-arm.c
+new file mode 100644
+index 0000000..bb351f4
+--- /dev/null
++++ b/drivers/acpi/osi-arm.c
+@@ -0,0 +1,25 @@
++/*
++ *  ARM64 Specific ACPI _OSI Support
++ *
++ *  Copyright (C) 2015, Linaro Ltd.
++ *	Author: Al Stone <al.stone@linaro.org>
++ *
++ *  This program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License version 2 as
++ *  published by the Free Software Foundation.
++ */
 +
-+struct pci_host_bridge *pci_create_host_bridge(
-+		struct device *parent, u32 db, struct list_head *resources)
++#define pr_fmt(fmt) "ACPI: " fmt
++
++#include <linux/acpi.h>
++
++/*
++ * Consensus is to deprecate _OSI for all new ACPI-supported architectures.
++ * So, for arm64, reduce _OSI to a warning message, and tell the firmware
++ * nothing of value.
++ */
++u32 acpi_osi_handler(acpi_string interface, u32 supported)
 +{
-+	int error;
-+	int bus = PCI_BUSNUM(db);
-+	int domain = PCI_DOMAIN(db);
-+	struct pci_host_bridge *host;
-+	struct resource_entry *window, *n;
-+
-+	host = kzalloc(sizeof(*host), GFP_KERNEL);
-+	if (!host)
-+		return NULL;
-+
-+	host->busnum = bus;
-+	host->domain = domain;
-+	/* If support CONFIG_PCI_DOMAINS_GENERIC, use
-+	 * pci_host_assign_domain_nr() to assign domain
-+	 * number instead PCI_DOMAIN(db).
-+	 */
-+	pci_host_assign_domain_nr(host);
-+
-+	host->dev.parent = parent;
-+	INIT_LIST_HEAD(&host->windows);
-+	host->dev.release = pci_release_host_bridge_dev;
-+	dev_set_name(&host->dev, "pci%04x:%02x", host->domain, 
-+			host->busnum);
-+
-+	error = device_register(&host->dev);
-+	if (error) {
-+		put_device(&host->dev);
-+		return NULL;
-+	}
-+
-+	resource_list_for_each_entry_safe(window, n, resources)
-+		list_move_tail(&window->node, &host->windows);
-+
-+	return host;
++	pr_warn("_OSI was called, but is deprecated for this architecture.\n");
++	return false;
 +}
-+EXPORT_SYMBOL(pci_create_host_bridge);
-+
-+void pci_free_host_bridge(struct pci_host_bridge *host)
-+{
-+	device_unregister(&host->dev);
-+}
-+
- static struct pci_bus *find_pci_root_bus(struct pci_bus *bus)
- {
- 	while (bus->parent)
-diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
-index ef57da1..20e9206 100644
---- a/drivers/pci/probe.c
-+++ b/drivers/pci/probe.c
-@@ -502,31 +502,6 @@ static struct pci_bus *pci_alloc_bus(struct pci_bus *parent)
- 	return b;
- }
- 
--static void pci_release_host_bridge_dev(struct device *dev)
--{
--	struct pci_host_bridge *bridge = to_pci_host_bridge(dev);
--
--	if (bridge->release_fn)
--		bridge->release_fn(bridge);
--
--	pci_free_resource_list(&bridge->windows);
--
--	kfree(bridge);
--}
--
--static struct pci_host_bridge *pci_alloc_host_bridge(struct pci_bus *b)
--{
--	struct pci_host_bridge *bridge;
--
--	bridge = kzalloc(sizeof(*bridge), GFP_KERNEL);
--	if (!bridge)
--		return NULL;
--
--	INIT_LIST_HEAD(&bridge->windows);
--	bridge->bus = b;
--	return bridge;
--}
--
- static const unsigned char pcix_bus_speed[] = {
- 	PCI_SPEED_UNKNOWN,		/* 0 */
- 	PCI_SPEED_66MHz_PCIX,		/* 1 */
-@@ -1889,54 +1864,41 @@ void __weak pcibios_remove_bus(struct pci_bus *bus)
- {
- }
- 
--struct pci_bus *pci_create_root_bus(struct device *parent, u32 db,
--		struct pci_ops *ops, void *sysdata, struct list_head *resources)
-+static struct pci_bus *__pci_create_root_bus(
-+		struct pci_host_bridge *bridge, struct pci_ops *ops,
-+		void *sysdata)
- {
- 	int error;
--	struct pci_host_bridge *bridge;
- 	struct pci_bus *b, *b2;
--	struct resource_entry *window, *n;
-+	struct resource_entry *window;
-+	struct device *parent;
- 	struct resource *res;
- 	resource_size_t offset;
- 	char bus_addr[64];
- 	char *fmt;
--	u8	bus = PCI_BUSNUM(db);
- 
-+	parent = bridge->dev.parent;
- 	b = pci_alloc_bus(NULL);
- 	if (!b)
- 		return NULL;
- 
- 	b->sysdata = sysdata;
- 	b->ops = ops;
--	b->number = b->busn_res.start = bus;
-+	b->number = b->busn_res.start = bridge->busnum;
- 	pci_bus_assign_domain_nr(b, parent);
--	b2 = pci_find_bus(pci_domain_nr(b), bus);
-+	b2 = pci_find_bus(pci_domain_nr(b), b->number);
- 	if (b2) {
- 		/* If we already got to this bus through a different bridge, ignore it */
- 		dev_dbg(&b2->dev, "bus already known\n");
- 		goto err_out;
- 	}
- 
--	bridge = pci_alloc_host_bridge(b);
--	if (!bridge)
--		goto err_out;
--
--	bridge->domain = PCI_DOMAIN(db);
--	bridge->dev.parent = parent;
--	bridge->dev.release = pci_release_host_bridge_dev;
--	dev_set_name(&bridge->dev, "pci%04x:%02x", pci_domain_nr(b), bus);
-+	bridge->bus = b;
-+	b->bridge = get_device(&bridge->dev);
- 	error = pcibios_root_bridge_prepare(bridge);
--	if (error) {
--		kfree(bridge);
-+	if (error)
- 		goto err_out;
--	}
- 
--	error = device_register(&bridge->dev);
--	if (error) {
--		put_device(&bridge->dev);
--		goto err_out;
--	}
--	b->bridge = get_device(&bridge->dev);
- 	device_enable_async_suspend(b->bridge);
- 	pci_set_bus_of_node(b);
- 
-@@ -1945,10 +1907,11 @@ struct pci_bus *pci_create_root_bus(struct device *parent, u32 db,
- 
- 	b->dev.class = &pcibus_class;
- 	b->dev.parent = b->bridge;
--	dev_set_name(&b->dev, "%04x:%02x", pci_domain_nr(b), bus);
-+	dev_set_name(&b->dev, "%04x:%02x", bridge->domain, 
-+			b->number);
- 	error = device_register(&b->dev);
- 	if (error)
--		goto class_dev_reg_err;
-+		goto err_out;
- 
- 	pcibios_add_bus(b);
- 
-@@ -1961,12 +1924,11 @@ struct pci_bus *pci_create_root_bus(struct device *parent, u32 db,
- 		printk(KERN_INFO "PCI host bridge to bus %s\n", dev_name(&b->dev));
- 
- 	/* Add initial resources to the bus */
--	resource_list_for_each_entry_safe(window, n, resources) {
--		list_move_tail(&window->node, &bridge->windows);
-+	resource_list_for_each_entry(window, &bridge->windows) {
- 		res = window->res;
- 		offset = window->offset;
- 		if (res->flags & IORESOURCE_BUS)
--			pci_bus_insert_busn_res(b, bus, res->end);
-+			pci_bus_insert_busn_res(b, b->number, res->end);
- 		else
- 			pci_bus_add_resource(b, res, 0);
- 		if (offset) {
-@@ -1988,14 +1950,23 @@ struct pci_bus *pci_create_root_bus(struct device *parent, u32 db,
- 
- 	return b;
- 
--class_dev_reg_err:
--	put_device(&bridge->dev);
--	device_unregister(&bridge->dev);
- err_out:
- 	kfree(b);
- 	return NULL;
- }
- 
-+struct pci_bus *pci_create_root_bus(struct device *parent, u32 db,
-+		struct pci_ops *ops, void *sysdata, struct list_head *resources)
-+{
-+	struct pci_host_bridge *host;
-+
-+	host = pci_create_host_bridge(parent, db, resources);
-+	if (!host)
-+		return NULL;
-+	
-+	return __pci_create_root_bus(host, ops, sysdata);
-+}
-+
- int pci_bus_insert_busn_res(struct pci_bus *b, int bus, int bus_max)
- {
- 	struct resource *res = &b->busn_res;
-@@ -2059,29 +2030,32 @@ void pci_bus_release_busn_res(struct pci_bus *b)
- 			res, ret ? "can not be" : "is");
- }
- 
--struct pci_bus *pci_scan_root_bus(struct device *parent, u32 db,
--		struct pci_ops *ops, void *sysdata, struct list_head *resources)
-+static struct pci_bus *__pci_scan_root_bus(
-+		struct pci_host_bridge *host, struct pci_ops *ops,
-+		void *sysdata)
- {
- 	struct resource_entry *window;
- 	bool found = false;
- 	struct pci_bus *b;
- 	int max;
- 
--	resource_list_for_each_entry(window, resources)
-+	resource_list_for_each_entry(window, &host->windows)
- 		if (window->res->flags & IORESOURCE_BUS) {
- 			found = true;
- 			break;
- 		}
- 
--	b = pci_create_root_bus(parent, db, ops, sysdata, resources);
--	if (!b)
-+	b = __pci_create_root_bus(host, ops, sysdata);
-+	if (!b) {
-+		pci_free_host_bridge(host);
- 		return NULL;
-+	}
- 
- 	if (!found) {
- 		dev_info(&b->dev,
- 		 "No busn resource found for root bus, will use [bus %02x-ff]\n",
--			PCI_BUSNUM(db));
--		pci_bus_insert_busn_res(b, PCI_BUSNUM(db), 255);
-+			host->busnum);
-+		pci_bus_insert_busn_res(b, b->number, 255);
- 	}
- 
- 	max = pci_scan_child_bus(b);
-@@ -2091,6 +2065,18 @@ struct pci_bus *pci_scan_root_bus(struct device *parent, u32 db,
- 
- 	return b;
- }
-+
-+struct pci_bus *pci_scan_root_bus(struct device *parent, u32 db,
-+		struct pci_ops *ops, void *sysdata, struct list_head *resources)
-+{
-+	struct pci_host_bridge *host;
-+
-+	host = pci_create_host_bridge(parent, db, resources);
-+	if (!host)
-+		return NULL;
-+
-+	return __pci_scan_root_bus(host, ops, sysdata);
-+}
- EXPORT_SYMBOL(pci_scan_root_bus);
- 
- struct pci_bus *pci_scan_bus_legacy(u32 db, struct pci_ops *ops,
-diff --git a/include/linux/pci.h b/include/linux/pci.h
-index efd9917..13b6b25 100644
---- a/include/linux/pci.h
-+++ b/include/linux/pci.h
-@@ -402,6 +402,7 @@ static inline int pci_channel_offline(struct pci_dev *pdev)
- 
- struct pci_host_bridge {
- 	u16	domain;
-+	u16 busnum;
- 	struct device dev;
- 	struct pci_bus *bus;		/* root bus */
- 	struct list_head windows;	/* resource_entry */
-@@ -415,7 +416,8 @@ void pci_set_host_bridge_release(struct pci_host_bridge *bridge,
- 		     void *release_data);
- 
- int pcibios_root_bridge_prepare(struct pci_host_bridge *bridge);
--
-+struct pci_host_bridge *pci_create_host_bridge(
-+		struct device *parent, u32 dombus, struct list_head *resources);
- /*
-  * The first PCI_BRIDGE_RESOURCE_NUM PCI bus resources (those that correspond
-  * to P2P or CardBus bridge windows) go in a table.  Additional ones (for
-@@ -774,6 +776,7 @@ struct pci_bus *pci_scan_bus_legacy(u32 dombus, struct pci_ops *ops, void *sysda
- struct pci_bus *pci_create_root_bus(struct device *parent, u32 dombus,
- 				    struct pci_ops *ops, void *sysdata,
- 				    struct list_head *resources);
-+void pci_free_host_bridge(struct pci_host_bridge *host);
- int pci_bus_insert_busn_res(struct pci_bus *b, int bus, int busmax);
- int pci_bus_update_busn_res_end(struct pci_bus *b, int busmax);
- void pci_bus_release_busn_res(struct pci_bus *b);
 -- 
-1.7.1
+2.1.0
 
