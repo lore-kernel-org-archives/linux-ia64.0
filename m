@@ -1,71 +1,45 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Thu, 26 Feb 2015 08:12:13 +0000
-Subject: [PATCH v4 19/30] PCI: Remove weak pcibios_root_bridge_prepare()
-Message-Id: <1424938344-4017-20-git-send-email-wangyijing@huawei.com>
+From: David Vrabel <david.vrabel@citrix.com>
+Date: Thu, 05 Feb 2015 10:05:01 +0000
+Subject: Re: [Xen-devel] [Patch v4 01/23] ACPICA: Resources: Provide common part for struct acpi_resource_add
+Message-Id: <54D3404D.90404@citrix.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1424938344-4017-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1424938344-4017-1-git-send-email-wangyijing@huawei.com>
+References: <1423115089-12904-1-git-send-email-jiang.liu@linux.intel.com> <1423115089-12904-2-git-send-email-jiang.liu@linux.intel.com>
+In-Reply-To: <1423115089-12904-2-git-send-email-jiang.liu@linux.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>
+To: Jiang Liu <jiang.liu@linux.intel.com>, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Thomas Gleixner <tglx@linutronix.de>, Bjorn Helgaas <bhelgaas@google.com>, Yinghai Lu <yinghai@kernel.org>, Borislav Petkov <bp@alien8.de>, Lv Zheng <lv.zheng@intel.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, Len Brown <lenb@kernel.org>, Robert Moore <robert.moore@intel.com>, Clemens Ladisch <clemens@ladisch.de>, Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, "K. Y. Srinivasan" <kys@microsoft.com>, Haiyang Zhang <haiyangz@microsoft.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, David Vrabel <david.vrabel@citrix.com>
+Cc: linux-ia64@vger.kernel.org, linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, xen-devel@lists.xenproject.org, devel@linuxdriverproject.org, devel@acpica.org
 
-Now no one use weak pcibios_root_bridge_prepare(),
-we could remove it.
+On 05/02/15 05:44, Jiang Liu wrote:
+> 
+> --- a/drivers/xen/xen-acpi-memhotplug.c
+> +++ b/drivers/xen/xen-acpi-memhotplug.c
+> @@ -117,8 +117,8 @@ acpi_memory_get_resource(struct acpi_resource *resource, void *context)
+>  	list_for_each_entry(info, &mem_device->res_list, list) {
+>  		if ((info->caching = address64.info.mem.caching) &&
+>  		    (info->write_protect = address64.info.mem.write_protect) &&
+> -		    (info->start_addr + info->length = address64.minimum)) {
+> -			info->length += address64.address_length;
+> +		    (info->start_addr + info->length = address64.address.minimum)) {
+> +			info->length += address64.address.address_length;
+>  			return AE_OK;
+>  		}
+>  	}
+> @@ -130,8 +130,8 @@ acpi_memory_get_resource(struct acpi_resource *resource, void *context)
+>  	INIT_LIST_HEAD(&new->list);
+>  	new->caching = address64.info.mem.caching;
+>  	new->write_protect = address64.info.mem.write_protect;
+> -	new->start_addr = address64.minimum;
+> -	new->length = address64.address_length;
+> +	new->start_addr = address64.address.minimum;
+> +	new->length = address64.address.address_length;
+>  	list_add_tail(&new->list, &mem_device->res_list);
+>  
+>  	return AE_OK;
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
----
- drivers/pci/probe.c |   15 ---------------
- include/linux/pci.h |    2 --
- 2 files changed, 0 insertions(+), 17 deletions(-)
+Xen parts:
 
-diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
-index b5f9ca4..356c90f 100644
---- a/drivers/pci/probe.c
-+++ b/drivers/pci/probe.c
-@@ -1844,18 +1844,6 @@ unsigned int pci_scan_child_bus(struct pci_bus *bus)
- }
- EXPORT_SYMBOL_GPL(pci_scan_child_bus);
- 
--/**
-- * pcibios_root_bridge_prepare - Platform-specific host bridge setup.
-- * @bridge: Host bridge to set up.
-- *
-- * Default empty implementation.  Replace with an architecture-specific setup
-- * routine, if necessary.
-- */
--int __weak pcibios_root_bridge_prepare(struct pci_host_bridge *bridge)
--{
--	return 0;
--}
--
- void __weak pcibios_add_bus(struct pci_bus *bus)
- {
- }
-@@ -1890,9 +1878,6 @@ static struct pci_bus *__pci_create_root_bus(
- 	b->bridge = get_device(&bridge->dev);
- 	if (bridge->ops && bridge->ops->phb_set_root_bus_speed)
- 		bridge->ops->phb_set_root_bus_speed(bridge);
--	error = pcibios_root_bridge_prepare(bridge);
--	if (error)
--		goto err_out;
- 
- 	device_enable_async_suspend(b->bridge);
- 	pci_set_bus_of_node(b);
-diff --git a/include/linux/pci.h b/include/linux/pci.h
-index ef3a821..3c4413c 100644
---- a/include/linux/pci.h
-+++ b/include/linux/pci.h
-@@ -423,8 +423,6 @@ struct pci_host_bridge {
- void pci_set_host_bridge_release(struct pci_host_bridge *bridge,
- 		     void (*release_fn)(struct pci_host_bridge *),
- 		     void *release_data);
--
--int pcibios_root_bridge_prepare(struct pci_host_bridge *bridge);
- struct pci_host_bridge *pci_create_host_bridge(
- 		struct device *parent, u32 dombus, struct list_head *resources, 
- 		void *sysdata, struct pci_host_bridge_ops *ops);
--- 
-1.7.1
+Acked-by: David Vrabel <david.vrabel@citrix.com>
 
+David
