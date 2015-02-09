@@ -1,89 +1,32 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Thu, 26 Feb 2015 08:12:14 +0000
-Subject: [PATCH v4 20/30] PCI/sparc: Use pci_scan_root_bridge() for simplicity
-Message-Id: <1424938344-4017-21-git-send-email-wangyijing@huawei.com>
+From: Mike Frysinger <vapier@gentoo.org>
+Date: Mon, 09 Feb 2015 19:24:47 +0000
+Subject: [PATCH] KVM: ia64: drop kvm.h from installed user headers
+Message-Id: <1423509887-4822-1-git-send-email-vapier@gentoo.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1424938344-4017-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1424938344-4017-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>, sparclinux@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Now we could use pci_scan_root_bridge() to scan
-pci buses, provide sparc specific pci_host_bridge_ops.
+The header was deleted, so stop trying to install it.
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
-CC: "David S. Miller" <davem@davemloft.net>
-CC: sparclinux@vger.kernel.org
+Signed-off-by: Mike Frysinger <vapier@gentoo.org>
 ---
- arch/sparc/kernel/pci.c |   32 ++++++++++++++++++++++----------
- 1 files changed, 22 insertions(+), 10 deletions(-)
+ arch/ia64/include/uapi/asm/Kbuild | 1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/arch/sparc/kernel/pci.c b/arch/sparc/kernel/pci.c
-index 0af7c58..03e7376 100644
---- a/arch/sparc/kernel/pci.c
-+++ b/arch/sparc/kernel/pci.c
-@@ -650,12 +650,25 @@ static void pci_claim_bus_resources(struct pci_bus *bus)
- 		pci_claim_bus_resources(child_bus);
- }
- 
-+static void pci_host_bridge_of_scan_bus(
-+		struct pci_host_bridge *host)
-+{
-+	struct pci_pbm_info *pbm = dev_get_drvdata(&host->dev);
-+	struct device_node *node = pbm->op->dev.of_node;
-+
-+	pci_of_scan_bus(pbm, node, host->bus);
-+}
-+
-+static struct pci_host_bridge_ops phb_ops = {
-+	.phb_of_scan_bus = pci_host_bridge_of_scan_bus,
-+};
-+
- struct pci_bus *pci_scan_one_pbm(struct pci_pbm_info *pbm,
- 				 struct device *parent)
- {
- 	LIST_HEAD(resources);
- 	struct device_node *node = pbm->op->dev.of_node;
--	struct pci_bus *bus;
-+	struct pci_host_bridge *host;
- 
- 	printk("PCI: Scanning PBM %s\n", node->full_name);
- 
-@@ -667,23 +680,22 @@ struct pci_bus *pci_scan_one_pbm(struct pci_pbm_info *pbm,
- 	pbm->busn.end	= pbm->pci_last_busno;
- 	pbm->busn.flags	= IORESOURCE_BUS;
- 	pci_add_resource(&resources, &pbm->busn);
--	bus = pci_create_root_bus(parent, 
-+	host = pci_scan_root_bridge(parent, 
- 			PCI_DOMBUS(pbm->index, pbm->pci_first_busno), 
--			pbm->pci_ops, pbm, &resources);
--	if (!bus) {
--		printk(KERN_ERR "Failed to create bus for %s\n",
-+			pbm->pci_ops, pbm, &resources, &phb_ops);
-+	if (!host) {
-+		printk(KERN_ERR "Failed to create host bridge for %s\n",
- 		       node->full_name);
- 		pci_free_resource_list(&resources);
- 		return NULL;
- 	}
- 
--	pci_of_scan_bus(pbm, node, bus);
--	pci_bus_add_devices(bus);
--	pci_bus_register_of_sysfs(bus);
-+	pci_bus_add_devices(host->bus);
-+	pci_bus_register_of_sysfs(host->bus);
- 
--	pci_claim_bus_resources(bus);
-+	pci_claim_bus_resources(host->bus);
- 
--	return bus;
-+	return host->bus;
- }
- 
- void pcibios_fixup_bus(struct pci_bus *pbus)
+diff --git a/arch/ia64/include/uapi/asm/Kbuild b/arch/ia64/include/uapi/asm/Kbuild
+index 1b3f5eb..891002b 100644
+--- a/arch/ia64/include/uapi/asm/Kbuild
++++ b/arch/ia64/include/uapi/asm/Kbuild
+@@ -18,7 +18,6 @@ header-y += intrinsics.h
+ header-y += ioctl.h
+ header-y += ioctls.h
+ header-y += ipcbuf.h
+-header-y += kvm.h
+ header-y += kvm_para.h
+ header-y += mman.h
+ header-y += msgbuf.h
 -- 
-1.7.1
+2.2.1
 
