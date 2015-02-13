@@ -1,91 +1,34 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Thu, 26 Feb 2015 01:29:31 +0000
-Subject: [PATCH v3 14/30] PCI/x86: Refine pci_acpi_scan_root() with generic pci_host_bridge
-Message-Id: <1424914187-21027-15-git-send-email-wangyijing@huawei.com>
+From: Sheng Yong <shengyong1@huawei.com>
+Date: Fri, 13 Feb 2015 09:01:19 +0000
+Subject: [PATCH] mm: Use macro to switch between section and pfn
+Message-Id: <1423818079-202291-1-git-send-email-shengyong1@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1424914187-21027-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1424914187-21027-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>
+To: linux-ia64@vger.kernel.org
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
-CC: Thomas Gleixner <tglx@linutronix.de>
-CC: x86@kernel.org
+Use macro section_nr_to_pfn and pfn_to_section_nr to switch between section
+and pfn, instead of bit operations, no semantic changes.
+
+Signed-off-by: Sheng Yong <shengyong1@huawei.com>
 ---
- arch/x86/pci/acpi.c |   36 ++++++++++++++++++++----------------
- 1 files changed, 20 insertions(+), 16 deletions(-)
+ arch/ia64/mm/numa.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/x86/pci/acpi.c b/arch/x86/pci/acpi.c
-index 5bfe983..3feb12c 100644
---- a/arch/x86/pci/acpi.c
-+++ b/arch/x86/pci/acpi.c
-@@ -349,6 +349,18 @@ static void probe_pci_root_info(struct pci_root_info *info,
- 			entry->res->name = info->name;
- }
- 
-+static int pci_host_bridge_prepare(struct pci_host_bridge *bridge)
-+{
-+	struct pci_sysdata *sd = dev_get_drvdata(&bridge->dev);
-+
-+	ACPI_COMPANION_SET(&bridge->dev, sd->companion);
-+	return 0;
-+}
-+
-+static struct pci_host_bridge_ops phb_ops = {
-+	.phb_prepare = pci_host_bridge_prepare,
-+};
-+
- struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
+diff --git a/arch/ia64/mm/numa.c b/arch/ia64/mm/numa.c
+index ea21d4c..40287c7 100644
+--- a/arch/ia64/mm/numa.c
++++ b/arch/ia64/mm/numa.c
+@@ -60,7 +60,7 @@ paddr_to_nid(unsigned long paddr)
+  */
+ int __meminit __early_pfn_to_nid(unsigned long pfn)
  {
- 	struct acpi_device *device = root->device;
-@@ -359,6 +371,7 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
- 	LIST_HEAD(crs_res);
- 	LIST_HEAD(resources);
- 	struct pci_bus *bus;
-+	struct pci_host_bridge *host = NULL;
- 	struct pci_sysdata *sd;
- 	int node;
- 
-@@ -425,14 +438,13 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
- 
- 		if (!setup_mcfg_map(info, domain, (u8)root->secondary.start,
- 					(u8)root->secondary.end, root->mcfg_addr)) 
--			bus = pci_create_root_bus(NULL, PCI_DOMBUS(domain, busnum), 
--					&pci_root_ops, sd, &resources);
--
--		if (bus) {
--			pci_scan_child_bus(bus);
--			pci_set_host_bridge_release(
--				to_pci_host_bridge(bus->bridge),
--				release_pci_root_info, info);
-+			host = pci_scan_root_bridge(NULL, PCI_DOMBUS(domain, busnum),
-+					&pci_root_ops, sd, &resources, &phb_ops);
-+
-+		if (host) {
-+			bus = host->bus;
-+			pci_set_host_bridge_release(host, release_pci_root_info,
-+					info);
- 		} else {
- 			resource_list_free(&resources);
- 			teardown_mcfg_map(info);
-@@ -455,14 +467,6 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
- 	return bus;
- }
- 
--int pcibios_root_bridge_prepare(struct pci_host_bridge *bridge)
--{
--	struct pci_sysdata *sd = bridge->bus->sysdata;
--
--	ACPI_COMPANION_SET(&bridge->dev, sd->companion);
--	return 0;
--}
--
- int __init pci_acpi_init(void)
- {
- 	struct pci_dev *dev = NULL;
+-	int i, section = pfn >> PFN_SECTION_SHIFT, ssec, esec;
++	int i, section = pfn_to_section_nr(pfn), ssec, esec;
+ 	/*
+ 	 * NOTE: The following SMP-unsafe globals are only used early in boot
+ 	 * when the kernel is running single-threaded.
 -- 
-1.7.1
+1.8.3.4
 
