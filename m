@@ -1,60 +1,29 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Mon, 16 Feb 2015 03:28:25 +0000
+From: Bjorn Helgaas <bhelgaas@google.com>
+Date: Wed, 25 Feb 2015 23:09:25 +0000
 Subject: Re: [PATCH v2 00/30] Refine PCI scan interfaces and make generic pci host bridge
-Message-Id: <54E163D9.3050107@huawei.com>
+Message-Id: <20150225230925.GQ6220@google.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1421800225-26230-1-git-send-email-wangyijing@huawei.com>	 <20150214194552.GA3932@e102568-lin.cambridge.arm.com>	 <54E14562.30407@huawei.com> <1424056424.21410.33.camel@kernel.crashing.org>
-In-Reply-To: <1424056424.21410.33.camel@kernel.crashing.org>
+References: <1421800225-26230-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1421800225-26230-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Cc: Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>, Bjorn Helgaas <bhelgaas@google.com>, Jiang Liu <jiang.liu@linux.intel.com>, "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>, Yinghai Lu <yinghai@kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Marc Zyngier <Marc.Zyngier@arm.com>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, Russell King <linux@arm.linux.org.uk>, "x86@kernel.org" <x86@kernel.org>, Thomas Gleixner <tglx@linutronix.de>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, "linux-alpha@vger.kernel.org" <linux-alpha@vger.kernel.org>, "linux-m68k@vger.kernel.org" <linux-m68k@vger.kernel.org>, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>
+To: Yijing Wang <wangyijing@huawei.com>
+Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>
 
-On 2015/2/16 11:13, Benjamin Herrenschmidt wrote:
-> On Mon, 2015-02-16 at 09:18 +0800, Yijing Wang wrote:
->>>> I tested this series on x86 (with or without ACPI).
->>>> Comments and tests are warmly welcome!
->>>
->>> Can you push a public branch out rebased against mainline for us to pull
->>> and test please ?
->>
->> Hi Lorenzo, I rebased the series and you could pull it from git@github.com:YijingWang/linux-pci.git for-gen-host-v2
->>
->> Thank you to help test!
+On Wed, Jan 21, 2015 at 08:29:55AM +0800, Yijing Wang wrote:
+> v1->v2:
+> 	Split pci_host_bridge_list into a new patch, remove .phb_probe_mode
+> 	and rework powerpc .phb_of_scan_bus() for simpilicty suggested by
+> 	Arnd. Refresh some patch description log, and add a new patch to fix
+> 	build warning in ia64.
 > 
-> Thanks, I'll try to spend some time reviewing and testing this on
-> powerpc as well.
+> This series is based on Bjorn's pci-next branch.
 
-Thanks very much!
+Hi Yijing,
 
-Thanks!
-Yijing.
+Would you mind rebasing this to v4.0-rc1?  It doesn't apply quite cleanly
+any more.
 
-> 
-> Cheers,
-> Ben.
-> 
->> Thanks!
->> Yijing.
->>
->>>
->>> Thanks !
->>> Lorenzo
->>>
->>>
->>> .
->>>
->>
->>
-> 
-> 
-> 
-> .
-> 
-
-
--- 
-Thanks!
-Yijing
-
+Thanks,
+  Bjorn
