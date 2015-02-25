@@ -1,81 +1,32 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Thu, 26 Feb 2015 08:12:02 +0000
-Subject: [PATCH v4 08/30] PCI: Introduce pci_host_assign_domain_nr() to assign domain
-Message-Id: <1424938344-4017-9-git-send-email-wangyijing@huawei.com>
+From: Hanjun Guo <hanjun.guo@linaro.org>
+Date: Wed, 25 Feb 2015 12:59:53 +0000
+Subject: Re: [Linaro-acpi] [PATCH v3 3/9] ACPI: clean up checkpatch warnings for various bits of syntax
+Message-Id: <54EDC749.8080200@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1424938344-4017-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1424938344-4017-1-git-send-email-wangyijing@huawei.com>
+References: <1424824585-6405-1-git-send-email-al.stone@linaro.org> <1424824585-6405-4-git-send-email-al.stone@linaro.org>
+In-Reply-To: <1424824585-6405-4-git-send-email-al.stone@linaro.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: al.stone@linaro.org, rjw@rjwysocki.net, lenb@kernel.org, catalin.marinas@arm.com, will.deacon@arm.com, robert.moore@intel.com, tony.luck@intel.com, fenghua.yu@intel.com
+Cc: linaro-kernel@lists.linaro.org, linux-ia64@vger.kernel.org, linaro-acpi@lists.linaro.org, patches@linaro.org, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org, devel@acpica.org
 
-Introduce pci_host_assign_domain_nr() to assign domain
-number for pci_host_bridge. Later we will remove
-pci_bus_assign_domain_nr().
+On 2015年02月25日 08:36, al.stone@linaro.org wrote:
+> From: Al Stone<al.stone@linaro.org>
+>
+> In preparation for later splitting out some of the arch-dependent code from
+> osl.c, clean up a bunch of warnings for odd bits of syntax:
+>
+>     -- remove CVS keyword markers
+>     -- remove a space from between a function name and an opening parenthesis
+>     -- clean up all but one line > 80 characters (one just looks silly if you
+>        make it less than 80)
+>     -- add blank lines after declarations in functions
+>     -- remove extraneous braces ({})
+>
+> Signed-off-by: Al Stone<al.stone@linaro.org>
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
----
- drivers/pci/pci.c   |   14 +++++++++++---
- include/linux/pci.h |    4 ++++
- 2 files changed, 15 insertions(+), 3 deletions(-)
+Reviewd-by: Hanjun Guo <hanjun.guo@linaro.org>
 
-diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
-index 81f06e8..d9e7645 100644
---- a/drivers/pci/pci.c
-+++ b/drivers/pci/pci.c
-@@ -4501,10 +4501,10 @@ int pci_get_new_domain_nr(void)
- }
- 
- #ifdef CONFIG_PCI_DOMAINS_GENERIC
--void pci_bus_assign_domain_nr(struct pci_bus *bus, struct device *parent)
-+static int pci_assign_domain_nr(struct device *dev)
- {
- 	static int use_dt_domains = -1;
--	int domain = of_get_pci_domain_nr(parent->of_node);
-+	int domain = of_get_pci_domain_nr(dev->of_node);
- 
- 	/*
- 	 * Check DT domain and use_dt_domains values.
-@@ -4542,8 +4542,16 @@ void pci_bus_assign_domain_nr(struct pci_bus *bus, struct device *parent)
- 			parent->of_node->full_name);
- 		domain = -1;
- 	}
-+}
- 
--	bus->domain_nr = domain;
-+void pci_host_assign_domain_nr(struct pci_host_bridge *host)
-+{
-+	host->domain = pci_assign_domain_nr(host->dev.parent);
-+}
-+
-+void pci_bus_assign_domain_nr(struct pci_bus *bus, struct device *parent)
-+{
-+	bus->domain_nr = pci_assign_domain_nr(parent);
- }
- #endif
- #endif
-diff --git a/include/linux/pci.h b/include/linux/pci.h
-index a11fb55..efd9917 100644
---- a/include/linux/pci.h
-+++ b/include/linux/pci.h
-@@ -1327,11 +1327,15 @@ static inline int pci_domain_nr(struct pci_bus *bus)
- 	return bus->domain_nr;
- }
- void pci_bus_assign_domain_nr(struct pci_bus *bus, struct device *parent);
-+void pci_host_assign_domain_nr(struct pci_host_bridge *host);
- #else
- static inline void pci_bus_assign_domain_nr(struct pci_bus *bus,
- 					struct device *parent)
- {
- }
-+static inline void pci_host_assign_domain_nr(struct pci_host_bridge *host)
-+{
-+}
- #endif
- 
- /* some architectures require additional setup to direct VGA traffic */
--- 
-1.7.1
-
+Thanks
+Hanjun
