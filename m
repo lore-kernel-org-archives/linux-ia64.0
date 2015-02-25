@@ -1,68 +1,148 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Thu, 26 Feb 2015 08:12:17 +0000
-Subject: [PATCH v4 23/30] PCI/mvebu: Use pci_common_init_dev() to simplify code
-Message-Id: <1424938344-4017-24-git-send-email-wangyijing@huawei.com>
+From: al.stone@linaro.org
+Date: Wed, 25 Feb 2015 00:36:20 +0000
+Subject: [PATCH v3 4/9] ACPI: clean up checkpatch warnings for items with possible semantic value
+Message-Id: <1424824585-6405-5-git-send-email-al.stone@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1424938344-4017-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1424938344-4017-1-git-send-email-wangyijing@huawei.com>
+References: <1424824585-6405-1-git-send-email-al.stone@linaro.org>
+In-Reply-To: <1424824585-6405-1-git-send-email-al.stone@linaro.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>, Thomas Petazzoni <thomas.petazzoni@free-electrons.com>, Jason Cooper <jason@lakedaemon.net>
+To: rjw@rjwysocki.net, lenb@kernel.org, catalin.marinas@arm.com, will.deacon@arm.com, robert.moore@intel.com, tony.luck@intel.com, fenghua.yu@intel.com
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org, linux-arm-kernel@lists.infradead.org, linaro-acpi@lists.linaro.org, linaro-kernel@lists.linaro.org, patches@linaro.org
 
-Mvebu_pcie_scan_bus() is not necessary, we could use
-pci_common_init_dev() instead of pci_common_init(),
-and pass the device pointer as the parent. Then
-pci_scan_root_bus() will be called to scan the pci busses.
+From: Al Stone <al.stone@linaro.org>
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
-CC: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-CC: Jason Cooper <jason@lakedaemon.net>
+In preparation for later splitting out some of the arch-dependent code from
+osl.c, clean up some warnings from checkpatch that fall into more semantic
+issues; none of these should change functionality, but they do touch lines
+of code with semantic significance:
+
+   -- replaced #include <asm/foo.h> with #include <linux/foo.h>
+   -- replaced extern that was only being used for sizeof() with a #define
+   -- removed use of else after breaks/returns when not useful
+   -- moved __initdata to the proper place in a definition
+   -- moved EXPORT_SYMBOL to a line immediately after the function
+   -- removed unnecessary return statements from void functions
+
+Signed-off-by: Al Stone <al.stone@linaro.org>
 ---
- drivers/pci/host/pci-mvebu.c |   18 +-----------------
- 1 files changed, 1 insertions(+), 17 deletions(-)
+ drivers/acpi/osl.c | 31 ++++++++++---------------------
+ 1 file changed, 10 insertions(+), 21 deletions(-)
 
-diff --git a/drivers/pci/host/pci-mvebu.c b/drivers/pci/host/pci-mvebu.c
-index 1309cfb..d5a2b70 100644
---- a/drivers/pci/host/pci-mvebu.c
-+++ b/drivers/pci/host/pci-mvebu.c
-@@ -750,21 +750,6 @@ static int mvebu_pcie_setup(int nr, struct pci_sys_data *sys)
- 	return 1;
+diff --git a/drivers/acpi/osl.c b/drivers/acpi/osl.c
+index 46317ff..af6dda7 100644
+--- a/drivers/acpi/osl.c
++++ b/drivers/acpi/osl.c
+@@ -40,9 +40,8 @@
+ #include <linux/list.h>
+ #include <linux/jiffies.h>
+ #include <linux/semaphore.h>
+-
+-#include <asm/io.h>
+-#include <asm/uaccess.h>
++#include <linux/io.h>
++#include <linux/uaccess.h>
+ 
+ #include "internal.h"
+ 
+@@ -66,7 +65,7 @@ struct acpi_os_dpc {
+ int acpi_in_debugger;
+ EXPORT_SYMBOL(acpi_in_debugger);
+ 
+-extern char line_buf[80];
++#define DEBUGGER_LINE_BUFLEN	80
+ #endif				/*ENABLE_DEBUGGER */
+ 
+ static int (*__acpi_os_prepare_sleep)(u8 sleep_state, u32 pm1a_ctrl,
+@@ -268,10 +267,8 @@ acpi_physical_address __init acpi_os_get_root_pointer(void)
+ 			return efi.acpi20;
+ 		else if (efi.acpi != EFI_INVALID_TABLE_ADDR)
+ 			return efi.acpi;
+-		else {
+-			pr_err(PREFIX "System description tables not found\n");
+-			return 0;
+-		}
++		pr_err(PREFIX "System description tables not found\n");
++		return 0;
+ 	} else if (IS_ENABLED(CONFIG_ACPI_LEGACY_TABLES_LOOKUP)) {
+ 		acpi_physical_address pa = 0;
+ 
+@@ -594,7 +591,7 @@ static const char * const table_sigs[] = {
+ #define ACPI_HEADER_SIZE sizeof(struct acpi_table_header)
+ 
+ #define ACPI_OVERRIDE_TABLES 64
+-static struct cpio_data __initdata acpi_initrd_files[ACPI_OVERRIDE_TABLES];
++static struct cpio_data acpi_initrd_files[ACPI_OVERRIDE_TABLES] __initdata;
+ 
+ #define MAP_CHUNK_SIZE   (NR_FIX_BTMAPS << PAGE_SHIFT)
+ 
+@@ -806,10 +803,10 @@ static irqreturn_t acpi_irq(int irq, void *dev_id)
+ 	if (handled) {
+ 		acpi_irq_handled++;
+ 		return IRQ_HANDLED;
+-	} else {
+-		acpi_irq_not_handled++;
+-		return IRQ_NONE;
+ 	}
++
++	acpi_irq_not_handled++;
++	return IRQ_NONE;
  }
  
--static struct pci_bus *mvebu_pcie_scan_bus(int nr, struct pci_sys_data *sys)
--{
--	struct mvebu_pcie *pcie = sys_to_pcie(sys);
--	struct pci_bus *bus;
--
--	bus = pci_create_root_bus(&pcie->pdev->dev, sys->busnr,
--				  &mvebu_pcie_ops, sys, &sys->resources);
--	if (!bus)
--		return NULL;
--
--	pci_scan_child_bus(bus);
--
--	return bus;
--}
--
- static resource_size_t mvebu_pcie_align_resource(struct pci_dev *dev,
- 						 const struct resource *res,
- 						 resource_size_t start,
-@@ -808,12 +793,11 @@ static void mvebu_pcie_enable(struct mvebu_pcie *pcie)
- 	hw.nr_controllers = 1;
- 	hw.private_data   = (void **)&pcie;
- 	hw.setup          = mvebu_pcie_setup;
--	hw.scan           = mvebu_pcie_scan_bus;
- 	hw.map_irq        = of_irq_parse_and_map_pci;
- 	hw.ops            = &mvebu_pcie_ops;
- 	hw.align_resource = mvebu_pcie_align_resource;
+ acpi_status
+@@ -911,7 +908,6 @@ acpi_status acpi_os_read_port(acpi_io_address port, u32 *value, u32 width)
  
--	pci_common_init(&hw);
-+	pci_common_init_dev(&pcie->pdev->dev, &hw);
+ 	return AE_OK;
+ }
+-
+ EXPORT_SYMBOL(acpi_os_read_port);
+ 
+ acpi_status acpi_os_write_port(acpi_io_address port, u32 value, u32 width)
+@@ -927,7 +923,6 @@ acpi_status acpi_os_write_port(acpi_io_address port, u32 value, u32 width)
+ 
+ 	return AE_OK;
+ }
+-
+ EXPORT_SYMBOL(acpi_os_write_port);
+ 
+ #ifdef readq
+@@ -1362,7 +1357,7 @@ u32 acpi_os_get_line(char *buffer)
+ 	if (acpi_in_debugger) {
+ 		u32 chars;
+ 
+-		kdb_read(buffer, sizeof(line_buf));
++		kdb_read(buffer, sizeof(DEBUGGER_LINE_BUFLEN));
+ 
+ 		/* remove the CR kdb includes */
+ 		chars = strlen(buffer) - 1;
+@@ -1490,8 +1485,6 @@ static void __init set_osi_linux(unsigned int enable)
+ 		acpi_osi_setup("Linux");
+ 	else
+ 		acpi_osi_setup("!Linux");
+-
+-	return;
+ }
+ 
+ static void __init acpi_cmdline_osi_linux(unsigned int enable)
+@@ -1499,8 +1492,6 @@ static void __init acpi_cmdline_osi_linux(unsigned int enable)
+ 	osi_linux.cmdline = 1;	/* cmdline set the default and override DMI */
+ 	osi_linux.dmi = 0;
+ 	set_osi_linux(enable);
+-
+-	return;
+ }
+ 
+ void __init acpi_dmi_osi_linux(int enable, const struct dmi_system_id *d)
+@@ -1512,8 +1503,6 @@ void __init acpi_dmi_osi_linux(int enable, const struct dmi_system_id *d)
+ 
+ 	osi_linux.dmi = 1;	/* DMI knows that this box asks OSI(Linux) */
+ 	set_osi_linux(enable);
+-
+-	return;
  }
  
  /*
 -- 
-1.7.1
+2.1.0
 
