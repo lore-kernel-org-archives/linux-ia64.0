@@ -1,7 +1,7 @@
 From: al.stone@linaro.org
-Date: Wed, 25 Feb 2015 00:36:20 +0000
-Subject: [PATCH v3 4/9] ACPI: clean up checkpatch warnings for items with possible semantic value
-Message-Id: <1424824585-6405-5-git-send-email-al.stone@linaro.org>
+Date: Wed, 25 Feb 2015 00:36:25 +0000
+Subject: [PATCH v3 9/9] ACPI: arm64: use "Linux" as ACPI_OS_NAME for _OS on arm64
+Message-Id: <1424824585-6405-10-git-send-email-al.stone@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1424824585-6405-1-git-send-email-al.stone@linaro.org>
 In-Reply-To: <1424824585-6405-1-git-send-email-al.stone@linaro.org>
@@ -13,136 +13,69 @@ Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-acpi@vger.ke
 
 From: Al Stone <al.stone@linaro.org>
 
-In preparation for later splitting out some of the arch-dependent code from
-osl.c, clean up some warnings from checkpatch that fall into more semantic
-issues; none of these should change functionality, but they do touch lines
-of code with semantic significance:
+ACPI_OS_NAME is globally defined as "Microsoft Windows NT" for now.
+That doesn't make much sense in the ARM context, so set it to "Linux"
+when CONFIG_ARM64.
 
-   -- replaced #include <asm/foo.h> with #include <linux/foo.h>
-   -- replaced extern that was only being used for sizeof() with a #define
-   -- removed use of else after breaks/returns when not useful
-   -- moved __initdata to the proper place in a definition
-   -- moved EXPORT_SYMBOL to a line immediately after the function
-   -- removed unnecessary return statements from void functions
+If it is necessary to change the return value from \_OS_ (that is, return
+some value other than the default in ACPI_OS_NAME), use the kernel parameter
+"acpi_os_name=<string>".
 
+Many thanks to Rafael Wysocki for this greatly simplified form of the patch.
+
+Signed-off-by: Hanjun Guo <hanjun.guo@linaro.org>
 Signed-off-by: Al Stone <al.stone@linaro.org>
 ---
- drivers/acpi/osl.c | 31 ++++++++++---------------------
- 1 file changed, 10 insertions(+), 21 deletions(-)
+ arch/arm64/Kconfig              | 5 +++++
+ include/acpi/acconfig.h         | 2 ++
+ include/acpi/platform/aclinux.h | 4 ++++
+ 3 files changed, 11 insertions(+)
 
-diff --git a/drivers/acpi/osl.c b/drivers/acpi/osl.c
-index 46317ff..af6dda7 100644
---- a/drivers/acpi/osl.c
-+++ b/drivers/acpi/osl.c
-@@ -40,9 +40,8 @@
- #include <linux/list.h>
- #include <linux/jiffies.h>
- #include <linux/semaphore.h>
--
--#include <asm/io.h>
--#include <asm/uaccess.h>
-+#include <linux/io.h>
-+#include <linux/uaccess.h>
+diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
+index e441d28..d812113 100644
+--- a/arch/arm64/Kconfig
++++ b/arch/arm64/Kconfig
+@@ -87,6 +87,11 @@ config ARM64
+ config 64BIT
+ 	def_bool y
  
- #include "internal.h"
- 
-@@ -66,7 +65,7 @@ struct acpi_os_dpc {
- int acpi_in_debugger;
- EXPORT_SYMBOL(acpi_in_debugger);
- 
--extern char line_buf[80];
-+#define DEBUGGER_LINE_BUFLEN	80
- #endif				/*ENABLE_DEBUGGER */
- 
- static int (*__acpi_os_prepare_sleep)(u8 sleep_state, u32 pm1a_ctrl,
-@@ -268,10 +267,8 @@ acpi_physical_address __init acpi_os_get_root_pointer(void)
- 			return efi.acpi20;
- 		else if (efi.acpi != EFI_INVALID_TABLE_ADDR)
- 			return efi.acpi;
--		else {
--			pr_err(PREFIX "System description tables not found\n");
--			return 0;
--		}
-+		pr_err(PREFIX "System description tables not found\n");
-+		return 0;
- 	} else if (IS_ENABLED(CONFIG_ACPI_LEGACY_TABLES_LOOKUP)) {
- 		acpi_physical_address pa = 0;
- 
-@@ -594,7 +591,7 @@ static const char * const table_sigs[] = {
- #define ACPI_HEADER_SIZE sizeof(struct acpi_table_header)
- 
- #define ACPI_OVERRIDE_TABLES 64
--static struct cpio_data __initdata acpi_initrd_files[ACPI_OVERRIDE_TABLES];
-+static struct cpio_data acpi_initrd_files[ACPI_OVERRIDE_TABLES] __initdata;
- 
- #define MAP_CHUNK_SIZE   (NR_FIX_BTMAPS << PAGE_SHIFT)
- 
-@@ -806,10 +803,10 @@ static irqreturn_t acpi_irq(int irq, void *dev_id)
- 	if (handled) {
- 		acpi_irq_handled++;
- 		return IRQ_HANDLED;
--	} else {
--		acpi_irq_not_handled++;
--		return IRQ_NONE;
- 	}
++config ACPI_OS_NAME
++	string
++	default "Linux"
++	depends on ACPI
 +
-+	acpi_irq_not_handled++;
-+	return IRQ_NONE;
- }
+ config ARCH_PHYS_ADDR_T_64BIT
+ 	def_bool y
  
- acpi_status
-@@ -911,7 +908,6 @@ acpi_status acpi_os_read_port(acpi_io_address port, u32 *value, u32 width)
+diff --git a/include/acpi/acconfig.h b/include/acpi/acconfig.h
+index 5a0a3e5..1980bf4 100644
+--- a/include/acpi/acconfig.h
++++ b/include/acpi/acconfig.h
+@@ -69,7 +69,9 @@
+  * code that will not execute the _OSI method unless _OS matches the string
+  * below.  Therefore, change this string at your own risk.
+  */
++#ifndef ACPI_OS_NAME
+ #define ACPI_OS_NAME                    "Microsoft Windows NT"
++#endif
  
- 	return AE_OK;
- }
--
- EXPORT_SYMBOL(acpi_os_read_port);
+ /* Maximum objects in the various object caches */
  
- acpi_status acpi_os_write_port(acpi_io_address port, u32 value, u32 width)
-@@ -927,7 +923,6 @@ acpi_status acpi_os_write_port(acpi_io_address port, u32 value, u32 width)
+diff --git a/include/acpi/platform/aclinux.h b/include/acpi/platform/aclinux.h
+index 1ba7c19..a871cdd 100644
+--- a/include/acpi/platform/aclinux.h
++++ b/include/acpi/platform/aclinux.h
+@@ -69,6 +69,10 @@
+ #define ACPI_REDUCED_HARDWARE 1
+ #endif
  
- 	return AE_OK;
- }
--
- EXPORT_SYMBOL(acpi_os_write_port);
- 
- #ifdef readq
-@@ -1362,7 +1357,7 @@ u32 acpi_os_get_line(char *buffer)
- 	if (acpi_in_debugger) {
- 		u32 chars;
- 
--		kdb_read(buffer, sizeof(line_buf));
-+		kdb_read(buffer, sizeof(DEBUGGER_LINE_BUFLEN));
- 
- 		/* remove the CR kdb includes */
- 		chars = strlen(buffer) - 1;
-@@ -1490,8 +1485,6 @@ static void __init set_osi_linux(unsigned int enable)
- 		acpi_osi_setup("Linux");
- 	else
- 		acpi_osi_setup("!Linux");
--
--	return;
- }
- 
- static void __init acpi_cmdline_osi_linux(unsigned int enable)
-@@ -1499,8 +1492,6 @@ static void __init acpi_cmdline_osi_linux(unsigned int enable)
- 	osi_linux.cmdline = 1;	/* cmdline set the default and override DMI */
- 	osi_linux.dmi = 0;
- 	set_osi_linux(enable);
--
--	return;
- }
- 
- void __init acpi_dmi_osi_linux(int enable, const struct dmi_system_id *d)
-@@ -1512,8 +1503,6 @@ void __init acpi_dmi_osi_linux(int enable, const struct dmi_system_id *d)
- 
- 	osi_linux.dmi = 1;	/* DMI knows that this box asks OSI(Linux) */
- 	set_osi_linux(enable);
--
--	return;
- }
- 
- /*
++#ifdef CONFIG_ACPI_OS_NAME
++#define ACPI_OS_NAME CONFIG_ACPI_OS_NAME
++#endif
++
+ #include <linux/string.h>
+ #include <linux/kernel.h>
+ #include <linux/ctype.h>
 -- 
 2.1.0
 
