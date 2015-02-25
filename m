@@ -1,65 +1,173 @@
-From: Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>
-Date: Mon, 16 Feb 2015 17:46:29 +0000
-Subject: Re: [PATCH v2 23/30] PCI/mvebu: Use pci_common_init_dev() to simplify code
-Message-Id: <20150216174628.GA13861@red-moon>
+From: al.stone@linaro.org
+Date: Wed, 25 Feb 2015 00:36:17 +0000
+Subject: [PATCH v3 1/9] ACPI: fix all errors reported by cleanpatch.pl in osl.c
+Message-Id: <1424824585-6405-2-git-send-email-al.stone@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1421800225-26230-1-git-send-email-wangyijing@huawei.com>
- <1421800225-26230-24-git-send-email-wangyijing@huawei.com>
- <20150122184000.63ba06bb@free-electrons.com>
-In-Reply-To: <20150122184000.63ba06bb@free-electrons.com>
+References: <1424824585-6405-1-git-send-email-al.stone@linaro.org>
+In-Reply-To: <1424824585-6405-1-git-send-email-al.stone@linaro.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Cc: Yijing Wang <wangyijing@huawei.com>, Bjorn Helgaas <bhelgaas@google.com>, Jiang Liu <jiang.liu@linux.intel.com>, "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>, Yinghai Lu <yinghai@kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Marc Zyngier <Marc.Zyngier@arm.com>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, Russell King <linux@arm.linux.org.uk>, "x86@kernel.org" <x86@kernel.org>, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, "linux-alpha@vger.kernel.org" <linux-alpha@vger.kernel.org>, "linux-m68k@vger.kernel.org" <linux-m68k@vger.kernel.org>, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Jason Cooper <jason@lakedaemon.net>, Gregory =?iso-8859-1?Q?Cl=E9ment?= <gregory.clement@free-electrons.com>, Lior Amsalem <alior@marvell.com>, Nadav Haklai <nadavh@marvell.com>
+To: rjw@rjwysocki.net, lenb@kernel.org, catalin.marinas@arm.com, will.deacon@arm.com, robert.moore@intel.com, tony.luck@intel.com, fenghua.yu@intel.com
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org, linux-arm-kernel@lists.infradead.org, linaro-acpi@lists.linaro.org, linaro-kernel@lists.linaro.org, patches@linaro.org
 
-Hi Thomas,
+From: Al Stone <al.stone@linaro.org>
 
-On Thu, Jan 22, 2015 at 05:40:00PM +0000, Thomas Petazzoni wrote:
-> Dear Yijing Wang,
-> 
-> On Wed, 21 Jan 2015 08:30:18 +0800, Yijing Wang wrote:
-> > Mvebu_pcie_scan_bus() is not necessary, we could use
-> > pci_common_init_dev() instead of pci_common_init(),
-> > and pass the device pointer as the parent. Then
-> > pci_scan_root_bus() will be called to scan the pci busses.
-> > 
-> > Signed-off-by: Yijing Wang <wangyijing@huawei.com>
-> > CC: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-> > CC: Jason Cooper <jason@lakedaemon.net>
-> 
-> While I'm fine with the change to pci_common_init_dev(), I am not so
-> sure about the removal of mvebu_pcie_scan_bus(). I vaguely remember
-> that we intentionally did not use the default function for a specific
-> reason. Of course, this was a long time ago, and I don't remember the
-> reason. I would have to take a bit of time to 1/ review the archives of
-> the discussion surrounding the pcie-mvebu driver, and 2/ test your
-> patch to validate it works fine on HW.
+In preparation for later splitting out some of the arch-dependent code from
+osl.c, clean up the errors reported by checkpatch.pl.  They fell into these
+classes:
 
-I guess the reason: by providing the scan pointer to pcibios through
-the hw_pci struct you were preventing calling pci_scan_root_bus() in
-bios32.c that in turn can add devices before the resources are assigned.
+   -- remove the FSF address from the GPL notice
+   -- "foo * bar" should be "foo *bar" (and the ** variation of same)
+   -- a return is not a function, so parentheses are not required.
 
-Basically mvebu_pci_scan_bus() was doing what pci_scan_root_bus() does
-except for calling pci_bus_add_devices().
+Signed-off-by: Al Stone <al.stone@linaro.org>
+---
+ drivers/acpi/osl.c | 38 +++++++++++++++++---------------------
+ 1 file changed, 17 insertions(+), 21 deletions(-)
 
-Yijing patches remove pci_bus_add_devices() from pci_scan_root_bus() so
-his change should be fine and it actually improves the current behaviour
-which is quite hard to untangle, and not just on mvebu (I suspect
-drivers/pci/host/pcie-xilinx.c can suffer from the same problem).
+diff --git a/drivers/acpi/osl.c b/drivers/acpi/osl.c
+index 39748bb..1dc3a3b 100644
+--- a/drivers/acpi/osl.c
++++ b/drivers/acpi/osl.c
+@@ -19,10 +19,6 @@
+  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  *  GNU General Public License for more details.
+  *
+- *  You should have received a copy of the GNU General Public License
+- *  along with this program; if not, write to the Free Software
+- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+- *
+  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  *
+  */
+@@ -526,7 +522,7 @@ EXPORT_SYMBOL(acpi_os_unmap_generic_address);
+ 
+ #ifdef ACPI_FUTURE_USAGE
+ acpi_status
+-acpi_os_get_physical_address(void *virt, acpi_physical_address * phys)
++acpi_os_get_physical_address(void *virt, acpi_physical_address *phys)
+ {
+ 	if (!phys || !virt)
+ 		return AE_BAD_PARAMETER;
+@@ -543,7 +539,7 @@ static char acpi_os_name[ACPI_MAX_OVERRIDE_LEN];
+ 
+ acpi_status
+ acpi_os_predefined_override(const struct acpi_predefined_names *init_val,
+-			    acpi_string * new_val)
++			    acpi_string *new_val)
+ {
+ 	if (!init_val || !new_val)
+ 		return AE_BAD_PARAMETER;
+@@ -714,8 +710,8 @@ static void acpi_table_taint(struct acpi_table_header *table)
+ 
+ 
+ acpi_status
+-acpi_os_table_override(struct acpi_table_header * existing_table,
+-		       struct acpi_table_header ** new_table)
++acpi_os_table_override(struct acpi_table_header *existing_table,
++		       struct acpi_table_header **new_table)
+ {
+ 	if (!existing_table || !new_table)
+ 		return AE_BAD_PARAMETER;
+@@ -889,7 +885,7 @@ u64 acpi_os_get_timer(void)
+ 	return time_ns;
+ }
+ 
+-acpi_status acpi_os_read_port(acpi_io_address port, u32 * value, u32 width)
++acpi_status acpi_os_read_port(acpi_io_address port, u32 *value, u32 width)
+ {
+ 	u32 dummy;
+ 
+@@ -1046,7 +1042,7 @@ acpi_os_write_memory(acpi_physical_address phys_addr, u64 value, u32 width)
+ }
+ 
+ acpi_status
+-acpi_os_read_pci_configuration(struct acpi_pci_id * pci_id, u32 reg,
++acpi_os_read_pci_configuration(struct acpi_pci_id *pci_id, u32 reg,
+ 			       u64 *value, u32 width)
+ {
+ 	int result, size;
+@@ -1074,11 +1070,11 @@ acpi_os_read_pci_configuration(struct acpi_pci_id * pci_id, u32 reg,
+ 				reg, size, &value32);
+ 	*value = value32;
+ 
+-	return (result ? AE_ERROR : AE_OK);
++	return result ? AE_ERROR : AE_OK;
+ }
+ 
+ acpi_status
+-acpi_os_write_pci_configuration(struct acpi_pci_id * pci_id, u32 reg,
++acpi_os_write_pci_configuration(struct acpi_pci_id *pci_id, u32 reg,
+ 				u64 value, u32 width)
+ {
+ 	int result, size;
+@@ -1101,7 +1097,7 @@ acpi_os_write_pci_configuration(struct acpi_pci_id * pci_id, u32 reg,
+ 				PCI_DEVFN(pci_id->device, pci_id->function),
+ 				reg, size, value);
+ 
+-	return (result ? AE_ERROR : AE_OK);
++	return result ? AE_ERROR : AE_OK;
+ }
+ 
+ static void acpi_os_execute_deferred(struct work_struct *work)
+@@ -1247,7 +1243,7 @@ bool acpi_queue_hotplug_work(struct work_struct *work)
+ }
+ 
+ acpi_status
+-acpi_os_create_semaphore(u32 max_units, u32 initial_units, acpi_handle * handle)
++acpi_os_create_semaphore(u32 max_units, u32 initial_units, acpi_handle *handle)
+ {
+ 	struct semaphore *sem = NULL;
+ 
+@@ -1735,7 +1731,7 @@ void acpi_os_release_lock(acpi_spinlock lockp, acpi_cpu_flags flags)
+  ******************************************************************************/
+ 
+ acpi_status
+-acpi_os_create_cache(char *name, u16 size, u16 depth, acpi_cache_t ** cache)
++acpi_os_create_cache(char *name, u16 size, u16 depth, acpi_cache_t **cache)
+ {
+ 	*cache = kmem_cache_create(name, size, 0, 0, NULL);
+ 	if (*cache = NULL)
+@@ -1756,10 +1752,10 @@ acpi_os_create_cache(char *name, u16 size, u16 depth, acpi_cache_t ** cache)
+  *
+  ******************************************************************************/
+ 
+-acpi_status acpi_os_purge_cache(acpi_cache_t * cache)
++acpi_status acpi_os_purge_cache(acpi_cache_t *cache)
+ {
+ 	kmem_cache_shrink(cache);
+-	return (AE_OK);
++	return AE_OK;
+ }
+ 
+ /*******************************************************************************
+@@ -1775,10 +1771,10 @@ acpi_status acpi_os_purge_cache(acpi_cache_t * cache)
+  *
+  ******************************************************************************/
+ 
+-acpi_status acpi_os_delete_cache(acpi_cache_t * cache)
++acpi_status acpi_os_delete_cache(acpi_cache_t *cache)
+ {
+ 	kmem_cache_destroy(cache);
+-	return (AE_OK);
++	return AE_OK;
+ }
+ 
+ /*******************************************************************************
+@@ -1795,10 +1791,10 @@ acpi_status acpi_os_delete_cache(acpi_cache_t * cache)
+  *
+  ******************************************************************************/
+ 
+-acpi_status acpi_os_release_object(acpi_cache_t * cache, void *object)
++acpi_status acpi_os_release_object(acpi_cache_t *cache, void *object)
+ {
+ 	kmem_cache_free(cache, object);
+-	return (AE_OK);
++	return AE_OK;
+ }
+ #endif
+ 
+-- 
+2.1.0
 
-Lorenzo
-
-> 
-> Thanks!
-> 
-> Thomas
-> -- 
-> Thomas Petazzoni, CTO, Free Electrons
-> Embedded Linux, Kernel and Android engineering
-> http://free-electrons.com
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-pci" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
