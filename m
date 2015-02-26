@@ -1,97 +1,73 @@
-From: Al Stone <ahs3@redhat.com>
-Date: Wed, 04 Feb 2015 22:46:17 +0000
-Subject: Re: [PATCH v2 3/5] ACPI: add arch-specific compilation for _OSI and the blacklist
-Message-Id: <54D2A139.5030602@redhat.com>
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Thu, 26 Feb 2015 08:11:57 +0000
+Subject: [PATCH v4 03/30] xen/PCI: Don't use deprecated function pci_scan_bus_parented()
+Message-Id: <1424938344-4017-4-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1423009304-5007-1-git-send-email-al.stone@linaro.org> <1423009304-5007-4-git-send-email-al.stone@linaro.org> <2298661.ffvhncbLpr@vostro.rjw.lan> <2903181.4VVp3X75UK@vostro.rjw.lan>
-In-Reply-To: <2903181.4VVp3X75UK@vostro.rjw.lan>
+References: <1424938344-4017-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1424938344-4017-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Rafael J. Wysocki" <rjw@rjwysocki.net>, al.stone@linaro.org
-Cc: fenghua.yu@intel.com, tony.luck@intel.com, linux-ia64@vger.kernel.org, linaro-acpi@lists.linaro.org, catalin.marinas@arm.com, patches@linaro.org, will.deacon@arm.com, robert.moore@intel.com, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, linaro-kernel@lists.linaro.org, devel@acpica.org, linux-arm-kernel@lists.infradead.org, lenb@kernel.org
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, xen-devel@lists.xenproject.org
 
-On 02/04/2015 07:03 AM, Rafael J. Wysocki wrote:
-> On Wednesday, February 04, 2015 03:00:15 PM Rafael J. Wysocki wrote:
->> On Tuesday, February 03, 2015 05:21:42 PM al.stone@linaro.org wrote:
->>> From: Al Stone <al.stone@linaro.org>
->>>
->>> Now that all of the _OSI functionality has been separated out, we can
->>> provide arch-specific functionality for it.  This also allows us to do
->>> the same for the acpi_blacklisted() function.
->>>
->>> Whether arch-specific functions are used or not now depends on the config
->>> options CONFIG_ACPI_ARCH_SPECIFIC_OSI and CONFIG_ARCH_SPECIFIC_BLACKLIST.
->>> By default, both are set false which causes the x86/ia64 versions to be
->>> used, just as is done today.  Setting one or both of these options true
->>> will cause architecture-specific implementations to be built instead; this
->>> patch also provides arm64 implementations.
->>>
->>> For x86/ia64, there is no functional change.
->>>
->>> For arm64, any use of _OSI will issue a warning that it is deprecated.
->>> All use of _OSI will return false -- i.e., it will return no useful
->>> information to any firmware using it.  The ability to temporarily turn
->>> on _OSI, or turn off _OSI, or affect it in other ways from the command
->>> line is no longer available for arm64, either.  The blacklist for ACPI
->>> on arm64 is empty.  This will, of course, require ACPI to be enabled
->>> for arm64.
->>>
->>> Signed-off-by: Al Stone <al.stone@linaro.org>
->>> ---
->>>  drivers/acpi/Kconfig         | 22 ++++++++++++++++++++++
->>>  drivers/acpi/Makefile        | 19 ++++++++++++++++++-
->>>  drivers/acpi/blacklist-arm.c | 20 ++++++++++++++++++++
->>>  drivers/acpi/blacklist.c     |  5 +++++
->>>  drivers/acpi/osi-arm.c       | 25 +++++++++++++++++++++++++
->>>  5 files changed, 90 insertions(+), 1 deletion(-)
->>>  create mode 100644 drivers/acpi/blacklist-arm.c
->>>  create mode 100644 drivers/acpi/osi-arm.c
->>>
->>> diff --git a/drivers/acpi/Kconfig b/drivers/acpi/Kconfig
->>> index 3e3bd35..4190940 100644
->>> --- a/drivers/acpi/Kconfig
->>> +++ b/drivers/acpi/Kconfig
->>> @@ -369,6 +369,28 @@ config ACPI_REDUCED_HARDWARE_ONLY
->>>  
->>>  	  If you are unsure what to do, do not enable this option.
->>>  
->>> +config ACPI_ARCH_SPECIFIC_OSI
->>
->> I woulnd't make this and the other one user-selectable.  Let architectures
->> select them from their top-level Kconfig files.
->>
->> That's what we do with the other CONFIG_ARCH_ things.
->>
->> So in the architecture-specific Kconfig you'll have
->>
->> config ACPI_ARCH_SPECIFIC_OSI
->> 	def_bool n
->> 	depends on ACPI
->>
->> Moreover, I'd call that ARCH_SPECIFIC_ACPI_OSI.
-> 
-> Or even better, you can define them here (drivers/acpi/Kconfig/) as
-> 
-> config ARCH_SPECIFIC_ACPI_OSI
-> 	def_bool n
-> 
-> and then do
-> 
-> 	select ARCH_SPECIFIC_ACPI_OSI if ACPI
-> 
-> as you did in [4/5].
-> 
-> 
+From: Arnd Bergmann <arnd@arndb.de>
 
-Ah, indeed I did.  Okay; I'll touch that up.
+Use pci_scan_root_bus() instead of deprecated function
+pci_scan_bus_parented().
 
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+CC: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+CC: xen-devel@lists.xenproject.org
+---
+ drivers/pci/xen-pcifront.c |   10 +++++++---
+ 1 files changed, 7 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/pci/xen-pcifront.c b/drivers/pci/xen-pcifront.c
+index b1ffebe..240ddbc 100644
+--- a/drivers/pci/xen-pcifront.c
++++ b/drivers/pci/xen-pcifront.c
+@@ -446,6 +446,7 @@ static int pcifront_scan_root(struct pcifront_device *pdev,
+ 				 unsigned int domain, unsigned int bus)
+ {
+ 	struct pci_bus *b;
++	LIST_HEAD(resources);
+ 	struct pcifront_sd *sd = NULL;
+ 	struct pci_bus_entry *bus_entry = NULL;
+ 	int err = 0;
+@@ -470,17 +471,20 @@ static int pcifront_scan_root(struct pcifront_device *pdev,
+ 		err = -ENOMEM;
+ 		goto err_out;
+ 	}
++	pci_add_resource(&resources, &ioport_resource);
++	pci_add_resource(&resources, &iomem_resource);
+ 	pcifront_init_sd(sd, domain, bus, pdev);
+ 
+ 	pci_lock_rescan_remove();
+ 
+-	b = pci_scan_bus_parented(&pdev->xdev->dev, bus,
+-				  &pcifront_bus_ops, sd);
++	b = pci_scan_root_bus(&pdev->xdev->dev, bus,
++				  &pcifront_bus_ops, sd, &resources);
+ 	if (!b) {
+ 		dev_err(&pdev->xdev->dev,
+ 			"Error creating PCI Frontend Bus!\n");
+ 		err = -ENOMEM;
+ 		pci_unlock_rescan_remove();
++		pci_free_resource_list(&resources);
+ 		goto err_out;
+ 	}
+ 
+@@ -488,7 +492,7 @@ static int pcifront_scan_root(struct pcifront_device *pdev,
+ 
+ 	list_add(&bus_entry->list, &pdev->root_buses);
+ 
+-	/* pci_scan_bus_parented skips devices which do not have a have
++	/* pci_scan_root_bus skips devices which do not have a have
+ 	* devfn=0. The pcifront_scan_bus enumerates all devfn. */
+ 	err = pcifront_scan_bus(pdev, domain, bus, b);
+ 
 -- 
-ciao,
-al
------------------------------------
-Al Stone
-Software Engineer
-Red Hat, Inc.
-ahs3@redhat.com
------------------------------------
+1.7.1
+
