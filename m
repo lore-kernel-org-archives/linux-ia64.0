@@ -1,34 +1,43 @@
-From: Sheng Yong <shengyong1@huawei.com>
-Date: Fri, 13 Feb 2015 09:01:19 +0000
-Subject: [PATCH] mm: Use macro to switch between section and pfn
-Message-Id: <1423818079-202291-1-git-send-email-shengyong1@huawei.com>
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Thu, 26 Feb 2015 01:29:43 +0000
+Subject: [PATCH v3 26/30] PCI/xgene: Use pci_scan_root_bus() instead of pci_create_root_bus()
+Message-Id: <1424914187-21027-27-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1424914187-21027-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1424914187-21027-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>, Tanmay Inamdar <tinamdar@apm.com>
 
-Use macro section_nr_to_pfn and pfn_to_section_nr to switch between section
-and pfn, instead of bit operations, no semantic changes.
+Use pci_scan_root_bus() instead of pci_create_root_bus() +
+pci_scan_child_bus() for simplicity.
 
-Signed-off-by: Sheng Yong <shengyong1@huawei.com>
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+CC: Tanmay Inamdar <tinamdar@apm.com>
 ---
- arch/ia64/mm/numa.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/pci/host/pci-xgene.c |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
-diff --git a/arch/ia64/mm/numa.c b/arch/ia64/mm/numa.c
-index ea21d4c..40287c7 100644
---- a/arch/ia64/mm/numa.c
-+++ b/arch/ia64/mm/numa.c
-@@ -60,7 +60,7 @@ paddr_to_nid(unsigned long paddr)
-  */
- int __meminit __early_pfn_to_nid(unsigned long pfn)
- {
--	int i, section = pfn >> PFN_SECTION_SHIFT, ssec, esec;
-+	int i, section = pfn_to_section_nr(pfn), ssec, esec;
- 	/*
- 	 * NOTE: The following SMP-unsafe globals are only used early in boot
- 	 * when the kernel is running single-threaded.
+diff --git a/drivers/pci/host/pci-xgene.c b/drivers/pci/host/pci-xgene.c
+index aab5547..0c0e632 100644
+--- a/drivers/pci/host/pci-xgene.c
++++ b/drivers/pci/host/pci-xgene.c
+@@ -499,12 +499,11 @@ static int xgene_pcie_probe_bridge(struct platform_device *pdev)
+ 	if (ret)
+ 		return ret;
+ 
+-	bus = pci_create_root_bus(&pdev->dev, 0,
++	bus = pci_scan_root_bus(&pdev->dev, 0,
+ 					&xgene_pcie_ops, port, &res);
+ 	if (!bus)
+ 		return -ENOMEM;
+ 
+-	pci_scan_child_bus(bus);
+ 	pci_assign_unassigned_bus_resources(bus);
+ 	pci_bus_add_devices(bus);
+ 
 -- 
-1.8.3.4
+1.7.1
 
