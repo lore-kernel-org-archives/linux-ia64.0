@@ -1,45 +1,68 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Date: Thu, 05 Feb 2015 10:05:01 +0000
-Subject: Re: [Xen-devel] [Patch v4 01/23] ACPICA: Resources: Provide common part for struct acpi_resource_add
-Message-Id: <54D3404D.90404@citrix.com>
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Thu, 26 Feb 2015 08:11:58 +0000
+Subject: [PATCH v4 04/30] PCI: Remove deprecated pci_scan_bus_parented()
+Message-Id: <1424938344-4017-5-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1423115089-12904-1-git-send-email-jiang.liu@linux.intel.com> <1423115089-12904-2-git-send-email-jiang.liu@linux.intel.com>
-In-Reply-To: <1423115089-12904-2-git-send-email-jiang.liu@linux.intel.com>
+References: <1424938344-4017-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1424938344-4017-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jiang Liu <jiang.liu@linux.intel.com>, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Thomas Gleixner <tglx@linutronix.de>, Bjorn Helgaas <bhelgaas@google.com>, Yinghai Lu <yinghai@kernel.org>, Borislav Petkov <bp@alien8.de>, Lv Zheng <lv.zheng@intel.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, Len Brown <lenb@kernel.org>, Robert Moore <robert.moore@intel.com>, Clemens Ladisch <clemens@ladisch.de>, Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, "K. Y. Srinivasan" <kys@microsoft.com>, Haiyang Zhang <haiyangz@microsoft.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, David Vrabel <david.vrabel@citrix.com>
-Cc: linux-ia64@vger.kernel.org, linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, xen-devel@lists.xenproject.org, devel@linuxdriverproject.org, devel@acpica.org
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>
 
-On 05/02/15 05:44, Jiang Liu wrote:
-> 
-> --- a/drivers/xen/xen-acpi-memhotplug.c
-> +++ b/drivers/xen/xen-acpi-memhotplug.c
-> @@ -117,8 +117,8 @@ acpi_memory_get_resource(struct acpi_resource *resource, void *context)
->  	list_for_each_entry(info, &mem_device->res_list, list) {
->  		if ((info->caching = address64.info.mem.caching) &&
->  		    (info->write_protect = address64.info.mem.write_protect) &&
-> -		    (info->start_addr + info->length = address64.minimum)) {
-> -			info->length += address64.address_length;
-> +		    (info->start_addr + info->length = address64.address.minimum)) {
-> +			info->length += address64.address.address_length;
->  			return AE_OK;
->  		}
->  	}
-> @@ -130,8 +130,8 @@ acpi_memory_get_resource(struct acpi_resource *resource, void *context)
->  	INIT_LIST_HEAD(&new->list);
->  	new->caching = address64.info.mem.caching;
->  	new->write_protect = address64.info.mem.write_protect;
-> -	new->start_addr = address64.minimum;
-> -	new->length = address64.address_length;
-> +	new->start_addr = address64.address.minimum;
-> +	new->length = address64.address.address_length;
->  	list_add_tail(&new->list, &mem_device->res_list);
->  
->  	return AE_OK;
+No one uses pci_scan_bus_parented() any more,
+remove it.
 
-Xen parts:
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+---
+ drivers/pci/probe.c |   19 -------------------
+ include/linux/pci.h |    2 --
+ 2 files changed, 0 insertions(+), 21 deletions(-)
 
-Acked-by: David Vrabel <david.vrabel@citrix.com>
+diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
+index 8ef0375..699a238 100644
+--- a/drivers/pci/probe.c
++++ b/drivers/pci/probe.c
+@@ -2091,25 +2091,6 @@ struct pci_bus *pci_scan_root_bus(struct device *parent, int bus,
+ }
+ EXPORT_SYMBOL(pci_scan_root_bus);
+ 
+-/* Deprecated; use pci_scan_root_bus() instead */
+-struct pci_bus *pci_scan_bus_parented(struct device *parent,
+-		int bus, struct pci_ops *ops, void *sysdata)
+-{
+-	LIST_HEAD(resources);
+-	struct pci_bus *b;
+-
+-	pci_add_resource(&resources, &ioport_resource);
+-	pci_add_resource(&resources, &iomem_resource);
+-	pci_add_resource(&resources, &busn_resource);
+-	b = pci_create_root_bus(parent, bus, ops, sysdata, &resources);
+-	if (b)
+-		pci_scan_child_bus(b);
+-	else
+-		pci_free_resource_list(&resources);
+-	return b;
+-}
+-EXPORT_SYMBOL(pci_scan_bus_parented);
+-
+ struct pci_bus *pci_scan_bus(int bus, struct pci_ops *ops,
+ 					void *sysdata)
+ {
+diff --git a/include/linux/pci.h b/include/linux/pci.h
+index 211e9da..36effb8 100644
+--- a/include/linux/pci.h
++++ b/include/linux/pci.h
+@@ -769,8 +769,6 @@ void pcibios_bus_to_resource(struct pci_bus *bus, struct resource *res,
+ void pcibios_scan_specific_bus(int busn);
+ struct pci_bus *pci_find_bus(int domain, int busnr);
+ void pci_bus_add_devices(const struct pci_bus *bus);
+-struct pci_bus *pci_scan_bus_parented(struct device *parent, int bus,
+-				      struct pci_ops *ops, void *sysdata);
+ struct pci_bus *pci_scan_bus(int bus, struct pci_ops *ops, void *sysdata);
+ struct pci_bus *pci_create_root_bus(struct device *parent, int bus,
+ 				    struct pci_ops *ops, void *sysdata,
+-- 
+1.7.1
 
-David
