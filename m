@@ -1,7 +1,7 @@
 From: Yijing Wang <wangyijing@huawei.com>
-Date: Thu, 26 Feb 2015 01:29:41 +0000
-Subject: [PATCH v3 24/30] PCI/tegra: Remove redundant tegra_pcie_scan_bus()
-Message-Id: <1424914187-21027-25-git-send-email-wangyijing@huawei.com>
+Date: Thu, 26 Feb 2015 01:29:27 +0000
+Subject: [PATCH v3 10/30] PCI: Introduce pci_host_bridge_list to manage host bridges
+Message-Id: <1424914187-21027-11-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1424914187-21027-1-git-send-email-wangyijing@huawei.com>
 In-Reply-To: <1424914187-21027-1-git-send-email-wangyijing@huawei.com>
@@ -9,55 +9,121 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: linux-ia64@vger.kernel.org, linux-pci@vger.kernel.org, Thierry Reding <thierry.reding@gmail.com>, Yijing Wang <wangyijing@huawei.com>, Guan Xuetao <gxt@mprc.pku.edu.cn>, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Geert Uytterhoeven <geert@linux-m68k.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Arnd Bergmann <arnd@arndb.de>, Marc Zyngier <marc.zyngier@arm.com>, Rusty Russell <rusty@rustcorp.com.au>, linux-m68k@lists.linux-m68k.org, linux-tegra@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, Yinghai Lu <yinghai@kernel.org>, linux-arm-kernel@lists.infradead.org, Liviu Dudau <liviu@dudau.co.uk>, Tony Luck <tony.luck@intel.com>, linux-kernel@vger.kernel.org, Jiang Liu <jiang.liu@linux.intel.com>, linux-alpha@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>
 
-Now pci_scan_root_bus() is almost simliar to
-pci_create_root_bus() + pci_scan_child_bus().
-So we could use common pci_scan_root_bus() in
-pci_common_init_dev() to scan pci busses.
-tegra_pcie_scan_bus() is redundant, remove it.
+Introduce pci_host_bridge_list to manage pci host
+bridges in system, so we could detect whether
+the host in domain:bus is alreay registered.
+Then we could remove bus alreay exist test in
+__pci_create_root_bus().
 
 Signed-off-by: Yijing Wang <wangyijing@huawei.com>
-CC: Thierry Reding <thierry.reding@gmail.com>
-CC: linux-tegra@vger.kernel.org
 ---
- drivers/pci/host/pci-tegra.c |   16 ----------------
- 1 files changed, 0 insertions(+), 16 deletions(-)
+ drivers/pci/host-bridge.c |   24 +++++++++++++++++++++++-
+ drivers/pci/probe.c       |    8 +-------
+ include/linux/pci.h       |    1 +
+ 3 files changed, 25 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/pci/host/pci-tegra.c b/drivers/pci/host/pci-tegra.c
-index 00e9272..10c0571 100644
---- a/drivers/pci/host/pci-tegra.c
-+++ b/drivers/pci/host/pci-tegra.c
-@@ -630,21 +630,6 @@ static int tegra_pcie_map_irq(const struct pci_dev *pdev, u8 slot, u8 pin)
- 	return irq;
+diff --git a/drivers/pci/host-bridge.c b/drivers/pci/host-bridge.c
+index f304f26..5039b3b 100644
+--- a/drivers/pci/host-bridge.c
++++ b/drivers/pci/host-bridge.c
+@@ -8,6 +8,9 @@
+ 
+ #include "pci.h"
+ 
++static LIST_HEAD(pci_host_bridge_list);
++static DEFINE_MUTEX(phb_mutex);
++
+ static void pci_release_host_bridge_dev(struct device *dev)
+ {
+ 	struct pci_host_bridge *bridge = to_pci_host_bridge(dev);
+@@ -25,7 +28,7 @@ struct pci_host_bridge *pci_create_host_bridge(
+ 	int error;
+ 	int bus = PCI_BUSNUM(db);
+ 	int domain = PCI_DOMAIN(db);
+-	struct pci_host_bridge *host;
++	struct pci_host_bridge *host, *temp;
+ 	struct resource_entry *window, *n;
+ 
+ 	host = kzalloc(sizeof(*host), GFP_KERNEL);
+@@ -40,6 +43,18 @@ struct pci_host_bridge *pci_create_host_bridge(
+ 	 */
+ 	pci_host_assign_domain_nr(host);
+ 
++	mutex_lock(&phb_mutex);
++	list_for_each_entry(temp, &pci_host_bridge_list, list)
++		if (temp->domain = host->domain
++				&& temp->busnum = host->busnum) {
++			dev_dbg(&host->dev, "pci host bridge pci%04x:%02x exist\n",
++					host->domain, host->busnum);
++			mutex_unlock(&phb_mutex);
++			kfree(host);
++			return NULL;
++		}
++	mutex_unlock(&phb_mutex);
++
+ 	host->dev.parent = parent;
+ 	INIT_LIST_HEAD(&host->windows);
+ 	host->dev.release = pci_release_host_bridge_dev;
+@@ -55,12 +70,19 @@ struct pci_host_bridge *pci_create_host_bridge(
+ 	resource_list_for_each_entry_safe(window, n, resources)
+ 		list_move_tail(&window->node, &host->windows);
+ 
++	mutex_lock(&phb_mutex);
++	list_add_tail(&host->list, &pci_host_bridge_list);
++	mutex_unlock(&phb_mutex);
+ 	return host;
+ }
+ EXPORT_SYMBOL(pci_create_host_bridge);
+ 
+ void pci_free_host_bridge(struct pci_host_bridge *host)
+ {
++	mutex_lock(&phb_mutex);
++	list_del(&host->list);
++	mutex_unlock(&phb_mutex);
++
+ 	device_unregister(&host->dev);
  }
  
--static struct pci_bus *tegra_pcie_scan_bus(int nr, struct pci_sys_data *sys)
--{
--	struct tegra_pcie *pcie = sys_to_pcie(sys);
--	struct pci_bus *bus;
--
--	bus = pci_create_root_bus(pcie->dev, sys->busnr, &tegra_pcie_ops, sys,
--				  &sys->resources);
--	if (!bus)
--		return NULL;
--
--	pci_scan_child_bus(bus);
--
--	return bus;
--}
--
- static irqreturn_t tegra_pcie_isr(int irq, void *arg)
+diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
+index 20e9206..ec4f99d 100644
+--- a/drivers/pci/probe.c
++++ b/drivers/pci/probe.c
+@@ -1869,7 +1869,7 @@ static struct pci_bus *__pci_create_root_bus(
+ 		void *sysdata)
  {
- 	const char *err_msg[] = {
-@@ -1831,7 +1816,6 @@ static int tegra_pcie_enable(struct tegra_pcie *pcie)
- 	hw.private_data = (void **)&pcie;
- 	hw.setup = tegra_pcie_setup;
- 	hw.map_irq = tegra_pcie_map_irq;
--	hw.scan = tegra_pcie_scan_bus;
- 	hw.ops = &tegra_pcie_ops;
+ 	int error;
+-	struct pci_bus *b, *b2;
++	struct pci_bus *b;
+ 	struct resource_entry *window;
+ 	struct device *parent;
+ 	struct resource *res;
+@@ -1886,12 +1886,6 @@ static struct pci_bus *__pci_create_root_bus(
+ 	b->ops = ops;
+ 	b->number = b->busn_res.start = bridge->busnum;
+ 	pci_bus_assign_domain_nr(b, parent);
+-	b2 = pci_find_bus(pci_domain_nr(b), b->number);
+-	if (b2) {
+-		/* If we already got to this bus through a different bridge, ignore it */
+-		dev_dbg(&b2->dev, "bus already known\n");
+-		goto err_out;
+-	}
  
- 	pci_common_init_dev(pcie->dev, &hw);
+ 	bridge->bus = b;
+ 	b->bridge = get_device(&bridge->dev);
+diff --git a/include/linux/pci.h b/include/linux/pci.h
+index 13b6b25..4d11228 100644
+--- a/include/linux/pci.h
++++ b/include/linux/pci.h
+@@ -406,6 +406,7 @@ struct pci_host_bridge {
+ 	struct device dev;
+ 	struct pci_bus *bus;		/* root bus */
+ 	struct list_head windows;	/* resource_entry */
++	struct list_head list;
+ 	void (*release_fn)(struct pci_host_bridge *);
+ 	void *release_data;
+ };
 -- 
 1.7.1
 
