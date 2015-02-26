@@ -1,81 +1,71 @@
-From: al.stone@linaro.org
-Date: Wed, 25 Feb 2015 00:36:25 +0000
-Subject: [PATCH v3 9/9] ACPI: arm64: use "Linux" as ACPI_OS_NAME for _OS on arm64
-Message-Id: <1424824585-6405-10-git-send-email-al.stone@linaro.org>
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Thu, 26 Feb 2015 01:29:36 +0000
+Subject: [PATCH v3 19/30] PCI: Remove weak pcibios_root_bridge_prepare()
+Message-Id: <1424914187-21027-20-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1424824585-6405-1-git-send-email-al.stone@linaro.org>
-In-Reply-To: <1424824585-6405-1-git-send-email-al.stone@linaro.org>
+References: <1424914187-21027-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1424914187-21027-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: rjw@rjwysocki.net, lenb@kernel.org, catalin.marinas@arm.com, will.deacon@arm.com, robert.moore@intel.com, tony.luck@intel.com, fenghua.yu@intel.com
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org, linux-arm-kernel@lists.infradead.org, linaro-acpi@lists.linaro.org, linaro-kernel@lists.linaro.org, patches@linaro.org
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>
 
-From: Al Stone <al.stone@linaro.org>
+Now no one use weak pcibios_root_bridge_prepare(),
+we could remove it.
 
-ACPI_OS_NAME is globally defined as "Microsoft Windows NT" for now.
-That doesn't make much sense in the ARM context, so set it to "Linux"
-when CONFIG_ARM64.
-
-If it is necessary to change the return value from \_OS_ (that is, return
-some value other than the default in ACPI_OS_NAME), use the kernel parameter
-"acpi_os_name=<string>".
-
-Many thanks to Rafael Wysocki for this greatly simplified form of the patch.
-
-Signed-off-by: Hanjun Guo <hanjun.guo@linaro.org>
-Signed-off-by: Al Stone <al.stone@linaro.org>
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
 ---
- arch/arm64/Kconfig              | 5 +++++
- include/acpi/acconfig.h         | 2 ++
- include/acpi/platform/aclinux.h | 4 ++++
- 3 files changed, 11 insertions(+)
+ drivers/pci/probe.c |   15 ---------------
+ include/linux/pci.h |    2 --
+ 2 files changed, 0 insertions(+), 17 deletions(-)
 
-diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
-index e441d28..d812113 100644
---- a/arch/arm64/Kconfig
-+++ b/arch/arm64/Kconfig
-@@ -87,6 +87,11 @@ config ARM64
- config 64BIT
- 	def_bool y
+diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
+index b5f9ca4..356c90f 100644
+--- a/drivers/pci/probe.c
++++ b/drivers/pci/probe.c
+@@ -1844,18 +1844,6 @@ unsigned int pci_scan_child_bus(struct pci_bus *bus)
+ }
+ EXPORT_SYMBOL_GPL(pci_scan_child_bus);
  
-+config ACPI_OS_NAME
-+	string
-+	default "Linux"
-+	depends on ACPI
-+
- config ARCH_PHYS_ADDR_T_64BIT
- 	def_bool y
+-/**
+- * pcibios_root_bridge_prepare - Platform-specific host bridge setup.
+- * @bridge: Host bridge to set up.
+- *
+- * Default empty implementation.  Replace with an architecture-specific setup
+- * routine, if necessary.
+- */
+-int __weak pcibios_root_bridge_prepare(struct pci_host_bridge *bridge)
+-{
+-	return 0;
+-}
+-
+ void __weak pcibios_add_bus(struct pci_bus *bus)
+ {
+ }
+@@ -1890,9 +1878,6 @@ static struct pci_bus *__pci_create_root_bus(
+ 	b->bridge = get_device(&bridge->dev);
+ 	if (bridge->ops && bridge->ops->phb_set_root_bus_speed)
+ 		bridge->ops->phb_set_root_bus_speed(bridge);
+-	error = pcibios_root_bridge_prepare(bridge);
+-	if (error)
+-		goto err_out;
  
-diff --git a/include/acpi/acconfig.h b/include/acpi/acconfig.h
-index 5a0a3e5..1980bf4 100644
---- a/include/acpi/acconfig.h
-+++ b/include/acpi/acconfig.h
-@@ -69,7 +69,9 @@
-  * code that will not execute the _OSI method unless _OS matches the string
-  * below.  Therefore, change this string at your own risk.
-  */
-+#ifndef ACPI_OS_NAME
- #define ACPI_OS_NAME                    "Microsoft Windows NT"
-+#endif
- 
- /* Maximum objects in the various object caches */
- 
-diff --git a/include/acpi/platform/aclinux.h b/include/acpi/platform/aclinux.h
-index 1ba7c19..a871cdd 100644
---- a/include/acpi/platform/aclinux.h
-+++ b/include/acpi/platform/aclinux.h
-@@ -69,6 +69,10 @@
- #define ACPI_REDUCED_HARDWARE 1
- #endif
- 
-+#ifdef CONFIG_ACPI_OS_NAME
-+#define ACPI_OS_NAME CONFIG_ACPI_OS_NAME
-+#endif
-+
- #include <linux/string.h>
- #include <linux/kernel.h>
- #include <linux/ctype.h>
+ 	device_enable_async_suspend(b->bridge);
+ 	pci_set_bus_of_node(b);
+diff --git a/include/linux/pci.h b/include/linux/pci.h
+index ef3a821..3c4413c 100644
+--- a/include/linux/pci.h
++++ b/include/linux/pci.h
+@@ -423,8 +423,6 @@ struct pci_host_bridge {
+ void pci_set_host_bridge_release(struct pci_host_bridge *bridge,
+ 		     void (*release_fn)(struct pci_host_bridge *),
+ 		     void *release_data);
+-
+-int pcibios_root_bridge_prepare(struct pci_host_bridge *bridge);
+ struct pci_host_bridge *pci_create_host_bridge(
+ 		struct device *parent, u32 dombus, struct list_head *resources, 
+ 		void *sysdata, struct pci_host_bridge_ops *ops);
 -- 
-2.1.0
+1.7.1
 
