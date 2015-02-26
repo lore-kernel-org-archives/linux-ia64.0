@@ -1,175 +1,133 @@
-From: Al Stone <al.stone@linaro.org>
-Date: Wed, 25 Feb 2015 20:57:27 +0000
-Subject: Re: [Linaro-acpi] [PATCH v3 4/9] ACPI: clean up checkpatch warnings for items with possible semantic
-Message-Id: <54EE3737.2040300@linaro.org>
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Thu, 26 Feb 2015 08:11:59 +0000
+Subject: [PATCH v4 05/30] PCI: Rename pci_scan_bus() to pci_scan_bus_legacy()
+Message-Id: <1424938344-4017-6-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1424824585-6405-1-git-send-email-al.stone@linaro.org> <1424824585-6405-5-git-send-email-al.stone@linaro.org> <54EDC957.9050000@linaro.org>
-In-Reply-To: <54EDC957.9050000@linaro.org>
+References: <1424938344-4017-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1424938344-4017-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: Hanjun Guo <hanjun.guo@linaro.org>, rjw@rjwysocki.net, lenb@kernel.org, catalin.marinas@arm.com, will.deacon@arm.com, robert.moore@intel.com, tony.luck@intel.com, fenghua.yu@intel.com
-Cc: linaro-kernel@lists.linaro.org, linux-ia64@vger.kernel.org, linaro-acpi@lists.linaro.org, patches@linaro.org, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org, devel@acpica.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>
 
-On 02/25/2015 06:08 AM, Hanjun Guo wrote:
-> On 2015年02月25日 08:36, al.stone@linaro.org wrote:
->> From: Al Stone <al.stone@linaro.org>
->>
->> In preparation for later splitting out some of the arch-dependent code from
->> osl.c, clean up some warnings from checkpatch that fall into more semantic
->> issues; none of these should change functionality, but they do touch lines
->> of code with semantic significance:
->>
->>     -- replaced #include <asm/foo.h> with #include <linux/foo.h>
->>     -- replaced extern that was only being used for sizeof() with a #define
->>     -- removed use of else after breaks/returns when not useful
->>     -- moved __initdata to the proper place in a definition
->>     -- moved EXPORT_SYMBOL to a line immediately after the function
->>     -- removed unnecessary return statements from void functions
->>
->> Signed-off-by: Al Stone <al.stone@linaro.org>
->> ---
->>   drivers/acpi/osl.c | 31 ++++++++++---------------------
->>   1 file changed, 10 insertions(+), 21 deletions(-)
->>
->> diff --git a/drivers/acpi/osl.c b/drivers/acpi/osl.c
->> index 46317ff..af6dda7 100644
->> --- a/drivers/acpi/osl.c
->> +++ b/drivers/acpi/osl.c
->> @@ -40,9 +40,8 @@
->>   #include <linux/list.h>
->>   #include <linux/jiffies.h>
->>   #include <linux/semaphore.h>
->> -
->> -#include <asm/io.h>
->> -#include <asm/uaccess.h>
->> +#include <linux/io.h>
->> +#include <linux/uaccess.h>
->>
->>   #include "internal.h"
->>
->> @@ -66,7 +65,7 @@ struct acpi_os_dpc {
->>   int acpi_in_debugger;
->>   EXPORT_SYMBOL(acpi_in_debugger);
->>
->> -extern char line_buf[80];
->> +#define DEBUGGER_LINE_BUFLEN    80
->>   #endif                /*ENABLE_DEBUGGER */
->>
->>   static int (*__acpi_os_prepare_sleep)(u8 sleep_state, u32 pm1a_ctrl,
->> @@ -268,10 +267,8 @@ acpi_physical_address __init acpi_os_get_root_pointer(void)
->>               return efi.acpi20;
->>           else if (efi.acpi != EFI_INVALID_TABLE_ADDR)
->>               return efi.acpi;
->> -        else {
->> -            pr_err(PREFIX "System description tables not found\n");
->> -            return 0;
->> -        }
->> +        pr_err(PREFIX "System description tables not found\n");
->> +        return 0;
->>       } else if (IS_ENABLED(CONFIG_ACPI_LEGACY_TABLES_LOOKUP)) {
->>           acpi_physical_address pa = 0;
->>
->> @@ -594,7 +591,7 @@ static const char * const table_sigs[] = {
->>   #define ACPI_HEADER_SIZE sizeof(struct acpi_table_header)
->>
->>   #define ACPI_OVERRIDE_TABLES 64
->> -static struct cpio_data __initdata acpi_initrd_files[ACPI_OVERRIDE_TABLES];
->> +static struct cpio_data acpi_initrd_files[ACPI_OVERRIDE_TABLES] __initdata;
->>
->>   #define MAP_CHUNK_SIZE   (NR_FIX_BTMAPS << PAGE_SHIFT)
->>
->> @@ -806,10 +803,10 @@ static irqreturn_t acpi_irq(int irq, void *dev_id)
->>       if (handled) {
->>           acpi_irq_handled++;
->>           return IRQ_HANDLED;
->> -    } else {
->> -        acpi_irq_not_handled++;
->> -        return IRQ_NONE;
->>       }
->> +
->> +    acpi_irq_not_handled++;
->> +    return IRQ_NONE;
->>   }
->>
->>   acpi_status
->> @@ -911,7 +908,6 @@ acpi_status acpi_os_read_port(acpi_io_address port, u32
->> *value, u32 width)
->>
->>       return AE_OK;
->>   }
->> -
->>   EXPORT_SYMBOL(acpi_os_read_port);
->>
->>   acpi_status acpi_os_write_port(acpi_io_address port, u32 value, u32 width)
->> @@ -927,7 +923,6 @@ acpi_status acpi_os_write_port(acpi_io_address port, u32
->> value, u32 width)
->>
->>       return AE_OK;
->>   }
->> -
->>   EXPORT_SYMBOL(acpi_os_write_port);
->>
->>   #ifdef readq
->> @@ -1362,7 +1357,7 @@ u32 acpi_os_get_line(char *buffer)
->>       if (acpi_in_debugger) {
->>           u32 chars;
->>
->> -        kdb_read(buffer, sizeof(line_buf));
->> +        kdb_read(buffer, sizeof(DEBUGGER_LINE_BUFLEN));
-> 
-> I think kdb_read(buffer, DEBUGGER_LINE_BUFLEN); will be fine.
-> 
-> other than that,
-> 
-> Reviewd-by: Hanjun Guo <hanjun.guo@linaro.org>
-> 
-> Thanks
-> Hanjun
+Pci_scan_bus() is called by legacy pci host drivers,
+the legacy host drivers mean they use NULL as parent
+device, use all IO/MEM as default resources. Rename
+pci_scan_bus() to pci_scan_bus_legacy() for better
+readability.
 
-Whups.  Boy, was that just plain wrong.  Thanks.  Fixed.
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+---
+ arch/alpha/kernel/sys_nautilus.c  |    2 +-
+ arch/m68k/coldfire/pci.c          |    2 +-
+ arch/sparc/kernel/pcic.c          |    2 +-
+ arch/unicore32/kernel/pci.c       |    2 +-
+ drivers/pci/hotplug/ibmphp_core.c |    2 +-
+ drivers/pci/probe.c               |    4 ++--
+ include/linux/pci.h               |    2 +-
+ 7 files changed, 8 insertions(+), 8 deletions(-)
 
->>
->>           /* remove the CR kdb includes */
->>           chars = strlen(buffer) - 1;
->> @@ -1490,8 +1485,6 @@ static void __init set_osi_linux(unsigned int enable)
->>           acpi_osi_setup("Linux");
->>       else
->>           acpi_osi_setup("!Linux");
->> -
->> -    return;
->>   }
->>
->>   static void __init acpi_cmdline_osi_linux(unsigned int enable)
->> @@ -1499,8 +1492,6 @@ static void __init acpi_cmdline_osi_linux(unsigned int
->> enable)
->>       osi_linux.cmdline = 1;    /* cmdline set the default and override DMI */
->>       osi_linux.dmi = 0;
->>       set_osi_linux(enable);
->> -
->> -    return;
->>   }
->>
->>   void __init acpi_dmi_osi_linux(int enable, const struct dmi_system_id *d)
->> @@ -1512,8 +1503,6 @@ void __init acpi_dmi_osi_linux(int enable, const struct
->> dmi_system_id *d)
->>
->>       osi_linux.dmi = 1;    /* DMI knows that this box asks OSI(Linux) */
->>       set_osi_linux(enable);
->> -
->> -    return;
->>   }
->>
->>   /*
->>
-
-
+diff --git a/arch/alpha/kernel/sys_nautilus.c b/arch/alpha/kernel/sys_nautilus.c
+index 4ae4a40..2c864bb 100644
+--- a/arch/alpha/kernel/sys_nautilus.c
++++ b/arch/alpha/kernel/sys_nautilus.c
+@@ -206,7 +206,7 @@ nautilus_init_pci(void)
+ 	unsigned long memtop = max_low_pfn << PAGE_SHIFT;
+ 
+ 	/* Scan our single hose.  */
+-	bus = pci_scan_bus(0, alpha_mv.pci_ops, hose);
++	bus = pci_scan_bus_legacy(0, alpha_mv.pci_ops, hose);
+ 	hose->bus = bus;
+ 	pcibios_claim_one_bus(bus);
+ 
+diff --git a/arch/m68k/coldfire/pci.c b/arch/m68k/coldfire/pci.c
+index d45f087..0ef4dd4 100644
+--- a/arch/m68k/coldfire/pci.c
++++ b/arch/m68k/coldfire/pci.c
+@@ -312,7 +312,7 @@ static int __init mcf_pci_init(void)
+ 	set_current_state(TASK_UNINTERRUPTIBLE);
+ 	schedule_timeout(msecs_to_jiffies(200));
+ 
+-	rootbus = pci_scan_bus(0, &mcf_pci_ops, NULL);
++	rootbus = pci_scan_bus_legacy(0, &mcf_pci_ops, NULL);
+ 	rootbus->resource[0] = &mcf_pci_io;
+ 	rootbus->resource[1] = &mcf_pci_mem;
+ 
+diff --git a/arch/sparc/kernel/pcic.c b/arch/sparc/kernel/pcic.c
+index 7a82fe2..f7edc97 100644
+--- a/arch/sparc/kernel/pcic.c
++++ b/arch/sparc/kernel/pcic.c
+@@ -390,7 +390,7 @@ static void __init pcic_pbm_scan_bus(struct linux_pcic *pcic)
+ {
+ 	struct linux_pbm_info *pbm = &pcic->pbm;
+ 
+-	pbm->pci_bus = pci_scan_bus(pbm->pci_first_busno, &pcic_ops, pbm);
++	pbm->pci_bus = pci_scan_bus_legacy(pbm->pci_first_busno, &pcic_ops, pbm);
+ 	if (pbm->pci_bus)
+ 		pci_bus_add_devices(pbm->pci_bus);
+ #if 0 /* deadwood transplanted from sparc64 */
+diff --git a/arch/unicore32/kernel/pci.c b/arch/unicore32/kernel/pci.c
+index 3d82024..2e238b4 100644
+--- a/arch/unicore32/kernel/pci.c
++++ b/arch/unicore32/kernel/pci.c
+@@ -258,7 +258,7 @@ static int __init pci_common_init(void)
+ 
+ 	pci_puv3_preinit();
+ 
+-	puv3_bus = pci_scan_bus(0, &pci_puv3_ops, NULL);
++	puv3_bus = pci_scan_bus_legacy(0, &pci_puv3_ops, NULL);
+ 
+ 	if (!puv3_bus)
+ 		panic("PCI: unable to scan bus!");
+diff --git a/drivers/pci/hotplug/ibmphp_core.c b/drivers/pci/hotplug/ibmphp_core.c
+index 86e3bfd..4ade1b4 100644
+--- a/drivers/pci/hotplug/ibmphp_core.c
++++ b/drivers/pci/hotplug/ibmphp_core.c
+@@ -765,7 +765,7 @@ static u8 bus_structure_fixup(u8 busno)
+ 					(l != 0x0000) && (l != 0xffff)) {
+ 			debug("%s - Inside bus_structure_fixup()\n",
+ 							__func__);
+-			b = pci_scan_bus(busno, ibmphp_pci_bus->ops, NULL);
++			b = pci_scan_bus_legacy(busno, ibmphp_pci_bus->ops, NULL);
+ 			if (b)
+ 				pci_bus_add_devices(b);
+ 			break;
+diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
+index 699a238..ccab9b1 100644
+--- a/drivers/pci/probe.c
++++ b/drivers/pci/probe.c
+@@ -2091,7 +2091,7 @@ struct pci_bus *pci_scan_root_bus(struct device *parent, int bus,
+ }
+ EXPORT_SYMBOL(pci_scan_root_bus);
+ 
+-struct pci_bus *pci_scan_bus(int bus, struct pci_ops *ops,
++struct pci_bus *pci_scan_bus_legacy(int bus, struct pci_ops *ops,
+ 					void *sysdata)
+ {
+ 	LIST_HEAD(resources);
+@@ -2108,7 +2108,7 @@ struct pci_bus *pci_scan_bus(int bus, struct pci_ops *ops,
+ 	}
+ 	return b;
+ }
+-EXPORT_SYMBOL(pci_scan_bus);
++EXPORT_SYMBOL(pci_scan_bus_legacy);
+ 
+ /**
+  * pci_rescan_bus_bridge_resize - scan a PCI bus for devices.
+diff --git a/include/linux/pci.h b/include/linux/pci.h
+index 36effb8..6dffc57 100644
+--- a/include/linux/pci.h
++++ b/include/linux/pci.h
+@@ -769,7 +769,7 @@ void pcibios_bus_to_resource(struct pci_bus *bus, struct resource *res,
+ void pcibios_scan_specific_bus(int busn);
+ struct pci_bus *pci_find_bus(int domain, int busnr);
+ void pci_bus_add_devices(const struct pci_bus *bus);
+-struct pci_bus *pci_scan_bus(int bus, struct pci_ops *ops, void *sysdata);
++struct pci_bus *pci_scan_bus_legacy(int bus, struct pci_ops *ops, void *sysdata);
+ struct pci_bus *pci_create_root_bus(struct device *parent, int bus,
+ 				    struct pci_ops *ops, void *sysdata,
+ 				    struct list_head *resources);
 -- 
-ciao,
-al
------------------------------------
-Al Stone
-Software Engineer
-Linaro Enterprise Group
-al.stone@linaro.org
------------------------------------
+1.7.1
+
