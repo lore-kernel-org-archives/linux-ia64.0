@@ -1,10 +1,10 @@
 From: Yijing Wang <wangyijing@huawei.com>
-Date: Thu, 26 Feb 2015 01:29:35 +0000
-Subject: [PATCH v3 18/30] PCI/powerpc: Use pci_scan_root_bridge() for simplicity
-Message-Id: <1424914187-21027-19-git-send-email-wangyijing@huawei.com>
+Date: Thu, 26 Feb 2015 08:12:12 +0000
+Subject: [PATCH v4 18/30] PCI/powerpc: Use pci_scan_root_bridge() for simplicity
+Message-Id: <1424938344-4017-19-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1424914187-21027-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1424914187-21027-1-git-send-email-wangyijing@huawei.com>
+References: <1424938344-4017-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1424938344-4017-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -108,7 +108,7 @@ index 4401b6a..48a6cff 100644
  
  	/* Create an empty bus for the toplevel */
 -	bus = pci_create_root_bus(hose->parent, 
-+	host = pci_scan_root_bridge(hose->parent,
++	host = pci_scan_root_bridge(hose->parent, 
  			PCI_DOMBUS(hose->global_number, hose->first_busno),
 -			hose->ops, hose, &resources);
 -	if (bus = NULL) {
