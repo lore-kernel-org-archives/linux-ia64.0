@@ -1,239 +1,107 @@
-From: al.stone@linaro.org
-Date: Wed, 25 Feb 2015 00:36:19 +0000
-Subject: [PATCH v3 3/9] ACPI: clean up checkpatch warnings for various bits of syntax
-Message-Id: <1424824585-6405-4-git-send-email-al.stone@linaro.org>
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Thu, 26 Feb 2015 01:29:47 +0000
+Subject: [PATCH v3 30/30] PCI: Remove pci_bus_assign_domain_nr()
+Message-Id: <1424914187-21027-31-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1424824585-6405-1-git-send-email-al.stone@linaro.org>
-In-Reply-To: <1424824585-6405-1-git-send-email-al.stone@linaro.org>
+References: <1424914187-21027-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1424914187-21027-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: rjw@rjwysocki.net, lenb@kernel.org, catalin.marinas@arm.com, will.deacon@arm.com, robert.moore@intel.com, tony.luck@intel.com, fenghua.yu@intel.com
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org, linux-arm-kernel@lists.infradead.org, linaro-acpi@lists.linaro.org, linaro-kernel@lists.linaro.org, patches@linaro.org
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>
 
-From: Al Stone <al.stone@linaro.org>
+Now we save the domain number in pci_host_bridge,
+we could remove pci_bus_assign_domain_nr() and
+clean the domain member in pci_bus.
 
-In preparation for later splitting out some of the arch-dependent code from
-osl.c, clean up a bunch of warnings for odd bits of syntax:
-
-   -- remove CVS keyword markers
-   -- remove a space from between a function name and an opening parenthesis
-   -- clean up all but one line > 80 characters (one just looks silly if you
-      make it less than 80)
-   -- add blank lines after declarations in functions
-   -- remove extraneous braces ({})
-
-Signed-off-by: Al Stone <al.stone@linaro.org>
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
 ---
- drivers/acpi/osl.c | 75 ++++++++++++++++++++++++++++++++----------------------
- 1 file changed, 44 insertions(+), 31 deletions(-)
+ drivers/pci/pci.c   |    5 -----
+ drivers/pci/probe.c |   12 ++++--------
+ include/linux/pci.h |    3 ---
+ 3 files changed, 4 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/acpi/osl.c b/drivers/acpi/osl.c
-index 865317c..46317ff 100644
---- a/drivers/acpi/osl.c
-+++ b/drivers/acpi/osl.c
-@@ -1,5 +1,5 @@
- /*
-- *  acpi_osl.c - OS-dependent functions ($Revision: 83 $)
-+ *  acpi_osl.c - OS-dependent functions
-  *
-  *  Copyright (C) 2000       Andrew Henroid
-  *  Copyright (C) 2001, 2002 Andy Grover <andrew.grover@intel.com>
-@@ -161,7 +161,7 @@ static u32 acpi_osi_handler(acpi_string interface, u32 supported)
- 	return supported;
+diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
+index 51ada13..287cf43 100644
+--- a/drivers/pci/pci.c
++++ b/drivers/pci/pci.c
+@@ -4579,11 +4579,6 @@ void pci_host_assign_domain_nr(struct pci_host_bridge *host)
+ {
+ 	host->domain = pci_assign_domain_nr(host->dev.parent);
  }
- 
--static void __init acpi_request_region (struct acpi_generic_address *gas,
-+static void __init acpi_request_region(struct acpi_generic_address *gas,
- 	unsigned int length, char *desc)
- {
- 	u64 addr;
-@@ -180,33 +180,41 @@ static void __init acpi_request_region (struct acpi_generic_address *gas,
- 
- static int __init acpi_reserve_resources(void)
- {
--	acpi_request_region(&acpi_gbl_FADT.xpm1a_event_block, acpi_gbl_FADT.pm1_event_length,
--		"ACPI PM1a_EVT_BLK");
-+	acpi_request_region(&acpi_gbl_FADT.xpm1a_event_block,
-+			    acpi_gbl_FADT.pm1_event_length,
-+			    "ACPI PM1a_EVT_BLK");
- 
--	acpi_request_region(&acpi_gbl_FADT.xpm1b_event_block, acpi_gbl_FADT.pm1_event_length,
--		"ACPI PM1b_EVT_BLK");
-+	acpi_request_region(&acpi_gbl_FADT.xpm1b_event_block,
-+			    acpi_gbl_FADT.pm1_event_length,
-+			    "ACPI PM1b_EVT_BLK");
- 
--	acpi_request_region(&acpi_gbl_FADT.xpm1a_control_block, acpi_gbl_FADT.pm1_control_length,
--		"ACPI PM1a_CNT_BLK");
-+	acpi_request_region(&acpi_gbl_FADT.xpm1a_control_block,
-+			    acpi_gbl_FADT.pm1_control_length,
-+			    "ACPI PM1a_CNT_BLK");
- 
--	acpi_request_region(&acpi_gbl_FADT.xpm1b_control_block, acpi_gbl_FADT.pm1_control_length,
--		"ACPI PM1b_CNT_BLK");
-+	acpi_request_region(&acpi_gbl_FADT.xpm1b_control_block,
-+			    acpi_gbl_FADT.pm1_control_length,
-+			    "ACPI PM1b_CNT_BLK");
- 
- 	if (acpi_gbl_FADT.pm_timer_length = 4)
--		acpi_request_region(&acpi_gbl_FADT.xpm_timer_block, 4, "ACPI PM_TMR");
-+		acpi_request_region(&acpi_gbl_FADT.xpm_timer_block, 4,
-+				    "ACPI PM_TMR");
- 
--	acpi_request_region(&acpi_gbl_FADT.xpm2_control_block, acpi_gbl_FADT.pm2_control_length,
--		"ACPI PM2_CNT_BLK");
-+	acpi_request_region(&acpi_gbl_FADT.xpm2_control_block,
-+			    acpi_gbl_FADT.pm2_control_length,
-+			    "ACPI PM2_CNT_BLK");
- 
- 	/* Length of GPE blocks must be a non-negative multiple of 2 */
- 
- 	if (!(acpi_gbl_FADT.gpe0_block_length & 0x1))
- 		acpi_request_region(&acpi_gbl_FADT.xgpe0_block,
--			       acpi_gbl_FADT.gpe0_block_length, "ACPI GPE0_BLK");
-+				    acpi_gbl_FADT.gpe0_block_length,
-+				    "ACPI GPE0_BLK");
- 
- 	if (!(acpi_gbl_FADT.gpe1_block_length & 0x1))
- 		acpi_request_region(&acpi_gbl_FADT.xgpe1_block,
--			       acpi_gbl_FADT.gpe1_block_length, "ACPI GPE1_BLK");
-+				    acpi_gbl_FADT.gpe1_block_length,
-+				    "ACPI GPE1_BLK");
- 
- 	return 0;
- }
-@@ -215,6 +223,7 @@ device_initcall(acpi_reserve_resources);
- void acpi_os_printf(const char *fmt, ...)
- {
- 	va_list args;
-+
- 	va_start(args, fmt);
- 	acpi_os_vprintf(fmt, args);
- 	va_end(args);
-@@ -227,11 +236,10 @@ void acpi_os_vprintf(const char *fmt, va_list args)
- 	vsprintf(buffer, fmt, args);
- 
- #ifdef ENABLE_DEBUGGER
--	if (acpi_in_debugger) {
-+	if (acpi_in_debugger)
- 		kdb_printf("%s", buffer);
--	} else {
-+	else
- 		pr_cont("%s", buffer);
--	}
- #else
- 	pr_cont("%s", buffer);
+-
+-void pci_bus_assign_domain_nr(struct pci_bus *bus, struct device *parent)
+-{
+-	bus->domain_nr = pci_assign_domain_nr(parent);
+-}
  #endif
-@@ -879,6 +887,7 @@ void acpi_os_stall(u32 us)
- u64 acpi_os_get_timer(void)
- {
- 	u64 time_ns = ktime_to_ns(ktime_get());
-+
- 	do_div(time_ns, 100);
- 	return time_ns;
+ #endif
+ 
+diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
+index 2e5997a..e6f03cf 100644
+--- a/drivers/pci/probe.c
++++ b/drivers/pci/probe.c
+@@ -480,7 +480,7 @@ void pci_read_bridge_bases(struct pci_bus *child)
+ 	}
  }
-@@ -891,15 +900,14 @@ acpi_status acpi_os_read_port(acpi_io_address port, u32 *value, u32 width)
- 		value = &dummy;
  
- 	*value = 0;
--	if (width <= 8) {
-+	if (width <= 8)
- 		*(u8 *) value = inb(port);
--	} else if (width <= 16) {
-+	else if (width <= 16)
- 		*(u16 *) value = inw(port);
--	} else if (width <= 32) {
-+	else if (width <= 32)
- 		*(u32 *) value = inl(port);
--	} else {
-+	else
- 		BUG();
--	}
+-static struct pci_bus *pci_alloc_bus(struct pci_bus *parent)
++static struct pci_bus *pci_alloc_bus(void)
+ {
+ 	struct pci_bus *b;
  
- 	return AE_OK;
+@@ -495,10 +495,7 @@ static struct pci_bus *pci_alloc_bus(struct pci_bus *parent)
+ 	INIT_LIST_HEAD(&b->resources);
+ 	b->max_bus_speed = PCI_SPEED_UNKNOWN;
+ 	b->cur_bus_speed = PCI_SPEED_UNKNOWN;
+-#ifdef CONFIG_PCI_DOMAINS_GENERIC
+-	if (parent)
+-		b->domain_nr = parent->domain_nr;
+-#endif
++
+ 	return b;
  }
-@@ -908,15 +916,14 @@ EXPORT_SYMBOL(acpi_os_read_port);
  
- acpi_status acpi_os_write_port(acpi_io_address port, u32 value, u32 width)
- {
--	if (width <= 8) {
-+	if (width <= 8)
- 		outb(value, port);
--	} else if (width <= 16) {
-+	else if (width <= 16)
- 		outw(value, port);
--	} else if (width <= 32) {
-+	else if (width <= 32)
- 		outl(value, port);
--	} else {
-+	else
- 		BUG();
--	}
+@@ -645,7 +642,7 @@ static struct pci_bus *pci_alloc_child_bus(struct pci_bus *parent,
+ 	/*
+ 	 * Allocate a new bus, and inherit stuff from the parent..
+ 	 */
+-	child = pci_alloc_bus(parent);
++	child = pci_alloc_bus();
+ 	if (!child)
+ 		return NULL;
  
- 	return AE_OK;
- }
-@@ -932,6 +939,7 @@ static inline u64 read64(const volatile void __iomem *addr)
- static inline u64 read64(const volatile void __iomem *addr)
- {
- 	u64 l, h;
-+
- 	l = readl(addr);
- 	h = readl(addr+4);
- 	return l | (h << 32);
-@@ -1116,8 +1124,8 @@ static void acpi_os_execute_deferred(struct work_struct *work)
-  *
-  * RETURN:      Status
-  *
-- * DESCRIPTION: Depending on type, either queues function for deferred execution or
-- *              immediately executes function on a separate thread.
-+ * DESCRIPTION: Depending on type, either queues function for deferred
-+ *		execution or immediately executes function on a separate thread.
-  *
-  ******************************************************************************/
+@@ -1865,14 +1862,13 @@ static struct pci_bus *pci_create_root_bus(
+ 	char *fmt;
  
-@@ -1128,6 +1136,7 @@ acpi_status acpi_os_execute(acpi_execute_type type,
- 	struct acpi_os_dpc *dpc;
- 	struct workqueue_struct *queue;
- 	int ret;
-+
- 	ACPI_DEBUG_PRINT((ACPI_DB_EXEC,
- 			  "Scheduling function [%p(%p)] for deferred execution.\n",
- 			  function, context));
-@@ -1199,7 +1208,8 @@ struct acpi_hp_work {
+ 	parent = bridge->dev.parent;
+-	b = pci_alloc_bus(NULL);
++	b = pci_alloc_bus();
+ 	if (!b)
+ 		return NULL;
  
- static void acpi_hotplug_work_fn(struct work_struct *work)
- {
--	struct acpi_hp_work *hpw = container_of(work, struct acpi_hp_work, work);
-+	struct acpi_hp_work *hpw = container_of(work, struct acpi_hp_work,
-+						work);
+ 	b->sysdata = dev_get_drvdata(&bridge->dev);
+ 	b->ops = ops;
+ 	b->number = b->busn_res.start = bridge->busnum;
+-	pci_bus_assign_domain_nr(b, parent);
  
- 	acpi_os_wait_events_complete();
- 	acpi_device_hotplug(hpw->adev, hpw->src);
-@@ -1693,6 +1703,7 @@ void acpi_os_delete_lock(acpi_spinlock handle)
- acpi_cpu_flags acpi_os_acquire_lock(acpi_spinlock lockp)
- {
- 	acpi_cpu_flags flags;
-+
- 	spin_lock_irqsave(lockp, flags);
- 	return flags;
- }
-@@ -1869,6 +1880,7 @@ acpi_status acpi_os_prepare_sleep(u8 sleep_state, u32 pm1a_control,
- 				  u32 pm1b_control)
- {
- 	int rc = 0;
-+
- 	if (__acpi_os_prepare_sleep)
- 		rc = __acpi_os_prepare_sleep(sleep_state,
- 					     pm1a_control, pm1b_control);
-@@ -1890,6 +1902,7 @@ acpi_status acpi_os_prepare_extended_sleep(u8 sleep_state, u32 val_a,
- 				  u32 val_b)
- {
- 	int rc = 0;
-+
- 	if (__acpi_os_prepare_extended_sleep)
- 		rc = __acpi_os_prepare_extended_sleep(sleep_state,
- 					     val_a, val_b);
+ 	bridge->bus = b;
+ 	b->bridge = get_device(&bridge->dev);
+diff --git a/include/linux/pci.h b/include/linux/pci.h
+index 68c09da..8d82340 100644
+--- a/include/linux/pci.h
++++ b/include/linux/pci.h
+@@ -470,9 +470,6 @@ struct pci_bus {
+ 	unsigned char	primary;	/* number of primary bridge */
+ 	unsigned char	max_bus_speed;	/* enum pci_bus_speed */
+ 	unsigned char	cur_bus_speed;	/* enum pci_bus_speed */
+-#ifdef CONFIG_PCI_DOMAINS_GENERIC
+-	int		domain_nr;
+-#endif
+ 
+ 	char		name[48];
+ 
 -- 
-2.1.0
+1.7.1
 
