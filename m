@@ -1,90 +1,195 @@
-From: Alex Dowad <alexinbeijing@gmail.com>
-Date: Sat, 14 Mar 2015 17:54:17 +0000
-Subject: Re: [PATCH 13/32] ia64: copy_thread(): rename 'user_stack_size' argument to 'kthread_arg'
-Message-Id: <550475C9.8000107@gmail.com>
+From: Bjorn Helgaas <bhelgaas@google.com>
+Date: Mon, 02 Mar 2015 23:41:47 +0000
+Subject: Re: [PATCH v4 01/30] PCI: Rip out pci_bus_add_devices() from pci_scan_bus()
+Message-Id: <20150302234147.GA11978@google.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1426270496-26362-1-git-send-email-alexinbeijing@gmail.com> <1426270496-26362-3-git-send-email-alexinbeijing@gmail.com>
-In-Reply-To: <1426270496-26362-3-git-send-email-alexinbeijing@gmail.com>
+References: <1424938344-4017-1-git-send-email-wangyijing@huawei.com>
+ <1424938344-4017-2-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1424938344-4017-2-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Tejun Heo <tj@kernel.org>, Christoph Lameter <cl@linux.com>, Matt Fleming <matt.fleming@intel.com>, "open list:IA64 (Itanium) PL..." <linux-ia64@vger.kernel.org>
+To: Yijing Wang <wangyijing@huawei.com>
+Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, sparclinux@vger.kernel.org
 
-Sorry, this patch was in error. (I learned about the IA64-only clone2 
-syscall too late.)
-
-Please disregard. Thanks! Alex Dowad
-
-On 13/03/15 20:14, Alex Dowad wrote:
-> 'user_stack_size' is very misleading, since the argument is never used for the
-> size of the user stack. Rather, it is an argument which is passed to the main
-> function executed by a newly forked kernel thread. Hence, rename it to
-> 'kthread_arg'.
->
-> When forking a new user thread, the kernel thread arg was (uselessly) added
-> to the new user stack pointer. This "worked", since the kernel thread arg is
-> always zero when forking a user thread, but it was obviously not intended.
->
-> Signed-off-by: Alex Dowad <alexinbeijing@gmail.com>
+On Thu, Feb 26, 2015 at 04:11:55PM +0800, Yijing Wang wrote:
+> Pci_bus_add_devices() should not be placed in pci_scan_bus().
+> Now pci device will be added to driver core once its
+> creation. All things left in pci_bus_add_devices() are
+> driver attachment and other trivial sysfs things.
+> Pci_scan_bus() should be the function responsible for
+> scanning PCI devices, not including driver attachment.
+> Other, some callers(m68k,unicore32,alpha) of pci_scan_bus()
+> will call pci_bus_size_bridges() and pci_bus_assign_resources()
+> after pci_scan_bus().
+> 
+> E.g.
+> In m68k
+> mcf_pci_init()
+> 	pci_scan_bus()
+> 		...
+> 		pci_bus_add_devices() --- try to attach driver
+> 	pci_fixup_irqs()
+> 	pci_bus_size_bridges()
+> 	pci_bus_assign_resources()
+> 
+> Above code flow make pci scan logic obscure, resources should
+> be assigned correctly before attaching driver. Because
+> pci_scan_bus() mostly be called in system boot path, when
+> before drivers are loaded(in module_init), so no pci scan
+> issues will occur. Most pci_scan_bus() callers additionally
+> call pci_bus_size_bridges() and pci_bus_assign_resources()
+> after pci_scan_bus(), we could rip out pci_bus_add_devices()
+> for better code readability. After applied this patch,
+> pci_scan_bus() should be used like:
+> 
+> pci_scan_bus() (mandatory)
+> pci_fixup_irqs() (optional)
+> pci_bus_size_bridges() (optional)
+> pci_pci_bus_assign_resources() (optional)
+> pci_bus_add_devices() (mandatory)
+> 
+> Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+> CC: "David S. Miller" <davem@davemloft.net>
+> CC: Geert Uytterhoeven <geert@linux-m68k.org>
+> CC: Guan Xuetao <gxt@mprc.pku.edu.cn>
+> CC: Richard Henderson <rth@twiddle.net>
+> CC: Ivan Kokshaysky <ink@jurassic.park.msu.ru>
+> CC: Matt Turner <mattst88@gmail.com>
+> CC: linux-alpha@vger.kernel.org
+> CC: linux-m68k@lists.linux-m68k.org
+> CC: sparclinux@vger.kernel.org
 > ---
->   arch/ia64/kernel/process.c | 11 +++++++----
->   1 file changed, 7 insertions(+), 4 deletions(-)
->
-> diff --git a/arch/ia64/kernel/process.c b/arch/ia64/kernel/process.c
-> index b515149..d4a78da 100644
-> --- a/arch/ia64/kernel/process.c
-> +++ b/arch/ia64/kernel/process.c
-> @@ -300,7 +300,7 @@ ia64_load_extra (struct task_struct *task)
->   }
->   
->   /*
-> - * Copy the state of an ia-64 thread.
-> + * Copy the architecture-specific state of an ia-64 thread.
->    *
->    * We get here through the following  call chain:
->    *
-> @@ -332,7 +332,7 @@ ia64_load_extra (struct task_struct *task)
->    */
->   int
->   copy_thread(unsigned long clone_flags,
-> -	     unsigned long user_stack_base, unsigned long user_stack_size,
-> +	     unsigned long user_stack_base, unsigned long kthread_arg,
->   	     struct task_struct *p)
->   {
->   	extern char ia64_ret_from_clone;
-> @@ -376,13 +376,14 @@ copy_thread(unsigned long clone_flags,
->   	ia64_drop_fpu(p);	/* don't pick up stale state from a CPU's fph */
->   
->   	if (unlikely(p->flags & PF_KTHREAD)) {
-> +		/* kernel thread */
->   		if (unlikely(!user_stack_base)) {
->   			/* fork_idle() called us */
->   			return 0;
->   		}
->   		memset(child_stack, 0, sizeof(*child_ptregs) + sizeof(*child_stack));
->   		child_stack->r4 = user_stack_base;	/* payload */
-> -		child_stack->r5 = user_stack_size;	/* argument */
-> +		child_stack->r5 = kthread_arg;
->   		/*
->   		 * Preserve PSR bits, except for bits 32-34 and 37-45,
->   		 * which we can't read.
-> @@ -406,6 +407,8 @@ copy_thread(unsigned long clone_flags,
->   
->   		return 0;
->   	}
-> +
-> +	/* user thread */
->   	stack = ((struct switch_stack *) regs) - 1;
->   	/* copy parent's switch_stack & pt_regs to child: */
->   	memcpy(child_stack, stack, sizeof(*child_ptregs) + sizeof(*child_stack));
-> @@ -416,7 +419,7 @@ copy_thread(unsigned long clone_flags,
->   	if (clone_flags & CLONE_SETTLS)
->   		child_ptregs->r13 = regs->r16;	/* see sys_clone2() in entry.S */
->   	if (user_stack_base) {
-> -		child_ptregs->r12 = user_stack_base + user_stack_size - 16;
-> +		child_ptregs->r12 = user_stack_base - 16;
->   		child_ptregs->ar_bspstore = user_stack_base;
->   		child_ptregs->ar_rnat = 0;
->   		child_ptregs->loadrs = 0;
+>  arch/alpha/kernel/sys_nautilus.c  |    1 +
+>  arch/m68k/coldfire/pci.c          |    1 +
+>  arch/sparc/kernel/pcic.c          |    2 ++
+>  arch/unicore32/kernel/pci.c       |   11 +++--------
+>  drivers/pci/hotplug/ibmphp_core.c |    6 ++++--
+>  drivers/pci/probe.c               |    1 -
+>  6 files changed, 11 insertions(+), 11 deletions(-)
+> 
+> diff --git a/arch/alpha/kernel/sys_nautilus.c b/arch/alpha/kernel/sys_nautilus.c
+> index 837c0fa..4ae4a40 100644
+> --- a/arch/alpha/kernel/sys_nautilus.c
+> +++ b/arch/alpha/kernel/sys_nautilus.c
+> @@ -253,6 +253,7 @@ nautilus_init_pci(void)
+>  	   for the root bus, so just clear it. */
+>  	bus->self = NULL;
+>  	pci_fixup_irqs(alpha_mv.pci_swizzle, alpha_mv.pci_map_irq);
+> +	pci_bus_add_devices(bus);
+>  }
+>  
+>  /*
+> diff --git a/arch/m68k/coldfire/pci.c b/arch/m68k/coldfire/pci.c
+> index df96792..d45f087 100644
+> --- a/arch/m68k/coldfire/pci.c
+> +++ b/arch/m68k/coldfire/pci.c
+> @@ -319,6 +319,7 @@ static int __init mcf_pci_init(void)
+>  	pci_fixup_irqs(pci_common_swizzle, mcf_pci_map_irq);
+>  	pci_bus_size_bridges(rootbus);
+>  	pci_bus_assign_resources(rootbus);
+> +	pci_bus_add_devices(rootbus);
+>  	return 0;
+>  }
+>  
+> diff --git a/arch/sparc/kernel/pcic.c b/arch/sparc/kernel/pcic.c
+> index 6cc78c2..7a82fe2 100644
+> --- a/arch/sparc/kernel/pcic.c
+> +++ b/arch/sparc/kernel/pcic.c
+> @@ -391,6 +391,8 @@ static void __init pcic_pbm_scan_bus(struct linux_pcic *pcic)
+>  	struct linux_pbm_info *pbm = &pcic->pbm;
+>  
+>  	pbm->pci_bus = pci_scan_bus(pbm->pci_first_busno, &pcic_ops, pbm);
+> +	if (pbm->pci_bus)
+> +		pci_bus_add_devices(pbm->pci_bus);
+>  #if 0 /* deadwood transplanted from sparc64 */
+>  	pci_fill_in_pbm_cookies(pbm->pci_bus, pbm, pbm->prom_node);
+>  	pci_record_assignments(pbm, pbm->pci_bus);
 
+This is correct, but it should look like this instead:
+
+    if (!pbm->pci_bus)
+      return;
+  #if 0 /* deadwood ... */
+  ...
+  #endif
+    pci_bus_add_devices(pbm->pci_bus);
+  }
+
+That way the mainline code is the normal path, and pci_bus_add_devices() is
+in the correct place even if the "deadwood" code is resurrected.
+
+
+> diff --git a/arch/unicore32/kernel/pci.c b/arch/unicore32/kernel/pci.c
+> index 374a055..3d82024 100644
+> --- a/arch/unicore32/kernel/pci.c
+> +++ b/arch/unicore32/kernel/pci.c
+> @@ -266,17 +266,12 @@ static int __init pci_common_init(void)
+>  	pci_fixup_irqs(pci_common_swizzle, pci_puv3_map_irq);
+>  
+>  	if (!pci_has_flag(PCI_PROBE_ONLY)) {
+> -		/*
+> -		 * Size the bridge windows.
+> -		 */
+> +		/* Size the bridge windows. */
+>  		pci_bus_size_bridges(puv3_bus);
+> -
+> -		/*
+> -		 * Assign resources.
+> -		 */
+> +		/* Assign resources. */
+>  		pci_bus_assign_resources(puv3_bus);
+>  	}
+> -
+> +	pci_bus_add_devices(puv3_bus);
+>  	return 0;
+>  }
+>  subsys_initcall(pci_common_init);
+> diff --git a/drivers/pci/hotplug/ibmphp_core.c b/drivers/pci/hotplug/ibmphp_core.c
+> index 96c5c72..86e3bfd 100644
+> --- a/drivers/pci/hotplug/ibmphp_core.c
+> +++ b/drivers/pci/hotplug/ibmphp_core.c
+> @@ -738,7 +738,7 @@ static void ibm_unconfigure_device(struct pci_func *func)
+>   */
+>  static u8 bus_structure_fixup(u8 busno)
+>  {
+> -	struct pci_bus *bus;
+> +	struct pci_bus *bus, *b;
+>  	struct pci_dev *dev;
+>  	u16 l;
+>  
+> @@ -765,7 +765,9 @@ static u8 bus_structure_fixup(u8 busno)
+>  					(l != 0x0000) && (l != 0xffff)) {
+>  			debug("%s - Inside bus_structure_fixup()\n",
+>  							__func__);
+> -			pci_scan_bus(busno, ibmphp_pci_bus->ops, NULL);
+> +			b = pci_scan_bus(busno, ibmphp_pci_bus->ops, NULL);
+> +			if (b)
+> +				pci_bus_add_devices(b);
+
+Use this:
+
+    if (!b)
+      continue;
+    pci_bus_add_devices(b);
+
+for the same reason as above.
+
+>  			break;
+>  		}
+>  	}
+> diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
+> index 8d2f400..88604f2 100644
+> --- a/drivers/pci/probe.c
+> +++ b/drivers/pci/probe.c
+> @@ -2123,7 +2123,6 @@ struct pci_bus *pci_scan_bus(int bus, struct pci_ops *ops,
+>  	b = pci_create_root_bus(NULL, bus, ops, sysdata, &resources);
+>  	if (b) {
+>  		pci_scan_child_bus(b);
+> -		pci_bus_add_devices(b);
+>  	} else {
+>  		pci_free_resource_list(&resources);
+>  	}
+> -- 
+> 1.7.1
+> 
