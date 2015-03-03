@@ -1,83 +1,81 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Date: Mon, 02 Mar 2015 11:47:44 +0000
-Subject: [PATCH 03/16] ia64: Use for_each_cpu_and() and cpumask_any_and() instead of temp var.
-Message-Id: <1425296150-4722-3-git-send-email-rusty@rustcorp.com.au>
+From: Bjorn Helgaas <bhelgaas@google.com>
+Date: Tue, 03 Mar 2015 03:30:08 +0000
+Subject: Re: [PATCH v4 23/30] PCI/mvebu: Use pci_common_init_dev() to simplify code
+Message-Id: <20150303033008.GL11978@google.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1425296150-4722-1-git-send-email-rusty@rustcorp.com.au>
-In-Reply-To: <1425296150-4722-1-git-send-email-rusty@rustcorp.com.au>
+References: <1424938344-4017-1-git-send-email-wangyijing@huawei.com>
+ <1424938344-4017-24-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1424938344-4017-24-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+To: Yijing Wang <wangyijing@huawei.com>
+Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Thomas Petazzoni <thomas.petazzoni@free-electrons.com>, Jason Cooper <jason@lakedaemon.net>
 
-Just a bit of manual neatening, before spatch cleans the rest.
+On Thu, Feb 26, 2015 at 04:12:17PM +0800, Yijing Wang wrote:
+> Mvebu_pcie_scan_bus() is not necessary, we could use
+> pci_common_init_dev() instead of pci_common_init(),
+> and pass the device pointer as the parent. Then
+> pci_scan_root_bus() will be called to scan the pci busses.
+> 
+> Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+> CC: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+> CC: Jason Cooper <jason@lakedaemon.net>
+> ---
+>  drivers/pci/host/pci-mvebu.c |   18 +-----------------
+>  1 files changed, 1 insertions(+), 17 deletions(-)
+> 
+> diff --git a/drivers/pci/host/pci-mvebu.c b/drivers/pci/host/pci-mvebu.c
+> index 1309cfb..d5a2b70 100644
+> --- a/drivers/pci/host/pci-mvebu.c
+> +++ b/drivers/pci/host/pci-mvebu.c
+> @@ -750,21 +750,6 @@ static int mvebu_pcie_setup(int nr, struct pci_sys_data *sys)
+>  	return 1;
+>  }
+>  
+> -static struct pci_bus *mvebu_pcie_scan_bus(int nr, struct pci_sys_data *sys)
+> -{
+> -	struct mvebu_pcie *pcie = sys_to_pcie(sys);
+> -	struct pci_bus *bus;
+> -
+> -	bus = pci_create_root_bus(&pcie->pdev->dev, sys->busnr,
+> -				  &mvebu_pcie_ops, sys, &sys->resources);
+> -	if (!bus)
+> -		return NULL;
+> -
+> -	pci_scan_child_bus(bus);
+> -
+> -	return bus;
+> -}
+> -
+>  static resource_size_t mvebu_pcie_align_resource(struct pci_dev *dev,
+>  						 const struct resource *res,
+>  						 resource_size_t start,
+> @@ -808,12 +793,11 @@ static void mvebu_pcie_enable(struct mvebu_pcie *pcie)
+>  	hw.nr_controllers = 1;
+>  	hw.private_data   = (void **)&pcie;
+>  	hw.setup          = mvebu_pcie_setup;
+> -	hw.scan           = mvebu_pcie_scan_bus;
+>  	hw.map_irq        = of_irq_parse_and_map_pci;
+>  	hw.ops            = &mvebu_pcie_ops;
+>  	hw.align_resource = mvebu_pcie_align_resource;
+>  
+> -	pci_common_init(&hw);
+> +	pci_common_init_dev(&pcie->pdev->dev, &hw);
 
-Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org
----
- arch/ia64/kernel/irq_ia64.c |  4 +---
- arch/ia64/kernel/msi_ia64.c | 10 ++++------
- 2 files changed, 5 insertions(+), 9 deletions(-)
+I'm not necessarily opposed to this, but it seems unrelated to the rest of
+the series.  And I think it changes the behavior slightly (now we call
+pci_common_init_dev() with &pcie->pdev->dev instead of NULL).  So I'll wait
+for an ack from Thomas and/or Jason.
 
-diff --git a/arch/ia64/kernel/irq_ia64.c b/arch/ia64/kernel/irq_ia64.c
-index 698d8fefde6c..3329177c262e 100644
---- a/arch/ia64/kernel/irq_ia64.c
-+++ b/arch/ia64/kernel/irq_ia64.c
-@@ -161,7 +161,6 @@ int bind_irq_vector(int irq, int vector, cpumask_t domain)
- static void __clear_irq_vector(int irq)
- {
- 	int vector, cpu;
--	cpumask_t mask;
- 	cpumask_t domain;
- 	struct irq_cfg *cfg = &irq_cfg[irq];
- 
-@@ -169,8 +168,7 @@ static void __clear_irq_vector(int irq)
- 	BUG_ON(cfg->vector = IRQ_VECTOR_UNASSIGNED);
- 	vector = cfg->vector;
- 	domain = cfg->domain;
--	cpumask_and(&mask, &cfg->domain, cpu_online_mask);
--	for_each_cpu_mask(cpu, mask)
-+	for_each_cpu_and(cpu, &cfg->domain, cpu_online_mask)
- 		per_cpu(vector_irq, cpu)[vector] = -1;
- 	cfg->vector = IRQ_VECTOR_UNASSIGNED;
- 	cfg->domain = CPU_MASK_NONE;
-diff --git a/arch/ia64/kernel/msi_ia64.c b/arch/ia64/kernel/msi_ia64.c
-index 8ae36ea177d3..9dd7464f8c17 100644
---- a/arch/ia64/kernel/msi_ia64.c
-+++ b/arch/ia64/kernel/msi_ia64.c
-@@ -47,15 +47,14 @@ int ia64_setup_msi_irq(struct pci_dev *pdev, struct msi_desc *desc)
- 	struct msi_msg	msg;
- 	unsigned long	dest_phys_id;
- 	int	irq, vector;
--	cpumask_t mask;
- 
- 	irq = create_irq();
- 	if (irq < 0)
- 		return irq;
- 
- 	irq_set_msi_desc(irq, desc);
--	cpumask_and(&mask, &(irq_to_domain(irq)), cpu_online_mask);
--	dest_phys_id = cpu_physical_id(first_cpu(mask));
-+	dest_phys_id = cpu_physical_id(cpumask_any_and(&(irq_to_domain(irq)),
-+						       cpu_online_mask));
- 	vector = irq_to_vector(irq);
- 
- 	msg.address_hi = 0;
-@@ -171,10 +170,9 @@ msi_compose_msg(struct pci_dev *pdev, unsigned int irq, struct msi_msg *msg)
- {
- 	struct irq_cfg *cfg = irq_cfg + irq;
- 	unsigned dest;
--	cpumask_t mask;
- 
--	cpumask_and(&mask, &(irq_to_domain(irq)), cpu_online_mask);
--	dest = cpu_physical_id(first_cpu(mask));
-+	dest = cpu_physical_id(cpumask_first_and(&(irq_to_domain(irq)),
-+						 cpu_online_mask));
- 
- 	msg->address_hi = 0;
- 	msg->address_lo -- 
-2.1.0
-
+>  }
+>  
+>  /*
+> -- 
+> 1.7.1
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
