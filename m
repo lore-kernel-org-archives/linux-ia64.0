@@ -1,65 +1,59 @@
-From: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Date: Thu, 05 Mar 2015 00:25:52 +0000
-Subject: Re: [PATCH v3 1/9] ACPI: fix all errors reported by cleanpatch.pl in osl.c
-Message-Id: <3363575.FHEZ9Qjrf1@vostro.rjw.lan>
+From: Bjorn Helgaas <bhelgaas@google.com>
+Date: Tue, 03 Mar 2015 03:40:48 +0000
+Subject: Re: [PATCH v4 28/30] PCI: Export find_pci_host_bridge()
+Message-Id: <20150303034048.GM11978@google.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1424824585-6405-1-git-send-email-al.stone@linaro.org> <1528624.HcuCny6IaW@vostro.rjw.lan> <54F79B9C.1030901@redhat.com>
-In-Reply-To: <54F79B9C.1030901@redhat.com>
+References: <1424938344-4017-1-git-send-email-wangyijing@huawei.com>
+ <1424938344-4017-29-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1424938344-4017-29-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Al Stone <ahs3@redhat.com>
-Cc: al.stone@linaro.org, lenb@kernel.org, catalin.marinas@arm.com, will.deacon@arm.com, robert.moore@intel.com, tony.luck@intel.com, fenghua.yu@intel.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org, linux-arm-kernel@lists.infradead.org, linaro-acpi@lists.linaro.org, linaro-kernel@lists.linaro.org, patches@linaro.org
+To: Yijing Wang <wangyijing@huawei.com>
+Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>
 
-On Wednesday, March 04, 2015 04:56:12 PM Al Stone wrote:
-> On 03/04/2015 04:04 PM, Rafael J. Wysocki wrote:
-> > On Tuesday, February 24, 2015 05:36:17 PM al.stone@linaro.org wrote:
-> >> From: Al Stone <al.stone@linaro.org>
-> >>
-> >> In preparation for later splitting out some of the arch-dependent code from
-> >> osl.c, clean up the errors reported by checkpatch.pl.  They fell into these
-> >> classes:
-> >>
-> >>    -- remove the FSF address from the GPL notice
-> >>    -- "foo * bar" should be "foo *bar" (and the ** variation of same)
-> >>    -- a return is not a function, so parentheses are not required.
-> >>
-> >> Signed-off-by: Al Stone <al.stone@linaro.org>
-> > 
-> > checkpatch.pl is irrelevant here.  You're trying to make the coding style be
-> > more consistent with the coding style of the rest of the kernel.
-> > 
-> > The warnings from checkpatch.pl are meaningless for the existing code, so
-> > it should not be used to justify changes in that code.
-> > 
-> > Of course, the same applies to patches [2-4/9].
-> > 
-> > 
+On Thu, Feb 26, 2015 at 04:12:22PM +0800, Yijing Wang wrote:
+> Export find_pci_host_bridge().
 > 
-> Okay, I'm puzzled.  In the last version of these patches, I asked if I
-> should clean up osl.c as long as I was creating the new osi.c file.  I
-> understood the reply to mean it would also be good to correct osl.c [0]
-> from checkpatch's point of view.  I took that to mean errors (patch [1/9])
-> and warnings (patches [2-4/9]) -- so that's what I did.  What did I
-> misunderstand from that reply?
+> Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+> ---
+>  drivers/pci/host-bridge.c |    2 +-
+>  include/linux/pci.h       |    1 +
+>  2 files changed, 2 insertions(+), 1 deletions(-)
 > 
-> If these changes are objectionable, then I'll drop these from the next
-> version of the patch set; I'm not hung up on insisting on either of the
-> kernel's or ACPI's coding style -- I try to adapt as needed.  I only did
-> the patches because I thought it was helping out with some long-term
-> maintenance type work.
+> diff --git a/drivers/pci/host-bridge.c b/drivers/pci/host-bridge.c
+> index 4a2baa2..51e24f8 100644
+> --- a/drivers/pci/host-bridge.c
+> +++ b/drivers/pci/host-bridge.c
+> @@ -104,7 +104,7 @@ static struct pci_bus *find_pci_root_bus(struct pci_bus *bus)
+>  	return bus;
+>  }
+>  
+> -static struct pci_host_bridge *find_pci_host_bridge(struct pci_bus *bus)
+> +struct pci_host_bridge *find_pci_host_bridge(struct pci_bus *bus)
 
-The changes are basically OK, but the justification is bogus to me.
-"I'm making the chagne, because checkpatch.pl told me so" is a pretty bad
-explanation in my view.  It is much better to say "This file does not
-adhere to the general kernel coding style and since I'm going to split it
-into pieces and I want those pieces to follow the coding style more closely,
-make changes as follows."
+Please name this "pci_find_host_bridge()" or similar so it looks like other
+PCI functions.
 
-So this is more about the changelogs (and subjects) than the code changes
-themselves.
+>  {
+>  	struct pci_bus *root_bus = find_pci_root_bus(bus);
+>  
+> diff --git a/include/linux/pci.h b/include/linux/pci.h
+> index 2f29e95..6ac7926 100644
+> --- a/include/linux/pci.h
+> +++ b/include/linux/pci.h
+> @@ -426,6 +426,7 @@ void pci_set_host_bridge_release(struct pci_host_bridge *bridge,
+>  struct pci_host_bridge *pci_create_host_bridge(
+>  		struct device *parent, u32 dombus, struct list_head *resources, 
+>  		void *sysdata, struct pci_host_bridge_ops *ops);
+> +struct pci_host_bridge *find_pci_host_bridge(struct pci_bus* bus);
 
+I'm not sure this needs to be in include/linux/pci.h.  Wouldn't
+drivers/pci/pci.h be enough?
 
--- 
-I speak only for myself.
-Rafael J. Wysocki, Intel Open Source Technology Center.
+>  /*
+>   * The first PCI_BRIDGE_RESOURCE_NUM PCI bus resources (those that correspond
+>   * to P2P or CardBus bridge windows) go in a table.  Additional ones (for
+> -- 
+> 1.7.1
+> 
