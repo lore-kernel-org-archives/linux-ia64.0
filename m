@@ -1,7 +1,7 @@
 From: Bjorn Helgaas <bhelgaas@google.com>
-Date: Tue, 03 Mar 2015 02:50:20 +0000
+Date: Tue, 03 Mar 2015 03:03:01 +0000
 Subject: Re: [PATCH v4 12/30] PCI: Introduce pci_host_bridge_ops to support host specific operations
-Message-Id: <20150303025020.GF11978@google.com>
+Message-Id: <20150303030301.GI11978@google.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1424938344-4017-1-git-send-email-wangyijing@huawei.com>
  <1424938344-4017-13-git-send-email-wangyijing@huawei.com>
@@ -32,55 +32,29 @@ On Thu, Feb 26, 2015 at 04:12:06PM +0800, Yijing Wang wrote:
 > specific operations.
 > 
 > Signed-off-by: Yijing Wang <wangyijing@huawei.com>
-> ---
->  drivers/pci/host-bridge.c |   12 ++++++++++--
->  drivers/pci/probe.c       |   17 +++++++++++------
->  include/linux/pci.h       |   12 ++++++++++--
->  3 files changed, 31 insertions(+), 10 deletions(-)
-> 
-> diff --git a/drivers/pci/host-bridge.c b/drivers/pci/host-bridge.c
-> index b42a4bb..4a2baa2 100644
-> --- a/drivers/pci/host-bridge.c
-> +++ b/drivers/pci/host-bridge.c
-> @@ -23,8 +23,8 @@ static void pci_release_host_bridge_dev(struct device *dev)
+> ...
+
+> @@ -2050,10 +2052,13 @@ static struct pci_bus *__pci_scan_root_bus(
+>  		pci_bus_insert_busn_res(b, b->number, 255);
+>  	}
+>  
+> -	max = pci_scan_child_bus(b);
+> -
+> -	if (!found)
+> -		pci_bus_update_busn_res_end(b, max);
+> +	if (host->ops && host->ops->phb_of_scan_bus) {
+> +		host->ops->phb_of_scan_bus(host);
+
+The important thing here is not the use of OF (Open Firmware/Device Tree),
+is it?  Why would we want "_of_" in the function name?  I assume the intent
+is that this host bridge op performs the same function as
+pci_scan_child_bus(), so I think the op should be called "scan_bus".
+
+> +	} else {
+> +		max = pci_scan_child_bus(b);
+> +		if (!found)
+> +			pci_bus_update_busn_res_end(b, max);
+> +	}
+>  
+>  	return b;
 >  }
->  
->  struct pci_host_bridge *pci_create_host_bridge(
-> -		struct device *parent, u32 db, 
-> -		struct list_head *resources, void *sysdata)
-> +		struct device *parent, u32 db, struct list_head *resources, 
-> +		void *sysdata, struct pci_host_bridge_ops *ops)
->  {
->  	int error;
->  	int bus = PCI_BUSNUM(db);
-> @@ -56,6 +56,7 @@ struct pci_host_bridge *pci_create_host_bridge(
->  		}
->  	mutex_unlock(&phb_mutex);
->  
-> +	host->ops = ops;
->  	host->dev.parent = parent;
->  	INIT_LIST_HEAD(&host->windows);
->  	host->dev.release = pci_release_host_bridge_dev;
-> @@ -63,6 +64,13 @@ struct pci_host_bridge *pci_create_host_bridge(
->  	dev_set_name(&host->dev, "pci%04x:%02x", host->domain, 
->  			host->busnum);
->  
-> +	if (host->ops && host->ops->phb_prepare) {
-> +		error = host->ops->phb_prepare(host);
-> +		if(error) {
-
-Whitespace error.
-
-> --- a/include/linux/pci.h
-> +++ b/include/linux/pci.h
-> @@ -400,6 +400,13 @@ static inline int pci_channel_offline(struct pci_dev *pdev)
->  	return (pdev->error_state != pci_channel_io_normal);
->  }
->  
-> +struct pci_host_bridge;
-> +struct pci_host_bridge_ops {
-> +	void (*phb_set_root_bus_speed)(struct pci_host_bridge *host);
-> +	int (*phb_prepare)(struct pci_host_bridge *host);
-> +	void (*phb_of_scan_bus)(struct pci_host_bridge *);
-
-These function pointers don't need a "phb_" prefix.
