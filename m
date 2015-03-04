@@ -1,68 +1,74 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Mon, 23 Mar 2015 12:40:49 +0000
-Subject: [PATCH v7 23/31] PCI/mvebu: Use pci_common_init_dev() to simplify code
-Message-Id: <1427114457-16687-24-git-send-email-wangyijing@huawei.com>
+From: "Rafael J. Wysocki" <rjw@rjwysocki.net>
+Date: Wed, 04 Mar 2015 22:45:55 +0000
+Subject: Re: [PATCH v3 6/9] ACPI: move _OSI support functions to allow arch-dependent implementation
+Message-Id: <2609016.EPbkEHRv6B@vostro.rjw.lan>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1427114457-16687-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1427114457-16687-1-git-send-email-wangyijing@huawei.com>
+References: <1424824585-6405-1-git-send-email-al.stone@linaro.org> <1424824585-6405-7-git-send-email-al.stone@linaro.org>
+In-Reply-To: <1424824585-6405-7-git-send-email-al.stone@linaro.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>, Thomas Petazzoni <thomas.petazzoni@free-electrons.com>, Jason Cooper <jason@lakedaemon.net>
+To: al.stone@linaro.org
+Cc: lenb@kernel.org, catalin.marinas@arm.com, will.deacon@arm.com, robert.moore@intel.com, tony.luck@intel.com, fenghua.yu@intel.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org, linux-arm-kernel@lists.infradead.org, linaro-acpi@lists.linaro.org, linaro-kernel@lists.linaro.org, patches@linaro.org
 
-Mvebu_pcie_scan_bus() is not necessary, we could use
-pci_common_init_dev() instead of pci_common_init(),
-and pass the device pointer as the parent. Then
-pci_scan_root_bus() will be called to scan the pci busses.
+On Tuesday, February 24, 2015 05:36:22 PM al.stone@linaro.org wrote:
+> From: Al Stone <al.stone@linaro.org>
+> 
+> Having moved the _OSI callback function needed by ACPICA from
+> drivers/acpi/osl.c to drivers/acpi/osi.c, we now move all the
+> remaining _OSI support functions to osi.c.
+> 
+> This patch is much larger than I had wanted it to be; several of the
+> functions that implemented acpi_osi* command line options, or did the
+> set up of the interfaces to be provided by _OSI, shared a static struct.
+> Hence, I ended up moving a bunch of code at once rather than perhaps a
+> function at a time.
+> 
+> With this patch, all the _OSI-associated code has now been moved
+> to osi.c, and we next change the build so that we can make the
+> _OSI implementation arch-dependent.
+> 
+> There is no functional change.
+> 
+> Signed-off-by: Al Stone <al.stone@linaro.org>
+> ---
+>  drivers/acpi/osi.c   | 152 ++++++++++++++++++++++++++++++++++++++++-
+>  drivers/acpi/osl.c   | 187 ---------------------------------------------------
+>  include/linux/acpi.h |   5 +-
+>  3 files changed, 154 insertions(+), 190 deletions(-)
+> 
+> diff --git a/drivers/acpi/osi.c b/drivers/acpi/osi.c
+> index f23aa70..9943b7a 100644
+> --- a/drivers/acpi/osi.c
+> +++ b/drivers/acpi/osi.c
+> @@ -30,6 +30,8 @@ ACPI_MODULE_NAME("osi");
+>  
+>  #define PREFIX			"ACPI: "
+>  
+> +static void __init acpi_osi_setup_late(void);
+> +
+>  /*
+>   * The story of _OSI(Linux)
+>   *
+> @@ -68,10 +70,14 @@ static struct osi_linux {
+>  	unsigned int	dmi:1;
+>  	unsigned int	cmdline:1;
+>  	unsigned int	default_disabling:1;
+> -} osi_linux = {0, 0, 0, 0};
+> +	unsigned int	interfaces_added:1;
+> +} osi_linux = {0, 0, 0, 0, 0};
+>  
+>  u32 acpi_osi_handler(acpi_string interface, u32 supported)
+>  {
+> +	if (!osi_linux.interfaces_added)
+> +		acpi_osi_setup_late();
+> +
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
-CC: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-CC: Jason Cooper <jason@lakedaemon.net>
----
- drivers/pci/host/pci-mvebu.c |   18 +-----------------
- 1 files changed, 1 insertions(+), 17 deletions(-)
+This wasn't there in the old code.
 
-diff --git a/drivers/pci/host/pci-mvebu.c b/drivers/pci/host/pci-mvebu.c
-index 0cfc494..d5a2b70 100644
---- a/drivers/pci/host/pci-mvebu.c
-+++ b/drivers/pci/host/pci-mvebu.c
-@@ -750,21 +750,6 @@ static int mvebu_pcie_setup(int nr, struct pci_sys_data *sys)
- 	return 1;
- }
- 
--static struct pci_bus *mvebu_pcie_scan_bus(int nr, struct pci_sys_data *sys)
--{
--	struct mvebu_pcie *pcie = sys_to_pcie(sys);
--	struct pci_bus *bus;
--
--	bus = pci_create_root_bus(&pcie->pdev->dev, -1, sys->busnr,
--				  &mvebu_pcie_ops, sys, &sys->resources);
--	if (!bus)
--		return NULL;
--
--	pci_scan_child_bus(bus);
--
--	return bus;
--}
--
- static resource_size_t mvebu_pcie_align_resource(struct pci_dev *dev,
- 						 const struct resource *res,
- 						 resource_size_t start,
-@@ -808,12 +793,11 @@ static void mvebu_pcie_enable(struct mvebu_pcie *pcie)
- 	hw.nr_controllers = 1;
- 	hw.private_data   = (void **)&pcie;
- 	hw.setup          = mvebu_pcie_setup;
--	hw.scan           = mvebu_pcie_scan_bus;
- 	hw.map_irq        = of_irq_parse_and_map_pci;
- 	hw.ops            = &mvebu_pcie_ops;
- 	hw.align_resource = mvebu_pcie_align_resource;
- 
--	pci_common_init(&hw);
-+	pci_common_init_dev(&pcie->pdev->dev, &hw);
- }
- 
- /*
+Please don't mix moving code around with adding new things to it.
+
+
 -- 
-1.7.1
-
+I speak only for myself.
+Rafael J. Wysocki, Intel Open Source Technology Center.
