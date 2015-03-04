@@ -1,57 +1,38 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Mon, 09 Mar 2015 02:47:41 +0000
-Subject: Re: [PATCH v5 16/29] powerpc/pci: Use pci_scan_host_bridge() for simplicity
-Message-Id: <54FD09CD.6010306@huawei.com>
+From: "Rafael J. Wysocki" <rjw@rjwysocki.net>
+Date: Wed, 04 Mar 2015 22:41:21 +0000
+Subject: Re: [PATCH v3 1/9] ACPI: fix all errors reported by cleanpatch.pl in osl.c
+Message-Id: <1528624.HcuCny6IaW@vostro.rjw.lan>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1425634426-437-1-git-send-email-wangyijing@huawei.com> <1425634426-437-17-git-send-email-wangyijing@huawei.com> <CAL_JsqJqpbTThfm2yctHr-gyySyxsJT3HS8rxm6oY+ZYVT5vvQ@mail.gmail.com>
-In-Reply-To: <CAL_JsqJqpbTThfm2yctHr-gyySyxsJT3HS8rxm6oY+ZYVT5vvQ@mail.gmail.com>
+References: <1424824585-6405-1-git-send-email-al.stone@linaro.org> <1424824585-6405-2-git-send-email-al.stone@linaro.org>
+In-Reply-To: <1424824585-6405-2-git-send-email-al.stone@linaro.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Rob Herring <robherring2@gmail.com>
-Cc: Bjorn Helgaas <bhelgaas@google.com>, linux-ia64@vger.kernel.org, "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>, Guan Xuetao <gxt@mprc.pku.edu.cn>, Russell King <linux@arm.linux.org.uk>, "x86@kernel.org" <x86@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Arnd Bergmann <arnd@arndb.de>, Marc Zyngier <marc.zyngier@arm.com>, Rusty Russell <rusty@rustcorp.com.au>, linux-m68k@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, Yinghai Lu <yinghai@kernel.org>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, Liviu Dudau <liviu@dudau.co.uk>, Tony Luck <tony.luck@intel.com>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Jiang Liu <jiang.liu@linux.intel.com>, linux-alpha@vger.kernel.org, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, "David S. Miller" <davem@davemloft.net>
+To: al.stone@linaro.org
+Cc: lenb@kernel.org, catalin.marinas@arm.com, will.deacon@arm.com, robert.moore@intel.com, tony.luck@intel.com, fenghua.yu@intel.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org, linux-arm-kernel@lists.infradead.org, linaro-acpi@lists.linaro.org, linaro-kernel@lists.linaro.org, patches@linaro.org
 
-On 2015/3/6 22:19, Rob Herring wrote:
-> On Fri, Mar 6, 2015 at 3:33 AM, Yijing Wang <wangyijing@huawei.com> wrote:
->> Now we could use pci_scan_host_bridge() to scan
->> pci buses, provide powerpc specific pci_host_bridge_ops.
->>
->> Suggested-by: Arnd Bergmann <arnd@arndb.de>
->> Signed-off-by: Yijing Wang <wangyijing@huawei.com>
->> CC: Benjamin Herrenschmidt <benh@kernel.crashing.org>
->> CC: linuxppc-dev@lists.ozlabs.org
->> Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
->> ---
->>  arch/powerpc/include/asm/machdep.h       |    2 +-
->>  arch/powerpc/kernel/pci-common.c         |   63 ++++++++++++++++++------------
->>  arch/powerpc/platforms/pseries/pci.c     |    8 ++--
->>  arch/powerpc/platforms/pseries/pseries.h |    2 +-
->>  4 files changed, 44 insertions(+), 31 deletions(-)
->>
->> diff --git a/arch/powerpc/include/asm/machdep.h b/arch/powerpc/include/asm/machdep.h
->> index 8e7f2a8..b811d12 100644
->> --- a/arch/powerpc/include/asm/machdep.h
->> +++ b/arch/powerpc/include/asm/machdep.h
->> @@ -129,7 +129,7 @@ struct machdep_calls {
->>         void            (*pcibios_fixup)(void);
->>         int             (*pci_probe_mode)(struct pci_bus *);
->>         void            (*pci_irq_fixup)(struct pci_dev *dev);
->> -       int             (*pcibios_set_root_bus_speed)(struct pci_host_bridge
->> +       void            (*pcibios_set_root_bus_speed)(struct pci_host_bridge
->>                                 *bridge);
+On Tuesday, February 24, 2015 05:36:17 PM al.stone@linaro.org wrote:
+> From: Al Stone <al.stone@linaro.org>
 > 
-> Shouldn't this be part of patch 15?
+> In preparation for later splitting out some of the arch-dependent code from
+> osl.c, clean up the errors reported by checkpatch.pl.  They fell into these
+> classes:
+> 
+>    -- remove the FSF address from the GPL notice
+>    -- "foo * bar" should be "foo *bar" (and the ** variation of same)
+>    -- a return is not a function, so parentheses are not required.
+> 
+> Signed-off-by: Al Stone <al.stone@linaro.org>
 
-Hi Rob, I didn't merge this to patch 15 for building happy for patch 15.
+checkpatch.pl is irrelevant here.  You're trying to make the coding style be
+more consistent with the coding style of the rest of the kernel.
 
-> 
-> Rob
-> 
-> .
-> 
+The warnings from checkpatch.pl are meaningless for the existing code, so
+it should not be used to justify changes in that code.
+
+Of course, the same applies to patches [2-4/9].
 
 
 -- 
-Thanks!
-Yijing
-
+I speak only for myself.
+Rafael J. Wysocki, Intel Open Source Technology Center.
