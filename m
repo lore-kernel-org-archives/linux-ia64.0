@@ -1,34 +1,90 @@
-From: Joe Perches <joe@perches.com>
-Date: Tue, 31 Mar 2015 00:14:48 +0000
-Subject: Re: [PATCH 00/25] treewide: Use bool function return values of true/false not 1/0
-Message-Id: <1427760888.14276.37.camel@perches.com>
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Mon, 09 Mar 2015 02:34:05 +0000
+Subject: [PATCH v6 08/30] PCI: Introduce pci_host_assign_domain_nr() to assign domain
+Message-Id: <1425868467-9667-9-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1427759009.git.joe@perches.com>
-	 <5519E53B.5040504@schaufler-ca.com>
-In-Reply-To: <5519E53B.5040504@schaufler-ca.com>
+References: <1425868467-9667-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1425868467-9667-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Casey Schaufler <casey@schaufler-ca.com>
-Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, kvmarm@lists.cs.columbia.edu, kvm@vger.kernel.org, linux-omap@vger.kernel.org, kvm-ppc@vger.kernel.org, virtualization@lists.linux-foundation.org, linux-fsdevel@vger.kernel.org, linux-nfs@vger.kernel.org, linux-ide@vger.kernel.org, kgdb-bugreport@lists.sourceforge.net, linux-mm@kvack.org, linux-pm@vger.kernel.org, netdev@vger.kernel.org, alsa-devel@alsa-project.org, bridge@lists.linux-foundation.org, netfilter-devel@vger.kernel.org, coreteam@netfilter.org, patches@opensource.wolfsonmicro.com, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-scsi@vger.kernel.org, linux-security-module@vger.kernel.org
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>, Bjorn Helgaas <bhelgaas@google.com>
 
-On Mon, 2015-03-30 at 17:07 -0700, Casey Schaufler wrote:
-> On 3/30/2015 4:45 PM, Joe Perches wrote:
-> > Joe Perches (25):
-> >   arm: Use bool function return values of true/false not 1/0
+Introduce pci_host_assign_domain_nr() to assign domain
+number for pci_host_bridge. Later we will remove
+pci_bus_assign_domain_nr().
 
-[etc...]
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
+---
+ drivers/pci/pci.c   |   20 +++++++++++++++-----
+ include/linux/pci.h |    4 ++++
+ 2 files changed, 19 insertions(+), 5 deletions(-)
 
-> Why, and why these in particular?
-
-bool functions are probably better returning
-bool values instead of 1 and 0.
-
-Especially when the functions intermix returning
-returning 1/0 and true/false.
-
-(there are only a couple of those though)
-
-These are all the remaining instances in the
-kernel tree.
+diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
+index 81f06e8..c49eec1 100644
+--- a/drivers/pci/pci.c
++++ b/drivers/pci/pci.c
+@@ -4501,10 +4501,10 @@ int pci_get_new_domain_nr(void)
+ }
+ 
+ #ifdef CONFIG_PCI_DOMAINS_GENERIC
+-void pci_bus_assign_domain_nr(struct pci_bus *bus, struct device *parent)
++static int pci_assign_domain_nr(struct device *dev)
+ {
+ 	static int use_dt_domains = -1;
+-	int domain = of_get_pci_domain_nr(parent->of_node);
++	int domain = of_get_pci_domain_nr(dev->of_node);
+ 
+ 	/*
+ 	 * Check DT domain and use_dt_domains values.
+@@ -4538,12 +4538,22 @@ void pci_bus_assign_domain_nr(struct pci_bus *bus, struct device *parent)
+ 		use_dt_domains = 0;
+ 		domain = pci_get_new_domain_nr();
+ 	} else {
+-		dev_err(parent, "Node %s has inconsistent \"linux,pci-domain\" property in DT\n",
+-			parent->of_node->full_name);
++		dev_err(dev, "Node %s has inconsistent \"linux,pci-domain\" property in DT\n",
++			dev->of_node->full_name);
+ 		domain = -1;
+ 	}
+ 
+-	bus->domain_nr = domain;
++	return domain;
++}
++
++void pci_host_assign_domain_nr(struct pci_host_bridge *host)
++{
++	host->domain = pci_assign_domain_nr(host->dev.parent);
++}
++
++void pci_bus_assign_domain_nr(struct pci_bus *bus, struct device *parent)
++{
++	bus->domain_nr = pci_assign_domain_nr(parent);
+ }
+ #endif
+ #endif
+diff --git a/include/linux/pci.h b/include/linux/pci.h
+index 8b3d245..2b1b998 100644
+--- a/include/linux/pci.h
++++ b/include/linux/pci.h
+@@ -1327,11 +1327,15 @@ static inline int pci_domain_nr(struct pci_bus *bus)
+ 	return bus->domain_nr;
+ }
+ void pci_bus_assign_domain_nr(struct pci_bus *bus, struct device *parent);
++void pci_host_assign_domain_nr(struct pci_host_bridge *host);
+ #else
+ static inline void pci_bus_assign_domain_nr(struct pci_bus *bus,
+ 					struct device *parent)
+ {
+ }
++static inline void pci_host_assign_domain_nr(struct pci_host_bridge *host)
++{
++}
+ #endif
+ 
+ /* some architectures require additional setup to direct VGA traffic */
+-- 
+1.7.1
 
