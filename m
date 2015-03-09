@@ -1,85 +1,108 @@
 From: Yijing Wang <wangyijing@huawei.com>
-Date: Tue, 03 Mar 2015 03:33:31 +0000
-Subject: Re: [PATCH v4 03/30] xen/PCI: Don't use deprecated function pci_scan_bus_parented()
-Message-Id: <54F52B8B.1010309@huawei.com>
+Date: Mon, 09 Mar 2015 02:34:27 +0000
+Subject: [PATCH v6 30/30] PCI: Remove pci_bus_assign_domain_nr()
+Message-Id: <1425868467-9667-31-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1424938344-4017-1-git-send-email-wangyijing@huawei.com> <1424938344-4017-4-git-send-email-wangyijing@huawei.com> <20150303020249.GC11978@google.com>
-In-Reply-To: <20150303020249.GC11978@google.com>
+References: <1425868467-9667-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1425868467-9667-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, xen-devel@lists.xenproject.org
+Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>, Bjorn Helgaas <bhelgaas@google.com>
 
->> --- a/drivers/pci/xen-pcifront.c
->> +++ b/drivers/pci/xen-pcifront.c
->> @@ -446,6 +446,7 @@ static int pcifront_scan_root(struct pcifront_device *pdev,
->>  				 unsigned int domain, unsigned int bus)
->>  {
->>  	struct pci_bus *b;
->> +	LIST_HEAD(resources);
->>  	struct pcifront_sd *sd = NULL;
->>  	struct pci_bus_entry *bus_entry = NULL;
->>  	int err = 0;
->> @@ -470,17 +471,20 @@ static int pcifront_scan_root(struct pcifront_device *pdev,
->>  		err = -ENOMEM;
->>  		goto err_out;
->>  	}
->> +	pci_add_resource(&resources, &ioport_resource);
->> +	pci_add_resource(&resources, &iomem_resource);
-> 
-> This doesn't add &busn_resource like pci_scan_bus_parented() does.
-> That might be OK, but I think we'll now emit "No busn resource found for
-> root bus, will use [bus %02x-ff]" when we didn't before.  I don't know how
-> xen-pcifront works; it would be nice if it could supply the correct
-> bus resource (and ioport and iomem).
+Now we save the domain number in pci_host_bridge,
+we could remove pci_bus_assign_domain_nr() and
+clean the domain member in pci_bus.
 
-Because the pci_scan_bus_parented() add the default busn_resource for it,
-I would add the default busn_resource in pcifront_scan_root() too to fix the
-"No busn resource found ..." debug info.
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
+---
+ drivers/pci/pci.c   |    5 -----
+ drivers/pci/probe.c |   12 ++++--------
+ include/linux/pci.h |    3 ---
+ 3 files changed, 4 insertions(+), 16 deletions(-)
 
-> 
->>  	pcifront_init_sd(sd, domain, bus, pdev);
->>  
->>  	pci_lock_rescan_remove();
->>  
->> -	b = pci_scan_bus_parented(&pdev->xdev->dev, bus,
->> -				  &pcifront_bus_ops, sd);
->> +	b = pci_scan_root_bus(&pdev->xdev->dev, bus,
->> +				  &pcifront_bus_ops, sd, &resources);
->>  	if (!b) {
->>  		dev_err(&pdev->xdev->dev,
->>  			"Error creating PCI Frontend Bus!\n");
->>  		err = -ENOMEM;
->>  		pci_unlock_rescan_remove();
->> +		pci_free_resource_list(&resources);
->>  		goto err_out;
->>  	}
->>  
->> @@ -488,7 +492,7 @@ static int pcifront_scan_root(struct pcifront_device *pdev,
->>  
->>  	list_add(&bus_entry->list, &pdev->root_buses);
->>  
->> -	/* pci_scan_bus_parented skips devices which do not have a have
->> +	/* pci_scan_root_bus skips devices which do not have a have
-> 
-> Please fix the comment typo at the same time ("have a have").
-
-Ok.
-
-> 
->>  	* devfn=0. The pcifront_scan_bus enumerates all devfn. */
->>  	err = pcifront_scan_bus(pdev, domain, bus, b);
->>  
->> -- 
->> 1.7.1
->>
-> 
-> .
-> 
-
-
+diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
+index 2cf942b..4d8dfe4 100644
+--- a/drivers/pci/pci.c
++++ b/drivers/pci/pci.c
+@@ -4581,11 +4581,6 @@ void pci_host_assign_domain_nr(struct pci_host_bridge *host)
+ {
+ 	host->domain = pci_assign_domain_nr(host->dev.parent);
+ }
+-
+-void pci_bus_assign_domain_nr(struct pci_bus *bus, struct device *parent)
+-{
+-	bus->domain_nr = pci_assign_domain_nr(parent);
+-}
+ #endif
+ #endif
+ 
+diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
+index 196f08a..9cd3ca2 100644
+--- a/drivers/pci/probe.c
++++ b/drivers/pci/probe.c
+@@ -481,7 +481,7 @@ void pci_read_bridge_bases(struct pci_bus *child)
+ 	}
+ }
+ 
+-static struct pci_bus *pci_alloc_bus(struct pci_bus *parent)
++static struct pci_bus *pci_alloc_bus(void)
+ {
+ 	struct pci_bus *b;
+ 
+@@ -496,10 +496,7 @@ static struct pci_bus *pci_alloc_bus(struct pci_bus *parent)
+ 	INIT_LIST_HEAD(&b->resources);
+ 	b->max_bus_speed = PCI_SPEED_UNKNOWN;
+ 	b->cur_bus_speed = PCI_SPEED_UNKNOWN;
+-#ifdef CONFIG_PCI_DOMAINS_GENERIC
+-	if (parent)
+-		b->domain_nr = parent->domain_nr;
+-#endif
++
+ 	return b;
+ }
+ 
+@@ -646,7 +643,7 @@ static struct pci_bus *pci_alloc_child_bus(struct pci_bus *parent,
+ 	/*
+ 	 * Allocate a new bus, and inherit stuff from the parent..
+ 	 */
+-	child = pci_alloc_bus(parent);
++	child = pci_alloc_bus();
+ 	if (!child)
+ 		return NULL;
+ 
+@@ -1866,14 +1863,13 @@ static struct pci_bus *pci_create_root_bus(
+ 	char *fmt;
+ 
+ 	parent = bridge->dev.parent;
+-	b = pci_alloc_bus(NULL);
++	b = pci_alloc_bus();
+ 	if (!b)
+ 		return NULL;
+ 
+ 	b->sysdata = dev_get_drvdata(&bridge->dev);
+ 	b->ops = ops;
+ 	b->number = b->busn_res.start = bridge->busnum;
+-	pci_bus_assign_domain_nr(b, parent);
+ 
+ 	bridge->bus = b;
+ 	b->bridge = get_device(&bridge->dev);
+diff --git a/include/linux/pci.h b/include/linux/pci.h
+index dc1c710..ebc70bb 100644
+--- a/include/linux/pci.h
++++ b/include/linux/pci.h
+@@ -467,9 +467,6 @@ struct pci_bus {
+ 	unsigned char	primary;	/* number of primary bridge */
+ 	unsigned char	max_bus_speed;	/* enum pci_bus_speed */
+ 	unsigned char	cur_bus_speed;	/* enum pci_bus_speed */
+-#ifdef CONFIG_PCI_DOMAINS_GENERIC
+-	int		domain_nr;
+-#endif
+ 
+ 	char		name[48];
+ 
 -- 
-Thanks!
-Yijing
+1.7.1
 
