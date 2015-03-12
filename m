@@ -1,7 +1,7 @@
 From: Bjorn Helgaas <bhelgaas@google.com>
-Date: Thu, 12 Mar 2015 03:33:05 +0000
+Date: Thu, 12 Mar 2015 03:36:43 +0000
 Subject: Re: [PATCH v6 21/30] PCI: Introduce pci_bus_child_max_busnr()
-Message-Id: <20150312033305.GH10949@google.com>
+Message-Id: <20150312033643.GI10949@google.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1425868467-9667-1-git-send-email-wangyijing@huawei.com>
  <1425868467-9667-22-git-send-email-wangyijing@huawei.com>
@@ -18,14 +18,18 @@ On Mon, Mar 09, 2015 at 10:34:18AM +0800, Yijing Wang wrote:
 > bus->busn_res could have padding in it.
 > This function return the max child busnr as
 > pci_scan_child_bus().
-
-I'm not convinced about this one.  The fact that it's only used by parisc
-lba_pci.c and acpiphp makes me suspicious that either they're doing
-something funny, or other drivers *should* be using it, too.
-
+> 
 > Signed-off-by: Yijing Wang <wangyijing@huawei.com>
 > Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
 > Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
+
+I must have screwed this up.  I don't know where the Signed-off-by from
+Fengguang came from, but it shouldn't be there.  And I also screwed up by
+adding my own Signed-off-by to the branch while we're still iterating on
+this series.  The patches you post should not have my Signed-off-by in
+them; I should add that.  But that's my fault because put them in the
+branch, and I asked you to pull that branch and modify and repost it.
+
 > ---
 >  drivers/pci/hotplug/acpiphp_glue.c |   29 +----------------------------
 >  drivers/pci/pci.c                  |   27 +++++++++++++++++++++++++--
