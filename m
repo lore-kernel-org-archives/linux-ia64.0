@@ -1,81 +1,61 @@
-From: Bjorn Helgaas <bhelgaas@google.com>
-Date: Tue, 03 Mar 2015 03:30:08 +0000
-Subject: Re: [PATCH v4 23/30] PCI/mvebu: Use pci_common_init_dev() to simplify code
-Message-Id: <20150303033008.GL11978@google.com>
+From: Akinobu Mita <akinobu.mita@gmail.com>
+Date: Sat, 14 Mar 2015 01:12:57 +0000
+Subject: [PATCH] ia64: Use bitmap_weight
+Message-Id: <1426295577-10836-5-git-send-email-akinobu.mita@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1424938344-4017-1-git-send-email-wangyijing@huawei.com>
- <1424938344-4017-24-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1424938344-4017-24-git-send-email-wangyijing@huawei.com>
+References: <1426295577-10836-1-git-send-email-akinobu.mita@gmail.com>
+In-Reply-To: <1426295577-10836-1-git-send-email-akinobu.mita@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Yijing Wang <wangyijing@huawei.com>
-Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Thomas Petazzoni <thomas.petazzoni@free-electrons.com>, Jason Cooper <jason@lakedaemon.net>
+To: linux-kernel@vger.kernel.org
+Cc: Akinobu Mita <akinobu.mita@gmail.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-On Thu, Feb 26, 2015 at 04:12:17PM +0800, Yijing Wang wrote:
-> Mvebu_pcie_scan_bus() is not necessary, we could use
-> pci_common_init_dev() instead of pci_common_init(),
-> and pass the device pointer as the parent. Then
-> pci_scan_root_bus() will be called to scan the pci busses.
-> 
-> Signed-off-by: Yijing Wang <wangyijing@huawei.com>
-> CC: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-> CC: Jason Cooper <jason@lakedaemon.net>
-> ---
->  drivers/pci/host/pci-mvebu.c |   18 +-----------------
->  1 files changed, 1 insertions(+), 17 deletions(-)
-> 
-> diff --git a/drivers/pci/host/pci-mvebu.c b/drivers/pci/host/pci-mvebu.c
-> index 1309cfb..d5a2b70 100644
-> --- a/drivers/pci/host/pci-mvebu.c
-> +++ b/drivers/pci/host/pci-mvebu.c
-> @@ -750,21 +750,6 @@ static int mvebu_pcie_setup(int nr, struct pci_sys_data *sys)
->  	return 1;
->  }
->  
-> -static struct pci_bus *mvebu_pcie_scan_bus(int nr, struct pci_sys_data *sys)
-> -{
-> -	struct mvebu_pcie *pcie = sys_to_pcie(sys);
-> -	struct pci_bus *bus;
-> -
-> -	bus = pci_create_root_bus(&pcie->pdev->dev, sys->busnr,
-> -				  &mvebu_pcie_ops, sys, &sys->resources);
-> -	if (!bus)
-> -		return NULL;
-> -
-> -	pci_scan_child_bus(bus);
-> -
-> -	return bus;
-> -}
-> -
->  static resource_size_t mvebu_pcie_align_resource(struct pci_dev *dev,
->  						 const struct resource *res,
->  						 resource_size_t start,
-> @@ -808,12 +793,11 @@ static void mvebu_pcie_enable(struct mvebu_pcie *pcie)
->  	hw.nr_controllers = 1;
->  	hw.private_data   = (void **)&pcie;
->  	hw.setup          = mvebu_pcie_setup;
-> -	hw.scan           = mvebu_pcie_scan_bus;
->  	hw.map_irq        = of_irq_parse_and_map_pci;
->  	hw.ops            = &mvebu_pcie_ops;
->  	hw.align_resource = mvebu_pcie_align_resource;
->  
-> -	pci_common_init(&hw);
-> +	pci_common_init_dev(&pcie->pdev->dev, &hw);
+Use bitmap_weight to count the total number of bits set in bitmap.
+This change just simplifies the code a bit.
 
-I'm not necessarily opposed to this, but it seems unrelated to the rest of
-the series.  And I think it changes the behavior slightly (now we call
-pci_common_init_dev() with &pcie->pdev->dev instead of NULL).  So I'll wait
-for an ack from Thomas and/or Jason.
+Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
+---
+ arch/ia64/hp/common/sba_iommu.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
 
->  }
->  
->  /*
-> -- 
-> 1.7.1
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+diff --git a/arch/ia64/hp/common/sba_iommu.c b/arch/ia64/hp/common/sba_iommu.c
+index 344387a..9c944fa 100644
+--- a/arch/ia64/hp/common/sba_iommu.c
++++ b/arch/ia64/hp/common/sba_iommu.c
+@@ -33,7 +33,7 @@
+ #include <linux/acpi.h>
+ #include <linux/efi.h>
+ #include <linux/nodemask.h>
+-#include <linux/bitops.h>         /* hweight64() */
++#include <linux/bitmap.h>         /* bitmap_weight() */
+ #include <linux/crash_dump.h>
+ #include <linux/iommu-helper.h>
+ #include <linux/dma-mapping.h>
+@@ -1901,8 +1901,7 @@ static int
+ ioc_show(struct seq_file *s, void *v)
+ {
+ 	struct ioc *ioc = v;
+-	unsigned long *res_ptr = (unsigned long *)ioc->res_map;
+-	int i, used = 0;
++	int used;
+ 
+ 	seq_printf(s, "Hewlett Packard %s IOC rev %d.%d\n",
+ 		ioc->name, ((ioc->rev >> 4) & 0xF), (ioc->rev & 0xF));
+@@ -1913,8 +1912,8 @@ ioc_show(struct seq_file *s, void *v)
+ 	seq_printf(s, "IOVA size       : %ld MB\n", ((ioc->pdir_size >> 3) * iovp_size)/(1024*1024));
+ 	seq_printf(s, "IOVA page size  : %ld kb\n", iovp_size/1024);
+ 
+-	for (i = 0; i < (ioc->res_size / sizeof(unsigned long)); ++i, ++res_ptr)
+-		used += hweight64(*res_ptr);
++	used = bitmap_weight((unsigned long *)ioc->res_map,
++			ioc->res_size * BITS_PER_BYTE);
+ 
+ 	seq_printf(s, "PDIR size       : %d entries\n", ioc->pdir_size >> 3);
+ 	seq_printf(s, "PDIR used       : %d entries\n", used);
+-- 
+1.9.1
+
