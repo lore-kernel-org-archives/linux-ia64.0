@@ -1,75 +1,63 @@
 From: Yijing Wang <wangyijing@huawei.com>
-Date: Fri, 06 Mar 2015 09:33:29 +0000
-Subject: [PATCH v5 12/29] PCI: Introduce new scan function pci_scan_host_bridge()
-Message-Id: <1425634426-437-13-git-send-email-wangyijing@huawei.com>
+Date: Mon, 23 Mar 2015 12:40:50 +0000
+Subject: [PATCH v7 24/31] PCI/tegra: Remove redundant tegra_pcie_scan_bus()
+Message-Id: <1427114457-16687-25-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1425634426-437-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1425634426-437-1-git-send-email-wangyijing@huawei.com>
+References: <1427114457-16687-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1427114457-16687-1-git-send-email-wangyijing-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>, Bjorn Helgaas <bhelgaas@google.com>
+To: Bjorn Helgaas <bhelgaas-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Cc: Jiang Liu <jiang.liu-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>, linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Yinghai Lu <yinghai-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Marc Zyngier <marc.zyngier-5wv7dgnIgG8@public.gmane.org>, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>, Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>, Rusty Russell <rusty-8n+1lVoiYb80n/F98K4Iww@public.gmane.org>, Tony Luck <tony.luck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Guan Xuetao <gxt-TG0Ac1+ktVePQbnJrJN+5g@public.gmane.org>, linux-alpha-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-m68k-cunTk1MwBs8S/qaLPR03pWD2FQJk+8+b@public.gmane.org, Liviu Dudau <liviu-I3yL/QOVVjH10XsdtD+oqA@public.gmane.org>, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>, Yijing Wang <wangyijing-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, Thierry Reding <thierry.reding-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 
-Introduce new scan function pci_scan_host_bridge() to
-support host bridge drivers that need to provide platform
-own pci_host_bridge_ops.
+Now pci_scan_root_bus() is almost similar to
+pci_create_root_bus() + pci_scan_child_bus().
+So we could use common pci_scan_root_bus() in
+pci_common_init_dev() to scan pci busses.
+tegra_pcie_scan_bus() is redundant, remove it.
 
 Signed-off-by: Yijing Wang <wangyijing@huawei.com>
-Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
+CC: Thierry Reding <thierry.reding@gmail.com>
+CC: linux-tegra@vger.kernel.org
 ---
- drivers/pci/probe.c |   22 ++++++++++++++++++++++
- include/linux/pci.h |    4 ++++
- 2 files changed, 26 insertions(+), 0 deletions(-)
+ drivers/pci/host/pci-tegra.c |   16 ----------------
+ 1 files changed, 0 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
-index b76fca6..54557a1 100644
---- a/drivers/pci/probe.c
-+++ b/drivers/pci/probe.c
-@@ -2063,6 +2063,28 @@ static struct pci_bus *__pci_scan_root_bus(
- 	return b;
+diff --git a/drivers/pci/host/pci-tegra.c b/drivers/pci/host/pci-tegra.c
+index 94e9362..10c0571 100644
+--- a/drivers/pci/host/pci-tegra.c
++++ b/drivers/pci/host/pci-tegra.c
+@@ -630,21 +630,6 @@ static int tegra_pcie_map_irq(const struct pci_dev *pdev, u8 slot, u8 pin)
+ 	return irq;
  }
  
-+struct pci_host_bridge *pci_scan_host_bridge(struct device *parent,
-+		u32 db, struct pci_ops *ops, void *sysdata,
-+		struct list_head *resources,
-+		struct pci_host_bridge_ops *phb_ops)
-+{
-+	struct pci_host_bridge *host;
-+	struct pci_bus *bus;
-+
-+	host = pci_create_host_bridge(parent, db, resources,
-+			sysdata, phb_ops);
-+	if (!host)
-+		return NULL;
-+
-+	bus = __pci_scan_root_bus(host, ops);
-+	if (!bus)
-+		pci_free_host_bridge(host);
-+
-+	return host;
-+}
-+EXPORT_SYMBOL(pci_scan_host_bridge);
-+
-+
- struct pci_bus *pci_scan_root_bus(struct device *parent, u32 db,
- 		struct pci_ops *ops, void *sysdata, struct list_head *resources)
+-static struct pci_bus *tegra_pcie_scan_bus(int nr, struct pci_sys_data *sys)
+-{
+-	struct tegra_pcie *pcie = sys_to_pcie(sys);
+-	struct pci_bus *bus;
+-
+-	bus = pci_create_root_bus(pcie->dev, -1, sys->busnr, &tegra_pcie_ops,
+-			sys, &sys->resources);
+-	if (!bus)
+-		return NULL;
+-
+-	pci_scan_child_bus(bus);
+-
+-	return bus;
+-}
+-
+ static irqreturn_t tegra_pcie_isr(int irq, void *arg)
  {
-diff --git a/include/linux/pci.h b/include/linux/pci.h
-index e9922b1..28eafb5 100644
---- a/include/linux/pci.h
-+++ b/include/linux/pci.h
-@@ -790,6 +790,10 @@ void pci_bus_release_busn_res(struct pci_bus *b);
- struct pci_bus *pci_scan_root_bus(struct device *parent, u32 dombus,
- 					     struct pci_ops *ops, void *sysdata,
- 					     struct list_head *resources);
-+struct pci_host_bridge *pci_scan_host_bridge(struct device *parent,
-+		u32 dombus, struct pci_ops *ops, void *sysdata,
-+		struct list_head *resources,
-+		struct pci_host_bridge_ops *phb_ops);
- struct pci_bus *pci_add_new_bus(struct pci_bus *parent, struct pci_dev *dev,
- 				int busnr);
- void pcie_update_link_speed(struct pci_bus *bus, u16 link_status);
+ 	const char *err_msg[] = {
+@@ -1831,7 +1816,6 @@ static int tegra_pcie_enable(struct tegra_pcie *pcie)
+ 	hw.private_data = (void **)&pcie;
+ 	hw.setup = tegra_pcie_setup;
+ 	hw.map_irq = tegra_pcie_map_irq;
+-	hw.scan = tegra_pcie_scan_bus;
+ 	hw.ops = &tegra_pcie_ops;
+ 
+ 	pci_common_init_dev(pcie->dev, &hw);
 -- 
 1.7.1
 
