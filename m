@@ -1,106 +1,123 @@
 From: Yijing Wang <wangyijing@huawei.com>
-Date: Mon, 09 Mar 2015 02:34:24 +0000
-Subject: [PATCH v6 27/30] PCI: Rename __pci_create_root_bus() to pci_create_root_bus()
-Message-Id: <1425868467-9667-28-git-send-email-wangyijing@huawei.com>
+Date: Mon, 23 Mar 2015 12:40:35 +0000
+Subject: [PATCH v7 09/31] PCI: Introduce pci_host_first_busnr() function
+Message-Id: <1427114457-16687-10-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1425868467-9667-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1425868467-9667-1-git-send-email-wangyijing@huawei.com>
+References: <1427114457-16687-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1427114457-16687-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>, Bjorn Helgaas <bhelgaas@google.com>
+Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>
 
-Now no one use pci_create_root_bus(), we could remove it
-and rename __pci_create_root_bus() to pci_create_root_bus().
+Use it to get the first bus number of the bus
+resource.
 
-Signed-off-by: wangyijing@huawei.com
-Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
 ---
- drivers/pci/probe.c |   27 ++++++++-------------------
- include/linux/pci.h |    3 ---
- 2 files changed, 8 insertions(+), 22 deletions(-)
+ drivers/pci/pci.h   |   11 +++++++++++
+ drivers/pci/probe.c |   19 ++++++++++---------
+ 2 files changed, 21 insertions(+), 9 deletions(-)
 
+diff --git a/drivers/pci/pci.h b/drivers/pci/pci.h
+index 8526790..886d72f 100644
+--- a/drivers/pci/pci.h
++++ b/drivers/pci/pci.h
+@@ -337,4 +337,15 @@ static inline void pci_host_assign_domain_nr(struct pci_host_bridge *host)
+ struct pci_host_bridge *pci_create_host_bridge(struct device *parent,
+ 		int domain, int bus, struct list_head *resources);
+ void pci_free_host_bridge(struct pci_host_bridge *host);
++
++static inline int pci_host_first_busnr(struct pci_host_bridge *host)
++{
++	struct resource_entry *window;
++
++	resource_list_for_each_entry(window, &host->windows)
++		if (window->res->flags & IORESOURCE_BUS)
++			return window->res->start;
++	return -1;
++}
++
+ #endif /* DRIVERS_PCI_H */
 diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
-index 1080eff..196f08a 100644
+index d5a12d9..25ac741 100644
 --- a/drivers/pci/probe.c
 +++ b/drivers/pci/probe.c
-@@ -1853,7 +1853,7 @@ void __weak pcibios_remove_bus(struct pci_bus *bus)
+@@ -1864,7 +1864,7 @@ void __weak pcibios_remove_bus(struct pci_bus *bus)
  {
  }
  
--static struct pci_bus *__pci_create_root_bus(
-+static struct pci_bus *pci_create_root_bus(
- 		struct pci_host_bridge *bridge, struct pci_ops *ops)
+-static struct pci_bus *__pci_create_root_bus(int bus,
++static struct pci_bus *__pci_create_root_bus(
+ 		struct pci_host_bridge *bridge, struct pci_ops *ops,
+ 		void *sysdata)
  {
- 	int error;
-@@ -1937,18 +1937,6 @@ err_out:
- 	return NULL;
- }
+@@ -1884,9 +1884,10 @@ static struct pci_bus *__pci_create_root_bus(int bus,
  
--struct pci_bus *pci_create_root_bus(struct device *parent, u32 db,
--		struct pci_ops *ops, void *sysdata, struct list_head *resources)
--{
--	struct pci_host_bridge *host;
--
--	host = pci_create_host_bridge(parent, db, resources, sysdata, NULL);
--	if (!host)
--		return NULL;
--
--	return __pci_create_root_bus(host, ops);
--}
--
- int pci_bus_insert_busn_res(struct pci_bus *b, int bus, int bus_max)
- {
- 	struct resource *res = &b->busn_res;
-@@ -2026,7 +2014,7 @@ static struct pci_bus *__pci_scan_root_bus(
- 			break;
- 		}
+ 	b->sysdata = sysdata;
+ 	b->ops = ops;
+-	b->number = b->busn_res.start = bus;
++	b->number = b->busn_res.start +		pci_host_first_busnr(bridge);
+ 	pci_bus_assign_domain_nr(b, parent);
+-	b2 = pci_find_bus(pci_domain_nr(b), bus);
++	b2 = pci_find_bus(pci_domain_nr(b), b->number);
+ 	if (b2) {
+ 		/* If we already got to this bus through a different bridge, ignore it */
+ 		dev_dbg(&b2->dev, "bus already known\n");
+@@ -1907,7 +1908,7 @@ static struct pci_bus *__pci_create_root_bus(int bus,
  
--	b = __pci_create_root_bus(host, ops);
-+	b = pci_create_root_bus(host, ops);
- 	if (!b) {
- 		pci_free_host_bridge(host);
+ 	b->dev.class = &pcibus_class;
+ 	b->dev.parent = b->bridge;
+-	dev_set_name(&b->dev, "%04x:%02x", bridge->domain, bus);
++	dev_set_name(&b->dev, "%04x:%02x", bridge->domain, b->number);
+ 	error = device_register(&b->dev);
+ 	if (error)
+ 		goto put_dev;
+@@ -1927,7 +1928,7 @@ static struct pci_bus *__pci_create_root_bus(int bus,
+ 		res = window->res;
+ 		offset = window->offset;
+ 		if (res->flags & IORESOURCE_BUS)
+-			pci_bus_insert_busn_res(b, bus, res->end);
++			pci_bus_insert_busn_res(b, b->number, res->end);
+ 		else
+ 			pci_bus_add_resource(b, res, 0);
+ 		if (offset) {
+@@ -1966,7 +1967,7 @@ struct pci_bus *pci_create_root_bus(struct device *parent,
+ 	if (!host)
  		return NULL;
-@@ -2089,18 +2077,19 @@ struct pci_bus *pci_scan_bus(u32 db, struct pci_ops *ops,
- 					void *sysdata)
- {
- 	LIST_HEAD(resources);
--	struct pci_bus *b;
-+	struct pci_host_bridge *host;
  
- 	pci_add_resource(&resources, &ioport_resource);
- 	pci_add_resource(&resources, &iomem_resource);
- 	pci_add_resource(&resources, &busn_resource);
--	b = pci_create_root_bus(NULL, db, ops, sysdata, &resources);
--	if (b) {
--		pci_scan_child_bus(b);
-+	host = pci_create_host_bridge(NULL, db, sysdata, &resources, NULL);
-+	if (host) {
-+		__pci_scan_root_bus(host, ops);
-+		return host->bus;
- 	} else {
- 		pci_free_resource_list(&resources);
- 	}
--	return b;
-+	return NULL;
+-	host->bus = __pci_create_root_bus(bus, host, ops, sysdata);
++	host->bus = __pci_create_root_bus(host, ops, sysdata);
+ 	if (!host->bus)
+ 		pci_free_host_bridge(host);
+ 
+@@ -2042,14 +2043,14 @@ void pci_bus_release_busn_res(struct pci_bus *b)
+ 			res, ret ? "can not be" : "is");
  }
- EXPORT_SYMBOL(pci_scan_bus);
  
-diff --git a/include/linux/pci.h b/include/linux/pci.h
-index 261b8de..5717b14 100644
---- a/include/linux/pci.h
-+++ b/include/linux/pci.h
-@@ -779,9 +779,6 @@ void pcibios_scan_specific_bus(int busn);
- struct pci_bus *pci_find_bus(int domain, int busnr);
- void pci_bus_add_devices(const struct pci_bus *bus);
- struct pci_bus *pci_scan_bus(u32 dombus, struct pci_ops *ops, void *sysdata);
--struct pci_bus *pci_create_root_bus(struct device *parent, u32 dombus,
--				    struct pci_ops *ops, void *sysdata,
--				    struct list_head *resources);
- int pci_bus_insert_busn_res(struct pci_bus *b, int bus, int busmax);
- int pci_bus_update_busn_res_end(struct pci_bus *b, int busmax);
- void pci_bus_release_busn_res(struct pci_bus *b);
+-static struct pci_bus *__pci_scan_root_bus(int bus,
++static struct pci_bus *__pci_scan_root_bus(
+ 		struct pci_host_bridge *host, struct pci_ops *ops,
+ 		void *sysdata)
+ {
+ 	struct pci_bus *b;
+ 	int max;
+ 
+-	b = __pci_create_root_bus(bus, host, ops, sysdata);
++	b = __pci_create_root_bus(host, ops, sysdata);
+ 	if (!b)
+ 		return NULL;
+ 
+@@ -2074,7 +2075,7 @@ struct pci_bus *pci_scan_root_bus(struct device *parent, int domain,
+ 	if (!host)
+ 		return NULL;
+ 
+-	host->bus = __pci_scan_root_bus(bus, host, ops, sysdata);
++	host->bus = __pci_scan_root_bus(host, ops, sysdata);
+ 	if (!host->bus)
+ 		pci_free_host_bridge(host);
+ 
 -- 
 1.7.1
 
