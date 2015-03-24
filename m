@@ -1,31 +1,46 @@
 From: Yijing Wang <wangyijing@huawei.com>
-Date: Mon, 09 Mar 2015 02:34:15 +0000
-Subject: [PATCH v6 18/30] PCI: Remove weak pcibios_root_bridge_prepare()
-Message-Id: <1425868467-9667-19-git-send-email-wangyijing@huawei.com>
+Date: Tue, 24 Mar 2015 03:34:14 +0000
+Subject: [PATCH v8 20/30] PCI: Remove pcibios_root_bridge_prepare() and pcibos_set_root_bus_speed()
+Message-Id: <1427168064-8657-21-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1425868467-9667-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1425868467-9667-1-git-send-email-wangyijing@huawei.com>
+References: <1427168064-8657-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1427168064-8657-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>, Bjorn Helgaas <bhelgaas@google.com>
+Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>
 
-Now no one use weak pcibios_root_bridge_prepare(),
-we could remove it.
+Now no one use weak pcibios_root_bridge_prepare() and
+pcibios_set_root_bus_speed, we could clean up them.
 
 Signed-off-by: Yijing Wang <wangyijing@huawei.com>
-Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
 ---
- drivers/pci/probe.c |   16 +---------------
- include/linux/pci.h |    2 --
- 2 files changed, 1 insertions(+), 17 deletions(-)
+ drivers/pci/host-bridge.c |    4 ----
+ drivers/pci/probe.c       |   18 +-----------------
+ include/linux/pci.h       |    2 --
+ 3 files changed, 1 insertions(+), 23 deletions(-)
 
+diff --git a/drivers/pci/host-bridge.c b/drivers/pci/host-bridge.c
+index b439264..919ba4d 100644
+--- a/drivers/pci/host-bridge.c
++++ b/drivers/pci/host-bridge.c
+@@ -110,10 +110,6 @@ struct pci_host_bridge *pci_create_host_bridge(
+ 			goto list_del;
+ 	}
+ 
+-	error = pcibios_root_bridge_prepare(host);
+-	if (error)
+-		goto list_del;
+-
+ 	error = device_register(&host->dev);
+ 	if (error) {
+ 		put_device(&host->dev);
 diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
-index 99f17e3..1080eff 100644
+index b3d9b1b..7796bf8 100644
 --- a/drivers/pci/probe.c
 +++ b/drivers/pci/probe.c
-@@ -1845,18 +1845,6 @@ unsigned int pci_scan_child_bus(struct pci_bus *bus)
+@@ -1844,22 +1844,6 @@ unsigned int pci_scan_child_bus(struct pci_bus *bus)
  }
  EXPORT_SYMBOL_GPL(pci_scan_child_bus);
  
@@ -41,27 +56,27 @@ index 99f17e3..1080eff 100644
 -	return 0;
 -}
 -
+-void __weak pcibios_set_root_bus_speed(struct pci_host_bridge *bridge)
+-{
+-}
+-
  void __weak pcibios_add_bus(struct pci_bus *bus)
  {
  }
-@@ -1889,11 +1877,9 @@ static struct pci_bus *__pci_create_root_bus(
+@@ -1896,7 +1880,7 @@ static struct pci_bus *__pci_create_root_bus(
  
- 	bridge->bus = b;
- 	b->bridge = get_device(&bridge->dev);
-+
  	if (bridge->ops && bridge->ops->set_root_bus_speed)
  		bridge->ops->set_root_bus_speed(bridge);
--	error = pcibios_root_bridge_prepare(bridge);
--	if (error)
--		goto err_out;
- 
+-	pcibios_set_root_bus_speed(bridge);
++
  	device_enable_async_suspend(b->bridge);
  	pci_set_bus_of_node(b);
+ 
 diff --git a/include/linux/pci.h b/include/linux/pci.h
-index 28eafb5..cfaf217 100644
+index 0b921d6..61e0853 100644
 --- a/include/linux/pci.h
 +++ b/include/linux/pci.h
-@@ -424,8 +424,6 @@ void pci_set_host_bridge_release(struct pci_host_bridge *bridge,
+@@ -426,8 +426,6 @@ void pci_set_host_bridge_release(struct pci_host_bridge *bridge,
  		     void (*release_fn)(struct pci_host_bridge *),
  		     void *release_data);
  
