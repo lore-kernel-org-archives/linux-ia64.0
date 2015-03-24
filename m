@@ -1,29 +1,30 @@
 From: Yijing Wang <wangyijing@huawei.com>
-Date: Fri, 06 Mar 2015 09:33:24 +0000
-Subject: [PATCH v5 07/29] PCI: Introduce pci_host_assign_domain_nr() to assign domain
-Message-Id: <1425634426-437-8-git-send-email-wangyijing@huawei.com>
+Date: Tue, 24 Mar 2015 03:33:59 +0000
+Subject: [PATCH v8 05/30] PCI: Introduce pci_host_assign_domain_nr() to assign domain
+Message-Id: <1427168064-8657-6-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1425634426-437-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1425634426-437-1-git-send-email-wangyijing@huawei.com>
+References: <1427168064-8657-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1427168064-8657-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>, Bjorn Helgaas <bhelgaas@google.com>
+Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>
 
 Introduce pci_host_assign_domain_nr() to assign domain
-number for pci_host_bridge. Later we will remove
-pci_bus_assign_domain_nr().
+number for pci_host_bridge. In the later patch, we would
+assign domain in pci_create_host_bridge, clean up the
+pci_bus_assign_domain_nr() and move this function into
+drivers/pci/host-bridge.c.
 
 Signed-off-by: Yijing Wang <wangyijing@huawei.com>
-Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
 ---
- drivers/pci/pci.c   |   20 +++++++++++++++-----
- include/linux/pci.h |    4 ++++
- 2 files changed, 19 insertions(+), 5 deletions(-)
+ drivers/pci/pci.c |   21 ++++++++++++++++-----
+ drivers/pci/pci.h |    4 ++++
+ 2 files changed, 20 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
-index 81f06e8..c49eec1 100644
+index 81f06e8..6677fac 100644
 --- a/drivers/pci/pci.c
 +++ b/drivers/pci/pci.c
 @@ -4501,10 +4501,10 @@ int pci_get_new_domain_nr(void)
@@ -39,7 +40,7 @@ index 81f06e8..c49eec1 100644
  
  	/*
  	 * Check DT domain and use_dt_domains values.
-@@ -4538,12 +4538,22 @@ void pci_bus_assign_domain_nr(struct pci_bus *bus, struct device *parent)
+@@ -4538,13 +4538,24 @@ void pci_bus_assign_domain_nr(struct pci_bus *bus, struct device *parent)
  		use_dt_domains = 0;
  		domain = pci_get_new_domain_nr();
  	} else {
@@ -54,24 +55,26 @@ index 81f06e8..c49eec1 100644
 +	return domain;
 +}
 +
++void pci_bus_assign_domain_nr(struct pci_bus *bus, struct device *parent)
++{
++	bus->domain_nr = pci_assign_domain_nr(parent);
+ }
++
 +void pci_host_assign_domain_nr(struct pci_host_bridge *host)
 +{
 +	host->domain = pci_assign_domain_nr(host->dev.parent);
 +}
 +
-+void pci_bus_assign_domain_nr(struct pci_bus *bus, struct device *parent)
-+{
-+	bus->domain_nr = pci_assign_domain_nr(parent);
- }
  #endif
  #endif
-diff --git a/include/linux/pci.h b/include/linux/pci.h
-index 8b3d245..2b1b998 100644
---- a/include/linux/pci.h
-+++ b/include/linux/pci.h
-@@ -1327,11 +1327,15 @@ static inline int pci_domain_nr(struct pci_bus *bus)
- 	return bus->domain_nr;
- }
+ 
+diff --git a/drivers/pci/pci.h b/drivers/pci/pci.h
+index ba1bcce..1d3d2d1 100644
+--- a/drivers/pci/pci.h
++++ b/drivers/pci/pci.h
+@@ -323,11 +323,15 @@ static inline int pci_dev_specific_reset(struct pci_dev *dev, int probe)
+ 
+ #ifdef CONFIG_PCI_DOMAINS_GENERIC
  void pci_bus_assign_domain_nr(struct pci_bus *bus, struct device *parent);
 +void pci_host_assign_domain_nr(struct pci_host_bridge *host);
  #else
@@ -84,7 +87,7 @@ index 8b3d245..2b1b998 100644
 +}
  #endif
  
- /* some architectures require additional setup to direct VGA traffic */
+ #endif /* DRIVERS_PCI_H */
 -- 
 1.7.1
 
