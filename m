@@ -1,129 +1,91 @@
 From: Yijing Wang <wangyijing@huawei.com>
-Date: Mon, 23 Mar 2015 12:40:37 +0000
-Subject: [PATCH v7 11/31] PCI: Save sysdata in pci_host_bridge drvdata
-Message-Id: <1427114457-16687-12-git-send-email-wangyijing@huawei.com>
+Date: Tue, 24 Mar 2015 03:34:12 +0000
+Subject: [PATCH v8 18/30] ia64/PCI: Refine pci_acpi_scan_root() with generic pci_host_bridge
+Message-Id: <1427168064-8657-19-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1427114457-16687-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1427114457-16687-1-git-send-email-wangyijing@huawei.com>
+References: <1427168064-8657-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1427168064-8657-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>
+Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>, Yijing Wang <wangyijing0307@gmail.com>, Fenghua Yu <fenghua.yu@intel.com>
 
-Save platform specific sysdata in pci_host_bridge
-drvdata, host bridge specific operation need to
-access it before the pci bus creation.
+From: Yijing Wang <wangyijing0307@gmail.com>
 
 Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+CC: Tony Luck <tony.luck@intel.com>
+CC: Fenghua Yu <fenghua.yu@intel.com>
+CC: linux-ia64@vger.kernel.org
 ---
- drivers/pci/host-bridge.c |    3 ++-
- drivers/pci/pci.h         |    2 +-
- drivers/pci/probe.c       |   20 ++++++++++----------
- 3 files changed, 13 insertions(+), 12 deletions(-)
+ arch/ia64/pci/pci.c |   34 +++++++++++++++++++---------------
+ 1 files changed, 19 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/pci/host-bridge.c b/drivers/pci/host-bridge.c
-index 8af6d51..b0ed8da 100644
---- a/drivers/pci/host-bridge.c
-+++ b/drivers/pci/host-bridge.c
-@@ -63,7 +63,7 @@ static bool pci_host_busn_res_overlap(
- 
- struct pci_host_bridge *pci_create_host_bridge(
- 		struct device *parent, int domain, int bus,
--		struct list_head *resources)
-+		void *sysdata, struct list_head *resources)
- {
- 	int error;
- 	struct pci_host_bridge *host, *tmp;
-@@ -101,6 +101,7 @@ struct pci_host_bridge *pci_create_host_bridge(
- 	mutex_unlock(&pci_host_mutex);
- 
- 	host->dev.release = pci_release_host_bridge_dev;
-+	dev_set_drvdata(&host->dev, sysdata);
- 	dev_set_name(&host->dev, "pci%04x:%02x",
- 			host->domain, bus);
- 
-diff --git a/drivers/pci/pci.h b/drivers/pci/pci.h
-index 886d72f..027fba0 100644
---- a/drivers/pci/pci.h
-+++ b/drivers/pci/pci.h
-@@ -335,7 +335,7 @@ static inline void pci_host_assign_domain_nr(struct pci_host_bridge *host)
- #endif
- 
- struct pci_host_bridge *pci_create_host_bridge(struct device *parent,
--		int domain, int bus, struct list_head *resources);
-+        int domain, int bus, void *sysdata, struct list_head *resources);
- void pci_free_host_bridge(struct pci_host_bridge *host);
- 
- static inline int pci_host_first_busnr(struct pci_host_bridge *host)
-diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
-index 8517d1b..0ac2bf6 100644
---- a/drivers/pci/probe.c
-+++ b/drivers/pci/probe.c
-@@ -1865,8 +1865,7 @@ void __weak pcibios_remove_bus(struct pci_bus *bus)
+diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
+index c642bc8..95dc43b 100644
+--- a/arch/ia64/pci/pci.c
++++ b/arch/ia64/pci/pci.c
+@@ -420,6 +420,19 @@ probe_pci_root_info(struct pci_root_info *info, struct acpi_device *device,
+ 	return 0;
  }
  
- static struct pci_bus *__pci_create_root_bus(
--		struct pci_host_bridge *bridge, struct pci_ops *ops,
--		void *sysdata)
-+		struct pci_host_bridge *bridge, struct pci_ops *ops)
++static int pci_host_bridge_prepare(struct pci_host_bridge *bridge)
++{
++	struct pci_controller *controller = bridge->bus->sysdata;
++
++	ACPI_COMPANION_SET(&bridge->dev, controller->companion);
++	return 0;
++}
++
++static struct pci_host_bridge_ops pci_host_ops = {
++	.pci_ops = &pci_root_ops,
++	.prepare = pci_host_bridge_prepare,
++};
++
+ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
  {
- 	int error;
- 	struct pci_bus *b;
-@@ -1882,7 +1881,7 @@ static struct pci_bus *__pci_create_root_bus(
- 	if (!b)
+ 	struct acpi_device *device = root->device;
+@@ -428,7 +441,7 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
+ 	struct pci_controller *controller;
+ 	struct pci_root_info *info = NULL;
+ 	int busnum = root->secondary.start;
+-	struct pci_bus *pbus;
++	struct pci_host_bridge *host;
+ 	int ret;
+ 
+ 	controller = alloc_pci_controller(domain);
+@@ -465,26 +478,17 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
+ 	 * should handle the case here, but it appears that IA64 hasn't
+ 	 * such quirk. So we just ignore the case now.
+ 	 */
+-	pbus = pci_create_root_bus(NULL, domain, bus, &pci_root_ops,
+-			controller, &info->resources);
+-	if (!pbus) {
++	host = pci_scan_host_bridge(NULL, domain, bus, controller,
++			&info->resources, &pci_host_ops);
++	if (!host) {
+ 		pci_free_resource_list(&info->resources);
+ 		__release_pci_root_info(info);
  		return NULL;
+ 	}
  
--	b->sysdata = sysdata;
-+	b->sysdata = dev_get_drvdata(&bridge->dev);
- 	b->ops = ops;
- 	b->number = b->busn_res.start  		pci_host_first_busnr(bridge);
-@@ -1956,11 +1955,12 @@ struct pci_bus *pci_create_root_bus(struct device *parent,
- {
- 	struct pci_host_bridge *host;
- 
--	host = pci_create_host_bridge(parent, domain, bus, resources);
-+	host = pci_create_host_bridge(parent, domain, bus,
-+			sysdata, resources);
- 	if (!host)
- 		return NULL;
- 
--	host->bus = __pci_create_root_bus(host, ops, sysdata);
-+	host->bus = __pci_create_root_bus(host, ops);
- 	if (!host->bus)
- 		pci_free_host_bridge(host);
- 
-@@ -2037,13 +2037,12 @@ void pci_bus_release_busn_res(struct pci_bus *b)
+-	pci_set_host_bridge_release(to_pci_host_bridge(pbus->bridge),
++	pci_set_host_bridge_release(host,
+ 			release_pci_root_info, info);
+-	pci_scan_child_bus(pbus);
+-	return pbus;
+-}
+-
+-int pcibios_root_bridge_prepare(struct pci_host_bridge *bridge)
+-{
+-	struct pci_controller *controller = bridge->bus->sysdata;
+-
+-	ACPI_COMPANION_SET(&bridge->dev, controller->companion);
+-	return 0;
++	return host->bus;
  }
  
- static struct pci_bus *__pci_scan_root_bus(
--		struct pci_host_bridge *host, struct pci_ops *ops,
--		void *sysdata)
-+		struct pci_host_bridge *host, struct pci_ops *ops)
- {
- 	struct pci_bus *b;
- 	int max;
- 
--	b = __pci_create_root_bus(host, ops, sysdata);
-+	b = __pci_create_root_bus(host, ops);
- 	if (!b)
- 		return NULL;
- 
-@@ -2064,11 +2063,12 @@ struct pci_bus *pci_scan_root_bus(struct device *parent, int domain,
- {
- 	struct pci_host_bridge *host;
- 
--	host = pci_create_host_bridge(parent, domain, bus, resources);
-+	host = pci_create_host_bridge(parent, domain, bus,
-+			sysdata, resources);
- 	if (!host)
- 		return NULL;
- 
--	host->bus = __pci_scan_root_bus(host, ops, sysdata);
-+	host->bus = __pci_scan_root_bus(host, ops);
- 	if (!host->bus)
- 		pci_free_host_bridge(host);
- 
+ void pcibios_fixup_device_resources(struct pci_dev *dev)
 -- 
 1.7.1
 
