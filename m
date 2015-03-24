@@ -1,126 +1,68 @@
 From: Yijing Wang <wangyijing@huawei.com>
-Date: Tue, 03 Mar 2015 01:12:23 +0000
-Subject: Re: [PATCH v4 01/30] PCI: Rip out pci_bus_add_devices() from pci_scan_bus()
-Message-Id: <54F50A77.7040703@huawei.com>
+Date: Tue, 24 Mar 2015 03:34:17 +0000
+Subject: [PATCH v8 23/30] PCI/mvebu: Use pci_common_init_dev() to simplify code
+Message-Id: <1427168064-8657-24-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1424938344-4017-1-git-send-email-wangyijing@huawei.com> <1424938344-4017-2-git-send-email-wangyijing@huawei.com> <20150302234147.GA11978@google.com>
-In-Reply-To: <20150302234147.GA11978@google.com>
+References: <1427168064-8657-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1427168064-8657-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, sparclinux@vger.kernel.org
+Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>, Thomas Petazzoni <thomas.petazzoni@free-electrons.com>, Jason Cooper <jason@lakedaemon.net>
 
->>  	pbm->pci_bus = pci_scan_bus(pbm->pci_first_busno, &pcic_ops, pbm);
->> +	if (pbm->pci_bus)
->> +		pci_bus_add_devices(pbm->pci_bus);
->>  #if 0 /* deadwood transplanted from sparc64 */
->>  	pci_fill_in_pbm_cookies(pbm->pci_bus, pbm, pbm->prom_node);
->>  	pci_record_assignments(pbm, pbm->pci_bus);
-> 
-> This is correct, but it should look like this instead:
-> 
->     if (!pbm->pci_bus)
->       return;
->   #if 0 /* deadwood ... */
->   ...
->   #endif
->     pci_bus_add_devices(pbm->pci_bus);
->   }
-> 
-> That way the mainline code is the normal path, and pci_bus_add_devices() is
-> in the correct place even if the "deadwood" code is resurrected.
-> 
+Mvebu_pcie_scan_bus() is not necessary, we could use
+pci_common_init_dev() instead of pci_common_init(),
+and pass the device pointer as the parent. Then
+pci_scan_root_bus() will be called to scan the pci busses.
 
-Yes, you are right, thanks!
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+CC: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+CC: Jason Cooper <jason@lakedaemon.net>
+---
+ drivers/pci/host/pci-mvebu.c |   18 +-----------------
+ 1 files changed, 1 insertions(+), 17 deletions(-)
 
-> 
->> diff --git a/arch/unicore32/kernel/pci.c b/arch/unicore32/kernel/pci.c
->> index 374a055..3d82024 100644
->> --- a/arch/unicore32/kernel/pci.c
->> +++ b/arch/unicore32/kernel/pci.c
->> @@ -266,17 +266,12 @@ static int __init pci_common_init(void)
->>  	pci_fixup_irqs(pci_common_swizzle, pci_puv3_map_irq);
->>  
->>  	if (!pci_has_flag(PCI_PROBE_ONLY)) {
->> -		/*
->> -		 * Size the bridge windows.
->> -		 */
->> +		/* Size the bridge windows. */
->>  		pci_bus_size_bridges(puv3_bus);
->> -
->> -		/*
->> -		 * Assign resources.
->> -		 */
->> +		/* Assign resources. */
->>  		pci_bus_assign_resources(puv3_bus);
->>  	}
->> -
->> +	pci_bus_add_devices(puv3_bus);
->>  	return 0;
->>  }
->>  subsys_initcall(pci_common_init);
->> diff --git a/drivers/pci/hotplug/ibmphp_core.c b/drivers/pci/hotplug/ibmphp_core.c
->> index 96c5c72..86e3bfd 100644
->> --- a/drivers/pci/hotplug/ibmphp_core.c
->> +++ b/drivers/pci/hotplug/ibmphp_core.c
->> @@ -738,7 +738,7 @@ static void ibm_unconfigure_device(struct pci_func *func)
->>   */
->>  static u8 bus_structure_fixup(u8 busno)
->>  {
->> -	struct pci_bus *bus;
->> +	struct pci_bus *bus, *b;
->>  	struct pci_dev *dev;
->>  	u16 l;
->>  
->> @@ -765,7 +765,9 @@ static u8 bus_structure_fixup(u8 busno)
->>  					(l != 0x0000) && (l != 0xffff)) {
->>  			debug("%s - Inside bus_structure_fixup()\n",
->>  							__func__);
->> -			pci_scan_bus(busno, ibmphp_pci_bus->ops, NULL);
->> +			b = pci_scan_bus(busno, ibmphp_pci_bus->ops, NULL);
->> +			if (b)
->> +				pci_bus_add_devices(b);
-> 
-> Use this:
-> 
->     if (!b)
->       continue;
->     pci_bus_add_devices(b);
-> 
-> for the same reason as above.
-
-
-Will update, thanks!
-
-Thanks!
-Yijing.
-
-> 
->>  			break;
->>  		}
->>  	}
->> diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
->> index 8d2f400..88604f2 100644
->> --- a/drivers/pci/probe.c
->> +++ b/drivers/pci/probe.c
->> @@ -2123,7 +2123,6 @@ struct pci_bus *pci_scan_bus(int bus, struct pci_ops *ops,
->>  	b = pci_create_root_bus(NULL, bus, ops, sysdata, &resources);
->>  	if (b) {
->>  		pci_scan_child_bus(b);
->> -		pci_bus_add_devices(b);
->>  	} else {
->>  		pci_free_resource_list(&resources);
->>  	}
->> -- 
->> 1.7.1
->>
-> 
-> .
-> 
-
-
+diff --git a/drivers/pci/host/pci-mvebu.c b/drivers/pci/host/pci-mvebu.c
+index 0cfc494..d5a2b70 100644
+--- a/drivers/pci/host/pci-mvebu.c
++++ b/drivers/pci/host/pci-mvebu.c
+@@ -750,21 +750,6 @@ static int mvebu_pcie_setup(int nr, struct pci_sys_data *sys)
+ 	return 1;
+ }
+ 
+-static struct pci_bus *mvebu_pcie_scan_bus(int nr, struct pci_sys_data *sys)
+-{
+-	struct mvebu_pcie *pcie = sys_to_pcie(sys);
+-	struct pci_bus *bus;
+-
+-	bus = pci_create_root_bus(&pcie->pdev->dev, -1, sys->busnr,
+-				  &mvebu_pcie_ops, sys, &sys->resources);
+-	if (!bus)
+-		return NULL;
+-
+-	pci_scan_child_bus(bus);
+-
+-	return bus;
+-}
+-
+ static resource_size_t mvebu_pcie_align_resource(struct pci_dev *dev,
+ 						 const struct resource *res,
+ 						 resource_size_t start,
+@@ -808,12 +793,11 @@ static void mvebu_pcie_enable(struct mvebu_pcie *pcie)
+ 	hw.nr_controllers = 1;
+ 	hw.private_data   = (void **)&pcie;
+ 	hw.setup          = mvebu_pcie_setup;
+-	hw.scan           = mvebu_pcie_scan_bus;
+ 	hw.map_irq        = of_irq_parse_and_map_pci;
+ 	hw.ops            = &mvebu_pcie_ops;
+ 	hw.align_resource = mvebu_pcie_align_resource;
+ 
+-	pci_common_init(&hw);
++	pci_common_init_dev(&pcie->pdev->dev, &hw);
+ }
+ 
+ /*
 -- 
-Thanks!
-Yijing
+1.7.1
 
