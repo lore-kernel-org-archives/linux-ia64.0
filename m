@@ -1,31 +1,135 @@
-From: Masahiro Yamada <yamada.masahiro@socionext.com>
-Date: Fri, 27 Mar 2015 11:43:34 +0000
-Subject: [PATCH 0/4] kbuild: refactor Makefile inclusion
-Message-Id: <1427456618-23830-1-git-send-email-yamada.masahiro@socionext.com>
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Tue, 24 Mar 2015 03:34:01 +0000
+Subject: [PATCH v8 07/30] PCI: Add default bus resource in pci_host_bridge
+Message-Id: <1427168064-8657-8-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1427168064-8657-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1427168064-8657-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kbuild@vger.kernel.org
-Cc: Masahiro Yamada <yamada.masahiro@socionext.com>, linux-mips@linux-mips.org, Tony Luck <tony.luck@intel.com>, x86@kernel.org, linux-ia64@vger.kernel.org, user-mode-linux-devel@lists.sourceforge.net, Jeff Dike <jdike@addtoit.com>, "H. Peter Anvin" <hpa@zytor.com>, linux-kernel@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, Russell King <linux@arm.linux.org.uk>, Richard Weinberger <richard@nod.at>, Michal Marek <mmarek@suse.cz>, user-mode-linux-user@lists.sourceforge.net, Ingo Molnar <mingo@redhat.com>, Fenghua Yu <fenghua.yu@intel.com>, Ralf Baechle <ralf@linux-mips.org>, linux-arm-kernel@lists.infradead.org
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>
 
-Masahiro Yamada (4):
-  kbuild: use relative path to include Makefile
-  kbuild: use relative path more to include Makefile
-  kbuild: include $(src)/Makefile rather than $(obj)/Makefile
-  kbuild: ia64: use $(src)/Makefile.gate rather than particular path
+If there is no busn resource provided for pci_scan_root_bus(),
+we would insert a default bus resource (root_bus_number, 255)
+in root bus, and update the max bus number we found after
+pci_scan_child_bus(). We also need to hold the default bus
+resource in pci_host_bridge, then we could identify whether
+the new pci host bridge conflict with existing one.
 
- Makefile                  | 22 ++++++++++------------
- arch/arm/boot/Makefile    |  2 +-
- arch/ia64/kernel/Makefile |  2 +-
- arch/mips/Makefile        |  2 +-
- arch/um/Makefile          |  6 +++---
- arch/x86/Makefile         |  2 +-
- arch/x86/Makefile.um      |  2 +-
- scripts/Makefile.dtbinst  |  2 +-
- scripts/Makefile.fwinst   |  2 +-
- 9 files changed, 20 insertions(+), 22 deletions(-)
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+---
+ drivers/pci/host-bridge.c |   20 ++++++++++++++++++++
+ drivers/pci/probe.c       |   26 ++++++++++----------------
+ include/linux/pci.h       |    2 ++
+ 3 files changed, 32 insertions(+), 16 deletions(-)
 
+diff --git a/drivers/pci/host-bridge.c b/drivers/pci/host-bridge.c
+index 7d52a0a..ecc1a7c 100644
+--- a/drivers/pci/host-bridge.c
++++ b/drivers/pci/host-bridge.c
+@@ -19,6 +19,25 @@ static void pci_release_host_bridge_dev(struct device *dev)
+ 	kfree(bridge);
+ }
+ 
++static void pci_host_update_busn_res(
++		struct pci_host_bridge *host, int bus,
++		struct list_head *resources)
++{
++	struct resource_entry *window;
++
++	resource_list_for_each_entry(window, resources)
++		if (window->res->flags & IORESOURCE_BUS)
++			return;
++
++	pr_info(
++	 "No busn resource found for pci%04x:%02x, will use [bus %02x-ff]\n",
++		host->domain, bus, bus);
++	host->busn_res.flags = IORESOURCE_BUS;
++	host->busn_res.start = bus;
++	host->busn_res.end = 255;
++	pci_add_resource(resources, &host->busn_res);
++}
++
+ struct pci_host_bridge *pci_create_host_bridge(
+ 		struct device *parent, int domain, int bus,
+ 		struct list_head *resources)
+@@ -33,6 +52,7 @@ struct pci_host_bridge *pci_create_host_bridge(
+ 
+ 	host->dev.parent = parent;
+ 	INIT_LIST_HEAD(&host->windows);
++	pci_host_update_busn_res(host, bus, resources);
+ 	resource_list_for_each_entry_safe(window, n, resources)
+ 		list_move_tail(&window->node, &host->windows);
+ 	/*
+diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
+index 9bc4784..d5a12d9 100644
+--- a/drivers/pci/probe.c
++++ b/drivers/pci/probe.c
+@@ -2022,6 +2022,12 @@ int pci_bus_update_busn_res_end(struct pci_bus *b, int bus_max)
+ 	return ret;
+ }
+ 
++static void pci_host_update_busn_res_end(
++		struct pci_host_bridge *host, int max)
++{
++	host->busn_res.end = max;
++}
++
+ void pci_bus_release_busn_res(struct pci_bus *b)
+ {
+ 	struct resource *res = &b->busn_res;
+@@ -2040,32 +2046,20 @@ static struct pci_bus *__pci_scan_root_bus(int bus,
+ 		struct pci_host_bridge *host, struct pci_ops *ops,
+ 		void *sysdata)
+ {
+-	struct resource_entry *window;
+-	bool found = false;
+ 	struct pci_bus *b;
+ 	int max;
+ 
+-	resource_list_for_each_entry(window, &host->windows)
+-		if (window->res->flags & IORESOURCE_BUS) {
+-			found = true;
+-			break;
+-		}
+-
+ 	b = __pci_create_root_bus(bus, host, ops, sysdata);
+ 	if (!b)
+ 		return NULL;
+ 
+-	if (!found) {
+-		dev_info(&b->dev,
+-		 "No busn resource found for root bus, will use [bus %02x-ff]\n",
+-			bus);
+-		pci_bus_insert_busn_res(b, bus, 255);
+-	}
+-
+ 	max = pci_scan_child_bus(b);
+ 
+-	if (!found)
++	/* If default busn resource used, update the max bus number */
++	if (host->busn_res.flags & IORESOURCE_BUS) {
++		pci_host_update_busn_res_end(host, max);
+ 		pci_bus_update_busn_res_end(b, max);
++	}
+ 
+ 	return b;
+ }
+diff --git a/include/linux/pci.h b/include/linux/pci.h
+index 1542df8..f189dfb 100644
+--- a/include/linux/pci.h
++++ b/include/linux/pci.h
+@@ -404,6 +404,8 @@ struct pci_host_bridge {
+ 	int domain;
+ 	struct device dev;
+ 	struct pci_bus *bus;		/* root bus */
++	/* we use default bus resource if no bus resource provided */
++	struct resource busn_res;
+ 	struct list_head windows;	/* resource_entry */
+ 	void (*release_fn)(struct pci_host_bridge *);
+ 	void *release_data;
 -- 
-1.9.1
+1.7.1
 
