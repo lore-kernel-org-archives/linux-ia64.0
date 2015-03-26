@@ -1,173 +1,149 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Thu, 26 Mar 2015 01:34:25 +0000
+From: Yinghai Lu <yinghai@kernel.org>
+Date: Thu, 26 Mar 2015 16:31:58 +0000
 Subject: Re: [PATCH v8 10/30] PCI: Introduce pci_host_bridge_list to manage host bridges
-Message-Id: <55136221.1080501@huawei.com>
+Message-Id: <CAE9FiQVgXfViM22qhB-sKDSTtnhvLDMk0NTiK_G88UogVMuM_w@mail.gmail.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="001a1141bd0003d5b10512338ecf"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1427168064-8657-1-git-send-email-wangyijing@huawei.com> <1427168064-8657-11-git-send-email-wangyijing@huawei.com> <5512E566.5050201@linaro.org>
-In-Reply-To: <5512E566.5050201@linaro.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Tomasz Nowicki <tomasz.nowicki@linaro.org>
-Cc: Bjorn Helgaas <bhelgaas@google.com>, Liviu Dudau <liviu@dudau.co.uk>, Rusty Russell <rusty@rustcorp.com.au>, Russell King <linux@arm.linux.org.uk>, Arnd Bergmann <arnd@arndb.de>, Marc Zyngier <marc.zyngier@arm.com>, linux-pci@vger.kernel.org, x86@kernel.org, linux-m68k@vger.kernel.org, linux-kernel@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, linux-alpha@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linux-ia64@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, Guan Xuetao <gxt@mprc.pku.edu.cn>, Yinghai Lu <yinghai@kernel.org>, Jiang Liu <jiang.liu@linux.intel.com>, linux-arm-kernel@lists.infradead.org
+References: <1427168064-8657-1-git-send-email-wangyijing@huawei.com>
+	<1427168064-8657-11-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1427168064-8657-11-git-send-email-wangyijing@huawei.com>
+To: Yijing Wang <wangyijing@huawei.com>
+Cc: Bjorn Helgaas <bhelgaas@google.com>, Jiang Liu <jiang.liu@linux.intel.com>, "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Marc Zyngier <marc.zyngier@arm.com>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, Russell King <linux@arm.linux.org.uk>, the arch/x86 maintainers <x86@kernel.org>, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>
 
-On 2015/3/26 0:42, Tomasz Nowicki wrote:
-> On 24.03.2015 04:34, Yijing Wang wrote:
->> Introduce pci_host_bridge_list to manage pci host
->> bridges in system, this make us have the ability
->> to check whether the new host would conflict with
->> existing one. Then we could remove bus alreay exist
->> check in __pci_create_root_bus().
->>
->> Signed-off-by: Yijing Wang <wangyijing@huawei.com>
->> ---
->>   drivers/pci/host-bridge.c |   41 ++++++++++++++++++++++++++++++++++++++++-
->>   drivers/pci/probe.c       |    9 +--------
->>   include/linux/pci.h       |    1 +
->>   3 files changed, 42 insertions(+), 9 deletions(-)
->>
->> diff --git a/drivers/pci/host-bridge.c b/drivers/pci/host-bridge.c
->> index 1a9834b..8af6d51 100644
->> --- a/drivers/pci/host-bridge.c
->> +++ b/drivers/pci/host-bridge.c
->> @@ -8,6 +8,9 @@
->>
->>   #include "pci.h"
->>
->> +static LIST_HEAD(pci_host_bridge_list);
->> +static DEFINE_MUTEX(pci_host_mutex);
->> +
->>   static void pci_release_host_bridge_dev(struct device *dev)
->>   {
->>       struct pci_host_bridge *bridge = to_pci_host_bridge(dev);
->> @@ -41,12 +44,29 @@ static void pci_host_update_busn_res(
->>       pci_add_resource(resources, &host->busn_res);
->>   }
->>
->> +static bool pci_host_busn_res_overlap(
->> +        struct pci_host_bridge *new, struct pci_host_bridge *old)
->> +{
->> +    struct resource_entry *entry;
->> +    struct resource *res1 = NULL, *res2 = NULL;
->> +
->> +    resource_list_for_each_entry(entry, &old->windows)
->> +        if (entry->res->flags & IORESOURCE_BUS)
->> +            res1 = entry->res;
->> +
->> +    resource_list_for_each_entry(entry, &new->windows)
->> +        if (entry->res->flags & IORESOURCE_BUS)
->> +            res2 = entry->res;
->> +
->> +    return resource_overlaps(res1, res2);
->> +}
->> +
->>   struct pci_host_bridge *pci_create_host_bridge(
->>           struct device *parent, int domain, int bus,
->>           struct list_head *resources)
->>   {
->>       int error;
->> -    struct pci_host_bridge *host;
->> +    struct pci_host_bridge *host, *tmp;
->>       struct resource_entry *window, *n;
->>
->>       host = kzalloc(sizeof(*host), GFP_KERNEL);
->> @@ -65,6 +85,21 @@ struct pci_host_bridge *pci_create_host_bridge(
->>        */
->>       host->domain = domain;
->>       pci_host_assign_domain_nr(host);
->> +    mutex_lock(&pci_host_mutex);
->> +    list_for_each_entry(tmp, &pci_host_bridge_list, list) {
->> +        if (tmp->domain != host->domain
->> +              || pci_host_busn_res_overlap(host, tmp)) {
-> 
-> I think you should construct condition this way:
-> +        if (tmp->domain = host->domain
-> +              && pci_host_busn_res_overlap(host, tmp)) {
+--001a1141bd0003d5b10512338ecf
+Content-Type: text/plain; charset=UTF-8
 
-Good catch! I mistook this in the v8. Tomasz, thanks for your review!
+On Mon, Mar 23, 2015 at 8:34 PM, Yijing Wang <wangyijing@huawei.com> wrote:
+> Introduce pci_host_bridge_list to manage pci host
+> bridges in system, this make us have the ability
+> to check whether the new host would conflict with
+> existing one. Then we could remove bus alreay exist
+> check in __pci_create_root_bus().
 
+Can we use bus_type instead?
+Then we can use bus_find_device for the host_bridge enumeration.
 
-> 
-> Regards,
-> Tomasz
-> 
->> +            pr_warn("pci host bridge pci%04x:%02x exist\n",
->> +                    host->domain, bus);
->> +            mutex_unlock(&pci_host_mutex);
->> +            pci_free_resource_list(&host->windows);
->> +            kfree(host);
->> +            return NULL;
->> +        }
->> +    }
->> +    list_add_tail(&host->list, &pci_host_bridge_list);
->> +    mutex_unlock(&pci_host_mutex);
->> +
->>       host->dev.release = pci_release_host_bridge_dev;
->>       dev_set_name(&host->dev, "pci%04x:%02x",
->>               host->domain, bus);
->> @@ -80,6 +115,10 @@ struct pci_host_bridge *pci_create_host_bridge(
->>
->>   void pci_free_host_bridge(struct pci_host_bridge *host)
->>   {
->> +    mutex_lock(&pci_host_mutex);
->> +    list_del(&host->list);
->> +    mutex_unlock(&pci_host_mutex);
->> +
->>       device_unregister(&host->dev);
->>   }
->>
->> diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
->> index 25ac741..8517d1b 100644
->> --- a/drivers/pci/probe.c
->> +++ b/drivers/pci/probe.c
->> @@ -1869,7 +1869,7 @@ static struct pci_bus *__pci_create_root_bus(
->>           void *sysdata)
->>   {
->>       int error;
->> -    struct pci_bus *b, *b2;
->> +    struct pci_bus *b;
->>       struct resource_entry *window;
->>       struct device *parent;
->>       struct resource *res;
->> @@ -1887,12 +1887,6 @@ static struct pci_bus *__pci_create_root_bus(
->>       b->number = b->busn_res.start >>           pci_host_first_busnr(bridge);
->>       pci_bus_assign_domain_nr(b, parent);
->> -    b2 = pci_find_bus(pci_domain_nr(b), b->number);
->> -    if (b2) {
->> -        /* If we already got to this bus through a different bridge, ignore it */
->> -        dev_dbg(&b2->dev, "bus already known\n");
->> -        goto err_out;
->> -    }
->>
->>       bridge->bus = b;
->>       b->bridge = get_device(&bridge->dev);
->> @@ -1952,7 +1946,6 @@ static struct pci_bus *__pci_create_root_bus(
->>
->>   put_dev:
->>       put_device(&bridge->dev);
->> -err_out:
->>       kfree(b);
->>       return NULL;
->>   }
->> diff --git a/include/linux/pci.h b/include/linux/pci.h
->> index f189dfb..91cba01 100644
->> --- a/include/linux/pci.h
->> +++ b/include/linux/pci.h
->> @@ -407,6 +407,7 @@ struct pci_host_bridge {
->>       /* we use default bus resource if no bus resource provided */
->>       struct resource busn_res;
->>       struct list_head windows;    /* resource_entry */
->> +    struct list_head list;
->>       void (*release_fn)(struct pci_host_bridge *);
->>       void *release_data;
->>   };
->>
-> 
-> .
-> 
+Please refer the patches that I sent out couple years ago.
 
+Thanks
 
--- 
-Thanks!
-Yijing
+Yinghai
 
+--001a1141bd0003d5b10512338ecf
+Content-Type: text/x-patch; charset=US-ASCII; name="pci_host_bridge_bus_type_1.patch"
+Content-Disposition: attachment; filename="pci_host_bridge_bus_type_1.patch"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_i7qdkrxn0
+
+U3ViamVjdDogW1BBVENIXSBQQ0k6IEFkZCBkdW1teSBidXNfdHlwZSBmb3IgcGNpX2hvc3RfYnJp
+ZGdlCgpOZWVkIHRvIHVzZSBpdCBmb3IgbG9vcGluZyByZWdpc3RlcmVkIGhvc3RfYnJpZGdlcywg
+YW5kIGtpbGwKcGNpX3Jvb3RfYnVzZXMgbGlzdCBsYXRlci4KClNpZ25lZC1vZmYtYnk6IFlpbmdo
+YWkgTHUgPHlpbmdoYWlAa2VybmVsLm9yZz4KCi0tLQogZHJpdmVycy9wY2kvcGNpLWRyaXZlci5j
+IHwgICAxMCArKysrKysrKysrCiBkcml2ZXJzL3BjaS9wcm9iZS5jICAgICAgfCAgICAxICsKIGlu
+Y2x1ZGUvbGludXgvcGNpLmggICAgICB8ICAgIDIgKysKIDMgZmlsZXMgY2hhbmdlZCwgMTMgaW5z
+ZXJ0aW9ucygrKQoKSW5kZXg6IGxpbnV4LTIuNi9pbmNsdWRlL2xpbnV4L3BjaS5oCj09PT09PT09
+PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
+PT0KLS0tIGxpbnV4LTIuNi5vcmlnL2luY2x1ZGUvbGludXgvcGNpLmgKKysrIGxpbnV4LTIuNi9p
+bmNsdWRlL2xpbnV4L3BjaS5oCkBAIC03MzUsNiArNzM1LDcgQEAgZW51bSBwY2llX2J1c19jb25m
+aWdfdHlwZXMgewogCiBleHRlcm4gZW51bSBwY2llX2J1c19jb25maWdfdHlwZXMgcGNpZV9idXNf
+Y29uZmlnOwogCitleHRlcm4gc3RydWN0IGJ1c190eXBlIHBjaV9ob3N0X2JyaWRnZV9idXNfdHlw
+ZTsKIGV4dGVybiBzdHJ1Y3QgYnVzX3R5cGUgcGNpX2J1c190eXBlOwogCiAvKiBEbyBOT1QgZGly
+ZWN0bHkgYWNjZXNzIHRoZXNlIHR3byB2YXJpYWJsZXMsIHVubGVzcyB5b3UgYXJlIGFyY2gtc3Bl
+Y2lmaWMgUENJCkBAIC04MDgsNiArODA5LDcgQEAgdm9pZCBwY2lfc3RvcF9yb290X2J1cyhzdHJ1
+Y3QgcGNpX2J1cyAqYgogdm9pZCBwY2lfcmVtb3ZlX3Jvb3RfYnVzKHN0cnVjdCBwY2lfYnVzICpi
+dXMpOwogdm9pZCBwY2lfc2V0dXBfY2FyZGJ1cyhzdHJ1Y3QgcGNpX2J1cyAqYnVzKTsKIHZvaWQg
+cGNpX3NvcnRfYnJlYWR0aGZpcnN0KHZvaWQpOworI2RlZmluZSBkZXZfaXNfcGNpX2hvc3RfYnJp
+ZGdlKGQpICgoZCktPmJ1cyA9PSAmcGNpX2hvc3RfYnJpZGdlX2J1c190eXBlKQogI2RlZmluZSBk
+ZXZfaXNfcGNpKGQpICgoZCktPmJ1cyA9PSAmcGNpX2J1c190eXBlKQogI2RlZmluZSBkZXZfaXNf
+cGYoZCkgKChkZXZfaXNfcGNpKGQpID8gdG9fcGNpX2RldihkKS0+aXNfcGh5c2ZuIDogZmFsc2Up
+KQogI2RlZmluZSBkZXZfbnVtX3ZmKGQpICgoZGV2X2lzX3BjaShkKSA/IHBjaV9udW1fdmYodG9f
+cGNpX2RldihkKSkgOiAwKSkKSW5kZXg6IGxpbnV4LTIuNi9kcml2ZXJzL3BjaS9wY2ktZHJpdmVy
+LmMKPT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
+PT09PT09PT09PT09PQotLS0gbGludXgtMi42Lm9yaWcvZHJpdmVycy9wY2kvcGNpLWRyaXZlci5j
+CisrKyBsaW51eC0yLjYvZHJpdmVycy9wY2kvcGNpLWRyaXZlci5jCkBAIC0xNDA4LDYgKzE0MDgs
+MTYgQEAgc3RydWN0IGJ1c190eXBlIHBjaV9idXNfdHlwZSA9IHsKIH07CiBFWFBPUlRfU1lNQk9M
+KHBjaV9idXNfdHlwZSk7CiAKK3N0cnVjdCBidXNfdHlwZSBwY2lfaG9zdF9icmlkZ2VfYnVzX3R5
+cGUgPSB7CisJLm5hbWUgICAgICAgICAgID0gInBjaV9ob3N0X2JyaWRnZSIsCit9OworCitzdGF0
+aWMgaW50IF9faW5pdCBwY2lfaG9zdF9icmlkZ2VfZHJpdmVyX2luaXQodm9pZCkKK3sKKwlyZXR1
+cm4gYnVzX3JlZ2lzdGVyKCZwY2lfaG9zdF9icmlkZ2VfYnVzX3R5cGUpOworfQorcG9zdGNvcmVf
+aW5pdGNhbGwocGNpX2hvc3RfYnJpZGdlX2RyaXZlcl9pbml0KTsKKwogc3RhdGljIGludCBfX2lu
+aXQgcGNpX2RyaXZlcl9pbml0KHZvaWQpCiB7CiAJcmV0dXJuIGJ1c19yZWdpc3RlcigmcGNpX2J1
+c190eXBlKTsKSW5kZXg6IGxpbnV4LTIuNi9kcml2ZXJzL3BjaS9wcm9iZS5jCj09PT09PT09PT09
+PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0K
+LS0tIGxpbnV4LTIuNi5vcmlnL2RyaXZlcnMvcGNpL3Byb2JlLmMKKysrIGxpbnV4LTIuNi9kcml2
+ZXJzL3BjaS9wcm9iZS5jCkBAIC0xOTQ5LDYgKzE5NDksNyBAQCBzdHJ1Y3QgcGNpX2J1cyAqcGNp
+X2NyZWF0ZV9yb290X2J1cyhzdHJ1CiAJCWdvdG8gZXJyX291dDsKIAogCWJyaWRnZS0+ZGV2LnBh
+cmVudCA9IHBhcmVudDsKKwlicmlkZ2UtPmRldi5idXMgPSAmcGNpX2hvc3RfYnJpZGdlX2J1c190
+eXBlOwogCWJyaWRnZS0+ZGV2LnJlbGVhc2UgPSBwY2lfcmVsZWFzZV9ob3N0X2JyaWRnZV9kZXY7
+CiAJZGV2X3NldF9uYW1lKCZicmlkZ2UtPmRldiwgInBjaSUwNHg6JTAyeCIsIHBjaV9kb21haW5f
+bnIoYiksIGJ1cyk7CiAJZXJyb3IgPSBwY2liaW9zX3Jvb3RfYnJpZGdlX3ByZXBhcmUoYnJpZGdl
+KTsK
+--001a1141bd0003d5b10512338ecf
+Content-Type: text/x-patch; charset=US-ASCII; name="for_each_pci_host_bridge.patch"
+Content-Disposition: attachment; filename="for_each_pci_host_bridge.patch"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_i7qdl5001
+
+U3ViamVjdDogW1BBVENIXSBQQ0k6IEFkZCBmb3JfZWFjaF9wY2lfaG9zdF9icmlkZ2UoKSBhbmQg
+cGNpX2dldF9uZXh0X2hvc3RfYnJpZGdlCgpOb3cgd2UgaGF2ZSBwY2lfcm9vdF9idXNlcyBsaXN0
+LCBhbmQgdGhlcmUgaXMgbG90cyBvZiBpdGVyYXRpb24gd2l0aApsaXN0X29mX2VhY2ggb2YgaXQs
+IHRoYXQgaXMgbm90IHNhZmUgYWZ0ZXIgd2UgYWRkIHBjaSByb290IGJ1cyBob3RwbHVnCnN1cHBv
+cnQgYWZ0ZXIgYm9vdGluZyBzdGFnZS4KCkFsc28gcGNpX2ZpbmRfbmV4dF9idXMgaXMgcHJldHR5
+IG1pc2xlYWRpbmcgbmFtZSwgYW5kIGl0IGlzIG9ubHkgZmluZGluZwpuZXh0IHJvb3QgYnVzIGlu
+c3RlYWQgb2YgcmVndWxhciBwY2kgYnVzLgoKQWRkIHBjaV9nZXRfbmV4dF9ob3N0X2JyaWRnZSBh
+bmQgdXNlIGJ1c19maW5kX2RldmljZSBpbiBkcml2ZXIgY29yZSB0bwppdGVyYXRlIGhvc3QgYnJp
+ZGdlIGFuZCB0aGUgc2FtZSB0aW1lIGdldCByb290IGJ1cy4KCkluIGZvbGxsb3dpbmcgcGF0Y2hl
+cyB3aWxsIHJlcGxhY2Ugc2VhcmNoaW5nIHJvb3QgYnVzIHdpdGggc2VhcmNoaW5nIGhvc3RfYnJp
+ZGdlLgphZnRlciB1c2luZyB3aXRoIHRoYXQgaG9zdC1icmlkZ2UsIHdpbGwgbmVlZCB0byBjYWxs
+IHB1dCBkZXZpY2UgdG8gcmVsZWFzZQpyZWZlcmVuY2UgaWYgYnJlYWsgZWFybHkgZnJvbSB0aGUg
+bG9vcC4KCkFmdGVyIHRob3NlIHJlcGxhY2luZywgd2UgZXZlbiBjb3VsZCBraWxsIHBjaV9yb290
+X2J1c2VzIGxpc3QuCgotdjI6IGZpeGVzIGNvbXBpbGluZyBlcnJvciB3aGVuIENPTkZJR19QQ0kg
+aXMgbm90IGRlZmluZWQgdGhhdCBGZW5nZ3VhbmcgZm91bmQuCgpTaWduZWQtb2ZmLWJ5OiBZaW5n
+aGFpIEx1IDx5aW5naGFpQGtlcm5lbC5vcmc+CgotLS0KIGRyaXZlcnMvcGNpL3NlYXJjaC5jIHwg
+ICAyNCArKysrKysrKysrKysrKysrKysrKysrKysKIGluY2x1ZGUvbGludXgvcGNpLmggIHwgICAg
+OSArKysrKysrKysKIDIgZmlsZXMgY2hhbmdlZCwgMzMgaW5zZXJ0aW9ucygrKQoKSW5kZXg6IGxp
+bnV4LTIuNi9pbmNsdWRlL2xpbnV4L3BjaS5oCj09PT09PT09PT09PT09PT09PT09PT09PT09PT09
+PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0KLS0tIGxpbnV4LTIuNi5vcmln
+L2luY2x1ZGUvbGludXgvcGNpLmgKKysrIGxpbnV4LTIuNi9pbmNsdWRlL2xpbnV4L3BjaS5oCkBA
+IC00MDksNiArNDA5LDggQEAgc3RydWN0IHBjaV9ob3N0X2JyaWRnZSB7CiB9OwogCiAjZGVmaW5l
+CXRvX3BjaV9ob3N0X2JyaWRnZShuKSBjb250YWluZXJfb2Yobiwgc3RydWN0IHBjaV9ob3N0X2Jy
+aWRnZSwgZGV2KQorI2RlZmluZSBmb3JfZWFjaF9wY2lfaG9zdF9icmlkZ2UoZCkgd2hpbGUgKChk
+ID0gcGNpX2dldF9uZXh0X2hvc3RfYnJpZGdlKGQpKSAhPSBOVUxMKQorCiB2b2lkIHBjaV9zZXRf
+aG9zdF9icmlkZ2VfcmVsZWFzZShzdHJ1Y3QgcGNpX2hvc3RfYnJpZGdlICpicmlkZ2UsCiAJCSAg
+ICAgdm9pZCAoKnJlbGVhc2VfZm4pKHN0cnVjdCBwY2lfaG9zdF9icmlkZ2UgKiksCiAJCSAgICAg
+dm9pZCAqcmVsZWFzZV9kYXRhKTsKQEAgLTgzMSw2ICs4MzMsNyBAQCBpbnQgcGNpX2ZpbmRfaHRf
+Y2FwYWJpbGl0eShzdHJ1Y3QgcGNpX2RlCiBpbnQgcGNpX2ZpbmRfbmV4dF9odF9jYXBhYmlsaXR5
+KHN0cnVjdCBwY2lfZGV2ICpkZXYsIGludCBwb3MsIGludCBodF9jYXApOwogc3RydWN0IHBjaV9i
+dXMgKnBjaV9maW5kX25leHRfYnVzKGNvbnN0IHN0cnVjdCBwY2lfYnVzICpmcm9tKTsKIAorc3Ry
+dWN0IHBjaV9ob3N0X2JyaWRnZSAqcGNpX2dldF9uZXh0X2hvc3RfYnJpZGdlKHN0cnVjdCBwY2lf
+aG9zdF9icmlkZ2UgKmZyb20pOwogc3RydWN0IHBjaV9kZXYgKnBjaV9nZXRfZGV2aWNlKHVuc2ln
+bmVkIGludCB2ZW5kb3IsIHVuc2lnbmVkIGludCBkZXZpY2UsCiAJCQkJc3RydWN0IHBjaV9kZXYg
+KmZyb20pOwogc3RydWN0IHBjaV9kZXYgKnBjaV9nZXRfc3Vic3lzKHVuc2lnbmVkIGludCB2ZW5k
+b3IsIHVuc2lnbmVkIGludCBkZXZpY2UsCkBAIC0xNDQ3LDYgKzE0NTAsMTIgQEAgc3RhdGljIGlu
+bGluZSBpbnQgcGNpX2RvbWFpbl9ucihzdHJ1Y3QgcAogc3RhdGljIGlubGluZSBzdHJ1Y3QgcGNp
+X2RldiAqcGNpX2Rldl9nZXQoc3RydWN0IHBjaV9kZXYgKmRldikgeyByZXR1cm4gTlVMTDsgfQog
+c3RhdGljIGlubGluZSBpbnQgcGNpX2dldF9uZXdfZG9tYWluX25yKHZvaWQpIHsgcmV0dXJuIC1F
+Tk9TWVM7IH0KIAorc3RhdGljIGlubGluZSBzdHJ1Y3QgcGNpX2hvc3RfYnJpZGdlICpwY2lfZ2V0
+X25leHRfaG9zdF9icmlkZ2UoCisJCQlzdHJ1Y3QgcGNpX2hvc3RfYnJpZGdlICpob3N0X2JyaWRn
+ZSkKK3sKKwlyZXR1cm4gTlVMTDsKK30KKwogI2RlZmluZSBkZXZfaXNfcGNpKGQpIChmYWxzZSkK
+ICNkZWZpbmUgZGV2X2lzX3BmKGQpIChmYWxzZSkKICNkZWZpbmUgZGV2X251bV92ZihkKSAoMCkK
+SW5kZXg6IGxpbnV4LTIuNi9kcml2ZXJzL3BjaS9zZWFyY2guYwo9PT09PT09PT09PT09PT09PT09
+PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09Ci0tLSBsaW51
+eC0yLjYub3JpZy9kcml2ZXJzL3BjaS9zZWFyY2guYworKysgbGludXgtMi42L2RyaXZlcnMvcGNp
+L3NlYXJjaC5jCkBAIC0yMzEsNiArMjMxLDMwIEBAIHN0cnVjdCBwY2lfZGV2ICpwY2lfZ2V0X2Rv
+bWFpbl9idXNfYW5kX3MKIH0KIEVYUE9SVF9TWU1CT0wocGNpX2dldF9kb21haW5fYnVzX2FuZF9z
+bG90KTsKIAorc3RhdGljIGludCBtYXRjaF9wY2lfaG9zdF9icmlkZ2Uoc3RydWN0IGRldmljZSAq
+ZGV2LCB2b2lkICpkYXRhKQoreworCXJldHVybiAxOworfQorCitzdHJ1Y3QgcGNpX2hvc3RfYnJp
+ZGdlICpwY2lfZ2V0X25leHRfaG9zdF9icmlkZ2Uoc3RydWN0IHBjaV9ob3N0X2JyaWRnZSAqZnJv
+bSkKK3sKKwlzdHJ1Y3QgZGV2aWNlICpkZXY7CisJc3RydWN0IGRldmljZSAqZGV2X3N0YXJ0ID0g
+TlVMTDsKKwlzdHJ1Y3QgcGNpX2hvc3RfYnJpZGdlICpicmlkZ2UgPSBOVUxMOworCisJV0FSTl9P
+Tihpbl9pbnRlcnJ1cHQoKSk7CisJaWYgKGZyb20pCisJCWRldl9zdGFydCA9ICZmcm9tLT5kZXY7
+CisJZGV2ID0gYnVzX2ZpbmRfZGV2aWNlKCZwY2lfaG9zdF9icmlkZ2VfYnVzX3R5cGUsIGRldl9z
+dGFydCwgTlVMTCwKKwkJCSAgICAgIG1hdGNoX3BjaV9ob3N0X2JyaWRnZSk7CisJaWYgKGRldikK
+KwkJYnJpZGdlID0gdG9fcGNpX2hvc3RfYnJpZGdlKGRldik7CisJaWYgKGZyb20pCisJCXB1dF9k
+ZXZpY2UoJmZyb20tPmRldik7CisJcmV0dXJuIGJyaWRnZTsKK30KK0VYUE9SVF9TWU1CT0xfR1BM
+KHBjaV9nZXRfbmV4dF9ob3N0X2JyaWRnZSk7CisKIHN0YXRpYyBpbnQgbWF0Y2hfcGNpX2Rldl9i
+eV9pZChzdHJ1Y3QgZGV2aWNlICpkZXYsIHZvaWQgKmRhdGEpCiB7CiAJc3RydWN0IHBjaV9kZXYg
+KnBkZXYgPSB0b19wY2lfZGV2KGRldik7Cg==
+--001a1141bd0003d5b10512338ecf--
