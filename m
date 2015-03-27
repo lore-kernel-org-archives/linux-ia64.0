@@ -1,63 +1,80 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Mon, 09 Mar 2015 02:34:21 +0000
-Subject: [PATCH v6 24/30] PCI/tegra: Remove redundant tegra_pcie_scan_bus()
-Message-Id: <1425868467-9667-25-git-send-email-wangyijing@huawei.com>
+From: Masahiro Yamada <yamada.masahiro@socionext.com>
+Date: Fri, 27 Mar 2015 11:43:35 +0000
+Subject: [PATCH 1/4] kbuild: use relative path to include Makefile
+Message-Id: <1427456618-23830-2-git-send-email-yamada.masahiro@socionext.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1425868467-9667-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1425868467-9667-1-git-send-email-wangyijing@huawei.com>
+References: <1427456618-23830-1-git-send-email-yamada.masahiro@socionext.com>
+In-Reply-To: <1427456618-23830-1-git-send-email-yamada.masahiro@socionext.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-ia64@vger.kernel.org, linux-pci@vger.kernel.org, Bjorn Helgaas <bhelgaas@google.com>, Thierry Reding <thierry.reding@gmail.com>, Yijing Wang <wangyijing@huawei.com>, Guan Xuetao <gxt@mprc.pku.edu.cn>, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Geert Uytterhoeven <geert@linux-m68k.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Arnd Bergmann <arnd@arndb.de>, Marc Zyngier <marc.zyngier@arm.com>, Rusty Russell <rusty@rustcorp.com.au>, linux-m68k@lists.linux-m68k.org, linux-tegra@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, Yinghai Lu <yinghai@kernel.org>, linux-arm-kernel@lists.infradead.org, Liviu Dudau <liviu@dudau.co.uk>, Tony Luck <tony.luck@intel.com>, linux-kernel@vger.kernel.org, Jiang Liu <jiang.liu@linux.intel.com>, linux-alpha@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: linux-kbuild@vger.kernel.org
+Cc: Masahiro Yamada <yamada.masahiro@socionext.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Russell King <linux@arm.linux.org.uk>, Michal Marek <mmarek@suse.cz>, Fenghua Yu <fenghua.yu@intel.com>, linux-arm-kernel@lists.infradead.org
 
-Now pci_scan_root_bus() is almost similar to
-pci_create_root_bus() + pci_scan_child_bus().
-So we could use common pci_scan_root_bus() in
-pci_common_init_dev() to scan pci busses.
-tegra_pcie_scan_bus() is redundant, remove it.
+The "MAKEFLAGS +=3D --include-dir=3D$(srctree)" line in the top Makefile
+allows us to do this.
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
-CC: Thierry Reding <thierry.reding@gmail.com>
-CC: linux-tegra@vger.kernel.org
-Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
+Signed-off-by: Masahiro Yamada <yamada.masahiro@socionext.com>
 ---
- drivers/pci/host/pci-tegra.c |   16 ----------------
- 1 files changed, 0 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/pci/host/pci-tegra.c b/drivers/pci/host/pci-tegra.c
-index 00e9272..10c0571 100644
---- a/drivers/pci/host/pci-tegra.c
-+++ b/drivers/pci/host/pci-tegra.c
-@@ -630,21 +630,6 @@ static int tegra_pcie_map_irq(const struct pci_dev *pdev, u8 slot, u8 pin)
- 	return irq;
- }
- 
--static struct pci_bus *tegra_pcie_scan_bus(int nr, struct pci_sys_data *sys)
--{
--	struct tegra_pcie *pcie = sys_to_pcie(sys);
--	struct pci_bus *bus;
--
--	bus = pci_create_root_bus(pcie->dev, sys->busnr, &tegra_pcie_ops, sys,
--				  &sys->resources);
--	if (!bus)
--		return NULL;
--
--	pci_scan_child_bus(bus);
--
--	return bus;
--}
--
- static irqreturn_t tegra_pcie_isr(int irq, void *arg)
- {
- 	const char *err_msg[] = {
-@@ -1831,7 +1816,6 @@ static int tegra_pcie_enable(struct tegra_pcie *pcie)
- 	hw.private_data = (void **)&pcie;
- 	hw.setup = tegra_pcie_setup;
- 	hw.map_irq = tegra_pcie_map_irq;
--	hw.scan = tegra_pcie_scan_bus;
- 	hw.ops = &tegra_pcie_ops;
- 
- 	pci_common_init_dev(pcie->dev, &hw);
--- 
-1.7.1
+ arch/arm/boot/Makefile    | 2 +-
+ arch/ia64/kernel/Makefile | 2 +-
+ scripts/Makefile.dtbinst  | 2 +-
+ scripts/Makefile.fwinst   | 2 +-
+ 4 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/arch/arm/boot/Makefile b/arch/arm/boot/Makefile
+index ec2f806..9eca7ae 100644
+--- a/arch/arm/boot/Makefile
++++ b/arch/arm/boot/Makefile
+@@ -12,7 +12,7 @@
+ #
+=20
+ ifneq ($(MACHINE),)
+-include $(srctree)/$(MACHINE)/Makefile.boot
++include $(MACHINE)/Makefile.boot
+ endif
+=20
+ # Note: the following conditions must always be true:
+diff --git a/arch/ia64/kernel/Makefile b/arch/ia64/kernel/Makefile
+index 20678a9..47e8aff 100644
+--- a/arch/ia64/kernel/Makefile
++++ b/arch/ia64/kernel/Makefile
+@@ -51,7 +51,7 @@ obj-$(CONFIG_BINFMT_ELF)	+=3D elfcore.o
+ CFLAGS_traps.o  +=3D -mfixed-range=F2-f5,f16-f31
+=20
+ # The gate DSO image is built using a special linker script.
+-include $(srctree)/arch/ia64/kernel/Makefile.gate
++include arch/ia64/kernel/Makefile.gate
+ # tell compiled for native
+ CPPFLAGS_gate.lds +=3D -D__IA64_GATE_PARAVIRTUALIZED_NATIVE
+=20
+diff --git a/scripts/Makefile.dtbinst b/scripts/Makefile.dtbinst
+index 909ed7a..7cbff16 100644
+--- a/scripts/Makefile.dtbinst
++++ b/scripts/Makefile.dtbinst
+@@ -18,7 +18,7 @@ export dtbinst-root ?=3D $(obj)
+=20
+ include include/config/auto.conf
+ include scripts/Kbuild.include
+-include $(srctree)/$(obj)/Makefile
++include $(obj)/Makefile
+=20
+ PHONY +=3D __dtbs_install_prep
+ __dtbs_install_prep:
+diff --git a/scripts/Makefile.fwinst b/scripts/Makefile.fwinst
+index 5b698ad..baf5eae 100644
+--- a/scripts/Makefile.fwinst
++++ b/scripts/Makefile.fwinst
+@@ -13,7 +13,7 @@ src :=3D $(obj)
+ -include $(objtree)/.config
+=20
+ include scripts/Kbuild.include
+-include $(srctree)/$(obj)/Makefile
++include $(obj)/Makefile
+=20
+ include scripts/Makefile.host
+=20
+--=20
+1.9.1
 
