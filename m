@@ -1,61 +1,31 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Mon, 23 Mar 2015 12:40:30 +0000
-Subject: [PATCH v7 04/31] PCI: Move pci_bus_assign_domain_nr() declaration into drivers/pci/pci.h
-Message-Id: <1427114457-16687-5-git-send-email-wangyijing@huawei.com>
+From: Masahiro Yamada <yamada.masahiro@socionext.com>
+Date: Fri, 27 Mar 2015 11:43:34 +0000
+Subject: [PATCH 0/4] kbuild: refactor Makefile inclusion
+Message-Id: <1427456618-23830-1-git-send-email-yamada.masahiro@socionext.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1427114457-16687-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1427114457-16687-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>
+To: linux-kbuild@vger.kernel.org
+Cc: Masahiro Yamada <yamada.masahiro@socionext.com>, linux-mips@linux-mips.org, Tony Luck <tony.luck@intel.com>, x86@kernel.org, linux-ia64@vger.kernel.org, user-mode-linux-devel@lists.sourceforge.net, Jeff Dike <jdike@addtoit.com>, "H. Peter Anvin" <hpa@zytor.com>, linux-kernel@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, Russell King <linux@arm.linux.org.uk>, Richard Weinberger <richard@nod.at>, Michal Marek <mmarek@suse.cz>, user-mode-linux-user@lists.sourceforge.net, Ingo Molnar <mingo@redhat.com>, Fenghua Yu <fenghua.yu@intel.com>, Ralf Baechle <ralf@linux-mips.org>, linux-arm-kernel@lists.infradead.org
 
-pci_bus_assign_domain_nr() is only called in probe.c,
-Move pci_bus_assign_domain_nr() declaration into
-drivers/pci/pci.h.
+Masahiro Yamada (4):
+  kbuild: use relative path to include Makefile
+  kbuild: use relative path more to include Makefile
+  kbuild: include $(src)/Makefile rather than $(obj)/Makefile
+  kbuild: ia64: use $(src)/Makefile.gate rather than particular path
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
----
- drivers/pci/pci.h   |    9 +++++++++
- include/linux/pci.h |    6 ------
- 2 files changed, 9 insertions(+), 6 deletions(-)
+ Makefile                  | 22 ++++++++++------------
+ arch/arm/boot/Makefile    |  2 +-
+ arch/ia64/kernel/Makefile |  2 +-
+ arch/mips/Makefile        |  2 +-
+ arch/um/Makefile          |  6 +++---
+ arch/x86/Makefile         |  2 +-
+ arch/x86/Makefile.um      |  2 +-
+ scripts/Makefile.dtbinst  |  2 +-
+ scripts/Makefile.fwinst   |  2 +-
+ 9 files changed, 20 insertions(+), 22 deletions(-)
 
-diff --git a/drivers/pci/pci.h b/drivers/pci/pci.h
-index 4091f82..ba1bcce 100644
---- a/drivers/pci/pci.h
-+++ b/drivers/pci/pci.h
-@@ -321,4 +321,13 @@ static inline int pci_dev_specific_reset(struct pci_dev *dev, int probe)
- }
- #endif
- 
-+#ifdef CONFIG_PCI_DOMAINS_GENERIC
-+void pci_bus_assign_domain_nr(struct pci_bus *bus, struct device *parent);
-+#else
-+static inline void pci_bus_assign_domain_nr(struct pci_bus *bus,
-+					struct device *parent)
-+{
-+}
-+#endif
-+
- #endif /* DRIVERS_PCI_H */
-diff --git a/include/linux/pci.h b/include/linux/pci.h
-index 2b575bc..1542df8 100644
---- a/include/linux/pci.h
-+++ b/include/linux/pci.h
-@@ -1327,12 +1327,6 @@ static inline int pci_domain_nr(struct pci_bus *bus)
- {
- 	return bus->domain_nr;
- }
--void pci_bus_assign_domain_nr(struct pci_bus *bus, struct device *parent);
--#else
--static inline void pci_bus_assign_domain_nr(struct pci_bus *bus,
--					struct device *parent)
--{
--}
- #endif
- 
- /* some architectures require additional setup to direct VGA traffic */
 -- 
-1.7.1
+1.9.1
 
