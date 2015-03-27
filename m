@@ -1,44 +1,35 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Fri, 06 Mar 2015 09:33:42 +0000
-Subject: [PATCH v5 25/29] PCI/xgene: Use pci_scan_root_bus() instead of pci_create_root_bus()
-Message-Id: <1425634426-437-26-git-send-email-wangyijing@huawei.com>
+From: Masahiro Yamada <yamada.masahiro@socionext.com>
+Date: Fri, 27 Mar 2015 11:43:38 +0000
+Subject: [PATCH 4/4] kbuild: ia64: use $(src)/Makefile.gate rather than particular path
+Message-Id: <1427456618-23830-5-git-send-email-yamada.masahiro@socionext.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1425634426-437-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1425634426-437-1-git-send-email-wangyijing@huawei.com>
+References: <1427456618-23830-1-git-send-email-yamada.masahiro@socionext.com>
+In-Reply-To: <1427456618-23830-1-git-send-email-yamada.masahiro@socionext.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>, Tanmay Inamdar <tinamdar@apm.com>, Bjorn Helgaas <bhelgaas@google.com>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: linux-kbuild@vger.kernel.org
+Cc: Masahiro Yamada <yamada.masahiro@socionext.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Fenghua Yu <fenghua.yu@intel.com>, linux-kernel@vger.kernel.org
 
-Use pci_scan_root_bus() instead of pci_create_root_bus() +
-pci_scan_child_bus() for simplicity.
-
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
-CC: Tanmay Inamdar <tinamdar@apm.com>
-Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
+Signed-off-by: Masahiro Yamada <yamada.masahiro@socionext.com>
 ---
- drivers/pci/host/pci-xgene.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/pci/host/pci-xgene.c b/drivers/pci/host/pci-xgene.c
-index aab5547..0c0e632 100644
---- a/drivers/pci/host/pci-xgene.c
-+++ b/drivers/pci/host/pci-xgene.c
-@@ -499,12 +499,11 @@ static int xgene_pcie_probe_bridge(struct platform_device *pdev)
- 	if (ret)
- 		return ret;
- 
--	bus = pci_create_root_bus(&pdev->dev, 0,
-+	bus = pci_scan_root_bus(&pdev->dev, 0,
- 					&xgene_pcie_ops, port, &res);
- 	if (!bus)
- 		return -ENOMEM;
- 
--	pci_scan_child_bus(bus);
- 	pci_assign_unassigned_bus_resources(bus);
- 	pci_bus_add_devices(bus);
- 
--- 
-1.7.1
+ arch/ia64/kernel/Makefile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/ia64/kernel/Makefile b/arch/ia64/kernel/Makefile
+index 47e8aff..d68b5cf 100644
+--- a/arch/ia64/kernel/Makefile
++++ b/arch/ia64/kernel/Makefile
+@@ -51,7 +51,7 @@ obj-$(CONFIG_BINFMT_ELF)	+=3D elfcore.o
+ CFLAGS_traps.o  +=3D -mfixed-range=F2-f5,f16-f31
+=20
+ # The gate DSO image is built using a special linker script.
+-include arch/ia64/kernel/Makefile.gate
++include $(src)/Makefile.gate
+ # tell compiled for native
+ CPPFLAGS_gate.lds +=3D -D__IA64_GATE_PARAVIRTUALIZED_NATIVE
+=20
+--=20
+1.9.1
 
