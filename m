@@ -1,44 +1,98 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Fri, 27 Mar 2015 02:31:29 +0000
-Subject: Re: [PATCH v8 10/30] PCI: Introduce pci_host_bridge_list to manage host bridges
-Message-Id: <5514C101.8070705@huawei.com>
+From: Joe Perches <joe@perches.com>
+Date: Mon, 30 Mar 2015 23:45:58 +0000
+Subject: [PATCH 00/25] treewide: Use bool function return values of true/false not 1/0
+Message-Id: <cover.1427759009.git.joe@perches.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1427168064-8657-1-git-send-email-wangyijing@huawei.com>	<1427168064-8657-11-git-send-email-wangyijing@huawei.com> <CAE9FiQVgXfViM22qhB-sKDSTtnhvLDMk0NTiK_G88UogVMuM_w@mail.gmail.com>
-In-Reply-To: <CAE9FiQVgXfViM22qhB-sKDSTtnhvLDMk0NTiK_G88UogVMuM_w@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Yinghai Lu <yinghai@kernel.org>
-Cc: Bjorn Helgaas <bhelgaas@google.com>, Jiang Liu <jiang.liu@linux.intel.com>, "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Marc Zyngier <marc.zyngier@arm.com>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, Russell King <linux@arm.linux.org.uk>, the arch/x86 maintainers <x86@kernel.org>, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>
+To: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, kvmarm@lists.cs.columbia.edu, kvm@vger.kernel.org, linux-omap@vger.kernel.org, kvm-ppc@vger.kernel.org, virtualization@lists.linux-foundation.org, linux-fsdevel@vger.kernel.org, linux-nfs@vger.kernel.org, linux-ide@vger.kernel.org, kgdb-bugreport@lists.sourceforge.net, linux-mm@kvack.org, linux-pm@vger.kernel.org, netdev@vger.kernel.org, alsa-devel@alsa-project.org, bridge@lists.linux-foundation.org, netfilter-devel@vger.kernel.org, coreteam@netfilter.org, patches@opensource.wolfsonmicro.com
+Cc: linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-scsi@vger.kernel.org, linux-security-module@vger.kernel.org
 
-On 2015/3/27 0:31, Yinghai Lu wrote:
-> On Mon, Mar 23, 2015 at 8:34 PM, Yijing Wang <wangyijing@huawei.com> wrote:
->> Introduce pci_host_bridge_list to manage pci host
->> bridges in system, this make us have the ability
->> to check whether the new host would conflict with
->> existing one. Then we could remove bus alreay exist
->> check in __pci_create_root_bus().
-> 
-> Can we use bus_type instead?
-> Then we can use bus_find_device for the host_bridge enumeration.
-> 
-> Please refer the patches that I sent out couple years ago.
+Joe Perches (25):
+  arm: Use bool function return values of true/false not 1/0
+  arm64: Use bool function return values of true/false not 1/0
+  hexagon: Use bool function return values of true/false not 1/0
+  ia64: Use bool function return values of true/false not 1/0
+  mips: Use bool function return values of true/false not 1/0
+  powerpc: Use bool function return values of true/false not 1/0
+  s390: Use bool function return values of true/false not 1/0
+  sparc: Use bool function return values of true/false not 1/0
+  tile: Use bool function return values of true/false not 1/0
+  unicore32: Use bool function return values of true/false not 1/0
+  x86: Use bool function return values of true/false not 1/0
+  virtio_console: Use bool function return values of true/false not 1/0
+  csiostor: Use bool function return values of true/false not 1/0
+  dcache: Use bool function return values of true/false not 1/0
+  nfsd: nfs4state: Use bool function return values of true/false not 1/0
+  include/linux: Use bool function return values of true/false not 1/0
+  sound: Use bool function return values of true/false not 1/0
+  rcu: tree_plugin: Use bool function return values of true/false not 1/0
+  sched: Use bool function return values of true/false not 1/0
+  ftrace: Use bool function return values of true/false not 1/0
+  slub: Use bool function return values of true/false not 1/0
+  bridge: Use bool function return values of true/false not 1/0
+  netfilter: Use bool function return values of true/false not 1/0
+  security: Use bool function return values of true/false not 1/0
+  sound: wm5100-tables: Use bool function return values of true/false not 1/0
 
-HI Yinghai,
-   I think your changes is good, but in this series, we only iterate the pci_host_bridge
-in drivers/pci/host-bridge.c. The simple list is enough, of course, if we want to export
-this list and support to host bridge hotplug, we must need a new iteration for host bridge,
-and your series looks good to me, I read your series history, found Bjorn comment a lot.
-
-So I think Bjorn may have some comments for this.
-
-Thanks!
-Yijing.
-
-
-
+ arch/arm/include/asm/dma-mapping.h           |  8 ++--
+ arch/arm/include/asm/kvm_emulate.h           |  2 +-
+ arch/arm/mach-omap2/powerdomain.c            | 14 +++---
+ arch/arm64/include/asm/dma-mapping.h         |  2 +-
+ arch/hexagon/include/asm/dma-mapping.h       |  2 +-
+ arch/ia64/include/asm/dma-mapping.h          |  2 +-
+ arch/mips/include/asm/dma-mapping.h          |  2 +-
+ arch/powerpc/include/asm/dcr-native.h        |  2 +-
+ arch/powerpc/include/asm/dma-mapping.h       |  4 +-
+ arch/powerpc/include/asm/kvm_book3s_64.h     |  4 +-
+ arch/powerpc/sysdev/dcr.c                    |  2 +-
+ arch/s390/include/asm/dma-mapping.h          |  2 +-
+ arch/sparc/mm/init_64.c                      |  8 ++--
+ arch/tile/include/asm/dma-mapping.h          |  2 +-
+ arch/unicore32/include/asm/dma-mapping.h     |  2 +-
+ arch/x86/include/asm/archrandom.h            |  2 +-
+ arch/x86/include/asm/dma-mapping.h           |  2 +-
+ arch/x86/include/asm/kvm_para.h              |  2 +-
+ arch/x86/kvm/cpuid.h                         |  2 +-
+ arch/x86/kvm/vmx.c                           | 72 ++++++++++++++--------------
+ drivers/char/virtio_console.c                |  2 +-
+ drivers/scsi/csiostor/csio_scsi.c            |  4 +-
+ fs/dcache.c                                  | 12 ++---
+ fs/nfsd/nfs4state.c                          |  2 +-
+ include/linux/blkdev.h                       |  2 +-
+ include/linux/ide.h                          |  2 +-
+ include/linux/kgdb.h                         |  2 +-
+ include/linux/mfd/db8500-prcmu.h             |  2 +-
+ include/linux/mm.h                           |  2 +-
+ include/linux/power_supply.h                 |  8 ++--
+ include/linux/ssb/ssb_driver_extif.h         |  2 +-
+ include/linux/ssb/ssb_driver_gige.h          | 16 +++----
+ include/sound/soc.h                          |  4 +-
+ kernel/rcu/tree_plugin.h                     |  4 +-
+ kernel/sched/auto_group.h                    |  2 +-
+ kernel/sched/completion.c                    | 16 ++++---
+ kernel/trace/ftrace.c                        | 10 ++--
+ mm/slub.c                                    | 12 ++---
+ net/bridge/br_private.h                      |  2 +-
+ net/ipv4/netfilter/ipt_ah.c                  |  2 +-
+ net/netfilter/ipset/ip_set_hash_ip.c         |  8 ++--
+ net/netfilter/ipset/ip_set_hash_ipmark.c     |  8 ++--
+ net/netfilter/ipset/ip_set_hash_ipport.c     |  8 ++--
+ net/netfilter/ipset/ip_set_hash_ipportip.c   |  8 ++--
+ net/netfilter/ipset/ip_set_hash_ipportnet.c  |  8 ++--
+ net/netfilter/ipset/ip_set_hash_net.c        |  8 ++--
+ net/netfilter/ipset/ip_set_hash_netiface.c   |  8 ++--
+ net/netfilter/ipset/ip_set_hash_netport.c    |  8 ++--
+ net/netfilter/ipset/ip_set_hash_netportnet.c |  8 ++--
+ net/netfilter/xt_connlimit.c                 |  2 +-
+ net/netfilter/xt_hashlimit.c                 |  2 +-
+ net/netfilter/xt_ipcomp.c                    |  2 +-
+ security/apparmor/file.c                     |  8 ++--
+ security/apparmor/policy.c                   | 10 ++--
+ sound/soc/codecs/wm5100-tables.c             | 12 ++---
+ 55 files changed, 178 insertions(+), 176 deletions(-)
 
 -- 
-Thanks!
-Yijing
+2.1.2
 
