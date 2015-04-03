@@ -1,10 +1,10 @@
 From: Yijing Wang <wangyijing@huawei.com>
-Date: Tue, 21 Apr 2015 11:34:39 +0000
-Subject: [PATCH v10 20/29] PCI: Remove pcibios_root_bridge_prepare() and pcibos_set_root_bus_speed()
-Message-Id: <1429616088-10249-21-git-send-email-wangyijing@huawei.com>
+Date: Fri, 03 Apr 2015 09:25:54 +0000
+Subject: [PATCH v9 20/30] PCI: Remove pcibios_root_bridge_prepare() and pcibos_set_root_bus_speed()
+Message-Id: <1428053164-28277-22-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1429616088-10249-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1429616088-10249-1-git-send-email-wangyijing@huawei.com>
+References: <1428053164-28277-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1428053164-28277-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -22,10 +22,10 @@ Signed-off-by: Yijing Wang <wangyijing@huawei.com>
  3 files changed, 1 insertions(+), 23 deletions(-)
 
 diff --git a/drivers/pci/host-bridge.c b/drivers/pci/host-bridge.c
-index 7e25f53..af539c4 100644
+index f2639f7..832e1c3 100644
 --- a/drivers/pci/host-bridge.c
 +++ b/drivers/pci/host-bridge.c
-@@ -127,10 +127,6 @@ struct pci_host_bridge *pci_create_host_bridge(
+@@ -110,10 +110,6 @@ struct pci_host_bridge *pci_create_host_bridge(
  			goto list_del;
  	}
  
@@ -37,10 +37,10 @@ index 7e25f53..af539c4 100644
  	if (error) {
  		put_device(&host->dev);
 diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
-index 708bcf1..2ba6754 100644
+index b3d9b1b..7796bf8 100644
 --- a/drivers/pci/probe.c
 +++ b/drivers/pci/probe.c
-@@ -1850,22 +1850,6 @@ unsigned int pci_scan_child_bus(struct pci_bus *bus)
+@@ -1844,22 +1844,6 @@ unsigned int pci_scan_child_bus(struct pci_bus *bus)
  }
  EXPORT_SYMBOL_GPL(pci_scan_child_bus);
  
@@ -63,7 +63,7 @@ index 708bcf1..2ba6754 100644
  void __weak pcibios_add_bus(struct pci_bus *bus)
  {
  }
-@@ -1905,7 +1889,7 @@ static struct pci_bus *__pci_create_root_bus(
+@@ -1896,7 +1880,7 @@ static struct pci_bus *__pci_create_root_bus(
  
  	if (bridge->ops && bridge->ops->set_root_bus_speed)
  		bridge->ops->set_root_bus_speed(bridge);
@@ -73,7 +73,7 @@ index 708bcf1..2ba6754 100644
  	pci_set_bus_of_node(b);
  
 diff --git a/include/linux/pci.h b/include/linux/pci.h
-index a82595a..41eb672 100644
+index 0b921d6..61e0853 100644
 --- a/include/linux/pci.h
 +++ b/include/linux/pci.h
 @@ -426,8 +426,6 @@ void pci_set_host_bridge_release(struct pci_host_bridge *bridge,
