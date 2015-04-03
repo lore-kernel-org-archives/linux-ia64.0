@@ -1,43 +1,48 @@
 From: Yijing Wang <wangyijing@huawei.com>
-Date: Wed, 08 Apr 2015 08:32:27 +0000
-Subject: Re: [PATCH v9 03/30] PCI: Save domain in pci_host_bridge
-Message-Id: <5524E79B.5020304@huawei.com>
+Date: Fri, 03 Apr 2015 09:25:42 +0000
+Subject: [PATCH v9 08/30] PCI: Update pci_host_bridge bus resource
+Message-Id: <1428053164-28277-10-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1428053164-28277-1-git-send-email-wangyijing@huawei.com> <1428053164-28277-5-git-send-email-wangyijing@huawei.com> <5524E248.9010509@free-electrons.com>
-In-Reply-To: <5524E248.9010509@free-electrons.com>
+References: <1428053164-28277-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1428053164-28277-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Gregory CLEMENT <gregory.clement@free-electrons.com>
-Cc: Bjorn Helgaas <bhelgaas@google.com>, linux-ia64@vger.kernel.org, linux-pci@vger.kernel.org, Guan Xuetao <gxt@mprc.pku.edu.cn>, Russell King <linux@arm.linux.org.uk>, x86@kernel.org, Geert Uytterhoeven <geert@linux-m68k.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Arnd Bergmann <arnd@arndb.de>, Marc Zyngier <marc.zyngier@arm.com>, Rusty Russell <rusty@rustcorp.com.au>, linux-m68k@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, Yinghai Lu <yinghai@kernel.org>, linux-arm-kernel@lists.infradead.org, dja@axtens.net, Liviu Dudau <liviu@dudau.co.uk>, Tony Luck <tony.luck@intel.com>, linux-kernel@vger.kernel.org, Jiang Liu <jiang.liu@linux.intel.com>, linux-alpha@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, dja@axtens.net, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>, Yijing Wang <wangyijing0307@gmail.com>
 
-On 2015/4/8 16:09, Gregory CLEMENT wrote:
-> Hi Yijing,
-> 
-> On 03/04/2015 11:25, Yijing Wang wrote:
->> Save domain in pci_host_bridge, so we could get domain
->> from pci_host_bridge, and at the end of series, we could
->> clean up the arch specific pci_domain_nr(). For arm,
->> we pass -1 as the domain number, we would update the
->> domain number in core by pci_bus_assign_domain_nr().
->>
-> For the mvebu part I tested on Armada XP, Armada 375 and Armada 38x
-> SoCs, and I didn't saw any regression. So you can add my:
-> 
-> Tested-by: Gregory CLEMENT <gregory.clement@free-electrons.com>
+From: Yijing Wang <wangyijing0307@gmail.com>
 
-Thanks a lot for your test!
+Sometimes, the bus resource start number is not equal to
+root bus number. For example, in pci_scan_bus(), we always
+add the default bus resource which start bus number is 0,
+but the root bus number callers given may != 0, so
+we need to update pci_host_bridge bus resource, because we
+would check whether host bridge bus resoruce is confict
+in later patch.
 
-Thanks!
-Yijing.
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+---
+ drivers/pci/host-bridge.c |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
 
-
->>
-> 
-> 
-
-
+diff --git a/drivers/pci/host-bridge.c b/drivers/pci/host-bridge.c
+index ecc1a7c..1a9834b 100644
+--- a/drivers/pci/host-bridge.c
++++ b/drivers/pci/host-bridge.c
+@@ -26,8 +26,11 @@ static void pci_host_update_busn_res(
+ 	struct resource_entry *window;
+ 
+ 	resource_list_for_each_entry(window, resources)
+-		if (window->res->flags & IORESOURCE_BUS)
++		if (window->res->flags & IORESOURCE_BUS) {
++			if (bus > window->res->start)
++				window->res->start = bus;
+ 			return;
++		}
+ 
+ 	pr_info(
+ 	 "No busn resource found for pci%04x:%02x, will use [bus %02x-ff]\n",
 -- 
-Thanks!
-Yijing
+1.7.1
 
