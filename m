@@ -1,7 +1,7 @@
 From: Yijing Wang <wangyijing@huawei.com>
-Date: Fri, 03 Apr 2015 09:25:52 +0000
-Subject: [PATCH v9 18/30] ia64/PCI: Refine pci_acpi_scan_root() with generic pci_host_bridge
-Message-Id: <1428053164-28277-20-git-send-email-wangyijing@huawei.com>
+Date: Fri, 03 Apr 2015 09:26:04 +0000
+Subject: [PATCH v9 30/30] PCI: Clean up CONFIG_PCI_DOMAINS_GENERIC
+Message-Id: <1428053164-28277-32-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1428053164-28277-1-git-send-email-wangyijing@huawei.com>
 In-Reply-To: <1428053164-28277-1-git-send-email-wangyijing@huawei.com>
@@ -9,83 +9,109 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, dja@axtens.net, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>, Yijing Wang <wangyijing0307@gmail.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, dja@axtens.net, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>
 
-From: Yijing Wang <wangyijing0307@gmail.com>
+Now we could clean up CONFIG_PCI_DOMAINS_GENERIC.
 
 Signed-off-by: Yijing Wang <wangyijing@huawei.com>
-CC: Tony Luck <tony.luck@intel.com>
-CC: Fenghua Yu <fenghua.yu@intel.com>
-CC: linux-ia64@vger.kernel.org
 ---
- arch/ia64/pci/pci.c |   34 +++++++++++++++++++---------------
- 1 files changed, 19 insertions(+), 15 deletions(-)
+ arch/arm/Kconfig          |    3 ---
+ arch/arm64/Kconfig        |    3 ---
+ drivers/pci/host-bridge.c |   11 ++++++-----
+ drivers/pci/pci.c         |    2 --
+ 4 files changed, 6 insertions(+), 13 deletions(-)
 
-diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
-index c642bc8..95dc43b 100644
---- a/arch/ia64/pci/pci.c
-+++ b/arch/ia64/pci/pci.c
-@@ -420,6 +420,19 @@ probe_pci_root_info(struct pci_root_info *info, struct acpi_device *device,
- 	return 0;
- }
+diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
+index 9f1f09a..b5dab6c 100644
+--- a/arch/arm/Kconfig
++++ b/arch/arm/Kconfig
+@@ -1283,9 +1283,6 @@ config PCI_DOMAINS
+ 	bool
+ 	depends on PCI
  
-+static int pci_host_bridge_prepare(struct pci_host_bridge *bridge)
-+{
-+	struct pci_controller *controller = bridge->bus->sysdata;
-+
-+	ACPI_COMPANION_SET(&bridge->dev, controller->companion);
-+	return 0;
-+}
-+
-+static struct pci_host_bridge_ops pci_host_ops = {
-+	.pci_ops = &pci_root_ops,
-+	.prepare = pci_host_bridge_prepare,
-+};
-+
- struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
- {
- 	struct acpi_device *device = root->device;
-@@ -428,7 +441,7 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
- 	struct pci_controller *controller;
- 	struct pci_root_info *info = NULL;
- 	int busnum = root->secondary.start;
--	struct pci_bus *pbus;
-+	struct pci_host_bridge *host;
- 	int ret;
+-config PCI_DOMAINS_GENERIC
+-	def_bool PCI_DOMAINS
+-
+ config PCI_NANOENGINE
+ 	bool "BSE nanoEngine PCI support"
+ 	depends on SA1100_NANOENGINE
+diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
+index 1b8e973..4b1cc27 100644
+--- a/arch/arm64/Kconfig
++++ b/arch/arm64/Kconfig
+@@ -242,9 +242,6 @@ config PCI
+ config PCI_DOMAINS
+ 	def_bool PCI
  
- 	controller = alloc_pci_controller(domain);
-@@ -465,26 +478,17 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
- 	 * should handle the case here, but it appears that IA64 hasn't
- 	 * such quirk. So we just ignore the case now.
+-config PCI_DOMAINS_GENERIC
+-	def_bool PCI
+-
+ config PCI_SYSCALL
+ 	def_bool PCI
+ 
+diff --git a/drivers/pci/host-bridge.c b/drivers/pci/host-bridge.c
+index f193136..eb901b2 100644
+--- a/drivers/pci/host-bridge.c
++++ b/drivers/pci/host-bridge.c
+@@ -4,6 +4,8 @@
+ 
+ #include <linux/kernel.h>
+ #include <linux/pci.h>
++#include <linux/of_pci.h>
++#include <linux/of.h>
+ #include <linux/module.h>
+ 
+ #include "pci.h"
+@@ -82,12 +84,13 @@ struct pci_host_bridge *pci_create_host_bridge(
+ 	resource_list_for_each_entry_safe(window, n, resources)
+ 		list_move_tail(&window->node, &host->windows);
+ 	/*
+-	 * If support CONFIG_PCI_DOMAINS_GENERIC, use
++	 * If domain = -1, we need to use
+ 	 * pci_host_assign_domain_nr() to update domain
+ 	 * number.
  	 */
--	pbus = pci_create_root_bus(NULL, domain, bus, &pci_root_ops,
--			controller, &info->resources);
--	if (!pbus) {
-+	host = pci_scan_host_bridge(NULL, domain, bus, controller,
-+			&info->resources, &pci_host_ops);
-+	if (!host) {
- 		pci_free_resource_list(&info->resources);
- 		__release_pci_root_info(info);
- 		return NULL;
- 	}
- 
--	pci_set_host_bridge_release(to_pci_host_bridge(pbus->bridge),
-+	pci_set_host_bridge_release(host,
- 			release_pci_root_info, info);
--	pci_scan_child_bus(pbus);
--	return pbus;
--}
--
--int pcibios_root_bridge_prepare(struct pci_host_bridge *bridge)
--{
--	struct pci_controller *controller = bridge->bus->sysdata;
--
--	ACPI_COMPANION_SET(&bridge->dev, controller->companion);
--	return 0;
-+	return host->bus;
+ 	host->domain = domain;
+-	pci_host_assign_domain_nr(host);
++	if (host->domain = -1)
++		pci_host_assign_domain_nr(host);
+ 	mutex_lock(&pci_host_mutex);
+ 	list_for_each_entry(tmp, &pci_host_bridge_list, list) {
+ 		if (tmp->domain = host->domain
+@@ -169,7 +172,6 @@ int pci_get_new_domain_nr(void)
+ 	return atomic_inc_return(&__domain_nr);
  }
  
- void pcibios_fixup_device_resources(struct pci_dev *dev)
+-#ifdef CONFIG_PCI_DOMAINS_GENERIC
+ static int pci_assign_domain_nr(struct device *dev)
+ {
+ 	static int use_dt_domains = -1;
+@@ -215,11 +217,10 @@ static int pci_assign_domain_nr(struct device *dev)
+ 	return domain;
+ }
+ #endif
+-#endif
+ 
+ static void pci_host_assign_domain_nr(struct pci_host_bridge *host)
+ {
+-#ifdef CONFIG_PCI_DOMAINS_GENERIC
++#ifdef CONFIG_PCI_DOMAINS
+ 	host->domain = pci_assign_domain_nr(host->dev.parent);
+ #endif
+ }
+diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
+index 044801c..5b18429 100644
+--- a/drivers/pci/pci.c
++++ b/drivers/pci/pci.c
+@@ -10,8 +10,6 @@
+ #include <linux/kernel.h>
+ #include <linux/delay.h>
+ #include <linux/init.h>
+-#include <linux/of.h>
+-#include <linux/of_pci.h>
+ #include <linux/pci.h>
+ #include <linux/pm.h>
+ #include <linux/slab.h>
 -- 
 1.7.1
 
