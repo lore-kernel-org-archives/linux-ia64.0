@@ -1,45 +1,79 @@
 From: Yijing Wang <wangyijing@huawei.com>
-Date: Tue, 21 Apr 2015 11:34:44 +0000
-Subject: [PATCH v10 25/29] PCI/designware: Use pci_scan_root_bus() for simplicity
-Message-Id: <1429616088-10249-26-git-send-email-wangyijing@huawei.com>
+Date: Fri, 03 Apr 2015 09:25:47 +0000
+Subject: [PATCH v9 13/30] PCI: Move pcibios_root_bridge_prepare() to pci_create_host_bridge()
+Message-Id: <1428053164-28277-15-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1429616088-10249-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1429616088-10249-1-git-send-email-wangyijing@huawei.com>
+References: <1428053164-28277-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1428053164-28277-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, dja@axtens.net, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>, Mohit Kumar <mohit.kumar@st.com>, Jingoo Han <jg1.han@samsung.com>
+Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, dja@axtens.net, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>
 
-Use pci_scan_root_bus() instead of pci_create_root_bus() +
-pci_scan_child_bus() for simplicity.
+Move pcibios_root_bridge_prepare() to pci_create_host_bridge().
 
 Signed-off-by: Yijing Wang <wangyijing@huawei.com>
-CC: Mohit Kumar <mohit.kumar@st.com>
-CC: Jingoo Han <jg1.han@samsung.com>
 ---
- drivers/pci/host/pcie-designware.c |    4 +---
- 1 files changed, 1 insertions(+), 3 deletions(-)
+ drivers/pci/host-bridge.c |   16 +++++++++++++---
+ drivers/pci/probe.c       |    3 ---
+ 2 files changed, 13 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/pci/host/pcie-designware.c b/drivers/pci/host/pcie-designware.c
-index 8854d25..f8d3424 100644
---- a/drivers/pci/host/pcie-designware.c
-+++ b/drivers/pci/host/pcie-designware.c
-@@ -728,13 +728,11 @@ static struct pci_bus *dw_pcie_scan_bus(int nr, struct pci_sys_data *sys)
- 	struct pcie_port *pp = sys_to_pcie(sys);
+diff --git a/drivers/pci/host-bridge.c b/drivers/pci/host-bridge.c
+index 98047c6..8733b19 100644
+--- a/drivers/pci/host-bridge.c
++++ b/drivers/pci/host-bridge.c
+@@ -92,9 +92,7 @@ struct pci_host_bridge *pci_create_host_bridge(
+ 			pr_warn("pci host bridge pci%04x:%02x exist\n",
+ 					host->domain, bus);
+ 			mutex_unlock(&pci_host_mutex);
+-			pci_free_resource_list(&host->windows);
+-			kfree(host);
+-			return NULL;
++			goto free_res;
+ 		}
+ 	}
+ 	list_add_tail(&host->list, &pci_host_bridge_list);
+@@ -105,6 +103,10 @@ struct pci_host_bridge *pci_create_host_bridge(
+ 	dev_set_name(&host->dev, "pci%04x:%02x",
+ 			host->domain, bus);
  
- 	pp->root_bus_nr = sys->busnr;
--	bus = pci_create_root_bus(pp->dev, -1, &dw_pcie_ops, sys,
-+	bus = pci_scan_root_bus(pp->dev, -1, sys->busnr, &dw_pcie_ops, sys,
- 			&sys->resources);
- 	if (!bus)
- 		return NULL;
++	error = pcibios_root_bridge_prepare(host);
++	if (error)
++		goto list_del;
++
+ 	error = device_register(&host->dev);
+ 	if (error) {
+ 		put_device(&host->dev);
+@@ -112,6 +114,14 @@ struct pci_host_bridge *pci_create_host_bridge(
+ 	}
  
--	pci_scan_child_bus(bus);
--
- 	if (bus && pp->ops->scan_bus)
- 		pp->ops->scan_bus(pp);
+ 	return host;
++list_del:
++	mutex_lock(&pci_host_mutex);
++	list_del(&host->list);
++	mutex_unlock(&pci_host_mutex);
++free_res:
++	pci_free_resource_list(&host->windows);
++	kfree(host);
++	return NULL;
+ }
  
+ void pci_free_host_bridge(struct pci_host_bridge *host)
+diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
+index 418a426..ee17d9a 100644
+--- a/drivers/pci/probe.c
++++ b/drivers/pci/probe.c
+@@ -1893,9 +1893,6 @@ static struct pci_bus *__pci_create_root_bus(
+ 
+ 	bridge->bus = b;
+ 	b->bridge = get_device(&bridge->dev);
+-	error = pcibios_root_bridge_prepare(bridge);
+-	if (error)
+-		goto put_dev;
+ 
+ 	pcibios_set_root_bus_speed(bridge);
+ 	device_enable_async_suspend(b->bridge);
 -- 
 1.7.1
 
