@@ -1,10 +1,10 @@
 From: Yijing Wang <wangyijing@huawei.com>
-Date: Tue, 21 Apr 2015 11:34:34 +0000
-Subject: [PATCH v10 15/29] PCI: Introduce new scan function pci_scan_host_bridge()
-Message-Id: <1429616088-10249-16-git-send-email-wangyijing@huawei.com>
+Date: Fri, 03 Apr 2015 09:25:49 +0000
+Subject: [PATCH v9 15/30] PCI: Introduce new scan function pci_scan_host_bridge()
+Message-Id: <1428053164-28277-17-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1429616088-10249-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1429616088-10249-1-git-send-email-wangyijing@huawei.com>
+References: <1428053164-28277-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1428053164-28277-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -17,37 +17,36 @@ own pci_host_bridge_ops.
 
 Signed-off-by: Yijing Wang <wangyijing@huawei.com>
 ---
- drivers/pci/probe.c |   23 +++++++++++++++++++++++
+ drivers/pci/probe.c |   22 ++++++++++++++++++++++
  include/linux/pci.h |    3 +++
- 2 files changed, 26 insertions(+), 0 deletions(-)
+ 2 files changed, 25 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
-index 83cf7c6..708bcf1 100644
+index 36dfee0..b3d9b1b 100644
 --- a/drivers/pci/probe.c
 +++ b/drivers/pci/probe.c
-@@ -2064,6 +2064,29 @@ void pci_bus_release_busn_res(struct pci_bus *b)
- 			res, ret ? "can not be" : "is");
+@@ -2064,6 +2064,28 @@ static struct pci_bus *__pci_scan_root_bus(
+ 	return b;
  }
  
 +struct pci_host_bridge *pci_scan_host_bridge(
-+		struct device *parent, int domain,
++		struct device *parent, int domain, int bus,
 +		void *sysdata, struct list_head *resources,
 +		struct pci_host_bridge_ops *ops)
 +{
 +	struct pci_host_bridge *host;
 +
-+	host = pci_create_host_bridge(parent, domain, sysdata,
++	host = pci_create_host_bridge(parent, domain, bus, sysdata,
 +			resources, ops);
 +	if (!host)
 +		return NULL;
 +
-+	host->bus = __pci_create_root_bus(host, ops->pci_ops);
++	host->bus = __pci_scan_root_bus(host, ops->pci_ops);
 +	if (!host->bus) {
 +		pci_free_host_bridge(host);
 +		return NULL;
 +	}
 +
-+	pci_scan_child_bus(host->bus);
 +	return host;
 +}
 +EXPORT_SYMBOL(pci_scan_host_bridge);
@@ -56,15 +55,15 @@ index 83cf7c6..708bcf1 100644
  		int bus, struct pci_ops *ops, void *sysdata,
  		struct list_head *resources)
 diff --git a/include/linux/pci.h b/include/linux/pci.h
-index 91fde6a..13edbf1 100644
+index 2702a51..7f4f182 100644
 --- a/include/linux/pci.h
 +++ b/include/linux/pci.h
-@@ -796,6 +796,9 @@ void pci_bus_release_busn_res(struct pci_bus *b);
+@@ -793,6 +793,9 @@ void pci_bus_release_busn_res(struct pci_bus *b);
  struct pci_bus *pci_scan_root_bus(struct device *parent, int domain, int bus,
  					     struct pci_ops *ops, void *sysdata,
  					     struct list_head *resources);
-+struct pci_host_bridge *pci_scan_host_bridge(struct device *parent,
-+		int domain, void *sysdata, struct list_head *resources,
++struct pci_host_bridge *pci_scan_host_bridge(struct device *parent, int domain,
++		int bus, void *sysdata, struct list_head *resources,
 +		struct pci_host_bridge_ops *ops);
  struct pci_bus *pci_add_new_bus(struct pci_bus *parent, struct pci_dev *dev,
  				int busnr);
