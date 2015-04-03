@@ -1,7 +1,7 @@
 From: Yijing Wang <wangyijing@huawei.com>
-Date: Fri, 03 Apr 2015 09:25:43 +0000
-Subject: [PATCH v9 09/30] PCI: Introduce pci_host_first_busnr() function
-Message-Id: <1428053164-28277-11-git-send-email-wangyijing@huawei.com>
+Date: Fri, 03 Apr 2015 09:25:46 +0000
+Subject: [PATCH v9 12/30] powerpc/PCI: Rename pcibios_root_bridge_prepare() to pcibios_set_root_bus_speed()
+Message-Id: <1428053164-28277-14-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1428053164-28277-1-git-send-email-wangyijing@huawei.com>
 In-Reply-To: <1428053164-28277-1-git-send-email-wangyijing@huawei.com>
@@ -11,112 +11,144 @@ Content-Transfer-Encoding: 7bit
 To: Bjorn Helgaas <bhelgaas@google.com>
 Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, dja@axtens.net, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>
 
-Use it to get the first bus number of the bus
-resource.
+pcibios_root_bridge_prepare() in powerpc set
+root bus speed, it's not the preparation for
+pci host bridge. Rename it for better readability,
+and we could move pcibios_root_bridge_prepare()
+to pci_create_host_bridge(), in which root bus
+is not created. We will clean up these weak functions,
+and add pci_host_bridge_ops to do the same thing
+in later patch.
 
 Signed-off-by: Yijing Wang <wangyijing@huawei.com>
 ---
- drivers/pci/pci.h   |   11 +++++++++++
- drivers/pci/probe.c |   19 ++++++++++---------
- 2 files changed, 21 insertions(+), 9 deletions(-)
+ arch/powerpc/include/asm/machdep.h       |    2 +-
+ arch/powerpc/kernel/pci-common.c         |    8 +++-----
+ arch/powerpc/platforms/pseries/pci.c     |    8 ++++----
+ arch/powerpc/platforms/pseries/pseries.h |    2 +-
+ arch/powerpc/platforms/pseries/setup.c   |    2 +-
+ drivers/pci/probe.c                      |    5 +++++
+ 6 files changed, 15 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/pci/pci.h b/drivers/pci/pci.h
-index 8526790..886d72f 100644
---- a/drivers/pci/pci.h
-+++ b/drivers/pci/pci.h
-@@ -337,4 +337,15 @@ static inline void pci_host_assign_domain_nr(struct pci_host_bridge *host)
- struct pci_host_bridge *pci_create_host_bridge(struct device *parent,
- 		int domain, int bus, struct list_head *resources);
- void pci_free_host_bridge(struct pci_host_bridge *host);
-+
-+static inline int pci_host_first_busnr(struct pci_host_bridge *host)
-+{
-+	struct resource_entry *window;
-+
-+	resource_list_for_each_entry(window, &host->windows)
-+		if (window->res->flags & IORESOURCE_BUS)
-+			return window->res->start;
-+	return -1;
-+}
-+
- #endif /* DRIVERS_PCI_H */
+diff --git a/arch/powerpc/include/asm/machdep.h b/arch/powerpc/include/asm/machdep.h
+index c8175a3..b811d12 100644
+--- a/arch/powerpc/include/asm/machdep.h
++++ b/arch/powerpc/include/asm/machdep.h
+@@ -129,7 +129,7 @@ struct machdep_calls {
+ 	void		(*pcibios_fixup)(void);
+ 	int		(*pci_probe_mode)(struct pci_bus *);
+ 	void		(*pci_irq_fixup)(struct pci_dev *dev);
+-	int		(*pcibios_root_bridge_prepare)(struct pci_host_bridge
++	void		(*pcibios_set_root_bus_speed)(struct pci_host_bridge
+ 				*bridge);
+ 
+ 	/* To setup PHBs when using automatic OF platform driver for PCI */
+diff --git a/arch/powerpc/kernel/pci-common.c b/arch/powerpc/kernel/pci-common.c
+index 9913f6c..2c58200 100644
+--- a/arch/powerpc/kernel/pci-common.c
++++ b/arch/powerpc/kernel/pci-common.c
+@@ -767,12 +767,10 @@ int pci_proc_domain(struct pci_bus *bus)
+ 	return 1;
+ }
+ 
+-int pcibios_root_bridge_prepare(struct pci_host_bridge *bridge)
++void pcibios_set_root_bus_speed(struct pci_host_bridge *bridge)
+ {
+-	if (ppc_md.pcibios_root_bridge_prepare)
+-		return ppc_md.pcibios_root_bridge_prepare(bridge);
+-
+-	return 0;
++	if (ppc_md.pcibios_set_root_bus_speed)
++		return ppc_md.pcibios_set_root_bus_speed(bridge);
+ }
+ 
+ /* This header fixup will do the resource fixup for all devices as they are
+diff --git a/arch/powerpc/platforms/pseries/pci.c b/arch/powerpc/platforms/pseries/pci.c
+index fe16a50..89ff79c 100644
+--- a/arch/powerpc/platforms/pseries/pci.c
++++ b/arch/powerpc/platforms/pseries/pci.c
+@@ -110,7 +110,7 @@ static void fixup_winbond_82c105(struct pci_dev* dev)
+ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_WINBOND, PCI_DEVICE_ID_WINBOND_82C105,
+ 			 fixup_winbond_82c105);
+ 
+-int pseries_root_bridge_prepare(struct pci_host_bridge *bridge)
++void pseries_set_root_bus_speed(struct pci_host_bridge *bridge)
+ {
+ 	struct device_node *dn, *pdn;
+ 	struct pci_bus *bus;
+@@ -121,7 +121,7 @@ int pseries_root_bridge_prepare(struct pci_host_bridge *bridge)
+ 
+ 	dn = pcibios_get_phb_of_node(bus);
+ 	if (!dn)
+-		return 0;
++		return;
+ 
+ 	for (pdn = dn; pdn != NULL; pdn = of_get_next_parent(pdn)) {
+ 		rc = of_property_read_u32_array(pdn,
+@@ -135,7 +135,7 @@ int pseries_root_bridge_prepare(struct pci_host_bridge *bridge)
+ 
+ 	if (rc) {
+ 		pr_debug("no ibm,pcie-link-speed-stats property\n");
+-		return 0;
++		return;
+ 	}
+ 
+ 	switch (pcie_link_speed_stats[0]) {
+@@ -168,5 +168,5 @@ int pseries_root_bridge_prepare(struct pci_host_bridge *bridge)
+ 		break;
+ 	}
+ 
+-	return 0;
++	return;
+ }
+diff --git a/arch/powerpc/platforms/pseries/pseries.h b/arch/powerpc/platforms/pseries/pseries.h
+index 1796c54..9aa9c13 100644
+--- a/arch/powerpc/platforms/pseries/pseries.h
++++ b/arch/powerpc/platforms/pseries/pseries.h
+@@ -63,7 +63,7 @@ extern int dlpar_detach_node(struct device_node *);
+ 
+ /* PCI root bridge prepare function override for pseries */
+ struct pci_host_bridge;
+-int pseries_root_bridge_prepare(struct pci_host_bridge *bridge);
++void pseries_set_root_bus_speed(struct pci_host_bridge *bridge);
+ 
+ unsigned long pseries_memory_block_size(void);
+ 
+diff --git a/arch/powerpc/platforms/pseries/setup.c b/arch/powerpc/platforms/pseries/setup.c
+index e445b67..b196c0d 100644
+--- a/arch/powerpc/platforms/pseries/setup.c
++++ b/arch/powerpc/platforms/pseries/setup.c
+@@ -496,7 +496,7 @@ static void __init pSeries_setup_arch(void)
+ 		ppc_md.enable_pmcs = power4_enable_pmcs;
+ 	}
+ 
+-	ppc_md.pcibios_root_bridge_prepare = pseries_root_bridge_prepare;
++	ppc_md.pcibios_set_root_bus_speed = pseries_set_root_bus_speed;
+ 
+ 	if (firmware_has_feature(FW_FEATURE_SET_MODE)) {
+ 		long rc;
 diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
-index d5a12d9..25ac741 100644
+index 0ac2bf6..418a426 100644
 --- a/drivers/pci/probe.c
 +++ b/drivers/pci/probe.c
-@@ -1864,7 +1864,7 @@ void __weak pcibios_remove_bus(struct pci_bus *bus)
- {
+@@ -1856,6 +1856,10 @@ int __weak pcibios_root_bridge_prepare(struct pci_host_bridge *bridge)
+ 	return 0;
  }
  
--static struct pci_bus *__pci_create_root_bus(int bus,
-+static struct pci_bus *__pci_create_root_bus(
- 		struct pci_host_bridge *bridge, struct pci_ops *ops,
- 		void *sysdata)
++void __weak pcibios_set_root_bus_speed(struct pci_host_bridge *bridge)
++{
++}
++
+ void __weak pcibios_add_bus(struct pci_bus *bus)
  {
-@@ -1884,9 +1884,10 @@ static struct pci_bus *__pci_create_root_bus(int bus,
- 
- 	b->sysdata = sysdata;
- 	b->ops = ops;
--	b->number = b->busn_res.start = bus;
-+	b->number = b->busn_res.start +		pci_host_first_busnr(bridge);
- 	pci_bus_assign_domain_nr(b, parent);
--	b2 = pci_find_bus(pci_domain_nr(b), bus);
-+	b2 = pci_find_bus(pci_domain_nr(b), b->number);
- 	if (b2) {
- 		/* If we already got to this bus through a different bridge, ignore it */
- 		dev_dbg(&b2->dev, "bus already known\n");
-@@ -1907,7 +1908,7 @@ static struct pci_bus *__pci_create_root_bus(int bus,
- 
- 	b->dev.class = &pcibus_class;
- 	b->dev.parent = b->bridge;
--	dev_set_name(&b->dev, "%04x:%02x", bridge->domain, bus);
-+	dev_set_name(&b->dev, "%04x:%02x", bridge->domain, b->number);
- 	error = device_register(&b->dev);
+ }
+@@ -1893,6 +1897,7 @@ static struct pci_bus *__pci_create_root_bus(
  	if (error)
  		goto put_dev;
-@@ -1927,7 +1928,7 @@ static struct pci_bus *__pci_create_root_bus(int bus,
- 		res = window->res;
- 		offset = window->offset;
- 		if (res->flags & IORESOURCE_BUS)
--			pci_bus_insert_busn_res(b, bus, res->end);
-+			pci_bus_insert_busn_res(b, b->number, res->end);
- 		else
- 			pci_bus_add_resource(b, res, 0);
- 		if (offset) {
-@@ -1966,7 +1967,7 @@ struct pci_bus *pci_create_root_bus(struct device *parent,
- 	if (!host)
- 		return NULL;
  
--	host->bus = __pci_create_root_bus(bus, host, ops, sysdata);
-+	host->bus = __pci_create_root_bus(host, ops, sysdata);
- 	if (!host->bus)
- 		pci_free_host_bridge(host);
- 
-@@ -2042,14 +2043,14 @@ void pci_bus_release_busn_res(struct pci_bus *b)
- 			res, ret ? "can not be" : "is");
- }
- 
--static struct pci_bus *__pci_scan_root_bus(int bus,
-+static struct pci_bus *__pci_scan_root_bus(
- 		struct pci_host_bridge *host, struct pci_ops *ops,
- 		void *sysdata)
- {
- 	struct pci_bus *b;
- 	int max;
- 
--	b = __pci_create_root_bus(bus, host, ops, sysdata);
-+	b = __pci_create_root_bus(host, ops, sysdata);
- 	if (!b)
- 		return NULL;
- 
-@@ -2074,7 +2075,7 @@ struct pci_bus *pci_scan_root_bus(struct device *parent, int domain,
- 	if (!host)
- 		return NULL;
- 
--	host->bus = __pci_scan_root_bus(bus, host, ops, sysdata);
-+	host->bus = __pci_scan_root_bus(host, ops, sysdata);
- 	if (!host->bus)
- 		pci_free_host_bridge(host);
++	pcibios_set_root_bus_speed(bridge);
+ 	device_enable_async_suspend(b->bridge);
+ 	pci_set_bus_of_node(b);
  
 -- 
 1.7.1
