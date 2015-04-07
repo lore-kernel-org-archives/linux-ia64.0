@@ -1,93 +1,101 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Fri, 03 Apr 2015 09:25:39 +0000
-Subject: [PATCH v9 05/30] PCI: Introduce pci_host_assign_domain_nr() to assign domain
-Message-Id: <1428053164-28277-7-git-send-email-wangyijing@huawei.com>
+From: Jiang Liu <jiang.liu@linux.intel.com>
+Date: Tue, 07 Apr 2015 04:31:08 +0000
+Subject: [RFC 3/7] ia64/PCI: Use common struct resource_entry to replace struct iospace_resource
+Message-Id: <1428381072-27486-4-git-send-email-jiang.liu@linux.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1428053164-28277-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1428053164-28277-1-git-send-email-wangyijing@huawei.com>
+References: <1428381072-27486-1-git-send-email-jiang.liu@linux.intel.com>
+In-Reply-To: <1428381072-27486-1-git-send-email-jiang.liu@linux.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, dja@axtens.net, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>
+To: "Rafael J . Wysocki" <rjw@rjwysocki.net>, Bjorn Helgaas <bhelgaas@google.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Hanjun Guo <hanjun.guo@linaro.org>, Yinghai Lu <yinghai@kernel.org>, Lv Zheng <lv.zheng@intel.com>
+Cc: Jiang Liu <jiang.liu@linux.intel.com>, LKML <linux-kernel@vger.kernel.org>, linux-pci@vger.kernel.org, linux-acpi@vger.kernel.org, "x86 @ kernel . org" <x86@kernel.org>, linux-ia64@vger.kernel.org
 
-Introduce pci_host_assign_domain_nr() to assign domain
-number for pci_host_bridge. In the later patch, we would
-assign domain in pci_create_host_bridge, clean up the
-pci_bus_assign_domain_nr() and move this function into
-drivers/pci/host-bridge.c.
+Use common struct resource_entry to replace private struct iospace_resource.
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+Signed-off-by: Jiang Liu <jiang.liu@linux.intel.com>
 ---
- drivers/pci/pci.c |   21 ++++++++++++++++-----
- drivers/pci/pci.h |    4 ++++
- 2 files changed, 20 insertions(+), 5 deletions(-)
+ arch/ia64/include/asm/pci.h |    5 -----
+ arch/ia64/pci/pci.c         |   17 ++++++++---------
+ 2 files changed, 8 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
-index 81f06e8..6677fac 100644
---- a/drivers/pci/pci.c
-+++ b/drivers/pci/pci.c
-@@ -4501,10 +4501,10 @@ int pci_get_new_domain_nr(void)
+diff --git a/arch/ia64/include/asm/pci.h b/arch/ia64/include/asm/pci.h
+index 52af5ed9f60b..5c10e0ec48d4 100644
+--- a/arch/ia64/include/asm/pci.h
++++ b/arch/ia64/include/asm/pci.h
+@@ -83,11 +83,6 @@ extern int pci_mmap_legacy_page_range(struct pci_bus *bus,
+ #define pci_legacy_read platform_pci_legacy_read
+ #define pci_legacy_write platform_pci_legacy_write
+ 
+-struct iospace_resource {
+-	struct list_head list;
+-	struct resource res;
+-};
+-
+ struct pci_controller {
+ 	struct acpi_device *companion;
+ 	void *iommu;
+diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
+index cafe8e47afb2..c5630dd5e181 100644
+--- a/arch/ia64/pci/pci.c
++++ b/arch/ia64/pci/pci.c
+@@ -154,14 +154,14 @@ new_space (u64 phys_base, int sparse)
+ static int add_io_space(struct device *dev, struct pci_root_info *info,
+ 			struct resource_entry *entry)
+ {
+-	struct iospace_resource *iospace;
++	struct resource_entry *iospace;
+ 	struct resource *resource, *res = entry->res;
+ 	char *name;
+ 	unsigned long base, min, max, base_port;
+ 	unsigned int sparse = 0, space_nr, len;
+ 
+ 	len = strlen(info->name) + 32;
+-	iospace = kzalloc(sizeof(*iospace) + len, GFP_KERNEL);
++	iospace = resource_list_create_entry(NULL, len);
+ 	if (!iospace) {
+ 		dev_err(dev, "PCI: No memory for %s I/O port space\n",
+ 			info->name);
+@@ -190,7 +190,7 @@ static int add_io_space(struct device *dev, struct pci_root_info *info,
+ 	if (space_nr = 0)
+ 		sparse = 1;
+ 
+-	resource = &iospace->res;
++	resource = iospace->res;
+ 	resource->name  = name;
+ 	resource->flags = IORESOURCE_MEM;
+ 	resource->start = base + (sparse ? IO_SPACE_SPARSE_ENCODING(min) : min);
+@@ -205,12 +205,12 @@ static int add_io_space(struct device *dev, struct pci_root_info *info,
+ 	entry->offset = base_port;
+ 	res->start = min + base_port;
+ 	res->end = max + base_port;
+-	list_add_tail(&iospace->list, &info->io_resources);
++	resource_list_add_tail(iospace, &info->io_resources);
+ 
+ 	return 0;
+ 
+ free_resource:
+-	kfree(iospace);
++	resource_list_free_entry(iospace);
+ 	return -ENOSPC;
  }
  
- #ifdef CONFIG_PCI_DOMAINS_GENERIC
--void pci_bus_assign_domain_nr(struct pci_bus *bus, struct device *parent)
-+static int pci_assign_domain_nr(struct device *dev)
+@@ -348,12 +348,11 @@ static void add_resources(struct pci_root_info *info, struct device *dev)
+ static void __release_pci_root_info(struct pci_root_info *info)
  {
- 	static int use_dt_domains = -1;
--	int domain = of_get_pci_domain_nr(parent->of_node);
-+	int domain = of_get_pci_domain_nr(dev->of_node);
+ 	struct resource *res;
+-	struct iospace_resource *iospace, *tmp;
+ 	struct resource_entry *entry, *tentry;
  
- 	/*
- 	 * Check DT domain and use_dt_domains values.
-@@ -4538,13 +4538,24 @@ void pci_bus_assign_domain_nr(struct pci_bus *bus, struct device *parent)
- 		use_dt_domains = 0;
- 		domain = pci_get_new_domain_nr();
- 	} else {
--		dev_err(parent, "Node %s has inconsistent \"linux,pci-domain\" property in DT\n",
--			parent->of_node->full_name);
-+		dev_err(dev, "Node %s has inconsistent \"linux,pci-domain\" property in DT\n",
-+			dev->of_node->full_name);
- 		domain = -1;
+-	list_for_each_entry_safe(iospace, tmp, &info->io_resources, list) {
+-		release_resource(&iospace->res);
+-		kfree(iospace);
++	resource_list_for_each_entry_safe(entry, tentry, &info->io_resources) {
++		release_resource(entry->res);
++		resource_list_destroy_entry(entry);
  	}
  
--	bus->domain_nr = domain;
-+	return domain;
-+}
-+
-+void pci_bus_assign_domain_nr(struct pci_bus *bus, struct device *parent)
-+{
-+	bus->domain_nr = pci_assign_domain_nr(parent);
- }
-+
-+void pci_host_assign_domain_nr(struct pci_host_bridge *host)
-+{
-+	host->domain = pci_assign_domain_nr(host->dev.parent);
-+}
-+
- #endif
- #endif
- 
-diff --git a/drivers/pci/pci.h b/drivers/pci/pci.h
-index ba1bcce..1d3d2d1 100644
---- a/drivers/pci/pci.h
-+++ b/drivers/pci/pci.h
-@@ -323,11 +323,15 @@ static inline int pci_dev_specific_reset(struct pci_dev *dev, int probe)
- 
- #ifdef CONFIG_PCI_DOMAINS_GENERIC
- void pci_bus_assign_domain_nr(struct pci_bus *bus, struct device *parent);
-+void pci_host_assign_domain_nr(struct pci_host_bridge *host);
- #else
- static inline void pci_bus_assign_domain_nr(struct pci_bus *bus,
- 					struct device *parent)
- {
- }
-+static inline void pci_host_assign_domain_nr(struct pci_host_bridge *host)
-+{
-+}
- #endif
- 
- #endif /* DRIVERS_PCI_H */
+ 	resource_list_for_each_entry_safe(entry, tentry, &info->resources) {
 -- 
-1.7.1
+1.7.10.4
 
