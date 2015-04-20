@@ -1,86 +1,70 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Wed, 08 Apr 2015 08:14:11 +0000
-Subject: Re: [PATCH v9 07/30] PCI: Add default bus resource in pci_host_bridge
-Message-Id: <5524E353.8070703@huawei.com>
+From: Bjorn Helgaas <bhelgaas@google.com>
+Date: Mon, 20 Apr 2015 23:30:55 +0000
+Subject: [PATCH] ia64/PCI: Treat all host bridge Address Space Descriptors (even consumers) as windows
+Message-Id: <20150420233055.20866.87460.stgit@bhelgaas-glaptop2.roam.corp.google.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1428053164-28277-1-git-send-email-wangyijing@huawei.com> <1428053164-28277-9-git-send-email-wangyijing@huawei.com> <20150407222541.GK10892@google.com>
-In-Reply-To: <20150407222541.GK10892@google.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, dja@axtens.net, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: quoted-printable
+To: linux-pci@vger.kernel.org
+Cc: linux-acpi@vger.kernel.org, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Jiang Liu <jiang.liu@linux.intel.com>, "Rafael J . Wysocki" <rjw@rjwysocki.net>
 
->> diff --git a/include/linux/pci.h b/include/linux/pci.h
->> index 1542df8..f189dfb 100644
->> --- a/include/linux/pci.h
->> +++ b/include/linux/pci.h
->> @@ -404,6 +404,8 @@ struct pci_host_bridge {
->>  	int domain;
->>  	struct device dev;
->>  	struct pci_bus *bus;		/* root bus */
->> +	/* we use default bus resource if no bus resource provided */
->> +	struct resource busn_res;
-> 
-> I don't understand the need for another busn_res here.  The host bridge bus
-> range should be identical to the root bus range.  Having two copies will
-> confuse things.
-> 
-> And apparently this host->busn_res is only filled in if the arch doesn't
-> provide a busn resource?
-> 
-> To check for conflicts between host bridges, can you iterate through the
-> existing ones and check the range of their root buses?
+Prior to c770cb4cb505 ("PCI: Mark invalid BARs as unassigned"), if we tried
+to claim a PCI BAR but could not find an upstream bridge window that
+matched it, we complained but still allowed the device to be enabled.
 
-Checking root buses is not enough, there is time gap between pci_host_bridge creation and
-pci root bus creation.
-E.g. A and B do pci scan sync in two cpus, A first check the buses resource, and find free
-bus resource, then it go to create pci_host_bridge and scan root bus, at the same time, B
-also check the buses resource, because A has not created root bus, B also think there are
-free buses, this is a problem.
+c770cb4cb505 broke devices that previously worked (mptsas and igb in the
+case Tony reported, but it could be any devices) because it marks those
+BARs as IORESOURCE_UNSET, which makes pci_enable_device() complain and
+return failure:
 
-I agree you that having two copies is not a good idea.
+  igb 0000:81:00.0: can't enable device: BAR 0 [mem size 0x00020000] not as=
+signed
+  igb: probe of 0000:81:00.0 failed with error -22
 
-For pci bus resource, we have the following request path:
-1. arch supplies the busn_res or PCI core add the default bus resource(in pci_scan_bus);
-2. Call pci_bus_insert_busn_res() to insert the bus resource for root bus.
-3. Call get_pci_domain_busn_res() to return the per-domain bus resource.
-4. Request root bus resource under per-domain bus resource.
+The underlying cause is an ACPI Address Space Descriptor for a PCI host
+bridge window that is marked as "consumer".  This is a firmware defect:
+resources that are produced on the downstream side of a bridge should be
+marked "producer".  But rejecting these BARs that we previously allowed is
+a functionality regression, and firmware has not used the producer/consumer
+bit consistently, so we can't rely on it anyway.
 
-We have the per-domain structure pci_domain_busn_res to manage the bus resources in one domain,
-so what about add a bitmap to manage the free bus resource ?
-In pci_create_host_bridge(), first check whether the new pci_host_bridge bus resources required
-is free, if yes, we set the bitmap to occupy the bus resource at once,  then create the host bridge
-and add it to the global list.
+Stop checking the producer/consumer bit, and assume all bridge Address
+Space Descriptors are for bridge windows.
 
-struct pci_domain_busn_res {
-	struct list_head list;
-	struct resource res;
-	int domain_nr;
-	bitmap used;
-};
+Note that this change does not affect I/O Port or Fixed Location I/O Port
+Descriptors, which are commonly used for the [io 0x0cf8-0x0cff] config
+access range.  That range is a "consumer" range and should not be treated
+as a window.
 
-Another problem, I found it's unnecessary to add bus resource to pci_host_bridge->windows.
-Unlike the IO and MEM resource, we never use the pci_host_bridge bus resource again after
-pci enumeration. I think we could clean it up, or in some cases, when arch supplies the
-bus resource, we still have the two copies.
+Fixes: c770cb4cb505 ("PCI: Mark invalid BARs as unassigned")
+Link: https://bugzilla.kernel.org/show_bug.cgi?id=96961
+Reported-and-tested-by: Tony Luck <tony.luck@intel.com>
+Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
+---
+ arch/ia64/pci/pci.c |    5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
 
-Thanks!
-Yijing.
-
-> 
->>  	struct list_head windows;	/* resource_entry */
->>  	void (*release_fn)(struct pci_host_bridge *);
->>  	void *release_data;
->> -- 
->> 1.7.1
->>
-> 
-> .
-> 
-
-
--- 
-Thanks!
-Yijing
+diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
+index 48cc65705db4..d4e162d35b34 100644
+--- a/arch/ia64/pci/pci.c
++++ b/arch/ia64/pci/pci.c
+@@ -240,15 +240,12 @@ static acpi_status resource_to_window(struct acpi_res=
+ource *resource,
+ 	 * We're only interested in _CRS descriptors that are
+ 	 *	- address space descriptors for memory or I/O space
+ 	 *	- non-zero size
+-	 *	- producers, i.e., the address space is routed downstream,
+-	 *	  not consumed by the bridge itself
+ 	 */
+ 	status =3D acpi_resource_to_address64(resource, addr);
+ 	if (ACPI_SUCCESS(status) &&
+ 	    (addr->resource_type =3D ACPI_MEMORY_RANGE ||
+ 	     addr->resource_type =3D ACPI_IO_RANGE) &&
+-	    addr->address.address_length &&
+-	    addr->producer_consumer =3D ACPI_PRODUCER)
++	    addr->address.address_length)
+ 		return AE_OK;
+=20
+ 	return AE_ERROR;
 
