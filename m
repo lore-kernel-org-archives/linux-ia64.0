@@ -1,117 +1,45 @@
 From: Yijing Wang <wangyijing@huawei.com>
-Date: Fri, 03 Apr 2015 09:26:04 +0000
-Subject: [PATCH v9 30/30] PCI: Clean up CONFIG_PCI_DOMAINS_GENERIC
-Message-Id: <1428053164-28277-32-git-send-email-wangyijing@huawei.com>
+Date: Tue, 21 Apr 2015 11:34:44 +0000
+Subject: [PATCH v10 25/29] PCI/designware: Use pci_scan_root_bus() for simplicity
+Message-Id: <1429616088-10249-26-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1428053164-28277-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1428053164-28277-1-git-send-email-wangyijing@huawei.com>
+References: <1429616088-10249-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1429616088-10249-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, dja@axtens.net, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>
+Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, dja@axtens.net, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>, Mohit Kumar <mohit.kumar@st.com>, Jingoo Han <jg1.han@samsung.com>
 
-Now we could clean up CONFIG_PCI_DOMAINS_GENERIC.
+Use pci_scan_root_bus() instead of pci_create_root_bus() +
+pci_scan_child_bus() for simplicity.
 
 Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+CC: Mohit Kumar <mohit.kumar@st.com>
+CC: Jingoo Han <jg1.han@samsung.com>
 ---
- arch/arm/Kconfig          |    3 ---
- arch/arm64/Kconfig        |    3 ---
- drivers/pci/host-bridge.c |   11 ++++++-----
- drivers/pci/pci.c         |    2 --
- 4 files changed, 6 insertions(+), 13 deletions(-)
+ drivers/pci/host/pcie-designware.c |    4 +---
+ 1 files changed, 1 insertions(+), 3 deletions(-)
 
-diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
-index 9f1f09a..b5dab6c 100644
---- a/arch/arm/Kconfig
-+++ b/arch/arm/Kconfig
-@@ -1283,9 +1283,6 @@ config PCI_DOMAINS
- 	bool
- 	depends on PCI
+diff --git a/drivers/pci/host/pcie-designware.c b/drivers/pci/host/pcie-designware.c
+index 8854d25..f8d3424 100644
+--- a/drivers/pci/host/pcie-designware.c
++++ b/drivers/pci/host/pcie-designware.c
+@@ -728,13 +728,11 @@ static struct pci_bus *dw_pcie_scan_bus(int nr, struct pci_sys_data *sys)
+ 	struct pcie_port *pp = sys_to_pcie(sys);
  
--config PCI_DOMAINS_GENERIC
--	def_bool PCI_DOMAINS
+ 	pp->root_bus_nr = sys->busnr;
+-	bus = pci_create_root_bus(pp->dev, -1, &dw_pcie_ops, sys,
++	bus = pci_scan_root_bus(pp->dev, -1, sys->busnr, &dw_pcie_ops, sys,
+ 			&sys->resources);
+ 	if (!bus)
+ 		return NULL;
+ 
+-	pci_scan_child_bus(bus);
 -
- config PCI_NANOENGINE
- 	bool "BSE nanoEngine PCI support"
- 	depends on SA1100_NANOENGINE
-diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
-index 1b8e973..4b1cc27 100644
---- a/arch/arm64/Kconfig
-+++ b/arch/arm64/Kconfig
-@@ -242,9 +242,6 @@ config PCI
- config PCI_DOMAINS
- 	def_bool PCI
+ 	if (bus && pp->ops->scan_bus)
+ 		pp->ops->scan_bus(pp);
  
--config PCI_DOMAINS_GENERIC
--	def_bool PCI
--
- config PCI_SYSCALL
- 	def_bool PCI
- 
-diff --git a/drivers/pci/host-bridge.c b/drivers/pci/host-bridge.c
-index f193136..eb901b2 100644
---- a/drivers/pci/host-bridge.c
-+++ b/drivers/pci/host-bridge.c
-@@ -4,6 +4,8 @@
- 
- #include <linux/kernel.h>
- #include <linux/pci.h>
-+#include <linux/of_pci.h>
-+#include <linux/of.h>
- #include <linux/module.h>
- 
- #include "pci.h"
-@@ -82,12 +84,13 @@ struct pci_host_bridge *pci_create_host_bridge(
- 	resource_list_for_each_entry_safe(window, n, resources)
- 		list_move_tail(&window->node, &host->windows);
- 	/*
--	 * If support CONFIG_PCI_DOMAINS_GENERIC, use
-+	 * If domain = -1, we need to use
- 	 * pci_host_assign_domain_nr() to update domain
- 	 * number.
- 	 */
- 	host->domain = domain;
--	pci_host_assign_domain_nr(host);
-+	if (host->domain = -1)
-+		pci_host_assign_domain_nr(host);
- 	mutex_lock(&pci_host_mutex);
- 	list_for_each_entry(tmp, &pci_host_bridge_list, list) {
- 		if (tmp->domain = host->domain
-@@ -169,7 +172,6 @@ int pci_get_new_domain_nr(void)
- 	return atomic_inc_return(&__domain_nr);
- }
- 
--#ifdef CONFIG_PCI_DOMAINS_GENERIC
- static int pci_assign_domain_nr(struct device *dev)
- {
- 	static int use_dt_domains = -1;
-@@ -215,11 +217,10 @@ static int pci_assign_domain_nr(struct device *dev)
- 	return domain;
- }
- #endif
--#endif
- 
- static void pci_host_assign_domain_nr(struct pci_host_bridge *host)
- {
--#ifdef CONFIG_PCI_DOMAINS_GENERIC
-+#ifdef CONFIG_PCI_DOMAINS
- 	host->domain = pci_assign_domain_nr(host->dev.parent);
- #endif
- }
-diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
-index 044801c..5b18429 100644
---- a/drivers/pci/pci.c
-+++ b/drivers/pci/pci.c
-@@ -10,8 +10,6 @@
- #include <linux/kernel.h>
- #include <linux/delay.h>
- #include <linux/init.h>
--#include <linux/of.h>
--#include <linux/of_pci.h>
- #include <linux/pci.h>
- #include <linux/pm.h>
- #include <linux/slab.h>
 -- 
 1.7.1
 
