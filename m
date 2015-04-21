@@ -1,7 +1,7 @@
 From: Yijing Wang <wangyijing@huawei.com>
-Date: Tue, 21 Apr 2015 11:34:20 +0000
-Subject: [PATCH v10 01/29] xen/PCI: Don't use deprecated function pci_scan_bus_parented()
-Message-Id: <1429616088-10249-2-git-send-email-wangyijing@huawei.com>
+Date: Tue, 21 Apr 2015 11:34:43 +0000
+Subject: [PATCH v10 24/29] PCI/tegra: Remove redundant tegra_pcie_scan_bus()
+Message-Id: <1429616088-10249-25-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1429616088-10249-1-git-send-email-wangyijing@huawei.com>
 In-Reply-To: <1429616088-10249-1-git-send-email-wangyijing@huawei.com>
@@ -9,74 +9,57 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, dja@axtens.net, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, xen-devel@lists.xenproject.org
+Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, dja@axtens.net, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@lists.linux-m68k.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>, Thierry Reding <thierry.reding@gmail.com>, linux-tegra@vger.kernel.org
 
-From: Arnd Bergmann <arnd@arndb.de>
+Now pci_scan_root_bus() is almost similar to
+pci_create_root_bus() + pci_scan_child_bus().
+So we could use common pci_scan_root_bus() in
+pci_common_init_dev() to scan pci busses.
+tegra_pcie_scan_bus() is redundant, remove it.
 
-Use pci_scan_root_bus() instead of deprecated function
-pci_scan_bus_parented().
-
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Tested-by: Thierry Reding <treding@nvidia.com>
 Signed-off-by: Yijing Wang <wangyijing@huawei.com>
-CC: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-CC: xen-devel@lists.xenproject.org
+Acked-by: Thierry Reding <treding@nvidia.com>
+CC: Thierry Reding <thierry.reding@gmail.com>
+CC: linux-tegra@vger.kernel.org
 ---
- drivers/pci/xen-pcifront.c |   16 +++++++++++++---
- 1 files changed, 13 insertions(+), 3 deletions(-)
+ drivers/pci/host/pci-tegra.c |   16 ----------------
+ 1 files changed, 0 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/pci/xen-pcifront.c b/drivers/pci/xen-pcifront.c
-index b1ffebe..a69e529 100644
---- a/drivers/pci/xen-pcifront.c
-+++ b/drivers/pci/xen-pcifront.c
-@@ -446,9 +446,15 @@ static int pcifront_scan_root(struct pcifront_device *pdev,
- 				 unsigned int domain, unsigned int bus)
+diff --git a/drivers/pci/host/pci-tegra.c b/drivers/pci/host/pci-tegra.c
+index 3e45142..10c0571 100644
+--- a/drivers/pci/host/pci-tegra.c
++++ b/drivers/pci/host/pci-tegra.c
+@@ -630,21 +630,6 @@ static int tegra_pcie_map_irq(const struct pci_dev *pdev, u8 slot, u8 pin)
+ 	return irq;
+ }
+ 
+-static struct pci_bus *tegra_pcie_scan_bus(int nr, struct pci_sys_data *sys)
+-{
+-	struct tegra_pcie *pcie = sys_to_pcie(sys);
+-	struct pci_bus *bus;
+-
+-	bus = pci_create_root_bus(pcie->dev, -1, &tegra_pcie_ops,
+-			sys, &sys->resources);
+-	if (!bus)
+-		return NULL;
+-
+-	pci_scan_child_bus(bus);
+-
+-	return bus;
+-}
+-
+ static irqreturn_t tegra_pcie_isr(int irq, void *arg)
  {
- 	struct pci_bus *b;
-+	LIST_HEAD(resources);
- 	struct pcifront_sd *sd = NULL;
- 	struct pci_bus_entry *bus_entry = NULL;
- 	int err = 0;
-+	static struct resource busn_res = {
-+		.start = 0,
-+		.end = 255,
-+		.flags = IORESOURCE_BUS,
-+	};
+ 	const char *err_msg[] = {
+@@ -1831,7 +1816,6 @@ static int tegra_pcie_enable(struct tegra_pcie *pcie)
+ 	hw.private_data = (void **)&pcie;
+ 	hw.setup = tegra_pcie_setup;
+ 	hw.map_irq = tegra_pcie_map_irq;
+-	hw.scan = tegra_pcie_scan_bus;
+ 	hw.ops = &tegra_pcie_ops;
  
- #ifndef CONFIG_PCI_DOMAINS
- 	if (domain != 0) {
-@@ -470,17 +476,21 @@ static int pcifront_scan_root(struct pcifront_device *pdev,
- 		err = -ENOMEM;
- 		goto err_out;
- 	}
-+	pci_add_resource(&resources, &ioport_resource);
-+	pci_add_resource(&resources, &iomem_resource);
-+	pci_add_resource(&resources, &busn_res);
- 	pcifront_init_sd(sd, domain, bus, pdev);
- 
- 	pci_lock_rescan_remove();
- 
--	b = pci_scan_bus_parented(&pdev->xdev->dev, bus,
--				  &pcifront_bus_ops, sd);
-+	b = pci_scan_root_bus(&pdev->xdev->dev, bus,
-+				  &pcifront_bus_ops, sd, &resources);
- 	if (!b) {
- 		dev_err(&pdev->xdev->dev,
- 			"Error creating PCI Frontend Bus!\n");
- 		err = -ENOMEM;
- 		pci_unlock_rescan_remove();
-+		pci_free_resource_list(&resources);
- 		goto err_out;
- 	}
- 
-@@ -488,7 +498,7 @@ static int pcifront_scan_root(struct pcifront_device *pdev,
- 
- 	list_add(&bus_entry->list, &pdev->root_buses);
- 
--	/* pci_scan_bus_parented skips devices which do not have a have
-+	/* pci_scan_root_bus skips devices which do not have a
- 	* devfn=0. The pcifront_scan_bus enumerates all devfn. */
- 	err = pcifront_scan_bus(pdev, domain, bus, b);
- 
+ 	pci_common_init_dev(pcie->dev, &hw);
 -- 
 1.7.1
 
