@@ -1,79 +1,50 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Tue, 21 Apr 2015 11:34:32 +0000
-Subject: [PATCH v10 13/29] PCI: Move pcibios_root_bridge_prepare() to pci_create_host_bridge()
-Message-Id: <1429616088-10249-14-git-send-email-wangyijing@huawei.com>
+From: Bjorn Helgaas <bhelgaas@google.com>
+Date: Wed, 22 Apr 2015 15:35:29 +0000
+Subject: [GIT PULL] PCI fixes for v4.1
+Message-Id: <20150422153529.GH20701@google.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1429616088-10249-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1429616088-10249-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: Jiang Liu <jiang.liu@linux.intel.com>, linux-pci@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <marc.zyngier@arm.com>, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, dja@axtens.net, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Mohit Kumar <mohit.kumar@st.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-Move pcibios_root_bridge_prepare() to pci_create_host_bridge().
+Hi Linus,
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
----
- drivers/pci/host-bridge.c |   16 +++++++++++++---
- drivers/pci/probe.c       |    3 ---
- 2 files changed, 13 insertions(+), 6 deletions(-)
+These fix an ia64 regression caused by tighter resource checking we merged
+during the merge window and remove an invalid email address from
+MAINTAINERS.
 
-diff --git a/drivers/pci/host-bridge.c b/drivers/pci/host-bridge.c
-index b1cc6ef..6309970 100644
---- a/drivers/pci/host-bridge.c
-+++ b/drivers/pci/host-bridge.c
-@@ -109,9 +109,7 @@ struct pci_host_bridge *pci_create_host_bridge(
- 		if (tmp->domain = host->domain
- 			  && pci_host_busn_res_check(host, tmp)) {
- 			mutex_unlock(&pci_host_mutex);
--			pci_free_resource_list(&host->windows);
--			kfree(host);
--			return NULL;
-+			goto free_res;
- 		}
- 	}
- 	list_add_tail(&host->list, &pci_host_bridge_list);
-@@ -122,6 +120,10 @@ struct pci_host_bridge *pci_create_host_bridge(
- 	dev_set_name(&host->dev, "pci%04x:%02x",
- 			host->domain, bus);
- 
-+	error = pcibios_root_bridge_prepare(host);
-+	if (error)
-+		goto list_del;
-+
- 	error = device_register(&host->dev);
- 	if (error) {
- 		put_device(&host->dev);
-@@ -129,6 +131,14 @@ struct pci_host_bridge *pci_create_host_bridge(
- 	}
- 
- 	return host;
-+list_del:
-+	mutex_lock(&pci_host_mutex);
-+	list_del(&host->list);
-+	mutex_unlock(&pci_host_mutex);
-+free_res:
-+	pci_free_resource_list(&host->windows);
-+	kfree(host);
-+	return NULL;
- }
- 
- void pci_free_host_bridge(struct pci_host_bridge *host)
-diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
-index 3c53fe7..e75b27c 100644
---- a/drivers/pci/probe.c
-+++ b/drivers/pci/probe.c
-@@ -1902,9 +1902,6 @@ static struct pci_bus *__pci_create_root_bus(
- 
- 	bridge->bus = b;
- 	b->bridge = get_device(&bridge->dev);
--	error = pcibios_root_bridge_prepare(bridge);
--	if (error)
--		goto put_bridge;
- 
- 	pcibios_set_root_bus_speed(bridge);
- 	device_enable_async_suspend(b->bridge);
--- 
-1.7.1
+Bjorn
 
+
+The following changes since commit 3be1b98e073bdd4c1bb3144201a927c4a21330ba:
+
+  Merge tag 'pci-v4.1-changes' of git://git.kernel.org/pub/scm/linux/kernel/git/helgaas/pci (2015-04-13 15:45:47 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/helgaas/pci.git tags/pci-v4.1-fixes-1
+
+for you to fetch changes up to 9fbbda5c8e0ab9c391e4160a0eb3a06260f9f668:
+
+  ia64/PCI: Treat all host bridge Address Space Descriptors (even consumers) as windows (2015-04-21 15:29:39 -0500)
+
+----------------------------------------------------------------
+PCI updates for v4.1:
+
+  Resource management
+    - ia64: Treat all Address Space Descriptors as windows (Bjorn Helgaas)
+
+  Miscellaneous
+    - MAINTAINERS: Remove Mohit Kumar (email bounces) (Bjorn Helgaas)
+
+----------------------------------------------------------------
+Bjorn Helgaas (2):
+      MAINTAINERS: Remove Mohit Kumar (email bounces)
+      ia64/PCI: Treat all host bridge Address Space Descriptors (even consumers) as windows
+
+ CREDITS             | 4 ++++
+ MAINTAINERS         | 4 +---
+ arch/ia64/pci/pci.c | 5 +----
+ 3 files changed, 6 insertions(+), 7 deletions(-)
