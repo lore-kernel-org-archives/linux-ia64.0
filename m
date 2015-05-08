@@ -1,102 +1,83 @@
-From: Jiang Liu <jiang.liu@linux.intel.com>
-Date: Tue, 05 May 2015 02:46:06 +0000
-Subject: [RFC v2 3/7] ia64/PCI: Use common struct resource_entry to replace struct iospace_resource
-Message-Id: <1430793970-11159-4-git-send-email-jiang.liu@linux.intel.com>
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Fri, 08 May 2015 07:22:50 +0000
+Subject: [PATCH Part3 v11 0/9] Remove platform pci_domain_nr()
+Message-Id: <1431069779-29346-1-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1430793970-11159-1-git-send-email-jiang.liu@linux.intel.com>
-In-Reply-To: <1430793970-11159-1-git-send-email-jiang.liu@linux.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Rafael J . Wysocki" <rjw@rjwysocki.net>, Bjorn Helgaas <bhelgaas@google.com>, Marc Zyngier <marc.zyngier@arm.com>, Hanjun Guo <hanjun.guo@linaro.org>, Yijing Wang <wangyijing@huawei.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Jiang Liu <jiang.liu@linux.intel.com>, Yinghai Lu <yinghai@kernel.org>
-Cc: linux-ia64@vger.kernel.org, linux-pci@vger.kernel.org, "x86 @ kernel . org" <x86@kernel.org>, LKML <linux-kernel@vger.kernel.org>, linux-acpi@vger.kernel.org, Lv Zheng <lv.zheng@intel.com>, linux-arm-kernel@lists.infradead.org, "lenb @ kernel . org" <lenb@kernel.org>
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: linux-arm-kernel@lists.infradead.org, Liviu Dudau <liviu@dudau.co.uk>, x86@kernel.org, linux-ia64@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, linux-pci@vger.kernel.org, dja@axtens.net, Arnd Bergmann <arnd@arndb.de>, Yijing Wang <wangyijing@huawei.com>
 
-Use common struct resource_entry to replace private
-struct iospace_resource.
+This series is splitted out from previous patchset
+"Refine PCI scan interfaces and make generic pci host bridge".
+It try to clean up all platform pci_domain_nr(), save domain
+in pci_host_bridge, so we could get domain number from the
+common interface.
 
-Signed-off-by: Jiang Liu <jiang.liu@linux.intel.com>
----
- arch/ia64/include/asm/pci.h |    5 -----
- arch/ia64/pci/pci.c         |   17 ++++++++---------
- 2 files changed, 8 insertions(+), 14 deletions(-)
+You could pull it from https://github.com/YijingWang/linux-pci.git enumer11
 
-diff --git a/arch/ia64/include/asm/pci.h b/arch/ia64/include/asm/pci.h
-index 52af5ed9f60b..5c10e0ec48d4 100644
---- a/arch/ia64/include/asm/pci.h
-+++ b/arch/ia64/include/asm/pci.h
-@@ -83,11 +83,6 @@ extern int pci_mmap_legacy_page_range(struct pci_bus *bus,
- #define pci_legacy_read platform_pci_legacy_read
- #define pci_legacy_write platform_pci_legacy_write
- 
--struct iospace_resource {
--	struct list_head list;
--	struct resource res;
--};
--
- struct pci_controller {
- 	struct acpi_device *companion;
- 	void *iommu;
-diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
-index 23689d4c37ae..4af1b52c7a44 100644
---- a/arch/ia64/pci/pci.c
-+++ b/arch/ia64/pci/pci.c
-@@ -154,14 +154,14 @@ new_space (u64 phys_base, int sparse)
- static int add_io_space(struct device *dev, struct pci_root_info *info,
- 			struct resource_entry *entry)
- {
--	struct iospace_resource *iospace;
-+	struct resource_entry *iospace;
- 	struct resource *resource, *res = entry->res;
- 	char *name;
- 	unsigned long base, min, max, base_port;
- 	unsigned int sparse = 0, space_nr, len;
- 
- 	len = strlen(info->name) + 32;
--	iospace = kzalloc(sizeof(*iospace) + len, GFP_KERNEL);
-+	iospace = resource_list_create_entry(NULL, len);
- 	if (!iospace) {
- 		dev_err(dev, "PCI: No memory for %s I/O port space\n",
- 			info->name);
-@@ -190,7 +190,7 @@ static int add_io_space(struct device *dev, struct pci_root_info *info,
- 	if (space_nr = 0)
- 		sparse = 1;
- 
--	resource = &iospace->res;
-+	resource = iospace->res;
- 	resource->name  = name;
- 	resource->flags = IORESOURCE_MEM;
- 	resource->start = base + (sparse ? IO_SPACE_SPARSE_ENCODING(min) : min);
-@@ -205,12 +205,12 @@ static int add_io_space(struct device *dev, struct pci_root_info *info,
- 	entry->offset = base_port;
- 	res->start = min + base_port;
- 	res->end = max + base_port;
--	list_add_tail(&iospace->list, &info->io_resources);
-+	resource_list_add_tail(iospace, &info->io_resources);
- 
- 	return 0;
- 
- free_resource:
--	kfree(iospace);
-+	resource_list_free_entry(iospace);
- 	return -ENOSPC;
- }
- 
-@@ -369,12 +369,11 @@ static void add_resources(struct pci_root_info *info, struct device *dev)
- static void __release_pci_root_info(struct pci_root_info *info)
- {
- 	struct resource *res;
--	struct iospace_resource *iospace, *tmp;
- 	struct resource_entry *entry, *tentry;
- 
--	list_for_each_entry_safe(iospace, tmp, &info->io_resources, list) {
--		release_resource(&iospace->res);
--		kfree(iospace);
-+	resource_list_for_each_entry_safe(entry, tentry, &info->io_resources) {
-+		release_resource(entry->res);
-+		resource_list_destroy_entry(entry);
- 	}
- 
- 	resource_list_for_each_entry_safe(entry, tentry, &info->resources) {
--- 
-1.7.10.4
+Yijing Wang (9):
+  PCI: Save domain in pci_host_bridge
+  PCI: Move pci_bus_assign_domain_nr() declaration into
+    drivers/pci/pci.h
+  PCI: Remove declaration for pci_get_new_domain_nr()
+  PCI: Introduce pci_host_assign_domain_nr() to assign domain
+  powerpc/PCI: Rename pcibios_root_bridge_prepare() to
+    pcibios_root_bus_prepare()
+  PCI: Make pci_host_bridge hold sysdata in drvdata
+  PCI: Create pci host bridge prior to root bus
+  PCI: Remove platform specific pci_domain_nr()
+  PCI: Remove pci_bus_assign_domain_nr()
+
+ arch/alpha/include/asm/pci.h             |    2 -
+ arch/alpha/kernel/pci.c                  |    4 +-
+ arch/alpha/kernel/sys_nautilus.c         |    2 +-
+ arch/arm/kernel/bios32.c                 |    2 +-
+ arch/arm/mach-dove/pcie.c                |    2 +-
+ arch/arm/mach-iop13xx/pci.c              |    4 +-
+ arch/arm/mach-mv78xx0/pcie.c             |    2 +-
+ arch/arm/mach-orion5x/pci.c              |    4 +-
+ arch/frv/mb93090-mb00/pci-vdk.c          |    3 +-
+ arch/ia64/include/asm/pci.h              |    1 -
+ arch/ia64/pci/pci.c                      |    6 +-
+ arch/ia64/sn/kernel/io_init.c            |    4 +-
+ arch/m68k/coldfire/pci.c                 |    2 +-
+ arch/microblaze/pci/pci-common.c         |   15 +----
+ arch/mips/include/asm/pci.h              |    2 -
+ arch/mips/pci/pci.c                      |    4 +-
+ arch/mn10300/unit-asb2305/pci.c          |    3 +-
+ arch/powerpc/include/asm/machdep.h       |    2 +-
+ arch/powerpc/kernel/pci-common.c         |   21 ++-----
+ arch/powerpc/platforms/pseries/pci.c     |    2 +-
+ arch/powerpc/platforms/pseries/pseries.h |    2 +-
+ arch/powerpc/platforms/pseries/setup.c   |    2 +-
+ arch/s390/pci/pci.c                      |   10 +---
+ arch/sh/drivers/pci/pci.c                |    4 +-
+ arch/sh/include/asm/pci.h                |    2 -
+ arch/sparc/kernel/leon_pci.c             |    2 +-
+ arch/sparc/kernel/pci.c                  |   21 +------
+ arch/sparc/kernel/pcic.c                 |    2 +-
+ arch/tile/include/asm/pci.h              |    2 -
+ arch/tile/kernel/pci.c                   |    4 +-
+ arch/tile/kernel/pci_gx.c                |    4 +-
+ arch/unicore32/kernel/pci.c              |    2 +-
+ arch/x86/include/asm/pci.h               |    6 --
+ arch/x86/pci/acpi.c                      |    6 +-
+ arch/x86/pci/common.c                    |    2 +-
+ arch/xtensa/kernel/pci.c                 |    2 +-
+ drivers/parisc/dino.c                    |    2 +-
+ drivers/parisc/lba_pci.c                 |    2 +-
+ drivers/pci/host/pci-versatile.c         |    3 +-
+ drivers/pci/host/pci-xgene.c             |    2 +-
+ drivers/pci/host/pcie-designware.c       |    2 +-
+ drivers/pci/host/pcie-iproc.c            |    2 +-
+ drivers/pci/host/pcie-xilinx.c           |    2 +-
+ drivers/pci/hotplug/ibmphp_core.c        |    2 +-
+ drivers/pci/pci.c                        |   31 ++++++++--
+ drivers/pci/pci.h                        |    1 +
+ drivers/pci/probe.c                      |   94 +++++++++++++++++-------------
+ drivers/pci/xen-pcifront.c               |    2 +-
+ include/linux/pci.h                      |   27 ++-------
+ 49 files changed, 145 insertions(+), 187 deletions(-)
 
