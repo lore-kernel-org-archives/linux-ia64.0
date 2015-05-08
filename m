@@ -1,125 +1,67 @@
-From: Dominik Dingel <dingel@linux.vnet.ibm.com>
-Date: Thu, 28 May 2015 11:52:36 +0000
-Subject: [PATCH 4/5] s390/hugetlb: remove dead code for sw emulated huge pages
-Message-Id: <1432813957-46874-5-git-send-email-dingel@linux.vnet.ibm.com>
+From: Yijing Wang <wangyijing@huawei.com>
+Date: Fri, 08 May 2015 07:22:56 +0000
+Subject: [PATCH Part3 v11 6/9] PCI: Make pci_host_bridge hold sysdata in drvdata
+Message-Id: <1431069779-29346-7-git-send-email-wangyijing@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1432813957-46874-1-git-send-email-dingel@linux.vnet.ibm.com>
-In-Reply-To: <1432813957-46874-1-git-send-email-dingel@linux.vnet.ibm.com>
+References: <1431069779-29346-1-git-send-email-wangyijing@huawei.com>
+In-Reply-To: <1431069779-29346-1-git-send-email-wangyijing@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-arm-kernel@lists.infradead.org
+To: Bjorn Helgaas <bhelgaas@google.com>
+Cc: linux-arm-kernel@lists.infradead.org, Liviu Dudau <liviu@dudau.co.uk>, x86@kernel.org, linux-ia64@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, linux-pci@vger.kernel.org, dja@axtens.net, Arnd Bergmann <arnd@arndb.de>, Yijing Wang <wangyijing@huawei.com>
 
-We now support only hugepages on hardware with EDAT1 support.
-So we remove the prepare/release_hugepage hooks and
-simplify set_huge_pte_at and huge_ptep_get.
+Now platform specific sysdata is saved in pci_bus,
+and pcibios_root_bridge_prepare() need to know
+the sysdata. Later, we would move pcibios_root_bridge_prepare()
+prior to root bus creation, so we need to make
+pci_host_bridge hold sysdata.
 
-Acked-by: Martin Schwidefsky <schwidefsky@de.ibm.com>
-Signed-off-by: Dominik Dingel <dingel@linux.vnet.ibm.com>
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
 ---
- arch/s390/include/asm/hugetlb.h |  3 ---
- arch/s390/mm/hugetlbpage.c      | 60 +++--------------------------------------
- 2 files changed, 3 insertions(+), 60 deletions(-)
+ arch/ia64/pci/pci.c |    2 +-
+ arch/x86/pci/acpi.c |    2 +-
+ drivers/pci/probe.c |    1 +
+ 3 files changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/arch/s390/include/asm/hugetlb.h b/arch/s390/include/asm/hugetlb.h
-index dfb542a..0130d03 100644
---- a/arch/s390/include/asm/hugetlb.h
-+++ b/arch/s390/include/asm/hugetlb.h
-@@ -37,9 +37,6 @@ static inline int prepare_hugepage_range(struct file *file,
+diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
+index 33803f7..c82d666 100644
+--- a/arch/ia64/pci/pci.c
++++ b/arch/ia64/pci/pci.c
+@@ -478,7 +478,7 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
  
- #define arch_clear_hugepage_flags(page)		do { } while (0)
- 
--int arch_prepare_hugepage(struct page *page);
--void arch_release_hugepage(struct page *page);
--
- static inline void huge_pte_clear(struct mm_struct *mm, unsigned long addr,
- 				  pte_t *ptep)
+ int pcibios_root_bridge_prepare(struct pci_host_bridge *bridge)
  {
-diff --git a/arch/s390/mm/hugetlbpage.c b/arch/s390/mm/hugetlbpage.c
-index fa6e1bc..999616b 100644
---- a/arch/s390/mm/hugetlbpage.c
-+++ b/arch/s390/mm/hugetlbpage.c
-@@ -80,31 +80,16 @@ static inline pte_t __pmd_to_pte(pmd_t pmd)
- void set_huge_pte_at(struct mm_struct *mm, unsigned long addr,
- 		     pte_t *ptep, pte_t pte)
+-	struct pci_controller *controller = bridge->bus->sysdata;
++	struct pci_controller *controller = dev_get_drvdata(&bridge->dev);
+ 
+ 	ACPI_COMPANION_SET(&bridge->dev, controller->companion);
+ 	return 0;
+diff --git a/arch/x86/pci/acpi.c b/arch/x86/pci/acpi.c
+index 7563855..948b675 100644
+--- a/arch/x86/pci/acpi.c
++++ b/arch/x86/pci/acpi.c
+@@ -462,7 +462,7 @@ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
+ 
+ int pcibios_root_bridge_prepare(struct pci_host_bridge *bridge)
  {
--	pmd_t pmd;
-+	pmd_t pmd = __pte_to_pmd(pte);
+-	struct pci_sysdata *sd = bridge->bus->sysdata;
++	struct pci_sysdata *sd = dev_get_drvdata(&bridge->dev);
  
--	pmd = __pte_to_pmd(pte);
--	if (!MACHINE_HAS_HPAGE) {
--		/* Emulated huge ptes loose the dirty and young bit */
--		pmd_val(pmd) &= ~_SEGMENT_ENTRY_ORIGIN;
--		pmd_val(pmd) |= pte_page(pte)[1].index;
--	} else
--		pmd_val(pmd) |= _SEGMENT_ENTRY_LARGE;
-+	pmd_val(pmd) |= _SEGMENT_ENTRY_LARGE;
- 	*(pmd_t *) ptep = pmd;
- }
- 
- pte_t huge_ptep_get(pte_t *ptep)
- {
--	unsigned long origin;
--	pmd_t pmd;
-+	pmd_t pmd = *(pmd_t *) ptep;
- 
--	pmd = *(pmd_t *) ptep;
--	if (!MACHINE_HAS_HPAGE && pmd_present(pmd)) {
--		origin = pmd_val(pmd) & _SEGMENT_ENTRY_ORIGIN;
--		pmd_val(pmd) &= ~_SEGMENT_ENTRY_ORIGIN;
--		pmd_val(pmd) |= *(unsigned long *) origin;
--		/* Emulated huge ptes are young and dirty by definition */
--		pmd_val(pmd) |= _SEGMENT_ENTRY_YOUNG | _SEGMENT_ENTRY_DIRTY;
--	}
- 	return __pmd_to_pte(pmd);
- }
- 
-@@ -119,45 +104,6 @@ pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
- 	return pte;
- }
- 
--int arch_prepare_hugepage(struct page *page)
--{
--	unsigned long addr = page_to_phys(page);
--	pte_t pte;
--	pte_t *ptep;
--	int i;
--
--	if (MACHINE_HAS_HPAGE)
--		return 0;
--
--	ptep = (pte_t *) pte_alloc_one(&init_mm, addr);
--	if (!ptep)
--		return -ENOMEM;
--
--	pte_val(pte) = addr;
--	for (i = 0; i < PTRS_PER_PTE; i++) {
--		set_pte_at(&init_mm, addr + i * PAGE_SIZE, ptep + i, pte);
--		pte_val(pte) += PAGE_SIZE;
--	}
--	page[1].index = (unsigned long) ptep;
--	return 0;
--}
--
--void arch_release_hugepage(struct page *page)
--{
--	pte_t *ptep;
--
--	if (MACHINE_HAS_HPAGE)
--		return;
--
--	ptep = (pte_t *) page[1].index;
--	if (!ptep)
--		return;
--	clear_table((unsigned long *) ptep, _PAGE_INVALID,
--		    PTRS_PER_PTE * sizeof(pte_t));
--	page_table_free(&init_mm, (unsigned long *) ptep);
--	page[1].index = 0;
--}
--
- pte_t *huge_pte_alloc(struct mm_struct *mm,
- 			unsigned long addr, unsigned long sz)
- {
+ 	ACPI_COMPANION_SET(&bridge->dev, sd->companion);
+ 	return 0;
+diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
+index f5f5de6..9ed8ab7 100644
+--- a/drivers/pci/probe.c
++++ b/drivers/pci/probe.c
+@@ -1931,6 +1931,7 @@ struct pci_bus *pci_create_root_bus(struct device *parent, int domain,
+ 	bridge->domain = domain;
+ 	bridge->dev.parent = parent;
+ 	bridge->dev.release = pci_release_host_bridge_dev;
++	dev_set_drvdata(&bridge->dev, sysdata);
+ 	dev_set_name(&bridge->dev, "pci%04x:%02x", pci_domain_nr(b), bus);
+ 	error = pcibios_root_bridge_prepare(bridge);
+ 	if (error) {
 -- 
-2.3.7
+1.7.1
 
