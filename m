@@ -1,166 +1,32 @@
-From: Jiang Liu <jiang.liu@linux.intel.com>
-Date: Mon, 04 May 2015 03:15:39 +0000
-Subject: [RFC v1 11/11] genirq: Pass irq_data to helper function __irq_set_chip_handler_name_locked()
-Message-Id: <1430709339-29083-12-git-send-email-jiang.liu@linux.intel.com>
+From: Thomas Gleixner <tglx@linutronix.de>
+Date: Fri, 15 May 2015 20:48:36 +0000
+Subject: Re: [RFC v1 11/11] genirq: Pass irq_data to helper function __irq_set_chip_handler_name_locked()
+Message-Id: <alpine.DEB.2.11.1505152247280.4225@nanos>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1430709339-29083-1-git-send-email-jiang.liu@linux.intel.com>
-In-Reply-To: <1430709339-29083-1-git-send-email-jiang.liu@linux.intel.com>
+References: <1430709339-29083-1-git-send-email-jiang.liu@linux.intel.com> <1430709339-29083-12-git-send-email-jiang.liu@linux.intel.com>
+In-Reply-To: <1430709339-29083-12-git-send-email-jiang.liu@linux.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thomas Gleixner <tglx@linutronix.de>, Bjorn Helgaas <bhelgaas@google.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Randy Dunlap <rdunlap@infradead.org>, Yinghai Lu <yinghai@kernel.org>, Borislav Petkov <bp@alien8.de>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Ralf Baechle <ralf@linux-mips.org>, Linus Walleij <linus.walleij@linaro.org>, Alexandre Courbot <gnurou@gmail.com>, Michal Simek <michal.simek@xilinx.com>, =?UTF-8?q?S=C3=B6ren=20Brinkmann?= <soren.brinkmann@xilinx.com>, James Hogan <james.hogan@imgtec.com>, Jason Cooper <jason@lakedaemon.net>, Manuel Lauss <manuel.lauss@gmail.com>, Jiang Liu <jiang.liu@linux.intel.com>, Marc Zyngier <marc.zyngier@arm.com>
-Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, x86@kernel.org, linux-kernel@vger.kernel.org, linux-pci@vger.kernel.org, linux-acpi@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linux-gpio@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-metag@vger.kernel.org
+To: Jiang Liu <jiang.liu@linux.intel.com>
+Cc: Bjorn Helgaas <bhelgaas@google.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Randy Dunlap <rdunlap@infradead.org>, Yinghai Lu <yinghai@kernel.org>, Borislav Petkov <bp@alien8.de>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Ralf Baechle <ralf@linux-mips.org>, Linus Walleij <linus.walleij@linaro.org>, Alexandre Courbot <gnurou@gmail.com>, Michal Simek <michal.simek@xilinx.com>, =?ISO-8859-15?Q?S=F6ren_Brinkmann?= <soren.brinkmann@xilinx.com>, James Hogan <james.hogan@imgtec.com>, Jason Cooper <jason@lakedaemon.net>, Manuel Lauss <manuel.lauss@gmail.com>, Marc Zyngier <marc.zyngier@arm.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, x86@kernel.org, linux-kernel@vger.kernel.org, linux-pci@vger.kernel.org, linux-acpi@vger
 
-For most cases, callers pass irq_data->irq to helper function
-__irq_set_chip_handler_name_locked() and then it looks up irq_data again
-by calling irq_get_irq_data(irq).
+On Mon, 4 May 2015, Jiang Liu wrote:
+>  /* caller has locked the irq_desc and both params are valid */
+>  static inline void
+> -__irq_set_chip_handler_name_locked(unsigned int irq, struct irq_chip *chip,
+> +__irq_set_chip_handler_name_locked(struct irq_data *data, struct irq_chip *chip,
+>  				   irq_flow_handler_t handler, const char *name)
+>  {
+>  	struct irq_desc *desc;
+>  
+> -	desc = irq_to_desc(irq);
+> -	irq_desc_get_irq_data(desc)->chip = chip;
+> +	desc = irq_to_desc(data->irq);
 
-So pass irq_data directly instead of irq_data->irq to
-__irq_set_chip_handler_name_locked().
+We should have a irq_data_to_desc() helper and use that instead of
+going through a full lookup again.
 
-Signed-off-by: Jiang Liu <jiang.liu@linux.intel.com>
----
- arch/ia64/kernel/iosapic.c      |    6 +++---
- arch/mips/alchemy/common/irq.c  |    4 ++--
- drivers/gpio/gpio-zynq.c        |    9 ++++-----
- drivers/irqchip/irq-metag-ext.c |    5 ++---
- drivers/irqchip/irq-mips-gic.c  |   11 ++++-------
- include/linux/irqdesc.h         |    6 +++---
- 6 files changed, 18 insertions(+), 23 deletions(-)
+Thanks,
 
-diff --git a/arch/ia64/kernel/iosapic.c b/arch/ia64/kernel/iosapic.c
-index 4d2698d43c39..317993e92cba 100644
---- a/arch/ia64/kernel/iosapic.c
-+++ b/arch/ia64/kernel/iosapic.c
-@@ -610,9 +610,9 @@ register_intr (unsigned int gsi, int irq, unsigned char delivery,
- 			       chip->name, irq_type->name);
- 		chip = irq_type;
- 	}
--	__irq_set_chip_handler_name_locked(irq, chip, trigger = IOSAPIC_EDGE ?
--					   handle_edge_irq : handle_level_irq,
--					   NULL);
-+	__irq_set_chip_handler_name_locked(irq_get_irq_data(irq), chip,
-+		trigger = IOSAPIC_EDGE ? handle_edge_irq : handle_level_irq,
-+		NULL);
- 	return 0;
- }
- 
-diff --git a/arch/mips/alchemy/common/irq.c b/arch/mips/alchemy/common/irq.c
-index 6cb60abfdcc9..026c4eed37d5 100644
---- a/arch/mips/alchemy/common/irq.c
-+++ b/arch/mips/alchemy/common/irq.c
-@@ -491,7 +491,7 @@ static int au1x_ic_settype(struct irq_data *d, unsigned int flow_type)
- 	default:
- 		ret = -EINVAL;
- 	}
--	__irq_set_chip_handler_name_locked(d->irq, chip, handler, name);
-+	__irq_set_chip_handler_name_locked(d, chip, handler, name);
- 
- 	wmb();
- 
-@@ -703,7 +703,7 @@ static int au1300_gpic_settype(struct irq_data *d, unsigned int type)
- 		return -EINVAL;
- 	}
- 
--	__irq_set_chip_handler_name_locked(d->irq, &au1300_gpic, hdl, name);
-+	__irq_set_chip_handler_name_locked(d, &au1300_gpic, hdl, name);
- 
- 	au1300_gpic_chgcfg(d->irq - ALCHEMY_GPIC_INT_BASE, GPIC_CFG_IC_MASK, s);
- 
-diff --git a/drivers/gpio/gpio-zynq.c b/drivers/gpio/gpio-zynq.c
-index 184c4b1b2558..aea6075e5b2e 100644
---- a/drivers/gpio/gpio-zynq.c
-+++ b/drivers/gpio/gpio-zynq.c
-@@ -422,13 +422,12 @@ static int zynq_gpio_set_irq_type(struct irq_data *irq_data, unsigned int type)
- 	writel_relaxed(int_any,
- 		       gpio->base_addr + ZYNQ_GPIO_INTANY_OFFSET(bank_num));
- 
--	if (type & IRQ_TYPE_LEVEL_MASK) {
--		__irq_set_chip_handler_name_locked(irq_data->irq,
-+	if (type & IRQ_TYPE_LEVEL_MASK)
-+		__irq_set_chip_handler_name_locked(irq_data,
- 			&zynq_gpio_level_irqchip, handle_fasteoi_irq, NULL);
--	} else {
--		__irq_set_chip_handler_name_locked(irq_data->irq,
-+	else
-+		__irq_set_chip_handler_name_locked(irq_data,
- 			&zynq_gpio_edge_irqchip, handle_level_irq, NULL);
--	}
- 
- 	return 0;
- }
-diff --git a/drivers/irqchip/irq-metag-ext.c b/drivers/irqchip/irq-metag-ext.c
-index 2cb474ad8809..52e501d8c8f0 100644
---- a/drivers/irqchip/irq-metag-ext.c
-+++ b/drivers/irqchip/irq-metag-ext.c
-@@ -404,7 +404,6 @@ static int meta_intc_irq_set_type(struct irq_data *data, unsigned int flow_type)
- #ifdef CONFIG_METAG_SUSPEND_MEM
- 	struct meta_intc_priv *priv = &meta_intc_priv;
- #endif
--	unsigned int irq = data->irq;
- 	irq_hw_number_t hw = data->hwirq;
- 	unsigned int bit = 1 << meta_intc_offset(hw);
- 	void __iomem *level_addr = meta_intc_level_addr(hw);
-@@ -413,10 +412,10 @@ static int meta_intc_irq_set_type(struct irq_data *data, unsigned int flow_type)
- 
- 	/* update the chip/handler */
- 	if (flow_type & IRQ_TYPE_LEVEL_MASK)
--		__irq_set_chip_handler_name_locked(irq, &meta_intc_level_chip,
-+		__irq_set_chip_handler_name_locked(data, &meta_intc_level_chip,
- 						   handle_level_irq, NULL);
- 	else
--		__irq_set_chip_handler_name_locked(irq, &meta_intc_edge_chip,
-+		__irq_set_chip_handler_name_locked(data, &meta_intc_edge_chip,
- 						   handle_edge_irq, NULL);
- 
- 	/* and clear/set the bit in HWLEVELEXT */
-diff --git a/drivers/irqchip/irq-mips-gic.c b/drivers/irqchip/irq-mips-gic.c
-index 09257c301bd2..fb2e64b1f414 100644
---- a/drivers/irqchip/irq-mips-gic.c
-+++ b/drivers/irqchip/irq-mips-gic.c
-@@ -365,15 +365,12 @@ static int gic_set_type(struct irq_data *d, unsigned int type)
- 		break;
- 	}
- 
--	if (is_edge) {
--		__irq_set_chip_handler_name_locked(d->irq,
--						   &gic_edge_irq_controller,
-+	if (is_edge)
-+		__irq_set_chip_handler_name_locked(d, &gic_edge_irq_controller,
- 						   handle_edge_irq, NULL);
--	} else {
--		__irq_set_chip_handler_name_locked(d->irq,
--						   &gic_level_irq_controller,
-+	else
-+		__irq_set_chip_handler_name_locked(d, &gic_level_irq_controller,
- 						   handle_level_irq, NULL);
--	}
- 	spin_unlock_irqrestore(&gic_lock, flags);
- 
- 	return 0;
-diff --git a/include/linux/irqdesc.h b/include/linux/irqdesc.h
-index 81a7231c0379..720ff116b533 100644
---- a/include/linux/irqdesc.h
-+++ b/include/linux/irqdesc.h
-@@ -168,15 +168,15 @@ static inline void __irq_set_handler_locked(unsigned int irq,
- 
- /* caller has locked the irq_desc and both params are valid */
- static inline void
--__irq_set_chip_handler_name_locked(unsigned int irq, struct irq_chip *chip,
-+__irq_set_chip_handler_name_locked(struct irq_data *data, struct irq_chip *chip,
- 				   irq_flow_handler_t handler, const char *name)
- {
- 	struct irq_desc *desc;
- 
--	desc = irq_to_desc(irq);
--	irq_desc_get_irq_data(desc)->chip = chip;
-+	desc = irq_to_desc(data->irq);
- 	desc->handle_irq = handler;
- 	desc->name = name;
-+	data->chip = chip;
- }
- 
- static inline int irq_balancing_disabled(unsigned int irq)
--- 
-1.7.10.4
-
+	tglx
