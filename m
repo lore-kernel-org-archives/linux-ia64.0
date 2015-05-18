@@ -1,39 +1,46 @@
-From: Dominik Dingel <dingel@linux.vnet.ibm.com>
-Date: Thu, 28 May 2015 11:52:37 +0000
-Subject: [PATCH 5/5] s390/mm: forward check for huge pmds to pmd_large()
-Message-Id: <1432813957-46874-6-git-send-email-dingel@linux.vnet.ibm.com>
+From: Joerg Roedel <joro@8bytes.org>
+Date: Mon, 18 May 2015 21:27:19 +0000
+Subject: [PATCH] ia64: Return -ENOMEM in ia64_mmap_check() error case
+Message-Id: <1431984439-15008-1-git-send-email-joro@8bytes.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1432813957-46874-1-git-send-email-dingel@linux.vnet.ibm.com>
-In-Reply-To: <1432813957-46874-1-git-send-email-dingel@linux.vnet.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-arm-kernel@lists.infradead.org
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Joerg Roedel <jroedel@suse.de>
 
-We already do the check in pmd_large, so we can just forward the call.
+From: Joerg Roedel <jroedel@suse.de>
 
-Acked-by: Martin Schwidefsky <schwidefsky@de.ibm.com>
-Signed-off-by: Dominik Dingel <dingel@linux.vnet.ibm.com>
+The value -ENOMEM is the expected return code for mmap when
+the address range verification failes on a MAP_FIXED
+request, as stated in the specification:
+
+	[ENOMEM]
+	    MAP_FIXED was specified, and the range
+	    [addr,addr+len) exceeds that allowed for the
+	    address space of a process;
+
+The ia64_mmap_check() function is part of that verification
+and should return -ENOMEM too.
+
+Signed-off-by: Joerg Roedel <jroedel@suse.de>
 ---
- arch/s390/mm/hugetlbpage.c | 5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
+ arch/ia64/kernel/sys_ia64.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/s390/mm/hugetlbpage.c b/arch/s390/mm/hugetlbpage.c
-index 999616b..a4b2f5e 100644
---- a/arch/s390/mm/hugetlbpage.c
-+++ b/arch/s390/mm/hugetlbpage.c
-@@ -135,10 +135,7 @@ pte_t *huge_pte_offset(struct mm_struct *mm, unsigned long addr)
- 
- int pmd_huge(pmd_t pmd)
- {
--	if (!MACHINE_HAS_HPAGE)
--		return 0;
--
--	return !!(pmd_val(pmd) & _SEGMENT_ENTRY_LARGE);
-+	return pmd_large(pmd);
+diff --git a/arch/ia64/kernel/sys_ia64.c b/arch/ia64/kernel/sys_ia64.c
+index 41e33f8..e927023 100644
+--- a/arch/ia64/kernel/sys_ia64.c
++++ b/arch/ia64/kernel/sys_ia64.c
+@@ -124,7 +124,7 @@ int ia64_mmap_check(unsigned long addr, unsigned long len,
+ 	 */
+ 	roff = REGION_OFFSET(addr);
+ 	if ((len > RGN_MAP_LIMIT) || (roff > (RGN_MAP_LIMIT - len)))
+-		return -EINVAL;
++		return -ENOMEM;
+ 	return 0;
  }
  
- int pud_huge(pud_t pud)
 -- 
-2.3.7
+1.8.4.5
 
