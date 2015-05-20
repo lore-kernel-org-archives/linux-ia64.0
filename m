@@ -1,82 +1,107 @@
-From: Dominik Dingel <dingel@linux.vnet.ibm.com>
-Date: Thu, 28 May 2015 11:52:33 +0000
-Subject: [PATCH 1/5] s390/mm: make hugepages_supported a boot time decision
-Message-Id: <1432813957-46874-2-git-send-email-dingel@linux.vnet.ibm.com>
+From: Jiang Liu <jiang.liu@linux.intel.com>
+Date: Wed, 20 May 2015 09:40:43 +0000
+Subject: [Patch v2 12/14] genirq: Use helper function to access irq_data->msi_desc
+Message-Id: <1432114845-24304-13-git-send-email-jiang.liu@linux.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1432813957-46874-1-git-send-email-dingel@linux.vnet.ibm.com>
-In-Reply-To: <1432813957-46874-1-git-send-email-dingel@linux.vnet.ibm.com>
+References: <1432114845-24304-1-git-send-email-jiang.liu@linux.intel.com>
+In-Reply-To: <1432114845-24304-1-git-send-email-jiang.liu@linux.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-arm-kernel@lists.infradead.org
+To: Thomas Gleixner <tglx@linutronix.de>, Bjorn Helgaas <bhelgaas@google.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Randy Dunlap <rdunlap@infradead.org>, Yinghai Lu <yinghai@kernel.org>, Borislav Petkov <bp@alien8.de>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Chris Metcalf <cmetcalf@ezchip.com>, Jiang Liu <jiang.liu@linux.intel.com>, Rusty Russell <rusty@rustcorp.com.au>, Tejun Heo <tj@kernel.org>, Joe Perches <joe@perches.com>
+Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, x86@kernel.org, linux-kernel@vger.kernel.org, linux-pci@vger.kernel.org, linux-acpi@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
 
-By dropping support for hugepages on machines which do not have
-the hardware feature EDAT1, we fix a potential s390 KVM bug.
+Use irq_data access helper to access irq_data->msi_desc, so we could
+move msi_desc from struct irq_data into struct irq_common_data later.
 
-The bug would happen if a guest is backed by hugetlbfs (not supported currently),
-but does not get pagetables with PGSTE.
-This would lead to random memory overwrites.
-
-Acked-by: Martin Schwidefsky <schwidefsky@de.ibm.com>
-Signed-off-by: Dominik Dingel <dingel@linux.vnet.ibm.com>
+Signed-off-by: Jiang Liu <jiang.liu@linux.intel.com>
 ---
- arch/s390/include/asm/page.h | 8 ++++----
- arch/s390/kernel/setup.c     | 2 ++
- arch/s390/mm/pgtable.c       | 2 ++
- 3 files changed, 8 insertions(+), 4 deletions(-)
+ arch/ia64/kernel/msi_ia64.c         |    2 +-
+ arch/ia64/sn/kernel/msi_sn.c        |    2 +-
+ arch/powerpc/sysdev/xics/ics-opal.c |    2 +-
+ arch/powerpc/sysdev/xics/ics-rtas.c |    2 +-
+ arch/tile/kernel/pci_gx.c           |    2 +-
+ drivers/pci/msi.c                   |    2 +-
+ 6 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/arch/s390/include/asm/page.h b/arch/s390/include/asm/page.h
-index 53eacbd..0844b78 100644
---- a/arch/s390/include/asm/page.h
-+++ b/arch/s390/include/asm/page.h
-@@ -17,7 +17,10 @@
- #define PAGE_DEFAULT_ACC	0
- #define PAGE_DEFAULT_KEY	(PAGE_DEFAULT_ACC << 4)
+diff --git a/arch/ia64/kernel/msi_ia64.c b/arch/ia64/kernel/msi_ia64.c
+index 6c50d332b7d7..af4eaec0f7c3 100644
+--- a/arch/ia64/kernel/msi_ia64.c
++++ b/arch/ia64/kernel/msi_ia64.c
+@@ -23,7 +23,7 @@ static int ia64_set_msi_irq_affinity(struct irq_data *idata,
+ 	if (irq_prepare_move(irq, cpu))
+ 		return -1;
  
--#define HPAGE_SHIFT	20
-+#include <asm/setup.h>
-+#ifndef __ASSEMBLY__
-+
-+extern unsigned int HPAGE_SHIFT;
- #define HPAGE_SIZE	(1UL << HPAGE_SHIFT)
- #define HPAGE_MASK	(~(HPAGE_SIZE - 1))
- #define HUGETLB_PAGE_ORDER	(HPAGE_SHIFT - PAGE_SHIFT)
-@@ -27,9 +30,6 @@
- #define ARCH_HAS_PREPARE_HUGEPAGE
- #define ARCH_HAS_HUGEPAGE_CLEAR_FLUSH
+-	__get_cached_msi_msg(idata->msi_desc, &msg);
++	__get_cached_msi_msg(irq_data_get_msi_desc(idata), &msg);
  
--#include <asm/setup.h>
--#ifndef __ASSEMBLY__
--
- static inline void storage_key_init_range(unsigned long start, unsigned long end)
- {
- #if PAGE_DEFAULT_KEY
-diff --git a/arch/s390/kernel/setup.c b/arch/s390/kernel/setup.c
-index a5ea8bc..9ac282b 100644
---- a/arch/s390/kernel/setup.c
-+++ b/arch/s390/kernel/setup.c
-@@ -915,6 +915,8 @@ void __init setup_arch(char **cmdline_p)
+ 	addr = msg.address_lo;
+ 	addr &= MSI_ADDR_DEST_ID_MASK;
+diff --git a/arch/ia64/sn/kernel/msi_sn.c b/arch/ia64/sn/kernel/msi_sn.c
+index 42b5a13af142..fb25065b22c6 100644
+--- a/arch/ia64/sn/kernel/msi_sn.c
++++ b/arch/ia64/sn/kernel/msi_sn.c
+@@ -175,7 +175,7 @@ static int sn_set_msi_irq_affinity(struct irq_data *data,
+ 	 * Release XIO resources for the old MSI PCI address
  	 */
- 	setup_hwcaps();
  
-+	HPAGE_SHIFT = MACHINE_HAS_HPAGE ? 20 : 0;
-+
- 	/*
- 	 * Create kernel page tables and switch to virtual addressing.
+-	__get_cached_msi_msg(data->msi_desc, &msg);
++	__get_cached_msi_msg(irq_data_get_msi_desc(data), &msg);
+ 	sn_pdev = (struct pcidev_info *)sn_irq_info->irq_pciioinfo;
+ 	pdev = sn_pdev->pdi_linux_pcidev;
+ 	provider = SN_PCIDEV_BUSPROVIDER(pdev);
+diff --git a/arch/powerpc/sysdev/xics/ics-opal.c b/arch/powerpc/sysdev/xics/ics-opal.c
+index 3996393c254d..27c936c080a6 100644
+--- a/arch/powerpc/sysdev/xics/ics-opal.c
++++ b/arch/powerpc/sysdev/xics/ics-opal.c
+@@ -72,7 +72,7 @@ static unsigned int ics_opal_startup(struct irq_data *d)
+ 	 * card, using the MSI mask bits. Firmware doesn't appear to unmask
+ 	 * at that level, so we do it here by hand.
  	 */
-diff --git a/arch/s390/mm/pgtable.c b/arch/s390/mm/pgtable.c
-index b2c1542..f76791e 100644
---- a/arch/s390/mm/pgtable.c
-+++ b/arch/s390/mm/pgtable.c
-@@ -36,6 +36,8 @@
+-	if (d->msi_desc)
++	if (irq_data_get_msi_desc(d))
+ 		pci_msi_unmask_irq(d);
  #endif
  
- 
-+unsigned int HPAGE_SHIFT;
-+
- unsigned long *crst_table_alloc(struct mm_struct *mm)
+diff --git a/arch/powerpc/sysdev/xics/ics-rtas.c b/arch/powerpc/sysdev/xics/ics-rtas.c
+index e2665a9dfc0f..3854dd41558d 100644
+--- a/arch/powerpc/sysdev/xics/ics-rtas.c
++++ b/arch/powerpc/sysdev/xics/ics-rtas.c
+@@ -75,7 +75,7 @@ static unsigned int ics_rtas_startup(struct irq_data *d)
+ 	 * card, using the MSI mask bits. Firmware doesn't appear to unmask
+ 	 * at that level, so we do it here by hand.
+ 	 */
+-	if (d->msi_desc)
++	if (irq_data_get_msi_desc(d))
+ 		pci_msi_unmask_irq(d);
+ #endif
+ 	/* unmask it */
+diff --git a/arch/tile/kernel/pci_gx.c b/arch/tile/kernel/pci_gx.c
+index b1df847d0686..65b701b3b5ed 100644
+--- a/arch/tile/kernel/pci_gx.c
++++ b/arch/tile/kernel/pci_gx.c
+@@ -1442,7 +1442,7 @@ static struct pci_ops tile_cfg_ops = {
+ /* MSI support starts here. */
+ static unsigned int tilegx_msi_startup(struct irq_data *d)
  {
- 	struct page *page = alloc_pages(GFP_KERNEL, ALLOC_ORDER);
+-	if (d->msi_desc)
++	if (irq_data_get_msi_desc(d))
+ 		pci_msi_unmask_irq(d);
+ 
+ 	return 0;
+diff --git a/drivers/pci/msi.c b/drivers/pci/msi.c
+index be6034cf5c21..c2f0da733d3a 100644
+--- a/drivers/pci/msi.c
++++ b/drivers/pci/msi.c
+@@ -1178,7 +1178,7 @@ EXPORT_SYMBOL(pci_enable_msix_range);
+  */
+ void pci_msi_domain_write_msg(struct irq_data *irq_data, struct msi_msg *msg)
+ {
+-	struct msi_desc *desc = irq_data->msi_desc;
++	struct msi_desc *desc = irq_data_get_msi_desc(irq_data);
+ 
+ 	/*
+ 	 * For MSI-X desc->irq is always equal to irq_data->irq. For
 -- 
-2.3.7
+1.7.10.4
 
