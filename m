@@ -1,71 +1,68 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Fri, 08 May 2015 07:22:53 +0000
-Subject: [PATCH Part3 v11 3/9] PCI: Remove declaration for pci_get_new_domain_nr()
-Message-Id: <1431069779-29346-4-git-send-email-wangyijing@huawei.com>
+From: Yinghai Lu <yinghai@kernel.org>
+Date: Wed, 27 May 2015 18:31:21 +0000
+Subject: Re: [PATCH 2/2] PCI: pciehp: Convert pciehp to be builtin only, not modular
+Message-Id: <CAE9FiQXq59tSBM0SQ4OToXydZrRC3yukALmWEb6K9xpCGbdUhg@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1431069779-29346-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1431069779-29346-1-git-send-email-wangyijing@huawei.com>
+References: <20130725175242.6006.56007.stgit@bhelgaas-glaptop>
+	<20130725175727.6006.98109.stgit@bhelgaas-glaptop>
+	<CAE9FiQU9k6m-5bM5ZfFUZxW3H7_v4aOtaK66pa7iV0Zb-J86jw@mail.gmail.com>
+In-Reply-To: <CAE9FiQU9k6m-5bM5ZfFUZxW3H7_v4aOtaK66pa7iV0Zb-J86jw@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: linux-arm-kernel@lists.infradead.org, Liviu Dudau <liviu@dudau.co.uk>, x86@kernel.org, linux-ia64@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linuxppc-dev@lists.ozlabs.org, linux-pci@vger.kernel.org, dja@axtens.net, Arnd Bergmann <arnd@arndb.de>, Yijing Wang <wangyijing@huawei.com>
+Cc: "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>, Fenghua Yu <fenghua.yu@intel.com>, Tony Luck <tony.luck@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, linux-sh@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, "Rafael J. Wysocki" <rjw@sisk.pl>, Paul Mundt <lethal@linux-sh.org>, Paul Mackerras <paulus@samba.org>, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>
 
-pci_get_new_domain_nr() is only used in drivers/pci/pci.c,
-remove the declaration in include/linux/pci.h.
+On Fri, Jul 26, 2013 at 5:43 AM, Yinghai Lu <yinghai@kernel.org> wrote:
+> On Thu, Jul 25, 2013 at 10:57 AM, Bjorn Helgaas <bhelgaas@google.com> wrote:
+>> Convert pciehp to be builtin only, with no module option.
+>>
+>> Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
+>> Acked-by: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
+>> ---
+>>  drivers/pci/pcie/Kconfig |    5 +----
+>>  1 file changed, 1 insertion(+), 4 deletions(-)
+>>
+>> diff --git a/drivers/pci/pcie/Kconfig b/drivers/pci/pcie/Kconfig
+>> index 569f82f..3b94cfc 100644
+>> --- a/drivers/pci/pcie/Kconfig
+>> +++ b/drivers/pci/pcie/Kconfig
+>> @@ -14,15 +14,12 @@ config PCIEPORTBUS
+>>  # Include service Kconfig here
+>>  #
+>>  config HOTPLUG_PCI_PCIE
+>> -       tristate "PCI Express Hotplug driver"
+>> +       bool "PCI Express Hotplug driver"
+>>         depends on HOTPLUG_PCI && PCIEPORTBUS
+>>         help
+>>           Say Y here if you have a motherboard that supports PCI Express Native
+>>           Hotplug
+>>
+>> -         To compile this driver as a module, choose M here: the
+>> -         module will be called pciehp.
+>> -
+>>           When in doubt, say N.
+>>
+>>  source "drivers/pci/pcie/aer/Kconfig"
+>>
+>
+> Acked-by: Yinghai Lu <yinghai@kernel.org>
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
----
- drivers/pci/pci.c   |    4 ++--
- include/linux/pci.h |    3 ---
- 2 files changed, 2 insertions(+), 5 deletions(-)
+Hi Bjorn,
 
-diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
-index acc4b6e..7bf27e8 100644
---- a/drivers/pci/pci.c
-+++ b/drivers/pci/pci.c
-@@ -4498,14 +4498,14 @@ static void pci_no_domains(void)
- }
- 
- #ifdef CONFIG_PCI_DOMAINS
-+#ifdef CONFIG_PCI_DOMAINS_GENERIC
- static atomic_t __domain_nr = ATOMIC_INIT(-1);
- 
--int pci_get_new_domain_nr(void)
-+static int pci_get_new_domain_nr(void)
- {
- 	return atomic_inc_return(&__domain_nr);
- }
- 
--#ifdef CONFIG_PCI_DOMAINS_GENERIC
- void pci_bus_assign_domain_nr(struct pci_bus *bus, struct device *parent)
- {
- 	static int use_dt_domains = -1;
-diff --git a/include/linux/pci.h b/include/linux/pci.h
-index 5ff35cb..636c0a9 100644
---- a/include/linux/pci.h
-+++ b/include/linux/pci.h
-@@ -1314,12 +1314,10 @@ void pci_cfg_access_unlock(struct pci_dev *dev);
-  */
- #ifdef CONFIG_PCI_DOMAINS
- extern int pci_domains_supported;
--int pci_get_new_domain_nr(void);
- #else
- enum { pci_domains_supported = 0 };
- static inline int pci_domain_nr(struct pci_bus *bus) { return 0; }
- static inline int pci_proc_domain(struct pci_bus *bus) { return 0; }
--static inline int pci_get_new_domain_nr(void) { return -ENOSYS; }
- #endif /* CONFIG_PCI_DOMAINS */
- 
- /*
-@@ -1442,7 +1440,6 @@ static inline struct pci_dev *pci_get_bus_and_slot(unsigned int bus,
- 
- static inline int pci_domain_nr(struct pci_bus *bus) { return 0; }
- static inline struct pci_dev *pci_dev_get(struct pci_dev *dev) { return NULL; }
--static inline int pci_get_new_domain_nr(void) { return -ENOSYS; }
- 
- #define dev_is_pci(d) (false)
- #define dev_is_pf(d) (false)
--- 
-1.7.1
+Looks like we lose the option to disable pciehp after we make it as built-in.
 
+Before acpiphp and pciehp could be compiled as modules, and user could
+blacklist to disable them.
+
+Now they are all built-in, but only acpiphp has acpiphp.disable to
+disable acpiphp.
+we don't have pciehp.disable yet.
+
+Do you think if we should add pciehp.disable ?
+
+BTW we don't have any description for acpiphp.disable anywhere.
+
+Thanks
+
+Yinghai
