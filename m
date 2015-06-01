@@ -1,39 +1,36 @@
-From: Tony Luck <tony.luck@gmail.com>
-Date: Thu, 11 Jun 2015 22:39:05 +0000
-Subject: Re: [PATCH] ia64: remove paravirt code
-Message-Id: <CA+8MBb+LSDWDVpo7C_Xp7j4WgrnYUXHDyLzxTDY=0_OgVEDrjg@mail.gmail.com>
+From: Christian Borntraeger <borntraeger@de.ibm.com>
+Date: Mon, 01 Jun 2015 07:35:57 +0000
+Subject: Re: [PATCH 0/5] Remove s390 sw-emulated hugepages and cleanup
+Message-Id: <556C0B5D.40205@de.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1433270522-1973-1-git-send-email-mcgrof@do-not-panic.com>
-	<CA+8MBb+R-et1VNrqsV6USUphwMfhiMBbLBVrrkQcma4b=wsLbA@mail.gmail.com>
-	<CAB=NE6UZUGkx0hqoH3Y25cM-FQz25-_AxaA5OpKOAVfnNRFhHQ@mail.gmail.com>
-In-Reply-To: <CAB=NE6UZUGkx0hqoH3Y25cM-FQz25-_AxaA5OpKOAVfnNRFhHQ@mail.gmail.com>
+References: <1432813957-46874-1-git-send-email-dingel@linux.vnet.ibm.com>
+In-Reply-To: <1432813957-46874-1-git-send-email-dingel@linux.vnet.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Cc: "Yu, Fenghua" <fenghua.yu@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, pbonzini@redhat.com, Boris Ostrovsky <boris.ostrovsky@oracle.com>, Chris Wright <chrisw@sous-sol.org>, Jeremy Fitzhardinge <jeremy@goop.org>, Alok Kataria <akataria@vmware.com>, Rusty Russell <rusty@rustcorp.com.au>
+To: linux-arm-kernel@lists.infradead.org
 
-On Wed, Jun 10, 2015 at 4:40 PM, Luis R. Rodriguez
-<mcgrof@do-not-panic.com> wrote:
-> Its quite a huge chunk of code removed, I doubt that .o files would
-> remain intact after this, but I could be wrong. I think run time
-> validation and examination of the code changes, understanding of the
-> code changes is necessary, but also likely just as run time tests.
+Am 28.05.2015 um 13:52 schrieb Dominik Dingel:
+> Hi everyone,
+> 
+> there is a potential bug with KVM and hugetlbfs if the hardware does not
+> support hugepages (EDAT1).
+> We fix this by making EDAT1 a hard requirement for hugepages and 
+> therefore removing and simplifying code.
 
-Actually it seems the most of the .o files below arch/ia64/kernel look quite
-similar ... some post-processing of the "objdump -d" output the squash
-out addreses ... and the before/after .o files have few enough differences
-that they can be looked at manually.
+The cleanup itself is nice and probably the right thing to do. 
+Emulating large pages makes the code more complex and asks for
+trouble (as outlined above)
 
-> Is there no ia64 regression test suite?
-Not really.
+The only downside that I see is that z/VM as of today does not
+announce EDAT1 for its guests so the "emulated" large pages for
+hugetlbfs would be useful in that case. The current code allocates
+the page table only once and shares it for all mappers - which is
+useful for some big databases that spawn hundreds of processes with
+shared mappings of several hundred GBs. In these cases we do save
+a decent amount of page table memory. 
 
-> I don't see ia64 getting much love anyway these days so would it not
-> hurt to merge and spin through linux-next for a while and if no issues
-> are reported make it fly in?
+Not sure if that case is actually important, though.
 
-Not sure how many people besides me are booting linux-next kernels.
+Christian
 
-Still - let's give it a try,
-
--Tony
