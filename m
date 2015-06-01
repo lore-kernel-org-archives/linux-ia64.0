@@ -1,81 +1,77 @@
-From: "Zheng, Lv" <lv.zheng@intel.com>
-Date: Fri, 26 Jun 2015 01:39:22 +0000
-Subject: RE: [PATCH v2 03/28] ACPICA: Hardware: Enable 64-bit firmware waking vector for selected FACS.
-Message-Id: <1AE640813FDE7649BE1B193DEA596E88027340D8@SHSMSX101.ccr.corp.intel.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Date: Mon, 01 Jun 2015 06:35:53 +0000
+Subject: Re: [PATCH] ia64: make cpu_callin_map non-volatile.
+Message-Id: <87twusgd52.fsf@rustcorp.com.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1434684719.git.lv.zheng@intel.com>
- <3959851.uJ0udqUY0b@vostro.rjw.lan>
- <1AE640813FDE7649BE1B193DEA596E8802733C14@SHSMSX101.ccr.corp.intel.com>
- <1649895.CEu8Ovje9D@vostro.rjw.lan>
-In-Reply-To: <1649895.CEu8Ovje9D@vostro.rjw.lan>
+References: <646392f4ff5b292164cd53c2a08cbced6b96171e.1432850232.git.tony.luck@intel.com>
+In-Reply-To: <646392f4ff5b292164cd53c2a08cbced6b96171e.1432850232.git.tony.luck@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Cc: "Wysocki, Rafael J" <rafael.j.wysocki@intel.com>, "Brown, Len" <len.brown@intel.com>, Lv Zheng <zetalog@gmail.com>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>, "Moore, Robert" <robert.moore@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, "x86@kernel.org" <x86@kernel.org>, "Luck, Tony" <tony.luck@intel.com>, "Yu, Fenghua" <fenghua.yu@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
+To: linux-ia64@vger.kernel.org
 
-SGksIFJhZmFlbA0KDQo+IEZyb206IFJhZmFlbCBKLiBXeXNvY2tpIFttYWlsdG86cmp3QHJqd3lz
-b2NraS5uZXRdDQo+IFNlbnQ6IEZyaWRheSwgSnVuZSAyNiwgMjAxNSA5OjIxIEFNDQo+IA0KPiBP
-biBUaHVyc2RheSwgSnVuZSAyNSwgMjAxNSAxMjoyOTowMiBBTSBaaGVuZywgTHYgd3JvdGU6DQo+
-ID4gSGksIFJhZmFlbA0KPiA+DQo+ID4gPiBGcm9tOiBSYWZhZWwgSi4gV3lzb2NraSBbbWFpbHRv
-OnJqd0Byand5c29ja2kubmV0XQ0KPiA+ID4gU2VudDogVGh1cnNkYXksIEp1bmUgMjUsIDIwMTUg
-NzoyNCBBTQ0KPiA+ID4gVG86IFpoZW5nLCBMdg0KPiANCj4gW2N1dF0NCj4gDQo+ID4gPg0KPiA+
-ID4gSW4gZmFjdCwgSSBkb24ndCBzZWUgd2h5IHdlIG5lZWQgdG8gcmVkZWZpbmUgdGhlIHN5bWJv
-bHMgYXQgYWxsLg0KPiA+ID4NCj4gPiA+IENvdWxkbid0IGFjcGlfc2V0X2Zpcm13YXJlX3dha2lu
-Z192ZWN0b3IoKSBiZSBkZWZpbmVkIHRvIHRha2UgdTMyIGFuZCB1NjQgc28NCj4gPiA+IHdlIGNv
-dWxkIGp1c3QgcGFzcyBhY3BpX3dha2V1cF9hZGRyZXNzIChhcyBhbHJlYWR5IGRlZmluZWQpIGFz
-IHRoZSBmaXJzdCBhcmd1bWVudA0KPiA+ID4gYW5kIDAgYXMgdGhlIHNlY29uZCBhcmd1bWVudCB0
-byBpdD8gIFRoZSBiYWNrLWFuZC1mb3J0aCB0eXBlIGNhc3RzIGZyb20gYW5kDQo+ID4gPiB0byBh
-Y3BpX3BoeXNpY2FsX2FkZHJlc3MgZG9uJ3QgbG9vayBlbnRpcmVseSBjbGVhbiB0byBtZS4NCj4g
-PiA+DQo+ID4gPiBNb3Jlb3ZlciwgSSBkb24ndCByZWFsbHkgc2VlIGEgZnVuY3Rpb25hbCBkaWZm
-ZXJlbmNlIGJldHdlZW4gdGhlIG9sZCBhbmQgdGhlDQo+ID4gPiBuZXcgY29kZS4NCj4gPiA+DQo+
-ID4gPiBUaGUgb2xkIGNvZGUgZG9lcyAic2V0IHRoZSAzMi1iaXQgd2FraW5nIHZlY3RvciBhbmQg
-Y2xlYXIgdGhlIDY0LWJpdCB3YWtpbmcNCj4gPiA+IHZlY3RvciBpZiBwcmVzZW50Ii4gIFRoZSBu
-ZXcgY29kZSBkb2VzICJzZXQgdGhlIDMyLWJpdCB3YWtpbmcgdmVjdG9yIGFuZA0KPiA+ID4gZWl0
-aGVyIGNsZWFyIHRoZSA2NC1iaXQgb25lIGlmIHByZXNlbnQsIG9yIGFzc2lnbiB0aGUgc2Vjb25k
-IGZ1bmN0aW9uIGFyZ3VtZW50DQo+ID4gPiB0byBpdCIsIGJ1dCB3ZSBhbHdheXMgcGFzcyAwIGFz
-IHRoZSBzZWNvbmQgYXJndW1lbnQgKHdoaWNoIGlzICpleHRyZW1lbHkqDQo+ID4gPiBvYmZ1c2Nh
-dGVkIGluIHlvdXIgcGF0Y2gpLCBzbyBJIHJlYWxseSBkb24ndCBzZWUgdGhlIGRpZmZlcmVuY2Ug
-aGVyZS4NCj4gPiA+DQo+ID4gPiBBbSBJIG1pc3NpbmcgYW55dGhpbmc/DQo+ID4NCj4gPiBUaGUg
-c3RvcnkgaXM6DQo+ID4gQWNjb3JkaW5nIHRvIHRoZSB0ZXN0LCBpZiBib3RoIDMyLWJpdCB3YWtp
-bmcgdmVjdG9yIGFuZCA2NC1iaXQgd2FraW5nIHZlY3RvciBpcw0KPiA+IHNldCBieSB0aGUgT1NQ
-TSwNCj4gDQo+IFRoZSBjdXJyZW50IGNvZGUgaW4gTGludXggbmV2ZXIgZG9lcyB0aGF0Lg0KPiAN
-Cj4gSXQgbmV2ZXIgY2FsbHMgYWNwaV9zZXRfZmlybXdhcmVfd2FraW5nX3ZlY3RvcjY0KCkgYW5k
-IHRoZSBhY3BpX3NldF9maXJtd2FyZV93YWtpbmdfdmVjdG9yKCkNCj4gKGJlZm9yZSB5b3VyIHBh
-dGNoKSBleHBsaWNpdGx5IGNsZWFycyB0aGUgNjQtYml0IHZlY3RvciBhZGRyZXNzLg0KDQpJbiBB
-Q1BJQ0EgdXBzdHJlYW0sIHRoaXMgaXMgYW4gaXNzdWUgYmVmb3JlIGFwcGx5aW5nIHRoaXMgcGF0
-Y2guDQphY3BpX3NldF9maXJtd2FyZV93YWtpbmdfdmVjdG9yNjQoKSBhbmQgYWNwaV9zZXRfZmly
-bXdhcmVfd2FraW5nX3ZlY3RvcigpIGRlcGVuZHMgb24gQUNQSV9NQUNISU5FX1dJRFRIIGRlZmlu
-aXRpb24sIHRodXMgY2Fubm90IGJlIHVzZWQgZm9yIHRoaXMgcHVycG9zZS4NCg0KPiANCj4gPiBC
-SU9TZXMgb25seSBzdXBwb3J0IDMyLWJpdCByZXN1bWUgZW52aXJvbm1lbnQgd2lsbCBqdW1wIHRv
-IHRoZSAzMi1iaXQgd2FraW5nDQo+ID4gdmVjdG9yIGFkZHJlc3MgYW5kIEJJT1NlcyBzdXBwb3J0
-IDY0LWJpdCByZXN1bWUgZW52aXJvbm1lbnQgd2lsbCBqdW1wIHRvDQo+ID4gNjQtYml0IHdha2lu
-ZyB2ZWN0b3IuDQo+IA0KPiBXaGljaCBkb2Vzbid0IG1hdHRlciBmb3IgTGludXggb25lIHdoaXQu
-DQoNClRoZSBidWcgcmVwb3J0IGlzIGFnYWluc3QgdGhlIDY0LWJpdCBhZGRyZXNzIGZhdm9yIG1l
-Y2hhbmlzbS4NCkJ1dCBpZiB0aGUgT1NQTSBjYW4gc3VwcG9ydCByZXN1bWluZyBmcm9tIDY0LWJp
-dCB3YWtpbmcgdmVjdG9yLCB0aGUgNjQtYml0IGFkZHJlc3MgZmF2b3IgbWVjaGFuaXNtIGRvZXNu
-J3Qgc2VlbSB0byBiZSBidWdneS4NCg0KPiANCj4gPiBTbyB0aGV5IGNhbiBiZSBzZXQgYnkgdGhl
-IE9TUE1zIHNpbXVsdGFuZW91c2x5IHRvIGluZGljYXRlIHRoYXQgdGhlIE9TUE0gY2FuDQo+ID4g
-c3VwcG9ydCBib3RoIHJlc3VtZSBlbnZpcm9ubWVudHMuICBUaGF0J3Mgd2h5IEFDUElDQSBpbnRl
-cmZhY2UgaXMgY2hhbmdlZC4NCj4gDQo+IEl0IHNob3VsZG4ndC4gIEl0IGp1c3QgZm9yY2VzIGhv
-c3QgT1NlcyB0byBtYWtlIHBvaW50bGVzcyBjaGFuZ2VzIHRvIHRoZWlyDQo+IG5vbi1BQ1BJQ0Eg
-Y29kZS4NCj4gDQo+IEFzIEkgc2FpZCBlbHNld2hlcmUsIHRoZSBvbGQgYWNwaV9zZXRfZmlybXdh
-cmVfd2FraW5nX3ZlY3RvcigpIHNob3VsZCBzdGlsbCBiZQ0KPiBhdmFpbGFibGUgdG8gdGhlIE9T
-ZXMgdGhhdCBkb24ndCBjYXJlIGFib3V0IHRoZSA2NC1iaXQgd2FraW5nIHZlY3RvciBhbmQgYSAq
-bmV3Kg0KPiBpbnRlcmZhY2Ugc2hvdWxkIGJlIGFkZGVkIGZvciB0aG9zZSBPU2VzIHRoYXQgZG8g
-Y2FyZSBhYm91dCBpdC4gIEFuZCAqaW50ZXJuYWxseSoNCj4gYWNwaV9zZXRfZmlybXdhcmVfd2Fr
-aW5nX3ZlY3RvcigpIGNhbiBiZSBkZWZpbmVkIGluIHRlcm1zIG9mIHRoZSBuZXcgaW50ZXJmYWNl
-LA0KPiBidXQgdGhlcmUncyBubyByZWFzb24gYXQgYWxsIGZvciBhIGhvc3QgT1MgdG8gY2FyZSBh
-Ym91dCB0aGF0Lg0KDQpPSywgd2UgY2FuIHJlZmluZSB0aGUgaW50ZXJmYWNlIGluc2lkZSBvZiBB
-Q1BJQ0EuDQoNCj4gDQo+IFNvIHRoZSAkc3ViamVjdCBwYXRjaCBpcyBlbnRpcmVseSBwb2l0bGVz
-cy4gIEl0IGRvZXNuJ3QgZml4IGFueXRoaW5nIGFuZCBpdA0KPiBkb2Vzbid0IGV2ZW4gY2hhbmdl
-IHRoZSB3YXkgdGhlIGNvZGUgd29ya3MgdG9kYXkgaW4gTGludXguICBJdCBqdXN0IGFkZHMNCj4g
-Y29tcGxleGl0eSBhbmQgcG9pbnRsZXNzbHkgcmVkZWZpbmVzIHNvbWUgc3R1ZmYuDQo+IA0KDQpJ
-dCBkb2Vzbid0IGZpeCBhbnkgZnVuY3Rpb25hbGl0eSBwcm9ibGVtIHJpZ2h0IGhlcmUgaW4gdGhp
-cyBwYXRjaC4NCkJ1dCBpdCBmaXhlcyB0aGUgY29kZSBsb2dpYyBwcm9ibGVtIHRoYXQgYWNwaV9z
-ZXRfZmlybXdhcmVfd2FraW5nX3ZlY3RvcjY0KCkvYWNwaV9zZXRfZmlybXdhcmVfd2FraW5nX3Zl
-Y3RvcigpIGRlcGVuZHMgb24gQUNQSV9NQUNISU5FX1dJRFRIIGRlZmluaXRpb24uDQpBbmQgaXQg
-ZmFjaWxpdGF0ZXMgdGhlIE9TUE1zIHdpdGggdGhlIGNhcGFiaWxpdHkgdG8gc3VwcG9ydCBib3Ro
-IDMyLWJpdC82NC1iaXQgcmVzdW1pbmcgZW52aXJvbm1lbnQuDQoNCj4gU28gSSdtIG5vdCBnb2lu
-ZyB0byBhcHBseSBpdC4NCg0KT0ssIEknbGwgZ28gYmFjayB0byByZWZpbmUgdGhlIGludGVyZmFj
-ZSBjaGFuZ2UuDQoNClRoYW5rcyBhbmQgYmVzdCByZWdhcmRzDQotTHYNCg=
+Linus Torvalds <torvalds@linux-foundation.org> writes:
+> On Tue, May 26, 2015 at 6:18 PM, Luck, Tony <tony.luck@intel.com> wrote:
+>>
+>> cpumask_test_cpu() doesn't take volatile, unlike the obsoleted
+>> cpu_isset.  The only place ia64 really cares is the spin waiting for a
+>> bit; udelay() is probably a barrier but insert rmb() to be sure.
+>
+> Hmm. udelay() definitely should be a barrier, so this patch shouldn't
+> matter. But even if it weren't, rmb() would be the wrong barrier to
+> use here.
+>
+> rmb() is a "CPU or IO read barrier" to order reads wrt other cores or
+> DMA, and needs to be paired with a wmb() on other cores (and for DMA
+> it is assumed that there is sufficiently write ordering for the DMA
+> itself).
+>
+> If it's about just other CPU's, it would be "smp_rmb()", which is
+> often much cheaper (due to no IO serialization, particularly on
+> POWER).
+>
+> But in this case it doesn't seem to be about other agents at all
+> (CPU's or DMA), you literally are just looking for a compiler barrier
+> to make sure the read doesn't get moved out of the loop. And the
+> function for that is just "barrier()".
+>
+> So I'm skipping this patch, because I dont' think it changes anything
+> real, and from a "let's be careful" standpoint it's actually doing the
+> wrong thing.
+
+Good point: the fact that other cpus are the ones setting the bit is a
+red herring here.
+
+Thanks,
+Rusty.
+
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: ia64: make cpu_callin_map non-volatile.
+
+cpumask_test_cpu() doesn't take volatile, unlike the obsoleted
+cpu_isset.  The only place ia64 really cares is the spin waiting for a
+bit; udelay() is probably a barrier but insert barrier() to be sure.
+
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+
+diff --git a/arch/ia64/kernel/smpboot.c b/arch/ia64/kernel/smpboot.c
+index 15051e9c2c6f..629975b56608 100644
+--- a/arch/ia64/kernel/smpboot.c
++++ b/arch/ia64/kernel/smpboot.c
+@@ -127,7 +127,7 @@ int smp_num_siblings = 1;
+ volatile int ia64_cpu_to_sapicid[NR_CPUS];
+ EXPORT_SYMBOL(ia64_cpu_to_sapicid);
+ 
+-static volatile cpumask_t cpu_callin_map;
++static cpumask_t cpu_callin_map;
+ 
+ struct smp_boot_data smp_boot_data __initdata;
+ 
+@@ -477,6 +477,7 @@ do_boot_cpu (int sapicid, int cpu, struct task_struct *idle)
+ 	for (timeout = 0; timeout < 100000; timeout++) {
+ 		if (cpumask_test_cpu(cpu, &cpu_callin_map))
+ 			break;  /* It has booted */
++		barrier(); /* Make sure we re-read cpu_callin_map */
+ 		udelay(100);
+ 	}
+ 	Dprintk("\n");
