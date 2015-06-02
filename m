@@ -1,46 +1,49 @@
-From: Joerg Roedel <joro@8bytes.org>
-Date: Mon, 18 May 2015 21:27:19 +0000
-Subject: [PATCH] ia64: Return -ENOMEM in ia64_mmap_check() error case
-Message-Id: <1431984439-15008-1-git-send-email-joro@8bytes.org>
+From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Date: Tue, 02 Jun 2015 18:33:54 +0000
+Subject: [PATCH] ia64: export flush_icache_range for module use
+Message-Id: <1433270034-1473-1-git-send-email-mcgrof@do-not-panic.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Joerg Roedel <jroedel@suse.de>
+To: tony.luck@intel.com, fenghua.yu@intel.com
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, pbonzini@redhat.com, boris.ostrovsky@oracle.com, "Luis R. Rodriguez" <mcgrof@suse.com>
 
-From: Joerg Roedel <jroedel@suse.de>
+From: "Luis R. Rodriguez" <mcgrof@suse.com>
 
-The value -ENOMEM is the expected return code for mmap when
-the address range verification failes on a MAP_FIXED
-request, as stated in the specification:
+This is needed the following modules:
 
-	[ENOMEM]
-	    MAP_FIXED was specified, and the range
-	    [addr,addr+len) exceeds that allowed for the
-	    address space of a process;
+"Linux Kernel Dump Test Tool Module"
+CONFIG_LKDTM		drivers/misc/lkdtm.c
 
-The ia64_mmap_check() function is part of that verification
-and should return -ENOMEM too.
+Since:
+mcgrof@ergon ~/linux-next (git::master)$ git describe --contains aac416fc38cdf
+v3.15-rc1~141^2~84
 
-Signed-off-by: Joerg Roedel <jroedel@suse.de>
+CONFIG_STI_CONSOLE	drivers/video/console/sticore.c
+Since: beginning of new git time on Linux
+
+Signed-off-by: Luis R. Rodriguez <mcgrof@suse.com>
 ---
- arch/ia64/kernel/sys_ia64.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/ia64/kernel/sys_ia64.c b/arch/ia64/kernel/sys_ia64.c
-index 41e33f8..e927023 100644
---- a/arch/ia64/kernel/sys_ia64.c
-+++ b/arch/ia64/kernel/sys_ia64.c
-@@ -124,7 +124,7 @@ int ia64_mmap_check(unsigned long addr, unsigned long len,
- 	 */
- 	roff = REGION_OFFSET(addr);
- 	if ((len > RGN_MAP_LIMIT) || (roff > (RGN_MAP_LIMIT - len)))
--		return -EINVAL;
-+		return -ENOMEM;
- 	return 0;
- }
- 
+Without this you can't build modules on ia64 if you've enabled
+either of these modules. lkdtm is enabled on SLE11, so this helps
+upkeep that tradition.
+
+ arch/ia64/kernel/ia64_ksyms.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/arch/ia64/kernel/ia64_ksyms.c b/arch/ia64/kernel/ia64_ksyms.c
+index 5b7791d..0967310 100644
+--- a/arch/ia64/kernel/ia64_ksyms.c
++++ b/arch/ia64/kernel/ia64_ksyms.c
+@@ -96,3 +96,6 @@ EXPORT_SYMBOL(ia64_ivt);
+ /* mcount is defined in assembly */
+ EXPORT_SYMBOL(_mcount);
+ #endif
++
++#include <asm/cacheflush.h>
++EXPORT_SYMBOL_GPL(flush_icache_range);
 -- 
-1.8.4.5
+2.3.2.209.gd67f9d5.dirty
 
