@@ -1,14 +1,14 @@
 From: Jiang Liu <jiang.liu@linux.intel.com>
-Date: Mon, 08 Jun 2015 16:20:45 +0000
-Subject: [Patch v5 3/6] ia64/PCI: Use common struct resource_entry to replace struct iospace_resource
-Message-Id: <1433780448-18636-4-git-send-email-jiang.liu@linux.intel.com>
+Date: Tue, 02 Jun 2015 06:12:51 +0000
+Subject: [Patch v4 3/8] ia64/PCI: Use common struct resource_entry to replace struct iospace_resource
+Message-Id: <1433225576-8215-4-git-send-email-jiang.liu@linux.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1433780448-18636-1-git-send-email-jiang.liu@linux.intel.com>
-In-Reply-To: <1433780448-18636-1-git-send-email-jiang.liu@linux.intel.com>
+References: <1433225576-8215-1-git-send-email-jiang.liu@linux.intel.com>
+In-Reply-To: <1433225576-8215-1-git-send-email-jiang.liu@linux.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>, "Rafael J . Wysocki" <rjw@rjwysocki.net>, Bjorn Helgaas <bhelgaas@google.com>, Marc Zyngier <marc.zyngier@arm.com>, Hanjun Guo <hanjun.guo@linaro.org>, Liviu Dudau <Liviu.Dudau@arm.com>, Yijing Wang <wangyijing@huawei.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Jiang Liu <jiang.liu@linux.intel.com>, "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>, Yinghai Lu <yinghai@kernel.org>
+To: "Rafael J . Wysocki" <rjw@rjwysocki.net>, Bjorn Helgaas <bhelgaas@google.com>, Marc Zyngier <marc.zyngier@arm.com>, Hanjun Guo <hanjun.guo@linaro.org>, Liviu Dudau <Liviu.Dudau@arm.com>, Yijing Wang <wangyijing@huawei.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Jiang Liu <jiang.liu@linux.intel.com>, "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>, Yinghai Lu <yinghai@kernel.org>
 Cc: Lv Zheng <lv.zheng@intel.com>, "lenb @ kernel . org" <lenb@kernel.org>, LKML <linux-kernel@vger.kernel.org>, linux-pci@vger.kernel.org, linux-acpi@vger.kernel.org, "x86 @ kernel . org" <x86@kernel.org>, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org
 
 Use common struct resource_entry to replace private
