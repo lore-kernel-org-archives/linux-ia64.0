@@ -1,8 +1,10 @@
 From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Date: Tue, 02 Jun 2015 18:33:54 +0000
+Date: Tue, 02 Jun 2015 18:33:59 +0000
 Subject: [PATCH] ia64: export flush_icache_range for module use
-Message-Id: <1433270034-1473-1-git-send-email-mcgrof@do-not-panic.com>
+Message-Id: <1433270039-1527-1-git-send-email-mcgrof@do-not-panic.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1433270034-1473-1-git-send-email-mcgrof@do-not-panic.com>
+In-Reply-To: <1433270034-1473-1-git-send-email-mcgrof@do-not-panic.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
