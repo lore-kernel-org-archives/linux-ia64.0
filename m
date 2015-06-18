@@ -1,107 +1,59 @@
-From: Jiang Liu <jiang.liu@linux.intel.com>
-Date: Mon, 01 Jun 2015 08:05:42 +0000
-Subject: [Patch v3 33/36] genirq: Use helper function to access irq_data->msi_desc
-Message-Id: <1433145945-789-34-git-send-email-jiang.liu@linux.intel.com>
+From: Stephen Boyd <sboyd@codeaurora.org>
+Date: Thu, 18 Jun 2015 01:04:54 +0000
+Subject: Re: [PATCH 01/44] kernel: Add support for poweroff handler call chain
+Message-Id: <55821936.4040704@codeaurora.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1433145945-789-1-git-send-email-jiang.liu@linux.intel.com>
-In-Reply-To: <1433145945-789-1-git-send-email-jiang.liu@linux.intel.com>
+References: <1412659726-29957-1-git-send-email-linux@roeck-us.net> <1412659726-29957-2-git-send-email-linux@roeck-us.net>
+In-Reply-To: <1412659726-29957-2-git-send-email-linux@roeck-us.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thomas Gleixner <tglx@linutronix.de>, Bjorn Helgaas <bhelgaas@google.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, Randy Dunlap <rdunlap@infradead.org>, Yinghai Lu <yinghai@kernel.org>, Borislav Petkov <bp@alien8.de>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Chris Metcalf <cmetcalf@ezchip.com>, Jiang Liu <jiang.liu@linux.intel.com>, Rusty Russell <rusty@rustcorp.com.au>, Tejun Heo <tj@kernel.org>, Joe Perches <joe@perches.com>
-Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, x86@kernel.org, linux-kernel@vger.kernel.org, linux-pci@vger.kernel.org, linux-acpi@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
+To: Guenter Roeck <linux@roeck-us.net>, linux-kernel@vger.kernel.org
+Cc: linux-m32r-ja@ml.linux-m32r.org, linux-mips@linux-mips.org, linux-efi@vger.kernel.org, linux-ia64@vger.kernel.org, Heiko Stuebner <heiko@sntech.de>, Len Brown <len.brown@intel.com>, linux-xtensa@linux-xtensa.org, Pavel Machek <pavel@ucw.cz>, devel@driverdev.osuosl.org, linux-s390@vger.kernel.org, lguest@lists.ozlabs.org, linux-c6x-dev@linux-c6x.org, linux-hexagon@vger.kernel.org, linux-sh@vger.kernel.org, Alexander Graf <agraf@suse.de>, linux-acpi@vger.kernel.org, Geert Uytterhoeven <geert@linux-m68k.org>, xen-devel@lists.xenproject.org, devicetree@vger.kernel.org, user-mode-linux-devel@lists.sourceforge.net, linux-pm@vger.kernel.org, adi-buildroot-devel@lists.sourceforge.net, linux-m68k@lists.linux-m68k.org, linux-am33-list@redhat.com, linux-tegra@vger.kernel.org, openipmi-developer@lists.sourceforge.net, linux-metag@vger.kernel.org, linux-arm-kernel@lists.infradead
 
-Use irq_data access helper to access irq_data->msi_desc, so we could
-move msi_desc from struct irq_data into struct irq_common_data later.
+On 10/06/2014 10:28 PM, Guenter Roeck wrote:
+> Various drivers implement architecture and/or device specific means to
+> remove power from the system.  For the most part, those drivers set the
+> global variable pm_power_off to point to a function within the driver.
+>
+> This mechanism has a number of drawbacks.  Typically only one scheme
+> to remove power is supported (at least if pm_power_off is used).
+> At least in theory there can be multiple means remove power, some of
+> which may be less desirable. For example, some mechanisms may only
+> power off the CPU or the CPU card, while another may power off the
+> entire system.  Others may really just execute a restart sequence
+> or drop into the ROM monitor. Using pm_power_off can also be racy
+> if the function pointer is set from a driver built as module, as the
+> driver may be in the process of being unloaded when pm_power_off is
+> called. If there are multiple poweroff handlers in the system, removing
+> a module with such a handler may inadvertently reset the pointer to
+> pm_power_off to NULL, leaving the system with no means to remove power.
+>
+> Introduce a system poweroff handler call chain to solve the described
+> problems.  This call chain is expected to be executed from the
+> architecture specific machine_power_off() function.  Drivers providing
+> system poweroff functionality are expected to register with this call chain.
+> By using the priority field in the notifier block, callers can control
+> poweroff handler execution sequence and thus ensure that the poweroff
+> handler with the optimal capabilities to remove power for a given system
+> is called first.
 
-Signed-off-by: Jiang Liu <jiang.liu@linux.intel.com>
----
- arch/ia64/kernel/msi_ia64.c         |    2 +-
- arch/ia64/sn/kernel/msi_sn.c        |    2 +-
- arch/powerpc/sysdev/xics/ics-opal.c |    2 +-
- arch/powerpc/sysdev/xics/ics-rtas.c |    2 +-
- arch/tile/kernel/pci_gx.c           |    2 +-
- drivers/pci/msi.c                   |    2 +-
- 6 files changed, 6 insertions(+), 6 deletions(-)
+What happened to this series? I want to add shutdown support to my
+platform and I need to write a register on the PMIC in one driver to
+configure it for shutdown instead of restart and then write an MMIO
+register to tell the PMIC to actually do the shutdown in another driver.
+It seems that the notifier solves this case for me, albeit with the
+slight complication that I need to order the two with some priority.
 
-diff --git a/arch/ia64/kernel/msi_ia64.c b/arch/ia64/kernel/msi_ia64.c
-index 6c50d332b7d7..af4eaec0f7c3 100644
---- a/arch/ia64/kernel/msi_ia64.c
-+++ b/arch/ia64/kernel/msi_ia64.c
-@@ -23,7 +23,7 @@ static int ia64_set_msi_irq_affinity(struct irq_data *idata,
- 	if (irq_prepare_move(irq, cpu))
- 		return -1;
- 
--	__get_cached_msi_msg(idata->msi_desc, &msg);
-+	__get_cached_msi_msg(irq_data_get_msi_desc(idata), &msg);
- 
- 	addr = msg.address_lo;
- 	addr &= MSI_ADDR_DEST_ID_MASK;
-diff --git a/arch/ia64/sn/kernel/msi_sn.c b/arch/ia64/sn/kernel/msi_sn.c
-index 42b5a13af142..fb25065b22c6 100644
---- a/arch/ia64/sn/kernel/msi_sn.c
-+++ b/arch/ia64/sn/kernel/msi_sn.c
-@@ -175,7 +175,7 @@ static int sn_set_msi_irq_affinity(struct irq_data *data,
- 	 * Release XIO resources for the old MSI PCI address
- 	 */
- 
--	__get_cached_msi_msg(data->msi_desc, &msg);
-+	__get_cached_msi_msg(irq_data_get_msi_desc(data), &msg);
- 	sn_pdev = (struct pcidev_info *)sn_irq_info->irq_pciioinfo;
- 	pdev = sn_pdev->pdi_linux_pcidev;
- 	provider = SN_PCIDEV_BUSPROVIDER(pdev);
-diff --git a/arch/powerpc/sysdev/xics/ics-opal.c b/arch/powerpc/sysdev/xics/ics-opal.c
-index 3996393c254d..27c936c080a6 100644
---- a/arch/powerpc/sysdev/xics/ics-opal.c
-+++ b/arch/powerpc/sysdev/xics/ics-opal.c
-@@ -72,7 +72,7 @@ static unsigned int ics_opal_startup(struct irq_data *d)
- 	 * card, using the MSI mask bits. Firmware doesn't appear to unmask
- 	 * at that level, so we do it here by hand.
- 	 */
--	if (d->msi_desc)
-+	if (irq_data_get_msi_desc(d))
- 		pci_msi_unmask_irq(d);
- #endif
- 
-diff --git a/arch/powerpc/sysdev/xics/ics-rtas.c b/arch/powerpc/sysdev/xics/ics-rtas.c
-index e2665a9dfc0f..3854dd41558d 100644
---- a/arch/powerpc/sysdev/xics/ics-rtas.c
-+++ b/arch/powerpc/sysdev/xics/ics-rtas.c
-@@ -75,7 +75,7 @@ static unsigned int ics_rtas_startup(struct irq_data *d)
- 	 * card, using the MSI mask bits. Firmware doesn't appear to unmask
- 	 * at that level, so we do it here by hand.
- 	 */
--	if (d->msi_desc)
-+	if (irq_data_get_msi_desc(d))
- 		pci_msi_unmask_irq(d);
- #endif
- 	/* unmask it */
-diff --git a/arch/tile/kernel/pci_gx.c b/arch/tile/kernel/pci_gx.c
-index b1df847d0686..65b701b3b5ed 100644
---- a/arch/tile/kernel/pci_gx.c
-+++ b/arch/tile/kernel/pci_gx.c
-@@ -1442,7 +1442,7 @@ static struct pci_ops tile_cfg_ops = {
- /* MSI support starts here. */
- static unsigned int tilegx_msi_startup(struct irq_data *d)
- {
--	if (d->msi_desc)
-+	if (irq_data_get_msi_desc(d))
- 		pci_msi_unmask_irq(d);
- 
- 	return 0;
-diff --git a/drivers/pci/msi.c b/drivers/pci/msi.c
-index be6034cf5c21..c2f0da733d3a 100644
---- a/drivers/pci/msi.c
-+++ b/drivers/pci/msi.c
-@@ -1178,7 +1178,7 @@ EXPORT_SYMBOL(pci_enable_msix_range);
-  */
- void pci_msi_domain_write_msg(struct irq_data *irq_data, struct msi_msg *msg)
- {
--	struct msi_desc *desc = irq_data->msi_desc;
-+	struct msi_desc *desc = irq_data_get_msi_desc(irq_data);
- 
- 	/*
- 	 * For MSI-X desc->irq is always equal to irq_data->irq. For
+I'm also considering putting the PMIC configuration part into the reboot
+notifier chain, because it only does things to change the configuration
+and not actually any shutdown/restart itself. That removes any
+requirement to get the priority of notifiers right. This series will
+still be useful for the MMIO register that needs to be toggled though.
+Right now I have to assign pm_power_off or hook the reboot notifier with
+a different priority to make this work.
+
 -- 
-1.7.10.4
+Qualcomm Innovation Center, Inc. is a member of Code Aurora Forum,
+a Linux Foundation Collaborative Project
 
