@@ -1,77 +1,81 @@
-From: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Date: Fri, 26 Jun 2015 00:54:28 +0000
-Subject: Re: [PATCH v2 03/28] ACPICA: Hardware: Enable 64-bit firmware waking vector for selected FACS.
-Message-Id: <1649895.CEu8Ovje9D@vostro.rjw.lan>
+From: "Zheng, Lv" <lv.zheng@intel.com>
+Date: Fri, 26 Jun 2015 01:39:22 +0000
+Subject: RE: [PATCH v2 03/28] ACPICA: Hardware: Enable 64-bit firmware waking vector for selected FACS.
+Message-Id: <1AE640813FDE7649BE1B193DEA596E88027340D8@SHSMSX101.ccr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1434684719.git.lv.zheng@intel.com> <3959851.uJ0udqUY0b@vostro.rjw.lan> <1AE640813FDE7649BE1B193DEA596E8802733C14@SHSMSX101.ccr.corp.intel.com>
-In-Reply-To: <1AE640813FDE7649BE1B193DEA596E8802733C14@SHSMSX101.ccr.corp.intel.com>
+References: <cover.1434684719.git.lv.zheng@intel.com>
+ <3959851.uJ0udqUY0b@vostro.rjw.lan>
+ <1AE640813FDE7649BE1B193DEA596E8802733C14@SHSMSX101.ccr.corp.intel.com>
+ <1649895.CEu8Ovje9D@vostro.rjw.lan>
+In-Reply-To: <1649895.CEu8Ovje9D@vostro.rjw.lan>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Zheng, Lv" <lv.zheng@intel.com>
+To: "Rafael J. Wysocki" <rjw@rjwysocki.net>
 Cc: "Wysocki, Rafael J" <rafael.j.wysocki@intel.com>, "Brown, Len" <len.brown@intel.com>, Lv Zheng <zetalog@gmail.com>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>, "Moore, Robert" <robert.moore@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, "x86@kernel.org" <x86@kernel.org>, "Luck, Tony" <tony.luck@intel.com>, "Yu, Fenghua" <fenghua.yu@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
 
-On Thursday, June 25, 2015 12:29:02 AM Zheng, Lv wrote:
-> Hi, Rafael
-> 
-> > From: Rafael J. Wysocki [mailto:rjw@rjwysocki.net]
-> > Sent: Thursday, June 25, 2015 7:24 AM
-> > To: Zheng, Lv
-
-[cut]
-
-> > 
-> > In fact, I don't see why we need to redefine the symbols at all.
-> > 
-> > Couldn't acpi_set_firmware_waking_vector() be defined to take u32 and u64 so
-> > we could just pass acpi_wakeup_address (as already defined) as the first argument
-> > and 0 as the second argument to it?  The back-and-forth type casts from and
-> > to acpi_physical_address don't look entirely clean to me.
-> > 
-> > Moreover, I don't really see a functional difference between the old and the
-> > new code.
-> > 
-> > The old code does "set the 32-bit waking vector and clear the 64-bit waking
-> > vector if present".  The new code does "set the 32-bit waking vector and
-> > either clear the 64-bit one if present, or assign the second function argument
-> > to it", but we always pass 0 as the second argument (which is *extremely*
-> > obfuscated in your patch), so I really don't see the difference here.
-> > 
-> > Am I missing anything?
-> 
-> The story is:
-> According to the test, if both 32-bit waking vector and 64-bit waking vector is
-> set by the OSPM,
-
-The current code in Linux never does that.
-
-It never calls acpi_set_firmware_waking_vector64() and the acpi_set_firmware_waking_vector()
-(before your patch) explicitly clears the 64-bit vector address.
-
-> BIOSes only support 32-bit resume environment will jump to the 32-bit waking
-> vector address and BIOSes support 64-bit resume environment will jump to
-> 64-bit waking vector.
-
-Which doesn't matter for Linux one whit.
-
-> So they can be set by the OSPMs simultaneously to indicate that the OSPM can
-> support both resume environments.  That's why ACPICA interface is changed.
-
-It shouldn't.  It just forces host OSes to make pointless changes to their
-non-ACPICA code.
-
-As I said elsewhere, the old acpi_set_firmware_waking_vector() should still be
-available to the OSes that don't care about the 64-bit waking vector and a *new*
-interface should be added for those OSes that do care about it.  And *internally*
-acpi_set_firmware_waking_vector() can be defined in terms of the new interface,
-but there's no reason at all for a host OS to care about that.
-
-So the $subject patch is entirely poitless.  It doesn't fix anything and it
-doesn't even change the way the code works today in Linux.  It just adds
-complexity and pointlessly redefines some stuff.
-
-So I'm not going to apply it.
-
-Thanks,
-Rafael
-
+SGksIFJhZmFlbA0KDQo+IEZyb206IFJhZmFlbCBKLiBXeXNvY2tpIFttYWlsdG86cmp3QHJqd3lz
+b2NraS5uZXRdDQo+IFNlbnQ6IEZyaWRheSwgSnVuZSAyNiwgMjAxNSA5OjIxIEFNDQo+IA0KPiBP
+biBUaHVyc2RheSwgSnVuZSAyNSwgMjAxNSAxMjoyOTowMiBBTSBaaGVuZywgTHYgd3JvdGU6DQo+
+ID4gSGksIFJhZmFlbA0KPiA+DQo+ID4gPiBGcm9tOiBSYWZhZWwgSi4gV3lzb2NraSBbbWFpbHRv
+OnJqd0Byand5c29ja2kubmV0XQ0KPiA+ID4gU2VudDogVGh1cnNkYXksIEp1bmUgMjUsIDIwMTUg
+NzoyNCBBTQ0KPiA+ID4gVG86IFpoZW5nLCBMdg0KPiANCj4gW2N1dF0NCj4gDQo+ID4gPg0KPiA+
+ID4gSW4gZmFjdCwgSSBkb24ndCBzZWUgd2h5IHdlIG5lZWQgdG8gcmVkZWZpbmUgdGhlIHN5bWJv
+bHMgYXQgYWxsLg0KPiA+ID4NCj4gPiA+IENvdWxkbid0IGFjcGlfc2V0X2Zpcm13YXJlX3dha2lu
+Z192ZWN0b3IoKSBiZSBkZWZpbmVkIHRvIHRha2UgdTMyIGFuZCB1NjQgc28NCj4gPiA+IHdlIGNv
+dWxkIGp1c3QgcGFzcyBhY3BpX3dha2V1cF9hZGRyZXNzIChhcyBhbHJlYWR5IGRlZmluZWQpIGFz
+IHRoZSBmaXJzdCBhcmd1bWVudA0KPiA+ID4gYW5kIDAgYXMgdGhlIHNlY29uZCBhcmd1bWVudCB0
+byBpdD8gIFRoZSBiYWNrLWFuZC1mb3J0aCB0eXBlIGNhc3RzIGZyb20gYW5kDQo+ID4gPiB0byBh
+Y3BpX3BoeXNpY2FsX2FkZHJlc3MgZG9uJ3QgbG9vayBlbnRpcmVseSBjbGVhbiB0byBtZS4NCj4g
+PiA+DQo+ID4gPiBNb3Jlb3ZlciwgSSBkb24ndCByZWFsbHkgc2VlIGEgZnVuY3Rpb25hbCBkaWZm
+ZXJlbmNlIGJldHdlZW4gdGhlIG9sZCBhbmQgdGhlDQo+ID4gPiBuZXcgY29kZS4NCj4gPiA+DQo+
+ID4gPiBUaGUgb2xkIGNvZGUgZG9lcyAic2V0IHRoZSAzMi1iaXQgd2FraW5nIHZlY3RvciBhbmQg
+Y2xlYXIgdGhlIDY0LWJpdCB3YWtpbmcNCj4gPiA+IHZlY3RvciBpZiBwcmVzZW50Ii4gIFRoZSBu
+ZXcgY29kZSBkb2VzICJzZXQgdGhlIDMyLWJpdCB3YWtpbmcgdmVjdG9yIGFuZA0KPiA+ID4gZWl0
+aGVyIGNsZWFyIHRoZSA2NC1iaXQgb25lIGlmIHByZXNlbnQsIG9yIGFzc2lnbiB0aGUgc2Vjb25k
+IGZ1bmN0aW9uIGFyZ3VtZW50DQo+ID4gPiB0byBpdCIsIGJ1dCB3ZSBhbHdheXMgcGFzcyAwIGFz
+IHRoZSBzZWNvbmQgYXJndW1lbnQgKHdoaWNoIGlzICpleHRyZW1lbHkqDQo+ID4gPiBvYmZ1c2Nh
+dGVkIGluIHlvdXIgcGF0Y2gpLCBzbyBJIHJlYWxseSBkb24ndCBzZWUgdGhlIGRpZmZlcmVuY2Ug
+aGVyZS4NCj4gPiA+DQo+ID4gPiBBbSBJIG1pc3NpbmcgYW55dGhpbmc/DQo+ID4NCj4gPiBUaGUg
+c3RvcnkgaXM6DQo+ID4gQWNjb3JkaW5nIHRvIHRoZSB0ZXN0LCBpZiBib3RoIDMyLWJpdCB3YWtp
+bmcgdmVjdG9yIGFuZCA2NC1iaXQgd2FraW5nIHZlY3RvciBpcw0KPiA+IHNldCBieSB0aGUgT1NQ
+TSwNCj4gDQo+IFRoZSBjdXJyZW50IGNvZGUgaW4gTGludXggbmV2ZXIgZG9lcyB0aGF0Lg0KPiAN
+Cj4gSXQgbmV2ZXIgY2FsbHMgYWNwaV9zZXRfZmlybXdhcmVfd2FraW5nX3ZlY3RvcjY0KCkgYW5k
+IHRoZSBhY3BpX3NldF9maXJtd2FyZV93YWtpbmdfdmVjdG9yKCkNCj4gKGJlZm9yZSB5b3VyIHBh
+dGNoKSBleHBsaWNpdGx5IGNsZWFycyB0aGUgNjQtYml0IHZlY3RvciBhZGRyZXNzLg0KDQpJbiBB
+Q1BJQ0EgdXBzdHJlYW0sIHRoaXMgaXMgYW4gaXNzdWUgYmVmb3JlIGFwcGx5aW5nIHRoaXMgcGF0
+Y2guDQphY3BpX3NldF9maXJtd2FyZV93YWtpbmdfdmVjdG9yNjQoKSBhbmQgYWNwaV9zZXRfZmly
+bXdhcmVfd2FraW5nX3ZlY3RvcigpIGRlcGVuZHMgb24gQUNQSV9NQUNISU5FX1dJRFRIIGRlZmlu
+aXRpb24sIHRodXMgY2Fubm90IGJlIHVzZWQgZm9yIHRoaXMgcHVycG9zZS4NCg0KPiANCj4gPiBC
+SU9TZXMgb25seSBzdXBwb3J0IDMyLWJpdCByZXN1bWUgZW52aXJvbm1lbnQgd2lsbCBqdW1wIHRv
+IHRoZSAzMi1iaXQgd2FraW5nDQo+ID4gdmVjdG9yIGFkZHJlc3MgYW5kIEJJT1NlcyBzdXBwb3J0
+IDY0LWJpdCByZXN1bWUgZW52aXJvbm1lbnQgd2lsbCBqdW1wIHRvDQo+ID4gNjQtYml0IHdha2lu
+ZyB2ZWN0b3IuDQo+IA0KPiBXaGljaCBkb2Vzbid0IG1hdHRlciBmb3IgTGludXggb25lIHdoaXQu
+DQoNClRoZSBidWcgcmVwb3J0IGlzIGFnYWluc3QgdGhlIDY0LWJpdCBhZGRyZXNzIGZhdm9yIG1l
+Y2hhbmlzbS4NCkJ1dCBpZiB0aGUgT1NQTSBjYW4gc3VwcG9ydCByZXN1bWluZyBmcm9tIDY0LWJp
+dCB3YWtpbmcgdmVjdG9yLCB0aGUgNjQtYml0IGFkZHJlc3MgZmF2b3IgbWVjaGFuaXNtIGRvZXNu
+J3Qgc2VlbSB0byBiZSBidWdneS4NCg0KPiANCj4gPiBTbyB0aGV5IGNhbiBiZSBzZXQgYnkgdGhl
+IE9TUE1zIHNpbXVsdGFuZW91c2x5IHRvIGluZGljYXRlIHRoYXQgdGhlIE9TUE0gY2FuDQo+ID4g
+c3VwcG9ydCBib3RoIHJlc3VtZSBlbnZpcm9ubWVudHMuICBUaGF0J3Mgd2h5IEFDUElDQSBpbnRl
+cmZhY2UgaXMgY2hhbmdlZC4NCj4gDQo+IEl0IHNob3VsZG4ndC4gIEl0IGp1c3QgZm9yY2VzIGhv
+c3QgT1NlcyB0byBtYWtlIHBvaW50bGVzcyBjaGFuZ2VzIHRvIHRoZWlyDQo+IG5vbi1BQ1BJQ0Eg
+Y29kZS4NCj4gDQo+IEFzIEkgc2FpZCBlbHNld2hlcmUsIHRoZSBvbGQgYWNwaV9zZXRfZmlybXdh
+cmVfd2FraW5nX3ZlY3RvcigpIHNob3VsZCBzdGlsbCBiZQ0KPiBhdmFpbGFibGUgdG8gdGhlIE9T
+ZXMgdGhhdCBkb24ndCBjYXJlIGFib3V0IHRoZSA2NC1iaXQgd2FraW5nIHZlY3RvciBhbmQgYSAq
+bmV3Kg0KPiBpbnRlcmZhY2Ugc2hvdWxkIGJlIGFkZGVkIGZvciB0aG9zZSBPU2VzIHRoYXQgZG8g
+Y2FyZSBhYm91dCBpdC4gIEFuZCAqaW50ZXJuYWxseSoNCj4gYWNwaV9zZXRfZmlybXdhcmVfd2Fr
+aW5nX3ZlY3RvcigpIGNhbiBiZSBkZWZpbmVkIGluIHRlcm1zIG9mIHRoZSBuZXcgaW50ZXJmYWNl
+LA0KPiBidXQgdGhlcmUncyBubyByZWFzb24gYXQgYWxsIGZvciBhIGhvc3QgT1MgdG8gY2FyZSBh
+Ym91dCB0aGF0Lg0KDQpPSywgd2UgY2FuIHJlZmluZSB0aGUgaW50ZXJmYWNlIGluc2lkZSBvZiBB
+Q1BJQ0EuDQoNCj4gDQo+IFNvIHRoZSAkc3ViamVjdCBwYXRjaCBpcyBlbnRpcmVseSBwb2l0bGVz
+cy4gIEl0IGRvZXNuJ3QgZml4IGFueXRoaW5nIGFuZCBpdA0KPiBkb2Vzbid0IGV2ZW4gY2hhbmdl
+IHRoZSB3YXkgdGhlIGNvZGUgd29ya3MgdG9kYXkgaW4gTGludXguICBJdCBqdXN0IGFkZHMNCj4g
+Y29tcGxleGl0eSBhbmQgcG9pbnRsZXNzbHkgcmVkZWZpbmVzIHNvbWUgc3R1ZmYuDQo+IA0KDQpJ
+dCBkb2Vzbid0IGZpeCBhbnkgZnVuY3Rpb25hbGl0eSBwcm9ibGVtIHJpZ2h0IGhlcmUgaW4gdGhp
+cyBwYXRjaC4NCkJ1dCBpdCBmaXhlcyB0aGUgY29kZSBsb2dpYyBwcm9ibGVtIHRoYXQgYWNwaV9z
+ZXRfZmlybXdhcmVfd2FraW5nX3ZlY3RvcjY0KCkvYWNwaV9zZXRfZmlybXdhcmVfd2FraW5nX3Zl
+Y3RvcigpIGRlcGVuZHMgb24gQUNQSV9NQUNISU5FX1dJRFRIIGRlZmluaXRpb24uDQpBbmQgaXQg
+ZmFjaWxpdGF0ZXMgdGhlIE9TUE1zIHdpdGggdGhlIGNhcGFiaWxpdHkgdG8gc3VwcG9ydCBib3Ro
+IDMyLWJpdC82NC1iaXQgcmVzdW1pbmcgZW52aXJvbm1lbnQuDQoNCj4gU28gSSdtIG5vdCBnb2lu
+ZyB0byBhcHBseSBpdC4NCg0KT0ssIEknbGwgZ28gYmFjayB0byByZWZpbmUgdGhlIGludGVyZmFj
+ZSBjaGFuZ2UuDQoNClRoYW5rcyBhbmQgYmVzdCByZWdhcmRzDQotTHYNCg=
