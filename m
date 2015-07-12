@@ -1,61 +1,47 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Mon, 20 Jul 2015 12:01:10 +0000
-Subject: [PATCH part3 v12 02/10] PCI: Move pci_bus_assign_domain_nr() declaration into drivers/pci/pci.h
-Message-Id: <1437393678-4077-3-git-send-email-wangyijing@huawei.com>
+From: Bjorn Helgaas <bhelgaas@google.com>
+Date: Sun, 12 Jul 2015 22:02:02 +0000
+Subject: [PATCH 2/3] x86, irq: Clarify "No irq handler" message
+Message-Id: <20150712220202.7166.22099.stgit@bhelgaas-glaptop2.roam.corp.google.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1437393678-4077-1-git-send-email-wangyijing@huawei.com>
-In-Reply-To: <1437393678-4077-1-git-send-email-wangyijing@huawei.com>
+References: <20150712215559.7166.33068.stgit@bhelgaas-glaptop2.roam.corp.google.com>
+In-Reply-To: <20150712215559.7166.33068.stgit@bhelgaas-glaptop2.roam.corp.google.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, Russell King <linux@arm.linux.org.uk>, dja@axtens.net, linux-xtensa@linux-xtensa.org, x86@kernel.org, Thomas Gleixner <tglx@linutronix.de>, linux-mips@linux-mips.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Rusty Russell <rusty@rustcorp.com.au>, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-alpha@vger.kernel.org, linux-m68k@vger.kernel.org, linux-am33-list@redhat.com, Liviu Dudau <liviu@dudau.co.uk>, Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Yijing Wang <wangyijing@huawei.com>
+To: Thomas Gleixner <tglx@linutronix.de>
+Cc: linux-arch@vger.kernel.org, linux-mips@linux-mips.org, linux-am33-list@redhat.com, linux-ia64@vger.kernel.org, linux-c6x-dev@linux-c6x.org, linux-parisc@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, adi-buildroot-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-alpha@vger.kernel.org, x86@kernel.org, linuxppc-dev@lists.ozlabs.org
 
-pci_bus_assign_domain_nr() is only called in probe.c,
-Move pci_bus_assign_domain_nr() declaration into
-drivers/pci/pci.h.
+Previously we printed, e.g.,
 
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+  do_IRQ: 0.242 No irq handler for vector (irq -1)
+
+There's no clue about what "0.242" means, and the IRQ number, which is the
+important generic information used by drivers and /proc/interrupts, is
+almost an afterthought.
+
+Change the format to this:
+
+  No handler for IRQ -1 (CPU 0 vector 0xf2)
+
+Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
 ---
- drivers/pci/pci.h   |    9 +++++++++
- include/linux/pci.h |    6 ------
- 2 files changed, 9 insertions(+), 6 deletions(-)
+ arch/x86/kernel/irq.c |    5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/pci/pci.h b/drivers/pci/pci.h
-index 4ff0ff1..02192aa 100644
---- a/drivers/pci/pci.h
-+++ b/drivers/pci/pci.h
-@@ -335,4 +335,13 @@ static inline int pci_dev_specific_reset(struct pci_dev *dev, int probe)
+diff --git a/arch/x86/kernel/irq.c b/arch/x86/kernel/irq.c
+index 2949c6e..3c6b069 100644
+--- a/arch/x86/kernel/irq.c
++++ b/arch/x86/kernel/irq.c
+@@ -224,9 +224,8 @@ __visible unsigned int __irq_entry do_IRQ(struct pt_regs *regs)
+ 		ack_APIC_irq();
  
- struct pci_host_bridge *pci_find_host_bridge(struct pci_bus *bus);
- 
-+#ifdef CONFIG_PCI_DOMAINS_GENERIC
-+void pci_bus_assign_domain_nr(struct pci_bus *bus, struct device *parent);
-+#else
-+static inline void pci_bus_assign_domain_nr(struct pci_bus *bus,
-+					struct device *parent)
-+{
-+}
-+#endif
-+
- #endif /* DRIVERS_PCI_H */
-diff --git a/include/linux/pci.h b/include/linux/pci.h
-index 50c0c47..f7e4204 100644
---- a/include/linux/pci.h
-+++ b/include/linux/pci.h
-@@ -1337,12 +1337,6 @@ static inline int pci_domain_nr(struct pci_bus *bus)
- {
- 	return bus->domain_nr;
- }
--void pci_bus_assign_domain_nr(struct pci_bus *bus, struct device *parent);
--#else
--static inline void pci_bus_assign_domain_nr(struct pci_bus *bus,
--					struct device *parent)
--{
--}
- #endif
- 
- /* some architectures require additional setup to direct VGA traffic */
--- 
-1.7.1
+ 		if (irq != IRQ_RETRIGGERED) {
+-			pr_emerg_ratelimited("%s: %d.%d No irq handler for vector (irq %d)\n",
+-					     __func__, smp_processor_id(),
+-					     vector, irq);
++			pr_emerg_ratelimited("No handler for IRQ %d (CPU %d vector %#x)\n",
++					     irq, smp_processor_id(), vector);
+ 		} else {
+ 			__this_cpu_write(vector_irq[vector], IRQ_UNDEFINED);
+ 		}
 
