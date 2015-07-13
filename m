@@ -1,26 +1,48 @@
-From: Christoph Lameter <cl@linux.com>
-Date: Thu, 30 Jul 2015 17:59:47 +0000
-Subject: Re: [PATCH v3 3/3] mm: use numa_mem_id() in alloc_pages_node()
-Message-Id: <alpine.DEB.2.11.1507301259230.5521@east.gentwo.org>
+From: Michael Ellerman <mpe@ellerman.id.au>
+Date: Mon, 13 Jul 2015 03:23:03 +0000
+Subject: Re: [3/3] IRQ: Print "unexpected IRQ" messages consistently across architectures
+Message-Id: <20150713032303.D49801402B1@ozlabs.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1438274071-22551-1-git-send-email-vbabka@suse.cz> <1438274071-22551-3-git-send-email-vbabka@suse.cz>
-In-Reply-To: <1438274071-22551-3-git-send-email-vbabka@suse.cz>
+References: <20150712220211.7166.42035.stgit@bhelgaas-glaptop2.roam.corp.google.com>
+In-Reply-To: <20150712220211.7166.42035.stgit@bhelgaas-glaptop2.roam.corp.google.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Vlastimil Babka <vbabka@suse.cz>
-Cc: linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>, linux-kernel@vger.kernel.org, Mel Gorman <mgorman@suse.de>, David Rientjes <rientjes@google.com>, Greg Thelen <gthelen@google.com>, "Aneesh Kumar K.V" <aneesh.kumar@linux.vnet.ibm.com>, Pekka Enberg <penberg@kernel.org>, Joonsoo Kim <iamjoonsoo.kim@lge.com>, Naoya Horiguchi <n-horiguchi@ah.jp.nec.com>, Johannes Weiner <hannes@cmpxchg.org>, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, cbe-oss-dev@lists.ozlabs.org, kvm@vger.kernel.org, Mel Gorman <mgorman@techsingularity.net>
+To: Bjorn Helgaas <bhelgaas@google.com>, Thomas Gleixner <tglx@linutronix.de>
+Cc: linux-arch@vger.kernel.org, linux-mips@linux-mips.org, linux-am33-list@redhat.com, linux-ia64@vger.kernel.org, linux-c6x-dev@linux-c6x.org, linux-parisc@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, adi-buildroot-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-alpha@vger.kernel.org, x86@kernel.org, linuxppc-dev@lists.ozlabs.org
 
-On Thu, 30 Jul 2015, Vlastimil Babka wrote:
+On Sun, 2015-12-07 at 22:02:11 UTC, Bjorn Helgaas wrote:
+> Many architectures use a variant of "unexpected IRQ trap at vector %x" to
+> log unexpected IRQs.  This is confusing because (a) it prints the Linux IRQ
+> number, but "vector" more often refers to a CPU vector number, and (b) it
+> prints the IRQ number in hex with no base indication, while Linux IRQ
+> numbers are usually printed in decimal.
+> 
+> Print the same text ("unexpected IRQ %d") across all architectures.
+> 
+> No functional change other than the output text.
 
-> numa_mem_id() is able to handle allocation from CPUs on memory-less nodes,
-> so it's a more robust fallback than the currently used numa_node_id().
->
-> Suggested-by: Christoph Lameter <cl@linux.com>
-> Signed-off-by: Vlastimil Babka <vbabka@suse.cz>
-> Acked-by: David Rientjes <rientjes@google.com>
-> Acked-by: Mel Gorman <mgorman@techsingularity.net>
+There's already a fallback version in asm-generic, so shouldn't you instead
+just delete all the versions that are identical to that?
 
-You can add my ack too if it helps.
+eg. on powerpc we have:
 
-Acked-by: Christoph Lameter <cl@linux.com>
+>  static inline void ack_bad_irq(unsigned int irq)
+>  {
+> -	printk(KERN_CRIT "unexpected IRQ trap at vector %02x\n", irq);
+> +	printk(KERN_CRIT "unexpected IRQ %d\n", irq);
+>  }
+
+And the generic version is:
+
+>  #ifndef ack_bad_irq
+>  static inline void ack_bad_irq(unsigned int irq)
+>  {
+> -	printk(KERN_CRIT "unexpected IRQ trap at vector %02x\n", irq);
+> +	printk(KERN_CRIT "unexpected IRQ %d\n", irq);
+>  }
+>  #endif
+
+So we can just delete the powerpc version?
+
+cheers
