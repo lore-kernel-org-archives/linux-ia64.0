@@ -1,40 +1,40 @@
-From: Bjorn Helgaas <bhelgaas@google.com>
-Date: Sun, 12 Jul 2015 22:01:45 +0000
-Subject: [PATCH 0/3] IRQ trivial clarifications
-Message-Id: <20150712215559.7166.33068.stgit@bhelgaas-glaptop2.roam.corp.google.com>
+From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Date: Fri, 17 Jul 2015 07:31:03 +0000
+Subject: [PATCH] ia64: sn2: Add missing kfree in error path
+Message-Id: <1437118263-14342-1-git-send-email-christophe.jaillet@wanadoo.fr>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thomas Gleixner <tglx@linutronix.de>
-Cc: linux-arch@vger.kernel.org, linux-mips@linux-mips.org, linux-am33-list@redhat.com, linux-ia64@vger.kernel.org, linux-c6x-dev@linux-c6x.org, linux-parisc@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, adi-buildroot-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-alpha@vger.kernel.org, x86@kernel.org, linuxppc-dev@lists.ozlabs.org
+To: tony.luck@intel.com, fenghua.yu@intel.com
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org, Christophe JAILLET <christophe.jaillet@wanadoo.fr>
 
-These don't fix anything at all.  But they might make code understanding
-and debugging slightly easier.
+If 'ia64_sn_hwperf_op' fails, then 'ptdata' should be freed, otherwise,
+there is a memory leak.
 
+Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
 ---
+This patch is *untested* because I have no way to trigger the error.
+---
+ arch/ia64/sn/kernel/sn2/sn_hwperf.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-Bjorn Helgaas (3):
-      x86, irq: Rename VECTOR_UNDEFINED and VECTOR_RETRIGGERED to IRQ_*
-      x86, irq: Clarify "No irq handler" message
-      IRQ: Print "unexpected IRQ" messages consistently across architectures
+diff --git a/arch/ia64/sn/kernel/sn2/sn_hwperf.c b/arch/ia64/sn/kernel/sn2/sn_hwperf.c
+index b999257..9e1694f 100644
+--- a/arch/ia64/sn/kernel/sn2/sn_hwperf.c
++++ b/arch/ia64/sn/kernel/sn2/sn_hwperf.c
+@@ -499,8 +499,10 @@ static int sn_topology_show(struct seq_file *s, void *d)
+ 		e = ia64_sn_hwperf_op(sn_hwperf_master_nasid,
+ 				      SN_HWPERF_ENUM_PORTS, obj->id, sz,
+ 				      (u64) ptdata, 0, 0, NULL);
+-		if (e != SN_HWPERF_OP_OK)
++		if (e != SN_HWPERF_OP_OK) {
++			kfree(ptdata);
+ 			return -EINVAL;
++		}
+ 		for (ordinal=0, p=objs; p != obj; p++) {
+ 			if (!SN_HWPERF_FOREIGN(p))
+ 				ordinal += p->ports;
+-- 
+2.1.4
 
-
- arch/alpha/kernel/irq.c            |    2 +-
- arch/blackfin/kernel/irqchip.c     |    2 +-
- arch/c6x/kernel/irq.c              |    2 +-
- arch/ia64/kernel/irq.c             |    2 +-
- arch/m68k/include/asm/hardirq.h    |    2 +-
- arch/mips/kernel/irq.c             |    2 +-
- arch/mn10300/kernel/irq.c          |    2 +-
- arch/parisc/include/asm/hardirq.h  |    2 +-
- arch/powerpc/include/asm/hardirq.h |    2 +-
- arch/s390/include/asm/hardirq.h    |    2 +-
- arch/sh/kernel/irq.c               |    2 +-
- arch/tile/kernel/irq.c             |    2 +-
- arch/x86/include/asm/hw_irq.h      |    4 ++--
- arch/x86/kernel/apic/vector.c      |   14 +++++++-------
- arch/x86/kernel/irq.c              |   19 +++++++++----------
- arch/x86/kernel/irqinit.c          |    4 ++--
- include/asm-generic/hardirq.h      |    2 +-
- 17 files changed, 33 insertions(+), 34 deletions(-)
