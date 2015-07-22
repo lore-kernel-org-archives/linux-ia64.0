@@ -1,72 +1,38 @@
-From: Vlastimil Babka <vbabka@suse.cz>
-Date: Wed, 22 Jul 2015 11:32:52 +0000
+From: David Rientjes <rientjes@google.com>
+Date: Wed, 22 Jul 2015 21:44:03 +0000
 Subject: Re: [PATCH] mm: rename and document alloc_pages_exact_node
-Message-Id: <55AF7F64.1040602@suse.cz>
+Message-Id: <alpine.DEB.2.10.1507221442540.21468@chino.kir.corp.google.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1437486951-19898-1-git-send-email-vbabka@suse.cz> <alpine.DEB.2.10.1507211428160.3833@chino.kir.corp.google.com>
-In-Reply-To: <alpine.DEB.2.10.1507211428160.3833@chino.kir.corp.google.com>
+References: <1437486951-19898-1-git-send-email-vbabka@suse.cz> <55AF7F28.2020504@redhat.com>
+In-Reply-To: <55AF7F28.2020504@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Rientjes <rientjes@google.com>
-Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, cbe-oss-dev@lists.ozlabs.org, kvm@vger.kernel.org, Mel Gorman <mgorman@suse.de>, Greg Thelen <gthelen@google.com>, "Aneesh Kumar K.V" <aneesh.kumar@linux.vnet.ibm.com>, Christoph Lameter <cl@linux.com>, Pekka Enberg <penberg@kernel.org>, Joonsoo Kim <iamjoonsoo.kim@lge.com>, Naoya Horiguchi <n-horiguchi@ah.jp.nec.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Arnd Bergmann <arnd@arndb.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Gleb Natapov <gleb@kernel.org>, Paolo Bonzini <pbonzini@redhat.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, Cliff Whickman <cpw@sgi.com>, Robin Holt <robinmholt@gmail.com>
+To: Paolo Bonzini <pbonzini@redhat.com>
+Cc: Vlastimil Babka <vbabka@suse.cz>, linux-mm@kvack.org, linux-kernel@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, cbe-oss-dev@lists.ozlabs.org, kvm@vger.kernel.org, Mel Gorman <mgorman@suse.de>, Greg Thelen <gthelen@google.com>, "Aneesh Kumar K.V" <aneesh.kumar@linux.vnet.ibm.com>, Christoph Lameter <cl@linux.com>, Pekka Enberg <penberg@kernel.org>, Joonsoo Kim <iamjoonsoo.kim@lge.com>, Naoya Horiguchi <n-horiguchi@ah.jp.nec.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Arnd Bergmann <arnd@arndb.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Gleb Natapov <gleb@kernel.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>
 
-On 07/21/2015 11:31 PM, David Rientjes wrote:
-> On Tue, 21 Jul 2015, Vlastimil Babka wrote:
+On Wed, 22 Jul 2015, Paolo Bonzini wrote:
+
+> > diff --git a/arch/x86/kvm/vmx.c b/arch/x86/kvm/vmx.c
+> > index 2d73807..a8723a8 100644
+> > --- a/arch/x86/kvm/vmx.c
+> > +++ b/arch/x86/kvm/vmx.c
+> > @@ -3158,7 +3158,7 @@ static struct vmcs *alloc_vmcs_cpu(int cpu)
+> >  	struct page *pages;
+> >  	struct vmcs *vmcs;
+> >  
+> > -	pages = alloc_pages_exact_node(node, GFP_KERNEL, vmcs_config.order);
+> > +	pages = alloc_pages_prefer_node(node, GFP_KERNEL, vmcs_config.order);
+> >  	if (!pages)
+> >  		return NULL;
+> >  	vmcs = page_address(pages);
 > 
->> The function alloc_pages_exact_node() was introduced in 6484eb3e2a81 ("page
->> allocator: do not check NUMA node ID when the caller knows the node is valid")
->> as an optimized variant of alloc_pages_node(), that doesn't allow the node id
->> to be -1. Unfortunately the name of the function can easily suggest that the
->> allocation is restricted to the given node. In truth, the node is only
->> preferred, unless __GFP_THISNODE is among the gfp flags.
->>
->> The misleading name has lead to mistakes in the past, see 5265047ac301 ("mm,
->> thp: really limit transparent hugepage allocation to local node") and
->> b360edb43f8e ("mm, mempolicy: migrate_to_node should only migrate to node").
->>
->> To prevent further mistakes, this patch renames the function to
->> alloc_pages_prefer_node() and documents it together with alloc_pages_node().
->>
+> Even though there's a pretty strong preference for the "right" node,
+> things can work if the node is the wrong one.  The order is always zero
+> in practice, so the allocation should succeed.
 > 
-> alloc_pages_exact_node(), as you said, connotates that the allocation will
-> take place on that node or will fail.  So why not go beyond this patch and
-> actually make alloc_pages_exact_node() set __GFP_THISNODE and then call
-> into a new alloc_pages_prefer_node(), which would be the current
-> alloc_pages_exact_node() implementation, and then fix up the callers?
 
-OK, but then we have alloc_pages_node(), alloc_pages_prefer_node() and
-alloc_pages_exact_node(). Isn't that a bit too much? The first two
-differ only in tiny bit:
-
-static inline struct page *alloc_pages_node(int nid, gfp_t gfp_mask,
-                                                unsigned int order)
-{
-        /* Unknown node is current node */
-        if (nid < 0)
-                nid = numa_node_id();
-
-        return __alloc_pages(gfp_mask, order, node_zonelist(nid, gfp_mask));
-}
-
-static inline struct page *alloc_pages_prefer_node(int nid, gfp_t gfp_mask,
-                                                unsigned int order)
-{
-        VM_BUG_ON(nid < 0 || nid >= MAX_NUMNODES || !node_online(nid));
-
-        return __alloc_pages(gfp_mask, order, node_zonelist(nid, gfp_mask));
-}
-
-So _prefer_node is just a tiny optimization over the other one. It
-should be maybe called __alloc_pages_node() then? This would perhaps
-discourage users outside of mm/arch code (where it may matter). The
-savings of a skipped branch is likely dubious anyway... It would be also
-nice if alloc_pages_node() could use __alloc_pages_node() internally, but
-I'm not sure if all callers are safe wrt the
-VM_BUG_ON(!node_online(nid)) part.
-
-So when the alloc_pages_prefer_node is diminished as __alloc_pages_node
-or outright removed, then maybe alloc_pages_exact_node() which adds
-__GFP_THISNODE on its own, might be a useful wrapper. But I agree with
-Christoph it's a duplication of the gfp_flags functionality and I don't
-think there would be many users left anyway.
+You're code is fine both before and after the patch since __GFP_THISNODE 
+isn't set.  The allocation will eventually succeed but, as you said, may 
+be from remote memory (and the success of allocating on node may be 
+influenced by the global setting of zone_reclaim_mode).
