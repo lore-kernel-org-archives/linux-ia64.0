@@ -1,7 +1,7 @@
-From: Johannes Weiner <hannes@cmpxchg.org>
-Date: Thu, 30 Jul 2015 17:33:18 +0000
+From: Christoph Lameter <cl@linux.com>
+Date: Thu, 30 Jul 2015 17:58:05 +0000
 Subject: Re: [PATCH v3 1/3] mm: rename alloc_pages_exact_node to __alloc_pages_node
-Message-Id: <20150730173318.GA15257@cmpxchg.org>
+Message-Id: <alpine.DEB.2.11.1507301255380.5521@east.gentwo.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1438274071-22551-1-git-send-email-vbabka@suse.cz>
 In-Reply-To: <1438274071-22551-1-git-send-email-vbabka@suse.cz>
@@ -9,69 +9,24 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Vlastimil Babka <vbabka@suse.cz>
-Cc: linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>, linux-kernel@vger.kernel.org, Mel Gorman <mgorman@suse.de>, David Rientjes <rientjes@google.com>, Greg Thelen <gthelen@google.com>, "Aneesh Kumar K.V" <aneesh.kumar@linux.vnet.ibm.com>, Christoph Lameter <cl@linux.com>, Pekka Enberg <penberg@kernel.org>, Joonsoo Kim <iamjoonsoo.kim@lge.com>, Naoya Horiguchi <n-horiguchi@ah.jp.nec.com>, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, cbe-oss-dev@lists.ozlabs.org, kvm@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Arnd Bergmann <arnd@arndb.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Gleb Natapov <gleb@kernel.org>, Paolo Bonzini <pbonzini@redhat.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, Cliff Whickman <cpw@sgi.com>, Michael Ellerman <mpe@ellerman.id.au>, Robin Holt <robinmholt@gmail.com>
+Cc: linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>, linux-kernel@vger.kernel.org, Mel Gorman <mgorman@suse.de>, David Rientjes <rientjes@google.com>, Greg Thelen <gthelen@google.com>, "Aneesh Kumar K.V" <aneesh.kumar@linux.vnet.ibm.com>, Pekka Enberg <penberg@kernel.org>, Joonsoo Kim <iamjoonsoo.kim@lge.com>, Naoya Horiguchi <n-horiguchi@ah.jp.nec.com>, Johannes Weiner <hannes@cmpxchg.org>, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, cbe-oss-dev@lists.ozlabs.org, kvm@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Arnd Bergmann <arnd@arndb.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Gleb Natapov <gleb@kernel.org>, Paolo Bonzini <pbonzini@redhat.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, Cliff Whickman <cpw@sgi.com>, Michael Ellerman <mpe@ellerman.id.au>, Robin Holt <robinmholt@gmail.com>
 
-On Thu, Jul 30, 2015 at 06:34:29PM +0200, Vlastimil Babka wrote:
-> The function alloc_pages_exact_node() was introduced in 6484eb3e2a81 ("page
-> allocator: do not check NUMA node ID when the caller knows the node is valid")
-> as an optimized variant of alloc_pages_node(), that doesn't fallback to current
-> node for nid = NUMA_NO_NODE. Unfortunately the name of the function can easily
-> suggest that the allocation is restricted to the given node and fails
-> otherwise. In truth, the node is only preferred, unless __GFP_THISNODE is
-> passed among the gfp flags.
-> 
-> The misleading name has lead to mistakes in the past, see 5265047ac301 ("mm,
-> thp: really limit transparent hugepage allocation to local node") and
-> b360edb43f8e ("mm, mempolicy: migrate_to_node should only migrate to node").
-> 
-> Another issue with the name is that there's a family of alloc_pages_exact*()
-> functions where 'exact' means exact size (instead of page order), which leads
-> to more confusion.
-> 
-> To prevent further mistakes, this patch effectively renames
-> alloc_pages_exact_node() to __alloc_pages_node() to better convey that it's
-> an optimized variant of alloc_pages_node() not intended for general usage.
-> Both functions get described in comments.
-> 
-> It has been also considered to really provide a convenience function for
-> allocations restricted to a node, but the major opinion seems to be that
-> __GFP_THISNODE already provides that functionality and we shouldn't duplicate
-> the API needlessly. The number of users would be small anyway.
-> 
-> Existing callers of alloc_pages_exact_node() are simply converted to call
-> __alloc_pages_node(), with two exceptions. sba_alloc_coherent() and
-> slob_new_page() both open-code the check for NUMA_NO_NODE, so they are
-> converted to use alloc_pages_node() instead. This means they no longer perform
-> some VM_BUG_ON checks, and since the current check for nid in
-> alloc_pages_node() uses a 'nid < 0' comparison (which includes NUMA_NO_NODE),
-> it may hide wrong values which would be previously exposed. Both differences
-> will be rectified by the next patch.
-> 
-> To sum up, this patch makes no functional changes, except temporarily hiding
-> potentially buggy callers. Restricting the checks in alloc_pages_node() is
-> left for the next patch which can in turn expose more existing buggy callers.
-> 
-> Signed-off-by: Vlastimil Babka <vbabka@suse.cz>
-> Cc: Mel Gorman <mgorman@suse.de>
-> Cc: David Rientjes <rientjes@google.com>
-> Cc: Greg Thelen <gthelen@google.com>
-> Cc: Aneesh Kumar K.V <aneesh.kumar@linux.vnet.ibm.com>
-> Cc: Christoph Lameter <cl@linux.com>
-> Cc: Pekka Enberg <penberg@kernel.org>
-> Cc: Joonsoo Kim <iamjoonsoo.kim@lge.com>
-> Cc: Naoya Horiguchi <n-horiguchi@ah.jp.nec.com>
-> Cc: Tony Luck <tony.luck@intel.com>
-> Cc: Fenghua Yu <fenghua.yu@intel.com>
-> Cc: Arnd Bergmann <arnd@arndb.de>
-> Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-> Cc: Paul Mackerras <paulus@samba.org>
-> Acked-by: Michael Ellerman <mpe@ellerman.id.au>
-> Cc: Gleb Natapov <gleb@kernel.org>
-> Cc: Paolo Bonzini <pbonzini@redhat.com>
-> Cc: Thomas Gleixner <tglx@linutronix.de>
-> Cc: Ingo Molnar <mingo@redhat.com>
-> Cc: "H. Peter Anvin" <hpa@zytor.com>
-> Cc: Cliff Whickman <cpw@sgi.com>
-> Acked-by: Robin Holt <robinmholt@gmail.com>
+On Thu, 30 Jul 2015, Vlastimil Babka wrote:
 
-Acked-by: Johannes Weiner <hannes@cmpxchg.org>
+> --- a/mm/slob.c
+> +++ b/mm/slob.c
+>  	void *page;
+>
+> -#ifdef CONFIG_NUMA
+> -	if (node != NUMA_NO_NODE)
+> -		page = alloc_pages_exact_node(node, gfp, order);
+> -	else
+> -#endif
+> -		page = alloc_pages(gfp, order);
+> +	page = alloc_pages_node(node, gfp, order);
+
+NAK. This is changing slob behavior. With no node specified it must use
+alloc_pages because that obeys NUMA memory policies etc etc. It should not
+force allocation from the current node like what is happening here after
+the patch. See the code in slub.c that is similar.
+
