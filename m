@@ -1,556 +1,156 @@
-From: Yinghai Lu <yinghai@kernel.org>
-Date: Fri, 21 Aug 2015 06:21:06 +0000
-Subject: [PATCH v4 51/52] PCI: Introduce resource_disabled()
-Message-Id: <1440138067-4314-52-git-send-email-yinghai@kernel.org>
+From: Sudeep Holla <sudeep.holla@arm.com>
+Date: Tue, 04 Aug 2015 17:46:44 +0000
+Subject: [PATCH 2/4] ACPI / sleep: move acpi_processor_sleep to sleep.c
+Message-Id: <1438710406-3822-3-git-send-email-sudeep.holla@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1440138067-4314-1-git-send-email-yinghai@kernel.org>
-In-Reply-To: <1440138067-4314-1-git-send-email-yinghai-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+References: <1438710406-3822-1-git-send-email-sudeep.holla@arm.com>
+In-Reply-To: <1438710406-3822-1-git-send-email-sudeep.holla@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>, Wei Yang <weiyang-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>, TJ <linux-7m3hRoVZU5A@public.gmane.org>, Yijing Wang <wangyijing-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Cc: linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-am33-list-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, linux-alpha-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>, Yinghai Lu <yinghai-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: linux-acpi@vger.kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>
+Cc: Sudeep Holla <sudeep.holla@arm.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, x86@kernel.org
 
-Current is using !flags, and we are going to use
-IORESOURCE_DISABLED instead of clearing resource flags.
+acpi_processor_sleep is neither related nor used by CPUIdle framework.
+It's used in system suspend/resume path as a syscore operation. It makes
+more sense to move it to acpi/sleep.c where all the S-state transition
+(a.k.a. Linux system suspend/hiberate) related code are present.
 
-Let's convert all !flags to helper function resource_disabled().
-resource_disabled will check !flags and IORESOURCE_DISABLED both.
+Also make it depend on CONFIG_ACPI_SYSTEM_POWER_STATES_SUPPORT so that
+it's not compiled on architecture like ARM64 where S-states are not
+yet defined in ACPI.
 
-Cc: linux-alpha@vger.kernel.org
-Cc: linux-ia64@vger.kernel.org
-Cc: linux-am33-list@redhat.com
-Cc: linuxppc-dev@lists.ozlabs.org
-Cc: linux-s390@vger.kernel.org
-Cc: sparclinux@vger.kernel.org
-Cc: linux-pci@vger.kernel.org
-Cc: linux-xtensa@linux-xtensa.org
-Cc: iommu@lists.linux-foundation.org
-Cc: linux-sh@vger.kernel.org
-Signed-off-by: Yinghai Lu <yinghai@kernel.org>
+Signed-off-by: Sudeep Holla <sudeep.holla@arm.com>
+Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>
 ---
- arch/alpha/kernel/pci.c                   |  2 +-
- arch/ia64/pci/pci.c                       |  4 ++--
- arch/microblaze/pci/pci-common.c          | 15 ++++++++-------
- arch/mn10300/unit-asb2305/pci-asb2305.c   |  4 ++--
- arch/mn10300/unit-asb2305/pci.c           |  4 ++--
- arch/powerpc/kernel/pci-common.c          | 16 +++++++++-------
- arch/powerpc/platforms/powernv/pci-ioda.c | 12 ++++++------
- arch/s390/pci/pci.c                       |  2 +-
- arch/sparc/kernel/pci.c                   |  2 +-
- arch/x86/pci/i386.c                       |  4 ++--
- arch/xtensa/kernel/pci.c                  |  4 ++--
- drivers/iommu/intel-iommu.c               |  3 ++-
- drivers/pci/host/pcie-rcar.c              |  2 +-
- drivers/pci/iov.c                         |  2 +-
- drivers/pci/probe.c                       |  2 +-
- drivers/pci/quirks.c                      |  4 ++--
- drivers/pci/rom.c                         |  2 +-
- drivers/pci/setup-bus.c                   |  8 ++++----
- drivers/pci/setup-res.c                   |  2 +-
- include/linux/ioport.h                    |  4 ++++
- 20 files changed, 53 insertions(+), 45 deletions(-)
+ drivers/acpi/processor_idle.c | 37 -------------------------------------
+ drivers/acpi/sleep.c          | 37 +++++++++++++++++++++++++++++++++++++
+ include/acpi/processor.h      |  2 +-
+ 3 files changed, 38 insertions(+), 38 deletions(-)
 
-diff --git a/arch/alpha/kernel/pci.c b/arch/alpha/kernel/pci.c
-index 82f738e..91a7153 100644
---- a/arch/alpha/kernel/pci.c
-+++ b/arch/alpha/kernel/pci.c
-@@ -282,7 +282,7 @@ pcibios_claim_one_bus(struct pci_bus *b)
- 		for (i = 0; i < PCI_NUM_RESOURCES; i++) {
- 			struct resource *r = &dev->resource[i];
+diff --git a/drivers/acpi/processor_idle.c b/drivers/acpi/processor_idle.c
+index d540f42c9232..18d4de846490 100644
+--- a/drivers/acpi/processor_idle.c
++++ b/drivers/acpi/processor_idle.c
+@@ -34,7 +34,6 @@
+ #include <linux/sched.h>       /* need_resched() */
+ #include <linux/tick.h>
+ #include <linux/cpuidle.h>
+-#include <linux/syscore_ops.h>
+ #include <acpi/processor.h>
  
--			if (r->parent || !r->start || !r->flags)
-+			if (r->parent || !r->start || resource_disabled(r))
- 				continue;
- 			if (pci_has_flag(PCI_PROBE_ONLY) ||
- 			    (r->flags & IORESOURCE_PCI_FIXED)) {
-diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
-index 7cc3be9..cc293ea 100644
---- a/arch/ia64/pci/pci.c
-+++ b/arch/ia64/pci/pci.c
-@@ -501,7 +501,7 @@ void pcibios_fixup_device_resources(struct pci_dev *dev)
- 	for (idx = 0; idx < PCI_BRIDGE_RESOURCES; idx++) {
- 		struct resource *r = &dev->resource[idx];
+ /*
+@@ -198,42 +197,6 @@ static void lapic_timer_state_broadcast(struct acpi_processor *pr,
  
--		if (!r->flags || r->parent || !r->start)
-+		if (resource_disabled(r) || r->parent || !r->start)
- 			continue;
+ #endif
  
- 		pci_claim_resource(dev, idx);
-@@ -519,7 +519,7 @@ static void pcibios_fixup_bridge_resources(struct pci_dev *dev)
- 	for (idx = PCI_BRIDGE_RESOURCES; idx < PCI_NUM_RESOURCES; idx++) {
- 		struct resource *r = &dev->resource[idx];
+-#ifdef CONFIG_PM_SLEEP
+-static u32 saved_bm_rld;
+-
+-static int acpi_processor_suspend(void)
+-{
+-	acpi_read_bit_register(ACPI_BITREG_BUS_MASTER_RLD, &saved_bm_rld);
+-	return 0;
+-}
+-
+-static void acpi_processor_resume(void)
+-{
+-	u32 resumed_bm_rld = 0;
+-
+-	acpi_read_bit_register(ACPI_BITREG_BUS_MASTER_RLD, &resumed_bm_rld);
+-	if (resumed_bm_rld = saved_bm_rld)
+-		return;
+-
+-	acpi_write_bit_register(ACPI_BITREG_BUS_MASTER_RLD, saved_bm_rld);
+-}
+-
+-static struct syscore_ops acpi_processor_syscore_ops = {
+-	.suspend = acpi_processor_suspend,
+-	.resume = acpi_processor_resume,
+-};
+-
+-void acpi_processor_syscore_init(void)
+-{
+-	register_syscore_ops(&acpi_processor_syscore_ops);
+-}
+-
+-void acpi_processor_syscore_exit(void)
+-{
+-	unregister_syscore_ops(&acpi_processor_syscore_ops);
+-}
+-#endif /* CONFIG_PM_SLEEP */
+-
+ #if defined(CONFIG_X86)
+ static void tsc_check_state(int state)
+ {
+diff --git a/drivers/acpi/sleep.c b/drivers/acpi/sleep.c
+index 2f0d4db40a9e..cfea056e3d82 100644
+--- a/drivers/acpi/sleep.c
++++ b/drivers/acpi/sleep.c
+@@ -19,6 +19,7 @@
+ #include <linux/reboot.h>
+ #include <linux/acpi.h>
+ #include <linux/module.h>
++#include <linux/syscore_ops.h>
+ #include <asm/io.h>
+ #include <trace/events/power.h>
  
--		if (!r->flags || r->parent || !r->start)
-+		if (resource_disabled(r) || r->parent || !r->start)
- 			continue;
+@@ -672,6 +673,42 @@ static void acpi_sleep_suspend_setup(void)
+ static inline void acpi_sleep_suspend_setup(void) {}
+ #endif /* !CONFIG_SUSPEND */
  
- 		pci_claim_bridge_resource(dev, idx);
-diff --git a/arch/microblaze/pci/pci-common.c b/arch/microblaze/pci/pci-common.c
-index 09b1af6..c123d3c 100644
---- a/arch/microblaze/pci/pci-common.c
-+++ b/arch/microblaze/pci/pci-common.c
-@@ -705,7 +705,7 @@ static void pcibios_fixup_resources(struct pci_dev *dev)
- 	}
- 	for (i = 0; i < DEVICE_COUNT_RESOURCE; i++) {
- 		struct resource *res = dev->resource + i;
--		if (!res->flags)
-+		if (resource_disabled(res))
- 			continue;
- 		if (res->start = 0) {
- 			pr_debug("PCI:%s Resource %d %016llx-%016llx [%x]",
-@@ -806,7 +806,7 @@ static void pcibios_fixup_bridge(struct pci_bus *bus)
- 	pci_bus_for_each_resource(bus, res, i) {
- 		if (!res)
- 			continue;
--		if (!res->flags)
-+		if (resource_disabled(res))
- 			continue;
- 		if (i >= 3 && bus->self->transparent)
- 			continue;
-@@ -985,7 +985,7 @@ static void pcibios_allocate_bus_resources(struct pci_bus *bus)
- 		 pci_domain_nr(bus), bus->number);
- 
- 	pci_bus_for_each_resource(bus, res, i) {
--		if (!res || !res->flags
-+		if (!res || resource_disabled(res)
- 		    || res->start > res->end || res->parent)
- 			continue;
- 		if (bus->parent = NULL)
-@@ -1087,7 +1087,8 @@ static void __init pcibios_allocate_resources(int pass)
- 			r = &dev->resource[idx];
- 			if (r->parent)		/* Already allocated */
- 				continue;
--			if (!r->flags || (r->flags & IORESOURCE_UNSET))
-+			if (resource_disabled(r) ||
-+			    (r->flags & IORESOURCE_UNSET))
- 				continue;	/* Not assigned at all */
- 			/* We only allocate ROMs on pass 1 just in case they
- 			 * have been screwed up by firmware
-@@ -1218,7 +1219,7 @@ void pcibios_claim_one_bus(struct pci_bus *bus)
- 		for (i = 0; i < PCI_NUM_RESOURCES; i++) {
- 			struct resource *r = &dev->resource[i];
- 
--			if (r->parent || !r->start || !r->flags)
-+			if (r->parent || !r->start || resource_disabled(r))
- 				continue;
- 
- 			pr_debug("PCI: Claiming %s: ", pci_name(dev));
-@@ -1278,7 +1279,7 @@ static void pcibios_setup_phb_resources(struct pci_controller *hose,
- 	res->start = (res->start + io_offset) & 0xffffffffu;
- 	res->end = (res->end + io_offset) & 0xffffffffu;
- 
--	if (!res->flags) {
-+	if (resource_disabled(res)) {
- 		pr_warn("PCI: I/O resource not set for host ");
- 		pr_cont("bridge %s (domain %d)\n",
- 			hose->dn->full_name, hose->global_number);
-@@ -1298,7 +1299,7 @@ static void pcibios_setup_phb_resources(struct pci_controller *hose,
- 	/* Hookup PHB Memory resources */
- 	for (i = 0; i < 3; ++i) {
- 		res = &hose->mem_resources[i];
--		if (!res->flags) {
-+		if (resource_disabled(res)) {
- 			if (i > 0)
- 				continue;
- 			pr_err("PCI: Memory resource 0 not set for ");
-diff --git a/arch/mn10300/unit-asb2305/pci-asb2305.c b/arch/mn10300/unit-asb2305/pci-asb2305.c
-index b5b036f..a249821 100644
---- a/arch/mn10300/unit-asb2305/pci-asb2305.c
-+++ b/arch/mn10300/unit-asb2305/pci-asb2305.c
-@@ -103,7 +103,7 @@ static void __init pcibios_allocate_bus_resources(struct list_head *bus_list)
- 			     idx < PCI_NUM_RESOURCES;
- 			     idx++) {
- 				r = &dev->resource[idx];
--				if (!r->flags)
-+				if (resource_disabled(r))
- 					continue;
- 				if (!r->start ||
- 				    pci_claim_bridge_resource(dev, idx) < 0) {
-@@ -189,7 +189,7 @@ static int __init pcibios_assign_resources(void)
- 		   addresses. */
- 		for_each_pci_dev(dev) {
- 			r = &dev->resource[PCI_ROM_RESOURCE];
--			if (!r->flags || !r->start)
-+			if (resource_disabled(r) || !r->start)
- 				continue;
- 			if (pci_claim_resource(dev, PCI_ROM_RESOURCE) < 0) {
- 				r->end -= r->start;
-diff --git a/arch/mn10300/unit-asb2305/pci.c b/arch/mn10300/unit-asb2305/pci.c
-index 3dfe2d3..ad77b18 100644
---- a/arch/mn10300/unit-asb2305/pci.c
-+++ b/arch/mn10300/unit-asb2305/pci.c
-@@ -291,7 +291,7 @@ static void pcibios_fixup_device_resources(struct pci_dev *dev)
- 	for (idx = 0; idx < PCI_BRIDGE_RESOURCES; idx++) {
- 		struct resource *r = &dev->resource[idx];
- 
--		if (!r->flags || r->parent || !r->start)
-+		if (resource_disabled(r) || r->parent || !r->start)
- 			continue;
- 
- 		pci_claim_resource(dev, idx);
-@@ -308,7 +308,7 @@ static void pcibios_fixup_bridge_resources(struct pci_dev *dev)
- 	for (idx = PCI_BRIDGE_RESOURCES; idx < PCI_NUM_RESOURCES; idx++) {
- 		struct resource *r = &dev->resource[idx];
- 
--		if (!r->flags || r->parent || !r->start)
-+		if (resource_disabled(r) || r->parent || !r->start)
- 			continue;
- 
- 		pci_claim_bridge_resource(dev, idx);
-diff --git a/arch/powerpc/kernel/pci-common.c b/arch/powerpc/kernel/pci-common.c
-index 2d8d654..10bb5cd 100644
---- a/arch/powerpc/kernel/pci-common.c
-+++ b/arch/powerpc/kernel/pci-common.c
-@@ -810,7 +810,7 @@ static void pcibios_fixup_resources(struct pci_dev *dev)
- 	for (i = 0; i < DEVICE_COUNT_RESOURCE; i++) {
- 		struct resource *res = dev->resource + i;
- 		struct pci_bus_region reg;
--		if (!res->flags)
-+		if (resource_disabled(res))
- 			continue;
- 
- 		/* If we're going to re-assign everything, we mark all resources
-@@ -927,7 +927,7 @@ static void pcibios_fixup_bridge(struct pci_bus *bus)
- 	struct pci_dev *dev = bus->self;
- 
- 	pci_bus_for_each_resource(bus, res, i) {
--		if (!res || !res->flags)
-+		if (!res || resource_disabled(res))
- 			continue;
- 		if (i >= 3 && bus->self->transparent)
- 			continue;
-@@ -1174,7 +1174,8 @@ static void pcibios_allocate_bus_resources(struct pci_bus *bus)
- 		 pci_domain_nr(bus), bus->number);
- 
- 	pci_bus_for_each_resource(bus, res, i) {
--		if (!res || !res->flags || res->start > res->end || res->parent)
-+		if (!res || resource_disabled(res) ||
-+		    res->start > res->end || res->parent)
- 			continue;
- 
- 		/* If the resource was left unset at this point, we clear it */
-@@ -1281,7 +1282,8 @@ static void __init pcibios_allocate_resources(int pass)
- 			r = &dev->resource[idx];
- 			if (r->parent)		/* Already allocated */
- 				continue;
--			if (!r->flags || (r->flags & IORESOURCE_UNSET))
-+			if (resource_disabled(r) ||
-+			    (r->flags & IORESOURCE_UNSET))
- 				continue;	/* Not assigned at all */
- 			/* We only allocate ROMs on pass 1 just in case they
- 			 * have been screwed up by firmware
-@@ -1419,7 +1421,7 @@ void pcibios_claim_one_bus(struct pci_bus *bus)
- 		for (i = 0; i < PCI_NUM_RESOURCES; i++) {
- 			struct resource *r = &dev->resource[i];
- 
--			if (r->parent || !r->start || !r->flags)
-+			if (r->parent || !r->start || resource_disabled(r))
- 				continue;
- 
- 			pr_debug("PCI: Claiming %s: "
-@@ -1504,7 +1506,7 @@ static void pcibios_setup_phb_resources(struct pci_controller *hose,
- 	/* Hookup PHB IO resource */
- 	res = &hose->io_resource;
- 
--	if (!res->flags) {
-+	if (resource_disabled(res)) {
- 		pr_info("PCI: I/O resource not set for host"
- 		       " bridge %s (domain %d)\n",
- 		       hose->dn->full_name, hose->global_number);
-@@ -1522,7 +1524,7 @@ static void pcibios_setup_phb_resources(struct pci_controller *hose,
- 	/* Hookup PHB Memory resources */
- 	for (i = 0; i < 3; ++i) {
- 		res = &hose->mem_resources[i];
--		if (!res->flags) {
-+		if (resource_disabled(res)) {
- 			if (i = 0)
- 				printk(KERN_ERR "PCI: Memory resource 0 not set for "
- 				       "host bridge %s (domain %d)\n",
-diff --git a/arch/powerpc/platforms/powernv/pci-ioda.c b/arch/powerpc/platforms/powernv/pci-ioda.c
-index 85cbc96..7146c8f 100644
---- a/arch/powerpc/platforms/powernv/pci-ioda.c
-+++ b/arch/powerpc/platforms/powernv/pci-ioda.c
-@@ -905,7 +905,7 @@ static int pnv_pci_vf_resource_shift(struct pci_dev *dev, int offset)
- 	num_vfs = pdn->num_vfs;
- 	for (i = 0; i < PCI_SRIOV_NUM_BARS; i++) {
- 		res = &dev->resource[i + PCI_IOV_RESOURCES];
--		if (!res->flags || !res->parent)
-+		if (resource_disabled(res) || !res->parent)
- 			continue;
- 
- 		if (!pnv_pci_is_mem_pref_64(res->flags))
-@@ -936,7 +936,7 @@ static int pnv_pci_vf_resource_shift(struct pci_dev *dev, int offset)
- 	 */
- 	for (i = 0; i < PCI_SRIOV_NUM_BARS; i++) {
- 		res = &dev->resource[i + PCI_IOV_RESOURCES];
--		if (!res->flags || !res->parent)
-+		if (resource_disabled(res) || !res->parent)
- 			continue;
- 
- 		if (!pnv_pci_is_mem_pref_64(res->flags))
-@@ -1218,7 +1218,7 @@ static int pnv_pci_vf_assign_m64(struct pci_dev *pdev, u16 num_vfs)
- 
- 	for (i = 0; i < PCI_SRIOV_NUM_BARS; i++) {
- 		res = &pdev->resource[i + PCI_IOV_RESOURCES];
--		if (!res->flags || !res->parent)
-+		if (resource_disabled(res) || !res->parent)
- 			continue;
- 
- 		if (!pnv_pci_is_mem_pref_64(res->flags))
-@@ -2772,7 +2772,7 @@ static void pnv_pci_ioda_fixup_iov_resources(struct pci_dev *pdev)
- 
- 	for (i = 0; i < PCI_SRIOV_NUM_BARS; i++) {
- 		res = &pdev->resource[i + PCI_IOV_RESOURCES];
--		if (!res->flags || res->parent)
-+		if (resource_disabled(res) || res->parent)
- 			continue;
- 		if (!pnv_pci_is_mem_pref_64(res->flags)) {
- 			dev_warn(&pdev->dev, " non M64 VF BAR%d: %pR\n",
-@@ -2794,7 +2794,7 @@ static void pnv_pci_ioda_fixup_iov_resources(struct pci_dev *pdev)
- 
- 	for (i = 0; i < PCI_SRIOV_NUM_BARS; i++) {
- 		res = &pdev->resource[i + PCI_IOV_RESOURCES];
--		if (!res->flags || res->parent)
-+		if (resource_disabled(res) || res->parent)
- 			continue;
- 		if (!pnv_pci_is_mem_pref_64(res->flags)) {
- 			dev_warn(&pdev->dev, "Skipping expanding VF BAR%d: %pR\n",
-@@ -2835,7 +2835,7 @@ static void pnv_ioda_setup_pe_seg(struct pci_controller *hose,
- 	BUG_ON(!(pe->flags & (PNV_IODA_PE_BUS | PNV_IODA_PE_BUS_ALL)));
- 
- 	pci_bus_for_each_resource(pe->pbus, res, i) {
--		if (!res || !res->flags ||
-+		if (!res || resource_disabled(res) ||
- 		    res->start > res->end)
- 			continue;
- 
-diff --git a/arch/s390/pci/pci.c b/arch/s390/pci/pci.c
-index 598f023..d850749 100644
---- a/arch/s390/pci/pci.c
-+++ b/arch/s390/pci/pci.c
-@@ -658,7 +658,7 @@ int pcibios_add_device(struct pci_dev *pdev)
- 
- 	for (i = 0; i < PCI_BAR_COUNT; i++) {
- 		res = &pdev->resource[i];
--		if (res->parent || !res->flags)
-+		if (res->parent || resource_disabled(res))
- 			continue;
- 		pci_claim_resource(pdev, i);
- 	}
-diff --git a/arch/sparc/kernel/pci.c b/arch/sparc/kernel/pci.c
-index bfd0b70..f5e9536 100644
---- a/arch/sparc/kernel/pci.c
-+++ b/arch/sparc/kernel/pci.c
-@@ -630,7 +630,7 @@ static void pci_claim_bus_resources(struct pci_bus *bus)
- 		for (i = 0; i < PCI_NUM_RESOURCES; i++) {
- 			struct resource *r = &dev->resource[i];
- 
--			if (r->parent || !r->start || !r->flags)
-+			if (r->parent || !r->start || resource_disabled(r))
- 				continue;
- 
- 			if (ofpci_verbose)
-diff --git a/arch/x86/pci/i386.c b/arch/x86/pci/i386.c
-index 0b74efe..8538edb 100644
---- a/arch/x86/pci/i386.c
-+++ b/arch/x86/pci/i386.c
-@@ -204,7 +204,7 @@ static void pcibios_allocate_bridge_resources(struct pci_dev *dev)
- 
- 	for (idx = PCI_BRIDGE_RESOURCES; idx < PCI_NUM_RESOURCES; idx++) {
- 		r = &dev->resource[idx];
--		if (!r->flags)
-+		if (resource_disabled(r))
- 			continue;
- 		if (r->parent)	/* Already allocated */
- 			continue;
-@@ -333,7 +333,7 @@ static void pcibios_allocate_dev_rom_resource(struct pci_dev *dev)
- 	 * addresses.
- 	 */
- 	r = &dev->resource[PCI_ROM_RESOURCE];
--	if (!r->flags || !r->start)
-+	if (resource_disabled(r) || !r->start)
- 		return;
- 	if (r->parent) /* Already allocated */
- 		return;
-diff --git a/arch/xtensa/kernel/pci.c b/arch/xtensa/kernel/pci.c
-index b848cc3..f34d061 100644
---- a/arch/xtensa/kernel/pci.c
-+++ b/arch/xtensa/kernel/pci.c
-@@ -142,7 +142,7 @@ static void __init pci_controller_apertures(struct pci_controller *pci_ctrl,
- 
- 	io_offset = (unsigned long)pci_ctrl->io_space.base;
- 	res = &pci_ctrl->io_resource;
--	if (!res->flags) {
-+	if (resource_disabled(res)) {
- 		if (io_offset)
- 			printk (KERN_ERR "I/O resource not set for host"
- 				" bridge %d\n", pci_ctrl->index);
-@@ -156,7 +156,7 @@ static void __init pci_controller_apertures(struct pci_controller *pci_ctrl,
- 
- 	for (i = 0; i < 3; i++) {
- 		res = &pci_ctrl->mem_resources[i];
--		if (!res->flags) {
-+		if (resource_disabled(res)) {
- 			if (i > 0)
- 				continue;
- 			printk(KERN_ERR "Memory resource not set for "
-diff --git a/drivers/iommu/intel-iommu.c b/drivers/iommu/intel-iommu.c
-index 0649b94..ee9bdbf 100644
---- a/drivers/iommu/intel-iommu.c
-+++ b/drivers/iommu/intel-iommu.c
-@@ -1743,7 +1743,8 @@ static int dmar_init_reserved_ranges(void)
- 
- 		for (i = 0; i < PCI_NUM_RESOURCES; i++) {
- 			r = &pdev->resource[i];
--			if (!r->flags || !(r->flags & IORESOURCE_MEM))
-+			if (resource_disabled(r) ||
-+			    !(r->flags & IORESOURCE_MEM))
- 				continue;
- 			iova = reserve_iova(&reserved_iova_list,
- 					    IOVA_PFN(r->start),
-diff --git a/drivers/pci/host/pcie-rcar.c b/drivers/pci/host/pcie-rcar.c
-index c086210..a6d6bd0 100644
---- a/drivers/pci/host/pcie-rcar.c
-+++ b/drivers/pci/host/pcie-rcar.c
-@@ -365,7 +365,7 @@ static int rcar_pcie_setup(int nr, struct pci_sys_data *sys)
- 	for (i = 0; i < RCAR_PCI_MAX_RESOURCES; i++) {
- 
- 		res = &pcie->res[i];
--		if (!res->flags)
-+		if (resource_disabled(res))
- 			continue;
- 
- 		rcar_pcie_setup_window(i, pcie);
-diff --git a/drivers/pci/iov.c b/drivers/pci/iov.c
-index ee0ebff..808d08b 100644
---- a/drivers/pci/iov.c
-+++ b/drivers/pci/iov.c
-@@ -438,7 +438,7 @@ found:
- 		res = &dev->resource[i + PCI_IOV_RESOURCES];
- 		bar64 = __pci_read_base(dev, pci_bar_unknown, res,
- 					pos + PCI_SRIOV_BAR + i * 4);
--		if (!res->flags)
-+		if (resource_disabled(res))
- 			continue;
- 		if (resource_size(res) & (PAGE_SIZE - 1)) {
- 			rc = -EIO;
-diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
-index 14bdbca..5440fb1 100644
---- a/drivers/pci/probe.c
-+++ b/drivers/pci/probe.c
-@@ -2129,7 +2129,7 @@ void pci_bus_release_busn_res(struct pci_bus *b)
- 	struct resource *res = &b->busn_res;
- 	int ret;
- 
--	if (!res->flags || !res->parent)
-+	if (resource_disabled(res) || !res->parent)
- 		return;
- 
- 	ret = release_resource(res);
-diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
-index a2945a4..abbc2ac 100644
---- a/drivers/pci/quirks.c
-+++ b/drivers/pci/quirks.c
-@@ -337,7 +337,7 @@ static void quirk_bar_fixed(struct pci_dev *dev)
- 	for (i = 0; i < PCI_STD_RESOURCE_END; i++) {
- 		struct resource *r = &dev->resource[i];
- 
--		if (!r->start || !r->flags)
-+		if (!r->start || resource_disabled(r))
- 			continue;
- 		r->flags |= IORESOURCE_PCI_FIXED;
- 	}
-@@ -351,7 +351,7 @@ static void quirk_allocate_fixed(struct pci_dev *dev)
- 	for (i = 0; i < PCI_NUM_RESOURCES; i++) {
- 		struct resource *r = &dev->resource[i];
- 
--		if (r->parent ||
-+		if (r->parent || resource_disabled(r) ||
- 		    !(r->flags & IORESOURCE_PCI_FIXED) ||
- 		    !(r->flags & (IORESOURCE_IO | IORESOURCE_MEM)))
- 			continue;
-diff --git a/drivers/pci/rom.c b/drivers/pci/rom.c
-index eb0ad53..585a9d3 100644
---- a/drivers/pci/rom.c
-+++ b/drivers/pci/rom.c
-@@ -28,7 +28,7 @@ int pci_enable_rom(struct pci_dev *pdev)
- 	struct pci_bus_region region;
- 	u32 rom_addr;
- 
--	if (!res->flags)
-+	if (resource_disabled(res))
- 		return -1;
- 
- 	pcibios_resource_to_bus(pdev->bus, &region, res);
-diff --git a/drivers/pci/setup-bus.c b/drivers/pci/setup-bus.c
-index 32ce700..0374446 100644
---- a/drivers/pci/setup-bus.c
-+++ b/drivers/pci/setup-bus.c
-@@ -247,7 +247,7 @@ static void pdev_assign_resources_prepare(struct pci_dev *dev,
- 		if (r->flags & IORESOURCE_PCI_FIXED)
- 			continue;
- 
--		if (!(r->flags) || r->parent)
-+		if (resource_disabled(r) || r->parent)
- 			continue;
- 
- 		r_align = __pci_resource_alignment(dev, r, realloc_head);
-@@ -379,7 +379,7 @@ static void reassign_resources_sorted(struct list_head *realloc_head,
- 	list_for_each_entry_safe(add_res, tmp, realloc_head, list) {
- 		res = add_res->res;
- 		/* skip resource that has been reset */
--		if (!res->flags)
-+		if (resource_disabled(res))
- 			goto out;
- 
- 		/* skip this resource if not found in head list */
-@@ -2138,7 +2138,7 @@ static void pci_bus_dump_res(struct pci_bus *bus)
- 	int i;
- 
- 	pci_bus_for_each_resource(bus, res, i) {
--		if (!res || !res->end || !res->flags)
-+		if (!res || !res->end || resource_disabled(res))
- 			continue;
- 
- 		dev_printk(KERN_DEBUG, &bus->dev, "resource %d %pR\n", i, res);
-@@ -2221,7 +2221,7 @@ static int iov_resources_unassigned(struct pci_dev *dev, void *data)
- 		struct pci_bus_region region;
- 
- 		/* Not assigned or rejected by kernel? */
--		if (!r->flags)
-+		if (resource_disabled(r))
- 			continue;
- 
- 		pcibios_resource_to_bus(dev->bus, &region, r);
-diff --git a/drivers/pci/setup-res.c b/drivers/pci/setup-res.c
-index 26aedde..55caf7a 100644
---- a/drivers/pci/setup-res.c
-+++ b/drivers/pci/setup-res.c
-@@ -40,7 +40,7 @@ void pci_update_resource(struct pci_dev *dev, int resno)
- 	 * Ignore resources for unimplemented BARs and unused resource slots
- 	 * for 64 bit BARs.
- 	 */
--	if (!res->flags)
-+	if (resource_disabled(res))
- 		return;
- 
- 	if (res->flags & IORESOURCE_UNSET)
-diff --git a/include/linux/ioport.h b/include/linux/ioport.h
-index 27dbb18..fb21179 100644
---- a/include/linux/ioport.h
-+++ b/include/linux/ioport.h
-@@ -179,6 +179,10 @@ static inline bool resource_contains(struct resource *r1, struct resource *r2)
- 	return r1->start <= r2->start && r1->end >= r2->end;
- }
- 
-+static inline bool resource_disabled(struct resource *r)
++#ifdef CONFIG_PM_SLEEP
++static u32 saved_bm_rld;
++
++static int acpi_processor_suspend(void)
 +{
-+	return !r->flags || (r->flags & IORESOURCE_DISABLED);
++	acpi_read_bit_register(ACPI_BITREG_BUS_MASTER_RLD, &saved_bm_rld);
++	return 0;
 +}
++
++static void acpi_processor_resume(void)
++{
++	u32 resumed_bm_rld = 0;
++
++	acpi_read_bit_register(ACPI_BITREG_BUS_MASTER_RLD, &resumed_bm_rld);
++	if (resumed_bm_rld = saved_bm_rld)
++		return;
++
++	acpi_write_bit_register(ACPI_BITREG_BUS_MASTER_RLD, saved_bm_rld);
++}
++
++static struct syscore_ops acpi_processor_syscore_ops = {
++	.suspend = acpi_processor_suspend,
++	.resume = acpi_processor_resume,
++};
++
++void acpi_processor_syscore_init(void)
++{
++	register_syscore_ops(&acpi_processor_syscore_ops);
++}
++
++void acpi_processor_syscore_exit(void)
++{
++	unregister_syscore_ops(&acpi_processor_syscore_ops);
++}
++#endif /* CONFIG_PM_SLEEP */
++
+ #ifdef CONFIG_HIBERNATION
+ static unsigned long s4_hardware_signature;
+ static struct acpi_table_facs *facs;
+diff --git a/include/acpi/processor.h b/include/acpi/processor.h
+index 2669cae4a0c8..4c464d67ba09 100644
+--- a/include/acpi/processor.h
++++ b/include/acpi/processor.h
+@@ -338,7 +338,7 @@ int acpi_processor_cst_has_changed(struct acpi_processor *pr);
+ int acpi_processor_hotplug(struct acpi_processor *pr);
+ extern struct cpuidle_driver acpi_idle_driver;
  
- /* Convenience shorthand with allocation */
- #define request_region(start,n,name)		__request_region(&ioport_resource, (start), (n), (name), 0)
+-#ifdef CONFIG_PM_SLEEP
++#if defined(CONFIG_PM_SLEEP) && defined(CONFIG_ACPI_SYSTEM_POWER_STATES_SUPPORT)
+ void acpi_processor_syscore_init(void);
+ void acpi_processor_syscore_exit(void);
+ #else
 -- 
-1.8.4.5
+1.9.1
 
