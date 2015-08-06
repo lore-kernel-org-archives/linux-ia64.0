@@ -1,74 +1,43 @@
-From: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
-Date: Mon, 17 Aug 2015 17:13:28 +0000
-Subject: [RFT PATCH v2] ia64: tiger_defconfig: convert to use libata PATA drivers
-Message-Id: <1439831608-8362-4-git-send-email-b.zolnierkie@samsung.com>
+From: Al Stone <al.stone@linaro.org>
+Date: Thu, 06 Aug 2015 20:59:30 +0000
+Subject: [PATCH 5/5] ACPI: remove definition of BAD_MADT_ENTRY macro
+Message-Id: <1438894770-31163-6-git-send-email-al.stone@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1439831608-8362-1-git-send-email-b.zolnierkie@samsung.com>
-In-Reply-To: <1439831608-8362-1-git-send-email-b.zolnierkie@samsung.com>
+References: <1438894770-31163-1-git-send-email-al.stone@linaro.org>
+In-Reply-To: <1438894770-31163-1-git-send-email-al.stone@linaro.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ide@vger.kernel.org, linux-kernel@vger.kernel.org, b.zolnierkie@samsung.com
+To: linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-pm@vger.kernel.org, linaro-acpi@lists.linaro.org, linaro-kernel@lists.linaro.org, patches@linaro.org, Al Stone <al.stone@linaro.org>, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>
 
-IDE subsystem has been deprecated since 2009 and the majority
-(if not all) of Linux distributions have switched to use
-libata for ATA support exclusively.  However there are still
-some users (mostly old or/and embedded non-x86 systems) that
-have not converted from using IDE subsystem to libata PATA
-drivers.  This doesn't seem to be good thing in the long-term
-for Linux as while there is less and less PATA systems left
-in use:
+Now that we have introduced to bad_madt_entry(), and we have removed
+all the usages of the BAD_MADT_ENTRY macro from all of the various
+architectures that use it (arm64, ia64, x86), we can remove the macro
+definition since it is no longer used.
 
-* testing efforts are divided between two subsystems
-
-* having duplicate drivers for same hardware confuses users
-
-This patch converts tiger_defconfig to use libata PATA
-drivers.
-
-Signed-off-by: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
+Signed-off-by: Al Stone <al.stone@linaro.org>
+Cc: Rafael J. Wysocki <rjw@rjwysocki.net>
+Cc: Len Brown <lenb@kernel.org>
 ---
-v2:
-- added missing pata_oldpiix host driver (noticed by Sergei Shtylyov)
+ include/linux/acpi.h | 4 ----
+ 1 file changed, 4 deletions(-)
 
-Build tested only.
-If you have affected hardware please test.  Thank you.
-
- arch/ia64/configs/tiger_defconfig | 14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
-
-diff --git a/arch/ia64/configs/tiger_defconfig b/arch/ia64/configs/tiger_defconfig
-index 192ed15..ed795c9 100644
---- a/arch/ia64/configs/tiger_defconfig
-+++ b/arch/ia64/configs/tiger_defconfig
-@@ -42,19 +42,19 @@ CONFIG_BLK_DEV_LOOP=m
- CONFIG_BLK_DEV_CRYPTOLOOP=m
- CONFIG_BLK_DEV_NBD=m
- CONFIG_BLK_DEV_RAM=y
--CONFIG_IDE=y
--CONFIG_BLK_DEV_IDECD=y
--CONFIG_BLK_DEV_GENERIC=y
--CONFIG_BLK_DEV_CMD64X=y
--CONFIG_BLK_DEV_PIIX=y
--CONFIG_SCSI=y
- CONFIG_BLK_DEV_SD=y
- CONFIG_CHR_DEV_ST=m
--CONFIG_BLK_DEV_SR=m
-+CONFIG_BLK_DEV_SR=y
- CONFIG_CHR_DEV_SG=m
- CONFIG_SCSI_FC_ATTRS=y
- CONFIG_SCSI_SYM53C8XX_2=y
- CONFIG_SCSI_QLOGIC_1280=y
-+CONFIG_ATA=y
-+CONFIG_ATA_PIIX=y
-+CONFIG_PATA_CMD64X=y
-+CONFIG_PATA_OLDPIIX=y
-+CONFIG_PATA_MPIIX=y
-+CONFIG_ATA_GENERIC=y
- CONFIG_MD=y
- CONFIG_BLK_DEV_MD=m
- CONFIG_MD_LINEAR=m
+diff --git a/include/linux/acpi.h b/include/linux/acpi.h
+index d2445fa..06072d8 100644
+--- a/include/linux/acpi.h
++++ b/include/linux/acpi.h
+@@ -131,10 +131,6 @@ static inline void acpi_initrd_override(void *data, size_t size)
+ }
+ #endif
+ 
+-#define BAD_MADT_ENTRY(entry, end) (					    \
+-		(!entry) || (unsigned long)entry + sizeof(*entry) > end ||  \
+-		((struct acpi_subtable_header *)entry)->length < sizeof(*entry))
+-
+ char * __acpi_map_table (unsigned long phys_addr, unsigned long size);
+ void __acpi_unmap_table(char *map, unsigned long size);
+ int early_acpi_boot_init(void);
 -- 
-1.9.1
+2.4.3
 
