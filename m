@@ -1,518 +1,137 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Mon, 17 Aug 2015 07:06:56 +0000
-Subject: [PATCH 5/5] dma-mapping: consolidate dma_set_mask
-Message-Id: <1439795216-32189-6-git-send-email-hch@lst.de>
+From: Eric B Munson <emunson@akamai.com>
+Date: Sun, 09 Aug 2015 05:22:52 +0000
+Subject: [PATCH v7 2/6] mm: mlock: Add new mlock system call
+Message-Id: <1439097776-27695-3-git-send-email-emunson@akamai.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1439795216-32189-1-git-send-email-hch@lst.de>
-In-Reply-To: <1439795216-32189-1-git-send-email-hch@lst.de>
+References: <1439097776-27695-1-git-send-email-emunson@akamai.com>
+In-Reply-To: <1439097776-27695-1-git-send-email-emunson@akamai.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@linux-foundation.org
-Cc: arnd@arndb.de, linux@arm.linux.org.uk, catalin.marinas@arm.com, will.deacon@arm.com, ysato@users.sourceforge.jp, monstr@monstr.eu, jonas@southpole.se, cmetcalf@ezchip.com, gxt@mprc.pku.edu.cn, x86@kernel.org, linux-alpha@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Eric B Munson <emunson@akamai.com>, Michal Hocko <mhocko@suse.cz>, Vlastimil Babka <vbabka@suse.cz>, Heiko Carstens <heiko.carstens@de.ibm.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Catalin Marinas <catalin.marinas@arm.com>, Stephen Rothwell <sfr@canb.auug.org.au>, Guenter Roeck <linux@roeck-us.net>, Andrea Arcangeli <aarcange@redhat.com>, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, adi-buildroot-devel@lists.sourceforge.net, linux-cris-kernel@axis.com, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-am33-list@redhat.com, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-api@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
 
-Almost everyone implements dma_set_mask the same way, although some time
-that's hidden in ->set_dma_mask methods.
+With the refactored mlock code, introduce a new system call for mlock.
+The new call will allow the user to specify what lock states are being
+added.  mlock2 is trivial at the moment, but a follow on patch will add
+a new mlock state making it useful.
 
-This patch consolidates those into a common implementation that either
-calls ->set_dma_mask if present or otherwise uses the default
-implementation.  Some architectures used to only call ->set_dma_mask
-after the initial checks, and those instance have been fixed to do the
-full work.  h8300 implemented dma_set_mask bogusly as a no-ops and has
-been fixed.
-
-Unfortunately some architectures overload unrelated semantics like changing
-the dma_ops into it so we still need to allow for an architecture override
-for now.
-
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+Signed-off-by: Eric B Munson <emunson@akamai.com>
+Acked-by: Vlastimil Babka <vbabka@suse.cz>
+Cc: Michal Hocko <mhocko@suse.cz>
+Cc: Vlastimil Babka <vbabka@suse.cz>
+Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
+Cc: Geert Uytterhoeven <geert@linux-m68k.org>
+Cc: Catalin Marinas <catalin.marinas@arm.com>
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>
+Cc: Guenter Roeck <linux@roeck-us.net>
+Cc: Andrea Arcangeli <aarcange@redhat.com>
+Cc: linux-alpha@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Cc: linux-arm-kernel@lists.infradead.org
+Cc: adi-buildroot-devel@lists.sourceforge.net
+Cc: linux-cris-kernel@axis.com
+Cc: linux-ia64@vger.kernel.org
+Cc: linux-m68k@lists.linux-m68k.org
+Cc: linux-am33-list@redhat.com
+Cc: linux-parisc@vger.kernel.org
+Cc: linuxppc-dev@lists.ozlabs.org
+Cc: linux-s390@vger.kernel.org
+Cc: linux-sh@vger.kernel.org
+Cc: sparclinux@vger.kernel.org
+Cc: linux-xtensa@linux-xtensa.org
+Cc: linux-api@vger.kernel.org
+Cc: linux-arch@vger.kernel.org
+Cc: linux-mm@kvack.org
 ---
- arch/alpha/include/asm/dma-mapping.h      |  5 -----
- arch/alpha/kernel/pci-noop.c              | 10 ----------
- arch/alpha/kernel/pci_iommu.c             | 11 -----------
- arch/arm/include/asm/dma-mapping.h        |  5 -----
- arch/arm64/include/asm/dma-mapping.h      |  9 ---------
- arch/h8300/include/asm/dma-mapping.h      |  5 -----
- arch/hexagon/include/asm/dma-mapping.h    |  1 -
- arch/hexagon/kernel/dma.c                 | 11 -----------
- arch/ia64/include/asm/dma-mapping.h       |  9 ---------
- arch/microblaze/include/asm/dma-mapping.h | 14 --------------
- arch/mips/include/asm/dma-mapping.h       | 16 ----------------
- arch/mips/loongson64/common/dma-swiotlb.c |  3 +++
- arch/openrisc/include/asm/dma-mapping.h   |  9 ---------
- arch/powerpc/include/asm/dma-mapping.h    |  4 +++-
- arch/s390/include/asm/dma-mapping.h       |  2 --
- arch/s390/pci/pci_dma.c                   | 10 ----------
- arch/sh/include/asm/dma-mapping.h         | 14 --------------
- arch/sparc/include/asm/dma-mapping.h      |  4 +++-
- arch/tile/include/asm/dma-mapping.h       |  6 ++++--
- arch/unicore32/include/asm/dma-mapping.h  | 10 ----------
- arch/x86/include/asm/dma-mapping.h        |  2 --
- arch/x86/kernel/pci-dma.c                 | 11 -----------
- include/asm-generic/dma-mapping-common.h  | 15 +++++++++++++++
- 23 files changed, 28 insertions(+), 158 deletions(-)
+ arch/x86/entry/syscalls/syscall_32.tbl | 1 +
+ arch/x86/entry/syscalls/syscall_64.tbl | 1 +
+ include/linux/syscalls.h               | 2 ++
+ include/uapi/asm-generic/unistd.h      | 4 +++-
+ kernel/sys_ni.c                        | 1 +
+ mm/mlock.c                             | 8 ++++++++
+ 6 files changed, 16 insertions(+), 1 deletion(-)
 
-diff --git a/arch/alpha/include/asm/dma-mapping.h b/arch/alpha/include/asm/dma-mapping.h
-index 9d763e5..72a8ca7 100644
---- a/arch/alpha/include/asm/dma-mapping.h
-+++ b/arch/alpha/include/asm/dma-mapping.h
-@@ -12,11 +12,6 @@ static inline struct dma_map_ops *get_dma_ops(struct device *dev)
+diff --git a/arch/x86/entry/syscalls/syscall_32.tbl b/arch/x86/entry/syscalls/syscall_32.tbl
+index ef8187f..8e06da6 100644
+--- a/arch/x86/entry/syscalls/syscall_32.tbl
++++ b/arch/x86/entry/syscalls/syscall_32.tbl
+@@ -365,3 +365,4 @@
+ 356	i386	memfd_create		sys_memfd_create
+ 357	i386	bpf			sys_bpf
+ 358	i386	execveat		sys_execveat			stub32_execveat
++360	i386	mlock2			sys_mlock2
+diff --git a/arch/x86/entry/syscalls/syscall_64.tbl b/arch/x86/entry/syscalls/syscall_64.tbl
+index 9ef32d5..67601e7 100644
+--- a/arch/x86/entry/syscalls/syscall_64.tbl
++++ b/arch/x86/entry/syscalls/syscall_64.tbl
+@@ -329,6 +329,7 @@
+ 320	common	kexec_file_load		sys_kexec_file_load
+ 321	common	bpf			sys_bpf
+ 322	64	execveat		stub_execveat
++324	common	mlock2			sys_mlock2
  
- #include <asm-generic/dma-mapping-common.h>
+ #
+ # x32-specific system call numbers start at 512 to avoid cache impact
+diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
+index b45c45b..56a3d59 100644
+--- a/include/linux/syscalls.h
++++ b/include/linux/syscalls.h
+@@ -884,4 +884,6 @@ asmlinkage long sys_execveat(int dfd, const char __user *filename,
+ 			const char __user *const __user *argv,
+ 			const char __user *const __user *envp, int flags);
  
--static inline int dma_set_mask(struct device *dev, u64 mask)
--{
--	return get_dma_ops(dev)->set_dma_mask(dev, mask);
--}
--
- #define dma_cache_sync(dev, va, size, dir)		  ((void)0)
- 
- #endif	/* _ALPHA_DMA_MAPPING_H */
-diff --git a/arch/alpha/kernel/pci-noop.c b/arch/alpha/kernel/pci-noop.c
-index df24b76..2b1f4a1 100644
---- a/arch/alpha/kernel/pci-noop.c
-+++ b/arch/alpha/kernel/pci-noop.c
-@@ -166,15 +166,6 @@ static int alpha_noop_supported(struct device *dev, u64 mask)
- 	return mask < 0x00ffffffUL ? 0 : 1;
- }
- 
--static int alpha_noop_set_mask(struct device *dev, u64 mask)
--{
--	if (!dev->dma_mask || !dma_supported(dev, mask))
--		return -EIO;
--
--	*dev->dma_mask = mask;
--	return 0;
--}
--
- struct dma_map_ops alpha_noop_ops = {
- 	.alloc			= alpha_noop_alloc_coherent,
- 	.free			= alpha_noop_free_coherent,
-@@ -182,7 +173,6 @@ struct dma_map_ops alpha_noop_ops = {
- 	.map_sg			= alpha_noop_map_sg,
- 	.mapping_error		= alpha_noop_mapping_error,
- 	.dma_supported		= alpha_noop_supported,
--	.set_dma_mask		= alpha_noop_set_mask,
- };
- 
- struct dma_map_ops *dma_ops = &alpha_noop_ops;
-diff --git a/arch/alpha/kernel/pci_iommu.c b/arch/alpha/kernel/pci_iommu.c
-index eddee77..8969bf2 100644
---- a/arch/alpha/kernel/pci_iommu.c
-+++ b/arch/alpha/kernel/pci_iommu.c
-@@ -939,16 +939,6 @@ static int alpha_pci_mapping_error(struct device *dev, dma_addr_t dma_addr)
- 	return dma_addr = 0;
- }
- 
--static int alpha_pci_set_mask(struct device *dev, u64 mask)
--{
--	if (!dev->dma_mask ||
--	    !pci_dma_supported(alpha_gendev_to_pci(dev), mask))
--		return -EIO;
--
--	*dev->dma_mask = mask;
--	return 0;
--}
--
- struct dma_map_ops alpha_pci_ops = {
- 	.alloc			= alpha_pci_alloc_coherent,
- 	.free			= alpha_pci_free_coherent,
-@@ -958,7 +948,6 @@ struct dma_map_ops alpha_pci_ops = {
- 	.unmap_sg		= alpha_pci_unmap_sg,
- 	.mapping_error		= alpha_pci_mapping_error,
- 	.dma_supported		= alpha_pci_supported,
--	.set_dma_mask		= alpha_pci_set_mask,
- };
- 
- struct dma_map_ops *dma_ops = &alpha_pci_ops;
-diff --git a/arch/arm/include/asm/dma-mapping.h b/arch/arm/include/asm/dma-mapping.h
-index 199b080..906a60e 100644
---- a/arch/arm/include/asm/dma-mapping.h
-+++ b/arch/arm/include/asm/dma-mapping.h
-@@ -48,11 +48,6 @@ extern int dma_supported(struct device *dev, u64 mask);
-  */
- #include <asm-generic/dma-mapping-common.h>
- 
--static inline int dma_set_mask(struct device *dev, u64 mask)
--{
--	return get_dma_ops(dev)->set_dma_mask(dev, mask);
--}
--
- #ifdef __arch_page_to_dma
- #error Please update to __arch_pfn_to_dma
- #endif
-diff --git a/arch/arm64/include/asm/dma-mapping.h b/arch/arm64/include/asm/dma-mapping.h
-index f519a58..cfdb34b 100644
---- a/arch/arm64/include/asm/dma-mapping.h
-+++ b/arch/arm64/include/asm/dma-mapping.h
-@@ -84,15 +84,6 @@ static inline phys_addr_t dma_to_phys(struct device *dev, dma_addr_t dev_addr)
- 	return (phys_addr_t)dev_addr;
- }
- 
--static inline int dma_set_mask(struct device *dev, u64 mask)
--{
--	if (!dev->dma_mask || !dma_supported(dev, mask))
--		return -EIO;
--	*dev->dma_mask = mask;
--
--	return 0;
--}
--
- static inline bool dma_capable(struct device *dev, dma_addr_t addr, size_t size)
- {
- 	if (!dev->dma_mask)
-diff --git a/arch/h8300/include/asm/dma-mapping.h b/arch/h8300/include/asm/dma-mapping.h
-index 48d652e..d9b5b80 100644
---- a/arch/h8300/include/asm/dma-mapping.h
-+++ b/arch/h8300/include/asm/dma-mapping.h
-@@ -10,9 +10,4 @@ static inline struct dma_map_ops *get_dma_ops(struct device *dev)
- 
- #include <asm-generic/dma-mapping-common.h>
- 
--static inline int dma_set_mask(struct device *dev, u64 mask)
--{
--	return 0;
--}
--
- #endif
-diff --git a/arch/hexagon/include/asm/dma-mapping.h b/arch/hexagon/include/asm/dma-mapping.h
-index 36e8de7..268fde8 100644
---- a/arch/hexagon/include/asm/dma-mapping.h
-+++ b/arch/hexagon/include/asm/dma-mapping.h
-@@ -45,7 +45,6 @@ static inline struct dma_map_ops *get_dma_ops(struct device *dev)
- 
- #define HAVE_ARCH_DMA_SUPPORTED 1
- extern int dma_supported(struct device *dev, u64 mask);
--extern int dma_set_mask(struct device *dev, u64 mask);
- extern int dma_is_consistent(struct device *dev, dma_addr_t dma_handle);
- extern void dma_cache_sync(struct device *dev, void *vaddr, size_t size,
- 			   enum dma_data_direction direction);
-diff --git a/arch/hexagon/kernel/dma.c b/arch/hexagon/kernel/dma.c
-index b74f9ba..9e3ddf7 100644
---- a/arch/hexagon/kernel/dma.c
-+++ b/arch/hexagon/kernel/dma.c
-@@ -44,17 +44,6 @@ int dma_supported(struct device *dev, u64 mask)
- }
- EXPORT_SYMBOL(dma_supported);
- 
--int dma_set_mask(struct device *dev, u64 mask)
--{
--	if (!dev->dma_mask || !dma_supported(dev, mask))
--		return -EIO;
--
--	*dev->dma_mask = mask;
--
--	return 0;
--}
--EXPORT_SYMBOL(dma_set_mask);
--
- static struct gen_pool *coherent_pool;
- 
- 
-diff --git a/arch/ia64/include/asm/dma-mapping.h b/arch/ia64/include/asm/dma-mapping.h
-index 7982caa..9beccf8 100644
---- a/arch/ia64/include/asm/dma-mapping.h
-+++ b/arch/ia64/include/asm/dma-mapping.h
-@@ -27,15 +27,6 @@ extern void machvec_dma_sync_sg(struct device *, struct scatterlist *, int,
- 
- #include <asm-generic/dma-mapping-common.h>
- 
--static inline int
--dma_set_mask (struct device *dev, u64 mask)
--{
--	if (!dev->dma_mask || !dma_supported(dev, mask))
--		return -EIO;
--	*dev->dma_mask = mask;
--	return 0;
--}
--
- static inline bool dma_capable(struct device *dev, dma_addr_t addr, size_t size)
- {
- 	if (!dev->dma_mask)
-diff --git a/arch/microblaze/include/asm/dma-mapping.h b/arch/microblaze/include/asm/dma-mapping.h
-index 3b453c5..24b1297 100644
---- a/arch/microblaze/include/asm/dma-mapping.h
-+++ b/arch/microblaze/include/asm/dma-mapping.h
-@@ -46,20 +46,6 @@ static inline struct dma_map_ops *get_dma_ops(struct device *dev)
- 
- #include <asm-generic/dma-mapping-common.h>
- 
--static inline int dma_set_mask(struct device *dev, u64 dma_mask)
--{
--	struct dma_map_ops *ops = get_dma_ops(dev);
--
--	if (unlikely(ops = NULL))
--		return -EIO;
--	if (ops->set_dma_mask)
--		return ops->set_dma_mask(dev, dma_mask);
--	if (!dev->dma_mask || !dma_supported(dev, dma_mask))
--		return -EIO;
--	*dev->dma_mask = dma_mask;
--	return 0;
--}
--
- static inline void __dma_sync(unsigned long paddr,
- 			      size_t size, enum dma_data_direction direction)
- {
-diff --git a/arch/mips/include/asm/dma-mapping.h b/arch/mips/include/asm/dma-mapping.h
-index 8bf8ec3..e604f76 100644
---- a/arch/mips/include/asm/dma-mapping.h
-+++ b/arch/mips/include/asm/dma-mapping.h
-@@ -31,22 +31,6 @@ static inline void dma_mark_clean(void *addr, size_t size) {}
- 
- #include <asm-generic/dma-mapping-common.h>
- 
--static inline int
--dma_set_mask(struct device *dev, u64 mask)
--{
--	struct dma_map_ops *ops = get_dma_ops(dev);
--
--	if(!dev->dma_mask || !dma_supported(dev, mask))
--		return -EIO;
--
--	if (ops->set_dma_mask)
--		return ops->set_dma_mask(dev, mask);
--
--	*dev->dma_mask = mask;
--
--	return 0;
--}
--
- extern void dma_cache_sync(struct device *dev, void *vaddr, size_t size,
- 	       enum dma_data_direction direction);
- 
-diff --git a/arch/mips/loongson64/common/dma-swiotlb.c b/arch/mips/loongson64/common/dma-swiotlb.c
-index ef9da3b..4ffa6fc 100644
---- a/arch/mips/loongson64/common/dma-swiotlb.c
-+++ b/arch/mips/loongson64/common/dma-swiotlb.c
-@@ -85,6 +85,9 @@ static void loongson_dma_sync_sg_for_device(struct device *dev,
- 
- static int loongson_dma_set_mask(struct device *dev, u64 mask)
- {
-+	if (!dev->dma_mask || !dma_supported(dev, mask))
-+		return -EIO;
-+
- 	if (mask > DMA_BIT_MASK(loongson_sysconf.dma_mask_bits)) {
- 		*dev->dma_mask = DMA_BIT_MASK(loongson_sysconf.dma_mask_bits);
- 		return -EIO;
-diff --git a/arch/openrisc/include/asm/dma-mapping.h b/arch/openrisc/include/asm/dma-mapping.h
-index 8fc08b8..413bfcf 100644
---- a/arch/openrisc/include/asm/dma-mapping.h
-+++ b/arch/openrisc/include/asm/dma-mapping.h
-@@ -44,13 +44,4 @@ static inline int dma_supported(struct device *dev, u64 dma_mask)
- 
- #include <asm-generic/dma-mapping-common.h>
- 
--static inline int dma_set_mask(struct device *dev, u64 dma_mask)
--{
--	if (!dev->dma_mask || !dma_supported(dev, dma_mask))
--		return -EIO;
--
--	*dev->dma_mask = dma_mask;
--
--	return 0;
--}
- #endif	/* __ASM_OPENRISC_DMA_MAPPING_H */
-diff --git a/arch/powerpc/include/asm/dma-mapping.h b/arch/powerpc/include/asm/dma-mapping.h
-index e2ff85c..6dd7a0e 100644
---- a/arch/powerpc/include/asm/dma-mapping.h
-+++ b/arch/powerpc/include/asm/dma-mapping.h
-@@ -122,9 +122,11 @@ static inline void set_dma_offset(struct device *dev, dma_addr_t off)
- /* this will be removed soon */
- #define flush_write_buffers()
- 
-+#define HAVE_ARCH_DMA_SET_MASK 1
-+extern int dma_set_mask(struct device *dev, u64 dma_mask);
-+
- #include <asm-generic/dma-mapping-common.h>
- 
--extern int dma_set_mask(struct device *dev, u64 dma_mask);
- extern int __dma_set_mask(struct device *dev, u64 dma_mask);
- extern u64 __dma_get_required_mask(struct device *dev);
- 
-diff --git a/arch/s390/include/asm/dma-mapping.h b/arch/s390/include/asm/dma-mapping.h
-index 1f42489..b3fd54d 100644
---- a/arch/s390/include/asm/dma-mapping.h
-+++ b/arch/s390/include/asm/dma-mapping.h
-@@ -18,8 +18,6 @@ static inline struct dma_map_ops *get_dma_ops(struct device *dev)
- 	return &s390_dma_ops;
- }
- 
--extern int dma_set_mask(struct device *dev, u64 mask);
--
- static inline void dma_cache_sync(struct device *dev, void *vaddr, size_t size,
- 				  enum dma_data_direction direction)
- {
-diff --git a/arch/s390/pci/pci_dma.c b/arch/s390/pci/pci_dma.c
-index 6fd8d58..ad5a1b4 100644
---- a/arch/s390/pci/pci_dma.c
-+++ b/arch/s390/pci/pci_dma.c
-@@ -262,16 +262,6 @@ out:
- 	spin_unlock_irqrestore(&zdev->iommu_bitmap_lock, flags);
- }
- 
--int dma_set_mask(struct device *dev, u64 mask)
--{
--	if (!dev->dma_mask || !dma_supported(dev, mask))
--		return -EIO;
--
--	*dev->dma_mask = mask;
--	return 0;
--}
--EXPORT_SYMBOL_GPL(dma_set_mask);
--
- static dma_addr_t s390_dma_map_pages(struct device *dev, struct page *page,
- 				     unsigned long offset, size_t size,
- 				     enum dma_data_direction direction,
-diff --git a/arch/sh/include/asm/dma-mapping.h b/arch/sh/include/asm/dma-mapping.h
-index 088f6e5..a3745a3 100644
---- a/arch/sh/include/asm/dma-mapping.h
-+++ b/arch/sh/include/asm/dma-mapping.h
-@@ -13,20 +13,6 @@ static inline struct dma_map_ops *get_dma_ops(struct device *dev)
- 
- #include <asm-generic/dma-mapping-common.h>
- 
--static inline int dma_set_mask(struct device *dev, u64 mask)
--{
--	struct dma_map_ops *ops = get_dma_ops(dev);
--
--	if (!dev->dma_mask || !dma_supported(dev, mask))
--		return -EIO;
--	if (ops->set_dma_mask)
--		return ops->set_dma_mask(dev, mask);
--
--	*dev->dma_mask = mask;
--
--	return 0;
--}
--
- void dma_cache_sync(struct device *dev, void *vaddr, size_t size,
- 		    enum dma_data_direction dir);
- 
-diff --git a/arch/sparc/include/asm/dma-mapping.h b/arch/sparc/include/asm/dma-mapping.h
-index 184651b..a21da59 100644
---- a/arch/sparc/include/asm/dma-mapping.h
-+++ b/arch/sparc/include/asm/dma-mapping.h
-@@ -37,7 +37,7 @@ static inline struct dma_map_ops *get_dma_ops(struct device *dev)
- 	return dma_ops;
- }
- 
--#include <asm-generic/dma-mapping-common.h>
-+#define HAVE_ARCH_DMA_SET_MASK 1
- 
- static inline int dma_set_mask(struct device *dev, u64 mask)
- {
-@@ -52,4 +52,6 @@ static inline int dma_set_mask(struct device *dev, u64 mask)
- 	return -EINVAL;
- }
- 
-+#include <asm-generic/dma-mapping-common.h>
++asmlinkage long sys_mlock2(unsigned long start, size_t len, int flags);
 +
  #endif
-diff --git a/arch/tile/include/asm/dma-mapping.h b/arch/tile/include/asm/dma-mapping.h
-index 559ed4a..96ac6cc 100644
---- a/arch/tile/include/asm/dma-mapping.h
-+++ b/arch/tile/include/asm/dma-mapping.h
-@@ -59,8 +59,6 @@ static inline phys_addr_t dma_to_phys(struct device *dev, dma_addr_t daddr)
+diff --git a/include/uapi/asm-generic/unistd.h b/include/uapi/asm-generic/unistd.h
+index e016bd9..14a6013 100644
+--- a/include/uapi/asm-generic/unistd.h
++++ b/include/uapi/asm-generic/unistd.h
+@@ -709,9 +709,11 @@ __SYSCALL(__NR_memfd_create, sys_memfd_create)
+ __SYSCALL(__NR_bpf, sys_bpf)
+ #define __NR_execveat 281
+ __SC_COMP(__NR_execveat, sys_execveat, compat_sys_execveat)
++#define __NR_mlock2 282
++__SYSCALL(__NR_mlock2, sys_mlock2)
  
- static inline void dma_mark_clean(void *addr, size_t size) {}
+ #undef __NR_syscalls
+-#define __NR_syscalls 282
++#define __NR_syscalls 283
  
--#include <asm-generic/dma-mapping-common.h>
--
- static inline void set_dma_ops(struct device *dev, struct dma_map_ops *ops)
- {
- 	dev->archdata.dma_ops = ops;
-@@ -74,6 +72,10 @@ static inline bool dma_capable(struct device *dev, dma_addr_t addr, size_t size)
- 	return addr + size - 1 <= *dev->dma_mask;
+ /*
+  * All syscalls below here should go away really,
+diff --git a/kernel/sys_ni.c b/kernel/sys_ni.c
+index 7995ef5..4818b71 100644
+--- a/kernel/sys_ni.c
++++ b/kernel/sys_ni.c
+@@ -193,6 +193,7 @@ cond_syscall(sys_mlock);
+ cond_syscall(sys_munlock);
+ cond_syscall(sys_mlockall);
+ cond_syscall(sys_munlockall);
++cond_syscall(sys_mlock2);
+ cond_syscall(sys_mincore);
+ cond_syscall(sys_madvise);
+ cond_syscall(sys_mremap);
+diff --git a/mm/mlock.c b/mm/mlock.c
+index 5692ee5..3094f27 100644
+--- a/mm/mlock.c
++++ b/mm/mlock.c
+@@ -643,6 +643,14 @@ SYSCALL_DEFINE2(mlock, unsigned long, start, size_t, len)
+ 	return do_mlock(start, len, VM_LOCKED);
  }
  
-+#define HAVE_ARCH_DMA_SET_MASK 1
-+
-+#include <asm-generic/dma-mapping-common.h>
-+
- static inline int
- dma_set_mask(struct device *dev, u64 mask)
- {
-diff --git a/arch/unicore32/include/asm/dma-mapping.h b/arch/unicore32/include/asm/dma-mapping.h
-index 21231c1..8140e05 100644
---- a/arch/unicore32/include/asm/dma-mapping.h
-+++ b/arch/unicore32/include/asm/dma-mapping.h
-@@ -50,16 +50,6 @@ static inline phys_addr_t dma_to_phys(struct device *dev, dma_addr_t daddr)
- 
- static inline void dma_mark_clean(void *addr, size_t size) {}
- 
--static inline int dma_set_mask(struct device *dev, u64 dma_mask)
--{
--	if (!dev->dma_mask || !dma_supported(dev, dma_mask))
--		return -EIO;
--
--	*dev->dma_mask = dma_mask;
--
--	return 0;
--}
--
- static inline void dma_cache_sync(struct device *dev, void *vaddr,
- 		size_t size, enum dma_data_direction direction)
- {
-diff --git a/arch/x86/include/asm/dma-mapping.h b/arch/x86/include/asm/dma-mapping.h
-index b1fbf58..953b726 100644
---- a/arch/x86/include/asm/dma-mapping.h
-+++ b/arch/x86/include/asm/dma-mapping.h
-@@ -48,8 +48,6 @@ extern int dma_supported(struct device *hwdev, u64 mask);
- 
- #include <asm-generic/dma-mapping-common.h>
- 
--extern int dma_set_mask(struct device *dev, u64 mask);
--
- extern void *dma_generic_alloc_coherent(struct device *dev, size_t size,
- 					dma_addr_t *dma_addr, gfp_t flag,
- 					struct dma_attrs *attrs);
-diff --git a/arch/x86/kernel/pci-dma.c b/arch/x86/kernel/pci-dma.c
-index bd23971..84b8ef8 100644
---- a/arch/x86/kernel/pci-dma.c
-+++ b/arch/x86/kernel/pci-dma.c
-@@ -58,17 +58,6 @@ EXPORT_SYMBOL(x86_dma_fallback_dev);
- /* Number of entries preallocated for DMA-API debugging */
- #define PREALLOC_DMA_DEBUG_ENTRIES       65536
- 
--int dma_set_mask(struct device *dev, u64 mask)
--{
--	if (!dev->dma_mask || !dma_supported(dev, mask))
--		return -EIO;
--
--	*dev->dma_mask = mask;
--
--	return 0;
--}
--EXPORT_SYMBOL(dma_set_mask);
--
- void __init pci_iommu_alloc(void)
- {
- 	struct iommu_table_entry *p;
-diff --git a/include/asm-generic/dma-mapping-common.h b/include/asm-generic/dma-mapping-common.h
-index 67fa6bc..b1bc954 100644
---- a/include/asm-generic/dma-mapping-common.h
-+++ b/include/asm-generic/dma-mapping-common.h
-@@ -340,4 +340,19 @@ static inline int dma_supported(struct device *dev, u64 mask)
- }
- #endif
- 
-+#ifndef HAVE_ARCH_DMA_SET_MASK
-+static inline int dma_set_mask(struct device *dev, u64 mask)
++SYSCALL_DEFINE3(mlock2, unsigned long, start, size_t, len, int, flags)
 +{
-+	struct dma_map_ops *ops = get_dma_ops(dev);
++	if (flags)
++		return -EINVAL;
 +
-+	if (ops->set_dma_mask)
-+		return ops->set_dma_mask(dev, mask);
-+
-+	if (!dev->dma_mask || !dma_supported(dev, mask))
-+		return -EIO;
-+	*dev->dma_mask = mask;
-+	return 0;
++	return do_mlock(start, len, VM_LOCKED);
 +}
-+#endif
 +
- #endif
+ SYSCALL_DEFINE2(munlock, unsigned long, start, size_t, len)
+ {
+ 	int ret;
 -- 
 1.9.1
 
