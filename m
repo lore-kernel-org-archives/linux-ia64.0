@@ -1,48 +1,35 @@
-From: Al Stone <ahs3@redhat.com>
-Date: Wed, 26 Aug 2015 20:30:25 +0000
-Subject: Re: [PATCH v2 1/5] ACPI: add in a bad_madt_entry() function to eventually replace the macro
-Message-Id: <55DE21E1.6070700@redhat.com>
+From: Christoph Hellwig <hch@lst.de>
+Date: Wed, 12 Aug 2015 07:05:49 +0000
+Subject: [PATCH 30/31] intel-iommu: handle page-less SG entries
+Message-Id: <1439363150-8661-31-git-send-email-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1440022048-6285-1-git-send-email-al.stone@linaro.org>
- <1440022048-6285-2-git-send-email-al.stone@linaro.org>
- <CAOZdJXXCnb7ChYqh-QYptTQBmfESDPaauThHyu8Dav6Qs_+4Bw@mail.gmail.com>
-In-Reply-To: <CAOZdJXXCnb7ChYqh-QYptTQBmfESDPaauThHyu8Dav6Qs_+4Bw@mail.gmail.com>
+References: <1439363150-8661-1-git-send-email-hch@lst.de>
+In-Reply-To: <1439363150-8661-1-git-send-email-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Timur Tabi <timur@codeaurora.org>, Al Stone <al.stone@linaro.org>
-Cc: linux-acpi@vger.kernel.org, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, linaro-kernel@lists.linaro.org, linux-ia64@vger.kernel.org, patches@linaro.org, linux-pm@vger.kernel.org, linaro-acpi@lists.linaro.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, lkml <linux-kernel@vger.kernel.org>, Len Brown <lenb@kernel.org>
+To: torvalds@linux-foundation.org, axboe@kernel.dk
+Cc: dan.j.williams@intel.com, vgupta@synopsys.com, hskinnemoen@gmail.com, egtvedt@samfundet.no, realmz6@gmail.com, dhowells@redhat.com, monstr@monstr.eu, x86@kernel.org, dwmw2@infradead.org, alex.williamson@redhat.com, grundler@parisc-linux.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-nvdimm@ml01.01.org, linux-media@vger.kernel.org
 
-On 08/26/2015 09:38 AM, Timur Tabi wrote:
-> On Wed, Aug 19, 2015 at 5:07 PM, Al Stone <al.stone@linaro.org> wrote:
->> +                               pr_err("Variable length MADT subtable %d is wrong size: %d\n",
->> +                                      entry->type, entry->length);
->> +                               return 1;
->> +                       }
->> +               }
->> +       } else {
->> +               if (entry->length != len) {
->> +                       pr_err("MADT subtable %d is wrong size: %d\n",
->> +                              len, entry->type);
-> 
-> Can we make these a little more descriptive?
-> 
-> pr_err("Variable length MADT subtable type %d is wrong size: %d,
-> should be %d\n",
->       entry->type, entry->length, len);
-> 
-> pr_err("MADT subtable type %d is wrong size: %d, should be %d\n",
->       entry->type, entry->length, len);
-> 
+Just remove a BUG_ON, the code handles them just fine as-is.
 
-Sure.  It's always a fine line between verbose and not enough info.
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ drivers/iommu/intel-iommu.c | 1 -
+ 1 file changed, 1 deletion(-)
 
+diff --git a/drivers/iommu/intel-iommu.c b/drivers/iommu/intel-iommu.c
+index 3541d65..ae10573 100644
+--- a/drivers/iommu/intel-iommu.c
++++ b/drivers/iommu/intel-iommu.c
+@@ -3622,7 +3622,6 @@ static int intel_nontranslate_map_sg(struct device *hddev,
+ 	struct scatterlist *sg;
+ 
+ 	for_each_sg(sglist, sg, nelems, i) {
+-		BUG_ON(!sg_page(sg));
+ 		sg->dma_address = sg_phys(sg);
+ 		sg->dma_length = sg->length;
+ 	}
 -- 
-ciao,
-al
------------------------------------
-Al Stone
-Software Engineer
-Red Hat, Inc.
-ahs3@redhat.com
------------------------------------
+1.9.1
+
