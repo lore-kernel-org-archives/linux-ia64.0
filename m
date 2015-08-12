@@ -1,76 +1,54 @@
-From: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
-Date: Mon, 17 Aug 2015 17:13:27 +0000
-Subject: [RFT PATCH v2] ia64: gensparse_defconfig: convert to use libata PATA drivers
-Message-Id: <1439831608-8362-3-git-send-email-b.zolnierkie@samsung.com>
+From: Christoph Hellwig <hch@lst.de>
+Date: Wed, 12 Aug 2015 07:05:32 +0000
+Subject: [PATCH 13/31] sparc/ldc: handle page-less SG entries
+Message-Id: <1439363150-8661-14-git-send-email-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1439831608-8362-1-git-send-email-b.zolnierkie@samsung.com>
-In-Reply-To: <1439831608-8362-1-git-send-email-b.zolnierkie@samsung.com>
+References: <1439363150-8661-1-git-send-email-hch@lst.de>
+In-Reply-To: <1439363150-8661-1-git-send-email-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ide@vger.kernel.org, linux-kernel@vger.kernel.org, b.zolnierkie@samsung.com
+To: torvalds@linux-foundation.org, axboe@kernel.dk
+Cc: dan.j.williams@intel.com, vgupta@synopsys.com, hskinnemoen@gmail.com, egtvedt@samfundet.no, realmz6@gmail.com, dhowells@redhat.com, monstr@monstr.eu, x86@kernel.org, dwmw2@infradead.org, alex.williamson@redhat.com, grundler@parisc-linux.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-nvdimm@ml01.01.org, linux-media@vger.kernel.org
 
-IDE subsystem has been deprecated since 2009 and the majority
-(if not all) of Linux distributions have switched to use
-libata for ATA support exclusively.  However there are still
-some users (mostly old or/and embedded non-x86 systems) that
-have not converted from using IDE subsystem to libata PATA
-drivers.  This doesn't seem to be good thing in the long-term
-for Linux as while there is less and less PATA systems left
-in use:
+Use
 
-* testing efforts are divided between two subsystems
+    sg_phys(sg) & PAGE_MASK
 
-* having duplicate drivers for same hardware confuses users
+instead of
 
-This patch converts gensparse_defconfig to use libata PATA
-drivers (sgiioc4 IDE host driver has no corresponding libata
-driver yet so it is not converted).
+    page_to_pfn(sg_page(sg)) << PAGE_SHIFT
 
-Signed-off-by: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
+to get at the page-aligned physical address ofa SG entry, so that
+we don't require a page backing for SG entries.
+
+Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
-v2:
-- added missing pata_oldpiix host driver (noticed by Sergei Shtylyov)
+ arch/sparc/kernel/ldc.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Build tested only.
-If you have affected hardware please test.  Thank you.
-
- arch/ia64/configs/gensparse_defconfig | 14 ++++++++------
- 1 file changed, 8 insertions(+), 6 deletions(-)
-
-diff --git a/arch/ia64/configs/gensparse_defconfig b/arch/ia64/configs/gensparse_defconfig
-index 5b4fcdd..7320f0e 100644
---- a/arch/ia64/configs/gensparse_defconfig
-+++ b/arch/ia64/configs/gensparse_defconfig
-@@ -40,19 +40,21 @@ CONFIG_BLK_DEV_RAM=y
- CONFIG_SGI_IOC4=y
- CONFIG_IDE=y
- CONFIG_BLK_DEV_IDECD=y
--CONFIG_IDE_GENERIC=y
--CONFIG_BLK_DEV_GENERIC=y
--CONFIG_BLK_DEV_CMD64X=y
--CONFIG_BLK_DEV_PIIX=y
- CONFIG_BLK_DEV_SGIIOC4=y
--CONFIG_SCSI=y
- CONFIG_BLK_DEV_SD=y
- CONFIG_CHR_DEV_ST=m
--CONFIG_BLK_DEV_SR=m
-+CONFIG_BLK_DEV_SR=y
- CONFIG_CHR_DEV_SG=m
- CONFIG_SCSI_FC_ATTRS=y
- CONFIG_SCSI_SYM53C8XX_2=y
- CONFIG_SCSI_QLOGIC_1280=y
-+CONFIG_ATA=y
-+CONFIG_ATA_PIIX=y
-+CONFIG_PATA_CMD64X=y
-+CONFIG_PATA_OLDPIIX=y
-+CONFIG_PATA_MPIIX=y
-+CONFIG_ATA_GENERIC=y
-+CONFIG_PATA_LEGACY=y
- CONFIG_MD=y
- CONFIG_BLK_DEV_MD=m
- CONFIG_MD_LINEAR=m
+diff --git a/arch/sparc/kernel/ldc.c b/arch/sparc/kernel/ldc.c
+index 1ae5eb1..0a29974 100644
+--- a/arch/sparc/kernel/ldc.c
++++ b/arch/sparc/kernel/ldc.c
+@@ -2051,7 +2051,7 @@ static void fill_cookies(struct cookie_state *sp, unsigned long pa,
+ 
+ static int sg_count_one(struct scatterlist *sg)
+ {
+-	unsigned long base = page_to_pfn(sg_page(sg)) << PAGE_SHIFT;
++	unsigned long base = sg_phys(sg) & PAGE_MASK;
+ 	long len = sg->length;
+ 
+ 	if ((sg->offset | len) & (8UL - 1))
+@@ -2114,7 +2114,7 @@ int ldc_map_sg(struct ldc_channel *lp,
+ 	state.nc = 0;
+ 
+ 	for_each_sg(sg, s, num_sg, i) {
+-		fill_cookies(&state, page_to_pfn(sg_page(s)) << PAGE_SHIFT,
++		fill_cookies(&state, sg_phys(s) & PAGE_MASK,
+ 			     s->offset, s->length);
+ 	}
+ 
 -- 
 1.9.1
 
