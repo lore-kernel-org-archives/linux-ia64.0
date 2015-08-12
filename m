@@ -1,30 +1,57 @@
-From: =?UTF-8?Q?=C3=89meric_MASCHINO?= <emeric.maschino@gmail.com>
-Date: Tue, 18 Aug 2015 22:45:33 +0000
-Subject: Re: [RFT PATCH] ia64: zx1_defconfig: convert to use libata PATA drivers
-Message-Id: <CAA9xbM7r-HfvuUg00D94rgokWhP_Qes71UAbN_24dmFpSiNtAg@mail.gmail.com>
+From: Christoph Hellwig <hch@lst.de>
+Date: Wed, 12 Aug 2015 07:05:39 +0000
+Subject: [PATCH 20/31] avr32: handle page-less SG entries
+Message-Id: <1439363150-8661-21-git-send-email-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1439826388-31456-1-git-send-email-b.zolnierkie@samsung.com>
-	<1439826388-31456-5-git-send-email-b.zolnierkie@samsung.com>
-	<CAA9xbM52onBKCw9i=_ar0W67651JpJnRTj6AeVsmJ4UAtzubew@mail.gmail.com>
-	<3908561D78D1C84285E8C5FCA982C28F32ADECD4@ORSMSX114.amr.corp.intel.com>
-In-Reply-To: <3908561D78D1C84285E8C5FCA982C28F32ADECD4@ORSMSX114.amr.corp.intel.com>
+References: <1439363150-8661-1-git-send-email-hch@lst.de>
+In-Reply-To: <1439363150-8661-1-git-send-email-hch-jcswGhMUV9g@public.gmane.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
-To: "Luck, Tony" <tony.luck@intel.com>
-Cc: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "Yu, Fenghua" <fenghua.yu@intel.com>, "linux-ide@vger.kernel.org" <linux-ide@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org
+Cc: dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, vgupta-HKixBCOQz3hWk0Htik3J/w@public.gmane.org, hskinnemoen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, egtvedt-BrfabpQBY5qlHtIdYg32fQ@public.gmane.org, realmz6-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org, alex.williamson-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, grundler-6jwH94ZQLHl74goWV3ctuw@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-alpha-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, linux-parisc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org, linux-nvdimm-y27Ovi1pjclAfugRpC6u6w@public.gmane.org, linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 
-2015-08-17 22:41 GMT+02:00 Luck, Tony <tony.luck@intel.com>:
->
-> Do you have PATA drives?  My zx6000 just has SCSI:
+Make all cache invalidation conditional on sg_has_page() and use
+sg_phys to get the physical address directly, bypassing the noop
+page_to_bus.
 
-Yes Sir, the internal DVD drive (TEAC DV-28E-B [1]):
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ arch/avr32/include/asm/dma-mapping.h | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
-emeric@longspeak ~ $ dmesg | grep ATA
-[    0.947229] ata1: PATA max UDMA/100 cmd 0xd58 ctl 0xd64 bmdma 0xd40 irq =
-54
-[    1.103782] ata1.00: ATAPI: DV-28E-B, 2.2B, max UDMA/33
+diff --git a/arch/avr32/include/asm/dma-mapping.h b/arch/avr32/include/asm/dma-mapping.h
+index ae7ac92..a662ce2 100644
+--- a/arch/avr32/include/asm/dma-mapping.h
++++ b/arch/avr32/include/asm/dma-mapping.h
+@@ -216,11 +216,9 @@ dma_map_sg(struct device *dev, struct scatterlist *sglist, int nents,
+ 	struct scatterlist *sg;
+ 
+ 	for_each_sg(sglist, sg, nents, i) {
+-		char *virt;
+-
+-		sg->dma_address = page_to_bus(sg_page(sg)) + sg->offset;
+-		virt = sg_virt(sg);
+-		dma_cache_sync(dev, virt, sg->length, direction);
++		sg->dma_address = sg_phys(sg);
++		if (sg_has_page(sg))
++			dma_cache_sync(dev, sg_virt(sg), sg->length, direction);
+ 	}
+ 
+ 	return nents;
+@@ -328,8 +326,10 @@ dma_sync_sg_for_device(struct device *dev, struct scatterlist *sglist,
+ 	int i;
+ 	struct scatterlist *sg;
+ 
+-	for_each_sg(sglist, sg, nents, i)
+-		dma_cache_sync(dev, sg_virt(sg), sg->length, direction);
++	for_each_sg(sglist, sg, nents, i) {
++		if (sg_has_page(sg))
++			dma_cache_sync(dev, sg_virt(sg), sg->length, direction);
++	}
+ }
+ 
+ /* Now for the API extensions over the pci_ one */
+-- 
+1.9.1
 
-     =C3=89meric
-
-[1] http://www.teac.co.jp/dspd/product/optical/dv-28eb.html
