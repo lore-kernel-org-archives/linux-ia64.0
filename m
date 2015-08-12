@@ -1,17 +1,17 @@
-From: Boaz Harrosh <boaz@plexistor.com>
-Date: Wed, 12 Aug 2015 12:42:47 +0000
+From: James Bottomley <James.Bottomley@HansenPartnership.com>
+Date: Wed, 12 Aug 2015 17:00:07 +0000
 Subject: Re: RFC: prepare for struct scatterlist entries without page backing
-Message-Id: <55CB3F47.3000902@plexistor.com>
+Message-Id: <1439398807.2825.51.camel@HansenPartnership.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1439363150-8661-1-git-send-email-hch@lst.de>
-In-Reply-To: <1439363150-8661-1-git-send-email-hch-jcswGhMUV9g@public.gmane.org>
+In-Reply-To: <1439363150-8661-1-git-send-email-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>, torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, axboe-tSWWG44O7X1aa/9Udqfwiw@public.gmane.org
-Cc: linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nvdimm-y27Ovi1pjclAfugRpC6u6w@public.gmane.org, dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, egtvedt-BrfabpQBY5qlHtIdYg32fQ@public.gmane.org, linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org, hskinnemoen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org, grundler-6jwH94ZQLHl74goWV3ctuw@public.gmane.org, realmz6-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, alex.williamson-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org, linux-parisc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, vgupta-HKixBCOQz3hWk0Htik3J/w@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-alpha-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+To: Christoph Hellwig <hch@lst.de>
+Cc: torvalds@linux-foundation.org, axboe@kernel.dk, dan.j.williams@intel.com, vgupta@synopsys.com, hskinnemoen@gmail.com, egtvedt@samfundet.no, realmz6@gmail.com, dhowells@redhat.com, monstr@monstr.eu, x86@kernel.org, dwmw2@infradead.org, alex.williamson@redhat.com, grundler@parisc-linux.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-nvdimm@ml01.01.org, linux-media@vger.kernel.org
 
-On 08/12/2015 10:05 AM, Christoph Hellwig wrote:
+On Wed, 2015-08-12 at 09:05 +0200, Christoph Hellwig wrote:
 > Dan Williams started to look into addressing I/O to and from
 > Persistent Memory in his series from June:
 > 
@@ -24,15 +24,6 @@ On 08/12/2015 10:05 AM, Christoph Hellwig wrote:
 > with vb2_dc_get_userptr in drivers/media/v4l2-core/videobuf2-dma-contig.c
 > being a prime example for the unsafe hacks currently used.
 > 
-
-The support I have suggested and submitted for zone-less sections.
-(In my add_persistent_memory() patchset)
-
-Would work perfectly well and transparent for all such multimedia cases.
-(All hacks removed). In fact I have loaded pmem (with-pages) on a VRAM
-a few times and it is great easy fun. (I wanted to experiment with cached
-memory over a pcie)
-
 > It turns out most DMA mapping implementation can handle SGLs without
 > page structures with some fairly simple mechanical work.  Most of it
 > is just about consistently using sg_phys.  For implementations that
@@ -43,41 +34,41 @@ memory over a pcie)
 > to be operate mostly on virtual addresses.  It's a fairly odd concept
 > that I don't fully grasp, so I'll need some help with those if we want
 > to bring this forward.
-> 
-> Additional this series skips ARM entirely for now.  The reason is
-> that most arm implementations of the .map_sg operation just iterate
-> over all entries and call ->map_page for it, which means we'd need
-> to convert those to a ->map_pfn similar to Dan's previous approach.
-> 
 
-All this endless work for nothing more than uglyfing the Kernel, and
-It will never end. When a real and fully working solution is right
-here for more then a year.
+I can explain that.  I think this doesn't apply to ia64 because it's
+cache is PIPT, but on parisc, we have a VIPT cache.
 
-If you are really up for a deep audit and a mammoth testing effort,
-why not do a more worthy, and order of magnitude smaller work and support
-2M and 1G variable sized "pages". All the virtual-vs-phisical-vs-caching
-just works.
+On normal physically indexed architectures, when the iommu sees a DMA
+transfer to/from physical memory, it also notifies the CPU to flush the
+internal CPU caches of those lines.  This is usually an interlocking
+step of the transfer to make sure the page is coherent before transfer
+to/from the device (it's why the ia32 for instance is a coherent
+architecture).  Because the system is physically indexed, there's no
+need to worry about aliases.
 
-Most of the core work is there. Block layer and lots of other subsytems
-already support sending a single page-pointer with bvec_offset bvec_len
-bigger then 4K. Other system will be small fixes sprinkled around but
-not at all this endless stream of subsystem after another of patches.
-And for why.
+On Virtually Indexed systems, like parisc, there is an aliasing problem.
+The CCIO iommu unit (and all other iommu systems on parisc) have what's
+called a local coherence index (LCI).  You program it as part of the
+IOMMU page table and it tells the system which Virtual line in the cache
+to flush as part of the IO transaction, thus still ensuring cache
+coherence.  That's why we have to know the virtual as well as physical
+addresses for the page.  The problem we have in Linux is that we have
+two virtual addresses, which are often incoherent aliases: the user
+virtual address and a kernel virtual address but we can only make the
+page coherent with a single alias (only one LCI).  The way I/O on Linux
+currently works is that get_user_pages actually flushes the user virtual
+address, so that's expected to be coherent, so the address we program
+into the VCI is the kernel virtual address.  Usually nothing in the
+kernel has ever touched the page, so there's nothing to flush, but we do
+it just in case.
 
-The novelty of pages is the section object, the section is reached
-from page* from virtual as well as physical planes. And is a center
-that translate from all plains to all plains. You keep this concept
-only make 2M-page sections and 1G-page sections.
+In theory, for these non kernel page backed SG entries, we can make the
+process more efficient by not flushing in gup and instead programming
+the user virtual address into the local coherence index.  However,
+simply zeroing the LCI will also work (except that poor VI zero line
+will get flushed repeatedly, so it's probably best to pick a known
+untouched line in the kernel).
 
-It is a bit of work but is worth while, and accelerating tremendously
-lots of workloads. Not like this abomination which only branches
-things more and more, and making things fatter and slower.
+James
 
-It all feels like a typhoon, the inertia of tones and tons of
-men hours work, in a huge wave. How will you ever stop such a
-rushing mass. I'm trying to dock under but, surly it makes me sad.
-
-Thanks
-Boaz
 
