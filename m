@@ -1,28 +1,38 @@
-From: Catalin Marinas <catalin.marinas@arm.com>
-Date: Fri, 07 Aug 2015 16:57:01 +0000
-Subject: Re: [PATCH 2/5] ACPI / ARM64: remove usage of BAD_MADT_ENTRY/BAD_MADT_GICC_ENTRY
-Message-Id: <20150807165701.GI19308@e104818-lin.cambridge.arm.com>
+From: Christoph Hellwig <hch@lst.de>
+Date: Wed, 12 Aug 2015 07:05:50 +0000
+Subject: [PATCH 31/31] dma-mapping-common: skip kmemleak checks for page-less SG entries
+Message-Id: <1439363150-8661-32-git-send-email-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1438894770-31163-1-git-send-email-al.stone@linaro.org>
- <1438894770-31163-3-git-send-email-al.stone@linaro.org>
-In-Reply-To: <1438894770-31163-3-git-send-email-al.stone@linaro.org>
+References: <1439363150-8661-1-git-send-email-hch@lst.de>
+In-Reply-To: <1439363150-8661-1-git-send-email-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Al Stone <al.stone@linaro.org>
-Cc: linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linaro-kernel@lists.linaro.org, linux-ia64@vger.kernel.org, Jason Cooper <jason@lakedaemon.net>, patches@linaro.org, Marc Zyngier <marc.zyngier@arm.com>, linux-pm@vger.kernel.org, linaro-acpi@lists.linaro.org, Will Deacon <will.deacon@arm.com>, linux-kernel@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>
+To: torvalds@linux-foundation.org, axboe@kernel.dk
+Cc: dan.j.williams@intel.com, vgupta@synopsys.com, hskinnemoen@gmail.com, egtvedt@samfundet.no, realmz6@gmail.com, dhowells@redhat.com, monstr@monstr.eu, x86@kernel.org, dwmw2@infradead.org, alex.williamson@redhat.com, grundler@parisc-linux.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-nvdimm@ml01.01.org, linux-media@vger.kernel.org
 
-On Thu, Aug 06, 2015 at 02:59:27PM -0600, Al Stone wrote:
-> Now that we have introduced the bad_madt_entry() function, and that
-> function is being invoked in acpi_table_parse_madt() for us, there
-> is no longer any need to use the BAD_MADT_ENTRY macro, or in the case
-> of arm64, the BAD_MADT_GICC_ENTRY, too.
-> 
-> Signed-off-by: Al Stone <al.stone@linaro.org>
-> Cc: Catalin Marinas <catalin.marinas@arm.com>
-> Cc: Will Deacon <will.deacon@arm.com>
-> Cc: Thomas Gleixner <tglx@linutronix.de>
-> Cc: Jason Cooper <jason@lakedaemon.net>
-> Cc: Marc Zyngier <marc.zyngier@arm.com>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ include/asm-generic/dma-mapping-common.h | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-Acked-by: Catalin Marinas <catalin.marinas@arm.com>
+diff --git a/include/asm-generic/dma-mapping-common.h b/include/asm-generic/dma-mapping-common.h
+index 940d5ec..afc3eaf 100644
+--- a/include/asm-generic/dma-mapping-common.h
++++ b/include/asm-generic/dma-mapping-common.h
+@@ -51,8 +51,10 @@ static inline int dma_map_sg_attrs(struct device *dev, struct scatterlist *sg,
+ 	int i, ents;
+ 	struct scatterlist *s;
+ 
+-	for_each_sg(sg, s, nents, i)
+-		kmemcheck_mark_initialized(sg_virt(s), s->length);
++	for_each_sg(sg, s, nents, i) {
++		if (sg_has_page(s))
++			kmemcheck_mark_initialized(sg_virt(s), s->length);
++	}
+ 	BUG_ON(!valid_dma_direction(dir));
+ 	ents = ops->map_sg(dev, sg, nents, dir, attrs);
+ 	BUG_ON(ents < 0);
+-- 
+1.9.1
+
