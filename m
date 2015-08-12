@@ -1,46 +1,62 @@
-From: Grant Grundler <grantgrundler@gmail.com>
-Date: Wed, 12 Aug 2015 17:56:26 +0000
+From: Julian Calaby <julian.calaby@gmail.com>
+Date: Wed, 12 Aug 2015 23:37:37 +0000
 Subject: Re: RFC: prepare for struct scatterlist entries without page backing
-Message-Id: <CAP6odjhfTHzgEivDUxXyU=VBG4U85ETxv1gcogE9GVGoGQ37-w@mail.gmail.com>
+Message-Id: <CAGRGNgUKkaPnyvn30DXyNpdiXQzS6J=1+mQ3ick8C8=bhx_RHA@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1439363150-8661-1-git-send-email-hch@lst.de>
-	<1439398807.2825.51.camel@HansenPartnership.com>
-In-Reply-To: <1439398807.2825.51.camel@HansenPartnership.com>
+References: <1439363150-8661-1-git-send-email-hch@lst.de> <55CB3F47.3000902@plexistor.com>
+In-Reply-To: <55CB3F47.3000902@plexistor.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: James Bottomley <James.Bottomley@hansenpartnership.com>
-Cc: Christoph Hellwig <hch@lst.de>, Linus Torvalds <torvalds@linux-foundation.org>, axboe@kernel.dk, dan.j.williams@intel.com, vgupta@synopsys.com, hskinnemoen@gmail.com, egtvedt@samfundet.no, realmz6@gmail.com, dhowells@redhat.com, monstr@monstr.eu, x86@kernel.org, David Woodhouse <dwmw2@infradead.org>, alex.williamson@redhat.com, Grant Grundler <grundler@parisc-linux.org>, open list <linux-kernel@vger.kernel.org>, linux-arch@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc <linux-parisc@vger.kernel.org>, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-nvdimm@ml01.01.org, linux-media@vger.kernel.org
+To: Boaz Harrosh <boaz@plexistor.com>, Christoph Hellwig <hch@lst.de>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>, axboe@kernel.dk, linux-mips@linux-mips.org, linux-ia64@vger.kernel.org, linux-nvdimm@ml01.01.org, David Howells <dhowells@redhat.com>, sparclinux <sparclinux@vger.kernel.org>, Hans-Christian Egtvedt <egtvedt@samfundet.no>, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, x86@kernel.org, David Woodhouse <dwmw2@infradead.org>, =?UTF-8?Q?H=C3=A5vard_Skinnemoen?= <hskinnemoen@gmail.com>, linux-xtensa@linux-xtensa.org, grundler@parisc-linux.org, realmz6@gmail.com, alex.williamson@redhat.com, linux-metag@vger.kernel.org, Michal Simek <monstr@monstr.eu>, linux-parisc@vger.kernel.org, vgupta@synopsys.com, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, linux-alpha@vger.kernel.org, Linux Media Mailing List <linux-media@vger.kernel.org>, linuxppc-dev@lists.ozlabs.org
 
-On Wed, Aug 12, 2015 at 10:00 AM, James Bottomley
-<James.Bottomley@hansenpartnership.com> wrote:
-> On Wed, 2015-08-12 at 09:05 +0200, Christoph Hellwig wrote:
-...
+Hi,
+
+On Wed, Aug 12, 2015 at 10:42 PM, Boaz Harrosh <boaz@plexistor.com> wrote:
+> On 08/12/2015 10:05 AM, Christoph Hellwig wrote:
+>> It turns out most DMA mapping implementation can handle SGLs without
+>> page structures with some fairly simple mechanical work.  Most of it
+>> is just about consistently using sg_phys.  For implementations that
+>> need to flush caches we need a new helper that skips these cache
+>> flushes if a entry doesn't have a kernel virtual address.
+>>
 >> However the ccio (parisc) and sba_iommu (parisc & ia64) IOMMUs seem
 >> to be operate mostly on virtual addresses.  It's a fairly odd concept
 >> that I don't fully grasp, so I'll need some help with those if we want
 >> to bring this forward.
+>>
+>> Additional this series skips ARM entirely for now.  The reason is
+>> that most arm implementations of the .map_sg operation just iterate
+>> over all entries and call ->map_page for it, which means we'd need
+>> to convert those to a ->map_pfn similar to Dan's previous approach.
+>>
+>
+[snip]
+>
+> It is a bit of work but is worth while, and accelerating tremendously
+> lots of workloads. Not like this abomination which only branches
+> things more and more, and making things fatter and slower.
 
-James explained the primary function of IOMMUs on parisc (DMA-Cache
-coherency) much better than I ever could.
+As a random guy reading a big bunch of patches on code I know almost
+nothing about, parts of this comment really resonated with me:
+overall, we seem to be adding a lot of if statements to code that
+appears to be in a hot path.
 
-Three more observations:
-1) the IOMMU can be bypassed by 64-bit DMA devices on IA64.
+I.e. ~90% of this patch set seems to be just mechanically dropping
+BUG_ON()s and converting open coded stuff to use accessor functions
+(which should be macros or get inlined, right?) - and the remaining
+bit is not flushing if we don't have a physical page somewhere.
 
-2) IOMMU enables 32-bit DMA devices to reach > 32-bit physical memory
-and thus avoiding bounce buffers. parisc and older IA-64 have some
-32-bit PCI devices - e.g. IDE boot HDD.
+Would it make sense to split this patch set into a few bits: one to
+drop all the useless BUG_ON()s, one to convert all the open coded
+stuff to accessor functions, then another to do the actual page-less
+sg stuff?
 
-3) IOMMU acts as a proxy for IO devices by fetching cachelines of data
-for PA-RISC systems whose memory controllers ONLY serve cacheline
-sized transactions. ie. 32-bit DMA results in the IOMMU fetching the
-cacheline and updating just the 32-bits in a DMA cache coherent
-fashion.
+Thanks,
 
-Bonus thought:
-4) IOMMU can improve DMA performance in some cases using "hints"
-provided by the OS (e.g. prefetching DMA data or using READ_CURRENT
-bus transactions instead of normal memory fetches.)
+-- 
+Julian Calaby
 
-cheers,
-grant
+Email: julian.calaby@gmail.com
+Profile: http://www.google.com/profiles/julian.calaby/
