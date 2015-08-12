@@ -1,104 +1,73 @@
-From: Sudeep Holla <sudeep.holla@arm.com>
-Date: Tue, 04 Aug 2015 17:46:45 +0000
-Subject: [PATCH 3/4] ACPI / processor_idle: replace PREFIX with pr_fmt
-Message-Id: <1438710406-3822-4-git-send-email-sudeep.holla@arm.com>
+From: Christoph Hellwig <hch@lst.de>
+Date: Wed, 12 Aug 2015 07:05:30 +0000
+Subject: [PATCH 11/31] sparc/iommu: handle page-less SG entries
+Message-Id: <1439363150-8661-12-git-send-email-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1438710406-3822-1-git-send-email-sudeep.holla@arm.com>
-In-Reply-To: <1438710406-3822-1-git-send-email-sudeep.holla@arm.com>
+References: <1439363150-8661-1-git-send-email-hch@lst.de>
+In-Reply-To: <1439363150-8661-1-git-send-email-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-acpi@vger.kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Cc: Sudeep Holla <sudeep.holla@arm.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, x86@kernel.org
+To: torvalds@linux-foundation.org, axboe@kernel.dk
+Cc: dan.j.williams@intel.com, vgupta@synopsys.com, hskinnemoen@gmail.com, egtvedt@samfundet.no, realmz6@gmail.com, dhowells@redhat.com, monstr@monstr.eu, x86@kernel.org, dwmw2@infradead.org, alex.williamson@redhat.com, grundler@parisc-linux.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-nvdimm@ml01.01.org, linux-media@vger.kernel.org
 
-Like few of the other ACPI modules, replace PREFIX with pr_fmt and
-change all the printk call sites to use pr_* companion functions
-in processor_idle.
+Use sg_phys() instead of __pa(sg_virt(sg)) so that we don't
+require a kernel virtual address.
 
-Signed-off-by: Sudeep Holla <sudeep.holla@arm.com>
-Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- drivers/acpi/processor_idle.c | 25 +++++++++++--------------
- 1 file changed, 11 insertions(+), 14 deletions(-)
+ arch/sparc/kernel/iommu.c        | 2 +-
+ arch/sparc/kernel/iommu_common.h | 4 +---
+ arch/sparc/kernel/pci_sun4v.c    | 2 +-
+ 3 files changed, 3 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/acpi/processor_idle.c b/drivers/acpi/processor_idle.c
-index 18d4de846490..73d51a7ceb63 100644
---- a/drivers/acpi/processor_idle.c
-+++ b/drivers/acpi/processor_idle.c
-@@ -27,6 +27,7 @@
-  *
-  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+diff --git a/arch/sparc/kernel/iommu.c b/arch/sparc/kernel/iommu.c
+index 5320689..2ad89d2 100644
+--- a/arch/sparc/kernel/iommu.c
++++ b/arch/sparc/kernel/iommu.c
+@@ -486,7 +486,7 @@ static int dma_4u_map_sg(struct device *dev, struct scatterlist *sglist,
+ 			continue;
+ 		}
+ 		/* Allocate iommu entries for that segment */
+-		paddr = (unsigned long) SG_ENT_PHYS_ADDRESS(s);
++		paddr = sg_phys(s);
+ 		npages = iommu_num_pages(paddr, slen, IO_PAGE_SIZE);
+ 		entry = iommu_tbl_range_alloc(dev, &iommu->tbl, npages,
+ 					      &handle, (unsigned long)(-1), 0);
+diff --git a/arch/sparc/kernel/iommu_common.h b/arch/sparc/kernel/iommu_common.h
+index b40cec2..8e2c211 100644
+--- a/arch/sparc/kernel/iommu_common.h
++++ b/arch/sparc/kernel/iommu_common.h
+@@ -33,15 +33,13 @@
   */
-+#define pr_fmt(fmt) "ACPI: " fmt
+ #define IOMMU_PAGE_SHIFT		13
  
- #include <linux/module.h>
- #include <linux/acpi.h>
-@@ -46,8 +47,6 @@
- #include <asm/apic.h>
- #endif
- 
--#define PREFIX "ACPI: "
+-#define SG_ENT_PHYS_ADDRESS(SG)	(__pa(sg_virt((SG))))
 -
- #define ACPI_PROCESSOR_CLASS            "processor"
- #define _COMPONENT              ACPI_PROCESSOR_COMPONENT
- ACPI_MODULE_NAME("processor_idle");
-@@ -84,9 +83,9 @@ static int set_max_cstate(const struct dmi_system_id *id)
- 	if (max_cstate > ACPI_PROCESSOR_MAX_POWER)
- 		return 0;
+ static inline int is_span_boundary(unsigned long entry,
+ 				   unsigned long shift,
+ 				   unsigned long boundary_size,
+ 				   struct scatterlist *outs,
+ 				   struct scatterlist *sg)
+ {
+-	unsigned long paddr = SG_ENT_PHYS_ADDRESS(outs);
++	unsigned long paddr = sg_phys(outs);
+ 	int nr = iommu_num_pages(paddr, outs->dma_length + sg->length,
+ 				 IO_PAGE_SIZE);
  
--	printk(KERN_NOTICE PREFIX "%s detected - limiting to C%ld max_cstate."
--	       " Override with \"processor.max_cstate=%d\"\n", id->ident,
--	       (long)id->driver_data, ACPI_PROCESSOR_MAX_POWER + 1);
-+	pr_notice("%s detected - limiting to C%ld max_cstate."
-+		  " Override with \"processor.max_cstate=%d\"\n", id->ident,
-+		  (long)id->driver_data, ACPI_PROCESSOR_MAX_POWER + 1);
- 
- 	max_cstate = (long)id->driver_data;
- 
-@@ -318,7 +317,7 @@ static int acpi_processor_get_power_info_cst(struct acpi_processor *pr)
- 
- 	/* There must be at least 2 elements */
- 	if (!cst || (cst->type != ACPI_TYPE_PACKAGE) || cst->package.count < 2) {
--		printk(KERN_ERR PREFIX "not enough elements in _CST\n");
-+		pr_err("not enough elements in _CST\n");
- 		ret = -EFAULT;
- 		goto end;
- 	}
-@@ -327,7 +326,7 @@ static int acpi_processor_get_power_info_cst(struct acpi_processor *pr)
- 
- 	/* Validate number of power states. */
- 	if (count < 1 || count != cst->package.count - 1) {
--		printk(KERN_ERR PREFIX "count given by _CST is not valid\n");
-+		pr_err("count given by _CST is not valid\n");
- 		ret = -EFAULT;
- 		goto end;
- 	}
-@@ -436,11 +435,9 @@ static int acpi_processor_get_power_info_cst(struct acpi_processor *pr)
- 		 * (From 1 through ACPI_PROCESSOR_MAX_POWER - 1)
- 		 */
- 		if (current_count >= (ACPI_PROCESSOR_MAX_POWER - 1)) {
--			printk(KERN_WARNING
--			       "Limiting number of power states to max (%d)\n",
--			       ACPI_PROCESSOR_MAX_POWER);
--			printk(KERN_WARNING
--			       "Please increase ACPI_PROCESSOR_MAX_POWER if needed.\n");
-+			pr_warn("Limiting number of power states to max (%d)\n",
-+				ACPI_PROCESSOR_MAX_POWER);
-+			pr_warn("Please increase ACPI_PROCESSOR_MAX_POWER if needed.\n");
- 			break;
+diff --git a/arch/sparc/kernel/pci_sun4v.c b/arch/sparc/kernel/pci_sun4v.c
+index d2fe57d..a7a6e41 100644
+--- a/arch/sparc/kernel/pci_sun4v.c
++++ b/arch/sparc/kernel/pci_sun4v.c
+@@ -370,7 +370,7 @@ static int dma_4v_map_sg(struct device *dev, struct scatterlist *sglist,
+ 			continue;
  		}
- 	}
-@@ -1064,8 +1061,8 @@ int acpi_processor_power_init(struct acpi_processor *pr)
- 			retval = cpuidle_register_driver(&acpi_idle_driver);
- 			if (retval)
- 				return retval;
--			printk(KERN_DEBUG "ACPI: %s registered with cpuidle\n",
--					acpi_idle_driver.name);
-+			pr_debug("%s registered with cpuidle\n",
-+				 acpi_idle_driver.name);
- 		}
- 
- 		dev = kzalloc(sizeof(*dev), GFP_KERNEL);
+ 		/* Allocate iommu entries for that segment */
+-		paddr = (unsigned long) SG_ENT_PHYS_ADDRESS(s);
++		paddr = sg_phys(s);
+ 		npages = iommu_num_pages(paddr, slen, IO_PAGE_SIZE);
+ 		entry = iommu_tbl_range_alloc(dev, &iommu->tbl, npages,
+ 					      &handle, (unsigned long)(-1), 0);
 -- 
 1.9.1
 
