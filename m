@@ -1,126 +1,35 @@
-From: Al Stone <al.stone@linaro.org>
-Date: Thu, 06 Aug 2015 20:59:29 +0000
-Subject: [PATCH 4/5] ACPI / X86: remove usage of BAD_MADT_ENTRY
-Message-Id: <1438894770-31163-5-git-send-email-al.stone@linaro.org>
+From: Christoph Hellwig <hch@lst.de>
+Date: Wed, 12 Aug 2015 07:05:23 +0000
+Subject: [PATCH 04/31] x86/pci-nommu: handle page-less SG entries
+Message-Id: <1439363150-8661-5-git-send-email-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1438894770-31163-1-git-send-email-al.stone@linaro.org>
-In-Reply-To: <1438894770-31163-1-git-send-email-al.stone@linaro.org>
+References: <1439363150-8661-1-git-send-email-hch@lst.de>
+In-Reply-To: <1439363150-8661-1-git-send-email-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-pm@vger.kernel.org, linaro-acpi@lists.linaro.org, linaro-kernel@lists.linaro.org, patches@linaro.org, Al Stone <al.stone@linaro.org>, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <len.brown@intel.com>, Pavel Machek <pavel@ucw.cz>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org
+To: torvalds@linux-foundation.org, axboe@kernel.dk
+Cc: dan.j.williams@intel.com, vgupta@synopsys.com, hskinnemoen@gmail.com, egtvedt@samfundet.no, realmz6@gmail.com, dhowells@redhat.com, monstr@monstr.eu, x86@kernel.org, dwmw2@infradead.org, alex.williamson@redhat.com, grundler@parisc-linux.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-nvdimm@ml01.01.org, linux-media@vger.kernel.org
 
-Now that we have introduced the bad_madt_entry() function, and that
-function is being invoked in acpi_table_parse_madt() for us, there
-is no longer any need to use the BAD_MADT_ENTRY macro.
+Just remove a BUG_ON, the code handles them just fine as-is.
 
-Signed-off-by: Al Stone <al.stone@linaro.org>
-Cc: Rafael J. Wysocki <rjw@rjwysocki.net>
-Cc: Len Brown <len.brown@intel.com>
-Cc: Pavel Machek <pavel@ucw.cz>
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: Ingo Molnar <mingo@redhat.com>
-Cc: H. Peter Anvin <hpa@zytor.com>
-Cc: x86@kernel.org
+Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- arch/x86/kernel/acpi/boot.c | 27 ---------------------------
- 1 file changed, 27 deletions(-)
+ arch/x86/kernel/pci-nommu.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/arch/x86/kernel/acpi/boot.c b/arch/x86/kernel/acpi/boot.c
-index e49ee24..9bdf786 100644
---- a/arch/x86/kernel/acpi/boot.c
-+++ b/arch/x86/kernel/acpi/boot.c
-@@ -194,9 +194,6 @@ acpi_parse_x2apic(struct acpi_subtable_header *header, const unsigned long end)
+diff --git a/arch/x86/kernel/pci-nommu.c b/arch/x86/kernel/pci-nommu.c
+index da15918..a218059 100644
+--- a/arch/x86/kernel/pci-nommu.c
++++ b/arch/x86/kernel/pci-nommu.c
+@@ -63,7 +63,6 @@ static int nommu_map_sg(struct device *hwdev, struct scatterlist *sg,
+ 	WARN_ON(nents = 0 || sg[0].length = 0);
  
- 	processor = (struct acpi_madt_local_x2apic *)header;
- 
--	if (BAD_MADT_ENTRY(processor, end))
--		return -EINVAL;
--
- 	acpi_table_print_madt_entry(header);
- 
- 	apic_id = processor->local_apic_id;
-@@ -227,9 +224,6 @@ acpi_parse_lapic(struct acpi_subtable_header * header, const unsigned long end)
- 
- 	processor = (struct acpi_madt_local_apic *)header;
- 
--	if (BAD_MADT_ENTRY(processor, end))
--		return -EINVAL;
--
- 	acpi_table_print_madt_entry(header);
- 
- 	/*
-@@ -252,9 +246,6 @@ acpi_parse_sapic(struct acpi_subtable_header *header, const unsigned long end)
- 
- 	processor = (struct acpi_madt_local_sapic *)header;
- 
--	if (BAD_MADT_ENTRY(processor, end))
--		return -EINVAL;
--
- 	acpi_table_print_madt_entry(header);
- 
- 	acpi_register_lapic((processor->id << 8) | processor->eid,/* APIC ID */
-@@ -271,9 +262,6 @@ acpi_parse_lapic_addr_ovr(struct acpi_subtable_header * header,
- 
- 	lapic_addr_ovr = (struct acpi_madt_local_apic_override *)header;
- 
--	if (BAD_MADT_ENTRY(lapic_addr_ovr, end))
--		return -EINVAL;
--
- 	acpi_lapic_addr = lapic_addr_ovr->address;
- 
- 	return 0;
-@@ -287,9 +275,6 @@ acpi_parse_x2apic_nmi(struct acpi_subtable_header *header,
- 
- 	x2apic_nmi = (struct acpi_madt_local_x2apic_nmi *)header;
- 
--	if (BAD_MADT_ENTRY(x2apic_nmi, end))
--		return -EINVAL;
--
- 	acpi_table_print_madt_entry(header);
- 
- 	if (x2apic_nmi->lint != 1)
-@@ -305,9 +290,6 @@ acpi_parse_lapic_nmi(struct acpi_subtable_header * header, const unsigned long e
- 
- 	lapic_nmi = (struct acpi_madt_local_apic_nmi *)header;
- 
--	if (BAD_MADT_ENTRY(lapic_nmi, end))
--		return -EINVAL;
--
- 	acpi_table_print_madt_entry(header);
- 
- 	if (lapic_nmi->lint != 1)
-@@ -411,9 +393,6 @@ acpi_parse_ioapic(struct acpi_subtable_header * header, const unsigned long end)
- 
- 	ioapic = (struct acpi_madt_io_apic *)header;
- 
--	if (BAD_MADT_ENTRY(ioapic, end))
--		return -EINVAL;
--
- 	acpi_table_print_madt_entry(header);
- 
- 	/* Statically assign IRQ numbers for IOAPICs hosting legacy IRQs */
-@@ -462,9 +441,6 @@ acpi_parse_int_src_ovr(struct acpi_subtable_header * header,
- 
- 	intsrc = (struct acpi_madt_interrupt_override *)header;
- 
--	if (BAD_MADT_ENTRY(intsrc, end))
--		return -EINVAL;
--
- 	acpi_table_print_madt_entry(header);
- 
- 	if (intsrc->source_irq = acpi_gbl_FADT.sci_interrupt) {
-@@ -503,9 +479,6 @@ acpi_parse_nmi_src(struct acpi_subtable_header * header, const unsigned long end
- 
- 	nmi_src = (struct acpi_madt_nmi_source *)header;
- 
--	if (BAD_MADT_ENTRY(nmi_src, end))
--		return -EINVAL;
--
- 	acpi_table_print_madt_entry(header);
- 
- 	/* TBD: Support nimsrc entries? */
+ 	for_each_sg(sg, s, nents, i) {
+-		BUG_ON(!sg_page(s));
+ 		s->dma_address = sg_phys(s);
+ 		if (!check_addr("map_sg", hwdev, s->dma_address, s->length))
+ 			return 0;
 -- 
-2.4.3
+1.9.1
 
