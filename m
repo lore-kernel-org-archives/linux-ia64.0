@@ -1,43 +1,58 @@
-From: Al Stone <al.stone@linaro.org>
-Date: Wed, 19 Aug 2015 22:07:28 +0000
-Subject: [PATCH v2 5/5] ACPI: remove definition of BAD_MADT_ENTRY macro
-Message-Id: <1440022048-6285-6-git-send-email-al.stone@linaro.org>
+From: Christoph Hellwig <hch@lst.de>
+Date: Wed, 12 Aug 2015 07:05:24 +0000
+Subject: [PATCH 05/31] x86/pci-calgary: handle page-less SG entries
+Message-Id: <1439363150-8661-6-git-send-email-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1440022048-6285-1-git-send-email-al.stone@linaro.org>
-In-Reply-To: <1440022048-6285-1-git-send-email-al.stone@linaro.org>
+References: <1439363150-8661-1-git-send-email-hch@lst.de>
+In-Reply-To: <1439363150-8661-1-git-send-email-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-pm@vger.kernel.org, linaro-acpi@lists.linaro.org, linaro-kernel@lists.linaro.org, patches@linaro.org, Al Stone <al.stone@linaro.org>, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>
+To: torvalds@linux-foundation.org, axboe@kernel.dk
+Cc: dan.j.williams@intel.com, vgupta@synopsys.com, hskinnemoen@gmail.com, egtvedt@samfundet.no, realmz6@gmail.com, dhowells@redhat.com, monstr@monstr.eu, x86@kernel.org, dwmw2@infradead.org, alex.williamson@redhat.com, grundler@parisc-linux.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-nvdimm@ml01.01.org, linux-media@vger.kernel.org
 
-Now that we have introduced to bad_madt_entry(), and we have removed
-all the usages of the BAD_MADT_ENTRY macro from all of the various
-architectures that use it (arm64, ia64, x86), we can remove the macro
-definition since it is no longer used.
+For the iommu offset we just need and offset into the page.  Calculate
+that using the physical address instead of using the virtual address
+so that we don't require a virtual mapping.
 
-Signed-off-by: Al Stone <al.stone@linaro.org>
-Cc: Rafael J. Wysocki <rjw@rjwysocki.net>
-Cc: Len Brown <lenb@kernel.org>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- include/linux/acpi.h | 4 ----
- 1 file changed, 4 deletions(-)
+ arch/x86/kernel/pci-calgary_64.c | 10 ++++------
+ 1 file changed, 4 insertions(+), 6 deletions(-)
 
-diff --git a/include/linux/acpi.h b/include/linux/acpi.h
-index 01e6770..96729d3 100644
---- a/include/linux/acpi.h
-+++ b/include/linux/acpi.h
-@@ -127,10 +127,6 @@ static inline void acpi_initrd_override(void *data, size_t size)
- }
- #endif
+diff --git a/arch/x86/kernel/pci-calgary_64.c b/arch/x86/kernel/pci-calgary_64.c
+index 0497f71..8f1581d 100644
+--- a/arch/x86/kernel/pci-calgary_64.c
++++ b/arch/x86/kernel/pci-calgary_64.c
+@@ -368,16 +368,14 @@ static int calgary_map_sg(struct device *dev, struct scatterlist *sg,
+ {
+ 	struct iommu_table *tbl = find_iommu_table(dev);
+ 	struct scatterlist *s;
+-	unsigned long vaddr;
++	unsigned long paddr;
+ 	unsigned int npages;
+ 	unsigned long entry;
+ 	int i;
  
--#define BAD_MADT_ENTRY(entry, end) (					    \
--		(!entry) || (unsigned long)entry + sizeof(*entry) > end ||  \
--		((struct acpi_subtable_header *)entry)->length < sizeof(*entry))
+ 	for_each_sg(sg, s, nelems, i) {
+-		BUG_ON(!sg_page(s));
 -
- char * __acpi_map_table (unsigned long phys_addr, unsigned long size);
- void __acpi_unmap_table(char *map, unsigned long size);
- int early_acpi_boot_init(void);
+-		vaddr = (unsigned long) sg_virt(s);
+-		npages = iommu_num_pages(vaddr, s->length, PAGE_SIZE);
++		paddr = sg_phys(s);
++		npages = iommu_num_pages(paddr, s->length, PAGE_SIZE);
+ 
+ 		entry = iommu_range_alloc(dev, tbl, npages);
+ 		if (entry = DMA_ERROR_CODE) {
+@@ -389,7 +387,7 @@ static int calgary_map_sg(struct device *dev, struct scatterlist *sg,
+ 		s->dma_address = (entry << PAGE_SHIFT) | s->offset;
+ 
+ 		/* insert into HW table */
+-		tce_build(tbl, entry, npages, vaddr & PAGE_MASK, dir);
++		tce_build(tbl, entry, npages, paddr & PAGE_MASK, dir);
+ 
+ 		s->dma_length = s->length;
+ 	}
 -- 
-2.4.3
+1.9.1
 
