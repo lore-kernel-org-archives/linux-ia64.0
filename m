@@ -1,70 +1,51 @@
-From: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
-Date: Mon, 17 Aug 2015 15:46:27 +0000
-Subject: [RFT PATCH] ia64: tiger_defconfig: convert to use libata PATA drivers
-Message-Id: <1439826388-31456-4-git-send-email-b.zolnierkie@samsung.com>
+From: Christoph Hellwig <hch@lst.de>
+Date: Wed, 12 Aug 2015 07:05:47 +0000
+Subject: [PATCH 28/31] powerpc: handle page-less SG entries
+Message-Id: <1439363150-8661-29-git-send-email-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1439826388-31456-1-git-send-email-b.zolnierkie@samsung.com>
-In-Reply-To: <1439826388-31456-1-git-send-email-b.zolnierkie@samsung.com>
+References: <1439363150-8661-1-git-send-email-hch@lst.de>
+In-Reply-To: <1439363150-8661-1-git-send-email-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ide@vger.kernel.org, linux-kernel@vger.kernel.org, b.zolnierkie@samsung.com
+To: torvalds@linux-foundation.org, axboe@kernel.dk
+Cc: dan.j.williams@intel.com, vgupta@synopsys.com, hskinnemoen@gmail.com, egtvedt@samfundet.no, realmz6@gmail.com, dhowells@redhat.com, monstr@monstr.eu, x86@kernel.org, dwmw2@infradead.org, alex.williamson@redhat.com, grundler@parisc-linux.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-nvdimm@ml01.01.org, linux-media@vger.kernel.org
 
-IDE subsystem has been deprecated since 2009 and the majority
-(if not all) of Linux distributions have switched to use
-libata for ATA support exclusively.  However there are still
-some users (mostly old or/and embedded non-x86 systems) that
-have not converted from using IDE subsystem to libata PATA
-drivers.  This doesn't seem to be good thing in the long-term
-for Linux as while there is less and less PATA systems left
-in use:
+Make all cache invalidation conditional on sg_has_page().
 
-* testing efforts are divided between two subsystems
-
-* having duplicate drivers for same hardware confuses users
-
-This patch converts tiger_defconfig to use libata PATA
-drivers.
-
-Signed-off-by: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
-Build tested only.
-If you have affected hardware please test.  Thank you.
+ arch/powerpc/kernel/dma.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
 
- arch/ia64/configs/tiger_defconfig | 13 ++++++-------
- 1 file changed, 6 insertions(+), 7 deletions(-)
-
-diff --git a/arch/ia64/configs/tiger_defconfig b/arch/ia64/configs/tiger_defconfig
-index 192ed15..30a4416 100644
---- a/arch/ia64/configs/tiger_defconfig
-+++ b/arch/ia64/configs/tiger_defconfig
-@@ -42,19 +42,18 @@ CONFIG_BLK_DEV_LOOP=m
- CONFIG_BLK_DEV_CRYPTOLOOP=m
- CONFIG_BLK_DEV_NBD=m
- CONFIG_BLK_DEV_RAM=y
--CONFIG_IDE=y
--CONFIG_BLK_DEV_IDECD=y
--CONFIG_BLK_DEV_GENERIC=y
--CONFIG_BLK_DEV_CMD64X=y
--CONFIG_BLK_DEV_PIIX=y
--CONFIG_SCSI=y
- CONFIG_BLK_DEV_SD=y
- CONFIG_CHR_DEV_ST=m
--CONFIG_BLK_DEV_SR=m
-+CONFIG_BLK_DEV_SR=y
- CONFIG_CHR_DEV_SG=m
- CONFIG_SCSI_FC_ATTRS=y
- CONFIG_SCSI_SYM53C8XX_2=y
- CONFIG_SCSI_QLOGIC_1280=y
-+CONFIG_ATA=y
-+CONFIG_ATA_PIIX=y
-+CONFIG_PATA_CMD64X=y
-+CONFIG_PATA_MPIIX=y
-+CONFIG_ATA_GENERIC=y
- CONFIG_MD=y
- CONFIG_BLK_DEV_MD=m
- CONFIG_MD_LINEAR=m
+diff --git a/arch/powerpc/kernel/dma.c b/arch/powerpc/kernel/dma.c
+index 35e4dcc..cece40b 100644
+--- a/arch/powerpc/kernel/dma.c
++++ b/arch/powerpc/kernel/dma.c
+@@ -135,7 +135,10 @@ static int dma_direct_map_sg(struct device *dev, struct scatterlist *sgl,
+ 	for_each_sg(sgl, sg, nents, i) {
+ 		sg->dma_address = sg_phys(sg) + get_dma_offset(dev);
+ 		sg->dma_length = sg->length;
+-		__dma_sync_page(sg_page(sg), sg->offset, sg->length, direction);
++		if (sg_has_page(sg)) {
++			__dma_sync_page(sg_page(sg), sg->offset, sg->length,
++					direction);
++		}
+ 	}
+ 
+ 	return nents;
+@@ -200,7 +203,10 @@ static inline void dma_direct_sync_sg(struct device *dev,
+ 	int i;
+ 
+ 	for_each_sg(sgl, sg, nents, i)
+-		__dma_sync_page(sg_page(sg), sg->offset, sg->length, direction);
++		if (sg_has_page(sg)) {
++			__dma_sync_page(sg_page(sg), sg->offset, sg->length,
++					direction);
++		}
+ }
+ 
+ static inline void dma_direct_sync_single(struct device *dev,
 -- 
 1.9.1
 
