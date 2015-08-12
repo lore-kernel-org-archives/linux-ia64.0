@@ -1,26 +1,38 @@
-From: Vlastimil Babka <vbabka@suse.cz>
-Date: Thu, 06 Aug 2015 14:00:33 +0000
-Subject: Re: [PATCH V6 2/6] mm: mlock: Add new mlock system call
-Message-Id: <55C36881.8050301@suse.cz>
+From: Christoph Hellwig <hch@lst.de>
+Date: Wed, 12 Aug 2015 07:05:27 +0000
+Subject: [PATCH 08/31] c6x: handle page-less SG entries
+Message-Id: <1439363150-8661-9-git-send-email-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1438184575-10537-1-git-send-email-emunson@akamai.com>
- <1438184575-10537-3-git-send-email-emunson@akamai.com>
-In-Reply-To: <1438184575-10537-3-git-send-email-emunson@akamai.com>
+References: <1439363150-8661-1-git-send-email-hch@lst.de>
+In-Reply-To: <1439363150-8661-1-git-send-email-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Eric B Munson <emunson@akamai.com>, Andrew Morton <akpm@linux-foundation.org>
-Cc: Michal Hocko <mhocko@suse.cz>, Heiko Carstens <heiko.carstens@de.ibm.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Catalin Marinas <catalin.marinas@arm.com>, Stephen Rothwell <sfr@canb.auug.org.au>, Guenter Roeck <linux@roeck-us.net>, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, adi-buildroot-devel@lists.sourceforge.net, linux-cris-kernel@axis.com, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-am33-list@redhat.com, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-api@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
+To: torvalds@linux-foundation.org, axboe@kernel.dk
+Cc: dan.j.williams@intel.com, vgupta@synopsys.com, hskinnemoen@gmail.com, egtvedt@samfundet.no, realmz6@gmail.com, dhowells@redhat.com, monstr@monstr.eu, x86@kernel.org, dwmw2@infradead.org, alex.williamson@redhat.com, grundler@parisc-linux.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-nvdimm@ml01.01.org, linux-media@vger.kernel.org
 
-On 07/29/2015 05:42 PM, Eric B Munson wrote:
-> With the refactored mlock code, introduce a new system call for mlock.
-> The new call will allow the user to specify what lock states are being
-> added.  mlock2 is trivial at the moment, but a follow on patch will add
-> a new mlock state making it useful.
->
-> Signed-off-by: Eric B Munson <emunson@akamai.com>
-> Cc: Michal Hocko <mhocko@suse.cz>
-> Cc: Vlastimil Babka <vbabka@suse.cz>
+Use sg_phys() instead of virt_to_phys(sg_virt(sg)) so that we don't
+require a kernel virtual address.
 
-Acked-by: Vlastimil Babka <vbabka@suse.cz>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ arch/c6x/kernel/dma.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/arch/c6x/kernel/dma.c b/arch/c6x/kernel/dma.c
+index ab7b12d..79cae03 100644
+--- a/arch/c6x/kernel/dma.c
++++ b/arch/c6x/kernel/dma.c
+@@ -68,8 +68,7 @@ int dma_map_sg(struct device *dev, struct scatterlist *sglist,
+ 	int i;
+ 
+ 	for_each_sg(sglist, sg, nents, i)
+-		sg->dma_address = dma_map_single(dev, sg_virt(sg), sg->length,
+-						 dir);
++		sg->dma_address = sg_phys(sg);
+ 
+ 	debug_dma_map_sg(dev, sglist, nents, nents, dir);
+ 
+-- 
+1.9.1
 
