@@ -1,126 +1,52 @@
-From: Al Stone <al.stone@linaro.org>
-Date: Wed, 19 Aug 2015 22:07:27 +0000
-Subject: [PATCH v2 4/5] ACPI / X86: remove usage of BAD_MADT_ENTRY
-Message-Id: <1440022048-6285-5-git-send-email-al.stone@linaro.org>
+From: Christoph Hellwig <hch@lst.de>
+Date: Wed, 12 Aug 2015 07:05:42 +0000
+Subject: [PATCH 23/31] sh: handle page-less SG entries
+Message-Id: <1439363150-8661-24-git-send-email-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1440022048-6285-1-git-send-email-al.stone@linaro.org>
-In-Reply-To: <1440022048-6285-1-git-send-email-al.stone@linaro.org>
+References: <1439363150-8661-1-git-send-email-hch@lst.de>
+In-Reply-To: <1439363150-8661-1-git-send-email-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-pm@vger.kernel.org, linaro-acpi@lists.linaro.org, linaro-kernel@lists.linaro.org, patches@linaro.org, Al Stone <al.stone@linaro.org>, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <len.brown@intel.com>, Pavel Machek <pavel@ucw.cz>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org
+To: torvalds@linux-foundation.org, axboe@kernel.dk
+Cc: dan.j.williams@intel.com, vgupta@synopsys.com, hskinnemoen@gmail.com, egtvedt@samfundet.no, realmz6@gmail.com, dhowells@redhat.com, monstr@monstr.eu, x86@kernel.org, dwmw2@infradead.org, alex.williamson@redhat.com, grundler@parisc-linux.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-nvdimm@ml01.01.org, linux-media@vger.kernel.org
 
-Now that we have introduced the bad_madt_entry() function, and that
-function is being invoked in acpi_table_parse_madt() for us, there
-is no longer any need to use the BAD_MADT_ENTRY macro.
+Make all cache invalidation conditional on sg_has_page().
 
-Signed-off-by: Al Stone <al.stone@linaro.org>
-Cc: Rafael J. Wysocki <rjw@rjwysocki.net>
-Cc: Len Brown <len.brown@intel.com>
-Cc: Pavel Machek <pavel@ucw.cz>
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: Ingo Molnar <mingo@redhat.com>
-Cc: H. Peter Anvin <hpa@zytor.com>
-Cc: x86@kernel.org
+Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- arch/x86/kernel/acpi/boot.c | 27 ---------------------------
- 1 file changed, 27 deletions(-)
+ arch/sh/kernel/dma-nommu.c | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/arch/x86/kernel/acpi/boot.c b/arch/x86/kernel/acpi/boot.c
-index 75e8bad..f2a70b2 100644
---- a/arch/x86/kernel/acpi/boot.c
-+++ b/arch/x86/kernel/acpi/boot.c
-@@ -194,9 +194,6 @@ acpi_parse_x2apic(struct acpi_subtable_header *header, const unsigned long end)
+diff --git a/arch/sh/kernel/dma-nommu.c b/arch/sh/kernel/dma-nommu.c
+index 5b0bfcd..3b64dc7 100644
+--- a/arch/sh/kernel/dma-nommu.c
++++ b/arch/sh/kernel/dma-nommu.c
+@@ -33,9 +33,8 @@ static int nommu_map_sg(struct device *dev, struct scatterlist *sg,
+ 	WARN_ON(nents = 0 || sg[0].length = 0);
  
- 	processor = (struct acpi_madt_local_x2apic *)header;
- 
--	if (BAD_MADT_ENTRY(processor, end))
--		return -EINVAL;
+ 	for_each_sg(sg, s, nents, i) {
+-		BUG_ON(!sg_page(s));
 -
- 	acpi_table_print_madt_entry(header);
+-		dma_cache_sync(dev, sg_virt(s), s->length, dir);
++		if (sg_has_page(s))
++			dma_cache_sync(dev, sg_virt(s), s->length, dir);
  
- 	apic_id = processor->local_apic_id;
-@@ -227,9 +224,6 @@ acpi_parse_lapic(struct acpi_subtable_header * header, const unsigned long end)
+ 		s->dma_address = sg_phys(s);
+ 		s->dma_length = s->length;
+@@ -57,8 +56,10 @@ static void nommu_sync_sg(struct device *dev, struct scatterlist *sg,
+ 	struct scatterlist *s;
+ 	int i;
  
- 	processor = (struct acpi_madt_local_apic *)header;
+-	for_each_sg(sg, s, nelems, i)
+-		dma_cache_sync(dev, sg_virt(s), s->length, dir);
++	for_each_sg(sg, s, nelems, i) {
++		if (sg_has_page(s))
++			dma_cache_sync(dev, sg_virt(s), s->length, dir);
++	}
+ }
+ #endif
  
--	if (BAD_MADT_ENTRY(processor, end))
--		return -EINVAL;
--
- 	acpi_table_print_madt_entry(header);
- 
- 	/*
-@@ -252,9 +246,6 @@ acpi_parse_sapic(struct acpi_subtable_header *header, const unsigned long end)
- 
- 	processor = (struct acpi_madt_local_sapic *)header;
- 
--	if (BAD_MADT_ENTRY(processor, end))
--		return -EINVAL;
--
- 	acpi_table_print_madt_entry(header);
- 
- 	acpi_register_lapic((processor->id << 8) | processor->eid,/* APIC ID */
-@@ -271,9 +262,6 @@ acpi_parse_lapic_addr_ovr(struct acpi_subtable_header * header,
- 
- 	lapic_addr_ovr = (struct acpi_madt_local_apic_override *)header;
- 
--	if (BAD_MADT_ENTRY(lapic_addr_ovr, end))
--		return -EINVAL;
--
- 	acpi_lapic_addr = lapic_addr_ovr->address;
- 
- 	return 0;
-@@ -287,9 +275,6 @@ acpi_parse_x2apic_nmi(struct acpi_subtable_header *header,
- 
- 	x2apic_nmi = (struct acpi_madt_local_x2apic_nmi *)header;
- 
--	if (BAD_MADT_ENTRY(x2apic_nmi, end))
--		return -EINVAL;
--
- 	acpi_table_print_madt_entry(header);
- 
- 	if (x2apic_nmi->lint != 1)
-@@ -305,9 +290,6 @@ acpi_parse_lapic_nmi(struct acpi_subtable_header * header, const unsigned long e
- 
- 	lapic_nmi = (struct acpi_madt_local_apic_nmi *)header;
- 
--	if (BAD_MADT_ENTRY(lapic_nmi, end))
--		return -EINVAL;
--
- 	acpi_table_print_madt_entry(header);
- 
- 	if (lapic_nmi->lint != 1)
-@@ -411,9 +393,6 @@ acpi_parse_ioapic(struct acpi_subtable_header * header, const unsigned long end)
- 
- 	ioapic = (struct acpi_madt_io_apic *)header;
- 
--	if (BAD_MADT_ENTRY(ioapic, end))
--		return -EINVAL;
--
- 	acpi_table_print_madt_entry(header);
- 
- 	/* Statically assign IRQ numbers for IOAPICs hosting legacy IRQs */
-@@ -462,9 +441,6 @@ acpi_parse_int_src_ovr(struct acpi_subtable_header * header,
- 
- 	intsrc = (struct acpi_madt_interrupt_override *)header;
- 
--	if (BAD_MADT_ENTRY(intsrc, end))
--		return -EINVAL;
--
- 	acpi_table_print_madt_entry(header);
- 
- 	if (intsrc->source_irq = acpi_gbl_FADT.sci_interrupt) {
-@@ -503,9 +479,6 @@ acpi_parse_nmi_src(struct acpi_subtable_header * header, const unsigned long end
- 
- 	nmi_src = (struct acpi_madt_nmi_source *)header;
- 
--	if (BAD_MADT_ENTRY(nmi_src, end))
--		return -EINVAL;
--
- 	acpi_table_print_madt_entry(header);
- 
- 	/* TBD: Support nimsrc entries? */
 -- 
-2.4.3
+1.9.1
 
