@@ -1,79 +1,42 @@
-From: Al Stone <al.stone@linaro.org>
-Date: Wed, 19 Aug 2015 22:07:23 +0000
-Subject: [PATCH v2 0/5] ACPI: Provide better MADT subtable sanity checks
-Message-Id: <1440022048-6285-1-git-send-email-al.stone@linaro.org>
+From: Christoph Hellwig <hch@lst.de>
+Date: Wed, 12 Aug 2015 07:05:44 +0000
+Subject: [PATCH 25/31] frv: handle page-less SG entries
+Message-Id: <1439363150-8661-26-git-send-email-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1439363150-8661-1-git-send-email-hch@lst.de>
+In-Reply-To: <1439363150-8661-1-git-send-email-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-pm@vger.kernel.org, linaro-acpi@lists.linaro.org, linaro-kernel@lists.linaro.org, patches@linaro.org, Al Stone <al.stone@linaro.org>
+To: torvalds@linux-foundation.org, axboe@kernel.dk
+Cc: dan.j.williams@intel.com, vgupta@synopsys.com, hskinnemoen@gmail.com, egtvedt@samfundet.no, realmz6@gmail.com, dhowells@redhat.com, monstr@monstr.eu, x86@kernel.org, dwmw2@infradead.org, alex.williamson@redhat.com, grundler@parisc-linux.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-nvdimm@ml01.01.org, linux-media@vger.kernel.org
 
-Currently, the BAD_MADT_ENTRY macro is used to do a very simple sanity
-check on the various subtables that are defined for the MADT.  The check
-compares the size of the subtable data structure as defined by ACPICA to
-the length entry in the subtable.  If they are not the same, the assumption
-is that the subtable is incorrect.
+Only call kmap_atomic_primary when the SG entry is mapped into
+kernel virtual space.
 
-Over time, the ACPI spec has allowed for MADT subtables where this can
-never be true (the local SAPIC subtable, for example).  Or, more recently,
-the spec has accumulated some minor flaws where there are three possible 
-sizes for a subtable, all of which are valid, but only for specific versions
-of the spec (the GICC subtable).  In both cases, BAD_MADT_ENTRY reports these
-subtables as bad when they are not.  In order to retain some sanity check
-on the MADT subtables, we now have to special case these subtables.  Of
-necessity, these special cases have ended up in arch-dependent code (arm64)
-or an arch has simply decided to forgo the check (ia64).
+XXX: the code already looks odd due to the lack of pairing between
+kmap_atomic_primary and kunmap_atomic_primary.  Does it work either
+before or after this patch?
 
-This patch set replaces the BAD_MADT_ENTRY macro with a function called
-bad_madt_entry().  This function uses a data set of details about the
-subtables to provide more sanity checking than before:
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ arch/frv/mb93090-mb00/pci-dma.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-	-- is the subtable legal for the version given in the FADT?
-
-	-- is the subtable legal for the revision of the MADT in use?
-
-	-- is the subtable of the proper length (including checking
-	   on the one variable length subtable that is currently ignored),
-	   given the FADT version and the MADT revision?
-
-Further, this patch set adds in the call to bad_madt_entry() from the 
-acpi_table_parse_madt() function, allowing it to be used consistently
-by all architectures, for all subtables, and removing the need for each
-of the subtable traversal callback functions to use BAD_MADT_ENTRY.
-
-In theory, as the ACPI specification changes, we would only have to add
-additional information to the data set describing the MADT subtables in
-order to continue providing sanity checks, even when new subtables are
-added.
-
-These patches have been tested on an APM Mustang (arm64) and are known to
-work there.  They have also been cross-compiled for x86 and ia64 with no
-known failures.
-
-Changes for v2:
-   -- Acked-by on 2/5 from Marc Zyngier and Catalin Marinas for ARM
-   -- Correct faulty end of loop test found by Timur Tabi
-
-Al Stone (5):
-  ACPI: add in a bad_madt_entry() function to eventually replace the
-    macro
-  ACPI / ARM64: remove usage of BAD_MADT_ENTRY/BAD_MADT_GICC_ENTRY
-  ACPI / IA64: remove usage of BAD_MADT_ENTRY
-  ACPI / X86: remove usage of BAD_MADT_ENTRY
-  ACPI: remove definition of BAD_MADT_ENTRY macro
-
- arch/arm64/include/asm/acpi.h  |   8 --
- arch/arm64/kernel/perf_event.c |   3 -
- arch/arm64/kernel/smp.c        |   2 -
- arch/ia64/kernel/acpi.c        |  20 ----
- arch/x86/kernel/acpi/boot.c    |  27 -----
- drivers/acpi/tables.c          | 241 +++++++++++++++++++++++++++++++++++++++++
- drivers/irqchip/irq-gic-v2m.c  |   2 -
- drivers/irqchip/irq-gic.c      |   6 -
- include/linux/acpi.h           |   4 -
- 9 files changed, 241 insertions(+), 72 deletions(-)
-
+diff --git a/arch/frv/mb93090-mb00/pci-dma.c b/arch/frv/mb93090-mb00/pci-dma.c
+index 4d1f01d..77b3a1c 100644
+--- a/arch/frv/mb93090-mb00/pci-dma.c
++++ b/arch/frv/mb93090-mb00/pci-dma.c
+@@ -63,6 +63,9 @@ int dma_map_sg(struct device *dev, struct scatterlist *sglist, int nents,
+ 	dampr2 = __get_DAMPR(2);
+ 
+ 	for_each_sg(sglist, sg, nents, i) {
++		if (!sg_has_page(sg))
++			continue;
++
+ 		vaddr = kmap_atomic_primary(sg_page(sg));
+ 
+ 		frv_dcache_writeback((unsigned long) vaddr,
 -- 
-2.4.3
+1.9.1
 
