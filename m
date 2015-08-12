@@ -1,51 +1,75 @@
-From: Michal Hocko <mhocko@kernel.org>
-Date: Thu, 20 Aug 2015 14:43:06 +0000
-Subject: Re: [PATCH 2/3] mm: unify checks in alloc_pages_node() and __alloc_pages_node()
-Message-Id: <20150820144306.GE4632@dhcp22.suse.cz>
+From: Christoph Hellwig <hch@lst.de>
+Date: Wed, 12 Aug 2015 07:05:38 +0000
+Subject: [PATCH 19/31] arc: handle page-less SG entries
+Message-Id: <1439363150-8661-20-git-send-email-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1440071002-19085-1-git-send-email-vbabka@suse.cz>
- <1440071002-19085-2-git-send-email-vbabka@suse.cz>
- <20150820141434.GD4632@dhcp22.suse.cz>
-In-Reply-To: <20150820141434.GD4632@dhcp22.suse.cz>
+References: <1439363150-8661-1-git-send-email-hch@lst.de>
+In-Reply-To: <1439363150-8661-1-git-send-email-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Vlastimil Babka <vbabka@suse.cz>
-Cc: Andrew Morton <akpm@linux-foundation.org>, linux-mm@kvack.org, linux-kernel@vger.kernel.org, Mel Gorman <mgorman@suse.de>, David Rientjes <rientjes@google.com>, Greg Thelen <gthelen@google.com>, "Aneesh Kumar K.V" <aneesh.kumar@linux.vnet.ibm.com>, Christoph Lameter <cl@linux.com>, Pekka Enberg <penberg@kernel.org>, Joonsoo Kim <iamjoonsoo.kim@lge.com>, Naoya Horiguchi <n-horiguchi@ah.jp.nec.com>, Johannes Weiner <hannes@cmpxchg.org>, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, cbe-oss-dev@lists.ozlabs.org, kvm@vger.kernel.org
+To: torvalds@linux-foundation.org, axboe@kernel.dk
+Cc: dan.j.williams@intel.com, vgupta@synopsys.com, hskinnemoen@gmail.com, egtvedt@samfundet.no, realmz6@gmail.com, dhowells@redhat.com, monstr@monstr.eu, x86@kernel.org, dwmw2@infradead.org, alex.williamson@redhat.com, grundler@parisc-linux.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-nvdimm@ml01.01.org, linux-media@vger.kernel.org
 
-On Thu 20-08-15 16:14:34, Michal Hocko wrote:
-> On Thu 20-08-15 13:43:21, Vlastimil Babka wrote:
-> > Perform the same debug checks in alloc_pages_node() as are done in
-> > __alloc_pages_node(), by making the former function a wrapper of the latter
-> > one.
-> > 
-> > In addition to better diagnostics in DEBUG_VM builds for situations which
-> > have been already fatal (e.g. out-of-bounds node id), there are two visible
-> > changes for potential existing buggy callers of alloc_pages_node():
-> > 
-> > - calling alloc_pages_node() with any negative nid (e.g. due to arithmetic
-> >   overflow) was treated as passing NUMA_NO_NODE and fallback to local node was
-> >   applied. This will now be fatal.
-> 
-> OK, this is sensible
-> 
-> > - calling alloc_pages_node() with an offline node will now be checked for
-> >   DEBUG_VM builds. Since it's not fatal if the node has been previously online,
-> >   and this patch may expose some existing buggy callers, change the VM_BUG_ON
-> >   in __alloc_pages_node() to VM_WARN_ON.
-> 
-> Yes, bugging on just because we race with memory hotplug or use
-> stale node number is not appropriate because the fallback is
-> straightforward. A warning should help to identify and fix those place.
-> 
-> > 
-> > Signed-off-by: Vlastimil Babka <vbabka@suse.cz>
-> > Acked-by: David Rientjes <rientjes@google.com>
-> > Acked-by: Johannes Weiner <hannes@cmpxchg.org>
-> > Acked-by: Christoph Lameter <cl@linux.com>
+Make all cache invalidation conditional on sg_has_page() and use
+sg_phys to get the physical address directly.
 
-Forgot to add
-Acked-by: Michal Hocko <mhocko@suse.com>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ arch/arc/include/asm/dma-mapping.h | 26 +++++++++++++++++++-------
+ 1 file changed, 19 insertions(+), 7 deletions(-)
+
+diff --git a/arch/arc/include/asm/dma-mapping.h b/arch/arc/include/asm/dma-mapping.h
+index 2d28ba9..42eb526 100644
+--- a/arch/arc/include/asm/dma-mapping.h
++++ b/arch/arc/include/asm/dma-mapping.h
+@@ -108,9 +108,13 @@ dma_map_sg(struct device *dev, struct scatterlist *sg,
+ 	struct scatterlist *s;
+ 	int i;
+ 
+-	for_each_sg(sg, s, nents, i)
+-		s->dma_address = dma_map_page(dev, sg_page(s), s->offset,
+-					       s->length, dir);
++	for_each_sg(sg, s, nents, i) {
++		if (sg_has_page(s)) {
++			_dma_cache_sync((unsigned long)sg_virt(s), s->length,
++					dir);
++		}
++		s->dma_address = sg_phys(s);
++	}
+ 
+ 	return nents;
+ }
+@@ -163,8 +167,12 @@ dma_sync_sg_for_cpu(struct device *dev, struct scatterlist *sglist, int nelems,
+ 	int i;
+ 	struct scatterlist *sg;
+ 
+-	for_each_sg(sglist, sg, nelems, i)
+-		_dma_cache_sync((unsigned int)sg_virt(sg), sg->length, dir);
++	for_each_sg(sglist, sg, nelems, i) {
++		if (sg_has_page(sg)) {
++			_dma_cache_sync((unsigned int)sg_virt(sg), sg->length,
++					dir);
++		}
++	}
+ }
+ 
+ static inline void
+@@ -174,8 +182,12 @@ dma_sync_sg_for_device(struct device *dev, struct scatterlist *sglist,
+ 	int i;
+ 	struct scatterlist *sg;
+ 
+-	for_each_sg(sglist, sg, nelems, i)
+-		_dma_cache_sync((unsigned int)sg_virt(sg), sg->length, dir);
++	for_each_sg(sglist, sg, nelems, i) {
++		if (sg_has_page(sg)) {
++			_dma_cache_sync((unsigned int)sg_virt(sg), sg->length,
++				dir);
++		}
++	}
+ }
+ 
+ static inline int dma_supported(struct device *dev, u64 dma_mask)
 -- 
-Michal Hocko
-SUSE Labs
+1.9.1
+
