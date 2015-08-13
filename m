@@ -1,282 +1,406 @@
-From: Hanjun Guo <hanjun.guo@linaro.org>
-Date: Thu, 13 Aug 2015 09:28:41 +0000
-Subject: Re: [PATCH 1/5] ACPI: add in a bad_madt_entry() function to eventually replace the macro
-Message-Id: <55CC6349.3010809@linaro.org>
+From: Christoph Hellwig <hch@lst.de>
+Date: Thu, 13 Aug 2015 15:04:05 +0000
+Subject: [PATCH 2/5] dma-mapping: consolidate dma_{alloc,free}_noncoherent
+Message-Id: <1439478248-15183-3-git-send-email-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1438894770-31163-1-git-send-email-al.stone@linaro.org> <1438894770-31163-2-git-send-email-al.stone@linaro.org>
-In-Reply-To: <1438894770-31163-2-git-send-email-al.stone@linaro.org>
+References: <1439478248-15183-1-git-send-email-hch@lst.de>
+In-Reply-To: <1439478248-15183-1-git-send-email-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Al Stone <al.stone@linaro.org>, linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-pm@vger.kernel.org, linaro-acpi@lists.linaro.org, linaro-kernel@lists.linaro.org, patches@linaro.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>
+To: akpm@linux-foundation.org
+Cc: arnd@arndb.de, linux@arm.linux.org.uk, catalin.marinas@arm.com, will.deacon@arm.com, ysato@users.sourceforge.jp, monstr@monstr.eu, jonas@southpole.se, cmetcalf@ezchip.com, gxt@mprc.pku.edu.cn, x86@kernel.org, linux-alpha@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On 08/07/2015 04:59 AM, Al Stone wrote:
-> The existing BAD_MADT_ENTRY macro only checks that the size of the data
-> structure for an MADT subtable matches the length entry in the subtable.
-> This is, unfortunately, not reliable.  Nor, as it turns out, does it have
-> anything to do with what the length should be in any particular table.
->
-> We introduce the bad_madt_entry() function that uses a data set to
-> do some basic sanity checks on any given MADT subtable.  Over time, as
-> the spec changes, we should just be able to add entries to the data set
-> to reflect the changes.
->
-> What the data set captures is the allowed MADT subtable length for each
-> type of subtable, for each revision of the specification.  While there
-> is a revision number in the MADT that we should be able to use to figure
-> out the proper subtable length, it was not changed when subtables did.
-> And, while there is a major and minor revision in the FADT that could
-> also help, it was not always changed as the subtables changed either.
-> So, the data set captures for each published version of the ACPI spec
-> what the FADT revisions numbers should be, the corresponding MADT
-> revision number, and the subtable types and lengths that were defined
-> at that time.
->
-> The sanity checks done are:
-> 	-- is the length non-zero?
-> 	-- is the subtable type defined/allowed for the revision of
-> 	   the FADT we're using?
-> 	-- is the subtable type defined/allowed for the revision of
-> 	   the MADT we're using?
-> 	-- is the length entry what it should be for this revision
-> 	   of the MADT and FADT?
->
-> These checks are more thorough than the previous macro provided, and
-> are now insulated from data structure size changes by ACPICA, which
-> have been the source of other patches in the past.
->
-> Now that the bad_madt_entry() function is available, we add code to
-> also invoke it before any subtable handlers are called to use the
-> info in the subtable.  Subsequent patches will remove the use of the
-> BAD_MADT_ENTRY macro which is now redundant as a result.  Any ACPI
-> functions that use acpi_parse_madt_entries() will always have all of
-> the MADT subtables checked from now on.
->
-> Signed-off-by: Al Stone <al.stone@linaro.org>
-> Cc: Rafael J. Wysocki <rjw@rjwysocki.net>
-> Cc: Len Brown <lenb@kernel.org>
-> ---
->   drivers/acpi/tables.c | 241 ++++++++++++++++++++++++++++++++++++++++++++++++++
->   1 file changed, 241 insertions(+)
->
-> diff --git a/drivers/acpi/tables.c b/drivers/acpi/tables.c
-> index 2e19189..abd7a72 100644
-> --- a/drivers/acpi/tables.c
-> +++ b/drivers/acpi/tables.c
-> @@ -214,6 +214,245 @@ void acpi_table_print_madt_entry(struct acpi_subtable_header *header)
->   	}
->   }
->
-> +/*
-> + * The Long, Sad, True Story of the MADT
-> + *    or
-> + * What does bad_madt_entry() actually do?
-> + *
-> + * Once upon a time in ACPI 1.0, there was the MADT.  It was a nice table,
-> + * and it had two subtables all of its own.  But, it was also a pretty
-> + * busy table, too, so over time the MADT gathered up other nice little
-> + * subtables.  By the time ACPI 6.0 came around, the MADT had 16 of the
-> + * little guys.
-> + *
-> + * Now, the MADT kept a little counter around for the subtables.  In fact,
-> + * it kept two counters: one was the revision level, which was supposed to
-> + * change when new subtables came to be, or as the ones already around grew
-> + * up. The second counter was a type number, because the MADT needed a unique
-> + * type for each subtable so he could tell them apart.  But, sometimes the
-> + * MADT got so busy, he forgot to increment the revision level when he needed
-> + * to.  Fortunately, the type counter kept increasing since that's the only
-> + * way the MADT could find each little subtable.  It just wouldn't do to have
-> + * every subtable called Number 6.
-> + *
-> + * In the next valley over, a castle full of wizards was watching the MADT
-> + * and made a pact to keep their own counter.  Every time the MADT found a
-> + * new subtable, or a subtable grew up, the wizards promised they would
-> + * increment their counter.  Well, wizards being the forgetful sort, they
-> + * didn't alway do that.  And, since there quite a lot of them, they
-> + * couldn't always remember who was supposed to keep track of the MADT,
-> + * especially if dinner was coming up soon.  Their counter was called the
-> + * spec version.
-> + *
-> + * Every now and then, the MADT would gather up all its little subtables
-> + * and take them in to the cobbler to get new boots.  This was a very, very
-> + * meticulous cobbler, so every time they came, he wrote down all the boot
-> + * sizes for all of the little subtables.  The cobbler would ask each subtable
-> + * for its length, check that against his careful notes, and then go get the
-> + * right boots.  Sometimes, a little subtable would change a bit, and their
-> + * length did not match what the cobbler had written down.  If the wizards
-> + * or the MADT had incremented their counters, the cobbler would breath a
-> + * sigh of relief and write down the new length as the right one.  But, if
-> + * none of the counters had changed, this would make the cobbler very, very
-> + * mad.  He couldn't tell if he had the right size boots or not for the
-> + * little subtable.  He would have to *guess* and this really bugged him.
-> + *
-> + * Well, when the cobbler got mad like this, he would go into hiding.  He
-> + * would not make or sell any boots.  He would not go out at all.  Pretty
-> + * soon, the coffee shop would have to close because the cobbler wasn't
-> + * coming by twice a day any more.  Then the grocery store would have to
-> + * close because he wouldn't eat much.  After a while, everyone would panic
-> + * and have to move from the village and go live with all their relatives
-> + * (usually the ones they didn't like very much).
-> + *
-> + * Eventually, the cobbler would work his way out of his bad mood, and
-> + * open up his boot business again.  Then, everyone else could move back
-> + * to the village and restart their lives, too.
-> + *
-> + * Fortunately, we have been able to collect up all the cobbler's careful
-> + * notes (and we wrote them down below).  We'll have to keep checking these
-> + * notes over time, too, just as the cobbler does.  But, in the meantime,
-> + * we can avoid the panic and the reboot since we can make sure that each
-> + * subtable is doing okay.  And that's what bad_madt_entry() does.
-> + *
-> + *
-> + * FADT Major Version ->       1    3    4     4     5     5     6
-> + * FADT Minor Version ->       x    x    x     x     x     1     0
-> + * MADT revision ->            1    1    2     3     3     3     3
-> + * Spec Version ->            1.0  2.0  3.0b  4.0a  5.0b  5.1a  6.0
-> + * Subtable Name	Type  Expected Length ->
-> + * Processor Local APIC  0x0    8    8    8     8     8     8     8
-> + * IO APIC               0x1   12   12   12    12    12    12    12
-> + * Int Src Override      0x2        10   10    10    10    10    10
-> + * NMI Src               0x3         8    8     8     8     8     8
-> + * Local APIC NMI Struct 0x4         6    6     6     6     6     6
-> + * Local APIC Addr Ovrrd 0x5        16   12    12    12    12    12
-> + * IO SAPIC              0x6        20   16    16    16    16    16
-> + * Local SAPIC           0x7         8  >16   >16   >16   >16   >16
-> + * Platform Int Src      0x8        16   16    16    16    16    16
-> + * Proc Local x2APIC     0x9                   16    16    16    16
-> + * Local x2APIC NMI      0xa                   12    12    12    12
-> + * GICC CPU I/F          0xb                         40    76    80
-> + * GICD                  0xc                         24    24    24
-> + * GICv2m MSI            0xd                               24    24
-> + * GICR                  0xe                               16    16
-> + * GIC ITS               0xf                                     16
-> + *
-> + * In the table, each length entry is what should be in the length
-> + * field of the subtable, and -- in general -- it should match the
-> + * size of the struct for the subtable.  Any value that is not set
-> + * (i.e., is zero) indicates that the subtable is not defined for
-> + * that version of the ACPI spec.
-> + *
-> + */
-> +#define SUBTABLE_UNDEFINED	0x00
-> +#define SUBTABLE_VARIABLE	0xff
-> +#define NUM_SUBTABLE_TYPES	16
-> +
-> +struct acpi_madt_subtable_lengths {
-> +	unsigned short major_version;	/* from revision in FADT header */
-> +	unsigned short minor_version;	/* FADT field starting with 5.1 */
-> +	unsigned short madt_version;	/* MADT revision */
-> +	unsigned short num_types;	/* types possible for this version */
-> +	unsigned short lengths[NUM_SUBTABLE_TYPES];
-> +					/* subtable lengths, indexed by type */
-> +};
-> +
-> +static struct acpi_madt_subtable_lengths spec_info[] = {
-> +	{ /* for ACPI 1.0 */
-> +		.major_version = 1,
-> +		.minor_version = 0,
-> +		.madt_version = 1,
-> +		.num_types = 2,
-> +		.lengths = { 8, 12 }
-> +	},
-> +	{ /* for ACPI 2.0 */
-> +		.major_version = 3,
-> +		.minor_version = 0,
-> +		.madt_version = 1,
-> +		.num_types = 9,
-> +		.lengths = { 8, 12, 10, 8, 6, 16, 20, 8, 16 }
-> +	},
-> +	{ /* for ACPI 3.0b */
-> +		.major_version = 4,
-> +		.minor_version = 0,
-> +		.madt_version = 2,
-> +		.num_types = 9,
-> +		.lengths = { 8, 12, 10, 8, 6, 12, 16, SUBTABLE_VARIABLE, 16 }
-> +	},
-> +	{ /* for ACPI 4.0a */
-> +		.major_version = 4,
-> +		.minor_version = 0,
-> +		.madt_version = 3,
-> +		.num_types = 11,
-> +		.lengths = { 8, 12, 10, 8, 6, 12, 16, SUBTABLE_VARIABLE,
-> +			     16, 16, 12 }
-> +	},
-> +	{ /* for ACPI 5.0b */
-> +		.major_version = 5,
-> +		.minor_version = 0,
-> +		.madt_version = 3,
-> +		.num_types = 13,
-> +		.lengths = { 8, 12, 10, 8, 6, 12, 16, SUBTABLE_VARIABLE,
-> +			     16, 16, 12, 40, 24 }
-> +	},
-> +	{ /* for ACPI 5.1a */
-> +		.major_version = 5,
-> +		.minor_version = 1,
-> +		.madt_version = 3,
-> +		.num_types = 15,
-> +		.lengths = { 8, 12, 10, 8, 6, 12, 16, SUBTABLE_VARIABLE,
-> +			     16, 16, 12, 76, 24, 24, 16 }
-> +	},
-> +	{ /* for ACPI 6.0 */
-> +		.major_version = 6,
-> +		.minor_version = 0,
-> +		.madt_version = 3,
-> +		.num_types = 16,
-> +		.lengths = { 8, 12, 10, 8, 6, 12, 16, SUBTABLE_VARIABLE,
-> +			     16, 16, 12, 80, 24, 24, 16, 16 }
-> +	},
-> +	{ /* terminator */
-> +		.major_version = 0,
-> +		.minor_version = 0,
-> +		.madt_version = 0,
-> +		.num_types = 0,
-> +		.lengths = { 0 }
-> +	}
-> +};
-> +
-> +int __init bad_madt_entry(struct acpi_table_header *table,
+Most architectures do not support non-coherent allocations and either
+define dma_{alloc,free}_noncoherent to their coherent versions or stub
+them out.
 
-static?
+Openrisc uses dma_{alloc,free}_attrs to implement them, and only Mips
+implements them directly.
 
-> +			  struct acpi_subtable_header *entry)
-> +{
-> +	struct acpi_madt_subtable_lengths *ms;
-> +	struct acpi_table_madt *madt;
-> +	unsigned short major;
-> +	unsigned short minor;
-> +	unsigned short len;
-> +
-> +	/* simple sanity checking on MADT subtable entries */
-> +	if (!entry || !table)
-> +		return 1;
+This patch moves the Openrisc version to common code, and handles the
+DMA_ATTR_NON_CONSISTENT case in the mips dma_map_ops instance.
 
-This function is defined as int, so just return some
-error numbers? or
+Note that actual non-coherent allocations require a dma_cache_sync
+implementation, so if non-coherent allocations didn't work on
+an architecture before this patch they still won't work after it.
 
-bool __init bad_madt_entry()...
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ arch/alpha/include/asm/dma-mapping.h      |  3 ---
+ arch/arm/include/asm/dma-mapping.h        | 15 ---------------
+ arch/arm64/include/asm/dma-mapping.h      | 14 --------------
+ arch/h8300/include/asm/dma-mapping.h      |  3 ---
+ arch/hexagon/include/asm/dma-mapping.h    |  3 ---
+ arch/ia64/include/asm/dma-mapping.h       |  3 ---
+ arch/microblaze/include/asm/dma-mapping.h |  3 ---
+ arch/mips/include/asm/dma-mapping.h       |  6 ------
+ arch/mips/mm/dma-default.c                | 20 +++++++++++++++-----
+ arch/openrisc/include/asm/dma-mapping.h   | 20 --------------------
+ arch/powerpc/include/asm/dma-mapping.h    |  3 ---
+ arch/s390/include/asm/dma-mapping.h       |  3 ---
+ arch/sh/include/asm/dma-mapping.h         |  3 ---
+ arch/sparc/include/asm/dma-mapping.h      |  3 ---
+ arch/tile/include/asm/dma-mapping.h       |  3 ---
+ arch/unicore32/include/asm/dma-mapping.h  |  3 ---
+ arch/x86/include/asm/dma-mapping.h        |  3 ---
+ include/asm-generic/dma-mapping-common.h  | 18 ++++++++++++++++++
+ 18 files changed, 33 insertions(+), 96 deletions(-)
 
-> +
-> +	/* FADT minor numbers were not introduced until ACPI 5.1 */
-> +	major = acpi_gbl_FADT.header.revision;
-> +	if (major >= 5 && acpi_gbl_FADT.header.length >= 268)
-> +		minor = acpi_gbl_FADT.minor_revision;
-> +	else
-> +		minor = 0;
-> +
-> +	madt = (struct acpi_table_madt *)table;
-> +	ms = spec_info;
-> +	while (ms->num_types != 0) {
-> +		if (ms->major_version = major &&
-> +		    ms->minor_version = minor &&
-> +		    ms->madt_version = madt->header.revision)
-> +			break;
-> +		ms++;
-> +	}
-> +	if (!ms) {
+diff --git a/arch/alpha/include/asm/dma-mapping.h b/arch/alpha/include/asm/dma-mapping.h
+index 9fef5bd..0552bf0 100644
+--- a/arch/alpha/include/asm/dma-mapping.h
++++ b/arch/alpha/include/asm/dma-mapping.h
+@@ -27,9 +27,6 @@ static inline int dma_set_mask(struct device *dev, u64 mask)
+ 	return get_dma_ops(dev)->set_dma_mask(dev, mask);
+ }
+ 
+-#define dma_alloc_noncoherent(d, s, h, f)	dma_alloc_coherent(d, s, h, f)
+-#define dma_free_noncoherent(d, s, v, h)	dma_free_coherent(d, s, v, h)
+-
+ #define dma_cache_sync(dev, va, size, dir)		  ((void)0)
+ 
+ #endif	/* _ALPHA_DMA_MAPPING_H */
+diff --git a/arch/arm/include/asm/dma-mapping.h b/arch/arm/include/asm/dma-mapping.h
+index 2ae3424..ab521d5 100644
+--- a/arch/arm/include/asm/dma-mapping.h
++++ b/arch/arm/include/asm/dma-mapping.h
+@@ -175,21 +175,6 @@ static inline int dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
+ 	return dma_addr = DMA_ERROR_CODE;
+ }
+ 
+-/*
+- * Dummy noncoherent implementation.  We don't provide a dma_cache_sync
+- * function so drivers using this API are highlighted with build warnings.
+- */
+-static inline void *dma_alloc_noncoherent(struct device *dev, size_t size,
+-		dma_addr_t *handle, gfp_t gfp)
+-{
+-	return NULL;
+-}
+-
+-static inline void dma_free_noncoherent(struct device *dev, size_t size,
+-		void *cpu_addr, dma_addr_t handle)
+-{
+-}
+-
+ extern int dma_supported(struct device *dev, u64 mask);
+ 
+ extern int arm_dma_set_mask(struct device *dev, u64 dma_mask);
+diff --git a/arch/arm64/include/asm/dma-mapping.h b/arch/arm64/include/asm/dma-mapping.h
+index 5e11b3f..178e60b 100644
+--- a/arch/arm64/include/asm/dma-mapping.h
++++ b/arch/arm64/include/asm/dma-mapping.h
+@@ -118,19 +118,5 @@ static inline void dma_mark_clean(void *addr, size_t size)
+ {
+ }
+ 
+-/*
+- * There is no dma_cache_sync() implementation, so just return NULL here.
+- */
+-static inline void *dma_alloc_noncoherent(struct device *dev, size_t size,
+-					  dma_addr_t *handle, gfp_t flags)
+-{
+-	return NULL;
+-}
+-
+-static inline void dma_free_noncoherent(struct device *dev, size_t size,
+-					void *cpu_addr, dma_addr_t handle)
+-{
+-}
+-
+ #endif	/* __KERNEL__ */
+ #endif	/* __ASM_DMA_MAPPING_H */
+diff --git a/arch/h8300/include/asm/dma-mapping.h b/arch/h8300/include/asm/dma-mapping.h
+index 826aa9b..72465ce 100644
+--- a/arch/h8300/include/asm/dma-mapping.h
++++ b/arch/h8300/include/asm/dma-mapping.h
+@@ -20,9 +20,6 @@ static inline int dma_set_mask(struct device *dev, u64 mask)
+ 	return 0;
+ }
+ 
+-#define dma_alloc_noncoherent(d, s, h, f) dma_alloc_coherent(d, s, h, f)
+-#define dma_free_noncoherent(d, s, v, h) dma_free_coherent(d, s, v, h)
+-
+ static inline int dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
+ {
+ 	return 0;
+diff --git a/arch/hexagon/include/asm/dma-mapping.h b/arch/hexagon/include/asm/dma-mapping.h
+index c20d3ca..58d2d8f 100644
+--- a/arch/hexagon/include/asm/dma-mapping.h
++++ b/arch/hexagon/include/asm/dma-mapping.h
+@@ -34,9 +34,6 @@ extern int bad_dma_address;
+ 
+ extern struct dma_map_ops *dma_ops;
+ 
+-#define dma_alloc_noncoherent(d, s, h, f) dma_alloc_coherent(d, s, h, f)
+-#define dma_free_noncoherent(d, s, v, h) dma_free_coherent(d, s, v, h)
+-
+ static inline struct dma_map_ops *get_dma_ops(struct device *dev)
+ {
+ 	if (unlikely(dev = NULL))
+diff --git a/arch/ia64/include/asm/dma-mapping.h b/arch/ia64/include/asm/dma-mapping.h
+index d36f83c..a925ff0 100644
+--- a/arch/ia64/include/asm/dma-mapping.h
++++ b/arch/ia64/include/asm/dma-mapping.h
+@@ -23,9 +23,6 @@ extern void machvec_dma_sync_single(struct device *, dma_addr_t, size_t,
+ extern void machvec_dma_sync_sg(struct device *, struct scatterlist *, int,
+ 				enum dma_data_direction);
+ 
+-#define dma_alloc_noncoherent(d, s, h, f) dma_alloc_coherent(d, s, h, f)
+-#define dma_free_noncoherent(d, s, v, h) dma_free_coherent(d, s, v, h)
+-
+ #define get_dma_ops(dev) platform_dma_get_ops(dev)
+ 
+ #include <asm-generic/dma-mapping-common.h>
+diff --git a/arch/microblaze/include/asm/dma-mapping.h b/arch/microblaze/include/asm/dma-mapping.h
+index 801dbe2..bc81625 100644
+--- a/arch/microblaze/include/asm/dma-mapping.h
++++ b/arch/microblaze/include/asm/dma-mapping.h
+@@ -98,9 +98,6 @@ static inline int dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
+ 	return (dma_addr = DMA_ERROR_CODE);
+ }
+ 
+-#define dma_alloc_noncoherent(d, s, h, f) dma_alloc_coherent(d, s, h, f)
+-#define dma_free_noncoherent(d, s, v, h) dma_free_coherent(d, s, v, h)
+-
+ static inline void dma_cache_sync(struct device *dev, void *vaddr, size_t size,
+ 		enum dma_data_direction direction)
+ {
+diff --git a/arch/mips/include/asm/dma-mapping.h b/arch/mips/include/asm/dma-mapping.h
+index b197595..709b2ba 100644
+--- a/arch/mips/include/asm/dma-mapping.h
++++ b/arch/mips/include/asm/dma-mapping.h
+@@ -64,10 +64,4 @@ dma_set_mask(struct device *dev, u64 mask)
+ extern void dma_cache_sync(struct device *dev, void *vaddr, size_t size,
+ 	       enum dma_data_direction direction);
+ 
+-void *dma_alloc_noncoherent(struct device *dev, size_t size,
+-			   dma_addr_t *dma_handle, gfp_t flag);
+-
+-void dma_free_noncoherent(struct device *dev, size_t size,
+-			 void *vaddr, dma_addr_t dma_handle);
+-
+ #endif /* _ASM_DMA_MAPPING_H */
+diff --git a/arch/mips/mm/dma-default.c b/arch/mips/mm/dma-default.c
+index 8cad422..a5ae290 100644
+--- a/arch/mips/mm/dma-default.c
++++ b/arch/mips/mm/dma-default.c
+@@ -112,7 +112,7 @@ static gfp_t massage_gfp_flags(const struct device *dev, gfp_t gfp)
+ 	return gfp | dma_flag;
+ }
+ 
+-void *dma_alloc_noncoherent(struct device *dev, size_t size,
++static void *mips_dma_alloc_noncoherent(struct device *dev, size_t size,
+ 	dma_addr_t * dma_handle, gfp_t gfp)
+ {
+ 	void *ret;
+@@ -128,7 +128,6 @@ void *dma_alloc_noncoherent(struct device *dev, size_t size,
+ 
+ 	return ret;
+ }
+-EXPORT_SYMBOL(dma_alloc_noncoherent);
+ 
+ static void *mips_dma_alloc_coherent(struct device *dev, size_t size,
+ 	dma_addr_t * dma_handle, gfp_t gfp, struct dma_attrs *attrs)
+@@ -137,6 +136,13 @@ static void *mips_dma_alloc_coherent(struct device *dev, size_t size,
+ 	struct page *page = NULL;
+ 	unsigned int count = PAGE_ALIGN(size) >> PAGE_SHIFT;
+ 
++	/*
++	 * XXX: seems like the coherent and non-coherent implementations could
++	 * be consolidated.
++	 */
++	if (dma_get_attr(DMA_ATTR_NON_CONSISTENT, attrs))
++		return mips_dma_alloc_noncoherent(dev, size, dma_handle, gfp);
++
+ 	gfp = massage_gfp_flags(dev, gfp);
+ 
+ 	if (IS_ENABLED(CONFIG_DMA_CMA) && !(gfp & GFP_ATOMIC))
+@@ -161,13 +167,12 @@ static void *mips_dma_alloc_coherent(struct device *dev, size_t size,
+ }
+ 
+ 
+-void dma_free_noncoherent(struct device *dev, size_t size, void *vaddr,
+-	dma_addr_t dma_handle)
++static void mips_dma_free_noncoherent(struct device *dev, size_t size,
++		void *vaddr, dma_addr_t dma_handle)
+ {
+ 	plat_unmap_dma_mem(dev, dma_handle, size, DMA_BIDIRECTIONAL);
+ 	free_pages((unsigned long) vaddr, get_order(size));
+ }
+-EXPORT_SYMBOL(dma_free_noncoherent);
+ 
+ static void mips_dma_free_coherent(struct device *dev, size_t size, void *vaddr,
+ 	dma_addr_t dma_handle, struct dma_attrs *attrs)
+@@ -176,6 +181,11 @@ static void mips_dma_free_coherent(struct device *dev, size_t size, void *vaddr,
+ 	unsigned int count = PAGE_ALIGN(size) >> PAGE_SHIFT;
+ 	struct page *page = NULL;
+ 
++	if (dma_get_attr(DMA_ATTR_NON_CONSISTENT, attrs)) {
++		mips_dma_free_noncoherent(dev, size, vaddr, dma_handle);
++		return;
++	}
++
+ 	plat_unmap_dma_mem(dev, dma_handle, size, DMA_BIDIRECTIONAL);
+ 
+ 	if (!plat_device_is_coherent(dev) && !hw_coherentio)
+diff --git a/arch/openrisc/include/asm/dma-mapping.h b/arch/openrisc/include/asm/dma-mapping.h
+index a81d6f6..57722528 100644
+--- a/arch/openrisc/include/asm/dma-mapping.h
++++ b/arch/openrisc/include/asm/dma-mapping.h
+@@ -37,26 +37,6 @@ static inline struct dma_map_ops *get_dma_ops(struct device *dev)
+ 
+ #include <asm-generic/dma-mapping-common.h>
+ 
+-static inline void *dma_alloc_noncoherent(struct device *dev, size_t size,
+-					  dma_addr_t *dma_handle, gfp_t gfp)
+-{
+-	struct dma_attrs attrs;
+-
+-	dma_set_attr(DMA_ATTR_NON_CONSISTENT, &attrs);
+-
+-	return dma_alloc_attrs(dev, size, dma_handle, gfp, &attrs);
+-}
+-
+-static inline void dma_free_noncoherent(struct device *dev, size_t size,
+-					 void *cpu_addr, dma_addr_t dma_handle)
+-{
+-	struct dma_attrs attrs;
+-
+-	dma_set_attr(DMA_ATTR_NON_CONSISTENT, &attrs);
+-
+-	dma_free_attrs(dev, size, cpu_addr, dma_handle, &attrs);
+-}
+-
+ static inline int dma_supported(struct device *dev, u64 dma_mask)
+ {
+ 	/* Support 32 bit DMA mask exclusively */
+diff --git a/arch/powerpc/include/asm/dma-mapping.h b/arch/powerpc/include/asm/dma-mapping.h
+index 846c630..dec0260 100644
+--- a/arch/powerpc/include/asm/dma-mapping.h
++++ b/arch/powerpc/include/asm/dma-mapping.h
+@@ -177,9 +177,6 @@ static inline phys_addr_t dma_to_phys(struct device *dev, dma_addr_t daddr)
+ 	return daddr - get_dma_offset(dev);
+ }
+ 
+-#define dma_alloc_noncoherent(d, s, h, f) dma_alloc_coherent(d, s, h, f)
+-#define dma_free_noncoherent(d, s, v, h) dma_free_coherent(d, s, v, h)
+-
+ #define ARCH_HAS_DMA_MMAP_COHERENT
+ 
+ static inline void dma_cache_sync(struct device *dev, void *vaddr, size_t size,
+diff --git a/arch/s390/include/asm/dma-mapping.h b/arch/s390/include/asm/dma-mapping.h
+index c29c9c7..b729efe 100644
+--- a/arch/s390/include/asm/dma-mapping.h
++++ b/arch/s390/include/asm/dma-mapping.h
+@@ -25,9 +25,6 @@ static inline void dma_cache_sync(struct device *dev, void *vaddr, size_t size,
+ {
+ }
+ 
+-#define dma_alloc_noncoherent(d, s, h, f) dma_alloc_coherent(d, s, h, f)
+-#define dma_free_noncoherent(d, s, v, h) dma_free_coherent(d, s, v, h)
+-
+ #include <asm-generic/dma-mapping-common.h>
+ 
+ static inline int dma_supported(struct device *dev, u64 mask)
+diff --git a/arch/sh/include/asm/dma-mapping.h b/arch/sh/include/asm/dma-mapping.h
+index 3c78059..2c3fa2c 100644
+--- a/arch/sh/include/asm/dma-mapping.h
++++ b/arch/sh/include/asm/dma-mapping.h
+@@ -38,9 +38,6 @@ static inline int dma_set_mask(struct device *dev, u64 mask)
+ void dma_cache_sync(struct device *dev, void *vaddr, size_t size,
+ 		    enum dma_data_direction dir);
+ 
+-#define dma_alloc_noncoherent(d, s, h, f) dma_alloc_coherent(d, s, h, f)
+-#define dma_free_noncoherent(d, s, v, h) dma_free_coherent(d, s, v, h)
+-
+ static inline int dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
+ {
+ 	struct dma_map_ops *ops = get_dma_ops(dev);
+diff --git a/arch/sparc/include/asm/dma-mapping.h b/arch/sparc/include/asm/dma-mapping.h
+index a8c6784..2564edc 100644
+--- a/arch/sparc/include/asm/dma-mapping.h
++++ b/arch/sparc/include/asm/dma-mapping.h
+@@ -9,9 +9,6 @@
+ 
+ int dma_supported(struct device *dev, u64 mask);
+ 
+-#define dma_alloc_noncoherent(d, s, h, f) dma_alloc_coherent(d, s, h, f)
+-#define dma_free_noncoherent(d, s, v, h) dma_free_coherent(d, s, v, h)
+-
+ static inline void dma_cache_sync(struct device *dev, void *vaddr, size_t size,
+ 				  enum dma_data_direction dir)
+ {
+diff --git a/arch/tile/include/asm/dma-mapping.h b/arch/tile/include/asm/dma-mapping.h
+index 4aba10e..e982dfa 100644
+--- a/arch/tile/include/asm/dma-mapping.h
++++ b/arch/tile/include/asm/dma-mapping.h
+@@ -116,9 +116,6 @@ dma_set_mask(struct device *dev, u64 mask)
+ 	return 0;
+ }
+ 
+-#define dma_alloc_noncoherent(d, s, h, f) dma_alloc_attrs(d, s, h, f, NULL)
+-#define dma_free_noncoherent(d, s, v, h) dma_free_attrs(d, s, v, h, NULL)
+-
+ /*
+  * dma_alloc_noncoherent() is #defined to return coherent memory,
+  * so there's no need to do any flushing here.
+diff --git a/arch/unicore32/include/asm/dma-mapping.h b/arch/unicore32/include/asm/dma-mapping.h
+index 5294d03..636e942 100644
+--- a/arch/unicore32/include/asm/dma-mapping.h
++++ b/arch/unicore32/include/asm/dma-mapping.h
+@@ -80,9 +80,6 @@ static inline int dma_set_mask(struct device *dev, u64 dma_mask)
+ 	return 0;
+ }
+ 
+-#define dma_alloc_noncoherent(d, s, h, f) dma_alloc_coherent(d, s, h, f)
+-#define dma_free_noncoherent(d, s, v, h) dma_free_coherent(d, s, v, h)
+-
+ static inline void dma_cache_sync(struct device *dev, void *vaddr,
+ 		size_t size, enum dma_data_direction direction)
+ {
+diff --git a/arch/x86/include/asm/dma-mapping.h b/arch/x86/include/asm/dma-mapping.h
+index f9b1b6c..7e47e4d 100644
+--- a/arch/x86/include/asm/dma-mapping.h
++++ b/arch/x86/include/asm/dma-mapping.h
+@@ -56,9 +56,6 @@ static inline int dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
+ 	return (dma_addr = DMA_ERROR_CODE);
+ }
+ 
+-#define dma_alloc_noncoherent(d, s, h, f) dma_alloc_coherent(d, s, h, f)
+-#define dma_free_noncoherent(d, s, v, h) dma_free_coherent(d, s, v, h)
+-
+ extern int dma_supported(struct device *hwdev, u64 mask);
+ extern int dma_set_mask(struct device *dev, u64 mask);
+ 
+diff --git a/include/asm-generic/dma-mapping-common.h b/include/asm-generic/dma-mapping-common.h
+index 56dd9ea..ec321dd 100644
+--- a/include/asm-generic/dma-mapping-common.h
++++ b/include/asm-generic/dma-mapping-common.h
+@@ -295,4 +295,22 @@ static inline void dma_free_coherent(struct device *dev, size_t size,
+ 	return dma_free_attrs(dev, size, cpu_addr, dma_handle, NULL);
+ }
+ 
++static inline void *dma_alloc_noncoherent(struct device *dev, size_t size,
++		dma_addr_t *dma_handle, gfp_t gfp)
++{
++	DEFINE_DMA_ATTRS(attrs);
++
++	dma_set_attr(DMA_ATTR_NON_CONSISTENT, &attrs);
++	return dma_alloc_attrs(dev, size, dma_handle, gfp, &attrs);
++}
++
++static inline void dma_free_noncoherent(struct device *dev, size_t size,
++		void *cpu_addr, dma_addr_t dma_handle)
++{
++	DEFINE_DMA_ATTRS(attrs);
++
++	dma_set_attr(DMA_ATTR_NON_CONSISTENT, &attrs);
++	dma_free_attrs(dev, size, cpu_addr, dma_handle, &attrs);
++}
++
+ #endif
+-- 
+1.9.1
 
-seems ms will never be NULL, as it will point to one entry
-in spec_info.
-
-Thanks
-Hanjun
