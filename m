@@ -1,10 +1,10 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Thu, 13 Aug 2015 15:04:04 +0000
+Date: Mon, 17 Aug 2015 07:06:52 +0000
 Subject: [PATCH 1/5] dma-mapping: consolidate dma_{alloc,free}_{attrs,coherent}
-Message-Id: <1439478248-15183-2-git-send-email-hch@lst.de>
+Message-Id: <1439795216-32189-2-git-send-email-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1439478248-15183-1-git-send-email-hch@lst.de>
-In-Reply-To: <1439478248-15183-1-git-send-email-hch@lst.de>
+References: <1439795216-32189-1-git-send-email-hch@lst.de>
+In-Reply-To: <1439795216-32189-1-git-send-email-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
