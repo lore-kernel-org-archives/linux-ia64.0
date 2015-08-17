@@ -1,84 +1,28 @@
-From: =?UTF-8?Q?=C3=89meric_MASCHINO?= <emeric.maschino@gmail.com>
-Date: Mon, 17 Aug 2015 19:27:23 +0000
-Subject: Re: [RFT PATCH] ia64: zx1_defconfig: convert to use libata PATA drivers
-Message-Id: <CAA9xbM52onBKCw9i=_ar0W67651JpJnRTj6AeVsmJ4UAtzubew@mail.gmail.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Mon, 17 Aug 2015 20:41:16 +0000
+Subject: RE: [RFT PATCH] ia64: zx1_defconfig: convert to use libata PATA drivers
+Message-Id: <3908561D78D1C84285E8C5FCA982C28F32ADECD4@ORSMSX114.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1439826388-31456-1-git-send-email-b.zolnierkie@samsung.com>
 	<1439826388-31456-5-git-send-email-b.zolnierkie@samsung.com>
-In-Reply-To: <1439826388-31456-5-git-send-email-b.zolnierkie@samsung.com>
+ <CAA9xbM52onBKCw9i=_ar0W67651JpJnRTj6AeVsmJ4UAtzubew@mail.gmail.com>
+In-Reply-To: <CAA9xbM52onBKCw9i=_ar0W67651JpJnRTj6AeVsmJ4UAtzubew@mail.gmail.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
-To: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
-Cc: "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ide@vger.kernel.org, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: =?utf-8?B?w4ltZXJpYyBNQVNDSElOTw==?= <emeric.maschino@gmail.com>, Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
+Cc: "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "Yu, Fenghua" <fenghua.yu@intel.com>, "linux-ide@vger.kernel.org" <linux-ide@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 
-Hi,
-
-I'm running kernels configured that way (i.e. using libata PATA
-drivers) for years on my hp workstation zx6000 (zx1 chipset) without
-apparent problems.
-
-Cheers,
-
-     =C3=89meric
-
-2015-08-17 17:46 GMT+02:00 Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.=
-com>:
-> IDE subsystem has been deprecated since 2009 and the majority
-> (if not all) of Linux distributions have switched to use
-> libata for ATA support exclusively.  However there are still
-> some users (mostly old or/and embedded non-x86 systems) that
-> have not converted from using IDE subsystem to libata PATA
-> drivers.  This doesn't seem to be good thing in the long-term
-> for Linux as while there is less and less PATA systems left
-> in use:
->
-> * testing efforts are divided between two subsystems
->
-> * having duplicate drivers for same hardware confuses users
->
-> This patch converts zx1_defconfig to use libata PATA
-> drivers.
->
-> Signed-off-by: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
-> ---
-> Build tested only.
-> If you have affected hardware please test.  Thank you.
->
->  arch/ia64/configs/zx1_defconfig | 8 +++-----
->  1 file changed, 3 insertions(+), 5 deletions(-)
->
-> diff --git a/arch/ia64/configs/zx1_defconfig b/arch/ia64/configs/zx1_defc=
-onfig
-> index b504c8e..1ecda7e 100644
-> --- a/arch/ia64/configs/zx1_defconfig
-> +++ b/arch/ia64/configs/zx1_defconfig
-> @@ -27,11 +27,6 @@ CONFIG_IP_MULTICAST=3Dy
->  CONFIG_NETFILTER=3Dy
->  CONFIG_BLK_DEV_LOOP=3Dy
->  CONFIG_BLK_DEV_RAM=3Dy
-> -CONFIG_IDE=3Dy
-> -CONFIG_BLK_DEV_IDECD=3Dy
-> -CONFIG_BLK_DEV_GENERIC=3Dy
-> -CONFIG_BLK_DEV_CMD64X=3Dy
-> -CONFIG_SCSI=3Dy
->  CONFIG_BLK_DEV_SD=3Dy
->  CONFIG_CHR_DEV_ST=3Dy
->  CONFIG_CHR_DEV_OSST=3Dy
-> @@ -43,6 +38,9 @@ CONFIG_SCSI_LOGGING=3Dy
->  CONFIG_SCSI_FC_ATTRS=3Dy
->  CONFIG_SCSI_SYM53C8XX_2=3Dy
->  CONFIG_SCSI_QLOGIC_1280=3Dy
-> +CONFIG_ATA=3Dy
-> +CONFIG_PATA_CMD64X=3Dy
-> +CONFIG_ATA_GENERIC=3Dy
->  CONFIG_FUSION=3Dy
->  CONFIG_FUSION_SPI=3Dy
->  CONFIG_FUSION_FC=3Dy
-> --
-> 1.9.1
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+PiBJJ20gcnVubmluZyBrZXJuZWxzIGNvbmZpZ3VyZWQgdGhhdCB3YXkgKGkuZS4gdXNpbmcgbGli
+YXRhIFBBVEENCj4gZHJpdmVycykgZm9yIHllYXJzIG9uIG15IGhwIHdvcmtzdGF0aW9uIHp4NjAw
+MCAoengxIGNoaXBzZXQpIHdpdGhvdXQNCj4gYXBwYXJlbnQgcHJvYmxlbXMuDQoNCkRvIHlvdSBo
+YXZlIFBBVEEgZHJpdmVzPyAgTXkgeng2MDAwIGp1c3QgaGFzIFNDU0k6DQoNCiAgc2NzaSBob3N0
+MDogaW9jMDogTFNJNTNDMTAzMCBDMCwgRndSZXY9MDEwMzIzNDFoLCBQb3J0cz0xLCBNYXhRPTI1
+NSwgSVJRPTU3DQogIHNjc2kgMDowOjA6MDogRGlyZWN0LUFjY2VzcyAgICAgSFAgMzYuNEcgTUFV
+MzAzNk5DICAgICAgICBIUEMyIFBROiAwIEFOU0k6IDMNCiAgc2NzaSB0YXJnZXQwOjA6MDogQmVn
+aW5uaW5nIERvbWFpbiBWYWxpZGF0aW9uDQogIHNjc2kgdGFyZ2V0MDowOjA6IEVuZGluZyBEb21h
+aW4gVmFsaWRhdGlvbg0KICBzY3NpIHRhcmdldDA6MDowOiBGQVNULTE2MCBXSURFIFNDU0kgMzIw
+LjAgTUIvcyBEVCBJVSBRQVMgUlRJIFdSRkxPVyBQQ09NUCAoNi4yNSBucywgb2Zmc2V0IDEyNykN
+Cg0KW1dvdyEgMzYuNEdCIC4uLiBzZWVtZWQgbGlrZSBhbiBPSyBzaXplZCBkcml2ZSBiYWNrIHdo
+ZW4gdGhhdCBtYWNoaW5lIGFycml2ZWQgaW4gbXkgbGFiLiBOb3cNCiBteSBwaG9uZSBoYXMgbW9y
+ZSB0aGFuIHR3aWNlIHRoYXQgYW1vdW50IG9mIHN0b3JhZ2UgOi0pIF0NCg0KLVRvbnkNCg=
