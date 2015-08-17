@@ -1,66 +1,68 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Wed, 12 Aug 2015 07:05:43 +0000
-Subject: [PATCH 24/31] xtensa: handle page-less SG entries
-Message-Id: <1439363150-8661-25-git-send-email-hch@lst.de>
+From: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
+Date: Mon, 17 Aug 2015 17:13:25 +0000
+Subject: [RFT PATCH v2] ia64: bigsur_defconfig: convert to use libata PATA drivers
+Message-Id: <1439831608-8362-1-git-send-email-b.zolnierkie@samsung.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1439363150-8661-1-git-send-email-hch@lst.de>
-In-Reply-To: <1439363150-8661-1-git-send-email-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: torvalds@linux-foundation.org, axboe@kernel.dk
-Cc: dan.j.williams@intel.com, vgupta@synopsys.com, hskinnemoen@gmail.com, egtvedt@samfundet.no, realmz6@gmail.com, dhowells@redhat.com, monstr@monstr.eu, x86@kernel.org, dwmw2@infradead.org, alex.williamson@redhat.com, grundler@parisc-linux.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-nvdimm@ml01.01.org, linux-media@vger.kernel.org
+To: linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ide@vger.kernel.org, linux-kernel@vger.kernel.org, b.zolnierkie@samsung.com
 
-Make all cache invalidation conditional on sg_has_page().
+IDE subsystem has been deprecated since 2009 and the majority
+(if not all) of Linux distributions have switched to use
+libata for ATA support exclusively.  However there are still
+some users (mostly old or/and embedded non-x86 systems) that
+have not converted from using IDE subsystem to libata PATA
+drivers.  This doesn't seem to be good thing in the long-term
+for Linux as while there is less and less PATA systems left
+in use:
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+* testing efforts are divided between two subsystems
+
+* having duplicate drivers for same hardware confuses users
+
+This patch converts bigsur_defconfig to use libata PATA
+drivers.
+
+Signed-off-by: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
 ---
- arch/xtensa/include/asm/dma-mapping.h | 17 ++++++++++-------
- 1 file changed, 10 insertions(+), 7 deletions(-)
+v2:
+- added missing pata_oldpiix host driver (noticed by Sergei Shtylyov)
 
-diff --git a/arch/xtensa/include/asm/dma-mapping.h b/arch/xtensa/include/asm/dma-mapping.h
-index 1f5f6dc..262a1d1 100644
---- a/arch/xtensa/include/asm/dma-mapping.h
-+++ b/arch/xtensa/include/asm/dma-mapping.h
-@@ -61,10 +61,9 @@ dma_map_sg(struct device *dev, struct scatterlist *sglist, int nents,
- 	BUG_ON(direction = DMA_NONE);
- 
- 	for_each_sg(sglist, sg, nents, i) {
--		BUG_ON(!sg_page(sg));
--
- 		sg->dma_address = sg_phys(sg);
--		consistent_sync(sg_virt(sg), sg->length, direction);
-+		if (sg_has_page(sg))
-+			consistent_sync(sg_virt(sg), sg->length, direction);
- 	}
- 
- 	return nents;
-@@ -131,8 +130,10 @@ dma_sync_sg_for_cpu(struct device *dev, struct scatterlist *sglist, int nelems,
- 	int i;
- 	struct scatterlist *sg;
- 
--	for_each_sg(sglist, sg, nelems, i)
--		consistent_sync(sg_virt(sg), sg->length, dir);
-+	for_each_sg(sglist, sg, nelems, i) {
-+		if (sg_has_page(sg))
-+			consistent_sync(sg_virt(sg), sg->length, dir);
-+	}
- }
- 
- static inline void
-@@ -142,8 +143,10 @@ dma_sync_sg_for_device(struct device *dev, struct scatterlist *sglist,
- 	int i;
- 	struct scatterlist *sg;
- 
--	for_each_sg(sglist, sg, nelems, i)
--		consistent_sync(sg_virt(sg), sg->length, dir);
-+	for_each_sg(sglist, sg, nelems, i) {
-+		if (sg_has_page(sg))
-+			consistent_sync(sg_virt(sg), sg->length, dir);
-+	}
- }
- static inline int
- dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
+Build tested only.
+If you have affected hardware please test.  Thank you.
+
+ arch/ia64/configs/bigsur_defconfig | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/arch/ia64/configs/bigsur_defconfig b/arch/ia64/configs/bigsur_defconfig
+index b6bda18..9b83fa6 100644
+--- a/arch/ia64/configs/bigsur_defconfig
++++ b/arch/ia64/configs/bigsur_defconfig
+@@ -28,16 +28,18 @@ CONFIG_BLK_DEV_LOOP=m
+ CONFIG_BLK_DEV_CRYPTOLOOP=m
+ CONFIG_BLK_DEV_NBD=m
+ CONFIG_BLK_DEV_RAM=m
+-CONFIG_IDE=m
+-CONFIG_BLK_DEV_IDECD=m
+-CONFIG_BLK_DEV_GENERIC=m
+-CONFIG_BLK_DEV_PIIX=m
+ CONFIG_SCSI=y
+ CONFIG_BLK_DEV_SD=y
++CONFIG_BLK_DEV_SR=m
+ CONFIG_SCSI_CONSTANTS=y
+ CONFIG_SCSI_LOGGING=y
+ CONFIG_SCSI_SPI_ATTRS=m
+ CONFIG_SCSI_QLOGIC_1280=y
++CONFIG_ATA=m
++CONFIG_ATA_PIIX=m
++CONFIG_PATA_OLDPIIX=m
++CONFIG_PATA_MPIIX=m
++CONFIG_ATA_GENERIC=m
+ CONFIG_MD=y
+ CONFIG_BLK_DEV_MD=m
+ CONFIG_MD_LINEAR=m
 -- 
 1.9.1
 
