@@ -1,99 +1,70 @@
-From: Al Stone <al.stone@linaro.org>
-Date: Wed, 19 Aug 2015 22:07:26 +0000
-Subject: [PATCH v2 3/5] ACPI / IA64: remove usage of BAD_MADT_ENTRY
-Message-Id: <1440022048-6285-4-git-send-email-al.stone@linaro.org>
+From: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
+Date: Mon, 17 Aug 2015 15:46:27 +0000
+Subject: [RFT PATCH] ia64: tiger_defconfig: convert to use libata PATA drivers
+Message-Id: <1439826388-31456-4-git-send-email-b.zolnierkie@samsung.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1440022048-6285-1-git-send-email-al.stone@linaro.org>
-In-Reply-To: <1440022048-6285-1-git-send-email-al.stone@linaro.org>
+References: <1439826388-31456-1-git-send-email-b.zolnierkie@samsung.com>
+In-Reply-To: <1439826388-31456-1-git-send-email-b.zolnierkie@samsung.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-pm@vger.kernel.org, linaro-acpi@lists.linaro.org, linaro-kernel@lists.linaro.org, patches@linaro.org, Al Stone <al.stone@linaro.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+To: linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ide@vger.kernel.org, linux-kernel@vger.kernel.org, b.zolnierkie@samsung.com
 
-Now that we have introduced the bad_madt_entry() function, and that
-function is being invoked in acpi_table_parse_madt() for us, there
-is no longer any need to use the BAD_MADT_ENTRY macro.
+IDE subsystem has been deprecated since 2009 and the majority
+(if not all) of Linux distributions have switched to use
+libata for ATA support exclusively.  However there are still
+some users (mostly old or/and embedded non-x86 systems) that
+have not converted from using IDE subsystem to libata PATA
+drivers.  This doesn't seem to be good thing in the long-term
+for Linux as while there is less and less PATA systems left
+in use:
 
-Signed-off-by: Al Stone <al.stone@linaro.org>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
+* testing efforts are divided between two subsystems
+
+* having duplicate drivers for same hardware confuses users
+
+This patch converts tiger_defconfig to use libata PATA
+drivers.
+
+Signed-off-by: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
 ---
- arch/ia64/kernel/acpi.c | 20 --------------------
- 1 file changed, 20 deletions(-)
+Build tested only.
+If you have affected hardware please test.  Thank you.
 
-diff --git a/arch/ia64/kernel/acpi.c b/arch/ia64/kernel/acpi.c
-index b1698bc..efa3f0a 100644
---- a/arch/ia64/kernel/acpi.c
-+++ b/arch/ia64/kernel/acpi.c
-@@ -184,9 +184,6 @@ acpi_parse_lapic_addr_ovr(struct acpi_subtable_header * header,
- 
- 	lapic = (struct acpi_madt_local_apic_override *)header;
- 
--	if (BAD_MADT_ENTRY(lapic, end))
--		return -EINVAL;
--
- 	if (lapic->address) {
- 		iounmap(ipi_base_addr);
- 		ipi_base_addr = ioremap(lapic->address, 0);
-@@ -201,8 +198,6 @@ acpi_parse_lsapic(struct acpi_subtable_header * header, const unsigned long end)
- 
- 	lsapic = (struct acpi_madt_local_sapic *)header;
- 
--	/*Skip BAD_MADT_ENTRY check, as lsapic size could vary */
--
- 	if (lsapic->lapic_flags & ACPI_MADT_ENABLED) {
- #ifdef CONFIG_SMP
- 		smp_boot_data.cpu_phys_id[available_cpus] @@ -222,9 +217,6 @@ acpi_parse_lapic_nmi(struct acpi_subtable_header * header, const unsigned long e
- 
- 	lacpi_nmi = (struct acpi_madt_local_apic_nmi *)header;
- 
--	if (BAD_MADT_ENTRY(lacpi_nmi, end))
--		return -EINVAL;
--
- 	/* TBD: Support lapic_nmi entries */
- 	return 0;
- }
-@@ -236,9 +228,6 @@ acpi_parse_iosapic(struct acpi_subtable_header * header, const unsigned long end
- 
- 	iosapic = (struct acpi_madt_io_sapic *)header;
- 
--	if (BAD_MADT_ENTRY(iosapic, end))
--		return -EINVAL;
--
- 	return iosapic_init(iosapic->address, iosapic->global_irq_base);
- }
- 
-@@ -253,9 +242,6 @@ acpi_parse_plat_int_src(struct acpi_subtable_header * header,
- 
- 	plintsrc = (struct acpi_madt_interrupt_source *)header;
- 
--	if (BAD_MADT_ENTRY(plintsrc, end))
--		return -EINVAL;
--
- 	/*
- 	 * Get vector assignment for this interrupt, set attributes,
- 	 * and program the IOSAPIC routing table.
-@@ -336,9 +322,6 @@ acpi_parse_int_src_ovr(struct acpi_subtable_header * header,
- 
- 	p = (struct acpi_madt_interrupt_override *)header;
- 
--	if (BAD_MADT_ENTRY(p, end))
--		return -EINVAL;
--
- 	iosapic_override_isa_irq(p->source_irq, p->global_irq,
- 				 ((p->inti_flags & ACPI_MADT_POLARITY_MASK) =
- 				  ACPI_MADT_POLARITY_ACTIVE_LOW) ?
-@@ -356,9 +339,6 @@ acpi_parse_nmi_src(struct acpi_subtable_header * header, const unsigned long end
- 
- 	nmi_src = (struct acpi_madt_nmi_source *)header;
- 
--	if (BAD_MADT_ENTRY(nmi_src, end))
--		return -EINVAL;
--
- 	/* TBD: Support nimsrc entries */
- 	return 0;
- }
+ arch/ia64/configs/tiger_defconfig | 13 ++++++-------
+ 1 file changed, 6 insertions(+), 7 deletions(-)
+
+diff --git a/arch/ia64/configs/tiger_defconfig b/arch/ia64/configs/tiger_defconfig
+index 192ed15..30a4416 100644
+--- a/arch/ia64/configs/tiger_defconfig
++++ b/arch/ia64/configs/tiger_defconfig
+@@ -42,19 +42,18 @@ CONFIG_BLK_DEV_LOOP=m
+ CONFIG_BLK_DEV_CRYPTOLOOP=m
+ CONFIG_BLK_DEV_NBD=m
+ CONFIG_BLK_DEV_RAM=y
+-CONFIG_IDE=y
+-CONFIG_BLK_DEV_IDECD=y
+-CONFIG_BLK_DEV_GENERIC=y
+-CONFIG_BLK_DEV_CMD64X=y
+-CONFIG_BLK_DEV_PIIX=y
+-CONFIG_SCSI=y
+ CONFIG_BLK_DEV_SD=y
+ CONFIG_CHR_DEV_ST=m
+-CONFIG_BLK_DEV_SR=m
++CONFIG_BLK_DEV_SR=y
+ CONFIG_CHR_DEV_SG=m
+ CONFIG_SCSI_FC_ATTRS=y
+ CONFIG_SCSI_SYM53C8XX_2=y
+ CONFIG_SCSI_QLOGIC_1280=y
++CONFIG_ATA=y
++CONFIG_ATA_PIIX=y
++CONFIG_PATA_CMD64X=y
++CONFIG_PATA_MPIIX=y
++CONFIG_ATA_GENERIC=y
+ CONFIG_MD=y
+ CONFIG_BLK_DEV_MD=m
+ CONFIG_MD_LINEAR=m
 -- 
-2.4.3
+1.9.1
 
