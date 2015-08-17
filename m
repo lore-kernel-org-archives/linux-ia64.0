@@ -1,10 +1,10 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Thu, 13 Aug 2015 15:04:07 +0000
+Date: Mon, 17 Aug 2015 07:06:55 +0000
 Subject: [PATCH 4/5] dma-mapping: consolidate dma_supported
-Message-Id: <1439478248-15183-5-git-send-email-hch@lst.de>
+Message-Id: <1439795216-32189-5-git-send-email-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1439478248-15183-1-git-send-email-hch@lst.de>
-In-Reply-To: <1439478248-15183-1-git-send-email-hch@lst.de>
+References: <1439795216-32189-1-git-send-email-hch@lst.de>
+In-Reply-To: <1439795216-32189-1-git-send-email-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -26,12 +26,12 @@ still allow for arch overrides.
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
  arch/alpha/include/asm/dma-mapping.h      |  5 -----
- arch/arm/include/asm/dma-mapping.h        |  5 +++--
+ arch/arm/include/asm/dma-mapping.h        |  6 +++---
  arch/arm64/include/asm/dma-mapping.h      |  6 ------
  arch/h8300/include/asm/dma-mapping.h      |  5 -----
  arch/hexagon/include/asm/dma-mapping.h    |  1 +
  arch/ia64/include/asm/dma-mapping.h       |  6 ------
- arch/microblaze/include/asm/dma-mapping.h | 11 -----------
+ arch/microblaze/include/asm/dma-mapping.h | 13 +------------
  arch/mips/include/asm/dma-mapping.h       |  6 ------
  arch/openrisc/include/asm/dma-mapping.h   |  5 +++--
  arch/powerpc/include/asm/dma-mapping.h    | 11 -----------
@@ -42,7 +42,7 @@ Signed-off-by: Christoph Hellwig <hch@lst.de>
  arch/unicore32/include/asm/dma-mapping.h  | 10 ----------
  arch/x86/include/asm/dma-mapping.h        |  4 +++-
  include/asm-generic/dma-mapping-common.h  | 13 +++++++++++++
- 17 files changed, 24 insertions(+), 90 deletions(-)
+ 17 files changed, 25 insertions(+), 92 deletions(-)
 
 diff --git a/arch/alpha/include/asm/dma-mapping.h b/arch/alpha/include/asm/dma-mapping.h
 index 80ac3e8..9d763e5 100644
@@ -61,20 +61,26 @@ index 80ac3e8..9d763e5 100644
  {
  	return get_dma_ops(dev)->set_dma_mask(dev, mask);
 diff --git a/arch/arm/include/asm/dma-mapping.h b/arch/arm/include/asm/dma-mapping.h
-index 2fa33d7..b90d247 100644
+index b4f1b6b..199b080 100644
 --- a/arch/arm/include/asm/dma-mapping.h
 +++ b/arch/arm/include/asm/dma-mapping.h
-@@ -38,6 +38,9 @@ static inline void set_dma_ops(struct device *dev, struct dma_map_ops *ops)
+@@ -38,12 +38,14 @@ static inline void set_dma_ops(struct device *dev, struct dma_map_ops *ops)
  	dev->archdata.dma_ops = ops;
  }
  
 +#define HAVE_ARCH_DMA_SUPPORTED 1
 +extern int dma_supported(struct device *dev, u64 mask);
 +
+ /*
+  * Note that while the generic code provides dummy dma_{alloc,free}_noncoherent
+  * implementations, we don't provide a dma_cache_sync function so drivers using
+  * this API are highlighted with build warnings. 
+  */
+-
  #include <asm-generic/dma-mapping-common.h>
  
  static inline int dma_set_mask(struct device *dev, u64 mask)
-@@ -166,8 +169,6 @@ static inline bool dma_capable(struct device *dev, dma_addr_t addr, size_t size)
+@@ -172,8 +174,6 @@ static inline bool dma_capable(struct device *dev, dma_addr_t addr, size_t size)
  
  static inline void dma_mark_clean(void *addr, size_t size) { }
  
@@ -146,10 +152,10 @@ index 27b713d..7982caa 100644
  dma_set_mask (struct device *dev, u64 mask)
  {
 diff --git a/arch/microblaze/include/asm/dma-mapping.h b/arch/microblaze/include/asm/dma-mapping.h
-index e5b8438..0aa5d8a 100644
+index e5b8438..3b453c5 100644
 --- a/arch/microblaze/include/asm/dma-mapping.h
 +++ b/arch/microblaze/include/asm/dma-mapping.h
-@@ -44,17 +44,6 @@ static inline struct dma_map_ops *get_dma_ops(struct device *dev)
+@@ -44,16 +44,7 @@ static inline struct dma_map_ops *get_dma_ops(struct device *dev)
  	return &dma_direct_ops;
  }
  
@@ -163,10 +169,19 @@ index e5b8438..0aa5d8a 100644
 -		return 1;
 -	return ops->dma_supported(dev, mask);
 -}
--
++#include <asm-generic/dma-mapping-common.h>
+ 
  static inline int dma_set_mask(struct device *dev, u64 dma_mask)
  {
- 	struct dma_map_ops *ops = get_dma_ops(dev);
+@@ -69,8 +60,6 @@ static inline int dma_set_mask(struct device *dev, u64 dma_mask)
+ 	return 0;
+ }
+ 
+-#include <asm-generic/dma-mapping-common.h>
+-
+ static inline void __dma_sync(unsigned long paddr,
+ 			      size_t size, enum dma_data_direction direction)
+ {
 diff --git a/arch/mips/include/asm/dma-mapping.h b/arch/mips/include/asm/dma-mapping.h
 index 158bb36..8bf8ec3 100644
 --- a/arch/mips/include/asm/dma-mapping.h
