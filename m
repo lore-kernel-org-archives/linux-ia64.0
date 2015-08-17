@@ -1,44 +1,74 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Wed, 12 Aug 2015 07:05:45 +0000
-Subject: [PATCH 26/31] openrisc: handle page-less SG entries
-Message-Id: <1439363150-8661-27-git-send-email-hch@lst.de>
+From: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
+Date: Mon, 17 Aug 2015 17:13:26 +0000
+Subject: [RFT PATCH v2] ia64: generic_defconfig: convert to use libata PATA drivers
+Message-Id: <1439831608-8362-2-git-send-email-b.zolnierkie@samsung.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1439363150-8661-1-git-send-email-hch@lst.de>
-In-Reply-To: <1439363150-8661-1-git-send-email-hch@lst.de>
+References: <1439831608-8362-1-git-send-email-b.zolnierkie@samsung.com>
+In-Reply-To: <1439831608-8362-1-git-send-email-b.zolnierkie@samsung.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: torvalds@linux-foundation.org, axboe@kernel.dk
-Cc: dan.j.williams@intel.com, vgupta@synopsys.com, hskinnemoen@gmail.com, egtvedt@samfundet.no, realmz6@gmail.com, dhowells@redhat.com, monstr@monstr.eu, x86@kernel.org, dwmw2@infradead.org, alex.williamson@redhat.com, grundler@parisc-linux.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-nvdimm@ml01.01.org, linux-media@vger.kernel.org
+To: linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ide@vger.kernel.org, linux-kernel@vger.kernel.org, b.zolnierkie@samsung.com
 
-Make all cache invalidation conditional on sg_has_page() and use
-sg_phys to get the physical address directly.
+IDE subsystem has been deprecated since 2009 and the majority
+(if not all) of Linux distributions have switched to use
+libata for ATA support exclusively.  However there are still
+some users (mostly old or/and embedded non-x86 systems) that
+have not converted from using IDE subsystem to libata PATA
+drivers.  This doesn't seem to be good thing in the long-term
+for Linux as while there is less and less PATA systems left
+in use:
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+* testing efforts are divided between two subsystems
+
+* having duplicate drivers for same hardware confuses users
+
+This patch converts generic_defconfig to use libata PATA
+drivers (sgiioc4 IDE host driver has no corresponding libata
+driver yet so it is not converted).
+
+Signed-off-by: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
 ---
- arch/openrisc/kernel/dma.c | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+v2:
+- added missing pata_oldpiix host driver (noticed by Sergei Shtylyov)
 
-diff --git a/arch/openrisc/kernel/dma.c b/arch/openrisc/kernel/dma.c
-index 0b77ddb..94ed052 100644
---- a/arch/openrisc/kernel/dma.c
-+++ b/arch/openrisc/kernel/dma.c
-@@ -184,8 +184,13 @@ or1k_map_sg(struct device *dev, struct scatterlist *sg,
- 	int i;
- 
- 	for_each_sg(sg, s, nents, i) {
--		s->dma_address = or1k_map_page(dev, sg_page(s), s->offset,
--					       s->length, dir, NULL);
-+		if (sg_has_page(s)) {
-+			s->dma_address = or1k_map_page(dev, sg_page(s),
-+						s->offset, s->length, dir,
-+						NULL);
-+		} else {
-+			s->dma_address = sg_phys(s);
-+		}
- 	}
- 
- 	return nents;
+Build tested only.
+If you have affected hardware please test.  Thank you.
+
+ arch/ia64/configs/generic_defconfig | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/arch/ia64/configs/generic_defconfig b/arch/ia64/configs/generic_defconfig
+index 81f686d..dddb6bc 100644
+--- a/arch/ia64/configs/generic_defconfig
++++ b/arch/ia64/configs/generic_defconfig
+@@ -48,13 +48,10 @@ CONFIG_SGI_IOC4=y
+ CONFIG_SGI_XP=m
+ CONFIG_IDE=y
+ CONFIG_BLK_DEV_IDECD=y
+-CONFIG_BLK_DEV_GENERIC=y
+-CONFIG_BLK_DEV_CMD64X=y
+-CONFIG_BLK_DEV_PIIX=y
+ CONFIG_BLK_DEV_SGIIOC4=y
+ CONFIG_BLK_DEV_SD=y
+ CONFIG_CHR_DEV_ST=m
+-CONFIG_BLK_DEV_SR=m
++CONFIG_BLK_DEV_SR=y
+ CONFIG_CHR_DEV_SG=m
+ CONFIG_SCSI_FC_ATTRS=y
+ CONFIG_SCSI_SYM53C8XX_2=y
+@@ -62,6 +59,10 @@ CONFIG_SCSI_QLOGIC_1280=y
+ CONFIG_ATA=y
+ CONFIG_ATA_PIIX=y
+ CONFIG_SATA_VITESSE=y
++CONFIG_PATA_CMD64X=y
++CONFIG_PATA_OLDPIIX=y
++CONFIG_PATA_MPIIX=y
++CONFIG_ATA_GENERIC=y
+ CONFIG_MD=y
+ CONFIG_BLK_DEV_MD=m
+ CONFIG_MD_LINEAR=m
 -- 
 1.9.1
 
