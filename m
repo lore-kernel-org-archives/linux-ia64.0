@@ -1,10 +1,10 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Thu, 13 Aug 2015 15:04:06 +0000
+Date: Mon, 17 Aug 2015 07:06:54 +0000
 Subject: [PATCH 3/5] dma-mapping: cosolidate dma_mapping_error
-Message-Id: <1439478248-15183-4-git-send-email-hch@lst.de>
+Message-Id: <1439795216-32189-4-git-send-email-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1439478248-15183-1-git-send-email-hch@lst.de>
-In-Reply-To: <1439478248-15183-1-git-send-email-hch@lst.de>
+References: <1439795216-32189-1-git-send-email-hch@lst.de>
+In-Reply-To: <1439795216-32189-1-git-send-email-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -59,10 +59,10 @@ index 0552bf0..80ac3e8 100644
  {
  	return get_dma_ops(dev)->dma_supported(dev, mask);
 diff --git a/arch/arm/include/asm/dma-mapping.h b/arch/arm/include/asm/dma-mapping.h
-index ab521d5..2fa33d7 100644
+index 2191f9c..b4f1b6b 100644
 --- a/arch/arm/include/asm/dma-mapping.h
 +++ b/arch/arm/include/asm/dma-mapping.h
-@@ -166,15 +166,6 @@ static inline bool dma_capable(struct device *dev, dma_addr_t addr, size_t size)
+@@ -172,15 +172,6 @@ static inline bool dma_capable(struct device *dev, dma_addr_t addr, size_t size)
  
  static inline void dma_mark_clean(void *addr, size_t size) { }
  
