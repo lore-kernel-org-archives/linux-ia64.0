@@ -1,42 +1,76 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Wed, 12 Aug 2015 07:05:20 +0000
-Subject: [PATCH 01/31] scatterlist: add sg_pfn and sg_has_page helpers
-Message-Id: <1439363150-8661-2-git-send-email-hch@lst.de>
+From: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
+Date: Mon, 17 Aug 2015 17:13:27 +0000
+Subject: [RFT PATCH v2] ia64: gensparse_defconfig: convert to use libata PATA drivers
+Message-Id: <1439831608-8362-3-git-send-email-b.zolnierkie@samsung.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1439363150-8661-1-git-send-email-hch@lst.de>
-In-Reply-To: <1439363150-8661-1-git-send-email-hch@lst.de>
+References: <1439831608-8362-1-git-send-email-b.zolnierkie@samsung.com>
+In-Reply-To: <1439831608-8362-1-git-send-email-b.zolnierkie@samsung.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: torvalds@linux-foundation.org, axboe@kernel.dk
-Cc: dan.j.williams@intel.com, vgupta@synopsys.com, hskinnemoen@gmail.com, egtvedt@samfundet.no, realmz6@gmail.com, dhowells@redhat.com, monstr@monstr.eu, x86@kernel.org, dwmw2@infradead.org, alex.williamson@redhat.com, grundler@parisc-linux.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-nvdimm@ml01.01.org, linux-media@vger.kernel.org
+To: linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ide@vger.kernel.org, linux-kernel@vger.kernel.org, b.zolnierkie@samsung.com
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+IDE subsystem has been deprecated since 2009 and the majority
+(if not all) of Linux distributions have switched to use
+libata for ATA support exclusively.  However there are still
+some users (mostly old or/and embedded non-x86 systems) that
+have not converted from using IDE subsystem to libata PATA
+drivers.  This doesn't seem to be good thing in the long-term
+for Linux as while there is less and less PATA systems left
+in use:
+
+* testing efforts are divided between two subsystems
+
+* having duplicate drivers for same hardware confuses users
+
+This patch converts gensparse_defconfig to use libata PATA
+drivers (sgiioc4 IDE host driver has no corresponding libata
+driver yet so it is not converted).
+
+Signed-off-by: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
 ---
- include/linux/scatterlist.h | 10 ++++++++++
- 1 file changed, 10 insertions(+)
+v2:
+- added missing pata_oldpiix host driver (noticed by Sergei Shtylyov)
 
-diff --git a/include/linux/scatterlist.h b/include/linux/scatterlist.h
-index 9b1ef0c..b1056bf 100644
---- a/include/linux/scatterlist.h
-+++ b/include/linux/scatterlist.h
-@@ -230,6 +230,16 @@ static inline dma_addr_t sg_phys(struct scatterlist *sg)
- 	return page_to_phys(sg_page(sg)) + sg->offset;
- }
- 
-+static inline unsigned long sg_pfn(struct scatterlist *sg)
-+{
-+	return page_to_pfn(sg_page(sg));
-+}
-+
-+static inline bool sg_has_page(struct scatterlist *sg)
-+{
-+	return true;
-+}
-+
- /**
-  * sg_virt - Return virtual address of an sg entry
-  * @sg:      SG entry
+Build tested only.
+If you have affected hardware please test.  Thank you.
+
+ arch/ia64/configs/gensparse_defconfig | 14 ++++++++------
+ 1 file changed, 8 insertions(+), 6 deletions(-)
+
+diff --git a/arch/ia64/configs/gensparse_defconfig b/arch/ia64/configs/gensparse_defconfig
+index 5b4fcdd..7320f0e 100644
+--- a/arch/ia64/configs/gensparse_defconfig
++++ b/arch/ia64/configs/gensparse_defconfig
+@@ -40,19 +40,21 @@ CONFIG_BLK_DEV_RAM=y
+ CONFIG_SGI_IOC4=y
+ CONFIG_IDE=y
+ CONFIG_BLK_DEV_IDECD=y
+-CONFIG_IDE_GENERIC=y
+-CONFIG_BLK_DEV_GENERIC=y
+-CONFIG_BLK_DEV_CMD64X=y
+-CONFIG_BLK_DEV_PIIX=y
+ CONFIG_BLK_DEV_SGIIOC4=y
+-CONFIG_SCSI=y
+ CONFIG_BLK_DEV_SD=y
+ CONFIG_CHR_DEV_ST=m
+-CONFIG_BLK_DEV_SR=m
++CONFIG_BLK_DEV_SR=y
+ CONFIG_CHR_DEV_SG=m
+ CONFIG_SCSI_FC_ATTRS=y
+ CONFIG_SCSI_SYM53C8XX_2=y
+ CONFIG_SCSI_QLOGIC_1280=y
++CONFIG_ATA=y
++CONFIG_ATA_PIIX=y
++CONFIG_PATA_CMD64X=y
++CONFIG_PATA_OLDPIIX=y
++CONFIG_PATA_MPIIX=y
++CONFIG_ATA_GENERIC=y
++CONFIG_PATA_LEGACY=y
+ CONFIG_MD=y
+ CONFIG_BLK_DEV_MD=m
+ CONFIG_MD_LINEAR=m
 -- 
 1.9.1
 
