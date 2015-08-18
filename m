@@ -1,43 +1,30 @@
-From: Al Stone <al.stone@linaro.org>
-Date: Thu, 06 Aug 2015 20:59:30 +0000
-Subject: [PATCH 5/5] ACPI: remove definition of BAD_MADT_ENTRY macro
-Message-Id: <1438894770-31163-6-git-send-email-al.stone@linaro.org>
+From: Mathias Krause <minipli@googlemail.com>
+Date: Tue, 18 Aug 2015 06:04:13 +0000
+Subject: Re: [PATCH 0/3] ia64: Remove unneeded __ref / __refdata annotations
+Message-Id: <CA+rthh-zNk+9ija21dLKD4RAd1D6mcncbK6UE-cKvdVOY7e4cg@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1438894770-31163-1-git-send-email-al.stone@linaro.org>
-In-Reply-To: <1438894770-31163-1-git-send-email-al.stone@linaro.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-pm@vger.kernel.org, linaro-acpi@lists.linaro.org, linaro-kernel@lists.linaro.org, patches@linaro.org, Al Stone <al.stone@linaro.org>, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>
+To: linux-ia64@vger.kernel.org
 
-Now that we have introduced to bad_madt_entry(), and we have removed
-all the usages of the BAD_MADT_ENTRY macro from all of the various
-architectures that use it (arm64, ia64, x86), we can remove the macro
-definition since it is no longer used.
+On 19 July 2015 at 17:05, Mathias Krause <minipli@googlemail.com> wrote:
+> This series removes unneeded __ref / __refdata annotations that have
+> become mostly obsolete since the __cpuinit removal in v3.11.
+>
+> Please apply.
+>
+> Mathias Krause (3):
+>   ACPI / ia64: Get rid of the acpi_map_cpu() wrapper
+>   ia64, topology: Remove bogus __ref annotations
+>   ia64, palinfo: Remove bogus __refdata annotation
+>
+>  arch/ia64/kernel/acpi.c     |    8 +-------
+>  arch/ia64/kernel/palinfo.c  |    2 +-
+>  arch/ia64/kernel/topology.c |    4 ++--
+>  3 files changed, 4 insertions(+), 10 deletions(-)
+>
 
-Signed-off-by: Al Stone <al.stone@linaro.org>
-Cc: Rafael J. Wysocki <rjw@rjwysocki.net>
-Cc: Len Brown <lenb@kernel.org>
----
- include/linux/acpi.h | 4 ----
- 1 file changed, 4 deletions(-)
+Ping. Tony, Fenghua, any objections to this series?
 
-diff --git a/include/linux/acpi.h b/include/linux/acpi.h
-index d2445fa..06072d8 100644
---- a/include/linux/acpi.h
-+++ b/include/linux/acpi.h
-@@ -131,10 +131,6 @@ static inline void acpi_initrd_override(void *data, size_t size)
- }
- #endif
- 
--#define BAD_MADT_ENTRY(entry, end) (					    \
--		(!entry) || (unsigned long)entry + sizeof(*entry) > end ||  \
--		((struct acpi_subtable_header *)entry)->length < sizeof(*entry))
--
- char * __acpi_map_table (unsigned long phys_addr, unsigned long size);
- void __acpi_unmap_table(char *map, unsigned long size);
- int early_acpi_boot_init(void);
--- 
-2.4.3
-
+Mathias
