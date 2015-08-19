@@ -1,156 +1,79 @@
-From: Sudeep Holla <sudeep.holla@arm.com>
-Date: Tue, 04 Aug 2015 17:46:44 +0000
-Subject: [PATCH 2/4] ACPI / sleep: move acpi_processor_sleep to sleep.c
-Message-Id: <1438710406-3822-3-git-send-email-sudeep.holla@arm.com>
+From: Al Stone <al.stone@linaro.org>
+Date: Wed, 19 Aug 2015 22:07:23 +0000
+Subject: [PATCH v2 0/5] ACPI: Provide better MADT subtable sanity checks
+Message-Id: <1440022048-6285-1-git-send-email-al.stone@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1438710406-3822-1-git-send-email-sudeep.holla@arm.com>
-In-Reply-To: <1438710406-3822-1-git-send-email-sudeep.holla@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-acpi@vger.kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Cc: Sudeep Holla <sudeep.holla@arm.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, x86@kernel.org
+To: linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-pm@vger.kernel.org, linaro-acpi@lists.linaro.org, linaro-kernel@lists.linaro.org, patches@linaro.org, Al Stone <al.stone@linaro.org>
 
-acpi_processor_sleep is neither related nor used by CPUIdle framework.
-It's used in system suspend/resume path as a syscore operation. It makes
-more sense to move it to acpi/sleep.c where all the S-state transition
-(a.k.a. Linux system suspend/hiberate) related code are present.
+Currently, the BAD_MADT_ENTRY macro is used to do a very simple sanity
+check on the various subtables that are defined for the MADT.  The check
+compares the size of the subtable data structure as defined by ACPICA to
+the length entry in the subtable.  If they are not the same, the assumption
+is that the subtable is incorrect.
 
-Also make it depend on CONFIG_ACPI_SYSTEM_POWER_STATES_SUPPORT so that
-it's not compiled on architecture like ARM64 where S-states are not
-yet defined in ACPI.
+Over time, the ACPI spec has allowed for MADT subtables where this can
+never be true (the local SAPIC subtable, for example).  Or, more recently,
+the spec has accumulated some minor flaws where there are three possible 
+sizes for a subtable, all of which are valid, but only for specific versions
+of the spec (the GICC subtable).  In both cases, BAD_MADT_ENTRY reports these
+subtables as bad when they are not.  In order to retain some sanity check
+on the MADT subtables, we now have to special case these subtables.  Of
+necessity, these special cases have ended up in arch-dependent code (arm64)
+or an arch has simply decided to forgo the check (ia64).
 
-Signed-off-by: Sudeep Holla <sudeep.holla@arm.com>
-Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>
----
- drivers/acpi/processor_idle.c | 37 -------------------------------------
- drivers/acpi/sleep.c          | 37 +++++++++++++++++++++++++++++++++++++
- include/acpi/processor.h      |  2 +-
- 3 files changed, 38 insertions(+), 38 deletions(-)
+This patch set replaces the BAD_MADT_ENTRY macro with a function called
+bad_madt_entry().  This function uses a data set of details about the
+subtables to provide more sanity checking than before:
 
-diff --git a/drivers/acpi/processor_idle.c b/drivers/acpi/processor_idle.c
-index d540f42c9232..18d4de846490 100644
---- a/drivers/acpi/processor_idle.c
-+++ b/drivers/acpi/processor_idle.c
-@@ -34,7 +34,6 @@
- #include <linux/sched.h>       /* need_resched() */
- #include <linux/tick.h>
- #include <linux/cpuidle.h>
--#include <linux/syscore_ops.h>
- #include <acpi/processor.h>
- 
- /*
-@@ -198,42 +197,6 @@ static void lapic_timer_state_broadcast(struct acpi_processor *pr,
- 
- #endif
- 
--#ifdef CONFIG_PM_SLEEP
--static u32 saved_bm_rld;
--
--static int acpi_processor_suspend(void)
--{
--	acpi_read_bit_register(ACPI_BITREG_BUS_MASTER_RLD, &saved_bm_rld);
--	return 0;
--}
--
--static void acpi_processor_resume(void)
--{
--	u32 resumed_bm_rld = 0;
--
--	acpi_read_bit_register(ACPI_BITREG_BUS_MASTER_RLD, &resumed_bm_rld);
--	if (resumed_bm_rld = saved_bm_rld)
--		return;
--
--	acpi_write_bit_register(ACPI_BITREG_BUS_MASTER_RLD, saved_bm_rld);
--}
--
--static struct syscore_ops acpi_processor_syscore_ops = {
--	.suspend = acpi_processor_suspend,
--	.resume = acpi_processor_resume,
--};
--
--void acpi_processor_syscore_init(void)
--{
--	register_syscore_ops(&acpi_processor_syscore_ops);
--}
--
--void acpi_processor_syscore_exit(void)
--{
--	unregister_syscore_ops(&acpi_processor_syscore_ops);
--}
--#endif /* CONFIG_PM_SLEEP */
--
- #if defined(CONFIG_X86)
- static void tsc_check_state(int state)
- {
-diff --git a/drivers/acpi/sleep.c b/drivers/acpi/sleep.c
-index 2f0d4db40a9e..cfea056e3d82 100644
---- a/drivers/acpi/sleep.c
-+++ b/drivers/acpi/sleep.c
-@@ -19,6 +19,7 @@
- #include <linux/reboot.h>
- #include <linux/acpi.h>
- #include <linux/module.h>
-+#include <linux/syscore_ops.h>
- #include <asm/io.h>
- #include <trace/events/power.h>
- 
-@@ -672,6 +673,42 @@ static void acpi_sleep_suspend_setup(void)
- static inline void acpi_sleep_suspend_setup(void) {}
- #endif /* !CONFIG_SUSPEND */
- 
-+#ifdef CONFIG_PM_SLEEP
-+static u32 saved_bm_rld;
-+
-+static int acpi_processor_suspend(void)
-+{
-+	acpi_read_bit_register(ACPI_BITREG_BUS_MASTER_RLD, &saved_bm_rld);
-+	return 0;
-+}
-+
-+static void acpi_processor_resume(void)
-+{
-+	u32 resumed_bm_rld = 0;
-+
-+	acpi_read_bit_register(ACPI_BITREG_BUS_MASTER_RLD, &resumed_bm_rld);
-+	if (resumed_bm_rld = saved_bm_rld)
-+		return;
-+
-+	acpi_write_bit_register(ACPI_BITREG_BUS_MASTER_RLD, saved_bm_rld);
-+}
-+
-+static struct syscore_ops acpi_processor_syscore_ops = {
-+	.suspend = acpi_processor_suspend,
-+	.resume = acpi_processor_resume,
-+};
-+
-+void acpi_processor_syscore_init(void)
-+{
-+	register_syscore_ops(&acpi_processor_syscore_ops);
-+}
-+
-+void acpi_processor_syscore_exit(void)
-+{
-+	unregister_syscore_ops(&acpi_processor_syscore_ops);
-+}
-+#endif /* CONFIG_PM_SLEEP */
-+
- #ifdef CONFIG_HIBERNATION
- static unsigned long s4_hardware_signature;
- static struct acpi_table_facs *facs;
-diff --git a/include/acpi/processor.h b/include/acpi/processor.h
-index 2669cae4a0c8..4c464d67ba09 100644
---- a/include/acpi/processor.h
-+++ b/include/acpi/processor.h
-@@ -338,7 +338,7 @@ int acpi_processor_cst_has_changed(struct acpi_processor *pr);
- int acpi_processor_hotplug(struct acpi_processor *pr);
- extern struct cpuidle_driver acpi_idle_driver;
- 
--#ifdef CONFIG_PM_SLEEP
-+#if defined(CONFIG_PM_SLEEP) && defined(CONFIG_ACPI_SYSTEM_POWER_STATES_SUPPORT)
- void acpi_processor_syscore_init(void);
- void acpi_processor_syscore_exit(void);
- #else
+	-- is the subtable legal for the version given in the FADT?
+
+	-- is the subtable legal for the revision of the MADT in use?
+
+	-- is the subtable of the proper length (including checking
+	   on the one variable length subtable that is currently ignored),
+	   given the FADT version and the MADT revision?
+
+Further, this patch set adds in the call to bad_madt_entry() from the 
+acpi_table_parse_madt() function, allowing it to be used consistently
+by all architectures, for all subtables, and removing the need for each
+of the subtable traversal callback functions to use BAD_MADT_ENTRY.
+
+In theory, as the ACPI specification changes, we would only have to add
+additional information to the data set describing the MADT subtables in
+order to continue providing sanity checks, even when new subtables are
+added.
+
+These patches have been tested on an APM Mustang (arm64) and are known to
+work there.  They have also been cross-compiled for x86 and ia64 with no
+known failures.
+
+Changes for v2:
+   -- Acked-by on 2/5 from Marc Zyngier and Catalin Marinas for ARM
+   -- Correct faulty end of loop test found by Timur Tabi
+
+Al Stone (5):
+  ACPI: add in a bad_madt_entry() function to eventually replace the
+    macro
+  ACPI / ARM64: remove usage of BAD_MADT_ENTRY/BAD_MADT_GICC_ENTRY
+  ACPI / IA64: remove usage of BAD_MADT_ENTRY
+  ACPI / X86: remove usage of BAD_MADT_ENTRY
+  ACPI: remove definition of BAD_MADT_ENTRY macro
+
+ arch/arm64/include/asm/acpi.h  |   8 --
+ arch/arm64/kernel/perf_event.c |   3 -
+ arch/arm64/kernel/smp.c        |   2 -
+ arch/ia64/kernel/acpi.c        |  20 ----
+ arch/x86/kernel/acpi/boot.c    |  27 -----
+ drivers/acpi/tables.c          | 241 +++++++++++++++++++++++++++++++++++++++++
+ drivers/irqchip/irq-gic-v2m.c  |   2 -
+ drivers/irqchip/irq-gic.c      |   6 -
+ include/linux/acpi.h           |   4 -
+ 9 files changed, 241 insertions(+), 72 deletions(-)
+
 -- 
-1.9.1
+2.4.3
 
