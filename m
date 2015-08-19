@@ -1,27 +1,89 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Thu, 13 Aug 2015 14:33:25 +0000
-Subject: Re: [PATCH 31/31] dma-mapping-common: skip kmemleak checks for page-less SG entries
-Message-Id: <20150813143325.GB17183@lst.de>
+From: Al Stone <al.stone@linaro.org>
+Date: Wed, 19 Aug 2015 22:07:25 +0000
+Subject: [PATCH v2 2/5] ACPI / ARM64: remove usage of BAD_MADT_ENTRY/BAD_MADT_GICC_ENTRY
+Message-Id: <1440022048-6285-3-git-send-email-al.stone@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1439363150-8661-1-git-send-email-hch@lst.de> <1439363150-8661-32-git-send-email-hch@lst.de> <CA+55aFxfZM81HNfo2ysfhGwrhx6GX-+F--+jLFmMVv+Z0id2rw@mail.gmail.com>
-In-Reply-To: <CA+55aFxfZM81HNfo2ysfhGwrhx6GX-+F--+jLFmMVv+Z0id2rw@mail.gmail.com>
+References: <1440022048-6285-1-git-send-email-al.stone@linaro.org>
+In-Reply-To: <1440022048-6285-1-git-send-email-al.stone@linaro.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Cc: Christoph Hellwig <hch@lst.de>, Jens Axboe <axboe@kernel.dk>, Dan Williams <dan.j.williams@intel.com>, Vineet Gupta <vgupta@synopsys.com>, =?iso-8859-1?Q?H=E5vard?= Skinnemoen <hskinnemoen@gmail.com>, Hans-Christian Egtvedt <egtvedt@samfundet.no>, Miao Steven <realmz6@gmail.com>, David Howells <dhowells@redhat.com>, Michal Simek <monstr@monstr.eu>, the arch/x86 maintainers <x86@kernel.org>, David Woodhouse <dwmw2@infradead.org>, Alex Williamson <alex.williamson@redhat.com>, grundler@parisc-linux.org, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>, linux-alpha@vger.kernel.org, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, linux-metag@vger.kernel.org, linux-mips <linux-mips@linux-mips.org>, Parisc List <linux-parisc@vger.kernel.org>, ppc-dev <linuxppc-dev@lists.ozlabs.org>, linux-s390 <linux-s390@vger.kernel.org>, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, "linux-nvdimm@lists.01.org" <linux-nvdimm@ml01.01.org>, Linux Media Mailing List <linux-media@vger.kernel.org>
+To: linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-pm@vger.kernel.org, linaro-acpi@lists.linaro.org, linaro-kernel@lists.linaro.org, patches@linaro.org, Al Stone <al.stone@linaro.org>, Will Deacon <will.deacon@arm.com>, Thomas Gleixner <tglx@linutronix.de>, Jason Cooper <jason@lakedaemon.net>
 
-On Wed, Aug 12, 2015 at 09:05:15AM -0700, Linus Torvalds wrote:
-> [ Again, I'm responding to one random patch - this pattern was in
-> other patches too.  ]
-> 
-> A question: do we actually expect to mix page-less and pageful SG
-> entries in the same SG list?
-> 
-> How does that happen?
+Now that we have introduced the bad_madt_entry() function, and that
+function is being invoked in acpi_table_parse_madt() for us, there
+is no longer any need to use the BAD_MADT_ENTRY macro, or in the case
+of arm64, the BAD_MADT_GICC_ENTRY, too.
 
-Both for DAX and the video buffer case people could do direct I/O
-spanning the boundary between such a VMA and a normal one unless
-we add special code to prevent that.  Right now I don't think it's
-all that useful, but then again it doesn't seem harmful either
-and adding those checks might add up.
+Signed-off-by: Al Stone <al.stone@linaro.org>
+Acked-by: Catalin Marinas <catalin.marinas@arm.com>
+Acked-by: Marc Zyngier <marc.zyngier@arm.com>
+Cc: Will Deacon <will.deacon@arm.com>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Jason Cooper <jason@lakedaemon.net>
+---
+ arch/arm64/include/asm/acpi.h | 8 --------
+ arch/arm64/kernel/smp.c       | 2 --
+ drivers/irqchip/irq-gic.c     | 6 ------
+ 3 files changed, 16 deletions(-)
+
+diff --git a/arch/arm64/include/asm/acpi.h b/arch/arm64/include/asm/acpi.h
+index 208cec0..ed7e212 100644
+--- a/arch/arm64/include/asm/acpi.h
++++ b/arch/arm64/include/asm/acpi.h
+@@ -19,14 +19,6 @@
+ #include <asm/cputype.h>
+ #include <asm/smp_plat.h>
+ 
+-/* Macros for consistency checks of the GICC subtable of MADT */
+-#define ACPI_MADT_GICC_LENGTH	\
+-	(acpi_gbl_FADT.header.revision < 6 ? 76 : 80)
+-
+-#define BAD_MADT_GICC_ENTRY(entry, end)						\
+-	(!(entry) || (unsigned long)(entry) + sizeof(*(entry)) > (end) ||	\
+-	 (entry)->header.length != ACPI_MADT_GICC_LENGTH)
+-
+ /* Basic configuration for ACPI */
+ #ifdef	CONFIG_ACPI
+ /* ACPI table mapping after acpi_gbl_permanent_mmap is set */
+diff --git a/arch/arm64/kernel/smp.c b/arch/arm64/kernel/smp.c
+index dbdaacd..66cc8c4 100644
+--- a/arch/arm64/kernel/smp.c
++++ b/arch/arm64/kernel/smp.c
+@@ -451,8 +451,6 @@ acpi_parse_gic_cpu_interface(struct acpi_subtable_header *header,
+ 	struct acpi_madt_generic_interrupt *processor;
+ 
+ 	processor = (struct acpi_madt_generic_interrupt *)header;
+-	if (BAD_MADT_GICC_ENTRY(processor, end))
+-		return -EINVAL;
+ 
+ 	acpi_table_print_madt_entry(header);
+ 
+diff --git a/drivers/irqchip/irq-gic.c b/drivers/irqchip/irq-gic.c
+index aa3e7b8..848c44c 100644
+--- a/drivers/irqchip/irq-gic.c
++++ b/drivers/irqchip/irq-gic.c
+@@ -1064,9 +1064,6 @@ gic_acpi_parse_madt_cpu(struct acpi_subtable_header *header,
+ 
+ 	processor = (struct acpi_madt_generic_interrupt *)header;
+ 
+-	if (BAD_MADT_GICC_ENTRY(processor, end))
+-		return -EINVAL;
+-
+ 	/*
+ 	 * There is no support for non-banked GICv1/2 register in ACPI spec.
+ 	 * All CPU interface addresses have to be the same.
+@@ -1088,9 +1085,6 @@ gic_acpi_parse_madt_distributor(struct acpi_subtable_header *header,
+ 
+ 	dist = (struct acpi_madt_generic_distributor *)header;
+ 
+-	if (BAD_MADT_ENTRY(dist, end))
+-		return -EINVAL;
+-
+ 	dist_phy_base = dist->base_address;
+ 	return 0;
+ }
+-- 
+2.4.3
+
