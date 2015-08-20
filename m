@@ -1,55 +1,54 @@
-From: Chen Gang <xili_gchen_5257@hotmail.com>
-Date: Sun, 23 Aug 2015 17:21:52 +0000
-Subject: [PATCH] mm: mmap: Check all failures before set values
-Message-Id: <COL130-W55CFB40ACE11D2A0083E04B9630@phx.gbl>
+From: Vlastimil Babka <vbabka@suse.cz>
+Date: Thu, 20 Aug 2015 11:43:22 +0000
+Subject: [PATCH 3/3] mm: use numa_mem_id() in alloc_pages_node()
+Message-Id: <1440071002-19085-3-git-send-email-vbabka@suse.cz>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1440071002-19085-1-git-send-email-vbabka@suse.cz>
+In-Reply-To: <1440071002-19085-1-git-send-email-vbabka@suse.cz>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: kernel mailing list <linux-kernel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org, Mel Gorman <mgorman@suse.de>, David Rientjes <rientjes@google.com>, Greg Thelen <gthelen@google.com>, "Aneesh Kumar K.V" <aneesh.kumar@linux.vnet.ibm.com>, Christoph Lameter <cl@linux.com>, Pekka Enberg <penberg@kernel.org>, Joonsoo Kim <iamjoonsoo.kim@lge.com>, Naoya Horiguchi <n-horiguchi@ah.jp.nec.com>, Johannes Weiner <hannes@cmpxchg.org>, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, cbe-oss-dev@lists.ozlabs.org, kvm@vger.kernel.org, Vlastimil Babka <vbabka@suse.cz>, Mel Gorman <mgorman@techsingularity.net>
 
-When failure occurs and return, vma->vm_pgoff is already set, which is
-not a good idea.
+alloc_pages_node() might fail when called with NUMA_NO_NODE and
+__GFP_THISNODE on a CPU belonging to a memoryless node. To make the
+local-node fallback more robust and prevent such situations, use
+numa_mem_id(), which was introduced for similar scenarios in the slab
+context.
 
-Signed-off-by: Chen Gang <gang.chen.5i5j@gmail.com>
+Suggested-by: Christoph Lameter <cl@linux.com>
+Signed-off-by: Vlastimil Babka <vbabka@suse.cz>
+Acked-by: David Rientjes <rientjes@google.com>
+Acked-by: Mel Gorman <mgorman@techsingularity.net>
+Acked-by: Christoph Lameter <cl@linux.com>
 ---
-=A0mm/mmap.c | 13 +++++++------
-=A01 file changed, 7 insertions(+), 6 deletions(-)
+ v3: better commit message
 
-diff --git a/mm/mmap.c b/mm/mmap.c
-index 8e0366e..b5a6f09 100644
---- a/mm/mmap.c
-+++ b/mm/mmap.c
-@@ -2878,6 +2878,13 @@ int insert_vm_struct(struct mm_struct *mm, struct vm=
-_area_struct *vma)
-=A0	struct vm_area_struct *prev;
-=A0	struct rb_node **rb_link, *rb_parent;
-=A0
-+	if (find_vma_links(mm, vma->vm_start, vma->vm_end,
-+			 =A0 &prev, &rb_link, &rb_parent))
-+		return -ENOMEM;
-+	if ((vma->vm_flags & VM_ACCOUNT) &&
-+	 =A0 =A0 security_vm_enough_memory_mm(mm, vma_pages(vma)))
-+		return -ENOMEM;
-+
-=A0	/*
-=A0	 * The vm_pgoff of a purely anonymous vma should be irrelevant
-=A0	 * until its first write fault, when page's anon_vma and index
-@@ -2894,12 +2901,6 @@ int insert_vm_struct(struct mm_struct *mm, struct vm=
-_area_struct *vma)
-=A0		BUG_ON(vma->anon_vma);
-=A0		vma->vm_pgoff =3D vma->vm_start>> PAGE_SHIFT;
-=A0	}
--	if (find_vma_links(mm, vma->vm_start, vma->vm_end,
--			 =A0 &prev, &rb_link, &rb_parent))
--		return -ENOMEM;
--	if ((vma->vm_flags & VM_ACCOUNT) &&
--	 =A0 =A0 security_vm_enough_memory_mm(mm, vma_pages(vma)))
--		return -ENOMEM;
-=A0
-=A0	vma_link(mm, vma, prev, rb_link, rb_parent);
-=A0	return 0;
---=A0
-1.9.3
+ include/linux/gfp.h | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
- 		 	   		  
+diff --git a/include/linux/gfp.h b/include/linux/gfp.h
+index 4a12cae2..f92cbd2 100644
+--- a/include/linux/gfp.h
++++ b/include/linux/gfp.h
+@@ -318,13 +318,14 @@ __alloc_pages_node(int nid, gfp_t gfp_mask, unsigned int order)
+ 
+ /*
+  * Allocate pages, preferring the node given as nid. When nid = NUMA_NO_NODE,
+- * prefer the current CPU's node. Otherwise node must be valid and online.
++ * prefer the current CPU's closest node. Otherwise node must be valid and
++ * online.
+  */
+ static inline struct page *alloc_pages_node(int nid, gfp_t gfp_mask,
+ 						unsigned int order)
+ {
+ 	if (nid = NUMA_NO_NODE)
+-		nid = numa_node_id();
++		nid = numa_mem_id();
+ 
+ 	return __alloc_pages_node(nid, gfp_mask, order);
+ }
+-- 
+2.5.0
+
