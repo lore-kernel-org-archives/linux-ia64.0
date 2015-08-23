@@ -1,72 +1,49 @@
-From: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
-Date: Mon, 17 Aug 2015 15:46:26 +0000
-Subject: [RFT PATCH] ia64: gensparse_defconfig: convert to use libata PATA drivers
-Message-Id: <1439826388-31456-3-git-send-email-b.zolnierkie@samsung.com>
+From: Chen Gang <xili_gchen_5257@hotmail.com>
+Date: Sun, 23 Aug 2015 17:18:58 +0000
+Subject: [PATCH] arch: ia64: kernel: perfmon: Check return value of insert_vm_struct()
+Message-Id: <COL130-W46DBE61538E64374C967CB9630@phx.gbl>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1439826388-31456-1-git-send-email-b.zolnierkie@samsung.com>
-In-Reply-To: <1439826388-31456-1-git-send-email-b.zolnierkie@samsung.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ide@vger.kernel.org, linux-kernel@vger.kernel.org, b.zolnierkie@samsung.com
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: kernel mailing list <linux-kernel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
 
-IDE subsystem has been deprecated since 2009 and the majority
-(if not all) of Linux distributions have switched to use
-libata for ATA support exclusively.  However there are still
-some users (mostly old or/and embedded non-x86 systems) that
-have not converted from using IDE subsystem to libata PATA
-drivers.  This doesn't seem to be good thing in the long-term
-for Linux as while there is less and less PATA systems left
-in use:
+In pfm_smpl_buffer_alloc, insert_vm_struct may also return -ENOMEM, so
+need check it too.
 
-* testing efforts are divided between two subsystems
+And insert_vm_struct needn't consider about pfm_remap_buffer in failure
+process ("goto error" is enough):
 
-* having duplicate drivers for same hardware confuses users
+=A0- pfm_remap_buffer doen't consider about remap_pfn_range.
 
-This patch converts gensparse_defconfig to use libata PATA
-drivers (sgiioc4 IDE host driver has no corresponding libata
-driver yet so it is not converted).
+=A0- It is about the relationship between vma and smpl_buf.
 
-Signed-off-by: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
+=A0- SO if both vma and smpl_buf are released ("goto error"), all things
+=A0 =A0are OK.
+
+Signed-off-by: Chen Gang <gang.chen.5i5j@gmail.com>
 ---
-Build tested only.
-If you have affected hardware please test.  Thank you.
+=A0arch/ia64/kernel/perfmon.c | 6 +++++-
+=A01 file changed, 5 insertions(+), 1 deletion(-)
 
- arch/ia64/configs/gensparse_defconfig | 13 +++++++------
- 1 file changed, 7 insertions(+), 6 deletions(-)
+diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
+index 60e02f7..ae77946 100644
+--- a/arch/ia64/kernel/perfmon.c
++++ b/arch/ia64/kernel/perfmon.c
+@@ -2330,7 +2330,11 @@ pfm_smpl_buffer_alloc(struct task_struct *task, stru=
+ct file *filp, pfm_context_t
+=A0	 * now insert the vma in the vm list for the process, must be
+=A0	 * done with mmap lock held
+=A0	 */
+-	insert_vm_struct(mm, vma);
++	if (insert_vm_struct(mm, vma)) {
++		DPRINT(("Can't insert vm structure.\n"));
++		up_write(&task->mm->mmap_sem);
++		goto error;
++	}
+=A0
+=A0	vm_stat_account(vma->vm_mm, vma->vm_flags, vma->vm_file,
+=A0							vma_pages(vma));
+--=A0
 
-diff --git a/arch/ia64/configs/gensparse_defconfig b/arch/ia64/configs/gensparse_defconfig
-index 5b4fcdd..b4da69f7 100644
---- a/arch/ia64/configs/gensparse_defconfig
-+++ b/arch/ia64/configs/gensparse_defconfig
-@@ -40,19 +40,20 @@ CONFIG_BLK_DEV_RAM=y
- CONFIG_SGI_IOC4=y
- CONFIG_IDE=y
- CONFIG_BLK_DEV_IDECD=y
--CONFIG_IDE_GENERIC=y
--CONFIG_BLK_DEV_GENERIC=y
--CONFIG_BLK_DEV_CMD64X=y
--CONFIG_BLK_DEV_PIIX=y
- CONFIG_BLK_DEV_SGIIOC4=y
--CONFIG_SCSI=y
- CONFIG_BLK_DEV_SD=y
- CONFIG_CHR_DEV_ST=m
--CONFIG_BLK_DEV_SR=m
-+CONFIG_BLK_DEV_SR=y
- CONFIG_CHR_DEV_SG=m
- CONFIG_SCSI_FC_ATTRS=y
- CONFIG_SCSI_SYM53C8XX_2=y
- CONFIG_SCSI_QLOGIC_1280=y
-+CONFIG_ATA=y
-+CONFIG_ATA_PIIX=y
-+CONFIG_PATA_CMD64X=y
-+CONFIG_PATA_MPIIX=y
-+CONFIG_ATA_GENERIC=y
-+CONFIG_PATA_LEGACY=y
- CONFIG_MD=y
- CONFIG_BLK_DEV_MD=m
- CONFIG_MD_LINEAR=m
--- 
-1.9.1
-
+ 		 	   		  
