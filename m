@@ -1,54 +1,55 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Wed, 12 Aug 2015 07:05:32 +0000
-Subject: [PATCH 13/31] sparc/ldc: handle page-less SG entries
-Message-Id: <1439363150-8661-14-git-send-email-hch@lst.de>
+From: Chen Gang <xili_gchen_5257@hotmail.com>
+Date: Sun, 23 Aug 2015 17:21:52 +0000
+Subject: [PATCH] mm: mmap: Check all failures before set values
+Message-Id: <COL130-W55CFB40ACE11D2A0083E04B9630@phx.gbl>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1439363150-8661-1-git-send-email-hch@lst.de>
-In-Reply-To: <1439363150-8661-1-git-send-email-hch@lst.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: torvalds@linux-foundation.org, axboe@kernel.dk
-Cc: dan.j.williams@intel.com, vgupta@synopsys.com, hskinnemoen@gmail.com, egtvedt@samfundet.no, realmz6@gmail.com, dhowells@redhat.com, monstr@monstr.eu, x86@kernel.org, dwmw2@infradead.org, alex.williamson@redhat.com, grundler@parisc-linux.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-nvdimm@ml01.01.org, linux-media@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: kernel mailing list <linux-kernel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
 
-Use
+When failure occurs and return, vma->vm_pgoff is already set, which is
+not a good idea.
 
-    sg_phys(sg) & PAGE_MASK
-
-instead of
-
-    page_to_pfn(sg_page(sg)) << PAGE_SHIFT
-
-to get at the page-aligned physical address ofa SG entry, so that
-we don't require a page backing for SG entries.
-
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+Signed-off-by: Chen Gang <gang.chen.5i5j@gmail.com>
 ---
- arch/sparc/kernel/ldc.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+=A0mm/mmap.c | 13 +++++++------
+=A01 file changed, 7 insertions(+), 6 deletions(-)
 
-diff --git a/arch/sparc/kernel/ldc.c b/arch/sparc/kernel/ldc.c
-index 1ae5eb1..0a29974 100644
---- a/arch/sparc/kernel/ldc.c
-+++ b/arch/sparc/kernel/ldc.c
-@@ -2051,7 +2051,7 @@ static void fill_cookies(struct cookie_state *sp, unsigned long pa,
- 
- static int sg_count_one(struct scatterlist *sg)
- {
--	unsigned long base = page_to_pfn(sg_page(sg)) << PAGE_SHIFT;
-+	unsigned long base = sg_phys(sg) & PAGE_MASK;
- 	long len = sg->length;
- 
- 	if ((sg->offset | len) & (8UL - 1))
-@@ -2114,7 +2114,7 @@ int ldc_map_sg(struct ldc_channel *lp,
- 	state.nc = 0;
- 
- 	for_each_sg(sg, s, num_sg, i) {
--		fill_cookies(&state, page_to_pfn(sg_page(s)) << PAGE_SHIFT,
-+		fill_cookies(&state, sg_phys(s) & PAGE_MASK,
- 			     s->offset, s->length);
- 	}
- 
--- 
-1.9.1
+diff --git a/mm/mmap.c b/mm/mmap.c
+index 8e0366e..b5a6f09 100644
+--- a/mm/mmap.c
++++ b/mm/mmap.c
+@@ -2878,6 +2878,13 @@ int insert_vm_struct(struct mm_struct *mm, struct vm=
+_area_struct *vma)
+=A0	struct vm_area_struct *prev;
+=A0	struct rb_node **rb_link, *rb_parent;
+=A0
++	if (find_vma_links(mm, vma->vm_start, vma->vm_end,
++			 =A0 &prev, &rb_link, &rb_parent))
++		return -ENOMEM;
++	if ((vma->vm_flags & VM_ACCOUNT) &&
++	 =A0 =A0 security_vm_enough_memory_mm(mm, vma_pages(vma)))
++		return -ENOMEM;
++
+=A0	/*
+=A0	 * The vm_pgoff of a purely anonymous vma should be irrelevant
+=A0	 * until its first write fault, when page's anon_vma and index
+@@ -2894,12 +2901,6 @@ int insert_vm_struct(struct mm_struct *mm, struct vm=
+_area_struct *vma)
+=A0		BUG_ON(vma->anon_vma);
+=A0		vma->vm_pgoff =3D vma->vm_start>> PAGE_SHIFT;
+=A0	}
+-	if (find_vma_links(mm, vma->vm_start, vma->vm_end,
+-			 =A0 &prev, &rb_link, &rb_parent))
+-		return -ENOMEM;
+-	if ((vma->vm_flags & VM_ACCOUNT) &&
+-	 =A0 =A0 security_vm_enough_memory_mm(mm, vma_pages(vma)))
+-		return -ENOMEM;
+=A0
+=A0	vma_link(mm, vma, prev, rb_link, rb_parent);
+=A0	return 0;
+--=A0
+1.9.3
 
+ 		 	   		  
