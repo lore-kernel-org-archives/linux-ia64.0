@@ -1,49 +1,64 @@
-From: Andrzej Hajda <a.hajda@samsung.com>
-Date: Wed, 16 Sep 2015 09:53:11 +0000
-Subject: Re: [PATCH 02/31] arch/ia64/tioce: use kmemdup rather than duplicating its implementation
-Message-Id: <55F93C07.1050403@samsung.com>
+From: Chen Gang <gchen_5i5j@21cn.com>
+Date: Fri, 04 Sep 2015 03:43:15 +0000
+Subject: Re: [PATCH] arch: ia64: kernel: perfmon: Check return value of insert_vm_struct()
+Message-Id: <55E91353.8010005@21cn.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1438934377-4922-1-git-send-email-a.hajda@samsung.com>
- <1438934377-4922-3-git-send-email-a.hajda@samsung.com>
-In-Reply-To: <1438934377-4922-3-git-send-email-a.hajda@samsung.com>
+References: <COL130-W46DBE61538E64374C967CB9630@phx.gbl>
+In-Reply-To: <COL130-W46DBE61538E64374C967CB9630@phx.gbl>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
-Cc: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>, Marek Szyprowski <m.szyprowski@samsung.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: kernel mailing list <linux-kernel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>, tony.luck@intel.com, Fenghua Yu <fenghua.yu@intel.com>
 
-Ping.
+Hello Maintainers:
 
-Regards
-Andrzej
+Please help check this patch when you have time.
 
-On 08/07/2015 09:59 AM, Andrzej Hajda wrote:
-> The patch was generated using fixed coccinelle semantic patch
-> scripts/coccinelle/api/memdup.cocci [1].
->
-> [1]: http://permalink.gmane.org/gmane.linux.kernel/2014320
->
-> Signed-off-by: Andrzej Hajda <a.hajda@samsung.com>
+Thanks.
+
+On 8/24/15 01:18, Chen Gang wrote:
+> In pfm_smpl_buffer_alloc, insert_vm_struct may also return -ENOMEM, so
+> need check it too.
+> 
+> And insert_vm_struct needn't consider about pfm_remap_buffer in failure
+> process ("goto error" is enough):
+> 
+>  - pfm_remap_buffer doen't consider about remap_pfn_range.
+> 
+>  - It is about the relationship between vma and smpl_buf.
+> 
+>  - SO if both vma and smpl_buf are released ("goto error"), all things
+>    are OK.
+> 
+> Signed-off-by: Chen Gang <gang.chen.5i5j@gmail.com>
 > ---
->  arch/ia64/sn/pci/tioce_provider.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/arch/ia64/sn/pci/tioce_provider.c b/arch/ia64/sn/pci/tioce_provider.c
-> index 46d3df4..2f13276 100644
-> --- a/arch/ia64/sn/pci/tioce_provider.c
-> +++ b/arch/ia64/sn/pci/tioce_provider.c
-> @@ -1000,11 +1000,11 @@ tioce_bus_fixup(struct pcibus_bussoft *prom_bussoft, struct pci_controller *cont
->  	 * Allocate kernel bus soft and copy from prom.
+>  arch/ia64/kernel/perfmon.c | 6 +++++-
+>  1 file changed, 5 insertions(+), 1 deletion(-)
+> 
+> diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
+> index 60e02f7..ae77946 100644
+> --- a/arch/ia64/kernel/perfmon.c
+> +++ b/arch/ia64/kernel/perfmon.c
+> @@ -2330,7 +2330,11 @@ pfm_smpl_buffer_alloc(struct task_struct *task, struct file *filp, pfm_context_t
+>  	 * now insert the vma in the vm list for the process, must be
+>  	 * done with mmap lock held
 >  	 */
+> -	insert_vm_struct(mm, vma);
+> +	if (insert_vm_struct(mm, vma)) {
+> +		DPRINT(("Can't insert vm structure.\n"));
+> +		up_write(&task->mm->mmap_sem);
+> +		goto error;
+> +	}
 >  
-> -	tioce_common = kzalloc(sizeof(struct tioce_common), GFP_KERNEL);
-> +	tioce_common = kmemdup(prom_bussoft, sizeof(struct tioce_common),
-> +			       GFP_KERNEL);
->  	if (!tioce_common)
->  		return NULL;
->  
-> -	memcpy(tioce_common, prom_bussoft, sizeof(struct tioce_common));
->  	tioce_common->ce_pcibus.bs_base = (unsigned long)
->  		ioremap(REGION_OFFSET(tioce_common->ce_pcibus.bs_base),
->  			sizeof(struct tioce_common));
+>  	vm_stat_account(vma->vm_mm, vma->vm_flags, vma->vm_file,
+>  							vma_pages(vma));
+> -- 
+> 
+>  		 	   		  
+> 
 
+-- 
+Chen Gang (陈刚)
+
+Open, share, and attitude like air, water, and life which God blessed
