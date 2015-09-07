@@ -1,63 +1,40 @@
-From: Josh Boyer <jwboyer@fedoraproject.org>
-Date: Tue, 15 Sep 2015 13:35:45 +0000
-Subject: Re: [BUG]: Intel uncore boot warning introduced in 4.1
-Message-Id: <CA+5PVA6LE=Bis3EjriZvz+Eef8LwJgA3R0b8YFMN6p6z5iu9Ow@mail.gmail.com>
+From: Sudeep Holla <sudeep.holla@arm.com>
+Date: Mon, 07 Sep 2015 15:32:05 +0000
+Subject: Re: [PATCH v2 1/5] ACPI: add in a bad_madt_entry() function to eventually replace the macro
+Message-Id: <55EDADF5.5060008@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1438853676.3139.20.camel@mattleach.net>
-	<87bneko0o5.fsf@mattleach.net>
-	<37D7C6CF3E00A74B8858931C1DB2F077018D32C2@SHSMSX103.ccr.corp.intel.com>
-	<20150807090553.GC16853@twins.programming.kicks-ass.net>
-	<37D7C6CF3E00A74B8858931C1DB2F077018DF43E@SHSMSX103.ccr.corp.intel.com>
-In-Reply-To: <37D7C6CF3E00A74B8858931C1DB2F077018DF43E@SHSMSX103.ccr.corp.intel.com>
+References: <1440022048-6285-1-git-send-email-al.stone@linaro.org> <1440022048-6285-2-git-send-email-al.stone@linaro.org>
+In-Reply-To: <1440022048-6285-2-git-send-email-al.stone@linaro.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Liang, Kan" <kan.liang@intel.com>
-Cc: Peter Zijlstra <peterz@infradead.org>, Matthew Leach <matthew@mattleach.net>, Ingo Molnar <mingo@kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "eranian@google.com" <eranian@google.com>, Andi Kleen <ak@linux.intel.com>, Bjorn Helgaas <bhelgaas@google.com>, Vince Weaver <vincent.weaver@maine.edu>, Sonny Rao <sonnyrao@chromium.org>
+To: Al Stone <al.stone@linaro.org>, "linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>
+Cc: Sudeep Holla <sudeep.holla@arm.com>, "linaro-kernel@lists.linaro.org" <linaro-kernel@lists.linaro.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "patches@linaro.org" <patches@linaro.org>, "linux-pm@vger.kernel.org" <linux-pm@vger.kernel.org>, "linaro-acpi@lists.linaro.org" <linaro-acpi@lists.linaro.org>, "Rafael J. Wysocki" <rjw@rjwysocki.net>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Len Brown <lenb@kernel.org>
 
-On Mon, Aug 10, 2015 at 9:23 AM, Liang, Kan <kan.liang@intel.com> wrote:
->
->> On Thu, Aug 06, 2015 at 06:10:40PM +0000, Liang, Kan wrote:
->> > The issue may be caused by uncore box initialization.
->> >
->> > For preventing the potential issues of uncore box initialization, I
->> > once moved the uncore_box_init() out of driver initialization in
->> > commit c05199e5a57a579fea1e8fa65e2b511ceb524ffc.
->> >
->> > However, it cause some desktop crash, because the box initialization
->> > codes were moved in IPI context.
->> >
->> > For fixing the crash issue, we had two choice at that time.
->> >  - Simply revert the codes. That's where is
->> > 15c1247953e8a45232ed5a5540f291d2d0a77665 from.
->> >  - Move uncore_box_init out of IPI context to uncore event
->> >    init. I provided a patch for it. https://lkml.org/lkml/2015/4/28/21
->> >   Stephane Eranian also verified it on his platform
->> >
->> > At that time, we chose first option. But it looks there is some issue
->> > now. I guess we may try the second option this time.
->> >
->> > Matthew,
->> >
->> > Could you please revert
->> > 15c1247953e8a45232ed5a5540f291d2d0a77665
->> > and apply the patch https://lkml.org/lkml/2015/4/26/294?
->> > See if it works?
->>
->> That patch is wrong though; how can even publish a PMU which is not
->> initialized?
->
-> It's initialized but not in the driver initialization.
-> We once encountered boot crashes which caused by uncore
-> driver who trying to access non-existing boxes. Also this uncore
-> boot warning.
-> So I think it's better to move the box init code out of driver
-> initialization to prevent such potential boot failures.
-> Uncore event init should be a good place to do box init.
-> Only when the box is not initialized and user tries to use
-> uncore event, we do box initialization.
+Hi Al,
 
-We're still getting reports of this in Fedora with 4.1.y kernels.  Was
-there any resolution to this?
+On 19/08/15 23:07, Al Stone wrote:
 
-josh
+I finally got a chance to try this series on Juno. Well it exposed a 
+firmware bug in MADT table :)
+
+[..]
+
+>                  acpi_tbl_entry_handler handler,
+> @@ -245,6 +484,8 @@ acpi_parse_entries(char *id, unsigned long table_size,
+>                 table_end) {
+>                  if (entry->type = entry_id
+>                      && (!max_entries || count < max_entries)) {
+> +                       if (bad_madt_entry(table_header, entry))
+> +                               return -EINVAL;
+
+Not sure if we can have the above check here unconditionally.
+Currently I can see there are 2 other users of acpi_parse_entries i.e.
+PCC and NUMA. So may be it can be made conditional or return success for
+non-MADT tables from bad_madt_entry ?
+
+Other than that, you can add for ARM64 specific parts:
+Reviewed-and-tested-by: Sudeep Holla <sudeep.holla@arm.com>
+
+Regards,
+Sudeep
