@@ -1,52 +1,67 @@
-From: Al Stone <ahs3@redhat.com>
-Date: Thu, 10 Sep 2015 14:13:36 +0000
-Subject: Re: [Linaro-acpi] [PATCH v3 1/5] ACPI: add in a bad_madt_entry() function to eventually replace the 
-Message-Id: <55F19010.9060603@redhat.com>
+From: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
+Date: Mon, 07 Sep 2015 16:15:55 +0000
+Subject: [RFC PATCH v2 8/9] ia64: allocate sys_membarrier system call number
+Message-Id: <1441642556-30972-9-git-send-email-mathieu.desnoyers@efficios.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1441832991-28200-1-git-send-email-al.stone@linaro.org>
- <1441832991-28200-2-git-send-email-al.stone@linaro.org>
- <20150910121413.GA11267@xora-haswell.xora.org.uk>
-In-Reply-To: <20150910121413.GA11267@xora-haswell.xora.org.uk>
+References: <1441642556-30972-1-git-send-email-mathieu.desnoyers@efficios.com>
+In-Reply-To: <1441642556-30972-1-git-send-email-mathieu.desnoyers@efficios.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Graeme Gregory <graeme.gregory@linaro.org>, Al Stone <al.stone@linaro.org>
-Cc: linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linaro-kernel@lists.linaro.org, linux-ia64@vger.kernel.org, patches@linaro.org, linux-pm@vger.kernel.org, linaro-acpi@lists.linaro.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, linux-kernel@vger.kernel.org, Len Brown <lenb@kernel.org>
+To: Andrew Morton <akpm@linux-foundation.org>, linux-api@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, Mathieu Desnoyers <mathieu.desnoyers@efficios.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-On 09/10/2015 06:14 AM, Graeme Gregory wrote:
-> On Wed, Sep 09, 2015 at 03:09:47PM -0600, Al Stone wrote:
->> The existing BAD_MADT_ENTRY macro only checks that the size of the data
->> structure for an MADT subtable matches the length entry in the subtable.
->> This is, unfortunately, not reliable.  Nor, as it turns out, does it have
->> anything to do with what the length should be in any particular table.
->>
+[ Untested on this architecture. To try it out: fetch linux-next/akpm,
+  apply this patch, build/run a membarrier-enabled kernel, and do make
+  kselftest. ]
 
-[snip...]
-  			if (handler(entry, table_end))
->>  				return -EINVAL;
->>  
->> @@ -349,7 +592,7 @@ int __init acpi_table_parse(char *id, acpi_tbl_table_handler handler)
->>  		return -ENODEV;
->>  }
->>  
->> -/* 
->> +/*
->>   * The BIOS is supposed to supply a single APIC/MADT,
->>   * but some report two.  Provide a knob to use either.
->>   * (don't you wish instance 0 and 1 were not the same?)
-> 
-> Unrelated whitespace change snuck in here.
-> 
-> Graeme
+Signed-off-by: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
+CC: Andrew Morton <akpm@linux-foundation.org>
+CC: linux-api@vger.kernel.org
+CC: Tony Luck <tony.luck@intel.com>
+CC: Fenghua Yu <fenghua.yu@intel.com>
+CC: linux-ia64@vger.kernel.org
+---
+ arch/ia64/include/asm/unistd.h      | 2 +-
+ arch/ia64/include/uapi/asm/unistd.h | 1 +
+ arch/ia64/kernel/entry.S            | 1 +
+ 3 files changed, 3 insertions(+), 1 deletion(-)
 
-Bah.  Nice catch; not sure how that got in there, but duly noted.
-
+diff --git a/arch/ia64/include/asm/unistd.h b/arch/ia64/include/asm/unistd.h
+index 95c39b9..1d54e17 100644
+--- a/arch/ia64/include/asm/unistd.h
++++ b/arch/ia64/include/asm/unistd.h
+@@ -11,7 +11,7 @@
+ 
+ 
+ 
+-#define NR_syscalls			319 /* length of syscall table */
++#define NR_syscalls			320 /* length of syscall table */
+ 
+ /*
+  * The following defines stop scripts/checksyscalls.sh from complaining about
+diff --git a/arch/ia64/include/uapi/asm/unistd.h b/arch/ia64/include/uapi/asm/unistd.h
+index 4610795..b7aae55 100644
+--- a/arch/ia64/include/uapi/asm/unistd.h
++++ b/arch/ia64/include/uapi/asm/unistd.h
+@@ -332,5 +332,6 @@
+ #define __NR_memfd_create		1340
+ #define __NR_bpf			1341
+ #define __NR_execveat			1342
++#define __NR_membarrier			1343
+ 
+ #endif /* _UAPI_ASM_IA64_UNISTD_H */
+diff --git a/arch/ia64/kernel/entry.S b/arch/ia64/kernel/entry.S
+index ae0de7b..1ce01f9 100644
+--- a/arch/ia64/kernel/entry.S
++++ b/arch/ia64/kernel/entry.S
+@@ -1768,5 +1768,6 @@ sys_call_table:
+ 	data8 sys_memfd_create			// 1340
+ 	data8 sys_bpf
+ 	data8 sys_execveat
++	data8 sys_membarrier
+ 
+ 	.org sys_call_table + 8*NR_syscalls	// guard against failures to increase NR_syscalls
 -- 
-ciao,
-al
------------------------------------
-Al Stone
-Software Engineer
-Red Hat, Inc.
-ahs3@redhat.com
------------------------------------
+1.9.1
+
