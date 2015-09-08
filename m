@@ -1,546 +1,140 @@
-From: Jiang Liu <jiang.liu@linux.intel.com>
-Date: Mon, 14 Sep 2015 08:07:31 +0000
-Subject: [Patch v6 2/7] ia64/PCI/ACPI: Use common ACPI resource parsing interface for host bridge
-Message-Id: <1442218057-4355-3-git-send-email-jiang.liu@linux.intel.com>
+From: Eric B Munson <emunson@akamai.com>
+Date: Tue, 08 Sep 2015 13:58:58 +0000
+Subject: [PATCH v9 2/6] mm: mlock: Add new mlock system call
+Message-Id: <1441720742-7803-3-git-send-email-emunson@akamai.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1442218057-4355-1-git-send-email-jiang.liu@linux.intel.com>
-In-Reply-To: <1442218057-4355-1-git-send-email-jiang.liu@linux.intel.com>
+References: <1441720742-7803-1-git-send-email-emunson@akamai.com>
+In-Reply-To: <1441720742-7803-1-git-send-email-emunson@akamai.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>, "Rafael J . Wysocki" <rafael.j.wysocki@intel.com>, Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>, Marc Zyngier <marc.zyngier@arm.com>, Hanjun Guo <hanjun.guo@linaro.org>, Liviu Dudau <Liviu.Dudau@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Jiang Liu <jiang.liu@linux.intel.com>, Yinghai Lu <yinghai@kernel.org>
-Cc: linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org, x86@kernel.org, linux-ia64@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Eric B Munson <emunson@akamai.com>, Michal Hocko <mhocko@suse.cz>, Vlastimil Babka <vbabka@suse.cz>, Heiko Carstens <heiko.carstens@de.ibm.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Catalin Marinas <catalin.marinas@arm.com>, Stephen Rothwell <sfr@canb.auug.org.au>, Guenter Roeck <linux@roeck-us.net>, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, adi-buildroot-devel@lists.sourceforge.net, linux-cris-kernel@axis.com, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-am33-list@redhat.com, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-api@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org
 
-Use common ACPI resource parsing interface to parse ACPI resources for
-PCI host bridge, so we could share more code between IA64 and x86.
-Later we will consolidate arch specific implementations into ACPI core.
+With the refactored mlock code, introduce a new system call for mlock.
+The new call will allow the user to specify what lock states are being
+added.  mlock2 is trivial at the moment, but a follow on patch will add
+a new mlock state making it useful.
 
-Tested-by: Tony Luck <tony.luck@intel.com>
-Signed-off-by: Jiang Liu <jiang.liu@linux.intel.com>
-Reviewed-by: Hanjun Guo <hanjun.guo@linaro.org>
+Signed-off-by: Eric B Munson <emunson@akamai.com>
+Acked-by: Vlastimil Babka <vbabka@suse.cz>
+Acked-by: Michal Hocko <mhocko@suse.com>
+Cc: Michal Hocko <mhocko@suse.cz>
+Cc: Vlastimil Babka <vbabka@suse.cz>
+Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
+Cc: Geert Uytterhoeven <geert@linux-m68k.org>
+Cc: Catalin Marinas <catalin.marinas@arm.com>
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>
+Cc: Guenter Roeck <linux@roeck-us.net>
+Cc: linux-alpha@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Cc: linux-arm-kernel@lists.infradead.org
+Cc: adi-buildroot-devel@lists.sourceforge.net
+Cc: linux-cris-kernel@axis.com
+Cc: linux-ia64@vger.kernel.org
+Cc: linux-m68k@lists.linux-m68k.org
+Cc: linux-am33-list@redhat.com
+Cc: linux-parisc@vger.kernel.org
+Cc: linuxppc-dev@lists.ozlabs.org
+Cc: linux-s390@vger.kernel.org
+Cc: linux-sh@vger.kernel.org
+Cc: sparclinux@vger.kernel.org
+Cc: linux-xtensa@linux-xtensa.org
+Cc: linux-api@vger.kernel.org
+Cc: linux-arch@vger.kernel.org
+Cc: linux-mm@kvack.org
 ---
- arch/ia64/pci/pci.c |  414 ++++++++++++++++++++++++---------------------------
- 1 file changed, 193 insertions(+), 221 deletions(-)
+Changes from V8:
+* Update x86[_64] syscall numbers to follow the new userfaultfd syscalls
 
-diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
-index d89b6013c941..d092c6b08666 100644
---- a/arch/ia64/pci/pci.c
-+++ b/arch/ia64/pci/pci.c
-@@ -115,29 +115,12 @@ struct pci_ops pci_root_ops = {
- 	.write = pci_write,
- };
+ arch/x86/entry/syscalls/syscall_32.tbl | 1 +
+ arch/x86/entry/syscalls/syscall_64.tbl | 1 +
+ include/linux/syscalls.h               | 2 ++
+ include/uapi/asm-generic/unistd.h      | 4 +++-
+ kernel/sys_ni.c                        | 1 +
+ mm/mlock.c                             | 8 ++++++++
+ 6 files changed, 16 insertions(+), 1 deletion(-)
+
+diff --git a/arch/x86/entry/syscalls/syscall_32.tbl b/arch/x86/entry/syscalls/syscall_32.tbl
+index 477bfa6..41e72a5 100644
+--- a/arch/x86/entry/syscalls/syscall_32.tbl
++++ b/arch/x86/entry/syscalls/syscall_32.tbl
+@@ -381,3 +381,4 @@
+ 372	i386	recvmsg			sys_recvmsg			compat_sys_recvmsg
+ 373	i386	shutdown		sys_shutdown
+ 374	i386	userfaultfd		sys_userfaultfd
++375	i386	mlock2			sys_mlock2
+diff --git a/arch/x86/entry/syscalls/syscall_64.tbl b/arch/x86/entry/syscalls/syscall_64.tbl
+index 81c4906..2366900 100644
+--- a/arch/x86/entry/syscalls/syscall_64.tbl
++++ b/arch/x86/entry/syscalls/syscall_64.tbl
+@@ -330,6 +330,7 @@
+ 321	common	bpf			sys_bpf
+ 322	64	execveat		stub_execveat
+ 323	common	userfaultfd		sys_userfaultfd
++324	common	mlock2			sys_mlock2
  
--/* Called by ACPI when it finds a new root bus.  */
--
--static struct pci_controller *alloc_pci_controller(int seg)
--{
--	struct pci_controller *controller;
--
--	controller = kzalloc(sizeof(*controller), GFP_KERNEL);
--	if (!controller)
--		return NULL;
--
--	controller->segment = seg;
--	return controller;
--}
--
- struct pci_root_info {
-+	struct pci_controller controller;
- 	struct acpi_device *bridge;
--	struct pci_controller *controller;
- 	struct list_head resources;
--	struct resource *res;
--	resource_size_t *res_offset;
--	unsigned int res_num;
- 	struct list_head io_resources;
--	char *name;
-+	char name[16];
- };
+ #
+ # x32-specific system call numbers start at 512 to avoid cache impact
+diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
+index 0800131..890632c 100644
+--- a/include/linux/syscalls.h
++++ b/include/linux/syscalls.h
+@@ -885,4 +885,6 @@ asmlinkage long sys_execveat(int dfd, const char __user *filename,
+ 			const char __user *const __user *argv,
+ 			const char __user *const __user *envp, int flags);
  
- static unsigned int
-@@ -168,11 +151,11 @@ new_space (u64 phys_base, int sparse)
- 	return i;
++asmlinkage long sys_mlock2(unsigned long start, size_t len, int flags);
++
+ #endif
+diff --git a/include/uapi/asm-generic/unistd.h b/include/uapi/asm-generic/unistd.h
+index e016bd9..14a6013 100644
+--- a/include/uapi/asm-generic/unistd.h
++++ b/include/uapi/asm-generic/unistd.h
+@@ -709,9 +709,11 @@ __SYSCALL(__NR_memfd_create, sys_memfd_create)
+ __SYSCALL(__NR_bpf, sys_bpf)
+ #define __NR_execveat 281
+ __SC_COMP(__NR_execveat, sys_execveat, compat_sys_execveat)
++#define __NR_mlock2 282
++__SYSCALL(__NR_mlock2, sys_mlock2)
+ 
+ #undef __NR_syscalls
+-#define __NR_syscalls 282
++#define __NR_syscalls 283
+ 
+ /*
+  * All syscalls below here should go away really,
+diff --git a/kernel/sys_ni.c b/kernel/sys_ni.c
+index 03c3875..8de5b26 100644
+--- a/kernel/sys_ni.c
++++ b/kernel/sys_ni.c
+@@ -194,6 +194,7 @@ cond_syscall(sys_mlock);
+ cond_syscall(sys_munlock);
+ cond_syscall(sys_mlockall);
+ cond_syscall(sys_munlockall);
++cond_syscall(sys_mlock2);
+ cond_syscall(sys_mincore);
+ cond_syscall(sys_madvise);
+ cond_syscall(sys_mremap);
+diff --git a/mm/mlock.c b/mm/mlock.c
+index c32ad8f..a23a533 100644
+--- a/mm/mlock.c
++++ b/mm/mlock.c
+@@ -644,6 +644,14 @@ SYSCALL_DEFINE2(mlock, unsigned long, start, size_t, len)
+ 	return do_mlock(start, len, VM_LOCKED);
  }
  
--static u64 add_io_space(struct pci_root_info *info,
--			struct acpi_resource_address64 *addr)
-+static int add_io_space(struct device *dev, struct pci_root_info *info,
-+			struct resource_entry *entry)
- {
- 	struct iospace_resource *iospace;
--	struct resource *resource;
-+	struct resource *resource, *res = entry->res;
- 	char *name;
- 	unsigned long base, min, max, base_port;
- 	unsigned int sparse = 0, space_nr, len;
-@@ -180,27 +163,24 @@ static u64 add_io_space(struct pci_root_info *info,
- 	len = strlen(info->name) + 32;
- 	iospace = kzalloc(sizeof(*iospace) + len, GFP_KERNEL);
- 	if (!iospace) {
--		dev_err(&info->bridge->dev,
--				"PCI: No memory for %s I/O port space\n",
--				info->name);
--		goto out;
-+		dev_err(dev, "PCI: No memory for %s I/O port space\n",
-+			info->name);
-+		return -ENOMEM;
- 	}
- 
--	name = (char *)(iospace + 1);
--
--	min = addr->address.minimum;
--	max = min + addr->address.address_length - 1;
--	if (addr->info.io.translation_type = ACPI_SPARSE_TRANSLATION)
-+	if (res->flags & IORESOURCE_IO_SPARSE)
- 		sparse = 1;
--
--	space_nr = new_space(addr->address.translation_offset, sparse);
-+	space_nr = new_space(entry->offset, sparse);
- 	if (space_nr = ~0)
- 		goto free_resource;
- 
-+	name = (char *)(iospace + 1);
-+	min = res->start - entry->offset;
-+	max = res->end - entry->offset;
- 	base = __pa(io_space[space_nr].mmio_base);
- 	base_port = IO_SPACE_BASE(space_nr);
- 	snprintf(name, len, "%s I/O Ports %08lx-%08lx", info->name,
--		base_port + min, base_port + max);
-+		 base_port + min, base_port + max);
- 
- 	/*
- 	 * The SDM guarantees the legacy 0-64K space is sparse, but if the
-@@ -216,153 +196,195 @@ static u64 add_io_space(struct pci_root_info *info,
- 	resource->start = base + (sparse ? IO_SPACE_SPARSE_ENCODING(min) : min);
- 	resource->end   = base + (sparse ? IO_SPACE_SPARSE_ENCODING(max) : max);
- 	if (insert_resource(&iomem_resource, resource)) {
--		dev_err(&info->bridge->dev,
--				"can't allocate host bridge io space resource  %pR\n",
--				resource);
-+		dev_err(dev,
-+			"can't allocate host bridge io space resource  %pR\n",
-+			resource);
- 		goto free_resource;
- 	}
- 
-+	entry->offset = base_port;
-+	res->start = min + base_port;
-+	res->end = max + base_port;
- 	list_add_tail(&iospace->list, &info->io_resources);
--	return base_port;
++SYSCALL_DEFINE3(mlock2, unsigned long, start, size_t, len, int, flags)
++{
++	if (flags)
++		return -EINVAL;
 +
-+	return 0;
- 
- free_resource:
- 	kfree(iospace);
--out:
--	return ~0;
-+	return -ENOSPC;
++	return do_mlock(start, len, VM_LOCKED);
 +}
 +
-+/*
-+ * An IO port or MMIO resource assigned to a PCI host bridge may be
-+ * consumed by the host bridge itself or available to its child
-+ * bus/devices. The ACPI specification defines a bit (Producer/Consumer)
-+ * to tell whether the resource is consumed by the host bridge itself,
-+ * but firmware hasn't used that bit consistently, so we can't rely on it.
-+ *
-+ * On x86 and IA64 platforms, all IO port and MMIO resources are assumed
-+ * to be available to child bus/devices except one special case:
-+ *     IO port [0xCF8-0xCFF] is consumed by the host bridge itself
-+ *     to access PCI configuration space.
-+ *
-+ * So explicitly filter out PCI CFG IO ports[0xCF8-0xCFF].
-+ */
-+static bool resource_is_pcicfg_ioport(struct resource *res)
-+{
-+	return (res->flags & IORESOURCE_IO) &&
-+		res->start = 0xCF8 && res->end = 0xCFF;
- }
- 
--static acpi_status resource_to_window(struct acpi_resource *resource,
--				      struct acpi_resource_address64 *addr)
-+static int
-+probe_pci_root_info(struct pci_root_info *info, struct acpi_device *device,
-+		    int busnum, int domain)
+ SYSCALL_DEFINE2(munlock, unsigned long, start, size_t, len)
  {
--	acpi_status status;
-+	int ret;
-+	struct list_head *list = &info->resources;
-+	struct resource_entry *entry, *tmp;
- 
--	/*
--	 * We're only interested in _CRS descriptors that are
--	 *	- address space descriptors for memory or I/O space
--	 *	- non-zero size
--	 */
--	status = acpi_resource_to_address64(resource, addr);
--	if (ACPI_SUCCESS(status) &&
--	    (addr->resource_type = ACPI_MEMORY_RANGE ||
--	     addr->resource_type = ACPI_IO_RANGE) &&
--	    addr->address.address_length)
--		return AE_OK;
--
--	return AE_ERROR;
--}
--
--static acpi_status count_window(struct acpi_resource *resource, void *data)
--{
--	unsigned int *windows = (unsigned int *) data;
--	struct acpi_resource_address64 addr;
--	acpi_status status;
--
--	status = resource_to_window(resource, &addr);
--	if (ACPI_SUCCESS(status))
--		(*windows)++;
--
--	return AE_OK;
--}
--
--static acpi_status add_window(struct acpi_resource *res, void *data)
--{
--	struct pci_root_info *info = data;
--	struct resource *resource;
--	struct acpi_resource_address64 addr;
--	acpi_status status;
--	unsigned long flags, offset = 0;
--	struct resource *root;
--
--	/* Return AE_OK for non-window resources to keep scanning for more */
--	status = resource_to_window(res, &addr);
--	if (!ACPI_SUCCESS(status))
--		return AE_OK;
--
--	if (addr.resource_type = ACPI_MEMORY_RANGE) {
--		flags = IORESOURCE_MEM;
--		root = &iomem_resource;
--		offset = addr.address.translation_offset;
--	} else if (addr.resource_type = ACPI_IO_RANGE) {
--		flags = IORESOURCE_IO;
--		root = &ioport_resource;
--		offset = add_io_space(info, &addr);
--		if (offset = ~0)
--			return AE_OK;
--	} else
--		return AE_OK;
--
--	resource = &info->res[info->res_num];
--	resource->name = info->name;
--	resource->flags = flags;
--	resource->start = addr.address.minimum + offset;
--	resource->end = resource->start + addr.address.address_length - 1;
--	info->res_offset[info->res_num] = offset;
--
--	if (insert_resource(root, resource)) {
--		dev_err(&info->bridge->dev,
--			"can't allocate host bridge window %pR\n",
--			resource);
--	} else {
--		if (offset)
--			dev_info(&info->bridge->dev, "host bridge window %pR "
--				 "(PCI address [%#llx-%#llx])\n",
--				 resource,
--				 resource->start - offset,
--				 resource->end - offset);
--		else
--			dev_info(&info->bridge->dev,
--				 "host bridge window %pR\n", resource);
--	}
--	/* HP's firmware has a hack to work around a Windows bug.
--	 * Ignore these tiny memory ranges */
--	if (!((resource->flags & IORESOURCE_MEM) &&
--	      (resource->end - resource->start < 16)))
--		pci_add_resource_offset(&info->resources, resource,
--					info->res_offset[info->res_num]);
-+	ret = acpi_dev_get_resources(device, list,
-+				     acpi_dev_filter_resource_type_cb,
-+				     (void *)(IORESOURCE_IO | IORESOURCE_MEM));
-+	if (ret < 0)
-+		dev_warn(&device->dev,
-+			 "failed to parse _CRS method, error code %d\n", ret);
-+	else if (ret = 0)
-+		dev_dbg(&device->dev,
-+			"no IO and memory resources present in _CRS\n");
-+	else
-+		resource_list_for_each_entry_safe(entry, tmp, list) {
-+			if ((entry->res->flags & IORESOURCE_DISABLED) ||
-+			    resource_is_pcicfg_ioport(entry->res))
-+				resource_list_destroy_entry(entry);
-+			else
-+				entry->res->name = info->name;
-+		}
- 
--	info->res_num++;
--	return AE_OK;
-+	return ret;
- }
- 
--static void free_pci_root_info_res(struct pci_root_info *info)
--{
--	struct iospace_resource *iospace, *tmp;
-+static void validate_resources(struct device *dev, struct list_head *resources,
-+			       unsigned long type)
-+{
-+	LIST_HEAD(list);
-+	struct resource *res1, *res2, *root = NULL;
-+	struct resource_entry *tmp, *entry, *entry2;
-+
-+	BUG_ON((type & (IORESOURCE_MEM | IORESOURCE_IO)) = 0);
-+	root = (type & IORESOURCE_MEM) ? &iomem_resource : &ioport_resource;
-+
-+	list_splice_init(resources, &list);
-+	resource_list_for_each_entry_safe(entry, tmp, &list) {
-+		bool free = false;
-+		resource_size_t end;
-+
-+		res1 = entry->res;
-+		if (!(res1->flags & type))
-+			goto next;
-+
-+		/* Exclude non-addressable range or non-addressable portion */
-+		end = min(res1->end, root->end);
-+		if (end <= res1->start) {
-+			dev_info(dev, "host bridge window %pR (ignored, not CPU addressable)\n",
-+				 res1);
-+			free = true;
-+			goto next;
-+		} else if (res1->end != end) {
-+			dev_info(dev, "host bridge window %pR ([%#llx-%#llx] ignored, not CPU addressable)\n",
-+				 res1, (unsigned long long)end + 1,
-+				 (unsigned long long)res1->end);
-+			res1->end = end;
-+		}
- 
--	list_for_each_entry_safe(iospace, tmp, &info->io_resources, list)
--		kfree(iospace);
-+		resource_list_for_each_entry(entry2, resources) {
-+			res2 = entry2->res;
-+			if (!(res2->flags & type))
-+				continue;
-+
-+			/*
-+			 * I don't like throwing away windows because then
-+			 * our resources no longer match the ACPI _CRS, but
-+			 * the kernel resource tree doesn't allow overlaps.
-+			 */
-+			if (resource_overlaps(res1, res2)) {
-+				res2->start = min(res1->start, res2->start);
-+				res2->end = max(res1->end, res2->end);
-+				dev_info(dev, "host bridge window expanded to %pR; %pR ignored\n",
-+					 res2, res1);
-+				free = true;
-+				goto next;
-+			}
-+		}
- 
--	kfree(info->name);
--	kfree(info->res);
--	info->res = NULL;
--	kfree(info->res_offset);
--	info->res_offset = NULL;
--	info->res_num = 0;
--	kfree(info->controller);
--	info->controller = NULL;
-+next:
-+		resource_list_del(entry);
-+		if (free)
-+			resource_list_free_entry(entry);
-+		else
-+			resource_list_add_tail(entry, resources);
-+	}
-+}
-+
-+static void add_resources(struct pci_root_info *info, struct device *dev)
-+{
-+	struct resource_entry *entry, *tmp;
-+	struct resource *res, *conflict, *root = NULL;
-+	struct list_head *list = &info->resources;
-+
-+	validate_resources(dev, list, IORESOURCE_MEM);
-+	validate_resources(dev, list, IORESOURCE_IO);
-+
-+	resource_list_for_each_entry_safe(entry, tmp, list) {
-+		res = entry->res;
-+		if (res->flags & IORESOURCE_MEM) {
-+			root = &iomem_resource;
-+			/*
-+			 * HP's firmware has a hack to work around a Windows
-+			 * bug. Ignore these tiny memory ranges.
-+			 */
-+			if (resource_size(res) <= 16) {
-+				resource_list_destroy_entry(entry);
-+				continue;
-+			}
-+		} else if (res->flags & IORESOURCE_IO) {
-+			root = &ioport_resource;
-+			if (add_io_space(&info->bridge->dev, info, entry)) {
-+				resource_list_destroy_entry(entry);
-+				continue;
-+			}
-+		} else {
-+			BUG_ON(res);
-+		}
-+
-+		conflict = insert_resource_conflict(root, res);
-+		if (conflict) {
-+			dev_info(dev,
-+				 "ignoring host bridge window %pR (conflicts with %s %pR)\n",
-+				 res, conflict->name, conflict);
-+			resource_list_destroy_entry(entry);
-+		}
-+	}
- }
- 
- static void __release_pci_root_info(struct pci_root_info *info)
- {
--	int i;
- 	struct resource *res;
--	struct iospace_resource *iospace;
-+	struct iospace_resource *iospace, *tmp;
-+	struct resource_entry *entry, *tentry;
- 
--	list_for_each_entry(iospace, &info->io_resources, list)
-+	list_for_each_entry_safe(iospace, tmp, &info->io_resources, list) {
- 		release_resource(&iospace->res);
-+		kfree(iospace);
-+	}
- 
--	for (i = 0; i < info->res_num; i++) {
--		res = &info->res[i];
--
--		if (!res->parent)
--			continue;
--
--		if (!(res->flags & (IORESOURCE_MEM | IORESOURCE_IO)))
--			continue;
--
--		release_resource(res);
-+	resource_list_for_each_entry_safe(entry, tentry, &info->resources) {
-+		res = entry->res;
-+		if (res->parent &&
-+		    (res->flags & (IORESOURCE_MEM | IORESOURCE_IO)))
-+			release_resource(res);
-+		resource_list_destroy_entry(entry);
- 	}
- 
--	free_pci_root_info_res(info);
- 	kfree(info);
- }
- 
-@@ -373,99 +395,49 @@ static void release_pci_root_info(struct pci_host_bridge *bridge)
- 	__release_pci_root_info(info);
- }
- 
--static int
--probe_pci_root_info(struct pci_root_info *info, struct acpi_device *device,
--		int busnum, int domain)
--{
--	char *name;
--
--	name = kmalloc(16, GFP_KERNEL);
--	if (!name)
--		return -ENOMEM;
--
--	sprintf(name, "PCI Bus %04x:%02x", domain, busnum);
--	info->bridge = device;
--	info->name = name;
--
--	acpi_walk_resources(device->handle, METHOD_NAME__CRS, count_window,
--			&info->res_num);
--	if (info->res_num) {
--		info->res -			kzalloc_node(sizeof(*info->res) * info->res_num,
--				     GFP_KERNEL, info->controller->node);
--		if (!info->res) {
--			kfree(name);
--			return -ENOMEM;
--		}
--
--		info->res_offset -			kzalloc_node(sizeof(*info->res_offset) * info->res_num,
--					GFP_KERNEL, info->controller->node);
--		if (!info->res_offset) {
--			kfree(name);
--			kfree(info->res);
--			info->res = NULL;
--			return -ENOMEM;
--		}
--
--		info->res_num = 0;
--		acpi_walk_resources(device->handle, METHOD_NAME__CRS,
--			add_window, info);
--	} else
--		kfree(name);
--
--	return 0;
--}
--
- struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
- {
- 	struct acpi_device *device = root->device;
- 	int domain = root->segment;
- 	int bus = root->secondary.start;
--	struct pci_controller *controller;
--	struct pci_root_info *info = NULL;
--	int busnum = root->secondary.start;
-+	struct pci_root_info *info;
- 	struct pci_bus *pbus;
  	int ret;
- 
--	controller = alloc_pci_controller(domain);
--	if (!controller)
--		return NULL;
--
--	controller->companion = device;
--	controller->node = acpi_get_node(device->handle);
--
- 	info = kzalloc(sizeof(*info), GFP_KERNEL);
- 	if (!info) {
- 		dev_err(&device->dev,
--				"pci_bus %04x:%02x: ignored (out of memory)\n",
--				domain, busnum);
--		kfree(controller);
-+			"pci_bus %04x:%02x: ignored (out of memory)\n",
-+			domain, bus);
- 		return NULL;
- 	}
- 
--	info->controller = controller;
--	INIT_LIST_HEAD(&info->io_resources);
-+	info->controller.segment = domain;
-+	info->controller.companion = device;
-+	info->controller.node = acpi_get_node(device->handle);
-+	info->bridge = device;
- 	INIT_LIST_HEAD(&info->resources);
-+	INIT_LIST_HEAD(&info->io_resources);
-+	snprintf(info->name, sizeof(info->name),
-+		 "PCI Bus %04x:%02x", domain, bus);
- 
--	ret = probe_pci_root_info(info, device, busnum, domain);
--	if (ret) {
--		kfree(info->controller);
-+	ret = probe_pci_root_info(info, device, bus, domain);
-+	if (ret <= 0) {
- 		kfree(info);
- 		return NULL;
- 	}
--	/* insert busn resource at first */
-+	add_resources(info, &info->bridge->dev);
- 	pci_add_resource(&info->resources, &root->secondary);
-+
- 	/*
- 	 * See arch/x86/pci/acpi.c.
- 	 * The desired pci bus might already be scanned in a quirk. We
- 	 * should handle the case here, but it appears that IA64 hasn't
- 	 * such quirk. So we just ignore the case now.
- 	 */
--	pbus = pci_create_root_bus(NULL, bus, &pci_root_ops, controller,
--				   &info->resources);
-+	pbus = pci_create_root_bus(NULL, bus, &pci_root_ops,
-+				   &info->controller, &info->resources);
- 	if (!pbus) {
--		pci_free_resource_list(&info->resources);
- 		__release_pci_root_info(info);
- 		return NULL;
- 	}
 -- 
-1.7.10.4
+1.9.1
 
