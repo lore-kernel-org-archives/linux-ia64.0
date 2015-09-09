@@ -1,94 +1,99 @@
-From: Graeme Gregory <graeme.gregory@linaro.org>
-Date: Thu, 10 Sep 2015 12:16:12 +0000
-Subject: Re: [Linaro-acpi] [PATCH v3 0/5] ACPI: Provide better MADT subtable sanity checks
-Message-Id: <20150910121612.GB11267@xora-haswell.xora.org.uk>
+From: Al Stone <al.stone@linaro.org>
+Date: Wed, 09 Sep 2015 21:09:49 +0000
+Subject: [PATCH v3 3/5] ACPI / IA64: remove usage of BAD_MADT_ENTRY
+Message-Id: <1441832991-28200-4-git-send-email-al.stone@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1441832991-28200-1-git-send-email-al.stone@linaro.org>
 In-Reply-To: <1441832991-28200-1-git-send-email-al.stone@linaro.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Al Stone <al.stone@linaro.org>
-Cc: linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linaro-kernel@lists.linaro.org, linux-ia64@vger.kernel.org, patches@linaro.org, linux-pm@vger.kernel.org, linaro-acpi@lists.linaro.org, linux-kernel@vger.kernel.org
+To: linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-pm@vger.kernel.org, linaro-acpi@lists.linaro.org, linaro-kernel@lists.linaro.org, patches@linaro.org, Al Stone <al.stone@linaro.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
 
-On Wed, Sep 09, 2015 at 03:09:46PM -0600, Al Stone wrote:
-> Currently, the BAD_MADT_ENTRY macro is used to do a very simple sanity
-> check on the various subtables that are defined for the MADT.  The check
-> compares the size of the subtable data structure as defined by ACPICA to
-> the length entry in the subtable.  If they are not the same, the assumption
-> is that the subtable is incorrect.
-> 
-> Over time, the ACPI spec has allowed for MADT subtables where this can
-> never be true (the local SAPIC subtable, for example).  Or, more recently,
-> the spec has accumulated some minor flaws where there are three possible 
-> sizes for a subtable, all of which are valid, but only for specific versions
-> of the spec (the GICC subtable).  In both cases, BAD_MADT_ENTRY reports these
-> subtables as bad when they are not.  In order to retain some sanity check
-> on the MADT subtables, we now have to special case these subtables.  Of
-> necessity, these special cases have ended up in arch-dependent code (arm64)
-> or an arch has simply decided to forgo the check (ia64).
-> 
-> This patch set replaces the BAD_MADT_ENTRY macro with a function called
-> bad_madt_entry().  This function uses a data set of details about the
-> subtables to provide more sanity checking than before:
-> 
-> 	-- is the subtable legal for the version given in the FADT?
-> 
-> 	-- is the subtable legal for the revision of the MADT in use?
-> 
-> 	-- is the subtable of the proper length (including checking
-> 	   on the one variable length subtable that is currently ignored),
-> 	   given the FADT version and the MADT revision?
-> 
-> Further, this patch set adds in the call to bad_madt_entry() from the 
-> acpi_table_parse_madt() function, allowing it to be used consistently
-> by all architectures, for all subtables, and removing the need for each
-> of the subtable traversal callback functions to use BAD_MADT_ENTRY.
-> 
-> In theory, as the ACPI specification changes, we would only have to add
-> additional information to the data set describing the MADT subtables in
-> order to continue providing sanity checks, even when new subtables are
-> added.
-> 
-> These patches have been tested on an APM Mustang (arm64) and are known to
-> work there.  They have also been cross-compiled for x86 and ia64 with no
-> known failures.
-> 
-> Changes for v3:
->    -- Reviewed-and-tested-by from Sudeep Holla for arm64 parts
->    -- Clearer language in error messages (Graeme Gregory, Timur Tabi)
->    -- Double checked that inserting call to bad_madt_entry() into the
->       function acpi_parse_entries() does not impact current behavior
->       (Sudeep Holla)
->    
-> Changes for v2:
->    -- Acked-by on 2/5 from Marc Zyngier and Catalin Marinas for ARM
->    -- Correct faulty end of loop test found by Timur Tabi
-> 
-> 
-> Al Stone (5):
->   ACPI: add in a bad_madt_entry() function to eventually replace the
->     macro
->   ACPI / ARM64: remove usage of BAD_MADT_ENTRY/BAD_MADT_GICC_ENTRY
->   ACPI / IA64: remove usage of BAD_MADT_ENTRY
->   ACPI / X86: remove usage of BAD_MADT_ENTRY
->   ACPI: remove definition of BAD_MADT_ENTRY macro
-> 
->  arch/arm64/include/asm/acpi.h |   8 --
->  arch/arm64/kernel/smp.c       |   2 -
->  arch/ia64/kernel/acpi.c       |  20 ----
->  arch/x86/kernel/acpi/boot.c   |  27 -----
->  drivers/acpi/tables.c         | 245 +++++++++++++++++++++++++++++++++++++++++-
->  drivers/irqchip/irq-gic.c     |   6 --
->  include/linux/acpi.h          |   4 -
->  7 files changed, 244 insertions(+), 68 deletions(-)
-> 
+Now that we have introduced the bad_madt_entry() function, and that
+function is being invoked in acpi_table_parse_madt() for us, there
+is no longer any need to use the BAD_MADT_ENTRY macro.
 
-Whole series looks good to me apart from minor whitespace nit.
+Signed-off-by: Al Stone <al.stone@linaro.org>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+---
+ arch/ia64/kernel/acpi.c | 20 --------------------
+ 1 file changed, 20 deletions(-)
 
-Reviewed-by: Graeme Gregory <graeme.gregory@linaro.org>
-
-Thanks
-
-G
+diff --git a/arch/ia64/kernel/acpi.c b/arch/ia64/kernel/acpi.c
+index b1698bc..efa3f0a 100644
+--- a/arch/ia64/kernel/acpi.c
++++ b/arch/ia64/kernel/acpi.c
+@@ -184,9 +184,6 @@ acpi_parse_lapic_addr_ovr(struct acpi_subtable_header * header,
+ 
+ 	lapic = (struct acpi_madt_local_apic_override *)header;
+ 
+-	if (BAD_MADT_ENTRY(lapic, end))
+-		return -EINVAL;
+-
+ 	if (lapic->address) {
+ 		iounmap(ipi_base_addr);
+ 		ipi_base_addr = ioremap(lapic->address, 0);
+@@ -201,8 +198,6 @@ acpi_parse_lsapic(struct acpi_subtable_header * header, const unsigned long end)
+ 
+ 	lsapic = (struct acpi_madt_local_sapic *)header;
+ 
+-	/*Skip BAD_MADT_ENTRY check, as lsapic size could vary */
+-
+ 	if (lsapic->lapic_flags & ACPI_MADT_ENABLED) {
+ #ifdef CONFIG_SMP
+ 		smp_boot_data.cpu_phys_id[available_cpus] @@ -222,9 +217,6 @@ acpi_parse_lapic_nmi(struct acpi_subtable_header * header, const unsigned long e
+ 
+ 	lacpi_nmi = (struct acpi_madt_local_apic_nmi *)header;
+ 
+-	if (BAD_MADT_ENTRY(lacpi_nmi, end))
+-		return -EINVAL;
+-
+ 	/* TBD: Support lapic_nmi entries */
+ 	return 0;
+ }
+@@ -236,9 +228,6 @@ acpi_parse_iosapic(struct acpi_subtable_header * header, const unsigned long end
+ 
+ 	iosapic = (struct acpi_madt_io_sapic *)header;
+ 
+-	if (BAD_MADT_ENTRY(iosapic, end))
+-		return -EINVAL;
+-
+ 	return iosapic_init(iosapic->address, iosapic->global_irq_base);
+ }
+ 
+@@ -253,9 +242,6 @@ acpi_parse_plat_int_src(struct acpi_subtable_header * header,
+ 
+ 	plintsrc = (struct acpi_madt_interrupt_source *)header;
+ 
+-	if (BAD_MADT_ENTRY(plintsrc, end))
+-		return -EINVAL;
+-
+ 	/*
+ 	 * Get vector assignment for this interrupt, set attributes,
+ 	 * and program the IOSAPIC routing table.
+@@ -336,9 +322,6 @@ acpi_parse_int_src_ovr(struct acpi_subtable_header * header,
+ 
+ 	p = (struct acpi_madt_interrupt_override *)header;
+ 
+-	if (BAD_MADT_ENTRY(p, end))
+-		return -EINVAL;
+-
+ 	iosapic_override_isa_irq(p->source_irq, p->global_irq,
+ 				 ((p->inti_flags & ACPI_MADT_POLARITY_MASK) =
+ 				  ACPI_MADT_POLARITY_ACTIVE_LOW) ?
+@@ -356,9 +339,6 @@ acpi_parse_nmi_src(struct acpi_subtable_header * header, const unsigned long end
+ 
+ 	nmi_src = (struct acpi_madt_nmi_source *)header;
+ 
+-	if (BAD_MADT_ENTRY(nmi_src, end))
+-		return -EINVAL;
+-
+ 	/* TBD: Support nimsrc entries */
+ 	return 0;
+ }
+-- 
+2.4.3
 
