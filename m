@@ -1,7 +1,7 @@
 From: Al Stone <ahs3@redhat.com>
-Date: Tue, 08 Sep 2015 23:00:05 +0000
+Date: Wed, 09 Sep 2015 19:57:59 +0000
 Subject: Re: [PATCH v2 1/5] ACPI: add in a bad_madt_entry() function to eventually replace the macro
-Message-Id: <55EF6875.9000404@redhat.com>
+Message-Id: <55F08F47.1070906@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1440022048-6285-1-git-send-email-al.stone@linaro.org>
  <1440022048-6285-2-git-send-email-al.stone@linaro.org>
@@ -20,12 +20,7 @@ On 09/07/2015 09:32 AM, Sudeep Holla wrote:
 > 
 > I finally got a chance to try this series on Juno. Well it exposed a firmware
 > bug in MADT table :)
-
-What?  The code did what it was supposed to do :-)?  Very cool.  Good to know.
-
-I talked to Graeme a bit, too, and he had some good suggestions for clean up.
-I'll post a v3 tomorrow.
-
+> 
 > [..]
 > 
 >>                  acpi_tbl_entry_handler handler,
@@ -41,20 +36,13 @@ I'll post a v3 tomorrow.
 > PCC and NUMA. So may be it can be made conditional or return success for
 > non-MADT tables from bad_madt_entry ?
 
-I'll double check these uses.  I thought I had before, and based on what I
-saw the check would be reasonable.  It never hurts to check again, though.
-
-> Other than that, you can add for ARM64 specific parts:
-> Reviewed-and-tested-by: Sudeep Holla <sudeep.holla@arm.com>
-
-Thanks!
-
-> Regards,
-> Sudeep
-> -- 
-> To unsubscribe from this list: send the line "unsubscribe linux-acpi" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+So, I went back and double checked the other users and they're looking at
+the return value for acpi_parse_entries properly; adding in the check above
+unconditionally should not cause any behavior change.  Further, despite the
+name, acpi_parse_entries is only used to examine MADT subtables.  Granted,
+we should probably make the name clearer at some point (too ambiguous as to
+which entries are parsed right now).  Nonetheless, current usage seems to
+be in order.
 
 
 -- 
