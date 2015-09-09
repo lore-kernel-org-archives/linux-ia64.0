@@ -1,76 +1,43 @@
-From: Sudeep Holla <sudeep.holla@arm.com>
-Date: Wed, 16 Sep 2015 13:59:19 +0000
-Subject: [PATCH v2 1/5] ACPI / processor : add support for ACPI0010 processor container
-Message-Id: <1442411963-14398-2-git-send-email-sudeep.holla@arm.com>
+From: Al Stone <al.stone@linaro.org>
+Date: Wed, 09 Sep 2015 21:09:51 +0000
+Subject: [PATCH v3 5/5] ACPI: remove definition of BAD_MADT_ENTRY macro
+Message-Id: <1441832991-28200-6-git-send-email-al.stone@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1438710406-3822-1-git-send-email-sudeep.holla@arm.com>
- <1442411963-14398-1-git-send-email-sudeep.holla@arm.com>
-In-Reply-To: <1442411963-14398-1-git-send-email-sudeep.holla@arm.com>
+References: <1441832991-28200-1-git-send-email-al.stone@linaro.org>
+In-Reply-To: <1441832991-28200-1-git-send-email-al.stone@linaro.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-acpi@vger.kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Cc: Sudeep Holla <sudeep.holla@arm.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, x86@kernel.org, Al Stone <al.stone@linaro.org>, Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>, Mahesh Sivasubramanian <msivasub@codeaurora.org>, Ashwin Chaugule <ashwin.chaugule@linaro.org>
+To: linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-pm@vger.kernel.org, linaro-acpi@lists.linaro.org, linaro-kernel@lists.linaro.org, patches@linaro.org, Al Stone <al.stone@linaro.org>, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>
 
-ACPI 6.0 adds support for optional processor container device which may
-contain child objects that are either processor devices or other processor
-containers. This allows representing hierarchical processor topologies.
+Now that we have introduced to bad_madt_entry(), and we have removed
+all the usages of the BAD_MADT_ENTRY macro from all of the various
+architectures that use it (arm64, ia64, x86), we can remove the macro
+definition since it is no longer used.
 
-It is declared using the _HID of ACPI0010. It is an abstract container
-used to represent CPU topology and should not be used to hotplug
-purposes.
-
-This patch enables the support for these ACPI processor containers and
-ensures the generic container/module devices are not created for them.
-
-Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Signed-off-by: Sudeep Holla <sudeep.holla@arm.com>
+Signed-off-by: Al Stone <al.stone@linaro.org>
+Cc: Rafael J. Wysocki <rjw@rjwysocki.net>
+Cc: Len Brown <lenb@kernel.org>
 ---
- drivers/acpi/acpi_processor.c | 17 +++++++++++++++++
- include/acpi/processor.h      |  1 +
- 2 files changed, 18 insertions(+)
+ include/linux/acpi.h | 4 ----
+ 1 file changed, 4 deletions(-)
 
-diff --git a/drivers/acpi/acpi_processor.c b/drivers/acpi/acpi_processor.c
-index 985b8a83184e..6df6c0270cb1 100644
---- a/drivers/acpi/acpi_processor.c
-+++ b/drivers/acpi/acpi_processor.c
-@@ -496,7 +496,24 @@ static struct acpi_scan_handler processor_handler = {
- 	},
- };
- 
-+static int acpi_processor_container_attach(struct acpi_device *dev,
-+					   const struct acpi_device_id *id)
-+{
-+	return 1;
-+}
-+
-+static const struct acpi_device_id processor_container_ids[] = {
-+	{ ACPI_PROCESSOR_CONTAINER_HID, },
-+	{ }
-+};
-+
-+static struct acpi_scan_handler processor_container_handler = {
-+	.ids = processor_container_ids,
-+	.attach = acpi_processor_container_attach,
-+};
-+
- void __init acpi_processor_init(void)
- {
- 	acpi_scan_add_handler_with_hotplug(&processor_handler, "processor");
-+	acpi_scan_add_handler(&processor_container_handler);
+diff --git a/include/linux/acpi.h b/include/linux/acpi.h
+index 7235c48..a6d6326 100644
+--- a/include/linux/acpi.h
++++ b/include/linux/acpi.h
+@@ -127,10 +127,6 @@ static inline void acpi_initrd_override(void *data, size_t size)
  }
-diff --git a/include/acpi/processor.h b/include/acpi/processor.h
-index ff5f135f16b1..51b61dcdbd9c 100644
---- a/include/acpi/processor.h
-+++ b/include/acpi/processor.h
-@@ -9,6 +9,7 @@
- #define ACPI_PROCESSOR_CLASS		"processor"
- #define ACPI_PROCESSOR_DEVICE_NAME	"Processor"
- #define ACPI_PROCESSOR_DEVICE_HID	"ACPI0007"
-+#define ACPI_PROCESSOR_CONTAINER_HID	"ACPI0010"
+ #endif
  
- #define ACPI_PROCESSOR_BUSY_METRIC	10
- 
+-#define BAD_MADT_ENTRY(entry, end) (					    \
+-		(!entry) || (unsigned long)entry + sizeof(*entry) > end ||  \
+-		((struct acpi_subtable_header *)entry)->length < sizeof(*entry))
+-
+ char * __acpi_map_table (unsigned long phys_addr, unsigned long size);
+ void __acpi_unmap_table(char *map, unsigned long size);
+ int early_acpi_boot_init(void);
 -- 
-1.9.1
+2.4.3
 
