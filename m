@@ -1,103 +1,94 @@
-From: Jiang Liu <jiang.liu@linux.intel.com>
-Date: Mon, 14 Sep 2015 08:07:32 +0000
-Subject: [Patch v6 3/7] ia64/PCI: Use common struct resource_entry to replace struct iospace_resource
-Message-Id: <1442218057-4355-4-git-send-email-jiang.liu@linux.intel.com>
+From: Graeme Gregory <graeme.gregory@linaro.org>
+Date: Thu, 10 Sep 2015 12:16:12 +0000
+Subject: Re: [Linaro-acpi] [PATCH v3 0/5] ACPI: Provide better MADT subtable sanity checks
+Message-Id: <20150910121612.GB11267@xora-haswell.xora.org.uk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1442218057-4355-1-git-send-email-jiang.liu@linux.intel.com>
-In-Reply-To: <1442218057-4355-1-git-send-email-jiang.liu@linux.intel.com>
+References: <1441832991-28200-1-git-send-email-al.stone@linaro.org>
+In-Reply-To: <1441832991-28200-1-git-send-email-al.stone@linaro.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>, "Rafael J . Wysocki" <rafael.j.wysocki@intel.com>, Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>, Marc Zyngier <marc.zyngier@arm.com>, Hanjun Guo <hanjun.guo@linaro.org>, Liviu Dudau <Liviu.Dudau@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Jiang Liu <jiang.liu@linux.intel.com>, Yinghai Lu <yinghai@kernel.org>
-Cc: linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org, x86@kernel.org, linux-ia64@vger.kernel.org
+To: Al Stone <al.stone@linaro.org>
+Cc: linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linaro-kernel@lists.linaro.org, linux-ia64@vger.kernel.org, patches@linaro.org, linux-pm@vger.kernel.org, linaro-acpi@lists.linaro.org, linux-kernel@vger.kernel.org
 
-Use common struct resource_entry to replace private
-struct iospace_resource.
+On Wed, Sep 09, 2015 at 03:09:46PM -0600, Al Stone wrote:
+> Currently, the BAD_MADT_ENTRY macro is used to do a very simple sanity
+> check on the various subtables that are defined for the MADT.  The check
+> compares the size of the subtable data structure as defined by ACPICA to
+> the length entry in the subtable.  If they are not the same, the assumption
+> is that the subtable is incorrect.
+> 
+> Over time, the ACPI spec has allowed for MADT subtables where this can
+> never be true (the local SAPIC subtable, for example).  Or, more recently,
+> the spec has accumulated some minor flaws where there are three possible 
+> sizes for a subtable, all of which are valid, but only for specific versions
+> of the spec (the GICC subtable).  In both cases, BAD_MADT_ENTRY reports these
+> subtables as bad when they are not.  In order to retain some sanity check
+> on the MADT subtables, we now have to special case these subtables.  Of
+> necessity, these special cases have ended up in arch-dependent code (arm64)
+> or an arch has simply decided to forgo the check (ia64).
+> 
+> This patch set replaces the BAD_MADT_ENTRY macro with a function called
+> bad_madt_entry().  This function uses a data set of details about the
+> subtables to provide more sanity checking than before:
+> 
+> 	-- is the subtable legal for the version given in the FADT?
+> 
+> 	-- is the subtable legal for the revision of the MADT in use?
+> 
+> 	-- is the subtable of the proper length (including checking
+> 	   on the one variable length subtable that is currently ignored),
+> 	   given the FADT version and the MADT revision?
+> 
+> Further, this patch set adds in the call to bad_madt_entry() from the 
+> acpi_table_parse_madt() function, allowing it to be used consistently
+> by all architectures, for all subtables, and removing the need for each
+> of the subtable traversal callback functions to use BAD_MADT_ENTRY.
+> 
+> In theory, as the ACPI specification changes, we would only have to add
+> additional information to the data set describing the MADT subtables in
+> order to continue providing sanity checks, even when new subtables are
+> added.
+> 
+> These patches have been tested on an APM Mustang (arm64) and are known to
+> work there.  They have also been cross-compiled for x86 and ia64 with no
+> known failures.
+> 
+> Changes for v3:
+>    -- Reviewed-and-tested-by from Sudeep Holla for arm64 parts
+>    -- Clearer language in error messages (Graeme Gregory, Timur Tabi)
+>    -- Double checked that inserting call to bad_madt_entry() into the
+>       function acpi_parse_entries() does not impact current behavior
+>       (Sudeep Holla)
+>    
+> Changes for v2:
+>    -- Acked-by on 2/5 from Marc Zyngier and Catalin Marinas for ARM
+>    -- Correct faulty end of loop test found by Timur Tabi
+> 
+> 
+> Al Stone (5):
+>   ACPI: add in a bad_madt_entry() function to eventually replace the
+>     macro
+>   ACPI / ARM64: remove usage of BAD_MADT_ENTRY/BAD_MADT_GICC_ENTRY
+>   ACPI / IA64: remove usage of BAD_MADT_ENTRY
+>   ACPI / X86: remove usage of BAD_MADT_ENTRY
+>   ACPI: remove definition of BAD_MADT_ENTRY macro
+> 
+>  arch/arm64/include/asm/acpi.h |   8 --
+>  arch/arm64/kernel/smp.c       |   2 -
+>  arch/ia64/kernel/acpi.c       |  20 ----
+>  arch/x86/kernel/acpi/boot.c   |  27 -----
+>  drivers/acpi/tables.c         | 245 +++++++++++++++++++++++++++++++++++++++++-
+>  drivers/irqchip/irq-gic.c     |   6 --
+>  include/linux/acpi.h          |   4 -
+>  7 files changed, 244 insertions(+), 68 deletions(-)
+> 
 
-Signed-off-by: Jiang Liu <jiang.liu@linux.intel.com>
-Reviewed-by: Hanjun Guo <hanjun.guo@linaro.org>
----
- arch/ia64/include/asm/pci.h |    5 -----
- arch/ia64/pci/pci.c         |   17 ++++++++---------
- 2 files changed, 8 insertions(+), 14 deletions(-)
+Whole series looks good to me apart from minor whitespace nit.
 
-diff --git a/arch/ia64/include/asm/pci.h b/arch/ia64/include/asm/pci.h
-index 36d2c1e3928b..07039d168f37 100644
---- a/arch/ia64/include/asm/pci.h
-+++ b/arch/ia64/include/asm/pci.h
-@@ -64,11 +64,6 @@ extern int pci_mmap_legacy_page_range(struct pci_bus *bus,
- #define pci_legacy_read platform_pci_legacy_read
- #define pci_legacy_write platform_pci_legacy_write
- 
--struct iospace_resource {
--	struct list_head list;
--	struct resource res;
--};
--
- struct pci_controller {
- 	struct acpi_device *companion;
- 	void *iommu;
-diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
-index d092c6b08666..5dd3753a2739 100644
---- a/arch/ia64/pci/pci.c
-+++ b/arch/ia64/pci/pci.c
-@@ -154,14 +154,14 @@ new_space (u64 phys_base, int sparse)
- static int add_io_space(struct device *dev, struct pci_root_info *info,
- 			struct resource_entry *entry)
- {
--	struct iospace_resource *iospace;
-+	struct resource_entry *iospace;
- 	struct resource *resource, *res = entry->res;
- 	char *name;
- 	unsigned long base, min, max, base_port;
- 	unsigned int sparse = 0, space_nr, len;
- 
- 	len = strlen(info->name) + 32;
--	iospace = kzalloc(sizeof(*iospace) + len, GFP_KERNEL);
-+	iospace = resource_list_create_entry(NULL, len);
- 	if (!iospace) {
- 		dev_err(dev, "PCI: No memory for %s I/O port space\n",
- 			info->name);
-@@ -190,7 +190,7 @@ static int add_io_space(struct device *dev, struct pci_root_info *info,
- 	if (space_nr = 0)
- 		sparse = 1;
- 
--	resource = &iospace->res;
-+	resource = iospace->res;
- 	resource->name  = name;
- 	resource->flags = IORESOURCE_MEM;
- 	resource->start = base + (sparse ? IO_SPACE_SPARSE_ENCODING(min) : min);
-@@ -205,12 +205,12 @@ static int add_io_space(struct device *dev, struct pci_root_info *info,
- 	entry->offset = base_port;
- 	res->start = min + base_port;
- 	res->end = max + base_port;
--	list_add_tail(&iospace->list, &info->io_resources);
-+	resource_list_add_tail(iospace, &info->io_resources);
- 
- 	return 0;
- 
- free_resource:
--	kfree(iospace);
-+	resource_list_free_entry(iospace);
- 	return -ENOSPC;
- }
- 
-@@ -369,12 +369,11 @@ static void add_resources(struct pci_root_info *info, struct device *dev)
- static void __release_pci_root_info(struct pci_root_info *info)
- {
- 	struct resource *res;
--	struct iospace_resource *iospace, *tmp;
- 	struct resource_entry *entry, *tentry;
- 
--	list_for_each_entry_safe(iospace, tmp, &info->io_resources, list) {
--		release_resource(&iospace->res);
--		kfree(iospace);
-+	resource_list_for_each_entry_safe(entry, tentry, &info->io_resources) {
-+		release_resource(entry->res);
-+		resource_list_destroy_entry(entry);
- 	}
- 
- 	resource_list_for_each_entry_safe(entry, tentry, &info->resources) {
--- 
-1.7.10.4
+Reviewed-by: Graeme Gregory <graeme.gregory@linaro.org>
+
+Thanks
+
+G
 
