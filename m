@@ -1,105 +1,328 @@
-From: Sudeep Holla <sudeep.holla@arm.com>
-Date: Wed, 16 Sep 2015 13:59:21 +0000
-Subject: [PATCH v2 3/5] ACPI / processor_idle: replace PREFIX with pr_fmt
-Message-Id: <1442411963-14398-4-git-send-email-sudeep.holla@arm.com>
+From: Jiang Liu <jiang.liu@linux.intel.com>
+Date: Mon, 14 Sep 2015 08:07:36 +0000
+Subject: [Patch v6 7/7] ia64/PCI/ACPI: Use common interface to support PCI host bridge
+Message-Id: <1442218057-4355-8-git-send-email-jiang.liu@linux.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1438710406-3822-1-git-send-email-sudeep.holla@arm.com>
- <1442411963-14398-1-git-send-email-sudeep.holla@arm.com>
-In-Reply-To: <1442411963-14398-1-git-send-email-sudeep.holla@arm.com>
+References: <1442218057-4355-1-git-send-email-jiang.liu@linux.intel.com>
+In-Reply-To: <1442218057-4355-1-git-send-email-jiang.liu@linux.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-acpi@vger.kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Cc: Sudeep Holla <sudeep.holla@arm.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, x86@kernel.org, Al Stone <al.stone@linaro.org>, Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>, Mahesh Sivasubramanian <msivasub@codeaurora.org>, Ashwin Chaugule <ashwin.chaugule@linaro.org>
+To: Bjorn Helgaas <bhelgaas@google.com>, "Rafael J . Wysocki" <rafael.j.wysocki@intel.com>, Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>, Marc Zyngier <marc.zyngier@arm.com>, Hanjun Guo <hanjun.guo@linaro.org>, Liviu Dudau <Liviu.Dudau@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Jiang Liu <jiang.liu@linux.intel.com>, Yinghai Lu <yinghai@kernel.org>
+Cc: linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org, x86@kernel.org, linux-ia64@vger.kernel.org
 
-Like few of the other ACPI modules, replace PREFIX with pr_fmt and
-change all the printk call sites to use pr_* companion functions
-in processor_idle.
+Use common interface to simplify PCI host bridge implementation.
 
-Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Signed-off-by: Sudeep Holla <sudeep.holla@arm.com>
+Tested-by: Tony Luck <tony.luck@intel.com>
+Signed-off-by: Jiang Liu <jiang.liu@linux.intel.com>
 ---
- drivers/acpi/processor_idle.c | 25 +++++++++++--------------
- 1 file changed, 11 insertions(+), 14 deletions(-)
+ arch/ia64/pci/pci.c |  232 ++++++++++-----------------------------------------
+ 1 file changed, 46 insertions(+), 186 deletions(-)
 
-diff --git a/drivers/acpi/processor_idle.c b/drivers/acpi/processor_idle.c
-index a24067b850d2..fadce354d2b7 100644
---- a/drivers/acpi/processor_idle.c
-+++ b/drivers/acpi/processor_idle.c
-@@ -23,6 +23,7 @@
-  *
-  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  */
-+#define pr_fmt(fmt) "ACPI: " fmt
+diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
+index 5dd3753a2739..21d4c2d5bc79 100644
+--- a/arch/ia64/pci/pci.c
++++ b/arch/ia64/pci/pci.c
+@@ -116,15 +116,12 @@ struct pci_ops pci_root_ops = {
+ };
  
- #include <linux/module.h>
- #include <linux/acpi.h>
-@@ -42,8 +43,6 @@
- #include <asm/apic.h>
- #endif
+ struct pci_root_info {
++	struct acpi_pci_root_info common;
+ 	struct pci_controller controller;
+-	struct acpi_device *bridge;
+-	struct list_head resources;
+ 	struct list_head io_resources;
+-	char name[16];
+ };
  
--#define PREFIX "ACPI: "
+-static unsigned int
+-new_space (u64 phys_base, int sparse)
++static unsigned int new_space(u64 phys_base, int sparse)
+ {
+ 	u64 mmio_base;
+ 	int i;
+@@ -160,11 +157,11 @@ static int add_io_space(struct device *dev, struct pci_root_info *info,
+ 	unsigned long base, min, max, base_port;
+ 	unsigned int sparse = 0, space_nr, len;
+ 
+-	len = strlen(info->name) + 32;
++	len = strlen(info->common.name) + 32;
+ 	iospace = resource_list_create_entry(NULL, len);
+ 	if (!iospace) {
+ 		dev_err(dev, "PCI: No memory for %s I/O port space\n",
+-			info->name);
++			info->common.name);
+ 		return -ENOMEM;
+ 	}
+ 
+@@ -179,7 +176,7 @@ static int add_io_space(struct device *dev, struct pci_root_info *info,
+ 	max = res->end - entry->offset;
+ 	base = __pa(io_space[space_nr].mmio_base);
+ 	base_port = IO_SPACE_BASE(space_nr);
+-	snprintf(name, len, "%s I/O Ports %08lx-%08lx", info->name,
++	snprintf(name, len, "%s I/O Ports %08lx-%08lx", info->common.name,
+ 		 base_port + min, base_port + max);
+ 
+ 	/*
+@@ -234,217 +231,80 @@ static bool resource_is_pcicfg_ioport(struct resource *res)
+ 		res->start = 0xCF8 && res->end = 0xCFF;
+ }
+ 
+-static int
+-probe_pci_root_info(struct pci_root_info *info, struct acpi_device *device,
+-		    int busnum, int domain)
++static int pci_acpi_root_prepare_resources(struct acpi_pci_root_info *ci,
++					   int status)
+ {
+-	int ret;
+-	struct list_head *list = &info->resources;
++	struct device *dev = &ci->bridge->dev;
++	struct pci_root_info *info;
++	struct resource *res;
+ 	struct resource_entry *entry, *tmp;
+ 
+-	ret = acpi_dev_get_resources(device, list,
+-				     acpi_dev_filter_resource_type_cb,
+-				     (void *)(IORESOURCE_IO | IORESOURCE_MEM));
+-	if (ret < 0)
+-		dev_warn(&device->dev,
+-			 "failed to parse _CRS method, error code %d\n", ret);
+-	else if (ret = 0)
+-		dev_dbg(&device->dev,
+-			"no IO and memory resources present in _CRS\n");
+-	else
+-		resource_list_for_each_entry_safe(entry, tmp, list) {
+-			if ((entry->res->flags & IORESOURCE_DISABLED) ||
+-			    resource_is_pcicfg_ioport(entry->res))
+-				resource_list_destroy_entry(entry);
+-			else
+-				entry->res->name = info->name;
+-		}
 -
- #define ACPI_PROCESSOR_CLASS            "processor"
- #define _COMPONENT              ACPI_PROCESSOR_COMPONENT
- ACPI_MODULE_NAME("processor_idle");
-@@ -80,9 +79,9 @@ static int set_max_cstate(const struct dmi_system_id *id)
- 	if (max_cstate > ACPI_PROCESSOR_MAX_POWER)
- 		return 0;
- 
--	printk(KERN_NOTICE PREFIX "%s detected - limiting to C%ld max_cstate."
--	       " Override with \"processor.max_cstate=%d\"\n", id->ident,
--	       (long)id->driver_data, ACPI_PROCESSOR_MAX_POWER + 1);
-+	pr_notice("%s detected - limiting to C%ld max_cstate."
-+		  " Override with \"processor.max_cstate=%d\"\n", id->ident,
-+		  (long)id->driver_data, ACPI_PROCESSOR_MAX_POWER + 1);
- 
- 	max_cstate = (long)id->driver_data;
- 
-@@ -314,7 +313,7 @@ static int acpi_processor_get_power_info_cst(struct acpi_processor *pr)
- 
- 	/* There must be at least 2 elements */
- 	if (!cst || (cst->type != ACPI_TYPE_PACKAGE) || cst->package.count < 2) {
--		printk(KERN_ERR PREFIX "not enough elements in _CST\n");
-+		pr_err("not enough elements in _CST\n");
- 		ret = -EFAULT;
- 		goto end;
- 	}
-@@ -323,7 +322,7 @@ static int acpi_processor_get_power_info_cst(struct acpi_processor *pr)
- 
- 	/* Validate number of power states. */
- 	if (count < 1 || count != cst->package.count - 1) {
--		printk(KERN_ERR PREFIX "count given by _CST is not valid\n");
-+		pr_err("count given by _CST is not valid\n");
- 		ret = -EFAULT;
- 		goto end;
- 	}
-@@ -432,11 +431,9 @@ static int acpi_processor_get_power_info_cst(struct acpi_processor *pr)
- 		 * (From 1 through ACPI_PROCESSOR_MAX_POWER - 1)
- 		 */
- 		if (current_count >= (ACPI_PROCESSOR_MAX_POWER - 1)) {
--			printk(KERN_WARNING
--			       "Limiting number of power states to max (%d)\n",
--			       ACPI_PROCESSOR_MAX_POWER);
--			printk(KERN_WARNING
--			       "Please increase ACPI_PROCESSOR_MAX_POWER if needed.\n");
-+			pr_warn("Limiting number of power states to max (%d)\n",
-+				ACPI_PROCESSOR_MAX_POWER);
-+			pr_warn("Please increase ACPI_PROCESSOR_MAX_POWER if needed.\n");
- 			break;
+-	return ret;
+-}
+-
+-static void validate_resources(struct device *dev, struct list_head *resources,
+-			       unsigned long type)
+-{
+-	LIST_HEAD(list);
+-	struct resource *res1, *res2, *root = NULL;
+-	struct resource_entry *tmp, *entry, *entry2;
+-
+-	BUG_ON((type & (IORESOURCE_MEM | IORESOURCE_IO)) = 0);
+-	root = (type & IORESOURCE_MEM) ? &iomem_resource : &ioport_resource;
+-
+-	list_splice_init(resources, &list);
+-	resource_list_for_each_entry_safe(entry, tmp, &list) {
+-		bool free = false;
+-		resource_size_t end;
+-
+-		res1 = entry->res;
+-		if (!(res1->flags & type))
+-			goto next;
+-
+-		/* Exclude non-addressable range or non-addressable portion */
+-		end = min(res1->end, root->end);
+-		if (end <= res1->start) {
+-			dev_info(dev, "host bridge window %pR (ignored, not CPU addressable)\n",
+-				 res1);
+-			free = true;
+-			goto next;
+-		} else if (res1->end != end) {
+-			dev_info(dev, "host bridge window %pR ([%#llx-%#llx] ignored, not CPU addressable)\n",
+-				 res1, (unsigned long long)end + 1,
+-				 (unsigned long long)res1->end);
+-			res1->end = end;
+-		}
+-
+-		resource_list_for_each_entry(entry2, resources) {
+-			res2 = entry2->res;
+-			if (!(res2->flags & type))
+-				continue;
+-
+-			/*
+-			 * I don't like throwing away windows because then
+-			 * our resources no longer match the ACPI _CRS, but
+-			 * the kernel resource tree doesn't allow overlaps.
+-			 */
+-			if (resource_overlaps(res1, res2)) {
+-				res2->start = min(res1->start, res2->start);
+-				res2->end = max(res1->end, res2->end);
+-				dev_info(dev, "host bridge window expanded to %pR; %pR ignored\n",
+-					 res2, res1);
+-				free = true;
+-				goto next;
++	if (status > 0) {
++		info = container_of(ci, struct pci_root_info, common);
++		resource_list_for_each_entry_safe(entry, tmp, &ci->resources) {
++			res = entry->res;
++			if (res->flags & IORESOURCE_MEM) {
++				/*
++				 * HP's firmware has a hack to work around a
++				 * Windows bug. Ignore these tiny memory ranges.
++				 */
++				if (resource_size(res) <= 16) {
++					resource_list_del(entry);
++					insert_resource(&iomem_resource,
++							entry->res);
++					resource_list_add_tail(entry,
++							&info->io_resources);
++				}
++			} else if (res->flags & IORESOURCE_IO) {
++				if (resource_is_pcicfg_ioport(entry->res))
++					resource_list_destroy_entry(entry);
++				else if (add_io_space(dev, info, entry))
++					resource_list_destroy_entry(entry);
+ 			}
  		}
+-
+-next:
+-		resource_list_del(entry);
+-		if (free)
+-			resource_list_free_entry(entry);
+-		else
+-			resource_list_add_tail(entry, resources);
  	}
-@@ -1060,8 +1057,8 @@ int acpi_processor_power_init(struct acpi_processor *pr)
- 			retval = cpuidle_register_driver(&acpi_idle_driver);
- 			if (retval)
- 				return retval;
--			printk(KERN_DEBUG "ACPI: %s registered with cpuidle\n",
--					acpi_idle_driver.name);
-+			pr_debug("%s registered with cpuidle\n",
-+				 acpi_idle_driver.name);
- 		}
+-}
  
- 		dev = kzalloc(sizeof(*dev), GFP_KERNEL);
+-static void add_resources(struct pci_root_info *info, struct device *dev)
+-{
+-	struct resource_entry *entry, *tmp;
+-	struct resource *res, *conflict, *root = NULL;
+-	struct list_head *list = &info->resources;
+-
+-	validate_resources(dev, list, IORESOURCE_MEM);
+-	validate_resources(dev, list, IORESOURCE_IO);
+-
+-	resource_list_for_each_entry_safe(entry, tmp, list) {
+-		res = entry->res;
+-		if (res->flags & IORESOURCE_MEM) {
+-			root = &iomem_resource;
+-			/*
+-			 * HP's firmware has a hack to work around a Windows
+-			 * bug. Ignore these tiny memory ranges.
+-			 */
+-			if (resource_size(res) <= 16) {
+-				resource_list_destroy_entry(entry);
+-				continue;
+-			}
+-		} else if (res->flags & IORESOURCE_IO) {
+-			root = &ioport_resource;
+-			if (add_io_space(&info->bridge->dev, info, entry)) {
+-				resource_list_destroy_entry(entry);
+-				continue;
+-			}
+-		} else {
+-			BUG_ON(res);
+-		}
+-
+-		conflict = insert_resource_conflict(root, res);
+-		if (conflict) {
+-			dev_info(dev,
+-				 "ignoring host bridge window %pR (conflicts with %s %pR)\n",
+-				 res, conflict->name, conflict);
+-			resource_list_destroy_entry(entry);
+-		}
+-	}
++	return status;
+ }
+ 
+-static void __release_pci_root_info(struct pci_root_info *info)
++static void pci_acpi_root_release_info(struct acpi_pci_root_info *ci)
+ {
+-	struct resource *res;
+-	struct resource_entry *entry, *tentry;
++	struct pci_root_info *info;
++	struct resource_entry *entry, *tmp;
+ 
+-	resource_list_for_each_entry_safe(entry, tentry, &info->io_resources) {
++	info = container_of(ci, struct pci_root_info, common);
++	resource_list_for_each_entry_safe(entry, tmp, &info->io_resources) {
+ 		release_resource(entry->res);
+ 		resource_list_destroy_entry(entry);
+ 	}
+-
+-	resource_list_for_each_entry_safe(entry, tentry, &info->resources) {
+-		res = entry->res;
+-		if (res->parent &&
+-		    (res->flags & (IORESOURCE_MEM | IORESOURCE_IO)))
+-			release_resource(res);
+-		resource_list_destroy_entry(entry);
+-	}
+-
+ 	kfree(info);
+ }
+ 
+-static void release_pci_root_info(struct pci_host_bridge *bridge)
+-{
+-	struct pci_root_info *info = bridge->release_data;
+-
+-	__release_pci_root_info(info);
+-}
++static struct acpi_pci_root_ops pci_acpi_root_ops = {
++	.pci_ops = &pci_root_ops,
++	.release_info = pci_acpi_root_release_info,
++	.prepare_resources = pci_acpi_root_prepare_resources,
++};
+ 
+ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
+ {
+ 	struct acpi_device *device = root->device;
+-	int domain = root->segment;
+-	int bus = root->secondary.start;
+ 	struct pci_root_info *info;
+-	struct pci_bus *pbus;
+-	int ret;
+ 
+ 	info = kzalloc(sizeof(*info), GFP_KERNEL);
+ 	if (!info) {
+ 		dev_err(&device->dev,
+ 			"pci_bus %04x:%02x: ignored (out of memory)\n",
+-			domain, bus);
++			root->segment, (int)root->secondary.start);
+ 		return NULL;
+ 	}
+ 
+-	info->controller.segment = domain;
++	info->controller.segment = root->segment;
+ 	info->controller.companion = device;
+ 	info->controller.node = acpi_get_node(device->handle);
+-	info->bridge = device;
+-	INIT_LIST_HEAD(&info->resources);
+ 	INIT_LIST_HEAD(&info->io_resources);
+-	snprintf(info->name, sizeof(info->name),
+-		 "PCI Bus %04x:%02x", domain, bus);
+-
+-	ret = probe_pci_root_info(info, device, bus, domain);
+-	if (ret <= 0) {
+-		kfree(info);
+-		return NULL;
+-	}
+-	add_resources(info, &info->bridge->dev);
+-	pci_add_resource(&info->resources, &root->secondary);
+-
+-	/*
+-	 * See arch/x86/pci/acpi.c.
+-	 * The desired pci bus might already be scanned in a quirk. We
+-	 * should handle the case here, but it appears that IA64 hasn't
+-	 * such quirk. So we just ignore the case now.
+-	 */
+-	pbus = pci_create_root_bus(NULL, bus, &pci_root_ops,
+-				   &info->controller, &info->resources);
+-	if (!pbus) {
+-		__release_pci_root_info(info);
+-		return NULL;
+-	}
+-
+-	pci_set_host_bridge_release(to_pci_host_bridge(pbus->bridge),
+-			release_pci_root_info, info);
+-	pci_scan_child_bus(pbus);
+-	return pbus;
++	return acpi_pci_root_create(root, &pci_acpi_root_ops,
++				    &info->common, &info->controller);
+ }
+ 
+ int pcibios_root_bridge_prepare(struct pci_host_bridge *bridge)
 -- 
-1.9.1
+1.7.10.4
 
