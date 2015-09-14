@@ -1,335 +1,546 @@
-From: Al Stone <al.stone@linaro.org>
-Date: Tue, 29 Sep 2015 23:45:42 +0000
-Subject: [PATCH v5 1/5] ACPI: add in a bad_madt_entry() function to eventually replace the macro
-Message-Id: <1443570346-15378-2-git-send-email-al.stone@linaro.org>
+From: Jiang Liu <jiang.liu@linux.intel.com>
+Date: Mon, 14 Sep 2015 08:07:31 +0000
+Subject: [Patch v6 2/7] ia64/PCI/ACPI: Use common ACPI resource parsing interface for host bridge
+Message-Id: <1442218057-4355-3-git-send-email-jiang.liu@linux.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1443570346-15378-1-git-send-email-al.stone@linaro.org>
-In-Reply-To: <1443570346-15378-1-git-send-email-al.stone@linaro.org>
+References: <1442218057-4355-1-git-send-email-jiang.liu@linux.intel.com>
+In-Reply-To: <1442218057-4355-1-git-send-email-jiang.liu@linux.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-pm@vger.kernel.org, linaro-acpi@lists.linaro.org, linaro-kernel@lists.linaro.org, patches@linaro.org, Al Stone <al.stone@linaro.org>, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>
+To: Bjorn Helgaas <bhelgaas@google.com>, "Rafael J . Wysocki" <rafael.j.wysocki@intel.com>, Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>, Marc Zyngier <marc.zyngier@arm.com>, Hanjun Guo <hanjun.guo@linaro.org>, Liviu Dudau <Liviu.Dudau@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Jiang Liu <jiang.liu@linux.intel.com>, Yinghai Lu <yinghai@kernel.org>
+Cc: linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org, x86@kernel.org, linux-ia64@vger.kernel.org
 
-The existing BAD_MADT_ENTRY macro only checks that the size of the data
-structure for an MADT subtable matches the length entry in the subtable.
-This is, unfortunately, not reliable.  Nor, as it turns out, does it have
-anything to do with what the length should be in any particular table.
+Use common ACPI resource parsing interface to parse ACPI resources for
+PCI host bridge, so we could share more code between IA64 and x86.
+Later we will consolidate arch specific implementations into ACPI core.
 
-We introduce the bad_madt_entry() function that uses a data set to
-do some basic sanity checks on any given MADT subtable.  Over time, as
-the spec changes, we should just be able to add entries to the data set
-to reflect the changes.
-
-What the data set captures is the allowed MADT subtable length for each
-type of subtable, for each revision of the specification.  While there
-is a revision number in the MADT that we should be able to use to figure
-out the proper subtable length, it was not changed when subtables did.
-And, while there is a major and minor revision in the FADT that could
-also help, it was not always changed as the subtables changed either.
-So, the data set captures for each published version of the ACPI spec
-what the FADT revisions numbers should be, the corresponding MADT
-revision number, and the subtable types and lengths that were defined
-at that time.
-
-The sanity checks done are:
-	-- is the length non-zero?
-	-- is the subtable type defined/allowed for the revision of
-	   the FADT we're using?
-	-- is the subtable type defined/allowed for the revision of
-	   the MADT we're using?
-	-- is the length entry what it should be for this revision
-	   of the MADT and FADT?
-
-These checks are more thorough than the previous macro provided, and
-are now insulated from data structure size changes by ACPICA, which
-have been the source of other patches in the past.
-
-Now that the bad_madt_entry() function is available, we add code to
-also invoke it before any subtable handlers are called to use the
-info in the subtable.  Subsequent patches will remove the use of the
-BAD_MADT_ENTRY macro which is now redundant as a result.  Any ACPI
-functions that use acpi_parse_madt_entries() will always have all of
-the MADT subtables checked from now on.
-
-Signed-off-by: Al Stone <al.stone@linaro.org>
-Cc: Rafael J. Wysocki <rjw@rjwysocki.net>
-Cc: Len Brown <lenb@kernel.org>
+Tested-by: Tony Luck <tony.luck@intel.com>
+Signed-off-by: Jiang Liu <jiang.liu@linux.intel.com>
+Reviewed-by: Hanjun Guo <hanjun.guo@linaro.org>
 ---
- drivers/acpi/tables.c | 247 +++++++++++++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 246 insertions(+), 1 deletion(-)
+ arch/ia64/pci/pci.c |  414 ++++++++++++++++++++++++---------------------------
+ 1 file changed, 193 insertions(+), 221 deletions(-)
 
-diff --git a/drivers/acpi/tables.c b/drivers/acpi/tables.c
-index 6c0f079..a2ed38a 100644
---- a/drivers/acpi/tables.c
-+++ b/drivers/acpi/tables.c
-@@ -210,6 +210,247 @@ void acpi_table_print_madt_entry(struct acpi_subtable_header *header)
- 	}
+diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
+index d89b6013c941..d092c6b08666 100644
+--- a/arch/ia64/pci/pci.c
++++ b/arch/ia64/pci/pci.c
+@@ -115,29 +115,12 @@ struct pci_ops pci_root_ops = {
+ 	.write = pci_write,
+ };
+ 
+-/* Called by ACPI when it finds a new root bus.  */
+-
+-static struct pci_controller *alloc_pci_controller(int seg)
+-{
+-	struct pci_controller *controller;
+-
+-	controller = kzalloc(sizeof(*controller), GFP_KERNEL);
+-	if (!controller)
+-		return NULL;
+-
+-	controller->segment = seg;
+-	return controller;
+-}
+-
+ struct pci_root_info {
++	struct pci_controller controller;
+ 	struct acpi_device *bridge;
+-	struct pci_controller *controller;
+ 	struct list_head resources;
+-	struct resource *res;
+-	resource_size_t *res_offset;
+-	unsigned int res_num;
+ 	struct list_head io_resources;
+-	char *name;
++	char name[16];
+ };
+ 
+ static unsigned int
+@@ -168,11 +151,11 @@ new_space (u64 phys_base, int sparse)
+ 	return i;
  }
  
-+/*
-+ * The Long, Sad, True Story of the MADT
-+ *    or
-+ * What does bad_madt_entry() actually do?
-+ *
-+ * Once upon a time in ACPI 1.0, there was the MADT.  It was a nice table,
-+ * and it had two subtables all of its own.  But, it was also a pretty
-+ * busy table, too, so over time the MADT gathered up other nice little
-+ * subtables.  By the time ACPI 6.0 came around, the MADT had 16 of the
-+ * little guys.
-+ *
-+ * Now, the MADT kept a little counter around for the subtables.  In fact,
-+ * it kept two counters: one was the revision level, which was supposed to
-+ * change when new subtables came to be, or as the ones already around grew
-+ * up. The second counter was a type number, because the MADT needed a unique
-+ * type for each subtable so he could tell them apart.  But, sometimes the
-+ * MADT got so busy, he forgot to increment the revision level when he needed
-+ * to.  Fortunately, the type counter kept increasing since that's the only
-+ * way the MADT could find each little subtable.  It just wouldn't do to have
-+ * every subtable called Number 6.
-+ *
-+ * In the next valley over, a castle full of wizards was watching the MADT
-+ * and made a pact to keep their own counter.  Every time the MADT found a
-+ * new subtable, or a subtable grew up, the wizards promised they would
-+ * increment their counter.  Well, wizards being the forgetful sort, they
-+ * didn't alway do that.  And, since there quite a lot of them, they
-+ * couldn't always remember who was supposed to keep track of the MADT,
-+ * especially if dinner was coming up soon.  Their counter was called the
-+ * spec version.
-+ *
-+ * Every now and then, the MADT would gather up all its little subtables
-+ * and take them in to the cobbler to get new boots.  This was a very, very
-+ * meticulous cobbler, so every time they came, he wrote down all the boot
-+ * sizes for all of the little subtables.  The cobbler would ask each subtable
-+ * for its length, check that against his careful notes, and then go get the
-+ * right boots.  Sometimes, a little subtable would change a bit, and their
-+ * length did not match what the cobbler had written down.  If the wizards
-+ * or the MADT had incremented their counters, the cobbler would breath a
-+ * sigh of relief and write down the new length as the right one.  But, if
-+ * none of the counters had changed, this would make the cobbler very, very
-+ * mad.  He couldn't tell if he had the right size boots or not for the
-+ * little subtable.  He would have to *guess* and this really bugged him.
-+ *
-+ * Well, when the cobbler got mad like this, he would go into hiding.  He
-+ * would not make or sell any boots.  He would not go out at all.  Pretty
-+ * soon, the coffee shop would have to close because the cobbler wasn't
-+ * coming by twice a day any more.  Then the grocery store would have to
-+ * close because he wouldn't eat much.  After a while, everyone would panic
-+ * and have to move from the village and go live with all their relatives
-+ * (usually the ones they didn't like very much).
-+ *
-+ * Eventually, the cobbler would work his way out of his bad mood, and
-+ * open up his boot business again.  Then, everyone else could move back
-+ * to the village and restart their lives, too.
-+ *
-+ * Fortunately, we have been able to collect up all the cobbler's careful
-+ * notes (and we wrote them down below).  We'll have to keep checking these
-+ * notes over time, too, just as the cobbler does.  But, in the meantime,
-+ * we can avoid the panic and the reboot since we can make sure that each
-+ * subtable is doing okay.  And that's what bad_madt_entry() does.
-+ *
-+ *
-+ * FADT Major Version ->       1    3    4     4     5     5     6
-+ * FADT Minor Version ->       x    x    x     x     x     1     0
-+ * MADT revision ->            1    1    2     3     3     3     3
-+ * Spec Version ->            1.0  2.0  3.0b  4.0a  5.0b  5.1a  6.0
-+ * Subtable Name	Type  Expected Length ->
-+ * Processor Local APIC  0x0    8    8    8     8     8     8     8
-+ * IO APIC               0x1   12   12   12    12    12    12    12
-+ * Int Src Override      0x2   10   10   10    10    10    10    10
-+ * NMI Src               0x3    8    8    8     8     8     8     8
-+ * Local APIC NMI Struct 0x4    6    6    6     6     6     6     6
-+ * Local APIC Addr Ovrrd 0x5        16   12    12    12    12    12
-+ * IO SAPIC              0x6        20   16    16    16    16    16
-+ * Local SAPIC           0x7         8  >16   >16   >16   >16   >16
-+ * Platform Int Src      0x8        16   16    16    16    16    16
-+ * Proc Local x2APIC     0x9                   16    16    16    16
-+ * Local x2APIC NMI      0xa                   12    12    12    12
-+ * GICC CPU I/F          0xb                         40    76    80
-+ * GICD                  0xc                         24    24    24
-+ * GICv2m MSI            0xd                               24    24
-+ * GICR                  0xe                               16    16
-+ * GIC ITS               0xf                                     16
-+ *
-+ * In the table, each length entry is what should be in the length
-+ * field of the subtable, and -- in general -- it should match the
-+ * size of the struct for the subtable.  Any value that is not set
-+ * (i.e., is zero) indicates that the subtable is not defined for
-+ * that version of the ACPI spec.
-+ *
-+ */
-+#define SUBTABLE_UNDEFINED	0x00
-+#define SUBTABLE_VARIABLE	0xff
-+#define NUM_SUBTABLE_TYPES	16
-+
-+struct acpi_madt_subtable_lengths {
-+	unsigned short major_version;	/* from revision in FADT header */
-+	unsigned short minor_version;	/* FADT field starting with 5.1 */
-+	unsigned short madt_version;	/* MADT revision */
-+	unsigned short num_types;	/* types possible for this version */
-+	unsigned short lengths[NUM_SUBTABLE_TYPES];
-+					/* subtable lengths, indexed by type */
-+};
-+
-+static struct acpi_madt_subtable_lengths spec_info[] = {
-+	{ /* for ACPI 1.0b */
-+		.major_version = 1,
-+		.minor_version = 0,
-+		.madt_version = 1,
-+		.num_types = 5,
-+		.lengths = { 8, 12, 10, 8, 6 }
-+	},
-+	{ /* for ACPI 2.0 */
-+		.major_version = 3,
-+		.minor_version = 0,
-+		.madt_version = 1,
-+		.num_types = 9,
-+		.lengths = { 8, 12, 10, 8, 6, 16, 20, 8, 16 }
-+	},
-+	{ /* for ACPI 3.0b */
-+		.major_version = 4,
-+		.minor_version = 0,
-+		.madt_version = 2,
-+		.num_types = 9,
-+		.lengths = { 8, 12, 10, 8, 6, 12, 16, SUBTABLE_VARIABLE, 16 }
-+	},
-+	{ /* for ACPI 4.0a */
-+		.major_version = 4,
-+		.minor_version = 0,
-+		.madt_version = 3,
-+		.num_types = 11,
-+		.lengths = { 8, 12, 10, 8, 6, 12, 16, SUBTABLE_VARIABLE,
-+			     16, 16, 12 }
-+	},
-+	{ /* for ACPI 5.0b */
-+		.major_version = 5,
-+		.minor_version = 0,
-+		.madt_version = 3,
-+		.num_types = 13,
-+		.lengths = { 8, 12, 10, 8, 6, 12, 16, SUBTABLE_VARIABLE,
-+			     16, 16, 12, 40, 24 }
-+	},
-+	{ /* for ACPI 5.1a */
-+		.major_version = 5,
-+		.minor_version = 1,
-+		.madt_version = 3,
-+		.num_types = 15,
-+		.lengths = { 8, 12, 10, 8, 6, 12, 16, SUBTABLE_VARIABLE,
-+			     16, 16, 12, 76, 24, 24, 16 }
-+	},
-+	{ /* for ACPI 6.0 */
-+		.major_version = 6,
-+		.minor_version = 0,
-+		.madt_version = 3,
-+		.num_types = 16,
-+		.lengths = { 8, 12, 10, 8, 6, 12, 16, SUBTABLE_VARIABLE,
-+			     16, 16, 12, 80, 24, 24, 16, 16 }
-+	},
-+	{ /* terminator */
-+		.major_version = 0,
-+		.minor_version = 0,
-+		.madt_version = 0,
-+		.num_types = 0,
-+		.lengths = { 0 }
-+	}
-+};
-+
-+static int __init bad_madt_entry(struct acpi_table_header *table,
-+				 struct acpi_subtable_header *entry)
-+{
-+	struct acpi_madt_subtable_lengths *ms;
-+	struct acpi_table_madt *madt;
-+	unsigned short major;
-+	unsigned short minor;
-+	unsigned short len;
-+
-+	/* simple sanity checking on MADT subtable entries */
-+	if (!entry || !table)
-+		return 1;
-+
-+	/* FADT minor numbers were not introduced until ACPI 5.1 */
-+	major = acpi_gbl_FADT.header.revision;
-+	if (major >= 5 && acpi_gbl_FADT.header.length >= 268)
-+		minor = acpi_gbl_FADT.minor_revision;
-+	else
-+		minor = 0;
-+
-+	madt = (struct acpi_table_madt *)table;
-+	ms = spec_info;
-+	while (ms->num_types != 0) {
-+		if (ms->major_version = major &&
-+		    ms->minor_version = minor &&
-+		    ms->madt_version = madt->header.revision)
-+			break;
-+		ms++;
-+	}
-+	if (!ms->num_types) {
-+		pr_err("undefined version for either FADT %d.%d or MADT %d\n",
-+		       major, minor, madt->header.revision);
-+		return 1;
-+	}
-+
-+	if (entry->type >= ms->num_types) {
-+		pr_err("undefined MADT subtable type for FADT %d.%d: %d (length %d)\n",
-+		       major, minor, entry->type, entry->length);
-+		return 1;
-+	}
-+
-+	/* verify that the table is allowed for this version of the spec */
-+	len = ms->lengths[entry->type];
-+	if (!len) {
-+		pr_err("MADT subtable %d not defined for FADT %d.%d\n",
-+			 entry->type, major, minor);
-+		return 1;
-+	}
-+
-+	/* verify that the length is what we expect */
-+	if (len = SUBTABLE_VARIABLE) {
-+		if (entry->type = ACPI_MADT_TYPE_LOCAL_SAPIC) {
-+			struct acpi_madt_local_sapic *lsapic +				(struct acpi_madt_local_sapic *)entry;
-+			int proper_len = sizeof(struct acpi_madt_local_sapic) +
-+					 strlen(lsapic->uid_string) + 1;
-+
-+			if (proper_len != entry->length) {
-+				pr_err("Variable length MADT subtable %d is wrong length: %d, should be: %d\n",
-+				       entry->type, entry->length, proper_len);
-+				return 1;
-+			}
-+		}
-+	} else {
-+		if (entry->length != len) {
-+			pr_err("MADT subtable %d is wrong length: %d, should be: %d\n",
-+			       entry->type, entry->length, len);
-+			return 1;
-+		}
-+	}
+-static u64 add_io_space(struct pci_root_info *info,
+-			struct acpi_resource_address64 *addr)
++static int add_io_space(struct device *dev, struct pci_root_info *info,
++			struct resource_entry *entry)
+ {
+ 	struct iospace_resource *iospace;
+-	struct resource *resource;
++	struct resource *resource, *res = entry->res;
+ 	char *name;
+ 	unsigned long base, min, max, base_port;
+ 	unsigned int sparse = 0, space_nr, len;
+@@ -180,27 +163,24 @@ static u64 add_io_space(struct pci_root_info *info,
+ 	len = strlen(info->name) + 32;
+ 	iospace = kzalloc(sizeof(*iospace) + len, GFP_KERNEL);
+ 	if (!iospace) {
+-		dev_err(&info->bridge->dev,
+-				"PCI: No memory for %s I/O port space\n",
+-				info->name);
+-		goto out;
++		dev_err(dev, "PCI: No memory for %s I/O port space\n",
++			info->name);
++		return -ENOMEM;
+ 	}
+ 
+-	name = (char *)(iospace + 1);
+-
+-	min = addr->address.minimum;
+-	max = min + addr->address.address_length - 1;
+-	if (addr->info.io.translation_type = ACPI_SPARSE_TRANSLATION)
++	if (res->flags & IORESOURCE_IO_SPARSE)
+ 		sparse = 1;
+-
+-	space_nr = new_space(addr->address.translation_offset, sparse);
++	space_nr = new_space(entry->offset, sparse);
+ 	if (space_nr = ~0)
+ 		goto free_resource;
+ 
++	name = (char *)(iospace + 1);
++	min = res->start - entry->offset;
++	max = res->end - entry->offset;
+ 	base = __pa(io_space[space_nr].mmio_base);
+ 	base_port = IO_SPACE_BASE(space_nr);
+ 	snprintf(name, len, "%s I/O Ports %08lx-%08lx", info->name,
+-		base_port + min, base_port + max);
++		 base_port + min, base_port + max);
+ 
+ 	/*
+ 	 * The SDM guarantees the legacy 0-64K space is sparse, but if the
+@@ -216,153 +196,195 @@ static u64 add_io_space(struct pci_root_info *info,
+ 	resource->start = base + (sparse ? IO_SPACE_SPARSE_ENCODING(min) : min);
+ 	resource->end   = base + (sparse ? IO_SPACE_SPARSE_ENCODING(max) : max);
+ 	if (insert_resource(&iomem_resource, resource)) {
+-		dev_err(&info->bridge->dev,
+-				"can't allocate host bridge io space resource  %pR\n",
+-				resource);
++		dev_err(dev,
++			"can't allocate host bridge io space resource  %pR\n",
++			resource);
+ 		goto free_resource;
+ 	}
+ 
++	entry->offset = base_port;
++	res->start = min + base_port;
++	res->end = max + base_port;
+ 	list_add_tail(&iospace->list, &info->io_resources);
+-	return base_port;
 +
 +	return 0;
+ 
+ free_resource:
+ 	kfree(iospace);
+-out:
+-	return ~0;
++	return -ENOSPC;
 +}
 +
- /**
-  * acpi_parse_entries_array - for each proc_num find a suitable subtable
-  *
-@@ -265,6 +506,10 @@ acpi_parse_entries_array(char *id, unsigned long table_size,
- 		if (max_entries && count >= max_entries)
- 			break;
- 
-+		if (!strncmp(id, ACPI_SIG_MADT, 4) &&
-+		    bad_madt_entry(table_header, entry))
-+			return -EINVAL;
-+
- 		for (i = 0; i < proc_num; i++) {
- 			if (entry->type != proc[i].id)
- 				continue;
-@@ -407,7 +652,7 @@ int __init acpi_table_parse(char *id, acpi_tbl_table_handler handler)
- 		return -ENODEV;
++/*
++ * An IO port or MMIO resource assigned to a PCI host bridge may be
++ * consumed by the host bridge itself or available to its child
++ * bus/devices. The ACPI specification defines a bit (Producer/Consumer)
++ * to tell whether the resource is consumed by the host bridge itself,
++ * but firmware hasn't used that bit consistently, so we can't rely on it.
++ *
++ * On x86 and IA64 platforms, all IO port and MMIO resources are assumed
++ * to be available to child bus/devices except one special case:
++ *     IO port [0xCF8-0xCFF] is consumed by the host bridge itself
++ *     to access PCI configuration space.
++ *
++ * So explicitly filter out PCI CFG IO ports[0xCF8-0xCFF].
++ */
++static bool resource_is_pcicfg_ioport(struct resource *res)
++{
++	return (res->flags & IORESOURCE_IO) &&
++		res->start = 0xCF8 && res->end = 0xCFF;
  }
  
--/* 
-+/*
-  * The BIOS is supposed to supply a single APIC/MADT,
-  * but some report two.  Provide a knob to use either.
-  * (don't you wish instance 0 and 1 were not the same?)
+-static acpi_status resource_to_window(struct acpi_resource *resource,
+-				      struct acpi_resource_address64 *addr)
++static int
++probe_pci_root_info(struct pci_root_info *info, struct acpi_device *device,
++		    int busnum, int domain)
+ {
+-	acpi_status status;
++	int ret;
++	struct list_head *list = &info->resources;
++	struct resource_entry *entry, *tmp;
+ 
+-	/*
+-	 * We're only interested in _CRS descriptors that are
+-	 *	- address space descriptors for memory or I/O space
+-	 *	- non-zero size
+-	 */
+-	status = acpi_resource_to_address64(resource, addr);
+-	if (ACPI_SUCCESS(status) &&
+-	    (addr->resource_type = ACPI_MEMORY_RANGE ||
+-	     addr->resource_type = ACPI_IO_RANGE) &&
+-	    addr->address.address_length)
+-		return AE_OK;
+-
+-	return AE_ERROR;
+-}
+-
+-static acpi_status count_window(struct acpi_resource *resource, void *data)
+-{
+-	unsigned int *windows = (unsigned int *) data;
+-	struct acpi_resource_address64 addr;
+-	acpi_status status;
+-
+-	status = resource_to_window(resource, &addr);
+-	if (ACPI_SUCCESS(status))
+-		(*windows)++;
+-
+-	return AE_OK;
+-}
+-
+-static acpi_status add_window(struct acpi_resource *res, void *data)
+-{
+-	struct pci_root_info *info = data;
+-	struct resource *resource;
+-	struct acpi_resource_address64 addr;
+-	acpi_status status;
+-	unsigned long flags, offset = 0;
+-	struct resource *root;
+-
+-	/* Return AE_OK for non-window resources to keep scanning for more */
+-	status = resource_to_window(res, &addr);
+-	if (!ACPI_SUCCESS(status))
+-		return AE_OK;
+-
+-	if (addr.resource_type = ACPI_MEMORY_RANGE) {
+-		flags = IORESOURCE_MEM;
+-		root = &iomem_resource;
+-		offset = addr.address.translation_offset;
+-	} else if (addr.resource_type = ACPI_IO_RANGE) {
+-		flags = IORESOURCE_IO;
+-		root = &ioport_resource;
+-		offset = add_io_space(info, &addr);
+-		if (offset = ~0)
+-			return AE_OK;
+-	} else
+-		return AE_OK;
+-
+-	resource = &info->res[info->res_num];
+-	resource->name = info->name;
+-	resource->flags = flags;
+-	resource->start = addr.address.minimum + offset;
+-	resource->end = resource->start + addr.address.address_length - 1;
+-	info->res_offset[info->res_num] = offset;
+-
+-	if (insert_resource(root, resource)) {
+-		dev_err(&info->bridge->dev,
+-			"can't allocate host bridge window %pR\n",
+-			resource);
+-	} else {
+-		if (offset)
+-			dev_info(&info->bridge->dev, "host bridge window %pR "
+-				 "(PCI address [%#llx-%#llx])\n",
+-				 resource,
+-				 resource->start - offset,
+-				 resource->end - offset);
+-		else
+-			dev_info(&info->bridge->dev,
+-				 "host bridge window %pR\n", resource);
+-	}
+-	/* HP's firmware has a hack to work around a Windows bug.
+-	 * Ignore these tiny memory ranges */
+-	if (!((resource->flags & IORESOURCE_MEM) &&
+-	      (resource->end - resource->start < 16)))
+-		pci_add_resource_offset(&info->resources, resource,
+-					info->res_offset[info->res_num]);
++	ret = acpi_dev_get_resources(device, list,
++				     acpi_dev_filter_resource_type_cb,
++				     (void *)(IORESOURCE_IO | IORESOURCE_MEM));
++	if (ret < 0)
++		dev_warn(&device->dev,
++			 "failed to parse _CRS method, error code %d\n", ret);
++	else if (ret = 0)
++		dev_dbg(&device->dev,
++			"no IO and memory resources present in _CRS\n");
++	else
++		resource_list_for_each_entry_safe(entry, tmp, list) {
++			if ((entry->res->flags & IORESOURCE_DISABLED) ||
++			    resource_is_pcicfg_ioport(entry->res))
++				resource_list_destroy_entry(entry);
++			else
++				entry->res->name = info->name;
++		}
+ 
+-	info->res_num++;
+-	return AE_OK;
++	return ret;
+ }
+ 
+-static void free_pci_root_info_res(struct pci_root_info *info)
+-{
+-	struct iospace_resource *iospace, *tmp;
++static void validate_resources(struct device *dev, struct list_head *resources,
++			       unsigned long type)
++{
++	LIST_HEAD(list);
++	struct resource *res1, *res2, *root = NULL;
++	struct resource_entry *tmp, *entry, *entry2;
++
++	BUG_ON((type & (IORESOURCE_MEM | IORESOURCE_IO)) = 0);
++	root = (type & IORESOURCE_MEM) ? &iomem_resource : &ioport_resource;
++
++	list_splice_init(resources, &list);
++	resource_list_for_each_entry_safe(entry, tmp, &list) {
++		bool free = false;
++		resource_size_t end;
++
++		res1 = entry->res;
++		if (!(res1->flags & type))
++			goto next;
++
++		/* Exclude non-addressable range or non-addressable portion */
++		end = min(res1->end, root->end);
++		if (end <= res1->start) {
++			dev_info(dev, "host bridge window %pR (ignored, not CPU addressable)\n",
++				 res1);
++			free = true;
++			goto next;
++		} else if (res1->end != end) {
++			dev_info(dev, "host bridge window %pR ([%#llx-%#llx] ignored, not CPU addressable)\n",
++				 res1, (unsigned long long)end + 1,
++				 (unsigned long long)res1->end);
++			res1->end = end;
++		}
+ 
+-	list_for_each_entry_safe(iospace, tmp, &info->io_resources, list)
+-		kfree(iospace);
++		resource_list_for_each_entry(entry2, resources) {
++			res2 = entry2->res;
++			if (!(res2->flags & type))
++				continue;
++
++			/*
++			 * I don't like throwing away windows because then
++			 * our resources no longer match the ACPI _CRS, but
++			 * the kernel resource tree doesn't allow overlaps.
++			 */
++			if (resource_overlaps(res1, res2)) {
++				res2->start = min(res1->start, res2->start);
++				res2->end = max(res1->end, res2->end);
++				dev_info(dev, "host bridge window expanded to %pR; %pR ignored\n",
++					 res2, res1);
++				free = true;
++				goto next;
++			}
++		}
+ 
+-	kfree(info->name);
+-	kfree(info->res);
+-	info->res = NULL;
+-	kfree(info->res_offset);
+-	info->res_offset = NULL;
+-	info->res_num = 0;
+-	kfree(info->controller);
+-	info->controller = NULL;
++next:
++		resource_list_del(entry);
++		if (free)
++			resource_list_free_entry(entry);
++		else
++			resource_list_add_tail(entry, resources);
++	}
++}
++
++static void add_resources(struct pci_root_info *info, struct device *dev)
++{
++	struct resource_entry *entry, *tmp;
++	struct resource *res, *conflict, *root = NULL;
++	struct list_head *list = &info->resources;
++
++	validate_resources(dev, list, IORESOURCE_MEM);
++	validate_resources(dev, list, IORESOURCE_IO);
++
++	resource_list_for_each_entry_safe(entry, tmp, list) {
++		res = entry->res;
++		if (res->flags & IORESOURCE_MEM) {
++			root = &iomem_resource;
++			/*
++			 * HP's firmware has a hack to work around a Windows
++			 * bug. Ignore these tiny memory ranges.
++			 */
++			if (resource_size(res) <= 16) {
++				resource_list_destroy_entry(entry);
++				continue;
++			}
++		} else if (res->flags & IORESOURCE_IO) {
++			root = &ioport_resource;
++			if (add_io_space(&info->bridge->dev, info, entry)) {
++				resource_list_destroy_entry(entry);
++				continue;
++			}
++		} else {
++			BUG_ON(res);
++		}
++
++		conflict = insert_resource_conflict(root, res);
++		if (conflict) {
++			dev_info(dev,
++				 "ignoring host bridge window %pR (conflicts with %s %pR)\n",
++				 res, conflict->name, conflict);
++			resource_list_destroy_entry(entry);
++		}
++	}
+ }
+ 
+ static void __release_pci_root_info(struct pci_root_info *info)
+ {
+-	int i;
+ 	struct resource *res;
+-	struct iospace_resource *iospace;
++	struct iospace_resource *iospace, *tmp;
++	struct resource_entry *entry, *tentry;
+ 
+-	list_for_each_entry(iospace, &info->io_resources, list)
++	list_for_each_entry_safe(iospace, tmp, &info->io_resources, list) {
+ 		release_resource(&iospace->res);
++		kfree(iospace);
++	}
+ 
+-	for (i = 0; i < info->res_num; i++) {
+-		res = &info->res[i];
+-
+-		if (!res->parent)
+-			continue;
+-
+-		if (!(res->flags & (IORESOURCE_MEM | IORESOURCE_IO)))
+-			continue;
+-
+-		release_resource(res);
++	resource_list_for_each_entry_safe(entry, tentry, &info->resources) {
++		res = entry->res;
++		if (res->parent &&
++		    (res->flags & (IORESOURCE_MEM | IORESOURCE_IO)))
++			release_resource(res);
++		resource_list_destroy_entry(entry);
+ 	}
+ 
+-	free_pci_root_info_res(info);
+ 	kfree(info);
+ }
+ 
+@@ -373,99 +395,49 @@ static void release_pci_root_info(struct pci_host_bridge *bridge)
+ 	__release_pci_root_info(info);
+ }
+ 
+-static int
+-probe_pci_root_info(struct pci_root_info *info, struct acpi_device *device,
+-		int busnum, int domain)
+-{
+-	char *name;
+-
+-	name = kmalloc(16, GFP_KERNEL);
+-	if (!name)
+-		return -ENOMEM;
+-
+-	sprintf(name, "PCI Bus %04x:%02x", domain, busnum);
+-	info->bridge = device;
+-	info->name = name;
+-
+-	acpi_walk_resources(device->handle, METHOD_NAME__CRS, count_window,
+-			&info->res_num);
+-	if (info->res_num) {
+-		info->res -			kzalloc_node(sizeof(*info->res) * info->res_num,
+-				     GFP_KERNEL, info->controller->node);
+-		if (!info->res) {
+-			kfree(name);
+-			return -ENOMEM;
+-		}
+-
+-		info->res_offset -			kzalloc_node(sizeof(*info->res_offset) * info->res_num,
+-					GFP_KERNEL, info->controller->node);
+-		if (!info->res_offset) {
+-			kfree(name);
+-			kfree(info->res);
+-			info->res = NULL;
+-			return -ENOMEM;
+-		}
+-
+-		info->res_num = 0;
+-		acpi_walk_resources(device->handle, METHOD_NAME__CRS,
+-			add_window, info);
+-	} else
+-		kfree(name);
+-
+-	return 0;
+-}
+-
+ struct pci_bus *pci_acpi_scan_root(struct acpi_pci_root *root)
+ {
+ 	struct acpi_device *device = root->device;
+ 	int domain = root->segment;
+ 	int bus = root->secondary.start;
+-	struct pci_controller *controller;
+-	struct pci_root_info *info = NULL;
+-	int busnum = root->secondary.start;
++	struct pci_root_info *info;
+ 	struct pci_bus *pbus;
+ 	int ret;
+ 
+-	controller = alloc_pci_controller(domain);
+-	if (!controller)
+-		return NULL;
+-
+-	controller->companion = device;
+-	controller->node = acpi_get_node(device->handle);
+-
+ 	info = kzalloc(sizeof(*info), GFP_KERNEL);
+ 	if (!info) {
+ 		dev_err(&device->dev,
+-				"pci_bus %04x:%02x: ignored (out of memory)\n",
+-				domain, busnum);
+-		kfree(controller);
++			"pci_bus %04x:%02x: ignored (out of memory)\n",
++			domain, bus);
+ 		return NULL;
+ 	}
+ 
+-	info->controller = controller;
+-	INIT_LIST_HEAD(&info->io_resources);
++	info->controller.segment = domain;
++	info->controller.companion = device;
++	info->controller.node = acpi_get_node(device->handle);
++	info->bridge = device;
+ 	INIT_LIST_HEAD(&info->resources);
++	INIT_LIST_HEAD(&info->io_resources);
++	snprintf(info->name, sizeof(info->name),
++		 "PCI Bus %04x:%02x", domain, bus);
+ 
+-	ret = probe_pci_root_info(info, device, busnum, domain);
+-	if (ret) {
+-		kfree(info->controller);
++	ret = probe_pci_root_info(info, device, bus, domain);
++	if (ret <= 0) {
+ 		kfree(info);
+ 		return NULL;
+ 	}
+-	/* insert busn resource at first */
++	add_resources(info, &info->bridge->dev);
+ 	pci_add_resource(&info->resources, &root->secondary);
++
+ 	/*
+ 	 * See arch/x86/pci/acpi.c.
+ 	 * The desired pci bus might already be scanned in a quirk. We
+ 	 * should handle the case here, but it appears that IA64 hasn't
+ 	 * such quirk. So we just ignore the case now.
+ 	 */
+-	pbus = pci_create_root_bus(NULL, bus, &pci_root_ops, controller,
+-				   &info->resources);
++	pbus = pci_create_root_bus(NULL, bus, &pci_root_ops,
++				   &info->controller, &info->resources);
+ 	if (!pbus) {
+-		pci_free_resource_list(&info->resources);
+ 		__release_pci_root_info(info);
+ 		return NULL;
+ 	}
 -- 
-2.4.3
+1.7.10.4
 
