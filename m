@@ -1,74 +1,63 @@
-From: Sudeep Holla <sudeep.holla@arm.com>
-Date: Thu, 24 Sep 2015 13:05:13 +0000
-Subject: Re: [PATCH v2 4/5] ACPI / processor_idle : introduce ARCH_SUPPORTS_ACPI_PROCESSOR_CSTATE
-Message-Id: <5603F509.1090307@arm.com>
+From: Josh Boyer <jwboyer@fedoraproject.org>
+Date: Tue, 15 Sep 2015 13:35:45 +0000
+Subject: Re: [BUG]: Intel uncore boot warning introduced in 4.1
+Message-Id: <CA+5PVA6LE=Bis3EjriZvz+Eef8LwJgA3R0b8YFMN6p6z5iu9Ow@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1438710406-3822-1-git-send-email-sudeep.holla@arm.com>
- <1442411963-14398-1-git-send-email-sudeep.holla@arm.com>
- <1442411963-14398-5-git-send-email-sudeep.holla@arm.com>
- <CAJ5Y-eb6SfQtR0aigPo4F-ueDk+J93NKf62KCM_NiK44nBQ3Sw@mail.gmail.com>
-In-Reply-To: <CAJ5Y-eb6SfQtR0aigPo4F-ueDk+J93NKf62KCM_NiK44nBQ3Sw@mail.gmail.com>
+References: <1438853676.3139.20.camel@mattleach.net>
+	<87bneko0o5.fsf@mattleach.net>
+	<37D7C6CF3E00A74B8858931C1DB2F077018D32C2@SHSMSX103.ccr.corp.intel.com>
+	<20150807090553.GC16853@twins.programming.kicks-ass.net>
+	<37D7C6CF3E00A74B8858931C1DB2F077018DF43E@SHSMSX103.ccr.corp.intel.com>
+In-Reply-To: <37D7C6CF3E00A74B8858931C1DB2F077018DF43E@SHSMSX103.ccr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ashwin Chaugule <ashwin.chaugule@linaro.org>
-Cc: Sudeep Holla <sudeep.holla@arm.com>, linux acpi <linux-acpi@vger.kernel.org>, "Rafael J. Wysocki" <rjw@rjwysocki.net>, lkml <linux-kernel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "x86@kernel.org" <x86@kernel.org>, Al Stone <al.stone@linaro.org>, Lorenzo Pieralisi <Lorenzo.Pieralisi@arm.com>, Mahesh Sivasubramanian <msivasub@codeaurora.org>
+To: "Liang, Kan" <kan.liang@intel.com>
+Cc: Peter Zijlstra <peterz@infradead.org>, Matthew Leach <matthew@mattleach.net>, Ingo Molnar <mingo@kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "eranian@google.com" <eranian@google.com>, Andi Kleen <ak@linux.intel.com>, Bjorn Helgaas <bhelgaas@google.com>, Vince Weaver <vincent.weaver@maine.edu>, Sonny Rao <sonnyrao@chromium.org>
 
-
-
-On 24/09/15 11:31, Ashwin Chaugule wrote:
-> Hi Sudeep,
+On Mon, Aug 10, 2015 at 9:23 AM, Liang, Kan <kan.liang@intel.com> wrote:
 >
-> On 16 September 2015 at 09:59, Sudeep Holla <sudeep.holla@arm.com> wrote:
->> ACPI 6.0 adds a new method to specify the CPU idle states(C-states)
->> called Low Power Idle(LPI) states. Since new architectures like ARM64
->> use only LPIs, introduce ARCH_SUPPORTS_ACPI_PROCESSOR_CSTATE to
->> encapsulate all the code supporting the old style C-states(_CST)
+>> On Thu, Aug 06, 2015 at 06:10:40PM +0000, Liang, Kan wrote:
+>> > The issue may be caused by uncore box initialization.
+>> >
+>> > For preventing the potential issues of uncore box initialization, I
+>> > once moved the uncore_box_init() out of driver initialization in
+>> > commit c05199e5a57a579fea1e8fa65e2b511ceb524ffc.
+>> >
+>> > However, it cause some desktop crash, because the box initialization
+>> > codes were moved in IPI context.
+>> >
+>> > For fixing the crash issue, we had two choice at that time.
+>> >  - Simply revert the codes. That's where is
+>> > 15c1247953e8a45232ed5a5540f291d2d0a77665 from.
+>> >  - Move uncore_box_init out of IPI context to uncore event
+>> >    init. I provided a patch for it. https://lkml.org/lkml/2015/4/28/21
+>> >   Stephane Eranian also verified it on his platform
+>> >
+>> > At that time, we chose first option. But it looks there is some issue
+>> > now. I guess we may try the second option this time.
+>> >
+>> > Matthew,
+>> >
+>> > Could you please revert
+>> > 15c1247953e8a45232ed5a5540f291d2d0a77665
+>> > and apply the patch https://lkml.org/lkml/2015/4/26/294?
+>> > See if it works?
 >>
->> This patch will help to extend the processor_idle module to support
->> LPI.
->>
->> Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>
->> Signed-off-by: Sudeep Holla <sudeep.holla@arm.com>
-
-[...]
-
->> diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
->> index 7aef2d52daa0..173075c48df8 100644
->> --- a/arch/x86/Kconfig
->> +++ b/arch/x86/Kconfig
->> @@ -34,6 +34,7 @@ config X86
->>          select ARCH_MIGHT_HAVE_ACPI_PDC         if ACPI
->>          select ARCH_MIGHT_HAVE_PC_PARPORT
->>          select ARCH_MIGHT_HAVE_PC_SERIO
->> +       select ARCH_SUPPORTS_ACPI_PROCESSOR_CSTATE if ACPI
->>          select ARCH_SUPPORTS_ATOMIC_RMW
->>          select ARCH_SUPPORTS_DEFERRED_STRUCT_PAGE_INIT
->>          select ARCH_SUPPORTS_INT128             if X86_64
->> diff --git a/drivers/acpi/Kconfig b/drivers/acpi/Kconfig
->> index 5d1015c26ff4..1eb0b8a84a65 100644
->> --- a/drivers/acpi/Kconfig
->> +++ b/drivers/acpi/Kconfig
->> @@ -48,6 +48,9 @@ config ACPI_LEGACY_TABLES_LOOKUP
->>   config ARCH_MIGHT_HAVE_ACPI_PDC
->>          bool
->>
->> +config ARCH_SUPPORTS_ACPI_PROCESSOR_CSTATE
->> +       bool
->> +
->>   config ACPI_GENERIC_GSI
->>          bool
->>
+>> That patch is wrong though; how can even publish a PMU which is not
+>> initialized?
 >
-> Can't this be auto selected under ACPI_PROCESSOR_IDLE if X86 || IA64
-> instead?
+> It's initialized but not in the driver initialization.
+> We once encountered boot crashes which caused by uncore
+> driver who trying to access non-existing boxes. Also this uncore
+> boot warning.
+> So I think it's better to move the box init code out of driver
+> initialization to prevent such potential boot failures.
+> Uncore event init should be a good place to do box init.
+> Only when the box is not initialized and user tries to use
+> uncore event, we do box initialization.
 
-It can be done. The idea was to have ACPI_PROCESSOR_IDLE selected on
-both x86 and ARM64.
+We're still getting reports of this in Fedora with 4.1.y kernels.  Was
+there any resolution to this?
 
-processor_idle driver will support both _CST and _LPI
-1. to avoid some code duplication
-2. for easy enabling of _LPI on x86 if needed in future
-
-Regards,
-Sudeep
+josh
