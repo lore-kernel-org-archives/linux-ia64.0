@@ -1,15 +1,15 @@
 From: Al Stone <al.stone@linaro.org>
-Date: Wed, 09 Sep 2015 21:09:48 +0000
-Subject: [PATCH v3 2/5] ACPI / ARM64: remove usage of BAD_MADT_ENTRY/BAD_MADT_GICC_ENTRY
-Message-Id: <1441832991-28200-3-git-send-email-al.stone@linaro.org>
+Date: Wed, 16 Sep 2015 23:26:42 +0000
+Subject: [PATCH v4 2/5] ACPI / ARM64: remove usage of BAD_MADT_ENTRY/BAD_MADT_GICC_ENTRY
+Message-Id: <1442446005-19799-3-git-send-email-al.stone@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1441832991-28200-1-git-send-email-al.stone@linaro.org>
-In-Reply-To: <1441832991-28200-1-git-send-email-al.stone@linaro.org>
+References: <1442446005-19799-1-git-send-email-al.stone@linaro.org>
+In-Reply-To: <1442446005-19799-1-git-send-email-al.stone@linaro.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-Cc: linaro-kernel@lists.linaro.org, linux-ia64@vger.kernel.org, Jason Cooper <jason@lakedaemon.net>, Al Stone <al.stone@linaro.org>, patches@linaro.org, linux-pm@vger.kernel.org, linaro-acpi@lists.linaro.org, Will Deacon <will.deacon@arm.com>, linux-kernel@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-pm@vger.kernel.org, linaro-acpi@lists.linaro.org, linaro-kernel@lists.linaro.org, patches@linaro.org, Al Stone <al.stone@linaro.org>, Will Deacon <will.deacon@arm.com>, Thomas Gleixner <tglx@linutronix.de>, Jason Cooper <jason@lakedaemon.net>
 
 Now that we have introduced the bad_madt_entry() function, and that
 function is being invoked in acpi_table_parse_madt() for us, there
