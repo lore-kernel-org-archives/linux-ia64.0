@@ -1,99 +1,76 @@
-From: Al Stone <al.stone@linaro.org>
-Date: Wed, 09 Sep 2015 21:09:49 +0000
-Subject: [PATCH v3 3/5] ACPI / IA64: remove usage of BAD_MADT_ENTRY
-Message-Id: <1441832991-28200-4-git-send-email-al.stone@linaro.org>
+From: Sudeep Holla <sudeep.holla@arm.com>
+Date: Wed, 16 Sep 2015 13:59:19 +0000
+Subject: [PATCH v2 1/5] ACPI / processor : add support for ACPI0010 processor container
+Message-Id: <1442411963-14398-2-git-send-email-sudeep.holla@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1441832991-28200-1-git-send-email-al.stone@linaro.org>
-In-Reply-To: <1441832991-28200-1-git-send-email-al.stone@linaro.org>
+References: <1438710406-3822-1-git-send-email-sudeep.holla@arm.com>
+ <1442411963-14398-1-git-send-email-sudeep.holla@arm.com>
+In-Reply-To: <1442411963-14398-1-git-send-email-sudeep.holla@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-pm@vger.kernel.org, linaro-acpi@lists.linaro.org, linaro-kernel@lists.linaro.org, patches@linaro.org, Al Stone <al.stone@linaro.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+To: linux-acpi@vger.kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>
+Cc: Sudeep Holla <sudeep.holla@arm.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, x86@kernel.org, Al Stone <al.stone@linaro.org>, Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>, Mahesh Sivasubramanian <msivasub@codeaurora.org>, Ashwin Chaugule <ashwin.chaugule@linaro.org>
 
-Now that we have introduced the bad_madt_entry() function, and that
-function is being invoked in acpi_table_parse_madt() for us, there
-is no longer any need to use the BAD_MADT_ENTRY macro.
+ACPI 6.0 adds support for optional processor container device which may
+contain child objects that are either processor devices or other processor
+containers. This allows representing hierarchical processor topologies.
 
-Signed-off-by: Al Stone <al.stone@linaro.org>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
+It is declared using the _HID of ACPI0010. It is an abstract container
+used to represent CPU topology and should not be used to hotplug
+purposes.
+
+This patch enables the support for these ACPI processor containers and
+ensures the generic container/module devices are not created for them.
+
+Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>
+Signed-off-by: Sudeep Holla <sudeep.holla@arm.com>
 ---
- arch/ia64/kernel/acpi.c | 20 --------------------
- 1 file changed, 20 deletions(-)
+ drivers/acpi/acpi_processor.c | 17 +++++++++++++++++
+ include/acpi/processor.h      |  1 +
+ 2 files changed, 18 insertions(+)
 
-diff --git a/arch/ia64/kernel/acpi.c b/arch/ia64/kernel/acpi.c
-index b1698bc..efa3f0a 100644
---- a/arch/ia64/kernel/acpi.c
-+++ b/arch/ia64/kernel/acpi.c
-@@ -184,9 +184,6 @@ acpi_parse_lapic_addr_ovr(struct acpi_subtable_header * header,
+diff --git a/drivers/acpi/acpi_processor.c b/drivers/acpi/acpi_processor.c
+index 985b8a83184e..6df6c0270cb1 100644
+--- a/drivers/acpi/acpi_processor.c
++++ b/drivers/acpi/acpi_processor.c
+@@ -496,7 +496,24 @@ static struct acpi_scan_handler processor_handler = {
+ 	},
+ };
  
- 	lapic = (struct acpi_madt_local_apic_override *)header;
- 
--	if (BAD_MADT_ENTRY(lapic, end))
--		return -EINVAL;
--
- 	if (lapic->address) {
- 		iounmap(ipi_base_addr);
- 		ipi_base_addr = ioremap(lapic->address, 0);
-@@ -201,8 +198,6 @@ acpi_parse_lsapic(struct acpi_subtable_header * header, const unsigned long end)
- 
- 	lsapic = (struct acpi_madt_local_sapic *)header;
- 
--	/*Skip BAD_MADT_ENTRY check, as lsapic size could vary */
--
- 	if (lsapic->lapic_flags & ACPI_MADT_ENABLED) {
- #ifdef CONFIG_SMP
- 		smp_boot_data.cpu_phys_id[available_cpus] @@ -222,9 +217,6 @@ acpi_parse_lapic_nmi(struct acpi_subtable_header * header, const unsigned long e
- 
- 	lacpi_nmi = (struct acpi_madt_local_apic_nmi *)header;
- 
--	if (BAD_MADT_ENTRY(lacpi_nmi, end))
--		return -EINVAL;
--
- 	/* TBD: Support lapic_nmi entries */
- 	return 0;
++static int acpi_processor_container_attach(struct acpi_device *dev,
++					   const struct acpi_device_id *id)
++{
++	return 1;
++}
++
++static const struct acpi_device_id processor_container_ids[] = {
++	{ ACPI_PROCESSOR_CONTAINER_HID, },
++	{ }
++};
++
++static struct acpi_scan_handler processor_container_handler = {
++	.ids = processor_container_ids,
++	.attach = acpi_processor_container_attach,
++};
++
+ void __init acpi_processor_init(void)
+ {
+ 	acpi_scan_add_handler_with_hotplug(&processor_handler, "processor");
++	acpi_scan_add_handler(&processor_container_handler);
  }
-@@ -236,9 +228,6 @@ acpi_parse_iosapic(struct acpi_subtable_header * header, const unsigned long end
+diff --git a/include/acpi/processor.h b/include/acpi/processor.h
+index ff5f135f16b1..51b61dcdbd9c 100644
+--- a/include/acpi/processor.h
++++ b/include/acpi/processor.h
+@@ -9,6 +9,7 @@
+ #define ACPI_PROCESSOR_CLASS		"processor"
+ #define ACPI_PROCESSOR_DEVICE_NAME	"Processor"
+ #define ACPI_PROCESSOR_DEVICE_HID	"ACPI0007"
++#define ACPI_PROCESSOR_CONTAINER_HID	"ACPI0010"
  
- 	iosapic = (struct acpi_madt_io_sapic *)header;
+ #define ACPI_PROCESSOR_BUSY_METRIC	10
  
--	if (BAD_MADT_ENTRY(iosapic, end))
--		return -EINVAL;
--
- 	return iosapic_init(iosapic->address, iosapic->global_irq_base);
- }
- 
-@@ -253,9 +242,6 @@ acpi_parse_plat_int_src(struct acpi_subtable_header * header,
- 
- 	plintsrc = (struct acpi_madt_interrupt_source *)header;
- 
--	if (BAD_MADT_ENTRY(plintsrc, end))
--		return -EINVAL;
--
- 	/*
- 	 * Get vector assignment for this interrupt, set attributes,
- 	 * and program the IOSAPIC routing table.
-@@ -336,9 +322,6 @@ acpi_parse_int_src_ovr(struct acpi_subtable_header * header,
- 
- 	p = (struct acpi_madt_interrupt_override *)header;
- 
--	if (BAD_MADT_ENTRY(p, end))
--		return -EINVAL;
--
- 	iosapic_override_isa_irq(p->source_irq, p->global_irq,
- 				 ((p->inti_flags & ACPI_MADT_POLARITY_MASK) =
- 				  ACPI_MADT_POLARITY_ACTIVE_LOW) ?
-@@ -356,9 +339,6 @@ acpi_parse_nmi_src(struct acpi_subtable_header * header, const unsigned long end
- 
- 	nmi_src = (struct acpi_madt_nmi_source *)header;
- 
--	if (BAD_MADT_ENTRY(nmi_src, end))
--		return -EINVAL;
--
- 	/* TBD: Support nimsrc entries */
- 	return 0;
- }
 -- 
-2.4.3
+1.9.1
 
