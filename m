@@ -1,57 +1,105 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Tue, 15 Sep 2015 20:50:18 +0000
-Subject: [PATCH] ia64: Enable userfaultfd and membarrier system calls
-Message-Id: <70e33205810465119702be0f69549a15072c6581.1442352474.git.tony.luck@intel.com>
+From: Sudeep Holla <sudeep.holla@arm.com>
+Date: Wed, 16 Sep 2015 13:59:21 +0000
+Subject: [PATCH v2 3/5] ACPI / processor_idle: replace PREFIX with pr_fmt
+Message-Id: <1442411963-14398-4-git-send-email-sudeep.holla@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1438710406-3822-1-git-send-email-sudeep.holla@arm.com>
+ <1442411963-14398-1-git-send-email-sudeep.holla@arm.com>
+In-Reply-To: <1442411963-14398-1-git-send-email-sudeep.holla@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-acpi@vger.kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>
+Cc: Sudeep Holla <sudeep.holla@arm.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, x86@kernel.org, Al Stone <al.stone@linaro.org>, Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>, Mahesh Sivasubramanian <msivasub@codeaurora.org>, Ashwin Chaugule <ashwin.chaugule@linaro.org>
 
-Signed-off-by: Tony Luck <tony.luck@intel.com>
+Like few of the other ACPI modules, replace PREFIX with pr_fmt and
+change all the printk call sites to use pr_* companion functions
+in processor_idle.
+
+Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>
+Signed-off-by: Sudeep Holla <sudeep.holla@arm.com>
 ---
- arch/ia64/include/asm/unistd.h      | 2 +-
- arch/ia64/include/uapi/asm/unistd.h | 2 ++
- arch/ia64/kernel/entry.S            | 2 ++
- 3 files changed, 5 insertions(+), 1 deletion(-)
+ drivers/acpi/processor_idle.c | 25 +++++++++++--------------
+ 1 file changed, 11 insertions(+), 14 deletions(-)
 
-diff --git a/arch/ia64/include/asm/unistd.h b/arch/ia64/include/asm/unistd.h
-index 95c39b95e97e..99c96a5e6016 100644
---- a/arch/ia64/include/asm/unistd.h
-+++ b/arch/ia64/include/asm/unistd.h
-@@ -11,7 +11,7 @@
+diff --git a/drivers/acpi/processor_idle.c b/drivers/acpi/processor_idle.c
+index a24067b850d2..fadce354d2b7 100644
+--- a/drivers/acpi/processor_idle.c
++++ b/drivers/acpi/processor_idle.c
+@@ -23,6 +23,7 @@
+  *
+  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  */
++#define pr_fmt(fmt) "ACPI: " fmt
  
+ #include <linux/module.h>
+ #include <linux/acpi.h>
+@@ -42,8 +43,6 @@
+ #include <asm/apic.h>
+ #endif
  
+-#define PREFIX "ACPI: "
+-
+ #define ACPI_PROCESSOR_CLASS            "processor"
+ #define _COMPONENT              ACPI_PROCESSOR_COMPONENT
+ ACPI_MODULE_NAME("processor_idle");
+@@ -80,9 +79,9 @@ static int set_max_cstate(const struct dmi_system_id *id)
+ 	if (max_cstate > ACPI_PROCESSOR_MAX_POWER)
+ 		return 0;
  
--#define NR_syscalls			319 /* length of syscall table */
-+#define NR_syscalls			321 /* length of syscall table */
+-	printk(KERN_NOTICE PREFIX "%s detected - limiting to C%ld max_cstate."
+-	       " Override with \"processor.max_cstate=%d\"\n", id->ident,
+-	       (long)id->driver_data, ACPI_PROCESSOR_MAX_POWER + 1);
++	pr_notice("%s detected - limiting to C%ld max_cstate."
++		  " Override with \"processor.max_cstate=%d\"\n", id->ident,
++		  (long)id->driver_data, ACPI_PROCESSOR_MAX_POWER + 1);
  
- /*
-  * The following defines stop scripts/checksyscalls.sh from complaining about
-diff --git a/arch/ia64/include/uapi/asm/unistd.h b/arch/ia64/include/uapi/asm/unistd.h
-index 461079560c78..98e94e19a5a0 100644
---- a/arch/ia64/include/uapi/asm/unistd.h
-+++ b/arch/ia64/include/uapi/asm/unistd.h
-@@ -332,5 +332,7 @@
- #define __NR_memfd_create		1340
- #define __NR_bpf			1341
- #define __NR_execveat			1342
-+#define __NR_userfaultfd		1343
-+#define __NR_membarrier			1344
+ 	max_cstate = (long)id->driver_data;
  
- #endif /* _UAPI_ASM_IA64_UNISTD_H */
-diff --git a/arch/ia64/kernel/entry.S b/arch/ia64/kernel/entry.S
-index ae0de7bf5525..37cc7a65cd3e 100644
---- a/arch/ia64/kernel/entry.S
-+++ b/arch/ia64/kernel/entry.S
-@@ -1768,5 +1768,7 @@ sys_call_table:
- 	data8 sys_memfd_create			// 1340
- 	data8 sys_bpf
- 	data8 sys_execveat
-+	data8 sys_userfaultfd
-+	data8 sys_membarrier
+@@ -314,7 +313,7 @@ static int acpi_processor_get_power_info_cst(struct acpi_processor *pr)
  
- 	.org sys_call_table + 8*NR_syscalls	// guard against failures to increase NR_syscalls
+ 	/* There must be at least 2 elements */
+ 	if (!cst || (cst->type != ACPI_TYPE_PACKAGE) || cst->package.count < 2) {
+-		printk(KERN_ERR PREFIX "not enough elements in _CST\n");
++		pr_err("not enough elements in _CST\n");
+ 		ret = -EFAULT;
+ 		goto end;
+ 	}
+@@ -323,7 +322,7 @@ static int acpi_processor_get_power_info_cst(struct acpi_processor *pr)
+ 
+ 	/* Validate number of power states. */
+ 	if (count < 1 || count != cst->package.count - 1) {
+-		printk(KERN_ERR PREFIX "count given by _CST is not valid\n");
++		pr_err("count given by _CST is not valid\n");
+ 		ret = -EFAULT;
+ 		goto end;
+ 	}
+@@ -432,11 +431,9 @@ static int acpi_processor_get_power_info_cst(struct acpi_processor *pr)
+ 		 * (From 1 through ACPI_PROCESSOR_MAX_POWER - 1)
+ 		 */
+ 		if (current_count >= (ACPI_PROCESSOR_MAX_POWER - 1)) {
+-			printk(KERN_WARNING
+-			       "Limiting number of power states to max (%d)\n",
+-			       ACPI_PROCESSOR_MAX_POWER);
+-			printk(KERN_WARNING
+-			       "Please increase ACPI_PROCESSOR_MAX_POWER if needed.\n");
++			pr_warn("Limiting number of power states to max (%d)\n",
++				ACPI_PROCESSOR_MAX_POWER);
++			pr_warn("Please increase ACPI_PROCESSOR_MAX_POWER if needed.\n");
+ 			break;
+ 		}
+ 	}
+@@ -1060,8 +1057,8 @@ int acpi_processor_power_init(struct acpi_processor *pr)
+ 			retval = cpuidle_register_driver(&acpi_idle_driver);
+ 			if (retval)
+ 				return retval;
+-			printk(KERN_DEBUG "ACPI: %s registered with cpuidle\n",
+-					acpi_idle_driver.name);
++			pr_debug("%s registered with cpuidle\n",
++				 acpi_idle_driver.name);
+ 		}
+ 
+ 		dev = kzalloc(sizeof(*dev), GFP_KERNEL);
 -- 
-2.1.4
+1.9.1
 
