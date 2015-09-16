@@ -1,43 +1,49 @@
-From: Al Stone <al.stone@linaro.org>
-Date: Wed, 16 Sep 2015 23:26:45 +0000
-Subject: [PATCH v4 5/5] ACPI: remove definition of BAD_MADT_ENTRY macro
-Message-Id: <1442446005-19799-6-git-send-email-al.stone@linaro.org>
+From: Andrzej Hajda <a.hajda@samsung.com>
+Date: Wed, 16 Sep 2015 09:53:11 +0000
+Subject: Re: [PATCH 02/31] arch/ia64/tioce: use kmemdup rather than duplicating its implementation
+Message-Id: <55F93C07.1050403@samsung.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1442446005-19799-1-git-send-email-al.stone@linaro.org>
-In-Reply-To: <1442446005-19799-1-git-send-email-al.stone@linaro.org>
+References: <1438934377-4922-1-git-send-email-a.hajda@samsung.com>
+ <1438934377-4922-3-git-send-email-a.hajda@samsung.com>
+In-Reply-To: <1438934377-4922-3-git-send-email-a.hajda@samsung.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-pm@vger.kernel.org, linaro-acpi@lists.linaro.org, linaro-kernel@lists.linaro.org, patches@linaro.org, Al Stone <al.stone@linaro.org>, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>, Marek Szyprowski <m.szyprowski@samsung.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-Now that we have introduced to bad_madt_entry(), and we have removed
-all the usages of the BAD_MADT_ENTRY macro from all of the various
-architectures that use it (arm64, ia64, x86), we can remove the macro
-definition since it is no longer used.
+Ping.
 
-Signed-off-by: Al Stone <al.stone@linaro.org>
-Cc: Rafael J. Wysocki <rjw@rjwysocki.net>
-Cc: Len Brown <lenb@kernel.org>
----
- include/linux/acpi.h | 4 ----
- 1 file changed, 4 deletions(-)
+Regards
+Andrzej
 
-diff --git a/include/linux/acpi.h b/include/linux/acpi.h
-index 7235c48..a6d6326 100644
---- a/include/linux/acpi.h
-+++ b/include/linux/acpi.h
-@@ -127,10 +127,6 @@ static inline void acpi_initrd_override(void *data, size_t size)
- }
- #endif
- 
--#define BAD_MADT_ENTRY(entry, end) (					    \
--		(!entry) || (unsigned long)entry + sizeof(*entry) > end ||  \
--		((struct acpi_subtable_header *)entry)->length < sizeof(*entry))
--
- char * __acpi_map_table (unsigned long phys_addr, unsigned long size);
- void __acpi_unmap_table(char *map, unsigned long size);
- int early_acpi_boot_init(void);
--- 
-2.4.3
+On 08/07/2015 09:59 AM, Andrzej Hajda wrote:
+> The patch was generated using fixed coccinelle semantic patch
+> scripts/coccinelle/api/memdup.cocci [1].
+>
+> [1]: http://permalink.gmane.org/gmane.linux.kernel/2014320
+>
+> Signed-off-by: Andrzej Hajda <a.hajda@samsung.com>
+> ---
+>  arch/ia64/sn/pci/tioce_provider.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+>
+> diff --git a/arch/ia64/sn/pci/tioce_provider.c b/arch/ia64/sn/pci/tioce_provider.c
+> index 46d3df4..2f13276 100644
+> --- a/arch/ia64/sn/pci/tioce_provider.c
+> +++ b/arch/ia64/sn/pci/tioce_provider.c
+> @@ -1000,11 +1000,11 @@ tioce_bus_fixup(struct pcibus_bussoft *prom_bussoft, struct pci_controller *cont
+>  	 * Allocate kernel bus soft and copy from prom.
+>  	 */
+>  
+> -	tioce_common = kzalloc(sizeof(struct tioce_common), GFP_KERNEL);
+> +	tioce_common = kmemdup(prom_bussoft, sizeof(struct tioce_common),
+> +			       GFP_KERNEL);
+>  	if (!tioce_common)
+>  		return NULL;
+>  
+> -	memcpy(tioce_common, prom_bussoft, sizeof(struct tioce_common));
+>  	tioce_common->ce_pcibus.bs_base = (unsigned long)
+>  		ioremap(REGION_OFFSET(tioce_common->ce_pcibus.bs_base),
+>  			sizeof(struct tioce_common));
 
