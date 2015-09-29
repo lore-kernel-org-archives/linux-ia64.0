@@ -1,64 +1,43 @@
-From: Chen Gang <gchen_5i5j@21cn.com>
-Date: Fri, 04 Sep 2015 03:43:15 +0000
-Subject: Re: [PATCH] arch: ia64: kernel: perfmon: Check return value of insert_vm_struct()
-Message-Id: <55E91353.8010005@21cn.com>
+From: Al Stone <al.stone@linaro.org>
+Date: Tue, 29 Sep 2015 23:45:46 +0000
+Subject: [PATCH v5 5/5] ACPI: remove definition of BAD_MADT_ENTRY macro
+Message-Id: <1443570346-15378-6-git-send-email-al.stone@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <COL130-W46DBE61538E64374C967CB9630@phx.gbl>
-In-Reply-To: <COL130-W46DBE61538E64374C967CB9630@phx.gbl>
+References: <1443570346-15378-1-git-send-email-al.stone@linaro.org>
+In-Reply-To: <1443570346-15378-1-git-send-email-al.stone@linaro.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: kernel mailing list <linux-kernel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
-Cc: Andrew Morton <akpm@linux-foundation.org>, tony.luck@intel.com, Fenghua Yu <fenghua.yu@intel.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-pm@vger.kernel.org, linaro-acpi@lists.linaro.org, linaro-kernel@lists.linaro.org, patches@linaro.org, Al Stone <al.stone@linaro.org>, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>
 
-Hello Maintainers:
+Now that we have introduced to bad_madt_entry(), and we have removed
+all the usages of the BAD_MADT_ENTRY macro from all of the various
+architectures that use it (arm64, ia64, x86), we can remove the macro
+definition since it is no longer used.
 
-Please help check this patch when you have time.
+Signed-off-by: Al Stone <al.stone@linaro.org>
+Cc: Rafael J. Wysocki <rjw@rjwysocki.net>
+Cc: Len Brown <lenb@kernel.org>
+---
+ include/linux/acpi.h | 4 ----
+ 1 file changed, 4 deletions(-)
 
-Thanks.
-
-On 8/24/15 01:18, Chen Gang wrote:
-> In pfm_smpl_buffer_alloc, insert_vm_struct may also return -ENOMEM, so
-> need check it too.
-> 
-> And insert_vm_struct needn't consider about pfm_remap_buffer in failure
-> process ("goto error" is enough):
-> 
->  - pfm_remap_buffer doen't consider about remap_pfn_range.
-> 
->  - It is about the relationship between vma and smpl_buf.
-> 
->  - SO if both vma and smpl_buf are released ("goto error"), all things
->    are OK.
-> 
-> Signed-off-by: Chen Gang <gang.chen.5i5j@gmail.com>
-> ---
->  arch/ia64/kernel/perfmon.c | 6 +++++-
->  1 file changed, 5 insertions(+), 1 deletion(-)
-> 
-> diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
-> index 60e02f7..ae77946 100644
-> --- a/arch/ia64/kernel/perfmon.c
-> +++ b/arch/ia64/kernel/perfmon.c
-> @@ -2330,7 +2330,11 @@ pfm_smpl_buffer_alloc(struct task_struct *task, struct file *filp, pfm_context_t
->  	 * now insert the vma in the vm list for the process, must be
->  	 * done with mmap lock held
->  	 */
-> -	insert_vm_struct(mm, vma);
-> +	if (insert_vm_struct(mm, vma)) {
-> +		DPRINT(("Can't insert vm structure.\n"));
-> +		up_write(&task->mm->mmap_sem);
-> +		goto error;
-> +	}
->  
->  	vm_stat_account(vma->vm_mm, vma->vm_flags, vma->vm_file,
->  							vma_pages(vma));
-> -- 
-> 
->  		 	   		  
-> 
-
+diff --git a/include/linux/acpi.h b/include/linux/acpi.h
+index 51a96a8..dd5bd228 100644
+--- a/include/linux/acpi.h
++++ b/include/linux/acpi.h
+@@ -127,10 +127,6 @@ static inline void acpi_initrd_override(void *data, size_t size)
+ }
+ #endif
+ 
+-#define BAD_MADT_ENTRY(entry, end) (					    \
+-		(!entry) || (unsigned long)entry + sizeof(*entry) > end ||  \
+-		((struct acpi_subtable_header *)entry)->length < sizeof(*entry))
+-
+ struct acpi_subtable_proc {
+ 	int id;
+ 	acpi_tbl_entry_handler handler;
 -- 
-Chen Gang (陈刚)
+2.4.3
 
-Open, share, and attitude like air, water, and life which God blessed
