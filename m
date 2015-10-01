@@ -1,15 +1,15 @@
 From: Yinghai Lu <yinghai@kernel.org>
-Date: Tue, 27 Oct 2015 20:55:51 +0000
-Subject: [PATCH v8 59/61] PCI: Introduce resource_disabled()
-Message-Id: <1445979353-1728-60-git-send-email-yinghai@kernel.org>
+Date: Thu, 01 Oct 2015 05:53:26 +0000
+Subject: [PATCH v6 52/53] PCI: Introduce resource_disabled()
+Message-Id: <1443678807-786-53-git-send-email-yinghai@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1445979353-1728-1-git-send-email-yinghai@kernel.org>
-In-Reply-To: <1445979353-1728-1-git-send-email-yinghai@kernel.org>
+References: <1443678807-786-1-git-send-email-yinghai@kernel.org>
+In-Reply-To: <1443678807-786-1-git-send-email-yinghai-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>, David Miller <davem@davemloft.net>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Wei Yang <weiyang@linux.vnet.ibm.com>, TJ <linux@iam.tj>, Yijing Wang <wangyijing@huawei.com>, Khalid Aziz <khalid.aziz@oracle.com>
-Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, Yinghai Lu <yinghai@kernel.org>, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-am33-list@redhat.com, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, iommu@lists.linux-foundation.org, linux-sh@vger.kernel.org
+To: Bjorn Helgaas <bhelgaas-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>, Wei Yang <weiyang-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>, TJ <linux-7m3hRoVZU5A@public.gmane.org>, Yijing Wang <wangyijing-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Cc: linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-am33-list-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, linux-alpha-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Yinghai Lu <yinghai-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 
 Current is using !flags, and we are going to use
 IORESOURCE_DISABLED instead of clearing resource flags.
@@ -28,7 +28,6 @@ Cc: linux-xtensa@linux-xtensa.org
 Cc: iommu@lists.linux-foundation.org
 Cc: linux-sh@vger.kernel.org
 Signed-off-by: Yinghai Lu <yinghai@kernel.org>
-Acked-by: Michael Ellerman <mpe@ellerman.id.au>
 ---
  arch/alpha/kernel/pci.c                   |  2 +-
  arch/ia64/pci/pci.c                       |  4 ++--
@@ -269,7 +268,7 @@ index 8853667..a830e0c 100644
  				printk(KERN_ERR "PCI: Memory resource 0 not set for "
  				       "host bridge %s (domain %d)\n",
 diff --git a/arch/powerpc/platforms/powernv/pci-ioda.c b/arch/powerpc/platforms/powernv/pci-ioda.c
-index 414fd1a..81484c1 100644
+index 2927cd5..4daf0bd 100644
 --- a/arch/powerpc/platforms/powernv/pci-ioda.c
 +++ b/arch/powerpc/platforms/powernv/pci-ioda.c
 @@ -874,7 +874,7 @@ static int pnv_pci_vf_resource_shift(struct pci_dev *dev, int offset)
@@ -299,7 +298,7 @@ index 414fd1a..81484c1 100644
  			continue;
  
  		if (!pnv_pci_is_mem_pref_64(res->flags))
-@@ -2757,7 +2757,7 @@ static void pnv_pci_ioda_fixup_iov_resources(struct pci_dev *pdev)
+@@ -2743,7 +2743,7 @@ static void pnv_pci_ioda_fixup_iov_resources(struct pci_dev *pdev)
  
  	for (i = 0; i < PCI_SRIOV_NUM_BARS; i++) {
  		res = &pdev->resource[i + PCI_IOV_RESOURCES];
@@ -308,7 +307,7 @@ index 414fd1a..81484c1 100644
  			continue;
  		if (!pnv_pci_is_mem_pref_64(res->flags)) {
  			dev_warn(&pdev->dev, " non M64 VF BAR%d: %pR\n",
-@@ -2779,7 +2779,7 @@ static void pnv_pci_ioda_fixup_iov_resources(struct pci_dev *pdev)
+@@ -2765,7 +2765,7 @@ static void pnv_pci_ioda_fixup_iov_resources(struct pci_dev *pdev)
  
  	for (i = 0; i < PCI_SRIOV_NUM_BARS; i++) {
  		res = &pdev->resource[i + PCI_IOV_RESOURCES];
@@ -317,7 +316,7 @@ index 414fd1a..81484c1 100644
  			continue;
  		if (!pnv_pci_is_mem_pref_64(res->flags)) {
  			dev_warn(&pdev->dev, "Skipping expanding VF BAR%d: %pR\n",
-@@ -2820,7 +2820,7 @@ static void pnv_ioda_setup_pe_seg(struct pci_controller *hose,
+@@ -2806,7 +2806,7 @@ static void pnv_ioda_setup_pe_seg(struct pci_controller *hose,
  	BUG_ON(!(pe->flags & (PNV_IODA_PE_BUS | PNV_IODA_PE_BUS_ALL)));
  
  	pci_bus_for_each_resource(pe->pbus, res, i) {
@@ -340,10 +339,10 @@ index 7ef12a3..72c4676 100644
  		pci_claim_resource(pdev, i);
  	}
 diff --git a/arch/sparc/kernel/pci.c b/arch/sparc/kernel/pci.c
-index 36a0dfb..afc4720 100644
+index badf095..cd20fd0 100644
 --- a/arch/sparc/kernel/pci.c
 +++ b/arch/sparc/kernel/pci.c
-@@ -631,7 +631,7 @@ static void pci_claim_bus_resources(struct pci_bus *bus)
+@@ -625,7 +625,7 @@ static void pci_claim_bus_resources(struct pci_bus *bus)
  		for (i = 0; i < PCI_NUM_RESOURCES; i++) {
  			struct resource *r = &dev->resource[i];
  
@@ -397,7 +396,7 @@ index b848cc3..f34d061 100644
  				continue;
  			printk(KERN_ERR "Memory resource not set for "
 diff --git a/drivers/iommu/intel-iommu.c b/drivers/iommu/intel-iommu.c
-index 041bc18..d4a06d2 100644
+index 2d7349a..4d52fba 100644
 --- a/drivers/iommu/intel-iommu.c
 +++ b/drivers/iommu/intel-iommu.c
 @@ -1771,7 +1771,8 @@ static int dmar_init_reserved_ranges(void)
@@ -437,10 +436,10 @@ index ee0ebff..808d08b 100644
  		if (resource_size(res) & (PAGE_SIZE - 1)) {
  			rc = -EIO;
 diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
-index edc8d08..f9589d9 100644
+index 31998ea..293e652 100644
 --- a/drivers/pci/probe.c
 +++ b/drivers/pci/probe.c
-@@ -2203,7 +2203,7 @@ void pci_bus_release_busn_res(struct pci_bus *b)
+@@ -2200,7 +2200,7 @@ void pci_bus_release_busn_res(struct pci_bus *b)
  	struct resource *res = &b->busn_res;
  	int ret;
  
@@ -450,7 +449,7 @@ index edc8d08..f9589d9 100644
  
  	ret = release_resource(res);
 diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
-index be0bdfb..c51c0e6 100644
+index 00c0a3a..9d09f48 100644
 --- a/drivers/pci/quirks.c
 +++ b/drivers/pci/quirks.c
 @@ -336,7 +336,7 @@ static void quirk_bar_fixed(struct pci_dev *dev)
@@ -485,7 +484,7 @@ index eb0ad53..585a9d3 100644
  
  	pcibios_resource_to_bus(pdev->bus, &region, res);
 diff --git a/drivers/pci/setup-bus.c b/drivers/pci/setup-bus.c
-index 673778c..23318bd 100644
+index e6c649a..fa15ee3 100644
 --- a/drivers/pci/setup-bus.c
 +++ b/drivers/pci/setup-bus.c
 @@ -223,7 +223,7 @@ static void pdev_assign_resources_prepare(struct pci_dev *dev,
@@ -506,7 +505,7 @@ index 673778c..23318bd 100644
  			goto out;
  
  		/* skip this resource if not found in head list */
-@@ -2124,7 +2124,7 @@ static void pci_bus_dump_res(struct pci_bus *bus)
+@@ -2113,7 +2113,7 @@ static void pci_bus_dump_res(struct pci_bus *bus)
  	int i;
  
  	pci_bus_for_each_resource(bus, res, i) {
@@ -515,7 +514,7 @@ index 673778c..23318bd 100644
  			continue;
  
  		dev_printk(KERN_DEBUG, &bus->dev, "resource %d %pR\n", i, res);
-@@ -2207,7 +2207,7 @@ static int iov_resources_unassigned(struct pci_dev *dev, void *data)
+@@ -2196,7 +2196,7 @@ static int iov_resources_unassigned(struct pci_dev *dev, void *data)
  		struct pci_bus_region region;
  
  		/* Not assigned or rejected by kernel? */
