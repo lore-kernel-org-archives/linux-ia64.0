@@ -1,56 +1,35 @@
-From: =?UTF-8?Q?=C3=89meric_MASCHINO?= <emeric.maschino@gmail.com>
-Date: Thu, 29 Oct 2015 13:47:02 +0000
-Subject: Re: [GIT PULL] Add kcmp() syscall for ia64
-Message-Id: <CAA9xbM4xkZQQdu9sN6mxR12TedOWzfQucU29LC-NirOcLsrEdg@mail.gmail.com>
+From: "Rafael J. Wysocki" <rjw@rjwysocki.net>
+Date: Mon, 05 Oct 2015 13:39:23 +0000
+Subject: Re: [PATCH v5 0/5] Provide better MADT subtable sanity checks
+Message-Id: <2808057.teMg2oCLf6@vostro.rjw.lan>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <5631485d20491d50e7@agluck-desk.sc.intel.com>
-In-Reply-To: <5631485d20491d50e7@agluck-desk.sc.intel.com>
+References: <1443570346-15378-1-git-send-email-al.stone@linaro.org> <560BA4C9.7090607@huawei.com> <560C0968.6020904@redhat.com>
+In-Reply-To: <560C0968.6020904@redhat.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Al Stone <ahs3@redhat.com>
+Cc: Hanjun Guo <guohanjun@huawei.com>, Al Stone <al.stone@linaro.org>, linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linaro-kernel@lists.linaro.org, linux-ia64@vger.kernel.org, patches@linaro.org, linux-pm@vger.kernel.org, linaro-acpi@lists.linaro.org, linux-kernel@vger.kernel.org
 
-Thanks.
+On Wednesday, September 30, 2015 10:10:16 AM Al Stone wrote:
+> On 09/30/2015 03:00 AM, Hanjun Guo wrote:
+> > On 2015/9/30 7:45, Al Stone wrote:
+> >> NB: this patch set is for use against the linux-pm bleeding edge branch.
+> >>
+> 
+> [snip...]
+> 
+> > 
+> > For this patch set,
+> > 
+> > Reviewed-by: Hanjun Guo <hanjun.guo@linaro.org>
+> > 
+> > Thanks
+> > Hanjun
+> 
+> Thanks, Hanjun!
 
-Tony, this reminds me a comment that you made some time ago, when I
-sent to the linux-ia64 patches to add accept4() syscall that was
-equally forgotten in it's time.
+Series applied, thanks!
 
-Here's what you were saying to me by mail on September 1st, 2012:
+Rafael
 
-"Hmmm.  I looked into this a bit further - and found that I hadn't
-seen a warning about the missing accept4() system call from
-scripts/checksyscalls.sh because it just compares against the x86_32
-list - and accept4() isn't there."
-
-Hence my question: Was it also the case for kcmp() syscall? If yes,
-what could be done to ensure that such miss at adding syscall can be
-avoided in the future?
-
-     Émeric
-
-2015-10-28 23:12 GMT+01:00 Luck, Tony <tony.luck@intel.com>:
-> The following changes since commit 32b88194f71d6ae7768a29f87fbba454728273ee:
->
->   Linux 4.3-rc7 (2015-10-25 10:39:47 +0900)
->
-> are available in the git repository at:
->
->   git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git tags/please-pull-syscalls
->
-> for you to fetch changes up to d305c4773458fdd6ff9c52bfdea8c67fbd3b2072:
->
->   [IA64] Wire up kcmp syscall (2015-10-28 14:22:59 -0700)
->
-> ----------------------------------------------------------------
-> Missed adding the kcmp() syscall a long time ago. Now it seems
-> that it is essential to build systemd.
->
-> ----------------------------------------------------------------
-> Émeric MASCHINO (1):
->       [IA64] Wire up kcmp syscall
->
->  arch/ia64/include/asm/unistd.h      | 2 +-
->  arch/ia64/include/uapi/asm/unistd.h | 1 +
->  arch/ia64/kernel/entry.S            | 1 +
->  3 files changed, 3 insertions(+), 1 deletion(-)
