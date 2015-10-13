@@ -1,97 +1,90 @@
-From: Al Stone <al.stone@linaro.org>
-Date: Mon, 12 Oct 2015 20:52:23 +0000
+From: Hanjun Guo <hanjun.guo@linaro.org>
+Date: Tue, 13 Oct 2015 01:23:30 +0000
 Subject: Re: [Linaro-acpi] [PATCH v5 0/5] Provide better MADT subtable sanity checks
-Message-Id: <561C1D87.8010106@linaro.org>
+Message-Id: <561C5D12.1000408@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1443570346-15378-1-git-send-email-al.stone@linaro.org>
- <560BA4C9.7090607@huawei.com> <560C0968.6020904@redhat.com>
- <2808057.teMg2oCLf6@vostro.rjw.lan> <5612AF64.4060900@redhat.com>
- <561B2442.9050600@erley.org> <561B2DAD.5070601@linaro.org>
- <561B2FCA.1010504@erley.org>
-In-Reply-To: <561B2FCA.1010504@erley.org>
+References: <1443570346-15378-1-git-send-email-al.stone@linaro.org> <561B2FCA.1010504@erley.org> <561B5B7E.6080901@linaro.org> <1776686.ko2Ldkd9he@vostro.rjw.lan>
+In-Reply-To: <1776686.ko2Ldkd9he@vostro.rjw.lan>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Pat Erley <pat-lkml@erley.org>, Hanjun Guo <hanjun.guo@linaro.org>, Al Stone <ahs3@redhat.com>, "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Cc: linaro-kernel@lists.linaro.org, linux-ia64@vger.kernel.org, linaro-acpi@lists.linaro.org, linux-pm@vger.kernel.org, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org, patches@linaro.org, Hanjun Guo <guohanjun@huawei.com>, linux-arm-kernel@lists.infradead.org
+To: "Rafael J. Wysocki" <rjw@rjwysocki.net>
+Cc: Pat Erley <pat-lkml@erley.org>, Al Stone <ahs3@redhat.com>, linaro-kernel@lists.linaro.org, linux-ia64@vger.kernel.org, patches@linaro.org, linux-pm@vger.kernel.org, linux-kernel@vger.kernel.org, linaro-acpi@lists.linaro.org, linux-acpi@vger.kernel.org, Hanjun Guo <guohanjun@huawei.com>, linux-arm-kernel@lists.infradead.org
 
-On 10/11/2015 09:58 PM, Pat Erley wrote:
-> On 10/11/2015 08:49 PM, Hanjun Guo wrote:
->> On 10/12/2015 11:08 AM, Pat Erley wrote:
->>> On 10/05/2015 10:12 AM, Al Stone wrote:
->>>> On 10/05/2015 07:39 AM, Rafael J. Wysocki wrote:
->>>>> On Wednesday, September 30, 2015 10:10:16 AM Al Stone wrote:
->>>>>> On 09/30/2015 03:00 AM, Hanjun Guo wrote:
->>>>>>> On 2015/9/30 7:45, Al Stone wrote:
->>>>>>>> NB: this patch set is for use against the linux-pm bleeding edge
->>>>>>>> branch.
+On 10/13/2015 03:21 AM, Rafael J. Wysocki wrote:
+> On Monday, October 12, 2015 03:04:30 PM Hanjun Guo wrote:
+>> On 10/12/2015 11:58 AM, Pat Erley wrote:
+>>> On 10/11/2015 08:49 PM, Hanjun Guo wrote:
+>>>> On 10/12/2015 11:08 AM, Pat Erley wrote:
+>>>>> On 10/05/2015 10:12 AM, Al Stone wrote:
+>>>>>> On 10/05/2015 07:39 AM, Rafael J. Wysocki wrote:
+>>>>>>> On Wednesday, September 30, 2015 10:10:16 AM Al Stone wrote:
+>>>>>>>> On 09/30/2015 03:00 AM, Hanjun Guo wrote:
+>>>>>>>>> On 2015/9/30 7:45, Al Stone wrote:
+>>>>>>>>>> NB: this patch set is for use against the linux-pm bleeding edge
+>>>>>>>>>> branch.
+>>>>>>>>>>
 >>>>>>>>
->>>>>>
->>>>>> [snip...]
->>>>>>
+>>>>>>>> [snip...]
+>>>>>>>>
+>>>>>>>>>
+>>>>>>>>> For this patch set,
+>>>>>>>>>
+>>>>>>>>> Reviewed-by: Hanjun Guo <hanjun.guo@linaro.org>
+>>>>>>>>>
+>>>>>>>>> Thanks
+>>>>>>>>> Hanjun
+>>>>>>>>
+>>>>>>>> Thanks, Hanjun!
 >>>>>>>
->>>>>>> For this patch set,
+>>>>>>> Series applied, thanks!
 >>>>>>>
->>>>>>> Reviewed-by: Hanjun Guo <hanjun.guo@linaro.org>
+>>>>>>> Rafael
 >>>>>>>
->>>>>>> Thanks
->>>>>>> Hanjun
 >>>>>>
->>>>>> Thanks, Hanjun!
+>>>>>> Thanks, Rafael!
+>>>>>>
 >>>>>
->>>>> Series applied, thanks!
+>>>>> Just decided to test out linux-next (to see the new nouveau cleanups).
+>>>>> This change set prevents my Lenovo W510 from booting properly.
 >>>>>
->>>>> Rafael
+>>>>> Reverting: 7494b0 "ACPI: add in a bad_madt_entry() function to
+>>>>> eventually replace the macro"
 >>>>>
+>>>>> Gets the system booting again.  I'm attaching my dmesg from the failed
+>>>>> boot, who wants the acpidump?
 >>>>
->>>> Thanks, Rafael!
+>>>> [    0.000000] ACPI: undefined version for either FADT 4.0 or MADT 1
+>>>> [    0.000000] ACPI: Error parsing LAPIC address override entry
+>>>> [    0.000000] ACPI: Invalid BIOS MADT, disabling ACPI
 >>>>
+>>>> Seems the MADT revision is not right, could you dump the ACPI MADT
+>>>> (APIC) table and send it out? I will take a look :)
+>>>>
+>>>> Thanks
+>>>> Hanjun
 >>>
->>> Just decided to test out linux-next (to see the new nouveau cleanups).
->>> This change set prevents my Lenovo W510 from booting properly.
->>>
->>> Reverting: 7494b0 "ACPI: add in a bad_madt_entry() function to
->>> eventually replace the macro"
->>>
->>> Gets the system booting again.  I'm attaching my dmesg from the failed
->>> boot, who wants the acpidump?
+>>> Here ya go, enjoy.  Feel free to CC me on any patches that might fix it.
 >>
->> [    0.000000] ACPI: undefined version for either FADT 4.0 or MADT 1
->> [    0.000000] ACPI: Error parsing LAPIC address override entry
->> [    0.000000] ACPI: Invalid BIOS MADT, disabling ACPI
+>> Thanks! I think I had the right guess, the MADT revision is not right
+>> for ACPI 4.0:
 >>
->> Seems the MADT revision is not right, could you dump the ACPI MADT
->> (APIC) table and send it out? I will take a look :)
+>> [000h 0000   4]                    Signature : "APIC"    [Multiple APIC
+>> Description Table (MADT)]
+>> [004h 0004   4]                 Table Length : 000000BC
+>> [008h 0008   1]                     *Revision : 01*
 >>
->> Thanks
->> Hanjun
-> 
-> Here ya go, enjoy.  Feel free to CC me on any patches that might fix it.
+>> I encountered such problem before because the table was just copied from
+>> previous version, and without the update for table revision.
+>>
+>> I think we may need to ignore the table revision for x86, but restrict
+>> it for ARM64, I'd like Al and Rafael's suggestion before I send out a
+>> patch.
+>
+> As I said before to Al, we definitely can't break systems that worked before
+> the commit in question.
 
-Pat,
+Sure :)
 
-Would you mind sending a copy of the FADT, also, please?  The first of the
-ACPI messages is a check of version correspondence between the FADT and MADT,
-while the second message is from looking at just an MADT subtable.  Thanks
-for sending the MADT out -- that helps me quite a lot in thinking this through.
-
-BTW, whoever is providing the BIOS (Lenovo, I assume) may want to have a look
-at these, also:
-
-[    0.000000] ACPI BIOS Warning (bug): 32/64X length mismatch in
-FADT/Pm1aControlBlock: 16/32 (20150818/tbfadt-623)
-[    0.000000] ACPI BIOS Warning (bug): Invalid length for
-FADT/Pm1aControlBlock: 32, using default 16 (20150818/tbfadt-704)
-
-Not inherently dangerous, but definitely sloppy and mind-numbingly easy to
-avoid, IIRC.
-
--- 
-ciao,
-al
------------------------------------
-Al Stone
-Software Engineer
-Linaro Enterprise Group
-al.stone@linaro.org
------------------------------------
+Thanks
+Hanjun
