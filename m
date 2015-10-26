@@ -1,7 +1,7 @@
 From: Ashwin Chaugule <ashwin.chaugule@linaro.org>
-Date: Fri, 02 Oct 2015 17:07:18 +0000
+Date: Mon, 26 Oct 2015 19:13:49 +0000
 Subject: Re: [PATCH v2 5/5] ACPI / processor_idle: Add support for Low Power Idle(LPI) states
-Message-Id: <CAJ5Y-eaY9vQ=yhy649Nyj_rrTRubCUG_VG3rpNHM-LDv4jJkPA@mail.gmail.com>
+Message-Id: <CAJ5Y-ebOPE1oamRk31nxL6VkgSdDd6AmEe2Fw1ku5pGt25D2Rg@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1438710406-3822-1-git-send-email-sudeep.holla@arm.com>
  <1442411963-14398-1-git-send-email-sudeep.holla@arm.com> <1442411963-14398-6-git-send-email-sudeep.holla@arm.com>
@@ -10,9 +10,9 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Sudeep Holla <sudeep.holla@arm.com>
-Cc: linux acpi <linux-acpi@vger.kernel.org>, "Rafael J. Wysocki" <rjw@rjwysocki.net>, lkml <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, x86@kernel.org, Al Stone <al.stone@linaro.org>, Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>, Mahesh Sivasubramanian <msivasub@codeaurora.org>
+Cc: linux acpi <linux-acpi@vger.kernel.org>, "Rafael J. Wysocki" <rjw@rjwysocki.net>, lkml <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, x86@kernel.org, Al Stone <al.stone@linaro.org>, Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>, Mahesh Sivasubramanian <msivasub@codeaurora.org>, pprakash@codeaurora.og
 
-Hi Sudeep,
++ Prashanth (who has successfully run this patch on Qcomm hardware)
 
 On 16 September 2015 at 09:59, Sudeep Holla <sudeep.holla@arm.com> wrote:
 > ACPI 6.0 introduced an optional object _LPI that provides an alternate
@@ -84,12 +84,6 @@ On 16 September 2015 at 09:59, Sudeep Holla <sudeep.holla@arm.com> wrote:
 >                         osc_sb_apei_support_acked >                                 capbuf_ret[OSC_SUPPORT_DWORD] & OSC_SB_APEI_SUPPORT;
 > +                       osc_pc_lpi_support_acked > +                               capbuf_ret[OSC_SUPPORT_DWORD] & OSC_SB_PCLPI_SUPPORT;
 > +               }
-
-Not sure we want to keep adding more OSC global flags, since theyre
-not really used elsewhere outside the drivers. I'm not strongly
-against it, but seems like for LPI, CPPC and maybe a few others, we
-could do the check locally, like pcc-cpufreq does.
-
 >                 kfree(context.ret.pointer);
 >         }
 >         /* do we need to check other returned cap? Sounds no */
@@ -259,10 +253,6 @@ could do the check locally, like pcc-cpufreq does.
 > +       info->state_count = pkg_count;
 > +       info->lpix = lpix;
 > +       for (loop = 3; state_count <= pkg_count; loop++, state_count++, lpix++) {
-
-Reusing state_count can be confusing. Maybe use state_idx, state_ctr
-or something. Or add comments to explain how this thing is laid out.
-
 > +               union acpi_object *element, *obj;
 > +
 > +               element = &lpi->package.elements[loop];
@@ -354,11 +344,6 @@ or something. Or add comments to explain how this thing is laid out.
 > +       c_lpi->enable_parent_state = p_lpi->enable_parent_state;
 > +       c_lpi->entry_method = l_lpi->entry_method;
 > +       c_lpi->address = l_lpi->address + p_lpi->address;
-
-Aren't there some constraints to how this addr is worked out? Need to
-look at the LPI spec. but IIRC, in some cases its not additive and the
-parent value is used for overwriting.
-
 > +       c_lpi->index = p_lpi->index;
 > +       c_lpi->flags = p_lpi->flags;
 > +       c_lpi->arch_flags = p_lpi->arch_flags;
@@ -393,12 +378,6 @@ parent value is used for overwriting.
 > +       }
 > +       return 0;
 > +}
-
-So is this thing taking one idle state at a time from each node
-(proc/cluster..) and checking if it can be collapsed with one state
-from each parent node (using the EPS constraint) then moving to the
-next idle state at the lower node and up again?
-
 > +
 > +static int acpi_processor_get_lpi_info(struct acpi_processor *pr)
 > +{
@@ -460,9 +439,6 @@ next idle state at the lower node and up again?
 > + * @index: index of target state
 > + *
 > + */
-
-Might as well add Return types to the kernel doc. here and elsewhere.
-
 > +static int acpi_idle_lpi_enter(struct cpuidle_device *dev,
 > +                              struct cpuidle_driver *drv, int index)
 >  {
@@ -478,9 +454,6 @@ Might as well add Return types to the kernel doc. here and elsewhere.
 > +       if (lpi->entry_method = ACPI_CSTATE_FFH)
 > +               /* Call into architectural FFH based C-state */
 > +               return acpi_processor_ffh_lpi_enter(lpi, index);
-
-Where is this thing (and the lpi_probe()) defined ?
-
 >         return -EINVAL;
 >  }
 >
@@ -501,9 +474,208 @@ Where is this thing (and the lpi_probe()) defined ?
 > +               state->target_residency = lpi->min_residency;
 > +               if (lpi->arch_flags)
 > +                       state->flags |= CPUIDLE_FLAG_TIMER_STOP;
-
-Plan to add arch specific callbacks later? FFH spec has some details
-for ARM64 on what to save/restore.
-
-Regards,
-Ashwin
+> +               state->enter = acpi_idle_lpi_enter;
+> +               drv->safe_state_index = i;
+> +       }
+> +
+> +       drv->state_count = i;
+> +
+> +       return 0;
+> +}
+> +
+> +#else
+> +static int acpi_processor_ffh_lpi_probe(unsigned int cpu) { return -ENODEV; }
+> +static int acpi_processor_get_lpi_info(struct acpi_processor *pr)
+> +{
+> +       return -ENODEV;
+> +}
+> +
+> +static int acpi_processor_setup_lpi_states(struct acpi_processor *pr)
+> +{
+> +       return -EINVAL;
+> +}
+>  #endif
+>
+> +/**
+> + * acpi_processor_setup_cpuidle_states- prepares and configures cpuidle
+> + * global state data i.e. idle routines
+> + *
+> + * @pr: the ACPI processor
+> + */
+> +static int acpi_processor_setup_cpuidle_states(struct acpi_processor *pr)
+> +{
+> +       int i;
+> +       struct cpuidle_driver *drv = &acpi_idle_driver;
+> +
+> +       if (!pr->flags.power_setup_done)
+> +               return -EINVAL;
+> +
+> +       if (pr->flags.power = 0)
+> +               return -EINVAL;
+> +
+> +       drv->safe_state_index = -1;
+> +       for (i = CPUIDLE_DRIVER_STATE_START; i < CPUIDLE_STATE_MAX; i++) {
+> +               drv->states[i].name[0] = '\0';
+> +               drv->states[i].desc[0] = '\0';
+> +       }
+> +
+> +       if (pr->flags.has_lpi)
+> +               return acpi_processor_setup_lpi_states(pr);
+> +       return acpi_processor_setup_cstates(pr);
+> +}
+> +
+> +/**
+> + * acpi_processor_setup_cpuidle_dev - prepares and configures CPUIDLE
+> + * device i.e. per-cpu data
+> + *
+> + * @pr: the ACPI processor
+> + * @dev : the cpuidle device
+> + */
+> +static int acpi_processor_setup_cpuidle_dev(struct acpi_processor *pr,
+> +                                           struct cpuidle_device *dev)
+> +{
+> +       if (!pr->flags.power_setup_done)
+> +               return -EINVAL;
+> +
+> +       if (pr->flags.power = 0)
+> +               return -EINVAL;
+> +
+> +       if (!dev)
+> +               return -EINVAL;
+> +
+> +       dev->cpu = pr->id;
+> +       if (pr->flags.has_lpi)
+> +               return acpi_processor_ffh_lpi_probe(pr->id);
+> +       else
+> +               return acpi_processor_setup_cpuidle_cx(pr, dev);
+> +}
+> +
+> +static int acpi_processor_get_power_info(struct acpi_processor *pr)
+> +{
+> +       int ret = 0;
+> +
+> +       ret = acpi_processor_get_cstate_info(pr);
+> +       if (ret)
+> +               ret = acpi_processor_get_lpi_info(pr);
+> +       return ret;
+> +}
+> +
+>  int acpi_processor_hotplug(struct acpi_processor *pr)
+>  {
+>         int ret = 0;
+> @@ -980,7 +1300,7 @@ int acpi_processor_hotplug(struct acpi_processor *pr)
+>         cpuidle_disable_device(dev);
+>         acpi_processor_get_power_info(pr);
+>         if (pr->flags.power) {
+> -               acpi_processor_setup_cpuidle_cx(pr, dev);
+> +               acpi_processor_setup_cpuidle_dev(pr, dev);
+>                 ret = cpuidle_enable_device(dev);
+>         }
+>         cpuidle_resume_and_unlock();
+> @@ -988,7 +1308,7 @@ int acpi_processor_hotplug(struct acpi_processor *pr)
+>         return ret;
+>  }
+>
+> -int acpi_processor_cst_has_changed(struct acpi_processor *pr)
+> +int acpi_processor_power_state_has_changed(struct acpi_processor *pr)
+>  {
+>         int cpu;
+>         struct acpi_processor *_pr;
+> @@ -1036,7 +1356,7 @@ int acpi_processor_cst_has_changed(struct acpi_processor *pr)
+>                         acpi_processor_get_power_info(_pr);
+>                         if (_pr->flags.power) {
+>                                 dev = per_cpu(acpi_cpuidle_device, cpu);
+> -                               acpi_processor_setup_cpuidle_cx(_pr, dev);
+> +                               acpi_processor_setup_cpuidle_dev(_pr, dev);
+>                                 cpuidle_enable_device(dev);
+>                         }
+>                 }
+> @@ -1093,7 +1413,7 @@ int acpi_processor_power_init(struct acpi_processor *pr)
+>                         return -ENOMEM;
+>                 per_cpu(acpi_cpuidle_device, pr->id) = dev;
+>
+> -               acpi_processor_setup_cpuidle_cx(pr, dev);
+> +               acpi_processor_setup_cpuidle_dev(pr, dev);
+>
+>                 /* Register per-cpu cpuidle_device. Cpuidle driver
+>                  * must already be registered before registering device
+> diff --git a/include/acpi/processor.h b/include/acpi/processor.h
+> index b447952f8236..5ab11f978e6d 100644
+> --- a/include/acpi/processor.h
+> +++ b/include/acpi/processor.h
+> @@ -67,9 +67,25 @@ struct acpi_processor_cx {
+>         char desc[ACPI_CX_DESC_LEN];
+>  };
+>
+> +struct acpi_processor_lpi {
+> +       u32 min_residency;
+> +       u32 wake_latency; /* worst case */
+> +       u32 flags;
+> +       u32 arch_flags;
+> +       u32 res_cnt_freq;
+> +       u32 enable_parent_state;
+> +       u64 address;
+> +       u8 index;
+> +       u8 entry_method;
+> +       char desc[ACPI_CX_DESC_LEN];
+> +};
+> +
+>  struct acpi_processor_power {
+>         int count;
+> -       struct acpi_processor_cx states[ACPI_PROCESSOR_MAX_POWER];
+> +       union {
+> +               struct acpi_processor_cx states[ACPI_PROCESSOR_MAX_POWER];
+> +               struct acpi_processor_lpi lpi_states[ACPI_PROCESSOR_MAX_POWER];
+> +       };
+>         int timer_broadcast_on_state;
+>  };
+>
+> @@ -189,6 +205,7 @@ struct acpi_processor_flags {
+>         u8 bm_control:1;
+>         u8 bm_check:1;
+>         u8 has_cst:1;
+> +       u8 has_lpi:1;
+>         u8 power_setup_done:1;
+>         u8 bm_rld_set:1;
+>         u8 need_hotplug_init:1;
+> @@ -272,6 +289,11 @@ static inline void acpi_processor_ffh_cstate_enter(struct acpi_processor_cx
+>  }
+>  #endif
+>
+> +#ifdef CONFIG_ARCH_SUPPORTS_ACPI_PROCESSOR_LPI
+> +int acpi_processor_ffh_lpi_probe(unsigned int cpu);
+> +int acpi_processor_ffh_lpi_enter(struct acpi_processor_lpi *lpi, int idx);
+> +#endif
+> +
+>  /* in processor_perflib.c */
+>
+>  #ifdef CONFIG_CPU_FREQ
+> @@ -358,7 +380,7 @@ extern struct cpuidle_driver acpi_idle_driver;
+>  #ifdef CONFIG_ACPI_PROCESSOR_IDLE
+>  int acpi_processor_power_init(struct acpi_processor *pr);
+>  int acpi_processor_power_exit(struct acpi_processor *pr);
+> -int acpi_processor_cst_has_changed(struct acpi_processor *pr);
+> +int acpi_processor_power_state_has_changed(struct acpi_processor *pr);
+>  int acpi_processor_hotplug(struct acpi_processor *pr);
+>  #else
+>  static inline int acpi_processor_power_init(struct acpi_processor *pr)
+> diff --git a/include/linux/acpi.h b/include/linux/acpi.h
+> index a9e25c4a44d1..6d5208d136ac 100644
+> --- a/include/linux/acpi.h
+> +++ b/include/linux/acpi.h
+> @@ -352,8 +352,12 @@ acpi_status acpi_run_osc(acpi_handle handle, struct acpi_osc_context *context);
+>  #define OSC_SB_HOTPLUG_OST_SUPPORT             0x00000008
+>  #define OSC_SB_APEI_SUPPORT                    0x00000010
+>  #define OSC_SB_CPC_SUPPORT                     0x00000020
+> +#define OSC_SB_CPCV2_SUPPORT                   0x00000040
+> +#define OSC_SB_PCLPI_SUPPORT                   0x00000080
+> +#define OSC_SB_OSLPI_SUPPORT                   0x00000100
+>
+>  extern bool osc_sb_apei_support_acked;
+> +extern bool osc_pc_lpi_support_acked;
+>
+>  /* PCI Host Bridge _OSC: Capabilities DWORD 2: Support Field */
+>  #define OSC_PCI_EXT_CONFIG_SUPPORT             0x00000001
+> --
+> 1.9.1
+>
