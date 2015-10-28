@@ -1,126 +1,35 @@
-From: Al Stone <al.stone@linaro.org>
-Date: Wed, 16 Sep 2015 23:26:44 +0000
-Subject: [PATCH v4 4/5] ACPI / X86: remove usage of BAD_MADT_ENTRY
-Message-Id: <1442446005-19799-5-git-send-email-al.stone@linaro.org>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Wed, 28 Oct 2015 22:12:45 +0000
+Subject: [GIT PULL] Add kcmp() syscall for ia64
+Message-Id: <5631485d20491d50e7@agluck-desk.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1442446005-19799-1-git-send-email-al.stone@linaro.org>
-In-Reply-To: <1442446005-19799-1-git-send-email-al.stone@linaro.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-pm@vger.kernel.org, linaro-acpi@lists.linaro.org, linaro-kernel@lists.linaro.org, patches@linaro.org, Al Stone <al.stone@linaro.org>, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <len.brown@intel.com>, Pavel Machek <pavel@ucw.cz>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: quoted-printable
+To: linux-ia64@vger.kernel.org
 
-Now that we have introduced the bad_madt_entry() function, and that
-function is being invoked in acpi_table_parse_madt() for us, there
-is no longer any need to use the BAD_MADT_ENTRY macro.
+The following changes since commit 32b88194f71d6ae7768a29f87fbba454728273ee:
 
-Signed-off-by: Al Stone <al.stone@linaro.org>
-Cc: Rafael J. Wysocki <rjw@rjwysocki.net>
-Cc: Len Brown <len.brown@intel.com>
-Cc: Pavel Machek <pavel@ucw.cz>
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: Ingo Molnar <mingo@redhat.com>
-Cc: H. Peter Anvin <hpa@zytor.com>
-Cc: x86@kernel.org
----
- arch/x86/kernel/acpi/boot.c | 27 ---------------------------
- 1 file changed, 27 deletions(-)
+  Linux 4.3-rc7 (2015-10-25 10:39:47 +0900)
 
-diff --git a/arch/x86/kernel/acpi/boot.c b/arch/x86/kernel/acpi/boot.c
-index ded848c..d37b84d 100644
---- a/arch/x86/kernel/acpi/boot.c
-+++ b/arch/x86/kernel/acpi/boot.c
-@@ -194,9 +194,6 @@ acpi_parse_x2apic(struct acpi_subtable_header *header, const unsigned long end)
- 
- 	processor = (struct acpi_madt_local_x2apic *)header;
- 
--	if (BAD_MADT_ENTRY(processor, end))
--		return -EINVAL;
--
- 	acpi_table_print_madt_entry(header);
- 
- 	apic_id = processor->local_apic_id;
-@@ -227,9 +224,6 @@ acpi_parse_lapic(struct acpi_subtable_header * header, const unsigned long end)
- 
- 	processor = (struct acpi_madt_local_apic *)header;
- 
--	if (BAD_MADT_ENTRY(processor, end))
--		return -EINVAL;
--
- 	acpi_table_print_madt_entry(header);
- 
- 	/*
-@@ -252,9 +246,6 @@ acpi_parse_sapic(struct acpi_subtable_header *header, const unsigned long end)
- 
- 	processor = (struct acpi_madt_local_sapic *)header;
- 
--	if (BAD_MADT_ENTRY(processor, end))
--		return -EINVAL;
--
- 	acpi_table_print_madt_entry(header);
- 
- 	acpi_register_lapic((processor->id << 8) | processor->eid,/* APIC ID */
-@@ -271,9 +262,6 @@ acpi_parse_lapic_addr_ovr(struct acpi_subtable_header * header,
- 
- 	lapic_addr_ovr = (struct acpi_madt_local_apic_override *)header;
- 
--	if (BAD_MADT_ENTRY(lapic_addr_ovr, end))
--		return -EINVAL;
--
- 	acpi_lapic_addr = lapic_addr_ovr->address;
- 
- 	return 0;
-@@ -287,9 +275,6 @@ acpi_parse_x2apic_nmi(struct acpi_subtable_header *header,
- 
- 	x2apic_nmi = (struct acpi_madt_local_x2apic_nmi *)header;
- 
--	if (BAD_MADT_ENTRY(x2apic_nmi, end))
--		return -EINVAL;
--
- 	acpi_table_print_madt_entry(header);
- 
- 	if (x2apic_nmi->lint != 1)
-@@ -305,9 +290,6 @@ acpi_parse_lapic_nmi(struct acpi_subtable_header * header, const unsigned long e
- 
- 	lapic_nmi = (struct acpi_madt_local_apic_nmi *)header;
- 
--	if (BAD_MADT_ENTRY(lapic_nmi, end))
--		return -EINVAL;
--
- 	acpi_table_print_madt_entry(header);
- 
- 	if (lapic_nmi->lint != 1)
-@@ -411,9 +393,6 @@ acpi_parse_ioapic(struct acpi_subtable_header * header, const unsigned long end)
- 
- 	ioapic = (struct acpi_madt_io_apic *)header;
- 
--	if (BAD_MADT_ENTRY(ioapic, end))
--		return -EINVAL;
--
- 	acpi_table_print_madt_entry(header);
- 
- 	/* Statically assign IRQ numbers for IOAPICs hosting legacy IRQs */
-@@ -463,9 +442,6 @@ acpi_parse_int_src_ovr(struct acpi_subtable_header * header,
- 
- 	intsrc = (struct acpi_madt_interrupt_override *)header;
- 
--	if (BAD_MADT_ENTRY(intsrc, end))
--		return -EINVAL;
--
- 	acpi_table_print_madt_entry(header);
- 
- 	if (intsrc->source_irq = acpi_gbl_FADT.sci_interrupt) {
-@@ -504,9 +480,6 @@ acpi_parse_nmi_src(struct acpi_subtable_header * header, const unsigned long end
- 
- 	nmi_src = (struct acpi_madt_nmi_source *)header;
- 
--	if (BAD_MADT_ENTRY(nmi_src, end))
--		return -EINVAL;
--
- 	acpi_table_print_madt_entry(header);
- 
- 	/* TBD: Support nimsrc entries? */
--- 
-2.4.3
+are available in the git repository at:
 
+  git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git tags/please-=
+pull-syscalls
+
+for you to fetch changes up to d305c4773458fdd6ff9c52bfdea8c67fbd3b2072:
+
+  [IA64] Wire up kcmp syscall (2015-10-28 14:22:59 -0700)
+
+----------------------------------------------------------------
+Missed adding the kcmp() syscall a long time ago. Now it seems
+that it is essential to build systemd.
+
+----------------------------------------------------------------
+=C3=89meric MASCHINO (1):
+      [IA64] Wire up kcmp syscall
+
+ arch/ia64/include/asm/unistd.h      | 2 +-
+ arch/ia64/include/uapi/asm/unistd.h | 1 +
+ arch/ia64/kernel/entry.S            | 1 +
+ 3 files changed, 3 insertions(+), 1 deletion(-)
