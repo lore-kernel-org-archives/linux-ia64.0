@@ -1,50 +1,17 @@
-From: Al Stone <ahs3@redhat.com>
-Date: Mon, 05 Oct 2015 17:12:04 +0000
-Subject: Re: [PATCH v5 0/5] Provide better MADT subtable sanity checks
-Message-Id: <5612AF64.4060900@redhat.com>
+From: Carlos@vger.kernel.org
+Date: Fri, 30 Oct 2015 20:47:22 +0000
+Subject: GOOD NEWS
+Message-Id: <HE1PR09MB010776A9993CF911244DE978B82F0@HE1PR09MB0107.eurprd09.prod.outlook.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1443570346-15378-1-git-send-email-al.stone@linaro.org>
- <560BA4C9.7090607@huawei.com> <560C0968.6020904@redhat.com>
- <2808057.teMg2oCLf6@vostro.rjw.lan>
-In-Reply-To: <2808057.teMg2oCLf6@vostro.rjw.lan>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Cc: Hanjun Guo <guohanjun@huawei.com>, Al Stone <al.stone@linaro.org>, linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linaro-kernel@lists.linaro.org, linux-ia64@vger.kernel.org, patches@linaro.org, linux-pm@vger.kernel.org, linaro-acpi@lists.linaro.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: linux-ia64@vger.kernel.org
 
-On 10/05/2015 07:39 AM, Rafael J. Wysocki wrote:
-> On Wednesday, September 30, 2015 10:10:16 AM Al Stone wrote:
->> On 09/30/2015 03:00 AM, Hanjun Guo wrote:
->>> On 2015/9/30 7:45, Al Stone wrote:
->>>> NB: this patch set is for use against the linux-pm bleeding edge branch.
->>>>
->>
->> [snip...]
->>
->>>
->>> For this patch set,
->>>
->>> Reviewed-by: Hanjun Guo <hanjun.guo@linaro.org>
->>>
->>> Thanks
->>> Hanjun
->>
->> Thanks, Hanjun!
-> 
-> Series applied, thanks!
-> 
-> Rafael
-> 
+GREETINGS,
+ My name is Carlos Slim Helu, A philanthropist the CEO and Chairman of the Carlos Slim Helu Foundation Charitable Foundation, one of the largest private foundations in the world. I believe strongly in ‘giving while living’ I had one idea that never changed in my mind — that you should use your wealth to help people and i have decided to secretly give {$2,500,000.00} Two Million Five Hundred Thousand United Dollars, to randomly selected individuals worldwide. On receipt of this email, you should count yourself as the lucky individual. Your email address was chosen online while searching at random. Kindly get back to me with your full address at your earliest convenience, so I know your email address is valid.
 
-Thanks, Rafael!
+Visit the web page to know more about me: http://www.bornrich.com/carlos-slim-helu.html  or you can Google me ( Carlos Slim Helu ) contact me at this email id (carlos.s.helu1@gmail.com) .
 
--- 
-ciao,
-al
------------------------------------
-Al Stone
-Software Engineer
-Red Hat, Inc.
-ahs3@redhat.com
------------------------------------
+Regards,
+Carlos Slim Helu.
