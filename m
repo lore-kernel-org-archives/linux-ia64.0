@@ -1,85 +1,97 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Thu, 31 Dec 2015 19:09:54 +0000
-Subject: [PATCH v2 32/32] virtio_ring: use virt_store_mb
-Message-Id: <1451572003-2440-33-git-send-email-mst@redhat.com>
+From: "Prakash, Prashanth" <pprakash@codeaurora.org>
+Date: Tue, 01 Dec 2015 17:23:50 +0000
+Subject: Re: [PATCH v2 5/5] ACPI / processor_idle: Add support for Low Power Idle(LPI) states
+Message-Id: <565DD7A6.1000802@codeaurora.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1451572003-2440-1-git-send-email-mst@redhat.com>
-In-Reply-To: <1451572003-2440-1-git-send-email-mst@redhat.com>
+References: <1438710406-3822-1-git-send-email-sudeep.holla@arm.com>
+ <1442411963-14398-1-git-send-email-sudeep.holla@arm.com>
+ <1442411963-14398-6-git-send-email-sudeep.holla@arm.com>
+ <CAJ5Y-ebOPE1oamRk31nxL6VkgSdDd6AmEe2Fw1ku5pGt25D2Rg@mail.gmail.com>
+In-Reply-To: <CAJ5Y-ebOPE1oamRk31nxL6VkgSdDd6AmEe2Fw1ku5pGt25D2Rg@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Peter Zijlstra <peterz@infradead.org>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, Andrew Cooper <andrew.cooper3@citrix.com>, virtualization@lists.linux-foundation.org, Stefano Stabellini <stefano.stabellini@eu.citrix.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>, David Miller <davem@davemloft.net>, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, x86@kernel.org, user-mode-linux-devel@lists.sourceforge.net, adi-buildroot-devel@lists.sourceforge.net, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, xen-devel@lists.xenproject.org
+To: Ashwin Chaugule <ashwin.chaugule@linaro.org>, Sudeep Holla <sudeep.holla@arm.com>
+Cc: linux acpi <linux-acpi@vger.kernel.org>, "Rafael J. Wysocki" <rjw@rjwysocki.net>, lkml <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, x86@kernel.org, Al Stone <al.stone@linaro.org>, Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>, Mahesh Sivasubramanian <msivasub@codeaurora.org>, wufan@codeaurora.org
 
-We need a full barrier after writing out event index, using
-virt_store_mb there seems better than open-coding.  As usual, we need a
-wrapper to account for strong barriers.
+Hi Sudeep,
+>> +static void combine_lpi_states(struct acpi_processor_lpi *l_lpi,
+>> +                              struct acpi_processor_lpi *p_lpi,
+>> +                              struct acpi_processor_lpi *c_lpi)
+>> +{
+>> +       c_lpi->min_residency = max(l_lpi->min_residency, p_lpi->min_residency);
+>> +       c_lpi->wake_latency = l_lpi->wake_latency + p_lpi->wake_latency;
+>> +       c_lpi->enable_parent_state = p_lpi->enable_parent_state;
+>> +       c_lpi->entry_method = l_lpi->entry_method;
+>> +       c_lpi->address = l_lpi->address + p_lpi->address;
+>> +       c_lpi->index = p_lpi->index;
+>> +       c_lpi->flags = p_lpi->flags;
+>> +       c_lpi->arch_flags = p_lpi->arch_flags;
+>> +       strncpy(c_lpi->desc, l_lpi->desc, ACPI_CX_DESC_LEN);
+>> +       strncat(c_lpi->desc, "+", ACPI_CX_DESC_LEN);
+>> +       strncat(c_lpi->desc, p_lpi->desc, ACPI_CX_DESC_LEN);
+>> +}
+I suppose you meant to use strl* instead of strn* operations.  Below is a
+simple patch to fix these. Can you please fold these changes into your next
+version as well?
 
-It's tempting to use this in vhost as well, for that, we'll
-need a variant of smp_store_mb that works on __user pointers.
+ACPI / Processor: fix buffer overflow caused by strncat/strncpy
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+The misuse of strncat in LPI code is causing buffer overflow. The fix
+is to replace strncat with strlcat.
+
+Signed-off-by: Fan Wu <wufan@codeaurora.org>
+Signed-off-by: Prashanth Prakash <pprakash@codeaurora.org>
 ---
- include/linux/virtio_ring.h  | 12 ++++++++++++
- drivers/virtio/virtio_ring.c | 15 +++++++++------
- 2 files changed, 21 insertions(+), 6 deletions(-)
 
-diff --git a/include/linux/virtio_ring.h b/include/linux/virtio_ring.h
-index f3fa55b..3a74d91 100644
---- a/include/linux/virtio_ring.h
-+++ b/include/linux/virtio_ring.h
-@@ -45,6 +45,18 @@ static inline void virtio_wmb(bool weak_barriers)
- 		wmb();
+ drivers/acpi/processor_idle.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/acpi/processor_idle.c b/drivers/acpi/processor_idle.c
+index af851f1..4ca42a7 100644
+--- a/drivers/acpi/processor_idle.c
++++ b/drivers/acpi/processor_idle.c
+@@ -856,7 +856,7 @@ static int acpi_processor_setup_cstates(struct acpi_processor *pr)
+ 
+ 		state = &drv->states[count];
+ 		snprintf(state->name, CPUIDLE_NAME_LEN, "C%d", i);
+-		strncpy(state->desc, cx->desc, CPUIDLE_DESC_LEN);
++		strlcpy(state->desc, cx->desc, CPUIDLE_DESC_LEN);
+ 		state->exit_latency = cx->latency;
+ 		state->target_residency = cx->latency * latency_factor;
+ 		state->enter = acpi_idle_enter;
+@@ -1009,7 +1009,7 @@ static int acpi_processor_evaluate_lpi(acpi_handle handle,
+ 
+ 		obj = &element->package.elements[9];
+ 		if (obj->type = ACPI_TYPE_STRING)
+-			strncpy(lpix->desc, obj->string.pointer, ACPI_CX_DESC_LEN);
++			strlcpy(lpix->desc, obj->string.pointer, ACPI_CX_DESC_LEN);
+ 
+ 		lpix->index = state_count;
+ 
+@@ -1068,9 +1068,9 @@ static void combine_lpi_states(struct acpi_processor_lpi *l_lpi,
+ 	c_lpi->index = p_lpi->index;
+ 	c_lpi->flags = p_lpi->flags;
+ 	c_lpi->arch_flags = p_lpi->arch_flags;
+-	strncpy(c_lpi->desc, l_lpi->desc, ACPI_CX_DESC_LEN);
+-	strncat(c_lpi->desc, "+", ACPI_CX_DESC_LEN);
+-	strncat(c_lpi->desc, p_lpi->desc, ACPI_CX_DESC_LEN);
++	strlcpy(c_lpi->desc, l_lpi->desc, ACPI_CX_DESC_LEN);
++	strlcat(c_lpi->desc, "+", ACPI_CX_DESC_LEN);
++	strlcat(c_lpi->desc, p_lpi->desc, ACPI_CX_DESC_LEN);
  }
  
-+static inline void virtio_store_mb(bool weak_barriers,
-+				   __virtio16 *p, __virtio16 v)
-+{
-+	if (weak_barriers)
-+		virt_store_mb(*p, v);
-+	else
-+	{
-+		WRITE_ONCE(*p, v);
-+		mb();
-+	}
-+}
-+
- struct virtio_device;
- struct virtqueue;
+ static int flatten_lpi_states(struct acpi_processor *pr,
+@@ -1190,7 +1190,7 @@ static int acpi_processor_setup_lpi_states(struct acpi_processor *pr)
  
-diff --git a/drivers/virtio/virtio_ring.c b/drivers/virtio/virtio_ring.c
-index ee663c4..e12e385 100644
---- a/drivers/virtio/virtio_ring.c
-+++ b/drivers/virtio/virtio_ring.c
-@@ -517,10 +517,10 @@ void *virtqueue_get_buf(struct virtqueue *_vq, unsigned int *len)
- 	/* If we expect an interrupt for the next entry, tell host
- 	 * by writing event index and flush out the write before
- 	 * the read in the next get_buf call. */
--	if (!(vq->avail_flags_shadow & VRING_AVAIL_F_NO_INTERRUPT)) {
--		vring_used_event(&vq->vring) = cpu_to_virtio16(_vq->vdev, vq->last_used_idx);
--		virtio_mb(vq->weak_barriers);
--	}
-+	if (!(vq->avail_flags_shadow & VRING_AVAIL_F_NO_INTERRUPT))
-+		virtio_store_mb(vq->weak_barriers,
-+				&vring_used_event(&vq->vring),
-+				cpu_to_virtio16(_vq->vdev, vq->last_used_idx));
- 
- #ifdef DEBUG
- 	vq->last_add_time_valid = false;
-@@ -653,8 +653,11 @@ bool virtqueue_enable_cb_delayed(struct virtqueue *_vq)
- 	}
- 	/* TODO: tune this threshold */
- 	bufs = (u16)(vq->avail_idx_shadow - vq->last_used_idx) * 3 / 4;
--	vring_used_event(&vq->vring) = cpu_to_virtio16(_vq->vdev, vq->last_used_idx + bufs);
--	virtio_mb(vq->weak_barriers);
-+
-+	virtio_store_mb(vq->weak_barriers,
-+			&vring_used_event(&vq->vring),
-+			cpu_to_virtio16(_vq->vdev, vq->last_used_idx + bufs));
-+
- 	if (unlikely((u16)(virtio16_to_cpu(_vq->vdev, vq->vring.used->idx) - vq->last_used_idx) > bufs)) {
- 		END_USE(vq);
- 		return false;
+ 		state = &drv->states[i];
+ 		snprintf(state->name, CPUIDLE_NAME_LEN, "LPI-%d", i);
+-		strncpy(state->desc, lpi->desc, CPUIDLE_DESC_LEN);
++		strlcpy(state->desc, lpi->desc, CPUIDLE_DESC_LEN);
+ 		state->exit_latency = lpi->wake_latency;
+ 		state->target_residency = lpi->min_residency;
+ 		if (lpi->arch_flags)
 -- 
-MST
+1.8.2.1
+
 
