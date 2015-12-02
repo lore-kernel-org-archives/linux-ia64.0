@@ -1,63 +1,41 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Thu, 31 Dec 2015 19:08:38 +0000
-Subject: [PATCH v2 22/32] s390: define __smp_xxx
-Message-Id: <1451572003-2440-23-git-send-email-mst@redhat.com>
+From: "Geyslan G. Bem" <geyslan@gmail.com>
+Date: Wed, 02 Dec 2015 19:07:35 +0000
+Subject: [PATCH] ia64: bitvector_process could read out of bounds
+Message-Id: <1449083269-29614-1-git-send-email-geyslan@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1451572003-2440-1-git-send-email-mst@redhat.com>
-In-Reply-To: <1451572003-2440-1-git-send-email-mst@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Peter Zijlstra <peterz@infradead.org>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, Andrew Cooper <andrew.cooper3@citrix.com>, virtualization@lists.linux-foundation.org, Stefano Stabellini <stefano.stabellini@eu.citrix.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>, David Miller <davem@davemloft.net>, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, x86@kernel.org, user-mode-linux-devel@lists.sourceforge.net, adi-buildroot-devel@lists.sourceforge.net, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, xen-devel@lists.xenproject.org, Martin Schwidefsky <schwidefsky@de.ibm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, Ingo
+To: peter.senna@gmail.com, jg.victorino1@gmail.com, raphaelscarv@gmail.com
+Cc: "Geyslan G. Bem" <geyslan@gmail.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-This defines __smp_xxx barriers for s390,
-for use by virtualization.
+The units[] array could be accessed out of its bounds due the lack of
+verification of the max vector value.
 
-Some smp_xxx barriers are removed as they are
-defined correctly by asm-generic/barriers.h
+To make this function not prone to error "P" and "E" suffixes were added.
+Despite the new suffixes are unrelated to current ia64 vm magnitudes, they
+make the code ready for it and avoid misleadings.
 
-Note: smp_mb, smp_rmb and smp_wmb are defined as full barriers
-unconditionally on this architecture.
+Catched using static analysis (cppcheck).
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-Acked-by: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: Geyslan G. Bem <geyslan@gmail.com>
 ---
- arch/s390/include/asm/barrier.h | 15 +++++++++------
- 1 file changed, 9 insertions(+), 6 deletions(-)
+ arch/ia64/kernel/palinfo.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/s390/include/asm/barrier.h b/arch/s390/include/asm/barrier.h
-index c358c31..fbd25b2 100644
---- a/arch/s390/include/asm/barrier.h
-+++ b/arch/s390/include/asm/barrier.h
-@@ -26,18 +26,21 @@
- #define wmb()				barrier()
- #define dma_rmb()			mb()
- #define dma_wmb()			mb()
--#define smp_mb()			mb()
--#define smp_rmb()			rmb()
--#define smp_wmb()			wmb()
--
--#define smp_store_release(p, v)						\
-+#define __smp_mb()			mb()
-+#define __smp_rmb()			rmb()
-+#define __smp_wmb()			wmb()
-+#define smp_mb()			__smp_mb()
-+#define smp_rmb()			__smp_rmb()
-+#define smp_wmb()			__smp_wmb()
-+
-+#define __smp_store_release(p, v)					\
- do {									\
- 	compiletime_assert_atomic_type(*p);				\
- 	barrier();							\
- 	WRITE_ONCE(*p, v);						\
- } while (0)
+diff --git a/arch/ia64/kernel/palinfo.c b/arch/ia64/kernel/palinfo.c
+index c39c3cd..160aba1 100644
+--- a/arch/ia64/kernel/palinfo.c
++++ b/arch/ia64/kernel/palinfo.c
+@@ -126,7 +126,7 @@ static const char *mem_attrib[]={
+ static void bitvector_process(struct seq_file *m, u64 vector)
+ {
+ 	int i,j;
+-	static const char *units[]={ "", "K", "M", "G", "T" };
++	static const char *units[] = { "", "K", "M", "G", "T", "P", "E" };
  
--#define smp_load_acquire(p)						\
-+#define __smp_load_acquire(p)						\
- ({									\
- 	typeof(*p) ___p1 = READ_ONCE(*p);				\
- 	compiletime_assert_atomic_type(*p);				\
+ 	for (i=0, j=0; i < 64; i++ , j=i/10) {
+ 		if (vector & 0x1)
 -- 
-MST
+2.6.2
 
