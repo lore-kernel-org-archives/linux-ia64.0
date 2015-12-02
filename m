@@ -1,33 +1,41 @@
-From: Li Bin <huawei.libin@huawei.com>
-Date: Mon, 28 Dec 2015 08:33:02 +0000
-Subject: [PATCH] ia64: ftrace: remove the misleading comment for ftrace_dyn_arch_init
-Message-Id: <1451291582-10346-1-git-send-email-huawei.libin@huawei.com>
+From: "Geyslan G. Bem" <geyslan@gmail.com>
+Date: Wed, 02 Dec 2015 20:00:10 +0000
+Subject: [PATCH v2] ia64: bitvector_process could read out of bounds
+Message-Id: <1449086412-3540-1-git-send-email-geyslan@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: peter.senna@gmail.com, jg.victorino1@gmail.com, raphaelscarv@gmail.com
+Cc: "Geyslan G. Bem" <geyslan@gmail.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-ftrace_dyn_arch_init no longer in kstop_machine, so remove the
-corresponding comment.
+The units[] array could be accessed out of its bounds due the lack of
+verification of the max vector value.
 
-Signed-off-by: Li Bin <huawei.libin@huawei.com>
+To make this function not prone to error "P" and "E" suffixes were added.
+Despite the new suffixes are unrelated to current ia64 vm magnitudes, they
+make the code ready for it and avoid misleadings.
+
+Caught using static analysis (cppcheck).
+
+Signed-off-by: Geyslan G. Bem <geyslan@gmail.com>
 ---
- arch/ia64/kernel/ftrace.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+ arch/ia64/kernel/palinfo.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/ia64/kernel/ftrace.c b/arch/ia64/kernel/ftrace.c
-index 3b0c2aa..0d07757 100644
---- a/arch/ia64/kernel/ftrace.c
-+++ b/arch/ia64/kernel/ftrace.c
-@@ -197,7 +197,6 @@ int ftrace_update_ftrace_func(ftrace_func_t func)
- 	return 0;
- }
- 
--/* run from kstop_machine */
- int __init ftrace_dyn_arch_init(void)
+diff --git a/arch/ia64/kernel/palinfo.c b/arch/ia64/kernel/palinfo.c
+index c39c3cd..bb499102 100644
+--- a/arch/ia64/kernel/palinfo.c
++++ b/arch/ia64/kernel/palinfo.c
+@@ -126,7 +126,7 @@ static const char *mem_attrib[]={
+ static void bitvector_process(struct seq_file *m, u64 vector)
  {
- 	return 0;
+ 	int i,j;
+-	static const char *units[]={ "", "K", "M", "G", "T" };
++	static const char *units[] = { "", "K", "M", "G", "T", "P", "E" };
+ 
+ 	for (i=0, j=0; i < 64; i++ , j=i/10) {
+ 		if (vector & 0x1)
 -- 
-1.7.1
+2.6.2
 
