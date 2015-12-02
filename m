@@ -1,59 +1,75 @@
-From: Li Bin <huawei.libin@huawei.com>
-Date: Sun, 06 Dec 2015 02:02:54 +0000
-Subject: [PATCH v2 1/5] ia64: ftrace: fix the comments for ftrace_modify_code
-Message-Id: <1449367378-29430-2-git-send-email-huawei.libin@huawei.com>
+From: Sudeep Holla <sudeep.holla@arm.com>
+Date: Wed, 02 Dec 2015 14:10:42 +0000
+Subject: [PATCH v3 1/5] ACPI / processor : add support for ACPI0010 processor container
+Message-Id: <1449065446-26115-2-git-send-email-sudeep.holla@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1449367378-29430-1-git-send-email-huawei.libin@huawei.com>
-In-Reply-To: <1449367378-29430-1-git-send-email-huawei.libin@huawei.com>
+References: <1449065446-26115-1-git-send-email-sudeep.holla@arm.com>
+In-Reply-To: <1449065446-26115-1-git-send-email-sudeep.holla@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: rostedt@goodmis.org, mingo@redhat.com
-Cc: linux-kernel@vger.kernel.org, Li Bin <huawei.libin@huawei.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+To: linux-acpi@vger.kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>
+Cc: Sudeep Holla <sudeep.holla@arm.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, x86@kernel.org, Al Stone <al.stone@linaro.org>, Lorenzo Pieralisi <Lorenzo.Pieralisi@arm.com>, Mahesh Sivasubramanian <msivasub@codeaurora.org>, Ashwin Chaugule <ashwin.chaugule@linaro.org>, Prashanth Prakash <pprakash@codeaurora.org>
 
-There is no need to worry about module and __init text disappearing
-case, because that ftrace has a module notifier that is called when
-a module is being unloaded and before the text goes away and this
-code grabs the ftrace_lock mutex and removes the module functions
-from the ftrace list, such that it will no longer do any
-modifications to that module's text, the update to make functions
-be traced or not is done under the ftrace_lock mutex as well.
-And by now, __init section codes should not been modified
-by ftrace, because it is black listed in recordmcount.c and
-ignored by ftrace.
+ACPI 6.0 adds support for optional processor container device which may
+contain child objects that are either processor devices or other processor
+containers. This allows representing hierarchical processor topologies.
 
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org
-Suggested-by: Steven Rostedt <rostedt@goodmis.org>
-Signed-off-by: Li Bin <huawei.libin@huawei.com>
+It is declared using the _HID of ACPI0010. It is an abstract container
+used to represent CPU topology and should not be used to hotplug
+purposes.
+
+This patch enables the support for these ACPI processor containers and
+ensures the generic container/module devices are not created for them.
+
+Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>
+Signed-off-by: Sudeep Holla <sudeep.holla@arm.com>
 ---
- arch/ia64/kernel/ftrace.c |   12 +++++-------
- 1 files changed, 5 insertions(+), 7 deletions(-)
+ drivers/acpi/acpi_processor.c | 17 +++++++++++++++++
+ include/acpi/processor.h      |  1 +
+ 2 files changed, 18 insertions(+)
 
-diff --git a/arch/ia64/kernel/ftrace.c b/arch/ia64/kernel/ftrace.c
-index 3b0c2aa..cee411e 100644
---- a/arch/ia64/kernel/ftrace.c
-+++ b/arch/ia64/kernel/ftrace.c
-@@ -97,13 +97,11 @@ ftrace_modify_code(unsigned long ip, unsigned char *old_code,
- 	unsigned char replaced[MCOUNT_INSN_SIZE];
+diff --git a/drivers/acpi/acpi_processor.c b/drivers/acpi/acpi_processor.c
+index 6979186dbd4b..b5e54f2da53d 100644
+--- a/drivers/acpi/acpi_processor.c
++++ b/drivers/acpi/acpi_processor.c
+@@ -514,7 +514,24 @@ static struct acpi_scan_handler processor_handler = {
+ 	},
+ };
  
- 	/*
--	 * Note: Due to modules and __init, code can
--	 *  disappear and change, we need to protect against faulting
--	 *  as well as code changing. We do this by using the
--	 *  probe_kernel_* functions.
--	 *
--	 * No real locking needed, this code is run through
--	 * kstop_machine, or before SMP starts.
-+	 * Note:
-+	 * We are paranoid about modifying text, as if a bug was to happen, it
-+	 * could cause us to read or write to someplace that could cause harm.
-+	 * Carefully read and modify the code with probe_kernel_*(), and make
-+	 * sure what we read is what we expected it to be before modifying it.
- 	 */
++static int acpi_processor_container_attach(struct acpi_device *dev,
++					   const struct acpi_device_id *id)
++{
++	return 1;
++}
++
++static const struct acpi_device_id processor_container_ids[] = {
++	{ ACPI_PROCESSOR_CONTAINER_HID, },
++	{ }
++};
++
++static struct acpi_scan_handler processor_container_handler = {
++	.ids = processor_container_ids,
++	.attach = acpi_processor_container_attach,
++};
++
+ void __init acpi_processor_init(void)
+ {
+ 	acpi_scan_add_handler_with_hotplug(&processor_handler, "processor");
++	acpi_scan_add_handler(&processor_container_handler);
+ }
+diff --git a/include/acpi/processor.h b/include/acpi/processor.h
+index 07fb100bcc68..54d7860cac11 100644
+--- a/include/acpi/processor.h
++++ b/include/acpi/processor.h
+@@ -9,6 +9,7 @@
+ #define ACPI_PROCESSOR_CLASS		"processor"
+ #define ACPI_PROCESSOR_DEVICE_NAME	"Processor"
+ #define ACPI_PROCESSOR_DEVICE_HID	"ACPI0007"
++#define ACPI_PROCESSOR_CONTAINER_HID	"ACPI0010"
  
- 	if (!do_check)
+ #define ACPI_PROCESSOR_BUSY_METRIC	10
+ 
 -- 
-1.7.1
+1.9.1
 
