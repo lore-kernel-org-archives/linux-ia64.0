@@ -1,7 +1,7 @@
 From: Sudeep Holla <sudeep.holla@arm.com>
-Date: Wed, 02 Dec 2015 14:10:43 +0000
-Subject: [PATCH v3 2/5] ACPI / sleep: move acpi_processor_sleep to sleep.c
-Message-Id: <1449065446-26115-3-git-send-email-sudeep.holla@arm.com>
+Date: Wed, 02 Dec 2015 14:10:45 +0000
+Subject: [PATCH v3 4/5] ACPI / processor_idle : introduce ARCH_SUPPORTS_ACPI_PROCESSOR_CSTATE
+Message-Id: <1449065446-26115-5-git-send-email-sudeep.holla@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1449065446-26115-1-git-send-email-sudeep.holla@arm.com>
 In-Reply-To: <1449065446-26115-1-git-send-email-sudeep.holla@arm.com>
@@ -11,178 +11,168 @@ Content-Transfer-Encoding: 7bit
 To: linux-acpi@vger.kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>
 Cc: Sudeep Holla <sudeep.holla@arm.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, x86@kernel.org, Al Stone <al.stone@linaro.org>, Lorenzo Pieralisi <Lorenzo.Pieralisi@arm.com>, Mahesh Sivasubramanian <msivasub@codeaurora.org>, Ashwin Chaugule <ashwin.chaugule@linaro.org>, Prashanth Prakash <pprakash@codeaurora.org>
 
-acpi_processor_sleep is neither related nor used by CPUIdle framework.
-It's used in system suspend/resume path as a syscore operation. It makes
-more sense to move it to acpi/sleep.c where all the S-state transition
-(a.k.a. Linux system suspend/hiberate) related code are present.
+ACPI 6.0 adds a new method to specify the CPU idle states(C-states)
+called Low Power Idle(LPI) states. Since new architectures like ARM64
+use only LPIs, introduce ARCH_SUPPORTS_ACPI_PROCESSOR_CSTATE to
+encapsulate all the code supporting the old style C-states(_CST)
 
-Also make it depend on CONFIG_ACPI_SYSTEM_POWER_STATES_SUPPORT so that
-it's not compiled on architecture like ARM64 where S-states are not
-yet defined in ACPI.
+This patch will help to extend the processor_idle module to support
+LPI.
 
 Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>
 Signed-off-by: Sudeep Holla <sudeep.holla@arm.com>
 ---
- drivers/acpi/processor_driver.c |  2 --
- drivers/acpi/processor_idle.c   | 37 -------------------------------------
- drivers/acpi/sleep.c            | 35 +++++++++++++++++++++++++++++++++++
- include/acpi/processor.h        |  8 --------
- 4 files changed, 35 insertions(+), 47 deletions(-)
+ arch/ia64/Kconfig             |  1 +
+ arch/x86/Kconfig              |  1 +
+ drivers/acpi/Kconfig          |  3 +++
+ drivers/acpi/processor_idle.c | 57 +++++++++++++++++++++++++++++++------------
+ include/acpi/processor.h      |  3 ++-
+ 5 files changed, 49 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/acpi/processor_driver.c b/drivers/acpi/processor_driver.c
-index f4e02ae93f58..29f787b2493f 100644
---- a/drivers/acpi/processor_driver.c
-+++ b/drivers/acpi/processor_driver.c
-@@ -313,7 +313,6 @@ static int __init acpi_processor_driver_init(void)
- 	if (result < 0)
- 		return result;
+diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+index eb0249e37981..dbfa3c3a49e1 100644
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -16,6 +16,7 @@ config IA64
+ 	select PCI if (!IA64_HP_SIM)
+ 	select ACPI if (!IA64_HP_SIM)
+ 	select ACPI_SYSTEM_POWER_STATES_SUPPORT if ACPI
++	select ARCH_SUPPORTS_ACPI_PROCESSOR_CSTATE if ACPI
+ 	select ARCH_MIGHT_HAVE_ACPI_PDC if ACPI
+ 	select HAVE_UNSTABLE_SCHED_CLOCK
+ 	select HAVE_IDE
+diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
+index db3622f22b61..70cd310a447e 100644
+--- a/arch/x86/Kconfig
++++ b/arch/x86/Kconfig
+@@ -34,6 +34,7 @@ config X86
+ 	select ARCH_MIGHT_HAVE_ACPI_PDC		if ACPI
+ 	select ARCH_MIGHT_HAVE_PC_PARPORT
+ 	select ARCH_MIGHT_HAVE_PC_SERIO
++	select ARCH_SUPPORTS_ACPI_PROCESSOR_CSTATE if ACPI
+ 	select ARCH_SUPPORTS_ATOMIC_RMW
+ 	select ARCH_SUPPORTS_DEFERRED_STRUCT_PAGE_INIT
+ 	select ARCH_SUPPORTS_INT128		if X86_64
+diff --git a/drivers/acpi/Kconfig b/drivers/acpi/Kconfig
+index 25dbb76c02cc..12873f0b8141 100644
+--- a/drivers/acpi/Kconfig
++++ b/drivers/acpi/Kconfig
+@@ -48,6 +48,9 @@ config ACPI_LEGACY_TABLES_LOOKUP
+ config ARCH_MIGHT_HAVE_ACPI_PDC
+ 	bool
  
--	acpi_processor_syscore_init();
- 	register_hotcpu_notifier(&acpi_cpu_notifier);
- 	acpi_thermal_cpufreq_init();
- 	acpi_processor_ppc_init();
-@@ -329,7 +328,6 @@ static void __exit acpi_processor_driver_exit(void)
- 	acpi_processor_ppc_exit();
- 	acpi_thermal_cpufreq_exit();
- 	unregister_hotcpu_notifier(&acpi_cpu_notifier);
--	acpi_processor_syscore_exit();
- 	driver_unregister(&acpi_processor_driver);
- }
++config ARCH_SUPPORTS_ACPI_PROCESSOR_CSTATE
++	bool
++
+ config ACPI_GENERIC_GSI
+ 	bool
  
 diff --git a/drivers/acpi/processor_idle.c b/drivers/acpi/processor_idle.c
-index 175c86bee3a9..a24067b850d2 100644
+index fadce354d2b7..9ca840c88f48 100644
 --- a/drivers/acpi/processor_idle.c
 +++ b/drivers/acpi/processor_idle.c
-@@ -30,7 +30,6 @@
- #include <linux/sched.h>       /* need_resched() */
- #include <linux/tick.h>
- #include <linux/cpuidle.h>
--#include <linux/syscore_ops.h>
- #include <acpi/processor.h>
+@@ -59,6 +59,12 @@ module_param(latency_factor, uint, 0644);
  
- /*
-@@ -194,42 +193,6 @@ static void lapic_timer_state_broadcast(struct acpi_processor *pr,
+ static DEFINE_PER_CPU(struct cpuidle_device *, acpi_cpuidle_device);
  
- #endif
- 
--#ifdef CONFIG_PM_SLEEP
--static u32 saved_bm_rld;
--
--static int acpi_processor_suspend(void)
--{
--	acpi_read_bit_register(ACPI_BITREG_BUS_MASTER_RLD, &saved_bm_rld);
--	return 0;
--}
--
--static void acpi_processor_resume(void)
--{
--	u32 resumed_bm_rld = 0;
--
--	acpi_read_bit_register(ACPI_BITREG_BUS_MASTER_RLD, &resumed_bm_rld);
--	if (resumed_bm_rld = saved_bm_rld)
--		return;
--
--	acpi_write_bit_register(ACPI_BITREG_BUS_MASTER_RLD, saved_bm_rld);
--}
--
--static struct syscore_ops acpi_processor_syscore_ops = {
--	.suspend = acpi_processor_suspend,
--	.resume = acpi_processor_resume,
--};
--
--void acpi_processor_syscore_init(void)
--{
--	register_syscore_ops(&acpi_processor_syscore_ops);
--}
--
--void acpi_processor_syscore_exit(void)
--{
--	unregister_syscore_ops(&acpi_processor_syscore_ops);
--}
--#endif /* CONFIG_PM_SLEEP */
--
- #if defined(CONFIG_X86)
- static void tsc_check_state(int state)
- {
-diff --git a/drivers/acpi/sleep.c b/drivers/acpi/sleep.c
-index 0d94621dc856..73604d8ccfad 100644
---- a/drivers/acpi/sleep.c
-+++ b/drivers/acpi/sleep.c
-@@ -19,6 +19,7 @@
- #include <linux/reboot.h>
- #include <linux/acpi.h>
- #include <linux/module.h>
-+#include <linux/syscore_ops.h>
- #include <asm/io.h>
- #include <trace/events/power.h>
- 
-@@ -677,6 +678,39 @@ static void acpi_sleep_suspend_setup(void)
- static inline void acpi_sleep_suspend_setup(void) {}
- #endif /* !CONFIG_SUSPEND */
- 
-+#ifdef CONFIG_PM_SLEEP
-+static u32 saved_bm_rld;
-+
-+static int acpi_processor_suspend(void)
-+{
-+	acpi_read_bit_register(ACPI_BITREG_BUS_MASTER_RLD, &saved_bm_rld);
-+	return 0;
-+}
-+
-+static void acpi_processor_resume(void)
-+{
-+	u32 resumed_bm_rld = 0;
-+
-+	acpi_read_bit_register(ACPI_BITREG_BUS_MASTER_RLD, &resumed_bm_rld);
-+	if (resumed_bm_rld = saved_bm_rld)
-+		return;
-+
-+	acpi_write_bit_register(ACPI_BITREG_BUS_MASTER_RLD, saved_bm_rld);
-+}
-+
-+static struct syscore_ops acpi_processor_syscore_ops = {
-+	.suspend = acpi_processor_suspend,
-+	.resume = acpi_processor_resume,
++struct cpuidle_driver acpi_idle_driver = {
++	.name =		"acpi_idle",
++	.owner =	THIS_MODULE,
 +};
 +
-+void acpi_processor_syscore_init(void)
++#ifdef CONFIG_ARCH_SUPPORTS_ACPI_PROCESSOR_CSTATE
+ static DEFINE_PER_CPU(struct acpi_processor_cx * [CPUIDLE_STATE_MAX],
+ 								acpi_cstate);
+ 
+@@ -804,11 +810,6 @@ static void acpi_idle_enter_freeze(struct cpuidle_device *dev,
+ 	acpi_idle_do_entry(cx);
+ }
+ 
+-struct cpuidle_driver acpi_idle_driver = {
+-	.name =		"acpi_idle",
+-	.owner =	THIS_MODULE,
+-};
+-
+ /**
+  * acpi_processor_setup_cpuidle_cx - prepares and configures CPUIDLE
+  * device i.e. per-cpu data
+@@ -925,6 +926,41 @@ static int acpi_processor_setup_cpuidle_states(struct acpi_processor *pr)
+ 	return 0;
+ }
+ 
++static inline void acpi_processor_cstate_first_run_checks(void)
 +{
-+	register_syscore_ops(&acpi_processor_syscore_ops);
++	static int first_run;
++
++	if (first_run)
++		return;
++	dmi_check_system(processor_power_dmi_table);
++	max_cstate = acpi_processor_cstate_check(max_cstate);
++	if (max_cstate < ACPI_C_STATES_MAX)
++		pr_notice("ACPI: processor limited to max C-state %d\n",
++			  max_cstate);
++	first_run++;
 +}
 +#else
-+static inline void acpi_processor_syscore_init(void) {}
-+#endif /* CONFIG_PM_SLEEP */
 +
- #ifdef CONFIG_HIBERNATION
- static unsigned long s4_hardware_signature;
- static struct acpi_table_facs *facs;
-@@ -839,6 +873,7 @@ int __init acpi_sleep_init(void)
++static inline int disabled_by_idle_boot_param(void) { return 0; }
++static inline void acpi_processor_cstate_first_run_checks(void) { }
++static int acpi_processor_get_power_info(struct acpi_processor *pr)
++{
++	return -ENODEV;
++}
++
++static int acpi_processor_setup_cpuidle_cx(struct acpi_processor *pr,
++					   struct cpuidle_device *dev)
++{
++	return -EINVAL;
++}
++
++static int acpi_processor_setup_cpuidle_states(struct acpi_processor *pr)
++{
++	return -EINVAL;
++}
++
++#endif
++
+ int acpi_processor_hotplug(struct acpi_processor *pr)
+ {
+ 	int ret = 0;
+@@ -1018,20 +1054,11 @@ int acpi_processor_power_init(struct acpi_processor *pr)
+ 	acpi_status status;
+ 	int retval;
+ 	struct cpuidle_device *dev;
+-	static int first_run;
  
- 	sleep_states[ACPI_STATE_S0] = 1;
+ 	if (disabled_by_idle_boot_param())
+ 		return 0;
  
-+	acpi_processor_syscore_init();
- 	acpi_sleep_suspend_setup();
- 	acpi_sleep_hibernate_setup();
+-	if (!first_run) {
+-		dmi_check_system(processor_power_dmi_table);
+-		max_cstate = acpi_processor_cstate_check(max_cstate);
+-		if (max_cstate < ACPI_C_STATES_MAX)
+-			printk(KERN_NOTICE
+-			       "ACPI: processor limited to max C-state %d\n",
+-			       max_cstate);
+-		first_run++;
+-	}
++	acpi_processor_cstate_first_run_checks();
  
-diff --git a/include/acpi/processor.h b/include/acpi/processor.h
-index 54d7860cac11..6f1805dd5d3c 100644
+ 	if (acpi_gbl_FADT.cst_control && !nocst) {
+ 		status diff --git a/include/acpi/processor.h b/include/acpi/processor.h
+index 6f1805dd5d3c..50f2423d31fa 100644
 --- a/include/acpi/processor.h
 +++ b/include/acpi/processor.h
-@@ -395,14 +395,6 @@ static inline int acpi_processor_hotplug(struct acpi_processor *pr)
- }
- #endif /* CONFIG_ACPI_PROCESSOR_IDLE */
+@@ -242,7 +242,8 @@ extern int acpi_processor_get_performance_info(struct acpi_processor *pr);
+ DECLARE_PER_CPU(struct acpi_processor *, processors);
+ extern struct acpi_processor_errata errata;
  
--#if defined(CONFIG_PM_SLEEP) & defined(CONFIG_ACPI_PROCESSOR_IDLE)
--void acpi_processor_syscore_init(void);
--void acpi_processor_syscore_exit(void);
--#else
--static inline void acpi_processor_syscore_init(void) {}
--static inline void acpi_processor_syscore_exit(void) {}
--#endif
--
- /* in processor_thermal.c */
- int acpi_processor_get_limit_info(struct acpi_processor *pr);
- extern const struct thermal_cooling_device_ops processor_cooling_ops;
+-#ifdef ARCH_HAS_POWER_INIT
++#if defined(ARCH_HAS_POWER_INIT) && \
++	defined(CONFIG_ARCH_SUPPORTS_ACPI_PROCESSOR_CSTATE)
+ void acpi_processor_power_init_bm_check(struct acpi_processor_flags *flags,
+ 					unsigned int cpu);
+ int acpi_processor_ffh_cstate_probe(unsigned int cpu,
 -- 
 1.9.1
 
