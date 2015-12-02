@@ -1,47 +1,104 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Thu, 31 Dec 2015 19:07:18 +0000
-Subject: [PATCH v2 12/32] x86/um: reuse asm-generic/barrier.h
-Message-Id: <1451572003-2440-13-git-send-email-mst@redhat.com>
+From: Sudeep Holla <sudeep.holla@arm.com>
+Date: Wed, 02 Dec 2015 14:10:44 +0000
+Subject: [PATCH v3 3/5] ACPI / processor_idle: replace PREFIX with pr_fmt
+Message-Id: <1449065446-26115-4-git-send-email-sudeep.holla@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1451572003-2440-1-git-send-email-mst@redhat.com>
-In-Reply-To: <1451572003-2440-1-git-send-email-mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+References: <1449065446-26115-1-git-send-email-sudeep.holla@arm.com>
+In-Reply-To: <1449065446-26115-1-git-send-email-sudeep.holla@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Andrew Cooper <andrew.cooper3-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>, virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, Stefano Stabellini <stefano.stabellini-mvvWK6WmYclDPfheJLI6IQ@public.gmane.org>, Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>, Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>, "H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, user-mode-linux-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, adi-buildroot-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org, xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org, Jeff Dike <jdike-OPE4K8JWMJJBDgjK7y7TUQ@public.gmane.org>, Richard Weinberger <richard-/L3Ra7n9ekc@public.gmane.org>, Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Bo
+To: linux-acpi@vger.kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>
+Cc: Sudeep Holla <sudeep.holla@arm.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, x86@kernel.org, Al Stone <al.stone@linaro.org>, Lorenzo Pieralisi <Lorenzo.Pieralisi@arm.com>, Mahesh Sivasubramanian <msivasub@codeaurora.org>, Ashwin Chaugule <ashwin.chaugule@linaro.org>, Prashanth Prakash <pprakash@codeaurora.org>
 
-On x86/um CONFIG_SMP is never defined.  As a result, several macros
-match the asm-generic variant exactly. Drop the local definitions and
-pull in asm-generic/barrier.h instead.
+Like few of the other ACPI modules, replace PREFIX with pr_fmt and
+change all the printk call sites to use pr_* companion functions
+in processor_idle.
 
-This is in preparation to refactoring this code area.
-
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-Acked-by: Arnd Bergmann <arnd@arndb.de>
+Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>
+Signed-off-by: Sudeep Holla <sudeep.holla@arm.com>
 ---
- arch/x86/um/asm/barrier.h | 9 +--------
- 1 file changed, 1 insertion(+), 8 deletions(-)
+ drivers/acpi/processor_idle.c | 25 +++++++++++--------------
+ 1 file changed, 11 insertions(+), 14 deletions(-)
 
-diff --git a/arch/x86/um/asm/barrier.h b/arch/x86/um/asm/barrier.h
-index 755481f..174781a 100644
---- a/arch/x86/um/asm/barrier.h
-+++ b/arch/x86/um/asm/barrier.h
-@@ -36,13 +36,6 @@
- #endif /* CONFIG_X86_PPRO_FENCE */
- #define dma_wmb()	barrier()
+diff --git a/drivers/acpi/processor_idle.c b/drivers/acpi/processor_idle.c
+index a24067b850d2..fadce354d2b7 100644
+--- a/drivers/acpi/processor_idle.c
++++ b/drivers/acpi/processor_idle.c
+@@ -23,6 +23,7 @@
+  *
+  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  */
++#define pr_fmt(fmt) "ACPI: " fmt
  
--#define smp_mb()	barrier()
--#define smp_rmb()	barrier()
--#define smp_wmb()	barrier()
--
--#define smp_store_mb(var, value) do { WRITE_ONCE(var, value); barrier(); } while (0)
--
--#define read_barrier_depends()		do { } while (0)
--#define smp_read_barrier_depends()	do { } while (0)
-+#include <asm-generic/barrier.h>
- 
+ #include <linux/module.h>
+ #include <linux/acpi.h>
+@@ -42,8 +43,6 @@
+ #include <asm/apic.h>
  #endif
+ 
+-#define PREFIX "ACPI: "
+-
+ #define ACPI_PROCESSOR_CLASS            "processor"
+ #define _COMPONENT              ACPI_PROCESSOR_COMPONENT
+ ACPI_MODULE_NAME("processor_idle");
+@@ -80,9 +79,9 @@ static int set_max_cstate(const struct dmi_system_id *id)
+ 	if (max_cstate > ACPI_PROCESSOR_MAX_POWER)
+ 		return 0;
+ 
+-	printk(KERN_NOTICE PREFIX "%s detected - limiting to C%ld max_cstate."
+-	       " Override with \"processor.max_cstate=%d\"\n", id->ident,
+-	       (long)id->driver_data, ACPI_PROCESSOR_MAX_POWER + 1);
++	pr_notice("%s detected - limiting to C%ld max_cstate."
++		  " Override with \"processor.max_cstate=%d\"\n", id->ident,
++		  (long)id->driver_data, ACPI_PROCESSOR_MAX_POWER + 1);
+ 
+ 	max_cstate = (long)id->driver_data;
+ 
+@@ -314,7 +313,7 @@ static int acpi_processor_get_power_info_cst(struct acpi_processor *pr)
+ 
+ 	/* There must be at least 2 elements */
+ 	if (!cst || (cst->type != ACPI_TYPE_PACKAGE) || cst->package.count < 2) {
+-		printk(KERN_ERR PREFIX "not enough elements in _CST\n");
++		pr_err("not enough elements in _CST\n");
+ 		ret = -EFAULT;
+ 		goto end;
+ 	}
+@@ -323,7 +322,7 @@ static int acpi_processor_get_power_info_cst(struct acpi_processor *pr)
+ 
+ 	/* Validate number of power states. */
+ 	if (count < 1 || count != cst->package.count - 1) {
+-		printk(KERN_ERR PREFIX "count given by _CST is not valid\n");
++		pr_err("count given by _CST is not valid\n");
+ 		ret = -EFAULT;
+ 		goto end;
+ 	}
+@@ -432,11 +431,9 @@ static int acpi_processor_get_power_info_cst(struct acpi_processor *pr)
+ 		 * (From 1 through ACPI_PROCESSOR_MAX_POWER - 1)
+ 		 */
+ 		if (current_count >= (ACPI_PROCESSOR_MAX_POWER - 1)) {
+-			printk(KERN_WARNING
+-			       "Limiting number of power states to max (%d)\n",
+-			       ACPI_PROCESSOR_MAX_POWER);
+-			printk(KERN_WARNING
+-			       "Please increase ACPI_PROCESSOR_MAX_POWER if needed.\n");
++			pr_warn("Limiting number of power states to max (%d)\n",
++				ACPI_PROCESSOR_MAX_POWER);
++			pr_warn("Please increase ACPI_PROCESSOR_MAX_POWER if needed.\n");
+ 			break;
+ 		}
+ 	}
+@@ -1060,8 +1057,8 @@ int acpi_processor_power_init(struct acpi_processor *pr)
+ 			retval = cpuidle_register_driver(&acpi_idle_driver);
+ 			if (retval)
+ 				return retval;
+-			printk(KERN_DEBUG "ACPI: %s registered with cpuidle\n",
+-					acpi_idle_driver.name);
++			pr_debug("%s registered with cpuidle\n",
++				 acpi_idle_driver.name);
+ 		}
+ 
+ 		dev = kzalloc(sizeof(*dev), GFP_KERNEL);
 -- 
-MST
+1.9.1
 
