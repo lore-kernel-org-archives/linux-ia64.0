@@ -1,60 +1,24 @@
-From: Li Bin <huawei.libin@huawei.com>
-Date: Fri, 04 Dec 2015 07:27:43 +0000
-Subject: [PATCH 1/5] ia64: ftrace: fix the comments for ftrace_modify_code
-Message-Id: <1449214067-12177-2-git-send-email-huawei.libin@huawei.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Fri, 04 Dec 2015 17:36:51 +0000
+Subject: RE: [PATCH 1/5] ia64: ftrace: fix the comments for ftrace_modify_code
+Message-Id: <3908561D78D1C84285E8C5FCA982C28F39F78BE8@ORSMSX114.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1449214067-12177-1-git-send-email-huawei.libin@huawei.com>
-In-Reply-To: <1449214067-12177-1-git-send-email-huawei.libin@huawei.com>
+ <1449214067-12177-2-git-send-email-huawei.libin@huawei.com>
+In-Reply-To: <1449214067-12177-2-git-send-email-huawei.libin@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: rostedt@goodmis.org, mingo@redhat.com
-Cc: linux-kernel@vger.kernel.org, Li Bin <huawei.libin@huawei.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+To: Li Bin <huawei.libin@huawei.com>, "rostedt@goodmis.org" <rostedt@goodmis.org>, "mingo@redhat.com" <mingo@redhat.com>
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "Yu, Fenghua" <fenghua.yu@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
 
-There is no need to worry about module and __init text disappearing
-case, because that ftrace has a module notifier that is called when
-a module is being unloaded and before the text goes away and this
-code grabs the ftrace_lock mutex and removes the module functions
-from the ftrace list, such that it will no longer do any
-modifications to that module's text, the update to make functions
-be traced or not is done under the ftrace_lock mutex as well.
-And by now, __init section codes should not been modified
-by ftrace, because it is black listed in recordmcount.c and
-ignored by ftrace.
+> Suggested-by: Steven Rostedt <rostedt@goodmis.org>
+> Signed-off-by: Li Bin <huawei.libin@huawei.com>
 
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org
-Suggested-by: Steven Rostedt <rostedt@goodmis.org>
-Signed-off-by: Li Bin <huawei.libin@huawei.com>
----
- arch/ia64/kernel/ftrace.c |   13 ++++++-------
- 1 files changed, 6 insertions(+), 7 deletions(-)
+Sure.
 
-diff --git a/arch/ia64/kernel/ftrace.c b/arch/ia64/kernel/ftrace.c
-index 3b0c2aa..a48a3f4 100644
---- a/arch/ia64/kernel/ftrace.c
-+++ b/arch/ia64/kernel/ftrace.c
-@@ -97,13 +97,12 @@ ftrace_modify_code(unsigned long ip, unsigned char *old_code,
- 	unsigned char replaced[MCOUNT_INSN_SIZE];
- 
- 	/*
--	 * Note: Due to modules and __init, code can
--	 *  disappear and change, we need to protect against faulting
--	 *  as well as code changing. We do this by using the
--	 *  probe_kernel_* functions.
--	 *
--	 * No real locking needed, this code is run through
--	 * kstop_machine, or before SMP starts.
-+	 * Note:
-+	 * We are paranoid about modifying text, as if a bug were to happen, it
-+	 * could cause us to read or write to someplace that could cause harm.
-+	 * Carefully read and modify the code with aarch64_insn_*() which uses
-+	 * probe_kernel_*(), and make sure what we read is what we expected it
-+	 * to be before modifying it.
- 	 */
- 
- 	if (!do_check)
--- 
-1.7.1
+Acked-by: Tony Luck <tomy.luck@intel.com>
 
+[assuming that Steven is going to apply this whole series]
+
+-Tony
