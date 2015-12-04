@@ -1,28 +1,60 @@
-From: Sudeep Holla <sudeep.holla@arm.com>
-Date: Thu, 10 Dec 2015 08:48:21 +0000
-Subject: Re: [PATCH v3 0/5] ACPI / processor_idle: Add ACPI v6.0 LPI support
-Message-Id: <56693C55.8020605@arm.com>
+From: Li Bin <huawei.libin@huawei.com>
+Date: Fri, 04 Dec 2015 07:27:43 +0000
+Subject: [PATCH 1/5] ia64: ftrace: fix the comments for ftrace_modify_code
+Message-Id: <1449214067-12177-2-git-send-email-huawei.libin@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1449065446-26115-1-git-send-email-sudeep.holla@arm.com>
- <5668B09F.70201@codeaurora.org>
-In-Reply-To: <5668B09F.70201@codeaurora.org>
+References: <1449214067-12177-1-git-send-email-huawei.libin@huawei.com>
+In-Reply-To: <1449214067-12177-1-git-send-email-huawei.libin@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Prakash, Prashanth" <pprakash@codeaurora.org>, linux-acpi@vger.kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Cc: Sudeep Holla <sudeep.holla@arm.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, x86@kernel.org, Al Stone <al.stone@linaro.org>, Lorenzo Pieralisi <Lorenzo.Pieralisi@arm.com>, Mahesh Sivasubramanian <msivasub@codeaurora.org>, Ashwin Chaugule <ashwin.chaugule@linaro.org>
+To: rostedt@goodmis.org, mingo@redhat.com
+Cc: linux-kernel@vger.kernel.org, Li Bin <huawei.libin@huawei.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-Hi Prashanth,
+There is no need to worry about module and __init text disappearing
+case, because that ftrace has a module notifier that is called when
+a module is being unloaded and before the text goes away and this
+code grabs the ftrace_lock mutex and removes the module functions
+from the ftrace list, such that it will no longer do any
+modifications to that module's text, the update to make functions
+be traced or not is done under the ftrace_lock mutex as well.
+And by now, __init section codes should not been modified
+by ftrace, because it is black listed in recordmcount.c and
+ignored by ftrace.
 
-On 09/12/15 22:52, Prakash, Prashanth wrote:
-> Reviewed the patch-set and tested it on an ARM platform over the last couple
-> of days without any issues, so
->
-> Tested-by: Prashanth Prakash <pprakash@codeaurora.org>
->
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
+Suggested-by: Steven Rostedt <rostedt@goodmis.org>
+Signed-off-by: Li Bin <huawei.libin@huawei.com>
+---
+ arch/ia64/kernel/ftrace.c |   13 ++++++-------
+ 1 files changed, 6 insertions(+), 7 deletions(-)
 
-Thanks for testing.
-
+diff --git a/arch/ia64/kernel/ftrace.c b/arch/ia64/kernel/ftrace.c
+index 3b0c2aa..a48a3f4 100644
+--- a/arch/ia64/kernel/ftrace.c
++++ b/arch/ia64/kernel/ftrace.c
+@@ -97,13 +97,12 @@ ftrace_modify_code(unsigned long ip, unsigned char *old_code,
+ 	unsigned char replaced[MCOUNT_INSN_SIZE];
+ 
+ 	/*
+-	 * Note: Due to modules and __init, code can
+-	 *  disappear and change, we need to protect against faulting
+-	 *  as well as code changing. We do this by using the
+-	 *  probe_kernel_* functions.
+-	 *
+-	 * No real locking needed, this code is run through
+-	 * kstop_machine, or before SMP starts.
++	 * Note:
++	 * We are paranoid about modifying text, as if a bug were to happen, it
++	 * could cause us to read or write to someplace that could cause harm.
++	 * Carefully read and modify the code with aarch64_insn_*() which uses
++	 * probe_kernel_*(), and make sure what we read is what we expected it
++	 * to be before modifying it.
+ 	 */
+ 
+ 	if (!do_check)
 -- 
-Regards,
-Sudeep
+1.7.1
+
