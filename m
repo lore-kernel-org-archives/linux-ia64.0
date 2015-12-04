@@ -1,59 +1,50 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Thu, 31 Dec 2015 19:05:58 +0000
-Subject: [PATCH v2 02/32] asm-generic: guard smp_store_release/load_acquire
-Message-Id: <1451572003-2440-3-git-send-email-mst@redhat.com>
+From: Li Bin <huawei.libin@huawei.com>
+Date: Fri, 04 Dec 2015 07:27:42 +0000
+Subject: [PATCH 0/5] ftrace: fix ftrace misleading comments for arch using it
+Message-Id: <1449214067-12177-1-git-send-email-huawei.libin@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1451572003-2440-1-git-send-email-mst@redhat.com>
-In-Reply-To: <1451572003-2440-1-git-send-email-mst@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: linux-mips@linux-mips.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, virtualization@lists.linux-foundation.org, "H. Peter Anvin" <hpa@zytor.com>, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>, x86@kernel.org, xen-devel@lists.xenproject.org, Ingo Molnar <mingo@elte.hu>, linux-xtensa@linux-xtensa.org, user-mode-linux-devel@lists.sourceforge.net, Stefano Stabellini <stefano.stabellini@eu.citrix.com>, adi-buildroot-devel@lists.sourceforge.net, Thomas Gleixner <tglx@linutronix.de>, linux-metag@vger.kernel.org, linux-arm-kernel@lists.infradead.org, Andrew Cooper <andrew.cooper3@citrix.com>, linuxppc-dev@lists.ozlabs.org, David Miller <davem@davemloft.net>
+To: rostedt@goodmis.org, mingo@redhat.com
+Cc: linux-kernel@vger.kernel.org, Li Bin <huawei.libin@huawei.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, James Hogan <james.hogan@imgtec.com>, linux-metag@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, x86@kernel.org
 
-Allow architectures to override smp_store_release
-and smp_load_acquire by guarding the defines
-in asm-generic/barrier.h with ifndef directives.
+Fix the following similar misleading comments of ftrace for arch
+ia64/metag/powerpc/sh/x86:
 
-This is in preparation to reusing asm-generic/barrier.h
-on architectures which have their own definition
-of these macros.
+Note: Due to modules and __init, code can
+ disappear and change, we need to protect against faulting
+ as well as code changing. We do this by using the
+ probe_kernel_* functions.
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-Acked-by: Arnd Bergmann <arnd@arndb.de>
----
- include/asm-generic/barrier.h | 4 ++++
- 1 file changed, 4 insertions(+)
+No real locking needed, this code is run through
+kstop_machine, or before SMP starts.
 
-diff --git a/include/asm-generic/barrier.h b/include/asm-generic/barrier.h
-index 0f45f93..987b2e0 100644
---- a/include/asm-generic/barrier.h
-+++ b/include/asm-generic/barrier.h
-@@ -104,13 +104,16 @@
- #define smp_mb__after_atomic()	smp_mb()
- #endif
- 
-+#ifndef smp_store_release
- #define smp_store_release(p, v)						\
- do {									\
- 	compiletime_assert_atomic_type(*p);				\
- 	smp_mb();							\
- 	WRITE_ONCE(*p, v);						\
- } while (0)
-+#endif
- 
-+#ifndef smp_load_acquire
- #define smp_load_acquire(p)						\
- ({									\
- 	typeof(*p) ___p1 = READ_ONCE(*p);				\
-@@ -118,6 +121,7 @@ do {									\
- 	smp_mb();							\
- 	___p1;								\
- })
-+#endif
- 
- #endif /* !__ASSEMBLY__ */
- #endif /* __ASM_GENERIC_BARRIER_H */
--- 
-MST
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
+Cc: James Hogan <james.hogan@imgtec.com>
+Cc: linux-metag@vger.kernel.org
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Michael Ellerman <mpe@ellerman.id.au> 
+Cc: linuxppc-dev@lists.ozlabs.org
+Cc: linux-sh@vger.kernel.org
+Cc: Thomas Gleixner <tglx@linutronix.de>
+"Cc: H. Peter Anvin" <hpa@zytor.com>
+Cc: x86@kernel.org
+
+Li Bin (5):
+  ia64: ftrace: fix the comments for ftrace_modify_code
+  metag: ftrace: fix the comments for ftrace_modify_code
+  powerpc: ftrace: fix the comments for ftrace_modify_code
+  sh: ftrace: fix the comments for ftrace_modify_code
+  x86: ftrace: fix the comments for ftrace_modify_code_direct
+
+ arch/ia64/kernel/ftrace.c    |   13 ++++++-------
+ arch/metag/kernel/ftrace.c   |   12 ++++++------
+ arch/powerpc/kernel/ftrace.c |   13 ++++++-------
+ arch/sh/kernel/ftrace.c      |   13 ++++++-------
+ arch/x86/kernel/ftrace.c     |   13 ++++++-------
+ 5 files changed, 30 insertions(+), 34 deletions(-)
 
