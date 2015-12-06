@@ -1,61 +1,50 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Thu, 31 Dec 2015 19:06:13 +0000
-Subject: [PATCH v2 04/32] ia64: reuse asm-generic/barrier.h
-Message-Id: <1451572003-2440-5-git-send-email-mst@redhat.com>
+From: Li Bin <huawei.libin@huawei.com>
+Date: Sun, 06 Dec 2015 02:02:53 +0000
+Subject: [PATCH v2 0/5] ftrace: fix ftrace misleading comments for arch using it
+Message-Id: <1449367378-29430-1-git-send-email-huawei.libin@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1451572003-2440-1-git-send-email-mst@redhat.com>
-In-Reply-To: <1451572003-2440-1-git-send-email-mst@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Peter Zijlstra <peterz@infradead.org>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, Andrew Cooper <andrew.cooper3@citrix.com>, virtualization@lists.linux-foundation.org, Stefano Stabellini <stefano.stabellini@eu.citrix.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>, David Miller <davem@davemloft.net>, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, x86@kernel.org, user-mode-linux-devel@lists.sourceforge.net, adi-buildroot-devel@lists.sourceforge.net, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, xen-devel@lists.xenproject.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Ingo Molnar <mingo@kernel.org>, D
+To: rostedt@goodmis.org, mingo@redhat.com
+Cc: linux-kernel@vger.kernel.org, Li Bin <huawei.libin@huawei.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, James Hogan <james.hogan@imgtec.com>, linux-metag@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, x86@kernel.org
 
-On ia64 smp_rmb, smp_wmb, read_barrier_depends, smp_read_barrier_depends
-and smp_store_mb() match the asm-generic variants exactly. Drop the
-local definitions and pull in asm-generic/barrier.h instead.
+Fix the following similar misleading comments of ftrace for arch
+ia64/metag/powerpc/sh/x86:
 
-This is in preparation to refactoring this code area.
+Note: Due to modules and __init, code can
+ disappear and change, we need to protect against faulting
+ as well as code changing. We do this by using the
+ probe_kernel_* functions.
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-Acked-by: Tony Luck <tony.luck@intel.com>
-Acked-by: Arnd Bergmann <arnd@arndb.de>
----
- arch/ia64/include/asm/barrier.h | 10 ++--------
- 1 file changed, 2 insertions(+), 8 deletions(-)
+No real locking needed, this code is run through
+kstop_machine, or before SMP starts.
 
-diff --git a/arch/ia64/include/asm/barrier.h b/arch/ia64/include/asm/barrier.h
-index 209c4b8..2f93348 100644
---- a/arch/ia64/include/asm/barrier.h
-+++ b/arch/ia64/include/asm/barrier.h
-@@ -48,12 +48,6 @@
- # define smp_mb()	barrier()
- #endif
- 
--#define smp_rmb()	smp_mb()
--#define smp_wmb()	smp_mb()
--
--#define read_barrier_depends()		do { } while (0)
--#define smp_read_barrier_depends()	do { } while (0)
--
- #define smp_mb__before_atomic()	barrier()
- #define smp_mb__after_atomic()	barrier()
- 
-@@ -77,12 +71,12 @@ do {									\
- 	___p1;								\
- })
- 
--#define smp_store_mb(var, value) do { WRITE_ONCE(var, value); smp_mb(); } while (0)
--
- /*
-  * The group barrier in front of the rsm & ssm are necessary to ensure
-  * that none of the previous instructions in the same group are
-  * affected by the rsm/ssm.
-  */
- 
-+#include <asm-generic/barrier.h>
-+
- #endif /* _ASM_IA64_BARRIER_H */
--- 
-MST
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
+Cc: James Hogan <james.hogan@imgtec.com>
+Cc: linux-metag@vger.kernel.org
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Michael Ellerman <mpe@ellerman.id.au> 
+Cc: linuxppc-dev@lists.ozlabs.org
+Cc: linux-sh@vger.kernel.org
+Cc: Thomas Gleixner <tglx@linutronix.de>
+"Cc: H. Peter Anvin" <hpa@zytor.com>
+Cc: x86@kernel.org
+
+Li Bin (5):
+  ia64: ftrace: fix the comments for ftrace_modify_code
+  metag: ftrace: fix the comments for ftrace_modify_code
+  powerpc: ftrace: fix the comments for ftrace_modify_code
+  sh: ftrace: fix the comments for ftrace_modify_code
+  x86: ftrace: fix the comments for ftrace_modify_code_direct
+
+ arch/ia64/kernel/ftrace.c    |   12 +++++-------
+ arch/metag/kernel/ftrace.c   |   11 +++++------
+ arch/powerpc/kernel/ftrace.c |   12 +++++-------
+ arch/sh/kernel/ftrace.c      |   12 +++++-------
+ arch/x86/kernel/ftrace.c     |   12 +++++-------
+ 5 files changed, 25 insertions(+), 34 deletions(-)
 
