@@ -1,27 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Date: Thu, 31 Dec 2015 19:44:03 +0000
-Subject: Re: [PATCH v2 24/32] sparc: define __smp_xxx
-Message-Id: <20151231.144403.84288151398339321.davem@davemloft.net>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Mon, 14 Dec 2015 19:16:49 +0000
+Subject: [GIT PULL] ia64: wire up mlock2 syscall
+Message-Id: <566f15a114877a0aa2@agluck-desk.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1451572003-2440-1-git-send-email-mst@redhat.com>
-	<1451572003-2440-25-git-send-email-mst@redhat.com>
-In-Reply-To: <1451572003-2440-25-git-send-email-mst@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: mst@redhat.com
-Cc: linux-mips@linux-mips.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, peterz@infradead.org, virtualization@lists.linux-foundation.org, hpa@zytor.com, sparclinux@vger.kernel.org, mingo@kernel.org, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, arnd@arndb.de, x86@kernel.org, xen-devel@lists.xenproject.org, mingo@elte.hu, linux-xtensa@linux-xtensa.org, user-mode-linux-devel@lists.sourceforge.net, stefano.stabellini@eu.citrix.com, andreyknvl@google.com, adi-buildroot-devel@lists.sourceforge.net, tglx@linutronix.de, linux-metag@vger.kernel.org, linux-arm-kernel@lists.infradead.org, andrew.cooper3@citrix.com, linux-kernel@vger.kernel.org, ralf@linux-mips.org, linuxppc-dev@lists.ozlabs.org
+To: linux-ia64@vger.kernel.org
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Thu, 31 Dec 2015 21:08:53 +0200
+The following changes since commit 9f9499ae8e6415cefc4fe0a96ad0e27864353c89:
 
-> This defines __smp_xxx barriers for sparc,
-> for use by virtualization.
-> 
-> smp_xxx barriers are removed as they are
-> defined correctly by asm-generic/barriers.h
-> 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> Acked-by: Arnd Bergmann <arnd@arndb.de>
+  Linux 4.4-rc5 (2015-12-13 17:42:58 -0800)
 
-Acked-by: David S. Miller <davem@davemloft.net>
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git tags/please-pull-mlock2
+
+for you to fetch changes up to 27801885151d3c187719f082a0ef54e05b9c9a16:
+
+  [IA64] Enable mlock2 syscall for ia64 (2015-12-14 10:30:02 -0800)
+
+----------------------------------------------------------------
+Wire up mlock2() syscall for ia64
+
+----------------------------------------------------------------
+Tony Luck (1):
+      [IA64] Enable mlock2 syscall for ia64
+
+ arch/ia64/include/asm/unistd.h      | 2 +-
+ arch/ia64/include/uapi/asm/unistd.h | 1 +
+ arch/ia64/kernel/entry.S            | 1 +
+ 3 files changed, 3 insertions(+), 1 deletion(-)
