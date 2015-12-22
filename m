@@ -1,50 +1,28 @@
-From: Li Bin <huawei.libin@huawei.com>
-Date: Fri, 04 Dec 2015 07:27:42 +0000
-Subject: [PATCH 0/5] ftrace: fix ftrace misleading comments for arch using it
-Message-Id: <1449214067-12177-1-git-send-email-huawei.libin@huawei.com>
+From: "Ulrich Windl" <Ulrich.Windl@rz.uni-regensburg.de>
+Date: Tue, 22 Dec 2015 13:49:24 +0000
+Subject: Hardware to give away (pickup in Bavaria/Germany)
+Message-Id: <567962F4020000A10001F60C@gwsmtp1.uni-regensburg.de>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: rostedt@goodmis.org, mingo@redhat.com
-Cc: linux-kernel@vger.kernel.org, Li Bin <huawei.libin@huawei.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, James Hogan <james.hogan@imgtec.com>, linux-metag@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, x86@kernel.org
+To: linux-ia64@vger.kernel.org
 
-Fix the following similar misleading comments of ftrace for arch
-ia64/metag/powerpc/sh/x86:
+Hi!
 
-Note: Due to modules and __init, code can
- disappear and change, we need to protect against faulting
- as well as code changing. We do this by using the
- probe_kernel_* functions.
+We have four fine Itanium2 machines build by HP that we do no longer use. The machines look almost as new and are fully functional. Up to now they ran HP-UX 11.31.
 
-No real locking needed, this code is run through
-kstop_machine, or before SMP starts.
+The machines are:
+Two rx3600 with one dual-core Itanium2 and about 32GB RAM, two 1Gb NICs, dual-port FC HBA (4Gb)
+Two rx6600 with two dual-core Itanium2 and about 40GB RAM, four 1Gb NICs, two single port FC HBA (4Gb)
+All machines have iLO3 (management processor) and a raid controller (2.5" SAS disks). Possibly you'l receive the machines without disks.
+There's also a rack mount kit for every machine.
 
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org
-Cc: James Hogan <james.hogan@imgtec.com>
-Cc: linux-metag@vger.kernel.org
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Cc: Paul Mackerras <paulus@samba.org>
-Cc: Michael Ellerman <mpe@ellerman.id.au> 
-Cc: linuxppc-dev@lists.ozlabs.org
-Cc: linux-sh@vger.kernel.org
-Cc: Thomas Gleixner <tglx@linutronix.de>
-"Cc: H. Peter Anvin" <hpa@zytor.com>
-Cc: x86@kernel.org
+Only developers are welcome, not people who sales parts of it. We give them away for free, you only would have to arrange transport (pickup).
 
-Li Bin (5):
-  ia64: ftrace: fix the comments for ftrace_modify_code
-  metag: ftrace: fix the comments for ftrace_modify_code
-  powerpc: ftrace: fix the comments for ftrace_modify_code
-  sh: ftrace: fix the comments for ftrace_modify_code
-  x86: ftrace: fix the comments for ftrace_modify_code_direct
+If you are interested, quickly get in contact with me (this year!). I'm not subscribed to the list.
 
- arch/ia64/kernel/ftrace.c    |   13 ++++++-------
- arch/metag/kernel/ftrace.c   |   12 ++++++------
- arch/powerpc/kernel/ftrace.c |   13 ++++++-------
- arch/sh/kernel/ftrace.c      |   13 ++++++-------
- arch/x86/kernel/ftrace.c     |   13 ++++++-------
- 5 files changed, 30 insertions(+), 34 deletions(-)
+Regards,
+Ulrich Windl
+
 
