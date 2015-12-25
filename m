@@ -1,67 +1,109 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Wed, 30 Dec 2015 13:25:40 +0000
-Subject: [PATCH 20/34] ia64: define __smp_xxx
-Message-Id: <1451473761-30019-21-git-send-email-mst@redhat.com>
+From: Toshi Kani <toshi.kani@hpe.com>
+Date: Fri, 25 Dec 2015 22:09:04 +0000
+Subject: [PATCH v2 00/16] Enhance iomem search interfaces and support EINJ to NVDIMM
+Message-Id: <1451081344-15145-1-git-send-email-toshi.kani@hpe.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1451473761-30019-1-git-send-email-mst@redhat.com>
-In-Reply-To: <1451473761-30019-1-git-send-email-mst@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Peter Zijlstra <peterz@infradead.org>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, Andrew Cooper <andrew.cooper3@citrix.com>, virtualization@lists.linux-foundation.org, Stefano Stabellini <stefano.stabellini@eu.citrix.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Ingo Molnar <mingo@kernel.org>, Davidlohr Bueso <dbueso@suse.de>, Andrey Konovalov <andreyknvl@google.com>, linux-ia64@vger.kernel.org
+To: akpm@linux-foundation.org, bp@alien8.de
+Cc: torvalds@linux-foundation.org, rafael.j.wysocki@intel.com, dan.j.williams@intel.com, x86@kernel.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-sh@vger.kernel.org, konrad.wilk@oracle.com, xen-devel@lists.xenproject.org, dyoung@redhat.com, k.kozlowski@samsung.com, linux-samsung-soc@vger.kernel.org, vishal.l.verma@intel.com, tony.luck@intel.com, linux-arch@vger.kernel.org, linux-mm@kvack.org, linux-nvdimm@lists.01.org, linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org
 
-This defines __smp_XXX barriers for ia64,
-for use by virtualization.
+This patch-set enhances the iomem table and its search interfacs, and
+then changes EINJ to support NVDIMM.
 
-smp_XXX barriers are removed as they are
-defined correctly by asm-generic/barriers.h
+ - Patches 1-2 add a new System RAM type, IORESOURCE_SYSTEM_RAM, and
+   make the iomem search interfaces work with resource flags with
+   modifier bits set.  IORESOURCE_SYSTEM_RAM has IORESOURCE_MEM bit set
+   for backward compatibility.
 
-This reduces the amount of arch-specific boiler-plate code.
+ - Patch 3 adds a new field, I/O resource descriptor, in struct resource.
+   Drivers can assign their unique descritor to a range when they
+   support the iomem search interfaces.
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+ - Patches 4-9 changes initializations of resource entries.  They set
+   the System RAM type to System RAM ranges, set I/O resource descriptors
+   to the regions targeted by the iomem search interfaces, and change
+   to call kzalloc() where kmalloc() is used to allocate struct resource
+   ranges.
+
+ - Patches 10-14 extend the iomem interfaces to check System RAM ranges
+   with the System RAM type and the I/O resource descriptor.
+
+ - Patch 15 adds a check to checkpatch.pl to warn on new use of
+   walk_iomem_res().
+
+ - Patch 16 changes the EINJ driver to allow injecting a memory error
+   to NVDIMM.
+
 ---
- arch/ia64/include/asm/barrier.h | 14 +++++---------
- 1 file changed, 5 insertions(+), 9 deletions(-)
+v2:
+ - Add 'desc' to struct resource, and add a new iomem interface to
+   search with the desc. (Borislav Petkov)
+ - Add a check to checkpatch.pl to warn on new use of walk_iomem_res().
+   (Borislav Petkov)
 
-diff --git a/arch/ia64/include/asm/barrier.h b/arch/ia64/include/asm/barrier.h
-index 2f93348..588f161 100644
---- a/arch/ia64/include/asm/barrier.h
-+++ b/arch/ia64/include/asm/barrier.h
-@@ -42,28 +42,24 @@
- #define dma_rmb()	mb()
- #define dma_wmb()	mb()
- 
--#ifdef CONFIG_SMP
--# define smp_mb()	mb()
--#else
--# define smp_mb()	barrier()
--#endif
-+# define __smp_mb()	mb()
- 
--#define smp_mb__before_atomic()	barrier()
--#define smp_mb__after_atomic()	barrier()
-+#define __smp_mb__before_atomic()	barrier()
-+#define __smp_mb__after_atomic()	barrier()
- 
- /*
-  * IA64 GCC turns volatile stores into st.rel and volatile loads into ld.acq no
-  * need for asm trickery!
-  */
- 
--#define smp_store_release(p, v)						\
-+#define __smp_store_release(p, v)						\
- do {									\
- 	compiletime_assert_atomic_type(*p);				\
- 	barrier();							\
- 	WRITE_ONCE(*p, v);						\
- } while (0)
- 
--#define smp_load_acquire(p)						\
-+#define __smp_load_acquire(p)						\
- ({									\
- 	typeof(*p) ___p1 = READ_ONCE(*p);				\
- 	compiletime_assert_atomic_type(*p);				\
--- 
-MST
+v1:
+ - Searching for System RAM in the resource table should not require
+   strcmp(). (Borislav Petkov)
+ - Add a new System RAM type as a modifier to IORESOURCE_MEM.
+   (Linus Torvalds)
+ - NVDIMM check needs to be able to distinguish legacy and NFIT pmem
+   ranges. (Dan Williams)
 
+---
+Toshi Kani (16):
+ 01/16 resource: Add System RAM resource type
+ 02/16 resource: make resource flags handled properly
+ 03/16 resource: Add I/O resource descriptor
+ 04/16 x86/e820: Set System RAM type and descriptor
+ 05/16 ia64: Set System RAM type and descriptor
+ 06/16 arch: Set IORESOURCE_SYSTEM_RAM to System RAM
+ 07/16 kexec: Set IORESOURCE_SYSTEM_RAM to System RAM
+ 08/16 xen, mm: Set IORESOURCE_SYSTEM_RAM to System RAM
+ 09/16 drivers: Initialize resource entry to zero
+ 10/16 resource: Change walk_system_ram to use System RAM type
+ 11/16 arm/samsung: Change s3c_pm_run_res() to use System RAM type
+ 12/16 memremap: Change region_intersects() to take @flags and @desc
+ 13/16 resource: Add walk_iomem_res_desc()
+ 14/16 x86,nvdimm,kexec: Use walk_iomem_res_desc() for iomem search
+ 15/16 checkpatch: Add warning on deprecated walk_iomem_res
+ 16/16 ACPI/EINJ: Allow memory error injection to NVDIMM
+
+---
+ arch/arm/kernel/setup.c            |   6 +-
+ arch/arm/plat-samsung/pm-check.c   |   4 +-
+ arch/arm64/kernel/setup.c          |   6 +-
+ arch/avr32/kernel/setup.c          |   6 +-
+ arch/ia64/kernel/efi.c             |  13 ++++-
+ arch/ia64/kernel/setup.c           |   6 +-
+ arch/m32r/kernel/setup.c           |   4 +-
+ arch/mips/kernel/setup.c           |  10 ++--
+ arch/parisc/mm/init.c              |   6 +-
+ arch/powerpc/mm/mem.c              |   2 +-
+ arch/s390/kernel/setup.c           |   8 +--
+ arch/score/kernel/setup.c          |   2 +-
+ arch/sh/kernel/setup.c             |   8 +--
+ arch/sparc/mm/init_64.c            |   8 +--
+ arch/tile/kernel/setup.c           |  11 +++-
+ arch/unicore32/kernel/setup.c      |   6 +-
+ arch/x86/kernel/crash.c            |   4 +-
+ arch/x86/kernel/e820.c             |  38 ++++++++++++-
+ arch/x86/kernel/pmem.c             |   4 +-
+ arch/x86/kernel/setup.c            |   6 +-
+ drivers/acpi/acpi_platform.c       |   2 +-
+ drivers/acpi/apei/einj.c           |  15 +++--
+ drivers/nvdimm/e820.c              |   2 +-
+ drivers/parisc/eisa_enumerator.c   |   4 +-
+ drivers/rapidio/rio.c              |   8 +--
+ drivers/sh/superhyway/superhyway.c |   2 +-
+ drivers/xen/balloon.c              |   2 +-
+ include/linux/ioport.h             |  33 +++++++++++
+ include/linux/mm.h                 |   3 +-
+ kernel/kexec_core.c                |   8 ++-
+ kernel/kexec_file.c                |   8 +--
+ kernel/memremap.c                  |  13 +++--
+ kernel/resource.c                  | 110 +++++++++++++++++++++++++++----------
+ mm/memory_hotplug.c                |   2 +-
+ scripts/checkpatch.pl              |   6 ++
+ 35 files changed, 265 insertions(+), 111 deletions(-)
