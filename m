@@ -1,47 +1,59 @@
-From: Michal Marek <mmarek@suse.com>
-Date: Mon, 07 Dec 2015 17:19:21 +0000
-Subject: Re: [PATCH v2 8/8] treewide: Remove newlines inside DEFINE_PER_CPU() macros
-Message-Id: <5665BF99.3090508@suse.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Wed, 30 Dec 2015 13:24:23 +0000
+Subject: [PATCH 03/34] ia64: rename nop->iosapic_nop
+Message-Id: <1451473761-30019-4-git-send-email-mst@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1449242787-16598-1-git-send-email-mmarek@suse.com>
- <1449242787-16598-9-git-send-email-mmarek@suse.com>
- <063D6719AE5E284EB5DD2968C1650D6D1CBE695F@AcuExch.aculab.com>
- <5665B9A0.5060009@suse.com> <1449507861.7162.1.camel@perches.com>
-In-Reply-To: <1449507861.7162.1.camel@perches.com>
+References: <1451473761-30019-1-git-send-email-mst@redhat.com>
+In-Reply-To: <1451473761-30019-1-git-send-email-mst@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Joe Perches <joe@perches.com>
-Cc: David Laight <David.Laight@ACULAB.COM>, "linux-kbuild@vger.kernel.org" <linux-kbuild@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>, "linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>, "rds-devel@oss.oracle.com" <rds-devel@oss.oracle.com>, "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: linux-kernel@vger.kernel.org
+Cc: Peter Zijlstra <peterz@infradead.org>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, Andrew Cooper <andrew.cooper3@citrix.com>, virtualization@lists.linux-foundation.org, Stefano Stabellini <stefano.stabellini@eu.citrix.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Rusty Russell <rusty@rustcorp.com.au>, Jiang Liu <jiang.liu@linux.intel.com>, linux-ia64@vger.kernel.org
 
-On 2015-12-07 18:04, Joe Perches wrote:
-> On Mon, 2015-12-07 at 17:53 +0100, Michal Marek wrote:
->> On 2015-12-07 17:33, David Laight wrote:
->>> From: Michal Marek
->>>> Sent: 04 December 2015 15:26
->>>> Otherwise make tags can't parse them:
->>>>
->>>> ctags: Warning: arch/ia64/kernel/smp.c:60: null expansion of name pattern "\1"
->>> ...
->>>
->>> Seems to me you need to fix ctags.
->>
->> I'm sure the maintainers of ctags and etags would accept patches to
->> describe a custom context-free grammar via commandline options, but
->> until then, let's continue using the regular expressions in tags.sh and
->> remove newlines in macros that tags.sh is trying to expand.
->>
-> 
-> Do you have a list of the most common macros?
+asm-generic/barrier.h defines a nop() macro.
+To be able to use this header on ia64, we shouldn't
+call local functions/variables nop().
 
-In practice, it's only DEFINE_PER_CPU and its sibling
-DEFINE_PER_CPU_SHARED_ALIGNED, where we try to pick the second argument
-to the macro and the first argument can be lengthy.
+There's one instance where this breaks on ia64:
+rename the function to iosapic_nop to avoid the conflict.
 
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+ arch/ia64/kernel/iosapic.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-> Perhaps it'd be good to add exceptions to checkpatch
-> 80 column line rules for them.
+diff --git a/arch/ia64/kernel/iosapic.c b/arch/ia64/kernel/iosapic.c
+index d2fae05..90fde5b 100644
+--- a/arch/ia64/kernel/iosapic.c
++++ b/arch/ia64/kernel/iosapic.c
+@@ -256,7 +256,7 @@ set_rte (unsigned int gsi, unsigned int irq, unsigned int dest, int mask)
+ }
+ 
+ static void
+-nop (struct irq_data *data)
++iosapic_nop (struct irq_data *data)
+ {
+ 	/* do nothing... */
+ }
+@@ -415,7 +415,7 @@ iosapic_unmask_level_irq (struct irq_data *data)
+ #define iosapic_shutdown_level_irq	mask_irq
+ #define iosapic_enable_level_irq	unmask_irq
+ #define iosapic_disable_level_irq	mask_irq
+-#define iosapic_ack_level_irq		nop
++#define iosapic_ack_level_irq		iosapic_nop
+ 
+ static struct irq_chip irq_type_iosapic_level = {
+ 	.name =			"IO-SAPIC-level",
+@@ -453,7 +453,7 @@ iosapic_ack_edge_irq (struct irq_data *data)
+ }
+ 
+ #define iosapic_enable_edge_irq		unmask_irq
+-#define iosapic_disable_edge_irq	nop
++#define iosapic_disable_edge_irq	iosapic_nop
+ 
+ static struct irq_chip irq_type_iosapic_edge = {
+ 	.name =			"IO-SAPIC-edge",
+-- 
+MST
 
-Your call. But this is a fairly rare occurrence -- 10 cases so far.
-
-Michal
