@@ -1,53 +1,59 @@
-From: =?UTF-8?Q?Geyslan_Greg=C3=B3rio_Bem?= <geyslan@gmail.com>
-Date: Sun, 29 Nov 2015 14:02:11 +0000
-Subject: [RFC] arch/ia64/kernel/palinfo.c: bitvector_process reading out of bounds
-Message-Id: <CAGG-pUSKM=FZc=Ceft3U9iEhzpgQA-QXF3P0AvJ+m-3Lm7zNkw@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Wed, 30 Dec 2015 13:24:27 +0000
+Subject: [PATCH 04/34] ia64: reuse asm-generic/barrier.h
+Message-Id: <1451473761-30019-5-git-send-email-mst@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1451473761-30019-1-git-send-email-mst@redhat.com>
+In-Reply-To: <1451473761-30019-1-git-send-email-mst@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+To: linux-kernel@vger.kernel.org
+Cc: Peter Zijlstra <peterz@infradead.org>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, Andrew Cooper <andrew.cooper3@citrix.com>, virtualization@lists.linux-foundation.org, Stefano Stabellini <stefano.stabellini@eu.citrix.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Ingo Molnar <mingo@kernel.org>, Michael Ellerman <mpe@ellerman.id.au>, Andrey Konovalov <andreyknvl@google.com>, linux-ia64@vger.kernel.org
 
-Hello,
+On ia64 smp_rmb, smp_wmb, read_barrier_depends, smp_read_barrier_depends
+and smp_store_mb() match the asm-generic variants exactly. Drop the
+local definitions and pull in asm-generic/barrier.h instead.
 
-I'm doing some static analysis and stumbled in this function
+This is in preparation to refactoring this code area.
 
-static void bitvector_process(struct seq_file *m, u64 vector)
-{
-    int i,j;
-    static const char *units[]={ "", "K", "M", "G", "T" };
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+ arch/ia64/include/asm/barrier.h | 10 ++--------
+ 1 file changed, 2 insertions(+), 8 deletions(-)
 
-    for (i=0, j=0; i < 64; i++ , j=i/10) {
-        if (vector & 0x1)
-            seq_printf(m, "%d%s ", 1 << (i-j*10), units[j]);
-        vector >>= 1;
-    }
-}
-
-It appears that units[] (5 elements) can be accessed out of bounds in
-seq_printf call
-
-            seq_printf(m, "%d%s ", 1 << (i-j*10), units[j]);
-
-once j is being set to i/10.
-
-i goes from 0 to 63 (u64 bits length), and when vector & 1 (odd),
-units[j] will calculate outside the boundaries when vector get close
-to Petabyte magnitude.
-
-Well, as bitvector_process doesn't control the max size of vector and
-the future is knocking on door, I would suggest this change
-
--static const char *units[]={ "", "K", "M", "G", "T" };
-+static const char *units[]={ "", "K", "M", "G", "T", "P", "E" };
-
-then if the u64 max value (18446744073709551615) is used the array
-will provide the correct (E) suffix.
-
-If that change is not pertinent I would like to know why.
-
+diff --git a/arch/ia64/include/asm/barrier.h b/arch/ia64/include/asm/barrier.h
+index df896a1..2f93348 100644
+--- a/arch/ia64/include/asm/barrier.h
++++ b/arch/ia64/include/asm/barrier.h
+@@ -48,12 +48,6 @@
+ # define smp_mb()	barrier()
+ #endif
+ 
+-#define smp_rmb()	smp_mb()
+-#define smp_wmb()	smp_mb()
+-
+-#define read_barrier_depends()		do { } while (0)
+-#define smp_read_barrier_depends()	do { } while (0)
+-
+ #define smp_mb__before_atomic()	barrier()
+ #define smp_mb__after_atomic()	barrier()
+ 
+@@ -77,12 +71,12 @@ do {									\
+ 	___p1;								\
+ })
+ 
+-#define smp_store_mb(var, value)	do { WRITE_ONCE(var, value); mb(); } while (0)
+-
+ /*
+  * The group barrier in front of the rsm & ssm are necessary to ensure
+  * that none of the previous instructions in the same group are
+  * affected by the rsm/ssm.
+  */
+ 
++#include <asm-generic/barrier.h>
++
+ #endif /* _ASM_IA64_BARRIER_H */
 -- 
-Regards,
+MST
 
-Geyslan G. Bem
-hackingbits.com
