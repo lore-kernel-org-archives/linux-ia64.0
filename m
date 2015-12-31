@@ -1,75 +1,91 @@
-From: Sudeep Holla <sudeep.holla@arm.com>
-Date: Wed, 02 Dec 2015 14:10:42 +0000
-Subject: [PATCH v3 1/5] ACPI / processor : add support for ACPI0010 processor container
-Message-Id: <1449065446-26115-2-git-send-email-sudeep.holla@arm.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Thu, 31 Dec 2015 19:08:30 +0000
+Subject: [PATCH v2 21/32] mips: define __smp_xxx
+Message-Id: <1451572003-2440-22-git-send-email-mst@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1449065446-26115-1-git-send-email-sudeep.holla@arm.com>
-In-Reply-To: <1449065446-26115-1-git-send-email-sudeep.holla@arm.com>
+References: <1451572003-2440-1-git-send-email-mst@redhat.com>
+In-Reply-To: <1451572003-2440-1-git-send-email-mst@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-acpi@vger.kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Cc: Sudeep Holla <sudeep.holla@arm.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, x86@kernel.org, Al Stone <al.stone@linaro.org>, Lorenzo Pieralisi <Lorenzo.Pieralisi@arm.com>, Mahesh Sivasubramanian <msivasub@codeaurora.org>, Ashwin Chaugule <ashwin.chaugule@linaro.org>, Prashanth Prakash <pprakash@codeaurora.org>
+To: linux-kernel@vger.kernel.org
+Cc: linux-mips@linux-mips.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, virtualization@lists.linux-foundation.org, "H. Peter Anvin" <hpa@zytor.com>, sparclinux@vger.kernel.org, Ingo Molnar <mingo@kernel.org>, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>, x86@kernel.org, xen-devel@lists.xenproject.org, Ingo Molnar <mingo@elte.hu>, linux-xtensa@linux-xtensa.org, user-mode-linux-devel@lists.sourceforge.net, Stefano Stabellini <stefano.stabellini@eu.citrix.com>, Andrey Konovalov <andreyknvl@google.com>, adi-buildroot-devel@lists.sourceforge.net, Thomas Gleixner <tglx@linutronix.de>, linux-metag@vger.kernel.org, linux-arm-kernel@lists.infradead.org, Andrew Cooper <andrew.cooper3@citrix.com>, Ralf Baechle <ralf@linux-mips.org>, linuxppc-dev@lists.ozlabs.org, David Miller <davem@davemlof>
 
-ACPI 6.0 adds support for optional processor container device which may
-contain child objects that are either processor devices or other processor
-containers. This allows representing hierarchical processor topologies.
+This defines __smp_xxx barriers for mips,
+for use by virtualization.
 
-It is declared using the _HID of ACPI0010. It is an abstract container
-used to represent CPU topology and should not be used to hotplug
-purposes.
+smp_xxx barriers are removed as they are
+defined correctly by asm-generic/barriers.h
 
-This patch enables the support for these ACPI processor containers and
-ensures the generic container/module devices are not created for them.
+Note: the only exception is smp_mb__before_llsc which is mips-specific.
+We define both the __smp_mb__before_llsc variant (for use in
+asm/barriers.h) and smp_mb__before_llsc (for use elsewhere on this
+architecture).
 
-Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Signed-off-by: Sudeep Holla <sudeep.holla@arm.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Acked-by: Arnd Bergmann <arnd@arndb.de>
 ---
- drivers/acpi/acpi_processor.c | 17 +++++++++++++++++
- include/acpi/processor.h      |  1 +
- 2 files changed, 18 insertions(+)
+ arch/mips/include/asm/barrier.h | 26 ++++++++++++++------------
+ 1 file changed, 14 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/acpi/acpi_processor.c b/drivers/acpi/acpi_processor.c
-index 6979186dbd4b..b5e54f2da53d 100644
---- a/drivers/acpi/acpi_processor.c
-+++ b/drivers/acpi/acpi_processor.c
-@@ -514,7 +514,24 @@ static struct acpi_scan_handler processor_handler = {
- 	},
- };
+diff --git a/arch/mips/include/asm/barrier.h b/arch/mips/include/asm/barrier.h
+index 3eac4b9..d296633 100644
+--- a/arch/mips/include/asm/barrier.h
++++ b/arch/mips/include/asm/barrier.h
+@@ -85,20 +85,20 @@
+ #define wmb()		fast_wmb()
+ #define rmb()		fast_rmb()
  
-+static int acpi_processor_container_attach(struct acpi_device *dev,
-+					   const struct acpi_device_id *id)
-+{
-+	return 1;
-+}
-+
-+static const struct acpi_device_id processor_container_ids[] = {
-+	{ ACPI_PROCESSOR_CONTAINER_HID, },
-+	{ }
-+};
-+
-+static struct acpi_scan_handler processor_container_handler = {
-+	.ids = processor_container_ids,
-+	.attach = acpi_processor_container_attach,
-+};
-+
- void __init acpi_processor_init(void)
- {
- 	acpi_scan_add_handler_with_hotplug(&processor_handler, "processor");
-+	acpi_scan_add_handler(&processor_container_handler);
- }
-diff --git a/include/acpi/processor.h b/include/acpi/processor.h
-index 07fb100bcc68..54d7860cac11 100644
---- a/include/acpi/processor.h
-+++ b/include/acpi/processor.h
-@@ -9,6 +9,7 @@
- #define ACPI_PROCESSOR_CLASS		"processor"
- #define ACPI_PROCESSOR_DEVICE_NAME	"Processor"
- #define ACPI_PROCESSOR_DEVICE_HID	"ACPI0007"
-+#define ACPI_PROCESSOR_CONTAINER_HID	"ACPI0010"
+-#if defined(CONFIG_WEAK_ORDERING) && defined(CONFIG_SMP)
++#if defined(CONFIG_WEAK_ORDERING)
+ # ifdef CONFIG_CPU_CAVIUM_OCTEON
+-#  define smp_mb()	__sync()
+-#  define smp_rmb()	barrier()
+-#  define smp_wmb()	__syncw()
++#  define __smp_mb()	__sync()
++#  define __smp_rmb()	barrier()
++#  define __smp_wmb()	__syncw()
+ # else
+-#  define smp_mb()	__asm__ __volatile__("sync" : : :"memory")
+-#  define smp_rmb()	__asm__ __volatile__("sync" : : :"memory")
+-#  define smp_wmb()	__asm__ __volatile__("sync" : : :"memory")
++#  define __smp_mb()	__asm__ __volatile__("sync" : : :"memory")
++#  define __smp_rmb()	__asm__ __volatile__("sync" : : :"memory")
++#  define __smp_wmb()	__asm__ __volatile__("sync" : : :"memory")
+ # endif
+ #else
+-#define smp_mb()	barrier()
+-#define smp_rmb()	barrier()
+-#define smp_wmb()	barrier()
++#define __smp_mb()	barrier()
++#define __smp_rmb()	barrier()
++#define __smp_wmb()	barrier()
+ #endif
  
- #define ACPI_PROCESSOR_BUSY_METRIC	10
+ #if defined(CONFIG_WEAK_REORDERING_BEYOND_LLSC) && defined(CONFIG_SMP)
+@@ -111,6 +111,7 @@
+ 
+ #ifdef CONFIG_CPU_CAVIUM_OCTEON
+ #define smp_mb__before_llsc() smp_wmb()
++#define __smp_mb__before_llsc() __smp_wmb()
+ /* Cause previous writes to become visible on all CPUs as soon as possible */
+ #define nudge_writes() __asm__ __volatile__(".set push\n\t"		\
+ 					    ".set arch=octeon\n\t"	\
+@@ -118,11 +119,12 @@
+ 					    ".set pop" : : : "memory")
+ #else
+ #define smp_mb__before_llsc() smp_llsc_mb()
++#define __smp_mb__before_llsc() smp_llsc_mb()
+ #define nudge_writes() mb()
+ #endif
+ 
+-#define smp_mb__before_atomic()	smp_mb__before_llsc()
+-#define smp_mb__after_atomic()	smp_llsc_mb()
++#define __smp_mb__before_atomic()	__smp_mb__before_llsc()
++#define __smp_mb__after_atomic()	smp_llsc_mb()
+ 
+ #include <asm-generic/barrier.h>
  
 -- 
-1.9.1
+MST
 
