@@ -1,109 +1,68 @@
-From: Toshi Kani <toshi.kani@hpe.com>
-Date: Fri, 25 Dec 2015 22:09:04 +0000
-Subject: [PATCH v2 00/16] Enhance iomem search interfaces and support EINJ to NVDIMM
-Message-Id: <1451081344-15145-1-git-send-email-toshi.kani@hpe.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Thu, 31 Dec 2015 19:10:01 +0000
+Subject: [PATCH v2 33/34] xenbus: use virt_xxx barriers
+Message-Id: <1451572003-2440-34-git-send-email-mst@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1451572003-2440-1-git-send-email-mst@redhat.com>
+In-Reply-To: <1451572003-2440-1-git-send-email-mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@linux-foundation.org, bp@alien8.de
-Cc: torvalds@linux-foundation.org, rafael.j.wysocki@intel.com, dan.j.williams@intel.com, x86@kernel.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-sh@vger.kernel.org, konrad.wilk@oracle.com, xen-devel@lists.xenproject.org, dyoung@redhat.com, k.kozlowski@samsung.com, linux-samsung-soc@vger.kernel.org, vishal.l.verma@intel.com, tony.luck@intel.com, linux-arch@vger.kernel.org, linux-mm@kvack.org, linux-nvdimm@lists.01.org, linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Andrew Cooper <andrew.cooper3-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>, virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, Stefano Stabellini <stefano.stabellini-mvvWK6WmYclDPfheJLI6IQ@public.gmane.org>, Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>, Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>, "H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, user-mode-linux-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, adi-buildroot-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org, xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org, Konrad Rzeszutek Wilk <konrad.wilk-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>, Boris Ostrovsky <boris.ostrovsky-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>, David
 
-This patch-set enhances the iomem table and its search interfacs, and
-then changes EINJ to support NVDIMM.
+drivers/xen/xenbus/xenbus_comms.c uses
+full memory barriers to communicate with the other side.
 
- - Patches 1-2 add a new System RAM type, IORESOURCE_SYSTEM_RAM, and
-   make the iomem search interfaces work with resource flags with
-   modifier bits set.  IORESOURCE_SYSTEM_RAM has IORESOURCE_MEM bit set
-   for backward compatibility.
+For guests compiled with CONFIG_SMP, smp_wmb and smp_mb
+would be sufficient, so mb() and wmb() here are only needed if
+a non-SMP guest runs on an SMP host.
 
- - Patch 3 adds a new field, I/O resource descriptor, in struct resource.
-   Drivers can assign their unique descritor to a range when they
-   support the iomem search interfaces.
+Switch to virt_xxx barriers which serve this exact purpose.
 
- - Patches 4-9 changes initializations of resource entries.  They set
-   the System RAM type to System RAM ranges, set I/O resource descriptors
-   to the regions targeted by the iomem search interfaces, and change
-   to call kzalloc() where kmalloc() is used to allocate struct resource
-   ranges.
-
- - Patches 10-14 extend the iomem interfaces to check System RAM ranges
-   with the System RAM type and the I/O resource descriptor.
-
- - Patch 15 adds a check to checkpatch.pl to warn on new use of
-   walk_iomem_res().
-
- - Patch 16 changes the EINJ driver to allow injecting a memory error
-   to NVDIMM.
-
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
-v2:
- - Add 'desc' to struct resource, and add a new iomem interface to
-   search with the desc. (Borislav Petkov)
- - Add a check to checkpatch.pl to warn on new use of walk_iomem_res().
-   (Borislav Petkov)
+ drivers/xen/xenbus/xenbus_comms.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-v1:
- - Searching for System RAM in the resource table should not require
-   strcmp(). (Borislav Petkov)
- - Add a new System RAM type as a modifier to IORESOURCE_MEM.
-   (Linus Torvalds)
- - NVDIMM check needs to be able to distinguish legacy and NFIT pmem
-   ranges. (Dan Williams)
+diff --git a/drivers/xen/xenbus/xenbus_comms.c b/drivers/xen/xenbus/xenbus_comms.c
+index fdb0f33..ecdecce 100644
+--- a/drivers/xen/xenbus/xenbus_comms.c
++++ b/drivers/xen/xenbus/xenbus_comms.c
+@@ -123,14 +123,14 @@ int xb_write(const void *data, unsigned len)
+ 			avail = len;
+ 
+ 		/* Must write data /after/ reading the consumer index. */
+-		mb();
++		virt_mb();
+ 
+ 		memcpy(dst, data, avail);
+ 		data += avail;
+ 		len -= avail;
+ 
+ 		/* Other side must not see new producer until data is there. */
+-		wmb();
++		virt_wmb();
+ 		intf->req_prod += avail;
+ 
+ 		/* Implies mb(): other side will see the updated producer. */
+@@ -180,14 +180,14 @@ int xb_read(void *data, unsigned len)
+ 			avail = len;
+ 
+ 		/* Must read data /after/ reading the producer index. */
+-		rmb();
++		virt_rmb();
+ 
+ 		memcpy(data, src, avail);
+ 		data += avail;
+ 		len -= avail;
+ 
+ 		/* Other side must not see free space until we've copied out */
+-		mb();
++		virt_mb();
+ 		intf->rsp_cons += avail;
+ 
+ 		pr_debug("Finished read of %i bytes (%i to go)\n", avail, len);
+-- 
+MST
 
----
-Toshi Kani (16):
- 01/16 resource: Add System RAM resource type
- 02/16 resource: make resource flags handled properly
- 03/16 resource: Add I/O resource descriptor
- 04/16 x86/e820: Set System RAM type and descriptor
- 05/16 ia64: Set System RAM type and descriptor
- 06/16 arch: Set IORESOURCE_SYSTEM_RAM to System RAM
- 07/16 kexec: Set IORESOURCE_SYSTEM_RAM to System RAM
- 08/16 xen, mm: Set IORESOURCE_SYSTEM_RAM to System RAM
- 09/16 drivers: Initialize resource entry to zero
- 10/16 resource: Change walk_system_ram to use System RAM type
- 11/16 arm/samsung: Change s3c_pm_run_res() to use System RAM type
- 12/16 memremap: Change region_intersects() to take @flags and @desc
- 13/16 resource: Add walk_iomem_res_desc()
- 14/16 x86,nvdimm,kexec: Use walk_iomem_res_desc() for iomem search
- 15/16 checkpatch: Add warning on deprecated walk_iomem_res
- 16/16 ACPI/EINJ: Allow memory error injection to NVDIMM
-
----
- arch/arm/kernel/setup.c            |   6 +-
- arch/arm/plat-samsung/pm-check.c   |   4 +-
- arch/arm64/kernel/setup.c          |   6 +-
- arch/avr32/kernel/setup.c          |   6 +-
- arch/ia64/kernel/efi.c             |  13 ++++-
- arch/ia64/kernel/setup.c           |   6 +-
- arch/m32r/kernel/setup.c           |   4 +-
- arch/mips/kernel/setup.c           |  10 ++--
- arch/parisc/mm/init.c              |   6 +-
- arch/powerpc/mm/mem.c              |   2 +-
- arch/s390/kernel/setup.c           |   8 +--
- arch/score/kernel/setup.c          |   2 +-
- arch/sh/kernel/setup.c             |   8 +--
- arch/sparc/mm/init_64.c            |   8 +--
- arch/tile/kernel/setup.c           |  11 +++-
- arch/unicore32/kernel/setup.c      |   6 +-
- arch/x86/kernel/crash.c            |   4 +-
- arch/x86/kernel/e820.c             |  38 ++++++++++++-
- arch/x86/kernel/pmem.c             |   4 +-
- arch/x86/kernel/setup.c            |   6 +-
- drivers/acpi/acpi_platform.c       |   2 +-
- drivers/acpi/apei/einj.c           |  15 +++--
- drivers/nvdimm/e820.c              |   2 +-
- drivers/parisc/eisa_enumerator.c   |   4 +-
- drivers/rapidio/rio.c              |   8 +--
- drivers/sh/superhyway/superhyway.c |   2 +-
- drivers/xen/balloon.c              |   2 +-
- include/linux/ioport.h             |  33 +++++++++++
- include/linux/mm.h                 |   3 +-
- kernel/kexec_core.c                |   8 ++-
- kernel/kexec_file.c                |   8 +--
- kernel/memremap.c                  |  13 +++--
- kernel/resource.c                  | 110 +++++++++++++++++++++++++++----------
- mm/memory_hotplug.c                |   2 +-
- scripts/checkpatch.pl              |   6 ++
- 35 files changed, 265 insertions(+), 111 deletions(-)
