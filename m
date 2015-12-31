@@ -1,114 +1,61 @@
-From: Toshi Kani <toshi.kani@hpe.com>
-Date: Fri, 25 Dec 2015 22:09:14 +0000
-Subject: [PATCH v2 05/16] ia64: Set System RAM type and descriptor
-Message-Id: <1451081365-15190-5-git-send-email-toshi.kani@hpe.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Thu, 31 Dec 2015 19:06:13 +0000
+Subject: [PATCH v2 04/32] ia64: reuse asm-generic/barrier.h
+Message-Id: <1451572003-2440-5-git-send-email-mst@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1451081365-15190-1-git-send-email-toshi.kani@hpe.com>
-In-Reply-To: <1451081365-15190-1-git-send-email-toshi.kani@hpe.com>
+References: <1451572003-2440-1-git-send-email-mst@redhat.com>
+In-Reply-To: <1451572003-2440-1-git-send-email-mst@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@linux-foundation.org, bp@alien8.de
-Cc: linux-arch@vger.kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Toshi Kani <toshi.kani@hpe.com>
+To: linux-kernel@vger.kernel.org
+Cc: Peter Zijlstra <peterz@infradead.org>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, Andrew Cooper <andrew.cooper3@citrix.com>, virtualization@lists.linux-foundation.org, Stefano Stabellini <stefano.stabellini@eu.citrix.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>, David Miller <davem@davemloft.net>, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, x86@kernel.org, user-mode-linux-devel@lists.sourceforge.net, adi-buildroot-devel@lists.sourceforge.net, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, xen-devel@lists.xenproject.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Ingo Molnar <mingo@kernel.org>, D
 
-Change efi_initialize_iomem_resources() to set 'flags' and 'desc'
-from EFI memory types.  IORESOURCE_SYSRAM, a modifier bit, is
-set to 'flags' for System RAM as IORESOURCE_MEM is already set.
-IORESOURCE_SYSTEM_RAM is defined as (IORESOURCE_MEM|IORESOURCE_SYSRAM).
-I/O resource descritor is set to 'desc' for "ACPI Non-volatile
-Storage" and "Persistent Memory".
+On ia64 smp_rmb, smp_wmb, read_barrier_depends, smp_read_barrier_depends
+and smp_store_mb() match the asm-generic variants exactly. Drop the
+local definitions and pull in asm-generic/barrier.h instead.
 
-Also set IORESOURCE_SYSTEM_RAM to 'flags' for "Kernel code",
-"Kernel data", and "Kernel bss".
+This is in preparation to refactoring this code area.
 
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: linux-ia64@vger.kernel.org
-Signed-off-by: Toshi Kani <toshi.kani@hpe.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Acked-by: Tony Luck <tony.luck@intel.com>
+Acked-by: Arnd Bergmann <arnd@arndb.de>
 ---
- arch/ia64/kernel/efi.c   |   13 ++++++++++---
- arch/ia64/kernel/setup.c |    6 +++---
- 2 files changed, 13 insertions(+), 6 deletions(-)
+ arch/ia64/include/asm/barrier.h | 10 ++--------
+ 1 file changed, 2 insertions(+), 8 deletions(-)
 
-diff --git a/arch/ia64/kernel/efi.c b/arch/ia64/kernel/efi.c
-index caae3f4..300dac3 100644
---- a/arch/ia64/kernel/efi.c
-+++ b/arch/ia64/kernel/efi.c
-@@ -1178,7 +1178,7 @@ efi_initialize_iomem_resources(struct resource *code_resource,
- 	efi_memory_desc_t *md;
- 	u64 efi_desc_size;
- 	char *name;
--	unsigned long flags;
-+	unsigned long flags, desc;
+diff --git a/arch/ia64/include/asm/barrier.h b/arch/ia64/include/asm/barrier.h
+index 209c4b8..2f93348 100644
+--- a/arch/ia64/include/asm/barrier.h
++++ b/arch/ia64/include/asm/barrier.h
+@@ -48,12 +48,6 @@
+ # define smp_mb()	barrier()
+ #endif
  
- 	efi_map_start = __va(ia64_boot_param->efi_memmap);
- 	efi_map_end   = efi_map_start + ia64_boot_param->efi_memmap_size;
-@@ -1193,6 +1193,8 @@ efi_initialize_iomem_resources(struct resource *code_resource,
- 			continue;
+-#define smp_rmb()	smp_mb()
+-#define smp_wmb()	smp_mb()
+-
+-#define read_barrier_depends()		do { } while (0)
+-#define smp_read_barrier_depends()	do { } while (0)
+-
+ #define smp_mb__before_atomic()	barrier()
+ #define smp_mb__after_atomic()	barrier()
  
- 		flags = IORESOURCE_MEM | IORESOURCE_BUSY;
-+		desc = IORES_DESC_NONE;
+@@ -77,12 +71,12 @@ do {									\
+ 	___p1;								\
+ })
+ 
+-#define smp_store_mb(var, value) do { WRITE_ONCE(var, value); smp_mb(); } while (0)
+-
+ /*
+  * The group barrier in front of the rsm & ssm are necessary to ensure
+  * that none of the previous instructions in the same group are
+  * affected by the rsm/ssm.
+  */
+ 
++#include <asm-generic/barrier.h>
 +
- 		switch (md->type) {
- 
- 			case EFI_MEMORY_MAPPED_IO:
-@@ -1207,14 +1209,17 @@ efi_initialize_iomem_resources(struct resource *code_resource,
- 				if (md->attribute & EFI_MEMORY_WP) {
- 					name = "System ROM";
- 					flags |= IORESOURCE_READONLY;
--				} else if (md->attribute = EFI_MEMORY_UC)
-+				} else if (md->attribute = EFI_MEMORY_UC) {
- 					name = "Uncached RAM";
--				else
-+				} else {
- 					name = "System RAM";
-+					flags |= IORESOURCE_SYSRAM;
-+				}
- 				break;
- 
- 			case EFI_ACPI_MEMORY_NVS:
- 				name = "ACPI Non-volatile Storage";
-+				desc = IORES_DESC_ACPI_NV_STORAGE;
- 				break;
- 
- 			case EFI_UNUSABLE_MEMORY:
-@@ -1224,6 +1229,7 @@ efi_initialize_iomem_resources(struct resource *code_resource,
- 
- 			case EFI_PERSISTENT_MEMORY:
- 				name = "Persistent Memory";
-+				desc = IORES_DESC_PERSISTENT_MEMORY;
- 				break;
- 
- 			case EFI_RESERVED_TYPE:
-@@ -1246,6 +1252,7 @@ efi_initialize_iomem_resources(struct resource *code_resource,
- 		res->start = md->phys_addr;
- 		res->end = md->phys_addr + efi_md_size(md) - 1;
- 		res->flags = flags;
-+		res->desc = desc;
- 
- 		if (insert_resource(&iomem_resource, res) < 0)
- 			kfree(res);
-diff --git a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
-index 4f118b0..2029a38 100644
---- a/arch/ia64/kernel/setup.c
-+++ b/arch/ia64/kernel/setup.c
-@@ -80,17 +80,17 @@ unsigned long vga_console_membase;
- 
- static struct resource data_resource = {
- 	.name	= "Kernel data",
--	.flags	= IORESOURCE_BUSY | IORESOURCE_MEM
-+	.flags	= IORESOURCE_BUSY | IORESOURCE_SYSTEM_RAM
- };
- 
- static struct resource code_resource = {
- 	.name	= "Kernel code",
--	.flags	= IORESOURCE_BUSY | IORESOURCE_MEM
-+	.flags	= IORESOURCE_BUSY | IORESOURCE_SYSTEM_RAM
- };
- 
- static struct resource bss_resource = {
- 	.name	= "Kernel bss",
--	.flags	= IORESOURCE_BUSY | IORESOURCE_MEM
-+	.flags	= IORESOURCE_BUSY | IORESOURCE_SYSTEM_RAM
- };
- 
- unsigned long ia64_max_cacheline_size;
+ #endif /* _ASM_IA64_BARRIER_H */
+-- 
+MST
+
