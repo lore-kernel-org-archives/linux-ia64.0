@@ -1,104 +1,91 @@
-From: Sudeep Holla <sudeep.holla@arm.com>
-Date: Wed, 02 Dec 2015 14:10:44 +0000
-Subject: [PATCH v3 3/5] ACPI / processor_idle: replace PREFIX with pr_fmt
-Message-Id: <1449065446-26115-4-git-send-email-sudeep.holla@arm.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Thu, 31 Dec 2015 19:10:09 +0000
+Subject: [PATCH v2 34/34] xen/io: use virt_xxx barriers
+Message-Id: <1451572003-2440-35-git-send-email-mst@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1449065446-26115-1-git-send-email-sudeep.holla@arm.com>
-In-Reply-To: <1449065446-26115-1-git-send-email-sudeep.holla@arm.com>
+References: <1451572003-2440-1-git-send-email-mst@redhat.com>
+In-Reply-To: <1451572003-2440-1-git-send-email-mst@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-acpi@vger.kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Cc: Sudeep Holla <sudeep.holla@arm.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, x86@kernel.org, Al Stone <al.stone@linaro.org>, Lorenzo Pieralisi <Lorenzo.Pieralisi@arm.com>, Mahesh Sivasubramanian <msivasub@codeaurora.org>, Ashwin Chaugule <ashwin.chaugule@linaro.org>, Prashanth Prakash <pprakash@codeaurora.org>
+To: linux-kernel@vger.kernel.org
+Cc: Peter Zijlstra <peterz@infradead.org>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, Andrew Cooper <andrew.cooper3@citrix.com>, virtualization@lists.linux-foundation.org, Stefano Stabellini <stefano.stabellini@eu.citrix.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>, David Miller <davem@davemloft.net>, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, x86@kernel.org, user-mode-linux-devel@lists.sourceforge.net, adi-buildroot-devel@lists.sourceforge.net, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, xen-devel@lists.xenproject.org, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Boris Ostrovsky <boris.ostrovsky@oracle.com>, David
 
-Like few of the other ACPI modules, replace PREFIX with pr_fmt and
-change all the printk call sites to use pr_* companion functions
-in processor_idle.
+include/xen/interface/io/ring.h uses
+full memory barriers to communicate with the other side.
 
-Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Signed-off-by: Sudeep Holla <sudeep.holla@arm.com>
+For guests compiled with CONFIG_SMP, smp_wmb and smp_mb
+would be sufficient, so mb() and wmb() here are only needed if
+a non-SMP guest runs on an SMP host.
+
+Switch to virt_xxx barriers which serve this exact purpose.
+
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- drivers/acpi/processor_idle.c | 25 +++++++++++--------------
- 1 file changed, 11 insertions(+), 14 deletions(-)
+ include/xen/interface/io/ring.h | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/acpi/processor_idle.c b/drivers/acpi/processor_idle.c
-index a24067b850d2..fadce354d2b7 100644
---- a/drivers/acpi/processor_idle.c
-+++ b/drivers/acpi/processor_idle.c
-@@ -23,6 +23,7 @@
-  *
-  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  */
-+#define pr_fmt(fmt) "ACPI: " fmt
+diff --git a/include/xen/interface/io/ring.h b/include/xen/interface/io/ring.h
+index 7dc685b..21f4fbd 100644
+--- a/include/xen/interface/io/ring.h
++++ b/include/xen/interface/io/ring.h
+@@ -208,12 +208,12 @@ struct __name##_back_ring {						\
  
- #include <linux/module.h>
- #include <linux/acpi.h>
-@@ -42,8 +43,6 @@
- #include <asm/apic.h>
- #endif
  
--#define PREFIX "ACPI: "
--
- #define ACPI_PROCESSOR_CLASS            "processor"
- #define _COMPONENT              ACPI_PROCESSOR_COMPONENT
- ACPI_MODULE_NAME("processor_idle");
-@@ -80,9 +79,9 @@ static int set_max_cstate(const struct dmi_system_id *id)
- 	if (max_cstate > ACPI_PROCESSOR_MAX_POWER)
- 		return 0;
+ #define RING_PUSH_REQUESTS(_r) do {					\
+-    wmb(); /* back sees requests /before/ updated producer index */	\
++    virt_wmb(); /* back sees requests /before/ updated producer index */	\
+     (_r)->sring->req_prod = (_r)->req_prod_pvt;				\
+ } while (0)
  
--	printk(KERN_NOTICE PREFIX "%s detected - limiting to C%ld max_cstate."
--	       " Override with \"processor.max_cstate=%d\"\n", id->ident,
--	       (long)id->driver_data, ACPI_PROCESSOR_MAX_POWER + 1);
-+	pr_notice("%s detected - limiting to C%ld max_cstate."
-+		  " Override with \"processor.max_cstate=%d\"\n", id->ident,
-+		  (long)id->driver_data, ACPI_PROCESSOR_MAX_POWER + 1);
+ #define RING_PUSH_RESPONSES(_r) do {					\
+-    wmb(); /* front sees responses /before/ updated producer index */	\
++    virt_wmb(); /* front sees responses /before/ updated producer index */	\
+     (_r)->sring->rsp_prod = (_r)->rsp_prod_pvt;				\
+ } while (0)
  
- 	max_cstate = (long)id->driver_data;
+@@ -250,9 +250,9 @@ struct __name##_back_ring {						\
+ #define RING_PUSH_REQUESTS_AND_CHECK_NOTIFY(_r, _notify) do {		\
+     RING_IDX __old = (_r)->sring->req_prod;				\
+     RING_IDX __new = (_r)->req_prod_pvt;				\
+-    wmb(); /* back sees requests /before/ updated producer index */	\
++    virt_wmb(); /* back sees requests /before/ updated producer index */	\
+     (_r)->sring->req_prod = __new;					\
+-    mb(); /* back sees new requests /before/ we check req_event */	\
++    virt_mb(); /* back sees new requests /before/ we check req_event */	\
+     (_notify) = ((RING_IDX)(__new - (_r)->sring->req_event) <		\
+ 		 (RING_IDX)(__new - __old));				\
+ } while (0)
+@@ -260,9 +260,9 @@ struct __name##_back_ring {						\
+ #define RING_PUSH_RESPONSES_AND_CHECK_NOTIFY(_r, _notify) do {		\
+     RING_IDX __old = (_r)->sring->rsp_prod;				\
+     RING_IDX __new = (_r)->rsp_prod_pvt;				\
+-    wmb(); /* front sees responses /before/ updated producer index */	\
++    virt_wmb(); /* front sees responses /before/ updated producer index */	\
+     (_r)->sring->rsp_prod = __new;					\
+-    mb(); /* front sees new responses /before/ we check rsp_event */	\
++    virt_mb(); /* front sees new responses /before/ we check rsp_event */	\
+     (_notify) = ((RING_IDX)(__new - (_r)->sring->rsp_event) <		\
+ 		 (RING_IDX)(__new - __old));				\
+ } while (0)
+@@ -271,7 +271,7 @@ struct __name##_back_ring {						\
+     (_work_to_do) = RING_HAS_UNCONSUMED_REQUESTS(_r);			\
+     if (_work_to_do) break;						\
+     (_r)->sring->req_event = (_r)->req_cons + 1;			\
+-    mb();								\
++    virt_mb();								\
+     (_work_to_do) = RING_HAS_UNCONSUMED_REQUESTS(_r);			\
+ } while (0)
  
-@@ -314,7 +313,7 @@ static int acpi_processor_get_power_info_cst(struct acpi_processor *pr)
+@@ -279,7 +279,7 @@ struct __name##_back_ring {						\
+     (_work_to_do) = RING_HAS_UNCONSUMED_RESPONSES(_r);			\
+     if (_work_to_do) break;						\
+     (_r)->sring->rsp_event = (_r)->rsp_cons + 1;			\
+-    mb();								\
++    virt_mb();								\
+     (_work_to_do) = RING_HAS_UNCONSUMED_RESPONSES(_r);			\
+ } while (0)
  
- 	/* There must be at least 2 elements */
- 	if (!cst || (cst->type != ACPI_TYPE_PACKAGE) || cst->package.count < 2) {
--		printk(KERN_ERR PREFIX "not enough elements in _CST\n");
-+		pr_err("not enough elements in _CST\n");
- 		ret = -EFAULT;
- 		goto end;
- 	}
-@@ -323,7 +322,7 @@ static int acpi_processor_get_power_info_cst(struct acpi_processor *pr)
- 
- 	/* Validate number of power states. */
- 	if (count < 1 || count != cst->package.count - 1) {
--		printk(KERN_ERR PREFIX "count given by _CST is not valid\n");
-+		pr_err("count given by _CST is not valid\n");
- 		ret = -EFAULT;
- 		goto end;
- 	}
-@@ -432,11 +431,9 @@ static int acpi_processor_get_power_info_cst(struct acpi_processor *pr)
- 		 * (From 1 through ACPI_PROCESSOR_MAX_POWER - 1)
- 		 */
- 		if (current_count >= (ACPI_PROCESSOR_MAX_POWER - 1)) {
--			printk(KERN_WARNING
--			       "Limiting number of power states to max (%d)\n",
--			       ACPI_PROCESSOR_MAX_POWER);
--			printk(KERN_WARNING
--			       "Please increase ACPI_PROCESSOR_MAX_POWER if needed.\n");
-+			pr_warn("Limiting number of power states to max (%d)\n",
-+				ACPI_PROCESSOR_MAX_POWER);
-+			pr_warn("Please increase ACPI_PROCESSOR_MAX_POWER if needed.\n");
- 			break;
- 		}
- 	}
-@@ -1060,8 +1057,8 @@ int acpi_processor_power_init(struct acpi_processor *pr)
- 			retval = cpuidle_register_driver(&acpi_idle_driver);
- 			if (retval)
- 				return retval;
--			printk(KERN_DEBUG "ACPI: %s registered with cpuidle\n",
--					acpi_idle_driver.name);
-+			pr_debug("%s registered with cpuidle\n",
-+				 acpi_idle_driver.name);
- 		}
- 
- 		dev = kzalloc(sizeof(*dev), GFP_KERNEL);
 -- 
-1.9.1
+MST
 
