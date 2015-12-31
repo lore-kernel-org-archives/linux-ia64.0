@@ -1,51 +1,60 @@
-From: Sudeep Holla <sudeep.holla@arm.com>
-Date: Tue, 01 Dec 2015 17:43:34 +0000
-Subject: Re: [PATCH v2 5/5] ACPI / processor_idle: Add support for Low Power Idle(LPI) states
-Message-Id: <565DDC46.6020707@arm.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Thu, 31 Dec 2015 19:08:53 +0000
+Subject: [PATCH v2 24/32] sparc: define __smp_xxx
+Message-Id: <1451572003-2440-25-git-send-email-mst@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1438710406-3822-1-git-send-email-sudeep.holla@arm.com>
- <1442411963-14398-1-git-send-email-sudeep.holla@arm.com>
- <1442411963-14398-6-git-send-email-sudeep.holla@arm.com>
- <CAJ5Y-ebOPE1oamRk31nxL6VkgSdDd6AmEe2Fw1ku5pGt25D2Rg@mail.gmail.com>
- <565DD7A6.1000802@codeaurora.org>
-In-Reply-To: <565DD7A6.1000802@codeaurora.org>
+References: <1451572003-2440-1-git-send-email-mst@redhat.com>
+In-Reply-To: <1451572003-2440-1-git-send-email-mst@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Prakash, Prashanth" <pprakash@codeaurora.org>, Ashwin Chaugule <ashwin.chaugule@linaro.org>
-Cc: Sudeep Holla <sudeep.holla@arm.com>, linux acpi <linux-acpi@vger.kernel.org>, "Rafael J. Wysocki" <rjw@rjwysocki.net>, lkml <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, x86@kernel.org, Al Stone <al.stone@linaro.org>, Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>, Mahesh Sivasubramanian <msivasub@codeaurora.org>, wufan@codeaurora.org
+To: linux-kernel@vger.kernel.org
+Cc: Peter Zijlstra <peterz@infradead.org>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, Andrew Cooper <andrew.cooper3@citrix.com>, virtualization@lists.linux-foundation.org, Stefano Stabellini <stefano.stabellini@eu.citrix.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>, David Miller <davem@davemloft.net>, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, x86@kernel.org, user-mode-linux-devel@lists.sourceforge.net, adi-buildroot-devel@lists.sourceforge.net, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, xen-devel@lists.xenproject.org, Ingo Molnar <mingo@kernel.org>, Ralf Baechle <ralf@linux-mips.org>, Andrey Konovalov <andreyknvl@googl>
 
-Hi Prashanth,
+This defines __smp_xxx barriers for sparc,
+for use by virtualization.
 
-On 01/12/15 17:23, Prakash, Prashanth wrote:
-> Hi Sudeep,
->>> +static void combine_lpi_states(struct acpi_processor_lpi *l_lpi,
->>> +                              struct acpi_processor_lpi *p_lpi,
->>> +                              struct acpi_processor_lpi *c_lpi)
->>> +{
->>> +       c_lpi->min_residency = max(l_lpi->min_residency, p_lpi->min_residency);
->>> +       c_lpi->wake_latency = l_lpi->wake_latency + p_lpi->wake_latency;
->>> +       c_lpi->enable_parent_state = p_lpi->enable_parent_state;
->>> +       c_lpi->entry_method = l_lpi->entry_method;
->>> +       c_lpi->address = l_lpi->address + p_lpi->address;
->>> +       c_lpi->index = p_lpi->index;
->>> +       c_lpi->flags = p_lpi->flags;
->>> +       c_lpi->arch_flags = p_lpi->arch_flags;
->>> +       strncpy(c_lpi->desc, l_lpi->desc, ACPI_CX_DESC_LEN);
->>> +       strncat(c_lpi->desc, "+", ACPI_CX_DESC_LEN);
->>> +       strncat(c_lpi->desc, p_lpi->desc, ACPI_CX_DESC_LEN);
->>> +}
-> I suppose you meant to use strl* instead of strn* operations.  Below is a
-> simple patch to fix these. Can you please fold these changes into your next
-> version as well?
->
+smp_xxx barriers are removed as they are
+defined correctly by asm-generic/barriers.h
 
-Thanks for reporting, I had fixed it already as I ran into same issue
-when I was playing around with the description string in the LPI tables.
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Acked-by: Arnd Bergmann <arnd@arndb.de>
+---
+ arch/sparc/include/asm/barrier_64.h | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-Just adding some comments to the code now where ever it's not so
-obvious, will post it tomorrow.
+diff --git a/arch/sparc/include/asm/barrier_64.h b/arch/sparc/include/asm/barrier_64.h
+index 26c3f72..c9f6ee6 100644
+--- a/arch/sparc/include/asm/barrier_64.h
++++ b/arch/sparc/include/asm/barrier_64.h
+@@ -37,14 +37,14 @@ do {	__asm__ __volatile__("ba,pt	%%xcc, 1f\n\t" \
+ #define rmb()	__asm__ __volatile__("":::"memory")
+ #define wmb()	__asm__ __volatile__("":::"memory")
+ 
+-#define smp_store_release(p, v)						\
++#define __smp_store_release(p, v)						\
+ do {									\
+ 	compiletime_assert_atomic_type(*p);				\
+ 	barrier();							\
+ 	WRITE_ONCE(*p, v);						\
+ } while (0)
+ 
+-#define smp_load_acquire(p)						\
++#define __smp_load_acquire(p)						\
+ ({									\
+ 	typeof(*p) ___p1 = READ_ONCE(*p);				\
+ 	compiletime_assert_atomic_type(*p);				\
+@@ -52,8 +52,8 @@ do {									\
+ 	___p1;								\
+ })
+ 
+-#define smp_mb__before_atomic()	barrier()
+-#define smp_mb__after_atomic()	barrier()
++#define __smp_mb__before_atomic()	barrier()
++#define __smp_mb__after_atomic()	barrier()
+ 
+ #include <asm-generic/barrier.h>
+ 
+-- 
+MST
 
---
-Regards,
-Sudeep
