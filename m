@@ -1,41 +1,73 @@
-From: "Geyslan G. Bem" <geyslan@gmail.com>
-Date: Wed, 02 Dec 2015 20:00:10 +0000
-Subject: [PATCH v2] ia64: bitvector_process could read out of bounds
-Message-Id: <1449086412-3540-1-git-send-email-geyslan@gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Thu, 31 Dec 2015 19:07:02 +0000
+Subject: [PATCH v2 10/32] metag: reuse asm-generic/barrier.h
+Message-Id: <1451572003-2440-11-git-send-email-mst@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1451572003-2440-1-git-send-email-mst@redhat.com>
+In-Reply-To: <1451572003-2440-1-git-send-email-mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: peter.senna@gmail.com, jg.victorino1@gmail.com, raphaelscarv@gmail.com
-Cc: "Geyslan G. Bem" <geyslan@gmail.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Andrew Cooper <andrew.cooper3-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>, virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, Stefano Stabellini <stefano.stabellini-mvvWK6WmYclDPfheJLI6IQ@public.gmane.org>, Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>, Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>, "H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, user-mode-linux-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, adi-buildroot-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org, xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org, James Hogan <james.hogan-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>, Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Michael Ellerman <mpe@ellerman.>
 
-The units[] array could be accessed out of its bounds due the lack of
-verification of the max vector value.
+On metag dma_rmb, dma_wmb, smp_store_mb, read_barrier_depends,
+smp_read_barrier_depends, smp_store_release and smp_load_acquire  match
+the asm-generic variants exactly. Drop the local definitions and pull in
+asm-generic/barrier.h instead.
 
-To make this function not prone to error "P" and "E" suffixes were added.
-Despite the new suffixes are unrelated to current ia64 vm magnitudes, they
-make the code ready for it and avoid misleadings.
+This is in preparation to refactoring this code area.
 
-Caught using static analysis (cppcheck).
-
-Signed-off-by: Geyslan G. Bem <geyslan@gmail.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Acked-by: Arnd Bergmann <arnd@arndb.de>
 ---
- arch/ia64/kernel/palinfo.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ arch/metag/include/asm/barrier.h | 25 ++-----------------------
+ 1 file changed, 2 insertions(+), 23 deletions(-)
 
-diff --git a/arch/ia64/kernel/palinfo.c b/arch/ia64/kernel/palinfo.c
-index c39c3cd..bb499102 100644
---- a/arch/ia64/kernel/palinfo.c
-+++ b/arch/ia64/kernel/palinfo.c
-@@ -126,7 +126,7 @@ static const char *mem_attrib[]={
- static void bitvector_process(struct seq_file *m, u64 vector)
- {
- 	int i,j;
--	static const char *units[]={ "", "K", "M", "G", "T" };
-+	static const char *units[] = { "", "K", "M", "G", "T", "P", "E" };
+diff --git a/arch/metag/include/asm/barrier.h b/arch/metag/include/asm/barrier.h
+index 172b7e5..b5b778b 100644
+--- a/arch/metag/include/asm/barrier.h
++++ b/arch/metag/include/asm/barrier.h
+@@ -44,9 +44,6 @@ static inline void wr_fence(void)
+ #define rmb()		barrier()
+ #define wmb()		mb()
  
- 	for (i=0, j=0; i < 64; i++ , j=i/10) {
- 		if (vector & 0x1)
+-#define dma_rmb()	rmb()
+-#define dma_wmb()	wmb()
+-
+ #ifndef CONFIG_SMP
+ #define fence()		do { } while (0)
+ #define smp_mb()        barrier()
+@@ -81,27 +78,9 @@ static inline void fence(void)
+ #endif
+ #endif
+ 
+-#define read_barrier_depends()		do { } while (0)
+-#define smp_read_barrier_depends()	do { } while (0)
+-
+-#define smp_store_mb(var, value) do { WRITE_ONCE(var, value); smp_mb(); } while (0)
+-
+-#define smp_store_release(p, v)						\
+-do {									\
+-	compiletime_assert_atomic_type(*p);				\
+-	smp_mb();							\
+-	WRITE_ONCE(*p, v);						\
+-} while (0)
+-
+-#define smp_load_acquire(p)						\
+-({									\
+-	typeof(*p) ___p1 = READ_ONCE(*p);				\
+-	compiletime_assert_atomic_type(*p);				\
+-	smp_mb();							\
+-	___p1;								\
+-})
+-
+ #define smp_mb__before_atomic()	barrier()
+ #define smp_mb__after_atomic()	barrier()
+ 
++#include <asm-generic/barrier.h>
++
+ #endif /* _ASM_METAG_BARRIER_H */
 -- 
-2.6.2
+MST
 
