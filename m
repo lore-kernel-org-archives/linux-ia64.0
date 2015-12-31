@@ -1,63 +1,50 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Date: Thu, 24 Dec 2015 14:28:02 +0000
-Subject: [for-next][PATCH 10/13] ia64: ftrace: Fix the comments for ftrace_modify_code()
-Message-Id: <20151224142901.064357467@goodmis.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Thu, 31 Dec 2015 19:09:47 +0000
+Subject: [PATCH v2 31/32] sh: support a 2-byte smp_store_mb
+Message-Id: <1451572003-2440-32-git-send-email-mst@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20151224142752.534947674@goodmis.org>
+References: <1451572003-2440-1-git-send-email-mst@redhat.com>
+In-Reply-To: <1451572003-2440-1-git-send-email-mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Ingo Molnar <mingo@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Li Bin <huawei.libin@huawei.com>
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Andrew Cooper <andrew.cooper3-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>, virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, Stefano Stabellini <stefano.stabellini-mvvWK6WmYclDPfheJLI6IQ@public.gmane.org>, Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>, Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>, "H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, user-mode-linux-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, adi-buildroot-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org, xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org, Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 
-From: Li Bin <huawei.libin@huawei.com>
+At the moment, xchg on sh only supports 4 and 1 byte values, so using it
+from smp_store_mb means attempts to store a 2 byte value using this
+macro fail.
 
-There is no need to worry about module and __init text disappearing
-case, because that ftrace has a module notifier that is called when
-a module is being unloaded and before the text goes away and this
-code grabs the ftrace_lock mutex and removes the module functions
-from the ftrace list, such that it will no longer do any
-modifications to that module's text, the update to make functions
-be traced or not is done under the ftrace_lock mutex as well.
-And by now, __init section codes should not been modified
-by ftrace, because it is black listed in recordmcount.c and
-ignored by ftrace.
+And happens to be exactly what virtio drivers want to do.
 
-Link: http://lkml.kernel.org/r/1449214067-12177-2-git-send-email-huawei.libin@huawei.com
+Check size and fall back to a slower, but safe, WRITE_ONCE+smp_mb.
 
-Cc: linux-ia64@vger.kernel.org
-Acked-by: Tony Luck <tony.luck@intel.com>
-Suggested-by: Steven Rostedt <rostedt@goodmis.org>
-Signed-off-by: Li Bin <huawei.libin@huawei.com>
-Signed-off-by: Steven Rostedt <rostedt@goodmis.org>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- arch/ia64/kernel/ftrace.c | 12 +++++-------
- 1 file changed, 5 insertions(+), 7 deletions(-)
+ arch/sh/include/asm/barrier.h | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
 
-diff --git a/arch/ia64/kernel/ftrace.c b/arch/ia64/kernel/ftrace.c
-index 3b0c2aa07857..cee411e647ca 100644
---- a/arch/ia64/kernel/ftrace.c
-+++ b/arch/ia64/kernel/ftrace.c
-@@ -97,13 +97,11 @@ ftrace_modify_code(unsigned long ip, unsigned char *old_code,
- 	unsigned char replaced[MCOUNT_INSN_SIZE];
+diff --git a/arch/sh/include/asm/barrier.h b/arch/sh/include/asm/barrier.h
+index f887c64..0cc5735 100644
+--- a/arch/sh/include/asm/barrier.h
++++ b/arch/sh/include/asm/barrier.h
+@@ -32,7 +32,15 @@
+ #define ctrl_barrier()	__asm__ __volatile__ ("nop;nop;nop;nop;nop;nop;nop;nop")
+ #endif
  
- 	/*
--	 * Note: Due to modules and __init, code can
--	 *  disappear and change, we need to protect against faulting
--	 *  as well as code changing. We do this by using the
--	 *  probe_kernel_* functions.
--	 *
--	 * No real locking needed, this code is run through
--	 * kstop_machine, or before SMP starts.
-+	 * Note:
-+	 * We are paranoid about modifying text, as if a bug was to happen, it
-+	 * could cause us to read or write to someplace that could cause harm.
-+	 * Carefully read and modify the code with probe_kernel_*(), and make
-+	 * sure what we read is what we expected it to be before modifying it.
- 	 */
+-#define __smp_store_mb(var, value) do { (void)xchg(&var, value); } while (0)
++#define __smp_store_mb(var, value) do { \
++	if (sizeof(var) != 4 && sizeof(var) != 1) { \
++		 WRITE_ONCE(var, value); \
++		__smp_mb(); \
++	} else { \
++		(void)xchg(&var, value);  \
++	} \
++} while (0)
++
+ #define smp_store_mb(var, value) __smp_store_mb(var, value)
  
- 	if (!do_check)
+ #include <asm-generic/barrier.h>
 -- 
-2.6.2
-
+MST
 
