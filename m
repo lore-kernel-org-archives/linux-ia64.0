@@ -1,21 +1,22 @@
 From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
-Date: Tue, 05 Jan 2016 15:19:38 +0000
-Subject: [PATCH v2 4/6] x86/extable: use generic search and sort routines
-Message-Id: <1452007180-27411-5-git-send-email-ard.biesheuvel@linaro.org>
+Date: Sun, 03 Jan 2016 16:05:55 +0000
+Subject: [PATCH 4/6] x86/extable: use generic search and sort routines
+Message-Id: <1451837157-447-5-git-send-email-ard.biesheuvel@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1452007180-27411-1-git-send-email-ard.biesheuvel@linaro.org>
-In-Reply-To: <1452007180-27411-1-git-send-email-ard.biesheuvel@linaro.org>
+References: <1451837157-447-1-git-send-email-ard.biesheuvel@linaro.org>
+In-Reply-To: <1451837157-447-1-git-send-email-ard.biesheuvel@linaro.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@linux-foundation.org, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, x86@kernel.org, hpa@zytor.com, mingo@redhat.com, heiko.carstens@de.ibm.com, schwidefsky@de.ibm.com, mattst88@gmail.com, ink@jurassic.park.msu.ru, rth@twiddle.net, tony.luck@intel.com, fenghua.yu@intel.com, catalin.marinas@arm.com, will.deacon@arm.com, arnd@arndb.de
-Cc: deller@gmx.de, mark.rutland@arm.com, Ard Biesheuvel <ard.biesheuvel@linaro.org>
+To: linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, x86@kernel.org, hpa@zytor.com, mingo@redhat.com, heiko.carstens@de.ibm.com, schwidefsky@de.ibm.com, mattst88@gmail.com, ink@jurassic.park.msu.ru, rth@twiddle.net, tony.luck@intel.com, fenghua.yu@intel.com, catalin.marinas@arm.com, will.deacon@arm.com, arnd@arndb.de, akpm@linux-foundation.org
+Cc: mark.rutland@arm.com, marc.zyngier@arm.com, Ard Biesheuvel <ard.biesheuvel@linaro.org>
 
 Replace the arch specific versions of search_extable() and sort_extable()
 with calls to the generic ones, which now support relative exception
 tables as well.
 
-Acked-by: H. Peter Anvin <hpa@linux.intel.com>
+Cc: Ingo Molnar <mingo@redhat.com>
+Cc: "H. Peter Anvin" <hpa@zytor.com>
 Signed-off-by: Ard Biesheuvel <ard.biesheuvel@linaro.org>
 ---
  arch/x86/include/asm/uaccess.h |   5 +-
@@ -161,5 +162,5 @@ index 903ec1e9c326..0b172b656f43 100644
 -}
 -#endif /* CONFIG_MODULES */
 -- 
-2.5.0
+1.9.1
 
