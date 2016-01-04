@@ -1,7 +1,7 @@
 From: "H. Peter Anvin" <hpa@zytor.com>
-Date: Mon, 04 Jan 2016 18:47:09 +0000
+Date: Mon, 04 Jan 2016 19:21:46 +0000
 Subject: Re: [PATCH 6/6] arm64: switch to relative exception tables
-Message-Id: <568ABE2D.9060207@zytor.com>
+Message-Id: <568AC64A.4090601@zytor.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1451837157-447-1-git-send-email-ard.biesheuvel@linaro.org> <1451837157-447-7-git-send-email-ard.biesheuvel@linaro.org> <20160104144643.GE1616@arm.com> <568AB65A.8030901@zytor.com> <3908561D78D1C84285E8C5FCA982C28F39FA127B@ORSMSX114.amr.corp.intel.com>
 In-Reply-To: <3908561D78D1C84285E8C5FCA982C28F39FA127B@ORSMSX114.amr.corp.intel.com>
@@ -23,7 +23,8 @@ On 01/04/2016 10:20 AM, Luck, Tony wrote:
 > http://marc.info/?l=linux-kernel&m5187079504846&w=2
 > 
 
-That doesn't mean it can't be overridden.
+I suspect that means we will also need to go back to arch-specific
+sorting for x86.
 
 	-hpa
 
