@@ -1,44 +1,65 @@
-From: Joe Perches <joe@perches.com>
-Date: Mon, 04 Jan 2016 16:15:14 +0000
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Mon, 04 Jan 2016 20:45:19 +0000
 Subject: Re: [PATCH 1/3] checkpatch.pl: add missing memory barriers
-Message-Id: <1451924114.4334.85.camel@perches.com>
+Message-Id: <20160104224415-mutt-send-email-mst@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1451907395-15978-1-git-send-email-mst@redhat.com>
-	 <1451907395-15978-2-git-send-email-mst@redhat.com>
-	 <1451923660.4334.83.camel@perches.com>
-	 <20160104161123.GJ19062@n2100.arm.linux.org.uk>
-In-Reply-To: <20160104161123.GJ19062@n2100.arm.linux.org.uk>
+ <1451907395-15978-2-git-send-email-mst@redhat.com>
+ <1451923660.4334.83.camel@perches.com>
+In-Reply-To: <1451923660.4334.83.camel-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, linux-kernel@vger.kernel.org, "Cc : Andy Whitcroft" <apw@canonical.com>, Peter Zijlstra <peterz@infradead.org>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, Andrew Cooper <andrew.cooper3@citrix.com>, virtualization@lists.linux-foundation.org, Stefano Stabellini <stefano.stabellini@eu.citrix.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>, David Miller <davem@davemloft.net>, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, x86@kernel.org, user-mode-linux-devel@lists.sourceforge.net, adi-buildroot-devel@lists.sourceforge.net, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, xen-devel@lists.xenpr
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "Cc : Andy Whitcroft" <apw-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>, Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Andrew Cooper <andrew.cooper3-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>, virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, Stefano Stabellini <stefano.stabellini-mvvWK6WmYclDPfheJLI6IQ@public.gmane.org>, Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>, Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>, "H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, user-mode-linux-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, adi-buildroot-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org, xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org, Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 
-On Mon, 2016-01-04 at 16:11 +0000, Russell King - ARM Linux wrote:
-> On Mon, Jan 04, 2016 at 08:07:40AM -0800, Joe Perches wrote:
-> > On Mon, 2016-01-04 at 13:36 +0200, Michael S. Tsirkin wrote:
-> > > +		my $all_barriers = join('|', (@barriers, @smp_barriers));
-> > > +
-> > > +		if ($line =~ /\b($all_barriers)\(/) {
-> > 
-> > It would be better to use /\b$all_barriers\s*\(/
-> > as there's no reason for the capture and there
-> > could be a space between the function and the
-> > open parenthesis.
-> 
-> I think you mean
-> 
-> 	/\b(?:$all_barriers)\s*\(/
-> 
-> as 'all_barriers' will be:
-> 
-> 	mb|wmb|rmb|smp_mb|smp_wmb|smp_rmb
-> 
-> and putting that into your suggestion results in:
-> 
-> 	/\bmb|wmb|rmb|smp_mb|smp_wmb|smp_rmb\s*\(/
-> 
-> which is clearly wrong - the \b only applies to 'mb' and the \s*\( only
-> applies to smp_rmb.
+On Mon, Jan 04, 2016 at 08:07:40AM -0800, Joe Perches wrote:
+> On Mon, 2016-01-04 at 13:36 +0200, Michael S. Tsirkin wrote:
+> > SMP-only barriers were missing in checkpatch.pl
+> >=20
+> > Refactor code slightly to make adding more variants easier.
+> >=20
+> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> > ---
+> > =A0scripts/checkpatch.pl | 9 ++++++++-
+> > =A01 file changed, 8 insertions(+), 1 deletion(-)
+> >=20
+> > diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
+> > index 2b3c228..0245bbe 100755
+> > --- a/scripts/checkpatch.pl
+> > +++ b/scripts/checkpatch.pl
+> > @@ -5116,7 +5116,14 @@ sub process {
+> > =A0			}
+> > =A0		}
+> > =A0# check for memory barriers without a comment.
+> > -		if ($line =3D~ /\b(mb|rmb|wmb|read_barrier_depends|smp_mb|smp_rmb|sm=
+p_wmb|smp_read_barrier_depends)\(/) {
+> > +
+> > +		my @barriers =3D ('mb', 'rmb', 'wmb', 'read_barrier_depends');
+> > +		my @smp_barriers =3D ('smp_store_release', 'smp_load_acquire', 'smp_=
+store_mb');
+> > +
+> > +		@smp_barriers =3D (@smp_barriers, map {"smp_" . $_} @barriers);
+>=20
+> I think using map, which so far checkpatch doesn't use,
+> makes smp_barriers harder to understand and it'd be
+> better to enumerate them.
 
-right, thanks.
+Okay - I'll rewrite using foreach.
+
+> > +		my $all_barriers =3D join('|', (@barriers, @smp_barriers));
+> > +
+> > +		if ($line =3D~ /\b($all_barriers)\(/) {
+>=20
+> It would be better to use /\b$all_barriers\s*\(/
+> as there's no reason for the capture and there
+> could be a space between the function and the
+> open parenthesis.
+
+That's the way it was - space before ( will trigger other
+warnings. But sure, ok.
+
+>=20
+> > =A0			if (!ctx_has_comment($first_line, $linenr)) {
+> > =A0				WARN("MEMORY_BARRIER",
+> > =A0				=A0=A0=A0=A0=A0"memory barrier without comment\n" . $herecurr);
