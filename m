@@ -1,157 +1,96 @@
-From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
-Date: Sun, 03 Jan 2016 16:05:54 +0000
-Subject: [PATCH 3/6] s390/extable: use generic search and sort routines
-Message-Id: <1451837157-447-4-git-send-email-ard.biesheuvel@linaro.org>
+From: Stefano Stabellini <stefano.stabellini@eu.citrix.com>
+Date: Mon, 04 Jan 2016 12:05:57 +0000
+Subject: Re: [PATCH v2 34/34] xen/io: use virt_xxx barriers
+Message-Id: <alpine.DEB.2.02.1601041201440.19710@kaball.uk.xensource.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1451837157-447-1-git-send-email-ard.biesheuvel@linaro.org>
-In-Reply-To: <1451837157-447-1-git-send-email-ard.biesheuvel@linaro.org>
+References: <1451572003-2440-1-git-send-email-mst@redhat.com>
+ <1451572003-2440-35-git-send-email-mst@redhat.com>
+In-Reply-To: <1451572003-2440-35-git-send-email-mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, x86@kernel.org, hpa@zytor.com, mingo@redhat.com, heiko.carstens@de.ibm.com, schwidefsky@de.ibm.com, mattst88@gmail.com, ink@jurassic.park.msu.ru, rth@twiddle.net, tony.luck@intel.com, fenghua.yu@intel.com, catalin.marinas@arm.com, will.deacon@arm.com, arnd@arndb.de, akpm@linux-foundation.org
-Cc: mark.rutland@arm.com, marc.zyngier@arm.com, Ard Biesheuvel <ard.biesheuvel@linaro.org>
+To: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Andrew Cooper <andrew.cooper3-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>, virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, Stefano Stabellini <stefano.stabellini-mvvWK6WmYclDPfheJLI6IQ@public.gmane.org>, Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>, Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>, "H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, user-mode-linux-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, adi-buildroot-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org, xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org, Konrad Rzeszutek Wilk <konrad.wilk@or>
 
-Replace the arch specific versions of search_extable() and sort_extable()
-with calls to the generic ones, which now support relative exception
-tables as well.
+On Thu, 31 Dec 2015, Michael S. Tsirkin wrote:
+> include/xen/interface/io/ring.h uses
+> full memory barriers to communicate with the other side.
+> 
+> For guests compiled with CONFIG_SMP, smp_wmb and smp_mb
+> would be sufficient, so mb() and wmb() here are only needed if
+> a non-SMP guest runs on an SMP host.
+> 
+> Switch to virt_xxx barriers which serve this exact purpose.
+> 
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 
-Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
-Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
-Signed-off-by: Ard Biesheuvel <ard.biesheuvel@linaro.org>
----
- arch/s390/include/asm/uaccess.h |  8 +-
- arch/s390/mm/Makefile           |  2 +-
- arch/s390/mm/extable.c          | 85 --------------------
- 3 files changed, 2 insertions(+), 93 deletions(-)
+Reviewed-by: Stefano Stabellini <stefano.stabellini@eu.citrix.com>
 
-diff --git a/arch/s390/include/asm/uaccess.h b/arch/s390/include/asm/uaccess.h
-index 9dd4cc47ddc7..e0900ddf91dd 100644
---- a/arch/s390/include/asm/uaccess.h
-+++ b/arch/s390/include/asm/uaccess.h
-@@ -79,18 +79,12 @@ struct exception_table_entry
- 	int insn, fixup;
- };
- 
--static inline unsigned long extable_insn(const struct exception_table_entry *x)
--{
--	return (unsigned long)&x->insn + x->insn;
--}
--
- static inline unsigned long extable_fixup(const struct exception_table_entry *x)
- {
- 	return (unsigned long)&x->fixup + x->fixup;
- }
- 
--#define ARCH_HAS_SORT_EXTABLE
--#define ARCH_HAS_SEARCH_EXTABLE
-+#define ARCH_HAS_RELATIVE_EXTABLE
- 
- /**
-  * __copy_from_user: - Copy a block of data from user space, with less checking.
-diff --git a/arch/s390/mm/Makefile b/arch/s390/mm/Makefile
-index 839592ca265c..479550dae80e 100644
---- a/arch/s390/mm/Makefile
-+++ b/arch/s390/mm/Makefile
-@@ -3,7 +3,7 @@
- #
- 
- obj-y		:= init.o fault.o extmem.o mmap.o vmem.o pgtable.o maccess.o
--obj-y		+= page-states.o gup.o extable.o pageattr.o mem_detect.o
-+obj-y		+= page-states.o gup.o pageattr.o mem_detect.o
- 
- obj-$(CONFIG_CMM)		+= cmm.o
- obj-$(CONFIG_HUGETLB_PAGE)	+= hugetlbpage.o
-diff --git a/arch/s390/mm/extable.c b/arch/s390/mm/extable.c
-deleted file mode 100644
-index 18c8b819b0aa..000000000000
---- a/arch/s390/mm/extable.c
-+++ /dev/null
-@@ -1,85 +0,0 @@
--#include <linux/module.h>
--#include <linux/sort.h>
--#include <asm/uaccess.h>
--
--/*
-- * Search one exception table for an entry corresponding to the
-- * given instruction address, and return the address of the entry,
-- * or NULL if none is found.
-- * We use a binary search, and thus we assume that the table is
-- * already sorted.
-- */
--const struct exception_table_entry *
--search_extable(const struct exception_table_entry *first,
--	       const struct exception_table_entry *last,
--	       unsigned long value)
--{
--	const struct exception_table_entry *mid;
--	unsigned long addr;
--
--	while (first <= last) {
--		mid = ((last - first) >> 1) + first;
--		addr = extable_insn(mid);
--		if (addr < value)
--			first = mid + 1;
--		else if (addr > value)
--			last = mid - 1;
--		else
--			return mid;
--	}
--	return NULL;
--}
--
--/*
-- * The exception table needs to be sorted so that the binary
-- * search that we use to find entries in it works properly.
-- * This is used both for the kernel exception table and for
-- * the exception tables of modules that get loaded.
-- *
-- */
--static int cmp_ex(const void *a, const void *b)
--{
--	const struct exception_table_entry *x = a, *y = b;
--
--	/* This compare is only valid after normalization. */
--	return x->insn - y->insn;
--}
--
--void sort_extable(struct exception_table_entry *start,
--		  struct exception_table_entry *finish)
--{
--	struct exception_table_entry *p;
--	int i;
--
--	/* Normalize entries to being relative to the start of the section */
--	for (p = start, i = 0; p < finish; p++, i += 8) {
--		p->insn += i;
--		p->fixup += i + 4;
--	}
--	sort(start, finish - start, sizeof(*start), cmp_ex, NULL);
--	/* Denormalize all entries */
--	for (p = start, i = 0; p < finish; p++, i += 8) {
--		p->insn -= i;
--		p->fixup -= i + 4;
--	}
--}
--
--#ifdef CONFIG_MODULES
--/*
-- * If the exception table is sorted, any referring to the module init
-- * will be at the beginning or the end.
-- */
--void trim_init_extable(struct module *m)
--{
--	/* Trim the beginning */
--	while (m->num_exentries &&
--	       within_module_init(extable_insn(&m->extable[0]), m)) {
--		m->extable++;
--		m->num_exentries--;
--	}
--	/* Trim the end */
--	while (m->num_exentries &&
--	       within_module_init(extable_insn(&m->extable[m->num_exentries-1]), m))
--		m->num_exentries--;
--}
--#endif /* CONFIG_MODULES */
--- 
-1.9.1
 
+>  include/xen/interface/io/ring.h | 16 ++++++++--------
+>  1 file changed, 8 insertions(+), 8 deletions(-)
+> 
+> diff --git a/include/xen/interface/io/ring.h b/include/xen/interface/io/ring.h
+> index 7dc685b..21f4fbd 100644
+> --- a/include/xen/interface/io/ring.h
+> +++ b/include/xen/interface/io/ring.h
+> @@ -208,12 +208,12 @@ struct __name##_back_ring {						\
+>  
+>  
+>  #define RING_PUSH_REQUESTS(_r) do {					\
+> -    wmb(); /* back sees requests /before/ updated producer index */	\
+> +    virt_wmb(); /* back sees requests /before/ updated producer index */	\
+>      (_r)->sring->req_prod = (_r)->req_prod_pvt;				\
+>  } while (0)
+>  
+>  #define RING_PUSH_RESPONSES(_r) do {					\
+> -    wmb(); /* front sees responses /before/ updated producer index */	\
+> +    virt_wmb(); /* front sees responses /before/ updated producer index */	\
+>      (_r)->sring->rsp_prod = (_r)->rsp_prod_pvt;				\
+>  } while (0)
+>  
+> @@ -250,9 +250,9 @@ struct __name##_back_ring {						\
+>  #define RING_PUSH_REQUESTS_AND_CHECK_NOTIFY(_r, _notify) do {		\
+>      RING_IDX __old = (_r)->sring->req_prod;				\
+>      RING_IDX __new = (_r)->req_prod_pvt;				\
+> -    wmb(); /* back sees requests /before/ updated producer index */	\
+> +    virt_wmb(); /* back sees requests /before/ updated producer index */	\
+>      (_r)->sring->req_prod = __new;					\
+> -    mb(); /* back sees new requests /before/ we check req_event */	\
+> +    virt_mb(); /* back sees new requests /before/ we check req_event */	\
+>      (_notify) = ((RING_IDX)(__new - (_r)->sring->req_event) <		\
+>  		 (RING_IDX)(__new - __old));				\
+>  } while (0)
+> @@ -260,9 +260,9 @@ struct __name##_back_ring {						\
+>  #define RING_PUSH_RESPONSES_AND_CHECK_NOTIFY(_r, _notify) do {		\
+>      RING_IDX __old = (_r)->sring->rsp_prod;				\
+>      RING_IDX __new = (_r)->rsp_prod_pvt;				\
+> -    wmb(); /* front sees responses /before/ updated producer index */	\
+> +    virt_wmb(); /* front sees responses /before/ updated producer index */	\
+>      (_r)->sring->rsp_prod = __new;					\
+> -    mb(); /* front sees new responses /before/ we check rsp_event */	\
+> +    virt_mb(); /* front sees new responses /before/ we check rsp_event */	\
+>      (_notify) = ((RING_IDX)(__new - (_r)->sring->rsp_event) <		\
+>  		 (RING_IDX)(__new - __old));				\
+>  } while (0)
+> @@ -271,7 +271,7 @@ struct __name##_back_ring {						\
+>      (_work_to_do) = RING_HAS_UNCONSUMED_REQUESTS(_r);			\
+>      if (_work_to_do) break;						\
+>      (_r)->sring->req_event = (_r)->req_cons + 1;			\
+> -    mb();								\
+> +    virt_mb();								\
+>      (_work_to_do) = RING_HAS_UNCONSUMED_REQUESTS(_r);			\
+>  } while (0)
+>  
+> @@ -279,7 +279,7 @@ struct __name##_back_ring {						\
+>      (_work_to_do) = RING_HAS_UNCONSUMED_RESPONSES(_r);			\
+>      if (_work_to_do) break;						\
+>      (_r)->sring->rsp_event = (_r)->rsp_cons + 1;			\
+> -    mb();								\
+> +    virt_mb();								\
+>      (_work_to_do) = RING_HAS_UNCONSUMED_RESPONSES(_r);			\
+>  } while (0)
+>  
+> -- 
+> MST
+> 
