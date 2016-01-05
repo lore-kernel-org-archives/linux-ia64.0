@@ -1,78 +1,151 @@
 From: James Hogan <james.hogan@imgtec.com>
-Date: Mon, 04 Jan 2016 16:04:55 +0000
+Date: Tue, 05 Jan 2016 00:09:30 +0000
 Subject: Re: [PATCH v2 20/32] metag: define __smp_xxx
-Message-Id: <20160104160455.GE17861@jhogan-linux.le.imgtec.org>
+Message-Id: <20160105000929.GM17861@jhogan-linux.le.imgtec.org>
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="PGNNI9BzQDUtgA2J"
+Content-Type: multipart/mixed; boundary="lbQeYSs6J2ITmUo7"
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1451572003-2440-1-git-send-email-mst@redhat.com>
  <1451572003-2440-21-git-send-email-mst@redhat.com>
- <20160104134128.GZ6344@twins.programming.kicks-ass.net>
- <20160104152558.GD17861@jhogan-linux.le.imgtec.org>
- <20160104153036.GG6344@twins.programming.kicks-ass.net>
-In-Reply-To: <20160104153036.GG6344@twins.programming.kicks-ass.net>
-To: Peter Zijlstra <peterz@infradead.org>
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, linux-kernel@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, Andrew Cooper <andrew.cooper3@citrix.com>, virtualization@lists.linux-foundation.org, Stefano Stabellini <stefano.stabellini@eu.citrix.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>, David Miller <davem@davemloft.net>, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, x86@kernel.org, user-mode-linux-devel@lists.sourceforge.net, adi-buildroot-devel@lists.sourceforge.net, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, xen-devel@lists.xenproject.org, Ingo Molnar <mingo@kernel.org>, David
+In-Reply-To: <1451572003-2440-21-git-send-email-mst@redhat.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: linux-kernel@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, Andrew Cooper <andrew.cooper3@citrix.com>, virtualization@lists.linux-foundation.org, Stefano Stabellini <stefano.stabellini@eu.citrix.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>, David Miller <davem@davemloft.net>, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, x86@kernel.org, user-mode-linux-devel@lists.sourceforge.net, adi-buildroot-devel@lists.sourceforge.net, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, xen-devel@lists.xenproject.org, Ingo Molnar <mingo@kernel.org>, David
 
---PGNNI9BzQDUtgA2J
+--lbQeYSs6J2ITmUo7
 Content-Type: text/plain; charset=utf-8
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-On Mon, Jan 04, 2016 at 04:30:36PM +0100, Peter Zijlstra wrote:
-> On Mon, Jan 04, 2016 at 03:25:58PM +0000, James Hogan wrote:
-> > It is used along with the metag specific __global_lock1() (global
-> > voluntary lock between hw threads) whenever a write is performed, and by
-> > smp_mb/smp_rmb to try to catch other cases, but I've never been
-> > confident this fixes every single corner case, since there could be
-> > other places where multiple CPUs perform unsynchronised writes to the
-> > same memory location, and expect cache not to become incoherent at that
-> > location.
->=20
-> Ah, yuck, I thought blackfin was the only one attempting !coherent SMP.
-> And yes, this is bound to break in lots of places in subtle ways. We
-> very much assume cache coherency for SMP in generic code.
+Hi Michael,
 
-Well, its usually completely coherent, its just a bit dodgy in a
-particular hardware corner case, which was pretty hard to hit, even
-without these workarounds.
+On Thu, Dec 31, 2015 at 09:08:22PM +0200, Michael S. Tsirkin wrote:
+> This defines __smp_xxx barriers for metag,
+> for use by virtualization.
+>=20
+> smp_xxx barriers are removed as they are
+> defined correctly by asm-generic/barriers.h
+>=20
+> Note: as __smp_XX macros should not depend on CONFIG_SMP, they can not
+> use the existing fence() macro since that is defined differently between
+> SMP and !SMP.  For this reason, this patch introduces a wrapper
+> metag_fence() that doesn't depend on CONFIG_SMP.
+> fence() is then defined using that, depending on CONFIG_SMP.
+
+I'm not a fan of the inconsistent commit message wrapping. I wrap to 72
+columns (although I now notice SubmittingPatches says to use 75...).
 
 >=20
-> > It seemed to be sufficient to achieve stability however, and SMP on Meta
-> > Linux never made it into a product anyway, since the other hw thread
-> > tended to be used for RTOS stuff, so it didn't seem worth extending the
-> > generic barrier API for it.
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> Acked-by: Arnd Bergmann <arnd@arndb.de>
+> ---
+>  arch/metag/include/asm/barrier.h | 32 +++++++++++++++-----------------
+>  1 file changed, 15 insertions(+), 17 deletions(-)
 >=20
-> *phew*, should we take it out then, just to be sure nobody accidentally
-> tries to use it then?
+> diff --git a/arch/metag/include/asm/barrier.h b/arch/metag/include/asm/ba=
+rrier.h
+> index b5b778b..84880c9 100644
+> --- a/arch/metag/include/asm/barrier.h
+> +++ b/arch/metag/include/asm/barrier.h
+> @@ -44,13 +44,6 @@ static inline void wr_fence(void)
+>  #define rmb()		barrier()
+>  #define wmb()		mb()
+> =20
+> -#ifndef CONFIG_SMP
+> -#define fence()		do { } while (0)
+> -#define smp_mb()        barrier()
+> -#define smp_rmb()       barrier()
+> -#define smp_wmb()       barrier()
+> -#else
 
-SMP support on this SoC you mean? I doubt it'll be a problem tbh, and
-it'd work fine in QEMU when emulating this SoC, so I'd prefer to keep it
-in.
+!SMP kernel text differs, but only because of new presence of unused
+metag_fence() inline function. If I #if 0 that out, then it matches, so
+thats fine.
+
+> -
+>  #ifdef CONFIG_METAG_SMP_WRITE_REORDERING
+>  /*
+>   * Write to the atomic memory unlock system event register (command 0). =
+This is
+> @@ -60,26 +53,31 @@ static inline void wr_fence(void)
+>   * incoherence). It is therefore ineffective if used after and on the sa=
+me
+>   * thread as a write.
+>   */
+> -static inline void fence(void)
+> +static inline void metag_fence(void)
+>  {
+>  	volatile int *flushptr =3D (volatile int *) LINSYSEVENT_WR_ATOMIC_UNLOC=
+K;
+>  	barrier();
+>  	*flushptr =3D 0;
+>  	barrier();
+>  }
+> -#define smp_mb()        fence()
+> -#define smp_rmb()       fence()
+> -#define smp_wmb()       barrier()
+> +#define __smp_mb()        metag_fence()
+> +#define __smp_rmb()       metag_fence()
+> +#define __smp_wmb()       barrier()
+>  #else
+> -#define fence()		do { } while (0)
+> -#define smp_mb()        barrier()
+> -#define smp_rmb()       barrier()
+> -#define smp_wmb()       barrier()
+> +#define metag_fence()		do { } while (0)
+> +#define __smp_mb()        barrier()
+> +#define __smp_rmb()       barrier()
+> +#define __smp_wmb()       barrier()
+
+Whitespace is now messed up. Admitedly its already inconsistent
+tabs/spaces, but it'd be nice if the definitions at least still all
+lined up. You're touching all the definitions which use spaces anyway,
+so feel free to convert them to tabs while you're at it.
+
+Other than those niggles, it looks sensible to me:
+Acked-by: James Hogan <james.hogan@imgtec.com>
 
 Cheers
 James
 
---PGNNI9BzQDUtgA2J
+>  #endif
+> +
+> +#ifdef CONFIG_SMP
+> +#define fence() metag_fence()
+> +#else
+> +#define fence()		do { } while (0)
+>  #endif
+> =20
+> -#define smp_mb__before_atomic()	barrier()
+> -#define smp_mb__after_atomic()	barrier()
+> +#define __smp_mb__before_atomic()	barrier()
+> +#define __smp_mb__after_atomic()	barrier()
+> =20
+>  #include <asm-generic/barrier.h>
+> =20
+> --=20
+> MST
+>=20
+
+--lbQeYSs6J2ITmUo7
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: Digital signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2
 
-iQIcBAEBCAAGBQJWipgnAAoJEGwLaZPeOHZ6H00QAJCE8+tFVrOY06765tPTdzed
-wYC0LFfKDLv/TtsEAy4zBhWYEwJ0R1gQOTjCKsdaJMINDcpCy+1mWV4b1X1B+ptV
-QD5oOYZy7Fln8VYYvzWp+2Tz/iAoBSnBV1S8rG9eIxwWmJ9NQmhRl7I+GaFO5kgS
-+0p+z0sJ6Fvv8jmFdzGF4AIAgm4hFY2O2ojy2jtGArgkFmuSdrrrS2//Uls6z3ZC
-thEMVwEapQUjh0JZXDxkImzKXDfMcDi7Sse8Pdz+hXn0Q8J1u2tlhNwL7mqlY5lz
-JpV/L050BZ94Vpop0JXLmQRkqaO7dDgmi+zGXSvSqSUL7/qWHk3h6gE6tTShr4Qp
-rccA+QoreW9oQmUaAERc/DlB7I8SFYZE08YTLLVh+6bqPPK2sZOSa1/XfRC3UC35
-+/exm7MjSr4Emmfo9D5xxRAf4e+nYIuYjmf0rik9Hz5CUYqgbc6yoN570p0omqnL
-7WaRZWn+KESjhPrBrEcEbHFqV3OYsRgCPcoiSL5MVXXE0PlRXQtkDG9ach9jmtyZ
-gz103rjyp1FdqUVG3yYfmCsTNfWwiOJRX1IXLkuTJ0Spjmmk9KtFFO5sUxMV/2l6
-aJ+ehCqr/o58IZf71tqQvLQPeJCvUZ6y8mqAjBAdx1b+FBxUlu2kZ+opl3tI96dK
-DUA3rNDlPNmeqf8XVgY8
-=bXcF
+iQIcBAEBCAAGBQJWiwm5AAoJEGwLaZPeOHZ6mkAP/3YQI6/lhcfPobYD3pu4kEAQ
+z0nCkToHmfvBNy9Co0YPt1414xnWLok0N7cgsAPlyXXVa7FT3hTKzTXjZkbftEZe
+BpFH+bROYkPfL/XVd19qBgUKu6SBjxN2qWfvqH2vm9VBZAQnl0DHsoUemeVpU/Lj
+ivQosKMEOyZJXdp9AuD39oj42M6UMDXaaHdJkdMvdW6CXxi69M9iZPJBR0memZ+V
+NARSkhmzqvjVdCiClU2b7IE/0KxpZwUwRlA/Zl12OCr8HixOMczMRuN045PjmRab
+4r0TROcE9Nw1GfrIBRI/M57Vz0lWNj3BubCa+RkMfWbVXHwt7Z3InwoS1FF5i3lw
+h5BcTl9Eno6YQGtkLUfXVn0Ch2mstQALybpFkk6OB7G7YPtNf8Batz7z6EYZV1/Y
+dvDOcSBDhnJzE2bp5DvPPbk4V+mgrDPRGHPYiO7V9Lo3wHHBCGi4ydqIW4fcT5EK
+S6aCbRCuiKb1Ep218ZPvzOXIdLpfv0XXpWRpu9La2jBe6LKHD5YLfz9rL45hDTz9
+Mt0ZRHz0zDDD2f4JpaX6jxDc+SRsJuHygASCI49srKREL48cTDcTEcFgIHLb0AG8
+LqeUuL3AlWXC+nW4U2Wsl2zwKjjjb+rwnzFOgxM2+nhKpMUK6HmNxrvKy5S8ocSe
+9b1u57tuLwrDfvWcbCkI
+=0cTO
 -----END PGP SIGNATURE-----
 
---PGNNI9BzQDUtgA2J--
+--lbQeYSs6J2ITmUo7--
