@@ -1,26 +1,114 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Date: Tue, 12 Jan 2016 12:50:07 +0000
-Subject: Re: [PATCH v3 00/41] arch: barrier cleanup + barriers for virt
-Message-Id: <20160112125007.GR6344@twins.programming.kicks-ass.net>
+From: Toshi Kani <toshi.kani@hpe.com>
+Date: Tue, 05 Jan 2016 18:54:29 +0000
+Subject: [PATCH v3 05/17] ia64: Set System RAM type and descriptor
+Message-Id: <1452020081-26534-5-git-send-email-toshi.kani@hpe.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1452426622-4471-1-git-send-email-mst@redhat.com>
-In-Reply-To: <1452426622-4471-1-git-send-email-mst@redhat.com>
+References: <1452020081-26534-1-git-send-email-toshi.kani@hpe.com>
+In-Reply-To: <1452020081-26534-1-git-send-email-toshi.kani@hpe.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Cc: linux-kernel@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, Andrew Cooper <andrew.cooper3@citrix.com>, Russell King - ARM Linux <linux@arm.linux.org.uk>, virtualization@lists.linux-foundation.org, Stefano Stabellini <stefano.stabellini@eu.citrix.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>, Joe Perches <joe@perches.com>, David Miller <davem@davemloft.net>, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, x86@kernel.org, user-mode-linux-devel@lists.sourceforge.net, adi-buildroot-devel@lists.sourceforge.net, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, xen-devel@lists.xenproject.org
+To: akpm@linux-foundation.org, bp@alien8.de
+Cc: linux-arch@vger.kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Toshi Kani <toshi.kani@hpe.com>
 
-On Sun, Jan 10, 2016 at 04:16:22PM +0200, Michael S. Tsirkin wrote:
-> I parked this in vhost tree for now, though the inclusion of patch 1 from tip
-> creates a merge conflict - but one that is trivial to resolve.
-> 
-> So I intend to just merge it all through my tree, including the
-> duplicate patch, and assume conflict will be resolved.
-> 
-> I would really appreciate some feedback on arch bits (especially the x86 bits),
-> and acks for merging this through the vhost tree.
+Change efi_initialize_iomem_resources() to set 'flags' and 'desc'
+from EFI memory types.  IORESOURCE_SYSRAM, a modifier bit, is
+set to 'flags' for System RAM as IORESOURCE_MEM is already set.
+IORESOURCE_SYSTEM_RAM is defined as (IORESOURCE_MEM|IORESOURCE_SYSRAM).
+I/O resource descritor is set to 'desc' for "ACPI Non-volatile
+Storage" and "Persistent Memory".
 
-Thanks for doing this, looks good to me.
+Also set IORESOURCE_SYSTEM_RAM to 'flags' for "Kernel code",
+"Kernel data", and "Kernel bss".
 
-Acked-by: Peter Zijlstra (Intel) <peterz@infradead.org>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: linux-ia64@vger.kernel.org
+Signed-off-by: Toshi Kani <toshi.kani@hpe.com>
+---
+ arch/ia64/kernel/efi.c   |   13 ++++++++++---
+ arch/ia64/kernel/setup.c |    6 +++---
+ 2 files changed, 13 insertions(+), 6 deletions(-)
+
+diff --git a/arch/ia64/kernel/efi.c b/arch/ia64/kernel/efi.c
+index caae3f4..300dac3 100644
+--- a/arch/ia64/kernel/efi.c
++++ b/arch/ia64/kernel/efi.c
+@@ -1178,7 +1178,7 @@ efi_initialize_iomem_resources(struct resource *code_resource,
+ 	efi_memory_desc_t *md;
+ 	u64 efi_desc_size;
+ 	char *name;
+-	unsigned long flags;
++	unsigned long flags, desc;
+ 
+ 	efi_map_start = __va(ia64_boot_param->efi_memmap);
+ 	efi_map_end   = efi_map_start + ia64_boot_param->efi_memmap_size;
+@@ -1193,6 +1193,8 @@ efi_initialize_iomem_resources(struct resource *code_resource,
+ 			continue;
+ 
+ 		flags = IORESOURCE_MEM | IORESOURCE_BUSY;
++		desc = IORES_DESC_NONE;
++
+ 		switch (md->type) {
+ 
+ 			case EFI_MEMORY_MAPPED_IO:
+@@ -1207,14 +1209,17 @@ efi_initialize_iomem_resources(struct resource *code_resource,
+ 				if (md->attribute & EFI_MEMORY_WP) {
+ 					name = "System ROM";
+ 					flags |= IORESOURCE_READONLY;
+-				} else if (md->attribute = EFI_MEMORY_UC)
++				} else if (md->attribute = EFI_MEMORY_UC) {
+ 					name = "Uncached RAM";
+-				else
++				} else {
+ 					name = "System RAM";
++					flags |= IORESOURCE_SYSRAM;
++				}
+ 				break;
+ 
+ 			case EFI_ACPI_MEMORY_NVS:
+ 				name = "ACPI Non-volatile Storage";
++				desc = IORES_DESC_ACPI_NV_STORAGE;
+ 				break;
+ 
+ 			case EFI_UNUSABLE_MEMORY:
+@@ -1224,6 +1229,7 @@ efi_initialize_iomem_resources(struct resource *code_resource,
+ 
+ 			case EFI_PERSISTENT_MEMORY:
+ 				name = "Persistent Memory";
++				desc = IORES_DESC_PERSISTENT_MEMORY;
+ 				break;
+ 
+ 			case EFI_RESERVED_TYPE:
+@@ -1246,6 +1252,7 @@ efi_initialize_iomem_resources(struct resource *code_resource,
+ 		res->start = md->phys_addr;
+ 		res->end = md->phys_addr + efi_md_size(md) - 1;
+ 		res->flags = flags;
++		res->desc = desc;
+ 
+ 		if (insert_resource(&iomem_resource, res) < 0)
+ 			kfree(res);
+diff --git a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
+index 4f118b0..2029a38 100644
+--- a/arch/ia64/kernel/setup.c
++++ b/arch/ia64/kernel/setup.c
+@@ -80,17 +80,17 @@ unsigned long vga_console_membase;
+ 
+ static struct resource data_resource = {
+ 	.name	= "Kernel data",
+-	.flags	= IORESOURCE_BUSY | IORESOURCE_MEM
++	.flags	= IORESOURCE_BUSY | IORESOURCE_SYSTEM_RAM
+ };
+ 
+ static struct resource code_resource = {
+ 	.name	= "Kernel code",
+-	.flags	= IORESOURCE_BUSY | IORESOURCE_MEM
++	.flags	= IORESOURCE_BUSY | IORESOURCE_SYSTEM_RAM
+ };
+ 
+ static struct resource bss_resource = {
+ 	.name	= "Kernel bss",
+-	.flags	= IORESOURCE_BUSY | IORESOURCE_MEM
++	.flags	= IORESOURCE_BUSY | IORESOURCE_SYSTEM_RAM
+ };
+ 
+ unsigned long ia64_max_cacheline_size;
