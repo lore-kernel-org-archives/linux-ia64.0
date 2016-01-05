@@ -1,22 +1,77 @@
-From: Joe Perches <joe@perches.com>
-Date: Mon, 11 Jan 2016 21:45:08 +0000
-Subject: Re: [PATCH v4 0/3] checkpatch: handling of memory barriers
-Message-Id: <1452548708.7773.57.camel@perches.com>
+From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Date: Tue, 05 Jan 2016 15:19:34 +0000
+Subject: [PATCH v2 0/6] generic relative extable support
+Message-Id: <1452007180-27411-1-git-send-email-ard.biesheuvel@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1452509968-19778-1-git-send-email-mst@redhat.com>
-In-Reply-To: <1452509968-19778-1-git-send-email-mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: Andy Whitcroft <apw-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>, Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Andrew Cooper <andrew.cooper3-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>, virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, Stefano Stabellini <stefano.stabellini-mvvWK6WmYclDPfheJLI6IQ@public.gmane.org>, Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>, Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>, "H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, user-mode-linux-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, adi-buildroot-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org, xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org, Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Tony Lindgren <tony-4v6yS6AI5VpBDgjK7y7TUQ@public.gmane.org>
+To: akpm@linux-foundation.org, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, x86@kernel.org, hpa@zytor.com, mingo@redhat.com, heiko.carstens@de.ibm.com, schwidefsky@de.ibm.com, mattst88@gmail.com, ink@jurassic.park.msu.ru, rth@twiddle.net, tony.luck@intel.com, fenghua.yu@intel.com, catalin.marinas@arm.com, will.deacon@arm.com, arnd@arndb.de
+Cc: deller@gmx.de, mark.rutland@arm.com, Ard Biesheuvel <ard.biesheuvel@linaro.org>
 
-On Mon, 2016-01-11 at 13:00 +0200, Michael S. Tsirkin wrote:
-> As part of memory barrier cleanup, this patchset
-> extends checkpatch to make it easier to stop
-> incorrect memory barrier usage.
+There are currently four architectures (x86, ia64, alpha and s390) whose
+user-access exception tables are relative to the table entry address rather
+than absolute. Each of these architectures has its own search_extable() and
+sort_extable() implementation, which are not only mostly identical to each
+other, but also deviate very little from the generic absolute implementations
+in lib/extable.c that they override.
 
-Thanks Michael.
+So before making arm64 the fifth architecture that reimplements this, let's
+refactor the existing code so that all of these architectures use common code
+for searching and sorting the relative extables. Archs may set
+ARCH_HAS_RELATIVE_EXTABLE to indicate that the table consists of a pair of
+relative ints, and may define swap_ex_entry_fixup() if the fixup member needs
+special treatment in the swapping step of the sorting routine (such as alpha).
 
-Acked-by: Joe Perches <joe@perches.com>
+Changes since v2:
+- introduce the _ASM_EXTABLE() cpp macro for arm64, and replace all open coded
+  exception table entries with it, including an instance I missed in v1 in
+  asm/word-at-a-time.h (suggested by hpa)
+- added acks to from arch maintainers
+
+No acks yet for the arch/alpha patch.
+ 
+NOTE: I took the liberty of carrying over each arch specific ack to the generic
+shared first patch, since they are tightly coupled anyway. If anyone objects to
+this, please let me know.
+
+Also note that the s390 patch applies on top of the following patch:
+
+  http://article.gmane.org/gmane.linux.kernel/2117036
+
+which fixes a bug I spotted while working on this code. Since that probably
+needs to go to -stable, I broke it out and posted it separately.
+
+Ard Biesheuvel (6):
+  extable: add support for relative extables to search and sort routines
+  alpha/extable: use generic search and sort routines
+  s390/extable: use generic search and sort routines
+  x86/extable: use generic search and sort routines
+  ia64/extable: use generic search and sort routines
+  arm64: switch to relative exception tables
+
+ arch/alpha/include/asm/uaccess.h        |  10 +-
+ arch/alpha/mm/Makefile                  |   2 +-
+ arch/alpha/mm/extable.c                 |  92 -----------------
+ arch/arm64/include/asm/assembler.h      |  15 ++-
+ arch/arm64/include/asm/futex.h          |  12 +--
+ arch/arm64/include/asm/uaccess.h        |  30 +++---
+ arch/arm64/include/asm/word-at-a-time.h |   7 +-
+ arch/arm64/kernel/armv8_deprecated.c    |   7 +-
+ arch/arm64/mm/extable.c                 |   2 +-
+ arch/ia64/include/asm/uaccess.h         |   8 +-
+ arch/ia64/mm/extable.c                  |  97 +-----------------
+ arch/s390/include/asm/uaccess.h         |   8 +-
+ arch/s390/mm/Makefile                   |   2 +-
+ arch/s390/mm/extable.c                  |  85 ----------------
+ arch/x86/include/asm/uaccess.h          |   5 +-
+ arch/x86/mm/extable.c                   | 106 +-------------------
+ lib/extable.c                           |  50 +++++++--
+ scripts/sortextable.c                   |   2 +-
+ 18 files changed, 98 insertions(+), 442 deletions(-)
+ delete mode 100644 arch/alpha/mm/extable.c
+ delete mode 100644 arch/s390/mm/extable.c
+
+-- 
+2.5.0
 
