@@ -1,50 +1,53 @@
-From: Ganapatrao Kulkarni <gpkulkarni@gmail.com>
-Date: Thu, 28 Jan 2016 18:48:42 +0000
-Subject: Re: [PATCH v9 3/6] arm64/arm, numa, dt: adding numa dt binding implementation for arm64 platforms.
-Message-Id: <CAFpQJXWm4n3S70C9rU2Xip-n4xGEsEE=K3ptdDyzxjQMz9kX8A@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Sun, 10 Jan 2016 14:21:56 +0000
+Subject: [PATCH v3 39/41] xen/events: use virt_xxx barriers
+Message-Id: <1452426622-4471-40-git-send-email-mst@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1453134965-6125-1-git-send-email-gkulkarni@caviumnetworks.com>
-	<1453134965-6125-4-git-send-email-gkulkarni@caviumnetworks.com>
-	<20160126203603.GC17600@localhost>
-	<20160128143925.GC775@arm.com>
-	<CAFpQJXVhEVw7vSq233wfkOGkTanf-msO+PEcWJ2OVAFUhn7n+w@mail.gmail.com>
-	<20160128180824.GP775@arm.com>
-In-Reply-To: <20160128180824.GP775@arm.com>
+References: <1452426622-4471-1-git-send-email-mst@redhat.com>
+In-Reply-To: <1452426622-4471-1-git-send-email-mst@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Will Deacon <will.deacon@arm.com>, Rob Herring <robh+dt@kernel.org>, Mark Rutland <mark.rutland@arm.com>
-Cc: Bjorn Helgaas <helgaas@kernel.org>, Ganapatrao Kulkarni <gkulkarni@caviumnetworks.com>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, linux-pci@vger.kernel.org, linux-ia64@vger.kernel.org, linux-metag@vger.kernel.org, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-arch@vger.kernel.org, Catalin Marinas <catalin.marinas@arm.com>, Grant Likely <grant.likely@linaro.org>, Leif Lindholm <leif.lindholm@linaro.org>, rfranz@cavium.com, Ard Biesheuvel <ard.biesheuvel@linaro.org>, "msalter@redhat.com" <msalter@redhat.com>, Steve Capper <steve.capper@linaro.org>, Hanjun Guo <hanjun.guo@linaro.org>, Al Stone <al.stone@linaro.org>, Arnd Bergmann <arnd@arndb.de>, Pawel
+To: linux-kernel@vger.kernel.org
+Cc: Peter Zijlstra <peterz@infradead.org>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, Andrew Cooper <andrew.cooper3@citrix.com>, Russell King - ARM Linux <linux@arm.linux.org.uk>, virtualization@lists.linux-foundation.org, Stefano Stabellini <stefano.stabellini@eu.citrix.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>, Joe Perches <joe@perches.com>, David Miller <davem@davemloft.net>, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, x86@kernel.org, user-mode-linux-devel@lists.sourceforge.net, adi-buildroot-devel@lists.sourceforge.net, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, xen-devel@lists.xenproject.org, David Vrabel <david>
 
-On Thu, Jan 28, 2016 at 11:38 PM, Will Deacon <will.deacon@arm.com> wrote:
-> On Thu, Jan 28, 2016 at 10:42:17PM +0530, Ganapatrao Kulkarni wrote:
->> On Thu, Jan 28, 2016 at 8:09 PM, Will Deacon <will.deacon@arm.com> wrote:
->> > On Tue, Jan 26, 2016 at 02:36:04PM -0600, Bjorn Helgaas wrote:
->> >> Subject is "arm64/arm, numa, dt: adding ..."  What is the significance
->> >> of the "arm" part?  The other patches only mention "arm64".
->> >>
->> >> General comment: the code below has little, if anything, that is
->> >> actually arm64-specific.  Maybe this is the first DT-based NUMA
->> >> platform?  I don't see other similar code for other arches, so maybe
->> >> it's too early to try to generalize it, but we should try to avoid
->> >> adding duplicates of this code if/when other arches do show up.
->> >
->> > Having it in the core code would allow us to share it with arch/arm/
->> > fairly straightforwardly.
->> This binding can be used for arm too.
->> however at this moment it is the need of arm64 platforms.
->> can we please keep this to arm64 as it's too early to try to
->> generalize it(as Bjorn suggested)
->> I prefer to keep it as it is, otherwise ok.
->> Please suggest.
->
-> My suggestions time and time again on the NUMA patches from you have
-> consistently been around consolidation of existing code, or moving things
-> that aren't architecture-specific out of the architecture code.
+drivers/xen/events/events_fifo.c uses rmb() to communicate with the
+other side.
 
-thanks, i shall move this out to drivers/of
->
-> Will
+For guests compiled with CONFIG_SMP, smp_rmb would be sufficient, so
+rmb() here is only needed if a non-SMP guest runs on an SMP host.
 
-thanks
-Ganapat
+Switch to the virt_rmb barrier which serves this exact purpose.
+
+Pull in asm/barrier.h here to make sure the file is self-contained.
+
+Suggested-by: David Vrabel <david.vrabel@citrix.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
+ drivers/xen/events/events_fifo.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/xen/events/events_fifo.c b/drivers/xen/events/events_fifo.c
+index 96a1b8d..eff2b88 100644
+--- a/drivers/xen/events/events_fifo.c
++++ b/drivers/xen/events/events_fifo.c
+@@ -41,6 +41,7 @@
+ #include <linux/percpu.h>
+ #include <linux/cpu.h>
+ 
++#include <asm/barrier.h>
+ #include <asm/sync_bitops.h>
+ #include <asm/xen/hypercall.h>
+ #include <asm/xen/hypervisor.h>
+@@ -296,7 +297,7 @@ static void consume_one_event(unsigned cpu,
+ 	 * control block.
+ 	 */
+ 	if (head = 0) {
+-		rmb(); /* Ensure word is up-to-date before reading head. */
++		virt_rmb(); /* Ensure word is up-to-date before reading head. */
+ 		head = control_block->head[priority];
+ 	}
+ 
+-- 
+MST
+
