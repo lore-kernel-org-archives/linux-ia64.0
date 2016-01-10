@@ -1,158 +1,58 @@
-From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
-Date: Wed, 27 Jan 2016 10:55:19 +0000
-Subject: [PATCH v2 resend 2/6] alpha/extable: use generic search and sort routines
-Message-Id: <1453892123-17973-3-git-send-email-ard.biesheuvel@linaro.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Sun, 10 Jan 2016 19:30:38 +0000
+Subject: [PATCH v3 1/3] checkpatch.pl: add missing memory barriers
+Message-Id: <1452454200-8844-2-git-send-email-mst@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1453892123-17973-1-git-send-email-ard.biesheuvel@linaro.org>
-In-Reply-To: <1453892123-17973-1-git-send-email-ard.biesheuvel@linaro.org>
+References: <1452454200-8844-1-git-send-email-mst@redhat.com>
+In-Reply-To: <1452454200-8844-1-git-send-email-mst@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@linux-foundation.org, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, x86@kernel.org, hpa@zytor.com, heiko.carstens@de.ibm.com, rth@twiddle.net, tony.luck@intel.com, will.deacon@arm.com
-Cc: deller@gmx.de, Ard Biesheuvel <ard.biesheuvel@linaro.org>
+To: linux-kernel@vger.kernel.org
+Cc: linux-mips@linux-mips.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, virtualization@lists.linux-foundation.org, "H. Peter Anvin" <hpa@zytor.com>, sparclinux@vger.kernel.org, Ingo Molnar <mingo@kernel.org>, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, Russell King - ARM Linux <linux@arm.linux.org.uk>, Arnd Bergmann <arnd@arndb.de>, x86@kernel.org, Tony Lindgren <tony@atomide.com>, xen-devel@lists.xenproject.org, Ingo Molnar <mingo@elte.hu>, linux-xtensa@linux-xtensa.org, user-mode-linux-devel@lists.sourceforge.net, Stefano Stabellini <stefano.stabellini@eu.citrix.com>, Andrey Konovalov <andreyknvl@google.com>, adi-buildroot-devel@lists.sourceforge.net, Andy Whitcroft <apw@canonical.com>, Thomas Gleixner <tglx@linutronix.de>, linux-metag@vger.kernel.org, linux-arm-kernel@lists.infradead.orgAndrewCooperan
 
-Replace the arch specific versions of search_extable() and sort_extable()
-with calls to the generic ones, which now support relative exception
-tables as well.
+SMP-only barriers were missing in checkpatch.pl
 
-Acked-by: Richard Henderson <rth@twiddle.net>
-Signed-off-by: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Refactor code slightly to make adding more variants easier.
+
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- arch/alpha/include/asm/uaccess.h | 10 ++-
- arch/alpha/mm/Makefile           |  2 +-
- arch/alpha/mm/extable.c          | 92 --------------------
- 3 files changed, 9 insertions(+), 95 deletions(-)
+ scripts/checkpatch.pl | 22 +++++++++++++++++++++-
+ 1 file changed, 21 insertions(+), 1 deletion(-)
 
-diff --git a/arch/alpha/include/asm/uaccess.h b/arch/alpha/include/asm/uaccess.h
-index 9b0d40093c9a..c419b43c461d 100644
---- a/arch/alpha/include/asm/uaccess.h
-+++ b/arch/alpha/include/asm/uaccess.h
-@@ -483,7 +483,13 @@ struct exception_table_entry
- 	(pc) + (_fixup)->fixup.bits.nextinsn;			\
- })
- 
--#define ARCH_HAS_SORT_EXTABLE
--#define ARCH_HAS_SEARCH_EXTABLE
-+#define ARCH_HAS_RELATIVE_EXTABLE
+diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
+index 2b3c228..1c01b7d 100755
+--- a/scripts/checkpatch.pl
++++ b/scripts/checkpatch.pl
+@@ -5116,7 +5116,27 @@ sub process {
+ 			}
+ 		}
+ # check for memory barriers without a comment.
+-		if ($line =~ /\b(mb|rmb|wmb|read_barrier_depends|smp_mb|smp_rmb|smp_wmb|smp_read_barrier_depends)\(/) {
 +
-+#define swap_ex_entry_fixup(a, b, tmp, delta)			\
-+	do {							\
-+		(a)->fixup.unit = (b)->fixup.unit;		\
-+		(b)->fixup.unit = (tmp).fixup.unit;		\
-+	} while (0)
++		my $barriers = qr{
++			mb|
++			rmb|
++			wmb|
++			read_barrier_depends
++		}x;
++		my $smp_barrier_stems = qr{
++			mb__before_atomic|
++			mb__after_atomic|
++			store_release|
++			load_acquire|
++			store_mb|
++			(?:$barriers)
++		}x;
++		my $all_barriers = qr{
++			$barriers|
++			smp_(?:$smp_barrier_stems)
++		}x;
 +
- 
- #endif /* __ALPHA_UACCESS_H */
-diff --git a/arch/alpha/mm/Makefile b/arch/alpha/mm/Makefile
-index c993d3f93cf6..5a9807936411 100644
---- a/arch/alpha/mm/Makefile
-+++ b/arch/alpha/mm/Makefile
-@@ -4,6 +4,6 @@
- 
- ccflags-y := -Werror
- 
--obj-y	:= init.o fault.o extable.o
-+obj-y	:= init.o fault.o
- 
- obj-$(CONFIG_DISCONTIGMEM) += numa.o
-diff --git a/arch/alpha/mm/extable.c b/arch/alpha/mm/extable.c
-deleted file mode 100644
-index 813c9b63c0e1..000000000000
---- a/arch/alpha/mm/extable.c
-+++ /dev/null
-@@ -1,92 +0,0 @@
--/*
-- * linux/arch/alpha/mm/extable.c
-- */
--
--#include <linux/module.h>
--#include <linux/sort.h>
--#include <asm/uaccess.h>
--
--static inline unsigned long ex_to_addr(const struct exception_table_entry *x)
--{
--	return (unsigned long)&x->insn + x->insn;
--}
--
--static void swap_ex(void *a, void *b, int size)
--{
--	struct exception_table_entry *ex_a = a, *ex_b = b;
--	unsigned long addr_a = ex_to_addr(ex_a), addr_b = ex_to_addr(ex_b);
--	unsigned int t = ex_a->fixup.unit;
--
--	ex_a->fixup.unit = ex_b->fixup.unit;
--	ex_b->fixup.unit = t;
--	ex_a->insn = (int)(addr_b - (unsigned long)&ex_a->insn);
--	ex_b->insn = (int)(addr_a - (unsigned long)&ex_b->insn);
--}
--
--/*
-- * The exception table needs to be sorted so that the binary
-- * search that we use to find entries in it works properly.
-- * This is used both for the kernel exception table and for
-- * the exception tables of modules that get loaded.
-- */
--static int cmp_ex(const void *a, const void *b)
--{
--	const struct exception_table_entry *x = a, *y = b;
--
--	/* avoid overflow */
--	if (ex_to_addr(x) > ex_to_addr(y))
--		return 1;
--	if (ex_to_addr(x) < ex_to_addr(y))
--		return -1;
--	return 0;
--}
--
--void sort_extable(struct exception_table_entry *start,
--		  struct exception_table_entry *finish)
--{
--	sort(start, finish - start, sizeof(struct exception_table_entry),
--	     cmp_ex, swap_ex);
--}
--
--#ifdef CONFIG_MODULES
--/*
-- * Any entry referring to the module init will be at the beginning or
-- * the end.
-- */
--void trim_init_extable(struct module *m)
--{
--	/*trim the beginning*/
--	while (m->num_exentries &&
--	       within_module_init(ex_to_addr(&m->extable[0]), m)) {
--		m->extable++;
--		m->num_exentries--;
--	}
--	/*trim the end*/
--	while (m->num_exentries &&
--	       within_module_init(ex_to_addr(&m->extable[m->num_exentries-1]),
--				  m))
--		m->num_exentries--;
--}
--#endif /* CONFIG_MODULES */
--
--const struct exception_table_entry *
--search_extable(const struct exception_table_entry *first,
--	       const struct exception_table_entry *last,
--	       unsigned long value)
--{
--        while (first <= last) {
--		const struct exception_table_entry *mid;
--		unsigned long mid_value;
--
--		mid = (last - first) / 2 + first;
--		mid_value = ex_to_addr(mid);
--                if (mid_value = value)
--                        return mid;
--                else if (mid_value < value)
--                        first = mid+1;
--                else
--                        last = mid-1;
--        }
--
--        return NULL;
--}
++		if ($line =~ /\b(?:$all_barriers)\s*\(/) {
+ 			if (!ctx_has_comment($first_line, $linenr)) {
+ 				WARN("MEMORY_BARRIER",
+ 				     "memory barrier without comment\n" . $herecurr);
 -- 
-2.5.0
+MST
 
