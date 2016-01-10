@@ -1,160 +1,82 @@
-From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
-Date: Sun, 03 Jan 2016 16:05:53 +0000
-Subject: [PATCH 2/6] alpha/extable: use generic search and sort routines
-Message-Id: <1451837157-447-3-git-send-email-ard.biesheuvel@linaro.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Sun, 10 Jan 2016 14:18:36 +0000
+Subject: [PATCH v3 15/41] powerpc: define __smp_xxx
+Message-Id: <1452426622-4471-16-git-send-email-mst@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1451837157-447-1-git-send-email-ard.biesheuvel@linaro.org>
-In-Reply-To: <1451837157-447-1-git-send-email-ard.biesheuvel@linaro.org>
+References: <1452426622-4471-1-git-send-email-mst@redhat.com>
+In-Reply-To: <1452426622-4471-1-git-send-email-mst@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, x86@kernel.org, hpa@zytor.com, mingo@redhat.com, heiko.carstens@de.ibm.com, schwidefsky@de.ibm.com, mattst88@gmail.com, ink@jurassic.park.msu.ru, rth@twiddle.net, tony.luck@intel.com, fenghua.yu@intel.com, catalin.marinas@arm.com, will.deacon@arm.com, arnd@arndb.de, akpm@linux-foundation.org
-Cc: mark.rutland@arm.com, marc.zyngier@arm.com, Ard Biesheuvel <ard.biesheuvel@linaro.org>
+To: linux-kernel@vger.kernel.org
+Cc: Peter Zijlstra <peterz@infradead.org>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, Andrew Cooper <andrew.cooper3@citrix.com>, Russell King - ARM Linux <linux@arm.linux.org.uk>, virtualization@lists.linux-foundation.org, Stefano Stabellini <stefano.stabellini@eu.citrix.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>, Joe Perches <joe@perches.com>, David Miller <davem@davemloft.net>, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, x86@kernel.org, user-mode-linux-devel@lists.sourceforge.net, adi-buildroot-devel@lists.sourceforge.net, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, xen-devel@lists.xenproject.org, Boqun Feng <boqun.fe>
 
-Replace the arch specific versions of search_extable() and sort_extable()
-with calls to the generic ones, which now support relative exception
-tables as well.
+This defines __smp_xxx barriers for powerpc
+for use by virtualization.
 
-Cc: Richard Henderson <rth@twiddle.net>
-Cc: Ivan Kokshaysky <ink@jurassic.park.msu.ru>
-Cc: Matt Turner <mattst88@gmail.com>
-Signed-off-by: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+smp_xxx barriers are removed as they are
+defined correctly by asm-generic/barriers.h
+
+This reduces the amount of arch-specific boiler-plate code.
+
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Acked-by: Arnd Bergmann <arnd@arndb.de>
+Acked-by: Boqun Feng <boqun.feng@gmail.com>
 ---
- arch/alpha/include/asm/uaccess.h | 10 ++-
- arch/alpha/mm/Makefile           |  2 +-
- arch/alpha/mm/extable.c          | 92 --------------------
- 3 files changed, 9 insertions(+), 95 deletions(-)
+ arch/powerpc/include/asm/barrier.h | 24 ++++++++----------------
+ 1 file changed, 8 insertions(+), 16 deletions(-)
 
-diff --git a/arch/alpha/include/asm/uaccess.h b/arch/alpha/include/asm/uaccess.h
-index 9b0d40093c9a..c419b43c461d 100644
---- a/arch/alpha/include/asm/uaccess.h
-+++ b/arch/alpha/include/asm/uaccess.h
-@@ -483,7 +483,13 @@ struct exception_table_entry
- 	(pc) + (_fixup)->fixup.bits.nextinsn;			\
+diff --git a/arch/powerpc/include/asm/barrier.h b/arch/powerpc/include/asm/barrier.h
+index 980ad0c..c0deafc 100644
+--- a/arch/powerpc/include/asm/barrier.h
++++ b/arch/powerpc/include/asm/barrier.h
+@@ -44,19 +44,11 @@
+ #define dma_rmb()	__lwsync()
+ #define dma_wmb()	__asm__ __volatile__ (stringify_in_c(SMPWMB) : : :"memory")
+ 
+-#ifdef CONFIG_SMP
+-#define smp_lwsync()	__lwsync()
++#define __smp_lwsync()	__lwsync()
+ 
+-#define smp_mb()	mb()
+-#define smp_rmb()	__lwsync()
+-#define smp_wmb()	__asm__ __volatile__ (stringify_in_c(SMPWMB) : : :"memory")
+-#else
+-#define smp_lwsync()	barrier()
+-
+-#define smp_mb()	barrier()
+-#define smp_rmb()	barrier()
+-#define smp_wmb()	barrier()
+-#endif /* CONFIG_SMP */
++#define __smp_mb()	mb()
++#define __smp_rmb()	__lwsync()
++#define __smp_wmb()	__asm__ __volatile__ (stringify_in_c(SMPWMB) : : :"memory")
+ 
+ /*
+  * This is a barrier which prevents following instructions from being
+@@ -67,18 +59,18 @@
+ #define data_barrier(x)	\
+ 	asm volatile("twi 0,%0,0; isync" : : "r" (x) : "memory");
+ 
+-#define smp_store_release(p, v)						\
++#define __smp_store_release(p, v)						\
+ do {									\
+ 	compiletime_assert_atomic_type(*p);				\
+-	smp_lwsync();							\
++	__smp_lwsync();							\
+ 	WRITE_ONCE(*p, v);						\
+ } while (0)
+ 
+-#define smp_load_acquire(p)						\
++#define __smp_load_acquire(p)						\
+ ({									\
+ 	typeof(*p) ___p1 = READ_ONCE(*p);				\
+ 	compiletime_assert_atomic_type(*p);				\
+-	smp_lwsync();							\
++	__smp_lwsync();							\
+ 	___p1;								\
  })
  
--#define ARCH_HAS_SORT_EXTABLE
--#define ARCH_HAS_SEARCH_EXTABLE
-+#define ARCH_HAS_RELATIVE_EXTABLE
-+
-+#define swap_ex_entry_fixup(a, b, tmp, delta)			\
-+	do {							\
-+		(a)->fixup.unit = (b)->fixup.unit;		\
-+		(b)->fixup.unit = (tmp).fixup.unit;		\
-+	} while (0)
-+
- 
- #endif /* __ALPHA_UACCESS_H */
-diff --git a/arch/alpha/mm/Makefile b/arch/alpha/mm/Makefile
-index c993d3f93cf6..5a9807936411 100644
---- a/arch/alpha/mm/Makefile
-+++ b/arch/alpha/mm/Makefile
-@@ -4,6 +4,6 @@
- 
- ccflags-y := -Werror
- 
--obj-y	:= init.o fault.o extable.o
-+obj-y	:= init.o fault.o
- 
- obj-$(CONFIG_DISCONTIGMEM) += numa.o
-diff --git a/arch/alpha/mm/extable.c b/arch/alpha/mm/extable.c
-deleted file mode 100644
-index 813c9b63c0e1..000000000000
---- a/arch/alpha/mm/extable.c
-+++ /dev/null
-@@ -1,92 +0,0 @@
--/*
-- * linux/arch/alpha/mm/extable.c
-- */
--
--#include <linux/module.h>
--#include <linux/sort.h>
--#include <asm/uaccess.h>
--
--static inline unsigned long ex_to_addr(const struct exception_table_entry *x)
--{
--	return (unsigned long)&x->insn + x->insn;
--}
--
--static void swap_ex(void *a, void *b, int size)
--{
--	struct exception_table_entry *ex_a = a, *ex_b = b;
--	unsigned long addr_a = ex_to_addr(ex_a), addr_b = ex_to_addr(ex_b);
--	unsigned int t = ex_a->fixup.unit;
--
--	ex_a->fixup.unit = ex_b->fixup.unit;
--	ex_b->fixup.unit = t;
--	ex_a->insn = (int)(addr_b - (unsigned long)&ex_a->insn);
--	ex_b->insn = (int)(addr_a - (unsigned long)&ex_b->insn);
--}
--
--/*
-- * The exception table needs to be sorted so that the binary
-- * search that we use to find entries in it works properly.
-- * This is used both for the kernel exception table and for
-- * the exception tables of modules that get loaded.
-- */
--static int cmp_ex(const void *a, const void *b)
--{
--	const struct exception_table_entry *x = a, *y = b;
--
--	/* avoid overflow */
--	if (ex_to_addr(x) > ex_to_addr(y))
--		return 1;
--	if (ex_to_addr(x) < ex_to_addr(y))
--		return -1;
--	return 0;
--}
--
--void sort_extable(struct exception_table_entry *start,
--		  struct exception_table_entry *finish)
--{
--	sort(start, finish - start, sizeof(struct exception_table_entry),
--	     cmp_ex, swap_ex);
--}
--
--#ifdef CONFIG_MODULES
--/*
-- * Any entry referring to the module init will be at the beginning or
-- * the end.
-- */
--void trim_init_extable(struct module *m)
--{
--	/*trim the beginning*/
--	while (m->num_exentries &&
--	       within_module_init(ex_to_addr(&m->extable[0]), m)) {
--		m->extable++;
--		m->num_exentries--;
--	}
--	/*trim the end*/
--	while (m->num_exentries &&
--	       within_module_init(ex_to_addr(&m->extable[m->num_exentries-1]),
--				  m))
--		m->num_exentries--;
--}
--#endif /* CONFIG_MODULES */
--
--const struct exception_table_entry *
--search_extable(const struct exception_table_entry *first,
--	       const struct exception_table_entry *last,
--	       unsigned long value)
--{
--        while (first <= last) {
--		const struct exception_table_entry *mid;
--		unsigned long mid_value;
--
--		mid = (last - first) / 2 + first;
--		mid_value = ex_to_addr(mid);
--                if (mid_value = value)
--                        return mid;
--                else if (mid_value < value)
--                        first = mid+1;
--                else
--                        last = mid-1;
--        }
--
--        return NULL;
--}
 -- 
-1.9.1
+MST
 
