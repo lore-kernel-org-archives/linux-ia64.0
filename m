@@ -1,51 +1,69 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Date: Mon, 04 Jan 2016 14:05:09 +0000
-Subject: Re: [PATCH v2 31/32] sh: support a 2-byte smp_store_mb
-Message-Id: <20160104140509.GB6344@twins.programming.kicks-ass.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Sun, 10 Jan 2016 14:21:39 +0000
+Subject: [PATCH v3 37/41] xenbus: use virt_xxx barriers
+Message-Id: <1452426622-4471-38-git-send-email-mst@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1451572003-2440-1-git-send-email-mst@redhat.com>
- <1451572003-2440-32-git-send-email-mst@redhat.com>
-In-Reply-To: <1451572003-2440-32-git-send-email-mst@redhat.com>
+References: <1452426622-4471-1-git-send-email-mst@redhat.com>
+In-Reply-To: <1452426622-4471-1-git-send-email-mst@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Cc: linux-kernel@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, Andrew Cooper <andrew.cooper3@citrix.com>, virtualization@lists.linux-foundation.org, Stefano Stabellini <stefano.stabellini@eu.citrix.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>, David Miller <davem@davemloft.net>, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, x86@kernel.org, user-mode-linux-devel@lists.sourceforge.net, adi-buildroot-devel@lists.sourceforge.net, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, xen-devel@lists.xenproject.org, Ingo Molnar <mingo@kernel.org>
+To: linux-kernel@vger.kernel.org
+Cc: Peter Zijlstra <peterz@infradead.org>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, Andrew Cooper <andrew.cooper3@citrix.com>, Russell King - ARM Linux <linux@arm.linux.org.uk>, virtualization@lists.linux-foundation.org, Stefano Stabellini <stefano.stabellini@eu.citrix.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>, Joe Perches <joe@perches.com>, David Miller <davem@davemloft.net>, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, x86@kernel.org, user-mode-linux-devel@lists.sourceforge.net, adi-buildroot-devel@lists.sourceforge.net, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, xen-devel@lists.xenproject.org, David Vrabel <david>
 
-On Thu, Dec 31, 2015 at 09:09:47PM +0200, Michael S. Tsirkin wrote:
-> At the moment, xchg on sh only supports 4 and 1 byte values, so using it
-> from smp_store_mb means attempts to store a 2 byte value using this
-> macro fail.
-> 
-> And happens to be exactly what virtio drivers want to do.
-> 
-> Check size and fall back to a slower, but safe, WRITE_ONCE+smp_mb.
-> 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> ---
->  arch/sh/include/asm/barrier.h | 10 +++++++++-
->  1 file changed, 9 insertions(+), 1 deletion(-)
-> 
-> diff --git a/arch/sh/include/asm/barrier.h b/arch/sh/include/asm/barrier.h
-> index f887c64..0cc5735 100644
-> --- a/arch/sh/include/asm/barrier.h
-> +++ b/arch/sh/include/asm/barrier.h
-> @@ -32,7 +32,15 @@
->  #define ctrl_barrier()	__asm__ __volatile__ ("nop;nop;nop;nop;nop;nop;nop;nop")
->  #endif
->  
-> -#define __smp_store_mb(var, value) do { (void)xchg(&var, value); } while (0)
-> +#define __smp_store_mb(var, value) do { \
-> +	if (sizeof(var) != 4 && sizeof(var) != 1) { \
-> +		 WRITE_ONCE(var, value); \
-> +		__smp_mb(); \
-> +	} else { \
-> +		(void)xchg(&var, value);  \
-> +	} \
-> +} while (0)
+drivers/xen/xenbus/xenbus_comms.c uses
+full memory barriers to communicate with the other side.
 
-So SH is an orphaned arch, which is also why I did not comment on using
-xchg() for the UP smp_store_mb() thing.
+For guests compiled with CONFIG_SMP, smp_wmb and smp_mb
+would be sufficient, so mb() and wmb() here are only needed if
+a non-SMP guest runs on an SMP host.
 
-But I really think we should try fixing the xchg() implementation
-instead of this duct-tape.
+Switch to virt_xxx barriers which serve this exact purpose.
+
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Acked-by: David Vrabel <david.vrabel@citrix.com>
+---
+ drivers/xen/xenbus/xenbus_comms.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/xen/xenbus/xenbus_comms.c b/drivers/xen/xenbus/xenbus_comms.c
+index fdb0f33..ecdecce 100644
+--- a/drivers/xen/xenbus/xenbus_comms.c
++++ b/drivers/xen/xenbus/xenbus_comms.c
+@@ -123,14 +123,14 @@ int xb_write(const void *data, unsigned len)
+ 			avail = len;
+ 
+ 		/* Must write data /after/ reading the consumer index. */
+-		mb();
++		virt_mb();
+ 
+ 		memcpy(dst, data, avail);
+ 		data += avail;
+ 		len -= avail;
+ 
+ 		/* Other side must not see new producer until data is there. */
+-		wmb();
++		virt_wmb();
+ 		intf->req_prod += avail;
+ 
+ 		/* Implies mb(): other side will see the updated producer. */
+@@ -180,14 +180,14 @@ int xb_read(void *data, unsigned len)
+ 			avail = len;
+ 
+ 		/* Must read data /after/ reading the producer index. */
+-		rmb();
++		virt_rmb();
+ 
+ 		memcpy(data, src, avail);
+ 		data += avail;
+ 		len -= avail;
+ 
+ 		/* Other side must not see free space until we've copied out */
+-		mb();
++		virt_mb();
+ 		intf->rsp_cons += avail;
+ 
+ 		pr_debug("Finished read of %i bytes (%i to go)\n", avail, len);
+-- 
+MST
+
