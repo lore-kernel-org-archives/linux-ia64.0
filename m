@@ -1,33 +1,43 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Fri, 22 Jan 2016 23:07:04 +0000
-Subject: [GIT PULL] ia64 - wire up copy_file_range syscall
-Message-Id: <56a2b6184155e133f@agluck-desk.sc.intel.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Sun, 10 Jan 2016 14:19:02 +0000
+Subject: [PATCH v3 18/41] blackfin: define __smp_xxx
+Message-Id: <1452426622-4471-19-git-send-email-mst@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1452426622-4471-1-git-send-email-mst@redhat.com>
+In-Reply-To: <1452426622-4471-1-git-send-email-mst@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: Peter Zijlstra <peterz@infradead.org>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, Andrew Cooper <andrew.cooper3@citrix.com>, Russell King - ARM Linux <linux@arm.linux.org.uk>, virtualization@lists.linux-foundation.org, Stefano Stabellini <stefano.stabellini@eu.citrix.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>, Joe Perches <joe@perches.com>, David Miller <davem@davemloft.net>, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, x86@kernel.org, user-mode-linux-devel@lists.sourceforge.net, adi-buildroot-devel@lists.sourceforge.net, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, xen-devel@lists.xenproject.org, Steven Miao <realmz6>
 
-The following changes since commit 3e1e21c7bfcfa9bf06c07f48a13faca2f62b3339:
+This defines __smp_xxx barriers for blackfin,
+for use by virtualization.
 
-  Merge branch 'for-4.5/nvme' of git://git.kernel.dk/linux-block (2016-01-21 19:58:02 -0800)
+smp_xxx barriers are removed as they are
+defined correctly by asm-generic/barriers.h
 
-are available in the git repository at:
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Acked-by: Arnd Bergmann <arnd@arndb.de>
+---
+ arch/blackfin/include/asm/barrier.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git tags/please-pull-copy_file_range
+diff --git a/arch/blackfin/include/asm/barrier.h b/arch/blackfin/include/asm/barrier.h
+index dfb66fe..7cca51c 100644
+--- a/arch/blackfin/include/asm/barrier.h
++++ b/arch/blackfin/include/asm/barrier.h
+@@ -78,8 +78,8 @@
+ 
+ #endif /* !CONFIG_SMP */
+ 
+-#define smp_mb__before_atomic()	barrier()
+-#define smp_mb__after_atomic()	barrier()
++#define __smp_mb__before_atomic()	barrier()
++#define __smp_mb__after_atomic()	barrier()
+ 
+ #include <asm-generic/barrier.h>
+ 
+-- 
+MST
 
-for you to fetch changes up to 884a12a5972fc867a93f7adf7a8ac2ade5d38fff:
-
-  [IA64] Enable copy_file_range syscall for ia64 (2016-01-22 14:20:01 -0800)
-
-----------------------------------------------------------------
-Another release, another new syscall to wire up.
-
-----------------------------------------------------------------
-Tony Luck (1):
-      [IA64] Enable copy_file_range syscall for ia64
-
- arch/ia64/include/asm/unistd.h      | 2 +-
- arch/ia64/include/uapi/asm/unistd.h | 1 +
- arch/ia64/kernel/entry.S            | 1 +
- 3 files changed, 3 insertions(+), 1 deletion(-)
