@@ -1,56 +1,46 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Mon, 11 Jan 2016 11:04:21 +0000
+From: Julian Calaby <julian.calaby@gmail.com>
+Date: Mon, 11 Jan 2016 11:06:14 +0000
 Subject: Re: [PATCH v4 0/3] checkpatch: handling of memory barriers
-Message-Id: <20160111130334-mutt-send-email-mst@redhat.com>
+Message-Id: <CAGRGNgXnxjmvjD8_vT17ZWwK0uCsGNmXq_KdVj9KoT6NRZQvPA@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1452509968-19778-1-git-send-email-mst@redhat.com>
-In-Reply-To: <1452509968-19778-1-git-send-email-mst@redhat.com>
+References: <1452509968-19778-1-git-send-email-mst@redhat.com> <20160111130334-mutt-send-email-mst@redhat.com>
+In-Reply-To: <20160111130334-mutt-send-email-mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Andy Whitcroft <apw@canonical.com>, Joe Perches <joe@perches.com>, Peter Zijlstra <peterz@infradead.org>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, Andrew Cooper <andrew.cooper3@citrix.com>, virtualization@lists.linux-foundation.org, Stefano Stabellini <stefano.stabellini@eu.citrix.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>, David Miller <davem@davemloft.net>, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, x86@kernel.org, user-mode-linux-devel@lists.sourceforge.net, adi-buildroot-devel@lists.sourceforge.net, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, xen-devel@lists.xenproject.org, Ingo Molnar <mingo@kernel.org>, Ton
+To: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Cc: "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Andy Whitcroft <apw-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>, Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>, Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Andrew Cooper <andrew.cooper3-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>, virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, Stefano Stabellini <stefano.stabellini-mvvWK6WmYclDPfheJLI6IQ@public.gmane.org>, Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>, Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>, "H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sparclinux <sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "Mailing List, Arm" <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, user-mode-linux-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, adi-buildroot-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 
-On Mon, Jan 11, 2016 at 12:59:25PM +0200, Michael S. Tsirkin wrote:
-> As part of memory barrier cleanup, this patchset
-> extends checkpatch to make it easier to stop
-> incorrect memory barrier usage.
-> 
-> This replaces the checkpatch patches in my series
-> 	arch: barrier cleanup + barriers for virt
-> and will be included in the pull request including
-> the series.
-> 
-> changes from v3:
-> 	rename smp_barrier_stems to barrier_stems
-> 	as suggested by Julian Calaby.
+Hi Michael,
 
-In fact it was Joe Perches that suggested it.
-Sorry about the confusion.
+On Mon, Jan 11, 2016 at 10:04 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
+> On Mon, Jan 11, 2016 at 12:59:25PM +0200, Michael S. Tsirkin wrote:
+>> As part of memory barrier cleanup, this patchset
+>> extends checkpatch to make it easier to stop
+>> incorrect memory barrier usage.
+>>
+>> This replaces the checkpatch patches in my series
+>>       arch: barrier cleanup + barriers for virt
+>> and will be included in the pull request including
+>> the series.
+>>
+>> changes from v3:
+>>       rename smp_barrier_stems to barrier_stems
+>>       as suggested by Julian Calaby.
+>
+> In fact it was Joe Perches that suggested it.
+> Sorry about the confusion.
 
-> 	add (?: ... ) around a variable in regexp,
-> 	in case we change the value later so that it matters.
-> changes from v2:
-> 	address comments by Joe Perches:
-> 	use (?: ... ) to avoid unnecessary capture groups
-> 	rename smp_barriers to smp_barrier_stems for clarity
-> 	add barriers before/after atomic
-> Changes from v1:
-> 	catch optional\s* before () in barriers
-> 	rewrite using qr{} instead of map
-> 
-> Michael S. Tsirkin (3):
->   checkpatch.pl: add missing memory barriers
->   checkpatch: check for __smp outside barrier.h
->   checkpatch: add virt barriers
-> 
-> Michael S. Tsirkin (3):
->   checkpatch.pl: add missing memory barriers
->   checkpatch: check for __smp outside barrier.h
->   checkpatch: add virt barriers
-> 
->  scripts/checkpatch.pl | 33 ++++++++++++++++++++++++++++++++-
->  1 file changed, 32 insertions(+), 1 deletion(-)
-> 
-> -- 
-> MST
+I was about to point that out.
+
+FWIW this entire series is:
+
+Acked-by: Julian Calaby <julian.calaby@gmail.com>
+
+Thanks,
+
+-- 
+Julian Calaby
+
+Email: julian.calaby@gmail.com
+Profile: http://www.google.com/profiles/julian.calaby/
