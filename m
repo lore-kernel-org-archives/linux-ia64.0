@@ -1,41 +1,38 @@
-From: Jeffrey Merkey <jeffmerkey@gmail.com>
-Date: Thu, 28 Jan 2016 19:46:23 +0000
-Subject: [PATCH 05/31] Add debugger entry points for IA64
-Message-Id: <1454010383-28585-1-git-send-email-jeffmerkey@gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Mon, 11 Jan 2016 11:00:40 +0000
+Subject: [PATCH v4 3/3] checkpatch: add virt barriers
+Message-Id: <1452509968-19778-4-git-send-email-mst@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1452509968-19778-1-git-send-email-mst@redhat.com>
+In-Reply-To: <1452509968-19778-1-git-send-email-mst@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-kernel@vger.kernel.org
-Cc: tony.luck@intel.com, fenghua.yu@intel.com, linux.mdb@gmail.com, linux-ia64@vger.kernel.org
+Cc: linux-mips@linux-mips.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, virtualization@lists.linux-foundation.org, "H. Peter Anvin" <hpa@zytor.com>, sparclinux@vger.kernel.org, Ingo Molnar <mingo@kernel.org>, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, Russell King - ARM Linux <linux@arm.linux.org.uk>, Arnd Bergmann <arnd@arndb.de>, x86@kernel.org, Tony Lindgren <tony@atomide.com>, xen-devel@lists.xenproject.org, Ingo Molnar <mingo@elte.hu>, linux-xtensa@linux-xtensa.org, user-mode-linux-devel@lists.sourceforge.net, Stefano Stabellini <stefano.stabellini@eu.citrix.com>, Julian Calaby <julian.calaby@gmail.com>, adi-buildroot-devel@lists.sourceforge.net, Andy Whitcroft <apw@canonical.com>, Thomas Gleixner <tglx@linutronix.de>, linux-metag@vger.kernel.org, linux-arm-kernel@lists.infradead.org, Andrew Cooper <and>
 
-This patch series adds an export which can be set by system debuggers to
-direct the hard lockup and soft lockup detector to trigger a breakpoint
-exception and enter a debugger if one is active.  It is assumed that if
-someone sets this variable, then an breakpoint handler of some sort will
-be actively loaded or registered via the notify die handler chain.
+Add virt_ barriers to list of barriers to check for
+presence of a comment.
 
-This addition is extremely useful for debugging hard and soft lockups
-real time and quickly from a console debugger.
-
-Signed-off-by: Jeffrey Merkey <jeffmerkey@gmail.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- arch/ia64/include/asm/kdebug.h | 4 ++++
- 1 file changed, 4 insertions(+)
+ scripts/checkpatch.pl | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/arch/ia64/include/asm/kdebug.h b/arch/ia64/include/asm/kdebug.h
-index d11a698..8866d8d 100644
---- a/arch/ia64/include/asm/kdebug.h
-+++ b/arch/ia64/include/asm/kdebug.h
-@@ -54,4 +54,8 @@ enum die_val {
- 	DIE_KDUMP_LEAVE,
- };
+diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
+index 25476c2..c7bf1aa 100755
+--- a/scripts/checkpatch.pl
++++ b/scripts/checkpatch.pl
+@@ -5133,7 +5133,8 @@ sub process {
+ 		}x;
+ 		my $all_barriers = qr{
+ 			(?:$barriers)|
+-			smp_(?:$barrier_stems)
++			smp_(?:$barrier_stems)|
++			virt_(?:$barrier_stems)
+ 		}x;
  
-+static inline void arch_breakpoint(void)
-+{
-+}
-+
- #endif
+ 		if ($line =~ /\b(?:$all_barriers)\s*\(/) {
 -- 
-1.8.3.1
+MST
 
