@@ -1,58 +1,48 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Sun, 10 Jan 2016 19:30:38 +0000
-Subject: [PATCH v3 1/3] checkpatch.pl: add missing memory barriers
-Message-Id: <1452454200-8844-2-git-send-email-mst@redhat.com>
+From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Date: Tue, 12 Jan 2016 13:22:46 +0000
+Subject: [PATCH v2 2/2] efi: include asm/early_ioremap.h not asm/efi.h to get early_memremap
+Message-Id: <1452604966-9905-2-git-send-email-ard.biesheuvel@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1452454200-8844-1-git-send-email-mst@redhat.com>
-In-Reply-To: <1452454200-8844-1-git-send-email-mst@redhat.com>
+References: <1452604966-9905-1-git-send-email-ard.biesheuvel@linaro.org>
+In-Reply-To: <1452604966-9905-1-git-send-email-ard.biesheuvel-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: linux-mips@linux-mips.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, virtualization@lists.linux-foundation.org, "H. Peter Anvin" <hpa@zytor.com>, sparclinux@vger.kernel.org, Ingo Molnar <mingo@kernel.org>, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, Russell King - ARM Linux <linux@arm.linux.org.uk>, Arnd Bergmann <arnd@arndb.de>, x86@kernel.org, Tony Lindgren <tony@atomide.com>, xen-devel@lists.xenproject.org, Ingo Molnar <mingo@elte.hu>, linux-xtensa@linux-xtensa.org, user-mode-linux-devel@lists.sourceforge.net, Stefano Stabellini <stefano.stabellini@eu.citrix.com>, Andrey Konovalov <andreyknvl@google.com>, adi-buildroot-devel@lists.sourceforge.net, Andy Whitcroft <apw@canonical.com>, Thomas Gleixner <tglx@linutronix.de>, linux-metag@vger.kernel.org, linux-arm-kernel@lists.infradead.orgAndrewCooperan
+To: tony.luck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, linux-efi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, matt-mF/unelCI9GS6iBeEJttW/XRex20P6io@public.gmane.org, fenghua.yu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+Cc: will.deacon-5wv7dgnIgG8@public.gmane.org, Ard Biesheuvel <ard.biesheuvel-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
 
-SMP-only barriers were missing in checkpatch.pl
+The code in efi.c uses early_memremap(), but relies on a transitive
+include rather than including asm/early_ioremap.h directly, since
+this header did not exist on ia64.
 
-Refactor code slightly to make adding more variants easier.
+Commit f7d924894265 ("arm64/efi: refactor EFI init and runtime code
+for reuse by 32-bit ARM") attempted to work around this by including
+asm/efi.h, which transitively includes asm/early_ioremap.h on most
+architectures. However, since asm/efi.h does not exist on ia64 either,
+this is not much of an improvement.
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Now that we have created an asm/early_ioremap.h for ia64, we can just
+include it directly.
+
+Reported-by: Guenter Roeck <linux@roeck-us.net>
+Signed-off-by: Ard Biesheuvel <ard.biesheuvel@linaro.org>
 ---
- scripts/checkpatch.pl | 22 +++++++++++++++++++++-
- 1 file changed, 21 insertions(+), 1 deletion(-)
+ drivers/firmware/efi/efi.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
-index 2b3c228..1c01b7d 100755
---- a/scripts/checkpatch.pl
-+++ b/scripts/checkpatch.pl
-@@ -5116,7 +5116,27 @@ sub process {
- 			}
- 		}
- # check for memory barriers without a comment.
--		if ($line =~ /\b(mb|rmb|wmb|read_barrier_depends|smp_mb|smp_rmb|smp_wmb|smp_read_barrier_depends)\(/) {
-+
-+		my $barriers = qr{
-+			mb|
-+			rmb|
-+			wmb|
-+			read_barrier_depends
-+		}x;
-+		my $smp_barrier_stems = qr{
-+			mb__before_atomic|
-+			mb__after_atomic|
-+			store_release|
-+			load_acquire|
-+			store_mb|
-+			(?:$barriers)
-+		}x;
-+		my $all_barriers = qr{
-+			$barriers|
-+			smp_(?:$smp_barrier_stems)
-+		}x;
-+
-+		if ($line =~ /\b(?:$all_barriers)\s*\(/) {
- 			if (!ctx_has_comment($first_line, $linenr)) {
- 				WARN("MEMORY_BARRIER",
- 				     "memory barrier without comment\n" . $herecurr);
+diff --git a/drivers/firmware/efi/efi.c b/drivers/firmware/efi/efi.c
+index cffa89b3317b..2cd37dad67a6 100644
+--- a/drivers/firmware/efi/efi.c
++++ b/drivers/firmware/efi/efi.c
+@@ -25,7 +25,7 @@
+ #include <linux/io.h>
+ #include <linux/platform_device.h>
+ 
+-#include <asm/efi.h>
++#include <asm/early_ioremap.h>
+ 
+ struct efi __read_mostly efi = {
+ 	.mps			= EFI_INVALID_TABLE_ADDR,
 -- 
-MST
+2.5.0
 
