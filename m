@@ -1,84 +1,71 @@
-From: Boqun Feng <boqun.feng@gmail.com>
-Date: Thu, 07 Jan 2016 00:43:56 +0000
-Subject: Re: [PATCH v2 15/32] powerpc: define __smp_xxx
-Message-Id: <20160107004356.GB14605@fixme-laptop.cn.ibm.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="/04w6evG8XlLl3ft"
+From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Date: Tue, 12 Jan 2016 13:22:45 +0000
+Subject: [PATCH v2 1/2] ia64: split off early_ioremap() declarations into asm/early_ioremap.h
+Message-Id: <1452604966-9905-1-git-send-email-ard.biesheuvel@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1451572003-2440-1-git-send-email-mst@redhat.com>
- <1451572003-2440-16-git-send-email-mst@redhat.com>
- <20160105013648.GA1256@fixme-laptop.cn.ibm.com>
- <20160105085117.GA11858@redhat.com>
- <20160105095341.GA5321@fixme-laptop.cn.ibm.com>
- <20160105180938-mutt-send-email-mst@redhat.com>
- <20160106015152.GA14605@fixme-laptop.cn.ibm.com>
- <20160106222337-mutt-send-email-mst@redhat.com>
-In-Reply-To: <20160106222337-mutt-send-email-mst@redhat.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Cc: linux-kernel@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, Andrew Cooper <andrew.cooper3@citrix.com>, virtualization@lists.linux-foundation.org, Stefano Stabellini <stefano.stabellini@eu.citrix.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>, David Miller <davem@davemloft.net>, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, x86@kernel.org, user-mode-linux-devel@lists.sourceforge.net, adi-buildroot-devel@lists.sourceforge.net, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, xen-devel@lists.xenproject.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paul>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: tony.luck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, linux-efi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, matt-mF/unelCI9GS6iBeEJttW/XRex20P6io@public.gmane.org, fenghua.yu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+Cc: will.deacon-5wv7dgnIgG8@public.gmane.org, Ard Biesheuvel <ard.biesheuvel-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
 
+Unlike x86, arm64 and ARM, ia64 does not declare its implementations
+of early_ioremap/early_iounmap/early_memremap/early_memunmap in a header
+file called <asm/early_ioremap.h>
 
---/04w6evG8XlLl3ft
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+This complicates the use of these functions in generic code, since the
+header cannot be included directly, and we have to rely on transitive
+includes, which is fragile.
 
-On Wed, Jan 06, 2016 at 10:23:51PM +0200, Michael S. Tsirkin wrote:
-[...]
-> > >=20
-> > > Sorry, I don't understand - why do you have to do anything?
-> > > I changed all users of smp_lwsync so they
-> > > use __smp_lwsync on SMP and barrier() on !SMP.
-> > >=20
-> > > This is exactly the current behaviour, I also tested that
-> > > generated code does not change at all.
-> > >=20
-> > > Is there a patch in your tree that conflicts with this?
-> > >=20
-> >=20
-> > Because in a patchset which implements atomic relaxed/acquire/release
-> > variants on PPC I use smp_lwsync(), this makes it have another user,
-> > please see this mail:
-> >=20
-> > http://article.gmane.org/gmane.linux.ports.ppc.embedded/89877
-> >=20
-> > in definition of PPC's __atomic_op_release().
-> >=20
-> >=20
-> > But I think removing smp_lwsync() is a good idea and actually I think we
-> > can go further to remove __smp_lwsync() and let __smp_load_acquire and
-> > __smp_store_release call __lwsync() directly, but that is another thing.
-> >=20
-> > Anyway, I will modify my patch.
-> >=20
-> > Regards,
-> > Boqun
->=20
->=20
-> Thanks!
-> Could you send an ack then please?
->=20
+So create a <asm/early_ioremap.h> for ia64, and move the existing
+definitions into it.
 
-Sure, if you need one from me, feel free to add my ack for this patch:
+Signed-off-by: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+---
+ arch/ia64/include/asm/early_ioremap.h | 10 ++++++++++
+ arch/ia64/include/asm/io.h            |  5 +----
+ 2 files changed, 11 insertions(+), 4 deletions(-)
+ create mode 100644 arch/ia64/include/asm/early_ioremap.h
 
-Acked-by: Boqun Feng <boqun.feng@gmail.com>
+diff --git a/arch/ia64/include/asm/early_ioremap.h b/arch/ia64/include/asm/early_ioremap.h
+new file mode 100644
+index 000000000000..eec9e1d1b833
+--- /dev/null
++++ b/arch/ia64/include/asm/early_ioremap.h
+@@ -0,0 +1,10 @@
++#ifndef _ASM_IA64_EARLY_IOREMAP_H
++#define _ASM_IA64_EARLY_IOREMAP_H
++
++extern void __iomem * early_ioremap (unsigned long phys_addr, unsigned long size);
++#define early_memremap(phys_addr, size)        early_ioremap(phys_addr, size)
++
++extern void early_iounmap (volatile void __iomem *addr, unsigned long size);
++#define early_memunmap(addr, size)             early_iounmap(addr, size)
++
++#endif
+diff --git a/arch/ia64/include/asm/io.h b/arch/ia64/include/asm/io.h
+index 9041bbe2b7b4..a865d2a04f75 100644
+--- a/arch/ia64/include/asm/io.h
++++ b/arch/ia64/include/asm/io.h
+@@ -20,6 +20,7 @@
+  */
+ 
+ #include <asm/unaligned.h>
++#include <asm/early_ioremap.h>
+ 
+ /* We don't use IO slowdowns on the ia64, but.. */
+ #define __SLOW_DOWN_IO	do { } while (0)
+@@ -427,10 +428,6 @@ __writeq (unsigned long val, volatile void __iomem *addr)
+ extern void __iomem * ioremap(unsigned long offset, unsigned long size);
+ extern void __iomem * ioremap_nocache (unsigned long offset, unsigned long size);
+ extern void iounmap (volatile void __iomem *addr);
+-extern void __iomem * early_ioremap (unsigned long phys_addr, unsigned long size);
+-#define early_memremap(phys_addr, size)        early_ioremap(phys_addr, size)
+-extern void early_iounmap (volatile void __iomem *addr, unsigned long size);
+-#define early_memunmap(addr, size)             early_iounmap(addr, size)
+ static inline void __iomem * ioremap_cache (unsigned long phys_addr, unsigned long size)
+ {
+ 	return ioremap(phys_addr, size);
+-- 
+2.5.0
 
-Regards,
-Boqun
-
---/04w6evG8XlLl3ft
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQEcBAABCAAGBQJWjbTIAAoJEEl56MO1B/q4Xf8H/A0lM6gsUPNqUU24iHbc5O4j
-qN+FbAuVULCXdZfNW9uS+HG4Oq9VqZZc4rv5QdX6IHzcYKTYAv7+8rEMHmrxV8A/
-mMKfwU07krXlG0IRFhiMpuCzvjAfa0CgPOUHBzGJU5mdrAiM8ymtpa1ofde/uitO
-UaRheer5STPZ2kUzrA0r2hYbtWczy6X7yIxioQbXKeR88AuE8X12Me7X+zl9YoPP
-NnwnzDhEkvj7wzQVgWTyA4fwu051dOtRENtv0k6UugV2bW45SsuLQ9Co3BUh/iK+
-KF/57kaJ9BfOGYF1HAHH10GSkwTyyAsc8SGAQKg6PY/lJsHBDFluEtr98U1ssCA=
-=FLp9
------END PGP SIGNATURE-----
-
---/04w6evG8XlLl3ft--
