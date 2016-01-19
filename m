@@ -1,61 +1,51 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Sun, 10 Jan 2016 14:19:52 +0000
-Subject: [PATCH v3 24/41] sparc: define __smp_xxx
-Message-Id: <1452426622-4471-25-git-send-email-mst@redhat.com>
+From: "Ulrich Windl" <Ulrich.Windl@rz.uni-regensburg.de>
+Date: Tue, 19 Jan 2016 07:30:22 +0000
+Subject: Antw: Hardware to give away (pickup in Bavaria/Germany)
+Message-Id: <569DF41E020000A10001FAD6@gwsmtp1.uni-regensburg.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1452426622-4471-1-git-send-email-mst@redhat.com>
-In-Reply-To: <1452426622-4471-1-git-send-email-mst@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Peter Zijlstra <peterz@infradead.org>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, Andrew Cooper <andrew.cooper3@citrix.com>, Russell King - ARM Linux <linux@arm.linux.org.uk>, virtualization@lists.linux-foundation.org, Stefano Stabellini <stefano.stabellini@eu.citrix.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>, Joe Perches <joe@perches.com>, David Miller <davem@davemloft.net>, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, x86@kernel.org, user-mode-linux-devel@lists.sourceforge.net, adi-buildroot-devel@lists.sourceforge.net, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, xen-devel@lists.xenproject.org, Ingo Molnar <mingo@k>
+To: linux-ia64@vger.kernel.org
 
-This defines __smp_xxx barriers for sparc,
-for use by virtualization.
+Hi!
 
-smp_xxx barriers are removed as they are
-defined correctly by asm-generic/barriers.h
+A short status update:
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-Acked-by: Arnd Bergmann <arnd@arndb.de>
-Acked-by: David S. Miller <davem@davemloft.net>
----
- arch/sparc/include/asm/barrier_64.h | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+The two rx3600 and one rx6600 are now garbage. One rx6600 is still there, as well as 4 dual-core CPU modules and a lot of 2GB memory modules (HP smart RAM). Other parts are three SAS MPT RAID controllers and three 1Gb NICs.
 
-diff --git a/arch/sparc/include/asm/barrier_64.h b/arch/sparc/include/asm/barrier_64.h
-index 26c3f72..c9f6ee6 100644
---- a/arch/sparc/include/asm/barrier_64.h
-+++ b/arch/sparc/include/asm/barrier_64.h
-@@ -37,14 +37,14 @@ do {	__asm__ __volatile__("ba,pt	%%xcc, 1f\n\t" \
- #define rmb()	__asm__ __volatile__("":::"memory")
- #define wmb()	__asm__ __volatile__("":::"memory")
- 
--#define smp_store_release(p, v)						\
-+#define __smp_store_release(p, v)						\
- do {									\
- 	compiletime_assert_atomic_type(*p);				\
- 	barrier();							\
- 	WRITE_ONCE(*p, v);						\
- } while (0)
- 
--#define smp_load_acquire(p)						\
-+#define __smp_load_acquire(p)						\
- ({									\
- 	typeof(*p) ___p1 = READ_ONCE(*p);				\
- 	compiletime_assert_atomic_type(*p);				\
-@@ -52,8 +52,8 @@ do {									\
- 	___p1;								\
- })
- 
--#define smp_mb__before_atomic()	barrier()
--#define smp_mb__after_atomic()	barrier()
-+#define __smp_mb__before_atomic()	barrier()
-+#define __smp_mb__after_atomic()	barrier()
- 
- #include <asm-generic/barrier.h>
- 
--- 
-MST
+Regards,
+Ulrich
+
+If you are interested
+>>> Ulrich Windl schrieb am 22.12.2015 um 14:49 in Nachricht <567954E4.1B8 : 161 :
+60728>:
+> Hi!
+> 
+> We have four fine Itanium2 machines build by HP that we do no longer use. 
+> The machines look almost as new and are fully functional. Up to now they ran 
+> HP-UX 11.31.
+> 
+> The machines are:
+> Two rx3600 with one dual-core Itanium2 and about 32GB RAM, two 1Gb NICs, 
+> dual-port FC HBA (4Gb)
+> Two rx6600 with two dual-core Itanium2 and about 40GB RAM, four 1Gb NICs, 
+> two single port FC HBA (4Gb)
+> All machines have iLO3 (management processor) and a raid controller (2.5" 
+> SAS disks). Possibly you'l receive the machines without disks.
+> There's also a rack mount kit for every machine.
+> 
+> Only developers are welcome, not people who sales parts of it. We give them 
+> away for free, you only would have to arrange transport (pickup).
+> 
+> If you are interested, quickly get in contact with me (this year!). I'm not 
+> subscribed to the list.
+> 
+> Regards,
+> Ulrich Windl
+> 
+> 
+
+
+
 
