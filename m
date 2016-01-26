@@ -1,161 +1,128 @@
-From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
-Date: Tue, 05 Jan 2016 15:19:39 +0000
-Subject: [PATCH v2 5/6] ia64/extable: use generic search and sort routines
-Message-Id: <1452007180-27411-6-git-send-email-ard.biesheuvel@linaro.org>
+From: Borislav Petkov <bp@alien8.de>
+Date: Tue, 26 Jan 2016 20:57:21 +0000
+Subject: [PATCH 05/17] ia64: Set System RAM type and descriptor
+Message-Id: <1453841853-11383-6-git-send-email-bp@alien8.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1452007180-27411-1-git-send-email-ard.biesheuvel@linaro.org>
-In-Reply-To: <1452007180-27411-1-git-send-email-ard.biesheuvel@linaro.org>
+References: <1453841853-11383-1-git-send-email-bp@alien8.de>
+In-Reply-To: <1453841853-11383-1-git-send-email-bp@alien8.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@linux-foundation.org, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, x86@kernel.org, hpa@zytor.com, mingo@redhat.com, heiko.carstens@de.ibm.com, schwidefsky@de.ibm.com, mattst88@gmail.com, ink@jurassic.park.msu.ru, rth@twiddle.net, tony.luck@intel.com, fenghua.yu@intel.com, catalin.marinas@arm.com, will.deacon@arm.com, arnd@arndb.de
-Cc: deller@gmx.de, mark.rutland@arm.com, Ard Biesheuvel <ard.biesheuvel@linaro.org>
+To: Ingo Molnar <mingo@kernel.org>
+Cc: LKML <linux-kernel@vger.kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Fenghua Yu <fenghua.yu@intel.com>, linux-arch@vger.kernel.org, linux-efi <linux-efi@vger.kernel.org>, linux-ia64@vger.kernel.org, linux-mm <linux-mm@kvack.org>, "Luis R. Rodriguez" <mcgrof@suse.com>, Matt Fleming <matt@codeblueprint.co.uk>, Rusty Russell <rusty@rustcorp.com.au>
 
-Replace the arch specific versions of search_extable() and sort_extable()
-with calls to the generic ones, which now support relative exception
-tables as well.
+From: Toshi Kani <toshi.kani@hpe.com>
 
+Change efi_initialize_iomem_resources() to set 'flags' and 'desc' for
+EFI memory types. IORESOURCE_SYSRAM, a modifier bit, is set for System
+RAM as IORESOURCE_MEM is already set. IORESOURCE_SYSTEM_RAM is defined
+as (IORESOURCE_MEM|IORESOURCE_SYSRAM). I/O resource descriptor is set
+for "ACPI Non-volatile Storage" and "Persistent Memory".
+
+Also set IORESOURCE_SYSTEM_RAM for "Kernel code", "Kernel data", and
+"Kernel bss".
+
+Signed-off-by: Toshi Kani <toshi.kani@hpe.com>
 Acked-by: Tony Luck <tony.luck@intel.com>
-Signed-off-by: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-arch@vger.kernel.org
+Cc: linux-efi <linux-efi@vger.kernel.org>
+Cc: linux-ia64@vger.kernel.org
+Cc: linux-mm <linux-mm@kvack.org>
+Cc: "Luis R. Rodriguez" <mcgrof@suse.com>
+Cc: Matt Fleming <matt@codeblueprint.co.uk>
+Cc: Rusty Russell <rusty@rustcorp.com.au>
+Link: http://lkml.kernel.org/r/1452020081-26534-5-git-send-email-toshi.kani@hpe.com
+Signed-off-by: Borislav Petkov <bp@suse.de>
 ---
- arch/ia64/include/asm/uaccess.h |  8 +-
- arch/ia64/mm/extable.c          | 97 +-------------------
- 2 files changed, 4 insertions(+), 101 deletions(-)
+ arch/ia64/kernel/efi.c   | 13 ++++++++++---
+ arch/ia64/kernel/setup.c |  6 +++---
+ 2 files changed, 13 insertions(+), 6 deletions(-)
 
-diff --git a/arch/ia64/include/asm/uaccess.h b/arch/ia64/include/asm/uaccess.h
-index 4f3fb6ccbf21..2189d5ddc1ee 100644
---- a/arch/ia64/include/asm/uaccess.h
-+++ b/arch/ia64/include/asm/uaccess.h
-@@ -341,13 +341,11 @@ extern unsigned long __strnlen_user (const char __user *, long);
- 	__su_ret;						\
- })
+diff --git a/arch/ia64/kernel/efi.c b/arch/ia64/kernel/efi.c
+index caae3f4e4341..300dac3702f1 100644
+--- a/arch/ia64/kernel/efi.c
++++ b/arch/ia64/kernel/efi.c
+@@ -1178,7 +1178,7 @@ efi_initialize_iomem_resources(struct resource *code_resource,
+ 	efi_memory_desc_t *md;
+ 	u64 efi_desc_size;
+ 	char *name;
+-	unsigned long flags;
++	unsigned long flags, desc;
  
--/* Generic code can't deal with the location-relative format that we use for compactness.  */
--#define ARCH_HAS_SORT_EXTABLE
--#define ARCH_HAS_SEARCH_EXTABLE
-+#define ARCH_HAS_RELATIVE_EXTABLE
+ 	efi_map_start = __va(ia64_boot_param->efi_memmap);
+ 	efi_map_end   = efi_map_start + ia64_boot_param->efi_memmap_size;
+@@ -1193,6 +1193,8 @@ efi_initialize_iomem_resources(struct resource *code_resource,
+ 			continue;
  
- struct exception_table_entry {
--	int addr;	/* location-relative address of insn this fixup is for */
--	int cont;	/* location-relative continuation addr.; if bit 2 is set, r9 is set to 0 */
-+	int insn;	/* location-relative address of insn this fixup is for */
-+	int fixup;	/* location-relative continuation addr.; if bit 2 is set, r9 is set to 0 */
+ 		flags = IORESOURCE_MEM | IORESOURCE_BUSY;
++		desc = IORES_DESC_NONE;
++
+ 		switch (md->type) {
+ 
+ 			case EFI_MEMORY_MAPPED_IO:
+@@ -1207,14 +1209,17 @@ efi_initialize_iomem_resources(struct resource *code_resource,
+ 				if (md->attribute & EFI_MEMORY_WP) {
+ 					name = "System ROM";
+ 					flags |= IORESOURCE_READONLY;
+-				} else if (md->attribute = EFI_MEMORY_UC)
++				} else if (md->attribute = EFI_MEMORY_UC) {
+ 					name = "Uncached RAM";
+-				else
++				} else {
+ 					name = "System RAM";
++					flags |= IORESOURCE_SYSRAM;
++				}
+ 				break;
+ 
+ 			case EFI_ACPI_MEMORY_NVS:
+ 				name = "ACPI Non-volatile Storage";
++				desc = IORES_DESC_ACPI_NV_STORAGE;
+ 				break;
+ 
+ 			case EFI_UNUSABLE_MEMORY:
+@@ -1224,6 +1229,7 @@ efi_initialize_iomem_resources(struct resource *code_resource,
+ 
+ 			case EFI_PERSISTENT_MEMORY:
+ 				name = "Persistent Memory";
++				desc = IORES_DESC_PERSISTENT_MEMORY;
+ 				break;
+ 
+ 			case EFI_RESERVED_TYPE:
+@@ -1246,6 +1252,7 @@ efi_initialize_iomem_resources(struct resource *code_resource,
+ 		res->start = md->phys_addr;
+ 		res->end = md->phys_addr + efi_md_size(md) - 1;
+ 		res->flags = flags;
++		res->desc = desc;
+ 
+ 		if (insert_resource(&iomem_resource, res) < 0)
+ 			kfree(res);
+diff --git a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
+index 4f118b0d3091..2029a38a72ae 100644
+--- a/arch/ia64/kernel/setup.c
++++ b/arch/ia64/kernel/setup.c
+@@ -80,17 +80,17 @@ unsigned long vga_console_membase;
+ 
+ static struct resource data_resource = {
+ 	.name	= "Kernel data",
+-	.flags	= IORESOURCE_BUSY | IORESOURCE_MEM
++	.flags	= IORESOURCE_BUSY | IORESOURCE_SYSTEM_RAM
  };
  
- extern void ia64_handle_exception (struct pt_regs *regs, const struct exception_table_entry *e);
-diff --git a/arch/ia64/mm/extable.c b/arch/ia64/mm/extable.c
-index c99a41e29fe8..8f70bb2d0c37 100644
---- a/arch/ia64/mm/extable.c
-+++ b/arch/ia64/mm/extable.c
-@@ -5,107 +5,12 @@
-  *	David Mosberger-Tang <davidm@hpl.hp.com>
-  */
+ static struct resource code_resource = {
+ 	.name	= "Kernel code",
+-	.flags	= IORESOURCE_BUSY | IORESOURCE_MEM
++	.flags	= IORESOURCE_BUSY | IORESOURCE_SYSTEM_RAM
+ };
  
--#include <linux/sort.h>
--
- #include <asm/uaccess.h>
--#include <linux/module.h>
--
--static int cmp_ex(const void *a, const void *b)
--{
--	const struct exception_table_entry *l = a, *r = b;
--	u64 lip = (u64) &l->addr + l->addr;
--	u64 rip = (u64) &r->addr + r->addr;
--
--	/* avoid overflow */
--	if (lip > rip)
--		return 1;
--	if (lip < rip)
--		return -1;
--	return 0;
--}
--
--static void swap_ex(void *a, void *b, int size)
--{
--	struct exception_table_entry *l = a, *r = b, tmp;
--	u64 delta = (u64) r - (u64) l;
--
--	tmp = *l;
--	l->addr = r->addr + delta;
--	l->cont = r->cont + delta;
--	r->addr = tmp.addr - delta;
--	r->cont = tmp.cont - delta;
--}
--
--/*
-- * Sort the exception table. It's usually already sorted, but there
-- * may be unordered entries due to multiple text sections (such as the
-- * .init text section). Note that the exception-table-entries contain
-- * location-relative addresses, which requires a bit of care during
-- * sorting to avoid overflows in the offset members (e.g., it would
-- * not be safe to make a temporary copy of an exception-table entry on
-- * the stack, because the stack may be more than 2GB away from the
-- * exception-table).
-- */
--void sort_extable (struct exception_table_entry *start,
--		   struct exception_table_entry *finish)
--{
--	sort(start, finish - start, sizeof(struct exception_table_entry),
--	     cmp_ex, swap_ex);
--}
--
--static inline unsigned long ex_to_addr(const struct exception_table_entry *x)
--{
--	return (unsigned long)&x->addr + x->addr;
--}
--
--#ifdef CONFIG_MODULES
--/*
-- * Any entry referring to the module init will be at the beginning or
-- * the end.
-- */
--void trim_init_extable(struct module *m)
--{
--	/*trim the beginning*/
--	while (m->num_exentries &&
--	       within_module_init(ex_to_addr(&m->extable[0]), m)) {
--		m->extable++;
--		m->num_exentries--;
--	}
--	/*trim the end*/
--	while (m->num_exentries &&
--	       within_module_init(ex_to_addr(&m->extable[m->num_exentries-1]),
--				  m))
--		m->num_exentries--;
--}
--#endif /* CONFIG_MODULES */
--
--const struct exception_table_entry *
--search_extable (const struct exception_table_entry *first,
--		const struct exception_table_entry *last,
--		unsigned long ip)
--{
--	const struct exception_table_entry *mid;
--	unsigned long mid_ip;
--	long diff;
--
--        while (first <= last) {
--		mid = &first[(last - first)/2];
--		mid_ip = (u64) &mid->addr + mid->addr;
--		diff = mid_ip - ip;
--                if (diff = 0)
--                        return mid;
--                else if (diff < 0)
--                        first = mid + 1;
--                else
--                        last = mid - 1;
--        }
--        return NULL;
--}
+ static struct resource bss_resource = {
+ 	.name	= "Kernel bss",
+-	.flags	= IORESOURCE_BUSY | IORESOURCE_MEM
++	.flags	= IORESOURCE_BUSY | IORESOURCE_SYSTEM_RAM
+ };
  
- void
- ia64_handle_exception (struct pt_regs *regs, const struct exception_table_entry *e)
- {
--	long fix = (u64) &e->cont + e->cont;
-+	long fix = (u64) &e->fixup + e->fixup;
- 
- 	regs->r8 = -EFAULT;
- 	if (fix & 4)
+ unsigned long ia64_max_cacheline_size;
 -- 
-2.5.0
+2.3.5
 
