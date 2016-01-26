@@ -1,92 +1,75 @@
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Date: Tue, 26 Jan 2016 19:51:04 +0000
+Date: Tue, 26 Jan 2016 19:58:20 +0000
 Subject: Re: [v3,11/41] mips: reuse asm-generic/barrier.h
-Message-Id: <20160126195104.GR4503@linux.vnet.ibm.com>
+Message-Id: <20160126195820.GS4503@linux.vnet.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20160114204827.GE3818@linux.vnet.ibm.com>
-	<20160118081929.GA30420@gondor.apana.org.au>
-	<20160118154629.GB3818@linux.vnet.ibm.com>
-	<20160126165207.GB6029@fixme-laptop.cn.ibm.com>
-In-Reply-To: <20160126165207.GB6029@fixme-laptop.cn.ibm.com>
+References: <56980C91.1010403@imgtec.com>
+ <20160114212913.GF3818@linux.vnet.ibm.com>
+ <20160115085554.GF3421@worktop>
+ <20160115091348.GA27936@worktop>
+ <20160115174612.GV3818@linux.vnet.ibm.com>
+ <20160115212714.GM3421@worktop>
+ <20160115215853.GC3818@linux.vnet.ibm.com>
+ <20160125164242.GF22927@arm.com>
+ <20160126060322.GJ4503@linux.vnet.ibm.com>
+ <20160126121608.GE21553@arm.com>
+In-Reply-To: <20160126121608.GE21553-5wv7dgnIgG8@public.gmane.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Boqun Feng <boqun.feng@gmail.com>
-Cc: linux-mips@linux-mips.org, linux-ia64@vger.kernel.org, mst@redhat.com, peterz@infradead.org, will.deacon@arm.com, virtualization@lists.linux-foundation.org, hpa@zytor.com, sparclinux@vger.kernel.org, mingo@kernel.org, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, linux@arm.linux.org.uk, Herbert Xu <herbert@gondor.apana.org.au>, linux-sh@vger.kernel.org, mpe@ellerman.id.au, x86@kernel.org, Linus Torvalds <torvalds@linux-foundation.org>, xen-devel@lists.xenproject.org, mingo@elte.hu, linux-xtensa@linux-xtensa.org, james.hogan@imgtec.com, user-mode-linux-devel@lists.sourceforge.net, stefano.stabellini@eu.citrix.com, adi-buildroot-devel@lists.sourceforge.net, Leonid.Yegoshin@imgtec.com, ddaney.cavm@gmail.com, tglx@linutronix.de, linux-metag@vger.kernel.org, linux-arm-kernel@lists.infradead.org, andrew.cooper3@citrix.com, linux-kernel@vger.kernel.org, ralf@linux-
+To: Will Deacon <will.deacon-5wv7dgnIgG8@public.gmane.org>
+Cc: Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>, Leonid Yegoshin <Leonid.Yegoshin-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>, "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Andrew Cooper <andrew.cooper3-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>, Russell King - ARM Linux <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>, virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, Stefano Stabellini <stefano.stabellini-mvvWK6WmYclDPfheJLI6IQ@public.gmane.org>, Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>, Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>, "H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>, Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, user-mode-linux-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, adi-buildroot-devel-5NWGOfrQmneRv+LV9MX5ug@public.gmane.org
 
-On Wed, Jan 27, 2016 at 12:52:07AM +0800, Boqun Feng wrote:
-> Hi Paul,
-> 
-> On Mon, Jan 18, 2016 at 07:46:29AM -0800, Paul E. McKenney wrote:
-> > On Mon, Jan 18, 2016 at 04:19:29PM +0800, Herbert Xu wrote:
-> > > Paul E. McKenney <paulmck@linux.vnet.ibm.com> wrote:
-> > > >
-> > > > You could use SYNC_ACQUIRE() to implement read_barrier_depends() and
-> > > > smp_read_barrier_depends(), but SYNC_RMB probably does not suffice.
-> > > > The reason for this is that smp_read_barrier_depends() must order the
-> > > > pointer load against any subsequent read or write through a dereference
-> > > > of that pointer.  For example:
+On Tue, Jan 26, 2016 at 12:16:09PM +0000, Will Deacon wrote:
+> On Mon, Jan 25, 2016 at 10:03:22PM -0800, Paul E. McKenney wrote:
+> > On Mon, Jan 25, 2016 at 04:42:43PM +0000, Will Deacon wrote:
+> > > On Fri, Jan 15, 2016 at 01:58:53PM -0800, Paul E. McKenney wrote:
+> > > > PPC Overlapping Group-B sets version 4
+> > > > ""
+> > > > (* When the Group-B sets from two different barriers involve instructions in
+> > > >    the same thread, within that thread one set must contain the other.
 > > > > 
-> > > >        p = READ_ONCE(gp);
-> > > >        smp_rmb();
-> > > >        r1 = p->a; /* ordered by smp_rmb(). */
-> > > >        p->b = 42; /* NOT ordered by smp_rmb(), BUG!!! */
-> > > >        r2 = x; /* ordered by smp_rmb(), but doesn't need to be. */
+> > > > 	P0	P1	P2
+> > > > 	Rx=1	Wy=1	Wz=2
+> > > > 	dep.	lwsync	lwsync
+> > > > 	Ry=0	Wz=1	Wx=1
+> > > > 	Rz=1
 > > > > 
-> > > > In contrast:
+> > > > 	assert(!(z=2))
 > > > > 
-> > > >        p = READ_ONCE(gp);
-> > > >        smp_read_barrier_depends();
-> > > >        r1 = p->a; /* ordered by smp_read_barrier_depends(). */
-> > > >        p->b = 42; /* ordered by smp_read_barrier_depends(). */
-> > > >        r2 = x; /* not ordered by smp_read_barrier_depends(), which is OK. */
+> > > >    Forbidden by ppcmem, allowed by herd.
+> > > > *)
+> > > > {
+> > > > 0:r1=x; 0:r2=y; 0:r3=z;
+> > > > 1:r1=x; 1:r2=y; 1:r3=z; 1:r4=1;
+> > > > 2:r1=x; 2:r2=y; 2:r3=z; 2:r4=1; 2:r5=2;
+> > > > }
+> > > >  P0		| P1		| P2		;
+> > > >  lwz r6,0(r1)	| stw r4,0(r2)	| stw r5,0(r3)	;
+> > > >  xor r7,r6,r6	| lwsync	| lwsync	;
+> > > >  lwzx r7,r7,r2	| stw r4,0(r3)	| stw r4,0(r1)	;
+> > > >  lwz r8,0(r3)	|		|		;
 > > > > 
-> > > > Again, if your hardware maintains local ordering for address
-> > > > and data dependencies, you can have read_barrier_depends() and
-> > > > smp_read_barrier_depends() be no-ops like they are for most
-> > > > architectures.
-> > > > 
-> > > > Does that help?
+> > > > exists
+> > > > (z=2 /\ 0:r6=1 /\ 0:r7=0 /\ 0:r8=1)
 > > > 
-> > > This is crazy! smp_rmb started out being strictly stronger than
-> > > smp_read_barrier_depends, when did this stop being the case?
+> > > That really hurts. Assuming that the "assert(!(z=2))" is actually there
+> > > to constrain the coherence order of z to be {0->1->2}, then I think that
+> > > this test is forbidden on arm using dmb instead of lwsync. That said, I
+> > > also don't think the Rz=1 in P0 changes anything.
 > > 
-> > Hello, Herbert!
-> > 
-> > It is true that most Linux kernel code relies only on the read-read
-> > properties of dependencies, but the read-write properties are useful.
-> > Admittedly relatively rarely, but useful.
-> > 
-> > The better comparison for smp_read_barrier_depends(), especially in
-> > its rcu_dereference*() form, is smp_load_acquire().
+> > What about the smp_wmb() variant of dmb that orders only stores?
 > 
-> Confused..
-> 
-> I recall that last time you and Linus came into a conclusion that even
-> on Alpha, a barrier for read->write with data dependency is unnecessary:
-> 
-> http://article.gmane.org/gmane.linux.kernel/2077661
-> 
-> And in an earlier mail of that thread, Linus made his point that
-> smp_read_barrier_depends() should only be used to order read->read.
+> Tricky, but I think it still works out if the coherence order of z is as
+> I described above. The line of reasoning is weird though -- I ended up
+> considering the two cases where P0 reads z before and after it reads x
+> and what that means for the read of y.
 
-Those examples involved read-to-write with conditionals, as in:
+By "works out" you mean that ARM prohibits the outcome?
 
-	if (READ_ONCE(a))
-		WRITE_ONCE(b, 1);
-
-Without the "if", no ordering is guaranteed on weakly ordered CPUs.
-(The volatile accesses keep ordering within the compiler for once...
-
-> So right now, are we going to extend the semantics of
-> smp_read_barrier_depends()? Can we just make smp_read_barrier_depends()
-> still only work for read->read, and assume all the architectures won't
-> reorder read->write with data dependency, so that the code above having
-> a smp_rmb() also works?
-
-The semantics of smp_read_barrier_depends() has been both read-to-write
-and read-to-read for some time now, this patch just catches the
-documentation up with reality.
+BTW, I never have seen a real-world use for this case.  At the moment
+it is mostly a cautionary tale about memory-model corner cases and
+tools.
 
 							Thanx, Paul
 
