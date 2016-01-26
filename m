@@ -1,124 +1,66 @@
 From: Will Deacon <will.deacon@arm.com>
-Date: Tue, 26 Jan 2016 12:10:10 +0000
+Date: Tue, 26 Jan 2016 12:16:09 +0000
 Subject: Re: [v3,11/41] mips: reuse asm-generic/barrier.h
-Message-Id: <20160126121010.GD21553@arm.com>
+Message-Id: <20160126121608.GE21553@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20160114203430.GC3818@linux.vnet.ibm.com>
- <56980C91.1010403@imgtec.com>
- <20160114212913.GF3818@linux.vnet.ibm.com>
- <569814F2.50801@imgtec.com>
- <20160114225510.GJ3818@linux.vnet.ibm.com>
- <20160115102431.GB2131@arm.com>
- <20160115175401.GW3818@linux.vnet.ibm.com>
- <20160115192845.GA12510@linux.vnet.ibm.com>
- <20160125144133.GB22927@arm.com>
- <20160126010646.GH4503@linux.vnet.ibm.com>
-In-Reply-To: <20160126010646.GH4503@linux.vnet.ibm.com>
+	<56980C91.1010403@imgtec.com>
+	<20160114212913.GF3818@linux.vnet.ibm.com>
+	<20160115085554.GF3421@worktop> <20160115091348.GA27936@worktop>
+	<20160115174612.GV3818@linux.vnet.ibm.com>
+	<20160115212714.GM3421@worktop>
+	<20160115215853.GC3818@linux.vnet.ibm.com>
+	<20160125164242.GF22927@arm.com>
+	<20160126060322.GJ4503@linux.vnet.ibm.com>
+In-Reply-To: <20160126060322.GJ4503@linux.vnet.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Cc: Leonid Yegoshin <Leonid.Yegoshin@imgtec.com>, Peter Zijlstra <peterz@infradead.org>, "Michael S. Tsirkin" <mst@redhat.com>, linux-kernel@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, Andrew Cooper <andrew.cooper3@citrix.com>, Russell King - ARM Linux <linux@arm.linux.org.uk>, virtualization@lists.linux-foundation.org, Stefano Stabellini <stefano.stabellini@eu.citrix.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>, Joe Perches <joe@perches.com>, David Miller <davem@davemloft.net>, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, x86@kernel.org, user-mode-linux-devel@lists.sourceforge.net, adi-buildroot-devel@lists.sourceforg
+Cc: linux-mips@linux-mips.org, linux-ia64@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>, Peter Zijlstra <peterz@infradead.org>, virtualization@lists.linux-foundation.org, "H. Peter Anvin" <hpa@zytor.com>, sparclinux@vger.kernel.org, Ingo Molnar <mingo@kernel.org>, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, Russell King - ARM Linux <linux@arm.linux.org.uk>, user-mode-linux-devel@lists.sourceforge.net, linux-sh@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>, x86@kernel.org, xen-devel@lists.xenproject.org, Ingo Molnar <mingo@elte.hu>, linux-xtensa@linux-xtensa.org, james.hogan@imgtec.com, Arnd Bergmann <arnd@arndb.de>, Stefano Stabellini <stefano.stabellini@eu.citrix.com>, adi-buildroot-devel@lists.sourceforge.net, Leonid Yegoshin <Leonid.Yegoshin@imgtec.com>, ddaney.cavm@gmail.com, Thomas Gleixner <tglx@linutronix.de>, linux-metag@vger.kernel.
 
-On Mon, Jan 25, 2016 at 05:06:46PM -0800, Paul E. McKenney wrote:
-> On Mon, Jan 25, 2016 at 02:41:34PM +0000, Will Deacon wrote:
-> > On Fri, Jan 15, 2016 at 11:28:45AM -0800, Paul E. McKenney wrote:
-> > > On Fri, Jan 15, 2016 at 09:54:01AM -0800, Paul E. McKenney wrote:
-> > > > On Fri, Jan 15, 2016 at 10:24:32AM +0000, Will Deacon wrote:
-> > > > > See my earlier reply [1] (but also, your WRC Linux example looks more
-> > > > > like a variant on WWC and I couldn't really follow it).
-> > > > 
-> > > > I will revisit my WRC Linux example.  And yes, creating litmus tests
-> > > > that use non-fake dependencies is still a bit of an undertaking.  :-/
-> > > > I am sure that it will seem more natural with time and experience...
-> > > 
-> > > Hmmm...  You are quite right, I did do WWC.  I need to change cpu2()'s
-> > > last access from a store to a load to get WRC.  Plus the levels of
-> > > indirection definitely didn't match up, did they?
-> > 
-> > Nope, it was pretty baffling!
-> 
-> "It is a service that I provide."  ;-)
-> 
-> > > 	struct foo {
-> > > 		struct foo *next;
-> > > 	};
-> > > 	struct foo a;
-> > > 	struct foo b;
-> > > 	struct foo c = { &a };
-> > > 	struct foo d = { &b };
-> > > 	struct foo x = { &c };
-> > > 	struct foo y = { &d };
-> > > 	struct foo *r1, *r2, *r3;
-> > > 
-> > > 	void cpu0(void)
-> > > 	{
-> > > 		WRITE_ONCE(x.next, &y);
-> > > 	}
-> > > 
-> > > 	void cpu1(void)
-> > > 	{
-> > > 		r1 = lockless_dereference(x.next);
-> > > 		WRITE_ONCE(r1->next, &x);
-> > > 	}
-> > > 
-> > > 	void cpu2(void)
-> > > 	{
-> > > 		r2 = lockless_dereference(y.next);
-> > > 		r3 = READ_ONCE(r2->next);
-> > > 	}
-> > > 
-> > > In this case, it is legal to end the run with:
-> > > 
-> > > 	r1 = &y && r2 = &x && r3 = &c
-> > > 
-> > > Please see below for a ppcmem litmus test.
-> > > 
-> > > So, did I get it right this time?  ;-)
-> > 
-> > The code above looks correct to me (in that it matches WRC+addrs),
-> > but your litmus test:
-> > 
-> > > PPC WRCnf+addrs
+On Mon, Jan 25, 2016 at 10:03:22PM -0800, Paul E. McKenney wrote:
+> On Mon, Jan 25, 2016 at 04:42:43PM +0000, Will Deacon wrote:
+> > On Fri, Jan 15, 2016 at 01:58:53PM -0800, Paul E. McKenney wrote:
+> > > PPC Overlapping Group-B sets version 4
 > > > ""
+> > > (* When the Group-B sets from two different barriers involve instructions in
+> > >    the same thread, within that thread one set must contain the other.
+> > > 
+> > > 	P0	P1	P2
+> > > 	Rx=1	Wy=1	Wz=2
+> > > 	dep.	lwsync	lwsync
+> > > 	Ry=0	Wz=1	Wx=1
+> > > 	Rz=1
+> > > 
+> > > 	assert(!(z=2))
+> > > 
+> > >    Forbidden by ppcmem, allowed by herd.
+> > > *)
 > > > {
-> > > 0:r2=x; 0:r3=y;
-> > > 1:r2=x; 1:r3=y;
-> > > 2:r2=x; 2:r3=y;
-> > > c=a; d=b; x=c; y=d;
+> > > 0:r1=x; 0:r2=y; 0:r3=z;
+> > > 1:r1=x; 1:r2=y; 1:r3=z; 1:r4=1;
+> > > 2:r1=x; 2:r2=y; 2:r3=z; 2:r4=1; 2:r5=2;
 > > > }
-> > >  P0           | P1            | P2            ;
-> > >  stw r3,0(r2) | lwz r8,0(r2)  | lwz r8,0(r3)  ;
-> > >               | stw r2,0(r3)  | lwz r9,0(r8)  ;
+> > >  P0		| P1		| P2		;
+> > >  lwz r6,0(r1)	| stw r4,0(r2)	| stw r5,0(r3)	;
+> > >  xor r7,r6,r6	| lwsync	| lwsync	;
+> > >  lwzx r7,r7,r2	| stw r4,0(r3)	| stw r4,0(r1)	;
+> > >  lwz r8,0(r3)	|		|		;
+> > > 
 > > > exists
-> > > (1:r8=y /\ 2:r8=x /\ 2:r9=c)
+> > > (z=2 /\ 0:r6=1 /\ 0:r7=0 /\ 0:r8=1)
 > > 
-> > Seems to be missing the address dependency on P1.
+> > That really hurts. Assuming that the "assert(!(z=2))" is actually there
+> > to constrain the coherence order of z to be {0->1->2}, then I think that
+> > this test is forbidden on arm using dmb instead of lwsync. That said, I
+> > also don't think the Rz=1 in P0 changes anything.
 > 
-> You are quite correct!  How about the following?
+> What about the smp_wmb() variant of dmb that orders only stores?
 
-I think that's it!
-
-> As before, both herd and ppcmem say that the cycle is allowed, as
-> expected, given non-transitive ordering.  To prohibit the cycle, P1
-> needs a suitable memory-barrier instruction.
-> 
-> ------------------------------------------------------------------------
-> 
-> PPC WRCnf+addrs
-> ""
-> {
-> 0:r2=x; 0:r3=y;
-> 1:r2=x; 1:r3=y;
-> 2:r2=x; 2:r3=y;
-> c=a; d=b; x=c; y=d;
-> }
->  P0           | P1            | P2            ;
->  stw r3,0(r2) | lwz r8,0(r2)  | lwz r8,0(r3)  ;
->               | stw r2,0(r8)  | lwz r9,0(r8)  ;
-> exists
-> (1:r8=y /\ 2:r8=x /\ 2:r9=c)
-
-Agreed.
+Tricky, but I think it still works out if the coherence order of z is as
+I described above. The line of reasoning is weird though -- I ended up
+considering the two cases where P0 reads z before and after it reads x
+and what that means for the read of y.
 
 Will
