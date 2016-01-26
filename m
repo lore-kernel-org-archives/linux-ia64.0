@@ -1,7 +1,7 @@
 From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Tue, 26 Jan 2016 22:15:21 +0000
+Date: Tue, 26 Jan 2016 22:33:40 +0000
 Subject: Re: [v3,11/41] mips: reuse asm-generic/barrier.h
-Message-Id: <CA+55aFxjb+2rs2wVHtiSCcOzgMrE8H=yDeNcjyujPQudDCtLgw@mail.gmail.com>
+Message-Id: <CA+55aFwxTJd+uibcxtZD3tGnj_n=LMwyAa0s8qyx_OF0OMWQkA@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20160114204827.GE3818@linux.vnet.ibm.com>
 	<20160118081929.GA30420@gondor.apana.org.au>
@@ -10,52 +10,61 @@ References: <20160114204827.GE3818@linux.vnet.ibm.com>
 	<20160126172227.GG6357@twins.programming.kicks-ass.net>
 	<CA+55aFzcC6C8imPs5vk4yH1Y2YHjnAdFM9HCkVs04COxuDQH6w@mail.gmail.com>
 	<20160126201037.GU4503@linux.vnet.ibm.com>
-In-Reply-To: <20160126201037.GU4503@linux.vnet.ibm.com>
+	<CA+55aFxjb+2rs2wVHtiSCcOzgMrE8H=yDeNcjyujPQudDCtLgw@mail.gmail.com>
+In-Reply-To: <CA+55aFxjb+2rs2wVHtiSCcOzgMrE8H=yDeNcjyujPQudDCtLgw@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Paul McKenney <paulmck@linux.vnet.ibm.com>
 Cc: Peter Zijlstra <peterz@infradead.org>, Boqun Feng <boqun.feng@gmail.com>, Herbert Xu <herbert@gondor.apana.org.au>, Leonid Yegoshin <Leonid.Yegoshin@imgtec.com>, linux-mips <linux-mips@linux-mips.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "Michael S. Tsirkin" <mst@redhat.com>, Will Deacon <will.deacon@arm.com>, virtualization <virtualization@lists.linux-foundation.org>, Peter Anvin <hpa@zytor.com>, sparclinux@vger.kernel.org, Ingo Molnar <mingo@kernel.org>, "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>, linux-s390 <linux-s390@vger.kernel.org>, Russell King - ARM Linux <linux@arm.linux.org.uk>, uml-devel <user-mode-linux-devel@lists.sourceforge.net>, linux-sh@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>, the arch/x86 maintainers <x86@kernel.org>, xen-devel@lists.xenproject.org, Ingo Molnar <mingo@elte.hu>, linux-xtensa@li
 
-On Tue, Jan 26, 2016 at 12:10 PM, Paul E. McKenney
-<paulmck@linux.vnet.ibm.com> wrote:
-> On Tue, Jan 26, 2016 at 11:44:46AM -0800, Linus Torvalds wrote:
->>
->> >         struct foo *x = READ_ONCE(*ptr);
->> >         smp_read_barrier_depends();
->> >         x->bar = 5;
->>
->> This case is complete BS. Stop perpetuating it. I already removed a
->> number of bogus cases of it, and I removed the incorrect documentation
->> that had this crap.
+On Tue, Jan 26, 2016 at 2:15 PM, Linus Torvalds
+<torvalds@linux-foundation.org> wrote:
 >
-> If I understand your objection correctly, you want the above pattern
-> expressed either like this:
+> You might as well just write it as
 >
->         struct foo *x = rcu_dereference(*ptr);
->         x->bar = 5;
+>     struct foo x = READ_ONCE(*ptr);
+>     x->bar = 5;
 >
-> Or like this:
->
->         struct foo *x = lockless_dereference(*ptr);
->         x->bar = 5;
->
-> Or am I missing your point?
+> because that "smp_read_barrier_depends()" does NOTHING wrt the second write.
 
-You are entirely missing the point.
+Just to clarify: on alpha it adds a memory barrier, but that memory
+barrier is useless.
 
-You might as well just write it as
+On non-alpha, it is a no-op, and obviously does nothing simply because
+it generates no code.
 
-    struct foo x = READ_ONCE(*ptr);
-    x->bar = 5;
+So if anybody believes that the "smp_read_barrier_depends()" does
+something, they are *wrong*.
 
-because that "smp_read_barrier_depends()" does NOTHING wrt the second write.
+And if anybody sends out an email with that smp_read_barrier_depends()
+in an example, they are actively just confusing other people, which is
+even worse than just being wrong. Which is why I jumped in.
 
-So what I am saying is simple: anybody who writes that
-"smp_read_barrier_depends()" in there is just ttoally and completely
-WRONG, and the fact that Peter wrote it out after I removed several
-instances of that bloody f*cking idiocy is disturbing.
+So stop perpetuating the myth that smp_read_barrier_depends() does
+something here. It does not. It's a bug, and it has become this "mind
+virus" for some people that seem to believe that it does something.
 
-Don't do it. It's BS. It's wrong. Don't make excuses for it.
+I had to remove this crap once from the kernel already, see commit
+105ff3cbf225 ("atomic: remove all traces of READ_ONCE_CTRL() and
+atomic*_read_ctrl()").
 
-             Linus
+I don't want to ever see that broken construct again. And I want to
+make sure that everybody is educated about how broken it was. I'm
+extremely unhappy that it came up again.
+
+If it turns out that some architecture does actually need a barrier
+between a read and a dependent write, then that will mean that
+
+ (a) we'll have to make up a _new_ barrier, because
+"smp_read_barrier_depends()" is not that barrier. We'll presumably
+then have to make that new barrier part of "rcu_derefence()" and
+friends.
+
+ (b) we will have found an architecture with even worse memory
+ordering semantics than alpha, and we'll have to stop castigating
+alpha for being the worst memory ordering ever.
+
+but I sincerely hope that we'll never find that kind of broken architecture.
+
+               Linus
