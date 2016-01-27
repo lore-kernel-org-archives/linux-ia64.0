@@ -1,34 +1,130 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Date: Mon, 04 Jan 2016 13:26:10 +0000
-Subject: Re: [PATCH v2 11/32] mips: reuse asm-generic/barrier.h
-Message-Id: <20160104132610.GX6344@twins.programming.kicks-ass.net>
+From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Date: Wed, 27 Jan 2016 10:55:18 +0000
+Subject: [PATCH v2 resend 1/6] extable: add support for relative extables to search and sort routines
+Message-Id: <1453892123-17973-2-git-send-email-ard.biesheuvel@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1451572003-2440-1-git-send-email-mst@redhat.com>
- <1451572003-2440-12-git-send-email-mst@redhat.com>
-In-Reply-To: <1451572003-2440-12-git-send-email-mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+References: <1453892123-17973-1-git-send-email-ard.biesheuvel@linaro.org>
+In-Reply-To: <1453892123-17973-1-git-send-email-ard.biesheuvel@linaro.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Andrew Cooper <andrew.cooper3-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>, virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, Stefano Stabellini <stefano.stabellini-mvvWK6WmYclDPfheJLI6IQ@public.gmane.org>, Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>, Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>, "H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, user-mode-linux-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, adi-buildroot-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org, xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org, Ralf Baechle <ralf-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org>, Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Michael Ellerman <mpe-Gsx/Oe8HsFggBc27wqDAHg@public.gmane.org>, And
+To: akpm@linux-foundation.org, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, x86@kernel.org, hpa@zytor.com, heiko.carstens@de.ibm.com, rth@twiddle.net, tony.luck@intel.com, will.deacon@arm.com
+Cc: deller@gmx.de, Ard Biesheuvel <ard.biesheuvel@linaro.org>
 
-On Thu, Dec 31, 2015 at 09:07:10PM +0200, Michael S. Tsirkin wrote:
-> -#define smp_store_release(p, v)						\
-> -do {									\
-> -	compiletime_assert_atomic_type(*p);				\
-> -	smp_mb();							\
-> -	WRITE_ONCE(*p, v);						\
-> -} while (0)
-> -
-> -#define smp_load_acquire(p)						\
-> -({									\
-> -	typeof(*p) ___p1 = READ_ONCE(*p);				\
-> -	compiletime_assert_atomic_type(*p);				\
-> -	smp_mb();							\
-> -	___p1;								\
-> -})
+This adds support to the generic search_extable() and sort_extable()
+implementations for dealing with exception table entries whose fields
+contain relative offsets rather than absolute addresses.
 
-David Daney wanted to use fancy new MIPS barriers to provide better
-implementations of this.
+Acked-by: Helge Deller <deller@gmx.de>
+Acked-by: Heiko Carstens <heiko.carstens@de.ibm.com>
+Acked-by: H. Peter Anvin <hpa@linux.intel.com>
+Acked-by: Tony Luck <tony.luck@intel.com>
+Acked-by: Will Deacon <will.deacon@arm.com>
+Acked-by: Richard Henderson <rth@twiddle.net>
+Signed-off-by: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+---
+ lib/extable.c | 50 ++++++++++++++++----
+ 1 file changed, 41 insertions(+), 9 deletions(-)
 
-This patch isn't in the way of that, just a FYI.
+diff --git a/lib/extable.c b/lib/extable.c
+index 4cac81ec225e..0be02ad561e9 100644
+--- a/lib/extable.c
++++ b/lib/extable.c
+@@ -14,7 +14,37 @@
+ #include <linux/sort.h>
+ #include <asm/uaccess.h>
+ 
++#ifndef ARCH_HAS_RELATIVE_EXTABLE
++#define ex_to_insn(x)	((x)->insn)
++#else
++static inline unsigned long ex_to_insn(const struct exception_table_entry *x)
++{
++	return (unsigned long)&x->insn + x->insn;
++}
++#endif
++
+ #ifndef ARCH_HAS_SORT_EXTABLE
++#ifndef ARCH_HAS_RELATIVE_EXTABLE
++#define swap_ex		NULL
++#else
++static void swap_ex(void *a, void *b, int size)
++{
++	struct exception_table_entry *x = a, *y = b, tmp;
++	int delta = b - a;
++
++	tmp = *x;
++	x->insn = y->insn + delta;
++	y->insn = tmp.insn - delta;
++
++#ifdef swap_ex_entry_fixup
++	swap_ex_entry_fixup(x, y, tmp, delta);
++#else
++	x->fixup = y->fixup + delta;
++	y->fixup = tmp.fixup - delta;
++#endif
++}
++#endif /* ARCH_HAS_RELATIVE_EXTABLE */
++
+ /*
+  * The exception table needs to be sorted so that the binary
+  * search that we use to find entries in it works properly.
+@@ -26,9 +56,9 @@ static int cmp_ex(const void *a, const void *b)
+ 	const struct exception_table_entry *x = a, *y = b;
+ 
+ 	/* avoid overflow */
+-	if (x->insn > y->insn)
++	if (ex_to_insn(x) > ex_to_insn(y))
+ 		return 1;
+-	if (x->insn < y->insn)
++	if (ex_to_insn(x) < ex_to_insn(y))
+ 		return -1;
+ 	return 0;
+ }
+@@ -37,7 +67,7 @@ void sort_extable(struct exception_table_entry *start,
+ 		  struct exception_table_entry *finish)
+ {
+ 	sort(start, finish - start, sizeof(struct exception_table_entry),
+-	     cmp_ex, NULL);
++	     cmp_ex, swap_ex);
+ }
+ 
+ #ifdef CONFIG_MODULES
+@@ -48,13 +78,15 @@ void sort_extable(struct exception_table_entry *start,
+ void trim_init_extable(struct module *m)
+ {
+ 	/*trim the beginning*/
+-	while (m->num_exentries && within_module_init(m->extable[0].insn, m)) {
++	while (m->num_exentries &&
++	       within_module_init(ex_to_insn(&m->extable[0]), m)) {
+ 		m->extable++;
+ 		m->num_exentries--;
+ 	}
+ 	/*trim the end*/
+ 	while (m->num_exentries &&
+-		within_module_init(m->extable[m->num_exentries-1].insn, m))
++	       within_module_init(ex_to_insn(&m->extable[m->num_exentries - 1]),
++				  m))
+ 		m->num_exentries--;
+ }
+ #endif /* CONFIG_MODULES */
+@@ -81,13 +113,13 @@ search_extable(const struct exception_table_entry *first,
+ 		 * careful, the distance between value and insn
+ 		 * can be larger than MAX_LONG:
+ 		 */
+-		if (mid->insn < value)
++		if (ex_to_insn(mid) < value)
+ 			first = mid + 1;
+-		else if (mid->insn > value)
++		else if (ex_to_insn(mid) > value)
+ 			last = mid - 1;
+ 		else
+ 			return mid;
+-        }
+-        return NULL;
++	}
++	return NULL;
+ }
+ #endif
+-- 
+2.5.0
+
