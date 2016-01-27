@@ -1,72 +1,43 @@
-From: Will Deacon <will.deacon@arm.com>
-Date: Wed, 27 Jan 2016 10:25:46 +0000
+From: Ralf Baechle <ralf@linux-mips.org>
+Date: Wed, 27 Jan 2016 10:40:32 +0000
 Subject: Re: [v3,11/41] mips: reuse asm-generic/barrier.h
-Message-Id: <20160127102546.GD2390@arm.com>
+Message-Id: <20160127104032.GB2939@linux-mips.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20160114212913.GF3818@linux.vnet.ibm.com>
-	<20160115085554.GF3421@worktop> <20160115091348.GA27936@worktop>
-	<20160115174612.GV3818@linux.vnet.ibm.com>
-	<20160115212714.GM3421@worktop>
-	<20160115215853.GC3818@linux.vnet.ibm.com>
-	<20160125164242.GF22927@arm.com>
-	<20160126060322.GJ4503@linux.vnet.ibm.com>
-	<20160126121608.GE21553@arm.com>
-	<20160126195820.GS4503@linux.vnet.ibm.com>
-In-Reply-To: <20160126195820.GS4503@linux.vnet.ibm.com>
+References: <5696CF08.8080700@imgtec.com>
+ <20160114121449.GC15828@arm.com>
+ <5697F6D2.60409@imgtec.com>
+ <20160114203430.GC3818@linux.vnet.ibm.com>
+ <56980C91.1010403@imgtec.com>
+ <20160114212913.GF3818@linux.vnet.ibm.com>
+ <569814F2.50801@imgtec.com>
+ <20160114225510.GJ3818@linux.vnet.ibm.com>
+ <56983054.4070807@imgtec.com>
+ <20160115004753.GN3818@linux.vnet.ibm.com>
+In-Reply-To: <20160115004753.GN3818-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Cc: linux-mips@linux-mips.org, linux-ia64@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>, Peter Zijlstra <peterz@infradead.org>, virtualization@lists.linux-foundation.org, "H. Peter Anvin" <hpa@zytor.com>, sparclinux@vger.kernel.org, Ingo Molnar <mingo@kernel.org>, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, Russell King - ARM Linux <linux@arm.linux.org.uk>, user-mode-linux-devel@lists.sourceforge.net, linux-sh@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>, x86@kernel.org, xen-devel@lists.xenproject.org, Ingo Molnar <mingo@elte.hu>, linux-xtensa@linux-xtensa.org, james.hogan@imgtec.com, Arnd Bergmann <arnd@arndb.de>, Stefano Stabellini <stefano.stabellini@eu.citrix.com>, adi-buildroot-devel@lists.sourceforge.net, Leonid Yegoshin <Leonid.Yegoshin@imgtec.com>, ddaney.cavm@gmail.com, Thomas Gleixner <tglx@linutronix.de>, linux-metag@vger.kernel.
+To: "Paul E. McKenney" <paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Cc: Leonid Yegoshin <Leonid.Yegoshin-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>, Will Deacon <will.deacon-5wv7dgnIgG8@public.gmane.org>, Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>, "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Andrew Cooper <andrew.cooper3-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>, Russell King - ARM Linux <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>, virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, Stefano Stabellini <stefano.stabellini-mvvWK6WmYclDPfheJLI6IQ@public.gmane.org>, Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>, Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>, "H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>, Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, user-mode-linux-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 
-On Tue, Jan 26, 2016 at 11:58:20AM -0800, Paul E. McKenney wrote:
-> On Tue, Jan 26, 2016 at 12:16:09PM +0000, Will Deacon wrote:
-> > On Mon, Jan 25, 2016 at 10:03:22PM -0800, Paul E. McKenney wrote:
-> > > On Mon, Jan 25, 2016 at 04:42:43PM +0000, Will Deacon wrote:
-> > > > On Fri, Jan 15, 2016 at 01:58:53PM -0800, Paul E. McKenney wrote:
-> > > > > PPC Overlapping Group-B sets version 4
-> > > > > ""
-> > > > > (* When the Group-B sets from two different barriers involve instructions in
-> > > > >    the same thread, within that thread one set must contain the other.
-> > > > > 
-> > > > > 	P0	P1	P2
-> > > > > 	Rx=1	Wy=1	Wz=2
-> > > > > 	dep.	lwsync	lwsync
-> > > > > 	Ry=0	Wz=1	Wx=1
-> > > > > 	Rz=1
-> > > > > 
-> > > > > 	assert(!(z=2))
-> > > > > 
-> > > > >    Forbidden by ppcmem, allowed by herd.
-> > > > > *)
-> > > > > {
-> > > > > 0:r1=x; 0:r2=y; 0:r3=z;
-> > > > > 1:r1=x; 1:r2=y; 1:r3=z; 1:r4=1;
-> > > > > 2:r1=x; 2:r2=y; 2:r3=z; 2:r4=1; 2:r5=2;
-> > > > > }
-> > > > >  P0		| P1		| P2		;
-> > > > >  lwz r6,0(r1)	| stw r4,0(r2)	| stw r5,0(r3)	;
-> > > > >  xor r7,r6,r6	| lwsync	| lwsync	;
-> > > > >  lwzx r7,r7,r2	| stw r4,0(r3)	| stw r4,0(r1)	;
-> > > > >  lwz r8,0(r3)	|		|		;
-> > > > > 
-> > > > > exists
-> > > > > (z=2 /\ 0:r6=1 /\ 0:r7=0 /\ 0:r8=1)
-> > > > 
-> > > > That really hurts. Assuming that the "assert(!(z=2))" is actually there
-> > > > to constrain the coherence order of z to be {0->1->2}, then I think that
-> > > > this test is forbidden on arm using dmb instead of lwsync. That said, I
-> > > > also don't think the Rz=1 in P0 changes anything.
-> > > 
-> > > What about the smp_wmb() variant of dmb that orders only stores?
-> > 
-> > Tricky, but I think it still works out if the coherence order of z is as
-> > I described above. The line of reasoning is weird though -- I ended up
-> > considering the two cases where P0 reads z before and after it reads x
-> > and what that means for the read of y.
-> 
-> By "works out" you mean that ARM prohibits the outcome?
+On Thu, Jan 14, 2016 at 04:47:53PM -0800, Paul E. McKenney wrote:
 
-Yes, that's my understanding.
+> So you need to build a different kernel for some types of MIPS systems?
 
-Will
+Yes.  We can't really do without.  Classic MIPS code is not relocatable
+without the complexity of PIC code as used by ELF DSOs - and their
+performanc penalty.  Plus we have a number of architecture revisions
+ovr the decades, big and little endian, 32 and 64 bit as the major
+stumbling stones.  There however are groups of similar systems that
+can share kernel binaries.
+
+> Or do you do boot-time rewriting, like a number of other arches do?
+
+We don't rewrite the code (as in the .text of the vmlinux binary) but we
+do runtime code generation for a few highly performance sensitive area
+of the kernel code such as copy_page() or TLB exception handlers.  This
+allows more flexibility than just inserting templates into the kernel
+code.  Downside - it means we have some of the complexity of as and ld
+in the kernel.
+
+  Ralf
