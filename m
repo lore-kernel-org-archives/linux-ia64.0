@@ -1,43 +1,35 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Date: Wed, 27 Jan 2016 10:40:32 +0000
+From: "Maciej W. Rozycki" <macro@imgtec.com>
+Date: Wed, 27 Jan 2016 11:26:20 +0000
 Subject: Re: [v3,11/41] mips: reuse asm-generic/barrier.h
-Message-Id: <20160127104032.GB2939@linux-mips.org>
+Message-Id: <alpine.DEB.2.00.1601271116520.5958@tp.orcam.me.uk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <5696CF08.8080700@imgtec.com>
- <20160114121449.GC15828@arm.com>
- <5697F6D2.60409@imgtec.com>
- <20160114203430.GC3818@linux.vnet.ibm.com>
- <56980C91.1010403@imgtec.com>
- <20160114212913.GF3818@linux.vnet.ibm.com>
- <569814F2.50801@imgtec.com>
- <20160114225510.GJ3818@linux.vnet.ibm.com>
- <56983054.4070807@imgtec.com>
- <20160115004753.GN3818@linux.vnet.ibm.com>
-In-Reply-To: <20160115004753.GN3818-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+References: <20160113104516.GE25458@arm.com> <5696CF08.8080700@imgtec.com> <20160114121449.GC15828@arm.com> <5697F6D2.60409@imgtec.com> <20160114203430.GC3818@linux.vnet.ibm.com> <56980C91.1010403@imgtec.com> <20160114212913.GF3818@linux.vnet.ibm.com>
+ <569814F2.50801@imgtec.com> <20160114225510.GJ3818@linux.vnet.ibm.com> <56983054.4070807@imgtec.com> <20160115004753.GN3818@linux.vnet.ibm.com> <56984642.3090106@imgtec.com>
+In-Reply-To: <56984642.3090106@imgtec.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Paul E. McKenney" <paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-Cc: Leonid Yegoshin <Leonid.Yegoshin-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>, Will Deacon <will.deacon-5wv7dgnIgG8@public.gmane.org>, Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>, "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Andrew Cooper <andrew.cooper3-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>, Russell King - ARM Linux <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>, virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, Stefano Stabellini <stefano.stabellini-mvvWK6WmYclDPfheJLI6IQ@public.gmane.org>, Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>, Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>, "H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>, Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, user-mode-linux-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: Leonid Yegoshin <Leonid.Yegoshin@imgtec.com>
+Cc: paulmck@linux.vnet.ibm.com, Will Deacon <will.deacon@arm.com>, Peter Zijlstra <peterz@infradead.org>, "Michael S. Tsirkin" <mst@redhat.com>, linux-kernel@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, Andrew Cooper <andrew.cooper3@citrix.com>, Russell King - ARM Linux <linux@arm.linux.org.uk>, virtualization@lists.linux-foundation.org, Stefano Stabellini <stefano.stabellini@eu.citrix.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>, Joe Perches <joe@perches.com>, David Miller <davem@davemloft.net>, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, x86@kernel.org, user-mode-linux-devel@lists.sourceforge
 
-On Thu, Jan 14, 2016 at 04:47:53PM -0800, Paul E. McKenney wrote:
+On Fri, 15 Jan 2016, Leonid Yegoshin wrote:
 
-> So you need to build a different kernel for some types of MIPS systems?
+> > So you need to build a different kernel for some types of MIPS systems?
+> > Or do you do boot-time rewriting, like a number of other arches do?
+> 
+> I don't know. I would like to have responses. Ralf asked Maciej about old
+> systems and that came nowhere. Even rewrite - don't know what to do with that:
+> no lightweight SYNC or no SYNC at all - yes, it is still possible that SYNC on
+> some systems can be too heavy or even harmful, nobody tested that.
 
-Yes.  We can't really do without.  Classic MIPS code is not relocatable
-without the complexity of PIC code as used by ELF DSOs - and their
-performanc penalty.  Plus we have a number of architecture revisions
-ovr the decades, big and little endian, 32 and 64 bit as the major
-stumbling stones.  There however are groups of similar systems that
-can share kernel binaries.
+ I don't recall being asked; mind that I might not get to messages I have 
+not been cc-ed in a timely manner and I may miss some altogether.  With 
+the amount of mailing list traffic that passes by me my scanner may fail 
+to trigger.  Sorry if this causes anybody trouble, but such is life.
 
-> Or do you do boot-time rewriting, like a number of other arches do?
+ Coincidentally, I have just posted some notes on SYNC in a different 
+thread, see <http://lkml.iu.edu/hypermail/linux/kernel/1601.3/03080.html>.  
+There's a reference to an older message of mine there too.  I hope this 
+answers your questions.
 
-We don't rewrite the code (as in the .text of the vmlinux binary) but we
-do runtime code generation for a few highly performance sensitive area
-of the kernel code such as copy_page() or TLB exception handlers.  This
-allows more flexibility than just inserting templates into the kernel
-code.  Downside - it means we have some of the complexity of as and ld
-in the kernel.
-
-  Ralf
+  Maciej
