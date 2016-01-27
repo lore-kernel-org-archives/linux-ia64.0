@@ -1,138 +1,76 @@
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Date: Wed, 27 Jan 2016 23:30:18 +0000
+Date: Wed, 27 Jan 2016 23:32:10 +0000
 Subject: Re: [v3,11/41] mips: reuse asm-generic/barrier.h
-Message-Id: <20160127233018.GN4503@linux.vnet.ibm.com>
+Message-Id: <20160127233210.GO4503@linux.vnet.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20160118081929.GA30420@gondor.apana.org.au>
- <20160118154629.GB3818@linux.vnet.ibm.com>
- <20160126165207.GB6029@fixme-laptop.cn.ibm.com>
- <20160126172227.GG6357@twins.programming.kicks-ass.net>
- <CA+55aFzcC6C8imPs5vk4yH1Y2YHjnAdFM9HCkVs04COxuDQH6w@mail.gmail.com>
- <20160126201037.GU4503@linux.vnet.ibm.com>
- <CA+55aFxjb+2rs2wVHtiSCcOzgMrE8H=yDeNcjyujPQudDCtLgw@mail.gmail.com>
- <CA+55aFwxTJd+uibcxtZD3tGnj_n=LMwyAa0s8qyx_OF0OMWQkA@mail.gmail.com>
- <20160126232921.GY4503@linux.vnet.ibm.com>
- <20160127020447.GA1293@fixme-laptop.cn.ibm.com>
-In-Reply-To: <20160127020447.GA1293@fixme-laptop.cn.ibm.com>
+References: <20160115085554.GF3421@worktop> <20160115091348.GA27936@worktop>
+	<20160115174612.GV3818@linux.vnet.ibm.com>
+	<20160115212714.GM3421@worktop>
+	<20160115215853.GC3818@linux.vnet.ibm.com>
+	<20160125164242.GF22927@arm.com>
+	<20160126060322.GJ4503@linux.vnet.ibm.com>
+	<20160126121608.GE21553@arm.com>
+	<20160126195820.GS4503@linux.vnet.ibm.com>
+	<20160127102546.GD2390@arm.com>
+In-Reply-To: <20160127102546.GD2390@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Boqun Feng <boqun.feng@gmail.com>
-Cc: Linus Torvalds <torvalds@linux-foundation.org>, Peter Zijlstra <peterz@infradead.org>, Herbert Xu <herbert@gondor.apana.org.au>, Leonid Yegoshin <Leonid.Yegoshin@imgtec.com>, linux-mips <linux-mips@linux-mips.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "Michael S. Tsirkin" <mst@redhat.com>, Will Deacon <will.deacon@arm.com>, virtualization <virtualization@lists.linux-foundation.org>, Peter Anvin <hpa@zytor.com>, sparclinux@vger.kernel.org, Ingo Molnar <mingo@kernel.org>, "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>, linux-s390 <linux-s390@vger.kernel.org>, Russell King - ARM Linux <linux@arm.linux.org.uk>, uml-devel <user-mode-linux-devel@lists.sourceforge.net>, linux-sh@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>, the arch/x86 maintainers <x86@kernel.org>, xen-devel@lists.xenproject.org, Ingo Molnar <mingo@elte.hu>, linu
+To: Will Deacon <will.deacon@arm.com>
+Cc: linux-mips@linux-mips.org, linux-ia64@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>, Peter Zijlstra <peterz@infradead.org>, virtualization@lists.linux-foundation.org, "H. Peter Anvin" <hpa@zytor.com>, sparclinux@vger.kernel.org, Ingo Molnar <mingo@kernel.org>, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, Russell King - ARM Linux <linux@arm.linux.org.uk>, user-mode-linux-devel@lists.sourceforge.net, linux-sh@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>, x86@kernel.org, xen-devel@lists.xenproject.org, Ingo Molnar <mingo@elte.hu>, linux-xtensa@linux-xtensa.org, james.hogan@imgtec.com, Arnd Bergmann <arnd@arndb.de>, Stefano Stabellini <stefano.stabellini@eu.citrix.com>, adi-buildroot-devel@lists.sourceforge.net, Leonid Yegoshin <Leonid.Yegoshin@imgtec.com>, ddaney.cavm@gmail.com, Thomas Gleixner <tglx@linutronix.de>, linux-metag@vger.kernel.
 
-On Wed, Jan 27, 2016 at 10:04:47AM +0800, Boqun Feng wrote:
-> On Tue, Jan 26, 2016 at 03:29:21PM -0800, Paul E. McKenney wrote:
-> > On Tue, Jan 26, 2016 at 02:33:40PM -0800, Linus Torvalds wrote:
-> > > On Tue, Jan 26, 2016 at 2:15 PM, Linus Torvalds
-> > > <torvalds@linux-foundation.org> wrote:
-> > > >
-> > > > You might as well just write it as
-> > > >
-> > > >     struct foo x = READ_ONCE(*ptr);
-> > > >     x->bar = 5;
-> > > >
-> > > > because that "smp_read_barrier_depends()" does NOTHING wrt the second write.
+On Wed, Jan 27, 2016 at 10:25:46AM +0000, Will Deacon wrote:
+> On Tue, Jan 26, 2016 at 11:58:20AM -0800, Paul E. McKenney wrote:
+> > On Tue, Jan 26, 2016 at 12:16:09PM +0000, Will Deacon wrote:
+> > > On Mon, Jan 25, 2016 at 10:03:22PM -0800, Paul E. McKenney wrote:
+> > > > On Mon, Jan 25, 2016 at 04:42:43PM +0000, Will Deacon wrote:
+> > > > > On Fri, Jan 15, 2016 at 01:58:53PM -0800, Paul E. McKenney wrote:
+> > > > > > PPC Overlapping Group-B sets version 4
+> > > > > > ""
+> > > > > > (* When the Group-B sets from two different barriers involve instructions in
+> > > > > >    the same thread, within that thread one set must contain the other.
+> > > > > > 
+> > > > > > 	P0	P1	P2
+> > > > > > 	Rx=1	Wy=1	Wz=2
+> > > > > > 	dep.	lwsync	lwsync
+> > > > > > 	Ry=0	Wz=1	Wx=1
+> > > > > > 	Rz=1
+> > > > > > 
+> > > > > > 	assert(!(z=2))
+> > > > > > 
+> > > > > >    Forbidden by ppcmem, allowed by herd.
+> > > > > > *)
+> > > > > > {
+> > > > > > 0:r1=x; 0:r2=y; 0:r3=z;
+> > > > > > 1:r1=x; 1:r2=y; 1:r3=z; 1:r4=1;
+> > > > > > 2:r1=x; 2:r2=y; 2:r3=z; 2:r4=1; 2:r5=2;
+> > > > > > }
+> > > > > >  P0		| P1		| P2		;
+> > > > > >  lwz r6,0(r1)	| stw r4,0(r2)	| stw r5,0(r3)	;
+> > > > > >  xor r7,r6,r6	| lwsync	| lwsync	;
+> > > > > >  lwzx r7,r7,r2	| stw r4,0(r3)	| stw r4,0(r1)	;
+> > > > > >  lwz r8,0(r3)	|		|		;
+> > > > > > 
+> > > > > > exists
+> > > > > > (z=2 /\ 0:r6=1 /\ 0:r7=0 /\ 0:r8=1)
+> > > > > 
+> > > > > That really hurts. Assuming that the "assert(!(z=2))" is actually there
+> > > > > to constrain the coherence order of z to be {0->1->2}, then I think that
+> > > > > this test is forbidden on arm using dmb instead of lwsync. That said, I
+> > > > > also don't think the Rz=1 in P0 changes anything.
+> > > > 
+> > > > What about the smp_wmb() variant of dmb that orders only stores?
 > > > 
-> > > Just to clarify: on alpha it adds a memory barrier, but that memory
-> > > barrier is useless.
+> > > Tricky, but I think it still works out if the coherence order of z is as
+> > > I described above. The line of reasoning is weird though -- I ended up
+> > > considering the two cases where P0 reads z before and after it reads x
+> > > and what that means for the read of y.
 > > 
-> > No trailing data-dependent read, so agreed, no smp_read_barrier_depends()
-> > needed.  That said, I believe that we should encourage rcu_dereference*()
-> > or lockless_dereference() instead of READ_ONCE() for documentation
-> > reasons, though.
-> > 
-> > > On non-alpha, it is a no-op, and obviously does nothing simply because
-> > > it generates no code.
-> > > 
-> > > So if anybody believes that the "smp_read_barrier_depends()" does
-> > > something, they are *wrong*.
-> > 
-> > The other problem with smp_read_barrier_depends() is that it is often
-> > a pain figuring out which prior load it is supposed to apply to.
-> > Hence my preference for rcu_dereference*() and lockless_dereference().
-> > 
+> > By "works out" you mean that ARM prohibits the outcome?
 > 
-> Because semantically speaking, rcu_derefence*() and
-> lockless_dereference() are CONSUME(i.e. data/address dependent
-> read->read and read->write pairs are ordered), whereas
-> smp_read_barrier_depends() only guarantees read->read pairs with data
-> dependency are ordered, right?
-> 
-> If so, maybe we need to call it out in memory-barriers.txt, for example:
-> 
-> diff --git a/Documentation/memory-barriers.txt b/Documentation/memory-barriers.txt
-> index 904ee42..6b262c2 100644
-> --- a/Documentation/memory-barriers.txt
-> +++ b/Documentation/memory-barriers.txt
-> @@ -1703,8 +1703,8 @@ There are some more advanced barrier functions:
->  
->  
->   (*) lockless_dereference();
-> -     This can be thought of as a pointer-fetch wrapper around the
-> -     smp_read_barrier_depends() data-dependency barrier.
-> +     This is a load, and any load or store that has a data dependency on the
-> +     value returned by this load won't be reordered before this load.
+> Yes, that's my understanding.
 
-This is a good start, but more is needed to warn people off of
-smp_read_barrier_depends().  But yes, better explanation would be good.
+Very good, we have agreement between the two architectures, then.  ;-)
 
 							Thanx, Paul
-
->       This is also similar to rcu_dereference(), but in cases where
->       object lifetime is handled by some mechanism other than RCU, for
-> 
-> 
-> Regards,
-> Boqun
-> 
-> > > And if anybody sends out an email with that smp_read_barrier_depends()
-> > > in an example, they are actively just confusing other people, which is
-> > > even worse than just being wrong. Which is why I jumped in.
-> > > 
-> > > So stop perpetuating the myth that smp_read_barrier_depends() does
-> > > something here. It does not. It's a bug, and it has become this "mind
-> > > virus" for some people that seem to believe that it does something.
-> > 
-> > It looks like I should add words to memory-barriers.txt de-emphasizing
-> > smp_read_barrier_depends().  I will take a look at that.
-> > 
-> > > I had to remove this crap once from the kernel already, see commit
-> > > 105ff3cbf225 ("atomic: remove all traces of READ_ONCE_CTRL() and
-> > > atomic*_read_ctrl()").
-> > > 
-> > > I don't want to ever see that broken construct again. And I want to
-> > > make sure that everybody is educated about how broken it was. I'm
-> > > extremely unhappy that it came up again.
-> > 
-> > Well, if it makes you feel better, that was control dependencies and this
-> > was data dependencies.  So it was not -exactly- the same.  ;-)
-> > 
-> > (Sorry, couldn't resist...)
-> > 
-> > > If it turns out that some architecture does actually need a barrier
-> > > between a read and a dependent write, then that will mean that
-> > > 
-> > >  (a) we'll have to make up a _new_ barrier, because
-> > > "smp_read_barrier_depends()" is not that barrier. We'll presumably
-> > > then have to make that new barrier part of "rcu_derefence()" and
-> > > friends.
-> > 
-> > Agreed.  We can worry about whether or not we replace the current
-> > smp_read_barrier_depends() with that new barrier when and if such
-> > hardware appears.
-> > 
-> > >  (b) we will have found an architecture with even worse memory
-> > > ordering semantics than alpha, and we'll have to stop castigating
-> > > alpha for being the worst memory ordering ever.
-> > 
-> > ;-) ;-) ;-)
-> > 
-> > > but I sincerely hope that we'll never find that kind of broken architecture.
-> > 
-> > Apparently at least some hardware vendors are reading memory-barriers.txt,
-> > so perhaps the odds of that kind of breakage have reduced.
-> > 
-> > 								Thanx, Paul
-> > 
-
 
