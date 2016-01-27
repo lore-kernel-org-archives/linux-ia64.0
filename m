@@ -1,111 +1,242 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Tue, 12 Jan 2016 18:40:48 +0000
-Subject: Re: [PATCH v3 01/41] lcoking/barriers, arch: Use smp barriers in smp_store_release()
-Message-Id: <20160112203857-mutt-send-email-mst@redhat.com>
+From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Date: Wed, 27 Jan 2016 10:55:23 +0000
+Subject: [PATCH v2 resend 6/6] arm64: switch to relative exception tables
+Message-Id: <1453892123-17973-7-git-send-email-ard.biesheuvel@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1452426622-4471-1-git-send-email-mst@redhat.com>
- <1452426622-4471-2-git-send-email-mst@redhat.com>
- <20160112162844.GD3818@linux.vnet.ibm.com>
-In-Reply-To: <20160112162844.GD3818@linux.vnet.ibm.com>
+References: <1453892123-17973-1-git-send-email-ard.biesheuvel@linaro.org>
+In-Reply-To: <1453892123-17973-1-git-send-email-ard.biesheuvel@linaro.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Cc: linux-kernel@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, Andrew Cooper <andrew.cooper3@citrix.com>, Russell King - ARM Linux <linux@arm.linux.org.uk>, virtualization@lists.linux-foundation.org, Stefano Stabellini <stefano.stabellini@eu.citrix.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>, Joe Perches <joe@perches.com>, David Miller <davem@davemloft.net>, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, x86@kernel.org, user-mode-linux-devel@lists.sourceforge.net, adi-buildroot-devel@lists.sourceforge.net, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, xen-devel@lists.xenpr
+To: akpm@linux-foundation.org, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, x86@kernel.org, hpa@zytor.com, heiko.carstens@de.ibm.com, rth@twiddle.net, tony.luck@intel.com, will.deacon@arm.com
+Cc: deller@gmx.de, Ard Biesheuvel <ard.biesheuvel@linaro.org>
 
-On Tue, Jan 12, 2016 at 08:28:44AM -0800, Paul E. McKenney wrote:
-> On Sun, Jan 10, 2016 at 04:16:32PM +0200, Michael S. Tsirkin wrote:
-> > From: Davidlohr Bueso <dave@stgolabs.net>
-> > 
-> > With commit b92b8b35a2e ("locking/arch: Rename set_mb() to smp_store_mb()")
-> > it was made clear that the context of this call (and thus set_mb)
-> > is strictly for CPU ordering, as opposed to IO. As such all archs
-> > should use the smp variant of mb(), respecting the semantics and
-> > saving a mandatory barrier on UP.
-> > 
-> > Signed-off-by: Davidlohr Bueso <dbueso@suse.de>
-> > Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
-> > Cc: <linux-arch@vger.kernel.org>
-> > Cc: Andrew Morton <akpm@linux-foundation.org>
-> > Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-> > Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
-> > Cc: Linus Torvalds <torvalds@linux-foundation.org>
-> > Cc: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-> > Cc: Peter Zijlstra <peterz@infradead.org>
-> > Cc: Thomas Gleixner <tglx@linutronix.de>
-> > Cc: Tony Luck <tony.luck@intel.com>
-> > Cc: dave@stgolabs.net
-> > Link: http://lkml.kernel.org/r/1445975631-17047-3-git-send-email-dave@stgolabs.net
-> > Signed-off-by: Ingo Molnar <mingo@kernel.org>
-> 
-> Aside from a need for s/lcoking/locking/ in the subject line:
-> 
-> Reviewed-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+Instead of using absolute addresses for both the exception location
+and the fixup, use offsets relative to the exception table entry values.
+Not only does this cut the size of the exception table in half, it is
+also a prerequisite for KASLR, since absolute exception table entries
+are subject to dynamic relocation, which is incompatible with the sorting
+of the exception table that occurs at build time.
 
-Thanks!
-Though Ingo already put this in tip tree like this,
-and I need a copy in my tree to avoid breaking bisect,
-so I will probably keep it exactly the same to avoid confusion.
+This patch also introduces the _ASM_EXTABLE preprocessor macro (which
+exists on x86 as well) and its _asm_extable assembly counterpart, as
+shorthands to emit exception table entries.
 
-> > ---
-> >  arch/ia64/include/asm/barrier.h    | 2 +-
-> >  arch/powerpc/include/asm/barrier.h | 2 +-
-> >  arch/s390/include/asm/barrier.h    | 2 +-
-> >  include/asm-generic/barrier.h      | 2 +-
-> >  4 files changed, 4 insertions(+), 4 deletions(-)
-> > 
-> > diff --git a/arch/ia64/include/asm/barrier.h b/arch/ia64/include/asm/barrier.h
-> > index df896a1..209c4b8 100644
-> > --- a/arch/ia64/include/asm/barrier.h
-> > +++ b/arch/ia64/include/asm/barrier.h
-> > @@ -77,7 +77,7 @@ do {									\
-> >  	___p1;								\
-> >  })
-> > 
-> > -#define smp_store_mb(var, value)	do { WRITE_ONCE(var, value); mb(); } while (0)
-> > +#define smp_store_mb(var, value) do { WRITE_ONCE(var, value); smp_mb(); } while (0)
-> > 
-> >  /*
-> >   * The group barrier in front of the rsm & ssm are necessary to ensure
-> > diff --git a/arch/powerpc/include/asm/barrier.h b/arch/powerpc/include/asm/barrier.h
-> > index 0eca6ef..a7af5fb 100644
-> > --- a/arch/powerpc/include/asm/barrier.h
-> > +++ b/arch/powerpc/include/asm/barrier.h
-> > @@ -34,7 +34,7 @@
-> >  #define rmb()  __asm__ __volatile__ ("sync" : : : "memory")
-> >  #define wmb()  __asm__ __volatile__ ("sync" : : : "memory")
-> > 
-> > -#define smp_store_mb(var, value)	do { WRITE_ONCE(var, value); mb(); } while (0)
-> > +#define smp_store_mb(var, value) do { WRITE_ONCE(var, value); smp_mb(); } while (0)
-> > 
-> >  #ifdef __SUBARCH_HAS_LWSYNC
-> >  #    define SMPWMB      LWSYNC
-> > diff --git a/arch/s390/include/asm/barrier.h b/arch/s390/include/asm/barrier.h
-> > index d68e11e..7ffd0b1 100644
-> > --- a/arch/s390/include/asm/barrier.h
-> > +++ b/arch/s390/include/asm/barrier.h
-> > @@ -36,7 +36,7 @@
-> >  #define smp_mb__before_atomic()		smp_mb()
-> >  #define smp_mb__after_atomic()		smp_mb()
-> > 
-> > -#define smp_store_mb(var, value)		do { WRITE_ONCE(var, value); mb(); } while (0)
-> > +#define smp_store_mb(var, value)	do { WRITE_ONCE(var, value); smp_mb(); } while (0)
-> > 
-> >  #define smp_store_release(p, v)						\
-> >  do {									\
-> > diff --git a/include/asm-generic/barrier.h b/include/asm-generic/barrier.h
-> > index b42afad..0f45f93 100644
-> > --- a/include/asm-generic/barrier.h
-> > +++ b/include/asm-generic/barrier.h
-> > @@ -93,7 +93,7 @@
-> >  #endif	/* CONFIG_SMP */
-> > 
-> >  #ifndef smp_store_mb
-> > -#define smp_store_mb(var, value)  do { WRITE_ONCE(var, value); mb(); } while (0)
-> > +#define smp_store_mb(var, value)  do { WRITE_ONCE(var, value); smp_mb(); } while (0)
-> >  #endif
-> > 
-> >  #ifndef smp_mb__before_atomic
-> > -- 
-> > MST
-> > 
+Acked-by: Will Deacon <will.deacon@arm.com>
+Signed-off-by: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+---
+ arch/arm64/include/asm/assembler.h      | 15 +++++++---
+ arch/arm64/include/asm/futex.h          | 12 +++-----
+ arch/arm64/include/asm/uaccess.h        | 30 +++++++++++---------
+ arch/arm64/include/asm/word-at-a-time.h |  7 ++---
+ arch/arm64/kernel/armv8_deprecated.c    |  7 ++---
+ arch/arm64/mm/extable.c                 |  2 +-
+ scripts/sortextable.c                   |  2 +-
+ 7 files changed, 38 insertions(+), 37 deletions(-)
+
+diff --git a/arch/arm64/include/asm/assembler.h b/arch/arm64/include/asm/assembler.h
+index bb7b72734c24..d8bfcc1ce923 100644
+--- a/arch/arm64/include/asm/assembler.h
++++ b/arch/arm64/include/asm/assembler.h
+@@ -94,12 +94,19 @@
+ 	dmb	\opt
+ 	.endm
+ 
++/*
++ * Emit an entry into the exception table
++ */
++	.macro		_asm_extable, from, to
++	.pushsection	__ex_table, "a"
++	.align		3
++	.long		(\from - .), (\to - .)
++	.popsection
++	.endm
++
+ #define USER(l, x...)				\
+ 9999:	x;					\
+-	.section __ex_table,"a";		\
+-	.align	3;				\
+-	.quad	9999b,l;			\
+-	.previous
++	_asm_extable	9999b, l
+ 
+ /*
+  * Register aliases.
+diff --git a/arch/arm64/include/asm/futex.h b/arch/arm64/include/asm/futex.h
+index 007a69fc4f40..1ab15a3b5a0e 100644
+--- a/arch/arm64/include/asm/futex.h
++++ b/arch/arm64/include/asm/futex.h
+@@ -42,10 +42,8 @@
+ "4:	mov	%w0, %w5\n"						\
+ "	b	3b\n"							\
+ "	.popsection\n"							\
+-"	.pushsection __ex_table,\"a\"\n"				\
+-"	.align	3\n"							\
+-"	.quad	1b, 4b, 2b, 4b\n"					\
+-"	.popsection\n"							\
++	_ASM_EXTABLE(1b, 4b)						\
++	_ASM_EXTABLE(2b, 4b)						\
+ 	ALTERNATIVE("nop", SET_PSTATE_PAN(1), ARM64_HAS_PAN,		\
+ 		    CONFIG_ARM64_PAN)					\
+ 	: "=&r" (ret), "=&r" (oldval), "+Q" (*uaddr), "=&r" (tmp)	\
+@@ -133,10 +131,8 @@ futex_atomic_cmpxchg_inatomic(u32 *uval, u32 __user *uaddr,
+ "4:	mov	%w0, %w6\n"
+ "	b	3b\n"
+ "	.popsection\n"
+-"	.pushsection __ex_table,\"a\"\n"
+-"	.align	3\n"
+-"	.quad	1b, 4b, 2b, 4b\n"
+-"	.popsection\n"
++	_ASM_EXTABLE(1b, 4b)
++	_ASM_EXTABLE(2b, 4b)
+ 	: "+r" (ret), "=&r" (val), "+Q" (*uaddr), "=&r" (tmp)
+ 	: "r" (oldval), "r" (newval), "Ir" (-EFAULT)
+ 	: "memory");
+diff --git a/arch/arm64/include/asm/uaccess.h b/arch/arm64/include/asm/uaccess.h
+index b2ede967fe7d..dc11577fab7e 100644
+--- a/arch/arm64/include/asm/uaccess.h
++++ b/arch/arm64/include/asm/uaccess.h
+@@ -36,11 +36,11 @@
+ #define VERIFY_WRITE 1
+ 
+ /*
+- * The exception table consists of pairs of addresses: the first is the
+- * address of an instruction that is allowed to fault, and the second is
+- * the address at which the program should continue.  No registers are
+- * modified, so it is entirely up to the continuation code to figure out
+- * what to do.
++ * The exception table consists of pairs of relative offsets: the first
++ * is the relative offset to an instruction that is allowed to fault,
++ * and the second is the relative offset at which the program should
++ * continue. No registers are modified, so it is entirely up to the
++ * continuation code to figure out what to do.
+  *
+  * All the routines below use bits of fixup code that are out of line
+  * with the main instruction path.  This means when everything is well,
+@@ -50,9 +50,11 @@
+ 
+ struct exception_table_entry
+ {
+-	unsigned long insn, fixup;
++	int insn, fixup;
+ };
+ 
++#define ARCH_HAS_RELATIVE_EXTABLE
++
+ extern int fixup_exception(struct pt_regs *regs);
+ 
+ #define KERNEL_DS	(-1UL)
+@@ -105,6 +107,12 @@ static inline void set_fs(mm_segment_t fs)
+ #define access_ok(type, addr, size)	__range_ok(addr, size)
+ #define user_addr_max			get_fs
+ 
++#define _ASM_EXTABLE(from, to)						\
++	"	.pushsection	__ex_table, \"a\"\n"			\
++	"	.align		3\n"					\
++	"	.long		(" #from " - .), (" #to " - .)\n"	\
++	"	.popsection\n"
++
+ /*
+  * The "__xxx" versions of the user access functions do not verify the address
+  * space - it must have been done previously with a separate "access_ok()"
+@@ -123,10 +131,7 @@ static inline void set_fs(mm_segment_t fs)
+ 	"	mov	%1, #0\n"					\
+ 	"	b	2b\n"						\
+ 	"	.previous\n"						\
+-	"	.section __ex_table,\"a\"\n"				\
+-	"	.align	3\n"						\
+-	"	.quad	1b, 3b\n"					\
+-	"	.previous"						\
++	_ASM_EXTABLE(1b, 3b)						\
+ 	: "+r" (err), "=&r" (x)						\
+ 	: "r" (addr), "i" (-EFAULT))
+ 
+@@ -190,10 +195,7 @@ do {									\
+ 	"3:	mov	%w0, %3\n"					\
+ 	"	b	2b\n"						\
+ 	"	.previous\n"						\
+-	"	.section __ex_table,\"a\"\n"				\
+-	"	.align	3\n"						\
+-	"	.quad	1b, 3b\n"					\
+-	"	.previous"						\
++	_ASM_EXTABLE(1b, 3b)						\
+ 	: "+r" (err)							\
+ 	: "r" (x), "r" (addr), "i" (-EFAULT))
+ 
+diff --git a/arch/arm64/include/asm/word-at-a-time.h b/arch/arm64/include/asm/word-at-a-time.h
+index aab5bf09e9d9..2b79b8a89457 100644
+--- a/arch/arm64/include/asm/word-at-a-time.h
++++ b/arch/arm64/include/asm/word-at-a-time.h
+@@ -16,6 +16,8 @@
+ #ifndef __ASM_WORD_AT_A_TIME_H
+ #define __ASM_WORD_AT_A_TIME_H
+ 
++#include <asm/uaccess.h>
++
+ #ifndef __AARCH64EB__
+ 
+ #include <linux/kernel.h>
+@@ -81,10 +83,7 @@ static inline unsigned long load_unaligned_zeropad(const void *addr)
+ #endif
+ 	"	b	2b\n"
+ 	"	.popsection\n"
+-	"	.pushsection __ex_table,\"a\"\n"
+-	"	.align	3\n"
+-	"	.quad	1b, 3b\n"
+-	"	.popsection"
++	_ASM_EXTABLE(1b, 3b)
+ 	: "=&r" (ret), "=&r" (offset)
+ 	: "r" (addr), "Q" (*(unsigned long *)addr));
+ 
+diff --git a/arch/arm64/kernel/armv8_deprecated.c b/arch/arm64/kernel/armv8_deprecated.c
+index 3e01207917b1..c37202c0c838 100644
+--- a/arch/arm64/kernel/armv8_deprecated.c
++++ b/arch/arm64/kernel/armv8_deprecated.c
+@@ -297,11 +297,8 @@ static void __init register_insn_emulation_sysctl(struct ctl_table *table)
+ 	"4:	mov		%w0, %w5\n"			\
+ 	"	b		3b\n"				\
+ 	"	.popsection"					\
+-	"	.pushsection	 __ex_table,\"a\"\n"		\
+-	"	.align		3\n"				\
+-	"	.quad		0b, 4b\n"			\
+-	"	.quad		1b, 4b\n"			\
+-	"	.popsection\n"					\
++	_ASM_EXTABLE(0b, 4b)					\
++	_ASM_EXTABLE(1b, 4b)					\
+ 	ALTERNATIVE("nop", SET_PSTATE_PAN(1), ARM64_HAS_PAN,	\
+ 		CONFIG_ARM64_PAN)				\
+ 	: "=&r" (res), "+r" (data), "=&r" (temp)		\
+diff --git a/arch/arm64/mm/extable.c b/arch/arm64/mm/extable.c
+index 79444279ba8c..81acd4706878 100644
+--- a/arch/arm64/mm/extable.c
++++ b/arch/arm64/mm/extable.c
+@@ -11,7 +11,7 @@ int fixup_exception(struct pt_regs *regs)
+ 
+ 	fixup = search_exception_tables(instruction_pointer(regs));
+ 	if (fixup)
+-		regs->pc = fixup->fixup;
++		regs->pc = (unsigned long)&fixup->fixup + fixup->fixup;
+ 
+ 	return fixup != NULL;
+ }
+diff --git a/scripts/sortextable.c b/scripts/sortextable.c
+index c2423d913b46..af247c70fb66 100644
+--- a/scripts/sortextable.c
++++ b/scripts/sortextable.c
+@@ -282,12 +282,12 @@ do_file(char const *const fname)
+ 	case EM_386:
+ 	case EM_X86_64:
+ 	case EM_S390:
++	case EM_AARCH64:
+ 		custom_sort = sort_relative_table;
+ 		break;
+ 	case EM_ARCOMPACT:
+ 	case EM_ARCV2:
+ 	case EM_ARM:
+-	case EM_AARCH64:
+ 	case EM_MICROBLAZE:
+ 	case EM_MIPS:
+ 	case EM_XTENSA:
+-- 
+2.5.0
+
