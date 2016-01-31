@@ -1,25 +1,50 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Date: Tue, 12 Jan 2016 14:10:49 +0000
-Subject: Re: [PATCH v3 13/41] x86: reuse asm-generic/barrier.h
-Message-Id: <alpine.DEB.2.11.1601121510380.3575@nanos>
+From: Sina Hamedian <shamedian@gmail.com>
+Date: Sun, 31 Jan 2016 06:07:31 +0000
+Subject: [PATCH] arch/ia64/lib: Fix broken URL in comments
+Message-Id: <1454220451-3641-1-git-send-email-shamedian@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1452426622-4471-1-git-send-email-mst@redhat.com> <1452426622-4471-14-git-send-email-mst@redhat.com>
-In-Reply-To: <1452426622-4471-14-git-send-email-mst@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Cc: linux-kernel@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, Andrew Cooper <andrew.cooper3@citrix.com>, Russell King - ARM Linux <linux@arm.linux.org.uk>, virtualization@lists.linux-foundation.org, Stefano Stabellini <stefano.stabellini@eu.citrix.com>, Ingo Molnar <mingo@elte.hu>, "H. Peter Anvin" <hpa@zytor.com>, Joe Perches <joe@perches.com>, David Miller <davem@davemloft.net>, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, x86@kernel.org, user-mode-linux-devel@lists.sourceforge.net, adi-buildroot-devel@lists.sourceforge.net, linux-sh@vger
+To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: tony.luck@intel.com, fenghua.yu@intel.com, trivial@kernel.org, Sina Hamedian <shamedian@gmail.com>
 
-On Sun, 10 Jan 2016, Michael S. Tsirkin wrote:
+The URL to the book IA-64 and Elementary Functions in idiv32.S and
+idiv64.S just led to a 404 page, so I updated them with a known good link
+that others can reference.
 
-> As on most architectures, on x86 read_barrier_depends and
-> smp_read_barrier_depends are empty.  Drop the local definitions and pull
-> the generic ones from asm-generic/barrier.h instead: they are identical.
-> 
-> This is in preparation to refactoring this code area.
-> 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> Acked-by: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: Sina Hamedian <shamedian@gmail.com>
+---
+ arch/ia64/lib/idiv32.S | 2 +-
+ arch/ia64/lib/idiv64.S | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-Reviewed-by: Thomas Gleixner <tglx@linutronix.de>
+diff --git a/arch/ia64/lib/idiv32.S b/arch/ia64/lib/idiv32.S
+index 2ac28bf..c91b5b0 100644
+--- a/arch/ia64/lib/idiv32.S
++++ b/arch/ia64/lib/idiv32.S
+@@ -11,7 +11,7 @@
+  *
+  * For more details on the theory behind these algorithms, see "IA-64
+  * and Elementary Functions" by Peter Markstein; HP Professional Books
+- * (http://www.hp.com/go/retailbooks/)
++ * (http://www.goodreads.com/book/show/2019887.Ia_64_and_Elementary_Functions)
+  */
+ 
+ #include <asm/asmmacro.h>
+diff --git a/arch/ia64/lib/idiv64.S b/arch/ia64/lib/idiv64.S
+index f69bd2b..627573c 100644
+--- a/arch/ia64/lib/idiv64.S
++++ b/arch/ia64/lib/idiv64.S
+@@ -11,7 +11,7 @@
+  *
+  * For more details on the theory behind these algorithms, see "IA-64
+  * and Elementary Functions" by Peter Markstein; HP Professional Books
+- * (http://www.hp.com/go/retailbooks/)
++ * (http://www.goodreads.com/book/show/2019887.Ia_64_and_Elementary_Functions)
+  */
+ 
+ #include <asm/asmmacro.h>
+-- 
+2.5.0
+
