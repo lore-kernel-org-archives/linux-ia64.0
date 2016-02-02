@@ -1,161 +1,242 @@
-From: Hanjun Guo <hanjun.guo@linaro.org>
-Date: Sun, 14 Feb 2016 08:33:52 +0000
-Subject: Re: [PATCH v2] PCI: ACPI: IA64: fix IO port generic range check
-Message-Id: <56C03BF0.6020505@linaro.org>
+From: Ganapatrao Kulkarni <gkulkarni@caviumnetworks.com>
+Date: Tue, 02 Feb 2016 10:21:23 +0000
+Subject: [PATCH v10 8/8] numa, mm, cleanup: remove redundant NODE_DATA macro from asm header files.
+Message-Id: <1454407763-1017-9-git-send-email-gkulkarni@caviumnetworks.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1455212827-9382-1-git-send-email-lorenzo.pieralisi@arm.com>
-In-Reply-To: <1455212827-9382-1-git-send-email-lorenzo.pieralisi@arm.com>
+References: <1454407763-1017-1-git-send-email-gkulkarni@caviumnetworks.com>
+In-Reply-To: <1454407763-1017-1-git-send-email-gkulkarni@caviumnetworks.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>, linux-pci@vger.kernel.org
-Cc: linux-acpi@vger.kernel.org, linux-ia64@vger.kernel.org, Bjorn Helgaas <bhelgaas@google.com>, Jiang Liu <jiang.liu@linux.intel.com>, Tony Luck <tony.luck@intel.com>, Tomasz Nowicki <tn@semihalf.com>, Mark Salter <msalter@redhat.com>, "Rafael J. Wysocki" <rjw@rjwysocki.net>
+To: linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org, linux-kernel@vger.kernel.org, linux-pci@vger.kernel.org, linux-ia64@vger.kernel.org, linux-metag@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-arch@vger.kernel.org, Will.Deacon@arm.com, catalin.marinas@arm.com, robh+dt@kernel.org, mark.rutland@arm.com, grant.likely@linaro.org, leif.lindholm@linaro.org, rfranz@cavium.com, ard.biesheuvel@linaro.org, msalter@redhat.com, steve.capper@linaro.org, hanjun.guo@linaro.org, al.stone@linaro.org, arnd@arndb.de, pawel.moll@arm.com, ijc+devicetree@hellion.org.uk, galak@codeaurora.org, rjw@rjwysocki.net, lenb@kernel.org, marc.zyngier@arm.com, lorenzo.pieralisi@arm.com, bhelgaas@google.com, tony.luck@intel.com, fenghua.yu@intel.com, james.hog
+Cc: gpkulkarni@gmail.com
 
-On 2016/2/12 1:47, Lorenzo Pieralisi wrote:
-> The [0 - 64k] ACPI PCI IO port resource boundary check in:
->
-> acpi_dev_ioresource_flags()
->
-> is currently applied blindly in the ACPI resource parsing to all
-> architectures, but only x86 suffers from that IO space limitation.
->
-> On arches (ie IA64 and ARM64) where IO space is memory mapped,
-> the PCI root bridges IO resource windows are firstly initialized from
-> the _CRS (in acpi_decode_space()) and contain the CPU physical address
-> at which a root bridge decodes IO space in the CPU physical address
-> space with the offset value representing the offset required to translate
-> the PCI bus address into the CPU physical address.
->
-> The IO resource windows are then parsed and updated in arch code
-> before creating and enumerating PCI buses (eg IA64 add_io_space())
-> to map in an arch specific way the obtained CPU physical address range
-> to a slice of virtual address space reserved to map PCI IO space,
-> ending up with PCI bridges resource windows containing IO
-> resources like the following on a working IA64 configuration:
->
-> PCI host bridge to bus 0000:00
-> pci_bus 0000:00: root bus resource [io  0x1000000-0x100ffff window] (bus
-> address [0x0000-0xffff])
-> pci_bus 0000:00: root bus resource [mem 0x000a0000-0x000fffff window]
-> pci_bus 0000:00: root bus resource [mem 0x80000000-0x8fffffff window]
-> pci_bus 0000:00: root bus resource [mem 0x80004000000-0x800ffffffff window]
-> pci_bus 0000:00: root bus resource [bus 00]
->
-> This implies that the [0 - 64K] check in acpi_dev_ioresource_flags()
-> leaves platforms with memory mapped IO space (ie IA64) broken (ie kernel
-> can't claim IO resources since the host bridge IO resource is disabled
-> and discarded by ACPI core code, see log on IA64 with missing root bridge
-> IO resource, silently filtered by current [0 - 64k] check in
-> acpi_dev_ioresource_flags()):
->
-> PCI host bridge to bus 0000:00
-> pci_bus 0000:00: root bus resource [mem 0x000a0000-0x000fffff window]
-> pci_bus 0000:00: root bus resource [mem 0x80000000-0x8fffffff window]
-> pci_bus 0000:00: root bus resource [mem 0x80004000000-0x800ffffffff window]
-> pci_bus 0000:00: root bus resource [bus 00]
->
-> [...]
->
-> pci 0000:00:03.0: [1002:515e] type 00 class 0x030000
-> pci 0000:00:03.0: reg 0x10: [mem 0x80000000-0x87ffffff pref]
-> pci 0000:00:03.0: reg 0x14: [io  0x1000-0x10ff]
-> pci 0000:00:03.0: reg 0x18: [mem 0x88020000-0x8802ffff]
-> pci 0000:00:03.0: reg 0x30: [mem 0x88000000-0x8801ffff pref]
-> pci 0000:00:03.0: supports D1 D2
-> pci 0000:00:03.0: can't claim BAR 1 [io  0x1000-0x10ff]: no compatible
-> bridge window
->
-> For this reason, the IO port resources boundaries check in generic ACPI
-> parsing code should be moved to x86 arch code so that more arches (ie
-> ARM64) can benefit from the generic ACPI resources parsing interface
-> without incurring in unexpected resource filtering, fixing at the same
-> time current breakage on IA64.
->
-> This patch moves the IO ports boundary [0 - 64k] check to x86 arch code
-> code that validates the PCI host bridge resources.
->
-> Fixes: 3772aea7d6f3 ("ia64/PCI/ACPI: Use common ACPI resource parsing
-> interface for host bridge")
-> Signed-off-by: Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>
-> Tested-by: Hanjun Guo <hanjun.guo@linaro.org>
-> Cc: Bjorn Helgaas <bhelgaas@google.com>
-> Cc: Hanjun Guo <hanjun.guo@linaro.org>
-> Cc: Jiang Liu <jiang.liu@linux.intel.com>
-> Cc: Tony Luck <tony.luck@intel.com>
-> Cc: Tomasz Nowicki <tn@semihalf.com>
-> Cc: Mark Salter <msalter@redhat.com>
-> Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-> ---
-> v1 -> v2
->
-> - Updated commit log to report missing IO resources
-> - Fixed function ioport_valid() comment 16k/64k typo
->
-> v1: https://lkml.org/lkml/2016/2/1/157
->
->   arch/x86/pci/acpi.c     | 18 +++++++++++++-----
->   drivers/acpi/resource.c |  3 ---
->   2 files changed, 13 insertions(+), 8 deletions(-)
->
-> diff --git a/arch/x86/pci/acpi.c b/arch/x86/pci/acpi.c
-> index 3cd6983..cec68e7 100644
-> --- a/arch/x86/pci/acpi.c
-> +++ b/arch/x86/pci/acpi.c
-> @@ -275,11 +275,14 @@ static void pci_acpi_root_release_info(struct acpi_pci_root_info *ci)
->    *     to access PCI configuration space.
->    *
->    * So explicitly filter out PCI CFG IO ports[0xCF8-0xCFF].
-> + *
-> + * Furthermore, IO ports address space is limited to 64k on x86,
-> + * any IO resource exceeding the boundary must therefore be discarded.
->    */
-> -static bool resource_is_pcicfg_ioport(struct resource *res)
-> +static bool ioport_valid(struct resource *res)
->   {
-> -	return (res->flags & IORESOURCE_IO) &&
-> -		res->start = 0xCF8 && res->end = 0xCFF;
-> +	return !(res->start = 0xCF8 && res->end = 0xCFF) &&
-> +	       !(res->end >= 0x10003);
->   }
->
->   static int pci_acpi_root_prepare_resources(struct acpi_pci_root_info *ci)
-> @@ -287,13 +290,18 @@ static int pci_acpi_root_prepare_resources(struct acpi_pci_root_info *ci)
->   	struct acpi_device *device = ci->bridge;
->   	int busnum = ci->root->secondary.start;
->   	struct resource_entry *entry, *tmp;
-> +	struct resource *res;
->   	int status;
->
->   	status = acpi_pci_probe_root_resources(ci);
->   	if (pci_use_crs) {
-> -		resource_list_for_each_entry_safe(entry, tmp, &ci->resources)
-> -			if (resource_is_pcicfg_ioport(entry->res))
-> +		resource_list_for_each_entry_safe(entry, tmp, &ci->resources) {
-> +			res = entry->res;
-> +
-> +			if (res->flags & IORESOURCE_IO && !ioport_valid(res))
->   				resource_list_destroy_entry(entry);
-> +		}
-> +
->   		return status;
->   	}
->
-> diff --git a/drivers/acpi/resource.c b/drivers/acpi/resource.c
-> index d02fd53..c112e1d 100644
-> --- a/drivers/acpi/resource.c
-> +++ b/drivers/acpi/resource.c
-> @@ -127,9 +127,6 @@ static void acpi_dev_ioresource_flags(struct resource *res, u64 len,
->   	if (!acpi_dev_resource_len_valid(res->start, res->end, len, true))
->   		res->flags |= IORESOURCE_DISABLED | IORESOURCE_UNSET;
->
-> -	if (res->end >= 0x10003)
-> -		res->flags |= IORESOURCE_DISABLED | IORESOURCE_UNSET;
-> -
->   	if (io_decode = ACPI_DECODE_16)
->   		res->flags |= IORESOURCE_IO_16BIT_ADDR;
->   	if (translation_type = ACPI_SPARSE_TRANSLATION)
+NODE_DATA is defined across multiple asm header files.
+Moving generic definition to asm-generic/mmzone.h to
+remove redundant definitions.
 
-Reviewed-by: Hanjun Guo <hanjun.guo@linaro.org>
+Reviewed-by: Robert Richter <rrichter@cavium.com>
+Signed-off-by: Ganapatrao Kulkarni <gkulkarni@caviumnetworks.com>
+---
+ arch/arm64/include/asm/mmzone.h   |  4 +---
+ arch/m32r/include/asm/mmzone.h    |  4 +---
+ arch/metag/include/asm/mmzone.h   |  4 +---
+ arch/powerpc/include/asm/mmzone.h |  8 ++------
+ arch/s390/include/asm/mmzone.h    |  6 +-----
+ arch/sh/include/asm/mmzone.h      |  4 +---
+ arch/sparc/include/asm/mmzone.h   |  6 ++----
+ arch/x86/include/asm/mmzone.h     |  3 +--
+ arch/x86/include/asm/mmzone_32.h  |  5 -----
+ arch/x86/include/asm/mmzone_64.h  | 17 -----------------
+ include/asm-generic/mmzone.h      | 24 ++++++++++++++++++++++++
+ 11 files changed, 34 insertions(+), 51 deletions(-)
+ delete mode 100644 arch/x86/include/asm/mmzone_64.h
+ create mode 100644 include/asm-generic/mmzone.h
 
-Thanks
-Hanjun
+diff --git a/arch/arm64/include/asm/mmzone.h b/arch/arm64/include/asm/mmzone.h
+index a0de9e6..611a1cf 100644
+--- a/arch/arm64/include/asm/mmzone.h
++++ b/arch/arm64/include/asm/mmzone.h
+@@ -4,9 +4,7 @@
+ #ifdef CONFIG_NUMA
+ 
+ #include <asm/numa.h>
+-
+-extern struct pglist_data *node_data[];
+-#define NODE_DATA(nid)		(node_data[(nid)])
++#include  <asm-generic/mmzone.h>
+ 
+ #endif /* CONFIG_NUMA */
+ #endif /* __ASM_MMZONE_H */
+diff --git a/arch/m32r/include/asm/mmzone.h b/arch/m32r/include/asm/mmzone.h
+index 115ced3..e3d66a0 100644
+--- a/arch/m32r/include/asm/mmzone.h
++++ b/arch/m32r/include/asm/mmzone.h
+@@ -7,12 +7,10 @@
+ #define _ASM_MMZONE_H_
+ 
+ #include <asm/smp.h>
++#include  <asm-generic/mmzone.h>
+ 
+ #ifdef CONFIG_DISCONTIGMEM
+ 
+-extern struct pglist_data *node_data[];
+-#define NODE_DATA(nid)		(node_data[nid])
+-
+ #define node_localnr(pfn, nid)	((pfn) - NODE_DATA(nid)->node_start_pfn)
+ 
+ #define pmd_page(pmd)		(pfn_to_page(pmd_val(pmd) >> PAGE_SHIFT))
+diff --git a/arch/metag/include/asm/mmzone.h b/arch/metag/include/asm/mmzone.h
+index 9c88a9c..b1e95b3 100644
+--- a/arch/metag/include/asm/mmzone.h
++++ b/arch/metag/include/asm/mmzone.h
+@@ -3,9 +3,7 @@
+ 
+ #ifdef CONFIG_NEED_MULTIPLE_NODES
+ #include <linux/numa.h>
+-
+-extern struct pglist_data *node_data[];
+-#define NODE_DATA(nid)		(node_data[nid])
++#include  <asm-generic/mmzone.h>
+ 
+ static inline int pfn_to_nid(unsigned long pfn)
+ {
+diff --git a/arch/powerpc/include/asm/mmzone.h b/arch/powerpc/include/asm/mmzone.h
+index 7b58917..da0c5ba 100644
+--- a/arch/powerpc/include/asm/mmzone.h
++++ b/arch/powerpc/include/asm/mmzone.h
+@@ -19,12 +19,6 @@
+ 
+ #ifdef CONFIG_NEED_MULTIPLE_NODES
+ 
+-extern struct pglist_data *node_data[];
+-/*
+- * Return a pointer to the node data for node n.
+- */
+-#define NODE_DATA(nid)		(node_data[nid])
+-
+ /*
+  * Following are specific to this numa platform.
+  */
+@@ -42,5 +36,7 @@ u64 memory_hotplug_max(void);
+ #define memory_hotplug_max() memblock_end_of_DRAM()
+ #endif /* CONFIG_NEED_MULTIPLE_NODES */
+ 
++#include  <asm-generic/mmzone.h>
++
+ #endif /* __KERNEL__ */
+ #endif /* _ASM_MMZONE_H_ */
+diff --git a/arch/s390/include/asm/mmzone.h b/arch/s390/include/asm/mmzone.h
+index a9e834e..91f1fcc 100644
+--- a/arch/s390/include/asm/mmzone.h
++++ b/arch/s390/include/asm/mmzone.h
+@@ -7,10 +7,6 @@
+ #ifndef _ASM_S390_MMZONE_H
+ #define _ASM_S390_MMZONE_H
+ 
+-#ifdef CONFIG_NUMA
++#include  <asm-generic/mmzone.h>
+ 
+-extern struct pglist_data *node_data[];
+-#define NODE_DATA(nid) (node_data[nid])
+-
+-#endif /* CONFIG_NUMA */
+ #endif /* _ASM_S390_MMZONE_H */
+diff --git a/arch/sh/include/asm/mmzone.h b/arch/sh/include/asm/mmzone.h
+index 15a8496..c070d00 100644
+--- a/arch/sh/include/asm/mmzone.h
++++ b/arch/sh/include/asm/mmzone.h
+@@ -5,9 +5,7 @@
+ 
+ #ifdef CONFIG_NEED_MULTIPLE_NODES
+ #include <linux/numa.h>
+-
+-extern struct pglist_data *node_data[];
+-#define NODE_DATA(nid)		(node_data[nid])
++#include  <asm-generic/mmzone.h>
+ 
+ static inline int pfn_to_nid(unsigned long pfn)
+ {
+diff --git a/arch/sparc/include/asm/mmzone.h b/arch/sparc/include/asm/mmzone.h
+index 99d9b9f..ef1365b 100644
+--- a/arch/sparc/include/asm/mmzone.h
++++ b/arch/sparc/include/asm/mmzone.h
+@@ -5,13 +5,11 @@
+ 
+ #include <linux/cpumask.h>
+ 
+-extern struct pglist_data *node_data[];
+-
+-#define NODE_DATA(nid)		(node_data[nid])
+-
+ extern int numa_cpu_lookup_table[];
+ extern cpumask_t numa_cpumask_lookup_table[];
+ 
+ #endif /* CONFIG_NEED_MULTIPLE_NODES */
+ 
++#include  <asm-generic/mmzone.h>
++
+ #endif /* _SPARC64_MMZONE_H */
+diff --git a/arch/x86/include/asm/mmzone.h b/arch/x86/include/asm/mmzone.h
+index d497bc4..5a52815 100644
+--- a/arch/x86/include/asm/mmzone.h
++++ b/arch/x86/include/asm/mmzone.h
+@@ -1,5 +1,4 @@
+ #ifdef CONFIG_X86_32
+ # include <asm/mmzone_32.h>
+-#else
+-# include <asm/mmzone_64.h>
+ #endif
++#include  <asm-generic/mmzone.h>
+diff --git a/arch/x86/include/asm/mmzone_32.h b/arch/x86/include/asm/mmzone_32.h
+index 1ec990b..09f7cfb 100644
+--- a/arch/x86/include/asm/mmzone_32.h
++++ b/arch/x86/include/asm/mmzone_32.h
+@@ -8,11 +8,6 @@
+ 
+ #include <asm/smp.h>
+ 
+-#ifdef CONFIG_NUMA
+-extern struct pglist_data *node_data[];
+-#define NODE_DATA(nid)	(node_data[nid])
+-#endif /* CONFIG_NUMA */
+-
+ #ifdef CONFIG_DISCONTIGMEM
+ 
+ /*
+diff --git a/arch/x86/include/asm/mmzone_64.h b/arch/x86/include/asm/mmzone_64.h
+deleted file mode 100644
+index 129d9aa..0000000
+--- a/arch/x86/include/asm/mmzone_64.h
++++ /dev/null
+@@ -1,17 +0,0 @@
+-/* K8 NUMA support */
+-/* Copyright 2002,2003 by Andi Kleen, SuSE Labs */
+-/* 2.5 Version loosely based on the NUMAQ Code by Pat Gaughen. */
+-#ifndef _ASM_X86_MMZONE_64_H
+-#define _ASM_X86_MMZONE_64_H
+-
+-#ifdef CONFIG_NUMA
+-
+-#include <linux/mmdebug.h>
+-#include <asm/smp.h>
+-
+-extern struct pglist_data *node_data[];
+-
+-#define NODE_DATA(nid)		(node_data[nid])
+-
+-#endif
+-#endif /* _ASM_X86_MMZONE_64_H */
+diff --git a/include/asm-generic/mmzone.h b/include/asm-generic/mmzone.h
+new file mode 100644
+index 0000000..ec0fc4c
+--- /dev/null
++++ b/include/asm-generic/mmzone.h
+@@ -0,0 +1,24 @@
++/*
++ * linux/include/asm-generic/mmzone.h
++ *
++ * Author: Ganapatrao Kulkarni <gkulkarni@cavium.com>
++ * Copyright (C) 2016 Cavium Inc.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ *
++ */
++
++#ifndef _ASM_GENERIC_MMZONE_H
++#define _ASM_GENERIC_MMZONE_H
++
++#if defined(CONFIG_NUMA) || defined(CONFIG_NEED_MULTIPLE_NODES)
++
++#ifndef NODE_DATA
++extern struct pglist_data *node_data[];
++#define NODE_DATA(nid)          (node_data[(nid)])
++#endif
++
++#endif
++#endif /* _ASM_GENERIC_MMZONE_H */
+-- 
+1.8.1.4
+
