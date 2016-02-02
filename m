@@ -1,54 +1,133 @@
-From: Ganapatrao Kulkarni <gpkulkarni@gmail.com>
-Date: Thu, 11 Feb 2016 15:58:48 +0000
-Subject: Re: [PATCH v10 3/8] dt, numa: adding numa dt binding implementation.
-Message-Id: <CAFpQJXU+fon8DY--qhyZV=JDv9omqs=c9eSX34g1J2w2uudNKA@mail.gmail.com>
+From: Ganapatrao Kulkarni <gkulkarni@caviumnetworks.com>
+Date: Tue, 02 Feb 2016 10:21:15 +0000
+Subject: [PATCH v10 0/8] arm64, numa: Add numa support for arm64 platforms
+Message-Id: <1454407763-1017-1-git-send-email-gkulkarni@caviumnetworks.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1454407763-1017-1-git-send-email-gkulkarni@caviumnetworks.com>
-	<1454407763-1017-4-git-send-email-gkulkarni@caviumnetworks.com>
-	<CAL_JsqK5HV9yzBE+ANnTw26eVR7Dy+B8OkwQ-7WF8KDa86Fd9g@mail.gmail.com>
-	<20160211153255.GR24726@rric.localdomain>
-In-Reply-To: <20160211153255.GR24726-vWBEXY7mpu582hYKe6nXyg@public.gmane.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Robert Richter <robert.richter-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>
-Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Ganapatrao Kulkarni <gkulkarni-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>, "linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org" <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, "devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-metag <linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linuxppc-dev <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, SH-Linux <linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Will Deacon <Will.Deacon-5wv7dgnIgG8@public.gmane.org>, Catalin Marinas <catalin.marinas-5wv7dgnIgG8@public.gmane.org>, Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, Leif Lindholm <leif.lindholm-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, rfranz-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org, Ard Biesheuvel <ard.biesheuvel-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, Mark Salter <msalter-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org, linux-kernel@vger.kernel.org, linux-pci@vger.kernel.org, linux-ia64@vger.kernel.org, linux-metag@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-arch@vger.kernel.org, Will.Deacon@arm.com, catalin.marinas@arm.com, robh+dt@kernel.org, mark.rutland@arm.com, grant.likely@linaro.org, leif.lindholm@linaro.org, rfranz@cavium.com, ard.biesheuvel@linaro.org, msalter@redhat.com, steve.capper@linaro.org, hanjun.guo@linaro.org, al.stone@linaro.org, arnd@arndb.de, pawel.moll@arm.com, ijc+devicetree@hellion.org.uk, galak@codeaurora.org, rjw@rjwysocki.net, lenb@kernel.org, marc.zyngier@arm.com, lorenzo.pieralisi@arm.com, bhelgaas@google.com, tony.luck@intel.com, fenghua.yu@intel.com, james.hog
+Cc: gpkulkarni@gmail.com
 
-Hi Rob,
+v10:
+	- Incorporated review comments from Rob Herring.
+	- Moved numa binding and implementation to devicetree core.
+	- Added cleanup patch to remove redundant NODE_DATA macro from asm header files
+	- Include numa balancing support for arm64 patch in this series.
+	- Fix tile build issue reported by the kbuild robot(patch 7)
 
-On Thu, Feb 11, 2016 at 9:02 PM, Robert Richter
-<robert.richter@caviumnetworks.com> wrote:
-> On 11.02.16 08:50:41, Rob Herring wrote:
->> On Tue, Feb 2, 2016 at 4:09 AM, Ganapatrao Kulkarni
->> <gkulkarni@caviumnetworks.com> wrote:
->> > dt node parsing for numa topology is done using device property
->> > numa-node-id and device node distance-map.
->>
->> How is it that powerpc doesn't need flat DT parsing for NUMA? Both
->> arches are memblock based and the binding is similar IIRC, so you
->> should be able to find a way to do this with the unflattened tree.
->> Ideally, there should be some common code shared as well.
+v9:	- Added cleanup patch to reuse and avoid redefinition of cpumask_of_pcibus
+	  as suggested from Will Deacon and Bjorn Helgaas.
+	- Including patch to Make pci-host-generic driver numa aware.
+	- Incorporated comment from Shannon Zhao.
 
-powerpc has implemented numa binding using property named
-"ibm,associativity", we too started adding using the same binding[
-refer version V6]
-however had discussion/review with Mark R about mapping and we could not map to
-some of the topology like mesh and ring topology.
+v8:
+	- Incorporated review comments of Mark Rutland and Will Deacon.
+	- Added pci helper function and macro for numa.
 
-So we have defined and implemented this new binding which is simple
-and scalable.
-This binding is very much aligned to ACPI NUMA specification.
+v7:
+	- managing numa memory mapping using memblock.
+	- Incorporated review comments of Mark Rutland.
 
->>
->> Do you have a git tree with this series?
->
-> I have pushed it here for you:
->
->  https://git.kernel.org/cgit/linux/kernel/git/rric/linux.git/log/?h=thunder/numa-v10
+v6:
+	- defined and implemented the numa dt binding using
+	node property proximity and device node distance-map.
+	- renamed dt_numa to of_numa
 
-thanks Robert.
->
-> -Robert
+v5:
+        - created base verion of numa.c which creates dummy numa without using dt
+          on single socket platforms. Then added patches for dt support.
+        - Incorporated review comments from Hanjun Guo.
 
-thanks
-Ganapat
+v4:
+done changes as per Arnd review comments.
+
+v3:
+Added changes to support numa on arm64 based platforms.
+Tested these patches on cavium's multinode(2 node topology) platform.
+In this patchset, defined and implemented dt bindings for numa mapping
+for core and memory using device node property arm,associativity.
+
+v2:
+Defined and implemented numa map for memory, cores to node and
+proximity distance matrix of nodes.
+
+v1:
+Initial patchset to support numa on arm64 platforms.
+
+Note:
+        1. This patchset is tested for numa with dt on
+           thunderx single socket and dual socket boards.
+        2. Numa DT booting needs the dt memory nodes, which are deleted in current efi-stub,
+        hence to try numa with dt, you need to rebase with ard's patchset.
+        http://git.linaro.org/people/ard.biesheuvel/linux-arm.git/shortlog/refs/heads/arm64-uefi-early-fdt-handling
+	3. PATCH[7,8] are not tested for other architectures.
+
+Ganapatrao Kulkarni (8):
+  arm64, numa: adding numa support for arm64 platforms.
+  Documentation, dt, numa: dt bindings for numa.
+  dt, numa: adding numa dt binding implementation.
+  arm64, numa : Enable numa dt for arm64 platforms.
+  arm64, dt, thunderx: Add initial dts for Cavium Thunderx in 2 node
+    topology.
+  arm64, mm, numa: Adding numa balancing support for arm64.
+  topology, cleanup: Avoid redefinition of cpumask_of_pcibus in asm
+    header files.
+  numa, mm, cleanup: remove redundant NODE_DATA macro from asm header
+    files.
+
+ Documentation/devicetree/bindings/numa.txt      | 272 ++++++++
+ arch/arm64/Kconfig                              |  26 +
+ arch/arm64/boot/dts/cavium/Makefile             |   2 +-
+ arch/arm64/boot/dts/cavium/thunder-88xx-2n.dts  |  83 +++
+ arch/arm64/boot/dts/cavium/thunder-88xx-2n.dtsi | 806 ++++++++++++++++++++++++
+ arch/arm64/include/asm/mmzone.h                 |  10 +
+ arch/arm64/include/asm/numa.h                   |  45 ++
+ arch/arm64/include/asm/pgtable.h                |  18 +
+ arch/arm64/include/asm/topology.h               |   7 +
+ arch/arm64/kernel/pci.c                         |  10 +
+ arch/arm64/kernel/setup.c                       |   4 +
+ arch/arm64/kernel/smp.c                         |   4 +
+ arch/arm64/mm/Makefile                          |   1 +
+ arch/arm64/mm/init.c                            |  34 +-
+ arch/arm64/mm/mmu.c                             |   1 +
+ arch/arm64/mm/numa.c                            | 404 ++++++++++++
+ arch/ia64/include/asm/topology.h                |   4 -
+ arch/m32r/include/asm/mmzone.h                  |   4 +-
+ arch/metag/include/asm/mmzone.h                 |   4 +-
+ arch/metag/include/asm/topology.h               |   3 -
+ arch/powerpc/include/asm/mmzone.h               |   8 +-
+ arch/powerpc/include/asm/topology.h             |   4 -
+ arch/s390/include/asm/mmzone.h                  |   6 +-
+ arch/s390/include/asm/pci.h                     |   2 +-
+ arch/s390/include/asm/topology.h                |   1 +
+ arch/sh/include/asm/mmzone.h                    |   4 +-
+ arch/sh/include/asm/topology.h                  |   3 -
+ arch/sparc/include/asm/mmzone.h                 |   6 +-
+ arch/tile/include/asm/pci.h                     |   2 -
+ arch/tile/include/asm/topology.h                |   3 +
+ arch/x86/include/asm/mmzone.h                   |   3 +-
+ arch/x86/include/asm/mmzone_32.h                |   5 -
+ arch/x86/include/asm/mmzone_64.h                |  17 -
+ arch/x86/include/asm/pci.h                      |   2 +-
+ arch/x86/include/asm/topology.h                 |   1 +
+ drivers/of/Kconfig                              |  11 +
+ drivers/of/Makefile                             |   1 +
+ drivers/of/of_numa.c                            | 207 ++++++
+ include/asm-generic/mmzone.h                    |  24 +
+ include/asm-generic/topology.h                  |   4 +-
+ include/linux/of.h                              |   4 +
+ 41 files changed, 1986 insertions(+), 74 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/numa.txt
+ create mode 100644 arch/arm64/boot/dts/cavium/thunder-88xx-2n.dts
+ create mode 100644 arch/arm64/boot/dts/cavium/thunder-88xx-2n.dtsi
+ create mode 100644 arch/arm64/include/asm/mmzone.h
+ create mode 100644 arch/arm64/include/asm/numa.h
+ create mode 100644 arch/arm64/mm/numa.c
+ delete mode 100644 arch/x86/include/asm/mmzone_64.h
+ create mode 100644 drivers/of/of_numa.c
+ create mode 100644 include/asm-generic/mmzone.h
+
+-- 
+1.8.1.4
+
