@@ -1,10 +1,10 @@
 From: Michal Hocko <mhocko@kernel.org>
-Date: Mon, 29 Feb 2016 12:58:22 +0000
-Subject: [PATCH 08/11] sparc, rwsem: provide __down_write_killable
-Message-Id: <1456750705-7141-9-git-send-email-mhocko@kernel.org>
+Date: Tue, 02 Feb 2016 20:19:22 +0000
+Subject: [RFC 05/12] ia64, rwsem: provide __down_write_killable
+Message-Id: <1454444369-2146-6-git-send-email-mhocko@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1456750705-7141-1-git-send-email-mhocko@kernel.org>
-In-Reply-To: <1456750705-7141-1-git-send-email-mhocko@kernel.org>
+References: <1454444369-2146-1-git-send-email-mhocko@kernel.org>
+In-Reply-To: <1454444369-2146-1-git-send-email-mhocko@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -13,38 +13,58 @@ Cc: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>, Thoma
 
 From: Michal Hocko <mhocko@suse.com>
 
-which uses the same fast path as __down_write except it falls back to
-rwsem_down_write_failed_killable slow path and return -EINTR if killed.
+Introduce ___down_write for the fast path and reuse it for __down_write
+resp. __down_write_killable each using the respective generic slow path
+(rwsem_down_write_failed resp. rwsem_down_write_failed_killable).
 
 Signed-off-by: Michal Hocko <mhocko@suse.com>
 ---
- arch/sparc/include/asm/rwsem.h | 13 +++++++++++++
- 1 file changed, 13 insertions(+)
+ arch/ia64/include/asm/rwsem.h | 22 +++++++++++++++++++---
+ 1 file changed, 19 insertions(+), 3 deletions(-)
 
-diff --git a/arch/sparc/include/asm/rwsem.h b/arch/sparc/include/asm/rwsem.h
-index e5a0d575bc7f..c1e9e32e8b63 100644
---- a/arch/sparc/include/asm/rwsem.h
-+++ b/arch/sparc/include/asm/rwsem.h
-@@ -55,6 +55,19 @@ static inline void __down_write(struct rw_semaphore *sem)
+diff --git a/arch/ia64/include/asm/rwsem.h b/arch/ia64/include/asm/rwsem.h
+index 3027e7516d85..5e78cb40d9df 100644
+--- a/arch/ia64/include/asm/rwsem.h
++++ b/arch/ia64/include/asm/rwsem.h
+@@ -49,8 +49,8 @@ __down_read (struct rw_semaphore *sem)
+ /*
+  * lock for writing
+  */
+-static inline void
+-__down_write (struct rw_semaphore *sem)
++static inline long
++___down_write (struct rw_semaphore *sem)
+ {
+ 	long old, new;
+ 
+@@ -59,10 +59,26 @@ __down_write (struct rw_semaphore *sem)
+ 		new = old + RWSEM_ACTIVE_WRITE_BIAS;
+ 	} while (cmpxchg_acq(&sem->count, old, new) != old);
+ 
+-	if (old != 0)
++	return old;
++}
++
++static inline void
++__down_write (struct rw_semaphore *sem)
++{
++	if (___down_write(sem))
  		rwsem_down_write_failed(sem);
  }
  
-+static inline int __down_write_killable(struct rw_semaphore *sem)
++static inline int
++__down_write_killable (struct rw_semaphore *sem)
 +{
-+	long tmp;
-+
-+	tmp = atomic64_add_return(RWSEM_ACTIVE_WRITE_BIAS,
-+				  (atomic64_t *)(&sem->count));
-+	if (unlikely(tmp != RWSEM_ACTIVE_WRITE_BIAS))
++	if (___down_write(sem))
 +		if (IS_ERR(rwsem_down_write_failed_killable(sem)))
 +			return -EINTR;
 +
 +	return 0;
 +}
 +
- static inline int __down_write_trylock(struct rw_semaphore *sem)
- {
- 	long tmp;
+ /*
+  * unlock after reading
+  */
 -- 
 2.7.0
 
