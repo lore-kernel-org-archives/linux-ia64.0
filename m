@@ -1,7 +1,7 @@
 From: Ganapatrao Kulkarni <gkulkarni@caviumnetworks.com>
-Date: Tue, 02 Feb 2016 10:21:17 +0000
-Subject: [PATCH v10 2/8] Documentation, dt, numa: dt bindings for numa.
-Message-Id: <1454407763-1017-3-git-send-email-gkulkarni@caviumnetworks.com>
+Date: Tue, 02 Feb 2016 10:21:21 +0000
+Subject: [PATCH v10 6/8] arm64, mm, numa: Adding numa balancing support for arm64.
+Message-Id: <1454407763-1017-7-git-send-email-gkulkarni@caviumnetworks.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1454407763-1017-1-git-send-email-gkulkarni@caviumnetworks.com>
 In-Reply-To: <1454407763-1017-1-git-send-email-gkulkarni@caviumnetworks.com>
@@ -11,293 +11,57 @@ Content-Transfer-Encoding: 7bit
 To: linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org, linux-kernel@vger.kernel.org, linux-pci@vger.kernel.org, linux-ia64@vger.kernel.org, linux-metag@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-arch@vger.kernel.org, Will.Deacon@arm.com, catalin.marinas@arm.com, robh+dt@kernel.org, mark.rutland@arm.com, grant.likely@linaro.org, leif.lindholm@linaro.org, rfranz@cavium.com, ard.biesheuvel@linaro.org, msalter@redhat.com, steve.capper@linaro.org, hanjun.guo@linaro.org, al.stone@linaro.org, arnd@arndb.de, pawel.moll@arm.com, ijc+devicetree@hellion.org.uk, galak@codeaurora.org, rjw@rjwysocki.net, lenb@kernel.org, marc.zyngier@arm.com, lorenzo.pieralisi@arm.com, bhelgaas@google.com, tony.luck@intel.com, fenghua.yu@intel.com, james.hog
 Cc: gpkulkarni@gmail.com
 
-DT bindings for numa mapping of memory, cores and IOs.
+enabled numa balancing for arm64 platforms.
+added pte, pmd protnone helpers for use by automatic NUMA balancing.
 
 Reviewed-by: Robert Richter <rrichter@cavium.com>
 Signed-off-by: Ganapatrao Kulkarni <gkulkarni@caviumnetworks.com>
 ---
- Documentation/devicetree/bindings/numa.txt | 272 +++++++++++++++++++++++++++++
- 1 file changed, 272 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/numa.txt
+ arch/arm64/Kconfig               |  1 +
+ arch/arm64/include/asm/pgtable.h | 18 ++++++++++++++++++
+ 2 files changed, 19 insertions(+)
 
-diff --git a/Documentation/devicetree/bindings/numa.txt b/Documentation/devicetree/bindings/numa.txt
-new file mode 100644
-index 0000000..ec5ed7c
---- /dev/null
-+++ b/Documentation/devicetree/bindings/numa.txt
-@@ -0,0 +1,272 @@
-+=======================================
-+NUMA binding description.
-+=======================================
+diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
+index fcf3950..8a7c02a 100644
+--- a/arch/arm64/Kconfig
++++ b/arch/arm64/Kconfig
+@@ -11,6 +11,7 @@ config ARM64
+ 	select ARCH_HAS_TICK_BROADCAST if GENERIC_CLOCKEVENTS_BROADCAST
+ 	select ARCH_USE_CMPXCHG_LOCKREF
+ 	select ARCH_SUPPORTS_ATOMIC_RMW
++	select ARCH_SUPPORTS_NUMA_BALANCING if NUMA
+ 	select ARCH_WANT_OPTIONAL_GPIOLIB
+ 	select ARCH_WANT_COMPAT_IPC_PARSE_VERSION
+ 	select ARCH_WANT_FRAME_POINTERS
+diff --git a/arch/arm64/include/asm/pgtable.h b/arch/arm64/include/asm/pgtable.h
+index 2d545d7a..24ce546 100644
+--- a/arch/arm64/include/asm/pgtable.h
++++ b/arch/arm64/include/asm/pgtable.h
+@@ -347,6 +347,24 @@ static inline pgprot_t mk_sect_prot(pgprot_t prot)
+ 	return __pgprot(pgprot_val(prot) & ~PTE_TABLE_BIT);
+ }
+ 
++#ifdef CONFIG_NUMA_BALANCING
 +
-+=======================================
-+1 - Introduction
-+=======================================
++/*
++ * These work without NUMA balancing but the kernel does not care. See the
++ * comment in include/asm-generic/pgtable.h
++ */
++static inline int pte_protnone(pte_t pte)
++{
++	return ((pte_val(pte) & (PTE_VALID | PTE_PROT_NONE)) = PTE_PROT_NONE);
++}
 +
-+Systems employing a Non Uniform Memory Access (NUMA) architecture contain
-+collections of hardware resources including processors, memory, and I/O buses,
-+that comprise what is commonly known as a NUMA node.
-+Processor accesses to memory within the local NUMA node is generally faster
-+than processor accesses to memory outside of the local NUMA node.
-+DT defines interfaces that allow the platform to convey NUMA node
-+topology information to OS.
++static inline int pmd_protnone(pmd_t pmd)
++{
++	return pte_protnone(pmd_pte(pmd));
++}
 +
-+=======================================
-+2 - numa-node-id
-+=======================================
++#endif /* CONFIG_NUMA_BALANCING */
 +
-+For the purpose of identification, each NUMA node is associated with a unique
-+token known as a node id. For the purpose of this binding
-+a node id is a 32-bit integer.
-+
-+A device node is associated with a NUMA node by the presence of a
-+numa-node-id property which contains the node id of the device.
-+
-+Example:
-+	/* numa node 0 */
-+	numa-node-id = <0>;
-+
-+	/* numa node 1 */
-+	numa-node-id = <1>;
-+
-+=======================================
-+3 - distance-map
-+=======================================
-+
-+The device tree node distance-map describes the relative
-+distance (memory latency) between all numa nodes.
-+
-+- compatible : Should at least contain "numa-distance-map-v1".
-+
-+- distance-matrix
-+  This property defines a matrix to describe the relative distances
-+  between all numa nodes.
-+  It is represented as a list of node pairs and their relative distance.
-+
-+  Note:
-+	1. Each entry represents distance from first node to second node.
-+	The distances are equal in either direction.
-+	2. The distance from a node to self (local distance) is represented
-+	with value 10 and all internode distance should be represented with
-+	a value greater than 10.
-+	3. distance-matrix should have entries in lexicographical ascending
-+	order of nodes.
-+	4. There must be only one device node distance-map which must reside in the root node.
-+
-+Example:
-+	4 nodes connected in mesh/ring topology as below,
-+
-+		0_______20______1
-+		|               |
-+		|               |
-+		20             20
-+		|               |
-+		|               |
-+		|_______________|
-+		3       20      2
-+
-+	if relative distance for each hop is 20,
-+	then internode distance would be,
-+	      0 -> 1 = 20
-+	      1 -> 2 = 20
-+	      2 -> 3 = 20
-+	      3 -> 0 = 20
-+	      0 -> 2 = 40
-+	      1 -> 3 = 40
-+
-+     and dt presentation for this distance matrix is,
-+
-+		distance-map {
-+			 compatible = "numa-distance-map-v1";
-+			 distance-matrix = <0 0  10>,
-+					   <0 1  20>,
-+					   <0 2  40>,
-+					   <0 3  20>,
-+					   <1 0  20>,
-+					   <1 1  10>,
-+					   <1 2  20>,
-+					   <1 3  40>,
-+					   <2 0  40>,
-+					   <2 1  20>,
-+					   <2 2  10>,
-+					   <2 3  20>,
-+					   <3 0  20>,
-+					   <3 1  40>,
-+					   <3 2  20>,
-+					   <3 3  10>;
-+		};
-+
-+=======================================
-+4 - Example dts
-+=======================================
-+
-+Dual socket system consists of 2 boards connected through ccn bus and
-+each board having one socket/soc of 8 cpus, memory and pci bus.
-+
-+	memory@c00000 {
-+		device_type = "memory";
-+		reg = <0x0 0xc00000 0x0 0x80000000>;
-+		/* node 0 */
-+		numa-node-id = <0>;
-+	};
-+
-+	memory@10000000000 {
-+		device_type = "memory";
-+		reg = <0x100 0x0 0x0 0x80000000>;
-+		/* node 1 */
-+		numa-node-id = <1>;
-+	};
-+
-+	cpus {
-+		#address-cells = <2>;
-+		#size-cells = <0>;
-+
-+		cpu@0 {
-+			device_type = "cpu";
-+			compatible =  "arm,armv8";
-+			reg = <0x0 0x0>;
-+			enable-method = "psci";
-+			/* node 0 */
-+			numa-node-id = <0>;
-+		};
-+		cpu@1 {
-+			device_type = "cpu";
-+			compatible =  "arm,armv8";
-+			reg = <0x0 0x1>;
-+			enable-method = "psci";
-+			numa-node-id = <0>;
-+		};
-+		cpu@2 {
-+			device_type = "cpu";
-+			compatible =  "arm,armv8";
-+			reg = <0x0 0x2>;
-+			enable-method = "psci";
-+			numa-node-id = <0>;
-+		};
-+		cpu@3 {
-+			device_type = "cpu";
-+			compatible =  "arm,armv8";
-+			reg = <0x0 0x3>;
-+			enable-method = "psci";
-+			numa-node-id = <0>;
-+		};
-+		cpu@4 {
-+			device_type = "cpu";
-+			compatible =  "arm,armv8";
-+			reg = <0x0 0x4>;
-+			enable-method = "psci";
-+			numa-node-id = <0>;
-+		};
-+		cpu@5 {
-+			device_type = "cpu";
-+			compatible =  "arm,armv8";
-+			reg = <0x0 0x5>;
-+			enable-method = "psci";
-+			numa-node-id = <0>;
-+		};
-+		cpu@6 {
-+			device_type = "cpu";
-+			compatible =  "arm,armv8";
-+			reg = <0x0 0x6>;
-+			enable-method = "psci";
-+			numa-node-id = <0>;
-+		};
-+		cpu@7 {
-+			device_type = "cpu";
-+			compatible =  "arm,armv8";
-+			reg = <0x0 0x7>;
-+			enable-method = "psci";
-+			numa-node-id = <0>;
-+		};
-+		cpu@8 {
-+			device_type = "cpu";
-+			compatible =  "arm,armv8";
-+			reg = <0x0 0x8>;
-+			enable-method = "psci";
-+			/* node 1 */
-+			numa-node-id = <1>;
-+		};
-+		cpu@9 {
-+			device_type = "cpu";
-+			compatible =  "arm,armv8";
-+			reg = <0x0 0x9>;
-+			enable-method = "psci";
-+			numa-node-id = <1>;
-+		};
-+		cpu@a {
-+			device_type = "cpu";
-+			compatible =  "arm,armv8";
-+			reg = <0x0 0xa>;
-+			enable-method = "psci";
-+			numa-node-id = <1>;
-+		};
-+		cpu@b {
-+			device_type = "cpu";
-+			compatible =  "arm,armv8";
-+			reg = <0x0 0xb>;
-+			enable-method = "psci";
-+			numa-node-id = <1>;
-+		};
-+		cpu@c {
-+			device_type = "cpu";
-+			compatible =  "arm,armv8";
-+			reg = <0x0 0xc>;
-+			enable-method = "psci";
-+			numa-node-id = <1>;
-+		};
-+		cpu@d {
-+			device_type = "cpu";
-+			compatible =  "arm,armv8";
-+			reg = <0x0 0xd>;
-+			enable-method = "psci";
-+			numa-node-id = <1>;
-+		};
-+		cpu@e {
-+			device_type = "cpu";
-+			compatible =  "arm,armv8";
-+			reg = <0x0 0xe>;
-+			enable-method = "psci";
-+			numa-node-id = <1>;
-+		};
-+		cpu@f {
-+			device_type = "cpu";
-+			compatible =  "arm,armv8";
-+			reg = <0x0 0xf>;
-+			enable-method = "psci";
-+			numa-node-id = <1>;
-+		};
-+	};
-+
-+	pcie0: pcie0@848000000000 {
-+		compatible = "arm,armv8";
-+		device_type = "pci";
-+		bus-range = <0 255>;
-+		#size-cells = <2>;
-+		#address-cells = <3>;
-+		reg = <0x8480 0x00000000 0 0x10000000>;  /* Configuration space */
-+		ranges = <0x03000000 0x8010 0x00000000 0x8010 0x00000000 0x70 0x00000000>;
-+		/* node 0 */
-+		numa-node-id = <0>;
-+        };
-+
-+	pcie1: pcie1@948000000000 {
-+		compatible = "arm,armv8";
-+		device_type = "pci";
-+		bus-range = <0 255>;
-+		#size-cells = <2>;
-+		#address-cells = <3>;
-+		reg = <0x9480 0x00000000 0 0x10000000>;  /* Configuration space */
-+		ranges = <0x03000000 0x9010 0x00000000 0x9010 0x00000000 0x70 0x00000000>;
-+		/* node 1 */
-+		numa-node-id = <1>;
-+        };
-+
-+	distance-map {
-+		compatible = "numa-distance-map-v1";
-+		distance-matrix = <0 0 10>,
-+				  <0 1 20>,
-+				  <1 1 10>;
-+	};
+ /*
+  * THP definitions.
+  */
 -- 
 1.8.1.4
 
