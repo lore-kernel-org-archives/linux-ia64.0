@@ -1,35 +1,61 @@
-From: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Date: Tue, 23 Feb 2016 23:41:50 +0000
-Subject: Re: [UPDATE] [PATCH v3 1/5] ACPI / processor : add support for ACPI0010 processor container
-Message-Id: <2770602.Nt428br2IX@vostro.rjw.lan>
+From: Michal Hocko <mhocko@kernel.org>
+Date: Tue, 02 Feb 2016 20:19:17 +0000
+Subject: [RFC 0/12] introduce down_write_killable for rw_semaphore
+Message-Id: <1454444369-2146-1-git-send-email-mhocko@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1449065446-26115-2-git-send-email-sudeep.holla@arm.com> <1455710059-14380-1-git-send-email-sudeep.holla@arm.com>
-In-Reply-To: <1455710059-14380-1-git-send-email-sudeep.holla@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Sudeep Holla <sudeep.holla@arm.com>
-Cc: linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, x86@kernel.org, Al Stone <al.stone@linaro.org>, Lorenzo Pieralisi <Lorenzo.Pieralisi@arm.com>, Mahesh Sivasubramanian <msivasub@codeaurora.org>, Ashwin Chaugule <ashwin.chaugule@linaro.org>, Prashanth Prakash <pprakash@codeaurora.org>
+To: LKML <linux-kernel@vger.kernel.org>
+Cc: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>, Thomas Gleixner <tglx@linutronix.de>, "H. Peter Anvin" <hpa@zytor.com>, "David S. Miller" <davem@davemloft.net>, Tony Luck <tony.luck@intel.com>, Andrew Morton <akpm@linux-foundation.org>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org
 
-On Wednesday, February 17, 2016 11:54:19 AM Sudeep Holla wrote:
-> ACPI 6.0 adds support for optional processor container device which may
-> contain child objects that are either processor devices or other processor
-> containers. This allows representing hierarchical processor topologies.
-> 
-> It is declared using the _HID of ACPI0010. It is an abstract container
-> used to represent CPU topology and should not be used to hotplug
-> purposes.
-> 
-> If no matching handler is found for a device in acpi_scan_attach_handler,
-> acpi_bus_attach does a default enumeration for those devices with valid
-> HID in the acpi namespace. This patch adds a scan handler for these ACPI
-> processor containers to avoid default that enumeration and ensures the
-> platform devices are not created for them.
-> 
-> Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-> Signed-off-by: Sudeep Holla <sudeep.holla@arm.com>
+Hi,
+the following patchset implements a killable variant of write lock for
+rw_semaphore. My usecase is to turn as many mmap_sem write users to use
+a killable variant which will be helpful for the oom_reaper [1] to
+asynchronously tear down the oom victim address space which requires
+mmap_sem for read. This will reduce a likelihood of OOM livelocks caused
+by oom victim being stuck on a lock or other resource which prevents it
+to reach its exit path and release the memory. I haven't implemented
+the killable variant of the read lock because I do not have any usecase
+for this API.
 
-Queued up for 4.6, thanks!
+The patchset is organized as follows.
+- Patch 1 is a trivial cleanup
+- Patch 2, I belive, shouldn't introduce any functional changes as per
+  Documentation/memory-barriers.txt.
+- Patch 3 is the preparatory work and necessary infrastructure for
+  down_write_killable. It implements generic __down_write_killable
+  and prepares the write lock slow path to bail out earlier when told so
+- Patch 4-9 are implementing arch specific __down_write_killable. One
+  patch per architecture. I haven't even tried to compile test anything but
+  sparch which uses CONFIG_RWSEM_GENERIC_SPINLOCK in allnoconfig.
+  Those shold be mostly trivial.
+- One exception is x86 which replaces the current implementation of
+  __down_write with the generic one to make easier to read and get rid
+  of one level of indirection to the slow path. More on that in patch 10.
+  I do not have any problems to drop patch 10 and rework 11 to the current
+  inline asm but I think the easier code would be better.
+- finally patch 11 implements down_write_killable and ties everything
+  together. I am not really an expert on lockdep so I hope I got it right.
 
-Rafael
+Many of arch specific patches are basically same and I can squash them
+into one patch if this is preferred but I thought that one patch per
+arch is preferable.
+
+My patch to change mmap_sem write users to killable form is not part
+of the series because it is not finished yet but I guess it is not
+really necessary for the RFC. The API is used in the same way as
+mutex_lock_killable.
+
+I have tested on x86 with OOM situations with high mmap_sem contention
+(basically many parallel page faults racing with many parallel mmap/munmap
+tight loops) so the waiters for the write locks are routinely interrupted
+by SIGKILL.
+
+Patches should apply cleanly on both Linus and next tree.
+
+Any feedback is highly appreciated.
+---
+[1] http://lkml.kernel.org/r/1452094975-551-1-git-send-email-mhocko@kernel.org
 
