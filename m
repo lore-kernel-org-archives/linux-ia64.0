@@ -1,26 +1,50 @@
-From: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Date: Tue, 16 Feb 2016 20:15:32 +0000
-Subject: Re: [PATCH v3 3/5] ACPI / processor_idle: replace PREFIX with pr_fmt
-Message-Id: <3649354.2b9ioZHemq@vostro.rjw.lan>
+From: Michal Hocko <mhocko@kernel.org>
+Date: Tue, 02 Feb 2016 20:19:28 +0000
+Subject: [RFC 11/12] x86, rwsem: provide __down_write_killable
+Message-Id: <1454444369-2146-12-git-send-email-mhocko@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1449065446-26115-1-git-send-email-sudeep.holla@arm.com> <1449065446-26115-4-git-send-email-sudeep.holla@arm.com>
-In-Reply-To: <1449065446-26115-4-git-send-email-sudeep.holla@arm.com>
+References: <1454444369-2146-1-git-send-email-mhocko@kernel.org>
+In-Reply-To: <1454444369-2146-1-git-send-email-mhocko@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Sudeep Holla <sudeep.holla@arm.com>
-Cc: linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, x86@kernel.org, Al Stone <al.stone@linaro.org>, Lorenzo Pieralisi <Lorenzo.Pieralisi@arm.com>, Mahesh Sivasubramanian <msivasub@codeaurora.org>, Ashwin Chaugule <ashwin.chaugule@linaro.org>, Prashanth Prakash <pprakash@codeaurora.org>
+To: LKML <linux-kernel@vger.kernel.org>
+Cc: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>, Thomas Gleixner <tglx@linutronix.de>, "H. Peter Anvin" <hpa@zytor.com>, "David S. Miller" <davem@davemloft.net>, Tony Luck <tony.luck@intel.com>, Andrew Morton <akpm@linux-foundation.org>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org, Michal Hocko <mhocko@suse.com>
 
-On Wednesday, December 02, 2015 02:10:44 PM Sudeep Holla wrote:
-> Like few of the other ACPI modules, replace PREFIX with pr_fmt and
-> change all the printk call sites to use pr_* companion functions
-> in processor_idle.
-> 
-> Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-> Signed-off-by: Sudeep Holla <sudeep.holla@arm.com>
+From: Michal Hocko <mhocko@suse.com>
 
-I've queued up this one for 4.6.
+which is uses the same fast path as __down_write except it falls back to
+rwsem_down_write_failed_killable slow path and return -EINTR if killed.
 
-Thanks,
-Rafael
+Signed-off-by: Michal Hocko <mhocko@suse.com>
+---
+ arch/x86/include/asm/rwsem.h | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/arch/x86/include/asm/rwsem.h b/arch/x86/include/asm/rwsem.h
+index 1b5e89b3643d..64899daa51e2 100644
+--- a/arch/x86/include/asm/rwsem.h
++++ b/arch/x86/include/asm/rwsem.h
+@@ -109,6 +109,19 @@ static inline void __down_write(struct rw_semaphore *sem)
+ 		rwsem_down_write_failed(sem);
+ }
+ 
++static inline int __down_write_killable(struct rw_semaphore *sem)
++{
++	long tmp;
++
++	tmp = atomic_long_add_return(RWSEM_ACTIVE_WRITE_BIAS,
++				     (atomic_long_t *)&sem->count);
++	if (unlikely(tmp != RWSEM_ACTIVE_WRITE_BIAS))
++		if (IS_ERR(rwsem_down_write_failed_killable(sem)))
++			return -EINTR;
++
++	return 0;
++}
++
+ /*
+  * trylock for writing -- returns 1 if successful, 0 if contention
+  */
+-- 
+2.7.0
 
