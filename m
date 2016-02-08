@@ -1,67 +1,104 @@
-From: Ganapatrao Kulkarni <gkulkarni@caviumnetworks.com>
-Date: Tue, 02 Feb 2016 10:21:21 +0000
-Subject: [PATCH v10 6/8] arm64, mm, numa: Adding numa balancing support for arm64.
-Message-Id: <1454407763-1017-7-git-send-email-gkulkarni@caviumnetworks.com>
+From: James Hogan <james.hogan@imgtec.com>
+Date: Mon, 08 Feb 2016 18:43:50 +0000
+Subject: [PATCH 2/3] signal: Move generic copy_siginfo() to signal.h
+Message-Id: <1454957031-20138-3-git-send-email-james.hogan@imgtec.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1454407763-1017-1-git-send-email-gkulkarni@caviumnetworks.com>
-In-Reply-To: <1454407763-1017-1-git-send-email-gkulkarni@caviumnetworks.com>
+References: <1454957031-20138-1-git-send-email-james.hogan@imgtec.com>
+In-Reply-To: <1454957031-20138-1-git-send-email-james.hogan@imgtec.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org, linux-kernel@vger.kernel.org, linux-pci@vger.kernel.org, linux-ia64@vger.kernel.org, linux-metag@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-arch@vger.kernel.org, Will.Deacon@arm.com, catalin.marinas@arm.com, robh+dt@kernel.org, mark.rutland@arm.com, grant.likely@linaro.org, leif.lindholm@linaro.org, rfranz@cavium.com, ard.biesheuvel@linaro.org, msalter@redhat.com, steve.capper@linaro.org, hanjun.guo@linaro.org, al.stone@linaro.org, arnd@arndb.de, pawel.moll@arm.com, ijc+devicetree@hellion.org.uk, galak@codeaurora.org, rjw@rjwysocki.net, lenb@kernel.org, marc.zyngier@arm.com, lorenzo.pieralisi@arm.com, bhelgaas@google.com, tony.luck@intel.com, fenghua.yu@intel.com, james.hog
-Cc: gpkulkarni@gmail.com
+To: Ralf Baechle <ralf@linux-mips.org>
+Cc: linux-kernel@vger.kernel.org, Christopher Ferris <cferris@google.com>, James Hogan <james.hogan@imgtec.com>, Arnd Bergmann <arnd@arndb.de>, Petr Malat <oss@malat.biz>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-arch@vger.kernel.org, linux-mips@linux-mips.org, linux-ia64@vger.kernel.org, stable@vger.kernel.org
 
-enabled numa balancing for arm64 platforms.
-added pte, pmd protnone helpers for use by automatic NUMA balancing.
+The generic copy_siginfo() is currently defined in
+asm-generic/siginfo.h, after including uapi/asm-generic/siginfo.h which
+defines the generic struct siginfo. However this makes it awkward for an
+architecture to use it if it has to define its own struct siginfo (e.g.
+MIPS and potentially IA64), since it means that asm-generic/siginfo.h
+can only be included after defining the arch-specific siginfo, which may
+be problematic if the arch-specific definition needs definitions from
+uapi/asm-generic/siginfo.h.
 
-Reviewed-by: Robert Richter <rrichter@cavium.com>
-Signed-off-by: Ganapatrao Kulkarni <gkulkarni@caviumnetworks.com>
+It is possible to work around this by first including
+uapi/asm-generic/siginfo.h to get the constants before defining the
+arch-specific siginfo, and include asm-generic/siginfo.h after. However
+uapi headers can't be included by other uapi headers, so that first
+include has to be in an ifdef __kernel__, with the non __kernel__ case
+including the non-UAPI header instead.
+
+Instead of that mess, move the generic copy_siginfo() definition into
+linux/signal.h, which allows an arch-specific uapi/asm/siginfo.h to
+include asm-generic/siginfo.h and define the arch-specific siginfo, and
+for the generic copy_siginfo() to see that arch-specific definition.
+
+Signed-off-by: James Hogan <james.hogan@imgtec.com>
+Cc: Arnd Bergmann <arnd@arndb.de>
+Cc: Ralf Baechle <ralf@linux-mips.org>
+Cc: Petr Malat <oss@malat.biz>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-arch@vger.kernel.org
+Cc: linux-mips@linux-mips.org
+Cc: linux-ia64@vger.kernel.org
+Cc: <stable@vger.kernel.org> # 4.0-
 ---
- arch/arm64/Kconfig               |  1 +
- arch/arm64/include/asm/pgtable.h | 18 ++++++++++++++++++
- 2 files changed, 19 insertions(+)
+ include/asm-generic/siginfo.h | 15 ---------------
+ include/linux/signal.h        | 15 +++++++++++++++
+ 2 files changed, 15 insertions(+), 15 deletions(-)
 
-diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
-index fcf3950..8a7c02a 100644
---- a/arch/arm64/Kconfig
-+++ b/arch/arm64/Kconfig
-@@ -11,6 +11,7 @@ config ARM64
- 	select ARCH_HAS_TICK_BROADCAST if GENERIC_CLOCKEVENTS_BROADCAST
- 	select ARCH_USE_CMPXCHG_LOCKREF
- 	select ARCH_SUPPORTS_ATOMIC_RMW
-+	select ARCH_SUPPORTS_NUMA_BALANCING if NUMA
- 	select ARCH_WANT_OPTIONAL_GPIOLIB
- 	select ARCH_WANT_COMPAT_IPC_PARSE_VERSION
- 	select ARCH_WANT_FRAME_POINTERS
-diff --git a/arch/arm64/include/asm/pgtable.h b/arch/arm64/include/asm/pgtable.h
-index 2d545d7a..24ce546 100644
---- a/arch/arm64/include/asm/pgtable.h
-+++ b/arch/arm64/include/asm/pgtable.h
-@@ -347,6 +347,24 @@ static inline pgprot_t mk_sect_prot(pgprot_t prot)
- 	return __pgprot(pgprot_val(prot) & ~PTE_TABLE_BIT);
- }
+diff --git a/include/asm-generic/siginfo.h b/include/asm-generic/siginfo.h
+index 3d1a3af5cf59..a2508a8f9a9c 100644
+--- a/include/asm-generic/siginfo.h
++++ b/include/asm-generic/siginfo.h
+@@ -17,21 +17,6 @@
+ struct siginfo;
+ void do_schedule_next_timer(struct siginfo *info);
  
-+#ifdef CONFIG_NUMA_BALANCING
+-#ifndef HAVE_ARCH_COPY_SIGINFO
+-
+-#include <linux/string.h>
+-
+-static inline void copy_siginfo(struct siginfo *to, struct siginfo *from)
+-{
+-	if (from->si_code < 0)
+-		memcpy(to, from, sizeof(*to));
+-	else
+-		/* _sigchld is currently the largest know union member */
+-		memcpy(to, from, __ARCH_SI_PREAMBLE_SIZE + sizeof(from->_sifields._sigchld));
+-}
+-
+-#endif
+-
+ extern int copy_siginfo_to_user(struct siginfo __user *to, const struct siginfo *from);
+ 
+ #endif
+diff --git a/include/linux/signal.h b/include/linux/signal.h
+index 92557bbce7e7..d80259afb9e5 100644
+--- a/include/linux/signal.h
++++ b/include/linux/signal.h
+@@ -28,6 +28,21 @@ struct sigpending {
+ 	sigset_t signal;
+ };
+ 
++#ifndef HAVE_ARCH_COPY_SIGINFO
 +
-+/*
-+ * These work without NUMA balancing but the kernel does not care. See the
-+ * comment in include/asm-generic/pgtable.h
-+ */
-+static inline int pte_protnone(pte_t pte)
++#include <linux/string.h>
++
++static inline void copy_siginfo(struct siginfo *to, struct siginfo *from)
 +{
-+	return ((pte_val(pte) & (PTE_VALID | PTE_PROT_NONE)) = PTE_PROT_NONE);
++	if (from->si_code < 0)
++		memcpy(to, from, sizeof(*to));
++	else
++		/* _sigchld is currently the largest know union member */
++		memcpy(to, from, __ARCH_SI_PREAMBLE_SIZE + sizeof(from->_sifields._sigchld));
 +}
 +
-+static inline int pmd_protnone(pmd_t pmd)
-+{
-+	return pte_protnone(pmd_pte(pmd));
-+}
-+
-+#endif /* CONFIG_NUMA_BALANCING */
++#endif
 +
  /*
-  * THP definitions.
+  * Define some primitives to manipulate sigset_t.
   */
 -- 
-1.8.1.4
+2.4.10
 
