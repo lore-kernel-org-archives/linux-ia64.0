@@ -1,229 +1,156 @@
-From: Michal Hocko <mhocko@kernel.org>
-Date: Mon, 29 Feb 2016 12:58:17 +0000
-Subject: [PATCH 03/11] locking, rwsem: introduce basis for down_write_killable
-Message-Id: <1456750705-7141-4-git-send-email-mhocko@kernel.org>
+From: Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>
+Date: Thu, 11 Feb 2016 17:47:07 +0000
+Subject: [PATCH v2] PCI: ACPI: IA64: fix IO port generic range check
+Message-Id: <1455212827-9382-1-git-send-email-lorenzo.pieralisi@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1456750705-7141-1-git-send-email-mhocko@kernel.org>
-In-Reply-To: <1456750705-7141-1-git-send-email-mhocko@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: LKML <linux-kernel@vger.kernel.org>
-Cc: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>, Thomas Gleixner <tglx@linutronix.de>, "H. Peter Anvin" <hpa@zytor.com>, "David S. Miller" <davem@davemloft.net>, Tony Luck <tony.luck@intel.com>, Andrew Morton <akpm@linux-foundation.org>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org, Michal Hocko <mhocko@suse.com>
+To: linux-pci@vger.kernel.org
+Cc: linux-acpi@vger.kernel.org, linux-ia64@vger.kernel.org, Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>, Bjorn Helgaas <bhelgaas@google.com>, Hanjun Guo <hanjun.guo@linaro.org>, Jiang Liu <jiang.liu@linux.intel.com>, Tony Luck <tony.luck@intel.com>, Tomasz Nowicki <tn@semihalf.com>, Mark Salter <msalter@redhat.com>, "Rafael J. Wysocki" <rjw@rjwysocki.net>
 
-From: Michal Hocko <mhocko@suse.com>
+The [0 - 64k] ACPI PCI IO port resource boundary check in:
 
-Introduce a generic implementation necessary for down_write_killable.
-This is a trivial extension of the already existing down_write call
-which can be interrupted by SIGKILL.  This patch doesn't provide
-down_write_killable yet because arches have to provide the necessary
-pieces before.
+acpi_dev_ioresource_flags()
 
-rwsem_down_write_failed which is a generic slow path for the
-write lock is extended to allow a task state and renamed to
-__rwsem_down_write_failed_state. The return value is either a valid
-semaphore pointer or ERR_PTR(-EINTR).
+is currently applied blindly in the ACPI resource parsing to all
+architectures, but only x86 suffers from that IO space limitation.
 
-rwsem_down_write_failed_killable is exported as a new way to wait for
-the lock and be killable.
+On arches (ie IA64 and ARM64) where IO space is memory mapped,
+the PCI root bridges IO resource windows are firstly initialized from
+the _CRS (in acpi_decode_space()) and contain the CPU physical address
+at which a root bridge decodes IO space in the CPU physical address
+space with the offset value representing the offset required to translate
+the PCI bus address into the CPU physical address.
 
-For rwsem-spinlock implementation the current __down_write it updated
-in a similar way as __rwsem_down_write_failed_state except it doesn't
-need new exports just visible __down_write_killable.
+The IO resource windows are then parsed and updated in arch code
+before creating and enumerating PCI buses (eg IA64 add_io_space())
+to map in an arch specific way the obtained CPU physical address range
+to a slice of virtual address space reserved to map PCI IO space,
+ending up with PCI bridges resource windows containing IO
+resources like the following on a working IA64 configuration:
 
-Architectures which are not using the generic rwsem implementation are
-supposed to provide their __down_write_killable implementation and
-use rwsem_down_write_failed_killable for the slow path.
+PCI host bridge to bus 0000:00
+pci_bus 0000:00: root bus resource [io  0x1000000-0x100ffff window] (bus
+address [0x0000-0xffff])
+pci_bus 0000:00: root bus resource [mem 0x000a0000-0x000fffff window]
+pci_bus 0000:00: root bus resource [mem 0x80000000-0x8fffffff window]
+pci_bus 0000:00: root bus resource [mem 0x80004000000-0x800ffffffff window]
+pci_bus 0000:00: root bus resource [bus 00]
 
-Signed-off-by: Michal Hocko <mhocko@suse.com>
+This implies that the [0 - 64K] check in acpi_dev_ioresource_flags()
+leaves platforms with memory mapped IO space (ie IA64) broken (ie kernel
+can't claim IO resources since the host bridge IO resource is disabled
+and discarded by ACPI core code, see log on IA64 with missing root bridge
+IO resource, silently filtered by current [0 - 64k] check in
+acpi_dev_ioresource_flags()):
+
+PCI host bridge to bus 0000:00
+pci_bus 0000:00: root bus resource [mem 0x000a0000-0x000fffff window]
+pci_bus 0000:00: root bus resource [mem 0x80000000-0x8fffffff window]
+pci_bus 0000:00: root bus resource [mem 0x80004000000-0x800ffffffff window]
+pci_bus 0000:00: root bus resource [bus 00]
+
+[...]
+
+pci 0000:00:03.0: [1002:515e] type 00 class 0x030000
+pci 0000:00:03.0: reg 0x10: [mem 0x80000000-0x87ffffff pref]
+pci 0000:00:03.0: reg 0x14: [io  0x1000-0x10ff]
+pci 0000:00:03.0: reg 0x18: [mem 0x88020000-0x8802ffff]
+pci 0000:00:03.0: reg 0x30: [mem 0x88000000-0x8801ffff pref]
+pci 0000:00:03.0: supports D1 D2
+pci 0000:00:03.0: can't claim BAR 1 [io  0x1000-0x10ff]: no compatible
+bridge window
+
+For this reason, the IO port resources boundaries check in generic ACPI
+parsing code should be moved to x86 arch code so that more arches (ie
+ARM64) can benefit from the generic ACPI resources parsing interface
+without incurring in unexpected resource filtering, fixing at the same
+time current breakage on IA64.
+
+This patch moves the IO ports boundary [0 - 64k] check to x86 arch code
+code that validates the PCI host bridge resources.
+
+Fixes: 3772aea7d6f3 ("ia64/PCI/ACPI: Use common ACPI resource parsing
+interface for host bridge")
+Signed-off-by: Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>
+Tested-by: Hanjun Guo <hanjun.guo@linaro.org>
+Cc: Bjorn Helgaas <bhelgaas@google.com>
+Cc: Hanjun Guo <hanjun.guo@linaro.org>
+Cc: Jiang Liu <jiang.liu@linux.intel.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Tomasz Nowicki <tn@semihalf.com>
+Cc: Mark Salter <msalter@redhat.com>
+Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>
 ---
- include/asm-generic/rwsem.h     | 12 ++++++++++++
- include/linux/rwsem-spinlock.h  |  1 +
- include/linux/rwsem.h           |  2 ++
- kernel/locking/rwsem-spinlock.c | 23 +++++++++++++++++++++--
- kernel/locking/rwsem-xadd.c     | 31 +++++++++++++++++++++++++------
- 5 files changed, 61 insertions(+), 8 deletions(-)
+v1 -> v2
 
-diff --git a/include/asm-generic/rwsem.h b/include/asm-generic/rwsem.h
-index b8d8a6cf4ca8..3fc94a046bf5 100644
---- a/include/asm-generic/rwsem.h
-+++ b/include/asm-generic/rwsem.h
-@@ -63,6 +63,18 @@ static inline void __down_write(struct rw_semaphore *sem)
- 		rwsem_down_write_failed(sem);
+- Updated commit log to report missing IO resources
+- Fixed function ioport_valid() comment 16k/64k typo
+
+v1: https://lkml.org/lkml/2016/2/1/157
+
+ arch/x86/pci/acpi.c     | 18 +++++++++++++-----
+ drivers/acpi/resource.c |  3 ---
+ 2 files changed, 13 insertions(+), 8 deletions(-)
+
+diff --git a/arch/x86/pci/acpi.c b/arch/x86/pci/acpi.c
+index 3cd6983..cec68e7 100644
+--- a/arch/x86/pci/acpi.c
++++ b/arch/x86/pci/acpi.c
+@@ -275,11 +275,14 @@ static void pci_acpi_root_release_info(struct acpi_pci_root_info *ci)
+  *     to access PCI configuration space.
+  *
+  * So explicitly filter out PCI CFG IO ports[0xCF8-0xCFF].
++ *
++ * Furthermore, IO ports address space is limited to 64k on x86,
++ * any IO resource exceeding the boundary must therefore be discarded.
+  */
+-static bool resource_is_pcicfg_ioport(struct resource *res)
++static bool ioport_valid(struct resource *res)
+ {
+-	return (res->flags & IORESOURCE_IO) &&
+-		res->start = 0xCF8 && res->end = 0xCFF;
++	return !(res->start = 0xCF8 && res->end = 0xCFF) &&
++	       !(res->end >= 0x10003);
  }
  
-+static inline int __down_write_killable(struct rw_semaphore *sem)
-+{
-+	long tmp;
+ static int pci_acpi_root_prepare_resources(struct acpi_pci_root_info *ci)
+@@ -287,13 +290,18 @@ static int pci_acpi_root_prepare_resources(struct acpi_pci_root_info *ci)
+ 	struct acpi_device *device = ci->bridge;
+ 	int busnum = ci->root->secondary.start;
+ 	struct resource_entry *entry, *tmp;
++	struct resource *res;
+ 	int status;
+ 
+ 	status = acpi_pci_probe_root_resources(ci);
+ 	if (pci_use_crs) {
+-		resource_list_for_each_entry_safe(entry, tmp, &ci->resources)
+-			if (resource_is_pcicfg_ioport(entry->res))
++		resource_list_for_each_entry_safe(entry, tmp, &ci->resources) {
++			res = entry->res;
 +
-+	tmp = atomic_long_add_return_acquire(RWSEM_ACTIVE_WRITE_BIAS,
-+				     (atomic_long_t *)&sem->count);
-+	if (unlikely(tmp != RWSEM_ACTIVE_WRITE_BIAS))
-+		if (IS_ERR(rwsem_down_write_failed_killable(sem)))
-+			return -EINTR;
-+	return 0;
-+}
-+
- static inline int __down_write_trylock(struct rw_semaphore *sem)
- {
- 	long tmp;
-diff --git a/include/linux/rwsem-spinlock.h b/include/linux/rwsem-spinlock.h
-index a733a5467e6c..ae0528b834cd 100644
---- a/include/linux/rwsem-spinlock.h
-+++ b/include/linux/rwsem-spinlock.h
-@@ -34,6 +34,7 @@ struct rw_semaphore {
- extern void __down_read(struct rw_semaphore *sem);
- extern int __down_read_trylock(struct rw_semaphore *sem);
- extern void __down_write(struct rw_semaphore *sem);
-+extern int __must_check __down_write_killable(struct rw_semaphore *sem);
- extern int __down_write_trylock(struct rw_semaphore *sem);
- extern void __up_read(struct rw_semaphore *sem);
- extern void __up_write(struct rw_semaphore *sem);
-diff --git a/include/linux/rwsem.h b/include/linux/rwsem.h
-index 8f498cdde280..7d7ae029dac5 100644
---- a/include/linux/rwsem.h
-+++ b/include/linux/rwsem.h
-@@ -14,6 +14,7 @@
- #include <linux/list.h>
- #include <linux/spinlock.h>
- #include <linux/atomic.h>
-+#include <linux/err.h>
- #ifdef CONFIG_RWSEM_SPIN_ON_OWNER
- #include <linux/osq_lock.h>
- #endif
-@@ -43,6 +44,7 @@ struct rw_semaphore {
- 
- extern struct rw_semaphore *rwsem_down_read_failed(struct rw_semaphore *sem);
- extern struct rw_semaphore *rwsem_down_write_failed(struct rw_semaphore *sem);
-+extern struct rw_semaphore *rwsem_down_write_failed_killable(struct rw_semaphore *sem);
- extern struct rw_semaphore *rwsem_wake(struct rw_semaphore *);
- extern struct rw_semaphore *rwsem_downgrade_wake(struct rw_semaphore *sem);
- 
-diff --git a/kernel/locking/rwsem-spinlock.c b/kernel/locking/rwsem-spinlock.c
-index bab26104a5d0..d1d04ca10d0e 100644
---- a/kernel/locking/rwsem-spinlock.c
-+++ b/kernel/locking/rwsem-spinlock.c
-@@ -191,11 +191,12 @@ int __down_read_trylock(struct rw_semaphore *sem)
- /*
-  * get a write lock on the semaphore
-  */
--void __sched __down_write(struct rw_semaphore *sem)
-+int __sched __down_write_state(struct rw_semaphore *sem, int state)
- {
- 	struct rwsem_waiter waiter;
- 	struct task_struct *tsk;
- 	unsigned long flags;
-+	int ret = 0;
- 
- 	raw_spin_lock_irqsave(&sem->wait_lock, flags);
- 
-@@ -215,16 +216,34 @@ void __sched __down_write(struct rw_semaphore *sem)
- 		 */
- 		if (sem->count = 0)
- 			break;
--		set_task_state(tsk, TASK_UNINTERRUPTIBLE);
-+		set_task_state(tsk, state);
- 		raw_spin_unlock_irqrestore(&sem->wait_lock, flags);
- 		schedule();
-+		if (signal_pending_state(state, current)) {
-+			ret = -EINTR;
-+			raw_spin_lock_irqsave(&sem->wait_lock, flags);
-+			goto out;
++			if (res->flags & IORESOURCE_IO && !ioport_valid(res))
+ 				resource_list_destroy_entry(entry);
 +		}
- 		raw_spin_lock_irqsave(&sem->wait_lock, flags);
++
+ 		return status;
  	}
- 	/* got the lock */
- 	sem->count = -1;
-+out:
- 	list_del(&waiter.list);
  
- 	raw_spin_unlock_irqrestore(&sem->wait_lock, flags);
-+
-+	return ret;
-+}
-+
-+void __sched __down_write(struct rw_semaphore *sem)
-+{
-+	__down_write_state(sem, TASK_UNINTERRUPTIBLE);
-+}
-+
-+int __sched __down_write_killable(struct rw_semaphore *sem)
-+{
-+	return __down_write_state(sem, TASK_KILLABLE);
- }
+diff --git a/drivers/acpi/resource.c b/drivers/acpi/resource.c
+index d02fd53..c112e1d 100644
+--- a/drivers/acpi/resource.c
++++ b/drivers/acpi/resource.c
+@@ -127,9 +127,6 @@ static void acpi_dev_ioresource_flags(struct resource *res, u64 len,
+ 	if (!acpi_dev_resource_len_valid(res->start, res->end, len, true))
+ 		res->flags |= IORESOURCE_DISABLED | IORESOURCE_UNSET;
  
- /*
-diff --git a/kernel/locking/rwsem-xadd.c b/kernel/locking/rwsem-xadd.c
-index a4d4de05b2d1..5cec34f1ad6f 100644
---- a/kernel/locking/rwsem-xadd.c
-+++ b/kernel/locking/rwsem-xadd.c
-@@ -433,12 +433,13 @@ static inline bool rwsem_has_spinner(struct rw_semaphore *sem)
- /*
-  * Wait until we successfully acquire the write lock
-  */
--__visible
--struct rw_semaphore __sched *rwsem_down_write_failed(struct rw_semaphore *sem)
-+static inline struct rw_semaphore *
-+__rwsem_down_write_failed_state(struct rw_semaphore *sem, int state)
- {
- 	long count;
- 	bool waiting = true; /* any queued threads before us */
- 	struct rwsem_waiter waiter;
-+	struct rw_semaphore *ret = sem;
- 
- 	/* undo write bias from down_write operation, stop active locking */
- 	count = rwsem_atomic_update(-RWSEM_ACTIVE_WRITE_BIAS, sem);
-@@ -478,7 +479,7 @@ struct rw_semaphore __sched *rwsem_down_write_failed(struct rw_semaphore *sem)
- 		count = rwsem_atomic_update(RWSEM_WAITING_BIAS, sem);
- 
- 	/* wait until we successfully acquire the lock */
--	set_current_state(TASK_UNINTERRUPTIBLE);
-+	set_current_state(state);
- 	while (true) {
- 		if (rwsem_try_write_lock(count, sem))
- 			break;
-@@ -487,20 +488,38 @@ struct rw_semaphore __sched *rwsem_down_write_failed(struct rw_semaphore *sem)
- 		/* Block until there are no active lockers. */
- 		do {
- 			schedule();
--			set_current_state(TASK_UNINTERRUPTIBLE);
-+			if (signal_pending_state(state, current)) {
-+				raw_spin_lock_irq(&sem->wait_lock);
-+				ret = ERR_PTR(-EINTR);
-+				goto out;
-+			}
-+			set_current_state(state);
- 		} while ((count = sem->count) & RWSEM_ACTIVE_MASK);
- 
- 		raw_spin_lock_irq(&sem->wait_lock);
- 	}
- 	__set_current_state(TASK_RUNNING);
+-	if (res->end >= 0x10003)
+-		res->flags |= IORESOURCE_DISABLED | IORESOURCE_UNSET;
 -
-+out:
- 	list_del(&waiter.list);
- 	raw_spin_unlock_irq(&sem->wait_lock);
- 
--	return sem;
-+	return ret;
-+}
-+
-+__visible struct rw_semaphore * __sched
-+rwsem_down_write_failed(struct rw_semaphore *sem)
-+{
-+	return __rwsem_down_write_failed_state(sem, TASK_UNINTERRUPTIBLE);
- }
- EXPORT_SYMBOL(rwsem_down_write_failed);
- 
-+__visible struct rw_semaphore * __sched
-+rwsem_down_write_failed_killable(struct rw_semaphore *sem)
-+{
-+	return __rwsem_down_write_failed_state(sem, TASK_KILLABLE);
-+}
-+EXPORT_SYMBOL(rwsem_down_write_failed_killable);
-+
- /*
-  * handle waking up a waiter on the semaphore
-  * - up_read/up_write has decremented the active part of count if we come here
+ 	if (io_decode = ACPI_DECODE_16)
+ 		res->flags |= IORESOURCE_IO_16BIT_ADDR;
+ 	if (translation_type = ACPI_SPARSE_TRANSLATION)
 -- 
-2.7.0
+2.5.1
 
