@@ -1,70 +1,32 @@
-From: Michal Hocko <mhocko@kernel.org>
-Date: Tue, 02 Feb 2016 20:19:22 +0000
-Subject: [RFC 05/12] ia64, rwsem: provide __down_write_killable
-Message-Id: <1454444369-2146-6-git-send-email-mhocko@kernel.org>
+From: "Rafael J. Wysocki" <rjw@rjwysocki.net>
+Date: Tue, 16 Feb 2016 20:18:36 +0000
+Subject: Re: [PATCH v3 4/5] ACPI / processor_idle : introduce ARCH_SUPPORTS_ACPI_PROCESSOR_CSTATE
+Message-Id: <12469811.iv3SctjXxl@vostro.rjw.lan>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1454444369-2146-1-git-send-email-mhocko@kernel.org>
-In-Reply-To: <1454444369-2146-1-git-send-email-mhocko@kernel.org>
+References: <1449065446-26115-1-git-send-email-sudeep.holla@arm.com> <1449065446-26115-5-git-send-email-sudeep.holla@arm.com>
+In-Reply-To: <1449065446-26115-5-git-send-email-sudeep.holla@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: LKML <linux-kernel@vger.kernel.org>
-Cc: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>, Thomas Gleixner <tglx@linutronix.de>, "H. Peter Anvin" <hpa@zytor.com>, "David S. Miller" <davem@davemloft.net>, Tony Luck <tony.luck@intel.com>, Andrew Morton <akpm@linux-foundation.org>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org, Michal Hocko <mhocko@suse.com>
+To: Sudeep Holla <sudeep.holla@arm.com>
+Cc: linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, x86@kernel.org, Al Stone <al.stone@linaro.org>, Lorenzo Pieralisi <Lorenzo.Pieralisi@arm.com>, Mahesh Sivasubramanian <msivasub@codeaurora.org>, Ashwin Chaugule <ashwin.chaugule@linaro.org>, Prashanth Prakash <pprakash@codeaurora.org>
 
-From: Michal Hocko <mhocko@suse.com>
+On Wednesday, December 02, 2015 02:10:45 PM Sudeep Holla wrote:
+> ACPI 6.0 adds a new method to specify the CPU idle states(C-states)
+> called Low Power Idle(LPI) states. Since new architectures like ARM64
+> use only LPIs, introduce ARCH_SUPPORTS_ACPI_PROCESSOR_CSTATE to
+> encapsulate all the code supporting the old style C-states(_CST)
 
-Introduce ___down_write for the fast path and reuse it for __down_write
-resp. __down_write_killable each using the respective generic slow path
-(rwsem_down_write_failed resp. rwsem_down_write_failed_killable).
+No.
 
-Signed-off-by: Michal Hocko <mhocko@suse.com>
----
- arch/ia64/include/asm/rwsem.h | 22 +++++++++++++++++++---
- 1 file changed, 19 insertions(+), 3 deletions(-)
+The way it really should work is to check if the firmware supports LPI
+(and what kind of it) and try to use _CST if LPI is not supported.
 
-diff --git a/arch/ia64/include/asm/rwsem.h b/arch/ia64/include/asm/rwsem.h
-index 3027e7516d85..5e78cb40d9df 100644
---- a/arch/ia64/include/asm/rwsem.h
-+++ b/arch/ia64/include/asm/rwsem.h
-@@ -49,8 +49,8 @@ __down_read (struct rw_semaphore *sem)
- /*
-  * lock for writing
-  */
--static inline void
--__down_write (struct rw_semaphore *sem)
-+static inline long
-+___down_write (struct rw_semaphore *sem)
- {
- 	long old, new;
- 
-@@ -59,10 +59,26 @@ __down_write (struct rw_semaphore *sem)
- 		new = old + RWSEM_ACTIVE_WRITE_BIAS;
- 	} while (cmpxchg_acq(&sem->count, old, new) != old);
- 
--	if (old != 0)
-+	return old;
-+}
-+
-+static inline void
-+__down_write (struct rw_semaphore *sem)
-+{
-+	if (___down_write(sem))
- 		rwsem_down_write_failed(sem);
- }
- 
-+static inline int
-+__down_write_killable (struct rw_semaphore *sem)
-+{
-+	if (___down_write(sem))
-+		if (IS_ERR(rwsem_down_write_failed_killable(sem)))
-+			return -EINTR;
-+
-+	return 0;
-+}
-+
- /*
-  * unlock after reading
-  */
--- 
-2.7.0
+If LPI is supported by the firmware, use it if the LPI objects are
+present as expected or fall back to using _CST otherwise.
+
+This way it all should work without any new Kconfig options.
+
+Thanks,
+Rafael
 
