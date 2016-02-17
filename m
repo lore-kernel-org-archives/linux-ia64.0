@@ -1,68 +1,117 @@
-From: Adam Buchbinder <adam.buchbinder@gmail.com>
-Date: Wed, 24 Feb 2016 18:50:29 +0000
-Subject: [PATCH] ia64: Fix misspellings in comments.
-Message-Id: <1456339829-4234-1-git-send-email-adam.buchbinder@gmail.com>
+From: Michal Hocko <mhocko@kernel.org>
+Date: Wed, 17 Feb 2016 16:41:56 +0000
+Subject: [RFC 11/12 v1] x86, rwsem: provide __down_write_killable
+Message-Id: <20160217164156.GU29196@dhcp22.suse.cz>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1454444369-2146-1-git-send-email-mhocko@kernel.org>
+ <1454444369-2146-12-git-send-email-mhocko@kernel.org>
+In-Reply-To: <1454444369-2146-12-git-send-email-mhocko@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: LKML <linux-kernel@vger.kernel.org>
+Cc: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>, Thomas Gleixner <tglx@linutronix.de>, "H. Peter Anvin" <hpa@zytor.com>, "David S. Miller" <davem@davemloft.net>, Tony Luck <tony.luck@intel.com>, Andrew Morton <akpm@linux-foundation.org>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org
 
-Signed-off-by: Adam Buchbinder <adam.buchbinder@gmail.com>
+OK, so I have dropped patch 10 and reworked the x86 part to use the same
+asm as __down_write uses. Does this look any better?
+
+I am not an expert in inline asm so the way I am doing it might be not
+optimal but at least the gerenated code looks sane (no changes for the
+regular __down_write).
 ---
- arch/ia64/include/asm/sn/ioc3.h   | 2 +-
- arch/ia64/include/asm/sn/shubio.h | 4 ++--
- arch/ia64/kernel/efi.c            | 2 +-
- 3 files changed, 4 insertions(+), 4 deletions(-)
+From d9a24cd6d6eb48602b11df56ecc3ea4e223ac18d Mon Sep 17 00:00:00 2001
+From: Michal Hocko <mhocko@suse.com>
+Date: Mon, 1 Feb 2016 18:21:51 +0100
+Subject: [PATCH] x86, rwsem: provide __down_write_killable
 
-diff --git a/arch/ia64/include/asm/sn/ioc3.h b/arch/ia64/include/asm/sn/ioc3.h
-index 95ed6cc..6eaa3cc 100644
---- a/arch/ia64/include/asm/sn/ioc3.h
-+++ b/arch/ia64/include/asm/sn/ioc3.h
-@@ -131,7 +131,7 @@ struct ioc3 {
- #define SSCR_PAUSE_STATE	0x40000000	/* set when PAUSE takes effect*/
- #define SSCR_RESET		0x80000000	/* reset DMA channels */
+which uses the same fast path as __down_write except it falls back to
+call_rwsem_down_write_failed_killable slow path and return -EINTR if
+killed. To prevent from code duplication extract the skeleton of
+__down_write into a helper macro which just takes the semaphore
+and the slow path function to be called.
+
+Signed-off-by: Michal Hocko <mhocko@suse.com>
+---
+ arch/x86/include/asm/rwsem.h | 41 ++++++++++++++++++++++++++++-------------
+ arch/x86/lib/rwsem.S         |  8 ++++++++
+ 2 files changed, 36 insertions(+), 13 deletions(-)
+
+diff --git a/arch/x86/include/asm/rwsem.h b/arch/x86/include/asm/rwsem.h
+index d79a218675bc..4c3d90dbe89a 100644
+--- a/arch/x86/include/asm/rwsem.h
++++ b/arch/x86/include/asm/rwsem.h
+@@ -99,21 +99,36 @@ static inline int __down_read_trylock(struct rw_semaphore *sem)
+ /*
+  * lock for writing
+  */
++#define ____down_write(sem, slow_path)			\
++({							\
++	long tmp;					\
++	struct rw_semaphore* ret = sem;			\
++	asm volatile("# beginning down_write\n\t"	\
++		     LOCK_PREFIX "  xadd      %1,(%2)\n\t"	\
++		     /* adds 0xffff0001, returns the old value */ \
++		     "  test " __ASM_SEL(%w1,%k1) "," __ASM_SEL(%w1,%k1) "\n\t" \
++		     /* was the active mask 0 before? */\
++		     "  jz        1f\n"			\
++		     "  call " slow_path "\n"		\
++		     "1:\n"				\
++		     "# ending down_write"		\
++		     : "+m" (sem->count), "=d" (tmp), "+a" (ret)	\
++		     : "a" (sem), "1" (RWSEM_ACTIVE_WRITE_BIAS) \
++		     : "memory", "cc");			\
++	ret;						\
++})
++
+ static inline void __down_write(struct rw_semaphore *sem)
+ {
+-	long tmp;
+-	asm volatile("# beginning down_write\n\t"
+-		     LOCK_PREFIX "  xadd      %1,(%2)\n\t"
+-		     /* adds 0xffff0001, returns the old value */
+-		     "  test " __ASM_SEL(%w1,%k1) "," __ASM_SEL(%w1,%k1) "\n\t"
+-		     /* was the active mask 0 before? */
+-		     "  jz        1f\n"
+-		     "  call call_rwsem_down_write_failed\n"
+-		     "1:\n"
+-		     "# ending down_write"
+-		     : "+m" (sem->count), "=d" (tmp)
+-		     : "a" (sem), "1" (RWSEM_ACTIVE_WRITE_BIAS)
+-		     : "memory", "cc");
++	____down_write(sem, "call_rwsem_down_write_failed");
++}
++
++static inline int __down_write_killable(struct rw_semaphore *sem)
++{
++	if (IS_ERR(____down_write(sem, "call_rwsem_down_write_failed_killable")))
++		return -EINTR;
++
++	return 0;
+ }
  
--/* all producer/comsumer pointers are the same bitfield */
-+/* all producer/consumer pointers are the same bitfield */
- #define PROD_CONS_PTR_4K	0x00000ff8	/* for 4K buffers */
- #define PROD_CONS_PTR_1K	0x000003f8	/* for 1K buffers */
- #define PROD_CONS_PTR_OFF	3
-diff --git a/arch/ia64/include/asm/sn/shubio.h b/arch/ia64/include/asm/sn/shubio.h
-index ecb8a49..8a1ec13 100644
---- a/arch/ia64/include/asm/sn/shubio.h
-+++ b/arch/ia64/include/asm/sn/shubio.h
-@@ -1385,7 +1385,7 @@ typedef union ii_ibcr_u {
-  * respones are captured until IXSS[VALID] is cleared by setting the    *
-  * appropriate bit in IECLR. Every time a spurious read response is     *
-  * detected, the SPUR_RD bit of the PRB corresponding to the incoming   *
-- * message's SIDN field is set. This always happens, regarless of       *
-+ * message's SIDN field is set. This always happens, regardless of       *
-  * whether a header is captured. The programmer should check            *
-  * IXSM[SIDN] to determine which widget sent the spurious response,     *
-  * because there may be more than one SPUR_RD bit set in the PRB        *
-@@ -2997,7 +2997,7 @@ typedef union ii_ippr_u {
  /*
-  * Values for field imsgtype
-  */
--#define IIO_ICRB_IMSGT_XTALK    0	/* Incoming Meessage from Xtalk */
-+#define IIO_ICRB_IMSGT_XTALK    0	/* Incoming message from Xtalk */
- #define IIO_ICRB_IMSGT_BTE      1	/* Incoming message from BTE    */
- #define IIO_ICRB_IMSGT_SN1NET   2	/* Incoming message from SN1 net */
- #define IIO_ICRB_IMSGT_CRB      3	/* Incoming message from CRB ???  */
-diff --git a/arch/ia64/kernel/efi.c b/arch/ia64/kernel/efi.c
-index caae3f4..b52a074 100644
---- a/arch/ia64/kernel/efi.c
-+++ b/arch/ia64/kernel/efi.c
-@@ -966,7 +966,7 @@ efi_uart_console_only(void)
- /*
-  * Look for the first granule aligned memory descriptor memory
-  * that is big enough to hold EFI memory map. Make sure this
-- * descriptor is atleast granule sized so it does not get trimmed
-+ * descriptor is at least granule sized so it does not get trimmed
-  */
- struct kern_memdesc *
- find_memmap_space (void)
+diff --git a/arch/x86/lib/rwsem.S b/arch/x86/lib/rwsem.S
+index 40027db99140..d1a1397e1fb3 100644
+--- a/arch/x86/lib/rwsem.S
++++ b/arch/x86/lib/rwsem.S
+@@ -101,6 +101,14 @@ ENTRY(call_rwsem_down_write_failed)
+ 	ret
+ ENDPROC(call_rwsem_down_write_failed)
+ 
++ENTRY(call_rwsem_down_write_failed_killable)
++	save_common_regs
++	movq %rax,%rdi
++	call rwsem_down_write_failed_killable
++	restore_common_regs
++	ret
++ENDPROC(call_rwsem_down_write_failed_killable)
++
+ ENTRY(call_rwsem_wake)
+ 	/* do nothing if still outstanding active readers */
+ 	__ASM_HALF_SIZE(dec) %__ASM_HALF_REG(dx)
 -- 
-2.7.0.rc3.207.g0ac5344
+2.7.0
 
+-- 
+Michal Hocko
+SUSE Labs
