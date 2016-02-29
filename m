@@ -1,65 +1,105 @@
-From: Sudeep Holla <sudeep.holla@arm.com>
-Date: Wed, 17 Feb 2016 12:03:05 +0000
-Subject: Re: [PATCH v3 2/5] ACPI / sleep: move acpi_processor_sleep to sleep.c
-Message-Id: <56C46179.2040806@arm.com>
+From: Michal Hocko <mhocko@kernel.org>
+Date: Mon, 29 Feb 2016 12:58:25 +0000
+Subject: [PATCH 11/11] locking, rwsem: provide down_write_killable
+Message-Id: <1456750705-7141-12-git-send-email-mhocko@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1449065446-26115-1-git-send-email-sudeep.holla@arm.com>
- <1449065446-26115-3-git-send-email-sudeep.holla@arm.com>
- <2288656.HghHDFBFlP@vostro.rjw.lan>
-In-Reply-To: <2288656.HghHDFBFlP@vostro.rjw.lan>
+References: <1456750705-7141-1-git-send-email-mhocko@kernel.org>
+In-Reply-To: <1456750705-7141-1-git-send-email-mhocko@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Cc: Sudeep Holla <sudeep.holla@arm.com>, linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, x86@kernel.org, Al Stone <al.stone@linaro.org>, Lorenzo Pieralisi <Lorenzo.Pieralisi@arm.com>, Mahesh Sivasubramanian <msivasub@codeaurora.org>, Ashwin Chaugule <ashwin.chaugule@linaro.org>, Prashanth Prakash <pprakash@codeaurora.org>
+To: LKML <linux-kernel@vger.kernel.org>
+Cc: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>, Thomas Gleixner <tglx@linutronix.de>, "H. Peter Anvin" <hpa@zytor.com>, "David S. Miller" <davem@davemloft.net>, Tony Luck <tony.luck@intel.com>, Andrew Morton <akpm@linux-foundation.org>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org, Michal Hocko <mhocko@suse.com>
 
+From: Michal Hocko <mhocko@suse.com>
 
+Now that all the architectures implement the necessary glue code
+we can introduce down_write_killable. The only difference wrt. regular
+down_write is that the slow path waits in TASK_KILLABLE state and the
+interruption by the fatal signal is reported as -EINTR to the caller.
 
-On 16/02/16 20:13, Rafael J. Wysocki wrote:
-> On Wednesday, December 02, 2015 02:10:43 PM Sudeep Holla wrote:
->> acpi_processor_sleep is neither related nor used by CPUIdle framework.
->> It's used in system suspend/resume path as a syscore operation. It makes
->> more sense to move it to acpi/sleep.c where all the S-state transition
->> (a.k.a. Linux system suspend/hiberate) related code are present.
->>
->> Also make it depend on CONFIG_ACPI_SYSTEM_POWER_STATES_SUPPORT so that
->> it's not compiled on architecture like ARM64 where S-states are not
->> yet defined in ACPI.
->>
->> Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>
->> Signed-off-by: Sudeep Holla <sudeep.holla@arm.com>
->
-> To me this goes in the right direction, but I'd take it a bit further.
->
->> ---
->>   drivers/acpi/processor_driver.c |  2 --
->>   drivers/acpi/processor_idle.c   | 37 -------------------------------------
->>   drivers/acpi/sleep.c            | 35 +++++++++++++++++++++++++++++++++++
->>   include/acpi/processor.h        |  8 --------
->>   4 files changed, 35 insertions(+), 47 deletions(-)
->>
+Signed-off-by: Michal Hocko <mhocko@suse.com>
+---
+ include/linux/lockdep.h | 15 +++++++++++++++
+ include/linux/rwsem.h   |  1 +
+ kernel/locking/rwsem.c  | 19 +++++++++++++++++++
+ 3 files changed, 35 insertions(+)
 
-[...]
-
->> @@ -677,6 +678,39 @@ static void acpi_sleep_suspend_setup(void)
->>   static inline void acpi_sleep_suspend_setup(void) {}
->>   #endif /* !CONFIG_SUSPEND */
->>
->> +#ifdef CONFIG_PM_SLEEP
->> +static u32 saved_bm_rld;
->> +
->> +static int acpi_processor_suspend(void)
->
-> Why do we need mention processor in the function name here (and below)?
->
-> I'd call it something like acpi_save/restore_bm_rld() (maybe with a short comment
-> explaining what the BM RLD is).
->
-
-Sure, I had thought so initially and wanted to do that in a separate
-patch for easy of review but totally forgot later. Thanks for pointing
-it out. Updated patch on it's way.
-
+diff --git a/include/linux/lockdep.h b/include/linux/lockdep.h
+index d026b190c530..accfe56d8c51 100644
+--- a/include/linux/lockdep.h
++++ b/include/linux/lockdep.h
+@@ -444,6 +444,18 @@ do {								\
+ 	lock_acquired(&(_lock)->dep_map, _RET_IP_);			\
+ } while (0)
+ 
++#define LOCK_CONTENDED_RETURN(_lock, try, lock)			\
++({								\
++	int ____err = 0;					\
++	if (!try(_lock)) {					\
++		lock_contended(&(_lock)->dep_map, _RET_IP_);	\
++		____err = lock(_lock);				\
++	}							\
++	if (!____err)						\
++		lock_acquired(&(_lock)->dep_map, _RET_IP_);	\
++	____err;						\
++})
++
+ #else /* CONFIG_LOCK_STAT */
+ 
+ #define lock_contended(lockdep_map, ip) do {} while (0)
+@@ -452,6 +464,9 @@ do {								\
+ #define LOCK_CONTENDED(_lock, try, lock) \
+ 	lock(_lock)
+ 
++#define LOCK_CONTENDED_RETURN(_lock, try, lock) \
++	lock(_lock)
++
+ #endif /* CONFIG_LOCK_STAT */
+ 
+ #ifdef CONFIG_LOCKDEP
+diff --git a/include/linux/rwsem.h b/include/linux/rwsem.h
+index 7d7ae029dac5..d1c12d160ace 100644
+--- a/include/linux/rwsem.h
++++ b/include/linux/rwsem.h
+@@ -118,6 +118,7 @@ extern int down_read_trylock(struct rw_semaphore *sem);
+  * lock for writing
+  */
+ extern void down_write(struct rw_semaphore *sem);
++extern int __must_check down_write_killable(struct rw_semaphore *sem);
+ 
+ /*
+  * trylock for writing -- returns 1 if successful, 0 if contention
+diff --git a/kernel/locking/rwsem.c b/kernel/locking/rwsem.c
+index 205be0ce34de..c817216c1615 100644
+--- a/kernel/locking/rwsem.c
++++ b/kernel/locking/rwsem.c
+@@ -55,6 +55,25 @@ void __sched down_write(struct rw_semaphore *sem)
+ EXPORT_SYMBOL(down_write);
+ 
+ /*
++ * lock for writing
++ */
++int __sched down_write_killable(struct rw_semaphore *sem)
++{
++	might_sleep();
++	rwsem_acquire(&sem->dep_map, 0, 0, _RET_IP_);
++
++	if (LOCK_CONTENDED_RETURN(sem, __down_write_trylock, __down_write_killable)) {
++		rwsem_release(&sem->dep_map, 1, _RET_IP_);
++		return -EINTR;
++	}
++
++	rwsem_set_owner(sem);
++	return 0;
++}
++
++EXPORT_SYMBOL(down_write_killable);
++
++/*
+  * trylock for writing -- returns 1 if successful, 0 if contention
+  */
+ int down_write_trylock(struct rw_semaphore *sem)
 -- 
-Regards,
-Sudeep
+2.7.0
+
