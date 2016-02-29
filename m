@@ -1,227 +1,188 @@
-From: Sudeep Holla <sudeep.holla@arm.com>
-Date: Wed, 17 Feb 2016 16:10:11 +0000
-Subject: Re: [PATCH v3 5/5] ACPI / processor_idle: Add support for Low Power Idle(LPI) states
-Message-Id: <56C49B63.9050102@arm.com>
+From: Michal Hocko <mhocko@kernel.org>
+Date: Mon, 29 Feb 2016 12:58:15 +0000
+Subject: [PATCH 01/11] locking, rwsem: get rid of __down_write_nested
+Message-Id: <1456750705-7141-2-git-send-email-mhocko@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1449065446-26115-1-git-send-email-sudeep.holla@arm.com>
- <1449065446-26115-6-git-send-email-sudeep.holla@arm.com>
- <8070621.77MVWuTaHa@vostro.rjw.lan>
-In-Reply-To: <8070621.77MVWuTaHa@vostro.rjw.lan>
+References: <1456750705-7141-1-git-send-email-mhocko@kernel.org>
+In-Reply-To: <1456750705-7141-1-git-send-email-mhocko@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Cc: Sudeep Holla <sudeep.holla@arm.com>, linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, x86@kernel.org, Al Stone <al.stone@linaro.org>, Lorenzo Pieralisi <Lorenzo.Pieralisi@arm.com>, Mahesh Sivasubramanian <msivasub@codeaurora.org>, Ashwin Chaugule <ashwin.chaugule@linaro.org>, Prashanth Prakash <pprakash@codeaurora.org>
+To: LKML <linux-kernel@vger.kernel.org>
+Cc: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>, Thomas Gleixner <tglx@linutronix.de>, "H. Peter Anvin" <hpa@zytor.com>, "David S. Miller" <davem@davemloft.net>, Tony Luck <tony.luck@intel.com>, Andrew Morton <akpm@linux-foundation.org>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org, Michal Hocko <mhocko@suse.com>
 
+From: Michal Hocko <mhocko@suse.com>
 
+This is no longer used anywhere and all callers (__down_write) use
+0 as a subclass. Ditch __down_write_nested to make the code easier
+to follow.
 
-On 16/02/16 20:46, Rafael J. Wysocki wrote:
-> On Wednesday, December 02, 2015 02:10:46 PM Sudeep Holla wrote:
->> ACPI 6.0 introduced an optional object _LPI that provides an alternate
->> method to describe Low Power Idle states. It defines the local power
->> states for each node in a hierarchical processor topology. The OSPM can
->> use _LPI object to select a local power state for each level of processor
->> hierarchy in the system. They used to produce a composite power state
->> request that is presented to the platform by the OSPM.
->>
->> Since multiple processors affect the idle state for any non-leaf hierarchy
->> node, coordination of idle state requests between the processors is
->> required. ACPI supports two different coordination schemes: Platform
->> coordinated and  OS initiated.
->>
->> This patch adds initial support for Platform coordination scheme of LPI.
->>
->> Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>
->> Signed-off-by: Sudeep Holla <sudeep.holla@arm.com>
->
-> My first point here would be the same as for [4/5]: please don't introduce
-> new Kconfig options if you don't have to (and you clearly don't have to in this
-> case, because it all can be made work without new Kconfig options).
->
+This shouldn't introduce any functional change.
 
-Right, this was kind of defensive approach initially so as to not break
-anything on x86, rather add anything new to x86 code path. I have
-removed it now.
+Signed-off-by: Michal Hocko <mhocko@suse.com>
+---
+ arch/s390/include/asm/rwsem.h   | 7 +------
+ arch/sh/include/asm/rwsem.h     | 5 -----
+ arch/sparc/include/asm/rwsem.h  | 7 +------
+ arch/x86/include/asm/rwsem.h    | 7 +------
+ include/asm-generic/rwsem.h     | 7 +------
+ include/linux/rwsem-spinlock.h  | 1 -
+ kernel/locking/rwsem-spinlock.c | 7 +------
+ 7 files changed, 5 insertions(+), 36 deletions(-)
 
->> ---
->>   drivers/acpi/Kconfig            |   3 +
->>   drivers/acpi/bus.c              |   8 +-
->>   drivers/acpi/processor_driver.c |   2 +-
->>   drivers/acpi/processor_idle.c   | 440 +++++++++++++++++++++++++++++++++++-----
->>   include/acpi/processor.h        |  30 ++-
->>   include/linux/acpi.h            |   4 +
->>   6 files changed, 435 insertions(+), 52 deletions(-)
->>
->> diff --git a/drivers/acpi/Kconfig b/drivers/acpi/Kconfig
->> index 12873f0b8141..89a2d9b81feb 100644
->> --- a/drivers/acpi/Kconfig
->> +++ b/drivers/acpi/Kconfig
->> @@ -51,6 +51,9 @@ config ARCH_MIGHT_HAVE_ACPI_PDC
->>   config ARCH_SUPPORTS_ACPI_PROCESSOR_CSTATE
->>   	bool
->>
->> +config ARCH_SUPPORTS_ACPI_PROCESSOR_LPI
->
-> Not needed.
->
-
-Done
-
->> +	bool
->> +
->>   config ACPI_GENERIC_GSI
->>   	bool
->>
->> diff --git a/drivers/acpi/bus.c b/drivers/acpi/bus.c
->> index a212cefae524..2e9e2e3fde6a 100644
->> --- a/drivers/acpi/bus.c
->> +++ b/drivers/acpi/bus.c
->> @@ -301,6 +301,7 @@ acpi_status acpi_run_osc(acpi_handle handle, struct acpi_osc_context *context)
->>   EXPORT_SYMBOL(acpi_run_osc);
->>
->>   bool osc_sb_apei_support_acked;
->> +bool osc_pc_lpi_support_acked;
->
-> Maybe call it osc_pc_lpi_support_confirmed.  And add a comment describing what
-> "PC LPI" means (a pointer to the relevant spec section might be useful too).
->
-
-Agreed and done
-
-[...]
-
->> @@ -943,24 +906,407 @@ static inline void acpi_processor_cstate_first_run_checks(void)
->>
->>   static inline int disabled_by_idle_boot_param(void) { return 0; }
->>   static inline void acpi_processor_cstate_first_run_checks(void) { }
->> -static int acpi_processor_get_power_info(struct acpi_processor *pr)
->> +static int acpi_processor_get_cstate_info(struct acpi_processor *pr)
->>   {
->>   	return -ENODEV;
->>   }
->> -
->
-> Unrelated whitespace change.
->
-
-Removed
-
-[...]
-
->> +
->> +	/* There must be at least 4 elements = 3 elements + 1 package */
->> +	if (!lpi || lpi->type != ACPI_TYPE_PACKAGE || lpi->package.count < 4) {
->> +		pr_info("not enough elements in _LPI\n");
->
-> pr_debug()?  Plus maybe point to the LPI object in question in that message?
->
->> +		ret = -EFAULT;
->
-> -ENXIO?  -EFAULT has a specific meaning which doesn't apply here.
->
-
-Both done
-
->> +
->> +		/* TODO this long list is looking insane now
->> +		 * need a cleaner and saner way to read the elements
->> +		 */
->
-> Well, I'm not sure about the above comment.  The code is what it is, anyone
-> can draw their own conclusions. :-)
->
-
-Well that's stray leftover comment. When I started adding LPI changes, I
-initially thought they may be better way to do that, but I have now
-realized it's only way :). I will remove it
-
-
-> I would consider storing the whole buffer instead of trying to decode it
-> upfront, though.  You need to flatten it etc going forward, so maybe
-> decode it at that time?
->
-
-OK, I will look at this now.
-
-> Also I'm not sure about silent discarding things that look defective.  I would
-> at least add a debug message to wherever this is done and maybe we can try
-> to fix up or fall back to some sane defaults at least in some cases?
->
-
-Agreed.
-
-
-
-[...]
-
->> +	info = kcalloc(max_leaf_depth + 1, sizeof(*info), GFP_KERNEL);
->> +	if (!info)
->> +		return -ENOMEM;
->> +
->> +	phandle = pr->handle;
->
-> phandle is easily confised with DT phandles.  I'd avoind using that for an ACPI
-> object handle variable name.
->
-
-I changed it to pr_ahandle now(i.e processor acpi handle)
-
-
-> Well, what if it turns out that LPI is missing?  Shouldn't we fall back to using
-> _CST then?
->
-> Of course, the problem here is that the presence of LPI has to be checked for
-> all CPUs in the system before deciding to fall back (in which case all of them
-> should be using _CST if present).
->
-
-I agree, do we do similar check for _CST too ?
-
-
->> +	dev->cpu = pr->id;
->> +	if (pr->flags.has_lpi)
->> +		return acpi_processor_ffh_lpi_probe(pr->id);
->> +	else
->> +		return acpi_processor_setup_cpuidle_cx(pr, dev);
->
-> Fallback here too maybe?
->
-
-Fixed
-
->> +}
->> +
->> +static int acpi_processor_get_power_info(struct acpi_processor *pr)
->> +{
->> +	int ret = 0;
->> +
->> +	ret = acpi_processor_get_cstate_info(pr);
->> +	if (ret)
->> +		ret = acpi_processor_get_lpi_info(pr);
->
-> Shouldn't that be done in the reverse order?
->
-
-Yes, again kind of defensive approach I took to avoid any change, but
-will change it.
-
->> diff --git a/include/acpi/processor.h b/include/acpi/processor.h
->> index 50f2423d31fa..f3006831d427 100644
->> --- a/include/acpi/processor.h
->> +++ b/include/acpi/processor.h
->> @@ -39,6 +39,7 @@
->>   #define ACPI_CSTATE_SYSTEMIO	0
->>   #define ACPI_CSTATE_FFH		1
->>   #define ACPI_CSTATE_HALT	2
->> +#define ACPI_CSTATE_INTEGER	3
->
-> What does this mean?
->
-
-Ah bad naming, I introduced this to communicate to flattening algo that
-it's a simple number that needs to used as is. Based on you comment
-above, saving buffer and decoding later might remove the need of it.
-
+diff --git a/arch/s390/include/asm/rwsem.h b/arch/s390/include/asm/rwsem.h
+index 4b43ee7e6776..8e52e72f3efc 100644
+--- a/arch/s390/include/asm/rwsem.h
++++ b/arch/s390/include/asm/rwsem.h
+@@ -90,7 +90,7 @@ static inline int __down_read_trylock(struct rw_semaphore *sem)
+ /*
+  * lock for writing
+  */
+-static inline void __down_write_nested(struct rw_semaphore *sem, int subclass)
++static inline void __down_write(struct rw_semaphore *sem)
+ {
+ 	signed long old, new, tmp;
+ 
+@@ -108,11 +108,6 @@ static inline void __down_write_nested(struct rw_semaphore *sem, int subclass)
+ 		rwsem_down_write_failed(sem);
+ }
+ 
+-static inline void __down_write(struct rw_semaphore *sem)
+-{
+-	__down_write_nested(sem, 0);
+-}
+-
+ /*
+  * trylock for writing -- returns 1 if successful, 0 if contention
+  */
+diff --git a/arch/sh/include/asm/rwsem.h b/arch/sh/include/asm/rwsem.h
+index edab57265293..a5104bebd1eb 100644
+--- a/arch/sh/include/asm/rwsem.h
++++ b/arch/sh/include/asm/rwsem.h
+@@ -114,11 +114,6 @@ static inline void __downgrade_write(struct rw_semaphore *sem)
+ 		rwsem_downgrade_wake(sem);
+ }
+ 
+-static inline void __down_write_nested(struct rw_semaphore *sem, int subclass)
+-{
+-	__down_write(sem);
+-}
+-
+ /*
+  * implement exchange and add functionality
+  */
+diff --git a/arch/sparc/include/asm/rwsem.h b/arch/sparc/include/asm/rwsem.h
+index 069bf4d663a1..e5a0d575bc7f 100644
+--- a/arch/sparc/include/asm/rwsem.h
++++ b/arch/sparc/include/asm/rwsem.h
+@@ -45,7 +45,7 @@ static inline int __down_read_trylock(struct rw_semaphore *sem)
+ /*
+  * lock for writing
+  */
+-static inline void __down_write_nested(struct rw_semaphore *sem, int subclass)
++static inline void __down_write(struct rw_semaphore *sem)
+ {
+ 	long tmp;
+ 
+@@ -55,11 +55,6 @@ static inline void __down_write_nested(struct rw_semaphore *sem, int subclass)
+ 		rwsem_down_write_failed(sem);
+ }
+ 
+-static inline void __down_write(struct rw_semaphore *sem)
+-{
+-	__down_write_nested(sem, 0);
+-}
+-
+ static inline int __down_write_trylock(struct rw_semaphore *sem)
+ {
+ 	long tmp;
+diff --git a/arch/x86/include/asm/rwsem.h b/arch/x86/include/asm/rwsem.h
+index ceec86eb68e9..4a8292a0d6e1 100644
+--- a/arch/x86/include/asm/rwsem.h
++++ b/arch/x86/include/asm/rwsem.h
+@@ -99,7 +99,7 @@ static inline int __down_read_trylock(struct rw_semaphore *sem)
+ /*
+  * lock for writing
+  */
+-static inline void __down_write_nested(struct rw_semaphore *sem, int subclass)
++static inline void __down_write(struct rw_semaphore *sem)
+ {
+ 	long tmp;
+ 	asm volatile("# beginning down_write\n\t"
+@@ -116,11 +116,6 @@ static inline void __down_write_nested(struct rw_semaphore *sem, int subclass)
+ 		     : "memory", "cc");
+ }
+ 
+-static inline void __down_write(struct rw_semaphore *sem)
+-{
+-	__down_write_nested(sem, 0);
+-}
+-
+ /*
+  * trylock for writing -- returns 1 if successful, 0 if contention
+  */
+diff --git a/include/asm-generic/rwsem.h b/include/asm-generic/rwsem.h
+index d6d5dc98d7da..b8d8a6cf4ca8 100644
+--- a/include/asm-generic/rwsem.h
++++ b/include/asm-generic/rwsem.h
+@@ -53,7 +53,7 @@ static inline int __down_read_trylock(struct rw_semaphore *sem)
+ /*
+  * lock for writing
+  */
+-static inline void __down_write_nested(struct rw_semaphore *sem, int subclass)
++static inline void __down_write(struct rw_semaphore *sem)
+ {
+ 	long tmp;
+ 
+@@ -63,11 +63,6 @@ static inline void __down_write_nested(struct rw_semaphore *sem, int subclass)
+ 		rwsem_down_write_failed(sem);
+ }
+ 
+-static inline void __down_write(struct rw_semaphore *sem)
+-{
+-	__down_write_nested(sem, 0);
+-}
+-
+ static inline int __down_write_trylock(struct rw_semaphore *sem)
+ {
+ 	long tmp;
+diff --git a/include/linux/rwsem-spinlock.h b/include/linux/rwsem-spinlock.h
+index 561e8615528d..a733a5467e6c 100644
+--- a/include/linux/rwsem-spinlock.h
++++ b/include/linux/rwsem-spinlock.h
+@@ -34,7 +34,6 @@ struct rw_semaphore {
+ extern void __down_read(struct rw_semaphore *sem);
+ extern int __down_read_trylock(struct rw_semaphore *sem);
+ extern void __down_write(struct rw_semaphore *sem);
+-extern void __down_write_nested(struct rw_semaphore *sem, int subclass);
+ extern int __down_write_trylock(struct rw_semaphore *sem);
+ extern void __up_read(struct rw_semaphore *sem);
+ extern void __up_write(struct rw_semaphore *sem);
+diff --git a/kernel/locking/rwsem-spinlock.c b/kernel/locking/rwsem-spinlock.c
+index 3a5048572065..bab26104a5d0 100644
+--- a/kernel/locking/rwsem-spinlock.c
++++ b/kernel/locking/rwsem-spinlock.c
+@@ -191,7 +191,7 @@ int __down_read_trylock(struct rw_semaphore *sem)
+ /*
+  * get a write lock on the semaphore
+  */
+-void __sched __down_write_nested(struct rw_semaphore *sem, int subclass)
++void __sched __down_write(struct rw_semaphore *sem)
+ {
+ 	struct rwsem_waiter waiter;
+ 	struct task_struct *tsk;
+@@ -227,11 +227,6 @@ void __sched __down_write_nested(struct rw_semaphore *sem, int subclass)
+ 	raw_spin_unlock_irqrestore(&sem->wait_lock, flags);
+ }
+ 
+-void __sched __down_write(struct rw_semaphore *sem)
+-{
+-	__down_write_nested(sem, 0);
+-}
+-
+ /*
+  * trylock for writing -- returns 1 if successful, 0 if contention
+  */
 -- 
-Regards,
-Sudeep
+2.7.0
+
