@@ -1,7 +1,7 @@
 From: Michal Hocko <mhocko@kernel.org>
-Date: Mon, 29 Feb 2016 12:58:16 +0000
-Subject: [PATCH 02/11] locking, rwsem: drop explicit memory barriers
-Message-Id: <1456750705-7141-3-git-send-email-mhocko@kernel.org>
+Date: Mon, 29 Feb 2016 12:58:17 +0000
+Subject: [PATCH 03/11] locking, rwsem: introduce basis for down_write_killable
+Message-Id: <1456750705-7141-4-git-send-email-mhocko@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1456750705-7141-1-git-send-email-mhocko@kernel.org>
 In-Reply-To: <1456750705-7141-1-git-send-email-mhocko@kernel.org>
@@ -13,165 +13,217 @@ Cc: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>, Thoma
 
 From: Michal Hocko <mhocko@suse.com>
 
-sh and xtensa seem to be the only architectures which use explicit
-memory barriers for rw_semaphore operations even though they are not
-really needed because there is the full memory barrier is always implied
-by atomic_{inc,dec,add,sub}_return resp. cmpxchg. Remove them.
+Introduce a generic implementation necessary for down_write_killable.
+This is a trivial extension of the already existing down_write call
+which can be interrupted by SIGKILL.  This patch doesn't provide
+down_write_killable yet because arches have to provide the necessary
+pieces before.
+
+rwsem_down_write_failed which is a generic slow path for the
+write lock is extended to allow a task state and renamed to
+__rwsem_down_write_failed_state. The return value is either a valid
+semaphore pointer or ERR_PTR(-EINTR).
+
+rwsem_down_write_failed_killable is exported as a new way to wait for
+the lock and be killable.
+
+For rwsem-spinlock implementation the current __down_write it updated
+in a similar way as __rwsem_down_write_failed_state except it doesn't
+need new exports just visible __down_write_killable.
+
+Architectures which are not using the generic rwsem implementation are
+supposed to provide their __down_write_killable implementation and
+use rwsem_down_write_failed_killable for the slow path.
 
 Signed-off-by: Michal Hocko <mhocko@suse.com>
 ---
- arch/sh/include/asm/rwsem.h     | 14 ++------------
- arch/xtensa/include/asm/rwsem.h | 14 ++------------
- 2 files changed, 4 insertions(+), 24 deletions(-)
+ include/asm-generic/rwsem.h     | 12 ++++++++++++
+ include/linux/rwsem-spinlock.h  |  1 +
+ include/linux/rwsem.h           |  2 ++
+ kernel/locking/rwsem-spinlock.c | 23 +++++++++++++++++++++--
+ kernel/locking/rwsem-xadd.c     | 31 +++++++++++++++++++++++++------
+ 5 files changed, 61 insertions(+), 8 deletions(-)
 
-diff --git a/arch/sh/include/asm/rwsem.h b/arch/sh/include/asm/rwsem.h
-index a5104bebd1eb..f6c951c7a875 100644
---- a/arch/sh/include/asm/rwsem.h
-+++ b/arch/sh/include/asm/rwsem.h
-@@ -24,9 +24,7 @@
-  */
- static inline void __down_read(struct rw_semaphore *sem)
- {
--	if (atomic_inc_return((atomic_t *)(&sem->count)) > 0)
--		smp_wmb();
--	else
-+	if (atomic_inc_return((atomic_t *)(&sem->count)) <= 0)
- 		rwsem_down_read_failed(sem);
- }
- 
-@@ -37,7 +35,6 @@ static inline int __down_read_trylock(struct rw_semaphore *sem)
- 	while ((tmp = sem->count) >= 0) {
- 		if (tmp = cmpxchg(&sem->count, tmp,
- 				   tmp + RWSEM_ACTIVE_READ_BIAS)) {
--			smp_wmb();
- 			return 1;
- 		}
- 	}
-@@ -53,9 +50,7 @@ static inline void __down_write(struct rw_semaphore *sem)
- 
- 	tmp = atomic_add_return(RWSEM_ACTIVE_WRITE_BIAS,
- 				(atomic_t *)(&sem->count));
--	if (tmp = RWSEM_ACTIVE_WRITE_BIAS)
--		smp_wmb();
--	else
-+	if (tmp != RWSEM_ACTIVE_WRITE_BIAS)
+diff --git a/include/asm-generic/rwsem.h b/include/asm-generic/rwsem.h
+index b8d8a6cf4ca8..3fc94a046bf5 100644
+--- a/include/asm-generic/rwsem.h
++++ b/include/asm-generic/rwsem.h
+@@ -63,6 +63,18 @@ static inline void __down_write(struct rw_semaphore *sem)
  		rwsem_down_write_failed(sem);
  }
  
-@@ -65,7 +60,6 @@ static inline int __down_write_trylock(struct rw_semaphore *sem)
- 
- 	tmp = cmpxchg(&sem->count, RWSEM_UNLOCKED_VALUE,
- 		      RWSEM_ACTIVE_WRITE_BIAS);
--	smp_wmb();
- 	return tmp = RWSEM_UNLOCKED_VALUE;
- }
- 
-@@ -76,7 +70,6 @@ static inline void __up_read(struct rw_semaphore *sem)
++static inline int __down_write_killable(struct rw_semaphore *sem)
++{
++	long tmp;
++
++	tmp = atomic_long_add_return_acquire(RWSEM_ACTIVE_WRITE_BIAS,
++				     (atomic_long_t *)&sem->count);
++	if (unlikely(tmp != RWSEM_ACTIVE_WRITE_BIAS))
++		if (IS_ERR(rwsem_down_write_failed_killable(sem)))
++			return -EINTR;
++	return 0;
++}
++
+ static inline int __down_write_trylock(struct rw_semaphore *sem)
  {
- 	int tmp;
+ 	long tmp;
+diff --git a/include/linux/rwsem-spinlock.h b/include/linux/rwsem-spinlock.h
+index a733a5467e6c..ae0528b834cd 100644
+--- a/include/linux/rwsem-spinlock.h
++++ b/include/linux/rwsem-spinlock.h
+@@ -34,6 +34,7 @@ struct rw_semaphore {
+ extern void __down_read(struct rw_semaphore *sem);
+ extern int __down_read_trylock(struct rw_semaphore *sem);
+ extern void __down_write(struct rw_semaphore *sem);
++extern int __must_check __down_write_killable(struct rw_semaphore *sem);
+ extern int __down_write_trylock(struct rw_semaphore *sem);
+ extern void __up_read(struct rw_semaphore *sem);
+ extern void __up_write(struct rw_semaphore *sem);
+diff --git a/include/linux/rwsem.h b/include/linux/rwsem.h
+index 8f498cdde280..7d7ae029dac5 100644
+--- a/include/linux/rwsem.h
++++ b/include/linux/rwsem.h
+@@ -14,6 +14,7 @@
+ #include <linux/list.h>
+ #include <linux/spinlock.h>
+ #include <linux/atomic.h>
++#include <linux/err.h>
+ #ifdef CONFIG_RWSEM_SPIN_ON_OWNER
+ #include <linux/osq_lock.h>
+ #endif
+@@ -43,6 +44,7 @@ struct rw_semaphore {
  
--	smp_wmb();
- 	tmp = atomic_dec_return((atomic_t *)(&sem->count));
- 	if (tmp < -1 && (tmp & RWSEM_ACTIVE_MASK) = 0)
- 		rwsem_wake(sem);
-@@ -87,7 +80,6 @@ static inline void __up_read(struct rw_semaphore *sem)
+ extern struct rw_semaphore *rwsem_down_read_failed(struct rw_semaphore *sem);
+ extern struct rw_semaphore *rwsem_down_write_failed(struct rw_semaphore *sem);
++extern struct rw_semaphore *rwsem_down_write_failed_killable(struct rw_semaphore *sem);
+ extern struct rw_semaphore *rwsem_wake(struct rw_semaphore *);
+ extern struct rw_semaphore *rwsem_downgrade_wake(struct rw_semaphore *sem);
+ 
+diff --git a/kernel/locking/rwsem-spinlock.c b/kernel/locking/rwsem-spinlock.c
+index bab26104a5d0..d1d04ca10d0e 100644
+--- a/kernel/locking/rwsem-spinlock.c
++++ b/kernel/locking/rwsem-spinlock.c
+@@ -191,11 +191,12 @@ int __down_read_trylock(struct rw_semaphore *sem)
+ /*
+  * get a write lock on the semaphore
   */
- static inline void __up_write(struct rw_semaphore *sem)
+-void __sched __down_write(struct rw_semaphore *sem)
++int __sched __down_write_state(struct rw_semaphore *sem, int state)
  {
--	smp_wmb();
- 	if (atomic_sub_return(RWSEM_ACTIVE_WRITE_BIAS,
- 			      (atomic_t *)(&sem->count)) < 0)
- 		rwsem_wake(sem);
-@@ -108,7 +100,6 @@ static inline void __downgrade_write(struct rw_semaphore *sem)
- {
- 	int tmp;
+ 	struct rwsem_waiter waiter;
+ 	struct task_struct *tsk;
+ 	unsigned long flags;
++	int ret = 0;
  
--	smp_wmb();
- 	tmp = atomic_add_return(-RWSEM_WAITING_BIAS, (atomic_t *)(&sem->count));
- 	if (tmp < 0)
- 		rwsem_downgrade_wake(sem);
-@@ -119,7 +110,6 @@ static inline void __downgrade_write(struct rw_semaphore *sem)
-  */
- static inline int rwsem_atomic_update(int delta, struct rw_semaphore *sem)
- {
--	smp_mb();
- 	return atomic_add_return(delta, (atomic_t *)(&sem->count));
- }
+ 	raw_spin_lock_irqsave(&sem->wait_lock, flags);
  
-diff --git a/arch/xtensa/include/asm/rwsem.h b/arch/xtensa/include/asm/rwsem.h
-index 249619e7e7f2..593483f6e1ff 100644
---- a/arch/xtensa/include/asm/rwsem.h
-+++ b/arch/xtensa/include/asm/rwsem.h
-@@ -29,9 +29,7 @@
-  */
- static inline void __down_read(struct rw_semaphore *sem)
- {
--	if (atomic_add_return(1,(atomic_t *)(&sem->count)) > 0)
--		smp_wmb();
--	else
-+	if (atomic_add_return(1,(atomic_t *)(&sem->count)) <= 0)
- 		rwsem_down_read_failed(sem);
- }
- 
-@@ -42,7 +40,6 @@ static inline int __down_read_trylock(struct rw_semaphore *sem)
- 	while ((tmp = sem->count) >= 0) {
- 		if (tmp = cmpxchg(&sem->count, tmp,
- 				   tmp + RWSEM_ACTIVE_READ_BIAS)) {
--			smp_wmb();
- 			return 1;
- 		}
+@@ -215,16 +216,34 @@ void __sched __down_write(struct rw_semaphore *sem)
+ 		 */
+ 		if (sem->count = 0)
+ 			break;
+-		set_task_state(tsk, TASK_UNINTERRUPTIBLE);
++		set_task_state(tsk, state);
+ 		raw_spin_unlock_irqrestore(&sem->wait_lock, flags);
+ 		schedule();
++		if (signal_pending_state(state, current)) {
++			ret = -EINTR;
++			raw_spin_lock_irqsave(&sem->wait_lock, flags);
++			goto out;
++		}
+ 		raw_spin_lock_irqsave(&sem->wait_lock, flags);
  	}
-@@ -58,9 +55,7 @@ static inline void __down_write(struct rw_semaphore *sem)
+ 	/* got the lock */
+ 	sem->count = -1;
++out:
+ 	list_del(&waiter.list);
  
- 	tmp = atomic_add_return(RWSEM_ACTIVE_WRITE_BIAS,
- 				(atomic_t *)(&sem->count));
--	if (tmp = RWSEM_ACTIVE_WRITE_BIAS)
--		smp_wmb();
--	else
-+	if (tmp != RWSEM_ACTIVE_WRITE_BIAS)
- 		rwsem_down_write_failed(sem);
+ 	raw_spin_unlock_irqrestore(&sem->wait_lock, flags);
++
++	return ret;
++}
++
++void __sched __down_write(struct rw_semaphore *sem)
++{
++	__down_write_state(sem, TASK_UNINTERRUPTIBLE);
++}
++
++int __sched __down_write_killable(struct rw_semaphore *sem)
++{
++	return __down_write_state(sem, TASK_KILLABLE);
  }
  
-@@ -70,7 +65,6 @@ static inline int __down_write_trylock(struct rw_semaphore *sem)
- 
- 	tmp = cmpxchg(&sem->count, RWSEM_UNLOCKED_VALUE,
- 		      RWSEM_ACTIVE_WRITE_BIAS);
--	smp_wmb();
- 	return tmp = RWSEM_UNLOCKED_VALUE;
- }
- 
-@@ -81,7 +75,6 @@ static inline void __up_read(struct rw_semaphore *sem)
- {
- 	int tmp;
- 
--	smp_wmb();
- 	tmp = atomic_sub_return(1,(atomic_t *)(&sem->count));
- 	if (tmp < -1 && (tmp & RWSEM_ACTIVE_MASK) = 0)
- 		rwsem_wake(sem);
-@@ -92,7 +85,6 @@ static inline void __up_read(struct rw_semaphore *sem)
+ /*
+diff --git a/kernel/locking/rwsem-xadd.c b/kernel/locking/rwsem-xadd.c
+index a4d4de05b2d1..5cec34f1ad6f 100644
+--- a/kernel/locking/rwsem-xadd.c
++++ b/kernel/locking/rwsem-xadd.c
+@@ -433,12 +433,13 @@ static inline bool rwsem_has_spinner(struct rw_semaphore *sem)
+ /*
+  * Wait until we successfully acquire the write lock
   */
- static inline void __up_write(struct rw_semaphore *sem)
+-__visible
+-struct rw_semaphore __sched *rwsem_down_write_failed(struct rw_semaphore *sem)
++static inline struct rw_semaphore *
++__rwsem_down_write_failed_state(struct rw_semaphore *sem, int state)
  {
--	smp_wmb();
- 	if (atomic_sub_return(RWSEM_ACTIVE_WRITE_BIAS,
- 			      (atomic_t *)(&sem->count)) < 0)
- 		rwsem_wake(sem);
-@@ -113,7 +105,6 @@ static inline void __downgrade_write(struct rw_semaphore *sem)
- {
- 	int tmp;
+ 	long count;
+ 	bool waiting = true; /* any queued threads before us */
+ 	struct rwsem_waiter waiter;
++	struct rw_semaphore *ret = sem;
  
--	smp_wmb();
- 	tmp = atomic_add_return(-RWSEM_WAITING_BIAS, (atomic_t *)(&sem->count));
- 	if (tmp < 0)
- 		rwsem_downgrade_wake(sem);
-@@ -124,7 +115,6 @@ static inline void __downgrade_write(struct rw_semaphore *sem)
-  */
- static inline int rwsem_atomic_update(int delta, struct rw_semaphore *sem)
- {
--	smp_mb();
- 	return atomic_add_return(delta, (atomic_t *)(&sem->count));
+ 	/* undo write bias from down_write operation, stop active locking */
+ 	count = rwsem_atomic_update(-RWSEM_ACTIVE_WRITE_BIAS, sem);
+@@ -478,7 +479,7 @@ struct rw_semaphore __sched *rwsem_down_write_failed(struct rw_semaphore *sem)
+ 		count = rwsem_atomic_update(RWSEM_WAITING_BIAS, sem);
+ 
+ 	/* wait until we successfully acquire the lock */
+-	set_current_state(TASK_UNINTERRUPTIBLE);
++	set_current_state(state);
+ 	while (true) {
+ 		if (rwsem_try_write_lock(count, sem))
+ 			break;
+@@ -487,20 +488,38 @@ struct rw_semaphore __sched *rwsem_down_write_failed(struct rw_semaphore *sem)
+ 		/* Block until there are no active lockers. */
+ 		do {
+ 			schedule();
+-			set_current_state(TASK_UNINTERRUPTIBLE);
++			if (signal_pending_state(state, current)) {
++				raw_spin_lock_irq(&sem->wait_lock);
++				ret = ERR_PTR(-EINTR);
++				goto out;
++			}
++			set_current_state(state);
+ 		} while ((count = sem->count) & RWSEM_ACTIVE_MASK);
+ 
+ 		raw_spin_lock_irq(&sem->wait_lock);
+ 	}
+ 	__set_current_state(TASK_RUNNING);
+-
++out:
+ 	list_del(&waiter.list);
+ 	raw_spin_unlock_irq(&sem->wait_lock);
+ 
+-	return sem;
++	return ret;
++}
++
++__visible struct rw_semaphore * __sched
++rwsem_down_write_failed(struct rw_semaphore *sem)
++{
++	return __rwsem_down_write_failed_state(sem, TASK_UNINTERRUPTIBLE);
  }
+ EXPORT_SYMBOL(rwsem_down_write_failed);
  
++__visible struct rw_semaphore * __sched
++rwsem_down_write_failed_killable(struct rw_semaphore *sem)
++{
++	return __rwsem_down_write_failed_state(sem, TASK_KILLABLE);
++}
++EXPORT_SYMBOL(rwsem_down_write_failed_killable);
++
+ /*
+  * handle waking up a waiter on the semaphore
+  * - up_read/up_write has decremented the active part of count if we come here
 -- 
 2.7.0
 
