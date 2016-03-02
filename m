@@ -1,155 +1,60 @@
-From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
-Date: Thu, 10 Mar 2016 14:43:13 +0000
-Subject: [PATCH v3 1/4] alpha/extable: use generic search and sort routines
-Message-Id: <1457620996-462-2-git-send-email-ard.biesheuvel@linaro.org>
+From: Will Deacon <will.deacon@arm.com>
+Date: Wed, 02 Mar 2016 02:15:50 +0000
+Subject: Re: [PATCH 2/2] numa, mm, cleanup: remove redundant NODE_DATA macro from asm header files.
+Message-Id: <20160302021550.GI14022@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1456358528-24213-1-git-send-email-ddaney.cavm@gmail.com>
+ <1456358528-24213-3-git-send-email-ddaney.cavm@gmail.com>
+In-Reply-To: <1456358528-24213-3-git-send-email-ddaney.cavm@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-alpha@vger.kernel.org
+To: David Daney <ddaney.cavm@gmail.com>
+Cc: linux-arm-kernel@lists.infradead.org, Mark Rutland <mark.rutland@arm.com>, Catalin Marinas <catalin.marinas@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, James Hogan <james.hogan@imgtec.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Chris Metcalf <cmetcalf@ezchip.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, linux-ia64@vger.kernel.org, linux-metag@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.ker
 
-Replace the arch specific versions of search_extable() and sort_extable()
-with calls to the generic ones, which now support relative exception
-tables as well.
+On Wed, Feb 24, 2016 at 04:02:08PM -0800, David Daney wrote:
+> From: Ganapatrao Kulkarni <gkulkarni@caviumnetworks.com>
+> 
+> NODE_DATA is defined across multiple asm header files.
+> Moving generic definition to asm-generic/mmzone.h to
+> remove redundant definitions.
+> 
+> Reviewed-by: Robert Richter <rrichter@cavium.com>
+> Signed-off-by: Ganapatrao Kulkarni <gkulkarni@caviumnetworks.com>
+> Signed-off-by: David Daney <david.daney@cavium.com>
+> ---
+>  arch/arm64/include/asm/mmzone.h   |  4 +---
+>  arch/m32r/include/asm/mmzone.h    |  4 +---
+>  arch/metag/include/asm/mmzone.h   |  4 +---
+>  arch/powerpc/include/asm/mmzone.h |  8 ++------
+>  arch/s390/include/asm/mmzone.h    |  6 +-----
+>  arch/sh/include/asm/mmzone.h      |  4 +---
+>  arch/sparc/include/asm/mmzone.h   |  6 ++----
+>  arch/x86/include/asm/mmzone.h     |  3 +--
+>  arch/x86/include/asm/mmzone_32.h  |  5 -----
+>  arch/x86/include/asm/mmzone_64.h  | 17 -----------------
+>  include/asm-generic/mmzone.h      | 24 ++++++++++++++++++++++++
+>  11 files changed, 34 insertions(+), 51 deletions(-)
+>  delete mode 100644 arch/x86/include/asm/mmzone_64.h
+>  create mode 100644 include/asm-generic/mmzone.h
+> 
+> diff --git a/arch/arm64/include/asm/mmzone.h b/arch/arm64/include/asm/mmzone.h
+> index a0de9e6..611a1cf 100644
+> --- a/arch/arm64/include/asm/mmzone.h
+> +++ b/arch/arm64/include/asm/mmzone.h
+> @@ -4,9 +4,7 @@
+>  #ifdef CONFIG_NUMA
+>  
+>  #include <asm/numa.h>
+> -
+> -extern struct pglist_data *node_data[];
+> -#define NODE_DATA(nid)		(node_data[(nid)])
+> +#include  <asm-generic/mmzone.h>
+>  
+>  #endif /* CONFIG_NUMA */
+>  #endif /* __ASM_MMZONE_H */
 
-Acked-by: Richard Henderson <rth@twiddle.net>
-Signed-off-by: Ard Biesheuvel <ard.biesheuvel@linaro.org>
----
- arch/alpha/include/asm/uaccess.h | 10 ++-
- arch/alpha/mm/Makefile           |  2 +-
- arch/alpha/mm/extable.c          | 92 --------------------
- 3 files changed, 9 insertions(+), 95 deletions(-)
+Actually, we can remove the header file entirely and use a generic-y
+line in Kbuild instead.
 
-diff --git a/arch/alpha/include/asm/uaccess.h b/arch/alpha/include/asm/uaccess.h
-index 9b0d40093c9a..c419b43c461d 100644
---- a/arch/alpha/include/asm/uaccess.h
-+++ b/arch/alpha/include/asm/uaccess.h
-@@ -483,7 +483,13 @@ struct exception_table_entry
- 	(pc) + (_fixup)->fixup.bits.nextinsn;			\
- })
- 
--#define ARCH_HAS_SORT_EXTABLE
--#define ARCH_HAS_SEARCH_EXTABLE
-+#define ARCH_HAS_RELATIVE_EXTABLE
-+
-+#define swap_ex_entry_fixup(a, b, tmp, delta)			\
-+	do {							\
-+		(a)->fixup.unit = (b)->fixup.unit;		\
-+		(b)->fixup.unit = (tmp).fixup.unit;		\
-+	} while (0)
-+
- 
- #endif /* __ALPHA_UACCESS_H */
-diff --git a/arch/alpha/mm/Makefile b/arch/alpha/mm/Makefile
-index c993d3f93cf6..5a9807936411 100644
---- a/arch/alpha/mm/Makefile
-+++ b/arch/alpha/mm/Makefile
-@@ -4,6 +4,6 @@
- 
- ccflags-y := -Werror
- 
--obj-y	:= init.o fault.o extable.o
-+obj-y	:= init.o fault.o
- 
- obj-$(CONFIG_DISCONTIGMEM) += numa.o
-diff --git a/arch/alpha/mm/extable.c b/arch/alpha/mm/extable.c
-deleted file mode 100644
-index 813c9b63c0e1..000000000000
---- a/arch/alpha/mm/extable.c
-+++ /dev/null
-@@ -1,92 +0,0 @@
--/*
-- * linux/arch/alpha/mm/extable.c
-- */
--
--#include <linux/module.h>
--#include <linux/sort.h>
--#include <asm/uaccess.h>
--
--static inline unsigned long ex_to_addr(const struct exception_table_entry *x)
--{
--	return (unsigned long)&x->insn + x->insn;
--}
--
--static void swap_ex(void *a, void *b, int size)
--{
--	struct exception_table_entry *ex_a = a, *ex_b = b;
--	unsigned long addr_a = ex_to_addr(ex_a), addr_b = ex_to_addr(ex_b);
--	unsigned int t = ex_a->fixup.unit;
--
--	ex_a->fixup.unit = ex_b->fixup.unit;
--	ex_b->fixup.unit = t;
--	ex_a->insn = (int)(addr_b - (unsigned long)&ex_a->insn);
--	ex_b->insn = (int)(addr_a - (unsigned long)&ex_b->insn);
--}
--
--/*
-- * The exception table needs to be sorted so that the binary
-- * search that we use to find entries in it works properly.
-- * This is used both for the kernel exception table and for
-- * the exception tables of modules that get loaded.
-- */
--static int cmp_ex(const void *a, const void *b)
--{
--	const struct exception_table_entry *x = a, *y = b;
--
--	/* avoid overflow */
--	if (ex_to_addr(x) > ex_to_addr(y))
--		return 1;
--	if (ex_to_addr(x) < ex_to_addr(y))
--		return -1;
--	return 0;
--}
--
--void sort_extable(struct exception_table_entry *start,
--		  struct exception_table_entry *finish)
--{
--	sort(start, finish - start, sizeof(struct exception_table_entry),
--	     cmp_ex, swap_ex);
--}
--
--#ifdef CONFIG_MODULES
--/*
-- * Any entry referring to the module init will be at the beginning or
-- * the end.
-- */
--void trim_init_extable(struct module *m)
--{
--	/*trim the beginning*/
--	while (m->num_exentries &&
--	       within_module_init(ex_to_addr(&m->extable[0]), m)) {
--		m->extable++;
--		m->num_exentries--;
--	}
--	/*trim the end*/
--	while (m->num_exentries &&
--	       within_module_init(ex_to_addr(&m->extable[m->num_exentries-1]),
--				  m))
--		m->num_exentries--;
--}
--#endif /* CONFIG_MODULES */
--
--const struct exception_table_entry *
--search_extable(const struct exception_table_entry *first,
--	       const struct exception_table_entry *last,
--	       unsigned long value)
--{
--        while (first <= last) {
--		const struct exception_table_entry *mid;
--		unsigned long mid_value;
--
--		mid = (last - first) / 2 + first;
--		mid_value = ex_to_addr(mid);
--                if (mid_value = value)
--                        return mid;
--                else if (mid_value < value)
--                        first = mid+1;
--                else
--                        last = mid-1;
--        }
--
--        return NULL;
--}
--- 
-1.9.1
-
+Will
