@@ -1,188 +1,71 @@
-From: Michal Hocko <mhocko@kernel.org>
-Date: Tue, 02 Feb 2016 20:19:18 +0000
-Subject: [RFC 01/12] locking, rwsem: get rid of __down_write_nested
-Message-Id: <1454444369-2146-2-git-send-email-mhocko@kernel.org>
+From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Date: Thu, 10 Mar 2016 14:43:12 +0000
+Subject: [PATCH v3 0/4] generic relative extable support
+Message-Id: <1457620996-462-1-git-send-email-ard.biesheuvel@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1454444369-2146-1-git-send-email-mhocko@kernel.org>
-In-Reply-To: <1454444369-2146-1-git-send-email-mhocko@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: LKML <linux-kernel@vger.kernel.org>
-Cc: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>, Thomas Gleixner <tglx@linutronix.de>, "H. Peter Anvin" <hpa@zytor.com>, "David S. Miller" <davem@davemloft.net>, Tony Luck <tony.luck@intel.com>, Andrew Morton <akpm@linux-foundation.org>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org, Michal Hocko <mhocko@suse.com>
+To: linux-ia64@vger.kernel.org
 
-From: Michal Hocko <mhocko@suse.com>
+This is basically a resend of the remaining relative extable rework patches
+that were queued for v4.6 in Andrew's tree for a couple of weeks, and then
+subsequently dropped due to conflicts with the arm64 and x86 subtrees in -next.
 
-This is no longer used anywhere and all callers (__down_write) use
-0 as a subclass. Ditch __down_write_nested to make the code easier
-to follow.
+Since the core patch that these remaining patches depend on is now queued in
+the arm64 tree for inclusion in v4.6, I have rebased this series onto
+next-20160310 so that they may be requeued and hopefully merged late during the
+next merge window. Alternatively, they could be picked up by each maintainer
+separately since they are all independent. Queueing them for v4.7 is likely
+to result in conflicts again, so I think that would be the least preferable
+option.
 
-This shouldn't introduce any functional change.
+Changes since v2:
+- dropped core patch and arm64 patches since they are already en route
+- fixed up a purely contextual conflict in the x86 patch, the functional
+  changes were completely independent
 
-Signed-off-by: Michal Hocko <mhocko@suse.com>
----
- arch/s390/include/asm/rwsem.h   | 7 +------
- arch/sh/include/asm/rwsem.h     | 5 -----
- arch/sparc/include/asm/rwsem.h  | 7 +------
- arch/x86/include/asm/rwsem.h    | 7 +------
- include/asm-generic/rwsem.h     | 7 +------
- include/linux/rwsem-spinlock.h  | 1 -
- kernel/locking/rwsem-spinlock.c | 7 +------
- 7 files changed, 5 insertions(+), 36 deletions(-)
+---- v2 blurb ----
+There are currently four architectures (x86, ia64, alpha and s390) whose
+user-access exception tables are relative to the table entry address rather
+than absolute. Each of these architectures has its own search_extable() and
+sort_extable() implementation, which are not only mostly identical to each
+other, but also deviate very little from the generic absolute implementations
+in lib/extable.c that they override.
 
-diff --git a/arch/s390/include/asm/rwsem.h b/arch/s390/include/asm/rwsem.h
-index 4b43ee7e6776..8e52e72f3efc 100644
---- a/arch/s390/include/asm/rwsem.h
-+++ b/arch/s390/include/asm/rwsem.h
-@@ -90,7 +90,7 @@ static inline int __down_read_trylock(struct rw_semaphore *sem)
- /*
-  * lock for writing
-  */
--static inline void __down_write_nested(struct rw_semaphore *sem, int subclass)
-+static inline void __down_write(struct rw_semaphore *sem)
- {
- 	signed long old, new, tmp;
- 
-@@ -108,11 +108,6 @@ static inline void __down_write_nested(struct rw_semaphore *sem, int subclass)
- 		rwsem_down_write_failed(sem);
- }
- 
--static inline void __down_write(struct rw_semaphore *sem)
--{
--	__down_write_nested(sem, 0);
--}
--
- /*
-  * trylock for writing -- returns 1 if successful, 0 if contention
-  */
-diff --git a/arch/sh/include/asm/rwsem.h b/arch/sh/include/asm/rwsem.h
-index edab57265293..a5104bebd1eb 100644
---- a/arch/sh/include/asm/rwsem.h
-+++ b/arch/sh/include/asm/rwsem.h
-@@ -114,11 +114,6 @@ static inline void __downgrade_write(struct rw_semaphore *sem)
- 		rwsem_downgrade_wake(sem);
- }
- 
--static inline void __down_write_nested(struct rw_semaphore *sem, int subclass)
--{
--	__down_write(sem);
--}
--
- /*
-  * implement exchange and add functionality
-  */
-diff --git a/arch/sparc/include/asm/rwsem.h b/arch/sparc/include/asm/rwsem.h
-index 069bf4d663a1..e5a0d575bc7f 100644
---- a/arch/sparc/include/asm/rwsem.h
-+++ b/arch/sparc/include/asm/rwsem.h
-@@ -45,7 +45,7 @@ static inline int __down_read_trylock(struct rw_semaphore *sem)
- /*
-  * lock for writing
-  */
--static inline void __down_write_nested(struct rw_semaphore *sem, int subclass)
-+static inline void __down_write(struct rw_semaphore *sem)
- {
- 	long tmp;
- 
-@@ -55,11 +55,6 @@ static inline void __down_write_nested(struct rw_semaphore *sem, int subclass)
- 		rwsem_down_write_failed(sem);
- }
- 
--static inline void __down_write(struct rw_semaphore *sem)
--{
--	__down_write_nested(sem, 0);
--}
--
- static inline int __down_write_trylock(struct rw_semaphore *sem)
- {
- 	long tmp;
-diff --git a/arch/x86/include/asm/rwsem.h b/arch/x86/include/asm/rwsem.h
-index cad82c9c2fde..d79a218675bc 100644
---- a/arch/x86/include/asm/rwsem.h
-+++ b/arch/x86/include/asm/rwsem.h
-@@ -99,7 +99,7 @@ static inline int __down_read_trylock(struct rw_semaphore *sem)
- /*
-  * lock for writing
-  */
--static inline void __down_write_nested(struct rw_semaphore *sem, int subclass)
-+static inline void __down_write(struct rw_semaphore *sem)
- {
- 	long tmp;
- 	asm volatile("# beginning down_write\n\t"
-@@ -116,11 +116,6 @@ static inline void __down_write_nested(struct rw_semaphore *sem, int subclass)
- 		     : "memory", "cc");
- }
- 
--static inline void __down_write(struct rw_semaphore *sem)
--{
--	__down_write_nested(sem, 0);
--}
--
- /*
-  * trylock for writing -- returns 1 if successful, 0 if contention
-  */
-diff --git a/include/asm-generic/rwsem.h b/include/asm-generic/rwsem.h
-index d6d5dc98d7da..b8d8a6cf4ca8 100644
---- a/include/asm-generic/rwsem.h
-+++ b/include/asm-generic/rwsem.h
-@@ -53,7 +53,7 @@ static inline int __down_read_trylock(struct rw_semaphore *sem)
- /*
-  * lock for writing
-  */
--static inline void __down_write_nested(struct rw_semaphore *sem, int subclass)
-+static inline void __down_write(struct rw_semaphore *sem)
- {
- 	long tmp;
- 
-@@ -63,11 +63,6 @@ static inline void __down_write_nested(struct rw_semaphore *sem, int subclass)
- 		rwsem_down_write_failed(sem);
- }
- 
--static inline void __down_write(struct rw_semaphore *sem)
--{
--	__down_write_nested(sem, 0);
--}
--
- static inline int __down_write_trylock(struct rw_semaphore *sem)
- {
- 	long tmp;
-diff --git a/include/linux/rwsem-spinlock.h b/include/linux/rwsem-spinlock.h
-index 561e8615528d..a733a5467e6c 100644
---- a/include/linux/rwsem-spinlock.h
-+++ b/include/linux/rwsem-spinlock.h
-@@ -34,7 +34,6 @@ struct rw_semaphore {
- extern void __down_read(struct rw_semaphore *sem);
- extern int __down_read_trylock(struct rw_semaphore *sem);
- extern void __down_write(struct rw_semaphore *sem);
--extern void __down_write_nested(struct rw_semaphore *sem, int subclass);
- extern int __down_write_trylock(struct rw_semaphore *sem);
- extern void __up_read(struct rw_semaphore *sem);
- extern void __up_write(struct rw_semaphore *sem);
-diff --git a/kernel/locking/rwsem-spinlock.c b/kernel/locking/rwsem-spinlock.c
-index 3a5048572065..bab26104a5d0 100644
---- a/kernel/locking/rwsem-spinlock.c
-+++ b/kernel/locking/rwsem-spinlock.c
-@@ -191,7 +191,7 @@ int __down_read_trylock(struct rw_semaphore *sem)
- /*
-  * get a write lock on the semaphore
-  */
--void __sched __down_write_nested(struct rw_semaphore *sem, int subclass)
-+void __sched __down_write(struct rw_semaphore *sem)
- {
- 	struct rwsem_waiter waiter;
- 	struct task_struct *tsk;
-@@ -227,11 +227,6 @@ void __sched __down_write_nested(struct rw_semaphore *sem, int subclass)
- 	raw_spin_unlock_irqrestore(&sem->wait_lock, flags);
- }
- 
--void __sched __down_write(struct rw_semaphore *sem)
--{
--	__down_write_nested(sem, 0);
--}
--
- /*
-  * trylock for writing -- returns 1 if successful, 0 if contention
-  */
+So before making arm64 the fifth architecture that reimplements this, let's
+refactor the existing code so that all of these architectures use common code
+for searching and sorting the relative extables. Archs may set
+ARCH_HAS_RELATIVE_EXTABLE to indicate that the table consists of a pair of
+relative ints, and may define swap_ex_entry_fixup() if the fixup member needs
+special treatment in the swapping step of the sorting routine (such as alpha).
+
+Changes since v1:
+- introduce the _ASM_EXTABLE() cpp macro for arm64, and replace all open coded
+  exception table entries with it, including an instance I missed in v1 in
+  asm/word-at-a-time.h (suggested by hpa)
+- added acks to from arch maintainers
+
+Ard Biesheuvel (4):
+  alpha/extable: use generic search and sort routines
+  s390/extable: use generic search and sort routines
+  x86/extable: use generic search and sort routines
+  ia64/extable: use generic search and sort routines
+
+ arch/alpha/include/asm/uaccess.h |  10 +-
+ arch/alpha/mm/Makefile           |   2 +-
+ arch/alpha/mm/extable.c          |  92 -----------------
+ arch/ia64/include/asm/uaccess.h  |   8 +-
+ arch/ia64/mm/extable.c           |  97 +-----------------
+ arch/s390/include/asm/uaccess.h  |   8 +-
+ arch/s390/mm/Makefile            |   2 +-
+ arch/s390/mm/extable.c           |  85 ---------------
+ arch/x86/include/asm/uaccess.h   |   5 +-
+ arch/x86/mm/extable.c            | 108 --------------------
+ 10 files changed, 17 insertions(+), 400 deletions(-)
+ delete mode 100644 arch/alpha/mm/extable.c
+ delete mode 100644 arch/s390/mm/extable.c
+
 -- 
-2.7.0
+1.9.1
 
