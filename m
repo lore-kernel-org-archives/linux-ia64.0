@@ -1,60 +1,50 @@
-From: Will Deacon <will.deacon@arm.com>
-Date: Wed, 02 Mar 2016 02:15:50 +0000
-Subject: Re: [PATCH 2/2] numa, mm, cleanup: remove redundant NODE_DATA macro from asm header files.
-Message-Id: <20160302021550.GI14022@arm.com>
+From: "zhaoxiu.zeng" <zhaoxiu.zeng@gmail.com>
+Date: Sun, 27 Mar 2016 06:00:02 +0000
+Subject: [PATCH 06/31] Add ia64-specific parity functions
+Message-Id: <56F776E2.4090609@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1456358528-24213-1-git-send-email-ddaney.cavm@gmail.com>
- <1456358528-24213-3-git-send-email-ddaney.cavm@gmail.com>
-In-Reply-To: <1456358528-24213-3-git-send-email-ddaney.cavm@gmail.com>
+References: <1458788612-4367-1-git-send-email-zhaoxiu.zeng@gmail.com>
+In-Reply-To: <1458788612-4367-1-git-send-email-zhaoxiu.zeng@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Daney <ddaney.cavm@gmail.com>
-Cc: linux-arm-kernel@lists.infradead.org, Mark Rutland <mark.rutland@arm.com>, Catalin Marinas <catalin.marinas@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, James Hogan <james.hogan@imgtec.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Chris Metcalf <cmetcalf@ezchip.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, linux-ia64@vger.kernel.org, linux-metag@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.ker
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On Wed, Feb 24, 2016 at 04:02:08PM -0800, David Daney wrote:
-> From: Ganapatrao Kulkarni <gkulkarni@caviumnetworks.com>
-> 
-> NODE_DATA is defined across multiple asm header files.
-> Moving generic definition to asm-generic/mmzone.h to
-> remove redundant definitions.
-> 
-> Reviewed-by: Robert Richter <rrichter@cavium.com>
-> Signed-off-by: Ganapatrao Kulkarni <gkulkarni@caviumnetworks.com>
-> Signed-off-by: David Daney <david.daney@cavium.com>
-> ---
->  arch/arm64/include/asm/mmzone.h   |  4 +---
->  arch/m32r/include/asm/mmzone.h    |  4 +---
->  arch/metag/include/asm/mmzone.h   |  4 +---
->  arch/powerpc/include/asm/mmzone.h |  8 ++------
->  arch/s390/include/asm/mmzone.h    |  6 +-----
->  arch/sh/include/asm/mmzone.h      |  4 +---
->  arch/sparc/include/asm/mmzone.h   |  6 ++----
->  arch/x86/include/asm/mmzone.h     |  3 +--
->  arch/x86/include/asm/mmzone_32.h  |  5 -----
->  arch/x86/include/asm/mmzone_64.h  | 17 -----------------
->  include/asm-generic/mmzone.h      | 24 ++++++++++++++++++++++++
->  11 files changed, 34 insertions(+), 51 deletions(-)
->  delete mode 100644 arch/x86/include/asm/mmzone_64.h
->  create mode 100644 include/asm-generic/mmzone.h
-> 
-> diff --git a/arch/arm64/include/asm/mmzone.h b/arch/arm64/include/asm/mmzone.h
-> index a0de9e6..611a1cf 100644
-> --- a/arch/arm64/include/asm/mmzone.h
-> +++ b/arch/arm64/include/asm/mmzone.h
-> @@ -4,9 +4,7 @@
->  #ifdef CONFIG_NUMA
->  
->  #include <asm/numa.h>
-> -
-> -extern struct pglist_data *node_data[];
-> -#define NODE_DATA(nid)		(node_data[(nid)])
-> +#include  <asm-generic/mmzone.h>
->  
->  #endif /* CONFIG_NUMA */
->  #endif /* __ASM_MMZONE_H */
+From: Zeng Zhaoxiu <zhaoxiu.zeng@gmail.com>
 
-Actually, we can remove the header file entirely and use a generic-y
-line in Kbuild instead.
+Signed-off-by: Zeng Zhaoxiu <zhaoxiu.zeng@gmail.com>
+---
+ arch/ia64/include/asm/bitops.h | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
 
-Will
+diff --git a/arch/ia64/include/asm/bitops.h b/arch/ia64/include/asm/bitops.h
+index 71e8145..de13d89 100644
+--- a/arch/ia64/include/asm/bitops.h
++++ b/arch/ia64/include/asm/bitops.h
+@@ -439,6 +439,22 @@ static __inline__ unsigned long __arch_hweight64(unsigned long x)
+ 
+ #include <asm-generic/bitops/const_hweight.h>
+ 
++/*
++ * parityN: returns the parity of a N-bit word,
++ * i.e. the number of 1-bits in x modulo 2.
++ */
++static __inline__ unsigned int __arch_parity64(unsigned long x)
++{
++	return (unsigned int)ia64_popcnt(x) & 1;
++}
++
++#define __arch_parity32(x) ((unsigned int) __arch_parity64((x) & 0xfffffffful))
++#define __arch_parity16(x) ((unsigned int) __arch_parity64((x) & 0xfffful))
++#define __arch_parity8(x)  ((unsigned int) __arch_parity64((x) & 0xfful))
++#define __arch_parity4(x)  ((unsigned int) __arch_parity64((x) & 0xful))
++
++#include <asm-generic/bitops/const_parity.h>
++
+ #endif /* __KERNEL__ */
+ 
+ #include <asm-generic/bitops/find.h>
+-- 
+2.5.5
+
