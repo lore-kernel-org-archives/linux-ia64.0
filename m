@@ -1,158 +1,63 @@
-From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
-Date: Thu, 10 Mar 2016 14:43:16 +0000
-Subject: [PATCH v3 4/4] ia64/extable: use generic search and sort routines
-Message-Id: <1457620996-462-5-git-send-email-ard.biesheuvel@linaro.org>
+From: Peter Zijlstra <peterz@infradead.org>
+Date: Wed, 30 Mar 2016 13:25:49 +0000
+Subject: Re: [PATCH 03/11] locking, rwsem: introduce basis for down_write_killable
+Message-Id: <20160330132549.GU3408@twins.programming.kicks-ass.net>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1456750705-7141-1-git-send-email-mhocko@kernel.org>
+ <1456750705-7141-4-git-send-email-mhocko@kernel.org>
+In-Reply-To: <1456750705-7141-4-git-send-email-mhocko@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-alpha@vger.kernel.org
+To: Michal Hocko <mhocko@kernel.org>
+Cc: LKML <linux-kernel@vger.kernel.org>, Ingo Molnar <mingo@redhat.com>, Thomas Gleixner <tglx@linutronix.de>, "H. Peter Anvin" <hpa@zytor.com>, "David S. Miller" <davem@davemloft.net>, Tony Luck <tony.luck@intel.com>, Andrew Morton <akpm@linux-foundation.org>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org, Michal Hocko <mhocko@suse.com>
 
-Replace the arch specific versions of search_extable() and sort_extable()
-with calls to the generic ones, which now support relative exception
-tables as well.
+On Mon, Feb 29, 2016 at 01:58:17PM +0100, Michal Hocko wrote:
+> @@ -215,16 +216,34 @@ void __sched __down_write(struct rw_semaphore *sem)
+>  		 */
+>  		if (sem->count = 0)
+>  			break;
+> -		set_task_state(tsk, TASK_UNINTERRUPTIBLE);
+> +		set_task_state(tsk, state);
+>  		raw_spin_unlock_irqrestore(&sem->wait_lock, flags);
+>  		schedule();
+> +		if (signal_pending_state(state, current)) {
+> +			ret = -EINTR;
+> +			raw_spin_lock_irqsave(&sem->wait_lock, flags);
+> +			goto out;
+> +		}
+>  		raw_spin_lock_irqsave(&sem->wait_lock, flags);
+>  	}
+>  	/* got the lock */
+>  	sem->count = -1;
 
-Acked-by: Tony Luck <tony.luck@intel.com>
-Signed-off-by: Ard Biesheuvel <ard.biesheuvel@linaro.org>
----
- arch/ia64/include/asm/uaccess.h |  8 +-
- arch/ia64/mm/extable.c          | 97 +-------------------
- 2 files changed, 4 insertions(+), 101 deletions(-)
+> @@ -487,20 +488,38 @@ struct rw_semaphore __sched *rwsem_down_write_failed(struct rw_semaphore *sem)
+>  		/* Block until there are no active lockers. */
+>  		do {
+>  			schedule();
+> -			set_current_state(TASK_UNINTERRUPTIBLE);
+> +			if (signal_pending_state(state, current)) {
+> +				raw_spin_lock_irq(&sem->wait_lock);
+> +				ret = ERR_PTR(-EINTR);
+> +				goto out;
+> +			}
+> +			set_current_state(state);
+>  		} while ((count = sem->count) & RWSEM_ACTIVE_MASK);
+>  
+>  		raw_spin_lock_irq(&sem->wait_lock);
+>  	}
+>  	__set_current_state(TASK_RUNNING);
 
-diff --git a/arch/ia64/include/asm/uaccess.h b/arch/ia64/include/asm/uaccess.h
-index 4f3fb6ccbf21..2189d5ddc1ee 100644
---- a/arch/ia64/include/asm/uaccess.h
-+++ b/arch/ia64/include/asm/uaccess.h
-@@ -341,13 +341,11 @@ extern unsigned long __strnlen_user (const char __user *, long);
- 	__su_ret;						\
- })
- 
--/* Generic code can't deal with the location-relative format that we use for compactness.  */
--#define ARCH_HAS_SORT_EXTABLE
--#define ARCH_HAS_SEARCH_EXTABLE
-+#define ARCH_HAS_RELATIVE_EXTABLE
- 
- struct exception_table_entry {
--	int addr;	/* location-relative address of insn this fixup is for */
--	int cont;	/* location-relative continuation addr.; if bit 2 is set, r9 is set to 0 */
-+	int insn;	/* location-relative address of insn this fixup is for */
-+	int fixup;	/* location-relative continuation addr.; if bit 2 is set, r9 is set to 0 */
- };
- 
- extern void ia64_handle_exception (struct pt_regs *regs, const struct exception_table_entry *e);
-diff --git a/arch/ia64/mm/extable.c b/arch/ia64/mm/extable.c
-index c99a41e29fe8..8f70bb2d0c37 100644
---- a/arch/ia64/mm/extable.c
-+++ b/arch/ia64/mm/extable.c
-@@ -5,107 +5,12 @@
-  *	David Mosberger-Tang <davidm@hpl.hp.com>
-  */
- 
--#include <linux/sort.h>
--
- #include <asm/uaccess.h>
--#include <linux/module.h>
--
--static int cmp_ex(const void *a, const void *b)
--{
--	const struct exception_table_entry *l = a, *r = b;
--	u64 lip = (u64) &l->addr + l->addr;
--	u64 rip = (u64) &r->addr + r->addr;
--
--	/* avoid overflow */
--	if (lip > rip)
--		return 1;
--	if (lip < rip)
--		return -1;
--	return 0;
--}
--
--static void swap_ex(void *a, void *b, int size)
--{
--	struct exception_table_entry *l = a, *r = b, tmp;
--	u64 delta = (u64) r - (u64) l;
--
--	tmp = *l;
--	l->addr = r->addr + delta;
--	l->cont = r->cont + delta;
--	r->addr = tmp.addr - delta;
--	r->cont = tmp.cont - delta;
--}
--
--/*
-- * Sort the exception table. It's usually already sorted, but there
-- * may be unordered entries due to multiple text sections (such as the
-- * .init text section). Note that the exception-table-entries contain
-- * location-relative addresses, which requires a bit of care during
-- * sorting to avoid overflows in the offset members (e.g., it would
-- * not be safe to make a temporary copy of an exception-table entry on
-- * the stack, because the stack may be more than 2GB away from the
-- * exception-table).
-- */
--void sort_extable (struct exception_table_entry *start,
--		   struct exception_table_entry *finish)
--{
--	sort(start, finish - start, sizeof(struct exception_table_entry),
--	     cmp_ex, swap_ex);
--}
--
--static inline unsigned long ex_to_addr(const struct exception_table_entry *x)
--{
--	return (unsigned long)&x->addr + x->addr;
--}
--
--#ifdef CONFIG_MODULES
--/*
-- * Any entry referring to the module init will be at the beginning or
-- * the end.
-- */
--void trim_init_extable(struct module *m)
--{
--	/*trim the beginning*/
--	while (m->num_exentries &&
--	       within_module_init(ex_to_addr(&m->extable[0]), m)) {
--		m->extable++;
--		m->num_exentries--;
--	}
--	/*trim the end*/
--	while (m->num_exentries &&
--	       within_module_init(ex_to_addr(&m->extable[m->num_exentries-1]),
--				  m))
--		m->num_exentries--;
--}
--#endif /* CONFIG_MODULES */
--
--const struct exception_table_entry *
--search_extable (const struct exception_table_entry *first,
--		const struct exception_table_entry *last,
--		unsigned long ip)
--{
--	const struct exception_table_entry *mid;
--	unsigned long mid_ip;
--	long diff;
--
--        while (first <= last) {
--		mid = &first[(last - first)/2];
--		mid_ip = (u64) &mid->addr + mid->addr;
--		diff = mid_ip - ip;
--                if (diff = 0)
--                        return mid;
--                else if (diff < 0)
--                        first = mid + 1;
--                else
--                        last = mid - 1;
--        }
--        return NULL;
--}
- 
- void
- ia64_handle_exception (struct pt_regs *regs, const struct exception_table_entry *e)
- {
--	long fix = (u64) &e->cont + e->cont;
-+	long fix = (u64) &e->fixup + e->fixup;
- 
- 	regs->r8 = -EFAULT;
- 	if (fix & 4)
--- 
-1.9.1
+Why is the signal_pending_state() test _after_ the call to schedule()
+and before the 'trylock'.
+
+__mutex_lock_common() has it before the call to schedule and after the
+'trylock'.
+
+The difference is that rwsem will now respond to the KILL and return
+-EINTR even if the lock is available, whereas mutex will acquire it and
+ignore the signal (for a little while longer).
+
+Neither is wrong per se, but I feel all the locking primitives should
+behave in a consistent manner in this regard.
 
