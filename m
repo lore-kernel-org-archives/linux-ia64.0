@@ -1,89 +1,70 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Tue, 26 Apr 2016 21:44:09 +0000
-Subject: [PATCH 5/8] char/genrtc: powerpc: use asm-generic/rtc.h
-Message-Id: <1461707052-1337718-6-git-send-email-arnd@arndb.de>
+From: Michal Hocko <mhocko@kernel.org>
+Date: Fri, 01 Apr 2016 11:04:49 +0000
+Subject: [PATCH 05/11] ia64, rwsem: provide __down_write_killable
+Message-Id: <1459508695-14915-6-git-send-email-mhocko@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1461707052-1337718-1-git-send-email-arnd@arndb.de>
-In-Reply-To: <1461707052-1337718-1-git-send-email-arnd@arndb.de>
+References: <1459508695-14915-1-git-send-email-mhocko@kernel.org>
+In-Reply-To: <1459508695-14915-1-git-send-email-mhocko@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: Arnd Bergmann <arnd@arndb.de>, tony.luck@intel.com, geert@linux-m68k.org, jejb@parisc-linux.org, deller@gmx.de, benh@kernel.crashing.org, mpe@ellerman.id.au, dalias@libc.org, dhowells@redhat.com, yasutake.koichi@jp.panasonic.com, rth@twiddle.net, ink@jurassic.park.msu.ru, linux-alpha@vger.kernel.org, x86@kernel.org, a.zummo@towertech.it, alexandre.belloni@free-electrons.com, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, rtc-linux@googlegroups.com, linux-arch@vger.kernel.org
+To: LKML <linux-kernel@vger.kernel.org>
+Cc: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>, Thomas Gleixner <tglx@linutronix.de>, "H. Peter Anvin" <hpa@zytor.com>, "David S. Miller" <davem@davemloft.net>, Tony Luck <tony.luck@intel.com>, Andrew Morton <akpm@linux-foundation.org>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org, Michal Hocko <mhocko@suse.com>
 
-The asm-generic/rtc.h header can now be included by
-architectures that provide their own set_rtc_time/get_rtc_time
-macros, letting us remove most of the common contents in
-the powerpc implementation.
+From: Michal Hocko <mhocko@suse.com>
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Introduce ___down_write for the fast path and reuse it for __down_write
+resp. __down_write_killable each using the respective generic slow path
+(rwsem_down_write_failed resp. rwsem_down_write_failed_killable).
+
+Signed-off-by: Michal Hocko <mhocko@suse.com>
 ---
- arch/powerpc/include/asm/rtc.h | 36 +++++-------------------------------
- 1 file changed, 5 insertions(+), 31 deletions(-)
+ arch/ia64/include/asm/rwsem.h | 22 +++++++++++++++++++---
+ 1 file changed, 19 insertions(+), 3 deletions(-)
 
-diff --git a/arch/powerpc/include/asm/rtc.h b/arch/powerpc/include/asm/rtc.h
-index f5802926b6c0..c6659582bd1e 100644
---- a/arch/powerpc/include/asm/rtc.h
-+++ b/arch/powerpc/include/asm/rtc.h
-@@ -26,23 +26,14 @@
- 
- #ifdef __KERNEL__
- 
--#include <linux/rtc.h>
-+#define get_rtc_time powerpc_get_rtc_time
-+#define set_rtc_time powerpc_set_rtc_time
-+#include <asm-generic/rtc.h>
- 
- #include <asm/machdep.h>
- #include <asm/time.h>
- 
--#define RTC_PIE 0x40		/* periodic interrupt enable */
--#define RTC_AIE 0x20		/* alarm interrupt enable */
--#define RTC_UIE 0x10		/* update-finished interrupt enable */
--
--/* some dummy definitions */
--#define RTC_BATT_BAD 0x100	/* battery bad */
--#define RTC_SQWE 0x08		/* enable square-wave output */
--#define RTC_DM_BINARY 0x04	/* all time/date values are BCD if clear */
--#define RTC_24H 0x02		/* 24 hour mode - else hours bit 7 means pm */
--#define RTC_DST_EN 0x01	        /* auto switch DST - works f. USA only */
--
--static inline unsigned int get_rtc_time(struct rtc_time *time)
-+static inline unsigned int powerpc_get_rtc_time(struct rtc_time *time)
+diff --git a/arch/ia64/include/asm/rwsem.h b/arch/ia64/include/asm/rwsem.h
+index 3027e7516d85..5e78cb40d9df 100644
+--- a/arch/ia64/include/asm/rwsem.h
++++ b/arch/ia64/include/asm/rwsem.h
+@@ -49,8 +49,8 @@ __down_read (struct rw_semaphore *sem)
+ /*
+  * lock for writing
+  */
+-static inline void
+-__down_write (struct rw_semaphore *sem)
++static inline long
++___down_write (struct rw_semaphore *sem)
  {
- 	if (ppc_md.get_rtc_time)
- 		ppc_md.get_rtc_time(time);
-@@ -50,29 +41,12 @@ static inline unsigned int get_rtc_time(struct rtc_time *time)
+ 	long old, new;
+ 
+@@ -59,10 +59,26 @@ __down_write (struct rw_semaphore *sem)
+ 		new = old + RWSEM_ACTIVE_WRITE_BIAS;
+ 	} while (cmpxchg_acq(&sem->count, old, new) != old);
+ 
+-	if (old != 0)
++	return old;
++}
++
++static inline void
++__down_write (struct rw_semaphore *sem)
++{
++	if (___down_write(sem))
+ 		rwsem_down_write_failed(sem);
  }
  
- /* Set the current date and time in the real time clock. */
--static inline int set_rtc_time(struct rtc_time *time)
-+static inline int powerpc_set_rtc_time(struct rtc_time *time)
- {
- 	if (ppc_md.set_rtc_time)
- 		return ppc_md.set_rtc_time(time);
- 	return -EINVAL;
- }
- 
--static inline unsigned int get_rtc_ss(void)
--{
--	struct rtc_time h;
--
--	get_rtc_time(&h);
--	return h.tm_sec;
--}
--
--static inline int get_rtc_pll(struct rtc_pll_info *pll)
--{
--	return -EINVAL;
--}
--static inline int set_rtc_pll(struct rtc_pll_info *pll)
--{
--	return -EINVAL;
--}
--
- #endif /* __KERNEL__ */
- #endif /* __ASM_POWERPC_RTC_H__ */
++static inline int
++__down_write_killable (struct rw_semaphore *sem)
++{
++	if (___down_write(sem))
++		if (IS_ERR(rwsem_down_write_failed_killable(sem)))
++			return -EINTR;
++
++	return 0;
++}
++
+ /*
+  * unlock after reading
+  */
 -- 
-2.7.0
+2.8.0.rc3
 
