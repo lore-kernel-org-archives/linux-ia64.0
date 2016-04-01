@@ -1,85 +1,50 @@
-From: David Daney <ddaney.cavm@gmail.com>
-Date: Mon, 18 Apr 2016 21:13:59 +0000
-Subject: [PATCH v4 01/14] acpi, numa: Use pr_fmt() instead of printk
-Message-Id: <1461014052-30788-2-git-send-email-ddaney.cavm@gmail.com>
+From: Michal Hocko <mhocko@kernel.org>
+Date: Fri, 01 Apr 2016 11:04:53 +0000
+Subject: [PATCH 09/11] xtensa, rwsem: provide __down_write_killable
+Message-Id: <1459508695-14915-10-git-send-email-mhocko@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1461014052-30788-1-git-send-email-ddaney.cavm@gmail.com>
-In-Reply-To: <1461014052-30788-1-git-send-email-ddaney.cavm@gmail.com>
+References: <1459508695-14915-1-git-send-email-mhocko@kernel.org>
+In-Reply-To: <1459508695-14915-1-git-send-email-mhocko@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Will Deacon <will.deacon@arm.com>, linux-arm-kernel@lists.infradead.org, Mark Rutland <mark.rutland@arm.com>, Catalin Marinas <catalin.marinas@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>, Rob Herring <robh+dt@kernel.org>, Frank Rowand <frowand.list@gmail.com>, Grant Likely <grant.likely@linaro.org>, Robert Moore <robert.moore@intel.com>, Lv Zheng <lv.zheng@intel.com>, Hanjun Guo <hanjun.guo@linaro.org>, Marc Zyngier <Marc.Zyngier@arm.com>, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org
-Cc: Robert Richter <rrichter@cavium.com>, linux-kernel@vger.kernel.org, David Daney <david.daney@cavium.com>
+To: LKML <linux-kernel@vger.kernel.org>
+Cc: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>, Thomas Gleixner <tglx@linutronix.de>, "H. Peter Anvin" <hpa@zytor.com>, "David S. Miller" <davem@davemloft.net>, Tony Luck <tony.luck@intel.com>, Andrew Morton <akpm@linux-foundation.org>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org, Michal Hocko <mhocko@suse.com>
 
-From: Hanjun Guo <hanjun.guo@linaro.org>
+From: Michal Hocko <mhocko@suse.com>
 
-Just do some cleanups to replace printk with pr_fmt().
+which uses the same fast path as __down_write except it falls back to
+rwsem_down_write_failed_killable slow path and return -EINTR if killed.
 
-Signed-off-by: Hanjun Guo <hanjun.guo@linaro.org>
-Signed-off-by: Robert Richter <rrichter@cavium.com>
-Signed-off-by: David Daney <david.daney@cavium.com>
+Signed-off-by: Michal Hocko <mhocko@suse.com>
 ---
- drivers/acpi/numa.c | 17 +++++++----------
- 1 file changed, 7 insertions(+), 10 deletions(-)
+ arch/xtensa/include/asm/rwsem.h | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
 
-diff --git a/drivers/acpi/numa.c b/drivers/acpi/numa.c
-index 72b6e9e..4e427fc 100644
---- a/drivers/acpi/numa.c
-+++ b/drivers/acpi/numa.c
-@@ -18,6 +18,9 @@
-  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  *
-  */
-+
-+#define pr_fmt(fmt) "ACPI: " fmt
-+
- #include <linux/module.h>
- #include <linux/init.h>
- #include <linux/kernel.h>
-@@ -28,8 +31,6 @@
- #include <linux/nodemask.h>
- #include <linux/topology.h>
- 
--#define PREFIX "ACPI: "
--
- #define ACPI_NUMA	0x80000000
- #define _COMPONENT	ACPI_NUMA
- ACPI_MODULE_NAME("numa");
-@@ -187,9 +188,8 @@ acpi_table_print_srat_entry(struct acpi_subtable_header *header)
- #endif				/* ACPI_DEBUG_OUTPUT */
- 		break;
- 	default:
--		printk(KERN_WARNING PREFIX
--		       "Found unsupported SRAT entry (type = 0x%x)\n",
--		       header->type);
-+		pr_warn("Found unsupported SRAT entry (type = 0x%x)\n",
-+			header->type);
- 		break;
- 	}
+diff --git a/arch/xtensa/include/asm/rwsem.h b/arch/xtensa/include/asm/rwsem.h
+index 593483f6e1ff..6283823b8040 100644
+--- a/arch/xtensa/include/asm/rwsem.h
++++ b/arch/xtensa/include/asm/rwsem.h
+@@ -59,6 +59,19 @@ static inline void __down_write(struct rw_semaphore *sem)
+ 		rwsem_down_write_failed(sem);
  }
-@@ -222,7 +222,7 @@ static int __init acpi_parse_slit(struct acpi_table_header *table)
- 	struct acpi_table_slit *slit = (struct acpi_table_slit *)table;
  
- 	if (!slit_valid(slit)) {
--		printk(KERN_INFO "ACPI: SLIT table looks invalid. Not used.\n");
-+		pr_info("SLIT table looks invalid. Not used.\n");
- 		return -EINVAL;
- 	}
- 	acpi_numa_slit_init(slit);
-@@ -233,12 +233,9 @@ static int __init acpi_parse_slit(struct acpi_table_header *table)
- void __init __weak
- acpi_numa_x2apic_affinity_init(struct acpi_srat_x2apic_cpu_affinity *pa)
++static inline int __down_write_killable(struct rw_semaphore *sem)
++{
++	int tmp;
++
++	tmp = atomic_add_return(RWSEM_ACTIVE_WRITE_BIAS,
++				(atomic_t *)(&sem->count));
++	if (tmp != RWSEM_ACTIVE_WRITE_BIAS)
++		if (IS_ERR(rwsem_down_write_failed_killable(sem)))
++			return -EINTR;
++
++	return 0;
++}
++
+ static inline int __down_write_trylock(struct rw_semaphore *sem)
  {
--	printk(KERN_WARNING PREFIX
--	       "Found unsupported x2apic [0x%08x] SRAT entry\n", pa->apic_id);
--	return;
-+	pr_warn("Found unsupported x2apic [0x%08x] SRAT entry\n", pa->apic_id);
- }
- 
--
- static int __init
- acpi_parse_x2apic_affinity(struct acpi_subtable_header *header,
- 			   const unsigned long end)
+ 	int tmp;
 -- 
-1.7.11.7
+2.8.0.rc3
 
