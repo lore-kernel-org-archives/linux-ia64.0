@@ -1,68 +1,66 @@
-From: David Daney <ddaney.cavm@gmail.com>
-Date: Mon, 18 Apr 2016 21:14:09 +0000
-Subject: [PATCH v4 11/14] acpi, numa, srat: Improve SRAT error detection and add messages.
-Message-Id: <1461014052-30788-12-git-send-email-ddaney.cavm@gmail.com>
+From: Michal Hocko <mhocko@kernel.org>
+Date: Fri, 01 Apr 2016 11:04:48 +0000
+Subject: [PATCH 04/11] alpha, rwsem: provide __down_write_killable
+Message-Id: <1459508695-14915-5-git-send-email-mhocko@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1461014052-30788-1-git-send-email-ddaney.cavm@gmail.com>
-In-Reply-To: <1461014052-30788-1-git-send-email-ddaney.cavm@gmail.com>
+References: <1459508695-14915-1-git-send-email-mhocko@kernel.org>
+In-Reply-To: <1459508695-14915-1-git-send-email-mhocko@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Will Deacon <will.deacon@arm.com>, linux-arm-kernel@lists.infradead.org, Mark Rutland <mark.rutland@arm.com>, Catalin Marinas <catalin.marinas@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>, Rob Herring <robh+dt@kernel.org>, Frank Rowand <frowand.list@gmail.com>, Grant Likely <grant.likely@linaro.org>, Robert Moore <robert.moore@intel.com>, Lv Zheng <lv.zheng@intel.com>, Hanjun Guo <hanjun.guo@linaro.org>, Marc Zyngier <Marc.Zyngier@arm.com>, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org
-Cc: linux-kernel@vger.kernel.org, Robert Richter <rrichter@cavium.com>, David Daney <david.daney@cavium.com>
+To: LKML <linux-kernel@vger.kernel.org>
+Cc: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>, Thomas Gleixner <tglx@linutronix.de>, "H. Peter Anvin" <hpa@zytor.com>, "David S. Miller" <davem@davemloft.net>, Tony Luck <tony.luck@intel.com>, Andrew Morton <akpm@linux-foundation.org>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org, Michal Hocko <mhocko@suse.com>
 
-From: David Daney <david.daney@cavium.com>
+From: Michal Hocko <mhocko@suse.com>
 
-Loosely based on code from Robert Richter and Hanjun Guo.
+Introduce ___down_write for the fast path and reuse it for __down_write
+resp. __down_write_killable each using the respective generic slow path
+(rwsem_down_write_failed resp. rwsem_down_write_failed_killable).
 
-Improve out of range node detection as well as allow for Larger SRAT
-entities.
-
-Add printing of nice messages.
-
-Signed-off-by: David Daney <david.daney@cavium.com>
+Signed-off-by: Michal Hocko <mhocko@suse.com>
 ---
- drivers/acpi/numa.c | 15 +++++++++++----
- 1 file changed, 11 insertions(+), 4 deletions(-)
+ arch/alpha/include/asm/rwsem.h | 18 ++++++++++++++++--
+ 1 file changed, 16 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/acpi/numa.c b/drivers/acpi/numa.c
-index c4ea877..6133eb1 100644
---- a/drivers/acpi/numa.c
-+++ b/drivers/acpi/numa.c
-@@ -240,8 +240,11 @@ acpi_numa_memory_affinity_init(struct acpi_srat_mem_affinity *ma)
+diff --git a/arch/alpha/include/asm/rwsem.h b/arch/alpha/include/asm/rwsem.h
+index a83bbea62c67..0131a7058778 100644
+--- a/arch/alpha/include/asm/rwsem.h
++++ b/arch/alpha/include/asm/rwsem.h
+@@ -63,7 +63,7 @@ static inline int __down_read_trylock(struct rw_semaphore *sem)
+ 	return res >= 0 ? 1 : 0;
+ }
  
- 	if (srat_disabled())
- 		goto out_err;
--	if (ma->header.length != sizeof(struct acpi_srat_mem_affinity))
-+	if (ma->header.length < sizeof(struct acpi_srat_mem_affinity)) {
-+		pr_err("SRAT: Unexpected header length: %d\n",
-+		       ma->header.length);
- 		goto out_err_bad_srat;
-+	}
- 	if ((ma->flags & ACPI_SRAT_MEM_ENABLED) = 0)
- 		goto out_err;
- 	hotpluggable = ma->flags & ACPI_SRAT_MEM_HOT_PLUGGABLE;
-@@ -255,13 +258,17 @@ acpi_numa_memory_affinity_init(struct acpi_srat_mem_affinity *ma)
- 		pxm &= 0xff;
+-static inline void __down_write(struct rw_semaphore *sem)
++static inline long ___down_write(struct rw_semaphore *sem)
+ {
+ 	long oldcount;
+ #ifndef	CONFIG_SMP
+@@ -83,10 +83,24 @@ static inline void __down_write(struct rw_semaphore *sem)
+ 	:"=&r" (oldcount), "=m" (sem->count), "=&r" (temp)
+ 	:"Ir" (RWSEM_ACTIVE_WRITE_BIAS), "m" (sem->count) : "memory");
+ #endif
+-	if (unlikely(oldcount))
++	return oldcount;
++}
++
++static inline void __down_write(struct rw_semaphore *sem)
++{
++	if (unlikely(___down_write(sem)))
+ 		rwsem_down_write_failed(sem);
+ }
  
- 	node = acpi_map_pxm_to_node(pxm);
--	if (node < 0) {
--		printk(KERN_ERR "SRAT: Too many proximity domains.\n");
-+	if (node = NUMA_NO_NODE || node >= MAX_NUMNODES) {
-+		pr_err("SRAT: Too many proximity domains.\n");
- 		goto out_err_bad_srat;
- 	}
- 
--	if (numa_add_memblk(node, start, end) < 0)
-+	if (numa_add_memblk(node, start, end) < 0) {
-+		pr_err("SRAT: Failed to add memblk to node %u [mem %#010Lx-%#010Lx]\n",
-+		       node, (unsigned long long) start,
-+		       (unsigned long long) end - 1);
- 		goto out_err_bad_srat;
-+	}
- 
- 	node_set(node, numa_nodes_parsed);
- 
++static inline int __down_write_killable(struct rw_semaphore *sem)
++{
++	if (unlikely(___down_write(sem)))
++		if (IS_ERR(rwsem_down_write_failed_killable(sem)))
++			return -EINTR;
++
++	return 0;
++}
++
+ /*
+  * trylock for writing -- returns 1 if successful, 0 if contention
+  */
 -- 
-1.7.11.7
+2.8.0.rc3
 
