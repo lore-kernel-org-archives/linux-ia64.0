@@ -1,70 +1,105 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Date: Thu, 14 Apr 2016 21:40:54 +0000
-Subject: Re: [PATCH] documentation: Add disclaimer
-Message-Id: <20160414214054.GB31866@linux.vnet.ibm.com>
+From: Michal Hocko <mhocko@kernel.org>
+Date: Fri, 01 Apr 2016 11:04:55 +0000
+Subject: [PATCH 11/11] locking, rwsem: provide down_write_killable
+Message-Id: <1459508695-14915-12-git-send-email-mhocko@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20160114120445.GB15828@arm.com>
- <56980145.5030901@imgtec.com>
- <20160114204827.GE3818@linux.vnet.ibm.com>
- <56981212.7050301@imgtec.com>
- <20160114222046.GH3818@linux.vnet.ibm.com>
- <20160126102402.GE6357@twins.programming.kicks-ass.net>
- <20160126103200.GI6375@twins.programming.kicks-ass.net>
- <20160126110053.GA21553@arm.com>
- <20160126201143.GV4503@linux.vnet.ibm.com>
- <15882.1453906627@warthog.procyon.org.uk>
-In-Reply-To: <15882.1453906627-S6HVgzuS8uM4Awkfq6JHfwNdhmdF6hFW@public.gmane.org>
+References: <1459508695-14915-1-git-send-email-mhocko@kernel.org>
+In-Reply-To: <1459508695-14915-1-git-send-email-mhocko@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Cc: Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>, Will Deacon <will.deacon-5wv7dgnIgG8@public.gmane.org>, Leonid Yegoshin <Leonid.Yegoshin-1AXoQHu6uovQT0dZR+AlfA@public.gmane.org>, "Michael S. Tsirkin" <mst-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Andrew Cooper <andrew.cooper3-Sxgqhf6Nn4DQT0dZR+AlfA@public.gmane.org>, Russell King - ARM Linux <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>, virtualization-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, Stefano Stabellini <stefano.stabellini-mvvWK6WmYclDPfheJLI6IQ@public.gmane.org>, Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>, Ingo Molnar <mingo-X9Un+BFzKDI@public.gmane.org>, "H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>, Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, user-mode-linux-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: LKML <linux-kernel@vger.kernel.org>
+Cc: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>, Thomas Gleixner <tglx@linutronix.de>, "H. Peter Anvin" <hpa@zytor.com>, "David S. Miller" <davem@davemloft.net>, Tony Luck <tony.luck@intel.com>, Andrew Morton <akpm@linux-foundation.org>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org, Michal Hocko <mhocko@suse.com>
 
-On Wed, Jan 27, 2016 at 02:57:07PM +0000, David Howells wrote:
-> Peter Zijlstra <peterz@infradead.org> wrote:
-> 
-> > +=====
-> > +DISCLAIMER
-> > +=====
-> > +
-> > +This document is not a specification; it is intentionally (for the sake of
-> > +brevity) and unintentionally (due to being human) incomplete. This document is
-> > +meant as a guide to using the various memory barriers provided by Linux, but
-> > +in case of any doubt (and there are many) please ask.
-> > +
-> > +I repeat, this document is not a specification of what Linux expects from
-> > +hardware.
-> 
-> The purpose of this document is twofold:
-> 
->  (1) to specify the minimum functionality that one can rely on for any
->      particular barrier, and
-> 
->  (2) to provide a guide as to how to use the barriers that are available.
-> 
-> Note that an architecture can provide more than the minimum requirement for
-> any particular barrier, but if the barrier provides less than that, it is
-> incorrect.
-> 
-> Note also that it is possible that a barrier may be a no-op for an
-> architecture because the way that arch works renders an explicit barrier
-> unnecessary in that case.
-> 
-> > +
-> 
-> Can you bung an extra blank line in here if you have to redo this at all?
+From: Michal Hocko <mhocko@suse.com>
 
-Done as part of your patch.  Again, apologies for the delay.
+Now that all the architectures implement the necessary glue code
+we can introduce down_write_killable. The only difference wrt. regular
+down_write is that the slow path waits in TASK_KILLABLE state and the
+interruption by the fatal signal is reported as -EINTR to the caller.
 
-							Thanx, Paul
+Signed-off-by: Michal Hocko <mhocko@suse.com>
+---
+ include/linux/lockdep.h | 15 +++++++++++++++
+ include/linux/rwsem.h   |  1 +
+ kernel/locking/rwsem.c  | 19 +++++++++++++++++++
+ 3 files changed, 35 insertions(+)
 
-> > +====
-> > +CONTENTS
-> > +====
-> >  
-> >   (*) Abstract memory access model.
-> >  
-> 
-> David
-> 
+diff --git a/include/linux/lockdep.h b/include/linux/lockdep.h
+index 4dca42fd32f5..13a80779b6da 100644
+--- a/include/linux/lockdep.h
++++ b/include/linux/lockdep.h
+@@ -446,6 +446,18 @@ do {								\
+ 	lock_acquired(&(_lock)->dep_map, _RET_IP_);			\
+ } while (0)
+ 
++#define LOCK_CONTENDED_RETURN(_lock, try, lock)			\
++({								\
++	int ____err = 0;					\
++	if (!try(_lock)) {					\
++		lock_contended(&(_lock)->dep_map, _RET_IP_);	\
++		____err = lock(_lock);				\
++	}							\
++	if (!____err)						\
++		lock_acquired(&(_lock)->dep_map, _RET_IP_);	\
++	____err;						\
++})
++
+ #else /* CONFIG_LOCK_STAT */
+ 
+ #define lock_contended(lockdep_map, ip) do {} while (0)
+@@ -454,6 +466,9 @@ do {								\
+ #define LOCK_CONTENDED(_lock, try, lock) \
+ 	lock(_lock)
+ 
++#define LOCK_CONTENDED_RETURN(_lock, try, lock) \
++	lock(_lock)
++
+ #endif /* CONFIG_LOCK_STAT */
+ 
+ #ifdef CONFIG_LOCKDEP
+diff --git a/include/linux/rwsem.h b/include/linux/rwsem.h
+index 7d7ae029dac5..d1c12d160ace 100644
+--- a/include/linux/rwsem.h
++++ b/include/linux/rwsem.h
+@@ -118,6 +118,7 @@ extern int down_read_trylock(struct rw_semaphore *sem);
+  * lock for writing
+  */
+ extern void down_write(struct rw_semaphore *sem);
++extern int __must_check down_write_killable(struct rw_semaphore *sem);
+ 
+ /*
+  * trylock for writing -- returns 1 if successful, 0 if contention
+diff --git a/kernel/locking/rwsem.c b/kernel/locking/rwsem.c
+index 205be0ce34de..c817216c1615 100644
+--- a/kernel/locking/rwsem.c
++++ b/kernel/locking/rwsem.c
+@@ -55,6 +55,25 @@ void __sched down_write(struct rw_semaphore *sem)
+ EXPORT_SYMBOL(down_write);
+ 
+ /*
++ * lock for writing
++ */
++int __sched down_write_killable(struct rw_semaphore *sem)
++{
++	might_sleep();
++	rwsem_acquire(&sem->dep_map, 0, 0, _RET_IP_);
++
++	if (LOCK_CONTENDED_RETURN(sem, __down_write_trylock, __down_write_killable)) {
++		rwsem_release(&sem->dep_map, 1, _RET_IP_);
++		return -EINTR;
++	}
++
++	rwsem_set_owner(sem);
++	return 0;
++}
++
++EXPORT_SYMBOL(down_write_killable);
++
++/*
+  * trylock for writing -- returns 1 if successful, 0 if contention
+  */
+ int down_write_trylock(struct rw_semaphore *sem)
+-- 
+2.8.0.rc3
 
