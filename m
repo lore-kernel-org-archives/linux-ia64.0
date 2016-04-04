@@ -1,49 +1,179 @@
-From: Pratyush Anand <panand@redhat.com>
-Date: Sat, 30 Apr 2016 03:42:44 +0000
-Subject: Re: [PATCH 10/12] kexec: arrange for paddr_vmcoreinfo_note() to return phys_addr_t
-Message-Id: <CAHB_Gup5EMF36qECiWUP+_6D+4+DCQ5JyKkiK_88+n-sJ0BriQ@mail.gmail.com>
+From: Michal Hocko <mhocko@kernel.org>
+Date: Mon, 04 Apr 2016 09:06:40 +0000
+Subject: [PATCH 2/2] sh, rwsem: drop superfluous arch specific implementation
+Message-Id: <1459760800-13477-2-git-send-email-mhocko@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20160428092644.GX19428@n2100.arm.linux.org.uk>
-	<E1aviFP-0000je-5t@rmk-PC.arm.linux.org.uk>
-	<CAHB_Gur-6oyEheN-Pom7OwivdvrQpCBaXvM1V2H0JPFRCFZthA@mail.gmail.com>
-	<20160429180619.GT19428@n2100.arm.linux.org.uk>
-In-Reply-To: <20160429180619.GT19428@n2100.arm.linux.org.uk>
+References: <20160404090335.GB10272@dhcp22.suse.cz>
+ <1459760800-13477-1-git-send-email-mhocko@kernel.org>
+In-Reply-To: <1459760800-13477-1-git-send-email-mhocko@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Cc: linux-arm-kernel@lists.infradead.org, Mark Rutland <mark.rutland@arm.com>, devicetree@vger.kernel.org, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, linux-doc@vger.kernel.org, Pawel Moll <pawel.moll@arm.com>, Jonathan Corbet <corbet@lwn.net>, Ian Campbell <ijc+devicetree@hellion.org.uk>, kexec@lists.infradead.org, Fenghua Yu <fenghua.yu@intel.com>, Haren Myneni <hbabu@us.ibm.com>, Rob Herring <robh+dt@kernel.org>, Eric Biederman <ebiederm@xmission.com>, Santosh Shilimkar <ssantosh@kernel.org>, Kumar Gala <galak@codeaurora.org>, Vivek Goyal <vgoyal@redhat.com>
+To: LKML <linux-kernel@vger.kernel.org>
+Cc: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>, Thomas Gleixner <tglx@linutronix.de>, "H. Peter Anvin" <hpa@zytor.com>, "David S. Miller" <davem@davemloft.net>, Tony Luck <tony.luck@intel.com>, Andrew Morton <akpm@linux-foundation.org>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org, Michal Hocko <mhocko@suse.com>
 
-On Fri, Apr 29, 2016 at 11:36 PM, Russell King - ARM Linux
-<linux@arm.linux.org.uk> wrote:
-> On Fri, Apr 29, 2016 at 08:36:43PM +0530, Pratyush Anand wrote:
->> On Thu, Apr 28, 2016 at 2:58 PM, Russell King
->> <rmk+kernel@arm.linux.org.uk> wrote:
->> > diff --git a/kernel/ksysfs.c b/kernel/ksysfs.c
->> > index 152da4a48867..9f1920d2d0c6 100644
->> > --- a/kernel/ksysfs.c
->> > +++ b/kernel/ksysfs.c
->> > @@ -128,8 +128,8 @@ KERNEL_ATTR_RW(kexec_crash_size);
->> >  static ssize_t vmcoreinfo_show(struct kobject *kobj,
->> >                                struct kobj_attribute *attr, char *buf)
->> >  {
->> > -       return sprintf(buf, "%lx %x\n",
->> > -                      paddr_vmcoreinfo_note(),
->> > +       phys_addr_t vmcore_base = paddr_vmcoreinfo_note();
->> > +       return sprintf(buf, "%pa %x\n", &vmcore_base,
->>
->> Why do we pass &vmcore_base? Shouldn't it be vmcore_base?
->
-> You seem to not know what the "%pa" format string means.
+From: Michal Hocko <mhocko@suse.com>
 
-Apologies, Yes, yes.. it was my negligence.
+since "locking, rwsem: drop explicit memory barriers" the arch specific
+code is basically same as the the generic one so we can drop the
+superfluous code.
 
->
-> %p always takes a _pointer_ as per C standard, so the printf argument
-> must be a pointer.  However, the kernel format strings are extended
-> with additional suffixes - in this case 'a', which means that we want
-> to print the contents of a _pointer_ to a phys_addr_t.
->
-> Full details in Documentation/printk-formats.txt in the kernel.
+Suggested-by: Davidlohr Bueso <dave@stgolabs.net>
+Signed-off-by: Michal Hocko <mhocko@suse.com>
+---
+ arch/sh/include/asm/Kbuild  |   1 +
+ arch/sh/include/asm/rwsem.h | 130 --------------------------------------------
+ 2 files changed, 1 insertion(+), 130 deletions(-)
+ delete mode 100644 arch/sh/include/asm/rwsem.h
 
-Thanks for explaining :-)
+diff --git a/arch/sh/include/asm/Kbuild b/arch/sh/include/asm/Kbuild
+index aac452b26aa8..6d866c7a9b74 100644
+--- a/arch/sh/include/asm/Kbuild
++++ b/arch/sh/include/asm/Kbuild
+@@ -25,6 +25,7 @@ generic-y += percpu.h
+ generic-y += poll.h
+ generic-y += preempt.h
+ generic-y += resource.h
++generic-y += rwsem.h
+ generic-y += sembuf.h
+ generic-y += serial.h
+ generic-y += shmbuf.h
+diff --git a/arch/sh/include/asm/rwsem.h b/arch/sh/include/asm/rwsem.h
+deleted file mode 100644
+index 8a457b83d2a5..000000000000
+--- a/arch/sh/include/asm/rwsem.h
++++ /dev/null
+@@ -1,130 +0,0 @@
+-/*
+- * include/asm-sh/rwsem.h: R/W semaphores for SH using the stuff
+- * in lib/rwsem.c.
+- */
+-
+-#ifndef _ASM_SH_RWSEM_H
+-#define _ASM_SH_RWSEM_H
+-
+-#ifndef _LINUX_RWSEM_H
+-#error "please don't include asm/rwsem.h directly, use linux/rwsem.h instead"
+-#endif
+-
+-#ifdef __KERNEL__
+-
+-#define RWSEM_UNLOCKED_VALUE		0x00000000
+-#define RWSEM_ACTIVE_BIAS		0x00000001
+-#define RWSEM_ACTIVE_MASK		0x0000ffff
+-#define RWSEM_WAITING_BIAS		(-0x00010000)
+-#define RWSEM_ACTIVE_READ_BIAS		RWSEM_ACTIVE_BIAS
+-#define RWSEM_ACTIVE_WRITE_BIAS		(RWSEM_WAITING_BIAS + RWSEM_ACTIVE_BIAS)
+-
+-/*
+- * lock for reading
+- */
+-static inline void __down_read(struct rw_semaphore *sem)
+-{
+-	if (atomic_inc_return((atomic_t *)(&sem->count)) <= 0)
+-		rwsem_down_read_failed(sem);
+-}
+-
+-static inline int __down_read_trylock(struct rw_semaphore *sem)
+-{
+-	int tmp;
+-
+-	while ((tmp = sem->count) >= 0) {
+-		if (tmp = cmpxchg(&sem->count, tmp,
+-				   tmp + RWSEM_ACTIVE_READ_BIAS)) {
+-			return 1;
+-		}
+-	}
+-	return 0;
+-}
+-
+-/*
+- * lock for writing
+- */
+-static inline void __down_write(struct rw_semaphore *sem)
+-{
+-	int tmp;
+-
+-	tmp = atomic_add_return(RWSEM_ACTIVE_WRITE_BIAS,
+-				(atomic_t *)(&sem->count));
+-	if (tmp != RWSEM_ACTIVE_WRITE_BIAS)
+-		rwsem_down_write_failed(sem);
+-}
+-
+-static inline int __down_write_killable(struct rw_semaphore *sem)
+-{
+-	int tmp;
+-
+-	tmp = atomic_add_return(RWSEM_ACTIVE_WRITE_BIAS,
+-				(atomic_t *)(&sem->count));
+-	if (tmp != RWSEM_ACTIVE_WRITE_BIAS)
+-		if (IS_ERR(rwsem_down_write_failed_killable(sem)))
+-			return -EINTR;
+-
+-	return 0;
+-}
+-
+-static inline int __down_write_trylock(struct rw_semaphore *sem)
+-{
+-	int tmp;
+-
+-	tmp = cmpxchg(&sem->count, RWSEM_UNLOCKED_VALUE,
+-		      RWSEM_ACTIVE_WRITE_BIAS);
+-	return tmp = RWSEM_UNLOCKED_VALUE;
+-}
+-
+-/*
+- * unlock after reading
+- */
+-static inline void __up_read(struct rw_semaphore *sem)
+-{
+-	int tmp;
+-
+-	tmp = atomic_dec_return((atomic_t *)(&sem->count));
+-	if (tmp < -1 && (tmp & RWSEM_ACTIVE_MASK) = 0)
+-		rwsem_wake(sem);
+-}
+-
+-/*
+- * unlock after writing
+- */
+-static inline void __up_write(struct rw_semaphore *sem)
+-{
+-	if (atomic_sub_return(RWSEM_ACTIVE_WRITE_BIAS,
+-			      (atomic_t *)(&sem->count)) < 0)
+-		rwsem_wake(sem);
+-}
+-
+-/*
+- * implement atomic add functionality
+- */
+-static inline void rwsem_atomic_add(int delta, struct rw_semaphore *sem)
+-{
+-	atomic_add(delta, (atomic_t *)(&sem->count));
+-}
+-
+-/*
+- * downgrade write lock to read lock
+- */
+-static inline void __downgrade_write(struct rw_semaphore *sem)
+-{
+-	int tmp;
+-
+-	tmp = atomic_add_return(-RWSEM_WAITING_BIAS, (atomic_t *)(&sem->count));
+-	if (tmp < 0)
+-		rwsem_downgrade_wake(sem);
+-}
+-
+-/*
+- * implement exchange and add functionality
+- */
+-static inline int rwsem_atomic_update(int delta, struct rw_semaphore *sem)
+-{
+-	return atomic_add_return(delta, (atomic_t *)(&sem->count));
+-}
+-
+-#endif /* __KERNEL__ */
+-#endif /* _ASM_SH_RWSEM_H */
+-- 
+2.8.0.rc3
+
