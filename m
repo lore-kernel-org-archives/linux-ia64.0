@@ -1,74 +1,182 @@
-From: Sudeep Holla <sudeep.holla@arm.com>
-Date: Wed, 20 Apr 2016 10:09:34 +0000
-Subject: Re: [PATCH v4 1/5] ACPI / processor_idle: introduce ARCH_SUPPORTS_ACPI_PROCESSOR_CSTATE
-Message-Id: <5717555E.8040401@arm.com>
+From: Michal Hocko <mhocko@kernel.org>
+Date: Mon, 04 Apr 2016 09:06:39 +0000
+Subject: [PATCH 1/2] xtensa, rwsem: drop superfluous arch specific implementation
+Message-Id: <1459760800-13477-1-git-send-email-mhocko@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1461069013-13292-1-git-send-email-sudeep.holla@arm.com>
- <1461069013-13292-2-git-send-email-sudeep.holla@arm.com>
- <CAGm_ybjZ8ePc9KhcaaSX9aDJTE1Svuc-OnpYJpd9TTfi_sm_cQ@mail.gmail.com>
-In-Reply-To: <CAGm_ybjZ8ePc9KhcaaSX9aDJTE1Svuc-OnpYJpd9TTfi_sm_cQ@mail.gmail.com>
+References: <20160404090335.GB10272@dhcp22.suse.cz>
+In-Reply-To: <20160404090335.GB10272@dhcp22.suse.cz>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Vikas Sajjan <sajjan.linux@gmail.com>
-Cc: Sudeep Holla <sudeep.holla@arm.com>, "Rafael J. Wysocki" <rjw@rjwysocki.net>, linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>, linux-ia64@vger.kernel.org, Al Stone <al.stone@linaro.org>, Prashanth Prakash <pprakash@codeaurora.org>, x86@kernel.org, Ashwin Chaugule <ashwin.chaugule@linaro.org>
+To: LKML <linux-kernel@vger.kernel.org>
+Cc: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>, Thomas Gleixner <tglx@linutronix.de>, "H. Peter Anvin" <hpa@zytor.com>, "David S. Miller" <davem@davemloft.net>, Tony Luck <tony.luck@intel.com>, Andrew Morton <akpm@linux-foundation.org>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org, Michal Hocko <mhocko@suse.com>
 
+From: Michal Hocko <mhocko@suse.com>
 
+since "locking, rwsem: drop explicit memory barriers" the arch specific
+code is basically same as the the generic one so we can drop the
+superfluous code.
 
-On 20/04/16 10:56, Vikas Sajjan wrote:
-> Hi Sudeep,
->
-> On Tue, Apr 19, 2016 at 6:00 PM, Sudeep Holla <sudeep.holla@arm.com> wrote:
->> ACPI 6.0 adds a new method to specify the CPU idle states(C-states)
->> called Low Power Idle(LPI) states. Since new architectures like ARM64
->> use only LPIs, introduce ARCH_SUPPORTS_ACPI_PROCESSOR_CSTATE to
->> encapsulate all the code supporting the old style C-states(_CST)
->>
->> This patch will help to extend the processor_idle module to support
->> LPI.
->>
+Suggested-by: Davidlohr Bueso <dave@stgolabs.net>
+Signed-off-by: Michal Hocko <mhocko@suse.com>
+---
+ arch/xtensa/include/asm/Kbuild  |   1 +
+ arch/xtensa/include/asm/rwsem.h | 134 ----------------------------------------
+ 2 files changed, 1 insertion(+), 134 deletions(-)
+ delete mode 100644 arch/xtensa/include/asm/rwsem.h
 
-[...]
-
->> @@ -1018,29 +1062,11 @@ int acpi_processor_power_init(struct acpi_processor *pr)
->>          acpi_status status;
->>          int retval;
->>          struct cpuidle_device *dev;
->> -       static int first_run;
->>
->>          if (disabled_by_idle_boot_param())
->>                  return 0;
->>
->> -       if (!first_run) {
->> -               dmi_check_system(processor_power_dmi_table);
->> -               max_cstate = acpi_processor_cstate_check(max_cstate);
->> -               if (max_cstate < ACPI_C_STATES_MAX)
->> -                       printk(KERN_NOTICE
->> -                              "ACPI: processor limited to max C-state %d\n",
->> -                              max_cstate);
->> -               first_run++;
->> -       }
->> -
->> -       if (acpi_gbl_FADT.cst_control && !nocst) {
->> -               status >> -                   acpi_os_write_port(acpi_gbl_FADT.smi_command, acpi_gbl_FADT.cst_control, 8);
->> -               if (ACPI_FAILURE(status)) {
->> -                       ACPI_EXCEPTION((AE_INFO, status,
->> -                                       "Notifying BIOS of _CST ability failed"));
->> -               }
->> -       }
->> +       acpi_processor_cstate_first_run_checks();
->>
->>          acpi_processor_get_power_info(pr);
->>          pr->flags.power_setup_done = 1;
->
-> Not related to your change,
-> The acpi_processor_get_power_info() function can return failure, so i
-> thought it makes sense to check for the return value
-> and then set the  flag pr->flags.power_setup_done appropriately.
->
-
-Makes sense, will do that.
-
+diff --git a/arch/xtensa/include/asm/Kbuild b/arch/xtensa/include/asm/Kbuild
+index b56855a1382a..28cf4c5d65ef 100644
+--- a/arch/xtensa/include/asm/Kbuild
++++ b/arch/xtensa/include/asm/Kbuild
+@@ -22,6 +22,7 @@ generic-y += mm-arch-hooks.h
+ generic-y += percpu.h
+ generic-y += preempt.h
+ generic-y += resource.h
++generic-y += rwsem.h
+ generic-y += sections.h
+ generic-y += siginfo.h
+ generic-y += statfs.h
+diff --git a/arch/xtensa/include/asm/rwsem.h b/arch/xtensa/include/asm/rwsem.h
+deleted file mode 100644
+index 6283823b8040..000000000000
+--- a/arch/xtensa/include/asm/rwsem.h
++++ /dev/null
+@@ -1,134 +0,0 @@
+-/*
+- * include/asm-xtensa/rwsem.h
+- *
+- * This file is subject to the terms and conditions of the GNU General Public
+- * License.  See the file "COPYING" in the main directory of this archive
+- * for more details.
+- *
+- * Largely copied from include/asm-ppc/rwsem.h
+- *
+- * Copyright (C) 2001 - 2005 Tensilica Inc.
+- */
+-
+-#ifndef _XTENSA_RWSEM_H
+-#define _XTENSA_RWSEM_H
+-
+-#ifndef _LINUX_RWSEM_H
+-#error "Please don't include <asm/rwsem.h> directly, use <linux/rwsem.h> instead."
+-#endif
+-
+-#define RWSEM_UNLOCKED_VALUE		0x00000000
+-#define RWSEM_ACTIVE_BIAS		0x00000001
+-#define RWSEM_ACTIVE_MASK		0x0000ffff
+-#define RWSEM_WAITING_BIAS		(-0x00010000)
+-#define RWSEM_ACTIVE_READ_BIAS		RWSEM_ACTIVE_BIAS
+-#define RWSEM_ACTIVE_WRITE_BIAS		(RWSEM_WAITING_BIAS + RWSEM_ACTIVE_BIAS)
+-
+-/*
+- * lock for reading
+- */
+-static inline void __down_read(struct rw_semaphore *sem)
+-{
+-	if (atomic_add_return(1,(atomic_t *)(&sem->count)) <= 0)
+-		rwsem_down_read_failed(sem);
+-}
+-
+-static inline int __down_read_trylock(struct rw_semaphore *sem)
+-{
+-	int tmp;
+-
+-	while ((tmp = sem->count) >= 0) {
+-		if (tmp = cmpxchg(&sem->count, tmp,
+-				   tmp + RWSEM_ACTIVE_READ_BIAS)) {
+-			return 1;
+-		}
+-	}
+-	return 0;
+-}
+-
+-/*
+- * lock for writing
+- */
+-static inline void __down_write(struct rw_semaphore *sem)
+-{
+-	int tmp;
+-
+-	tmp = atomic_add_return(RWSEM_ACTIVE_WRITE_BIAS,
+-				(atomic_t *)(&sem->count));
+-	if (tmp != RWSEM_ACTIVE_WRITE_BIAS)
+-		rwsem_down_write_failed(sem);
+-}
+-
+-static inline int __down_write_killable(struct rw_semaphore *sem)
+-{
+-	int tmp;
+-
+-	tmp = atomic_add_return(RWSEM_ACTIVE_WRITE_BIAS,
+-				(atomic_t *)(&sem->count));
+-	if (tmp != RWSEM_ACTIVE_WRITE_BIAS)
+-		if (IS_ERR(rwsem_down_write_failed_killable(sem)))
+-			return -EINTR;
+-
+-	return 0;
+-}
+-
+-static inline int __down_write_trylock(struct rw_semaphore *sem)
+-{
+-	int tmp;
+-
+-	tmp = cmpxchg(&sem->count, RWSEM_UNLOCKED_VALUE,
+-		      RWSEM_ACTIVE_WRITE_BIAS);
+-	return tmp = RWSEM_UNLOCKED_VALUE;
+-}
+-
+-/*
+- * unlock after reading
+- */
+-static inline void __up_read(struct rw_semaphore *sem)
+-{
+-	int tmp;
+-
+-	tmp = atomic_sub_return(1,(atomic_t *)(&sem->count));
+-	if (tmp < -1 && (tmp & RWSEM_ACTIVE_MASK) = 0)
+-		rwsem_wake(sem);
+-}
+-
+-/*
+- * unlock after writing
+- */
+-static inline void __up_write(struct rw_semaphore *sem)
+-{
+-	if (atomic_sub_return(RWSEM_ACTIVE_WRITE_BIAS,
+-			      (atomic_t *)(&sem->count)) < 0)
+-		rwsem_wake(sem);
+-}
+-
+-/*
+- * implement atomic add functionality
+- */
+-static inline void rwsem_atomic_add(int delta, struct rw_semaphore *sem)
+-{
+-	atomic_add(delta, (atomic_t *)(&sem->count));
+-}
+-
+-/*
+- * downgrade write lock to read lock
+- */
+-static inline void __downgrade_write(struct rw_semaphore *sem)
+-{
+-	int tmp;
+-
+-	tmp = atomic_add_return(-RWSEM_WAITING_BIAS, (atomic_t *)(&sem->count));
+-	if (tmp < 0)
+-		rwsem_downgrade_wake(sem);
+-}
+-
+-/*
+- * implement exchange and add functionality
+- */
+-static inline int rwsem_atomic_update(int delta, struct rw_semaphore *sem)
+-{
+-	return atomic_add_return(delta, (atomic_t *)(&sem->count));
+-}
+-
+-#endif	/* _XTENSA_RWSEM_H */
 -- 
-Regards,
-Sudeep
+2.8.0.rc3
+
