@@ -1,50 +1,38 @@
-From: David Daney <ddaney.cavm@gmail.com>
-Date: Mon, 18 Apr 2016 21:14:07 +0000
-Subject: [PATCH v4 09/14] acpi, numa: remove unneeded acpi_numa=1
-Message-Id: <1461014052-30788-10-git-send-email-ddaney.cavm@gmail.com>
+From: Jonas Rabenstein <ve92mose@stud.informatik.uni-erlangen.de>
+Date: Wed, 06 Apr 2016 23:12:58 +0000
+Subject: [PATCH 0/3] ia64: remove unused header files
+Message-Id: <cover.1459983613.git.jonas.rabenstein@studium.uni-erlangen.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1461014052-30788-1-git-send-email-ddaney.cavm@gmail.com>
-In-Reply-To: <1461014052-30788-1-git-send-email-ddaney.cavm@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Will Deacon <will.deacon@arm.com>, linux-arm-kernel@lists.infradead.org, Mark Rutland <mark.rutland@arm.com>, Catalin Marinas <catalin.marinas@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>, Rob Herring <robh+dt@kernel.org>, Frank Rowand <frowand.list@gmail.com>, Grant Likely <grant.likely@linaro.org>, Robert Moore <robert.moore@intel.com>, Lv Zheng <lv.zheng@intel.com>, Hanjun Guo <hanjun.guo@linaro.org>, Marc Zyngier <Marc.Zyngier@arm.com>, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org
-Cc: Robert Richter <rrichter@cavium.com>, linux-kernel@vger.kernel.org, David Daney <david.daney@cavium.com>
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Jonas Rabenstein <jonas.rabenstein@studium.uni-erlangen.de>
 
-From: Hanjun Guo <hanjun.guo@linaro.org>
+From: Jonas Rabenstein <jonas.rabenstein@studium.uni-erlangen.de>
 
-acpi_numa is default to 0, it's set to -1 when disable acpi numa or
-when a bad SRAT is parsed, and it's only consumed in srat_disabled()
-(compare it with 0) to continue parse the SRAT or not, so we don't
-need to set acpi_numa to 1 when we get a valid SRAT entry.
+This patchset removes three unreferenced and unused header files of the ia64
+architecture. Also some #include directives would resolve to the files I propose
+for removal, the dependencies defined by kconfig for those files do not allow
+their usage together with ia64.
 
-Signed-off-by: Hanjun Guo <hanjun.guo@linaro.org>
-Signed-off-by: Robert Richter <rrichter@cavium.com>
-Signed-off-by: David Daney <david.daney@cavium.com>
----
- arch/x86/mm/srat.c | 2 --
- 1 file changed, 2 deletions(-)
+I detected the issue with chimaera, a tool I currently develop for my bachelor
+thesis extending the undertaker tool suite to take the relation of files based
+on #include directives into account (https://undertaker.cs.fau.de).
 
-diff --git a/arch/x86/mm/srat.c b/arch/x86/mm/srat.c
-index 4217071f..30460f5 100644
---- a/arch/x86/mm/srat.c
-+++ b/arch/x86/mm/srat.c
-@@ -59,7 +59,6 @@ acpi_numa_x2apic_affinity_init(struct acpi_srat_x2apic_cpu_affinity *pa)
- 	}
- 	set_apicid_to_node(apic_id, node);
- 	node_set(node, numa_nodes_parsed);
--	acpi_numa = 1;
- 	printk(KERN_INFO "SRAT: PXM %u -> APIC 0x%04x -> Node %u\n",
- 	       pxm, apic_id, node);
- }
-@@ -101,7 +100,6 @@ acpi_numa_processor_affinity_init(struct acpi_srat_cpu_affinity *pa)
- 
- 	set_apicid_to_node(apic_id, node);
- 	node_set(node, numa_nodes_parsed);
--	acpi_numa = 1;
- 	printk(KERN_INFO "SRAT: PXM %u -> APIC 0x%02x -> Node %u\n",
- 	       pxm, apic_id, node);
- }
+Jonas Rabenstein (3):
+  ia64: remove unused asm/segment.h
+  ia64: remove unused asm/idle.h
+  ia64: remove unused asm/mc146818rtc.h
+
+ arch/ia64/include/asm/idle.h        |  7 -------
+ arch/ia64/include/asm/mc146818rtc.h | 10 ----------
+ arch/ia64/include/asm/segment.h     |  6 ------
+ 3 files changed, 23 deletions(-)
+ delete mode 100644 arch/ia64/include/asm/idle.h
+ delete mode 100644 arch/ia64/include/asm/mc146818rtc.h
+ delete mode 100644 arch/ia64/include/asm/segment.h
+
 -- 
-1.7.11.7
+1.9.1
 
