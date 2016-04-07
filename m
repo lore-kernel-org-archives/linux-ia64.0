@@ -1,111 +1,66 @@
-From: David Daney <ddaney.cavm@gmail.com>
-Date: Wed, 20 Apr 2016 01:40:30 +0000
-Subject: [PATCH v5 05/14] acpi, numa: move acpi_numa_slit_init() to drivers/acpi/numa.c
-Message-Id: <1461116439-22991-6-git-send-email-ddaney.cavm@gmail.com>
+From: Michal Hocko <mhocko@kernel.org>
+Date: Thu, 07 Apr 2016 15:12:27 +0000
+Subject: [PATCH 07/11] alpha, rwsem: provide __down_write_killable
+Message-Id: <1460041951-22347-8-git-send-email-mhocko@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1461116439-22991-1-git-send-email-ddaney.cavm@gmail.com>
-In-Reply-To: <1461116439-22991-1-git-send-email-ddaney.cavm@gmail.com>
+References: <1460041951-22347-1-git-send-email-mhocko@kernel.org>
+In-Reply-To: <1460041951-22347-1-git-send-email-mhocko@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Will Deacon <will.deacon@arm.com>, linux-arm-kernel@lists.infradead.org, Mark Rutland <mark.rutland@arm.com>, Catalin Marinas <catalin.marinas@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>, Rob Herring <robh+dt@kernel.org>, Frank Rowand <frowand.list@gmail.com>, Grant Likely <grant.likely@linaro.org>, Robert Moore <robert.moore@intel.com>, Lv Zheng <lv.zheng@intel.com>, Hanjun Guo <hanjun.guo@linaro.org>, Marc Zyngier <Marc.Zyngier@arm.com>, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org
-Cc: linux-kernel@vger.kernel.org, Robert Richter <rrichter@cavium.com>, David Daney <david.daney@cavium.com>
+To: LKML <linux-kernel@vger.kernel.org>
+Cc: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>, Thomas Gleixner <tglx@linutronix.de>, "H. Peter Anvin" <hpa@zytor.com>, "David S. Miller" <davem@davemloft.net>, Tony Luck <tony.luck@intel.com>, Andrew Morton <akpm@linux-foundation.org>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org, Michal Hocko <mhocko@suse.com>
 
-From: Hanjun Guo <hanjun.guo@linaro.org>
+From: Michal Hocko <mhocko@suse.com>
 
-Identical implementations of acpi_numa_slit_init() are used by both
-x86 and follow-on arm64 support.  Move it to drivers/acpi/numa.c, and
-guard with CONFIG_X86 || CONFIG_ARM64 because ia64 has its own
-architecture specific implementation.
+Introduce ___down_write for the fast path and reuse it for __down_write
+resp. __down_write_killable each using the respective generic slow path
+(rwsem_down_write_failed resp. rwsem_down_write_failed_killable).
 
-No code change.
-
-Signed-off-by: Hanjun Guo <hanjun.guo@linaro.org>
-Signed-off-by: Robert Richter <rrichter@cavium.com>
-Signed-off-by: David Daney <david.daney@cavium.com>
+Signed-off-by: Michal Hocko <mhocko@suse.com>
 ---
- arch/x86/mm/srat.c  | 27 ---------------------------
- drivers/acpi/numa.c | 29 +++++++++++++++++++++++++++++
- 2 files changed, 29 insertions(+), 27 deletions(-)
+ arch/alpha/include/asm/rwsem.h | 18 ++++++++++++++++--
+ 1 file changed, 16 insertions(+), 2 deletions(-)
 
-diff --git a/arch/x86/mm/srat.c b/arch/x86/mm/srat.c
-index 90b6ed9..f242a11 100644
---- a/arch/x86/mm/srat.c
-+++ b/arch/x86/mm/srat.c
-@@ -42,33 +42,6 @@ static __init inline int srat_disabled(void)
- 	return acpi_numa < 0;
+diff --git a/arch/alpha/include/asm/rwsem.h b/arch/alpha/include/asm/rwsem.h
+index a83bbea62c67..0131a7058778 100644
+--- a/arch/alpha/include/asm/rwsem.h
++++ b/arch/alpha/include/asm/rwsem.h
+@@ -63,7 +63,7 @@ static inline int __down_read_trylock(struct rw_semaphore *sem)
+ 	return res >= 0 ? 1 : 0;
  }
  
--/*
-- * Callback for SLIT parsing.  pxm_to_node() returns NUMA_NO_NODE for
-- * I/O localities since SRAT does not list them.  I/O localities are
-- * not supported at this point.
-- */
--void __init acpi_numa_slit_init(struct acpi_table_slit *slit)
--{
--	int i, j;
--
--	for (i = 0; i < slit->locality_count; i++) {
--		const int from_node = pxm_to_node(i);
--
--		if (from_node = NUMA_NO_NODE)
--			continue;
--
--		for (j = 0; j < slit->locality_count; j++) {
--			const int to_node = pxm_to_node(j);
--
--			if (to_node = NUMA_NO_NODE)
--				continue;
--
--			numa_set_distance(from_node, to_node,
--				slit->entry[slit->locality_count * i + j]);
--		}
--	}
--}
--
- /* Callback for Proximity Domain -> x2APIC mapping */
- void __init
- acpi_numa_x2apic_affinity_init(struct acpi_srat_x2apic_cpu_affinity *pa)
-diff --git a/drivers/acpi/numa.c b/drivers/acpi/numa.c
-index f41f06b..acc361d 100644
---- a/drivers/acpi/numa.c
-+++ b/drivers/acpi/numa.c
-@@ -197,6 +197,35 @@ static int __init slit_valid(struct acpi_table_slit *slit)
- 	return 1;
- }
- 
-+#if defined(CONFIG_X86) || defined(CONFIG_ARM64)
-+/*
-+ * Callback for SLIT parsing.  pxm_to_node() returns NUMA_NO_NODE for
-+ * I/O localities since SRAT does not list them.  I/O localities are
-+ * not supported at this point.
-+ */
-+void __init acpi_numa_slit_init(struct acpi_table_slit *slit)
-+{
-+	int i, j;
-+
-+	for (i = 0; i < slit->locality_count; i++) {
-+		const int from_node = pxm_to_node(i);
-+
-+		if (from_node = NUMA_NO_NODE)
-+			continue;
-+
-+		for (j = 0; j < slit->locality_count; j++) {
-+			const int to_node = pxm_to_node(j);
-+
-+			if (to_node = NUMA_NO_NODE)
-+				continue;
-+
-+			numa_set_distance(from_node, to_node,
-+				slit->entry[slit->locality_count * i + j]);
-+		}
-+	}
-+}
-+#endif /* defined(CONFIG_X86) || defined (CONFIG_ARM64) */
-+
- static int __init acpi_parse_slit(struct acpi_table_header *table)
+-static inline void __down_write(struct rw_semaphore *sem)
++static inline long ___down_write(struct rw_semaphore *sem)
  {
- 	struct acpi_table_slit *slit = (struct acpi_table_slit *)table;
+ 	long oldcount;
+ #ifndef	CONFIG_SMP
+@@ -83,10 +83,24 @@ static inline void __down_write(struct rw_semaphore *sem)
+ 	:"=&r" (oldcount), "=m" (sem->count), "=&r" (temp)
+ 	:"Ir" (RWSEM_ACTIVE_WRITE_BIAS), "m" (sem->count) : "memory");
+ #endif
+-	if (unlikely(oldcount))
++	return oldcount;
++}
++
++static inline void __down_write(struct rw_semaphore *sem)
++{
++	if (unlikely(___down_write(sem)))
+ 		rwsem_down_write_failed(sem);
+ }
+ 
++static inline int __down_write_killable(struct rw_semaphore *sem)
++{
++	if (unlikely(___down_write(sem)))
++		if (IS_ERR(rwsem_down_write_failed_killable(sem)))
++			return -EINTR;
++
++	return 0;
++}
++
+ /*
+  * trylock for writing -- returns 1 if successful, 0 if contention
+  */
 -- 
-1.7.11.7
+2.8.0.rc3
 
