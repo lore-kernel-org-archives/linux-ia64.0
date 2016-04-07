@@ -1,48 +1,70 @@
-From: Baoquan He <bhe@redhat.com>
-Date: Thu, 28 Apr 2016 09:53:41 +0000
-Subject: Re: [PATCH 1/3] kexec: don't invoke OOM-killer for control page allocation
-Message-Id: <20160428095341.GA10691@x1.redhat.com>
+From: Michal Hocko <mhocko@kernel.org>
+Date: Thu, 07 Apr 2016 15:12:28 +0000
+Subject: [PATCH 08/11] ia64, rwsem: provide __down_write_killable
+Message-Id: <1460041951-22347-9-git-send-email-mhocko@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20160414195938.GV19428@n2100.arm.linux.org.uk>
- <E1aqnQo-0001Tu-Ch@rmk-PC.arm.linux.org.uk>
- <20160418053253.GA3602@x1.redhat.com>
- <20160418083932.GA19428@n2100.arm.linux.org.uk>
- <20160418101214.GA6694@x1.redhat.com>
-In-Reply-To: <20160418101214.GA6694@x1.redhat.com>
+References: <1460041951-22347-1-git-send-email-mhocko@kernel.org>
+In-Reply-To: <1460041951-22347-1-git-send-email-mhocko@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Cc: Fenghua Yu <fenghua.yu@intel.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Eric Biederman <ebiederm@xmission.com>, kexec@lists.infradead.org
+To: LKML <linux-kernel@vger.kernel.org>
+Cc: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>, Thomas Gleixner <tglx@linutronix.de>, "H. Peter Anvin" <hpa@zytor.com>, "David S. Miller" <davem@davemloft.net>, Tony Luck <tony.luck@intel.com>, Andrew Morton <akpm@linux-foundation.org>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org, Michal Hocko <mhocko@suse.com>
 
-On 04/18/16 at 06:12pm, Baoquan He wrote:
-> On 04/18/16 at 09:39am, Russell King - ARM Linux wrote:
-> > On Mon, Apr 18, 2016 at 01:32:53PM +0800, Baoquan He wrote:
-> > > On 04/14/16 at 09:00pm, Russell King wrote:
-> > > > If we are unable to find a suitable page when allocating the control
-> > > > page, do not invoke the OOM-killer: killing processes probably isn't
-> > > > going to help.
-> > > 
-> > > Originally kexec was made to reboot to test kernel quickly. If 1st
-> > > kernel is palyed and hurted in a bad state and developer want to discard
-> > > it and take a quick reboot, why don't we have a best try to make a
-> > > successful kexec load?
-> > 
-> > And if it kills off every process trying to get a suitable page,
-> > which then means you can't do anything other than power cycle,
-> > that's okay?
-> 
-> Yes, I agree on that it's non-sense if every process is killed. But will
-> each kexec load which need OOM-killer go that far? And there's only one
-> page (if 32 bit) or 2 pages (if 64 bit) for control page, it may not
-> need kill that many processes to pick one.
+From: Michal Hocko <mhocko@suse.com>
 
-Sorry, I was wrong. Those control pages are imtermediate pages which
-is used to copy kenrel and initrd from user buffer to their final place,
-they should be dozens of MB. So I am fine with this change, ack it.
+Introduce ___down_write for the fast path and reuse it for __down_write
+resp. __down_write_killable each using the respective generic slow path
+(rwsem_down_write_failed resp. rwsem_down_write_failed_killable).
 
-Acked-by: Baoquan He <bhe@redhat.com>
+Signed-off-by: Michal Hocko <mhocko@suse.com>
+---
+ arch/ia64/include/asm/rwsem.h | 22 +++++++++++++++++++---
+ 1 file changed, 19 insertions(+), 3 deletions(-)
 
-Thanks
-Baoquan
+diff --git a/arch/ia64/include/asm/rwsem.h b/arch/ia64/include/asm/rwsem.h
+index 3027e7516d85..5e78cb40d9df 100644
+--- a/arch/ia64/include/asm/rwsem.h
++++ b/arch/ia64/include/asm/rwsem.h
+@@ -49,8 +49,8 @@ __down_read (struct rw_semaphore *sem)
+ /*
+  * lock for writing
+  */
+-static inline void
+-__down_write (struct rw_semaphore *sem)
++static inline long
++___down_write (struct rw_semaphore *sem)
+ {
+ 	long old, new;
+ 
+@@ -59,10 +59,26 @@ __down_write (struct rw_semaphore *sem)
+ 		new = old + RWSEM_ACTIVE_WRITE_BIAS;
+ 	} while (cmpxchg_acq(&sem->count, old, new) != old);
+ 
+-	if (old != 0)
++	return old;
++}
++
++static inline void
++__down_write (struct rw_semaphore *sem)
++{
++	if (___down_write(sem))
+ 		rwsem_down_write_failed(sem);
+ }
+ 
++static inline int
++__down_write_killable (struct rw_semaphore *sem)
++{
++	if (___down_write(sem))
++		if (IS_ERR(rwsem_down_write_failed_killable(sem)))
++			return -EINTR;
++
++	return 0;
++}
++
+ /*
+  * unlock after reading
+  */
+-- 
+2.8.0.rc3
 
