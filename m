@@ -1,10 +1,10 @@
 From: Michal Hocko <mhocko@kernel.org>
-Date: Fri, 01 Apr 2016 11:04:55 +0000
+Date: Thu, 07 Apr 2016 15:12:31 +0000
 Subject: [PATCH 11/11] locking, rwsem: provide down_write_killable
-Message-Id: <1459508695-14915-12-git-send-email-mhocko@kernel.org>
+Message-Id: <1460041951-22347-12-git-send-email-mhocko@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1459508695-14915-1-git-send-email-mhocko@kernel.org>
-In-Reply-To: <1459508695-14915-1-git-send-email-mhocko@kernel.org>
+References: <1460041951-22347-1-git-send-email-mhocko@kernel.org>
+In-Reply-To: <1460041951-22347-1-git-send-email-mhocko@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
