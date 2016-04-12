@@ -1,72 +1,147 @@
-From: Simon Horman <horms@verge.net.au>
-Date: Thu, 28 Apr 2016 23:04:06 +0000
-Subject: Re: [PATCH 00/12] Fixing TI Keystone2 kexec
-Message-Id: <20160428230406.GA18128@verge.net.au>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Tue, 12 Apr 2016 13:00:37 +0000
+Subject: [PATCH] ia64: salinfo: use a waitqueue instead a sema down/up combo
+Message-Id: <1460466037-4037-1-git-send-email-bigeasy@linutronix.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20160428092644.GX19428@n2100.arm.linux.org.uk>
-In-Reply-To: <20160428092644.GX19428@n2100.arm.linux.org.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Cc: linux-arm-kernel@lists.infradead.org, Mark Rutland <mark.rutland@arm.com>, devicetree@vger.kernel.org, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, linux-doc@vger.kernel.org, Pawel Moll <pawel.moll@arm.com>, Jonathan Corbet <corbet@lwn.net>, Ian Campbell <ijc+devicetree@hellion.org.uk>, kexec@lists.infradead.org, Fenghua Yu <fenghua.yu@intel.com>, Haren Myneni <hbabu@us.ibm.com>, Rob Herring <robh+dt@kernel.org>, Eric Biederman <ebiederm@xmission.com>, Santosh Shilimkar <ssantosh@kernel.org>, Kumar Gala <galak@codeaurora.org>, Vivek Goyal <vgoyal@redhat.com>
+To: linux-ia64@vger.kernel.org
 
-Hi Russell,
+The only purpose of down_try_lock() followed by up() seems to be to wake
+up a possible reader. This patch replaces it with a wake-queue. There is
+no locking around cpumask_empty() and the test is re-done in case there
+was no hit.
+With wait_event_interruptible_lock_irq(,&data_saved_lock) we would probably
+be able to get rid of the `retry` label. However we still can return CPU
+X which is valid now but later (after the lock dropped) the event may
+have been removed because the CPU went offline.
 
-On Thu, Apr 28, 2016 at 10:26:44AM +0100, Russell King - ARM Linux wrote:
-> These changes are required for TI Keystone2 kexec to be functional.  TI
-> Keystone2 has the run-time view of physical memory above 4GiB, but with
-> a boot time alias below 4GiB which can only be used during the early
-> boot.
-> 
-> This means we need to translate run-time physical addresses (which the
-> kernel uses) to boot-time physical addresses, which, having discussed
-> with Eric, is what the kexec tools and kexec kernel API requires.
-> 
-> We publish a special set of boot time resources in /proc/iomem, which
-> the (modified) kexec tools look for in preference to the normal resources.
-> Hence, if these are found, the kexec tools make use of these resources,
-> and thus kexec tools use the boot-time view of physical memory.
-> 
-> The first three patches have been sitting in linux-next for a while.
-> I'm going to put the next ARM specific three into linux-next next week.
-> 
-> I've sent Eric over a month ago all the patches, including the kexec
-> tools patches, but I've heard nothing back.  I'm at a loss how to
-> make progress on these patches - and as I'm being hassled about this,
-> I'm going to be hassling the community about it, possibly with regular
-> re-posts until there is some progress.
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+---
 
-My experience is that usually Andrew Morton takes kexec patches
-and that this has been the situation for many years now.
+I stumbled uppon this, beause I wanted to replace CPU_DEAD with
+CPU_DOWN_PREPARE in order to make the states symmetrical.
+I *think* the reason for CPU_DEAD is to drop all entries from the buffer
+for a CPU that is now offline and since interrupts for this are off by
+now there can be no more entries added to the buffer for this CPU.
 
-With regards to any kexec-tools patches that are appropriate for upstream:
-please send them to the kexec mailing list with me CCed and I will see
-about including them in the next release. If you have done so already then
-I apologise for having missed them.
+Doing this at CPU_DOWN_PREPARE would open a small window where a 
+per-CPU MCA interrupt could arise between CPU_DOWN_PREPARE and disabling
+the interrupts.
 
->  Documentation/kdump/kdump.txt     | 13 ++------
->  arch/arm/boot/dts/keystone.dtsi   |  8 +++++
->  arch/arm/include/asm/kexec.h      | 24 +++++++++++++++
->  arch/arm/include/asm/memory.h     | 38 ++++++++++++++++++-----
->  arch/arm/kernel/machine_kexec.c   |  2 +-
->  arch/arm/kernel/setup.c           | 65 +++++++++++++++++++++++++++++++++++++--
->  arch/arm/mach-keystone/keystone.c |  7 +----
->  arch/arm/mm/idmap.c               |  2 +-
->  arch/ia64/kernel/machine_kexec.c  |  2 +-
->  include/linux/kexec.h             | 42 +++++++++++++++++++++++--
->  kernel/kexec.c                    |  3 +-
->  kernel/kexec_core.c               | 30 +++++++++---------
->  kernel/ksysfs.c                   |  4 +--
->  13 files changed, 193 insertions(+), 47 deletions(-)
-> 
-> -- 
-> RMK's Patch system: http://www.arm.linux.org.uk/developer/patches/
-> FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-> according to speedtest.net.
-> 
-> _______________________________________________
-> kexec mailing list
-> kexec@lists.infradead.org
-> http://lists.infradead.org/mailman/listinfo/kexec
-> 
+And this brings me to the following question: Do you really want to drop all
+entries for a CPU that goes offline? Wouldn't it make sense to keep that entry
+even if the CPU is offline now? From what I understand MCA can send such an
+interrupt / entry due to a memory error. Wouldn't it be important to keep this
+information until userspace decides to remove it (despite the online state of
+the CPU)?
+
+ arch/ia64/kernel/salinfo.c | 38 ++++++++++----------------------------
+ 1 file changed, 10 insertions(+), 28 deletions(-)
+
+diff --git a/arch/ia64/kernel/salinfo.c b/arch/ia64/kernel/salinfo.c
+index 1eeffb7fbb16..5313007d5423 100644
+--- a/arch/ia64/kernel/salinfo.c
++++ b/arch/ia64/kernel/salinfo.c
+@@ -141,7 +141,7 @@ enum salinfo_state {
+ 
+ struct salinfo_data {
+ 	cpumask_t		cpu_event;	/* which cpus have outstanding events */
+-	struct semaphore	mutex;
++	wait_queue_head_t	read_wait;
+ 	u8			*log_buffer;
+ 	u64			log_size;
+ 	u8			*oemdata;	/* decoded oem data */
+@@ -182,21 +182,6 @@ struct salinfo_platform_oemdata_parms {
+ 	int ret;
+ };
+ 
+-/* Kick the mutex that tells user space that there is work to do.  Instead of
+- * trying to track the state of the mutex across multiple cpus, in user
+- * context, interrupt context, non-maskable interrupt context and hotplug cpu,
+- * it is far easier just to grab the mutex if it is free then release it.
+- *
+- * This routine must be called with data_saved_lock held, to make the down/up
+- * operation atomic.
+- */
+-static void
+-salinfo_work_to_do(struct salinfo_data *data)
+-{
+-	(void)(down_trylock(&data->mutex) ?: 0);
+-	up(&data->mutex);
+-}
+-
+ static void
+ salinfo_platform_oemdata_cpu(void *context)
+ {
+@@ -258,7 +243,7 @@ salinfo_log_wakeup(int type, u8 *buffer, u64 size, int irqsafe)
+ 	}
+ 	cpumask_set_cpu(smp_processor_id(), &data->cpu_event);
+ 	if (irqsafe) {
+-		salinfo_work_to_do(data);
++		wake_up_interruptible(&data->read_wait);
+ 		spin_unlock_irqrestore(&data_saved_lock, flags);
+ 	}
+ }
+@@ -271,14 +256,10 @@ extern void ia64_mlogbuf_dump(void);
+ static void
+ salinfo_timeout_check(struct salinfo_data *data)
+ {
+-	unsigned long flags;
+ 	if (!data->open)
+ 		return;
+-	if (!cpumask_empty(&data->cpu_event)) {
+-		spin_lock_irqsave(&data_saved_lock, flags);
+-		salinfo_work_to_do(data);
+-		spin_unlock_irqrestore(&data_saved_lock, flags);
+-	}
++	if (!cpumask_empty(&data->cpu_event))
++		wake_up_interruptible(&data->read_wait);
+ }
+ 
+ static void
+@@ -308,10 +289,11 @@ salinfo_event_read(struct file *file, char __user *buffer, size_t count, loff_t
+ 	int i, n, cpu = -1;
+ 
+ retry:
+-	if (cpumask_empty(&data->cpu_event) && down_trylock(&data->mutex)) {
++	if (cpumask_empty(&data->cpu_event)) {
+ 		if (file->f_flags & O_NONBLOCK)
+ 			return -EAGAIN;
+-		if (down_interruptible(&data->mutex))
++		if (wait_event_interruptible(data->read_wait,
++					     !cpumask_empty(&data->cpu_event)))
+ 			return -EINTR;
+ 	}
+ 
+@@ -510,7 +492,7 @@ salinfo_log_clear(struct salinfo_data *data, int cpu)
+ 	if (data->state = STATE_LOG_RECORD) {
+ 		spin_lock_irqsave(&data_saved_lock, flags);
+ 		cpumask_set_cpu(cpu, &data->cpu_event);
+-		salinfo_work_to_do(data);
++		wake_up_interruptible(&data->read_wait);
+ 		spin_unlock_irqrestore(&data_saved_lock, flags);
+ 	}
+ 	return 0;
+@@ -582,7 +564,7 @@ salinfo_cpu_callback(struct notifier_block *nb, unsigned long action, void *hcpu
+ 		     i < ARRAY_SIZE(salinfo_data);
+ 		     ++i, ++data) {
+ 			cpumask_set_cpu(cpu, &data->cpu_event);
+-			salinfo_work_to_do(data);
++			wake_up_interruptible(&data->read_wait);
+ 		}
+ 		spin_unlock_irqrestore(&data_saved_lock, flags);
+ 		break;
+@@ -640,7 +622,7 @@ salinfo_init(void)
+ 	for (i = 0; i < ARRAY_SIZE(salinfo_log_name); i++) {
+ 		data = salinfo_data + i;
+ 		data->type = i;
+-		sema_init(&data->mutex, 1);
++		init_waitqueue_head(&data->read_wait);
+ 		dir = proc_mkdir(salinfo_log_name[i], salinfo_dir);
+ 		if (!dir)
+ 			continue;
+-- 
+2.8.0.rc3
+
