@@ -1,15 +1,15 @@
 From: zengzhaoxiu@163.com
-Date: Wed, 06 Apr 2016 08:57:37 +0000
-Subject: [PATCH v2 05/30] Add ia64-specific parity functions
-Message-Id: <1459933057-6682-1-git-send-email-zengzhaoxiu@163.com>
+Date: Thu, 14 Apr 2016 03:05:47 +0000
+Subject: [PATCH V3 05/29] Add ia64-specific parity functions
+Message-Id: <1460603148-4622-1-git-send-email-zengzhaoxiu@163.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <57031D9D.801@gmail.com>
-In-Reply-To: <57031D9D.801@gmail.com>
+References: <1460601525-3822-1-git-send-email-zengzhaoxiu@163.com>
+In-Reply-To: <1460601525-3822-1-git-send-email-zengzhaoxiu@163.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: tony.luck@intel.com, fenghua.yu@intel.com
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Zhaoxiu Zeng <zhaoxiu.zeng@gmail.com>
+To: linux-kernel@vger.kernel.org
+Cc: Zhaoxiu Zeng <zhaoxiu.zeng@gmail.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
 From: Zhaoxiu Zeng <zhaoxiu.zeng@gmail.com>
 
