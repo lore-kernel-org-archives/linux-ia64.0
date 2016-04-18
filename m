@@ -1,52 +1,110 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Date: Thu, 14 Apr 2016 19:59:38 +0000
-Subject: [PATCH 0/3] Initial Kexec patches
-Message-Id: <20160414195938.GV19428@n2100.arm.linux.org.uk>
+From: David Daney <ddaney.cavm@gmail.com>
+Date: Mon, 18 Apr 2016 21:14:02 +0000
+Subject: [PATCH v4 04/14] acpi, numa: Move acpi_numa_arch_fixup() to ia64 only
+Message-Id: <1461014052-30788-5-git-send-email-ddaney.cavm@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1461014052-30788-1-git-send-email-ddaney.cavm@gmail.com>
+In-Reply-To: <1461014052-30788-1-git-send-email-ddaney.cavm@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Eric Biederman <ebiederm@xmission.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>, kexec@lists.infradead.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>
+To: Will Deacon <will.deacon@arm.com>, linux-arm-kernel@lists.infradead.org, Mark Rutland <mark.rutland@arm.com>, Catalin Marinas <catalin.marinas@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>, Rob Herring <robh+dt@kernel.org>, Frank Rowand <frowand.list@gmail.com>, Grant Likely <grant.likely@linaro.org>, Robert Moore <robert.moore@intel.com>, Lv Zheng <lv.zheng@intel.com>, Hanjun Guo <hanjun.guo@linaro.org>, Marc Zyngier <Marc.Zyngier@arm.com>, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org
+Cc: Robert Richter <rrichter@cavium.com>, linux-kernel@vger.kernel.org, David Daney <david.daney@cavium.com>
 
-Eric,
+From: Robert Richter <rrichter@cavium.com>
 
-Here are some initial patches from my stack to bring functional kexec
-support to the TI Keystone 2 platform.  These are relatively independent
-of that work, but I believe are useful changes in their own regard.
-Each patch is independent of each other; these do not really comprise
-a strict series.
+Since acpi_numa_arch_fixup() is only used in arch ia64, move it there
+to make a generic interface easier. This avoids empty function stubs
+or some complex kconfig options for x86 and arm64.
 
-The first fixes an obscure problem - if we try to allocate the control
-page, and we're unable to allocate a page within the memory region we
-want, we end up killing processes, trying to gain that page.  In the
-case where there is no memory located within the desired range, this
-results in the OOM killer killing off many processes rather than a
-graceful failure.  The patch changes the behaviour to allow a graceful
-failure instead without invoking the OOM killer.
+Signed-off-by: Robert Richter <rrichter@cavium.com>
+Signed-off-by: David Daney <david.daney@cavium.com>
+---
+ arch/ia64/include/asm/acpi.h | 3 +++
+ arch/ia64/kernel/acpi.c      | 2 +-
+ arch/ia64/kernel/setup.c     | 1 +
+ arch/x86/mm/srat.c           | 2 --
+ drivers/acpi/numa.c          | 2 --
+ include/linux/acpi.h         | 1 -
+ 6 files changed, 5 insertions(+), 6 deletions(-)
 
-The second patch fixes a missing check in the kexec code, where the
-user could supply a start and size address for a segment which causes
-the calculation to wrap.  Eg, the case where segment[0].mem = 0xffff0000,
-segment[0].memsz = 0x10000 would pass this check.  This patch adds an
-explicit check for cases such as these.
-
-The third patch allows the vmcoreinfo note data to be located above
-4GB in physical memory space.  Since kexec tools only use this value
-when opening /dev/mem, having this located above 4GB physical is not
-a problem - kexec tools even expect this to potentially be a 64-bit
-value already.  Making this change means there is one less area which
-becomes Keystone 2 specific.
-
- arch/ia64/kernel/machine_kexec.c | 2 +-
- include/linux/kexec.h            | 4 ++--
- kernel/kexec_core.c              | 4 +++-
- kernel/ksysfs.c                  | 4 ++--
- 4 files changed, 8 insertions(+), 6 deletions(-)
-
-Thanks.
-
+diff --git a/arch/ia64/include/asm/acpi.h b/arch/ia64/include/asm/acpi.h
+index aa0fdf1..a3d0211 100644
+--- a/arch/ia64/include/asm/acpi.h
++++ b/arch/ia64/include/asm/acpi.h
+@@ -140,6 +140,9 @@ static inline void per_cpu_scan_finalize(int min_cpus, int reserve_cpus)
+ 		}
+ 	}
+ }
++
++extern void acpi_numa_fixup(void);
++
+ #endif /* CONFIG_ACPI_NUMA */
+ 
+ #endif /*__KERNEL__*/
+diff --git a/arch/ia64/kernel/acpi.c b/arch/ia64/kernel/acpi.c
+index b1698bc..92b7bc9 100644
+--- a/arch/ia64/kernel/acpi.c
++++ b/arch/ia64/kernel/acpi.c
+@@ -524,7 +524,7 @@ acpi_numa_memory_affinity_init(struct acpi_srat_mem_affinity *ma)
+ 	return 0;
+ }
+ 
+-void __init acpi_numa_arch_fixup(void)
++void __init acpi_numa_fixup(void)
+ {
+ 	int i, j, node_from, node_to;
+ 
+diff --git a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
+index 2029a38..afddb3e 100644
+--- a/arch/ia64/kernel/setup.c
++++ b/arch/ia64/kernel/setup.c
+@@ -552,6 +552,7 @@ setup_arch (char **cmdline_p)
+ 	early_acpi_boot_init();
+ # ifdef CONFIG_ACPI_NUMA
+ 	acpi_numa_init();
++	acpi_numa_fixup();
+ #  ifdef CONFIG_ACPI_HOTPLUG_CPU
+ 	prefill_possible_map();
+ #  endif
+diff --git a/arch/x86/mm/srat.c b/arch/x86/mm/srat.c
+index b5f8218..90b6ed9 100644
+--- a/arch/x86/mm/srat.c
++++ b/arch/x86/mm/srat.c
+@@ -212,8 +212,6 @@ out_err:
+ 	return -1;
+ }
+ 
+-void __init acpi_numa_arch_fixup(void) {}
+-
+ int __init x86_acpi_numa_init(void)
+ {
+ 	int ret;
+diff --git a/drivers/acpi/numa.c b/drivers/acpi/numa.c
+index 2de6068..f41f06b 100644
+--- a/drivers/acpi/numa.c
++++ b/drivers/acpi/numa.c
+@@ -316,8 +316,6 @@ int __init acpi_numa_init(void)
+ 	/* SLIT: System Locality Information Table */
+ 	acpi_table_parse(ACPI_SIG_SLIT, acpi_parse_slit);
+ 
+-	acpi_numa_arch_fixup();
+-
+ 	if (cnt < 0)
+ 		return cnt;
+ 	else if (!parsed_numa_memblks)
+diff --git a/include/linux/acpi.h b/include/linux/acpi.h
+index 06ed7e5..ab6fd96 100644
+--- a/include/linux/acpi.h
++++ b/include/linux/acpi.h
+@@ -244,7 +244,6 @@ void acpi_numa_slit_init (struct acpi_table_slit *slit);
+ void acpi_numa_processor_affinity_init (struct acpi_srat_cpu_affinity *pa);
+ void acpi_numa_x2apic_affinity_init(struct acpi_srat_x2apic_cpu_affinity *pa);
+ int acpi_numa_memory_affinity_init (struct acpi_srat_mem_affinity *ma);
+-void acpi_numa_arch_fixup(void);
+ 
+ #ifndef PHYS_CPUID_INVALID
+ typedef u32 phys_cpuid_t;
 -- 
-RMK's Patch system: http://www.arm.linux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+1.7.11.7
+
