@@ -1,70 +1,43 @@
-From: Michal Hocko <mhocko@kernel.org>
-Date: Fri, 01 Apr 2016 11:04:49 +0000
-Subject: [PATCH 05/11] ia64, rwsem: provide __down_write_killable
-Message-Id: <1459508695-14915-6-git-send-email-mhocko@kernel.org>
+From: David Daney <ddaney.cavm@gmail.com>
+Date: Mon, 18 Apr 2016 21:14:01 +0000
+Subject: [PATCH v4 03/14] acpi, numa: remove duplicate NULL check
+Message-Id: <1461014052-30788-4-git-send-email-ddaney.cavm@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1459508695-14915-1-git-send-email-mhocko@kernel.org>
-In-Reply-To: <1459508695-14915-1-git-send-email-mhocko@kernel.org>
+References: <1461014052-30788-1-git-send-email-ddaney.cavm@gmail.com>
+In-Reply-To: <1461014052-30788-1-git-send-email-ddaney.cavm@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: LKML <linux-kernel@vger.kernel.org>
-Cc: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>, Thomas Gleixner <tglx@linutronix.de>, "H. Peter Anvin" <hpa@zytor.com>, "David S. Miller" <davem@davemloft.net>, Tony Luck <tony.luck@intel.com>, Andrew Morton <akpm@linux-foundation.org>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org, Michal Hocko <mhocko@suse.com>
+To: Will Deacon <will.deacon@arm.com>, linux-arm-kernel@lists.infradead.org, Mark Rutland <mark.rutland@arm.com>, Catalin Marinas <catalin.marinas@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>, Rob Herring <robh+dt@kernel.org>, Frank Rowand <frowand.list@gmail.com>, Grant Likely <grant.likely@linaro.org>, Robert Moore <robert.moore@intel.com>, Lv Zheng <lv.zheng@intel.com>, Hanjun Guo <hanjun.guo@linaro.org>, Marc Zyngier <Marc.Zyngier@arm.com>, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org
+Cc: Robert Richter <rrichter@cavium.com>, linux-kernel@vger.kernel.org, David Daney <david.daney@cavium.com>
 
-From: Michal Hocko <mhocko@suse.com>
+From: Hanjun Guo <hanjun.guo@linaro.org>
 
-Introduce ___down_write for the fast path and reuse it for __down_write
-resp. __down_write_killable each using the respective generic slow path
-(rwsem_down_write_failed resp. rwsem_down_write_failed_killable).
+The argument "header" for acpi_table_print_srat_entry()
+is always checked before the function is called, it's
+duplicate to check it again, remove it.
 
-Signed-off-by: Michal Hocko <mhocko@suse.com>
+Signed-off-by: Hanjun Guo <hanjun.guo@linaro.org>
+Signed-off-by: Robert Richter <rrichter@cavium.com>
+Signed-off-by: David Daney <david.daney@cavium.com>
 ---
- arch/ia64/include/asm/rwsem.h | 22 +++++++++++++++++++---
- 1 file changed, 19 insertions(+), 3 deletions(-)
+ drivers/acpi/numa.c | 3 ---
+ 1 file changed, 3 deletions(-)
 
-diff --git a/arch/ia64/include/asm/rwsem.h b/arch/ia64/include/asm/rwsem.h
-index 3027e7516d85..5e78cb40d9df 100644
---- a/arch/ia64/include/asm/rwsem.h
-+++ b/arch/ia64/include/asm/rwsem.h
-@@ -49,8 +49,8 @@ __down_read (struct rw_semaphore *sem)
- /*
-  * lock for writing
-  */
--static inline void
--__down_write (struct rw_semaphore *sem)
-+static inline long
-+___down_write (struct rw_semaphore *sem)
+diff --git a/drivers/acpi/numa.c b/drivers/acpi/numa.c
+index e34b5d0..2de6068 100644
+--- a/drivers/acpi/numa.c
++++ b/drivers/acpi/numa.c
+@@ -125,9 +125,6 @@ EXPORT_SYMBOL(acpi_map_pxm_to_online_node);
+ static void __init
+ acpi_table_print_srat_entry(struct acpi_subtable_header *header)
  {
- 	long old, new;
- 
-@@ -59,10 +59,26 @@ __down_write (struct rw_semaphore *sem)
- 		new = old + RWSEM_ACTIVE_WRITE_BIAS;
- 	} while (cmpxchg_acq(&sem->count, old, new) != old);
- 
--	if (old != 0)
-+	return old;
-+}
-+
-+static inline void
-+__down_write (struct rw_semaphore *sem)
-+{
-+	if (___down_write(sem))
- 		rwsem_down_write_failed(sem);
- }
- 
-+static inline int
-+__down_write_killable (struct rw_semaphore *sem)
-+{
-+	if (___down_write(sem))
-+		if (IS_ERR(rwsem_down_write_failed_killable(sem)))
-+			return -EINTR;
-+
-+	return 0;
-+}
-+
- /*
-  * unlock after reading
-  */
+-	if (!header)
+-		return;
+-
+ 	switch (header->type) {
+ 	case ACPI_SRAT_TYPE_CPU_AFFINITY:
+ 		{
 -- 
-2.8.0.rc3
+1.7.11.7
 
