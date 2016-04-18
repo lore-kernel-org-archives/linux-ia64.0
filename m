@@ -1,66 +1,183 @@
-From: Michal Hocko <mhocko@kernel.org>
-Date: Thu, 07 Apr 2016 15:12:27 +0000
-Subject: [PATCH 07/11] alpha, rwsem: provide __down_write_killable
-Message-Id: <1460041951-22347-8-git-send-email-mhocko@kernel.org>
+From: David Daney <ddaney.cavm@gmail.com>
+Date: Mon, 18 Apr 2016 21:14:08 +0000
+Subject: [PATCH v4 10/14] acpi, numa: Move acpi_numa_memory_affinity_init() to drivers/acpi/numa.c
+Message-Id: <1461014052-30788-11-git-send-email-ddaney.cavm@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1460041951-22347-1-git-send-email-mhocko@kernel.org>
-In-Reply-To: <1460041951-22347-1-git-send-email-mhocko@kernel.org>
+References: <1461014052-30788-1-git-send-email-ddaney.cavm@gmail.com>
+In-Reply-To: <1461014052-30788-1-git-send-email-ddaney.cavm@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: LKML <linux-kernel@vger.kernel.org>
-Cc: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>, Thomas Gleixner <tglx@linutronix.de>, "H. Peter Anvin" <hpa@zytor.com>, "David S. Miller" <davem@davemloft.net>, Tony Luck <tony.luck@intel.com>, Andrew Morton <akpm@linux-foundation.org>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org, Michal Hocko <mhocko@suse.com>
+To: Will Deacon <will.deacon@arm.com>, linux-arm-kernel@lists.infradead.org, Mark Rutland <mark.rutland@arm.com>, Catalin Marinas <catalin.marinas@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>, Rob Herring <robh+dt@kernel.org>, Frank Rowand <frowand.list@gmail.com>, Grant Likely <grant.likely@linaro.org>, Robert Moore <robert.moore@intel.com>, Lv Zheng <lv.zheng@intel.com>, Hanjun Guo <hanjun.guo@linaro.org>, Marc Zyngier <Marc.Zyngier@arm.com>, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org
+Cc: linux-kernel@vger.kernel.org, Robert Richter <rrichter@cavium.com>, David Daney <david.daney@cavium.com>
 
-From: Michal Hocko <mhocko@suse.com>
+From: Hanjun Guo <hanjun.guo@linaro.org>
 
-Introduce ___down_write for the fast path and reuse it for __down_write
-resp. __down_write_killable each using the respective generic slow path
-(rwsem_down_write_failed resp. rwsem_down_write_failed_killable).
+acpi_numa_memory_affinity_init() will be reused by arm64.  Move it to
+drivers/acpi/numa.c to facilitate reuse.
 
-Signed-off-by: Michal Hocko <mhocko@suse.com>
+No code change.
+
+Signed-off-by: Hanjun Guo <hanjun.guo@linaro.org>
+Signed-off-by: Robert Richter <rrichter@cavium.com>
+Signed-off-by: David Daney <david.daney@cavium.com>
 ---
- arch/alpha/include/asm/rwsem.h | 18 ++++++++++++++++--
- 1 file changed, 16 insertions(+), 2 deletions(-)
+ arch/x86/mm/srat.c  | 56 -------------------------------------------------
+ drivers/acpi/numa.c | 60 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 60 insertions(+), 56 deletions(-)
 
-diff --git a/arch/alpha/include/asm/rwsem.h b/arch/alpha/include/asm/rwsem.h
-index a83bbea62c67..0131a7058778 100644
---- a/arch/alpha/include/asm/rwsem.h
-+++ b/arch/alpha/include/asm/rwsem.h
-@@ -63,7 +63,7 @@ static inline int __down_read_trylock(struct rw_semaphore *sem)
- 	return res >= 0 ? 1 : 0;
+diff --git a/arch/x86/mm/srat.c b/arch/x86/mm/srat.c
+index 30460f5..cbd792f 100644
+--- a/arch/x86/mm/srat.c
++++ b/arch/x86/mm/srat.c
+@@ -16,7 +16,6 @@
+ #include <linux/module.h>
+ #include <linux/topology.h>
+ #include <linux/bootmem.h>
+-#include <linux/memblock.h>
+ #include <linux/mm.h>
+ #include <asm/proto.h>
+ #include <asm/numa.h>
+@@ -104,61 +103,6 @@ acpi_numa_processor_affinity_init(struct acpi_srat_cpu_affinity *pa)
+ 	       pxm, apic_id, node);
  }
  
--static inline void __down_write(struct rw_semaphore *sem)
-+static inline long ___down_write(struct rw_semaphore *sem)
+-/* Callback for parsing of the Proximity Domain <-> Memory Area mappings */
+-int __init
+-acpi_numa_memory_affinity_init(struct acpi_srat_mem_affinity *ma)
+-{
+-	u64 start, end;
+-	u32 hotpluggable;
+-	int node, pxm;
+-
+-	if (srat_disabled())
+-		goto out_err;
+-	if (ma->header.length != sizeof(struct acpi_srat_mem_affinity))
+-		goto out_err_bad_srat;
+-	if ((ma->flags & ACPI_SRAT_MEM_ENABLED) = 0)
+-		goto out_err;
+-	hotpluggable = ma->flags & ACPI_SRAT_MEM_HOT_PLUGGABLE;
+-	if (hotpluggable && !IS_ENABLED(CONFIG_MEMORY_HOTPLUG))
+-		goto out_err;
+-
+-	start = ma->base_address;
+-	end = start + ma->length;
+-	pxm = ma->proximity_domain;
+-	if (acpi_srat_revision <= 1)
+-		pxm &= 0xff;
+-
+-	node = acpi_map_pxm_to_node(pxm);
+-	if (node < 0) {
+-		printk(KERN_ERR "SRAT: Too many proximity domains.\n");
+-		goto out_err_bad_srat;
+-	}
+-
+-	if (numa_add_memblk(node, start, end) < 0)
+-		goto out_err_bad_srat;
+-
+-	node_set(node, numa_nodes_parsed);
+-
+-	pr_info("SRAT: Node %u PXM %u [mem %#010Lx-%#010Lx]%s%s\n",
+-		node, pxm,
+-		(unsigned long long) start, (unsigned long long) end - 1,
+-		hotpluggable ? " hotplug" : "",
+-		ma->flags & ACPI_SRAT_MEM_NON_VOLATILE ? " non-volatile" : "");
+-
+-	/* Mark hotplug range in memblock. */
+-	if (hotpluggable && memblock_mark_hotplug(start, ma->length))
+-		pr_warn("SRAT: Failed to mark hotplug range [mem %#010Lx-%#010Lx] in memblock\n",
+-			(unsigned long long)start, (unsigned long long)end - 1);
+-
+-	max_possible_pfn = max(max_possible_pfn, PFN_UP(end - 1));
+-
+-	return 0;
+-out_err_bad_srat:
+-	bad_srat();
+-out_err:
+-	return -EINVAL;
+-}
+-
+ int __init x86_acpi_numa_init(void)
  {
- 	long oldcount;
- #ifndef	CONFIG_SMP
-@@ -83,10 +83,24 @@ static inline void __down_write(struct rw_semaphore *sem)
- 	:"=&r" (oldcount), "=m" (sem->count), "=&r" (temp)
- 	:"Ir" (RWSEM_ACTIVE_WRITE_BIAS), "m" (sem->count) : "memory");
- #endif
--	if (unlikely(oldcount))
-+	return oldcount;
-+}
-+
-+static inline void __down_write(struct rw_semaphore *sem)
-+{
-+	if (unlikely(___down_write(sem)))
- 		rwsem_down_write_failed(sem);
+ 	int ret;
+diff --git a/drivers/acpi/numa.c b/drivers/acpi/numa.c
+index 9b35ba9..c4ea877 100644
+--- a/drivers/acpi/numa.c
++++ b/drivers/acpi/numa.c
+@@ -27,6 +27,8 @@
+ #include <linux/types.h>
+ #include <linux/errno.h>
+ #include <linux/acpi.h>
++#include <linux/bootmem.h>
++#include <linux/memblock.h>
+ #include <linux/numa.h>
+ #include <linux/nodemask.h>
+ #include <linux/topology.h>
+@@ -225,6 +227,64 @@ void __init __weak acpi_numa_slit_init(struct acpi_table_slit *slit)
+ 	}
  }
  
-+static inline int __down_write_killable(struct rw_semaphore *sem)
++/*
++ * Default callback for parsing of the Proximity Domain <-> Memory
++ * Area mappings
++ */
++int __init __weak
++acpi_numa_memory_affinity_init(struct acpi_srat_mem_affinity *ma)
 +{
-+	if (unlikely(___down_write(sem)))
-+		if (IS_ERR(rwsem_down_write_failed_killable(sem)))
-+			return -EINTR;
++	u64 start, end;
++	u32 hotpluggable;
++	int node, pxm;
++
++	if (srat_disabled())
++		goto out_err;
++	if (ma->header.length != sizeof(struct acpi_srat_mem_affinity))
++		goto out_err_bad_srat;
++	if ((ma->flags & ACPI_SRAT_MEM_ENABLED) = 0)
++		goto out_err;
++	hotpluggable = ma->flags & ACPI_SRAT_MEM_HOT_PLUGGABLE;
++	if (hotpluggable && !IS_ENABLED(CONFIG_MEMORY_HOTPLUG))
++		goto out_err;
++
++	start = ma->base_address;
++	end = start + ma->length;
++	pxm = ma->proximity_domain;
++	if (acpi_srat_revision <= 1)
++		pxm &= 0xff;
++
++	node = acpi_map_pxm_to_node(pxm);
++	if (node < 0) {
++		printk(KERN_ERR "SRAT: Too many proximity domains.\n");
++		goto out_err_bad_srat;
++	}
++
++	if (numa_add_memblk(node, start, end) < 0)
++		goto out_err_bad_srat;
++
++	node_set(node, numa_nodes_parsed);
++
++	pr_info("SRAT: Node %u PXM %u [mem %#010Lx-%#010Lx]%s%s\n",
++		node, pxm,
++		(unsigned long long) start, (unsigned long long) end - 1,
++		hotpluggable ? " hotplug" : "",
++		ma->flags & ACPI_SRAT_MEM_NON_VOLATILE ? " non-volatile" : "");
++
++	/* Mark hotplug range in memblock. */
++	if (hotpluggable && memblock_mark_hotplug(start, ma->length))
++		pr_warn("SRAT: Failed to mark hotplug range [mem %#010Lx-%#010Lx] in memblock\n",
++			(unsigned long long)start, (unsigned long long)end - 1);
++
++	max_possible_pfn = max(max_possible_pfn, PFN_UP(end - 1));
 +
 +	return 0;
++out_err_bad_srat:
++	bad_srat();
++out_err:
++	return -EINVAL;
 +}
 +
- /*
-  * trylock for writing -- returns 1 if successful, 0 if contention
-  */
+ static int __init acpi_parse_slit(struct acpi_table_header *table)
+ {
+ 	struct acpi_table_slit *slit = (struct acpi_table_slit *)table;
 -- 
-2.8.0.rc3
+1.7.11.7
 
