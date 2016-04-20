@@ -1,165 +1,103 @@
-From: Michal Hocko <mhocko@kernel.org>
-Date: Thu, 07 Apr 2016 15:12:24 +0000
-Subject: [PATCH 04/11] sh, rwsem: drop superfluous arch specific implementation
-Message-Id: <1460041951-22347-5-git-send-email-mhocko@kernel.org>
+From: David Daney <ddaney.cavm@gmail.com>
+Date: Wed, 20 Apr 2016 01:40:32 +0000
+Subject: [PATCH v5 07/14] x86, acpi, numa: cleanup acpi_numa_processor_affinity_init()
+Message-Id: <1461116439-22991-8-git-send-email-ddaney.cavm@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1460041951-22347-1-git-send-email-mhocko@kernel.org>
-In-Reply-To: <1460041951-22347-1-git-send-email-mhocko@kernel.org>
+References: <1461116439-22991-1-git-send-email-ddaney.cavm@gmail.com>
+In-Reply-To: <1461116439-22991-1-git-send-email-ddaney.cavm@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: LKML <linux-kernel@vger.kernel.org>
-Cc: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>, Thomas Gleixner <tglx@linutronix.de>, "H. Peter Anvin" <hpa@zytor.com>, "David S. Miller" <davem@davemloft.net>, Tony Luck <tony.luck@intel.com>, Andrew Morton <akpm@linux-foundation.org>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org, Michal Hocko <mhocko@suse.com>
+To: Will Deacon <will.deacon@arm.com>, linux-arm-kernel@lists.infradead.org, Mark Rutland <mark.rutland@arm.com>, Catalin Marinas <catalin.marinas@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>, Rob Herring <robh+dt@kernel.org>, Frank Rowand <frowand.list@gmail.com>, Grant Likely <grant.likely@linaro.org>, Robert Moore <robert.moore@intel.com>, Lv Zheng <lv.zheng@intel.com>, Hanjun Guo <hanjun.guo@linaro.org>, Marc Zyngier <Marc.Zyngier@arm.com>, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org
+Cc: Robert Richter <rrichter@cavium.com>, linux-kernel@vger.kernel.org, David Daney <david.daney@cavium.com>
 
-From: Michal Hocko <mhocko@suse.com>
+From: Hanjun Guo <hanjun.guo@linaro.org>
 
-since "locking, rwsem: drop explicit memory barriers" the arch specific
-code is basically same as the the generic one so we can drop the
-superfluous code.
+Cleanup acpi_numa_processor_affinity_init() in preparation for its
+move to drivers/acpi/numa.c.  It will be reused by arm64, this has no
+functional change.
 
-Suggested-by: Davidlohr Bueso <dave@stgolabs.net>
-Signed-off-by: Michal Hocko <mhocko@suse.com>
+Signed-off-by: Hanjun Guo <hanjun.guo@linaro.org>
+Signed-off-by: Robert Richter <rrichter@cavium.com>
+Signed-off-by: David Daney <david.daney@cavium.com>
 ---
- arch/sh/include/asm/Kbuild  |   1 +
- arch/sh/include/asm/rwsem.h | 117 --------------------------------------------
- 2 files changed, 1 insertion(+), 117 deletions(-)
- delete mode 100644 arch/sh/include/asm/rwsem.h
+ arch/x86/mm/srat.c | 21 +++++----------------
+ 1 file changed, 5 insertions(+), 16 deletions(-)
 
-diff --git a/arch/sh/include/asm/Kbuild b/arch/sh/include/asm/Kbuild
-index aac452b26aa8..6d866c7a9b74 100644
---- a/arch/sh/include/asm/Kbuild
-+++ b/arch/sh/include/asm/Kbuild
-@@ -25,6 +25,7 @@ generic-y += percpu.h
- generic-y += poll.h
- generic-y += preempt.h
- generic-y += resource.h
-+generic-y += rwsem.h
- generic-y += sembuf.h
- generic-y += serial.h
- generic-y += shmbuf.h
-diff --git a/arch/sh/include/asm/rwsem.h b/arch/sh/include/asm/rwsem.h
-deleted file mode 100644
-index f6c951c7a875..000000000000
---- a/arch/sh/include/asm/rwsem.h
-+++ /dev/null
-@@ -1,117 +0,0 @@
--/*
-- * include/asm-sh/rwsem.h: R/W semaphores for SH using the stuff
-- * in lib/rwsem.c.
-- */
+diff --git a/arch/x86/mm/srat.c b/arch/x86/mm/srat.c
+index f242a11..9e2a833 100644
+--- a/arch/x86/mm/srat.c
++++ b/arch/x86/mm/srat.c
+@@ -26,11 +26,6 @@
+ 
+ int acpi_numa __initdata;
+ 
+-static __init int setup_node(int pxm)
+-{
+-	return acpi_map_pxm_to_node(pxm);
+-}
 -
--#ifndef _ASM_SH_RWSEM_H
--#define _ASM_SH_RWSEM_H
--
--#ifndef _LINUX_RWSEM_H
--#error "please don't include asm/rwsem.h directly, use linux/rwsem.h instead"
+ static __init void bad_srat(void)
+ {
+ 	printk(KERN_ERR "SRAT: SRAT not used.\n");
+@@ -64,7 +59,7 @@ acpi_numa_x2apic_affinity_init(struct acpi_srat_x2apic_cpu_affinity *pa)
+ 			 pxm, apic_id);
+ 		return;
+ 	}
+-	node = setup_node(pxm);
++	node = acpi_map_pxm_to_node(pxm);
+ 	if (node < 0) {
+ 		printk(KERN_ERR "SRAT: Too many proximity domains %x\n", pxm);
+ 		bad_srat();
+@@ -100,7 +95,7 @@ acpi_numa_processor_affinity_init(struct acpi_srat_cpu_affinity *pa)
+ 	pxm = pa->proximity_domain_lo;
+ 	if (acpi_srat_revision >= 2)
+ 		pxm |= *((unsigned int*)pa->proximity_domain_hi) << 8;
+-	node = setup_node(pxm);
++	node = acpi_map_pxm_to_node(pxm);
+ 	if (node < 0) {
+ 		printk(KERN_ERR "SRAT: Too many proximity domains %x\n", pxm);
+ 		bad_srat();
+@@ -124,12 +119,6 @@ acpi_numa_processor_affinity_init(struct acpi_srat_cpu_affinity *pa)
+ 	       pxm, apic_id, node);
+ }
+ 
+-#ifdef CONFIG_MEMORY_HOTPLUG
+-static inline int save_add_info(void) {return 1;}
+-#else
+-static inline int save_add_info(void) {return 0;}
 -#endif
 -
--#ifdef __KERNEL__
--
--#define RWSEM_UNLOCKED_VALUE		0x00000000
--#define RWSEM_ACTIVE_BIAS		0x00000001
--#define RWSEM_ACTIVE_MASK		0x0000ffff
--#define RWSEM_WAITING_BIAS		(-0x00010000)
--#define RWSEM_ACTIVE_READ_BIAS		RWSEM_ACTIVE_BIAS
--#define RWSEM_ACTIVE_WRITE_BIAS		(RWSEM_WAITING_BIAS + RWSEM_ACTIVE_BIAS)
--
--/*
-- * lock for reading
-- */
--static inline void __down_read(struct rw_semaphore *sem)
--{
--	if (atomic_inc_return((atomic_t *)(&sem->count)) <= 0)
--		rwsem_down_read_failed(sem);
--}
--
--static inline int __down_read_trylock(struct rw_semaphore *sem)
--{
--	int tmp;
--
--	while ((tmp = sem->count) >= 0) {
--		if (tmp = cmpxchg(&sem->count, tmp,
--				   tmp + RWSEM_ACTIVE_READ_BIAS)) {
--			return 1;
--		}
--	}
--	return 0;
--}
--
--/*
-- * lock for writing
-- */
--static inline void __down_write(struct rw_semaphore *sem)
--{
--	int tmp;
--
--	tmp = atomic_add_return(RWSEM_ACTIVE_WRITE_BIAS,
--				(atomic_t *)(&sem->count));
--	if (tmp != RWSEM_ACTIVE_WRITE_BIAS)
--		rwsem_down_write_failed(sem);
--}
--
--static inline int __down_write_trylock(struct rw_semaphore *sem)
--{
--	int tmp;
--
--	tmp = cmpxchg(&sem->count, RWSEM_UNLOCKED_VALUE,
--		      RWSEM_ACTIVE_WRITE_BIAS);
--	return tmp = RWSEM_UNLOCKED_VALUE;
--}
--
--/*
-- * unlock after reading
-- */
--static inline void __up_read(struct rw_semaphore *sem)
--{
--	int tmp;
--
--	tmp = atomic_dec_return((atomic_t *)(&sem->count));
--	if (tmp < -1 && (tmp & RWSEM_ACTIVE_MASK) = 0)
--		rwsem_wake(sem);
--}
--
--/*
-- * unlock after writing
-- */
--static inline void __up_write(struct rw_semaphore *sem)
--{
--	if (atomic_sub_return(RWSEM_ACTIVE_WRITE_BIAS,
--			      (atomic_t *)(&sem->count)) < 0)
--		rwsem_wake(sem);
--}
--
--/*
-- * implement atomic add functionality
-- */
--static inline void rwsem_atomic_add(int delta, struct rw_semaphore *sem)
--{
--	atomic_add(delta, (atomic_t *)(&sem->count));
--}
--
--/*
-- * downgrade write lock to read lock
-- */
--static inline void __downgrade_write(struct rw_semaphore *sem)
--{
--	int tmp;
--
--	tmp = atomic_add_return(-RWSEM_WAITING_BIAS, (atomic_t *)(&sem->count));
--	if (tmp < 0)
--		rwsem_downgrade_wake(sem);
--}
--
--/*
-- * implement exchange and add functionality
-- */
--static inline int rwsem_atomic_update(int delta, struct rw_semaphore *sem)
--{
--	return atomic_add_return(delta, (atomic_t *)(&sem->count));
--}
--
--#endif /* __KERNEL__ */
--#endif /* _ASM_SH_RWSEM_H */
+ /* Callback for parsing of the Proximity Domain <-> Memory Area mappings */
+ int __init
+ acpi_numa_memory_affinity_init(struct acpi_srat_mem_affinity *ma)
+@@ -145,7 +134,7 @@ acpi_numa_memory_affinity_init(struct acpi_srat_mem_affinity *ma)
+ 	if ((ma->flags & ACPI_SRAT_MEM_ENABLED) = 0)
+ 		goto out_err;
+ 	hotpluggable = ma->flags & ACPI_SRAT_MEM_HOT_PLUGGABLE;
+-	if (hotpluggable && !save_add_info())
++	if (hotpluggable && !IS_ENABLED(CONFIG_MEMORY_HOTPLUG))
+ 		goto out_err;
+ 
+ 	start = ma->base_address;
+@@ -154,7 +143,7 @@ acpi_numa_memory_affinity_init(struct acpi_srat_mem_affinity *ma)
+ 	if (acpi_srat_revision <= 1)
+ 		pxm &= 0xff;
+ 
+-	node = setup_node(pxm);
++	node = acpi_map_pxm_to_node(pxm);
+ 	if (node < 0) {
+ 		printk(KERN_ERR "SRAT: Too many proximity domains.\n");
+ 		goto out_err_bad_srat;
+@@ -182,7 +171,7 @@ acpi_numa_memory_affinity_init(struct acpi_srat_mem_affinity *ma)
+ out_err_bad_srat:
+ 	bad_srat();
+ out_err:
+-	return -1;
++	return -EINVAL;
+ }
+ 
+ int __init x86_acpi_numa_init(void)
 -- 
-2.8.0.rc3
+1.7.11.7
 
