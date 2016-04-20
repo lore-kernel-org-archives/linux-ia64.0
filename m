@@ -1,67 +1,57 @@
-From: Michal Hocko <mhocko@kernel.org>
-Date: Fri, 01 Apr 2016 11:04:50 +0000
-Subject: [PATCH 06/11] s390, rwsem: provide __down_write_killable
-Message-Id: <1459508695-14915-7-git-send-email-mhocko@kernel.org>
+From: Linus Walleij <linus.walleij@linaro.org>
+Date: Wed, 20 Apr 2016 08:58:15 +0000
+Subject: [PATCH 17/23] ia64: remove ARCH_WANT_OPTIONAL_GPIOLIB
+Message-Id: <1461142701-21096-18-git-send-email-linus.walleij@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1459508695-14915-1-git-send-email-mhocko@kernel.org>
-In-Reply-To: <1459508695-14915-1-git-send-email-mhocko@kernel.org>
+References: <1461142701-21096-1-git-send-email-linus.walleij@linaro.org>
+In-Reply-To: <1461142701-21096-1-git-send-email-linus.walleij@linaro.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: LKML <linux-kernel@vger.kernel.org>
-Cc: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>, Thomas Gleixner <tglx@linutronix.de>, "H. Peter Anvin" <hpa@zytor.com>, "David S. Miller" <davem@davemloft.net>, Tony Luck <tony.luck@intel.com>, Andrew Morton <akpm@linux-foundation.org>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org, Michal Hocko <mhocko@suse.com>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: linux-gpio@vger.kernel.org, Alexandre Courbot <acourbot@nvidia.com>
+Cc: Linus Walleij <linus.walleij@linaro.org>, =?UTF-8?q?Michael=20B=C3=BCsch?= <m@bues.ch>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-From: Michal Hocko <mhocko@suse.com>
+This symbols is not needed to get access to selecting the
+GPIOLIB anymore: any arch can select GPIOLIB.
 
-Introduce ___down_write for the fast path and reuse it for __down_write
-resp. __down_write_killable each using the respective generic slow path
-(rwsem_down_write_failed resp. rwsem_down_write_failed_killable).
-
-Signed-off-by: Michal Hocko <mhocko@suse.com>
+Cc: Michael B=C3=BCsch <m@bues.ch>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
+Signed-off-by: Linus Walleij <linus.walleij@linaro.org>
 ---
- arch/s390/include/asm/rwsem.h | 19 +++++++++++++++++--
- 1 file changed, 17 insertions(+), 2 deletions(-)
+Various arch maintainers:
 
-diff --git a/arch/s390/include/asm/rwsem.h b/arch/s390/include/asm/rwsem.h
-index 8e52e72f3efc..8e7b2b7e10f3 100644
---- a/arch/s390/include/asm/rwsem.h
-+++ b/arch/s390/include/asm/rwsem.h
-@@ -90,7 +90,7 @@ static inline int __down_read_trylock(struct rw_semaphore *sem)
- /*
-  * lock for writing
-  */
--static inline void __down_write(struct rw_semaphore *sem)
-+static inline long ___down_write(struct rw_semaphore *sem)
- {
- 	signed long old, new, tmp;
- 
-@@ -104,10 +104,25 @@ static inline void __down_write(struct rw_semaphore *sem)
- 		: "=&d" (old), "=&d" (new), "=Q" (sem->count)
- 		: "Q" (sem->count), "m" (tmp)
- 		: "cc", "memory");
--	if (old != 0)
-+
-+	return old;
-+}
-+
-+static inline void __down_write(struct rw_semaphore *sem)
-+{
-+	if (___down_write(sem))
- 		rwsem_down_write_failed(sem);
- }
- 
-+static inline int __down_write_killable(struct rw_semaphore *sem)
-+{
-+	if (___down_write(sem))
-+		if (IS_ERR(rwsem_down_write_failed_killable(sem)))
-+			return -EINTR;
-+
-+	return 0;
-+}
-+
- /*
-  * trylock for writing -- returns 1 if successful, 0 if contention
-  */
--- 
-2.8.0.rc3
+either ACK this and I will merge it into the GPIO tree for v4.7
+anticipating no clashes, or you wait until I have the enabling patch
+upstream (patch 1 in this series, removing deps on
+ARCH_[WANTS_OPTIONAL|REQUIRES]_GPIOLIB), and you will be able to
+merge it to your arch trees yourselves for late v4.7
+(post GPIO tree merge) or for v4.8.
+
+You can also ask me for an immutable branch if you prefer that, I
+will put the enabling patch on a branch and the patch for your arch
+on top and ask you to pull it.
+
+Select your option from the menu, silence probably means I will
+merge it to the GPIO tree. Unless you are X86 or ARM in which case
+I will be cautious.
+---
+ arch/ia64/Kconfig | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+index b534ebab36ea..b97a4e08fae4 100644
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -38,7 +38,6 @@ config IA64
+ 	select GENERIC_PENDING_IRQ if SMP
+ 	select GENERIC_IRQ_SHOW
+ 	select GENERIC_IRQ_LEGACY
+-	select ARCH_WANT_OPTIONAL_GPIOLIB
+ 	select ARCH_HAVE_NMI_SAFE_CMPXCHG
+ 	select GENERIC_IOMAP
+ 	select GENERIC_SMP_IDLE_THREAD
+--=20
+2.4.11
 
