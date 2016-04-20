@@ -1,55 +1,133 @@
-From: Russell King <rmk+kernel@arm.linux.org.uk>
-Date: Thu, 28 Apr 2016 09:28:09 +0000
-Subject: [PATCH 05/12] ARM: kdump: advertise boot aliased crash kernel resource
-Message-Id: <E1aviEz-0000j7-Gk@rmk-PC.arm.linux.org.uk>
+From: David Daney <ddaney.cavm@gmail.com>
+Date: Wed, 20 Apr 2016 01:40:33 +0000
+Subject: [PATCH v5 08/14] acpi, numa: move bad_srat() and srat_disabled() to drivers/acpi/numa.c
+Message-Id: <1461116439-22991-9-git-send-email-ddaney.cavm@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20160428092644.GX19428@n2100.arm.linux.org.uk>
-In-Reply-To: <20160428092644.GX19428@n2100.arm.linux.org.uk>
+References: <1461116439-22991-1-git-send-email-ddaney.cavm@gmail.com>
+In-Reply-To: <1461116439-22991-1-git-send-email-ddaney.cavm@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-arm-kernel@lists.infradead.org
-Cc: devicetree@vger.kernel.org, Eric Biederman <ebiederm@xmission.com>, Fenghua Yu <fenghua.yu@intel.com>, Haren Myneni <hbabu@us.ibm.com>, Ian Campbell <ijc+devicetree@hellion.org.uk>, Jonathan Corbet <corbet@lwn.net>, kexec@lists.infradead.org, Kumar Gala <galak@codeaurora.org>, linux-doc@vger.kernel.org, linux-ia64@vger.kernel.org, Mark Rutland <mark.rutland@arm.com>, Pawel Moll <pawel.moll@arm.com>, Rob Herring <robh+dt@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Tony Luck <tony.luck@intel.com>, Vivek Goyal <vgoyal@redhat.com>
+To: Will Deacon <will.deacon@arm.com>, linux-arm-kernel@lists.infradead.org, Mark Rutland <mark.rutland@arm.com>, Catalin Marinas <catalin.marinas@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>, Rob Herring <robh+dt@kernel.org>, Frank Rowand <frowand.list@gmail.com>, Grant Likely <grant.likely@linaro.org>, Robert Moore <robert.moore@intel.com>, Lv Zheng <lv.zheng@intel.com>, Hanjun Guo <hanjun.guo@linaro.org>, Marc Zyngier <Marc.Zyngier@arm.com>, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org
+Cc: linux-kernel@vger.kernel.org, Robert Richter <rrichter@cavium.com>, David Daney <david.daney@cavium.com>
 
-Advertise a resource which describes where the crash kernel is located
-in the boot view of RAM.  This allows kexec-tools to have this vital
-information.
+From: Hanjun Guo <hanjun.guo@linaro.org>
 
-Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+bad_srat() and srat_disabled() are shared by x86 and follow-on arm64
+patches.  Move them to drivers/acpi/numa.c in preparation for arm64
+support.
+
+Signed-off-by: Hanjun Guo <hanjun.guo@linaro.org>
+Signed-off-by: Robert Richter <rrichter@cavium.com>
+[david.daney@cavium.com moved definitions to drivers/acpi/numa.c]
+Signed-off-by: David Daney <david.daney@cavium.com>
 ---
- arch/arm/kernel/setup.c | 16 ++++++++++++++++
- 1 file changed, 16 insertions(+)
+ arch/x86/include/asm/acpi.h |  1 -
+ arch/x86/mm/numa.c          |  2 +-
+ arch/x86/mm/srat.c          | 13 -------------
+ drivers/acpi/numa.c         | 12 ++++++++++++
+ include/acpi/acpi_numa.h    |  4 ++++
+ 5 files changed, 17 insertions(+), 15 deletions(-)
 
-diff --git a/arch/arm/kernel/setup.c b/arch/arm/kernel/setup.c
-index d9317eec1eba..19b25ad61385 100644
---- a/arch/arm/kernel/setup.c
-+++ b/arch/arm/kernel/setup.c
-@@ -1003,9 +1003,25 @@ static void __init reserve_crashkernel(void)
- 		(unsigned long)(crash_base >> 20),
- 		(unsigned long)(total_mem >> 20));
+diff --git a/arch/x86/include/asm/acpi.h b/arch/x86/include/asm/acpi.h
+index 94c18eb..65f1e95 100644
+--- a/arch/x86/include/asm/acpi.h
++++ b/arch/x86/include/asm/acpi.h
+@@ -145,7 +145,6 @@ static inline void disable_acpi(void) { }
+ #define ARCH_HAS_POWER_INIT	1
  
-+	/* The crashk resource must always be located in normal mem */
- 	crashk_res.start = crash_base;
- 	crashk_res.end = crash_base + crash_size - 1;
- 	insert_resource(&iomem_resource, &crashk_res);
-+
-+	if (arm_has_idmap_alias()) {
-+		/*
-+		 * If we have a special RAM alias for use at boot, we
-+		 * need to advertise to kexec tools where the alias is.
-+		 */
-+		static struct resource crashk_boot_res = {
-+			.name = "Crash kernel (boot alias)",
-+			.flags = IORESOURCE_BUSY | IORESOURCE_MEM,
-+		};
-+
-+		crashk_boot_res.start = phys_to_idmap(crash_base);
-+		crashk_boot_res.end = crashk_boot_res.start + crash_size - 1;
-+		insert_resource(&iomem_resource, &crashk_boot_res);
-+	}
+ #ifdef CONFIG_ACPI_NUMA
+-extern int acpi_numa;
+ extern int x86_acpi_numa_init(void);
+ #endif /* CONFIG_ACPI_NUMA */
+ 
+diff --git a/arch/x86/mm/numa.c b/arch/x86/mm/numa.c
+index f70c1ff..57673f5 100644
+--- a/arch/x86/mm/numa.c
++++ b/arch/x86/mm/numa.c
+@@ -1,4 +1,5 @@
+ /* Common code for 32 and 64-bit NUMA */
++#include <linux/acpi.h>
+ #include <linux/kernel.h>
+ #include <linux/mm.h>
+ #include <linux/string.h>
+@@ -15,7 +16,6 @@
+ #include <asm/e820.h>
+ #include <asm/proto.h>
+ #include <asm/dma.h>
+-#include <asm/acpi.h>
+ #include <asm/amd_nb.h>
+ 
+ #include "numa_internal.h"
+diff --git a/arch/x86/mm/srat.c b/arch/x86/mm/srat.c
+index 9e2a833..4217071f 100644
+--- a/arch/x86/mm/srat.c
++++ b/arch/x86/mm/srat.c
+@@ -24,19 +24,6 @@
+ #include <asm/apic.h>
+ #include <asm/uv/uv.h>
+ 
+-int acpi_numa __initdata;
+-
+-static __init void bad_srat(void)
+-{
+-	printk(KERN_ERR "SRAT: SRAT not used.\n");
+-	acpi_numa = -1;
+-}
+-
+-static __init inline int srat_disabled(void)
+-{
+-	return acpi_numa < 0;
+-}
+-
+ /* Callback for Proximity Domain -> x2APIC mapping */
+ void __init
+ acpi_numa_x2apic_affinity_init(struct acpi_srat_x2apic_cpu_affinity *pa)
+diff --git a/drivers/acpi/numa.c b/drivers/acpi/numa.c
+index acc361d..7174a38 100644
+--- a/drivers/acpi/numa.c
++++ b/drivers/acpi/numa.c
+@@ -40,6 +40,7 @@ static int node_to_pxm_map[MAX_NUMNODES]
+ 			= { [0 ... MAX_NUMNODES - 1] = PXM_INVAL };
+ 
+ unsigned char acpi_srat_revision __initdata;
++int acpi_numa __initdata;
+ 
+ int pxm_to_node(int pxm)
+ {
+@@ -197,6 +198,17 @@ static int __init slit_valid(struct acpi_table_slit *slit)
+ 	return 1;
  }
- #else
- static inline void reserve_crashkernel(void) {}
+ 
++void __init bad_srat(void)
++{
++	pr_err("SRAT: SRAT not used.\n");
++	acpi_numa = -1;
++}
++
++int __init srat_disabled(void)
++{
++	return acpi_numa < 0;
++}
++
+ #if defined(CONFIG_X86) || defined(CONFIG_ARM64)
+ /*
+  * Callback for SLIT parsing.  pxm_to_node() returns NUMA_NO_NODE for
+diff --git a/include/acpi/acpi_numa.h b/include/acpi/acpi_numa.h
+index 94a37cd..d4b7294 100644
+--- a/include/acpi/acpi_numa.h
++++ b/include/acpi/acpi_numa.h
+@@ -15,6 +15,10 @@ extern int pxm_to_node(int);
+ extern int node_to_pxm(int);
+ extern int acpi_map_pxm_to_node(int);
+ extern unsigned char acpi_srat_revision;
++extern int acpi_numa __initdata;
++
++extern void bad_srat(void);
++extern int srat_disabled(void);
+ 
+ #endif				/* CONFIG_ACPI_NUMA */
+ #endif				/* __ACP_NUMA_H */
 -- 
-2.1.0
+1.7.11.7
 
