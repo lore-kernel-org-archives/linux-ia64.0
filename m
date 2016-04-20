@@ -1,95 +1,110 @@
-From: Hanjun Guo <hanjun.guo@linaro.org>
-Date: Wed, 27 Apr 2016 01:49:36 +0000
-Subject: Re: [PATCH v5 00/14] ACPI NUMA support for ARM64
-Message-Id: <57201AB0.9050202@linaro.org>
+From: David Daney <ddaney.cavm@gmail.com>
+Date: Wed, 20 Apr 2016 01:40:29 +0000
+Subject: [PATCH v5 04/14] acpi, numa: Move acpi_numa_arch_fixup() to ia64 only
+Message-Id: <1461116439-22991-5-git-send-email-ddaney.cavm@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1461116439-22991-1-git-send-email-ddaney.cavm@gmail.com>
- <20160425111338.GJ16065@arm.com> <571E4A2A.8070908@caviumnetworks.com>
- <571EFD1B.1070609@linaro.org> <20160426121547.GL27312@arm.com>
- <571F671D.70401@linaro.org> <20160426133500.GQ27312@arm.com>
-In-Reply-To: <20160426133500.GQ27312@arm.com>
+In-Reply-To: <1461116439-22991-1-git-send-email-ddaney.cavm@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Will Deacon <will.deacon@arm.com>
-Cc: David Daney <ddaney@caviumnetworks.com>, David Daney <ddaney.cavm@gmail.com>, linux-arm-kernel@lists.infradead.org, Mark Rutland <mark.rutland@arm.com>, Catalin Marinas <catalin.marinas@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>, Rob Herring <robh+dt@kernel.org>, Frank Rowand <frowand.list@gmail.com>, Grant Likely <grant.likely@linaro.org>, Robert Moore <robert.moore@intel.com>, Lv Zheng <lv.zheng@intel.com>, Marc Zyngier <Marc.Zyngier@arm.com>, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org, linux-kernel@vger.kernel.org, Robert Richter <rrichter@cavium.com>, David Daney <david.daney@cavium.com>
+To: Will Deacon <will.deacon@arm.com>, linux-arm-kernel@lists.infradead.org, Mark Rutland <mark.rutland@arm.com>, Catalin Marinas <catalin.marinas@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>, Rob Herring <robh+dt@kernel.org>, Frank Rowand <frowand.list@gmail.com>, Grant Likely <grant.likely@linaro.org>, Robert Moore <robert.moore@intel.com>, Lv Zheng <lv.zheng@intel.com>, Hanjun Guo <hanjun.guo@linaro.org>, Marc Zyngier <Marc.Zyngier@arm.com>, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org
+Cc: linux-kernel@vger.kernel.org, Robert Richter <rrichter@cavium.com>, David Daney <david.daney@cavium.com>
 
-Hi Will,
+From: Robert Richter <rrichter@cavium.com>
 
-On 2016/4/26 21:35, Will Deacon wrote:
-> On Tue, Apr 26, 2016 at 09:03:25PM +0800, Hanjun Guo wrote:
->> On 2016/4/26 20:15, Will Deacon wrote:
->>> On Tue, Apr 26, 2016 at 01:31:07PM +0800, Hanjun Guo wrote:
->>>> On 2016/4/26 0:47, David Daney wrote:
->>>>> On 04/25/2016 04:13 AM, Will Deacon wrote:
->>>>>> On Tue, Apr 19, 2016 at 06:40:25PM -0700, David Daney wrote:
->>>>>>> From: David Daney <david.daney@cavium.com>
->>>>>>>
->>>>>>> Based on v16 of device-tree NUMA patch set for arm64 [1],this patch
->>>>>>> set introduce the ACPI based configuration to provide NUMA
->>>>>>> information.
->>>>>>>
->>>>>>> ACPI 5.1 already introduced NUMA support for ARM64, which can get the
->>>>>>> NUMA domain information from SRAT and SLIT table, so parse those two
->>>>>>> tables to get mappings from cpu/mem to numa node configuration and
->>>>>>> system locality.
->>>>>>
->>>>>> Whilst I've queued the main NUMA series for arm64, I'd really like to
->>>>>> see more movement on the generic header file cleanups that you posted
->>>>>> separately:
->>>>>>
->>>>>> http://lkml.kernel.org/r/1456358528-24213-1-git-send-email-ddaney.cavm@gmail.com
->>>>>>
->>>>>
->>>>> FWIW:  Those patches should still apply.  I am carrying them in my
->>>>> development trees, and have not changed them in any way.
->>>
->>> What's your plan for getting them merged?
->>
->> This patch set touches lots of ACPI related file in arch/x86,
->> arch/ia64, and drivers/acpi/ (also arch/arm64), I think it can be
->> merged via ACPI tree by Rafael with your ack to ARM64 code, does
->> it make sense?
->
-> It doesn't touch anything in drivers/acpi/... are you following the link
-> above?
+Since acpi_numa_arch_fixup() is only used in arch ia64, move it there
+to make a generic interface easier. This avoids empty function stubs
+or some complex kconfig options for x86 and arm64.
 
-Sorry, my bad, I though you were talking about this ACPI NUMA support
-for ARM64 patch set.
+Signed-off-by: Robert Richter <rrichter@cavium.com>
+Signed-off-by: David Daney <david.daney@cavium.com>
+---
+ arch/ia64/include/asm/acpi.h | 3 +++
+ arch/ia64/kernel/acpi.c      | 2 +-
+ arch/ia64/kernel/setup.c     | 1 +
+ arch/x86/mm/srat.c           | 2 --
+ drivers/acpi/numa.c          | 2 --
+ include/linux/acpi.h         | 1 -
+ 6 files changed, 5 insertions(+), 6 deletions(-)
 
->
->>>>>> Given that this ACPI series already requires some significant cross-arch
->>>>>> interaction (which is actually good!), perhaps extending the clean-up
->>>>>> patches to encompass some of the ACPI bits might make sense, and we can
->>>>>> get that queued as a pre-requisite.
->>>>>
->>>>> The cleanup patches you mention above are really independent of the ACPI
->>>>> things.  I have applied them both before and after the ACPI patches, and
->>>>> both seem to work.  With a quick perusal of the ACPI patches nothing
->>>>> jumps out at me as being a candidate for inclusion in the header file
->>>>> cleanup series.
->>>>
->>>> I agree. My patch set is ACPI related enablement, cleanups and
->>>> consolidations, it would be good to merge as a single patch set
->>>> as it's self-contained.
->>>
->>> Up to you. I just thought you might want to avoid having two sets of
->>> cross-arch changes and the associated merging headaches that go with
->>> that.
->>
->> Good point, as I suggested above, it can go with ACPI tree if it's ok
->> to you and Rafael. The problem we have now is that dt based core NUMA
->> support for ARM64 is queued in your tree, that would be the headache.
->
-> Sorry, but if you wanted me *not* to queue the patches, then you should
-> have said so (similarly, if you wanted a stable branch). I'm not rebasing
-> our for-next/core branch now.
+diff --git a/arch/ia64/include/asm/acpi.h b/arch/ia64/include/asm/acpi.h
+index aa0fdf1..a3d0211 100644
+--- a/arch/ia64/include/asm/acpi.h
++++ b/arch/ia64/include/asm/acpi.h
+@@ -140,6 +140,9 @@ static inline void per_cpu_scan_finalize(int min_cpus, int reserve_cpus)
+ 		}
+ 	}
+ }
++
++extern void acpi_numa_fixup(void);
++
+ #endif /* CONFIG_ACPI_NUMA */
+ 
+ #endif /*__KERNEL__*/
+diff --git a/arch/ia64/kernel/acpi.c b/arch/ia64/kernel/acpi.c
+index b1698bc..92b7bc9 100644
+--- a/arch/ia64/kernel/acpi.c
++++ b/arch/ia64/kernel/acpi.c
+@@ -524,7 +524,7 @@ acpi_numa_memory_affinity_init(struct acpi_srat_mem_affinity *ma)
+ 	return 0;
+ }
+ 
+-void __init acpi_numa_arch_fixup(void)
++void __init acpi_numa_fixup(void)
+ {
+ 	int i, j, node_from, node_to;
+ 
+diff --git a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
+index 2029a38..afddb3e 100644
+--- a/arch/ia64/kernel/setup.c
++++ b/arch/ia64/kernel/setup.c
+@@ -552,6 +552,7 @@ setup_arch (char **cmdline_p)
+ 	early_acpi_boot_init();
+ # ifdef CONFIG_ACPI_NUMA
+ 	acpi_numa_init();
++	acpi_numa_fixup();
+ #  ifdef CONFIG_ACPI_HOTPLUG_CPU
+ 	prefill_possible_map();
+ #  endif
+diff --git a/arch/x86/mm/srat.c b/arch/x86/mm/srat.c
+index b5f8218..90b6ed9 100644
+--- a/arch/x86/mm/srat.c
++++ b/arch/x86/mm/srat.c
+@@ -212,8 +212,6 @@ out_err:
+ 	return -1;
+ }
+ 
+-void __init acpi_numa_arch_fixup(void) {}
+-
+ int __init x86_acpi_numa_init(void)
+ {
+ 	int ret;
+diff --git a/drivers/acpi/numa.c b/drivers/acpi/numa.c
+index 2de6068..f41f06b 100644
+--- a/drivers/acpi/numa.c
++++ b/drivers/acpi/numa.c
+@@ -316,8 +316,6 @@ int __init acpi_numa_init(void)
+ 	/* SLIT: System Locality Information Table */
+ 	acpi_table_parse(ACPI_SIG_SLIT, acpi_parse_slit);
+ 
+-	acpi_numa_arch_fixup();
+-
+ 	if (cnt < 0)
+ 		return cnt;
+ 	else if (!parsed_numa_memblks)
+diff --git a/include/linux/acpi.h b/include/linux/acpi.h
+index 06ed7e5..ab6fd96 100644
+--- a/include/linux/acpi.h
++++ b/include/linux/acpi.h
+@@ -244,7 +244,6 @@ void acpi_numa_slit_init (struct acpi_table_slit *slit);
+ void acpi_numa_processor_affinity_init (struct acpi_srat_cpu_affinity *pa);
+ void acpi_numa_x2apic_affinity_init(struct acpi_srat_x2apic_cpu_affinity *pa);
+ int acpi_numa_memory_affinity_init (struct acpi_srat_mem_affinity *ma);
+-void acpi_numa_arch_fixup(void);
+ 
+ #ifndef PHYS_CPUID_INVALID
+ typedef u32 phys_cpuid_t;
+-- 
+1.7.11.7
 
-I misread the message above, I'm really sorry if I did something
-offending you, I didn't mean that.
-
-How about this patch set? We only get few comments on it, your
-comments on it are appreciated.
-
-Thanks
-Hanjun
