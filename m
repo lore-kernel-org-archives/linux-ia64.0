@@ -1,10 +1,10 @@
 From: David Daney <ddaney.cavm@gmail.com>
-Date: Wed, 27 Apr 2016 18:07:16 +0000
-Subject: [PATCH v6 14/14] acpi, numa: Enable ACPI based NUMA on ARM64
-Message-Id: <1461780436-27182-15-git-send-email-ddaney.cavm@gmail.com>
+Date: Wed, 20 Apr 2016 01:40:27 +0000
+Subject: [PATCH v5 02/14] acpi, numa: Replace ACPI_DEBUG_PRINT() with pr_debug()
+Message-Id: <1461116439-22991-3-git-send-email-ddaney.cavm@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1461780436-27182-1-git-send-email-ddaney.cavm@gmail.com>
-In-Reply-To: <1461780436-27182-1-git-send-email-ddaney.cavm@gmail.com>
+References: <1461116439-22991-1-git-send-email-ddaney.cavm@gmail.com>
+In-Reply-To: <1461116439-22991-1-git-send-email-ddaney.cavm@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -13,130 +13,124 @@ Cc: linux-kernel@vger.kernel.org, Robert Richter <rrichter@cavium.com>, David Da
 
 From: Hanjun Guo <hanjun.guo@linaro.org>
 
-Add function needed for cpu to node mapping, and enable ACPI based
-NUMA for ARM64 in Kconfig
+ACPI_DEBUG_PRINT is a bit fragile in acpi/numa.c, the first thing
+is that component ACPI_NUMA(0x80000000) is not described in the
+Documentation/acpi/debug.txt, and even not defined in the struct
+acpi_dlayer acpi_debug_layers which we can not dynamically enable/disable
+it with /sys/modules/acpi/parameters/debug_layer. another thing
+is that ACPI_DEBUG_OUTPUT is controlled by ACPICA which not coordinate
+well with ACPI drivers.
+
+Replace ACPI_DEBUG_PRINT() with pr_debug() in this patch as pr_debug
+will do the same thing for debug purpose and it can make the code much
+cleaner, also remove the related code which not needed anymore if
+ACPI_DEBUG_PRINT() is gone.
 
 Signed-off-by: Hanjun Guo <hanjun.guo@linaro.org>
 Signed-off-by: Robert Richter <rrichter@cavium.com>
-[david.daney@cavium.com added ACPI_NUMA default to y for ARM64]
 Signed-off-by: David Daney <david.daney@cavium.com>
 ---
- drivers/acpi/Kconfig |  4 ++--
- drivers/acpi/numa.c  | 35 +++++++++++++++++++++++++++++++++++
- include/linux/acpi.h | 17 ++++++++++++++++-
- 3 files changed, 53 insertions(+), 3 deletions(-)
+ drivers/acpi/numa.c | 59 +++++++++++++++++++----------------------------------
+ 1 file changed, 21 insertions(+), 38 deletions(-)
 
-diff --git a/drivers/acpi/Kconfig b/drivers/acpi/Kconfig
-index fa91ea2..5a3b161 100644
---- a/drivers/acpi/Kconfig
-+++ b/drivers/acpi/Kconfig
-@@ -291,8 +291,8 @@ config ACPI_THERMAL
- config ACPI_NUMA
- 	bool "NUMA support"
- 	depends on NUMA
--	depends on (X86 || IA64)
--	default y if IA64_GENERIC || IA64_SGI_SN2
-+	depends on (X86 || IA64 || ARM64)
-+	default y if IA64_GENERIC || IA64_SGI_SN2 || ARM64
- 
- config ACPI_CUSTOM_DSDT_FILE
- 	string "Custom DSDT Table file to include"
 diff --git a/drivers/acpi/numa.c b/drivers/acpi/numa.c
-index 50c8f42..f6696ac 100644
+index 4e427fc..e34b5d0 100644
 --- a/drivers/acpi/numa.c
 +++ b/drivers/acpi/numa.c
-@@ -170,6 +170,18 @@ acpi_table_print_srat_entry(struct acpi_subtable_header *header)
+@@ -31,10 +31,6 @@
+ #include <linux/nodemask.h>
+ #include <linux/topology.h>
+ 
+-#define ACPI_NUMA	0x80000000
+-#define _COMPONENT	ACPI_NUMA
+-ACPI_MODULE_NAME("numa");
+-
+ static nodemask_t nodes_found_map = NODE_MASK_NONE;
+ 
+ /* maps to convert between proximity domain and logical node ID */
+@@ -129,64 +125,51 @@ EXPORT_SYMBOL(acpi_map_pxm_to_online_node);
+ static void __init
+ acpi_table_print_srat_entry(struct acpi_subtable_header *header)
+ {
+-
+-	ACPI_FUNCTION_NAME("acpi_table_print_srat_entry");
+-
+ 	if (!header)
+ 		return;
+ 
+ 	switch (header->type) {
+-
+ 	case ACPI_SRAT_TYPE_CPU_AFFINITY:
+-#ifdef ACPI_DEBUG_OUTPUT
+ 		{
+ 			struct acpi_srat_cpu_affinity *p  			    (struct acpi_srat_cpu_affinity *)header;
+-			ACPI_DEBUG_PRINT((ACPI_DB_INFO,
+-					  "SRAT Processor (id[0x%02x] eid[0x%02x]) in proximity domain %d %s\n",
+-					  p->apic_id, p->local_sapic_eid,
+-					  p->proximity_domain_lo,
+-					  (p->flags & ACPI_SRAT_CPU_ENABLED)?
+-					  "enabled" : "disabled"));
++			pr_debug("SRAT Processor (id[0x%02x] eid[0x%02x]) in proximity domain %d %s\n",
++				 p->apic_id, p->local_sapic_eid,
++				 p->proximity_domain_lo,
++				 (p->flags & ACPI_SRAT_CPU_ENABLED) ?
++				 "enabled" : "disabled");
  		}
+-#endif				/* ACPI_DEBUG_OUTPUT */
  		break;
  
-+	case ACPI_SRAT_TYPE_GICC_AFFINITY:
-+		{
-+			struct acpi_srat_gicc_affinity *p +			    (struct acpi_srat_gicc_affinity *)header;
-+			pr_debug("SRAT Processor (acpi id[0x%04x]) in proximity domain %d %s\n",
-+				 p->acpi_processor_uid,
+ 	case ACPI_SRAT_TYPE_MEMORY_AFFINITY:
+-#ifdef ACPI_DEBUG_OUTPUT
+ 		{
+ 			struct acpi_srat_mem_affinity *p  			    (struct acpi_srat_mem_affinity *)header;
+-			ACPI_DEBUG_PRINT((ACPI_DB_INFO,
+-					  "SRAT Memory (0x%lx length 0x%lx) in proximity domain %d %s%s%s\n",
+-					  (unsigned long)p->base_address,
+-					  (unsigned long)p->length,
+-					  p->proximity_domain,
+-					  (p->flags & ACPI_SRAT_MEM_ENABLED)?
+-					  "enabled" : "disabled",
+-					  (p->flags & ACPI_SRAT_MEM_HOT_PLUGGABLE)?
+-					  " hot-pluggable" : "",
+-					  (p->flags & ACPI_SRAT_MEM_NON_VOLATILE)?
+-					  " non-volatile" : ""));
++			pr_debug("SRAT Memory (0x%lx length 0x%lx) in proximity domain %d %s%s%s\n",
++				 (unsigned long)p->base_address,
++				 (unsigned long)p->length,
 +				 p->proximity_domain,
-+				 (p->flags & ACPI_SRAT_GICC_ENABLED) ?
++				 (p->flags & ACPI_SRAT_MEM_ENABLED) ?
++				 "enabled" : "disabled",
++				 (p->flags & ACPI_SRAT_MEM_HOT_PLUGGABLE) ?
++				 " hot-pluggable" : "",
++				 (p->flags & ACPI_SRAT_MEM_NON_VOLATILE) ?
++				 " non-volatile" : "");
+ 		}
+-#endif				/* ACPI_DEBUG_OUTPUT */
+ 		break;
+ 
+ 	case ACPI_SRAT_TYPE_X2APIC_CPU_AFFINITY:
+-#ifdef ACPI_DEBUG_OUTPUT
+ 		{
+ 			struct acpi_srat_x2apic_cpu_affinity *p  			    (struct acpi_srat_x2apic_cpu_affinity *)header;
+-			ACPI_DEBUG_PRINT((ACPI_DB_INFO,
+-					  "SRAT Processor (x2apicid[0x%08x]) in"
+-					  " proximity domain %d %s\n",
+-					  p->apic_id,
+-					  p->proximity_domain,
+-					  (p->flags & ACPI_SRAT_CPU_ENABLED) ?
+-					  "enabled" : "disabled"));
++			pr_debug("SRAT Processor (x2apicid[0x%08x]) in proximity domain %d %s\n",
++				 p->apic_id,
++				 p->proximity_domain,
++				 (p->flags & ACPI_SRAT_CPU_ENABLED) ?
 +				 "enabled" : "disabled");
-+		}
-+		break;
+ 		}
+-#endif				/* ACPI_DEBUG_OUTPUT */
+ 		break;
 +
  	default:
  		pr_warn("Found unsupported SRAT entry (type = 0x%x)\n",
  			header->type);
-@@ -360,6 +372,24 @@ acpi_parse_processor_affinity(struct acpi_subtable_header *header,
- 	return 0;
- }
- 
-+static int __init
-+acpi_parse_gicc_affinity(struct acpi_subtable_header *header,
-+			 const unsigned long end)
-+{
-+	struct acpi_srat_gicc_affinity *processor_affinity;
-+
-+	processor_affinity = (struct acpi_srat_gicc_affinity *)header;
-+	if (!processor_affinity)
-+		return -EINVAL;
-+
-+	acpi_table_print_srat_entry(header);
-+
-+	/* let architecture-dependent part to do it */
-+	acpi_numa_gicc_affinity_init(processor_affinity);
-+
-+	return 0;
-+}
-+
- static int __initdata parsed_numa_memblks;
- 
- static int __init
-@@ -404,6 +434,9 @@ int __init acpi_numa_init(void)
- {
- 	int cnt = 0;
- 
-+	if (acpi_disabled)
-+		return -EINVAL;
-+
- 	/*
- 	 * Should not limit number with cpu num that is from NR_CPUS or nr_cpus 	 * SRAT cpu entries could have different order with that in MADT.
-@@ -416,6 +449,8 @@ int __init acpi_numa_init(void)
- 				     acpi_parse_x2apic_affinity, 0);
- 		acpi_table_parse_srat(ACPI_SRAT_TYPE_CPU_AFFINITY,
- 				     acpi_parse_processor_affinity, 0);
-+		acpi_table_parse_srat(ACPI_SRAT_TYPE_GICC_AFFINITY,
-+				      acpi_parse_gicc_affinity, 0);
- 		cnt = acpi_table_parse_srat(ACPI_SRAT_TYPE_MEMORY_AFFINITY,
- 					    acpi_parse_memory_affinity,
- 					    NR_NODE_MEMBLKS);
-diff --git a/include/linux/acpi.h b/include/linux/acpi.h
-index ab6fd96..af34064 100644
---- a/include/linux/acpi.h
-+++ b/include/linux/acpi.h
-@@ -239,10 +239,25 @@ int acpi_table_parse_madt(enum acpi_madt_type id,
- int acpi_parse_mcfg (struct acpi_table_header *header);
- void acpi_table_print_madt_entry (struct acpi_subtable_header *madt);
- 
--/* the following four functions are architecture-dependent */
-+/* the following numa functions are architecture-dependent */
- void acpi_numa_slit_init (struct acpi_table_slit *slit);
-+
-+#if defined(CONFIG_X86) || defined(CONFIG_IA64)
- void acpi_numa_processor_affinity_init (struct acpi_srat_cpu_affinity *pa);
-+#else
-+static inline void
-+acpi_numa_processor_affinity_init(struct acpi_srat_cpu_affinity *pa) { }
-+#endif
-+
- void acpi_numa_x2apic_affinity_init(struct acpi_srat_x2apic_cpu_affinity *pa);
-+
-+#ifdef CONFIG_ARM64
-+void acpi_numa_gicc_affinity_init(struct acpi_srat_gicc_affinity *pa);
-+#else
-+static inline void
-+acpi_numa_gicc_affinity_init(struct acpi_srat_gicc_affinity *pa) { }
-+#endif
-+
- int acpi_numa_memory_affinity_init (struct acpi_srat_mem_affinity *ma);
- 
- #ifndef PHYS_CPUID_INVALID
 -- 
 1.7.11.7
 
