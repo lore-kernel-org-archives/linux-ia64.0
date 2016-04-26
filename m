@@ -1,39 +1,27 @@
-From: Michal Hocko <mhocko@kernel.org>
-Date: Thu, 07 Apr 2016 07:38:40 +0000
-Subject: Re: [PATCH 03/11] locking, rwsem: introduce basis for down_write_killable
-Message-Id: <20160407073840.GA32755@dhcp22.suse.cz>
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Tue, 26 Apr 2016 21:44:04 +0000
+Subject: char: legacy RTC cleanups
+Message-Id: <1461707052-1337718-1-git-send-email-arnd@arndb.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1459508695-14915-1-git-send-email-mhocko@kernel.org>
- <1459508695-14915-4-git-send-email-mhocko@kernel.org>
- <20160402044125.GC5329@linux-uzut.site>
- <20160404091659.GA13463@dhcp22.suse.cz>
- <20160407065807.GA29020@linux-uzut.site>
-In-Reply-To: <20160407065807.GA29020@linux-uzut.site>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Davidlohr Bueso <dave@stgolabs.net>
-Cc: LKML <linux-kernel@vger.kernel.org>, Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>, Thomas Gleixner <tglx@linutronix.de>, "H. Peter Anvin" <hpa@zytor.com>, "David S. Miller" <davem@davemloft.net>, Tony Luck <tony.luck@intel.com>, Andrew Morton <akpm@linux-foundation.org>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org
+To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: tony.luck@intel.com, geert@linux-m68k.org, jejb@parisc-linux.org, deller@gmx.de, benh@kernel.crashing.org, mpe@ellerman.id.au, dalias@libc.org, dhowells@redhat.com, yasutake.koichi@jp.panasonic.com, rth@twiddle.net, ink@jurassic.park.msu.ru, linux-alpha@vger.kernel.org, x86@kernel.org, a.zummo@towertech.it, alexandre.belloni@free-electrons.com, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, rtc-linux@googlegroups.com, linux-arch@vger.kernel.org
 
-On Wed 06-04-16 23:58:07, Davidlohr Bueso wrote:
-> On Mon, 04 Apr 2016, Michal Hocko wrote:
-> 
-> >Not sure I got your point here.
-> 
-> You set current to TASK_KILLABLE in the sleep loop, why do you want to change
-> it here to TASK_RUNNING if its about to be killed?
+I've had these patches in my tree for a while, after the first one
+had a few issues that are fixed in this new version. The old-style
+PC RTC driver is now also disabled on m68k (as pointed out by
+Geert), ppc (it was also blacklisted), and m32r (I showed that
+it did not build).
 
-Wouldn't it be unexpected to return from a lock with something else than
-TASK_RUNNING?
+For the genrtc driver, rearranging the headers makes it simpler
+to use and reduces duplication. In case of alpha and mn10300,
+I've shown that the genrtc and rtc drivers are doing the same
+thing, so we don't need them both. The remaining three
+architectures (m68k, parisc, powerpc) actually all support
+the newer rtc-generic driver, so we could remove genrtc completely
+if we want to.
 
-> At least in the case of
-> UNINTERRUPTABLE we do it merely as a redundancy after the breaking out of the
-> loop. Of course we also acquired the lock in the first place by that time and
-> we _better_ be running.
+	Arnd
 
-I guess the reason was that rwsem_try_write_lock might suceed and we do
-not want to return with TASK_UNINTERRUPTIBLE in that case.
-
--- 
-Michal Hocko
-SUSE Labs
