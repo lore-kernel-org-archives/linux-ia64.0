@@ -1,64 +1,60 @@
-From: Sudeep Holla <sudeep.holla@arm.com>
-Date: Tue, 12 Apr 2016 14:29:42 +0000
-Subject: Re: [PATCH v3 5/5] ACPI / processor_idle: Add support for Low Power Idle(LPI) states
-Message-Id: <570D0656.1000608@arm.com>
+From: Hanjun Guo <hanjun.guo@linaro.org>
+Date: Tue, 26 Apr 2016 05:31:07 +0000
+Subject: Re: [PATCH v5 00/14] ACPI NUMA support for ARM64
+Message-Id: <571EFD1B.1070609@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1449065446-26115-1-git-send-email-sudeep.holla@arm.com>
- <1449065446-26115-6-git-send-email-sudeep.holla@arm.com>
- <CAGm_ybhENGdNCUQw3OPb7XN+kLVdeyugTq+Py0iMNP-v3rGBsg@mail.gmail.com>
-In-Reply-To: <CAGm_ybhENGdNCUQw3OPb7XN+kLVdeyugTq+Py0iMNP-v3rGBsg@mail.gmail.com>
+References: <1461116439-22991-1-git-send-email-ddaney.cavm@gmail.com>
+ <20160425111338.GJ16065@arm.com> <571E4A2A.8070908@caviumnetworks.com>
+In-Reply-To: <571E4A2A.8070908@caviumnetworks.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Vikas Sajjan <sajjan.linux@gmail.com>
-Cc: Sudeep Holla <sudeep.holla@arm.com>, linux-acpi@vger.kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, x86@kernel.org, Al Stone <al.stone@linaro.org>, Lorenzo Pieralisi <Lorenzo.Pieralisi@arm.com>, Mahesh Sivasubramanian <msivasub@codeaurora.org>, Ashwin Chaugule <ashwin.chaugule@linaro.org>, Prashanth Prakash <pprakash@codeaurora.org>, Vikas C Sajjan <vikas.cha.sajjan@hpe.com>, Sunil V L <sunil.vl@hpe.com>
+To: David Daney <ddaney@caviumnetworks.com>, Will Deacon <will.deacon@arm.com>
+Cc: David Daney <ddaney.cavm@gmail.com>, linux-arm-kernel@lists.infradead.org, Mark Rutland <mark.rutland@arm.com>, Catalin Marinas <catalin.marinas@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>, Rob Herring <robh+dt@kernel.org>, Frank Rowand <frowand.list@gmail.com>, Grant Likely <grant.likely@linaro.org>, Robert Moore <robert.moore@intel.com>, Lv Zheng <lv.zheng@intel.com>, Marc Zyngier <Marc.Zyngier@arm.com>, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org, linux-kernel@vger.kernel.org, Robert Richter <rrichter@cavium.com>, David Daney <david.daney@cavium.com>
 
+Hi Will, David,
 
-
-On 12/04/16 05:06, Vikas Sajjan wrote:
-> Hi Sudeep,
+On 2016/4/26 0:47, David Daney wrote:
+> On 04/25/2016 04:13 AM, Will Deacon wrote:
+>> Hi David,
+>>
+>> On Tue, Apr 19, 2016 at 06:40:25PM -0700, David Daney wrote:
+>>> From: David Daney <david.daney@cavium.com>
+>>>
+>>> Based on v16 of device-tree NUMA patch set for arm64 [1],this patch
+>>> set introduce the ACPI based configuration to provide NUMA
+>>> information.
+>>>
+>>> ACPI 5.1 already introduced NUMA support for ARM64, which can get the
+>>> NUMA domain information from SRAT and SLIT table, so parse those two
+>>> tables to get mappings from cpu/mem to numa node configuration and
+>>> system locality.
+>>
+>> Whilst I've queued the main NUMA series for arm64, I'd really like to
+>> see more movement on the generic header file cleanups that you posted
+>> separately:
+>>
+>> http://lkml.kernel.org/r/1456358528-24213-1-git-send-email-ddaney.cavm@gmail.com
+>>
 >
+> FWIW:  Those patches should still apply.  I am carrying them in my
+> development trees, and have not changed them in any way.
 >
-> On Wed, Dec 2, 2015 at 7:40 PM, Sudeep Holla <sudeep.holla@arm.com> wrote:
-
-[...]
-
->> diff --git a/drivers/acpi/processor_driver.c b/drivers/acpi/processor_driver.c
->> index 29f787b2493f..bfc59de0ce6b 100644
->> --- a/drivers/acpi/processor_driver.c
->> +++ b/drivers/acpi/processor_driver.c
->> @@ -90,7 +90,7 @@ static void acpi_processor_notify(acpi_handle handle, u32 event, void *data)
->>                                                    pr->performance_platform_limit);
->>                  break;
->>          case ACPI_PROCESSOR_NOTIFY_POWER:
->> -               acpi_processor_cst_has_changed(pr);
->> +               acpi_processor_power_state_has_changed(pr);
+>>
+>> Given that this ACPI series already requires some significant cross-arch
+>> interaction (which is actually good!), perhaps extending the clean-up
+>> patches to encompass some of the ACPI bits might make sense, and we can
+>> get that queued as a pre-requisite.
 >
-> The function  acpi_processor_power_state_has_changed() has a check as below,
->
->   if (nocst)
->             return -ENODEV;
->
-> So was wondering if the platform supports only _LPI and  _CST is not
-> supported, the 'nocst' module param passed will be 1,
-> and function will return -ENODEV.
->
+> The cleanup patches you mention above are really independent of the ACPI
+> things.  I have applied them both before and after the ACPI patches, and
+> both seem to work.  With a quick perusal of the ACPI patches nothing
+> jumps out at me as being a candidate for inclusion in the header file
+> cleanup series.
 
-You are right, it needs to be handled correctly. Thanks for spotting this.
+I agree. My patch set is ACPI related enablement, cleanups and
+consolidations, it would be good to merge as a single patch set
+as it's self-contained.
 
-> Hence, with the introduction of LPI, should we be handling "nocst"
-> appropriately.
-> Similar is the case in function  int acpi_processor_hotplug(struct
-> acpi_processor *pr);
->
-
-Correct.
-
-> Let me know, if i am missing something here.
->
-
-I don't think so. Once again thanks for the review.
-
--- 
-Regards,
-Sudeep
+Thanks
+Hanjun
