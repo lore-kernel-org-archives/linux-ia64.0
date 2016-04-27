@@ -1,7 +1,7 @@
 From: David Daney <ddaney.cavm@gmail.com>
-Date: Wed, 27 Apr 2016 18:07:04 +0000
-Subject: [PATCH v6 02/14] acpi, numa: Replace ACPI_DEBUG_PRINT() with pr_debug()
-Message-Id: <1461780436-27182-3-git-send-email-ddaney.cavm@gmail.com>
+Date: Wed, 27 Apr 2016 18:07:13 +0000
+Subject: [PATCH v6 11/14] acpi, numa: Move acpi_numa_memory_affinity_init() to drivers/acpi/numa.c
+Message-Id: <1461780436-27182-12-git-send-email-ddaney.cavm@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1461780436-27182-1-git-send-email-ddaney.cavm@gmail.com>
 In-Reply-To: <1461780436-27182-1-git-send-email-ddaney.cavm@gmail.com>
@@ -9,128 +9,176 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Will Deacon <will.deacon@arm.com>, linux-arm-kernel@lists.infradead.org, Mark Rutland <mark.rutland@arm.com>, Catalin Marinas <catalin.marinas@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>, Rob Herring <robh+dt@kernel.org>, Frank Rowand <frowand.list@gmail.com>, Grant Likely <grant.likely@linaro.org>, Robert Moore <robert.moore@intel.com>, Lv Zheng <lv.zheng@intel.com>, Hanjun Guo <hanjun.guo@linaro.org>, Marc Zyngier <Marc.Zyngier@arm.com>, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org
-Cc: Robert Richter <rrichter@cavium.com>, linux-kernel@vger.kernel.org, David Daney <david.daney@cavium.com>
+Cc: linux-kernel@vger.kernel.org, Robert Richter <rrichter@cavium.com>, David Daney <david.daney@cavium.com>
 
 From: Hanjun Guo <hanjun.guo@linaro.org>
 
-ACPI_DEBUG_PRINT is a bit fragile in acpi/numa.c, the first thing
-is that component ACPI_NUMA(0x80000000) is not described in the
-Documentation/acpi/debug.txt, and even not defined in the struct
-acpi_dlayer acpi_debug_layers which we can not dynamically enable/disable
-it with /sys/modules/acpi/parameters/debug_layer. another thing
-is that ACPI_DEBUG_OUTPUT is controlled by ACPICA which not coordinate
-well with ACPI drivers.
+acpi_numa_memory_affinity_init() will be reused by arm64.  Move it to
+drivers/acpi/numa.c to facilitate reuse.
 
-Replace ACPI_DEBUG_PRINT() with pr_debug() in this patch as pr_debug
-will do the same thing for debug purpose and it can make the code much
-cleaner, also remove the related code which not needed anymore if
-ACPI_DEBUG_PRINT() is gone.
+No code change.
 
 Signed-off-by: Hanjun Guo <hanjun.guo@linaro.org>
 Signed-off-by: Robert Richter <rrichter@cavium.com>
 Signed-off-by: David Daney <david.daney@cavium.com>
 ---
- drivers/acpi/numa.c | 59 +++++++++++++++++++----------------------------------
- 1 file changed, 21 insertions(+), 38 deletions(-)
+ arch/x86/mm/srat.c  | 57 --------------------------------------------------
+ drivers/acpi/numa.c | 60 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 60 insertions(+), 57 deletions(-)
 
+diff --git a/arch/x86/mm/srat.c b/arch/x86/mm/srat.c
+index 30460f5..b1ecff4 100644
+--- a/arch/x86/mm/srat.c
++++ b/arch/x86/mm/srat.c
+@@ -15,8 +15,6 @@
+ #include <linux/bitmap.h>
+ #include <linux/module.h>
+ #include <linux/topology.h>
+-#include <linux/bootmem.h>
+-#include <linux/memblock.h>
+ #include <linux/mm.h>
+ #include <asm/proto.h>
+ #include <asm/numa.h>
+@@ -104,61 +102,6 @@ acpi_numa_processor_affinity_init(struct acpi_srat_cpu_affinity *pa)
+ 	       pxm, apic_id, node);
+ }
+ 
+-/* Callback for parsing of the Proximity Domain <-> Memory Area mappings */
+-int __init
+-acpi_numa_memory_affinity_init(struct acpi_srat_mem_affinity *ma)
+-{
+-	u64 start, end;
+-	u32 hotpluggable;
+-	int node, pxm;
+-
+-	if (srat_disabled())
+-		goto out_err;
+-	if (ma->header.length != sizeof(struct acpi_srat_mem_affinity))
+-		goto out_err_bad_srat;
+-	if ((ma->flags & ACPI_SRAT_MEM_ENABLED) = 0)
+-		goto out_err;
+-	hotpluggable = ma->flags & ACPI_SRAT_MEM_HOT_PLUGGABLE;
+-	if (hotpluggable && !IS_ENABLED(CONFIG_MEMORY_HOTPLUG))
+-		goto out_err;
+-
+-	start = ma->base_address;
+-	end = start + ma->length;
+-	pxm = ma->proximity_domain;
+-	if (acpi_srat_revision <= 1)
+-		pxm &= 0xff;
+-
+-	node = acpi_map_pxm_to_node(pxm);
+-	if (node < 0) {
+-		printk(KERN_ERR "SRAT: Too many proximity domains.\n");
+-		goto out_err_bad_srat;
+-	}
+-
+-	if (numa_add_memblk(node, start, end) < 0)
+-		goto out_err_bad_srat;
+-
+-	node_set(node, numa_nodes_parsed);
+-
+-	pr_info("SRAT: Node %u PXM %u [mem %#010Lx-%#010Lx]%s%s\n",
+-		node, pxm,
+-		(unsigned long long) start, (unsigned long long) end - 1,
+-		hotpluggable ? " hotplug" : "",
+-		ma->flags & ACPI_SRAT_MEM_NON_VOLATILE ? " non-volatile" : "");
+-
+-	/* Mark hotplug range in memblock. */
+-	if (hotpluggable && memblock_mark_hotplug(start, ma->length))
+-		pr_warn("SRAT: Failed to mark hotplug range [mem %#010Lx-%#010Lx] in memblock\n",
+-			(unsigned long long)start, (unsigned long long)end - 1);
+-
+-	max_possible_pfn = max(max_possible_pfn, PFN_UP(end - 1));
+-
+-	return 0;
+-out_err_bad_srat:
+-	bad_srat();
+-out_err:
+-	return -EINVAL;
+-}
+-
+ int __init x86_acpi_numa_init(void)
+ {
+ 	int ret;
 diff --git a/drivers/acpi/numa.c b/drivers/acpi/numa.c
-index 4e427fc..e34b5d0 100644
+index f6fd87c..d7d0499 100644
 --- a/drivers/acpi/numa.c
 +++ b/drivers/acpi/numa.c
-@@ -31,10 +31,6 @@
+@@ -27,6 +27,8 @@
+ #include <linux/types.h>
+ #include <linux/errno.h>
+ #include <linux/acpi.h>
++#include <linux/bootmem.h>
++#include <linux/memblock.h>
+ #include <linux/numa.h>
  #include <linux/nodemask.h>
  #include <linux/topology.h>
- 
--#define ACPI_NUMA	0x80000000
--#define _COMPONENT	ACPI_NUMA
--ACPI_MODULE_NAME("numa");
--
- static nodemask_t nodes_found_map = NODE_MASK_NONE;
- 
- /* maps to convert between proximity domain and logical node ID */
-@@ -129,64 +125,51 @@ EXPORT_SYMBOL(acpi_map_pxm_to_online_node);
- static void __init
- acpi_table_print_srat_entry(struct acpi_subtable_header *header)
- {
--
--	ACPI_FUNCTION_NAME("acpi_table_print_srat_entry");
--
- 	if (!header)
- 		return;
- 
- 	switch (header->type) {
--
- 	case ACPI_SRAT_TYPE_CPU_AFFINITY:
--#ifdef ACPI_DEBUG_OUTPUT
- 		{
- 			struct acpi_srat_cpu_affinity *p  			    (struct acpi_srat_cpu_affinity *)header;
--			ACPI_DEBUG_PRINT((ACPI_DB_INFO,
--					  "SRAT Processor (id[0x%02x] eid[0x%02x]) in proximity domain %d %s\n",
--					  p->apic_id, p->local_sapic_eid,
--					  p->proximity_domain_lo,
--					  (p->flags & ACPI_SRAT_CPU_ENABLED)?
--					  "enabled" : "disabled"));
-+			pr_debug("SRAT Processor (id[0x%02x] eid[0x%02x]) in proximity domain %d %s\n",
-+				 p->apic_id, p->local_sapic_eid,
-+				 p->proximity_domain_lo,
-+				 (p->flags & ACPI_SRAT_CPU_ENABLED) ?
-+				 "enabled" : "disabled");
+@@ -236,6 +238,64 @@ void __init acpi_numa_slit_init(struct acpi_table_slit *slit)
  		}
--#endif				/* ACPI_DEBUG_OUTPUT */
- 		break;
- 
- 	case ACPI_SRAT_TYPE_MEMORY_AFFINITY:
--#ifdef ACPI_DEBUG_OUTPUT
- 		{
- 			struct acpi_srat_mem_affinity *p  			    (struct acpi_srat_mem_affinity *)header;
--			ACPI_DEBUG_PRINT((ACPI_DB_INFO,
--					  "SRAT Memory (0x%lx length 0x%lx) in proximity domain %d %s%s%s\n",
--					  (unsigned long)p->base_address,
--					  (unsigned long)p->length,
--					  p->proximity_domain,
--					  (p->flags & ACPI_SRAT_MEM_ENABLED)?
--					  "enabled" : "disabled",
--					  (p->flags & ACPI_SRAT_MEM_HOT_PLUGGABLE)?
--					  " hot-pluggable" : "",
--					  (p->flags & ACPI_SRAT_MEM_NON_VOLATILE)?
--					  " non-volatile" : ""));
-+			pr_debug("SRAT Memory (0x%lx length 0x%lx) in proximity domain %d %s%s%s\n",
-+				 (unsigned long)p->base_address,
-+				 (unsigned long)p->length,
-+				 p->proximity_domain,
-+				 (p->flags & ACPI_SRAT_MEM_ENABLED) ?
-+				 "enabled" : "disabled",
-+				 (p->flags & ACPI_SRAT_MEM_HOT_PLUGGABLE) ?
-+				 " hot-pluggable" : "",
-+				 (p->flags & ACPI_SRAT_MEM_NON_VOLATILE) ?
-+				 " non-volatile" : "");
- 		}
--#endif				/* ACPI_DEBUG_OUTPUT */
- 		break;
- 
- 	case ACPI_SRAT_TYPE_X2APIC_CPU_AFFINITY:
--#ifdef ACPI_DEBUG_OUTPUT
- 		{
- 			struct acpi_srat_x2apic_cpu_affinity *p  			    (struct acpi_srat_x2apic_cpu_affinity *)header;
--			ACPI_DEBUG_PRINT((ACPI_DB_INFO,
--					  "SRAT Processor (x2apicid[0x%08x]) in"
--					  " proximity domain %d %s\n",
--					  p->apic_id,
--					  p->proximity_domain,
--					  (p->flags & ACPI_SRAT_CPU_ENABLED) ?
--					  "enabled" : "disabled"));
-+			pr_debug("SRAT Processor (x2apicid[0x%08x]) in proximity domain %d %s\n",
-+				 p->apic_id,
-+				 p->proximity_domain,
-+				 (p->flags & ACPI_SRAT_CPU_ENABLED) ?
-+				 "enabled" : "disabled");
- 		}
--#endif				/* ACPI_DEBUG_OUTPUT */
- 		break;
+ 	}
+ }
 +
- 	default:
- 		pr_warn("Found unsupported SRAT entry (type = 0x%x)\n",
- 			header->type);
++/*
++ * Default callback for parsing of the Proximity Domain <-> Memory
++ * Area mappings
++ */
++int __init
++acpi_numa_memory_affinity_init(struct acpi_srat_mem_affinity *ma)
++{
++	u64 start, end;
++	u32 hotpluggable;
++	int node, pxm;
++
++	if (srat_disabled())
++		goto out_err;
++	if (ma->header.length != sizeof(struct acpi_srat_mem_affinity))
++		goto out_err_bad_srat;
++	if ((ma->flags & ACPI_SRAT_MEM_ENABLED) = 0)
++		goto out_err;
++	hotpluggable = ma->flags & ACPI_SRAT_MEM_HOT_PLUGGABLE;
++	if (hotpluggable && !IS_ENABLED(CONFIG_MEMORY_HOTPLUG))
++		goto out_err;
++
++	start = ma->base_address;
++	end = start + ma->length;
++	pxm = ma->proximity_domain;
++	if (acpi_srat_revision <= 1)
++		pxm &= 0xff;
++
++	node = acpi_map_pxm_to_node(pxm);
++	if (node < 0) {
++		printk(KERN_ERR "SRAT: Too many proximity domains.\n");
++		goto out_err_bad_srat;
++	}
++
++	if (numa_add_memblk(node, start, end) < 0)
++		goto out_err_bad_srat;
++
++	node_set(node, numa_nodes_parsed);
++
++	pr_info("SRAT: Node %u PXM %u [mem %#010Lx-%#010Lx]%s%s\n",
++		node, pxm,
++		(unsigned long long) start, (unsigned long long) end - 1,
++		hotpluggable ? " hotplug" : "",
++		ma->flags & ACPI_SRAT_MEM_NON_VOLATILE ? " non-volatile" : "");
++
++	/* Mark hotplug range in memblock. */
++	if (hotpluggable && memblock_mark_hotplug(start, ma->length))
++		pr_warn("SRAT: Failed to mark hotplug range [mem %#010Lx-%#010Lx] in memblock\n",
++			(unsigned long long)start, (unsigned long long)end - 1);
++
++	max_possible_pfn = max(max_possible_pfn, PFN_UP(end - 1));
++
++	return 0;
++out_err_bad_srat:
++	bad_srat();
++out_err:
++	return -EINVAL;
++}
+ #endif /* defined(CONFIG_X86) || defined (CONFIG_ARM64) */
+ 
+ static int __init acpi_parse_slit(struct acpi_table_header *table)
 -- 
 1.7.11.7
 
