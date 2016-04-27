@@ -1,85 +1,144 @@
-From: David Daney <ddaney.cavm@gmail.com>
-Date: Wed, 27 Apr 2016 18:07:03 +0000
-Subject: [PATCH v6 01/14] acpi, numa: Use pr_fmt() instead of printk
-Message-Id: <1461780436-27182-2-git-send-email-ddaney.cavm@gmail.com>
+From: Borislav Petkov <bp@alien8.de>
+Date: Wed, 27 Apr 2016 12:02:17 +0000
+Subject: [PATCH] x86/locking/rwsem: Cleanup ____down_write()
+Message-Id: <20160427120217.GE21011@pd.tnic>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1461780436-27182-1-git-send-email-ddaney.cavm@gmail.com>
-In-Reply-To: <1461780436-27182-1-git-send-email-ddaney.cavm@gmail.com>
+References: <20160413091625.GF14351@dhcp22.suse.cz>
+ <20160413091943.GA17858@gmail.com>
+ <20160413102731.GA29896@gmail.com>
+ <20160413124943.GH14351@dhcp22.suse.cz>
+ <20160420134019.GX3448@twins.programming.kicks-ass.net>
+ <91A11395-ACAA-4043-B770-2DF6CBAED54C@zytor.com>
+ <20160420204501.GA6815@pd.tnic>
+ <5717EF59.1030709@zytor.com>
+ <20160420213637.GA4978@pd.tnic>
+ <FB0197A2-6A76-43FC-A30E-BE619D3BC67E@zytor.com>
+In-Reply-To: <FB0197A2-6A76-43FC-A30E-BE619D3BC67E@zytor.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Will Deacon <will.deacon@arm.com>, linux-arm-kernel@lists.infradead.org, Mark Rutland <mark.rutland@arm.com>, Catalin Marinas <catalin.marinas@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>, Rob Herring <robh+dt@kernel.org>, Frank Rowand <frowand.list@gmail.com>, Grant Likely <grant.likely@linaro.org>, Robert Moore <robert.moore@intel.com>, Lv Zheng <lv.zheng@intel.com>, Hanjun Guo <hanjun.guo@linaro.org>, Marc Zyngier <Marc.Zyngier@arm.com>, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org
-Cc: linux-kernel@vger.kernel.org, Robert Richter <rrichter@cavium.com>, David Daney <david.daney@cavium.com>
+To: "H. Peter Anvin" <hpa@zytor.com>
+Cc: Peter Zijlstra <peterz@infradead.org>, Michal Hocko <mhocko@kernel.org>, Ingo Molnar <mingo@kernel.org>, LKML <linux-kernel@vger.kernel.org>, Ingo Molnar <mingo@redhat.com>, Thomas Gleixner <tglx@linutronix.de>, "David S. Miller" <davem@davemloft.net>, Tony Luck <tony.luck@intel.com>, Andrew Morton <akpm@linux-foundation.org>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org, Josh Poimboeuf <jpoimboe@redhat.com>
 
-From: Hanjun Guo <hanjun.guo@linaro.org>
+On Wed, Apr 20, 2016 at 03:29:30PM -0700, H. Peter Anvin wrote:
+> Since it is a fixed register we could just mark edx clobbered, but
+> with more flexible register constraints it can permit gcc to allocate
+> a temp resister for us.
 
-Just do some cleanups to replace printk with pr_fmt().
+How about the following?
 
-Signed-off-by: Hanjun Guo <hanjun.guo@linaro.org>
-Signed-off-by: Robert Richter <rrichter@cavium.com>
-Signed-off-by: David Daney <david.daney@cavium.com>
+It boots fine in kvm and the asm changes are only trivial gcc comments
+differences:
+
 ---
- drivers/acpi/numa.c | 17 +++++++----------
- 1 file changed, 7 insertions(+), 10 deletions(-)
+From: Borislav Petkov <bp@suse.de>
+Date: Wed, 27 Apr 2016 13:47:32 +0200
+Subject: [PATCH] x86/locking/rwsem: Cleanup ____down_write()
 
-diff --git a/drivers/acpi/numa.c b/drivers/acpi/numa.c
-index 72b6e9e..4e427fc 100644
---- a/drivers/acpi/numa.c
-+++ b/drivers/acpi/numa.c
-@@ -18,6 +18,9 @@
-  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  *
+Move the RWSEM_ACTIVE_WRITE_BIAS out of the inline asm to reduce the
+number of arguments. Also, make it an input argument only (why it was an
+output operand, I still don't know...).
+
+For better readability, use symbolic names for the arguments and move
+the linebreak backspace to 80 cols.
+
+Resulting asm differs only in the temporary gcc variable names and
+locations:
+
+  --- before      2016-04-27 13:39:05.320778458 +0200
+  +++ after       2016-04-27 13:52:37.336778994 +0200
+  @@ -11,8 +11,8 @@ down_write_killable:
+   .LBB84:
+   .LBB85:
+   .LBB86:
+  -        .loc 2 128 0
+  -        movabsq $-4294967295, %rdx      #, tmp
+  +        .loc 2 130 0
+  +        movabsq $-4294967295, %rdx      #, tmp94
+           movq    %rdi, %rax      # sem, sem
+   .LBE86:
+   .LBE85:
+  @@ -23,17 +23,17 @@ down_write_killable:
+   .LBB89:
+   .LBB88:
+   .LBB87:
+  -        .loc 2 128 0
+  +        .loc 2 130 0
+   #APP
+  -# 128 "./arch/x86/include/asm/rwsem.h" 1
+  +# 130 "./arch/x86/include/asm/rwsem.h" 1
+           # beginning down_write
+           .pushsection .smp_locks,"a"
+   .balign 4
+   .long 671f - .
+   .popsection
+   671:
+  -        lock;   xadd      %rdx,(%rax)   # tmp, sem
+  -          test  %edx , %edx     # tmp
+  +        lock;   xadd      %rdx,(%rax)   # tmp94, sem
+  +          test  %edx , %edx     # tmp94
+             jz        1f
+     call call_rwsem_down_write_failed_killable
+   1:
+
+Signed-off-by: Borislav Petkov <bp@suse.de>
+---
+ arch/x86/include/asm/rwsem.h | 36 +++++++++++++++++++-----------------
+ 1 file changed, 19 insertions(+), 17 deletions(-)
+
+diff --git a/arch/x86/include/asm/rwsem.h b/arch/x86/include/asm/rwsem.h
+index 453744c1d347..d2f8d10a6d97 100644
+--- a/arch/x86/include/asm/rwsem.h
++++ b/arch/x86/include/asm/rwsem.h
+@@ -99,23 +99,25 @@ static inline int __down_read_trylock(struct rw_semaphore *sem)
+ /*
+  * lock for writing
   */
-+
-+#define pr_fmt(fmt) "ACPI: " fmt
-+
- #include <linux/module.h>
- #include <linux/init.h>
- #include <linux/kernel.h>
-@@ -28,8 +31,6 @@
- #include <linux/nodemask.h>
- #include <linux/topology.h>
+-#define ____down_write(sem, slow_path)			\
+-({							\
+-	long tmp;					\
+-	struct rw_semaphore* ret;			\
+-	asm volatile("# beginning down_write\n\t"	\
+-		     LOCK_PREFIX "  xadd      %1,(%3)\n\t"	\
+-		     /* adds 0xffff0001, returns the old value */ \
+-		     "  test " __ASM_SEL(%w1,%k1) "," __ASM_SEL(%w1,%k1) "\n\t" \
+-		     /* was the active mask 0 before? */\
+-		     "  jz        1f\n"			\
+-		     "  call " slow_path "\n"		\
+-		     "1:\n"				\
+-		     "# ending down_write"		\
+-		     : "+m" (sem->count), "=d" (tmp), "=a" (ret)	\
+-		     : "a" (sem), "1" (RWSEM_ACTIVE_WRITE_BIAS) \
+-		     : "memory", "cc");			\
+-	ret;						\
++#define ____down_write(sem, slow_path)						\
++({										\
++	long tmp = RWSEM_ACTIVE_WRITE_BIAS;					\
++	struct rw_semaphore* ret;						\
++										\
++	asm volatile("# beginning down_write\n\t"				\
++		     LOCK_PREFIX "  xadd      %[tmp],(%[sem])\n\t"		\
++		     /* adds 0xffff0001, returns the old value */		\
++		     "  test " __ASM_SEL(%w[tmp],%k[tmp]) ","			\
++			       __ASM_SEL(%w[tmp],%k[tmp]) "\n\t"		\
++		     /* was the active mask 0 before? */			\
++		     "  jz        1f\n"						\
++		     "  call " slow_path "\n"					\
++		     "1:\n"							\
++		     "# ending down_write"					\
++		     : "+m" (sem->count), "=a" (ret)				\
++		     : [sem] "a" (sem), [tmp] "r" (tmp)				\
++		     : "memory", "cc");						\
++	ret;									\
+ })
  
--#define PREFIX "ACPI: "
--
- #define ACPI_NUMA	0x80000000
- #define _COMPONENT	ACPI_NUMA
- ACPI_MODULE_NAME("numa");
-@@ -187,9 +188,8 @@ acpi_table_print_srat_entry(struct acpi_subtable_header *header)
- #endif				/* ACPI_DEBUG_OUTPUT */
- 		break;
- 	default:
--		printk(KERN_WARNING PREFIX
--		       "Found unsupported SRAT entry (type = 0x%x)\n",
--		       header->type);
-+		pr_warn("Found unsupported SRAT entry (type = 0x%x)\n",
-+			header->type);
- 		break;
- 	}
- }
-@@ -222,7 +222,7 @@ static int __init acpi_parse_slit(struct acpi_table_header *table)
- 	struct acpi_table_slit *slit = (struct acpi_table_slit *)table;
- 
- 	if (!slit_valid(slit)) {
--		printk(KERN_INFO "ACPI: SLIT table looks invalid. Not used.\n");
-+		pr_info("SLIT table looks invalid. Not used.\n");
- 		return -EINVAL;
- 	}
- 	acpi_numa_slit_init(slit);
-@@ -233,12 +233,9 @@ static int __init acpi_parse_slit(struct acpi_table_header *table)
- void __init __weak
- acpi_numa_x2apic_affinity_init(struct acpi_srat_x2apic_cpu_affinity *pa)
- {
--	printk(KERN_WARNING PREFIX
--	       "Found unsupported x2apic [0x%08x] SRAT entry\n", pa->apic_id);
--	return;
-+	pr_warn("Found unsupported x2apic [0x%08x] SRAT entry\n", pa->apic_id);
- }
- 
--
- static int __init
- acpi_parse_x2apic_affinity(struct acpi_subtable_header *header,
- 			   const unsigned long end)
+ static inline void __down_write(struct rw_semaphore *sem)
 -- 
-1.7.11.7
+2.7.3
 
+
+-- 
+Regards/Gruss,
+    Boris.
+
+ECO tip #101: Trim your mails when you reply.
