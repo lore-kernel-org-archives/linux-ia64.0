@@ -1,66 +1,43 @@
-From: zengzhaoxiu@163.com
-Date: Thu, 14 Apr 2016 03:05:47 +0000
-Subject: [PATCH V3 05/29] Add ia64-specific parity functions
-Message-Id: <1460603148-4622-1-git-send-email-zengzhaoxiu@163.com>
+From: David Daney <ddaney.cavm@gmail.com>
+Date: Wed, 27 Apr 2016 18:07:05 +0000
+Subject: [PATCH v6 03/14] acpi, numa: remove duplicate NULL check
+Message-Id: <1461780436-27182-4-git-send-email-ddaney.cavm@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1460601525-3822-1-git-send-email-zengzhaoxiu@163.com>
-In-Reply-To: <1460601525-3822-1-git-send-email-zengzhaoxiu@163.com>
+References: <1461780436-27182-1-git-send-email-ddaney.cavm@gmail.com>
+In-Reply-To: <1461780436-27182-1-git-send-email-ddaney.cavm@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Zhaoxiu Zeng <zhaoxiu.zeng@gmail.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+To: Will Deacon <will.deacon@arm.com>, linux-arm-kernel@lists.infradead.org, Mark Rutland <mark.rutland@arm.com>, Catalin Marinas <catalin.marinas@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>, Rob Herring <robh+dt@kernel.org>, Frank Rowand <frowand.list@gmail.com>, Grant Likely <grant.likely@linaro.org>, Robert Moore <robert.moore@intel.com>, Lv Zheng <lv.zheng@intel.com>, Hanjun Guo <hanjun.guo@linaro.org>, Marc Zyngier <Marc.Zyngier@arm.com>, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org
+Cc: Robert Richter <rrichter@cavium.com>, linux-kernel@vger.kernel.org, David Daney <david.daney@cavium.com>
 
-From: Zhaoxiu Zeng <zhaoxiu.zeng@gmail.com>
+From: Hanjun Guo <hanjun.guo@linaro.org>
 
-Signed-off-by: Zhaoxiu Zeng <zhaoxiu.zeng@gmail.com>
+The argument "header" for acpi_table_print_srat_entry()
+is always checked before the function is called, it's
+duplicate to check it again, remove it.
+
+Signed-off-by: Hanjun Guo <hanjun.guo@linaro.org>
+Signed-off-by: Robert Richter <rrichter@cavium.com>
+Signed-off-by: David Daney <david.daney@cavium.com>
 ---
- arch/ia64/include/asm/bitops.h | 31 +++++++++++++++++++++++++++++++
- 1 file changed, 31 insertions(+)
+ drivers/acpi/numa.c | 3 ---
+ 1 file changed, 3 deletions(-)
 
-diff --git a/arch/ia64/include/asm/bitops.h b/arch/ia64/include/asm/bitops.h
-index 71e8145..041d1d6 100644
---- a/arch/ia64/include/asm/bitops.h
-+++ b/arch/ia64/include/asm/bitops.h
-@@ -439,6 +439,37 @@ static __inline__ unsigned long __arch_hweight64(unsigned long x)
- 
- #include <asm-generic/bitops/const_hweight.h>
- 
-+/*
-+ * parityN: returns the parity of a N-bit word,
-+ * i.e. the number of 1-bits in x modulo 2.
-+ */
-+static __inline__ unsigned int __arch_parity64(unsigned long x)
-+{
-+	return (unsigned int)ia64_popcnt(x) & 1;
-+}
-+
-+static __inline__ unsigned int __arch_parity32(unsigned int x)
-+{
-+	return __arch_parity64((unsigned long)x << 32);
-+}
-+
-+static __inline__ unsigned int __arch_parity16(unsigned int x)
-+{
-+	return __arch_parity64((unsigned long)x << 48);
-+}
-+
-+static __inline__ unsigned int __arch_parity8(unsigned int x)
-+{
-+	return __arch_parity64((unsigned long)x << 56);
-+}
-+
-+static __inline__ unsigned int __arch_parity4(unsigned int x)
-+{
-+	return __arch_parity64((unsigned long)x << 60);
-+}
-+
-+#include <asm-generic/bitops/const_parity.h>
-+
- #endif /* __KERNEL__ */
- 
- #include <asm-generic/bitops/find.h>
+diff --git a/drivers/acpi/numa.c b/drivers/acpi/numa.c
+index e34b5d0..2de6068 100644
+--- a/drivers/acpi/numa.c
++++ b/drivers/acpi/numa.c
+@@ -125,9 +125,6 @@ EXPORT_SYMBOL(acpi_map_pxm_to_online_node);
+ static void __init
+ acpi_table_print_srat_entry(struct acpi_subtable_header *header)
+ {
+-	if (!header)
+-		return;
+-
+ 	switch (header->type) {
+ 	case ACPI_SRAT_TYPE_CPU_AFFINITY:
+ 		{
 -- 
-2.5.0
-
+1.7.11.7
 
