@@ -1,57 +1,136 @@
-From: Linus Walleij <linus.walleij@linaro.org>
-Date: Wed, 20 Apr 2016 08:58:15 +0000
-Subject: [PATCH 17/23] ia64: remove ARCH_WANT_OPTIONAL_GPIOLIB
-Message-Id: <1461142701-21096-18-git-send-email-linus.walleij@linaro.org>
+From: David Daney <ddaney.cavm@gmail.com>
+Date: Wed, 27 Apr 2016 18:07:04 +0000
+Subject: [PATCH v6 02/14] acpi, numa: Replace ACPI_DEBUG_PRINT() with pr_debug()
+Message-Id: <1461780436-27182-3-git-send-email-ddaney.cavm@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1461142701-21096-1-git-send-email-linus.walleij@linaro.org>
-In-Reply-To: <1461142701-21096-1-git-send-email-linus.walleij@linaro.org>
+References: <1461780436-27182-1-git-send-email-ddaney.cavm@gmail.com>
+In-Reply-To: <1461780436-27182-1-git-send-email-ddaney.cavm@gmail.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: linux-gpio@vger.kernel.org, Alexandre Courbot <acourbot@nvidia.com>
-Cc: Linus Walleij <linus.walleij@linaro.org>, =?UTF-8?q?Michael=20B=C3=BCsch?= <m@bues.ch>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Will Deacon <will.deacon@arm.com>, linux-arm-kernel@lists.infradead.org, Mark Rutland <mark.rutland@arm.com>, Catalin Marinas <catalin.marinas@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>, Rob Herring <robh+dt@kernel.org>, Frank Rowand <frowand.list@gmail.com>, Grant Likely <grant.likely@linaro.org>, Robert Moore <robert.moore@intel.com>, Lv Zheng <lv.zheng@intel.com>, Hanjun Guo <hanjun.guo@linaro.org>, Marc Zyngier <Marc.Zyngier@arm.com>, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org
+Cc: Robert Richter <rrichter@cavium.com>, linux-kernel@vger.kernel.org, David Daney <david.daney@cavium.com>
 
-This symbols is not needed to get access to selecting the
-GPIOLIB anymore: any arch can select GPIOLIB.
+From: Hanjun Guo <hanjun.guo@linaro.org>
 
-Cc: Michael B=C3=BCsch <m@bues.ch>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org
-Signed-off-by: Linus Walleij <linus.walleij@linaro.org>
+ACPI_DEBUG_PRINT is a bit fragile in acpi/numa.c, the first thing
+is that component ACPI_NUMA(0x80000000) is not described in the
+Documentation/acpi/debug.txt, and even not defined in the struct
+acpi_dlayer acpi_debug_layers which we can not dynamically enable/disable
+it with /sys/modules/acpi/parameters/debug_layer. another thing
+is that ACPI_DEBUG_OUTPUT is controlled by ACPICA which not coordinate
+well with ACPI drivers.
+
+Replace ACPI_DEBUG_PRINT() with pr_debug() in this patch as pr_debug
+will do the same thing for debug purpose and it can make the code much
+cleaner, also remove the related code which not needed anymore if
+ACPI_DEBUG_PRINT() is gone.
+
+Signed-off-by: Hanjun Guo <hanjun.guo@linaro.org>
+Signed-off-by: Robert Richter <rrichter@cavium.com>
+Signed-off-by: David Daney <david.daney@cavium.com>
 ---
-Various arch maintainers:
+ drivers/acpi/numa.c | 59 +++++++++++++++++++----------------------------------
+ 1 file changed, 21 insertions(+), 38 deletions(-)
 
-either ACK this and I will merge it into the GPIO tree for v4.7
-anticipating no clashes, or you wait until I have the enabling patch
-upstream (patch 1 in this series, removing deps on
-ARCH_[WANTS_OPTIONAL|REQUIRES]_GPIOLIB), and you will be able to
-merge it to your arch trees yourselves for late v4.7
-(post GPIO tree merge) or for v4.8.
-
-You can also ask me for an immutable branch if you prefer that, I
-will put the enabling patch on a branch and the patch for your arch
-on top and ask you to pull it.
-
-Select your option from the menu, silence probably means I will
-merge it to the GPIO tree. Unless you are X86 or ARM in which case
-I will be cautious.
----
- arch/ia64/Kconfig | 1 -
- 1 file changed, 1 deletion(-)
-
-diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-index b534ebab36ea..b97a4e08fae4 100644
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -38,7 +38,6 @@ config IA64
- 	select GENERIC_PENDING_IRQ if SMP
- 	select GENERIC_IRQ_SHOW
- 	select GENERIC_IRQ_LEGACY
--	select ARCH_WANT_OPTIONAL_GPIOLIB
- 	select ARCH_HAVE_NMI_SAFE_CMPXCHG
- 	select GENERIC_IOMAP
- 	select GENERIC_SMP_IDLE_THREAD
---=20
-2.4.11
+diff --git a/drivers/acpi/numa.c b/drivers/acpi/numa.c
+index 4e427fc..e34b5d0 100644
+--- a/drivers/acpi/numa.c
++++ b/drivers/acpi/numa.c
+@@ -31,10 +31,6 @@
+ #include <linux/nodemask.h>
+ #include <linux/topology.h>
+ 
+-#define ACPI_NUMA	0x80000000
+-#define _COMPONENT	ACPI_NUMA
+-ACPI_MODULE_NAME("numa");
+-
+ static nodemask_t nodes_found_map = NODE_MASK_NONE;
+ 
+ /* maps to convert between proximity domain and logical node ID */
+@@ -129,64 +125,51 @@ EXPORT_SYMBOL(acpi_map_pxm_to_online_node);
+ static void __init
+ acpi_table_print_srat_entry(struct acpi_subtable_header *header)
+ {
+-
+-	ACPI_FUNCTION_NAME("acpi_table_print_srat_entry");
+-
+ 	if (!header)
+ 		return;
+ 
+ 	switch (header->type) {
+-
+ 	case ACPI_SRAT_TYPE_CPU_AFFINITY:
+-#ifdef ACPI_DEBUG_OUTPUT
+ 		{
+ 			struct acpi_srat_cpu_affinity *p  			    (struct acpi_srat_cpu_affinity *)header;
+-			ACPI_DEBUG_PRINT((ACPI_DB_INFO,
+-					  "SRAT Processor (id[0x%02x] eid[0x%02x]) in proximity domain %d %s\n",
+-					  p->apic_id, p->local_sapic_eid,
+-					  p->proximity_domain_lo,
+-					  (p->flags & ACPI_SRAT_CPU_ENABLED)?
+-					  "enabled" : "disabled"));
++			pr_debug("SRAT Processor (id[0x%02x] eid[0x%02x]) in proximity domain %d %s\n",
++				 p->apic_id, p->local_sapic_eid,
++				 p->proximity_domain_lo,
++				 (p->flags & ACPI_SRAT_CPU_ENABLED) ?
++				 "enabled" : "disabled");
+ 		}
+-#endif				/* ACPI_DEBUG_OUTPUT */
+ 		break;
+ 
+ 	case ACPI_SRAT_TYPE_MEMORY_AFFINITY:
+-#ifdef ACPI_DEBUG_OUTPUT
+ 		{
+ 			struct acpi_srat_mem_affinity *p  			    (struct acpi_srat_mem_affinity *)header;
+-			ACPI_DEBUG_PRINT((ACPI_DB_INFO,
+-					  "SRAT Memory (0x%lx length 0x%lx) in proximity domain %d %s%s%s\n",
+-					  (unsigned long)p->base_address,
+-					  (unsigned long)p->length,
+-					  p->proximity_domain,
+-					  (p->flags & ACPI_SRAT_MEM_ENABLED)?
+-					  "enabled" : "disabled",
+-					  (p->flags & ACPI_SRAT_MEM_HOT_PLUGGABLE)?
+-					  " hot-pluggable" : "",
+-					  (p->flags & ACPI_SRAT_MEM_NON_VOLATILE)?
+-					  " non-volatile" : ""));
++			pr_debug("SRAT Memory (0x%lx length 0x%lx) in proximity domain %d %s%s%s\n",
++				 (unsigned long)p->base_address,
++				 (unsigned long)p->length,
++				 p->proximity_domain,
++				 (p->flags & ACPI_SRAT_MEM_ENABLED) ?
++				 "enabled" : "disabled",
++				 (p->flags & ACPI_SRAT_MEM_HOT_PLUGGABLE) ?
++				 " hot-pluggable" : "",
++				 (p->flags & ACPI_SRAT_MEM_NON_VOLATILE) ?
++				 " non-volatile" : "");
+ 		}
+-#endif				/* ACPI_DEBUG_OUTPUT */
+ 		break;
+ 
+ 	case ACPI_SRAT_TYPE_X2APIC_CPU_AFFINITY:
+-#ifdef ACPI_DEBUG_OUTPUT
+ 		{
+ 			struct acpi_srat_x2apic_cpu_affinity *p  			    (struct acpi_srat_x2apic_cpu_affinity *)header;
+-			ACPI_DEBUG_PRINT((ACPI_DB_INFO,
+-					  "SRAT Processor (x2apicid[0x%08x]) in"
+-					  " proximity domain %d %s\n",
+-					  p->apic_id,
+-					  p->proximity_domain,
+-					  (p->flags & ACPI_SRAT_CPU_ENABLED) ?
+-					  "enabled" : "disabled"));
++			pr_debug("SRAT Processor (x2apicid[0x%08x]) in proximity domain %d %s\n",
++				 p->apic_id,
++				 p->proximity_domain,
++				 (p->flags & ACPI_SRAT_CPU_ENABLED) ?
++				 "enabled" : "disabled");
+ 		}
+-#endif				/* ACPI_DEBUG_OUTPUT */
+ 		break;
++
+ 	default:
+ 		pr_warn("Found unsupported SRAT entry (type = 0x%x)\n",
+ 			header->type);
+-- 
+1.7.11.7
 
