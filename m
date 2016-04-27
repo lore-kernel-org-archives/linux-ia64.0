@@ -1,231 +1,142 @@
-From: Michal Hocko <mhocko@kernel.org>
-Date: Thu, 07 Apr 2016 15:12:26 +0000
-Subject: [PATCH 06/11] locking, rwsem: introduce basis for down_write_killable
-Message-Id: <1460041951-22347-7-git-send-email-mhocko@kernel.org>
+From: David Daney <ddaney.cavm@gmail.com>
+Date: Wed, 27 Apr 2016 18:07:16 +0000
+Subject: [PATCH v6 14/14] acpi, numa: Enable ACPI based NUMA on ARM64
+Message-Id: <1461780436-27182-15-git-send-email-ddaney.cavm@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1460041951-22347-1-git-send-email-mhocko@kernel.org>
-In-Reply-To: <1460041951-22347-1-git-send-email-mhocko@kernel.org>
+References: <1461780436-27182-1-git-send-email-ddaney.cavm@gmail.com>
+In-Reply-To: <1461780436-27182-1-git-send-email-ddaney.cavm@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: LKML <linux-kernel@vger.kernel.org>
-Cc: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>, Thomas Gleixner <tglx@linutronix.de>, "H. Peter Anvin" <hpa@zytor.com>, "David S. Miller" <davem@davemloft.net>, Tony Luck <tony.luck@intel.com>, Andrew Morton <akpm@linux-foundation.org>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org, Michal Hocko <mhocko@suse.com>
+To: Will Deacon <will.deacon@arm.com>, linux-arm-kernel@lists.infradead.org, Mark Rutland <mark.rutland@arm.com>, Catalin Marinas <catalin.marinas@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>, Rob Herring <robh+dt@kernel.org>, Frank Rowand <frowand.list@gmail.com>, Grant Likely <grant.likely@linaro.org>, Robert Moore <robert.moore@intel.com>, Lv Zheng <lv.zheng@intel.com>, Hanjun Guo <hanjun.guo@linaro.org>, Marc Zyngier <Marc.Zyngier@arm.com>, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org
+Cc: linux-kernel@vger.kernel.org, Robert Richter <rrichter@cavium.com>, David Daney <david.daney@cavium.com>
 
-From: Michal Hocko <mhocko@suse.com>
+From: Hanjun Guo <hanjun.guo@linaro.org>
 
-Introduce a generic implementation necessary for down_write_killable.
-This is a trivial extension of the already existing down_write call
-which can be interrupted by SIGKILL.  This patch doesn't provide
-down_write_killable yet because arches have to provide the necessary
-pieces before.
+Add function needed for cpu to node mapping, and enable ACPI based
+NUMA for ARM64 in Kconfig
 
-rwsem_down_write_failed which is a generic slow path for the
-write lock is extended to take a task state and renamed to
-__rwsem_down_write_failed_common. The return value is either a valid
-semaphore pointer or ERR_PTR(-EINTR).
-
-rwsem_down_write_failed_killable is exported as a new way to wait for
-the lock and be killable.
-
-For rwsem-spinlock implementation the current __down_write it updated
-in a similar way as __rwsem_down_write_failed_common except it doesn't
-need new exports just visible __down_write_killable.
-
-Architectures which are not using the generic rwsem implementation are
-supposed to provide their __down_write_killable implementation and
-use rwsem_down_write_failed_killable for the slow path.
-
-[dave@stgolabs.net - rename __rwsem_down_write_failed_state to
- __rwsem_down_write_failed_common]
-Signed-off-by: Michal Hocko <mhocko@suse.com>
+Signed-off-by: Hanjun Guo <hanjun.guo@linaro.org>
+Signed-off-by: Robert Richter <rrichter@cavium.com>
+[david.daney@cavium.com added ACPI_NUMA default to y for ARM64]
+Signed-off-by: David Daney <david.daney@cavium.com>
 ---
- include/asm-generic/rwsem.h     | 12 ++++++++++++
- include/linux/rwsem-spinlock.h  |  1 +
- include/linux/rwsem.h           |  2 ++
- kernel/locking/rwsem-spinlock.c | 22 ++++++++++++++++++++--
- kernel/locking/rwsem-xadd.c     | 31 +++++++++++++++++++++++++------
- 5 files changed, 60 insertions(+), 8 deletions(-)
+ drivers/acpi/Kconfig |  4 ++--
+ drivers/acpi/numa.c  | 35 +++++++++++++++++++++++++++++++++++
+ include/linux/acpi.h | 17 ++++++++++++++++-
+ 3 files changed, 53 insertions(+), 3 deletions(-)
 
-diff --git a/include/asm-generic/rwsem.h b/include/asm-generic/rwsem.h
-index b8d8a6cf4ca8..3fc94a046bf5 100644
---- a/include/asm-generic/rwsem.h
-+++ b/include/asm-generic/rwsem.h
-@@ -63,6 +63,18 @@ static inline void __down_write(struct rw_semaphore *sem)
- 		rwsem_down_write_failed(sem);
+diff --git a/drivers/acpi/Kconfig b/drivers/acpi/Kconfig
+index fa91ea2..5a3b161 100644
+--- a/drivers/acpi/Kconfig
++++ b/drivers/acpi/Kconfig
+@@ -291,8 +291,8 @@ config ACPI_THERMAL
+ config ACPI_NUMA
+ 	bool "NUMA support"
+ 	depends on NUMA
+-	depends on (X86 || IA64)
+-	default y if IA64_GENERIC || IA64_SGI_SN2
++	depends on (X86 || IA64 || ARM64)
++	default y if IA64_GENERIC || IA64_SGI_SN2 || ARM64
+ 
+ config ACPI_CUSTOM_DSDT_FILE
+ 	string "Custom DSDT Table file to include"
+diff --git a/drivers/acpi/numa.c b/drivers/acpi/numa.c
+index 50c8f42..f6696ac 100644
+--- a/drivers/acpi/numa.c
++++ b/drivers/acpi/numa.c
+@@ -170,6 +170,18 @@ acpi_table_print_srat_entry(struct acpi_subtable_header *header)
+ 		}
+ 		break;
+ 
++	case ACPI_SRAT_TYPE_GICC_AFFINITY:
++		{
++			struct acpi_srat_gicc_affinity *p +			    (struct acpi_srat_gicc_affinity *)header;
++			pr_debug("SRAT Processor (acpi id[0x%04x]) in proximity domain %d %s\n",
++				 p->acpi_processor_uid,
++				 p->proximity_domain,
++				 (p->flags & ACPI_SRAT_GICC_ENABLED) ?
++				 "enabled" : "disabled");
++		}
++		break;
++
+ 	default:
+ 		pr_warn("Found unsupported SRAT entry (type = 0x%x)\n",
+ 			header->type);
+@@ -360,6 +372,24 @@ acpi_parse_processor_affinity(struct acpi_subtable_header *header,
+ 	return 0;
  }
  
-+static inline int __down_write_killable(struct rw_semaphore *sem)
++static int __init
++acpi_parse_gicc_affinity(struct acpi_subtable_header *header,
++			 const unsigned long end)
 +{
-+	long tmp;
++	struct acpi_srat_gicc_affinity *processor_affinity;
 +
-+	tmp = atomic_long_add_return_acquire(RWSEM_ACTIVE_WRITE_BIAS,
-+				     (atomic_long_t *)&sem->count);
-+	if (unlikely(tmp != RWSEM_ACTIVE_WRITE_BIAS))
-+		if (IS_ERR(rwsem_down_write_failed_killable(sem)))
-+			return -EINTR;
++	processor_affinity = (struct acpi_srat_gicc_affinity *)header;
++	if (!processor_affinity)
++		return -EINVAL;
++
++	acpi_table_print_srat_entry(header);
++
++	/* let architecture-dependent part to do it */
++	acpi_numa_gicc_affinity_init(processor_affinity);
++
 +	return 0;
 +}
 +
- static inline int __down_write_trylock(struct rw_semaphore *sem)
+ static int __initdata parsed_numa_memblks;
+ 
+ static int __init
+@@ -404,6 +434,9 @@ int __init acpi_numa_init(void)
  {
- 	long tmp;
-diff --git a/include/linux/rwsem-spinlock.h b/include/linux/rwsem-spinlock.h
-index a733a5467e6c..ae0528b834cd 100644
---- a/include/linux/rwsem-spinlock.h
-+++ b/include/linux/rwsem-spinlock.h
-@@ -34,6 +34,7 @@ struct rw_semaphore {
- extern void __down_read(struct rw_semaphore *sem);
- extern int __down_read_trylock(struct rw_semaphore *sem);
- extern void __down_write(struct rw_semaphore *sem);
-+extern int __must_check __down_write_killable(struct rw_semaphore *sem);
- extern int __down_write_trylock(struct rw_semaphore *sem);
- extern void __up_read(struct rw_semaphore *sem);
- extern void __up_write(struct rw_semaphore *sem);
-diff --git a/include/linux/rwsem.h b/include/linux/rwsem.h
-index 8f498cdde280..7d7ae029dac5 100644
---- a/include/linux/rwsem.h
-+++ b/include/linux/rwsem.h
-@@ -14,6 +14,7 @@
- #include <linux/list.h>
- #include <linux/spinlock.h>
- #include <linux/atomic.h>
-+#include <linux/err.h>
- #ifdef CONFIG_RWSEM_SPIN_ON_OWNER
- #include <linux/osq_lock.h>
- #endif
-@@ -43,6 +44,7 @@ struct rw_semaphore {
+ 	int cnt = 0;
  
- extern struct rw_semaphore *rwsem_down_read_failed(struct rw_semaphore *sem);
- extern struct rw_semaphore *rwsem_down_write_failed(struct rw_semaphore *sem);
-+extern struct rw_semaphore *rwsem_down_write_failed_killable(struct rw_semaphore *sem);
- extern struct rw_semaphore *rwsem_wake(struct rw_semaphore *);
- extern struct rw_semaphore *rwsem_downgrade_wake(struct rw_semaphore *sem);
- 
-diff --git a/kernel/locking/rwsem-spinlock.c b/kernel/locking/rwsem-spinlock.c
-index bab26104a5d0..1591f6b3539f 100644
---- a/kernel/locking/rwsem-spinlock.c
-+++ b/kernel/locking/rwsem-spinlock.c
-@@ -191,11 +191,12 @@ int __down_read_trylock(struct rw_semaphore *sem)
- /*
-  * get a write lock on the semaphore
-  */
--void __sched __down_write(struct rw_semaphore *sem)
-+int __sched __down_write_common(struct rw_semaphore *sem, int state)
- {
- 	struct rwsem_waiter waiter;
- 	struct task_struct *tsk;
- 	unsigned long flags;
-+	int ret = 0;
- 
- 	raw_spin_lock_irqsave(&sem->wait_lock, flags);
- 
-@@ -215,16 +216,33 @@ void __sched __down_write(struct rw_semaphore *sem)
- 		 */
- 		if (sem->count = 0)
- 			break;
--		set_task_state(tsk, TASK_UNINTERRUPTIBLE);
-+		if (signal_pending_state(state, current)) {
-+			ret = -EINTR;
-+			goto out;
-+		}
-+		set_task_state(tsk, state);
- 		raw_spin_unlock_irqrestore(&sem->wait_lock, flags);
- 		schedule();
- 		raw_spin_lock_irqsave(&sem->wait_lock, flags);
- 	}
- 	/* got the lock */
- 	sem->count = -1;
-+out:
- 	list_del(&waiter.list);
- 
- 	raw_spin_unlock_irqrestore(&sem->wait_lock, flags);
++	if (acpi_disabled)
++		return -EINVAL;
 +
-+	return ret;
-+}
+ 	/*
+ 	 * Should not limit number with cpu num that is from NR_CPUS or nr_cpus 	 * SRAT cpu entries could have different order with that in MADT.
+@@ -416,6 +449,8 @@ int __init acpi_numa_init(void)
+ 				     acpi_parse_x2apic_affinity, 0);
+ 		acpi_table_parse_srat(ACPI_SRAT_TYPE_CPU_AFFINITY,
+ 				     acpi_parse_processor_affinity, 0);
++		acpi_table_parse_srat(ACPI_SRAT_TYPE_GICC_AFFINITY,
++				      acpi_parse_gicc_affinity, 0);
+ 		cnt = acpi_table_parse_srat(ACPI_SRAT_TYPE_MEMORY_AFFINITY,
+ 					    acpi_parse_memory_affinity,
+ 					    NR_NODE_MEMBLKS);
+diff --git a/include/linux/acpi.h b/include/linux/acpi.h
+index ab6fd96..af34064 100644
+--- a/include/linux/acpi.h
++++ b/include/linux/acpi.h
+@@ -239,10 +239,25 @@ int acpi_table_parse_madt(enum acpi_madt_type id,
+ int acpi_parse_mcfg (struct acpi_table_header *header);
+ void acpi_table_print_madt_entry (struct acpi_subtable_header *madt);
+ 
+-/* the following four functions are architecture-dependent */
++/* the following numa functions are architecture-dependent */
+ void acpi_numa_slit_init (struct acpi_table_slit *slit);
 +
-+void __sched __down_write(struct rw_semaphore *sem)
-+{
-+	__down_write_common(sem, TASK_UNINTERRUPTIBLE);
-+}
++#if defined(CONFIG_X86) || defined(CONFIG_IA64)
+ void acpi_numa_processor_affinity_init (struct acpi_srat_cpu_affinity *pa);
++#else
++static inline void
++acpi_numa_processor_affinity_init(struct acpi_srat_cpu_affinity *pa) { }
++#endif
 +
-+int __sched __down_write_killable(struct rw_semaphore *sem)
-+{
-+	return __down_write_common(sem, TASK_KILLABLE);
- }
- 
- /*
-diff --git a/kernel/locking/rwsem-xadd.c b/kernel/locking/rwsem-xadd.c
-index a4d4de05b2d1..df4dcb883b50 100644
---- a/kernel/locking/rwsem-xadd.c
-+++ b/kernel/locking/rwsem-xadd.c
-@@ -433,12 +433,13 @@ static inline bool rwsem_has_spinner(struct rw_semaphore *sem)
- /*
-  * Wait until we successfully acquire the write lock
-  */
--__visible
--struct rw_semaphore __sched *rwsem_down_write_failed(struct rw_semaphore *sem)
-+static inline struct rw_semaphore *
-+__rwsem_down_write_failed_common(struct rw_semaphore *sem, int state)
- {
- 	long count;
- 	bool waiting = true; /* any queued threads before us */
- 	struct rwsem_waiter waiter;
-+	struct rw_semaphore *ret = sem;
- 
- 	/* undo write bias from down_write operation, stop active locking */
- 	count = rwsem_atomic_update(-RWSEM_ACTIVE_WRITE_BIAS, sem);
-@@ -478,7 +479,7 @@ struct rw_semaphore __sched *rwsem_down_write_failed(struct rw_semaphore *sem)
- 		count = rwsem_atomic_update(RWSEM_WAITING_BIAS, sem);
- 
- 	/* wait until we successfully acquire the lock */
--	set_current_state(TASK_UNINTERRUPTIBLE);
-+	set_current_state(state);
- 	while (true) {
- 		if (rwsem_try_write_lock(count, sem))
- 			break;
-@@ -486,21 +487,39 @@ struct rw_semaphore __sched *rwsem_down_write_failed(struct rw_semaphore *sem)
- 
- 		/* Block until there are no active lockers. */
- 		do {
-+			if (signal_pending_state(state, current)) {
-+				raw_spin_lock_irq(&sem->wait_lock);
-+				ret = ERR_PTR(-EINTR);
-+				goto out;
-+			}
- 			schedule();
--			set_current_state(TASK_UNINTERRUPTIBLE);
-+			set_current_state(state);
- 		} while ((count = sem->count) & RWSEM_ACTIVE_MASK);
- 
- 		raw_spin_lock_irq(&sem->wait_lock);
- 	}
-+out:
- 	__set_current_state(TASK_RUNNING);
--
- 	list_del(&waiter.list);
- 	raw_spin_unlock_irq(&sem->wait_lock);
- 
--	return sem;
-+	return ret;
-+}
+ void acpi_numa_x2apic_affinity_init(struct acpi_srat_x2apic_cpu_affinity *pa);
 +
-+__visible struct rw_semaphore * __sched
-+rwsem_down_write_failed(struct rw_semaphore *sem)
-+{
-+	return __rwsem_down_write_failed_common(sem, TASK_UNINTERRUPTIBLE);
- }
- EXPORT_SYMBOL(rwsem_down_write_failed);
- 
-+__visible struct rw_semaphore * __sched
-+rwsem_down_write_failed_killable(struct rw_semaphore *sem)
-+{
-+	return __rwsem_down_write_failed_common(sem, TASK_KILLABLE);
-+}
-+EXPORT_SYMBOL(rwsem_down_write_failed_killable);
++#ifdef CONFIG_ARM64
++void acpi_numa_gicc_affinity_init(struct acpi_srat_gicc_affinity *pa);
++#else
++static inline void
++acpi_numa_gicc_affinity_init(struct acpi_srat_gicc_affinity *pa) { }
++#endif
 +
- /*
-  * handle waking up a waiter on the semaphore
-  * - up_read/up_write has decremented the active part of count if we come here
+ int acpi_numa_memory_affinity_init (struct acpi_srat_mem_affinity *ma);
+ 
+ #ifndef PHYS_CPUID_INVALID
 -- 
-2.8.0.rc3
+1.7.11.7
 
