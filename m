@@ -1,89 +1,85 @@
 From: David Daney <ddaney.cavm@gmail.com>
-Date: Mon, 18 Apr 2016 21:14:04 +0000
-Subject: [PATCH v4 06/14] arm64, numa: rework numa_add_memblk()
-Message-Id: <1461014052-30788-7-git-send-email-ddaney.cavm@gmail.com>
+Date: Wed, 27 Apr 2016 18:07:03 +0000
+Subject: [PATCH v6 01/14] acpi, numa: Use pr_fmt() instead of printk
+Message-Id: <1461780436-27182-2-git-send-email-ddaney.cavm@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1461014052-30788-1-git-send-email-ddaney.cavm@gmail.com>
-In-Reply-To: <1461014052-30788-1-git-send-email-ddaney.cavm@gmail.com>
+References: <1461780436-27182-1-git-send-email-ddaney.cavm@gmail.com>
+In-Reply-To: <1461780436-27182-1-git-send-email-ddaney.cavm@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Will Deacon <will.deacon@arm.com>, linux-arm-kernel@lists.infradead.org, Mark Rutland <mark.rutland@arm.com>, Catalin Marinas <catalin.marinas@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>, Rob Herring <robh+dt@kernel.org>, Frank Rowand <frowand.list@gmail.com>, Grant Likely <grant.likely@linaro.org>, Robert Moore <robert.moore@intel.com>, Lv Zheng <lv.zheng@intel.com>, Hanjun Guo <hanjun.guo@linaro.org>, Marc Zyngier <Marc.Zyngier@arm.com>, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org
-Cc: Robert Richter <rrichter@cavium.com>, linux-kernel@vger.kernel.org, David Daney <david.daney@cavium.com>
+Cc: linux-kernel@vger.kernel.org, Robert Richter <rrichter@cavium.com>, David Daney <david.daney@cavium.com>
 
 From: Hanjun Guo <hanjun.guo@linaro.org>
 
-Rework numa_add_memblk() to update the parameter "u64 size" to "u64
-end", this will make it consistent with x86 and simplifies the arm64
-ACPI NUMA code to be added later.
+Just do some cleanups to replace printk with pr_fmt().
 
 Signed-off-by: Hanjun Guo <hanjun.guo@linaro.org>
 Signed-off-by: Robert Richter <rrichter@cavium.com>
 Signed-off-by: David Daney <david.daney@cavium.com>
 ---
- arch/arm64/mm/numa.c | 12 ++++++------
- drivers/of/of_numa.c |  4 ++--
- 2 files changed, 8 insertions(+), 8 deletions(-)
+ drivers/acpi/numa.c | 17 +++++++----------
+ 1 file changed, 7 insertions(+), 10 deletions(-)
 
-diff --git a/arch/arm64/mm/numa.c b/arch/arm64/mm/numa.c
-index 98dc104..6cb03f9 100644
---- a/arch/arm64/mm/numa.c
-+++ b/arch/arm64/mm/numa.c
-@@ -131,25 +131,25 @@ void __init early_map_cpu_to_node(unsigned int cpu, int nid)
-  * numa_add_memblk - Set node id to memblk
-  * @nid: NUMA node ID of the new memblk
-  * @start: Start address of the new memblk
-- * @size:  Size of the new memblk
-+ * @end:  End address of the new memblk
+diff --git a/drivers/acpi/numa.c b/drivers/acpi/numa.c
+index 72b6e9e..4e427fc 100644
+--- a/drivers/acpi/numa.c
++++ b/drivers/acpi/numa.c
+@@ -18,6 +18,9 @@
+  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   *
-  * RETURNS:
-  * 0 on success, -errno on failure.
   */
--int __init numa_add_memblk(int nid, u64 start, u64 size)
-+int __init numa_add_memblk(int nid, u64 start, u64 end)
- {
- 	int ret;
++
++#define pr_fmt(fmt) "ACPI: " fmt
++
+ #include <linux/module.h>
+ #include <linux/init.h>
+ #include <linux/kernel.h>
+@@ -28,8 +31,6 @@
+ #include <linux/nodemask.h>
+ #include <linux/topology.h>
  
--	ret = memblock_set_node(start, size, &memblock.memory, nid);
-+	ret = memblock_set_node(start, (end - start), &memblock.memory, nid);
- 	if (ret < 0) {
- 		pr_err("NUMA: memblock [0x%llx - 0x%llx] failed to add on node %d\n",
--			start, (start + size - 1), nid);
-+			start, (end - 1), nid);
- 		return ret;
+-#define PREFIX "ACPI: "
+-
+ #define ACPI_NUMA	0x80000000
+ #define _COMPONENT	ACPI_NUMA
+ ACPI_MODULE_NAME("numa");
+@@ -187,9 +188,8 @@ acpi_table_print_srat_entry(struct acpi_subtable_header *header)
+ #endif				/* ACPI_DEBUG_OUTPUT */
+ 		break;
+ 	default:
+-		printk(KERN_WARNING PREFIX
+-		       "Found unsupported SRAT entry (type = 0x%x)\n",
+-		       header->type);
++		pr_warn("Found unsupported SRAT entry (type = 0x%x)\n",
++			header->type);
+ 		break;
  	}
+ }
+@@ -222,7 +222,7 @@ static int __init acpi_parse_slit(struct acpi_table_header *table)
+ 	struct acpi_table_slit *slit = (struct acpi_table_slit *)table;
  
- 	node_set(nid, numa_nodes_parsed);
- 	pr_info("NUMA: Adding memblock [0x%llx - 0x%llx] on node %d\n",
--			start, (start + size - 1), nid);
-+			start, (end - 1), nid);
- 	return ret;
+ 	if (!slit_valid(slit)) {
+-		printk(KERN_INFO "ACPI: SLIT table looks invalid. Not used.\n");
++		pr_info("SLIT table looks invalid. Not used.\n");
+ 		return -EINVAL;
+ 	}
+ 	acpi_numa_slit_init(slit);
+@@ -233,12 +233,9 @@ static int __init acpi_parse_slit(struct acpi_table_header *table)
+ void __init __weak
+ acpi_numa_x2apic_affinity_init(struct acpi_srat_x2apic_cpu_affinity *pa)
+ {
+-	printk(KERN_WARNING PREFIX
+-	       "Found unsupported x2apic [0x%08x] SRAT entry\n", pa->apic_id);
+-	return;
++	pr_warn("Found unsupported x2apic [0x%08x] SRAT entry\n", pa->apic_id);
  }
  
-@@ -367,7 +367,7 @@ static int __init dummy_numa_init(void)
- 	       0LLU, PFN_PHYS(max_pfn) - 1);
- 
- 	for_each_memblock(memory, mblk) {
--		ret = numa_add_memblk(0, mblk->base, mblk->size);
-+		ret = numa_add_memblk(0, mblk->base, mblk->base + mblk->size);
- 		if (!ret)
- 			continue;
- 
-diff --git a/drivers/of/of_numa.c b/drivers/of/of_numa.c
-index 0f2784b..ed5a097 100644
---- a/drivers/of/of_numa.c
-+++ b/drivers/of/of_numa.c
-@@ -91,8 +91,8 @@ static int __init of_numa_parse_memory_nodes(void)
- 		pr_debug("NUMA:  base = %llx len = %llx, node = %u\n",
- 			 rsrc.start, rsrc.end - rsrc.start + 1, nid);
- 
--		r = numa_add_memblk(nid, rsrc.start,
--				    rsrc.end - rsrc.start + 1);
-+
-+		r = numa_add_memblk(nid, rsrc.start, rsrc.end + 1);
- 		if (r)
- 			break;
- 	}
+-
+ static int __init
+ acpi_parse_x2apic_affinity(struct acpi_subtable_header *header,
+ 			   const unsigned long end)
 -- 
 1.7.11.7
 
