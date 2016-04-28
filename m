@@ -1,111 +1,76 @@
-From: David Daney <ddaney.cavm@gmail.com>
-Date: Wed, 27 Apr 2016 18:07:07 +0000
-Subject: [PATCH v6 05/14] acpi, numa: move acpi_numa_slit_init() to drivers/acpi/numa.c
-Message-Id: <1461780436-27182-6-git-send-email-ddaney.cavm@gmail.com>
+From: Russell King <rmk+kernel@arm.linux.org.uk>
+Date: Thu, 28 Apr 2016 09:28:45 +0000
+Subject: [PATCH 12/12] ARM: kexec: fix kexec for Keystone 2
+Message-Id: <E1aviFZ-0000jq-Ex@rmk-PC.arm.linux.org.uk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1461780436-27182-1-git-send-email-ddaney.cavm@gmail.com>
-In-Reply-To: <1461780436-27182-1-git-send-email-ddaney.cavm@gmail.com>
+References: <20160428092644.GX19428@n2100.arm.linux.org.uk>
+In-Reply-To: <20160428092644.GX19428@n2100.arm.linux.org.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Will Deacon <will.deacon@arm.com>, linux-arm-kernel@lists.infradead.org, Mark Rutland <mark.rutland@arm.com>, Catalin Marinas <catalin.marinas@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>, Rob Herring <robh+dt@kernel.org>, Frank Rowand <frowand.list@gmail.com>, Grant Likely <grant.likely@linaro.org>, Robert Moore <robert.moore@intel.com>, Lv Zheng <lv.zheng@intel.com>, Hanjun Guo <hanjun.guo@linaro.org>, Marc Zyngier <Marc.Zyngier@arm.com>, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org
-Cc: Robert Richter <rrichter@cavium.com>, linux-kernel@vger.kernel.org, David Daney <david.daney@cavium.com>
+To: linux-arm-kernel@lists.infradead.org
+Cc: devicetree@vger.kernel.org, Eric Biederman <ebiederm@xmission.com>, Fenghua Yu <fenghua.yu@intel.com>, Haren Myneni <hbabu@us.ibm.com>, Ian Campbell <ijc+devicetree@hellion.org.uk>, Jonathan Corbet <corbet@lwn.net>, kexec@lists.infradead.org, Kumar Gala <galak@codeaurora.org>, linux-doc@vger.kernel.org, linux-ia64@vger.kernel.org, Mark Rutland <mark.rutland@arm.com>, Pawel Moll <pawel.moll@arm.com>, Rob Herring <robh+dt@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Tony Luck <tony.luck@intel.com>, Vivek Goyal <vgoyal@redhat.com>
 
-From: Hanjun Guo <hanjun.guo@linaro.org>
+Provide kexec with the boot view of memory by overriding the normal
+kexec translation functions added in a previous patch.  We also need
+to fix a call to memblock in machine_kexec_prepare() so that we
+provide it with a running-view physical address rather than a boot-
+view physical address.
 
-Identical implementations of acpi_numa_slit_init() are used by both
-x86 and follow-on arm64 support.  Move it to drivers/acpi/numa.c, and
-guard with CONFIG_X86 || CONFIG_ARM64 because ia64 has its own
-architecture specific implementation.
-
-No code change.
-
-Signed-off-by: Hanjun Guo <hanjun.guo@linaro.org>
-Signed-off-by: Robert Richter <rrichter@cavium.com>
-Signed-off-by: David Daney <david.daney@cavium.com>
+Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- arch/x86/mm/srat.c  | 27 ---------------------------
- drivers/acpi/numa.c | 29 +++++++++++++++++++++++++++++
- 2 files changed, 29 insertions(+), 27 deletions(-)
+ arch/arm/include/asm/kexec.h    | 24 ++++++++++++++++++++++++
+ arch/arm/kernel/machine_kexec.c |  2 +-
+ 2 files changed, 25 insertions(+), 1 deletion(-)
 
-diff --git a/arch/x86/mm/srat.c b/arch/x86/mm/srat.c
-index 90b6ed9..f242a11 100644
---- a/arch/x86/mm/srat.c
-+++ b/arch/x86/mm/srat.c
-@@ -42,33 +42,6 @@ static __init inline int srat_disabled(void)
- 	return acpi_numa < 0;
- }
+diff --git a/arch/arm/include/asm/kexec.h b/arch/arm/include/asm/kexec.h
+index c2b9b4bdec00..1869af6bac5c 100644
+--- a/arch/arm/include/asm/kexec.h
++++ b/arch/arm/include/asm/kexec.h
+@@ -53,6 +53,30 @@ static inline void crash_setup_regs(struct pt_regs *newregs,
+ /* Function pointer to optional machine-specific reinitialization */
+ extern void (*kexec_reinit)(void);
  
--/*
-- * Callback for SLIT parsing.  pxm_to_node() returns NUMA_NO_NODE for
-- * I/O localities since SRAT does not list them.  I/O localities are
-- * not supported at this point.
-- */
--void __init acpi_numa_slit_init(struct acpi_table_slit *slit)
--{
--	int i, j;
--
--	for (i = 0; i < slit->locality_count; i++) {
--		const int from_node = pxm_to_node(i);
--
--		if (from_node = NUMA_NO_NODE)
--			continue;
--
--		for (j = 0; j < slit->locality_count; j++) {
--			const int to_node = pxm_to_node(j);
--
--			if (to_node = NUMA_NO_NODE)
--				continue;
--
--			numa_set_distance(from_node, to_node,
--				slit->entry[slit->locality_count * i + j]);
--		}
--	}
--}
--
- /* Callback for Proximity Domain -> x2APIC mapping */
- void __init
- acpi_numa_x2apic_affinity_init(struct acpi_srat_x2apic_cpu_affinity *pa)
-diff --git a/drivers/acpi/numa.c b/drivers/acpi/numa.c
-index f41f06b..6fa528a 100644
---- a/drivers/acpi/numa.c
-+++ b/drivers/acpi/numa.c
-@@ -197,6 +197,35 @@ static int __init slit_valid(struct acpi_table_slit *slit)
- 	return 1;
- }
- 
-+#if defined(CONFIG_X86) || defined (CONFIG_ARM64)
-+/*
-+ * Callback for SLIT parsing.  pxm_to_node() returns NUMA_NO_NODE for
-+ * I/O localities since SRAT does not list them.  I/O localities are
-+ * not supported at this point.
-+ */
-+void __init acpi_numa_slit_init(struct acpi_table_slit *slit)
++static inline unsigned long phys_to_boot_phys(phys_addr_t phys)
 +{
-+	int i, j;
-+
-+	for (i = 0; i < slit->locality_count; i++) {
-+		const int from_node = pxm_to_node(i);
-+
-+		if (from_node = NUMA_NO_NODE)
-+			continue;
-+
-+		for (j = 0; j < slit->locality_count; j++) {
-+			const int to_node = pxm_to_node(j);
-+
-+			if (to_node = NUMA_NO_NODE)
-+				continue;
-+
-+			numa_set_distance(from_node, to_node,
-+				slit->entry[slit->locality_count * i + j]);
-+		}
-+	}
++	return phys_to_idmap(phys);
 +}
-+#endif /* defined(CONFIG_X86) || defined (CONFIG_ARM64) */
++#define phys_to_boot_phys phys_to_boot_phys
 +
- static int __init acpi_parse_slit(struct acpi_table_header *table)
- {
- 	struct acpi_table_slit *slit = (struct acpi_table_slit *)table;
++static inline phys_addr_t boot_phys_to_phys(unsigned long entry)
++{
++	return idmap_to_phys(entry);
++}
++#define boot_phys_to_phys boot_phys_to_phys
++
++static inline unsigned long page_to_boot_pfn(struct page *page)
++{
++	return page_to_pfn(page) + (arch_phys_to_idmap_offset >> PAGE_SHIFT);
++}
++#define page_to_boot_pfn page_to_boot_pfn
++
++static inline struct page *boot_pfn_to_page(unsigned long boot_pfn)
++{
++	return pfn_to_page(boot_pfn - (arch_phys_to_idmap_offset >> PAGE_SHIFT));
++}
++#define boot_pfn_to_page boot_pfn_to_page
++
+ #endif /* __ASSEMBLY__ */
+ 
+ #endif /* CONFIG_KEXEC */
+diff --git a/arch/arm/kernel/machine_kexec.c b/arch/arm/kernel/machine_kexec.c
+index 59fd0e24c56b..b18c1ea56bed 100644
+--- a/arch/arm/kernel/machine_kexec.c
++++ b/arch/arm/kernel/machine_kexec.c
+@@ -57,7 +57,7 @@ int machine_kexec_prepare(struct kimage *image)
+ 	for (i = 0; i < image->nr_segments; i++) {
+ 		current_segment = &image->segment[i];
+ 
+-		if (!memblock_is_region_memory(current_segment->mem,
++		if (!memblock_is_region_memory(idmap_to_phys(current_segment->mem),
+ 					       current_segment->memsz))
+ 			return -EINVAL;
+ 
 -- 
-1.7.11.7
+2.1.0
 
