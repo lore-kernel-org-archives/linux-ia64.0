@@ -1,7 +1,7 @@
-From: Baoquan He <bhe@redhat.com>
-Date: Thu, 28 Apr 2016 09:56:24 +0000
+From: Minfei Huang <mhuang@redhat.com>
+Date: Thu, 28 Apr 2016 11:07:22 +0000
 Subject: Re: [PATCH 2/3] kexec: ensure user memory sizes do not wrap
-Message-Id: <20160428095624.GB10691@x1.redhat.com>
+Message-Id: <20160428110722.GA28541@dhcp-128-25.nay.redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20160414195938.GV19428@n2100.arm.linux.org.uk>
  <E1aqnQt-0001U2-Oa@rmk-PC.arm.linux.org.uk>
@@ -33,11 +33,14 @@ On 04/14/16 at 09:00pm, Russell King wrote:
 > +		if (mstart > mend)
 > +			return result;
 
-Though this checking has been done in kexec utitlity, I am fine it's
-re-check in kernel space. Anyway it keeps code safer. Ack it.
+The type of image->segment[i].memsz is unsigned. So it is no need to
+have a test here.
 
-Acked-by: Baoquan He <bhe@redhat.com>
+The next several test will catch if image->segment[i].memsz is equal to
+0.
 
+Thanks
+Minfei
 
 >  		if ((mstart & ~PAGE_MASK) || (mend & ~PAGE_MASK))
 >  			return result;
