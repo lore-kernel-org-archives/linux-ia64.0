@@ -1,40 +1,86 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Wed, 27 Apr 2016 11:30:05 +0000
-Subject: Re: char: legacy RTC cleanups
-Message-Id: <13390963.BOLfm8tOYx@wuerfel>
+From: Russell King <rmk+kernel@arm.linux.org.uk>
+Date: Thu, 28 Apr 2016 09:28:35 +0000
+Subject: [PATCH 10/12] kexec: arrange for paddr_vmcoreinfo_note() to return phys_addr_t
+Message-Id: <E1aviFP-0000je-5t@rmk-PC.arm.linux.org.uk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1461707052-1337718-1-git-send-email-arnd@arndb.de> <4937900.aITlOE9vLo@wuerfel> <CAMuHMdW6AODmVwB59uTvMydbTNiDDxQWB3p-Dp9Dka+GVyP_iw@mail.gmail.com>
-In-Reply-To: <CAMuHMdW6AODmVwB59uTvMydbTNiDDxQWB3p-Dp9Dka+GVyP_iw@mail.gmail.com>
+References: <20160428092644.GX19428@n2100.arm.linux.org.uk>
+In-Reply-To: <20160428092644.GX19428@n2100.arm.linux.org.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Cc: Alexandre Belloni <alexandre.belloni@free-electrons.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Tony Luck <tony.luck@intel.com>, "James E.J. Bottomley" <jejb@parisc-linux.org>, Helge Deller <deller@gmx.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Michael Ellerman <mpe@ellerman.id.au>, Rich Felker <dalias@libc.org>, David Howells <dhowells@redhat.com>, Koichi Yasutake <yasutake.koichi@jp.panasonic.com>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, alpha <linux-alpha@vger.kernel.org>, the arch/x86 maintainers <x86@kernel.org>, Alessandro Zummo <a.zummo@towertech.it>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Parisc List <linux-parisc@vger.kernel.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>
+To: linux-arm-kernel@lists.infradead.org
+Cc: devicetree@vger.kernel.org, Eric Biederman <ebiederm@xmission.com>, Fenghua Yu <fenghua.yu@intel.com>, Haren Myneni <hbabu@us.ibm.com>, Ian Campbell <ijc+devicetree@hellion.org.uk>, Jonathan Corbet <corbet@lwn.net>, kexec@lists.infradead.org, Kumar Gala <galak@codeaurora.org>, linux-doc@vger.kernel.org, linux-ia64@vger.kernel.org, Mark Rutland <mark.rutland@arm.com>, Pawel Moll <pawel.moll@arm.com>, Rob Herring <robh+dt@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Tony Luck <tony.luck@intel.com>, Vivek Goyal <vgoyal@redhat.com>
 
-On Wednesday 27 April 2016 12:19:59 Geert Uytterhoeven wrote:
-> >
-> > Right, so we could skip patches 5 and 6, and instead remove the two
-> > headers as we remove the driver. Let's see what the architecture
-> > maintainers think about it, at least powerpc actually enables gen_rtc
-> > in its defconfig, so it might take a while to move it over.
-> 
-> FWIW, all PPC defconfigs (except tqm8xx.dts, which is a more recent platform)
-> enabling it did that long before my old commit to enable rtc-generic support
-> on PPC:
-> 
-> commit bcd68a70cb0eee556d86d93133aa150319bd9f53
-> Author: Geert Uytterhoeven <Geert.Uytterhoeven@sonycom.com>
-> Date:   Thu Feb 19 16:50:46 2009 +0100
-> 
->     powerpc: Hook up rtc-generic, and kill rtc-ppc
+On PAE systems (eg, ARM LPAE) the vmcore note may be located above
+4GB physical on 32-bit architectures, so we need a wider type than
+"unsigned long" here.  Arrange for paddr_vmcoreinfo_note() to return
+a phys_addr_t, thereby allowing it to be located above 4GB.
 
-Ah, interesting. I have two observations about that patch:
+This makes no difference for kexec-tools, as they already assume a
+64-bit type when reading from this file.
 
-- you were moving basically in the opposite direction that I am
-  trying to bring it now. ;-)
+Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+---
+ arch/ia64/kernel/machine_kexec.c | 2 +-
+ include/linux/kexec.h            | 2 +-
+ kernel/kexec_core.c              | 2 +-
+ kernel/ksysfs.c                  | 4 ++--
+ 4 files changed, 5 insertions(+), 5 deletions(-)
 
-- I see now that four defconfigs (gamecube, powernv, pseries and wii)
-  do enable RTC_DRV_GENERIC. For some reason, ppc64_defconfig only
-  enables RTC_DRV_DS1307, I assume that is not intentional.
+diff --git a/arch/ia64/kernel/machine_kexec.c b/arch/ia64/kernel/machine_kexec.c
+index b72cd7a07222..599507bcec91 100644
+--- a/arch/ia64/kernel/machine_kexec.c
++++ b/arch/ia64/kernel/machine_kexec.c
+@@ -163,7 +163,7 @@ void arch_crash_save_vmcoreinfo(void)
+ #endif
+ }
+ 
+-unsigned long paddr_vmcoreinfo_note(void)
++phys_addr_t paddr_vmcoreinfo_note(void)
+ {
+ 	return ia64_tpa((unsigned long)(char *)&vmcoreinfo_note);
+ }
+diff --git a/include/linux/kexec.h b/include/linux/kexec.h
+index 1b32ab587f66..52a3a221bcb2 100644
+--- a/include/linux/kexec.h
++++ b/include/linux/kexec.h
+@@ -235,7 +235,7 @@ void crash_unmap_reserved_pages(void);
+ void arch_crash_save_vmcoreinfo(void);
+ __printf(1, 2)
+ void vmcoreinfo_append_str(const char *fmt, ...);
+-unsigned long paddr_vmcoreinfo_note(void);
++phys_addr_t paddr_vmcoreinfo_note(void);
+ 
+ #define VMCOREINFO_OSRELEASE(value) \
+ 	vmcoreinfo_append_str("OSRELEASE=%s\n", value)
+diff --git a/kernel/kexec_core.c b/kernel/kexec_core.c
+index d719a4d0ef55..f9847e5822e6 100644
+--- a/kernel/kexec_core.c
++++ b/kernel/kexec_core.c
+@@ -1377,7 +1377,7 @@ void vmcoreinfo_append_str(const char *fmt, ...)
+ void __weak arch_crash_save_vmcoreinfo(void)
+ {}
+ 
+-unsigned long __weak paddr_vmcoreinfo_note(void)
++phys_addr_t __weak paddr_vmcoreinfo_note(void)
+ {
+ 	return __pa((unsigned long)(char *)&vmcoreinfo_note);
+ }
+diff --git a/kernel/ksysfs.c b/kernel/ksysfs.c
+index 152da4a48867..9f1920d2d0c6 100644
+--- a/kernel/ksysfs.c
++++ b/kernel/ksysfs.c
+@@ -128,8 +128,8 @@ KERNEL_ATTR_RW(kexec_crash_size);
+ static ssize_t vmcoreinfo_show(struct kobject *kobj,
+ 			       struct kobj_attribute *attr, char *buf)
+ {
+-	return sprintf(buf, "%lx %x\n",
+-		       paddr_vmcoreinfo_note(),
++	phys_addr_t vmcore_base = paddr_vmcoreinfo_note();
++	return sprintf(buf, "%pa %x\n", &vmcore_base,
+ 		       (unsigned int)sizeof(vmcoreinfo_note));
+ }
+ KERNEL_ATTR_RO(vmcoreinfo);
+-- 
+2.1.0
 
-	Arnd
