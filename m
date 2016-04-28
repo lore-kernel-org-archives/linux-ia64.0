@@ -1,76 +1,209 @@
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Date: Fri, 15 Apr 2016 13:08:29 +0000
-Subject: Re: [PATCH] ia64: salinfo: use a waitqueue instead a sema down/up combo
-Message-Id: <5710E7CD.4030208@linutronix.de>
+From: Russell King <rmk+kernel@arm.linux.org.uk>
+Date: Thu, 28 Apr 2016 09:28:40 +0000
+Subject: [PATCH 11/12] kexec: allow architectures to override boot mapping
+Message-Id: <E1aviFU-0000jk-9q@rmk-PC.arm.linux.org.uk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1460466037-4037-1-git-send-email-bigeasy@linutronix.de>
-In-Reply-To: <1460466037-4037-1-git-send-email-bigeasy@linutronix.de>
+References: <20160428092644.GX19428@n2100.arm.linux.org.uk>
+In-Reply-To: <20160428092644.GX19428@n2100.arm.linux.org.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-arm-kernel@lists.infradead.org
+Cc: devicetree@vger.kernel.org, Eric Biederman <ebiederm@xmission.com>, Fenghua Yu <fenghua.yu@intel.com>, Haren Myneni <hbabu@us.ibm.com>, Ian Campbell <ijc+devicetree@hellion.org.uk>, Jonathan Corbet <corbet@lwn.net>, kexec@lists.infradead.org, Kumar Gala <galak@codeaurora.org>, linux-doc@vger.kernel.org, linux-ia64@vger.kernel.org, Mark Rutland <mark.rutland@arm.com>, Pawel Moll <pawel.moll@arm.com>, Rob Herring <robh+dt@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Tony Luck <tony.luck@intel.com>, Vivek Goyal <vgoyal@redhat.com>
 
-On 04/14/2016 11:33 PM, Luck, Tony wrote:
->> The only purpose of down_try_lock() followed by up() seems to be to wake
->> up a possible reader. This patch replaces it with a wake-queue. There is
->> no locking around cpumask_empty() and the test is re-done in case there
->> was no hit.
->> With wait_event_interruptible_lock_irq(,&data_saved_lock) we would probably
->> be able to get rid of the `retry` label. However we still can return CPU
->> X which is valid now but later (after the lock dropped) the event may
->> have been removed because the CPU went offline.
-> 
-> Do you have ia64 h/w to test this - or do you need me to try it out to
-> make sure the reality matches the expected behavior?
+kexec physical addresses are the boot-time view of the system.  For
+certain ARM systems (such as Keystone 2), the boot view of the system
+does not match the kernel's view of the system: the boot view uses a
+special alias in the lower 4GB of the physical address space.
 
-no ia64 here.
+To cater for these kinds of setups, we need to translate between the
+boot view physical addresses and the normal kernel view physical
+addresses.  This patch extracts the current transation points into
+linux/kexec.h, and allows an architecture to override the functions.
 
->> And this brings me to the following question: Do you really want to drop all
->> entries for a CPU that goes offline? Wouldn't it make sense to keep that entry
->> even if the CPU is offline now? From what I understand MCA can send such an
->> interrupt / entry due to a memory error. Wouldn't it be important to keep this
->> information until userspace decides to remove it (despite the online state of
->> the CPU)?
-> 
-> Machine checks and soft offline don't really work well together. As you
-> say the machine check may be broadcast, and there is no mechanism for
-> soft offline to tell the h/w not to bother this logical cpu with such events.
-> On x86 we recently added code to do_machine_check() to quietly return
-> if we are called on an "offline" cpu.
+Due to the translations required, we unfortunately end up with six
+translation functions, which are reduced down to four that the
+architecture can override.
 
-Maybe I don't understand this. Please correct me if there is something
-wrong.
+Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+---
+ include/linux/kexec.h | 38 ++++++++++++++++++++++++++++++++++++++
+ kernel/kexec.c        |  3 ++-
+ kernel/kexec_core.c   | 26 +++++++++++++-------------
+ 3 files changed, 53 insertions(+), 14 deletions(-)
 
-- CPU2 has an MCA event logged, ->cpu_event is set for this CPU. Now
-  CPU2 is going offline, the event is removed. Now the checks the
-  buffer and notices that nothing is in there.
-  Wouldn't happen if we would remove the CPU_DEAD notifier.
+diff --git a/include/linux/kexec.h b/include/linux/kexec.h
+index 52a3a221bcb2..99cb9dac7909 100644
+--- a/include/linux/kexec.h
++++ b/include/linux/kexec.h
+@@ -318,6 +318,44 @@ int __weak arch_kexec_apply_relocations_add(const Elf_Ehdr *ehdr,
+ int __weak arch_kexec_apply_relocations(const Elf_Ehdr *ehdr, Elf_Shdr *sechdrs,
+ 					unsigned int relsec);
+ 
++#ifndef page_to_boot_pfn
++static inline unsigned long page_to_boot_pfn(struct page *page)
++{
++	return page_to_pfn(page);
++}
++#endif
++
++#ifndef boot_pfn_to_page
++static inline struct page *boot_pfn_to_page(unsigned long boot_pfn)
++{
++	return pfn_to_page(boot_pfn);
++}
++#endif
++
++#ifndef phys_to_boot_phys
++static inline unsigned long phys_to_boot_phys(phys_addr_t phys)
++{
++	return phys;
++}
++#endif
++
++#ifndef boot_phys_to_phys
++static inline phys_addr_t boot_phys_to_phys(unsigned long boot_phys)
++{
++	return boot_phys;
++}
++#endif
++
++static inline unsigned long virt_to_boot_phys(void *addr)
++{
++	return phys_to_boot_phys(__pa((unsigned long)addr));
++}
++
++static inline void *boot_phys_to_virt(unsigned long entry)
++{
++	return phys_to_virt(boot_phys_to_phys(entry));
++}
++
+ #else /* !CONFIG_KEXEC_CORE */
+ struct pt_regs;
+ struct task_struct;
+diff --git a/kernel/kexec.c b/kernel/kexec.c
+index ee70aef5cd81..dd49d572a5e2 100644
+--- a/kernel/kexec.c
++++ b/kernel/kexec.c
+@@ -48,7 +48,8 @@ static int kimage_alloc_init(struct kimage **rimage, unsigned long entry,
+ 
+ 	if (kexec_on_panic) {
+ 		/* Verify we have a valid entry point */
+-		if ((entry < crashk_res.start) || (entry > crashk_res.end))
++		if ((entry < phys_to_boot_phys(crashk_res.start)) ||
++		    (entry > phys_to_boot_phys(crashk_res.end)))
+ 			return -EADDRNOTAVAIL;
+ 	}
+ 
+diff --git a/kernel/kexec_core.c b/kernel/kexec_core.c
+index f9847e5822e6..d04940ccc58d 100644
+--- a/kernel/kexec_core.c
++++ b/kernel/kexec_core.c
+@@ -229,8 +229,8 @@ int sanity_check_segment_list(struct kimage *image)
+ 			mstart = image->segment[i].mem;
+ 			mend = mstart + image->segment[i].memsz - 1;
+ 			/* Ensure we are within the crash kernel limits */
+-			if ((mstart < crashk_res.start) ||
+-			    (mend > crashk_res.end))
++			if ((mstart < phys_to_boot_phys(crashk_res.start)) ||
++			    (mend > phys_to_boot_phys(crashk_res.end)))
+ 				return result;
+ 		}
+ 	}
+@@ -354,7 +354,7 @@ static struct page *kimage_alloc_normal_control_pages(struct kimage *image,
+ 		pages = kimage_alloc_pages(KEXEC_CONTROL_MEMORY_GFP, order);
+ 		if (!pages)
+ 			break;
+-		pfn   = page_to_pfn(pages);
++		pfn   = page_to_boot_pfn(pages);
+ 		epfn  = pfn + count;
+ 		addr  = pfn << PAGE_SHIFT;
+ 		eaddr = epfn << PAGE_SHIFT;
+@@ -480,7 +480,7 @@ static int kimage_add_entry(struct kimage *image, kimage_entry_t entry)
+ 			return -ENOMEM;
+ 
+ 		ind_page = page_address(page);
+-		*image->entry = virt_to_phys(ind_page) | IND_INDIRECTION;
++		*image->entry = virt_to_boot_phys(ind_page) | IND_INDIRECTION;
+ 		image->entry = ind_page;
+ 		image->last_entry = ind_page +
+ 				      ((PAGE_SIZE/sizeof(kimage_entry_t)) - 1);
+@@ -535,13 +535,13 @@ void kimage_terminate(struct kimage *image)
+ #define for_each_kimage_entry(image, ptr, entry) \
+ 	for (ptr = &image->head; (entry = *ptr) && !(entry & IND_DONE); \
+ 		ptr = (entry & IND_INDIRECTION) ? \
+-			phys_to_virt((entry & PAGE_MASK)) : ptr + 1)
++			boot_phys_to_virt((entry & PAGE_MASK)) : ptr + 1)
+ 
+ static void kimage_free_entry(kimage_entry_t entry)
+ {
+ 	struct page *page;
+ 
+-	page = pfn_to_page(entry >> PAGE_SHIFT);
++	page = boot_pfn_to_page(entry >> PAGE_SHIFT);
+ 	kimage_free_pages(page);
+ }
+ 
+@@ -635,7 +635,7 @@ static struct page *kimage_alloc_page(struct kimage *image,
+ 	 * have a match.
+ 	 */
+ 	list_for_each_entry(page, &image->dest_pages, lru) {
+-		addr = page_to_pfn(page) << PAGE_SHIFT;
++		addr = page_to_boot_pfn(page) << PAGE_SHIFT;
+ 		if (addr = destination) {
+ 			list_del(&page->lru);
+ 			return page;
+@@ -650,12 +650,12 @@ static struct page *kimage_alloc_page(struct kimage *image,
+ 		if (!page)
+ 			return NULL;
+ 		/* If the page cannot be used file it away */
+-		if (page_to_pfn(page) >
++		if (page_to_boot_pfn(page) >
+ 				(KEXEC_SOURCE_MEMORY_LIMIT >> PAGE_SHIFT)) {
+ 			list_add(&page->lru, &image->unusable_pages);
+ 			continue;
+ 		}
+-		addr = page_to_pfn(page) << PAGE_SHIFT;
++		addr = page_to_boot_pfn(page) << PAGE_SHIFT;
+ 
+ 		/* If it is the destination page we want use it */
+ 		if (addr = destination)
+@@ -678,7 +678,7 @@ static struct page *kimage_alloc_page(struct kimage *image,
+ 			struct page *old_page;
+ 
+ 			old_addr = *old & PAGE_MASK;
+-			old_page = pfn_to_page(old_addr >> PAGE_SHIFT);
++			old_page = boot_pfn_to_page(old_addr >> PAGE_SHIFT);
+ 			copy_highpage(page, old_page);
+ 			*old = addr | (*old & ~PAGE_MASK);
+ 
+@@ -734,7 +734,7 @@ static int kimage_load_normal_segment(struct kimage *image,
+ 			result  = -ENOMEM;
+ 			goto out;
+ 		}
+-		result = kimage_add_page(image, page_to_pfn(page)
++		result = kimage_add_page(image, page_to_boot_pfn(page)
+ 								<< PAGE_SHIFT);
+ 		if (result < 0)
+ 			goto out;
+@@ -795,7 +795,7 @@ static int kimage_load_crash_segment(struct kimage *image,
+ 		char *ptr;
+ 		size_t uchunk, mchunk;
+ 
+-		page = pfn_to_page(maddr >> PAGE_SHIFT);
++		page = boot_pfn_to_page(maddr >> PAGE_SHIFT);
+ 		if (!page) {
+ 			result  = -ENOMEM;
+ 			goto out;
+@@ -922,7 +922,7 @@ void __weak crash_free_reserved_phys_range(unsigned long begin,
+ 	unsigned long addr;
+ 
+ 	for (addr = begin; addr < end; addr += PAGE_SIZE)
+-		free_reserved_page(pfn_to_page(addr >> PAGE_SHIFT));
++		free_reserved_page(boot_pfn_to_page(addr >> PAGE_SHIFT));
+ }
+ 
+ int crash_shrink_memory(unsigned long new_size)
+-- 
+2.1.0
 
-- CPU2 has no events logged, ->cpu_event is not set. CPU2 goes offline
-  and MCA sends and logs a message. This message is removed by CPU_DEAD
-  notifier.
-  Again, wouldn't happen if we would remove the CPU_DEAD notifier.
-
-Now, I wasn't thinking about this but based on your response it seems
-to be a valid case:
-
-- CPU2 is offline, ->cpu_event is not set for this CPU. While so an MCA
-  event gets sent and logged (there is nothing to ignore this for
-  offline CPUs as far as I can tell from looking at the salinfo code).
-  There should be a wakeup() (unless the report was not irqsafe which
-  is probably NMI context). The wakeup will happen again by the
-  CPU_ONLINE notifier.
-
-And there is this:
-- CPU2 was offline, ->cpu_event is not set for any CPU. The CPU goes
-  online and sets ->cpu_event for every CPU. Userland organizes a
-  trailer for all those events but then there are no events logged.
-
-So based on this I don't see a problem why salinfo_cpu_callback()
-couldn't be removed. The !irqsafe reports are not lost since there is a
-timer which does a wake up once a minute.
-
-> 
-> -Tony
-> 
-Sebastian
