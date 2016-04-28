@@ -1,26 +1,53 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Date: Wed, 27 Apr 2016 10:05:23 +0000
-Subject: Re: [PATCH 2/8] char/rtc: legacy RTC is no longer supported on x86
-Message-Id: <alpine.DEB.2.11.1604271205100.3941@nanos>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Date: Thu, 28 Apr 2016 09:26:44 +0000
+Subject: [PATCH 00/12] Fixing TI Keystone2 kexec
+Message-Id: <20160428092644.GX19428@n2100.arm.linux.org.uk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1461707052-1337718-1-git-send-email-arnd@arndb.de> <1461707052-1337718-3-git-send-email-arnd@arndb.de>
-In-Reply-To: <1461707052-1337718-3-git-send-email-arnd@arndb.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Arnd Bergmann <arnd@arndb.de>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>, tony.luck@intel.com, geert@linux-m68k.org, jejb@parisc-linux.org, deller@gmx.de, benh@kernel.crashing.org, mpe@ellerman.id.au, dalias@libc.org, dhowells@redhat.com, yasutake.koichi@jp.panasonic.com, rth@twiddle.net, ink@jurassic.park.msu.ru, linux-alpha@vger.kernel.org, x86@kernel.org, a.zummo@towertech.it, alexandre.belloni@free-electrons.com, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, rtc-linux@googlegroups.com, linux-arch@vger.kernel.org
+To: linux-arm-kernel@lists.infradead.org
+Cc: devicetree@vger.kernel.org, Eric Biederman <ebiederm@xmission.com>, Fenghua Yu <fenghua.yu@intel.com>, Haren Myneni <hbabu@us.ibm.com>, Ian Campbell <ijc+devicetree@hellion.org.uk>, Jonathan Corbet <corbet@lwn.net>, kexec@lists.infradead.org, Kumar Gala <galak@codeaurora.org>, linux-doc@vger.kernel.org, linux-ia64@vger.kernel.org, Mark Rutland <mark.rutland@arm.com>, Pawel Moll <pawel.moll@arm.com>, Rob Herring <robh+dt@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Tony Luck <tony.luck@intel.com>, Vivek Goyal <vgoyal@redhat.com>
 
-On Tue, 26 Apr 2016, Arnd Bergmann wrote:
+These changes are required for TI Keystone2 kexec to be functional.  TI
+Keystone2 has the run-time view of physical memory above 4GiB, but with
+a boot time alias below 4GiB which can only be used during the early
+boot.
 
-> Commit 3195ef59cb42 ("x86: Do full rtc synchronization with ntp") had
-> the side-effect of unconditionally enabling the RTC_LIB symbol on x86,
-> which in turn disables the selection of the CONFIG_RTC and
-> CONFIG_GEN_RTC drivers that contain a two older implementations of
-> the CONFIG_RTC_DRV_CMOS driver.
-> 
-> This removes x86 from the list.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+This means we need to translate run-time physical addresses (which the
+kernel uses) to boot-time physical addresses, which, having discussed
+with Eric, is what the kexec tools and kexec kernel API requires.
 
-Reviewed-by: Thomas Gleixner <tglx@linutronix.de>
+We publish a special set of boot time resources in /proc/iomem, which
+the (modified) kexec tools look for in preference to the normal resources.
+Hence, if these are found, the kexec tools make use of these resources,
+and thus kexec tools use the boot-time view of physical memory.
+
+The first three patches have been sitting in linux-next for a while.
+I'm going to put the next ARM specific three into linux-next next week.
+
+I've sent Eric over a month ago all the patches, including the kexec
+tools patches, but I've heard nothing back.  I'm at a loss how to
+make progress on these patches - and as I'm being hassled about this,
+I'm going to be hassling the community about it, possibly with regular
+re-posts until there is some progress.
+
+ Documentation/kdump/kdump.txt     | 13 ++------
+ arch/arm/boot/dts/keystone.dtsi   |  8 +++++
+ arch/arm/include/asm/kexec.h      | 24 +++++++++++++++
+ arch/arm/include/asm/memory.h     | 38 ++++++++++++++++++-----
+ arch/arm/kernel/machine_kexec.c   |  2 +-
+ arch/arm/kernel/setup.c           | 65 +++++++++++++++++++++++++++++++++++++--
+ arch/arm/mach-keystone/keystone.c |  7 +----
+ arch/arm/mm/idmap.c               |  2 +-
+ arch/ia64/kernel/machine_kexec.c  |  2 +-
+ include/linux/kexec.h             | 42 +++++++++++++++++++++++--
+ kernel/kexec.c                    |  3 +-
+ kernel/kexec_core.c               | 30 +++++++++---------
+ kernel/ksysfs.c                   |  4 +--
+ 13 files changed, 193 insertions(+), 47 deletions(-)
+
+-- 
+RMK's Patch system: http://www.arm.linux.org.uk/developer/patches/
+FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
+according to speedtest.net.
