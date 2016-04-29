@@ -1,76 +1,98 @@
-From: Russell King <rmk+kernel@arm.linux.org.uk>
-Date: Thu, 28 Apr 2016 09:28:45 +0000
-Subject: [PATCH 12/12] ARM: kexec: fix kexec for Keystone 2
-Message-Id: <E1aviFZ-0000jq-Ex@rmk-PC.arm.linux.org.uk>
+From: James Hogan <james.hogan@imgtec.com>
+Date: Fri, 29 Apr 2016 22:04:37 +0000
+Subject: Re: [PATCH] parisc,metag: Implement CONFIG_DEBUG_STACK_USAGE option
+Message-Id: <20160429220437.GA15188@jhogan-linux.le.imgtec.org>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="/04w6evG8XlLl3ft"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20160428092644.GX19428@n2100.arm.linux.org.uk>
-In-Reply-To: <20160428092644.GX19428@n2100.arm.linux.org.uk>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-arm-kernel@lists.infradead.org
-Cc: devicetree@vger.kernel.org, Eric Biederman <ebiederm@xmission.com>, Fenghua Yu <fenghua.yu@intel.com>, Haren Myneni <hbabu@us.ibm.com>, Ian Campbell <ijc+devicetree@hellion.org.uk>, Jonathan Corbet <corbet@lwn.net>, kexec@lists.infradead.org, Kumar Gala <galak@codeaurora.org>, linux-doc@vger.kernel.org, linux-ia64@vger.kernel.org, Mark Rutland <mark.rutland@arm.com>, Pawel Moll <pawel.moll@arm.com>, Rob Herring <robh+dt@kernel.org>, Santosh Shilimkar <ssantosh@kernel.org>, Tony Luck <tony.luck@intel.com>, Vivek Goyal <vgoyal@redhat.com>
+References: <20160319165410.GA31630@p100.box>
+In-Reply-To: <20160319165410.GA31630@p100.box>
+To: Helge Deller <deller@gmx.de>
+Cc: linux-parisc@vger.kernel.org, James Bottomley <James.Bottomley@HansenPartnership.com>, John David Anglin <dave.anglin@bell.net>, linux-metag@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Provide kexec with the boot view of memory by overriding the normal
-kexec translation functions added in a previous patch.  We also need
-to fix a call to memblock in machine_kexec_prepare() so that we
-provide it with a running-view physical address rather than a boot-
-view physical address.
+--/04w6evG8XlLl3ft
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
----
- arch/arm/include/asm/kexec.h    | 24 ++++++++++++++++++++++++
- arch/arm/kernel/machine_kexec.c |  2 +-
- 2 files changed, 25 insertions(+), 1 deletion(-)
+Hi Helge,
 
-diff --git a/arch/arm/include/asm/kexec.h b/arch/arm/include/asm/kexec.h
-index c2b9b4bdec00..1869af6bac5c 100644
---- a/arch/arm/include/asm/kexec.h
-+++ b/arch/arm/include/asm/kexec.h
-@@ -53,6 +53,30 @@ static inline void crash_setup_regs(struct pt_regs *newregs,
- /* Function pointer to optional machine-specific reinitialization */
- extern void (*kexec_reinit)(void);
- 
-+static inline unsigned long phys_to_boot_phys(phys_addr_t phys)
-+{
-+	return phys_to_idmap(phys);
-+}
-+#define phys_to_boot_phys phys_to_boot_phys
-+
-+static inline phys_addr_t boot_phys_to_phys(unsigned long entry)
-+{
-+	return idmap_to_phys(entry);
-+}
-+#define boot_phys_to_phys boot_phys_to_phys
-+
-+static inline unsigned long page_to_boot_pfn(struct page *page)
-+{
-+	return page_to_pfn(page) + (arch_phys_to_idmap_offset >> PAGE_SHIFT);
-+}
-+#define page_to_boot_pfn page_to_boot_pfn
-+
-+static inline struct page *boot_pfn_to_page(unsigned long boot_pfn)
-+{
-+	return pfn_to_page(boot_pfn - (arch_phys_to_idmap_offset >> PAGE_SHIFT));
-+}
-+#define boot_pfn_to_page boot_pfn_to_page
-+
- #endif /* __ASSEMBLY__ */
- 
- #endif /* CONFIG_KEXEC */
-diff --git a/arch/arm/kernel/machine_kexec.c b/arch/arm/kernel/machine_kexec.c
-index 59fd0e24c56b..b18c1ea56bed 100644
---- a/arch/arm/kernel/machine_kexec.c
-+++ b/arch/arm/kernel/machine_kexec.c
-@@ -57,7 +57,7 @@ int machine_kexec_prepare(struct kimage *image)
- 	for (i = 0; i < image->nr_segments; i++) {
- 		current_segment = &image->segment[i];
- 
--		if (!memblock_is_region_memory(current_segment->mem,
-+		if (!memblock_is_region_memory(idmap_to_phys(current_segment->mem),
- 					       current_segment->memsz))
- 			return -EINVAL;
- 
--- 
-2.1.0
+On Sat, Mar 19, 2016 at 05:54:10PM +0100, Helge Deller wrote:
+> On parisc and metag the stack grows upwards, so for those we need to
+> scan the stack downwards in order to calculate how much stack a process
+> has used.
+>=20
+> Tested on a 64bit parisc kernel.
+>=20
+> Signed-off-by: Helge Deller <deller@gmx.de>
 
+Looks good, and works on metag too!
+
+Tested-by: James Hogan <james.hogan@imgtec.com>
+Acked-by: James Hogan <james.hogan@imgtec.com>
+
+Cheers
+James
+
+>=20
+> diff --git a/include/linux/sched.h b/include/linux/sched.h
+> index 084ed9f..71591f3 100644
+> --- a/include/linux/sched.h
+> +++ b/include/linux/sched.h
+> @@ -2859,10 +2859,18 @@ static inline unsigned long stack_not_used(struct=
+ task_struct *p)
+>  	unsigned long *n =3D end_of_stack(p);
+> =20
+>  	do { 	/* Skip over canary */
+> +# ifdef CONFIG_STACK_GROWSUP
+> +		n--;
+> +# else
+>  		n++;
+> +# endif
+>  	} while (!*n);
+> =20
+> +# ifdef CONFIG_STACK_GROWSUP
+> +	return (unsigned long)end_of_stack(p) - (unsigned long)n;
+> +# else
+>  	return (unsigned long)n - (unsigned long)end_of_stack(p);
+> +# endif
+>  }
+>  #endif
+>  extern void set_task_stack_end_magic(struct task_struct *tsk);
+> diff --git a/lib/Kconfig.debug b/lib/Kconfig.debug
+> index f28f7fa..901f96c 100644
+> --- a/lib/Kconfig.debug
+> +++ b/lib/Kconfig.debug
+> @@ -546,7 +546,7 @@ config DEBUG_KMEMLEAK_DEFAULT_OFF
+> =20
+>  config DEBUG_STACK_USAGE
+>  	bool "Stack utilization instrumentation"
+> -	depends on DEBUG_KERNEL && !IA64 && !PARISC && !METAG
+> +	depends on DEBUG_KERNEL && !IA64
+>  	help
+>  	  Enables the display of the minimum amount of free stack which each
+>  	  task has ever had available in the sysrq-T and sysrq-P debug output.
+
+--/04w6evG8XlLl3ft
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJXI9p1AAoJEGwLaZPeOHZ6uP8P/RAVw/RjjQYDy9ekRws4EbCd
+XWDt8J8z6rhh7gHrgZBjwktamtp0TAYtX/j2Ipd0PIhmWPRjTl1QqPNxHEfiy7Wk
+PPXmTedfjV9jh2uWqjWOV+8m9YeOn5J1kUcbtX4CWq0oIfYJHEBe3lVf7SVmV1PH
+VTlPyQrcG++7J1T2H0aMW2+Rd/f7ssGtwync/aKawXAKki/XkKqfB6lnsttVZQuI
+DixyywS8XCSKT0q9fCH2j1GDLAphca8rrk9svoxZhaw65aIhn9CH5f/phNBjymCe
+/qXBSsvhiPxRYOjrH0Vktf2HINqDinyCrMpVx2sOCEfZSjXiYTnab9zqijBzbtmA
+gZsicgI44rZAVrYinKCXSe71PJXvC7+zgo8QsH1597TNlbmHhBpha2Y1neYghO9i
+NkTzbPQGnM+yY8KFb3Pazko7SxAsJXiAkWCTrbrqJiU4+p/4iSsPRBFf9sAbENcl
+veHGrU0Zr4HMLarj3iircAiIZifVBNlsoktaw4BE8eypgZIjsG56SuBiUmTzAQ6n
+6uPA+3wQAYcc53JnAP5gltyxb6b10EITwO+e7NguddfH3Uo2zbsRWa6TR3cArk0o
+/xLjUuAprfASLr4zqEayvVcXrGNziRHklc+bw52ZzJStI82BIdSKgbTz0j+47yrl
+ZxD3MIB/PgYiPrKjILlL
+=FFAX
+-----END PGP SIGNATURE-----
+
+--/04w6evG8XlLl3ft--
