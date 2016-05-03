@@ -1,82 +1,63 @@
-From: Hanjun Guo <hanjun.guo@linaro.org>
-Date: Tue, 31 May 2016 13:05:13 +0000
-Subject: Re: [PATCH v7 13/15] ACPI / processor: Add acpi_map_madt_entry().
-Message-Id: <574D8C09.3030608@linaro.org>
+From: Baoquan He <bhe@redhat.com>
+Date: Tue, 03 May 2016 04:24:41 +0000
+Subject: Re: [PATCH 10/12] kexec: arrange for paddr_vmcoreinfo_note() to return phys_addr_t
+Message-Id: <20160503042441.GA2518@x1.redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1464129345-18985-1-git-send-email-ddaney.cavm@gmail.com>
- <1464129345-18985-14-git-send-email-ddaney.cavm@gmail.com>
-In-Reply-To: <1464129345-18985-14-git-send-email-ddaney.cavm@gmail.com>
+References: <20160428092644.GX19428@n2100.arm.linux.org.uk>
+ <E1aviFP-0000je-5t@rmk-PC.arm.linux.org.uk>
+ <CAHB_Gur-6oyEheN-Pom7OwivdvrQpCBaXvM1V2H0JPFRCFZthA@mail.gmail.com>
+ <20160429151639.GC23726@leverpostej>
+ <CAHB_GurwYqPbccLU9UHppLxbBr4Cfs47myKAer-RJicT=T7uBw@mail.gmail.com>
+In-Reply-To: <CAHB_GurwYqPbccLU9UHppLxbBr4Cfs47myKAer-RJicT=T7uBw@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Daney <ddaney.cavm@gmail.com>, Will Deacon <will.deacon@arm.com>, linux-arm-kernel@lists.infradead.org, Mark Rutland <mark.rutland@arm.com>, Catalin Marinas <catalin.marinas@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>, Rob Herring <robh+dt@kernel.org>, Frank Rowand <frowand.list@gmail.com>, Grant Likely <grant.likely@linaro.org>, Robert Moore <robert.moore@intel.com>, Lv Zheng <lv.zheng@intel.com>, Marc Zyngier <Marc.Zyngier@arm.com>, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org
-Cc: linux-kernel@vger.kernel.org, Robert Richter <rrichter@cavium.com>, David Daney <david.daney@cavium.com>
+To: Pratyush Anand <panand@redhat.com>, Russell King <rmk+kernel@arm.linux.org.uk>
+Cc: Mark Rutland <mark.rutland@arm.com>, devicetree@vger.kernel.org, Ian Campbell <ijc+devicetree@hellion.org.uk>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Pawel Moll <pawel.moll@arm.com>, linux-doc@vger.kernel.org, Jonathan Corbet <corbet@lwn.net>, kexec@lists.infradead.org, Fenghua Yu <fenghua.yu@intel.com>, Vivek Goyal <vgoyal@redhat.com>, Haren Myneni <hbabu@us.ibm.com>, Rob Herring <robh+dt@kernel.org>, Eric Biederman <ebiederm@xmission.com>, Santosh Shilimkar <ssantosh@kernel.org>, Kumar Gala <galak@codeaurora.org>, linux-arm-kernel@lists.infradead.org
 
-On 2016/5/25 6:35, David Daney wrote:
-> From: David Daney <david.daney@cavium.com>
->
-> Follow-on arm64 ACPI/NUMA patches need to map MADT entries very early
-> (before kmalloc is usable).
->
-> Add acpi_map_madt_entry() which, indirectly, uses
-> early_memremap()/early_memunmap() to access the table and parse out
-> the mpidr.  The existing implementation of map_madt_entry() is
-> modified to take a pointer to the MADT as a parameter and the callers
-> adjusted.
->
-> Signed-off-by: David Daney <david.daney@cavium.com>
-> ---
->   drivers/acpi/processor_core.c | 26 ++++++++++++++++++++++----
->   include/acpi/processor.h      |  1 +
->   2 files changed, 23 insertions(+), 4 deletions(-)
->
-> diff --git a/drivers/acpi/processor_core.c b/drivers/acpi/processor_core.c
-> index 33a38d6..9125d7d 100644
-> --- a/drivers/acpi/processor_core.c
-> +++ b/drivers/acpi/processor_core.c
-> @@ -108,13 +108,12 @@ static int map_gicc_mpidr(struct acpi_subtable_header *entry,
->   	return -EINVAL;
->   }
->
-> -static phys_cpuid_t map_madt_entry(int type, u32 acpi_id)
-> +static phys_cpuid_t map_madt_entry(struct acpi_table_madt *madt,
-> +				   int type, u32 acpi_id)
->   {
->   	unsigned long madt_end, entry;
->   	phys_cpuid_t phys_id = PHYS_CPUID_INVALID;	/* CPU hardware ID */
-> -	struct acpi_table_madt *madt;
->
-> -	madt = get_madt_table();
->   	if (!madt)
->   		return phys_id;
->
-> @@ -145,6 +144,25 @@ static phys_cpuid_t map_madt_entry(int type, u32 acpi_id)
->   	return phys_id;
->   }
->
-> +phys_cpuid_t __init acpi_map_madt_entry(u32 acpi_id)
-> +{
-> +	struct acpi_table_madt *madt = NULL;
-> +	acpi_size tbl_size;
-> +	phys_cpuid_t rv;
-> +
-> +	acpi_get_table_with_size(ACPI_SIG_MADT, 0,
-> +				 (struct acpi_table_header **)&madt,
-> +				 &tbl_size);
-> +	if (!madt)
-> +		return PHYS_CPUID_INVALID;
-> +
-> +	rv = map_madt_entry(madt, 1, acpi_id);
+This patch is clearly related to kdump. The prefix of subject should be
+changed to kdump. Kexec doesn't need to handle vmcore things. 
 
-Just nit-pick, pass 1 here means we need to define an acpi processor
-device object in DSDT (see function map_gicc_mpidr(),
-device_declaration), it would be fine for x2apic and gic mode,
-but not for lapic mode, since the function name is acpi_map_madt_entry
-which is general for all architecture, it will confuse people I think.
+And patches realted to kexec/kdump should be CCed to Andrew, he usually
+picks up and add them into akpm tree.
 
-How about rename acpi_map_madt_entry() to acpi_map_madt_gicc_entry()?
-It's only used for AMR64 to get mpidrs from GICC entries using acpi_id,
-other than that, it's good to me.
+Hi Pratyush,
+
+Could you please help tell why arm PAE kernel can be put above 4G?
+Since the change is related to common code, I am curious about how
+it's so different with other ARCHs.
 
 Thanks
-Hanjun
+Baoquan
+
+
+On 04/29/16 at 09:17pm, Pratyush Anand wrote:
+> On Fri, Apr 29, 2016 at 8:46 PM, Mark Rutland <mark.rutland@arm.com> wrote:
+> > On Fri, Apr 29, 2016 at 08:36:43PM +0530, Pratyush Anand wrote:
+> >> > +       phys_addr_t vmcore_base = paddr_vmcoreinfo_note();
+> >> > +       return sprintf(buf, "%pa %x\n", &vmcore_base,
+> >>
+> >> Why do we pass &vmcore_base? Shouldn't it be vmcore_base?
+> >
+> > The %pa* printk format specifiers take the value by reference (as
+> > phys_addr_t and friends are not necessarily the same width as a
+> > pointer). Per Documentation/printk-formats.txt:
+> >
+> > Physical addresses types phys_addr_t:
+> >
+> >         %pa[p]  0x01234567 or 0x0123456789abcdef
+> >
+> >         For printing a phys_addr_t type (and its derivatives, such as
+> >         resource_size_t) which can vary based on build options, regardless of
+> >         the width of the CPU data path. Passed by reference.
+> >
+> > So the above prints the value of vmcore_base as expected.
+> 
+> Thanks a lot Mark for explaining :-)
+> 
+> Reviewed-by: Pratyush Anand <panand@redhat.com>
+> 
+> _______________________________________________
+> kexec mailing list
+> kexec@lists.infradead.org
+> http://lists.infradead.org/mailman/listinfo/kexec
