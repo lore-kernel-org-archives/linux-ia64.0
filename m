@@ -1,133 +1,140 @@
-From: David Daney <ddaney.cavm@gmail.com>
-Date: Tue, 24 May 2016 22:35:39 +0000
-Subject: [PATCH v7 09/15] acpi, numa: move bad_srat() and srat_disabled() to drivers/acpi/numa.c
-Message-Id: <1464129345-18985-10-git-send-email-ddaney.cavm@gmail.com>
+From: Matt Fleming <matt@codeblueprint.co.uk>
+Date: Wed, 04 May 2016 11:17:48 +0000
+Subject: [PATCH 3/5] ia64: Reduce stack usage by iterating over nodemask
+Message-Id: <1462360670-27993-4-git-send-email-matt@codeblueprint.co.uk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1464129345-18985-1-git-send-email-ddaney.cavm@gmail.com>
-In-Reply-To: <1464129345-18985-1-git-send-email-ddaney.cavm@gmail.com>
+References: <1462360670-27993-1-git-send-email-matt@codeblueprint.co.uk>
+In-Reply-To: <1462360670-27993-1-git-send-email-matt@codeblueprint.co.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Will Deacon <will.deacon@arm.com>, linux-arm-kernel@lists.infradead.org, Mark Rutland <mark.rutland@arm.com>, Catalin Marinas <catalin.marinas@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>, Rob Herring <robh+dt@kernel.org>, Frank Rowand <frowand.list@gmail.com>, Grant Likely <grant.likely@linaro.org>, Robert Moore <robert.moore@intel.com>, Lv Zheng <lv.zheng@intel.com>, Hanjun Guo <hanjun.guo@linaro.org>, Marc Zyngier <Marc.Zyngier@arm.com>, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org
-Cc: Robert Richter <rrichter@cavium.com>, linux-kernel@vger.kernel.org, David Daney <david.daney@cavium.com>
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: Bjorn Helgaas <helgaas@kernel.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Matt Fleming <matt@codeblueprint.co.uk>
 
-From: David Daney <david.daney@cavium.com>
+GCC complains about sn2_global_tlb_purge() because of the large stack
+required by the function,
 
-bad_srat() and srat_disabled() are shared by x86 and follow-on arm64
-patches.  Move them to drivers/acpi/numa.c in preparation for arm64
-support.
+  arch/ia64/sn/kernel/sn2/sn2_smp.c: In function 'sn2_global_tlb_purge':
+  arch/ia64/sn/kernel/sn2/sn2_smp.c:319:1: warning: the frame size of 2176 bytes is larger than 2048 bytes [-Wframe-larger-than=]
 
-Signed-off-by: Hanjun Guo <hanjun.guo@linaro.org>
-Signed-off-by: Robert Richter <rrichter@cavium.com>
-[david.daney@cavium.com moved definitions to drivers/acpi/numa.c]
-Signed-off-by: David Daney <david.daney@cavium.com>
+2048 bytes of the stack are consumed by the node ID array 'nasids[]'.
+But we don't actually need to put the ID array on the stack and can
+use nodemask operations.
+
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: Bjorn Helgaas <helgaas@kernel.org>
+Signed-off-by: Matt Fleming <matt@codeblueprint.co.uk>
 ---
- arch/x86/include/asm/acpi.h |  1 -
- arch/x86/mm/numa.c          |  2 +-
- arch/x86/mm/srat.c          | 13 -------------
- drivers/acpi/numa.c         | 12 ++++++++++++
- include/acpi/acpi_numa.h    |  4 ++++
- 5 files changed, 17 insertions(+), 15 deletions(-)
+ arch/ia64/sn/kernel/sn2/sn2_smp.c | 35 +++++++++++++++++++++++------------
+ 1 file changed, 23 insertions(+), 12 deletions(-)
 
-diff --git a/arch/x86/include/asm/acpi.h b/arch/x86/include/asm/acpi.h
-index 94c18eb..65f1e95 100644
---- a/arch/x86/include/asm/acpi.h
-+++ b/arch/x86/include/asm/acpi.h
-@@ -145,7 +145,6 @@ static inline void disable_acpi(void) { }
- #define ARCH_HAS_POWER_INIT	1
+diff --git a/arch/ia64/sn/kernel/sn2/sn2_smp.c b/arch/ia64/sn/kernel/sn2/sn2_smp.c
+index f9c8d9fc5939..c98dc965fe82 100644
+--- a/arch/ia64/sn/kernel/sn2/sn2_smp.c
++++ b/arch/ia64/sn/kernel/sn2/sn2_smp.c
+@@ -54,7 +54,7 @@ sn2_ptc_deadlock_recovery_core(volatile unsigned long *, unsigned long,
+ 			       volatile unsigned long *, unsigned long,
+ 			       volatile unsigned long *, unsigned long);
+ void
+-sn2_ptc_deadlock_recovery(short *, short, short, int,
++sn2_ptc_deadlock_recovery(nodemask_t, short, short, int,
+ 			  volatile unsigned long *, unsigned long,
+ 			  volatile unsigned long *, unsigned long);
  
- #ifdef CONFIG_ACPI_NUMA
--extern int acpi_numa;
- extern int x86_acpi_numa_init(void);
- #endif /* CONFIG_ACPI_NUMA */
+@@ -169,7 +169,7 @@ sn2_global_tlb_purge(struct mm_struct *mm, unsigned long start,
+ 	int use_cpu_ptcga;
+ 	volatile unsigned long *ptc0, *ptc1;
+ 	unsigned long itc, itc2, flags, data0 = 0, data1 = 0, rr_value, old_rr = 0;
+-	short nasids[MAX_NUMNODES], nix;
++	short nix;
+ 	nodemask_t nodes_flushed;
+ 	int active, max_active, deadlock, flush_opt = sn2_flush_opt;
  
-diff --git a/arch/x86/mm/numa.c b/arch/x86/mm/numa.c
-index 9c086c5..968ac02 100644
---- a/arch/x86/mm/numa.c
-+++ b/arch/x86/mm/numa.c
-@@ -1,4 +1,5 @@
- /* Common code for 32 and 64-bit NUMA */
-+#include <linux/acpi.h>
- #include <linux/kernel.h>
- #include <linux/mm.h>
- #include <linux/string.h>
-@@ -15,7 +16,6 @@
- #include <asm/e820.h>
- #include <asm/proto.h>
- #include <asm/dma.h>
--#include <asm/acpi.h>
- #include <asm/amd_nb.h>
+@@ -218,9 +218,7 @@ sn2_global_tlb_purge(struct mm_struct *mm, unsigned long start,
+ 	}
  
- #include "numa_internal.h"
-diff --git a/arch/x86/mm/srat.c b/arch/x86/mm/srat.c
-index 9e2a833..4217071f 100644
---- a/arch/x86/mm/srat.c
-+++ b/arch/x86/mm/srat.c
-@@ -24,19 +24,6 @@
- #include <asm/apic.h>
- #include <asm/uv/uv.h>
+ 	itc = ia64_get_itc();
+-	nix = 0;
+-	for_each_node_mask(cnode, nodes_flushed)
+-		nasids[nix++] = cnodeid_to_nasid(cnode);
++	nix = nodes_weight(nodes_flushed);
  
--int acpi_numa __initdata;
--
--static __init void bad_srat(void)
--{
--	printk(KERN_ERR "SRAT: SRAT not used.\n");
--	acpi_numa = -1;
--}
--
--static __init inline int srat_disabled(void)
--{
--	return acpi_numa < 0;
--}
--
- /* Callback for Proximity Domain -> x2APIC mapping */
- void __init
- acpi_numa_x2apic_affinity_init(struct acpi_srat_x2apic_cpu_affinity *pa)
-diff --git a/drivers/acpi/numa.c b/drivers/acpi/numa.c
-index 7e0649d..af0c8d5 100644
---- a/drivers/acpi/numa.c
-+++ b/drivers/acpi/numa.c
-@@ -40,6 +40,7 @@ static int node_to_pxm_map[MAX_NUMNODES]
- 			= { [0 ... MAX_NUMNODES - 1] = PXM_INVAL };
+ 	rr_value = (mm->context << 3) | REGION_NUMBER(start);
  
- unsigned char acpi_srat_revision __initdata;
-+int acpi_numa __initdata;
+@@ -270,8 +268,10 @@ sn2_global_tlb_purge(struct mm_struct *mm, unsigned long start,
+ 			data0 = (data0 & ~SH2_PTC_ADDR_MASK) | (start & SH2_PTC_ADDR_MASK);
+ 		deadlock = 0;
+ 		active = 0;
+-		for (ibegin = 0, i = 0; i < nix; i++) {
+-			nasid = nasids[i];
++		ibegin = 0;
++		i = 0;
++		for_each_node_mask(cnode, nodes_flushed) {
++			nasid = cnodeid_to_nasid(cnode);
+ 			if (use_cpu_ptcga && unlikely(nasid = mynasid)) {
+ 				ia64_ptcga(start, nbits << 2);
+ 				ia64_srlz_i();
+@@ -286,13 +286,14 @@ sn2_global_tlb_purge(struct mm_struct *mm, unsigned long start,
+ 				if ((deadlock = wait_piowc())) {
+ 					if (flush_opt = 1)
+ 						goto done;
+-					sn2_ptc_deadlock_recovery(nasids, ibegin, i, mynasid, ptc0, data0, ptc1, data1);
++					sn2_ptc_deadlock_recovery(nodes_flushed, ibegin, i, mynasid, ptc0, data0, ptc1, data1);
+ 					if (reset_max_active_on_deadlock())
+ 						max_active = 1;
+ 				}
+ 				active = 0;
+ 				ibegin = i + 1;
+ 			}
++			i++;
+ 		}
+ 		start += (1UL << nbits);
+ 	} while (start < end);
+@@ -327,11 +328,12 @@ done:
+  */
  
- int pxm_to_node(int pxm)
+ void
+-sn2_ptc_deadlock_recovery(short *nasids, short ib, short ie, int mynasid,
++sn2_ptc_deadlock_recovery(nodemask_t nodes, short ib, short ie, int mynasid,
+ 			  volatile unsigned long *ptc0, unsigned long data0,
+ 			  volatile unsigned long *ptc1, unsigned long data1)
  {
-@@ -197,6 +198,17 @@ static int __init slit_valid(struct acpi_table_slit *slit)
- 	return 1;
+ 	short nasid, i;
++	int cnode;
+ 	unsigned long *piows, zeroval, n;
+ 
+ 	__this_cpu_inc(ptcstats.deadlocks);
+@@ -339,17 +341,26 @@ sn2_ptc_deadlock_recovery(short *nasids, short ib, short ie, int mynasid,
+ 	piows = (unsigned long *) pda->pio_write_status_addr;
+ 	zeroval = pda->pio_write_status_val;
+ 
++	i = 0;
++	for_each_node_mask(cnode, nodes) {
++		if (i < ib)
++			goto next;
++
++		if (i > ie)
++			break;
+ 
+-	for (i=ib; i <= ie; i++) {
+-		nasid = nasids[i];
++		nasid = cnodeid_to_nasid(cnode);
+ 		if (local_node_uses_ptc_ga(is_shub1()) && nasid = mynasid)
+-			continue;
++			goto next;
++
+ 		ptc0 = CHANGE_NASID(nasid, ptc0);
+ 		if (ptc1)
+ 			ptc1 = CHANGE_NASID(nasid, ptc1);
+ 
+ 		n = sn2_ptc_deadlock_recovery_core(ptc0, data0, ptc1, data1, piows, zeroval);
+ 		__this_cpu_add(ptcstats.deadlocks2, n);
++next:
++		i++;
+ 	}
+ 
  }
- 
-+void __init bad_srat(void)
-+{
-+	pr_err("SRAT: SRAT not used.\n");
-+	acpi_numa = -1;
-+}
-+
-+int __init srat_disabled(void)
-+{
-+	return acpi_numa < 0;
-+}
-+
- #if defined(CONFIG_X86) || defined(CONFIG_ARM64)
- /*
-  * Callback for SLIT parsing.  pxm_to_node() returns NUMA_NO_NODE for
-diff --git a/include/acpi/acpi_numa.h b/include/acpi/acpi_numa.h
-index 94a37cd..d4b7294 100644
---- a/include/acpi/acpi_numa.h
-+++ b/include/acpi/acpi_numa.h
-@@ -15,6 +15,10 @@ extern int pxm_to_node(int);
- extern int node_to_pxm(int);
- extern int acpi_map_pxm_to_node(int);
- extern unsigned char acpi_srat_revision;
-+extern int acpi_numa __initdata;
-+
-+extern void bad_srat(void);
-+extern int srat_disabled(void);
- 
- #endif				/* CONFIG_ACPI_NUMA */
- #endif				/* __ACP_NUMA_H */
 -- 
-1.7.11.7
+2.7.3
 
