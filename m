@@ -1,43 +1,40 @@
-From: Andrea Gelmini <andrea.gelmini@gelma.net>
-Date: Sat, 21 May 2016 11:56:59 +0000
-Subject: [PATCH 0158/1529] Fix typo
-Message-Id: <20160521115659.7891-1-andrea.gelmini@gelma.net>
+From: Matt Fleming <matt@codeblueprint.co.uk>
+Date: Wed, 04 May 2016 11:17:49 +0000
+Subject: [PATCH 4/5] ia64/traps: Silence GCC warning about uninitialised variable
+Message-Id: <1462360670-27993-5-git-send-email-matt@codeblueprint.co.uk>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1462360670-27993-1-git-send-email-matt@codeblueprint.co.uk>
+In-Reply-To: <1462360670-27993-1-git-send-email-matt@codeblueprint.co.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: Bjorn Helgaas <helgaas@kernel.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Matt Fleming <matt@codeblueprint.co.uk>
 
-Signed-off-by: Andrea Gelmini <andrea.gelmini@gelma.net>
+  arch/ia64/kernel/traps.c: In function 'ia64_fault':
+  arch/ia64/kernel/traps.c:433:17: warning: 'siginfo.si_code' may be used uninitialized in this function [-Wmaybe-uninitialized]
+    struct siginfo siginfo;
+
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: Bjorn Helgaas <helgaas@kernel.org>
+Signed-off-by: Matt Fleming <matt@codeblueprint.co.uk>
 ---
- arch/ia64/kernel/perfmon.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ arch/ia64/kernel/traps.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
-index 2436ad5..325e0b6 100644
---- a/arch/ia64/kernel/perfmon.c
-+++ b/arch/ia64/kernel/perfmon.c
-@@ -1721,9 +1721,9 @@ pfm_fasync(int fd, struct file *filp, int on)
- 	}
- 	/*
- 	 * we cannot mask interrupts during this call because this may
--	 * may go to sleep if memory is not readily avalaible.
-+	 * may go to sleep if memory is not readily available.
- 	 *
--	 * We are protected from the conetxt disappearing by the get_fd()/put_fd()
-+	 * We are protected from the context disappearing by the get_fd()/put_fd()
- 	 * done in caller. Serialization of this function is ensured by caller.
- 	 */
- 	ret = pfm_do_fasync(fd, filp, ctx, on);
-@@ -5032,7 +5032,7 @@ pfm_handle_work(void)
- 
- 	/*
- 	 * restore interrupt mask to what it was on entry.
--	 * Could be enabled/diasbled.
-+	 * Could be enabled/disabled.
- 	 */
- 	UNPROTECT_CTX(ctx, flags);
- 
+diff --git a/arch/ia64/kernel/traps.c b/arch/ia64/kernel/traps.c
+index 6f7d4a4dcf24..77edd68c5161 100644
+--- a/arch/ia64/kernel/traps.c
++++ b/arch/ia64/kernel/traps.c
+@@ -548,6 +548,7 @@ ia64_fault (unsigned long vector, unsigned long isr, unsigned long ifa,
+ 			return;
+ 		}
+ 		switch (vector) {
++		      default:
+ 		      case 29:
+ 			siginfo.si_code = TRAP_HWBKPT;
+ #ifdef CONFIG_ITANIUM
 -- 
-2.8.2.534.g1f66975
+2.7.3
 
