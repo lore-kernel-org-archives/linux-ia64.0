@@ -1,77 +1,37 @@
-From: Hanjun Guo <hanjun.guo@linaro.org>
-Date: Tue, 31 May 2016 12:28:26 +0000
-Subject: Re: [PATCH v7 07/15] arm64, numa: Cleanup NUMA disabled messages.
-Message-Id: <574D836A.2090905@linaro.org>
+From: Matt Fleming <matt@codeblueprint.co.uk>
+Date: Wed, 04 May 2016 11:17:45 +0000
+Subject: [PATCH 0/5] ia64: Fix compiler warnings
+Message-Id: <1462360670-27993-1-git-send-email-matt@codeblueprint.co.uk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1464129345-18985-1-git-send-email-ddaney.cavm@gmail.com>
- <1464129345-18985-8-git-send-email-ddaney.cavm@gmail.com>
-In-Reply-To: <1464129345-18985-8-git-send-email-ddaney.cavm@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Daney <ddaney.cavm@gmail.com>, Will Deacon <will.deacon@arm.com>, linux-arm-kernel@lists.infradead.org, Mark Rutland <mark.rutland@arm.com>, Catalin Marinas <catalin.marinas@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>, Rob Herring <robh+dt@kernel.org>, Frank Rowand <frowand.list@gmail.com>, Grant Likely <grant.likely@linaro.org>, Robert Moore <robert.moore@intel.com>, Lv Zheng <lv.zheng@intel.com>, Marc Zyngier <Marc.Zyngier@arm.com>, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org
-Cc: linux-kernel@vger.kernel.org, Robert Richter <rrichter@cavium.com>, David Daney <david.daney@cavium.com>
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: Bjorn Helgaas <helgaas@kernel.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Matt Fleming <matt@codeblueprint.co.uk>
 
-On 2016/5/25 6:35, David Daney wrote:
-> From: David Daney <david.daney@cavium.com>
->
-> As noted by Dennis Chen, we don't want to print "No NUMA configuration
-> found" if NUMA was forced off from the command line.
->
-> Change the type of numa_off to bool, and clean up printing code.
-> Print "NUMA disabled" if forced off on command line and "No NUMA
-> configuration found" if there was no firmware NUMA information.
->
-> Signed-off-by: David Daney <david.daney@cavium.com>
-> Acked-by: Catalin Marinas <catalin.marinas@arm.com>
-> ---
->   arch/arm64/mm/numa.c | 11 +++++++----
->   1 file changed, 7 insertions(+), 4 deletions(-)
->
-> diff --git a/arch/arm64/mm/numa.c b/arch/arm64/mm/numa.c
-> index 6cb03f9..1def1de 100644
-> --- a/arch/arm64/mm/numa.c
-> +++ b/arch/arm64/mm/numa.c
-> @@ -29,7 +29,7 @@ static int cpu_to_node_map[NR_CPUS] = { [0 ... NR_CPUS-1] = NUMA_NO_NODE };
->
->   static int numa_distance_cnt;
->   static u8 *numa_distance;
-> -static int numa_off;
-> +static bool numa_off;
->
->   static __init int numa_parse_early_param(char *opt)
->   {
-> @@ -37,7 +37,7 @@ static __init int numa_parse_early_param(char *opt)
->   		return -EINVAL;
->   	if (!strncmp(opt, "off", 3)) {
->   		pr_info("%s\n", "NUMA turned off");
-> -		numa_off = 1;
-> +		numa_off = true;
->   	}
->   	return 0;
->   }
-> @@ -362,7 +362,10 @@ static int __init dummy_numa_init(void)
->   	int ret;
->   	struct memblock_region *mblk;
->
-> -	pr_info("%s\n", "No NUMA configuration found");
-> +	if (numa_off)
-> +		pr_info("NUMA disabled\n"); /* Forced off on command line. */
-> +	else
-> +		pr_info("No NUMA configuration found\n");
->   	pr_info("NUMA: Faking a node at [mem %#018Lx-%#018Lx]\n",
->   	       0LLU, PFN_PHYS(max_pfn) - 1);
->
-> @@ -375,7 +378,7 @@ static int __init dummy_numa_init(void)
->   		return ret;
->   	}
->
-> -	numa_off = 1;
-> +	numa_off = true;
->   	return 0;
->   }
+I routinely build ia64 kernels when merging EFI patches and for a
+while now I've seen a bunch of warnings from GCC.
 
-Reviewed-by: Hanjun Guo <hanjun.guo@linaro.org>
+These patches silence those warnings, with the first patch fixing an
+actual bug but the rest just making GCC happier.
 
->
->
+NOTE: None of these patches have been runtime tested.
+
+Matt Fleming (5):
+  ia64/PCI: Fix incorrect PCI resource end address
+  ia64/PCI: Remove unused 'addr' and fix build warning
+  ia64: Reduce stack usage by iterating over nodemask
+  ia64/traps: Silence GCC warning about uninitialised variable
+  ia64/unaligned: Silence another GCC warning about an uninitialised
+    variable
+
+ arch/ia64/kernel/traps.c           |  1 +
+ arch/ia64/kernel/unaligned.c       |  1 +
+ arch/ia64/sn/kernel/io_acpi_init.c |  1 -
+ arch/ia64/sn/kernel/io_init.c      |  4 ++--
+ arch/ia64/sn/kernel/sn2/sn2_smp.c  | 35 +++++++++++++++++++++++------------
+ 5 files changed, 27 insertions(+), 15 deletions(-)
+
+-- 
+2.7.3
+
