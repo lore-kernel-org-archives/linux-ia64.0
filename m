@@ -1,31 +1,66 @@
-From: Andrea Gelmini <andrea.gelmini@gelma.net>
-Date: Sat, 21 May 2016 11:57:07 +0000
-Subject: [PATCH 0159/1529] Fix typo
-Message-Id: <20160521115707.7981-1-andrea.gelmini@gelma.net>
+From: zengzhaoxiu@163.com
+Date: Wed, 11 May 2016 09:10:26 +0000
+Subject: [patch V4 05/31] bitops: Add ia-specific parity functions
+Message-Id: <1462957827-24492-1-git-send-email-zengzhaoxiu@163.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1462955158-28394-1-git-send-email-zengzhaoxiu@163.com>
+In-Reply-To: <1462955158-28394-1-git-send-email-zengzhaoxiu@163.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: Zhaoxiu Zeng <zhaoxiu.zeng@gmail.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-Signed-off-by: Andrea Gelmini <andrea.gelmini@gelma.net>
+From: Zhaoxiu Zeng <zhaoxiu.zeng@gmail.com>
+
+Signed-off-by: Zhaoxiu Zeng <zhaoxiu.zeng@gmail.com>
 ---
- arch/ia64/kernel/ptrace.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ arch/ia64/include/asm/bitops.h | 31 +++++++++++++++++++++++++++++++
+ 1 file changed, 31 insertions(+)
 
-diff --git a/arch/ia64/kernel/ptrace.c b/arch/ia64/kernel/ptrace.c
-index 6f54d51..cd11ccf 100644
---- a/arch/ia64/kernel/ptrace.c
-+++ b/arch/ia64/kernel/ptrace.c
-@@ -753,7 +753,7 @@ convert_to_non_syscall (struct task_struct *child, struct pt_regs  *pt,
+diff --git a/arch/ia64/include/asm/bitops.h b/arch/ia64/include/asm/bitops.h
+index 71e8145..041d1d6 100644
+--- a/arch/ia64/include/asm/bitops.h
++++ b/arch/ia64/include/asm/bitops.h
+@@ -439,6 +439,37 @@ static __inline__ unsigned long __arch_hweight64(unsigned long x)
  
- 	/*
- 	 * Note: at the time of this call, the target task is blocked
--	 * in notify_resume_user() and by clearling PRED_LEAVE_SYSCALL
-+	 * in notify_resume_user() and by clearing PRED_LEAVE_SYSCALL
- 	 * (aka, "pLvSys") we redirect execution from
- 	 * .work_pending_syscall_end to .work_processed_kernel.
- 	 */
+ #include <asm-generic/bitops/const_hweight.h>
+ 
++/*
++ * parityN: returns the parity of a N-bit word,
++ * i.e. the number of 1-bits in x modulo 2.
++ */
++static __inline__ unsigned int __arch_parity64(unsigned long x)
++{
++	return (unsigned int)ia64_popcnt(x) & 1;
++}
++
++static __inline__ unsigned int __arch_parity32(unsigned int x)
++{
++	return __arch_parity64((unsigned long)x << 32);
++}
++
++static __inline__ unsigned int __arch_parity16(unsigned int x)
++{
++	return __arch_parity64((unsigned long)x << 48);
++}
++
++static __inline__ unsigned int __arch_parity8(unsigned int x)
++{
++	return __arch_parity64((unsigned long)x << 56);
++}
++
++static __inline__ unsigned int __arch_parity4(unsigned int x)
++{
++	return __arch_parity64((unsigned long)x << 60);
++}
++
++#include <asm-generic/bitops/const_parity.h>
++
+ #endif /* __KERNEL__ */
+ 
+ #include <asm-generic/bitops/find.h>
 -- 
-2.8.2.534.g1f66975
+2.7.4
+
 
