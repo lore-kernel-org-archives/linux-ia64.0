@@ -1,105 +1,206 @@
-From: "Rafael J. Wysocki" <rafael@kernel.org>
-Date: Thu, 12 May 2016 12:54:35 +0000
-Subject: Re: [PATCH v6 00/14] ACPI NUMA support for ARM64
-Message-Id: <CAJZ5v0iVf-+ngd-qDUk8Acf7mGrq0f8j2d_QtfxQxuBH_93t3w@mail.gmail.com>
+From: Sudeep Holla <sudeep.holla@arm.com>
+Date: Wed, 11 May 2016 15:37:38 +0000
+Subject: [PATCH v5 1/5] ACPI / processor_idle: introduce ACPI_PROCESSOR_CSTATE
+Message-Id: <1462981062-24909-2-git-send-email-sudeep.holla@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1461780436-27182-1-git-send-email-ddaney.cavm@gmail.com>
-	<CAJZ5v0iMDQ4pWip4vyCos0o+1DFDvXQf4XZQqC4SGjJsDO4Lnw@mail.gmail.com>
-	<20160511104032.GA31374@arm.com>
-	<CAJZ5v0gQMR7OUyZo5Sa3bgMYZBzdnwFaktz9JCv1ocWXw7yHTg@mail.gmail.com>
-	<57339F39.3040603@caviumnetworks.com>
-	<CAJZ5v0h8zBEZ2nLLdk62r7uqHizUfVWamUVEriBGe1XBE6462Q@mail.gmail.com>
-	<5733A47B.8030908@caviumnetworks.com>
-	<CAJZ5v0gBTANFntBSkyaRtt-BKOMC+pz_R9CwM6wKnp=Ni1dPFA@mail.gmail.com>
-	<20160512085616.GA25355@arm.com>
-In-Reply-To: <20160512085616.GA25355@arm.com>
+References: <1462981062-24909-1-git-send-email-sudeep.holla@arm.com>
+In-Reply-To: <1462981062-24909-1-git-send-email-sudeep.holla@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Will Deacon <will.deacon@arm.com>
-Cc: "Rafael J. Wysocki" <rafael@kernel.org>, David Daney <ddaney@caviumnetworks.com>, David Daney <ddaney.cavm@gmail.com>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, Mark Rutland <mark.rutland@arm.com>, Catalin Marinas <catalin.marinas@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, the arch/x86 maintainers <x86@kernel.org>, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>, Rob Herring <robh+dt@kernel.org>, Frank Rowand <frowand.list@gmail.com>, Grant Likely <grant.likely@linaro.org>, Robert Moore <robert.moore@intel.com>, Lv Zheng <lv.zheng@intel.com>, Hanjun Guo <hanjun.guo@linaro.org>, Marc Zyngier <Marc.Zyngier@arm.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.>
+To: linux-acpi@vger.kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>
+Cc: Sudeep Holla <sudeep.holla@arm.com>, linux-kernel@vger.kernel.org, Vikas Sajjan <vikas.cha.sajjan@hpe.com>, Sunil <sunil.vl@hpe.com>, Prashanth Prakash <pprakash@codeaurora.org>, Ashwin Chaugule <ashwin.chaugule@linaro.org>, Al Stone <al.stone@linaro.org>, Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>, x86@kernel.org, linux-ia64@vger.kernel.org
 
-On Thu, May 12, 2016 at 10:56 AM, Will Deacon <will.deacon@arm.com> wrote:
-> On Thu, May 12, 2016 at 12:29:02AM +0200, Rafael J. Wysocki wrote:
->> On Wed, May 11, 2016 at 11:30 PM, David Daney <ddaney@caviumnetworks.com> wrote:
->> > On 05/11/2016 02:22 PM, Rafael J. Wysocki wrote:
->> >> On Wed, May 11, 2016 at 11:08 PM, David Daney <ddaney@caviumnetworks.com>
->> >> wrote:
->> >>> On 05/11/2016 01:35 PM, Rafael J. Wysocki wrote:
->> >>>> On Wed, May 11, 2016 at 12:40 PM, Will Deacon <will.deacon@arm.com>
->> >>>> wrote:
->> >>>>> On Wed, May 11, 2016 at 02:43:11AM +0200, Rafael J. Wysocki wrote:
->> >>>>> There's also a dependency on the arm64 for-next/core branch, so I've
->> >>>>> been
->> >>>>> largely ignoring this as far as 4.6 is concerned and was planning to
->> >>>>> take
->> >>>>> a proper look for 4.7 once the upcoming merge window is out of the way.
->> >>>>
->> >>>>
->> >>>>
->> >>>> That would be 4.7 and 4.8 respectively I suppose?
->
-> Argh, yes, of course! :)
->
->> >>>>
->> >>>> Anyway, Catalin has ACKed all of them except for the [13/14], so
->> >>>> technically I can apply [1-12/14] now and then [13-14/14] can be
->> >>>> applied when they are ready.
->> >>>>
->> >>>> Do you think there will be any problems with merging [6-7/14] into 4.7
->> >>>> via the ACPI tree?
->> >>>>
->> >>>
->> >>> I would defer to the arm64 maintainers for decisions about the arm64
->> >>> specific parts of the patch set.  That said, many of the arm64 specific
->> >>> patches depend on the arm64 for-next/core branch, so you would have to be
->> >>> careful about merge ordering if you pull these in before the
->> >>> for-next/core
->> >>> branch is merged.
->> >>
->> >>
->> >> Fair enough.  I will wait for an update then.
->> >>
->> >>> Also FWIW, I plan on addressing Catalin's comments about 13/14 and
->> >>> posting a
->> >>> new version of the patch set in the next day or two.
->> >>
->> >>
->> >> OK, but in that case it won't be considered for 4.7 (at least not by
->> >> me), so I'd suggest sending it in the second half of the 4.7 merge
->> >> window (or about that time).
->> >
->> >
->> > To be candid, I would very much like for you to pull in as many of the
->> > patches as you are comfortable with as soon as possible.
->> >
->> > I don't know where Will and Catalin stand on this, and their opinion is
->> > obviously important, but getting 1-12/14 merged to v4.7 and deferring the
->> > last two for v4.8 would simplify the whole process for me.  The drawback is
->> > carrying dead code around until the final parts are merged.
->>
->> That is not unheard of, however.
->>
->> OK, I'll try to put the [1-12/14] into my linux-next branch early next
->> week and we'll see if that triggers any conflicts.
->
-> I'd really much rather this waited until after the merge window.
+ACPI 6.0 adds a new method to specify the CPU idle states(C-states)
+called Low Power Idle(LPI) states. Since new architectures like ARM64
+use only LPIs, introduce ACPI_PROCESSOR_CSTATE to encapsulate all the
+code supporting the old style C-states(_CST).
 
-That's fine by me, so I guess my previous request for the next version
-to be sent by the end of the merge window applies. :-)
+This patch will help to extend the processor_idle module to support
+LPI.
 
-> My understanding is that it's bad practice to put stuff into -next during the
-> merge window,
+Cc: x86@kernel.org
+Cc: linux-ia64@vger.kernel.org
+Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>
+Signed-off-by: Sudeep Holla <sudeep.holla@arm.com>
+---
+ arch/ia64/Kconfig             |  1 +
+ arch/x86/Kconfig              |  1 +
+ drivers/acpi/Kconfig          |  4 +++
+ drivers/acpi/processor_idle.c | 80 ++++++++++++++++++++++++++++---------------
+ include/acpi/processor.h      |  2 +-
+ 5 files changed, 60 insertions(+), 28 deletions(-)
 
-Unless you want to push that stuff to Linus during the merge window in
-progress, that is.
+diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+index b534ebab36ea..e820670d7243 100644
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -15,6 +15,7 @@ config IA64
+ 	select ARCH_MIGHT_HAVE_PC_SERIO
+ 	select PCI if (!IA64_HP_SIM)
+ 	select ACPI if (!IA64_HP_SIM)
++	select ACPI_PROCESSOR_CSTATE if ACPI
+ 	select ACPI_SYSTEM_POWER_STATES_SUPPORT if ACPI
+ 	select ARCH_MIGHT_HAVE_ACPI_PDC if ACPI
+ 	select HAVE_UNSTABLE_SCHED_CLOCK
+diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
+index 2dc18605831f..cb3e14757c9c 100644
+--- a/arch/x86/Kconfig
++++ b/arch/x86/Kconfig
+@@ -18,6 +18,7 @@ config X86_64
+ config X86
+ 	def_bool y
+ 	select ACPI_LEGACY_TABLES_LOOKUP	if ACPI
++	select ACPI_PROCESSOR_CSTATE		if ACPI
+ 	select ACPI_SYSTEM_POWER_STATES_SUPPORT	if ACPI
+ 	select ANON_INODES
+ 	select ARCH_CLOCKSOURCE_DATA
+diff --git a/drivers/acpi/Kconfig b/drivers/acpi/Kconfig
+index b7e2e776397d..093bfcc4f9c3 100644
+--- a/drivers/acpi/Kconfig
++++ b/drivers/acpi/Kconfig
+@@ -213,6 +213,10 @@ config ACPI_CPU_FREQ_PSS
+ 	bool
+ 	select THERMAL
+ 
++config ACPI_PROCESSOR_CSTATE
++	bool
++	depends on IA64 || X86
++
+ config ACPI_PROCESSOR_IDLE
+ 	bool
+ 	select CPU_IDLE
+diff --git a/drivers/acpi/processor_idle.c b/drivers/acpi/processor_idle.c
+index 444e3745c8b3..ca0de35d1c3a 100644
+--- a/drivers/acpi/processor_idle.c
++++ b/drivers/acpi/processor_idle.c
+@@ -59,6 +59,12 @@ module_param(latency_factor, uint, 0644);
+ 
+ static DEFINE_PER_CPU(struct cpuidle_device *, acpi_cpuidle_device);
+ 
++struct cpuidle_driver acpi_idle_driver = {
++	.name =		"acpi_idle",
++	.owner =	THIS_MODULE,
++};
++
++#ifdef CONFIG_ACPI_PROCESSOR_CSTATE
+ static
+ DEFINE_PER_CPU(struct acpi_processor_cx * [CPUIDLE_STATE_MAX], acpi_cstate);
+ 
+@@ -804,11 +810,6 @@ static void acpi_idle_enter_freeze(struct cpuidle_device *dev,
+ 	acpi_idle_do_entry(cx);
+ }
+ 
+-struct cpuidle_driver acpi_idle_driver = {
+-	.name =		"acpi_idle",
+-	.owner =	THIS_MODULE,
+-};
+-
+ /**
+  * acpi_processor_setup_cpuidle_cx - prepares and configures CPUIDLE
+  * device i.e. per-cpu data
+@@ -925,6 +926,50 @@ static int acpi_processor_setup_cpuidle_states(struct acpi_processor *pr)
+ 	return 0;
+ }
+ 
++static inline void acpi_processor_cstate_first_run_checks(void)
++{
++	acpi_status status;
++	static int first_run;
++
++	if (first_run)
++		return;
++	dmi_check_system(processor_power_dmi_table);
++	max_cstate = acpi_processor_cstate_check(max_cstate);
++	if (max_cstate < ACPI_C_STATES_MAX)
++		pr_notice("ACPI: processor limited to max C-state %d\n",
++			  max_cstate);
++	first_run++;
++
++	if (acpi_gbl_FADT.cst_control && !nocst) {
++		status = acpi_os_write_port(acpi_gbl_FADT.smi_command,
++					    acpi_gbl_FADT.cst_control, 8);
++		if (ACPI_FAILURE(status))
++			ACPI_EXCEPTION((AE_INFO, status,
++					"Notifying BIOS of _CST ability failed"));
++	}
++}
++#else
++
++static inline int disabled_by_idle_boot_param(void) { return 0; }
++static inline void acpi_processor_cstate_first_run_checks(void) { }
++static int acpi_processor_get_power_info(struct acpi_processor *pr)
++{
++	return -ENODEV;
++}
++
++static int acpi_processor_setup_cpuidle_cx(struct acpi_processor *pr,
++					   struct cpuidle_device *dev)
++{
++	return -EINVAL;
++}
++
++static int acpi_processor_setup_cpuidle_states(struct acpi_processor *pr)
++{
++	return -EINVAL;
++}
++
++#endif /* CONFIG_ACPI_PROCESSOR_CSTATE */
++
+ int acpi_processor_hotplug(struct acpi_processor *pr)
+ {
+ 	int ret = 0;
+@@ -1015,35 +1060,16 @@ static int acpi_processor_registered;
+ 
+ int acpi_processor_power_init(struct acpi_processor *pr)
+ {
+-	acpi_status status;
+ 	int retval;
+ 	struct cpuidle_device *dev;
+-	static int first_run;
+ 
+ 	if (disabled_by_idle_boot_param())
+ 		return 0;
+ 
+-	if (!first_run) {
+-		dmi_check_system(processor_power_dmi_table);
+-		max_cstate = acpi_processor_cstate_check(max_cstate);
+-		if (max_cstate < ACPI_C_STATES_MAX)
+-			printk(KERN_NOTICE
+-			       "ACPI: processor limited to max C-state %d\n",
+-			       max_cstate);
+-		first_run++;
+-	}
++	acpi_processor_cstate_first_run_checks();
+ 
+-	if (acpi_gbl_FADT.cst_control && !nocst) {
+-		status -		    acpi_os_write_port(acpi_gbl_FADT.smi_command, acpi_gbl_FADT.cst_control, 8);
+-		if (ACPI_FAILURE(status)) {
+-			ACPI_EXCEPTION((AE_INFO, status,
+-					"Notifying BIOS of _CST ability failed"));
+-		}
+-	}
+-
+-	acpi_processor_get_power_info(pr);
+-	pr->flags.power_setup_done = 1;
++	if (!acpi_processor_get_power_info(pr))
++		pr->flags.power_setup_done = 1;
+ 
+ 	/*
+ 	 * Install the idle handler if processor power management is supported.
+diff --git a/include/acpi/processor.h b/include/acpi/processor.h
+index 6f1805dd5d3c..48779d678122 100644
+--- a/include/acpi/processor.h
++++ b/include/acpi/processor.h
+@@ -242,7 +242,7 @@ extern int acpi_processor_get_performance_info(struct acpi_processor *pr);
+ DECLARE_PER_CPU(struct acpi_processor *, processors);
+ extern struct acpi_processor_errata errata;
+ 
+-#ifdef ARCH_HAS_POWER_INIT
++#if defined(ARCH_HAS_POWER_INIT) && defined(CONFIG_ACPI_PROCESSOR_CSTATE)
+ void acpi_processor_power_init_bm_check(struct acpi_processor_flags *flags,
+ 					unsigned int cpu);
+ int acpi_processor_ffh_cstate_probe(unsigned int cpu,
+-- 
+1.9.1
 
-> and you'd end up having to send a pull based on a random
-> commit (the arm64 pull request?) in the second half. On top of that, this
-> series would get very little exposure in -next during that time.
->
-> On the other hand, putting this into linux-next after the merge window
-> gives us time for testing, allows David to rework patch 13 (which is aiming
-> for 4.8 anyway iiuc) and avoids merge window churn.
-
-OK
