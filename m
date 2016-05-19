@@ -1,45 +1,43 @@
-From: Matt Fleming <matt@codeblueprint.co.uk>
-Date: Wed, 04 May 2016 11:17:47 +0000
-Subject: [PATCH 2/5] ia64/PCI: Remove unused 'addr' and fix build warning
-Message-Id: <1462360670-27993-3-git-send-email-matt@codeblueprint.co.uk>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Thu, 19 May 2016 19:00:19 +0000
+Subject: [GIT PULL] ia64 bits for 4.7
+Message-Id: <573e0d431594818d2e@agluck-desk.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1462360670-27993-1-git-send-email-matt@codeblueprint.co.uk>
-In-Reply-To: <1462360670-27993-1-git-send-email-matt@codeblueprint.co.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
-Cc: Bjorn Helgaas <helgaas@kernel.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Matt Fleming <matt@codeblueprint.co.uk>
+To: linux-ia64@vger.kernel.org
 
-Ever since commit 240504adaf07 ("ia64/PCI: Keep CPU physical (not
-virtual) addresses in shadow ROM resource") 'addr' has been unused,
-resulting in the following compiler warning,
+The following changes since commit 04974df8049fc4240d22759a91e035082ccd18b4:
 
-  arch/ia64/sn/kernel/io_acpi_init.c: In function 'sn_acpi_slot_fixup':
-  arch/ia64/sn/kernel/io_acpi_init.c:429:16: warning: unused variable 'addr' [-Wunused-variable]
-    void __iomem *addr;
-                ^
+  Linux 4.6-rc6 (2016-05-01 15:52:31 -0700)
 
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: Bjorn Helgaas <helgaas@kernel.org>
-Signed-off-by: Matt Fleming <matt@codeblueprint.co.uk>
----
- arch/ia64/sn/kernel/io_acpi_init.c | 1 -
- 1 file changed, 1 deletion(-)
+are available in the git repository at:
 
-diff --git a/arch/ia64/sn/kernel/io_acpi_init.c b/arch/ia64/sn/kernel/io_acpi_init.c
-index 231234c8d113..c31fe637b0b4 100644
---- a/arch/ia64/sn/kernel/io_acpi_init.c
-+++ b/arch/ia64/sn/kernel/io_acpi_init.c
-@@ -426,7 +426,6 @@ sn_acpi_get_pcidev_info(struct pci_dev *dev, struct pcidev_info **pcidev_info,
- void
- sn_acpi_slot_fixup(struct pci_dev *dev)
- {
--	void __iomem *addr;
- 	struct pcidev_info *pcidev_info = NULL;
- 	struct sn_irq_info *sn_irq_info = NULL;
- 	struct resource *res;
--- 
-2.7.3
+  git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git tags/please-pull-misc-4.7
 
+for you to fetch changes up to 787ca32dc704bde981760de01a3a7e6ce9835fdb:
+
+  ia64/unaligned: Silence another GCC warning about an uninitialised variable (2016-05-05 10:29:14 -0700)
+
+----------------------------------------------------------------
+A bunch of cleanups from Matt and some dead code removal from Anna-Maria
+
+----------------------------------------------------------------
+Anna-Maria Gleixner (1):
+      ia64: Remove superfluous SMP function call
+
+Matt Fleming (5):
+      ia64/PCI: Fix incorrect PCI resource end address
+      ia64/PCI: Remove unused 'addr' and fix build warning
+      ia64: Reduce stack usage by iterating over nodemask
+      ia64/traps: Silence GCC warning about uninitialised variable
+      ia64/unaligned: Silence another GCC warning about an uninitialised variable
+
+ arch/ia64/kernel/mca.c             |  5 +----
+ arch/ia64/kernel/traps.c           |  1 +
+ arch/ia64/kernel/unaligned.c       |  1 +
+ arch/ia64/sn/kernel/io_acpi_init.c |  1 -
+ arch/ia64/sn/kernel/io_init.c      |  4 ++--
+ arch/ia64/sn/kernel/sn2/sn2_smp.c  | 35 +++++++++++++++++++++++------------
+ 6 files changed, 28 insertions(+), 19 deletions(-)
