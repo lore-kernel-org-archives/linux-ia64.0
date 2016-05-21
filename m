@@ -1,111 +1,31 @@
-From: David Daney <ddaney.cavm@gmail.com>
-Date: Tue, 24 May 2016 22:35:35 +0000
-Subject: [PATCH v7 05/15] acpi, numa: move acpi_numa_slit_init() to drivers/acpi/numa.c
-Message-Id: <1464129345-18985-6-git-send-email-ddaney.cavm@gmail.com>
+From: Andrea Gelmini <andrea.gelmini@gelma.net>
+Date: Sat, 21 May 2016 11:55:58 +0000
+Subject: [PATCH 0150/1529] Fix typo
+Message-Id: <20160521115558.7319-1-andrea.gelmini@gelma.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1464129345-18985-1-git-send-email-ddaney.cavm@gmail.com>
-In-Reply-To: <1464129345-18985-1-git-send-email-ddaney.cavm@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Will Deacon <will.deacon@arm.com>, linux-arm-kernel@lists.infradead.org, Mark Rutland <mark.rutland@arm.com>, Catalin Marinas <catalin.marinas@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>, Rob Herring <robh+dt@kernel.org>, Frank Rowand <frowand.list@gmail.com>, Grant Likely <grant.likely@linaro.org>, Robert Moore <robert.moore@intel.com>, Lv Zheng <lv.zheng@intel.com>, Hanjun Guo <hanjun.guo@linaro.org>, Marc Zyngier <Marc.Zyngier@arm.com>, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org
-Cc: Robert Richter <rrichter@cavium.com>, linux-kernel@vger.kernel.org, David Daney <david.daney@cavium.com>
+To: linux-ia64@vger.kernel.org
 
-From: Hanjun Guo <hanjun.guo@linaro.org>
-
-Identical implementations of acpi_numa_slit_init() are used by both
-x86 and follow-on arm64 support.  Move it to drivers/acpi/numa.c, and
-guard with CONFIG_X86 || CONFIG_ARM64 because ia64 has its own
-architecture specific implementation.
-
-No code change.
-
-Signed-off-by: Hanjun Guo <hanjun.guo@linaro.org>
-Signed-off-by: Robert Richter <rrichter@cavium.com>
-Signed-off-by: David Daney <david.daney@cavium.com>
+Signed-off-by: Andrea Gelmini <andrea.gelmini@gelma.net>
 ---
- arch/x86/mm/srat.c  | 27 ---------------------------
- drivers/acpi/numa.c | 29 +++++++++++++++++++++++++++++
- 2 files changed, 29 insertions(+), 27 deletions(-)
+ arch/ia64/include/asm/mmu_context.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/x86/mm/srat.c b/arch/x86/mm/srat.c
-index 90b6ed9..f242a11 100644
---- a/arch/x86/mm/srat.c
-+++ b/arch/x86/mm/srat.c
-@@ -42,33 +42,6 @@ static __init inline int srat_disabled(void)
- 	return acpi_numa < 0;
- }
+diff --git a/arch/ia64/include/asm/mmu_context.h b/arch/ia64/include/asm/mmu_context.h
+index 7f2a456..f509ab9 100644
+--- a/arch/ia64/include/asm/mmu_context.h
++++ b/arch/ia64/include/asm/mmu_context.h
+@@ -12,7 +12,7 @@
+  * due to context switches.  Context numbers are implemented using ia-64
+  * region ids.  Since the IA-64 TLB does not consider the region number when
+  * performing a TLB lookup, we need to assign a unique region id to each
+- * region in a process.  We use the least significant three bits in aregion
++ * region in a process.  We use the least significant three bits in a region
+  * id for this purpose.
+  */
  
--/*
-- * Callback for SLIT parsing.  pxm_to_node() returns NUMA_NO_NODE for
-- * I/O localities since SRAT does not list them.  I/O localities are
-- * not supported at this point.
-- */
--void __init acpi_numa_slit_init(struct acpi_table_slit *slit)
--{
--	int i, j;
--
--	for (i = 0; i < slit->locality_count; i++) {
--		const int from_node = pxm_to_node(i);
--
--		if (from_node = NUMA_NO_NODE)
--			continue;
--
--		for (j = 0; j < slit->locality_count; j++) {
--			const int to_node = pxm_to_node(j);
--
--			if (to_node = NUMA_NO_NODE)
--				continue;
--
--			numa_set_distance(from_node, to_node,
--				slit->entry[slit->locality_count * i + j]);
--		}
--	}
--}
--
- /* Callback for Proximity Domain -> x2APIC mapping */
- void __init
- acpi_numa_x2apic_affinity_init(struct acpi_srat_x2apic_cpu_affinity *pa)
-diff --git a/drivers/acpi/numa.c b/drivers/acpi/numa.c
-index fb2c0d6..7e0649d 100644
---- a/drivers/acpi/numa.c
-+++ b/drivers/acpi/numa.c
-@@ -197,6 +197,35 @@ static int __init slit_valid(struct acpi_table_slit *slit)
- 	return 1;
- }
- 
-+#if defined(CONFIG_X86) || defined(CONFIG_ARM64)
-+/*
-+ * Callback for SLIT parsing.  pxm_to_node() returns NUMA_NO_NODE for
-+ * I/O localities since SRAT does not list them.  I/O localities are
-+ * not supported at this point.
-+ */
-+void __init acpi_numa_slit_init(struct acpi_table_slit *slit)
-+{
-+	int i, j;
-+
-+	for (i = 0; i < slit->locality_count; i++) {
-+		const int from_node = pxm_to_node(i);
-+
-+		if (from_node = NUMA_NO_NODE)
-+			continue;
-+
-+		for (j = 0; j < slit->locality_count; j++) {
-+			const int to_node = pxm_to_node(j);
-+
-+			if (to_node = NUMA_NO_NODE)
-+				continue;
-+
-+			numa_set_distance(from_node, to_node,
-+				slit->entry[slit->locality_count * i + j]);
-+		}
-+	}
-+}
-+#endif /* defined(CONFIG_X86) || defined (CONFIG_ARM64) */
-+
- static int __init acpi_parse_slit(struct acpi_table_header *table)
- {
- 	struct acpi_table_slit *slit = (struct acpi_table_slit *)table;
 -- 
-1.7.11.7
+2.8.2.534.g1f66975
 
