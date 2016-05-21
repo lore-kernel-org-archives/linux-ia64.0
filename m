@@ -1,26 +1,31 @@
-From: Catalin Marinas <catalin.marinas@arm.com>
-Date: Wed, 11 May 2016 09:12:08 +0000
-Subject: Re: [PATCH v6 06/14] arm64, numa: rework numa_add_memblk()
-Message-Id: <20160511091207.GA3051@e104818-lin.cambridge.arm.com>
+From: Andrea Gelmini <andrea.gelmini@gelma.net>
+Date: Sat, 21 May 2016 11:56:13 +0000
+Subject: [PATCH 0152/1529] Fix typo
+Message-Id: <20160521115613.7423-1-andrea.gelmini@gelma.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1461780436-27182-1-git-send-email-ddaney.cavm@gmail.com>
- <1461780436-27182-7-git-send-email-ddaney.cavm@gmail.com>
-In-Reply-To: <1461780436-27182-7-git-send-email-ddaney.cavm@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Daney <ddaney.cavm@gmail.com>
-Cc: Will Deacon <will.deacon@arm.com>, linux-arm-kernel@lists.infradead.org, Mark Rutland <mark.rutland@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>, Rob Herring <robh+dt@kernel.org>, Frank Rowand <frowand.list@gmail.com>, Grant Likely <grant.likely@linaro.org>, Robert Moore <robert.moore@intel.com>, Lv Zheng <lv.zheng@intel.com>, Hanjun Guo <hanjun.guo@linaro.org>, Marc Zyngier <Marc.Zyngier@arm.com>, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org, Robert Richter <rrichter@cavium.com>, linux-kernel@vger.kernel.org, David Daney <david.daney@cavium.com>
+To: linux-ia64@vger.kernel.org
 
-On Wed, Apr 27, 2016 at 11:07:08AM -0700, David Daney wrote:
-> From: Hanjun Guo <hanjun.guo@linaro.org>
-> 
-> Rework numa_add_memblk() to update the parameter "u64 size" to "u64
-> end", this will make it consistent with x86 and simplifies the arm64
-> ACPI NUMA code to be added later.
-> 
-> Signed-off-by: Hanjun Guo <hanjun.guo@linaro.org>
-> Signed-off-by: Robert Richter <rrichter@cavium.com>
-> Signed-off-by: David Daney <david.daney@cavium.com>
+Signed-off-by: Andrea Gelmini <andrea.gelmini@gelma.net>
+---
+ arch/ia64/include/asm/native/inst.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Acked-by: Catalin Marinas <catalin.marinas@arm.com>
+diff --git a/arch/ia64/include/asm/native/inst.h b/arch/ia64/include/asm/native/inst.h
+index 7e08f17..ad4ce34 100644
+--- a/arch/ia64/include/asm/native/inst.h
++++ b/arch/ia64/include/asm/native/inst.h
+@@ -89,7 +89,7 @@
+ #define SSM_PSR_IC_AND_DEFAULT_BITS_AND_SRLZ_I(clob0, clob1)		\
+ 	ssm psr.ic | PSR_DEFAULT_BITS					\
+ 	;;								\
+-	srlz.i /* guarantee that interruption collectin is on */	\
++	srlz.i /* guarantee that interruption collection is on */	\
+ 	;;
+ 
+ #define SSM_PSR_IC_AND_SRLZ_D(clob0, clob1)	\
+-- 
+2.8.2.534.g1f66975
+
