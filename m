@@ -1,76 +1,100 @@
-From: David Daney <ddaney@caviumnetworks.com>
-Date: Thu, 12 May 2016 20:40:24 +0000
-Subject: Re: [PATCH v6 13/14] arm64, acpi, numa: NUMA support based on SRAT and SLIT
-Message-Id: <5734EA38.2040206@caviumnetworks.com>
+From: David Daney <ddaney.cavm@gmail.com>
+Date: Tue, 24 May 2016 22:35:43 +0000
+Subject: [PATCH v7 13/15] ACPI / processor: Add acpi_map_madt_entry().
+Message-Id: <1464129345-18985-14-git-send-email-ddaney.cavm@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1461780436-27182-1-git-send-email-ddaney.cavm@gmail.com> <1461780436-27182-14-git-send-email-ddaney.cavm@gmail.com> <20160511103929.GC3051@e104818-lin.cambridge.arm.com> <5733C8F5.6090206@caviumnetworks.com> <20160512094915.GD11226@e104818-lin.cambridge.arm.com> <5734A0CC.8010600@caviumnetworks.com> <20160512162449.GK11226@e104818-lin.cambridge.arm.com>
-In-Reply-To: <20160512162449.GK11226@e104818-lin.cambridge.arm.com>
+References: <1464129345-18985-1-git-send-email-ddaney.cavm@gmail.com>
+In-Reply-To: <1464129345-18985-1-git-send-email-ddaney.cavm@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Catalin Marinas <catalin.marinas@arm.com>
-Cc: "Rafael J. Wysocki" <rjw@rjwysocki.net>, Will Deacon <will.deacon@arm.com>, Mark Rutland <mark.rutland@arm.com>, linux-ia64@vger.kernel.org, David Daney <david.daney@cavium.com>, Robert Moore <robert.moore@intel.com>, Lv Zheng <lv.zheng@intel.com>, "H. Peter Anvin" <hpa@zytor.com>, Frank Rowand <frowand.list@gmail.com>, x86@kernel.org, linux-acpi@vger.kernel.org, Ingo Molnar <mingo@redhat.com>, Grant Likely <grant.likely@linaro.org>, Len Brown <lenb@kernel.org>, Fenghua Yu <fenghua.yu@intel.com>, Marc Zyngier <Marc.Zyngier@arm.com>, Jon Masters <jcm@redhat.com>, Robert Richter <rrichter@cavium.com>, Rob Herring <robh+dt@kernel.org>, Thomas Gleixner <tglx@linutronix.de>, linux-arm-kernel@lists.infradead.org, devel@acpica.org, Tony Luck <tony.luck@intel.com>, linux-kernel@vger.kernel.org, Hanjun Guo <hanjun.guo@linaro.org>, Ganapatrao Kulkarni <>
+To: Will Deacon <will.deacon@arm.com>, linux-arm-kernel@lists.infradead.org, Mark Rutland <mark.rutland@arm.com>, Catalin Marinas <catalin.marinas@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>, Rob Herring <robh+dt@kernel.org>, Frank Rowand <frowand.list@gmail.com>, Grant Likely <grant.likely@linaro.org>, Robert Moore <robert.moore@intel.com>, Lv Zheng <lv.zheng@intel.com>, Hanjun Guo <hanjun.guo@linaro.org>, Marc Zyngier <Marc.Zyngier@arm.com>, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org
+Cc: linux-kernel@vger.kernel.org, Robert Richter <rrichter@cavium.com>, David Daney <david.daney@cavium.com>
 
-On 05/12/2016 09:24 AM, Catalin Marinas wrote:
-> On Thu, May 12, 2016 at 08:27:08AM -0700, David Daney wrote:
->> On 05/12/2016 02:49 AM, Catalin Marinas wrote:
->>> On Wed, May 11, 2016 at 05:06:13PM -0700, David Daney wrote:
->>>> On 05/11/2016 03:39 AM, Catalin Marinas wrote:
->> [...]
->>>>>
->>>>> I wonder whether you could replace the get_mpidr_in_madt() function with
->>>>> something like acpi_get_phys_id(). It looks like get_mpidr_in_madt()
->>>>> duplicates functionality already available elsewhere.
->>>>
->>>> I just tried that, and it doesn't work.
->>>>
->>>> The problem is that this code is being run very early in the boot, and
->>>> kmalloc cannot be used.  acpi_get_phys_id() and its ilk can only be used
->>>> once we have working kmalloc.  We need to extract the NUMA information early
->>>> like this precisely because it is needed to initializing the slab system
->>>>
->>>> Notice that we are using early_acpi_os_unmap_memory() et al. in
->>>> get_mpidr_in_madt() explicitly for this reason.
->>>>
->>>> In summary: I don't think we need another revision of this patch, it is like
->>>> this for a good reason.
->>>
->>> Slightly confusing, in another reply you said you are going to address
->>> my comment. So, is it doable?
->>
->> I don't think so.
->>
->> My previous reply, to the thread in 0/14, was prematurely made with the
->> incorrect assumption that it was a simple change.  Now, after really digging
->> in to the code, and attempting to do as you suggested, I have changed my
->> mind.
->
-> Would the snippet below help with avoiding any kmalloc calls? At a quick
-> look, it seems that it's only map_mat_entry() that ends up using
-> kmalloc() calls. Alternatively, exporting map_madt_entry() may work as
-> well.
+From: David Daney <david.daney@cavium.com>
 
-I think making a non-static version of map_madt_entry() is the cleanest 
-solution.  That works, so I will send a new version of the patch set 
-that does that instead.
+Follow-on arm64 ACPI/NUMA patches need to map MADT entries very early
+(before kmalloc is usable).
 
-David.
+Add acpi_map_madt_entry() which, indirectly, uses
+early_memremap()/early_memunmap() to access the table and parse out
+the mpidr.  The existing implementation of map_madt_entry() is
+modified to take a pointer to the MADT as a parameter and the callers
+adjusted.
 
+Signed-off-by: David Daney <david.daney@cavium.com>
+---
+ drivers/acpi/processor_core.c | 26 ++++++++++++++++++++++----
+ include/acpi/processor.h      |  1 +
+ 2 files changed, 23 insertions(+), 4 deletions(-)
 
->
-> diff --git a/drivers/acpi/processor_core.c b/drivers/acpi/processor_core.c
-> index 33a38d604630..77af0a7df914 100644
-> --- a/drivers/acpi/processor_core.c
-> +++ b/drivers/acpi/processor_core.c
-> @@ -152,6 +152,9 @@ static phys_cpuid_t map_mat_entry(acpi_handle handle, int type, u32 acpi_id)
->   	struct acpi_subtable_header *header;
->   	phys_cpuid_t phys_id = PHYS_CPUID_INVALID;
->
-> +	if (!acpi_gbl_permanent_mmap)
-> +		return phys_id;
-> +
->   	if (ACPI_FAILURE(acpi_evaluate_object(handle, "_MAT", NULL, &buffer)))
->   		goto exit;
->
->
+diff --git a/drivers/acpi/processor_core.c b/drivers/acpi/processor_core.c
+index 33a38d6..9125d7d 100644
+--- a/drivers/acpi/processor_core.c
++++ b/drivers/acpi/processor_core.c
+@@ -108,13 +108,12 @@ static int map_gicc_mpidr(struct acpi_subtable_header *entry,
+ 	return -EINVAL;
+ }
+ 
+-static phys_cpuid_t map_madt_entry(int type, u32 acpi_id)
++static phys_cpuid_t map_madt_entry(struct acpi_table_madt *madt,
++				   int type, u32 acpi_id)
+ {
+ 	unsigned long madt_end, entry;
+ 	phys_cpuid_t phys_id = PHYS_CPUID_INVALID;	/* CPU hardware ID */
+-	struct acpi_table_madt *madt;
+ 
+-	madt = get_madt_table();
+ 	if (!madt)
+ 		return phys_id;
+ 
+@@ -145,6 +144,25 @@ static phys_cpuid_t map_madt_entry(int type, u32 acpi_id)
+ 	return phys_id;
+ }
+ 
++phys_cpuid_t __init acpi_map_madt_entry(u32 acpi_id)
++{
++	struct acpi_table_madt *madt = NULL;
++	acpi_size tbl_size;
++	phys_cpuid_t rv;
++
++	acpi_get_table_with_size(ACPI_SIG_MADT, 0,
++				 (struct acpi_table_header **)&madt,
++				 &tbl_size);
++	if (!madt)
++		return PHYS_CPUID_INVALID;
++
++	rv = map_madt_entry(madt, 1, acpi_id);
++
++	early_acpi_os_unmap_memory(madt, tbl_size);
++
++	return rv;
++}
++
+ static phys_cpuid_t map_mat_entry(acpi_handle handle, int type, u32 acpi_id)
+ {
+ 	struct acpi_buffer buffer = { ACPI_ALLOCATE_BUFFER, NULL };
+@@ -185,7 +203,7 @@ phys_cpuid_t acpi_get_phys_id(acpi_handle handle, int type, u32 acpi_id)
+ 
+ 	phys_id = map_mat_entry(handle, type, acpi_id);
+ 	if (invalid_phys_cpuid(phys_id))
+-		phys_id = map_madt_entry(type, acpi_id);
++		phys_id = map_madt_entry(get_madt_table(), type, acpi_id);
+ 
+ 	return phys_id;
+ }
+diff --git a/include/acpi/processor.h b/include/acpi/processor.h
+index 6f1805d..f473e66 100644
+--- a/include/acpi/processor.h
++++ b/include/acpi/processor.h
+@@ -309,6 +309,7 @@ static inline int acpi_processor_get_bios_limit(int cpu, unsigned int *limit)
+ 
+ /* in processor_core.c */
+ phys_cpuid_t acpi_get_phys_id(acpi_handle, int type, u32 acpi_id);
++phys_cpuid_t acpi_map_madt_entry(u32 acpi_id);
+ int acpi_map_cpuid(phys_cpuid_t phys_id, u32 acpi_id);
+ int acpi_get_cpuid(acpi_handle, int type, u32 acpi_id);
+ 
+-- 
+1.7.11.7
 
