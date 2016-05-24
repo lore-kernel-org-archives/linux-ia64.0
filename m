@@ -1,38 +1,134 @@
-From: Baoquan He <bhe@redhat.com>
-Date: Tue, 03 May 2016 12:56:49 +0000
-Subject: Re: [PATCH 10/12] kexec: arrange for paddr_vmcoreinfo_note() to return phys_addr_t
-Message-Id: <20160503125649.GA2656@x1.redhat.com>
+From: David Daney <ddaney.cavm@gmail.com>
+Date: Tue, 24 May 2016 22:35:30 +0000
+Subject: [PATCH v7 00/15] ACPI NUMA support for ARM64
+Message-Id: <1464129345-18985-1-git-send-email-ddaney.cavm@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20160428092644.GX19428@n2100.arm.linux.org.uk>
- <E1aviFP-0000je-5t@rmk-PC.arm.linux.org.uk>
- <CAHB_Gur-6oyEheN-Pom7OwivdvrQpCBaXvM1V2H0JPFRCFZthA@mail.gmail.com>
- <20160429151639.GC23726@leverpostej>
- <CAHB_GurwYqPbccLU9UHppLxbBr4Cfs47myKAer-RJicT=T7uBw@mail.gmail.com>
- <20160503042441.GA2518@x1.redhat.com>
- <20160503101258.GL19428@n2100.arm.linux.org.uk>
-In-Reply-To: <20160503101258.GL19428@n2100.arm.linux.org.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Cc: Pratyush Anand <panand@redhat.com>, Mark Rutland <mark.rutland@arm.com>, devicetree@vger.kernel.org, Ian Campbell <ijc+devicetree@hellion.org.uk>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Pawel Moll <pawel.moll@arm.com>, linux-doc@vger.kernel.org, Jonathan Corbet <corbet@lwn.net>, kexec@lists.infradead.org, Fenghua Yu <fenghua.yu@intel.com>, Vivek Goyal <vgoyal@redhat.com>, Haren Myneni <hbabu@us.ibm.com>, Rob Herring <robh+dt@kernel.org>, Eric Biederman <ebiederm@xmission.com>, Santosh Shilimkar <ssantosh@kernel.org>, Kumar Gala <galak@codeaurora.org>, linux-arm-kernel@lists.infradead.org
+To: Will Deacon <will.deacon@arm.com>, linux-arm-kernel@lists.infradead.org, Mark Rutland <mark.rutland@arm.com>, Catalin Marinas <catalin.marinas@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>, Rob Herring <robh+dt@kernel.org>, Frank Rowand <frowand.list@gmail.com>, Grant Likely <grant.likely@linaro.org>, Robert Moore <robert.moore@intel.com>, Lv Zheng <lv.zheng@intel.com>, Hanjun Guo <hanjun.guo@linaro.org>, Marc Zyngier <Marc.Zyngier@arm.com>, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org
+Cc: linux-kernel@vger.kernel.org, Robert Richter <rrichter@cavium.com>, David Daney <david.daney@cavium.com>
 
-On 05/03/16 at 11:12am, Russell King - ARM Linux wrote:
-> On Tue, May 03, 2016 at 12:24:41PM +0800, Baoquan He wrote:
-> > Could you please help tell why arm PAE kernel can be put above 4G?
-> > Since the change is related to common code, I am curious about how
-> > it's so different with other ARCHs.
-> 
-> This is explained in the covering email to the series.
-> 
-> The explanation given by Pratyush was incomplete.
+From: David Daney <david.daney@cavium.com>
 
-Yeah, he said non LPAE also has PHYS_OFFSET later to me. In fact this
-patch is totally unharmful to other ARCHes, I just can't stand the
-curiosity. Sorry about this.
+Rebased to Linus' master branch at commit 1d6da87a3241 ("Merge branch
+'drm-next' of git://people.freedesktop.org/~airlied/linux")
 
-> 
-> -- 
-> RMK's Patch system: http://www.arm.linux.org.uk/developer/patches/
-> FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-> according to speedtest.net.
+ACPI 5.1 already introduced NUMA support for ARM64, which can get the
+NUMA domain information from SRAT and SLIT table, so parse those two
+tables to get mappings from cpu/mem to numa node configuration and
+system locality.
+
+v7 updates:
+
+ - Rebased to resolve one merge conflict.
+
+ - New patch 13/15 to enable use of existing MADT parsing code instead
+   of adding an additional implementation of the parser.
+
+ - Added some Acked-by headers to patches in arm64 arch directories.
+
+v6 updates:
+
+ - Changed message printed in 13/14 to omit meaningless "cpu"
+   number. (noted by Dennis Chen and Hanjun Guo)
+
+ - New patch 7/14 to print different messages for NUMA disabled case.
+   (noted by Dennis Chen)
+
+ - Squashed two patches into 14/14.
+
+ - Added Reviewed-by to 4/14
+
+v5 updates:
+
+ - Fixed ia64 build failure by gating some unused functions with #if
+   CONFIG_{X86,ARM64}.
+
+ - Fixed section mismatch errors for X86 case.
+
+ - Removed unneeded #include from some files.
+
+ - Tested to build cleanly on ARM64, X86_64, IA64
+
+v4 updates:
+
+ - Updated from Hanjun Guo's v3 patches.
+
+ - Rebased on top of v16 of device-tree NUMA patches.
+
+ - Reordered some of the changes so that we don't introduce code and
+   then change it several times in the patch set.  New code is
+   introduced in its final form.  Code reused from x86 is first moved
+   with no change, and then a separate patch to make any needed
+   changes.
+
+ - code that is used only by ia64, moved to architecture specific
+   files.
+
+v3 updates:
+ - Deep investigation about the ACPI_DEBUG_PRINT() and remvoe
+   that for acpi/numa.c (patch 2/12)
+
+ - Remove the duplicate NULL check for table print (patch 3/12)
+
+ - Introduce CONFIG_ACPI_HAS_NUMA_ARCH_FIXUP to remove duplicate
+   dummy function for acpi_numa_arch_fixup()
+
+ - Solve the problem that the mapping from logical cpu to numa node
+   is wrong which spotted out by Lorenzo
+
+ - cleanups for x86 and move acpi_numa_slit_init() and some other
+   functions to common place, then reduce the duplicate of x86
+   and arm64 (patch 7-12/12).
+
+ - rebased on top of 4.4 and Ganapat's v9 patch set.
+
+David Daney (4):
+  arm64, numa: Cleanup NUMA disabled messages.
+  acpi, numa: move bad_srat() and srat_disabled() to
+    drivers/acpi/numa.c
+  acpi, numa, srat: Improve SRAT error detection and add messages.
+  ACPI / processor: Add acpi_map_madt_entry().
+
+Hanjun Guo (10):
+  acpi, numa: Use pr_fmt() instead of printk
+  acpi, numa: Replace ACPI_DEBUG_PRINT() with pr_debug()
+  acpi, numa: remove duplicate NULL check
+  acpi, numa: move acpi_numa_slit_init() to drivers/acpi/numa.c
+  arm64, numa: rework numa_add_memblk()
+  x86, acpi, numa: cleanup acpi_numa_processor_affinity_init()
+  acpi, numa: remove unneeded acpi_numa=1
+  acpi, numa: Move acpi_numa_memory_affinity_init() to
+    drivers/acpi/numa.c
+  arm64, acpi, numa: NUMA support based on SRAT and SLIT
+  acpi, numa: Enable ACPI based NUMA on ARM64
+
+Robert Richter (1):
+  acpi, numa: Move acpi_numa_arch_fixup() to ia64 only
+
+ arch/arm64/include/asm/acpi.h |   8 ++
+ arch/arm64/include/asm/numa.h |   2 +
+ arch/arm64/kernel/Makefile    |   1 +
+ arch/arm64/kernel/acpi_numa.c | 112 +++++++++++++++++++++
+ arch/arm64/kernel/smp.c       |   2 +
+ arch/arm64/mm/numa.c          |  28 ++++--
+ arch/ia64/include/asm/acpi.h  |   3 +
+ arch/ia64/kernel/acpi.c       |   2 +-
+ arch/ia64/kernel/setup.c      |   1 +
+ arch/x86/include/asm/acpi.h   |   1 -
+ arch/x86/mm/numa.c            |   2 +-
+ arch/x86/mm/srat.c            | 116 +---------------------
+ drivers/acpi/Kconfig          |   4 +-
+ drivers/acpi/numa.c           | 226 ++++++++++++++++++++++++++++++++----------
+ drivers/acpi/processor_core.c |  26 ++++-
+ drivers/of/of_numa.c          |   4 +-
+ include/acpi/acpi_numa.h      |   4 +
+ include/acpi/processor.h      |   1 +
+ include/linux/acpi.h          |  18 +++-
+ 19 files changed, 369 insertions(+), 192 deletions(-)
+ create mode 100644 arch/arm64/kernel/acpi_numa.c
+
+-- 
+1.7.11.7
+
