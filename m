@@ -1,112 +1,111 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Date: Mon, 30 May 2016 20:50:09 +0000
-Subject: [PATCH 4.4 80/86] SIGNAL: Move generic copy_siginfo() to signal.h
-Message-Id: <20160530204940.052347962@linuxfoundation.org>
+From: David Daney <ddaney.cavm@gmail.com>
+Date: Tue, 24 May 2016 22:35:34 +0000
+Subject: [PATCH v7 04/15] acpi, numa: Move acpi_numa_arch_fixup() to ia64 only
+Message-Id: <1464129345-18985-5-git-send-email-ddaney.cavm@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20160530204937.379068148@linuxfoundation.org>
-In-Reply-To: <20160530204937.379068148@linuxfoundation.org>
+References: <1464129345-18985-1-git-send-email-ddaney.cavm@gmail.com>
+In-Reply-To: <1464129345-18985-1-git-send-email-ddaney.cavm@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>, stable@vger.kernel.org, James Hogan <james.hogan@imgtec.com>, Arnd Bergmann <arnd@arndb.de>, Ralf Baechle <ralf@linux-mips.org>, Petr Malat <oss@malat.biz>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Christopher Ferris <cferris@google.com>, linux-arch@vger.kernel.org, linux-mips@linux-mips.org, linux-ia64@vger.kernel.org
+To: Will Deacon <will.deacon@arm.com>, linux-arm-kernel@lists.infradead.org, Mark Rutland <mark.rutland@arm.com>, Catalin Marinas <catalin.marinas@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>, Rob Herring <robh+dt@kernel.org>, Frank Rowand <frowand.list@gmail.com>, Grant Likely <grant.likely@linaro.org>, Robert Moore <robert.moore@intel.com>, Lv Zheng <lv.zheng@intel.com>, Hanjun Guo <hanjun.guo@linaro.org>, Marc Zyngier <Marc.Zyngier@arm.com>, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org
+Cc: Robert Richter <rrichter@cavium.com>, linux-kernel@vger.kernel.org, David Daney <david.daney@cavium.com>
 
-4.4-stable review patch.  If anyone has any objections, please let me know.
+From: Robert Richter <rrichter@cavium.com>
 
-------------------
+Since acpi_numa_arch_fixup() is only used in arch ia64, move it there
+to make a generic interface easier. This avoids empty function stubs
+or some complex kconfig options for x86 and arm64.
 
-From: James Hogan <james.hogan@imgtec.com>
-
-commit ca9eb49aa9562eaadf3cea071ec7018ad6800425 upstream.
-
-The generic copy_siginfo() is currently defined in
-asm-generic/siginfo.h, after including uapi/asm-generic/siginfo.h which
-defines the generic struct siginfo. However this makes it awkward for an
-architecture to use it if it has to define its own struct siginfo (e.g.
-MIPS and potentially IA64), since it means that asm-generic/siginfo.h
-can only be included after defining the arch-specific siginfo, which may
-be problematic if the arch-specific definition needs definitions from
-uapi/asm-generic/siginfo.h.
-
-It is possible to work around this by first including
-uapi/asm-generic/siginfo.h to get the constants before defining the
-arch-specific siginfo, and include asm-generic/siginfo.h after. However
-uapi headers can't be included by other uapi headers, so that first
-include has to be in an ifdef __kernel__, with the non __kernel__ case
-including the non-UAPI header instead.
-
-Instead of that mess, move the generic copy_siginfo() definition into
-linux/signal.h, which allows an arch-specific uapi/asm/siginfo.h to
-include asm-generic/siginfo.h and define the arch-specific siginfo, and
-for the generic copy_siginfo() to see that arch-specific definition.
-
-Signed-off-by: James Hogan <james.hogan@imgtec.com>
-Cc: Arnd Bergmann <arnd@arndb.de>
-Cc: Ralf Baechle <ralf@linux-mips.org>
-Cc: Petr Malat <oss@malat.biz>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: Christopher Ferris <cferris@google.com>
-Cc: linux-arch@vger.kernel.org
-Cc: linux-mips@linux-mips.org
-Cc: linux-ia64@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Patchwork: https://patchwork.linux-mips.org/patch/12478/
-Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
-Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-
+Signed-off-by: Robert Richter <rrichter@cavium.com>
+Reviewed-by: Hanjun Guo <hanjun.guo@linaro.org>
+Signed-off-by: David Daney <david.daney@cavium.com>
 ---
- include/asm-generic/siginfo.h |   15 ---------------
- include/linux/signal.h        |   15 +++++++++++++++
- 2 files changed, 15 insertions(+), 15 deletions(-)
+ arch/ia64/include/asm/acpi.h | 3 +++
+ arch/ia64/kernel/acpi.c      | 2 +-
+ arch/ia64/kernel/setup.c     | 1 +
+ arch/x86/mm/srat.c           | 2 --
+ drivers/acpi/numa.c          | 2 --
+ include/linux/acpi.h         | 1 -
+ 6 files changed, 5 insertions(+), 6 deletions(-)
 
---- a/include/asm-generic/siginfo.h
-+++ b/include/asm-generic/siginfo.h
-@@ -17,21 +17,6 @@
- struct siginfo;
- void do_schedule_next_timer(struct siginfo *info);
+diff --git a/arch/ia64/include/asm/acpi.h b/arch/ia64/include/asm/acpi.h
+index aa0fdf1..a3d0211 100644
+--- a/arch/ia64/include/asm/acpi.h
++++ b/arch/ia64/include/asm/acpi.h
+@@ -140,6 +140,9 @@ static inline void per_cpu_scan_finalize(int min_cpus, int reserve_cpus)
+ 		}
+ 	}
+ }
++
++extern void acpi_numa_fixup(void);
++
+ #endif /* CONFIG_ACPI_NUMA */
  
--#ifndef HAVE_ARCH_COPY_SIGINFO
--
--#include <linux/string.h>
--
--static inline void copy_siginfo(struct siginfo *to, struct siginfo *from)
--{
--	if (from->si_code < 0)
--		memcpy(to, from, sizeof(*to));
--	else
--		/* _sigchld is currently the largest know union member */
--		memcpy(to, from, __ARCH_SI_PREAMBLE_SIZE + sizeof(from->_sifields._sigchld));
--}
--
--#endif
--
- extern int copy_siginfo_to_user(struct siginfo __user *to, const struct siginfo *from);
+ #endif /*__KERNEL__*/
+diff --git a/arch/ia64/kernel/acpi.c b/arch/ia64/kernel/acpi.c
+index b1698bc..92b7bc9 100644
+--- a/arch/ia64/kernel/acpi.c
++++ b/arch/ia64/kernel/acpi.c
+@@ -524,7 +524,7 @@ acpi_numa_memory_affinity_init(struct acpi_srat_mem_affinity *ma)
+ 	return 0;
+ }
  
- #endif
---- a/include/linux/signal.h
-+++ b/include/linux/signal.h
-@@ -28,6 +28,21 @@ struct sigpending {
- 	sigset_t signal;
- };
+-void __init acpi_numa_arch_fixup(void)
++void __init acpi_numa_fixup(void)
+ {
+ 	int i, j, node_from, node_to;
  
-+#ifndef HAVE_ARCH_COPY_SIGINFO
-+
-+#include <linux/string.h>
-+
-+static inline void copy_siginfo(struct siginfo *to, struct siginfo *from)
-+{
-+	if (from->si_code < 0)
-+		memcpy(to, from, sizeof(*to));
-+	else
-+		/* _sigchld is currently the largest know union member */
-+		memcpy(to, from, __ARCH_SI_PREAMBLE_SIZE + sizeof(from->_sifields._sigchld));
-+}
-+
-+#endif
-+
- /*
-  * Define some primitives to manipulate sigset_t.
-  */
-
+diff --git a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
+index 2029a38..afddb3e 100644
+--- a/arch/ia64/kernel/setup.c
++++ b/arch/ia64/kernel/setup.c
+@@ -552,6 +552,7 @@ setup_arch (char **cmdline_p)
+ 	early_acpi_boot_init();
+ # ifdef CONFIG_ACPI_NUMA
+ 	acpi_numa_init();
++	acpi_numa_fixup();
+ #  ifdef CONFIG_ACPI_HOTPLUG_CPU
+ 	prefill_possible_map();
+ #  endif
+diff --git a/arch/x86/mm/srat.c b/arch/x86/mm/srat.c
+index b5f8218..90b6ed9 100644
+--- a/arch/x86/mm/srat.c
++++ b/arch/x86/mm/srat.c
+@@ -212,8 +212,6 @@ out_err:
+ 	return -1;
+ }
+ 
+-void __init acpi_numa_arch_fixup(void) {}
+-
+ int __init x86_acpi_numa_init(void)
+ {
+ 	int ret;
+diff --git a/drivers/acpi/numa.c b/drivers/acpi/numa.c
+index 6f1cad8..fb2c0d6 100644
+--- a/drivers/acpi/numa.c
++++ b/drivers/acpi/numa.c
+@@ -324,8 +324,6 @@ int __init acpi_numa_init(void)
+ 	/* SLIT: System Locality Information Table */
+ 	acpi_table_parse(ACPI_SIG_SLIT, acpi_parse_slit);
+ 
+-	acpi_numa_arch_fixup();
+-
+ 	if (cnt < 0)
+ 		return cnt;
+ 	else if (!parsed_numa_memblks)
+diff --git a/include/linux/acpi.h b/include/linux/acpi.h
+index 288fac5..8010b26 100644
+--- a/include/linux/acpi.h
++++ b/include/linux/acpi.h
+@@ -237,7 +237,6 @@ void acpi_numa_slit_init (struct acpi_table_slit *slit);
+ void acpi_numa_processor_affinity_init (struct acpi_srat_cpu_affinity *pa);
+ void acpi_numa_x2apic_affinity_init(struct acpi_srat_x2apic_cpu_affinity *pa);
+ int acpi_numa_memory_affinity_init (struct acpi_srat_mem_affinity *ma);
+-void acpi_numa_arch_fixup(void);
+ 
+ #ifndef PHYS_CPUID_INVALID
+ typedef u32 phys_cpuid_t;
+-- 
+1.7.11.7
 
