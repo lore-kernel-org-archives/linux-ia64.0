@@ -1,57 +1,112 @@
-From: Matt Fleming <matt@codeblueprint.co.uk>
-Date: Wed, 04 May 2016 11:17:46 +0000
-Subject: [PATCH 1/5] ia64/PCI: Fix incorrect PCI resource end address
-Message-Id: <1462360670-27993-2-git-send-email-matt@codeblueprint.co.uk>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Date: Mon, 30 May 2016 20:50:09 +0000
+Subject: [PATCH 4.4 80/86] SIGNAL: Move generic copy_siginfo() to signal.h
+Message-Id: <20160530204940.052347962@linuxfoundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1462360670-27993-1-git-send-email-matt@codeblueprint.co.uk>
-In-Reply-To: <1462360670-27993-1-git-send-email-matt@codeblueprint.co.uk>
+References: <20160530204937.379068148@linuxfoundation.org>
+In-Reply-To: <20160530204937.379068148@linuxfoundation.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
-Cc: Bjorn Helgaas <helgaas@kernel.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Matt Fleming <matt@codeblueprint.co.uk>
+To: linux-kernel@vger.kernel.org
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>, stable@vger.kernel.org, James Hogan <james.hogan@imgtec.com>, Arnd Bergmann <arnd@arndb.de>, Ralf Baechle <ralf@linux-mips.org>, Petr Malat <oss@malat.biz>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Christopher Ferris <cferris@google.com>, linux-arch@vger.kernel.org, linux-mips@linux-mips.org, linux-ia64@vger.kernel.org
 
-commit f976721e826e ("ia64/PCI: Use ioremap() instead of open-coded
-equivalent") introduced the following compiler warning,
+4.4-stable review patch.  If anyone has any objections, please let me know.
 
-  arch/ia64/sn/kernel/io_init.c: In function 'sn_io_slot_fixup':
-  arch/ia64/sn/kernel/io_init.c:189:19: warning: 'addr' may be used uninitialized in this function [-Wmaybe-uninitialized]
-     res->end = addr + size;
-                   ^
+------------------
 
-'addr' is indeed uninitialised and the correct value to use is
-res->start.
+From: James Hogan <james.hogan@imgtec.com>
 
+commit ca9eb49aa9562eaadf3cea071ec7018ad6800425 upstream.
+
+The generic copy_siginfo() is currently defined in
+asm-generic/siginfo.h, after including uapi/asm-generic/siginfo.h which
+defines the generic struct siginfo. However this makes it awkward for an
+architecture to use it if it has to define its own struct siginfo (e.g.
+MIPS and potentially IA64), since it means that asm-generic/siginfo.h
+can only be included after defining the arch-specific siginfo, which may
+be problematic if the arch-specific definition needs definitions from
+uapi/asm-generic/siginfo.h.
+
+It is possible to work around this by first including
+uapi/asm-generic/siginfo.h to get the constants before defining the
+arch-specific siginfo, and include asm-generic/siginfo.h after. However
+uapi headers can't be included by other uapi headers, so that first
+include has to be in an ifdef __kernel__, with the non __kernel__ case
+including the non-UAPI header instead.
+
+Instead of that mess, move the generic copy_siginfo() definition into
+linux/signal.h, which allows an arch-specific uapi/asm/siginfo.h to
+include asm-generic/siginfo.h and define the arch-specific siginfo, and
+for the generic copy_siginfo() to see that arch-specific definition.
+
+Signed-off-by: James Hogan <james.hogan@imgtec.com>
+Cc: Arnd Bergmann <arnd@arndb.de>
+Cc: Ralf Baechle <ralf@linux-mips.org>
+Cc: Petr Malat <oss@malat.biz>
 Cc: Tony Luck <tony.luck@intel.com>
 Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: Bjorn Helgaas <helgaas@kernel.org>
-Signed-off-by: Matt Fleming <matt@codeblueprint.co.uk>
----
- arch/ia64/sn/kernel/io_init.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Cc: Christopher Ferris <cferris@google.com>
+Cc: linux-arch@vger.kernel.org
+Cc: linux-mips@linux-mips.org
+Cc: linux-ia64@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Patchwork: https://patchwork.linux-mips.org/patch/12478/
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 
-diff --git a/arch/ia64/sn/kernel/io_init.c b/arch/ia64/sn/kernel/io_init.c
-index c15a41e2d1f2..d63809a6adfa 100644
---- a/arch/ia64/sn/kernel/io_init.c
-+++ b/arch/ia64/sn/kernel/io_init.c
-@@ -151,7 +151,7 @@ sn_io_slot_fixup(struct pci_dev *dev)
- {
- 	int idx;
- 	struct resource *res;
--	unsigned long addr, size;
-+	unsigned long size;
- 	struct pcidev_info *pcidev_info;
- 	struct sn_irq_info *sn_irq_info;
- 	int status;
-@@ -186,7 +186,7 @@ sn_io_slot_fixup(struct pci_dev *dev)
- 			continue;
+---
+ include/asm-generic/siginfo.h |   15 ---------------
+ include/linux/signal.h        |   15 +++++++++++++++
+ 2 files changed, 15 insertions(+), 15 deletions(-)
+
+--- a/include/asm-generic/siginfo.h
++++ b/include/asm-generic/siginfo.h
+@@ -17,21 +17,6 @@
+ struct siginfo;
+ void do_schedule_next_timer(struct siginfo *info);
  
- 		res->start = pcidev_info->pdi_pio_mapped_addr[idx];
--		res->end = addr + size;
-+		res->end = res->start + size;
+-#ifndef HAVE_ARCH_COPY_SIGINFO
+-
+-#include <linux/string.h>
+-
+-static inline void copy_siginfo(struct siginfo *to, struct siginfo *from)
+-{
+-	if (from->si_code < 0)
+-		memcpy(to, from, sizeof(*to));
+-	else
+-		/* _sigchld is currently the largest know union member */
+-		memcpy(to, from, __ARCH_SI_PREAMBLE_SIZE + sizeof(from->_sifields._sigchld));
+-}
+-
+-#endif
+-
+ extern int copy_siginfo_to_user(struct siginfo __user *to, const struct siginfo *from);
  
- 		/*
- 		 * if it's already in the device structure, remove it before
--- 
-2.7.3
+ #endif
+--- a/include/linux/signal.h
++++ b/include/linux/signal.h
+@@ -28,6 +28,21 @@ struct sigpending {
+ 	sigset_t signal;
+ };
+ 
++#ifndef HAVE_ARCH_COPY_SIGINFO
++
++#include <linux/string.h>
++
++static inline void copy_siginfo(struct siginfo *to, struct siginfo *from)
++{
++	if (from->si_code < 0)
++		memcpy(to, from, sizeof(*to));
++	else
++		/* _sigchld is currently the largest know union member */
++		memcpy(to, from, __ARCH_SI_PREAMBLE_SIZE + sizeof(from->_sifields._sigchld));
++}
++
++#endif
++
+ /*
+  * Define some primitives to manipulate sigset_t.
+  */
+
 
