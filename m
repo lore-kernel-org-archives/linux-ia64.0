@@ -1,72 +1,85 @@
-From: Waiman Long <Waiman.Long@hpe.com>
-Date: Fri, 17 Jun 2016 15:41:29 +0000
-Subject: [RFC PATCH-tip/locking/core v3 03/10] locking/rwsem: Make rwsem_spin_on_owner() return a tri-state v
-Message-Id: <1466178096-5623-4-git-send-email-Waiman.Long@hpe.com>
+From: Russell King <rmk+kernel@arm.linux.org.uk>
+Date: Fri, 03 Jun 2016 08:50:32 +0000
+Subject: [PATCH 5/8] kdump: arrange for paddr_vmcoreinfo_note() to return phys_addr_t
+Message-Id: <E1b8koK-0004HS-K9@rmk-PC.armlinux.org.uk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1466178096-5623-1-git-send-email-Waiman.Long@hpe.com>
-In-Reply-To: <1466178096-5623-1-git-send-email-Waiman.Long@hpe.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>
-Cc: linux-kernel@vger.kernel.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-arch@vger.kernel.org, linux-doc@vger.kernel.org, Davidlohr Bueso <dave@stgolabs.net>, Jason Low <jason.low2@hp.com>, Dave Chinner <david@fromorbit.com>, Jonathan Corbet <corbet@lwn.net>, Scott J Norton <scott.norton@hpe.com>, Douglas Hatch <doug.hatch@hpe.com>, Waiman Long <Waiman.Long@hpe.com>
+To: linux-arm-kernel@lists.infradead.org
 
-This patch modifies rwsem_spin_on_owner() to return a tri-state value
-to better reflect the state of lock holder which enables us to make a
-better decision of what to do next.
+On PAE systems (eg, ARM LPAE) the vmcore note may be located above
+4GB physical on 32-bit architectures, so we need a wider type than
+"unsigned long" here.  Arrange for paddr_vmcoreinfo_note() to return
+a phys_addr_t, thereby allowing it to be located above 4GB.
 
-Signed-off-by: Waiman Long <Waiman.Long@hpe.com>
+This makes no difference for kexec-tools, as they already assume a
+64-bit type when reading from this file.
+
+Acked-by: Baoquan He <bhe@redhat.com>
+Reviewed-by: Pratyush Anand <panand@redhat.com>
+Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- kernel/locking/rwsem-xadd.c |   14 +++++++++-----
- 1 files changed, 9 insertions(+), 5 deletions(-)
+ arch/ia64/kernel/machine_kexec.c | 2 +-
+ include/linux/kexec.h            | 2 +-
+ kernel/kexec_core.c              | 2 +-
+ kernel/ksysfs.c                  | 4 ++--
+ 4 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/kernel/locking/rwsem-xadd.c b/kernel/locking/rwsem-xadd.c
-index 29027c6..198b732 100644
---- a/kernel/locking/rwsem-xadd.c
-+++ b/kernel/locking/rwsem-xadd.c
-@@ -360,9 +360,13 @@ done:
+diff --git a/arch/ia64/kernel/machine_kexec.c b/arch/ia64/kernel/machine_kexec.c
+index b72cd7a07222..599507bcec91 100644
+--- a/arch/ia64/kernel/machine_kexec.c
++++ b/arch/ia64/kernel/machine_kexec.c
+@@ -163,7 +163,7 @@ void arch_crash_save_vmcoreinfo(void)
+ #endif
  }
  
- /*
-- * Return true only if we can still spin on the owner field of the rwsem.
-+ * Return the folowing three values depending on the lock owner state.
-+ *   1	when owner has changed and no reader is detected yet.
-+ *   0	when owner has change and/or owner is a reader.
-+ *  -1	when optimistic spinning has to stop because either the owner stops
-+ *	running or its timeslice has been used up.
-  */
--static noinline bool rwsem_spin_on_owner(struct rw_semaphore *sem)
-+static noinline int rwsem_spin_on_owner(struct rw_semaphore *sem)
+-unsigned long paddr_vmcoreinfo_note(void)
++phys_addr_t paddr_vmcoreinfo_note(void)
  {
- 	struct task_struct *owner = READ_ONCE(sem->owner);
- 
-@@ -382,7 +386,7 @@ static noinline bool rwsem_spin_on_owner(struct rw_semaphore *sem)
- 		/* abort spinning when need_resched or owner is not running */
- 		if (!owner->on_cpu || need_resched()) {
- 			rcu_read_unlock();
--			return false;
-+			return -1;
- 		}
- 
- 		cpu_relax_lowlatency();
-@@ -393,7 +397,7 @@ out:
- 	 * If there is a new owner or the owner is not set, we continue
- 	 * spinning.
- 	 */
--	return !rwsem_owner_is_reader(READ_ONCE(sem->owner));
-+	return rwsem_owner_is_reader(READ_ONCE(sem->owner)) ? 0 : 1;
+ 	return ia64_tpa((unsigned long)(char *)&vmcoreinfo_note);
  }
+diff --git a/include/linux/kexec.h b/include/linux/kexec.h
+index 1b32ab587f66..52a3a221bcb2 100644
+--- a/include/linux/kexec.h
++++ b/include/linux/kexec.h
+@@ -235,7 +235,7 @@ void crash_unmap_reserved_pages(void);
+ void arch_crash_save_vmcoreinfo(void);
+ __printf(1, 2)
+ void vmcoreinfo_append_str(const char *fmt, ...);
+-unsigned long paddr_vmcoreinfo_note(void);
++phys_addr_t paddr_vmcoreinfo_note(void);
  
- static bool rwsem_optimistic_spin(struct rw_semaphore *sem)
-@@ -416,7 +420,7 @@ static bool rwsem_optimistic_spin(struct rw_semaphore *sem)
- 	 *  2) readers own the lock as we can't determine if they are
- 	 *     actively running or not.
- 	 */
--	while (rwsem_spin_on_owner(sem)) {
-+	while (rwsem_spin_on_owner(sem) > 0) {
- 		/*
- 		 * Try to acquire the lock
- 		 */
+ #define VMCOREINFO_OSRELEASE(value) \
+ 	vmcoreinfo_append_str("OSRELEASE=%s\n", value)
+diff --git a/kernel/kexec_core.c b/kernel/kexec_core.c
+index d719a4d0ef55..f9847e5822e6 100644
+--- a/kernel/kexec_core.c
++++ b/kernel/kexec_core.c
+@@ -1377,7 +1377,7 @@ void vmcoreinfo_append_str(const char *fmt, ...)
+ void __weak arch_crash_save_vmcoreinfo(void)
+ {}
+ 
+-unsigned long __weak paddr_vmcoreinfo_note(void)
++phys_addr_t __weak paddr_vmcoreinfo_note(void)
+ {
+ 	return __pa((unsigned long)(char *)&vmcoreinfo_note);
+ }
+diff --git a/kernel/ksysfs.c b/kernel/ksysfs.c
+index 152da4a48867..9f1920d2d0c6 100644
+--- a/kernel/ksysfs.c
++++ b/kernel/ksysfs.c
+@@ -128,8 +128,8 @@ KERNEL_ATTR_RW(kexec_crash_size);
+ static ssize_t vmcoreinfo_show(struct kobject *kobj,
+ 			       struct kobj_attribute *attr, char *buf)
+ {
+-	return sprintf(buf, "%lx %x\n",
+-		       paddr_vmcoreinfo_note(),
++	phys_addr_t vmcore_base = paddr_vmcoreinfo_note();
++	return sprintf(buf, "%pa %x\n", &vmcore_base,
+ 		       (unsigned int)sizeof(vmcoreinfo_note));
+ }
+ KERNEL_ATTR_RO(vmcoreinfo);
 -- 
-1.7.1
+2.1.0
 
