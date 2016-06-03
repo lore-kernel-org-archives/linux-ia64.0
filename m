@@ -1,101 +1,136 @@
-From: Waiman Long <waiman.long@hpe.com>
-Date: Wed, 15 Jun 2016 19:28:03 +0000
-Subject: Re: [RFC PATCH-tip v2 3/6] locking/rwsem: Enable count-based spinning on reader
-Message-Id: <5761AC43.5080707@hpe.com>
+From: "Rafael J. Wysocki" <rjw@rjwysocki.net>
+Date: Fri, 03 Jun 2016 22:07:04 +0000
+Subject: Re: [PATCH v7 00/15] ACPI NUMA support for ARM64
+Message-Id: <6187968.ZZVJRAFzpv@vostro.rjw.lan>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1465944489-43440-1-git-send-email-Waiman.Long@hpe.com> <1465944489-43440-4-git-send-email-Waiman.Long@hpe.com> <20160615173830.GR30921@twins.programming.kicks-ass.net>
-In-Reply-To: <20160615173830.GR30921@twins.programming.kicks-ass.net>
+References: <1464129345-18985-1-git-send-email-ddaney.cavm@gmail.com>
+In-Reply-To: <1464129345-18985-1-git-send-email-ddaney.cavm@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Peter Zijlstra <peterz@infradead.org>
-Cc: Ingo Molnar <mingo@redhat.com>, linux-kernel@vger.kernel.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-arch@vger.kernel.org, Davidlohr Bueso <dave@stgolabs.net>, Jason Low <jason.low2@hp.com>, Dave Chinner <david@fromorbit.com>, Scott J Norton <scott.norton@hpe.com>, Douglas Hatch <doug.hatch@hpe.com>
+To: David Daney <ddaney.cavm@gmail.com>
+Cc: Will Deacon <will.deacon@arm.com>, linux-arm-kernel@lists.infradead.org, Mark Rutland <mark.rutland@arm.com>, Catalin Marinas <catalin.marinas@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, Len Brown <lenb@kernel.org>, Rob Herring <robh+dt@kernel.org>, Frank Rowand <frowand.list@gmail.com>, Grant Likely <grant.likely@linaro.org>, Robert Moore <robert.moore@intel.com>, Lv Zheng <lv.zheng@intel.com>, Hanjun Guo <hanjun.guo@linaro.org>, Marc Zyngier <Marc.Zyngier@arm.com>, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org, linux-kernel@vger.kernel.org, Robert Richter <rrichter@cavium.com>, David Daney <david.daney@cavium.com>
 
-On 06/15/2016 01:38 PM, Peter Zijlstra wrote:
-> On Tue, Jun 14, 2016 at 06:48:06PM -0400, Waiman Long wrote:
->>   static bool rwsem_optimistic_spin(struct rw_semaphore *sem)
->>   {
->> -	bool taken = false;
->> +	bool taken = false, can_spin;
-> I would place the variables without assignment first.
+On Tuesday, May 24, 2016 03:35:30 PM David Daney wrote:
+> From: David Daney <david.daney@cavium.com>
+> 
+> Rebased to Linus' master branch at commit 1d6da87a3241 ("Merge branch
+> 'drm-next' of git://people.freedesktop.org/~airlied/linux")
+> 
+> ACPI 5.1 already introduced NUMA support for ARM64, which can get the
+> NUMA domain information from SRAT and SLIT table, so parse those two
+> tables to get mappings from cpu/mem to numa node configuration and
+> system locality.
+> 
+> v7 updates:
+> 
+>  - Rebased to resolve one merge conflict.
+> 
+>  - New patch 13/15 to enable use of existing MADT parsing code instead
+>    of adding an additional implementation of the parser.
+> 
+>  - Added some Acked-by headers to patches in arm64 arch directories.
+> 
+> v6 updates:
+> 
+>  - Changed message printed in 13/14 to omit meaningless "cpu"
+>    number. (noted by Dennis Chen and Hanjun Guo)
+> 
+>  - New patch 7/14 to print different messages for NUMA disabled case.
+>    (noted by Dennis Chen)
+> 
+>  - Squashed two patches into 14/14.
+> 
+>  - Added Reviewed-by to 4/14
+> 
+> v5 updates:
+> 
+>  - Fixed ia64 build failure by gating some unused functions with #if
+>    CONFIG_{X86,ARM64}.
+> 
+>  - Fixed section mismatch errors for X86 case.
+> 
+>  - Removed unneeded #include from some files.
+> 
+>  - Tested to build cleanly on ARM64, X86_64, IA64
+> 
+> v4 updates:
+> 
+>  - Updated from Hanjun Guo's v3 patches.
+> 
+>  - Rebased on top of v16 of device-tree NUMA patches.
+> 
+>  - Reordered some of the changes so that we don't introduce code and
+>    then change it several times in the patch set.  New code is
+>    introduced in its final form.  Code reused from x86 is first moved
+>    with no change, and then a separate patch to make any needed
+>    changes.
+> 
+>  - code that is used only by ia64, moved to architecture specific
+>    files.
+> 
+> v3 updates:
+>  - Deep investigation about the ACPI_DEBUG_PRINT() and remvoe
+>    that for acpi/numa.c (patch 2/12)
+> 
+>  - Remove the duplicate NULL check for table print (patch 3/12)
+> 
+>  - Introduce CONFIG_ACPI_HAS_NUMA_ARCH_FIXUP to remove duplicate
+>    dummy function for acpi_numa_arch_fixup()
+> 
+>  - Solve the problem that the mapping from logical cpu to numa node
+>    is wrong which spotted out by Lorenzo
+> 
+>  - cleanups for x86 and move acpi_numa_slit_init() and some other
+>    functions to common place, then reduce the duplicate of x86
+>    and arm64 (patch 7-12/12).
+> 
+>  - rebased on top of 4.4 and Ganapat's v9 patch set.
+> 
+> David Daney (4):
+>   arm64, numa: Cleanup NUMA disabled messages.
+>   acpi, numa: move bad_srat() and srat_disabled() to
+>     drivers/acpi/numa.c
+>   acpi, numa, srat: Improve SRAT error detection and add messages.
+>   ACPI / processor: Add acpi_map_madt_entry().
+> 
+> Hanjun Guo (10):
+>   acpi, numa: Use pr_fmt() instead of printk
+>   acpi, numa: Replace ACPI_DEBUG_PRINT() with pr_debug()
+>   acpi, numa: remove duplicate NULL check
+>   acpi, numa: move acpi_numa_slit_init() to drivers/acpi/numa.c
+>   arm64, numa: rework numa_add_memblk()
+>   x86, acpi, numa: cleanup acpi_numa_processor_affinity_init()
+>   acpi, numa: remove unneeded acpi_numa=1
+>   acpi, numa: Move acpi_numa_memory_affinity_init() to
+>     drivers/acpi/numa.c
+>   arm64, acpi, numa: NUMA support based on SRAT and SLIT
+>   acpi, numa: Enable ACPI based NUMA on ARM64
+> 
+> Robert Richter (1):
+>   acpi, numa: Move acpi_numa_arch_fixup() to ia64 only
+> 
+>  arch/arm64/include/asm/acpi.h |   8 ++
+>  arch/arm64/include/asm/numa.h |   2 +
+>  arch/arm64/kernel/Makefile    |   1 +
+>  arch/arm64/kernel/acpi_numa.c | 112 +++++++++++++++++++++
+>  arch/arm64/kernel/smp.c       |   2 +
+>  arch/arm64/mm/numa.c          |  28 ++++--
+>  arch/ia64/include/asm/acpi.h  |   3 +
+>  arch/ia64/kernel/acpi.c       |   2 +-
+>  arch/ia64/kernel/setup.c      |   1 +
+>  arch/x86/include/asm/acpi.h   |   1 -
+>  arch/x86/mm/numa.c            |   2 +-
+>  arch/x86/mm/srat.c            | 116 +---------------------
+>  drivers/acpi/Kconfig          |   4 +-
+>  drivers/acpi/numa.c           | 226 ++++++++++++++++++++++++++++++++----------
+>  drivers/acpi/processor_core.c |  26 ++++-
+>  drivers/of/of_numa.c          |   4 +-
+>  include/acpi/acpi_numa.h      |   4 +
+>  include/acpi/processor.h      |   1 +
+>  include/linux/acpi.h          |  18 +++-
+>  19 files changed, 369 insertions(+), 192 deletions(-)
+>  create mode 100644 arch/arm64/kernel/acpi_numa.c
 
-Sure, easy change.
+All [1-15/15] queued up for 4.8, thanks!
 
->
->> +	int loopcnt;
->>
->>   	preempt_disable();
->>
->> @@ -409,6 +412,8 @@ static bool rwsem_optimistic_spin(struct rw_semaphore *sem)
->>   	if (!osq_lock(&sem->osq))
->>   		goto done;
->>
->> +	loopcnt = sem->rspin_enabled ? RWSEM_RSPIN_THRESHOLD : 0;
->> +
->>   	/*
->>   	 * Optimistically spin on the owner field and attempt to acquire the
->>   	 * lock whenever the owner changes. Spinning will be stopped when:
->> @@ -416,7 +421,7 @@ static bool rwsem_optimistic_spin(struct rw_semaphore *sem)
->>   	 *  2) readers own the lock as we can't determine if they are
->>   	 *     actively running or not.
->>   	 */
->> -	while (rwsem_spin_on_owner(sem)) {
->> +	while ((can_spin = rwsem_spin_on_owner(sem)) || loopcnt) {
->>   		/*
->>   		 * Try to acquire the lock
->>   		 */
->> @@ -425,13 +430,16 @@ static bool rwsem_optimistic_spin(struct rw_semaphore *sem)
->>   			break;
->>   		}
->>
->> +		if (!can_spin&&  loopcnt)
->> +			loopcnt--;
-> This seems to suggest 'can_spin' is a bad name, because if we cannot
-> spin, we do in fact spin anyway?
->
-> Maybe call it write_spin or something, which makes it clear that if its
-> not a write spin we'll do a read spin?
-
-I am fine with the write_spin name.
-
->
-> Also, isn't this the wrong level to do loopcnt at?
-> rwsem_spin_on_owner() can have spend any amount of cycles spinning. So
-> you're not counting loops of similar unit.
-
-The loopcnt does not include time spinning on writer. It will be 
-decremented only if the lock is owned by reader (can_spin = false). I 
-will clarify that with additional comments.
-
->> +	/*
->> +	 * Was owner a reader?
->> +	 */
->> +	if (rwsem_owner_is_reader(sem->owner)) {
->> +		/*
->> +		 * Update rspin_enabled for reader spinning
-> full stop and newline?
-
-Sure.
-
->
->> +		 * Increment by 1 if successfully&  decrement by 8 if
->> +		 * unsuccessful.
-> This is bloody obvious from the code, explain why, not what the code
-> does.
-
-Will clarify the comment.
-
->>                                 The decrement amount is kind of arbitrary
->> +		 * and can be adjusted if necessary.
->> +		 */
->> +		if (taken&&  (sem->rspin_enabled<  RWSEM_RSPIN_ENABLED_MAX))
->> +			sem->rspin_enabled++;
->> +		else if (!taken)
->> +			sem->rspin_enabled = (sem->rspin_enabled>= 8)
->> +					   ? sem->rspin_enabled - 8 : 0;
-> This is unreadable and against coding style.
-
-I will fix the coding style problem.
-
-Cheers,
-Longman
