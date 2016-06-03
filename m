@@ -1,137 +1,62 @@
-From: Waiman Long <Waiman.Long@hpe.com>
-Date: Tue, 14 Jun 2016 22:48:09 +0000
-Subject: [RFC PATCH-tip v2 6/6] locking/rwsem: Enable spinning readers
-Message-Id: <1465944489-43440-7-git-send-email-Waiman.Long@hpe.com>
+From: Russell King <rmk+kernel@arm.linux.org.uk>
+Date: Fri, 03 Jun 2016 08:50:16 +0000
+Subject: [PATCH 2/8] ARM: kexec: advertise location of bootable RAM
+Message-Id: <E1b8ko4-0004HA-GF@rmk-PC.armlinux.org.uk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1465944489-43440-1-git-send-email-Waiman.Long@hpe.com>
-In-Reply-To: <1465944489-43440-1-git-send-email-Waiman.Long@hpe.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>
-Cc: linux-kernel@vger.kernel.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-arch@vger.kernel.org, Davidlohr Bueso <dave@stgolabs.net>, Jason Low <jason.low2@hp.com>, Dave Chinner <david@fromorbit.com>, Scott J Norton <scott.norton@hpe.com>, Douglas Hatch <doug.hatch@hpe.com>, Waiman Long <Waiman.Long@hpe.com>
+To: linux-arm-kernel@lists.infradead.org
 
-This patch enables readers to optimistically spin when the
-rspin_threshold is non-zero. That threshold value should only
-be set when the lock owners of the rwsem are unlikely to go to
-sleep. Otherwise enabling reader spinning may make the performance
-worse in some cases.
+Advertise the location of bootable RAM to kexec-tools.  kexec needs to
+know where it can place the kernel in RAM, and so be executable when
+the system needs to jump into it.
 
-On a 4-socket Haswell machine running on a 4.7-rc1 tip-based kernel,
-the fio test with multithreaded randrw and randwrite tests on the
-same file on a XFS partition on top of a NVDIMM with DAX were run,
-the aggregated bandwidths before and after the reader optimistic
-spinning patchset were as follows:
+Advertise these areas in /proc/iomem with a "System RAM (boot alias)"
+tag.
 
-  Test      BW before patch     BW after patch  % change
-  ----      ---------------     --------------  --------
-  randrw        1352 MB/s          2164 MB/s      +60%
-  randwrite     1710 MB/s          2550 MB/s      +49%
-
-Signed-off-by: Waiman Long <Waiman.Long@hpe.com>
+Reviewed-by: Pratyush Anand <panand@redhat.com>
+Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- kernel/locking/rwsem-xadd.c |   45 +++++++++++++++++++++++++++++++++++++-----
- 1 files changed, 39 insertions(+), 6 deletions(-)
+ arch/arm/kernel/setup.c | 23 +++++++++++++++++++++--
+ 1 file changed, 21 insertions(+), 2 deletions(-)
 
-diff --git a/kernel/locking/rwsem-xadd.c b/kernel/locking/rwsem-xadd.c
-index b1e7923..f3848fa 100644
---- a/kernel/locking/rwsem-xadd.c
-+++ b/kernel/locking/rwsem-xadd.c
-@@ -83,6 +83,12 @@
-  *	 (2) WAITING_BIAS - ACTIVE_WRITE_BIAS < count < 0
-  */
+diff --git a/arch/arm/kernel/setup.c b/arch/arm/kernel/setup.c
+index 19b25ad61385..612740788996 100644
+--- a/arch/arm/kernel/setup.c
++++ b/arch/arm/kernel/setup.c
+@@ -847,10 +847,29 @@ static void __init request_standard_resources(const struct machine_desc *mdesc)
+ 	kernel_data.end     = virt_to_phys(_end - 1);
  
-+static inline bool count_has_writer(long count)
-+{
-+	return (count < RWSEM_WAITING_BIAS) || ((count < 0) &&
-+	       (count > RWSEM_WAITING_BIAS - RWSEM_ACTIVE_WRITE_BIAS));
-+}
+ 	for_each_memblock(memory, region) {
++		phys_addr_t start = __pfn_to_phys(memblock_region_memory_base_pfn(region));
++		phys_addr_t end = __pfn_to_phys(memblock_region_memory_end_pfn(region)) - 1;
++		unsigned long boot_alias_start;
 +
- /*
-  * Initialize an rwsem:
-  */
-@@ -294,6 +300,25 @@ static inline bool rwsem_try_write_lock_unqueued(struct rw_semaphore *sem)
- 	}
- }
- 
-+/*
-+ * Try to acquire read lock before the reader is put on wait queue
-+ */
-+static inline bool rwsem_try_read_lock_unqueued(struct rw_semaphore *sem)
-+{
-+	long count = atomic_long_read(&sem->count);
++		/*
++		 * Some systems have a special memory alias which is only
++		 * used for booting.  We need to advertise this region to
++		 * kexec-tools so they know where bootable RAM is located.
++		 */
++		boot_alias_start = phys_to_idmap(start);
++		if (arm_has_idmap_alias() && boot_alias_start != IDMAP_INVALID_ADDR) {
++			res = memblock_virt_alloc(sizeof(*res), 0);
++			res->name = "System RAM (boot alias)";
++			res->start = boot_alias_start;
++			res->end = phys_to_idmap(end);
++			res->flags = IORESOURCE_MEM | IORESOURCE_BUSY;
++			request_resource(&iomem_resource, res);
++		}
 +
-+	if (count_has_writer(count))
-+		return false;
-+	count = atomic_long_add_return_acquire(RWSEM_ACTIVE_READ_BIAS,
-+					       &sem->count);
-+	if (!count_has_writer(count))
-+		return true;
-+
-+	/* Back out the change */
-+	atomic_long_add(-RWSEM_ACTIVE_READ_BIAS, &sem->count);
-+	return false;
-+}
-+
- static inline bool rwsem_can_spin_on_owner(struct rw_semaphore *sem)
- {
- 	struct task_struct *owner;
-@@ -356,7 +381,8 @@ out:
- 	return !rwsem_owner_is_reader(READ_ONCE(sem->owner));
- }
+ 		res = memblock_virt_alloc(sizeof(*res), 0);
+ 		res->name  = "System RAM";
+-		res->start = __pfn_to_phys(memblock_region_memory_base_pfn(region));
+-		res->end = __pfn_to_phys(memblock_region_memory_end_pfn(region)) - 1;
++		res->start = start;
++		res->end = end;
+ 		res->flags = IORESOURCE_SYSTEM_RAM | IORESOURCE_BUSY;
  
--static bool rwsem_optimistic_spin(struct rw_semaphore *sem)
-+static bool rwsem_optimistic_spin(struct rw_semaphore *sem,
-+				  enum rwsem_waiter_type type)
- {
- 	bool taken = false, can_spin;
- 	int loopcnt;
-@@ -383,10 +409,11 @@ static bool rwsem_optimistic_spin(struct rw_semaphore *sem)
- 		/*
- 		 * Try to acquire the lock
- 		 */
--		if (rwsem_try_write_lock_unqueued(sem)) {
--			taken = true;
-+		taken = (type = RWSEM_WAITING_FOR_WRITE)
-+		      ? rwsem_try_write_lock_unqueued(sem)
-+		      : rwsem_try_read_lock_unqueued(sem);
-+		if (taken)
- 			break;
--		}
- 
- 		if (!can_spin && loopcnt)
- 			loopcnt--;
-@@ -446,7 +473,8 @@ static inline bool reader_spinning_enabled(struct rw_semaphore *sem)
- 	return sem->rspin_enabled;
- }
- #else
--static bool rwsem_optimistic_spin(struct rw_semaphore *sem)
-+static bool rwsem_optimistic_spin(struct rw_semaphore *sem,
-+				  enum rwsem_waiter_type type)
- {
- 	return false;
- }
-@@ -480,6 +508,11 @@ struct rw_semaphore __sched * rwsem_down_read_failed(struct rw_semaphore *sem)
- 	 */
- 	atomic_long_add(-RWSEM_ACTIVE_READ_BIAS, &sem->count);
- 
-+	/* do optimistic spinning and steal lock if possible */
-+	if (reader_spinning_enabled(sem) &&
-+	    rwsem_optimistic_spin(sem, RWSEM_WAITING_FOR_READ))
-+		return sem;
-+
- 	/* set up my own style of waitqueue */
- 	waiter.task = tsk;
- 	waiter.type = RWSEM_WAITING_FOR_READ;
-@@ -536,7 +569,7 @@ __rwsem_down_write_failed_common(struct rw_semaphore *sem, int state)
- 	count = atomic_long_sub_return(RWSEM_ACTIVE_WRITE_BIAS, &sem->count);
- 
- 	/* do optimistic spinning and steal lock if possible */
--	if (rwsem_optimistic_spin(sem))
-+	if (rwsem_optimistic_spin(sem, RWSEM_WAITING_FOR_WRITE))
- 		return sem;
- 
- 	/*
+ 		request_resource(&iomem_resource, res);
 -- 
-1.7.1
+2.1.0
 
