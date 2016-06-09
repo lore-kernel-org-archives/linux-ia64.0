@@ -1,23 +1,23 @@
-From: Sasha Levin <sasha.levin@oracle.com>
-Date: Fri, 03 Jun 2016 21:36:26 +0000
-Subject: [added to the 4.1 stable tree] SIGNAL: Move generic copy_siginfo() to signal.h
-Message-Id: <1464989831-16666-91-git-send-email-sasha.levin@oracle.com>
+From: Kamal Mostafa <kamal@canonical.com>
+Date: Thu, 09 Jun 2016 21:15:08 +0000
+Subject: [PATCH 4.2.y-ckt 099/206] SIGNAL: Move generic copy_siginfo() to signal.h
+Message-Id: <1465507015-23052-100-git-send-email-kamal@canonical.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1464989831-16666-1-git-send-email-sasha.levin@oracle.com>
-In-Reply-To: <1464989831-16666-1-git-send-email-sasha.levin@oracle.com>
+References: <1465507015-23052-1-git-send-email-kamal@canonical.com>
+In-Reply-To: <1465507015-23052-1-git-send-email-kamal@canonical.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: stable@vger.kernel.org, stable-commits@vger.kernel.org
-Cc: James Hogan <james.hogan@imgtec.com>, Arnd Bergmann <arnd@arndb.de>, Ralf Baechle <ralf@linux-mips.org>, Petr Malat <oss@malat.biz>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Christopher Ferris <cferris@google.com>, linux-arch@vger.kernel.org, linux-mips@linux-mips.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Sasha Levin <sasha.levin@oracle.com>
+To: linux-kernel@vger.kernel.org, stable@vger.kernel.org, kernel-team@lists.ubuntu.com
+Cc: James Hogan <james.hogan@imgtec.com>, Arnd Bergmann <arnd@arndb.de>, Ralf Baechle <ralf@linux-mips.org>, Petr Malat <oss@malat.biz>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Christopher Ferris <cferris@google.com>, linux-arch@vger.kernel.org, linux-mips@linux-mips.org, linux-ia64@vger.kernel.org, Kamal Mostafa <kamal@canonical.com>
+
+4.2.8-ckt12 -stable review patch.  If anyone has any objections, please let me know.
+
+---8<------------------------------------------------------------
 
 From: James Hogan <james.hogan@imgtec.com>
 
-This patch has been added to the 4.1 stable tree. If you have any
-objections, please let us know.
-
-=======
-[ Upstream commit ca9eb49aa9562eaadf3cea071ec7018ad6800425 ]
+commit ca9eb49aa9562eaadf3cea071ec7018ad6800425 upstream.
 
 The generic copy_siginfo() is currently defined in
 asm-generic/siginfo.h, after including uapi/asm-generic/siginfo.h which
@@ -51,10 +51,9 @@ Cc: linux-arch@vger.kernel.org
 Cc: linux-mips@linux-mips.org
 Cc: linux-ia64@vger.kernel.org
 Cc: linux-kernel@vger.kernel.org
-Cc: <stable@vger.kernel.org> # 4.0-
 Patchwork: https://patchwork.linux-mips.org/patch/12478/
 Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
-Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+Signed-off-by: Kamal Mostafa <kamal@canonical.com>
 ---
  include/asm-generic/siginfo.h | 15 ---------------
  include/linux/signal.h        | 15 +++++++++++++++
@@ -87,7 +86,7 @@ index 3d1a3af..a2508a8 100644
  
  #endif
 diff --git a/include/linux/signal.h b/include/linux/signal.h
-index ab1e039..883ceb1 100644
+index 92557bb..d80259a 100644
 --- a/include/linux/signal.h
 +++ b/include/linux/signal.h
 @@ -28,6 +28,21 @@ struct sigpending {
@@ -113,5 +112,5 @@ index ab1e039..883ceb1 100644
   * Define some primitives to manipulate sigset_t.
   */
 -- 
-2.5.0
+2.7.4
 
