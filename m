@@ -1,21 +1,40 @@
 From: Kamal Mostafa <kamal@canonical.com>
-Date: Thu, 09 Jun 2016 21:15:08 +0000
-Subject: [PATCH 4.2.y-ckt 099/206] SIGNAL: Move generic copy_siginfo() to signal.h
-Message-Id: <1465507015-23052-100-git-send-email-kamal@canonical.com>
+Date: Thu, 09 Jun 2016 14:35:07 +0000
+Subject: [4.2.y-ckt stable] Patch "SIGNAL: Move generic copy_siginfo() to signal.h" has been added to the 4.2
+Message-Id: <1465482907-23501-1-git-send-email-kamal@canonical.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1465507015-23052-1-git-send-email-kamal@canonical.com>
-In-Reply-To: <1465507015-23052-1-git-send-email-kamal@canonical.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, stable@vger.kernel.org, kernel-team@lists.ubuntu.com
-Cc: James Hogan <james.hogan@imgtec.com>, Arnd Bergmann <arnd@arndb.de>, Ralf Baechle <ralf@linux-mips.org>, Petr Malat <oss@malat.biz>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Christopher Ferris <cferris@google.com>, linux-arch@vger.kernel.org, linux-mips@linux-mips.org, linux-ia64@vger.kernel.org, Kamal Mostafa <kamal@canonical.com>
+To: James Hogan <james.hogan@imgtec.com>
+Cc: Arnd Bergmann <arnd@arndb.de>, Ralf Baechle <ralf@linux-mips.org>, Petr Malat <oss@malat.biz>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Christopher Ferris <cferris@google.com>, linux-arch@vger.kernel.org, linux-mips@linux-mips.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Kamal Mostafa <kamal@canonical.com>, kernel-team@lists.ubuntu.com
 
-4.2.8-ckt12 -stable review patch.  If anyone has any objections, please let me know.
+This is a note to let you know that I have just added a patch titled
+
+    SIGNAL: Move generic copy_siginfo() to signal.h
+
+to the linux-4.2.y-queue branch of the 4.2.y-ckt extended stable tree 
+which can be found at:
+
+    https://git.launchpad.net/~canonical-kernel/linux/+git/linux-stable-ckt/log/?h=linux-4.2.y-queue
+
+This patch is scheduled to be released in version 4.2.8-ckt12.
+
+If you, or anyone else, feels it should not be added to this tree, please 
+reply to this email.
+
+For more information about the 4.2.y-ckt tree, see
+https://wiki.ubuntu.com/Kernel/Dev/ExtendedStable
+
+Thanks.
+-Kamal
 
 ---8<------------------------------------------------------------
 
+From 236c464f5452a6bf3859334a83ad6e3124868bfd Mon Sep 17 00:00:00 2001
 From: James Hogan <james.hogan@imgtec.com>
+Date: Mon, 8 Feb 2016 18:43:50 +0000
+Subject: SIGNAL: Move generic copy_siginfo() to signal.h
 
 commit ca9eb49aa9562eaadf3cea071ec7018ad6800425 upstream.
 
@@ -66,7 +85,7 @@ index 3d1a3af..a2508a8 100644
 @@ -17,21 +17,6 @@
  struct siginfo;
  void do_schedule_next_timer(struct siginfo *info);
- 
+
 -#ifndef HAVE_ARCH_COPY_SIGINFO
 -
 -#include <linux/string.h>
@@ -83,7 +102,7 @@ index 3d1a3af..a2508a8 100644
 -#endif
 -
  extern int copy_siginfo_to_user(struct siginfo __user *to, const struct siginfo *from);
- 
+
  #endif
 diff --git a/include/linux/signal.h b/include/linux/signal.h
 index 92557bb..d80259a 100644
@@ -92,7 +111,7 @@ index 92557bb..d80259a 100644
 @@ -28,6 +28,21 @@ struct sigpending {
  	sigset_t signal;
  };
- 
+
 +#ifndef HAVE_ARCH_COPY_SIGINFO
 +
 +#include <linux/string.h>
@@ -111,6 +130,6 @@ index 92557bb..d80259a 100644
  /*
   * Define some primitives to manipulate sigset_t.
   */
--- 
+--
 2.7.4
 
