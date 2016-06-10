@@ -1,135 +1,216 @@
-From: Kamal Mostafa <kamal@canonical.com>
-Date: Thu, 09 Jun 2016 14:35:07 +0000
-Subject: [4.2.y-ckt stable] Patch "SIGNAL: Move generic copy_siginfo() to signal.h" has been added to the 4.2
-Message-Id: <1465482907-23501-1-git-send-email-kamal@canonical.com>
+From: Krzysztof Kozlowski <k.kozlowski@samsung.com>
+Date: Fri, 10 Jun 2016 10:11:44 +0000
+Subject: [PATCH v4 27/44] ia64: dma-mapping: Use unsigned long for dma_attrs
+Message-Id: <1465553521-27303-28-git-send-email-k.kozlowski@samsung.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1465553521-27303-1-git-send-email-k.kozlowski@samsung.com>
+In-Reply-To: <1465553521-27303-1-git-send-email-k.kozlowski@samsung.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: James Hogan <james.hogan@imgtec.com>
-Cc: Arnd Bergmann <arnd@arndb.de>, Ralf Baechle <ralf@linux-mips.org>, Petr Malat <oss@malat.biz>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Christopher Ferris <cferris@google.com>, linux-arch@vger.kernel.org, linux-mips@linux-mips.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Kamal Mostafa <kamal@canonical.com>, kernel-team@lists.ubuntu.com
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: hch@infradead.org, Krzysztof Kozlowski <k.kozlowski@samsung.com>, Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Michal Hocko <mhocko@suse.com>, Johannes Weiner <hannes@cmpxchg.org>, Vlastimil Babka <vbabka@suse.cz>, Michael Ellerman <mpe@ellerman.id.au>, Hans-Christian Noren Egtvedt <egtvedt@samfundet.no>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-This is a note to let you know that I have just added a patch titled
+Split out subsystem specific changes for easier reviews. This will be
+squashed with main commit.
 
-    SIGNAL: Move generic copy_siginfo() to signal.h
-
-to the linux-4.2.y-queue branch of the 4.2.y-ckt extended stable tree 
-which can be found at:
-
-    https://git.launchpad.net/~canonical-kernel/linux/+git/linux-stable-ckt/log/?h=linux-4.2.y-queue
-
-This patch is scheduled to be released in version 4.2.8-ckt12.
-
-If you, or anyone else, feels it should not be added to this tree, please 
-reply to this email.
-
-For more information about the 4.2.y-ckt tree, see
-https://wiki.ubuntu.com/Kernel/Dev/ExtendedStable
-
-Thanks.
--Kamal
-
----8<------------------------------------------------------------
-
-From 236c464f5452a6bf3859334a83ad6e3124868bfd Mon Sep 17 00:00:00 2001
-From: James Hogan <james.hogan@imgtec.com>
-Date: Mon, 8 Feb 2016 18:43:50 +0000
-Subject: SIGNAL: Move generic copy_siginfo() to signal.h
-
-commit ca9eb49aa9562eaadf3cea071ec7018ad6800425 upstream.
-
-The generic copy_siginfo() is currently defined in
-asm-generic/siginfo.h, after including uapi/asm-generic/siginfo.h which
-defines the generic struct siginfo. However this makes it awkward for an
-architecture to use it if it has to define its own struct siginfo (e.g.
-MIPS and potentially IA64), since it means that asm-generic/siginfo.h
-can only be included after defining the arch-specific siginfo, which may
-be problematic if the arch-specific definition needs definitions from
-uapi/asm-generic/siginfo.h.
-
-It is possible to work around this by first including
-uapi/asm-generic/siginfo.h to get the constants before defining the
-arch-specific siginfo, and include asm-generic/siginfo.h after. However
-uapi headers can't be included by other uapi headers, so that first
-include has to be in an ifdef __kernel__, with the non __kernel__ case
-including the non-UAPI header instead.
-
-Instead of that mess, move the generic copy_siginfo() definition into
-linux/signal.h, which allows an arch-specific uapi/asm/siginfo.h to
-include asm-generic/siginfo.h and define the arch-specific siginfo, and
-for the generic copy_siginfo() to see that arch-specific definition.
-
-Signed-off-by: James Hogan <james.hogan@imgtec.com>
-Cc: Arnd Bergmann <arnd@arndb.de>
-Cc: Ralf Baechle <ralf@linux-mips.org>
-Cc: Petr Malat <oss@malat.biz>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: Christopher Ferris <cferris@google.com>
-Cc: linux-arch@vger.kernel.org
-Cc: linux-mips@linux-mips.org
-Cc: linux-ia64@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Patchwork: https://patchwork.linux-mips.org/patch/12478/
-Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
-Signed-off-by: Kamal Mostafa <kamal@canonical.com>
+Signed-off-by: Krzysztof Kozlowski <k.kozlowski@samsung.com>
 ---
- include/asm-generic/siginfo.h | 15 ---------------
- include/linux/signal.h        | 15 +++++++++++++++
- 2 files changed, 15 insertions(+), 15 deletions(-)
+ arch/ia64/hp/common/sba_iommu.c | 22 +++++++++++-----------
+ arch/ia64/include/asm/machvec.h |  1 -
+ arch/ia64/kernel/pci-swiotlb.c  |  4 ++--
+ arch/ia64/sn/pci/pci_dma.c      | 12 ++++++------
+ 4 files changed, 19 insertions(+), 20 deletions(-)
 
-diff --git a/include/asm-generic/siginfo.h b/include/asm-generic/siginfo.h
-index 3d1a3af..a2508a8 100644
---- a/include/asm-generic/siginfo.h
-+++ b/include/asm-generic/siginfo.h
-@@ -17,21 +17,6 @@
- struct siginfo;
- void do_schedule_next_timer(struct siginfo *info);
-
--#ifndef HAVE_ARCH_COPY_SIGINFO
--
--#include <linux/string.h>
--
--static inline void copy_siginfo(struct siginfo *to, struct siginfo *from)
--{
--	if (from->si_code < 0)
--		memcpy(to, from, sizeof(*to));
--	else
--		/* _sigchld is currently the largest know union member */
--		memcpy(to, from, __ARCH_SI_PREAMBLE_SIZE + sizeof(from->_sifields._sigchld));
--}
--
--#endif
--
- extern int copy_siginfo_to_user(struct siginfo __user *to, const struct siginfo *from);
-
- #endif
-diff --git a/include/linux/signal.h b/include/linux/signal.h
-index 92557bb..d80259a 100644
---- a/include/linux/signal.h
-+++ b/include/linux/signal.h
-@@ -28,6 +28,21 @@ struct sigpending {
- 	sigset_t signal;
- };
-
-+#ifndef HAVE_ARCH_COPY_SIGINFO
-+
-+#include <linux/string.h>
-+
-+static inline void copy_siginfo(struct siginfo *to, struct siginfo *from)
-+{
-+	if (from->si_code < 0)
-+		memcpy(to, from, sizeof(*to));
-+	else
-+		/* _sigchld is currently the largest know union member */
-+		memcpy(to, from, __ARCH_SI_PREAMBLE_SIZE + sizeof(from->_sifields._sigchld));
-+}
-+
-+#endif
-+
- /*
-  * Define some primitives to manipulate sigset_t.
+diff --git a/arch/ia64/hp/common/sba_iommu.c b/arch/ia64/hp/common/sba_iommu.c
+index a6d6190c9d24..630ee8073899 100644
+--- a/arch/ia64/hp/common/sba_iommu.c
++++ b/arch/ia64/hp/common/sba_iommu.c
+@@ -919,7 +919,7 @@ sba_mark_invalid(struct ioc *ioc, dma_addr_t iova, size_t byte_cnt)
+ static dma_addr_t sba_map_page(struct device *dev, struct page *page,
+ 			       unsigned long poff, size_t size,
+ 			       enum dma_data_direction dir,
+-			       struct dma_attrs *attrs)
++			       unsigned long attrs)
+ {
+ 	struct ioc *ioc;
+ 	void *addr = page_address(page) + poff;
+@@ -1005,7 +1005,7 @@ static dma_addr_t sba_map_page(struct device *dev, struct page *page,
+ 
+ static dma_addr_t sba_map_single_attrs(struct device *dev, void *addr,
+ 				       size_t size, enum dma_data_direction dir,
+-				       struct dma_attrs *attrs)
++				       unsigned long attrs)
+ {
+ 	return sba_map_page(dev, virt_to_page(addr),
+ 			    (unsigned long)addr & ~PAGE_MASK, size, dir, attrs);
+@@ -1046,7 +1046,7 @@ sba_mark_clean(struct ioc *ioc, dma_addr_t iova, size_t size)
+  * See Documentation/DMA-API-HOWTO.txt
   */
---
-2.7.4
+ static void sba_unmap_page(struct device *dev, dma_addr_t iova, size_t size,
+-			   enum dma_data_direction dir, struct dma_attrs *attrs)
++			   enum dma_data_direction dir, unsigned long attrs)
+ {
+ 	struct ioc *ioc;
+ #if DELAYED_RESOURCE_CNT > 0
+@@ -1115,7 +1115,7 @@ static void sba_unmap_page(struct device *dev, dma_addr_t iova, size_t size,
+ }
+ 
+ void sba_unmap_single_attrs(struct device *dev, dma_addr_t iova, size_t size,
+-			    enum dma_data_direction dir, struct dma_attrs *attrs)
++			    enum dma_data_direction dir, unsigned long attrs)
+ {
+ 	sba_unmap_page(dev, iova, size, dir, attrs);
+ }
+@@ -1130,7 +1130,7 @@ void sba_unmap_single_attrs(struct device *dev, dma_addr_t iova, size_t size,
+  */
+ static void *
+ sba_alloc_coherent(struct device *dev, size_t size, dma_addr_t *dma_handle,
+-		   gfp_t flags, struct dma_attrs *attrs)
++		   gfp_t flags, unsigned long attrs)
+ {
+ 	struct ioc *ioc;
+ 	void *addr;
+@@ -1175,7 +1175,7 @@ sba_alloc_coherent(struct device *dev, size_t size, dma_addr_t *dma_handle,
+ 	 * device to map single to get an iova mapping.
+ 	 */
+ 	*dma_handle = sba_map_single_attrs(&ioc->sac_only_dev->dev, addr,
+-					   size, 0, NULL);
++					   size, 0, 0);
+ 
+ 	return addr;
+ }
+@@ -1191,9 +1191,9 @@ sba_alloc_coherent(struct device *dev, size_t size, dma_addr_t *dma_handle,
+  * See Documentation/DMA-API-HOWTO.txt
+  */
+ static void sba_free_coherent(struct device *dev, size_t size, void *vaddr,
+-			      dma_addr_t dma_handle, struct dma_attrs *attrs)
++			      dma_addr_t dma_handle, unsigned long attrs)
+ {
+-	sba_unmap_single_attrs(dev, dma_handle, size, 0, NULL);
++	sba_unmap_single_attrs(dev, dma_handle, size, 0, 0);
+ 	free_pages((unsigned long) vaddr, get_order(size));
+ }
+ 
+@@ -1442,7 +1442,7 @@ sba_coalesce_chunks(struct ioc *ioc, struct device *dev,
+ 
+ static void sba_unmap_sg_attrs(struct device *dev, struct scatterlist *sglist,
+ 			       int nents, enum dma_data_direction dir,
+-			       struct dma_attrs *attrs);
++			       unsigned long attrs);
+ /**
+  * sba_map_sg - map Scatter/Gather list
+  * @dev: instance of PCI owned by the driver that's asking.
+@@ -1455,7 +1455,7 @@ static void sba_unmap_sg_attrs(struct device *dev, struct scatterlist *sglist,
+  */
+ static int sba_map_sg_attrs(struct device *dev, struct scatterlist *sglist,
+ 			    int nents, enum dma_data_direction dir,
+-			    struct dma_attrs *attrs)
++			    unsigned long attrs)
+ {
+ 	struct ioc *ioc;
+ 	int coalesced, filled = 0;
+@@ -1551,7 +1551,7 @@ static int sba_map_sg_attrs(struct device *dev, struct scatterlist *sglist,
+  */
+ static void sba_unmap_sg_attrs(struct device *dev, struct scatterlist *sglist,
+ 			       int nents, enum dma_data_direction dir,
+-			       struct dma_attrs *attrs)
++			       unsigned long attrs)
+ {
+ #ifdef ASSERT_PDIR_SANITY
+ 	struct ioc *ioc;
+diff --git a/arch/ia64/include/asm/machvec.h b/arch/ia64/include/asm/machvec.h
+index 9c39bdfc2da8..ed7f09089f12 100644
+--- a/arch/ia64/include/asm/machvec.h
++++ b/arch/ia64/include/asm/machvec.h
+@@ -22,7 +22,6 @@ struct pci_bus;
+ struct task_struct;
+ struct pci_dev;
+ struct msi_desc;
+-struct dma_attrs;
+ 
+ typedef void ia64_mv_setup_t (char **);
+ typedef void ia64_mv_cpu_init_t (void);
+diff --git a/arch/ia64/kernel/pci-swiotlb.c b/arch/ia64/kernel/pci-swiotlb.c
+index 939260aeac98..2933208c0285 100644
+--- a/arch/ia64/kernel/pci-swiotlb.c
++++ b/arch/ia64/kernel/pci-swiotlb.c
+@@ -16,7 +16,7 @@ EXPORT_SYMBOL(swiotlb);
+ 
+ static void *ia64_swiotlb_alloc_coherent(struct device *dev, size_t size,
+ 					 dma_addr_t *dma_handle, gfp_t gfp,
+-					 struct dma_attrs *attrs)
++					 unsigned long attrs)
+ {
+ 	if (dev->coherent_dma_mask != DMA_BIT_MASK(64))
+ 		gfp |= GFP_DMA;
+@@ -25,7 +25,7 @@ static void *ia64_swiotlb_alloc_coherent(struct device *dev, size_t size,
+ 
+ static void ia64_swiotlb_free_coherent(struct device *dev, size_t size,
+ 				       void *vaddr, dma_addr_t dma_addr,
+-				       struct dma_attrs *attrs)
++				       unsigned long attrs)
+ {
+ 	swiotlb_free_coherent(dev, size, vaddr, dma_addr);
+ }
+diff --git a/arch/ia64/sn/pci/pci_dma.c b/arch/ia64/sn/pci/pci_dma.c
+index 8f59907007cb..6b78fc953c4b 100644
+--- a/arch/ia64/sn/pci/pci_dma.c
++++ b/arch/ia64/sn/pci/pci_dma.c
+@@ -77,7 +77,7 @@ EXPORT_SYMBOL(sn_dma_set_mask);
+  */
+ static void *sn_dma_alloc_coherent(struct device *dev, size_t size,
+ 				   dma_addr_t * dma_handle, gfp_t flags,
+-				   struct dma_attrs *attrs)
++				   unsigned long attrs)
+ {
+ 	void *cpuaddr;
+ 	unsigned long phys_addr;
+@@ -138,7 +138,7 @@ static void *sn_dma_alloc_coherent(struct device *dev, size_t size,
+  * any associated IOMMU mappings.
+  */
+ static void sn_dma_free_coherent(struct device *dev, size_t size, void *cpu_addr,
+-				 dma_addr_t dma_handle, struct dma_attrs *attrs)
++				 dma_addr_t dma_handle, unsigned long attrs)
+ {
+ 	struct pci_dev *pdev = to_pci_dev(dev);
+ 	struct sn_pcibus_provider *provider = SN_PCIDEV_BUSPROVIDER(pdev);
+@@ -176,7 +176,7 @@ static void sn_dma_free_coherent(struct device *dev, size_t size, void *cpu_addr
+ static dma_addr_t sn_dma_map_page(struct device *dev, struct page *page,
+ 				  unsigned long offset, size_t size,
+ 				  enum dma_data_direction dir,
+-				  struct dma_attrs *attrs)
++				  unsigned long attrs)
+ {
+ 	void *cpu_addr = page_address(page) + offset;
+ 	dma_addr_t dma_addr;
+@@ -218,7 +218,7 @@ static dma_addr_t sn_dma_map_page(struct device *dev, struct page *page,
+  */
+ static void sn_dma_unmap_page(struct device *dev, dma_addr_t dma_addr,
+ 			      size_t size, enum dma_data_direction dir,
+-			      struct dma_attrs *attrs)
++			      unsigned long attrs)
+ {
+ 	struct pci_dev *pdev = to_pci_dev(dev);
+ 	struct sn_pcibus_provider *provider = SN_PCIDEV_BUSPROVIDER(pdev);
+@@ -240,7 +240,7 @@ static void sn_dma_unmap_page(struct device *dev, dma_addr_t dma_addr,
+  */
+ static void sn_dma_unmap_sg(struct device *dev, struct scatterlist *sgl,
+ 			    int nhwentries, enum dma_data_direction dir,
+-			    struct dma_attrs *attrs)
++			    unsigned long attrs)
+ {
+ 	int i;
+ 	struct pci_dev *pdev = to_pci_dev(dev);
+@@ -273,7 +273,7 @@ static void sn_dma_unmap_sg(struct device *dev, struct scatterlist *sgl,
+  */
+ static int sn_dma_map_sg(struct device *dev, struct scatterlist *sgl,
+ 			 int nhwentries, enum dma_data_direction dir,
+-			 struct dma_attrs *attrs)
++			 unsigned long attrs)
+ {
+ 	unsigned long phys_addr;
+ 	struct scatterlist *saved_sg = sgl, *sg;
+-- 
+1.9.1
 
