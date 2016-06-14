@@ -1,53 +1,54 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Date: Fri, 10 Jun 2016 16:39:41 +0000
-Subject: Re: [RFC 10/12] x86, rwsem: simplify __down_write
-Message-Id: <20160610163941.GC3868@linux.vnet.ibm.com>
+From: Waiman Long <Waiman.Long@hpe.com>
+Date: Tue, 14 Jun 2016 18:12:39 +0000
+Subject: [RFC PATCH-tip 6/6] xfs: Enable reader optimistic spinning for DAX inodes
+Message-Id: <1465927959-39719-7-git-send-email-Waiman.Long@hpe.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20160603223417.GB3892@twins.programming.kicks-ass.net>
- <1454444369-2146-1-git-send-email-mhocko@kernel.org>
- <1454444369-2146-11-git-send-email-mhocko@kernel.org>
- <20160203081016.GD32652@gmail.com>
- <20160603161339.GC3693@twins.programming.kicks-ass.net>
- <29355.1465483258@warthog.procyon.org.uk>
- <20160609173640.GX30154@twins.programming.kicks-ass.net>
-In-Reply-To: <20160609173640.GX30154@twins.programming.kicks-ass.net>
+References: <1465927959-39719-1-git-send-email-Waiman.Long@hpe.com>
+In-Reply-To: <1465927959-39719-1-git-send-email-Waiman.Long@hpe.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Peter Zijlstra <peterz@infradead.org>
-Cc: David Howells <dhowells@redhat.com>, Ingo Molnar <mingo@kernel.org>, Michal Hocko <mhocko@kernel.org>, LKML <linux-kernel@vger.kernel.org>, Ingo Molnar <mingo@redhat.com>, Thomas Gleixner <tglx@linutronix.de>, "H. Peter Anvin" <hpa@zytor.com>, "David S. Miller" <davem@davemloft.net>, Tony Luck <tony.luck@intel.com>, Andrew Morton <akpm@linux-foundation.org>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org, Michal Hocko <mhocko@suse.com>, Linus Torvalds <torvalds@linux-foundation.org>, Jason Low <jason.low2@hpe.com>
+To: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>
+Cc: linux-kernel@vger.kernel.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-arch@vger.kernel.org, xfs@oss.sgi.com, Davidlohr Bueso <dave@stgolabs.net>, Jason Low <jason.low2@hp.com>, Dave Chinner <david@fromorbit.com>, Scott J Norton <scott.norton@hpe.com>, Douglas Hatch <doug.hatch@hpe.com>, Waiman Long <Waiman.Long@hpe.com>
 
-On Thu, Jun 09, 2016 at 07:36:40PM +0200, Peter Zijlstra wrote:
-> On Thu, Jun 09, 2016 at 03:40:58PM +0100, David Howells wrote:
-> > Peter Zijlstra <peterz@infradead.org> wrote:
-> > 
-> > > Blergh; so looking at more asm there's still a few tricks we cannot do.
-> > > So while overall size is down, some paths do end up more expensive. (It
-> > > typically boils down to creative use of condition flags, which is very
-> > > hard in C)
-> > 
-> > It can be done using ISO __atomic_fetch_add() and suchlike.
-> 
-> (ISO-C11, ISO as such is a bad abbreviation I think)
-> 
-> Maybe, but we're almost there with __GCC_ASM_FLAG_OUTPUTS__.
-> 
-> atomic_long_add_negative() can be made to do inc;j(n)s for __down_read.
-> 
-> the try_cmpxchg family you wanted to add independent from the ISO-C11
-> bits can do the cmpxchg-j(n)z for __down_{read,write}_trylock.
-> 
-> That only leaves us wanting an atomic_long_fetch_add_negative() for
-> __up_{read,write}().
-> 
-> Although I suppose, for this to be of use for our weakly ordered
-> friends, we need _relaxed versions of all that (so that _acquire and
-> _release variants are generated).
+This patch enables reader optimistic spinning for inodes that are
+under a DAX-based mount point.
 
-Historically, the compilers have won this sort of contest over the
-long term.  That said, there is nothing quite like raising the bar for
-them to help them generate decent code.  So, David and Peter, I am behind
-both of you 100%.  ;-)
+On a 4-socket Haswell machine running on a 4.7-rc1 tip-based kernel,
+the fio test with multithreaded randrw and randwrite tests on the
+same file on a XFS partition on top of a NVDIMM with DAX were run,
+the aggregated bandwidths before and after the patch were as follows:
 
-							Thanx, Paul
+  Test      BW before patch     BW after patch  % change
+  ----      ---------------     --------------  --------
+  randrw        1352 MB/s          2164 MB/s      +60%
+  randwrite     1710 MB/s          2550 MB/s      +49%
+
+Signed-off-by: Waiman Long <Waiman.Long@hpe.com>
+---
+ fs/xfs/xfs_icache.c |    9 +++++++++
+ 1 files changed, 9 insertions(+), 0 deletions(-)
+
+diff --git a/fs/xfs/xfs_icache.c b/fs/xfs/xfs_icache.c
+index 99ee6ee..09f284f 100644
+--- a/fs/xfs/xfs_icache.c
++++ b/fs/xfs/xfs_icache.c
+@@ -71,6 +71,15 @@ xfs_inode_alloc(
+ 
+ 	mrlock_init(&ip->i_iolock, MRLOCK_BARRIER, "xfsio", ip->i_ino);
+ 
++	/*
++	 * Enable reader spinning for DAX nount point
++	 */
++	if (mp->m_flags & XFS_MOUNT_DAX) {
++		rwsem_set_rspin_threshold(&ip->i_iolock.mr_lock);
++		rwsem_set_rspin_threshold(&ip->i_mmaplock.mr_lock);
++		rwsem_set_rspin_threshold(&ip->i_lock.mr_lock);
++	}
++
+ 	/* initialise the xfs inode */
+ 	ip->i_ino = ino;
+ 	ip->i_mount = mp;
+-- 
+1.7.1
 
