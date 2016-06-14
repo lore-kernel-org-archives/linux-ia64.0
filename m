@@ -1,128 +1,265 @@
-From: Hanjun Guo <guohanjun@huawei.com>
-Date: Fri, 17 Jun 2016 02:04:26 +0000
-Subject: Re: [PATCH v7 15/15] acpi, numa: Enable ACPI based NUMA on ARM64
-Message-Id: <57635AAA.6050602@huawei.com>
+From: Waiman Long <Waiman.Long@hpe.com>
+Date: Tue, 14 Jun 2016 22:48:08 +0000
+Subject: [RFC PATCH-tip v2 5/6] locking/rwsem: Change RWSEM_WAITING_BIAS for better disambiguation
+Message-Id: <1465944489-43440-6-git-send-email-Waiman.Long@hpe.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1464129345-18985-1-git-send-email-ddaney.cavm@gmail.com>
- <1464129345-18985-16-git-send-email-ddaney.cavm@gmail.com>
- <5759C7C0.3050508@suse.com>
-In-Reply-To: <5759C7C0.3050508@suse.com>
+References: <1465944489-43440-1-git-send-email-Waiman.Long@hpe.com>
+In-Reply-To: <1465944489-43440-1-git-send-email-Waiman.Long@hpe.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Matthias Brugger <mbrugger@suse.com>, David Daney <ddaney.cavm@gmail.com>, Will Deacon <will.deacon@arm.com>, linux-arm-kernel@lists.infradead.org, Mark Rutland <mark.rutland@arm.com>, Catalin Marinas <catalin.marinas@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>, Rob Herring <robh+dt@kernel.org>, Frank Rowand <frowand.list@gmail.com>, Grant Likely <grant.likely@linaro.org>, Robert Moore <robert.moore@intel.com>, Lv Zheng <lv.zheng@intel.com>, Hanjun Guo <hanjun.guo@linaro.org>, Marc Zyngier <Marc.Zyngier@arm.com>, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org
-Cc: Robert Richter <rrichter@cavium.com>, linux-kernel@vger.kernel.org, David Daney <david.daney@cavium.com>, "thunder.leizhen@huawei.com" <thunder.leizhen@huawei.com>
+To: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>
+Cc: linux-kernel@vger.kernel.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-arch@vger.kernel.org, Davidlohr Bueso <dave@stgolabs.net>, Jason Low <jason.low2@hp.com>, Dave Chinner <david@fromorbit.com>, Scott J Norton <scott.norton@hpe.com>, Douglas Hatch <doug.hatch@hpe.com>, Waiman Long <Waiman.Long@hpe.com>
 
-On 2016/6/10 3:47, Matthias Brugger wrote:
->
->
-> On 25/05/16 00:35, David Daney wrote:
->> From: Hanjun Guo <hanjun.guo@linaro.org>
->>
->> Add function needed for cpu to node mapping, and enable ACPI based
->> NUMA for ARM64 in Kconfig
->>
->> Signed-off-by: Hanjun Guo <hanjun.guo@linaro.org>
->> Signed-off-by: Robert Richter <rrichter@cavium.com>
->> [david.daney@cavium.com added ACPI_NUMA default to y for ARM64]
->> Signed-off-by: David Daney <david.daney@cavium.com>
->> Acked-by: Catalin Marinas <catalin.marinas@arm.com>
->> ---
->>   drivers/acpi/Kconfig |  4 ++--
->>   drivers/acpi/numa.c  | 37 ++++++++++++++++++++++++++++++++++++-
->>   include/linux/acpi.h | 17 ++++++++++++++++-
->>   3 files changed, 54 insertions(+), 4 deletions(-)
->>
->> diff --git a/drivers/acpi/Kconfig b/drivers/acpi/Kconfig
->> index b7e2e77..dd76b36 100644
->> --- a/drivers/acpi/Kconfig
->> +++ b/drivers/acpi/Kconfig
->> @@ -291,8 +291,8 @@ config ACPI_THERMAL
->>   config ACPI_NUMA
->>       bool "NUMA support"
->>       depends on NUMA
->> -    depends on (X86 || IA64)
->> -    default y if IA64_GENERIC || IA64_SGI_SN2
->> +    depends on (X86 || IA64 || ARM64)
->> +    default y if IA64_GENERIC || IA64_SGI_SN2 || ARM64
->>
->>   config ACPI_CUSTOM_DSDT_FILE
->>       string "Custom DSDT Table file to include"
->> diff --git a/drivers/acpi/numa.c b/drivers/acpi/numa.c
->> index fad6d28..9b7ce40 100644
->> --- a/drivers/acpi/numa.c
->> +++ b/drivers/acpi/numa.c
->> @@ -170,6 +170,18 @@ acpi_table_print_srat_entry(struct acpi_subtable_header *header)
->>           }
->>           break;
->>
->> +    case ACPI_SRAT_TYPE_GICC_AFFINITY:
->> +        {
->> +            struct acpi_srat_gicc_affinity *p >> +                (struct acpi_srat_gicc_affinity *)header;
->> +            pr_debug("SRAT Processor (acpi id[0x%04x]) in proximity domain %d %s\n",
->> +                 p->acpi_processor_uid,
->> +                 p->proximity_domain,
->> +                 (p->flags & ACPI_SRAT_GICC_ENABLED) ?
->> +                 "enabled" : "disabled");
->> +        }
->> +        break;
->> +
->>       default:
->>           pr_warn("Found unsupported SRAT entry (type = 0x%x)\n",
->>               header->type);
->> @@ -360,6 +372,24 @@ acpi_parse_processor_affinity(struct acpi_subtable_header *header,
->>       return 0;
->>   }
->>
->> +static int __init
->> +acpi_parse_gicc_affinity(struct acpi_subtable_header *header,
->> +             const unsigned long end)
->> +{
->> +    struct acpi_srat_gicc_affinity *processor_affinity;
->> +
->> +    processor_affinity = (struct acpi_srat_gicc_affinity *)header;
->> +    if (!processor_affinity)
->> +        return -EINVAL;
->> +
->> +    acpi_table_print_srat_entry(header);
->> +
->> +    /* let architecture-dependent part to do it */
->> +    acpi_numa_gicc_affinity_init(processor_affinity);
->> +
->> +    return 0;
->> +}
->> +
->>   static int __initdata parsed_numa_memblks;
->>
->>   static int __init
->> @@ -404,6 +434,9 @@ int __init acpi_numa_init(void)
->>   {
->>       int cnt = 0;
->>
->> +    if (acpi_disabled)
->> +        return -EINVAL;
->> +
->>       /*
->>        * Should not limit number with cpu num that is from NR_CPUS or nr_cpus>>        * SRAT cpu entries could have different order with that in MADT.
->> @@ -412,13 +445,15 @@ int __init acpi_numa_init(void)
->>
->>       /* SRAT: Static Resource Affinity Table */
->>       if (!acpi_table_parse(ACPI_SIG_SRAT, acpi_parse_srat)) {
->> -        struct acpi_subtable_proc srat_proc[2];
->> +        struct acpi_subtable_proc srat_proc[3];
->>
->>           memset(srat_proc, 0, sizeof(srat_proc));
->>           srat_proc[0].id = ACPI_SRAT_TYPE_CPU_AFFINITY;
->>           srat_proc[0].handler = acpi_parse_processor_affinity;
->>           srat_proc[1].id = ACPI_SRAT_TYPE_X2APIC_CPU_AFFINITY;
->>           srat_proc[1].handler = acpi_parse_x2apic_affinity;
->> +        srat_proc[1].id = ACPI_SRAT_TYPE_GICC_AFFINITY;
->> +        srat_proc[1].handler = acpi_parse_gicc_affinity;
->
-> Should be srat_proc[2].id and srat_proc[2].handler, right?
+When the count value is in between 0 and RWSEM_WAITING_BIAS, there
+are 2 possibilities. Either a writer is present and there is no
+waiter or there are waiters and readers. There is no easy way to
+know which is true unless the wait_lock is taken.
 
-Good catch, will send a updated version shortly.
+This patch changes the RWSEM_WAITING_BIAS from 0xffff (32-bit) or
+0xffffffff (64-bit) to 0xc0000000 (32-bit) or 0xc000000000000000
+(64-bit). By doing so, we will be able to determine if writers
+are present by looking at the count value alone without taking the
+wait_lock.
 
-Thanks
-Hanjun
+This patch has the effect of halving the maximum number of writers
+that can attempt to take the write lock simultaneously. However,
+even the reduced maximum of about 16k (32-bit) or 1G (64-bit) should
+be more than enough for the foreseeable future.
+
+With that change, the following identity is now no longer true:
+
+  RWSEM_ACTIVE_WRITE_BIAS = RWSEM_WAITING_BIAS + RWSEM_ACTIVE_READ_BIAS
+
+Signed-off-by: Waiman Long <Waiman.Long@hpe.com>
+---
+ arch/alpha/include/asm/rwsem.h |    7 ++++---
+ arch/ia64/include/asm/rwsem.h  |    6 +++---
+ arch/s390/include/asm/rwsem.h  |    6 +++---
+ arch/x86/include/asm/rwsem.h   |   13 ++++++++-----
+ include/asm-generic/rwsem.h    |    9 +++++----
+ kernel/locking/rwsem-xadd.c    |   32 ++++++++++++++++++++++++--------
+ 6 files changed, 47 insertions(+), 26 deletions(-)
+
+diff --git a/arch/alpha/include/asm/rwsem.h b/arch/alpha/include/asm/rwsem.h
+index 77873d0..0f08fad 100644
+--- a/arch/alpha/include/asm/rwsem.h
++++ b/arch/alpha/include/asm/rwsem.h
+@@ -17,9 +17,9 @@
+ #define RWSEM_UNLOCKED_VALUE		0x0000000000000000L
+ #define RWSEM_ACTIVE_BIAS		0x0000000000000001L
+ #define RWSEM_ACTIVE_MASK		0x00000000ffffffffL
+-#define RWSEM_WAITING_BIAS		(-0x0000000100000000L)
++#define RWSEM_WAITING_BIAS		0xc000000000000000L
+ #define RWSEM_ACTIVE_READ_BIAS		RWSEM_ACTIVE_BIAS
+-#define RWSEM_ACTIVE_WRITE_BIAS		(RWSEM_WAITING_BIAS + RWSEM_ACTIVE_BIAS)
++#define RWSEM_ACTIVE_WRITE_BIAS		(-RWSEM_ACTIVE_MASK)
+ 
+ static inline void __down_read(struct rw_semaphore *sem)
+ {
+@@ -185,7 +185,8 @@ static inline void __downgrade_write(struct rw_semaphore *sem)
+ 	"2:	br	1b\n"
+ 	".previous"
+ 	:"=&r" (oldcount), "=m" (sem->count), "=&r" (temp)
+-	:"Ir" (-RWSEM_WAITING_BIAS), "m" (sem->count) : "memory");
++	:"Ir" (-RWSEM_ACTIVE_WRITE_BIAS + RWSEM_ACTIVE_READ_BIAS),
++	 "m" (sem->count) : "memory");
+ #endif
+ 	if (unlikely(oldcount < 0))
+ 		rwsem_downgrade_wake(sem);
+diff --git a/arch/ia64/include/asm/rwsem.h b/arch/ia64/include/asm/rwsem.h
+index 8fa98dd..db3693b 100644
+--- a/arch/ia64/include/asm/rwsem.h
++++ b/arch/ia64/include/asm/rwsem.h
+@@ -30,9 +30,9 @@
+ #define RWSEM_UNLOCKED_VALUE		__IA64_UL_CONST(0x0000000000000000)
+ #define RWSEM_ACTIVE_BIAS		(1L)
+ #define RWSEM_ACTIVE_MASK		(0xffffffffL)
+-#define RWSEM_WAITING_BIAS		(-0x100000000L)
++#define RWSEM_WAITING_BIAS		(-(1L << 62))
+ #define RWSEM_ACTIVE_READ_BIAS		RWSEM_ACTIVE_BIAS
+-#define RWSEM_ACTIVE_WRITE_BIAS		(RWSEM_WAITING_BIAS + RWSEM_ACTIVE_BIAS)
++#define RWSEM_ACTIVE_WRITE_BIAS		(-RWSEM_ACTIVE_MASK)
+ 
+ /*
+  * lock for reading
+@@ -144,7 +144,7 @@ __downgrade_write (struct rw_semaphore *sem)
+ 
+ 	do {
+ 		old = atomic_long_read(&sem->count);
+-		new = old - RWSEM_WAITING_BIAS;
++		new = old - RWSEM_ACTIVE_WRITE_BIAS + RWSEM_ACTIVE_READ_BIAS;
+ 	} while (atomic_long_cmpxchg_release(&sem->count, old, new) != old);
+ 
+ 	if (old < 0)
+diff --git a/arch/s390/include/asm/rwsem.h b/arch/s390/include/asm/rwsem.h
+index 597e7e9..e7f50f5 100644
+--- a/arch/s390/include/asm/rwsem.h
++++ b/arch/s390/include/asm/rwsem.h
+@@ -42,9 +42,9 @@
+ #define RWSEM_UNLOCKED_VALUE	0x0000000000000000L
+ #define RWSEM_ACTIVE_BIAS	0x0000000000000001L
+ #define RWSEM_ACTIVE_MASK	0x00000000ffffffffL
+-#define RWSEM_WAITING_BIAS	(-0x0000000100000000L)
++#define RWSEM_WAITING_BIAS	0xc000000000000000L
+ #define RWSEM_ACTIVE_READ_BIAS	RWSEM_ACTIVE_BIAS
+-#define RWSEM_ACTIVE_WRITE_BIAS	(RWSEM_WAITING_BIAS + RWSEM_ACTIVE_BIAS)
++#define RWSEM_ACTIVE_WRITE_BIAS	(-RWSEM_ACTIVE_MASK)
+ 
+ /*
+  * lock for reading
+@@ -193,7 +193,7 @@ static inline void __downgrade_write(struct rw_semaphore *sem)
+ {
+ 	signed long old, new, tmp;
+ 
+-	tmp = -RWSEM_WAITING_BIAS;
++	tmp = -RWSEM_ACTIVE_WRITE_BIAS + RWSEM_ACTIVE_READ_BIAS;
+ 	asm volatile(
+ 		"	lg	%0,%2\n"
+ 		"0:	lgr	%1,%0\n"
+diff --git a/arch/x86/include/asm/rwsem.h b/arch/x86/include/asm/rwsem.h
+index 089ced4..f1fb09f 100644
+--- a/arch/x86/include/asm/rwsem.h
++++ b/arch/x86/include/asm/rwsem.h
+@@ -41,21 +41,23 @@
+ 
+ /*
+  * The bias values and the counter type limits the number of
+- * potential readers/writers to 32767 for 32 bits and 2147483647
+- * for 64 bits.
++ * potential writers to 16383 for 32 bits and 1073741823 for 64 bits.
++ * The combined readers and writers can go up to 65534 for 32-bits and
++ * 4294967294 for 64-bits.
+  */
+ 
+ #ifdef CONFIG_X86_64
+ # define RWSEM_ACTIVE_MASK		0xffffffffL
++# define RWSEM_WAITING_BIAS		(-(1L << 62))
+ #else
+ # define RWSEM_ACTIVE_MASK		0x0000ffffL
++# define RWSEM_WAITING_BIAS		(-(1L << 30))
+ #endif
+ 
+ #define RWSEM_UNLOCKED_VALUE		0x00000000L
+ #define RWSEM_ACTIVE_BIAS		0x00000001L
+-#define RWSEM_WAITING_BIAS		(-RWSEM_ACTIVE_MASK-1)
+ #define RWSEM_ACTIVE_READ_BIAS		RWSEM_ACTIVE_BIAS
+-#define RWSEM_ACTIVE_WRITE_BIAS		(RWSEM_WAITING_BIAS + RWSEM_ACTIVE_BIAS)
++#define RWSEM_ACTIVE_WRITE_BIAS		(-RWSEM_ACTIVE_MASK)
+ 
+ /*
+  * lock for reading
+@@ -209,7 +211,8 @@ static inline void __downgrade_write(struct rw_semaphore *sem)
+ 		     "1:\n\t"
+ 		     "# ending __downgrade_write\n"
+ 		     : "+m" (sem->count)
+-		     : "a" (sem), "er" (-RWSEM_WAITING_BIAS)
++		     : "a" (sem), "er" (-RWSEM_ACTIVE_WRITE_BIAS +
++					 RWSEM_ACTIVE_READ_BIAS)
+ 		     : "memory", "cc");
+ }
+ 
+diff --git a/include/asm-generic/rwsem.h b/include/asm-generic/rwsem.h
+index 5be122e..655e405 100644
+--- a/include/asm-generic/rwsem.h
++++ b/include/asm-generic/rwsem.h
+@@ -18,15 +18,16 @@
+  */
+ #ifdef CONFIG_64BIT
+ # define RWSEM_ACTIVE_MASK		0xffffffffL
++# define RWSEM_WAITING_BIAS		(-(1L << 62))
+ #else
+ # define RWSEM_ACTIVE_MASK		0x0000ffffL
++# define RWSEM_WAITING_BIAS		(-(1L << 30))
+ #endif
+ 
+ #define RWSEM_UNLOCKED_VALUE		0x00000000L
+ #define RWSEM_ACTIVE_BIAS		0x00000001L
+-#define RWSEM_WAITING_BIAS		(-RWSEM_ACTIVE_MASK-1)
+ #define RWSEM_ACTIVE_READ_BIAS		RWSEM_ACTIVE_BIAS
+-#define RWSEM_ACTIVE_WRITE_BIAS		(RWSEM_WAITING_BIAS + RWSEM_ACTIVE_BIAS)
++#define RWSEM_ACTIVE_WRITE_BIAS		(-RWSEM_ACTIVE_MASK)
+ 
+ /*
+  * lock for reading
+@@ -120,8 +121,8 @@ static inline void __downgrade_write(struct rw_semaphore *sem)
+ 	 * read-locked region is ok to be re-ordered into the
+ 	 * write side. As such, rely on RELEASE semantics.
+ 	 */
+-	tmp = atomic_long_add_return_release(-RWSEM_WAITING_BIAS,
+-				     (atomic_long_t *)&sem->count);
++	tmp = atomic_long_add_return_release(-RWSEM_ACTIVE_WRITE_BIAS +
++			RWSEM_ACTIVE_READ_BIAS, (atomic_long_t *)&sem->count);
+ 	if (tmp < 0)
+ 		rwsem_downgrade_wake(sem);
+ }
+diff --git a/kernel/locking/rwsem-xadd.c b/kernel/locking/rwsem-xadd.c
+index c08c778..b1e7923 100644
+--- a/kernel/locking/rwsem-xadd.c
++++ b/kernel/locking/rwsem-xadd.c
+@@ -29,28 +29,30 @@
+  * 0x00000000	rwsem is unlocked, and no one is waiting for the lock or
+  *		attempting to read lock or write lock.
+  *
+- * 0xffff000X	(1) X readers active or attempting lock, with waiters for lock
++ * 0xc000000X	(1) X readers active or attempting lock, with waiters for lock
+  *		    X = #active readers + # readers attempting lock
+  *		    (X*ACTIVE_BIAS + WAITING_BIAS)
+- *		(2) 1 writer attempting lock, no waiters for lock
++ *
++ * 0xffff000X	(1) 1 writer attempting lock, no waiters for lock
+  *		    X-1 = #active readers + #readers attempting lock
+  *		    ((X-1)*ACTIVE_BIAS + ACTIVE_WRITE_BIAS)
+- *		(3) 1 writer active, no waiters for lock
++ *		(2) 1 writer active, no waiters for lock
+  *		    X-1 = #active readers + #readers attempting lock
+  *		    ((X-1)*ACTIVE_BIAS + ACTIVE_WRITE_BIAS)
+  *
+- * 0xffff0001	(1) 1 reader active or attempting lock, waiters for lock
++ * 0xc0000001	(1) 1 reader active or attempting lock, waiters for lock
+  *		    (WAITING_BIAS + ACTIVE_BIAS)
+- *		(2) 1 writer active or attempting lock, no waiters for lock
++ *
++ * 0xffff0001	(1) 1 writer active or attempting lock, no waiters for lock
+  *		    (ACTIVE_WRITE_BIAS)
+  *
+- * 0xffff0000	(1) There are writers or readers queued but none active
++ * 0xc0000000	(1) There are writers or readers queued but none active
+  *		    or in the process of attempting lock.
+  *		    (WAITING_BIAS)
+  *		Note: writer can attempt to steal lock for this count by adding
+  *		ACTIVE_WRITE_BIAS in cmpxchg and checking the old count
+  *
+- * 0xfffe0001	(1) 1 writer active, or attempting lock. Waiters on queue.
++ * 0xbfff0001	(1) 1 writer active, or attempting lock. Waiters on queue.
+  *		    (ACTIVE_WRITE_BIAS + WAITING_BIAS)
+  *
+  * Note: Readers attempt to lock by adding ACTIVE_BIAS in down_read and checking
+@@ -62,9 +64,23 @@
+  *	 checking the count becomes ACTIVE_WRITE_BIAS for successful lock
+  *	 acquisition (i.e. nobody else has lock or attempts lock).  If
+  *	 unsuccessful, in rwsem_down_write_failed, we'll check to see if there
+- *	 are only waiters but none active (5th case above), and attempt to
++ *	 are only waiters but none active (7th case above), and attempt to
+  *	 steal the lock.
+  *
++ *	 We can infer the reader/writer/waiter state of the lock by looking
++ *	 at the count value:
++ *	 (1) count > 0
++ *	     Only readers are present.
++ *	 (2) WAITING_BIAS - ACTIVE_WRITE_BIAS < count < 0
++ *	     Have writers, maybe readers, but no waiter
++ *	 (3) WAITING_BIAS < count <= WAITING_BIAS - ACTIVE_WRITE_BIAS
++ *	     Have readers and waiters, but no writer
++ *	 (4) count < WAITING_BIAS
++ *	     Have writers and waiters, maybe readers
++ *
++ *	 IOW, writers are present when
++ *	 (1) count < WAITING_BIAS, or
++ *	 (2) WAITING_BIAS - ACTIVE_WRITE_BIAS < count < 0
+  */
+ 
+ /*
+-- 
+1.7.1
 
