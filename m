@@ -1,29 +1,48 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Thu, 09 Jun 2016 18:26:57 +0000
-Subject: RE: [PREEMPT-RT] [PATCH] ia64: salinfo: use a waitqueue instead a sema down/up combo
-Message-Id: <3908561D78D1C84285E8C5FCA982C28F3A1338E7@ORSMSX114.amr.corp.intel.com>
+From: Waiman Long <Waiman.Long@hpe.com>
+Date: Tue, 14 Jun 2016 22:48:04 +0000
+Subject: [RFC PATCH-tip v2 1/6] locking/osq: Make lock/unlock proper acquire/release barrier
+Message-Id: <1465944489-43440-2-git-send-email-Waiman.Long@hpe.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <275e729f-10a6-fdf2-3dfe-d19de4f5b8f0@linutronix.de>
-In-Reply-To: <275e729f-10a6-fdf2-3dfe-d19de4f5b8f0@linutronix.de>
+References: <1465944489-43440-1-git-send-email-Waiman.Long@hpe.com>
+In-Reply-To: <1465944489-43440-1-git-send-email-Waiman.Long@hpe.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>
+Cc: linux-kernel@vger.kernel.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-arch@vger.kernel.org, Davidlohr Bueso <dave@stgolabs.net>, Jason Low <jason.low2@hp.com>, Dave Chinner <david@fromorbit.com>, Scott J Norton <scott.norton@hpe.com>, Douglas Hatch <doug.hatch@hpe.com>, Waiman Long <Waiman.Long@hpe.com>
 
->> Do you have ia64 h/w to test this - or do you need me to try it out to
->> make sure the reality matches the expected behavior?
-> 
-> no ia64 here.
+The osq_lock() and osq_unlock() function may not provide the necessary
+acquire and release barrier in some cases. This patch makes sure
+that the proper barriers are provided when osq_lock() is successful
+or when osq_unlock() is called.
 
-Well it builds and boots. But I realized that to really test it I need to generate
-some errors so that salinfo will report them.  I dug into
-Documentation/ia64/err_inject.txt and built the kernel driver (lots of warnings
-because it didn't get cleaned up when "u64" changed from unsigned long to
-unsigned long long), and the user tool.  But it doesn't seem to actually be
-injecting anything ... or I'm using it wrong ... it's been ten years since it was added,
-most likely on a machine that I no longer have, maybe the PAL on my remaining
-machine doesn't do all it says it can for injection?
+Signed-off-by: Waiman Long <Waiman.Long@hpe.com>
+---
+ kernel/locking/osq_lock.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-Summary: The patch is probably fine, but I don't know how to be sure about that :-(
+diff --git a/kernel/locking/osq_lock.c b/kernel/locking/osq_lock.c
+index 05a3785..7dd4ee5 100644
+--- a/kernel/locking/osq_lock.c
++++ b/kernel/locking/osq_lock.c
+@@ -115,7 +115,7 @@ bool osq_lock(struct optimistic_spin_queue *lock)
+ 	 * cmpxchg in an attempt to undo our queueing.
+ 	 */
+ 
+-	while (!READ_ONCE(node->locked)) {
++	while (!smp_load_acquire(&node->locked)) {
+ 		/*
+ 		 * If we need to reschedule bail... so we can block.
+ 		 */
+@@ -198,7 +198,7 @@ void osq_unlock(struct optimistic_spin_queue *lock)
+ 	 * Second most likely case.
+ 	 */
+ 	node = this_cpu_ptr(&osq_node);
+-	next = xchg(&node->next, NULL);
++	next = xchg_release(&node->next, NULL);
+ 	if (next) {
+ 		WRITE_ONCE(next->locked, 1);
+ 		return;
+-- 
+1.7.1
 
--Tony
