@@ -1,74 +1,83 @@
-From: Kees Cook <keescook@chromium.org>
-Date: Thu, 16 Jun 2016 17:39:43 +0000
-Subject: Re: [PATCH] [ACPI] Change structure initialisation to C99 style
-Message-Id: <CAGXu5jJBoxY8LRko3Nmar0CzFFwOJJx4Qj70FpAJCwGC0Dbc7Q@mail.gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Fri, 17 Jun 2016 14:48:17 +0000
+Subject: [PATCH] ia64: efi: use timespec64 for persistent clock
+Message-Id: <20160617144920.3511152-1-arnd@arndb.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20160614084244.GA28854@amitoj-Inspiron-3542>
-In-Reply-To: <20160614084244.GA28854@amitoj-Inspiron-3542>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Amitoj Kaur Chawla <amitoj1606@gmail.com>
-Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>, Julia Lawall <julia.lawall@lip6.fr>, Michael Leibowitz <michael.leibowitz@intel.com>
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: y2038@lists.linaro.org, Arnd Bergmann <arnd@arndb.de>, Matt Fleming <matt@codeblueprint.co.uk>, Ingo Molnar <mingo@kernel.org>, Toshi Kani <toshi.kani@hpe.com>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, linux-efi@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Tue, Jun 14, 2016 at 1:42 AM, Amitoj Kaur Chawla
-<amitoj1606@gmail.com> wrote:
-> Replace the in order struct initialisation style with explicit field
-> style.
->
-> The Coccinelle semantic patch used to make this change is as follows:
->
-> @decl@
-> identifier i1,fld;
-> type T;
-> field list[n] fs;
-> @@
->
-> struct i1 {
->  fs
->  T fld;
->  ...};
->
-> @@
-> identifier decl.i1,i2,decl.fld;
-> expression e;
-> position bad.p, bad.fix;
-> @@
->
-> struct i1 i2@p = { ...,
-> + .fld = e
-> - e@fix
->  ,...};
->
-> Signed-off-by: Amitoj Kaur Chawla <amitoj1606@gmail.com>
-> ---
->  arch/ia64/kernel/acpi-ext.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/arch/ia64/kernel/acpi-ext.c b/arch/ia64/kernel/acpi-ext.c
-> index bd09bf7..31e331a 100644
-> --- a/arch/ia64/kernel/acpi-ext.c
-> +++ b/arch/ia64/kernel/acpi-ext.c
-> @@ -80,7 +80,7 @@ static acpi_status find_csr_space(struct acpi_resource *resource, void *data)
->
->  static acpi_status hp_crs_locate(acpi_handle obj, u64 *base, u64 *length)
->  {
-> -       struct csr_space space = { 0, 0 };
-> +       struct csr_space space = { .base = 0, .length = 0 };
+We have a generic read_persistent_clock64 interface now, and can
+change the ia64 implementation to provide that instead of
+read_persistent_clock.
 
-Since these are all initialized to zero, won't "= { };" be easier here?
+The main point of this is to avoid the use of struct timespec
+in the global efi.h, which would cause build errors as soon
+as we want to build a kernel without 'struct timespec' defined
+on 32-bit architectures.
 
--Kees
+Aside from this, we get a little closer to removing the
+__weak read_persistent_clock() definition, which relies on
+converting all architectures to provide read_persistent_clock64
+instead.
 
->
->         acpi_walk_resources(obj, METHOD_NAME__CRS, find_csr_space, &space);
->         if (!space.length)
-> --
-> 1.9.1
->
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ arch/ia64/kernel/efi.c  | 4 ++--
+ arch/ia64/kernel/time.c | 2 +-
+ include/linux/efi.h     | 2 +-
+ 3 files changed, 4 insertions(+), 4 deletions(-)
 
-
-
+diff --git a/arch/ia64/kernel/efi.c b/arch/ia64/kernel/efi.c
+index 3b7a60e40e8a..121295637d0d 100644
+--- a/arch/ia64/kernel/efi.c
++++ b/arch/ia64/kernel/efi.c
+@@ -236,7 +236,7 @@ STUB_GET_NEXT_HIGH_MONO_COUNT(virt, id)
+ STUB_RESET_SYSTEM(virt, id)
+ 
+ void
+-efi_gettimeofday (struct timespec *ts)
++efi_gettimeofday (struct timespec64 *ts)
+ {
+ 	efi_time_t tm;
+ 
+@@ -245,7 +245,7 @@ efi_gettimeofday (struct timespec *ts)
+ 		return;
+ 	}
+ 
+-	ts->tv_sec = mktime(tm.year, tm.month, tm.day,
++	ts->tv_sec = mktime64(tm.year, tm.month, tm.day,
+ 			    tm.hour, tm.minute, tm.second);
+ 	ts->tv_nsec = tm.nanosecond;
+ }
+diff --git a/arch/ia64/kernel/time.c b/arch/ia64/kernel/time.c
+index c8dbe2acd735..6f892b94e906 100644
+--- a/arch/ia64/kernel/time.c
++++ b/arch/ia64/kernel/time.c
+@@ -355,7 +355,7 @@ static struct irqaction timer_irqaction = {
+ 	.name =		"timer"
+ };
+ 
+-void read_persistent_clock(struct timespec *ts)
++void read_persistent_clock64(struct timespec64 *ts)
+ {
+ 	efi_gettimeofday(ts);
+ }
+diff --git a/include/linux/efi.h b/include/linux/efi.h
+index 9a53a557acff..dca8810d6b49 100644
+--- a/include/linux/efi.h
++++ b/include/linux/efi.h
+@@ -937,7 +937,7 @@ extern void efi_init (void);
+ extern void *efi_get_pal_addr (void);
+ extern void efi_map_pal_code (void);
+ extern void efi_memmap_walk (efi_freemem_callback_t callback, void *arg);
+-extern void efi_gettimeofday (struct timespec *ts);
++extern void efi_gettimeofday (struct timespec64 *ts);
+ extern void efi_enter_virtual_mode (void);	/* switch EFI to virtual mode, if possible */
+ #ifdef CONFIG_X86
+ extern void efi_late_init(void);
 -- 
-Kees Cook
-Chrome OS & Brillo Security
+2.9.0
+
