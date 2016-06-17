@@ -1,206 +1,117 @@
-From: Russell King <rmk+kernel@arm.linux.org.uk>
-Date: Fri, 03 Jun 2016 08:50:37 +0000
-Subject: [PATCH 6/8] kexec: allow architectures to override boot mapping
-Message-Id: <E1b8koP-0004HZ-Vf@rmk-PC.armlinux.org.uk>
+From: Waiman Long <Waiman.Long@hpe.com>
+Date: Fri, 17 Jun 2016 15:41:35 +0000
+Subject: [RFC PATCH-tip/locking/core v3 09/10] locking/rwsem: Enable reactivation of reader spinning
+Message-Id: <1466178096-5623-10-git-send-email-Waiman.Long@hpe.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1466178096-5623-1-git-send-email-Waiman.Long@hpe.com>
+In-Reply-To: <1466178096-5623-1-git-send-email-Waiman.Long@hpe.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-arm-kernel@lists.infradead.org
+To: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>
+Cc: linux-kernel@vger.kernel.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-arch@vger.kernel.org, linux-doc@vger.kernel.org, Davidlohr Bueso <dave@stgolabs.net>, Jason Low <jason.low2@hp.com>, Dave Chinner <david@fromorbit.com>, Jonathan Corbet <corbet@lwn.net>, Scott J Norton <scott.norton@hpe.com>, Douglas Hatch <doug.hatch@hpe.com>, Waiman Long <Waiman.Long@hpe.com>
 
-kexec physical addresses are the boot-time view of the system.  For
-certain ARM systems (such as Keystone 2), the boot view of the system
-does not match the kernel's view of the system: the boot view uses a
-special alias in the lower 4GB of the physical address space.
+Reader optimistic spinning will be disabled once the rspin_enabled
+count reaches 0. After that, it cannot be re-enabled. This may cause
+an eligible rwsem locked out of reader spinning because of a series
+of unfortunate events.
 
-To cater for these kinds of setups, we need to translate between the
-boot view physical addresses and the normal kernel view physical
-addresses.  This patch extracts the current transation points into
-linux/kexec.h, and allows an architecture to override the functions.
+This patch looks at the regular writer-on-writer spinning history. If
+there are sufficient more successful spin attempts than failed ones,
+it will try to reactivate reader spinning.
 
-Due to the translations required, we unfortunately end up with six
-translation functions, which are reduced down to four that the
-architecture can override.
-
-Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+Signed-off-by: Waiman Long <Waiman.Long@hpe.com>
 ---
- include/linux/kexec.h | 38 ++++++++++++++++++++++++++++++++++++++
- kernel/kexec.c        |  3 ++-
- kernel/kexec_core.c   | 26 +++++++++++++-------------
- 3 files changed, 53 insertions(+), 14 deletions(-)
+ include/linux/rwsem.h       |   12 ++++++++----
+ kernel/locking/rwsem-xadd.c |   27 +++++++++++++++++++++++++--
+ 2 files changed, 33 insertions(+), 6 deletions(-)
 
-diff --git a/include/linux/kexec.h b/include/linux/kexec.h
-index 52a3a221bcb2..99cb9dac7909 100644
---- a/include/linux/kexec.h
-+++ b/include/linux/kexec.h
-@@ -318,6 +318,44 @@ int __weak arch_kexec_apply_relocations_add(const Elf_Ehdr *ehdr,
- int __weak arch_kexec_apply_relocations(const Elf_Ehdr *ehdr, Elf_Shdr *sechdrs,
- 					unsigned int relsec);
+diff --git a/include/linux/rwsem.h b/include/linux/rwsem.h
+index 8978f87..98284b4 100644
+--- a/include/linux/rwsem.h
++++ b/include/linux/rwsem.h
+@@ -32,7 +32,11 @@ struct rw_semaphore {
+ 	raw_spinlock_t wait_lock;
+ #ifdef CONFIG_RWSEM_SPIN_ON_OWNER
+ 	struct optimistic_spin_queue osq; /* spinner MCS lock */
+-	int rspin_enabled;	/* protected by osq lock */
++	/*
++	 * Reader optimistic spinning fields protected by osq lock
++	 */
++	uint16_t rspin_enabled;
++	int16_t  wspin_cnt;
  
-+#ifndef page_to_boot_pfn
-+static inline unsigned long page_to_boot_pfn(struct page *page)
-+{
-+	return page_to_pfn(page);
-+}
-+#endif
-+
-+#ifndef boot_pfn_to_page
-+static inline struct page *boot_pfn_to_page(unsigned long boot_pfn)
-+{
-+	return pfn_to_page(boot_pfn);
-+}
-+#endif
-+
-+#ifndef phys_to_boot_phys
-+static inline unsigned long phys_to_boot_phys(phys_addr_t phys)
-+{
-+	return phys;
-+}
-+#endif
-+
-+#ifndef boot_phys_to_phys
-+static inline phys_addr_t boot_phys_to_phys(unsigned long boot_phys)
-+{
-+	return boot_phys;
-+}
-+#endif
-+
-+static inline unsigned long virt_to_boot_phys(void *addr)
-+{
-+	return phys_to_boot_phys(__pa((unsigned long)addr));
-+}
-+
-+static inline void *boot_phys_to_virt(unsigned long entry)
-+{
-+	return phys_to_virt(boot_phys_to_phys(entry));
-+}
-+
- #else /* !CONFIG_KEXEC_CORE */
- struct pt_regs;
- struct task_struct;
-diff --git a/kernel/kexec.c b/kernel/kexec.c
-index ee70aef5cd81..dd49d572a5e2 100644
---- a/kernel/kexec.c
-+++ b/kernel/kexec.c
-@@ -48,7 +48,8 @@ static int kimage_alloc_init(struct kimage **rimage, unsigned long entry,
+ 	/*
+ 	 * Write owner. Used as a speculative check to see
+@@ -74,10 +78,10 @@ static inline int rwsem_is_locked(struct rw_semaphore *sem)
+ /*
+  * Each successful reader spin will increment the rspin_enabled by 1.
+  * Each unsuccessful spin, on the other hand, will decrement it by 2.
+- * Reader spinning will be permanently disabled when it reaches 0.
++ * Reader spinning will be disabled when it reaches 0.
+  */
+ #ifndef RWSEM_RSPIN_ENABLED_DEFAULT
+-# define RWSEM_RSPIN_ENABLED_DEFAULT	40
++# define RWSEM_RSPIN_ENABLED_DEFAULT	30
+ #endif
+ #define RWSEM_RSPIN_ENABLED_MAX		1024
  
- 	if (kexec_on_panic) {
- 		/* Verify we have a valid entry point */
--		if ((entry < crashk_res.start) || (entry > crashk_res.end))
-+		if ((entry < phys_to_boot_phys(crashk_res.start)) ||
-+		    (entry > phys_to_boot_phys(crashk_res.end)))
- 			return -EADDRNOTAVAIL;
- 	}
+@@ -87,7 +91,7 @@ static inline int rwsem_is_locked(struct rw_semaphore *sem)
  
-diff --git a/kernel/kexec_core.c b/kernel/kexec_core.c
-index f9847e5822e6..d04940ccc58d 100644
---- a/kernel/kexec_core.c
-+++ b/kernel/kexec_core.c
-@@ -229,8 +229,8 @@ int sanity_check_segment_list(struct kimage *image)
- 			mstart = image->segment[i].mem;
- 			mend = mstart + image->segment[i].memsz - 1;
- 			/* Ensure we are within the crash kernel limits */
--			if ((mstart < crashk_res.start) ||
--			    (mend > crashk_res.end))
-+			if ((mstart < phys_to_boot_phys(crashk_res.start)) ||
-+			    (mend > phys_to_boot_phys(crashk_res.end)))
- 				return result;
- 		}
- 	}
-@@ -354,7 +354,7 @@ static struct page *kimage_alloc_normal_control_pages(struct kimage *image,
- 		pages = kimage_alloc_pages(KEXEC_CONTROL_MEMORY_GFP, order);
- 		if (!pages)
- 			break;
--		pfn   = page_to_pfn(pages);
-+		pfn   = page_to_boot_pfn(pages);
- 		epfn  = pfn + count;
- 		addr  = pfn << PAGE_SHIFT;
- 		eaddr = epfn << PAGE_SHIFT;
-@@ -480,7 +480,7 @@ static int kimage_add_entry(struct kimage *image, kimage_entry_t entry)
- 			return -ENOMEM;
- 
- 		ind_page = page_address(page);
--		*image->entry = virt_to_phys(ind_page) | IND_INDIRECTION;
-+		*image->entry = virt_to_boot_phys(ind_page) | IND_INDIRECTION;
- 		image->entry = ind_page;
- 		image->last_entry = ind_page +
- 				      ((PAGE_SIZE/sizeof(kimage_entry_t)) - 1);
-@@ -535,13 +535,13 @@ void kimage_terminate(struct kimage *image)
- #define for_each_kimage_entry(image, ptr, entry) \
- 	for (ptr = &image->head; (entry = *ptr) && !(entry & IND_DONE); \
- 		ptr = (entry & IND_INDIRECTION) ? \
--			phys_to_virt((entry & PAGE_MASK)) : ptr + 1)
-+			boot_phys_to_virt((entry & PAGE_MASK)) : ptr + 1)
- 
- static void kimage_free_entry(kimage_entry_t entry)
- {
- 	struct page *page;
- 
--	page = pfn_to_page(entry >> PAGE_SHIFT);
-+	page = boot_pfn_to_page(entry >> PAGE_SHIFT);
- 	kimage_free_pages(page);
+ #ifdef CONFIG_RWSEM_SPIN_ON_OWNER
+ #define __RWSEM_OPT_INIT(lockname) , .osq = OSQ_LOCK_UNLOCKED, .owner = NULL, \
+-		.rspin_enabled = RWSEM_RSPIN_ENABLED_DEFAULT
++		.rspin_enabled = RWSEM_RSPIN_ENABLED_DEFAULT, .wspin_cnt = 0
+ #else
+ #define __RWSEM_OPT_INIT(lockname)
+ #endif
+diff --git a/kernel/locking/rwsem-xadd.c b/kernel/locking/rwsem-xadd.c
+index 42c8dda..c6b6105 100644
+--- a/kernel/locking/rwsem-xadd.c
++++ b/kernel/locking/rwsem-xadd.c
+@@ -108,6 +108,7 @@ void __init_rwsem(struct rw_semaphore *sem, const char *name,
+ #ifdef CONFIG_RWSEM_SPIN_ON_OWNER
+ 	sem->owner = NULL;
+ 	sem->rspin_enabled = RWSEM_RSPIN_ENABLED_DEFAULT;
++	sem->wspin_cnt = 0;
+ 	osq_lock_init(&sem->osq);
+ #endif
  }
- 
-@@ -635,7 +635,7 @@ static struct page *kimage_alloc_page(struct kimage *image,
- 	 * have a match.
- 	 */
- 	list_for_each_entry(page, &image->dest_pages, lru) {
--		addr = page_to_pfn(page) << PAGE_SHIFT;
-+		addr = page_to_boot_pfn(page) << PAGE_SHIFT;
- 		if (addr = destination) {
- 			list_del(&page->lru);
- 			return page;
-@@ -650,12 +650,12 @@ static struct page *kimage_alloc_page(struct kimage *image,
- 		if (!page)
- 			return NULL;
- 		/* If the page cannot be used file it away */
--		if (page_to_pfn(page) >
-+		if (page_to_boot_pfn(page) >
- 				(KEXEC_SOURCE_MEMORY_LIMIT >> PAGE_SHIFT)) {
- 			list_add(&page->lru, &image->unusable_pages);
- 			continue;
+@@ -466,10 +467,32 @@ static bool rwsem_optimistic_spin(struct rw_semaphore *sem,
+ 		if (taken && (sem->rspin_enabled < RWSEM_RSPIN_ENABLED_MAX)) {
+ 			sem->rspin_enabled++;
+ 		} else if (!taken) {
+-			if  (sem->rspin_enabled > 2)
++			if  (sem->rspin_enabled > 2) {
+ 				sem->rspin_enabled -= 2;
+-			else
++			} else if (sem->rspin_enabled) {
+ 				sem->rspin_enabled = 0;
++				/*
++				 * Reset wspin_cnt so that it won't get
++				 * re-enabled too soon.
++				 */
++				if (sem->wspin_cnt > -30)
++					sem->wspin_cnt = -30;
++			}
++		}
++	} else if (type = RWSEM_WAITING_FOR_WRITE) {
++		/*
++		 * Every 10 successful writer-on-writer spins more than failed
++		 * spins will increment rspin_enabled to encourage more
++		 * writer-on-reader spinning attempts.
++		 */
++		if (taken) {
++			if ((++sem->wspin_cnt >= 10) &&
++			    (sem->rspin_enabled < RWSEM_RSPIN_ENABLED_MAX)) {
++				sem->wspin_cnt = 0;
++				sem->rspin_enabled++;
++			}
++		} else if (sem->wspin_cnt > -100) {
++			sem->wspin_cnt--;
  		}
--		addr = page_to_pfn(page) << PAGE_SHIFT;
-+		addr = page_to_boot_pfn(page) << PAGE_SHIFT;
- 
- 		/* If it is the destination page we want use it */
- 		if (addr = destination)
-@@ -678,7 +678,7 @@ static struct page *kimage_alloc_page(struct kimage *image,
- 			struct page *old_page;
- 
- 			old_addr = *old & PAGE_MASK;
--			old_page = pfn_to_page(old_addr >> PAGE_SHIFT);
-+			old_page = boot_pfn_to_page(old_addr >> PAGE_SHIFT);
- 			copy_highpage(page, old_page);
- 			*old = addr | (*old & ~PAGE_MASK);
- 
-@@ -734,7 +734,7 @@ static int kimage_load_normal_segment(struct kimage *image,
- 			result  = -ENOMEM;
- 			goto out;
- 		}
--		result = kimage_add_page(image, page_to_pfn(page)
-+		result = kimage_add_page(image, page_to_boot_pfn(page)
- 								<< PAGE_SHIFT);
- 		if (result < 0)
- 			goto out;
-@@ -795,7 +795,7 @@ static int kimage_load_crash_segment(struct kimage *image,
- 		char *ptr;
- 		size_t uchunk, mchunk;
- 
--		page = pfn_to_page(maddr >> PAGE_SHIFT);
-+		page = boot_pfn_to_page(maddr >> PAGE_SHIFT);
- 		if (!page) {
- 			result  = -ENOMEM;
- 			goto out;
-@@ -922,7 +922,7 @@ void __weak crash_free_reserved_phys_range(unsigned long begin,
- 	unsigned long addr;
- 
- 	for (addr = begin; addr < end; addr += PAGE_SIZE)
--		free_reserved_page(pfn_to_page(addr >> PAGE_SHIFT));
-+		free_reserved_page(boot_pfn_to_page(addr >> PAGE_SHIFT));
- }
- 
- int crash_shrink_memory(unsigned long new_size)
+ 	}
+ 	osq_unlock(&sem->osq);
 -- 
-2.1.0
+1.7.1
 
