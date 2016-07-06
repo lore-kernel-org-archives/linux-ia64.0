@@ -1,63 +1,77 @@
-From: "Luis R. Rodriguez" <mcgrof@kernel.org>
-Date: Wed, 27 Jul 2016 22:46:09 +0000
-Subject: Re: [RFC v3 00/13] linux: generalize sections, ranges and linker tables
-Message-Id: <20160727224609.GO5537@wotan.suse.de>
+From: Kees Cook <keescook@chromium.org>
+Date: Wed, 06 Jul 2016 22:25:28 +0000
+Subject: [PATCH 9/9] mm: SLUB hardened usercopy support
+Message-Id: <1467843928-29351-10-git-send-email-keescook@chromium.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1469222687-1600-1-git-send-email-mcgrof@kernel.org>
- <20160725223229.7de71264e9e6ec8d635ee785@kernel.org>
-In-Reply-To: <20160725223229.7de71264e9e6ec8d635ee785@kernel.org>
+References: <1467843928-29351-1-git-send-email-keescook@chromium.org>
+In-Reply-To: <1467843928-29351-1-git-send-email-keescook@chromium.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Masami Hiramatsu <mhiramat@kernel.org>
-Cc: "Luis R. Rodriguez" <mcgrof@kernel.org>, hpa@zytor.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, linux@arm.linux.org.uk, masami.hiramatsu.pt@hitachi.com, jbaron@akamai.com, heiko.carstens@de.ibm.com, ananth@linux.vnet.ibm.com, anil.s.keshavamurthy@intel.com, davem@davemloft.net, realmz6@gmail.com, x86@kernel.org, luto@amacapital.net, keescook@chromium.org, torvalds@linux-foundation.org, gregkh@linuxfoundation.org, rusty@rustcorp.com.au, gnomes@lxorguk.ukuu.org.uk, alan@linux.intel.com, dwmw2@infradead.org, arnd@arndb.de, ming.lei@canonical.com, linux-arch@vger.kernel.org, benh@kernel.crashing.org, ananth@in.ibm.com, pebolle@tiscali.nl, fontana@sharpeleven.org, ciaran.farrell@suse.com, christopher.denicolo@suse.com, david.vrabel@citrix.com, konrad.wilk@oracle.com, mcb30@ipxe.org, jgross@suse.com, andrew.cooper3@citrix.com, andriy.shevchenko@linux.intel.com
+To: linux-kernel@vger.kernel.org
+Cc: Kees Cook <keescook@chromium.org>, Rik van Riel <riel@redhat.com>, Casey Schaufler <casey@schaufler-ca.com>, PaX Team <pageexec@freemail.hu>, Brad Spengler <spender@grsecurity.net>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "David S. Miller" <davem@davemloft.net>, x86@kernel.org, Christoph Lameter <cl@linux.com>, Pekka Enberg <penberg@kernel.org>, David Rientjes <rientjes@google.com>, Joonsoo Kim <iamjoonsoo.kim@lge.com>, Andrew Morton <akpm@linux-foundation.org>, Andy Lutomirski <luto@kernel.org>, Borislav Petkov <bp@suse.de>, Mathias Krause <minipli@googlemail.com>, Jan Kara <jack@suse.cz>, Vitaly Wool <vitalywool@gmail.com>, Andrea Arcangeli <aarcange@redhat.com>, Dmitry Vyukov <dvyukov@google.com>, Laura Abbott <labbott@fedoraproject.org>, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org, kernel-hardening@lists.openwall.com
 
-On Mon, Jul 25, 2016 at 10:32:29PM +0900, Masami Hiramatsu wrote:
-> Hi Luis,
-> 
-> On Fri, 22 Jul 2016 14:24:34 -0700
-> "Luis R. Rodriguez" <mcgrof@kernel.org> wrote:
-> 
-> > This RFC v3 builds off the last RFC v2 series [0] for adding linker tables.
-> > The largest amount of work here was to take Russell King's feedback on
-> > using linker table for kprobes text not being appropriate -- and providing
-> > another lightweight API for simple section ranges: read-only stitched pieces
-> > of executable code. This required also generalizing common building blocks
-> > for both linker tables and section ranges, these building blocks are defined
-> > now in include/linux/sections.h and asm-generic/section.h. The other last thing
-> > decided was to not support sub-sections. In the hunt for this I could think of
-> > anything that really required this, and if it was needed it did not seem
-> > impossible to port over to avoid its use. Please let me know if there are valid
-> > uses cases for sub-sections.
-> > 
-> > Other significant effort here was to provide a set of common assembly helpers
-> > which could be used across architectures, this starts off some of this work
-> > for generic helpers which carve out and define custom Linux sections.
-> > 
-> > Lastly, this now also goes with two ports which required module support when
-> > using linker tables: jump labels, and dynamic debug support. A few
-> > extensions have been made to the original series in order to provide
-> > support for that.
-> > 
-> > Since kprobes actually had both a linker table and a section range the
-> > patch that dealt with kprobes is now split off in two patches, one
-> > that deals with its linker table and another for its section ranges.
-> > 
-> > More elaborate uses for linker tables are possible, I'll hold off on any
-> > of this type of work until at least the basic building blocks are fleshed
-> > out. To review how this work came about, and more elaborate uses being
-> > evaluated check out the userspace linker-tables mockup solution [1].
-> > Hopefully most of the possible bikeshedding was already dealt with through
-> > that tree. Thanks to hpa for tons of feedback.
-> 
-> Great! so table and ranges completely replace the old-style(add-hoc)
-> _kprobe and NOKPROBE_SYMBOL() implementation, good job! :)
+Under CONFIG_HARDENED_USERCOPY, this adds object size checking to the
+SLUB allocator to catch any copies that may span objects.
 
-Indeed, thanks! In reality this is generalizing custom section hacks, but also
-making them much more powerful due to the fact that we sort now at link time,
-this buys us better than O(1) sort for code where dependencies can be spelled
-out in code, it also expands on the semantics available to us for order
-levels -- so we're no longer restricted to 7 levels for built-in code -- and
-order levels can be subject/subsystem specific.
+Based on code from PaX and grsecurity.
 
-  Luis
+Signed-off-by: Kees Cook <keescook@chromium.org>
+---
+ init/Kconfig |  1 +
+ mm/slub.c    | 27 +++++++++++++++++++++++++++
+ 2 files changed, 28 insertions(+)
+
+diff --git a/init/Kconfig b/init/Kconfig
+index 798c2020ee7c..1c4711819dfd 100644
+--- a/init/Kconfig
++++ b/init/Kconfig
+@@ -1765,6 +1765,7 @@ config SLAB
+ 
+ config SLUB
+ 	bool "SLUB (Unqueued Allocator)"
++	select HAVE_HARDENED_USERCOPY_ALLOCATOR
+ 	help
+ 	   SLUB is a slab allocator that minimizes cache line usage
+ 	   instead of managing queues of cached objects (SLAB approach).
+diff --git a/mm/slub.c b/mm/slub.c
+index 825ff4505336..0c8ace04f075 100644
+--- a/mm/slub.c
++++ b/mm/slub.c
+@@ -3614,6 +3614,33 @@ void *__kmalloc_node(size_t size, gfp_t flags, int node)
+ EXPORT_SYMBOL(__kmalloc_node);
+ #endif
+ 
++#ifdef CONFIG_HARDENED_USERCOPY
++/*
++ * Rejects objects that are incorrectly sized.
++ *
++ * Returns NULL if check passes, otherwise const char * to name of cache
++ * to indicate an error.
++ */
++const char *__check_heap_object(const void *ptr, unsigned long n,
++				struct page *page)
++{
++	struct kmem_cache *s;
++	unsigned long offset;
++
++	/* Find object. */
++	s = page->slab_cache;
++
++	/* Find offset within object. */
++	offset = (ptr - page_address(page)) % s->size;
++
++	/* Allow address range falling entirely within object size. */
++	if (offset <= s->object_size && n <= s->object_size - offset)
++		return NULL;
++
++	return s->name;
++}
++#endif /* CONFIG_HARDENED_USERCOPY */
++
+ static size_t __ksize(const void *object)
+ {
+ 	struct page *page;
+-- 
+2.7.4
+
