@@ -1,53 +1,29 @@
-From: Baruch Siach <baruch@tkos.co.il>
-Date: Thu, 07 Jul 2016 18:35:59 +0000
+From: Thomas Gleixner <tglx@linutronix.de>
+Date: Thu, 07 Jul 2016 19:34:53 +0000
 Subject: Re: [PATCH 1/9] mm: Hardened usercopy
-Message-Id: <20160707183559.GR2118@tarshish>
+Message-Id: <alpine.DEB.2.11.1607072133550.4083@nanos>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1467843928-29351-1-git-send-email-keescook@chromium.org>
- <1467843928-29351-2-git-send-email-keescook@chromium.org>
- <20160707053710.GH2118@tarshish>
- <CAGXu5jJV4ZQp4VQ44SPQ49RxXpFXzx6d233A3+_Ka7txYHmuMw@mail.gmail.com>
-In-Reply-To: <CAGXu5jJV4ZQp4VQ44SPQ49RxXpFXzx6d233A3+_Ka7txYHmuMw@mail.gmail.com>
+References: <1467843928-29351-1-git-send-email-keescook@chromium.org> <1467843928-29351-2-git-send-email-keescook@chromium.org> <alpine.DEB.2.11.1607070938430.4083@nanos> <CAGXu5jJWVow4i_M7Qg4ZFgZh3k_fUxUs4pDJSf5Yc8Q-FK9HoQ@mail.gmail.com>
+In-Reply-To: <CAGXu5jJWVow4i_M7Qg4ZFgZh3k_fUxUs4pDJSf5Yc8Q-FK9HoQ@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Kees Cook <keescook@chromium.org>
-Cc: LKML <linux-kernel@vger.kernel.org>, Jan Kara <jack@suse.cz>, "kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>, Linux-MM <linux-mm@kvack.org>, sparclinux <sparclinux@vger.kernel.org>, linux-ia64@vger.kernel.org, Christoph Lameter <cl@linux.com>, Andrea Arcangeli <aarcange@redhat.com>, linux-arch <linux-arch@vger.kernel.org>, Michael Ellerman <mpe@ellerman.id.au>, "x86@kernel.org" <x86@kernel.org>, Russell King <linux@armlinux.org.uk>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, PaX Team <pageexec@freemail.hu>, Borislav Petkov <bp@suse.de>, Mathias Krause <minipli@googlemail.com>, Fenghua Yu <fenghua.yu@intel.com>, Rik van Riel <riel@redhat.com>, Vitaly Wool <vitalywool@gmail.com>, David Rientjes <rientjes@google.com>, Tony Luck <tony.luck@intel.com>, Andy Lutomirski <luto@kernel.org>, Joonsoo Kim <iamjoonsoo.kim@lge.com>, Dmitry Vyukov <dvyukov@google.com>, Laura Abbott <labbott@fedoraproject.org>, Brad Spengler <spender@grsecurity.net>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Pekka Enberg <penberg@kernel.org>, Casey Schaufler <casey@schaufler-ca.com>, Andrew Morton <akpm@linux-foundation.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, "David S. Miller" <davem@davemloft.net>
+Cc: LKML <linux-kernel@vger.kernel.org>, Rik van Riel <riel@redhat.com>, Casey Schaufler <casey@schaufler-ca.com>, PaX Team <pageexec@freemail.hu>, Brad Spengler <spender@grsecurity.net>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "David S. Miller" <davem@davemloft.net>, "x86@kernel.org" <x86@kernel.org>, Christoph Lameter <cl@linux.com>, Pekka Enberg <penberg@kernel.org>, David Rientjes <rientjes@google.com>, Joonsoo Kim <iamjoonsoo.kim@lge.com>, Andrew Morton <akpm@linux-foundation.org>, Andy Lutomirski <luto@kernel.org>, Borislav Petkov <bp@suse.de>, Mathias Krause <minipli@googlemail.com>, Jan Kara <jack@suse.cz>, Vitaly Wool <vitalywool@gmail.com>, Andrea Arcangeli <aarcange@redhat.com>, Dmitry Vyukov <dvyukov@google.com>, Laura Abbott <labbott@fedoraproject.org>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, linux-ia64@vger.kernel.org, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, sparclinux <sparclinux@vger.kernel.org>, linux-arch <linux-arch@vger.kernel.org>, Linux-MM <linux-mm@kvack.org>, "kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>
 
-Hi Kees,
-
-On Thu, Jul 07, 2016 at 01:25:21PM -0400, Kees Cook wrote:
-> On Thu, Jul 7, 2016 at 1:37 AM, Baruch Siach <baruch@tkos.co.il> wrote:
-> > On Wed, Jul 06, 2016 at 03:25:20PM -0700, Kees Cook wrote:
-> >> +#ifdef CONFIG_HAVE_HARDENED_USERCOPY_ALLOCATOR
-> >
-> > Should be CONFIG_HARDENED_USERCOPY to match the slab/slub implementation
-> > condition.
-> >
-> >> +const char *__check_heap_object(const void *ptr, unsigned long n,
-> >> +                             struct page *page);
-> >> +#else
-> >> +static inline const char *__check_heap_object(const void *ptr,
-> >> +                                           unsigned long n,
-> >> +                                           struct page *page)
-> >> +{
-> >> +     return NULL;
-> >> +}
-> >> +#endif
+On Thu, 7 Jul 2016, Kees Cook wrote:
+> On Thu, Jul 7, 2016 at 3:42 AM, Thomas Gleixner <tglx@linutronix.de> wrote:
+> > I'd rather make that a weak function returning 1 which can be replaced by
+> > x86 for CONFIG_FRAME_POINTER=y. That also allows other architectures to
+> > implement their specific frame checks.
 > 
-> Hmm, I think what I have is correct: if the allocator supports the
-> heap object checking, it defines __check_heap_object as existing via
-> CONFIG_HAVE_HARDENED_USERCOPY_ALLOCATOR. If usercopy checking is done
-> at all is controlled by CONFIG_HARDENED_USERCOPY.
-> 
-> I.e. you can have the other usercopy checks even if your allocator
-> doesn't support object size checking.
+> Yeah, though I prefer CONFIG-controlled stuff over weak functions, but
+> I agree, something like arch_check_stack_frame(...) or similar. I'll
+> build something for this on the next revision.
 
-Right. I missed the fact that usercopy.c build also depends on 
-CONFIG_HARDENED_USERCOPY. Sorry for the noise.
+I'm fine with CONFIG_CONTROLLED as long as the ifdeffery is limited to header
+files.
 
-baruch
+Thanks,
 
--- 
-     http://baruch.siach.name/blog/                  ~. .~   Tk Open Systems
-=}------------------------------------------------ooO--U--Ooo------------{   - baruch@tkos.co.il - tel: +972.52.368.4656, http://www.tkos.co.il -
+	tglx
