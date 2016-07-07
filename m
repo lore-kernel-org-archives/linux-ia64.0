@@ -1,44 +1,79 @@
 From: Kees Cook <keescook@chromium.org>
-Date: Thu, 07 Jul 2016 17:25:21 +0000
+Date: Thu, 07 Jul 2016 17:29:38 +0000
 Subject: Re: [PATCH 1/9] mm: Hardened usercopy
-Message-Id: <CAGXu5jJV4ZQp4VQ44SPQ49RxXpFXzx6d233A3+_Ka7txYHmuMw@mail.gmail.com>
+Message-Id: <CAGXu5jJWVow4i_M7Qg4ZFgZh3k_fUxUs4pDJSf5Yc8Q-FK9HoQ@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1467843928-29351-1-git-send-email-keescook@chromium.org>
- <1467843928-29351-2-git-send-email-keescook@chromium.org> <20160707053710.GH2118@tarshish>
-In-Reply-To: <20160707053710.GH2118@tarshish>
+ <1467843928-29351-2-git-send-email-keescook@chromium.org> <alpine.DEB.2.11.1607070938430.4083@nanos>
+In-Reply-To: <alpine.DEB.2.11.1607070938430.4083@nanos>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Baruch Siach <baruch@tkos.co.il>
-Cc: LKML <linux-kernel@vger.kernel.org>, Jan Kara <jack@suse.cz>, "kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>, Linux-MM <linux-mm@kvack.org>, sparclinux <sparclinux@vger.kernel.org>, linux-ia64@vger.kernel.org, Christoph Lameter <cl@linux.com>, Andrea Arcangeli <aarcange@redhat.com>, linux-arch <linux-arch@vger.kernel.org>, Michael Ellerman <mpe@ellerman.id.au>, "x86@kernel.org" <x86@kernel.org>, Russell King <linux@armlinux.org.uk>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, PaX Team <pageexec@freemail.hu>, Borislav Petkov <bp@suse.de>, Mathias Krause <minipli@googlemail.com>, Fenghua Yu <fenghua.yu@intel.com>, Rik van Riel <riel@redhat.com>, Vitaly Wool <vitalywool@gmail.com>, David Rientjes <rientjes@google.com>, Tony Luck <tony.luck@intel.com>, Andy Lutomirski <luto@kernel.org>, Joonsoo Kim <iamjoonsoo.kim@lge.com>, Dmitry Vyukov <dvyukov@google.com>, Laura Abbott <labbott@fedoraproject.org>, Brad Spengler <spender@grsecurity.net>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Pekka Enberg <penberg@kernel.org>, Casey Schaufler <casey@schaufler-ca.com>, Andrew Morton <akpm@linux-foundation.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, "David S. Miller" <davem@davemloft.net>
+To: Thomas Gleixner <tglx@linutronix.de>
+Cc: LKML <linux-kernel@vger.kernel.org>, Rik van Riel <riel@redhat.com>, Casey Schaufler <casey@schaufler-ca.com>, PaX Team <pageexec@freemail.hu>, Brad Spengler <spender@grsecurity.net>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "David S. Miller" <davem@davemloft.net>, "x86@kernel.org" <x86@kernel.org>, Christoph Lameter <cl@linux.com>, Pekka Enberg <penberg@kernel.org>, David Rientjes <rientjes@google.com>, Joonsoo Kim <iamjoonsoo.kim@lge.com>, Andrew Morton <akpm@linux-foundation.org>, Andy Lutomirski <luto@kernel.org>, Borislav Petkov <bp@suse.de>, Mathias Krause <minipli@googlemail.com>, Jan Kara <jack@suse.cz>, Vitaly Wool <vitalywool@gmail.com>, Andrea Arcangeli <aarcange@redhat.com>, Dmitry Vyukov <dvyukov@google.com>, Laura Abbott <labbott@fedoraproject.org>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, linux-ia64@vger.kernel.org, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, sparclinux <sparclinux@vger.kernel.org>, linux-arch <linux-arch@vger.kernel.org>, Linux-MM <linux-mm@kvack.org>, "kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>
 
-On Thu, Jul 7, 2016 at 1:37 AM, Baruch Siach <baruch@tkos.co.il> wrote:
-> Hi Kees,
->
-> On Wed, Jul 06, 2016 at 03:25:20PM -0700, Kees Cook wrote:
->> +#ifdef CONFIG_HAVE_HARDENED_USERCOPY_ALLOCATOR
->
-> Should be CONFIG_HARDENED_USERCOPY to match the slab/slub implementation
-> condition.
->
->> +const char *__check_heap_object(const void *ptr, unsigned long n,
->> +                             struct page *page);
->> +#else
->> +static inline const char *__check_heap_object(const void *ptr,
->> +                                           unsigned long n,
->> +                                           struct page *page)
->> +{
->> +     return NULL;
->> +}
+On Thu, Jul 7, 2016 at 3:42 AM, Thomas Gleixner <tglx@linutronix.de> wrote:
+> On Wed, 6 Jul 2016, Kees Cook wrote:
+>> +
+>> +#if defined(CONFIG_FRAME_POINTER) && defined(CONFIG_X86)
+>> +     const void *frame = NULL;
+>> +     const void *oldframe;
 >> +#endif
+>
+> That's ugly
 
-Hmm, I think what I have is correct: if the allocator supports the
-heap object checking, it defines __check_heap_object as existing via
-CONFIG_HAVE_HARDENED_USERCOPY_ALLOCATOR. If usercopy checking is done
-at all is controlled by CONFIG_HARDENED_USERCOPY.
+Yeah, I'd like to have this be controlled by a specific CONFIG, like I
+invented for the linear mapping, but I wasn't sure what was the best
+approach.
 
-I.e. you can have the other usercopy checks even if your allocator
-doesn't support object size checking.
+>
+>> +
+>> +     /* Object is not on the stack at all. */
+>> +     if (obj + len <= stack || stackend <= obj)
+>> +             return 0;
+>> +
+>> +     /*
+>> +      * Reject: object partially overlaps the stack (passing the
+>> +      * the check above means at least one end is within the stack,
+>> +      * so if this check fails, the other end is outside the stack).
+>> +      */
+>> +     if (obj < stack || stackend < obj + len)
+>> +             return -1;
+>> +
+>> +#if defined(CONFIG_FRAME_POINTER) && defined(CONFIG_X86)
+>> +     oldframe = __builtin_frame_address(1);
+>> +     if (oldframe)
+>> +             frame = __builtin_frame_address(2);
+>> +     /*
+>> +      * low ----------------------------------------------> high
+>> +      * [saved bp][saved ip][args][local vars][saved bp][saved ip]
+>> +      *                   ^----------------^
+>> +      *             allow copies only within here
+>> +      */
+>> +     while (stack <= frame && frame < stackend) {
+>> +             /*
+>> +              * If obj + len extends past the last frame, this
+>> +              * check won't pass and the next frame will be 0,
+>> +              * causing us to bail out and correctly report
+>> +              * the copy as invalid.
+>> +              */
+>> +             if (obj + len <= frame)
+>> +                     return obj >= oldframe + 2 * sizeof(void *) ? 2 : -1;
+>> +             oldframe = frame;
+>> +             frame = *(const void * const *)frame;
+>> +     }
+>> +     return -1;
+>> +#else
+>> +     return 1;
+>> +#endif
+>
+> I'd rather make that a weak function returning 1 which can be replaced by
+> x86 for CONFIG_FRAME_POINTER=y. That also allows other architectures to
+> implement their specific frame checks.
+
+Yeah, though I prefer CONFIG-controlled stuff over weak functions, but
+I agree, something like arch_check_stack_frame(...) or similar. I'll
+build something for this on the next revision.
 
 -Kees
 
