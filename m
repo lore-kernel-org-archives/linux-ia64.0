@@ -1,73 +1,29 @@
-From: Kees Cook <keescook@chromium.org>
-Date: Thu, 07 Jul 2016 17:27:03 +0000
+From: Ingo Molnar <mingo@kernel.org>
+Date: Fri, 08 Jul 2016 08:46:39 +0000
 Subject: Re: [PATCH 0/9] mm: Hardened usercopy
-Message-Id: <CAGXu5jLiqNWHR09StBirH3c3ZHpwnpPOBRE40BGwWBJES5kpBw@mail.gmail.com>
+Message-Id: <20160708084639.GA4562@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1467843928-29351-1-git-send-email-keescook@chromium.org> <577E04FF.1090000@de.ibm.com>
-In-Reply-To: <577E04FF.1090000@de.ibm.com>
+References: <1467843928-29351-1-git-send-email-keescook@chromium.org>
+In-Reply-To: <1467843928-29351-1-git-send-email-keescook@chromium.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christian Borntraeger <borntraeger@de.ibm.com>
-Cc: LKML <linux-kernel@vger.kernel.org>, Rik van Riel <riel@redhat.com>, Casey Schaufler <casey@schaufler-ca.com>, PaX Team <pageexec@freemail.hu>, Brad Spengler <spender@grsecurity.net>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "David S. Miller" <davem@davemloft.net>, "x86@kernel.org" <x86@kernel.org>, Christoph Lameter <cl@linux.com>, Pekka Enberg <penberg@kernel.org>, David Rientjes <rientjes@google.com>, Joonsoo Kim <iamjoonsoo.kim@lge.com>, Andrew Morton <akpm@linux-foundation.org>, Andy Lutomirski <luto@kernel.org>, Mathias Krause <minipli@googlemail.com>, Jan Kara <jack@suse.cz>, Vitaly Wool <vitalywool@gmail.com>, Andrea Arcangeli <aarcange@redhat.com>, Dmitry Vyukov <dvyukov@google.com>, Laura Abbott <labbott@fedoraproject.org>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, linux-ia64@vger.kernel.org, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, sparclinux <sparclinux@vger.kernel.org>, linux-arch <linux-arch@vger.kernel.org>, Linux-MM <linux-mm@kvack.org>, "kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>
+To: Kees Cook <keescook@chromium.org>
+Cc: linux-kernel@vger.kernel.org, Rik van Riel <riel@redhat.com>, Casey Schaufler <casey@schaufler-ca.com>, PaX Team <pageexec@freemail.hu>, Brad Spengler <spender@grsecurity.net>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "David S. Miller" <davem@davemloft.net>, x86@kernel.org, Christoph Lameter <cl@linux.com>, Pekka Enberg <penberg@kernel.org>, David Rientjes <rientjes@google.com>, Joonsoo Kim <iamjoonsoo.kim@lge.com>, Andrew Morton <akpm@linux-foundation.org>, Andy Lutomirski <luto@kernel.org>, Borislav Petkov <bp@suse.de>, Mathias Krause <minipli@googlemail.com>, Jan Kara <jack@suse.cz>, Vitaly Wool <vitalywool@gmail.com>, Andrea Arcangeli <aarcange@redhat.com>, Dmitry Vyukov <dvyukov@google.com>, Laura Abbott <labbott@fedoraproject.org>, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org, kernel-hardening@lists.openwall.com, Linus Torvalds <torvalds@linux-foundation.org>, Thomas Gleixner <tglx@linutronix.de>, "H. Peter Anvin" <hpa@zytor.com>, Peter Zijlstra <a.p.zijlstra@chello.nl>
 
-On Thu, Jul 7, 2016 at 3:30 AM, Christian Borntraeger
-<borntraeger@de.ibm.com> wrote:
-> On 07/07/2016 12:25 AM, Kees Cook wrote:
->> Hi,
->>
->> This is a start of the mainline port of PAX_USERCOPY[1]. After I started
->> writing tests (now in lkdtm in -next) for Casey's earlier port[2], I
->> kept tweaking things further and further until I ended up with a whole
->> new patch series. To that end, I took Rik's feedback and made a number
->> of other changes and clean-ups as well.
->>
->> Based on my understanding, PAX_USERCOPY was designed to catch a few
->> classes of flaws around the use of copy_to_user()/copy_from_user(). These
->> changes don't touch get_user() and put_user(), since these operate on
->> constant sized lengths, and tend to be much less vulnerable. There
->> are effectively three distinct protections in the whole series,
->> each of which I've given a separate CONFIG, though this patch set is
->> only the first of the three intended protections. (Generally speaking,
->> PAX_USERCOPY covers what I'm calling CONFIG_HARDENED_USERCOPY (this) and
->> CONFIG_HARDENED_USERCOPY_WHITELIST (future), and PAX_USERCOPY_SLABS covers
->> CONFIG_HARDENED_USERCOPY_SPLIT_KMALLOC (future).)
->>
->> This series, which adds CONFIG_HARDENED_USERCOPY, checks that objects
->> being copied to/from userspace meet certain criteria:
->> - if address is a heap object, the size must not exceed the object's
->>   allocated size. (This will catch all kinds of heap overflow flaws.)
->> - if address range is in the current process stack, it must be within the
->>   current stack frame (if such checking is possible) or at least entirely
->>   within the current process's stack. (This could catch large lengths that
->>   would have extended beyond the current process stack, or overflows if
->>   their length extends back into the original stack.)
->> - if the address range is part of kernel data, rodata, or bss, allow it.
->> - if address range is page-allocated, that it doesn't span multiple
->>   allocations.
->> - if address is within the kernel text, reject it.
->> - everything else is accepted
->>
->> The patches in the series are:
->> - The core copy_to/from_user() checks, without the slab object checks:
->>       1- mm: Hardened usercopy
->> - Per-arch enablement of the protection:
->>       2- x86/uaccess: Enable hardened usercopy
->>       3- ARM: uaccess: Enable hardened usercopy
->>       4- arm64/uaccess: Enable hardened usercopy
->>       5- ia64/uaccess: Enable hardened usercopy
->>       6- powerpc/uaccess: Enable hardened usercopy
->>       7- sparc/uaccess: Enable hardened usercopy
->
-> Was there a reason why you did not change s390?
 
-No reason -- just didn't have a good build setup for testing it.
-(Everything but arm64 was already in grsecurity, and I was able to
-build-test arm64 when I added it there.) I would love to include s390
-too!
+* Kees Cook <keescook@chromium.org> wrote:
 
--Kees
+> - I couldn't detect a measurable performance change with these features
+>   enabled. Kernel build times were unchanged, hackbench was unchanged,
+>   etc. I think we could flip this to "on by default" at some point.
 
--- 
-Kees Cook
-Chrome OS & Brillo Security
+Could you please try to find some syscall workload that does many small user 
+copies and thus excercises this code path aggressively?
+
+If that measurement works out fine then I'd prefer to enable these security checks 
+by default.
+
+Thaks,
+
+	Ingo
