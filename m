@@ -1,116 +1,127 @@
-From: Ard Biesheuvel <ard.biesheuvel@linaro.org>
-Date: Sat, 09 Jul 2016 08:25:00 +0000
+From: Kees Cook <keescook@chromium.org>
+Date: Sat, 09 Jul 2016 17:01:18 +0000
 Subject: Re: [PATCH 0/9] mm: Hardened usercopy
-Message-Id: <CAKv+Gu_F03ncqT2wWFte2bFWQ7tSruL0ZaxTBLT9_NEs-1SioQ@mail.gmail.com>
+Message-Id: <CAGXu5jJVQCMZQm-zT07Siniiic9DSK7ZC=qdDMgFLwBpfEqYSg@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1467843928-29351-1-git-send-email-keescook@chromium.org> <b113b487-acc6-24b8-d58c-425d3c884f4c@redhat.com>
 In-Reply-To: <b113b487-acc6-24b8-d58c-425d3c884f4c@redhat.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="macroman"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: Laura Abbott <labbott@redhat.com>
-Cc: Kees Cook <keescook@chromium.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Rik van Riel <riel@redhat.com>, Casey Schaufler <casey@schaufler-ca.com>, PaX Team <pageexec@freemail.hu>, Brad Spengler <spender@grsecurity.net>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "David S. Miller" <davem@davemloft.net>, "x86@kernel.org" <x86@kernel.org>, Christoph Lameter <cl@linux.com>, Pekka Enberg <penberg@kernel.org>, David Rientjes <rientjes@google.com>, Joonsoo Kim <iamjoonsoo.kim@lge.com>, Andrew Morton <akpm@linux-foundation.org>, Andy Lutomirski <luto@kernel.org>, Borislav Petkov <bp@suse.de>, Mathias Krause <minipli@googlemail.com>, Jan Kara <jack@suse.cz>, Vitaly Wool <vitalywool@gmail.com>, Andrea Arcangeli <aarcange@redhat.com>, Dmitry Vyukov <dvyukov@google.com>, Laura Abbott <labbott@fedoraproject.org>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, sparclinux@vger.kernel.org, "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>, "linux-mm@kvack.org" <linux-mm@kvack.org>, kernel-hardening@lists.openwall.com
+Cc: LKML <linux-kernel@vger.kernel.org>, Rik van Riel <riel@redhat.com>, Casey Schaufler <casey@schaufler-ca.com>, PaX Team <pageexec@freemail.hu>, Brad Spengler <spender@grsecurity.net>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "David S. Miller" <davem@davemloft.net>, "x86@kernel.org" <x86@kernel.org>, Christoph Lameter <cl@linux.com>, Pekka Enberg <penberg@kernel.org>, David Rientjes <rientjes@google.com>, Joonsoo Kim <iamjoonsoo.kim@lge.com>, Andrew Morton <akpm@linux-foundation.org>, Andy Lutomirski <luto@kernel.org>, Borislav Petkov <bp@suse.de>, Mathias Krause <minipli@googlemail.com>, Jan Kara <jack@suse.cz>, Vitaly Wool <vitalywool@gmail.com>, Andrea Arcangeli <aarcange@redhat.com>, Dmitry Vyukov <dvyukov@google.com>, Laura Abbott <labbott@fedoraproject.org>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, linux-ia64@vger.kernel.org, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, sparclinux <sparclinux@vger.kernel.org>, linux-arch <linux-arch@vger.kernel.org>, Linux-MM <linux-mm@kvack.org>, "kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>
 
-T24gOSBKdWx5IDIwMTYgYXQgMDQ6MjIsIExhdXJhIEFiYm90dCA8bGFiYm90dEByZWRoYXQuY29t
-PiB3cm90ZToKPiBPbiAwNy8wNi8yMDE2IDAzOjI1IFBNLCBLZWVzIENvb2sgd3JvdGU6Cj4+Cj4+
-IEhpLAo+Pgo+PiBUaGlzIGlzIGEgc3RhcnQgb2YgdGhlIG1haW5saW5lIHBvcnQgb2YgUEFYX1VT
-RVJDT1BZWzFdLiBBZnRlciBJIHN0YXJ0ZWQKPj4gd3JpdGluZyB0ZXN0cyAobm93IGluIGxrZHRt
-IGluIC1uZXh0KSBmb3IgQ2FzZXkncyBlYXJsaWVyIHBvcnRbMl0sIEkKPj4ga2VwdCB0d2Vha2lu
-ZyB0aGluZ3MgZnVydGhlciBhbmQgZnVydGhlciB1bnRpbCBJIGVuZGVkIHVwIHdpdGggYSB3aG9s
-ZQo+PiBuZXcgcGF0Y2ggc2VyaWVzLiBUbyB0aGF0IGVuZCwgSSB0b29rIFJpaydzIGZlZWRiYWNr
-IGFuZCBtYWRlIGEgbnVtYmVyCj4+IG9mIG90aGVyIGNoYW5nZXMgYW5kIGNsZWFuLXVwcyBhcyB3
-ZWxsLgo+Pgo+PiBCYXNlZCBvbiBteSB1bmRlcnN0YW5kaW5nLCBQQVhfVVNFUkNPUFkgd2FzIGRl
-c2lnbmVkIHRvIGNhdGNoIGEgZmV3Cj4+IGNsYXNzZXMgb2YgZmxhd3MgYXJvdW5kIHRoZSB1c2Ug
-b2YgY29weV90b191c2VyKCkvY29weV9mcm9tX3VzZXIoKS4gVGhlc2UKPj4gY2hhbmdlcyBkb24n
-dCB0b3VjaCBnZXRfdXNlcigpIGFuZCBwdXRfdXNlcigpLCBzaW5jZSB0aGVzZSBvcGVyYXRlIG9u
-Cj4+IGNvbnN0YW50IHNpemVkIGxlbmd0aHMsIGFuZCB0ZW5kIHRvIGJlIG11Y2ggbGVzcyB2dWxu
-ZXJhYmxlLiBUaGVyZQo+PiBhcmUgZWZmZWN0aXZlbHkgdGhyZWUgZGlzdGluY3QgcHJvdGVjdGlv
-bnMgaW4gdGhlIHdob2xlIHNlcmllcywKPj4gZWFjaCBvZiB3aGljaCBJJ3ZlIGdpdmVuIGEgc2Vw
-YXJhdGUgQ09ORklHLCB0aG91Z2ggdGhpcyBwYXRjaCBzZXQgaXMKPj4gb25seSB0aGUgZmlyc3Qg
-b2YgdGhlIHRocmVlIGludGVuZGVkIHByb3RlY3Rpb25zLiAoR2VuZXJhbGx5IHNwZWFraW5nLAo+
-PiBQQVhfVVNFUkNPUFkgY292ZXJzIHdoYXQgSSdtIGNhbGxpbmcgQ09ORklHX0hBUkRFTkVEX1VT
-RVJDT1BZICh0aGlzKSBhbmQKPj4gQ09ORklHX0hBUkRFTkVEX1VTRVJDT1BZX1dISVRFTElTVCAo
-ZnV0dXJlKSwgYW5kIFBBWF9VU0VSQ09QWV9TTEFCUyBjb3ZlcnMKPj4gQ09ORklHX0hBUkRFTkVE
-X1VTRVJDT1BZX1NQTElUX0tNQUxMT0MgKGZ1dHVyZSkuKQo+Pgo+PiBUaGlzIHNlcmllcywgd2hp
-Y2ggYWRkcyBDT05GSUdfSEFSREVORURfVVNFUkNPUFksIGNoZWNrcyB0aGF0IG9iamVjdHMKPj4g
-YmVpbmcgY29waWVkIHRvL2Zyb20gdXNlcnNwYWNlIG1lZXQgY2VydGFpbiBjcml0ZXJpYToKPj4g
-LSBpZiBhZGRyZXNzIGlzIGEgaGVhcCBvYmplY3QsIHRoZSBzaXplIG11c3Qgbm90IGV4Y2VlZCB0
-aGUgb2JqZWN0J3MKPj4gICBhbGxvY2F0ZWQgc2l6ZS4gKFRoaXMgd2lsbCBjYXRjaCBhbGwga2lu
-ZHMgb2YgaGVhcCBvdmVyZmxvdyBmbGF3cy4pCj4+IC0gaWYgYWRkcmVzcyByYW5nZSBpcyBpbiB0
-aGUgY3VycmVudCBwcm9jZXNzIHN0YWNrLCBpdCBtdXN0IGJlIHdpdGhpbiB0aGUKPj4gICBjdXJy
-ZW50IHN0YWNrIGZyYW1lIChpZiBzdWNoIGNoZWNraW5nIGlzIHBvc3NpYmxlKSBvciBhdCBsZWFz
-dCBlbnRpcmVseQo+PiAgIHdpdGhpbiB0aGUgY3VycmVudCBwcm9jZXNzJ3Mgc3RhY2suIChUaGlz
-IGNvdWxkIGNhdGNoIGxhcmdlIGxlbmd0aHMgdGhhdAo+PiAgIHdvdWxkIGhhdmUgZXh0ZW5kZWQg
-YmV5b25kIHRoZSBjdXJyZW50IHByb2Nlc3Mgc3RhY2ssIG9yIG92ZXJmbG93cyBpZgo+PiAgIHRo
-ZWlyIGxlbmd0aCBleHRlbmRzIGJhY2sgaW50byB0aGUgb3JpZ2luYWwgc3RhY2suKQo+PiAtIGlm
-IHRoZSBhZGRyZXNzIHJhbmdlIGlzIHBhcnQgb2Yga2VybmVsIGRhdGEsIHJvZGF0YSwgb3IgYnNz
-LCBhbGxvdyBpdC4KPj4gLSBpZiBhZGRyZXNzIHJhbmdlIGlzIHBhZ2UtYWxsb2NhdGVkLCB0aGF0
-IGl0IGRvZXNuJ3Qgc3BhbiBtdWx0aXBsZQo+PiAgIGFsbG9jYXRpb25zLgo+PiAtIGlmIGFkZHJl
-c3MgaXMgd2l0aGluIHRoZSBrZXJuZWwgdGV4dCwgcmVqZWN0IGl0Lgo+PiAtIGV2ZXJ5dGhpbmcg
-ZWxzZSBpcyBhY2NlcHRlZAo+Pgo+PiBUaGUgcGF0Y2hlcyBpbiB0aGUgc2VyaWVzIGFyZToKPj4g
-LSBUaGUgY29yZSBjb3B5X3RvL2Zyb21fdXNlcigpIGNoZWNrcywgd2l0aG91dCB0aGUgc2xhYiBv
-YmplY3QgY2hlY2tzOgo+PiAgICAgICAgIDEtIG1tOiBIYXJkZW5lZCB1c2VyY29weQo+PiAtIFBl
-ci1hcmNoIGVuYWJsZW1lbnQgb2YgdGhlIHByb3RlY3Rpb246Cj4+ICAgICAgICAgMi0geDg2L3Vh
-Y2Nlc3M6IEVuYWJsZSBoYXJkZW5lZCB1c2VyY29weQo+PiAgICAgICAgIDMtIEFSTTogdWFjY2Vz
-czogRW5hYmxlIGhhcmRlbmVkIHVzZXJjb3B5Cj4+ICAgICAgICAgNC0gYXJtNjQvdWFjY2Vzczog
-RW5hYmxlIGhhcmRlbmVkIHVzZXJjb3B5Cj4+ICAgICAgICAgNS0gaWE2NC91YWNjZXNzOiBFbmFi
-bGUgaGFyZGVuZWQgdXNlcmNvcHkKPj4gICAgICAgICA2LSBwb3dlcnBjL3VhY2Nlc3M6IEVuYWJs
-ZSBoYXJkZW5lZCB1c2VyY29weQo+PiAgICAgICAgIDctIHNwYXJjL3VhY2Nlc3M6IEVuYWJsZSBo
-YXJkZW5lZCB1c2VyY29weQo+PiAtIFRoZSBoZWFwIGFsbG9jYXRvciBpbXBsZW1lbnRhdGlvbiBv
-ZiBvYmplY3Qgc2l6ZSBjaGVja2luZzoKPj4gICAgICAgICA4LSBtbTogU0xBQiBoYXJkZW5lZCB1
-c2VyY29weSBzdXBwb3J0Cj4+ICAgICAgICAgOS0gbW06IFNMVUIgaGFyZGVuZWQgdXNlcmNvcHkg
-c3VwcG9ydAo+Pgo+PiBTb21lIG5vdGVzOgo+Pgo+PiAtIFRoaXMgaXMgZXhwZWN0ZWQgdG8gYXBw
-bHkgb24gdG9wIG9mIC1uZXh0IHdoaWNoIGNvbnRhaW5zIGZpeGVzIGZvciB0aGUKPj4gICBwb3Np
-dGlvbiBvZiBfZXRleHQgb24gYm90aCBhcm0gYW5kIGFybTY0Lgo+Pgo+PiAtIEkgY291bGRuJ3Qg
-ZGV0ZWN0IGEgbWVhc3VyYWJsZSBwZXJmb3JtYW5jZSBjaGFuZ2Ugd2l0aCB0aGVzZSBmZWF0dXJl
-cwo+PiAgIGVuYWJsZWQuIEtlcm5lbCBidWlsZCB0aW1lcyB3ZXJlIHVuY2hhbmdlZCwgaGFja2Jl
-bmNoIHdhcyB1bmNoYW5nZWQsCj4+ICAgZXRjLiBJIHRoaW5rIHdlIGNvdWxkIGZsaXAgdGhpcyB0
-byAib24gYnkgZGVmYXVsdCIgYXQgc29tZSBwb2ludC4KPj4KPj4gLSBUaGUgU0xPQiBzdXBwb3J0
-IGV4dHJhY3RlZCBmcm9tIGdyc2VjdXJpdHkgc2VlbXMgZW50aXJlbHkgYnJva2VuLiBJCj4+ICAg
-aGF2ZSBubyBpZGVhIHdoYXQncyBnb2luZyBvbiB0aGVyZSwgSSBzcGVudCBteSB0aW1lIHRlc3Rp
-bmcgU0xBQiBhbmQKPj4gICBTTFVCLiBIYXZpbmcgc29tZW9uZSBlbHNlIGxvb2sgYXQgU0xPQiB3
-b3VsZCBiZSBuaWNlLCBidXQgdGhpcyBzZXJpZXMKPj4gICBkb2Vzbid0IGRlcGVuZCBvbiBpdC4K
-Pj4KPj4gQWRkaXRpb25hbCBmZWF0dXJlcyB0aGF0IHdvdWxkIGJlIG5pY2UsIGJ1dCBhcmVuJ3Qg
-YmxvY2tpbmcgdGhpcyBzZXJpZXM6Cj4+Cj4+IC0gTmVlZHMgbW9yZSBhcmNoaXRlY3R1cmUgc3Vw
-cG9ydCBmb3Igc3RhY2sgZnJhbWUgY2hlY2tpbmcgKG9ubHkgeDg2IG5vdykuCj4+Cj4+Cj4KPiBF
-dmVuIHdpdGggdGhlIFNMVUIgZml4dXAgSSdtIHN0aWxsIHNlZWluZyB0aGlzIGJsb3cgdXAgb24g
-bXkgYXJtNjQgc3lzdGVtLgo+IFRoaXMgaXMgYQo+IEZlZG9yYSByYXdoaWRlIGtlcm5lbCArIHRo
-ZSBwYXRjaGVzCj4KPiBbIDAuNjY2NzAwXSB1c2VyY29weToga2VybmVsIG1lbW9yeSBleHBvc3Vy
-ZSBhdHRlbXB0IGRldGVjdGVkIGZyb20KPiBmZmZmZmMwMDA4YjRkZDU4ICg8a2VybmVsIHRleHQ+
-KSAoOCBieXRlcykKPiBbIDAuNjY2NzIwXSBDUFU6IDIgUElEOiA3OSBDb21tOiBtb2Rwcm9iZSBU
-YWludGVkOiBHICAgICAgICBXCj4gNC43LjAtMC5yYzYuZ2l0MS4xLmhhcmRlbmVkdXNlcmNvcHku
-ZmMyNS5hYXJjaDY0ICMxCj4gWyAwLjY2NjczM10gSGFyZHdhcmUgbmFtZTogQXBwbGllZE1pY3Jv
-IE11c3RhbmcvTXVzdGFuZywgQklPUyAxLjEuMCBOb3YgMjQKPiAyMDE1Cj4gWyAwLjY2Njc0NF0g
-Q2FsbCB0cmFjZToKPiBbIDAuNjY2NzU2XSBbPGZmZmZmYzAwMDgwODhhMjA+XSBkdW1wX2JhY2t0
-cmFjZSsweDAvMHgxZTgKPiBbIDAuNjY2NzY1XSBbPGZmZmZmYzAwMDgwODhjMmM+XSBzaG93X3N0
-YWNrKzB4MjQvMHgzMAo+IFsgMC42NjY3NzVdIFs8ZmZmZmZjMDAwODQ1NTM0ND5dIGR1bXBfc3Rh
-Y2srMHhhNC8weGUwCj4gWyAwLjY2Njc4NV0gWzxmZmZmZmMwMDA4MjhkODc0Pl0gX19jaGVja19v
-YmplY3Rfc2l6ZSsweDZjLzB4MjMwCj4gWyAwLjY2Njc5NV0gWzxmZmZmZmMwMDA4M2E1NzQ4Pl0g
-Y3JlYXRlX2VsZl90YWJsZXMrMHg3NC8weDQyMAo+IFsgMC42NjY4MDVdIFs8ZmZmZmZjMDAwODJm
-YjFmMD5dIGxvYWRfZWxmX2JpbmFyeSsweDgyOC8weGI3MAo+IFsgMC42NjY4MTRdIFs8ZmZmZmZj
-MDAwODI5OGI0Yz5dIHNlYXJjaF9iaW5hcnlfaGFuZGxlcisweGI0LzB4MjQwCj4gWyAwLjY2Njgy
-M10gWzxmZmZmZmMwMDA4Mjk5ODY0Pl0gZG9fZXhlY3ZlYXRfY29tbW9uKzB4NjNjLzB4OTUwCj4g
-WyAwLjY2NjgzMl0gWzxmZmZmZmMwMDA4Mjk5YmI0Pl0gZG9fZXhlY3ZlKzB4M2MvMHg1MAo+IFsg
-MC42NjY4NDFdIFs8ZmZmZmZjMDAwODBlMzcyMD5dIGNhbGxfdXNlcm1vZGVoZWxwZXJfZXhlY19h
-c3luYysweGU4LzB4MTQ4Cj4gWyAwLjY2Njg1MF0gWzxmZmZmZmMwMDA4MDg0YTgwPl0gcmV0X2Zy
-b21fZm9yaysweDEwLzB4NTAKPgo+IFRoaXMgaGFwcGVucyBvbiBldmVyeSBjYWxsIHRvIGV4ZWN2
-ZS4gVGhpcyBzZWVtcyB0byBiZSB0aGUgZmlyc3QKPiBjb3B5X3RvX3VzZXIgaW4KPiBjcmVhdGVf
-ZWxmX3RhYmxlcy4gSSBkaWRuJ3QgZ2V0IGEgY2hhbmNlIHRvIGRlYnVnIGFuZCBJJ20gZ29pbmcg
-b3V0IG9mIHRvd24KPiBhbGwgb2YgbmV4dCB3ZWVrIHNvIGFsbCBJIGhhdmUgaXMgdGhlIHJlcG9y
-dCB1bmZvcnR1bmF0ZWx5LiBjb25maWcgYXR0YWNoZWQuCj4KClRoaXMgaXMgYSBrbm93biBpc3N1
-ZSwgYW5kIGEgZml4IGlzIGFscmVhZHkgcXVldWVkIGZvciB2NC44IGluIHRoZSBhcm02NCB0cmVl
-OgoKOWZkYzE0YzU1YyBhcm02NDogbW06IGZpeCBsb2NhdGlvbiBvZiBfZXRleHQgWzBdCgp3aGlj
-aCBtb3ZlcyBfZXRleHQgdXAgaW4gdGhlIGxpbmtlciBzY3JpcHQgc28gdGhhdCBpdCBkb2VzIG5v
-dCBjb3ZlciAucm9kYXRhCgpBUk0gd2FzIHN1ZmZlcmluZyBmcm9tIHRoZSBzYW1lIHByb2JsZW0s
-IGFuZCBLZWVzIHByb3Bvc2VkIGEgZml4IGZvcgppdC4gSSBkb24ndCBrbm93IHdoYXQgdGhlIHN0
-YXR1cyBvZiB0aGF0IHBhdGNoIGlzLCB0aG91Z2guCgpOb3RlIHRoYXQgb24gYXJtNjQsIHdlIGhh
-dmUKCiAgI2RlZmluZSBFTEZfUExBVEZPUk0gICAgICAgICAgICAoImFhcmNoNjQiKQoKd2hpY2gg
-ZXhwbGFpbnMgd2h5IGtfcGxhdGZvcm0gcG9pbnRzIGludG8gLnJvZGF0YSBpbiB0aGlzIGNhc2Uu
-IE9uCkFSTSwgaXQgcG9pbnRzIHRvIGEgd3JpdGFibGUgc3RyaW5nIChhcyB0aGUgY29kZSBxdW90
-ZWQgYnkgUmlrIHNob3dzKSwKc28gdGhlcmUgaXQgd2lsbCBsaWtlbHkgZXhwbG9kZSBlbHNld2hl
-cmUgd2l0aG91dCB0aGUgbGlua2VyIHNjcmlwdApmaXguCgpbMF0gaHR0cHM6Ly9naXQua2VybmVs
-Lm9yZy9jZ2l0L2xpbnV4L2tlcm5lbC9naXQvYXJtNjQvbGludXguZ2l0L2NvbW1pdC8/aD1mb3It
-bmV4dC9jb3JlJmlkn2RjMTRjNTVjCgotLSAKQXJkLgotLQpUbyB1bnN1YnNjcmliZSBmcm9tIHRo
-aXMgbGlzdDogc2VuZCB0aGUgbGluZSAidW5zdWJzY3JpYmUgbGludXgtaWE2NCIgaW4KdGhlIGJv
-ZHkgb2YgYSBtZXNzYWdlIHRvIG1ham9yZG9tb0B2Z2VyLmtlcm5lbC5vcmcKTW9yZSBtYWpvcmRv
-bW8gaW5mbyBhdCAgaHR0cDovL3ZnZXIua2VybmVsLm9yZy9tYWpvcmRvbW8taW5mby5odG1s
+On Fri, Jul 8, 2016 at 7:22 PM, Laura Abbott <labbott@redhat.com> wrote:
+> On 07/06/2016 03:25 PM, Kees Cook wrote:
+>>
+>> Hi,
+>>
+>> This is a start of the mainline port of PAX_USERCOPY[1]. After I started
+>> writing tests (now in lkdtm in -next) for Casey's earlier port[2], I
+>> kept tweaking things further and further until I ended up with a whole
+>> new patch series. To that end, I took Rik's feedback and made a number
+>> of other changes and clean-ups as well.
+>>
+>> Based on my understanding, PAX_USERCOPY was designed to catch a few
+>> classes of flaws around the use of copy_to_user()/copy_from_user(). These
+>> changes don't touch get_user() and put_user(), since these operate on
+>> constant sized lengths, and tend to be much less vulnerable. There
+>> are effectively three distinct protections in the whole series,
+>> each of which I've given a separate CONFIG, though this patch set is
+>> only the first of the three intended protections. (Generally speaking,
+>> PAX_USERCOPY covers what I'm calling CONFIG_HARDENED_USERCOPY (this) and
+>> CONFIG_HARDENED_USERCOPY_WHITELIST (future), and PAX_USERCOPY_SLABS covers
+>> CONFIG_HARDENED_USERCOPY_SPLIT_KMALLOC (future).)
+>>
+>> This series, which adds CONFIG_HARDENED_USERCOPY, checks that objects
+>> being copied to/from userspace meet certain criteria:
+>> - if address is a heap object, the size must not exceed the object's
+>>   allocated size. (This will catch all kinds of heap overflow flaws.)
+>> - if address range is in the current process stack, it must be within the
+>>   current stack frame (if such checking is possible) or at least entirely
+>>   within the current process's stack. (This could catch large lengths that
+>>   would have extended beyond the current process stack, or overflows if
+>>   their length extends back into the original stack.)
+>> - if the address range is part of kernel data, rodata, or bss, allow it.
+>> - if address range is page-allocated, that it doesn't span multiple
+>>   allocations.
+>> - if address is within the kernel text, reject it.
+>> - everything else is accepted
+>>
+>> The patches in the series are:
+>> - The core copy_to/from_user() checks, without the slab object checks:
+>>         1- mm: Hardened usercopy
+>> - Per-arch enablement of the protection:
+>>         2- x86/uaccess: Enable hardened usercopy
+>>         3- ARM: uaccess: Enable hardened usercopy
+>>         4- arm64/uaccess: Enable hardened usercopy
+>>         5- ia64/uaccess: Enable hardened usercopy
+>>         6- powerpc/uaccess: Enable hardened usercopy
+>>         7- sparc/uaccess: Enable hardened usercopy
+>> - The heap allocator implementation of object size checking:
+>>         8- mm: SLAB hardened usercopy support
+>>         9- mm: SLUB hardened usercopy support
+>>
+>> Some notes:
+>>
+>> - This is expected to apply on top of -next which contains fixes for the
+>>   position of _etext on both arm and arm64.
+>>
+>> - I couldn't detect a measurable performance change with these features
+>>   enabled. Kernel build times were unchanged, hackbench was unchanged,
+>>   etc. I think we could flip this to "on by default" at some point.
+>>
+>> - The SLOB support extracted from grsecurity seems entirely broken. I
+>>   have no idea what's going on there, I spent my time testing SLAB and
+>>   SLUB. Having someone else look at SLOB would be nice, but this series
+>>   doesn't depend on it.
+>>
+>> Additional features that would be nice, but aren't blocking this series:
+>>
+>> - Needs more architecture support for stack frame checking (only x86 now).
+>>
+>>
+>
+> Even with the SLUB fixup I'm still seeing this blow up on my arm64 system.
+> This is a
+> Fedora rawhide kernel + the patches
+
+Is this on top of -next? The recent _etext change ("arm64: mm: fix
+location of _etext") is needed to fix the kernel text test for arm64.
+
+-Kees
+
+>
+> [    0.666700] usercopy: kernel memory exposure attempt detected from
+> fffffc0008b4dd58 (<kernel text>) (8 bytes)
+> [    0.666720] CPU: 2 PID: 79 Comm: modprobe Tainted: G        W
+> 4.7.0-0.rc6.git1.1.hardenedusercopy.fc25.aarch64 #1
+> [    0.666733] Hardware name: AppliedMicro Mustang/Mustang, BIOS 1.1.0 Nov
+> 24 2015
+> [    0.666744] Call trace:
+> [    0.666756] [<fffffc0008088a20>] dump_backtrace+0x0/0x1e8
+> [    0.666765] [<fffffc0008088c2c>] show_stack+0x24/0x30
+> [    0.666775] [<fffffc0008455344>] dump_stack+0xa4/0xe0
+> [    0.666785] [<fffffc000828d874>] __check_object_size+0x6c/0x230
+> [    0.666795] [<fffffc00083a5748>] create_elf_tables+0x74/0x420
+> [    0.666805] [<fffffc00082fb1f0>] load_elf_binary+0x828/0xb70
+> [    0.666814] [<fffffc0008298b4c>] search_binary_handler+0xb4/0x240
+> [    0.666823] [<fffffc0008299864>] do_execveat_common+0x63c/0x950
+> [    0.666832] [<fffffc0008299bb4>] do_execve+0x3c/0x50
+> [    0.666841] [<fffffc00080e3720>]
+> call_usermodehelper_exec_async+0xe8/0x148
+> [    0.666850] [<fffffc0008084a80>] ret_from_fork+0x10/0x50
+>
+> This happens on every call to execve. This seems to be the first
+> copy_to_user in
+> create_elf_tables. I didn't get a chance to debug and I'm going out of town
+> all of next week so all I have is the report unfortunately. config attached.
+>
+> Thanks,
+> Laura
+
+
+
+-- 
+Kees Cook
+Chrome OS & Brillo Security
