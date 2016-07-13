@@ -1,87 +1,80 @@
-From: "Luis R. Rodriguez" <mcgrof@kernel.org>
-Date: Fri, 22 Jul 2016 21:24:37 +0000
-Subject: [RFC v3 03/13] scripts/module-common.lds: enable generation
-Message-Id: <1469222687-1600-4-git-send-email-mcgrof@kernel.org>
+From: Kees Cook <keescook@chromium.org>
+Date: Wed, 13 Jul 2016 21:56:03 +0000
+Subject: [PATCH v2 10/11] mm: SLAB hardened usercopy support
+Message-Id: <1468446964-22213-11-git-send-email-keescook@chromium.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1469222687-1600-1-git-send-email-mcgrof@kernel.org>
-In-Reply-To: <1469222687-1600-1-git-send-email-mcgrof@kernel.org>
+References: <1468446964-22213-1-git-send-email-keescook@chromium.org>
+In-Reply-To: <1468446964-22213-1-git-send-email-keescook@chromium.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: hpa@zytor.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, linux@arm.linux.org.uk, mhiramat@kernel.org, masami.hiramatsu.pt@hitachi.com, jbaron@akamai.com, heiko.carstens@de.ibm.com, ananth@linux.vnet.ibm.com, anil.s.keshavamurthy@intel.com, davem@davemloft.net, realmz6@gmail.com
-Cc: x86@kernel.org, luto@amacapital.net, keescook@chromium.org, torvalds@linux-foundation.org, gregkh@linuxfoundation.org, rusty@rustcorp.com.au, gnomes@lxorguk.ukuu.org.uk, alan@linux.intel.com, dwmw2@infradead.org, arnd@arndb.de, ming.lei@canonical.com, linux-arch@vger.kernel.org, benh@kernel.crashing.org, ananth@in.ibm.com, pebolle@tiscali.nl, fontana@sharpeleven.org, ciaran.farrell@suse.com, christopher.denicolo@suse.com, david.vrabel@citrix.com, konrad.wilk@oracle.com, mcb30@ipxe.org, jgross@suse.com, andrew.cooper3@citrix.com, andriy.shevchenko@linux.intel.com, paul.gortmaker@windriver.com, xen-devel@lists.xensource.com, ak@linux.intel.com, pali.rohar@gmail.com, dvhart@infradead.org, platform-driver-x86@vger.kernel.org, mmarek@suse.com, linux@rasmusvillemoes.dk, jkosina@suse.cz, korea.drzix@gmail.com, linux-kbuild@vger.kernel.org, tony.luck@intel.com, akpm@linux-foun
+To: linux-kernel@vger.kernel.org
+Cc: Kees Cook <keescook@chromium.org>, Rik van Riel <riel@redhat.com>, Casey Schaufler <casey@schaufler-ca.com>, PaX Team <pageexec@freemail.hu>, Brad Spengler <spender@grsecurity.net>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "David S. Miller" <davem@davemloft.net>, x86@kernel.org, Christoph Lameter <cl@linux.com>, Pekka Enberg <penberg@kernel.org>, David Rientjes <rientjes@google.com>, Joonsoo Kim <iamjoonsoo.kim@lge.com>, Andrew Morton <akpm@linux-foundation.org>, Andy Lutomirski <luto@kernel.org>, Borislav Petkov <bp@suse.de>, Mathias Krause <minipli@googlemail.com>, Jan Kara <jack@suse.cz>, Vitaly Wool <vitalywool@gmail.com>, Andrea Arcangeli <aarcange@redhat.com>, Dmitry Vyukov <dvyukov@google.com>, Laura Abbott <labbott@fedoraproject.org>, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org, kernel-hardening@lists.openwall.com
 
-scripts/module-common.lds is currently pretty static, in the
-future this may change and we will want access to kernel macros
-to help expands certain areas. To get access to use macros we
-need to generate module-common.lds from module-common.lds.S, for
-now though only enable the generation. We'll later expand on this
-as needed.
+Under CONFIG_HARDENED_USERCOPY, this adds object size checking to the
+SLAB allocator to catch any copies that may span objects.
 
-Since this file is now generated add it to .gitignore.
+Based on code from PaX and grsecurity.
 
-v3: new to this series
-
-Signed-off-by: Luis R. Rodriguez <mcgrof@kernel.org>
+Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- .gitignore                                         | 2 ++
- Makefile                                           | 6 +++++-
- scripts/Makefile.modpost                           | 2 +-
- scripts/{module-common.lds => module-common.lds.S} | 0
- 4 files changed, 8 insertions(+), 2 deletions(-)
- rename scripts/{module-common.lds => module-common.lds.S} (100%)
+ init/Kconfig |  1 +
+ mm/slab.c    | 30 ++++++++++++++++++++++++++++++
+ 2 files changed, 31 insertions(+)
 
-diff --git a/.gitignore b/.gitignore
-index 2be25f771bd8..14a94d939a6f 100644
---- a/.gitignore
-+++ b/.gitignore
-@@ -113,3 +113,5 @@ all.config
+diff --git a/init/Kconfig b/init/Kconfig
+index f755a602d4a1..798c2020ee7c 100644
+--- a/init/Kconfig
++++ b/init/Kconfig
+@@ -1757,6 +1757,7 @@ choice
  
- # Kdevelop4
- *.kdev4
+ config SLAB
+ 	bool "SLAB"
++	select HAVE_HARDENED_USERCOPY_ALLOCATOR
+ 	help
+ 	  The regular slab allocator that is established and known to work
+ 	  well in all environments. It organizes cache hot objects in
+diff --git a/mm/slab.c b/mm/slab.c
+index cc8bbc1e6bc9..5e2d5f349aca 100644
+--- a/mm/slab.c
++++ b/mm/slab.c
+@@ -4477,6 +4477,36 @@ static int __init slab_proc_init(void)
+ module_init(slab_proc_init);
+ #endif
+ 
++#ifdef CONFIG_HARDENED_USERCOPY
++/*
++ * Rejects objects that are incorrectly sized.
++ *
++ * Returns NULL if check passes, otherwise const char * to name of cache
++ * to indicate an error.
++ */
++const char *__check_heap_object(const void *ptr, unsigned long n,
++				struct page *page)
++{
++	struct kmem_cache *cachep;
++	unsigned int objnr;
++	unsigned long offset;
 +
-+scripts/module-common.lds
-diff --git a/Makefile b/Makefile
-index caa33e007a8c..c56cca906769 100644
---- a/Makefile
-+++ b/Makefile
-@@ -408,6 +408,10 @@ KBUILD_AFLAGS_MODULE  := -DMODULE
- KBUILD_CFLAGS_MODULE  := -DMODULE
- KBUILD_LDFLAGS_MODULE := -T $(srctree)/scripts/module-common.lds
- 
-+$(srctree)/scripts/module-common.lds: $(srctree)/scripts/module-common.lds.S
-+	$(Q)$(CC) $(CFLAGS) $(INCLUDES) $(LINUXINCLUDE) -E -P \
-+		-D__ASSEMBLY__ -DLINKER_SCRIPT -o $@ $<
++	/* Find and validate object. */
++	cachep = page->slab_cache;
++	objnr = obj_to_index(cachep, page, (void *)ptr);
++	BUG_ON(objnr >= cachep->num);
 +
- # Read KERNELRELEASE from include/config/kernel.release (if it exists)
- KERNELRELEASE = $(shell cat include/config/kernel.release 2> /dev/null)
- KERNELVERSION = $(VERSION)$(if $(PATCHLEVEL),.$(PATCHLEVEL)$(if $(SUBLEVEL),.$(SUBLEVEL)))$(EXTRAVERSION)
-@@ -1178,7 +1182,7 @@ all: modules
- # using awk while concatenating to the final file.
- 
- PHONY += modules
--modules: $(vmlinux-dirs) $(if $(KBUILD_BUILTIN),vmlinux) modules.builtin
-+modules: $(srctree)/scripts/module-common.lds $(vmlinux-dirs) $(if $(KBUILD_BUILTIN),vmlinux) modules.builtin
- 	$(Q)$(AWK) '!x[$$0]++' $(vmlinux-dirs:%=$(objtree)/%/modules.order) > $(objtree)/modules.order
- 	@$(kecho) '  Building modules, stage 2.';
- 	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.modpost
-diff --git a/scripts/Makefile.modpost b/scripts/Makefile.modpost
-index 1366a94b6c39..2d8aff7735d6 100644
---- a/scripts/Makefile.modpost
-+++ b/scripts/Makefile.modpost
-@@ -121,7 +121,7 @@ quiet_cmd_ld_ko_o = LD [M]  $@
-                              $(KBUILD_LDFLAGS_MODULE) $(LDFLAGS_MODULE) \
-                              -o $@ $(filter-out FORCE,$^)
- 
--$(modules): %.ko :%.o %.mod.o FORCE
-+$(modules): %.ko : $(srctree)/scripts/module-common.lds %.o %.mod.o FORCE
- 	$(call if_changed,ld_ko_o)
- 
- targets += $(modules)
-diff --git a/scripts/module-common.lds b/scripts/module-common.lds.S
-similarity index 100%
-rename from scripts/module-common.lds
-rename to scripts/module-common.lds.S
++	/* Find offset within object. */
++	offset = ptr - index_to_obj(cachep, page, objnr) - obj_offset(cachep);
++
++	/* Allow address range falling entirely within object size. */
++	if (offset <= cachep->object_size && n <= cachep->object_size - offset)
++		return NULL;
++
++	return cachep->name;
++}
++#endif /* CONFIG_HARDENED_USERCOPY */
++
+ /**
+  * ksize - get the actual amount of memory allocated for a given object
+  * @objp: Pointer to the object
 -- 
-2.8.4
+2.7.4
 
