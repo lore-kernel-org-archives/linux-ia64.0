@@ -1,137 +1,243 @@
-From: Kees Cook <keescook@chromium.org>
-Date: Fri, 15 Jul 2016 21:44:15 +0000
-Subject: [PATCH v3 01/11] mm: Implement stack frame object validation
-Message-Id: <1468619065-3222-2-git-send-email-keescook@chromium.org>
+From: Krzysztof Kozlowski <k.kozlowski@samsung.com>
+Date: Wed, 13 Jul 2016 08:41:19 +0000
+Subject: [PATCH v6 28/46] ia64: dma-mapping: Use unsigned long for dma_attrs
+Message-Id: <1468399300-5399-28-git-send-email-k.kozlowski@samsung.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1468619065-3222-1-git-send-email-keescook@chromium.org>
-In-Reply-To: <1468619065-3222-1-git-send-email-keescook@chromium.org>
+References: <1468399167-28083-1-git-send-email-k.kozlowski@samsung.com>
+ <1468399300-5399-1-git-send-email-k.kozlowski@samsung.com>
+ <1468399300-5399-2-git-send-email-k.kozlowski@samsung.com>
+ <1468399300-5399-3-git-send-email-k.kozlowski@samsung.com>
+ <1468399300-5399-4-git-send-email-k.kozlowski@samsung.com>
+ <1468399300-5399-5-git-send-email-k.kozlowski@samsung.com>
+ <1468399300-5399-6-git-send-email-k.kozlowski@samsung.com>
+ <1468399300-5399-7-git-send-email-k.kozlowski@samsung.com>
+ <1468399300-5399-8-git-send-email-k.kozlowski@samsung.com>
+ <1468399300-5399-9-git-send-email-k.kozlowski@samsung.com>
+ <1468399300-5399-10-git-send-email-k.kozlowski@samsung.com>
+ <1468399300-5399-11-git-send-email-k.kozlowski@samsung.com>
+ <1468399300-5399-12-git-send-email-k.kozlowski@samsung.com>
+ <1468399300-5399-13-git-send-email-k.kozlowski@samsung.com>
+ <1468399300-5399-14-git-send-email-k.kozlowski@samsung.com>
+ <1468399300-5399-15-git-send-email-k.kozlowski@samsung.com>
+ <1468399300-5399-16-git-send-email-k.kozlowski@samsung.com>
+ <1468399300-5399-17-git-send-email-k.kozlowski@samsung.com>
+ <1468399300-5399-18-git-send-email-k.kozlowski@samsung.com>
+ <1468399300-5399-19-git-send-email-k.kozlowski@samsung.com>
+ <1468399300-5399-20-git-send-email-k.kozlowski@samsung.com>
+ <1468399300-5399-21-git-send-email-k.kozlowski@samsung.com>
+ <1468399300-5399-22-git-send-email-k.kozlowski@samsung.com>
+ <1468399300-5399-23-git-send-email-k.kozlowski@samsung.com>
+ <1468399300-5399-24-git-send-email-k.kozlowski@samsung.com>
+ <1468399300-5399-25-git-send-email-k.kozlowski@samsung.com>
+ <1468399300-5399-26-git-send-email-k.kozlowski@samsung.com>
+ <1468399300-5399-27-git-send-email-k.kozlowski@samsung.com>
+In-Reply-To: <1468399300-5399-27-git-send-email-k.kozlowski@samsung.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Kees Cook <keescook@chromium.org>, Balbir Singh <bsingharora@gmail.com>, Daniel Micay <danielmicay@gmail.com>, Josh Poimboeuf <jpoimboe@redhat.com>, Rik van Riel <riel@redhat.com>, Casey Schaufler <casey@schaufler-ca.com>, PaX Team <pageexec@freemail.hu>, Brad Spengler <spender@grsecurity.net>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "David S. Miller" <davem@davemloft.net>, x86@kernel.org, Christoph Lameter <cl@linux.com>, Pekka Enberg <penberg@kernel.org>, David Rientjes <rientjes@google.com>, Joonsoo Kim <iamjoonsoo.kim@lge.com>, Andrew Morton <akpm@linux-foundation.org>, Andy Lutomirski <luto@kernel.org>, Borislav Petkov <bp@suse.de>, Mathias Krause <minipli@googlemail.com>, Jan Kara <jack@suse.cz>, Vitaly Wool <vitalywool@gmail.com>, Andrea Arcangeli <aarcange@redhat.com>, Dmitry Vyukov <dvyukov@google.com>, Laura Abbott <labbott@fedoraproject.org>, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org, kernel-hardening@lists.openwall.com
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: linux-kernel@vger.kernel.org, hch@infradead.org, Krzysztof Kozlowski <k.kozlowski@samsung.com>, Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, linux-ia64@vger.kernel.org
 
-This creates per-architecture function arch_within_stack_frames() that
-should validate if a given object is contained by a kernel stack frame.
-Initial implementation is on x86.
+Split out subsystem specific changes for easier reviews. This will be
+squashed with main commit.
 
-This is based on code from PaX.
-
-Signed-off-by: Kees Cook <keescook@chromium.org>
+Signed-off-by: Krzysztof Kozlowski <k.kozlowski@samsung.com>
 ---
- arch/Kconfig                       |  9 ++++++++
- arch/x86/Kconfig                   |  1 +
- arch/x86/include/asm/thread_info.h | 44 ++++++++++++++++++++++++++++++++++++++
- include/linux/thread_info.h        |  9 ++++++++
- 4 files changed, 63 insertions(+)
+ arch/ia64/hp/common/sba_iommu.c | 22 +++++++++++-----------
+ arch/ia64/include/asm/machvec.h |  1 -
+ arch/ia64/kernel/pci-swiotlb.c  |  4 ++--
+ arch/ia64/sn/pci/pci_dma.c      | 12 ++++++------
+ 4 files changed, 19 insertions(+), 20 deletions(-)
 
-diff --git a/arch/Kconfig b/arch/Kconfig
-index d794384a0404..5e2776562035 100644
---- a/arch/Kconfig
-+++ b/arch/Kconfig
-@@ -424,6 +424,15 @@ config CC_STACKPROTECTOR_STRONG
+diff --git a/arch/ia64/hp/common/sba_iommu.c b/arch/ia64/hp/common/sba_iommu.c
+index a6d6190c9d24..630ee8073899 100644
+--- a/arch/ia64/hp/common/sba_iommu.c
++++ b/arch/ia64/hp/common/sba_iommu.c
+@@ -919,7 +919,7 @@ sba_mark_invalid(struct ioc *ioc, dma_addr_t iova, size_t byte_cnt)
+ static dma_addr_t sba_map_page(struct device *dev, struct page *page,
+ 			       unsigned long poff, size_t size,
+ 			       enum dma_data_direction dir,
+-			       struct dma_attrs *attrs)
++			       unsigned long attrs)
+ {
+ 	struct ioc *ioc;
+ 	void *addr = page_address(page) + poff;
+@@ -1005,7 +1005,7 @@ static dma_addr_t sba_map_page(struct device *dev, struct page *page,
  
- endchoice
- 
-+config HAVE_ARCH_WITHIN_STACK_FRAMES
-+	bool
-+	help
-+	  An architecture should select this if it can walk the kernel stack
-+	  frames to determine if an object is part of either the arguments
-+	  or local variables (i.e. that it excludes saved return addresses,
-+	  and similar) by implementing an inline arch_within_stack_frames(),
-+	  which is used by CONFIG_HARDENED_USERCOPY.
-+
- config HAVE_CONTEXT_TRACKING
- 	bool
- 	help
-diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
-index 0a7b885964ba..4407f596b72c 100644
---- a/arch/x86/Kconfig
-+++ b/arch/x86/Kconfig
-@@ -91,6 +91,7 @@ config X86
- 	select HAVE_ARCH_SOFT_DIRTY		if X86_64
- 	select HAVE_ARCH_TRACEHOOK
- 	select HAVE_ARCH_TRANSPARENT_HUGEPAGE
-+	select HAVE_ARCH_WITHIN_STACK_FRAMES
- 	select HAVE_EBPF_JIT			if X86_64
- 	select HAVE_CC_STACKPROTECTOR
- 	select HAVE_CMPXCHG_DOUBLE
-diff --git a/arch/x86/include/asm/thread_info.h b/arch/x86/include/asm/thread_info.h
-index 30c133ac05cd..ab386f1336f2 100644
---- a/arch/x86/include/asm/thread_info.h
-+++ b/arch/x86/include/asm/thread_info.h
-@@ -180,6 +180,50 @@ static inline unsigned long current_stack_pointer(void)
- 	return sp;
+ static dma_addr_t sba_map_single_attrs(struct device *dev, void *addr,
+ 				       size_t size, enum dma_data_direction dir,
+-				       struct dma_attrs *attrs)
++				       unsigned long attrs)
+ {
+ 	return sba_map_page(dev, virt_to_page(addr),
+ 			    (unsigned long)addr & ~PAGE_MASK, size, dir, attrs);
+@@ -1046,7 +1046,7 @@ sba_mark_clean(struct ioc *ioc, dma_addr_t iova, size_t size)
+  * See Documentation/DMA-API-HOWTO.txt
+  */
+ static void sba_unmap_page(struct device *dev, dma_addr_t iova, size_t size,
+-			   enum dma_data_direction dir, struct dma_attrs *attrs)
++			   enum dma_data_direction dir, unsigned long attrs)
+ {
+ 	struct ioc *ioc;
+ #if DELAYED_RESOURCE_CNT > 0
+@@ -1115,7 +1115,7 @@ static void sba_unmap_page(struct device *dev, dma_addr_t iova, size_t size,
  }
  
-+/*
-+ * Walks up the stack frames to make sure that the specified object is
-+ * entirely contained by a single stack frame.
-+ *
-+ * Returns:
-+ *		 1 if within a frame
-+ *		-1 if placed across a frame boundary (or outside stack)
-+ *		 0 unable to determine (no frame pointers, etc)
-+ */
-+static inline int arch_within_stack_frames(const void * const stack,
-+					   const void * const stackend,
-+					   const void *obj, unsigned long len)
-+{
-+#if defined(CONFIG_FRAME_POINTER)
-+	const void *frame = NULL;
-+	const void *oldframe;
-+
-+	oldframe = __builtin_frame_address(1);
-+	if (oldframe)
-+		frame = __builtin_frame_address(2);
-+	/*
-+	 * low ----------------------------------------------> high
-+	 * [saved bp][saved ip][args][local vars][saved bp][saved ip]
-+	 *                     ^----------------^
-+	 *               allow copies only within here
-+	 */
-+	while (stack <= frame && frame < stackend) {
-+		/*
-+		 * If obj + len extends past the last frame, this
-+		 * check won't pass and the next frame will be 0,
-+		 * causing us to bail out and correctly report
-+		 * the copy as invalid.
-+		 */
-+		if (obj + len <= frame)
-+			return obj >= oldframe + 2 * sizeof(void *) ? 1 : -1;
-+		oldframe = frame;
-+		frame = *(const void * const *)frame;
-+	}
-+	return -1;
-+#else
-+	return 0;
-+#endif
-+}
-+
- #else /* !__ASSEMBLY__ */
+ void sba_unmap_single_attrs(struct device *dev, dma_addr_t iova, size_t size,
+-			    enum dma_data_direction dir, struct dma_attrs *attrs)
++			    enum dma_data_direction dir, unsigned long attrs)
+ {
+ 	sba_unmap_page(dev, iova, size, dir, attrs);
+ }
+@@ -1130,7 +1130,7 @@ void sba_unmap_single_attrs(struct device *dev, dma_addr_t iova, size_t size,
+  */
+ static void *
+ sba_alloc_coherent(struct device *dev, size_t size, dma_addr_t *dma_handle,
+-		   gfp_t flags, struct dma_attrs *attrs)
++		   gfp_t flags, unsigned long attrs)
+ {
+ 	struct ioc *ioc;
+ 	void *addr;
+@@ -1175,7 +1175,7 @@ sba_alloc_coherent(struct device *dev, size_t size, dma_addr_t *dma_handle,
+ 	 * device to map single to get an iova mapping.
+ 	 */
+ 	*dma_handle = sba_map_single_attrs(&ioc->sac_only_dev->dev, addr,
+-					   size, 0, NULL);
++					   size, 0, 0);
  
- #ifdef CONFIG_X86_64
-diff --git a/include/linux/thread_info.h b/include/linux/thread_info.h
-index b4c2a485b28a..3d5c80b4391d 100644
---- a/include/linux/thread_info.h
-+++ b/include/linux/thread_info.h
-@@ -146,6 +146,15 @@ static inline bool test_and_clear_restore_sigmask(void)
- #error "no set_restore_sigmask() provided and default one won't work"
- #endif
+ 	return addr;
+ }
+@@ -1191,9 +1191,9 @@ sba_alloc_coherent(struct device *dev, size_t size, dma_addr_t *dma_handle,
+  * See Documentation/DMA-API-HOWTO.txt
+  */
+ static void sba_free_coherent(struct device *dev, size_t size, void *vaddr,
+-			      dma_addr_t dma_handle, struct dma_attrs *attrs)
++			      dma_addr_t dma_handle, unsigned long attrs)
+ {
+-	sba_unmap_single_attrs(dev, dma_handle, size, 0, NULL);
++	sba_unmap_single_attrs(dev, dma_handle, size, 0, 0);
+ 	free_pages((unsigned long) vaddr, get_order(size));
+ }
  
-+#ifndef CONFIG_HAVE_ARCH_WITHIN_STACK_FRAMES
-+static inline int arch_within_stack_frames(const void * const stack,
-+					   const void * const stackend,
-+					   const void *obj, unsigned long len)
-+{
-+	return 0;
-+}
-+#endif
-+
- #endif	/* __KERNEL__ */
+@@ -1442,7 +1442,7 @@ sba_coalesce_chunks(struct ioc *ioc, struct device *dev,
  
- #endif /* _LINUX_THREAD_INFO_H */
+ static void sba_unmap_sg_attrs(struct device *dev, struct scatterlist *sglist,
+ 			       int nents, enum dma_data_direction dir,
+-			       struct dma_attrs *attrs);
++			       unsigned long attrs);
+ /**
+  * sba_map_sg - map Scatter/Gather list
+  * @dev: instance of PCI owned by the driver that's asking.
+@@ -1455,7 +1455,7 @@ static void sba_unmap_sg_attrs(struct device *dev, struct scatterlist *sglist,
+  */
+ static int sba_map_sg_attrs(struct device *dev, struct scatterlist *sglist,
+ 			    int nents, enum dma_data_direction dir,
+-			    struct dma_attrs *attrs)
++			    unsigned long attrs)
+ {
+ 	struct ioc *ioc;
+ 	int coalesced, filled = 0;
+@@ -1551,7 +1551,7 @@ static int sba_map_sg_attrs(struct device *dev, struct scatterlist *sglist,
+  */
+ static void sba_unmap_sg_attrs(struct device *dev, struct scatterlist *sglist,
+ 			       int nents, enum dma_data_direction dir,
+-			       struct dma_attrs *attrs)
++			       unsigned long attrs)
+ {
+ #ifdef ASSERT_PDIR_SANITY
+ 	struct ioc *ioc;
+diff --git a/arch/ia64/include/asm/machvec.h b/arch/ia64/include/asm/machvec.h
+index 9c39bdfc2da8..ed7f09089f12 100644
+--- a/arch/ia64/include/asm/machvec.h
++++ b/arch/ia64/include/asm/machvec.h
+@@ -22,7 +22,6 @@ struct pci_bus;
+ struct task_struct;
+ struct pci_dev;
+ struct msi_desc;
+-struct dma_attrs;
+ 
+ typedef void ia64_mv_setup_t (char **);
+ typedef void ia64_mv_cpu_init_t (void);
+diff --git a/arch/ia64/kernel/pci-swiotlb.c b/arch/ia64/kernel/pci-swiotlb.c
+index 939260aeac98..2933208c0285 100644
+--- a/arch/ia64/kernel/pci-swiotlb.c
++++ b/arch/ia64/kernel/pci-swiotlb.c
+@@ -16,7 +16,7 @@ EXPORT_SYMBOL(swiotlb);
+ 
+ static void *ia64_swiotlb_alloc_coherent(struct device *dev, size_t size,
+ 					 dma_addr_t *dma_handle, gfp_t gfp,
+-					 struct dma_attrs *attrs)
++					 unsigned long attrs)
+ {
+ 	if (dev->coherent_dma_mask != DMA_BIT_MASK(64))
+ 		gfp |= GFP_DMA;
+@@ -25,7 +25,7 @@ static void *ia64_swiotlb_alloc_coherent(struct device *dev, size_t size,
+ 
+ static void ia64_swiotlb_free_coherent(struct device *dev, size_t size,
+ 				       void *vaddr, dma_addr_t dma_addr,
+-				       struct dma_attrs *attrs)
++				       unsigned long attrs)
+ {
+ 	swiotlb_free_coherent(dev, size, vaddr, dma_addr);
+ }
+diff --git a/arch/ia64/sn/pci/pci_dma.c b/arch/ia64/sn/pci/pci_dma.c
+index 8f59907007cb..6b78fc953c4b 100644
+--- a/arch/ia64/sn/pci/pci_dma.c
++++ b/arch/ia64/sn/pci/pci_dma.c
+@@ -77,7 +77,7 @@ EXPORT_SYMBOL(sn_dma_set_mask);
+  */
+ static void *sn_dma_alloc_coherent(struct device *dev, size_t size,
+ 				   dma_addr_t * dma_handle, gfp_t flags,
+-				   struct dma_attrs *attrs)
++				   unsigned long attrs)
+ {
+ 	void *cpuaddr;
+ 	unsigned long phys_addr;
+@@ -138,7 +138,7 @@ static void *sn_dma_alloc_coherent(struct device *dev, size_t size,
+  * any associated IOMMU mappings.
+  */
+ static void sn_dma_free_coherent(struct device *dev, size_t size, void *cpu_addr,
+-				 dma_addr_t dma_handle, struct dma_attrs *attrs)
++				 dma_addr_t dma_handle, unsigned long attrs)
+ {
+ 	struct pci_dev *pdev = to_pci_dev(dev);
+ 	struct sn_pcibus_provider *provider = SN_PCIDEV_BUSPROVIDER(pdev);
+@@ -176,7 +176,7 @@ static void sn_dma_free_coherent(struct device *dev, size_t size, void *cpu_addr
+ static dma_addr_t sn_dma_map_page(struct device *dev, struct page *page,
+ 				  unsigned long offset, size_t size,
+ 				  enum dma_data_direction dir,
+-				  struct dma_attrs *attrs)
++				  unsigned long attrs)
+ {
+ 	void *cpu_addr = page_address(page) + offset;
+ 	dma_addr_t dma_addr;
+@@ -218,7 +218,7 @@ static dma_addr_t sn_dma_map_page(struct device *dev, struct page *page,
+  */
+ static void sn_dma_unmap_page(struct device *dev, dma_addr_t dma_addr,
+ 			      size_t size, enum dma_data_direction dir,
+-			      struct dma_attrs *attrs)
++			      unsigned long attrs)
+ {
+ 	struct pci_dev *pdev = to_pci_dev(dev);
+ 	struct sn_pcibus_provider *provider = SN_PCIDEV_BUSPROVIDER(pdev);
+@@ -240,7 +240,7 @@ static void sn_dma_unmap_page(struct device *dev, dma_addr_t dma_addr,
+  */
+ static void sn_dma_unmap_sg(struct device *dev, struct scatterlist *sgl,
+ 			    int nhwentries, enum dma_data_direction dir,
+-			    struct dma_attrs *attrs)
++			    unsigned long attrs)
+ {
+ 	int i;
+ 	struct pci_dev *pdev = to_pci_dev(dev);
+@@ -273,7 +273,7 @@ static void sn_dma_unmap_sg(struct device *dev, struct scatterlist *sgl,
+  */
+ static int sn_dma_map_sg(struct device *dev, struct scatterlist *sgl,
+ 			 int nhwentries, enum dma_data_direction dir,
+-			 struct dma_attrs *attrs)
++			 unsigned long attrs)
+ {
+ 	unsigned long phys_addr;
+ 	struct scatterlist *saved_sg = sgl, *sg;
 -- 
-2.7.4
+1.9.1
 
