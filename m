@@ -1,53 +1,137 @@
 From: Kees Cook <keescook@chromium.org>
-Date: Fri, 15 Jul 2016 04:29:25 +0000
-Subject: Re: [PATCH v2 11/11] mm: SLUB hardened usercopy support
-Message-Id: <CAGXu5j+Ub2-jmTa-XmF90Gd+ze1os+eqk_yijouCSQoLvU1hNQ@mail.gmail.com>
+Date: Wed, 13 Jul 2016 21:55:54 +0000
+Subject: [PATCH v2 01/11] mm: Implement stack frame object validation
+Message-Id: <1468446964-22213-2-git-send-email-keescook@chromium.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1468446964-22213-1-git-send-email-keescook@chromium.org>
- <1468446964-22213-12-git-send-email-keescook@chromium.org> <20160715020550.GB13944@balbir.ozlabs.ibm.com>
-In-Reply-To: <20160715020550.GB13944@balbir.ozlabs.ibm.com>
+In-Reply-To: <1468446964-22213-1-git-send-email-keescook@chromium.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Balbir Singh <bsingharora@gmail.com>
-Cc: LKML <linux-kernel@vger.kernel.org>, Rik van Riel <riel@redhat.com>, Casey Schaufler <casey@schaufler-ca.com>, PaX Team <pageexec@freemail.hu>, Brad Spengler <spender@grsecurity.net>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "David S. Miller" <davem@davemloft.net>, "x86@kernel.org" <x86@kernel.org>, Christoph Lameter <cl@linux.com>, Pekka Enberg <penberg@kernel.org>, David Rientjes <rientjes@google.com>, Joonsoo Kim <iamjoonsoo.kim@lge.com>, Andrew Morton <akpm@linux-foundation.org>, Andy Lutomirski <luto@kernel.org>, Borislav Petkov <bp@suse.de>, Mathias Krause <minipli@googlemail.com>, Jan Kara <jack@suse.cz>, Vitaly Wool <vitalywool@gmail.com>, Andrea Arcangeli <aarcange@redhat.com>, Dmitry Vyukov <dvyukov@google.com>, Laura Abbott <labbott@fedoraproject.org>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, linux-ia64@vger.kernel.org, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, sparclinux <sparclinux@vger.kernel.org>, linux-arch <linux-arch@vger.kernel.org>, Linux-MM <linux-mm@kvack.org>, "kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>
+To: linux-kernel@vger.kernel.org
+Cc: Kees Cook <keescook@chromium.org>, Rik van Riel <riel@redhat.com>, Casey Schaufler <casey@schaufler-ca.com>, PaX Team <pageexec@freemail.hu>, Brad Spengler <spender@grsecurity.net>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "David S. Miller" <davem@davemloft.net>, x86@kernel.org, Christoph Lameter <cl@linux.com>, Pekka Enberg <penberg@kernel.org>, David Rientjes <rientjes@google.com>, Joonsoo Kim <iamjoonsoo.kim@lge.com>, Andrew Morton <akpm@linux-foundation.org>, Andy Lutomirski <luto@kernel.org>, Borislav Petkov <bp@suse.de>, Mathias Krause <minipli@googlemail.com>, Jan Kara <jack@suse.cz>, Vitaly Wool <vitalywool@gmail.com>, Andrea Arcangeli <aarcange@redhat.com>, Dmitry Vyukov <dvyukov@google.com>, Laura Abbott <labbott@fedoraproject.org>, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org, kernel-hardening@lists.openwall.com
 
-On Thu, Jul 14, 2016 at 7:05 PM, Balbir Singh <bsingharora@gmail.com> wrote:
-> On Wed, Jul 13, 2016 at 02:56:04PM -0700, Kees Cook wrote:
->> Under CONFIG_HARDENED_USERCOPY, this adds object size checking to the
->> SLUB allocator to catch any copies that may span objects. Includes a
->> redzone handling fix from Michael Ellerman.
->>
->> Based on code from PaX and grsecurity.
->>
->> Signed-off-by: Kees Cook <keescook@chromium.org>
->> ---
->>  init/Kconfig |  1 +
->>  mm/slub.c    | 36 ++++++++++++++++++++++++++++++++++++
->>  2 files changed, 37 insertions(+)
->>
->> diff --git a/init/Kconfig b/init/Kconfig
->> index 798c2020ee7c..1c4711819dfd 100644
->> --- a/init/Kconfig
->> +++ b/init/Kconfig
->> @@ -1765,6 +1765,7 @@ config SLAB
->>
->>  config SLUB
->>       bool "SLUB (Unqueued Allocator)"
->> +     select HAVE_HARDENED_USERCOPY_ALLOCATOR
->
-> Should this patch come in earlier from a build perspective? I think
-> patch 1 introduces and uses __check_heap_object.
+This creates per-architecture function arch_within_stack_frames() that
+should validate if a given object is contained by a kernel stack frame.
+Initial implementation is on x86.
 
-__check_heap_object in patch 1 is protected by a check for
-CONFIG_HAVE_HARDENED_USERCOPY_ALLOCATOR.
+This is based on code from PaX.
 
-It seemed better to be to do arch enablement first, and then add the
-per-allocator heap object size check since it was a distinct piece.
-I'm happy to rearrange things, though, if there's a good reason.
+Signed-off-by: Kees Cook <keescook@chromium.org>
+---
+ arch/Kconfig                       |  9 ++++++++
+ arch/x86/Kconfig                   |  1 +
+ arch/x86/include/asm/thread_info.h | 44 ++++++++++++++++++++++++++++++++++++++
+ include/linux/thread_info.h        |  9 ++++++++
+ 4 files changed, 63 insertions(+)
 
--Kees
-
+diff --git a/arch/Kconfig b/arch/Kconfig
+index d794384a0404..5e2776562035 100644
+--- a/arch/Kconfig
++++ b/arch/Kconfig
+@@ -424,6 +424,15 @@ config CC_STACKPROTECTOR_STRONG
+ 
+ endchoice
+ 
++config HAVE_ARCH_WITHIN_STACK_FRAMES
++	bool
++	help
++	  An architecture should select this if it can walk the kernel stack
++	  frames to determine if an object is part of either the arguments
++	  or local variables (i.e. that it excludes saved return addresses,
++	  and similar) by implementing an inline arch_within_stack_frames(),
++	  which is used by CONFIG_HARDENED_USERCOPY.
++
+ config HAVE_CONTEXT_TRACKING
+ 	bool
+ 	help
+diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
+index 0a7b885964ba..4407f596b72c 100644
+--- a/arch/x86/Kconfig
++++ b/arch/x86/Kconfig
+@@ -91,6 +91,7 @@ config X86
+ 	select HAVE_ARCH_SOFT_DIRTY		if X86_64
+ 	select HAVE_ARCH_TRACEHOOK
+ 	select HAVE_ARCH_TRANSPARENT_HUGEPAGE
++	select HAVE_ARCH_WITHIN_STACK_FRAMES
+ 	select HAVE_EBPF_JIT			if X86_64
+ 	select HAVE_CC_STACKPROTECTOR
+ 	select HAVE_CMPXCHG_DOUBLE
+diff --git a/arch/x86/include/asm/thread_info.h b/arch/x86/include/asm/thread_info.h
+index 30c133ac05cd..ab386f1336f2 100644
+--- a/arch/x86/include/asm/thread_info.h
++++ b/arch/x86/include/asm/thread_info.h
+@@ -180,6 +180,50 @@ static inline unsigned long current_stack_pointer(void)
+ 	return sp;
+ }
+ 
++/*
++ * Walks up the stack frames to make sure that the specified object is
++ * entirely contained by a single stack frame.
++ *
++ * Returns:
++ *		 1 if within a frame
++ *		-1 if placed across a frame boundary (or outside stack)
++ *		 0 unable to determine (no frame pointers, etc)
++ */
++static inline int arch_within_stack_frames(const void * const stack,
++					   const void * const stackend,
++					   const void *obj, unsigned long len)
++{
++#if defined(CONFIG_FRAME_POINTER)
++	const void *frame = NULL;
++	const void *oldframe;
++
++	oldframe = __builtin_frame_address(1);
++	if (oldframe)
++		frame = __builtin_frame_address(2);
++	/*
++	 * low ----------------------------------------------> high
++	 * [saved bp][saved ip][args][local vars][saved bp][saved ip]
++	 *                     ^----------------^
++	 *               allow copies only within here
++	 */
++	while (stack <= frame && frame < stackend) {
++		/*
++		 * If obj + len extends past the last frame, this
++		 * check won't pass and the next frame will be 0,
++		 * causing us to bail out and correctly report
++		 * the copy as invalid.
++		 */
++		if (obj + len <= frame)
++			return obj >= oldframe + 2 * sizeof(void *) ? 1 : -1;
++		oldframe = frame;
++		frame = *(const void * const *)frame;
++	}
++	return -1;
++#else
++	return 0;
++#endif
++}
++
+ #else /* !__ASSEMBLY__ */
+ 
+ #ifdef CONFIG_X86_64
+diff --git a/include/linux/thread_info.h b/include/linux/thread_info.h
+index b4c2a485b28a..3d5c80b4391d 100644
+--- a/include/linux/thread_info.h
++++ b/include/linux/thread_info.h
+@@ -146,6 +146,15 @@ static inline bool test_and_clear_restore_sigmask(void)
+ #error "no set_restore_sigmask() provided and default one won't work"
+ #endif
+ 
++#ifndef CONFIG_HAVE_ARCH_WITHIN_STACK_FRAMES
++static inline int arch_within_stack_frames(const void * const stack,
++					   const void * const stackend,
++					   const void *obj, unsigned long len)
++{
++	return 0;
++}
++#endif
++
+ #endif	/* __KERNEL__ */
+ 
+ #endif /* _LINUX_THREAD_INFO_H */
 -- 
-Kees Cook
-Chrome OS & Brillo Security
+2.7.4
+
