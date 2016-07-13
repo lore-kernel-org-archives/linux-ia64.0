@@ -1,43 +1,71 @@
-From: "Luis R. Rodriguez" <mcgrof@kernel.org>
-Date: Fri, 22 Jul 2016 21:24:42 +0000
-Subject: [RFC v3 08/13] firmware/Makefile: force recompilation if makefile changes
-Message-Id: <1469222687-1600-9-git-send-email-mcgrof@kernel.org>
+From: Kees Cook <keescook@chromium.org>
+Date: Wed, 13 Jul 2016 21:55:57 +0000
+Subject: [PATCH v2 04/11] ARM: uaccess: Enable hardened usercopy
+Message-Id: <1468446964-22213-5-git-send-email-keescook@chromium.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1469222687-1600-1-git-send-email-mcgrof@kernel.org>
-In-Reply-To: <1469222687-1600-1-git-send-email-mcgrof@kernel.org>
+References: <1468446964-22213-1-git-send-email-keescook@chromium.org>
+In-Reply-To: <1468446964-22213-1-git-send-email-keescook@chromium.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: hpa@zytor.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, linux@arm.linux.org.uk, mhiramat@kernel.org, masami.hiramatsu.pt@hitachi.com, jbaron@akamai.com, heiko.carstens@de.ibm.com, ananth@linux.vnet.ibm.com, anil.s.keshavamurthy@intel.com, davem@davemloft.net, realmz6@gmail.com
-Cc: gnomes@lxorguk.ukuu.org.uk, linux-ia64@vger.kernel.org, jkosina@suse.cz, benh@kernel.crashing.org, ming.lei@canonical.com, linux@rasmusvillemoes.dk, platform-driver-x86@vger.kernel.org, paul.gortmaker@windriver.com, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, xen-devel@lists.xensource.com, linux-sh@vger.kernel.org, x86@kernel.org, fontana@sharpeleven.org, linux-arm-kernel@lists.infradead.org, catalin.marinas@arm.com, dvhart@infradead.org, dwmw2@infradead.org, pali.rohar@gmail.com, keescook@chromium.org, arnd@arndb.de, will.deacon@arm.com, rusty@rustcorp.com.au, rostedt@goodmis.org, christopher.denicolo@suse.com, ak@linux.intel.com, ciaran.farrell@suse.com, jpoimboe@redhat.com, andriy.shevchenko@linux.intel.com, mcb30@ipxe.org, linux-kbuild@vger.kernel.org, alan@linux.intel.com, jgross@suse.com, pebolle@tiscali.nl, tony.luck@intel.com, ananth@in.ibm.com, gregk
+To: linux-kernel@vger.kernel.org
+Cc: Kees Cook <keescook@chromium.org>, Rik van Riel <riel@redhat.com>, Casey Schaufler <casey@schaufler-ca.com>, PaX Team <pageexec@freemail.hu>, Brad Spengler <spender@grsecurity.net>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "David S. Miller" <davem@davemloft.net>, x86@kernel.org, Christoph Lameter <cl@linux.com>, Pekka Enberg <penberg@kernel.org>, David Rientjes <rientjes@google.com>, Joonsoo Kim <iamjoonsoo.kim@lge.com>, Andrew Morton <akpm@linux-foundation.org>, Andy Lutomirski <luto@kernel.org>, Borislav Petkov <bp@suse.de>, Mathias Krause <minipli@googlemail.com>, Jan Kara <jack@suse.cz>, Vitaly Wool <vitalywool@gmail.com>, Andrea Arcangeli <aarcange@redhat.com>, Dmitry Vyukov <dvyukov@google.com>, Laura Abbott <labbott@fedoraproject.org>, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org, kernel-hardening@lists.openwall.com
 
-If you modify the target asm we currently do not force the
-recompilation of the firmware files. The target asm is in
-the firmware/Makefile, peg this file as a dependency to
-require re-compilation of firmware targets when the asm
-changes.
+Enables CONFIG_HARDENED_USERCOPY checks on arm.
 
-v3: introduced in this series
+Based on code from PaX and grsecurity.
 
-Signed-off-by: Luis R. Rodriguez <mcgrof@kernel.org>
+Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- firmware/Makefile | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ arch/arm/Kconfig               |  1 +
+ arch/arm/include/asm/uaccess.h | 11 +++++++++--
+ 2 files changed, 10 insertions(+), 2 deletions(-)
 
-diff --git a/firmware/Makefile b/firmware/Makefile
-index e297e1b52636..fa3e81c2a97b 100644
---- a/firmware/Makefile
-+++ b/firmware/Makefile
-@@ -176,7 +176,8 @@ quiet_cmd_fwbin = MK_FW   $@
- wordsize_deps := $(wildcard include/config/64bit.h include/config/32bit.h \
- 		include/config/ppc32.h include/config/ppc64.h \
- 		include/config/superh32.h include/config/superh64.h \
--		include/config/x86_32.h include/config/x86_64.h)
-+		include/config/x86_32.h include/config/x86_64.h \
-+		firmware/Makefile)
- 
- $(patsubst %,$(obj)/%.gen.S, $(fw-shipped-y)): %: $(wordsize_deps)
- 	$(call cmd,fwbin,$(patsubst %.gen.S,%,$@))
+diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
+index 90542db1220d..f56b29b3f57e 100644
+--- a/arch/arm/Kconfig
++++ b/arch/arm/Kconfig
+@@ -35,6 +35,7 @@ config ARM
+ 	select HARDIRQS_SW_RESEND
+ 	select HAVE_ARCH_AUDITSYSCALL if (AEABI && !OABI_COMPAT)
+ 	select HAVE_ARCH_BITREVERSE if (CPU_32v7M || CPU_32v7) && !CPU_32v6
++	select HAVE_ARCH_HARDENED_USERCOPY
+ 	select HAVE_ARCH_JUMP_LABEL if !XIP_KERNEL && !CPU_ENDIAN_BE32 && MMU
+ 	select HAVE_ARCH_KGDB if !CPU_ENDIAN_BE32 && MMU
+ 	select HAVE_ARCH_MMAP_RND_BITS if MMU
+diff --git a/arch/arm/include/asm/uaccess.h b/arch/arm/include/asm/uaccess.h
+index 35c9db857ebe..7fb59199c6bb 100644
+--- a/arch/arm/include/asm/uaccess.h
++++ b/arch/arm/include/asm/uaccess.h
+@@ -496,7 +496,10 @@ arm_copy_from_user(void *to, const void __user *from, unsigned long n);
+ static inline unsigned long __must_check
+ __copy_from_user(void *to, const void __user *from, unsigned long n)
+ {
+-	unsigned int __ua_flags = uaccess_save_and_enable();
++	unsigned int __ua_flags;
++
++	check_object_size(to, n, false);
++	__ua_flags = uaccess_save_and_enable();
+ 	n = arm_copy_from_user(to, from, n);
+ 	uaccess_restore(__ua_flags);
+ 	return n;
+@@ -511,11 +514,15 @@ static inline unsigned long __must_check
+ __copy_to_user(void __user *to, const void *from, unsigned long n)
+ {
+ #ifndef CONFIG_UACCESS_WITH_MEMCPY
+-	unsigned int __ua_flags = uaccess_save_and_enable();
++	unsigned int __ua_flags;
++
++	check_object_size(from, n, true);
++	__ua_flags = uaccess_save_and_enable();
+ 	n = arm_copy_to_user(to, from, n);
+ 	uaccess_restore(__ua_flags);
+ 	return n;
+ #else
++	check_object_size(from, n, true);
+ 	return arm_copy_to_user(to, from, n);
+ #endif
+ }
 -- 
-2.8.4
+2.7.4
 
