@@ -1,7 +1,7 @@
 From: Kees Cook <keescook@chromium.org>
-Date: Fri, 15 Jul 2016 21:44:21 +0000
-Subject: [PATCH v3 07/11] powerpc/uaccess: Enable hardened usercopy
-Message-Id: <1468619065-3222-8-git-send-email-keescook@chromium.org>
+Date: Fri, 15 Jul 2016 21:44:20 +0000
+Subject: [PATCH v3 06/11] ia64/uaccess: Enable hardened usercopy
+Message-Id: <1468619065-3222-7-git-send-email-keescook@chromium.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1468619065-3222-1-git-send-email-keescook@chromium.org>
 In-Reply-To: <1468619065-3222-1-git-send-email-keescook@chromium.org>
@@ -11,87 +11,77 @@ Content-Transfer-Encoding: 7bit
 To: linux-kernel@vger.kernel.org
 Cc: Kees Cook <keescook@chromium.org>, Balbir Singh <bsingharora@gmail.com>, Daniel Micay <danielmicay@gmail.com>, Josh Poimboeuf <jpoimboe@redhat.com>, Rik van Riel <riel@redhat.com>, Casey Schaufler <casey@schaufler-ca.com>, PaX Team <pageexec@freemail.hu>, Brad Spengler <spender@grsecurity.net>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "David S. Miller" <davem@davemloft.net>, x86@kernel.org, Christoph Lameter <cl@linux.com>, Pekka Enberg <penberg@kernel.org>, David Rientjes <rientjes@google.com>, Joonsoo Kim <iamjoonsoo.kim@lge.com>, Andrew Morton <akpm@linux-foundation.org>, Andy Lutomirski <luto@kernel.org>, Borislav Petkov <bp@suse.de>, Mathias Krause <minipli@googlemail.com>, Jan Kara <jack@suse.cz>, Vitaly Wool <vitalywool@gmail.com>, Andrea Arcangeli <aarcange@redhat.com>, Dmitry Vyukov <dvyukov@google.com>, Laura Abbott <labbott@fedoraproject.org>, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org, kernel-hardening@lists.openwall.com
 
-Enables CONFIG_HARDENED_USERCOPY checks on powerpc.
+Enables CONFIG_HARDENED_USERCOPY checks on ia64.
 
 Based on code from PaX and grsecurity.
 
 Signed-off-by: Kees Cook <keescook@chromium.org>
-Tested-by: Michael Ellerman <mpe@ellerman.id.au>
 ---
- arch/powerpc/Kconfig               |  1 +
- arch/powerpc/include/asm/uaccess.h | 21 +++++++++++++++++++--
- 2 files changed, 20 insertions(+), 2 deletions(-)
+ arch/ia64/Kconfig               |  1 +
+ arch/ia64/include/asm/uaccess.h | 18 +++++++++++++++---
+ 2 files changed, 16 insertions(+), 3 deletions(-)
 
-diff --git a/arch/powerpc/Kconfig b/arch/powerpc/Kconfig
-index 01f7464d9fea..b7a18b2604be 100644
---- a/arch/powerpc/Kconfig
-+++ b/arch/powerpc/Kconfig
-@@ -164,6 +164,7 @@ config PPC
- 	select ARCH_HAS_UBSAN_SANITIZE_ALL
- 	select ARCH_SUPPORTS_DEFERRED_STRUCT_PAGE_INIT
- 	select HAVE_LIVEPATCH if HAVE_DYNAMIC_FTRACE_WITH_REGS
+diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+index f80758cb7157..32a87ef516a0 100644
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -53,6 +53,7 @@ config IA64
+ 	select MODULES_USE_ELF_RELA
+ 	select ARCH_USE_CMPXCHG_LOCKREF
+ 	select HAVE_ARCH_AUDITSYSCALL
 +	select HAVE_ARCH_HARDENED_USERCOPY
- 
- config GENERIC_CSUM
- 	def_bool CPU_LITTLE_ENDIAN
-diff --git a/arch/powerpc/include/asm/uaccess.h b/arch/powerpc/include/asm/uaccess.h
-index b7c20f0b8fbe..c1dc6c14deb8 100644
---- a/arch/powerpc/include/asm/uaccess.h
-+++ b/arch/powerpc/include/asm/uaccess.h
-@@ -310,10 +310,15 @@ static inline unsigned long copy_from_user(void *to,
+ 	default y
+ 	help
+ 	  The Itanium Processor Family is Intel's 64-bit successor to
+diff --git a/arch/ia64/include/asm/uaccess.h b/arch/ia64/include/asm/uaccess.h
+index 2189d5ddc1ee..465c70982f40 100644
+--- a/arch/ia64/include/asm/uaccess.h
++++ b/arch/ia64/include/asm/uaccess.h
+@@ -241,12 +241,18 @@ extern unsigned long __must_check __copy_user (void __user *to, const void __use
+ static inline unsigned long
+ __copy_to_user (void __user *to, const void *from, unsigned long count)
  {
- 	unsigned long over;
- 
--	if (access_ok(VERIFY_READ, from, n))
-+	if (access_ok(VERIFY_READ, from, n)) {
-+		if (!__builtin_constant_p(n))
-+			check_object_size(to, n, false);
- 		return __copy_tofrom_user((__force void __user *)to, from, n);
-+	}
- 	if ((unsigned long)from < TASK_SIZE) {
- 		over = (unsigned long)from + n - TASK_SIZE;
-+		if (!__builtin_constant_p(n - over))
-+			check_object_size(to, n - over, false);
- 		return __copy_tofrom_user((__force void __user *)to, from,
- 				n - over) + over;
- 	}
-@@ -325,10 +330,15 @@ static inline unsigned long copy_to_user(void __user *to,
- {
- 	unsigned long over;
- 
--	if (access_ok(VERIFY_WRITE, to, n))
-+	if (access_ok(VERIFY_WRITE, to, n)) {
-+		if (!__builtin_constant_p(n))
-+			check_object_size(from, n, true);
- 		return __copy_tofrom_user(to, (__force void __user *)from, n);
-+	}
- 	if ((unsigned long)to < TASK_SIZE) {
- 		over = (unsigned long)to + n - TASK_SIZE;
-+		if (!__builtin_constant_p(n))
-+			check_object_size(from, n - over, true);
- 		return __copy_tofrom_user(to, (__force void __user *)from,
- 				n - over) + over;
- 	}
-@@ -372,6 +382,10 @@ static inline unsigned long __copy_from_user_inatomic(void *to,
- 		if (ret = 0)
- 			return 0;
- 	}
++	if (!__builtin_constant_p(count))
++		check_object_size(from, count, true);
 +
-+	if (!__builtin_constant_p(n))
-+		check_object_size(to, n, false);
-+
- 	return __copy_tofrom_user((__force void __user *)to, from, n);
+ 	return __copy_user(to, (__force void __user *) from, count);
  }
  
-@@ -398,6 +412,9 @@ static inline unsigned long __copy_to_user_inatomic(void __user *to,
- 		if (ret = 0)
- 			return 0;
- 	}
-+	if (!__builtin_constant_p(n))
-+		check_object_size(from, n, true);
+ static inline unsigned long
+ __copy_from_user (void *to, const void __user *from, unsigned long count)
+ {
++	if (!__builtin_constant_p(count))
++		check_object_size(to, count, false);
 +
- 	return __copy_tofrom_user(to, (__force const void __user *)from, n);
+ 	return __copy_user((__force void __user *) to, from, count);
  }
+ 
+@@ -258,8 +264,11 @@ __copy_from_user (void *to, const void __user *from, unsigned long count)
+ 	const void *__cu_from = (from);							\
+ 	long __cu_len = (n);								\
+ 											\
+-	if (__access_ok(__cu_to, __cu_len, get_fs()))					\
+-		__cu_len = __copy_user(__cu_to, (__force void __user *) __cu_from, __cu_len);	\
++	if (__access_ok(__cu_to, __cu_len, get_fs())) {					\
++		if (!__builtin_constant_p(n))						\
++			check_object_size(__cu_from, __cu_len, true);			\
++		__cu_len = __copy_user(__cu_to, (__force void __user *)  __cu_from, __cu_len);	\
++	}										\
+ 	__cu_len;									\
+ })
+ 
+@@ -270,8 +279,11 @@ __copy_from_user (void *to, const void __user *from, unsigned long count)
+ 	long __cu_len = (n);								\
+ 											\
+ 	__chk_user_ptr(__cu_from);							\
+-	if (__access_ok(__cu_from, __cu_len, get_fs()))					\
++	if (__access_ok(__cu_from, __cu_len, get_fs())) {				\
++		if (!__builtin_constant_p(n))						\
++			check_object_size(__cu_to, __cu_len, false);			\
+ 		__cu_len = __copy_user((__force void __user *) __cu_to, __cu_from, __cu_len);	\
++	}										\
+ 	__cu_len;									\
+ })
  
 -- 
 2.7.4
