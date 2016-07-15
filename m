@@ -1,87 +1,58 @@
-From: Balbir Singh <bsingharora@gmail.com>
-Date: Fri, 15 Jul 2016 12:55:19 +0000
-Subject: Re: [PATCH v2 02/11] mm: Hardened usercopy
-Message-Id: <20160715125519.GA21685@350D>
+From: Daniel Micay <danielmicay@gmail.com>
+Date: Fri, 15 Jul 2016 19:00:54 +0000
+Subject: Re: [kernel-hardening] Re: [PATCH v2 02/11] mm: Hardened usercopy
+Message-Id: <1468609254.32683.34.camel@gmail.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="=-iJ67bgEOqJPCpsbunZkk"
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1468446964-22213-1-git-send-email-keescook@chromium.org>
- <1468446964-22213-3-git-send-email-keescook@chromium.org>
- <20160714232019.GA28254@350D>
- <1468544658.30053.26.camel@redhat.com>
- <20160715014151.GA13944@balbir.ozlabs.ibm.com>
- <CAGXu5jJy4O4tV2sB=MSkYh2DEfxUYkH4Q3ghmrHEGc6s-k285A@mail.gmail.com>
- <CAGXu5jLuQPdBH4a0BF9AgH7qQubfoz+fFW2sTi2rRxsU8u_8QQ@mail.gmail.com>
-In-Reply-To: <CAGXu5jLuQPdBH4a0BF9AgH7qQubfoz+fFW2sTi2rRxsU8u_8QQ@mail.gmail.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+	 <1468446964-22213-3-git-send-email-keescook@chromium.org>
+	 <20160714232019.GA28254@350D>
+	 <CAGXu5jKzD_rCMNJQU1bB5KDfKTsb+AaidZwe=FAfGMqt_FkfqQ@mail.gmail.com>
+In-Reply-To: <CAGXu5jKzD_rCMNJQU1bB5KDfKTsb+AaidZwe=FAfGMqt_FkfqQ@mail.gmail.com>
+To: kernel-hardening@lists.openwall.com, bsingharora@gmail.com
+Cc: LKML <linux-kernel@vger.kernel.org>, Rik van Riel <riel@redhat.com>, Casey Schaufler <casey@schaufler-ca.com>, PaX Team <pageexec@freemail.hu>, Brad Spengler <spender@grsecurity.net>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "David S. Miller" <davem@davemloft.net>, "x86@kernel.org" <x86@kernel.org>, Christoph Lameter <cl@linux.com>, Pekka Enberg <penberg@kernel.org>, David Rientjes <rientjes@google.com>, Joonsoo Kim <iamjoonsoo.kim@lge.com>, Andrew Morton <akpm@linux-foundation.org>, Andy Lutomirski <luto@kernel.org>, Borislav Petkov <bp@suse.de>, Mathias Krause <minipli@googlemail.com>, Jan Kara <jack@suse.cz>, Vitaly Wool <vitalywool@gmail.com>, Andrea Arcangeli <aarcange@redhat.com>, Dmitry Vyukov <dvyukov@google.com>, Laura Abbott <labbott@fedoraproject.org>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, linux-ia64@vger.kernel.org, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, sparclinux <sparclinux@vger.kernel.org>, linux-arch <linux-arch@vger.kernel.org>, Linux-MM <linux-mm@kvack.org>
+
+
+--=-iJ67bgEOqJPCpsbunZkk
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+> This could be a BUG, but I'd rather not panic the entire kernel.
+
+It seems unlikely that it will panic without panic_on_oops and that's
+an explicit opt-in to taking down the system on kernel logic errors
+exactly like this. In grsecurity, it calls the kernel exploit handling
+logic (panic if root, otherwise kill all process of that user and ban
+them until reboot) but that same logic is also called for BUG via oops
+handling so there's only really a distinction with panic_on_oops=3D1.
+
+Does it make sense to be less fatal for a fatal assertion that's more
+likely to be security-related? Maybe you're worried about having some
+false positives for the whitelisting portion, but I don't think those
+will lurk around very long with the way this works.
+--=-iJ67bgEOqJPCpsbunZkk
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
-To: Kees Cook <keescook@chromium.org>
-Cc: Balbir Singh <bsingharora@gmail.com>, Rik van Riel <riel@redhat.com>, LKML <linux-kernel@vger.kernel.org>, Casey Schaufler <casey@schaufler-ca.com>, PaX Team <pageexec@freemail.hu>, Brad Spengler <spender@grsecurity.net>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "David S. Miller" <davem@davemloft.net>, "x86@kernel.org" <x86@kernel.org>, Christoph Lameter <cl@linux.com>, Pekka Enberg <penberg@kernel.org>, David Rientjes <rientjes@google.com>, Joonsoo Kim <iamjoonsoo.kim@lge.com>, Andrew Morton <akpm@linux-foundation.org>, Andy Lutomirski <luto@kernel.org>, Borislav Petkov <bp@suse.de>, Mathias Krause <minipli@googlemail.com>, Jan Kara <jack@suse.cz>, Vitaly Wool <vitalywool@gmail.com>, Andrea Arcangeli <aarcange@redhat.com>, Dmitry Vyukov <dvyukov@google.com>, Laura Abbott <labbott@fedoraproject.org>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, linux-ia64@vger.kernel.org, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, sparclinux <sparclinux@vger.kernel.org>, linux-arch <linux-arch@vger.kernel.org>, Linux-MM <linux-mm@kvack.org>, "kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>
 
-On Thu, Jul 14, 2016 at 09:53:31PM -0700, Kees Cook wrote:
-> On Thu, Jul 14, 2016 at 9:05 PM, Kees Cook <keescook@chromium.org> wrote:
-> > On Thu, Jul 14, 2016 at 6:41 PM, Balbir Singh <bsingharora@gmail.com> wrote:
-> >> On Thu, Jul 14, 2016 at 09:04:18PM -0400, Rik van Riel wrote:
-> >>> On Fri, 2016-07-15 at 09:20 +1000, Balbir Singh wrote:
-> >>>
-> >>> > > =
-> >>> > > +            ((unsigned long)end & (unsigned
-> >>> > > long)PAGE_MASK)))
-> >>> > > +         return NULL;
-> >>> > > +
-> >>> > > + /* Allow if start and end are inside the same compound
-> >>> > > page. */
-> >>> > > + endpage = virt_to_head_page(end);
-> >>> > > + if (likely(endpage = page))
-> >>> > > +         return NULL;
-> >>> > > +
-> >>> > > + /* Allow special areas, device memory, and sometimes
-> >>> > > kernel data. */
-> >>> > > + if (PageReserved(page) && PageReserved(endpage))
-> >>> > > +         return NULL;
-> >>> >
-> >>> > If we came here, it's likely that endpage > page, do we need to check
-> >>> > that only the first and last pages are reserved? What about the ones
-> >>> > in
-> >>> > the middle?
-> >>>
-> >>> I think this will be so rare, we can get away with just
-> >>> checking the beginning and the end.
-> >>>
-> >>
-> >> But do we want to leave a hole where an aware user space
-> >> can try a longer copy_* to avoid this check? If it is unlikely
-> >> should we just bite the bullet and do the check for the entire
-> >> range?
-> >
-> > I'd be okay with expanding the test -- it should be an extremely rare
-> > situation already since the common Reserved areas (kernel data) will
-> > have already been explicitly tested.
-> >
-> > What's the best way to do "next page"? Should it just be:
-> >
-> > for ( ; page <= endpage ; ptr += PAGE_SIZE, page = virt_to_head_page(ptr) ) {
-> >     if (!PageReserved(page))
-> >         return "<spans multiple pages>";
-> > }
-> >
-> > return NULL;
-> >
-> > ?
-> 
-> Er, I was testing the wrong thing. How about:
-> 
->         /*
->          * Reject if range is not Reserved (i.e. special or device memory),
->          * since then the object spans several independently allocated pages.
->          */
->         for (; ptr <= end ; ptr += PAGE_SIZE, page = virt_to_head_page(ptr)) {
->                 if (!PageReserved(page))
->                         return "<spans multiple pages>";
->         }
-> 
->         return NULL;
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-That looks reasonable to me
+iQIzBAABCAAdBQJXiTLmFhxkYW5pZWxtaWNheUBnbWFpbC5jb20ACgkQ+ecS5Zr1
+8ipfHQ/9GuB4gHqH46EsTlmQ5fcWXnwNJB5FATNyKhlxyXfCcEGojs2+G059y/C5
+iIp7FmOqCknF/Aj7c/owNO28BFPBdpetDI4a2HTto0zFCtD69qpGjJ4wWmgYBkUb
+he2J5Lok020qi4ffWmNy1fgjkyfkUU4cGDaosxKbXcOe1mgmhi7ghnsXcqeEU4ii
+HCNFvYgV0hVKQHvrWIUW51r3j1fWWR22bghGy0wHLWrFeOhX1d5WK9TfzfSUZdTz
+/g+4Wji0OKpI+75VYJc2P35LxTsSN0JT8XDicnus4+4l8MGc6TW4Z9AZBK7lZEK5
+nhFWXS926xNGc1c5NPQzkEtgUKoeEbAeMcdyFd8k/JfOLas0WAF+iqVGAP/DlxHm
+WTFcfvOpTArS7MMdfB6v3yj7ZOsVPCJAakuJdVCvXCKLAISy86p2EZT43vggz2q2
+FJORgUNfHfmGiZy9r+MHTBtwAS+Gn9Z77gmQcMb0pVdHVj4l+QkEcSkdliOcVJ4c
+6ITvBCD0F+1CiNTUIJ9oYlW92iqUX9M2QweDrlQ1PbWQVjyZU7NWh1VWmAsnhFBO
+OE0GVO34OySR+FpVyqH7keEbb5e0P4ECC1e0UwxMfUZIpqMPT+g/9WAIJay6gVLk
+6JVsWwkgg2nYyVFwvmP7gnUCeQB4ckhH08Ki7gjt0BidNywxfkU=
+=PaWF
+-----END PGP SIGNATURE-----
 
-Balbir
+--=-iJ67bgEOqJPCpsbunZkk--
 
