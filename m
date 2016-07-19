@@ -1,7 +1,7 @@
 From: Laura Abbott <labbott@redhat.com>
-Date: Tue, 19 Jul 2016 01:06:34 +0000
+Date: Tue, 19 Jul 2016 01:52:24 +0000
 Subject: Re: [PATCH v3 02/11] mm: Hardened usercopy
-Message-Id: <fc3c7f68-bd2e-cb06-c47c-d97c520fc08b@redhat.com>
+Message-Id: <ea4cdd53-7336-63b5-25ed-a397859eca4d@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1468619065-3222-1-git-send-email-keescook@chromium.org>
  <1468619065-3222-3-git-send-email-keescook@chromium.org>
@@ -10,7 +10,7 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Kees Cook <keescook@chromium.org>, linux-kernel@vger.kernel.org
-Cc: Balbir Singh <bsingharora@gmail.com>, Daniel Micay <danielmicay@gmail.com>, Josh Poimboeuf <jpoimboe@redhat.com>, Rik van Riel <riel@redhat.com>, Casey Schaufler <casey@schaufler-ca.com>, PaX Team <pageexec@freemail.hu>, Brad Spengler <spender@grsecurity.net>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "David S. Miller" <davem@davemloft.net>, x86@kernel.org, Christoph Lameter <cl@linux.com>, Pekka Enberg <penberg@kernel.org>, David Rientjes <rientjes@google.com>, Joonsoo Kim <iamjoonsoo.kim@lge.com>, Andrew Morton <akpm@linux-foundation.org>, Andy Lutomirski <luto@kernel.org>, Borislav Petkov <bp@suse.de>, Mathias Krause <minipli@googlemail.com>, Jan Kara <jack@suse.cz>, Vitaly Wool <vitalywool@gmail.com>, Andrea Arcangeli <aarcange@redhat.com>, Dmitry Vyukov <dvyukov@google.com>, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org, kernel-hardening@lists.openwall.com
+Cc: Balbir Singh <bsingharora@gmail.com>, Daniel Micay <danielmicay@gmail.com>, Josh Poimboeuf <jpoimboe@redhat.com>, Rik van Riel <riel@redhat.com>, Casey Schaufler <casey@schaufler-ca.com>, PaX Team <pageexec@freemail.hu>, Brad Spengler <spender@grsecurity.net>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "David S. Miller" <davem@davemloft.net>, x86@kernel.org, Christoph Lameter <cl@linux.com>, Pekka Enberg <penberg@kernel.org>, David Rientjes <rientjes@google.com>, Joonsoo Kim <iamjoonsoo.kim@lge.com>, Andrew Morton <akpm@linux-foundation.org>, Andy Lutomirski <luto@kernel.org>, Borislav Petkov <bp@suse.de>, Mathias Krause <minipli@googlemail.com>, Jan Kara <jack@suse.cz>, Vitaly Wool <vitalywool@gmail.com>, Andrea Arcangeli <aarcange@redhat.com>, Dmitry Vyukov <dvyukov@google.com>, Laura Abbott <labbott@fedoraproject.org>, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org, kernel-hardening@lists.openwall.com
 
 On 07/15/2016 02:44 PM, Kees Cook wrote:
 > This is the start of porting PAX_USERCOPY into the mainline kernel. This
@@ -174,9 +174,6 @@ On 07/15/2016 02:44 PM, Kees Cook wrote:
 > + *	2: fully on the stack (when can't do frame-checking)
 > + *	-1: error condition (invalid stack position or bad stack frame)
 > + */
-
-Nit: update comments to match enum (BAD_STACK instead of -1 etc.)
-
 > +static noinline int check_stack_object(const void *obj, unsigned long len)
 > +{
 > +	const void * const stack = task_stack_page(current);
@@ -273,6 +270,17 @@ Nit: update comments to match enum (BAD_STACK instead of -1 etc.)
 > +	if (!virt_addr_valid(ptr))
 > +		return NULL;
 > +
+
+virt_addr_valid returns true on vmalloc addresses on arm64 which causes some
+intermittent false positives (tab completion in a qemu buildroot environment
+was showing it fairly reliably). I think this is an arm64 bug because
+virt_addr_valid should return true if and only if virt_to_page returns the
+corresponding page. We can work around this for now by explicitly
+checking against is_vmalloc_addr.
+
+Thanks,
+Laura
+
 > +	page = virt_to_head_page(ptr);
 > +
 > +	/* Check slab allocator for flags and size. */
@@ -321,67 +329,98 @@ Nit: update comments to match enum (BAD_STACK instead of -1 etc.)
 > +			return "<spans multiple pages>";
 > +	}
 > +
+> +	return NULL;
+> +}
+> +
+> +/*
+> + * Validates that the given object is one of:
+> + * - known safe heap object
+> + * - known safe stack object
+> + * - not in kernel text
+> + */
+> +void __check_object_size(const void *ptr, unsigned long n, bool to_user)
+> +{
+> +	const char *err;
+> +
+> +	/* Skip all tests if size is zero. */
+> +	if (!n)
+> +		return;
+> +
+> +	/* Check for invalid addresses. */
+> +	err = check_bogus_address(ptr, n);
+> +	if (err)
+> +		goto report;
+> +
+> +	/* Check for bad heap object. */
+> +	err = check_heap_object(ptr, n, to_user);
+> +	if (err)
+> +		goto report;
+> +
+> +	/* Check for bad stack object. */
+> +	switch (check_stack_object(ptr, n)) {
+> +	case NOT_STACK:
+> +		/* Object is not touching the current process stack. */
+> +		break;
+> +	case GOOD_FRAME:
+> +	case GOOD_STACK:
+> +		/*
+> +		 * Object is either in the correct frame (when it
+> +		 * is possible to check) or just generally on the
+> +		 * process stack (when frame checking not available).
+> +		 */
+> +		return;
+> +	default:
+> +		err = "<process stack>";
+> +		goto report;
+> +	}
+> +
+> +	/* Check for object in kernel to avoid text exposure. */
+> +	err = check_kernel_text_object(ptr, n);
+> +	if (!err)
+> +		return;
+> +
+> +report:
+> +	report_usercopy(ptr, n, to_user, err);
+> +}
+> +EXPORT_SYMBOL(__check_object_size);
+> diff --git a/security/Kconfig b/security/Kconfig
+> index 176758cdfa57..df28f2b6f3e1 100644
+> --- a/security/Kconfig
+> +++ b/security/Kconfig
+> @@ -118,6 +118,34 @@ config LSM_MMAP_MIN_ADDR
+>  	  this low address space will need the permission specific to the
+>  	  systems running LSM.
+>
+> +config HAVE_HARDENED_USERCOPY_ALLOCATOR
+> +	bool
+> +	help
+> +	  The heap allocator implements __check_heap_object() for
+> +	  validating memory ranges against heap object sizes in
+> +	  support of CONFIG_HARDENED_USERCOPY.
+> +
+> +config HAVE_ARCH_HARDENED_USERCOPY
+> +	bool
+> +	help
+> +	  The architecture supports CONFIG_HARDENED_USERCOPY by
+> +	  calling check_object_size() just before performing the
+> +	  userspace copies in the low level implementation of
+> +	  copy_to_user() and copy_from_user().
+> +
+> +config HARDENED_USERCOPY
+> +	bool "Harden memory copies between kernel and userspace"
+> +	depends on HAVE_ARCH_HARDENED_USERCOPY
+> +	select BUG
+> +	help
+> +	  This option checks for obviously wrong memory regions when
+> +	  copying memory to/from the kernel (via copy_to_user() and
+> +	  copy_from_user() functions) by rejecting memory ranges that
+> +	  are larger than the specified heap object, span multiple
+> +	  separately allocates pages, are not on the process stack,
+> +	  or are part of the kernel text. This kills entire classes
+> +	  of heap overflow exploits and similar kernel memory exposures.
+> +
+>  source security/selinux/Kconfig
+>  source security/smack/Kconfig
+>  source security/tomoyo/Kconfig
+>
 
-This doesn't work when copying CMA allocated memory since CMA purposely
-allocates larger than a page block size without setting head pages.
-Given CMA may be used with drivers doing zero copy buffers, I think it
-should be permitted.
-
-Something like the following lets it pass (I can clean up and submit
-the is_migrate_cma_page APIs as a separate patch for review)
-
-diff --git a/include/linux/mmzone.h b/include/linux/mmzone.h
-index 02069c2..e9b0661 100644
---- a/include/linux/mmzone.h
-+++ b/include/linux/mmzone.h
-@@ -18,6 +18,7 @@
-  #include <linux/page-flags-layout.h>
-  #include <linux/atomic.h>
-  #include <asm/page.h>
-+#include <asm/pgtable.h>
-  
-  /* Free memory management - zoned buddy allocator.  */
-  #ifndef CONFIG_FORCE_MAX_ZONEORDER
-@@ -85,6 +86,18 @@ extern int page_group_by_mobility_disabled;
-  	get_pfnblock_flags_mask(page, page_to_pfn(page),		\
-  			PB_migrate_end, MIGRATETYPE_MASK)
-  
-+#ifdef CONFIG_CMA
-+static inline bool is_migrate_cma_page(struct page *page)
-+{
-+        return get_pageblock_migratetype(page) = MIGRATE_CMA;
-+}
-+#else
-+static inline bool is_migrate_cma_page(struct page *page)
-+{
-+        return false;
-+}
-+#endif
-+
-  struct free_area {
-  	struct list_head	free_list[MIGRATE_TYPES];
-  	unsigned long		nr_free;
-diff --git a/mm/usercopy.c b/mm/usercopy.c
-index e4bf4e7..15275ab 100644
---- a/mm/usercopy.c
-+++ b/mm/usercopy.c
-@@ -16,6 +16,7 @@
-  
-  #include <linux/mm.h>
-  #include <linux/slab.h>
-+#include <linux/mmzone.h>
-  #include <asm/sections.h>
-  
-  enum {
-@@ -174,7 +175,7 @@ static inline const char *check_heap_object(const void *ptr, unsigned long n,
-  	 * since then the object spans several independently allocated pages.
-  	 */
-  	for (; ptr <= end ; ptr += PAGE_SIZE, page = virt_to_head_page(ptr)) {
--		if (!PageReserved(page))
-+		if (!PageReserved(page) && !is_migrate_cma_page(page))
-  			return "<spans multiple pages>";
-  	}
-  
-
-Thanks,
-Laura
