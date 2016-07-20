@@ -1,55 +1,88 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Date: Fri, 15 Jul 2016 20:54:44 +0000
-Subject: Re: [PATCH 00/14] Present useful limits to user (v2)
-Message-Id: <201607152054.u6FKslD1005327@mail.zytor.com>
+From: Kees Cook <keescook@chromium.org>
+Date: Wed, 20 Jul 2016 20:27:02 +0000
+Subject: [PATCH v4 07/12] ia64/uaccess: Enable hardened usercopy
+Message-Id: <1469046427-12696-8-git-send-email-keescook@chromium.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1468578983-28229-1-git-send-email-toiwoton@gmail.com> <20160715124330.GR30154@twins.programming.kicks-ass.net> <28b4b919-4f50-d9f6-c5e1-d1e92ea1ba1c@gmail.com> <20160715135956.GA3115@twins.programming.kicks-ass.net>
-In-Reply-To: <20160715135956.GA3115@twins.programming.kicks-ass.net>
+References: <1469046427-12696-1-git-send-email-keescook@chromium.org>
+In-Reply-To: <1469046427-12696-1-git-send-email-keescook@chromium.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Peter Zijlstra <peterz@infradead.org>, Topi Miettinen <toiwoton@gmail.com>
-Cc: linux-kernel@vger.kernel.org, Jonathan Corbet <corbet@lwn.net>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Alexander Graf <agraf@suse.com>, Paolo Bonzini <pbonzini@redhat.com>, Radim Kr??m???? <rkrcmar@redhat.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "maintainer:X86 ARCHITECTURE (32-BIT AND 64-BIT)" <x86@kernel.org>, Doug Ledford <dledford@redhat.com>, Sean Hefty <sean.hefty@intel.com>, Hal Rosenstock <hal.rosenstock@gmail.com>, Mike Marciniszyn <mike.marciniszyn@intel.com>, Dennis Dalessandro <dennis.dalessandro@intel.com>, Christian Benvenuti <benve@cisco.com>, Dave Goodell <dgoodell@cisco.com>, Sudeep Dutt <sudeep.dutt@intel.com>, Ashutosh Dixit <ashutosh.dixit@intel.com>, Alex Williamson <alex.williamson@redhat.com>, Alexander Viro <viro@zeniv.linux.org.uk>, Tejun Heo <tj@kernel.org>, Li.Zefan@zytor.com
+To: kernel-hardening@lists.openwall.com
+Cc: Kees Cook <keescook@chromium.org>, Laura Abbott <labbott@fedoraproject.org>, Balbir Singh <bsingharora@gmail.com>, Daniel Micay <danielmicay@gmail.com>, Josh Poimboeuf <jpoimboe@redhat.com>, Rik van Riel <riel@redhat.com>, Casey Schaufler <casey@schaufler-ca.com>, PaX Team <pageexec@freemail.hu>, Brad Spengler <spender@grsecurity.net>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "David S. Miller" <davem@davemloft.net>, x86@kernel.org, Christoph Lameter <cl@linux.com>, Pekka Enberg <penberg@kernel.org>, David Rientjes <rientjes@google.com>, Joonsoo Kim <iamjoonsoo.kim@lge.com>, Andrew Morton <akpm@linux-foundation.org>, Andy Lutomirski <luto@kernel.org>, Borislav Petkov <bp@suse.de>, Mathias Krause <minipli@googlemail.com>, Jan Kara <jack@suse.cz>, Vitaly Wool <vitalywool@gmail.com>, Andrea Arcangeli <aarcange@redhat.com>, Dmitry Vyukov <dvyukov@google.com>, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org
 
-<lizefan@huawei.com>,Johannes Weiner <hannes@cmpxchg.org>,Alexei Starovoitov <ast@kernel.org>,Arnaldo Carvalho de Melo <acme@kernel.org>,Alexander Shishkin <alexander.shishkin@linux.intel.com>,Balbir Singh <bsingharora@gmail.com>,Markus Elfring <elfring@users.sourceforge.net>,"David S. Miller" <davem@davemloft.net>,Nicolas Dichtel <nicolas.dichtel@6wind.com>,Andrew Morton <akpm@linux-foundation.org>,Konstantin Khlebnikov <koct9i@gmail.com>,Jiri Slaby <jslaby@suse.cz>,Cyrill Gorcunov <gorcunov@openvz.org>,Michal Hocko <mhocko@suse.com>,Vlastimil Babka <vbabka@suse.cz>,Dave Hansen <dave.hansen@linux.intel.com>,Greg Kroah-Hartman <gregkh@linuxfoundation.org>,Dan Carpenter <dan.carpenter@oracle.com>,Michael Kerrisk <mtk.manpages@gmail.com>,"Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>,Marcus Gelderie <redmnic@gmail.com>,Vladimir Davydov <vdavydov@virtuozzo.com>,Joe Perches <joe@perches.com>,Frederic Weisbecker <fweisbec@gmail.com>,Andrea Arcangeli <aarcange@redhat.com>,!
- "Eric W.
-Biederman" <ebiederm@xmission.com>,Andi Kleen <ak@linux.intel.com>,Oleg Nesterov <oleg@redhat.com>,Stas Sergeev <stsp@list.ru>,Amanieu d'Antras <amanieu@gmail.com>,Richard Weinberger <richard@nod.at>,Wang Xiaoqiang <wangxq10@lzu.edu.cn>,Helge Deller <deller@gmx.de>,Mateusz Guzik <mguzik@redhat.com>,Alex Thorlton <athorlton@sgi.com>,Ben Segall <bsegall@google.com>,John Stultz <john.stultz@linaro.org>,Rik van Riel <riel@redhat.com>,Eric B Munson <emunson@akamai.com>,Alexey Klimov <klimov.linux@gmail.com>,Chen Gang <gang.chen.5i5j@gmail.com>,Andrey Ryabinin <aryabinin@virtuozzo.com>,David Rientjes <rientjes@google.com>,Hugh Dickins <hughd@google.com>,Alexander Kuleshov <kuleshovmail@gmail.com>,"open list:DOCUMENTATION" <linux-doc@vger.kernel.org>,"open list:IA64 (Itanium) PLATFORM" <linux-ia64@vger.kernel.org>,"open list:KERNEL VIRTUAL MACHINE (KVM) FOR POWERPC" <kvm-ppc@vger.kernel.org>,"open list:KERNEL VIRTUAL MACHINE (KVM)" <kvm@vger.kernel.org>,"open list:LINUX FOR POWERPC!
-  (32-BIT
-AND 64-BIT)" <linuxppc-dev@lists.ozlabs.org>,"open list:INFINIBAND SUBSYSTEM" <linux-rdma@vger.kernel.org>,"open list:FILESYSTEMS (VFS and infrastructure)" <linux-fsdevel@vger.kernel.org>,"open list:CONTROL GROUP (CGROUP)" <cgroups@vger.kernel.org>,"open list:BPF (Safe dynamic programs and tools)" <netdev@vger.kernel.org>,"open list:MEMORY MANAGEMENT" <linux-mm@kvack.org>
-Message-ID: <D79806FE-E6B9-481B-8AA2-A1800419D9B5@zytor.com>
+Enables CONFIG_HARDENED_USERCOPY checks on ia64.
 
-On July 15, 2016 6:59:56 AM PDT, Peter Zijlstra <peterz@infradead.org> wrote:
->On Fri, Jul 15, 2016 at 01:52:48PM +0000, Topi Miettinen wrote:
->> On 07/15/16 12:43, Peter Zijlstra wrote:
->> > On Fri, Jul 15, 2016 at 01:35:47PM +0300, Topi Miettinen wrote:
->> >> Hello,
->> >>
->> >> There are many basic ways to control processes, including
->capabilities,
->> >> cgroups and resource limits. However, there are far fewer ways to
->find out
->> >> useful values for the limits, except blind trial and error.
->> >>
->> >> This patch series attempts to fix that by giving at least a nice
->starting
->> >> point from the highwater mark values of the resources in question.
->> >> I looked where each limit is checked and added a call to update
->the mark
->> >> nearby.
->> > 
->> > And how is that useful? Setting things to the high watermark is
->> > basically the same as not setting the limit at all.
->> 
->> What else would you use, too small limits?
->
->That question doesn't make sense.
->
->What's the point of setting a limit if it ends up being the same as
->no-limit (aka unlimited).
->
->If you cannot explain; and you have not so far; what use these values
->are, why would we look at the patches.
+Based on code from PaX and grsecurity.
 
-One reason is to catch a malfunctioning process rather than dragging the whole system down with it.  It could also be useful for development.
+Signed-off-by: Kees Cook <keescook@chromium.org>
+---
+ arch/ia64/Kconfig               |  1 +
+ arch/ia64/include/asm/uaccess.h | 18 +++++++++++++++---
+ 2 files changed, 16 insertions(+), 3 deletions(-)
+
+diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+index f80758cb7157..32a87ef516a0 100644
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -53,6 +53,7 @@ config IA64
+ 	select MODULES_USE_ELF_RELA
+ 	select ARCH_USE_CMPXCHG_LOCKREF
+ 	select HAVE_ARCH_AUDITSYSCALL
++	select HAVE_ARCH_HARDENED_USERCOPY
+ 	default y
+ 	help
+ 	  The Itanium Processor Family is Intel's 64-bit successor to
+diff --git a/arch/ia64/include/asm/uaccess.h b/arch/ia64/include/asm/uaccess.h
+index 2189d5ddc1ee..465c70982f40 100644
+--- a/arch/ia64/include/asm/uaccess.h
++++ b/arch/ia64/include/asm/uaccess.h
+@@ -241,12 +241,18 @@ extern unsigned long __must_check __copy_user (void __user *to, const void __use
+ static inline unsigned long
+ __copy_to_user (void __user *to, const void *from, unsigned long count)
+ {
++	if (!__builtin_constant_p(count))
++		check_object_size(from, count, true);
++
+ 	return __copy_user(to, (__force void __user *) from, count);
+ }
+ 
+ static inline unsigned long
+ __copy_from_user (void *to, const void __user *from, unsigned long count)
+ {
++	if (!__builtin_constant_p(count))
++		check_object_size(to, count, false);
++
+ 	return __copy_user((__force void __user *) to, from, count);
+ }
+ 
+@@ -258,8 +264,11 @@ __copy_from_user (void *to, const void __user *from, unsigned long count)
+ 	const void *__cu_from = (from);							\
+ 	long __cu_len = (n);								\
+ 											\
+-	if (__access_ok(__cu_to, __cu_len, get_fs()))					\
+-		__cu_len = __copy_user(__cu_to, (__force void __user *) __cu_from, __cu_len);	\
++	if (__access_ok(__cu_to, __cu_len, get_fs())) {					\
++		if (!__builtin_constant_p(n))						\
++			check_object_size(__cu_from, __cu_len, true);			\
++		__cu_len = __copy_user(__cu_to, (__force void __user *)  __cu_from, __cu_len);	\
++	}										\
+ 	__cu_len;									\
+ })
+ 
+@@ -270,8 +279,11 @@ __copy_from_user (void *to, const void __user *from, unsigned long count)
+ 	long __cu_len = (n);								\
+ 											\
+ 	__chk_user_ptr(__cu_from);							\
+-	if (__access_ok(__cu_from, __cu_len, get_fs()))					\
++	if (__access_ok(__cu_from, __cu_len, get_fs())) {				\
++		if (!__builtin_constant_p(n))						\
++			check_object_size(__cu_to, __cu_len, false);			\
+ 		__cu_len = __copy_user((__force void __user *) __cu_to, __cu_from, __cu_len);	\
++	}										\
+ 	__cu_len;									\
+ })
+ 
 -- 
-Sent from my Android device with K-9 Mail. Please excuse brevity and formatting.
+2.7.4
+
