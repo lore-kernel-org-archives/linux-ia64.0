@@ -1,157 +1,430 @@
-From: "Luis R. Rodriguez" <mcgrof@kernel.org>
-Date: Fri, 22 Jul 2016 21:24:43 +0000
-Subject: [RFC v3 09/13] firmware: port built-in section to linker table
-Message-Id: <1469222687-1600-10-git-send-email-mcgrof@kernel.org>
+From: Kees Cook <keescook@chromium.org>
+Date: Wed, 20 Jul 2016 20:26:58 +0000
+Subject: [PATCH v4 03/12] mm: Hardened usercopy
+Message-Id: <1469046427-12696-4-git-send-email-keescook@chromium.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1469222687-1600-1-git-send-email-mcgrof@kernel.org>
-In-Reply-To: <1469222687-1600-1-git-send-email-mcgrof@kernel.org>
+References: <1469046427-12696-1-git-send-email-keescook@chromium.org>
+In-Reply-To: <1469046427-12696-1-git-send-email-keescook@chromium.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: hpa@zytor.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, linux@arm.linux.org.uk, mhiramat@kernel.org, masami.hiramatsu.pt@hitachi.com, jbaron@akamai.com, heiko.carstens@de.ibm.com, ananth@linux.vnet.ibm.com, anil.s.keshavamurthy@intel.com, davem@davemloft.net, realmz6@gmail.com
-Cc: x86@kernel.org, luto@amacapital.net, keescook@chromium.org, torvalds@linux-foundation.org, gregkh@linuxfoundation.org, rusty@rustcorp.com.au, gnomes@lxorguk.ukuu.org.uk, alan@linux.intel.com, dwmw2@infradead.org, arnd@arndb.de, ming.lei@canonical.com, linux-arch@vger.kernel.org, benh@kernel.crashing.org, ananth@in.ibm.com, pebolle@tiscali.nl, fontana@sharpeleven.org, ciaran.farrell@suse.com, christopher.denicolo@suse.com, david.vrabel@citrix.com, konrad.wilk@oracle.com, mcb30@ipxe.org, jgross@suse.com, andrew.cooper3@citrix.com, andriy.shevchenko@linux.intel.com, paul.gortmaker@windriver.com, xen-devel@lists.xensource.com, ak@linux.intel.com, pali.rohar@gmail.com, dvhart@infradead.org, platform-driver-x86@vger.kernel.org, mmarek@suse.com, linux@rasmusvillemoes.dk, jkosina@suse.cz, korea.drzix@gmail.com, linux-kbuild@vger.kernel.org, tony.luck@intel.com, akpm@linux-foun
+To: kernel-hardening@lists.openwall.com
+Cc: Kees Cook <keescook@chromium.org>, Laura Abbott <labbott@fedoraproject.org>, Balbir Singh <bsingharora@gmail.com>, Daniel Micay <danielmicay@gmail.com>, Josh Poimboeuf <jpoimboe@redhat.com>, Rik van Riel <riel@redhat.com>, Casey Schaufler <casey@schaufler-ca.com>, PaX Team <pageexec@freemail.hu>, Brad Spengler <spender@grsecurity.net>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "David S. Miller" <davem@davemloft.net>, x86@kernel.org, Christoph Lameter <cl@linux.com>, Pekka Enberg <penberg@kernel.org>, David Rientjes <rientjes@google.com>, Joonsoo Kim <iamjoonsoo.kim@lge.com>, Andrew Morton <akpm@linux-foundation.org>, Andy Lutomirski <luto@kernel.org>, Borislav Petkov <bp@suse.de>, Mathias Krause <minipli@googlemail.com>, Jan Kara <jack@suse.cz>, Vitaly Wool <vitalywool@gmail.com>, Andrea Arcangeli <aarcange@redhat.com>, Dmitry Vyukov <dvyukov@google.com>, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org
 
-This ports built-in firmware to use linker tables,
-this replaces the custom section solution with a
-generic solution.
+This is the start of porting PAX_USERCOPY into the mainline kernel. This
+is the first set of features, controlled by CONFIG_HARDENED_USERCOPY. The
+work is based on code by PaX Team and Brad Spengler, and an earlier port
+from Casey Schaufler. Additional non-slab page tests are from Rik van Riel.
 
-This also demos the use of the .rodata (SECTION_RO)
-linker tables.
+This patch contains the logic for validating several conditions when
+performing copy_to_user() and copy_from_user() on the kernel object
+being copied to/from:
+- address range doesn't wrap around
+- address range isn't NULL or zero-allocated (with a non-zero copy size)
+- if on the slab allocator:
+  - object size must be less than or equal to copy size (when check is
+    implemented in the allocator, which appear in subsequent patches)
+- otherwise, object must not span page allocations (excepting Reserved
+  and CMA ranges)
+- if on the stack
+  - object must not extend before/after the current process stack
+  - object must be contained by a valid stack frame (when there is
+    arch/build support for identifying stack frames)
+- object must not overlap with kernel text
 
-Tested with 0 built-in firmware, 1 and 2 built-in
-firmwares successfully.
-
-v3:
-o explicitly include tables.h as we no longer include
-  tables.h from sections.h
-
-o use new section_tbl_asmtype() helper on firmware/Makefile
-  to enable having to unfold things on our own.
-
-v2: introduced this file in this version of the series
-
-Signed-off-by: Luis R. Rodriguez <mcgrof@kernel.org>
+Signed-off-by: Kees Cook <keescook@chromium.org>
+Tested-by: Valdis Kletnieks <valdis.kletnieks@vt.edu>
+Tested-by: Michael Ellerman <mpe@ellerman.id.au>
 ---
- arch/x86/kernel/cpu/microcode/core.c |  8 ++++----
- drivers/base/firmware_class.c        | 12 ++++++------
- firmware/Makefile                    |  4 +++-
- include/asm-generic/vmlinux.lds.h    |  7 -------
- 4 files changed, 13 insertions(+), 18 deletions(-)
+ include/linux/slab.h        |  12 ++
+ include/linux/thread_info.h |  15 +++
+ mm/Makefile                 |   4 +
+ mm/usercopy.c               | 268 ++++++++++++++++++++++++++++++++++++++++++++
+ security/Kconfig            |  28 +++++
+ 5 files changed, 327 insertions(+)
+ create mode 100644 mm/usercopy.c
 
-diff --git a/arch/x86/kernel/cpu/microcode/core.c b/arch/x86/kernel/cpu/microcode/core.c
-index df04b2d033f6..3e7c08d99601 100644
---- a/arch/x86/kernel/cpu/microcode/core.c
-+++ b/arch/x86/kernel/cpu/microcode/core.c
-@@ -31,6 +31,7 @@
- #include <linux/cpu.h>
- #include <linux/fs.h>
- #include <linux/mm.h>
-+#include <linux/tables.h>
+diff --git a/include/linux/slab.h b/include/linux/slab.h
+index aeb3e6d00a66..96a16a3fb7cb 100644
+--- a/include/linux/slab.h
++++ b/include/linux/slab.h
+@@ -155,6 +155,18 @@ void kfree(const void *);
+ void kzfree(const void *);
+ size_t ksize(const void *);
  
- #include <asm/microcode_intel.h>
- #include <asm/cpu_device_id.h>
-@@ -91,15 +92,14 @@ static bool __init check_loader_disabled_bsp(void)
- 	return *res;
++#ifdef CONFIG_HAVE_HARDENED_USERCOPY_ALLOCATOR
++const char *__check_heap_object(const void *ptr, unsigned long n,
++				struct page *page);
++#else
++static inline const char *__check_heap_object(const void *ptr,
++					      unsigned long n,
++					      struct page *page)
++{
++	return NULL;
++}
++#endif
++
+ /*
+  * Some archs want to perform DMA into kmalloc caches and need a guaranteed
+  * alignment larger than the alignment of a 64-bit integer.
+diff --git a/include/linux/thread_info.h b/include/linux/thread_info.h
+index 3d5c80b4391d..f24b99eac969 100644
+--- a/include/linux/thread_info.h
++++ b/include/linux/thread_info.h
+@@ -155,6 +155,21 @@ static inline int arch_within_stack_frames(const void * const stack,
  }
+ #endif
  
--extern struct builtin_fw __start_builtin_fw[];
--extern struct builtin_fw __end_builtin_fw[];
-+DECLARE_LINKTABLE_RO(struct builtin_fw, builtin_fw);
++#ifdef CONFIG_HARDENED_USERCOPY
++extern void __check_object_size(const void *ptr, unsigned long n,
++					bool to_user);
++
++static inline void check_object_size(const void *ptr, unsigned long n,
++				     bool to_user)
++{
++	__check_object_size(ptr, n, to_user);
++}
++#else
++static inline void check_object_size(const void *ptr, unsigned long n,
++				     bool to_user)
++{ }
++#endif /* CONFIG_HARDENED_USERCOPY */
++
+ #endif	/* __KERNEL__ */
  
- bool get_builtin_firmware(struct cpio_data *cd, const char *name)
- {
- #ifdef CONFIG_FW_LOADER
--	struct builtin_fw *b_fw;
-+	const struct builtin_fw *b_fw;
+ #endif /* _LINUX_THREAD_INFO_H */
+diff --git a/mm/Makefile b/mm/Makefile
+index 78c6f7dedb83..32d37247c7e5 100644
+--- a/mm/Makefile
++++ b/mm/Makefile
+@@ -21,6 +21,9 @@ KCOV_INSTRUMENT_memcontrol.o := n
+ KCOV_INSTRUMENT_mmzone.o := n
+ KCOV_INSTRUMENT_vmstat.o := n
  
--	for (b_fw = __start_builtin_fw; b_fw != __end_builtin_fw; b_fw++) {
-+	LINKTABLE_FOR_EACH(b_fw, builtin_fw) {
- 		if (!strcmp(name, b_fw->name)) {
- 			cd->size = b_fw->size;
- 			cd->data = b_fw->data;
-diff --git a/drivers/base/firmware_class.c b/drivers/base/firmware_class.c
-index 22d1760a4278..8fbf03c3e4c2 100644
---- a/drivers/base/firmware_class.c
-+++ b/drivers/base/firmware_class.c
-@@ -30,6 +30,7 @@
- #include <linux/syscore_ops.h>
- #include <linux/reboot.h>
- #include <linux/security.h>
-+#include <linux/tables.h>
++# Since __builtin_frame_address does work as used, disable the warning.
++CFLAGS_usercopy.o += $(call cc-disable-warning, frame-address)
++
+ mmu-y			:= nommu.o
+ mmu-$(CONFIG_MMU)	:= gup.o highmem.o memory.o mincore.o \
+ 			   mlock.o mmap.o mprotect.o mremap.o msync.o rmap.o \
+@@ -99,3 +102,4 @@ obj-$(CONFIG_USERFAULTFD) += userfaultfd.o
+ obj-$(CONFIG_IDLE_PAGE_TRACKING) += page_idle.o
+ obj-$(CONFIG_FRAME_VECTOR) += frame_vector.o
+ obj-$(CONFIG_DEBUG_PAGE_REF) += debug_page_ref.o
++obj-$(CONFIG_HARDENED_USERCOPY) += usercopy.o
+diff --git a/mm/usercopy.c b/mm/usercopy.c
+new file mode 100644
+index 000000000000..8ebae91a6b55
+--- /dev/null
++++ b/mm/usercopy.c
+@@ -0,0 +1,268 @@
++/*
++ * This implements the various checks for CONFIG_HARDENED_USERCOPY*,
++ * which are designed to protect kernel memory from needless exposure
++ * and overwrite under many unintended conditions. This code is based
++ * on PAX_USERCOPY, which is:
++ *
++ * Copyright (C) 2001-2016 PaX Team, Bradley Spengler, Open Source
++ * Security Inc.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ *
++ */
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
++#include <linux/mm.h>
++#include <linux/slab.h>
++#include <asm/sections.h>
++
++enum {
++	BAD_STACK = -1,
++	NOT_STACK = 0,
++	GOOD_FRAME,
++	GOOD_STACK,
++};
++
++/*
++ * Checks if a given pointer and length is contained by the current
++ * stack frame (if possible).
++ *
++ * Returns:
++ *	NOT_STACK: not at all on the stack
++ *	GOOD_FRAME: fully within a valid stack frame
++ *	GOOD_STACK: fully on the stack (when can't do frame-checking)
++ *	BAD_STACK: error condition (invalid stack position or bad stack frame)
++ */
++static noinline int check_stack_object(const void *obj, unsigned long len)
++{
++	const void * const stack = task_stack_page(current);
++	const void * const stackend = stack + THREAD_SIZE;
++	int ret;
++
++	/* Object is not on the stack at all. */
++	if (obj + len <= stack || stackend <= obj)
++		return NOT_STACK;
++
++	/*
++	 * Reject: object partially overlaps the stack (passing the
++	 * the check above means at least one end is within the stack,
++	 * so if this check fails, the other end is outside the stack).
++	 */
++	if (obj < stack || stackend < obj + len)
++		return BAD_STACK;
++
++	/* Check if object is safely within a valid frame. */
++	ret = arch_within_stack_frames(stack, stackend, obj, len);
++	if (ret)
++		return ret;
++
++	return GOOD_STACK;
++}
++
++static void report_usercopy(const void *ptr, unsigned long len,
++			    bool to_user, const char *type)
++{
++	pr_emerg("kernel memory %s attempt detected %s %p (%s) (%lu bytes)\n",
++		to_user ? "exposure" : "overwrite",
++		to_user ? "from" : "to", ptr, type ? : "unknown", len);
++	/*
++	 * For greater effect, it would be nice to do do_group_exit(),
++	 * but BUG() actually hooks all the lock-breaking and per-arch
++	 * Oops code, so that is used here instead.
++	 */
++	BUG();
++}
++
++/* Returns true if any portion of [ptr,ptr+n) over laps with [low,high). */
++static bool overlaps(const void *ptr, unsigned long n, unsigned long low,
++		     unsigned long high)
++{
++	unsigned long check_low = (uintptr_t)ptr;
++	unsigned long check_high = check_low + n;
++
++	/* Does not overlap if entirely above or entirely below. */
++	if (check_low >= high || check_high < low)
++		return false;
++
++	return true;
++}
++
++/* Is this address range in the kernel text area? */
++static inline const char *check_kernel_text_object(const void *ptr,
++						   unsigned long n)
++{
++	unsigned long textlow = (unsigned long)_stext;
++	unsigned long texthigh = (unsigned long)_etext;
++	unsigned long textlow_linear, texthigh_linear;
++
++	if (overlaps(ptr, n, textlow, texthigh))
++		return "<kernel text>";
++
++	/*
++	 * Some architectures have virtual memory mappings with a secondary
++	 * mapping of the kernel text, i.e. there is more than one virtual
++	 * kernel address that points to the kernel image. It is usually
++	 * when there is a separate linear physical memory mapping, in that
++	 * __pa() is not just the reverse of __va(). This can be detected
++	 * and checked:
++	 */
++	textlow_linear = (unsigned long)__va(__pa(textlow));
++	/* No different mapping: we're done. */
++	if (textlow_linear = textlow)
++		return NULL;
++
++	/* Check the secondary mapping... */
++	texthigh_linear = (unsigned long)__va(__pa(texthigh));
++	if (overlaps(ptr, n, textlow_linear, texthigh_linear))
++		return "<linear kernel text>";
++
++	return NULL;
++}
++
++static inline const char *check_bogus_address(const void *ptr, unsigned long n)
++{
++	/* Reject if object wraps past end of memory. */
++	if (ptr + n < ptr)
++		return "<wrapped address>";
++
++	/* Reject if NULL or ZERO-allocation. */
++	if (ZERO_OR_NULL_PTR(ptr))
++		return "<null>";
++
++	return NULL;
++}
++
++static inline const char *check_heap_object(const void *ptr, unsigned long n,
++					    bool to_user)
++{
++	struct page *page, *endpage;
++	const void *end = ptr + n - 1;
++	bool is_reserved, is_cma;
++
++	/*
++	 * Some architectures (arm64) return true for virt_addr_valid() on
++	 * vmalloced addresses. Work around this by checking for vmalloc
++	 * first.
++	 */
++	if (is_vmalloc_addr(ptr))
++		return NULL;
++
++	if (!virt_addr_valid(ptr))
++		return NULL;
++
++	page = virt_to_head_page(ptr);
++
++	/* Check slab allocator for flags and size. */
++	if (PageSlab(page))
++		return __check_heap_object(ptr, n, page);
++
++	/*
++	 * Sometimes the kernel data regions are not marked Reserved (see
++	 * check below). And sometimes [_sdata,_edata) does not cover
++	 * rodata and/or bss, so check each range explicitly.
++	 */
++
++	/* Allow reads of kernel rodata region (if not marked as Reserved). */
++	if (ptr >= (const void *)__start_rodata &&
++	    end <= (const void *)__end_rodata) {
++		if (!to_user)
++			return "<rodata>";
++		return NULL;
++	}
++
++	/* Allow kernel data region (if not marked as Reserved). */
++	if (ptr >= (const void *)_sdata && end <= (const void *)_edata)
++		return NULL;
++
++	/* Allow kernel bss region (if not marked as Reserved). */
++	if (ptr >= (const void *)__bss_start &&
++	    end <= (const void *)__bss_stop)
++		return NULL;
++
++	/* Is the object wholly within one base page? */
++	if (likely(((unsigned long)ptr & (unsigned long)PAGE_MASK) =
++		   ((unsigned long)end & (unsigned long)PAGE_MASK)))
++		return NULL;
++
++	/* Allow if start and end are inside the same compound page. */
++	endpage = virt_to_head_page(end);
++	if (likely(endpage = page))
++		return NULL;
++
++	/*
++	 * Reject if range is entirely either Reserved (i.e. special or
++	 * device memory), or CMA. Otherwise, reject since the object spans
++	 * several independently allocated pages.
++	 */
++	is_reserved = PageReserved(page);
++	is_cma = is_migrate_cma_page(page);
++	if (!is_reserved && !is_cma)
++		goto reject;
++
++	for (ptr += PAGE_SIZE; ptr <= end; ptr += PAGE_SIZE) {
++		page = virt_to_head_page(ptr);
++		if (is_reserved && !PageReserved(page))
++			goto reject;
++		if (is_cma && !is_migrate_cma_page(page))
++			goto reject;
++	}
++
++	return NULL;
++
++reject:
++	return "<spans multiple pages>";
++}
++
++/*
++ * Validates that the given object is:
++ * - not bogus address
++ * - known-safe heap or stack object
++ * - not in kernel text
++ */
++void __check_object_size(const void *ptr, unsigned long n, bool to_user)
++{
++	const char *err;
++
++	/* Skip all tests if size is zero. */
++	if (!n)
++		return;
++
++	/* Check for invalid addresses. */
++	err = check_bogus_address(ptr, n);
++	if (err)
++		goto report;
++
++	/* Check for bad heap object. */
++	err = check_heap_object(ptr, n, to_user);
++	if (err)
++		goto report;
++
++	/* Check for bad stack object. */
++	switch (check_stack_object(ptr, n)) {
++	case NOT_STACK:
++		/* Object is not touching the current process stack. */
++		break;
++	case GOOD_FRAME:
++	case GOOD_STACK:
++		/*
++		 * Object is either in the correct frame (when it
++		 * is possible to check) or just generally on the
++		 * process stack (when frame checking not available).
++		 */
++		return;
++	default:
++		err = "<process stack>";
++		goto report;
++	}
++
++	/* Check for object in kernel to avoid text exposure. */
++	err = check_kernel_text_object(ptr, n);
++	if (!err)
++		return;
++
++report:
++	report_usercopy(ptr, n, to_user, err);
++}
++EXPORT_SYMBOL(__check_object_size);
+diff --git a/security/Kconfig b/security/Kconfig
+index 176758cdfa57..df28f2b6f3e1 100644
+--- a/security/Kconfig
++++ b/security/Kconfig
+@@ -118,6 +118,34 @@ config LSM_MMAP_MIN_ADDR
+ 	  this low address space will need the permission specific to the
+ 	  systems running LSM.
  
- #include <generated/utsrelease.h>
- 
-@@ -43,15 +44,14 @@ MODULE_LICENSE("GPL");
- 
- #ifdef CONFIG_FW_LOADER
- 
--extern struct builtin_fw __start_builtin_fw[];
--extern struct builtin_fw __end_builtin_fw[];
-+DEFINE_LINKTABLE_RO(struct builtin_fw, builtin_fw);
- 
- static bool fw_get_builtin_firmware(struct firmware *fw, const char *name,
- 				    void *buf, size_t size)
- {
--	struct builtin_fw *b_fw;
-+	const struct builtin_fw *b_fw;
- 
--	for (b_fw = __start_builtin_fw; b_fw != __end_builtin_fw; b_fw++) {
-+	LINKTABLE_FOR_EACH(b_fw, builtin_fw) {
- 		if (strcmp(name, b_fw->name) = 0) {
- 			fw->size = b_fw->size;
- 			fw->data = b_fw->data;
-@@ -67,9 +67,9 @@ static bool fw_get_builtin_firmware(struct firmware *fw, const char *name,
- 
- static bool fw_is_builtin_firmware(const struct firmware *fw)
- {
--	struct builtin_fw *b_fw;
-+	const struct builtin_fw *b_fw;
- 
--	for (b_fw = __start_builtin_fw; b_fw != __end_builtin_fw; b_fw++)
-+	LINKTABLE_FOR_EACH(b_fw, builtin_fw)
- 		if (fw->data = b_fw->data)
- 			return true;
- 
-diff --git a/firmware/Makefile b/firmware/Makefile
-index fa3e81c2a97b..32304a227f09 100644
---- a/firmware/Makefile
-+++ b/firmware/Makefile
-@@ -155,6 +155,8 @@ quiet_cmd_fwbin = MK_FW   $@
- 		  ASM_ALIGN=$(if $(CONFIG_64BIT),3,2);			     \
- 		  PROGBITS=$(if $(CONFIG_ARM),%,@)progbits;		     \
- 		  echo "/* Generated by firmware/Makefile */"		> $@;\
-+		  echo "\#include <asm/sections.h>"			>>$@;\
-+		  echo "\#include <asm/tables.h>"			>>$@;\
- 		  echo "    .section .rodata"				>>$@;\
- 		  echo "    .p2align $${ASM_ALIGN}"			>>$@;\
- 		  echo "_fw_$${FWSTR}_bin:"				>>$@;\
-@@ -164,7 +166,7 @@ quiet_cmd_fwbin = MK_FW   $@
- 		  echo "    .p2align $${ASM_ALIGN}"			>>$@;\
- 		  echo "_fw_$${FWSTR}_name:"				>>$@;\
- 		  echo "    .string \"$$FWNAME\""			>>$@;\
--		  echo "    .section .builtin_fw,\"a\",$${PROGBITS}"	>>$@;\
-+		  echo "    section_tbl_asmtype(SECTION_RODATA, builtin_fw, SECTION_ORDER_ANY, a,$${PROGBITS})"	>>$@;\
- 		  echo "    .p2align $${ASM_ALIGN}"			>>$@;\
- 		  echo "    $${ASM_WORD} _fw_$${FWSTR}_name"		>>$@;\
- 		  echo "    $${ASM_WORD} _fw_$${FWSTR}_bin"		>>$@;\
-diff --git a/include/asm-generic/vmlinux.lds.h b/include/asm-generic/vmlinux.lds.h
-index b3a9cd7bc947..8e31a4454841 100644
---- a/include/asm-generic/vmlinux.lds.h
-+++ b/include/asm-generic/vmlinux.lds.h
-@@ -313,13 +313,6 @@
- 		VMLINUX_SYMBOL(__end_pci_fixups_suspend_late) = .;	\
- 	}								\
- 									\
--	/* Built-in firmware blobs */					\
--	.builtin_fw        : AT(ADDR(.builtin_fw) - LOAD_OFFSET) {	\
--		VMLINUX_SYMBOL(__start_builtin_fw) = .;			\
--		*(.builtin_fw)						\
--		VMLINUX_SYMBOL(__end_builtin_fw) = .;			\
--	}								\
--									\
- 	TRACEDATA							\
- 									\
- 	/* Kernel symbol table: Normal symbols */			\
++config HAVE_HARDENED_USERCOPY_ALLOCATOR
++	bool
++	help
++	  The heap allocator implements __check_heap_object() for
++	  validating memory ranges against heap object sizes in
++	  support of CONFIG_HARDENED_USERCOPY.
++
++config HAVE_ARCH_HARDENED_USERCOPY
++	bool
++	help
++	  The architecture supports CONFIG_HARDENED_USERCOPY by
++	  calling check_object_size() just before performing the
++	  userspace copies in the low level implementation of
++	  copy_to_user() and copy_from_user().
++
++config HARDENED_USERCOPY
++	bool "Harden memory copies between kernel and userspace"
++	depends on HAVE_ARCH_HARDENED_USERCOPY
++	select BUG
++	help
++	  This option checks for obviously wrong memory regions when
++	  copying memory to/from the kernel (via copy_to_user() and
++	  copy_from_user() functions) by rejecting memory ranges that
++	  are larger than the specified heap object, span multiple
++	  separately allocates pages, are not on the process stack,
++	  or are part of the kernel text. This kills entire classes
++	  of heap overflow exploits and similar kernel memory exposures.
++
+ source security/selinux/Kconfig
+ source security/smack/Kconfig
+ source security/tomoyo/Kconfig
 -- 
-2.8.4
+2.7.4
 
