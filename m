@@ -1,45 +1,87 @@
-From: Kees Cook <keescook@chromium.org>
-Date: Wed, 20 Jul 2016 20:26:56 +0000
-Subject: [PATCH v4 01/12] mm: Add is_migrate_cma_page
-Message-Id: <1469046427-12696-2-git-send-email-keescook@chromium.org>
+From: "Luis R. Rodriguez" <mcgrof@kernel.org>
+Date: Fri, 22 Jul 2016 21:24:37 +0000
+Subject: [RFC v3 03/13] scripts/module-common.lds: enable generation
+Message-Id: <1469222687-1600-4-git-send-email-mcgrof@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1469046427-12696-1-git-send-email-keescook@chromium.org>
-In-Reply-To: <1469046427-12696-1-git-send-email-keescook@chromium.org>
+References: <1469222687-1600-1-git-send-email-mcgrof@kernel.org>
+In-Reply-To: <1469222687-1600-1-git-send-email-mcgrof@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: kernel-hardening@lists.openwall.com
-Cc: Kees Cook <keescook@chromium.org>, Laura Abbott <labbott@redhat.com>, Laura Abbott <labbott@fedoraproject.org>, Balbir Singh <bsingharora@gmail.com>, Daniel Micay <danielmicay@gmail.com>, Josh Poimboeuf <jpoimboe@redhat.com>, Rik van Riel <riel@redhat.com>, Casey Schaufler <casey@schaufler-ca.com>, PaX Team <pageexec@freemail.hu>, Brad Spengler <spender@grsecurity.net>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "David S. Miller" <davem@davemloft.net>, x86@kernel.org, Christoph Lameter <cl@linux.com>, Pekka Enberg <penberg@kernel.org>, David Rientjes <rientjes@google.com>, Joonsoo Kim <iamjoonsoo.kim@lge.com>, Andrew Morton <akpm@linux-foundation.org>, Andy Lutomirski <luto@kernel.org>, Borislav Petkov <bp@suse.de>, Mathias Krause <minipli@googlemail.com>, Jan Kara <jack@suse.cz>, Vitaly Wool <vitalywool@gmail.com>, Andrea Arcangeli <aarcange@redhat.com>, Dmitry Vyukov <dvyukov@google.com>, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org
+To: hpa@zytor.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, linux@arm.linux.org.uk, mhiramat@kernel.org, masami.hiramatsu.pt@hitachi.com, jbaron@akamai.com, heiko.carstens@de.ibm.com, ananth@linux.vnet.ibm.com, anil.s.keshavamurthy@intel.com, davem@davemloft.net, realmz6@gmail.com
+Cc: x86@kernel.org, luto@amacapital.net, keescook@chromium.org, torvalds@linux-foundation.org, gregkh@linuxfoundation.org, rusty@rustcorp.com.au, gnomes@lxorguk.ukuu.org.uk, alan@linux.intel.com, dwmw2@infradead.org, arnd@arndb.de, ming.lei@canonical.com, linux-arch@vger.kernel.org, benh@kernel.crashing.org, ananth@in.ibm.com, pebolle@tiscali.nl, fontana@sharpeleven.org, ciaran.farrell@suse.com, christopher.denicolo@suse.com, david.vrabel@citrix.com, konrad.wilk@oracle.com, mcb30@ipxe.org, jgross@suse.com, andrew.cooper3@citrix.com, andriy.shevchenko@linux.intel.com, paul.gortmaker@windriver.com, xen-devel@lists.xensource.com, ak@linux.intel.com, pali.rohar@gmail.com, dvhart@infradead.org, platform-driver-x86@vger.kernel.org, mmarek@suse.com, linux@rasmusvillemoes.dk, jkosina@suse.cz, korea.drzix@gmail.com, linux-kbuild@vger.kernel.org, tony.luck@intel.com, akpm@linux-foun
 
-From: Laura Abbott <labbott@redhat.com>
+scripts/module-common.lds is currently pretty static, in the
+future this may change and we will want access to kernel macros
+to help expands certain areas. To get access to use macros we
+need to generate module-common.lds from module-common.lds.S, for
+now though only enable the generation. We'll later expand on this
+as needed.
 
-Code such as hardened user copy[1] needs a way to tell if a
-page is CMA or not. Add is_migrate_cma_page in a similar way
-to is_migrate_isolate_page.
+Since this file is now generated add it to .gitignore.
 
-[1]http://article.gmane.org/gmane.linux.kernel.mm/155238
+v3: new to this series
 
-Signed-off-by: Laura Abbott <labbott@redhat.com>
-Signed-off-by: Kees Cook <keescook@chromium.org>
+Signed-off-by: Luis R. Rodriguez <mcgrof@kernel.org>
 ---
- include/linux/mmzone.h | 2 ++
- 1 file changed, 2 insertions(+)
+ .gitignore                                         | 2 ++
+ Makefile                                           | 6 +++++-
+ scripts/Makefile.modpost                           | 2 +-
+ scripts/{module-common.lds => module-common.lds.S} | 0
+ 4 files changed, 8 insertions(+), 2 deletions(-)
+ rename scripts/{module-common.lds => module-common.lds.S} (100%)
 
-diff --git a/include/linux/mmzone.h b/include/linux/mmzone.h
-index 02069c23486d..c8478b29f070 100644
---- a/include/linux/mmzone.h
-+++ b/include/linux/mmzone.h
-@@ -68,8 +68,10 @@ extern char * const migratetype_names[MIGRATE_TYPES];
+diff --git a/.gitignore b/.gitignore
+index 2be25f771bd8..14a94d939a6f 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -113,3 +113,5 @@ all.config
  
- #ifdef CONFIG_CMA
- #  define is_migrate_cma(migratetype) unlikely((migratetype) = MIGRATE_CMA)
-+#  define is_migrate_cma_page(_page) (get_pageblock_migratetype(_page) = MIGRATE_CMA)
- #else
- #  define is_migrate_cma(migratetype) false
-+#  define is_migrate_cma_page(_page) false
- #endif
+ # Kdevelop4
+ *.kdev4
++
++scripts/module-common.lds
+diff --git a/Makefile b/Makefile
+index caa33e007a8c..c56cca906769 100644
+--- a/Makefile
++++ b/Makefile
+@@ -408,6 +408,10 @@ KBUILD_AFLAGS_MODULE  := -DMODULE
+ KBUILD_CFLAGS_MODULE  := -DMODULE
+ KBUILD_LDFLAGS_MODULE := -T $(srctree)/scripts/module-common.lds
  
- #define for_each_migratetype_order(order, type) \
++$(srctree)/scripts/module-common.lds: $(srctree)/scripts/module-common.lds.S
++	$(Q)$(CC) $(CFLAGS) $(INCLUDES) $(LINUXINCLUDE) -E -P \
++		-D__ASSEMBLY__ -DLINKER_SCRIPT -o $@ $<
++
+ # Read KERNELRELEASE from include/config/kernel.release (if it exists)
+ KERNELRELEASE = $(shell cat include/config/kernel.release 2> /dev/null)
+ KERNELVERSION = $(VERSION)$(if $(PATCHLEVEL),.$(PATCHLEVEL)$(if $(SUBLEVEL),.$(SUBLEVEL)))$(EXTRAVERSION)
+@@ -1178,7 +1182,7 @@ all: modules
+ # using awk while concatenating to the final file.
+ 
+ PHONY += modules
+-modules: $(vmlinux-dirs) $(if $(KBUILD_BUILTIN),vmlinux) modules.builtin
++modules: $(srctree)/scripts/module-common.lds $(vmlinux-dirs) $(if $(KBUILD_BUILTIN),vmlinux) modules.builtin
+ 	$(Q)$(AWK) '!x[$$0]++' $(vmlinux-dirs:%=$(objtree)/%/modules.order) > $(objtree)/modules.order
+ 	@$(kecho) '  Building modules, stage 2.';
+ 	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.modpost
+diff --git a/scripts/Makefile.modpost b/scripts/Makefile.modpost
+index 1366a94b6c39..2d8aff7735d6 100644
+--- a/scripts/Makefile.modpost
++++ b/scripts/Makefile.modpost
+@@ -121,7 +121,7 @@ quiet_cmd_ld_ko_o = LD [M]  $@
+                              $(KBUILD_LDFLAGS_MODULE) $(LDFLAGS_MODULE) \
+                              -o $@ $(filter-out FORCE,$^)
+ 
+-$(modules): %.ko :%.o %.mod.o FORCE
++$(modules): %.ko : $(srctree)/scripts/module-common.lds %.o %.mod.o FORCE
+ 	$(call if_changed,ld_ko_o)
+ 
+ targets += $(modules)
+diff --git a/scripts/module-common.lds b/scripts/module-common.lds.S
+similarity index 100%
+rename from scripts/module-common.lds
+rename to scripts/module-common.lds.S
 -- 
-2.7.4
+2.8.4
 
