@@ -1,55 +1,42 @@
-From: Waiman Long <Waiman.Long@hpe.com>
-Date: Fri, 17 Jun 2016 15:41:27 +0000
-Subject: [RFC PATCH-tip/locking/core v3 01/10] locking/osq: Make lock/unlock proper acquire/release barrier
-Message-Id: <1466178096-5623-2-git-send-email-Waiman.Long@hpe.com>
+From: "Luis R. Rodriguez" <mcgrof@kernel.org>
+Date: Fri, 22 Jul 2016 21:24:36 +0000
+Subject: [RFC v3 02/13] dell-smo8800: include uaccess.h
+Message-Id: <1469222687-1600-3-git-send-email-mcgrof@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1466178096-5623-1-git-send-email-Waiman.Long@hpe.com>
-In-Reply-To: <1466178096-5623-1-git-send-email-Waiman.Long@hpe.com>
+References: <1469222687-1600-1-git-send-email-mcgrof@kernel.org>
+In-Reply-To: <1469222687-1600-1-git-send-email-mcgrof@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>
-Cc: linux-kernel@vger.kernel.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-arch@vger.kernel.org, linux-doc@vger.kernel.org, Davidlohr Bueso <dave@stgolabs.net>, Jason Low <jason.low2@hp.com>, Dave Chinner <david@fromorbit.com>, Jonathan Corbet <corbet@lwn.net>, Scott J Norton <scott.norton@hpe.com>, Douglas Hatch <doug.hatch@hpe.com>, Waiman Long <Waiman.Long@hpe.com>
+To: hpa@zytor.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, linux@arm.linux.org.uk, mhiramat@kernel.org, masami.hiramatsu.pt@hitachi.com, jbaron@akamai.com, heiko.carstens@de.ibm.com, ananth@linux.vnet.ibm.com, anil.s.keshavamurthy@intel.com, davem@davemloft.net, realmz6@gmail.com
+Cc: x86@kernel.org, luto@amacapital.net, keescook@chromium.org, torvalds@linux-foundation.org, gregkh@linuxfoundation.org, rusty@rustcorp.com.au, gnomes@lxorguk.ukuu.org.uk, alan@linux.intel.com, dwmw2@infradead.org, arnd@arndb.de, ming.lei@canonical.com, linux-arch@vger.kernel.org, benh@kernel.crashing.org, ananth@in.ibm.com, pebolle@tiscali.nl, fontana@sharpeleven.org, ciaran.farrell@suse.com, christopher.denicolo@suse.com, david.vrabel@citrix.com, konrad.wilk@oracle.com, mcb30@ipxe.org, jgross@suse.com, andrew.cooper3@citrix.com, andriy.shevchenko@linux.intel.com, paul.gortmaker@windriver.com, xen-devel@lists.xensource.com, ak@linux.intel.com, pali.rohar@gmail.com, dvhart@infradead.org, platform-driver-x86@vger.kernel.org, mmarek@suse.com, linux@rasmusvillemoes.dk, jkosina@suse.cz, korea.drzix@gmail.com, linux-kbuild@vger.kernel.org, tony.luck@intel.com, akpm@linux-foun
 
-The osq_lock() and osq_unlock() function may not provide the necessary
-acquire and release barrier in some cases. This patch makes sure
-that the proper barriers are provided when osq_lock() is successful
-or when osq_unlock() is called.
+sections.h is currently included and it provides dell-smo8800
+with what it needs, an upcoming change will decouple uaccess.h
+from sections.h. This driver needs to explicitly require uaccess.h
+before this change.
 
-The change on the unlock side is more for documentation purpose than
-is actually needed.
+v3: new to this series -- needed due to collateral of the split of
+    old linker tables from tables.h into 3 files: sections.h, ranges.h
+    and tables.h
 
-Suggested-by: Peter Zijlstra (Intel) <peterz@infradead.org>
-Signed-off-by: Waiman Long <Waiman.Long@hpe.com>
+Signed-off-by: Luis R. Rodriguez <mcgrof@kernel.org>
 ---
- kernel/locking/osq_lock.c |    7 ++++++-
- 1 files changed, 6 insertions(+), 1 deletions(-)
+ drivers/platform/x86/dell-smo8800.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/kernel/locking/osq_lock.c b/kernel/locking/osq_lock.c
-index 05a3785..d957b90 100644
---- a/kernel/locking/osq_lock.c
-+++ b/kernel/locking/osq_lock.c
-@@ -124,6 +124,11 @@ bool osq_lock(struct optimistic_spin_queue *lock)
+diff --git a/drivers/platform/x86/dell-smo8800.c b/drivers/platform/x86/dell-smo8800.c
+index 0aec4fd4c48e..37e646034ef8 100644
+--- a/drivers/platform/x86/dell-smo8800.c
++++ b/drivers/platform/x86/dell-smo8800.c
+@@ -24,6 +24,7 @@
+ #include <linux/acpi.h>
+ #include <linux/interrupt.h>
+ #include <linux/miscdevice.h>
++#include <linux/uaccess.h>
  
- 		cpu_relax_lowlatency();
- 	}
-+	/*
-+	 * Add an acquire memory barrier for pairing with the release barrier
-+	 * in unlock.
-+	 */
-+	smp_acquire__after_ctrl_dep();
- 	return true;
- 
- unqueue:
-@@ -198,7 +203,7 @@ void osq_unlock(struct optimistic_spin_queue *lock)
- 	 * Second most likely case.
- 	 */
- 	node = this_cpu_ptr(&osq_node);
--	next = xchg(&node->next, NULL);
-+	next = xchg_release(&node->next, NULL);
- 	if (next) {
- 		WRITE_ONCE(next->locked, 1);
- 		return;
+ struct smo8800_device {
+ 	u32 irq;                     /* acpi device irq */
 -- 
-1.7.1
+2.8.4
 
