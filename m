@@ -1,71 +1,147 @@
-From: Kees Cook <keescook@chromium.org>
-Date: Wed, 06 Jul 2016 22:25:22 +0000
-Subject: [PATCH 3/9] ARM: uaccess: Enable hardened usercopy
-Message-Id: <1467843928-29351-4-git-send-email-keescook@chromium.org>
+From: "Luis R. Rodriguez" <mcgrof@kernel.org>
+Date: Fri, 22 Jul 2016 21:24:45 +0000
+Subject: [RFC v3 11/13] dynamic_debug: port to use linker tables
+Message-Id: <1469222687-1600-12-git-send-email-mcgrof@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1467843928-29351-1-git-send-email-keescook@chromium.org>
-In-Reply-To: <1467843928-29351-1-git-send-email-keescook@chromium.org>
+References: <1469222687-1600-1-git-send-email-mcgrof@kernel.org>
+In-Reply-To: <1469222687-1600-1-git-send-email-mcgrof@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Kees Cook <keescook@chromium.org>, Rik van Riel <riel@redhat.com>, Casey Schaufler <casey@schaufler-ca.com>, PaX Team <pageexec@freemail.hu>, Brad Spengler <spender@grsecurity.net>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "David S. Miller" <davem@davemloft.net>, x86@kernel.org, Christoph Lameter <cl@linux.com>, Pekka Enberg <penberg@kernel.org>, David Rientjes <rientjes@google.com>, Joonsoo Kim <iamjoonsoo.kim@lge.com>, Andrew Morton <akpm@linux-foundation.org>, Andy Lutomirski <luto@kernel.org>, Borislav Petkov <bp@suse.de>, Mathias Krause <minipli@googlemail.com>, Jan Kara <jack@suse.cz>, Vitaly Wool <vitalywool@gmail.com>, Andrea Arcangeli <aarcange@redhat.com>, Dmitry Vyukov <dvyukov@google.com>, Laura Abbott <labbott@fedoraproject.org>, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org, kernel-hardening@lists.openwall.com
+To: hpa@zytor.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, linux@arm.linux.org.uk, mhiramat@kernel.org, masami.hiramatsu.pt@hitachi.com, jbaron@akamai.com, heiko.carstens@de.ibm.com, ananth@linux.vnet.ibm.com, anil.s.keshavamurthy@intel.com, davem@davemloft.net, realmz6@gmail.com
+Cc: x86@kernel.org, luto@amacapital.net, keescook@chromium.org, torvalds@linux-foundation.org, gregkh@linuxfoundation.org, rusty@rustcorp.com.au, gnomes@lxorguk.ukuu.org.uk, alan@linux.intel.com, dwmw2@infradead.org, arnd@arndb.de, ming.lei@canonical.com, linux-arch@vger.kernel.org, benh@kernel.crashing.org, ananth@in.ibm.com, pebolle@tiscali.nl, fontana@sharpeleven.org, ciaran.farrell@suse.com, christopher.denicolo@suse.com, david.vrabel@citrix.com, konrad.wilk@oracle.com, mcb30@ipxe.org, jgross@suse.com, andrew.cooper3@citrix.com, andriy.shevchenko@linux.intel.com, paul.gortmaker@windriver.com, xen-devel@lists.xensource.com, ak@linux.intel.com, pali.rohar@gmail.com, dvhart@infradead.org, platform-driver-x86@vger.kernel.org, mmarek@suse.com, linux@rasmusvillemoes.dk, jkosina@suse.cz, korea.drzix@gmail.com, linux-kbuild@vger.kernel.org, tony.luck@intel.com, akpm@linux-foun
 
-Enables CONFIG_HARDENED_USERCOPY checks on arm.
+This removes the custom vmlinux.lds.h hacks and uses
+the generalized solution for .data (SECTION_DATA)
+entries.
 
-Based on code from PaX and grsecurity.
+This is much more potential for further fine tuning here
+though in the future. For instance, linker tables enable
+an extra postfix for order level annotations, this could
+easily be used as the KBUILD_MODNAME and with a bit of
+linker table changes we may be able to get a direct O(1)
+count of the entries for that KBUILD_MODNAME: it would
+just be a count on the number of entries for the given
+order level. This should help make dynamic_debug_init()
+cleaner and also reduce the amount of time it takes at
+boot time. Instead of iterating over each print until we
+have all for a KBUILD_MODNAME, we'd instead directly
+operate on each KBUILD_MODNAME directly.
 
-Signed-off-by: Kees Cook <keescook@chromium.org>
+Tested dynamic debug with dyndbg query ana debugfs control
+and it works as expected, for both built-in code and modules.
+
+v3: added modular support
+v2: introduced this patch into the series
+
+Signed-off-by: Luis R. Rodriguez <mcgrof@kernel.org>
 ---
- arch/arm/Kconfig               |  1 +
- arch/arm/include/asm/uaccess.h | 11 +++++++++--
- 2 files changed, 10 insertions(+), 2 deletions(-)
+ include/asm-generic/vmlinux.lds.h |  5 -----
+ include/linux/dynamic_debug.h     |  5 +++--
+ lib/dynamic_debug.c               | 13 ++++++-------
+ scripts/module-common.lds.S       |  1 +
+ 4 files changed, 10 insertions(+), 14 deletions(-)
 
-diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
-index 90542db1220d..f56b29b3f57e 100644
---- a/arch/arm/Kconfig
-+++ b/arch/arm/Kconfig
-@@ -35,6 +35,7 @@ config ARM
- 	select HARDIRQS_SW_RESEND
- 	select HAVE_ARCH_AUDITSYSCALL if (AEABI && !OABI_COMPAT)
- 	select HAVE_ARCH_BITREVERSE if (CPU_32v7M || CPU_32v7) && !CPU_32v6
-+	select HAVE_ARCH_HARDENED_USERCOPY
- 	select HAVE_ARCH_JUMP_LABEL if !XIP_KERNEL && !CPU_ENDIAN_BE32 && MMU
- 	select HAVE_ARCH_KGDB if !CPU_ENDIAN_BE32 && MMU
- 	select HAVE_ARCH_MMAP_RND_BITS if MMU
-diff --git a/arch/arm/include/asm/uaccess.h b/arch/arm/include/asm/uaccess.h
-index 35c9db857ebe..7fb59199c6bb 100644
---- a/arch/arm/include/asm/uaccess.h
-+++ b/arch/arm/include/asm/uaccess.h
-@@ -496,7 +496,10 @@ arm_copy_from_user(void *to, const void __user *from, unsigned long n);
- static inline unsigned long __must_check
- __copy_from_user(void *to, const void __user *from, unsigned long n)
- {
--	unsigned int __ua_flags = uaccess_save_and_enable();
-+	unsigned int __ua_flags;
-+
-+	check_object_size(to, n, false);
-+	__ua_flags = uaccess_save_and_enable();
- 	n = arm_copy_from_user(to, from, n);
- 	uaccess_restore(__ua_flags);
- 	return n;
-@@ -511,11 +514,15 @@ static inline unsigned long __must_check
- __copy_to_user(void __user *to, const void *from, unsigned long n)
- {
- #ifndef CONFIG_UACCESS_WITH_MEMCPY
--	unsigned int __ua_flags = uaccess_save_and_enable();
-+	unsigned int __ua_flags;
-+
-+	check_object_size(from, n, true);
-+	__ua_flags = uaccess_save_and_enable();
- 	n = arm_copy_to_user(to, from, n);
- 	uaccess_restore(__ua_flags);
- 	return n;
- #else
-+	check_object_size(from, n, true);
- 	return arm_copy_to_user(to, from, n);
+diff --git a/include/asm-generic/vmlinux.lds.h b/include/asm-generic/vmlinux.lds.h
+index e186432a82e6..8048242b6a76 100644
+--- a/include/asm-generic/vmlinux.lds.h
++++ b/include/asm-generic/vmlinux.lds.h
+@@ -209,11 +209,6 @@
+ 	*(.data.unlikely)						\
+ 	STRUCT_ALIGN();							\
+ 	*(__tracepoints)						\
+-	/* implement dynamic printk debug */				\
+-	. = ALIGN(8);							\
+-	VMLINUX_SYMBOL(__start___verbose) = .;                          \
+-	*(__verbose)                                                    \
+-	VMLINUX_SYMBOL(__stop___verbose) = .;				\
+ 	LIKELY_PROFILE()		       				\
+ 	BRANCH_PROFILE()						\
+ 	TRACE_PRINTKS()							\
+diff --git a/include/linux/dynamic_debug.h b/include/linux/dynamic_debug.h
+index 546d68057e3b..a52618a77b09 100644
+--- a/include/linux/dynamic_debug.h
++++ b/include/linux/dynamic_debug.h
+@@ -4,6 +4,7 @@
+ #if defined(CC_HAVE_ASM_GOTO) && defined(CONFIG_JUMP_LABEL)
+ #include <linux/jump_label.h>
  #endif
- }
++#include <linux/tables.h>
+ 
+ /*
+  * An instance of this structure is created in a special
+@@ -50,6 +51,7 @@ int ddebug_add_module(struct _ddebug *tab, unsigned int n,
+ 				const char *modname);
+ 
+ #if defined(CONFIG_DYNAMIC_DEBUG)
++DECLARE_LINKTABLE(struct _ddebug, __verbose);
+ extern int ddebug_remove_module(const char *mod_name);
+ extern __printf(2, 3)
+ void __dynamic_pr_debug(struct _ddebug *descriptor, const char *fmt, ...);
+@@ -71,8 +73,7 @@ void __dynamic_netdev_dbg(struct _ddebug *descriptor,
+ 			  const char *fmt, ...);
+ 
+ #define DEFINE_DYNAMIC_DEBUG_METADATA_KEY(name, fmt, key, init)	\
+-	static struct _ddebug  __aligned(8)			\
+-	__attribute__((section("__verbose"))) name = {		\
++	static LINKTABLE(__verbose, SECTION_ORDER_ANY) name = {	\
+ 		.modname = KBUILD_MODNAME,			\
+ 		.function = __func__,				\
+ 		.filename = __FILE__,				\
+diff --git a/lib/dynamic_debug.c b/lib/dynamic_debug.c
+index da796e2dc4f5..f0060c84c654 100644
+--- a/lib/dynamic_debug.c
++++ b/lib/dynamic_debug.c
+@@ -37,8 +37,7 @@
+ #include <linux/device.h>
+ #include <linux/netdevice.h>
+ 
+-extern struct _ddebug __start___verbose[];
+-extern struct _ddebug __stop___verbose[];
++DEFINE_LINKTABLE(struct _ddebug, __verbose);
+ 
+ struct ddebug_table {
+ 	struct list_head link;
+@@ -978,14 +977,14 @@ static int __init dynamic_debug_init(void)
+ 	int n = 0, entries = 0, modct = 0;
+ 	int verbose_bytes = 0;
+ 
+-	if (__start___verbose = __stop___verbose) {
+-		pr_warn("_ddebug table is empty in a CONFIG_DYNAMIC_DEBUG build\n");
++	if (LINUX_SECTION_EMPTY(__verbose)) {
++		pr_warn("dynamic debug linker table empty on CONFIG_DYNAMIC_DEBUG build\n");
+ 		return 1;
+ 	}
+-	iter = __start___verbose;
++	iter = LINUX_SECTION_START(__verbose);
+ 	modname = iter->modname;
+ 	iter_start = iter;
+-	for (; iter < __stop___verbose; iter++) {
++	LINKTABLE_FOR_EACH(iter, __verbose) {
+ 		entries++;
+ 		verbose_bytes += strlen(iter->modname) + strlen(iter->function)
+ 			+ strlen(iter->filename) + strlen(iter->format);
+@@ -1008,7 +1007,7 @@ static int __init dynamic_debug_init(void)
+ 	ddebug_init_success = 1;
+ 	vpr_info("%d modules, %d entries and %d bytes in ddebug tables, %d bytes in (readonly) verbose section\n",
+ 		 modct, entries, (int)(modct * sizeof(struct ddebug_table)),
+-		 verbose_bytes + (int)(__stop___verbose - __start___verbose));
++		 verbose_bytes + (int)(LINUX_SECTION_SIZE(__verbose)));
+ 
+ 	/* apply ddebug_query boot param, dont unload tables on err */
+ 	if (ddebug_setup_string[0] != '\0') {
+diff --git a/scripts/module-common.lds.S b/scripts/module-common.lds.S
+index d51140103ece..fec57aa5f4f1 100644
+--- a/scripts/module-common.lds.S
++++ b/scripts/module-common.lds.S
+@@ -21,6 +21,7 @@ SECTIONS {
+ 	__kcrctab_unused_gpl	0 : { *(SORT(___kcrctab_unused_gpl+*)) }
+ 	__kcrctab_gpl_future	0 : { *(SORT(___kcrctab_gpl_future+*)) }
+ 	__jump_table		0 : { *(SORT(SECTION_TBL(SECTION_DATA, __jump_table, *))) }
++	__verbose		0 : { *(SORT(SECTION_TBL(SECTION_DATA, __verbose, *))) }
+ 
+ 	. = ALIGN(8);
+ 	.init_array		0 : { *(SORT(.init_array.*)) *(.init_array) }
 -- 
-2.7.4
+2.8.4
 
