@@ -1,81 +1,157 @@
-From: Kees Cook <keescook@chromium.org>
-Date: Fri, 15 Jul 2016 21:44:24 +0000
-Subject: [PATCH v3 10/11] mm: SLAB hardened usercopy support
-Message-Id: <1468619065-3222-11-git-send-email-keescook@chromium.org>
+From: "Luis R. Rodriguez" <mcgrof@kernel.org>
+Date: Fri, 22 Jul 2016 21:24:43 +0000
+Subject: [RFC v3 09/13] firmware: port built-in section to linker table
+Message-Id: <1469222687-1600-10-git-send-email-mcgrof@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1468619065-3222-1-git-send-email-keescook@chromium.org>
-In-Reply-To: <1468619065-3222-1-git-send-email-keescook@chromium.org>
+References: <1469222687-1600-1-git-send-email-mcgrof@kernel.org>
+In-Reply-To: <1469222687-1600-1-git-send-email-mcgrof@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Kees Cook <keescook@chromium.org>, Balbir Singh <bsingharora@gmail.com>, Daniel Micay <danielmicay@gmail.com>, Josh Poimboeuf <jpoimboe@redhat.com>, Rik van Riel <riel@redhat.com>, Casey Schaufler <casey@schaufler-ca.com>, PaX Team <pageexec@freemail.hu>, Brad Spengler <spender@grsecurity.net>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "David S. Miller" <davem@davemloft.net>, x86@kernel.org, Christoph Lameter <cl@linux.com>, Pekka Enberg <penberg@kernel.org>, David Rientjes <rientjes@google.com>, Joonsoo Kim <iamjoonsoo.kim@lge.com>, Andrew Morton <akpm@linux-foundation.org>, Andy Lutomirski <luto@kernel.org>, Borislav Petkov <bp@suse.de>, Mathias Krause <minipli@googlemail.com>, Jan Kara <jack@suse.cz>, Vitaly Wool <vitalywool@gmail.com>, Andrea Arcangeli <aarcange@redhat.com>, Dmitry Vyukov <dvyukov@google.com>, Laura Abbott <labbott@fedoraproject.org>, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org, kernel-hardening@lists.openwall.com
+To: hpa@zytor.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, linux@arm.linux.org.uk, mhiramat@kernel.org, masami.hiramatsu.pt@hitachi.com, jbaron@akamai.com, heiko.carstens@de.ibm.com, ananth@linux.vnet.ibm.com, anil.s.keshavamurthy@intel.com, davem@davemloft.net, realmz6@gmail.com
+Cc: x86@kernel.org, luto@amacapital.net, keescook@chromium.org, torvalds@linux-foundation.org, gregkh@linuxfoundation.org, rusty@rustcorp.com.au, gnomes@lxorguk.ukuu.org.uk, alan@linux.intel.com, dwmw2@infradead.org, arnd@arndb.de, ming.lei@canonical.com, linux-arch@vger.kernel.org, benh@kernel.crashing.org, ananth@in.ibm.com, pebolle@tiscali.nl, fontana@sharpeleven.org, ciaran.farrell@suse.com, christopher.denicolo@suse.com, david.vrabel@citrix.com, konrad.wilk@oracle.com, mcb30@ipxe.org, jgross@suse.com, andrew.cooper3@citrix.com, andriy.shevchenko@linux.intel.com, paul.gortmaker@windriver.com, xen-devel@lists.xensource.com, ak@linux.intel.com, pali.rohar@gmail.com, dvhart@infradead.org, platform-driver-x86@vger.kernel.org, mmarek@suse.com, linux@rasmusvillemoes.dk, jkosina@suse.cz, korea.drzix@gmail.com, linux-kbuild@vger.kernel.org, tony.luck@intel.com, akpm@linux-foun
 
-Under CONFIG_HARDENED_USERCOPY, this adds object size checking to the
-SLAB allocator to catch any copies that may span objects.
+This ports built-in firmware to use linker tables,
+this replaces the custom section solution with a
+generic solution.
 
-Based on code from PaX and grsecurity.
+This also demos the use of the .rodata (SECTION_RO)
+linker tables.
 
-Signed-off-by: Kees Cook <keescook@chromium.org>
-Tested-By: Valdis Kletnieks <valdis.kletnieks@vt.edu>
+Tested with 0 built-in firmware, 1 and 2 built-in
+firmwares successfully.
+
+v3:
+o explicitly include tables.h as we no longer include
+  tables.h from sections.h
+
+o use new section_tbl_asmtype() helper on firmware/Makefile
+  to enable having to unfold things on our own.
+
+v2: introduced this file in this version of the series
+
+Signed-off-by: Luis R. Rodriguez <mcgrof@kernel.org>
 ---
- init/Kconfig |  1 +
- mm/slab.c    | 30 ++++++++++++++++++++++++++++++
- 2 files changed, 31 insertions(+)
+ arch/x86/kernel/cpu/microcode/core.c |  8 ++++----
+ drivers/base/firmware_class.c        | 12 ++++++------
+ firmware/Makefile                    |  4 +++-
+ include/asm-generic/vmlinux.lds.h    |  7 -------
+ 4 files changed, 13 insertions(+), 18 deletions(-)
 
-diff --git a/init/Kconfig b/init/Kconfig
-index f755a602d4a1..798c2020ee7c 100644
---- a/init/Kconfig
-+++ b/init/Kconfig
-@@ -1757,6 +1757,7 @@ choice
+diff --git a/arch/x86/kernel/cpu/microcode/core.c b/arch/x86/kernel/cpu/microcode/core.c
+index df04b2d033f6..3e7c08d99601 100644
+--- a/arch/x86/kernel/cpu/microcode/core.c
++++ b/arch/x86/kernel/cpu/microcode/core.c
+@@ -31,6 +31,7 @@
+ #include <linux/cpu.h>
+ #include <linux/fs.h>
+ #include <linux/mm.h>
++#include <linux/tables.h>
  
- config SLAB
- 	bool "SLAB"
-+	select HAVE_HARDENED_USERCOPY_ALLOCATOR
- 	help
- 	  The regular slab allocator that is established and known to work
- 	  well in all environments. It organizes cache hot objects in
-diff --git a/mm/slab.c b/mm/slab.c
-index cc8bbc1e6bc9..5e2d5f349aca 100644
---- a/mm/slab.c
-+++ b/mm/slab.c
-@@ -4477,6 +4477,36 @@ static int __init slab_proc_init(void)
- module_init(slab_proc_init);
- #endif
+ #include <asm/microcode_intel.h>
+ #include <asm/cpu_device_id.h>
+@@ -91,15 +92,14 @@ static bool __init check_loader_disabled_bsp(void)
+ 	return *res;
+ }
  
-+#ifdef CONFIG_HARDENED_USERCOPY
-+/*
-+ * Rejects objects that are incorrectly sized.
-+ *
-+ * Returns NULL if check passes, otherwise const char * to name of cache
-+ * to indicate an error.
-+ */
-+const char *__check_heap_object(const void *ptr, unsigned long n,
-+				struct page *page)
-+{
-+	struct kmem_cache *cachep;
-+	unsigned int objnr;
-+	unsigned long offset;
-+
-+	/* Find and validate object. */
-+	cachep = page->slab_cache;
-+	objnr = obj_to_index(cachep, page, (void *)ptr);
-+	BUG_ON(objnr >= cachep->num);
-+
-+	/* Find offset within object. */
-+	offset = ptr - index_to_obj(cachep, page, objnr) - obj_offset(cachep);
-+
-+	/* Allow address range falling entirely within object size. */
-+	if (offset <= cachep->object_size && n <= cachep->object_size - offset)
-+		return NULL;
-+
-+	return cachep->name;
-+}
-+#endif /* CONFIG_HARDENED_USERCOPY */
-+
- /**
-  * ksize - get the actual amount of memory allocated for a given object
-  * @objp: Pointer to the object
+-extern struct builtin_fw __start_builtin_fw[];
+-extern struct builtin_fw __end_builtin_fw[];
++DECLARE_LINKTABLE_RO(struct builtin_fw, builtin_fw);
+ 
+ bool get_builtin_firmware(struct cpio_data *cd, const char *name)
+ {
+ #ifdef CONFIG_FW_LOADER
+-	struct builtin_fw *b_fw;
++	const struct builtin_fw *b_fw;
+ 
+-	for (b_fw = __start_builtin_fw; b_fw != __end_builtin_fw; b_fw++) {
++	LINKTABLE_FOR_EACH(b_fw, builtin_fw) {
+ 		if (!strcmp(name, b_fw->name)) {
+ 			cd->size = b_fw->size;
+ 			cd->data = b_fw->data;
+diff --git a/drivers/base/firmware_class.c b/drivers/base/firmware_class.c
+index 22d1760a4278..8fbf03c3e4c2 100644
+--- a/drivers/base/firmware_class.c
++++ b/drivers/base/firmware_class.c
+@@ -30,6 +30,7 @@
+ #include <linux/syscore_ops.h>
+ #include <linux/reboot.h>
+ #include <linux/security.h>
++#include <linux/tables.h>
+ 
+ #include <generated/utsrelease.h>
+ 
+@@ -43,15 +44,14 @@ MODULE_LICENSE("GPL");
+ 
+ #ifdef CONFIG_FW_LOADER
+ 
+-extern struct builtin_fw __start_builtin_fw[];
+-extern struct builtin_fw __end_builtin_fw[];
++DEFINE_LINKTABLE_RO(struct builtin_fw, builtin_fw);
+ 
+ static bool fw_get_builtin_firmware(struct firmware *fw, const char *name,
+ 				    void *buf, size_t size)
+ {
+-	struct builtin_fw *b_fw;
++	const struct builtin_fw *b_fw;
+ 
+-	for (b_fw = __start_builtin_fw; b_fw != __end_builtin_fw; b_fw++) {
++	LINKTABLE_FOR_EACH(b_fw, builtin_fw) {
+ 		if (strcmp(name, b_fw->name) = 0) {
+ 			fw->size = b_fw->size;
+ 			fw->data = b_fw->data;
+@@ -67,9 +67,9 @@ static bool fw_get_builtin_firmware(struct firmware *fw, const char *name,
+ 
+ static bool fw_is_builtin_firmware(const struct firmware *fw)
+ {
+-	struct builtin_fw *b_fw;
++	const struct builtin_fw *b_fw;
+ 
+-	for (b_fw = __start_builtin_fw; b_fw != __end_builtin_fw; b_fw++)
++	LINKTABLE_FOR_EACH(b_fw, builtin_fw)
+ 		if (fw->data = b_fw->data)
+ 			return true;
+ 
+diff --git a/firmware/Makefile b/firmware/Makefile
+index fa3e81c2a97b..32304a227f09 100644
+--- a/firmware/Makefile
++++ b/firmware/Makefile
+@@ -155,6 +155,8 @@ quiet_cmd_fwbin = MK_FW   $@
+ 		  ASM_ALIGN=$(if $(CONFIG_64BIT),3,2);			     \
+ 		  PROGBITS=$(if $(CONFIG_ARM),%,@)progbits;		     \
+ 		  echo "/* Generated by firmware/Makefile */"		> $@;\
++		  echo "\#include <asm/sections.h>"			>>$@;\
++		  echo "\#include <asm/tables.h>"			>>$@;\
+ 		  echo "    .section .rodata"				>>$@;\
+ 		  echo "    .p2align $${ASM_ALIGN}"			>>$@;\
+ 		  echo "_fw_$${FWSTR}_bin:"				>>$@;\
+@@ -164,7 +166,7 @@ quiet_cmd_fwbin = MK_FW   $@
+ 		  echo "    .p2align $${ASM_ALIGN}"			>>$@;\
+ 		  echo "_fw_$${FWSTR}_name:"				>>$@;\
+ 		  echo "    .string \"$$FWNAME\""			>>$@;\
+-		  echo "    .section .builtin_fw,\"a\",$${PROGBITS}"	>>$@;\
++		  echo "    section_tbl_asmtype(SECTION_RODATA, builtin_fw, SECTION_ORDER_ANY, a,$${PROGBITS})"	>>$@;\
+ 		  echo "    .p2align $${ASM_ALIGN}"			>>$@;\
+ 		  echo "    $${ASM_WORD} _fw_$${FWSTR}_name"		>>$@;\
+ 		  echo "    $${ASM_WORD} _fw_$${FWSTR}_bin"		>>$@;\
+diff --git a/include/asm-generic/vmlinux.lds.h b/include/asm-generic/vmlinux.lds.h
+index b3a9cd7bc947..8e31a4454841 100644
+--- a/include/asm-generic/vmlinux.lds.h
++++ b/include/asm-generic/vmlinux.lds.h
+@@ -313,13 +313,6 @@
+ 		VMLINUX_SYMBOL(__end_pci_fixups_suspend_late) = .;	\
+ 	}								\
+ 									\
+-	/* Built-in firmware blobs */					\
+-	.builtin_fw        : AT(ADDR(.builtin_fw) - LOAD_OFFSET) {	\
+-		VMLINUX_SYMBOL(__start_builtin_fw) = .;			\
+-		*(.builtin_fw)						\
+-		VMLINUX_SYMBOL(__end_builtin_fw) = .;			\
+-	}								\
+-									\
+ 	TRACEDATA							\
+ 									\
+ 	/* Kernel symbol table: Normal symbols */			\
 -- 
-2.7.4
+2.8.4
 
