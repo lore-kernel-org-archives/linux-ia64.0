@@ -1,97 +1,43 @@
-From: Kees Cook <keescook@chromium.org>
-Date: Wed, 06 Jul 2016 22:25:25 +0000
-Subject: [PATCH 6/9] powerpc/uaccess: Enable hardened usercopy
-Message-Id: <1467843928-29351-7-git-send-email-keescook@chromium.org>
+From: "Luis R. Rodriguez" <mcgrof@kernel.org>
+Date: Fri, 22 Jul 2016 21:24:42 +0000
+Subject: [RFC v3 08/13] firmware/Makefile: force recompilation if makefile changes
+Message-Id: <1469222687-1600-9-git-send-email-mcgrof@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1467843928-29351-1-git-send-email-keescook@chromium.org>
-In-Reply-To: <1467843928-29351-1-git-send-email-keescook@chromium.org>
+References: <1469222687-1600-1-git-send-email-mcgrof@kernel.org>
+In-Reply-To: <1469222687-1600-1-git-send-email-mcgrof@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Kees Cook <keescook@chromium.org>, Rik van Riel <riel@redhat.com>, Casey Schaufler <casey@schaufler-ca.com>, PaX Team <pageexec@freemail.hu>, Brad Spengler <spender@grsecurity.net>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "David S. Miller" <davem@davemloft.net>, x86@kernel.org, Christoph Lameter <cl@linux.com>, Pekka Enberg <penberg@kernel.org>, David Rientjes <rientjes@google.com>, Joonsoo Kim <iamjoonsoo.kim@lge.com>, Andrew Morton <akpm@linux-foundation.org>, Andy Lutomirski <luto@kernel.org>, Borislav Petkov <bp@suse.de>, Mathias Krause <minipli@googlemail.com>, Jan Kara <jack@suse.cz>, Vitaly Wool <vitalywool@gmail.com>, Andrea Arcangeli <aarcange@redhat.com>, Dmitry Vyukov <dvyukov@google.com>, Laura Abbott <labbott@fedoraproject.org>, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org, kernel-hardening@lists.openwall.com
+To: hpa@zytor.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, linux@arm.linux.org.uk, mhiramat@kernel.org, masami.hiramatsu.pt@hitachi.com, jbaron@akamai.com, heiko.carstens@de.ibm.com, ananth@linux.vnet.ibm.com, anil.s.keshavamurthy@intel.com, davem@davemloft.net, realmz6@gmail.com
+Cc: gnomes@lxorguk.ukuu.org.uk, linux-ia64@vger.kernel.org, jkosina@suse.cz, benh@kernel.crashing.org, ming.lei@canonical.com, linux@rasmusvillemoes.dk, platform-driver-x86@vger.kernel.org, paul.gortmaker@windriver.com, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, xen-devel@lists.xensource.com, linux-sh@vger.kernel.org, x86@kernel.org, fontana@sharpeleven.org, linux-arm-kernel@lists.infradead.org, catalin.marinas@arm.com, dvhart@infradead.org, dwmw2@infradead.org, pali.rohar@gmail.com, keescook@chromium.org, arnd@arndb.de, will.deacon@arm.com, rusty@rustcorp.com.au, rostedt@goodmis.org, christopher.denicolo@suse.com, ak@linux.intel.com, ciaran.farrell@suse.com, jpoimboe@redhat.com, andriy.shevchenko@linux.intel.com, mcb30@ipxe.org, linux-kbuild@vger.kernel.org, alan@linux.intel.com, jgross@suse.com, pebolle@tiscali.nl, tony.luck@intel.com, ananth@in.ibm.com, gregk
 
-Enables CONFIG_HARDENED_USERCOPY checks on powerpc.
+If you modify the target asm we currently do not force the
+recompilation of the firmware files. The target asm is in
+the firmware/Makefile, peg this file as a dependency to
+require re-compilation of firmware targets when the asm
+changes.
 
-Based on code from PaX and grsecurity.
+v3: introduced in this series
 
-Signed-off-by: Kees Cook <keescook@chromium.org>
+Signed-off-by: Luis R. Rodriguez <mcgrof@kernel.org>
 ---
- arch/powerpc/Kconfig               |  1 +
- arch/powerpc/include/asm/uaccess.h | 21 +++++++++++++++++++--
- 2 files changed, 20 insertions(+), 2 deletions(-)
+ firmware/Makefile | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/arch/powerpc/Kconfig b/arch/powerpc/Kconfig
-index 01f7464d9fea..b7a18b2604be 100644
---- a/arch/powerpc/Kconfig
-+++ b/arch/powerpc/Kconfig
-@@ -164,6 +164,7 @@ config PPC
- 	select ARCH_HAS_UBSAN_SANITIZE_ALL
- 	select ARCH_SUPPORTS_DEFERRED_STRUCT_PAGE_INIT
- 	select HAVE_LIVEPATCH if HAVE_DYNAMIC_FTRACE_WITH_REGS
-+	select HAVE_ARCH_HARDENED_USERCOPY
+diff --git a/firmware/Makefile b/firmware/Makefile
+index e297e1b52636..fa3e81c2a97b 100644
+--- a/firmware/Makefile
++++ b/firmware/Makefile
+@@ -176,7 +176,8 @@ quiet_cmd_fwbin = MK_FW   $@
+ wordsize_deps := $(wildcard include/config/64bit.h include/config/32bit.h \
+ 		include/config/ppc32.h include/config/ppc64.h \
+ 		include/config/superh32.h include/config/superh64.h \
+-		include/config/x86_32.h include/config/x86_64.h)
++		include/config/x86_32.h include/config/x86_64.h \
++		firmware/Makefile)
  
- config GENERIC_CSUM
- 	def_bool CPU_LITTLE_ENDIAN
-diff --git a/arch/powerpc/include/asm/uaccess.h b/arch/powerpc/include/asm/uaccess.h
-index b7c20f0b8fbe..c1dc6c14deb8 100644
---- a/arch/powerpc/include/asm/uaccess.h
-+++ b/arch/powerpc/include/asm/uaccess.h
-@@ -310,10 +310,15 @@ static inline unsigned long copy_from_user(void *to,
- {
- 	unsigned long over;
- 
--	if (access_ok(VERIFY_READ, from, n))
-+	if (access_ok(VERIFY_READ, from, n)) {
-+		if (!__builtin_constant_p(n))
-+			check_object_size(to, n, false);
- 		return __copy_tofrom_user((__force void __user *)to, from, n);
-+	}
- 	if ((unsigned long)from < TASK_SIZE) {
- 		over = (unsigned long)from + n - TASK_SIZE;
-+		if (!__builtin_constant_p(n - over))
-+			check_object_size(to, n - over, false);
- 		return __copy_tofrom_user((__force void __user *)to, from,
- 				n - over) + over;
- 	}
-@@ -325,10 +330,15 @@ static inline unsigned long copy_to_user(void __user *to,
- {
- 	unsigned long over;
- 
--	if (access_ok(VERIFY_WRITE, to, n))
-+	if (access_ok(VERIFY_WRITE, to, n)) {
-+		if (!__builtin_constant_p(n))
-+			check_object_size(from, n, true);
- 		return __copy_tofrom_user(to, (__force void __user *)from, n);
-+	}
- 	if ((unsigned long)to < TASK_SIZE) {
- 		over = (unsigned long)to + n - TASK_SIZE;
-+		if (!__builtin_constant_p(n))
-+			check_object_size(from, n - over, true);
- 		return __copy_tofrom_user(to, (__force void __user *)from,
- 				n - over) + over;
- 	}
-@@ -372,6 +382,10 @@ static inline unsigned long __copy_from_user_inatomic(void *to,
- 		if (ret = 0)
- 			return 0;
- 	}
-+
-+	if (!__builtin_constant_p(n))
-+		check_object_size(to, n, false);
-+
- 	return __copy_tofrom_user((__force void __user *)to, from, n);
- }
- 
-@@ -398,6 +412,9 @@ static inline unsigned long __copy_to_user_inatomic(void __user *to,
- 		if (ret = 0)
- 			return 0;
- 	}
-+	if (!__builtin_constant_p(n))
-+		check_object_size(from, n, true);
-+
- 	return __copy_tofrom_user(to, (__force const void __user *)from, n);
- }
- 
+ $(patsubst %,$(obj)/%.gen.S, $(fw-shipped-y)): %: $(wordsize_deps)
+ 	$(call cmd,fwbin,$(patsubst %.gen.S,%,$@))
 -- 
-2.7.4
+2.8.4
 
