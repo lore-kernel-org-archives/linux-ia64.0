@@ -1,145 +1,374 @@
-From: Kees Cook <keescook@chromium.org>
-Date: Mon, 11 Jul 2016 18:40:15 +0000
-Subject: Re: [PATCH 0/9] mm: Hardened usercopy
-Message-Id: <CAGXu5jKO2Yihuaw7f087tdAWPQZE+nk+6bdC5VWRws3f1V1y1g@mail.gmail.com>
+From: "Luis R. Rodriguez" <mcgrof@kernel.org>
+Date: Fri, 22 Jul 2016 21:24:34 +0000
+Subject: [RFC v3 00/13] linux: generalize sections, ranges and linker tables
+Message-Id: <1469222687-1600-1-git-send-email-mcgrof@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1467843928-29351-1-git-send-email-keescook@chromium.org>
- <578185D4.29090.242668C8@pageexec.freemail.hu> <20160710091632.GA14172@gmail.com>
- <5782398B.32731.26E46C3D@pageexec.freemail.hu> <CALCETrXfdEbmSTs6XkZjHkAc3W_380bpde4bWQgRA5CQM0PtLA@mail.gmail.com>
-In-Reply-To: <CALCETrXfdEbmSTs6XkZjHkAc3W_380bpde4bWQgRA5CQM0PtLA@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andy Lutomirski <luto@amacapital.net>
-Cc: PaX Team <pageexec@freemail.hu>, Ingo Molnar <mingo@kernel.org>, Christoph Lameter <cl@linux.com>, Andrew Morton <akpm@linux-foundation.org>, Brad Spengler <spender@grsecurity.net>, Pekka Enberg <penberg@kernel.org>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Casey Schaufler <casey@schaufler-ca.com>, Will Deacon <will.deacon@arm.com>, Rik van Riel <riel@redhat.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Dmitry Vyukov <dvyukov@google.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, X86 ML <x86@kernel.org>, Catalin Marinas <catalin.marinas@arm.com>, linux-arch <linux-arch@vger.kernel.org>, David Rientjes <rientjes@google.com>, Mathias Krause <minipli@googlemail.com>, "kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>, "David S. Miller" <davem@davemloft.net>, Laura Abbott <labbott@fedoraproject.org>, "linux-mm@kvack.org" <linux-mm@kvack.org>, Jan Kara <jack@suse.cz>, Russell King <linux@armlinux.org.uk>, Michael Ellerman <mpe@ellerman.id.au>, Andrea Arcangeli <aarcange@redhat.com>, Fenghua Yu <fenghua.yu@intel.com>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, Vitaly Wool <vitalywool@gmail.com>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Borislav Petkov <bp@suse.de>, Tony Luck <tony.luck@intel.com>, Joonsoo Kim <iamjoonsoo.kim@lge.com>, sparclinux <sparclinux@vger.kernel.org>, Linus Torvalds <torvalds@linux-foundation.org>, Thomas Gleixner <tglx@linutronix.de>, Peter Zijlstra <a.p.zijlstra@chello.nl>, "H. Peter Anvin" <hpa@zytor.com>
+To: hpa@zytor.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, linux@arm.linux.org.uk, mhiramat@kernel.org, masami.hiramatsu.pt@hitachi.com, jbaron@akamai.com, heiko.carstens@de.ibm.com, ananth@linux.vnet.ibm.com, anil.s.keshavamurthy@intel.com, davem@davemloft.net, realmz6@gmail.com
+Cc: x86@kernel.org, luto@amacapital.net, keescook@chromium.org, torvalds@linux-foundation.org, gregkh@linuxfoundation.org, rusty@rustcorp.com.au, gnomes@lxorguk.ukuu.org.uk, alan@linux.intel.com, dwmw2@infradead.org, arnd@arndb.de, ming.lei@canonical.com, linux-arch@vger.kernel.org, benh@kernel.crashing.org, ananth@in.ibm.com, pebolle@tiscali.nl, fontana@sharpeleven.org, ciaran.farrell@suse.com, christopher.denicolo@suse.com, david.vrabel@citrix.com, konrad.wilk@oracle.com, mcb30@ipxe.org, jgross@suse.com, andrew.cooper3@citrix.com, andriy.shevchenko@linux.intel.com, paul.gortmaker@windriver.com, xen-devel@lists.xensource.com, ak@linux.intel.com, pali.rohar@gmail.com, dvhart@infradead.org, platform-driver-x86@vger.kernel.org, mmarek@suse.com, linux@rasmusvillemoes.dk, jkosina@suse.cz, korea.drzix@gmail.com, linux-kbuild@vger.kernel.org, tony.luck@intel.com, akpm@linux-foun
 
-On Sun, Jul 10, 2016 at 8:38 AM, Andy Lutomirski <luto@amacapital.net> wrote:
-> On Sun, Jul 10, 2016 at 5:03 AM, PaX Team <pageexec@freemail.hu> wrote:
->> On 10 Jul 2016 at 11:16, Ingo Molnar wrote:
->>
->>> * PaX Team <pageexec@freemail.hu> wrote:
->>>
->>> > On 9 Jul 2016 at 14:27, Andy Lutomirski wrote:
->>> >
->>> > > I like the series, but I have one minor nit to pick.  The effect of this
->>> > > series is to harden usercopy, but most of the code is really about
->>> > > infrastructure to validate that a pointed-to object is valid.
->>> >
->>> > actually USERCOPY has never been about validating pointers. its sole purpose is
->>> > to validate the *size* argument of copy*user calls, a very specific form of
->>> > runtime bounds checking.
->>>
->>> What this code has been about originally is largely immaterial, unless you can
->>> formulate it into a technical argument.
->>
->> we design defense mechanisms for specific and clear purposes, starting with
->> a threat model, evaluating defense options based on various criteria, etc.
->> USERCOPY underwent this same process and taking it out of its original context
->> means that all you get in the end is cargo cult security (wouldn't be the first
->> time it has happened (ExecShield, ASLR, etc)).
->>
->> that said, i actually started that discussion but for some reason you chose
->> not to respond to that one part of my mail so let me ask it again:
->>
->>   what kind of checks are you thinking of here? and more fundamentally, against
->>   what kind of threats?
->>
->> as far as i'm concerned, a defense mechanism is only as good as its underlying
->> threat model. by validating pointers (for yet to be stated security related
->> properties) you're presumably assuming some kind of threat and unless stated
->> clearly what that threat is (unintended pointer modification through memory
->> corruption and/or other bugs?) noone can tell whether the proposed defense
->> mechanism will actually be effective in preventing exploitation. it is the
->> worst kind of defense that doesn't actually achieve its stated goals, that
->> way lies false sense of security and i hope noone here is in that business.
->
-> I'm imaging security bugs that involve buffer length corruption but
-> that don't call copy_to/from_user.  Hardened usercopy shuts
-> expoitation down if the first use of the corrupt size is
-> copy_to/from_user or similar.  I bet that a bit better coverage could
-> be achieved by instrumenting more functions.
->
-> To be clear: I'm not objecting to calling the overall feature hardened
-> usercopy or similar.  I object to
-> CONFIG_HAVE_HARDENED_USERCOPY_ALLOCATOR.  That feature is *used* for
-> hardened usercopy but is not, in and of itself, a usercopy thing.
-> It's an object / memory range validation thing.  So we'll feel silly
-> down the road if we use it for something else and the config option
-> name has nothing to do with the feature.
+This RFC v3 builds off the last RFC v2 series [0] for adding linker tables.
+The largest amount of work here was to take Russell King's feedback on
+using linker table for kprobes text not being appropriate -- and providing
+another lightweight API for simple section ranges: read-only stitched pieces
+of executable code. This required also generalizing common building blocks
+for both linker tables and section ranges, these building blocks are defined
+now in include/linux/sections.h and asm-generic/section.h. The other last thing
+decided was to not support sub-sections. In the hunt for this I could think of
+anything that really required this, and if it was needed it did not seem
+impossible to port over to avoid its use. Please let me know if there are valid
+uses cases for sub-sections.
 
-Well, the CONFIG_HAVE* stuff is almost entirely invisible to the
-end-user, and I feel like it's better to be specific about names now,
-and when they change their meaning, we can change their names with it.
+Other significant effort here was to provide a set of common assembly helpers
+which could be used across architectures, this starts off some of this work
+for generic helpers which carve out and define custom Linux sections.
 
-I intend to extend the HARDENED_USERCOPY logic in similar ways to how
-it is extended in Grsecurity: parts can be used for the "is this
-destined for a userspace memory buffer?" test when rejecting writing
-pointers or other sensitive information during sprintf (see the
-HIDESYM work in grsecurity).
+Lastly, this now also goes with two ports which required module support when
+using linker tables: jump labels, and dynamic debug support. A few
+extensions have been made to the original series in order to provide
+support for that.
 
-But, I don't like to over-think it: right now, it is named for what it
-does, and we can adjust as we need to.
+Since kprobes actually had both a linker table and a section range the
+patch that dealt with kprobes is now split off in two patches, one
+that deals with its linker table and another for its section ranges.
 
->
->>> > [...] like the renaming of .data..read_only to .data..ro_after_init which also
->>> > had nothing to do with init but everything to do with objects being conceptually
->>> > read-only...
->>>
->>> .data..ro_after_init objects get written to during bootup so it's conceptually
->>> quite confusing to name it "read-only" without any clear qualifiers.
->>>
->>> That it's named consistently with its role of "read-write before init and read
->>> only after init" on the other hand is not confusing at all. Not sure what your
->>> problem is with the new name.
->>
->> the new name reflects a complete misunderstanding of the PaX feature it was based
->> on (typical case of cargo cult security). in particular, the __read_only facility
->> in PaX is part of a defense mechanism that attempts to solve a specific problem
->> (like everything else) and that problem has nothing whatsoever to do with what
->> happens before/after the kernel init process. enforcing read-ony kernel memory at
->> the end of kernel initialization is an implementation detail only and wasn't even
->> true always (and still isn't true for kernel modules for example): in the linux 2.4
->> days PaX actually enforced read-only kernel memory properties in startup_32 already
->> but i relaxed that for the 2.6+ port as the maintenance cost (finding out and
->> handling new exceptional cases) wasn't worth it.
->>
->> also naming things after their implementation is poor taste and can result in
->> even bigger problems down the line since as soon as the implementation changes,
->> you will have a flag day or have to keep a bad name. this is a lesson that the
->> REFCOUNT submission will learn too since the kernel's atomic*_t types (an
->> implementation detail) are used extensively for different purposes, instead of
->> using specialized types (kref is a good example of that). for .data..ro_after_init
->> the lesson will happen when you try to add back the remaining pieces from PaX,
->> such as module handling and not-always-const-in-the-C-sense objects and associated
->> accessors.
->
-> The name is related to how the thing works.  If I understand
-> correctly, in PaX, the idea is to make some things readonly and use
-> pax_open_kernel(), etc to write it as needed.  This is a nifty
-> mechanism, but it's *not* what .data..ro_after_init does upstream.  If
-> I mark something __ro_after_init, then I can write it freely during
-> boot, but I can't write it thereafter.  In contrast, if I put
-> something in .rodata (using 'const', for example), then I must not
-> write it *at all* unless I use special helpers (kmap, pax_open_kernel,
-> etc).  So the practical effect from a programer's perspective of
-> __ro_after_init is quite different from .rodata, and I think the names
-> should reflect that.
+More elaborate uses for linker tables are possible, I'll hold off on any
+of this type of work until at least the basic building blocks are fleshed
+out. To review how this work came about, and more elaborate uses being
+evaluated check out the userspace linker-tables mockup solution [1].
+Hopefully most of the possible bikeshedding was already dealt with through
+that tree. Thanks to hpa for tons of feedback.
 
-I expect that if/when we add the open/close_kernel logic, we'll have a
-new section and it will be named accordingly (since it, too, is not
-const-in-the-C-sense, and shouldn't live in the standard .rodata
-section).
+Should you need it, the code here is also available on my linux-next
+20160722-linker-table-v3-try2 branch on kernel.org [2]. Lastly, ranges and
+table development go under copyleft-next, Rusty recently asked for code
+to go in prior to the license tag being added denoting this license as
+GPL-compatible [3] -- I had noted in the patch submission which annotated
+copyleft-next's compatibility to GPLv2 that copyleft-next is the license
+of choice for ongoing kernel development on my end [4]. If this is
+objectionable I'm happy to change it to GPLv2 however I'd like a reason
+provided as I've gone through all possible channels to ensure this is kosher,
+including vetting by 3 attorneys now, 2 at SUSE.
 
-> (And yes, the upstream kernel should soon have __ro_after_init working
-> in modules.  And the not-always-const-in-the-C-sense objects using
-> accessors will need changes to add those accessors, and we can and
-> should change the annotation on the object itself at the same time.
-> But if I mark something __ro_after_init, I can write it using normal C
-> during init, and there's nothing wrong with that.)
+This all goes tested by 0-day... however since I found an issue with linker
+tables and blackfin this series remains as RFC -- I'll try to debug the
+issue with Steven Miao. The issue with blackfin is using a config that
+enables CONFIG_FW_LOADER=y and CONFIG_DYNAMIC_DEBUG=y [5] we end up with
+the following at final link time:
 
--Kees
+  LD      init/built-in.o
+lib/built-in.o: In function `dynamic_debug_init':
+lib/dynamic_debug.c:(.init.text+0x156): undefined reference to `__verbose__end'
+lib/dynamic_debug.c:(.init.text+0x15a): undefined reference to `__verbose__end'
+lib/dynamic_debug.c:(.init.text+0x160): undefined reference to `__verbose'
+lib/dynamic_debug.c:(.init.text+0x164): undefined reference to `__verbose'
+lib/dynamic_debug.c:(.init.text+0x214): undefined reference to `__verbose__end'
+lib/dynamic_debug.c:(.init.text+0x218): undefined reference to `__verbose__end'
+lib/dynamic_debug.c:(.init.text+0x252): undefined reference to `__verbose__end'
+lib/dynamic_debug.c:(.init.text+0x258): undefined reference to `__verbose'
+lib/dynamic_debug.c:(.init.text+0x25c): undefined reference to `__verbose__end'
+lib/dynamic_debug.c:(.init.text+0x260): undefined reference to `__verbose'
+drivers/built-in.o: In function `release_firmware':
+(.text+0x22dc2): undefined reference to `builtin_fw'
+drivers/built-in.o: In function `release_firmware':
+(.text+0x22dc6): undefined reference to `builtin_fw__end'
+drivers/built-in.o: In function `release_firmware':
+(.text+0x22dca): undefined reference to `builtin_fw'
+drivers/built-in.o: In function `release_firmware':
+(.text+0x22dce): undefined reference to `builtin_fw__end'
+drivers/built-in.o: In function `fw_get_builtin_firmware':
+drivers/base/firmware_class.c:(.text+0x23008): undefined reference to `builtin_fw'
+drivers/base/firmware_class.c:(.text+0x2300c): undefined reference to `builtin_fw__end'
+drivers/base/firmware_class.c:(.text+0x23010): undefined reference to `builtin_fw'
+drivers/base/firmware_class.c:(.text+0x23014): undefined reference to `builtin_fw__end'
+Makefile:957: recipe for target 'vmlinux' failed
+make: *** [vmlinux] Error 1
 
+To reproduce then:
+
+wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
+chmod +x ~/bin/make.cross
+wget http://drvbp1.linux-foundation.org/~mcgrof/2016/07/22/blackfin-fw-dyndbg.config -o .config
+make.cross ARCH=blackfin
+
+[0] https://lkml.kernel.org/r/1455889559-9428-1-git-send-email-mcgrof@kernel.org
+[1] https://git.kernel.org/cgit/linux/kernel/git/mcgrof/linker-tables.git/
+[2] https://git.kernel.org/cgit/linux/kernel/git/mcgrof/linux-next.git/log/?h 160722-linker-table-v3-try2
+[3] https://lkml.kernel.org/r/87y44zhbiu.fsf@rustcorp.com.au
+[4] https://lkml.kernel.org/r/1467327207-14916-1-git-send-email-mcgrof@kernel.org
+[5] http://drvbp1.linux-foundation.org/~mcgrof/2016/07/22/blackfin-fw-dyndbg.config
+
+
+Luis R. Rodriguez (13):
+  x86: remove LTO_REFERENCE_INITCALL()
+  dell-smo8800: include uaccess.h
+  scripts/module-common.lds: enable generation
+  sections.h: guard against asm and linker script
+  sections.h: add sections header to collect all section info
+  ranges.h: add helpers to build and identify Linux section ranges
+  tables.h: add linker table support
+  firmware/Makefile: force recompilation if makefile changes
+  firmware: port built-in section to linker table
+  jump_label: port __jump_table to linker tables
+  dynamic_debug: port to use linker tables
+  kprobes: port .kprobes.text to section range
+  kprobes: port blacklist kprobes to linker table
+
+ .gitignore                                         |   2 +
+ Documentation/DocBook/Makefile                     |   3 +-
+ Documentation/DocBook/linker-tables.tmpl           | 166 ++++++
+ Documentation/DocBook/sections.tmpl                | 112 ++++
+ Documentation/kbuild/makefiles.txt                 |  19 +
+ Makefile                                           |   6 +-
+ arch/alpha/include/asm/ranges.h                    |   6 +
+ arch/alpha/include/asm/sections.h                  |   6 +
+ arch/alpha/include/asm/tables.h                    |   6 +
+ arch/arc/include/asm/ranges.h                      |   6 +
+ arch/arc/include/asm/tables.h                      |   6 +
+ arch/arc/kernel/vmlinux.lds.S                      |   1 -
+ arch/arm/include/asm/jump_label.h                  |   6 +-
+ arch/arm/include/asm/ranges.h                      |   6 +
+ arch/arm/include/asm/sections.h                    |   2 +
+ arch/arm/include/asm/tables.h                      |   6 +
+ arch/arm/kernel/entry-armv.S                       |   3 +-
+ arch/arm/kernel/vmlinux-xip.lds.S                  |   1 -
+ arch/arm/kernel/vmlinux.lds.S                      |   1 -
+ arch/arm64/include/asm/jump_label.h                |   6 +-
+ arch/arm64/include/asm/ranges.h                    |   6 +
+ arch/arm64/include/asm/sections.h                  |   6 +
+ arch/arm64/include/asm/tables.h                    |   6 +
+ arch/avr32/include/asm/ranges.h                    |   6 +
+ arch/avr32/include/asm/sections.h                  |   6 +
+ arch/avr32/include/asm/tables.h                    |   6 +
+ arch/avr32/kernel/entry-avr32b.S                   |   5 +-
+ arch/avr32/kernel/vmlinux.lds.S                    |   1 -
+ arch/blackfin/include/asm/ranges.h                 |   6 +
+ arch/blackfin/include/asm/sections.h               |   4 +
+ arch/blackfin/include/asm/tables.h                 |   6 +
+ arch/blackfin/kernel/vmlinux.lds.S                 |   1 -
+ arch/c6x/include/asm/ranges.h                      |   6 +
+ arch/c6x/include/asm/tables.h                      |   6 +
+ arch/c6x/kernel/vmlinux.lds.S                      |   1 -
+ arch/cris/include/asm/ranges.h                     |   6 +
+ arch/cris/include/asm/sections.h                   |   6 +
+ arch/cris/include/asm/tables.h                     |   6 +
+ arch/frv/include/asm/ranges.h                      |   6 +
+ arch/frv/include/asm/tables.h                      |   6 +
+ arch/h8300/include/asm/ranges.h                    |   6 +
+ arch/h8300/include/asm/sections.h                  |   6 +
+ arch/h8300/include/asm/tables.h                    |   6 +
+ arch/hexagon/include/asm/ranges.h                  |   6 +
+ arch/hexagon/include/asm/sections.h                |   6 +
+ arch/hexagon/include/asm/tables.h                  |   6 +
+ arch/hexagon/kernel/vmlinux.lds.S                  |   1 -
+ arch/ia64/include/asm/ranges.h                     |   6 +
+ arch/ia64/include/asm/sections.h                   |   7 +-
+ arch/ia64/include/asm/tables.h                     |   6 +
+ arch/ia64/kernel/jprobes.S                         |   3 +-
+ arch/ia64/kernel/vmlinux.lds.S                     |   1 -
+ arch/ia64/lib/flush.S                              |   5 +-
+ arch/m32r/include/asm/ranges.h                     |   6 +
+ arch/m32r/include/asm/sections.h                   |   6 +
+ arch/m32r/include/asm/tables.h                     |   6 +
+ arch/m68k/include/asm/ranges.h                     |   6 +
+ arch/m68k/include/asm/sections.h                   |   6 +
+ arch/m68k/include/asm/tables.h                     |   6 +
+ arch/metag/include/asm/ranges.h                    |   6 +
+ arch/metag/include/asm/sections.h                  |   6 +
+ arch/metag/include/asm/tables.h                    |   6 +
+ arch/metag/kernel/vmlinux.lds.S                    |   1 -
+ arch/microblaze/include/asm/ranges.h               |   6 +
+ arch/microblaze/include/asm/tables.h               |   6 +
+ arch/microblaze/kernel/vmlinux.lds.S               |   1 -
+ arch/mips/include/asm/jump_label.h                 |   6 +-
+ arch/mips/include/asm/ranges.h                     |   6 +
+ arch/mips/include/asm/sections.h                   |   6 +
+ arch/mips/include/asm/tables.h                     |   6 +
+ arch/mips/kernel/vmlinux.lds.S                     |   1 -
+ arch/mn10300/include/asm/ranges.h                  |   6 +
+ arch/mn10300/include/asm/sections.h                |   6 +
+ arch/mn10300/include/asm/tables.h                  |   6 +
+ arch/mn10300/kernel/vmlinux.lds.S                  |   1 -
+ arch/nios2/include/asm/ranges.h                    |   6 +
+ arch/nios2/include/asm/sections.h                  |   6 +
+ arch/nios2/include/asm/tables.h                    |   6 +
+ arch/nios2/kernel/vmlinux.lds.S                    |   1 -
+ arch/openrisc/include/asm/ranges.h                 |   6 +
+ arch/openrisc/include/asm/sections.h               |   6 +
+ arch/openrisc/include/asm/tables.h                 |   6 +
+ arch/openrisc/kernel/vmlinux.lds.S                 |   1 -
+ arch/parisc/include/asm/ranges.h                   |   6 +
+ arch/parisc/include/asm/tables.h                   |   6 +
+ arch/parisc/kernel/vmlinux.lds.S                   |   1 -
+ arch/powerpc/include/asm/jump_label.h              |   8 +-
+ arch/powerpc/include/asm/ppc_asm.h                 |   7 +-
+ arch/powerpc/include/asm/ranges.h                  |   6 +
+ arch/powerpc/include/asm/sections.h                |  11 +-
+ arch/powerpc/include/asm/tables.h                  |   6 +
+ arch/powerpc/kernel/vmlinux.lds.S                  |   1 -
+ arch/s390/include/asm/jump_label.h                 |   6 +-
+ arch/s390/include/asm/ranges.h                     |   6 +
+ arch/s390/include/asm/tables.h                     |   6 +
+ arch/s390/kernel/entry.S                           |   5 +-
+ arch/s390/kernel/kprobes.c                         |   6 +-
+ arch/s390/kernel/mcount.S                          |   2 +-
+ arch/s390/kernel/vmlinux.lds.S                     |   1 -
+ arch/score/include/asm/ranges.h                    |   6 +
+ arch/score/include/asm/sections.h                  |   6 +
+ arch/score/include/asm/tables.h                    |   6 +
+ arch/score/kernel/vmlinux.lds.S                    |   1 -
+ arch/sh/include/asm/ranges.h                       |   6 +
+ arch/sh/include/asm/sections.h                     |   2 +
+ arch/sh/include/asm/tables.h                       |   6 +
+ arch/sh/kernel/vmlinux.lds.S                       |   1 -
+ arch/sparc/include/asm/jump_label.h                |   6 +-
+ arch/sparc/include/asm/ranges.h                    |   6 +
+ arch/sparc/include/asm/sections.h                  |   4 +
+ arch/sparc/include/asm/tables.h                    |   6 +
+ arch/sparc/kernel/vmlinux.lds.S                    |   1 -
+ arch/sparc/mm/ultra.S                              |   3 +-
+ arch/tile/include/asm/ranges.h                     |   6 +
+ arch/tile/include/asm/sections.h                   |   4 +
+ arch/tile/include/asm/tables.h                     |   6 +
+ arch/tile/kernel/vmlinux.lds.S                     |   1 -
+ arch/um/include/asm/ranges.h                       |   6 +
+ arch/um/include/asm/tables.h                       |   6 +
+ arch/unicore32/include/asm/ranges.h                |   6 +
+ arch/unicore32/include/asm/sections.h              |   6 +
+ arch/unicore32/include/asm/tables.h                |   6 +
+ arch/x86/include/asm/jump_label.h                  |  10 +-
+ arch/x86/include/asm/ranges.h                      |   6 +
+ arch/x86/include/asm/sections.h                    |  23 +-
+ arch/x86/include/asm/tables.h                      |   6 +
+ arch/x86/include/asm/uaccess.h                     |  18 +-
+ arch/x86/kernel/cpu/microcode/core.c               |   8 +-
+ arch/x86/kernel/kprobes/core.c                     |  11 +-
+ arch/x86/kernel/vmlinux.lds.S                      |   1 -
+ arch/x86/tools/relocs.c                            |   3 +
+ arch/xtensa/include/asm/ranges.h                   |   6 +
+ arch/xtensa/include/asm/sections.h                 |   6 +
+ arch/xtensa/include/asm/tables.h                   |   6 +
+ drivers/base/firmware_class.c                      |  12 +-
+ drivers/platform/x86/dell-smo8800.c                |   1 +
+ firmware/Makefile                                  |   7 +-
+ include/asm-generic/ranges.h                       |  70 +++
+ include/asm-generic/sections.h                     | 306 ++++++++++-
+ include/asm-generic/tables.h                       |  70 +++
+ include/asm-generic/vmlinux.lds.h                  |  66 +--
+ include/linux/compiler.h                           |   2 +-
+ include/linux/dynamic_debug.h                      |   5 +-
+ include/linux/init.h                               |  20 +-
+ include/linux/jump_label.h                         |  10 +-
+ include/linux/kprobes.h                            |   8 +-
+ include/linux/ranges.h                             |  54 ++
+ include/linux/sections.h                           | 123 +++++
+ include/linux/tables.h                             | 597 +++++++++++++++++++++
+ kernel/jump_label.c                                |  17 +-
+ kernel/kprobes.c                                   |  17 +-
+ lib/dynamic_debug.c                                |  13 +-
+ scripts/Makefile                                   |   1 +
+ scripts/Makefile.build                             |   4 +-
+ scripts/Makefile.clean                             |   1 +
+ scripts/Makefile.lib                               |  12 +
+ scripts/Makefile.modpost                           |   2 +-
+ scripts/mod/Makefile                               |   2 +
+ scripts/mod/modpost.c                              |   8 +-
+ scripts/{module-common.lds => module-common.lds.S} |   6 +
+ scripts/recordmcount.c                             |   7 +-
+ scripts/recordmcount.pl                            |   2 +-
+ tools/include/linux/sections.h                     |  13 +
+ tools/objtool/special.c                            |   8 +-
+ 164 files changed, 2241 insertions(+), 205 deletions(-)
+ create mode 100644 Documentation/DocBook/linker-tables.tmpl
+ create mode 100644 Documentation/DocBook/sections.tmpl
+ create mode 100644 arch/alpha/include/asm/ranges.h
+ create mode 100644 arch/alpha/include/asm/sections.h
+ create mode 100644 arch/alpha/include/asm/tables.h
+ create mode 100644 arch/arc/include/asm/ranges.h
+ create mode 100644 arch/arc/include/asm/tables.h
+ create mode 100644 arch/arm/include/asm/ranges.h
+ create mode 100644 arch/arm/include/asm/tables.h
+ create mode 100644 arch/arm64/include/asm/ranges.h
+ create mode 100644 arch/arm64/include/asm/sections.h
+ create mode 100644 arch/arm64/include/asm/tables.h
+ create mode 100644 arch/avr32/include/asm/ranges.h
+ create mode 100644 arch/avr32/include/asm/sections.h
+ create mode 100644 arch/avr32/include/asm/tables.h
+ create mode 100644 arch/blackfin/include/asm/ranges.h
+ create mode 100644 arch/blackfin/include/asm/tables.h
+ create mode 100644 arch/c6x/include/asm/ranges.h
+ create mode 100644 arch/c6x/include/asm/tables.h
+ create mode 100644 arch/cris/include/asm/ranges.h
+ create mode 100644 arch/cris/include/asm/sections.h
+ create mode 100644 arch/cris/include/asm/tables.h
+ create mode 100644 arch/frv/include/asm/ranges.h
+ create mode 100644 arch/frv/include/asm/tables.h
+ create mode 100644 arch/h8300/include/asm/ranges.h
+ create mode 100644 arch/h8300/include/asm/sections.h
+ create mode 100644 arch/h8300/include/asm/tables.h
+ create mode 100644 arch/hexagon/include/asm/ranges.h
+ create mode 100644 arch/hexagon/include/asm/sections.h
+ create mode 100644 arch/hexagon/include/asm/tables.h
+ create mode 100644 arch/ia64/include/asm/ranges.h
+ create mode 100644 arch/ia64/include/asm/tables.h
+ create mode 100644 arch/m32r/include/asm/ranges.h
+ create mode 100644 arch/m32r/include/asm/sections.h
+ create mode 100644 arch/m32r/include/asm/tables.h
+ create mode 100644 arch/m68k/include/asm/ranges.h
+ create mode 100644 arch/m68k/include/asm/sections.h
+ create mode 100644 arch/m68k/include/asm/tables.h
+ create mode 100644 arch/metag/include/asm/ranges.h
+ create mode 100644 arch/metag/include/asm/sections.h
+ create mode 100644 arch/metag/include/asm/tables.h
+ create mode 100644 arch/microblaze/include/asm/ranges.h
+ create mode 100644 arch/microblaze/include/asm/tables.h
+ create mode 100644 arch/mips/include/asm/ranges.h
+ create mode 100644 arch/mips/include/asm/sections.h
+ create mode 100644 arch/mips/include/asm/tables.h
+ create mode 100644 arch/mn10300/include/asm/ranges.h
+ create mode 100644 arch/mn10300/include/asm/sections.h
+ create mode 100644 arch/mn10300/include/asm/tables.h
+ create mode 100644 arch/nios2/include/asm/ranges.h
+ create mode 100644 arch/nios2/include/asm/sections.h
+ create mode 100644 arch/nios2/include/asm/tables.h
+ create mode 100644 arch/openrisc/include/asm/ranges.h
+ create mode 100644 arch/openrisc/include/asm/sections.h
+ create mode 100644 arch/openrisc/include/asm/tables.h
+ create mode 100644 arch/parisc/include/asm/ranges.h
+ create mode 100644 arch/parisc/include/asm/tables.h
+ create mode 100644 arch/powerpc/include/asm/ranges.h
+ create mode 100644 arch/powerpc/include/asm/tables.h
+ create mode 100644 arch/s390/include/asm/ranges.h
+ create mode 100644 arch/s390/include/asm/tables.h
+ create mode 100644 arch/score/include/asm/ranges.h
+ create mode 100644 arch/score/include/asm/sections.h
+ create mode 100644 arch/score/include/asm/tables.h
+ create mode 100644 arch/sh/include/asm/ranges.h
+ create mode 100644 arch/sh/include/asm/tables.h
+ create mode 100644 arch/sparc/include/asm/ranges.h
+ create mode 100644 arch/sparc/include/asm/tables.h
+ create mode 100644 arch/tile/include/asm/ranges.h
+ create mode 100644 arch/tile/include/asm/tables.h
+ create mode 100644 arch/um/include/asm/ranges.h
+ create mode 100644 arch/um/include/asm/tables.h
+ create mode 100644 arch/unicore32/include/asm/ranges.h
+ create mode 100644 arch/unicore32/include/asm/sections.h
+ create mode 100644 arch/unicore32/include/asm/tables.h
+ create mode 100644 arch/x86/include/asm/ranges.h
+ create mode 100644 arch/x86/include/asm/tables.h
+ create mode 100644 arch/xtensa/include/asm/ranges.h
+ create mode 100644 arch/xtensa/include/asm/sections.h
+ create mode 100644 arch/xtensa/include/asm/tables.h
+ create mode 100644 include/asm-generic/ranges.h
+ create mode 100644 include/asm-generic/tables.h
+ create mode 100644 include/linux/ranges.h
+ create mode 100644 include/linux/sections.h
+ create mode 100644 include/linux/tables.h
+ rename scripts/{module-common.lds => module-common.lds.S} (80%)
+ create mode 100644 tools/include/linux/sections.h
 
 -- 
-Kees Cook
-Chrome OS & Brillo Security
+2.8.4
+
