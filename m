@@ -1,430 +1,285 @@
-From: Kees Cook <keescook@chromium.org>
-Date: Wed, 20 Jul 2016 20:26:58 +0000
-Subject: [PATCH v4 03/12] mm: Hardened usercopy
-Message-Id: <1469046427-12696-4-git-send-email-keescook@chromium.org>
+From: "Luis R. Rodriguez" <mcgrof@kernel.org>
+Date: Fri, 22 Jul 2016 21:24:38 +0000
+Subject: [RFC v3 04/13] sections.h: guard against asm and linker script
+Message-Id: <1469222687-1600-5-git-send-email-mcgrof@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1469046427-12696-1-git-send-email-keescook@chromium.org>
-In-Reply-To: <1469046427-12696-1-git-send-email-keescook@chromium.org>
+References: <1469222687-1600-1-git-send-email-mcgrof@kernel.org>
+In-Reply-To: <1469222687-1600-1-git-send-email-mcgrof@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: kernel-hardening@lists.openwall.com
-Cc: Kees Cook <keescook@chromium.org>, Laura Abbott <labbott@fedoraproject.org>, Balbir Singh <bsingharora@gmail.com>, Daniel Micay <danielmicay@gmail.com>, Josh Poimboeuf <jpoimboe@redhat.com>, Rik van Riel <riel@redhat.com>, Casey Schaufler <casey@schaufler-ca.com>, PaX Team <pageexec@freemail.hu>, Brad Spengler <spender@grsecurity.net>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "David S. Miller" <davem@davemloft.net>, x86@kernel.org, Christoph Lameter <cl@linux.com>, Pekka Enberg <penberg@kernel.org>, David Rientjes <rientjes@google.com>, Joonsoo Kim <iamjoonsoo.kim@lge.com>, Andrew Morton <akpm@linux-foundation.org>, Andy Lutomirski <luto@kernel.org>, Borislav Petkov <bp@suse.de>, Mathias Krause <minipli@googlemail.com>, Jan Kara <jack@suse.cz>, Vitaly Wool <vitalywool@gmail.com>, Andrea Arcangeli <aarcange@redhat.com>, Dmitry Vyukov <dvyukov@google.com>, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org
+To: hpa@zytor.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, linux@arm.linux.org.uk, mhiramat@kernel.org, masami.hiramatsu.pt@hitachi.com, jbaron@akamai.com, heiko.carstens@de.ibm.com, ananth@linux.vnet.ibm.com, anil.s.keshavamurthy@intel.com, davem@davemloft.net, realmz6@gmail.com
+Cc: x86@kernel.org, luto@amacapital.net, keescook@chromium.org, torvalds@linux-foundation.org, gregkh@linuxfoundation.org, rusty@rustcorp.com.au, gnomes@lxorguk.ukuu.org.uk, alan@linux.intel.com, dwmw2@infradead.org, arnd@arndb.de, ming.lei@canonical.com, linux-arch@vger.kernel.org, benh@kernel.crashing.org, ananth@in.ibm.com, pebolle@tiscali.nl, fontana@sharpeleven.org, ciaran.farrell@suse.com, christopher.denicolo@suse.com, david.vrabel@citrix.com, konrad.wilk@oracle.com, mcb30@ipxe.org, jgross@suse.com, andrew.cooper3@citrix.com, andriy.shevchenko@linux.intel.com, paul.gortmaker@windriver.com, xen-devel@lists.xensource.com, ak@linux.intel.com, pali.rohar@gmail.com, dvhart@infradead.org, platform-driver-x86@vger.kernel.org, mmarek@suse.com, linux@rasmusvillemoes.dk, jkosina@suse.cz, korea.drzix@gmail.com, linux-kbuild@vger.kernel.org, tony.luck@intel.com, akpm@linux-foun
 
-This is the start of porting PAX_USERCOPY into the mainline kernel. This
-is the first set of features, controlled by CONFIG_HARDENED_USERCOPY. The
-work is based on code by PaX Team and Brad Spengler, and an earlier port
-from Casey Schaufler. Additional non-slab page tests are from Rik van Riel.
+We'll later add some generic helpers for use in the linker scripts
+and some generic asm code for all architectures. To do that we'll
+first need to guard against linker script and asm code.
 
-This patch contains the logic for validating several conditions when
-performing copy_to_user() and copy_from_user() on the kernel object
-being copied to/from:
-- address range doesn't wrap around
-- address range isn't NULL or zero-allocated (with a non-zero copy size)
-- if on the slab allocator:
-  - object size must be less than or equal to copy size (when check is
-    implemented in the allocator, which appear in subsequent patches)
-- otherwise, object must not span page allocations (excepting Reserved
-  and CMA ranges)
-- if on the stack
-  - object must not extend before/after the current process stack
-  - object must be contained by a valid stack frame (when there is
-    arch/build support for identifying stack frames)
-- object must not overlap with kernel text
+On x86 uaccess.h has a struct which is used as part of a section,
+move that to sections.h as we otherwise have no need for uaccess.h
+on sections.h
 
-Signed-off-by: Kees Cook <keescook@chromium.org>
-Tested-by: Valdis Kletnieks <valdis.kletnieks@vt.edu>
-Tested-by: Michael Ellerman <mpe@ellerman.id.au>
+v3: new to this series, needed due to the collateral of the split of
+    tables.h into 3 files: tables.h, ranges.h and sections.h, the
+    need to guard sections.h is due to the fact that sections.h is
+    already included and expanded considerably in certain architectures.
+
+Signed-off-by: Luis R. Rodriguez <mcgrof@kernel.org>
 ---
- include/linux/slab.h        |  12 ++
- include/linux/thread_info.h |  15 +++
- mm/Makefile                 |   4 +
- mm/usercopy.c               | 268 ++++++++++++++++++++++++++++++++++++++++++++
- security/Kconfig            |  28 +++++
- 5 files changed, 327 insertions(+)
- create mode 100644 mm/usercopy.c
+ arch/arm/include/asm/sections.h      |  2 ++
+ arch/blackfin/include/asm/sections.h |  4 ++++
+ arch/ia64/include/asm/sections.h     |  7 +++++--
+ arch/powerpc/include/asm/sections.h  | 11 ++++++-----
+ arch/sh/include/asm/sections.h       |  2 ++
+ arch/sparc/include/asm/sections.h    |  4 ++++
+ arch/tile/include/asm/sections.h     |  4 ++++
+ arch/x86/include/asm/sections.h      | 23 ++++++++++++++++++++++-
+ arch/x86/include/asm/uaccess.h       | 18 +-----------------
+ include/asm-generic/sections.h       |  4 ++++
+ 10 files changed, 54 insertions(+), 25 deletions(-)
 
-diff --git a/include/linux/slab.h b/include/linux/slab.h
-index aeb3e6d00a66..96a16a3fb7cb 100644
---- a/include/linux/slab.h
-+++ b/include/linux/slab.h
-@@ -155,6 +155,18 @@ void kfree(const void *);
- void kzfree(const void *);
- size_t ksize(const void *);
+diff --git a/arch/arm/include/asm/sections.h b/arch/arm/include/asm/sections.h
+index 803bbf2b20b8..21830b9b3b6b 100644
+--- a/arch/arm/include/asm/sections.h
++++ b/arch/arm/include/asm/sections.h
+@@ -3,6 +3,8 @@
  
-+#ifdef CONFIG_HAVE_HARDENED_USERCOPY_ALLOCATOR
-+const char *__check_heap_object(const void *ptr, unsigned long n,
-+				struct page *page);
-+#else
-+static inline const char *__check_heap_object(const void *ptr,
-+					      unsigned long n,
-+					      struct page *page)
-+{
-+	return NULL;
-+}
-+#endif
+ #include <asm-generic/sections.h>
+ 
++#if defined(__KERNEL__) && !defined(__ASSEMBLER__) && !defined(__ASSEMBLY__)
+ extern char _exiprom[];
++#endif /* defined(__KERNEL__) && !defined(__ASSEMBLER__) && !defined(__ASSEMBLY__) */
+ 
+ #endif	/* _ASM_ARM_SECTIONS_H */
+diff --git a/arch/blackfin/include/asm/sections.h b/arch/blackfin/include/asm/sections.h
+index fbd408475725..d2abd7a585dd 100644
+--- a/arch/blackfin/include/asm/sections.h
++++ b/arch/blackfin/include/asm/sections.h
+@@ -7,6 +7,8 @@
+ #ifndef _BLACKFIN_SECTIONS_H
+ #define _BLACKFIN_SECTIONS_H
+ 
++#if defined(__KERNEL__) && !defined(__ASSEMBLER__) && !defined(__ASSEMBLY__)
 +
- /*
-  * Some archs want to perform DMA into kmalloc caches and need a guaranteed
-  * alignment larger than the alignment of a 64-bit integer.
-diff --git a/include/linux/thread_info.h b/include/linux/thread_info.h
-index 3d5c80b4391d..f24b99eac969 100644
---- a/include/linux/thread_info.h
-+++ b/include/linux/thread_info.h
-@@ -155,6 +155,21 @@ static inline int arch_within_stack_frames(const void * const stack,
+ /* only used when MTD_UCLINUX */
+ extern unsigned long memory_mtd_start, memory_mtd_end, mtd_size;
+ 
+@@ -62,6 +64,8 @@ static inline int arch_is_kernel_data(unsigned long addr)
  }
+ #define arch_is_kernel_data(addr) arch_is_kernel_data(addr)
+ 
++#endif /* defined(__KERNEL__) && !defined(__ASSEMBLER__) && !defined(__ASSEMBLY__) */
++
+ #include <asm-generic/sections.h>
+ 
  #endif
+diff --git a/arch/ia64/include/asm/sections.h b/arch/ia64/include/asm/sections.h
+index 2ab2003698ef..3318e3916122 100644
+--- a/arch/ia64/include/asm/sections.h
++++ b/arch/ia64/include/asm/sections.h
+@@ -6,9 +6,12 @@
+  *	David Mosberger-Tang <davidm@hpl.hp.com>
+  */
  
-+#ifdef CONFIG_HARDENED_USERCOPY
-+extern void __check_object_size(const void *ptr, unsigned long n,
-+					bool to_user);
++#include <asm-generic/sections.h>
 +
-+static inline void check_object_size(const void *ptr, unsigned long n,
-+				     bool to_user)
-+{
-+	__check_object_size(ptr, n, to_user);
-+}
-+#else
-+static inline void check_object_size(const void *ptr, unsigned long n,
-+				     bool to_user)
-+{ }
-+#endif /* CONFIG_HARDENED_USERCOPY */
++#if defined(__KERNEL__) && !defined(__ASSEMBLER__) && !defined(__ASSEMBLY__)
 +
- #endif	/* __KERNEL__ */
+ #include <linux/elf.h>
+ #include <linux/uaccess.h>
+-#include <asm-generic/sections.h>
  
- #endif /* _LINUX_THREAD_INFO_H */
-diff --git a/mm/Makefile b/mm/Makefile
-index 78c6f7dedb83..32d37247c7e5 100644
---- a/mm/Makefile
-+++ b/mm/Makefile
-@@ -21,6 +21,9 @@ KCOV_INSTRUMENT_memcontrol.o := n
- KCOV_INSTRUMENT_mmzone.o := n
- KCOV_INSTRUMENT_vmstat.o := n
+ extern char __phys_per_cpu_start[];
+ #ifdef	CONFIG_SMP
+@@ -37,6 +40,6 @@ static inline void *dereference_function_descriptor(void *ptr)
+ 	return ptr;
+ }
  
-+# Since __builtin_frame_address does work as used, disable the warning.
-+CFLAGS_usercopy.o += $(call cc-disable-warning, frame-address)
++#endif /* defined(__KERNEL__) && !defined(__ASSEMBLER__) && !defined(__ASSEMBLY__) */
+ 
+ #endif /* _ASM_IA64_SECTIONS_H */
+-
+diff --git a/arch/powerpc/include/asm/sections.h b/arch/powerpc/include/asm/sections.h
+index 7dc006b58369..f226b5bcd27c 100644
+--- a/arch/powerpc/include/asm/sections.h
++++ b/arch/powerpc/include/asm/sections.h
+@@ -1,11 +1,12 @@
+ #ifndef _ASM_POWERPC_SECTIONS_H
+ #define _ASM_POWERPC_SECTIONS_H
+-#ifdef __KERNEL__
+ 
+-#include <linux/elf.h>
+-#include <linux/uaccess.h>
+ #include <asm-generic/sections.h>
+ 
++#if defined(__KERNEL__) && !defined(__ASSEMBLER__) && !defined(__ASSEMBLY__)
 +
- mmu-y			:= nommu.o
- mmu-$(CONFIG_MMU)	:= gup.o highmem.o memory.o mincore.o \
- 			   mlock.o mmap.o mprotect.o mremap.o msync.o rmap.o \
-@@ -99,3 +102,4 @@ obj-$(CONFIG_USERFAULTFD) += userfaultfd.o
- obj-$(CONFIG_IDLE_PAGE_TRACKING) += page_idle.o
- obj-$(CONFIG_FRAME_VECTOR) += frame_vector.o
- obj-$(CONFIG_DEBUG_PAGE_REF) += debug_page_ref.o
-+obj-$(CONFIG_HARDENED_USERCOPY) += usercopy.o
-diff --git a/mm/usercopy.c b/mm/usercopy.c
-new file mode 100644
-index 000000000000..8ebae91a6b55
---- /dev/null
-+++ b/mm/usercopy.c
-@@ -0,0 +1,268 @@
++#include <linux/elf.h>
++#include <linux/uaccess.h>
+ #ifdef __powerpc64__
+ 
+ extern char __start_interrupts[];
+@@ -75,7 +76,7 @@ static inline void *dereference_function_descriptor(void *ptr)
+ }
+ #endif /* PPC64_ELF_ABI_v1 */
+ 
+-#endif
++#endif /* __powerpc64__ */
++#endif /* defined(__KERNEL__) && !defined(__ASSEMBLER__) && !defined(__ASSEMBLY__) */
+ 
+-#endif /* __KERNEL__ */
+ #endif	/* _ASM_POWERPC_SECTIONS_H */
+diff --git a/arch/sh/include/asm/sections.h b/arch/sh/include/asm/sections.h
+index 7a99e6af6372..ad4f9cbd861d 100644
+--- a/arch/sh/include/asm/sections.h
++++ b/arch/sh/include/asm/sections.h
+@@ -3,9 +3,11 @@
+ 
+ #include <asm-generic/sections.h>
+ 
++#if defined(__KERNEL__) && !defined(__ASSEMBLER__) && !defined(__ASSEMBLY__)
+ extern long __machvec_start, __machvec_end;
+ extern char __uncached_start, __uncached_end;
+ extern char __start_eh_frame[], __stop_eh_frame[];
++#endif /* defined(__KERNEL__) && !defined(__ASSEMBLER__) && !defined(__ASSEMBLY__) */
+ 
+ #endif /* __ASM_SH_SECTIONS_H */
+ 
+diff --git a/arch/sparc/include/asm/sections.h b/arch/sparc/include/asm/sections.h
+index f300d1a9b2b6..b07a2380863e 100644
+--- a/arch/sparc/include/asm/sections.h
++++ b/arch/sparc/include/asm/sections.h
+@@ -4,10 +4,14 @@
+ /* nothing to see, move along */
+ #include <asm-generic/sections.h>
+ 
++#if defined(__KERNEL__) && !defined(__ASSEMBLER__) && !defined(__ASSEMBLY__)
++
+ /* sparc entry point */
+ extern char _start[];
+ 
+ extern char __leon_1insn_patch[];
+ extern char __leon_1insn_patch_end[];
+ 
++#endif /* defined(__KERNEL__) && !defined(__ASSEMBLER__) && !defined(__ASSEMBLY__) */
++
+ #endif
+diff --git a/arch/tile/include/asm/sections.h b/arch/tile/include/asm/sections.h
+index 86a746243dc8..f9cce7c6d8ba 100644
+--- a/arch/tile/include/asm/sections.h
++++ b/arch/tile/include/asm/sections.h
+@@ -19,6 +19,8 @@
+ 
+ #include <asm-generic/sections.h>
+ 
++#if defined(__KERNEL__) && !defined(__ASSEMBLER__) && !defined(__ASSEMBLY__)
++
+ /* Write-once data is writable only till the end of initialization. */
+ extern char __w1data_begin[], __w1data_end[];
+ 
+@@ -44,4 +46,6 @@ static inline int arch_is_kernel_data(unsigned long addr)
+ 		addr < (unsigned long)_end;
+ }
+ 
++#endif /* defined(__KERNEL__) && !defined(__ASSEMBLER__) && !defined(__ASSEMBLY__) */
++
+ #endif /* _ASM_TILE_SECTIONS_H */
+diff --git a/arch/x86/include/asm/sections.h b/arch/x86/include/asm/sections.h
+index 13b6cdd0af57..84c7044c82bf 100644
+--- a/arch/x86/include/asm/sections.h
++++ b/arch/x86/include/asm/sections.h
+@@ -2,13 +2,34 @@
+ #define _ASM_X86_SECTIONS_H
+ 
+ #include <asm-generic/sections.h>
+-#include <asm/uaccess.h>
++
++#if defined(__KERNEL__) && !defined(__ASSEMBLER__) && !defined(__ASSEMBLY__)
+ 
+ extern char __brk_base[], __brk_limit[];
++
 +/*
-+ * This implements the various checks for CONFIG_HARDENED_USERCOPY*,
-+ * which are designed to protect kernel memory from needless exposure
-+ * and overwrite under many unintended conditions. This code is based
-+ * on PAX_USERCOPY, which is:
++ * The exception table consists of triples of addresses relative to the
++ * exception table entry itself. The first address is of an instruction
++ * that is allowed to fault, the second is the target at which the program
++ * should continue. The third is a handler function to deal with the fault
++ * caused by the instruction in the first field.
 + *
-+ * Copyright (C) 2001-2016 PaX Team, Bradley Spengler, Open Source
-+ * Security Inc.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ *
++ * All the routines below use bits of fixup code that are out of line
++ * with the main instruction path.  This means when everything is well,
++ * we don't even have to jump over them.  Further, they do not intrude
++ * on our cache or tlb entries.
 + */
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 +
-+#include <linux/mm.h>
-+#include <linux/slab.h>
-+#include <asm/sections.h>
-+
-+enum {
-+	BAD_STACK = -1,
-+	NOT_STACK = 0,
-+	GOOD_FRAME,
-+	GOOD_STACK,
++struct exception_table_entry {
++	int insn, fixup, handler;
 +};
 +
-+/*
-+ * Checks if a given pointer and length is contained by the current
-+ * stack frame (if possible).
-+ *
-+ * Returns:
-+ *	NOT_STACK: not at all on the stack
-+ *	GOOD_FRAME: fully within a valid stack frame
-+ *	GOOD_STACK: fully on the stack (when can't do frame-checking)
-+ *	BAD_STACK: error condition (invalid stack position or bad stack frame)
-+ */
-+static noinline int check_stack_object(const void *obj, unsigned long len)
-+{
-+	const void * const stack = task_stack_page(current);
-+	const void * const stackend = stack + THREAD_SIZE;
-+	int ret;
-+
-+	/* Object is not on the stack at all. */
-+	if (obj + len <= stack || stackend <= obj)
-+		return NOT_STACK;
-+
-+	/*
-+	 * Reject: object partially overlaps the stack (passing the
-+	 * the check above means at least one end is within the stack,
-+	 * so if this check fails, the other end is outside the stack).
-+	 */
-+	if (obj < stack || stackend < obj + len)
-+		return BAD_STACK;
-+
-+	/* Check if object is safely within a valid frame. */
-+	ret = arch_within_stack_frames(stack, stackend, obj, len);
-+	if (ret)
-+		return ret;
-+
-+	return GOOD_STACK;
-+}
-+
-+static void report_usercopy(const void *ptr, unsigned long len,
-+			    bool to_user, const char *type)
-+{
-+	pr_emerg("kernel memory %s attempt detected %s %p (%s) (%lu bytes)\n",
-+		to_user ? "exposure" : "overwrite",
-+		to_user ? "from" : "to", ptr, type ? : "unknown", len);
-+	/*
-+	 * For greater effect, it would be nice to do do_group_exit(),
-+	 * but BUG() actually hooks all the lock-breaking and per-arch
-+	 * Oops code, so that is used here instead.
-+	 */
-+	BUG();
-+}
-+
-+/* Returns true if any portion of [ptr,ptr+n) over laps with [low,high). */
-+static bool overlaps(const void *ptr, unsigned long n, unsigned long low,
-+		     unsigned long high)
-+{
-+	unsigned long check_low = (uintptr_t)ptr;
-+	unsigned long check_high = check_low + n;
-+
-+	/* Does not overlap if entirely above or entirely below. */
-+	if (check_low >= high || check_high < low)
-+		return false;
-+
-+	return true;
-+}
-+
-+/* Is this address range in the kernel text area? */
-+static inline const char *check_kernel_text_object(const void *ptr,
-+						   unsigned long n)
-+{
-+	unsigned long textlow = (unsigned long)_stext;
-+	unsigned long texthigh = (unsigned long)_etext;
-+	unsigned long textlow_linear, texthigh_linear;
-+
-+	if (overlaps(ptr, n, textlow, texthigh))
-+		return "<kernel text>";
-+
-+	/*
-+	 * Some architectures have virtual memory mappings with a secondary
-+	 * mapping of the kernel text, i.e. there is more than one virtual
-+	 * kernel address that points to the kernel image. It is usually
-+	 * when there is a separate linear physical memory mapping, in that
-+	 * __pa() is not just the reverse of __va(). This can be detected
-+	 * and checked:
-+	 */
-+	textlow_linear = (unsigned long)__va(__pa(textlow));
-+	/* No different mapping: we're done. */
-+	if (textlow_linear = textlow)
-+		return NULL;
-+
-+	/* Check the secondary mapping... */
-+	texthigh_linear = (unsigned long)__va(__pa(texthigh));
-+	if (overlaps(ptr, n, textlow_linear, texthigh_linear))
-+		return "<linear kernel text>";
-+
-+	return NULL;
-+}
-+
-+static inline const char *check_bogus_address(const void *ptr, unsigned long n)
-+{
-+	/* Reject if object wraps past end of memory. */
-+	if (ptr + n < ptr)
-+		return "<wrapped address>";
-+
-+	/* Reject if NULL or ZERO-allocation. */
-+	if (ZERO_OR_NULL_PTR(ptr))
-+		return "<null>";
-+
-+	return NULL;
-+}
-+
-+static inline const char *check_heap_object(const void *ptr, unsigned long n,
-+					    bool to_user)
-+{
-+	struct page *page, *endpage;
-+	const void *end = ptr + n - 1;
-+	bool is_reserved, is_cma;
-+
-+	/*
-+	 * Some architectures (arm64) return true for virt_addr_valid() on
-+	 * vmalloced addresses. Work around this by checking for vmalloc
-+	 * first.
-+	 */
-+	if (is_vmalloc_addr(ptr))
-+		return NULL;
-+
-+	if (!virt_addr_valid(ptr))
-+		return NULL;
-+
-+	page = virt_to_head_page(ptr);
-+
-+	/* Check slab allocator for flags and size. */
-+	if (PageSlab(page))
-+		return __check_heap_object(ptr, n, page);
-+
-+	/*
-+	 * Sometimes the kernel data regions are not marked Reserved (see
-+	 * check below). And sometimes [_sdata,_edata) does not cover
-+	 * rodata and/or bss, so check each range explicitly.
-+	 */
-+
-+	/* Allow reads of kernel rodata region (if not marked as Reserved). */
-+	if (ptr >= (const void *)__start_rodata &&
-+	    end <= (const void *)__end_rodata) {
-+		if (!to_user)
-+			return "<rodata>";
-+		return NULL;
-+	}
-+
-+	/* Allow kernel data region (if not marked as Reserved). */
-+	if (ptr >= (const void *)_sdata && end <= (const void *)_edata)
-+		return NULL;
-+
-+	/* Allow kernel bss region (if not marked as Reserved). */
-+	if (ptr >= (const void *)__bss_start &&
-+	    end <= (const void *)__bss_stop)
-+		return NULL;
-+
-+	/* Is the object wholly within one base page? */
-+	if (likely(((unsigned long)ptr & (unsigned long)PAGE_MASK) =
-+		   ((unsigned long)end & (unsigned long)PAGE_MASK)))
-+		return NULL;
-+
-+	/* Allow if start and end are inside the same compound page. */
-+	endpage = virt_to_head_page(end);
-+	if (likely(endpage = page))
-+		return NULL;
-+
-+	/*
-+	 * Reject if range is entirely either Reserved (i.e. special or
-+	 * device memory), or CMA. Otherwise, reject since the object spans
-+	 * several independently allocated pages.
-+	 */
-+	is_reserved = PageReserved(page);
-+	is_cma = is_migrate_cma_page(page);
-+	if (!is_reserved && !is_cma)
-+		goto reject;
-+
-+	for (ptr += PAGE_SIZE; ptr <= end; ptr += PAGE_SIZE) {
-+		page = virt_to_head_page(ptr);
-+		if (is_reserved && !PageReserved(page))
-+			goto reject;
-+		if (is_cma && !is_migrate_cma_page(page))
-+			goto reject;
-+	}
-+
-+	return NULL;
-+
-+reject:
-+	return "<spans multiple pages>";
-+}
-+
-+/*
-+ * Validates that the given object is:
-+ * - not bogus address
-+ * - known-safe heap or stack object
-+ * - not in kernel text
-+ */
-+void __check_object_size(const void *ptr, unsigned long n, bool to_user)
-+{
-+	const char *err;
-+
-+	/* Skip all tests if size is zero. */
-+	if (!n)
-+		return;
-+
-+	/* Check for invalid addresses. */
-+	err = check_bogus_address(ptr, n);
-+	if (err)
-+		goto report;
-+
-+	/* Check for bad heap object. */
-+	err = check_heap_object(ptr, n, to_user);
-+	if (err)
-+		goto report;
-+
-+	/* Check for bad stack object. */
-+	switch (check_stack_object(ptr, n)) {
-+	case NOT_STACK:
-+		/* Object is not touching the current process stack. */
-+		break;
-+	case GOOD_FRAME:
-+	case GOOD_STACK:
-+		/*
-+		 * Object is either in the correct frame (when it
-+		 * is possible to check) or just generally on the
-+		 * process stack (when frame checking not available).
-+		 */
-+		return;
-+	default:
-+		err = "<process stack>";
-+		goto report;
-+	}
-+
-+	/* Check for object in kernel to avoid text exposure. */
-+	err = check_kernel_text_object(ptr, n);
-+	if (!err)
-+		return;
-+
-+report:
-+	report_usercopy(ptr, n, to_user, err);
-+}
-+EXPORT_SYMBOL(__check_object_size);
-diff --git a/security/Kconfig b/security/Kconfig
-index 176758cdfa57..df28f2b6f3e1 100644
---- a/security/Kconfig
-+++ b/security/Kconfig
-@@ -118,6 +118,34 @@ config LSM_MMAP_MIN_ADDR
- 	  this low address space will need the permission specific to the
- 	  systems running LSM.
+ extern struct exception_table_entry __stop___ex_table[];
  
-+config HAVE_HARDENED_USERCOPY_ALLOCATOR
-+	bool
-+	help
-+	  The heap allocator implements __check_heap_object() for
-+	  validating memory ranges against heap object sizes in
-+	  support of CONFIG_HARDENED_USERCOPY.
+ #if defined(CONFIG_X86_64)
+ extern char __end_rodata_hpage_align[];
+ #endif
+ 
++#endif /* defined(__KERNEL__) && !defined(__ASSEMBLER__) && !defined(__ASSEMBLY__) */
 +
-+config HAVE_ARCH_HARDENED_USERCOPY
-+	bool
-+	help
-+	  The architecture supports CONFIG_HARDENED_USERCOPY by
-+	  calling check_object_size() just before performing the
-+	  userspace copies in the low level implementation of
-+	  copy_to_user() and copy_from_user().
+ #endif	/* _ASM_X86_SECTIONS_H */
+diff --git a/arch/x86/include/asm/uaccess.h b/arch/x86/include/asm/uaccess.h
+index a2f253c091e3..d661f28e4e00 100644
+--- a/arch/x86/include/asm/uaccess.h
++++ b/arch/x86/include/asm/uaccess.h
+@@ -8,6 +8,7 @@
+ #include <linux/kasan-checks.h>
+ #include <linux/thread_info.h>
+ #include <linux/string.h>
++#include <asm/sections.h>
+ #include <asm/asm.h>
+ #include <asm/page.h>
+ #include <asm/smap.h>
+@@ -90,23 +91,6 @@ static inline bool __chk_range_not_ok(unsigned long addr, unsigned long size, un
+ #define access_ok(type, addr, size) \
+ 	likely(!__range_not_ok(addr, size, user_addr_max()))
+ 
+-/*
+- * The exception table consists of triples of addresses relative to the
+- * exception table entry itself. The first address is of an instruction
+- * that is allowed to fault, the second is the target at which the program
+- * should continue. The third is a handler function to deal with the fault
+- * caused by the instruction in the first field.
+- *
+- * All the routines below use bits of fixup code that are out of line
+- * with the main instruction path.  This means when everything is well,
+- * we don't even have to jump over them.  Further, they do not intrude
+- * on our cache or tlb entries.
+- */
+-
+-struct exception_table_entry {
+-	int insn, fixup, handler;
+-};
+-
+ #define ARCH_HAS_RELATIVE_EXTABLE
+ 
+ #define swap_ex_entry_fixup(a, b, tmp, delta)			\
+diff --git a/include/asm-generic/sections.h b/include/asm-generic/sections.h
+index af0254c09424..efd51e70a8db 100644
+--- a/include/asm-generic/sections.h
++++ b/include/asm-generic/sections.h
+@@ -1,6 +1,8 @@
+ #ifndef _ASM_GENERIC_SECTIONS_H_
+ #define _ASM_GENERIC_SECTIONS_H_
+ 
++#if defined(__KERNEL__) && !defined(__ASSEMBLER__) && !defined(__ASSEMBLY__)
 +
-+config HARDENED_USERCOPY
-+	bool "Harden memory copies between kernel and userspace"
-+	depends on HAVE_ARCH_HARDENED_USERCOPY
-+	select BUG
-+	help
-+	  This option checks for obviously wrong memory regions when
-+	  copying memory to/from the kernel (via copy_to_user() and
-+	  copy_from_user() functions) by rejecting memory ranges that
-+	  are larger than the specified heap object, span multiple
-+	  separately allocates pages, are not on the process stack,
-+	  or are part of the kernel text. This kills entire classes
-+	  of heap overflow exploits and similar kernel memory exposures.
+ /* References to section boundaries */
+ 
+ #include <linux/compiler.h>
+@@ -128,4 +130,6 @@ static inline bool init_section_intersects(void *virt, size_t size)
+ 	return memory_intersects(__init_begin, __init_end, virt, size);
+ }
+ 
++#endif /* defined(__KERNEL__) && !defined(__ASSEMBLER__) && !defined(__ASSEMBLY__) */
 +
- source security/selinux/Kconfig
- source security/smack/Kconfig
- source security/tomoyo/Kconfig
+ #endif /* _ASM_GENERIC_SECTIONS_H_ */
 -- 
-2.7.4
+2.8.4
 
