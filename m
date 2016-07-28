@@ -1,64 +1,76 @@
-From: "Luis R. Rodriguez" <mcgrof@kernel.org>
-Date: Wed, 27 Jul 2016 23:02:18 +0000
+From: "H. Peter Anvin" <hpa@zytor.com>
+Date: Thu, 28 Jul 2016 17:08:20 +0000
 Subject: Re: [RFC v3 07/13] tables.h: add linker table support
-Message-Id: <20160727230218.GR5537@wotan.suse.de>
+Message-Id: <201607281708.u6SH8Uvl002361@mail.zytor.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1469222687-1600-1-git-send-email-mcgrof@kernel.org>
- <1469222687-1600-8-git-send-email-mcgrof@kernel.org>
- <20160726003014.8e0424d2991ec71ad5e0ac5f@kernel.org>
-In-Reply-To: <20160726003014.8e0424d2991ec71ad5e0ac5f@kernel.org>
+References: <1469222687-1600-1-git-send-email-mcgrof@kernel.org> <1469222687-1600-8-git-send-email-mcgrof@kernel.org> <20160726003014.8e0424d2991ec71ad5e0ac5f@kernel.org> <20160727230218.GR5537@wotan.suse.de>
+In-Reply-To: <20160727230218.GR5537@wotan.suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Masami Hiramatsu <mhiramat@kernel.org>
-Cc: "Luis R. Rodriguez" <mcgrof@kernel.org>, hpa@zytor.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, linux@arm.linux.org.uk, masami.hiramatsu.pt@hitachi.com, jbaron@akamai.com, heiko.carstens@de.ibm.com, ananth@linux.vnet.ibm.com, anil.s.keshavamurthy@intel.com, davem@davemloft.net, realmz6@gmail.com, x86@kernel.org, luto@amacapital.net, keescook@chromium.org, torvalds@linux-foundation.org, gregkh@linuxfoundation.org, rusty@rustcorp.com.au, gnomes@lxorguk.ukuu.org.uk, alan@linux.intel.com, dwmw2@infradead.org, arnd@arndb.de, ming.lei@canonical.com, linux-arch@vger.kernel.org, benh@kernel.crashing.org, ananth@in.ibm.com, pebolle@tiscali.nl, fontana@sharpeleven.org, ciaran.farrell@suse.com, christopher.denicolo@suse.com, david.vrabel@citrix.com, konrad.wilk@oracle.com, mcb30@ipxe.org, jgross@suse.com, andrew.cooper3@citrix.com, andriy.shevchenko@linux.intel.com
+To: "Luis R. Rodriguez" <mcgrof@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>
 
-On Tue, Jul 26, 2016 at 12:30:14AM +0900, Masami Hiramatsu wrote:
-> On Fri, 22 Jul 2016 14:24:41 -0700
-> "Luis R. Rodriguez" <mcgrof@kernel.org> wrote:
-> 
-> > +/**
-> > + * LINKTABLE_RUN_ALL - iterate and run through all entries on a linker table
-> > + *
-> > + * @tbl: linker table
-> > + * @func: structure name for the function name we want to call.
-> > + * @args...: arguments to pass to func
-> > + *
-> > + * Example usage:
-> > + *
-> > + *   LINKTABLE_RUN_ALL(frobnicator_fns, some_run,);
-> > + */
-> > +#define LINKTABLE_RUN_ALL(tbl, func, args...)				\
-> > +do {									\
-> > +	size_t i;							\
-> > +	for (i = 0; i < LINUX_SECTION_SIZE(tbl); i++)			\
-> > +		(tbl[i]).func (args);					\
-> > +} while (0);
-> > +
-> > +/**
-> > + * LINKTABLE_RUN_ERR - run each linker table entry func and return error if any
-> > + *
-> > + * @tbl: linker table
-> > + * @func: structure name for the function name we want to call.
-> > + * @args...: arguments to pass to func
-> > + *
-> > + * Example usage:
-> > + *
-> > + *   unsigned int err = LINKTABLE_RUN_ERR(frobnicator_fns, some_run,);
-> > + */
-> > +#define LINKTABLE_RUN_ERR(tbl, func, args...)				\
-> > +({									\
-> > +	size_t i;							\
-> > +	int err = 0;							\
-> > +	for (i = 0; !err && i < LINUX_SECTION_SIZE(tbl); i++)		\
-> > +		err = (tbl[i]).func (args);				\
-> > +		err; \
-> > +})
-> 
-> These iteration APIs are a bit dangerous, at least for these APIs we'd better change
-> name like as FUNCTABLE_RUN etc. because LINKTABLE can contain not only function address
-> but also some data (or address of data).
+tglx@linutronix.de,mingo@redhat.com,bp@alien8.de,linux@arm.linux.org.uk,masami.hiramatsu.pt@hitachi.com,jbaron@akamai.com,heiko.carstens@de.ibm.com,ananth@linux.vnet.ibm.com,anil.s.keshavamurthy@intel.com,davem@davemloft.net,realmz6@gmail.com,x86@kernel.org,luto@amacapital.net,keescook@chromium.org,torvalds@linux-foundation.org,gregkh@linuxfoundation.org,rusty@rustcorp.com.au,gnomes@lxorguk.ukuu.org.uk,alan@linux.intel.com,dwmw2@infradead.org,arnd@arndb.de,ming.lei@canonical.com,linux-arch@vger.kernel.org,benh@kernel.crashing.org,ananth@in.ibm.com,pebolle@tiscali.nl,fontana@sharpeleven.org,ciaran.farrell@suse.com,christopher.denicolo@suse.com,david.vrabel@citrix.com,konrad.wilk@oracle.com,mcb30@ipxe.org,jgross@suse.com,andrew.cooper3@citrix.com,andriy.shevchenko@linux.intel.com,paul.gortmaker@windriver.com,xen-devel@lists.xensource.com,ak@linux.intel.com,pali.rohar@gmail.com,dvhart@infradead.org,platform-driver-x86@vger.kernel.org,mmarek@suse.com,linux@rasmusvillemoes.dk,jko!
+ sina@suse
+.cz,korea.drzix@gmail.com,linux-kbuild@vger.kernel.org,tony.luck@intel.com,akpm@linux-foundation.org,linux-ia64@vger.kernel.org,linux-arm-kernel@lists.infradead.org,linux-sh@vger.kernel.org,sparclinux@vger.kernel.org,catalin.marinas@arm.com,will.deacon@arm.com,rostedt@goodmis.org,jpoimboe@redhat.com
+Message-ID: <01FD20B1-E788-4CC6-81CF-BA26F000FFCB@zytor.com>
 
-Sure will do, thanks for the review.
+On July 27, 2016 4:02:18 PM PDT, "Luis R. Rodriguez" <mcgrof@kernel.org> wrote:
+>On Tue, Jul 26, 2016 at 12:30:14AM +0900, Masami Hiramatsu wrote:
+>> On Fri, 22 Jul 2016 14:24:41 -0700
+>> "Luis R. Rodriguez" <mcgrof@kernel.org> wrote:
+>> 
+>> > +/**
+>> > + * LINKTABLE_RUN_ALL - iterate and run through all entries on a
+>linker table
+>> > + *
+>> > + * @tbl: linker table
+>> > + * @func: structure name for the function name we want to call.
+>> > + * @args...: arguments to pass to func
+>> > + *
+>> > + * Example usage:
+>> > + *
+>> > + *   LINKTABLE_RUN_ALL(frobnicator_fns, some_run,);
+>> > + */
+>> > +#define LINKTABLE_RUN_ALL(tbl, func, args...)				\
+>> > +do {									\
+>> > +	size_t i;							\
+>> > +	for (i = 0; i < LINUX_SECTION_SIZE(tbl); i++)			\
+>> > +		(tbl[i]).func (args);					\
+>> > +} while (0);
+>> > +
+>> > +/**
+>> > + * LINKTABLE_RUN_ERR - run each linker table entry func and return
+>error if any
+>> > + *
+>> > + * @tbl: linker table
+>> > + * @func: structure name for the function name we want to call.
+>> > + * @args...: arguments to pass to func
+>> > + *
+>> > + * Example usage:
+>> > + *
+>> > + *   unsigned int err = LINKTABLE_RUN_ERR(frobnicator_fns,
+>some_run,);
+>> > + */
+>> > +#define LINKTABLE_RUN_ERR(tbl, func, args...)				\
+>> > +({									\
+>> > +	size_t i;							\
+>> > +	int err = 0;							\
+>> > +	for (i = 0; !err && i < LINUX_SECTION_SIZE(tbl); i++)		\
+>> > +		err = (tbl[i]).func (args);				\
+>> > +		err; \
+>> > +})
+>> 
+>> These iteration APIs are a bit dangerous, at least for these APIs
+>we'd better change
+>> name like as FUNCTABLE_RUN etc. because LINKTABLE can contain not
+>only function address
+>> but also some data (or address of data).
+>
+>Sure will do, thanks for the review.
+>
+>  Luis
 
-  Luis
+I don't know if they are dangerous.  Keep in mind C type checking is still present.
+-- 
+Sent from my Android device with K-9 Mail. Please excuse brevity and formatting.
