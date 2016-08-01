@@ -1,39 +1,37 @@
-From: Baole Ni <baolex.ni@intel.com>
-Date: Tue, 02 Aug 2016 10:34:16 +0000
-Subject: [PATCH 0013/1285] Replace numeric parameter like 0444 with macro
-Message-Id: <20160802103416.14622-1-baolex.ni@intel.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Mon, 01 Aug 2016 21:52:18 +0000
+Subject: [GIT PULL] ia64 changes for 4.8
+Message-Id: <579fc49224172d1de6@agluck-desk.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: tony.luck@intel.com, fenghua.yu@intel.com, robert.jarzmik@free.fr, linux@armlinux.org.uk
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, chuansheng.liu@intel.com, baolex.ni@intel.com
+To: linux-ia64@vger.kernel.org
 
-I find that the developers often just specified the numeric value
-when calling a macro which is defined with a parameter for access permission.
-As we know, these numeric value for access permission have had the corresponding macro,
-and that using macro can improve the robustness and readability of the code,
-thus, I suggest replacing the numeric parameter with the macro.
+The following changes since commit 5edb56491d4812c42175980759da53388e5d86f5:
 
-Signed-off-by: Chuansheng Liu <chuansheng.liu@intel.com>
-Signed-off-by: Baole Ni <baolex.ni@intel.com>
----
- arch/ia64/sn/kernel/tiocx.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+  Linux 4.7-rc3 (2016-06-12 07:20:35 -0700)
 
-diff --git a/arch/ia64/sn/kernel/tiocx.c b/arch/ia64/sn/kernel/tiocx.c
-index e35f648..d4f99f9 100644
---- a/arch/ia64/sn/kernel/tiocx.c
-+++ b/arch/ia64/sn/kernel/tiocx.c
-@@ -484,7 +484,7 @@ static ssize_t store_cxdev_control(struct device *dev, struct device_attribute *
- 	return count;
- }
- 
--DEVICE_ATTR(cxdev_control, 0644, show_cxdev_control, store_cxdev_control);
-+DEVICE_ATTR(cxdev_control, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH, show_cxdev_control, store_cxdev_control);
- 
- static int __init tiocx_init(void)
- {
--- 
-2.9.2
+are available in the git repository at:
 
+  git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git tags/please-pull-misc-4.8
+
+for you to fetch changes up to fbb0e4da96f4503e65bc4fb627cf4e1d7c8c64e6:
+
+  ia64: salinfo: use a waitqueue instead a sema down/up combo (2016-07-25 09:55:32 -0700)
+
+----------------------------------------------------------------
+Miscellaneous ia64 cleanups
+
+----------------------------------------------------------------
+Arnd Bergmann (1):
+      ia64: efi: use timespec64 for persistent clock
+
+Sebastian Andrzej Siewior (1):
+      ia64: salinfo: use a waitqueue instead a sema down/up combo
+
+ arch/ia64/kernel/efi.c     |  4 ++--
+ arch/ia64/kernel/salinfo.c | 38 ++++++++++----------------------------
+ arch/ia64/kernel/time.c    |  2 +-
+ include/linux/efi.h        |  2 +-
+ 4 files changed, 14 insertions(+), 32 deletions(-)
