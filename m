@@ -1,44 +1,39 @@
-From: mcgrof@kernel.org
-Date: Fri, 19 Aug 2016 21:41:11 +0000
-Subject: [PATCH v1 3/7] tools: add init.h for tools
-Message-Id: <1471642875-5957-4-git-send-email-mcgrof@kernel.org>
+From: Baole Ni <baolex.ni@intel.com>
+Date: Tue, 02 Aug 2016 10:34:16 +0000
+Subject: [PATCH 0013/1285] Replace numeric parameter like 0444 with macro
+Message-Id: <20160802103416.14622-1-baolex.ni@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1471642454-5679-1-git-send-email-mcgrof@kernel.org>
- <1471642875-5957-1-git-send-email-mcgrof@kernel.org>
-In-Reply-To: <1471642875-5957-1-git-send-email-mcgrof@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: acme@redhat.com, hpa@zytor.com, tglx@linutronix.de, mingo@redhat.com, jpoimboe@redhat.com, bp@alien8.de, linux@arm.linux.org.uk, mhiramat@kernel.org, masami.hiramatsu.pt@hitachi.com, jbaron@akamai.com, heiko.carstens@de.ibm.com, ananth@linux.vnet.ibm.com, anil.s.keshavamurthy@intel.com, davem@davemloft.net, realmz6@gmail.com
-Cc: x86@kernel.org, luto@amacapital.net, keescook@chromium.org, torvalds@linux-foundation.org, gregkh@linuxfoundation.org, rusty@rustcorp.com.au, gnomes@lxorguk.ukuu.org.uk, alan@linux.intel.com, dwmw2@infradead.org, arnd@arndb.de, ming.lei@canonical.com, linux-arch@vger.kernel.org, benh@kernel.crashing.org, ananth@in.ibm.com, pebolle@tiscali.nl, fontana@sharpeleven.org, david.vrabel@citrix.com, konrad.wilk@oracle.com, mcb30@ipxe.org, jgross@suse.com, andrew.cooper3@citrix.com, andriy.shevchenko@linux.intel.com, paul.gortmaker@windriver.com, xen-devel@lists.xensource.com, ak@linux.intel.com, pali.rohar@gmail.com, dvhart@infradead.org, platform-driver-x86@vger.kernel.org, mmarek@suse.com, linux@rasmusvillemoes.dk, jkosina@suse.cz, korea.drzix@gmail.com, linux-kbuild@vger.kernel.org, ton
+To: tony.luck@intel.com, fenghua.yu@intel.com, robert.jarzmik@free.fr, linux@armlinux.org.uk
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, chuansheng.liu@intel.com, baolex.ni@intel.com
 
-From: "Luis R. Rodriguez" <mcgrof@kernel.org>
+I find that the developers often just specified the numeric value
+when calling a macro which is defined with a parameter for access permission.
+As we know, these numeric value for access permission have had the corresponding macro,
+and that using macro can improve the robustness and readability of the code,
+thus, I suggest replacing the numeric parameter with the macro.
 
-Start off with just __ref -- we enalbe you to override, if you do
-that then you can define your own. The way you'd use this, if you
-do override, is define your own __ref and then use include_next.
-
-Signed-off-by: Luis R. Rodriguez <mcgrof@kernel.org>
+Signed-off-by: Chuansheng Liu <chuansheng.liu@intel.com>
+Signed-off-by: Baole Ni <baolex.ni@intel.com>
 ---
- tools/include/linux/init.h | 9 +++++++++
- 1 file changed, 9 insertions(+)
- create mode 100644 tools/include/linux/init.h
+ arch/ia64/sn/kernel/tiocx.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/tools/include/linux/init.h b/tools/include/linux/init.h
-new file mode 100644
-index 000000000000..6d970a360a05
---- /dev/null
-+++ b/tools/include/linux/init.h
-@@ -0,0 +1,9 @@
-+#ifndef _TOOLS_LINUX_INIT_H
-+#define _TOOLS_LINUX_INIT_H
-+
-+/* this means you can add your own to fit you own userspace needs */
-+#ifndef __ref
-+#define __ref
-+#endif
-+
-+#endif /* _TOOLS_LINUX_INIT_H */
+diff --git a/arch/ia64/sn/kernel/tiocx.c b/arch/ia64/sn/kernel/tiocx.c
+index e35f648..d4f99f9 100644
+--- a/arch/ia64/sn/kernel/tiocx.c
++++ b/arch/ia64/sn/kernel/tiocx.c
+@@ -484,7 +484,7 @@ static ssize_t store_cxdev_control(struct device *dev, struct device_attribute *
+ 	return count;
+ }
+ 
+-DEVICE_ATTR(cxdev_control, 0644, show_cxdev_control, store_cxdev_control);
++DEVICE_ATTR(cxdev_control, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH, show_cxdev_control, store_cxdev_control);
+ 
+ static int __init tiocx_init(void)
+ {
 -- 
 2.9.2
 
