@@ -1,35 +1,48 @@
-From: mcgrof@kernel.org
-Date: Fri, 19 Aug 2016 21:34:00 +0000
-Subject: [PATCH v4 02/16] dell-smo8800: include uaccess.h
-Message-Id: <1471642454-5679-3-git-send-email-mcgrof@kernel.org>
+From: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
+Date: Tue, 09 Aug 2016 14:24:29 +0000
+Subject: Re: [RFC v3 00/13] linux: generalize sections, ranges and linker tables
+Message-Id: <20160809152429.5bb1c077@lxorguk.ukuu.org.uk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1471642454-5679-1-git-send-email-mcgrof@kernel.org>
-In-Reply-To: <1471642454-5679-1-git-send-email-mcgrof@kernel.org>
+References: <1469222687-1600-1-git-send-email-mcgrof@kernel.org>
+In-Reply-To: <1469222687-1600-1-git-send-email-mcgrof@kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="macroman"
-Content-Transfer-Encoding: base64
-To: hpa@zytor.com, tglx@linutronix.de, mingo@redhat.com, jpoimboe@redhat.com, bp@alien8.de, linux@arm.linux.org.uk, mhiramat@kernel.org, masami.hiramatsu.pt@hitachi.com, jbaron@akamai.com, heiko.carstens@de.ibm.com, ananth@linux.vnet.ibm.com, anil.s.keshavamurthy@intel.com, davem@davemloft.net, realmz6@gmail.com
-Cc: gnomes@lxorguk.ukuu.org.uk, linux-ia64@vger.kernel.org, jkosina@suse.cz, benh@kernel.crashing.org, ming.lei@canonical.com, linux@rasmusvillemoes.dk, platform-driver-x86@vger.kernel.org, James.Bottomley@HansenPartnership.com, paul.gortmaker@windriver.com, paulus@samba.org, sparclinux@vger.kernel.org, mchehab@osg.samsung.com, linux-arch@vger.kernel.org, markus.heiser@darmarit.de, xen-devel@lists.xensource.com, msalter@redhat.com, linux-sh@vger.kernel.org, mpe@ellerman.id.au, x86@kernel.org, fontana@sharpeleven.org, linux-arm-kernel@lists.infradead.org, catalin.marinas@arm.com, dvhart@infradead.org, dwmw2@infradead.org, linux-xtensa@linux-xtensa.org, pali.rohar@gmail.com, keescook@chromium.org, arnd@arndb.de, jani.nikula@intel.com, will.deacon@arm.com, rusty@rustcorp.com.au, rostedt@goodmis.org, acme@redhat.com, ak@linux.intel.com, andriy.shevchenko@linux.intel.com, mcb30@ip
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: "Luis R. Rodriguez" <mcgrof@kernel.org>
+Cc: hpa@zytor.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, linux@arm.linux.org.uk, mhiramat@kernel.org, masami.hiramatsu.pt@hitachi.com, jbaron@akamai.com, heiko.carstens@de.ibm.com, ananth@linux.vnet.ibm.com, anil.s.keshavamurthy@intel.com, davem@davemloft.net, realmz6@gmail.com, x86@kernel.org, luto@amacapital.net, keescook@chromium.org, torvalds@linux-foundation.org, gregkh@linuxfoundation.org, rusty@rustcorp.com.au, alan@linux.intel.com, dwmw2@infradead.org, arnd@arndb.de, ming.lei@canonical.com, linux-arch@vger.kernel.org, benh@kernel.crashing.org, ananth@in.ibm.com, pebolle@tiscali.nl, fontana@sharpeleven.org, ciaran.farrell@suse.com, christopher.denicolo@suse.com, david.vrabel@citrix.com, konrad.wilk@oracle.com, mcb30@ipxe.org, jgross@suse.com, andrew.cooper3@citrix.com, andriy.shevchenko@linux.intel.com, paul.gortmaker@windriver.com, xen-devel@lists.xen
 
-RnJvbTogIkx1aXMgUi4gUm9kcmlndWV6IiA8bWNncm9mQGtlcm5lbC5vcmc+CgpzZWN0aW9ucy5o
-IGlzIGN1cnJlbnRseSBpbmNsdWRlZCBhbmQgaXQgcHJvdmlkZXMgZGVsbC1zbW84ODAwCndpdGgg
-d2hhdCBpdCBuZWVkcywgYW4gdXBjb21pbmcgY2hhbmdlIHdpbGwgZGVjb3VwbGUgdWFjY2Vzcy5o
-CmZyb20gc2VjdGlvbnMuaC4gVGhpcyBkcml2ZXIgbmVlZHMgdG8gZXhwbGljaXRseSByZXF1aXJl
-IHVhY2Nlc3MuaApiZWZvcmUgdGhpcyBjaGFuZ2UuCgp2MzogbmV3IHRvIHRoaXMgc2VyaWVzIC0t
-IG5lZWRlZCBkdWUgdG8gY29sbGF0ZXJhbCBvZiB0aGUgc3BsaXQgb2YKICAgIG9sZCBsaW5rZXIg
-dGFibGVzIGZyb20gdGFibGVzLmggaW50byAzIGZpbGVzOiBzZWN0aW9ucy5oLCByYW5nZXMuaAog
-ICAgYW5kIHRhYmxlcy5oCgpSZXZpZXdlZC1ieTogUGFsaSBSb2jDoXIgPHBhbGkucm9oYXJAZ21h
-aWwuY29tPgpTaWduZWQtb2ZmLWJ5OiBMdWlzIFIuIFJvZHJpZ3VleiA8bWNncm9mQGtlcm5lbC5v
-cmc+Ci0tLQogZHJpdmVycy9wbGF0Zm9ybS94ODYvZGVsbC1zbW84ODAwLmMgfCAxICsKIDEgZmls
-ZSBjaGFuZ2VkLCAxIGluc2VydGlvbigrKQoKZGlmZiAtLWdpdCBhL2RyaXZlcnMvcGxhdGZvcm0v
-eDg2L2RlbGwtc21vODgwMC5jIGIvZHJpdmVycy9wbGF0Zm9ybS94ODYvZGVsbC1zbW84ODAwLmMK
-aW5kZXggMGFlYzRmZDRjNDhlLi4zN2U2NDYwMzRlZjggMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvcGxh
-dGZvcm0veDg2L2RlbGwtc21vODgwMC5jCisrKyBiL2RyaXZlcnMvcGxhdGZvcm0veDg2L2RlbGwt
-c21vODgwMC5jCkBAIC0yNCw2ICsyNCw3IEBACiAjaW5jbHVkZSA8bGludXgvYWNwaS5oPgogI2lu
-Y2x1ZGUgPGxpbnV4L2ludGVycnVwdC5oPgogI2luY2x1ZGUgPGxpbnV4L21pc2NkZXZpY2UuaD4K
-KyNpbmNsdWRlIDxsaW51eC91YWNjZXNzLmg+CiAKIHN0cnVjdCBzbW84ODAwX2RldmljZSB7CiAJ
-dTMyIGlycTsgICAgICAgICAgICAgICAgICAgICAvKiBhY3BpIGRldmljZSBpcnEgKi8KLS0gCjIu
-OS4yCgotLQpUbyB1bnN1YnNjcmliZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0aGUgbGluZSAidW5z
-dWJzY3JpYmUgbGludXgtaWE2NCIgaW4KdGhlIGJvZHkgb2YgYSBtZXNzYWdlIHRvIG1ham9yZG9t
-b0B2Z2VyLmtlcm5lbC5vcmcKTW9yZSBtYWpvcmRvbW8gaW5mbyBhdCAgaHR0cDovL3ZnZXIua2Vy
-bmVsLm9yZy9tYWpvcmRvbW8taW5mby5odG1s
+> table development go under copyleft-next, Rusty recently asked for code
+> to go in prior to the license tag being added denoting this license as
+> GPL-compatible [3] -- I had noted in the patch submission which annotated
+> copyleft-next's compatibility to GPLv2 that copyleft-next is the license
+> of choice for ongoing kernel development on my end [4]. If this is
+> objectionable I'm happy to change it to GPLv2 however I'd like a reason
+> provided as I've gone through all possible channels to ensure this is kosher,
+> including vetting by 3 attorneys now, 2 at SUSE.
+
+You don't need a new tag, you can use "GPL" or "GPL and additional
+rights". In fact you don't want any other tag because when combined with
+the kernel it is GPLv2 anyway because the only way the two are fully
+compatible is for the kernel community to license the derived work under
+the GPL.
+
+The second reason you must use the GPL or GPL with additional tag is
+clause 8. We don't want anyone to create a module under your licence,
+claim it is "open source" then fifteen years later release the module in
+binary only form still with a tag saying "copyleft-next" which we treat
+as GPL compatible. It's the same reason we don't have a BSD tag but use
+"GPL with additional rights" to stop abuse of the module tags.
+
+However you need to clarify the licence first I think. Linux is GPLv2,
+your document only allows use of GPL with "GPL" works - not GPL v2 works ?
+
+As PS: btw your licence is kind of weird. I can combine it with GPL work,
+make it GPL therefore, and then use the GPL rights to remove the bits I
+added thereby meaning I have your exact original work under the GPL. Not
+sure how it's intended to work ?
+
+It would also be good if someone clarified whether 6 and 7 are intended
+to combine so you can take contributed patches and put them in your own
+proprietary version. As a non-lawyer the intent is not clear at all.
+
+Alan
