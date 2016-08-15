@@ -1,29 +1,94 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Date: Sun, 28 Aug 2016 07:37:20 +0000
-Subject: Re: IA64-IRQ: Use kmalloc_array() in sn_irq_lh_init()
-Message-Id: <4afdc7ca-6618-4c88-32da-3ac126f852f4@users.sourceforge.net>
+From: David Daney <ddaney@caviumnetworks.com>
+Date: Mon, 15 Aug 2016 22:55:14 +0000
+Subject: Re: [PATCH v7 14/15] arm64, acpi, numa: NUMA support based on SRAT and SLIT
+Message-Id: <57B24852.5090108@caviumnetworks.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <349bbfb4-bada-628e-2981-ca2a315299fc@users.sourceforge.net>
- <2e046b40-1c8e-717f-68b1-534c3125724c@users.sourceforge.net>
- <alpine.DEB.2.10.1608261557130.3645@hadrien>
- <1472245341.4914.79.camel@perches.com>
- <894bf885-4cf0-fcaa-e040-35d9add64acc@users.sourceforge.net>
- <1472344806.26978.30.camel@perches.com>
-In-Reply-To: <1472344806.26978.30.camel@perches.com>
+References: <1464129345-18985-1-git-send-email-ddaney.cavm@gmail.com>
+ <1464129345-18985-15-git-send-email-ddaney.cavm@gmail.com>
+ <20160815153546.GF22320@e104818-lin.cambridge.arm.com>
+In-Reply-To: <20160815153546.GF22320@e104818-lin.cambridge.arm.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Joe Perches <joe@perches.com>
-Cc: Julia Lawall <julia.lawall@lip6.fr>, linux-ia64@vger.kernel.org, Fenghua Yu <fenghua.yu@intel.com>, Tony Luck <tony.luck@intel.com>, LKML <linux-kernel@vger.kernel.org>, kernel-janitors@vger.kernel.org, Paolo Bonzini <pbonzini@redhat.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: Catalin Marinas <catalin.marinas@arm.com>
+Cc: Mark Rutland <mark.rutland@arm.com>, linux-ia64@vger.kernel.org, David Daney <david.daney@cavium.com>, Will Deacon <will.deacon@arm.com>, Lv Zheng <lv.zheng@intel.com>, "H. Peter
+ Anvin" <hpa@zytor.com>, Frank Rowand <frowand.list@gmail.com>, x86@kernel.org, Robert Moore <robert.moore@intel.com>, linux-acpi@vger.kernel.org, Ingo Molnar <mingo@redhat.com>, Grant Likely <grant.likely@linaro.org>, Len Brown <lenb@kernel.org>, Fenghua Yu <fenghua.yu@intel.com>, Marc Zyngier <Marc.Zyngier@arm.com>, Robert Richter <rrichter@cavium.com>, Rob Herring <robh+dt@kernel.org>, David Daney <ddaney.cavm@gmail.com>, Thomas Gleixner <tglx@linutronix.de>, linux-arm-kernel@lists.infradead.org, devel@acpica.org, Tony Luck <tony.luck@intel.com>, "Rafael J. Wysocki" <rjw@rjwysocki.net>, linux-kernel@vger.kernel.org, Hanjun Guo <hanjun.guo@linaro.org>, Ganapatrao Kulkarni <gkulkarni@caviumnetwo>
 
-> While elimination of code duplication should be good,
-> what it means it you should avoid making changes that
-> are merely mechanical and strive to make changes that
-> improve code execution speed or reduce overall object
-> size while not impacting overall execution speed.
+On 08/15/2016 08:35 AM, Catalin Marinas wrote:
+> On Tue, May 24, 2016 at 03:35:44PM -0700, David Daney wrote:
+>> diff --git a/arch/arm64/include/asm/acpi.h b/arch/arm64/include/asm/acpi.h
+>> index aee323b..4b13ecd 100644
+>> --- a/arch/arm64/include/asm/acpi.h
+>> +++ b/arch/arm64/include/asm/acpi.h
+>> @@ -113,4 +113,12 @@ static inline const char *acpi_get_enable_method(int cpu)
+>>   pgprot_t arch_apei_get_mem_attribute(phys_addr_t addr);
+>>   #endif
+>>
+>> +#ifdef CONFIG_ACPI_NUMA
+>> +int arm64_acpi_numa_init(void);
+>> +int acpi_numa_get_nid(unsigned int cpu, u64 hwid);
+>> +#else
+>> +static inline int arm64_acpi_numa_init(void) { return -ENOSYS; }
+>> +static inline int acpi_numa_get_nid(unsigned int cpu, u64 hwid) { return NUMA_NO_NODE; }
+>> +#endif /* CONFIG_ACPI_NUMA */
+>> +
+>>   #endif /*_ASM_ACPI_H*/
+>
+> Apparently this doesn't always build since asm/acpi.h is conditionally
+> included from linux/acpi.h only when CONFIG_ACPI is enabled. Disabling
+> this option on arm64 leads to:
+>
+> arch/arm64/mm/numa.c: In function ‘arm64_numa_init’:
+> arch/arm64/mm/numa.c:395:24: error: ‘arm64_acpi_numa_init’ undeclared (first use in this function)
+>     if (!acpi_disabled && !numa_init(arm64_acpi_numa_init))
+>
+> I'll fix it in arch/arm64 by including asm/acpi.h directly as we do in a
+> couple of other files:
 
-Do other contributors spot any further improvement opportunities
-with a higher value in the source files for this software module?
+Sounds good.  Thanks for fixing it.
 
-Regards,
-Markus
+David
+
+
+>
+> ------------------8<------------------------------
+>  From 9a83bf400e0b4ef066b83eeaecdbca909b8491ea Mon Sep 17 00:00:00 2001
+> From: Catalin Marinas <catalin.marinas@arm.com>
+> Date: Mon, 15 Aug 2016 16:33:10 +0100
+> Subject: [PATCH] arm64: Fix NUMA build error when !CONFIG_ACPI
+> MIME-Version: 1.0
+> Content-Type: text/plain; charset=UTF-8
+> Content-Transfer-Encoding: 8bit
+>
+> Since asm/acpi.h is only included by linux/acpi.h when CONFIG_ACPI is
+> enabled, disabling the latter leads to the following build error on
+> arm64:
+>
+> arch/arm64/mm/numa.c: In function ‘arm64_numa_init’:
+> arch/arm64/mm/numa.c:395:24: error: ‘arm64_acpi_numa_init’ undeclared (first use in this function)
+>     if (!acpi_disabled && !numa_init(arm64_acpi_numa_init))
+>
+> This patch include the asm/acpi.h explicitly in arch/arm64/mm/numa.c for
+> the arm64_acpi_numa_init() definition.
+>
+> Fixes: d8b47fca8c23 ("arm64, ACPI, NUMA: NUMA support based on SRAT and SLIT")
+> Signed-off-by: Catalin Marinas <catalin.marinas@arm.com>
+> ---
+>   arch/arm64/mm/numa.c | 2 ++
+>   1 file changed, 2 insertions(+)
+>
+> diff --git a/arch/arm64/mm/numa.c b/arch/arm64/mm/numa.c
+> index c7fe3ec70774..5bb15eab6f00 100644
+> --- a/arch/arm64/mm/numa.c
+> +++ b/arch/arm64/mm/numa.c
+> @@ -23,6 +23,8 @@
+>   #include <linux/module.h>
+>   #include <linux/of.h>
+>
+> +#include <asm/acpi.h>
+> +
+>   struct pglist_data *node_data[MAX_NUMNODES] __read_mostly;
+>   EXPORT_SYMBOL(node_data);
+>   nodemask_t numa_nodes_parsed __initdata;
+>
+
