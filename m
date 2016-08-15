@@ -1,66 +1,48 @@
-From: "Luis R. Rodriguez" <mcgrof@kernel.org>
-Date: Wed, 10 Aug 2016 17:03:29 +0000
+From: Steven Rostedt <rostedt@goodmis.org>
+Date: Mon, 15 Aug 2016 21:00:55 +0000
 Subject: Re: [RFC v3 00/13] linux: generalize sections, ranges and linker tables
-Message-Id: <20160810170329.GK3296@wotan.suse.de>
+Message-Id: <20160815170055.248eee3e@gandalf.local.home>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1469222687-1600-1-git-send-email-mcgrof@kernel.org>
- <20160809152429.5bb1c077@lxorguk.ukuu.org.uk>
- <1470758947.2299.47.camel@HansenPartnership.com>
-In-Reply-To: <1470758947.2299.47.camel@HansenPartnership.com>
+	<20160809152429.5bb1c077@lxorguk.ukuu.org.uk>
+	<1470758947.2299.47.camel@HansenPartnership.com>
+	<CALCETrVmDhPC6BMu4_xTanSFZBKeW9V6A4SeQ4qxnpVod-eLbQ@mail.gmail.com>
+	<1471292106.5944.3.camel@linux.intel.com>
+In-Reply-To: <1471292106.5944.3.camel@linux.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: James Bottomley <James.Bottomley@HansenPartnership.com>
-Cc: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>, linux-ia64@vger.kernel.org, jkosina@suse.cz, benh@kernel.crashing.org, ming.lei@canonical.com, heiko.carstens@de.ibm.com, platform-driver-x86@vger.kernel.org, paul.gortmaker@windriver.com, hpa@zytor.com, masami.hiramatsu.pt@hitachi.com, linux-arch@vger.kernel.org, msalter@redhat.com, sparclinux@vger.kernel.org, xen-devel@lists.xensource.com, linux@arm.linux.org.uk, linux-sh@vger.kernel.org, will.deacon@arm.com, korea.drzix@gmail.com, x86@kernel.org, anil.s.keshavamurthy@intel.com, fontana@sharpeleven.org, mingo@redhat.com, linux-arm-kernel@lists.infradead.org, catalin.marinas@arm.com, dvhart@infradead.org, dwmw2@infradead.org, david.vrabel@citrix.com, pali.rohar@gmail.com, keescook@chromium.org, arnd@arndb.de, realmz6@gmail.com, a-jacquiot@ti.com, linux@rasmusvillemoes.dk, rusty@rustcorp.com.au, rostedt@goodmis.org, chris
+To: Alan Cox <alan@linux.intel.com>
+Cc: Andy Lutomirski <luto@amacapital.net>, James Bottomley <James.Bottomley@hansenpartnership.com>, benh@kernel.crashing.org, masami.hiramatsu.pt@hitachi.com, linux@rasmusvillemoes.dk, linux-kbuild@vger.kernel.org, linux-sh@vger.kernel.org, torvalds@linux-foundation.org, akpm@linux-foundation.org, dwmw2@infradead.org, xen-devel@lists.xensource.com, "Luis R. Rodriguez" <mcgrof@kernel.org>, anil.s.keshavamurthy@intel.com, will.deacon@arm.com, linux-ia64@vger.kernel.org, x86@kernel.org, korea.drzix@gmail.com, mingo@redhat.com, andrew.cooper3@citrix.com, jgross@suse.com, tglx@linutronix.de, keescook@chromium.org, ananth@linux.vnet.ibm.com, jpoimboe@redhat.com, hpa@zytor.com, arnd@arndb.de, davem@davemloft.net, One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>, platform-driver-x86@vger.kernel.org, jkosina@suse.cz, david.vrabel@citrix.com, realmz6@gmail.com, fontana@sharpeleven
 
-On Tue, Aug 09, 2016 at 09:09:07AM -0700, James Bottomley wrote:
-> On Tue, 2016-08-09 at 15:24 +0100, One Thousand Gnomes wrote:
-> > > table development go under copyleft-next, Rusty recently asked for 
-> > > code to go in prior to the license tag being added denoting this 
-> > > license as GPL-compatible [3] -- I had noted in the patch 
-> > > submission which annotated copyleft-next's compatibility to GPLv2 
-> > > that copyleft-next is the license of choice for ongoing kernel 
-> > > development on my end [4]. If this is objectionable I'm happy to 
-> > > change it to GPLv2 however I'd like a reason provided as I've gone 
-> > > through all possible channels to ensure this is kosher, including
-> > > vetting by 3 attorneys now, 2 at SUSE.
-> > 
-> > You don't need a new tag, you can use "GPL" or "GPL and additional
-> > rights". In fact you don't want any other tag because when combined
-> >  with the kernel it is GPLv2 anyway because the only way the two are 
-> > fully compatible is for the kernel community to license the derived 
-> > work under the GPL.
+On Mon, 15 Aug 2016 21:15:06 +0100
+Alan Cox <alan@linux.intel.com> wrote:
+
+> > This is the module tag ... it says what licence the module is under,
+> > not the licence for the module combined with the kernel, which is
+> > always GPLv2 because the stricter licence rules.  
 > 
-> This is the module tag ... it says what licence the module is under,
-> not the licence for the module combined with the kernel, which is
-> always GPLv2 because the stricter licence rules.
+> Because if I build a BSD licensed module against the kernel, give you
+> the binaries and refuse to give you the source I am conforming to the
+> BSD licence in letter. So to use it with the kernel it needs to be GPL
+> with additional rights (eg BSD including the source...)
+> 
 
-As per Linus' recommendations [0] if I add a module I'll be using
-MODULE_LICENSE("GPL") if using copyleft-next. Either way this series
-didn't add a module yet so no need for that yet, but it does use
-copyleft-next in headers / C code.
+But that only pertains to the code that was modified to be used with
+the Linux kernel, right? That is, if there's a BSD licensed module for
+device FOO, and I port it to the Linux kernel, that will need to have a
+GPL added to it to be included in Linux. But the original BSD code is
+not affected. If a fix is made to the GPL Linux version, I'm assuming
+(because I've been asked when doing something like this), that the
+author of that fix will have to give it a dual license to be used back
+in the original BSD only code. Correct?
 
-[0] https://lkml.kernel.org/r/CA+55aFyhxcvD+q7tp+-yrSFDKfR0mOHgyEAe=f_94aKLsOu0Og@mail.gmail.com
+I'm just trying to understand this. From what would make sense to me
+(but may or may not to a court of law, where it counts), is that the
+code added to Linux must be under GPL. But using that code depends on
+where you get it from. If you use BSD source, it stays under BSD. But
+any fixes to the GPL version will require permission to be put back to
+the BSD version. A change to the GPL version doesn't automatically get
+allowed back to the BSD only version?
 
-> However, if I
-> want my binary only modules to be combined with Linux, I have to follow
-> GPLv2 compliance because GPLv2 becomes the ruling licence of the
-> combination.  The same would apply to this copyleft-next, even after 15
-> years.
-
-And this what really matters here.
-
-> The US copyright office defines a copyright work as anything which is
-> "an original work of authorship fixed in any tangible medium of
-> expression".  That means any change to an existing work (i.e. by a
-> patch) which contains enough originality to make the changed work
-> distinct from the old work is ipso facto a new work.  under copyright
-> -next this new work has a sunset 15 years from its creation by
-> combination, not 15 years from the original.  This means a constantly
-> updated work never sunsets.  Sure, you can go back 15 years and claim
-> the code at that time has passed into the public domain but you can't
-> do that if you also want the benefit of later changes.
-
-Agreed.
-
-  Luis
+-- Steve
