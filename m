@@ -1,40 +1,95 @@
-From: Waiman Long <waiman.long@hpe.com>
-Date: Wed, 24 Aug 2016 18:39:11 +0000
-Subject: Re: [RFC PATCH-tip v4 10/10] locking/rwsem: Add a boot parameter to reader spinning threshold
-Message-Id: <57BDE9CF.5030801@hpe.com>
+From: Waiman Long <Waiman.Long@hpe.com>
+Date: Thu, 18 Aug 2016 21:11:04 +0000
+Subject: [RFC PATCH-tip v4 02/10] locking/rwsem: Stop active read lock ASAP
+Message-Id: <1471554672-38662-3-git-send-email-Waiman.Long@hpe.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1471554672-38662-1-git-send-email-Waiman.Long@hpe.com> <1471554672-38662-11-git-send-email-Waiman.Long@hpe.com> <20160824040007.GA17186@linux-80c1.suse>
-In-Reply-To: <20160824040007.GA17186@linux-80c1.suse>
+References: <1471554672-38662-1-git-send-email-Waiman.Long@hpe.com>
+In-Reply-To: <1471554672-38662-1-git-send-email-Waiman.Long@hpe.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Davidlohr Bueso <dave@stgolabs.net>
-Cc: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>, linux-kernel@vger.kernel.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-arch@vger.kernel.org, linux-doc@vger.kernel.org, Jason Low <jason.low2@hp.com>, Dave Chinner <david@fromorbit.com>, Jonathan Corbet <corbet@lwn.net>, Scott J Norton <scott.norton@hpe.com>, Douglas Hatch <doug.hatch@hpe.com>
+To: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>
+Cc: linux-kernel@vger.kernel.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-arch@vger.kernel.org, linux-doc@vger.kernel.org, Davidlohr Bueso <dave@stgolabs.net>, Jason Low <jason.low2@hp.com>, Dave Chinner <david@fromorbit.com>, Jonathan Corbet <corbet@lwn.net>, Scott J Norton <scott.norton@hpe.com>, Douglas Hatch <doug.hatch@hpe.com>, Waiman Long <Waiman.Long@hpe.com>
 
-On 08/24/2016 12:00 AM, Davidlohr Bueso wrote:
-> On Thu, 18 Aug 2016, Waiman Long wrote:
->
->> The default reader spining threshold is current set to 4096. However,
->> the right reader spinning threshold may vary from one system to
->> another and among the different architectures. This patch adds a new
->> kernel boot parameter to modify the threshold value. This enables
->> better tailoring to the needs of different systems as well as for
->> testing purposes.
->
-> It also means that those systems could very easily be incorrectly 
-> tailored.
-> (and worse case scenario: reboot, is obviously a terrible way to get rid
-> of any issues). I very much disagree with exposing this sort of core 
-> stuff,
-> it should work well for everyone out of the box, not relying on users to
-> properly configure this.
->
-> Thanks,
-> Davidlohr
+Currently, when down_read() fails, the active read locking isn't undone
+until the rwsem_down_read_failed() function grabs the wait_lock. If the
+wait_lock is contended, it may takes a while to get the lock. During
+that period, writer lock stealing will be disabled because of the
+active read lock.
 
-I also have some concern about exposing this kernel parameter as it will 
-be hard to tune. That is why I put it at the end to gauge the opinion of 
-others. I will leave this out when I send out the next version.
+This patch will release the active read lock ASAP so that writer lock
+stealing can happen sooner. The only downside is when the reader is
+the first one in the wait queue as it has to issue another atomic
+operation to update the count.
 
-Cheers,
-Longman
+On a 4-socket Haswell machine running on a 4.7-rc1 tip-based kernel,
+the fio test with multithreaded randrw and randwrite tests on the
+same file on a XFS partition on top of a NVDIMM with DAX were run,
+the aggregated bandwidths before and after the patch were as follows:
+
+  Test      BW before patch     BW after patch  % change
+  ----      ---------------     --------------  --------
+  randrw        1210 MB/s          1352 MB/s      +12%
+  randwrite     1622 MB/s          1710 MB/s      +5.4%
+
+The write-only microbench also showed improvement because some read
+locking was done by the XFS code.
+
+Signed-off-by: Waiman Long <Waiman.Long@hpe.com>
+---
+ kernel/locking/rwsem-xadd.c |   21 +++++++++++++++------
+ 1 files changed, 15 insertions(+), 6 deletions(-)
+
+diff --git a/kernel/locking/rwsem-xadd.c b/kernel/locking/rwsem-xadd.c
+index 2337b4b..9309e72 100644
+--- a/kernel/locking/rwsem-xadd.c
++++ b/kernel/locking/rwsem-xadd.c
+@@ -222,21 +222,31 @@ static void __rwsem_mark_wake(struct rw_semaphore *sem,
+ __visible
+ struct rw_semaphore __sched *rwsem_down_read_failed(struct rw_semaphore *sem)
+ {
+-	long count, adjustment = -RWSEM_ACTIVE_READ_BIAS;
++	long count, adjustment = 0;
+ 	struct rwsem_waiter waiter;
+ 	struct task_struct *tsk = current;
+ 	WAKE_Q(wake_q);
+ 
++	/*
++	 * Undo read bias from down_read operation to stop active locking.
++	 * Doing that after taking the wait_lock may block writer lock
++	 * stealing for too long impacting system performance.
++	 */
++	atomic_long_add(-RWSEM_ACTIVE_READ_BIAS, &sem->count);
++
+ 	waiter.task = tsk;
+ 	waiter.type = RWSEM_WAITING_FOR_READ;
+ 
+ 	raw_spin_lock_irq(&sem->wait_lock);
+ 	if (list_empty(&sem->wait_list))
+-		adjustment += RWSEM_WAITING_BIAS;
++		adjustment = RWSEM_WAITING_BIAS;
+ 	list_add_tail(&waiter.list, &sem->wait_list);
+ 
+-	/* we're now waiting on the lock, but no longer actively locking */
+-	count = atomic_long_add_return(adjustment, &sem->count);
++	/* we're now waiting on the lock */
++	if (adjustment)
++		count = atomic_long_add_return(adjustment, &sem->count);
++	else
++		count = atomic_long_read(&sem->count);
+ 
+ 	/*
+ 	 * If there are no active locks, wake the front queued process(es).
+@@ -245,8 +255,7 @@ struct rw_semaphore __sched *rwsem_down_read_failed(struct rw_semaphore *sem)
+ 	 * wake our own waiter to join the existing active readers !
+ 	 */
+ 	if (count = RWSEM_WAITING_BIAS ||
+-	    (count > RWSEM_WAITING_BIAS &&
+-	     adjustment != -RWSEM_ACTIVE_READ_BIAS))
++	    (count > RWSEM_WAITING_BIAS && adjustment))
+ 		__rwsem_mark_wake(sem, RWSEM_WAKE_ANY, &wake_q);
+ 
+ 	raw_spin_unlock_irq(&sem->wait_lock);
+-- 
+1.7.1
+
