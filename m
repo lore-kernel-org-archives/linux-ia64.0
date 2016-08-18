@@ -1,107 +1,117 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Tue, 16 Aug 2016 15:14:43 +0000
-Subject: [PATCH 2/2] ia64: ensure exception table search users include extable.h
-Message-Id: <20160816151443.31082-3-paul.gortmaker@windriver.com>
+From: Waiman Long <Waiman.Long@hpe.com>
+Date: Thu, 18 Aug 2016 21:11:11 +0000
+Subject: [RFC PATCH-tip v4 09/10] locking/rwsem: Enable reactivation of reader spinning
+Message-Id: <1471554672-38662-10-git-send-email-Waiman.Long@hpe.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20160816151443.31082-1-paul.gortmaker@windriver.com>
-In-Reply-To: <20160816151443.31082-1-paul.gortmaker@windriver.com>
+References: <1471554672-38662-1-git-send-email-Waiman.Long@hpe.com>
+In-Reply-To: <1471554672-38662-1-git-send-email-Waiman.Long@hpe.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+To: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>
+Cc: linux-kernel@vger.kernel.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-arch@vger.kernel.org, linux-doc@vger.kernel.org, Davidlohr Bueso <dave@stgolabs.net>, Jason Low <jason.low2@hp.com>, Dave Chinner <david@fromorbit.com>, Jonathan Corbet <corbet@lwn.net>, Scott J Norton <scott.norton@hpe.com>, Douglas Hatch <doug.hatch@hpe.com>, Waiman Long <Waiman.Long@hpe.com>
 
-We start with a delete of a duplicate prototype in asm/uaccess.h
-that doesn't need to exist, as it duplicates content in extable.h
-and since that header is so small, there is no point trying to
-avoid using it.
+Reader optimistic spinning will be disabled once the rspin_enabled
+count reaches 0. After that, it cannot be re-enabled. This may cause
+an eligible rwsem locked out of reader spinning because of a series
+of unfortunate events.
 
-Then we make sure anyone using search_exception_tables directly or
-via the ia64_done_with_exception macro has included extable.h
+This patch looks at the regular writer-on-writer spinning history. If
+there are sufficient more successful spin attempts than failed ones,
+it will try to reactivate reader spinning.
 
-In the process, we remove an include of moduleloader.h that was
-apparently not really required; it would have been fetching in
-module.h and hence the previous location of the exception search
-function prototypes, but we need not rely on that anymore.
-
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org
-Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+Signed-off-by: Waiman Long <Waiman.Long@hpe.com>
 ---
- arch/ia64/include/asm/uaccess.h | 4 ++--
- arch/ia64/kernel/kprobes.c      | 2 +-
- arch/ia64/kernel/traps.c        | 3 ++-
- arch/ia64/kernel/unaligned.c    | 1 +
- arch/ia64/mm/fault.c            | 1 +
- 5 files changed, 7 insertions(+), 4 deletions(-)
+ include/linux/rwsem.h       |   12 ++++++++----
+ kernel/locking/rwsem-xadd.c |   27 +++++++++++++++++++++++++--
+ 2 files changed, 33 insertions(+), 6 deletions(-)
 
-diff --git a/arch/ia64/include/asm/uaccess.h b/arch/ia64/include/asm/uaccess.h
-index 4b52b79213a3..647e43d0a157 100644
---- a/arch/ia64/include/asm/uaccess.h
-+++ b/arch/ia64/include/asm/uaccess.h
-@@ -360,8 +360,8 @@ struct exception_table_entry {
- 	int fixup;	/* location-relative continuation addr.; if bit 2 is set, r9 is set to 0 */
- };
+diff --git a/include/linux/rwsem.h b/include/linux/rwsem.h
+index 8978f87..98284b4 100644
+--- a/include/linux/rwsem.h
++++ b/include/linux/rwsem.h
+@@ -32,7 +32,11 @@ struct rw_semaphore {
+ 	raw_spinlock_t wait_lock;
+ #ifdef CONFIG_RWSEM_SPIN_ON_OWNER
+ 	struct optimistic_spin_queue osq; /* spinner MCS lock */
+-	int rspin_enabled;	/* protected by osq lock */
++	/*
++	 * Reader optimistic spinning fields protected by osq lock
++	 */
++	uint16_t rspin_enabled;
++	int16_t  wspin_cnt;
  
--extern void ia64_handle_exception (struct pt_regs *regs, const struct exception_table_entry *e);
--extern const struct exception_table_entry *search_exception_tables (unsigned long addr);
-+extern void ia64_handle_exception(struct pt_regs *regs,
-+				  const struct exception_table_entry *e);
+ 	/*
+ 	 * Write owner. Used as a speculative check to see
+@@ -74,10 +78,10 @@ static inline int rwsem_is_locked(struct rw_semaphore *sem)
+ /*
+  * Each successful reader spin will increment the rspin_enabled by 1.
+  * Each unsuccessful spin, on the other hand, will decrement it by 2.
+- * Reader spinning will be permanently disabled when it reaches 0.
++ * Reader spinning will be disabled when it reaches 0.
+  */
+ #ifndef RWSEM_RSPIN_ENABLED_DEFAULT
+-# define RWSEM_RSPIN_ENABLED_DEFAULT	40
++# define RWSEM_RSPIN_ENABLED_DEFAULT	30
+ #endif
+ #define RWSEM_RSPIN_ENABLED_MAX		1024
  
- #define ia64_done_with_exception(regs)					  \
- ({									  \
-diff --git a/arch/ia64/kernel/kprobes.c b/arch/ia64/kernel/kprobes.c
-index c7c51445c3be..671389430e90 100644
---- a/arch/ia64/kernel/kprobes.c
-+++ b/arch/ia64/kernel/kprobes.c
-@@ -28,7 +28,7 @@
- #include <linux/string.h>
- #include <linux/slab.h>
- #include <linux/preempt.h>
--#include <linux/moduleloader.h>
-+#include <linux/extable.h>
- #include <linux/kdebug.h>
+@@ -87,7 +91,7 @@ static inline int rwsem_is_locked(struct rw_semaphore *sem)
  
- #include <asm/pgtable.h>
-diff --git a/arch/ia64/kernel/traps.c b/arch/ia64/kernel/traps.c
-index 77edd68c5161..f36d3c9e1961 100644
---- a/arch/ia64/kernel/traps.c
-+++ b/arch/ia64/kernel/traps.c
-@@ -12,7 +12,8 @@
- #include <linux/sched.h>
- #include <linux/tty.h>
- #include <linux/vt_kern.h>		/* For unblank_screen() */
--#include <linux/module.h>       /* for EXPORT_SYMBOL */
-+#include <linux/export.h>
-+#include <linux/extable.h>
- #include <linux/hardirq.h>
- #include <linux/kprobes.h>
- #include <linux/delay.h>		/* for ssleep() */
-diff --git a/arch/ia64/kernel/unaligned.c b/arch/ia64/kernel/unaligned.c
-index 7f0d31656b4d..7224890ea311 100644
---- a/arch/ia64/kernel/unaligned.c
-+++ b/arch/ia64/kernel/unaligned.c
-@@ -17,6 +17,7 @@
- #include <linux/kernel.h>
- #include <linux/sched.h>
- #include <linux/tty.h>
-+#include <linux/extable.h>
- #include <linux/ratelimit.h>
- 
- #include <asm/intrinsics.h>
-diff --git a/arch/ia64/mm/fault.c b/arch/ia64/mm/fault.c
-index fa6ad95e992e..702f4b0845ab 100644
---- a/arch/ia64/mm/fault.c
-+++ b/arch/ia64/mm/fault.c
-@@ -7,6 +7,7 @@
- #include <linux/sched.h>
- #include <linux/kernel.h>
- #include <linux/mm.h>
-+#include <linux/extable.h>
- #include <linux/interrupt.h>
- #include <linux/kprobes.h>
- #include <linux/kdebug.h>
+ #ifdef CONFIG_RWSEM_SPIN_ON_OWNER
+ #define __RWSEM_OPT_INIT(lockname) , .osq = OSQ_LOCK_UNLOCKED, .owner = NULL, \
+-		.rspin_enabled = RWSEM_RSPIN_ENABLED_DEFAULT
++		.rspin_enabled = RWSEM_RSPIN_ENABLED_DEFAULT, .wspin_cnt = 0
+ #else
+ #define __RWSEM_OPT_INIT(lockname)
+ #endif
+diff --git a/kernel/locking/rwsem-xadd.c b/kernel/locking/rwsem-xadd.c
+index d850214..9978159 100644
+--- a/kernel/locking/rwsem-xadd.c
++++ b/kernel/locking/rwsem-xadd.c
+@@ -108,6 +108,7 @@ void __init_rwsem(struct rw_semaphore *sem, const char *name,
+ #ifdef CONFIG_RWSEM_SPIN_ON_OWNER
+ 	sem->owner = NULL;
+ 	sem->rspin_enabled = RWSEM_RSPIN_ENABLED_DEFAULT;
++	sem->wspin_cnt = 0;
+ 	osq_lock_init(&sem->osq);
+ #endif
+ }
+@@ -458,10 +459,32 @@ static bool rwsem_optimistic_spin(struct rw_semaphore *sem,
+ 		if (taken && (sem->rspin_enabled < RWSEM_RSPIN_ENABLED_MAX)) {
+ 			sem->rspin_enabled++;
+ 		} else if (!taken) {
+-			if  (sem->rspin_enabled > 2)
++			if  (sem->rspin_enabled > 2) {
+ 				sem->rspin_enabled -= 2;
+-			else
++			} else if (sem->rspin_enabled) {
+ 				sem->rspin_enabled = 0;
++				/*
++				 * Reset wspin_cnt so that it won't get
++				 * re-enabled too soon.
++				 */
++				if (sem->wspin_cnt > -30)
++					sem->wspin_cnt = -30;
++			}
++		}
++	} else if (type = RWSEM_WAITING_FOR_WRITE) {
++		/*
++		 * Every 10 successful writer-on-writer spins more than failed
++		 * spins will increment rspin_enabled to encourage more
++		 * writer-on-reader spinning attempts.
++		 */
++		if (taken) {
++			if ((++sem->wspin_cnt >= 10) &&
++			    (sem->rspin_enabled < RWSEM_RSPIN_ENABLED_MAX)) {
++				sem->wspin_cnt = 0;
++				sem->rspin_enabled++;
++			}
++		} else if (sem->wspin_cnt > -100) {
++			sem->wspin_cnt--;
+ 		}
+ 	}
+ 	osq_unlock(&sem->osq);
 -- 
-2.8.4
+1.7.1
 
