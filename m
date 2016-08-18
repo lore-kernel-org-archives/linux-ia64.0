@@ -1,56 +1,74 @@
-From: Kees Cook <keescook@chromium.org>
-Date: Fri, 15 Jul 2016 21:44:23 +0000
-Subject: [PATCH v3 09/11] s390/uaccess: Enable hardened usercopy
-Message-Id: <1468619065-3222-10-git-send-email-keescook@chromium.org>
+From: Waiman Long <Waiman.Long@hpe.com>
+Date: Thu, 18 Aug 2016 21:11:12 +0000
+Subject: [RFC PATCH-tip v4 10/10] locking/rwsem: Add a boot parameter to reader spinning threshold
+Message-Id: <1471554672-38662-11-git-send-email-Waiman.Long@hpe.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1468619065-3222-1-git-send-email-keescook@chromium.org>
-In-Reply-To: <1468619065-3222-1-git-send-email-keescook@chromium.org>
+References: <1471554672-38662-1-git-send-email-Waiman.Long@hpe.com>
+In-Reply-To: <1471554672-38662-1-git-send-email-Waiman.Long@hpe.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Kees Cook <keescook@chromium.org>, Balbir Singh <bsingharora@gmail.com>, Daniel Micay <danielmicay@gmail.com>, Josh Poimboeuf <jpoimboe@redhat.com>, Rik van Riel <riel@redhat.com>, Casey Schaufler <casey@schaufler-ca.com>, PaX Team <pageexec@freemail.hu>, Brad Spengler <spender@grsecurity.net>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "David S. Miller" <davem@davemloft.net>, x86@kernel.org, Christoph Lameter <cl@linux.com>, Pekka Enberg <penberg@kernel.org>, David Rientjes <rientjes@google.com>, Joonsoo Kim <iamjoonsoo.kim@lge.com>, Andrew Morton <akpm@linux-foundation.org>, Andy Lutomirski <luto@kernel.org>, Borislav Petkov <bp@suse.de>, Mathias Krause <minipli@googlemail.com>, Jan Kara <jack@suse.cz>, Vitaly Wool <vitalywool@gmail.com>, Andrea Arcangeli <aarcange@redhat.com>, Dmitry Vyukov <dvyukov@google.com>, Laura Abbott <labbott@fedoraproject.org>, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org, kernel-hardening@lists.openwall.com
+To: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>
+Cc: linux-kernel@vger.kernel.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-arch@vger.kernel.org, linux-doc@vger.kernel.org, Davidlohr Bueso <dave@stgolabs.net>, Jason Low <jason.low2@hp.com>, Dave Chinner <david@fromorbit.com>, Jonathan Corbet <corbet@lwn.net>, Scott J Norton <scott.norton@hpe.com>, Douglas Hatch <doug.hatch@hpe.com>, Waiman Long <Waiman.Long@hpe.com>
 
-Enables CONFIG_HARDENED_USERCOPY checks on s390.
+The default reader spining threshold is current set to 4096. However,
+the right reader spinning threshold may vary from one system to
+another and among the different architectures. This patch adds a new
+kernel boot parameter to modify the threshold value. This enables
+better tailoring to the needs of different systems as well as for
+testing purposes.
 
-Signed-off-by: Kees Cook <keescook@chromium.org>
+Signed-off-by: Waiman Long <Waiman.Long@hpe.com>
 ---
- arch/s390/Kconfig       | 1 +
- arch/s390/lib/uaccess.c | 2 ++
- 2 files changed, 3 insertions(+)
+ Documentation/kernel-parameters.txt |    3 +++
+ kernel/locking/rwsem-xadd.c         |   14 +++++++++++++-
+ 2 files changed, 16 insertions(+), 1 deletions(-)
 
-diff --git a/arch/s390/Kconfig b/arch/s390/Kconfig
-index a8c259059adf..9f694311c9ed 100644
---- a/arch/s390/Kconfig
-+++ b/arch/s390/Kconfig
-@@ -122,6 +122,7 @@ config S390
- 	select HAVE_ALIGNED_STRUCT_PAGE if SLUB
- 	select HAVE_ARCH_AUDITSYSCALL
- 	select HAVE_ARCH_EARLY_PFN_TO_NID
-+	select HAVE_ARCH_HARDENED_USERCOPY
- 	select HAVE_ARCH_JUMP_LABEL
- 	select CPU_NO_EFFICIENT_FFS if !HAVE_MARCH_Z9_109_FEATURES
- 	select HAVE_ARCH_SECCOMP_FILTER
-diff --git a/arch/s390/lib/uaccess.c b/arch/s390/lib/uaccess.c
-index ae4de559e3a0..6986c20166f0 100644
---- a/arch/s390/lib/uaccess.c
-+++ b/arch/s390/lib/uaccess.c
-@@ -104,6 +104,7 @@ static inline unsigned long copy_from_user_mvcp(void *x, const void __user *ptr,
+diff --git a/Documentation/kernel-parameters.txt b/Documentation/kernel-parameters.txt
+index 46c030a..90892ac 100644
+--- a/Documentation/kernel-parameters.txt
++++ b/Documentation/kernel-parameters.txt
+@@ -3690,6 +3690,9 @@ bytes respectively. Such letter suffixes can also be entirely omitted.
  
- unsigned long __copy_from_user(void *to, const void __user *from, unsigned long n)
- {
-+	check_object_size(to, n, false);
- 	if (static_branch_likely(&have_mvcos))
- 		return copy_from_user_mvcos(to, from, n);
- 	return copy_from_user_mvcp(to, from, n);
-@@ -177,6 +178,7 @@ static inline unsigned long copy_to_user_mvcs(void __user *ptr, const void *x,
+ 	rw		[KNL] Mount root device read-write on boot
  
- unsigned long __copy_to_user(void __user *to, const void *from, unsigned long n)
- {
-+	check_object_size(from, n, true);
- 	if (static_branch_likely(&have_mvcos))
- 		return copy_to_user_mvcos(to, from, n);
- 	return copy_to_user_mvcs(to, from, n);
++	rwsem_rspin_threshold+			[KNL] Set rw semaphore reader spinning threshold
++
+ 	S		[KNL] Run init in single mode
+ 
+ 	s390_iommu=	[HW,S390]
+diff --git a/kernel/locking/rwsem-xadd.c b/kernel/locking/rwsem-xadd.c
+index 9978159..7bb6255 100644
+--- a/kernel/locking/rwsem-xadd.c
++++ b/kernel/locking/rwsem-xadd.c
+@@ -272,6 +272,18 @@ static inline bool rwsem_try_write_lock(long count, struct rw_semaphore *sem)
+ 
+ #ifdef CONFIG_RWSEM_SPIN_ON_OWNER
+ /*
++ * Reader spinning threshold
++ */
++static int __read_mostly rspin_threshold = RWSEM_RSPIN_THRESHOLD;
++
++static int __init set_rspin_threshold(char *str)
++{
++	get_option(&str, &rspin_threshold);
++	return 0;
++}
++early_param("rwsem_rspin_threshold", set_rspin_threshold);
++
++/*
+  * Try to acquire write lock before the writer has been put on wait queue.
+  */
+ static inline bool rwsem_try_write_lock_unqueued(struct rw_semaphore *sem)
+@@ -394,7 +406,7 @@ static bool rwsem_optimistic_spin(struct rw_semaphore *sem,
+ 	if (!osq_lock(&sem->osq))
+ 		goto done;
+ 
+-	rspin_cnt = sem->rspin_enabled ? RWSEM_RSPIN_THRESHOLD : 0;
++	rspin_cnt = sem->rspin_enabled ? rspin_threshold : 0;
+ 
+ 	/*
+ 	 * Optimistically spin on the owner field and attempt to acquire the
 -- 
-2.7.4
+1.7.1
 
