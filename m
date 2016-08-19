@@ -1,57 +1,44 @@
-From: Al Stone <ahs3@redhat.com>
-Date: Fri, 19 Aug 2016 23:28:49 +0000
-Subject: [PATCH 1/2] ia64: remove extraneous white space
-Message-Id: <1471649330-32415-2-git-send-email-ahs3@redhat.com>
+From: mcgrof@kernel.org
+Date: Fri, 19 Aug 2016 21:41:11 +0000
+Subject: [PATCH v1 3/7] tools: add init.h for tools
+Message-Id: <1471642875-5957-4-git-send-email-mcgrof@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1471649330-32415-1-git-send-email-ahs3@redhat.com>
-In-Reply-To: <1471649330-32415-1-git-send-email-ahs3@redhat.com>
+References: <1471642454-5679-1-git-send-email-mcgrof@kernel.org>
+ <1471642875-5957-1-git-send-email-mcgrof@kernel.org>
+In-Reply-To: <1471642875-5957-1-git-send-email-mcgrof@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
-Cc: ahs3@redhat.com, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, trivial@kernel.org
+To: acme@redhat.com, hpa@zytor.com, tglx@linutronix.de, mingo@redhat.com, jpoimboe@redhat.com, bp@alien8.de, linux@arm.linux.org.uk, mhiramat@kernel.org, masami.hiramatsu.pt@hitachi.com, jbaron@akamai.com, heiko.carstens@de.ibm.com, ananth@linux.vnet.ibm.com, anil.s.keshavamurthy@intel.com, davem@davemloft.net, realmz6@gmail.com
+Cc: x86@kernel.org, luto@amacapital.net, keescook@chromium.org, torvalds@linux-foundation.org, gregkh@linuxfoundation.org, rusty@rustcorp.com.au, gnomes@lxorguk.ukuu.org.uk, alan@linux.intel.com, dwmw2@infradead.org, arnd@arndb.de, ming.lei@canonical.com, linux-arch@vger.kernel.org, benh@kernel.crashing.org, ananth@in.ibm.com, pebolle@tiscali.nl, fontana@sharpeleven.org, david.vrabel@citrix.com, konrad.wilk@oracle.com, mcb30@ipxe.org, jgross@suse.com, andrew.cooper3@citrix.com, andriy.shevchenko@linux.intel.com, paul.gortmaker@windriver.com, xen-devel@lists.xensource.com, ak@linux.intel.com, pali.rohar@gmail.com, dvhart@infradead.org, platform-driver-x86@vger.kernel.org, mmarek@suse.com, linux@rasmusvillemoes.dk, jkosina@suse.cz, korea.drzix@gmail.com, linux-kbuild@vger.kernel.org, ton
 
-Signed-off-by: Al Stone <ahs3@redhat.com>
+From: "Luis R. Rodriguez" <mcgrof@kernel.org>
+
+Start off with just __ref -- we enalbe you to override, if you do
+that then you can define your own. The way you'd use this, if you
+do override, is define your own __ref and then use include_next.
+
+Signed-off-by: Luis R. Rodriguez <mcgrof@kernel.org>
 ---
- arch/ia64/sn/kernel/sn2/sn2_smp.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ tools/include/linux/init.h | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+ create mode 100644 tools/include/linux/init.h
 
-diff --git a/arch/ia64/sn/kernel/sn2/sn2_smp.c b/arch/ia64/sn/kernel/sn2/sn2_smp.c
-index c98dc96..8701b2f 100644
---- a/arch/ia64/sn/kernel/sn2/sn2_smp.c
-+++ b/arch/ia64/sn/kernel/sn2/sn2_smp.c
-@@ -234,11 +234,11 @@ sn2_global_tlb_purge(struct mm_struct *mm, unsigned long start,
- 		data0 = (1UL << SH2_PTC_A_SHFT) |
- 			(nbits << SH2_PTC_PS_SHFT) |
- 		    	(1UL << SH2_PTC_START_SHFT);
--		ptc0 = (long *)GLOBAL_MMR_PHYS_ADDR(0, SH2_PTC + 
-+		ptc0 = (long *)GLOBAL_MMR_PHYS_ADDR(0, SH2_PTC +
- 			(rr_value << SH2_PTC_RID_SHFT));
- 		ptc1 = NULL;
- 	}
--	
+diff --git a/tools/include/linux/init.h b/tools/include/linux/init.h
+new file mode 100644
+index 000000000000..6d970a360a05
+--- /dev/null
++++ b/tools/include/linux/init.h
+@@ -0,0 +1,9 @@
++#ifndef _TOOLS_LINUX_INIT_H
++#define _TOOLS_LINUX_INIT_H
 +
- 
- 	mynasid = get_nasid();
- 	use_cpu_ptcga = local_node_uses_ptc_ga(shub1);
-@@ -322,7 +322,7 @@ done:
- /*
-  * sn2_ptc_deadlock_recovery
-  *
-- * Recover from PTC deadlocks conditions. Recovery requires stepping thru each 
-+ * Recover from PTC deadlocks conditions. Recovery requires stepping thru each
-  * TLB flush transaction.  The recovery sequence is somewhat tricky & is
-  * coded in assembly language.
-  */
-@@ -417,7 +417,7 @@ EXPORT_SYMBOL(sn_send_IPI_phys);
-  * @redirect: redirect the IPI?
-  *
-  * Sends an IPI (InterProcessor Interrupt) to the processor specified by
-- * @cpuid.  @vector specifies the command to send, while @delivery_mode can 
-+ * @cpuid.  @vector specifies the command to send, while @delivery_mode can
-  * be one of the following
-  *
-  * %IA64_IPI_DM_INT - pend an interrupt
++/* this means you can add your own to fit you own userspace needs */
++#ifndef __ref
++#define __ref
++#endif
++
++#endif /* _TOOLS_LINUX_INIT_H */
 -- 
-2.7.4
+2.9.2
 
