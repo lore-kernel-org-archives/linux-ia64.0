@@ -1,10 +1,10 @@
 From: mcgrof@kernel.org
-Date: Fri, 19 Aug 2016 21:32:52 +0000
+Date: Fri, 19 Aug 2016 21:34:01 +0000
 Subject: [PATCH v4 03/16] scripts/module-common.lds: enable generation
-Message-Id: <1471642385-5629-4-git-send-email-mcgrof@kernel.org>
+Message-Id: <1471642454-5679-4-git-send-email-mcgrof@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1471642385-5629-1-git-send-email-mcgrof@kernel.org>
-In-Reply-To: <1471642385-5629-1-git-send-email-mcgrof@kernel.org>
+References: <1471642454-5679-1-git-send-email-mcgrof@kernel.org>
+In-Reply-To: <1471642454-5679-1-git-send-email-mcgrof@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
