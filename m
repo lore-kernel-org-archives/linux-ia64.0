@@ -1,83 +1,47 @@
-From: Catalin Marinas <catalin.marinas@arm.com>
-Date: Mon, 15 Aug 2016 15:35:46 +0000
-Subject: Re: [PATCH v7 14/15] arm64, acpi, numa: NUMA support based on SRAT and SLIT
-Message-Id: <20160815153546.GF22320@e104818-lin.cambridge.arm.com>
+From: mcgrof@kernel.org
+Date: Fri, 19 Aug 2016 21:41:12 +0000
+Subject: [PATCH v1 4/7] tools: add __used and enable to override
+Message-Id: <1471642875-5957-5-git-send-email-mcgrof@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1464129345-18985-1-git-send-email-ddaney.cavm@gmail.com>
- <1464129345-18985-15-git-send-email-ddaney.cavm@gmail.com>
-In-Reply-To: <1464129345-18985-15-git-send-email-ddaney.cavm@gmail.com>
+References: <1471642454-5679-1-git-send-email-mcgrof@kernel.org>
+ <1471642875-5957-1-git-send-email-mcgrof@kernel.org>
+In-Reply-To: <1471642875-5957-1-git-send-email-mcgrof@kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: David Daney <ddaney.cavm@gmail.com>
-Cc: Will Deacon <will.deacon@arm.com>, linux-arm-kernel@lists.infradead.org, Mark Rutland <mark.rutland@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>, Rob Herring <robh+dt@kernel.org>, Frank Rowand <frowand.list@gmail.com>, Grant Likely <grant.likely@linaro.org>, Robert Moore <robert.moore@intel.com>, Lv Zheng <lv.zheng@intel.com>, Hanjun Guo <hanjun.guo@linaro.org>, Marc Zyngier <Marc.Zyngier@arm.com>, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, devel@acpica.org, Robert Richter <rrichter@cavium.com>, Ganapatrao Kulkarni <gkulkarni@caviumnetworks.com>, linux-kernel@vger.kernel.org, David Daney <david.daney@cavium.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: acme@redhat.com, hpa@zytor.com, tglx@linutronix.de, mingo@redhat.com, jpoimboe@redhat.com, bp@alien8.de, linux@arm.linux.org.uk, mhiramat@kernel.org, masami.hiramatsu.pt@hitachi.com, jbaron@akamai.com, heiko.carstens@de.ibm.com, ananth@linux.vnet.ibm.com, anil.s.keshavamurthy@intel.com, davem@davemloft.net, realmz6@gmail.com
+Cc: x86@kernel.org, luto@amacapital.net, keescook@chromium.org, torvalds@linux-foundation.org, gregkh@linuxfoundation.org, rusty@rustcorp.com.au, gnomes@lxorguk.ukuu.org.uk, alan@linux.intel.com, dwmw2@infradead.org, arnd@arndb.de, ming.lei@canonical.com, linux-arch@vger.kernel.org, benh@kernel.crashing.org, ananth@in.ibm.com, pebolle@tiscali.nl, fontana@sharpeleven.org, david.vrabel@citrix.com, konrad.wilk@oracle.com, mcb30@ipxe.org, jgross@suse.com, andrew.cooper3@citrix.com, andriy.shevchenko@linux.intel.com, paul.gortmaker@windriver.com, xen-devel@lists.xensource.com, ak@linux.intel.com, pali.rohar@gmail.com, dvhart@infradead.org, platform-driver-x86@vger.kernel.org, mmarek@suse.com, linux@rasmusvillemoes.dk, jkosina@suse.cz, korea.drzix@gmail.com, linux-kbuild@vger.kernel.org, ton
 
-On Tue, May 24, 2016 at 03:35:44PM -0700, David Daney wrote:
-> diff --git a/arch/arm64/include/asm/acpi.h b/arch/arm64/include/asm/acpi.h
-> index aee323b..4b13ecd 100644
-> --- a/arch/arm64/include/asm/acpi.h
-> +++ b/arch/arm64/include/asm/acpi.h
-> @@ -113,4 +113,12 @@ static inline const char *acpi_get_enable_method(int cpu)
->  pgprot_t arch_apei_get_mem_attribute(phys_addr_t addr);
->  #endif
->  
-> +#ifdef CONFIG_ACPI_NUMA
-> +int arm64_acpi_numa_init(void);
-> +int acpi_numa_get_nid(unsigned int cpu, u64 hwid);
-> +#else
-> +static inline int arm64_acpi_numa_init(void) { return -ENOSYS; }
-> +static inline int acpi_numa_get_nid(unsigned int cpu, u64 hwid) { return NUMA_NO_NODE; }
-> +#endif /* CONFIG_ACPI_NUMA */
-> +
->  #endif /*_ASM_ACPI_H*/
+From: "Luis R. Rodriguez" <mcgrof@kernel.org>
 
-Apparently this doesn't always build since asm/acpi.h is conditionally
-included from linux/acpi.h only when CONFIG_ACPI is enabled. Disabling
-this option on arm64 leads to:
+This adds __used, to be used later in the userspace linker-tables
+sandbox. If any userspace applicaiton wants to override they can
+add their own definition and then use include_next.
 
-arch/arm64/mm/numa.c: In function ‘arm64_numa_init’:
-arch/arm64/mm/numa.c:395:24: error: ‘arm64_acpi_numa_init’ undeclared (first use in this function)
-   if (!acpi_disabled && !numa_init(arm64_acpi_numa_init))
+This definition should probably suffice for most uses cases though.
 
-I'll fix it in arch/arm64 by including asm/acpi.h directly as we do in a
-couple of other files:
-
-------------------8<------------------------------
-From 9a83bf400e0b4ef066b83eeaecdbca909b8491ea Mon Sep 17 00:00:00 2001
-From: Catalin Marinas <catalin.marinas@arm.com>
-Date: Mon, 15 Aug 2016 16:33:10 +0100
-Subject: [PATCH] arm64: Fix NUMA build error when !CONFIG_ACPI
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-
-Since asm/acpi.h is only included by linux/acpi.h when CONFIG_ACPI is
-enabled, disabling the latter leads to the following build error on
-arm64:
-
-arch/arm64/mm/numa.c: In function ‘arm64_numa_init’:
-arch/arm64/mm/numa.c:395:24: error: ‘arm64_acpi_numa_init’ undeclared (first use in this function)
-   if (!acpi_disabled && !numa_init(arm64_acpi_numa_init))
-
-This patch include the asm/acpi.h explicitly in arch/arm64/mm/numa.c for
-the arm64_acpi_numa_init() definition.
-
-Fixes: d8b47fca8c23 ("arm64, ACPI, NUMA: NUMA support based on SRAT and SLIT")
-Signed-off-by: Catalin Marinas <catalin.marinas@arm.com>
+Signed-off-by: Luis R. Rodriguez <mcgrof@kernel.org>
 ---
- arch/arm64/mm/numa.c | 2 ++
- 1 file changed, 2 insertions(+)
+ tools/include/linux/compiler.h | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/arch/arm64/mm/numa.c b/arch/arm64/mm/numa.c
-index c7fe3ec70774..5bb15eab6f00 100644
---- a/arch/arm64/mm/numa.c
-+++ b/arch/arm64/mm/numa.c
-@@ -23,6 +23,8 @@
- #include <linux/module.h>
- #include <linux/of.h>
+diff --git a/tools/include/linux/compiler.h b/tools/include/linux/compiler.h
+index e33fc1df3935..556c991de212 100644
+--- a/tools/include/linux/compiler.h
++++ b/tools/include/linux/compiler.h
+@@ -5,6 +5,12 @@
+ /* The "volatile" is due to gcc bugs */
+ #define barrier() __asm__ __volatile__("": : :"memory")
  
-+#include <asm/acpi.h>
 +
- struct pglist_data *node_data[MAX_NUMNODES] __read_mostly;
- EXPORT_SYMBOL(node_data);
- nodemask_t numa_nodes_parsed __initdata;
++/* You can override as you see fit on your userspace tool */
++#ifndef __used
++#define __used          __attribute__((__used__))
++#endif
++
+ #ifndef __always_inline
+ # define __always_inline	inline __attribute__((always_inline))
+ #endif
+-- 
+2.9.2
+
