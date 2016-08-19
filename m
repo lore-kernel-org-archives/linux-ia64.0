@@ -1,10 +1,10 @@
 From: mcgrof@kernel.org
-Date: Fri, 19 Aug 2016 21:32:51 +0000
+Date: Fri, 19 Aug 2016 21:34:00 +0000
 Subject: [PATCH v4 02/16] dell-smo8800: include uaccess.h
-Message-Id: <1471642385-5629-3-git-send-email-mcgrof@kernel.org>
+Message-Id: <1471642454-5679-3-git-send-email-mcgrof@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1471642385-5629-1-git-send-email-mcgrof@kernel.org>
-In-Reply-To: <1471642385-5629-1-git-send-email-mcgrof@kernel.org>
+References: <1471642454-5679-1-git-send-email-mcgrof@kernel.org>
+In-Reply-To: <1471642454-5679-1-git-send-email-mcgrof@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="macroman"
 Content-Transfer-Encoding: base64
