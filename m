@@ -1,50 +1,53 @@
-From: Al Stone <ahs3@redhat.com>
-Date: Fri, 19 Aug 2016 23:28:50 +0000
-Subject: [PATCH 2/2] ia64: fix compilation error when using struct before defining it
-Message-Id: <1471649330-32415-3-git-send-email-ahs3@redhat.com>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Thu, 25 Aug 2016 08:35:57 +0000
+Subject: [REPOST PATCH] ia64: salinfo: drop the CPU_DEAD event
+Message-Id: <20160825083557.xyr5yev4udmdu4i6@linutronix.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1471649330-32415-1-git-send-email-ahs3@redhat.com>
-In-Reply-To: <1471649330-32415-1-git-send-email-ahs3@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
-Cc: ahs3@redhat.com, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, trivial@kernel.org
+To: linux-ia64@vger.kernel.org
 
-In sn2_smp.c, the struct ptc_stats was being used before it was defined.
-Move the usage of the struct to after the definition.
+The CPU_DEAD event drops all events for the CPU that goes offline which
+were recorded earlier. I don't think that this makes sense because the
+"problem" that was recorded is not resovled just because the CPU went
+offline.
+I *think* it makes sense to keep that event for later once userland is
+able to fetch it.
 
-Found during cross-compilation using ia64 defconfig.
-
-Signed-off-by: Al Stone <ahs3@redhat.com>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- arch/ia64/sn/kernel/sn2/sn2_smp.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ arch/ia64/kernel/salinfo.c | 19 -------------------
+ 1 file changed, 19 deletions(-)
 
-diff --git a/arch/ia64/sn/kernel/sn2/sn2_smp.c b/arch/ia64/sn/kernel/sn2/sn2_smp.c
-index 8701b2f..7316e9f 100644
---- a/arch/ia64/sn/kernel/sn2/sn2_smp.c
-+++ b/arch/ia64/sn/kernel/sn2/sn2_smp.c
-@@ -41,9 +41,6 @@
- #include <asm/sn/rw_mmr.h>
- #include <asm/sn/sn_feature_sets.h>
- 
--DEFINE_PER_CPU(struct ptc_stats, ptcstats);
--DECLARE_PER_CPU(struct ptc_stats, ptcstats);
--
- static  __cacheline_aligned DEFINE_SPINLOCK(sn2_global_ptc_lock);
- 
- /* 0 = old algorithm (no IPI flushes), 1 = ipi deadlock flush, 2 = ipi instead of SHUB ptc, >2 = always ipi */
-@@ -83,6 +80,9 @@ struct ptc_stats {
- 	unsigned long shub_ipi_flushes_itc_clocks;
- };
- 
-+DEFINE_PER_CPU(struct ptc_stats, ptcstats);
-+DECLARE_PER_CPU(struct ptc_stats, ptcstats);
-+
- #define sn2_ptctest	0
- 
- static inline unsigned long wait_piowc(void)
+diff --git a/arch/ia64/kernel/salinfo.c b/arch/ia64/kernel/salinfo.c
+index 5313007d5423..d4f5168bdc6c 100644
+--- a/arch/ia64/kernel/salinfo.c
++++ b/arch/ia64/kernel/salinfo.c
+@@ -568,25 +568,6 @@ salinfo_cpu_callback(struct notifier_block *nb, unsigned long action, void *hcpu
+ 		}
+ 		spin_unlock_irqrestore(&data_saved_lock, flags);
+ 		break;
+-	case CPU_DEAD:
+-	case CPU_DEAD_FROZEN:
+-		spin_lock_irqsave(&data_saved_lock, flags);
+-		for (i = 0, data = salinfo_data;
+-		     i < ARRAY_SIZE(salinfo_data);
+-		     ++i, ++data) {
+-			struct salinfo_data_saved *data_saved;
+-			int j;
+-			for (j = ARRAY_SIZE(data->data_saved) - 1, data_saved = data->data_saved + j;
+-			     j >= 0;
+-			     --j, --data_saved) {
+-				if (data_saved->buffer && data_saved->cpu = cpu) {
+-					shift1_data_saved(data, j);
+-				}
+-			}
+-			cpumask_clear_cpu(cpu, &data->cpu_event);
+-		}
+-		spin_unlock_irqrestore(&data_saved_lock, flags);
+-		break;
+ 	}
+ 	return NOTIFY_OK;
+ }
 -- 
-2.7.4
-
