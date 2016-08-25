@@ -1,37 +1,48 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 01 Aug 2016 21:52:18 +0000
-Subject: [GIT PULL] ia64 changes for 4.8
-Message-Id: <579fc49224172d1de6@agluck-desk.sc.intel.com>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Date: Thu, 25 Aug 2016 05:47:04 +0000
+Subject: [PATCH] [IA64] MCA: Use kmalloc_array() in init_record_index_pools()
+Message-Id: <71e94d34-27fc-1c98-50aa-be96abddabab@users.sourceforge.net>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org, Fenghua Yu <fenghua.yu@intel.com>, Tony Luck <tony.luck@intel.com>
+Cc: LKML <linux-kernel@vger.kernel.org>, kernel-janitors@vger.kernel.org, Julia Lawall <julia.lawall@lip6.fr>, Paolo Bonzini <pbonzini@redhat.com>
 
-The following changes since commit 5edb56491d4812c42175980759da53388e5d86f5:
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Thu, 25 Aug 2016 07:37:46 +0200
 
-  Linux 4.7-rc3 (2016-06-12 07:20:35 -0700)
+* A multiplication for the size determination of a memory allocation
+  indicated that an array data structure should be processed.
+  Thus reuse the corresponding function "kmalloc_array".
 
-are available in the git repository at:
+  This issue was detected by using the Coccinelle software.
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git tags/please-pull-misc-4.8
+* Replace the specification of a data structure by a pointer dereference
+  to make the corresponding size determination a bit safer according to
+  the Linux coding style convention.
 
-for you to fetch changes up to fbb0e4da96f4503e65bc4fb627cf4e1d7c8c64e6:
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+---
+ arch/ia64/kernel/mca_drv.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-  ia64: salinfo: use a waitqueue instead a sema down/up combo (2016-07-25 09:55:32 -0700)
+diff --git a/arch/ia64/kernel/mca_drv.c b/arch/ia64/kernel/mca_drv.c
+index 94f8bf7..e4ce128 100644
+--- a/arch/ia64/kernel/mca_drv.c
++++ b/arch/ia64/kernel/mca_drv.c
+@@ -349,9 +349,9 @@ init_record_index_pools(void)
+ 
+ 	/* - 3 - */
+ 	slidx_pool.max_idx = (rec_max_size/sect_min_size) * 2 + 1;
+-	slidx_pool.buffer -		kmalloc(slidx_pool.max_idx * sizeof(slidx_list_t), GFP_KERNEL);
+-
++	slidx_pool.buffer = kmalloc_array(slidx_pool.max_idx,
++					  sizeof(*slidx_pool.buffer),
++					  GFP_KERNEL);
+ 	return slidx_pool.buffer ? 0 : -ENOMEM;
+ }
+ 
+-- 
+2.9.3
 
-----------------------------------------------------------------
-Miscellaneous ia64 cleanups
-
-----------------------------------------------------------------
-Arnd Bergmann (1):
-      ia64: efi: use timespec64 for persistent clock
-
-Sebastian Andrzej Siewior (1):
-      ia64: salinfo: use a waitqueue instead a sema down/up combo
-
- arch/ia64/kernel/efi.c     |  4 ++--
- arch/ia64/kernel/salinfo.c | 38 ++++++++++----------------------------
- arch/ia64/kernel/time.c    |  2 +-
- include/linux/efi.h        |  2 +-
- 4 files changed, 14 insertions(+), 32 deletions(-)
