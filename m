@@ -1,53 +1,53 @@
-From: James Bottomley <James.Bottomley@HansenPartnership.com>
-Date: Mon, 15 Aug 2016 22:44:47 +0000
-Subject: Re: [RFC v3 00/13] linux: generalize sections, ranges and linker tables
-Message-Id: <1471301087.2428.48.camel@HansenPartnership.com>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Date: Fri, 26 Aug 2016 18:02:15 +0000
+Subject: [PATCH 1/5] IA64-IRQ: Use kmalloc_array() in sn_irq_lh_init()
+Message-Id: <2e046b40-1c8e-717f-68b1-534c3125724c@users.sourceforge.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1469222687-1600-1-git-send-email-mcgrof@kernel.org>
-	 <20160809152429.5bb1c077@lxorguk.ukuu.org.uk>
-	 <1470758947.2299.47.camel@HansenPartnership.com>
-	 <CALCETrVmDhPC6BMu4_xTanSFZBKeW9V6A4SeQ4qxnpVod-eLbQ@mail.gmail.com>
-In-Reply-To: <CALCETrVmDhPC6BMu4_xTanSFZBKeW9V6A4SeQ4qxnpVod-eLbQ@mail.gmail.com>
+References: <349bbfb4-bada-628e-2981-ca2a315299fc@users.sourceforge.net>
+In-Reply-To: <349bbfb4-bada-628e-2981-ca2a315299fc@users.sourceforge.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andy Lutomirski <luto@amacapital.net>
-Cc: benh@kernel.crashing.org, masami.hiramatsu.pt@hitachi.com, linux@rasmusvillemoes.dk, linux-kbuild@vger.kernel.org, linux-sh@vger.kernel.org, torvalds@linux-foundation.org, akpm@linux-foundation.org, dwmw2@infradead.org, xen-devel@lists.xensource.com, "Luis R. Rodriguez" <mcgrof@kernel.org>, anil.s.keshavamurthy@intel.com, will.deacon@arm.com, linux-ia64@vger.kernel.org, x86@kernel.org, korea.drzix@gmail.com, mingo@redhat.com, andrew.cooper3@citrix.com, jgross@suse.com, tglx@linutronix.de, keescook@chromium.org, ananth@linux.vnet.ibm.com, jpoimboe@redhat.com, rostedt@goodmis.org, hpa@zytor.com, arnd@arndb.de, davem@davemloft.net, One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>, platform-driver-x86@vger.kernel.org, jkosina@suse.cz, david.vrabel@citrix.com, realmz6@gmail.com, fontana@sharpeleven.org, konrad.wilk@oracle.com, ananth@in.ibm.com, paul.gortmaker@windriver.c
+To: linux-ia64@vger.kernel.org, Fenghua Yu <fenghua.yu@intel.com>, Tony Luck <tony.luck@intel.com>
+Cc: LKML <linux-kernel@vger.kernel.org>, kernel-janitors@vger.kernel.org, Julia Lawall <julia.lawall@lip6.fr>, Paolo Bonzini <pbonzini@redhat.com>
 
-On Tue, 2016-08-09 at 21:51 -0700, Andy Lutomirski wrote:
-> On Aug 9, 2016 7:09 PM, "James Bottomley" <
-> James.Bottomley@hansenpartnership.com> wrote:
-> > 
-> > On Tue, 2016-08-09 at 15:24 +0100, One Thousand Gnomes wrote:
-> > > > table development go under copyleft-next, Rusty recently asked 
-> > > > for code to go in prior to the license tag being added denoting
-> > > > this license as GPL-compatible [3] -- I had noted in the patch
-> > > > submission which annotated copyleft-next's compatibility to 
-> > > > GPLv2 that copyleft-next is the license of choice for ongoing 
-> > > > kernel development on my end [4]. If this is objectionable I'm 
-> > > > happy to change it to GPLv2 however I'd like a reason provided 
-> > > > as I've gone through all possible channels to ensure this is 
-> > > > kosher, including vetting by 3 attorneys now, 2 at SUSE.
-> > > 
-> > > You don't need a new tag, you can use "GPL" or "GPL and 
-> > > additional rights". In fact you don't want any other tag because 
-> > > when combined  with the kernel it is GPLv2 anyway because the 
-> > > only way the two are fully compatible is for the kernel community 
-> > > to license the derived work under the GPL.
-> > 
-> > This is the module tag ... it says what licence the module is 
-> > under, not the licence for the module combined with the kernel, 
-> > which is always GPLv2 because the stricter licence rules.
-> 
-> Then why isn't "BSD" in the license_is_gpl_compatible list?
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Fri, 26 Aug 2016 18:32:53 +0200
 
-[Sorry about this, the list seems to have stopped sending me copies of
-stuff I'm on the to: line for; not sure why.  Anyway, having fished
-this copy out of my trash:]
+* A multiplication for the size determination of a memory allocation
+  indicated that an array data structure should be processed.
+  Thus use the corresponding function "kmalloc_array".
 
-It is, here specifically:
+  This issue was detected by using the Coccinelle software.
 
-https://www.gnu.org/licenses/license-list.en.html#ModifiedBSD
+* Replace the specification of data structures by pointer dereferences
+  to make the corresponding size determination a bit safer according to
+  the Linux coding style convention.
 
-James
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+---
+ arch/ia64/sn/kernel/irq.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/arch/ia64/sn/kernel/irq.c b/arch/ia64/sn/kernel/irq.c
+index 85d0951..c7f9eea 100644
+--- a/arch/ia64/sn/kernel/irq.c
++++ b/arch/ia64/sn/kernel/irq.c
+@@ -474,12 +474,12 @@ void __init sn_irq_lh_init(void)
+ {
+ 	int i;
+ 
+-	sn_irq_lh = kmalloc(sizeof(struct list_head *) * NR_IRQS, GFP_KERNEL);
++	sn_irq_lh = kmalloc_array(NR_IRQS, sizeof(*sn_irq_lh), GFP_KERNEL);
+ 	if (!sn_irq_lh)
+ 		panic("SN PCI INIT: Failed to allocate memory for PCI init\n");
+ 
+ 	for (i = 0; i < NR_IRQS; i++) {
+-		sn_irq_lh[i] = kmalloc(sizeof(struct list_head), GFP_KERNEL);
++		sn_irq_lh[i] = kmalloc(*sn_irq_lh[i], GFP_KERNEL);
+ 		if (!sn_irq_lh[i])
+ 			panic("SN PCI INIT: Failed IRQ memory allocation\n");
+ 
+-- 
+2.9.3
 
