@@ -1,95 +1,116 @@
-From: Waiman Long <Waiman.Long@hpe.com>
-Date: Thu, 18 Aug 2016 21:11:04 +0000
-Subject: [RFC PATCH-tip v4 02/10] locking/rwsem: Stop active read lock ASAP
-Message-Id: <1471554672-38662-3-git-send-email-Waiman.Long@hpe.com>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Date: Fri, 26 Aug 2016 18:03:35 +0000
+Subject: [PATCH 2/5] IA64-IRQ: Delete unnecessary braces
+Message-Id: <cdcb21f4-c5d8-0d53-6cc4-e819f2e57258@users.sourceforge.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1471554672-38662-1-git-send-email-Waiman.Long@hpe.com>
-In-Reply-To: <1471554672-38662-1-git-send-email-Waiman.Long@hpe.com>
+References: <349bbfb4-bada-628e-2981-ca2a315299fc@users.sourceforge.net>
+In-Reply-To: <349bbfb4-bada-628e-2981-ca2a315299fc@users.sourceforge.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>
-Cc: linux-kernel@vger.kernel.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-arch@vger.kernel.org, linux-doc@vger.kernel.org, Davidlohr Bueso <dave@stgolabs.net>, Jason Low <jason.low2@hp.com>, Dave Chinner <david@fromorbit.com>, Jonathan Corbet <corbet@lwn.net>, Scott J Norton <scott.norton@hpe.com>, Douglas Hatch <doug.hatch@hpe.com>, Waiman Long <Waiman.Long@hpe.com>
+To: linux-ia64@vger.kernel.org, Fenghua Yu <fenghua.yu@intel.com>, Tony Luck <tony.luck@intel.com>
+Cc: LKML <linux-kernel@vger.kernel.org>, kernel-janitors@vger.kernel.org, Julia Lawall <julia.lawall@lip6.fr>, Paolo Bonzini <pbonzini@redhat.com>
 
-Currently, when down_read() fails, the active read locking isn't undone
-until the rwsem_down_read_failed() function grabs the wait_lock. If the
-wait_lock is contended, it may takes a while to get the lock. During
-that period, writer lock stealing will be disabled because of the
-active read lock.
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Fri, 26 Aug 2016 18:40:16 +0200
 
-This patch will release the active read lock ASAP so that writer lock
-stealing can happen sooner. The only downside is when the reader is
-the first one in the wait queue as it has to issue another atomic
-operation to update the count.
+Do not use curly brackets at a few source code places
+where a single statement should be sufficient.
 
-On a 4-socket Haswell machine running on a 4.7-rc1 tip-based kernel,
-the fio test with multithreaded randrw and randwrite tests on the
-same file on a XFS partition on top of a NVDIMM with DAX were run,
-the aggregated bandwidths before and after the patch were as follows:
-
-  Test      BW before patch     BW after patch  % change
-  ----      ---------------     --------------  --------
-  randrw        1210 MB/s          1352 MB/s      +12%
-  randwrite     1622 MB/s          1710 MB/s      +5.4%
-
-The write-only microbench also showed improvement because some read
-locking was done by the XFS code.
-
-Signed-off-by: Waiman Long <Waiman.Long@hpe.com>
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
- kernel/locking/rwsem-xadd.c |   21 +++++++++++++++------
- 1 files changed, 15 insertions(+), 6 deletions(-)
+ arch/ia64/sn/kernel/irq.c | 25 +++++++++----------------
+ 1 file changed, 9 insertions(+), 16 deletions(-)
 
-diff --git a/kernel/locking/rwsem-xadd.c b/kernel/locking/rwsem-xadd.c
-index 2337b4b..9309e72 100644
---- a/kernel/locking/rwsem-xadd.c
-+++ b/kernel/locking/rwsem-xadd.c
-@@ -222,21 +222,31 @@ static void __rwsem_mark_wake(struct rw_semaphore *sem,
- __visible
- struct rw_semaphore __sched *rwsem_down_read_failed(struct rw_semaphore *sem)
- {
--	long count, adjustment = -RWSEM_ACTIVE_READ_BIAS;
-+	long count, adjustment = 0;
- 	struct rwsem_waiter waiter;
- 	struct task_struct *tsk = current;
- 	WAKE_Q(wake_q);
+diff --git a/arch/ia64/sn/kernel/irq.c b/arch/ia64/sn/kernel/irq.c
+index c7f9eea..9862a97 100644
+--- a/arch/ia64/sn/kernel/irq.c
++++ b/arch/ia64/sn/kernel/irq.c
+@@ -127,9 +127,8 @@ struct sn_irq_info *sn_retarget_vector(struct sn_irq_info *sn_irq_info,
+ 	struct sn_pcibus_provider *pci_provider;
  
-+	/*
-+	 * Undo read bias from down_read operation to stop active locking.
-+	 * Doing that after taking the wait_lock may block writer lock
-+	 * stealing for too long impacting system performance.
-+	 */
-+	atomic_long_add(-RWSEM_ACTIVE_READ_BIAS, &sem->count);
-+
- 	waiter.task = tsk;
- 	waiter.type = RWSEM_WAITING_FOR_READ;
+ 	bridge = (u64) sn_irq_info->irq_bridge;
+-	if (!bridge) {
++	if (!bridge)
+ 		return NULL; /* irq is not a device interrupt */
+-	}
  
- 	raw_spin_lock_irq(&sem->wait_lock);
- 	if (list_empty(&sem->wait_list))
--		adjustment += RWSEM_WAITING_BIAS;
-+		adjustment = RWSEM_WAITING_BIAS;
- 	list_add_tail(&waiter.list, &sem->wait_list);
+ 	local_nasid = NASID_GET(bridge);
  
--	/* we're now waiting on the lock, but no longer actively locking */
--	count = atomic_long_add_return(adjustment, &sem->count);
-+	/* we're now waiting on the lock */
-+	if (adjustment)
-+		count = atomic_long_add_return(adjustment, &sem->count);
-+	else
-+		count = atomic_long_read(&sem->count);
+@@ -274,10 +273,9 @@ void sn_irq_init(void)
+ 	ia64_first_device_vector = IA64_SN2_FIRST_DEVICE_VECTOR;
+ 	ia64_last_device_vector = IA64_SN2_LAST_DEVICE_VECTOR;
  
- 	/*
- 	 * If there are no active locks, wake the front queued process(es).
-@@ -245,8 +255,7 @@ struct rw_semaphore __sched *rwsem_down_read_failed(struct rw_semaphore *sem)
- 	 * wake our own waiter to join the existing active readers !
- 	 */
- 	if (count = RWSEM_WAITING_BIAS ||
--	    (count > RWSEM_WAITING_BIAS &&
--	     adjustment != -RWSEM_ACTIVE_READ_BIAS))
-+	    (count > RWSEM_WAITING_BIAS && adjustment))
- 		__rwsem_mark_wake(sem, RWSEM_WAKE_ANY, &wake_q);
+-	for (i = 0; i < NR_IRQS; i++) {
++	for (i = 0; i < NR_IRQS; i++)
+ 		if (irq_get_chip(i) = &no_irq_chip)
+ 			irq_set_chip(i, &irq_type_sn);
+-	}
+ }
  
- 	raw_spin_unlock_irq(&sem->wait_lock);
+ static void register_intr_pda(struct sn_irq_info *sn_irq_info)
+@@ -285,10 +283,8 @@ static void register_intr_pda(struct sn_irq_info *sn_irq_info)
+ 	int irq = sn_irq_info->irq_irq;
+ 	int cpu = sn_irq_info->irq_cpuid;
+ 
+-	if (pdacpu(cpu)->sn_last_irq < irq) {
++	if (pdacpu(cpu)->sn_last_irq < irq)
+ 		pdacpu(cpu)->sn_last_irq = irq;
+-	}
+-
+ 	if (pdacpu(cpu)->sn_first_irq = 0 || pdacpu(cpu)->sn_first_irq > irq)
+ 		pdacpu(cpu)->sn_first_irq = irq;
+ }
+@@ -304,15 +300,15 @@ static void unregister_intr_pda(struct sn_irq_info *sn_irq_info)
+ 	if (pdacpu(cpu)->sn_last_irq = irq) {
+ 		foundmatch = 0;
+ 		for (i = pdacpu(cpu)->sn_last_irq - 1;
+-		     i && !foundmatch; i--) {
++		     i && !foundmatch;
++		     i--)
+ 			list_for_each_entry_rcu(tmp_irq_info,
+ 						sn_irq_lh[i],
+-						list) {
++						list)
+ 				if (tmp_irq_info->irq_cpuid = cpu) {
+ 					foundmatch = 1;
+ 					break;
+ 				}
+-			}
+ 		}
+ 		pdacpu(cpu)->sn_last_irq = i;
+ 	}
+@@ -440,7 +436,7 @@ static void sn_check_intr(int irq, struct sn_irq_info *sn_irq_info)
+ 	    pdi_pcibus_info;
+ 	regval = pcireg_intr_status_get(pcibus_info);
+ 
+-	if (!ia64_get_irr(irq_to_vector(irq))) {
++	if (!ia64_get_irr(irq_to_vector(irq)))
+ 		if (!test_bit(irq, pda->sn_in_service_ivecs)) {
+ 			regval &= 0xff;
+ 			if (sn_irq_info->irq_int_bit & regval &
+@@ -449,7 +445,6 @@ static void sn_check_intr(int irq, struct sn_irq_info *sn_irq_info)
+ 				sn_call_force_intr_provider(sn_irq_info);
+ 			}
+ 		}
+-	}
+ 	sn_irq_info->irq_last_intr = regval;
+ }
+ 
+@@ -462,11 +457,9 @@ void sn_lb_int_war_check(void)
+ 		return;
+ 
+ 	rcu_read_lock();
+-	for (i = pda->sn_first_irq; i <= pda->sn_last_irq; i++) {
+-		list_for_each_entry_rcu(sn_irq_info, sn_irq_lh[i], list) {
++	for (i = pda->sn_first_irq; i <= pda->sn_last_irq; i++)
++		list_for_each_entry_rcu(sn_irq_info, sn_irq_lh[i], list)
+ 			sn_check_intr(i, sn_irq_info);
+-		}
+-	}
+ 	rcu_read_unlock();
+ }
+ 
 -- 
-1.7.1
+2.9.3
 
