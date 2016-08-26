@@ -1,90 +1,47 @@
-From: mcgrof@kernel.org
-Date: Fri, 19 Aug 2016 21:41:09 +0000
-Subject: [PATCH v1 1/7] tools: add a userspace tools bug.h
-Message-Id: <1471642875-5957-2-git-send-email-mcgrof@kernel.org>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Date: Fri, 26 Aug 2016 18:04:53 +0000
+Subject: [PATCH 3/5] ia64/mm/tlb: Fix indentation in ia64_global_tlb_purge()
+Message-Id: <9adf5338-d549-f0ff-df0a-2f02f8bc5477@users.sourceforge.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1471642454-5679-1-git-send-email-mcgrof@kernel.org>
- <1471642875-5957-1-git-send-email-mcgrof@kernel.org>
-In-Reply-To: <1471642875-5957-1-git-send-email-mcgrof@kernel.org>
+References: <349bbfb4-bada-628e-2981-ca2a315299fc@users.sourceforge.net>
+In-Reply-To: <349bbfb4-bada-628e-2981-ca2a315299fc@users.sourceforge.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: acme@redhat.com, hpa@zytor.com, tglx@linutronix.de, mingo@redhat.com, jpoimboe@redhat.com, bp@alien8.de, linux@arm.linux.org.uk, mhiramat@kernel.org, masami.hiramatsu.pt@hitachi.com, jbaron@akamai.com, heiko.carstens@de.ibm.com, ananth@linux.vnet.ibm.com, anil.s.keshavamurthy@intel.com, davem@davemloft.net, realmz6@gmail.com
-Cc: x86@kernel.org, luto@amacapital.net, keescook@chromium.org, torvalds@linux-foundation.org, gregkh@linuxfoundation.org, rusty@rustcorp.com.au, gnomes@lxorguk.ukuu.org.uk, alan@linux.intel.com, dwmw2@infradead.org, arnd@arndb.de, ming.lei@canonical.com, linux-arch@vger.kernel.org, benh@kernel.crashing.org, ananth@in.ibm.com, pebolle@tiscali.nl, fontana@sharpeleven.org, david.vrabel@citrix.com, konrad.wilk@oracle.com, mcb30@ipxe.org, jgross@suse.com, andrew.cooper3@citrix.com, andriy.shevchenko@linux.intel.com, paul.gortmaker@windriver.com, xen-devel@lists.xensource.com, ak@linux.intel.com, pali.rohar@gmail.com, dvhart@infradead.org, platform-driver-x86@vger.kernel.org, mmarek@suse.com, linux@rasmusvillemoes.dk, jkosina@suse.cz, korea.drzix@gmail.com, linux-kbuild@vger.kernel.org, ton
+To: linux-ia64@vger.kernel.org, Fenghua Yu <fenghua.yu@intel.com>, Tony Luck <tony.luck@intel.com>
+Cc: LKML <linux-kernel@vger.kernel.org>, kernel-janitors@vger.kernel.org, Julia Lawall <julia.lawall@lip6.fr>, Paolo Bonzini <pbonzini@redhat.com>
 
-From: "Luis R. Rodriguez" <mcgrof@kernel.org>
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Fri, 26 Aug 2016 19:36:39 +0200
 
-This will be used later by the userspace linker-tables sandbox.
-As a convenience, include bug.h on kernel.h -- this is not done
-on upstream kernel.h, however most header files do include bug.h
-eventually, if we were to only add the ones that need it we'd
-need to copy a lot of headers to tools for the ony purpose of
-includeing bug.h. This simplifies that.
+The script "checkpatch.pl" pointed the following information out.
 
-Signed-off-by: Luis R. Rodriguez <mcgrof@kernel.org>
+ERROR: code indent should use tabs where possible
+#40: FILE: arch/ia64/mm/tlb.c:271
+
+Thus fix the affected source code places.
+
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
- tools/include/asm-generic/bug.h | 24 ++++++++++++++++++++++++
- tools/include/linux/bug.h       |  6 ++++++
- tools/include/linux/kernel.h    |  2 ++
- 3 files changed, 32 insertions(+)
- create mode 100644 tools/include/asm-generic/bug.h
- create mode 100644 tools/include/linux/bug.h
+ arch/ia64/mm/tlb.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/tools/include/asm-generic/bug.h b/tools/include/asm-generic/bug.h
-new file mode 100644
-index 000000000000..7b0f48b60dbe
---- /dev/null
-+++ b/tools/include/asm-generic/bug.h
-@@ -0,0 +1,24 @@
-+#ifndef __TOOLS_ASM_GENERIC_BUG
-+#define __TOOLS_ASM_GENERIC_BUG
-+
-+#include <stdio.h>
-+#include <stdlib.h>
-+
-+#define BUG() do {										\
-+	fprintf(stderr, "----------------------------------------------------------\n");	\
-+	fprintf (stderr, "BUG on %s at %s: %i\n", __func__, __FILE__, __LINE__);		\
-+	abort();										\
-+}												\
-+while (0)
-+
-+#define BUG_ON(cond) do { if (cond) BUG(); } while (0)
-+
-+#define WARN_ON(__test) do {									\
-+	if (__test) {										\
-+		fprintf(stderr, "----------------------------------------------------------\n");\
-+		fprintf (stderr, "WARN_ON on %s at %s: %i\n", __func__, __FILE__, __LINE__);	\
-+	}											\
-+}												\
-+while (0)
-+
-+#endif /* __TOOLS_ASM_GENERIC_BUG */
-diff --git a/tools/include/linux/bug.h b/tools/include/linux/bug.h
-new file mode 100644
-index 000000000000..9be515b40b5c
---- /dev/null
-+++ b/tools/include/linux/bug.h
-@@ -0,0 +1,6 @@
-+#ifndef _TOOLS_LINUX_BUG_H
-+#define _TOOLS_LINUX_BUG_H
-+
-+#include <asm-generic/bug.h>
-+
-+#endif /* _TOOLS_LINUX_BUG_H */
-diff --git a/tools/include/linux/kernel.h b/tools/include/linux/kernel.h
-index 28607db02bd3..3d385a6d4fc1 100644
---- a/tools/include/linux/kernel.h
-+++ b/tools/include/linux/kernel.h
-@@ -5,6 +5,8 @@
- #include <stddef.h>
- #include <assert.h>
+diff --git a/arch/ia64/mm/tlb.c b/arch/ia64/mm/tlb.c
+index 46ecc5d..6d2f83d 100644
+--- a/arch/ia64/mm/tlb.c
++++ b/arch/ia64/mm/tlb.c
+@@ -269,9 +269,8 @@ ia64_global_tlb_purge (struct mm_struct *mm, unsigned long start,
+ 	if (need_ptcg_sem)
+ 		up_spin(&ptcg_sem);
  
-+#include <linux/bug.h>
-+
- #define DIV_ROUND_UP(n,d) (((n) + (d) - 1) / (d))
+-        if (mm != active_mm) {
+-                activate_context(active_mm);
+-        }
++	if (mm != active_mm)
++		activate_context(active_mm);
+ }
  
- #define PERF_ALIGN(x, a)	__PERF_ALIGN_MASK(x, (typeof(x))(a)-1)
+ void
 -- 
-2.9.2
+2.9.3
 
