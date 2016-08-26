@@ -1,72 +1,31 @@
-From: Waiman Long <Waiman.Long@hpe.com>
-Date: Thu, 18 Aug 2016 21:11:05 +0000
-Subject: [RFC PATCH-tip v4 03/10] locking/rwsem: Make rwsem_spin_on_owner() return a tri-state value
-Message-Id: <1471554672-38662-4-git-send-email-Waiman.Long@hpe.com>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Date: Fri, 26 Aug 2016 18:00:07 +0000
+Subject: [PATCH 0/5] IA64: Fine-tuning for some function implementations
+Message-Id: <349bbfb4-bada-628e-2981-ca2a315299fc@users.sourceforge.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1471554672-38662-1-git-send-email-Waiman.Long@hpe.com>
-In-Reply-To: <1471554672-38662-1-git-send-email-Waiman.Long@hpe.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>
-Cc: linux-kernel@vger.kernel.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-arch@vger.kernel.org, linux-doc@vger.kernel.org, Davidlohr Bueso <dave@stgolabs.net>, Jason Low <jason.low2@hp.com>, Dave Chinner <david@fromorbit.com>, Jonathan Corbet <corbet@lwn.net>, Scott J Norton <scott.norton@hpe.com>, Douglas Hatch <doug.hatch@hpe.com>, Waiman Long <Waiman.Long@hpe.com>
+To: linux-ia64@vger.kernel.org, Fenghua Yu <fenghua.yu@intel.com>, Tony Luck <tony.luck@intel.com>
+Cc: LKML <linux-kernel@vger.kernel.org>, kernel-janitors@vger.kernel.org, Julia Lawall <julia.lawall@lip6.fr>, Paolo Bonzini <pbonzini@redhat.com>
 
-This patch modifies rwsem_spin_on_owner() to return a tri-state value
-to better reflect the state of lock holder which enables us to make a
-better decision of what to do next.
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Fri, 26 Aug 2016 19:54:32 +0200
 
-Signed-off-by: Waiman Long <Waiman.Long@hpe.com>
----
- kernel/locking/rwsem-xadd.c |   14 +++++++++-----
- 1 files changed, 9 insertions(+), 5 deletions(-)
+A few update suggestions were taken into account
+from static source code analysis.
 
-diff --git a/kernel/locking/rwsem-xadd.c b/kernel/locking/rwsem-xadd.c
-index 9309e72..31cb286 100644
---- a/kernel/locking/rwsem-xadd.c
-+++ b/kernel/locking/rwsem-xadd.c
-@@ -352,9 +352,13 @@ done:
- }
- 
- /*
-- * Return true only if we can still spin on the owner field of the rwsem.
-+ * Return the folowing three values depending on the lock owner state.
-+ *   1	when owner has changed and no reader is detected yet.
-+ *   0	when owner has change and/or owner is a reader.
-+ *  -1	when optimistic spinning has to stop because either the owner stops
-+ *	running or its timeslice has been used up.
-  */
--static noinline bool rwsem_spin_on_owner(struct rw_semaphore *sem)
-+static noinline int rwsem_spin_on_owner(struct rw_semaphore *sem)
- {
- 	struct task_struct *owner = READ_ONCE(sem->owner);
- 
-@@ -374,7 +378,7 @@ static noinline bool rwsem_spin_on_owner(struct rw_semaphore *sem)
- 		/* abort spinning when need_resched or owner is not running */
- 		if (!owner->on_cpu || need_resched()) {
- 			rcu_read_unlock();
--			return false;
-+			return -1;
- 		}
- 
- 		cpu_relax_lowlatency();
-@@ -385,7 +389,7 @@ out:
- 	 * If there is a new owner or the owner is not set, we continue
- 	 * spinning.
- 	 */
--	return !rwsem_owner_is_reader(READ_ONCE(sem->owner));
-+	return rwsem_owner_is_reader(READ_ONCE(sem->owner)) ? 0 : 1;
- }
- 
- static bool rwsem_optimistic_spin(struct rw_semaphore *sem)
-@@ -408,7 +412,7 @@ static bool rwsem_optimistic_spin(struct rw_semaphore *sem)
- 	 *  2) readers own the lock as we can't determine if they are
- 	 *     actively running or not.
- 	 */
--	while (rwsem_spin_on_owner(sem)) {
-+	while (rwsem_spin_on_owner(sem) > 0) {
- 		/*
- 		 * Try to acquire the lock
- 		 */
+Markus Elfring (5):
+  IRQ: Use kmalloc_array() in sn_irq_lh_init()
+  IRQ: Delete unnecessary braces
+  TLB: Fix indentation in ia64_global_tlb_purge()
+  TLB: Use kmalloc_array() in ia64_itr_entry()
+  TLB: Delete unnecessary braces
+
+ arch/ia64/mm/tlb.c        | 19 ++++++++-----------
+ arch/ia64/sn/kernel/irq.c | 29 +++++++++++------------------
+ 2 files changed, 19 insertions(+), 29 deletions(-)
+
 -- 
-1.7.1
+2.9.3
 
