@@ -1,70 +1,77 @@
-From: Waiman Long <Waiman.Long@hpe.com>
-Date: Thu, 18 Aug 2016 21:11:03 +0000
-Subject: [RFC PATCH-tip v4 01/10] locking/osq: Make lock/unlock proper acquire/release barrier
-Message-Id: <1471554672-38662-2-git-send-email-Waiman.Long@hpe.com>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Date: Fri, 26 Aug 2016 18:06:58 +0000
+Subject: [PATCH 5/5] ia64/mm/tlb: Delete unnecessary braces
+Message-Id: <1405adbb-c4d7-911c-5e7e-b5ea76719819@users.sourceforge.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1471554672-38662-1-git-send-email-Waiman.Long@hpe.com>
-In-Reply-To: <1471554672-38662-1-git-send-email-Waiman.Long@hpe.com>
+References: <349bbfb4-bada-628e-2981-ca2a315299fc@users.sourceforge.net>
+In-Reply-To: <349bbfb4-bada-628e-2981-ca2a315299fc@users.sourceforge.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>
-Cc: linux-kernel@vger.kernel.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-arch@vger.kernel.org, linux-doc@vger.kernel.org, Davidlohr Bueso <dave@stgolabs.net>, Jason Low <jason.low2@hp.com>, Dave Chinner <david@fromorbit.com>, Jonathan Corbet <corbet@lwn.net>, Scott J Norton <scott.norton@hpe.com>, Douglas Hatch <doug.hatch@hpe.com>, Waiman Long <Waiman.Long@hpe.com>
+To: linux-ia64@vger.kernel.org, Fenghua Yu <fenghua.yu@intel.com>, Tony Luck <tony.luck@intel.com>
+Cc: LKML <linux-kernel@vger.kernel.org>, kernel-janitors@vger.kernel.org, Julia Lawall <julia.lawall@lip6.fr>, Paolo Bonzini <pbonzini@redhat.com>
 
-The osq_lock() and osq_unlock() function may not provide the necessary
-acquire and release barrier in some cases. This patch makes sure
-that the proper barriers are provided when osq_lock() is successful
-or when osq_unlock() is called.
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Fri, 26 Aug 2016 19:45:24 +0200
 
-Suggested-by: Peter Zijlstra (Intel) <peterz@infradead.org>
-Signed-off-by: Waiman Long <Waiman.Long@hpe.com>
+Do not use curly brackets at a few source code places
+where a single statement should be sufficient.
+
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
- kernel/locking/osq_lock.c |   24 ++++++++++++++++++------
- 1 files changed, 18 insertions(+), 6 deletions(-)
+ arch/ia64/mm/tlb.c | 9 +++------
+ 1 file changed, 3 insertions(+), 6 deletions(-)
 
-diff --git a/kernel/locking/osq_lock.c b/kernel/locking/osq_lock.c
-index 05a3785..3da0b97 100644
---- a/kernel/locking/osq_lock.c
-+++ b/kernel/locking/osq_lock.c
-@@ -124,6 +124,11 @@ bool osq_lock(struct optimistic_spin_queue *lock)
+diff --git a/arch/ia64/mm/tlb.c b/arch/ia64/mm/tlb.c
+index 30870d1..e2b7435 100644
+--- a/arch/ia64/mm/tlb.c
++++ b/arch/ia64/mm/tlb.c
+@@ -244,7 +244,7 @@ ia64_global_tlb_purge (struct mm_struct *mm, unsigned long start,
  
- 		cpu_relax_lowlatency();
+ 	toolatetochangeptcgsem = 1;
+ 
+-	if (mm != active_mm) {
++	if (mm != active_mm)
+ 		/* Restore region IDs for mm */
+ 		if (mm && active_mm) {
+ 			activate_context(mm);
+@@ -252,7 +252,6 @@ ia64_global_tlb_purge (struct mm_struct *mm, unsigned long start,
+ 			flush_tlb_all();
+ 			return;
+ 		}
+-	}
+ 
+ 	if (need_ptcg_sem)
+ 		down_spin(&ptcg_sem);
+@@ -440,14 +439,13 @@ int ia64_itr_entry(u64 target_mask, u64 va, u64 pte, u64 log_size)
+ 	if (target_mask & 0x1) {
+ 		p = ia64_idtrs[cpu];
+ 		for (i = IA64_TR_ALLOC_BASE; i <= per_cpu(ia64_tr_used, cpu);
+-								i++, p++) {
++								i++, p++)
+ 			if (p->pte & 0x1)
+ 				if (is_tr_overlap(p, va, log_size)) {
+ 					printk(KERN_DEBUG "Overlapped Entry"
+ 						"Inserted for TR Register!!\n");
+ 					goto out;
+ 			}
+-		}
  	}
-+	/*
-+	 * Add an acquire memory barrier for pairing with the release barrier
-+	 * in unlock.
-+	 */
-+	smp_acquire__after_ctrl_dep();
- 	return true;
- 
- unqueue:
-@@ -198,13 +203,20 @@ void osq_unlock(struct optimistic_spin_queue *lock)
- 	 * Second most likely case.
- 	 */
- 	node = this_cpu_ptr(&osq_node);
--	next = xchg(&node->next, NULL);
--	if (next) {
--		WRITE_ONCE(next->locked, 1);
-+	next = xchg_relaxed(&node->next, NULL);
-+	if (next)
-+		goto unlock;
-+
-+	next = osq_wait_next(lock, node, NULL);
-+	if (unlikely(!next)) {
-+		/*
-+		 * In the unlikely event that the OSQ is empty, we need to
-+		 * provide a proper release barrier.
-+		 */
-+		smp_mb();
- 		return;
+ 	if (target_mask & 0x2) {
+ 		p = ia64_idtrs[cpu] + IA64_TR_ALLOC_MAX;
+@@ -551,11 +549,10 @@ void ia64_ptr_entry(u64 target_mask, int slot)
+ 		}
  	}
  
--	next = osq_wait_next(lock, node, NULL);
--	if (next)
--		WRITE_ONCE(next->locked, 1);
-+unlock:
-+	smp_store_release(&next->locked, 1);
+-	for (i = per_cpu(ia64_tr_used, cpu); i >= IA64_TR_ALLOC_BASE; i--) {
++	for (i = per_cpu(ia64_tr_used, cpu); i >= IA64_TR_ALLOC_BASE; i--)
+ 		if (((ia64_idtrs[cpu] + i)->pte & 0x1) ||
+ 		    ((ia64_idtrs[cpu] + IA64_TR_ALLOC_MAX + i)->pte & 0x1))
+ 			break;
+-	}
+ 	per_cpu(ia64_tr_used, cpu) = i;
  }
+ EXPORT_SYMBOL_GPL(ia64_ptr_entry);
 -- 
-1.7.1
+2.9.3
 
