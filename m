@@ -1,59 +1,30 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Date: Mon, 22 Aug 2016 04:04:42 +0000
-Subject: Re: [PATCH v1 0/7] tools: add linker table userspace sandbox
-Message-Id: <201608220404.u7M44o21022786@mail.zytor.com>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Date: Sat, 27 Aug 2016 06:20:19 +0000
+Subject: Re: IA64-IRQ: Use kmalloc_array() in sn_irq_lh_init()
+Message-Id: <0374f7bd-4623-fc4c-8913-894b1e0bb612@users.sourceforge.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1471642454-5679-1-git-send-email-mcgrof@kernel.org> <1471642875-5957-1-git-send-email-mcgrof@kernel.org> <ef5f6b3f-1b00-d33f-4ce1-81e03f4f2f10@landley.net> <20160821045959.GR15995@brightrain.aerifal.cx>
-In-Reply-To: <20160821045959.GR15995@brightrain.aerifal.cx>
+References: <349bbfb4-bada-628e-2981-ca2a315299fc@users.sourceforge.net>
+ <2e046b40-1c8e-717f-68b1-534c3125724c@users.sourceforge.net>
+ <alpine.DEB.2.10.1608261557130.3645@hadrien>
+In-Reply-To: <alpine.DEB.2.10.1608261557130.3645@hadrien>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Rich Felker <dalias@libc.org>, Rob Landley <rob@landley.net>
+To: Julia Lawall <julia.lawall@lip6.fr>
+Cc: linux-ia64@vger.kernel.org, Fenghua Yu <fenghua.yu@intel.com>, Tony Luck <tony.luck@intel.com>, LKML <linux-kernel@vger.kernel.org>, kernel-janitors@vger.kernel.org, Paolo Bonzini <pbonzini@redhat.com>
 
-mcgrof@kernel.org,acme@redhat.com,tglx@linutronix.de,mingo@redhat.com,jpoimboe@redhat.com,bp@alien8.de,linux@arm.linux.org.uk,mhiramat@kernel.org,masami.hiramatsu.pt@hitachi.com,jbaron@akamai.com,heiko.carstens@de.ibm.com,ananth@linux.vnet.ibm.com,anil.s.keshavamurthy@intel.com,davem@davemloft.net,realmz6@gmail.com,x86@kernel.org,luto@amacapital.net,keescook@chromium.org,torvalds@linux-foundation.org,gregkh@linuxfoundation.org,rusty@rustcorp.com.au,gnomes@lxorguk.ukuu.org.uk,alan@linux.intel.com,dwmw2@infradead.org,arnd@arndb.de,ming.lei@canonical.com,linux-arch@vger.kernel.org,benh@kernel.crashing.org,ananth@in.ibm.com,pebolle@tiscali.nl,fontana@sharpeleven.org,david.vrabel@citrix.com,konrad.wilk@oracle.com,mcb30@ipxe.org,jgross@suse.com,andrew.cooper3@citrix.com,andriy.shevchenko@linux.intel.com,paul.gortmaker@windriver.com,xen-devel@lists.xensource.com,ak@linux.intel.com,pali.rohar@gmail.com,dvhart@infradead.org,platform-driver-x86@vger.kernel.org,mmarek@suse.com,linux@ra!
- smusville
-moes.dk,jkosina@suse.cz,korea.drzix@gmail.com,linux-kbuild@vger.kernel.org,tony.luck@intel.com,akpm@linux-foundation.org,linux-ia64@vger.kernel.org,linux-arm-kernel@lists.infradead.org,linux-sh@vger.kernel.org,sparclinux@vger.kernel.org,catalin.marinas@arm.com,will.deacon@arm.com,rostedt@goodmis.org,jani.nikula@intel.com,mchehab@osg.samsung.com,markus.heiser@darmarit.de,jolsa@kernel.org,msalter@redhat.com,chris@zankel.net,jcmvbkbc@gmail.com,linux-xtensa@linux-xtensa.org,paulus@samba.org,mpe@ellerman.id.au,James.Bottomley@HansenPartnership.com
-Message-ID: <5150EFE4-3E00-4BD2-AE6F-F99FBBC74273@zytor.com>
+>> -		sn_irq_lh[i] = kmalloc(sizeof(struct list_head), GFP_KERNEL);
+>> +		sn_irq_lh[i] = kmalloc(*sn_irq_lh[i], GFP_KERNEL);
+> 
+> Did a sizeof get lost here?
 
-On August 20, 2016 9:59:59 PM PDT, Rich Felker <dalias@libc.org> wrote:
->On Fri, Aug 19, 2016 at 11:57:18PM -0500, Rob Landley wrote:
->> On 08/19/2016 04:41 PM, mcgrof@kernel.org wrote:
->> > Please let me know if there are any issue or questions.
->> 
->> Only that this has been the majority of the traffic on the linux-sh
->> mailing list for over a month and I'm still not sure why anyone
->should care.
->> 
->> I have no idea what problem it solves, despite reading a couple dozen
->> messages in the thread, and the most recent two 0/x intro messages.
->Its
->> purpose seems to be ensuring that lld.llvm.org has more work to do if
->it
->> ever wants to build the kernel without binutils?
->> 
->> I also am not certain why every revision of it is cc'd to linux-sh.
->Is
->> it generic linker infrastructure change, or is it something that
->affects
->> this architecture specifically? As far as I can tell nothing in this
->> most recent 7-patch series touches arch/sh at all, you just cc'd our
->> list because you think the work you're doing is _important_, not that
->> it's specifically relevant to us.
->
->Incidentally I'm happy to have been CC'd since this infrastructure is
->_really_ nice for doing things generically with device tree. The
->ability to add new linker-section-based tables without having to
->manually hack up linker script templates will make it so we can do
->things like adding tables for cache controllers or mmus (that are
->needed quite early in init and can't go through the platform device
->system).
->
->BTW we kinda lucked out that there was already the linker table
->infrastructure for cpu enable methods for smp; this patch series makes
->it so future stuff doesn't have to rely on luck or invasive changes.
->
->Rich
+Unfortunately,  yes.
 
-Incidentally, I want to use this for the RAID algorithms.
--- 
-Sent from my Android device with K-9 Mail. Please excuse brevity and formatting.
+It is strange that I overlooked such a hiccup yesterday.
+
+
+Should I start to automate the source code transformation which I imagined here
+better with further scripts for the semantic patch language?
+
+Regards,
+Markus
