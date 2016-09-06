@@ -1,104 +1,85 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Tue, 20 Sep 2016 02:29:24 +0000
-Subject: [PATCH 2/2] ia64: ensure exception table search users include extable.h
-Message-Id: <20160920022924.9537-3-paul.gortmaker@windriver.com>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Tue, 06 Sep 2016 17:04:40 +0000
+Subject: [PATCH 04/21] ia64: mca: Convert to hotplug state machine
+Message-Id: <20160906170457.32393-5-bigeasy@linutronix.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20160920022924.9537-1-paul.gortmaker@windriver.com>
-In-Reply-To: <20160920022924.9537-1-paul.gortmaker@windriver.com>
+References: <20160906170457.32393-1-bigeasy@linutronix.de>
+In-Reply-To: <20160906170457.32393-1-bigeasy@linutronix.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
-Cc: Al Viro <viro@zeniv.linux.org.uk>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Paul Gortmaker <paul.gortmaker@windriver.com>
+To: linux-kernel@vger.kernel.org
+Cc: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>, rt@linutronix.de, tglx@linutronix.de, Sebastian Andrzej Siewior <bigeasy@linutronix.de>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-We start with a delete of a duplicate prototype in asm/exception.h
-that no longer needs to exist, as it duplicates content in extable.h
-and since that header is so small, there is no point trying to
-avoid using it.
-
-Then we make sure anyone using search_exception_tables directly or
-via the ia64_done_with_exception macro has included extable.h
-
-In the process, we remove an include of moduleloader.h that was
-apparently not really required; it would have been fetching in
-module.h and hence the previous location of the exception search
-function prototypes, but we need not rely on that anymore.
+Install the callbacks via the state machine and let the core invoke
+the callbacks on the already online CPUs.
 
 Cc: Tony Luck <tony.luck@intel.com>
 Cc: Fenghua Yu <fenghua.yu@intel.com>
 Cc: linux-ia64@vger.kernel.org
-Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 ---
- arch/ia64/include/asm/exception.h | 1 -
- arch/ia64/kernel/kprobes.c        | 2 +-
- arch/ia64/kernel/traps.c          | 3 ++-
- arch/ia64/kernel/unaligned.c      | 1 +
- arch/ia64/mm/fault.c              | 1 +
- 5 files changed, 5 insertions(+), 3 deletions(-)
+ arch/ia64/kernel/mca.c | 26 ++++----------------------
+ 1 file changed, 4 insertions(+), 22 deletions(-)
 
-diff --git a/arch/ia64/include/asm/exception.h b/arch/ia64/include/asm/exception.h
-index d90236090e8c..6bb246dcdaeb 100644
---- a/arch/ia64/include/asm/exception.h
-+++ b/arch/ia64/include/asm/exception.h
-@@ -19,7 +19,6 @@ struct exception_table_entry;
+diff --git a/arch/ia64/kernel/mca.c b/arch/ia64/kernel/mca.c
+index eb9220cde76c..c2858865b146 100644
+--- a/arch/ia64/kernel/mca.c
++++ b/arch/ia64/kernel/mca.c
+@@ -1890,7 +1890,7 @@ ia64_mca_cpu_init(void *cpu_data)
+ 							      PAGE_KERNEL)));
+ }
  
- extern void ia64_handle_exception(struct pt_regs *regs,
- 				  const struct exception_table_entry *e);
--extern const struct exception_table_entry *search_exception_tables(unsigned long addr);
+-static void ia64_mca_cmc_vector_adjust(void *dummy)
++static int ia64_mca_cpu_online(unsigned int cpu)
+ {
+ 	unsigned long flags;
  
- #define ia64_done_with_exception(regs)					  \
- ({									  \
-diff --git a/arch/ia64/kernel/kprobes.c b/arch/ia64/kernel/kprobes.c
-index 55b18e1b67a8..f5f3a5e6fcd1 100644
---- a/arch/ia64/kernel/kprobes.c
-+++ b/arch/ia64/kernel/kprobes.c
-@@ -28,7 +28,7 @@
- #include <linux/string.h>
- #include <linux/slab.h>
- #include <linux/preempt.h>
--#include <linux/moduleloader.h>
-+#include <linux/extable.h>
- #include <linux/kdebug.h>
+@@ -1898,25 +1898,9 @@ static void ia64_mca_cmc_vector_adjust(void *dummy)
+ 	if (!cmc_polling_enabled)
+ 		ia64_mca_cmc_vector_enable(NULL);
+ 	local_irq_restore(flags);
++	return 0;
+ }
  
- #include <asm/pgtable.h>
-diff --git a/arch/ia64/kernel/traps.c b/arch/ia64/kernel/traps.c
-index 539745351a53..0db2fcd8a766 100644
---- a/arch/ia64/kernel/traps.c
-+++ b/arch/ia64/kernel/traps.c
-@@ -12,7 +12,8 @@
- #include <linux/sched.h>
- #include <linux/tty.h>
- #include <linux/vt_kern.h>		/* For unblank_screen() */
--#include <linux/module.h>       /* for EXPORT_SYMBOL */
-+#include <linux/export.h>
-+#include <linux/extable.h>
- #include <linux/hardirq.h>
- #include <linux/kprobes.h>
- #include <linux/delay.h>		/* for ssleep() */
-diff --git a/arch/ia64/kernel/unaligned.c b/arch/ia64/kernel/unaligned.c
-index 64b096d52947..10fa50fabce3 100644
---- a/arch/ia64/kernel/unaligned.c
-+++ b/arch/ia64/kernel/unaligned.c
-@@ -17,6 +17,7 @@
- #include <linux/kernel.h>
- #include <linux/sched.h>
- #include <linux/tty.h>
-+#include <linux/extable.h>
- #include <linux/ratelimit.h>
+-static int mca_cpu_callback(struct notifier_block *nfb,
+-				      unsigned long action,
+-				      void *hcpu)
+-{
+-	switch (action) {
+-	case CPU_ONLINE:
+-	case CPU_ONLINE_FROZEN:
+-		ia64_mca_cmc_vector_adjust(NULL);
+-		break;
+-	}
+-	return NOTIFY_OK;
+-}
+-
+-static struct notifier_block mca_cpu_notifier = {
+-	.notifier_call = mca_cpu_callback
+-};
+-
+ /*
+  * ia64_mca_init
+  *
+@@ -2111,15 +2095,13 @@ ia64_mca_late_init(void)
+ 	if (!mca_init)
+ 		return 0;
  
- #include <asm/intrinsics.h>
-diff --git a/arch/ia64/mm/fault.c b/arch/ia64/mm/fault.c
-index 52b41dad9704..7f2feb21753c 100644
---- a/arch/ia64/mm/fault.c
-+++ b/arch/ia64/mm/fault.c
-@@ -7,6 +7,7 @@
- #include <linux/sched.h>
- #include <linux/kernel.h>
- #include <linux/mm.h>
-+#include <linux/extable.h>
- #include <linux/interrupt.h>
- #include <linux/kprobes.h>
- #include <linux/kdebug.h>
+-	register_hotcpu_notifier(&mca_cpu_notifier);
+-
+ 	/* Setup the CMCI/P vector and handler */
+ 	setup_timer(&cmc_poll_timer, ia64_mca_cmc_poll, 0UL);
+ 
+ 	/* Unmask/enable the vector */
+ 	cmc_polling_enabled = 0;
+-	schedule_work(&cmc_enable_work);
+-
++	cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "ia64/mca:online",
++			  ia64_mca_cpu_online, NULL);
+ 	IA64_MCA_DEBUG("%s: CMCI/P setup and enabled.\n", __func__);
+ 
+ #ifdef CONFIG_ACPI
 -- 
-2.10.0
+2.9.3
 
