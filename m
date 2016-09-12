@@ -1,48 +1,57 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Date: Thu, 25 Aug 2016 05:47:04 +0000
-Subject: [PATCH] [IA64] MCA: Use kmalloc_array() in init_record_index_pools()
-Message-Id: <71e94d34-27fc-1c98-50aa-be96abddabab@users.sourceforge.net>
+From: Vineet Gupta <Vineet.Gupta1@synopsys.com>
+Date: Mon, 12 Sep 2016 17:47:11 +0000
+Subject: [PATCH v2 1/2] ia64: implement atomic64_dec_if_positive
+Message-Id: <1473702432-8116-2-git-send-email-vgupta@synopsys.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1473702432-8116-1-git-send-email-vgupta@synopsys.com>
+In-Reply-To: <1473702432-8116-1-git-send-email-vgupta@synopsys.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, Fenghua Yu <fenghua.yu@intel.com>, Tony Luck <tony.luck@intel.com>
-Cc: LKML <linux-kernel@vger.kernel.org>, kernel-janitors@vger.kernel.org, Julia Lawall <julia.lawall@lip6.fr>, Paolo Bonzini <pbonzini@redhat.com>
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Ingo Molnar <mingo@kernel.org>, Peter Zijlstra <peterz@infradead.org>
+Cc: linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, Vineet Gupta <Vineet.Gupta1@synopsys.com>, linux-ia64@vger.kernel.org
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Thu, 25 Aug 2016 07:37:46 +0200
+This is based on s390 version and needed to get rid of
+CONFIG_ARCH_HAS_ATOMIC64_DEC_IF_POSITIVE
 
-* A multiplication for the size determination of a memory allocation
-  indicated that an array data structure should be processed.
-  Thus reuse the corresponding function "kmalloc_array".
-
-  This issue was detected by using the Coccinelle software.
-
-* Replace the specification of a data structure by a pointer dereference
-  to make the corresponding size determination a bit safer according to
-  the Linux coding style convention.
-
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: Ingo Molnar <mingo@kernel.org>
+Cc: Peter Zijlstra <peterz@infradead.org>
+Cc: linux-ia64@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Vineet Gupta <vgupta@synopsys.com>
 ---
- arch/ia64/kernel/mca_drv.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ arch/ia64/include/asm/atomic.h | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
 
-diff --git a/arch/ia64/kernel/mca_drv.c b/arch/ia64/kernel/mca_drv.c
-index 94f8bf7..e4ce128 100644
---- a/arch/ia64/kernel/mca_drv.c
-+++ b/arch/ia64/kernel/mca_drv.c
-@@ -349,9 +349,9 @@ init_record_index_pools(void)
+diff --git a/arch/ia64/include/asm/atomic.h b/arch/ia64/include/asm/atomic.h
+index f565ad376142..65d4bb2b6685 100644
+--- a/arch/ia64/include/asm/atomic.h
++++ b/arch/ia64/include/asm/atomic.h
+@@ -269,6 +269,22 @@ static __inline__ long atomic64_add_unless(atomic64_t *v, long a, long u)
  
- 	/* - 3 - */
- 	slidx_pool.max_idx = (rec_max_size/sect_min_size) * 2 + 1;
--	slidx_pool.buffer -		kmalloc(slidx_pool.max_idx * sizeof(slidx_list_t), GFP_KERNEL);
--
-+	slidx_pool.buffer = kmalloc_array(slidx_pool.max_idx,
-+					  sizeof(*slidx_pool.buffer),
-+					  GFP_KERNEL);
- 	return slidx_pool.buffer ? 0 : -ENOMEM;
- }
+ #define atomic64_inc_not_zero(v) atomic64_add_unless((v), 1, 0)
  
++static __inline__ long atomic64_dec_if_positive(atomic64_t *v)
++{
++	long c, old, dec;
++	c = atomic64_read(v);
++	for (;;) {
++		dec = c - 1;
++		if (unlikely(dec < 0))
++			break;
++		old = atomic64_cmpxchg((v), c, dec);
++		if (likely(old = c))
++			break;
++		c = old;
++	}
++	return dec;
++}
++
+ /*
+  * Atomically add I to V and return TRUE if the resulting value is
+  * negative.
 -- 
-2.9.3
+2.7.4
 
