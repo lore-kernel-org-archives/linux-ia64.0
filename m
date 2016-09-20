@@ -1,59 +1,159 @@
-From: Vineet Gupta <Vineet.Gupta1@synopsys.com>
-Date: Mon, 12 Sep 2016 17:58:02 +0000
-Subject: [PATCH v3 1/2] ia64: implement atomic64_dec_if_positive
-Message-Id: <1473703083-8625-2-git-send-email-vgupta@synopsys.com>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Date: Tue, 20 Sep 2016 02:29:23 +0000
+Subject: [PATCH 1/2] ia64: move ia64_done_with_exception out of asm/uaccess.h
+Message-Id: <20160920022924.9537-2-paul.gortmaker@windriver.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <201609111259.q67d9T4B%fengguang.wu@intel.com>
- <1473703083-8625-1-git-send-email-vgupta@synopsys.com>
-In-Reply-To: <1473703083-8625-1-git-send-email-vgupta@synopsys.com>
+References: <20160920022924.9537-1-paul.gortmaker@windriver.com>
+In-Reply-To: <20160920022924.9537-1-paul.gortmaker@windriver.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Ingo Molnar <mingo@kernel.org>, Peter Zijlstra <peterz@infradead.org>
-Cc: linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, Vineet Gupta <Vineet.Gupta1@synopsys.com>, linux-ia64@vger.kernel.org
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: Al Viro <viro@zeniv.linux.org.uk>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Paul Gortmaker <paul.gortmaker@windriver.com>
 
-This is based on s390 version and needed to get rid of
-CONFIG_ARCH_HAS_ATOMIC64_DEC_IF_POSITIVE
+Move ia64_done_with_exception out of asm/uaccess.h (which is widely
+used) and into asm/exception.h (like ARM has) and then ensure the
+few callers of it include this new header.
+
+Most of the other C content in asm files is implemented in macro form.
+So we do that conversion at the same time as the move.
+
+There are two C exception prototypes that move along with the macro.
+One of them will become redundant when we switch over to using the
+<linux/extable.h> instead of <linux/module.h> header in a subsequent
+commit.
 
 Cc: Tony Luck <tony.luck@intel.com>
 Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: Ingo Molnar <mingo@kernel.org>
-Cc: Peter Zijlstra <peterz@infradead.org>
 Cc: linux-ia64@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
-Signed-off-by: Vineet Gupta <vgupta@synopsys.com>
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- arch/ia64/include/asm/atomic.h | 16 ++++++++++++++++
- 1 file changed, 16 insertions(+)
+ arch/ia64/include/asm/exception.h | 36 ++++++++++++++++++++++++++++++++++++
+ arch/ia64/include/asm/uaccess.h   | 15 ---------------
+ arch/ia64/kernel/kprobes.c        |  2 +-
+ arch/ia64/kernel/traps.c          |  1 +
+ arch/ia64/kernel/unaligned.c      |  1 +
+ arch/ia64/mm/fault.c              |  1 +
+ 6 files changed, 40 insertions(+), 16 deletions(-)
+ create mode 100644 arch/ia64/include/asm/exception.h
 
-diff --git a/arch/ia64/include/asm/atomic.h b/arch/ia64/include/asm/atomic.h
-index f565ad376142..65d4bb2b6685 100644
---- a/arch/ia64/include/asm/atomic.h
-+++ b/arch/ia64/include/asm/atomic.h
-@@ -269,6 +269,22 @@ static __inline__ long atomic64_add_unless(atomic64_t *v, long a, long u)
- 
- #define atomic64_inc_not_zero(v) atomic64_add_unless((v), 1, 0)
- 
-+static __inline__ long atomic64_dec_if_positive(atomic64_t *v)
-+{
-+	long c, old, dec;
-+	c = atomic64_read(v);
-+	for (;;) {
-+		dec = c - 1;
-+		if (unlikely(dec < 0))
-+			break;
-+		old = atomic64_cmpxchg((v), c, dec);
-+		if (likely(old = c))
-+			break;
-+		c = old;
-+	}
-+	return dec;
-+}
+diff --git a/arch/ia64/include/asm/exception.h b/arch/ia64/include/asm/exception.h
+new file mode 100644
+index 000000000000..d90236090e8c
+--- /dev/null
++++ b/arch/ia64/include/asm/exception.h
+@@ -0,0 +1,36 @@
++/*
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
++ */
++#ifndef __ASM_EXCEPTION_H
++#define __ASM_EXCEPTION_H
 +
- /*
-  * Atomically add I to V and return TRUE if the resulting value is
-  * negative.
++struct pt_regs;
++struct exception_table_entry;
++
++extern void ia64_handle_exception(struct pt_regs *regs,
++				  const struct exception_table_entry *e);
++extern const struct exception_table_entry *search_exception_tables(unsigned long addr);
++
++#define ia64_done_with_exception(regs)					  \
++({									  \
++	int __ex_ret = 0;						  \
++	const struct exception_table_entry *e;				  \
++	e = search_exception_tables((regs)->cr_iip + ia64_psr(regs)->ri); \
++	if (e) {							  \
++		ia64_handle_exception(regs, e);				  \
++		__ex_ret = 1;						  \
++	}								  \
++	__ex_ret;							  \
++})
++
++#endif	/* __ASM_EXCEPTION_H */
+diff --git a/arch/ia64/include/asm/uaccess.h b/arch/ia64/include/asm/uaccess.h
+index bfe13196f770..471044be2a3b 100644
+--- a/arch/ia64/include/asm/uaccess.h
++++ b/arch/ia64/include/asm/uaccess.h
+@@ -353,21 +353,6 @@ struct exception_table_entry {
+ 	int fixup;	/* location-relative continuation addr.; if bit 2 is set, r9 is set to 0 */
+ };
+ 
+-extern void ia64_handle_exception (struct pt_regs *regs, const struct exception_table_entry *e);
+-extern const struct exception_table_entry *search_exception_tables (unsigned long addr);
+-
+-static inline int
+-ia64_done_with_exception (struct pt_regs *regs)
+-{
+-	const struct exception_table_entry *e;
+-	e = search_exception_tables(regs->cr_iip + ia64_psr(regs)->ri);
+-	if (e) {
+-		ia64_handle_exception(regs, e);
+-		return 1;
+-	}
+-	return 0;
+-}
+-
+ #define ARCH_HAS_TRANSLATE_MEM_PTR	1
+ static __inline__ void *
+ xlate_dev_mem_ptr(phys_addr_t p)
+diff --git a/arch/ia64/kernel/kprobes.c b/arch/ia64/kernel/kprobes.c
+index c7c51445c3be..55b18e1b67a8 100644
+--- a/arch/ia64/kernel/kprobes.c
++++ b/arch/ia64/kernel/kprobes.c
+@@ -33,7 +33,7 @@
+ 
+ #include <asm/pgtable.h>
+ #include <asm/sections.h>
+-#include <asm/uaccess.h>
++#include <asm/exception.h>
+ 
+ extern void jprobe_inst_return(void);
+ 
+diff --git a/arch/ia64/kernel/traps.c b/arch/ia64/kernel/traps.c
+index 77edd68c5161..539745351a53 100644
+--- a/arch/ia64/kernel/traps.c
++++ b/arch/ia64/kernel/traps.c
+@@ -21,6 +21,7 @@
+ #include <asm/fpswa.h>
+ #include <asm/intrinsics.h>
+ #include <asm/processor.h>
++#include <asm/exception.h>
+ #include <asm/uaccess.h>
+ #include <asm/setup.h>
+ 
+diff --git a/arch/ia64/kernel/unaligned.c b/arch/ia64/kernel/unaligned.c
+index 7f0d31656b4d..64b096d52947 100644
+--- a/arch/ia64/kernel/unaligned.c
++++ b/arch/ia64/kernel/unaligned.c
+@@ -23,6 +23,7 @@
+ #include <asm/processor.h>
+ #include <asm/rse.h>
+ #include <asm/uaccess.h>
++#include <asm/exception.h>
+ #include <asm/unaligned.h>
+ 
+ extern int die_if_kernel(char *str, struct pt_regs *regs, long err);
+diff --git a/arch/ia64/mm/fault.c b/arch/ia64/mm/fault.c
+index fa6ad95e992e..52b41dad9704 100644
+--- a/arch/ia64/mm/fault.c
++++ b/arch/ia64/mm/fault.c
+@@ -15,6 +15,7 @@
+ 
+ #include <asm/pgtable.h>
+ #include <asm/processor.h>
++#include <asm/exception.h>
+ 
+ extern int die(char *, struct pt_regs *, long);
+ 
 -- 
-2.7.4
+2.10.0
 
