@@ -1,109 +1,46 @@
-From: Lorenzo Stoakes <lstoakes@gmail.com>
-Date: Mon, 31 Oct 2016 19:28:26 +0000
-Subject: Re: [PATCH 2/2] mm: remove get_user_pages_locked()
-Message-Id: <20161031192826.GA13380@lucifer>
+From: Davidlohr Bueso <dave@stgolabs.net>
+Date: Thu, 06 Oct 2016 18:17:18 +0000
+Subject: Re: [RFC PATCH-tip v4 02/10] locking/rwsem: Stop active read lock ASAP
+Message-Id: <20161006181718.GA14967@linux-80c1.suse>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20161031100228.17917-1-lstoakes@gmail.com>
- <20161031100228.17917-3-lstoakes@gmail.com>
- <cc508436-156e-eb4b-ae01-b44f33c2d692@redhat.com>
- <20161031134849.GA13609@lucifer>
- <ddbe34d0-5d29-abce-1627-f464635bbfe6@redhat.com>
-In-Reply-To: <ddbe34d0-5d29-abce-1627-f464635bbfe6@redhat.com>
+References: <1471554672-38662-1-git-send-email-Waiman.Long@hpe.com>
+ <1471554672-38662-3-git-send-email-Waiman.Long@hpe.com>
+In-Reply-To: <1471554672-38662-3-git-send-email-Waiman.Long@hpe.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Paolo Bonzini <pbonzini@redhat.com>
-Cc: linux-mm@kvack.org, Linus Torvalds <torvalds@linux-foundation.org>, Michal Hocko <mhocko@kernel.org>, Jan Kara <jack@suse.cz>, Hugh Dickins <hughd@google.com>, Dave Hansen <dave.hansen@linux.intel.com>, Rik van Riel <riel@redhat.com>, Mel Gorman <mgorman@techsingularity.net>, Andrew Morton <akpm@linux-foundation.org>, linux-kernel@vger.kernel.org, linux-cris-kernel@axis.com, linux-ia64@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-rdma@vger.kernel.org, kvm@vger.kernel.org, linux-media@vger.kernel.org, devel@driverdev.osuosl.org
+To: Waiman Long <Waiman.Long@hpe.com>
+Cc: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>, linux-kernel@vger.kernel.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-arch@vger.kernel.org, linux-doc@vger.kernel.org, Jason Low <jason.low2@hp.com>, Dave Chinner <david@fromorbit.com>, Jonathan Corbet <corbet@lwn.net>, Scott J Norton <scott.norton@hpe.com>, Douglas Hatch <doug.hatch@hpe.com>
 
-On Mon, Oct 31, 2016 at 06:55:33PM +0100, Paolo Bonzini wrote:
-> > 2. There is currently only one caller of get_user_pages_locked() in
-> >    mm/frame_vector.c which seems to suggest this function isn't widely
-> >    used/known.
->
-> Or not widely necessary. :)
+On Thu, 18 Aug 2016, Waiman Long wrote:
 
-Well, quite :)
+>Currently, when down_read() fails, the active read locking isn't undone
+>until the rwsem_down_read_failed() function grabs the wait_lock. If the
+>wait_lock is contended, it may takes a while to get the lock. During
+>that period, writer lock stealing will be disabled because of the
+>active read lock.
 >
-> > 3. This change results in all slow-path get_user_pages*() functions having the
-> >    ability to use VM_FAULT_RETRY logic rather than 'defaulting' to using
-> >    get_user_pages() that doesn't let you do this even if you wanted to.
+>This patch will release the active read lock ASAP so that writer lock
+>stealing can happen sooner. The only downside is when the reader is
+>the first one in the wait queue as it has to issue another atomic
+>operation to update the count.
 >
-> This is only true if someone does the work though.  From a quick look
-> at your series, the following files can be trivially changed to use
-> get_user_pages_unlocked:
+>On a 4-socket Haswell machine running on a 4.7-rc1 tip-based kernel,
+>the fio test with multithreaded randrw and randwrite tests on the
+>same file on a XFS partition on top of a NVDIMM with DAX were run,
+>the aggregated bandwidths before and after the patch were as follows:
 >
-> - drivers/gpu/drm/via/via_dmablit.c
-> - drivers/platform/goldfish/goldfish_pipe.c
-> - drivers/staging/vc04_services/interface/vchiq_arm/vchiq_arm.c
-> - drivers/rapidio/devices/rio_mport_cdev.c
-> - drivers/virt/fsl_hypervisor.c
->
+>  Test      BW before patch     BW after patch  % change
+>  ----      ---------------     --------------  --------
+>  randrw        1210 MB/s          1352 MB/s      +12%
+>  randwrite     1622 MB/s          1710 MB/s      +5.4%
 
-Ah indeed, I rather glossed through the callers and noticed that at least some
-held locks long enough or were called with a lock held sufficient that I wasn't
-sure it could be released.
+Yeah, this is really a bad workload to make decisions on locking
+heuristics imo - if I'm thinking of the same workload. Mainly because
+concurrent buffered io to the same file isn't very realistic and you
+end up pathologically pounding on i_rwsem (which used to be until
+recently i_mutex until Al's parallel lookup/readdir). Obviously write
+lock stealing wins in this case.
 
-> Also, videobuf_dma_init_user could be changed to use retry by adding a
-> *locked argument to videobuf_dma_init_user_locked, prototype patch
-> after my signature.
->
-
-Very nice!
-
-> Everything else is probably best kept using get_user_pages.
->
-> > 4. It's somewhat confusing/redundant having both get_user_pages_locked() and
-> >    get_user_pages() functions which both require mmap_sem to be held (i.e. both
-> >    are 'locked' versions.)
-> >
-> >> If all callers were changed, then sure removing the _locked suffix would
-> >> be a good idea.
-> >
-> > It seems many callers cannot release mmap_sem so VM_FAULT_RETRY logic couldn't
-> > happen anyway in this cases and in these cases we couldn't change the caller.
->
-> But then get_user_pages_locked remains a less-common case, so perhaps
-> it's a good thing to give it a longer name!
-
-My (somewhat minor) concern was that there would be confusion due to the
-existence of the triumvirate of g_u_p()/g_u_p_unlocked()/g_u_p_locked(), however
-the comments do a decent enough job of explaining the situation.
-
->
-> > Overall, an alternative here might be to remove get_user_pages() and update
-> > get_user_pages_locked() to add a 'vmas' parameter, however doing this renders
-> > get_user_pages_unlocked() asymmetric as it would lack an vmas parameter (adding
-> > one there would make no sense as VM_FAULT_RETRY logic invalidates VMAs) though
-> > perhaps not such a big issue as it makes sense as to why this is the case.
->
-> Adding the 'vmas' parameter to get_user_pages_locked would make little
-> sense.  Since VM_FAULT_RETRY invalidates it and g_u_p_locked can and
-> does retry, it would generally not be useful.
-
-I meant only in the case where we'd remove get_user_pages() and instead be left
-with get_user_pages_[un]locked() only, meaning we'd have to add some means of
-retrieving vmas if locked was set NULL, of course in cases where locked is not
-NULL it makes no sense to add it.
-
->
-> So I think we have the right API now:
->
-> - do not have lock?  Use get_user_pages_unlocked, get retry for free,
-> no need to handle  mmap_sem and the locked argument; cannot get back vmas.
->
-> - have and cannot drop lock?  User get_user_pages, no need to pass NULL
-> for the locked argument; can get back vmas.
->
-> - have but can drop lock (rare case)?  Use get_user_pages_locked,
-> cannot get back vams.
-
-Yeah I think this is sane as it is actually, this patch set was a lot less
-convincing of a cleanup than prior ones and overall it seems we are better off
-with the existing API.
-
-I wonder whether a better patch series to come out of this would be to find
-cases where the lock could be dropped (i.e. the ones you mention above) and to
-switch to using get_user_pages_[un]locked() where it makes sense to.
-
-I am happy to look into these cases (though of course I must leave your
-suggested patch here to you :)
+Thanks,
+Davidlohr
