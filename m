@@ -1,286 +1,270 @@
-From: Jan Kara <jack@suse.cz>
-Date: Wed, 19 Oct 2016 07:47:07 +0000
-Subject: Re: [PATCH 07/10] mm: replace get_user_pages_remote() write/force parameters with gup_flags
-Message-Id: <20161019074707.GO29967@quack2.suse.cz>
+From: Lorenzo Stoakes <lstoakes@gmail.com>
+Date: Thu, 13 Oct 2016 00:20:13 +0000
+Subject: [PATCH 03/10] mm: replace get_user_pages_unlocked() write/force parameters with gup_flags
+Message-Id: <20161013002020.3062-4-lstoakes@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20161013002020.3062-1-lstoakes@gmail.com>
- <20161013002020.3062-8-lstoakes@gmail.com>
-In-Reply-To: <20161013002020.3062-8-lstoakes@gmail.com>
+In-Reply-To: <20161013002020.3062-1-lstoakes@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Lorenzo Stoakes <lstoakes@gmail.com>
-Cc: linux-mips@linux-mips.org, linux-fbdev@vger.kernel.org, Jan Kara <jack@suse.cz>, kvm@vger.kernel.org, linux-sh@vger.kernel.org, Dave Hansen <dave.hansen@linux.intel.com>, dri-devel@lists.freedesktop.org, linux-mm@kvack.org, netdev@vger.kernel.org, sparclinux@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-samsung-soc@vger.kernel.org, linux-scsi@vger.kernel.org, linux-rdma@vger.kernel.org, x86@kernel.org, Hugh Dickins <hughd@google.com>, linux-media@vger.kernel.org, Rik van Riel <riel@redhat.com>, intel-gfx@lists.freedesktop.org, adi-buildroot-devel@lists.sourceforge.net, ceph-devel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-cris-kernel@axis.com, Linus Torvalds <torvalds@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org, linux-security-module@vger.kernel.org, linux-alpha@vger.kernel.orglin
+To: linux-mm@kvack.org
+Cc: Linus Torvalds <torvalds@linux-foundation.org>, Jan Kara <jack@suse.cz>, Hugh Dickins <hughd@google.com>, Dave Hansen <dave.hansen@linux.intel.com>, Rik van Riel <riel@redhat.com>, Mel Gorman <mgorman@techsingularity.net>, Andrew Morton <akpm@linux-foundation.org>, adi-buildroot-devel@lists.sourceforge.net, ceph-devel@vger.kernel.org, dri-devel@lists.freedesktop.org, intel-gfx@lists.freedesktop.org, kvm@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-cris-kernel@axis.com, linux-fbdev@vger.kernel.org, linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-media@vger.kernel.org, linux-mips@linux-mips.org, linux-rdma@vger.kernel.org, linux-s390@vger.kernel.org, linux-samsung-soc@vger.kernel.org, linux-scsi@vger.kernel.org, linux-security-module@vger.kernel.org, linux-sh@vger.kerne
 
-On Thu 13-10-16 01:20:17, Lorenzo Stoakes wrote:
-> This patch removes the write and force parameters from get_user_pages_remote()
-> and replaces them with a gup_flags parameter to make the use of FOLL_FORCE
-> explicit in callers as use of this flag can result in surprising behaviour (and
-> hence bugs) within the mm subsystem.
-> 
-> Signed-off-by: Lorenzo Stoakes <lstoakes@gmail.com>
+This patch removes the write and force parameters from get_user_pages_unlocked()
+and replaces them with a gup_flags parameter to make the use of FOLL_FORCE
+explicit in callers as use of this flag can result in surprising behaviour (and
+hence bugs) within the mm subsystem.
 
-Looks good. You can add:
+Signed-off-by: Lorenzo Stoakes <lstoakes@gmail.com>
+---
+ arch/mips/mm/gup.c                 |  2 +-
+ arch/s390/mm/gup.c                 |  3 ++-
+ arch/sh/mm/gup.c                   |  3 ++-
+ arch/sparc/mm/gup.c                |  3 ++-
+ arch/x86/mm/gup.c                  |  2 +-
+ drivers/media/pci/ivtv/ivtv-udma.c |  4 ++--
+ drivers/media/pci/ivtv/ivtv-yuv.c  |  5 +++--
+ drivers/scsi/st.c                  |  5 ++---
+ drivers/video/fbdev/pvr2fb.c       |  4 ++--
+ include/linux/mm.h                 |  2 +-
+ mm/gup.c                           | 14 ++++----------
+ mm/nommu.c                         | 11 ++---------
+ mm/util.c                          |  3 ++-
+ net/ceph/pagevec.c                 |  2 +-
+ 14 files changed, 27 insertions(+), 36 deletions(-)
 
-Reviewed-by: Jan Kara <jack@suse.cz>
-
-								Honza
-
-> ---
->  drivers/gpu/drm/etnaviv/etnaviv_gem.c   |  7 +++++--
->  drivers/gpu/drm/i915/i915_gem_userptr.c |  6 +++++-
->  drivers/infiniband/core/umem_odp.c      |  7 +++++--
->  fs/exec.c                               |  9 +++++++--
->  include/linux/mm.h                      |  2 +-
->  kernel/events/uprobes.c                 |  6 ++++--
->  mm/gup.c                                | 22 +++++++---------------
->  mm/memory.c                             |  6 +++++-
->  security/tomoyo/domain.c                |  2 +-
->  9 files changed, 40 insertions(+), 27 deletions(-)
-> 
-> diff --git a/drivers/gpu/drm/etnaviv/etnaviv_gem.c b/drivers/gpu/drm/etnaviv/etnaviv_gem.c
-> index 5ce3603..0370b84 100644
-> --- a/drivers/gpu/drm/etnaviv/etnaviv_gem.c
-> +++ b/drivers/gpu/drm/etnaviv/etnaviv_gem.c
-> @@ -748,19 +748,22 @@ static struct page **etnaviv_gem_userptr_do_get_pages(
->  	int ret = 0, pinned, npages = etnaviv_obj->base.size >> PAGE_SHIFT;
->  	struct page **pvec;
->  	uintptr_t ptr;
-> +	unsigned int flags = 0;
->  
->  	pvec = drm_malloc_ab(npages, sizeof(struct page *));
->  	if (!pvec)
->  		return ERR_PTR(-ENOMEM);
->  
-> +	if (!etnaviv_obj->userptr.ro)
-> +		flags |= FOLL_WRITE;
-> +
->  	pinned = 0;
->  	ptr = etnaviv_obj->userptr.ptr;
->  
->  	down_read(&mm->mmap_sem);
->  	while (pinned < npages) {
->  		ret = get_user_pages_remote(task, mm, ptr, npages - pinned,
-> -					    !etnaviv_obj->userptr.ro, 0,
-> -					    pvec + pinned, NULL);
-> +					    flags, pvec + pinned, NULL);
->  		if (ret < 0)
->  			break;
->  
-> diff --git a/drivers/gpu/drm/i915/i915_gem_userptr.c b/drivers/gpu/drm/i915/i915_gem_userptr.c
-> index e537930..c6f780f 100644
-> --- a/drivers/gpu/drm/i915/i915_gem_userptr.c
-> +++ b/drivers/gpu/drm/i915/i915_gem_userptr.c
-> @@ -508,6 +508,10 @@ __i915_gem_userptr_get_pages_worker(struct work_struct *_work)
->  	pvec = drm_malloc_gfp(npages, sizeof(struct page *), GFP_TEMPORARY);
->  	if (pvec != NULL) {
->  		struct mm_struct *mm = obj->userptr.mm->mm;
-> +		unsigned int flags = 0;
-> +
-> +		if (!obj->userptr.read_only)
-> +			flags |= FOLL_WRITE;
->  
->  		ret = -EFAULT;
->  		if (atomic_inc_not_zero(&mm->mm_users)) {
-> @@ -517,7 +521,7 @@ __i915_gem_userptr_get_pages_worker(struct work_struct *_work)
->  					(work->task, mm,
->  					 obj->userptr.ptr + pinned * PAGE_SIZE,
->  					 npages - pinned,
-> -					 !obj->userptr.read_only, 0,
-> +					 flags,
->  					 pvec + pinned, NULL);
->  				if (ret < 0)
->  					break;
-> diff --git a/drivers/infiniband/core/umem_odp.c b/drivers/infiniband/core/umem_odp.c
-> index 75077a0..1f0fe32 100644
-> --- a/drivers/infiniband/core/umem_odp.c
-> +++ b/drivers/infiniband/core/umem_odp.c
-> @@ -527,6 +527,7 @@ int ib_umem_odp_map_dma_pages(struct ib_umem *umem, u64 user_virt, u64 bcnt,
->  	u64 off;
->  	int j, k, ret = 0, start_idx, npages = 0;
->  	u64 base_virt_addr;
-> +	unsigned int flags = 0;
->  
->  	if (access_mask = 0)
->  		return -EINVAL;
-> @@ -556,6 +557,9 @@ int ib_umem_odp_map_dma_pages(struct ib_umem *umem, u64 user_virt, u64 bcnt,
->  		goto out_put_task;
->  	}
->  
-> +	if (access_mask & ODP_WRITE_ALLOWED_BIT)
-> +		flags |= FOLL_WRITE;
-> +
->  	start_idx = (user_virt - ib_umem_start(umem)) >> PAGE_SHIFT;
->  	k = start_idx;
->  
-> @@ -574,8 +578,7 @@ int ib_umem_odp_map_dma_pages(struct ib_umem *umem, u64 user_virt, u64 bcnt,
->  		 */
->  		npages = get_user_pages_remote(owning_process, owning_mm,
->  				user_virt, gup_num_pages,
-> -				access_mask & ODP_WRITE_ALLOWED_BIT,
-> -				0, local_page_list, NULL);
-> +				flags, local_page_list, NULL);
->  		up_read(&owning_mm->mmap_sem);
->  
->  		if (npages < 0)
-> diff --git a/fs/exec.c b/fs/exec.c
-> index 6fcfb3f..4e497b9 100644
-> --- a/fs/exec.c
-> +++ b/fs/exec.c
-> @@ -191,6 +191,7 @@ static struct page *get_arg_page(struct linux_binprm *bprm, unsigned long pos,
->  {
->  	struct page *page;
->  	int ret;
-> +	unsigned int gup_flags = FOLL_FORCE;
->  
->  #ifdef CONFIG_STACK_GROWSUP
->  	if (write) {
-> @@ -199,12 +200,16 @@ static struct page *get_arg_page(struct linux_binprm *bprm, unsigned long pos,
->  			return NULL;
->  	}
->  #endif
-> +
-> +	if (write)
-> +		gup_flags |= FOLL_WRITE;
-> +
->  	/*
->  	 * We are doing an exec().  'current' is the process
->  	 * doing the exec and bprm->mm is the new process's mm.
->  	 */
-> -	ret = get_user_pages_remote(current, bprm->mm, pos, 1, write,
-> -			1, &page, NULL);
-> +	ret = get_user_pages_remote(current, bprm->mm, pos, 1, gup_flags,
-> +			&page, NULL);
->  	if (ret <= 0)
->  		return NULL;
->  
-> diff --git a/include/linux/mm.h b/include/linux/mm.h
-> index 686a477..2a481d3 100644
-> --- a/include/linux/mm.h
-> +++ b/include/linux/mm.h
-> @@ -1276,7 +1276,7 @@ long __get_user_pages(struct task_struct *tsk, struct mm_struct *mm,
->  		      struct vm_area_struct **vmas, int *nonblocking);
->  long get_user_pages_remote(struct task_struct *tsk, struct mm_struct *mm,
->  			    unsigned long start, unsigned long nr_pages,
-> -			    int write, int force, struct page **pages,
-> +			    unsigned int gup_flags, struct page **pages,
->  			    struct vm_area_struct **vmas);
->  long get_user_pages(unsigned long start, unsigned long nr_pages,
->  			    unsigned int gup_flags, struct page **pages,
-> diff --git a/kernel/events/uprobes.c b/kernel/events/uprobes.c
-> index d4129bb..f9ec9ad 100644
-> --- a/kernel/events/uprobes.c
-> +++ b/kernel/events/uprobes.c
-> @@ -300,7 +300,8 @@ int uprobe_write_opcode(struct mm_struct *mm, unsigned long vaddr,
->  
->  retry:
->  	/* Read the page with vaddr into memory */
-> -	ret = get_user_pages_remote(NULL, mm, vaddr, 1, 0, 1, &old_page, &vma);
-> +	ret = get_user_pages_remote(NULL, mm, vaddr, 1, FOLL_FORCE, &old_page,
-> +			&vma);
->  	if (ret <= 0)
->  		return ret;
->  
-> @@ -1710,7 +1711,8 @@ static int is_trap_at_addr(struct mm_struct *mm, unsigned long vaddr)
->  	 * but we treat this as a 'remote' access since it is
->  	 * essentially a kernel access to the memory.
->  	 */
-> -	result = get_user_pages_remote(NULL, mm, vaddr, 1, 0, 1, &page, NULL);
-> +	result = get_user_pages_remote(NULL, mm, vaddr, 1, FOLL_FORCE, &page,
-> +			NULL);
->  	if (result < 0)
->  		return result;
->  
-> diff --git a/mm/gup.c b/mm/gup.c
-> index dc91303..0deecf3 100644
-> --- a/mm/gup.c
-> +++ b/mm/gup.c
-> @@ -905,9 +905,7 @@ EXPORT_SYMBOL(get_user_pages_unlocked);
->   * @mm:		mm_struct of target mm
->   * @start:	starting user address
->   * @nr_pages:	number of pages from start to pin
-> - * @write:	whether pages will be written to by the caller
-> - * @force:	whether to force access even when user mapping is currently
-> - *		protected (but never forces write access to shared mapping).
-> + * @gup_flags:	flags modifying lookup behaviour
->   * @pages:	array that receives pointers to the pages pinned.
->   *		Should be at least nr_pages long. Or NULL, if caller
->   *		only intends to ensure the pages are faulted in.
-> @@ -936,9 +934,9 @@ EXPORT_SYMBOL(get_user_pages_unlocked);
->   * or similar operation cannot guarantee anything stronger anyway because
->   * locks can't be held over the syscall boundary.
->   *
-> - * If write=0, the page must not be written to. If the page is written to,
-> - * set_page_dirty (or set_page_dirty_lock, as appropriate) must be called
-> - * after the page is finished with, and before put_page is called.
-> + * If gup_flags & FOLL_WRITE = 0, the page must not be written to. If the page
-> + * is written to, set_page_dirty (or set_page_dirty_lock, as appropriate) must
-> + * be called after the page is finished with, and before put_page is called.
->   *
->   * get_user_pages is typically used for fewer-copy IO operations, to get a
->   * handle on the memory by some means other than accesses via the user virtual
-> @@ -955,18 +953,12 @@ EXPORT_SYMBOL(get_user_pages_unlocked);
->   */
->  long get_user_pages_remote(struct task_struct *tsk, struct mm_struct *mm,
->  		unsigned long start, unsigned long nr_pages,
-> -		int write, int force, struct page **pages,
-> +		unsigned int gup_flags, struct page **pages,
->  		struct vm_area_struct **vmas)
->  {
-> -	unsigned int flags = FOLL_TOUCH | FOLL_REMOTE;
-> -
-> -	if (write)
-> -		flags |= FOLL_WRITE;
-> -	if (force)
-> -		flags |= FOLL_FORCE;
-> -
->  	return __get_user_pages_locked(tsk, mm, start, nr_pages, pages, vmas,
-> -				       NULL, false, flags);
-> +				       NULL, false,
-> +				       gup_flags | FOLL_TOUCH | FOLL_REMOTE);
->  }
->  EXPORT_SYMBOL(get_user_pages_remote);
->  
-> diff --git a/mm/memory.c b/mm/memory.c
-> index fc1987d..20a9adb 100644
-> --- a/mm/memory.c
-> +++ b/mm/memory.c
-> @@ -3873,6 +3873,10 @@ static int __access_remote_vm(struct task_struct *tsk, struct mm_struct *mm,
->  {
->  	struct vm_area_struct *vma;
->  	void *old_buf = buf;
-> +	unsigned int flags = FOLL_FORCE;
-> +
-> +	if (write)
-> +		flags |= FOLL_WRITE;
->  
->  	down_read(&mm->mmap_sem);
->  	/* ignore errors, just check how much was successfully transferred */
-> @@ -3882,7 +3886,7 @@ static int __access_remote_vm(struct task_struct *tsk, struct mm_struct *mm,
->  		struct page *page = NULL;
->  
->  		ret = get_user_pages_remote(tsk, mm, addr, 1,
-> -				write, 1, &page, &vma);
-> +				flags, &page, &vma);
->  		if (ret <= 0) {
->  #ifndef CONFIG_HAVE_IOREMAP_PROT
->  			break;
-> diff --git a/security/tomoyo/domain.c b/security/tomoyo/domain.c
-> index ade7c6c..682b73a 100644
-> --- a/security/tomoyo/domain.c
-> +++ b/security/tomoyo/domain.c
-> @@ -881,7 +881,7 @@ bool tomoyo_dump_page(struct linux_binprm *bprm, unsigned long pos,
->  	 * the execve().
->  	 */
->  	if (get_user_pages_remote(current, bprm->mm, pos, 1,
-> -				0, 1, &page, NULL) <= 0)
-> +				FOLL_FORCE, &page, NULL) <= 0)
->  		return false;
->  #else
->  	page = bprm->page[pos / PAGE_SIZE];
-> -- 
-> 2.10.0
-> 
+diff --git a/arch/mips/mm/gup.c b/arch/mips/mm/gup.c
+index 42d124f..d8c3c15 100644
+--- a/arch/mips/mm/gup.c
++++ b/arch/mips/mm/gup.c
+@@ -287,7 +287,7 @@ int get_user_pages_fast(unsigned long start, int nr_pages, int write,
+ 	pages += nr;
+ 
+ 	ret = get_user_pages_unlocked(start, (end - start) >> PAGE_SHIFT,
+-				      write, 0, pages);
++				      pages, write ? FOLL_WRITE : 0);
+ 
+ 	/* Have to be a bit careful with return values */
+ 	if (nr > 0) {
+diff --git a/arch/s390/mm/gup.c b/arch/s390/mm/gup.c
+index adb0c34..18d4107 100644
+--- a/arch/s390/mm/gup.c
++++ b/arch/s390/mm/gup.c
+@@ -266,7 +266,8 @@ int get_user_pages_fast(unsigned long start, int nr_pages, int write,
+ 	/* Try to get the remaining pages with get_user_pages */
+ 	start += nr << PAGE_SHIFT;
+ 	pages += nr;
+-	ret = get_user_pages_unlocked(start, nr_pages - nr, write, 0, pages);
++	ret = get_user_pages_unlocked(start, nr_pages - nr, pages,
++				      write ? FOLL_WRITE : 0);
+ 	/* Have to be a bit careful with return values */
+ 	if (nr > 0)
+ 		ret = (ret < 0) ? nr : ret + nr;
+diff --git a/arch/sh/mm/gup.c b/arch/sh/mm/gup.c
+index 40fa6c8..063c298 100644
+--- a/arch/sh/mm/gup.c
++++ b/arch/sh/mm/gup.c
+@@ -258,7 +258,8 @@ int get_user_pages_fast(unsigned long start, int nr_pages, int write,
+ 		pages += nr;
+ 
+ 		ret = get_user_pages_unlocked(start,
+-			(end - start) >> PAGE_SHIFT, write, 0, pages);
++			(end - start) >> PAGE_SHIFT, pages,
++			write ? FOLL_WRITE : 0);
+ 
+ 		/* Have to be a bit careful with return values */
+ 		if (nr > 0) {
+diff --git a/arch/sparc/mm/gup.c b/arch/sparc/mm/gup.c
+index 4e06750..cd0e32b 100644
+--- a/arch/sparc/mm/gup.c
++++ b/arch/sparc/mm/gup.c
+@@ -238,7 +238,8 @@ int get_user_pages_fast(unsigned long start, int nr_pages, int write,
+ 		pages += nr;
+ 
+ 		ret = get_user_pages_unlocked(start,
+-			(end - start) >> PAGE_SHIFT, write, 0, pages);
++			(end - start) >> PAGE_SHIFT, pages,
++			write ? FOLL_WRITE : 0);
+ 
+ 		/* Have to be a bit careful with return values */
+ 		if (nr > 0) {
+diff --git a/arch/x86/mm/gup.c b/arch/x86/mm/gup.c
+index b8b6a60..0d4fb3e 100644
+--- a/arch/x86/mm/gup.c
++++ b/arch/x86/mm/gup.c
+@@ -435,7 +435,7 @@ int get_user_pages_fast(unsigned long start, int nr_pages, int write,
+ 
+ 		ret = get_user_pages_unlocked(start,
+ 					      (end - start) >> PAGE_SHIFT,
+-					      write, 0, pages);
++					      pages, write ? FOLL_WRITE : 0);
+ 
+ 		/* Have to be a bit careful with return values */
+ 		if (nr > 0) {
+diff --git a/drivers/media/pci/ivtv/ivtv-udma.c b/drivers/media/pci/ivtv/ivtv-udma.c
+index 4769469..2c9232e 100644
+--- a/drivers/media/pci/ivtv/ivtv-udma.c
++++ b/drivers/media/pci/ivtv/ivtv-udma.c
+@@ -124,8 +124,8 @@ int ivtv_udma_setup(struct ivtv *itv, unsigned long ivtv_dest_addr,
+ 	}
+ 
+ 	/* Get user pages for DMA Xfer */
+-	err = get_user_pages_unlocked(user_dma.uaddr, user_dma.page_count, 0,
+-			1, dma->map);
++	err = get_user_pages_unlocked(user_dma.uaddr, user_dma.page_count,
++			dma->map, FOLL_FORCE);
+ 
+ 	if (user_dma.page_count != err) {
+ 		IVTV_DEBUG_WARN("failed to map user pages, returned %d instead of %d\n",
+diff --git a/drivers/media/pci/ivtv/ivtv-yuv.c b/drivers/media/pci/ivtv/ivtv-yuv.c
+index b094054..f7299d3 100644
+--- a/drivers/media/pci/ivtv/ivtv-yuv.c
++++ b/drivers/media/pci/ivtv/ivtv-yuv.c
+@@ -76,11 +76,12 @@ static int ivtv_yuv_prep_user_dma(struct ivtv *itv, struct ivtv_user_dma *dma,
+ 
+ 	/* Get user pages for DMA Xfer */
+ 	y_pages = get_user_pages_unlocked(y_dma.uaddr,
+-			y_dma.page_count, 0, 1, &dma->map[0]);
++			y_dma.page_count, &dma->map[0], FOLL_FORCE);
+ 	uv_pages = 0; /* silence gcc. value is set and consumed only if: */
+ 	if (y_pages = y_dma.page_count) {
+ 		uv_pages = get_user_pages_unlocked(uv_dma.uaddr,
+-				uv_dma.page_count, 0, 1, &dma->map[y_pages]);
++				uv_dma.page_count, &dma->map[y_pages],
++				FOLL_FORCE);
+ 	}
+ 
+ 	if (y_pages != y_dma.page_count || uv_pages != uv_dma.page_count) {
+diff --git a/drivers/scsi/st.c b/drivers/scsi/st.c
+index 7af5226..618422e 100644
+--- a/drivers/scsi/st.c
++++ b/drivers/scsi/st.c
+@@ -4922,9 +4922,8 @@ static int sgl_map_user_pages(struct st_buffer *STbp,
+ 	res = get_user_pages_unlocked(
+ 		uaddr,
+ 		nr_pages,
+-		rw = READ,
+-		0, /* don't force */
+-		pages);
++		pages,
++		rw = READ ? FOLL_WRITE : 0); /* don't force */
+ 
+ 	/* Errors and no page mapped should return here */
+ 	if (res < nr_pages)
+diff --git a/drivers/video/fbdev/pvr2fb.c b/drivers/video/fbdev/pvr2fb.c
+index 3b1ca44..a2564ab 100644
+--- a/drivers/video/fbdev/pvr2fb.c
++++ b/drivers/video/fbdev/pvr2fb.c
+@@ -686,8 +686,8 @@ static ssize_t pvr2fb_write(struct fb_info *info, const char *buf,
+ 	if (!pages)
+ 		return -ENOMEM;
+ 
+-	ret = get_user_pages_unlocked((unsigned long)buf, nr_pages, WRITE,
+-			0, pages);
++	ret = get_user_pages_unlocked((unsigned long)buf, nr_pages, pages,
++			FOLL_WRITE);
+ 
+ 	if (ret < nr_pages) {
+ 		nr_pages = ret;
+diff --git a/include/linux/mm.h b/include/linux/mm.h
+index 2db98b6..6adc4bc 100644
+--- a/include/linux/mm.h
++++ b/include/linux/mm.h
+@@ -1287,7 +1287,7 @@ long __get_user_pages_unlocked(struct task_struct *tsk, struct mm_struct *mm,
+ 			       unsigned long start, unsigned long nr_pages,
+ 			       struct page **pages, unsigned int gup_flags);
+ long get_user_pages_unlocked(unsigned long start, unsigned long nr_pages,
+-		    int write, int force, struct page **pages);
++		    struct page **pages, unsigned int gup_flags);
+ int get_user_pages_fast(unsigned long start, int nr_pages, int write,
+ 			struct page **pages);
+ 
+diff --git a/mm/gup.c b/mm/gup.c
+index 3d620dd..cfcb014 100644
+--- a/mm/gup.c
++++ b/mm/gup.c
+@@ -897,17 +897,10 @@ EXPORT_SYMBOL(__get_user_pages_unlocked);
+  * "force" parameter).
+  */
+ long get_user_pages_unlocked(unsigned long start, unsigned long nr_pages,
+-			     int write, int force, struct page **pages)
++			     struct page **pages, unsigned int gup_flags)
+ {
+-	unsigned int flags = FOLL_TOUCH;
+-
+-	if (write)
+-		flags |= FOLL_WRITE;
+-	if (force)
+-		flags |= FOLL_FORCE;
+-
+ 	return __get_user_pages_unlocked(current, current->mm, start, nr_pages,
+-					 pages, flags);
++					 pages, gup_flags | FOLL_TOUCH);
+ }
+ EXPORT_SYMBOL(get_user_pages_unlocked);
+ 
+@@ -1525,7 +1518,8 @@ int get_user_pages_fast(unsigned long start, int nr_pages, int write,
+ 		start += nr << PAGE_SHIFT;
+ 		pages += nr;
+ 
+-		ret = get_user_pages_unlocked(start, nr_pages - nr, write, 0, pages);
++		ret = get_user_pages_unlocked(start, nr_pages - nr, pages,
++				write ? FOLL_WRITE : 0);
+ 
+ 		/* Have to be a bit careful with return values */
+ 		if (nr > 0) {
+diff --git a/mm/nommu.c b/mm/nommu.c
+index 925dcc1..7e27add 100644
+--- a/mm/nommu.c
++++ b/mm/nommu.c
+@@ -197,17 +197,10 @@ long __get_user_pages_unlocked(struct task_struct *tsk, struct mm_struct *mm,
+ EXPORT_SYMBOL(__get_user_pages_unlocked);
+ 
+ long get_user_pages_unlocked(unsigned long start, unsigned long nr_pages,
+-			     int write, int force, struct page **pages)
++			     struct page **pages, unsigned int gup_flags)
+ {
+-	unsigned int flags = 0;
+-
+-	if (write)
+-		flags |= FOLL_WRITE;
+-	if (force)
+-		flags |= FOLL_FORCE;
+-
+ 	return __get_user_pages_unlocked(current, current->mm, start, nr_pages,
+-					 pages, flags);
++					 pages, gup_flags);
+ }
+ EXPORT_SYMBOL(get_user_pages_unlocked);
+ 
+diff --git a/mm/util.c b/mm/util.c
+index 662cddf..4c685bd 100644
+--- a/mm/util.c
++++ b/mm/util.c
+@@ -283,7 +283,8 @@ EXPORT_SYMBOL_GPL(__get_user_pages_fast);
+ int __weak get_user_pages_fast(unsigned long start,
+ 				int nr_pages, int write, struct page **pages)
+ {
+-	return get_user_pages_unlocked(start, nr_pages, write, 0, pages);
++	return get_user_pages_unlocked(start, nr_pages, pages,
++				       write ? FOLL_WRITE : 0);
+ }
+ EXPORT_SYMBOL_GPL(get_user_pages_fast);
+ 
+diff --git a/net/ceph/pagevec.c b/net/ceph/pagevec.c
+index 00d2601..1a7c9a7 100644
+--- a/net/ceph/pagevec.c
++++ b/net/ceph/pagevec.c
+@@ -26,7 +26,7 @@ struct page **ceph_get_direct_page_vector(const void __user *data,
+ 	while (got < num_pages) {
+ 		rc = get_user_pages_unlocked(
+ 		    (unsigned long)data + ((unsigned long)got * PAGE_SIZE),
+-		    num_pages - got, write_page, 0, pages + got);
++		    num_pages - got, pages + got, write_page ? FOLL_WRITE : 0);
+ 		if (rc < 0)
+ 			break;
+ 		BUG_ON(rc = 0);
 -- 
-Jan Kara <jack@suse.com>
-SUSE Labs, CR
+2.10.0
+
