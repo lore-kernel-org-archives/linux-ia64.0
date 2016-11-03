@@ -1,7 +1,7 @@
 From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Date: Thu, 03 Nov 2016 14:50:10 +0000
-Subject: [PATCH 14/25] ia64/err-inject: Convert to hotplug state machine
-Message-Id: <20161103145021.28528-15-bigeasy@linutronix.de>
+Date: Thu, 03 Nov 2016 14:50:11 +0000
+Subject: [PATCH 15/25] ia64/palinfo: Convert to hotplug state machine
+Message-Id: <20161103145021.28528-16-bigeasy@linutronix.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20161103145021.28528-1-bigeasy@linutronix.de>
 In-Reply-To: <20161103145021.28528-1-bigeasy@linutronix.de>
@@ -23,118 +23,115 @@ Cc: linux-ia64@vger.kernel.org
 Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 ---
- arch/ia64/kernel/err_inject.c | 78 +++++++++++--------------------------------
- 1 file changed, 19 insertions(+), 59 deletions(-)
+ arch/ia64/kernel/palinfo.c | 60 +++++++++++++---------------------------------
+ 1 file changed, 16 insertions(+), 44 deletions(-)
 
-diff --git a/arch/ia64/kernel/err_inject.c b/arch/ia64/kernel/err_inject.c
-index 5ed0ea92c5bf..85bba43e7d5d 100644
---- a/arch/ia64/kernel/err_inject.c
-+++ b/arch/ia64/kernel/err_inject.c
-@@ -224,85 +224,45 @@ static struct attribute_group err_inject_attr_group = {
- 	.name = "err_inject"
+diff --git a/arch/ia64/kernel/palinfo.c b/arch/ia64/kernel/palinfo.c
+index c39c3cd3ac34..b6e597860888 100644
+--- a/arch/ia64/kernel/palinfo.c
++++ b/arch/ia64/kernel/palinfo.c
+@@ -932,8 +932,7 @@ static const struct file_operations proc_palinfo_fops = {
+ 	.release	= single_release,
  };
- /* Add/Remove err_inject interface for CPU device */
--static int err_inject_add_dev(struct device *sys_dev)
-+static int err_inject_add_dev(unsigned int cpu)
+ 
+-static void
+-create_palinfo_proc_entries(unsigned int cpu)
++static int palinfo_add_proc(unsigned int cpu)
  {
-+	struct device *sys_dev = get_cpu_device(cpu);
-+
- 	return sysfs_create_group(&sys_dev->kobj, &err_inject_attr_group);
+ 	pal_func_cpu_u_t f;
+ 	struct proc_dir_entry *cpu_dir;
+@@ -943,7 +942,7 @@ create_palinfo_proc_entries(unsigned int cpu)
+ 
+ 	cpu_dir = proc_mkdir(cpustr, palinfo_dir);
+ 	if (!cpu_dir)
+-		return;
++		return -EINVAL;
+ 
+ 	f.req_cpu = cpu;
+ 
+@@ -952,42 +951,21 @@ create_palinfo_proc_entries(unsigned int cpu)
+ 		proc_create_data(palinfo_entries[j].name, 0, cpu_dir,
+ 				 &proc_palinfo_fops, (void *)f.value);
+ 	}
++	return 0;
  }
  
--static int err_inject_remove_dev(struct device *sys_dev)
-+static int err_inject_remove_dev(unsigned int cpu)
+-static void
+-remove_palinfo_proc_entries(unsigned int hcpu)
++static int palinfo_del_proc(unsigned int hcpu)
  {
-+	struct device *sys_dev = get_cpu_device(cpu);
+ 	char cpustr[3+4+1];	/* cpu numbers are up to 4095 on itanic */
 +
- 	sysfs_remove_group(&sys_dev->kobj, &err_inject_attr_group);
- 	return 0;
+ 	sprintf(cpustr, "cpu%d", hcpu);
+ 	remove_proc_subtree(cpustr, palinfo_dir);
++	return 0;
  }
--static int err_inject_cpu_callback(struct notifier_block *nfb,
--		unsigned long action, void *hcpu)
-+
+ 
+-static int palinfo_cpu_callback(struct notifier_block *nfb,
+-					unsigned long action, void *hcpu)
+-{
+-	unsigned int hotcpu = (unsigned long)hcpu;
 +static enum cpuhp_state hp_online;
-+
-+static int __init err_inject_init(void)
- {
--	unsigned int cpu = (unsigned long)hcpu;
--	struct device *sys_dev;
--
--	sys_dev = get_cpu_device(cpu);
+ 
 -	switch (action) {
 -	case CPU_ONLINE:
 -	case CPU_ONLINE_FROZEN:
--		err_inject_add_dev(sys_dev);
+-		create_palinfo_proc_entries(hotcpu);
 -		break;
 -	case CPU_DEAD:
 -	case CPU_DEAD_FROZEN:
--		err_inject_remove_dev(sys_dev);
+-		remove_palinfo_proc_entries(hotcpu);
 -		break;
 -	}
--
 -	return NOTIFY_OK;
 -}
 -
--static struct notifier_block err_inject_cpu_notifier =
+-static struct notifier_block __refdata palinfo_cpu_notifier =
 -{
--	.notifier_call = err_inject_cpu_callback,
+-	.notifier_call = palinfo_cpu_callback,
+-	.priority = 0,
 -};
 -
 -static int __init
--err_inject_init(void)
--{
--	int i;
--
-+	int ret;
- #ifdef ERR_INJ_DEBUG
- 	printk(KERN_INFO "Enter error injection driver.\n");
- #endif
+-palinfo_init(void)
++static int __init palinfo_init(void)
+ {
+ 	int i = 0;
+ 
+@@ -996,25 +974,19 @@ palinfo_init(void)
+ 	if (!palinfo_dir)
+ 		return -ENOMEM;
  
 -	cpu_notifier_register_begin();
 -
+-	/* Create palinfo dirs in /proc for all online cpus */
 -	for_each_online_cpu(i) {
--		err_inject_cpu_callback(&err_inject_cpu_notifier, CPU_ONLINE,
--				(void *)(long)i);
-+	ret = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "ia64/err_inj:online",
-+				err_inject_add_dev, err_inject_remove_dev);
-+	if (ret >= 0) {
-+		hp_online = ret;
-+		ret = 0;
+-		create_palinfo_proc_entries(i);
++	i = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "ia64/palinfo:online",
++			      palinfo_add_proc, palinfo_del_proc);
++	if (i < 0) {
++		remove_proc_subtree("pal", NULL);
++		return i;
  	}
 -
--	__register_hotcpu_notifier(&err_inject_cpu_notifier);
+-	/* Register for future delivery via notify registration */
+-	__register_hotcpu_notifier(&palinfo_cpu_notifier);
 -
 -	cpu_notifier_register_done();
 -
--	return 0;
-+	return ret;
++	hp_online = i;
+ 	return 0;
  }
  
 -static void __exit
--err_inject_exit(void)
-+static void __exit err_inject_exit(void)
+-palinfo_exit(void)
++static void __exit palinfo_exit(void)
  {
--	int i;
--	struct device *sys_dev;
--
- #ifdef ERR_INJ_DEBUG
- 	printk(KERN_INFO "Exit error injection driver.\n");
- #endif
--
--	cpu_notifier_register_begin();
--
--	for_each_online_cpu(i) {
--		sys_dev = get_cpu_device(i);
--		sysfs_remove_group(&sys_dev->kobj, &err_inject_attr_group);
--	}
--
--	__unregister_hotcpu_notifier(&err_inject_cpu_notifier);
--
--	cpu_notifier_register_done();
+-	unregister_hotcpu_notifier(&palinfo_cpu_notifier);
 +	cpuhp_remove_state(hp_online);
+ 	remove_proc_subtree("pal", NULL);
  }
  
- module_init(err_inject_init);
 -- 
 2.10.2
 
