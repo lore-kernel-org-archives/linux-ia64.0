@@ -1,65 +1,140 @@
-From: Hari Bathini <hbathini@linux.vnet.ibm.com>
-Date: Fri, 25 Nov 2016 11:53:57 +0000
-Subject: [PATCH v2 0/5] kexec/fadump: remove dependency with CONFIG_KEXEC and reuse crashkernel parameter for
-Message-Id: <148007477669.1053.4107773905913128028.stgit@hbathini.in.ibm.com>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Thu, 03 Nov 2016 14:50:10 +0000
+Subject: [PATCH 14/25] ia64/err-inject: Convert to hotplug state machine
+Message-Id: <20161103145021.28528-15-bigeasy@linutronix.de>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20161103145021.28528-1-bigeasy@linutronix.de>
+In-Reply-To: <20161103145021.28528-1-bigeasy@linutronix.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-kernel@vger.kernel.org
-Cc: fenghua.yu@intel.com, tony.luck@intel.com, linux-ia64@vger.kernel.org, dyoung@redhat.com, kexec@lists.infradead.org, Mahesh J Salgaonkar <mahesh@linux.vnet.ibm.com>, ebiederm@xmission.com, Michael Ellerman <mpe@ellerman.id.au>, linuxppc-dev@lists.ozlabs.org, vgoyal@redhat.com
+Cc: rt@linutronix.de, Sebastian Andrzej Siewior <bigeasy@linutronix.de>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>
 
-Traditionally, kdump is used to save vmcore in case of a crash. Some
-architectures like powerpc can save vmcore using architecture specific
-support instead of kexec/kdump mechanism. Such architecture specific
-support also needs to reserve memory, to be used by dump capture kernel.
-crashkernel parameter can be a reused, for memory reservation, by such
-architecture specific infrastructure.
+Install the callbacks via the state machine and let the core invoke
+the callbacks on the already online CPUs.
 
-This patchset removes dependency with CONFIG_KEXEC for crashkernel parameter
-and vmcoreinfo related code as it can be reused without kexec support. Also,
-crashkernel parameter is reused instead of fadump_reserve_mem to reserve
-memory for fadump.
+The removal of the files happens now in the prepare down stage as there is
+no reason to keep them around until the cpu has actually died.
 
-The first patch moves crashkernel parameter parsing and vmcoreinfo related
-code under CONFIG_CRASH_CORE instead of CONFIG_KEXEC_CORE. The second patch
-reuses the definitions of append_elf_note() & final_note() functions under
-CONFIG_CRASH_CORE in IA64 arch code. The third patch removes dependency on
-CONFIG_KEXEC for firmware-assisted dump (fadump) in powerpc. The next patch
-reuses crashkernel parameter for reserving memory for fadump, instead of the
-fadump_reserve_mem parameter. This has the advantage of using all syntaxes
-crashkernel parameter supports, for fadump as well. The last patch updates
-fadump kernel documentation about use of crashkernel parameter.
-
-
-Changes from v1:
-* Moved arch specify code to seperate patches. Introduced one patch for IA64 arch
-  and another patch for powerpc in the process.
-
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 ---
+ arch/ia64/kernel/err_inject.c | 78 +++++++++++--------------------------------
+ 1 file changed, 19 insertions(+), 59 deletions(-)
 
-Hari Bathini (5):
-      crash: move crashkernel parsing and vmcore related code under CONFIG_CRASH_CORE
-      ia64: reuse append_elf_note() and final_note() functions
-      powerpc/fadump: remove dependency with CONFIG_KEXEC
-      powerpc/fadump: reuse crashkernel parameter for fadump memory reservation
-      powerpc/fadump: update documentation about crashkernel parameter reuse
-
-
- Documentation/powerpc/firmware-assisted-dump.txt |   23 +
- arch/Kconfig                                     |    4 
- arch/ia64/kernel/crash.c                         |   22 -
- arch/powerpc/Kconfig                             |   10 
- arch/powerpc/include/asm/fadump.h                |    2 
- arch/powerpc/kernel/crash.c                      |    2 
- arch/powerpc/kernel/fadump.c                     |   57 +--
- arch/powerpc/kernel/setup-common.c               |    5 
- include/linux/crash_core.h                       |   75 ++++
- include/linux/kexec.h                            |   63 ---
- kernel/Makefile                                  |    1 
- kernel/crash_core.c                              |  450 ++++++++++++++++++++++
- kernel/kexec_core.c                              |  435 ---------------------
- 13 files changed, 575 insertions(+), 574 deletions(-)
- create mode 100644 include/linux/crash_core.h
- create mode 100644 kernel/crash_core.c
+diff --git a/arch/ia64/kernel/err_inject.c b/arch/ia64/kernel/err_inject.c
+index 5ed0ea92c5bf..85bba43e7d5d 100644
+--- a/arch/ia64/kernel/err_inject.c
++++ b/arch/ia64/kernel/err_inject.c
+@@ -224,85 +224,45 @@ static struct attribute_group err_inject_attr_group = {
+ 	.name = "err_inject"
+ };
+ /* Add/Remove err_inject interface for CPU device */
+-static int err_inject_add_dev(struct device *sys_dev)
++static int err_inject_add_dev(unsigned int cpu)
+ {
++	struct device *sys_dev = get_cpu_device(cpu);
++
+ 	return sysfs_create_group(&sys_dev->kobj, &err_inject_attr_group);
+ }
+ 
+-static int err_inject_remove_dev(struct device *sys_dev)
++static int err_inject_remove_dev(unsigned int cpu)
+ {
++	struct device *sys_dev = get_cpu_device(cpu);
++
+ 	sysfs_remove_group(&sys_dev->kobj, &err_inject_attr_group);
+ 	return 0;
+ }
+-static int err_inject_cpu_callback(struct notifier_block *nfb,
+-		unsigned long action, void *hcpu)
++
++static enum cpuhp_state hp_online;
++
++static int __init err_inject_init(void)
+ {
+-	unsigned int cpu = (unsigned long)hcpu;
+-	struct device *sys_dev;
+-
+-	sys_dev = get_cpu_device(cpu);
+-	switch (action) {
+-	case CPU_ONLINE:
+-	case CPU_ONLINE_FROZEN:
+-		err_inject_add_dev(sys_dev);
+-		break;
+-	case CPU_DEAD:
+-	case CPU_DEAD_FROZEN:
+-		err_inject_remove_dev(sys_dev);
+-		break;
+-	}
+-
+-	return NOTIFY_OK;
+-}
+-
+-static struct notifier_block err_inject_cpu_notifier =
+-{
+-	.notifier_call = err_inject_cpu_callback,
+-};
+-
+-static int __init
+-err_inject_init(void)
+-{
+-	int i;
+-
++	int ret;
+ #ifdef ERR_INJ_DEBUG
+ 	printk(KERN_INFO "Enter error injection driver.\n");
+ #endif
+ 
+-	cpu_notifier_register_begin();
+-
+-	for_each_online_cpu(i) {
+-		err_inject_cpu_callback(&err_inject_cpu_notifier, CPU_ONLINE,
+-				(void *)(long)i);
++	ret = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "ia64/err_inj:online",
++				err_inject_add_dev, err_inject_remove_dev);
++	if (ret >= 0) {
++		hp_online = ret;
++		ret = 0;
+ 	}
+-
+-	__register_hotcpu_notifier(&err_inject_cpu_notifier);
+-
+-	cpu_notifier_register_done();
+-
+-	return 0;
++	return ret;
+ }
+ 
+-static void __exit
+-err_inject_exit(void)
++static void __exit err_inject_exit(void)
+ {
+-	int i;
+-	struct device *sys_dev;
+-
+ #ifdef ERR_INJ_DEBUG
+ 	printk(KERN_INFO "Exit error injection driver.\n");
+ #endif
+-
+-	cpu_notifier_register_begin();
+-
+-	for_each_online_cpu(i) {
+-		sys_dev = get_cpu_device(i);
+-		sysfs_remove_group(&sys_dev->kobj, &err_inject_attr_group);
+-	}
+-
+-	__unregister_hotcpu_notifier(&err_inject_cpu_notifier);
+-
+-	cpu_notifier_register_done();
++	cpuhp_remove_state(hp_online);
+ }
+ 
+ module_init(err_inject_init);
+-- 
+2.10.2
 
