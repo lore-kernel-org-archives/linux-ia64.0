@@ -1,10 +1,10 @@
 From: Hari Bathini <hbathini@linux.vnet.ibm.com>
-Date: Fri, 25 Nov 2016 11:54:53 +0000
-Subject: [PATCH v2 4/5] powerpc/fadump: reuse crashkernel parameter for fadump memory reservation
-Message-Id: <148007486080.1053.11783156922775159504.stgit@hbathini.in.ibm.com>
+Date: Thu, 10 Nov 2016 11:58:46 +0000
+Subject: [PATCH 2/3] powerpc/fadump: reuse crashkernel parameter for fadump memory reservation
+Message-Id: <147877906392.31483.217986075920494267.stgit@hbathini.in.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <148007477669.1053.4107773905913128028.stgit@hbathini.in.ibm.com>
-In-Reply-To: <148007477669.1053.4107773905913128028.stgit@hbathini.in.ibm.com>
+References: <147877899077.31483.3740501843050856595.stgit@hbathini.in.ibm.com>
+In-Reply-To: <147877899077.31483.3740501843050856595.stgit@hbathini.in.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -20,7 +20,7 @@ which allows using the same parameter to boot the kernel with different
 system RAM sizes.
 
 As crashkernel parameter already supports the above mentioned syntaxes,
-this patch deprecates fadump_reserve_mem parameter and reuses crashkernel
+this patch removes fadump_reserve_mem parameter and reuses crashkernel
 parameter instead, to specify memory for fadump's crash kernel memory
 reservation as well. If any offset is provided in crashkernel parameter,
 it will be ignored in case of fadump, as fadump reserves memory at end
