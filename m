@@ -1,115 +1,71 @@
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Date: Thu, 03 Nov 2016 17:33:53 +0000
-Subject: [PATCH 17/25 v2] ia64/topology: Convert to hotplug state machine
-Message-Id: <20161103173353.dudhkpioitghd74x@linutronix.de>
+From: =?UTF-8?Q?=C3=89meric_MASCHINO?= <emeric.maschino@gmail.com>
+Date: Wed, 23 Nov 2016 20:37:57 +0000
+Subject: GCC 4.9.4-compiled kernel: invalid slot number 1 for IMM64 errors while loading modules
+Message-Id: <CAA9xbM7Lw8VgVaG+h74j+G3g+DMC+b+37MtO18jcThhPsLdfBA@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20161103145021.28528-18-bigeasy@linutronix.de>
- <201611032345.KOBMysTk%fengguang.wu@intel.com>
-In-Reply-To: <201611032345.KOBMysTk%fengguang.wu@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: quoted-printable
-To: kbuild test robot <lkp@intel.com>
-Cc: kbuild-all@01.org, linux-kernel@vger.kernel.org, rt@linutronix.de, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>
+To: linux-ia64@vger.kernel.org
 
-Install the callbacks via the state machine and let the core invoke
-the callbacks on the already online CPUs.
+Hi,
 
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org
-Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
----
-v1=E2=80=A6v2: remove unused variable. Noticed by kbuild test robot
+GCC 4.9.4 just got stabilized on Gentoo ia64, so I've rebuilt my
+system packages, including kernel. This yields to a non-booting
+kernel, with the following errors:
 
- arch/ia64/kernel/topology.c | 54 ++++++-----------------------------------=
-----
- 1 file changed, 7 insertions(+), 47 deletions(-)
+>> Loading modules
+   :: Loading from pata:
+   :: Loading from sata:
+   :: Loading from scsi:
+   :: Loading from usb: usb_storage: invalid slot number 1 for IMM64
 
-diff --git a/arch/ia64/kernel/topology.c b/arch/ia64/kernel/topology.c
-index c01fe8991244..1a68f012a6dc 100644
---- a/arch/ia64/kernel/topology.c
-+++ b/arch/ia64/kernel/topology.c
-@@ -349,9 +349,9 @@ static int cpu_cache_sysfs_init(unsigned int cpu)
- }
-=20
- /* Add cache interface for CPU device */
--static int cache_add_dev(struct device *sys_dev)
-+static int cache_add_dev(unsigned int cpu)
- {
--	unsigned int cpu =3D sys_dev->id;
-+	struct device *sys_dev =3D get_cpu_device(cpu);
- 	unsigned long i, j;
- 	struct cache_info *this_object;
- 	int retval =3D 0;
-@@ -399,9 +399,8 @@ static int cache_add_dev(struct device *sys_dev)
- }
-=20
- /* Remove cache interface for CPU device */
--static int cache_remove_dev(struct device *sys_dev)
-+static int cache_remove_dev(unsigned int cpu)
- {
--	unsigned int cpu =3D sys_dev->id;
- 	unsigned long i;
-=20
- 	for (i =3D 0; i < all_cpu_cache_info[cpu].num_cache_leaves; i++)
-@@ -419,52 +418,13 @@ static int cache_remove_dev(struct device *sys_dev)
- 	return 0;
- }
-=20
--/*
-- * When a cpu is hot-plugged, do a check and initiate
-- * cache kobject if necessary
-- */
--static int cache_cpu_callback(struct notifier_block *nfb,
--		unsigned long action, void *hcpu)
--{
--	unsigned int cpu =3D (unsigned long)hcpu;
--	struct device *sys_dev;
--
--	sys_dev =3D get_cpu_device(cpu);
--	switch (action) {
--	case CPU_ONLINE:
--	case CPU_ONLINE_FROZEN:
--		cache_add_dev(sys_dev);
--		break;
--	case CPU_DEAD:
--	case CPU_DEAD_FROZEN:
--		cache_remove_dev(sys_dev);
--		break;
--	}
--	return NOTIFY_OK;
--}
--
--static struct notifier_block cache_cpu_notifier -{
--	.notifier_call =3D cache_cpu_callback
--};
--
- static int __init cache_sysfs_init(void)
- {
--	int i;
--
--	cpu_notifier_register_begin();
--
--	for_each_online_cpu(i) {
--		struct device *sys_dev =3D get_cpu_device((unsigned int)i);
--		cache_add_dev(sys_dev);
--	}
--
--	__register_hotcpu_notifier(&cache_cpu_notifier);
--
--	cpu_notifier_register_done();
-+	int ret;
-=20
-+	ret =3D cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "ia64/topology:online",
-+				cache_add_dev, cache_remove_dev);
-+	WARN_ON(ret < 0);
- 	return 0;
- }
--
- device_initcall(cache_sysfs_init);
--
---=20
-2.10.2
+   :: Loading from firewire:
+   :: Loading from waitscan:
+   :: Loading from dmraid:
+   :: Loading from mdadm: raid0: invalid slot number 1 for IMM64
+raid1: invalid slot number 1 for IMM64
+async_tx: invalid slot number 1 for IMM64
+async_tx: invalid slot number 1 for IMM64
+async_tx: invalid slot number 1 for IMM64
+raid10: invalid slot number 1 for IMM64
 
+   :: Loading from fs: jbd2: invalid slot number 1 for IMM64
+jbd2: invalid slot number 1 for IMM64
+jbd2: invalid slot number 1 for IMM64
+sunrpc: invalid slot number 1 for IMM64
+fuse: invalid slot number 1 for IMM64
+
+   :: Loading from net: libphy:
+
+   :: Loading from iscsi:
+>> Initializing root device...
+>> Mounting /dev/sdb3 as root...
+>> Detected fstype: ext4
+>> Using mount fstype: ext4
+>> Using mount opts: -o ro
+jbd2: invalid slot number 1 for IMM64
+mount: mounting /dev/sdb3 on /newroot failed: No such device
+!! Cannot mount /dev/sdb3, trying with -t auto
+UFS-fs: warning (device sdb3): udf_fill_super: No partition found (2)
+mount: mounting /dev/sdb3 on /newroot failed: Invalid argument
+!! Cannot mount /dev/sdb3 with -t auto, giving up
+!! Could not mount specified ROOT, try again
+!! Could not find the root block device in /dev/sdb3.
+!! Please specify another value or:
+!! - press Enter for the same
+!! - type "shell" for a shell
+!! - type "q" to skip...
+root block device(/dev/sdb3) ::
+
+These "invalid slot number 1 for IMM64" messages seem to originate
+from arch/ia64/kernel/module.c, but I don't know how to deal with
+them. It's noteworthy that the exact same kernel source built with GCC
+4.5.4 or 4.9.3, using the same kernel configuration file, boots fine.
+
+Does anybody have success building kernel with recent GCC? Am I seeing
+a problem with GCC, the kernel or in-between?
+
+Thanks,
+
+     =C3=89meric
