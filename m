@@ -1,55 +1,84 @@
 From: Hari Bathini <hbathini@linux.vnet.ibm.com>
-Date: Thu, 10 Nov 2016 11:57:40 +0000
-Subject: [PATCH 0/3] kexec/fadump: remove dependency with CONFIG_KEXEC and reuse crashkernel parameter for fa
-Message-Id: <147877899077.31483.3740501843050856595.stgit@hbathini.in.ibm.com>
+Date: Fri, 25 Nov 2016 11:54:53 +0000
+Subject: [PATCH v2 4/5] powerpc/fadump: reuse crashkernel parameter for fadump memory reservation
+Message-Id: <148007486080.1053.11783156922775159504.stgit@hbathini.in.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <148007477669.1053.4107773905913128028.stgit@hbathini.in.ibm.com>
+In-Reply-To: <148007477669.1053.4107773905913128028.stgit@hbathini.in.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-kernel@vger.kernel.org
 Cc: fenghua.yu@intel.com, tony.luck@intel.com, linux-ia64@vger.kernel.org, dyoung@redhat.com, kexec@lists.infradead.org, Mahesh J Salgaonkar <mahesh@linux.vnet.ibm.com>, ebiederm@xmission.com, Michael Ellerman <mpe@ellerman.id.au>, linuxppc-dev@lists.ozlabs.org, vgoyal@redhat.com
 
-Traditionally, kdump is used to save vmcore in case of a crash. Some
-architectures like powerpc can save vmcore using architecture specific
-support instead of kexec/kdump mechanism. Such architecture specific
-support also needs to reserve memory, to be used by dump capture kernel.
-crashkernel parameter can be a reused, for memory reservation, by such
-architecture specific infrastructure.
+fadump supports specifying memory to reserve for fadump's crash kernel
+with fadump_reserve_mem kernel parameter. This parameter currently
+supports passing a fixed memory size, like fadump_reserve_mem=<size>
+only. This patch aims to add support for other syntaxes like range-based
+memory size <range1>:<size1>[,<range2>:<size2>,<range3>:<size3>,...]
+which allows using the same parameter to boot the kernel with different
+system RAM sizes.
 
-This patchset removes dependency with CONFIG_KEXEC for crashkernel parameter
-and vmcoreinfo related code as it can be reused without kexec support. Also,
-crashkernel parameter is reused instead of fadump_reserve_mem to reserve
-memory for fadump.
+As crashkernel parameter already supports the above mentioned syntaxes,
+this patch deprecates fadump_reserve_mem parameter and reuses crashkernel
+parameter instead, to specify memory for fadump's crash kernel memory
+reservation as well. If any offset is provided in crashkernel parameter,
+it will be ignored in case of fadump, as fadump reserves memory at end
+of RAM.
 
-The first patch moves crashkernel parameter parsing and vmcoreinfo related
-code under CONFIG_CRASH_CORE instead of CONFIG_KEXEC_CORE to reuse without
-depending on it. The second patch reuses crashkernel for reserving memory
-for fadump instead of fadump_reserve_mem. This has the advantage of using
-all the syntaxes crashkernel supports, for fadump as well. The third patch
-updates fadump kernel documentation about use of crashkernel parameter.
+Advantages using crashkernel parameter instead of fadump_reserve_mem
+parameter are one less kernel parameter overall, code reuse and support
+for multiple syntaxes to specify memory.
 
+Suggested-by: Dave Young <dyoung@redhat.com>
+Signed-off-by: Hari Bathini <hbathini@linux.vnet.ibm.com>
 ---
+ arch/powerpc/kernel/fadump.c |   23 ++++++++++-------------
+ 1 file changed, 10 insertions(+), 13 deletions(-)
 
-Hari Bathini (3):
-      crash: move crashkernel parsing and vmcore related code under CONFIG_CRASH_CORE
-      powerpc/fadump: reuse crashkernel parameter for fadump memory reservation
-      powerpc/fadump: update documentation about crashkernel parameter reuse
-
-
- Documentation/powerpc/firmware-assisted-dump.txt |   23 +
- arch/Kconfig                                     |    4 
- arch/ia64/kernel/crash.c                         |   22 -
- arch/powerpc/Kconfig                             |   10 
- arch/powerpc/include/asm/fadump.h                |    2 
- arch/powerpc/kernel/crash.c                      |    2 
- arch/powerpc/kernel/fadump.c                     |   57 +--
- arch/powerpc/kernel/setup-common.c               |    5 
- include/linux/crash_core.h                       |   75 ++++
- include/linux/kexec.h                            |   63 ---
- kernel/Makefile                                  |    1 
- kernel/crash_core.c                              |  450 ++++++++++++++++++++++
- kernel/kexec_core.c                              |  435 ---------------------
- 13 files changed, 575 insertions(+), 574 deletions(-)
- create mode 100644 include/linux/crash_core.h
- create mode 100644 kernel/crash_core.c
+diff --git a/arch/powerpc/kernel/fadump.c b/arch/powerpc/kernel/fadump.c
+index db0b339..de7d39a 100644
+--- a/arch/powerpc/kernel/fadump.c
++++ b/arch/powerpc/kernel/fadump.c
+@@ -210,14 +210,20 @@ static unsigned long init_fadump_mem_struct(struct fadump_mem_struct *fdm,
+  */
+ static inline unsigned long fadump_calculate_reserve_size(void)
+ {
+-	unsigned long size;
++	int ret;
++	unsigned long long base, size;
+ 
+ 	/*
+-	 * Check if the size is specified through fadump_reserve_mem= cmdline
+-	 * option. If yes, then use that.
++	 * Check if the size is specified through crashkernel= cmdline
++	 * option. If yes, then use that but ignore base as fadump
++	 * reserves memory at end of RAM.
+ 	 */
+-	if (fw_dump.reserve_bootvar)
++	ret = parse_crashkernel(boot_command_line, memblock_phys_mem_size(),
++				&size, &base);
++	if (ret = 0 && size > 0) {
++		fw_dump.reserve_bootvar = (unsigned long)size;
+ 		return fw_dump.reserve_bootvar;
++	}
+ 
+ 	/* divide by 20 to get 5% of value */
+ 	size = memblock_end_of_DRAM() / 20;
+@@ -353,15 +359,6 @@ static int __init early_fadump_param(char *p)
+ }
+ early_param("fadump", early_fadump_param);
+ 
+-/* Look for fadump_reserve_mem= cmdline option */
+-static int __init early_fadump_reserve_mem(char *p)
+-{
+-	if (p)
+-		fw_dump.reserve_bootvar = memparse(p, &p);
+-	return 0;
+-}
+-early_param("fadump_reserve_mem", early_fadump_reserve_mem);
+-
+ static void register_fw_dump(struct fadump_mem_struct *fdm)
+ {
+ 	int rc;
 
