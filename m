@@ -1,730 +1,501 @@
-From: "Luis R. Rodriguez" <mcgrof@kernel.org>
-Date: Thu, 22 Dec 2016 02:38:07 +0000
-Subject: [PATCH v5 11/14] kprobes: move kprobe declarations to asm-generic/kprobes.h
-Message-Id: <20161222023811.21246-12-mcgrof@kernel.org>
+From: Sudeep Holla <sudeep.holla@arm.com>
+Date: Thu, 01 Dec 2016 14:55:18 +0000
+Subject: [PATCH] ia64: move cacheinfo sysfs to generic cacheinfo infrastructure
+Message-Id: <1480604118-12037-1-git-send-email-sudeep.holla@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1471642454-5679-1-git-send-email-mcgrof@kernel.org>
- <20161222023811.21246-1-mcgrof@kernel.org>
-In-Reply-To: <20161222023811.21246-1-mcgrof@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: hpa@zytor.com, acme@redhat.com, tglx@linutronix.de, mingo@redhat.com, jpoimboe@redhat.com, bp@alien8.de, npiggin@gmail.com, mhiramat@kernel.org, masami.hiramatsu.pt@hitachi.com, jbaron@akamai.com, heiko.carstens@de.ibm.com, ananth@linux.vnet.ibm.com, anil.s.keshavamurthy@intel.com, davem@davemloft.net, realmz6@gmail.com, dalias@libc.org, linux@arm.linux.org.uk
-Cc: x86@kernel.org, luto@amacapital.net, keescook@chromium.org, linux@roeck-us.net, torvalds@linux-foundation.org, gregkh@linuxfoundation.org, rusty@rustcorp.com.au, gnomes@lxorguk.ukuu.org.uk, alan@linux.intel.com, dwmw2@infradead.org, arnd@arndb.de, ming.lei@canonical.com, linux-arch@vger.kernel.org, benh@kernel.crashing.org, pebolle@tiscali.nl, fontana@sharpeleven.org, david.vrabel@citrix.com, konrad.wilk@oracle.com, mcb30@ipxe.org, jgross@suse.com, andrew.cooper3@citrix.com, andriy.shevchenko@linux.intel.com, paul.gortmaker@windriver.com, xen-devel@lists.xensource.com, ak@linux.intel.com, pali.rohar@gmail.com, dvhart@infradead.org, platform-driver-x86@vger.kernel.org, mmarek@suse.com, linux@rasmusvillemoes.dk, jkosina@suse.cz, korea.drzix@gmail.com, linux-kbuild@vger.kernel
+To: linux-kernel@vger.kernel.org, Hanjun Guo <hanjun.guo@linaro.org>
+Cc: Sudeep Holla <sudeep.holla@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-Often all is needed is these small helpers, instead of compiler.h
-or a full kprobes.h. This is important for asm helpers, in fact even
-some asm/kprobes.h make use of these helpers... instead just keep a
-generic asm file with helpers useful for asm code with the least amount
-of clutter as possible.
+This patch removes the redundant sysfs cacheinfo code by reusing
+the recently introduced generic cacheinfo infrastructure through the
+commit 246246cbde5e ("drivers: base: support cpu cache information
+interface to userspace via sysfs")
 
-Likewise we need now to also address what to do about this file for both
-when architectures have CONFIG_HAVE_KPROBES, and when they do not. Then
-for when architectures have CONFIG_HAVE_KPROBES but have disabled
-CONFIG_KPROBES.
-
-Right now most asm/kprobes.h do not have guards against CONFIG_KPROBES,
-this means most architecture code cannot include asm/kprobes.h safely.
-Correct this and add guards for architectures missing them. Additionally
-provide architectures that not have kprobes support with the default
-asm-generic solution. This lets us force asm/kprobes.h on the header
-include/linux/kprobes.h always, but most importantly we can now safely
-include just asm/kprobes.h on architecture code without bringing
-the full kitchen sink of header files.
-
-Two architectures already provided a guard against CONFIG_KPROBES on
-its kprobes.h: sh, arch. The rest of the architectures needed gaurds
-added. We avoid including any not-needed headers on asm/kprobes.h
-unless kprobes have been enabled.
-
-In a subsequent atomic change we can try now to remove compiler.h from
-include/linux/kprobes.h.
-
-During this sweep I've also identified a few architectures defining
-a common macro needed for both kprobes and ftrace, that of the
-definition of the breakput instruction up. Some refer to this as
-BREAKPOINT_INSTRUCTION. This must be kept outside of the #ifdef
-CONFIG_KPROBES guard.
-
-v5:
-
-o fix BREAKPOINT_INSTRUCTION dependency with kernel architecture
-  ftrace implementations:  Although its correct to #ifdef CONFIG_KPROBES
-  on the architecture arch/$(ARCH)/include/asm/kprobes.h when
-  architectures support ftrace they will rely on the
-  BREAKPOINT_INSTRUCTION definition, this needs to be kept out from
-  CONFIG_KPROBES as ftrace can be enabled without kprobes. This
-  fixes compilation on x86 where kprobes is disabled but ftrace is
-  left enabled.
-
-o include <asm/kprobes.h> on arch/arm64/kernel/probes/decode-insn.h
-
-v4: introduced this patch into the series
-
-Signed-off-by: Luis R. Rodriguez <mcgrof@kernel.org>
+Signed-off-by: Sudeep Holla <sudeep.holla@arm.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: Hanjun Guo <hanjun.guo@linaro.org>
+Cc: linux-ia64@vger.kernel.org
 ---
- arch/alpha/include/asm/Kbuild          |  1 +
- arch/arc/include/asm/kprobes.h         |  6 ++++--
- arch/arm/include/asm/kprobes.h         |  4 ++++
- arch/arm/probes/decode.h               |  1 +
- arch/arm64/include/asm/kprobes.h       |  4 ++++
- arch/arm64/kernel/insn.c               |  1 +
- arch/arm64/kernel/probes/decode-insn.h |  2 ++
- arch/avr32/include/asm/kprobes.h       |  7 ++++++-
- arch/blackfin/include/asm/Kbuild       |  1 +
- arch/c6x/include/asm/Kbuild            |  1 +
- arch/cris/include/asm/Kbuild           |  1 +
- arch/frv/include/asm/Kbuild            |  1 +
- arch/h8300/include/asm/Kbuild          |  1 +
- arch/hexagon/include/asm/Kbuild        |  1 +
- arch/ia64/include/asm/kprobes.h        | 12 +++++++++---
- arch/m32r/include/asm/Kbuild           |  1 +
- arch/m68k/include/asm/Kbuild           |  1 +
- arch/metag/include/asm/Kbuild          |  1 +
- arch/microblaze/include/asm/Kbuild     |  1 +
- arch/mips/include/asm/kprobes.h        |  6 +++++-
- arch/mn10300/include/asm/kprobes.h     |  7 ++++++-
- arch/nios2/include/asm/Kbuild          |  1 +
- arch/openrisc/include/asm/Kbuild       |  1 +
- arch/parisc/include/asm/Kbuild         |  1 +
- arch/powerpc/include/asm/kprobes.h     |  3 +++
- arch/s390/include/asm/kprobes.h        |  7 ++++++-
- arch/score/include/asm/Kbuild          |  1 +
- arch/sh/include/asm/kprobes.h          |  5 ++++-
- arch/sparc/include/asm/kprobes.h       | 10 ++++++++--
- arch/tile/include/asm/kprobes.h        |  6 +++++-
- arch/um/include/asm/Kbuild             |  1 +
- arch/unicore32/include/asm/Kbuild      |  1 +
- arch/x86/include/asm/kprobes.h         |  9 ++++++++-
- arch/xtensa/include/asm/Kbuild         |  1 +
- include/asm-generic/kprobes.h          | 25 +++++++++++++++++++++++++
- include/linux/compiler.h               |  8 --------
- include/linux/kprobes.h                | 19 +++----------------
- 37 files changed, 122 insertions(+), 38 deletions(-)
- create mode 100644 include/asm-generic/kprobes.h
+ arch/ia64/kernel/topology.c | 379 +++++++++++++-------------------------------
+ 1 file changed, 111 insertions(+), 268 deletions(-)
 
-diff --git a/arch/alpha/include/asm/Kbuild b/arch/alpha/include/asm/Kbuild
-index f3bdc31d3c97..54d388fd026f 100644
---- a/arch/alpha/include/asm/Kbuild
-+++ b/arch/alpha/include/asm/Kbuild
-@@ -13,3 +13,4 @@ generic-y += trace_clock.h
- generic-y += section-core.h
- generic-y += ranges.h
- generic-y += tables.h
-+generic-y += kprobes.h
-diff --git a/arch/arc/include/asm/kprobes.h b/arch/arc/include/asm/kprobes.h
-index 944dbedb38b5..00bdbe167615 100644
---- a/arch/arc/include/asm/kprobes.h
-+++ b/arch/arc/include/asm/kprobes.h
-@@ -9,6 +9,8 @@
- #ifndef _ARC_KPROBES_H
- #define _ARC_KPROBES_H
- 
-+#include <asm-generic/kprobes.h>
-+
- #ifdef CONFIG_KPROBES
- 
- typedef u16 kprobe_opcode_t;
-@@ -55,6 +57,6 @@ void trap_is_kprobe(unsigned long address, struct pt_regs *regs);
- static void trap_is_kprobe(unsigned long address, struct pt_regs *regs)
- {
- }
--#endif
-+#endif /* CONFIG_KPROBES */
- 
--#endif
-+#endif /* _ARC_KPROBES_H */
-diff --git a/arch/arm/include/asm/kprobes.h b/arch/arm/include/asm/kprobes.h
-index 3ea9be559726..59655459da59 100644
---- a/arch/arm/include/asm/kprobes.h
-+++ b/arch/arm/include/asm/kprobes.h
-@@ -16,6 +16,9 @@
- #ifndef _ARM_KPROBES_H
- #define _ARM_KPROBES_H
- 
-+#include <asm-generic/kprobes.h>
-+
-+#ifdef CONFIG_KPROBES
- #include <linux/types.h>
- #include <linux/ptrace.h>
- #include <linux/notifier.h>
-@@ -83,4 +86,5 @@ struct arch_optimized_insn {
- 	 */
- };
- 
-+#endif /* CONFIG_KPROBES */
- #endif /* _ARM_KPROBES_H */
-diff --git a/arch/arm/probes/decode.h b/arch/arm/probes/decode.h
-index f9b08ba7fe73..548d622a3159 100644
---- a/arch/arm/probes/decode.h
-+++ b/arch/arm/probes/decode.h
-@@ -22,6 +22,7 @@
- #include <linux/types.h>
- #include <linux/stddef.h>
- #include <asm/probes.h>
-+#include <asm/kprobes.h>
- 
- void __init arm_probes_decode_init(void);
- 
-diff --git a/arch/arm64/include/asm/kprobes.h b/arch/arm64/include/asm/kprobes.h
-index 1737aecfcc5e..6deb8d726041 100644
---- a/arch/arm64/include/asm/kprobes.h
-+++ b/arch/arm64/include/asm/kprobes.h
-@@ -16,6 +16,9 @@
- #ifndef _ARM_KPROBES_H
- #define _ARM_KPROBES_H
- 
-+#include <asm-generic/kprobes.h>
-+
-+#ifdef CONFIG_KPROBES
- #include <linux/types.h>
- #include <linux/ptrace.h>
- #include <linux/percpu.h>
-@@ -57,4 +60,5 @@ int kprobe_single_step_handler(struct pt_regs *regs, unsigned int esr);
- void kretprobe_trampoline(void);
- void __kprobes *trampoline_probe_handler(struct pt_regs *regs);
- 
-+#endif /* CONFIG_KPROBES */
- #endif /* _ARM_KPROBES_H */
-diff --git a/arch/arm64/kernel/insn.c b/arch/arm64/kernel/insn.c
-index 94b62c1fa4df..ae912304ed84 100644
---- a/arch/arm64/kernel/insn.c
-+++ b/arch/arm64/kernel/insn.c
-@@ -31,6 +31,7 @@
- #include <asm/debug-monitors.h>
- #include <asm/fixmap.h>
- #include <asm/insn.h>
-+#include <asm/kprobes.h>
- 
- #define AARCH64_INSN_SF_BIT	BIT(31)
- #define AARCH64_INSN_N_BIT	BIT(22)
-diff --git a/arch/arm64/kernel/probes/decode-insn.h b/arch/arm64/kernel/probes/decode-insn.h
-index 76d3f315407f..192ab007bacb 100644
---- a/arch/arm64/kernel/probes/decode-insn.h
-+++ b/arch/arm64/kernel/probes/decode-insn.h
-@@ -16,6 +16,8 @@
- #ifndef _ARM_KERNEL_KPROBES_ARM64_H
- #define _ARM_KERNEL_KPROBES_ARM64_H
- 
-+#include <asm/kprobes.h>
-+
- /*
-  * ARM strongly recommends a limit of 128 bytes between LoadExcl and
-  * StoreExcl instructions in a single thread of execution. So keep the
-diff --git a/arch/avr32/include/asm/kprobes.h b/arch/avr32/include/asm/kprobes.h
-index 45f563ed73fd..28dfc61ad384 100644
---- a/arch/avr32/include/asm/kprobes.h
-+++ b/arch/avr32/include/asm/kprobes.h
-@@ -11,10 +11,14 @@
- #ifndef __ASM_AVR32_KPROBES_H
- #define __ASM_AVR32_KPROBES_H
- 
-+#include <asm-generic/kprobes.h>
-+
-+#define BREAKPOINT_INSTRUCTION	0xd673	/* breakpoint */
-+
-+#ifdef CONFIG_KPROBES
- #include <linux/types.h>
- 
- typedef u16	kprobe_opcode_t;
--#define BREAKPOINT_INSTRUCTION	0xd673	/* breakpoint */
- #define MAX_INSN_SIZE		2
- #define MAX_STACK_SIZE		64	/* 32 would probably be OK */
- 
-@@ -46,4 +50,5 @@ extern int kprobe_exceptions_notify(struct notifier_block *self,
- 
- #define flush_insn_slot(p)	do { } while (0)
- 
-+#endif /* CONFIG_KPROBES */
- #endif /* __ASM_AVR32_KPROBES_H */
-diff --git a/arch/blackfin/include/asm/Kbuild b/arch/blackfin/include/asm/Kbuild
-index 9115b215fc7e..52351d3fd36e 100644
---- a/arch/blackfin/include/asm/Kbuild
-+++ b/arch/blackfin/include/asm/Kbuild
-@@ -50,3 +50,4 @@ generic-y += xor.h
- generic-y += section-core.h
- generic-y += ranges.h
- generic-y += tables.h
-+generic-y += kprobes.h
-diff --git a/arch/c6x/include/asm/Kbuild b/arch/c6x/include/asm/Kbuild
-index cede2a950fbf..c54f7cc1f63e 100644
---- a/arch/c6x/include/asm/Kbuild
-+++ b/arch/c6x/include/asm/Kbuild
-@@ -64,3 +64,4 @@ generic-y += word-at-a-time.h
- generic-y += xor.h
- generic-y += section-core.h
- generic-y += ranges.h
-+generic-y += kprobes.h
-diff --git a/arch/cris/include/asm/Kbuild b/arch/cris/include/asm/Kbuild
-index 7062c1be7913..051d355feae3 100644
---- a/arch/cris/include/asm/Kbuild
-+++ b/arch/cris/include/asm/Kbuild
-@@ -48,3 +48,4 @@ generic-y += xor.h
- generic-y += section-core.h
- generic-y += ranges.h
- generic-y += tables.h
-+generic-y += kprobes.h
-diff --git a/arch/frv/include/asm/Kbuild b/arch/frv/include/asm/Kbuild
-index 4a59cbda5091..b58b9fc49383 100644
---- a/arch/frv/include/asm/Kbuild
-+++ b/arch/frv/include/asm/Kbuild
-@@ -11,3 +11,4 @@ generic-y += word-at-a-time.h
- generic-y += section-core.h
- generic-y += ranges.h
- generic-y += tables.h
-+generic-y += kprobes.h
-diff --git a/arch/h8300/include/asm/Kbuild b/arch/h8300/include/asm/Kbuild
-index d79968d93c12..cfca7de52b37 100644
---- a/arch/h8300/include/asm/Kbuild
-+++ b/arch/h8300/include/asm/Kbuild
-@@ -78,3 +78,4 @@ generic-y += xor.h
- generic-y += section-core.h
- generic-y += ranges.h
- generic-y += tables.h
-+generic-y += kprobes.h
-diff --git a/arch/hexagon/include/asm/Kbuild b/arch/hexagon/include/asm/Kbuild
-index d59ac1c1858b..d7cc35451f30 100644
---- a/arch/hexagon/include/asm/Kbuild
-+++ b/arch/hexagon/include/asm/Kbuild
-@@ -63,3 +63,4 @@ generic-y += xor.h
- generic-y += section-core.h
- generic-y += ranges.h
- generic-y += tables.h
-+generic-y += kprobes.h
-diff --git a/arch/ia64/include/asm/kprobes.h b/arch/ia64/include/asm/kprobes.h
-index d5505d6f2382..0302b3664789 100644
---- a/arch/ia64/include/asm/kprobes.h
-+++ b/arch/ia64/include/asm/kprobes.h
-@@ -23,14 +23,19 @@
-  * 2005-Apr     Rusty Lynch <rusty.lynch@intel.com> and Anil S Keshavamurthy
-  *              <anil.s.keshavamurthy@intel.com> adapted from i386
+Hi,
+
+This is repost of the patch that was posted before several times to
+remove duplicate code. Since I don't have the platform to test, I was
+hoping to get some testing. This time Hanjun has kindly agreed to do
+some testing. Thanks a lot Hanjun in advance.
+
+Just compare the result of:
+	grep "" /sys/devices/system/cpu/cpu*/cache/index*/*
+before and after applying the patch. They should match except there will
+be new "/sys/devices/system/cpu/cpu*/cache/index*/power" directory which
+is fine.
+
+Regards,
+Sudeep
+
+diff --git a/arch/ia64/kernel/topology.c b/arch/ia64/kernel/topology.c
+index 1a68f012a6dc..d7da3f5cf050 100644
+--- a/arch/ia64/kernel/topology.c
++++ b/arch/ia64/kernel/topology.c
+@@ -13,6 +13,7 @@
+  *	Populate cpu cache entries in sysfs for cpu cache info
   */
-+#include <asm-generic/kprobes.h>
-+#include <asm/break.h>
-+
-+#define BREAK_INST	(long)(__IA64_BREAK_KPROBE << 6)
-+
-+#ifdef CONFIG_KPROBES
-+
- #include <linux/types.h>
- #include <linux/ptrace.h>
- #include <linux/percpu.h>
--#include <asm/break.h>
- 
- #define __ARCH_WANT_KPROBES_INSN_SLOT
- #define MAX_INSN_SIZE   2	/* last half is for kprobe-booster */
--#define BREAK_INST	(long)(__IA64_BREAK_KPROBE << 6)
- #define NOP_M_INST	(long)(1<<27)
- #define BRL_INST(i1, i2) ((long)((0xcL << 37) |	/* brl */ \
- 				(0x1L << 12) |	/* many */ \
-@@ -124,4 +129,5 @@ extern void invalidate_stacked_regs(void);
- extern void flush_register_stack(void);
- extern void arch_remove_kprobe(struct kprobe *p);
- 
--#endif				/* _ASM_KPROBES_H */
-+#endif /* CONFIG_KPROBES */
-+#endif /* _ASM_KPROBES_H */
-diff --git a/arch/m32r/include/asm/Kbuild b/arch/m32r/include/asm/Kbuild
-index 24088f3c733c..198ad591ab41 100644
---- a/arch/m32r/include/asm/Kbuild
-+++ b/arch/m32r/include/asm/Kbuild
-@@ -14,3 +14,4 @@ generic-y += word-at-a-time.h
- generic-y += section-core.h
- generic-y += ranges.h
- generic-y += tables.h
-+generic-y += kprobes.h
-diff --git a/arch/m68k/include/asm/Kbuild b/arch/m68k/include/asm/Kbuild
-index c28bcdecc764..412dd23ab946 100644
---- a/arch/m68k/include/asm/Kbuild
-+++ b/arch/m68k/include/asm/Kbuild
-@@ -37,3 +37,4 @@ generic-y += xor.h
- generic-y += section-core.h
- generic-y += ranges.h
- generic-y += tables.h
-+generic-y += kprobes.h
-diff --git a/arch/metag/include/asm/Kbuild b/arch/metag/include/asm/Kbuild
-index c836f7e2a5e7..8371cc9b1b3c 100644
---- a/arch/metag/include/asm/Kbuild
-+++ b/arch/metag/include/asm/Kbuild
-@@ -58,3 +58,4 @@ generic-y += xor.h
- generic-y += section-core.h
- generic-y += ranges.h
- generic-y += tables.h
-+generic-y += kprobes.h
-diff --git a/arch/microblaze/include/asm/Kbuild b/arch/microblaze/include/asm/Kbuild
-index 01afb1b420f5..865ce3d96443 100644
---- a/arch/microblaze/include/asm/Kbuild
-+++ b/arch/microblaze/include/asm/Kbuild
-@@ -14,3 +14,4 @@ generic-y += word-at-a-time.h
- generic-y += section-core.h
- generic-y += ranges.h
- generic-y += tables.h
-+generic-y += kprobes.h
-diff --git a/arch/mips/include/asm/kprobes.h b/arch/mips/include/asm/kprobes.h
-index daba1f9a4f79..291846d9ba83 100644
---- a/arch/mips/include/asm/kprobes.h
-+++ b/arch/mips/include/asm/kprobes.h
-@@ -22,6 +22,9 @@
- #ifndef _ASM_KPROBES_H
- #define _ASM_KPROBES_H
- 
-+#include <asm-generic/kprobes.h>
-+
-+#ifdef CONFIG_KPROBES
- #include <linux/ptrace.h>
- #include <linux/types.h>
- 
-@@ -94,4 +97,5 @@ struct kprobe_ctlblk {
- extern int kprobe_exceptions_notify(struct notifier_block *self,
- 				    unsigned long val, void *data);
- 
--#endif				/* _ASM_KPROBES_H */
-+#endif /* CONFIG_KPROBES */
-+#endif /* _ASM_KPROBES_H */
-diff --git a/arch/mn10300/include/asm/kprobes.h b/arch/mn10300/include/asm/kprobes.h
-index c800b590183a..7abea0bdb549 100644
---- a/arch/mn10300/include/asm/kprobes.h
-+++ b/arch/mn10300/include/asm/kprobes.h
-@@ -21,13 +21,17 @@
- #ifndef _ASM_KPROBES_H
- #define _ASM_KPROBES_H
- 
-+#include <asm-generic/kprobes.h>
-+
-+#define BREAKPOINT_INSTRUCTION	0xff
-+
-+#ifdef CONFIG_KPROBES
- #include <linux/types.h>
- #include <linux/ptrace.h>
- 
- struct kprobe;
- 
- typedef unsigned char kprobe_opcode_t;
--#define BREAKPOINT_INSTRUCTION	0xff
- #define MAX_INSN_SIZE 8
- #define MAX_STACK_SIZE 128
- 
-@@ -47,4 +51,5 @@ extern int kprobe_exceptions_notify(struct notifier_block *self,
- 
- extern void arch_remove_kprobe(struct kprobe *p);
- 
-+#endif /* CONFIG_KPROBES */
- #endif /* _ASM_KPROBES_H */
-diff --git a/arch/nios2/include/asm/Kbuild b/arch/nios2/include/asm/Kbuild
-index ee6220dac1e8..d6ce7edee7e0 100644
---- a/arch/nios2/include/asm/Kbuild
-+++ b/arch/nios2/include/asm/Kbuild
-@@ -66,3 +66,4 @@ generic-y += xor.h
- generic-y += section-core.h
- generic-y += ranges.h
- generic-y += tables.h
-+generic-y += kprobes.h
-diff --git a/arch/openrisc/include/asm/Kbuild b/arch/openrisc/include/asm/Kbuild
-index ceafe458e295..1bf89a67317c 100644
---- a/arch/openrisc/include/asm/Kbuild
-+++ b/arch/openrisc/include/asm/Kbuild
-@@ -74,3 +74,4 @@ generic-y += xor.h
- generic-y += section-core.h
- generic-y += ranges.h
- generic-y += tables.h
-+generic-y += kprobes.h
-diff --git a/arch/parisc/include/asm/Kbuild b/arch/parisc/include/asm/Kbuild
-index aaae8a9f6099..19d5b7e12ecf 100644
---- a/arch/parisc/include/asm/Kbuild
-+++ b/arch/parisc/include/asm/Kbuild
-@@ -31,3 +31,4 @@ generic-y += xor.h
- generic-y += section-core.h
- generic-y += ranges.h
- generic-y += tables.h
-+generic-y += kprobes.h
-diff --git a/arch/powerpc/include/asm/kprobes.h b/arch/powerpc/include/asm/kprobes.h
-index 97b8c1f83453..c7ee3fcbd6e2 100644
---- a/arch/powerpc/include/asm/kprobes.h
-+++ b/arch/powerpc/include/asm/kprobes.h
-@@ -1,5 +1,8 @@
- #ifndef _ASM_POWERPC_KPROBES_H
- #define _ASM_POWERPC_KPROBES_H
-+
-+#include <asm-generic/kprobes.h>
-+
- #ifdef __KERNEL__
+
++#include <linux/cacheinfo.h>
+ #include <linux/cpu.h>
+ #include <linux/kernel.h>
+ #include <linux/mm.h>
+@@ -21,7 +22,6 @@
+ #include <linux/init.h>
+ #include <linux/bootmem.h>
+ #include <linux/nodemask.h>
+-#include <linux/notifier.h>
+ #include <linux/export.h>
+ #include <asm/mmzone.h>
+ #include <asm/numa.h>
+@@ -103,60 +103,25 @@ subsys_initcall(topology_init);
  /*
-  *  Kernel Probes (KProbes)
-diff --git a/arch/s390/include/asm/kprobes.h b/arch/s390/include/asm/kprobes.h
-index 591e5a5279b0..84c0f9086483 100644
---- a/arch/s390/include/asm/kprobes.h
-+++ b/arch/s390/include/asm/kprobes.h
-@@ -27,6 +27,11 @@
-  * 2005-Dec	Used as a template for s390 by Mike Grundy
-  *		<grundym@us.ibm.com>
+  * Export cpu cache information through sysfs
   */
-+#include <asm-generic/kprobes.h>
-+
-+#define BREAKPOINT_INSTRUCTION	0x0002
-+
-+#ifdef CONFIG_KPROBES
- #include <linux/types.h>
- #include <linux/ptrace.h>
- #include <linux/percpu.h>
-@@ -37,7 +42,6 @@ struct pt_regs;
- struct kprobe;
- 
- typedef u16 kprobe_opcode_t;
--#define BREAKPOINT_INSTRUCTION	0x0002
- 
- /* Maximum instruction size is 3 (16bit) halfwords: */
- #define MAX_INSN_SIZE		0x0003
-@@ -91,4 +95,5 @@ int probe_is_insn_relative_long(u16 *insn);
- 
- #define flush_insn_slot(p)	do { } while (0)
- 
-+#endif /* CONFIG_KPROBES */
- #endif	/* _ASM_S390_KPROBES_H */
-diff --git a/arch/score/include/asm/Kbuild b/arch/score/include/asm/Kbuild
-index 16ea15a3e432..6ac8a7f5c768 100644
---- a/arch/score/include/asm/Kbuild
-+++ b/arch/score/include/asm/Kbuild
-@@ -17,3 +17,4 @@ generic-y += word-at-a-time.h
- generic-y += section-core.h
- generic-y += ranges.h
- generic-y += tables.h
-+generic-y += kprobes.h
-diff --git a/arch/sh/include/asm/kprobes.h b/arch/sh/include/asm/kprobes.h
-index 134f3980e44a..f0986f9b3844 100644
---- a/arch/sh/include/asm/kprobes.h
-+++ b/arch/sh/include/asm/kprobes.h
-@@ -1,13 +1,16 @@
- #ifndef __ASM_SH_KPROBES_H
- #define __ASM_SH_KPROBES_H
- 
-+#include <asm-generic/kprobes.h>
-+
-+#define BREAKPOINT_INSTRUCTION	0xc33a
-+
- #ifdef CONFIG_KPROBES
- 
- #include <linux/types.h>
- #include <linux/ptrace.h>
- 
- typedef insn_size_t kprobe_opcode_t;
--#define BREAKPOINT_INSTRUCTION	0xc33a
- 
- #define MAX_INSN_SIZE 16
- #define MAX_STACK_SIZE 64
-diff --git a/arch/sparc/include/asm/kprobes.h b/arch/sparc/include/asm/kprobes.h
-index a145d798e112..49f8402035d7 100644
---- a/arch/sparc/include/asm/kprobes.h
-+++ b/arch/sparc/include/asm/kprobes.h
-@@ -1,13 +1,17 @@
- #ifndef _SPARC64_KPROBES_H
- #define _SPARC64_KPROBES_H
- 
-+#include <asm-generic/kprobes.h>
-+
-+#define BREAKPOINT_INSTRUCTION   0x91d02070 /* ta 0x70 */
-+#define BREAKPOINT_INSTRUCTION_2 0x91d02071 /* ta 0x71 */
-+
-+#ifdef CONFIG_KPROBES
- #include <linux/types.h>
- #include <linux/percpu.h>
- 
- typedef u32 kprobe_opcode_t;
- 
--#define BREAKPOINT_INSTRUCTION   0x91d02070 /* ta 0x70 */
--#define BREAKPOINT_INSTRUCTION_2 0x91d02071 /* ta 0x71 */
- #define MAX_INSN_SIZE 2
- 
- #define kretprobe_blacklist_size 0
-@@ -48,4 +52,6 @@ int kprobe_exceptions_notify(struct notifier_block *self,
- int kprobe_fault_handler(struct pt_regs *regs, int trapnr);
- asmlinkage void __kprobes kprobe_trap(unsigned long trap_level,
- 				      struct pt_regs *regs);
-+
-+#endif /* CONFIG_KPROBES */
- #endif /* _SPARC64_KPROBES_H */
-diff --git a/arch/tile/include/asm/kprobes.h b/arch/tile/include/asm/kprobes.h
-index d8f9a83943b1..4a8b1cadca24 100644
---- a/arch/tile/include/asm/kprobes.h
-+++ b/arch/tile/include/asm/kprobes.h
-@@ -17,10 +17,13 @@
- #ifndef _ASM_TILE_KPROBES_H
- #define _ASM_TILE_KPROBES_H
- 
-+#include <asm-generic/kprobes.h>
-+
-+#ifdef CONFIG_KPROBES
-+
- #include <linux/types.h>
- #include <linux/ptrace.h>
- #include <linux/percpu.h>
 -
- #include <arch/opcode.h>
- 
- #define __ARCH_WANT_KPROBES_INSN_SLOT
-@@ -76,4 +79,5 @@ void arch_remove_kprobe(struct kprobe *);
- extern int kprobe_exceptions_notify(struct notifier_block *self,
- 			     unsigned long val, void *data);
- 
-+#endif /* CONFIG_KPROBES */
- #endif /* _ASM_TILE_KPROBES_H */
-diff --git a/arch/um/include/asm/Kbuild b/arch/um/include/asm/Kbuild
-index d2867aa09e23..ccc5ffeaeef5 100644
---- a/arch/um/include/asm/Kbuild
-+++ b/arch/um/include/asm/Kbuild
-@@ -29,3 +29,4 @@ generic-y += xor.h
- generic-y += section-core.h
- generic-y += ranges.h
- generic-y += tables.h
-+generic-y += kprobes.h
-diff --git a/arch/unicore32/include/asm/Kbuild b/arch/unicore32/include/asm/Kbuild
-index 6671a1f08ead..5aacafb6d385 100644
---- a/arch/unicore32/include/asm/Kbuild
-+++ b/arch/unicore32/include/asm/Kbuild
-@@ -63,3 +63,4 @@ generic-y += word-at-a-time.h
- generic-y += xor.h
- generic-y += ranges.h
- generic-y += tables.h
-+generic-y += kprobes.h
-diff --git a/arch/x86/include/asm/kprobes.h b/arch/x86/include/asm/kprobes.h
-index d1d1e5094c28..200581691c6e 100644
---- a/arch/x86/include/asm/kprobes.h
-+++ b/arch/x86/include/asm/kprobes.h
-@@ -21,6 +21,12 @@
-  *
-  * See arch/x86/kernel/kprobes.c for x86 kprobes history.
-  */
-+
-+#include <asm-generic/kprobes.h>
-+
-+#define BREAKPOINT_INSTRUCTION	0xcc
-+
-+#ifdef CONFIG_KPROBES
- #include <linux/types.h>
- #include <linux/ptrace.h>
- #include <linux/percpu.h>
-@@ -32,7 +38,6 @@ struct pt_regs;
- struct kprobe;
- 
- typedef u8 kprobe_opcode_t;
--#define BREAKPOINT_INSTRUCTION	0xcc
- #define RELATIVEJUMP_OPCODE 0xe9
- #define RELATIVEJUMP_SIZE 5
- #define RELATIVECALL_OPCODE 0xe8
-@@ -116,4 +121,6 @@ extern int kprobe_exceptions_notify(struct notifier_block *self,
- 				    unsigned long val, void *data);
- extern int kprobe_int3_handler(struct pt_regs *regs);
- extern int kprobe_debug_handler(struct pt_regs *regs);
-+
-+#endif /* CONFIG_KPROBES */
- #endif /* _ASM_X86_KPROBES_H */
-diff --git a/arch/xtensa/include/asm/Kbuild b/arch/xtensa/include/asm/Kbuild
-index 7b41f32a2ba0..20f524ded00e 100644
---- a/arch/xtensa/include/asm/Kbuild
-+++ b/arch/xtensa/include/asm/Kbuild
-@@ -35,3 +35,4 @@ generic-y += xor.h
- generic-y += section-core.h
- generic-y += ranges.h
- generic-y += tables.h
-+generic-y += kprobes.h
-diff --git a/include/asm-generic/kprobes.h b/include/asm-generic/kprobes.h
-new file mode 100644
-index 000000000000..57af9f21d148
---- /dev/null
-+++ b/include/asm-generic/kprobes.h
-@@ -0,0 +1,25 @@
-+#ifndef _ASM_GENERIC_KPROBES_H
-+#define _ASM_GENERIC_KPROBES_H
-+
-+#if defined(__KERNEL__) && !defined(__ASSEMBLY__)
-+#ifdef CONFIG_KPROBES
-+/*
-+ * Blacklist ganerating macro. Specify functions which is not probed
-+ * by using this macro.
-+ */
-+# define __NOKPROBE_SYMBOL(fname)				\
-+static unsigned long __used					\
-+	__attribute__((__section__("_kprobe_blacklist")))	\
-+	_kbl_addr_##fname = (unsigned long)fname;
-+# define NOKPROBE_SYMBOL(fname)	__NOKPROBE_SYMBOL(fname)
-+/* Use this to forbid a kprobes attach on very low level functions */
-+# define __kprobes	__attribute__((__section__(".kprobes.text")))
-+# define nokprobe_inline	__always_inline
-+#else
-+# define NOKPROBE_SYMBOL(fname)
-+# define __kprobes
-+# define nokprobe_inline	inline
-+#endif
-+#endif /* defined(__KERNEL__) && !defined(__ASSEMBLY__) */
-+
-+#endif /* _ASM_GENERIC_KPROBES_H */
-diff --git a/include/linux/compiler.h b/include/linux/compiler.h
-index cf0fa5d86059..dca49b4099da 100644
---- a/include/linux/compiler.h
-+++ b/include/linux/compiler.h
-@@ -566,12 +566,4 @@ static __always_inline void __write_once_size(volatile void *p, void *res, int s
- 	(_________p1); \
- })
- 
--/* Ignore/forbid kprobes attach on very low level functions marked by this attribute: */
--#ifdef CONFIG_KPROBES
--# define __kprobes	__attribute__((__section__(".kprobes.text")))
--# define nokprobe_inline	__always_inline
--#else
--# define __kprobes
--# define nokprobe_inline	inline
--#endif
- #endif /* __LINUX_COMPILER_H */
-diff --git a/include/linux/kprobes.h b/include/linux/kprobes.h
-index 8f6849084248..985ed79ef431 100644
---- a/include/linux/kprobes.h
-+++ b/include/linux/kprobes.h
-@@ -29,7 +29,7 @@
-  *		<jkenisto@us.ibm.com>  and Prasanna S Panchamukhi
-  *		<prasanna@in.ibm.com> added function-return probes.
-  */
--#include <linux/compiler.h>	/* for __kprobes */
-+#include <linux/compiler.h>
- #include <linux/linkage.h>
- #include <linux/list.h>
- #include <linux/notifier.h>
-@@ -40,9 +40,9 @@
- #include <linux/rcupdate.h>
- #include <linux/mutex.h>
- #include <linux/ftrace.h>
-+#include <asm/kprobes.h>
- 
- #ifdef CONFIG_KPROBES
--#include <asm/kprobes.h>
- 
- /* kprobe_status settings */
- #define KPROBE_HIT_ACTIVE	0x00000001
-@@ -51,6 +51,7 @@
- #define KPROBE_HIT_SSDONE	0x00000008
- 
- #else /* CONFIG_KPROBES */
-+#include <asm-generic/kprobes.h>
- typedef int kprobe_opcode_t;
- struct arch_specific_insn {
- 	int dummy;
-@@ -481,18 +482,4 @@ static inline int enable_jprobe(struct jprobe *jp)
- 	return enable_kprobe(&jp->kp);
- }
- 
--#ifdef CONFIG_KPROBES
 -/*
-- * Blacklist ganerating macro. Specify functions which is not probed
-- * by using this macro.
+- *  A bunch of string array to get pretty printing
 - */
--#define __NOKPROBE_SYMBOL(fname)			\
--static unsigned long __used				\
--	__attribute__((section("_kprobe_blacklist")))	\
--	_kbl_addr_##fname = (unsigned long)fname;
--#define NOKPROBE_SYMBOL(fname)	__NOKPROBE_SYMBOL(fname)
+-static const char *cache_types[] = {
+-	"",			/* not used */
+-	"Instruction",
+-	"Data",
+-	"Unified"	/* unified */
+-};
+-
+-static const char *cache_mattrib[]={
+-	"WriteThrough",
+-	"WriteBack",
+-	"",		/* reserved */
+-	""		/* reserved */
+-};
+-
+-struct cache_info {
+-	pal_cache_config_info_t	cci;
+-	cpumask_t shared_cpu_map;
+-	int level;
+-	int type;
+-	struct kobject kobj;
+-};
+-
+-struct cpu_cache_info {
+-	struct cache_info *cache_leaves;
+-	int	num_cache_leaves;
+-	struct kobject kobj;
+-};
+-
+-static struct cpu_cache_info	all_cpu_cache_info[NR_CPUS];
+-#define LEAF_KOBJECT_PTR(x,y)    (&all_cpu_cache_info[x].cache_leaves[y])
+-
+ #ifdef CONFIG_SMP
+-static void cache_shared_cpu_map_setup(unsigned int cpu,
+-		struct cache_info * this_leaf)
++static int __cache_cpumap_setup(unsigned int cpu, struct cacheinfo *this_leaf)
+ {
+ 	pal_cache_shared_info_t	csi;
+-	int num_shared, i = 0;
+-	unsigned int j;
++	int num_shared, i = 0, j;
++	enum cache_type type = this_leaf->type;
+
+ 	if (cpu_data(cpu)->threads_per_core <= 1 &&
+ 		cpu_data(cpu)->cores_per_socket <= 1) {
+ 		cpumask_set_cpu(cpu, &this_leaf->shared_cpu_map);
+-		return;
++		return 0;
+ 	}
+
+-	if (ia64_pal_cache_shared_info(this_leaf->level,
+-					this_leaf->type,
+-					0,
+-					&csi) != PAL_STATUS_SUCCESS)
+-		return;
++	if (type = CACHE_TYPE_UNIFIED)
++		type = CACHE_TYPE_DATA;
++
++	if (ia64_pal_cache_shared_info(this_leaf->level, type, 0,
++				       &csi) != PAL_STATUS_SUCCESS)
++		return -EIO;
+
+ 	num_shared = (int) csi.num_shared;
+ 	do {
+@@ -165,266 +130,144 @@ static void cache_shared_cpu_map_setup(unsigned int cpu,
+ 				&& cpu_data(j)->core_id = csi.log1_cid
+ 				&& cpu_data(j)->thread_id = csi.log1_tid)
+ 				cpumask_set_cpu(j, &this_leaf->shared_cpu_map);
+-
+ 		i++;
+ 	} while (i < num_shared &&
+-		ia64_pal_cache_shared_info(this_leaf->level,
+-				this_leaf->type,
+-				i,
+-				&csi) = PAL_STATUS_SUCCESS);
+-}
 -#else
--#define NOKPROBE_SYMBOL(fname)
+-static void cache_shared_cpu_map_setup(unsigned int cpu,
+-		struct cache_info * this_leaf)
+-{
+-	cpumask_set_cpu(cpu, &this_leaf->shared_cpu_map);
+-	return;
+-}
 -#endif
 -
- #endif /* _LINUX_KPROBES_H */
--- 
-2.10.1
+-static ssize_t show_coherency_line_size(struct cache_info *this_leaf,
+-					char *buf)
+-{
+-	return sprintf(buf, "%u\n", 1 << this_leaf->cci.pcci_line_size);
++		 ia64_pal_cache_shared_info(this_leaf->level, type, i,
++					    &csi) = PAL_STATUS_SUCCESS);
++	return 0;
+ }
+
+-static ssize_t show_ways_of_associativity(struct cache_info *this_leaf,
+-					char *buf)
++static int cache_shared_cpu_map_setup(unsigned int cpu)
+ {
+-	return sprintf(buf, "%u\n", this_leaf->cci.pcci_assoc);
++	unsigned int idx;
++	int ret = 0;
++	struct cpu_cacheinfo *this_cpu_ci = get_cpu_cacheinfo(cpu);
++	struct cacheinfo *this_leaf = this_cpu_ci->info_list;
++
++	for (idx = 0; idx < this_cpu_ci->num_leaves; idx++, this_leaf++) {
++		ret = __cache_cpumap_setup(cpu, this_leaf);
++		if (ret)
++			break;
++	}
++	return ret;
+ }
+
+-static ssize_t show_attributes(struct cache_info *this_leaf, char *buf)
++#else
++static int cache_shared_cpu_map_setup(unsigned int cpu)
+ {
+-	return sprintf(buf,
+-			"%s\n",
+-			cache_mattrib[this_leaf->cci.pcci_cache_attr]);
+-}
++	int idx;
++	struct cpu_cacheinfo *this_cpu_ci = get_cpu_cacheinfo(cpu);
++	struct cacheinfo *this_leaf = this_cpu_ci->info_list;
+
+-static ssize_t show_size(struct cache_info *this_leaf, char *buf)
+-{
+-	return sprintf(buf, "%uK\n", this_leaf->cci.pcci_cache_size / 1024);
++	for (idx = 0; idx < this_cpu_ci->num_leaves; idx++, this_leaf++)
++		cpu_set(cpu, this_leaf->shared_cpu_map);
++	return 0;
+ }
++#endif
+
+-static ssize_t show_number_of_sets(struct cache_info *this_leaf, char *buf)
++static ssize_t attributes_show(struct device *dev,
++			       struct device_attribute *attr, char *buf)
+ {
+-	unsigned number_of_sets = this_leaf->cci.pcci_cache_size;
+-	number_of_sets /= this_leaf->cci.pcci_assoc;
+-	number_of_sets /= 1 << this_leaf->cci.pcci_line_size;
+-
+-	return sprintf(buf, "%u\n", number_of_sets);
++	struct cacheinfo *this_leaf = dev_get_drvdata(dev);
++	unsigned int ci_attr = this_leaf->attributes;
++	int n = 0;
++
++	if (ci_attr & CACHE_WRITE_THROUGH)
++		n = sprintf(buf, "WriteThrough\n");
++	else if (ci_attr & CACHE_WRITE_BACK)
++		n = sprintf(buf, "WriteBack\n");
++	return n;
+ }
+
+-static ssize_t show_shared_cpu_map(struct cache_info *this_leaf, char *buf)
+-{
+-	cpumask_t shared_cpu_map;
++static DEVICE_ATTR_RO(attributes);
+
+-	cpumask_and(&shared_cpu_map,
+-				&this_leaf->shared_cpu_map, cpu_online_mask);
+-	return scnprintf(buf, PAGE_SIZE, "%*pb\n",
+-			 cpumask_pr_args(&shared_cpu_map));
+-}
+-
+-static ssize_t show_type(struct cache_info *this_leaf, char *buf)
++static umode_t
++cache_private_attrs_is_visible(struct kobject *kobj,
++			       struct attribute *attr, int unused)
+ {
+-	int type = this_leaf->type + this_leaf->cci.pcci_unified;
+-	return sprintf(buf, "%s\n", cache_types[type]);
+-}
++	struct device *dev = kobj_to_dev(kobj);
++	struct cacheinfo *this_leaf = dev_get_drvdata(dev);
+
+-static ssize_t show_level(struct cache_info *this_leaf, char *buf)
+-{
+-	return sprintf(buf, "%u\n", this_leaf->level);
++	if ((attr = &dev_attr_attributes.attr) && this_leaf->attributes)
++		return attr->mode;
++	return 0;
+ }
+
+-struct cache_attr {
+-	struct attribute attr;
+-	ssize_t (*show)(struct cache_info *, char *);
+-	ssize_t (*store)(struct cache_info *, const char *, size_t count);
+-};
+-
+-#ifdef define_one_ro
+-	#undef define_one_ro
+-#endif
+-#define define_one_ro(_name) \
+-	static struct cache_attr _name = \
+-__ATTR(_name, 0444, show_##_name, NULL)
+-
+-define_one_ro(level);
+-define_one_ro(type);
+-define_one_ro(coherency_line_size);
+-define_one_ro(ways_of_associativity);
+-define_one_ro(size);
+-define_one_ro(number_of_sets);
+-define_one_ro(shared_cpu_map);
+-define_one_ro(attributes);
+-
+-static struct attribute * cache_default_attrs[] = {
+-	&type.attr,
+-	&level.attr,
+-	&coherency_line_size.attr,
+-	&ways_of_associativity.attr,
+-	&attributes.attr,
+-	&size.attr,
+-	&number_of_sets.attr,
+-	&shared_cpu_map.attr,
++static struct attribute *cache_priv_attrs[] = {
++	&dev_attr_attributes.attr,
+ 	NULL
+ };
+
+-#define to_object(k) container_of(k, struct cache_info, kobj)
+-#define to_attr(a) container_of(a, struct cache_attr, attr)
++static struct attribute_group cache_private_group = {
++	.attrs = cache_priv_attrs,
++	.is_visible = cache_private_attrs_is_visible,
++};
+
+-static ssize_t ia64_cache_show(struct kobject * kobj, struct attribute * attr, char * buf)
++const struct attribute_group *
++cache_get_priv_group(struct cacheinfo *this_leaf)
+ {
+-	struct cache_attr *fattr = to_attr(attr);
+-	struct cache_info *this_leaf = to_object(kobj);
+-	ssize_t ret;
+-
+-	ret = fattr->show ? fattr->show(this_leaf, buf) : 0;
+-	return ret;
++	return &cache_private_group;
+ }
+
+-static const struct sysfs_ops cache_sysfs_ops = {
+-	.show   = ia64_cache_show
+-};
+-
+-static struct kobj_type cache_ktype = {
+-	.sysfs_ops	= &cache_sysfs_ops,
+-	.default_attrs	= cache_default_attrs,
+-};
+-
+-static struct kobj_type cache_ktype_percpu_entry = {
+-	.sysfs_ops	= &cache_sysfs_ops,
+-};
+-
+-static void cpu_cache_sysfs_exit(unsigned int cpu)
++static void ci_leaf_init(struct cacheinfo *this_leaf,
++			 pal_cache_config_info_t *cci,
++			 enum cache_type type, unsigned int level)
+ {
+-	kfree(all_cpu_cache_info[cpu].cache_leaves);
+-	all_cpu_cache_info[cpu].cache_leaves = NULL;
+-	all_cpu_cache_info[cpu].num_cache_leaves = 0;
+-	memset(&all_cpu_cache_info[cpu].kobj, 0, sizeof(struct kobject));
+-	return;
++	unsigned int number_of_sets = cci->pcci_cache_size;
++
++	number_of_sets /= cci->pcci_assoc;
++	number_of_sets /= 1 << cci->pcci_line_size;
++	this_leaf->level = level;
++	this_leaf->type = cci->pcci_unified ? CACHE_TYPE_UNIFIED : type;
++	this_leaf->coherency_line_size = cci->pcci_line_size;
++	this_leaf->ways_of_associativity = cci->pcci_assoc;
++	this_leaf->size = cci->pcci_cache_size;
++	this_leaf->attributes = cci->pcci_cache_attr;
++	this_leaf->number_of_sets = number_of_sets;
+ }
+
+-static int cpu_cache_sysfs_init(unsigned int cpu)
++int init_cache_level(unsigned int cpu)
+ {
+-	unsigned long i, levels, unique_caches;
+-	pal_cache_config_info_t cci;
+-	int j;
++	struct cpu_cacheinfo *this_cpu_ci = get_cpu_cacheinfo(cpu);
++	unsigned long levels, unique_caches;
+ 	long status;
+-	struct cache_info *this_cache;
+-	int num_cache_leaves = 0;
+
+-	if ((status = ia64_pal_cache_summary(&levels, &unique_caches)) != 0) {
+-		printk(KERN_ERR "ia64_pal_cache_summary=%ld\n", status);
+-		return -1;
+-	}
++	if (!this_cpu_ci)
++		return -EINVAL;
+
+-	this_cache=kzalloc(sizeof(struct cache_info)*unique_caches,
+-			GFP_KERNEL);
+-	if (this_cache = NULL)
+-		return -ENOMEM;
+-
+-	for (i=0; i < levels; i++) {
+-		for (j=2; j >0 ; j--) {
+-			if ((status=ia64_pal_cache_config_info(i,j, &cci)) !-					PAL_STATUS_SUCCESS)
+-				continue;
+-
+-			this_cache[num_cache_leaves].cci = cci;
+-			this_cache[num_cache_leaves].level = i + 1;
+-			this_cache[num_cache_leaves].type = j;
+-
+-			cache_shared_cpu_map_setup(cpu,
+-					&this_cache[num_cache_leaves]);
+-			num_cache_leaves ++;
+-		}
++	status = ia64_pal_cache_summary(&levels, &unique_caches);
++	if (status != PAL_STATUS_SUCCESS) {
++		pr_err("ia64_pal_cache_summary = %ld\n", status);
++		return -EIO;
+ 	}
+-
+-	all_cpu_cache_info[cpu].cache_leaves = this_cache;
+-	all_cpu_cache_info[cpu].num_cache_leaves = num_cache_leaves;
+-
+-	memset(&all_cpu_cache_info[cpu].kobj, 0, sizeof(struct kobject));
++	this_cpu_ci->num_levels = levels;
++	this_cpu_ci->num_leaves = unique_caches;
+
+ 	return 0;
+ }
+
+-/* Add cache interface for CPU device */
+-static int cache_add_dev(unsigned int cpu)
+-{
+-	struct device *sys_dev = get_cpu_device(cpu);
+-	unsigned long i, j;
+-	struct cache_info *this_object;
+-	int retval = 0;
+-	cpumask_t oldmask;
+-
+-	if (all_cpu_cache_info[cpu].kobj.parent)
+-		return 0;
+-
+-	oldmask = current->cpus_allowed;
+-	retval = set_cpus_allowed_ptr(current, cpumask_of(cpu));
+-	if (unlikely(retval))
+-		return retval;
+-
+-	retval = cpu_cache_sysfs_init(cpu);
+-	set_cpus_allowed_ptr(current, &oldmask);
+-	if (unlikely(retval < 0))
+-		return retval;
+-
+-	retval = kobject_init_and_add(&all_cpu_cache_info[cpu].kobj,
+-				      &cache_ktype_percpu_entry, &sys_dev->kobj,
+-				      "%s", "cache");
+-	if (unlikely(retval < 0)) {
+-		cpu_cache_sysfs_exit(cpu);
+-		return retval;
+-	}
+-
+-	for (i = 0; i < all_cpu_cache_info[cpu].num_cache_leaves; i++) {
+-		this_object = LEAF_KOBJECT_PTR(cpu,i);
+-		retval = kobject_init_and_add(&(this_object->kobj),
+-					      &cache_ktype,
+-					      &all_cpu_cache_info[cpu].kobj,
+-					      "index%1lu", i);
+-		if (unlikely(retval)) {
+-			for (j = 0; j < i; j++) {
+-				kobject_put(&(LEAF_KOBJECT_PTR(cpu,j)->kobj));
+-			}
+-			kobject_put(&all_cpu_cache_info[cpu].kobj);
+-			cpu_cache_sysfs_exit(cpu);
+-			return retval;
+-		}
+-		kobject_uevent(&(this_object->kobj), KOBJ_ADD);
+-	}
+-	kobject_uevent(&all_cpu_cache_info[cpu].kobj, KOBJ_ADD);
+-	return retval;
+-}
+-
+-/* Remove cache interface for CPU device */
+-static int cache_remove_dev(unsigned int cpu)
++int populate_cache_leaves(unsigned int cpu)
+ {
+-	unsigned long i;
+-
+-	for (i = 0; i < all_cpu_cache_info[cpu].num_cache_leaves; i++)
+-		kobject_put(&(LEAF_KOBJECT_PTR(cpu,i)->kobj));
+-
+-	if (all_cpu_cache_info[cpu].kobj.parent) {
+-		kobject_put(&all_cpu_cache_info[cpu].kobj);
+-		memset(&all_cpu_cache_info[cpu].kobj,
+-			0,
+-			sizeof(struct kobject));
++	unsigned int level, idx;
++	s64 status;
++	pal_cache_config_info_t cci;
++	enum cache_type type;
++	struct cpu_cacheinfo *this_cpu_ci = get_cpu_cacheinfo(cpu);
++	struct cacheinfo *this_leaf = this_cpu_ci->info_list;
++
++	for (idx = 0, level = 1; level <= this_cpu_ci->num_levels &&
++	     idx < this_cpu_ci->num_leaves; idx++, level++) {
++		if (!this_leaf)
++			return -EINVAL;
++
++		type = CACHE_TYPE_INST;
++		status = ia64_pal_cache_config_info(level - 1, type, &cci);
++		if (status = PAL_STATUS_SUCCESS)
++			ci_leaf_init(this_leaf++, &cci, type, level);
++		type = CACHE_TYPE_DATA;
++		status = ia64_pal_cache_config_info(level - 1, type, &cci);
++		if (status = PAL_STATUS_SUCCESS)
++			ci_leaf_init(this_leaf++, &cci, type, level);
+ 	}
+-
+-	cpu_cache_sysfs_exit(cpu);
+-
+-	return 0;
+-}
+-
+-static int __init cache_sysfs_init(void)
+-{
+-	int ret;
+-
+-	ret = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "ia64/topology:online",
+-				cache_add_dev, cache_remove_dev);
+-	WARN_ON(ret < 0);
+-	return 0;
++	return cache_shared_cpu_map_setup(cpu);
+ }
+-device_initcall(cache_sysfs_init);
+--
+2.7.4
 
