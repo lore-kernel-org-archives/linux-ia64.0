@@ -1,982 +1,839 @@
 From: "Luis R. Rodriguez" <mcgrof@kernel.org>
-Date: Thu, 22 Dec 2016 02:37:59 +0000
-Subject: [PATCH v5 03/14] ranges.h: add helpers to build and identify Linux section ranges
-Message-Id: <20161222023811.21246-4-mcgrof@kernel.org>
+Date: Thu, 22 Dec 2016 02:37:57 +0000
+Subject: [PATCH v5 01/14] generic-sections: add section core helpers
+Message-Id: <20161222023811.21246-2-mcgrof@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1471642454-5679-1-git-send-email-mcgrof@kernel.org>
  <20161222023811.21246-1-mcgrof@kernel.org>
 In-Reply-To: <20161222023811.21246-1-mcgrof@kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="macroman"
+Content-Transfer-Encoding: base64
 To: hpa@zytor.com, acme@redhat.com, tglx@linutronix.de, mingo@redhat.com, jpoimboe@redhat.com, bp@alien8.de, npiggin@gmail.com, mhiramat@kernel.org, masami.hiramatsu.pt@hitachi.com, jbaron@akamai.com, heiko.carstens@de.ibm.com, ananth@linux.vnet.ibm.com, anil.s.keshavamurthy@intel.com, davem@davemloft.net, realmz6@gmail.com, dalias@libc.org, linux@arm.linux.org.uk
 Cc: x86@kernel.org, luto@amacapital.net, keescook@chromium.org, linux@roeck-us.net, torvalds@linux-foundation.org, gregkh@linuxfoundation.org, rusty@rustcorp.com.au, gnomes@lxorguk.ukuu.org.uk, alan@linux.intel.com, dwmw2@infradead.org, arnd@arndb.de, ming.lei@canonical.com, linux-arch@vger.kernel.org, benh@kernel.crashing.org, pebolle@tiscali.nl, fontana@sharpeleven.org, david.vrabel@citrix.com, konrad.wilk@oracle.com, mcb30@ipxe.org, jgross@suse.com, andrew.cooper3@citrix.com, andriy.shevchenko@linux.intel.com, paul.gortmaker@windriver.com, xen-devel@lists.xensource.com, ak@linux.intel.com, pali.rohar@gmail.com, dvhart@infradead.org, platform-driver-x86@vger.kernel.org, mmarek@suse.com, linux@rasmusvillemoes.dk, jkosina@suse.cz, korea.drzix@gmail.com, linux-kbuild@vger.kernel
 
-Section ranges are on one of the types of custom sections
-types used in Linux. This provides a series of helpers for
-defining them and using them. Most importantly this also
-enables us to avoid modifying the linker script when we
-add a new section range.
-
-It turns out a lot of custom sections are actually section ranges,
-and these are typically spelled out in their architecture specific
-asm/sections.h file -- we enable architectures to override what asm
-is used for section ranges but start by default trusting the
-asm-generic version all around.
-
-Although typically you will not want to have section ranges ordered
-we must use SORT() on vmlinux.lds.S for section ranges to enable us
-to extend a section range without modifying the linker script. To
-accomplish this we use a special order string for the first element
-of a section range -- the empty string "" (refer to __SECTION_RANGE_BEGIN()),
-then "~" for the last element (refer to __SECTION_RANGE_BEGIN()). If
-you use the "any" order for elements in between and use SORT() you end
-up keeping any added element in betweeen and a reference to the
-beginning and end of the section range without requiring custom linker
-script modifications. Specific order annotations are also supported
-to help construct synthetic functions, a demo for which will be provided
-later.
-
-v5:
-
-o Use ..rng.* instead of .rng.* as suggested by Nicholas Piggin.
-  This is the typical way to avoid clash with compiler generated
-  section.
-
-o Replace section macros with section names
-
-o Extend commit log to justify SORT() and explain why and how we use
-  specific special strings for the beginning, end elements of a section
-  range and the "any" order for elements in between.
-
-o Drop SECTION_RNG_ALL() -- we no longer need this on linker scripts
-
-o To make this easier to read, as per Nicholas Piggin, add our own
-  SECTION_RANGE_START(), SECTION_RANGE_END(). After reviewing the
-  changes affected by this it seemed clearer and better then to also
-  use our own specific SECTION_RANGE_SIZE(), and SECTION_RANGE_EMPTY(),
-  and SECTION_RANGE_ALIGNMENT() as well.
-
-o We were using LINUX_SECTION_START() and LINUX_SECTION_END() in some places
-  but in some other places VMLINUX_SYMBOL(name), VMLINUX_SYMBOL(name##__end).
-  Since we are adding SECTION_RANGE_START() and SECTION_RANGE_END() just
-  use those consistently.
-
-o Move the linker table *(SORT(.data.rng.*)) to be present before
-  the recently added *(.data.[0-9a-zA-Z_]*) to ensure we keep sort order
-  on the section range.
-
-o Adds the "Linux section ordering" documentation, as its much more
-  relevant after this patch, in particular when treating the "any"
-  order level.
-
-o Fix powerpc .text use: -- it does not use TEXT_TEXT so we must
-  add our *(SORT(.text.rng.*)) to its linker script manually.
-
-v4:
-
-o tons of documentation love
-o fix arch/x86/tools/relocs.c typo - which caused compilation issues
-  on old toolchains
-o port to new shiny sphinx documentation
-o sprinkle a few more needed VMLINUX_SYMBOL() - fixes
-  compilation on blackfin
-o name changes as suggested by Boris:
-- %s/SECTION_TYPE_RANGES/rng/g
-- %s/SECTION_TYPE/SECTION_CORE/g
-- %s/section_type_asmtype/section_core_type/g
-- %s/section_type/section_core/g
-- %s/section_rng/set_section_rng/g
-- rebrand DECLARE_SECTION_RNG() as DEFINE_SECTION_RANGE() - this is
-  the asm version of the respective C version, this will have a
-  userspace C demo added later.
-o move __LINUX_RANGE() and __LINUX_RANGE_ORDER() - fixes builds
-  on sparc
-o adds section ranges to linker script
-o rename SECTION_RANGE_ALL()
-o use default alignment, fixes builds on powerpc and arm for both
-  __LINUX_RANGE() and __LINUX_RANGE_ORDER()
-o expand documentation to document modules support
-o add maintainers
-o use generic-y
-
-v3: new in this series, uses copyleft-next
-
-Signed-off-by: Luis R. Rodriguez <mcgrof@kernel.org>
----
- Documentation/sections/index.rst        |   1 +
- Documentation/sections/ranges.rst       |  74 +++++++++++++
- Documentation/sections/section-core.rst |   5 +
- MAINTAINERS                             |  10 ++
- arch/alpha/include/asm/Kbuild           |   1 +
- arch/arc/include/asm/Kbuild             |   1 +
- arch/arm/include/asm/Kbuild             |   1 +
- arch/arm64/include/asm/Kbuild           |   1 +
- arch/avr32/include/asm/Kbuild           |   1 +
- arch/blackfin/include/asm/Kbuild        |   1 +
- arch/c6x/include/asm/Kbuild             |   1 +
- arch/cris/include/asm/Kbuild            |   1 +
- arch/frv/include/asm/Kbuild             |   1 +
- arch/h8300/include/asm/Kbuild           |   1 +
- arch/hexagon/include/asm/Kbuild         |   1 +
- arch/ia64/include/asm/Kbuild            |   1 +
- arch/m32r/include/asm/Kbuild            |   1 +
- arch/m68k/include/asm/Kbuild            |   1 +
- arch/metag/include/asm/Kbuild           |   1 +
- arch/microblaze/include/asm/Kbuild      |   1 +
- arch/mips/include/asm/Kbuild            |   1 +
- arch/mn10300/include/asm/Kbuild         |   1 +
- arch/nios2/include/asm/Kbuild           |   1 +
- arch/openrisc/include/asm/Kbuild        |   1 +
- arch/parisc/include/asm/Kbuild          |   1 +
- arch/powerpc/include/asm/Kbuild         |   1 +
- arch/powerpc/kernel/vmlinux.lds.S       |   1 +
- arch/s390/include/asm/Kbuild            |   1 +
- arch/score/include/asm/Kbuild           |   1 +
- arch/sh/include/asm/Kbuild              |   1 +
- arch/sparc/include/asm/Kbuild           |   1 +
- arch/tile/include/asm/Kbuild            |   1 +
- arch/um/include/asm/Kbuild              |   1 +
- arch/unicore32/include/asm/Kbuild       |   1 +
- arch/x86/include/asm/Kbuild             |   1 +
- arch/x86/tools/relocs.c                 |   2 +
- arch/xtensa/include/asm/Kbuild          |   1 +
- include/asm-generic/ranges.h            |  93 ++++++++++++++++
- include/asm-generic/section-core.h      |  41 +++++++
- include/asm-generic/vmlinux.lds.h       |  12 ++-
- include/linux/ranges.h                  | 183 ++++++++++++++++++++++++++++++++
- 41 files changed, 451 insertions(+), 2 deletions(-)
- create mode 100644 Documentation/sections/ranges.rst
- create mode 100644 include/asm-generic/ranges.h
- create mode 100644 include/linux/ranges.h
-
-diff --git a/Documentation/sections/index.rst b/Documentation/sections/index.rst
-index f37511ef05e7..4a1df389fa91 100644
---- a/Documentation/sections/index.rst
-+++ b/Documentation/sections/index.rst
-@@ -15,3 +15,4 @@ common a set of Linux helpers for ELF sections are also documented.
- 
-    background
-    section-core
-+   ranges
-diff --git a/Documentation/sections/ranges.rst b/Documentation/sections/ranges.rst
-new file mode 100644
-index 000000000000..d9d3af4e52cb
---- /dev/null
-+++ b/Documentation/sections/ranges.rst
-@@ -0,0 +1,74 @@
-+==========
-+Linux section ranges
-+==========
-+
-+This documents Linux' use of section ranges, how you can use
-+them and how they work.
-+
-+About section ranges
-+==========
-+
-+Introduction
-+------------
-+.. kernel-doc:: include/linux/ranges.h
-+   :doc: Introduction
-+
-+Section range module support
-+----------------------------
-+.. kernel-doc:: include/linux/ranges.h
-+   :doc: Section range module support
-+
-+Section range helpers
-+==========+.. kernel-doc:: include/linux/ranges.h
-+   :doc: Section range helpers
-+
-+SECTION_RANGE_START
-+-------------------
-+.. kernel-doc:: include/linux/ranges.h
-+   :functions: SECTION_RANGE_START
-+
-+SECTION_RANGE_END
-+-----------------
-+.. kernel-doc:: include/linux/ranges.h
-+   :functions: SECTION_RANGE_END
-+
-+SECTION_RANGE_SIZE
-+------------------
-+.. kernel-doc:: include/linux/ranges.h
-+   :functions: SECTION_RANGE_SIZE
-+
-+SECTION_RANGE_EMPTY
-+-------------------
-+.. kernel-doc:: include/linux/ranges.h
-+   :functions: SECTION_RANGE_EMPTY
-+
-+SECTION_RANGE_ADDR_WITHIN
-+-------------------------
-+.. kernel-doc:: include/linux/ranges.h
-+   :functions: SECTION_RANGE_ADDR_WITHIN
-+
-+SECTION_RANGE_ALIGNMENT
-+-------------------------
-+.. kernel-doc:: include/linux/ranges.h
-+   :functions: SECTION_RANGE_ALIGNMENT
-+
-+DECLARE_SECTION_RANGE
-+---------------------
-+.. kernel-doc:: include/linux/ranges.h
-+   :functions: DECLARE_SECTION_RANGE
-+
-+DEFINE_SECTION_RANGE
-+--------------------
-+.. kernel-doc:: include/linux/ranges.h
-+   :functions: DEFINE_SECTION_RANGE
-+
-+__LINUX_RANGE
-+-------------
-+.. kernel-doc:: include/asm-generic/ranges.h
-+   :functions: __LINUX_RANGE
-+
-+__LINUX_RANGE_ORDER
-+-------------------
-+.. kernel-doc:: include/asm-generic/ranges.h
-+   :functions: __LINUX_RANGE_ORDER
-diff --git a/Documentation/sections/section-core.rst b/Documentation/sections/section-core.rst
-index ac5815a0d9b3..1f613a6c7b78 100644
---- a/Documentation/sections/section-core.rst
-+++ b/Documentation/sections/section-core.rst
-@@ -114,6 +114,11 @@ Linux .ref\* sections
- .. kernel-doc:: include/asm-generic/section-core.h
-    :doc: .ref.rodata
- 
-+Linux section ordering
-+===========
-+.. kernel-doc:: include/asm-generic/section-core.h
-+   :doc: Linux section ordering
-+
- Generic Linux kernel section helpers
- ==================
- 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 308826f5094b..93bebccad674 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -5422,6 +5422,16 @@ S:	Supported
- F:	drivers/base/power/domain*.c
- F:	include/linux/pm_domain.h
- 
-+GENERIC SECTION RANGES
-+M:	"Luis R. Rodriguez" <mcgrof@kernel.org>
-+M:	"H. Peter Anvin" <hpa@zytor.com>
-+L:	linux-arch@vger.kernel.org
-+L:	linux-kernel@vger.kernel.org
-+S:	Supported
-+F:	include/asm-generic/ranges.h
-+F:	include/linux/ranges.h
-+F:	Documentation/sections/ranges.rst
-+
- GENERIC SECTIONS
- M:	"Luis R. Rodriguez" <mcgrof@kernel.org>
- M:	Josh Poimboeuf <jpoimboe@redhat.com>
-diff --git a/arch/alpha/include/asm/Kbuild b/arch/alpha/include/asm/Kbuild
-index 5422827f1585..e44c896b91c4 100644
---- a/arch/alpha/include/asm/Kbuild
-+++ b/arch/alpha/include/asm/Kbuild
-@@ -11,3 +11,4 @@ generic-y += preempt.h
- generic-y += sections.h
- generic-y += trace_clock.h
- generic-y += section-core.h
-+generic-y += ranges.h
-diff --git a/arch/arc/include/asm/Kbuild b/arch/arc/include/asm/Kbuild
-index 7b2cb3dea5fc..a374b7f83888 100644
---- a/arch/arc/include/asm/Kbuild
-+++ b/arch/arc/include/asm/Kbuild
-@@ -52,3 +52,4 @@ generic-y += vga.h
- generic-y += word-at-a-time.h
- generic-y += xor.h
- generic-y += section-core.h
-+generic-y += ranges.h
-diff --git a/arch/arm/include/asm/Kbuild b/arch/arm/include/asm/Kbuild
-index 9b69a22a9ae1..0d47f98ccbc0 100644
---- a/arch/arm/include/asm/Kbuild
-+++ b/arch/arm/include/asm/Kbuild
-@@ -42,3 +42,4 @@ generic-y += unaligned.h
- generated-y += mach-types.h
- generated-y += unistd-nr.h
- generic-y += section-core.h
-+generic-y += ranges.h
-diff --git a/arch/arm64/include/asm/Kbuild b/arch/arm64/include/asm/Kbuild
-index 00ace5e826f1..e9939cbd9067 100644
---- a/arch/arm64/include/asm/Kbuild
-+++ b/arch/arm64/include/asm/Kbuild
-@@ -46,3 +46,4 @@ generic-y += user.h
- generic-y += vga.h
- generic-y += xor.h
- generic-y += section-core.h
-+generic-y += ranges.h
-diff --git a/arch/avr32/include/asm/Kbuild b/arch/avr32/include/asm/Kbuild
-index f2c3b656a0e7..edc176348d7c 100644
---- a/arch/avr32/include/asm/Kbuild
-+++ b/arch/avr32/include/asm/Kbuild
-@@ -23,3 +23,4 @@ generic-y += vga.h
- generic-y += word-at-a-time.h
- generic-y += xor.h
- generic-y += section-core.h
-+generic-y += ranges.h
-diff --git a/arch/blackfin/include/asm/Kbuild b/arch/blackfin/include/asm/Kbuild
-index bf20541bcf21..3428415b1996 100644
---- a/arch/blackfin/include/asm/Kbuild
-+++ b/arch/blackfin/include/asm/Kbuild
-@@ -48,3 +48,4 @@ generic-y += user.h
- generic-y += word-at-a-time.h
- generic-y += xor.h
- generic-y += section-core.h
-+generic-y += ranges.h
-diff --git a/arch/c6x/include/asm/Kbuild b/arch/c6x/include/asm/Kbuild
-index 38127ce747be..cede2a950fbf 100644
---- a/arch/c6x/include/asm/Kbuild
-+++ b/arch/c6x/include/asm/Kbuild
-@@ -63,3 +63,4 @@ generic-y += vga.h
- generic-y += word-at-a-time.h
- generic-y += xor.h
- generic-y += section-core.h
-+generic-y += ranges.h
-diff --git a/arch/cris/include/asm/Kbuild b/arch/cris/include/asm/Kbuild
-index 385cd88a9d9e..fb8bb4112773 100644
---- a/arch/cris/include/asm/Kbuild
-+++ b/arch/cris/include/asm/Kbuild
-@@ -46,3 +46,4 @@ generic-y += vga.h
- generic-y += word-at-a-time.h
- generic-y += xor.h
- generic-y += section-core.h
-+generic-y += ranges.h
-diff --git a/arch/frv/include/asm/Kbuild b/arch/frv/include/asm/Kbuild
-index 46d7c599d9b8..5191fec655d7 100644
---- a/arch/frv/include/asm/Kbuild
-+++ b/arch/frv/include/asm/Kbuild
-@@ -9,3 +9,4 @@ generic-y += preempt.h
- generic-y += trace_clock.h
- generic-y += word-at-a-time.h
- generic-y += section-core.h
-+generic-y += ranges.h
-diff --git a/arch/h8300/include/asm/Kbuild b/arch/h8300/include/asm/Kbuild
-index 1ec04ec1c82b..7929a992566c 100644
---- a/arch/h8300/include/asm/Kbuild
-+++ b/arch/h8300/include/asm/Kbuild
-@@ -76,3 +76,4 @@ generic-y += vga.h
- generic-y += word-at-a-time.h
- generic-y += xor.h
- generic-y += section-core.h
-+generic-y += ranges.h
-diff --git a/arch/hexagon/include/asm/Kbuild b/arch/hexagon/include/asm/Kbuild
-index 37d7bfae7619..af17ee334788 100644
---- a/arch/hexagon/include/asm/Kbuild
-+++ b/arch/hexagon/include/asm/Kbuild
-@@ -61,3 +61,4 @@ generic-y += vga.h
- generic-y += word-at-a-time.h
- generic-y += xor.h
- generic-y += section-core.h
-+generic-y += ranges.h
-diff --git a/arch/ia64/include/asm/Kbuild b/arch/ia64/include/asm/Kbuild
-index 672c6d5da18c..d8f226b35a0a 100644
---- a/arch/ia64/include/asm/Kbuild
-+++ b/arch/ia64/include/asm/Kbuild
-@@ -10,3 +10,4 @@ generic-y += trace_clock.h
- generic-y += vtime.h
- generic-y += word-at-a-time.h
- generic-y += section-core.h
-+generic-y += ranges.h
-diff --git a/arch/m32r/include/asm/Kbuild b/arch/m32r/include/asm/Kbuild
-index 6111e1523750..1c6504d29312 100644
---- a/arch/m32r/include/asm/Kbuild
-+++ b/arch/m32r/include/asm/Kbuild
-@@ -12,3 +12,4 @@ generic-y += sections.h
- generic-y += trace_clock.h
- generic-y += word-at-a-time.h
- generic-y += section-core.h
-+generic-y += ranges.h
-diff --git a/arch/m68k/include/asm/Kbuild b/arch/m68k/include/asm/Kbuild
-index 1277b45bf4f9..006e2863ad37 100644
---- a/arch/m68k/include/asm/Kbuild
-+++ b/arch/m68k/include/asm/Kbuild
-@@ -35,3 +35,4 @@ generic-y += types.h
- generic-y += word-at-a-time.h
- generic-y += xor.h
- generic-y += section-core.h
-+generic-y += ranges.h
-diff --git a/arch/metag/include/asm/Kbuild b/arch/metag/include/asm/Kbuild
-index b1011375cd7a..4a8471434a3e 100644
---- a/arch/metag/include/asm/Kbuild
-+++ b/arch/metag/include/asm/Kbuild
-@@ -56,3 +56,4 @@ generic-y += vga.h
- generic-y += word-at-a-time.h
- generic-y += xor.h
- generic-y += section-core.h
-+generic-y += ranges.h
-diff --git a/arch/microblaze/include/asm/Kbuild b/arch/microblaze/include/asm/Kbuild
-index c6c2cf6edc98..63c083a1f8da 100644
---- a/arch/microblaze/include/asm/Kbuild
-+++ b/arch/microblaze/include/asm/Kbuild
-@@ -12,3 +12,4 @@ generic-y += syscalls.h
- generic-y += trace_clock.h
- generic-y += word-at-a-time.h
- generic-y += section-core.h
-+generic-y += ranges.h
-diff --git a/arch/mips/include/asm/Kbuild b/arch/mips/include/asm/Kbuild
-index a67d3177f3ca..288e21b64170 100644
---- a/arch/mips/include/asm/Kbuild
-+++ b/arch/mips/include/asm/Kbuild
-@@ -21,3 +21,4 @@ generic-y += user.h
- generic-y += word-at-a-time.h
- generic-y += xor.h
- generic-y += section-core.h
-+generic-y += ranges.h
-diff --git a/arch/mn10300/include/asm/Kbuild b/arch/mn10300/include/asm/Kbuild
-index f8145bc85835..656af7b69940 100644
---- a/arch/mn10300/include/asm/Kbuild
-+++ b/arch/mn10300/include/asm/Kbuild
-@@ -11,3 +11,4 @@ generic-y += sections.h
- generic-y += trace_clock.h
- generic-y += word-at-a-time.h
- generic-y += section-core.h
-+generic-y += ranges.h
-diff --git a/arch/nios2/include/asm/Kbuild b/arch/nios2/include/asm/Kbuild
-index c9c7cb82b00f..c55880659d67 100644
---- a/arch/nios2/include/asm/Kbuild
-+++ b/arch/nios2/include/asm/Kbuild
-@@ -64,3 +64,4 @@ generic-y += vga.h
- generic-y += word-at-a-time.h
- generic-y += xor.h
- generic-y += section-core.h
-+generic-y += ranges.h
-diff --git a/arch/openrisc/include/asm/Kbuild b/arch/openrisc/include/asm/Kbuild
-index 86175e701869..7d6a704b808c 100644
---- a/arch/openrisc/include/asm/Kbuild
-+++ b/arch/openrisc/include/asm/Kbuild
-@@ -72,3 +72,4 @@ generic-y += vga.h
- generic-y += word-at-a-time.h
- generic-y += xor.h
- generic-y += section-core.h
-+generic-y += ranges.h
-diff --git a/arch/parisc/include/asm/Kbuild b/arch/parisc/include/asm/Kbuild
-index 18a9d4c5ead7..f11d1249738f 100644
---- a/arch/parisc/include/asm/Kbuild
-+++ b/arch/parisc/include/asm/Kbuild
-@@ -29,3 +29,4 @@ generic-y += vga.h
- generic-y += word-at-a-time.h
- generic-y += xor.h
- generic-y += section-core.h
-+generic-y += ranges.h
-diff --git a/arch/powerpc/include/asm/Kbuild b/arch/powerpc/include/asm/Kbuild
-index 4322d9746cdb..60d8349241a7 100644
---- a/arch/powerpc/include/asm/Kbuild
-+++ b/arch/powerpc/include/asm/Kbuild
-@@ -9,3 +9,4 @@ generic-y += preempt.h
- generic-y += rwsem.h
- generic-y += vtime.h
- generic-y += section-core.h
-+generic-y += ranges.h
-diff --git a/arch/powerpc/kernel/vmlinux.lds.S b/arch/powerpc/kernel/vmlinux.lds.S
-index 7394b770ae1f..fcfc9d102348 100644
---- a/arch/powerpc/kernel/vmlinux.lds.S
-+++ b/arch/powerpc/kernel/vmlinux.lds.S
-@@ -107,6 +107,7 @@ SECTIONS
- #endif
- 		/* careful! __ftr_alt_* sections need to be close to .text */
- 		*(.text .fixup __ftr_alt_* .ref.text)
-+		*(SORT(.text.rng.*))
- 		SCHED_TEXT
- 		CPUIDLE_TEXT
- 		LOCK_TEXT
-diff --git a/arch/s390/include/asm/Kbuild b/arch/s390/include/asm/Kbuild
-index 63a1c2924b91..c1b85a361e5d 100644
---- a/arch/s390/include/asm/Kbuild
-+++ b/arch/s390/include/asm/Kbuild
-@@ -9,3 +9,4 @@ generic-y += preempt.h
- generic-y += trace_clock.h
- generic-y += word-at-a-time.h
- generic-y += section-core.h
-+generic-y += ranges.h
-diff --git a/arch/score/include/asm/Kbuild b/arch/score/include/asm/Kbuild
-index f089a264cd38..f0cdb2cbca4d 100644
---- a/arch/score/include/asm/Kbuild
-+++ b/arch/score/include/asm/Kbuild
-@@ -15,3 +15,4 @@ generic-y += xor.h
- generic-y += serial.h
- generic-y += word-at-a-time.h
- generic-y += section-core.h
-+generic-y += ranges.h
-diff --git a/arch/sh/include/asm/Kbuild b/arch/sh/include/asm/Kbuild
-index 7b0356dca562..c9bb7932a3d1 100644
---- a/arch/sh/include/asm/Kbuild
-+++ b/arch/sh/include/asm/Kbuild
-@@ -40,3 +40,4 @@ generic-y += trace_clock.h
- generic-y += ucontext.h
- generic-y += xor.h
- generic-y += section-core.h
-+generic-y += ranges.h
-diff --git a/arch/sparc/include/asm/Kbuild b/arch/sparc/include/asm/Kbuild
-index 438f86573dc5..28280887ac79 100644
---- a/arch/sparc/include/asm/Kbuild
-+++ b/arch/sparc/include/asm/Kbuild
-@@ -22,3 +22,4 @@ generic-y += trace_clock.h
- generic-y += types.h
- generic-y += word-at-a-time.h
- generic-y += section-core.h
-+generic-y += ranges.h
-diff --git a/arch/tile/include/asm/Kbuild b/arch/tile/include/asm/Kbuild
-index fb6b831c1fba..33f7069763ae 100644
---- a/arch/tile/include/asm/Kbuild
-+++ b/arch/tile/include/asm/Kbuild
-@@ -41,3 +41,4 @@ generic-y += trace_clock.h
- generic-y += types.h
- generic-y += xor.h
- generic-y += section-core.h
-+generic-y += ranges.h
-diff --git a/arch/um/include/asm/Kbuild b/arch/um/include/asm/Kbuild
-index 580bd5ff828f..b952dcb3e216 100644
---- a/arch/um/include/asm/Kbuild
-+++ b/arch/um/include/asm/Kbuild
-@@ -27,3 +27,4 @@ generic-y += trace_clock.h
- generic-y += word-at-a-time.h
- generic-y += xor.h
- generic-y += section-core.h
-+generic-y += ranges.h
-diff --git a/arch/unicore32/include/asm/Kbuild b/arch/unicore32/include/asm/Kbuild
-index 8578702d4998..93abbfdab543 100644
---- a/arch/unicore32/include/asm/Kbuild
-+++ b/arch/unicore32/include/asm/Kbuild
-@@ -61,3 +61,4 @@ generic-y += user.h
- generic-y += vga.h
- generic-y += word-at-a-time.h
- generic-y += xor.h
-+generic-y += ranges.h
-diff --git a/arch/x86/include/asm/Kbuild b/arch/x86/include/asm/Kbuild
-index af975f21eeee..f672f2fc181d 100644
---- a/arch/x86/include/asm/Kbuild
-+++ b/arch/x86/include/asm/Kbuild
-@@ -13,3 +13,4 @@ generic-y += early_ioremap.h
- generic-y += mcs_spinlock.h
- generic-y += mm-arch-hooks.h
- generic-y += section-core.h
-+generic-y += ranges.h
-diff --git a/arch/x86/tools/relocs.c b/arch/x86/tools/relocs.c
-index 73eb7fd4aec4..f96fa2ddf7c9 100644
---- a/arch/x86/tools/relocs.c
-+++ b/arch/x86/tools/relocs.c
-@@ -68,6 +68,8 @@ static const char * const sym_regex_kernel[S_NSYMTYPES] = {
- 	"__end_rodata|"
- 	"__initramfs_start|"
- 	"(jiffies|jiffies_64)|"
-+	".rodata..rng.*|"
-+	".init.text..rng.*|"
- #if ELF_BITS = 64
- 	"__per_cpu_load|"
- 	"init_per_cpu__.*|"
-diff --git a/arch/xtensa/include/asm/Kbuild b/arch/xtensa/include/asm/Kbuild
-index 7879c31e66a7..2b7fe48c0225 100644
---- a/arch/xtensa/include/asm/Kbuild
-+++ b/arch/xtensa/include/asm/Kbuild
-@@ -33,3 +33,4 @@ generic-y += trace_clock.h
- generic-y += word-at-a-time.h
- generic-y += xor.h
- generic-y += section-core.h
-+generic-y += ranges.h
-diff --git a/include/asm-generic/ranges.h b/include/asm-generic/ranges.h
-new file mode 100644
-index 000000000000..75c196864f45
---- /dev/null
-+++ b/include/asm-generic/ranges.h
-@@ -0,0 +1,93 @@
-+#ifndef _ASM_GENERIC_RANGES_H_
-+#define _ASM_GENERIC_RANGES_H_
-+/*
-+ * Copyright (C) 2016 Luis R. Rodriguez <mcgrof@kernel.org>
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of copyleft-next (version 0.3.1 or later) as published
-+ * at http://copyleft-next.org/.
-+ */
-+#include <asm/section-core.h>
-+
-+#ifndef set_section_rng
-+# define set_section_rng(section, name, flags)				\
-+	 set_section_core(section, rng, name,				\
-+			  any, flags)
-+#endif
-+
-+#ifndef set_section_rng_type
-+# define set_section_rng_type(section, name, flags, type)		\
-+	 set_section_core_type(section, rng, name,			\
-+			       any, flags, type)
-+#endif
-+
-+#ifndef set_section_rng_level
-+# define set_section_rng_level(section, name, level, flags)		\
-+	 set_section_core(section, rng, name, level, flags)
-+#endif
-+
-+#ifndef push_section_rng
-+# define push_section_rng(section, name, flags)				\
-+	 push_section_core(section, rng, name,				\
-+			   any, flags)
-+#endif
-+
-+#ifndef push_section_rng_level
-+# define push_section_rng_level(section, name, level, flags)		\
-+	 push_section_core(section, rng, name,				\
-+			   level, flags)
-+#endif
-+
-+#ifndef __ASSEMBLY__
-+/**
-+ * __LINUX_RANGE - short hand association into a section range
-+ *
-+ * @section: ELF section name to place section range into
-+ * @name: section range name
-+ *
-+ * This helper can be used by subsystems to define their own subsystem
-+ * specific helpers to easily associate a piece of code being defined to a
-+ * section range.
-+ */
-+#define __LINUX_RANGE(section, name)					\
-+	__attribute__((__section__(#section "..rng.name.any")))
-+
-+/**
-+ * __LINUX_RANGE_ORDER - short hand association into a section range of order
-+ *
-+ * @section: ELF section name to place section range into
-+ * @name: section range name
-+ * @level: order level, a number. The order level gets tucked into the
-+ *	section as a postfix string. Order levels are sorted using
-+ * 	binutils SORT(), the number is sorted as a string, as such be
-+ * 	sure to fill with zeroes any empty digits. For instance if you are
-+ * 	using 3 levels of digits for order levels, use 001 for the first entry,
-+ * 	0002 for the second, 999 for the last entry. You can use however many
-+ * 	digits you need.
-+ *
-+ * This helper can be used by subsystems to define their own subsystem specific
-+ * helpers to easily associate a piece of code being defined to a section range
-+ * with an associated specific order level. The order level provides the
-+ * ability for explicit user ordering of code. Sorting takes place at link
-+ * time, after compilation.
-+ */
-+#define __LINUX_RANGE_ORDER(section, name, level)			\
-+	__attribute__((__section__(#section "..rng.name." #level)))
-+
-+#endif /* __ASSEMBLY__ */
-+
-+#ifdef __ASSEMBLER__
-+
-+#ifndef DEFINE_SECTION_RANGE
-+#define DEFINE_SECTION_RANGE(section, name)				\
-+  push_section_rng_level(section, name,,) ;				\
-+  .globl name ;								\
-+name: ;									\
-+  .popsection								\
-+									\
-+  push_section_rng_level(section, name, ~,) ;				\
-+  .popsection
-+#endif
-+#endif /* __ASSEMBLER__ */
-+
-+#endif /* _ASM_GENERIC_RANGES_H_ */
-diff --git a/include/asm-generic/section-core.h b/include/asm-generic/section-core.h
-index bb16befc4251..65fb076765f8 100644
---- a/include/asm-generic/section-core.h
-+++ b/include/asm-generic/section-core.h
-@@ -183,6 +183,47 @@
-  * or data structures part of the init sections.
-  */
- 
-+/**
-+ * DOC: Linux section ordering
-+ *
-+ * Linux may use binutils linker-script 'SORT()' on sections to sort Linux
-+ * sections alpha numerically. Linux has historically used 'SORT()' in
-+ * ``include/asm-generic/vmlinux.lds.h``, its a well established practice. If
-+ * 'SORT()' is used on a section one can provide ordering using a postfix on
-+ * each section entry added. For instance if a linker script uses::
-+ *
-+ *    SORT(.foo.*)
-+ *
-+ * one can then add entries with explicit ordering using numeric postfixes for
-+ * each entry, we refer to these as 'order levels'. Since 'SORT()' sorts alpha
-+ * numerically a specific series set of digits must be agreed a-priori which
-+ * would give also an idea of the max expected number of entries added to a
-+ * section. For instance, if you expect a maximum of 999 entries you can use
-+ * 3 digits for a section order level. If you wanted an entry to be ordered
-+ * first you could use the postfix '000', if you wanted an entry to follow this
-+ * you could use '001', and so on. We could for instance have::
-+ *
-+ *    .foo.000
-+ *    .foo.001
-+ *    .foo.002
-+ *
-+ * Often times one may want the option to specify no order is required for
-+ * certain elements added to a section which does use 'SORT()' on the linker
-+ * script. You can use any arbitrary string value to to specify no order is
-+ * used, so long as its used consistantly. For instance, one possibility is to
-+ * use the 'any' postfix.  All entries on the section would then have no
-+ * specific ordering::
-+ *
-+ *    .foo.any
-+ *    .foo.any
-+ *    .foo.any
-+ *
-+ * To help establish a convention we reserve the special name 'any' for this
-+ * purpose. Developers can use and expect the 'any' postfix string on sections
-+ * as a helper to annotate section ordering at link time is not relevant
-+ * for entries on a section.
-+ */
-+
- /* Can be used on foo.S for instance */
- #ifndef __set_section_core_type
- # define __set_section_core_type(___section, ___core, ___name,		\
-diff --git a/include/asm-generic/vmlinux.lds.h b/include/asm-generic/vmlinux.lds.h
-index 483f60c451f9..71bfd3b3c719 100644
---- a/include/asm-generic/vmlinux.lds.h
-+++ b/include/asm-generic/vmlinux.lds.h
-@@ -56,6 +56,7 @@
- 
- #include <linux/export.h>
- #include <asm/section-core.h>
-+#include <asm/ranges.h>
- 
- /* Align . to a 8 byte boundary equals to maximum function alignment. */
- #define ALIGN_FUNCTION()  . = ALIGN(8)
-@@ -205,6 +206,7 @@
-  */
- #define DATA_DATA							\
- 	*(.data .data.[0-9a-zA-Z_]*)					\
-+	*(SORT(.data..rng.*))						\
- 	*(.ref.data)							\
- 	*(.data..shared_aligned) /* percpu related */			\
- 	MEM_KEEP(init.data)						\
-@@ -273,7 +275,9 @@
- 	. = ALIGN((align));						\
- 	.rodata           : AT(ADDR(.rodata) - LOAD_OFFSET) {		\
- 		VMLINUX_SYMBOL(__start_rodata) = .;			\
--		*(.rodata) *(.rodata.*)					\
-+		*(.rodata)						\
-+		*(SORT(.rodata..rng.*))					\
-+		*(.rodata.*)						\
- 		RO_AFTER_INIT_DATA	/* Read only after init */	\
- 		KEEP(*(__vermagic))	/* Kernel version magic */	\
- 		. = ALIGN(8);						\
-@@ -446,7 +450,9 @@
-  * conflicting section names, and must pull in .text.[0-9a-zA-Z_]* */
- #define TEXT_TEXT							\
- 		ALIGN_FUNCTION();					\
--		*(.text.hot .text .text.fixup .text.unlikely)		\
-+		*(.text.hot .text)					\
-+		*(SORT(.text..rng.*))					\
-+		*(.text.fixup .text.unlikely)				\
- 		*(.ref.text)						\
- 	MEM_KEEP(init.text)						\
- 	MEM_KEEP(exit.text)						\
-@@ -549,6 +555,7 @@
- #define INIT_DATA							\
- 	KEEP(*(SORT(___kentry+*)))					\
- 	*(.init.data)							\
-+	*(SORT(.init.data..rng.*))					\
- 	MEM_DISCARD(init.data)						\
- 	KERNEL_CTORS()							\
- 	MCOUNT_REC()							\
-@@ -572,6 +579,7 @@
- 
- #define INIT_TEXT							\
- 	*(.init.text)							\
-+	*(SORT(.init.text..rng.*))					\
- 	*(.text.startup)						\
- 	MEM_DISCARD(init.text)
- 
-diff --git a/include/linux/ranges.h b/include/linux/ranges.h
-new file mode 100644
-index 000000000000..1e64674f6d7d
---- /dev/null
-+++ b/include/linux/ranges.h
-@@ -0,0 +1,183 @@
-+#ifndef _LINUX_RANGES_H
-+#define _LINUX_RANGES_H
-+/*
-+ * Linux section ranges
-+ *
-+ * Copyright (C) 2016 Luis R. Rodriguez <mcgrof@kernel.org>
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of copyleft-next (version 0.3.1 or later) as published
-+ * at http://copyleft-next.org/.
-+ */
-+#include <linux/sections.h>
-+#include <asm/ranges.h>
-+
-+#ifndef __ASSEMBLY__
-+
-+/**
-+ * DOC: Introduction
-+ *
-+ * A section ranges consists of explicitly annotated series executable code
-+ * stitched together for the purpose of selective placement into standard or
-+ * architecture specific ELF sections. What ELF section is used is utility
-+ * specific. Linux has historically implicitly used section ranges, however
-+ * they were all built in an adhoc manner and typically required linker script
-+ * modifications per architecture. The section range API allows adding new
-+ * bundles of stiched executable code into custom ELF sections by only
-+ * modifying C or asm code in an architecture agnostic form.
-+ *
-+ * This documents the set of helpers available to declare, and define section
-+ * ranges and associate each section range to a specific Linux ELF section.
-+ */
-+
-+/**
-+ * DOC: Section range module support
-+ *
-+ * Modules can use section ranges, however the section range definition must be
-+ * built-in to the kernel. That is, the code that implements
-+ * DEFINE_SECTION_RANGE() must be built-in, and modular code cannot add more
-+ * items in to the section range (with __LINUX_RANGE() or
-+ * __LINUX_RANGE_ORDER()), unless kernel/module.c find_module_sections() and
-+ * module-common.lds.S are updated accordingly with a respective module
-+ * notifier to account for updates. This restriction may be enhanced in the
-+ * future.
-+ */
-+
-+/**
-+ * DOC: Section range helpers
-+ *
-+ * These are helpers for section ranges.
-+ */
-+
-+/**
-+ * SECTION_RANGE_START - get address of start of section range
-+ *
-+ * @name: name of the section range
-+ *
-+ * This gives you the start address of the section range.
-+ * This should give you the address of the first entry.
-+ *
-+ */
-+#define SECTION_RANGE_START(name)	LINUX_SECTION_START(name)
-+
-+/**
-+ * SECTION_RANGE_END - get address of end of the section range
-+ *
-+ * @name: name of the section range
-+ *
-+ * This gives you the end address of the linker table.
-+ * This will match the start address if the linker table
-+ * is empty.
-+ */
-+#define SECTION_RANGE_END(name)		LINUX_SECTION_END(name)
-+
-+/**
-+ * SECTION_RANGE_SIZE - get number of entries in the section range
-+ *
-+ * @name: name of the section range
-+ *
-+ * This gives you the number of entries in the section range.
-+ * Example usage:
-+ *
-+ *   unsigned int num_ents = LINKTABLE_SIZE(some_fns);
-+ */
-+#define SECTION_RANGE_SIZE(name)					\
-+	((SECTION_RANGE_END(name)) - (SECTION_RANGE_START(name)))
-+
-+/**
-+ * SECTION_RANGE_EMPTY - check if section range has no entries
-+ *
-+ * @name: name of the section range
-+ *
-+ * Returns true if the section range is emtpy.
-+ *
-+ *   bool is_empty = LINKTABLE_EMPTY(some_fns);
-+ */
-+#define SECTION_RANGE_EMPTY(name)	(SECTION_RANGE_SIZE(name) = 0)
-+
-+/**
-+ * SECTION_RANGE_ADDR_WITHIN - returns true if address is in the section range
-+ *
-+ * @name: name of the section range
-+ * @addr: address to query for
-+ *
-+ * Returns true if the address is in the section range.
-+ */
-+#define SECTION_RANGE_ADDR_WITHIN(name, addr)				\
-+	 (addr >= (unsigned long) SECTION_RANGE_START(name) &&		\
-+          addr < (unsigned long) SECTION_RANGE_END(name))
-+
-+/**
-+ * SECTION_RANGE_ALIGNMENT - get the alignment of the section range
-+ *
-+ * @name: name of linker table
-+ *
-+ * Gives you the alignment for the section range.
-+ */
-+#define SECTION_RANGE_ALIGNMENT(name)	LINUX_SECTION_ALIGNMENT(name)
-+
-+/**
-+ * DECLARE_SECTION_RANGE - Declares a section range
-+ *
-+ * @name: section range name
-+ *
-+ * Declares a section range to help code access the range. Typically if
-+ * a subsystems needs code to have direct access to the section range the
-+ * subsystem's header file would declare the section range. Care should be
-+ * taken to only declare the section range in a header file if access to it
-+ * is truly needed outside of the code defining it. You typically would
-+ * rather instead provide helpers which access the section range with special
-+ * code on behalf of the caller.
-+ */
-+#define DECLARE_SECTION_RANGE(name)					\
-+	DECLARE_LINUX_SECTION_RO(char, name)
-+
-+/**
-+ * __SECTION_RANGE_BEGIN - Constructs the beginning of a section range
-+ *
-+ * @name: section range name
-+ * @__section: ELF section to place section range into
-+ *
-+ * Constructs the beginning of a section range. You will typically not need
-+ * to use this directly.
-+ */
-+#define __SECTION_RANGE_BEGIN(name, __section)				\
-+	const __typeof__(SECTION_RANGE_START(name)[0])			\
-+	      __attribute__((used,					\
-+			     weak,					\
-+			     __aligned__(SECTION_RANGE_ALIGNMENT(name)),\
-+			     section(#__section "..rng.name.")))
-+
-+/**
-+ * __SECTION_RANGE_END - Constructs the end of a section range
-+ *
-+ * @name: section range name
-+ * @__section: ELF section to place section range into
-+ *
-+ * Constructs the end of a section range. You will typically not need
-+ * to use this directly.
-+ */
-+#define __SECTION_RANGE_END(name, __section)				\
-+	const __typeof__(SECTION_RANGE_START(name)[0])			\
-+	      __attribute__((used,					\
-+			     __aligned__(SECTION_RANGE_ALIGNMENT(name)),\
-+			     section(#__section "..rng.name.~")))
-+
-+/**
-+ * DEFINE_SECTION_RANGE - Defines a section range
-+ *
-+ * @name: section range name
-+ * @section: ELF section name to place section range into
-+ *
-+ * Defines a section range, used for executable code. Section ranges are
-+ * defined in the code that takes ownership and makes use of the section
-+ * range.
-+ */
-+#define DEFINE_SECTION_RANGE(name, section)				\
-+	DECLARE_LINUX_SECTION_RO(char, name);				\
-+	__SECTION_RANGE_BEGIN(name, section) SECTION_RANGE_START(name)[0] = {};\
-+	__SECTION_RANGE_END(name, section) SECTION_RANGE_END(name)[0] = {}
-+
-+#endif /* __ASSEMBLY__ */
-+
-+#endif /* _LINUX_RANGES_H */
--- 
-2.10.1
-
+TGludXggbWFrZXMgZXh0ZW5zaXZlIHVzZSBvZiBjdXN0b20gRUxGIGhlYWRlciBzZWN0aW9ucywK
+ZG9jdW1lbnRhdGlvbiBmb3IgdGhlc2UgYXJlIHdlbGwgc2NhdHRlcnJlZC4gVW5pZnkgdGhpcwpk
+b2N1bWVudGF0aW9uIGluIGEgY2VudHJhbCBwbGFjZSBhbmQgcHJvdmlkZSBoZWxwZXJzIHRvCmJ1
+aWxkIGN1c3RvbSBMaW51eCBzZWN0aW9ucy4KClRoaXMgYWxzbyBnZW5lcmFsaXplcyBzZWN0aW9u
+cyBjb2RlIHRvIGVuYWJsZSBhdm9pZGluZwptb2RpZnlpbmcgdGhlIGxpbmtlciBzY3JpcHRzIHdo
+ZW4gd2Ugd2FudCB0byBhZGQgbmV3CmN1c3RvbSBMaW51eCBzZWN0aW9ucy4gSW4gb3JkZXIgdG8g
+bWFrZSB0aGlzIGdlbmVyYWxseQp1c2VmdWwgd2UgbmVlZCB0byBlbnN1cmUgYWxsIGFyY2hpdGVj
+dHVyZXMgY2FuIG1ha2UgdXNlIG9mCmNvcmUgc2VjdGlvbiBoZWxwZXJzIGJ1dCB0aGF0IHRoZXkg
+Y2FuIGFsc28gb3ZlcnJpZGUgc2hvdWxkCnRoaXMgYmUgbmVlZGVkLiBJbnN0ZWFkIG9mIHJlbHlp
+bmcgb24gc2VjdGlvbi5oIHRoaXMgYWRkcwphIHNlY3Rpb25zLWNvcmUuaCBzaW5jZSB0aGlzIHdp
+bGwgYmUgdGFyZ2V0dGVkIHRvIGJlIHNhZmUKdG8gYmUgdXNlZCBvbiBhc20gY29kZSwgbGlua2Vy
+IHNjcmlwdHMgYW5kIEMgY29kZS4KCnY1OgoKbyBIdWdlIGRvY3VtZW50YXRpb24gcmV2YW1wIGJh
+c2VkIG9uIGEgY2FyZWZ1bCByZXZpZXcgb2YgdGhlIEVMRgogIHNwZWNpZmljYXRpb25zLiBJbmNs
+dWRlcyBkb2N1bWVudGF0aW9uIG5vdyBhbHNvIGFib3V0IHVzYWdlIG9mCiAgdHdvIGRvdHMgKC4u
+KSB3aGVuIHByZWZpeGluZyBFTEYgcHJvZ3JhbSBzcGVjaWZpYyBzZWN0aW9ucy4KCm8gUmVwbGFj
+ZSBtYWNyb3MgZm9yIHNlY3Rpb25zIG5hbWVzIGluIGZhdm9yIG9mIGp1c3QgdXNpbmcKICB0aGUg
+c2VjdGlvbiBuYW1lcyBleHBsaWNpdGx5IGluIHRoZSBsaW5rZXIgc2NyaXB0LiBUaGlzIGlzCiAg
+cGVyaGFwcyBtb3JlIHdvcmsgdG8gZ3JlcCBidXQgdGhpcyBpcyB3aGF0IGZvbGtzIHNlZW0gdG8K
+ICBjdXJyZW50bHkgcHJlZmVyLgoKbyBGaXggLnRleHQgYW5kIC5yb2RhdGEgZG9jdW1lbnRhdGlv
+biB0byBleHBsYWluIG1lbW9yeSBwcm90ZWN0aW9uCiAgc3RyYXRlZ2llcyB3aGljaCBhcmNoaXRl
+Y3R1cmVzIGNhbiBlbWJyYWNlIHVwb24gaW5pdGlhbGl6YXRpb24KICAoZG9jdW1lbnRzIENPTkZJ
+R19ERUJVR19ST0RBVEEgYW5kIG1hcmtfcm9kYXRhX3JvKCkpCgpvIFNraXAgdGhlICdMaW51eCBz
+ZWN0aW9uIG9yZGVyaW5nJyBkb2N1bWVudGF0aW9uIHNlY3Rpb24sIHdlJ2xsIGluc3RlYWQKICBh
+ZGQgdGhpcyBvbiBzdWJzZXF1ZW50IHBhdGNoIHdoaWNoIHdpbGwgZXhwYW5kIG9uIGl0IGNvbnNp
+ZGVyYWJseQoKbyBEcm9wcGVkIHRyZWUgb24gTUFJTlRBSU5FUlMgLS0gYXMgcGVyIGRpc2N1c3Np
+b25zIHdpdGggQXJuZCwgaHBhIGFuZAogIEpvc2gsIGl0cyBlYXNpZXIgdG8ganVzdCBsZXQgY2hh
+bmdlcyBmb3Igc2VjdGlvbnMgZ28gaW4gdGhyb3VnaCB0aGUKICByZXNwZWN0aXZlIHRyZWUgdGhh
+dCBuZWVkcyB0aGUgY2hhbmdlcy4KCm8gRml4IHR5cG9zIG9uIGRvY3VtZW50YXRpb24KCm8gRHJv
+cHBlZCBTRUNUSU9OX0FMTCgpLCBfX1NFQ1RJT05fQ09SRSgpLCBTRUNUSU9OX0NPUkVfQUxMKCkg
+bWFjcm9zCiAgc2luY2Ugd2UgYXJlIGZhdm9yaW5nIHVzaW5nIGV4cGxpY2l0IHNlY3Rpb24gbmFt
+ZXMuIFRoZXNlIGFyZQogIHVzZWxlc3MgaWYgd2UgYXJlIGJlaW5nIGV4cGxpY2l0LgoKbyBEcm9w
+IExJTlVYX1NFQ1RJT05fU0laRSgpLCBMSU5VWF9TRUNUSU9OX0VNUFRZKCkgaW4gZmF2b3Igb2Yg
+aGF2aW5nCiAgc2VjdGlvbiByYW5nZXMgYW5kIGxpbmtlciB0YWJsZXMgZGVmaW5lIHRoZWlyIG93
+biwgdG8gYXZvaWQgY29uZnVzaW9uCiAgYW5kIG1ha2UgY29kZSBtb3JlIHJlYWRhYmxlLgoKbyBB
+ZGQgX19kZWZpbmVfaW5pdGNhbGwoKSBkb2N1bWVudGF0aW9uIGFuZCBhIHNtYWxsIHNlY3Rpb24g
+ZGVzY3JpYmluZwogIG91ciBjdXJyZW50IGluaXRjYWxsIGxldmVscy4gVGhpcyBzaG91bGQgaGVs
+cCBhbHNvIGNsYXJpZnkgd2hhdCB3YXMKICBtZWFudCBhYm91dCBrZWVwaW5nIGJhY2t3YXJkIGNv
+bXBhdGlibGl0eS4KCnY0OgoKbyBQb3J0IHRvIHNoaW55IG5ldyBzcGhpbnggZG9jdW1lbnRhdGlv
+biBmb3JtYXQKCm8gZml4IGEgdW5pY29yZTMyIGJ1aWxkLCB0dXJucyBvdXQgdGhpcyBhY3R1YWxs
+eSBmaXhlcyB1bmljb3JlMzIKICBkZWZjb25maWcgYnVpbGRzIHdoaWNoIHdlcmUgZmFpbGluZyBm
+b3IgYSBsb25nIHdoaWxlLiB1bmljb3JlMzIKICBkb2VzIG5vdCBzZWVtIHRvIGdyb2sgd2VsbCB0
+aGUgdHlwZSBwYXNzZWQgb24gYSBzZWN0aW9uIGRlY2xhcmF0aW9uLAogIHRoaXMgaWdub3JlcyBp
+dC4KCm8gVXNlIFZNTElOVVhfU1lNQk9MKCkgaW4gbW9yZSB1c2VyIHN5bWJvbHMgKGV4dGVybiBD
+IGNvZGUpLCBub3QgZG9pbmcKICB0aGlzIHdhcyBjYXVzaW5nIGZpbmFsIGxpbmtlciBpc3N1ZXMg
+d2l0aCBibGFja2ZpbiAtLSB0aGlzIGlzCiAgYSBDT05GSUdfSEFWRV9VTkRFUlNDT1JFX1NZTUJP
+TF9QUkVGSVg9eSBhcmNoaXRlY3R1cmUuIFRoZSBvdGhlciBvbmUKICBiZWluZyBtZXRhdGFnLiBt
+ZXRhdGFnIGlzIG5vdCBzdXBwb3J0ZWQgb24gMC1kYXkgc28gSSBjYW5ub3QgY29uZmlybQogIGNv
+bXBpbGF0aW9uIHRoZXJlLgoKbyBBZGRlZCBTRUNUSU9OX0NPUkUoKSBmb3IgQyBjb2RlLCB1c2Vk
+IGxhdGVyIGJ5IF9fTElOVVhfUkFOR0UoKQoKbyBTaW5jZSBTRUNUSU9OX0NPUkUoKSBpcyBkZWZp
+bmVkIGZvciBsaW5rZXIgc2NyaXB0IGFuZCBDIGNvZGUsIHNoYXJlCiAgdGhlIHNhbWUgaGVscGVy
+IGFuZCBqdXN0IHVzZSBhIF9fc3RyaW5naWZ5KCkgZm9yIHRoZSBDIGNvZGUgYXMgaXMgZG9uZQog
+IGZvciB0aGUgb3RoZXIgQyBoZWxwZXJzLgoKbyBtb3ZlIGdlbmVyaWMgc2VjdGlvbnMgdG8gYXNt
+LWdlbmVyaWMvc2VjdGlvbi1jb3JlLmggaW5zdGVhZC4KICBQb3dlclBDIGNvbXBpbGF0aW9uIGJs
+b3dzIHVwIGlmIGFzbS9qdW1wX2xhYmVscy5oIGdldHMKICBzZWN0aW9uLmggaW5jbHVkZWQsIGZp
+eGluZyB0aGlzIGlzIG5vdCBpbiBhbnkgd2F5IGVhc3kuCiAgVGhlIGxpc3Qgb2YgaXNzdWVzIGFy
+ZSBlbmRsZXNzLiBNb3ZpbmcgbmV3IGRhdGEgdG8gYSBuZXcKICBzaW1wbGUgZmlsZSByZXNvbHZl
+cyB0aGlzLgoKbyBzaW5jZSB0aGluZ3MgYXJlIG5vdyBpbiBhc20tZ2VuZXJpYy9zZWN0aW9uLWNv
+cmUuaCB0aGUKICBndWFyZCBjaGFuZ2VzIG9uIGFzbS1nZW5lcmljL3NlY3Rpb25zLmggYW5kIGVh
+Y2ggYXJjaGl0ZWN0dXJlCiAgc2VjdGlvbnMuaCBhcmUgbm8gbG9uZ2VyIG5lZWRlZAoKbyBHaXZl
+IGdlbmVyaWMgc2VjdGlvbnMgc29tZSBtYWludGFpbmVyIGxvdmUsIHRoYXQgY2hhbmdlIGlzCiAg
+QWNrZWQtYnkgQXJuZCBCZXJnbWFubiwgSm9zaCBhbmQgaHBhLgoKbyBBIGZldyBjaGVja3BhdGNo
+LnBsIHN0eWxlIGZpeGVzCgpvIEFzIHN1Z2dlc3RlZCBieSBKYW1lcyBIb2dhbiB1c2UgZ2VuZXJp
+Yy15IHRvIGNvcHkgZ2VuZXJpYwogIGhlYWRlciBmaWxlcyBvbiBhcmNoaXRlY3R1cmVzIHRoYXQg
+ZG8gbm90IGhhdmUgYSBzZWN0aW9ucy5oCiAgaW5zdGVhZCBvZiB3cml0aW5nIGEgc2ltcGxlIGZp
+bGUgb25seSB0byBpbmNsdWRlIHRoZSBnZW5lcmljIG9uZS4KCnYzOgoKbyBhZGQgbWlzc2luZyBz
+ZWN0aW9ucy5oIGZvciBhcmNoaXRlY3R1cmVzIHRoYXQgZGlkIG5vdAogIGhhdmUgaXQKCm8gbW92
+ZSBnZW5lcmljIHNlY3Rpb25zIHRvIGFzbS1nZW5lcmljL3NlY3Rpb25zLmgKCm8gYWRkIGdlbmVy
+aWMgYXNtIGhlbHBlcnMgc2VjdGlvbl90eXBlKCksIHNlY3Rpb25fdHlwZV9hc210eXBlKCksCiAg
+cHVzaF9zZWN0aW9uX3R5cGUoKSAtLSB0aGVzZSBoZWxwZXJzIGVuYWJsZSBlYXN5IHVzZSBmb3IK
+ICBmb3IgbGF0ZXIgZGVjbGFyaW5nIGFuZCB1c2luZyBvZiBjdXN0b20gbGludXggc2VjdGlvbnMg
+dXNpbmcKICBtb3JlIHN0YW5kYXJkIEFQSXMgaW4gYm90aCBDIGNvZGUsIGFzbSBjb2RlIChDIGFz
+bSBjYWxscywgb3IKICBhc20gZmlsZXMpLCBlbmFibGluZyBmdXR1cmUgc3RhbmRhcmRpemVkIHNl
+Y3Rpb24gdHlwZXMgdG8KICBiZSBtb3JlIGltbWVkaWF0ZWx5IGFjY2Vzc2libGUgdG8gYXNtIGNv
+ZGUsIG5vdCBqdXN0IEMgY29kZS4KICBOb3RlIGZvciBBU01fQ01EX1NFUCB3ZSB1c2UgYnkgZGVm
+YXVsdCAiXG4iLCBhcmNoaXRlY3R1cmVzIG5lZWRlZAogIHRvIG92ZXJyaWRlIGNhbiBkbyBzbyBv
+biB0aGVpciBvd24gc2VjdGlvbnMuaCBwcmlvciB0byBpbmNsdXNpb24KICBvZiBhc20tZ2VuZXJp
+Yy9zZWN0aW9ucy5oCgpTaWduZWQtb2ZmLWJ5OiBMdWlzIFIuIFJvZHJpZ3VleiA8bWNncm9mQGtl
+cm5lbC5vcmc+Ci0tLQogRG9jdW1lbnRhdGlvbi9pbmRleC5yc3QgICAgICAgICAgICAgICAgICAg
+fCAgIDEgKwogRG9jdW1lbnRhdGlvbi9zZWN0aW9ucy9iYWNrZ3JvdW5kLnJzdCAgICAgfCAxMDUg
+KysrKysrKysrKwogRG9jdW1lbnRhdGlvbi9zZWN0aW9ucy9jb25mLnB5ICAgICAgICAgICAgfCAg
+IDQgKwogRG9jdW1lbnRhdGlvbi9zZWN0aW9ucy9pbmRleC5yc3QgICAgICAgICAgfCAgMTcgKysK
+IERvY3VtZW50YXRpb24vc2VjdGlvbnMvc2VjdGlvbi1jb3JlLnJzdCAgIHwgMTQ4ICsrKysrKysr
+KysrKysrCiBNQUlOVEFJTkVSUyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8ICAxMiAr
+KwogYXJjaC9hbHBoYS9pbmNsdWRlL2FzbS9LYnVpbGQgICAgICAgICAgICAgfCAgIDEgKwogYXJj
+aC9hcmMvaW5jbHVkZS9hc20vS2J1aWxkICAgICAgICAgICAgICAgfCAgIDEgKwogYXJjaC9hcm0v
+aW5jbHVkZS9hc20vS2J1aWxkICAgICAgICAgICAgICAgfCAgIDEgKwogYXJjaC9hcm02NC9pbmNs
+dWRlL2FzbS9LYnVpbGQgICAgICAgICAgICAgfCAgIDEgKwogYXJjaC9hdnIzMi9pbmNsdWRlL2Fz
+bS9LYnVpbGQgICAgICAgICAgICAgfCAgIDEgKwogYXJjaC9ibGFja2Zpbi9pbmNsdWRlL2FzbS9L
+YnVpbGQgICAgICAgICAgfCAgIDEgKwogYXJjaC9jNngvaW5jbHVkZS9hc20vS2J1aWxkICAgICAg
+ICAgICAgICAgfCAgIDEgKwogYXJjaC9jcmlzL2luY2x1ZGUvYXNtL0tidWlsZCAgICAgICAgICAg
+ICAgfCAgIDEgKwogYXJjaC9mcnYvaW5jbHVkZS9hc20vS2J1aWxkICAgICAgICAgICAgICAgfCAg
+IDEgKwogYXJjaC9oODMwMC9pbmNsdWRlL2FzbS9LYnVpbGQgICAgICAgICAgICAgfCAgIDEgKwog
+YXJjaC9oZXhhZ29uL2luY2x1ZGUvYXNtL0tidWlsZCAgICAgICAgICAgfCAgIDEgKwogYXJjaC9p
+YTY0L2luY2x1ZGUvYXNtL0tidWlsZCAgICAgICAgICAgICAgfCAgIDEgKwogYXJjaC9tMzJyL2lu
+Y2x1ZGUvYXNtL0tidWlsZCAgICAgICAgICAgICAgfCAgIDEgKwogYXJjaC9tNjhrL2luY2x1ZGUv
+YXNtL0tidWlsZCAgICAgICAgICAgICAgfCAgIDEgKwogYXJjaC9tZXRhZy9pbmNsdWRlL2FzbS9L
+YnVpbGQgICAgICAgICAgICAgfCAgIDEgKwogYXJjaC9taWNyb2JsYXplL2luY2x1ZGUvYXNtL0ti
+dWlsZCAgICAgICAgfCAgIDEgKwogYXJjaC9taXBzL2luY2x1ZGUvYXNtL0tidWlsZCAgICAgICAg
+ICAgICAgfCAgIDEgKwogYXJjaC9tbjEwMzAwL2luY2x1ZGUvYXNtL0tidWlsZCAgICAgICAgICAg
+fCAgIDEgKwogYXJjaC9uaW9zMi9pbmNsdWRlL2FzbS9LYnVpbGQgICAgICAgICAgICAgfCAgIDEg
+KwogYXJjaC9vcGVucmlzYy9pbmNsdWRlL2FzbS9LYnVpbGQgICAgICAgICAgfCAgIDEgKwogYXJj
+aC9wYXJpc2MvaW5jbHVkZS9hc20vS2J1aWxkICAgICAgICAgICAgfCAgIDEgKwogYXJjaC9wb3dl
+cnBjL2luY2x1ZGUvYXNtL0tidWlsZCAgICAgICAgICAgfCAgIDEgKwogYXJjaC9zMzkwL2luY2x1
+ZGUvYXNtL0tidWlsZCAgICAgICAgICAgICAgfCAgIDEgKwogYXJjaC9zY29yZS9pbmNsdWRlL2Fz
+bS9LYnVpbGQgICAgICAgICAgICAgfCAgIDEgKwogYXJjaC9zaC9pbmNsdWRlL2FzbS9LYnVpbGQg
+ICAgICAgICAgICAgICAgfCAgIDEgKwogYXJjaC9zcGFyYy9pbmNsdWRlL2FzbS9LYnVpbGQgICAg
+ICAgICAgICAgfCAgIDEgKwogYXJjaC90aWxlL2luY2x1ZGUvYXNtL0tidWlsZCAgICAgICAgICAg
+ICAgfCAgIDEgKwogYXJjaC91bS9pbmNsdWRlL2FzbS9LYnVpbGQgICAgICAgICAgICAgICAgfCAg
+IDEgKwogYXJjaC91bmljb3JlMzIvaW5jbHVkZS9hc20vc2VjdGlvbi1jb3JlLmggfCAgMTkgKysK
+IGFyY2gveDg2L2luY2x1ZGUvYXNtL0tidWlsZCAgICAgICAgICAgICAgIHwgICAxICsKIGFyY2gv
+eHRlbnNhL2luY2x1ZGUvYXNtL0tidWlsZCAgICAgICAgICAgIHwgICAxICsKIGluY2x1ZGUvYXNt
+LWdlbmVyaWMvc2VjdGlvbi1jb3JlLmggICAgICAgIHwgMzA3ICsrKysrKysrKysrKysrKysrKysr
+KysrKysrKysrKwogaW5jbHVkZS9hc20tZ2VuZXJpYy9zZWN0aW9ucy5oICAgICAgICAgICAgfCAg
+IDIgKwogaW5jbHVkZS9hc20tZ2VuZXJpYy92bWxpbnV4Lmxkcy5oICAgICAgICAgfCAgIDEgKwog
+aW5jbHVkZS9saW51eC9pbml0LmggICAgICAgICAgICAgICAgICAgICAgfCAgODkgKysrKysrKy0t
+CiBpbmNsdWRlL2xpbnV4L3NlY3Rpb25zLmggICAgICAgICAgICAgICAgICB8ICA4NyArKysrKysr
+KysKIDQyIGZpbGVzIGNoYW5nZWQsIDgwOSBpbnNlcnRpb25zKCspLCAxMyBkZWxldGlvbnMoLSkK
+IGNyZWF0ZSBtb2RlIDEwMDY0NCBEb2N1bWVudGF0aW9uL3NlY3Rpb25zL2JhY2tncm91bmQucnN0
+CiBjcmVhdGUgbW9kZSAxMDA2NDQgRG9jdW1lbnRhdGlvbi9zZWN0aW9ucy9jb25mLnB5CiBjcmVh
+dGUgbW9kZSAxMDA2NDQgRG9jdW1lbnRhdGlvbi9zZWN0aW9ucy9pbmRleC5yc3QKIGNyZWF0ZSBt
+b2RlIDEwMDY0NCBEb2N1bWVudGF0aW9uL3NlY3Rpb25zL3NlY3Rpb24tY29yZS5yc3QKIGNyZWF0
+ZSBtb2RlIDEwMDY0NCBhcmNoL3VuaWNvcmUzMi9pbmNsdWRlL2FzbS9zZWN0aW9uLWNvcmUuaAog
+Y3JlYXRlIG1vZGUgMTAwNjQ0IGluY2x1ZGUvYXNtLWdlbmVyaWMvc2VjdGlvbi1jb3JlLmgKIGNy
+ZWF0ZSBtb2RlIDEwMDY0NCBpbmNsdWRlL2xpbnV4L3NlY3Rpb25zLmgKCmRpZmYgLS1naXQgYS9E
+b2N1bWVudGF0aW9uL2luZGV4LnJzdCBiL0RvY3VtZW50YXRpb24vaW5kZXgucnN0CmluZGV4IGNi
+NWQ3NzY5OWM2MC4uNzFlMDMwNWMwMzZkIDEwMDY0NAotLS0gYS9Eb2N1bWVudGF0aW9uL2luZGV4
+LnJzdAorKysgYi9Eb2N1bWVudGF0aW9uL2luZGV4LnJzdApAQCAtNTcsNiArNTcsNyBAQCBuZWVk
+ZWQpLgogICAgbWVkaWEvaW5kZXgKICAgIGdwdS9pbmRleAogICAgc2VjdXJpdHkvaW5kZXgKKyAg
+IHNlY3Rpb25zL2luZGV4CiAgICBzb3VuZC9pbmRleAogICAgY3J5cHRvL2luZGV4CiAKZGlmZiAt
+LWdpdCBhL0RvY3VtZW50YXRpb24vc2VjdGlvbnMvYmFja2dyb3VuZC5yc3QgYi9Eb2N1bWVudGF0
+aW9uL3NlY3Rpb25zL2JhY2tncm91bmQucnN0Cm5ldyBmaWxlIG1vZGUgMTAwNjQ0CmluZGV4IDAw
+MDAwMDAwMDAwMC4uMGVjZjkxMDRhYWEyCi0tLSAvZGV2L251bGwKKysrIGIvRG9jdW1lbnRhdGlv
+bi9zZWN0aW9ucy9iYWNrZ3JvdW5kLnJzdApAQCAtMCwwICsxLDEwNSBAQAorPT09PT09PT09PT0K
+K0VMRiBzZWN0aW9uIGJhY2tncm91bmQKKz09PT09PT09PT09CisKK0Fib3V0Cis9PSsKK1RoZSBw
+dXJwb3NlIG9mIHRoaXMgY2hhcHRlciBpcyB0byBoZWxwIHRob3NlIG5vdCBmYW1pbGlhciB3aXRo
+IEVMRiB0byBicnVzaCB1cAordGhlIGxhdGVzdCBFTEYgc3BlY2lmaWNhdGlvbnMgaW4gb3JkZXIg
+dG8gaGVscCB1bmRlcnN0YW5kIGhvdyBMaW51eCB1c2VzIGFuZAorZGVmaW5lcyBpdHMgb3duIEVM
+RiBzZWN0aW9ucy4KKworU3RhbmRhcmRpemVkIEVMRgorPT09PT09PT0KKworVGhlIGZpcnN0IHB1
+YmxpY2F0aW9uIGRvY3VtZW50aW5nIEVMRiB3YXMgVU5JWCBTeXN0ZW0gTGFib3JhdG9yaWVzJyAo
+VVNMKQorKlN5c3RlbSBWIFJlbGVhc2UgNCBBcHBsaWNhdGlvbiBCaW5hcnkgSW50ZXJmYWNlKiAo
+YFNSVjQgQUJJYF8pIHNwZWNpZmljYXRpb24uCitPcmlnaW5hbGx5IEVMRiB3YXMgb25seSBhIHNt
+YWxsIHBhcnQgb2YgdGhlIFNSVjQgQUJJLCB3aXRoIHRpbWUgaG93ZXZlciBuZXcKK3NwZWNpZmlj
+YXRpb25zIG9ubHkgcHV0IGZvY3VzIG9uIEVMRiwgc3VjaCB3YXMgdGhlIGNhc2Ugb2YgdGhlICpU
+SVMgUG9ydGFibGUKK0Zvcm1hdHMgU3BlY2lmaWNhdGlvbiB2ZXJzaW9uIDEuMiogKGBUSVMgMS4y
+YF8pLiBBcyBvZiBUSVMgMS4yLCBFTEYgd2FzCitzdXBwbGVtZW50ZWQgd2l0aCBwcm9jZXNzb3Ig
+c3BlY2lmaWMgRUxGIGFkZGVuZHVtcywgYXZhaWxhYmxlIG9uIHRoZSAqTGludXgKK0ZvdW5kYXRp
+b24gcmVmZXJlbmNlZCBzcGVjaWZpY2F0aW9uIHBhZ2UqIChgTEYgcmVmIHBhZ2VgXykuIFRoZSBs
+YXRlc3QgRUxGCitzcGVjaWZpY2F0aW9uIGlzIHRoZSAqU3lzdGVtIFYgQXBwbGljYXRpb24gQmlu
+YXJ5IEludGVyZmFjZSAtIERSQUZUIC0gMjQgQXByaWwKKzIwMDEqIChgZ2FiaTRgXykuCisKKy4u
+IF9TUlY0IEFCSTogaHR0cDovL3d3dy5zY28uY29tL2RldmVsb3BlcnMvZGV2c3BlY3MvZ2FiaTQx
+LnBkZgorLi4gX1RJUyAxLjI6IGh0dHBzOi8vcmVmc3BlY3MubGludXhiYXNlLm9yZy9lbGYvZWxm
+LnBkZgorLi4gX0xGIHJlZiBwYWdlOiBodHRwczovL3JlZnNwZWNzLmxpbnV4YmFzZS5vcmcvCisu
+LiBfZ2FiaTQ6IGh0dHBzOi8vcmVmc3BlY3MubGludXhiYXNlLm9yZy9lbGYvZ2FiaTQrL2NvbnRl
+bnRzLmh0bWwKKworRUxGIHZpZXdzIG9uIExpbnV4Cis9PT09PT09PT0KKworVGhlcmUgYXJlIHR3
+byB2aWV3cyB3aGljaCBjYW4gYmUgdXNlZCBmb3IgaW5zcGVjdGluZyBkYXRhIGluIGFuIEVMRiBm
+aWxlLCBhCitMaW5raW5nIHZpZXcsIGFuZCBhbiBFeGVjdXRpb24gdmlldy4gQSBTZWN0aW9uIEhl
+YWRlciBUYWJsZSBlbmFibGVzIG9uZSB0bworZGVzY3JpYmUgYW4gb2JqZWN0IHVzaW5nIHRoZSBM
+aW5raW5nIHZpZXcgd2hpbGUgYSBQcm9ncmFtIEhlYWRlciBUYWJsZSBlbmFibGVzCitvbmUgdG8g
+ZGVzY3JpYmUgYW4gb2JqZWN0IHVzaW5nIHRoZSBFeGVjdXRpb24gdmlldy4gVGhlIHZpZXdzIGFy
+ZSBub3QgbXV0dWFsbHkKK2V4Y2x1c2l2ZS4gRm9yIGludGFuY2UsIHZtbGludXggY2FuIGJlIHZp
+ZXdlZCB1bmRlciBib3RoIHZpZXdzLCBgYHJlYWRlbGYgLVMKK3ZtbGludXhgYCBmb3IgdGhlIExp
+bmtpbmcgdmlldywgYW5kIGBgcmVhZGVsZiAtbCB2bWxpbnV4YGAgZm9yIHRoZSBFeGVjdXRpb24K
+K3ZpZXcuICBJbiBMaW51eCBvbmx5IHRoZSB2bWxpbnV4IGZpbGUgd2lsbCBoYXZlIGFuIEV4ZWN1
+dGlvbiB2aWV3LCBldmVuIG1vZHVsZXMKK2xhY2sgYW4gRXhlY3V0aW9uIHZpZXcgZ2l2ZW4gdGhh
+dCB2bWxpbnV4IGlzIHRoZSBvbmx5IGZpbGUgdGhhdCBkZXNjcmliZXMgaG93Cit0aGUgdGhlIGtl
+cm5lbCBydW5zIGZyb20gdGhlIHN0YXJ0LiAgQWxsIG90aGVyIExpbnV4IGtlcm5lbCBvYmplY3Qg
+ZmlsZXMgaGF2ZQorYW4gYXZhaWxhYmxlIExpbmtpbmcgdmlldy4KKworVW5kZXIgdGhlIExpbmtp
+bmcgdmlldywgdGhlIFNlY3Rpb24gSGVhZGVyIFRhYmxlIGRlc2NyaWJlcyBhbGwgYXZhaWxhYmxl
+CitzZWN0aW9ucy4gVGhlIFNlY3Rpb24gSGVhZGVyIFRhYmxlIGlzIGFuIGFycmF5IG9mIEVMRiBz
+ZWN0aW9uIGhlYWRlciBkYXRhCitzdHJ1Y3R1cmVzLiBJZiBvbiBhIDMyLWJpdCBzeXN0ZW0gdGhp
+cyBpcyBgYHN0cnVjdCBlbGYzMl9zaGRgYCwgaWYgb24gYSA2NC1iaXQKK3RoaXMgaXMgYGBzdHJ1
+Y3QgZWxmNjRfc2hkcmBgLiBTZWN0aW9ucyBhcmUgb25seSB2aXNpYmxlIG9uIG9iamVjdCBmaWxl
+cyB0aGF0CitoYXZlIGEgTGlua2luZyB2aWV3LCBzaW5jZSBhbGwgTGludXgga2VybmVsIGZpbGVz
+IGhhdmUgTGlua2luZyB2aWV3LCBhbGwga2VybmVsCitvYmplY3RzIGhhdmUgRUxGIHNlY3Rpb25z
+LgorCitMaW1pdGF0aW9ucyBvbiBFTEYgc2VjdGlvbnMKKz09PT09PT09PT09PT0rCitXZSBwcm92
+aWRlIGEgc3VtbWFyeSBvbiB0aGUgbGltaXRhdGlvbnMgb2YgRUxGIHNlY3Rpb25zLiBSZWZlciB0
+byB0aGUgcHVibGljCitFTEYgc3BlY2lmaWNhdGlvbnMgZm9yIGRldGFpbHMuIE5vdGUgdGhhdCA2
+NC1iaXQgbGltaXRhdGlvbnMgbWF5IGRlcGVuZAorb24gcHJvY2Vzc29yIHNwZWNpZmljIHNlY3Rp
+b24gYXR0cmlidXRlcyB0byBiZSB1c2VkLCByZWZlciB0byB5b3VyIHByb2Nlc3Nzb3IKK3NwZWNp
+ZmljYXRpb24gaWYgdW5zdXJlLgorCitJdHMgd29ydGggZWxsYWJvcmF0aW5nIG9uIHRoZSBsaW1p
+dGF0aW9ucyBvbiB0aGUgbmFtZSBvZiBhbiBFTEYgc2VjdGlvbjoKK0VMRiBzZWN0aW9uIG5hbWVz
+IGFyZSBzdG9yZWQgYXMgc3RyaW5ncyBhcyBwZXIgdGhlIEVMRiBzcGVjaWZpY2F0aW9uLCBhbmQK
+K2FzIGNhbiBiZSBleHBlY3RlZCwgdGhlc2UgZG9uJ3QgaGF2ZSBleHBsaWNpdCBsaW1pdGF0aW9u
+cy4gVGhlIGltcGxpY2l0CitsaW1pdGF0aW9uIHRoZW4gZGVwZW5kcyBvbiB0aGUgc2l6ZSBvZiBh
+biBFTEYgb2JqZWN0IGZpbGUgYW5kIEVMRiBzZWN0aW9uLgorCitJZiB1c2luZyByZWFsbHkgbGFy
+Z2Uga2VybmVscyBvciBvYmplY3RzIHdpdGggbGFyZ2UgYW1vdW50cyBvZiBzZWN0aW9ucyBvbmUK
+K3dvdWxkIHN0aWxsIG5lZWQgdG8gYmUgc3VyZSB0aGF0IEVMRiBsb2FkZXIgaW4gY2hhcmdlIG9m
+IGxvYWRpbmcgdGhlIExpbnV4CitrZXJuZWwgaXMgcHJvcGVybHkgdXBkYXRlZCB0byBoYW5kbGUg
+Y29waW5nIHdpdGggdGhlIGxhdGVzdCBFTEYgZXh0ZW5zaW9ucy4KKworICAgLi4gZmxhdC10YWJs
+ZTo6IExpbWl0YXRpb25zIG9uIEVMRiBTZWN0aW9ucworCisgICAgICAqIC0gU2VjdGlvbiBhdHRy
+aWJ1dGUKKyAgICAgICAgLSAzMi1iaXQKKyAgICAgICAgLSA2NC1iaXQKKworICAgICAgKiAtIEVM
+RiBzZWN0aW9uIG5hbWUKKyAgICAgICAgLSBTaXplIG9mIGFuIEVMRiBzZWN0aW9uCisgICAgICAg
+IC0gU2l6ZSBvZiBhbiBFTEYgc2VjdGlvbgorCisgICAgICAqIC0gU2l6ZSBvZiBhbiBFTEYgc2Vj
+dGlvbgorICAgICAgICAtIDQgR2lCCisgICAgICAgIC0gMTYgRWlCCisKKyAgICAgICogLSBNYXgg
+bnVtYmVyIG9mIHNlY3Rpb25zIGluIGFuIG9iamVjdCBmaWxlCisgICAgICAgIC0gNCBHaUVudHJp
+ZXMgKDQyOTQ5NjcyOTYpCisgICAgICAgIC0gMTYgRWlFbnRyaWVzICgxODQ0Njc0NDA3MzcwOTU1
+MTYxNikKKworUHJvZ3JhbSBzcGVjaWZpYyBFTEYgc2VjdGlvbnMKKz09PT09PT09PT09PT09Kwor
+VGhlIEVMRiBzcGVjaWZpY2F0aW9uIGFsbG93cyBmb3IgYSBzZWN0aW9uIHR5cGUgdG8gYmUgc3Bl
+Y2lmaWVkIGFzCisqUHJvZ3JhbSBzcGVjaWZpYyBzZWN0aW9uKiwgZGVmaW5lZCBhcyBgYFNIVF9Q
+Uk9HQklUU2BgLiBUaGlzIHNlY3Rpb25zIHR5cGUKK2VuYWJsZXMgcHJvZ3JhbXMgdG8gY3VzdG9t
+aXplIHNlY3Rpb25zIGZvciB0aGVpciBvd24gdXNlLiBJbiBhc3NlbWJseSB0aGlzCitzcGVjaWZp
+ZWQgYGBAcHJvZ2JpdHNgYCBvbiBtb3N0IGFyY2hpdGVjdHVyZXMsIG9uIEFSTSB0aGlzIGlzIGBg
+JXByb2diaXRzYGAuCisKK2BgU0hUX1BST0dCSVRTYGAgaXMgdXNlZCBieSBMaW51eCBmb3IgZGVm
+aW5pbmcgYW5kIHVzaW5nIExpbnV4IEVMRiBzZWN0aW9ucy4KKworU3BlY2lhbCBFTEYgU2VjdGlv
+bnMKKz09PT09PT09PT0KKworVGhlIEVMRiBzcGVjaWZpY2F0aW9uIGRlZmluZXMgKlNwZWNpYWwg
+RUxGIFNlY3Rpb25zKiBvbiBjaGFwdGVyIDQgKGBnYWJpNAorY2g0YF8pLiBUaGVzZSBhcmUgZGVm
+aW5lZCBhcyBzZWN0aW9ucyB3aGljaCBob2xkIHByb2dyYW0gYW5kIGNvbnRyb2wKK2luZm9ybWF0
+aW9uLiBPZiB0aGVzZSBzZWN0aW9ucywgYSBmZXcgaGF2ZSB0aGUgc2VjdGlvbiB0eXBlIGFzCitg
+YFNIVF9QUk9HQklUU2BgLiBUaGlzIGVuYWJsZXMgTGludXggdG8gKmZ1cnRoZXIgY3VzdG9taXpl
+KiB1c2Ugb2YgdGhlIHNlY3Rpb24KK2JleW9uZCB3aGF0IHRoZSBFTEYgc3BlY2lmaWNhdGlvbiBz
+dWdnZXN0cy4KKworLi4gX2dhYmk0IGNoNDogaHR0cHM6Ly9yZWZzcGVjcy5saW51eGJhc2Uub3Jn
+L2VsZi9nYWJpNCsvY2g0LnNoZWFkZXIuaHRtbCNzcGVjaWFsX3NlY3Rpb25zCmRpZmYgLS1naXQg
+YS9Eb2N1bWVudGF0aW9uL3NlY3Rpb25zL2NvbmYucHkgYi9Eb2N1bWVudGF0aW9uL3NlY3Rpb25z
+L2NvbmYucHkKbmV3IGZpbGUgbW9kZSAxMDA2NDQKaW5kZXggMDAwMDAwMDAwMDAwLi5mYWExYzU3
+NTk1ZTEKLS0tIC9kZXYvbnVsbAorKysgYi9Eb2N1bWVudGF0aW9uL3NlY3Rpb25zL2NvbmYucHkK
+QEAgLTAsMCArMSw0IEBACisjIC0qLSBjb2Rpbmc6IHV0Zi04OyBtb2RlOiBweXRob24gLSotCisK
+K3Byb2plY3QgPSAnTGludXggS2VybmVsIEVMRiBzZWN0aW9ucycKK2h0bWxfc2VhcmNoX2xhbmd1
+YWdlID0gJ2VuJwpkaWZmIC0tZ2l0IGEvRG9jdW1lbnRhdGlvbi9zZWN0aW9ucy9pbmRleC5yc3Qg
+Yi9Eb2N1bWVudGF0aW9uL3NlY3Rpb25zL2luZGV4LnJzdApuZXcgZmlsZSBtb2RlIDEwMDY0NApp
+bmRleCAwMDAwMDAwMDAwMDAuLmYzNzUxMWVmMDVlNwotLS0gL2Rldi9udWxsCisrKyBiL0RvY3Vt
+ZW50YXRpb24vc2VjdGlvbnMvaW5kZXgucnN0CkBAIC0wLDAgKzEsMTcgQEAKKz09PT09PT09PT09
+PStMaW51eCBLZXJuZWwgRUxGIHNlY3Rpb25zCis9PT09PT09PT09PT0rCitUaGlzIGJvb2sgZG9j
+dW1lbnRzIHRoZSBkaWZmZXJlbnQgRUxGIHNlY3Rpb25zIHVzZWQgb24gdGhlIExpbnV4IGtlcm5l
+bC4KK1dlIHN0YXJ0IG9mZiBieSBwcm92aWRpbmcgcmVmZXJlbmNlcyB0byBob3cgRUxGIHdhcyBz
+dGFuZGFyZGl6ZWQsIHJlZmVyZW5jZXMKK3RvIHRoZSBzdGFuZGFyZHMgb24gRUxGIHNlY3Rpb25z
+LCByZXZpZXcgbGltaXRhdGlvbnMgb2YgRUxGIHNlY3Rpb25zLCBhbmQKK2ZpbmFsbHkgaG93IExp
+bnV4IHVzZXMgRUxGIHNlY3Rpb25zIGluIHRoZSBMaW51eCBrZXJuZWwuIENlcnRhaW4gaW1wb3J0
+YW50CitMaW51eCBFTEYgc2VjdGlvbnMgYXJlIGRvY3VtZW50ZWQgY2FyZWZ1bGx5OiB3ZSBkZXNj
+cmliZSB0aGUgZ29hbCBvZiB0aGUKK0VMRiBzZWN0aW9uLCBhbmQgYWRkcmVzcyBjb25jdXJyZW5j
+eSBjb25zaWRlcmF0aW9ucyB3aGVuIGFwcGxpY2FibGUuIEEgZmV3Citjb21tb24gYSBzZXQgb2Yg
+TGludXggaGVscGVycyBmb3IgRUxGIHNlY3Rpb25zIGFyZSBhbHNvIGRvY3VtZW50ZWQuCisKKy4u
+IHRvY3RyZWU6OgorICAgOm1heGRlcHRoOiA0CisKKyAgIGJhY2tncm91bmQKKyAgIHNlY3Rpb24t
+Y29yZQpkaWZmIC0tZ2l0IGEvRG9jdW1lbnRhdGlvbi9zZWN0aW9ucy9zZWN0aW9uLWNvcmUucnN0
+IGIvRG9jdW1lbnRhdGlvbi9zZWN0aW9ucy9zZWN0aW9uLWNvcmUucnN0Cm5ldyBmaWxlIG1vZGUg
+MTAwNjQ0CmluZGV4IDAwMDAwMDAwMDAwMC4uYWM1ODE1YTBkOWIzCi0tLSAvZGV2L251bGwKKysr
+IGIvRG9jdW1lbnRhdGlvbi9zZWN0aW9ucy9zZWN0aW9uLWNvcmUucnN0CkBAIC0wLDAgKzEsMTQ4
+IEBACis9PT09PT09PT09PT09PT09PStMaW51eCBFTEYgcHJvZ3JhbSBzcGVjaWZpYyBzZWN0aW9u
+cworPT09PT09PT09PT09PT09PT0rCisuLiBrZXJuZWwtZG9jOjogaW5jbHVkZS9hc20tZ2VuZXJp
+Yy9zZWN0aW9uLWNvcmUuaAorICAgOmRvYzogTGludXggRUxGIHByb2dyYW0gc3BlY2lmaWMgc2Vj
+dGlvbnMKKworTGludXggbGlua2VyIHNjcmlwdAorPT09PT09PT09KworLi4ga2VybmVsLWRvYzo6
+IGluY2x1ZGUvYXNtLWdlbmVyaWMvc2VjdGlvbi1jb3JlLmgKKyAgIDpkb2M6IExpbnV4IGxpbmtl
+ciBzY3JpcHQKKworTWVtb3J5IHByb3RlY3Rpb24KKy0tLS0tLS0tLS0tLS0tLS0tCisuLiBrZXJu
+ZWwtZG9jOjogaW5jbHVkZS9hc20tZ2VuZXJpYy9zZWN0aW9uLWNvcmUuaAorICAgOmRvYzogTWVt
+b3J5IHByb3RlY3Rpb24KKworbWFya19yb2RhdGFfcm8KKy0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+CisuLiBrZXJuZWwtZG9jOjogaW5jbHVkZS9saW51eC9pbml0LmgKKyAgIDpmdW5jdGlvbnM6IG1h
+cmtfcm9kYXRhX3JvCisKKy5yb2RhdGEKKy0tLS0tLS0KKy4uIGtlcm5lbC1kb2M6OiBpbmNsdWRl
+L2FzbS1nZW5lcmljL3NlY3Rpb24tY29yZS5oCisgICA6ZG9jOiAucm9kYXRhCisKKy50ZXh0Cist
+LS0tLQorLi4ga2VybmVsLWRvYzo6IGluY2x1ZGUvYXNtLWdlbmVyaWMvc2VjdGlvbi1jb3JlLmgK
+KyAgIDpkb2M6IC50ZXh0CisKKy5kYXRhCistLS0tLS0tLS0tLS0KKy4uIGtlcm5lbC1kb2M6OiBp
+bmNsdWRlL2FzbS1nZW5lcmljL3NlY3Rpb24tY29yZS5oCisgICA6ZG9jOiAuZGF0YQorCitMaW51
+eCAuaW5pdFwqIHNlY3Rpb25zCis9PT09PT09PT09PQorCisuLiBrZXJuZWwtZG9jOjogaW5jbHVk
+ZS9hc20tZ2VuZXJpYy9zZWN0aW9uLWNvcmUuaAorICAgOmRvYzogTGludXggaW5pdCBzZWN0aW9u
+cworCisuaW5pdC50ZXh0CistLS0tLS0tLS0tCisuLiBrZXJuZWwtZG9jOjogaW5jbHVkZS9hc20t
+Z2VuZXJpYy9zZWN0aW9uLWNvcmUuaAorICAgOmRvYzogLmluaXQudGV4dAorCisuaW5pdC5kYXRh
+CistLS0tLS0tLS0tCisuLiBrZXJuZWwtZG9jOjogaW5jbHVkZS9hc20tZ2VuZXJpYy9zZWN0aW9u
+LWNvcmUuaAorICAgOmRvYzogLmluaXQuZGF0YQorCisuaW5pdC5yb2RhdGEKKy0tLS0tLS0tLS0t
+LQorLi4ga2VybmVsLWRvYzo6IGluY2x1ZGUvYXNtLWdlbmVyaWMvc2VjdGlvbi1jb3JlLmgKKyAg
+IDpkb2M6IC5pbml0LnJvZGF0YQorCitJbml0Y2FsbCBsZXZlbHMKKy0tLS0tLS0tLS0tLS0tLQor
+Li4ga2VybmVsLWRvYzo6IGluY2x1ZGUvbGludXgvaW5pdC5oCisgICA6ZG9jOiBJbml0Y2FsbCBs
+ZXZlbHMKKworLmluaXRjYWxsCistLS0tLS0tLS0tLS0tLS0tLQorLi4ga2VybmVsLWRvYzo6IGlu
+Y2x1ZGUvYXNtLWdlbmVyaWMvc2VjdGlvbi1jb3JlLmgKKyAgIDpkb2M6IC5pbml0Y2FsbAorCitf
+X2RlZmluZV9pbml0Y2FsbAorLS0tLS0tLS0tLS0tLS0tLS0KKy4uIGtlcm5lbC1kb2M6OiBpbmNs
+dWRlL2xpbnV4L2luaXQuaAorICAgOmZ1bmN0aW9uczogX19kZWZpbmVfaW5pdGNhbGwKKworTGlu
+dXggLmV4aXRcKiBzZWN0aW9ucworPT09PT09PT09PT0KKworLi4ga2VybmVsLWRvYzo6IGluY2x1
+ZGUvYXNtLWdlbmVyaWMvc2VjdGlvbi1jb3JlLmgKKyAgIDpkb2M6IExpbnV4IGV4aXQgc2VjdGlv
+bnMKKworLmV4aXQudGV4dAorLS0tLS0tLS0tLQorLi4ga2VybmVsLWRvYzo6IGluY2x1ZGUvYXNt
+LWdlbmVyaWMvc2VjdGlvbi1jb3JlLmgKKyAgIDpkb2M6IC5leGl0LnRleHQKKworLmV4aXQuZGF0
+YQorLS0tLS0tLS0tLQorLi4ga2VybmVsLWRvYzo6IGluY2x1ZGUvYXNtLWdlbmVyaWMvc2VjdGlv
+bi1jb3JlLmgKKyAgIDpkb2M6IC5leGl0LmRhdGEKKworLmV4aXRjYWxsLmV4aXQKKy0tLS0tLS0t
+LS0tLS0tCisuLiBrZXJuZWwtZG9jOjogaW5jbHVkZS9hc20tZ2VuZXJpYy9zZWN0aW9uLWNvcmUu
+aAorICAgOmRvYzogLmV4aXRjYWxsLmV4aXQKKworTGludXggLnJlZlwqIHNlY3Rpb25zCis9PT09
+PT09PT09KworLi4ga2VybmVsLWRvYzo6IGluY2x1ZGUvYXNtLWdlbmVyaWMvc2VjdGlvbi1jb3Jl
+LmgKKyAgIDpkb2M6IExpbnV4IHJlZmVyZW5jZXMgdG8gaW5pdCBzZWN0aW9ucworCisucmVmLnRl
+eHQKKy0tLS0tLS0tLQorLi4ga2VybmVsLWRvYzo6IGluY2x1ZGUvYXNtLWdlbmVyaWMvc2VjdGlv
+bi1jb3JlLmgKKyAgIDpkb2M6IC5yZWYudGV4dAorCisucmVmLmRhdGEKKy0tLS0tLS0tLQorLi4g
+a2VybmVsLWRvYzo6IGluY2x1ZGUvYXNtLWdlbmVyaWMvc2VjdGlvbi1jb3JlLmgKKyAgIDpkb2M6
+IC5yZWYuZGF0YQorCisucmVmLnJvZGF0YQorLS0tLS0tLS0tLS0KKy4uIGtlcm5lbC1kb2M6OiBp
+bmNsdWRlL2FzbS1nZW5lcmljL3NlY3Rpb24tY29yZS5oCisgICA6ZG9jOiAucmVmLnJvZGF0YQor
+CitHZW5lcmljIExpbnV4IGtlcm5lbCBzZWN0aW9uIGhlbHBlcnMKKz09PT09PT09PT09PT09PT09
+PQorCitJbnRyb2R1Y3Rpb24KKy0tLS0tLS0tLS0tLS0KKy4uIGtlcm5lbC1kb2M6OiBpbmNsdWRl
+L2xpbnV4L3NlY3Rpb25zLmgKKyAgIDpkb2M6IEludHJvZHVjdGlvbgorCitMSU5VWF9TRUNUSU9O
+X0FMSUdOTUVOVAorLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KKy4uIGtlcm5lbC1kb2M6OiBpbmNs
+dWRlL2xpbnV4L3NlY3Rpb25zLmgKKyAgIDpmdW5jdGlvbnM6IExJTlVYX1NFQ1RJT05fQUxJR05N
+RU5UCisKK0xJTlVYX1NFQ1RJT05fU1RBUlQKKy0tLS0tLS0tLS0tLS0tLS0tLS0KKy4uIGtlcm5l
+bC1kb2M6OiBpbmNsdWRlL2xpbnV4L3NlY3Rpb25zLmgKKyAgIDpmdW5jdGlvbnM6IExJTlVYX1NF
+Q1RJT05fU1RBUlQKKworTElOVVhfU0VDVElPTl9FTkQKKy0tLS0tLS0tLS0tLS0tLS0tCisuLiBr
+ZXJuZWwtZG9jOjogaW5jbHVkZS9saW51eC9zZWN0aW9ucy5oCisgICA6ZnVuY3Rpb25zOiBMSU5V
+WF9TRUNUSU9OX0VORAorCitERUNMQVJFX0xJTlVYX1NFQ1RJT04KKy0tLS0tLS0tLS0tLS0tLS0t
+LS0tLQorLi4ga2VybmVsLWRvYzo6IGluY2x1ZGUvbGludXgvc2VjdGlvbnMuaAorICAgOmZ1bmN0
+aW9uczogREVDTEFSRV9MSU5VWF9TRUNUSU9OCisKK0RFQ0xBUkVfTElOVVhfU0VDVElPTl9STwor
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCisuLiBrZXJuZWwtZG9jOjogaW5jbHVkZS9saW51eC9z
+ZWN0aW9ucy5oCisgICA6ZnVuY3Rpb25zOiBERUNMQVJFX0xJTlVYX1NFQ1RJT05fUk8KZGlmZiAt
+LWdpdCBhL01BSU5UQUlORVJTIGIvTUFJTlRBSU5FUlMKaW5kZXggZDBiMmI1MDcwNWJkLi4zMDg4
+MjZmNTA5NGIgMTAwNjQ0Ci0tLSBhL01BSU5UQUlORVJTCisrKyBiL01BSU5UQUlORVJTCkBAIC01
+NDIyLDYgKzU0MjIsMTggQEAgUzoJU3VwcG9ydGVkCiBGOglkcml2ZXJzL2Jhc2UvcG93ZXIvZG9t
+YWluKi5jCiBGOglpbmNsdWRlL2xpbnV4L3BtX2RvbWFpbi5oCiAKK0dFTkVSSUMgU0VDVElPTlMK
+K006CSJMdWlzIFIuIFJvZHJpZ3VleiIgPG1jZ3JvZkBrZXJuZWwub3JnPgorTToJSm9zaCBQb2lt
+Ym9ldWYgPGpwb2ltYm9lQHJlZGhhdC5jb20+CitNOgkiSC4gUGV0ZXIgQW52aW4iIDxocGFAenl0
+b3IuY29tPgorTDoJbGludXgtYXJjaEB2Z2VyLmtlcm5lbC5vcmcKK0w6CWxpbnV4LWtlcm5lbEB2
+Z2VyLmtlcm5lbC5vcmcKK1M6CVN1cHBvcnRlZAorRjoJaW5jbHVkZS9hc20tZ2VuZXJpYy9zZWN0
+aW9uLWNvcmUuaAorRjoJaW5jbHVkZS9hc20tZ2VuZXJpYy9zZWN0aW9ucy5oCitGOglpbmNsdWRl
+L2FzbS1nZW5lcmljL3ZtbGludXgubGRzLmgKK0Y6CURvY3VtZW50YXRpb24vc2VjdGlvbnMvc2Vj
+dGlvbi1jb3JlLnJzdAorCiBHRU5FUklDIFVJTyBEUklWRVIgRk9SIFBDSSBERVZJQ0VTCiBNOgki
+TWljaGFlbCBTLiBUc2lya2luIiA8bXN0QHJlZGhhdC5jb20+CiBMOglrdm1Admdlci5rZXJuZWwu
+b3JnCmRpZmYgLS1naXQgYS9hcmNoL2FscGhhL2luY2x1ZGUvYXNtL0tidWlsZCBiL2FyY2gvYWxw
+aGEvaW5jbHVkZS9hc20vS2J1aWxkCmluZGV4IGJmODQ3NWNlODVlZS4uNTQyMjgyN2YxNTg1IDEw
+MDY0NAotLS0gYS9hcmNoL2FscGhhL2luY2x1ZGUvYXNtL0tidWlsZAorKysgYi9hcmNoL2FscGhh
+L2luY2x1ZGUvYXNtL0tidWlsZApAQCAtMTAsMyArMTAsNCBAQCBnZW5lcmljLXkgKz0gbW0tYXJj
+aC1ob29rcy5oCiBnZW5lcmljLXkgKz0gcHJlZW1wdC5oCiBnZW5lcmljLXkgKz0gc2VjdGlvbnMu
+aAogZ2VuZXJpYy15ICs9IHRyYWNlX2Nsb2NrLmgKK2dlbmVyaWMteSArPSBzZWN0aW9uLWNvcmUu
+aApkaWZmIC0tZ2l0IGEvYXJjaC9hcmMvaW5jbHVkZS9hc20vS2J1aWxkIGIvYXJjaC9hcmMvaW5j
+bHVkZS9hc20vS2J1aWxkCmluZGV4IGMzMzI2MDQ2MDZkZC4uN2IyY2IzZGVhNWZjIDEwMDY0NAot
+LS0gYS9hcmNoL2FyYy9pbmNsdWRlL2FzbS9LYnVpbGQKKysrIGIvYXJjaC9hcmMvaW5jbHVkZS9h
+c20vS2J1aWxkCkBAIC01MSwzICs1MSw0IEBAIGdlbmVyaWMteSArPSB1c2VyLmgKIGdlbmVyaWMt
+eSArPSB2Z2EuaAogZ2VuZXJpYy15ICs9IHdvcmQtYXQtYS10aW1lLmgKIGdlbmVyaWMteSArPSB4
+b3IuaAorZ2VuZXJpYy15ICs9IHNlY3Rpb24tY29yZS5oCmRpZmYgLS1naXQgYS9hcmNoL2FybS9p
+bmNsdWRlL2FzbS9LYnVpbGQgYi9hcmNoL2FybS9pbmNsdWRlL2FzbS9LYnVpbGQKaW5kZXggZWZi
+MjE3NTdkNDFmLi45YjY5YTIyYTlhZTEgMTAwNjQ0Ci0tLSBhL2FyY2gvYXJtL2luY2x1ZGUvYXNt
+L0tidWlsZAorKysgYi9hcmNoL2FybS9pbmNsdWRlL2FzbS9LYnVpbGQKQEAgLTQxLDMgKzQxLDQg
+QEAgZ2VuZXJpYy15ICs9IHVuYWxpZ25lZC5oCiAKIGdlbmVyYXRlZC15ICs9IG1hY2gtdHlwZXMu
+aAogZ2VuZXJhdGVkLXkgKz0gdW5pc3RkLW5yLmgKK2dlbmVyaWMteSArPSBzZWN0aW9uLWNvcmUu
+aApkaWZmIC0tZ2l0IGEvYXJjaC9hcm02NC9pbmNsdWRlL2FzbS9LYnVpbGQgYi9hcmNoL2FybTY0
+L2luY2x1ZGUvYXNtL0tidWlsZAppbmRleCA4MzY1YTg0YzI2NDAuLjAwYWNlNWU4MjZmMSAxMDA2
+NDQKLS0tIGEvYXJjaC9hcm02NC9pbmNsdWRlL2FzbS9LYnVpbGQKKysrIGIvYXJjaC9hcm02NC9p
+bmNsdWRlL2FzbS9LYnVpbGQKQEAgLTQ1LDMgKzQ1LDQgQEAgZ2VuZXJpYy15ICs9IHVuYWxpZ25l
+ZC5oCiBnZW5lcmljLXkgKz0gdXNlci5oCiBnZW5lcmljLXkgKz0gdmdhLmgKIGdlbmVyaWMteSAr
+PSB4b3IuaAorZ2VuZXJpYy15ICs9IHNlY3Rpb24tY29yZS5oCmRpZmYgLS1naXQgYS9hcmNoL2F2
+cjMyL2luY2x1ZGUvYXNtL0tidWlsZCBiL2FyY2gvYXZyMzIvaW5jbHVkZS9hc20vS2J1aWxkCmlu
+ZGV4IDI0MWI5Yjk3MjlkOC4uZjJjM2I2NTZhMGU3IDEwMDY0NAotLS0gYS9hcmNoL2F2cjMyL2lu
+Y2x1ZGUvYXNtL0tidWlsZAorKysgYi9hcmNoL2F2cjMyL2luY2x1ZGUvYXNtL0tidWlsZApAQCAt
+MjIsMyArMjIsNCBAQCBnZW5lcmljLXkgKz0gdHJhY2VfY2xvY2suaAogZ2VuZXJpYy15ICs9IHZn
+YS5oCiBnZW5lcmljLXkgKz0gd29yZC1hdC1hLXRpbWUuaAogZ2VuZXJpYy15ICs9IHhvci5oCitn
+ZW5lcmljLXkgKz0gc2VjdGlvbi1jb3JlLmgKZGlmZiAtLWdpdCBhL2FyY2gvYmxhY2tmaW4vaW5j
+bHVkZS9hc20vS2J1aWxkIGIvYXJjaC9ibGFja2Zpbi9pbmNsdWRlL2FzbS9LYnVpbGQKaW5kZXgg
+MmZiNjdiNTlkMTg4Li5iZjIwNTQxYmNmMjEgMTAwNjQ0Ci0tLSBhL2FyY2gvYmxhY2tmaW4vaW5j
+bHVkZS9hc20vS2J1aWxkCisrKyBiL2FyY2gvYmxhY2tmaW4vaW5jbHVkZS9hc20vS2J1aWxkCkBA
+IC00NywzICs0Nyw0IEBAIGdlbmVyaWMteSArPSB1bmFsaWduZWQuaAogZ2VuZXJpYy15ICs9IHVz
+ZXIuaAogZ2VuZXJpYy15ICs9IHdvcmQtYXQtYS10aW1lLmgKIGdlbmVyaWMteSArPSB4b3IuaAor
+Z2VuZXJpYy15ICs9IHNlY3Rpb24tY29yZS5oCmRpZmYgLS1naXQgYS9hcmNoL2M2eC9pbmNsdWRl
+L2FzbS9LYnVpbGQgYi9hcmNoL2M2eC9pbmNsdWRlL2FzbS9LYnVpbGQKaW5kZXggNjQ0NjVlN2Uy
+MjQ1Li4zODEyN2NlNzQ3YmUgMTAwNjQ0Ci0tLSBhL2FyY2gvYzZ4L2luY2x1ZGUvYXNtL0tidWls
+ZAorKysgYi9hcmNoL2M2eC9pbmNsdWRlL2FzbS9LYnVpbGQKQEAgLTYyLDMgKzYyLDQgQEAgZ2Vu
+ZXJpYy15ICs9IHVzZXIuaAogZ2VuZXJpYy15ICs9IHZnYS5oCiBnZW5lcmljLXkgKz0gd29yZC1h
+dC1hLXRpbWUuaAogZ2VuZXJpYy15ICs9IHhvci5oCitnZW5lcmljLXkgKz0gc2VjdGlvbi1jb3Jl
+LmgKZGlmZiAtLWdpdCBhL2FyY2gvY3Jpcy9pbmNsdWRlL2FzbS9LYnVpbGQgYi9hcmNoL2NyaXMv
+aW5jbHVkZS9hc20vS2J1aWxkCmluZGV4IDE3Nzg4MDVmNjM4MC4uMzg1Y2Q4OGE5ZDllIDEwMDY0
+NAotLS0gYS9hcmNoL2NyaXMvaW5jbHVkZS9hc20vS2J1aWxkCisrKyBiL2FyY2gvY3Jpcy9pbmNs
+dWRlL2FzbS9LYnVpbGQKQEAgLTQ1LDMgKzQ1LDQgQEAgZ2VuZXJpYy15ICs9IHR5cGVzLmgKIGdl
+bmVyaWMteSArPSB2Z2EuaAogZ2VuZXJpYy15ICs9IHdvcmQtYXQtYS10aW1lLmgKIGdlbmVyaWMt
+eSArPSB4b3IuaAorZ2VuZXJpYy15ICs9IHNlY3Rpb24tY29yZS5oCmRpZmYgLS1naXQgYS9hcmNo
+L2Zydi9pbmNsdWRlL2FzbS9LYnVpbGQgYi9hcmNoL2Zydi9pbmNsdWRlL2FzbS9LYnVpbGQKaW5k
+ZXggMWZhMDg0Y2YxYTQzLi40NmQ3YzU5OWQ5YjggMTAwNjQ0Ci0tLSBhL2FyY2gvZnJ2L2luY2x1
+ZGUvYXNtL0tidWlsZAorKysgYi9hcmNoL2Zydi9pbmNsdWRlL2FzbS9LYnVpbGQKQEAgLTgsMyAr
+OCw0IEBAIGdlbmVyaWMteSArPSBtbS1hcmNoLWhvb2tzLmgKIGdlbmVyaWMteSArPSBwcmVlbXB0
+LmgKIGdlbmVyaWMteSArPSB0cmFjZV9jbG9jay5oCiBnZW5lcmljLXkgKz0gd29yZC1hdC1hLXRp
+bWUuaAorZ2VuZXJpYy15ICs9IHNlY3Rpb24tY29yZS5oCmRpZmYgLS1naXQgYS9hcmNoL2g4MzAw
+L2luY2x1ZGUvYXNtL0tidWlsZCBiL2FyY2gvaDgzMDAvaW5jbHVkZS9hc20vS2J1aWxkCmluZGV4
+IDM3M2NiMjMzMDFlMy4uMWVjMDRlYzFjODJiIDEwMDY0NAotLS0gYS9hcmNoL2g4MzAwL2luY2x1
+ZGUvYXNtL0tidWlsZAorKysgYi9hcmNoL2g4MzAwL2luY2x1ZGUvYXNtL0tidWlsZApAQCAtNzUs
+MyArNzUsNCBAQCBnZW5lcmljLXkgKz0gdW5hbGlnbmVkLmgKIGdlbmVyaWMteSArPSB2Z2EuaAog
+Z2VuZXJpYy15ICs9IHdvcmQtYXQtYS10aW1lLmgKIGdlbmVyaWMteSArPSB4b3IuaAorZ2VuZXJp
+Yy15ICs9IHNlY3Rpb24tY29yZS5oCmRpZmYgLS1naXQgYS9hcmNoL2hleGFnb24vaW5jbHVkZS9h
+c20vS2J1aWxkIGIvYXJjaC9oZXhhZ29uL2luY2x1ZGUvYXNtL0tidWlsZAppbmRleCBkYjhkZGFi
+YzZiZDIuLjM3ZDdiZmFlNzYxOSAxMDA2NDQKLS0tIGEvYXJjaC9oZXhhZ29uL2luY2x1ZGUvYXNt
+L0tidWlsZAorKysgYi9hcmNoL2hleGFnb24vaW5jbHVkZS9hc20vS2J1aWxkCkBAIC02MCwzICs2
+MCw0IEBAIGdlbmVyaWMteSArPSB1bmFsaWduZWQuaAogZ2VuZXJpYy15ICs9IHZnYS5oCiBnZW5l
+cmljLXkgKz0gd29yZC1hdC1hLXRpbWUuaAogZ2VuZXJpYy15ICs9IHhvci5oCitnZW5lcmljLXkg
+Kz0gc2VjdGlvbi1jb3JlLmgKZGlmZiAtLWdpdCBhL2FyY2gvaWE2NC9pbmNsdWRlL2FzbS9LYnVp
+bGQgYi9hcmNoL2lhNjQvaW5jbHVkZS9hc20vS2J1aWxkCmluZGV4IDUwMmE5MWQ4ZGJiZC4uNjcy
+YzZkNWRhMThjIDEwMDY0NAotLS0gYS9hcmNoL2lhNjQvaW5jbHVkZS9hc20vS2J1aWxkCisrKyBi
+L2FyY2gvaWE2NC9pbmNsdWRlL2FzbS9LYnVpbGQKQEAgLTksMyArOSw0IEBAIGdlbmVyaWMteSAr
+PSBwcmVlbXB0LmgKIGdlbmVyaWMteSArPSB0cmFjZV9jbG9jay5oCiBnZW5lcmljLXkgKz0gdnRp
+bWUuaAogZ2VuZXJpYy15ICs9IHdvcmQtYXQtYS10aW1lLmgKK2dlbmVyaWMteSArPSBzZWN0aW9u
+LWNvcmUuaApkaWZmIC0tZ2l0IGEvYXJjaC9tMzJyL2luY2x1ZGUvYXNtL0tidWlsZCBiL2FyY2gv
+bTMyci9pbmNsdWRlL2FzbS9LYnVpbGQKaW5kZXggODYwZTQ0MDYxMWM5Li42MTExZTE1MjM3NTAg
+MTAwNjQ0Ci0tLSBhL2FyY2gvbTMyci9pbmNsdWRlL2FzbS9LYnVpbGQKKysrIGIvYXJjaC9tMzJy
+L2luY2x1ZGUvYXNtL0tidWlsZApAQCAtMTEsMyArMTEsNCBAQCBnZW5lcmljLXkgKz0gcHJlZW1w
+dC5oCiBnZW5lcmljLXkgKz0gc2VjdGlvbnMuaAogZ2VuZXJpYy15ICs9IHRyYWNlX2Nsb2NrLmgK
+IGdlbmVyaWMteSArPSB3b3JkLWF0LWEtdGltZS5oCitnZW5lcmljLXkgKz0gc2VjdGlvbi1jb3Jl
+LmgKZGlmZiAtLWdpdCBhL2FyY2gvbTY4ay9pbmNsdWRlL2FzbS9LYnVpbGQgYi9hcmNoL202OGsv
+aW5jbHVkZS9hc20vS2J1aWxkCmluZGV4IDFmMmU1ZDMxY2IyNC4uMTI3N2I0NWJmNGY5IDEwMDY0
+NAotLS0gYS9hcmNoL202OGsvaW5jbHVkZS9hc20vS2J1aWxkCisrKyBiL2FyY2gvbTY4ay9pbmNs
+dWRlL2FzbS9LYnVpbGQKQEAgLTM0LDMgKzM0LDQgQEAgZ2VuZXJpYy15ICs9IHRyYWNlX2Nsb2Nr
+LmgKIGdlbmVyaWMteSArPSB0eXBlcy5oCiBnZW5lcmljLXkgKz0gd29yZC1hdC1hLXRpbWUuaAog
+Z2VuZXJpYy15ICs9IHhvci5oCitnZW5lcmljLXkgKz0gc2VjdGlvbi1jb3JlLmgKZGlmZiAtLWdp
+dCBhL2FyY2gvbWV0YWcvaW5jbHVkZS9hc20vS2J1aWxkIGIvYXJjaC9tZXRhZy9pbmNsdWRlL2Fz
+bS9LYnVpbGQKaW5kZXggMTY3MTUwYzcwMWQxLi5iMTAxMTM3NWNkN2EgMTAwNjQ0Ci0tLSBhL2Fy
+Y2gvbWV0YWcvaW5jbHVkZS9hc20vS2J1aWxkCisrKyBiL2FyY2gvbWV0YWcvaW5jbHVkZS9hc20v
+S2J1aWxkCkBAIC01NSwzICs1NSw0IEBAIGdlbmVyaWMteSArPSB1c2VyLmgKIGdlbmVyaWMteSAr
+PSB2Z2EuaAogZ2VuZXJpYy15ICs9IHdvcmQtYXQtYS10aW1lLmgKIGdlbmVyaWMteSArPSB4b3Iu
+aAorZ2VuZXJpYy15ICs9IHNlY3Rpb24tY29yZS5oCmRpZmYgLS1naXQgYS9hcmNoL21pY3JvYmxh
+emUvaW5jbHVkZS9hc20vS2J1aWxkIGIvYXJjaC9taWNyb2JsYXplL2luY2x1ZGUvYXNtL0tidWls
+ZAppbmRleCBiMGFlODhjOWZlZDkuLmM2YzJjZjZlZGM5OCAxMDA2NDQKLS0tIGEvYXJjaC9taWNy
+b2JsYXplL2luY2x1ZGUvYXNtL0tidWlsZAorKysgYi9hcmNoL21pY3JvYmxhemUvaW5jbHVkZS9h
+c20vS2J1aWxkCkBAIC0xMSwzICsxMSw0IEBAIGdlbmVyaWMteSArPSBwcmVlbXB0LmgKIGdlbmVy
+aWMteSArPSBzeXNjYWxscy5oCiBnZW5lcmljLXkgKz0gdHJhY2VfY2xvY2suaAogZ2VuZXJpYy15
+ICs9IHdvcmQtYXQtYS10aW1lLmgKK2dlbmVyaWMteSArPSBzZWN0aW9uLWNvcmUuaApkaWZmIC0t
+Z2l0IGEvYXJjaC9taXBzL2luY2x1ZGUvYXNtL0tidWlsZCBiL2FyY2gvbWlwcy9pbmNsdWRlL2Fz
+bS9LYnVpbGQKaW5kZXggNDViMGQ2NTY4MjcwLi5hNjdkMzE3N2YzY2EgMTAwNjQ0Ci0tLSBhL2Fy
+Y2gvbWlwcy9pbmNsdWRlL2FzbS9LYnVpbGQKKysrIGIvYXJjaC9taXBzL2luY2x1ZGUvYXNtL0ti
+dWlsZApAQCAtMjAsMyArMjAsNCBAQCBnZW5lcmljLXkgKz0gdW5hbGlnbmVkLmgKIGdlbmVyaWMt
+eSArPSB1c2VyLmgKIGdlbmVyaWMteSArPSB3b3JkLWF0LWEtdGltZS5oCiBnZW5lcmljLXkgKz0g
+eG9yLmgKK2dlbmVyaWMteSArPSBzZWN0aW9uLWNvcmUuaApkaWZmIC0tZ2l0IGEvYXJjaC9tbjEw
+MzAwL2luY2x1ZGUvYXNtL0tidWlsZCBiL2FyY2gvbW4xMDMwMC9pbmNsdWRlL2FzbS9LYnVpbGQK
+aW5kZXggMWM4ZGQwZjVjZDVkLi5mODE0NWJjODU4MzUgMTAwNjQ0Ci0tLSBhL2FyY2gvbW4xMDMw
+MC9pbmNsdWRlL2FzbS9LYnVpbGQKKysrIGIvYXJjaC9tbjEwMzAwL2luY2x1ZGUvYXNtL0tidWls
+ZApAQCAtMTAsMyArMTAsNCBAQCBnZW5lcmljLXkgKz0gcHJlZW1wdC5oCiBnZW5lcmljLXkgKz0g
+c2VjdGlvbnMuaAogZ2VuZXJpYy15ICs9IHRyYWNlX2Nsb2NrLmgKIGdlbmVyaWMteSArPSB3b3Jk
+LWF0LWEtdGltZS5oCitnZW5lcmljLXkgKz0gc2VjdGlvbi1jb3JlLmgKZGlmZiAtLWdpdCBhL2Fy
+Y2gvbmlvczIvaW5jbHVkZS9hc20vS2J1aWxkIGIvYXJjaC9uaW9zMi9pbmNsdWRlL2FzbS9LYnVp
+bGQKaW5kZXggZDYzMzMwZTg4Mzc5Li5jOWM3Y2I4MmIwMGYgMTAwNjQ0Ci0tLSBhL2FyY2gvbmlv
+czIvaW5jbHVkZS9hc20vS2J1aWxkCisrKyBiL2FyY2gvbmlvczIvaW5jbHVkZS9hc20vS2J1aWxk
+CkBAIC02MywzICs2Myw0IEBAIGdlbmVyaWMteSArPSB1c2VyLmgKIGdlbmVyaWMteSArPSB2Z2Eu
+aAogZ2VuZXJpYy15ICs9IHdvcmQtYXQtYS10aW1lLmgKIGdlbmVyaWMteSArPSB4b3IuaAorZ2Vu
+ZXJpYy15ICs9IHNlY3Rpb24tY29yZS5oCmRpZmYgLS1naXQgYS9hcmNoL29wZW5yaXNjL2luY2x1
+ZGUvYXNtL0tidWlsZCBiL2FyY2gvb3BlbnJpc2MvaW5jbHVkZS9hc20vS2J1aWxkCmluZGV4IDI4
+MzJmMDMxZmIxMS4uODYxNzVlNzAxODY5IDEwMDY0NAotLS0gYS9hcmNoL29wZW5yaXNjL2luY2x1
+ZGUvYXNtL0tidWlsZAorKysgYi9hcmNoL29wZW5yaXNjL2luY2x1ZGUvYXNtL0tidWlsZApAQCAt
+NzEsMyArNzEsNCBAQCBnZW5lcmljLXkgKz0gdXNlci5oCiBnZW5lcmljLXkgKz0gdmdhLmgKIGdl
+bmVyaWMteSArPSB3b3JkLWF0LWEtdGltZS5oCiBnZW5lcmljLXkgKz0geG9yLmgKK2dlbmVyaWMt
+eSArPSBzZWN0aW9uLWNvcmUuaApkaWZmIC0tZ2l0IGEvYXJjaC9wYXJpc2MvaW5jbHVkZS9hc20v
+S2J1aWxkIGIvYXJjaC9wYXJpc2MvaW5jbHVkZS9hc20vS2J1aWxkCmluZGV4IDkxZjUzYzA3ZjQx
+MC4uMThhOWQ0YzVlYWQ3IDEwMDY0NAotLS0gYS9hcmNoL3BhcmlzYy9pbmNsdWRlL2FzbS9LYnVp
+bGQKKysrIGIvYXJjaC9wYXJpc2MvaW5jbHVkZS9hc20vS2J1aWxkCkBAIC0yOCwzICsyOCw0IEBA
+IGdlbmVyaWMteSArPSB1c2VyLmgKIGdlbmVyaWMteSArPSB2Z2EuaAogZ2VuZXJpYy15ICs9IHdv
+cmQtYXQtYS10aW1lLmgKIGdlbmVyaWMteSArPSB4b3IuaAorZ2VuZXJpYy15ICs9IHNlY3Rpb24t
+Y29yZS5oCmRpZmYgLS1naXQgYS9hcmNoL3Bvd2VycGMvaW5jbHVkZS9hc20vS2J1aWxkIGIvYXJj
+aC9wb3dlcnBjL2luY2x1ZGUvYXNtL0tidWlsZAppbmRleCA1YzRmYmM4MGRjNmMuLjQzMjJkOTc0
+NmNkYiAxMDA2NDQKLS0tIGEvYXJjaC9wb3dlcnBjL2luY2x1ZGUvYXNtL0tidWlsZAorKysgYi9h
+cmNoL3Bvd2VycGMvaW5jbHVkZS9hc20vS2J1aWxkCkBAIC04LDMgKzgsNCBAQCBnZW5lcmljLXkg
+Kz0gbWNzX3NwaW5sb2NrLmgKIGdlbmVyaWMteSArPSBwcmVlbXB0LmgKIGdlbmVyaWMteSArPSBy
+d3NlbS5oCiBnZW5lcmljLXkgKz0gdnRpbWUuaAorZ2VuZXJpYy15ICs9IHNlY3Rpb24tY29yZS5o
+CmRpZmYgLS1naXQgYS9hcmNoL3MzOTAvaW5jbHVkZS9hc20vS2J1aWxkIGIvYXJjaC9zMzkwL2lu
+Y2x1ZGUvYXNtL0tidWlsZAppbmRleCA4YWVhMzJmZThiZDIuLjYzYTFjMjkyNGI5MSAxMDA2NDQK
+LS0tIGEvYXJjaC9zMzkwL2luY2x1ZGUvYXNtL0tidWlsZAorKysgYi9hcmNoL3MzOTAvaW5jbHVk
+ZS9hc20vS2J1aWxkCkBAIC04LDMgKzgsNCBAQCBnZW5lcmljLXkgKz0gbW0tYXJjaC1ob29rcy5o
+CiBnZW5lcmljLXkgKz0gcHJlZW1wdC5oCiBnZW5lcmljLXkgKz0gdHJhY2VfY2xvY2suaAogZ2Vu
+ZXJpYy15ICs9IHdvcmQtYXQtYS10aW1lLmgKK2dlbmVyaWMteSArPSBzZWN0aW9uLWNvcmUuaApk
+aWZmIC0tZ2l0IGEvYXJjaC9zY29yZS9pbmNsdWRlL2FzbS9LYnVpbGQgYi9hcmNoL3Njb3JlL2lu
+Y2x1ZGUvYXNtL0tidWlsZAppbmRleCBhMDUyMThmZjNmZTQuLmYwODlhMjY0Y2QzOCAxMDA2NDQK
+LS0tIGEvYXJjaC9zY29yZS9pbmNsdWRlL2FzbS9LYnVpbGQKKysrIGIvYXJjaC9zY29yZS9pbmNs
+dWRlL2FzbS9LYnVpbGQKQEAgLTE0LDMgKzE0LDQgQEAgZ2VuZXJpYy15ICs9IHRyYWNlX2Nsb2Nr
+LmgKIGdlbmVyaWMteSArPSB4b3IuaAogZ2VuZXJpYy15ICs9IHNlcmlhbC5oCiBnZW5lcmljLXkg
+Kz0gd29yZC1hdC1hLXRpbWUuaAorZ2VuZXJpYy15ICs9IHNlY3Rpb24tY29yZS5oCmRpZmYgLS1n
+aXQgYS9hcmNoL3NoL2luY2x1ZGUvYXNtL0tidWlsZCBiL2FyY2gvc2gvaW5jbHVkZS9hc20vS2J1
+aWxkCmluZGV4IDc1MWMzMzczYTkyYy4uN2IwMzU2ZGNhNTYyIDEwMDY0NAotLS0gYS9hcmNoL3No
+L2luY2x1ZGUvYXNtL0tidWlsZAorKysgYi9hcmNoL3NoL2luY2x1ZGUvYXNtL0tidWlsZApAQCAt
+MzksMyArMzksNCBAQCBnZW5lcmljLXkgKz0gdGVybWlvcy5oCiBnZW5lcmljLXkgKz0gdHJhY2Vf
+Y2xvY2suaAogZ2VuZXJpYy15ICs9IHVjb250ZXh0LmgKIGdlbmVyaWMteSArPSB4b3IuaAorZ2Vu
+ZXJpYy15ICs9IHNlY3Rpb24tY29yZS5oCmRpZmYgLS1naXQgYS9hcmNoL3NwYXJjL2luY2x1ZGUv
+YXNtL0tidWlsZCBiL2FyY2gvc3BhcmMvaW5jbHVkZS9hc20vS2J1aWxkCmluZGV4IDA1NjliZmFj
+NGFmYi4uNDM4Zjg2NTczZGM1IDEwMDY0NAotLS0gYS9hcmNoL3NwYXJjL2luY2x1ZGUvYXNtL0ti
+dWlsZAorKysgYi9hcmNoL3NwYXJjL2luY2x1ZGUvYXNtL0tidWlsZApAQCAtMjEsMyArMjEsNCBA
+QCBnZW5lcmljLXkgKz0gc2VyaWFsLmgKIGdlbmVyaWMteSArPSB0cmFjZV9jbG9jay5oCiBnZW5l
+cmljLXkgKz0gdHlwZXMuaAogZ2VuZXJpYy15ICs9IHdvcmQtYXQtYS10aW1lLmgKK2dlbmVyaWMt
+eSArPSBzZWN0aW9uLWNvcmUuaApkaWZmIC0tZ2l0IGEvYXJjaC90aWxlL2luY2x1ZGUvYXNtL0ti
+dWlsZCBiL2FyY2gvdGlsZS9pbmNsdWRlL2FzbS9LYnVpbGQKaW5kZXggMmQxZjU2Mzg5NzRjLi5m
+YjZiODMxYzFmYmEgMTAwNjQ0Ci0tLSBhL2FyY2gvdGlsZS9pbmNsdWRlL2FzbS9LYnVpbGQKKysr
+IGIvYXJjaC90aWxlL2luY2x1ZGUvYXNtL0tidWlsZApAQCAtNDAsMyArNDAsNCBAQCBnZW5lcmlj
+LXkgKz0gdGVybWlvcy5oCiBnZW5lcmljLXkgKz0gdHJhY2VfY2xvY2suaAogZ2VuZXJpYy15ICs9
+IHR5cGVzLmgKIGdlbmVyaWMteSArPSB4b3IuaAorZ2VuZXJpYy15ICs9IHNlY3Rpb24tY29yZS5o
+CmRpZmYgLS1naXQgYS9hcmNoL3VtL2luY2x1ZGUvYXNtL0tidWlsZCBiL2FyY2gvdW0vaW5jbHVk
+ZS9hc20vS2J1aWxkCmluZGV4IDA1MmY3ZjZkMDU1MS4uNTgwYmQ1ZmY4MjhmIDEwMDY0NAotLS0g
+YS9hcmNoL3VtL2luY2x1ZGUvYXNtL0tidWlsZAorKysgYi9hcmNoL3VtL2luY2x1ZGUvYXNtL0ti
+dWlsZApAQCAtMjYsMyArMjYsNCBAQCBnZW5lcmljLXkgKz0gdG9wb2xvZ3kuaAogZ2VuZXJpYy15
+ICs9IHRyYWNlX2Nsb2NrLmgKIGdlbmVyaWMteSArPSB3b3JkLWF0LWEtdGltZS5oCiBnZW5lcmlj
+LXkgKz0geG9yLmgKK2dlbmVyaWMteSArPSBzZWN0aW9uLWNvcmUuaApkaWZmIC0tZ2l0IGEvYXJj
+aC91bmljb3JlMzIvaW5jbHVkZS9hc20vc2VjdGlvbi1jb3JlLmggYi9hcmNoL3VuaWNvcmUzMi9p
+bmNsdWRlL2FzbS9zZWN0aW9uLWNvcmUuaApuZXcgZmlsZSBtb2RlIDEwMDY0NAppbmRleCAwMDAw
+MDAwMDAwMDAuLjBiOWM2ODQyOWExYQotLS0gL2Rldi9udWxsCisrKyBiL2FyY2gvdW5pY29yZTMy
+L2luY2x1ZGUvYXNtL3NlY3Rpb24tY29yZS5oCkBAIC0wLDAgKzEsMTkgQEAKKyNpZm5kZWYgX19V
+TklDT1JFX1NFQ1RJT05fQ09SRV9BU01fSF9fCisjZGVmaW5lIF9fVU5JQ09SRV9TRUNUSU9OX0NP
+UkVfQVNNX0hfXworLyoKKyAqIENvcHlyaWdodCAoQykgMjAxNiBMdWlzIFIuIFJvZHJpZ3VleiA8
+bWNncm9mQGtlcm5lbC5vcmc+CisgKgorICogVGhpcyBwcm9ncmFtIGlzIGZyZWUgc29mdHdhcmU7
+IHlvdSBjYW4gcmVkaXN0cmlidXRlIGl0IGFuZC9vciBtb2RpZnkgaXQKKyAqIHVuZGVyIHRoZSB0
+ZXJtcyBvZiBjb3B5bGVmdC1uZXh0ICh2ZXJzaW9uIDAuMy4xIG9yIGxhdGVyKSBhcyBwdWJsaXNo
+ZWQKKyAqIGF0IGh0dHA6Ly9jb3B5bGVmdC1uZXh0Lm9yZy8uCisgKi8KKworLyogVW5pY29yZTMy
+IGhhcyBrbm93biB0byBub3Qgd29yayBwcm9wZXJseSB3aXRoIHRoZSB0eXBlIHNldCwgc28gaWdu
+b3JlIGl0ICovCisKKyNkZWZpbmUgX19zZXRfc2VjdGlvbl9jb3JlX3R5cGUoX19fc2VjdGlvbiwg
+X19fY29yZSwgX19fbmFtZSwJCVwKKwkJCQlfX19sZXZlbCwgX19fZmxhZ3MsIF9fX3R5cGUpCQlc
+CisJLnNlY3Rpb24gX19fc2VjdGlvbi4uX19fY29yZS5fX19uYW1lLl9fX2xldmVsLCBfX19mbGFn
+cworCisjaW5jbHVkZSA8YXNtLWdlbmVyaWMvc2VjdGlvbi1jb3JlLmg+CisKKyNlbmRpZiAvKiBf
+X1VOSUNPUkVfU0VDVElPTl9DT1JFX0FTTV9IX18gKi8KZGlmZiAtLWdpdCBhL2FyY2gveDg2L2lu
+Y2x1ZGUvYXNtL0tidWlsZCBiL2FyY2gveDg2L2luY2x1ZGUvYXNtL0tidWlsZAppbmRleCAyYjg5
+MmUyMzEzYTkuLmFmOTc1ZjIxZWVlZSAxMDA2NDQKLS0tIGEvYXJjaC94ODYvaW5jbHVkZS9hc20v
+S2J1aWxkCisrKyBiL2FyY2gveDg2L2luY2x1ZGUvYXNtL0tidWlsZApAQCAtMTIsMyArMTIsNCBA
+QCBnZW5lcmljLXkgKz0gZG1hLWNvbnRpZ3VvdXMuaAogZ2VuZXJpYy15ICs9IGVhcmx5X2lvcmVt
+YXAuaAogZ2VuZXJpYy15ICs9IG1jc19zcGlubG9jay5oCiBnZW5lcmljLXkgKz0gbW0tYXJjaC1o
+b29rcy5oCitnZW5lcmljLXkgKz0gc2VjdGlvbi1jb3JlLmgKZGlmZiAtLWdpdCBhL2FyY2gveHRl
+bnNhL2luY2x1ZGUvYXNtL0tidWlsZCBiL2FyY2gveHRlbnNhL2luY2x1ZGUvYXNtL0tidWlsZApp
+bmRleCBiN2ZiYWE1NmI1MWEuLjc4NzljMzFlNjZhNyAxMDA2NDQKLS0tIGEvYXJjaC94dGVuc2Ev
+aW5jbHVkZS9hc20vS2J1aWxkCisrKyBiL2FyY2gveHRlbnNhL2luY2x1ZGUvYXNtL0tidWlsZApA
+QCAtMzIsMyArMzIsNCBAQCBnZW5lcmljLXkgKz0gdG9wb2xvZ3kuaAogZ2VuZXJpYy15ICs9IHRy
+YWNlX2Nsb2NrLmgKIGdlbmVyaWMteSArPSB3b3JkLWF0LWEtdGltZS5oCiBnZW5lcmljLXkgKz0g
+eG9yLmgKK2dlbmVyaWMteSArPSBzZWN0aW9uLWNvcmUuaApkaWZmIC0tZ2l0IGEvaW5jbHVkZS9h
+c20tZ2VuZXJpYy9zZWN0aW9uLWNvcmUuaCBiL2luY2x1ZGUvYXNtLWdlbmVyaWMvc2VjdGlvbi1j
+b3JlLmgKbmV3IGZpbGUgbW9kZSAxMDA2NDQKaW5kZXggMDAwMDAwMDAwMDAwLi5iYjE2YmVmYzQy
+NTEKLS0tIC9kZXYvbnVsbAorKysgYi9pbmNsdWRlL2FzbS1nZW5lcmljL3NlY3Rpb24tY29yZS5o
+CkBAIC0wLDAgKzEsMzA3IEBACisjaWZuZGVmIF9BU01fR0VORVJJQ19TRUNUSU9OX0NPUkVfSF8K
+KyNkZWZpbmUgX0FTTV9HRU5FUklDX1NFQ1RJT05fQ09SRV9IXworLyoKKyAqIExpbnV4IHNlY3Rp
+b24gY29yZSBkZWZpbml0aW9ucworICoKKyAqIENvcHlyaWdodCAoQykgMjAxNiBMdWlzIFIuIFJv
+ZHJpZ3VleiA8bWNncm9mQGtlcm5lbC5vcmc+CisgKgorICogVGhpcyBwcm9ncmFtIGlzIGZyZWUg
+c29mdHdhcmU7IHlvdSBjYW4gcmVkaXN0cmlidXRlIGl0IGFuZC9vciBtb2RpZnkgaXQKKyAqIHVu
+ZGVyIHRoZSB0ZXJtcyBvZiBjb3B5bGVmdC1uZXh0ICh2ZXJzaW9uIDAuMy4xIG9yIGxhdGVyKSBh
+cyBwdWJsaXNoZWQKKyAqIGF0IGh0dHA6Ly9jb3B5bGVmdC1uZXh0Lm9yZy8uCisgKi8KKworLyoq
+CisgKiBET0M6IExpbnV4IEVMRiBwcm9ncmFtIHNwZWNpZmljIHNlY3Rpb25zCisgKgorICogTGlu
+dXggbWFrZXMgZXh0ZW5zaXZlIHVzZSBvZiBgYFNIVF9QUk9HQklUU2BgIHRvIGJvdGggZXh0ZW5k
+IHVzZSBhbmQKKyAqIGRlZmluaXRpb24gb2YgKlNwZWNpYWwgRUxGIFNlY3Rpb25zKiAoYGdhYmk0
+IGNoNGBfKSBhbmQgdG8gZGVmaW5lIGl0cyBvd24KKyAqIHNlY3Rpb25zLiBUaGlzIGNoYXBlciBp
+cyBkZWRpY2F0ZWQgdG8gZG9jdW1lbnRpbmcgTGludXggcHJvZ3JhbSBzcGVjaWZpYworICogc2Vj
+dGlvbnMgYW5kIGhlbHBlcnMgYXZhaWxhYmxlIHRvIG1ha2UgdXNlIG9mIHRoZXNlIGVhc2llciB0
+byBpbXBsZW1lbnQgYW5kCisgKiB1c2UuCisgKgorICogLi4gX2dhYmk0IGNoNDogaHR0cHM6Ly9y
+ZWZzcGVjcy5saW51eGJhc2Uub3JnL2VsZi9nYWJpNCsvY2g0LnNoZWFkZXIuaHRtbCNzcGVjaWFs
+X3NlY3Rpb25zCisgKi8KKworLyoqCisgKiBET0M6IExpbnV4IGxpbmtlciBzY3JpcHQKKyAqCisg
+KiBMaW51eCB1c2VzIGEgY3VzdG9tIGxpbmtlciBzY3JpcHQgdG8gYnVpbGQgdGhlIHZtbGludXgg
+YmluYXJ5LCBpdCB1c2VzIGl0IHRvCisgKiBzdHJhdGVnaWNhbGx5IHBsYWNlIGFuZCBkZWZpbmUg
+TGludXggRUxGIHNlY3Rpb25zLiAgRWFjaCBhcmNoaXRlY3R1cmUgbmVlZHMKKyAqIHRvIGltcGxl
+bWVudCBpdHMgb3duIGxpbmtlciBzY3JpcHQsIGl0IGlzIGV4cGVjdGVkIHRvIHJlc2lkZSBpbgor
+ICogYGBhcmNoLyQoQVJDSCkva2VybmVsL3ZtbGludXgubGRzLlNgYC4gIEFyY2hpdGVjdHVyZSBM
+aW51eCBsaW5rZXIgc2NyaXB0cyBpbgorICogdHVybiBpbmNsdWRlIGFuZCB1c2UgZGVmaW5pdGlv
+bnMgZnJvbSBgYGluY2x1ZGUvYXNtLWdlbmVyaWMvdm1saW51eC5sZHMuaGBgLAorICogYXMgd2Vs
+bCBhcyBzb21lIGhlbHBlcnMgZG9jdW1lbnRlZCBpbiB0aGlzIGNoYXB0ZXIuCisgKgorICogSW4g
+YXNzZW1ibHkgaXQgaXMgY29tbW9uIHByYWN0aWNlIHRvIHVzZSBkb3RzIChgYC5gYCkgaW4gbGFi
+ZWxzIHRvIGF2b2lkCisgKiBjbGFzaGVzIHdpdGggQyBzeW1ib2xzLiBTaW1pbGFybHksIGEgZG90
+IChgYC5gYCkgY2FuIGJlIHBhcnQgb2YgYSBzZWN0aW9uCisgKiBuYW1lIGJ1dCBub3QgYSBDIHN5
+bWJvbC4gSGlzdG9yaWNhbGx5IHRoZW4sIHR3byBkb3RzIGFyZSB1c2VkIChgYC4uYGApCisgKiBo
+YXZlIGJlZW4gdXNlZCBpbiBsaW5rZXIgc2NyaXB0cyB3aGVuIGFkZGluZyBwcm9ncmFtIHNwZWNp
+ZmljIHNlY3Rpb25zCisgKiB3aGVuIHRoZXJlIGFyZSBjb25jZXJucyB0byBhdm9pZCBjbGFzaGVz
+IHdpdGggY29tcGlsZXIgZ2VuZXJhdGVkIHNlY3Rpb25zLgorICovCisKKy8qKgorICogRE9DOiBN
+ZW1vcnkgcHJvdGVjdGlvbgorICoKKyAqIExpbnV4IGFsbG93cyBhcmNoaXRlY3R1cmVzIHdoaWNo
+IHN1cHBvcnQgbWVtb3J5IHByb3RlY3Rpb24gZmVhdHVyZXMgdG8KKyAqIHRha2UgYWR2YW50YWdl
+IG9mIHRoZW0gYnkgbGV0dGluZyBhcmNoaXRlY3R1cmVzIGRlZmluZSBhbmQgZW5hYmxlCisgKiBg
+YENPTkZJR19ERUJVR19ST0RBVEFgYCBhbmQgaW1wbGVtZW50IGEgbWFya19yb2RhdGFfcm8oKSBj
+YWxsLgorICogbWFya19yb2RhdGFfcm8oKSBjYW4gYmUgdXNlZCBmb3IgaW5zdGFuY2UgdG8gbWFy
+ayBzcGVjaWZpYyBzZWN0aW9ucyBhcworICogcmVhZC1vbmx5IG9yIG5vbi1leGVjdXRhYmxlLgor
+ICoKKyAqIExpbnV4IHR5cGljYWxseSBmb2xsb3dzIGEgY29udmVudGlvbiB0byBoYXZlIHRoZSAu
+cm9kYXRhIEVMRiBzZWN0aW9uIGZvbGxvdworICogYWZ0ZXIgdGhlIC50ZXh0IEVMRiBzZWN0aW9u
+LCBpdCBkb2VzIHRoaXMgdG8gaGVscCBhcmNoaXRlY3R1cmVzIHdoaWNoCisgKiBzdXBwb3J0IG1l
+bW9yeSBwcm90ZWN0aW9uIHRvIG1hcmsgYm90aCAudGV4dCBhbmQgLnJvZGF0YSBhcyByZWFkLW9u
+bHkgaW4KKyAqIG9uZSBzaG90LgorICoKKyAqIEZvciBtb3JlIGRldGFpbHMgcmVmZXIgdG8gbWFy
+a19yb2RhdGFfcm8oKS4KKyAqLworCisvKioKKyAqIERPQzogLnJvZGF0YQorICoKKyAqIEVMRiBz
+ZWN0aW9uIHVzZWQgZm9yIGRhdGEgd2hpY2ggbXVzdCBiZSBwcm90ZWN0ZWQgZnJvbSB3cml0ZSBh
+Y2Nlc3MuCisgKi8KKworLyoqCisgKiBET0M6IC50ZXh0CisgKgorICogRUxGIHNlY3Rpb24gbmFt
+ZSB1c2VkIGZvciBjb2RlIChmdW5jdGlvbnMpIHVzZWQgZHVyaW5nIHJlZ3VsYXIKKyAqIGtlcm5l
+bCBydW4gdGltZS4KKyAqLworCisvKioKKyAqIERPQzogLmRhdGEKKyAqCisgKiBFTEYgc2VjdGlv
+biB1c2VkIGZvciByZWFkLXdyaXRlIGRhdGEuCisgKi8KKworLyoqCisgKiBET0M6IExpbnV4IGlu
+aXQgc2VjdGlvbnMKKyAqCisgKiBUaGVzZSBzZWN0aW9ucyBhcmUgdXNlZCBmb3IgY29kZSBhbmQg
+ZGF0YSBzdHJ1Y3R1cmVzIHVzZWQgZHVyaW5nIGJvb3Qgb3IKKyAqIG1vZHVsZSBpbml0aWFsaXph
+dGlvbi4gT24gYXJjaGl0ZWN0dXJlcyB0aGF0IHN1cHBvcnQgaXQgKHg4NiwgeDg2XzY0KSwgYWxs
+CisgKiB0aGlzIGNvZGUgaXMgZnJlZWQgdXAgYnkgdGhlIGtlcm5lbCByaWdodCBiZWZvcmUgdGhl
+IGZpc3QgdXNlcnNwYWNlIGluaXQKKyAqIHByb2Nlc3MgaXMgY2FsbGVkIHdoZW4gYnVpbHQtaW4g
+dG8gdGhlIGtlcm5lbCwgYW5kIGlmIG1vZHVsYXIgaXQgaXMgZnJlZWQKKyAqIGFmdGVyIG1vZHVs
+ZSBpbml0aWFsaXphdGlvbi4gU2luY2UgdGhlIGNvZGUgaXMgZnJlZWQgc28gZWFybHksIGluIHRo
+ZW9yeQorICogdGhlcmUgc2hvdWxkIGJlIG5vIHJhY2VzIGFnYWluc3QgZnJlZWluZyB0aGlzIGNv
+ZGUgd2l0aCBvdGhlciBDUFVzLiBJbml0CisgKiBzZWN0aW9uIGNvZGUgYW5kIGRhdGEgc3RydWN0
+dXJlcyBzaG91bGQgbmV2ZXIgYmUgZXhwb3J0ZWQgd2l0aAorICogRVhQT1JUX1NZTUJPTCooKSBh
+cyB0aGUgY29kZSB3aWxsIHF1aWNrbHkgYmVjb21lIHVuYXZhaWxhYmxlIHRvIHRoZSBrZXJuZWwK
+KyAqIGFmdGVyIGJvb3R1cC4KKyAqLworCisvKioKKyAqIERPQzogLmluaXQudGV4dAorICoKKyAq
+IEVMRiBzZWN0aW9uIGZvciBjb2RlIChmdW5jdGlvbnMpIHVzZWQgb25seSBkdXJpbmcgYm9vdCBv
+ciBkcml2ZXIKKyAqIGluaXRpYWxpemF0aW9uLgorICoKKyAqLworCisvKioKKyAqIERPQzogLmlu
+aXQuZGF0YQorICoKKyAqIEVMRiBzZWN0aW9uIHVzZWQgZm9yIGRhdGEgc3RydWN0dXJlcyB1c2Vk
+IG9ubHkgZHVyaW5nIGJvb3Qgb3IgZHJpdmVyCisgKiBpbml0aWFsaXphdGlvbi4KKyAqLworCisv
+KioKKyAqIERPQzogLmluaXQucm9kYXRhCisgKgorICogRUxGIHNlY3Rpb24gdXNlZCBmb3IgcmVh
+ZC1vbmx5IGNvZGUgKGZ1bmN0aW9ucykgdXNlZCBvbmx5IGR1cmluZyBib290CisgKiBvciBkcml2
+ZXIgaW5pdGlhbGl6YXRpb24uCisgKi8KKworLyoqCisgKiBET0M6IC5pbml0Y2FsbAorICoKKyAq
+IEVMRiBzZWN0aW9uIHVzZWQgZm9yIHN1YnN5c3RlbSBpbml0IGNhbGxzLiBUaGVyZSBhcmUgaW5p
+dCBsZXZlbHMKKyAqIHJlcHJlc2VudGluZyBkaWZmZXJlbnQgZnVuY3Rpb25hbGl0eSBpbiB0aGUg
+a2VybmVsLiBGb3IgbW9yZSBkZXRhaWxzCisgKiByZWZlciB0byBfX2RlZmluZV9pbml0Y2FsbCgp
+LgorICovCisKKy8qKgorICogRE9DOiBMaW51eCBleGl0IHNlY3Rpb25zCisgKgorICogVGhlc2Ug
+c2VjdGlvbnMgYXJlIHVzZWQgdG8gZGVjbGFyZSBhIGZ1bmN0aW9ucyBhbmQgZGF0YSBzdHJ1Y3R1
+cmVzIHdoaWNoCisgKiBhcmUgb25seSByZXF1aXJlZCBvbiBleGl0LCB0aGUgZnVuY3Rpb24gb3Ig
+ZGF0YSBzdHJ1Y3R1cmUgd2lsbCBiZSBkcm9wcGVkCisgKiBpZiB0aGUgY29kZSBkZWNsYXJpbmcg
+dGhpcyBzZWN0aW9uIGlzIG5vdCBjb21waWxlZCBhcyBhIG1vZHVsZSBvbgorICogYXJjaGl0ZWN0
+dXJlcyB0aGF0IHN1cHBvcnQgdGhpcyAoeDg2LCB4ODZfNjQpLiBUaGVyZSBpcyBubyBzcGVjaWFs
+IGNhc2UKKyAqIGhhbmRsaW5nIGZvciB0aGlzIGNvZGUgd2hlbiBidWlsdC1pbiB0byB0aGUga2Vy
+bmVsLgorICovCisKKy8qKgorICogRE9DOiAuZXhpdC50ZXh0CisgKgorICogRUxGIHNlY3Rpb24g
+dXNlZCB0byBmb3IgY29kZSAoZnVuY3Rpb25zKSB1c2VkIG9ubHkgZHVyaW5nIG1vZHVsZSB1bmxv
+YWQuCisgKi8KKworLyoqCisgKiBET0M6IC5leGl0LmRhdGEKKyAqCisgKiBFTEYgc2VjdGlvbiB1
+c2VkIHRvIGZvciBkYXRhIHN0cnVjdHVyZXMgdXNlZCBvbmx5IGR1cmluZyBtb2R1bGUKKyAqIHVu
+bG9hZC4KKyAqLworCisvKioKKyAqIERPQzogLmV4aXRjYWxsLmV4aXQKKyAqCisgKiBFTEYgc2Vj
+dGlvbiB1c2VkIGZvciBleGl0IHJvdXRpbmVzLCBvcmRlciBpcyBpbXBvcnRhbnQgYW5kIG1haW50
+YWluZWQgYnkKKyAqIGxpbmsgb3JkZXIuCisgKi8KKworLyoqCisgKiBET0M6IExpbnV4IHJlZmVy
+ZW5jZXMgdG8gaW5pdCBzZWN0aW9ucworICoKKyAqIFRoZXNlIHNlY3Rpb25zIGFyZSB1c2VkIHRv
+IHRlYWNoIG1vZHBvc3QgdG8gbm90IHdhcm4gYWJvdXQgcG9zc2libGUKKyAqIG1pc3VzZXMgb2Yg
+aW5pdCBzZWN0aW9uIGNvZGUgZnJvbSBvdGhlciBzZWN0aW9ucy4gSWYgeW91IHVzZSB0aGlzCisg
+KiB5b3VyIHVzZSBjYXNlIHNob3VsZCBkb2N1bWVudCB3aHkgeW91IGFyZSBjZXJ0YWluIHN1Y2gg
+dXNlIG9mIGluaXQKKyAqIHNlY3Rpb25lZCBjb2RlIGlzIHZhbGlkLiBGb3IgbW9yZSBkZXRhaWxz
+IHJlZmVyIHRvIGBgaW5jbHVkZS9saW51eC9pbml0LmhgYAorICogYGBfX3JlZmBgLCBgYF9fcmVm
+ZGF0YWBgLCBhbmQgYGBfX3JlZmNvbnN0YGAgZG9jdW1lbnRhdGlvbi4KKyAqLworCisvKioKKyAq
+IERPQzogLnJlZi50ZXh0CisgKgorICogRUxGIHNlY3Rpb24gdXNlZCB0byBhbm5vdGF0ZSBjb2Rl
+IChmdW5jdGlvbnMpIHdoaWNoIGhhcyBiZWVuIHZldHRlZWQgYXMKKyAqIHZhbGlkIGZvciBpdHMg
+cmVmZXJlbmNlIG9yIHVzZSBvZiBvdGhlciBjb2RlIChmdW5jdGlvbnMpIG9yIGRhdGEgc3RydWN0
+dXJlcworICogd2hpY2ggYXJlIHBhcnQgb2YgdGhlIGluaXQgc2VjdGlvbnMuCisgKi8KKworLyoq
+CisgKiBET0M6IC5yZWYuZGF0YQorICoKKyAqIEVMRiBzZWN0aW9uIHVzZWQgZm9yIGRhdGEgc3Ry
+dWN0dXJlcyB3aGljaCBoYXZlIGJlZW4gdmV0dGVlZCBmb3IgaXRzCisgKiByZWZlcmVuY2Ugb3Ig
+dXNlIG9mIG90aGVyIGNvZGUgKGZ1bmN0aW9ucykgb3IgZGF0YSBzdHJ1Y3R1cmVzIHBhcnQgb2Yg
+dGhlCisgKiBpbml0IHNlY3Rpb25zLgorICovCisKKy8qKgorICogRE9DOiAucmVmLnJvZGF0YQor
+ICoKKyAqIEVMRiBzZWN0aW9uIHVzZWQgdG8gYW5ub3RhdGUgY29uc3QgY29kZSAoZnVuY3Rpb25z
+KSBjb25zdCBkYXRhIHN0cnVjdHVyZXMKKyAqIHdoaWNoIGhhcyBiZWVuIHZldHRlZWQgZm9yIGl0
+cyByZWZlcmVuY2Ugb3IgdXNlIG9mIG90aGVyIGNvZGUgKGZ1bmN0aW9ucykKKyAqIG9yIGRhdGEg
+c3RydWN0dXJlcyBwYXJ0IG9mIHRoZSBpbml0IHNlY3Rpb25zLgorICovCisKKy8qIENhbiBiZSB1
+c2VkIG9uIGZvby5TIGZvciBpbnN0YW5jZSAqLworI2lmbmRlZiBfX3NldF9zZWN0aW9uX2NvcmVf
+dHlwZQorIyBkZWZpbmUgX19zZXRfc2VjdGlvbl9jb3JlX3R5cGUoX19fc2VjdGlvbiwgX19fY29y
+ZSwgX19fbmFtZSwJCVwKKwkJCQkgX19fbGV2ZWwsIF9fX2ZsYWdzLCBfX190eXBlKQkJXAorCS5z
+ZWN0aW9uIF9fX3NlY3Rpb24uLl9fX2NvcmUuX19fbmFtZS5fX19sZXZlbCwgX19fZmxhZ3MsIF9f
+X3R5cGUKKyNlbmRpZgorCisjaWZuZGVmIF9fc2V0X3NlY3Rpb25fY29yZQorIyBkZWZpbmUgX19z
+ZXRfc2VjdGlvbl9jb3JlKF9fX3NlY3Rpb24sIF9fX2NvcmUsIF9fX25hbWUsIF9fX2xldmVsLCBf
+X19mbGFncykgXAorCS5zZWN0aW9uIF9fX3NlY3Rpb24uLl9fX2NvcmUuX19fbmFtZS5fX19sZXZl
+bCwgX19fZmxhZ3MKKyNlbmRpZgorCisjaWZuZGVmIF9fcHVzaF9zZWN0aW9uX2NvcmUKKyMgZGVm
+aW5lIF9fcHVzaF9zZWN0aW9uX2NvcmUoX19zZWN0aW9uLCBfX2NvcmUsIF9fbmFtZSwgX19sZXZl
+bCwgX19mbGFncykgXAorCS5wdXNoc2VjdGlvbiBfX3NlY3Rpb24uLl9fY29yZS5fX25hbWUuX19s
+ZXZlbCwgX19mbGFncworI2VuZGlmCisKKyNpZmRlZiBfX0tFUk5FTF9fCisjaW5jbHVkZSA8bGlu
+dXgvc3RyaW5naWZ5Lmg+CisjZW5kaWYKKworI2lmIGRlZmluZWQoX19BU1NFTUJMRVJfXykgfHwg
+ZGVmaW5lZChfX0FTU0VNQkxZX18pCisKKyMgaWZuZGVmIExJTktFUl9TQ1JJUFQKKworIyAgaWZu
+ZGVmIHB1c2hfc2VjdGlvbl9jb3JlCisjICAgZGVmaW5lIHB1c2hfc2VjdGlvbl9jb3JlKF9fc2Vj
+dGlvbiwgX19jb3JlLCBfX25hbWUsIF9fbGV2ZWwsIF9fZmxhZ3MpIFwKKwkgX19wdXNoX3NlY3Rp
+b25fY29yZShfX3NlY3Rpb24sIF9fY29yZSwgX19uYW1lLAkJCSAgXAorCQkJICAgICBfX2xldmVs
+LCBfX3N0cmluZ2lmeShfX2ZsYWdzKSkKKyMgIGVuZGlmCisKKyMgIGlmbmRlZiBzZXRfc2VjdGlv
+bl9jb3JlCisjICAgZGVmaW5lIHNldF9zZWN0aW9uX2NvcmUoX19zZWN0aW9uLCBfX2NvcmUsIF9f
+bmFtZSwJCQlcCisJCQkgICAgX19sZXZlbCwgX19mbGFncykJCQkJXAorCV9fc2V0X3NlY3Rpb25f
+Y29yZShfX3NlY3Rpb24sIF9fY29yZSwgX19uYW1lLAkJCVwKKwkJCSAgIF9fbGV2ZWwsIF9fc3Ry
+aW5naWZ5KF9fZmxhZ3MpKQorIyAgZW5kaWYKKworIyAgaWZuZGVmIHNldF9zZWN0aW9uX2NvcmVf
+dHlwZQorIyAgIGRlZmluZSBzZXRfc2VjdGlvbl9jb3JlX3R5cGUoX19zZWN0aW9uLCBfX2NvcmUs
+IF9fbmFtZSwJCVwKKwkJCQkgX19sZXZlbCwgX19mbGFncywgX190eXBlKQkJXAorCV9fc2V0X3Nl
+Y3Rpb25fY29yZV90eXBlKF9fc2VjdGlvbiwgX19jb3JlLCBfX25hbWUsIF9fbGV2ZWwsCVwKKwkJ
+CQlfX3N0cmluZ2lmeShfX2ZsYWdzKSwgX190eXBlKQorIyAgZW5kaWYKKworIyBlbmRpZiAvKiBM
+SU5LRVJfU0NSSVBUICovCisjZWxzZSAvKiBkZWZpbmVkKF9fQVNTRU1CTEVSX18pIHx8IGRlZmlu
+ZWQoX19BU1NFTUJMWV9fKSAqLworCisvKgorICogQXMgcGVyIGdjYydzIGRvY3VtZW50YXRpb24g
+YSBjb21tb24gYXNtIHNlcGFyYXRvciBpcyBhIG5ldyBsaW5lIGZvbGxvd2VkCisgKiBieSB0YWIg
+WzBdLCBpdCBob3dldmVyIHNlZW1zIHBvc3NpYmxlIHRvIGFsc28ganVzdCB1c2UgYSBuZXdsaW5l
+IGFzIGl0cworICogdGhlIG1vc3QgY29tbW9ubHkgZW1waXJpY2FsbHkgb2JzZXJ2ZWQgc2VtYW50
+aWMgYW5kIGZvbGtzIHNlZW0gdG8gYWdyZWUKKyAqIHRoaXMgZXZlbiB3b3JrcyBvbiBTMzkwLiBJ
+biBjYXNlIHlvdXIgYXJjaGl0ZWN0dXJlIGRpc2FncmVlcyB5b3UgbWF5CisgKiBvdmVycmlkZSB0
+aGlzIGFuZCBkZWZpbmUgeW91ciBvd24gYW5kIGtlZXAgdGhlIHJlc3Qgb2YgdGhlIG1hY3Jvcy4K
+KyAqCisgKiBbMF0gaHR0cHM6Ly9nY2MuZ251Lm9yZy9vbmxpbmVkb2NzL2djYy9CYXNpYy1Bc20u
+aHRtbCNCYXNpYy1Bc20KKyAqLworIyBpZm5kZWYgQVNNX0NNRF9TRVAKKyMgIGRlZmluZSBBU01f
+Q01EX1NFUAkiXG4iCisjIGVuZGlmCisKKyMgaWZuZGVmIHNldF9zZWN0aW9uX2NvcmUKKyMgIGRl
+ZmluZSBzZXRfc2VjdGlvbl9jb3JlKF9fc2VjdGlvbiwgX19jb3JlLCBfX25hbWUsIF9fbGV2ZWws
+IF9fZmxhZ3MpCVwKKwlfX3N0cmluZ2lmeShfX3NldF9zZWN0aW9uX2NvcmVfdHlwZShfX3NlY3Rp
+b24sIF9fY29yZSwgX19uYW1lLAlcCisJCQkJCSAgICBfX2xldmVsLCBfX3N0cmluZ2lmeShfX2Zs
+YWdzKSkpIFwKKwlBU01fQ01EX1NFUAorIyBlbmRpZgorCisvKgorICogU29tZSBhcmNoaXRlY3R1
+cmVzIChhcm0sIGFuZCBhdnIzMiBhcmUgdHdvIGV4YW1wbGVzIG9uIGtwcm9iZXMpIHNlZW0KKyAq
+IGN1cnJlbnRseSBleHBsaWNpdGx5IHNwZWNpZnkgdGhlIHR5cGUgWzBdIC0tIHRoaXMgY2FuIGJl
+IGFueSBvZiB0aGUKKyAqIG9wdGlvbmFsIGNvbnN0YW50cyBvbiBFTEY6CisgKgorICogQHByb2di
+aXRzIC0gc2VjdGlvbiBjb250YWlucyBkYXRhCisgKiBAbm9iaXRzIC0gc2VjdGlvbiBkb2VzIG5v
+dCBjb250YWluIGRhdGEgKGkuZS4sIHNlY3Rpb24gb25seSBvY2N1cGllcyBzcGFjZSkKKyAqIEBu
+b3RlIC0gc2VjdGlvbiBjb250YWlucyBkYXRhIHdoaWNoIGlzIHVzZWQgYnkgdGhpbmdzIG90aGVy
+IHRoYW4gdGhlIHByb2dyYW0KKyAqIEBpbml0X2FycmF5IC0gc2VjdGlvbiBjb250YWlucyBhbiBh
+cnJheSBvZiBwb2ludGVycyB0byBpbml0IGZ1bmN0aW9ucworICogQGZpbmlfYXJyYXkgLSBzZWN0
+aW9uIGNvbnRhaW5zIGFuIGFycmF5IG9mIHBvaW50ZXJzIHRvIGZpbmlzaCBmdW5jdGlvbnMKKyAq
+IEBwcmVpbml0X2FycmF5IC0gc2VjdGlvbiBjb250YWlucyBhbiBhcnJheSBvZiBwb2ludGVycyB0
+byBwcmUtaW5pdCBmdW5jdGlvbnMKKyAqCisgKiBBUk0gcmVxdWlyZXMgJSBpbnN0ZWFkIG9mIEAu
+CisgKgorICogQXQgbGVhc3QgYXMgcGVyIG5hc20gKHg4Ni94ODZfNjQgb25seSksIGluIHRoZSBh
+YnNlbmNlIG9mIHF1YWxpZmllcnMgdGhlCisgKiBkZWZhdWx0cyBhcmUgYXMgZm9sbG93czoKKyAq
+CisgKiBzZWN0aW9uIC50ZXh0ICAgIHByb2diaXRzICBhbGxvYyAgIGV4ZWMgICAgbm93cml0ZSAg
+YWxpZ24WCisgKiBzZWN0aW9uIC5yb2RhdGEgIHByb2diaXRzICBhbGxvYyAgIG5vZXhlYyAgbm93
+cml0ZSAgYWxpZ249NAorICogc2VjdGlvbiAubHJvZGF0YSBwcm9nYml0cyAgYWxsb2MgICBub2V4
+ZWMgIG5vd3JpdGUgIGFsaWduPTQKKyAqIHNlY3Rpb24gLmRhdGEgICAgcHJvZ2JpdHMgIGFsbG9j
+ICAgbm9leGVjICB3cml0ZSAgICBhbGlnbj00CisgKiBzZWN0aW9uIC5sZGF0YSAgIHByb2diaXRz
+ICBhbGxvYyAgIG5vZXhlYyAgd3JpdGUgICAgYWxpZ249NAorICogc2VjdGlvbiAuYnNzICAgICBu
+b2JpdHMgICAgYWxsb2MgICBub2V4ZWMgIHdyaXRlICAgIGFsaWduPTQKKyAqIHNlY3Rpb24gLmxi
+c3MgICAgbm9iaXRzICAgIGFsbG9jICAgbm9leGVjICB3cml0ZSAgICBhbGlnbj00CisgKiBzZWN0
+aW9uIC50ZGF0YSAgIHByb2diaXRzICBhbGxvYyAgIG5vZXhlYyAgd3JpdGUgICAgYWxpZ249NCAg
+ICB0bHMKKyAqIHNlY3Rpb24gLnRic3MgICAgbm9iaXRzICAgIGFsbG9jICAgbm9leGVjICB3cml0
+ZSAgICBhbGlnbj00ICAgIHRscworICogc2VjdGlvbiAuY29tbWVudCBwcm9nYml0cyAgbm9hbGxv
+YyBub2V4ZWMgIG5vd3JpdGUgIGFsaWduPTEKKyAqIHNlY3Rpb24gb3RoZXIgICAgcHJvZ2JpdHMg
+IGFsbG9jICAgbm9leGVjICBub3dyaXRlICBhbGlnbj0xCisgKgorICogZ2FzIHNob3VsZCBoYXZl
+IHNlbnNpYmxlIGRlZmF1bHRzIGZvciBhcmNoaXRlY3R1cmVzLi4uCisgKgorICogWzBdIGh0dHA6
+Ly93d3cubmFzbS51cy9kb2MvbmFzbWRvYzcuaHRtbAorICovCisjIGlmbmRlZiBzZXRfc2VjdGlv
+bl9jb3JlX3R5cGUKKyMgIGRlZmluZSBzZXRfc2VjdGlvbl9jb3JlX3R5cGUoX19zZWN0aW9uLCBf
+X2NvcmUsIF9fbmFtZSwgX19sZXZlbCwJXAorCQkJCV9fZmxhZ3MsIF9fdHlwZSkJCQlcCisJX19z
+dHJpbmdpZnkoX19zZXRfc2VjdGlvbl9jb3JlX3R5cGUoX19zZWN0aW9uLCBfX2NvcmUsCQlcCisJ
+CQkJCSAgICBfX25hbWUsIF9fbGV2ZWwsCQlcCisJCQkJCSAgICBfX3N0cmluZ2lmeShfX2ZsYWdz
+KSwJXAorCQkJCQkgICAgX190eXBlKSkJCQlcCisJQVNNX0NNRF9TRVAKKyMgZW5kaWYKKworIyBp
+Zm5kZWYgcHVzaF9zZWN0aW9uX2NvcmUKKyMgIGRlZmluZSBwdXNoX3NlY3Rpb25fY29yZShfX3Nl
+Y3Rpb24sIF9fY29yZSwgX19uYW1lLAkJCVwKKwkJCSAgICBfX2xldmVsLCBfX2ZsYWdzKQkJCQlc
+CisJX19zdHJpbmdpZnkoX19wdXNoX3NlY3Rpb25fY29yZShfX3NlY3Rpb24sIF9fY29yZSwJCVwK
+KwkJCQkJX19uYW1lLAlfX2xldmVsLAkJXAorCQkJCQlfX3N0cmluZ2lmeShfX2ZsYWdzKSkpCQlc
+CisJQVNNX0NNRF9TRVAKKyMgZW5kaWYKKworI2VuZGlmIC8qIGRlZmluZWQoX19BU1NFTUJMRVJf
+XykgfHwgZGVmaW5lZChfX0FTU0VNQkxZX18pICovCisjZW5kaWYgLyogX0FTTV9HRU5FUklDX1NF
+Q1RJT05fQ09SRV9IXyAqLwpkaWZmIC0tZ2l0IGEvaW5jbHVkZS9hc20tZ2VuZXJpYy9zZWN0aW9u
+cy5oIGIvaW5jbHVkZS9hc20tZ2VuZXJpYy9zZWN0aW9ucy5oCmluZGV4IDRkZjY0YTFmYzA5ZS4u
+YjE0NWFlOGQ5Y2JlIDEwMDY0NAotLS0gYS9pbmNsdWRlL2FzbS1nZW5lcmljL3NlY3Rpb25zLmgK
+KysrIGIvaW5jbHVkZS9hc20tZ2VuZXJpYy9zZWN0aW9ucy5oCkBAIC0xLDYgKzEsOCBAQAogI2lm
+bmRlZiBfQVNNX0dFTkVSSUNfU0VDVElPTlNfSF8KICNkZWZpbmUgX0FTTV9HRU5FUklDX1NFQ1RJ
+T05TX0hfCiAKKyNpbmNsdWRlIDxhc20vc2VjdGlvbi1jb3JlLmg+CisKIC8qIFJlZmVyZW5jZXMg
+dG8gc2VjdGlvbiBib3VuZGFyaWVzICovCiAKICNpbmNsdWRlIDxsaW51eC9jb21waWxlci5oPgpk
+aWZmIC0tZ2l0IGEvaW5jbHVkZS9hc20tZ2VuZXJpYy92bWxpbnV4Lmxkcy5oIGIvaW5jbHVkZS9h
+c20tZ2VuZXJpYy92bWxpbnV4Lmxkcy5oCmluZGV4IDA5NjhkMTNiMzg4NS4uNDgzZjYwYzQ1MWY5
+IDEwMDY0NAotLS0gYS9pbmNsdWRlL2FzbS1nZW5lcmljL3ZtbGludXgubGRzLmgKKysrIGIvaW5j
+bHVkZS9hc20tZ2VuZXJpYy92bWxpbnV4Lmxkcy5oCkBAIC01NSw2ICs1NSw3IEBACiAjZW5kaWYK
+IAogI2luY2x1ZGUgPGxpbnV4L2V4cG9ydC5oPgorI2luY2x1ZGUgPGFzbS9zZWN0aW9uLWNvcmUu
+aD4KIAogLyogQWxpZ24gLiB0byBhIDggYnl0ZSBib3VuZGFyeSBlcXVhbHMgdG8gbWF4aW11bSBm
+dW5jdGlvbiBhbGlnbm1lbnQuICovCiAjZGVmaW5lIEFMSUdOX0ZVTkNUSU9OKCkgIC4gPSBBTElH
+Tig4KQpkaWZmIC0tZ2l0IGEvaW5jbHVkZS9saW51eC9pbml0LmggYi9pbmNsdWRlL2xpbnV4L2lu
+aXQuaAppbmRleCA4ODVjM2U2ZDBmOWQuLjExNmUzMjYyMzMyYSAxMDA2NDQKLS0tIGEvaW5jbHVk
+ZS9saW51eC9pbml0LmgKKysrIGIvaW5jbHVkZS9saW51eC9pbml0LmgKQEAgLTEzMCw2ICsxMzAs
+MjQgQEAgaW50IF9faW5pdCBpbml0X3Jvb3Rmcyh2b2lkKTsKIGV4dGVybiBib29sIHJvZGF0YV9l
+bmFibGVkOwogI2VuZGlmCiAjaWZkZWYgQ09ORklHX0RFQlVHX1JPREFUQQorLyoqCisgKiBtYXJr
+X3JvZGF0YV9ybyAtIGltcGxlbWVtZW50IG1lbW9yeSBwcm90ZWN0aW9uIGZvciBFTEYgc2VjdGlv
+bnMKKyAqCisgKiBBcmNoaXRlY3R1cmVzIHdoaWNoIHN1cHBvcnQgbWVtb3J5IHByb3RlY3Rpb24g
+ZGVmaW5lIGEga2VybmVsIGNvbmZpZ3VyYXRpb24KKyAqIGVudHJ5IGZvciBDT05GSUdfREVCVUdf
+Uk9EQVRBLCBlbmFibGUgaXQgaW4gYW5kIGltcGxlbWVudCBtYXJrX3JvZGF0YV9ybygpLgorICog
+bWFya19yb2RhdGFfcm8oKSBzaG91bGQgc3RyaXZlIHRvIGFkanVzdCB0aGUgLnJvZGF0YSBhbmQg
+LnRleHQgRUxGIHNlY3Rpb25zCisgKiB3aXRoIHJlYWQtb25seSBtZW1vcnkgcHJvdGVjdGlvbiB0
+byBwcmV2ZW50IG1vZGlmaWNhdGlvbnMgb2YgdGhlc2Ugc2VjdGlvbnMKKyAqIGFmdGVyIGJvb3R1
+cC4gSXQgY2FuIGFsc28gdHJ5IHRvIHVzZSBtZW1vcnkgcHJvdGVjdGlvbiB0byBwcmV2ZW50IGV4
+ZWN1dGlvbgorICogb24gdGhlIC5yb2RhdGEgRUxGIHNlY3Rpb24uCisgKgorICogSW4gb3JkZXIg
+dG8gaGVscCBhcmNoaXRlY3R1cmVzIHNldCBib3RoIC50ZXh0IGFuZCAucm9kYXRhIGFzIHJlYWQt
+b25seSB3aXRoCisgKiBtZW1vcnkgcHJvdGVjdGlvbnMgaW4gb25lIHNob3QgTGludXggaGFzIHR5
+cGljYWxseSBmb2xsb3dlZCB0aGUgY29udmVudGlvbgorICogdG8gaGF2ZSB0aGUgLnJvZGF0YSBF
+TEYgc2VjdGlvbiBmb2xsb3cgdGhlIC50ZXh0IEVMRiBzZWN0aW9uIG9uIHRoZSB2bWxpbnV4Cisg
+KiBsaW5rZXIgc2NyaXB0LgorICoKKyAqIExpbnV4IGNhbGxzIG1hcmtfcm9kYXRhX3JvKCkgYWZ0
+ZXIgZnJlZWluZyAuaW5pdCBjb2RlIGFuZCBwcmlvciB0byBjYWxsaW5nCisgKiB0aGUgZmlyc3Qg
+aW5pdCB1c2Vyc3BhY2UgcHJvY2Vzcy4KKyAqLwogdm9pZCBtYXJrX3JvZGF0YV9ybyh2b2lkKTsK
+ICNlbmRpZgogCkBAIC0xNDAsMjUgKzE1OCw3MCBAQCBleHRlcm4gYm9vbCBpbml0Y2FsbF9kZWJ1
+ZzsKICNlbmRpZgogICAKICNpZm5kZWYgTU9EVUxFCisvKioKKyAqIERPQzogSW5pdGNhbGwgbGV2
+ZWxzCisgKgorICogV2hlbiBMaW51eCBib290cyB0aGUga2VybmVsIGRvX2luaXRjYWxscygpIGl0
+ZXJhdGVzIG92ZXIgZWFjaCBMaW51eAorICogaW5pdGlhbGl6YXRpb24gbGV2ZWwgSUQgYW5kIGNh
+bGxzIGFsbCByb3V0aW5lcyBlbWJlZGRlZCBvbiBlYWNoIGxldmVsIElELgorICogUHJpb3IgdG8g
+djIuNS4yLjMgTGludXggaGFkIG9ubHkgb25lIGluaXQgbGV2ZWwgb250byB3aGljaCBhbGwgaW5p
+dAorICogZnVuY3Rpb25zIGZvbGRlZCBvbnRvIHVzaW5nIF9faW5pdGNhbGwoKS4gQWZ0ZXIgdjIu
+NS4yLjQgTGludXggc3BsaXQgdXAKKyAqIGluaXRjYWxscyBpbnRvIDcgc2VwYXJhdGUgaW5pdGNh
+bGwgc3Vic2VjdGlvbiBsZXZlbHMsIGVhY2ggbGV2ZWwgZGVzY3JpYmluZworICogZGlmZmVyZW50
+IGZ1bmN0aW9uYWxpdHkgcGFydCBvZiB0aGUga2VybmVsIChjb21taXQgYDlkNmJhMTIxYjdlMTcw
+ODVgXworICogKHYyLjUuMi4zIC0+IHYyLjUuMi40KSkuIEluIG9yZGVyIHRvIHJlbWFpbiBiYWNr
+d2FyZCBjb21wYXRpYmxlIF9faW5pdGNhbGwoKQorICogY2FsbHMgd2VyZSBsZWZ0IG1hcHBlZCB0
+byBkZXZpY2VfaW5pdGNhbGwoKS4KKyAqCisgKiBFYWNoIGluaXQgbGV2ZWwgY29uc2lzdHMgb2Yg
+YSBkZWRpY2F0ZWQgRUxGIHNlY3Rpb24sIGluaXQgZnVuY3Rpb25zIGFyZQorICogYXNzb2NpYXRl
+ZCB0byBhbiBpbml0IGxldmVsIGJ5IGxpbmtpbmcgaXQgaW50byB0aGUgcmVzcGVjdGl2ZSBsZXZl
+bCdzCisgKiBFTEYgc2VjdGlvbi4KKyAqCisgKiBMb3dlciBvcmRlciBpbml0IGxldmVscyBydW4g
+cHJpb3IgdG8gaGlnaGVyIG9yZGVyIGluaXQgbGV2ZWxzLiBPcmRlcmluZworICogaW5zaWRlIGVh
+Y2ggaW5pdGNhbGwgbGV2ZWwgaXMgZGV0ZXJtaW5lZCBieSByZXNwZWN0aXZlIGxpbmsgb3JkZXIu
+CisgKgorICogLi4gXzlkNmJhMTIxYjdlMTcwODU6IGh0dHBzOi8vZ2l0Lmtlcm5lbC5vcmcvY2dp
+dC9saW51eC9rZXJuZWwvZ2l0L2hpc3RvcnkvaGlzdG9yeS5naXQvY29tbWl0Lz9pZJ02YmExMjFi
+N2UxNzA4NWM5NTEzOTIzMzY4NmIyN2E0ZDRjNjUwZQorICovCiAKICNpZm5kZWYgX19BU1NFTUJM
+WV9fCiAKLS8qCi0gKiBpbml0Y2FsbHMgYXJlIG5vdyBncm91cGVkIGJ5IGZ1bmN0aW9uYWxpdHkg
+aW50byBzZXBhcmF0ZQotICogc3Vic2VjdGlvbnMuIE9yZGVyaW5nIGluc2lkZSB0aGUgc3Vic2Vj
+dGlvbnMgaXMgZGV0ZXJtaW5lZAotICogYnkgbGluayBvcmRlci4gCi0gKiBGb3IgYmFja3dhcmRz
+IGNvbXBhdGliaWxpdHksIGluaXRjYWxsKCkgcHV0cyB0aGUgY2FsbCBpbiAKLSAqIHRoZSBkZXZp
+Y2UgaW5pdCBzdWJzZWN0aW9uLgorLyoqCisgKiBfX2RlZmluZV9pbml0Y2FsbCAtIHdyYXBwZXIg
+Zm9yIGRlZmluaXRpbmcgaW5pdCBsZXZlbHMKICAqCi0gKiBUaGUgYGlkJyBhcmcgdG8gX19kZWZp
+bmVfaW5pdGNhbGwoKSBpcyBuZWVkZWQgc28gdGhhdCBtdWx0aXBsZSBpbml0Y2FsbHMKLSAqIGNh
+biBwb2ludCBhdCB0aGUgc2FtZSBoYW5kbGVyIHdpdGhvdXQgY2F1c2luZyBkdXBsaWNhdGUtc3lt
+Ym9sIGJ1aWxkIGVycm9ycy4KKyAqIEBmbjogaW5pdCByb3V0aW5lCisgKiBAaWQ6IGluaXQgbGV2
+ZWwKICAqCi0gKiBJbml0Y2FsbHMgYXJlIHJ1biBieSBwbGFjaW5nIHBvaW50ZXJzIGluIGluaXRj
+YWxsIHNlY3Rpb25zIHRoYXQgdGhlCi0gKiBrZXJuZWwgaXRlcmF0ZXMgYXQgcnVudGltZS4gVGhl
+IGxpbmtlciBjYW4gZG8gZGVhZCBjb2RlIC8gZGF0YSBlbGltaW5hdGlvbgotICogYW5kIHJlbW92
+ZSB0aGF0IGNvbXBsZXRlbHksIHNvIHRoZSBpbml0Y2FsbCBzZWN0aW9ucyBoYXZlIHRvIGJlIG1h
+cmtlZAotICogYXMgS0VFUCgpIGluIHRoZSBsaW5rZXIgc2NyaXB0LgorICogRGVmaW5lcyBhIGtl
+cm5lbCBpbml0aWFsaXphdGlvbiBsZXZlbC4gQSByZXNwZWN0aXZlIGxpbmtlciBzY3JpcHQgZW50
+cnkKKyAqIGlzIHJlcXVpcmVkIHRvIGVuc3VyZSB0aGUgaW5pdCBsZXZlbCBpcyBhY2NvdW50ZWQg
+Zm9yIGFuZCB0byBlbnN1cmUgc3ltYm9scworICogZXhpc3QgZm9yIGl0ZXJhdGluZyBvdmVyIGFs
+bCBmdW5jdGlvbnMgaW4gdGhlIGluaXQgbGV2ZWwuIEEgaW5pdCBsZXZlbAorICogcmVwcmVzZW50
+cyBhIHNlcmllcyBvZiBmdW5jdGlvbmFsaXR5IGluIHRoZSBrZXJuZWwuCisgKgorICogT3JkZXJp
+bmcgd2l0aGluIGFuIGluaXRpYWxpemF0aW9uIGxldmVsIGlzIGRldGVybWluZWQgYnkgbGluayBv
+cmRlciwgc28KKyAqIGZvciBpbnN0YW5jZSBpZiBhIE1ha2VmaWxlIGhhZDo6CisgKgorICoJb2Jq
+LXkgKz0gZm9vLm8KKyAqCW9iai15ICs9IGJhci5vCisgKgorICogQW5kIGZvby5jOjoKKyAqCisg
+KglzdWJzeXNfaW5pdGNhbGwoZm9vX2luaXQpOworICoKKyAqIEFuZCBiYXIuYyBoYWQ6OgorICoK
+KyAqCXN1YnN5c19pbml0Y2FsbChiYXJfaW5pdCk7CisgKgorICogZm9vX2luaXQoKSB3b3VsZCBi
+ZSBjYWxsZWQgcHJpb3IgdG8gYmFyX2luaXQoKS4KKyAqCisgKiBOb3RlIHRoYXQgQGlkIGluIF9f
+ZGVmaW5lX2luaXRjYWxsKCkgYWxzbyBlbmFibGVzIG11bHRpcGxlIGluaXRjYWxscworICogdG8g
+YmUgY3JlYXRlZCB1c2luZyB0aGUgc2FtZSBoYW5kbGVyIGZvciBkaWZmZXJlbnQgaW5pdCBsZXZl
+bHMgd2l0aG91dAorICogY2F1c2luZyBkdXBsaWNhdGUtc3ltYm9sIGJ1aWxkIGVycm9ycy4KKyAq
+CisgKiBJbml0Y2FsbHMgYXJlIHJ1biBieSBwbGFjaW5nIHN0YXJ0IHN5bWJvbHMgdG8gaW5pdGNh
+bGwgbGV2ZWxzIGluc2lkZSBFTEYKKyAqIHNlY3Rpb25zLCB0aGUga2VybmVsIGluIHR1cm4gdXNl
+cyB0aGVzZSBzeW1ib2xzIHRvIGl0ZXJhdGUgb3ZlciBlYWNoIGluaXQKKyAqIGxldmVsIGF0IHJ1
+bnRpbWUgd2l0aCBkb19pbml0Y2FsbF9sZXZlbCgpLiBUaGUgZW5kIG9mIGVhY2ggaW5pdCBsZXZl
+bCBpcworICogbWFya2VkIGJ5IHRoZSBzdWJzZXF1ZW50J3Mgc3ltYm9sJ3Mgc3RhcnQgYWRkcmVz
+cyB1bnRpbCB3ZSByZWFjaCB0aGUgc3ltYm9sCisgKiBgYF9faW5pdGNhbGxfZW5kYGAuIFRoZSBs
+aW5rZXIgY2FuIGRvIGRlYWQgY29kZSAvIGRhdGEgZWxpbWluYXRpb24gYW5kIGVhY2gKKyAqIGlu
+aXQgbGV2ZWwgc3RhcnQgc3ltYm9sIGNvdWxkIGJlIHJlbW92ZWQgY29tcGxldGVseSBpbiB0aGlz
+IHByb2Nlc3MsIHRvCisgKiBhdm9pZCB0aGlzIGVhY2ggaW5pdCBsZXZlbCBzdGFydCBzeW1ib2xz
+IG11c3QgYmUgbWFya2VkIGFzICdLRUVQKCknIGluIHRoZQorICogbGlua2VyIHNjcmlwdCB0byBh
+dm9pZCBhbnkgbGlua2VyIG9wdGltaXphdGlvbiBoZXVyaXN0aWMgb24gaW5pdGNhbGxzLgogICov
+Ci0KICNkZWZpbmUgX19kZWZpbmVfaW5pdGNhbGwoZm4sIGlkKSBcCiAJc3RhdGljIGluaXRjYWxs
+X3QgX19pbml0Y2FsbF8jI2ZuIyNpZCBfX3VzZWQgXAogCV9fYXR0cmlidXRlX18oKF9fc2VjdGlv
+bl9fKCIuaW5pdGNhbGwiICNpZCAiLmluaXQiKSkpID0gZm47CmRpZmYgLS1naXQgYS9pbmNsdWRl
+L2xpbnV4L3NlY3Rpb25zLmggYi9pbmNsdWRlL2xpbnV4L3NlY3Rpb25zLmgKbmV3IGZpbGUgbW9k
+ZSAxMDA2NDQKaW5kZXggMDAwMDAwMDAwMDAwLi42NzcxYzcyN2JjZDEKLS0tIC9kZXYvbnVsbAor
+KysgYi9pbmNsdWRlL2xpbnV4L3NlY3Rpb25zLmgKQEAgLTAsMCArMSw4NyBAQAorI2lmbmRlZiBf
+TElOVVhfU0VDVElPTlNfSAorI2RlZmluZSBfTElOVVhfU0VDVElPTlNfSAorLyoKKyAqIExpbnV4
+IGRlLWZhY3RvIHNlY3Rpb25zCisgKgorICogQ29weXJpZ2h0IChDKSAyMDE2IEx1aXMgUi4gUm9k
+cmlndWV6IDxtY2dyb2ZAa2VybmVsLm9yZz4KKyAqCisgKiBUaGlzIHByb2dyYW0gaXMgZnJlZSBz
+b2Z0d2FyZTsgeW91IGNhbiByZWRpc3RyaWJ1dGUgaXQgYW5kL29yIG1vZGlmeSBpdAorICogdW5k
+ZXIgdGhlIHRlcm1zIG9mIGNvcHlsZWZ0LW5leHQgKHZlcnNpb24gMC4zLjEgb3IgbGF0ZXIpIGFz
+IHB1Ymxpc2hlZAorICogYXQgaHR0cDovL2NvcHlsZWZ0LW5leHQub3JnLy4KKyAqLworCisjaW5j
+bHVkZSA8YXNtL3NlY3Rpb24tY29yZS5oPgorI2luY2x1ZGUgPGxpbnV4L2V4cG9ydC5oPgorCisj
+aWZuZGVmIF9fQVNTRU1CTFlfXworCisvKioKKyAqIERPQzogSW50cm9kdWN0aW9uCisgKgorICog
+TGludXggZGVmaW5lcyBhIHNldCBvZiBjb21tb24gaGVscGVycyB3aGljaCBjYW4gYmUgdXNlZCB0
+byBhZ2FpbnN0IGl0cyB1c2UKKyAqIG9mIHN0YW5kYXJkIG9yIGN1c3RvbSBMaW51eCBzZWN0aW9u
+cywgdGhpcyBzZWN0aW9uIGlzIGRlZGljYXRlZCB0byB0aGVzZQorICogaGVscGVycy4KKyAqLwor
+CisvKioKKyAqIExJTlVYX1NFQ1RJT05fQUxJR05NRU5UIC0gZ2V0IHNlY3Rpb24gYWxpZ25tZW50
+CisgKgorICogQG5hbWU6IHNlY3Rpb24gbmFtZQorICoKKyAqIEdpdmVzIHlvdSB0aGUgYWxpZ25t
+ZW50IGZvciB0aGUgc2VjdGlvbi4KKyAqLworI2RlZmluZSBMSU5VWF9TRUNUSU9OX0FMSUdOTUVO
+VChuYW1lKQlfX2FsaWdub2ZfXygqVk1MSU5VWF9TWU1CT0wobmFtZSkpCisKKy8qKgorICogTElO
+VVhfU0VDVElPTl9TVEFSVCAtIGdldCBhZGRyZXNzIG9mIHN0YXJ0IG9mIHNlY3Rpb24KKyAqCisg
+KiBAbmFtZTogc2VjdGlvbiBuYW1lCisgKgorICogVGhpcyBnaXZlcyB5b3UgdGhlIHN0YXJ0IGFk
+ZHJlc3Mgb2YgdGhlIHNlY3Rpb24uCisgKiBUaGlzIHNob3VsZCBnaXZlIHlvdSB0aGUgYWRkcmVz
+cyBvZiB0aGUgZmlyc3QgZW50cnkuCisgKgorICovCisjZGVmaW5lIExJTlVYX1NFQ1RJT05fU1RB
+UlQobmFtZSkJVk1MSU5VWF9TWU1CT0wobmFtZSkKKworLyoqCisgKiBMSU5VWF9TRUNUSU9OX0VO
+RCAtIGdldCBhZGRyZXNzIG9mIGVuZCBvZiB0aGUgc2VjdGlvbgorICoKKyAqIEBuYW1lOiBzZWN0
+aW9uIG5hbWUKKyAqCisgKiBUaGlzIGdpdmVzIHlvdSB0aGUgZW5kIGFkZHJlc3Mgb2YgdGhlIHNl
+Y3Rpb24uCisgKiBUaGlzIHNob3VsZCBnaXZlIHlvdSB0aGUgYWRkcmVzcyBvZiB0aGUgZW5kIG9m
+IHRoZQorICogc2VjdGlvbi4gVGhpcyB3aWxsIG1hdGNoIHRoZSBzdGFydCBhZGRyZXNzIGlmIHRo
+ZQorICogc2VjdGlvbiBpcyBlbXB0eS4KKyAqLworI2RlZmluZSBMSU5VWF9TRUNUSU9OX0VORChu
+YW1lKQlWTUxJTlVYX1NZTUJPTChuYW1lIyNfX2VuZCkKKworLyoqCisgKiBERUNMQVJFX0xJTlVY
+X1NFQ1RJT04gLSBEZWNsYXJlcyBhIGN1c3RvbSBMaW51eCBzZWN0aW9uCisgKgorICogQHR5cGU6
+IHR5cGUgb2YgY3VzdG9tIExpbnV4IHNlY3Rpb24KKyAqIEBuYW1lOiBjdXN0b20gc2VjdGlvbiBu
+YW1lCisgKgorICogRGVjbGFyZXMgYSByZWFkLXdyaXRlIGN1c3RvbSBMaW51eCBzZWN0aW9uCisg
+Ki8KKyNkZWZpbmUgREVDTEFSRV9MSU5VWF9TRUNUSU9OKHR5cGUsIG5hbWUpCQkJCVwKKwkgZXh0
+ZXJuIHR5cGUgVk1MSU5VWF9TWU1CT0wobmFtZSlbXSwgXAorCQkgICAgIFZNTElOVVhfU1lNQk9M
+KG5hbWUjI19fZW5kKVtdCisKKy8qKgorICogREVDTEFSRV9MSU5VWF9TRUNUSU9OX1JPIC0gRGVj
+bGFyZXMgYSByZWFkLW9ubHkgY3VzdG9tIExpbnV4IHNlY3Rpb24KKyAqCisgKiBAdHlwZTogdHlw
+ZSBvZiBjdXN0b20gTGludXggc2VjdGlvbgorICogQG5hbWU6IGN1c3RvbSBzZWN0aW9uIG5hbWUK
+KyAqCisgKiBEZWNsYXJlcyBhIHJlYWQtb25seSBjdXN0b20gTGludXggc2VjdGlvbgorICovCisj
+ZGVmaW5lIERFQ0xBUkVfTElOVVhfU0VDVElPTl9STyh0eXBlLCBuYW1lKQkJCQlcCisJIGV4dGVy
+biBjb25zdCB0eXBlIFZNTElOVVhfU1lNQk9MKG5hbWUpW10sCQkJXAorCQkJICAgVk1MSU5VWF9T
+WU1CT0wobmFtZSMjX19lbmQpW10KKworI2RlZmluZSBfX1NFQ1RJT05fQ09SRShzZWN0aW9uLCBj
+b3JlLCBuYW1lLCBsZXZlbCkJCQlcCisJI3NlY3Rpb24gIi4uIiAjY29yZSAiLiIgI25hbWUgIi4i
+ICNsZXZlbAorCisjZW5kaWYgLyogX19BU1NFTUJMWV9fICovCisKKyNlbmRpZiAvKiBfTElOVVhf
+U0VDVElPTlNfSCAqLwotLSAKMi4xMC4xCgotLQpUbyB1bnN1YnNjcmliZSBmcm9tIHRoaXMgbGlz
+dDogc2VuZCB0aGUgbGluZSAidW5zdWJzY3JpYmUgbGludXgtaWE2NCIgaW4KdGhlIGJvZHkgb2Yg
+YSBtZXNzYWdlIHRvIG1ham9yZG9tb0B2Z2VyLmtlcm5lbC5vcmcKTW9yZSBtYWpvcmRvbW8gaW5m
+byBhdCAgaHR0cDovL3ZnZXIua2VybmVsLm9yZy9tYWpvcmRvbW8taW5mby5odG1s
