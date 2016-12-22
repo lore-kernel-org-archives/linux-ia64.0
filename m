@@ -1,97 +1,35 @@
-From: Boris Ostrovsky <boris.ostrovsky@oracle.com>
-Date: Tue, 13 Dec 2016 04:18:29 +0000
-Subject: [PATCH v2] ACPI/NUMA: Do not map pxm to node when NUMA is turned off
-Message-Id: <1481602709-18260-1-git-send-email-boris.ostrovsky@oracle.com>
+From: "Luis R. Rodriguez" <mcgrof@kernel.org>
+Date: Thu, 22 Dec 2016 02:39:57 +0000
+Subject: [PATCH v2 5/6] tools: add __section() to compiler.h
+Message-Id: <20161222023958.21306-6-mcgrof@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1471642875-5957-1-git-send-email-mcgrof@kernel.org>
+ <20161222023958.21306-1-mcgrof@kernel.org>
+In-Reply-To: <20161222023958.21306-1-mcgrof@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: catalin.marinas@arm.com, will.deacon@arm.com, tony.luck@intel.com, fenghua.yu@intel.com, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, rjw@rjwysocki.net, lenb@kernel.org
-Cc: x86@kernel.org, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-acpi@vger.kernel.org, Boris Ostrovsky <boris.ostrovsky@oracle.com>
+To: hpa@zytor.com, acme@redhat.com, tglx@linutronix.de, mingo@redhat.com, jpoimboe@redhat.com, bp@alien8.de, npiggin@gmail.com, mhiramat@kernel.org, masami.hiramatsu.pt@hitachi.com, jbaron@akamai.com, heiko.carstens@de.ibm.com, ananth@linux.vnet.ibm.com, anil.s.keshavamurthy@intel.com, davem@davemloft.net, realmz6@gmail.com, dalias@libc.org, linux@arm.linux.org.uk
+Cc: x86@kernel.org, luto@amacapital.net, keescook@chromium.org, linux@roeck-us.net, torvalds@linux-foundation.org, gregkh@linuxfoundation.org, rusty@rustcorp.com.au, gnomes@lxorguk.ukuu.org.uk, alan@linux.intel.com, dwmw2@infradead.org, arnd@arndb.de, ming.lei@canonical.com, linux-arch@vger.kernel.org, benh@kernel.crashing.org, pebolle@tiscali.nl, fontana@sharpeleven.org, david.vrabel@citrix.com, konrad.wilk@oracle.com, mcb30@ipxe.org, jgross@suse.com, andrew.cooper3@citrix.com, andriy.shevchenko@linux.intel.com, paul.gortmaker@windriver.com, xen-devel@lists.xensource.com, ak@linux.intel.com, pali.rohar@gmail.com, dvhart@infradead.org, platform-driver-x86@vger.kernel.org, mmarek@suse.com, linux@rasmusvillemoes.dk, jkosina@suse.cz, korea.drzix@gmail.com, linux-kbuild@vger.kernel
 
-Otherwise we may unexpectedly reference a non-zero node via, for example,
-acpi_get_node() while other parts of the kernel assume that only node 0
-(which is what NUMA_NO_NODE is supposed to be converted to) is
-available.
+This will be used later by the userspace linker table.
 
-Signed-off-by: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+Signed-off-by: Luis R. Rodriguez <mcgrof@kernel.org>
 ---
-V2:
-* Drop __initdata from x86's numa_off 
-* Make numa_off available to drivers/acpi/numa.c for arm64 and IA64 
+ tools/include/linux/compiler.h | 2 ++
+ 1 file changed, 2 insertions(+)
 
- arch/arm64/include/asm/numa.h | 2 ++
- arch/arm64/mm/numa.c          | 2 +-
- arch/ia64/include/asm/numa.h  | 2 ++
- arch/x86/mm/numa.c            | 2 +-
- drivers/acpi/numa.c           | 2 +-
- 5 files changed, 7 insertions(+), 3 deletions(-)
-
-diff --git a/arch/arm64/include/asm/numa.h b/arch/arm64/include/asm/numa.h
-index 600887e..bf466d1 100644
---- a/arch/arm64/include/asm/numa.h
-+++ b/arch/arm64/include/asm/numa.h
-@@ -15,6 +15,8 @@
+diff --git a/tools/include/linux/compiler.h b/tools/include/linux/compiler.h
+index 556c991de212..6321265df00a 100644
+--- a/tools/include/linux/compiler.h
++++ b/tools/include/linux/compiler.h
+@@ -132,4 +132,6 @@ static __always_inline void __write_once_size(volatile void *p, void *res, int s
+ #define WRITE_ONCE(x, val) \
+ 	({ union { typeof(x) __val; char __c[1]; } __u = { .__val = (val) }; __write_once_size(&(x), __u.__c, sizeof(x)); __u.__val; })
  
- extern nodemask_t numa_nodes_parsed __initdata;
- 
-+extern bool numa_off;
++#define __section(S)	__attribute__ ((__section__(#S)))
 +
- /* Mappings between node number and cpus on that node. */
- extern cpumask_var_t node_to_cpumask_map[MAX_NUMNODES];
- void numa_clear_node(unsigned int cpu);
-diff --git a/arch/arm64/mm/numa.c b/arch/arm64/mm/numa.c
-index 4b32168..b388a99 100644
---- a/arch/arm64/mm/numa.c
-+++ b/arch/arm64/mm/numa.c
-@@ -35,7 +35,7 @@
- 
- static int numa_distance_cnt;
- static u8 *numa_distance;
--static bool numa_off;
-+bool numa_off;
- 
- static __init int numa_parse_early_param(char *opt)
- {
-diff --git a/arch/ia64/include/asm/numa.h b/arch/ia64/include/asm/numa.h
-index 2db0a6c..ebef7f4 100644
---- a/arch/ia64/include/asm/numa.h
-+++ b/arch/ia64/include/asm/numa.h
-@@ -65,6 +65,8 @@ struct node_cpuid_s {
- 
- #define local_nodeid (cpu_to_node_map[smp_processor_id()])
- 
-+#define numa_off     0
-+
- extern void map_cpu_to_node(int cpu, int nid);
- extern void unmap_cpu_from_node(int cpu, int nid);
- extern void numa_clear_node(int cpu);
-diff --git a/arch/x86/mm/numa.c b/arch/x86/mm/numa.c
-index 3f35b48..12dcad7 100644
---- a/arch/x86/mm/numa.c
-+++ b/arch/x86/mm/numa.c
-@@ -19,7 +19,7 @@
- 
- #include "numa_internal.h"
- 
--int __initdata numa_off;
-+int numa_off;
- nodemask_t numa_nodes_parsed __initdata;
- 
- struct pglist_data *node_data[MAX_NUMNODES] __read_mostly;
-diff --git a/drivers/acpi/numa.c b/drivers/acpi/numa.c
-index ce3a7a1..edb0c79 100644
---- a/drivers/acpi/numa.c
-+++ b/drivers/acpi/numa.c
-@@ -70,7 +70,7 @@ int acpi_map_pxm_to_node(int pxm)
- {
- 	int node;
- 
--	if (pxm < 0 || pxm >= MAX_PXM_DOMAINS)
-+	if (pxm < 0 || pxm >= MAX_PXM_DOMAINS || numa_off)
- 		return NUMA_NO_NODE;
- 
- 	node = pxm_to_node_map[pxm];
+ #endif /* _TOOLS_LINUX_COMPILER_H */
 -- 
-1.8.3.1
+2.10.1
 
