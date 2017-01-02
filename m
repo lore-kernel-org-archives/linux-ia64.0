@@ -1,294 +1,84 @@
-From: Michal Hocko <mhocko@kernel.org>
-Date: Tue, 17 Jan 2017 09:15:42 +0000
-Subject: [PATCH 3/4] arch, mm: remove arch specific show_mem
-Message-Id: <20170117091543.25850-4-mhocko@kernel.org>
+From: Hari Bathini <hbathini@linux.vnet.ibm.com>
+Date: Mon, 02 Jan 2017 14:26:33 +0000
+Subject: [PATCH v3 4/5] powerpc/fadump: reuse crashkernel parameter for fadump memory reservation
+Message-Id: <148336647096.25358.12226723470107227298.stgit@hbathini.in.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20170117091543.25850-1-mhocko@kernel.org>
-In-Reply-To: <20170117091543.25850-1-mhocko@kernel.org>
+References: <148336637462.25358.5151364413645288219.stgit@hbathini.in.ibm.com>
+In-Reply-To: <148336637462.25358.5151364413645288219.stgit@hbathini.in.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>
-Cc: Johannes Weiner <hannes@cmpxchg.org>, Mel Gorman <mgorman@suse.de>, Vlastimil Babka <vbabka@suse.cz>, David Rientjes <rientjes@google.com>, linux-mm@kvack.org, LKML <linux-kernel@vger.kernel.org>, Michal Hocko <mhocko@suse.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "James E.J. Bottomley" <jejb@parisc-linux.org>, "David S. Miller" <davem@davemloft.net>, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: fenghua.yu@intel.com, tony.luck@intel.com, linux-ia64@vger.kernel.org, dyoung@redhat.com, kexec@lists.infradead.org, Mahesh J Salgaonkar <mahesh@linux.vnet.ibm.com>, ebiederm@xmission.com, Michael Ellerman <mpe@ellerman.id.au>, linuxppc-dev@lists.ozlabs.org, vgoyal@redhat.com
 
-From: Michal Hocko <mhocko@suse.com>
+fadump supports specifying memory to reserve for fadump's crash kernel
+with fadump_reserve_mem kernel parameter. This parameter currently
+supports passing a fixed memory size, like fadump_reserve_mem=<size>
+only. This patch aims to add support for other syntaxes like range-based
+memory size <range1>:<size1>[,<range2>:<size2>,<range3>:<size3>,...]
+which allows using the same parameter to boot the kernel with different
+system RAM sizes.
 
-We have a generic implementation for quite some time already. If there
-is any arch specific information to be printed then we should add a
-callback called from the generic code rather than duplicate the whole
-show_mem. The current code has resulted in the code duplication and
-the output divergence which is both confusing and adds maintainance
-costs. Let's just get rid of this mess.
+As crashkernel parameter already supports the above mentioned syntaxes,
+this patch deprecates fadump_reserve_mem parameter and reuses crashkernel
+parameter instead, to specify memory for fadump's crash kernel memory
+reservation as well. If any offset is provided in crashkernel parameter,
+it will be ignored in case of fadump, as fadump reserves memory at end
+of RAM.
 
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: "James E.J. Bottomley" <jejb@parisc-linux.org>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: linux-ia64@vger.kernel.org
-Cc: linux-parisc@vger.kernel.org
-Acked-by: Guan Xuetao <gxt@mprc.pku.edu.cn> [UniCore32]
-Acked-by: Helge Deller <deller@gmx.de> [for parisc]
-Acked-by: Chris Metcalf <cmetcalf@mellanox.com> [for tile]
-Acked-by: Mel Gorman <mgorman@suse.de>
-Acked-by: Johannes Weiner <hannes@cmpxchg.org>
-Signed-off-by: Michal Hocko <mhocko@suse.com>
+Advantages using crashkernel parameter instead of fadump_reserve_mem
+parameter are one less kernel parameter overall, code reuse and support
+for multiple syntaxes to specify memory.
+
+Suggested-by: Dave Young <dyoung@redhat.com>
+Signed-off-by: Hari Bathini <hbathini@linux.vnet.ibm.com>
 ---
- arch/ia64/mm/init.c      | 48 -----------------------------------------------
- arch/parisc/mm/init.c    | 49 ------------------------------------------------
- arch/sparc/mm/init_32.c  | 11 -----------
- arch/tile/mm/pgtable.c   | 45 --------------------------------------------
- arch/unicore32/mm/init.c | 44 -------------------------------------------
- 5 files changed, 197 deletions(-)
+ arch/powerpc/kernel/fadump.c |   23 ++++++++++-------------
+ 1 file changed, 10 insertions(+), 13 deletions(-)
 
-diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
-index 1841ef69183d..46afc8d5ebfc 100644
---- a/arch/ia64/mm/init.c
-+++ b/arch/ia64/mm/init.c
-@@ -684,51 +684,3 @@ int arch_remove_memory(u64 start, u64 size)
- }
- #endif
- #endif
--
--/**
-- * show_mem - give short summary of memory stats
-- *
-- * Shows a simple page count of reserved and used pages in the system.
-- * For discontig machines, it does this on a per-pgdat basis.
-- */
--void show_mem(unsigned int filter)
--{
--	int total_reserved = 0;
--	unsigned long total_present = 0;
--	pg_data_t *pgdat;
--
--	printk(KERN_INFO "Mem-info:\n");
--	show_free_areas(filter);
--	printk(KERN_INFO "Node memory in pages:\n");
--	for_each_online_pgdat(pgdat) {
--		unsigned long present;
--		unsigned long flags;
--		int reserved = 0;
--		int nid = pgdat->node_id;
--		int zoneid;
--
--		if (skip_free_areas_node(filter, nid))
--			continue;
--		pgdat_resize_lock(pgdat, &flags);
--
--		for (zoneid = 0; zoneid < MAX_NR_ZONES; zoneid++) {
--			struct zone *zone = &pgdat->node_zones[zoneid];
--			if (!populated_zone(zone))
--				continue;
--
--			reserved += zone->present_pages - zone->managed_pages;
--		}
--		present = pgdat->node_present_pages;
--
--		pgdat_resize_unlock(pgdat, &flags);
--		total_present += present;
--		total_reserved += reserved;
--		printk(KERN_INFO "Node %4d:  RAM: %11ld, rsvd: %8d, ",
--		       nid, present, reserved);
--	}
--	printk(KERN_INFO "%ld pages of RAM\n", total_present);
--	printk(KERN_INFO "%d reserved pages\n", total_reserved);
--	printk(KERN_INFO "Total of %ld pages in page table cache\n",
--	       quicklist_total_size());
--	printk(KERN_INFO "%ld free buffer pages\n", nr_free_buffer_pages());
--}
-diff --git a/arch/parisc/mm/init.c b/arch/parisc/mm/init.c
-index e02ada312be8..64bfdf636f39 100644
---- a/arch/parisc/mm/init.c
-+++ b/arch/parisc/mm/init.c
-@@ -653,55 +653,6 @@ void __init mem_init(void)
- unsigned long *empty_zero_page __read_mostly;
- EXPORT_SYMBOL(empty_zero_page);
- 
--void show_mem(unsigned int filter)
--{
--	int total = 0,reserved = 0;
--	pg_data_t *pgdat;
--
--	printk(KERN_INFO "Mem-info:\n");
--	show_free_areas(filter);
--
--	for_each_online_pgdat(pgdat) {
--		unsigned long flags;
--		int zoneid;
--
--		pgdat_resize_lock(pgdat, &flags);
--		for (zoneid = 0; zoneid < MAX_NR_ZONES; zoneid++) {
--			struct zone *zone = &pgdat->node_zones[zoneid];
--			if (!populated_zone(zone))
--				continue;
--
--			total += zone->present_pages;
--			reserved = zone->present_pages - zone->managed_pages;
--		}
--		pgdat_resize_unlock(pgdat, &flags);
--	}
--
--	printk(KERN_INFO "%d pages of RAM\n", total);
--	printk(KERN_INFO "%d reserved pages\n", reserved);
--
--#ifdef CONFIG_DISCONTIGMEM
--	{
--		struct zonelist *zl;
--		int i, j;
--
--		for (i = 0; i < npmem_ranges; i++) {
--			zl = node_zonelist(i, 0);
--			for (j = 0; j < MAX_NR_ZONES; j++) {
--				struct zoneref *z;
--				struct zone *zone;
--
--				printk("Zone list for zone %d on node %d: ", j, i);
--				for_each_zone_zonelist(zone, z, zl, j)
--					printk("[%d/%s] ", zone_to_nid(zone),
--								zone->name);
--				printk("\n");
--			}
--		}
--	}
--#endif
--}
--
- /*
-  * pagetable_init() sets up the page tables
-  *
-diff --git a/arch/sparc/mm/init_32.c b/arch/sparc/mm/init_32.c
-index eb8287155279..c6afe98de4d9 100644
---- a/arch/sparc/mm/init_32.c
-+++ b/arch/sparc/mm/init_32.c
-@@ -55,17 +55,6 @@ extern unsigned int sparc_ramdisk_size;
- 
- unsigned long highstart_pfn, highend_pfn;
- 
--void show_mem(unsigned int filter)
--{
--	printk("Mem-info:\n");
--	show_free_areas(filter);
--	printk("Free swap:       %6ldkB\n",
--	       get_nr_swap_pages() << (PAGE_SHIFT-10));
--	printk("%ld pages of RAM\n", totalram_pages);
--	printk("%ld free pages\n", nr_free_pages());
--}
--
--
- unsigned long last_valid_pfn;
- 
- unsigned long calc_highpages(void)
-diff --git a/arch/tile/mm/pgtable.c b/arch/tile/mm/pgtable.c
-index 7cc6ee7f1a58..492a7361e58e 100644
---- a/arch/tile/mm/pgtable.c
-+++ b/arch/tile/mm/pgtable.c
-@@ -36,51 +36,6 @@
- 
- #define K(x) ((x) << (PAGE_SHIFT-10))
- 
--/*
-- * The normal show_free_areas() is too verbose on Tile, with dozens
-- * of processors and often four NUMA zones each with high and lowmem.
-- */
--void show_mem(unsigned int filter)
--{
--	struct zone *zone;
--
--	pr_err("Active:%lu inactive:%lu dirty:%lu writeback:%lu unstable:%lu free:%lu\n slab:%lu mapped:%lu pagetables:%lu bounce:%lu pagecache:%lu swap:%lu\n",
--	       (global_node_page_state(NR_ACTIVE_ANON) +
--		global_node_page_state(NR_ACTIVE_FILE)),
--	       (global_node_page_state(NR_INACTIVE_ANON) +
--		global_node_page_state(NR_INACTIVE_FILE)),
--	       global_node_page_state(NR_FILE_DIRTY),
--	       global_node_page_state(NR_WRITEBACK),
--	       global_node_page_state(NR_UNSTABLE_NFS),
--	       global_page_state(NR_FREE_PAGES),
--	       (global_page_state(NR_SLAB_RECLAIMABLE) +
--		global_page_state(NR_SLAB_UNRECLAIMABLE)),
--	       global_node_page_state(NR_FILE_MAPPED),
--	       global_page_state(NR_PAGETABLE),
--	       global_page_state(NR_BOUNCE),
--	       global_node_page_state(NR_FILE_PAGES),
--	       get_nr_swap_pages());
--
--	for_each_zone(zone) {
--		unsigned long flags, order, total = 0, largest_order = -1;
--
--		if (!populated_zone(zone))
--			continue;
--
--		spin_lock_irqsave(&zone->lock, flags);
--		for (order = 0; order < MAX_ORDER; order++) {
--			int nr = zone->free_area[order].nr_free;
--			total += nr << order;
--			if (nr)
--				largest_order = order;
--		}
--		spin_unlock_irqrestore(&zone->lock, flags);
--		pr_err("Node %d %7s: %lukB (largest %luKb)\n",
--		       zone_to_nid(zone), zone->name,
--		       K(total), largest_order ? K(1UL) << largest_order : 0);
--	}
--}
--
- /**
-  * shatter_huge_page() - ensure a given address is mapped by a small page.
-  *
-diff --git a/arch/unicore32/mm/init.c b/arch/unicore32/mm/init.c
-index be2bde9b07cf..f4950fbfe574 100644
---- a/arch/unicore32/mm/init.c
-+++ b/arch/unicore32/mm/init.c
-@@ -57,50 +57,6 @@ early_param("initrd", early_initrd);
+diff --git a/arch/powerpc/kernel/fadump.c b/arch/powerpc/kernel/fadump.c
+index db0b339..de7d39a 100644
+--- a/arch/powerpc/kernel/fadump.c
++++ b/arch/powerpc/kernel/fadump.c
+@@ -210,14 +210,20 @@ static unsigned long init_fadump_mem_struct(struct fadump_mem_struct *fdm,
   */
- struct meminfo meminfo;
- 
--void show_mem(unsigned int filter)
--{
--	int free = 0, total = 0, reserved = 0;
--	int shared = 0, cached = 0, slab = 0, i;
--	struct meminfo *mi = &meminfo;
--
--	printk(KERN_DEFAULT "Mem-info:\n");
--	show_free_areas(filter);
--
--	for_each_bank(i, mi) {
--		struct membank *bank = &mi->bank[i];
--		unsigned int pfn1, pfn2;
--		struct page *page, *end;
--
--		pfn1 = bank_pfn_start(bank);
--		pfn2 = bank_pfn_end(bank);
--
--		page = pfn_to_page(pfn1);
--		end  = pfn_to_page(pfn2 - 1) + 1;
--
--		do {
--			total++;
--			if (PageReserved(page))
--				reserved++;
--			else if (PageSwapCache(page))
--				cached++;
--			else if (PageSlab(page))
--				slab++;
--			else if (!page_count(page))
--				free++;
--			else
--				shared += page_count(page) - 1;
--			page++;
--		} while (page < end);
--	}
--
--	printk(KERN_DEFAULT "%d pages of RAM\n", total);
--	printk(KERN_DEFAULT "%d free pages\n", free);
--	printk(KERN_DEFAULT "%d reserved pages\n", reserved);
--	printk(KERN_DEFAULT "%d slab pages\n", slab);
--	printk(KERN_DEFAULT "%d pages shared\n", shared);
--	printk(KERN_DEFAULT "%d pages swap cached\n", cached);
--}
--
- static void __init find_limits(unsigned long *min, unsigned long *max_low,
- 	unsigned long *max_high)
+ static inline unsigned long fadump_calculate_reserve_size(void)
  {
--- 
-2.11.0
+-	unsigned long size;
++	int ret;
++	unsigned long long base, size;
+ 
+ 	/*
+-	 * Check if the size is specified through fadump_reserve_mem= cmdline
+-	 * option. If yes, then use that.
++	 * Check if the size is specified through crashkernel= cmdline
++	 * option. If yes, then use that but ignore base as fadump
++	 * reserves memory at end of RAM.
+ 	 */
+-	if (fw_dump.reserve_bootvar)
++	ret = parse_crashkernel(boot_command_line, memblock_phys_mem_size(),
++				&size, &base);
++	if (ret = 0 && size > 0) {
++		fw_dump.reserve_bootvar = (unsigned long)size;
+ 		return fw_dump.reserve_bootvar;
++	}
+ 
+ 	/* divide by 20 to get 5% of value */
+ 	size = memblock_end_of_DRAM() / 20;
+@@ -353,15 +359,6 @@ static int __init early_fadump_param(char *p)
+ }
+ early_param("fadump", early_fadump_param);
+ 
+-/* Look for fadump_reserve_mem= cmdline option */
+-static int __init early_fadump_reserve_mem(char *p)
+-{
+-	if (p)
+-		fw_dump.reserve_bootvar = memparse(p, &p);
+-	return 0;
+-}
+-early_param("fadump_reserve_mem", early_fadump_reserve_mem);
+-
+ static void register_fw_dump(struct fadump_mem_struct *fdm)
+ {
+ 	int rc;
 
