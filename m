@@ -1,176 +1,64 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Sun, 22 Jan 2017 16:32:25 +0000
-Subject: [PATCH 01/20] ia64: move ia64_done_with_exception out of asm/uaccess.h
-Message-Id: <20170122163244.11740-2-paul.gortmaker@windriver.com>
+From: Hari Bathini <hbathini@linux.vnet.ibm.com>
+Date: Mon, 02 Jan 2017 14:25:19 +0000
+Subject: [PATCH v3 0/5] kexec/fadump: remove dependency with CONFIG_KEXEC and reuse crashkernel parameter for
+Message-Id: <148336637462.25358.5151364413645288219.stgit@hbathini.in.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20170122163244.11740-1-paul.gortmaker@windriver.com>
-In-Reply-To: <20170122163244.11740-1-paul.gortmaker@windriver.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Al Viro <viro@zeniv.linux.org.uk>, linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: fenghua.yu@intel.com, tony.luck@intel.com, linux-ia64@vger.kernel.org, dyoung@redhat.com, kexec@lists.infradead.org, Mahesh J Salgaonkar <mahesh@linux.vnet.ibm.com>, ebiederm@xmission.com, Michael Ellerman <mpe@ellerman.id.au>, linuxppc-dev@lists.ozlabs.org, vgoyal@redhat.com
 
-Move ia64_done_with_exception out of asm/uaccess.h (which is widely
-used) and into asm/exception.h (like ARM has) and then ensure the
-few callers of it include this new header.
+Traditionally, kdump is used to save vmcore in case of a crash. Some
+architectures like powerpc can save vmcore using architecture specific
+support instead of kexec/kdump mechanism. Such architecture specific
+support also needs to reserve memory, to be used by dump capture kernel.
+crashkernel parameter can be a reused, for memory reservation, by such
+architecture specific infrastructure.
 
-Most of the other C content in asm files is implemented in macro form.
-So we do that conversion at the same time as the move.
+This patchset removes dependency with CONFIG_KEXEC for crashkernel parameter
+and vmcoreinfo related code as it can be reused without kexec support. Also,
+crashkernel parameter is reused instead of fadump_reserve_mem to reserve
+memory for fadump.
 
-There are two C exception prototypes that move along with the macro.
-One of them will become redundant when we switch over to using the
-<linux/extable.h> instead of <linux/module.h> header in a subsequent
-commit.
+The first patch moves crashkernel parameter parsing and vmcoreinfo related
+code under CONFIG_CRASH_CORE instead of CONFIG_KEXEC_CORE. The second patch
+reuses the definitions of append_elf_note() & final_note() functions under
+CONFIG_CRASH_CORE in IA64 arch code. The third patch removes dependency on
+CONFIG_KEXEC for firmware-assisted dump (fadump) in powerpc. The next patch
+reuses crashkernel parameter for reserving memory for fadump, instead of the
+fadump_reserve_mem parameter. This has the advantage of using all syntaxes
+crashkernel parameter supports, for fadump as well. The last patch updates
+fadump kernel documentation about use of crashkernel parameter.
 
-Also relocate a couple of the automated asm --> linux uaccess
-conversions to preserve the linux and asm independent grouping, since
-we are in the file at that location anyway.
-
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: Al Viro <viro@zeniv.linux.org.uk>
-Cc: linux-ia64@vger.kernel.org
-Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- arch/ia64/include/asm/exception.h | 36 ++++++++++++++++++++++++++++++++++++
- arch/ia64/include/asm/uaccess.h   | 15 ---------------
- arch/ia64/kernel/kprobes.c        |  2 +-
- arch/ia64/kernel/traps.c          |  3 ++-
- arch/ia64/kernel/unaligned.c      |  3 ++-
- arch/ia64/mm/fault.c              |  1 +
- 6 files changed, 42 insertions(+), 18 deletions(-)
- create mode 100644 arch/ia64/include/asm/exception.h
 
-diff --git a/arch/ia64/include/asm/exception.h b/arch/ia64/include/asm/exception.h
-new file mode 100644
-index 000000000000..d90236090e8c
---- /dev/null
-+++ b/arch/ia64/include/asm/exception.h
-@@ -0,0 +1,36 @@
-+/*
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
-+ */
-+#ifndef __ASM_EXCEPTION_H
-+#define __ASM_EXCEPTION_H
-+
-+struct pt_regs;
-+struct exception_table_entry;
-+
-+extern void ia64_handle_exception(struct pt_regs *regs,
-+				  const struct exception_table_entry *e);
-+extern const struct exception_table_entry *search_exception_tables(unsigned long addr);
-+
-+#define ia64_done_with_exception(regs)					  \
-+({									  \
-+	int __ex_ret = 0;						  \
-+	const struct exception_table_entry *e;				  \
-+	e = search_exception_tables((regs)->cr_iip + ia64_psr(regs)->ri); \
-+	if (e) {							  \
-+		ia64_handle_exception(regs, e);				  \
-+		__ex_ret = 1;						  \
-+	}								  \
-+	__ex_ret;							  \
-+})
-+
-+#endif	/* __ASM_EXCEPTION_H */
-diff --git a/arch/ia64/include/asm/uaccess.h b/arch/ia64/include/asm/uaccess.h
-index bfe13196f770..471044be2a3b 100644
---- a/arch/ia64/include/asm/uaccess.h
-+++ b/arch/ia64/include/asm/uaccess.h
-@@ -353,21 +353,6 @@ struct exception_table_entry {
- 	int fixup;	/* location-relative continuation addr.; if bit 2 is set, r9 is set to 0 */
- };
- 
--extern void ia64_handle_exception (struct pt_regs *regs, const struct exception_table_entry *e);
--extern const struct exception_table_entry *search_exception_tables (unsigned long addr);
--
--static inline int
--ia64_done_with_exception (struct pt_regs *regs)
--{
--	const struct exception_table_entry *e;
--	e = search_exception_tables(regs->cr_iip + ia64_psr(regs)->ri);
--	if (e) {
--		ia64_handle_exception(regs, e);
--		return 1;
--	}
--	return 0;
--}
--
- #define ARCH_HAS_TRANSLATE_MEM_PTR	1
- static __inline__ void *
- xlate_dev_mem_ptr(phys_addr_t p)
-diff --git a/arch/ia64/kernel/kprobes.c b/arch/ia64/kernel/kprobes.c
-index 45ff27e9edbb..55b18e1b67a8 100644
---- a/arch/ia64/kernel/kprobes.c
-+++ b/arch/ia64/kernel/kprobes.c
-@@ -33,7 +33,7 @@
- 
- #include <asm/pgtable.h>
- #include <asm/sections.h>
--#include <linux/uaccess.h>
-+#include <asm/exception.h>
- 
- extern void jprobe_inst_return(void);
- 
-diff --git a/arch/ia64/kernel/traps.c b/arch/ia64/kernel/traps.c
-index 095bfaff82d0..d3e1f1ee465f 100644
---- a/arch/ia64/kernel/traps.c
-+++ b/arch/ia64/kernel/traps.c
-@@ -17,11 +17,12 @@
- #include <linux/kprobes.h>
- #include <linux/delay.h>		/* for ssleep() */
- #include <linux/kdebug.h>
-+#include <linux/uaccess.h>
- 
- #include <asm/fpswa.h>
- #include <asm/intrinsics.h>
- #include <asm/processor.h>
--#include <linux/uaccess.h>
-+#include <asm/exception.h>
- #include <asm/setup.h>
- 
- fpswa_interface_t *fpswa_interface;
-diff --git a/arch/ia64/kernel/unaligned.c b/arch/ia64/kernel/unaligned.c
-index 9cd01c2200ee..e697403b0ec1 100644
---- a/arch/ia64/kernel/unaligned.c
-+++ b/arch/ia64/kernel/unaligned.c
-@@ -18,11 +18,12 @@
- #include <linux/sched.h>
- #include <linux/tty.h>
- #include <linux/ratelimit.h>
-+#include <linux/uaccess.h>
- 
- #include <asm/intrinsics.h>
- #include <asm/processor.h>
- #include <asm/rse.h>
--#include <linux/uaccess.h>
-+#include <asm/exception.h>
- #include <asm/unaligned.h>
- 
- extern int die_if_kernel(char *str, struct pt_regs *regs, long err);
-diff --git a/arch/ia64/mm/fault.c b/arch/ia64/mm/fault.c
-index fa6ad95e992e..52b41dad9704 100644
---- a/arch/ia64/mm/fault.c
-+++ b/arch/ia64/mm/fault.c
-@@ -15,6 +15,7 @@
- 
- #include <asm/pgtable.h>
- #include <asm/processor.h>
-+#include <asm/exception.h>
- 
- extern int die(char *, struct pt_regs *, long);
- 
--- 
-2.11.0
+Hari Bathini (5):
+      crash: move crashkernel parsing and vmcore related code under CONFIG_CRASH_CORE
+      ia64: reuse append_elf_note() and final_note() functions
+      powerpc/fadump: remove dependency with CONFIG_KEXEC
+      powerpc/fadump: reuse crashkernel parameter for fadump memory reservation
+      powerpc/fadump: update documentation about crashkernel parameter reuse
+
+
+ Documentation/powerpc/firmware-assisted-dump.txt |   23 +
+ arch/Kconfig                                     |    4 
+ arch/ia64/kernel/crash.c                         |   22 -
+ arch/powerpc/Kconfig                             |   10 -
+ arch/powerpc/include/asm/fadump.h                |    2 
+ arch/powerpc/kernel/crash.c                      |    2 
+ arch/powerpc/kernel/fadump.c                     |   57 +--
+ arch/powerpc/kernel/setup-common.c               |    5 
+ include/linux/crash_core.h                       |   69 +++
+ include/linux/elf.h                              |    2 
+ include/linux/kexec.h                            |   57 ---
+ include/linux/printk.h                           |    4 
+ kernel/Makefile                                  |    1 
+ kernel/crash_core.c                              |  439 ++++++++++++++++++++++
+ kernel/kexec_core.c                              |  432 ----------------------
+ kernel/ksysfs.c                                  |    8 
+ kernel/printk/printk.c                           |    6 
+ 17 files changed, 572 insertions(+), 571 deletions(-)
+ create mode 100644 include/linux/crash_core.h
+ create mode 100644 kernel/crash_core.c
 
