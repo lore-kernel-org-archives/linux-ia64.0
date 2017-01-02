@@ -1,88 +1,67 @@
-From: "Luis R. Rodriguez" <mcgrof@kernel.org>
-Date: Mon, 09 Jan 2017 15:02:44 +0000
-Subject: [PATCH v3 1/6] tools: add a userspace tools bug.h
-Message-Id: <20170109150249.11667-2-mcgrof@kernel.org>
+From: Hari Bathini <hbathini@linux.vnet.ibm.com>
+Date: Mon, 02 Jan 2017 14:26:43 +0000
+Subject: [PATCH v3 5/5] powerpc/fadump: update documentation about crashkernel parameter reuse
+Message-Id: <148336647935.25358.3726871546809264252.stgit@hbathini.in.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20161222023958.21306-1-mcgrof@kernel.org>
- <20170109150249.11667-1-mcgrof@kernel.org>
-In-Reply-To: <20170109150249.11667-1-mcgrof@kernel.org>
+References: <148336637462.25358.5151364413645288219.stgit@hbathini.in.ibm.com>
+In-Reply-To: <148336637462.25358.5151364413645288219.stgit@hbathini.in.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: hpa@zytor.com, acme@redhat.com, tglx@linutronix.de, mingo@redhat.com, jpoimboe@redhat.com, bp@alien8.de, npiggin@gmail.com, mhiramat@kernel.org, masami.hiramatsu.pt@hitachi.com, jbaron@akamai.com, heiko.carstens@de.ibm.com, ananth@linux.vnet.ibm.com, anil.s.keshavamurthy@intel.com, davem@davemloft.net, realmz6@gmail.com, dalias@libc.org, linux@arm.linux.org.uk
-Cc: x86@kernel.org, luto@amacapital.net, keescook@chromium.org, linux@roeck-us.net, torvalds@linux-foundation.org, gregkh@linuxfoundation.org, rusty@rustcorp.com.au, gnomes@lxorguk.ukuu.org.uk, alan@linux.intel.com, dwmw2@infradead.org, arnd@arndb.de, ming.lei@canonical.com, linux-arch@vger.kernel.org, benh@kernel.crashing.org, pebolle@tiscali.nl, fontana@sharpeleven.org, david.vrabel@citrix.com, konrad.wilk@oracle.com, mcb30@ipxe.org, jgross@suse.com, andrew.cooper3@citrix.com, andriy.shevchenko@linux.intel.com, paul.gortmaker@windriver.com, xen-devel@lists.xensource.com, ak@linux.intel.com, pali.rohar@gmail.com, dvhart@infradead.org, platform-driver-x86@vger.kernel.org, mmarek@suse.com, linux@rasmusvillemoes.dk, jkosina@suse.cz, korea.drzix@gmail.com, linux-kbuild@vger.kernel
+To: linux-kernel@vger.kernel.org
+Cc: fenghua.yu@intel.com, tony.luck@intel.com, linux-ia64@vger.kernel.org, dyoung@redhat.com, kexec@lists.infradead.org, Mahesh J Salgaonkar <mahesh@linux.vnet.ibm.com>, ebiederm@xmission.com, Michael Ellerman <mpe@ellerman.id.au>, linuxppc-dev@lists.ozlabs.org, vgoyal@redhat.com
 
-This will be used later by the userspace linker-tables sandbox.
-As a convenience, include bug.h on kernel.h -- this is not done
-on upstream kernel.h, however most header files do include bug.h
-eventually, if we were to only add the ones that need it we'd
-need to copy a lot of headers to tools for the ony purpose of
-includeing bug.h. This simplifies that.
+As we are reusing crashkernel parameter instead of fadump_reserve_mem
+parameter to specify the memory to reserve for fadump's crash kernel,
+update the documentation accordingly.
 
-Signed-off-by: Luis R. Rodriguez <mcgrof@kernel.org>
+Signed-off-by: Hari Bathini <hbathini@linux.vnet.ibm.com>
 ---
- tools/include/asm-generic/bug.h | 24 ++++++++++++++++++++++++
- tools/include/linux/bug.h       |  6 ++++++
- tools/include/linux/kernel.h    |  2 ++
- 3 files changed, 32 insertions(+)
- create mode 100644 tools/include/asm-generic/bug.h
- create mode 100644 tools/include/linux/bug.h
+ Documentation/powerpc/firmware-assisted-dump.txt |   23 ++++++++++++++--------
+ 1 file changed, 15 insertions(+), 8 deletions(-)
 
-diff --git a/tools/include/asm-generic/bug.h b/tools/include/asm-generic/bug.h
-new file mode 100644
-index 000000000000..7b0f48b60dbe
---- /dev/null
-+++ b/tools/include/asm-generic/bug.h
-@@ -0,0 +1,24 @@
-+#ifndef __TOOLS_ASM_GENERIC_BUG
-+#define __TOOLS_ASM_GENERIC_BUG
-+
-+#include <stdio.h>
-+#include <stdlib.h>
-+
-+#define BUG() do {										\
-+	fprintf(stderr, "----------------------------------------------------------\n");	\
-+	fprintf (stderr, "BUG on %s at %s: %i\n", __func__, __FILE__, __LINE__);		\
-+	abort();										\
-+}												\
-+while (0)
-+
-+#define BUG_ON(cond) do { if (cond) BUG(); } while (0)
-+
-+#define WARN_ON(__test) do {									\
-+	if (__test) {										\
-+		fprintf(stderr, "----------------------------------------------------------\n");\
-+		fprintf (stderr, "WARN_ON on %s at %s: %i\n", __func__, __FILE__, __LINE__);	\
-+	}											\
-+}												\
-+while (0)
-+
-+#endif /* __TOOLS_ASM_GENERIC_BUG */
-diff --git a/tools/include/linux/bug.h b/tools/include/linux/bug.h
-new file mode 100644
-index 000000000000..9be515b40b5c
---- /dev/null
-+++ b/tools/include/linux/bug.h
-@@ -0,0 +1,6 @@
-+#ifndef _TOOLS_LINUX_BUG_H
-+#define _TOOLS_LINUX_BUG_H
-+
-+#include <asm-generic/bug.h>
-+
-+#endif /* _TOOLS_LINUX_BUG_H */
-diff --git a/tools/include/linux/kernel.h b/tools/include/linux/kernel.h
-index 28607db02bd3..3d385a6d4fc1 100644
---- a/tools/include/linux/kernel.h
-+++ b/tools/include/linux/kernel.h
-@@ -5,6 +5,8 @@
- #include <stddef.h>
- #include <assert.h>
+diff --git a/Documentation/powerpc/firmware-assisted-dump.txt b/Documentation/powerpc/firmware-assisted-dump.txt
+index 3007bc9..8394bc8 100644
+--- a/Documentation/powerpc/firmware-assisted-dump.txt
++++ b/Documentation/powerpc/firmware-assisted-dump.txt
+@@ -55,10 +55,14 @@ as follows:
+          booted with restricted memory. By default, the boot memory
+          size will be the larger of 5% of system RAM or 256MB.
+          Alternatively, user can also specify boot memory size
+-         through boot parameter 'fadump_reserve_mem=' which will
+-         override the default calculated size. Use this option
+-         if default boot memory size is not sufficient for second
+-         kernel to boot successfully.
++         through boot parameter 'crashkernel=' which will override
++         the default calculated size. Use this option if default
++         boot memory size is not sufficient for second kernel to
++         boot successfully. For syntax of crashkernel= parameter,
++         refer to Documentation/kdump/kdump.txt. If any offset is
++         provided in crashkernel= parameter, it will be ignored
++         as fadump reserves memory at end of RAM for boot memory
++         dump preservation in case of a crash.
  
-+#include <linux/bug.h>
-+
- #define DIV_ROUND_UP(n,d) (((n) + (d) - 1) / (d))
+ -- After the low memory (boot memory) area has been saved, the
+    firmware will reset PCI and other hardware state.  It will
+@@ -158,13 +162,16 @@ How to enable firmware-assisted dump (fadump):
  
- #define PERF_ALIGN(x, a)	__PERF_ALIGN_MASK(x, (typeof(x))(a)-1)
--- 
-2.11.0
+ 1. Set config option CONFIG_FA_DUMP=y and build kernel.
+ 2. Boot into linux kernel with 'fadump=on' kernel cmdline option.
+-3. Optionally, user can also set 'fadump_reserve_mem=' kernel cmdline
++3. Optionally, user can also set 'crashkernel=' kernel cmdline
+    to specify size of the memory to reserve for boot memory dump
+    preservation.
+ 
+-NOTE: If firmware-assisted dump fails to reserve memory then it will
+-   fallback to existing kdump mechanism if 'crashkernel=' option
+-   is set at kernel cmdline.
++NOTE: 1. 'fadump_reserve_mem=' parameter has been deprecated. Instead
++         use 'crashkernel=' to specify size of the memory to reserve
++         for boot memory dump preservation.
++      2. If firmware-assisted dump fails to reserve memory then it
++         will fallback to existing kdump mechanism if 'crashkernel='
++         option is set at kernel cmdline.
+ 
+ Sysfs/debugfs files:
+ ------------
 
