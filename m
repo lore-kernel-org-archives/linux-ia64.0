@@ -1,308 +1,1218 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Date: Thu, 19 Jan 2017 11:18:55 +0000
-Subject: Re: [PATCH v7 05/14] kbuild: enable option to force compile force-obj-y and force-lib-y
-Message-Id: <20170119111855.GK28024@kroah.com>
+From: Hari Bathini <hbathini@linux.vnet.ibm.com>
+Date: Mon, 02 Jan 2017 14:25:50 +0000
+Subject: [PATCH v3 1/5] crash: move crashkernel parsing and vmcore related code under CONFIG_CRASH_CORE
+Message-Id: <148336641471.25358.1234744226675502511.stgit@hbathini.in.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20170109145833.11502-1-mcgrof@kernel.org>
- <20170115211057.17167-1-mcgrof@kernel.org>
- <20170115211057.17167-6-mcgrof@kernel.org>
-In-Reply-To: <20170115211057.17167-6-mcgrof@kernel.org>
+References: <148336637462.25358.5151364413645288219.stgit@hbathini.in.ibm.com>
+In-Reply-To: <148336637462.25358.5151364413645288219.stgit@hbathini.in.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luis R. Rodriguez" <mcgrof@kernel.org>
-Cc: bp@alien8.de, bp@suse.de, hpa@zytor.com, acme@redhat.com, tglx@linutronix.de, mingo@redhat.com, jpoimboe@redhat.com, npiggin@gmail.com, mhiramat@kernel.org, masami.hiramatsu.pt@hitachi.com, jbaron@akamai.com, heiko.carstens@de.ibm.com, ananth@linux.vnet.ibm.com, anil.s.keshavamurthy@intel.com, davem@davemloft.net, realmz6@gmail.com, dalias@libc.org, linux@arm.linux.org.uk, x86@kernel.org, luto@amacapital.net, keescook@chromium.org, linux@roeck-us.net, torvalds@linux-foundation.org, rusty@rustcorp.com.au, gnomes@lxorguk.ukuu.org.uk, alan@linux.intel.com, dwmw2@infradead.org, arnd@arndb.de, ming.lei@canonical.com, linux-arch@vger.kernel.org, benh@kernel.crashing.org, pebolle@tiscali.nl, fontana@sharpeleven.org, david.vrabel@citrix.com, konrad.wilk@oracle.com, mcb30@ipxe.org
+To: linux-kernel@vger.kernel.org
+Cc: fenghua.yu@intel.com, tony.luck@intel.com, linux-ia64@vger.kernel.org, dyoung@redhat.com, kexec@lists.infradead.org, Mahesh J Salgaonkar <mahesh@linux.vnet.ibm.com>, ebiederm@xmission.com, Michael Ellerman <mpe@ellerman.id.au>, linuxppc-dev@lists.ozlabs.org, vgoyal@redhat.com
 
-On Sun, Jan 15, 2017 at 01:10:48PM -0800, Luis R. Rodriguez wrote:
-> Linux provides a rich array of features, enabling each feature
-> however increases the size of the kernel and there are many
-> features which users often want disabled. The traditional
-> solution to this problem is for each feature to have its own
-> Kconfig symbol, followed by a series of #ifdef statements
-> in C code and header files, allowing the feature to be compiled
-> only when desirable. As the variability of Linux increases build
-> tests can and are often done with random kernel configurations,
-> allyesconfig, and allmodconfig to help find code issues. This
-> however doesn't catch all errors and as a consequence code that
-> is typically not enabled often can suffer from bit-rot over time.
+Traditionally, kdump is used to save vmcore in case of a crash. Some
+architectures like powerpc can save vmcore using architecture specific
+support instead of kexec/kdump mechanism. Such architecture specific
+support also needs to reserve memory, to be used by dump capture kernel.
+crashkernel parameter can be a reused, for memory reservation, by such
+architecture specific infrastructure.
 
-Really?  How do you know this, our test-build infrastructure is really
-good, what has rotted with it?
+But currently, code related to vmcoreinfo and parsing of crashkernel
+parameter is built under CONFIG_KEXEC_CORE. This patch introduces
+CONFIG_CRASH_CORE and moves the above mentioned code under this config,
+allowing code reuse without dependency on CONFIG_KEXEC. There is no
+functional change with this patch.
 
-And again, pick a column width and stick with it in the whole
-changelog...
+Signed-off-by: Hari Bathini <hbathini@linux.vnet.ibm.com>
+---
 
-> An alternative approach for subsystems, which refer to as the 'build-all
-> link-selectively philosophy' is to keep the Kconfig symbols, replace
-> the #ifdef approach by having each feature implemented it its own C file,
-> and force compilation for all features to avoid the code bit-rot problem.
-> With this strategy only features that are enabled via Kconfig get
-> linked into the kernel, so the forced compilation has no size impact
-> on the kernel. The practice of having each feature implemented in its own
-> C file is already prevalent in many subsystems, however #ifdefs are still
-> typically required during feature initialization. For instance in:
-> 
->   #ifdef CONFIG_FOO
->   foo_init();
->   #endif
-
-That's horrid kernel code, and shouldn't be an example of anything other
-than what NOT to do.  You know better than this, put the #ifdef in a .h
-file.
-
-> We cannot remove the #ifdef and leave foo_init() as we'd either
-> need to always enable the feature or add a respective #ifdef in a
-> foo.h which makes foo_init() do nothing when CONFIG_FOO is disabled.
-
-Yes, and what's wrong with that?
-
-> Linker tables enable lifting the requirement to use of #ifdefs during
-> initialization. With linker tables initialization sequences can instead
-> be aggregated into a custom ELF section at link time, during run time
-> the table can be iterated over and each init sequence enabled can be
-> called. A feature's init routine is only added to a table when its
-> respective Kconfig symbols has been enabled and therefore linked in.
-> Linker tables enable subsystems to completely do away with #ifdefs if
-> one is comfortable in accepting all subsystem's feature's structural
-> size implications.
-> 
-> Subsystems which want to follow the 'build-all link-selectively
-> philosophy' still need a way to easily express and annotate that they
-> wish for all code to always be compiled to help avoid code bit rot,
-> as such two new targets force-obj-y and force-lib-y are provided to
-> help with this. Its not fair to require everyone to force compilation
-> of all features of a subsystem though, so as a compromise, the new
-> targets only force compilation when CONFIG_BUILD_AVOID_BITROT is
-> enabled.
-
-You do know about COMPILE_TEST, right?  What's wrong with that?  Why not
-use that as-is today and not add a new configuration option?
-
-> Only built-in features are supported at the moment. Module support
-> is expected to be added after a generic solution to add linker
-> tables to modules more easily is developed.
-
-Ok, you are talking about majorly changing how the kernel build system
-works.  What do the kbuild developers/maintainers say about this?
+Changes from v2:
+* Used CONFIG_CRASH_CORE instead of CONFIG_KEXEC_CORE at
+  appropriate places in printk and ksysfs.
 
 
+ arch/Kconfig               |    4 
+ include/linux/crash_core.h |   65 ++++++
+ include/linux/kexec.h      |   57 ------
+ include/linux/printk.h     |    4 
+ kernel/Makefile            |    1 
+ kernel/crash_core.c        |  445 ++++++++++++++++++++++++++++++++++++++++++++
+ kernel/kexec_core.c        |  404 ----------------------------------------
+ kernel/ksysfs.c            |    8 +
+ kernel/printk/printk.c     |    6 -
+ 9 files changed, 531 insertions(+), 463 deletions(-)
+ create mode 100644 include/linux/crash_core.h
+ create mode 100644 kernel/crash_core.c
 
-> 
-> v4: this patch was added to this series, it was split off from the
->     linker tables addition due to the confusion over the code bit
->     rot alternatives that are possible with linker tables.
-> 
-> Signed-off-by: Luis R. Rodriguez <mcgrof@kernel.org>
-> ---
->  Documentation/kbuild/makefiles.txt       | 36 ++++++++++++++++
->  Documentation/sections/linker-tables.rst | 15 +++++++
->  include/linux/tables.h                   | 71 ++++++++++++++++++++++++++++++++
->  init/Kconfig                             | 22 ++++++++++
->  scripts/Makefile.build                   |  7 ++--
->  scripts/Makefile.clean                   |  2 +
->  scripts/Makefile.lib                     | 11 +++++
->  7 files changed, 161 insertions(+), 3 deletions(-)
-> 
-> diff --git a/Documentation/kbuild/makefiles.txt b/Documentation/kbuild/makefiles.txt
-> index 9b9c4797fc55..1af275cd4879 100644
-> --- a/Documentation/kbuild/makefiles.txt
-> +++ b/Documentation/kbuild/makefiles.txt
-> @@ -1090,6 +1090,42 @@ When kbuild executes, the following steps are followed (roughly):
->  	In this example, extra-y is used to list object files that
->  	shall be built, but shall not be linked as part of built-in.o.
->  
-> +    force-obj-y force-lib-y
-> +
-> +	When CONFIG_BUILD_AVOID_BITROT is enabled using these targets for your
-> +	kconfig symbols forces compilation of the associated objects if the
-> +	kconfig's symbol's dependencies are met, the objects however are only
-> +	linked into to the kernel if and only if the kconfig symbol was
-> +	enabled. If CONFIG_BUILD_AVOID_BITROT is disabled the force-obj-y and
-> +	force-lib-y targets are functionally equilvalent to obj-y and lib-y
-> +	respectively.
-> +
-> +	Using force-obj-y and force-lib-y are part of a code architecture and
-> +	build philosophy further enabled by linker tables, for more details
-> +	refer to the documention in include/linux/tables.h, refer to the
-> +	sections:
-> +
-> +		o The code bit-rot problem
-> +		o The build-all selective-link philosophy
-> +		o Avoiding the code bit-rot problem with linker tables
-> +		o Linker table module support
-> +
-> +	Modules support is expected to be enhanced in the future, so for now
-> +	only built-in features are supported.
-> +
-> +	Example use:
-> +
-> +		force-obj-$(CONFIG_FEATURE_FOO) += foo.o
-> +
-> +	An alternative to using force-obj-y, is to use extra-y followed by the
-> +	respective obj-y:
-> +
-> +		extra-y += foo.o
-> +		obj-$(CONFIG_FEATURE_FOO) += foo.o
-> +
-> +	Using force-obj-y and force-lib-y can be used to help annotate the
-> +	targets follow the 'build-all selective-link philosophy' further
-> +	enabled by linker tables.
->  
->  --- 6.7 Commands useful for building a boot image
->  
-> diff --git a/Documentation/sections/linker-tables.rst b/Documentation/sections/linker-tables.rst
-> index 780a292d2d00..bc2d9f46cde6 100644
-> --- a/Documentation/sections/linker-tables.rst
-> +++ b/Documentation/sections/linker-tables.rst
-> @@ -30,6 +30,21 @@ How linker tables simplify initialization code
->  .. kernel-doc:: include/linux/tables.h
->     :doc: How linker tables simplify initialization code
->  
-> +The code bit-rot problem
-> +------------------------
-> +.. kernel-doc:: include/linux/tables.h
-> +   :doc: The code bit-rot problem
-> +
-> +The build-all selective-link philosophy
-> +---------------------------------------
-> +.. kernel-doc:: include/linux/tables.h
-> +   :doc: The build-all selective-link philosophy
-> +
-> +Avoiding the code bit-rot problem with linker tables
-> +----------------------------------------------------
-> +.. kernel-doc:: include/linux/tables.h
-> +   :doc: Avoiding the code bit-rot problem with linker tables
-> +
->  Using linker tables in Linux
->  ==============
->  
-> diff --git a/include/linux/tables.h b/include/linux/tables.h
-> index 82da59c4266d..f295fbe74734 100644
-> --- a/include/linux/tables.h
-> +++ b/include/linux/tables.h
-> @@ -169,6 +169,77 @@
->   */
->  
->  /**
-> + * DOC: The code bit-rot problem
-> + *
-> + * Linux provides a rich array of features, enabling each feature
-> + * however increases the size of the kernel and there are many
-> + * features which users often want disabled. The traditional
-> + * solution to this problem is for each feature to have its own
-> + * Kconfig symbol, followed by a series of #ifdef statements
-> + * in C code and header files, allowing the feature to be compiled
-> + * only when desirable. As the variability of Linux increases build
-> + * tests can and are often done with random kernel configurations,
-> + * allyesconfig, and allmodconfig to help find code issues. This
-> + * however doesn't catch all errors and as a consequence code that
-> + * is typically not enabled often can suffer from bit-rot over time.
-> + */
-> +
-> +/**
-> + * DOC: The build-all selective-link philosophy
-> + *
-> + * A code architecture philosophy to help avoid code bit-rot consists
-> + * of using Kconfig symbols for each subsystem feature, replace all #ifdefs
-> + * by instead having each feature implemented it its own C file, and force
-> + * compilation for all features. Only features that are enabled get linked in,
-> + * the forced compilation therefore has no size impact on the final result of
-> + * the kernel. The practice of having each feature implemented in its own C
-> + * file is already prevalent in many subsystems, however #ifdefs are still
-> + * typically required during feature initialization. For instance in::
-> + *
-> + *	#ifdef CONFIG_FOO
-> + *	foo_init();
-> + *	#endif
-> + *
-> + * We cannot remove the #ifdef and leave foo_init() as we'd either
-> + * need to always enable the feature or add a respective #ifdef in a
-> + * foo.h which makes foo_init() do nothing when ``CONFIG_FOO`` is disabled.
-> + */
-> +
-> +/**
-> + * DOC: Avoiding the code bit-rot problem with linker tables
-> + *
-> + * Linker tables can be used to further help avoid the code bit-rot problem
-> + * when embracing the 'build-all selective-link philosophy' by lifting the
-> + * requirement to use of #ifdefs during initialization. With linker tables
-> + * initialization sequences can be aggregated into a custom ELF section at
-> + * link time, during run time the table can be iterated over and each init
-> + * sequence enabled can be called. A feature's init routine is only added to a
-> + * table when its respective Kconfig symbols has been enabled and therefore
-> + * linked in. Linker tables enable subsystems to completely do away with
-> + * #ifdefs if one is comfortable in accepting all subsystem's feature's
-> + * structural size implications.
-> + *
-> + * To further help with this the Linux build system supports two special
-> + * targets, ``force-obj-y`` and ``force-lib-y``. A subsystem which wants to
-> + * follow the 'build-all selective-link philosophy' can use these targets for a
-> + * feature's kconfig symbol. Using these targets will always require
-> + * compilation of the kconfig's objects if the kconfig symbol's dependencies
-> + * are met but only link the objects into the kernel, and therefore enable the
-> + * feature, if and only if the kconfig symbol has been enabled.
-> + *
-> + * Not all users or build systems may want to opt-in to compile all objects
-> + * following the 'build-all selective-link philosophy', as such the targets
-> + * ``force-obj-y`` and ``force-lib-y`` only force compilation when the kconfig
-> + * symbol ``CONFIG_BUILD_AVOID_BITROT`` has been enabled. Disabling this feature
-> + * makes ``force-obj-y`` and ``force-lib-y`` functionally equivalent to
-> + * ``obj-y`` and ``lib-y`` respectively.
-> + *
-> + * Example use::
-> + *
-> + *	force-obj-$(CONFIG_FEATURE_FOO) += foo.o
-> + */
-> +
-> +/**
->   * DOC: Linker table module support
->   *
->   * Modules can use linker tables, however the linker table definition
-> diff --git a/init/Kconfig b/init/Kconfig
-> index 536c2a00d972..6272f4fdcc86 100644
-> --- a/init/Kconfig
-> +++ b/init/Kconfig
-> @@ -63,6 +63,28 @@ config CROSS_COMPILE
->  	  need to set this unless you want the configured kernel build
->  	  directory to select the cross-compiler automatically.
->  
-> +config BUILD_AVOID_BITROT
-> +	bool "Enable force building of force-obj-y and force-lib-y"
-> +	default n
-> +	help
-> +	  When enabled objects under the force-obj-y and force-lib-y targets
-> +	  using a Kconfig symbol will be forced to compile if the Kconfig
-> +	  symbol's dependencies are met but only linked into the kernel if
-> +	  the Kconfig symbol is enabled. If a Kconfig symbol on a force-obj-y
-> +	  or force-lib-y target is disabled, it will be compiled but not linked
-> +	  into the kernel.
-> +
-> +	  The force-obj-y and force-lib-y targets can be used by subsystems
-> +	  which wish to want to follow the 'build-all selective-link philosophy'
-> +	  documented under include/linux/tables.h.
-> +
-> +	  Say Y if you have a decent build machine and would like to help test
-> +	  building code for more subsystems. Say N if you do you not have a
-> +	  good build machine or only want to compile what you've enabled for
-> +	  your kernel.
-> +
-> +	  Enabling this option never increases the size of your kernel.
-> +
->  config COMPILE_TEST
->  	bool "Compile also drivers which will not load"
->  	depends on !UML
+diff --git a/arch/Kconfig b/arch/Kconfig
+index 99839c2..82e6f99 100644
+--- a/arch/Kconfig
++++ b/arch/Kconfig
+@@ -2,7 +2,11 @@
+ # General architecture dependent options
+ #
+ 
++config CRASH_CORE
++	bool
++
+ config KEXEC_CORE
++	select CRASH_CORE
+ 	bool
+ 
+ config HAVE_IMA_KEXEC
+diff --git a/include/linux/crash_core.h b/include/linux/crash_core.h
+new file mode 100644
+index 0000000..18d0f94
+--- /dev/null
++++ b/include/linux/crash_core.h
+@@ -0,0 +1,65 @@
++#ifndef LINUX_CRASH_CORE_H
++#define LINUX_CRASH_CORE_H
++
++#include <linux/linkage.h>
++#include <linux/elfcore.h>
++#include <linux/elf.h>
++
++#define CRASH_CORE_NOTE_NAME	   "CORE"
++#define CRASH_CORE_NOTE_HEAD_BYTES ALIGN(sizeof(struct elf_note), 4)
++#define CRASH_CORE_NOTE_NAME_BYTES ALIGN(sizeof(CRASH_CORE_NOTE_NAME), 4)
++#define CRASH_CORE_NOTE_DESC_BYTES ALIGN(sizeof(struct elf_prstatus), 4)
++
++#define CRASH_CORE_NOTE_BYTES	   ((CRASH_CORE_NOTE_HEAD_BYTES * 2) +	\
++				     CRASH_CORE_NOTE_NAME_BYTES +	\
++				     CRASH_CORE_NOTE_DESC_BYTES)
++
++#define VMCOREINFO_BYTES	   (4096)
++#define VMCOREINFO_NOTE_NAME	   "VMCOREINFO"
++#define VMCOREINFO_NOTE_NAME_BYTES ALIGN(sizeof(VMCOREINFO_NOTE_NAME), 4)
++#define VMCOREINFO_NOTE_SIZE	   ((CRASH_CORE_NOTE_HEAD_BYTES * 2) +	\
++				     VMCOREINFO_NOTE_NAME_BYTES +	\
++				     VMCOREINFO_BYTES)
++
++typedef u32 note_buf_t[CRASH_CORE_NOTE_BYTES/4];
++
++void crash_save_vmcoreinfo(void);
++void arch_crash_save_vmcoreinfo(void);
++__printf(1, 2)
++void vmcoreinfo_append_str(const char *fmt, ...);
++phys_addr_t paddr_vmcoreinfo_note(void);
++
++#define VMCOREINFO_OSRELEASE(value) \
++	vmcoreinfo_append_str("OSRELEASE=%s\n", value)
++#define VMCOREINFO_PAGESIZE(value) \
++	vmcoreinfo_append_str("PAGESIZE=%ld\n", value)
++#define VMCOREINFO_SYMBOL(name) \
++	vmcoreinfo_append_str("SYMBOL(%s)=%lx\n", #name, (unsigned long)&name)
++#define VMCOREINFO_SIZE(name) \
++	vmcoreinfo_append_str("SIZE(%s)=%lu\n", #name, \
++			      (unsigned long)sizeof(name))
++#define VMCOREINFO_STRUCT_SIZE(name) \
++	vmcoreinfo_append_str("SIZE(%s)=%lu\n", #name, \
++			      (unsigned long)sizeof(struct name))
++#define VMCOREINFO_OFFSET(name, field) \
++	vmcoreinfo_append_str("OFFSET(%s.%s)=%lu\n", #name, #field, \
++			      (unsigned long)offsetof(struct name, field))
++#define VMCOREINFO_LENGTH(name, value) \
++	vmcoreinfo_append_str("LENGTH(%s)=%lu\n", #name, (unsigned long)value)
++#define VMCOREINFO_NUMBER(name) \
++	vmcoreinfo_append_str("NUMBER(%s)=%ld\n", #name, (long)name)
++#define VMCOREINFO_CONFIG(name) \
++	vmcoreinfo_append_str("CONFIG_%s=y\n", #name)
++
++extern u32 vmcoreinfo_note[VMCOREINFO_NOTE_SIZE/4];
++extern size_t vmcoreinfo_size;
++extern size_t vmcoreinfo_max_size;
++
++int __init parse_crashkernel(char *cmdline, unsigned long long system_ram,
++		unsigned long long *crash_size, unsigned long long *crash_base);
++int parse_crashkernel_high(char *cmdline, unsigned long long system_ram,
++		unsigned long long *crash_size, unsigned long long *crash_base);
++int parse_crashkernel_low(char *cmdline, unsigned long long system_ram,
++		unsigned long long *crash_size, unsigned long long *crash_base);
++
++#endif /* LINUX_CRASH_CORE_H */
+diff --git a/include/linux/kexec.h b/include/linux/kexec.h
+index d419d0e..c9481eb 100644
+--- a/include/linux/kexec.h
++++ b/include/linux/kexec.h
+@@ -14,17 +14,15 @@
+ 
+ #if !defined(__ASSEMBLY__)
+ 
++#include <linux/crash_core.h>
+ #include <asm/io.h>
+ 
+ #include <uapi/linux/kexec.h>
+ 
+ #ifdef CONFIG_KEXEC_CORE
+ #include <linux/list.h>
+-#include <linux/linkage.h>
+ #include <linux/compat.h>
+ #include <linux/ioport.h>
+-#include <linux/elfcore.h>
+-#include <linux/elf.h>
+ #include <linux/module.h>
+ #include <asm/kexec.h>
+ 
+@@ -62,19 +60,15 @@
+ #define KEXEC_CRASH_MEM_ALIGN PAGE_SIZE
+ #endif
+ 
+-#define KEXEC_NOTE_HEAD_BYTES ALIGN(sizeof(struct elf_note), 4)
+-#define KEXEC_CORE_NOTE_NAME "CORE"
+-#define KEXEC_CORE_NOTE_NAME_BYTES ALIGN(sizeof(KEXEC_CORE_NOTE_NAME), 4)
+-#define KEXEC_CORE_NOTE_DESC_BYTES ALIGN(sizeof(struct elf_prstatus), 4)
++#define KEXEC_CORE_NOTE_NAME	CRASH_CORE_NOTE_NAME
++
+ /*
+  * The per-cpu notes area is a list of notes terminated by a "NULL"
+  * note header.  For kdump, the code in vmcore.c runs in the context
+  * of the second kernel to combine them into one note.
+  */
+ #ifndef KEXEC_NOTE_BYTES
+-#define KEXEC_NOTE_BYTES ( (KEXEC_NOTE_HEAD_BYTES * 2) +		\
+-			    KEXEC_CORE_NOTE_NAME_BYTES +		\
+-			    KEXEC_CORE_NOTE_DESC_BYTES )
++#define KEXEC_NOTE_BYTES	CRASH_CORE_NOTE_BYTES
+ #endif
+ 
+ /*
+@@ -256,33 +250,6 @@ extern void crash_kexec(struct pt_regs *);
+ int kexec_should_crash(struct task_struct *);
+ int kexec_crash_loaded(void);
+ void crash_save_cpu(struct pt_regs *regs, int cpu);
+-void crash_save_vmcoreinfo(void);
+-void arch_crash_save_vmcoreinfo(void);
+-__printf(1, 2)
+-void vmcoreinfo_append_str(const char *fmt, ...);
+-phys_addr_t paddr_vmcoreinfo_note(void);
+-
+-#define VMCOREINFO_OSRELEASE(value) \
+-	vmcoreinfo_append_str("OSRELEASE=%s\n", value)
+-#define VMCOREINFO_PAGESIZE(value) \
+-	vmcoreinfo_append_str("PAGESIZE=%ld\n", value)
+-#define VMCOREINFO_SYMBOL(name) \
+-	vmcoreinfo_append_str("SYMBOL(%s)=%lx\n", #name, (unsigned long)&name)
+-#define VMCOREINFO_SIZE(name) \
+-	vmcoreinfo_append_str("SIZE(%s)=%lu\n", #name, \
+-			      (unsigned long)sizeof(name))
+-#define VMCOREINFO_STRUCT_SIZE(name) \
+-	vmcoreinfo_append_str("SIZE(%s)=%lu\n", #name, \
+-			      (unsigned long)sizeof(struct name))
+-#define VMCOREINFO_OFFSET(name, field) \
+-	vmcoreinfo_append_str("OFFSET(%s.%s)=%lu\n", #name, #field, \
+-			      (unsigned long)offsetof(struct name, field))
+-#define VMCOREINFO_LENGTH(name, value) \
+-	vmcoreinfo_append_str("LENGTH(%s)=%lu\n", #name, (unsigned long)value)
+-#define VMCOREINFO_NUMBER(name) \
+-	vmcoreinfo_append_str("NUMBER(%s)=%ld\n", #name, (long)name)
+-#define VMCOREINFO_CONFIG(name) \
+-	vmcoreinfo_append_str("CONFIG_%s=y\n", #name)
+ 
+ extern struct kimage *kexec_image;
+ extern struct kimage *kexec_crash_image;
+@@ -303,31 +270,15 @@ extern int kexec_load_disabled;
+ #define KEXEC_FILE_FLAGS	(KEXEC_FILE_UNLOAD | KEXEC_FILE_ON_CRASH | \
+ 				 KEXEC_FILE_NO_INITRAMFS)
+ 
+-#define VMCOREINFO_BYTES           (4096)
+-#define VMCOREINFO_NOTE_NAME       "VMCOREINFO"
+-#define VMCOREINFO_NOTE_NAME_BYTES ALIGN(sizeof(VMCOREINFO_NOTE_NAME), 4)
+-#define VMCOREINFO_NOTE_SIZE       (KEXEC_NOTE_HEAD_BYTES*2 + VMCOREINFO_BYTES \
+-				    + VMCOREINFO_NOTE_NAME_BYTES)
+-
+ /* Location of a reserved region to hold the crash kernel.
+  */
+ extern struct resource crashk_res;
+ extern struct resource crashk_low_res;
+-typedef u32 note_buf_t[KEXEC_NOTE_BYTES/4];
+ extern note_buf_t __percpu *crash_notes;
+-extern u32 vmcoreinfo_note[VMCOREINFO_NOTE_SIZE/4];
+-extern size_t vmcoreinfo_size;
+-extern size_t vmcoreinfo_max_size;
+ 
+ /* flag to track if kexec reboot is in progress */
+ extern bool kexec_in_progress;
+ 
+-int __init parse_crashkernel(char *cmdline, unsigned long long system_ram,
+-		unsigned long long *crash_size, unsigned long long *crash_base);
+-int parse_crashkernel_high(char *cmdline, unsigned long long system_ram,
+-		unsigned long long *crash_size, unsigned long long *crash_base);
+-int parse_crashkernel_low(char *cmdline, unsigned long long system_ram,
+-		unsigned long long *crash_size, unsigned long long *crash_base);
+ int crash_shrink_memory(unsigned long new_size);
+ size_t crash_get_memory_size(void);
+ void crash_free_reserved_phys_range(unsigned long begin, unsigned long end);
+diff --git a/include/linux/printk.h b/include/linux/printk.h
+index 3472cc6..06b2120 100644
+--- a/include/linux/printk.h
++++ b/include/linux/printk.h
+@@ -204,7 +204,7 @@ extern void wake_up_klogd(void);
+ 
+ char *log_buf_addr_get(void);
+ u32 log_buf_len_get(void);
+-void log_buf_kexec_setup(void);
++void log_buf_crash_setup(void);
+ void __init setup_log_buf(int early);
+ __printf(1, 2) void dump_stack_set_arch_desc(const char *fmt, ...);
+ void dump_stack_print_info(const char *log_lvl);
+@@ -249,7 +249,7 @@ static inline u32 log_buf_len_get(void)
+ 	return 0;
+ }
+ 
+-static inline void log_buf_kexec_setup(void)
++static inline void log_buf_crash_setup(void)
+ {
+ }
+ 
+diff --git a/kernel/Makefile b/kernel/Makefile
+index 12c679f..ccdf704 100644
+--- a/kernel/Makefile
++++ b/kernel/Makefile
+@@ -59,6 +59,7 @@ obj-$(CONFIG_MODULES) += module.o
+ obj-$(CONFIG_MODULE_SIG) += module_signing.o
+ obj-$(CONFIG_KALLSYMS) += kallsyms.o
+ obj-$(CONFIG_BSD_PROCESS_ACCT) += acct.o
++obj-$(CONFIG_CRASH_CORE) += crash_core.o
+ obj-$(CONFIG_KEXEC_CORE) += kexec_core.o
+ obj-$(CONFIG_KEXEC) += kexec.o
+ obj-$(CONFIG_KEXEC_FILE) += kexec_file.o
+diff --git a/kernel/crash_core.c b/kernel/crash_core.c
+new file mode 100644
+index 0000000..212c705
+--- /dev/null
++++ b/kernel/crash_core.c
+@@ -0,0 +1,445 @@
++/*
++ * crash.c - kernel crash support code.
++ * Copyright (C) 2002-2004 Eric Biederman  <ebiederm@xmission.com>
++ *
++ * This source code is licensed under the GNU General Public License,
++ * Version 2.  See the file COPYING for more details.
++ */
++
++#include <linux/crash_core.h>
++#include <linux/utsname.h>
++#include <linux/vmalloc.h>
++
++#include <asm/page.h>
++#include <asm/sections.h>
++
++/* vmcoreinfo stuff */
++static unsigned char vmcoreinfo_data[VMCOREINFO_BYTES];
++u32 vmcoreinfo_note[VMCOREINFO_NOTE_SIZE/4];
++size_t vmcoreinfo_size;
++size_t vmcoreinfo_max_size = sizeof(vmcoreinfo_data);
++
++/*
++ * parsing the "crashkernel" commandline
++ *
++ * this code is intended to be called from architecture specific code
++ */
++
++
++/*
++ * This function parses command lines in the format
++ *
++ *   crashkernel=ramsize-range:size[,...][@offset]
++ *
++ * The function returns 0 on success and -EINVAL on failure.
++ */
++static int __init parse_crashkernel_mem(char *cmdline,
++					unsigned long long system_ram,
++					unsigned long long *crash_size,
++					unsigned long long *crash_base)
++{
++	char *cur = cmdline, *tmp;
++
++	/* for each entry of the comma-separated list */
++	do {
++		unsigned long long start, end = ULLONG_MAX, size;
++
++		/* get the start of the range */
++		start = memparse(cur, &tmp);
++		if (cur = tmp) {
++			pr_warn("crashkernel: Memory value expected\n");
++			return -EINVAL;
++		}
++		cur = tmp;
++		if (*cur != '-') {
++			pr_warn("crashkernel: '-' expected\n");
++			return -EINVAL;
++		}
++		cur++;
++
++		/* if no ':' is here, than we read the end */
++		if (*cur != ':') {
++			end = memparse(cur, &tmp);
++			if (cur = tmp) {
++				pr_warn("crashkernel: Memory value expected\n");
++				return -EINVAL;
++			}
++			cur = tmp;
++			if (end <= start) {
++				pr_warn("crashkernel: end <= start\n");
++				return -EINVAL;
++			}
++		}
++
++		if (*cur != ':') {
++			pr_warn("crashkernel: ':' expected\n");
++			return -EINVAL;
++		}
++		cur++;
++
++		size = memparse(cur, &tmp);
++		if (cur = tmp) {
++			pr_warn("Memory value expected\n");
++			return -EINVAL;
++		}
++		cur = tmp;
++		if (size >= system_ram) {
++			pr_warn("crashkernel: invalid size\n");
++			return -EINVAL;
++		}
++
++		/* match ? */
++		if (system_ram >= start && system_ram < end) {
++			*crash_size = size;
++			break;
++		}
++	} while (*cur++ = ',');
++
++	if (*crash_size > 0) {
++		while (*cur && *cur != ' ' && *cur != '@')
++			cur++;
++		if (*cur = '@') {
++			cur++;
++			*crash_base = memparse(cur, &tmp);
++			if (cur = tmp) {
++				pr_warn("Memory value expected after '@'\n");
++				return -EINVAL;
++			}
++		}
++	}
++
++	return 0;
++}
++
++/*
++ * That function parses "simple" (old) crashkernel command lines like
++ *
++ *	crashkernel=size[@offset]
++ *
++ * It returns 0 on success and -EINVAL on failure.
++ */
++static int __init parse_crashkernel_simple(char *cmdline,
++					   unsigned long long *crash_size,
++					   unsigned long long *crash_base)
++{
++	char *cur = cmdline;
++
++	*crash_size = memparse(cmdline, &cur);
++	if (cmdline = cur) {
++		pr_warn("crashkernel: memory value expected\n");
++		return -EINVAL;
++	}
++
++	if (*cur = '@')
++		*crash_base = memparse(cur+1, &cur);
++	else if (*cur != ' ' && *cur != '\0') {
++		pr_warn("crashkernel: unrecognized char: %c\n", *cur);
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
++#define SUFFIX_HIGH 0
++#define SUFFIX_LOW  1
++#define SUFFIX_NULL 2
++static __initdata char *suffix_tbl[] = {
++	[SUFFIX_HIGH] = ",high",
++	[SUFFIX_LOW]  = ",low",
++	[SUFFIX_NULL] = NULL,
++};
++
++/*
++ * That function parses "suffix"  crashkernel command lines like
++ *
++ *	crashkernel=size,[high|low]
++ *
++ * It returns 0 on success and -EINVAL on failure.
++ */
++static int __init parse_crashkernel_suffix(char *cmdline,
++					   unsigned long long	*crash_size,
++					   const char *suffix)
++{
++	char *cur = cmdline;
++
++	*crash_size = memparse(cmdline, &cur);
++	if (cmdline = cur) {
++		pr_warn("crashkernel: memory value expected\n");
++		return -EINVAL;
++	}
++
++	/* check with suffix */
++	if (strncmp(cur, suffix, strlen(suffix))) {
++		pr_warn("crashkernel: unrecognized char: %c\n", *cur);
++		return -EINVAL;
++	}
++	cur += strlen(suffix);
++	if (*cur != ' ' && *cur != '\0') {
++		pr_warn("crashkernel: unrecognized char: %c\n", *cur);
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
++static __init char *get_last_crashkernel(char *cmdline,
++			     const char *name,
++			     const char *suffix)
++{
++	char *p = cmdline, *ck_cmdline = NULL;
++
++	/* find crashkernel and use the last one if there are more */
++	p = strstr(p, name);
++	while (p) {
++		char *end_p = strchr(p, ' ');
++		char *q;
++
++		if (!end_p)
++			end_p = p + strlen(p);
++
++		if (!suffix) {
++			int i;
++
++			/* skip the one with any known suffix */
++			for (i = 0; suffix_tbl[i]; i++) {
++				q = end_p - strlen(suffix_tbl[i]);
++				if (!strncmp(q, suffix_tbl[i],
++					     strlen(suffix_tbl[i])))
++					goto next;
++			}
++			ck_cmdline = p;
++		} else {
++			q = end_p - strlen(suffix);
++			if (!strncmp(q, suffix, strlen(suffix)))
++				ck_cmdline = p;
++		}
++next:
++		p = strstr(p+1, name);
++	}
++
++	if (!ck_cmdline)
++		return NULL;
++
++	return ck_cmdline;
++}
++
++static int __init __parse_crashkernel(char *cmdline,
++			     unsigned long long system_ram,
++			     unsigned long long *crash_size,
++			     unsigned long long *crash_base,
++			     const char *name,
++			     const char *suffix)
++{
++	char	*first_colon, *first_space;
++	char	*ck_cmdline;
++
++	BUG_ON(!crash_size || !crash_base);
++	*crash_size = 0;
++	*crash_base = 0;
++
++	ck_cmdline = get_last_crashkernel(cmdline, name, suffix);
++
++	if (!ck_cmdline)
++		return -EINVAL;
++
++	ck_cmdline += strlen(name);
++
++	if (suffix)
++		return parse_crashkernel_suffix(ck_cmdline, crash_size,
++				suffix);
++	/*
++	 * if the commandline contains a ':', then that's the extended
++	 * syntax -- if not, it must be the classic syntax
++	 */
++	first_colon = strchr(ck_cmdline, ':');
++	first_space = strchr(ck_cmdline, ' ');
++	if (first_colon && (!first_space || first_colon < first_space))
++		return parse_crashkernel_mem(ck_cmdline, system_ram,
++				crash_size, crash_base);
++
++	return parse_crashkernel_simple(ck_cmdline, crash_size, crash_base);
++}
++
++/*
++ * That function is the entry point for command line parsing and should be
++ * called from the arch-specific code.
++ */
++int __init parse_crashkernel(char *cmdline,
++			     unsigned long long system_ram,
++			     unsigned long long *crash_size,
++			     unsigned long long *crash_base)
++{
++	return __parse_crashkernel(cmdline, system_ram, crash_size, crash_base,
++					"crashkernel=", NULL);
++}
++
++int __init parse_crashkernel_high(char *cmdline,
++			     unsigned long long system_ram,
++			     unsigned long long *crash_size,
++			     unsigned long long *crash_base)
++{
++	return __parse_crashkernel(cmdline, system_ram, crash_size, crash_base,
++				"crashkernel=", suffix_tbl[SUFFIX_HIGH]);
++}
++
++int __init parse_crashkernel_low(char *cmdline,
++			     unsigned long long system_ram,
++			     unsigned long long *crash_size,
++			     unsigned long long *crash_base)
++{
++	return __parse_crashkernel(cmdline, system_ram, crash_size, crash_base,
++				"crashkernel=", suffix_tbl[SUFFIX_LOW]);
++}
++
++static u32 *append_elf_note(u32 *buf, char *name, unsigned int type,
++			    void *data, size_t data_len)
++{
++	struct elf_note note;
++
++	note.n_namesz = strlen(name) + 1;
++	note.n_descsz = data_len;
++	note.n_type   = type;
++	memcpy(buf, &note, sizeof(note));
++	buf += (sizeof(note) + 3)/4;
++	memcpy(buf, name, note.n_namesz);
++	buf += (note.n_namesz + 3)/4;
++	memcpy(buf, data, note.n_descsz);
++	buf += (note.n_descsz + 3)/4;
++
++	return buf;
++}
++
++static void final_note(u32 *buf)
++{
++	struct elf_note note;
++
++	note.n_namesz = 0;
++	note.n_descsz = 0;
++	note.n_type   = 0;
++	memcpy(buf, &note, sizeof(note));
++}
++
++static void update_vmcoreinfo_note(void)
++{
++	u32 *buf = vmcoreinfo_note;
++
++	if (!vmcoreinfo_size)
++		return;
++	buf = append_elf_note(buf, VMCOREINFO_NOTE_NAME, 0, vmcoreinfo_data,
++			      vmcoreinfo_size);
++	final_note(buf);
++}
++
++void crash_save_vmcoreinfo(void)
++{
++	vmcoreinfo_append_str("CRASHTIME=%ld\n", get_seconds());
++	update_vmcoreinfo_note();
++}
++
++void vmcoreinfo_append_str(const char *fmt, ...)
++{
++	va_list args;
++	char buf[0x50];
++	size_t r;
++
++	va_start(args, fmt);
++	r = vscnprintf(buf, sizeof(buf), fmt, args);
++	va_end(args);
++
++	r = min(r, vmcoreinfo_max_size - vmcoreinfo_size);
++
++	memcpy(&vmcoreinfo_data[vmcoreinfo_size], buf, r);
++
++	vmcoreinfo_size += r;
++}
++
++/*
++ * provide an empty default implementation here -- architecture
++ * code may override this
++ */
++void __weak arch_crash_save_vmcoreinfo(void)
++{}
++
++phys_addr_t __weak paddr_vmcoreinfo_note(void)
++{
++	return __pa((unsigned long)(char *)&vmcoreinfo_note);
++}
++
++static int __init crash_save_vmcoreinfo_init(void)
++{
++	VMCOREINFO_OSRELEASE(init_uts_ns.name.release);
++	VMCOREINFO_PAGESIZE(PAGE_SIZE);
++
++	VMCOREINFO_SYMBOL(init_uts_ns);
++	VMCOREINFO_SYMBOL(node_online_map);
++#ifdef CONFIG_MMU
++	VMCOREINFO_SYMBOL(swapper_pg_dir);
++#endif
++	VMCOREINFO_SYMBOL(_stext);
++	VMCOREINFO_SYMBOL(vmap_area_list);
++
++#ifndef CONFIG_NEED_MULTIPLE_NODES
++	VMCOREINFO_SYMBOL(mem_map);
++	VMCOREINFO_SYMBOL(contig_page_data);
++#endif
++#ifdef CONFIG_SPARSEMEM
++	VMCOREINFO_SYMBOL(mem_section);
++	VMCOREINFO_LENGTH(mem_section, NR_SECTION_ROOTS);
++	VMCOREINFO_STRUCT_SIZE(mem_section);
++	VMCOREINFO_OFFSET(mem_section, section_mem_map);
++#endif
++	VMCOREINFO_STRUCT_SIZE(page);
++	VMCOREINFO_STRUCT_SIZE(pglist_data);
++	VMCOREINFO_STRUCT_SIZE(zone);
++	VMCOREINFO_STRUCT_SIZE(free_area);
++	VMCOREINFO_STRUCT_SIZE(list_head);
++	VMCOREINFO_SIZE(nodemask_t);
++	VMCOREINFO_OFFSET(page, flags);
++	VMCOREINFO_OFFSET(page, _refcount);
++	VMCOREINFO_OFFSET(page, mapping);
++	VMCOREINFO_OFFSET(page, lru);
++	VMCOREINFO_OFFSET(page, _mapcount);
++	VMCOREINFO_OFFSET(page, private);
++	VMCOREINFO_OFFSET(page, compound_dtor);
++	VMCOREINFO_OFFSET(page, compound_order);
++	VMCOREINFO_OFFSET(page, compound_head);
++	VMCOREINFO_OFFSET(pglist_data, node_zones);
++	VMCOREINFO_OFFSET(pglist_data, nr_zones);
++#ifdef CONFIG_FLAT_NODE_MEM_MAP
++	VMCOREINFO_OFFSET(pglist_data, node_mem_map);
++#endif
++	VMCOREINFO_OFFSET(pglist_data, node_start_pfn);
++	VMCOREINFO_OFFSET(pglist_data, node_spanned_pages);
++	VMCOREINFO_OFFSET(pglist_data, node_id);
++	VMCOREINFO_OFFSET(zone, free_area);
++	VMCOREINFO_OFFSET(zone, vm_stat);
++	VMCOREINFO_OFFSET(zone, spanned_pages);
++	VMCOREINFO_OFFSET(free_area, free_list);
++	VMCOREINFO_OFFSET(list_head, next);
++	VMCOREINFO_OFFSET(list_head, prev);
++	VMCOREINFO_OFFSET(vmap_area, va_start);
++	VMCOREINFO_OFFSET(vmap_area, list);
++	VMCOREINFO_LENGTH(zone.free_area, MAX_ORDER);
++	log_buf_crash_setup();
++	VMCOREINFO_LENGTH(free_area.free_list, MIGRATE_TYPES);
++	VMCOREINFO_NUMBER(NR_FREE_PAGES);
++	VMCOREINFO_NUMBER(PG_lru);
++	VMCOREINFO_NUMBER(PG_private);
++	VMCOREINFO_NUMBER(PG_swapcache);
++	VMCOREINFO_NUMBER(PG_slab);
++#ifdef CONFIG_MEMORY_FAILURE
++	VMCOREINFO_NUMBER(PG_hwpoison);
++#endif
++	VMCOREINFO_NUMBER(PG_head_mask);
++	VMCOREINFO_NUMBER(PAGE_BUDDY_MAPCOUNT_VALUE);
++#ifdef CONFIG_HUGETLB_PAGE
++	VMCOREINFO_NUMBER(HUGETLB_PAGE_DTOR);
++#endif
++
++	arch_crash_save_vmcoreinfo();
++	update_vmcoreinfo_note();
++
++	return 0;
++}
++
++subsys_initcall(crash_save_vmcoreinfo_init);
+diff --git a/kernel/kexec_core.c b/kernel/kexec_core.c
+index 5617cc4..2179a16 100644
+--- a/kernel/kexec_core.c
++++ b/kernel/kexec_core.c
+@@ -51,12 +51,6 @@ DEFINE_MUTEX(kexec_mutex);
+ /* Per cpu memory for storing cpu states in case of system crash. */
+ note_buf_t __percpu *crash_notes;
+ 
+-/* vmcoreinfo stuff */
+-static unsigned char vmcoreinfo_data[VMCOREINFO_BYTES];
+-u32 vmcoreinfo_note[VMCOREINFO_NOTE_SIZE/4];
+-size_t vmcoreinfo_size;
+-size_t vmcoreinfo_max_size = sizeof(vmcoreinfo_data);
+-
+ /* Flag to indicate we are going to kexec a new kernel */
+ bool kexec_in_progress = false;
+ 
+@@ -1083,404 +1077,6 @@ static int __init crash_notes_memory_init(void)
+ }
+ subsys_initcall(crash_notes_memory_init);
+ 
+-
+-/*
+- * parsing the "crashkernel" commandline
+- *
+- * this code is intended to be called from architecture specific code
+- */
+-
+-
+-/*
+- * This function parses command lines in the format
+- *
+- *   crashkernel=ramsize-range:size[,...][@offset]
+- *
+- * The function returns 0 on success and -EINVAL on failure.
+- */
+-static int __init parse_crashkernel_mem(char *cmdline,
+-					unsigned long long system_ram,
+-					unsigned long long *crash_size,
+-					unsigned long long *crash_base)
+-{
+-	char *cur = cmdline, *tmp;
+-
+-	/* for each entry of the comma-separated list */
+-	do {
+-		unsigned long long start, end = ULLONG_MAX, size;
+-
+-		/* get the start of the range */
+-		start = memparse(cur, &tmp);
+-		if (cur = tmp) {
+-			pr_warn("crashkernel: Memory value expected\n");
+-			return -EINVAL;
+-		}
+-		cur = tmp;
+-		if (*cur != '-') {
+-			pr_warn("crashkernel: '-' expected\n");
+-			return -EINVAL;
+-		}
+-		cur++;
+-
+-		/* if no ':' is here, than we read the end */
+-		if (*cur != ':') {
+-			end = memparse(cur, &tmp);
+-			if (cur = tmp) {
+-				pr_warn("crashkernel: Memory value expected\n");
+-				return -EINVAL;
+-			}
+-			cur = tmp;
+-			if (end <= start) {
+-				pr_warn("crashkernel: end <= start\n");
+-				return -EINVAL;
+-			}
+-		}
+-
+-		if (*cur != ':') {
+-			pr_warn("crashkernel: ':' expected\n");
+-			return -EINVAL;
+-		}
+-		cur++;
+-
+-		size = memparse(cur, &tmp);
+-		if (cur = tmp) {
+-			pr_warn("Memory value expected\n");
+-			return -EINVAL;
+-		}
+-		cur = tmp;
+-		if (size >= system_ram) {
+-			pr_warn("crashkernel: invalid size\n");
+-			return -EINVAL;
+-		}
+-
+-		/* match ? */
+-		if (system_ram >= start && system_ram < end) {
+-			*crash_size = size;
+-			break;
+-		}
+-	} while (*cur++ = ',');
+-
+-	if (*crash_size > 0) {
+-		while (*cur && *cur != ' ' && *cur != '@')
+-			cur++;
+-		if (*cur = '@') {
+-			cur++;
+-			*crash_base = memparse(cur, &tmp);
+-			if (cur = tmp) {
+-				pr_warn("Memory value expected after '@'\n");
+-				return -EINVAL;
+-			}
+-		}
+-	}
+-
+-	return 0;
+-}
+-
+-/*
+- * That function parses "simple" (old) crashkernel command lines like
+- *
+- *	crashkernel=size[@offset]
+- *
+- * It returns 0 on success and -EINVAL on failure.
+- */
+-static int __init parse_crashkernel_simple(char *cmdline,
+-					   unsigned long long *crash_size,
+-					   unsigned long long *crash_base)
+-{
+-	char *cur = cmdline;
+-
+-	*crash_size = memparse(cmdline, &cur);
+-	if (cmdline = cur) {
+-		pr_warn("crashkernel: memory value expected\n");
+-		return -EINVAL;
+-	}
+-
+-	if (*cur = '@')
+-		*crash_base = memparse(cur+1, &cur);
+-	else if (*cur != ' ' && *cur != '\0') {
+-		pr_warn("crashkernel: unrecognized char: %c\n", *cur);
+-		return -EINVAL;
+-	}
+-
+-	return 0;
+-}
+-
+-#define SUFFIX_HIGH 0
+-#define SUFFIX_LOW  1
+-#define SUFFIX_NULL 2
+-static __initdata char *suffix_tbl[] = {
+-	[SUFFIX_HIGH] = ",high",
+-	[SUFFIX_LOW]  = ",low",
+-	[SUFFIX_NULL] = NULL,
+-};
+-
+-/*
+- * That function parses "suffix"  crashkernel command lines like
+- *
+- *	crashkernel=size,[high|low]
+- *
+- * It returns 0 on success and -EINVAL on failure.
+- */
+-static int __init parse_crashkernel_suffix(char *cmdline,
+-					   unsigned long long	*crash_size,
+-					   const char *suffix)
+-{
+-	char *cur = cmdline;
+-
+-	*crash_size = memparse(cmdline, &cur);
+-	if (cmdline = cur) {
+-		pr_warn("crashkernel: memory value expected\n");
+-		return -EINVAL;
+-	}
+-
+-	/* check with suffix */
+-	if (strncmp(cur, suffix, strlen(suffix))) {
+-		pr_warn("crashkernel: unrecognized char: %c\n", *cur);
+-		return -EINVAL;
+-	}
+-	cur += strlen(suffix);
+-	if (*cur != ' ' && *cur != '\0') {
+-		pr_warn("crashkernel: unrecognized char: %c\n", *cur);
+-		return -EINVAL;
+-	}
+-
+-	return 0;
+-}
+-
+-static __init char *get_last_crashkernel(char *cmdline,
+-			     const char *name,
+-			     const char *suffix)
+-{
+-	char *p = cmdline, *ck_cmdline = NULL;
+-
+-	/* find crashkernel and use the last one if there are more */
+-	p = strstr(p, name);
+-	while (p) {
+-		char *end_p = strchr(p, ' ');
+-		char *q;
+-
+-		if (!end_p)
+-			end_p = p + strlen(p);
+-
+-		if (!suffix) {
+-			int i;
+-
+-			/* skip the one with any known suffix */
+-			for (i = 0; suffix_tbl[i]; i++) {
+-				q = end_p - strlen(suffix_tbl[i]);
+-				if (!strncmp(q, suffix_tbl[i],
+-					     strlen(suffix_tbl[i])))
+-					goto next;
+-			}
+-			ck_cmdline = p;
+-		} else {
+-			q = end_p - strlen(suffix);
+-			if (!strncmp(q, suffix, strlen(suffix)))
+-				ck_cmdline = p;
+-		}
+-next:
+-		p = strstr(p+1, name);
+-	}
+-
+-	if (!ck_cmdline)
+-		return NULL;
+-
+-	return ck_cmdline;
+-}
+-
+-static int __init __parse_crashkernel(char *cmdline,
+-			     unsigned long long system_ram,
+-			     unsigned long long *crash_size,
+-			     unsigned long long *crash_base,
+-			     const char *name,
+-			     const char *suffix)
+-{
+-	char	*first_colon, *first_space;
+-	char	*ck_cmdline;
+-
+-	BUG_ON(!crash_size || !crash_base);
+-	*crash_size = 0;
+-	*crash_base = 0;
+-
+-	ck_cmdline = get_last_crashkernel(cmdline, name, suffix);
+-
+-	if (!ck_cmdline)
+-		return -EINVAL;
+-
+-	ck_cmdline += strlen(name);
+-
+-	if (suffix)
+-		return parse_crashkernel_suffix(ck_cmdline, crash_size,
+-				suffix);
+-	/*
+-	 * if the commandline contains a ':', then that's the extended
+-	 * syntax -- if not, it must be the classic syntax
+-	 */
+-	first_colon = strchr(ck_cmdline, ':');
+-	first_space = strchr(ck_cmdline, ' ');
+-	if (first_colon && (!first_space || first_colon < first_space))
+-		return parse_crashkernel_mem(ck_cmdline, system_ram,
+-				crash_size, crash_base);
+-
+-	return parse_crashkernel_simple(ck_cmdline, crash_size, crash_base);
+-}
+-
+-/*
+- * That function is the entry point for command line parsing and should be
+- * called from the arch-specific code.
+- */
+-int __init parse_crashkernel(char *cmdline,
+-			     unsigned long long system_ram,
+-			     unsigned long long *crash_size,
+-			     unsigned long long *crash_base)
+-{
+-	return __parse_crashkernel(cmdline, system_ram, crash_size, crash_base,
+-					"crashkernel=", NULL);
+-}
+-
+-int __init parse_crashkernel_high(char *cmdline,
+-			     unsigned long long system_ram,
+-			     unsigned long long *crash_size,
+-			     unsigned long long *crash_base)
+-{
+-	return __parse_crashkernel(cmdline, system_ram, crash_size, crash_base,
+-				"crashkernel=", suffix_tbl[SUFFIX_HIGH]);
+-}
+-
+-int __init parse_crashkernel_low(char *cmdline,
+-			     unsigned long long system_ram,
+-			     unsigned long long *crash_size,
+-			     unsigned long long *crash_base)
+-{
+-	return __parse_crashkernel(cmdline, system_ram, crash_size, crash_base,
+-				"crashkernel=", suffix_tbl[SUFFIX_LOW]);
+-}
+-
+-static void update_vmcoreinfo_note(void)
+-{
+-	u32 *buf = vmcoreinfo_note;
+-
+-	if (!vmcoreinfo_size)
+-		return;
+-	buf = append_elf_note(buf, VMCOREINFO_NOTE_NAME, 0, vmcoreinfo_data,
+-			      vmcoreinfo_size);
+-	final_note(buf);
+-}
+-
+-void crash_save_vmcoreinfo(void)
+-{
+-	vmcoreinfo_append_str("CRASHTIME=%ld\n", get_seconds());
+-	update_vmcoreinfo_note();
+-}
+-
+-void vmcoreinfo_append_str(const char *fmt, ...)
+-{
+-	va_list args;
+-	char buf[0x50];
+-	size_t r;
+-
+-	va_start(args, fmt);
+-	r = vscnprintf(buf, sizeof(buf), fmt, args);
+-	va_end(args);
+-
+-	r = min(r, vmcoreinfo_max_size - vmcoreinfo_size);
+-
+-	memcpy(&vmcoreinfo_data[vmcoreinfo_size], buf, r);
+-
+-	vmcoreinfo_size += r;
+-}
+-
+-/*
+- * provide an empty default implementation here -- architecture
+- * code may override this
+- */
+-void __weak arch_crash_save_vmcoreinfo(void)
+-{}
+-
+-phys_addr_t __weak paddr_vmcoreinfo_note(void)
+-{
+-	return __pa((unsigned long)(char *)&vmcoreinfo_note);
+-}
+-
+-static int __init crash_save_vmcoreinfo_init(void)
+-{
+-	VMCOREINFO_OSRELEASE(init_uts_ns.name.release);
+-	VMCOREINFO_PAGESIZE(PAGE_SIZE);
+-
+-	VMCOREINFO_SYMBOL(init_uts_ns);
+-	VMCOREINFO_SYMBOL(node_online_map);
+-#ifdef CONFIG_MMU
+-	VMCOREINFO_SYMBOL(swapper_pg_dir);
+-#endif
+-	VMCOREINFO_SYMBOL(_stext);
+-	VMCOREINFO_SYMBOL(vmap_area_list);
+-
+-#ifndef CONFIG_NEED_MULTIPLE_NODES
+-	VMCOREINFO_SYMBOL(mem_map);
+-	VMCOREINFO_SYMBOL(contig_page_data);
+-#endif
+-#ifdef CONFIG_SPARSEMEM
+-	VMCOREINFO_SYMBOL(mem_section);
+-	VMCOREINFO_LENGTH(mem_section, NR_SECTION_ROOTS);
+-	VMCOREINFO_STRUCT_SIZE(mem_section);
+-	VMCOREINFO_OFFSET(mem_section, section_mem_map);
+-#endif
+-	VMCOREINFO_STRUCT_SIZE(page);
+-	VMCOREINFO_STRUCT_SIZE(pglist_data);
+-	VMCOREINFO_STRUCT_SIZE(zone);
+-	VMCOREINFO_STRUCT_SIZE(free_area);
+-	VMCOREINFO_STRUCT_SIZE(list_head);
+-	VMCOREINFO_SIZE(nodemask_t);
+-	VMCOREINFO_OFFSET(page, flags);
+-	VMCOREINFO_OFFSET(page, _refcount);
+-	VMCOREINFO_OFFSET(page, mapping);
+-	VMCOREINFO_OFFSET(page, lru);
+-	VMCOREINFO_OFFSET(page, _mapcount);
+-	VMCOREINFO_OFFSET(page, private);
+-	VMCOREINFO_OFFSET(page, compound_dtor);
+-	VMCOREINFO_OFFSET(page, compound_order);
+-	VMCOREINFO_OFFSET(page, compound_head);
+-	VMCOREINFO_OFFSET(pglist_data, node_zones);
+-	VMCOREINFO_OFFSET(pglist_data, nr_zones);
+-#ifdef CONFIG_FLAT_NODE_MEM_MAP
+-	VMCOREINFO_OFFSET(pglist_data, node_mem_map);
+-#endif
+-	VMCOREINFO_OFFSET(pglist_data, node_start_pfn);
+-	VMCOREINFO_OFFSET(pglist_data, node_spanned_pages);
+-	VMCOREINFO_OFFSET(pglist_data, node_id);
+-	VMCOREINFO_OFFSET(zone, free_area);
+-	VMCOREINFO_OFFSET(zone, vm_stat);
+-	VMCOREINFO_OFFSET(zone, spanned_pages);
+-	VMCOREINFO_OFFSET(free_area, free_list);
+-	VMCOREINFO_OFFSET(list_head, next);
+-	VMCOREINFO_OFFSET(list_head, prev);
+-	VMCOREINFO_OFFSET(vmap_area, va_start);
+-	VMCOREINFO_OFFSET(vmap_area, list);
+-	VMCOREINFO_LENGTH(zone.free_area, MAX_ORDER);
+-	log_buf_kexec_setup();
+-	VMCOREINFO_LENGTH(free_area.free_list, MIGRATE_TYPES);
+-	VMCOREINFO_NUMBER(NR_FREE_PAGES);
+-	VMCOREINFO_NUMBER(PG_lru);
+-	VMCOREINFO_NUMBER(PG_private);
+-	VMCOREINFO_NUMBER(PG_swapcache);
+-	VMCOREINFO_NUMBER(PG_slab);
+-#ifdef CONFIG_MEMORY_FAILURE
+-	VMCOREINFO_NUMBER(PG_hwpoison);
+-#endif
+-	VMCOREINFO_NUMBER(PG_head_mask);
+-	VMCOREINFO_NUMBER(PAGE_BUDDY_MAPCOUNT_VALUE);
+-#ifdef CONFIG_HUGETLB_PAGE
+-	VMCOREINFO_NUMBER(HUGETLB_PAGE_DTOR);
+-#endif
+-
+-	arch_crash_save_vmcoreinfo();
+-	update_vmcoreinfo_note();
+-
+-	return 0;
+-}
+-
+-subsys_initcall(crash_save_vmcoreinfo_init);
+-
+ /*
+  * Move into place and start executing a preloaded standalone
+  * executable.  If nothing was preloaded return an error.
+diff --git a/kernel/ksysfs.c b/kernel/ksysfs.c
+index ee1bc1b..d8d69ee 100644
+--- a/kernel/ksysfs.c
++++ b/kernel/ksysfs.c
+@@ -125,6 +125,10 @@ static ssize_t kexec_crash_size_store(struct kobject *kobj,
+ }
+ KERNEL_ATTR_RW(kexec_crash_size);
+ 
++#endif /* CONFIG_KEXEC_CORE */
++
++#ifdef CONFIG_CRASH_CORE
++
+ static ssize_t vmcoreinfo_show(struct kobject *kobj,
+ 			       struct kobj_attribute *attr, char *buf)
+ {
+@@ -134,7 +138,7 @@ static ssize_t vmcoreinfo_show(struct kobject *kobj,
+ }
+ KERNEL_ATTR_RO(vmcoreinfo);
+ 
+-#endif /* CONFIG_KEXEC_CORE */
++#endif /* CONFIG_CRASH_CORE */
+ 
+ /* whether file capabilities are enabled */
+ static ssize_t fscaps_show(struct kobject *kobj,
+@@ -219,6 +223,8 @@ static struct attribute * kernel_attrs[] = {
+ 	&kexec_loaded_attr.attr,
+ 	&kexec_crash_loaded_attr.attr,
+ 	&kexec_crash_size_attr.attr,
++#endif
++#ifdef CONFIG_CRASH_CORE
+ 	&vmcoreinfo_attr.attr,
+ #endif
+ #ifndef CONFIG_TINY_RCU
+diff --git a/kernel/printk/printk.c b/kernel/printk/printk.c
+index 8b26964..d0dfebd 100644
+--- a/kernel/printk/printk.c
++++ b/kernel/printk/printk.c
+@@ -32,7 +32,7 @@
+ #include <linux/bootmem.h>
+ #include <linux/memblock.h>
+ #include <linux/syscalls.h>
+-#include <linux/kexec.h>
++#include <linux/crash_core.h>
+ #include <linux/kdb.h>
+ #include <linux/ratelimit.h>
+ #include <linux/kmsg_dump.h>
+@@ -951,7 +951,7 @@ const struct file_operations kmsg_fops = {
+ 	.release = devkmsg_release,
+ };
+ 
+-#ifdef CONFIG_KEXEC_CORE
++#ifdef CONFIG_CRASH_CORE
+ /*
+  * This appends the listed symbols to /proc/vmcore
+  *
+@@ -960,7 +960,7 @@ const struct file_operations kmsg_fops = {
+  * symbols are specifically used so that utilities can access and extract the
+  * dmesg log from a vmcore file after a crash.
+  */
+-void log_buf_kexec_setup(void)
++void log_buf_crash_setup(void)
+ {
+ 	VMCOREINFO_SYMBOL(log_buf);
+ 	VMCOREINFO_SYMBOL(log_buf_len);
 
-Pleaase use COMPILE_TEST here, we've already marked almost all drivers
-with it today.  We also have really good build tools, including cross
-compilers that you can use to test-build stuff on all different arches
-if you feel you are somehow not building things you need to test-build.
-
-I fail to see how this is going to do anything different from what we
-have today, so why add it and have to maintain it?  Have you enabled it
-on subsystems that currently do not get properly build tested and found
-any issues?  What subsystems were they and why are they not in our
-current build tests?
-
-thanks,
-
-greg k-h
