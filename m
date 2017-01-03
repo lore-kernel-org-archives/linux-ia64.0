@@ -1,85 +1,55 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Fri, 06 Jan 2017 09:43:57 +0000
-Subject: [PATCH v2 5/7] Makefile.headersinst: cleanup input files
-Message-Id: <1483695839-18660-6-git-send-email-nicolas.dichtel@6wind.com>
+From: "Luis R. Rodriguez" <mcgrof@kernel.org>
+Date: Tue, 03 Jan 2017 21:27:44 +0000
+Subject: Re: [PATCH v5 09/14] jump_label: port __jump_table to linker tables
+Message-Id: <20170103212744.GF13946@wotan.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <bf83da6b-01ef-bf44-b3e1-ca6fc5636818@6wind.com>
- <1483695839-18660-1-git-send-email-nicolas.dichtel@6wind.com>
-In-Reply-To: <1483695839-18660-1-git-send-email-nicolas.dichtel@6wind.com>
+References: <1471642454-5679-1-git-send-email-mcgrof@kernel.org>
+ <20161222023811.21246-1-mcgrof@kernel.org>
+ <20161222023811.21246-10-mcgrof@kernel.org>
+ <1482415702.9552.125.camel@linux.intel.com>
+In-Reply-To: <1482415702.9552.125.camel@linux.intel.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: arnd@arndb.de
-Cc: linux-mips@linux-mips.org, alsa-devel@alsa-project.org, linux-ia64@vger.kernel.org, linux-doc@vger.kernel.org, airlied@linux.ie, linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-mtd@lists.infradead.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, linux-am33-list@redhat.com, linux-c6x-dev@linux-c6x.org, linux-rdma@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-sh@vger.kernel.org, coreteam@netfilter.org, fcoe-devel@open-fcoe.org, xen-devel@lists.xenproject.org, linux-snps-arc@lists.infradead.org, linux-media@vger.kernel.org, uclinux-h8-devel@lists.sourceforge.jp, linux-xtensa@linux-xtensa.org, linux-kbuild@vger.kernel.org, adi-buildroot-devel@lists.sourceforge.net, linux-raid@vger.kernel.org, linux-m68k@lists.linux-m68k.org, openrisc@lists.librecores.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>, linux-me
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Cc: gnomes@lxorguk.ukuu.org.uk, dalias@libc.org, linux-ia64@vger.kernel.org, jkosina@suse.cz, benh@kernel.crashing.org, ming.lei@canonical.com, heiko.carstens@de.ibm.com, platform-driver-x86@vger.kernel.org, James.Bottomley@HansenPartnership.com, paul.gortmaker@windriver.com, paulus@samba.org, mpe@ellerman.id.au, hpa@zytor.com, masami.hiramatsu.pt@hitachi.com, wangnan0@huawei.com, mchehab@osg.samsung.com, linux-arch@vger.kernel.org, markus.heiser@darmarit.de, sparclinux@vger.kernel.org, xen-devel@lists.xensource.com, linux@arm.linux.org.uk, linux-sh@vger.kernel.org, will.deacon@arm.com, korea.drzix@gmail.com, x86@kernel.org, anil.s.keshavamurthy@intel.com, fontana@sharpeleven.org, mingo@redhat.com, dsahern@gmail.com, linux-arm-kernel@lists.infradead.org, catalin.marinas@arm.com, dvhart@infradead.org, dwmw2@infradead.org, linux@roeck-us.net, david.vrabel@citrix.com, linux-xte
 
-After the last four patches, all exported headers are under uapi/, thus
-input-files2 are not needed anymore.
-The side effect is that input-files1-name is exactly header-y.
+On Thu, Dec 22, 2016 at 04:08:22PM +0200, Andy Shevchenko wrote:
+> On Wed, 2016-12-21 at 18:38 -0800, Luis R. Rodriguez wrote:
+> > Move the __jump_table from the a custom section solution
+> > to a generic solution, this avoiding extra vmlinux.lds.h
+> > customizations.
+> >=20
+> > This also demos the use of the .data linker table and of
+> > the shared asm call push_section_tbl().
+> >=20
+>=20
+> > =A0{
+> > =A0	asm_volatile_goto("1:\n\t"
+> > =A0		=A0WASM(nop) "\n\t"
+> > -		=A0".pushsection __jump_table,=A0=A0\"aw\"\n\t"
+> > +		=A0push_section_tbl_any(.data, __jump_table, aw)
+> > =A0		=A0".word 1b, %l[l_yes], %c0\n\t"
+> > =A0		=A0".popsection\n\t"
+> > =A0		=A0: :=A0=A0"i" (&((char *)key)[branch]) :=A0=A0: l_yes);
+> > @@ -26,7 +28,7 @@ static __always_inline bool
+> > arch_static_branch_jump(struct static_key *key, bool
+> > =A0{
+> > =A0	asm_volatile_goto("1:\n\t"
+> > =A0		=A0WASM(b) " %l[l_yes]\n\t"
+> > -		=A0".pushsection __jump_table,=A0=A0\"aw\"\n\t"
+> > +		=A0push_section_tbl_any(.data, __jump_table, aw)
+> > =A0		=A0".word 1b, %l[l_yes], %c0\n\t"
+> > =A0		=A0".popsection\n\t"
+>=20
+> Does it make sense to introduce something like
+>=20
+> #define pop_section_tbl ".popsection\n\t"
+> #define pop_section_tbl_any pop_section_tbl
 
-Note also that unput-files3-name is genhdr-y.
+Absolutely ! However this would be an evolution, and I would much
+prefer to add this later as an atomic step later to enable other
+users to also be using this shared macro. I did not have an immediate
+need for a pop_section_tbl() macro as its not section specific.
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- scripts/Makefile.headersinst | 34 +++++++++++-----------------------
- 1 file changed, 11 insertions(+), 23 deletions(-)
-
-diff --git a/scripts/Makefile.headersinst b/scripts/Makefile.headersinst
-index 1106d6ca3a38..3e20d03432d2 100644
---- a/scripts/Makefile.headersinst
-+++ b/scripts/Makefile.headersinst
-@@ -40,31 +40,20 @@ wrapper-files := $(filter $(header-y), $(generic-y))
- srcdir        := $(srctree)/$(obj)
- gendir        := $(objtree)/$(gen)
- 
--oldsrcdir     := $(srctree)/$(subst /uapi,,$(obj))
--
- # all headers files for this dir
- header-y      := $(filter-out $(generic-y), $(header-y))
- all-files     := $(header-y) $(genhdr-y) $(wrapper-files)
- output-files  := $(addprefix $(installdir)/, $(all-files))
- 
--input-files1  := $(foreach hdr, $(header-y), \
--		   $(if $(wildcard $(srcdir)/$(hdr)), \
--			$(wildcard $(srcdir)/$(hdr))) \
--		   )
--input-files1-name := $(notdir $(input-files1))
--input-files2  := $(foreach hdr, $(header-y), \
--		   $(if  $(wildcard $(srcdir)/$(hdr)),, \
--			$(if $(wildcard $(oldsrcdir)/$(hdr)), \
--				$(wildcard $(oldsrcdir)/$(hdr)), \
--				$(error Missing UAPI file $(srcdir)/$(hdr))) \
--		   ))
--input-files2-name := $(notdir $(input-files2))
--input-files3  := $(foreach hdr, $(genhdr-y), \
--		   $(if	$(wildcard $(gendir)/$(hdr)), \
--			$(wildcard $(gendir)/$(hdr)), \
--			$(error Missing generated UAPI file $(gendir)/$(hdr)) \
--		   ))
--input-files3-name := $(notdir $(input-files3))
-+# Check that all expected files exist
-+$(foreach hdr, $(header-y), \
-+  $(if $(wildcard $(srcdir)/$(hdr)),, \
-+       $(error Missing UAPI file $(srcdir)/$(hdr)) \
-+   ))
-+$(foreach hdr, $(genhdr-y), \
-+  $(if	$(wildcard $(gendir)/$(hdr)),, \
-+       $(error Missing generated UAPI file $(gendir)/$(hdr)) \
-+  ))
- 
- # Work out what needs to be removed
- oldheaders    := $(patsubst $(installdir)/%,%,$(wildcard $(installdir)/*.h))
-@@ -78,9 +67,8 @@ printdir = $(patsubst $(INSTALL_HDR_PATH)/%/,%,$(dir $@))
- quiet_cmd_install = INSTALL $(printdir) ($(words $(all-files))\
-                             file$(if $(word 2, $(all-files)),s))
-       cmd_install = \
--        $(CONFIG_SHELL) $< $(installdir) $(srcdir) $(input-files1-name); \
--        $(CONFIG_SHELL) $< $(installdir) $(oldsrcdir) $(input-files2-name); \
--        $(CONFIG_SHELL) $< $(installdir) $(gendir) $(input-files3-name); \
-+        $(CONFIG_SHELL) $< $(installdir) $(srcdir) $(header-y); \
-+        $(CONFIG_SHELL) $< $(installdir) $(gendir) $(genhdr-y); \
-         for F in $(wrapper-files); do                                   \
-                 echo "\#include <asm-generic/$$F>" > $(installdir)/$$F;    \
-         done;                                                           \
--- 
-2.8.1
-
+  Luis
