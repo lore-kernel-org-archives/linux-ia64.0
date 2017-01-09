@@ -1,206 +1,1462 @@
 From: "Luis R. Rodriguez" <mcgrof@kernel.org>
-Date: Sun, 15 Jan 2017 21:10:56 +0000
-Subject: [PATCH v7 13/14] kprobes: port blacklist kprobes to linker table
-Message-Id: <20170115211057.17167-14-mcgrof@kernel.org>
+Date: Mon, 09 Jan 2017 14:58:22 +0000
+Subject: [PATCH v6 04/14] tables.h: add linker table support
+Message-Id: <20170109145833.11502-5-mcgrof@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20170109145833.11502-1-mcgrof@kernel.org>
- <20170115211057.17167-1-mcgrof@kernel.org>
-In-Reply-To: <20170115211057.17167-1-mcgrof@kernel.org>
+References: <20161222023811.21246-1-mcgrof@kernel.org>
+ <20170109145833.11502-1-mcgrof@kernel.org>
+In-Reply-To: <20170109145833.11502-1-mcgrof@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: bp@alien8.de, bp@suse.de, hpa@zytor.com, acme@redhat.com, tglx@linutronix.de, mingo@redhat.com, jpoimboe@redhat.com, npiggin@gmail.com, mhiramat@kernel.org, masami.hiramatsu.pt@hitachi.com, jbaron@akamai.com, heiko.carstens@de.ibm.com, ananth@linux.vnet.ibm.com, anil.s.keshavamurthy@intel.com, davem@davemloft.net, realmz6@gmail.com, dalias@libc.org, linux@arm.linux.org.uk
-Cc: gnomes@lxorguk.ukuu.org.uk, linux-ia64@vger.kernel.org, jkosina@suse.cz, benh@kernel.crashing.org, ming.lei@canonical.com, linux@rasmusvillemoes.dk, platform-driver-x86@vger.kernel.org, James.Bottomley@HansenPartnership.com, paul.gortmaker@windriver.com, paulus@samba.org, sparclinux@vger.kernel.org, wangnan0@huawei.com, mchehab@osg.samsung.com, linux-arch@vger.kernel.org, markus.heiser@darmarit.de, xen-devel@lists.xensource.com, msalter@redhat.com, linux-sh@vger.kernel.org, mpe@ellerman.id.au, joro@8bytes.org, x86@kernel.org, fontana@sharpeleven.org, dsahern@gmail.com, linux-arm-kernel@lists.infradead.org, catalin.marinas@arm.com, dvhart@infradead.org, dwmw2@infradead.org, linux@roeck-us.net, linux-xtensa@linux-xtensa.org, pali.rohar@gmail.com, keescook@chromium.org, arnd@arndb.de, konrad.wilk@oracle.com, jani.nikula@intel.com, will.deacon@arm.com, rusty@rustcorp.com.au
+To: hpa@zytor.com, acme@redhat.com, tglx@linutronix.de, mingo@redhat.com, jpoimboe@redhat.com, bp@alien8.de, npiggin@gmail.com, mhiramat@kernel.org, masami.hiramatsu.pt@hitachi.com, jbaron@akamai.com, heiko.carstens@de.ibm.com, ananth@linux.vnet.ibm.com, anil.s.keshavamurthy@intel.com, davem@davemloft.net, realmz6@gmail.com, dalias@libc.org, linux@arm.linux.org.uk
+Cc: gnomes@lxorguk.ukuu.org.uk, linux-ia64@vger.kernel.org, jkosina@suse.cz, benh@kernel.crashing.org, ming.lei@canonical.com, linux@rasmusvillemoes.dk, platform-driver-x86@vger.kernel.org, James.Bottomley@HansenPartnership.com, paul.gortmaker@windriver.com, paulus@samba.org, sparclinux@vger.kernel.org, wangnan0@huawei.com, mchehab@osg.samsung.com, linux-arch@vger.kernel.org, markus.heiser@darmarit.de, xen-devel@lists.xensource.com, msalter@redhat.com, linux-sh@vger.kernel.org, mpe@ellerman.id.au, joro@8bytes.org, x86@kernel.org, fontana@sharpeleven.org, dsahern@gmail.com, linux-arm-kernel@lists.infradead.org, catalin.marinas@arm.com, dvhart@infradead.org, dwmw2@infradead.org, linux@roeck-us.net, linux-xtensa@linux-xtensa.org, pali.rohar@gmail.com, keescook@chromium.org, arnd@arndb.de, jani.nikula@intel.com, will.deacon@arm.com, rusty@rustcorp.com.au, rostedt@goodmis.org
 
-kprobe makes use of two sections, the one dealing with the actual
-kprobes was recently ported using the standard section range API.
-The blacklist functionality of kprobes is still using a custom
-section and declaring its custom section using the linker script
-as follows:
+A linker table is a data structure that is stitched together from items
+in multiple object files. Linux has historically implicitly used linker
+tables for ages, however they were all built in an adhoc manner which
+requires linker script modifications, per architecture. This adds a
+general linker table solution so that a new linker table can be
+implemented by changing C code only. The Linux linker table was
+inspired by Michael Brown's iPXE's linker table solution, it has been
+been completely re-written and adapted for integration and use on Linux.
 
-type  Linux-section custom section name  begin                    end
-table .init.data    _kprobe_blacklist    __start_kprobe_blacklist __stop_kprobe_blacklist
+The same philosophy is borrowed, extended and further simplified:
 
-This ports the _kprobe_blacklist custom section to the standard
-Linux linker table API allowing us remove all the custom blacklist
-kprobe section declarations from the linker script.
+Linker tables enable an extremely light weight linker build time
+solution for feature ordering and selection, this can help to both
+simplify init sequences in a generic fashion and helps avoiding code
+bit-rotting when desirable. Further changes will be added later
+which will make more evident how code bit rot can be avoided using
+linker tables.
 
-This has been tested by trying to register a kprobe on a blacklisted
-symbol (these are declared with NOKPROBE_SYMBOL()), and confirms that
-this fails to work as expected. This was tested with:
+v6:
 
- # insmod samples/kprobes/kprobe_example.ko symbol="get_kprobe"
+o rename tables macro as requested by Andy Shevchenko
 
-This fails to load as expected with:
+v5:
+o Use ..tbl.* instead of .tbl.* as suggested by Nicholas Piggin.
+  This is the typical way to avoid clashes with compiler generated
+  sections.
+o Replace section macros with section names
+o Dropped SECTION_RNG_ALL()
+o Fix documentation typos
+o To make this easier to read, as per Nicholas Piggin, add our own
+  LINKTABLE_START(), LINKTABLE_END(). After reviewing the changes
+  affected by this it seemed clearer and better then to also
+  use our own specific LINKTABLE_SIZE(), LINKTABLE_EMPTY() and
+  LINKTABLE_ALIGNMENT() as well.
+o Clarifies SECTION_TBL_RO needs to be kept since some toolchains
+  are buggy, and so we also add SECTION_TBL_RO_STR.
+o We were using LINUX_SECTION_START() and LINUX_SECTION_END() in some places
+  but in some other places VMLINUX_SYMBOL(name), VMLINUX_SYMBOL(name##__end).
+  Since we are adding LINKTABLE_START() and LINKTABLE_END() just use those
+  consistently.
+o Fix DEFINE_LINKTABLE_INIT() by making it use DECLARE_LINKTABLE_RO()
+  which forces const.
+o Fix powerpc .text use: it does not use TEXT_TEXT so we must
+  add our *(SORT(.text.tbl.*)) to its linker script manually.
 
-insmod: ERROR: could not insert module samples/kprobes/kprobe_example.ko: Invalid parameters
+v4:
 
-v5: Use push_section_tbl() for _ASM_NOKPROBE() for x86, and
-    _ASM_NOKPROBE_SYMBOL() on powerpc
-v4: ported over _ASM_NOKPROBE_SYMBOL() on powerpc and
-    ASM_NOKPROBE() on x86
-v3: this patch was introduced in this series
+o Split out kbuild additions to help with code bit rot into
+  its own patch
+o tons of documentation love
+o fix arch/x86/tools/relocs.c typo - which caused compilation issues
+  on old toolchains
+o add c6x toolchain work around as discussed with Mark Salter
+o sprinkle a few more needed VMLINUX_SYMBOL() - fixes
+  compilation on blackfin
+o suggested name changes by boris:
+- %s/SECTION_TYPE_RANGES/rng/g
+- %s/SECTION_TYPE/SECTION_CORE/g
+- %s/section_type_asmtype/section_core_type/g
+- %s/section_type/section_core/g
+- %s/section_rng/set_section_rng/g
+- Drop DECLARE_SECTION_TBL() -- this is an asm equivalent
+  DEFINE_LINKTABLE() -- this however is not used yet, and it requires
+  a bit more work to match the C code definitions.
+o drop tools/include/linux/sections.h in favor of the more popular open
+  coding the names for tools
+o expand documentation to include module support
+o add maintaners
+o Use generic-y
+o move .text.tbl before unlikely to match the other sections
 
-Acked-by: Masami Hiramatsu <mhiramat@kernel.org>
+v3:
+
+o addressed initial modular support test cases
+o added generic asm macros so linker tables can be used in
+  asm code / C asm calls
+o section ranges are now split up into their own set of files
+o use asm/sections.h instead of linux/sections.h for the linker
+  script
+o add a sections.h file for each architecture that was missing one,
+  this is needed now as we'll be relying on sections.h for custom
+  section types in code rather than custom architecture specific
+  linker script hacks.
+o full rewrite at this point, decided to pick copyleft-next license
+  for this work
+
+v2:
+
+o modified completely to match feedback by community, made equivalent
+  modifications to userspace solution. This is pretty much a complete
+  rewrite of how we present and use linker tables. By using standard
+  sections we no longer have to make custom linker script extensions
+  for each new linker table solution, you just pick a linker table
+  type by section type.
+o extend documention considerably, including use of kdoc
+o drop ICC hacks per popular request to ignore such issues for now
+o use sections.h - this lets us streamline a clean use case of
+  well documented sections. To help further with this make use of
+  SECTION_TBL() to allow use of these in code and SECTION_TBL_ALL()
+  on linker scripts, as well as SECTION_TBL_ALL_STR() on relocs.c
+  when needed.
+
+Cc: Michael Brown <mcb30@ipxe.org>
 Signed-off-by: Luis R. Rodriguez <mcgrof@kernel.org>
 ---
- arch/powerpc/include/asm/ppc_asm.h |  4 ++--
- arch/x86/include/asm/asm.h         |  4 +++-
- include/asm-generic/kprobes.h      |  4 ++--
- include/asm-generic/vmlinux.lds.h  | 10 ----------
- include/linux/kprobes.h            |  2 ++
- kernel/kprobes.c                   | 11 ++++-------
- 6 files changed, 13 insertions(+), 22 deletions(-)
+ Documentation/sections/index.rst         |   1 +
+ Documentation/sections/linker-tables.rst | 212 +++++++++++
+ MAINTAINERS                              |  10 +
+ arch/alpha/include/asm/Kbuild            |   1 +
+ arch/arc/include/asm/Kbuild              |   1 +
+ arch/arm/include/asm/Kbuild              |   1 +
+ arch/arm64/include/asm/Kbuild            |   1 +
+ arch/avr32/include/asm/Kbuild            |   1 +
+ arch/blackfin/include/asm/Kbuild         |   1 +
+ arch/c6x/include/asm/tables.h            |  26 ++
+ arch/cris/include/asm/Kbuild             |   1 +
+ arch/frv/include/asm/Kbuild              |   1 +
+ arch/h8300/include/asm/Kbuild            |   1 +
+ arch/hexagon/include/asm/Kbuild          |   1 +
+ arch/ia64/include/asm/Kbuild             |   1 +
+ arch/m32r/include/asm/Kbuild             |   1 +
+ arch/m68k/include/asm/Kbuild             |   1 +
+ arch/metag/include/asm/Kbuild            |   1 +
+ arch/microblaze/include/asm/Kbuild       |   1 +
+ arch/mips/include/asm/Kbuild             |   1 +
+ arch/mn10300/include/asm/Kbuild          |   1 +
+ arch/nios2/include/asm/Kbuild            |   1 +
+ arch/openrisc/include/asm/Kbuild         |   1 +
+ arch/parisc/include/asm/Kbuild           |   1 +
+ arch/powerpc/include/asm/Kbuild          |   1 +
+ arch/powerpc/kernel/vmlinux.lds.S        |   1 +
+ arch/s390/include/asm/Kbuild             |   1 +
+ arch/score/include/asm/Kbuild            |   1 +
+ arch/sh/include/asm/Kbuild               |   1 +
+ arch/sparc/include/asm/Kbuild            |   1 +
+ arch/tile/include/asm/Kbuild             |   1 +
+ arch/um/include/asm/Kbuild               |   1 +
+ arch/unicore32/include/asm/Kbuild        |   1 +
+ arch/x86/include/asm/Kbuild              |   1 +
+ arch/x86/tools/relocs.c                  |   2 +
+ arch/xtensa/include/asm/Kbuild           |   1 +
+ include/asm-generic/tables.h             |  48 +++
+ include/asm-generic/vmlinux.lds.h        |   6 +
+ include/linux/tables.h                   | 612 +++++++++++++++++++++++++++++++
+ 39 files changed, 948 insertions(+)
+ create mode 100644 Documentation/sections/linker-tables.rst
+ create mode 100644 arch/c6x/include/asm/tables.h
+ create mode 100644 include/asm-generic/tables.h
+ create mode 100644 include/linux/tables.h
 
-diff --git a/arch/powerpc/include/asm/ppc_asm.h b/arch/powerpc/include/asm/ppc_asm.h
-index 0846413b3a2e..20cd9c00eef5 100644
---- a/arch/powerpc/include/asm/ppc_asm.h
-+++ b/arch/powerpc/include/asm/ppc_asm.h
-@@ -9,7 +9,7 @@
- #include <asm/processor.h>
- #include <asm/ppc-opcode.h>
- #include <asm/firmware.h>
--#include <asm/ranges.h>
-+#include <asm/tables.h>
- 
- #ifdef __ASSEMBLY__
- 
-@@ -266,7 +266,7 @@ GLUE(.,name):
-  */
- #ifdef CONFIG_KPROBES
- #define _ASM_NOKPROBE_SYMBOL(entry)			\
--	.pushsection "_kprobe_blacklist","aw";		\
-+	push_section_tbl(.init.data, _kprobe_blacklist, any, aw); \
- 	PPC_LONG (entry) ;				\
- 	.popsection
- #else
-diff --git a/arch/x86/include/asm/asm.h b/arch/x86/include/asm/asm.h
-index 7acb51c49fec..48b1bc85c0e6 100644
---- a/arch/x86/include/asm/asm.h
-+++ b/arch/x86/include/asm/asm.h
-@@ -1,6 +1,8 @@
- #ifndef _ASM_X86_ASM_H
- #define _ASM_X86_ASM_H
- 
-+#include <asm/tables.h>
+diff --git a/Documentation/sections/index.rst b/Documentation/sections/index.rst
+index 4a1df389fa91..7c7c1adf955c 100644
+--- a/Documentation/sections/index.rst
++++ b/Documentation/sections/index.rst
+@@ -16,3 +16,4 @@ common a set of Linux helpers for ELF sections are also documented.
+    background
+    section-core
+    ranges
++   linker-tables
+diff --git a/Documentation/sections/linker-tables.rst b/Documentation/sections/linker-tables.rst
+new file mode 100644
+index 000000000000..780a292d2d00
+--- /dev/null
++++ b/Documentation/sections/linker-tables.rst
+@@ -0,0 +1,212 @@
++=========+Linux linker tables
++=========+
++This documents Linux linker tables, it explains what they are, where they
++came from, how they work, the benefits of using them and more importantly
++how you can use them.
 +
- #ifdef __ASSEMBLY__
- # define __ASM_FORM(x)	x
- # define __ASM_FORM_RAW(x)     x
-@@ -74,7 +76,7 @@
- 	_ASM_EXTABLE_HANDLE(from, to, ex_handler_ext)
++About Linker tables
++=========+.. kernel-doc:: include/linux/tables.h
++   :doc: Introduction
++
++Linker table provenance
++---------------------------------------------
++
++.. kernel-doc:: include/linux/tables.h
++   :doc: Linker table provenance
++
++Benefits of using Linker tables
++===============+
++Avoids modifying architecture linker scripts
++----------------------------------------------
++.. kernel-doc:: include/linux/tables.h
++   :doc: Avoids modifying architecture linker scripts
++
++How linker tables simplify initialization code
++----------------------------------------------
++.. kernel-doc:: include/linux/tables.h
++   :doc: How linker tables simplify initialization code
++
++Using linker tables in Linux
++==============
++
++Linker table module support
++---------------------------
++
++.. kernel-doc:: include/linux/tables.h
++   :doc: Linker table module support
++
++Linker table helpers
++==========
++
++.. kernel-doc:: include/linux/tables.h
++   :doc: Linker table helpers
++
++LINKTABLE_START
++---------------
++.. kernel-doc:: include/linux/tables.h
++   :functions: LINKTABLE_START
++
++LINKTABLE_END
++-------------
++.. kernel-doc:: include/linux/tables.h
++   :functions: LINKTABLE_END
++
++LINKTABLE_SIZE
++--------------
++.. kernel-doc:: include/linux/tables.h
++   :functions: LINKTABLE_SIZE
++
++LINKTABLE_EMPTY
++---------------
++.. kernel-doc:: include/linux/tables.h
++   :functions: LINKTABLE_EMPTY
++
++LINKTABLE_ADDR_WITHIN
++---------------------
++.. kernel-doc:: include/linux/tables.h
++   :functions: LINKTABLE_ADDR_WITHIN
++
++LINKTABLE_ALIGNMENT
++-------------------
++.. kernel-doc:: include/linux/tables.h
++   :functions: LINKTABLE_ALIGNMENT
++
++Constructing linker tables
++=============
++
++.. kernel-doc:: include/linux/tables.h
++   :doc: Constructing linker tables
++
++Weak linker tables constructors
++-------------------------------
++
++.. kernel-doc:: include/linux/tables.h
++   :doc: Weak linker tables constructors
++
++LINKTABLE_WEAK
++--------------
++.. kernel-doc:: include/linux/tables.h
++   :functions: LINKTABLE_WEAK
++
++LINKTABLE_TEXT_WEAK
++-------------------
++.. kernel-doc:: include/linux/tables.h
++   :functions: LINKTABLE_TEXT_WEAK
++
++LINKTABLE_RO_WEAK
++-----------------
++.. kernel-doc:: include/linux/tables.h
++   :functions: LINKTABLE_RO_WEAK
++
++LINKTABLE_INIT_WEAK
++-------------------
++.. kernel-doc:: include/linux/tables.h
++   :functions: LINKTABLE_INIT_WEAK
++
++LINKTABLE_INIT_DATA_WEAK
++------------------------
++.. kernel-doc:: include/linux/tables.h
++   :functions: LINKTABLE_INIT_DATA_WEAK
++
++Regular linker linker table constructors
++----------------------------------------
++
++.. kernel-doc:: include/linux/tables.h
++   :doc: Regular linker linker table constructors
++
++LINKTABLE
++---------
++.. kernel-doc:: include/linux/tables.h
++   :functions: LINKTABLE
++
++LINKTABLE_TEXT
++--------------
++.. kernel-doc:: include/linux/tables.h
++   :functions: LINKTABLE_TEXT
++
++LINKTABLE_RO
++------------
++.. kernel-doc:: include/linux/tables.h
++   :functions: LINKTABLE_RO
++
++LINKTABLE_INIT
++--------------
++.. kernel-doc:: include/linux/tables.h
++   :functions: LINKTABLE_INIT
++
++LINKTABLE_INIT_DATA
++-------------------
++.. kernel-doc:: include/linux/tables.h
++   :functions: LINKTABLE_INIT_DATA
++
++Declaring Linker tables
++===========+
++.. kernel-doc:: include/linux/tables.h
++   :doc: Declaring Linker tables
++
++DECLARE_LINKTABLE
++----------------------
++.. kernel-doc:: include/linux/tables.h
++   :functions: DECLARE_LINKTABLE
++
++DECLARE_LINKTABLE_RO
++--------------------
++.. kernel-doc:: include/linux/tables.h
++   :functions: DECLARE_LINKTABLE_RO
++
++Defining Linker tables
++===========
++
++.. kernel-doc:: include/linux/tables.h
++   :doc: Defining Linker tables
++
++DEFINE_LINKTABLE
++----------------
++.. kernel-doc:: include/linux/tables.h
++   :functions: DEFINE_LINKTABLE
++
++DEFINE_LINKTABLE_TEXT
++---------------------
++.. kernel-doc:: include/linux/tables.h
++   :functions: DEFINE_LINKTABLE_TEXT
++
++DEFINE_LINKTABLE_RO
++-------------------
++.. kernel-doc:: include/linux/tables.h
++   :functions: DEFINE_LINKTABLE_RO
++
++DEFINE_LINKTABLE_INIT
++---------------------
++.. kernel-doc:: include/linux/tables.h
++   :functions: DEFINE_LINKTABLE_INIT
++
++DEFINE_LINKTABLE_INIT_DATA
++--------------------------
++.. kernel-doc:: include/linux/tables.h
++   :functions: DEFINE_LINKTABLE_INIT_DATA
++
++Iterating over Linker tables
++==============
++
++.. kernel-doc:: include/linux/tables.h
++   :doc: Iterating over Linker tables
++
++linktable_for_each
++------------------
++.. kernel-doc:: include/linux/tables.h
++   :functions: linktable_for_each
++
++linktable_run_all
++-----------------
++.. kernel-doc:: include/linux/tables.h
++   :functions: linktable_run_all
++
++linktable_run_err
++-----------------
++.. kernel-doc:: include/linux/tables.h
++   :functions: linktable_run_err
+diff --git a/MAINTAINERS b/MAINTAINERS
+index c96ca032c276..bbf519da3a78 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -5407,6 +5407,16 @@ S:	Maintained
+ F:	include/asm-generic/
+ F:	include/uapi/asm-generic/
  
- # define _ASM_NOKPROBE(entry)					\
--	.pushsection "_kprobe_blacklist","aw" ;			\
-+	push_section_tbl_any(.init.data, _kprobe_blacklist, aw);\
- 	_ASM_ALIGN ;						\
- 	_ASM_PTR (entry);					\
- 	.popsection
-diff --git a/include/asm-generic/kprobes.h b/include/asm-generic/kprobes.h
-index 02a26b975187..7d29a208390e 100644
---- a/include/asm-generic/kprobes.h
-+++ b/include/asm-generic/kprobes.h
-@@ -3,14 +3,14 @@
- 
- #if defined(__KERNEL__) && !defined(__ASSEMBLY__)
- #ifdef CONFIG_KPROBES
-+#include <linux/tables.h>
- #include <asm/ranges.h>
- /*
-  * Blacklist ganerating macro. Specify functions which is not probed
-  * by using this macro.
-  */
- # define __NOKPROBE_SYMBOL(fname)				\
--static unsigned long __used					\
--	__attribute__((__section__("_kprobe_blacklist")))	\
-+static LINKTABLE_INIT_DATA(_kprobe_blacklist, all)		\
- 	_kbl_addr_##fname = (unsigned long)fname;
- # define NOKPROBE_SYMBOL(fname)	__NOKPROBE_SYMBOL(fname)
- /* Use this to forbid a kprobes attach on very low level functions */
++GENERIC LINKER TABLES
++M:	"Luis R. Rodriguez" <mcgrof@kernel.org>
++M:	"H. Peter Anvin" <hpa@zytor.com>
++L:	linux-arch@vger.kernel.org
++L:	linux-kernel@vger.kernel.org
++S:	Supported
++F:	include/asm-generic/tables.h
++F:	include/linux/tables.h
++F:	Documentation/sections/linker-tables.rst
++
+ GENERIC PHY FRAMEWORK
+ M:	Kishon Vijay Abraham I <kishon@ti.com>
+ L:	linux-kernel@vger.kernel.org
+diff --git a/arch/alpha/include/asm/Kbuild b/arch/alpha/include/asm/Kbuild
+index e44c896b91c4..f3bdc31d3c97 100644
+--- a/arch/alpha/include/asm/Kbuild
++++ b/arch/alpha/include/asm/Kbuild
+@@ -12,3 +12,4 @@ generic-y += sections.h
+ generic-y += trace_clock.h
+ generic-y += section-core.h
+ generic-y += ranges.h
++generic-y += tables.h
+diff --git a/arch/arc/include/asm/Kbuild b/arch/arc/include/asm/Kbuild
+index a374b7f83888..ccfa69ce2608 100644
+--- a/arch/arc/include/asm/Kbuild
++++ b/arch/arc/include/asm/Kbuild
+@@ -53,3 +53,4 @@ generic-y += word-at-a-time.h
+ generic-y += xor.h
+ generic-y += section-core.h
+ generic-y += ranges.h
++generic-y += tables.h
+diff --git a/arch/arm/include/asm/Kbuild b/arch/arm/include/asm/Kbuild
+index 0d47f98ccbc0..b70d4b78d577 100644
+--- a/arch/arm/include/asm/Kbuild
++++ b/arch/arm/include/asm/Kbuild
+@@ -43,3 +43,4 @@ generated-y += mach-types.h
+ generated-y += unistd-nr.h
+ generic-y += section-core.h
+ generic-y += ranges.h
++generic-y += tables.h
+diff --git a/arch/arm64/include/asm/Kbuild b/arch/arm64/include/asm/Kbuild
+index e9939cbd9067..0c1e781ab10b 100644
+--- a/arch/arm64/include/asm/Kbuild
++++ b/arch/arm64/include/asm/Kbuild
+@@ -47,3 +47,4 @@ generic-y += vga.h
+ generic-y += xor.h
+ generic-y += section-core.h
+ generic-y += ranges.h
++generic-y += tables.h
+diff --git a/arch/avr32/include/asm/Kbuild b/arch/avr32/include/asm/Kbuild
+index edc176348d7c..a6cd145515ae 100644
+--- a/arch/avr32/include/asm/Kbuild
++++ b/arch/avr32/include/asm/Kbuild
+@@ -24,3 +24,4 @@ generic-y += word-at-a-time.h
+ generic-y += xor.h
+ generic-y += section-core.h
+ generic-y += ranges.h
++generic-y += tables.h
+diff --git a/arch/blackfin/include/asm/Kbuild b/arch/blackfin/include/asm/Kbuild
+index 3428415b1996..9115b215fc7e 100644
+--- a/arch/blackfin/include/asm/Kbuild
++++ b/arch/blackfin/include/asm/Kbuild
+@@ -49,3 +49,4 @@ generic-y += word-at-a-time.h
+ generic-y += xor.h
+ generic-y += section-core.h
+ generic-y += ranges.h
++generic-y += tables.h
+diff --git a/arch/c6x/include/asm/tables.h b/arch/c6x/include/asm/tables.h
+new file mode 100644
+index 000000000000..90a0d3df35c8
+--- /dev/null
++++ b/arch/c6x/include/asm/tables.h
+@@ -0,0 +1,26 @@
++#ifndef _ASM_C6X_ASM_TABLES_H
++#define _ASM_C6X_ASM_TABLES_H
++/*
++ * Copyright (C) 2016 Luis R. Rodriguez <mcgrof@kernel.org>
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of copyleft-next (version 0.3.1 or later) as published
++ * at http://copyleft-next.org/.
++ */
++
++/*
++ * The c6x toolchain has a bug present even on gcc-6 when non-weak attributes
++ * are used and sends them to .rodata even though const data with weak
++ * attributes are put in .const, this forces the linker to believe the address
++ * is relative relative to the a base + offset and you end up with SB-relative
++ * reloc error upon linking. Work around this by by forcing both start and
++ * ending const RO weak linker table entry to be .const to fix this for now.
++ *
++ * [0] https://lkml.kernel.org/r/1470798247.3551.94.camel@redhat.com
++ */
++
++#define SECTION_TBL_RO		.const
++
++#include <asm-generic/tables.h>
++
++#endif /* _ASM_C6X_ASM_TABLES_H */
+diff --git a/arch/cris/include/asm/Kbuild b/arch/cris/include/asm/Kbuild
+index fb8bb4112773..7062c1be7913 100644
+--- a/arch/cris/include/asm/Kbuild
++++ b/arch/cris/include/asm/Kbuild
+@@ -47,3 +47,4 @@ generic-y += word-at-a-time.h
+ generic-y += xor.h
+ generic-y += section-core.h
+ generic-y += ranges.h
++generic-y += tables.h
+diff --git a/arch/frv/include/asm/Kbuild b/arch/frv/include/asm/Kbuild
+index 5191fec655d7..4a59cbda5091 100644
+--- a/arch/frv/include/asm/Kbuild
++++ b/arch/frv/include/asm/Kbuild
+@@ -10,3 +10,4 @@ generic-y += trace_clock.h
+ generic-y += word-at-a-time.h
+ generic-y += section-core.h
+ generic-y += ranges.h
++generic-y += tables.h
+diff --git a/arch/h8300/include/asm/Kbuild b/arch/h8300/include/asm/Kbuild
+index 7929a992566c..d79968d93c12 100644
+--- a/arch/h8300/include/asm/Kbuild
++++ b/arch/h8300/include/asm/Kbuild
+@@ -77,3 +77,4 @@ generic-y += word-at-a-time.h
+ generic-y += xor.h
+ generic-y += section-core.h
+ generic-y += ranges.h
++generic-y += tables.h
+diff --git a/arch/hexagon/include/asm/Kbuild b/arch/hexagon/include/asm/Kbuild
+index af17ee334788..d59ac1c1858b 100644
+--- a/arch/hexagon/include/asm/Kbuild
++++ b/arch/hexagon/include/asm/Kbuild
+@@ -62,3 +62,4 @@ generic-y += word-at-a-time.h
+ generic-y += xor.h
+ generic-y += section-core.h
+ generic-y += ranges.h
++generic-y += tables.h
+diff --git a/arch/ia64/include/asm/Kbuild b/arch/ia64/include/asm/Kbuild
+index d8f226b35a0a..76540f143473 100644
+--- a/arch/ia64/include/asm/Kbuild
++++ b/arch/ia64/include/asm/Kbuild
+@@ -11,3 +11,4 @@ generic-y += vtime.h
+ generic-y += word-at-a-time.h
+ generic-y += section-core.h
+ generic-y += ranges.h
++generic-y += tables.h
+diff --git a/arch/m32r/include/asm/Kbuild b/arch/m32r/include/asm/Kbuild
+index 1c6504d29312..24088f3c733c 100644
+--- a/arch/m32r/include/asm/Kbuild
++++ b/arch/m32r/include/asm/Kbuild
+@@ -13,3 +13,4 @@ generic-y += trace_clock.h
+ generic-y += word-at-a-time.h
+ generic-y += section-core.h
+ generic-y += ranges.h
++generic-y += tables.h
+diff --git a/arch/m68k/include/asm/Kbuild b/arch/m68k/include/asm/Kbuild
+index 006e2863ad37..c28bcdecc764 100644
+--- a/arch/m68k/include/asm/Kbuild
++++ b/arch/m68k/include/asm/Kbuild
+@@ -36,3 +36,4 @@ generic-y += word-at-a-time.h
+ generic-y += xor.h
+ generic-y += section-core.h
+ generic-y += ranges.h
++generic-y += tables.h
+diff --git a/arch/metag/include/asm/Kbuild b/arch/metag/include/asm/Kbuild
+index 4a8471434a3e..c836f7e2a5e7 100644
+--- a/arch/metag/include/asm/Kbuild
++++ b/arch/metag/include/asm/Kbuild
+@@ -57,3 +57,4 @@ generic-y += word-at-a-time.h
+ generic-y += xor.h
+ generic-y += section-core.h
+ generic-y += ranges.h
++generic-y += tables.h
+diff --git a/arch/microblaze/include/asm/Kbuild b/arch/microblaze/include/asm/Kbuild
+index 63c083a1f8da..01afb1b420f5 100644
+--- a/arch/microblaze/include/asm/Kbuild
++++ b/arch/microblaze/include/asm/Kbuild
+@@ -13,3 +13,4 @@ generic-y += trace_clock.h
+ generic-y += word-at-a-time.h
+ generic-y += section-core.h
+ generic-y += ranges.h
++generic-y += tables.h
+diff --git a/arch/mips/include/asm/Kbuild b/arch/mips/include/asm/Kbuild
+index e844d6058248..db9dff9c1535 100644
+--- a/arch/mips/include/asm/Kbuild
++++ b/arch/mips/include/asm/Kbuild
+@@ -23,3 +23,4 @@ generic-y += word-at-a-time.h
+ generic-y += xor.h
+ generic-y += section-core.h
+ generic-y += ranges.h
++generic-y += tables.h
+diff --git a/arch/mn10300/include/asm/Kbuild b/arch/mn10300/include/asm/Kbuild
+index 656af7b69940..6c8d12f3fe44 100644
+--- a/arch/mn10300/include/asm/Kbuild
++++ b/arch/mn10300/include/asm/Kbuild
+@@ -12,3 +12,4 @@ generic-y += trace_clock.h
+ generic-y += word-at-a-time.h
+ generic-y += section-core.h
+ generic-y += ranges.h
++generic-y += tables.h
+diff --git a/arch/nios2/include/asm/Kbuild b/arch/nios2/include/asm/Kbuild
+index c55880659d67..ee6220dac1e8 100644
+--- a/arch/nios2/include/asm/Kbuild
++++ b/arch/nios2/include/asm/Kbuild
+@@ -65,3 +65,4 @@ generic-y += word-at-a-time.h
+ generic-y += xor.h
+ generic-y += section-core.h
+ generic-y += ranges.h
++generic-y += tables.h
+diff --git a/arch/openrisc/include/asm/Kbuild b/arch/openrisc/include/asm/Kbuild
+index 7d6a704b808c..ceafe458e295 100644
+--- a/arch/openrisc/include/asm/Kbuild
++++ b/arch/openrisc/include/asm/Kbuild
+@@ -73,3 +73,4 @@ generic-y += word-at-a-time.h
+ generic-y += xor.h
+ generic-y += section-core.h
+ generic-y += ranges.h
++generic-y += tables.h
+diff --git a/arch/parisc/include/asm/Kbuild b/arch/parisc/include/asm/Kbuild
+index f11d1249738f..aaae8a9f6099 100644
+--- a/arch/parisc/include/asm/Kbuild
++++ b/arch/parisc/include/asm/Kbuild
+@@ -30,3 +30,4 @@ generic-y += word-at-a-time.h
+ generic-y += xor.h
+ generic-y += section-core.h
+ generic-y += ranges.h
++generic-y += tables.h
+diff --git a/arch/powerpc/include/asm/Kbuild b/arch/powerpc/include/asm/Kbuild
+index 60d8349241a7..7c06627a0a0d 100644
+--- a/arch/powerpc/include/asm/Kbuild
++++ b/arch/powerpc/include/asm/Kbuild
+@@ -10,3 +10,4 @@ generic-y += rwsem.h
+ generic-y += vtime.h
+ generic-y += section-core.h
+ generic-y += ranges.h
++generic-y += tables.h
+diff --git a/arch/powerpc/kernel/vmlinux.lds.S b/arch/powerpc/kernel/vmlinux.lds.S
+index fcfc9d102348..8cd940c72895 100644
+--- a/arch/powerpc/kernel/vmlinux.lds.S
++++ b/arch/powerpc/kernel/vmlinux.lds.S
+@@ -108,6 +108,7 @@ SECTIONS
+ 		/* careful! __ftr_alt_* sections need to be close to .text */
+ 		*(.text .fixup __ftr_alt_* .ref.text)
+ 		*(SORT(.text.rng.*))
++		*(SORT(.text..tbl.*))
+ 		SCHED_TEXT
+ 		CPUIDLE_TEXT
+ 		LOCK_TEXT
+diff --git a/arch/s390/include/asm/Kbuild b/arch/s390/include/asm/Kbuild
+index c1b85a361e5d..96dd69931427 100644
+--- a/arch/s390/include/asm/Kbuild
++++ b/arch/s390/include/asm/Kbuild
+@@ -10,3 +10,4 @@ generic-y += trace_clock.h
+ generic-y += word-at-a-time.h
+ generic-y += section-core.h
+ generic-y += ranges.h
++generic-y += tables.h
+diff --git a/arch/score/include/asm/Kbuild b/arch/score/include/asm/Kbuild
+index f0cdb2cbca4d..16ea15a3e432 100644
+--- a/arch/score/include/asm/Kbuild
++++ b/arch/score/include/asm/Kbuild
+@@ -16,3 +16,4 @@ generic-y += serial.h
+ generic-y += word-at-a-time.h
+ generic-y += section-core.h
+ generic-y += ranges.h
++generic-y += tables.h
+diff --git a/arch/sh/include/asm/Kbuild b/arch/sh/include/asm/Kbuild
+index c9bb7932a3d1..d0ea768d15ae 100644
+--- a/arch/sh/include/asm/Kbuild
++++ b/arch/sh/include/asm/Kbuild
+@@ -41,3 +41,4 @@ generic-y += ucontext.h
+ generic-y += xor.h
+ generic-y += section-core.h
+ generic-y += ranges.h
++generic-y += tables.h
+diff --git a/arch/sparc/include/asm/Kbuild b/arch/sparc/include/asm/Kbuild
+index 28280887ac79..23a2216f4146 100644
+--- a/arch/sparc/include/asm/Kbuild
++++ b/arch/sparc/include/asm/Kbuild
+@@ -23,3 +23,4 @@ generic-y += types.h
+ generic-y += word-at-a-time.h
+ generic-y += section-core.h
+ generic-y += ranges.h
++generic-y += tables.h
+diff --git a/arch/tile/include/asm/Kbuild b/arch/tile/include/asm/Kbuild
+index 33f7069763ae..a599f6f4ee0a 100644
+--- a/arch/tile/include/asm/Kbuild
++++ b/arch/tile/include/asm/Kbuild
+@@ -42,3 +42,4 @@ generic-y += types.h
+ generic-y += xor.h
+ generic-y += section-core.h
+ generic-y += ranges.h
++generic-y += tables.h
+diff --git a/arch/um/include/asm/Kbuild b/arch/um/include/asm/Kbuild
+index b952dcb3e216..d2867aa09e23 100644
+--- a/arch/um/include/asm/Kbuild
++++ b/arch/um/include/asm/Kbuild
+@@ -28,3 +28,4 @@ generic-y += word-at-a-time.h
+ generic-y += xor.h
+ generic-y += section-core.h
+ generic-y += ranges.h
++generic-y += tables.h
+diff --git a/arch/unicore32/include/asm/Kbuild b/arch/unicore32/include/asm/Kbuild
+index 93abbfdab543..6671a1f08ead 100644
+--- a/arch/unicore32/include/asm/Kbuild
++++ b/arch/unicore32/include/asm/Kbuild
+@@ -62,3 +62,4 @@ generic-y += vga.h
+ generic-y += word-at-a-time.h
+ generic-y += xor.h
+ generic-y += ranges.h
++generic-y += tables.h
+diff --git a/arch/x86/include/asm/Kbuild b/arch/x86/include/asm/Kbuild
+index f672f2fc181d..4cb511f1067c 100644
+--- a/arch/x86/include/asm/Kbuild
++++ b/arch/x86/include/asm/Kbuild
+@@ -14,3 +14,4 @@ generic-y += mcs_spinlock.h
+ generic-y += mm-arch-hooks.h
+ generic-y += section-core.h
+ generic-y += ranges.h
++generic-y += tables.h
+diff --git a/arch/x86/tools/relocs.c b/arch/x86/tools/relocs.c
+index f96fa2ddf7c9..484a24c309fb 100644
+--- a/arch/x86/tools/relocs.c
++++ b/arch/x86/tools/relocs.c
+@@ -69,7 +69,9 @@ static const char * const sym_regex_kernel[S_NSYMTYPES] = {
+ 	"__initramfs_start|"
+ 	"(jiffies|jiffies_64)|"
+ 	".rodata..rng.*|"
++	".rodata..tbl.*|"
+ 	".init.text..rng.*|"
++	".init.text..tbl.*|"
+ #if ELF_BITS = 64
+ 	"__per_cpu_load|"
+ 	"init_per_cpu__.*|"
+diff --git a/arch/xtensa/include/asm/Kbuild b/arch/xtensa/include/asm/Kbuild
+index 2b7fe48c0225..7b41f32a2ba0 100644
+--- a/arch/xtensa/include/asm/Kbuild
++++ b/arch/xtensa/include/asm/Kbuild
+@@ -34,3 +34,4 @@ generic-y += word-at-a-time.h
+ generic-y += xor.h
+ generic-y += section-core.h
+ generic-y += ranges.h
++generic-y += tables.h
+diff --git a/include/asm-generic/tables.h b/include/asm-generic/tables.h
+new file mode 100644
+index 000000000000..16ef40d145fb
+--- /dev/null
++++ b/include/asm-generic/tables.h
+@@ -0,0 +1,48 @@
++#ifndef _ASM_GENERIC_TABLES_H_
++#define _ASM_GENERIC_TABLES_H_
++/*
++ * Linux linker tables
++ *
++ * Copyright (C) 2016 Luis R. Rodriguez <mcgrof@kernel.org>
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of copyleft-next (version 0.3.1 or later) as published
++ * at http://copyleft-next.org/.
++ */
++#include <asm/section-core.h>
++
++#define SECTION_TBL(section, name, level)	section..tbl.name.level
++
++/* Some toolchains are buggy, let them override */
++#ifndef SECTION_TBL_RO
++# define SECTION_TBL_RO	.rodata
++#endif
++
++#define SECTION_TBL_RO_STR __stringify(SECTION_TBL_RO)
++
++#ifndef set_section_tbl
++# define set_section_tbl(section, name, level, flags)			\
++	 set_section_core(section, tbl, name, level, flags)
++#endif
++
++#ifndef set_section_tbl_any
++# define set_section_tbl_any(section, name, flags)				\
++	 set_section_core(section, tbl, name, any, flags)
++#endif
++
++#ifndef set_section_tbl_type
++# define set_section_tbl_type(section, name, level, flags, type)		\
++	 set_section_core_type(section, tbl, name, level, flags, type)
++#endif
++
++#ifndef push_section_tbl
++# define push_section_tbl(section, name, level, flags)			\
++	 push_section_core(section, tbl, name, level, flags)
++#endif
++
++#ifndef push_section_tbl_any
++# define push_section_tbl_any(section, name, flags)			\
++	 push_section_core(section, tbl, name, any, flags)
++#endif
++
++#endif /* _ASM_GENERIC_TABLES_H_ */
 diff --git a/include/asm-generic/vmlinux.lds.h b/include/asm-generic/vmlinux.lds.h
-index 499caf5b4361..9f062af1f728 100644
+index 71bfd3b3c719..ce1e9a310ada 100644
 --- a/include/asm-generic/vmlinux.lds.h
 +++ b/include/asm-generic/vmlinux.lds.h
-@@ -114,15 +114,6 @@
- #define BRANCH_PROFILE()
- #endif
+@@ -57,6 +57,7 @@
+ #include <linux/export.h>
+ #include <asm/section-core.h>
+ #include <asm/ranges.h>
++#include <asm/tables.h>
  
--#ifdef CONFIG_KPROBES
--#define KPROBE_BLACKLIST()	. = ALIGN(8);				      \
--				VMLINUX_SYMBOL(__start_kprobe_blacklist) = .; \
--				KEEP(*(_kprobe_blacklist))		      \
--				VMLINUX_SYMBOL(__stop_kprobe_blacklist) = .;
--#else
--#define KPROBE_BLACKLIST()
--#endif
--
- #ifdef CONFIG_EVENT_TRACING
- #define FTRACE_EVENTS()	. = ALIGN(8);					\
- 			VMLINUX_SYMBOL(__start_ftrace_events) = .;	\
-@@ -551,7 +542,6 @@
- 	*(.init.rodata)							\
- 	FTRACE_EVENTS()							\
- 	TRACE_SYSCALLS()						\
--	KPROBE_BLACKLIST()						\
- 	MEM_DISCARD(init.rodata)					\
- 	CLK_OF_TABLES()							\
- 	RESERVEDMEM_OF_TABLES()						\
-diff --git a/include/linux/kprobes.h b/include/linux/kprobes.h
-index 445cc6fe7afa..2707820cbb56 100644
---- a/include/linux/kprobes.h
-+++ b/include/linux/kprobes.h
-@@ -44,8 +44,10 @@
+ /* Align . to a 8 byte boundary equals to maximum function alignment. */
+ #define ALIGN_FUNCTION()  . = ALIGN(8)
+@@ -207,6 +208,7 @@
+ #define DATA_DATA							\
+ 	*(.data .data.[0-9a-zA-Z_]*)					\
+ 	*(SORT(.data..rng.*))						\
++	*(SORT(.data..tbl.*))						\
+ 	*(.ref.data)							\
+ 	*(.data..shared_aligned) /* percpu related */			\
+ 	MEM_KEEP(init.data)						\
+@@ -277,6 +279,7 @@
+ 		VMLINUX_SYMBOL(__start_rodata) = .;			\
+ 		*(.rodata)						\
+ 		*(SORT(.rodata..rng.*))					\
++		*(SORT(.rodata..tbl.*))					\
+ 		*(.rodata.*)						\
+ 		RO_AFTER_INIT_DATA	/* Read only after init */	\
+ 		KEEP(*(__vermagic))	/* Kernel version magic */	\
+@@ -452,6 +455,7 @@
+ 		ALIGN_FUNCTION();					\
+ 		*(.text.hot .text)					\
+ 		*(SORT(.text..rng.*))					\
++		*(SORT(.text..tbl.*))					\
+ 		*(.text.fixup .text.unlikely)				\
+ 		*(.ref.text)						\
+ 	MEM_KEEP(init.text)						\
+@@ -556,6 +560,7 @@
+ 	KEEP(*(SORT(___kentry+*)))					\
+ 	*(.init.data)							\
+ 	*(SORT(.init.data..rng.*))					\
++	*(SORT(.init.data..tbl.*))					\
+ 	MEM_DISCARD(init.data)						\
+ 	KERNEL_CTORS()							\
+ 	MCOUNT_REC()							\
+@@ -580,6 +585,7 @@
+ #define INIT_TEXT							\
+ 	*(.init.text)							\
+ 	*(SORT(.init.text..rng.*))					\
++	*(SORT(.init.text..tbl.*))					\
+ 	*(.text.startup)						\
+ 	MEM_DISCARD(init.text)
  
- #ifdef CONFIG_KPROBES
- #include <linux/ranges.h>
-+#include <linux/tables.h>
- 
- DECLARE_SECTION_RANGE(kprobes);
-+DECLARE_LINKTABLE(unsigned long, _kprobe_blacklist);
- 
- /* kprobe_status settings */
- #define KPROBE_HIT_ACTIVE	0x00000001
-diff --git a/kernel/kprobes.c b/kernel/kprobes.c
-index 82191f328e21..9d102ac95256 100644
---- a/kernel/kprobes.c
-+++ b/kernel/kprobes.c
-@@ -2053,14 +2053,13 @@ NOKPROBE_SYMBOL(dump_kprobe);
-  * since a kprobe need not necessarily be at the beginning
-  * of a function.
-  */
--static int __init populate_kprobe_blacklist(unsigned long *start,
--					     unsigned long *end)
-+static int __init populate_kprobe_blacklist(void)
- {
- 	unsigned long *iter;
- 	struct kprobe_blacklist_entry *ent;
- 	unsigned long entry, offset = 0, size = 0;
- 
--	for (iter = start; iter < end; iter++) {
-+	linktable_for_each(iter, _kprobe_blacklist) {
- 		entry = arch_deref_entry_point((void *)*iter);
- 
- 		if (!kernel_text_address(entry) ||
-@@ -2125,8 +2124,7 @@ static struct notifier_block kprobe_module_nb = {
- };
- 
- /* Markers of _kprobe_blacklist section */
--extern unsigned long __start_kprobe_blacklist[];
--extern unsigned long __stop_kprobe_blacklist[];
-+DEFINE_LINKTABLE_INIT_DATA(unsigned long, _kprobe_blacklist);
- 
- /* Actual kprobes section range */
- DEFINE_SECTION_RANGE(kprobes, .text);
-@@ -2143,8 +2141,7 @@ static int __init init_kprobes(void)
- 		raw_spin_lock_init(&(kretprobe_table_locks[i].lock));
- 	}
- 
--	err = populate_kprobe_blacklist(__start_kprobe_blacklist,
--					__stop_kprobe_blacklist);
-+	err = populate_kprobe_blacklist();
- 	if (err) {
- 		pr_err("kprobes: failed to populate blacklist: %d\n", err);
- 		pr_err("Please take care of using kprobes.\n");
+diff --git a/include/linux/tables.h b/include/linux/tables.h
+new file mode 100644
+index 000000000000..1a1838d51951
+--- /dev/null
++++ b/include/linux/tables.h
+@@ -0,0 +1,612 @@
++#ifndef _LINUX_LINKER_TABLES_H
++#define _LINUX_LINKER_TABLES_H
++/*
++ * Linux linker tables
++ *
++ * Copyright (C) 2016 Luis R. Rodriguez <mcgrof@kernel.org>
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of copyleft-next (version 0.3.1 or later) as published
++ * at http://copyleft-next.org/.
++ */
++#include <linux/export.h>
++#include <linux/sections.h>
++#include <asm/tables.h>
++
++#ifndef __ASSEMBLY__
++
++/**
++ * DOC: Introduction
++ *
++ * A linker table is a data structure that is stitched together from items in
++ * multiple object files for the purpose of selective placement into standard
++ * or architecture specific ELF sections. What section is used is utility
++ * specific. Linux has historically implicitly used linker tables, however they
++ * were all built in an adhoc manner which requires linker script modifications
++ * per architecture. The linker table API provides a general facility so that
++ * data structures can be stitched together and placed into Linux ELF sections
++ * by only changing C or asm code in an architecture agnostic form.
++ *
++ * Linker tables help you group together related data and code in an efficient
++ * way. Linker tables can be used to help simplify init sequences, they
++ * enable linker build time selective sorting (disabled options get ignored),
++ * and can optionally also be used to help you avoid code bit-rot due to
++ * overuse of #ifdef.
++ */
++
++/**
++ * DOC: Linker table provenance
++ *
++ * The Linux implementation of linker tables was inspired by the iPXE linker
++ * table's solution (iPXE commit 67a10ef000cb7 "[contrib] Add rom-o-matic to
++ * contrib "[0]).  To see how this code evolved refer to the out of tree
++ * userspace linker-table tree [1].
++ *
++ * Contrary to iPXE's solution which strives to force compilation of
++ * everything using linker tables, Linux's solution allows for developers to be
++ * selective over where one wishes to force compilation, this then is just an
++ * optional feature for the Linux linker table solution. The main advantages
++ * of using linker-tables then are:
++ *
++ *  - Avoiding modifying architecture linker scripts
++ *  - Simplifying initialization code
++ *  - Avoiding the code bit-rot problem
++ *
++ * [0] git://git.ipxe.org/ipxe.git
++ *
++ * [1] https://git.kernel.org/cgit/linux/kernel/git/mcgrof/linker-tables.git/
++ */
++
++/**
++ * DOC: Avoids modifying architecture linker scripts
++ *
++ * Linker tables enable you to avoid modifying architecture linker scripts
++ * since it has its has extended each core Linux section with a respective
++ * linker table entry in `include/asm-generic/vmlinux.lds.h`. When you add new
++ * linker table entry you aggregate them `into` the existing linker table core
++ * section.
++ */
++
++/**
++ * DOC: How linker tables simplify initialization code
++ *
++ * Traditionally, we would implement features in C code as follows:
++ *
++ *  foo_init();
++ *
++ * You'd then have a foo.h which would have::
++ *
++ *  #ifndef CONFIG_FOO
++ *  static inline void foo_init(void) { }
++ *  #endif
++ *
++ * With linker tables this is no longer necessary as your init routines would
++ * be implicit, you'd instead call:
++ *
++ *  call_init_fns();
++ *
++ * call_init_fns() would call all functions present in your init table and if
++ * and only if foo.o gets linked in, then its initialisation function will be
++ * called.
++ *
++ * The linker script takes care of assembling the tables for us. All of our
++ * table sections have names of the format `SECTION_NAME..tbl.NAME.N`. Here
++ * `SECTION_NAME` is one of the standard sections in::
++ *
++ *   include/asm-generic/section-core.h
++ *
++ * and `NAME` designates the specific use case for the linker table, the table.
++ * `N` is a digit used to help sort entries in the section. `N=` (empty string)
++ * is reserved for the symbol indicating `table start`, and `N=~` is reserved
++ * for the symbol indicating `table end`. In order for the call_init_fns() to
++ * work behind the scenes the custom linker script would need to define the
++ * beginning of the table, the end of the table, and in between it should use
++ * ``SORT()`` to give order to the section. Typically this would require custom
++ * linker script modifications however since linker table are already defined
++ * in ``include/asm-generic/vmlinux.lds.h`` as documented above each new linker
++ * table definition added in C code folds into the respective core Linux
++ * section linker table.
++ *
++ * This is also done to support all architectures.  All that is needed then is
++ * to ensure a respective common linker table entry is added to the shared
++ * ``include/asm-generic/vmlinux.lds.h``.  There should be a respective::
++ *
++ *  *(SORT(.foo..tbl.*))
++ *
++ * entry for each type of supported section there. If your `SECTION_NAME`
++ * is not yet supported, consider adding support for it.
++ *
++ * Linker tables support ordering entries, it does this using a digit which
++ * is eventually added as a postfix to a section entry name, we refer to this
++ * as the linker table ``order-level``. If order is not important to your
++ * linker table entry you can use the special ``SECTION_ORDER_ANY``. After
++ * ``order-level``, the next contributing factor to order is the order of the
++ * code in the C file, and the order of the objects in the Makefile. Using an
++ * ``order-level`` then should not really be needed in most cases, its use
++ * however enables to compartamentalize code into tables where ordering through
++ * C file or through the Makefile would otherwise be very difficult or if one
++ * wanted to enable very specific initialization semantics.
++ *
++ * As an example, suppose that we want to create a "frobnicator"
++ * feature framework, and allow for several independent modules to
++ * provide frobnicating services. Then we would create a frob.h
++ * header file containing e.g.::
++ *
++ *	struct frobnicator {
++ *		const char *name;
++ *		void (*frob) (void);
++ *	};
++ *
++ *	DECLARE_LINKTABLE(struct frobnicator, frobnicator_fns);
++ *
++ * Any module providing frobnicating services would look something
++ * like::
++ *
++ *	#include "frob.h"
++ *
++ *	static void my_frob(void) {
++ *		... Do my frobnicating
++ *	}
++ *
++ *	LINKTABLE_INIT_DATA(frobnicator_fns, all) my_frobnicator = {
++ *		.name = "my_frob",
++ *		.frob = my_frob,
++ *	};
++ *
++ * The central frobnicator code, say in frob.c, would use the frobnicating
++ * modules as follows::
++ *
++ *	#include "frob.h"
++ *
++ *	void frob_all(void) {
++ *		struct frobnicator *f;
++ *
++ *		linktable_for_each(f, frobnicator_fns) {
++ *			pr_info("Calling frobnicator %s\n", frob->name);
++ *			f->frob();
++ *		}
++ *	}
++ */
++
++/**
++ * DOC: Linker table module support
++ *
++ * Modules can use linker tables, however the linker table definition
++ * must be built-in to the kernel. That is, the code that implements
++ * ``DEFINE_LINKTABLE*()`` must be built-in, and modular code cannot add
++ * more items in to the table, unless ``kernel/module.c`` find_module_sections()
++ * and module-common.lds.S are updated accordingly with a respective
++ * module notifier to account for updates. This restriction may be enhanced
++ * in the future.
++ */
++
++/**
++ * DOC: Linker table helpers
++ *
++ * These are helpers for linker tables.
++ */
++
++/**
++ * LINKTABLE_START - get address of start of linker table
++ *
++ * @name: name of the linker table
++ *
++ * This gives you the start address of the linker table.
++ * This should give you the address of the first entry.
++ *
++ */
++#define LINKTABLE_START(name)	LINUX_SECTION_START(name)
++
++/**
++ * LINKTABLE_END - get address of end of the linker table
++ *
++ * @name: name of the linker table
++ *
++ * This gives you the end address of the linker table.
++ * This will match the start address if the linker table
++ * is empty.
++ */
++#define LINKTABLE_END(name)	LINUX_SECTION_END(name)
++
++/**
++ * LINKTABLE_SIZE - get number of entries in the linker table
++ *
++ * @name: name of the linker table
++ *
++ * This gives you the number of entries in the linker table.
++ * Example usage:
++ *
++ *   unsigned int num_frobs = LINKTABLE_SIZE(frobnicator_fns);
++ */
++#define LINKTABLE_SIZE(name)					\
++	((LINKTABLE_END(name)) - (LINKTABLE_START(name)))
++
++/**
++ * LINKTABLE_EMPTY - check if linker table has no entries
++ *
++ * @name: name of linker table
++ *
++ * Returns true if the linker table is emtpy.
++ *
++ *   bool is_empty = LINKTABLE_EMPTY(frobnicator_fns);
++ */
++#define LINKTABLE_EMPTY(name)	(LINKTABLE_SIZE(name) = 0)
++
++/**
++ * LINKTABLE_ADDR_WITHIN - returns true if address is in the linker table
++ *
++ * @name: name of the linker table
++ * @addr: address to query for
++ *
++ * Returns true if the address is part of the linker table.
++ */
++#define LINKTABLE_ADDR_WITHIN(name, addr)				\
++	 (addr >= (unsigned long) LINKTABLE_START(name) &&		\
++          addr < (unsigned long) LINKTABLE_END(name))
++
++/**
++ * LINKTABLE_ALIGNMENT - get the alignment of the linker table
++ *
++ * @name: name of linker table
++ *
++ * Gives you the alignment for the linker table.
++ */
++#define LINKTABLE_ALIGNMENT(name)	LINUX_SECTION_ALIGNMENT(name)
++
++/**
++ * DOC: Constructing linker tables
++ *
++ * Linker tables constructors are used to build an entry into a linker table.
++ * Linker table constructors exist for each type of supported section.
++ *
++ * You have weak and regular type of link table entry constructors.
++ */
++
++/**
++ * DOC: Weak linker tables constructors
++ *
++ * The weak attribute is desirable if you want an entry you can replace at
++ * link time. A very special use case for linker tables is the first entry.
++ * A weak attribute is used for the first entry to ensure that this entry's
++ * address matches the end address of the table when the linker table is
++ * emtpy, but will also point to the first real entry of the table once not
++ * empty. When the first entry is linked in, it takes place of the first entry.
++ */
++
++/**
++ * LINKTABLE_WEAK - Constructs a weak linker table entry for data
++ *
++ * @name: linker table name
++ * @level: order level
++ *
++ * Constructs a weak linker table for data.
++ */
++#define LINKTABLE_WEAK(name, level)					\
++	      __typeof__(LINKTABLE_START(name)[0])			\
++	      __attribute__((used,					\
++			     weak,					\
++			     __aligned__(LINKTABLE_ALIGNMENT(name)),	\
++			     section(".data..tbl." #name "." #level)))
++
++/**
++ * LINKTABLE_TEXT_WEAK - Constructs a weak linker table entry for execution
++ *
++ * @name: linker table name
++ * @level: order level
++ *
++ * Constructs a weak linker table for code execution. These will be
++ * read-only.
++ */
++#define LINKTABLE_TEXT_WEAK(name, level)				\
++	const __typeof__(LINKTABLE_START(name)[0])			\
++	      __attribute__((used,					\
++			     weak,					\
++			     __aligned__(LINKTABLE_ALIGNMENT(name)),	\
++			     section(".text..tbl." #name "." #level)))
++
++/**
++ * LINKTABLE_RO_WEAK - Constructs a weak read-only linker table entry
++ *
++ * @name: linker table name
++ * @level: order level
++ *
++ * Constructs a weak linker table which only requires read-only access.
++ */
++#define LINKTABLE_RO_WEAK(name, level)					\
++	const __typeof__(LINKTABLE_START(name)[0])			\
++	      __attribute__((used,					\
++			     weak,					\
++			     __aligned__(LINKTABLE_ALIGNMENT(name)),	\
++			     section(SECTION_TBL_RO_STR "..tbl." #name "." #level)))
++
++/**
++ * LINKTABLE_INIT_WEAK - Constructs a weak linker table entry for init code
++ *
++ * @name: linker table name
++ * @level: order level
++ *
++ * Constructs a weak linker table for execution. use at init.
++ */
++#define LINKTABLE_INIT_WEAK(name, level)				\
++	const __typeof__(LINKTABLE_START(name)[0])			\
++	      __attribute__((used,					\
++			     weak,					\
++			     __aligned__(LINKTABLE_ALIGNMENT(name)),	\
++			     section(".init.text..tbl." #name "." #level)))
++
++/**
++ * LINKTABLE_INIT_DATA_WEAK - Constructs a weak linker table entry for initdata
++ *
++ * @name: linker table name
++ * @level: order level
++ *
++ * Constructs a weak linker table for data during init.
++ */
++#define LINKTABLE_INIT_DATA_WEAK(name, level)				\
++	      __typeof__(LINKTABLE_START(name)[0])			\
++	      __attribute__((used,					\
++			     weak,					\
++			     __aligned__(LINKTABLE_ALIGNMENT(name)),	\
++			     section(".init.data..tbl." #name "." #level)))
++
++/**
++ * DOC: Regular linker linker table constructors
++ *
++ * Regular constructors are expected to be used for valid linker table entries.
++ * Valid uses of weak entries other than the beginning and is currently
++ * untested but should in theory work.
++ */
++
++/**
++ * LINKTABLE - Declares a data linker table entry
++ *
++ * @name: linker table name
++ * @level: order level
++ *
++ * Declares a data linker table entry. These are read-write.
++ */
++#define LINKTABLE(name, level)						\
++	      __typeof__(LINKTABLE_START(name)[0])			\
++	      __attribute__((used,					\
++			     __aligned__(LINKTABLE_ALIGNMENT(name)),	\
++			     section(".data..tbl." #name "." #level)))
++
++/**
++ * LINKTABLE_TEXT - Declares a linker table entry for execution
++ *
++ * @name: linker table name
++ * @level: order level
++ *
++ * Declares a linker table to be used for execution.
++ */
++#define LINKTABLE_TEXT(name, level)					\
++	const __typeof__(LINKTABLE_START(name)[0])			\
++	      __attribute__((used,					\
++			     __aligned__(LINKTABLE_ALIGNMENT(name)),	\
++			     section(".text..tbl." #name "." #level)))
++
++/**
++ * LINKTABLE_RO - Declares a read-only linker table entry.
++ *
++ * @name: linker table name
++ * @level: order level
++ *
++ * Declares a linker table which only requires read-only access. Contrary
++ * to LINKTABLE_RO_WEAK() which uses SECTION_RODATA this helper uses the
++ * section SECTION_TBL_RO here due to possible toolchains bug on some
++ * architectures, for instance the c6x architicture stuffs non-weak data
++ * into different sections other than the one intended.
++ */
++#define LINKTABLE_RO(name, level)					\
++	const __typeof__(LINKTABLE_START(name)[0])			\
++	      __attribute__((used,					\
++			     __aligned__(LINKTABLE_ALIGNMENT(name)),	\
++			     section(SECTION_TBL_RO_STR "..tbl." #name "." #level)))
++
++/**
++ * LINKTABLE_INIT - Declares a linker table entry to be used on init.
++ *
++ * @name: linker table name
++ * @level: order level
++ *
++ * Declares a linker table entry for execution use during init.
++ */
++#define LINKTABLE_INIT(name, level)					\
++	const __typeof__(LINKTABLE_START(name)[0])			\
++	      __attribute__((used,					\
++			     __aligned__(LINKTABLE_ALIGNMENT(name)),	\
++			     section(".init.text..tbl." #name "." #level)))
++
++/**
++ * LINKTABLE_INIT_DATA - Declares a linker table entry to be used on init data.
++ *
++ * @name: linker table name
++ * @level: order level
++ *
++ * Declares a linker table entry for data during init.
++ */
++#define LINKTABLE_INIT_DATA(name, level)				\
++	      __typeof__(LINKTABLE_START(name)[0])			\
++	      __attribute__((used,					\
++			     __aligned__(LINKTABLE_ALIGNMENT(name)),	\
++			     section(".init.data..tbl." #name "." #level)))
++
++/**
++ * DOC: Declaring Linker tables
++ *
++ * Declarers are used to help code access the linker tables. Typically
++ * header files for subsystems would declare the linker tables to enable
++ * easy access to add new entries, and to iterate over the list of table.
++ * There are only two declarers needed given that the section association
++ * is done by the definition of the linker table using ``DEFINE_LINKTABLE*()``
++ * helpers.
++ */
++
++
++/**
++ * DECLARE_LINKTABLE - Declares a data linker table entry
++ *
++ * @type: data type
++ * @name: table name
++ *
++ * Declares a data linker table entry.
++ */
++#define DECLARE_LINKTABLE(type, name)					\
++	DECLARE_LINUX_SECTION(type, name)
++
++/**
++ * DECLARE_LINKTABLE_RO - Declares a read-only linker table entry
++ *
++ * @type: data type
++ * @name: table name
++ *
++ * Declares a read-only linker table entry.
++ */
++#define DECLARE_LINKTABLE_RO(type, name)				\
++	DECLARE_LINUX_SECTION_RO(type, name)
++
++/**
++ * DOC: Defining Linker tables
++ *
++ * Linker tables are defined in the code that takes ownership over
++ * the linker table. This is typically done in the same code that is in
++ * charge of iterating over the linker table as well.
++ */
++
++/**
++ * DEFINE_LINKTABLE - Defines a linker table for data
++ *
++ * @type: data type
++ * @name: table name
++ *
++ * Defines a linker table which used for data.
++ */
++#define DEFINE_LINKTABLE(type, name)					\
++	DECLARE_LINKTABLE(type, name);					\
++	LINKTABLE_WEAK(name,) LINKTABLE_START(name)[0] = {};		\
++	LINKTABLE(name, ~) LINKTABLE_END(name)[0] = {}
++
++/**
++ * DEFINE_LINKTABLE_TEXT - Declares linker table entry for exectuion
++ *
++ * @type: data type
++ * @name: table name
++ *
++ * Declares a linker table entry for execution.
++ */
++#define DEFINE_LINKTABLE_TEXT(type, name)				\
++	DECLARE_LINKTABLE_RO(type, name);				\
++	LINKTABLE_TEXT_WEAK(name,) LINKTABLE_START(name)[0] = {};	\
++	LINKTABLE_TEXT(name, ~) LINKTABLE_END(name)[0] = {}
++
++/**
++ * DEFINE_LINKTABLE_RO - Defines a read-only linker table
++ *
++ * @type: data type
++ * @name: table name
++ *
++ * Defines a linker table which we know only requires read-only access.
++ */
++#define DEFINE_LINKTABLE_RO(type, name)					\
++	DECLARE_LINKTABLE_RO(type, name);				\
++	LINKTABLE_RO_WEAK(name,) LINKTABLE_START(name)[0] = {};		\
++	LINKTABLE_RO(name, ~) LINKTABLE_END(name)[0] = {}
++
++/**
++ * DEFINE_LINKTABLE_INIT - Defines an init time linker table for execution
++ *
++ * @type: data type
++ * @name: table name
++ *
++ * Defines a linker table. If you are adding a new type you should
++ * enable ``CONFIG_DEBUG_SECTION_MISMATCH`` and ensure routines that make
++ * use of the linker tables get a respective __ref tag.
++ */
++#define DEFINE_LINKTABLE_INIT(type, name)				\
++	DECLARE_LINKTABLE_RO(type, name);				\
++	LINKTABLE_INIT_WEAK(name,) LINKTABLE_START(name)[0] = {};	\
++	LINKTABLE_INIT(name, ~) LINKTABLE_END(name)[0] = {}
++
++/**
++ * DEFINE_LINKTABLE_INIT_DATA - Defines an init time linker table for data
++ *
++ * @type: data type
++ * @name: table name
++ *
++ * Defines a linker table for init data. If you are adding a new type you
++ * should enable ``CONFIG_DEBUG_SECTION_MISMATCH`` and ensure routines that
++ * make use of the linker tables get a respective __ref tag.
++ */
++#define DEFINE_LINKTABLE_INIT_DATA(type, name)				\
++	DECLARE_LINKTABLE(type, name);					\
++	LINKTABLE_INIT_DATA_WEAK(name,) LINKTABLE_START(name)[0] = {};	\
++	LINKTABLE_INIT_DATA(name, ~) LINKTABLE_END(name)[0] = {}
++
++/**
++ * DOC: Iterating over Linker tables
++ *
++ * To make use of the linker tables you want to be able to iterate over
++ * them. This section documents the different iterators available.
++ */
++
++/**
++ * linktable_for_each - iterate through all entries within a linker table
++ *
++ * @pointer: entry pointer
++ * @tbl: linker table
++ *
++ * Example usage::
++ *
++ *   struct frobnicator *frob;
++ *
++ *   linktable_for_each(frob, frobnicator_fns) {
++ *     ...
++ *   }
++ */
++
++#define linktable_for_each(pointer, tbl)				\
++	for (pointer = LINKTABLE_START(tbl);				\
++	     pointer < LINKTABLE_END(tbl);				\
++	     pointer++)
++
++/**
++ * linktable_run_all - iterate and run through all entries on a linker table
++ *
++ * @tbl: linker table
++ * @func: structure name for the function name we want to call.
++ * @args...: arguments to pass to func
++ *
++ * Example usage::
++ *
++ *   linktable_run_all(frobnicator_fns, some_run,);
++ */
++#define linktable_run_all(tbl, func, args...)				\
++do {									\
++	size_t i;							\
++	for (i = 0; i < LINKTABLE_SIZE(tbl); i++)			\
++		(LINKTABLE_START(tbl)[i]).func (args);			\
++} while (0)
++
++/**
++ * linktable_run_err - run each linker table entry func and return error if any
++ *
++ * @tbl: linker table
++ * @func: structure name for the function name we want to call.
++ * @args...: arguments to pass to func
++ *
++ * Example usage::
++ *
++ *   unsigned int err = linktable_run_err(frobnicator_fns, some_run,);
++ */
++#define linktable_run_err(tbl, func, args...)				\
++({									\
++	size_t i;							\
++	int err = 0;							\
++	for (i = 0; !err && i < LINKTABLE_SIZE(tbl); i++)		\
++		err = (LINKTABLE_START(tbl)[i]).func (args);		\
++	err;								\
++})
++
++#endif /* __ASSEMBLY__ */
++
++#endif /* _LINUX_LINKER_TABLES_H */
 -- 
 2.11.0
 
