@@ -1,93 +1,35 @@
-From: =?UTF-8?Q?=C3=89meric_MASCHINO?= <emeric.maschino@gmail.com>
-Date: Tue, 24 Jan 2017 14:47:22 +0000
-Subject: Re: GCC 4.9.4-compiled kernel: invalid slot number 1 for IMM64 errors while loading modules
-Message-Id: <CAA9xbM5_wBGXd2qGsOASA3ptZMQFnyTfQamadA91LotHW=4sFQ@mail.gmail.com>
+From: "Luis R. Rodriguez" <mcgrof@kernel.org>
+Date: Mon, 09 Jan 2017 15:02:48 +0000
+Subject: [PATCH v3 5/6] tools: add __section() to compiler.h
+Message-Id: <20170109150249.11667-6-mcgrof@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20161222023958.21306-1-mcgrof@kernel.org>
+ <20170109150249.11667-1-mcgrof@kernel.org>
+In-Reply-To: <20170109150249.11667-1-mcgrof@kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: hpa@zytor.com, acme@redhat.com, tglx@linutronix.de, mingo@redhat.com, jpoimboe@redhat.com, bp@alien8.de, npiggin@gmail.com, mhiramat@kernel.org, masami.hiramatsu.pt@hitachi.com, jbaron@akamai.com, heiko.carstens@de.ibm.com, ananth@linux.vnet.ibm.com, anil.s.keshavamurthy@intel.com, davem@davemloft.net, realmz6@gmail.com, dalias@libc.org, linux@arm.linux.org.uk
+Cc: x86@kernel.org, luto@amacapital.net, keescook@chromium.org, linux@roeck-us.net, torvalds@linux-foundation.org, gregkh@linuxfoundation.org, rusty@rustcorp.com.au, gnomes@lxorguk.ukuu.org.uk, alan@linux.intel.com, dwmw2@infradead.org, arnd@arndb.de, ming.lei@canonical.com, linux-arch@vger.kernel.org, benh@kernel.crashing.org, pebolle@tiscali.nl, fontana@sharpeleven.org, david.vrabel@citrix.com, konrad.wilk@oracle.com, mcb30@ipxe.org, jgross@suse.com, andrew.cooper3@citrix.com, andriy.shevchenko@linux.intel.com, paul.gortmaker@windriver.com, xen-devel@lists.xensource.com, ak@linux.intel.com, pali.rohar@gmail.com, dvhart@infradead.org, platform-driver-x86@vger.kernel.org, mmarek@suse.com, linux@rasmusvillemoes.dk, jkosina@suse.cz, korea.drzix@gmail.com, linux-kbuild@vger.kernel
 
-Hi,
+This will be used later by the userspace linker table.
 
-Still no thought on this?
+Signed-off-by: Luis R. Rodriguez <mcgrof@kernel.org>
+---
+ tools/include/linux/compiler.h | 2 ++
+ 1 file changed, 2 insertions(+)
 
-I fear this is going to be problematic in the near future, as there's
-currently a discussion about raising the minimum GCC version required
-to build the kernel [1].
+diff --git a/tools/include/linux/compiler.h b/tools/include/linux/compiler.h
+index 556c991de212..6321265df00a 100644
+--- a/tools/include/linux/compiler.h
++++ b/tools/include/linux/compiler.h
+@@ -132,4 +132,6 @@ static __always_inline void __write_once_size(volatile void *p, void *res, int s
+ #define WRITE_ONCE(x, val) \
+ 	({ union { typeof(x) __val; char __c[1]; } __u = { .__val = (val) }; __write_once_size(&(x), __u.__c, sizeof(x)); __u.__val; })
+ 
++#define __section(S)	__attribute__ ((__section__(#S)))
++
+ #endif /* _TOOLS_LINUX_COMPILER_H */
+-- 
+2.11.0
 
-In my experience, problems really started with GCC 4.6 and things seem
-to go worse and worse with newer kernel and/or GCC versions (maybe
-implying interactions from peculiar glibc and/or binutils too), as
-reported in [2], [3] and [4] for example.
-
-     Émeric
-
-
-[1] http://lkml.iu.edu/hypermail/linux/kernel/1612.2/00176.html
-[2] https://bugs.gentoo.org/show_bug.cgi?id=518130
-[3] https://bugs.gentoo.org/show_bug.cgi?id=541828
-[4] https://gcc.gnu.org/bugzilla/show_bug.cgi?id=60465
-
-2016-11-23 21:37 GMT+01:00 Émeric MASCHINO <emeric.maschino@gmail.com>:
-> Hi,
->
-> GCC 4.9.4 just got stabilized on Gentoo ia64, so I've rebuilt my
-> system packages, including kernel. This yields to a non-booting
-> kernel, with the following errors:
->
->>> Loading modules
->    :: Loading from pata:
->    :: Loading from sata:
->    :: Loading from scsi:
->    :: Loading from usb: usb_storage: invalid slot number 1 for IMM64
->
->    :: Loading from firewire:
->    :: Loading from waitscan:
->    :: Loading from dmraid:
->    :: Loading from mdadm: raid0: invalid slot number 1 for IMM64
-> raid1: invalid slot number 1 for IMM64
-> async_tx: invalid slot number 1 for IMM64
-> async_tx: invalid slot number 1 for IMM64
-> async_tx: invalid slot number 1 for IMM64
-> raid10: invalid slot number 1 for IMM64
->
->    :: Loading from fs: jbd2: invalid slot number 1 for IMM64
-> jbd2: invalid slot number 1 for IMM64
-> jbd2: invalid slot number 1 for IMM64
-> sunrpc: invalid slot number 1 for IMM64
-> fuse: invalid slot number 1 for IMM64
->
->    :: Loading from net: libphy:
->
->    :: Loading from iscsi:
->>> Initializing root device...
->>> Mounting /dev/sdb3 as root...
->>> Detected fstype: ext4
->>> Using mount fstype: ext4
->>> Using mount opts: -o ro
-> jbd2: invalid slot number 1 for IMM64
-> mount: mounting /dev/sdb3 on /newroot failed: No such device
-> !! Cannot mount /dev/sdb3, trying with -t auto
-> UFS-fs: warning (device sdb3): udf_fill_super: No partition found (2)
-> mount: mounting /dev/sdb3 on /newroot failed: Invalid argument
-> !! Cannot mount /dev/sdb3 with -t auto, giving up
-> !! Could not mount specified ROOT, try again
-> !! Could not find the root block device in /dev/sdb3.
-> !! Please specify another value or:
-> !! - press Enter for the same
-> !! - type "shell" for a shell
-> !! - type "q" to skip...
-> root block device(/dev/sdb3) ::
->
-> These "invalid slot number 1 for IMM64" messages seem to originate
-> from arch/ia64/kernel/module.c, but I don't know how to deal with
-> them. It's noteworthy that the exact same kernel source built with GCC
-> 4.5.4 or 4.9.3, using the same kernel configuration file, boots fine.
->
-> Does anybody have success building kernel with recent GCC? Am I seeing
-> a problem with GCC, the kernel or in-between?
->
-> Thanks,
->
->      Émeric
