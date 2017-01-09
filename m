@@ -1,105 +1,88 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Sun, 22 Jan 2017 16:32:26 +0000
-Subject: [PATCH 02/20] ia64: ensure exception table search users include extable.h
-Message-Id: <20170122163244.11740-3-paul.gortmaker@windriver.com>
+From: "Luis R. Rodriguez" <mcgrof@kernel.org>
+Date: Mon, 09 Jan 2017 15:02:44 +0000
+Subject: [PATCH v3 1/6] tools: add a userspace tools bug.h
+Message-Id: <20170109150249.11667-2-mcgrof@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20170122163244.11740-1-paul.gortmaker@windriver.com>
-In-Reply-To: <20170122163244.11740-1-paul.gortmaker@windriver.com>
+References: <20161222023958.21306-1-mcgrof@kernel.org>
+ <20170109150249.11667-1-mcgrof@kernel.org>
+In-Reply-To: <20170109150249.11667-1-mcgrof@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Al Viro <viro@zeniv.linux.org.uk>, linux-ia64@vger.kernel.org
+To: hpa@zytor.com, acme@redhat.com, tglx@linutronix.de, mingo@redhat.com, jpoimboe@redhat.com, bp@alien8.de, npiggin@gmail.com, mhiramat@kernel.org, masami.hiramatsu.pt@hitachi.com, jbaron@akamai.com, heiko.carstens@de.ibm.com, ananth@linux.vnet.ibm.com, anil.s.keshavamurthy@intel.com, davem@davemloft.net, realmz6@gmail.com, dalias@libc.org, linux@arm.linux.org.uk
+Cc: x86@kernel.org, luto@amacapital.net, keescook@chromium.org, linux@roeck-us.net, torvalds@linux-foundation.org, gregkh@linuxfoundation.org, rusty@rustcorp.com.au, gnomes@lxorguk.ukuu.org.uk, alan@linux.intel.com, dwmw2@infradead.org, arnd@arndb.de, ming.lei@canonical.com, linux-arch@vger.kernel.org, benh@kernel.crashing.org, pebolle@tiscali.nl, fontana@sharpeleven.org, david.vrabel@citrix.com, konrad.wilk@oracle.com, mcb30@ipxe.org, jgross@suse.com, andrew.cooper3@citrix.com, andriy.shevchenko@linux.intel.com, paul.gortmaker@windriver.com, xen-devel@lists.xensource.com, ak@linux.intel.com, pali.rohar@gmail.com, dvhart@infradead.org, platform-driver-x86@vger.kernel.org, mmarek@suse.com, linux@rasmusvillemoes.dk, jkosina@suse.cz, korea.drzix@gmail.com, linux-kbuild@vger.kernel
 
-We start with a delete of a duplicate prototype in asm/exception.h
-that no longer needs to exist, as it duplicates content in extable.h
-and since that header is so small, there is no point trying to
-avoid using it.
+This will be used later by the userspace linker-tables sandbox.
+As a convenience, include bug.h on kernel.h -- this is not done
+on upstream kernel.h, however most header files do include bug.h
+eventually, if we were to only add the ones that need it we'd
+need to copy a lot of headers to tools for the ony purpose of
+includeing bug.h. This simplifies that.
 
-Then we make sure anyone using search_exception_tables directly or
-via the ia64_done_with_exception macro has included extable.h
-
-In the process, we remove an include of moduleloader.h that was
-apparently not really required; it would have been fetching in
-module.h and hence the previous location of the exception search
-function prototypes, but we need not rely on that anymore.
-
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: Al Viro <viro@zeniv.linux.org.uk>
-Cc: linux-ia64@vger.kernel.org
-Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+Signed-off-by: Luis R. Rodriguez <mcgrof@kernel.org>
 ---
- arch/ia64/include/asm/exception.h | 1 -
- arch/ia64/kernel/kprobes.c        | 2 +-
- arch/ia64/kernel/traps.c          | 3 ++-
- arch/ia64/kernel/unaligned.c      | 1 +
- arch/ia64/mm/fault.c              | 1 +
- 5 files changed, 5 insertions(+), 3 deletions(-)
+ tools/include/asm-generic/bug.h | 24 ++++++++++++++++++++++++
+ tools/include/linux/bug.h       |  6 ++++++
+ tools/include/linux/kernel.h    |  2 ++
+ 3 files changed, 32 insertions(+)
+ create mode 100644 tools/include/asm-generic/bug.h
+ create mode 100644 tools/include/linux/bug.h
 
-diff --git a/arch/ia64/include/asm/exception.h b/arch/ia64/include/asm/exception.h
-index d90236090e8c..6bb246dcdaeb 100644
---- a/arch/ia64/include/asm/exception.h
-+++ b/arch/ia64/include/asm/exception.h
-@@ -19,7 +19,6 @@ struct exception_table_entry;
+diff --git a/tools/include/asm-generic/bug.h b/tools/include/asm-generic/bug.h
+new file mode 100644
+index 000000000000..7b0f48b60dbe
+--- /dev/null
++++ b/tools/include/asm-generic/bug.h
+@@ -0,0 +1,24 @@
++#ifndef __TOOLS_ASM_GENERIC_BUG
++#define __TOOLS_ASM_GENERIC_BUG
++
++#include <stdio.h>
++#include <stdlib.h>
++
++#define BUG() do {										\
++	fprintf(stderr, "----------------------------------------------------------\n");	\
++	fprintf (stderr, "BUG on %s at %s: %i\n", __func__, __FILE__, __LINE__);		\
++	abort();										\
++}												\
++while (0)
++
++#define BUG_ON(cond) do { if (cond) BUG(); } while (0)
++
++#define WARN_ON(__test) do {									\
++	if (__test) {										\
++		fprintf(stderr, "----------------------------------------------------------\n");\
++		fprintf (stderr, "WARN_ON on %s at %s: %i\n", __func__, __FILE__, __LINE__);	\
++	}											\
++}												\
++while (0)
++
++#endif /* __TOOLS_ASM_GENERIC_BUG */
+diff --git a/tools/include/linux/bug.h b/tools/include/linux/bug.h
+new file mode 100644
+index 000000000000..9be515b40b5c
+--- /dev/null
++++ b/tools/include/linux/bug.h
+@@ -0,0 +1,6 @@
++#ifndef _TOOLS_LINUX_BUG_H
++#define _TOOLS_LINUX_BUG_H
++
++#include <asm-generic/bug.h>
++
++#endif /* _TOOLS_LINUX_BUG_H */
+diff --git a/tools/include/linux/kernel.h b/tools/include/linux/kernel.h
+index 28607db02bd3..3d385a6d4fc1 100644
+--- a/tools/include/linux/kernel.h
++++ b/tools/include/linux/kernel.h
+@@ -5,6 +5,8 @@
+ #include <stddef.h>
+ #include <assert.h>
  
- extern void ia64_handle_exception(struct pt_regs *regs,
- 				  const struct exception_table_entry *e);
--extern const struct exception_table_entry *search_exception_tables(unsigned long addr);
++#include <linux/bug.h>
++
+ #define DIV_ROUND_UP(n,d) (((n) + (d) - 1) / (d))
  
- #define ia64_done_with_exception(regs)					  \
- ({									  \
-diff --git a/arch/ia64/kernel/kprobes.c b/arch/ia64/kernel/kprobes.c
-index 55b18e1b67a8..f5f3a5e6fcd1 100644
---- a/arch/ia64/kernel/kprobes.c
-+++ b/arch/ia64/kernel/kprobes.c
-@@ -28,7 +28,7 @@
- #include <linux/string.h>
- #include <linux/slab.h>
- #include <linux/preempt.h>
--#include <linux/moduleloader.h>
-+#include <linux/extable.h>
- #include <linux/kdebug.h>
- 
- #include <asm/pgtable.h>
-diff --git a/arch/ia64/kernel/traps.c b/arch/ia64/kernel/traps.c
-index d3e1f1ee465f..8981ce98afb3 100644
---- a/arch/ia64/kernel/traps.c
-+++ b/arch/ia64/kernel/traps.c
-@@ -12,7 +12,8 @@
- #include <linux/sched.h>
- #include <linux/tty.h>
- #include <linux/vt_kern.h>		/* For unblank_screen() */
--#include <linux/module.h>       /* for EXPORT_SYMBOL */
-+#include <linux/export.h>
-+#include <linux/extable.h>
- #include <linux/hardirq.h>
- #include <linux/kprobes.h>
- #include <linux/delay.h>		/* for ssleep() */
-diff --git a/arch/ia64/kernel/unaligned.c b/arch/ia64/kernel/unaligned.c
-index e697403b0ec1..99348d7f2255 100644
---- a/arch/ia64/kernel/unaligned.c
-+++ b/arch/ia64/kernel/unaligned.c
-@@ -17,6 +17,7 @@
- #include <linux/kernel.h>
- #include <linux/sched.h>
- #include <linux/tty.h>
-+#include <linux/extable.h>
- #include <linux/ratelimit.h>
- #include <linux/uaccess.h>
- 
-diff --git a/arch/ia64/mm/fault.c b/arch/ia64/mm/fault.c
-index 52b41dad9704..7f2feb21753c 100644
---- a/arch/ia64/mm/fault.c
-+++ b/arch/ia64/mm/fault.c
-@@ -7,6 +7,7 @@
- #include <linux/sched.h>
- #include <linux/kernel.h>
- #include <linux/mm.h>
-+#include <linux/extable.h>
- #include <linux/interrupt.h>
- #include <linux/kprobes.h>
- #include <linux/kdebug.h>
+ #define PERF_ALIGN(x, a)	__PERF_ALIGN_MASK(x, (typeof(x))(a)-1)
 -- 
 2.11.0
 
