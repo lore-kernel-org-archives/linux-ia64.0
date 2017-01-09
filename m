@@ -1,64 +1,51 @@
-From: Hari Bathini <hbathini@linux.vnet.ibm.com>
-Date: Mon, 02 Jan 2017 14:25:19 +0000
-Subject: [PATCH v3 0/5] kexec/fadump: remove dependency with CONFIG_KEXEC and reuse crashkernel parameter for
-Message-Id: <148336637462.25358.5151364413645288219.stgit@hbathini.in.ibm.com>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Date: Mon, 09 Jan 2017 23:20:25 +0000
+Subject: [PATCH RFC] ia64: export ia64_delay_loop for "allmodconfig" coverage
+Message-Id: <20170109232025.18859-1-paul.gortmaker@windriver.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-kernel@vger.kernel.org
-Cc: fenghua.yu@intel.com, tony.luck@intel.com, linux-ia64@vger.kernel.org, dyoung@redhat.com, kexec@lists.infradead.org, Mahesh J Salgaonkar <mahesh@linux.vnet.ibm.com>, ebiederm@xmission.com, Michael Ellerman <mpe@ellerman.id.au>, linuxppc-dev@lists.ozlabs.org, vgoyal@redhat.com
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Al Viro <viro@zeniv.linux.org.uk>, linux-ia64@vger.kernel.org
 
-Traditionally, kdump is used to save vmcore in case of a crash. Some
-architectures like powerpc can save vmcore using architecture specific
-support instead of kexec/kdump mechanism. Such architecture specific
-support also needs to reserve memory, to be used by dump capture kernel.
-crashkernel parameter can be a reused, for memory reservation, by such
-architecture specific infrastructure.
+Currently we see:
 
-This patchset removes dependency with CONFIG_KEXEC for crashkernel parameter
-and vmcoreinfo related code as it can be reused without kexec support. Also,
-crashkernel parameter is reused instead of fadump_reserve_mem to reserve
-memory for fadump.
+ERROR: "ia64_delay_loop" [drivers/spi/spi-thunderx.ko] undefined!
+ERROR: "ia64_delay_loop" [drivers/net/phy/mdio-cavium.ko] undefined!
 
-The first patch moves crashkernel parameter parsing and vmcoreinfo related
-code under CONFIG_CRASH_CORE instead of CONFIG_KEXEC_CORE. The second patch
-reuses the definitions of append_elf_note() & final_note() functions under
-CONFIG_CRASH_CORE in IA64 arch code. The third patch removes dependency on
-CONFIG_KEXEC for firmware-assisted dump (fadump) in powerpc. The next patch
-reuses crashkernel parameter for reserving memory for fadump, instead of the
-fadump_reserve_mem parameter. This has the advantage of using all syntaxes
-crashkernel parameter supports, for fadump as well. The last patch updates
-fadump kernel documentation about use of crashkernel parameter.
+...on ia64 allmodconfig builds.  While it is true nobody would ever
+load/use these !ia64 drivers on ia64 kit, they probably won't be the
+only ones enabled via COMPILE_TEST or non-strict dependencies as time
+goes on.  So just export the symbol, right from the assembly file,
+now that we can do that.
 
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: Al Viro <viro@zeniv.linux.org.uk>
+Cc: linux-ia64@vger.kernel.org
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
 
-Hari Bathini (5):
-      crash: move crashkernel parsing and vmcore related code under CONFIG_CRASH_CORE
-      ia64: reuse append_elf_note() and final_note() functions
-      powerpc/fadump: remove dependency with CONFIG_KEXEC
-      powerpc/fadump: reuse crashkernel parameter for fadump memory reservation
-      powerpc/fadump: update documentation about crashkernel parameter reuse
+[Note: Al had this export in the early version of a patch in patchwork
+ https://patchwork.kernel.org/patch/8166731/  but then the export was
+ removed in the mainline version in e007c53397ac -- hence RFC tag. ]
 
+ arch/ia64/kernel/head.S | 1 +
+ 1 file changed, 1 insertion(+)
 
- Documentation/powerpc/firmware-assisted-dump.txt |   23 +
- arch/Kconfig                                     |    4 
- arch/ia64/kernel/crash.c                         |   22 -
- arch/powerpc/Kconfig                             |   10 -
- arch/powerpc/include/asm/fadump.h                |    2 
- arch/powerpc/kernel/crash.c                      |    2 
- arch/powerpc/kernel/fadump.c                     |   57 +--
- arch/powerpc/kernel/setup-common.c               |    5 
- include/linux/crash_core.h                       |   69 +++
- include/linux/elf.h                              |    2 
- include/linux/kexec.h                            |   57 ---
- include/linux/printk.h                           |    4 
- kernel/Makefile                                  |    1 
- kernel/crash_core.c                              |  439 ++++++++++++++++++++++
- kernel/kexec_core.c                              |  432 ----------------------
- kernel/ksysfs.c                                  |    8 
- kernel/printk/printk.c                           |    6 
- 17 files changed, 572 insertions(+), 571 deletions(-)
- create mode 100644 include/linux/crash_core.h
- create mode 100644 kernel/crash_core.c
+diff --git a/arch/ia64/kernel/head.S b/arch/ia64/kernel/head.S
+index c9b5e942f671..640294cbe227 100644
+--- a/arch/ia64/kernel/head.S
++++ b/arch/ia64/kernel/head.S
+@@ -993,6 +993,7 @@ GLOBAL_ENTRY(ia64_delay_loop)
+ 	mov ar.lc=r2
+ 	br.ret.sptk.many rp
+ END(ia64_delay_loop)
++EXPORT_SYMBOL(ia64_delay_loop)
+ 
+ /*
+  * Return a CPU-local timestamp in nano-seconds.  This timestamp is
+-- 
+2.11.0
 
