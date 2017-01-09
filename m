@@ -1,32 +1,109 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Date: Thu, 19 Jan 2017 11:02:21 +0000
-Subject: Re: [PATCH v4 2/6] tools: add init.h for tools
-Message-Id: <20170119110221.GB28024@kroah.com>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Date: Mon, 09 Jan 2017 00:19:07 +0000
+Subject: [PATCH] nfc: don't be making arch specific unaligned decisions at driver level.
+Message-Id: <20170109001907.101949-1-paul.gortmaker@windriver.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20170109150249.11667-1-mcgrof@kernel.org>
- <20170115211215.17216-1-mcgrof@kernel.org>
- <20170115211215.17216-3-mcgrof@kernel.org>
-In-Reply-To: <20170115211215.17216-3-mcgrof@kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: "Luis R. Rodriguez" <mcgrof@kernel.org>
-Cc: gnomes@lxorguk.ukuu.org.uk, dalias@libc.org, linux-ia64@vger.kernel.org, jkosina@suse.cz, benh@kernel.crashing.org, ming.lei@canonical.com, heiko.carstens@de.ibm.com, platform-driver-x86@vger.kernel.org, James.Bottomley@HansenPartnership.com, paul.gortmaker@windriver.com, paulus@samba.org, mpe@ellerman.id.au, hpa@zytor.com, masami.hiramatsu.pt@hitachi.com, wangnan0@huawei.com, mchehab@osg.samsung.com, linux-arch@vger.kernel.org, markus.heiser@darmarit.de, sparclinux@vger.kernel.org, xen-devel@lists.xensource.com, linux@arm.linux.org.uk, linux-sh@vger.kernel.org, will.deacon@arm.com, korea.drzix@gmail.com, x86@kernel.org, anil.s.keshavamurthy@intel.com, fontana@sharpeleven.org, mingo@redhat.com, dsahern@gmail.com, linux-arm-kernel@lists.infradead.org, catalin.marinas@arm.com, dvhart@infradead.org, bp@suse.de, linux@roeck-us.net, david.vrabel@citrix.com, linux-xtensa@linux
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: linux-kernel@vger.kernel.org
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>, Lauro Ramos Venancio <lauro.venancio@openbossa.org>, Aloisio Almeida Jr <aloisio.almeida@openbossa.org>, Samuel Ortiz <sameo@linux.intel.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-wireless@vger.kernel.org
 
-On Sun, Jan 15, 2017 at 01:12:11PM -0800, Luis R. Rodriguez wrote:
-> Start off with just __ref -- we enalbe you to override, if you do
-> that then you can define your own.
+Currently ia64 fails building allmodconfig with variations of:
 
-I have no idea what this means, do you?
+   In file included from drivers/nfc/nxp-nci/i2c.c:39:0:
+   ./include/linux/unaligned/access_ok.h:62:29: error: redefinition of ‘put_unaligned_be64’
+    static __always_inline void put_unaligned_be64(u64 val, void *p)
+                                ^~~~~~~~~~~~~~~~~~
+   In file included from ./arch/ia64/include/asm/unaligned.h:5:0,
+                    from ./arch/ia64/include/asm/io.h:22,
+                    from ./arch/ia64/include/asm/smp.h:20,
+                    from ./include/linux/smp.h:59,
+                    from ./include/linux/topology.h:33,
+                    from ./include/linux/gfp.h:8,
+                    from ./include/linux/slab.h:14,
+                    from ./include/linux/resource_ext.h:19,
+                    from ./include/linux/acpi.h:26,
+                    from drivers/nfc/nxp-nci/i2c.c:28:
+   ./include/linux/unaligned/be_byteshift.h:65:20: note: previous definition of ‘put_unaligned_be64’ was here
+    static inline void put_unaligned_be64(u64 val, void *p)
+                       ^~~~~~~~~~~~~~~~~~
+   scripts/Makefile.build:293: recipe for target 'drivers/nfc/nxp-nci/i2c.o' failed
 
-> The way you'd use this, if you
-> do override, is define your own __ref and then use include_next.
+The easiest explanation for this is to look at the non-arch users in
+the following output:
 
-Huh?
+   linux$git grep include.*access_ok.h
+   arch/arm64/crypto/crc32-arm64.c:#include <linux/unaligned/access_ok.h>
+   arch/cris/include/asm/unaligned.h:#include <linux/unaligned/access_ok.h>
+   arch/m68k/include/asm/unaligned.h:#include <linux/unaligned/access_ok.h>
+   arch/mn10300/include/asm/unaligned.h:#include <linux/unaligned/access_ok.h>
+   arch/powerpc/include/asm/unaligned.h:#include <linux/unaligned/access_ok.h>
+   arch/s390/include/asm/unaligned.h:#include <linux/unaligned/access_ok.h>
+   arch/x86/include/asm/unaligned.h:#include <linux/unaligned/access_ok.h>
+   drivers/nfc/nfcmrvl/fw_dnld.c:#include <linux/unaligned/access_ok.h>
+   drivers/nfc/nxp-nci/firmware.c:#include <linux/unaligned/access_ok.h>
+   drivers/nfc/nxp-nci/i2c.c:#include <linux/unaligned/access_ok.h>
+   include/asm-generic/unaligned.h:# include <linux/unaligned/access_ok.h>
 
-Again, please be more specific or clear or something, I have no idea
-again what this patch is for.
+Note that nfc is essentially the only non-arch user in the above.
+When it forces use of access_ok.h, it will break any arch that has
+already selected be_byteshift.h (or other conflicting implementations)
+at the arch level.
 
-thanks,
+The decision of what variant for unaligned access to use needs to be
+left to the arch level and not used at the driver level.  Delete the
+errant includes, as the right ones will be pulled in at the arch
+level, giving us just the one definition that is needed.
 
-greg k-h
+See commit 064106a91be5 ("kernel: add common infrastructure for
+unaligned access") as a reference.
+
+Cc: Lauro Ramos Venancio <lauro.venancio@openbossa.org>
+Cc: Aloisio Almeida Jr <aloisio.almeida@openbossa.org>
+Cc: Samuel Ortiz <sameo@linux.intel.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
+Cc: linux-wireless@vger.kernel.org
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+
+diff --git a/drivers/nfc/nfcmrvl/fw_dnld.c b/drivers/nfc/nfcmrvl/fw_dnld.c
+index f8dcdf4b24f6..32144d66ba88 100644
+--- a/drivers/nfc/nfcmrvl/fw_dnld.c
++++ b/drivers/nfc/nfcmrvl/fw_dnld.c
+@@ -17,7 +17,6 @@
+  */
+ 
+ #include <linux/module.h>
+-#include <linux/unaligned/access_ok.h>
+ #include <linux/firmware.h>
+ #include <linux/nfc.h>
+ #include <net/nfc/nci.h>
+diff --git a/drivers/nfc/nxp-nci/firmware.c b/drivers/nfc/nxp-nci/firmware.c
+index 5291797324ba..f2bd651fc60d 100644
+--- a/drivers/nfc/nxp-nci/firmware.c
++++ b/drivers/nfc/nxp-nci/firmware.c
+@@ -24,7 +24,6 @@
+ #include <linux/completion.h>
+ #include <linux/firmware.h>
+ #include <linux/nfc.h>
+-#include <linux/unaligned/access_ok.h>
+ 
+ #include "nxp-nci.h"
+ 
+diff --git a/drivers/nfc/nxp-nci/i2c.c b/drivers/nfc/nxp-nci/i2c.c
+index 36099e557730..d25f6257458e 100644
+--- a/drivers/nfc/nxp-nci/i2c.c
++++ b/drivers/nfc/nxp-nci/i2c.c
+@@ -36,7 +36,6 @@
+ #include <linux/of_gpio.h>
+ #include <linux/of_irq.h>
+ #include <linux/platform_data/nxp-nci.h>
+-#include <linux/unaligned/access_ok.h>
+ 
+ #include <net/nfc/nfc.h>
+ 
+-- 
+2.11.0
+
