@@ -1,730 +1,1147 @@
 From: "Luis R. Rodriguez" <mcgrof@kernel.org>
-Date: Mon, 09 Jan 2017 14:58:29 +0000
-Subject: [PATCH v6 11/14] kprobes: move kprobe declarations to asm-generic/kprobes.h
-Message-Id: <20170109145833.11502-12-mcgrof@kernel.org>
+Date: Mon, 09 Jan 2017 14:58:32 +0000
+Subject: [PATCH v6 14/14] lib: add linker tables test driver
+Message-Id: <20170109145833.11502-15-mcgrof@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20161222023811.21246-1-mcgrof@kernel.org>
  <20170109145833.11502-1-mcgrof@kernel.org>
 In-Reply-To: <20170109145833.11502-1-mcgrof@kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: quoted-printable
 To: hpa@zytor.com, acme@redhat.com, tglx@linutronix.de, mingo@redhat.com, jpoimboe@redhat.com, bp@alien8.de, npiggin@gmail.com, mhiramat@kernel.org, masami.hiramatsu.pt@hitachi.com, jbaron@akamai.com, heiko.carstens@de.ibm.com, ananth@linux.vnet.ibm.com, anil.s.keshavamurthy@intel.com, davem@davemloft.net, realmz6@gmail.com, dalias@libc.org, linux@arm.linux.org.uk
 Cc: gnomes@lxorguk.ukuu.org.uk, linux-ia64@vger.kernel.org, jkosina@suse.cz, benh@kernel.crashing.org, ming.lei@canonical.com, linux@rasmusvillemoes.dk, platform-driver-x86@vger.kernel.org, James.Bottomley@HansenPartnership.com, paul.gortmaker@windriver.com, paulus@samba.org, sparclinux@vger.kernel.org, wangnan0@huawei.com, mchehab@osg.samsung.com, linux-arch@vger.kernel.org, markus.heiser@darmarit.de, xen-devel@lists.xensource.com, msalter@redhat.com, linux-sh@vger.kernel.org, mpe@ellerman.id.au, joro@8bytes.org, x86@kernel.org, fontana@sharpeleven.org, dsahern@gmail.com, linux-arm-kernel@lists.infradead.org, catalin.marinas@arm.com, dvhart@infradead.org, dwmw2@infradead.org, linux@roeck-us.net, linux-xtensa@linux-xtensa.org, pali.rohar@gmail.com, keescook@chromium.org, arnd@arndb.de, jani.nikula@intel.com, will.deacon@arm.com, rusty@rustcorp.com.au, rostedt@goodmis.org
 
-Often all is needed is these small helpers, instead of compiler.h
-or a full kprobes.h. This is important for asm helpers, in fact even
-some asm/kprobes.h make use of these helpers... instead just keep a
-generic asm file with helpers useful for asm code with the least amount
-of clutter as possible.
+Add a test drivers for linker tables.
 
-Likewise we need now to also address what to do about this file for both
-when architectures have CONFIG_HAVE_KPROBES, and when they do not. Then
-for when architectures have CONFIG_HAVE_KPROBES but have disabled
-CONFIG_KPROBES.
-
-Right now most asm/kprobes.h do not have guards against CONFIG_KPROBES,
-this means most architecture code cannot include asm/kprobes.h safely.
-Correct this and add guards for architectures missing them. Additionally
-provide architectures that not have kprobes support with the default
-asm-generic solution. This lets us force asm/kprobes.h on the header
-include/linux/kprobes.h always, but most importantly we can now safely
-include just asm/kprobes.h on architecture code without bringing
-the full kitchen sink of header files.
-
-Two architectures already provided a guard against CONFIG_KPROBES on
-its kprobes.h: sh, arch. The rest of the architectures needed gaurds
-added. We avoid including any not-needed headers on asm/kprobes.h
-unless kprobes have been enabled.
-
-In a subsequent atomic change we can try now to remove compiler.h from
-include/linux/kprobes.h.
-
-During this sweep I've also identified a few architectures defining
-a common macro needed for both kprobes and ftrace, that of the
-definition of the breakput instruction up. Some refer to this as
-BREAKPOINT_INSTRUCTION. This must be kept outside of the #ifdef
-CONFIG_KPROBES guard.
-
-v5:
-
-o fix BREAKPOINT_INSTRUCTION dependency with kernel architecture
-  ftrace implementations:  Although its correct to #ifdef CONFIG_KPROBES
-  on the architecture arch/$(ARCH)/include/asm/kprobes.h when
-  architectures support ftrace they will rely on the
-  BREAKPOINT_INSTRUCTION definition, this needs to be kept out from
-  CONFIG_KPROBES as ftrace can be enabled without kprobes. This
-  fixes compilation on x86 where kprobes is disabled but ftrace is
-  left enabled.
-
-o include <asm/kprobes.h> on arch/arm64/kernel/probes/decode-insn.h
-
-v4: introduced this patch into the series
+v6: rename table macro as suggested by Andy Shevchenko
+v5: added this commit for the first time in this series.
 
 Signed-off-by: Luis R. Rodriguez <mcgrof@kernel.org>
 ---
- arch/alpha/include/asm/Kbuild          |  1 +
- arch/arc/include/asm/kprobes.h         |  6 ++++--
- arch/arm/include/asm/kprobes.h         |  4 ++++
- arch/arm/probes/decode.h               |  1 +
- arch/arm64/include/asm/kprobes.h       |  4 ++++
- arch/arm64/kernel/insn.c               |  1 +
- arch/arm64/kernel/probes/decode-insn.h |  2 ++
- arch/avr32/include/asm/kprobes.h       |  7 ++++++-
- arch/blackfin/include/asm/Kbuild       |  1 +
- arch/c6x/include/asm/Kbuild            |  1 +
- arch/cris/include/asm/Kbuild           |  1 +
- arch/frv/include/asm/Kbuild            |  1 +
- arch/h8300/include/asm/Kbuild          |  1 +
- arch/hexagon/include/asm/Kbuild        |  1 +
- arch/ia64/include/asm/kprobes.h        | 12 +++++++++---
- arch/m32r/include/asm/Kbuild           |  1 +
- arch/m68k/include/asm/Kbuild           |  1 +
- arch/metag/include/asm/Kbuild          |  1 +
- arch/microblaze/include/asm/Kbuild     |  1 +
- arch/mips/include/asm/kprobes.h        |  6 +++++-
- arch/mn10300/include/asm/kprobes.h     |  7 ++++++-
- arch/nios2/include/asm/Kbuild          |  1 +
- arch/openrisc/include/asm/Kbuild       |  1 +
- arch/parisc/include/asm/Kbuild         |  1 +
- arch/powerpc/include/asm/kprobes.h     |  3 +++
- arch/s390/include/asm/kprobes.h        |  7 ++++++-
- arch/score/include/asm/Kbuild          |  1 +
- arch/sh/include/asm/kprobes.h          |  5 ++++-
- arch/sparc/include/asm/kprobes.h       | 10 ++++++++--
- arch/tile/include/asm/kprobes.h        |  6 +++++-
- arch/um/include/asm/Kbuild             |  1 +
- arch/unicore32/include/asm/Kbuild      |  1 +
- arch/x86/include/asm/kprobes.h         |  9 ++++++++-
- arch/xtensa/include/asm/Kbuild         |  1 +
- include/asm-generic/kprobes.h          | 25 +++++++++++++++++++++++++
- include/linux/compiler.h               |  8 --------
- include/linux/kprobes.h                | 19 +++----------------
- 37 files changed, 122 insertions(+), 38 deletions(-)
- create mode 100644 include/asm-generic/kprobes.h
+ lib/Kconfig.debug                        |   6 +
+ lib/Makefile                             |   1 +
+ lib/test_linktables/Makefile             |  13 +
+ lib/test_linktables/test-linktables-00.c |  27 ++
+ lib/test_linktables/test-linktables-01.c |  27 ++
+ lib/test_linktables/test-linktables-02.c |  27 ++
+ lib/test_linktables/test-linktables-03.c |  27 ++
+ lib/test_linktables/test-linktables-04.c |  27 ++
+ lib/test_linktables/test-linktables.c    | 801 +++++++++++++++++++++++++++=
+++++
+ lib/test_linktables/test-linktables.h    |  48 ++
+ 10 files changed, 1004 insertions(+)
+ create mode 100644 lib/test_linktables/Makefile
+ create mode 100644 lib/test_linktables/test-linktables-00.c
+ create mode 100644 lib/test_linktables/test-linktables-01.c
+ create mode 100644 lib/test_linktables/test-linktables-02.c
+ create mode 100644 lib/test_linktables/test-linktables-03.c
+ create mode 100644 lib/test_linktables/test-linktables-04.c
+ create mode 100644 lib/test_linktables/test-linktables.c
+ create mode 100644 lib/test_linktables/test-linktables.h
 
-diff --git a/arch/alpha/include/asm/Kbuild b/arch/alpha/include/asm/Kbuild
-index f3bdc31d3c97..54d388fd026f 100644
---- a/arch/alpha/include/asm/Kbuild
-+++ b/arch/alpha/include/asm/Kbuild
-@@ -13,3 +13,4 @@ generic-y += trace_clock.h
- generic-y += section-core.h
- generic-y += ranges.h
- generic-y += tables.h
-+generic-y += kprobes.h
-diff --git a/arch/arc/include/asm/kprobes.h b/arch/arc/include/asm/kprobes.h
-index 944dbedb38b5..00bdbe167615 100644
---- a/arch/arc/include/asm/kprobes.h
-+++ b/arch/arc/include/asm/kprobes.h
-@@ -9,6 +9,8 @@
- #ifndef _ARC_KPROBES_H
- #define _ARC_KPROBES_H
- 
-+#include <asm-generic/kprobes.h>
+diff --git a/lib/Kconfig.debug b/lib/Kconfig.debug
+index 5655bd95919a..8c99ee3c9fd7 100644
+--- a/lib/Kconfig.debug
++++ b/lib/Kconfig.debug
+@@ -1827,6 +1827,12 @@ config TEST_HASH
+ 	  This is intended to help people writing architecture-specific
+ 	  optimized versions.  If unsure, say N.
+=20
++config TEST_LINKTABLES
++	bool "Test linker table functionality"
++	default n
++	help
++	  Enable this option to test the kernel's linker table functionality.
 +
- #ifdef CONFIG_KPROBES
- 
- typedef u16 kprobe_opcode_t;
-@@ -55,6 +57,6 @@ void trap_is_kprobe(unsigned long address, struct pt_regs *regs);
- static void trap_is_kprobe(unsigned long address, struct pt_regs *regs)
- {
- }
--#endif
-+#endif /* CONFIG_KPROBES */
- 
--#endif
-+#endif /* _ARC_KPROBES_H */
-diff --git a/arch/arm/include/asm/kprobes.h b/arch/arm/include/asm/kprobes.h
-index 3ea9be559726..59655459da59 100644
---- a/arch/arm/include/asm/kprobes.h
-+++ b/arch/arm/include/asm/kprobes.h
-@@ -16,6 +16,9 @@
- #ifndef _ARM_KPROBES_H
- #define _ARM_KPROBES_H
- 
-+#include <asm-generic/kprobes.h>
-+
-+#ifdef CONFIG_KPROBES
- #include <linux/types.h>
- #include <linux/ptrace.h>
- #include <linux/notifier.h>
-@@ -83,4 +86,5 @@ struct arch_optimized_insn {
- 	 */
- };
- 
-+#endif /* CONFIG_KPROBES */
- #endif /* _ARM_KPROBES_H */
-diff --git a/arch/arm/probes/decode.h b/arch/arm/probes/decode.h
-index f9b08ba7fe73..548d622a3159 100644
---- a/arch/arm/probes/decode.h
-+++ b/arch/arm/probes/decode.h
-@@ -22,6 +22,7 @@
- #include <linux/types.h>
- #include <linux/stddef.h>
- #include <asm/probes.h>
-+#include <asm/kprobes.h>
- 
- void __init arm_probes_decode_init(void);
- 
-diff --git a/arch/arm64/include/asm/kprobes.h b/arch/arm64/include/asm/kprobes.h
-index 1737aecfcc5e..6deb8d726041 100644
---- a/arch/arm64/include/asm/kprobes.h
-+++ b/arch/arm64/include/asm/kprobes.h
-@@ -16,6 +16,9 @@
- #ifndef _ARM_KPROBES_H
- #define _ARM_KPROBES_H
- 
-+#include <asm-generic/kprobes.h>
-+
-+#ifdef CONFIG_KPROBES
- #include <linux/types.h>
- #include <linux/ptrace.h>
- #include <linux/percpu.h>
-@@ -57,4 +60,5 @@ int kprobe_single_step_handler(struct pt_regs *regs, unsigned int esr);
- void kretprobe_trampoline(void);
- void __kprobes *trampoline_probe_handler(struct pt_regs *regs);
- 
-+#endif /* CONFIG_KPROBES */
- #endif /* _ARM_KPROBES_H */
-diff --git a/arch/arm64/kernel/insn.c b/arch/arm64/kernel/insn.c
-index 94b62c1fa4df..ae912304ed84 100644
---- a/arch/arm64/kernel/insn.c
-+++ b/arch/arm64/kernel/insn.c
-@@ -31,6 +31,7 @@
- #include <asm/debug-monitors.h>
- #include <asm/fixmap.h>
- #include <asm/insn.h>
-+#include <asm/kprobes.h>
- 
- #define AARCH64_INSN_SF_BIT	BIT(31)
- #define AARCH64_INSN_N_BIT	BIT(22)
-diff --git a/arch/arm64/kernel/probes/decode-insn.h b/arch/arm64/kernel/probes/decode-insn.h
-index 76d3f315407f..192ab007bacb 100644
---- a/arch/arm64/kernel/probes/decode-insn.h
-+++ b/arch/arm64/kernel/probes/decode-insn.h
-@@ -16,6 +16,8 @@
- #ifndef _ARM_KERNEL_KPROBES_ARM64_H
- #define _ARM_KERNEL_KPROBES_ARM64_H
- 
-+#include <asm/kprobes.h>
-+
- /*
-  * ARM strongly recommends a limit of 128 bytes between LoadExcl and
-  * StoreExcl instructions in a single thread of execution. So keep the
-diff --git a/arch/avr32/include/asm/kprobes.h b/arch/avr32/include/asm/kprobes.h
-index 45f563ed73fd..28dfc61ad384 100644
---- a/arch/avr32/include/asm/kprobes.h
-+++ b/arch/avr32/include/asm/kprobes.h
-@@ -11,10 +11,14 @@
- #ifndef __ASM_AVR32_KPROBES_H
- #define __ASM_AVR32_KPROBES_H
- 
-+#include <asm-generic/kprobes.h>
-+
-+#define BREAKPOINT_INSTRUCTION	0xd673	/* breakpoint */
-+
-+#ifdef CONFIG_KPROBES
- #include <linux/types.h>
- 
- typedef u16	kprobe_opcode_t;
--#define BREAKPOINT_INSTRUCTION	0xd673	/* breakpoint */
- #define MAX_INSN_SIZE		2
- #define MAX_STACK_SIZE		64	/* 32 would probably be OK */
- 
-@@ -46,4 +50,5 @@ extern int kprobe_exceptions_notify(struct notifier_block *self,
- 
- #define flush_insn_slot(p)	do { } while (0)
- 
-+#endif /* CONFIG_KPROBES */
- #endif /* __ASM_AVR32_KPROBES_H */
-diff --git a/arch/blackfin/include/asm/Kbuild b/arch/blackfin/include/asm/Kbuild
-index 9115b215fc7e..52351d3fd36e 100644
---- a/arch/blackfin/include/asm/Kbuild
-+++ b/arch/blackfin/include/asm/Kbuild
-@@ -50,3 +50,4 @@ generic-y += xor.h
- generic-y += section-core.h
- generic-y += ranges.h
- generic-y += tables.h
-+generic-y += kprobes.h
-diff --git a/arch/c6x/include/asm/Kbuild b/arch/c6x/include/asm/Kbuild
-index cede2a950fbf..c54f7cc1f63e 100644
---- a/arch/c6x/include/asm/Kbuild
-+++ b/arch/c6x/include/asm/Kbuild
-@@ -64,3 +64,4 @@ generic-y += word-at-a-time.h
- generic-y += xor.h
- generic-y += section-core.h
- generic-y += ranges.h
-+generic-y += kprobes.h
-diff --git a/arch/cris/include/asm/Kbuild b/arch/cris/include/asm/Kbuild
-index 7062c1be7913..051d355feae3 100644
---- a/arch/cris/include/asm/Kbuild
-+++ b/arch/cris/include/asm/Kbuild
-@@ -48,3 +48,4 @@ generic-y += xor.h
- generic-y += section-core.h
- generic-y += ranges.h
- generic-y += tables.h
-+generic-y += kprobes.h
-diff --git a/arch/frv/include/asm/Kbuild b/arch/frv/include/asm/Kbuild
-index 4a59cbda5091..b58b9fc49383 100644
---- a/arch/frv/include/asm/Kbuild
-+++ b/arch/frv/include/asm/Kbuild
-@@ -11,3 +11,4 @@ generic-y += word-at-a-time.h
- generic-y += section-core.h
- generic-y += ranges.h
- generic-y += tables.h
-+generic-y += kprobes.h
-diff --git a/arch/h8300/include/asm/Kbuild b/arch/h8300/include/asm/Kbuild
-index d79968d93c12..cfca7de52b37 100644
---- a/arch/h8300/include/asm/Kbuild
-+++ b/arch/h8300/include/asm/Kbuild
-@@ -78,3 +78,4 @@ generic-y += xor.h
- generic-y += section-core.h
- generic-y += ranges.h
- generic-y += tables.h
-+generic-y += kprobes.h
-diff --git a/arch/hexagon/include/asm/Kbuild b/arch/hexagon/include/asm/Kbuild
-index d59ac1c1858b..d7cc35451f30 100644
---- a/arch/hexagon/include/asm/Kbuild
-+++ b/arch/hexagon/include/asm/Kbuild
-@@ -63,3 +63,4 @@ generic-y += xor.h
- generic-y += section-core.h
- generic-y += ranges.h
- generic-y += tables.h
-+generic-y += kprobes.h
-diff --git a/arch/ia64/include/asm/kprobes.h b/arch/ia64/include/asm/kprobes.h
-index d5505d6f2382..0302b3664789 100644
---- a/arch/ia64/include/asm/kprobes.h
-+++ b/arch/ia64/include/asm/kprobes.h
-@@ -23,14 +23,19 @@
-  * 2005-Apr     Rusty Lynch <rusty.lynch@intel.com> and Anil S Keshavamurthy
-  *              <anil.s.keshavamurthy@intel.com> adapted from i386
-  */
-+#include <asm-generic/kprobes.h>
-+#include <asm/break.h>
-+
-+#define BREAK_INST	(long)(__IA64_BREAK_KPROBE << 6)
-+
-+#ifdef CONFIG_KPROBES
-+
- #include <linux/types.h>
- #include <linux/ptrace.h>
- #include <linux/percpu.h>
--#include <asm/break.h>
- 
- #define __ARCH_WANT_KPROBES_INSN_SLOT
- #define MAX_INSN_SIZE   2	/* last half is for kprobe-booster */
--#define BREAK_INST	(long)(__IA64_BREAK_KPROBE << 6)
- #define NOP_M_INST	(long)(1<<27)
- #define BRL_INST(i1, i2) ((long)((0xcL << 37) |	/* brl */ \
- 				(0x1L << 12) |	/* many */ \
-@@ -124,4 +129,5 @@ extern void invalidate_stacked_regs(void);
- extern void flush_register_stack(void);
- extern void arch_remove_kprobe(struct kprobe *p);
- 
--#endif				/* _ASM_KPROBES_H */
-+#endif /* CONFIG_KPROBES */
-+#endif /* _ASM_KPROBES_H */
-diff --git a/arch/m32r/include/asm/Kbuild b/arch/m32r/include/asm/Kbuild
-index 24088f3c733c..198ad591ab41 100644
---- a/arch/m32r/include/asm/Kbuild
-+++ b/arch/m32r/include/asm/Kbuild
-@@ -14,3 +14,4 @@ generic-y += word-at-a-time.h
- generic-y += section-core.h
- generic-y += ranges.h
- generic-y += tables.h
-+generic-y += kprobes.h
-diff --git a/arch/m68k/include/asm/Kbuild b/arch/m68k/include/asm/Kbuild
-index c28bcdecc764..412dd23ab946 100644
---- a/arch/m68k/include/asm/Kbuild
-+++ b/arch/m68k/include/asm/Kbuild
-@@ -37,3 +37,4 @@ generic-y += xor.h
- generic-y += section-core.h
- generic-y += ranges.h
- generic-y += tables.h
-+generic-y += kprobes.h
-diff --git a/arch/metag/include/asm/Kbuild b/arch/metag/include/asm/Kbuild
-index c836f7e2a5e7..8371cc9b1b3c 100644
---- a/arch/metag/include/asm/Kbuild
-+++ b/arch/metag/include/asm/Kbuild
-@@ -58,3 +58,4 @@ generic-y += xor.h
- generic-y += section-core.h
- generic-y += ranges.h
- generic-y += tables.h
-+generic-y += kprobes.h
-diff --git a/arch/microblaze/include/asm/Kbuild b/arch/microblaze/include/asm/Kbuild
-index 01afb1b420f5..865ce3d96443 100644
---- a/arch/microblaze/include/asm/Kbuild
-+++ b/arch/microblaze/include/asm/Kbuild
-@@ -14,3 +14,4 @@ generic-y += word-at-a-time.h
- generic-y += section-core.h
- generic-y += ranges.h
- generic-y += tables.h
-+generic-y += kprobes.h
-diff --git a/arch/mips/include/asm/kprobes.h b/arch/mips/include/asm/kprobes.h
-index daba1f9a4f79..291846d9ba83 100644
---- a/arch/mips/include/asm/kprobes.h
-+++ b/arch/mips/include/asm/kprobes.h
-@@ -22,6 +22,9 @@
- #ifndef _ASM_KPROBES_H
- #define _ASM_KPROBES_H
- 
-+#include <asm-generic/kprobes.h>
-+
-+#ifdef CONFIG_KPROBES
- #include <linux/ptrace.h>
- #include <linux/types.h>
- 
-@@ -94,4 +97,5 @@ struct kprobe_ctlblk {
- extern int kprobe_exceptions_notify(struct notifier_block *self,
- 				    unsigned long val, void *data);
- 
--#endif				/* _ASM_KPROBES_H */
-+#endif /* CONFIG_KPROBES */
-+#endif /* _ASM_KPROBES_H */
-diff --git a/arch/mn10300/include/asm/kprobes.h b/arch/mn10300/include/asm/kprobes.h
-index c800b590183a..7abea0bdb549 100644
---- a/arch/mn10300/include/asm/kprobes.h
-+++ b/arch/mn10300/include/asm/kprobes.h
-@@ -21,13 +21,17 @@
- #ifndef _ASM_KPROBES_H
- #define _ASM_KPROBES_H
- 
-+#include <asm-generic/kprobes.h>
-+
-+#define BREAKPOINT_INSTRUCTION	0xff
-+
-+#ifdef CONFIG_KPROBES
- #include <linux/types.h>
- #include <linux/ptrace.h>
- 
- struct kprobe;
- 
- typedef unsigned char kprobe_opcode_t;
--#define BREAKPOINT_INSTRUCTION	0xff
- #define MAX_INSN_SIZE 8
- #define MAX_STACK_SIZE 128
- 
-@@ -47,4 +51,5 @@ extern int kprobe_exceptions_notify(struct notifier_block *self,
- 
- extern void arch_remove_kprobe(struct kprobe *p);
- 
-+#endif /* CONFIG_KPROBES */
- #endif /* _ASM_KPROBES_H */
-diff --git a/arch/nios2/include/asm/Kbuild b/arch/nios2/include/asm/Kbuild
-index ee6220dac1e8..d6ce7edee7e0 100644
---- a/arch/nios2/include/asm/Kbuild
-+++ b/arch/nios2/include/asm/Kbuild
-@@ -66,3 +66,4 @@ generic-y += xor.h
- generic-y += section-core.h
- generic-y += ranges.h
- generic-y += tables.h
-+generic-y += kprobes.h
-diff --git a/arch/openrisc/include/asm/Kbuild b/arch/openrisc/include/asm/Kbuild
-index ceafe458e295..1bf89a67317c 100644
---- a/arch/openrisc/include/asm/Kbuild
-+++ b/arch/openrisc/include/asm/Kbuild
-@@ -74,3 +74,4 @@ generic-y += xor.h
- generic-y += section-core.h
- generic-y += ranges.h
- generic-y += tables.h
-+generic-y += kprobes.h
-diff --git a/arch/parisc/include/asm/Kbuild b/arch/parisc/include/asm/Kbuild
-index aaae8a9f6099..19d5b7e12ecf 100644
---- a/arch/parisc/include/asm/Kbuild
-+++ b/arch/parisc/include/asm/Kbuild
-@@ -31,3 +31,4 @@ generic-y += xor.h
- generic-y += section-core.h
- generic-y += ranges.h
- generic-y += tables.h
-+generic-y += kprobes.h
-diff --git a/arch/powerpc/include/asm/kprobes.h b/arch/powerpc/include/asm/kprobes.h
-index 97b8c1f83453..c7ee3fcbd6e2 100644
---- a/arch/powerpc/include/asm/kprobes.h
-+++ b/arch/powerpc/include/asm/kprobes.h
-@@ -1,5 +1,8 @@
- #ifndef _ASM_POWERPC_KPROBES_H
- #define _ASM_POWERPC_KPROBES_H
-+
-+#include <asm-generic/kprobes.h>
-+
- #ifdef __KERNEL__
- /*
-  *  Kernel Probes (KProbes)
-diff --git a/arch/s390/include/asm/kprobes.h b/arch/s390/include/asm/kprobes.h
-index 591e5a5279b0..84c0f9086483 100644
---- a/arch/s390/include/asm/kprobes.h
-+++ b/arch/s390/include/asm/kprobes.h
-@@ -27,6 +27,11 @@
-  * 2005-Dec	Used as a template for s390 by Mike Grundy
-  *		<grundym@us.ibm.com>
-  */
-+#include <asm-generic/kprobes.h>
-+
-+#define BREAKPOINT_INSTRUCTION	0x0002
-+
-+#ifdef CONFIG_KPROBES
- #include <linux/types.h>
- #include <linux/ptrace.h>
- #include <linux/percpu.h>
-@@ -37,7 +42,6 @@ struct pt_regs;
- struct kprobe;
- 
- typedef u16 kprobe_opcode_t;
--#define BREAKPOINT_INSTRUCTION	0x0002
- 
- /* Maximum instruction size is 3 (16bit) halfwords: */
- #define MAX_INSN_SIZE		0x0003
-@@ -91,4 +95,5 @@ int probe_is_insn_relative_long(u16 *insn);
- 
- #define flush_insn_slot(p)	do { } while (0)
- 
-+#endif /* CONFIG_KPROBES */
- #endif	/* _ASM_S390_KPROBES_H */
-diff --git a/arch/score/include/asm/Kbuild b/arch/score/include/asm/Kbuild
-index 16ea15a3e432..6ac8a7f5c768 100644
---- a/arch/score/include/asm/Kbuild
-+++ b/arch/score/include/asm/Kbuild
-@@ -17,3 +17,4 @@ generic-y += word-at-a-time.h
- generic-y += section-core.h
- generic-y += ranges.h
- generic-y += tables.h
-+generic-y += kprobes.h
-diff --git a/arch/sh/include/asm/kprobes.h b/arch/sh/include/asm/kprobes.h
-index 134f3980e44a..f0986f9b3844 100644
---- a/arch/sh/include/asm/kprobes.h
-+++ b/arch/sh/include/asm/kprobes.h
-@@ -1,13 +1,16 @@
- #ifndef __ASM_SH_KPROBES_H
- #define __ASM_SH_KPROBES_H
- 
-+#include <asm-generic/kprobes.h>
-+
-+#define BREAKPOINT_INSTRUCTION	0xc33a
-+
- #ifdef CONFIG_KPROBES
- 
- #include <linux/types.h>
- #include <linux/ptrace.h>
- 
- typedef insn_size_t kprobe_opcode_t;
--#define BREAKPOINT_INSTRUCTION	0xc33a
- 
- #define MAX_INSN_SIZE 16
- #define MAX_STACK_SIZE 64
-diff --git a/arch/sparc/include/asm/kprobes.h b/arch/sparc/include/asm/kprobes.h
-index a145d798e112..49f8402035d7 100644
---- a/arch/sparc/include/asm/kprobes.h
-+++ b/arch/sparc/include/asm/kprobes.h
-@@ -1,13 +1,17 @@
- #ifndef _SPARC64_KPROBES_H
- #define _SPARC64_KPROBES_H
- 
-+#include <asm-generic/kprobes.h>
-+
-+#define BREAKPOINT_INSTRUCTION   0x91d02070 /* ta 0x70 */
-+#define BREAKPOINT_INSTRUCTION_2 0x91d02071 /* ta 0x71 */
-+
-+#ifdef CONFIG_KPROBES
- #include <linux/types.h>
- #include <linux/percpu.h>
- 
- typedef u32 kprobe_opcode_t;
- 
--#define BREAKPOINT_INSTRUCTION   0x91d02070 /* ta 0x70 */
--#define BREAKPOINT_INSTRUCTION_2 0x91d02071 /* ta 0x71 */
- #define MAX_INSN_SIZE 2
- 
- #define kretprobe_blacklist_size 0
-@@ -48,4 +52,6 @@ int kprobe_exceptions_notify(struct notifier_block *self,
- int kprobe_fault_handler(struct pt_regs *regs, int trapnr);
- asmlinkage void __kprobes kprobe_trap(unsigned long trap_level,
- 				      struct pt_regs *regs);
-+
-+#endif /* CONFIG_KPROBES */
- #endif /* _SPARC64_KPROBES_H */
-diff --git a/arch/tile/include/asm/kprobes.h b/arch/tile/include/asm/kprobes.h
-index d8f9a83943b1..4a8b1cadca24 100644
---- a/arch/tile/include/asm/kprobes.h
-+++ b/arch/tile/include/asm/kprobes.h
-@@ -17,10 +17,13 @@
- #ifndef _ASM_TILE_KPROBES_H
- #define _ASM_TILE_KPROBES_H
- 
-+#include <asm-generic/kprobes.h>
-+
-+#ifdef CONFIG_KPROBES
-+
- #include <linux/types.h>
- #include <linux/ptrace.h>
- #include <linux/percpu.h>
--
- #include <arch/opcode.h>
- 
- #define __ARCH_WANT_KPROBES_INSN_SLOT
-@@ -76,4 +79,5 @@ void arch_remove_kprobe(struct kprobe *);
- extern int kprobe_exceptions_notify(struct notifier_block *self,
- 			     unsigned long val, void *data);
- 
-+#endif /* CONFIG_KPROBES */
- #endif /* _ASM_TILE_KPROBES_H */
-diff --git a/arch/um/include/asm/Kbuild b/arch/um/include/asm/Kbuild
-index d2867aa09e23..ccc5ffeaeef5 100644
---- a/arch/um/include/asm/Kbuild
-+++ b/arch/um/include/asm/Kbuild
-@@ -29,3 +29,4 @@ generic-y += xor.h
- generic-y += section-core.h
- generic-y += ranges.h
- generic-y += tables.h
-+generic-y += kprobes.h
-diff --git a/arch/unicore32/include/asm/Kbuild b/arch/unicore32/include/asm/Kbuild
-index 6671a1f08ead..5aacafb6d385 100644
---- a/arch/unicore32/include/asm/Kbuild
-+++ b/arch/unicore32/include/asm/Kbuild
-@@ -63,3 +63,4 @@ generic-y += word-at-a-time.h
- generic-y += xor.h
- generic-y += ranges.h
- generic-y += tables.h
-+generic-y += kprobes.h
-diff --git a/arch/x86/include/asm/kprobes.h b/arch/x86/include/asm/kprobes.h
-index d1d1e5094c28..200581691c6e 100644
---- a/arch/x86/include/asm/kprobes.h
-+++ b/arch/x86/include/asm/kprobes.h
-@@ -21,6 +21,12 @@
-  *
-  * See arch/x86/kernel/kprobes.c for x86 kprobes history.
-  */
-+
-+#include <asm-generic/kprobes.h>
-+
-+#define BREAKPOINT_INSTRUCTION	0xcc
-+
-+#ifdef CONFIG_KPROBES
- #include <linux/types.h>
- #include <linux/ptrace.h>
- #include <linux/percpu.h>
-@@ -32,7 +38,6 @@ struct pt_regs;
- struct kprobe;
- 
- typedef u8 kprobe_opcode_t;
--#define BREAKPOINT_INSTRUCTION	0xcc
- #define RELATIVEJUMP_OPCODE 0xe9
- #define RELATIVEJUMP_SIZE 5
- #define RELATIVECALL_OPCODE 0xe8
-@@ -116,4 +121,6 @@ extern int kprobe_exceptions_notify(struct notifier_block *self,
- 				    unsigned long val, void *data);
- extern int kprobe_int3_handler(struct pt_regs *regs);
- extern int kprobe_debug_handler(struct pt_regs *regs);
-+
-+#endif /* CONFIG_KPROBES */
- #endif /* _ASM_X86_KPROBES_H */
-diff --git a/arch/xtensa/include/asm/Kbuild b/arch/xtensa/include/asm/Kbuild
-index 7b41f32a2ba0..20f524ded00e 100644
---- a/arch/xtensa/include/asm/Kbuild
-+++ b/arch/xtensa/include/asm/Kbuild
-@@ -35,3 +35,4 @@ generic-y += xor.h
- generic-y += section-core.h
- generic-y += ranges.h
- generic-y += tables.h
-+generic-y += kprobes.h
-diff --git a/include/asm-generic/kprobes.h b/include/asm-generic/kprobes.h
+ endmenu # runtime tests
+=20
+ config PROVIDE_OHCI1394_DMA_INIT
+diff --git a/lib/Makefile b/lib/Makefile
+index 94ed5cc4e89c..b5c5a7a9146c 100644
+--- a/lib/Makefile
++++ b/lib/Makefile
+@@ -55,6 +55,7 @@ obj-$(CONFIG_TEST_STATIC_KEYS) +=3D test_static_key_base.o
+ obj-$(CONFIG_TEST_PRINTF) +=3D test_printf.o
+ obj-$(CONFIG_TEST_BITMAP) +=3D test_bitmap.o
+ obj-$(CONFIG_TEST_UUID) +=3D test_uuid.o
++obj-$(CONFIG_TEST_LINKTABLES) +=3D test_linktables/
+=20
+ ifeq ($(CONFIG_DEBUG_KOBJECT),y)
+ CFLAGS_kobject.o +=3D -DDEBUG
+diff --git a/lib/test_linktables/Makefile b/lib/test_linktables/Makefile
 new file mode 100644
-index 000000000000..57af9f21d148
+index 000000000000..a1a67d7fd57a
 --- /dev/null
-+++ b/include/asm-generic/kprobes.h
-@@ -0,0 +1,25 @@
-+#ifndef _ASM_GENERIC_KPROBES_H
-+#define _ASM_GENERIC_KPROBES_H
++++ b/lib/test_linktables/Makefile
+@@ -0,0 +1,13 @@
++__LINKTABLE_TESTS :=3D $(shell find ./ -name test-linktables-\*.c | wc -l)
++ccflags-y +=3D -D__LINKTABLE_TESTS=3D$(__LINKTABLE_TESTS)
 +
-+#if defined(__KERNEL__) && !defined(__ASSEMBLY__)
-+#ifdef CONFIG_KPROBES
++# Keep these disorganized, if linker tables did not work then
++# things would not be ordered for us automatically at link time.
++# Linker tables grants us the ability to be explicit about
++# order.
++obj-$(CONFIG_TEST_LINKTABLES) +=3D test-linktables-04.o
++obj-$(CONFIG_TEST_LINKTABLES) +=3D test-linktables-02.o
++obj-$(CONFIG_TEST_LINKTABLES) +=3D test-linktables-01.o
++obj-$(CONFIG_TEST_LINKTABLES) +=3D test-linktables-03.o
++obj-$(CONFIG_TEST_LINKTABLES) +=3D test-linktables-00.o
++obj-$(CONFIG_TEST_LINKTABLES) +=3D test-linktables.o
+diff --git a/lib/test_linktables/test-linktables-00.c b/lib/test_linktables=
+/test-linktables-00.c
+new file mode 100644
+index 000000000000..ea162bd69179
+--- /dev/null
++++ b/lib/test_linktables/test-linktables-00.c
+@@ -0,0 +1,27 @@
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
++#include <linux/tables.h>
++#include <linux/printk.h>
++
++#include "test-linktables.h"
++
++static int __init test_linktable_00_init(int input)
++{
++	return 0 * input;
++}
++
++static int __initdata test_linktable_00_init_data(int input)
++{
++	return 0 * input;
++}
++
++static int test_linktable_00(int input)
++{
++	return 0 * input;
++}
++
++test_linktable_init_data(00, test_linktable_00_init_data); /* .init.data */
++test_linktable_init_text(00, test_linktable_00_init); /* .init.text */
++test_linktable(00, test_linktable_00); /* .data */
++test_linktable_text(00, test_linktable_00); /* .text */
++test_linktable_rodata(00, test_linktable_00); /* .rodata */
+diff --git a/lib/test_linktables/test-linktables-01.c b/lib/test_linktables=
+/test-linktables-01.c
+new file mode 100644
+index 000000000000..39578990fd59
+--- /dev/null
++++ b/lib/test_linktables/test-linktables-01.c
+@@ -0,0 +1,27 @@
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
++#include <linux/tables.h>
++#include <linux/printk.h>
++
++#include "test-linktables.h"
++
++static int __init test_linktable_01_init(int input)
++{
++	return 1 * input;
++}
++
++static int __initdata test_linktable_01_init_data(int input)
++{
++	return 1 * input;
++}
++
++static int test_linktable_01(int input)
++{
++	return 1 * input;
++}
++
++test_linktable_init_data(01, test_linktable_01_init_data); /* .init.data */
++test_linktable_init_text(01, test_linktable_01_init); /* .init.text */
++test_linktable(01, test_linktable_01); /* .data */
++test_linktable_text(01, test_linktable_01); /* .text */
++test_linktable_rodata(01, test_linktable_01); /* .rodata */
+diff --git a/lib/test_linktables/test-linktables-02.c b/lib/test_linktables=
+/test-linktables-02.c
+new file mode 100644
+index 000000000000..7f4b34240ecb
+--- /dev/null
++++ b/lib/test_linktables/test-linktables-02.c
+@@ -0,0 +1,27 @@
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
++#include <linux/tables.h>
++#include <linux/printk.h>
++
++#include "test-linktables.h"
++
++static int __init test_linktable_02_init(int input)
++{
++	return 2 * input;
++}
++
++static int __initdata test_linktable_02_init_data(int input)
++{
++	return 2 * input;
++}
++
++static int test_linktable_02(int input)
++{
++	return 2 * input;
++}
++
++test_linktable_init_data(02, test_linktable_02_init_data); /* .init.data */
++test_linktable_init_text(02, test_linktable_02_init); /* .init.text */
++test_linktable(02, test_linktable_02); /* .data */
++test_linktable_text(02, test_linktable_02); /* .text */
++test_linktable_rodata(02, test_linktable_02); /* .rodata */
+diff --git a/lib/test_linktables/test-linktables-03.c b/lib/test_linktables=
+/test-linktables-03.c
+new file mode 100644
+index 000000000000..47ca77e30c24
+--- /dev/null
++++ b/lib/test_linktables/test-linktables-03.c
+@@ -0,0 +1,27 @@
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
++#include <linux/tables.h>
++#include <linux/printk.h>
++
++#include "test-linktables.h"
++
++static int __init test_linktable_03_init(int input)
++{
++	return 3 * input;
++}
++
++static int __initdata test_linktable_03_init_data(int input)
++{
++	return 3 * input;
++}
++
++static int test_linktable_03(int input)
++{
++	return 3 * input;
++}
++
++test_linktable_init_data(03, test_linktable_03_init_data); /* .init.data */
++test_linktable_init_text(03, test_linktable_03_init); /* .init.text */
++test_linktable(03, test_linktable_03); /* .data */
++test_linktable_text(03, test_linktable_03); /* .text */
++test_linktable_rodata(03, test_linktable_03); /* .rodata */
+diff --git a/lib/test_linktables/test-linktables-04.c b/lib/test_linktables=
+/test-linktables-04.c
+new file mode 100644
+index 000000000000..4123e0e16715
+--- /dev/null
++++ b/lib/test_linktables/test-linktables-04.c
+@@ -0,0 +1,27 @@
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
++#include <linux/tables.h>
++#include <linux/printk.h>
++
++#include "test-linktables.h"
++
++static int __init test_linktable_04_init(int input)
++{
++	return 4 * input;
++}
++
++static int __initdata test_linktable_04_init_data(int input)
++{
++	return 4 * input;
++}
++
++static int test_linktable_04(int input)
++{
++	return 4 * input;
++}
++
++test_linktable_init_data(04, test_linktable_04_init_data); /* .init.data */
++test_linktable_init_text(04, test_linktable_04_init); /* .init.text */
++test_linktable(04, test_linktable_04); /* .data */
++test_linktable_text(04, test_linktable_04); /* .text */
++test_linktable_rodata(04, test_linktable_04); /* .rodata */
+diff --git a/lib/test_linktables/test-linktables.c b/lib/test_linktables/te=
+st-linktables.c
+new file mode 100644
+index 000000000000..b78fb5b554cb
+--- /dev/null
++++ b/lib/test_linktables/test-linktables.c
+@@ -0,0 +1,801 @@
 +/*
-+ * Blacklist ganerating macro. Specify functions which is not probed
-+ * by using this macro.
++ * Linker table test driver
++ *
++ * Copyright (C) 2016 Luis R. Rodriguez <mcgrof@kernel.org>
++ *
++ * This program is free software; you can redistribute it and/or modify it
++ * under the terms of copyleft-next (version 0.3.1 or later) as published
++ * at http://copyleft-next.org/.
 + */
-+# define __NOKPROBE_SYMBOL(fname)				\
-+static unsigned long __used					\
-+	__attribute__((__section__("_kprobe_blacklist")))	\
-+	_kbl_addr_##fname = (unsigned long)fname;
-+# define NOKPROBE_SYMBOL(fname)	__NOKPROBE_SYMBOL(fname)
-+/* Use this to forbid a kprobes attach on very low level functions */
-+# define __kprobes	__attribute__((__section__(".kprobes.text")))
-+# define nokprobe_inline	__always_inline
-+#else
-+# define NOKPROBE_SYMBOL(fname)
-+# define __kprobes
-+# define nokprobe_inline	inline
-+#endif
-+#endif /* defined(__KERNEL__) && !defined(__ASSEMBLY__) */
 +
-+#endif /* _ASM_GENERIC_KPROBES_H */
-diff --git a/include/linux/compiler.h b/include/linux/compiler.h
-index cf0fa5d86059..dca49b4099da 100644
---- a/include/linux/compiler.h
-+++ b/include/linux/compiler.h
-@@ -566,12 +566,4 @@ static __always_inline void __write_once_size(volatile void *p, void *res, int s
- 	(_________p1); \
- })
- 
--/* Ignore/forbid kprobes attach on very low level functions marked by this attribute: */
--#ifdef CONFIG_KPROBES
--# define __kprobes	__attribute__((__section__(".kprobes.text")))
--# define nokprobe_inline	__always_inline
--#else
--# define __kprobes
--# define nokprobe_inline	inline
--#endif
- #endif /* __LINUX_COMPILER_H */
-diff --git a/include/linux/kprobes.h b/include/linux/kprobes.h
-index 8f6849084248..985ed79ef431 100644
---- a/include/linux/kprobes.h
-+++ b/include/linux/kprobes.h
-@@ -29,7 +29,7 @@
-  *		<jkenisto@us.ibm.com>  and Prasanna S Panchamukhi
-  *		<prasanna@in.ibm.com> added function-return probes.
-  */
--#include <linux/compiler.h>	/* for __kprobes */
-+#include <linux/compiler.h>
- #include <linux/linkage.h>
- #include <linux/list.h>
- #include <linux/notifier.h>
-@@ -40,9 +40,9 @@
- #include <linux/rcupdate.h>
- #include <linux/mutex.h>
- #include <linux/ftrace.h>
-+#include <asm/kprobes.h>
- 
- #ifdef CONFIG_KPROBES
--#include <asm/kprobes.h>
- 
- /* kprobe_status settings */
- #define KPROBE_HIT_ACTIVE	0x00000001
-@@ -51,6 +51,7 @@
- #define KPROBE_HIT_SSDONE	0x00000008
- 
- #else /* CONFIG_KPROBES */
-+#include <asm-generic/kprobes.h>
- typedef int kprobe_opcode_t;
- struct arch_specific_insn {
- 	int dummy;
-@@ -481,18 +482,4 @@ static inline int enable_jprobe(struct jprobe *jp)
- 	return enable_kprobe(&jp->kp);
- }
- 
--#ifdef CONFIG_KPROBES
--/*
-- * Blacklist ganerating macro. Specify functions which is not probed
-- * by using this macro.
-- */
--#define __NOKPROBE_SYMBOL(fname)			\
--static unsigned long __used				\
--	__attribute__((section("_kprobe_blacklist")))	\
--	_kbl_addr_##fname = (unsigned long)fname;
--#define NOKPROBE_SYMBOL(fname)	__NOKPROBE_SYMBOL(fname)
--#else
--#define NOKPROBE_SYMBOL(fname)
--#endif
--
- #endif /* _LINUX_KPROBES_H */
--- 
++/*
++ * This driver provides an interface to trigger and test the linker table =
+API
++ * through a series of configurations and a few triggers. This driver
++ * must be built-in as linker tables currently lack generalized modular
++ * support -- additional work is required on each module right now if you
++ * want to use linker tables, in the future we may make this much easier.
++ * For now just build this into your kernel.
++ *
++ * echo -n .text > /sys/devices/virtual/misc/test_linktable/config_section=
+_name
++ * echo -n 3 > /sys/devices/virtual/misc/test_linktable/config_input
++ * echo 1 > /sys/devices/virtual/misc/test_linktable/trigger_config
++ * cat /sys/devices/virtual/misc/test_linktable/test_result
++ * 30
++ *
++ * echo -n .data > /sys/devices/virtual/misc/test_linktable/config_section=
+_name
++ * echo -n .text > /sys/devices/virtual/misc/test_linktable/config_section=
+_name
++ * echo -n .rodata > /sys/devices/virtual/misc/test_linktable/config_secti=
+on_name
++ *
++ * To check the configuration:
++ *
++ * cat /sys/devices/virtual/misc/test_linktable/config
++ *
++ * NUM_TESTS
++ *    =E2=88=91        test(n, input)
++ *   n=3D0
++ *
++ * Each linker table entry on each section has a series of entries. Each e=
+ntry
++ * has a function which just multiplies the test case number by input valu=
+e.
++ *
++ * ...
++ * test-linktables-03.c multiplies (3 * input)
++ * test-linktables-04.c multiplies (4 * input)
++ * ...
++ *
++ * A full run on a section produces the sum of these values. So with input=
+ set
++ * to 3 we have:
++ *
++ * (0 * 3) + (1 * 3) + (2 * 3) + (3 * 3) + (4 * 3)
++ *    0    +    3    +    6    +   9     +  12
++ *                    30
++ *
++ * This is nothing important, its just a basic test. We had to pick someth=
+ing.
++ * Other than the above tests, this also demos and shows proper const use =
+on
++ * all sections which we need as read-only: .text, .init.text, .rodata.
++ * Furthermore it does a silly write test to ensure write works on .data a=
+nd
++ * init.data. Since the read-only sections use const we obviously are forc=
+ed
++ * by the compiler to not be able to write to these sections.
++ *
++ * One of the more important items, the order, is tested. We could develop
++ * a fancy simple math algorithm that depends on order for correctness but
++ * instead we just annotate the expected order as we run. If the order lis=
+ted
++ * on test->expected does not match with the actual order a routine was run
++ * in then we fail and complain.
++ */
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
++#include <linux/tables.h>
++#include <linux/printk.h>
++#include <linux/module.h>
++#include <linux/miscdevice.h>
++#include <linux/vmalloc.h>
++#include <linux/slab.h>
++
++#include "test-linktables.h"
++
++#define NUM_TESTS __LINKTABLE_TESTS
++
++struct linktable_test_device *__test_dev =3D NULL;
++static bool init_completed =3D false;
++
++static const char *test_dev_name =3D "test_linktable";
++
++/*
++ * Used for the default test to start configuration with if we reset the
++ * test from scratch. Don't use .init.* sections given we can only test
++ * these on init, when init_completed is true we can't .init.* section
++ * code anymore.
++ */
++#define TEST_SECTION_START ".data"
++
++DEFINE_LINKTABLE(struct test_linktable, test_fns_data);
++DEFINE_LINKTABLE_TEXT(struct test_linktable, test_fns_text);
++DEFINE_LINKTABLE_RO(struct test_linktable, test_fns_rodata);
++DEFINE_LINKTABLE_INIT(struct test_linktable, test_fns_init_text);
++DEFINE_LINKTABLE_INIT_DATA(struct test_linktable, test_fns_init_data);
++
++struct test_config {
++	char *section_name;
++	int input;
++	int test_result;
++};
++
++/**
++ * linktable_test_device - test device to help test linker tables
++ *
++ * @dev_idx: unique ID for test device
++ * @misc_dev: we use a misc device under the hood
++ * @dev: pointer to misc_dev's own struct device
++ * @config_mutex: protects configuration of test
++ * @trigger_mutex: the test trigger can only be fired once at a time
++ */
++struct linktable_test_device {
++	struct test_config config;
++	struct miscdevice misc_dev;
++	struct device *dev;
++	struct mutex config_mutex;
++	struct mutex trigger_mutex;
++	unsigned int num_called;
++};
++
++/**
++ * enum linktable_test_case - linker table test case
++ *
++ * @TEST_LINKTABLE_INIT: tests .init.text (this is all const)
++ * @TEST_LINKTABLE_INIT_DATA: tests .init.data
++ * @TEST_LINKTABLE: tests .data
++ * @TEST_LINKTABLE_TEXT: tests .text (this is all const)
++ * @TEST_LINKTABLE_RO: tests .rodata (this is all const)
++ */
++enum linktable_test_case {
++	__TEST_LINKTABLE_INVALID =3D 0,
++
++	TEST_LINKTABLE_INIT,
++	TEST_LINKTABLE_INIT_DATA,
++	TEST_LINKTABLE,
++	TEST_LINKTABLE_TEXT,
++	TEST_LINKTABLE_RO,
++};
++
++static struct miscdevice *dev_to_misc_dev(struct device *dev)
++{
++	return dev_get_drvdata(dev);
++}
++
++static
++struct linktable_test_device *misc_dev_to_test_dev(struct miscdevice *misc=
+_dev)
++{
++	return container_of(misc_dev, struct linktable_test_device, misc_dev);
++}
++
++static struct linktable_test_device *dev_to_test_dev(struct device *dev)
++{
++	struct miscdevice *misc_dev;
++
++	misc_dev =3D dev_to_misc_dev(dev);
++
++	return misc_dev_to_test_dev(misc_dev);
++}
++
++static ssize_t config_show(struct device *dev,
++			   struct device_attribute *attr,
++			   char *buf)
++{
++	struct linktable_test_device *test_dev =3D dev_to_test_dev(dev);
++	struct test_config *config =3D &test_dev->config;
++	int len =3D 0;
++
++	mutex_lock(&test_dev->config_mutex);
++
++	len +=3D snprintf(buf, PAGE_SIZE,
++			"Custom trigger configuration for: %s\n",
++			dev_name(dev));
++
++	if (config->section_name)
++		len +=3D snprintf(buf+len, PAGE_SIZE,
++				"section name:\t%s\n",
++				config->section_name);
++	else
++		len +=3D snprintf(buf+len, PAGE_SIZE,
++				"default name:\tEMTPY\n");
++
++	mutex_unlock(&test_dev->config_mutex);
++
++	return len;
++}
++static DEVICE_ATTR_RO(config);
++
++static int write_test(struct test_linktable *test, int write_val)
++{
++	test->write_test =3D write_val;
++	if (test->write_test !=3D write_val) {
++		pr_warn("Write test failed\n");
++		return -EPERM;
++	}
++	return 0;
++}
++
++static int __test_linktable(struct linktable_test_device *test_dev,
++			    struct test_linktable *test)
++{
++	struct test_config *config =3D &test_dev->config;
++	int rc;
++
++	if (test->expected !=3D test_dev->num_called) {
++		pr_warn("test routine ID %d called on order %d\n",
++			test->expected, test_dev->num_called);
++		return -EINVAL;
++	}
++
++	rc =3D write_test(test, test->expected+1);
++	if (rc)
++		return rc;
++
++	rc =3D test->op(config->input);
++	test_dev->num_called++;
++
++	return rc;
++}
++
++static int __test_linktable_ro(struct linktable_test_device *test_dev,
++			       const struct test_linktable *test)
++{
++	struct test_config *config =3D &test_dev->config;
++	int rc;
++
++	if (test->expected !=3D test_dev->num_called) {
++		pr_info("test routine ID %d called on order %d\n",
++			test->expected, test_dev->num_called);
++		return -EINVAL;
++	}
++
++	/*
++	 * Note, compiler would complain if we tried write_test() so
++	 * no need to test that.
++	 */
++
++	rc =3D test->op(config->input);
++	test_dev->num_called++;
++
++	return rc;
++}
++
++static enum linktable_test_case get_test_case(const char *section_name)
++{
++	if (strcmp(".init.text", section_name) =3D 0)
++		return TEST_LINKTABLE_INIT;
++	if (strcmp(".init.data", section_name) =3D 0)
++		return TEST_LINKTABLE_INIT_DATA;
++	if (strcmp(".data", section_name) =3D 0)
++		return TEST_LINKTABLE;
++	if (strcmp(".text", section_name) =3D 0)
++		return TEST_LINKTABLE_TEXT;
++	if (strcmp(".rodata", section_name) =3D 0)
++		return TEST_LINKTABLE_TEXT;
++
++	return __TEST_LINKTABLE_INVALID;
++}
++
++static int __run_sanity_test(struct linktable_test_device *test_dev,
++			     int num_entries)
++{
++	if (!num_entries) {
++		pr_warn("no tests -- this is invalid\n");
++		return -EINVAL;
++	}
++
++	pr_debug("number of tests: %d\n", num_entries);
++
++	if (num_entries !=3D NUM_TESTS) {
++		pr_warn("expected: %d test\n", NUM_TESTS);
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
++static int __init run_init_text_test(struct linktable_test_device *test_de=
+v)
++{
++	int ret, total =3D 0;
++	const struct test_linktable *test;
++	unsigned int num_entries =3D LINKTABLE_SIZE(test_fns_init_text);
++
++	ret =3D __run_sanity_test(test_dev, num_entries);
++	if (ret)
++		return ret;
++
++	linktable_for_each(test, test_fns_init_text)
++		total +=3D __test_linktable_ro(test_dev, test);
++
++	return total;
++}
++
++static int __init run_init_data_test(struct linktable_test_device *test_de=
+v)
++{
++	int ret, total =3D 0;
++	struct test_linktable *test;
++	unsigned int num_entries =3D LINKTABLE_SIZE(test_fns_init_data);
++
++	ret =3D __run_sanity_test(test_dev, num_entries);
++	if (ret)
++		return ret;
++
++	linktable_for_each(test, test_fns_init_data)
++		total +=3D __test_linktable(test_dev, test);
++
++	return total;
++}
++
++static int run_data_test(struct linktable_test_device *test_dev)
++{
++	int ret, total =3D 0;
++	struct test_linktable *test;
++	unsigned int num_entries =3D LINKTABLE_SIZE(test_fns_data);
++
++	ret =3D __run_sanity_test(test_dev, num_entries);
++	if (ret)
++		return ret;
++
++	linktable_for_each(test, test_fns_data)
++		total +=3D __test_linktable(test_dev, test);
++
++	return total;
++}
++
++static int run_text_test(struct linktable_test_device *test_dev)
++{
++	int ret, total =3D 0;
++	const struct test_linktable *test;
++	unsigned int num_entries =3D LINKTABLE_SIZE(test_fns_text);
++
++	ret =3D __run_sanity_test(test_dev, num_entries);
++	if (ret)
++		return ret;
++
++	linktable_for_each(test, test_fns_text)
++		total +=3D __test_linktable_ro(test_dev, test);
++
++	return total;
++}
++
++static int run_rodata_test(struct linktable_test_device *test_dev)
++{
++	int ret, total =3D 0;
++	const struct test_linktable *test;
++	unsigned int num_entries =3D LINKTABLE_SIZE(test_fns_rodata);
++
++	ret =3D __run_sanity_test(test_dev, num_entries);
++	if (ret)
++		return ret;
++
++	linktable_for_each(test, test_fns_rodata)
++		total +=3D __test_linktable_ro(test_dev, test);
++
++	return total;
++}
++
++static int __ref __trigger_config_run(struct linktable_test_device *test_d=
+ev)
++{
++	enum linktable_test_case test_case;
++	struct test_config *config =3D &test_dev->config;
++
++	test_dev->num_called =3D 0;
++	test_case =3D get_test_case(config->section_name);
++
++	switch (test_case) {
++	case TEST_LINKTABLE_INIT:
++		if (!init_completed)
++			return run_init_text_test(test_dev);
++		else
++			return -EACCES;
++	case TEST_LINKTABLE_INIT_DATA:
++		if (!init_completed)
++			return run_init_data_test(test_dev);
++		else
++			return -EACCES;
++	case TEST_LINKTABLE:
++		return run_data_test(test_dev);
++	case TEST_LINKTABLE_TEXT:
++		return run_text_test(test_dev);
++	case TEST_LINKTABLE_RO:
++		return run_rodata_test(test_dev);
++	default:
++		pr_warn("Invalid test case requested: %s\n",
++			config->section_name);
++		return -EINVAL;
++	}
++}
++
++static int trigger_config_run(struct linktable_test_device *test_dev)
++{
++	struct test_config *config =3D &test_dev->config;
++	int rc;
++
++	mutex_lock(&test_dev->trigger_mutex);
++	mutex_lock(&test_dev->config_mutex);
++
++	pr_debug("running test on '%s'\n", config->section_name);
++
++	rc =3D __trigger_config_run(test_dev);
++
++	config->test_result =3D rc;
++	pr_debug("result: %d\n", rc);
++
++	if (rc < 0) {
++		rc =3D -EINVAL;
++		goto out;
++	}
++
++	rc =3D 0;
++
++out:
++	mutex_unlock(&test_dev->config_mutex);
++	mutex_unlock(&test_dev->trigger_mutex);
++
++	return rc;
++}
++
++static ssize_t
++trigger_config_store(struct device *dev,
++		     struct device_attribute *attr,
++		     const char *buf, size_t count)
++{
++	struct linktable_test_device *test_dev =3D dev_to_test_dev(dev);
++	int rc;
++
++	rc =3D trigger_config_run(test_dev);
++	if (rc)
++		goto out;
++
++	rc =3D count;
++out:
++	return rc;
++}
++static DEVICE_ATTR_WO(trigger_config);
++
++/*
++ * XXX: move to kstrncpy() once merged.
++ *
++ * Users should use kfree_const() when freeing these.
++ */
++static int __kstrncpy(char **dst, const char *name, size_t count, gfp_t gf=
+p)
++{
++	*dst =3D kstrndup(name, count, gfp);
++	if (!*dst)
++		return -ENOSPC;
++	return count;
++}
++
++static int config_copy_section_name(struct test_config *config,
++				    const char *name,
++				    size_t count)
++{
++	return __kstrncpy(&config->section_name, name, count, GFP_KERNEL);
++}
++
++static void __linktable_config_free(struct test_config *config)
++{
++	kfree_const(config->section_name);
++	config->section_name =3D NULL;
++}
++
++static void linktable_config_free(struct linktable_test_device *test_dev)
++{
++	struct test_config *config =3D &test_dev->config;
++
++	mutex_lock(&test_dev->config_mutex);
++	__linktable_config_free(config);
++	mutex_unlock(&test_dev->config_mutex);
++}
++
++static ssize_t config_section_name_store(struct device *dev,
++					 struct device_attribute *attr,
++					 const char *buf, size_t count)
++{
++	struct linktable_test_device *test_dev =3D dev_to_test_dev(dev);
++	struct test_config *config =3D &test_dev->config;
++	int rc;
++
++	mutex_lock(&test_dev->config_mutex);
++	rc =3D config_copy_section_name(config, buf, count);
++	mutex_unlock(&test_dev->config_mutex);
++
++	return rc;
++}
++
++/*
++ * As per sysfs_kf_seq_show() the buf is max PAGE_SIZE.
++ */
++static ssize_t config_test_show_str(struct mutex *config_mutex,
++				    char *dst,
++				    char *src)
++{
++	int len;
++
++	mutex_lock(config_mutex);
++	len =3D snprintf(dst, PAGE_SIZE, "%s\n", src);
++	mutex_unlock(config_mutex);
++
++	return len;
++}
++
++static ssize_t config_section_name_show(struct device *dev,
++					struct device_attribute *attr,
++					char *buf)
++{
++	struct linktable_test_device *test_dev =3D dev_to_test_dev(dev);
++	struct test_config *config =3D &test_dev->config;
++
++	return config_test_show_str(&test_dev->config_mutex, buf,
++				    config->section_name);
++}
++static DEVICE_ATTR(config_section_name, 0644, config_section_name_show,
++		   config_section_name_store);
++
++static int trigger_config_run_named(struct linktable_test_device *test_dev,
++				    const char *section_name)
++{
++	int copied;
++	struct test_config *config =3D &test_dev->config;
++
++	mutex_lock(&test_dev->config_mutex);
++	copied =3D config_copy_section_name(config, section_name,
++					  strlen(section_name));
++	mutex_unlock(&test_dev->config_mutex);
++
++	if (copied <=3D0 || copied !=3D strlen(section_name))
++		return -EINVAL;
++
++	return trigger_config_run(test_dev);
++}
++
++static int __linktable_config_init(struct test_config *config)
++{
++	int ret;
++
++	ret =3D config_copy_section_name(config, TEST_SECTION_START,
++				       strlen(TEST_SECTION_START));
++	if (ret < 0)
++		goto out;
++
++	config->input =3D 3;
++	config->test_result =3D 0;
++
++out:
++	return ret;
++}
++
++static ssize_t reset_store(struct device *dev,
++			   struct device_attribute *attr,
++			   const char *buf, size_t count)
++{
++	struct linktable_test_device *test_dev =3D dev_to_test_dev(dev);
++	struct test_config *config =3D &test_dev->config;
++	int ret;
++
++	mutex_lock(&test_dev->trigger_mutex);
++	mutex_lock(&test_dev->config_mutex);
++
++	__linktable_config_free(config);
++
++	ret =3D __linktable_config_init(config);
++	if (ret < 0) {
++		ret =3D -ENOMEM;
++		dev_err(dev, "could not alloc settings for config trigger: %d\n",
++		       ret);
++		goto out;
++	}
++
++	dev_info(dev, "reset\n");
++	ret =3D count;
++
++out:
++	mutex_unlock(&test_dev->config_mutex);
++	mutex_unlock(&test_dev->trigger_mutex);
++
++	return ret;
++}
++static DEVICE_ATTR_WO(reset);
++
++static int test_dev_config_update_int(struct linktable_test_device *test_d=
+ev,
++				      const char *buf, size_t size,
++				      int *config)
++{
++	char *end;
++	long new =3D simple_strtol(buf, &end, 0);
++	if (end =3D buf || new > INT_MAX || new < INT_MIN)
++		return -EINVAL;
++	mutex_lock(&test_dev->config_mutex);
++	*config =3D new;
++	mutex_unlock(&test_dev->config_mutex);
++	/* Always return full write size even if we didn't consume all */
++	return size;
++}
++
++static ssize_t test_dev_config_show_int(struct linktable_test_device *test=
+_dev,
++					char *buf,
++					int config)
++{
++	int val;
++
++	mutex_lock(&test_dev->config_mutex);
++	val =3D config;
++	mutex_unlock(&test_dev->config_mutex);
++
++	return snprintf(buf, PAGE_SIZE, "%d\n", val);
++}
++
++static ssize_t test_result_store(struct device *dev,
++				 struct device_attribute *attr,
++				 const char *buf, size_t count)
++{
++	struct linktable_test_device *test_dev =3D dev_to_test_dev(dev);
++	struct test_config *config =3D &test_dev->config;
++
++	return test_dev_config_update_int(test_dev, buf, count,
++					  &config->test_result);
++}
++
++static ssize_t config_input_store(struct device *dev,
++				  struct device_attribute *attr,
++				  const char *buf, size_t count)
++{
++	struct linktable_test_device *test_dev =3D dev_to_test_dev(dev);
++	struct test_config *config =3D &test_dev->config;
++
++	return test_dev_config_update_int(test_dev, buf, count,
++					  &config->input);
++}
++
++static ssize_t config_input_show(struct device *dev,
++				 struct device_attribute *attr,
++				 char *buf)
++{
++	struct linktable_test_device *test_dev =3D dev_to_test_dev(dev);
++	struct test_config *config =3D &test_dev->config;
++
++	return test_dev_config_show_int(test_dev, buf, config->input);
++}
++static DEVICE_ATTR(config_input, 0644, config_input_show, config_input_sto=
+re);
++
++static ssize_t test_result_show(struct device *dev,
++				struct device_attribute *attr,
++				char *buf)
++{
++	struct linktable_test_device *test_dev =3D dev_to_test_dev(dev);
++	struct test_config *config =3D &test_dev->config;
++
++	return test_dev_config_show_int(test_dev, buf, config->test_result);
++}
++static DEVICE_ATTR(test_result, 0644, test_result_show, test_result_store);
++
++#define LINKTABLE_DEV_ATTR(name)		&dev_attr_##name.attr
++
++static struct attribute *test_dev_attrs[] =3D {
++	LINKTABLE_DEV_ATTR(trigger_config),
++	LINKTABLE_DEV_ATTR(config),
++	LINKTABLE_DEV_ATTR(reset),
++
++	LINKTABLE_DEV_ATTR(config_section_name),
++	LINKTABLE_DEV_ATTR(config_input),
++	LINKTABLE_DEV_ATTR(test_result),
++
++	NULL,
++};
++
++ATTRIBUTE_GROUPS(test_dev);
++
++static int linktable_config_init(struct linktable_test_device *test_dev)
++{
++	struct test_config *config =3D &test_dev->config;
++	int ret;
++
++	mutex_lock(&test_dev->config_mutex);
++	ret =3D __linktable_config_init(config);
++	mutex_unlock(&test_dev->config_mutex);
++
++	return ret;
++}
++
++static struct linktable_test_device *alloc_test_dev_linktable(void)
++{
++	int rc;
++	struct linktable_test_device *test_dev;
++	struct miscdevice *misc_dev;
++
++	test_dev =3D vmalloc(sizeof(struct linktable_test_device));
++	if (!test_dev) {
++		pr_err("Cannot alloc test_dev\n");
++		goto err_out;
++	}
++
++	memset(test_dev, 0, sizeof(struct linktable_test_device));
++
++	mutex_init(&test_dev->config_mutex);
++	mutex_init(&test_dev->trigger_mutex);
++
++	rc =3D linktable_config_init(test_dev);
++	if (rc < 0) {
++		pr_err("Cannot alloc linktable_config_init()\n");
++		goto err_out_free;
++	}
++
++	misc_dev =3D &test_dev->misc_dev;
++
++	misc_dev->minor =3D MISC_DYNAMIC_MINOR;
++	misc_dev->name =3D test_dev_name;
++	misc_dev->groups =3D test_dev_groups;
++
++	return test_dev;
++
++err_out_free:
++	kfree(test_dev);
++err_out:
++	return NULL;
++}
++
++static void free_test_dev_linktable(struct linktable_test_device *test_dev)
++{
++	test_dev->misc_dev.name =3D NULL;
++	vfree(test_dev);
++	test_dev =3D NULL;
++	linktable_config_free(test_dev);
++}
++
++static struct linktable_test_device *register_test_dev_linktable(void)
++{
++	struct linktable_test_device *test_dev =3D NULL;
++	int rc;
++
++	test_dev =3D alloc_test_dev_linktable();
++	if (!test_dev) {
++		return NULL;
++	}
++
++	rc =3D misc_register(&test_dev->misc_dev);
++	if (rc) {
++		pr_err("could not register misc device: %d\n", rc);
++		free_test_dev_linktable(test_dev);
++		return NULL;
++	}
++
++	test_dev->dev =3D test_dev->misc_dev.this_device;
++	dev_dbg(test_dev->dev, "interface ready\n");
++
++	return test_dev;
++}
++
++static int __init test_linktable_init(void)
++{
++	struct linktable_test_device *test_dev;
++	int rc;
++
++	test_dev =3D register_test_dev_linktable();
++	if (!test_dev) {
++		pr_err("Cannot add test linktable device\n");
++		return -ENODEV;
++	}
++
++	rc =3D trigger_config_run_named(test_dev, ".init.text");
++	if (WARN_ON(rc))
++		return rc;
++	rc =3D trigger_config_run_named(test_dev, ".init.data");
++	if (WARN_ON(rc))
++		return rc;
++
++	init_completed =3D true;
++
++	rc =3D trigger_config_run_named(test_dev, ".data");
++	if (WARN_ON(rc))
++		return rc;
++	rc =3D trigger_config_run_named(test_dev, ".text");
++	if (WARN_ON(rc))
++		return rc;
++	rc =3D trigger_config_run_named(test_dev, ".rodata");
++	if (WARN_ON(rc))
++		return rc;
++
++	pr_info("linker table tests: OK!\n");
++
++	return 0;
++}
++late_initcall(test_linktable_init);
++
++static
++void unregister_test_dev_linktable(struct linktable_test_device *test_dev)
++{
++	dev_info(test_dev->dev, "removing interface\n");
++	misc_deregister(&test_dev->misc_dev);
++	free_test_dev_linktable(test_dev);
++}
++
++static void __exit test_linktable_exit(void)
++{
++	struct linktable_test_device *test_dev =3D __test_dev;
++
++	unregister_test_dev_linktable(test_dev);
++}
++module_exit(test_linktable_exit);
++
++MODULE_AUTHOR("Luis R. Rodriguez <mcgrof@kernel.org>");
++MODULE_LICENSE("GPL");
+diff --git a/lib/test_linktables/test-linktables.h b/lib/test_linktables/te=
+st-linktables.h
+new file mode 100644
+index 000000000000..c9c9d5c87263
+--- /dev/null
++++ b/lib/test_linktables/test-linktables.h
+@@ -0,0 +1,48 @@
++#include <linux/tables.h>
++
++struct test_linktable {
++	int expected;
++	int write_test;
++	int (*op)(int input_digit);
++};
++
++#define test_linktable_init_text(__level, __op)				\
++	static LINKTABLE_INIT(test_fns_init_text, __level)		\
++	__test_fn_init_text_##__op =3D {					\
++		.expected =3D __level,					\
++		.op =3D __op,						\
++};
++
++#define test_linktable_init_data(__level, __op)				\
++	static LINKTABLE_INIT_DATA(test_fns_init_data, __level)		\
++	__test_fn_init_data_##__op =3D {					\
++		.expected =3D __level,					\
++		.op =3D __op,						\
++};
++
++#define test_linktable(__level, __op)					\
++	static LINKTABLE(test_fns_data, __level)			\
++	__test_fn_data_##__op =3D {					\
++		.expected =3D __level,					\
++		.op =3D __op,						\
++};
++
++#define test_linktable_text(__level, __op)				\
++	static LINKTABLE_TEXT(test_fns_text, __level)			\
++	__test_fn_text_##__op =3D {					\
++		.expected =3D __level,					\
++		.op =3D __op,						\
++};
++
++#define test_linktable_rodata(__level, __op)				\
++	static LINKTABLE_RO(test_fns_rodata, __level)			\
++	__test_fn_rodata_##__op =3D {					\
++		.expected =3D __level,					\
++		.op =3D __op,						\
++};
++
++DECLARE_LINKTABLE_RO(struct test_linktable, test_fns_init_text);
++DECLARE_LINKTABLE(struct test_linktable, test_fns_init_data);
++DECLARE_LINKTABLE(struct test_linktable, test_fns_data);
++DECLARE_LINKTABLE_RO(struct test_linktable, test_fns_text);
++DECLARE_LINKTABLE_RO(struct test_linktable, test_fns_rodata);
+--=20
 2.11.0
 
