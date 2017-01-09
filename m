@@ -1,176 +1,57 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Mon, 09 Jan 2017 20:40:01 +0000
-Subject: [PATCH 01/10] ia64: move ia64_done_with_exception out of asm/uaccess.h
-Message-Id: <20170109204010.5047-2-paul.gortmaker@windriver.com>
+From: "Luis R. Rodriguez" <mcgrof@kernel.org>
+Date: Mon, 09 Jan 2017 15:02:47 +0000
+Subject: [PATCH v3 4/6] tools: expand export.h with VMLINUX_SYMBOL()
+Message-Id: <20170109150249.11667-5-mcgrof@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20170109204010.5047-1-paul.gortmaker@windriver.com>
-In-Reply-To: <20170109204010.5047-1-paul.gortmaker@windriver.com>
+References: <20161222023958.21306-1-mcgrof@kernel.org>
+ <20170109150249.11667-1-mcgrof@kernel.org>
+In-Reply-To: <20170109150249.11667-1-mcgrof@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Al Viro <viro@zeniv.linux.org.uk>, linux-ia64@vger.kernel.org
+To: hpa@zytor.com, acme@redhat.com, tglx@linutronix.de, mingo@redhat.com, jpoimboe@redhat.com, bp@alien8.de, npiggin@gmail.com, mhiramat@kernel.org, masami.hiramatsu.pt@hitachi.com, jbaron@akamai.com, heiko.carstens@de.ibm.com, ananth@linux.vnet.ibm.com, anil.s.keshavamurthy@intel.com, davem@davemloft.net, realmz6@gmail.com, dalias@libc.org, linux@arm.linux.org.uk
+Cc: x86@kernel.org, luto@amacapital.net, keescook@chromium.org, linux@roeck-us.net, torvalds@linux-foundation.org, gregkh@linuxfoundation.org, rusty@rustcorp.com.au, gnomes@lxorguk.ukuu.org.uk, alan@linux.intel.com, dwmw2@infradead.org, arnd@arndb.de, ming.lei@canonical.com, linux-arch@vger.kernel.org, benh@kernel.crashing.org, pebolle@tiscali.nl, fontana@sharpeleven.org, david.vrabel@citrix.com, konrad.wilk@oracle.com, mcb30@ipxe.org, jgross@suse.com, andrew.cooper3@citrix.com, andriy.shevchenko@linux.intel.com, paul.gortmaker@windriver.com, xen-devel@lists.xensource.com, ak@linux.intel.com, pali.rohar@gmail.com, dvhart@infradead.org, platform-driver-x86@vger.kernel.org, mmarek@suse.com, linux@rasmusvillemoes.dk, jkosina@suse.cz, korea.drzix@gmail.com, linux-kbuild@vger.kernel
 
-Move ia64_done_with_exception out of asm/uaccess.h (which is widely
-used) and into asm/exception.h (like ARM has) and then ensure the
-few callers of it include this new header.
+This will be used later by the linker-table userspace sandbox.
 
-Most of the other C content in asm files is implemented in macro form.
-So we do that conversion at the same time as the move.
-
-There are two C exception prototypes that move along with the macro.
-One of them will become redundant when we switch over to using the
-<linux/extable.h> instead of <linux/module.h> header in a subsequent
-commit.
-
-Also relocate a couple of the automated asm --> linux uaccess
-conversions to preserve the linux and asm independent grouping, since
-we are in the file at that location anyway.
-
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: Al Viro <viro@zeniv.linux.org.uk>
-Cc: linux-ia64@vger.kernel.org
-Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+Signed-off-by: Luis R. Rodriguez <mcgrof@kernel.org>
 ---
- arch/ia64/include/asm/exception.h | 36 ++++++++++++++++++++++++++++++++++++
- arch/ia64/include/asm/uaccess.h   | 15 ---------------
- arch/ia64/kernel/kprobes.c        |  2 +-
- arch/ia64/kernel/traps.c          |  3 ++-
- arch/ia64/kernel/unaligned.c      |  3 ++-
- arch/ia64/mm/fault.c              |  1 +
- 6 files changed, 42 insertions(+), 18 deletions(-)
- create mode 100644 arch/ia64/include/asm/exception.h
+ tools/include/linux/export.h | 22 ++++++++++++++++++++++
+ 1 file changed, 22 insertions(+)
 
-diff --git a/arch/ia64/include/asm/exception.h b/arch/ia64/include/asm/exception.h
-new file mode 100644
-index 000000000000..d90236090e8c
---- /dev/null
-+++ b/arch/ia64/include/asm/exception.h
-@@ -0,0 +1,36 @@
+diff --git a/tools/include/linux/export.h b/tools/include/linux/export.h
+index d07e586b9ba0..cb7d6b490e08 100644
+--- a/tools/include/linux/export.h
++++ b/tools/include/linux/export.h
+@@ -1,6 +1,28 @@
+ #ifndef _TOOLS_LINUX_EXPORT_H_
+ #define _TOOLS_LINUX_EXPORT_H_
+ 
 +/*
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
++ * Export symbols from the kernel to modules.  Forked from module.h
++ * to reduce the amount of pointless cruft we feed to gcc when only
++ * exporting a simple symbol or two.
 + *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
++ * Try not to add #includes here.  It slows compilation and makes kernel
++ * hackers place grumpy comments in header files.
 + */
-+#ifndef __ASM_EXCEPTION_H
-+#define __ASM_EXCEPTION_H
 +
-+struct pt_regs;
-+struct exception_table_entry;
++/* Some toolchains use a `_' prefix for all user symbols. */
++#ifdef CONFIG_HAVE_UNDERSCORE_SYMBOL_PREFIX
++#define __VMLINUX_SYMBOL(x) _##x
++#define __VMLINUX_SYMBOL_STR(x) "_" #x
++#else
++#define __VMLINUX_SYMBOL(x) x
++#define __VMLINUX_SYMBOL_STR(x) #x
++#endif
 +
-+extern void ia64_handle_exception(struct pt_regs *regs,
-+				  const struct exception_table_entry *e);
-+extern const struct exception_table_entry *search_exception_tables(unsigned long addr);
++/* Indirect, so macros are expanded before pasting. */
++#define VMLINUX_SYMBOL(x) __VMLINUX_SYMBOL(x)
++#define VMLINUX_SYMBOL_STR(x) __VMLINUX_SYMBOL_STR(x)
 +
-+#define ia64_done_with_exception(regs)					  \
-+({									  \
-+	int __ex_ret = 0;						  \
-+	const struct exception_table_entry *e;				  \
-+	e = search_exception_tables((regs)->cr_iip + ia64_psr(regs)->ri); \
-+	if (e) {							  \
-+		ia64_handle_exception(regs, e);				  \
-+		__ex_ret = 1;						  \
-+	}								  \
-+	__ex_ret;							  \
-+})
-+
-+#endif	/* __ASM_EXCEPTION_H */
-diff --git a/arch/ia64/include/asm/uaccess.h b/arch/ia64/include/asm/uaccess.h
-index bfe13196f770..471044be2a3b 100644
---- a/arch/ia64/include/asm/uaccess.h
-+++ b/arch/ia64/include/asm/uaccess.h
-@@ -353,21 +353,6 @@ struct exception_table_entry {
- 	int fixup;	/* location-relative continuation addr.; if bit 2 is set, r9 is set to 0 */
- };
- 
--extern void ia64_handle_exception (struct pt_regs *regs, const struct exception_table_entry *e);
--extern const struct exception_table_entry *search_exception_tables (unsigned long addr);
--
--static inline int
--ia64_done_with_exception (struct pt_regs *regs)
--{
--	const struct exception_table_entry *e;
--	e = search_exception_tables(regs->cr_iip + ia64_psr(regs)->ri);
--	if (e) {
--		ia64_handle_exception(regs, e);
--		return 1;
--	}
--	return 0;
--}
--
- #define ARCH_HAS_TRANSLATE_MEM_PTR	1
- static __inline__ void *
- xlate_dev_mem_ptr(phys_addr_t p)
-diff --git a/arch/ia64/kernel/kprobes.c b/arch/ia64/kernel/kprobes.c
-index 45ff27e9edbb..55b18e1b67a8 100644
---- a/arch/ia64/kernel/kprobes.c
-+++ b/arch/ia64/kernel/kprobes.c
-@@ -33,7 +33,7 @@
- 
- #include <asm/pgtable.h>
- #include <asm/sections.h>
--#include <linux/uaccess.h>
-+#include <asm/exception.h>
- 
- extern void jprobe_inst_return(void);
- 
-diff --git a/arch/ia64/kernel/traps.c b/arch/ia64/kernel/traps.c
-index 095bfaff82d0..d3e1f1ee465f 100644
---- a/arch/ia64/kernel/traps.c
-+++ b/arch/ia64/kernel/traps.c
-@@ -17,11 +17,12 @@
- #include <linux/kprobes.h>
- #include <linux/delay.h>		/* for ssleep() */
- #include <linux/kdebug.h>
-+#include <linux/uaccess.h>
- 
- #include <asm/fpswa.h>
- #include <asm/intrinsics.h>
- #include <asm/processor.h>
--#include <linux/uaccess.h>
-+#include <asm/exception.h>
- #include <asm/setup.h>
- 
- fpswa_interface_t *fpswa_interface;
-diff --git a/arch/ia64/kernel/unaligned.c b/arch/ia64/kernel/unaligned.c
-index 9cd01c2200ee..e697403b0ec1 100644
---- a/arch/ia64/kernel/unaligned.c
-+++ b/arch/ia64/kernel/unaligned.c
-@@ -18,11 +18,12 @@
- #include <linux/sched.h>
- #include <linux/tty.h>
- #include <linux/ratelimit.h>
-+#include <linux/uaccess.h>
- 
- #include <asm/intrinsics.h>
- #include <asm/processor.h>
- #include <asm/rse.h>
--#include <linux/uaccess.h>
-+#include <asm/exception.h>
- #include <asm/unaligned.h>
- 
- extern int die_if_kernel(char *str, struct pt_regs *regs, long err);
-diff --git a/arch/ia64/mm/fault.c b/arch/ia64/mm/fault.c
-index fa6ad95e992e..52b41dad9704 100644
---- a/arch/ia64/mm/fault.c
-+++ b/arch/ia64/mm/fault.c
-@@ -15,6 +15,7 @@
- 
- #include <asm/pgtable.h>
- #include <asm/processor.h>
-+#include <asm/exception.h>
- 
- extern int die(char *, struct pt_regs *, long);
- 
+ #define EXPORT_SYMBOL(sym)
+ #define EXPORT_SYMBOL_GPL(sym)
+ #define EXPORT_SYMBOL_GPL_FUTURE(sym)
 -- 
 2.11.0
 
