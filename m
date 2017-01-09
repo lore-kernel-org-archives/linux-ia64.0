@@ -1,141 +1,131 @@
-From: Russell King - ARM Linux <linux@armlinux.org.uk>
-Date: Fri, 13 Jan 2017 17:06:10 +0000
-Subject: Re: [PATCH v3 1/8] arm: put types.h in uapi
-Message-Id: <20170113170610.GV14217@n2100.armlinux.org.uk>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Date: Mon, 09 Jan 2017 17:52:22 +0000
+Subject: [PATCH v2] nfc: don't be making arch specific unaligned decisions at driver level.
+Message-Id: <20170109175222.3162-1-paul.gortmaker@windriver.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <3131144.4Ej3KFWRbz@wuerfel>
- <1484304406-10820-1-git-send-email-nicolas.dichtel@6wind.com>
- <1484304406-10820-2-git-send-email-nicolas.dichtel@6wind.com>
-In-Reply-To: <1484304406-10820-2-git-send-email-nicolas.dichtel@6wind.com>
+References: <201701090839.5u37Hdez%fengguang.wu@intel.com>
+In-Reply-To: <201701090839.5u37Hdez%fengguang.wu@intel.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Cc: linux-mips@linux-mips.org, alsa-devel@alsa-project.org, linux-ia64@vger.kernel.org, linux-doc@vger.kernel.org, airlied@linux.ie, daniel.vetter@ffwll.ch, linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-mtd@lists.infradead.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, linux-am33-list@redhat.com, linux-c6x-dev@linux-c6x.org, linux-rdma@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-sh@vger.kernel.org, hch@infradead.org, coreteam@netfilter.org, msalter@redhat.com, fcoe-devel@open-fcoe.org, xen-devel@lists.xenproject.org, linux-snps-arc@lists.infradead.org, linux-media@vger.kernel.org, uclinux-h8-devel@lists.sourceforge.jp, linux-xtensa@linux-xtensa.org, arnd@arndb.de, linux-kbuild@vger.kernel.org, adi-buildroot-devel@lists.sourceforge.net, linux-raid@vger.kernel.org, linux-m68k@lists.linux-m68k.org, openri
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: linux-kernel@vger.kernel.org
+Cc: kbuild test robot <lkp@intel.com>, Paul Gortmaker <paul.gortmaker@windriver.com>, Lauro Ramos Venancio <lauro.venancio@openbossa.org>, Aloisio Almeida Jr <aloisio.almeida@openbossa.org>, Samuel Ortiz <sameo@linux.intel.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-wireless@vger.kernel.org
 
-On Fri, Jan 13, 2017 at 11:46:39AM +0100, Nicolas Dichtel wrote:
-> This header file is exported, thus move it to uapi.
+Currently ia64 fails building allmodconfig with variations of:
 
-I'm taking this patch, but with the following commit log:
+   In file included from drivers/nfc/nxp-nci/i2c.c:39:0:
+   ./include/linux/unaligned/access_ok.h:62:29: error: redefinition of ‘put_unaligned_be64’
+    static __always_inline void put_unaligned_be64(u64 val, void *p)
+                                ^~~~~~~~~~~~~~~~~~
+   In file included from ./arch/ia64/include/asm/unaligned.h:5:0,
+                    from ./arch/ia64/include/asm/io.h:22,
+                    from ./arch/ia64/include/asm/smp.h:20,
+                    from ./include/linux/smp.h:59,
+                    from ./include/linux/topology.h:33,
+                    from ./include/linux/gfp.h:8,
+                    from ./include/linux/slab.h:14,
+                    from ./include/linux/resource_ext.h:19,
+                    from ./include/linux/acpi.h:26,
+                    from drivers/nfc/nxp-nci/i2c.c:28:
+   ./include/linux/unaligned/be_byteshift.h:65:20: note: previous definition of ‘put_unaligned_be64’ was here
+    static inline void put_unaligned_be64(u64 val, void *p)
+                       ^~~~~~~~~~~~~~~~~~
+   scripts/Makefile.build:293: recipe for target 'drivers/nfc/nxp-nci/i2c.o' failed
 
-  Due to the way kbuild works, this header was unintentionally exported
-  back in 2013 when it was created, despite it not being in a uapi/
-  directory.  This is very non-intuitive behaviour by Kbuild.
+The easiest explanation for this is to look at the non-arch users in
+the following output:
 
-  However, we've had this include exported to userland for almost four
-  years, and searching google for "ARM types.h __UINTPTR_TYPE__" gives
-  no hint that anyone has complained about it.  So, let's make it
-  officially exported in this state.
+   linux$git grep include.*access_ok.h
+   arch/arm64/crypto/crc32-arm64.c:#include <linux/unaligned/access_ok.h>
+   arch/cris/include/asm/unaligned.h:#include <linux/unaligned/access_ok.h>
+   arch/m68k/include/asm/unaligned.h:#include <linux/unaligned/access_ok.h>
+   arch/mn10300/include/asm/unaligned.h:#include <linux/unaligned/access_ok.h>
+   arch/powerpc/include/asm/unaligned.h:#include <linux/unaligned/access_ok.h>
+   arch/s390/include/asm/unaligned.h:#include <linux/unaligned/access_ok.h>
+   arch/x86/include/asm/unaligned.h:#include <linux/unaligned/access_ok.h>
+   drivers/nfc/nfcmrvl/fw_dnld.c:#include <linux/unaligned/access_ok.h>
+   drivers/nfc/nxp-nci/firmware.c:#include <linux/unaligned/access_ok.h>
+   drivers/nfc/nxp-nci/i2c.c:#include <linux/unaligned/access_ok.h>
+   include/asm-generic/unaligned.h:# include <linux/unaligned/access_ok.h>
 
-If anyone has any objections, they better shout sooner rather than
-later.
+Note that nfc is essentially the only non-arch user in the above.
+When it forces use of access_ok.h, it will break any arch that has
+already selected be_byteshift.h (or other conflicting implementations)
+at the arch level.
 
-> 
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> ---
->  arch/arm/include/asm/types.h      | 40 ---------------------------------------
->  arch/arm/include/uapi/asm/types.h | 40 +++++++++++++++++++++++++++++++++++++++
->  2 files changed, 40 insertions(+), 40 deletions(-)
->  delete mode 100644 arch/arm/include/asm/types.h
->  create mode 100644 arch/arm/include/uapi/asm/types.h
-> 
-> diff --git a/arch/arm/include/asm/types.h b/arch/arm/include/asm/types.h
-> deleted file mode 100644
-> index a53cdb8f068c..000000000000
-> --- a/arch/arm/include/asm/types.h
-> +++ /dev/null
-> @@ -1,40 +0,0 @@
-> -#ifndef _ASM_TYPES_H
-> -#define _ASM_TYPES_H
-> -
-> -#include <asm-generic/int-ll64.h>
-> -
-> -/*
-> - * The C99 types uintXX_t that are usually defined in 'stdint.h' are not as
-> - * unambiguous on ARM as you would expect. For the types below, there is a
-> - * difference on ARM between GCC built for bare metal ARM, GCC built for glibc
-> - * and the kernel itself, which results in build errors if you try to build with
-> - * -ffreestanding and include 'stdint.h' (such as when you include 'arm_neon.h'
-> - * in order to use NEON intrinsics)
-> - *
-> - * As the typedefs for these types in 'stdint.h' are based on builtin defines
-> - * supplied by GCC, we can tweak these to align with the kernel's idea of those
-> - * types, so 'linux/types.h' and 'stdint.h' can be safely included from the same
-> - * source file (provided that -ffreestanding is used).
-> - *
-> - *                    int32_t         uint32_t               uintptr_t
-> - * bare metal GCC     long            unsigned long          unsigned int
-> - * glibc GCC          int             unsigned int           unsigned int
-> - * kernel             int             unsigned int           unsigned long
-> - */
-> -
-> -#ifdef __INT32_TYPE__
-> -#undef __INT32_TYPE__
-> -#define __INT32_TYPE__		int
-> -#endif
-> -
-> -#ifdef __UINT32_TYPE__
-> -#undef __UINT32_TYPE__
-> -#define __UINT32_TYPE__	unsigned int
-> -#endif
-> -
-> -#ifdef __UINTPTR_TYPE__
-> -#undef __UINTPTR_TYPE__
-> -#define __UINTPTR_TYPE__	unsigned long
-> -#endif
-> -
-> -#endif /* _ASM_TYPES_H */
-> diff --git a/arch/arm/include/uapi/asm/types.h b/arch/arm/include/uapi/asm/types.h
-> new file mode 100644
-> index 000000000000..9435a42f575e
-> --- /dev/null
-> +++ b/arch/arm/include/uapi/asm/types.h
-> @@ -0,0 +1,40 @@
-> +#ifndef _UAPI_ASM_TYPES_H
-> +#define _UAPI_ASM_TYPES_H
-> +
-> +#include <asm-generic/int-ll64.h>
-> +
-> +/*
-> + * The C99 types uintXX_t that are usually defined in 'stdint.h' are not as
-> + * unambiguous on ARM as you would expect. For the types below, there is a
-> + * difference on ARM between GCC built for bare metal ARM, GCC built for glibc
-> + * and the kernel itself, which results in build errors if you try to build with
-> + * -ffreestanding and include 'stdint.h' (such as when you include 'arm_neon.h'
-> + * in order to use NEON intrinsics)
-> + *
-> + * As the typedefs for these types in 'stdint.h' are based on builtin defines
-> + * supplied by GCC, we can tweak these to align with the kernel's idea of those
-> + * types, so 'linux/types.h' and 'stdint.h' can be safely included from the same
-> + * source file (provided that -ffreestanding is used).
-> + *
-> + *                    int32_t         uint32_t               uintptr_t
-> + * bare metal GCC     long            unsigned long          unsigned int
-> + * glibc GCC          int             unsigned int           unsigned int
-> + * kernel             int             unsigned int           unsigned long
-> + */
-> +
-> +#ifdef __INT32_TYPE__
-> +#undef __INT32_TYPE__
-> +#define __INT32_TYPE__		int
-> +#endif
-> +
-> +#ifdef __UINT32_TYPE__
-> +#undef __UINT32_TYPE__
-> +#define __UINT32_TYPE__	unsigned int
-> +#endif
-> +
-> +#ifdef __UINTPTR_TYPE__
-> +#undef __UINTPTR_TYPE__
-> +#define __UINTPTR_TYPE__	unsigned long
-> +#endif
-> +
-> +#endif /* _UAPI_ASM_TYPES_H */
-> -- 
-> 2.8.1
-> 
+The decision of what variant for unaligned access to use needs to be
+left to the arch level and not used at the driver level.  Since not
+all arch will have sourced asm/unaligned.h already, we need to call
+it out and then the arch can give us just the one definition that
+is needed.
 
+See commit 064106a91be5 ("kernel: add common infrastructure for
+unaligned access") as a reference.
+
+Cc: Lauro Ramos Venancio <lauro.venancio@openbossa.org>
+Cc: Aloisio Almeida Jr <aloisio.almeida@openbossa.org>
+Cc: Samuel Ortiz <sameo@linux.intel.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
+Cc: linux-wireless@vger.kernel.org
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+---
+
+[v2: explicitly include asm/uaccess.h since some arch won't be
+ getting any variant of an unaligned access header without it.
+ Build test allmodconfig on x86-64, i386, arm64, ia64. ]
+
+ drivers/nfc/nfcmrvl/fw_dnld.c  | 2 +-
+ drivers/nfc/nxp-nci/firmware.c | 2 +-
+ drivers/nfc/nxp-nci/i2c.c      | 2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/nfc/nfcmrvl/fw_dnld.c b/drivers/nfc/nfcmrvl/fw_dnld.c
+index f8dcdf4b24f6..f3f246ddae06 100644
+--- a/drivers/nfc/nfcmrvl/fw_dnld.c
++++ b/drivers/nfc/nfcmrvl/fw_dnld.c
+@@ -17,11 +17,11 @@
+  */
+ 
+ #include <linux/module.h>
+-#include <linux/unaligned/access_ok.h>
+ #include <linux/firmware.h>
+ #include <linux/nfc.h>
+ #include <net/nfc/nci.h>
+ #include <net/nfc/nci_core.h>
++#include <asm/unaligned.h>
+ #include "nfcmrvl.h"
+ 
+ #define FW_DNLD_TIMEOUT			15000
+diff --git a/drivers/nfc/nxp-nci/firmware.c b/drivers/nfc/nxp-nci/firmware.c
+index 5291797324ba..553011f58339 100644
+--- a/drivers/nfc/nxp-nci/firmware.c
++++ b/drivers/nfc/nxp-nci/firmware.c
+@@ -24,7 +24,7 @@
+ #include <linux/completion.h>
+ #include <linux/firmware.h>
+ #include <linux/nfc.h>
+-#include <linux/unaligned/access_ok.h>
++#include <asm/unaligned.h>
+ 
+ #include "nxp-nci.h"
+ 
+diff --git a/drivers/nfc/nxp-nci/i2c.c b/drivers/nfc/nxp-nci/i2c.c
+index 36099e557730..20243dafea21 100644
+--- a/drivers/nfc/nxp-nci/i2c.c
++++ b/drivers/nfc/nxp-nci/i2c.c
+@@ -36,9 +36,9 @@
+ #include <linux/of_gpio.h>
+ #include <linux/of_irq.h>
+ #include <linux/platform_data/nxp-nci.h>
+-#include <linux/unaligned/access_ok.h>
+ 
+ #include <net/nfc/nfc.h>
++#include <asm/unaligned.h>
+ 
+ #include "nxp-nci.h"
+ 
 -- 
-RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-according to speedtest.net.
+2.11.0
+
