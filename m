@@ -1,472 +1,730 @@
-From: Bhumika Goyal <bhumirks@gmail.com>
-Date: Wed, 25 Jan 2017 17:49:31 +0000
-Subject: [PATCH] tty: serial: constify uart_ops structures
-Message-Id: <1485366532-3048-1-git-send-email-bhumirks@gmail.com>
+From: "Luis R. Rodriguez" <mcgrof@kernel.org>
+Date: Mon, 09 Jan 2017 14:58:29 +0000
+Subject: [PATCH v6 11/14] kprobes: move kprobe declarations to asm-generic/kprobes.h
+Message-Id: <20170109145833.11502-12-mcgrof@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20161222023811.21246-1-mcgrof@kernel.org>
+ <20170109145833.11502-1-mcgrof@kernel.org>
+In-Reply-To: <20170109145833.11502-1-mcgrof@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: julia.lawall@lip6.fr, linux@armlinux.org.uk, gregkh@linuxfoundation.org, jslaby@suse.com, macro@linux-mips.org, kernel@pengutronix.de, pfg@sgi.com, vz@mleia.com, slemieux.tyco@gmail.com, benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au, ldewangan@nvidia.com, wwwdotorg.org@vger.kernel.org, thierry.reding@gmail.com, gnurou@gmail.com, baohua@kernel.org, davem@davemloft.net, linux@prisktech.co.nz, linux-serial@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-tegra@vger.kernel.org, sparclinux@vger.kernel.org
-Cc: Bhumika Goyal <bhumirks@gmail.com>
+To: hpa@zytor.com, acme@redhat.com, tglx@linutronix.de, mingo@redhat.com, jpoimboe@redhat.com, bp@alien8.de, npiggin@gmail.com, mhiramat@kernel.org, masami.hiramatsu.pt@hitachi.com, jbaron@akamai.com, heiko.carstens@de.ibm.com, ananth@linux.vnet.ibm.com, anil.s.keshavamurthy@intel.com, davem@davemloft.net, realmz6@gmail.com, dalias@libc.org, linux@arm.linux.org.uk
+Cc: gnomes@lxorguk.ukuu.org.uk, linux-ia64@vger.kernel.org, jkosina@suse.cz, benh@kernel.crashing.org, ming.lei@canonical.com, linux@rasmusvillemoes.dk, platform-driver-x86@vger.kernel.org, James.Bottomley@HansenPartnership.com, paul.gortmaker@windriver.com, paulus@samba.org, sparclinux@vger.kernel.org, wangnan0@huawei.com, mchehab@osg.samsung.com, linux-arch@vger.kernel.org, markus.heiser@darmarit.de, xen-devel@lists.xensource.com, msalter@redhat.com, linux-sh@vger.kernel.org, mpe@ellerman.id.au, joro@8bytes.org, x86@kernel.org, fontana@sharpeleven.org, dsahern@gmail.com, linux-arm-kernel@lists.infradead.org, catalin.marinas@arm.com, dvhart@infradead.org, dwmw2@infradead.org, linux@roeck-us.net, linux-xtensa@linux-xtensa.org, pali.rohar@gmail.com, keescook@chromium.org, arnd@arndb.de, jani.nikula@intel.com, will.deacon@arm.com, rusty@rustcorp.com.au, rostedt@goodmis.org
 
-Declare uart_ops structures as const as they are only stored in the ops
-field of an uart_port structure. This field is of type const, so
-uart_ops structures having this property can be made const too.
+Often all is needed is these small helpers, instead of compiler.h
+or a full kprobes.h. This is important for asm helpers, in fact even
+some asm/kprobes.h make use of these helpers... instead just keep a
+generic asm file with helpers useful for asm code with the least amount
+of clutter as possible.
 
-File size details before and after patching.
-First line of every .o file shows the file size before patching
-and second line shows the size after patching.
+Likewise we need now to also address what to do about this file for both
+when architectures have CONFIG_HAVE_KPROBES, and when they do not. Then
+for when architectures have CONFIG_HAVE_KPROBES but have disabled
+CONFIG_KPROBES.
 
-   text	   data	    bss	    dec	    hex	filename
+Right now most asm/kprobes.h do not have guards against CONFIG_KPROBES,
+this means most architecture code cannot include asm/kprobes.h safely.
+Correct this and add guards for architectures missing them. Additionally
+provide architectures that not have kprobes support with the default
+asm-generic solution. This lets us force asm/kprobes.h on the header
+include/linux/kprobes.h always, but most importantly we can now safely
+include just asm/kprobes.h on architecture code without bringing
+the full kitchen sink of header files.
 
-   2977	    456	     64	   3497	    da9	drivers/tty/serial/amba-pl010.o
-   3169	    272	     64	   3505	    db1	drivers/tty/serial/amba-pl010.o
+Two architectures already provided a guard against CONFIG_KPROBES on
+its kprobes.h: sh, arch. The rest of the architectures needed gaurds
+added. We avoid including any not-needed headers on asm/kprobes.h
+unless kprobes have been enabled.
 
-   3109	    456	      0	   3565	    ded	drivers/tty/serial/efm32-uart.o
-   3301	    272	      0	   3573	    df5	drivers/tty/serial/efm32-uart.o
+In a subsequent atomic change we can try now to remove compiler.h from
+include/linux/kprobes.h.
 
-  10668	    753	      1	  11422	   2c9e	drivers/tty/serial/icom.o
-  10860	    561	      1	  11422	   2c9e	drivers/tty/serial/icom.o
+During this sweep I've also identified a few architectures defining
+a common macro needed for both kprobes and ftrace, that of the
+definition of the breakput instruction up. Some refer to this as
+BREAKPOINT_INSTRUCTION. This must be kept outside of the #ifdef
+CONFIG_KPROBES guard.
 
-  23904	    408	      8	  24320	   5f00	drivers/tty/serial/ioc3_serial.o
-  24088	    224	      8	  24320	   5f00	drivers/tty/serial/ioc3_serial.o
+v5:
 
-  10516	    560	      4	  11080	   2b48	drivers/tty/serial/ioc4_serial.o
-  10709	    368	      4	  11081	   2b49	drivers/tty/serial/ioc4_serial.o
+o fix BREAKPOINT_INSTRUCTION dependency with kernel architecture
+  ftrace implementations:  Although its correct to #ifdef CONFIG_KPROBES
+  on the architecture arch/$(ARCH)/include/asm/kprobes.h when
+  architectures support ftrace they will rely on the
+  BREAKPOINT_INSTRUCTION definition, this needs to be kept out from
+  CONFIG_KPROBES as ftrace can be enabled without kprobes. This
+  fixes compilation on x86 where kprobes is disabled but ftrace is
+  left enabled.
 
-   7853	    648	   1216	   9717	   25f5	drivers/tty/serial/mpsc.o
-   8037	    456	   1216	   9709	   25ed	drivers/tty/serial/mpsc.o
+o include <asm/kprobes.h> on arch/arm64/kernel/probes/decode-insn.h
 
-  10248	    456	      0	  10704	   29d0	drivers/tty/serial/omap-serial.o
-  10440	    272	      0	  10712	   29d8	drivers/tty/serial/omap-serial.o
+v4: introduced this patch into the series
 
-   8122	    532	   1984	  10638	   298e	drivers/tty/serial/pmac_zilog.o
-   8306	    340	   1984	  10630	   2986	drivers/tty/serial/pmac_zilog.o
-
-   3808	    456	      0	   4264	   10a8	drivers/tty/serial/pxa.o
-   4000	    264	      0	   4264	   10a8	drivers/tty/serial/pxa.o
-
-  21781	   3864	      0	  25645	   642d	drivers/tty/serial/serial-tegra.o
-  22037	   3608	      0	  25645	   642d	drivers/tty/serial/serial-tegra.o
-
-   2481	    456	     96	   3033	    bd9	drivers/tty/serial/sprd_serial.o
-   2673	    272	     96	   3041	    be1	drivers/tty/serial/sprd_serial.o
-
-   5534	    300	    512	   6346	   18ca	drivers/tty/serial/vr41xx_siu.o
-   5630	    204	    512	   6346	   18ca	drivers/tty/serial/vr41xx_siu.o
-
-   6730	   1576	    128	   8434	   20f2	drivers/tty/serial/vt8500_serial.o
-   6986	   1320	    128	   8434	   20f2	drivers/tty/serial/vt8500_serial.o
-
-Cross compiled for mips architecture.
-
-   3005	    488	      0	   3493	    da5	drivers/tty/serial/pnx8xxx_uart.o
-   3189	    304	      0	   3493	    da5	drivers/tty/serial/pnx8xxx_uart.o
-
-   4272	    196	   1056	   5524	   1594	drivers/tty/serial/dz.o
-   4368	    100	   1056	   5524	   1594	drivers/tty/serial/dz.o
-
-   6551	    144	     16	   6711	   1a37	drivers/tty/serial/ip22zilog.o
-   6647	     48	     16	   6711	   1a37	drivers/tty/serial/ip22zilog.o
-
-   9612	    428	   1520	  11560	   2d28	drivers/tty/serial/serial_txx9.o
-   9708	    332	   1520	  11560	   2d28	drivers/tty/serial/serial_txx9.o
-
-   4156	    296	     16	   4468	   1174	drivers/tty/serial/ar933x_uart.o
-   4252	    200	     16	   4468	   1174	drivers/tty/serial/ar933x_uart.o
-
-Cross compiled for arm archiecture.
-
-  11716	   1780	     44	  13540	   34e4	drivers/tty/serial/sirfsoc_uart.o
-  11808	   1688	     44	  13540	   34e4	drivers/tty/serial/sirfsoc_uart.o
-
-  13352	    596	     56	  14004	   36b4	drivers/tty/serial/amba-pl011.o
-  13444	    504	     56	  14004	   36b4	drivers/tty/serial/amba-pl011.o
-
-Cross compiled for sparc architecture.
-
-   4664	    528	     32	   5224	   1468	drivers/tty/serial/sunhv.o
-   4848	    344	     32	   5224	   1468	drivers/tty/serial/sunhv.o
-
-   8080	    332	     28	   8440	   20f8	drivers/tty/serial/sunzilog.o
-   8184	    228	     28	   8440	   20f8	drivers/tty/serial/sunzilog.o
-
-Cross compiled for ia64 architecture.
-
-  10226	    549	    472	  11247	   2bef	drivers/tty/serial/sn_console.o
-  10414	    365	    472	  11251	   2bf3	drivers/tty/serial/sn_console.o
-
-The files drivers/tty/serial/zs.o, drivers/tty/serial/lpc32xx_hs.o and
-drivers/tty/serial/lantiq.o did not compile.
-
-Signed-off-by: Bhumika Goyal <bhumirks@gmail.com>
+Signed-off-by: Luis R. Rodriguez <mcgrof@kernel.org>
 ---
- drivers/tty/serial/amba-pl010.c    | 2 +-
- drivers/tty/serial/amba-pl011.c    | 2 +-
- drivers/tty/serial/ar933x_uart.c   | 2 +-
- drivers/tty/serial/dz.c            | 2 +-
- drivers/tty/serial/efm32-uart.c    | 2 +-
- drivers/tty/serial/icom.c          | 2 +-
- drivers/tty/serial/ioc3_serial.c   | 2 +-
- drivers/tty/serial/ioc4_serial.c   | 2 +-
- drivers/tty/serial/ip22zilog.c     | 2 +-
- drivers/tty/serial/lantiq.c        | 2 +-
- drivers/tty/serial/lpc32xx_hs.c    | 2 +-
- drivers/tty/serial/mpsc.c          | 2 +-
- drivers/tty/serial/omap-serial.c   | 2 +-
- drivers/tty/serial/pmac_zilog.c    | 2 +-
- drivers/tty/serial/pnx8xxx_uart.c  | 2 +-
- drivers/tty/serial/pxa.c           | 2 +-
- drivers/tty/serial/serial-tegra.c  | 2 +-
- drivers/tty/serial/serial_txx9.c   | 2 +-
- drivers/tty/serial/sirfsoc_uart.c  | 2 +-
- drivers/tty/serial/sn_console.c    | 2 +-
- drivers/tty/serial/sprd_serial.c   | 2 +-
- drivers/tty/serial/sunhv.c         | 2 +-
- drivers/tty/serial/sunzilog.c      | 2 +-
- drivers/tty/serial/vr41xx_siu.c    | 2 +-
- drivers/tty/serial/vt8500_serial.c | 2 +-
- drivers/tty/serial/zs.c            | 2 +-
- 26 files changed, 26 insertions(+), 26 deletions(-)
+ arch/alpha/include/asm/Kbuild          |  1 +
+ arch/arc/include/asm/kprobes.h         |  6 ++++--
+ arch/arm/include/asm/kprobes.h         |  4 ++++
+ arch/arm/probes/decode.h               |  1 +
+ arch/arm64/include/asm/kprobes.h       |  4 ++++
+ arch/arm64/kernel/insn.c               |  1 +
+ arch/arm64/kernel/probes/decode-insn.h |  2 ++
+ arch/avr32/include/asm/kprobes.h       |  7 ++++++-
+ arch/blackfin/include/asm/Kbuild       |  1 +
+ arch/c6x/include/asm/Kbuild            |  1 +
+ arch/cris/include/asm/Kbuild           |  1 +
+ arch/frv/include/asm/Kbuild            |  1 +
+ arch/h8300/include/asm/Kbuild          |  1 +
+ arch/hexagon/include/asm/Kbuild        |  1 +
+ arch/ia64/include/asm/kprobes.h        | 12 +++++++++---
+ arch/m32r/include/asm/Kbuild           |  1 +
+ arch/m68k/include/asm/Kbuild           |  1 +
+ arch/metag/include/asm/Kbuild          |  1 +
+ arch/microblaze/include/asm/Kbuild     |  1 +
+ arch/mips/include/asm/kprobes.h        |  6 +++++-
+ arch/mn10300/include/asm/kprobes.h     |  7 ++++++-
+ arch/nios2/include/asm/Kbuild          |  1 +
+ arch/openrisc/include/asm/Kbuild       |  1 +
+ arch/parisc/include/asm/Kbuild         |  1 +
+ arch/powerpc/include/asm/kprobes.h     |  3 +++
+ arch/s390/include/asm/kprobes.h        |  7 ++++++-
+ arch/score/include/asm/Kbuild          |  1 +
+ arch/sh/include/asm/kprobes.h          |  5 ++++-
+ arch/sparc/include/asm/kprobes.h       | 10 ++++++++--
+ arch/tile/include/asm/kprobes.h        |  6 +++++-
+ arch/um/include/asm/Kbuild             |  1 +
+ arch/unicore32/include/asm/Kbuild      |  1 +
+ arch/x86/include/asm/kprobes.h         |  9 ++++++++-
+ arch/xtensa/include/asm/Kbuild         |  1 +
+ include/asm-generic/kprobes.h          | 25 +++++++++++++++++++++++++
+ include/linux/compiler.h               |  8 --------
+ include/linux/kprobes.h                | 19 +++----------------
+ 37 files changed, 122 insertions(+), 38 deletions(-)
+ create mode 100644 include/asm-generic/kprobes.h
 
-diff --git a/drivers/tty/serial/amba-pl010.c b/drivers/tty/serial/amba-pl010.c
-index 5d41d5b..f2f2510 100644
---- a/drivers/tty/serial/amba-pl010.c
-+++ b/drivers/tty/serial/amba-pl010.c
-@@ -554,7 +554,7 @@ static int pl010_verify_port(struct uart_port *port, struct serial_struct *ser)
- 	return ret;
+diff --git a/arch/alpha/include/asm/Kbuild b/arch/alpha/include/asm/Kbuild
+index f3bdc31d3c97..54d388fd026f 100644
+--- a/arch/alpha/include/asm/Kbuild
++++ b/arch/alpha/include/asm/Kbuild
+@@ -13,3 +13,4 @@ generic-y += trace_clock.h
+ generic-y += section-core.h
+ generic-y += ranges.h
+ generic-y += tables.h
++generic-y += kprobes.h
+diff --git a/arch/arc/include/asm/kprobes.h b/arch/arc/include/asm/kprobes.h
+index 944dbedb38b5..00bdbe167615 100644
+--- a/arch/arc/include/asm/kprobes.h
++++ b/arch/arc/include/asm/kprobes.h
+@@ -9,6 +9,8 @@
+ #ifndef _ARC_KPROBES_H
+ #define _ARC_KPROBES_H
+ 
++#include <asm-generic/kprobes.h>
++
+ #ifdef CONFIG_KPROBES
+ 
+ typedef u16 kprobe_opcode_t;
+@@ -55,6 +57,6 @@ void trap_is_kprobe(unsigned long address, struct pt_regs *regs);
+ static void trap_is_kprobe(unsigned long address, struct pt_regs *regs)
+ {
+ }
+-#endif
++#endif /* CONFIG_KPROBES */
+ 
+-#endif
++#endif /* _ARC_KPROBES_H */
+diff --git a/arch/arm/include/asm/kprobes.h b/arch/arm/include/asm/kprobes.h
+index 3ea9be559726..59655459da59 100644
+--- a/arch/arm/include/asm/kprobes.h
++++ b/arch/arm/include/asm/kprobes.h
+@@ -16,6 +16,9 @@
+ #ifndef _ARM_KPROBES_H
+ #define _ARM_KPROBES_H
+ 
++#include <asm-generic/kprobes.h>
++
++#ifdef CONFIG_KPROBES
+ #include <linux/types.h>
+ #include <linux/ptrace.h>
+ #include <linux/notifier.h>
+@@ -83,4 +86,5 @@ struct arch_optimized_insn {
+ 	 */
+ };
+ 
++#endif /* CONFIG_KPROBES */
+ #endif /* _ARM_KPROBES_H */
+diff --git a/arch/arm/probes/decode.h b/arch/arm/probes/decode.h
+index f9b08ba7fe73..548d622a3159 100644
+--- a/arch/arm/probes/decode.h
++++ b/arch/arm/probes/decode.h
+@@ -22,6 +22,7 @@
+ #include <linux/types.h>
+ #include <linux/stddef.h>
+ #include <asm/probes.h>
++#include <asm/kprobes.h>
+ 
+ void __init arm_probes_decode_init(void);
+ 
+diff --git a/arch/arm64/include/asm/kprobes.h b/arch/arm64/include/asm/kprobes.h
+index 1737aecfcc5e..6deb8d726041 100644
+--- a/arch/arm64/include/asm/kprobes.h
++++ b/arch/arm64/include/asm/kprobes.h
+@@ -16,6 +16,9 @@
+ #ifndef _ARM_KPROBES_H
+ #define _ARM_KPROBES_H
+ 
++#include <asm-generic/kprobes.h>
++
++#ifdef CONFIG_KPROBES
+ #include <linux/types.h>
+ #include <linux/ptrace.h>
+ #include <linux/percpu.h>
+@@ -57,4 +60,5 @@ int kprobe_single_step_handler(struct pt_regs *regs, unsigned int esr);
+ void kretprobe_trampoline(void);
+ void __kprobes *trampoline_probe_handler(struct pt_regs *regs);
+ 
++#endif /* CONFIG_KPROBES */
+ #endif /* _ARM_KPROBES_H */
+diff --git a/arch/arm64/kernel/insn.c b/arch/arm64/kernel/insn.c
+index 94b62c1fa4df..ae912304ed84 100644
+--- a/arch/arm64/kernel/insn.c
++++ b/arch/arm64/kernel/insn.c
+@@ -31,6 +31,7 @@
+ #include <asm/debug-monitors.h>
+ #include <asm/fixmap.h>
+ #include <asm/insn.h>
++#include <asm/kprobes.h>
+ 
+ #define AARCH64_INSN_SF_BIT	BIT(31)
+ #define AARCH64_INSN_N_BIT	BIT(22)
+diff --git a/arch/arm64/kernel/probes/decode-insn.h b/arch/arm64/kernel/probes/decode-insn.h
+index 76d3f315407f..192ab007bacb 100644
+--- a/arch/arm64/kernel/probes/decode-insn.h
++++ b/arch/arm64/kernel/probes/decode-insn.h
+@@ -16,6 +16,8 @@
+ #ifndef _ARM_KERNEL_KPROBES_ARM64_H
+ #define _ARM_KERNEL_KPROBES_ARM64_H
+ 
++#include <asm/kprobes.h>
++
+ /*
+  * ARM strongly recommends a limit of 128 bytes between LoadExcl and
+  * StoreExcl instructions in a single thread of execution. So keep the
+diff --git a/arch/avr32/include/asm/kprobes.h b/arch/avr32/include/asm/kprobes.h
+index 45f563ed73fd..28dfc61ad384 100644
+--- a/arch/avr32/include/asm/kprobes.h
++++ b/arch/avr32/include/asm/kprobes.h
+@@ -11,10 +11,14 @@
+ #ifndef __ASM_AVR32_KPROBES_H
+ #define __ASM_AVR32_KPROBES_H
+ 
++#include <asm-generic/kprobes.h>
++
++#define BREAKPOINT_INSTRUCTION	0xd673	/* breakpoint */
++
++#ifdef CONFIG_KPROBES
+ #include <linux/types.h>
+ 
+ typedef u16	kprobe_opcode_t;
+-#define BREAKPOINT_INSTRUCTION	0xd673	/* breakpoint */
+ #define MAX_INSN_SIZE		2
+ #define MAX_STACK_SIZE		64	/* 32 would probably be OK */
+ 
+@@ -46,4 +50,5 @@ extern int kprobe_exceptions_notify(struct notifier_block *self,
+ 
+ #define flush_insn_slot(p)	do { } while (0)
+ 
++#endif /* CONFIG_KPROBES */
+ #endif /* __ASM_AVR32_KPROBES_H */
+diff --git a/arch/blackfin/include/asm/Kbuild b/arch/blackfin/include/asm/Kbuild
+index 9115b215fc7e..52351d3fd36e 100644
+--- a/arch/blackfin/include/asm/Kbuild
++++ b/arch/blackfin/include/asm/Kbuild
+@@ -50,3 +50,4 @@ generic-y += xor.h
+ generic-y += section-core.h
+ generic-y += ranges.h
+ generic-y += tables.h
++generic-y += kprobes.h
+diff --git a/arch/c6x/include/asm/Kbuild b/arch/c6x/include/asm/Kbuild
+index cede2a950fbf..c54f7cc1f63e 100644
+--- a/arch/c6x/include/asm/Kbuild
++++ b/arch/c6x/include/asm/Kbuild
+@@ -64,3 +64,4 @@ generic-y += word-at-a-time.h
+ generic-y += xor.h
+ generic-y += section-core.h
+ generic-y += ranges.h
++generic-y += kprobes.h
+diff --git a/arch/cris/include/asm/Kbuild b/arch/cris/include/asm/Kbuild
+index 7062c1be7913..051d355feae3 100644
+--- a/arch/cris/include/asm/Kbuild
++++ b/arch/cris/include/asm/Kbuild
+@@ -48,3 +48,4 @@ generic-y += xor.h
+ generic-y += section-core.h
+ generic-y += ranges.h
+ generic-y += tables.h
++generic-y += kprobes.h
+diff --git a/arch/frv/include/asm/Kbuild b/arch/frv/include/asm/Kbuild
+index 4a59cbda5091..b58b9fc49383 100644
+--- a/arch/frv/include/asm/Kbuild
++++ b/arch/frv/include/asm/Kbuild
+@@ -11,3 +11,4 @@ generic-y += word-at-a-time.h
+ generic-y += section-core.h
+ generic-y += ranges.h
+ generic-y += tables.h
++generic-y += kprobes.h
+diff --git a/arch/h8300/include/asm/Kbuild b/arch/h8300/include/asm/Kbuild
+index d79968d93c12..cfca7de52b37 100644
+--- a/arch/h8300/include/asm/Kbuild
++++ b/arch/h8300/include/asm/Kbuild
+@@ -78,3 +78,4 @@ generic-y += xor.h
+ generic-y += section-core.h
+ generic-y += ranges.h
+ generic-y += tables.h
++generic-y += kprobes.h
+diff --git a/arch/hexagon/include/asm/Kbuild b/arch/hexagon/include/asm/Kbuild
+index d59ac1c1858b..d7cc35451f30 100644
+--- a/arch/hexagon/include/asm/Kbuild
++++ b/arch/hexagon/include/asm/Kbuild
+@@ -63,3 +63,4 @@ generic-y += xor.h
+ generic-y += section-core.h
+ generic-y += ranges.h
+ generic-y += tables.h
++generic-y += kprobes.h
+diff --git a/arch/ia64/include/asm/kprobes.h b/arch/ia64/include/asm/kprobes.h
+index d5505d6f2382..0302b3664789 100644
+--- a/arch/ia64/include/asm/kprobes.h
++++ b/arch/ia64/include/asm/kprobes.h
+@@ -23,14 +23,19 @@
+  * 2005-Apr     Rusty Lynch <rusty.lynch@intel.com> and Anil S Keshavamurthy
+  *              <anil.s.keshavamurthy@intel.com> adapted from i386
+  */
++#include <asm-generic/kprobes.h>
++#include <asm/break.h>
++
++#define BREAK_INST	(long)(__IA64_BREAK_KPROBE << 6)
++
++#ifdef CONFIG_KPROBES
++
+ #include <linux/types.h>
+ #include <linux/ptrace.h>
+ #include <linux/percpu.h>
+-#include <asm/break.h>
+ 
+ #define __ARCH_WANT_KPROBES_INSN_SLOT
+ #define MAX_INSN_SIZE   2	/* last half is for kprobe-booster */
+-#define BREAK_INST	(long)(__IA64_BREAK_KPROBE << 6)
+ #define NOP_M_INST	(long)(1<<27)
+ #define BRL_INST(i1, i2) ((long)((0xcL << 37) |	/* brl */ \
+ 				(0x1L << 12) |	/* many */ \
+@@ -124,4 +129,5 @@ extern void invalidate_stacked_regs(void);
+ extern void flush_register_stack(void);
+ extern void arch_remove_kprobe(struct kprobe *p);
+ 
+-#endif				/* _ASM_KPROBES_H */
++#endif /* CONFIG_KPROBES */
++#endif /* _ASM_KPROBES_H */
+diff --git a/arch/m32r/include/asm/Kbuild b/arch/m32r/include/asm/Kbuild
+index 24088f3c733c..198ad591ab41 100644
+--- a/arch/m32r/include/asm/Kbuild
++++ b/arch/m32r/include/asm/Kbuild
+@@ -14,3 +14,4 @@ generic-y += word-at-a-time.h
+ generic-y += section-core.h
+ generic-y += ranges.h
+ generic-y += tables.h
++generic-y += kprobes.h
+diff --git a/arch/m68k/include/asm/Kbuild b/arch/m68k/include/asm/Kbuild
+index c28bcdecc764..412dd23ab946 100644
+--- a/arch/m68k/include/asm/Kbuild
++++ b/arch/m68k/include/asm/Kbuild
+@@ -37,3 +37,4 @@ generic-y += xor.h
+ generic-y += section-core.h
+ generic-y += ranges.h
+ generic-y += tables.h
++generic-y += kprobes.h
+diff --git a/arch/metag/include/asm/Kbuild b/arch/metag/include/asm/Kbuild
+index c836f7e2a5e7..8371cc9b1b3c 100644
+--- a/arch/metag/include/asm/Kbuild
++++ b/arch/metag/include/asm/Kbuild
+@@ -58,3 +58,4 @@ generic-y += xor.h
+ generic-y += section-core.h
+ generic-y += ranges.h
+ generic-y += tables.h
++generic-y += kprobes.h
+diff --git a/arch/microblaze/include/asm/Kbuild b/arch/microblaze/include/asm/Kbuild
+index 01afb1b420f5..865ce3d96443 100644
+--- a/arch/microblaze/include/asm/Kbuild
++++ b/arch/microblaze/include/asm/Kbuild
+@@ -14,3 +14,4 @@ generic-y += word-at-a-time.h
+ generic-y += section-core.h
+ generic-y += ranges.h
+ generic-y += tables.h
++generic-y += kprobes.h
+diff --git a/arch/mips/include/asm/kprobes.h b/arch/mips/include/asm/kprobes.h
+index daba1f9a4f79..291846d9ba83 100644
+--- a/arch/mips/include/asm/kprobes.h
++++ b/arch/mips/include/asm/kprobes.h
+@@ -22,6 +22,9 @@
+ #ifndef _ASM_KPROBES_H
+ #define _ASM_KPROBES_H
+ 
++#include <asm-generic/kprobes.h>
++
++#ifdef CONFIG_KPROBES
+ #include <linux/ptrace.h>
+ #include <linux/types.h>
+ 
+@@ -94,4 +97,5 @@ struct kprobe_ctlblk {
+ extern int kprobe_exceptions_notify(struct notifier_block *self,
+ 				    unsigned long val, void *data);
+ 
+-#endif				/* _ASM_KPROBES_H */
++#endif /* CONFIG_KPROBES */
++#endif /* _ASM_KPROBES_H */
+diff --git a/arch/mn10300/include/asm/kprobes.h b/arch/mn10300/include/asm/kprobes.h
+index c800b590183a..7abea0bdb549 100644
+--- a/arch/mn10300/include/asm/kprobes.h
++++ b/arch/mn10300/include/asm/kprobes.h
+@@ -21,13 +21,17 @@
+ #ifndef _ASM_KPROBES_H
+ #define _ASM_KPROBES_H
+ 
++#include <asm-generic/kprobes.h>
++
++#define BREAKPOINT_INSTRUCTION	0xff
++
++#ifdef CONFIG_KPROBES
+ #include <linux/types.h>
+ #include <linux/ptrace.h>
+ 
+ struct kprobe;
+ 
+ typedef unsigned char kprobe_opcode_t;
+-#define BREAKPOINT_INSTRUCTION	0xff
+ #define MAX_INSN_SIZE 8
+ #define MAX_STACK_SIZE 128
+ 
+@@ -47,4 +51,5 @@ extern int kprobe_exceptions_notify(struct notifier_block *self,
+ 
+ extern void arch_remove_kprobe(struct kprobe *p);
+ 
++#endif /* CONFIG_KPROBES */
+ #endif /* _ASM_KPROBES_H */
+diff --git a/arch/nios2/include/asm/Kbuild b/arch/nios2/include/asm/Kbuild
+index ee6220dac1e8..d6ce7edee7e0 100644
+--- a/arch/nios2/include/asm/Kbuild
++++ b/arch/nios2/include/asm/Kbuild
+@@ -66,3 +66,4 @@ generic-y += xor.h
+ generic-y += section-core.h
+ generic-y += ranges.h
+ generic-y += tables.h
++generic-y += kprobes.h
+diff --git a/arch/openrisc/include/asm/Kbuild b/arch/openrisc/include/asm/Kbuild
+index ceafe458e295..1bf89a67317c 100644
+--- a/arch/openrisc/include/asm/Kbuild
++++ b/arch/openrisc/include/asm/Kbuild
+@@ -74,3 +74,4 @@ generic-y += xor.h
+ generic-y += section-core.h
+ generic-y += ranges.h
+ generic-y += tables.h
++generic-y += kprobes.h
+diff --git a/arch/parisc/include/asm/Kbuild b/arch/parisc/include/asm/Kbuild
+index aaae8a9f6099..19d5b7e12ecf 100644
+--- a/arch/parisc/include/asm/Kbuild
++++ b/arch/parisc/include/asm/Kbuild
+@@ -31,3 +31,4 @@ generic-y += xor.h
+ generic-y += section-core.h
+ generic-y += ranges.h
+ generic-y += tables.h
++generic-y += kprobes.h
+diff --git a/arch/powerpc/include/asm/kprobes.h b/arch/powerpc/include/asm/kprobes.h
+index 97b8c1f83453..c7ee3fcbd6e2 100644
+--- a/arch/powerpc/include/asm/kprobes.h
++++ b/arch/powerpc/include/asm/kprobes.h
+@@ -1,5 +1,8 @@
+ #ifndef _ASM_POWERPC_KPROBES_H
+ #define _ASM_POWERPC_KPROBES_H
++
++#include <asm-generic/kprobes.h>
++
+ #ifdef __KERNEL__
+ /*
+  *  Kernel Probes (KProbes)
+diff --git a/arch/s390/include/asm/kprobes.h b/arch/s390/include/asm/kprobes.h
+index 591e5a5279b0..84c0f9086483 100644
+--- a/arch/s390/include/asm/kprobes.h
++++ b/arch/s390/include/asm/kprobes.h
+@@ -27,6 +27,11 @@
+  * 2005-Dec	Used as a template for s390 by Mike Grundy
+  *		<grundym@us.ibm.com>
+  */
++#include <asm-generic/kprobes.h>
++
++#define BREAKPOINT_INSTRUCTION	0x0002
++
++#ifdef CONFIG_KPROBES
+ #include <linux/types.h>
+ #include <linux/ptrace.h>
+ #include <linux/percpu.h>
+@@ -37,7 +42,6 @@ struct pt_regs;
+ struct kprobe;
+ 
+ typedef u16 kprobe_opcode_t;
+-#define BREAKPOINT_INSTRUCTION	0x0002
+ 
+ /* Maximum instruction size is 3 (16bit) halfwords: */
+ #define MAX_INSN_SIZE		0x0003
+@@ -91,4 +95,5 @@ int probe_is_insn_relative_long(u16 *insn);
+ 
+ #define flush_insn_slot(p)	do { } while (0)
+ 
++#endif /* CONFIG_KPROBES */
+ #endif	/* _ASM_S390_KPROBES_H */
+diff --git a/arch/score/include/asm/Kbuild b/arch/score/include/asm/Kbuild
+index 16ea15a3e432..6ac8a7f5c768 100644
+--- a/arch/score/include/asm/Kbuild
++++ b/arch/score/include/asm/Kbuild
+@@ -17,3 +17,4 @@ generic-y += word-at-a-time.h
+ generic-y += section-core.h
+ generic-y += ranges.h
+ generic-y += tables.h
++generic-y += kprobes.h
+diff --git a/arch/sh/include/asm/kprobes.h b/arch/sh/include/asm/kprobes.h
+index 134f3980e44a..f0986f9b3844 100644
+--- a/arch/sh/include/asm/kprobes.h
++++ b/arch/sh/include/asm/kprobes.h
+@@ -1,13 +1,16 @@
+ #ifndef __ASM_SH_KPROBES_H
+ #define __ASM_SH_KPROBES_H
+ 
++#include <asm-generic/kprobes.h>
++
++#define BREAKPOINT_INSTRUCTION	0xc33a
++
+ #ifdef CONFIG_KPROBES
+ 
+ #include <linux/types.h>
+ #include <linux/ptrace.h>
+ 
+ typedef insn_size_t kprobe_opcode_t;
+-#define BREAKPOINT_INSTRUCTION	0xc33a
+ 
+ #define MAX_INSN_SIZE 16
+ #define MAX_STACK_SIZE 64
+diff --git a/arch/sparc/include/asm/kprobes.h b/arch/sparc/include/asm/kprobes.h
+index a145d798e112..49f8402035d7 100644
+--- a/arch/sparc/include/asm/kprobes.h
++++ b/arch/sparc/include/asm/kprobes.h
+@@ -1,13 +1,17 @@
+ #ifndef _SPARC64_KPROBES_H
+ #define _SPARC64_KPROBES_H
+ 
++#include <asm-generic/kprobes.h>
++
++#define BREAKPOINT_INSTRUCTION   0x91d02070 /* ta 0x70 */
++#define BREAKPOINT_INSTRUCTION_2 0x91d02071 /* ta 0x71 */
++
++#ifdef CONFIG_KPROBES
+ #include <linux/types.h>
+ #include <linux/percpu.h>
+ 
+ typedef u32 kprobe_opcode_t;
+ 
+-#define BREAKPOINT_INSTRUCTION   0x91d02070 /* ta 0x70 */
+-#define BREAKPOINT_INSTRUCTION_2 0x91d02071 /* ta 0x71 */
+ #define MAX_INSN_SIZE 2
+ 
+ #define kretprobe_blacklist_size 0
+@@ -48,4 +52,6 @@ int kprobe_exceptions_notify(struct notifier_block *self,
+ int kprobe_fault_handler(struct pt_regs *regs, int trapnr);
+ asmlinkage void __kprobes kprobe_trap(unsigned long trap_level,
+ 				      struct pt_regs *regs);
++
++#endif /* CONFIG_KPROBES */
+ #endif /* _SPARC64_KPROBES_H */
+diff --git a/arch/tile/include/asm/kprobes.h b/arch/tile/include/asm/kprobes.h
+index d8f9a83943b1..4a8b1cadca24 100644
+--- a/arch/tile/include/asm/kprobes.h
++++ b/arch/tile/include/asm/kprobes.h
+@@ -17,10 +17,13 @@
+ #ifndef _ASM_TILE_KPROBES_H
+ #define _ASM_TILE_KPROBES_H
+ 
++#include <asm-generic/kprobes.h>
++
++#ifdef CONFIG_KPROBES
++
+ #include <linux/types.h>
+ #include <linux/ptrace.h>
+ #include <linux/percpu.h>
+-
+ #include <arch/opcode.h>
+ 
+ #define __ARCH_WANT_KPROBES_INSN_SLOT
+@@ -76,4 +79,5 @@ void arch_remove_kprobe(struct kprobe *);
+ extern int kprobe_exceptions_notify(struct notifier_block *self,
+ 			     unsigned long val, void *data);
+ 
++#endif /* CONFIG_KPROBES */
+ #endif /* _ASM_TILE_KPROBES_H */
+diff --git a/arch/um/include/asm/Kbuild b/arch/um/include/asm/Kbuild
+index d2867aa09e23..ccc5ffeaeef5 100644
+--- a/arch/um/include/asm/Kbuild
++++ b/arch/um/include/asm/Kbuild
+@@ -29,3 +29,4 @@ generic-y += xor.h
+ generic-y += section-core.h
+ generic-y += ranges.h
+ generic-y += tables.h
++generic-y += kprobes.h
+diff --git a/arch/unicore32/include/asm/Kbuild b/arch/unicore32/include/asm/Kbuild
+index 6671a1f08ead..5aacafb6d385 100644
+--- a/arch/unicore32/include/asm/Kbuild
++++ b/arch/unicore32/include/asm/Kbuild
+@@ -63,3 +63,4 @@ generic-y += word-at-a-time.h
+ generic-y += xor.h
+ generic-y += ranges.h
+ generic-y += tables.h
++generic-y += kprobes.h
+diff --git a/arch/x86/include/asm/kprobes.h b/arch/x86/include/asm/kprobes.h
+index d1d1e5094c28..200581691c6e 100644
+--- a/arch/x86/include/asm/kprobes.h
++++ b/arch/x86/include/asm/kprobes.h
+@@ -21,6 +21,12 @@
+  *
+  * See arch/x86/kernel/kprobes.c for x86 kprobes history.
+  */
++
++#include <asm-generic/kprobes.h>
++
++#define BREAKPOINT_INSTRUCTION	0xcc
++
++#ifdef CONFIG_KPROBES
+ #include <linux/types.h>
+ #include <linux/ptrace.h>
+ #include <linux/percpu.h>
+@@ -32,7 +38,6 @@ struct pt_regs;
+ struct kprobe;
+ 
+ typedef u8 kprobe_opcode_t;
+-#define BREAKPOINT_INSTRUCTION	0xcc
+ #define RELATIVEJUMP_OPCODE 0xe9
+ #define RELATIVEJUMP_SIZE 5
+ #define RELATIVECALL_OPCODE 0xe8
+@@ -116,4 +121,6 @@ extern int kprobe_exceptions_notify(struct notifier_block *self,
+ 				    unsigned long val, void *data);
+ extern int kprobe_int3_handler(struct pt_regs *regs);
+ extern int kprobe_debug_handler(struct pt_regs *regs);
++
++#endif /* CONFIG_KPROBES */
+ #endif /* _ASM_X86_KPROBES_H */
+diff --git a/arch/xtensa/include/asm/Kbuild b/arch/xtensa/include/asm/Kbuild
+index 7b41f32a2ba0..20f524ded00e 100644
+--- a/arch/xtensa/include/asm/Kbuild
++++ b/arch/xtensa/include/asm/Kbuild
+@@ -35,3 +35,4 @@ generic-y += xor.h
+ generic-y += section-core.h
+ generic-y += ranges.h
+ generic-y += tables.h
++generic-y += kprobes.h
+diff --git a/include/asm-generic/kprobes.h b/include/asm-generic/kprobes.h
+new file mode 100644
+index 000000000000..57af9f21d148
+--- /dev/null
++++ b/include/asm-generic/kprobes.h
+@@ -0,0 +1,25 @@
++#ifndef _ASM_GENERIC_KPROBES_H
++#define _ASM_GENERIC_KPROBES_H
++
++#if defined(__KERNEL__) && !defined(__ASSEMBLY__)
++#ifdef CONFIG_KPROBES
++/*
++ * Blacklist ganerating macro. Specify functions which is not probed
++ * by using this macro.
++ */
++# define __NOKPROBE_SYMBOL(fname)				\
++static unsigned long __used					\
++	__attribute__((__section__("_kprobe_blacklist")))	\
++	_kbl_addr_##fname = (unsigned long)fname;
++# define NOKPROBE_SYMBOL(fname)	__NOKPROBE_SYMBOL(fname)
++/* Use this to forbid a kprobes attach on very low level functions */
++# define __kprobes	__attribute__((__section__(".kprobes.text")))
++# define nokprobe_inline	__always_inline
++#else
++# define NOKPROBE_SYMBOL(fname)
++# define __kprobes
++# define nokprobe_inline	inline
++#endif
++#endif /* defined(__KERNEL__) && !defined(__ASSEMBLY__) */
++
++#endif /* _ASM_GENERIC_KPROBES_H */
+diff --git a/include/linux/compiler.h b/include/linux/compiler.h
+index cf0fa5d86059..dca49b4099da 100644
+--- a/include/linux/compiler.h
++++ b/include/linux/compiler.h
+@@ -566,12 +566,4 @@ static __always_inline void __write_once_size(volatile void *p, void *res, int s
+ 	(_________p1); \
+ })
+ 
+-/* Ignore/forbid kprobes attach on very low level functions marked by this attribute: */
+-#ifdef CONFIG_KPROBES
+-# define __kprobes	__attribute__((__section__(".kprobes.text")))
+-# define nokprobe_inline	__always_inline
+-#else
+-# define __kprobes
+-# define nokprobe_inline	inline
+-#endif
+ #endif /* __LINUX_COMPILER_H */
+diff --git a/include/linux/kprobes.h b/include/linux/kprobes.h
+index 8f6849084248..985ed79ef431 100644
+--- a/include/linux/kprobes.h
++++ b/include/linux/kprobes.h
+@@ -29,7 +29,7 @@
+  *		<jkenisto@us.ibm.com>  and Prasanna S Panchamukhi
+  *		<prasanna@in.ibm.com> added function-return probes.
+  */
+-#include <linux/compiler.h>	/* for __kprobes */
++#include <linux/compiler.h>
+ #include <linux/linkage.h>
+ #include <linux/list.h>
+ #include <linux/notifier.h>
+@@ -40,9 +40,9 @@
+ #include <linux/rcupdate.h>
+ #include <linux/mutex.h>
+ #include <linux/ftrace.h>
++#include <asm/kprobes.h>
+ 
+ #ifdef CONFIG_KPROBES
+-#include <asm/kprobes.h>
+ 
+ /* kprobe_status settings */
+ #define KPROBE_HIT_ACTIVE	0x00000001
+@@ -51,6 +51,7 @@
+ #define KPROBE_HIT_SSDONE	0x00000008
+ 
+ #else /* CONFIG_KPROBES */
++#include <asm-generic/kprobes.h>
+ typedef int kprobe_opcode_t;
+ struct arch_specific_insn {
+ 	int dummy;
+@@ -481,18 +482,4 @@ static inline int enable_jprobe(struct jprobe *jp)
+ 	return enable_kprobe(&jp->kp);
  }
  
--static struct uart_ops amba_pl010_pops = {
-+static const struct uart_ops amba_pl010_pops = {
- 	.tx_empty	= pl010_tx_empty,
- 	.set_mctrl	= pl010_set_mctrl,
- 	.get_mctrl	= pl010_get_mctrl,
-diff --git a/drivers/tty/serial/amba-pl011.c b/drivers/tty/serial/amba-pl011.c
-index d4171d7..d3b3f02 100644
---- a/drivers/tty/serial/amba-pl011.c
-+++ b/drivers/tty/serial/amba-pl011.c
-@@ -2114,7 +2114,7 @@ static int pl011_verify_port(struct uart_port *port, struct serial_struct *ser)
- 	return ret;
- }
- 
--static struct uart_ops amba_pl011_pops = {
-+static const struct uart_ops amba_pl011_pops = {
- 	.tx_empty	= pl011_tx_empty,
- 	.set_mctrl	= pl011_set_mctrl,
- 	.get_mctrl	= pl011_get_mctrl,
-diff --git a/drivers/tty/serial/ar933x_uart.c b/drivers/tty/serial/ar933x_uart.c
-index 73137f4..decc7f3 100644
---- a/drivers/tty/serial/ar933x_uart.c
-+++ b/drivers/tty/serial/ar933x_uart.c
-@@ -493,7 +493,7 @@ static int ar933x_uart_verify_port(struct uart_port *port,
- 	return 0;
- }
- 
--static struct uart_ops ar933x_uart_ops = {
-+static const struct uart_ops ar933x_uart_ops = {
- 	.tx_empty	= ar933x_uart_tx_empty,
- 	.set_mctrl	= ar933x_uart_set_mctrl,
- 	.get_mctrl	= ar933x_uart_get_mctrl,
-diff --git a/drivers/tty/serial/dz.c b/drivers/tty/serial/dz.c
-index c121f16..ff465ff 100644
---- a/drivers/tty/serial/dz.c
-+++ b/drivers/tty/serial/dz.c
-@@ -739,7 +739,7 @@ static int dz_verify_port(struct uart_port *uport, struct serial_struct *ser)
- 	return ret;
- }
- 
--static struct uart_ops dz_ops = {
-+static const struct uart_ops dz_ops = {
- 	.tx_empty	= dz_tx_empty,
- 	.get_mctrl	= dz_get_mctrl,
- 	.set_mctrl	= dz_set_mctrl,
-diff --git a/drivers/tty/serial/efm32-uart.c b/drivers/tty/serial/efm32-uart.c
-index 195acc8..ebd8569 100644
---- a/drivers/tty/serial/efm32-uart.c
-+++ b/drivers/tty/serial/efm32-uart.c
-@@ -487,7 +487,7 @@ static int efm32_uart_verify_port(struct uart_port *port,
- 	return ret;
- }
- 
--static struct uart_ops efm32_uart_pops = {
-+static const struct uart_ops efm32_uart_pops = {
- 	.tx_empty = efm32_uart_tx_empty,
- 	.set_mctrl = efm32_uart_set_mctrl,
- 	.get_mctrl = efm32_uart_get_mctrl,
-diff --git a/drivers/tty/serial/icom.c b/drivers/tty/serial/icom.c
-index d83783c..fe92d74 100644
---- a/drivers/tty/serial/icom.c
-+++ b/drivers/tty/serial/icom.c
-@@ -1286,7 +1286,7 @@ static void icom_config_port(struct uart_port *port, int flags)
- 	port->type = PORT_ICOM;
- }
- 
--static struct uart_ops icom_ops = {
-+static const struct uart_ops icom_ops = {
- 	.tx_empty = icom_tx_empty,
- 	.set_mctrl = icom_set_mctrl,
- 	.get_mctrl = icom_get_mctrl,
-diff --git a/drivers/tty/serial/ioc3_serial.c b/drivers/tty/serial/ioc3_serial.c
-index 27b5fef..2a61dd6 100644
---- a/drivers/tty/serial/ioc3_serial.c
-+++ b/drivers/tty/serial/ioc3_serial.c
-@@ -1873,7 +1873,7 @@ static int ic3_request_port(struct uart_port *port)
- }
- 
- /* Associate the uart functions above - given to serial core */
--static struct uart_ops ioc3_ops = {
-+static const struct uart_ops ioc3_ops = {
- 	.tx_empty = ic3_tx_empty,
- 	.set_mctrl = ic3_set_mctrl,
- 	.get_mctrl = ic3_get_mctrl,
-diff --git a/drivers/tty/serial/ioc4_serial.c b/drivers/tty/serial/ioc4_serial.c
-index 3be051abb..6ad26f8 100644
---- a/drivers/tty/serial/ioc4_serial.c
-+++ b/drivers/tty/serial/ioc4_serial.c
-@@ -2596,7 +2596,7 @@ static int ic4_request_port(struct uart_port *port)
- 
- /* Associate the uart functions above - given to serial core */
- 
--static struct uart_ops ioc4_ops = {
-+static const struct uart_ops ioc4_ops = {
- 	.tx_empty	= ic4_tx_empty,
- 	.set_mctrl	= ic4_set_mctrl,
- 	.get_mctrl	= ic4_get_mctrl,
-diff --git a/drivers/tty/serial/ip22zilog.c b/drivers/tty/serial/ip22zilog.c
-index 991e6dc..7ddddb4 100644
---- a/drivers/tty/serial/ip22zilog.c
-+++ b/drivers/tty/serial/ip22zilog.c
-@@ -930,7 +930,7 @@ static int ip22zilog_verify_port(struct uart_port *port, struct serial_struct *s
- 	return -EINVAL;
- }
- 
--static struct uart_ops ip22zilog_pops = {
-+static const struct uart_ops ip22zilog_pops = {
- 	.tx_empty	=	ip22zilog_tx_empty,
- 	.set_mctrl	=	ip22zilog_set_mctrl,
- 	.get_mctrl	=	ip22zilog_get_mctrl,
-diff --git a/drivers/tty/serial/lantiq.c b/drivers/tty/serial/lantiq.c
-index b88832e..d34398e 100644
---- a/drivers/tty/serial/lantiq.c
-+++ b/drivers/tty/serial/lantiq.c
-@@ -557,7 +557,7 @@ lqasc_verify_port(struct uart_port *port,
- 	return ret;
- }
- 
--static struct uart_ops lqasc_pops = {
-+static const struct uart_ops lqasc_pops = {
- 	.tx_empty =	lqasc_tx_empty,
- 	.set_mctrl =	lqasc_set_mctrl,
- 	.get_mctrl =	lqasc_get_mctrl,
-diff --git a/drivers/tty/serial/lpc32xx_hs.c b/drivers/tty/serial/lpc32xx_hs.c
-index 7eb04ae..cea57ff 100644
---- a/drivers/tty/serial/lpc32xx_hs.c
-+++ b/drivers/tty/serial/lpc32xx_hs.c
-@@ -645,7 +645,7 @@ static int serial_lpc32xx_verify_port(struct uart_port *port,
- 	return ret;
- }
- 
--static struct uart_ops serial_lpc32xx_pops = {
-+static const struct uart_ops serial_lpc32xx_pops = {
- 	.tx_empty	= serial_lpc32xx_tx_empty,
- 	.set_mctrl	= serial_lpc32xx_set_mctrl,
- 	.get_mctrl	= serial_lpc32xx_get_mctrl,
-diff --git a/drivers/tty/serial/mpsc.c b/drivers/tty/serial/mpsc.c
-index 4a3021b..1a60a20 100644
---- a/drivers/tty/serial/mpsc.c
-+++ b/drivers/tty/serial/mpsc.c
-@@ -1670,7 +1670,7 @@ static void mpsc_put_poll_char(struct uart_port *port,
- }
- #endif
- 
--static struct uart_ops mpsc_pops = {
-+static const struct uart_ops mpsc_pops = {
- 	.tx_empty	= mpsc_tx_empty,
- 	.set_mctrl	= mpsc_set_mctrl,
- 	.get_mctrl	= mpsc_get_mctrl,
-diff --git a/drivers/tty/serial/omap-serial.c b/drivers/tty/serial/omap-serial.c
-index a2a5299..96dd99c 100644
---- a/drivers/tty/serial/omap-serial.c
-+++ b/drivers/tty/serial/omap-serial.c
-@@ -1395,7 +1395,7 @@ serial_omap_config_rs485(struct uart_port *port, struct serial_rs485 *rs485)
- 	return 0;
- }
- 
--static struct uart_ops serial_omap_pops = {
-+static const struct uart_ops serial_omap_pops = {
- 	.tx_empty	= serial_omap_tx_empty,
- 	.set_mctrl	= serial_omap_set_mctrl,
- 	.get_mctrl	= serial_omap_get_mctrl,
-diff --git a/drivers/tty/serial/pmac_zilog.c b/drivers/tty/serial/pmac_zilog.c
-index b24b055..0da5294 100644
---- a/drivers/tty/serial/pmac_zilog.c
-+++ b/drivers/tty/serial/pmac_zilog.c
-@@ -1379,7 +1379,7 @@ static void pmz_poll_put_char(struct uart_port *port, unsigned char c)
- 
- #endif /* CONFIG_CONSOLE_POLL */
- 
--static struct uart_ops pmz_pops = {
-+static const struct uart_ops pmz_pops = {
- 	.tx_empty	=	pmz_tx_empty,
- 	.set_mctrl	=	pmz_set_mctrl,
- 	.get_mctrl	=	pmz_get_mctrl,
-diff --git a/drivers/tty/serial/pnx8xxx_uart.c b/drivers/tty/serial/pnx8xxx_uart.c
-index 7a3bb9c..dab2668 100644
---- a/drivers/tty/serial/pnx8xxx_uart.c
-+++ b/drivers/tty/serial/pnx8xxx_uart.c
-@@ -631,7 +631,7 @@ pnx8xxx_verify_port(struct uart_port *port, struct serial_struct *ser)
- 	return ret;
- }
- 
--static struct uart_ops pnx8xxx_pops = {
-+static const struct uart_ops pnx8xxx_pops = {
- 	.tx_empty	= pnx8xxx_tx_empty,
- 	.set_mctrl	= pnx8xxx_set_mctrl,
- 	.get_mctrl	= pnx8xxx_get_mctrl,
-diff --git a/drivers/tty/serial/pxa.c b/drivers/tty/serial/pxa.c
-index 7595281..905631d 100644
---- a/drivers/tty/serial/pxa.c
-+++ b/drivers/tty/serial/pxa.c
-@@ -762,7 +762,7 @@ static struct console serial_pxa_console = {
- #define PXA_CONSOLE	NULL
- #endif
- 
--static struct uart_ops serial_pxa_pops = {
-+static const struct uart_ops serial_pxa_pops = {
- 	.tx_empty	= serial_pxa_tx_empty,
- 	.set_mctrl	= serial_pxa_set_mctrl,
- 	.get_mctrl	= serial_pxa_get_mctrl,
-diff --git a/drivers/tty/serial/serial-tegra.c b/drivers/tty/serial/serial-tegra.c
-index 731ac35..d92a150 100644
---- a/drivers/tty/serial/serial-tegra.c
-+++ b/drivers/tty/serial/serial-tegra.c
-@@ -1191,7 +1191,7 @@ static const char *tegra_uart_type(struct uart_port *u)
- 	return TEGRA_UART_TYPE;
- }
- 
--static struct uart_ops tegra_uart_ops = {
-+static const struct uart_ops tegra_uart_ops = {
- 	.tx_empty	= tegra_uart_tx_empty,
- 	.set_mctrl	= tegra_uart_set_mctrl,
- 	.get_mctrl	= tegra_uart_get_mctrl,
-diff --git a/drivers/tty/serial/serial_txx9.c b/drivers/tty/serial/serial_txx9.c
-index f80312e..f80fead 100644
---- a/drivers/tty/serial/serial_txx9.c
-+++ b/drivers/tty/serial/serial_txx9.c
-@@ -845,7 +845,7 @@ serial_txx9_type(struct uart_port *port)
- 	return "txx9";
- }
- 
--static struct uart_ops serial_txx9_pops = {
-+static const struct uart_ops serial_txx9_pops = {
- 	.tx_empty	= serial_txx9_tx_empty,
- 	.set_mctrl	= serial_txx9_set_mctrl,
- 	.get_mctrl	= serial_txx9_get_mctrl,
-diff --git a/drivers/tty/serial/sirfsoc_uart.c b/drivers/tty/serial/sirfsoc_uart.c
-index b186c9c..e03282d 100644
---- a/drivers/tty/serial/sirfsoc_uart.c
-+++ b/drivers/tty/serial/sirfsoc_uart.c
-@@ -1061,7 +1061,7 @@ static void sirfsoc_uart_config_port(struct uart_port *port, int flags)
- 	}
- }
- 
--static struct uart_ops sirfsoc_uart_ops = {
-+static const struct uart_ops sirfsoc_uart_ops = {
- 	.tx_empty	= sirfsoc_uart_tx_empty,
- 	.get_mctrl	= sirfsoc_uart_get_mctrl,
- 	.set_mctrl	= sirfsoc_uart_set_mctrl,
-diff --git a/drivers/tty/serial/sn_console.c b/drivers/tty/serial/sn_console.c
-index d4692d8..9e0e658 100644
---- a/drivers/tty/serial/sn_console.c
-+++ b/drivers/tty/serial/sn_console.c
-@@ -380,7 +380,7 @@ static void snp_config_port(struct uart_port *port, int flags)
- 
- /* Associate the uart functions above - given to serial core */
- 
--static struct uart_ops sn_console_ops = {
-+static const struct uart_ops sn_console_ops = {
- 	.tx_empty = snp_tx_empty,
- 	.set_mctrl = snp_set_mctrl,
- 	.get_mctrl = snp_get_mctrl,
-diff --git a/drivers/tty/serial/sprd_serial.c b/drivers/tty/serial/sprd_serial.c
-index 699447a..d98e3dc 100644
---- a/drivers/tty/serial/sprd_serial.c
-+++ b/drivers/tty/serial/sprd_serial.c
-@@ -498,7 +498,7 @@ static int sprd_verify_port(struct uart_port *port,
- 	return 0;
- }
- 
--static struct uart_ops serial_sprd_ops = {
-+static const struct uart_ops serial_sprd_ops = {
- 	.tx_empty = sprd_tx_empty,
- 	.get_mctrl = sprd_get_mctrl,
- 	.set_mctrl = sprd_set_mctrl,
-diff --git a/drivers/tty/serial/sunhv.c b/drivers/tty/serial/sunhv.c
-index 99ef5c6..73abd89 100644
---- a/drivers/tty/serial/sunhv.c
-+++ b/drivers/tty/serial/sunhv.c
-@@ -370,7 +370,7 @@ static int sunhv_verify_port(struct uart_port *port, struct serial_struct *ser)
- 	return -EINVAL;
- }
- 
--static struct uart_ops sunhv_pops = {
-+static const struct uart_ops sunhv_pops = {
- 	.tx_empty	= sunhv_tx_empty,
- 	.set_mctrl	= sunhv_set_mctrl,
- 	.get_mctrl	= sunhv_get_mctrl,
-diff --git a/drivers/tty/serial/sunzilog.c b/drivers/tty/serial/sunzilog.c
-index 8b6ace3..252cea4 100644
---- a/drivers/tty/serial/sunzilog.c
-+++ b/drivers/tty/serial/sunzilog.c
-@@ -1046,7 +1046,7 @@ static void sunzilog_put_poll_char(struct uart_port *port,
- }
- #endif /* CONFIG_CONSOLE_POLL */
- 
--static struct uart_ops sunzilog_pops = {
-+static const struct uart_ops sunzilog_pops = {
- 	.tx_empty	=	sunzilog_tx_empty,
- 	.set_mctrl	=	sunzilog_set_mctrl,
- 	.get_mctrl	=	sunzilog_get_mctrl,
-diff --git a/drivers/tty/serial/vr41xx_siu.c b/drivers/tty/serial/vr41xx_siu.c
-index 485de53..439057e 100644
---- a/drivers/tty/serial/vr41xx_siu.c
-+++ b/drivers/tty/serial/vr41xx_siu.c
-@@ -681,7 +681,7 @@ static int siu_verify_port(struct uart_port *port, struct serial_struct *serial)
- 	return 0;
- }
- 
--static struct uart_ops siu_uart_ops = {
-+static const struct uart_ops siu_uart_ops = {
- 	.tx_empty	= siu_tx_empty,
- 	.set_mctrl	= siu_set_mctrl,
- 	.get_mctrl	= siu_get_mctrl,
-diff --git a/drivers/tty/serial/vt8500_serial.c b/drivers/tty/serial/vt8500_serial.c
-index 6b85adc..435a6f3 100644
---- a/drivers/tty/serial/vt8500_serial.c
-+++ b/drivers/tty/serial/vt8500_serial.c
-@@ -592,7 +592,7 @@ static void vt8500_put_poll_char(struct uart_port *port, unsigned char c)
- }
- #endif
- 
--static struct uart_ops vt8500_uart_pops = {
-+static const struct uart_ops vt8500_uart_pops = {
- 	.tx_empty	= vt8500_tx_empty,
- 	.set_mctrl	= vt8500_set_mctrl,
- 	.get_mctrl	= vt8500_get_mctrl,
-diff --git a/drivers/tty/serial/zs.c b/drivers/tty/serial/zs.c
-index eeefd76..d32bd49 100644
---- a/drivers/tty/serial/zs.c
-+++ b/drivers/tty/serial/zs.c
-@@ -1045,7 +1045,7 @@ static int zs_verify_port(struct uart_port *uport, struct serial_struct *ser)
- }
- 
- 
--static struct uart_ops zs_ops = {
-+static const struct uart_ops zs_ops = {
- 	.tx_empty	= zs_tx_empty,
- 	.set_mctrl	= zs_set_mctrl,
- 	.get_mctrl	= zs_get_mctrl,
+-#ifdef CONFIG_KPROBES
+-/*
+- * Blacklist ganerating macro. Specify functions which is not probed
+- * by using this macro.
+- */
+-#define __NOKPROBE_SYMBOL(fname)			\
+-static unsigned long __used				\
+-	__attribute__((section("_kprobe_blacklist")))	\
+-	_kbl_addr_##fname = (unsigned long)fname;
+-#define NOKPROBE_SYMBOL(fname)	__NOKPROBE_SYMBOL(fname)
+-#else
+-#define NOKPROBE_SYMBOL(fname)
+-#endif
+-
+ #endif /* _LINUX_KPROBES_H */
 -- 
-2.7.4
+2.11.0
 
