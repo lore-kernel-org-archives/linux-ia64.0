@@ -1,60 +1,141 @@
 From: Russell King - ARM Linux <linux@armlinux.org.uk>
-Date: Fri, 13 Jan 2017 16:19:52 +0000
+Date: Fri, 13 Jan 2017 17:06:10 +0000
 Subject: Re: [PATCH v3 1/8] arm: put types.h in uapi
-Message-Id: <20170113161951.GT14217@n2100.armlinux.org.uk>
+Message-Id: <20170113170610.GV14217@n2100.armlinux.org.uk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1484304406-10820-2-git-send-email-nicolas.dichtel@6wind.com>
- <3131144.4Ej3KFWRbz@wuerfel>
+References: <3131144.4Ej3KFWRbz@wuerfel>
  <1484304406-10820-1-git-send-email-nicolas.dichtel@6wind.com>
- <25063.1484321803@warthog.procyon.org.uk>
- <4633e475-47f2-5627-81a9-a1747dfddbc0@6wind.com>
-In-Reply-To: <4633e475-47f2-5627-81a9-a1747dfddbc0@6wind.com>
+ <1484304406-10820-2-git-send-email-nicolas.dichtel@6wind.com>
+In-Reply-To: <1484304406-10820-2-git-send-email-nicolas.dichtel@6wind.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Cc: David Howells <dhowells@redhat.com>, arnd@arndb.de, linux-mips@linux-mips.org, linux-m68k@vger.kernel.org, linux-ia64@vger.kernel.org, linux-doc@vger.kernel.org, alsa-devel@alsa-project.org, dri-devel@lists.freedesktop.org, linux-mtd@lists.infradead.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, linux-am33-list@redhat.com, linux-c6x-dev@linux-c6x.org, linux-rdma@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-sh@vger.kernel.org, coreteam@netfilter.org, fcoe-devel@open-fcoe.org, xen-devel@lists.xenproject.org, linux-snps-arc@lists.infradead.org, linux-media@vger.kernel.org, uclinux-h8-devel@lists.sourceforge.jp, linux-xtensa@linux-xtensa.org, linux-kbuild@vger.kernel.org, adi-buildroot-devel@lists.sourceforge.net, linux-raid@vg
+Cc: linux-mips@linux-mips.org, alsa-devel@alsa-project.org, linux-ia64@vger.kernel.org, linux-doc@vger.kernel.org, airlied@linux.ie, daniel.vetter@ffwll.ch, linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-mtd@lists.infradead.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, linux-am33-list@redhat.com, linux-c6x-dev@linux-c6x.org, linux-rdma@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-sh@vger.kernel.org, hch@infradead.org, coreteam@netfilter.org, msalter@redhat.com, fcoe-devel@open-fcoe.org, xen-devel@lists.xenproject.org, linux-snps-arc@lists.infradead.org, linux-media@vger.kernel.org, uclinux-h8-devel@lists.sourceforge.jp, linux-xtensa@linux-xtensa.org, arnd@arndb.de, linux-kbuild@vger.kernel.org, adi-buildroot-devel@lists.sourceforge.net, linux-raid@vger.kernel.org, linux-m68k@lists.linux-m68k.org, openri
 
-On Fri, Jan 13, 2017 at 05:01:01PM +0100, Nicolas Dichtel wrote:
-> Please, do not remove the email subject when you reply. I restore it to
-> ease the thread follow-up.
+On Fri, Jan 13, 2017 at 11:46:39AM +0100, Nicolas Dichtel wrote:
+> This header file is exported, thus move it to uapi.
 
-I mentioned it to David, and he says it's because the long list of
-recipients is breaking his mailer.  I've already posed the question
-about whether that's exploitable!
+I'm taking this patch, but with the following commit log:
 
-> Le 13/01/2017 =E0 16:36, David Howells a =E9crit :
-> > Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
-> >=20
-> >> This header file is exported, thus move it to uapi.
-> >=20
-> > Exported how?
->=20
-> It is listed in include/uapi/asm-generic/Kbuild.asm, which is included by
-> arch/arm/include/uapi/asm/Kbuild.
+  Due to the way kbuild works, this header was unintentionally exported
+  back in 2013 when it was created, despite it not being in a uapi/
+  directory.  This is very non-intuitive behaviour by Kbuild.
 
-We really should not be installing non-uapi header files to userland
-under _any_ circumstance - this to me sounds like a bug in kbuild.
+  However, we've had this include exported to userland for almost four
+  years, and searching google for "ARM types.h __UINTPTR_TYPE__" gives
+  no hint that anyone has complained about it.  So, let's make it
+  officially exported in this state.
 
-The assumption is that headers outside of uapi directories are not
-part of the user visible API, and so can be freely modified - which
-in the presence of this bug is untrue.
+If anyone has any objections, they better shout sooner rather than
+later.
 
-However, as it's happening, and this header has been there since 2013
-(commit 09096f6a0ee2 - "ARM: 7822/1: add workaround for ambiguous C99
-stdint.h types") it's now well and truely part of the user API whether
-we intended it to be or not, so your patch looks to me like the correct
-thing to do.
+> 
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> ---
+>  arch/arm/include/asm/types.h      | 40 ---------------------------------------
+>  arch/arm/include/uapi/asm/types.h | 40 +++++++++++++++++++++++++++++++++++++++
+>  2 files changed, 40 insertions(+), 40 deletions(-)
+>  delete mode 100644 arch/arm/include/asm/types.h
+>  create mode 100644 arch/arm/include/uapi/asm/types.h
+> 
+> diff --git a/arch/arm/include/asm/types.h b/arch/arm/include/asm/types.h
+> deleted file mode 100644
+> index a53cdb8f068c..000000000000
+> --- a/arch/arm/include/asm/types.h
+> +++ /dev/null
+> @@ -1,40 +0,0 @@
+> -#ifndef _ASM_TYPES_H
+> -#define _ASM_TYPES_H
+> -
+> -#include <asm-generic/int-ll64.h>
+> -
+> -/*
+> - * The C99 types uintXX_t that are usually defined in 'stdint.h' are not as
+> - * unambiguous on ARM as you would expect. For the types below, there is a
+> - * difference on ARM between GCC built for bare metal ARM, GCC built for glibc
+> - * and the kernel itself, which results in build errors if you try to build with
+> - * -ffreestanding and include 'stdint.h' (such as when you include 'arm_neon.h'
+> - * in order to use NEON intrinsics)
+> - *
+> - * As the typedefs for these types in 'stdint.h' are based on builtin defines
+> - * supplied by GCC, we can tweak these to align with the kernel's idea of those
+> - * types, so 'linux/types.h' and 'stdint.h' can be safely included from the same
+> - * source file (provided that -ffreestanding is used).
+> - *
+> - *                    int32_t         uint32_t               uintptr_t
+> - * bare metal GCC     long            unsigned long          unsigned int
+> - * glibc GCC          int             unsigned int           unsigned int
+> - * kernel             int             unsigned int           unsigned long
+> - */
+> -
+> -#ifdef __INT32_TYPE__
+> -#undef __INT32_TYPE__
+> -#define __INT32_TYPE__		int
+> -#endif
+> -
+> -#ifdef __UINT32_TYPE__
+> -#undef __UINT32_TYPE__
+> -#define __UINT32_TYPE__	unsigned int
+> -#endif
+> -
+> -#ifdef __UINTPTR_TYPE__
+> -#undef __UINTPTR_TYPE__
+> -#define __UINTPTR_TYPE__	unsigned long
+> -#endif
+> -
+> -#endif /* _ASM_TYPES_H */
+> diff --git a/arch/arm/include/uapi/asm/types.h b/arch/arm/include/uapi/asm/types.h
+> new file mode 100644
+> index 000000000000..9435a42f575e
+> --- /dev/null
+> +++ b/arch/arm/include/uapi/asm/types.h
+> @@ -0,0 +1,40 @@
+> +#ifndef _UAPI_ASM_TYPES_H
+> +#define _UAPI_ASM_TYPES_H
+> +
+> +#include <asm-generic/int-ll64.h>
+> +
+> +/*
+> + * The C99 types uintXX_t that are usually defined in 'stdint.h' are not as
+> + * unambiguous on ARM as you would expect. For the types below, there is a
+> + * difference on ARM between GCC built for bare metal ARM, GCC built for glibc
+> + * and the kernel itself, which results in build errors if you try to build with
+> + * -ffreestanding and include 'stdint.h' (such as when you include 'arm_neon.h'
+> + * in order to use NEON intrinsics)
+> + *
+> + * As the typedefs for these types in 'stdint.h' are based on builtin defines
+> + * supplied by GCC, we can tweak these to align with the kernel's idea of those
+> + * types, so 'linux/types.h' and 'stdint.h' can be safely included from the same
+> + * source file (provided that -ffreestanding is used).
+> + *
+> + *                    int32_t         uint32_t               uintptr_t
+> + * bare metal GCC     long            unsigned long          unsigned int
+> + * glibc GCC          int             unsigned int           unsigned int
+> + * kernel             int             unsigned int           unsigned long
+> + */
+> +
+> +#ifdef __INT32_TYPE__
+> +#undef __INT32_TYPE__
+> +#define __INT32_TYPE__		int
+> +#endif
+> +
+> +#ifdef __UINT32_TYPE__
+> +#undef __UINT32_TYPE__
+> +#define __UINT32_TYPE__	unsigned int
+> +#endif
+> +
+> +#ifdef __UINTPTR_TYPE__
+> +#undef __UINTPTR_TYPE__
+> +#define __UINTPTR_TYPE__	unsigned long
+> +#endif
+> +
+> +#endif /* _UAPI_ASM_TYPES_H */
+> -- 
+> 2.8.1
+> 
 
-I think it needs further evaluation to make sure kbuild isn't going to
-do something else silly, like subsitute include/asm-generic/types.h for
-the now missing arch/arm/include/asm/types.h
-
-I wonder how many more headers are unintentionally exported.
-
-... what a mess. :(
-
---=20
+-- 
 RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
 FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
 according to speedtest.net.
