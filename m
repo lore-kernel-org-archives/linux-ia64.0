@@ -1,55 +1,43 @@
-From: "Luis R. Rodriguez" <mcgrof@kernel.org>
-Date: Tue, 03 Jan 2017 21:27:44 +0000
-Subject: Re: [PATCH v5 09/14] jump_label: port __jump_table to linker tables
-Message-Id: <20170103212744.GF13946@wotan.suse.de>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Fri, 13 Jan 2017 10:46:38 +0000
+Subject: [PATCH v3 0/8] uapi: export all headers under uapi directories
+Message-Id: <1484304406-10820-1-git-send-email-nicolas.dichtel@6wind.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1471642454-5679-1-git-send-email-mcgrof@kernel.org>
- <20161222023811.21246-1-mcgrof@kernel.org>
- <20161222023811.21246-10-mcgrof@kernel.org>
- <1482415702.9552.125.camel@linux.intel.com>
-In-Reply-To: <1482415702.9552.125.camel@linux.intel.com>
+References: <3131144.4Ej3KFWRbz@wuerfel>
+In-Reply-To: <3131144.4Ej3KFWRbz@wuerfel>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Cc: gnomes@lxorguk.ukuu.org.uk, dalias@libc.org, linux-ia64@vger.kernel.org, jkosina@suse.cz, benh@kernel.crashing.org, ming.lei@canonical.com, heiko.carstens@de.ibm.com, platform-driver-x86@vger.kernel.org, James.Bottomley@HansenPartnership.com, paul.gortmaker@windriver.com, paulus@samba.org, mpe@ellerman.id.au, hpa@zytor.com, masami.hiramatsu.pt@hitachi.com, wangnan0@huawei.com, mchehab@osg.samsung.com, linux-arch@vger.kernel.org, markus.heiser@darmarit.de, sparclinux@vger.kernel.org, xen-devel@lists.xensource.com, linux@arm.linux.org.uk, linux-sh@vger.kernel.org, will.deacon@arm.com, korea.drzix@gmail.com, x86@kernel.org, anil.s.keshavamurthy@intel.com, fontana@sharpeleven.org, mingo@redhat.com, dsahern@gmail.com, linux-arm-kernel@lists.infradead.org, catalin.marinas@arm.com, dvhart@infradead.org, dwmw2@infradead.org, linux@roeck-us.net, david.vrabel@citrix.com, linux-xte
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: arnd@arndb.de
+Cc: linux-mips@linux-mips.org, alsa-devel@alsa-project.org, linux-ia64@vger.kernel.org, linux-doc@vger.kernel.org, airlied@linux.ie, daniel.vetter@ffwll.ch, linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-mtd@lists.infradead.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, linux-am33-list@redhat.com, linux-c6x-dev@linux-c6x.org, linux-rdma@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-sh@vger.kernel.org, linux@armlinux.org.uk, hch@infradead.org, coreteam@netfilter.org, msalter@redhat.com, fcoe-devel@open-fcoe.org, xen-devel@lists.xenproject.org, linux-snps-arc@lists.infradead.org, linux-media@vger.kernel.org, uclinux-h8-devel@lists.sourceforge.jp, linux-xtensa@linux-xtensa.org, linux-kbuild@vger.kernel.org, adi-buildroot-devel@lists.sourceforge.net, linux-raid@vger.kernel.org, linux-m68k@lists.linux-m68k.org
 
-On Thu, Dec 22, 2016 at 04:08:22PM +0200, Andy Shevchenko wrote:
-> On Wed, 2016-12-21 at 18:38 -0800, Luis R. Rodriguez wrote:
-> > Move the __jump_table from the a custom section solution
-> > to a generic solution, this avoiding extra vmlinux.lds.h
-> > customizations.
-> >=20
-> > This also demos the use of the .data linker table and of
-> > the shared asm call push_section_tbl().
-> >=20
->=20
-> > =A0{
-> > =A0	asm_volatile_goto("1:\n\t"
-> > =A0		=A0WASM(nop) "\n\t"
-> > -		=A0".pushsection __jump_table,=A0=A0\"aw\"\n\t"
-> > +		=A0push_section_tbl_any(.data, __jump_table, aw)
-> > =A0		=A0".word 1b, %l[l_yes], %c0\n\t"
-> > =A0		=A0".popsection\n\t"
-> > =A0		=A0: :=A0=A0"i" (&((char *)key)[branch]) :=A0=A0: l_yes);
-> > @@ -26,7 +28,7 @@ static __always_inline bool
-> > arch_static_branch_jump(struct static_key *key, bool
-> > =A0{
-> > =A0	asm_volatile_goto("1:\n\t"
-> > =A0		=A0WASM(b) " %l[l_yes]\n\t"
-> > -		=A0".pushsection __jump_table,=A0=A0\"aw\"\n\t"
-> > +		=A0push_section_tbl_any(.data, __jump_table, aw)
-> > =A0		=A0".word 1b, %l[l_yes], %c0\n\t"
-> > =A0		=A0".popsection\n\t"
->=20
-> Does it make sense to introduce something like
->=20
-> #define pop_section_tbl ".popsection\n\t"
-> #define pop_section_tbl_any pop_section_tbl
+Here is the v3 of this series. The first 5 patches are just cleanup: some
+exported headers were still under a non-uapi directory or (x86 case) were
+wrongly exported.
+The patch 6 was spotted by code review: there is no in-tree user of this
+functionality.
+Patches 7 and 8 remove the need to list explicitly headers. Now all files
+under an uapi directory are exported.
 
-Absolutely ! However this would be an evolution, and I would much
-prefer to add this later as an atomic step later to enable other
-users to also be using this shared macro. I did not have an immediate
-need for a pop_section_tbl() macro as its not section specific.
+This series has been tested with a 'make headers_install' on x86 and a
+'make headers_install_all'. I've checked the result of both commands.
 
-  Luis
+This patch is built against linus tree. If I must rebase it against the kbuild
+tree, just tell me ;-)
+
+v2 -> v3:
+ - patch #1: remove arch/arm/include/asm/types.h
+ - patch #2: remove arch/h8300/include/asm/bitsperlong.h
+ - patch #3: remove arch/nios2/include/uapi/asm/setup.h
+ - patch #4: don't export msr-index.h
+ - patch #5: fix a typo: s/unput-files3-name/input-files3-name
+ - patch #6: no change
+ - patch #7: fix include/uapi/asm-generic/Kbuild.asm by introducing mandatory-y
+ - add patch #8
+
+v1 -> v2:
+ - add patch #1 to #6
+ - patch #7: remove use of header-y
+
+Comments are welcomed,
+Nicolas
