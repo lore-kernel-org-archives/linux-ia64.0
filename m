@@ -1,46 +1,178 @@
 From: "Luis R. Rodriguez" <mcgrof@kernel.org>
-Date: Mon, 09 Jan 2017 14:58:20 +0000
-Subject: [PATCH v6 02/14] xtensa: skip adding literal when SORT() is used
-Message-Id: <20170109145833.11502-3-mcgrof@kernel.org>
+Date: Sun, 15 Jan 2017 21:12:09 +0000
+Subject: [PATCH v4 0/6] tools: add linker table userspace sandbox
+Message-Id: <20170115211215.17216-1-mcgrof@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20161222023811.21246-1-mcgrof@kernel.org>
- <20170109145833.11502-1-mcgrof@kernel.org>
-In-Reply-To: <20170109145833.11502-1-mcgrof@kernel.org>
+References: <20170109150249.11667-1-mcgrof@kernel.org>
+In-Reply-To: <20170109150249.11667-1-mcgrof@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: hpa@zytor.com, acme@redhat.com, tglx@linutronix.de, mingo@redhat.com, jpoimboe@redhat.com, bp@alien8.de, npiggin@gmail.com, mhiramat@kernel.org, masami.hiramatsu.pt@hitachi.com, jbaron@akamai.com, heiko.carstens@de.ibm.com, ananth@linux.vnet.ibm.com, anil.s.keshavamurthy@intel.com, davem@davemloft.net, realmz6@gmail.com, dalias@libc.org, linux@arm.linux.org.uk
-Cc: gnomes@lxorguk.ukuu.org.uk, linux-ia64@vger.kernel.org, jkosina@suse.cz, benh@kernel.crashing.org, ming.lei@canonical.com, linux@rasmusvillemoes.dk, platform-driver-x86@vger.kernel.org, James.Bottomley@HansenPartnership.com, paul.gortmaker@windriver.com, paulus@samba.org, sparclinux@vger.kernel.org, wangnan0@huawei.com, mchehab@osg.samsung.com, linux-arch@vger.kernel.org, markus.heiser@darmarit.de, xen-devel@lists.xensource.com, msalter@redhat.com, linux-sh@vger.kernel.org, mpe@ellerman.id.au, joro@8bytes.org, x86@kernel.org, fontana@sharpeleven.org, dsahern@gmail.com, linux-arm-kernel@lists.infradead.org, catalin.marinas@arm.com, dvhart@infradead.org, dwmw2@infradead.org, linux@roeck-us.net, linux-xtensa@linux-xtensa.org, pali.rohar@gmail.com, keescook@chromium.org, arnd@arndb.de, jani.nikula@intel.com, will.deacon@arm.com, rusty@rustcorp.com.au, rostedt@goodmis.org
+To: bp@alien8.de, bp@suse.de, hpa@zytor.com, acme@redhat.com, tglx@linutronix.de, mingo@redhat.com, jpoimboe@redhat.com, npiggin@gmail.com, mhiramat@kernel.org, masami.hiramatsu.pt@hitachi.com, jbaron@akamai.com, heiko.carstens@de.ibm.com, ananth@linux.vnet.ibm.com, anil.s.keshavamurthy@intel.com, davem@davemloft.net, realmz6@gmail.com, dalias@libc.org, linux@arm.linux.org.uk
+Cc: x86@kernel.org, luto@amacapital.net, keescook@chromium.org, linux@roeck-us.net, torvalds@linux-foundation.org, gregkh@linuxfoundation.org, rusty@rustcorp.com.au, gnomes@lxorguk.ukuu.org.uk, alan@linux.intel.com, dwmw2@infradead.org, arnd@arndb.de, ming.lei@canonical.com, linux-arch@vger.kernel.org, benh@kernel.crashing.org, pebolle@tiscali.nl, fontana@sharpeleven.org, david.vrabel@citrix.com, konrad.wilk@oracle.com, mcb30@ipxe.org, jgross@suse.com, andrew.cooper3@citrix.com, andriy.shevchenko@linux.intel.com, paul.gortmaker@windriver.com, xen-devel@lists.xensource.com, ak@linux.intel.com, pali.rohar@gmail.com, dvhart@infradead.org, platform-driver-x86@vger.kernel.org, mmarek@suse.com, linux@rasmusvillemoes.dk, jkosina@suse.cz, korea.drzix@gmail.com, linux-kbuild@vger.kernel
 
-When SORT(foo.*) is used the current sed replacements add
-SORT(foo.literal foo.*), this breaks linking. Avoid adding
-literals for SORT globs, if needed, these need to be added
-manually.
+This v4 also addresses some spelling / checkpatch comlplains.
+The remaining checkpatch complaints are not valid for the
+code in question. This applies after the series:
 
-Signed-off-by: Luis R. Rodriguez <mcgrof@kernel.org>
----
- arch/xtensa/kernel/Makefile | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+[PATCH v7 00/14] linux: generalize sections, ranges and linker tables
 
-diff --git a/arch/xtensa/kernel/Makefile b/arch/xtensa/kernel/Makefile
-index 264fb89c444e..ccedd016a8e0 100644
---- a/arch/xtensa/kernel/Makefile
-+++ b/arch/xtensa/kernel/Makefile
-@@ -30,10 +30,10 @@ AFLAGS_mxhead.o += -mtext-section-literals
- #
- # Replicate rules in scripts/Makefile.build
- 
--sed-y = -e ':a; s/\*(\([^)]*\)\.text\.unlikely/*(\1.literal.unlikely .{text}.unlikely/; ta; ' \
--	-e ':b; s/\*(\([^)]*\)\.text\(\.[a-z]*\)/*(\1.{text}\2.literal .{text}\2/; tb; ' \
--	-e ':c; s/\*(\([^)]*\)\(\.[a-z]*it\|\.ref\)\.text/*(\1\2.literal \2.{text}/; tc; ' \
--	-e ':d; s/\*(\([^)]\+ \|\)\.text/*(\1.literal .{text}/; td; ' \
-+sed-y = -e ':a; s/\*(\([^)SORT]*\)\.text\.unlikely/*(\1.literal.unlikely .{text}.unlikely/; ta; ' \
-+	-e ':b; s/\*(\([^)SORT]*\)\.text\(\.[a-z]*\)/*(\1.{text}\2.literal .{text}\2/; tb; ' \
-+	-e ':c; s/\*(\([^SORT)]*\)\(\.[a-z]*it\|\.ref\)\.text/*(\1\2.literal \2.{text}/; tc; ' \
-+	-e ':d; s/\*(\([^SORT)]\+ \|\)\.text/*(\1.literal .{text}/; td; ' \
- 	-e 's/\.{text}/.text/g'
- 
- quiet_cmd__cpp_lds_S = LDS     $@
+Luis R. Rodriguez (6):
+  tools: add a userspace tools bug.h
+  tools: add init.h for tools
+  tools: add __used and enable to override
+  tools: expand export.h with VMLINUX_SYMBOL()
+  tools: add __section() to compiler.h
+  tools: add userspace linker table sandbox
+
+ Documentation/sections/linker-tables.rst           |   4 +-
+ MAINTAINERS                                        |   1 +
+ include/linux/tables.h                             |   5 +-
+ tools/Makefile                                     |   3 +-
+ .../arch/x86/include/generated/asm/section-core.h  |   1 +
+ tools/arch/x86/include/generated/ranges.h          |   1 +
+ tools/arch/x86/include/generated/tables.h          |   1 +
+ tools/include/asm-generic/bug.h                    |  26 +
+ tools/include/asm-generic/ranges.h                 |  93 +++
+ tools/include/asm-generic/section-core.h           | 348 +++++++++++
+ tools/include/asm-generic/tables.h                 |  48 ++
+ tools/include/linux/bug.h                          |   6 +
+ tools/include/linux/compiler.h                     |   8 +
+ tools/include/linux/export.h                       |  22 +
+ tools/include/linux/init.h                         |   9 +
+ tools/include/linux/kernel.h                       |   2 +
+ tools/include/linux/ranges.h                       | 183 ++++++
+ tools/include/linux/sections.h                     |  87 +++
+ tools/include/linux/string.h                       |   1 +
+ tools/include/linux/tables.h                       | 684 +++++++++++++++++++++
+ tools/linker-tables/.gitignore                     |   2 +
+ tools/linker-tables/Makefile                       | 184 ++++++
+ tools/linker-tables/README                         | 114 ++++
+ tools/linker-tables/arch/x86/include/asm/asm.h     |  17 +
+ tools/linker-tables/arch/x86/include/asm/boot.h    |   1 +
+ .../linker-tables/arch/x86/include/asm/bootparam.h |  32 +
+ tools/linker-tables/arch/x86/include/asm/kprobes.h |   7 +
+ .../linker-tables/arch/x86/include/asm/ps_const.h  |  23 +
+ tools/linker-tables/arch/x86/include/asm/ranges.h  |   6 +
+ .../arch/x86/include/asm/section-core.h            |   1 +
+ tools/linker-tables/arch/x86/include/asm/setup.h   |   6 +
+ tools/linker-tables/arch/x86/include/asm/tables.h  |   6 +
+ tools/linker-tables/arch/x86/include/asm/x86.h     |   4 +
+ .../arch/x86/include/asm/x86_init_fn.h             | 169 +++++
+ tools/linker-tables/arch/x86/kernel/alpha.c        |  10 +
+ tools/linker-tables/arch/x86/kernel/alternative.c  |  31 +
+ tools/linker-tables/arch/x86/kernel/beta.c         |  10 +
+ tools/linker-tables/arch/x86/kernel/head64.c       |  58 ++
+ tools/linker-tables/arch/x86/kernel/init.c         |  42 ++
+ tools/linker-tables/arch/x86/kernel/kasan.c        |  11 +
+ tools/linker-tables/arch/x86/kernel/kprobes.c      |  51 ++
+ tools/linker-tables/arch/x86/kernel/vmlinux.lds.S  | 277 +++++++++
+ tools/linker-tables/arch/x86/mm/init.c             |  11 +
+ tools/linker-tables/arch/x86/xen/init.c            |  13 +
+ tools/linker-tables/drivers/acme.c                 |  33 +
+ tools/linker-tables/drivers/synth/common.c         |  16 +
+ tools/linker-tables/drivers/synth/common.h         |   2 +
+ tools/linker-tables/drivers/synth/main.c           |  36 ++
+ tools/linker-tables/drivers/synth/or.S             |  39 ++
+ tools/linker-tables/drivers/synth/synth.h          |   2 +
+ tools/linker-tables/drivers/xen-driver.c           |  12 +
+ .../include/asm-generic/arch_init_fn.h             |  50 ++
+ tools/linker-tables/include/asm-generic/kprobes.h  |  26 +
+ tools/linker-tables/include/linux/bitops.h         |   6 +
+ tools/linker-tables/include/linux/init.h           |  40 ++
+ tools/linker-tables/include/linux/kasan.h          |   5 +
+ tools/linker-tables/include/linux/kernel.h         |   2 +
+ tools/linker-tables/include/linux/kprobes.h        |  11 +
+ tools/linker-tables/include/linux/module.h         |  14 +
+ tools/linker-tables/include/linux/mutex.h          |  17 +
+ tools/linker-tables/include/linux/pci.h            |   7 +
+ tools/linker-tables/include/linux/printk.h         |  26 +
+ tools/linker-tables/include/linux/ps_const.h       |  46 ++
+ tools/linker-tables/include/linux/sched.h          |   9 +
+ tools/linker-tables/include/linux/spinlock.h       |  13 +
+ tools/linker-tables/include/linux/start_kernel.h   |   1 +
+ tools/linker-tables/include/linux/types.h          |  13 +
+ tools/linker-tables/include/linux/workqueue.h      |  51 ++
+ tools/linker-tables/include/xen/xen.h              |   4 +
+ tools/linker-tables/kernel/locking/mutex.c         |  28 +
+ tools/linker-tables/kernel/locking/spinlock.c      |  26 +
+ tools/linker-tables/kernel/main.c                  |  32 +
+ tools/linker-tables/kernel/workqueue.c             |  43 ++
+ tools/linker-tables/lib/string.c                   |  26 +
+ tools/linker-tables/main.c                         |  20 +
+ tools/linker-tables/pci-quirks.c                   |  14 +
+ tools/linker-tables/pci.c                          |  30 +
+ 77 files changed, 3314 insertions(+), 5 deletions(-)
+ create mode 100644 tools/arch/x86/include/generated/asm/section-core.h
+ create mode 100644 tools/arch/x86/include/generated/ranges.h
+ create mode 100644 tools/arch/x86/include/generated/tables.h
+ create mode 100644 tools/include/asm-generic/bug.h
+ create mode 100644 tools/include/asm-generic/ranges.h
+ create mode 100644 tools/include/asm-generic/section-core.h
+ create mode 100644 tools/include/asm-generic/tables.h
+ create mode 100644 tools/include/linux/bug.h
+ create mode 100644 tools/include/linux/init.h
+ create mode 100644 tools/include/linux/ranges.h
+ create mode 100644 tools/include/linux/sections.h
+ create mode 100644 tools/include/linux/tables.h
+ create mode 100644 tools/linker-tables/.gitignore
+ create mode 100644 tools/linker-tables/Makefile
+ create mode 100644 tools/linker-tables/README
+ create mode 100644 tools/linker-tables/arch/x86/include/asm/asm.h
+ create mode 100644 tools/linker-tables/arch/x86/include/asm/boot.h
+ create mode 100644 tools/linker-tables/arch/x86/include/asm/bootparam.h
+ create mode 100644 tools/linker-tables/arch/x86/include/asm/kprobes.h
+ create mode 100644 tools/linker-tables/arch/x86/include/asm/ps_const.h
+ create mode 100644 tools/linker-tables/arch/x86/include/asm/ranges.h
+ create mode 100644 tools/linker-tables/arch/x86/include/asm/section-core.h
+ create mode 100644 tools/linker-tables/arch/x86/include/asm/setup.h
+ create mode 100644 tools/linker-tables/arch/x86/include/asm/tables.h
+ create mode 100644 tools/linker-tables/arch/x86/include/asm/x86.h
+ create mode 100644 tools/linker-tables/arch/x86/include/asm/x86_init_fn.h
+ create mode 100644 tools/linker-tables/arch/x86/kernel/alpha.c
+ create mode 100644 tools/linker-tables/arch/x86/kernel/alternative.c
+ create mode 100644 tools/linker-tables/arch/x86/kernel/beta.c
+ create mode 100644 tools/linker-tables/arch/x86/kernel/head64.c
+ create mode 100644 tools/linker-tables/arch/x86/kernel/init.c
+ create mode 100644 tools/linker-tables/arch/x86/kernel/kasan.c
+ create mode 100644 tools/linker-tables/arch/x86/kernel/kprobes.c
+ create mode 100644 tools/linker-tables/arch/x86/kernel/vmlinux.lds.S
+ create mode 100644 tools/linker-tables/arch/x86/mm/init.c
+ create mode 100644 tools/linker-tables/arch/x86/xen/init.c
+ create mode 100644 tools/linker-tables/drivers/acme.c
+ create mode 100644 tools/linker-tables/drivers/synth/common.c
+ create mode 100644 tools/linker-tables/drivers/synth/common.h
+ create mode 100644 tools/linker-tables/drivers/synth/main.c
+ create mode 100644 tools/linker-tables/drivers/synth/or.S
+ create mode 100644 tools/linker-tables/drivers/synth/synth.h
+ create mode 100644 tools/linker-tables/drivers/xen-driver.c
+ create mode 100644 tools/linker-tables/include/asm-generic/arch_init_fn.h
+ create mode 100644 tools/linker-tables/include/asm-generic/kprobes.h
+ create mode 100644 tools/linker-tables/include/linux/bitops.h
+ create mode 100644 tools/linker-tables/include/linux/init.h
+ create mode 100644 tools/linker-tables/include/linux/kasan.h
+ create mode 100644 tools/linker-tables/include/linux/kernel.h
+ create mode 100644 tools/linker-tables/include/linux/kprobes.h
+ create mode 100644 tools/linker-tables/include/linux/module.h
+ create mode 100644 tools/linker-tables/include/linux/mutex.h
+ create mode 100644 tools/linker-tables/include/linux/pci.h
+ create mode 100644 tools/linker-tables/include/linux/printk.h
+ create mode 100644 tools/linker-tables/include/linux/ps_const.h
+ create mode 100644 tools/linker-tables/include/linux/sched.h
+ create mode 100644 tools/linker-tables/include/linux/spinlock.h
+ create mode 100644 tools/linker-tables/include/linux/start_kernel.h
+ create mode 100644 tools/linker-tables/include/linux/types.h
+ create mode 100644 tools/linker-tables/include/linux/workqueue.h
+ create mode 100644 tools/linker-tables/include/xen/xen.h
+ create mode 100644 tools/linker-tables/kernel/locking/mutex.c
+ create mode 100644 tools/linker-tables/kernel/locking/spinlock.c
+ create mode 100644 tools/linker-tables/kernel/main.c
+ create mode 100644 tools/linker-tables/kernel/workqueue.c
+ create mode 100644 tools/linker-tables/lib/string.c
+ create mode 100644 tools/linker-tables/main.c
+ create mode 100644 tools/linker-tables/pci-quirks.c
+ create mode 100644 tools/linker-tables/pci.c
+
 -- 
 2.11.0
 
