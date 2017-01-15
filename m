@@ -1,203 +1,42 @@
-From: Dave Young <dyoung@redhat.com>
-Date: Thu, 05 Jan 2017 06:41:42 +0000
-Subject: Re: [PATCH v3 2/5] ia64: reuse append_elf_note() and final_note() functions
-Message-Id: <20170105064142.GA10116@dhcp-128-65.nay.redhat.com>
+From: "Luis R. Rodriguez" <mcgrof@kernel.org>
+Date: Sun, 15 Jan 2017 21:12:11 +0000
+Subject: [PATCH v4 2/6] tools: add init.h for tools
+Message-Id: <20170115211215.17216-3-mcgrof@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <148336637462.25358.5151364413645288219.stgit@hbathini.in.ibm.com>
- <148336643571.25358.4153205698324983035.stgit@hbathini.in.ibm.com>
-In-Reply-To: <148336643571.25358.4153205698324983035.stgit@hbathini.in.ibm.com>
+References: <20170109150249.11667-1-mcgrof@kernel.org>
+ <20170115211215.17216-1-mcgrof@kernel.org>
+In-Reply-To: <20170115211215.17216-1-mcgrof@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Hari Bathini <hbathini@linux.vnet.ibm.com>
-Cc: linux-kernel@vger.kernel.org, fenghua.yu@intel.com, tony.luck@intel.com, linux-ia64@vger.kernel.org, kexec@lists.infradead.org, Mahesh J Salgaonkar <mahesh@linux.vnet.ibm.com>, ebiederm@xmission.com, Michael Ellerman <mpe@ellerman.id.au>, linuxppc-dev@lists.ozlabs.org, vgoyal@redhat.com
+To: bp@alien8.de, bp@suse.de, hpa@zytor.com, acme@redhat.com, tglx@linutronix.de, mingo@redhat.com, jpoimboe@redhat.com, npiggin@gmail.com, mhiramat@kernel.org, masami.hiramatsu.pt@hitachi.com, jbaron@akamai.com, heiko.carstens@de.ibm.com, ananth@linux.vnet.ibm.com, anil.s.keshavamurthy@intel.com, davem@davemloft.net, realmz6@gmail.com, dalias@libc.org, linux@arm.linux.org.uk
+Cc: x86@kernel.org, luto@amacapital.net, keescook@chromium.org, linux@roeck-us.net, torvalds@linux-foundation.org, gregkh@linuxfoundation.org, rusty@rustcorp.com.au, gnomes@lxorguk.ukuu.org.uk, alan@linux.intel.com, dwmw2@infradead.org, arnd@arndb.de, ming.lei@canonical.com, linux-arch@vger.kernel.org, benh@kernel.crashing.org, pebolle@tiscali.nl, fontana@sharpeleven.org, david.vrabel@citrix.com, konrad.wilk@oracle.com, mcb30@ipxe.org, jgross@suse.com, andrew.cooper3@citrix.com, andriy.shevchenko@linux.intel.com, paul.gortmaker@windriver.com, xen-devel@lists.xensource.com, ak@linux.intel.com, pali.rohar@gmail.com, dvhart@infradead.org, platform-driver-x86@vger.kernel.org, mmarek@suse.com, linux@rasmusvillemoes.dk, jkosina@suse.cz, korea.drzix@gmail.com, linux-kbuild@vger.kernel
 
-On 01/02/17 at 07:44pm, Hari Bathini wrote:
-> Get rid of multiple definitions of append_elf_note() & final_note()
-> functions. Reuse these functions compiled under CONFIG_CRASH_CORE
-> Also, define Elf_Word and use it instead of generic u32 or the more
-> specific Elf64_Word.
-> 
-> Signed-off-by: Hari Bathini <hbathini@linux.vnet.ibm.com>
-> ---
-> 
-> Changes from v2:
-> * Added a definition for Elf_Word.
-> * Used IA64 version of append_elf_note() and final_note() functions.
-> 
-> 
->  arch/ia64/kernel/crash.c   |   22 ----------------------
->  include/linux/crash_core.h |    4 ++++
->  include/linux/elf.h        |    2 ++
->  kernel/crash_core.c        |   34 ++++++++++++++--------------------
->  kernel/kexec_core.c        |   28 ----------------------------
->  5 files changed, 20 insertions(+), 70 deletions(-)
-> 
-> diff --git a/arch/ia64/kernel/crash.c b/arch/ia64/kernel/crash.c
-> index 2955f35..75859a0 100644
-> --- a/arch/ia64/kernel/crash.c
-> +++ b/arch/ia64/kernel/crash.c
-> @@ -27,28 +27,6 @@ static int kdump_freeze_monarch;
->  static int kdump_on_init = 1;
->  static int kdump_on_fatal_mca = 1;
->  
-> -static inline Elf64_Word
-> -*append_elf_note(Elf64_Word *buf, char *name, unsigned type, void *data,
-> -		size_t data_len)
-> -{
-> -	struct elf_note *note = (struct elf_note *)buf;
-> -	note->n_namesz = strlen(name) + 1;
-> -	note->n_descsz = data_len;
-> -	note->n_type   = type;
-> -	buf += (sizeof(*note) + 3)/4;
-> -	memcpy(buf, name, note->n_namesz);
-> -	buf += (note->n_namesz + 3)/4;
-> -	memcpy(buf, data, data_len);
-> -	buf += (data_len + 3)/4;
-> -	return buf;
-> -}
-> -
-> -static void
-> -final_note(void *buf)
-> -{
-> -	memset(buf, 0, sizeof(struct elf_note));
-> -}
-> -
->  extern void ia64_dump_cpu_regs(void *);
->  
->  static DEFINE_PER_CPU(struct elf_prstatus, elf_prstatus);
-> diff --git a/include/linux/crash_core.h b/include/linux/crash_core.h
-> index 18d0f94..541a197 100644
-> --- a/include/linux/crash_core.h
-> +++ b/include/linux/crash_core.h
-> @@ -55,6 +55,10 @@ extern u32 vmcoreinfo_note[VMCOREINFO_NOTE_SIZE/4];
->  extern size_t vmcoreinfo_size;
->  extern size_t vmcoreinfo_max_size;
->  
-> +Elf_Word *append_elf_note(Elf_Word *buf, char *name, unsigned int type,
-> +			  void *data, size_t data_len);
-> +void final_note(Elf_Word *buf);
-> +
->  int __init parse_crashkernel(char *cmdline, unsigned long long system_ram,
->  		unsigned long long *crash_size, unsigned long long *crash_base);
->  int parse_crashkernel_high(char *cmdline, unsigned long long system_ram,
-> diff --git a/include/linux/elf.h b/include/linux/elf.h
-> index 20fa8d8..ba069e8 100644
-> --- a/include/linux/elf.h
-> +++ b/include/linux/elf.h
-> @@ -29,6 +29,7 @@ extern Elf32_Dyn _DYNAMIC [];
->  #define elf_note	elf32_note
->  #define elf_addr_t	Elf32_Off
->  #define Elf_Half	Elf32_Half
-> +#define Elf_Word	Elf32_Word
->  
->  #else
->  
-> @@ -39,6 +40,7 @@ extern Elf64_Dyn _DYNAMIC [];
->  #define elf_note	elf64_note
->  #define elf_addr_t	Elf64_Off
->  #define Elf_Half	Elf64_Half
-> +#define Elf_Word	Elf64_Word
->  
->  #endif
->  
-> diff --git a/kernel/crash_core.c b/kernel/crash_core.c
-> index 212c705..3ac172c 100644
-> --- a/kernel/crash_core.c
-> +++ b/kernel/crash_core.c
-> @@ -291,32 +291,26 @@ int __init parse_crashkernel_low(char *cmdline,
->  				"crashkernel=", suffix_tbl[SUFFIX_LOW]);
->  }
->  
-> -static u32 *append_elf_note(u32 *buf, char *name, unsigned int type,
-> -			    void *data, size_t data_len)
-> +Elf_Word *append_elf_note(Elf_Word *buf, char *name, unsigned int type,
-> +			  void *data, size_t data_len)
->  {
-> -	struct elf_note note;
-> -
-> -	note.n_namesz = strlen(name) + 1;
-> -	note.n_descsz = data_len;
-> -	note.n_type   = type;
-> -	memcpy(buf, &note, sizeof(note));
-> -	buf += (sizeof(note) + 3)/4;
-> -	memcpy(buf, name, note.n_namesz);
-> -	buf += (note.n_namesz + 3)/4;
-> -	memcpy(buf, data, note.n_descsz);
-> -	buf += (note.n_descsz + 3)/4;
-> +	struct elf_note *note = (struct elf_note *)buf;
-> +
-> +	note->n_namesz = strlen(name) + 1;
-> +	note->n_descsz = data_len;
-> +	note->n_type   = type;
-> +	buf += (sizeof(*note) + 3)/4;
-> +	memcpy(buf, name, note->n_namesz);
-> +	buf += (note->n_namesz + 3)/4;
-> +	memcpy(buf, data, data_len);
-> +	buf += (data_len + 3)/4;
->  
->  	return buf;
->  }
->  
-> -static void final_note(u32 *buf)
-> +void final_note(Elf_Word *buf)
->  {
-> -	struct elf_note note;
-> -
-> -	note.n_namesz = 0;
-> -	note.n_descsz = 0;
-> -	note.n_type   = 0;
-> -	memcpy(buf, &note, sizeof(note));
-> +	memset(buf, 0, sizeof(struct elf_note));
->  }
->  
->  static void update_vmcoreinfo_note(void)
-> diff --git a/kernel/kexec_core.c b/kernel/kexec_core.c
-> index 2179a16..263d764 100644
-> --- a/kernel/kexec_core.c
-> +++ b/kernel/kexec_core.c
-> @@ -990,34 +990,6 @@ int crash_shrink_memory(unsigned long new_size)
->  	return ret;
->  }
->  
-> -static u32 *append_elf_note(u32 *buf, char *name, unsigned type, void *data,
-> -			    size_t data_len)
-> -{
-> -	struct elf_note note;
-> -
-> -	note.n_namesz = strlen(name) + 1;
-> -	note.n_descsz = data_len;
-> -	note.n_type   = type;
-> -	memcpy(buf, &note, sizeof(note));
-> -	buf += (sizeof(note) + 3)/4;
-> -	memcpy(buf, name, note.n_namesz);
-> -	buf += (note.n_namesz + 3)/4;
-> -	memcpy(buf, data, note.n_descsz);
-> -	buf += (note.n_descsz + 3)/4;
+Start off with just __ref -- we enalbe you to override, if you do
+that then you can define your own. The way you'd use this, if you
+do override, is define your own __ref and then use include_next.
 
-Hari, care to change it to use something like DIV_ROUND_UP(x,
-sizeof(Elf_Word))?
+Signed-off-by: Luis R. Rodriguez <mcgrof@kernel.org>
+---
+ tools/include/linux/init.h | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+ create mode 100644 tools/include/linux/init.h
 
-So that the hardcoded numbers can be dropped..
+diff --git a/tools/include/linux/init.h b/tools/include/linux/init.h
+new file mode 100644
+index 000000000000..6d970a360a05
+--- /dev/null
++++ b/tools/include/linux/init.h
+@@ -0,0 +1,9 @@
++#ifndef _TOOLS_LINUX_INIT_H
++#define _TOOLS_LINUX_INIT_H
++
++/* this means you can add your own to fit you own userspace needs */
++#ifndef __ref
++#define __ref
++#endif
++
++#endif /* _TOOLS_LINUX_INIT_H */
+-- 
+2.11.0
 
-> -
-> -	return buf;
-> -}
-> -
-> -static void final_note(u32 *buf)
-> -{
-> -	struct elf_note note;
-> -
-> -	note.n_namesz = 0;
-> -	note.n_descsz = 0;
-> -	note.n_type   = 0;
-> -	memcpy(buf, &note, sizeof(note));
-> -}
-> -
->  void crash_save_cpu(struct pt_regs *regs, int cpu)
->  {
->  	struct elf_prstatus prstatus;
-> 
-
-Thanks
-Dave
