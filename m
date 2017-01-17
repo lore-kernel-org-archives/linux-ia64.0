@@ -1,85 +1,294 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Fri, 13 Jan 2017 10:46:43 +0000
-Subject: [PATCH v3 5/8] Makefile.headersinst: cleanup input files
-Message-Id: <1484304406-10820-6-git-send-email-nicolas.dichtel@6wind.com>
+From: Michal Hocko <mhocko@kernel.org>
+Date: Tue, 17 Jan 2017 09:15:42 +0000
+Subject: [PATCH 3/4] arch, mm: remove arch specific show_mem
+Message-Id: <20170117091543.25850-4-mhocko@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <3131144.4Ej3KFWRbz@wuerfel>
- <1484304406-10820-1-git-send-email-nicolas.dichtel@6wind.com>
-In-Reply-To: <1484304406-10820-1-git-send-email-nicolas.dichtel@6wind.com>
+References: <20170117091543.25850-1-mhocko@kernel.org>
+In-Reply-To: <20170117091543.25850-1-mhocko@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: arnd@arndb.de
-Cc: mmarek@suse.com, linux-kbuild@vger.kernel.org, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, adi-buildroot-devel@lists.sourceforge.net, linux-c6x-dev@linux-c6x.org, linux-cris-kernel@axis.com, uclinux-h8-devel@lists.sourceforge.jp, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, linux-am33-list@redhat.com, nios2-dev@lists.rocketboards.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Johannes Weiner <hannes@cmpxchg.org>, Mel Gorman <mgorman@suse.de>, Vlastimil Babka <vbabka@suse.cz>, David Rientjes <rientjes@google.com>, linux-mm@kvack.org, LKML <linux-kernel@vger.kernel.org>, Michal Hocko <mhocko@suse.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "James E.J. Bottomley" <jejb@parisc-linux.org>, "David S. Miller" <davem@davemloft.net>, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org
 
-After the last four patches, all exported headers are under uapi/, thus
-input-files2 are not needed anymore.
-The side effect is that input-files1-name is exactly header-y.
+From: Michal Hocko <mhocko@suse.com>
 
-Note also that input-files3-name is genhdr-y.
+We have a generic implementation for quite some time already. If there
+is any arch specific information to be printed then we should add a
+callback called from the generic code rather than duplicate the whole
+show_mem. The current code has resulted in the code duplication and
+the output divergence which is both confusing and adds maintainance
+costs. Let's just get rid of this mess.
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: "James E.J. Bottomley" <jejb@parisc-linux.org>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: linux-ia64@vger.kernel.org
+Cc: linux-parisc@vger.kernel.org
+Acked-by: Guan Xuetao <gxt@mprc.pku.edu.cn> [UniCore32]
+Acked-by: Helge Deller <deller@gmx.de> [for parisc]
+Acked-by: Chris Metcalf <cmetcalf@mellanox.com> [for tile]
+Acked-by: Mel Gorman <mgorman@suse.de>
+Acked-by: Johannes Weiner <hannes@cmpxchg.org>
+Signed-off-by: Michal Hocko <mhocko@suse.com>
 ---
- scripts/Makefile.headersinst | 34 +++++++++++-----------------------
- 1 file changed, 11 insertions(+), 23 deletions(-)
+ arch/ia64/mm/init.c      | 48 -----------------------------------------------
+ arch/parisc/mm/init.c    | 49 ------------------------------------------------
+ arch/sparc/mm/init_32.c  | 11 -----------
+ arch/tile/mm/pgtable.c   | 45 --------------------------------------------
+ arch/unicore32/mm/init.c | 44 -------------------------------------------
+ 5 files changed, 197 deletions(-)
 
-diff --git a/scripts/Makefile.headersinst b/scripts/Makefile.headersinst
-index 1106d6ca3a38..3e20d03432d2 100644
---- a/scripts/Makefile.headersinst
-+++ b/scripts/Makefile.headersinst
-@@ -40,31 +40,20 @@ wrapper-files := $(filter $(header-y), $(generic-y))
- srcdir        := $(srctree)/$(obj)
- gendir        := $(objtree)/$(gen)
- 
--oldsrcdir     := $(srctree)/$(subst /uapi,,$(obj))
+diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
+index 1841ef69183d..46afc8d5ebfc 100644
+--- a/arch/ia64/mm/init.c
++++ b/arch/ia64/mm/init.c
+@@ -684,51 +684,3 @@ int arch_remove_memory(u64 start, u64 size)
+ }
+ #endif
+ #endif
 -
- # all headers files for this dir
- header-y      := $(filter-out $(generic-y), $(header-y))
- all-files     := $(header-y) $(genhdr-y) $(wrapper-files)
- output-files  := $(addprefix $(installdir)/, $(all-files))
+-/**
+- * show_mem - give short summary of memory stats
+- *
+- * Shows a simple page count of reserved and used pages in the system.
+- * For discontig machines, it does this on a per-pgdat basis.
+- */
+-void show_mem(unsigned int filter)
+-{
+-	int total_reserved = 0;
+-	unsigned long total_present = 0;
+-	pg_data_t *pgdat;
+-
+-	printk(KERN_INFO "Mem-info:\n");
+-	show_free_areas(filter);
+-	printk(KERN_INFO "Node memory in pages:\n");
+-	for_each_online_pgdat(pgdat) {
+-		unsigned long present;
+-		unsigned long flags;
+-		int reserved = 0;
+-		int nid = pgdat->node_id;
+-		int zoneid;
+-
+-		if (skip_free_areas_node(filter, nid))
+-			continue;
+-		pgdat_resize_lock(pgdat, &flags);
+-
+-		for (zoneid = 0; zoneid < MAX_NR_ZONES; zoneid++) {
+-			struct zone *zone = &pgdat->node_zones[zoneid];
+-			if (!populated_zone(zone))
+-				continue;
+-
+-			reserved += zone->present_pages - zone->managed_pages;
+-		}
+-		present = pgdat->node_present_pages;
+-
+-		pgdat_resize_unlock(pgdat, &flags);
+-		total_present += present;
+-		total_reserved += reserved;
+-		printk(KERN_INFO "Node %4d:  RAM: %11ld, rsvd: %8d, ",
+-		       nid, present, reserved);
+-	}
+-	printk(KERN_INFO "%ld pages of RAM\n", total_present);
+-	printk(KERN_INFO "%d reserved pages\n", total_reserved);
+-	printk(KERN_INFO "Total of %ld pages in page table cache\n",
+-	       quicklist_total_size());
+-	printk(KERN_INFO "%ld free buffer pages\n", nr_free_buffer_pages());
+-}
+diff --git a/arch/parisc/mm/init.c b/arch/parisc/mm/init.c
+index e02ada312be8..64bfdf636f39 100644
+--- a/arch/parisc/mm/init.c
++++ b/arch/parisc/mm/init.c
+@@ -653,55 +653,6 @@ void __init mem_init(void)
+ unsigned long *empty_zero_page __read_mostly;
+ EXPORT_SYMBOL(empty_zero_page);
  
--input-files1  := $(foreach hdr, $(header-y), \
--		   $(if $(wildcard $(srcdir)/$(hdr)), \
--			$(wildcard $(srcdir)/$(hdr))) \
--		   )
--input-files1-name := $(notdir $(input-files1))
--input-files2  := $(foreach hdr, $(header-y), \
--		   $(if  $(wildcard $(srcdir)/$(hdr)),, \
--			$(if $(wildcard $(oldsrcdir)/$(hdr)), \
--				$(wildcard $(oldsrcdir)/$(hdr)), \
--				$(error Missing UAPI file $(srcdir)/$(hdr))) \
--		   ))
--input-files2-name := $(notdir $(input-files2))
--input-files3  := $(foreach hdr, $(genhdr-y), \
--		   $(if	$(wildcard $(gendir)/$(hdr)), \
--			$(wildcard $(gendir)/$(hdr)), \
--			$(error Missing generated UAPI file $(gendir)/$(hdr)) \
--		   ))
--input-files3-name := $(notdir $(input-files3))
-+# Check that all expected files exist
-+$(foreach hdr, $(header-y), \
-+  $(if $(wildcard $(srcdir)/$(hdr)),, \
-+       $(error Missing UAPI file $(srcdir)/$(hdr)) \
-+   ))
-+$(foreach hdr, $(genhdr-y), \
-+  $(if	$(wildcard $(gendir)/$(hdr)),, \
-+       $(error Missing generated UAPI file $(gendir)/$(hdr)) \
-+  ))
+-void show_mem(unsigned int filter)
+-{
+-	int total = 0,reserved = 0;
+-	pg_data_t *pgdat;
+-
+-	printk(KERN_INFO "Mem-info:\n");
+-	show_free_areas(filter);
+-
+-	for_each_online_pgdat(pgdat) {
+-		unsigned long flags;
+-		int zoneid;
+-
+-		pgdat_resize_lock(pgdat, &flags);
+-		for (zoneid = 0; zoneid < MAX_NR_ZONES; zoneid++) {
+-			struct zone *zone = &pgdat->node_zones[zoneid];
+-			if (!populated_zone(zone))
+-				continue;
+-
+-			total += zone->present_pages;
+-			reserved = zone->present_pages - zone->managed_pages;
+-		}
+-		pgdat_resize_unlock(pgdat, &flags);
+-	}
+-
+-	printk(KERN_INFO "%d pages of RAM\n", total);
+-	printk(KERN_INFO "%d reserved pages\n", reserved);
+-
+-#ifdef CONFIG_DISCONTIGMEM
+-	{
+-		struct zonelist *zl;
+-		int i, j;
+-
+-		for (i = 0; i < npmem_ranges; i++) {
+-			zl = node_zonelist(i, 0);
+-			for (j = 0; j < MAX_NR_ZONES; j++) {
+-				struct zoneref *z;
+-				struct zone *zone;
+-
+-				printk("Zone list for zone %d on node %d: ", j, i);
+-				for_each_zone_zonelist(zone, z, zl, j)
+-					printk("[%d/%s] ", zone_to_nid(zone),
+-								zone->name);
+-				printk("\n");
+-			}
+-		}
+-	}
+-#endif
+-}
+-
+ /*
+  * pagetable_init() sets up the page tables
+  *
+diff --git a/arch/sparc/mm/init_32.c b/arch/sparc/mm/init_32.c
+index eb8287155279..c6afe98de4d9 100644
+--- a/arch/sparc/mm/init_32.c
++++ b/arch/sparc/mm/init_32.c
+@@ -55,17 +55,6 @@ extern unsigned int sparc_ramdisk_size;
  
- # Work out what needs to be removed
- oldheaders    := $(patsubst $(installdir)/%,%,$(wildcard $(installdir)/*.h))
-@@ -78,9 +67,8 @@ printdir = $(patsubst $(INSTALL_HDR_PATH)/%/,%,$(dir $@))
- quiet_cmd_install = INSTALL $(printdir) ($(words $(all-files))\
-                             file$(if $(word 2, $(all-files)),s))
-       cmd_install = \
--        $(CONFIG_SHELL) $< $(installdir) $(srcdir) $(input-files1-name); \
--        $(CONFIG_SHELL) $< $(installdir) $(oldsrcdir) $(input-files2-name); \
--        $(CONFIG_SHELL) $< $(installdir) $(gendir) $(input-files3-name); \
-+        $(CONFIG_SHELL) $< $(installdir) $(srcdir) $(header-y); \
-+        $(CONFIG_SHELL) $< $(installdir) $(gendir) $(genhdr-y); \
-         for F in $(wrapper-files); do                                   \
-                 echo "\#include <asm-generic/$$F>" > $(installdir)/$$F;    \
-         done;                                                           \
+ unsigned long highstart_pfn, highend_pfn;
+ 
+-void show_mem(unsigned int filter)
+-{
+-	printk("Mem-info:\n");
+-	show_free_areas(filter);
+-	printk("Free swap:       %6ldkB\n",
+-	       get_nr_swap_pages() << (PAGE_SHIFT-10));
+-	printk("%ld pages of RAM\n", totalram_pages);
+-	printk("%ld free pages\n", nr_free_pages());
+-}
+-
+-
+ unsigned long last_valid_pfn;
+ 
+ unsigned long calc_highpages(void)
+diff --git a/arch/tile/mm/pgtable.c b/arch/tile/mm/pgtable.c
+index 7cc6ee7f1a58..492a7361e58e 100644
+--- a/arch/tile/mm/pgtable.c
++++ b/arch/tile/mm/pgtable.c
+@@ -36,51 +36,6 @@
+ 
+ #define K(x) ((x) << (PAGE_SHIFT-10))
+ 
+-/*
+- * The normal show_free_areas() is too verbose on Tile, with dozens
+- * of processors and often four NUMA zones each with high and lowmem.
+- */
+-void show_mem(unsigned int filter)
+-{
+-	struct zone *zone;
+-
+-	pr_err("Active:%lu inactive:%lu dirty:%lu writeback:%lu unstable:%lu free:%lu\n slab:%lu mapped:%lu pagetables:%lu bounce:%lu pagecache:%lu swap:%lu\n",
+-	       (global_node_page_state(NR_ACTIVE_ANON) +
+-		global_node_page_state(NR_ACTIVE_FILE)),
+-	       (global_node_page_state(NR_INACTIVE_ANON) +
+-		global_node_page_state(NR_INACTIVE_FILE)),
+-	       global_node_page_state(NR_FILE_DIRTY),
+-	       global_node_page_state(NR_WRITEBACK),
+-	       global_node_page_state(NR_UNSTABLE_NFS),
+-	       global_page_state(NR_FREE_PAGES),
+-	       (global_page_state(NR_SLAB_RECLAIMABLE) +
+-		global_page_state(NR_SLAB_UNRECLAIMABLE)),
+-	       global_node_page_state(NR_FILE_MAPPED),
+-	       global_page_state(NR_PAGETABLE),
+-	       global_page_state(NR_BOUNCE),
+-	       global_node_page_state(NR_FILE_PAGES),
+-	       get_nr_swap_pages());
+-
+-	for_each_zone(zone) {
+-		unsigned long flags, order, total = 0, largest_order = -1;
+-
+-		if (!populated_zone(zone))
+-			continue;
+-
+-		spin_lock_irqsave(&zone->lock, flags);
+-		for (order = 0; order < MAX_ORDER; order++) {
+-			int nr = zone->free_area[order].nr_free;
+-			total += nr << order;
+-			if (nr)
+-				largest_order = order;
+-		}
+-		spin_unlock_irqrestore(&zone->lock, flags);
+-		pr_err("Node %d %7s: %lukB (largest %luKb)\n",
+-		       zone_to_nid(zone), zone->name,
+-		       K(total), largest_order ? K(1UL) << largest_order : 0);
+-	}
+-}
+-
+ /**
+  * shatter_huge_page() - ensure a given address is mapped by a small page.
+  *
+diff --git a/arch/unicore32/mm/init.c b/arch/unicore32/mm/init.c
+index be2bde9b07cf..f4950fbfe574 100644
+--- a/arch/unicore32/mm/init.c
++++ b/arch/unicore32/mm/init.c
+@@ -57,50 +57,6 @@ early_param("initrd", early_initrd);
+  */
+ struct meminfo meminfo;
+ 
+-void show_mem(unsigned int filter)
+-{
+-	int free = 0, total = 0, reserved = 0;
+-	int shared = 0, cached = 0, slab = 0, i;
+-	struct meminfo *mi = &meminfo;
+-
+-	printk(KERN_DEFAULT "Mem-info:\n");
+-	show_free_areas(filter);
+-
+-	for_each_bank(i, mi) {
+-		struct membank *bank = &mi->bank[i];
+-		unsigned int pfn1, pfn2;
+-		struct page *page, *end;
+-
+-		pfn1 = bank_pfn_start(bank);
+-		pfn2 = bank_pfn_end(bank);
+-
+-		page = pfn_to_page(pfn1);
+-		end  = pfn_to_page(pfn2 - 1) + 1;
+-
+-		do {
+-			total++;
+-			if (PageReserved(page))
+-				reserved++;
+-			else if (PageSwapCache(page))
+-				cached++;
+-			else if (PageSlab(page))
+-				slab++;
+-			else if (!page_count(page))
+-				free++;
+-			else
+-				shared += page_count(page) - 1;
+-			page++;
+-		} while (page < end);
+-	}
+-
+-	printk(KERN_DEFAULT "%d pages of RAM\n", total);
+-	printk(KERN_DEFAULT "%d free pages\n", free);
+-	printk(KERN_DEFAULT "%d reserved pages\n", reserved);
+-	printk(KERN_DEFAULT "%d slab pages\n", slab);
+-	printk(KERN_DEFAULT "%d pages shared\n", shared);
+-	printk(KERN_DEFAULT "%d pages swap cached\n", cached);
+-}
+-
+ static void __init find_limits(unsigned long *min, unsigned long *max_low,
+ 	unsigned long *max_high)
+ {
 -- 
-2.8.1
+2.11.0
 
