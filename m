@@ -1,92 +1,36 @@
-From: "Luis R. Rodriguez" <mcgrof@kernel.org>
-Date: Sun, 15 Jan 2017 21:12:10 +0000
-Subject: [PATCH v4 1/6] tools: add a userspace tools bug.h
-Message-Id: <20170115211215.17216-2-mcgrof@kernel.org>
+From: Greg KH <gregkh@linuxfoundation.org>
+Date: Thu, 19 Jan 2017 11:01:35 +0000
+Subject: Re: [PATCH v4 1/6] tools: add a userspace tools bug.h
+Message-Id: <20170119110135.GA28024@kroah.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20170109150249.11667-1-mcgrof@kernel.org>
  <20170115211215.17216-1-mcgrof@kernel.org>
-In-Reply-To: <20170115211215.17216-1-mcgrof@kernel.org>
+ <20170115211215.17216-2-mcgrof@kernel.org>
+In-Reply-To: <20170115211215.17216-2-mcgrof@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: bp@alien8.de, bp@suse.de, hpa@zytor.com, acme@redhat.com, tglx@linutronix.de, mingo@redhat.com, jpoimboe@redhat.com, npiggin@gmail.com, mhiramat@kernel.org, masami.hiramatsu.pt@hitachi.com, jbaron@akamai.com, heiko.carstens@de.ibm.com, ananth@linux.vnet.ibm.com, anil.s.keshavamurthy@intel.com, davem@davemloft.net, realmz6@gmail.com, dalias@libc.org, linux@arm.linux.org.uk
-Cc: x86@kernel.org, luto@amacapital.net, keescook@chromium.org, linux@roeck-us.net, torvalds@linux-foundation.org, gregkh@linuxfoundation.org, rusty@rustcorp.com.au, gnomes@lxorguk.ukuu.org.uk, alan@linux.intel.com, dwmw2@infradead.org, arnd@arndb.de, ming.lei@canonical.com, linux-arch@vger.kernel.org, benh@kernel.crashing.org, pebolle@tiscali.nl, fontana@sharpeleven.org, david.vrabel@citrix.com, konrad.wilk@oracle.com, mcb30@ipxe.org, jgross@suse.com, andrew.cooper3@citrix.com, andriy.shevchenko@linux.intel.com, paul.gortmaker@windriver.com, xen-devel@lists.xensource.com, ak@linux.intel.com, pali.rohar@gmail.com, dvhart@infradead.org, platform-driver-x86@vger.kernel.org, mmarek@suse.com, linux@rasmusvillemoes.dk, jkosina@suse.cz, korea.drzix@gmail.com, linux-kbuild@vger.kernel
+To: "Luis R. Rodriguez" <mcgrof@kernel.org>
+Cc: bp@alien8.de, bp@suse.de, hpa@zytor.com, acme@redhat.com, tglx@linutronix.de, mingo@redhat.com, jpoimboe@redhat.com, npiggin@gmail.com, mhiramat@kernel.org, masami.hiramatsu.pt@hitachi.com, jbaron@akamai.com, heiko.carstens@de.ibm.com, ananth@linux.vnet.ibm.com, anil.s.keshavamurthy@intel.com, davem@davemloft.net, realmz6@gmail.com, dalias@libc.org, linux@arm.linux.org.uk, x86@kernel.org, luto@amacapital.net, keescook@chromium.org, linux@roeck-us.net, torvalds@linux-foundation.org, rusty@rustcorp.com.au, gnomes@lxorguk.ukuu.org.uk, alan@linux.intel.com, dwmw2@infradead.org, arnd@arndb.de, ming.lei@canonical.com, linux-arch@vger.kernel.org, benh@kernel.crashing.org, pebolle@tiscali.nl, fontana@sharpeleven.org, david.vrabel@citrix.com, konrad.wilk@oracle.com, mcb30@ipxe.org
 
-This will be used later by the userspace linker-tables sandbox.
-As a convenience, include bug.h on kernel.h -- this is not done
-on upstream kernel.h, however most header files do include bug.h
-eventually, if we were to only add the ones that need it we'd
-need to copy a lot of headers to tools for the only purpose of
-includeing bug.h. This simplifies that.
+On Sun, Jan 15, 2017 at 01:12:10PM -0800, Luis R. Rodriguez wrote:
+> This will be used later by the userspace linker-tables sandbox.
 
-v4: address ./scripts/checkpatch.pl --codespell complaints
+What is that?
 
-Signed-off-by: Luis R. Rodriguez <mcgrof@kernel.org>
----
- tools/include/asm-generic/bug.h | 26 ++++++++++++++++++++++++++
- tools/include/linux/bug.h       |  6 ++++++
- tools/include/linux/kernel.h    |  2 ++
- 3 files changed, 34 insertions(+)
- create mode 100644 tools/include/asm-generic/bug.h
- create mode 100644 tools/include/linux/bug.h
+> As a convenience, include bug.h on kernel.h -- this is not done
+> on upstream kernel.h, however most header files do include bug.h
+> eventually, if we were to only add the ones that need it we'd
+> need to copy a lot of headers to tools for the only purpose of
+> includeing bug.h.
 
-diff --git a/tools/include/asm-generic/bug.h b/tools/include/asm-generic/bug.h
-new file mode 100644
-index 000000000000..6c9889e2b764
---- /dev/null
-+++ b/tools/include/asm-generic/bug.h
-@@ -0,0 +1,26 @@
-+#ifndef __TOOLS_ASM_GENERIC_BUG
-+#define __TOOLS_ASM_GENERIC_BUG
-+
-+#include <stdio.h>
-+#include <stdlib.h>
-+
-+#define BUG() do {							\
-+	fprintf(stderr, "------------------------------------------n");	\
-+	fprintf(stderr, "BUG on %s at %s: %i\n",			\
-+		__func__, __FILE__, __LINE__);				\
-+	abort();							\
-+}									\
-+while (0)
-+
-+#define BUG_ON(cond) do { if (cond) BUG(); } while (0)
-+
-+#define WARN_ON(__test) do {						\
-+	if (__test) {							\
-+		fprintf(stderr, "----------------------------------n");	\
-+		fprintf(stderr, "WARN_ON on %s at %s: %i\n",		\
-+			 __func__, __FILE__, __LINE__);			\
-+	}								\
-+}									\
-+while (0)
-+
-+#endif /* __TOOLS_ASM_GENERIC_BUG */
-diff --git a/tools/include/linux/bug.h b/tools/include/linux/bug.h
-new file mode 100644
-index 000000000000..9be515b40b5c
---- /dev/null
-+++ b/tools/include/linux/bug.h
-@@ -0,0 +1,6 @@
-+#ifndef _TOOLS_LINUX_BUG_H
-+#define _TOOLS_LINUX_BUG_H
-+
-+#include <asm-generic/bug.h>
-+
-+#endif /* _TOOLS_LINUX_BUG_H */
-diff --git a/tools/include/linux/kernel.h b/tools/include/linux/kernel.h
-index 28607db02bd3..3d385a6d4fc1 100644
---- a/tools/include/linux/kernel.h
-+++ b/tools/include/linux/kernel.h
-@@ -5,6 +5,8 @@
- #include <stddef.h>
- #include <assert.h>
- 
-+#include <linux/bug.h>
-+
- #define DIV_ROUND_UP(n,d) (((n) + (d) - 1) / (d))
- 
- #define PERF_ALIGN(x, a)	__PERF_ALIGN_MASK(x, (typeof(x))(a)-1)
--- 
-2.11.0
+I can't parse this sentance at all, please simplify or clarify or
+something so that I understand what is going on here.
 
+> This simplifies that.
+
+What is "that"?  You can't do that for such a complex previous sentence.
+
+thanks,
+
+greg k-h
