@@ -1,42 +1,32 @@
-From: "Luis R. Rodriguez" <mcgrof@kernel.org>
-Date: Sun, 15 Jan 2017 21:12:11 +0000
-Subject: [PATCH v4 2/6] tools: add init.h for tools
-Message-Id: <20170115211215.17216-3-mcgrof@kernel.org>
+From: Greg KH <gregkh@linuxfoundation.org>
+Date: Thu, 19 Jan 2017 11:02:21 +0000
+Subject: Re: [PATCH v4 2/6] tools: add init.h for tools
+Message-Id: <20170119110221.GB28024@kroah.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20170109150249.11667-1-mcgrof@kernel.org>
  <20170115211215.17216-1-mcgrof@kernel.org>
-In-Reply-To: <20170115211215.17216-1-mcgrof@kernel.org>
+ <20170115211215.17216-3-mcgrof@kernel.org>
+In-Reply-To: <20170115211215.17216-3-mcgrof@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: bp@alien8.de, bp@suse.de, hpa@zytor.com, acme@redhat.com, tglx@linutronix.de, mingo@redhat.com, jpoimboe@redhat.com, npiggin@gmail.com, mhiramat@kernel.org, masami.hiramatsu.pt@hitachi.com, jbaron@akamai.com, heiko.carstens@de.ibm.com, ananth@linux.vnet.ibm.com, anil.s.keshavamurthy@intel.com, davem@davemloft.net, realmz6@gmail.com, dalias@libc.org, linux@arm.linux.org.uk
-Cc: x86@kernel.org, luto@amacapital.net, keescook@chromium.org, linux@roeck-us.net, torvalds@linux-foundation.org, gregkh@linuxfoundation.org, rusty@rustcorp.com.au, gnomes@lxorguk.ukuu.org.uk, alan@linux.intel.com, dwmw2@infradead.org, arnd@arndb.de, ming.lei@canonical.com, linux-arch@vger.kernel.org, benh@kernel.crashing.org, pebolle@tiscali.nl, fontana@sharpeleven.org, david.vrabel@citrix.com, konrad.wilk@oracle.com, mcb30@ipxe.org, jgross@suse.com, andrew.cooper3@citrix.com, andriy.shevchenko@linux.intel.com, paul.gortmaker@windriver.com, xen-devel@lists.xensource.com, ak@linux.intel.com, pali.rohar@gmail.com, dvhart@infradead.org, platform-driver-x86@vger.kernel.org, mmarek@suse.com, linux@rasmusvillemoes.dk, jkosina@suse.cz, korea.drzix@gmail.com, linux-kbuild@vger.kernel
+To: "Luis R. Rodriguez" <mcgrof@kernel.org>
+Cc: gnomes@lxorguk.ukuu.org.uk, dalias@libc.org, linux-ia64@vger.kernel.org, jkosina@suse.cz, benh@kernel.crashing.org, ming.lei@canonical.com, heiko.carstens@de.ibm.com, platform-driver-x86@vger.kernel.org, James.Bottomley@HansenPartnership.com, paul.gortmaker@windriver.com, paulus@samba.org, mpe@ellerman.id.au, hpa@zytor.com, masami.hiramatsu.pt@hitachi.com, wangnan0@huawei.com, mchehab@osg.samsung.com, linux-arch@vger.kernel.org, markus.heiser@darmarit.de, sparclinux@vger.kernel.org, xen-devel@lists.xensource.com, linux@arm.linux.org.uk, linux-sh@vger.kernel.org, will.deacon@arm.com, korea.drzix@gmail.com, x86@kernel.org, anil.s.keshavamurthy@intel.com, fontana@sharpeleven.org, mingo@redhat.com, dsahern@gmail.com, linux-arm-kernel@lists.infradead.org, catalin.marinas@arm.com, dvhart@infradead.org, bp@suse.de, linux@roeck-us.net, david.vrabel@citrix.com, linux-xtensa@linux
 
-Start off with just __ref -- we enalbe you to override, if you do
-that then you can define your own. The way you'd use this, if you
-do override, is define your own __ref and then use include_next.
+On Sun, Jan 15, 2017 at 01:12:11PM -0800, Luis R. Rodriguez wrote:
+> Start off with just __ref -- we enalbe you to override, if you do
+> that then you can define your own.
 
-Signed-off-by: Luis R. Rodriguez <mcgrof@kernel.org>
----
- tools/include/linux/init.h | 9 +++++++++
- 1 file changed, 9 insertions(+)
- create mode 100644 tools/include/linux/init.h
+I have no idea what this means, do you?
 
-diff --git a/tools/include/linux/init.h b/tools/include/linux/init.h
-new file mode 100644
-index 000000000000..6d970a360a05
---- /dev/null
-+++ b/tools/include/linux/init.h
-@@ -0,0 +1,9 @@
-+#ifndef _TOOLS_LINUX_INIT_H
-+#define _TOOLS_LINUX_INIT_H
-+
-+/* this means you can add your own to fit you own userspace needs */
-+#ifndef __ref
-+#define __ref
-+#endif
-+
-+#endif /* _TOOLS_LINUX_INIT_H */
--- 
-2.11.0
+> The way you'd use this, if you
+> do override, is define your own __ref and then use include_next.
 
+Huh?
+
+Again, please be more specific or clear or something, I have no idea
+again what this patch is for.
+
+thanks,
+
+greg k-h
