@@ -1,87 +1,176 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Fri, 13 Jan 2017 10:46:44 +0000
-Subject: [PATCH v3 6/8] Makefile.headersinst: remove destination-y option
-Message-Id: <1484304406-10820-7-git-send-email-nicolas.dichtel@6wind.com>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Date: Sun, 22 Jan 2017 16:32:25 +0000
+Subject: [PATCH 01/20] ia64: move ia64_done_with_exception out of asm/uaccess.h
+Message-Id: <20170122163244.11740-2-paul.gortmaker@windriver.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <3131144.4Ej3KFWRbz@wuerfel>
- <1484304406-10820-1-git-send-email-nicolas.dichtel@6wind.com>
-In-Reply-To: <1484304406-10820-1-git-send-email-nicolas.dichtel@6wind.com>
+References: <20170122163244.11740-1-paul.gortmaker@windriver.com>
+In-Reply-To: <20170122163244.11740-1-paul.gortmaker@windriver.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: arnd@arndb.de
-Cc: linux-mips@linux-mips.org, alsa-devel@alsa-project.org, linux-ia64@vger.kernel.org, linux-doc@vger.kernel.org, airlied@linux.ie, daniel.vetter@ffwll.ch, linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-mtd@lists.infradead.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, linux-am33-list@redhat.com, linux-c6x-dev@linux-c6x.org, linux-rdma@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-sh@vger.kernel.org, linux@armlinux.org.uk, hch@infradead.org, coreteam@netfilter.org, msalter@redhat.com, fcoe-devel@open-fcoe.org, xen-devel@lists.xenproject.org, linux-snps-arc@lists.infradead.org, linux-media@vger.kernel.org, uclinux-h8-devel@lists.sourceforge.jp, linux-xtensa@linux-xtensa.org, linux-kbuild@vger.kernel.org, adi-buildroot-devel@lists.sourceforge.net, linux-raid@vger.kernel.org, linux-m68k@lists.linux-m68k.org
+To: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Al Viro <viro@zeniv.linux.org.uk>, linux-ia64@vger.kernel.org
 
-This option was added in commit c7bb349e7c25 ("kbuild: introduce destination-y
-for exported headers") but never used in-tree.
+Move ia64_done_with_exception out of asm/uaccess.h (which is widely
+used) and into asm/exception.h (like ARM has) and then ensure the
+few callers of it include this new header.
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Most of the other C content in asm files is implemented in macro form.
+So we do that conversion at the same time as the move.
+
+There are two C exception prototypes that move along with the macro.
+One of them will become redundant when we switch over to using the
+<linux/extable.h> instead of <linux/module.h> header in a subsequent
+commit.
+
+Also relocate a couple of the automated asm --> linux uaccess
+conversions to preserve the linux and asm independent grouping, since
+we are in the file at that location anyway.
+
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: Al Viro <viro@zeniv.linux.org.uk>
+Cc: linux-ia64@vger.kernel.org
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- Documentation/kbuild/makefiles.txt | 23 ++++-------------------
- scripts/Makefile.headersinst       |  2 +-
- 2 files changed, 5 insertions(+), 20 deletions(-)
+ arch/ia64/include/asm/exception.h | 36 ++++++++++++++++++++++++++++++++++++
+ arch/ia64/include/asm/uaccess.h   | 15 ---------------
+ arch/ia64/kernel/kprobes.c        |  2 +-
+ arch/ia64/kernel/traps.c          |  3 ++-
+ arch/ia64/kernel/unaligned.c      |  3 ++-
+ arch/ia64/mm/fault.c              |  1 +
+ 6 files changed, 42 insertions(+), 18 deletions(-)
+ create mode 100644 arch/ia64/include/asm/exception.h
 
-diff --git a/Documentation/kbuild/makefiles.txt b/Documentation/kbuild/makefiles.txt
-index 9b9c4797fc55..37b525d329ae 100644
---- a/Documentation/kbuild/makefiles.txt
-+++ b/Documentation/kbuild/makefiles.txt
-@@ -46,9 +46,8 @@ This document describes the Linux kernel Makefiles.
- 	== 7 Kbuild syntax for exported headers
- 		--- 7.1 header-y
- 		--- 7.2 genhdr-y
--		--- 7.3 destination-y
--		--- 7.4 generic-y
--		--- 7.5 generated-y
-+		--- 7.3 generic-y
-+		--- 7.4 generated-y
+diff --git a/arch/ia64/include/asm/exception.h b/arch/ia64/include/asm/exception.h
+new file mode 100644
+index 000000000000..d90236090e8c
+--- /dev/null
++++ b/arch/ia64/include/asm/exception.h
+@@ -0,0 +1,36 @@
++/*
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
++ */
++#ifndef __ASM_EXCEPTION_H
++#define __ASM_EXCEPTION_H
++
++struct pt_regs;
++struct exception_table_entry;
++
++extern void ia64_handle_exception(struct pt_regs *regs,
++				  const struct exception_table_entry *e);
++extern const struct exception_table_entry *search_exception_tables(unsigned long addr);
++
++#define ia64_done_with_exception(regs)					  \
++({									  \
++	int __ex_ret = 0;						  \
++	const struct exception_table_entry *e;				  \
++	e = search_exception_tables((regs)->cr_iip + ia64_psr(regs)->ri); \
++	if (e) {							  \
++		ia64_handle_exception(regs, e);				  \
++		__ex_ret = 1;						  \
++	}								  \
++	__ex_ret;							  \
++})
++
++#endif	/* __ASM_EXCEPTION_H */
+diff --git a/arch/ia64/include/asm/uaccess.h b/arch/ia64/include/asm/uaccess.h
+index bfe13196f770..471044be2a3b 100644
+--- a/arch/ia64/include/asm/uaccess.h
++++ b/arch/ia64/include/asm/uaccess.h
+@@ -353,21 +353,6 @@ struct exception_table_entry {
+ 	int fixup;	/* location-relative continuation addr.; if bit 2 is set, r9 is set to 0 */
+ };
  
- 	== 8 Kbuild Variables
- 	== 9 Makefile language
-@@ -1295,21 +1294,7 @@ See subsequent chapter for the syntax of the Kbuild file.
- 			#include/linux/Kbuild
- 			genhdr-y += version.h
- 
--	--- 7.3 destination-y
+-extern void ia64_handle_exception (struct pt_regs *regs, const struct exception_table_entry *e);
+-extern const struct exception_table_entry *search_exception_tables (unsigned long addr);
 -
--	When an architecture has a set of exported headers that needs to be
--	exported to a different directory destination-y is used.
--	destination-y specifies the destination directory for all exported
--	headers in the file where it is present.
+-static inline int
+-ia64_done_with_exception (struct pt_regs *regs)
+-{
+-	const struct exception_table_entry *e;
+-	e = search_exception_tables(regs->cr_iip + ia64_psr(regs)->ri);
+-	if (e) {
+-		ia64_handle_exception(regs, e);
+-		return 1;
+-	}
+-	return 0;
+-}
 -
--		Example:
--			#arch/xtensa/platforms/s6105/include/platform/Kbuild
--			destination-y := include/linux
--
--	In the example above all exported headers in the Kbuild file
--	will be located in the directory "include/linux" when exported.
--
--	--- 7.4 generic-y
-+	--- 7.3 generic-y
+ #define ARCH_HAS_TRANSLATE_MEM_PTR	1
+ static __inline__ void *
+ xlate_dev_mem_ptr(phys_addr_t p)
+diff --git a/arch/ia64/kernel/kprobes.c b/arch/ia64/kernel/kprobes.c
+index 45ff27e9edbb..55b18e1b67a8 100644
+--- a/arch/ia64/kernel/kprobes.c
++++ b/arch/ia64/kernel/kprobes.c
+@@ -33,7 +33,7 @@
  
- 	If an architecture uses a verbatim copy of a header from
- 	include/asm-generic then this is listed in the file
-@@ -1336,7 +1321,7 @@ See subsequent chapter for the syntax of the Kbuild file.
- 		Example: termios.h
- 			#include <asm-generic/termios.h>
+ #include <asm/pgtable.h>
+ #include <asm/sections.h>
+-#include <linux/uaccess.h>
++#include <asm/exception.h>
  
--	--- 7.5 generated-y
-+	--- 7.4 generated-y
+ extern void jprobe_inst_return(void);
  
- 	If an architecture generates other header files alongside generic-y
- 	wrappers, and not included in genhdr-y, then generated-y specifies
-diff --git a/scripts/Makefile.headersinst b/scripts/Makefile.headersinst
-index 3e20d03432d2..876b42cfede4 100644
---- a/scripts/Makefile.headersinst
-+++ b/scripts/Makefile.headersinst
-@@ -14,7 +14,7 @@ kbuild-file := $(srctree)/$(obj)/Kbuild
- include $(kbuild-file)
+diff --git a/arch/ia64/kernel/traps.c b/arch/ia64/kernel/traps.c
+index 095bfaff82d0..d3e1f1ee465f 100644
+--- a/arch/ia64/kernel/traps.c
++++ b/arch/ia64/kernel/traps.c
+@@ -17,11 +17,12 @@
+ #include <linux/kprobes.h>
+ #include <linux/delay.h>		/* for ssleep() */
+ #include <linux/kdebug.h>
++#include <linux/uaccess.h>
  
- # called may set destination dir (when installing to asm/)
--_dst := $(if $(destination-y),$(destination-y),$(if $(dst),$(dst),$(obj)))
-+_dst := $(if $(dst),$(dst),$(obj))
+ #include <asm/fpswa.h>
+ #include <asm/intrinsics.h>
+ #include <asm/processor.h>
+-#include <linux/uaccess.h>
++#include <asm/exception.h>
+ #include <asm/setup.h>
  
- old-kbuild-file := $(srctree)/$(subst uapi/,,$(obj))/Kbuild
- ifneq ($(wildcard $(old-kbuild-file)),)
+ fpswa_interface_t *fpswa_interface;
+diff --git a/arch/ia64/kernel/unaligned.c b/arch/ia64/kernel/unaligned.c
+index 9cd01c2200ee..e697403b0ec1 100644
+--- a/arch/ia64/kernel/unaligned.c
++++ b/arch/ia64/kernel/unaligned.c
+@@ -18,11 +18,12 @@
+ #include <linux/sched.h>
+ #include <linux/tty.h>
+ #include <linux/ratelimit.h>
++#include <linux/uaccess.h>
+ 
+ #include <asm/intrinsics.h>
+ #include <asm/processor.h>
+ #include <asm/rse.h>
+-#include <linux/uaccess.h>
++#include <asm/exception.h>
+ #include <asm/unaligned.h>
+ 
+ extern int die_if_kernel(char *str, struct pt_regs *regs, long err);
+diff --git a/arch/ia64/mm/fault.c b/arch/ia64/mm/fault.c
+index fa6ad95e992e..52b41dad9704 100644
+--- a/arch/ia64/mm/fault.c
++++ b/arch/ia64/mm/fault.c
+@@ -15,6 +15,7 @@
+ 
+ #include <asm/pgtable.h>
+ #include <asm/processor.h>
++#include <asm/exception.h>
+ 
+ extern int die(char *, struct pt_regs *, long);
+ 
 -- 
-2.8.1
+2.11.0
 
