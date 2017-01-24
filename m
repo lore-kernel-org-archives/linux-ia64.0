@@ -1,67 +1,93 @@
-From: Hari Bathini <hbathini@linux.vnet.ibm.com>
-Date: Mon, 02 Jan 2017 14:26:43 +0000
-Subject: [PATCH v3 5/5] powerpc/fadump: update documentation about crashkernel parameter reuse
-Message-Id: <148336647935.25358.3726871546809264252.stgit@hbathini.in.ibm.com>
+From: =?UTF-8?Q?=C3=89meric_MASCHINO?= <emeric.maschino@gmail.com>
+Date: Tue, 24 Jan 2017 14:47:22 +0000
+Subject: Re: GCC 4.9.4-compiled kernel: invalid slot number 1 for IMM64 errors while loading modules
+Message-Id: <CAA9xbM5_wBGXd2qGsOASA3ptZMQFnyTfQamadA91LotHW=4sFQ@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <148336637462.25358.5151364413645288219.stgit@hbathini.in.ibm.com>
-In-Reply-To: <148336637462.25358.5151364413645288219.stgit@hbathini.in.ibm.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: fenghua.yu@intel.com, tony.luck@intel.com, linux-ia64@vger.kernel.org, dyoung@redhat.com, kexec@lists.infradead.org, Mahesh J Salgaonkar <mahesh@linux.vnet.ibm.com>, ebiederm@xmission.com, Michael Ellerman <mpe@ellerman.id.au>, linuxppc-dev@lists.ozlabs.org, vgoyal@redhat.com
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: linux-ia64@vger.kernel.org
 
-As we are reusing crashkernel parameter instead of fadump_reserve_mem
-parameter to specify the memory to reserve for fadump's crash kernel,
-update the documentation accordingly.
+Hi,
 
-Signed-off-by: Hari Bathini <hbathini@linux.vnet.ibm.com>
----
- Documentation/powerpc/firmware-assisted-dump.txt |   23 ++++++++++++++--------
- 1 file changed, 15 insertions(+), 8 deletions(-)
+Still no thought on this?
 
-diff --git a/Documentation/powerpc/firmware-assisted-dump.txt b/Documentation/powerpc/firmware-assisted-dump.txt
-index 3007bc9..8394bc8 100644
---- a/Documentation/powerpc/firmware-assisted-dump.txt
-+++ b/Documentation/powerpc/firmware-assisted-dump.txt
-@@ -55,10 +55,14 @@ as follows:
-          booted with restricted memory. By default, the boot memory
-          size will be the larger of 5% of system RAM or 256MB.
-          Alternatively, user can also specify boot memory size
--         through boot parameter 'fadump_reserve_mem=' which will
--         override the default calculated size. Use this option
--         if default boot memory size is not sufficient for second
--         kernel to boot successfully.
-+         through boot parameter 'crashkernel=' which will override
-+         the default calculated size. Use this option if default
-+         boot memory size is not sufficient for second kernel to
-+         boot successfully. For syntax of crashkernel= parameter,
-+         refer to Documentation/kdump/kdump.txt. If any offset is
-+         provided in crashkernel= parameter, it will be ignored
-+         as fadump reserves memory at end of RAM for boot memory
-+         dump preservation in case of a crash.
- 
- -- After the low memory (boot memory) area has been saved, the
-    firmware will reset PCI and other hardware state.  It will
-@@ -158,13 +162,16 @@ How to enable firmware-assisted dump (fadump):
- 
- 1. Set config option CONFIG_FA_DUMP=y and build kernel.
- 2. Boot into linux kernel with 'fadump=on' kernel cmdline option.
--3. Optionally, user can also set 'fadump_reserve_mem=' kernel cmdline
-+3. Optionally, user can also set 'crashkernel=' kernel cmdline
-    to specify size of the memory to reserve for boot memory dump
-    preservation.
- 
--NOTE: If firmware-assisted dump fails to reserve memory then it will
--   fallback to existing kdump mechanism if 'crashkernel=' option
--   is set at kernel cmdline.
-+NOTE: 1. 'fadump_reserve_mem=' parameter has been deprecated. Instead
-+         use 'crashkernel=' to specify size of the memory to reserve
-+         for boot memory dump preservation.
-+      2. If firmware-assisted dump fails to reserve memory then it
-+         will fallback to existing kdump mechanism if 'crashkernel='
-+         option is set at kernel cmdline.
- 
- Sysfs/debugfs files:
- ------------
+I fear this is going to be problematic in the near future, as there's
+currently a discussion about raising the minimum GCC version required
+to build the kernel [1].
 
+In my experience, problems really started with GCC 4.6 and things seem
+to go worse and worse with newer kernel and/or GCC versions (maybe
+implying interactions from peculiar glibc and/or binutils too), as
+reported in [2], [3] and [4] for example.
+
+     Émeric
+
+
+[1] http://lkml.iu.edu/hypermail/linux/kernel/1612.2/00176.html
+[2] https://bugs.gentoo.org/show_bug.cgi?id=518130
+[3] https://bugs.gentoo.org/show_bug.cgi?id=541828
+[4] https://gcc.gnu.org/bugzilla/show_bug.cgi?id=60465
+
+2016-11-23 21:37 GMT+01:00 Émeric MASCHINO <emeric.maschino@gmail.com>:
+> Hi,
+>
+> GCC 4.9.4 just got stabilized on Gentoo ia64, so I've rebuilt my
+> system packages, including kernel. This yields to a non-booting
+> kernel, with the following errors:
+>
+>>> Loading modules
+>    :: Loading from pata:
+>    :: Loading from sata:
+>    :: Loading from scsi:
+>    :: Loading from usb: usb_storage: invalid slot number 1 for IMM64
+>
+>    :: Loading from firewire:
+>    :: Loading from waitscan:
+>    :: Loading from dmraid:
+>    :: Loading from mdadm: raid0: invalid slot number 1 for IMM64
+> raid1: invalid slot number 1 for IMM64
+> async_tx: invalid slot number 1 for IMM64
+> async_tx: invalid slot number 1 for IMM64
+> async_tx: invalid slot number 1 for IMM64
+> raid10: invalid slot number 1 for IMM64
+>
+>    :: Loading from fs: jbd2: invalid slot number 1 for IMM64
+> jbd2: invalid slot number 1 for IMM64
+> jbd2: invalid slot number 1 for IMM64
+> sunrpc: invalid slot number 1 for IMM64
+> fuse: invalid slot number 1 for IMM64
+>
+>    :: Loading from net: libphy:
+>
+>    :: Loading from iscsi:
+>>> Initializing root device...
+>>> Mounting /dev/sdb3 as root...
+>>> Detected fstype: ext4
+>>> Using mount fstype: ext4
+>>> Using mount opts: -o ro
+> jbd2: invalid slot number 1 for IMM64
+> mount: mounting /dev/sdb3 on /newroot failed: No such device
+> !! Cannot mount /dev/sdb3, trying with -t auto
+> UFS-fs: warning (device sdb3): udf_fill_super: No partition found (2)
+> mount: mounting /dev/sdb3 on /newroot failed: Invalid argument
+> !! Cannot mount /dev/sdb3 with -t auto, giving up
+> !! Could not mount specified ROOT, try again
+> !! Could not find the root block device in /dev/sdb3.
+> !! Please specify another value or:
+> !! - press Enter for the same
+> !! - type "shell" for a shell
+> !! - type "q" to skip...
+> root block device(/dev/sdb3) ::
+>
+> These "invalid slot number 1 for IMM64" messages seem to originate
+> from arch/ia64/kernel/module.c, but I don't know how to deal with
+> them. It's noteworthy that the exact same kernel source built with GCC
+> 4.5.4 or 4.9.3, using the same kernel configuration file, boots fine.
+>
+> Does anybody have success building kernel with recent GCC? Am I seeing
+> a problem with GCC, the kernel or in-between?
+>
+> Thanks,
+>
+>      Émeric
