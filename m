@@ -1,51 +1,73 @@
-From: Joe Perches <joe@perches.com>
-Date: Thu, 23 Feb 2017 17:53:41 +0000
-Subject: Re: [PATCH 00/35] treewide trivial patches converting pr_warning to pr_warn
-Message-Id: <1487872421.14159.38.camel@perches.com>
+From: "Luis R. Rodriguez" <mcgrof@kernel.org>
+Date: Wed, 01 Feb 2017 20:02:21 +0000
+Subject: Re: [PATCH v4 14/16] kprobes: move kprobe declarations to asm-generic/kprobes.h
+Message-Id: <20170201200221.GH24047@wotan.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1487314666.git.joe@perches.com>
- <CAL_JsqLTaq-QLTqfyDO8EVJYpgeUx1e4J0Fo2NvfFWqVoiVedQ@mail.gmail.com>
- <1487870304.14159.29.camel@perches.com>
- <CACvgo50LUm5VSn_F=Dh8kL5zCPpCQDoCyUEL=Z+=1+6hJpfTaw@mail.gmail.com>
-In-Reply-To: <CACvgo50LUm5VSn_F=Dh8kL5zCPpCQDoCyUEL=Z+=1+6hJpfTaw@mail.gmail.com>
+References: <1471642454-5679-1-git-send-email-mcgrof@kernel.org>
+ <1471642454-5679-15-git-send-email-mcgrof@kernel.org>
+ <20160823001140.8f7293408d2094a14c7725a1@kernel.org>
+ <20160823163104.GZ3296@wotan.suse.de>
+ <20160829230418.0d1d69ea76810db5148316e5@kernel.org>
+In-Reply-To: <20160829230418.0d1d69ea76810db5148316e5@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Emil Velikov <emil.l.velikov@gmail.com>
-Cc: "linux-fbdev@vger.kernel.org" <linux-fbdev@vger.kernel.org>, linux-ia64@vger.kernel.org, SH-Linux <linux-sh@vger.kernel.org>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, ML nouveau <nouveau@lists.freedesktop.org>, Linux-ALSA <alsa-devel@alsa-project.org>, dri-devel <dri-devel@lists.freedesktop.org>, "open list:VIRTIO GPU DRIVER" <virtualization@lists.linux-foundation.org>, "linux-ide@vger.kernel.org" <linux-ide@vger.kernel.org>, "linux-mtd@lists.infradead.org" <linux-mtd@lists.infradead.org>, sparclinux@vger.kernel.org, drbd-dev@lists.linbit.com, Rob Herring <robh@kernel.org>, linux-omap <linux-omap@vger.kernel.org>, linux-scsi@vger.kernel.org, Richard Weinberger <richard@nod.at>, tboot-devel@lists.sourceforge.net, amd-gfx mailing list <amd-gfx@lists.freedesktop.org>, "linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>, sfi-devel@simplefirmware.org
+To: Masami Hiramatsu <mhiramat@kernel.org>
+Cc: "Luis R. Rodriguez" <mcgrof@kernel.org>, hpa@zytor.com, tglx@linutronix.de, mingo@redhat.com, jpoimboe@redhat.com, bp@alien8.de, linux@arm.linux.org.uk, masami.hiramatsu.pt@hitachi.com, jbaron@akamai.com, heiko.carstens@de.ibm.com, ananth@linux.vnet.ibm.com, anil.s.keshavamurthy@intel.com, davem@davemloft.net, realmz6@gmail.com, x86@kernel.org, luto@amacapital.net, keescook@chromium.org, torvalds@linux-foundation.org, gregkh@linuxfoundation.org, rusty@rustcorp.com.au, gnomes@lxorguk.ukuu.org.uk, alan@linux.intel.com, dwmw2@infradead.org, arnd@arndb.de, ming.lei@canonical.com, linux-arch@vger.kernel.org, benh@kernel.crashing.org, ananth@in.ibm.com, pebolle@tiscali.nl, fontana@sharpeleven.org, david.vrabel@citrix.com, konrad.wilk@oracle.com, mcb30@ipxe.org, jgross@suse.coma
 
-On Thu, 2017-02-23 at 17:41 +0000, Emil Velikov wrote:
-> On 23 February 2017 at 17:18, Joe Perches <joe@perches.com> wrote:
-> > On Thu, 2017-02-23 at 09:28 -0600, Rob Herring wrote:
-> > > On Fri, Feb 17, 2017 at 1:11 AM, Joe Perches <joe@perches.com> wrote:
-> > > > There are ~4300 uses of pr_warn and ~250 uses of the older
-> > > > pr_warning in the kernel source tree.
-> > > > 
-> > > > Make the use of pr_warn consistent across all kernel files.
-> > > > 
-> > > > This excludes all files in tools/ as there is a separate
-> > > > define pr_warning for that directory tree and pr_warn is
-> > > > not used in tools/.
-> > > > 
-> > > > Done with 'sed s/\bpr_warning\b/pr_warn/' and some emacsing.
-> > 
-> > []
-> > > Where's the removal of pr_warning so we don't have more sneak in?
-> > 
-> > After all of these actually get applied,
-> > and maybe a cycle or two later, one would
-> > get sent.
-> > 
+On Mon, Aug 29, 2016 at 11:04:18PM +0900, Masami Hiramatsu wrote:
+> On Tue, 23 Aug 2016 18:31:05 +0200
+> "Luis R. Rodriguez" <mcgrof@kernel.org> wrote:
 > 
-> By which point you'll get a few reincarnation of it. So you'll have to
-> do the same exercise again :-(
+> > On Tue, Aug 23, 2016 at 12:11:40AM +0900, Masami Hiramatsu wrote:
+> > > On Fri, 19 Aug 2016 14:34:12 -0700
+> > > mcgrof@kernel.org wrote:
+> > > 
+> > > > From: "Luis R. Rodriguez" <mcgrof@kernel.org>
+> > > > 
+> > > > Often all is needed is these small helpers, instead of compiler.h
+> > > > or a full kprobes.h. This is important for asm helpers, in fact even
+> > > > some asm/kprobes.h make use of these helpers... instead just keep a
+> > > > generic asm file with helpers useful for asm code with the least amount
+> > > > of clutter as possible.
+> > > > 
+> > > > Likewise we need now to also address what to do about this file for both
+> > > > when architectures have CONFIG_HAVE_KPROBES, and when they do not. Then
+> > > > for when architectures have CONFIG_HAVE_KPROBES but have disabled
+> > > > CONFIG_KPROBES.
+> > > > 
+> > > > Right now most asm/kprobes.h do not have guards against CONFIG_KPROBES,
+> > > > this means most architecture code cannot include asm/kprobes.h safely.
+> > > > Correct this and add guards for architectures missing them. Additionally
+> > > > provide architectures that not have kprobes support with the default
+> > > > asm-generic solution. This lets us force asm/kprobes.h on the header
+> > > > include/linux/kprobes.h always, but most importantly we can now safely
+> > > > include just asm/kprobes.h on architecture code without bringing
+> > > > the full kitchen sink of header files.
+> > > > 
+> > > > Two architectures already provided a guard against CONFIG_KPROBES on
+> > > > its kprobes.h: sh, arch. The rest of the architectures needed gaurds
+> > > > added. We avoid including any not-needed headers on asm/kprobes.h
+> > > > unless kprobes have been enabled.
+> > > > 
+> > > > In a subsequent atomic change we can try now to remove compiler.h from
+> > > > include/linux/kprobes.h.
+> > > 
+> > > Hmm, this looks a bit overkill... I rather like move it into linux/table.h.
+> > 
+> > That's the thing, we can't reasonably expect every table to add an entry into
+> > table.h, this should be up to each user. Moving it to tables.h just prolongs
+> > what needs to be done. In this case the change is justifiable given kprobe
+> > annotations are required for some architectures early in architecture code, and
+> > including compiler.h on early architecture code blows up. There is no easy fix
+> > to this, and this this was *actually* the cleanest solution I could devise
+> > without much changes.
+> 
+> Aah, I misread your patch, it is asm-generic/kprobes.h, not asm/kprobes.h.
+> I think it is OK now.
+> 
+> Acked-by: Masami Hiramatsu <mhiramat@kernel.org>
 
-Maybe to one or two files.  Not a big deal.
+I'm going to send this patch out separately shortly as its independent.
 
-> I guess the question is - are you expecting to get the series merged
-> all together/via one tree ?
-
-No.  The only person that could do that effectively is Linus.
-
-> If not, your plan is perfectly reasonable.
-
+  Luis
