@@ -1,31 +1,101 @@
-From: Michael Ellerman <mpe@ellerman.id.au>
-Date: Wed, 01 Feb 2017 01:11:28 +0000
-Subject: Re: [PATCH v4 2/5] ia64: reuse append_elf_note() and final_note() functions
-Message-Id: <874m0evhof.fsf@concordia.ellerman.id.au>
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Date: Mon, 06 Feb 2017 17:01:51 +0000
+Subject: [PATCH] x86/acpi: keep x86_cpu_to_acpiid mapping valid on cpu hotplug
+Message-Id: <20170206170151.25542-1-vkuznets@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <148363729327.11570.6244765717789390817.stgit@hbathini.in.ibm.com> <148363740554.11570.4870634597647436827.stgit@hbathini.in.ibm.com> <20170106020324.GB2863@dhcp-128-65.nay.redhat.com> <38a7807c-cd95-670d-30d3-c45e7921ea11@linux.vnet.ibm.com> <0748026f-a459-9022-3658-a75cb0633f40@linux.vnet.ibm.com> <CA+8MBb+g604VGLLibB+eOAtF_h1r5mYJRdjaGE8UgWQ+JPGDdg@mail.gmail.com> <04b96f50-f77d-9446-975f-7d44accfe583@linux.vnet.ibm.com> <CA+8MBbLP5TvmbDgbg6cvUCV+0hhXdYi546Rs-fEAoQjcotNXvw@mail.gmail.com>
-In-Reply-To: <CA+8MBbLP5TvmbDgbg6cvUCV+0hhXdYi546Rs-fEAoQjcotNXvw@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@gmail.com>, Hari Bathini <hbathini@linux.vnet.ibm.com>
-Cc: "Yu, Fenghua" <fenghua.yu@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Dave Young <dyoung@redhat.com>, kexec-ml <kexec@lists.infradead.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, "Eric W. Biederman" <ebiederm@xmission.com>, linuxppc-dev@lists.ozlabs.org, "vgoyal@redhat.com" <vgoyal@redhat.com>
+To: x86@kernel.org
+Cc: linux-acpi@vger.kernel.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, Andrew Jones <drjones@redhat.com>
 
-Tony Luck <tony.luck@gmail.com> writes:
+We may or may not have all possible CPUs in MADT on boot but in any case
+we're overwriting x86_cpu_to_acpiid mapping with U32_MAX when
+acpi_register_lapic() is called again on the CPU hotplug path:
+acpi_processor_hotadd_init() -> acpi_map_cpu() -> acpi_register_lapic().
 
-> On Wed, Jan 25, 2017 at 11:15 AM, Hari Bathini
-> <hbathini@linux.vnet.ibm.com> wrote:
->> I haven't gotten a success/failure build report from zero-day. Not sure what
->> to make of it.
->
-> zero-day is generally silent unless it sees a problem. So no news is good news.
->
->> But I did try cross-compiling and it was successful. Should that do?
->
-> I guess so. What tree do these apply to?  I tried 4.10-rc5 and "git am"
-> protested ... but I didn't look closely as at why.
+As we have the required acpi_id information in acpi_processor_hotadd_init()
+propagate it to acpi_map_cpu() to always keep x86_cpu_to_acpiid mapping
+valid.
 
-Don't worry about it, I do an ia64_defconfig build as part of my usual
-tests before pushing.
+Reported-by: Andrew Jones <drjones@redhat.com>
+Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
+---
+ arch/ia64/kernel/acpi.c       | 3 ++-
+ arch/x86/kernel/acpi/boot.c   | 5 +++--
+ drivers/acpi/acpi_processor.c | 4 ++--
+ include/linux/acpi.h          | 3 ++-
+ 4 files changed, 9 insertions(+), 6 deletions(-)
 
-cheers
+diff --git a/arch/ia64/kernel/acpi.c b/arch/ia64/kernel/acpi.c
+index 9273e03..7508c30 100644
+--- a/arch/ia64/kernel/acpi.c
++++ b/arch/ia64/kernel/acpi.c
+@@ -887,7 +887,8 @@ static int _acpi_map_lsapic(acpi_handle handle, int physid, int *pcpu)
+ }
+ 
+ /* wrapper to silence section mismatch warning */
+-int __ref acpi_map_cpu(acpi_handle handle, phys_cpuid_t physid, int *pcpu)
++int __ref acpi_map_cpu(acpi_handle handle, phys_cpuid_t physid, u32 acpi_id,
++		       int *pcpu)
+ {
+ 	return _acpi_map_lsapic(handle, physid, pcpu);
+ }
+diff --git a/arch/x86/kernel/acpi/boot.c b/arch/x86/kernel/acpi/boot.c
+index 64422f8..04bc5f3 100644
+--- a/arch/x86/kernel/acpi/boot.c
++++ b/arch/x86/kernel/acpi/boot.c
+@@ -723,11 +723,12 @@ int acpi_map_cpu2node(acpi_handle handle, int cpu, int physid)
+ 	return 0;
+ }
+ 
+-int acpi_map_cpu(acpi_handle handle, phys_cpuid_t physid, int *pcpu)
++int acpi_map_cpu(acpi_handle handle, phys_cpuid_t physid, u32 acpi_id,
++		 int *pcpu)
+ {
+ 	int cpu;
+ 
+-	cpu = acpi_register_lapic(physid, U32_MAX, ACPI_MADT_ENABLED);
++	cpu = acpi_register_lapic(physid, acpi_id, ACPI_MADT_ENABLED);
+ 	if (cpu < 0) {
+ 		pr_info(PREFIX "Unable to map lapic to logical cpu number\n");
+ 		return cpu;
+diff --git a/drivers/acpi/acpi_processor.c b/drivers/acpi/acpi_processor.c
+index 3de3b6b..4467a80 100644
+--- a/drivers/acpi/acpi_processor.c
++++ b/drivers/acpi/acpi_processor.c
+@@ -165,7 +165,7 @@ static int acpi_processor_errata(void)
+ 
+ #ifdef CONFIG_ACPI_HOTPLUG_CPU
+ int __weak acpi_map_cpu(acpi_handle handle,
+-		phys_cpuid_t physid, int *pcpu)
++		phys_cpuid_t physid, u32 acpi_id, int *pcpu)
+ {
+ 	return -ENODEV;
+ }
+@@ -203,7 +203,7 @@ static int acpi_processor_hotadd_init(struct acpi_processor *pr)
+ 	cpu_maps_update_begin();
+ 	cpu_hotplug_begin();
+ 
+-	ret = acpi_map_cpu(pr->handle, pr->phys_id, &pr->id);
++	ret = acpi_map_cpu(pr->handle, pr->phys_id, pr->acpi_id, &pr->id);
+ 	if (ret)
+ 		goto out;
+ 
+diff --git a/include/linux/acpi.h b/include/linux/acpi.h
+index 5b36974..6ab47e9 100644
+--- a/include/linux/acpi.h
++++ b/include/linux/acpi.h
+@@ -291,7 +291,8 @@ bool acpi_processor_validate_proc_id(int proc_id);
+ 
+ #ifdef CONFIG_ACPI_HOTPLUG_CPU
+ /* Arch dependent functions for cpu hotplug support */
+-int acpi_map_cpu(acpi_handle handle, phys_cpuid_t physid, int *pcpu);
++int acpi_map_cpu(acpi_handle handle, phys_cpuid_t physid, u32 acpi_id,
++		 int *pcpu);
+ int acpi_unmap_cpu(int cpu);
+ int acpi_map_cpu2node(acpi_handle handle, int cpu, int physid);
+ #endif /* CONFIG_ACPI_HOTPLUG_CPU */
+-- 
+2.9.3
+
