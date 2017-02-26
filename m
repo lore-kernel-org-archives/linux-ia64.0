@@ -1,165 +1,291 @@
-From: "Luis R. Rodriguez" <mcgrof@kernel.org>
-Date: Mon, 09 Jan 2017 14:58:28 +0000
-Subject: [PATCH v6 10/14] dynamic_debug: port to use linker tables
-Message-Id: <20170109145833.11502-11-mcgrof@kernel.org>
+From: "Dmitry V. Levin" <ldv@altlinux.org>
+Date: Sun, 26 Feb 2017 01:01:56 +0000
+Subject: [PATCH] uapi: fix asm/signal.h userspace compilation errors
+Message-Id: <20170226010156.GA28831@altlinux.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20161222023811.21246-1-mcgrof@kernel.org>
- <20170109145833.11502-1-mcgrof@kernel.org>
-In-Reply-To: <20170109145833.11502-1-mcgrof@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: hpa@zytor.com, acme@redhat.com, tglx@linutronix.de, mingo@redhat.com, jpoimboe@redhat.com, bp@alien8.de, npiggin@gmail.com, mhiramat@kernel.org, masami.hiramatsu.pt@hitachi.com, jbaron@akamai.com, heiko.carstens@de.ibm.com, ananth@linux.vnet.ibm.com, anil.s.keshavamurthy@intel.com, davem@davemloft.net, realmz6@gmail.com, dalias@libc.org, linux@arm.linux.org.uk
-Cc: gnomes@lxorguk.ukuu.org.uk, linux-ia64@vger.kernel.org, jkosina@suse.cz, benh@kernel.crashing.org, ming.lei@canonical.com, linux@rasmusvillemoes.dk, platform-driver-x86@vger.kernel.org, James.Bottomley@HansenPartnership.com, paul.gortmaker@windriver.com, paulus@samba.org, sparclinux@vger.kernel.org, wangnan0@huawei.com, Michael Matz <matz@suse.de>, Barry Song <barry.song@analog.com>, mchehab@osg.samsung.com, linux-arch@vger.kernel.org, markus.heiser@darmarit.de, xen-devel@lists.xensource.com, msalter@redhat.com, linux-sh@vger.kernel.org, mpe@ellerman.id.au, joro@8bytes.org, x86@kernel.org, fontana@sharpeleven.org, dsahern@gmail.com, linux-arm-kernel@lists.infradead.org, catalin.marinas@arm.com, dvhart@infradead.org, dwmw2@infradead.org, linux@roeck-us.net, linux-xtensa@linux-xtensa.org, pali.rohar@gmail.com, Mike Frysinger <vapier@gentoo.org>, keescook@chromium.org
+To: Arnd Bergmann <arnd@arndb.de>
+Cc: Russell King <linux@armlinux.org.uk>, Haavard Skinnemoen <hskinnemoen@gmail.com>, Hans-Christian Egtvedt <egtvedt@samfundet.no>, Mikael Starvik <starvik@axis.com>, Jesper Nilsson <jesper.nilsson@axis.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Ralf Baechle <ralf@linux-mips.org>, David Howells <dhowells@redhat.com>, "James E.J. Bottomley" <jejb@parisc-linux.org>, Helge Deller <deller@gmx.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, "David S. Miller" <>
 
-This removes the custom vmlinux.lds.h hacks and uses
-the generalized solution for .data entries.
+Include <stddef.h> (guarded by #ifndef __KERNEL__) to fix asm/signal.h
+userspace compilation errors like this:
 
-There is much more potential for further fine tuning here
-in the future though. For instance, linker tables enable
-an extra postfix for order level annotations, this could
-easily be used as the KBUILD_MODNAME and with a bit of
-linker table changes we may be able to get a direct O(1)
-count of the entries for that KBUILD_MODNAME: it would
-just be a count on the number of entries for the given
-order level. This should help make dynamic_debug_init()
-cleaner and also reduce the amount of time it takes at
-boot time. Instead of iterating over each print until we
-have all for a KBUILD_MODNAME, we'd instead directly
-operate on each KBUILD_MODNAME directly. We can work on
-this later to make this change easier to review.
+/usr/include/asm/signal.h:126:2: error: unknown type name 'size_t'
+  size_t ss_size;
 
-Tested dynamic debug with dyndbg query and debugfs control
-and it works as expected, for both built-in code and modules.
+As no uapi header provides a definition of size_t, inclusion
+of <stddef.h> seems to be the most conservative fix available.
 
-v6: rename table macro as suggested by Andy Shevchenko
+On the kernel side size_t is typedef'ed to __kernel_size_t, so
+an alternative fix would be to change the type of sigaltstack.ss_size
+from size_t to __kernel_size_t for all architectures except those where
+sizeof(size_t) < sizeof(__kernel_size_t), namely, x32 and mips n32.
 
-v5:
+On x32 and mips n32, however, #include <stddef.h> seems to be the most
+straightforward way to obtain the definition for sigaltstack.ss_size's
+type.
 
-o Use ..tbl instead of .tbl as suggested by Nicholas Piggin.
-  This is the typical way to avoid clash with compiler generated
-  section.
-
-o Replace section macros with section names,
-  use LINKTABLE_EMPTY(), LINKTABLE_START()
-
-v4: fix compilation on blackfin
-v3: added modular support
-v2: introduced this patch into the series
-
-Cc: Barry Song <barry.song@analog.com>
-Cc: Mike Frysinger <vapier@gentoo.org>
-Cc: Steven Miao <realmz6@gmail.com>
-Cc: Michael Matz <matz@suse.de>
-Cc: Guenter Roeck <linux@roeck-us.net>
-Cc: Fengguang Wu <fengguang.wu@intel.com>
-Signed-off-by: Luis R. Rodriguez <mcgrof@kernel.org>
+Signed-off-by: Dmitry V. Levin <ldv@altlinux.org>
 ---
- include/asm-generic/vmlinux.lds.h |  4 ----
- include/linux/dynamic_debug.h     |  5 +++--
- lib/dynamic_debug.c               | 13 ++++++-------
- scripts/module-common.lds         |  1 +
- 4 files changed, 10 insertions(+), 13 deletions(-)
+ include/uapi/asm-generic/signal.h      | 3 +++
+ arch/alpha/include/uapi/asm/signal.h   | 3 +++
+ arch/arm/include/uapi/asm/signal.h     | 3 +++
+ arch/avr32/include/uapi/asm/signal.h   | 3 +++
+ arch/cris/include/uapi/asm/signal.h    | 3 +++
+ arch/h8300/include/uapi/asm/signal.h   | 3 +++
+ arch/ia64/include/uapi/asm/signal.h    | 4 ++++
+ arch/m32r/include/uapi/asm/signal.h    | 3 +++
+ arch/m68k/include/uapi/asm/signal.h    | 3 +++
+ arch/mips/include/uapi/asm/signal.h    | 3 +++
+ arch/mn10300/include/uapi/asm/signal.h | 3 +++
+ arch/parisc/include/uapi/asm/signal.h  | 4 ++++
+ arch/powerpc/include/uapi/asm/signal.h | 3 +++
+ arch/s390/include/uapi/asm/signal.h    | 3 +++
+ arch/sparc/include/uapi/asm/signal.h   | 3 +++
+ arch/x86/include/uapi/asm/signal.h     | 3 +++
+ arch/xtensa/include/uapi/asm/signal.h  | 2 ++
+ 17 files changed, 52 insertions(+)
 
-diff --git a/include/asm-generic/vmlinux.lds.h b/include/asm-generic/vmlinux.lds.h
-index 887d844f0406..37b99537d5a9 100644
---- a/include/asm-generic/vmlinux.lds.h
-+++ b/include/asm-generic/vmlinux.lds.h
-@@ -216,10 +216,6 @@
- 	*(.data.unlikely)						\
- 	STRUCT_ALIGN();							\
- 	*(__tracepoints)						\
--	. = ALIGN(8);							\
--	VMLINUX_SYMBOL(__start___verbose) = .;                          \
--	KEEP(*(__verbose))                                              \
--	VMLINUX_SYMBOL(__stop___verbose) = .;				\
- 	LIKELY_PROFILE()		       				\
- 	BRANCH_PROFILE()						\
- 	TRACE_PRINTKS()							\
-diff --git a/include/linux/dynamic_debug.h b/include/linux/dynamic_debug.h
-index 546d68057e3b..a52618a77b09 100644
---- a/include/linux/dynamic_debug.h
-+++ b/include/linux/dynamic_debug.h
-@@ -4,6 +4,7 @@
- #if defined(CC_HAVE_ASM_GOTO) && defined(CONFIG_JUMP_LABEL)
- #include <linux/jump_label.h>
+diff --git a/include/uapi/asm-generic/signal.h b/include/uapi/asm-generic/signal.h
+index 3094618..e618eab 100644
+--- a/include/uapi/asm-generic/signal.h
++++ b/include/uapi/asm-generic/signal.h
+@@ -100,6 +100,9 @@ typedef unsigned long old_sigset_t;
  #endif
-+#include <linux/tables.h>
  
- /*
-  * An instance of this structure is created in a special
-@@ -50,6 +51,7 @@ int ddebug_add_module(struct _ddebug *tab, unsigned int n,
- 				const char *modname);
+ #ifndef __KERNEL__
++
++#include <stddef.h>	/* For size_t. */
++
+ struct sigaction {
+ 	__sighandler_t sa_handler;
+ 	unsigned long sa_flags;
+diff --git a/arch/alpha/include/uapi/asm/signal.h b/arch/alpha/include/uapi/asm/signal.h
+index dd4ca4bc..74e09f6 100644
+--- a/arch/alpha/include/uapi/asm/signal.h
++++ b/arch/alpha/include/uapi/asm/signal.h
+@@ -94,6 +94,9 @@ typedef unsigned long sigset_t;
+ #include <asm-generic/signal-defs.h>
  
- #if defined(CONFIG_DYNAMIC_DEBUG)
-+DECLARE_LINKTABLE(struct _ddebug, __verbose);
- extern int ddebug_remove_module(const char *mod_name);
- extern __printf(2, 3)
- void __dynamic_pr_debug(struct _ddebug *descriptor, const char *fmt, ...);
-@@ -71,8 +73,7 @@ void __dynamic_netdev_dbg(struct _ddebug *descriptor,
- 			  const char *fmt, ...);
+ #ifndef __KERNEL__
++
++#include <stddef.h>	/* For size_t. */
++
+ /* Here we must cater to libcs that poke about in kernel headers.  */
  
- #define DEFINE_DYNAMIC_DEBUG_METADATA_KEY(name, fmt, key, init)	\
--	static struct _ddebug  __aligned(8)			\
--	__attribute__((section("__verbose"))) name = {		\
-+	static LINKTABLE(__verbose, SECTION_ORDER_ANY) name = {	\
- 		.modname = KBUILD_MODNAME,			\
- 		.function = __func__,				\
- 		.filename = __FILE__,				\
-diff --git a/lib/dynamic_debug.c b/lib/dynamic_debug.c
-index da796e2dc4f5..27a335e3b1f3 100644
---- a/lib/dynamic_debug.c
-+++ b/lib/dynamic_debug.c
-@@ -37,8 +37,7 @@
- #include <linux/device.h>
- #include <linux/netdevice.h>
+ struct sigaction {
+diff --git a/arch/arm/include/uapi/asm/signal.h b/arch/arm/include/uapi/asm/signal.h
+index 33073bd..a7b0012 100644
+--- a/arch/arm/include/uapi/asm/signal.h
++++ b/arch/arm/include/uapi/asm/signal.h
+@@ -93,6 +93,9 @@ typedef unsigned long sigset_t;
+ #include <asm-generic/signal-defs.h>
  
--extern struct _ddebug __start___verbose[];
--extern struct _ddebug __stop___verbose[];
-+DEFINE_LINKTABLE(struct _ddebug, __verbose);
+ #ifndef __KERNEL__
++
++#include <stddef.h>	/* For size_t. */
++
+ /* Here we must cater to libcs that poke about in kernel headers.  */
  
- struct ddebug_table {
- 	struct list_head link;
-@@ -978,14 +977,14 @@ static int __init dynamic_debug_init(void)
- 	int n = 0, entries = 0, modct = 0;
- 	int verbose_bytes = 0;
+ struct sigaction {
+diff --git a/arch/avr32/include/uapi/asm/signal.h b/arch/avr32/include/uapi/asm/signal.h
+index ffe8c77..62f3b88 100644
+--- a/arch/avr32/include/uapi/asm/signal.h
++++ b/arch/avr32/include/uapi/asm/signal.h
+@@ -95,6 +95,9 @@ typedef unsigned long sigset_t;
+ #include <asm-generic/signal-defs.h>
  
--	if (__start___verbose = __stop___verbose) {
--		pr_warn("_ddebug table is empty in a CONFIG_DYNAMIC_DEBUG build\n");
-+	if (LINKTABLE_EMPTY(__verbose)) {
-+		pr_warn("dynamic debug linker table empty on CONFIG_DYNAMIC_DEBUG build\n");
- 		return 1;
- 	}
--	iter = __start___verbose;
-+	iter = LINKTABLE_START(__verbose);
- 	modname = iter->modname;
- 	iter_start = iter;
--	for (; iter < __stop___verbose; iter++) {
-+	linktable_for_each(iter, __verbose) {
- 		entries++;
- 		verbose_bytes += strlen(iter->modname) + strlen(iter->function)
- 			+ strlen(iter->filename) + strlen(iter->format);
-@@ -1008,7 +1007,7 @@ static int __init dynamic_debug_init(void)
- 	ddebug_init_success = 1;
- 	vpr_info("%d modules, %d entries and %d bytes in ddebug tables, %d bytes in (readonly) verbose section\n",
- 		 modct, entries, (int)(modct * sizeof(struct ddebug_table)),
--		 verbose_bytes + (int)(__stop___verbose - __start___verbose));
-+		 verbose_bytes + (int)(LINKTABLE_SIZE(__verbose)));
+ #ifndef __KERNEL__
++
++#include <stddef.h>	/* For size_t. */
++
+ /* Here we must cater to libcs that poke about in kernel headers.  */
  
- 	/* apply ddebug_query boot param, dont unload tables on err */
- 	if (ddebug_setup_string[0] != '\0') {
-diff --git a/scripts/module-common.lds b/scripts/module-common.lds
-index db0e724556c5..25755d458f09 100644
---- a/scripts/module-common.lds
-+++ b/scripts/module-common.lds
-@@ -17,6 +17,7 @@ SECTIONS {
- 	__kcrctab_unused_gpl	0 : { *(SORT(___kcrctab_unused_gpl+*)) }
- 	__kcrctab_gpl_future	0 : { *(SORT(___kcrctab_gpl_future+*)) }
- 	__jump_table		0 : { *(SORT(.data..tbl.__jump_table.*)) }
-+	__verbose		0 : { *(SORT(.data..tbl.__verbose.*)) }
+ struct sigaction {
+diff --git a/arch/cris/include/uapi/asm/signal.h b/arch/cris/include/uapi/asm/signal.h
+index ce42fa7..bedff78 100644
+--- a/arch/cris/include/uapi/asm/signal.h
++++ b/arch/cris/include/uapi/asm/signal.h
+@@ -89,6 +89,9 @@ typedef unsigned long sigset_t;
+ #include <asm-generic/signal-defs.h>
  
- 	. = ALIGN(8);
- 	.init_array		0 : { *(SORT(.init_array.*)) *(.init_array) }
+ #ifndef __KERNEL__
++
++#include <stddef.h>	/* For size_t. */
++
+ /* Here we must cater to libcs that poke about in kernel headers.  */
+ 
+ struct sigaction {
+diff --git a/arch/h8300/include/uapi/asm/signal.h b/arch/h8300/include/uapi/asm/signal.h
+index af3a6c3..361e2e5 100644
+--- a/arch/h8300/include/uapi/asm/signal.h
++++ b/arch/h8300/include/uapi/asm/signal.h
+@@ -88,6 +88,9 @@ typedef unsigned long sigset_t;
+ #include <asm-generic/signal-defs.h>
+ 
+ #ifndef __KERNEL__
++
++#include <stddef.h>	/* For size_t. */
++
+ /* Here we must cater to libcs that poke about in kernel headers.  */
+ 
+ struct sigaction {
+diff --git a/arch/ia64/include/uapi/asm/signal.h b/arch/ia64/include/uapi/asm/signal.h
+index c0ea285..b089bfc 100644
+--- a/arch/ia64/include/uapi/asm/signal.h
++++ b/arch/ia64/include/uapi/asm/signal.h
+@@ -107,6 +107,10 @@
+ 
+ #  include <linux/types.h>
+ 
++#  ifndef __KERNEL__
++#   include <stddef.h>	/* For size_t. */
++#  endif
++
+ /* Avoid too many header ordering problems.  */
+ struct siginfo;
+ 
+diff --git a/arch/m32r/include/uapi/asm/signal.h b/arch/m32r/include/uapi/asm/signal.h
+index 54acacb..269ec39 100644
+--- a/arch/m32r/include/uapi/asm/signal.h
++++ b/arch/m32r/include/uapi/asm/signal.h
+@@ -90,6 +90,9 @@ typedef unsigned long sigset_t;
+ #include <asm-generic/signal-defs.h>
+ 
+ #ifndef __KERNEL__
++
++#include <stddef.h>	/* For size_t. */
++
+ /* Here we must cater to libcs that poke about in kernel headers.  */
+ 
+ struct sigaction {
+diff --git a/arch/m68k/include/uapi/asm/signal.h b/arch/m68k/include/uapi/asm/signal.h
+index cba6f85..f6a409e 100644
+--- a/arch/m68k/include/uapi/asm/signal.h
++++ b/arch/m68k/include/uapi/asm/signal.h
+@@ -86,6 +86,9 @@ typedef unsigned long sigset_t;
+ #include <asm-generic/signal-defs.h>
+ 
+ #ifndef __KERNEL__
++
++#include <stddef.h>	/* For size_t. */
++
+ /* Here we must cater to libcs that poke about in kernel headers.  */
+ 
+ struct sigaction {
+diff --git a/arch/mips/include/uapi/asm/signal.h b/arch/mips/include/uapi/asm/signal.h
+index addb9f5..744fd71 100644
+--- a/arch/mips/include/uapi/asm/signal.h
++++ b/arch/mips/include/uapi/asm/signal.h
+@@ -101,6 +101,9 @@ typedef unsigned long old_sigset_t;		/* at least 32 bits */
+ #include <asm-generic/signal-defs.h>
+ 
+ #ifndef __KERNEL__
++
++#include <stddef.h>	/* For size_t. */
++
+ struct sigaction {
+ 	unsigned int	sa_flags;
+ 	__sighandler_t	sa_handler;
+diff --git a/arch/mn10300/include/uapi/asm/signal.h b/arch/mn10300/include/uapi/asm/signal.h
+index f423a08..2e79c71 100644
+--- a/arch/mn10300/include/uapi/asm/signal.h
++++ b/arch/mn10300/include/uapi/asm/signal.h
+@@ -98,6 +98,9 @@ typedef unsigned long sigset_t;
+ #include <asm-generic/signal-defs.h>
+ 
+ #ifndef __KERNEL__
++
++#include <stddef.h>	/* For size_t. */
++
+ /* Here we must cater to libcs that poke about in kernel headers.  */
+ 
+ struct sigaction {
+diff --git a/arch/parisc/include/uapi/asm/signal.h b/arch/parisc/include/uapi/asm/signal.h
+index e26043b..6c6c979 100644
+--- a/arch/parisc/include/uapi/asm/signal.h
++++ b/arch/parisc/include/uapi/asm/signal.h
+@@ -81,6 +81,10 @@
+ 
+ #  include <linux/types.h>
+ 
++#  ifndef __KERNEL__
++#   include <stddef.h>	/* For size_t. */
++#  endif
++
+ /* Avoid too many header ordering problems.  */
+ struct siginfo;
+ 
+diff --git a/arch/powerpc/include/uapi/asm/signal.h b/arch/powerpc/include/uapi/asm/signal.h
+index 6c69ee9..fba7738 100644
+--- a/arch/powerpc/include/uapi/asm/signal.h
++++ b/arch/powerpc/include/uapi/asm/signal.h
+@@ -91,6 +91,9 @@ typedef struct {
+ #include <asm-generic/signal-defs.h>
+ 
+ #ifndef __KERNEL__
++
++#include <stddef.h>	/* For size_t. */
++
+ struct old_sigaction {
+ 	__sighandler_t sa_handler;
+ 	old_sigset_t sa_mask;
+diff --git a/arch/s390/include/uapi/asm/signal.h b/arch/s390/include/uapi/asm/signal.h
+index 2f43cfb..306373b6a 100644
+--- a/arch/s390/include/uapi/asm/signal.h
++++ b/arch/s390/include/uapi/asm/signal.h
+@@ -96,6 +96,9 @@ typedef unsigned long sigset_t;
+ #include <asm-generic/signal-defs.h>
+ 
+ #ifndef __KERNEL__
++
++#include <stddef.h>	/* For size_t. */
++
+ /* Here we must cater to libcs that poke about in kernel headers.  */
+ 
+ struct sigaction {
+diff --git a/arch/sparc/include/uapi/asm/signal.h b/arch/sparc/include/uapi/asm/signal.h
+index f387400..3b4664c 100644
+--- a/arch/sparc/include/uapi/asm/signal.h
++++ b/arch/sparc/include/uapi/asm/signal.h
+@@ -154,6 +154,9 @@ struct sigstack {
+ #include <asm-generic/signal-defs.h>
+ 
+ #ifndef __KERNEL__
++
++#include <stddef.h>	/* For size_t. */
++
+ struct __new_sigaction {
+ 	__sighandler_t		sa_handler;
+ 	unsigned long		sa_flags;
+diff --git a/arch/x86/include/uapi/asm/signal.h b/arch/x86/include/uapi/asm/signal.h
+index 8264f47..2d6db1d 100644
+--- a/arch/x86/include/uapi/asm/signal.h
++++ b/arch/x86/include/uapi/asm/signal.h
+@@ -96,6 +96,9 @@ typedef unsigned long sigset_t;
+ 
+ 
+ # ifndef __KERNEL__
++
++#  include <stddef.h>	/* For size_t. */
++
+ /* Here we must cater to libcs that poke about in kernel headers.  */
+ #ifdef __i386__
+ 
+diff --git a/arch/xtensa/include/uapi/asm/signal.h b/arch/xtensa/include/uapi/asm/signal.h
+index 586756e..bbc9b14 100644
+--- a/arch/xtensa/include/uapi/asm/signal.h
++++ b/arch/xtensa/include/uapi/asm/signal.h
+@@ -106,6 +106,8 @@ typedef struct {
+ 
+ #ifndef __KERNEL__
+ 
++#include <stddef.h>	/* For size_t. */
++
+ /* Here we must cater to libcs that poke about in kernel headers.  */
+ 
+ struct sigaction {
 -- 
-2.11.0
-
+ldv
