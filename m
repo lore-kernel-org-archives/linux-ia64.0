@@ -1,81 +1,67 @@
-From: "Carlos O'Donell" <carlos@systemhalted.org>
-Date: Mon, 06 Mar 2017 15:10:18 +0000
-Subject: Re: [PATCH] uapi: fix asm/signal.h userspace compilation errors
-Message-Id: <CAE2sS1jTyENymA-fSAk4dt29rYgX50zYqubVYnGVGnFrH=-1nA@mail.gmail.com>
+From: Sergei Trofimovich <slyfox@gentoo.org>
+Date: Sun, 19 Mar 2017 16:20:19 +0000
+Subject: [PATCH] ia64: fix module loading for gcc-5.4
+Message-Id: <20170319162019.7350-1-slyfox@gentoo.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20170226010156.GA28831@altlinux.org> <CAK8P3a0YX3RGAqWN0mwUJtBsqUX0C+QRtJLrT_UA=wX6Z+q0DA@mail.gmail.com>
- <CAE2sS1h9QNV+31GMSv8aahJYOb9hFtFp5Aj-yVOfg7cjBHr_kg@mail.gmail.com>
- <20170302154845.GB3503@altlinux.org> <CAE2sS1i-xezJu2hHfzOxpCMZHc2J+dsturtqFPMRWHa6mm6ccQ@mail.gmail.com>
-In-Reply-To: <CAE2sS1i-xezJu2hHfzOxpCMZHc2J+dsturtqFPMRWHa6mm6ccQ@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Dmitry V. Levin" <ldv@altlinux.org>
-Cc: Arnd Bergmann <arnd@arndb.de>, Russell King <linux@armlinux.org.uk>, Haavard Skinnemoen <hskinnemoen@gmail.com>, Hans-Christian Egtvedt <egtvedt@samfundet.no>, Mikael Starvik <starvik@axis.com>, Jesper Nilsson <jesper.nilsson@axis.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Ralf Baechle <ralf@linux-mips.org>, David Howells <dhowells@redhat.com>, "James E.J. Bottomley" <jejb@parisc-linux.org>, Helge Deller <deller@gmx.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Heiko Carstens <heiko.carstens@de.ibm.>
+To: Tony Luck <tony.luck@intel.com>
+Cc: Sergei Trofimovich <slyfox@gentoo.org>, "H . J . Lu" <hjl.tools@gmail.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Fri, Mar 3, 2017 at 8:23 PM, Carlos O'Donell <carlos@systemhalted.org> wrote:
-> On Thu, Mar 2, 2017 at 10:48 AM, Dmitry V. Levin <ldv@altlinux.org> wrote:
->> On Thu, Mar 02, 2017 at 10:22:18AM -0500, Carlos O'Donell wrote:
->>> On Wed, Mar 1, 2017 at 11:20 AM, Arnd Bergmann <arnd@arndb.de> wrote:
->>> > On Sun, Feb 26, 2017 at 2:01 AM, Dmitry V. Levin <ldv@altlinux.org> wrote:
->>> >> Include <stddef.h> (guarded by #ifndef __KERNEL__) to fix asm/signal.h
->>> >> userspace compilation errors like this:
->>> >>
->>> >> /usr/include/asm/signal.h:126:2: error: unknown type name 'size_t'
->>> >>   size_t ss_size;
->>> >>
->>> >> As no uapi header provides a definition of size_t, inclusion
->>> >> of <stddef.h> seems to be the most conservative fix available.
->> [...]
->>> > I'm not sure if this is the best fix. We generally should not include one
->>> > standard header from another standard header. Would it be possible
->>> > to use __kernel_size_t instead of size_t?
->>>
->>> In glibc we handle this with special use of __need_size_t with GCC's
->>> provided stddef.h.
->>>
->>> For example glibc's signal.h does this:
->>>
->>> # define __need_size_t
->>> # include <stddef.h>
->>
->> Just to make it clear, do you suggest this approach for asm/signal.h as well?
+Starting from gcc-5.4+ gcc geperates MLX
+instructions in more cases to refer local
+symbols:
+    https://gcc.gnu.org/bugzilla/60465
 
-The best practice from the glibc community looks like this:
+That caused ia64 module loader to choke
+on such instructions:
+    fuse: invalid slot number 1 for IMM64
 
-(a) Create a bits/types/*.h header for the type you need.
+Linux kernel used to handle only case where
+relocation pointed to slot=2 instruction in
+the bundle. That limitation was fixed in linux
+by 9c184a073bfd650cc791956d6ca79725bb682716 commit.
+See http://sources.redhat.com/bugzilla/show_bug.cgi?id33
 
-e.g.
-./time/bits/types/struct_timeval.h
-./time/bits/types/struct_itimerspec.h
-./time/bits/types/time_t.h
-./time/bits/types/struct_timespec.h
-./time/bits/types/struct_tm.h
-./time/bits/types/clockid_t.h
-./time/bits/types/clock_t.h
-./time/bits/types/timer_t.h
+This change lifts the slot=2 restriction from
+linux kernel module loader.
 
-(b) If neccessary the bits/types/*.h header is a wrapper:
-~~~
-#define __need_size_t
-#include <stddef.h>
-~~~
-to get access to the compiler provided type.
+Tested on 'fuse' and 'btrfs' kernel modules.
 
-This way all of the code you need simplifies to includes for the types you need.
+Cc: H. J. Lu <hjl.tools@gmail.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Bug: https://bugs.gentoo.org/601014
+Signed-off-by: Sergei Trofimovich <slyfox@gentoo.org>
+---
+ arch/ia64/kernel/module.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-e.g.
+diff --git a/arch/ia64/kernel/module.c b/arch/ia64/kernel/module.c
+index 6ab0ae7d6535..d1d945c6bd05 100644
+--- a/arch/ia64/kernel/module.c
++++ b/arch/ia64/kernel/module.c
+@@ -153,7 +153,7 @@ slot (const struct insn *insn)
+ static int
+ apply_imm64 (struct module *mod, struct insn *insn, uint64_t val)
+ {
+-	if (slot(insn) != 2) {
++	if (slot(insn) != 1 && slot(insn) != 2) {
+ 		printk(KERN_ERR "%s: invalid slot number %d for IMM64\n",
+ 		       mod->name, slot(insn));
+ 		return 0;
+@@ -165,7 +165,7 @@ apply_imm64 (struct module *mod, struct insn *insn, uint64_t val)
+ static int
+ apply_imm60 (struct module *mod, struct insn *insn, uint64_t val)
+ {
+-	if (slot(insn) != 2) {
++	if (slot(insn) != 1 && slot(insn) != 2) {
+ 		printk(KERN_ERR "%s: invalid slot number %d for IMM60\n",
+ 		       mod->name, slot(insn));
+ 		return 0;
+-- 
+2.12.0
 
-time/sys/time.h:
-...
-#include <bits/types.h>
-#include <bits/types/time_t.h>
-#include <bits/types/struct_timeval.h>
-...
-
-This is what we've been doing in glibc starting last September as we
-cleaned up all the convoluted conditional logic to get the types we
-needed in the headers that needed them.
-
-Cheers,
-Carlos.
