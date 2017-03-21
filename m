@@ -1,197 +1,102 @@
-From: Hari Bathini <hbathini@linux.vnet.ibm.com>
-Date: Fri, 24 Mar 2017 11:15:53 +0000
-Subject: [RESEND PATCH v4 2/5] ia64: reuse append_elf_note() and final_note() functions
-Message-Id: <149035342324.6881.11667840929850361402.stgit@hbathini.in.ibm.com>
+From: =?UTF-8?Q?=C3=89meric_MASCHINO?= <emeric.maschino@gmail.com>
+Date: Tue, 21 Mar 2017 08:33:32 +0000
+Subject: Re: GCC 4.9.4-compiled kernel: invalid slot number 1 for IMM64 errors while loading modules
+Message-Id: <CAA9xbM5cGgUYhJp1f2i-X8uBd6sHnaXd-jLErOWayV+qRONhjA@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <149035332237.6881.9486330442785822384.stgit@hbathini.in.ibm.com>
-In-Reply-To: <149035332237.6881.9486330442785822384.stgit@hbathini.in.ibm.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Michael Ellerman <mpe@ellerman.id.au>
-Cc: fenghua.yu@intel.com, tony.luck@intel.com, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, kexec@lists.infradead.org, linux-kernel@vger.kernel.org, ebiederm@xmission.com, Mahesh J Salgaonkar <mahesh@linux.vnet.ibm.com>, akpm@linux-foundation.org, dyoung@redhat.com, vgoyal@redhat.com
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: linux-ia64@vger.kernel.org
 
-Get rid of multiple definitions of append_elf_note() & final_note()
-functions. Reuse these functions compiled under CONFIG_CRASH_CORE
-Also, define Elf_Word and use it instead of generic u32 or the more
-specific Elf64_Word.
+Hi,
 
-Signed-off-by: Hari Bathini <hbathini@linux.vnet.ibm.com>
-Acked-by: Dave Young <dyoung@redhat.com>
-Acked-by: Tony Luck <tony.luck@intel.com>
----
+For interested people, end of story is [1].
 
-Changes from v3:
-* Dropped hard-coded values and used DIV_ROUND_UP().
+     Émeric
 
-Changes from v2:
-* Added a definition for Elf_Word.
-* Used IA64 version of append_elf_note() and final_note() functions.
+[1] http://marc.info/?l=linux-ia64&m=148994444817965
 
-
- arch/ia64/kernel/crash.c   |   22 ----------------------
- include/linux/crash_core.h |    4 ++++
- include/linux/elf.h        |    2 ++
- kernel/crash_core.c        |   34 ++++++++++++++--------------------
- kernel/kexec_core.c        |   28 ----------------------------
- 5 files changed, 20 insertions(+), 70 deletions(-)
-
-diff --git a/arch/ia64/kernel/crash.c b/arch/ia64/kernel/crash.c
-index 2955f35..75859a0 100644
---- a/arch/ia64/kernel/crash.c
-+++ b/arch/ia64/kernel/crash.c
-@@ -27,28 +27,6 @@ static int kdump_freeze_monarch;
- static int kdump_on_init = 1;
- static int kdump_on_fatal_mca = 1;
- 
--static inline Elf64_Word
--*append_elf_note(Elf64_Word *buf, char *name, unsigned type, void *data,
--		size_t data_len)
--{
--	struct elf_note *note = (struct elf_note *)buf;
--	note->n_namesz = strlen(name) + 1;
--	note->n_descsz = data_len;
--	note->n_type   = type;
--	buf += (sizeof(*note) + 3)/4;
--	memcpy(buf, name, note->n_namesz);
--	buf += (note->n_namesz + 3)/4;
--	memcpy(buf, data, data_len);
--	buf += (data_len + 3)/4;
--	return buf;
--}
--
--static void
--final_note(void *buf)
--{
--	memset(buf, 0, sizeof(struct elf_note));
--}
--
- extern void ia64_dump_cpu_regs(void *);
- 
- static DEFINE_PER_CPU(struct elf_prstatus, elf_prstatus);
-diff --git a/include/linux/crash_core.h b/include/linux/crash_core.h
-index 18d0f94..541a197 100644
---- a/include/linux/crash_core.h
-+++ b/include/linux/crash_core.h
-@@ -55,6 +55,10 @@ extern u32 vmcoreinfo_note[VMCOREINFO_NOTE_SIZE/4];
- extern size_t vmcoreinfo_size;
- extern size_t vmcoreinfo_max_size;
- 
-+Elf_Word *append_elf_note(Elf_Word *buf, char *name, unsigned int type,
-+			  void *data, size_t data_len);
-+void final_note(Elf_Word *buf);
-+
- int __init parse_crashkernel(char *cmdline, unsigned long long system_ram,
- 		unsigned long long *crash_size, unsigned long long *crash_base);
- int parse_crashkernel_high(char *cmdline, unsigned long long system_ram,
-diff --git a/include/linux/elf.h b/include/linux/elf.h
-index 20fa8d8..ba069e8 100644
---- a/include/linux/elf.h
-+++ b/include/linux/elf.h
-@@ -29,6 +29,7 @@ extern Elf32_Dyn _DYNAMIC [];
- #define elf_note	elf32_note
- #define elf_addr_t	Elf32_Off
- #define Elf_Half	Elf32_Half
-+#define Elf_Word	Elf32_Word
- 
- #else
- 
-@@ -39,6 +40,7 @@ extern Elf64_Dyn _DYNAMIC [];
- #define elf_note	elf64_note
- #define elf_addr_t	Elf64_Off
- #define Elf_Half	Elf64_Half
-+#define Elf_Word	Elf64_Word
- 
- #endif
- 
-diff --git a/kernel/crash_core.c b/kernel/crash_core.c
-index 4261587..fcbd568 100644
---- a/kernel/crash_core.c
-+++ b/kernel/crash_core.c
-@@ -291,32 +291,26 @@ int __init parse_crashkernel_low(char *cmdline,
- 				"crashkernel=", suffix_tbl[SUFFIX_LOW]);
- }
- 
--static u32 *append_elf_note(u32 *buf, char *name, unsigned int type,
--			    void *data, size_t data_len)
-+Elf_Word *append_elf_note(Elf_Word *buf, char *name, unsigned int type,
-+			  void *data, size_t data_len)
- {
--	struct elf_note note;
--
--	note.n_namesz = strlen(name) + 1;
--	note.n_descsz = data_len;
--	note.n_type   = type;
--	memcpy(buf, &note, sizeof(note));
--	buf += (sizeof(note) + 3)/4;
--	memcpy(buf, name, note.n_namesz);
--	buf += (note.n_namesz + 3)/4;
--	memcpy(buf, data, note.n_descsz);
--	buf += (note.n_descsz + 3)/4;
-+	struct elf_note *note = (struct elf_note *)buf;
-+
-+	note->n_namesz = strlen(name) + 1;
-+	note->n_descsz = data_len;
-+	note->n_type   = type;
-+	buf += DIV_ROUND_UP(sizeof(*note), sizeof(Elf_Word));
-+	memcpy(buf, name, note->n_namesz);
-+	buf += DIV_ROUND_UP(note->n_namesz, sizeof(Elf_Word));
-+	memcpy(buf, data, data_len);
-+	buf += DIV_ROUND_UP(data_len, sizeof(Elf_Word));
- 
- 	return buf;
- }
- 
--static void final_note(u32 *buf)
-+void final_note(Elf_Word *buf)
- {
--	struct elf_note note;
--
--	note.n_namesz = 0;
--	note.n_descsz = 0;
--	note.n_type   = 0;
--	memcpy(buf, &note, sizeof(note));
-+	memset(buf, 0, sizeof(struct elf_note));
- }
- 
- static void update_vmcoreinfo_note(void)
-diff --git a/kernel/kexec_core.c b/kernel/kexec_core.c
-index 9dd7229..ae1a3ba 100644
---- a/kernel/kexec_core.c
-+++ b/kernel/kexec_core.c
-@@ -990,34 +990,6 @@ int crash_shrink_memory(unsigned long new_size)
- 	return ret;
- }
- 
--static u32 *append_elf_note(u32 *buf, char *name, unsigned type, void *data,
--			    size_t data_len)
--{
--	struct elf_note note;
--
--	note.n_namesz = strlen(name) + 1;
--	note.n_descsz = data_len;
--	note.n_type   = type;
--	memcpy(buf, &note, sizeof(note));
--	buf += (sizeof(note) + 3)/4;
--	memcpy(buf, name, note.n_namesz);
--	buf += (note.n_namesz + 3)/4;
--	memcpy(buf, data, note.n_descsz);
--	buf += (note.n_descsz + 3)/4;
--
--	return buf;
--}
--
--static void final_note(u32 *buf)
--{
--	struct elf_note note;
--
--	note.n_namesz = 0;
--	note.n_descsz = 0;
--	note.n_type   = 0;
--	memcpy(buf, &note, sizeof(note));
--}
--
- void crash_save_cpu(struct pt_regs *regs, int cpu)
- {
- 	struct elf_prstatus prstatus;
-
+2017-01-24 15:47 GMT+01:00 Émeric MASCHINO <emeric.maschino@gmail.com>:
+> Hi,
+>
+> Still no thought on this?
+>
+> I fear this is going to be problematic in the near future, as there's
+> currently a discussion about raising the minimum GCC version required
+> to build the kernel [1].
+>
+> In my experience, problems really started with GCC 4.6 and things seem
+> to go worse and worse with newer kernel and/or GCC versions (maybe
+> implying interactions from peculiar glibc and/or binutils too), as
+> reported in [2], [3] and [4] for example.
+>
+>      Émeric
+>
+>
+> [1] http://lkml.iu.edu/hypermail/linux/kernel/1612.2/00176.html
+> [2] https://bugs.gentoo.org/show_bug.cgi?id=518130
+> [3] https://bugs.gentoo.org/show_bug.cgi?id=541828
+> [4] https://gcc.gnu.org/bugzilla/show_bug.cgi?id=60465
+>
+> 2016-11-23 21:37 GMT+01:00 Émeric MASCHINO <emeric.maschino@gmail.com>:
+>> Hi,
+>>
+>> GCC 4.9.4 just got stabilized on Gentoo ia64, so I've rebuilt my
+>> system packages, including kernel. This yields to a non-booting
+>> kernel, with the following errors:
+>>
+>>>> Loading modules
+>>    :: Loading from pata:
+>>    :: Loading from sata:
+>>    :: Loading from scsi:
+>>    :: Loading from usb: usb_storage: invalid slot number 1 for IMM64
+>>
+>>    :: Loading from firewire:
+>>    :: Loading from waitscan:
+>>    :: Loading from dmraid:
+>>    :: Loading from mdadm: raid0: invalid slot number 1 for IMM64
+>> raid1: invalid slot number 1 for IMM64
+>> async_tx: invalid slot number 1 for IMM64
+>> async_tx: invalid slot number 1 for IMM64
+>> async_tx: invalid slot number 1 for IMM64
+>> raid10: invalid slot number 1 for IMM64
+>>
+>>    :: Loading from fs: jbd2: invalid slot number 1 for IMM64
+>> jbd2: invalid slot number 1 for IMM64
+>> jbd2: invalid slot number 1 for IMM64
+>> sunrpc: invalid slot number 1 for IMM64
+>> fuse: invalid slot number 1 for IMM64
+>>
+>>    :: Loading from net: libphy:
+>>
+>>    :: Loading from iscsi:
+>>>> Initializing root device...
+>>>> Mounting /dev/sdb3 as root...
+>>>> Detected fstype: ext4
+>>>> Using mount fstype: ext4
+>>>> Using mount opts: -o ro
+>> jbd2: invalid slot number 1 for IMM64
+>> mount: mounting /dev/sdb3 on /newroot failed: No such device
+>> !! Cannot mount /dev/sdb3, trying with -t auto
+>> UFS-fs: warning (device sdb3): udf_fill_super: No partition found (2)
+>> mount: mounting /dev/sdb3 on /newroot failed: Invalid argument
+>> !! Cannot mount /dev/sdb3 with -t auto, giving up
+>> !! Could not mount specified ROOT, try again
+>> !! Could not find the root block device in /dev/sdb3.
+>> !! Please specify another value or:
+>> !! - press Enter for the same
+>> !! - type "shell" for a shell
+>> !! - type "q" to skip...
+>> root block device(/dev/sdb3) ::
+>>
+>> These "invalid slot number 1 for IMM64" messages seem to originate
+>> from arch/ia64/kernel/module.c, but I don't know how to deal with
+>> them. It's noteworthy that the exact same kernel source built with GCC
+>> 4.5.4 or 4.9.3, using the same kernel configuration file, boots fine.
+>>
+>> Does anybody have success building kernel with recent GCC? Am I seeing
+>> a problem with GCC, the kernel or in-between?
+>>
+>> Thanks,
+>>
+>>      Émeric
