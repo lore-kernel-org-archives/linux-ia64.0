@@ -1,59 +1,163 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Thu, 02 Mar 2017 13:14:59 +0000
-Subject: Re: [PATCH 3/3] uapi: fix asm/shmbuf.h userspace compilation errors
-Message-Id: <CAK8P3a1_QLguZ6XEGC9TdGUmF0R3bKaU2EiJ6m+Gf=KpYnmqqw@mail.gmail.com>
+From: Hari Bathini <hbathini@linux.vnet.ibm.com>
+Date: Fri, 24 Mar 2017 11:16:02 +0000
+Subject: [RESEND PATCH v4 3/5] powerpc/fadump: remove dependency with CONFIG_KEXEC
+Message-Id: <149035343956.6881.1536459326017709354.stgit@hbathini.in.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <CAK8P3a3Ptm68i43BT5+kWptDw1koPwexpuFwH3-1naj_xi+arQ@mail.gmail.com>
- <20170302002253.GC27132@altlinux.org>
-In-Reply-To: <20170302002253.GC27132@altlinux.org>
+References: <149035332237.6881.9486330442785822384.stgit@hbathini.in.ibm.com>
+In-Reply-To: <149035332237.6881.9486330442785822384.stgit@hbathini.in.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Dmitry V. Levin" <ldv@altlinux.org>
-Cc: Haavard Skinnemoen <hskinnemoen@gmail.com>, Hans-Christian Egtvedt <egtvedt@samfundet.no>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Ralf Baechle <ralf@linux-mips.org>, David Howells <dhowells@redhat.com>, "James E.J. Bottomley" <jejb@parisc-linux.org>, Helge Deller <deller@gmx.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, "David S. Miller" <davem@davemloft.net>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-arch <linux-arch@vger.kernel.org>, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips
+To: Michael Ellerman <mpe@ellerman.id.au>
+Cc: fenghua.yu@intel.com, tony.luck@intel.com, linux-ia64@vger.kernel.org, Mahesh J Salgaonkar <mahesh@linux.vnet.ibm.com>, dyoung@redhat.com, kexec@lists.infradead.org, linux-kernel@vger.kernel.org, ebiederm@xmission.com, akpm@linux-foundation.org, linuxppc-dev@lists.ozlabs.org, vgoyal@redhat.com
 
-On Thu, Mar 2, 2017 at 1:22 AM, Dmitry V. Levin <ldv@altlinux.org> wrote:
-> Include <asm/ipcbuf.h> to fix asm/shmbuf.h userspace compilation errors
-> like this:
->
-> /usr/include/asm-generic/shmbuf.h:26:20: error: field 'shm_perm' has incomplete type
->   struct ipc64_perm shm_perm; /* operation perms */
-> /usr/include/asm-generic/shmbuf.h:28:2: error: unknown type name '__kernel_time_t'
->   __kernel_time_t  shm_atime; /* last attach time */
-> /usr/include/asm-generic/shmbuf.h:32:2: error: unknown type name '__kernel_time_t'
->   __kernel_time_t  shm_dtime; /* last detach time */
-> /usr/include/asm-generic/shmbuf.h:36:2: error: unknown type name '__kernel_time_t'
->   __kernel_time_t  shm_ctime; /* last change time */
-> /usr/include/asm-generic/shmbuf.h:40:2: error: unknown type name '__kernel_pid_t'
->   __kernel_pid_t  shm_cpid; /* pid of creator */
-> /usr/include/asm-generic/shmbuf.h:41:2: error: unknown type name '__kernel_pid_t'
->   __kernel_pid_t  shm_lpid; /* pid of last operator */
-> /usr/include/asm-generic/shmbuf.h:42:2: error: unknown type name '__kernel_ulong_t'
->   __kernel_ulong_t shm_nattch; /* no. of current attaches */
-> /usr/include/asm-generic/shmbuf.h:43:2: error: unknown type name '__kernel_ulong_t'
->   __kernel_ulong_t __unused4;
-> /usr/include/asm-generic/shmbuf.h:44:2: error: unknown type name '__kernel_ulong_t'
->   __kernel_ulong_t __unused5;
-> /usr/include/asm-generic/shmbuf.h:48:2: error: unknown type name '__kernel_ulong_t'
->   __kernel_ulong_t shmmax;
-> /usr/include/asm-generic/shmbuf.h:49:2: error: unknown type name '__kernel_ulong_t'
->   __kernel_ulong_t shmmin;
-> /usr/include/asm-generic/shmbuf.h:50:2: error: unknown type name '__kernel_ulong_t'
->   __kernel_ulong_t shmmni;
-> /usr/include/asm-generic/shmbuf.h:51:2: error: unknown type name '__kernel_ulong_t'
->   __kernel_ulong_t shmseg;
-> /usr/include/asm-generic/shmbuf.h:52:2: error: unknown type name '__kernel_ulong_t'
->   __kernel_ulong_t shmall;
-> /usr/include/asm-generic/shmbuf.h:53:2: error: unknown type name '__kernel_ulong_t'
->   __kernel_ulong_t __unused1;
-> /usr/include/asm-generic/shmbuf.h:54:2: error: unknown type name '__kernel_ulong_t'
->   __kernel_ulong_t __unused2;
-> /usr/include/asm-generic/shmbuf.h:55:2: error: unknown type name '__kernel_ulong_t'
->   __kernel_ulong_t __unused3;
-> /usr/include/asm-generic/shmbuf.h:56:2: error: unknown type name '__kernel_ulong_t'
->   __kernel_ulong_t __unused4;
->
-> Signed-off-by: Dmitry V. Levin <ldv@altlinux.org>
-> ---
+Now that crashkernel parameter parsing and vmcoreinfo related code is
+moved under CONFIG_CRASH_CORE instead of CONFIG_KEXEC_CORE, remove
+dependency with CONFIG_KEXEC for CONFIG_FA_DUMP. While here, get rid
+of definitions of fadump_append_elf_note() & fadump_final_note()
+functions to reuse similar functions compiled under CONFIG_CRASH_CORE.
 
-Acked-by: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: Hari Bathini <hbathini@linux.vnet.ibm.com>
+Reviewed-by: Mahesh Salgaonkar <mahesh@linux.vnet.ibm.com>
+---
+ arch/powerpc/Kconfig               |   10 ++++++----
+ arch/powerpc/include/asm/fadump.h  |    2 ++
+ arch/powerpc/kernel/crash.c        |    2 --
+ arch/powerpc/kernel/fadump.c       |   34 +++-------------------------------
+ arch/powerpc/kernel/setup-common.c |    5 +++++
+ 5 files changed, 16 insertions(+), 37 deletions(-)
+
+diff --git a/arch/powerpc/Kconfig b/arch/powerpc/Kconfig
+index 97a8bc8..6bc1fa2 100644
+--- a/arch/powerpc/Kconfig
++++ b/arch/powerpc/Kconfig
+@@ -522,21 +522,23 @@ config RELOCATABLE_TEST
+ 	  relocation code.
+ 
+ config CRASH_DUMP
+-	bool "Build a kdump crash kernel"
++	bool "Build a dump capture kernel"
+ 	depends on PPC64 || 6xx || FSL_BOOKE || (44x && !SMP)
+ 	select RELOCATABLE if (PPC64 && !COMPILE_TEST) || 44x || FSL_BOOKE
+ 	help
+-	  Build a kernel suitable for use as a kdump capture kernel.
++	  Build a kernel suitable for use as a dump capture kernel.
+ 	  The same kernel binary can be used as production kernel and dump
+ 	  capture kernel.
+ 
+ config FA_DUMP
+ 	bool "Firmware-assisted dump"
+-	depends on PPC64 && PPC_RTAS && CRASH_DUMP && KEXEC_CORE
++	depends on PPC64 && PPC_RTAS
++	select CRASH_CORE
++	select CRASH_DUMP
+ 	help
+ 	  A robust mechanism to get reliable kernel crash dump with
+ 	  assistance from firmware. This approach does not use kexec,
+-	  instead firmware assists in booting the kdump kernel
++	  instead firmware assists in booting the capture kernel
+ 	  while preserving memory contents. Firmware-assisted dump
+ 	  is meant to be a kdump replacement offering robustness and
+ 	  speed not possible without system firmware assistance.
+diff --git a/arch/powerpc/include/asm/fadump.h b/arch/powerpc/include/asm/fadump.h
+index 0031806..60b9108 100644
+--- a/arch/powerpc/include/asm/fadump.h
++++ b/arch/powerpc/include/asm/fadump.h
+@@ -73,6 +73,8 @@
+ 	reg_entry++;							\
+ })
+ 
++extern int crashing_cpu;
++
+ /* Kernel Dump section info */
+ struct fadump_section {
+ 	__be32	request_flag;
+diff --git a/arch/powerpc/kernel/crash.c b/arch/powerpc/kernel/crash.c
+index 47b63de..cbabb5a 100644
+--- a/arch/powerpc/kernel/crash.c
++++ b/arch/powerpc/kernel/crash.c
+@@ -43,8 +43,6 @@
+ #define IPI_TIMEOUT		10000
+ #define REAL_MODE_TIMEOUT	10000
+ 
+-/* This keeps a track of which one is the crashing cpu. */
+-int crashing_cpu = -1;
+ static int time_to_dump;
+ 
+ #define CRASH_HANDLER_MAX 3
+diff --git a/arch/powerpc/kernel/fadump.c b/arch/powerpc/kernel/fadump.c
+index 8ff0dd4..31c0abe 100644
+--- a/arch/powerpc/kernel/fadump.c
++++ b/arch/powerpc/kernel/fadump.c
+@@ -509,34 +509,6 @@ fadump_read_registers(struct fadump_reg_entry *reg_entry, struct pt_regs *regs)
+ 	return reg_entry;
+ }
+ 
+-static u32 *fadump_append_elf_note(u32 *buf, char *name, unsigned type,
+-						void *data, size_t data_len)
+-{
+-	struct elf_note note;
+-
+-	note.n_namesz = strlen(name) + 1;
+-	note.n_descsz = data_len;
+-	note.n_type   = type;
+-	memcpy(buf, &note, sizeof(note));
+-	buf += (sizeof(note) + 3)/4;
+-	memcpy(buf, name, note.n_namesz);
+-	buf += (note.n_namesz + 3)/4;
+-	memcpy(buf, data, note.n_descsz);
+-	buf += (note.n_descsz + 3)/4;
+-
+-	return buf;
+-}
+-
+-static void fadump_final_note(u32 *buf)
+-{
+-	struct elf_note note;
+-
+-	note.n_namesz = 0;
+-	note.n_descsz = 0;
+-	note.n_type   = 0;
+-	memcpy(buf, &note, sizeof(note));
+-}
+-
+ static u32 *fadump_regs_to_elf_notes(u32 *buf, struct pt_regs *regs)
+ {
+ 	struct elf_prstatus prstatus;
+@@ -547,8 +519,8 @@ static u32 *fadump_regs_to_elf_notes(u32 *buf, struct pt_regs *regs)
+ 	 * prstatus.pr_pid = ????
+ 	 */
+ 	elf_core_copy_kernel_regs(&prstatus.pr_reg, regs);
+-	buf = fadump_append_elf_note(buf, KEXEC_CORE_NOTE_NAME, NT_PRSTATUS,
+-				&prstatus, sizeof(prstatus));
++	buf = append_elf_note(buf, CRASH_CORE_NOTE_NAME, NT_PRSTATUS,
++			      &prstatus, sizeof(prstatus));
+ 	return buf;
+ }
+ 
+@@ -689,7 +661,7 @@ static int __init fadump_build_cpu_notes(const struct fadump_mem_struct *fdm)
+ 			note_buf = fadump_regs_to_elf_notes(note_buf, &regs);
+ 		}
+ 	}
+-	fadump_final_note(note_buf);
++	final_note(note_buf);
+ 
+ 	if (fdh) {
+ 		pr_debug("Updating elfcore header (%llx) with cpu notes\n",
+diff --git a/arch/powerpc/kernel/setup-common.c b/arch/powerpc/kernel/setup-common.c
+index 4697da8..508dd9a 100644
+--- a/arch/powerpc/kernel/setup-common.c
++++ b/arch/powerpc/kernel/setup-common.c
+@@ -125,6 +125,11 @@ int ppc_do_canonicalize_irqs;
+ EXPORT_SYMBOL(ppc_do_canonicalize_irqs);
+ #endif
+ 
++#ifdef CONFIG_CRASH_CORE
++/* This keeps a track of which one is the crashing cpu. */
++int crashing_cpu = -1;
++#endif
++
+ /* also used by kexec */
+ void machine_shutdown(void)
+ {
+
