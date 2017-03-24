@@ -1,142 +1,197 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Tue, 28 Mar 2017 22:55:26 +0000
-Subject: Re: [PATCH v2] nfc: don't be making arch specific unaligned decisions at driver level.
-Message-Id: <CAP=VYLovck5PFD-5C93QahwkGv3ygkWaKjGy90MjNtEodF242Q@mail.gmail.com>
+From: Hari Bathini <hbathini@linux.vnet.ibm.com>
+Date: Fri, 24 Mar 2017 11:15:53 +0000
+Subject: [RESEND PATCH v4 2/5] ia64: reuse append_elf_note() and final_note() functions
+Message-Id: <149035342324.6881.11667840929850361402.stgit@hbathini.in.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <201701090839.5u37Hdez%fengguang.wu@intel.com> <20170109175222.3162-1-paul.gortmaker@windriver.com>
-In-Reply-To: <20170109175222.3162-1-paul.gortmaker@windriver.com>
+References: <149035332237.6881.9486330442785822384.stgit@hbathini.in.ibm.com>
+In-Reply-To: <149035332237.6881.9486330442785822384.stgit@hbathini.in.ibm.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: LKML <linux-kernel@vger.kernel.org>, Samuel Ortiz <sameo@linux.intel.com>
-Cc: kbuild test robot <lkp@intel.com>, Paul Gortmaker <paul.gortmaker@windriver.com>, Lauro Ramos Venancio <lauro.venancio@openbossa.org>, Aloisio Almeida Jr <aloisio.almeida@openbossa.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, linux-wireless@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Michael Ellerman <mpe@ellerman.id.au>
+Cc: fenghua.yu@intel.com, tony.luck@intel.com, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, kexec@lists.infradead.org, linux-kernel@vger.kernel.org, ebiederm@xmission.com, Mahesh J Salgaonkar <mahesh@linux.vnet.ibm.com>, akpm@linux-foundation.org, dyoung@redhat.com, vgoyal@redhat.com
 
-On Mon, Jan 9, 2017 at 12:52 PM, Paul Gortmaker
-<paul.gortmaker@windriver.com> wrote:
-> Currently ia64 fails building allmodconfig with variations of:
->
->    In file included from drivers/nfc/nxp-nci/i2c.c:39:0:
->    ./include/linux/unaligned/access_ok.h:62:29: error: redefinition of ‘put_unaligned_be64’
->     static __always_inline void put_unaligned_be64(u64 val, void *p)
+Get rid of multiple definitions of append_elf_note() & final_note()
+functions. Reuse these functions compiled under CONFIG_CRASH_CORE
+Also, define Elf_Word and use it instead of generic u32 or the more
+specific Elf64_Word.
 
-Hi Samuel,
+Signed-off-by: Hari Bathini <hbathini@linux.vnet.ibm.com>
+Acked-by: Dave Young <dyoung@redhat.com>
+Acked-by: Tony Luck <tony.luck@intel.com>
+---
 
-Do you require changes on this commit, or are you happy to queue it as is?
-Looking at the NFC git history it seems like you are the right person to ask.
+Changes from v3:
+* Dropped hard-coded values and used DIV_ROUND_UP().
 
-Thanks,
-Paul.
---
+Changes from v2:
+* Added a definition for Elf_Word.
+* Used IA64 version of append_elf_note() and final_note() functions.
 
->    In file included from ./arch/ia64/include/asm/unaligned.h:5:0,
->                     from ./arch/ia64/include/asm/io.h:22,
->                     from ./arch/ia64/include/asm/smp.h:20,
->                     from ./include/linux/smp.h:59,
->                     from ./include/linux/topology.h:33,
->                     from ./include/linux/gfp.h:8,
->                     from ./include/linux/slab.h:14,
->                     from ./include/linux/resource_ext.h:19,
->                     from ./include/linux/acpi.h:26,
->                     from drivers/nfc/nxp-nci/i2c.c:28:
->    ./include/linux/unaligned/be_byteshift.h:65:20: note: previous definition of ‘put_unaligned_be64’ was here
->     static inline void put_unaligned_be64(u64 val, void *p)
->                        ^~~~~~~~~~~~~~~~~~
->    scripts/Makefile.build:293: recipe for target 'drivers/nfc/nxp-nci/i2c.o' failed
->
-> The easiest explanation for this is to look at the non-arch users in
-> the following output:
->
->    linux$git grep include.*access_ok.h
->    arch/arm64/crypto/crc32-arm64.c:#include <linux/unaligned/access_ok.h>
->    arch/cris/include/asm/unaligned.h:#include <linux/unaligned/access_ok.h>
->    arch/m68k/include/asm/unaligned.h:#include <linux/unaligned/access_ok.h>
->    arch/mn10300/include/asm/unaligned.h:#include <linux/unaligned/access_ok.h>
->    arch/powerpc/include/asm/unaligned.h:#include <linux/unaligned/access_ok.h>
->    arch/s390/include/asm/unaligned.h:#include <linux/unaligned/access_ok.h>
->    arch/x86/include/asm/unaligned.h:#include <linux/unaligned/access_ok.h>
->    drivers/nfc/nfcmrvl/fw_dnld.c:#include <linux/unaligned/access_ok.h>
->    drivers/nfc/nxp-nci/firmware.c:#include <linux/unaligned/access_ok.h>
->    drivers/nfc/nxp-nci/i2c.c:#include <linux/unaligned/access_ok.h>
->    include/asm-generic/unaligned.h:# include <linux/unaligned/access_ok.h>
->
-> Note that nfc is essentially the only non-arch user in the above.
-> When it forces use of access_ok.h, it will break any arch that has
-> already selected be_byteshift.h (or other conflicting implementations)
-> at the arch level.
->
-> The decision of what variant for unaligned access to use needs to be
-> left to the arch level and not used at the driver level.  Since not
-> all arch will have sourced asm/unaligned.h already, we need to call
-> it out and then the arch can give us just the one definition that
-> is needed.
->
-> See commit 064106a91be5 ("kernel: add common infrastructure for
-> unaligned access") as a reference.
->
-> Cc: Lauro Ramos Venancio <lauro.venancio@openbossa.org>
-> Cc: Aloisio Almeida Jr <aloisio.almeida@openbossa.org>
-> Cc: Samuel Ortiz <sameo@linux.intel.com>
-> Cc: Tony Luck <tony.luck@intel.com>
-> Cc: Fenghua Yu <fenghua.yu@intel.com>
-> Cc: linux-ia64@vger.kernel.org
-> Cc: linux-wireless@vger.kernel.org
-> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
-> ---
->
-> [v2: explicitly include asm/uaccess.h since some arch won't be
->  getting any variant of an unaligned access header without it.
->  Build test allmodconfig on x86-64, i386, arm64, ia64. ]
->
->  drivers/nfc/nfcmrvl/fw_dnld.c  | 2 +-
->  drivers/nfc/nxp-nci/firmware.c | 2 +-
->  drivers/nfc/nxp-nci/i2c.c      | 2 +-
->  3 files changed, 3 insertions(+), 3 deletions(-)
->
-> diff --git a/drivers/nfc/nfcmrvl/fw_dnld.c b/drivers/nfc/nfcmrvl/fw_dnld.c
-> index f8dcdf4b24f6..f3f246ddae06 100644
-> --- a/drivers/nfc/nfcmrvl/fw_dnld.c
-> +++ b/drivers/nfc/nfcmrvl/fw_dnld.c
-> @@ -17,11 +17,11 @@
->   */
->
->  #include <linux/module.h>
-> -#include <linux/unaligned/access_ok.h>
->  #include <linux/firmware.h>
->  #include <linux/nfc.h>
->  #include <net/nfc/nci.h>
->  #include <net/nfc/nci_core.h>
-> +#include <asm/unaligned.h>
->  #include "nfcmrvl.h"
->
->  #define FW_DNLD_TIMEOUT                        15000
-> diff --git a/drivers/nfc/nxp-nci/firmware.c b/drivers/nfc/nxp-nci/firmware.c
-> index 5291797324ba..553011f58339 100644
-> --- a/drivers/nfc/nxp-nci/firmware.c
-> +++ b/drivers/nfc/nxp-nci/firmware.c
-> @@ -24,7 +24,7 @@
->  #include <linux/completion.h>
->  #include <linux/firmware.h>
->  #include <linux/nfc.h>
-> -#include <linux/unaligned/access_ok.h>
-> +#include <asm/unaligned.h>
->
->  #include "nxp-nci.h"
->
-> diff --git a/drivers/nfc/nxp-nci/i2c.c b/drivers/nfc/nxp-nci/i2c.c
-> index 36099e557730..20243dafea21 100644
-> --- a/drivers/nfc/nxp-nci/i2c.c
-> +++ b/drivers/nfc/nxp-nci/i2c.c
-> @@ -36,9 +36,9 @@
->  #include <linux/of_gpio.h>
->  #include <linux/of_irq.h>
->  #include <linux/platform_data/nxp-nci.h>
-> -#include <linux/unaligned/access_ok.h>
->
->  #include <net/nfc/nfc.h>
-> +#include <asm/unaligned.h>
->
->  #include "nxp-nci.h"
->
-> --
-> 2.11.0
->
+
+ arch/ia64/kernel/crash.c   |   22 ----------------------
+ include/linux/crash_core.h |    4 ++++
+ include/linux/elf.h        |    2 ++
+ kernel/crash_core.c        |   34 ++++++++++++++--------------------
+ kernel/kexec_core.c        |   28 ----------------------------
+ 5 files changed, 20 insertions(+), 70 deletions(-)
+
+diff --git a/arch/ia64/kernel/crash.c b/arch/ia64/kernel/crash.c
+index 2955f35..75859a0 100644
+--- a/arch/ia64/kernel/crash.c
++++ b/arch/ia64/kernel/crash.c
+@@ -27,28 +27,6 @@ static int kdump_freeze_monarch;
+ static int kdump_on_init = 1;
+ static int kdump_on_fatal_mca = 1;
+ 
+-static inline Elf64_Word
+-*append_elf_note(Elf64_Word *buf, char *name, unsigned type, void *data,
+-		size_t data_len)
+-{
+-	struct elf_note *note = (struct elf_note *)buf;
+-	note->n_namesz = strlen(name) + 1;
+-	note->n_descsz = data_len;
+-	note->n_type   = type;
+-	buf += (sizeof(*note) + 3)/4;
+-	memcpy(buf, name, note->n_namesz);
+-	buf += (note->n_namesz + 3)/4;
+-	memcpy(buf, data, data_len);
+-	buf += (data_len + 3)/4;
+-	return buf;
+-}
+-
+-static void
+-final_note(void *buf)
+-{
+-	memset(buf, 0, sizeof(struct elf_note));
+-}
+-
+ extern void ia64_dump_cpu_regs(void *);
+ 
+ static DEFINE_PER_CPU(struct elf_prstatus, elf_prstatus);
+diff --git a/include/linux/crash_core.h b/include/linux/crash_core.h
+index 18d0f94..541a197 100644
+--- a/include/linux/crash_core.h
++++ b/include/linux/crash_core.h
+@@ -55,6 +55,10 @@ extern u32 vmcoreinfo_note[VMCOREINFO_NOTE_SIZE/4];
+ extern size_t vmcoreinfo_size;
+ extern size_t vmcoreinfo_max_size;
+ 
++Elf_Word *append_elf_note(Elf_Word *buf, char *name, unsigned int type,
++			  void *data, size_t data_len);
++void final_note(Elf_Word *buf);
++
+ int __init parse_crashkernel(char *cmdline, unsigned long long system_ram,
+ 		unsigned long long *crash_size, unsigned long long *crash_base);
+ int parse_crashkernel_high(char *cmdline, unsigned long long system_ram,
+diff --git a/include/linux/elf.h b/include/linux/elf.h
+index 20fa8d8..ba069e8 100644
+--- a/include/linux/elf.h
++++ b/include/linux/elf.h
+@@ -29,6 +29,7 @@ extern Elf32_Dyn _DYNAMIC [];
+ #define elf_note	elf32_note
+ #define elf_addr_t	Elf32_Off
+ #define Elf_Half	Elf32_Half
++#define Elf_Word	Elf32_Word
+ 
+ #else
+ 
+@@ -39,6 +40,7 @@ extern Elf64_Dyn _DYNAMIC [];
+ #define elf_note	elf64_note
+ #define elf_addr_t	Elf64_Off
+ #define Elf_Half	Elf64_Half
++#define Elf_Word	Elf64_Word
+ 
+ #endif
+ 
+diff --git a/kernel/crash_core.c b/kernel/crash_core.c
+index 4261587..fcbd568 100644
+--- a/kernel/crash_core.c
++++ b/kernel/crash_core.c
+@@ -291,32 +291,26 @@ int __init parse_crashkernel_low(char *cmdline,
+ 				"crashkernel=", suffix_tbl[SUFFIX_LOW]);
+ }
+ 
+-static u32 *append_elf_note(u32 *buf, char *name, unsigned int type,
+-			    void *data, size_t data_len)
++Elf_Word *append_elf_note(Elf_Word *buf, char *name, unsigned int type,
++			  void *data, size_t data_len)
+ {
+-	struct elf_note note;
+-
+-	note.n_namesz = strlen(name) + 1;
+-	note.n_descsz = data_len;
+-	note.n_type   = type;
+-	memcpy(buf, &note, sizeof(note));
+-	buf += (sizeof(note) + 3)/4;
+-	memcpy(buf, name, note.n_namesz);
+-	buf += (note.n_namesz + 3)/4;
+-	memcpy(buf, data, note.n_descsz);
+-	buf += (note.n_descsz + 3)/4;
++	struct elf_note *note = (struct elf_note *)buf;
++
++	note->n_namesz = strlen(name) + 1;
++	note->n_descsz = data_len;
++	note->n_type   = type;
++	buf += DIV_ROUND_UP(sizeof(*note), sizeof(Elf_Word));
++	memcpy(buf, name, note->n_namesz);
++	buf += DIV_ROUND_UP(note->n_namesz, sizeof(Elf_Word));
++	memcpy(buf, data, data_len);
++	buf += DIV_ROUND_UP(data_len, sizeof(Elf_Word));
+ 
+ 	return buf;
+ }
+ 
+-static void final_note(u32 *buf)
++void final_note(Elf_Word *buf)
+ {
+-	struct elf_note note;
+-
+-	note.n_namesz = 0;
+-	note.n_descsz = 0;
+-	note.n_type   = 0;
+-	memcpy(buf, &note, sizeof(note));
++	memset(buf, 0, sizeof(struct elf_note));
+ }
+ 
+ static void update_vmcoreinfo_note(void)
+diff --git a/kernel/kexec_core.c b/kernel/kexec_core.c
+index 9dd7229..ae1a3ba 100644
+--- a/kernel/kexec_core.c
++++ b/kernel/kexec_core.c
+@@ -990,34 +990,6 @@ int crash_shrink_memory(unsigned long new_size)
+ 	return ret;
+ }
+ 
+-static u32 *append_elf_note(u32 *buf, char *name, unsigned type, void *data,
+-			    size_t data_len)
+-{
+-	struct elf_note note;
+-
+-	note.n_namesz = strlen(name) + 1;
+-	note.n_descsz = data_len;
+-	note.n_type   = type;
+-	memcpy(buf, &note, sizeof(note));
+-	buf += (sizeof(note) + 3)/4;
+-	memcpy(buf, name, note.n_namesz);
+-	buf += (note.n_namesz + 3)/4;
+-	memcpy(buf, data, note.n_descsz);
+-	buf += (note.n_descsz + 3)/4;
+-
+-	return buf;
+-}
+-
+-static void final_note(u32 *buf)
+-{
+-	struct elf_note note;
+-
+-	note.n_namesz = 0;
+-	note.n_descsz = 0;
+-	note.n_type   = 0;
+-	memcpy(buf, &note, sizeof(note));
+-}
+-
+ void crash_save_cpu(struct pt_regs *regs, int cpu)
+ {
+ 	struct elf_prstatus prstatus;
+
