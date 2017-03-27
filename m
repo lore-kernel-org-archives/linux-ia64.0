@@ -1,67 +1,27 @@
-From: Hari Bathini <hbathini@linux.vnet.ibm.com>
-Date: Fri, 24 Mar 2017 11:16:39 +0000
-Subject: [RESEND PATCH v4 5/5] powerpc/fadump: update documentation about crashkernel parameter reuse
-Message-Id: <149035347559.6881.14224829694291758581.stgit@hbathini.in.ibm.com>
+From: Michael Ellerman <mpe@ellerman.id.au>
+Date: Mon, 27 Mar 2017 10:46:40 +0000
+Subject: Re: [RESEND PATCH v4 5/5] powerpc/fadump: update documentation about crashkernel parameter reuse
+Message-Id: <87mvc7dmjz.fsf@concordia.ellerman.id.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <149035332237.6881.9486330442785822384.stgit@hbathini.in.ibm.com>
-In-Reply-To: <149035332237.6881.9486330442785822384.stgit@hbathini.in.ibm.com>
+References: <149035332237.6881.9486330442785822384.stgit@hbathini.in.ibm.com> <149035347559.6881.14224829694291758581.stgit@hbathini.in.ibm.com>
+In-Reply-To: <149035347559.6881.14224829694291758581.stgit@hbathini.in.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Michael Ellerman <mpe@ellerman.id.au>
+To: Hari Bathini <hbathini@linux.vnet.ibm.com>
 Cc: fenghua.yu@intel.com, tony.luck@intel.com, linux-ia64@vger.kernel.org, dyoung@redhat.com, kexec@lists.infradead.org, linux-kernel@vger.kernel.org, ebiederm@xmission.com, Mahesh J Salgaonkar <mahesh@linux.vnet.ibm.com>, akpm@linux-foundation.org, linuxppc-dev@lists.ozlabs.org, vgoyal@redhat.com
 
-As we are reusing crashkernel parameter instead of fadump_reserve_mem
-parameter to specify the memory to reserve for fadump's crash kernel,
-update the documentation accordingly.
+Hari Bathini <hbathini@linux.vnet.ibm.com> writes:
 
-Signed-off-by: Hari Bathini <hbathini@linux.vnet.ibm.com>
----
- Documentation/powerpc/firmware-assisted-dump.txt |   23 ++++++++++++++--------
- 1 file changed, 15 insertions(+), 8 deletions(-)
+> As we are reusing crashkernel parameter instead of fadump_reserve_mem
+> parameter to specify the memory to reserve for fadump's crash kernel,
+> update the documentation accordingly.
+>
+> Signed-off-by: Hari Bathini <hbathini@linux.vnet.ibm.com>
+> ---
+>  Documentation/powerpc/firmware-assisted-dump.txt |   23 ++++++++++++++--------
+>  1 file changed, 15 insertions(+), 8 deletions(-)
 
-diff --git a/Documentation/powerpc/firmware-assisted-dump.txt b/Documentation/powerpc/firmware-assisted-dump.txt
-index 3007bc9..8394bc8 100644
---- a/Documentation/powerpc/firmware-assisted-dump.txt
-+++ b/Documentation/powerpc/firmware-assisted-dump.txt
-@@ -55,10 +55,14 @@ as follows:
-          booted with restricted memory. By default, the boot memory
-          size will be the larger of 5% of system RAM or 256MB.
-          Alternatively, user can also specify boot memory size
--         through boot parameter 'fadump_reserve_mem=' which will
--         override the default calculated size. Use this option
--         if default boot memory size is not sufficient for second
--         kernel to boot successfully.
-+         through boot parameter 'crashkernel=' which will override
-+         the default calculated size. Use this option if default
-+         boot memory size is not sufficient for second kernel to
-+         boot successfully. For syntax of crashkernel= parameter,
-+         refer to Documentation/kdump/kdump.txt. If any offset is
-+         provided in crashkernel= parameter, it will be ignored
-+         as fadump reserves memory at end of RAM for boot memory
-+         dump preservation in case of a crash.
- 
- -- After the low memory (boot memory) area has been saved, the
-    firmware will reset PCI and other hardware state.  It will
-@@ -158,13 +162,16 @@ How to enable firmware-assisted dump (fadump):
- 
- 1. Set config option CONFIG_FA_DUMP=y and build kernel.
- 2. Boot into linux kernel with 'fadump=on' kernel cmdline option.
--3. Optionally, user can also set 'fadump_reserve_mem=' kernel cmdline
-+3. Optionally, user can also set 'crashkernel=' kernel cmdline
-    to specify size of the memory to reserve for boot memory dump
-    preservation.
- 
--NOTE: If firmware-assisted dump fails to reserve memory then it will
--   fallback to existing kdump mechanism if 'crashkernel=' option
--   is set at kernel cmdline.
-+NOTE: 1. 'fadump_reserve_mem=' parameter has been deprecated. Instead
-+         use 'crashkernel=' to specify size of the memory to reserve
-+         for boot memory dump preservation.
-+      2. If firmware-assisted dump fails to reserve memory then it
-+         will fallback to existing kdump mechanism if 'crashkernel='
-+         option is set at kernel cmdline.
- 
- Sysfs/debugfs files:
- ------------
+Acked-by: Michael Ellerman <mpe@ellerman.id.au>
 
+cheers
