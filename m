@@ -1,67 +1,90 @@
-From: Sergei Trofimovich <slyfox@gentoo.org>
-Date: Sun, 09 Apr 2017 10:38:36 +0000
-Subject: Re: ia64: fix module loading for gcc-5.4
-Message-Id: <20170409113836.08f3f68b@sf>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="Sig_/VNLCMJGiW=8lsYIsWBhuA6e"
+From: "Jan Beulich" <JBeulich@suse.com>
+Date: Tue, 04 Apr 2017 12:42:29 +0000
+Subject: [PATCH] ia64: restore symbol versions for symbols defined in assembly
+Message-Id: <58E3B0D5020000780014C9F4@prv-mh.provo.novell.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <to=<20170408081449.4872-1-slyfox@gentoo.org>
-        <20170408195318.18080-1-slyfox@gentoo.org>
-        <79cc2afd-1655-c276-a53f-2e2202a7e0ee@users.sourceforge.net>
-        <20170409095121.5f0b6a1e@sf>
-        <bc2dbb55-54b3-e62e-a54f-aa1bbbc3aa5f@users.sourceforge.net>
-In-Reply-To: <bc2dbb55-54b3-e62e-a54f-aa1bbbc3aa5f@users.sourceforge.net>
-To: SF Markus Elfring <elfring@users.sourceforge.net>
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, Fenghua Yu <fenghua.yu@intel.com>, "H . J . Lu" <hjl.tools@gmail.com>, Tony Luck <tony.luck@intel.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-ia64@vger.kernel.org
 
---Sig_/VNLCMJGiW=8lsYIsWBhuA6e
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+Besides adding the necessary header this also requires fiddling with
+some explicit .S -> .o rules.
 
-On Sun, 9 Apr 2017 11:02:43 +0200
-SF Markus Elfring <elfring@users.sourceforge.net> wrote:
+Signed-off-by: Jan Beulich <jbeulich@suse.com>
+---
+ arch/ia64/include/asm/asm-prototypes.h |   29 +++++++++++++++++++++++++++++
+ arch/ia64/lib/Makefile                 |   16 ++++++++--------
+ 2 files changed, 37 insertions(+), 8 deletions(-)
 
-> >>> That caused ia64 module loader to choke
-> >>> on such instructions:
-> >>>     fuse: invalid slot number 1 for IMM64   =20
-> >>
-> >> Why does it matter to check such a value? =20
-> >=20
-> > I'm not sure I follow the question. Is your question about
-> > linux kernel relocation code handler, gcc or ia64 instruction format? =
-=20
->=20
-> I am just curious if this source code could also work without
-> the mentioned check.
+--- 4.11-rc5/arch/ia64/include/asm/asm-prototypes.h
++++ 4.11-rc5-ia64-export-arch/arch/ia64/include/asm/asm-prototypes.h
+@@ -0,0 +1,29 @@
++#ifndef _ASM_IA64_ASM_PROTOTYPES_H
++#define _ASM_IA64_ASM_PROTOTYPES_H
++
++#include <asm/cacheflush.h>
++#include <asm/checksum.h>
++#include <asm/esi.h>
++#include <asm/ftrace.h>
++#include <asm/page.h>
++#include <asm/pal.h>
++#include <asm/string.h>
++#include <asm/uaccess.h>
++#include <asm/unwind.h>
++#include <asm/xor.h>
++
++extern const char ia64_ivt[];
++
++signed int __divsi3(signed int, unsigned int);
++signed int __modsi3(signed int, unsigned int);
++
++signed long long __divdi3(signed long long, unsigned long long);
++signed long long __moddi3(signed long long, unsigned long long);
++
++unsigned int __udivsi3(unsigned int, unsigned int);
++unsigned int __umodsi3(unsigned int, unsigned int);
++
++unsigned long long __udivdi3(unsigned long long, unsigned long long);
++unsigned long long __umoddi3(unsigned long long, unsigned long long);
++
++#endif /* _ASM_IA64_ASM_PROTOTYPES_H */
+--- 4.11-rc5/arch/ia64/lib/Makefile
++++ 4.11-rc5-ia64-export-arch/arch/ia64/lib/Makefile
+@@ -24,25 +24,25 @@ AFLAGS___modsi3.o	=	     -DMODULO
+ AFLAGS___umodsi3.o	= -DUNSIGNED -DMODULO
+ 
+ $(obj)/__divdi3.o: $(src)/idiv64.S FORCE
+-	$(call if_changed_dep,as_o_S)
++	$(call if_changed_rule,as_o_S)
+ 
+ $(obj)/__udivdi3.o: $(src)/idiv64.S FORCE
+-	$(call if_changed_dep,as_o_S)
++	$(call if_changed_rule,as_o_S)
+ 
+ $(obj)/__moddi3.o: $(src)/idiv64.S FORCE
+-	$(call if_changed_dep,as_o_S)
++	$(call if_changed_rule,as_o_S)
+ 
+ $(obj)/__umoddi3.o: $(src)/idiv64.S FORCE
+-	$(call if_changed_dep,as_o_S)
++	$(call if_changed_rule,as_o_S)
+ 
+ $(obj)/__divsi3.o: $(src)/idiv32.S FORCE
+-	$(call if_changed_dep,as_o_S)
++	$(call if_changed_rule,as_o_S)
+ 
+ $(obj)/__udivsi3.o: $(src)/idiv32.S FORCE
+-	$(call if_changed_dep,as_o_S)
++	$(call if_changed_rule,as_o_S)
+ 
+ $(obj)/__modsi3.o: $(src)/idiv32.S FORCE
+-	$(call if_changed_dep,as_o_S)
++	$(call if_changed_rule,as_o_S)
+ 
+ $(obj)/__umodsi3.o: $(src)/idiv32.S FORCE
+-	$(call if_changed_dep,as_o_S)
++	$(call if_changed_rule,as_o_S)
 
-It should work for valid code, yes. The flip side of check removal
-is to miss malformed relocation (say, when instruction "address" is
-wrong due to obscure toolchain bug). In this case apply_imm64()
-would silently corrupt unrelated memory instead of crashing kernel.
 
-> Would it make sense to check more than two values there?
 
-AFAIU ia64 does not allow encoding imm64/imm60 instructions
-spanning slot=3D0 at all.
-
-ia64_patch_imm64() can handle only imm64 bundles that span
-only both slot 1 and slot 2 at the same time. It can accept
-either slot=3D1 "address" or slot=3D2 "address". Anything else would
-be malformed.
-
---=20
-
-  Sergei
-
---Sig_/VNLCMJGiW=8lsYIsWBhuA6e
-Content-Type: application/pgp-signature
-Content-Description: =?unknown-8bit?b?0KbQuNGE0YDQvtCy0LDRjyDQv9C+0LTQv9C40YHRjA==?= OpenPGP
-
------BEGIN PGP SIGNATURE-----
-
-iF0EARECAB0WIQSZKa0VG5avZRlY01hxoe52YR/zqgUCWOoPLAAKCRBxoe52YR/z
-qsnwAJ44xz7DEeR1Vc/CeOUAQSAbS7fpyQCfYu0h1q91r9vHB8YJxmDnfQ913t0=
-=Rt92
------END PGP SIGNATURE-----
-
---Sig_/VNLCMJGiW=8lsYIsWBhuA6e--
