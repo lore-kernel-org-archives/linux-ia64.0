@@ -1,76 +1,44 @@
-From: Sergei Trofimovich <slyfox@gentoo.org>
-Date: Sat, 08 Apr 2017 19:53:18 +0000
-Subject: [PATCH v3] ia64: fix module loading for gcc-5.4
-Message-Id: <20170408195318.18080-1-slyfox@gentoo.org>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Date: Sun, 09 Apr 2017 08:27:52 +0000
+Subject: Re: [PATCH v3] ia64: fix module loading for gcc-5.4
+Message-Id: <79cc2afd-1655-c276-a53f-2e2202a7e0ee@users.sourceforge.net>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <to=<20170408081449.4872-1-slyfox@gentoo.org>
-In-Reply-To: <to=<20170408081449.4872-1-slyfox@gentoo.org>
+ <20170408195318.18080-1-slyfox@gentoo.org>
+In-Reply-To: <20170408195318.18080-1-slyfox@gentoo.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
-To: Andrew Morton <akpm@linux-foundation.org>, Tony Luck <tony.luck@intel.com>
-Cc: Sergei Trofimovich <slyfox@gentoo.org>, Markus Elfring <elfring@users.sourceforge.net>, "H . J . Lu" <hjl.tools@gmail.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: Sergei Trofimovich <slyfox@gentoo.org>
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, Fenghua Yu <fenghua.yu@intel.com>, "H . J . Lu" <hjl.tools@gmail.com>, Tony Luck <tony.luck@intel.com>
 
-Starting from gcc-5.4+ gcc generates MLX
-instructions in more cases to refer local
-symbols:
-    https://gcc.gnu.org/PR60465
+> Starting from gcc-5.4+ gcc generates MLX
 
-That caused ia64 module loader to choke
-on such instructions:
-    fuse: invalid slot number 1 for IMM64
+How do you think about to omit the plus character?
 
-Linux kernel used to handle only case where
-relocation pointed to slot=3D2 instruction in
-the bundle. That limitation was fixed in linux by
-commit 9c184a073bfd ("[IA64] Fix 2.6 kernel for the new ia64 assembler")
-See http://sources.redhat.com/bugzilla/show_bug.cgi?id=1433
 
-This change lifts the slot=3D2 restriction from
-linux kernel module loader.
+> instructions in more cases to refer local
+> symbols:
 
-Tested on 'fuse' and 'btrfs' kernel modules.
+I wonder about your choice of a line length limit here.
 
-Cc: Markus Elfring <elfring@users.sourceforge.net>
-Cc: H. J. Lu <hjl.tools@gmail.com>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Bug: https://bugs.gentoo.org/601014
-Tested-by: =C3=89meric MASCHINO <emeric.maschino@gmail.com>
-Signed-off-by: Sergei Trofimovich <slyfox@gentoo.org>
----
-Change since v1: added 'Tested-by'
-Change since v2: checkpatched, fixed typos by found by Markus Elfring
 
- arch/ia64/kernel/module.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+> That caused ia64 module loader to choke
+> on such instructions:
+>     fuse: invalid slot number 1 for IMM64
 
-diff --git a/arch/ia64/kernel/module.c b/arch/ia64/kernel/module.c
-index 6ab0ae7d6535..d1d945c6bd05 100644
---- a/arch/ia64/kernel/module.c
-+++ b/arch/ia64/kernel/module.c
-@@ -153,7 +153,7 @@ slot (const struct insn *insn)
- static int
- apply_imm64 (struct module *mod, struct insn *insn, uint64_t val)
- {
--	if (slot(insn) !=3D 2) {
-+	if (slot(insn) !=3D 1 && slot(insn) !=3D 2) {
- 		printk(KERN_ERR "%s: invalid slot number %d for IMM64\n",
- 		       mod->name, slot(insn));
- 		return 0;
-@@ -165,7 +165,7 @@ apply_imm64 (struct module *mod, struct insn *insn, uin=
-t64_t val)
- static int
- apply_imm60 (struct module *mod, struct insn *insn, uint64_t val)
- {
--	if (slot(insn) !=3D 2) {
-+	if (slot(insn) !=3D 1 && slot(insn) !=3D 2) {
- 		printk(KERN_ERR "%s: invalid slot number %d for IMM60\n",
- 		       mod->name, slot(insn));
- 		return 0;
---=20
-2.12.0
+Why does it matter to check such a value?
 
+
+> … That limitation was fixed in linux by
+
+Would it be nicer to write “in corresponding source code by the”?
+
+
+> Change since v2: checkpatched, fixed typos by found by Markus Elfring
+
+Does this version information contain an unwanted word repetition?
+How does it fit to the identifier “v3” in the commit subject?
+
+Regards,
+Markus
