@@ -1,45 +1,55 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Date: Mon, 10 Apr 2017 17:23:28 +0000
+From: Sergei Trofimovich <slyfox@gentoo.org>
+Date: Mon, 10 Apr 2017 21:53:36 +0000
 Subject: Re: [PATCH v3] ia64: fix module loading for gcc-5.4+
-Message-Id: <d8146490-2bc4-3884-a64e-1e5894a023e3@users.sourceforge.net>
+Message-Id: <20170410225336.5856d652@sf>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Sig_/WvVhLTJJ_SefDbpmjhBGQUU"
 List-Id: <linux-ia64.vger.kernel.org>
 References: <to=<20170408081449.4872-1-slyfox@gentoo.org>
- <20170408195318.18080-1-slyfox@gentoo.org>
-In-Reply-To: <20170408195318.18080-1-slyfox@gentoo.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Sergei Trofimovich <slyfox@gentoo.org>, linux-ia64@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, Fenghua Yu <fenghua.yu@intel.com>, "H. J. Lu" <hjl.tools@gmail.com>, Tony Luck <tony.luck@intel.com>
+        <20170408195318.18080-1-slyfox@gentoo.org>
+        <d8146490-2bc4-3884-a64e-1e5894a023e3@users.sourceforge.net>
+In-Reply-To: <d8146490-2bc4-3884-a64e-1e5894a023e3@users.sourceforge.net>
+To: SF Markus Elfring <elfring@users.sourceforge.net>
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, Fenghua Yu <fenghua.yu@intel.com>, "H. J. Lu" <hjl.tools@gmail.com>, Tony Luck <tony.luck@intel.com>
 
-> +++ b/arch/ia64/kernel/module.c
-> @@ -153,7 +153,7 @@ slot (const struct insn *insn)
->  static int
->  apply_imm64 (struct module *mod, struct insn *insn, uint64_t val)
->  {
+--Sig_/WvVhLTJJ_SefDbpmjhBGQUU
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-I have got another idea (after your clarification) for the suggested change.
+On Mon, 10 Apr 2017 19:23:28 +0200
+SF Markus Elfring <elfring@users.sourceforge.net> wrote:
 
+> > -	if (slot(insn) !=3D 2) {
+> > +	if (slot(insn) !=3D 1 && slot(insn) !=3D 2) { =20
+>=20
+> +	int const s =3D slot(insn);
+> +	if (s < 1 || s > 2) {
+>=20
+> Do run time characteristics matter for such a condition check here?
 
-> -	if (slot(insn) != 2) {
-> +	if (slot(insn) != 1 && slot(insn) != 2) {
+It's done once at kernel module load time. My guess would be
+"not critical at all".
 
-+	int const s = slot(insn);
-+	if (s < 1 || s > 2) {
+slot() is a pure arithmetic static inline function. You can compare
+assembly output before and after your change.
 
-Do run time characteristics matter for such a condition check here?
+You can measure the difference yourself using 'ski' emulator.
+That's for example how I debugged and tested the patch:
+     http://trofi.github.io/posts/199-ia64-machine-emulation.html
 
+--=20
 
->  		printk(KERN_ERR "%s: invalid slot number %d for IMM64\n",
+  Sergei
 
--  		       mod->name, slot(insn));
-+  		       mod->name, s);
+--Sig_/WvVhLTJJ_SefDbpmjhBGQUU
+Content-Type: application/pgp-signature
+Content-Description: =?unknown-8bit?b?0KbQuNGE0YDQvtCy0LDRjyDQv9C+0LTQv9C40YHRjA==?= OpenPGP
 
+-----BEGIN PGP SIGNATURE-----
 
->  		return 0;
+iF0EARECAB0WIQSZKa0VG5avZRlY01hxoe52YR/zqgUCWOv+4AAKCRBxoe52YR/z
+qu2tAJ9bTNRr0bZqMxqIFQbjwkRsRdQDggCdHGzPTv1ncLzi5gutUHyILTE4qRk=
+=S+Xn
+-----END PGP SIGNATURE-----
 
-
-How do you think about my update suggestion for this function implementation?
-
-Regards,
-Markus
+--Sig_/WvVhLTJJ_SefDbpmjhBGQUU--
