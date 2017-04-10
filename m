@@ -1,125 +1,273 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Date: Wed, 12 Apr 2017 20:07:29 +0000
-Subject: [patch 03/13] ia64/salinfo: Replace racy task affinity logic
-Message-Id: <20170412201042.341863457@linutronix.de>
+From: David Howells <dhowells@redhat.com>
+Date: Mon, 10 Apr 2017 12:16:12 +0000
+Subject: [RFC PATCH 3/5] Unroll various INIT_* macros
+Message-Id: <149182657277.9959.8014092636211052221.stgit@warthog.procyon.org.uk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20170412200726.941336635@linutronix.de>
+References: <149182655182.9959.4421578108754243877.stgit@warthog.procyon.org.uk>
+In-Reply-To: <149182655182.9959.4421578108754243877.stgit@warthog.procyon.org.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: LKML <linux-kernel@vger.kernel.org>
-Cc: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@kernel.org>, Sebastian Siewior <bigeasy@linutronix.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, "David S. Miller" <davem@davemloft.net>, Fenghua Yu <fenghua.yu@intel.com>, Herbert Xu <herbert@gondor.apana.org.au>, Lai Jiangshan <jiangshanlai@gmail.com>, Len Brown <lenb@kernel.org>, Michael Ellerman <mpe@ellerman.id.au>, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Tejun Heo <tj@kernel.org>, Tony Luck <tony.luck@intel.com>, Viresh Kumar <viresh.kumar@linaro.org>, linux-ia64@vger.kernel.org
+To: linux-arch@vger.kernel.org, linux-ia64@vger.kernel.org
+Cc: dhowells@redhat.com, linux-kernel@vger.kernel.org
 
-Some of the file operations in /proc/sal require to run code on the
-requested cpu. This is achieved by temporarily setting the affinity of the
-calling user space thread to the requested CPU and reset it to the original
-affinity afterwards.
+Unroll various INIT_* macros into the single places they're used in
+init/init_task.c.
 
-That's racy vs. CPU hotplug and concurrent affinity settings for that
-thread resulting in code executing on the wrong CPU and overwriting the
-new affinity setting.
-
-Replace it by using work_on_cpu_safe() which guarantees to run the code on
-the requested CPU or to fail in case the CPU is offline.
-
-Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org
+Signed-off-by: David Howells <dhowells@redhat.com>
 ---
- arch/ia64/kernel/salinfo.c |   31 ++++++++++++-------------------
- 1 file changed, 12 insertions(+), 19 deletions(-)
 
---- a/arch/ia64/kernel/salinfo.c
-+++ b/arch/ia64/kernel/salinfo.c
-@@ -179,14 +179,14 @@ struct salinfo_platform_oemdata_parms {
- 	const u8 *efi_guid;
- 	u8 **oemdata;
- 	u64 *oemdata_size;
--	int ret;
- };
+ include/linux/init_task.h |  101 ---------------------------------------------
+ init/init_task.c          |   75 +++++++++++++++++++++++++--------
+ 2 files changed, 56 insertions(+), 120 deletions(-)
+
+diff --git a/include/linux/init_task.h b/include/linux/init_task.h
+index 7e41bc6a19af..e7d46a7e1583 100644
+--- a/include/linux/init_task.h
++++ b/include/linux/init_task.h
+@@ -19,23 +19,9 @@
  
--static void
-+static long
- salinfo_platform_oemdata_cpu(void *context)
- {
- 	struct salinfo_platform_oemdata_parms *parms = context;
--	parms->ret = salinfo_platform_oemdata(parms->efi_guid, parms->oemdata, parms->oemdata_size);
-+
-+	return salinfo_platform_oemdata(parms->efi_guid, parms->oemdata, parms->oemdata_size);
- }
+ #include <asm/thread_info.h>
  
- static void
-@@ -380,16 +380,7 @@ salinfo_log_release(struct inode *inode,
- 	return 0;
- }
- 
--static void
--call_on_cpu(int cpu, void (*fn)(void *), void *arg)
--{
--	cpumask_t save_cpus_allowed = current->cpus_allowed;
--	set_cpus_allowed_ptr(current, cpumask_of(cpu));
--	(*fn)(arg);
--	set_cpus_allowed_ptr(current, &save_cpus_allowed);
--}
+-#ifdef CONFIG_SMP
+-# define INIT_PUSHABLE_TASKS(tsk)					\
+-	.pushable_tasks = PLIST_NODE_INIT(tsk.pushable_tasks, MAX_PRIO),
+-#else
+-# define INIT_PUSHABLE_TASKS(tsk)
+-#endif
 -
--static void
-+static long
- salinfo_log_read_cpu(void *context)
- {
- 	struct salinfo_data *data = context;
-@@ -399,6 +390,7 @@ salinfo_log_read_cpu(void *context)
- 	/* Clear corrected errors as they are read from SAL */
- 	if (rh->severity = sal_log_severity_corrected)
- 		ia64_sal_clear_state_info(data->type);
-+	return 0;
+ extern struct files_struct init_files;
+ extern struct fs_struct init_fs;
+ 
+-#ifdef CONFIG_CPUSETS
+-#define INIT_CPUSET_SEQ(tsk)							\
+-	.mems_allowed_seq = SEQCNT_ZERO(tsk.mems_allowed_seq),
+-#else
+-#define INIT_CPUSET_SEQ(tsk)
+-#endif
+-
+ #ifndef CONFIG_VIRT_CPU_ACCOUNTING_NATIVE
+ #define INIT_PREV_CPUTIME(x)	.prev_cputime = {			\
+ 	.lock = __RAW_SPIN_LOCK_UNLOCKED(x.prev_cputime.lock),		\
+@@ -116,99 +102,12 @@ extern struct group_info init_groups;
+ 	.pid = &init_struct_pid,				\
  }
  
- static void
-@@ -430,7 +422,7 @@ salinfo_log_new_read(int cpu, struct sal
- 	spin_unlock_irqrestore(&data_saved_lock, flags);
+-#ifdef CONFIG_AUDITSYSCALL
+-#define INIT_IDS \
+-	.loginuid = INVALID_UID, \
+-	.sessionid = (unsigned int)-1,
+-#else
+-#define INIT_IDS
+-#endif
  
- 	if (!data->saved_num)
--		call_on_cpu(cpu, salinfo_log_read_cpu, data);
-+		work_on_cpu_safe(cpu, salinfo_log_read_cpu, data);
- 	if (!data->log_size) {
- 		data->state = STATE_NO_DATA;
- 		cpumask_clear_cpu(cpu, &data->cpu_event);
-@@ -459,11 +451,13 @@ salinfo_log_read(struct file *file, char
- 	return simple_read_from_buffer(buffer, count, ppos, buf, bufsize);
- }
+-#ifdef CONFIG_PREEMPT_RCU
+-#define INIT_TASK_RCU_TREE_PREEMPT()					\
+-	.rcu_blocked_node = NULL,
+-#else
+-#define INIT_TASK_RCU_TREE_PREEMPT(tsk)
+-#endif
+-#ifdef CONFIG_PREEMPT_RCU
+-#define INIT_TASK_RCU_PREEMPT(tsk)					\
+-	.rcu_read_lock_nesting = 0,					\
+-	.rcu_read_unlock_special.s = 0,					\
+-	.rcu_node_entry = LIST_HEAD_INIT(tsk.rcu_node_entry),		\
+-	INIT_TASK_RCU_TREE_PREEMPT()
+-#else
+-#define INIT_TASK_RCU_PREEMPT(tsk)
+-#endif
+-#ifdef CONFIG_TASKS_RCU
+-#define INIT_TASK_RCU_TASKS(tsk)					\
+-	.rcu_tasks_holdout = false,					\
+-	.rcu_tasks_holdout_list =					\
+-		LIST_HEAD_INIT(tsk.rcu_tasks_holdout_list),		\
+-	.rcu_tasks_idle_cpu = -1,
+-#else
+-#define INIT_TASK_RCU_TASKS(tsk)
+-#endif
  
--static void
-+static long
- salinfo_log_clear_cpu(void *context)
- {
- 	struct salinfo_data *data = context;
-+
- 	ia64_sal_clear_state_info(data->type);
-+	return 0;
- }
+ extern struct cred init_cred;
  
- static int
-@@ -486,7 +480,7 @@ salinfo_log_clear(struct salinfo_data *d
- 	rh = (sal_log_record_header_t *)(data->log_buffer);
- 	/* Corrected errors have already been cleared from SAL */
- 	if (rh->severity != sal_log_severity_corrected)
--		call_on_cpu(cpu, salinfo_log_clear_cpu, data);
-+		work_on_cpu_safe(cpu, salinfo_log_clear_cpu, data);
- 	/* clearing a record may make a new record visible */
- 	salinfo_log_new_read(cpu, data);
- 	if (data->state = STATE_LOG_RECORD) {
-@@ -531,9 +525,8 @@ salinfo_log_write(struct file *file, con
- 				.oemdata = &data->oemdata,
- 				.oemdata_size = &data->oemdata_size
- 			};
--			call_on_cpu(cpu, salinfo_platform_oemdata_cpu, &parms);
--			if (parms.ret)
--				count = parms.ret;
-+			count = work_on_cpu_safe(cpu, salinfo_platform_oemdata_cpu,
-+						 &parms);
- 		} else
- 			data->oemdata_size = 0;
- 	} else
-
+-#ifdef CONFIG_CGROUP_SCHED
+-# define INIT_CGROUP_SCHED(tsk)						\
+-	.sched_task_group = &root_task_group,
+-#else
+-# define INIT_CGROUP_SCHED(tsk)
+-#endif
+-
+-#ifdef CONFIG_PERF_EVENTS
+-# define INIT_PERF_EVENTS(tsk)						\
+-	.perf_event_mutex = 						\
+-		 __MUTEX_INITIALIZER(tsk.perf_event_mutex),		\
+-	.perf_event_list = LIST_HEAD_INIT(tsk.perf_event_list),
+-#else
+-# define INIT_PERF_EVENTS(tsk)
+-#endif
+-
+-#ifdef CONFIG_VIRT_CPU_ACCOUNTING_GEN
+-# define INIT_VTIME(tsk)						\
+-	.vtime_seqcount = SEQCNT_ZERO(tsk.vtime_seqcount),	\
+-	.vtime_snap = 0,				\
+-	.vtime_snap_whence = VTIME_SYS,
+-#else
+-# define INIT_VTIME(tsk)
+-#endif
+-
+ #define INIT_TASK_COMM "swapper"
+ 
+-#ifdef CONFIG_RT_MUTEXES
+-# define INIT_RT_MUTEXES(tsk)						\
+-	.pi_waiters = RB_ROOT,						\
+-	.pi_waiters_leftmost = NULL,
+-#else
+-# define INIT_RT_MUTEXES(tsk)
+-#endif
+-
+-#ifdef CONFIG_NUMA_BALANCING
+-# define INIT_NUMA_BALANCING(tsk)					\
+-	.numa_preferred_nid = -1,					\
+-	.numa_group = NULL,						\
+-	.numa_faults = NULL,
+-#else
+-# define INIT_NUMA_BALANCING(tsk)
+-#endif
+-
+-#ifdef CONFIG_KASAN
+-# define INIT_KASAN(tsk)						\
+-	.kasan_depth = 1,
+-#else
+-# define INIT_KASAN(tsk)
+-#endif
+-
+-#ifdef CONFIG_THREAD_INFO_IN_TASK
+-# define INIT_TASK_TI(tsk)			\
+-	.thread_info = INIT_THREAD_INFO(tsk),	\
+-	.stack_refcount = ATOMIC_INIT(1),
+-#else
+-# define INIT_TASK_TI(tsk)
+-#endif
+ 
+ /* Attach to the init_task data structure for proper alignment */
+ #ifdef CONFIG_ARCH_TASK_STRUCT_ON_STACK
+diff --git a/init/init_task.c b/init/init_task.c
+index 7a8bc40f13fc..b51c49f580ca 100644
+--- a/init/init_task.c
++++ b/init/init_task.c
+@@ -15,7 +15,6 @@
+ static struct signal_struct init_signals = INIT_SIGNALS(init_signals);
+ static struct sighand_struct init_sighand = INIT_SIGHAND(init_sighand);
+ 
+-
+ /*
+  * Set up the first task table, touch at your own risk!. Base=0,
+  * limit=0x1fffff (=2MB)
+@@ -25,20 +24,23 @@ struct task_struct init_task
+ 	__init_task_data
+ #endif
+ = {
+-	INIT_TASK_TI(init_task)
++#ifdef CONFIG_THREAD_INFO_IN_TASK
++	.thread_info	= INIT_THREAD_INFO(init_task),
++	.stack_refcount	= ATOMIC_INIT(1),
++#endif
+ 	.state		= 0,
+ 	.stack		= init_stack,
+ 	.usage		= ATOMIC_INIT(2),
+ 	.flags		= PF_KTHREAD,
+-	.prio		= MAX_PRIO-20,
+-	.static_prio	= MAX_PRIO-20,
+-	.normal_prio	= MAX_PRIO-20,
++	.prio		= MAX_PRIO - 20,
++	.static_prio	= MAX_PRIO - 20,
++	.normal_prio	= MAX_PRIO - 20,
+ 	.policy		= SCHED_NORMAL,
+ 	.cpus_allowed	= CPU_MASK_ALL,
+ 	.nr_cpus_allowed= NR_CPUS,
+ 	.mm		= NULL,
+ 	.active_mm	= &init_mm,
+-	.restart_block = {
++	.restart_block	= {
+ 		.fn = do_no_restart_syscall,
+ 	},
+ 	.se		= {
+@@ -49,8 +51,12 @@ struct task_struct init_task
+ 		.time_slice	= RR_TIMESLICE,
+ 	},
+ 	.tasks		= LIST_HEAD_INIT(init_task.tasks),
+-	INIT_PUSHABLE_TASKS(init_task)
+-	INIT_CGROUP_SCHED(init_task)
++#ifdef CONFIG_SMP
++	.pushable_tasks	= PLIST_NODE_INIT(init_task.pushable_tasks, MAX_PRIO),
++#endif
++#ifdef CONFIG_CGROUP_SCHED
++	.sched_task_group = &root_task_group,
++#endif
+ 	.ptraced	= LIST_HEAD_INIT(init_task.ptraced),
+ 	.ptrace_entry	= LIST_HEAD_INIT(init_task.ptrace_entry),
+ 	.real_parent	= &init_task,
+@@ -84,22 +90,53 @@ struct task_struct init_task
+ 	},
+ 	.thread_group	= LIST_HEAD_INIT(init_task.thread_group),
+ 	.thread_node	= LIST_HEAD_INIT(init_signals.thread_head),
+-	INIT_IDS
+-	INIT_PERF_EVENTS(init_task)
++#ifdef CONFIG_AUDITSYSCALL
++	.loginuid	= INVALID_UID,
++	.sessionid	= (unsigned int)-1,
++#endif
++#ifdef CONFIG_PERF_EVENTS
++	.perf_event_mutex = __MUTEX_INITIALIZER(init_task.perf_event_mutex),
++	.perf_event_list = LIST_HEAD_INIT(init_task.perf_event_list),
++#endif
++#ifdef CONFIG_PREEMPT_RCU
++	.rcu_read_lock_nesting = 0,
++	.rcu_read_unlock_special.s = 0,
++	.rcu_node_entry = LIST_HEAD_INIT(init_task.rcu_node_entry),
++#ifdef CONFIG_PREEMPT_RCU
++	.rcu_blocked_node = NULL,
++#endif
++#endif
++#ifdef CONFIG_TASKS_RCU
++	.rcu_tasks_holdout = false,
++	.rcu_tasks_holdout_list = LIST_HEAD_INIT(init_task.rcu_tasks_holdout_list),
++	.rcu_tasks_idle_cpu = -1,
++#endif
++#ifdef CONFIG_CPUSETS
++	.mems_allowed_seq = SEQCNT_ZERO(init_task.mems_allowed_seq),
++#endif
++#ifdef CONFIG_RT_MUTEXES
++	.pi_waiters	= RB_ROOT,
++	.pi_waiters_leftmost = NULL,
++#endif
++	INIT_PREV_CPUTIME(init_task)
++#ifdef CONFIG_VIRT_CPU_ACCOUNTING_GEN
++	.vtime_seqcount	= SEQCNT_ZERO(init_task.vtime_seqcount),
++	.vtime_snap	= 0,
++	.vtime_snap_whence = VTIME_SYS,
++#endif
++#ifdef CONFIG_NUMA_BALANCING
++	.numa_preferred_nid = -1,
++	.numa_group	= NULL,
++	.numa_faults	= NULL,
++#endif
++#ifdef CONFIG_KASAN
++	.kasan_depth	= 1,
++#endif
+ 	INIT_TRACE_IRQFLAGS
+ 	INIT_LOCKDEP
+ 	INIT_FTRACE_GRAPH
+ 	INIT_TRACE_RECURSION
+-	INIT_TASK_RCU_PREEMPT(init_task)
+-	INIT_TASK_RCU_TASKS(init_task)
+-	INIT_CPUSET_SEQ(init_task)
+-	INIT_RT_MUTEXES(init_task)
+-	INIT_PREV_CPUTIME(init_task)
+-	INIT_VTIME(init_task)
+-	INIT_NUMA_BALANCING(init_task)
+-	INIT_KASAN(init_task)
+ };
+-
+ EXPORT_SYMBOL(init_task);
+ 
+ /*
 
