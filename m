@@ -1,60 +1,188 @@
-From: Xunlei Pang <xpang@redhat.com>
-Date: Thu, 27 Apr 2017 06:08:22 +0000
-Subject: Re: [PATCH v4 1/3] kexec: Move vmcoreinfo out of the kernel's .bss section
-Message-Id: <59018AD6.5030403@redhat.com>
+From: Matthias Kaehlcke <mka@chromium.org>
+Date: Wed, 12 Apr 2017 19:43:52 +0000
+Subject: [PATCH v2] kbuild: Consolidate header generation from ASM offset information
+Message-Id: <20170412194352.108290-1-mka@chromium.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1492688374-27903-1-git-send-email-xlpang@redhat.com>
- <20170426071916.GD5381@dhcp-128-65.nay.redhat.com>
- <59006DAB.8030908@redhat.com> <59007405.6070107@redhat.com>
- <20170427030607.GB10602@dhcp-128-65.nay.redhat.com>
- <590180AF.3030202@redhat.com>
- <20170427054409.GA14079@dhcp-128-65.nay.redhat.com>
-In-Reply-To: <20170427054409.GA14079@dhcp-128-65.nay.redhat.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Dave Young <dyoung@redhat.com>, xlpang@redhat.com
-Cc: Juergen Gross <jgross@suse.com>, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, Baoquan He <bhe@redhat.com>, Petr Tesarik <ptesarik@suse.cz>, kexec@lists.infradead.org, linux-kernel@vger.kernel.org, Eric Biederman <ebiederm@xmission.com>, Hari Bathini <hbathini@linux.vnet.ibm.com>, akpm@linux-foundation.org, Michael Holzheu <holzheu@linux.vnet.ibm.com>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: Masahiro Yamada <yamada.masahiro@socionext.com>, Michal Marek <mmarek@suse.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Andrew Morton <akpm@linux-foundation.org>, Jan Kiszka <jan.kiszka@siemens.com>, Kieran Bingham <kieran.bingham@linaro.org>
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kbuild@vger.kernel.org, Grant Grundler <grundler@chromium.org>, Greg Hackmann <ghackmann@google.com>, Michael Davidson <md@google.com>, Matthias Kaehlcke <mka@chromium.org>
 
-On 04/27/2017 at 01:44 PM, Dave Young wrote:
-> Hi Xunlei,
->
-> On 04/27/17 at 01:25pm, Xunlei Pang wrote:
->> On 04/27/2017 at 11:06 AM, Dave Young wrote:
->>> [snip]
->>>>>>>  
->>>>>>>  static int __init crash_save_vmcoreinfo_init(void)
->>>>>>>  {
->>>>>>> +	/* One page should be enough for VMCOREINFO_BYTES under all archs */
->>>>>> Can we add a comment in the VMCOREINFO_BYTES header file about the one
->>>>>> page assumption?
->>>>>>
->>>>>> Or just define the VMCOREINFO_BYTES as PAGE_SIZE instead of 4096
->>>>> Yes, I considered this before, but VMCOREINFO_BYTES is also used by VMCOREINFO_NOTE_SIZE
->>>>> definition which is exported to sysfs, also some platform has larger page size(64KB), so
->>>>> I didn't touch this 4096 value.
->>>>>
->>>>> I think I should use kmalloc() to allocate both of them, then move this comment to Patch3 
->>>>> kimage_crash_copy_vmcoreinfo().
->>>> But on the other hand, using a separate page for them seems safer compared with
->>>> using frequently-used slab, what's your opinion?
->>> I feel current page based way is better.
->>>
->>> For 64k page the vmcore note size will increase it seems fine. Do you
->>> have concern in mind?
->> Since tools are supposed to acquire vmcoreinfo note size from sysfs, it should be safe to do so,
->> except that there is some waste in memory for larger PAGE_SIZE.
-> Either way is fine to me, I think it is up to your implementation, if
-> choose page alloc then modify the macro with PAGE_SIZE looks better.
+Largely redundant code is used in different places to generate C headers
+from offset information extracted from assembly language output.
+Consolidate the code in Makefile.lib and use this instead.
 
-OK, I will use PAGE_SIZE then, thanks for your comments.
+Signed-off-by: Matthias Kaehlcke <mka@chromium.org>
+---
+Changes in v2:
+- Move common stuff to Makefile.lib instead of adding a new include
+- Make entire filechk_offsets macro common
+- Remove wrapper from ia64 and mod Makefiles and call filechk_offsets
+  directly
 
->
-> Thanks
-> Dave
->
-> _______________________________________________
-> kexec mailing list
-> kexec@lists.infradead.org
-> http://lists.infradead.org/mailman/listinfo/kexec
+ Kbuild                    | 25 -------------------------
+ arch/ia64/kernel/Makefile | 26 ++------------------------
+ scripts/Makefile.lib      | 28 ++++++++++++++++++++++++++++
+ scripts/mod/Makefile      | 28 ++--------------------------
+ 4 files changed, 32 insertions(+), 75 deletions(-)
+
+diff --git a/Kbuild b/Kbuild
+index 3d0ae152af7c..94c752762bc2 100644
+--- a/Kbuild
++++ b/Kbuild
+@@ -7,31 +7,6 @@
+ # 4) Check for missing system calls
+ # 5) Generate constants.py (may need bounds.h)
+=20
+-# Default sed regexp - multiline due to syntax constraints
+-define sed-y
+-	"/^->/{s:->#\(.*\):/* \1 */:; \
+-	s:^->\([^ ]*\) [\$$#]*\([-0-9]*\) \(.*\):#define \1 \2 /* \3 */:; \
+-	s:^->\([^ ]*\) [\$$#]*\([^ ]*\) \(.*\):#define \1 \2 /* \3 */:; \
+-	s:->::; p;}"
+-endef
+-
+-# Use filechk to avoid rebuilds when a header changes, but the resulting f=
+ile
+-# does not
+-define filechk_offsets
+-	(set -e; \
+-	 echo "#ifndef $2"; \
+-	 echo "#define $2"; \
+-	 echo "/*"; \
+-	 echo " * DO NOT MODIFY."; \
+-	 echo " *"; \
+-	 echo " * This file was generated by Kbuild"; \
+-	 echo " */"; \
+-	 echo ""; \
+-	 sed -ne $(sed-y); \
+-	 echo ""; \
+-	 echo "#endif" )
+-endef
+-
+ #####
+ # 1) Generate bounds.h
+=20
+diff --git a/arch/ia64/kernel/Makefile b/arch/ia64/kernel/Makefile
+index 3686d6abafde..9edda5466020 100644
+--- a/arch/ia64/kernel/Makefile
++++ b/arch/ia64/kernel/Makefile
+@@ -50,32 +50,10 @@ CFLAGS_traps.o  +=3D -mfixed-range=F2-f5,f16-f31
+ # The gate DSO image is built using a special linker script.
+ include $(src)/Makefile.gate
+=20
+-# Calculate NR_IRQ =3D max(IA64_NATIVE_NR_IRQS, XEN_NR_IRQS, ...) based on=
+ config
+-define sed-y
+-	"/^->/{s:^->\([^ ]*\) [\$$#]*\([^ ]*\) \(.*\):#define \1 \2 /* \3 */:; s:=
+->::; p;}"
+-endef
+-quiet_cmd_nr_irqs =3D GEN     $@
+-define cmd_nr_irqs
+-	(set -e; \
+-	 echo "#ifndef __ASM_NR_IRQS_H__"; \
+-	 echo "#define __ASM_NR_IRQS_H__"; \
+-	 echo "/*"; \
+-	 echo " * DO NOT MODIFY."; \
+-	 echo " *"; \
+-	 echo " * This file was generated by Kbuild"; \
+-	 echo " *"; \
+-	 echo " */"; \
+-	 echo ""; \
+-	 sed -ne $(sed-y) $<; \
+-	 echo ""; \
+-	 echo "#endif" ) > $@
+-endef
+-
+ # We use internal kbuild rules to avoid the "is up to date" message from m=
+ake
+ arch/$(SRCARCH)/kernel/nr-irqs.s: arch/$(SRCARCH)/kernel/nr-irqs.c
+ 	$(Q)mkdir -p $(dir $@)
+ 	$(call if_changed_dep,cc_s_c)
+=20
+-include/generated/nr-irqs.h: arch/$(SRCARCH)/kernel/nr-irqs.s
+-	$(Q)mkdir -p $(dir $@)
+-	$(call cmd,nr_irqs)
++include/generated/nr-irqs.h: arch/$(SRCARCH)/kernel/nr-irqs.s FORCE
++	$(call filechk,offsets,__ASM_NR_IRQS_H__)
+diff --git a/scripts/Makefile.lib b/scripts/Makefile.lib
+index 0a07f9014944..dd567e5d59e0 100644
+--- a/scripts/Makefile.lib
++++ b/scripts/Makefile.lib
+@@ -408,3 +408,31 @@ quiet_cmd_xzmisc =3D XZMISC  $@
+ cmd_xzmisc =3D (cat $(filter-out FORCE,$^) | \
+ 	xz --check=3Dcrc32 --lzma2=3Ddict=3D1MiB) > $@ || \
+ 	(rm -f $@ ; false)
++
++# ASM offsets
++# ------------------------------------------------------------------------=
+---
++
++# Default sed regexp - multiline due to syntax constraints
++define sed-offsets
++	"/^->/{s:->#\(.*\):/* \1 */:; \
++	s:^->\([^ ]*\) [\$$#]*\([-0-9]*\) \(.*\):#define \1 \2 /* \3 */:; \
++	s:^->\([^ ]*\) [\$$#]*\([^ ]*\) \(.*\):#define \1 \2 /* \3 */:; \
++	s:->::; p;}"
++endef
++
++# Use filechk to avoid rebuilds when a header changes, but the resulting f=
+ile
++# does not
++define filechk_offsets
++	(set -e; \
++	 echo "#ifndef $2"; \
++	 echo "#define $2"; \
++	 echo "/*"; \
++	 echo " * DO NOT MODIFY."; \
++	 echo " *"; \
++	 echo " * This file was generated by Kbuild"; \
++	 echo " */"; \
++	 echo ""; \
++	 sed -ne $(sed-offsets); \
++	 echo ""; \
++	 echo "#endif" )
++endef
+diff --git a/scripts/mod/Makefile b/scripts/mod/Makefile
+index 19d9bcadc0cc..b497d9764dcf 100644
+--- a/scripts/mod/Makefile
++++ b/scripts/mod/Makefile
+@@ -7,32 +7,8 @@ modpost-objs	:=3D modpost.o file2alias.o sumversion.o
+=20
+ devicetable-offsets-file :=3D devicetable-offsets.h
+=20
+-define sed-y
+-	"/^->/{s:->#\(.*\):/* \1 */:; \
+-	s:^->\([^ ]*\) [\$$#]*\([-0-9]*\) \(.*\):#define \1 \2 /* \3 */:; \
+-	s:^->\([^ ]*\) [\$$#]*\([^ ]*\) \(.*\):#define \1 \2 /* \3 */:; \
+-	s:->::; p;}"
+-endef
+-
+-quiet_cmd_offsets =3D GEN     $@
+-define cmd_offsets
+-	(set -e; \
+-	 echo "#ifndef __DEVICETABLE_OFFSETS_H__"; \
+-	 echo "#define __DEVICETABLE_OFFSETS_H__"; \
+-	 echo "/*"; \
+-	 echo " * DO NOT MODIFY."; \
+-	 echo " *"; \
+-	 echo " * This file was generated by Kbuild"; \
+-	 echo " *"; \
+-	 echo " */"; \
+-	 echo ""; \
+-	 sed -ne $(sed-y) $<; \
+-	 echo ""; \
+-	 echo "#endif" ) > $@
+-endef
+-
+-$(obj)/$(devicetable-offsets-file): $(obj)/devicetable-offsets.s
+-	$(call if_changed,offsets)
++$(obj)/$(devicetable-offsets-file): $(obj)/devicetable-offsets.s FORCE
++	$(call filechk,offsets,__DEVICETABLE_OFFSETS_H__)
+=20
+ targets +=3D $(devicetable-offsets-file) devicetable-offsets.s
+=20
+--=20
+2.12.2.715.g7642488e1d-goog
 
