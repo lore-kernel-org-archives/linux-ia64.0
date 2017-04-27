@@ -1,273 +1,92 @@
-From: David Howells <dhowells@redhat.com>
-Date: Mon, 10 Apr 2017 12:16:12 +0000
-Subject: [RFC PATCH 3/5] Unroll various INIT_* macros
-Message-Id: <149182657277.9959.8014092636211052221.stgit@warthog.procyon.org.uk>
+From: Xunlei Pang <xlpang@redhat.com>
+Date: Thu, 27 Apr 2017 08:17:00 +0000
+Subject: [PATCH v5 2/3] powerpc/fadump: Use the correct VMCOREINFO_NOTE_SIZE for phdr
+Message-Id: <1493281021-20737-2-git-send-email-xlpang@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <149182655182.9959.4421578108754243877.stgit@warthog.procyon.org.uk>
-In-Reply-To: <149182655182.9959.4421578108754243877.stgit@warthog.procyon.org.uk>
+References: <1493281021-20737-1-git-send-email-xlpang@redhat.com>
+In-Reply-To: <1493281021-20737-1-git-send-email-xlpang@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-arch@vger.kernel.org, linux-ia64@vger.kernel.org
-Cc: dhowells@redhat.com, linux-kernel@vger.kernel.org
+To: linux-kernel@vger.kernel.org, kexec@lists.infradead.org
+Cc: akpm@linux-foundation.org, Eric Biederman <ebiederm@xmission.com>, Dave Young <dyoung@redhat.com>, Baoquan He <bhe@redhat.com>, Petr Tesarik <ptesarik@suse.cz>, Hari Bathini <hbathini@linux.vnet.ibm.com>, Michael Holzheu <holzheu@linux.vnet.ibm.com>, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, Xunlei Pang <xlpang@redhat.com>
 
-Unroll various INIT_* macros into the single places they're used in
-init/init_task.c.
+vmcoreinfo_max_size stands for the vmcoreinfo_data, the
+correct one we should use is vmcoreinfo_note whose total
+size is VMCOREINFO_NOTE_SIZE.
 
-Signed-off-by: David Howells <dhowells@redhat.com>
+Like explained in commit 77019967f06b ("kdump: fix exported
+size of vmcoreinfo note"), it should not affect the actual
+function, but we better fix it, also this change should be
+safe and backward compatible.
+
+After this, we can get rid of variable vmcoreinfo_max_size,
+let's use the corresponding macros directly, fewer variables
+means more safety for vmcoreinfo operation.
+
+Cc: Hari Bathini <hbathini@linux.vnet.ibm.com>
+Reviewed-by: Mahesh Salgaonkar <mahesh@linux.vnet.ibm.com>
+Reviewed-by: Dave Young <dyoung@redhat.com>
+Signed-off-by: Xunlei Pang <xlpang@redhat.com>
 ---
+v4->v5:
+No change.
 
- include/linux/init_task.h |  101 ---------------------------------------------
- init/init_task.c          |   75 +++++++++++++++++++++++++--------
- 2 files changed, 56 insertions(+), 120 deletions(-)
+v3->v4:
+-Rebased on the latest linux-next
 
-diff --git a/include/linux/init_task.h b/include/linux/init_task.h
-index 7e41bc6a19af..e7d46a7e1583 100644
---- a/include/linux/init_task.h
-+++ b/include/linux/init_task.h
-@@ -19,23 +19,9 @@
+ arch/powerpc/kernel/fadump.c | 3 +--
+ include/linux/crash_core.h   | 1 -
+ kernel/crash_core.c          | 3 +--
+ 3 files changed, 2 insertions(+), 5 deletions(-)
+
+diff --git a/arch/powerpc/kernel/fadump.c b/arch/powerpc/kernel/fadump.c
+index 466569e..7bd6cd0 100644
+--- a/arch/powerpc/kernel/fadump.c
++++ b/arch/powerpc/kernel/fadump.c
+@@ -893,8 +893,7 @@ static int fadump_create_elfcore_headers(char *bufp)
  
- #include <asm/thread_info.h>
+ 	phdr->p_paddr	= fadump_relocate(paddr_vmcoreinfo_note());
+ 	phdr->p_offset	= phdr->p_paddr;
+-	phdr->p_memsz	= vmcoreinfo_max_size;
+-	phdr->p_filesz	= vmcoreinfo_max_size;
++	phdr->p_memsz	= phdr->p_filesz = VMCOREINFO_NOTE_SIZE;
  
--#ifdef CONFIG_SMP
--# define INIT_PUSHABLE_TASKS(tsk)					\
--	.pushable_tasks = PLIST_NODE_INIT(tsk.pushable_tasks, MAX_PRIO),
--#else
--# define INIT_PUSHABLE_TASKS(tsk)
--#endif
--
- extern struct files_struct init_files;
- extern struct fs_struct init_fs;
+ 	/* Increment number of program headers. */
+ 	(elf->e_phnum)++;
+diff --git a/include/linux/crash_core.h b/include/linux/crash_core.h
+index ec9d415..4555c09 100644
+--- a/include/linux/crash_core.h
++++ b/include/linux/crash_core.h
+@@ -55,7 +55,6 @@
  
--#ifdef CONFIG_CPUSETS
--#define INIT_CPUSET_SEQ(tsk)							\
--	.mems_allowed_seq = SEQCNT_ZERO(tsk.mems_allowed_seq),
--#else
--#define INIT_CPUSET_SEQ(tsk)
--#endif
--
- #ifndef CONFIG_VIRT_CPU_ACCOUNTING_NATIVE
- #define INIT_PREV_CPUTIME(x)	.prev_cputime = {			\
- 	.lock = __RAW_SPIN_LOCK_UNLOCKED(x.prev_cputime.lock),		\
-@@ -116,99 +102,12 @@ extern struct group_info init_groups;
- 	.pid = &init_struct_pid,				\
- }
+ extern u32 *vmcoreinfo_note;
+ extern size_t vmcoreinfo_size;
+-extern size_t vmcoreinfo_max_size;
  
--#ifdef CONFIG_AUDITSYSCALL
--#define INIT_IDS \
--	.loginuid = INVALID_UID, \
--	.sessionid = (unsigned int)-1,
--#else
--#define INIT_IDS
--#endif
- 
--#ifdef CONFIG_PREEMPT_RCU
--#define INIT_TASK_RCU_TREE_PREEMPT()					\
--	.rcu_blocked_node = NULL,
--#else
--#define INIT_TASK_RCU_TREE_PREEMPT(tsk)
--#endif
--#ifdef CONFIG_PREEMPT_RCU
--#define INIT_TASK_RCU_PREEMPT(tsk)					\
--	.rcu_read_lock_nesting = 0,					\
--	.rcu_read_unlock_special.s = 0,					\
--	.rcu_node_entry = LIST_HEAD_INIT(tsk.rcu_node_entry),		\
--	INIT_TASK_RCU_TREE_PREEMPT()
--#else
--#define INIT_TASK_RCU_PREEMPT(tsk)
--#endif
--#ifdef CONFIG_TASKS_RCU
--#define INIT_TASK_RCU_TASKS(tsk)					\
--	.rcu_tasks_holdout = false,					\
--	.rcu_tasks_holdout_list =					\
--		LIST_HEAD_INIT(tsk.rcu_tasks_holdout_list),		\
--	.rcu_tasks_idle_cpu = -1,
--#else
--#define INIT_TASK_RCU_TASKS(tsk)
--#endif
- 
- extern struct cred init_cred;
- 
--#ifdef CONFIG_CGROUP_SCHED
--# define INIT_CGROUP_SCHED(tsk)						\
--	.sched_task_group = &root_task_group,
--#else
--# define INIT_CGROUP_SCHED(tsk)
--#endif
--
--#ifdef CONFIG_PERF_EVENTS
--# define INIT_PERF_EVENTS(tsk)						\
--	.perf_event_mutex = 						\
--		 __MUTEX_INITIALIZER(tsk.perf_event_mutex),		\
--	.perf_event_list = LIST_HEAD_INIT(tsk.perf_event_list),
--#else
--# define INIT_PERF_EVENTS(tsk)
--#endif
--
--#ifdef CONFIG_VIRT_CPU_ACCOUNTING_GEN
--# define INIT_VTIME(tsk)						\
--	.vtime_seqcount = SEQCNT_ZERO(tsk.vtime_seqcount),	\
--	.vtime_snap = 0,				\
--	.vtime_snap_whence = VTIME_SYS,
--#else
--# define INIT_VTIME(tsk)
--#endif
--
- #define INIT_TASK_COMM "swapper"
- 
--#ifdef CONFIG_RT_MUTEXES
--# define INIT_RT_MUTEXES(tsk)						\
--	.pi_waiters = RB_ROOT,						\
--	.pi_waiters_leftmost = NULL,
--#else
--# define INIT_RT_MUTEXES(tsk)
--#endif
--
--#ifdef CONFIG_NUMA_BALANCING
--# define INIT_NUMA_BALANCING(tsk)					\
--	.numa_preferred_nid = -1,					\
--	.numa_group = NULL,						\
--	.numa_faults = NULL,
--#else
--# define INIT_NUMA_BALANCING(tsk)
--#endif
--
--#ifdef CONFIG_KASAN
--# define INIT_KASAN(tsk)						\
--	.kasan_depth = 1,
--#else
--# define INIT_KASAN(tsk)
--#endif
--
--#ifdef CONFIG_THREAD_INFO_IN_TASK
--# define INIT_TASK_TI(tsk)			\
--	.thread_info = INIT_THREAD_INFO(tsk),	\
--	.stack_refcount = ATOMIC_INIT(1),
--#else
--# define INIT_TASK_TI(tsk)
--#endif
- 
- /* Attach to the init_task data structure for proper alignment */
- #ifdef CONFIG_ARCH_TASK_STRUCT_ON_STACK
-diff --git a/init/init_task.c b/init/init_task.c
-index 7a8bc40f13fc..b51c49f580ca 100644
---- a/init/init_task.c
-+++ b/init/init_task.c
-@@ -15,7 +15,6 @@
- static struct signal_struct init_signals = INIT_SIGNALS(init_signals);
- static struct sighand_struct init_sighand = INIT_SIGHAND(init_sighand);
- 
--
- /*
-  * Set up the first task table, touch at your own risk!. Base=0,
-  * limit=0x1fffff (=2MB)
-@@ -25,20 +24,23 @@ struct task_struct init_task
- 	__init_task_data
- #endif
- = {
--	INIT_TASK_TI(init_task)
-+#ifdef CONFIG_THREAD_INFO_IN_TASK
-+	.thread_info	= INIT_THREAD_INFO(init_task),
-+	.stack_refcount	= ATOMIC_INIT(1),
-+#endif
- 	.state		= 0,
- 	.stack		= init_stack,
- 	.usage		= ATOMIC_INIT(2),
- 	.flags		= PF_KTHREAD,
--	.prio		= MAX_PRIO-20,
--	.static_prio	= MAX_PRIO-20,
--	.normal_prio	= MAX_PRIO-20,
-+	.prio		= MAX_PRIO - 20,
-+	.static_prio	= MAX_PRIO - 20,
-+	.normal_prio	= MAX_PRIO - 20,
- 	.policy		= SCHED_NORMAL,
- 	.cpus_allowed	= CPU_MASK_ALL,
- 	.nr_cpus_allowed= NR_CPUS,
- 	.mm		= NULL,
- 	.active_mm	= &init_mm,
--	.restart_block = {
-+	.restart_block	= {
- 		.fn = do_no_restart_syscall,
- 	},
- 	.se		= {
-@@ -49,8 +51,12 @@ struct task_struct init_task
- 		.time_slice	= RR_TIMESLICE,
- 	},
- 	.tasks		= LIST_HEAD_INIT(init_task.tasks),
--	INIT_PUSHABLE_TASKS(init_task)
--	INIT_CGROUP_SCHED(init_task)
-+#ifdef CONFIG_SMP
-+	.pushable_tasks	= PLIST_NODE_INIT(init_task.pushable_tasks, MAX_PRIO),
-+#endif
-+#ifdef CONFIG_CGROUP_SCHED
-+	.sched_task_group = &root_task_group,
-+#endif
- 	.ptraced	= LIST_HEAD_INIT(init_task.ptraced),
- 	.ptrace_entry	= LIST_HEAD_INIT(init_task.ptrace_entry),
- 	.real_parent	= &init_task,
-@@ -84,22 +90,53 @@ struct task_struct init_task
- 	},
- 	.thread_group	= LIST_HEAD_INIT(init_task.thread_group),
- 	.thread_node	= LIST_HEAD_INIT(init_signals.thread_head),
--	INIT_IDS
--	INIT_PERF_EVENTS(init_task)
-+#ifdef CONFIG_AUDITSYSCALL
-+	.loginuid	= INVALID_UID,
-+	.sessionid	= (unsigned int)-1,
-+#endif
-+#ifdef CONFIG_PERF_EVENTS
-+	.perf_event_mutex = __MUTEX_INITIALIZER(init_task.perf_event_mutex),
-+	.perf_event_list = LIST_HEAD_INIT(init_task.perf_event_list),
-+#endif
-+#ifdef CONFIG_PREEMPT_RCU
-+	.rcu_read_lock_nesting = 0,
-+	.rcu_read_unlock_special.s = 0,
-+	.rcu_node_entry = LIST_HEAD_INIT(init_task.rcu_node_entry),
-+#ifdef CONFIG_PREEMPT_RCU
-+	.rcu_blocked_node = NULL,
-+#endif
-+#endif
-+#ifdef CONFIG_TASKS_RCU
-+	.rcu_tasks_holdout = false,
-+	.rcu_tasks_holdout_list = LIST_HEAD_INIT(init_task.rcu_tasks_holdout_list),
-+	.rcu_tasks_idle_cpu = -1,
-+#endif
-+#ifdef CONFIG_CPUSETS
-+	.mems_allowed_seq = SEQCNT_ZERO(init_task.mems_allowed_seq),
-+#endif
-+#ifdef CONFIG_RT_MUTEXES
-+	.pi_waiters	= RB_ROOT,
-+	.pi_waiters_leftmost = NULL,
-+#endif
-+	INIT_PREV_CPUTIME(init_task)
-+#ifdef CONFIG_VIRT_CPU_ACCOUNTING_GEN
-+	.vtime_seqcount	= SEQCNT_ZERO(init_task.vtime_seqcount),
-+	.vtime_snap	= 0,
-+	.vtime_snap_whence = VTIME_SYS,
-+#endif
-+#ifdef CONFIG_NUMA_BALANCING
-+	.numa_preferred_nid = -1,
-+	.numa_group	= NULL,
-+	.numa_faults	= NULL,
-+#endif
-+#ifdef CONFIG_KASAN
-+	.kasan_depth	= 1,
-+#endif
- 	INIT_TRACE_IRQFLAGS
- 	INIT_LOCKDEP
- 	INIT_FTRACE_GRAPH
- 	INIT_TRACE_RECURSION
--	INIT_TASK_RCU_PREEMPT(init_task)
--	INIT_TASK_RCU_TASKS(init_task)
--	INIT_CPUSET_SEQ(init_task)
--	INIT_RT_MUTEXES(init_task)
--	INIT_PREV_CPUTIME(init_task)
--	INIT_VTIME(init_task)
--	INIT_NUMA_BALANCING(init_task)
--	INIT_KASAN(init_task)
- };
--
- EXPORT_SYMBOL(init_task);
+ Elf_Word *append_elf_note(Elf_Word *buf, char *name, unsigned int type,
+ 			  void *data, size_t data_len);
+diff --git a/kernel/crash_core.c b/kernel/crash_core.c
+index 2837d61..c2fd0d2 100644
+--- a/kernel/crash_core.c
++++ b/kernel/crash_core.c
+@@ -16,7 +16,6 @@
+ /* vmcoreinfo stuff */
+ static unsigned char *vmcoreinfo_data;
+ size_t vmcoreinfo_size;
+-size_t vmcoreinfo_max_size = VMCOREINFO_BYTES;
+ u32 *vmcoreinfo_note;
  
  /*
+@@ -343,7 +342,7 @@ void vmcoreinfo_append_str(const char *fmt, ...)
+ 	r = vscnprintf(buf, sizeof(buf), fmt, args);
+ 	va_end(args);
+ 
+-	r = min(r, vmcoreinfo_max_size - vmcoreinfo_size);
++	r = min(r, VMCOREINFO_BYTES - vmcoreinfo_size);
+ 
+ 	memcpy(&vmcoreinfo_data[vmcoreinfo_size], buf, r);
+ 
+-- 
+1.8.3.1
 
