@@ -1,220 +1,75 @@
-From: David Howells <dhowells@redhat.com>
-Date: Mon, 10 Apr 2017 12:16:06 +0000
-Subject: [RFC PATCH 2/5] Unroll INIT_TASK() in init/init_task.c
-Message-Id: <149182656593.9959.9020166815247878895.stgit@warthog.procyon.org.uk>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Mon, 01 May 2017 18:51:55 +0000
+Subject: [PATCH] ia64: fix module loading for gcc-5.4
+Message-Id: <1493664715-24051-1-git-send-email-tony.luck@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <149182655182.9959.4421578108754243877.stgit@warthog.procyon.org.uk>
-In-Reply-To: <149182655182.9959.4421578108754243877.stgit@warthog.procyon.org.uk>
+References: <20170319162019.7350-1-slyfox@gentoo.org>
+In-Reply-To: <20170319162019.7350-1-slyfox@gentoo.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-arch@vger.kernel.org, linux-ia64@vger.kernel.org
-Cc: dhowells@redhat.com, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: quoted-printable
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: Sergei Trofimovich <slyfox@gentoo.org>, Markus Elfring <elfring@users.sourceforge.net>, "H . J . Lu" <hjl.tools@gmail.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, Tony Luck <tony.luck@intel.com>
 
-It's no longer necessary to have an INIT_TASK() macro, and this can be
-unrolled into the one place it is now used.
+From: Sergei Trofimovich <slyfox@gentoo.org>
 
-Signed-off-by: David Howells <dhowells@redhat.com>
+Starting from gcc-5.4+ gcc generates MLX
+instructions in more cases to refer local
+symbols:
+    https://gcc.gnu.org/PR60465
+
+That caused ia64 module loader to choke
+on such instructions:
+    fuse: invalid slot number 1 for IMM64
+
+Linux kernel used to handle only case where
+relocation pointed to slot=3D2 instruction in
+the bundle. That limitation was fixed in linux by
+commit 9c184a073bfd ("[IA64] Fix 2.6 kernel for the new ia64 assembler")
+See http://sources.redhat.com/bugzilla/show_bug.cgi?id=1433
+
+This change lifts the slot=3D2 restriction from
+linux kernel module loader.
+
+Tested on 'fuse' and 'btrfs' kernel modules.
+
+Cc: Markus Elfring <elfring@users.sourceforge.net>
+Cc: H. J. Lu <hjl.tools@gmail.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Bug: https://bugs.gentoo.org/601014
+Tested-by: =C3=89meric MASCHINO <emeric.maschino@gmail.com>
+Signed-off-by: Sergei Trofimovich <slyfox@gentoo.org>
+Signed-off-by: Tony Luck <tony.luck@intel.com>
 ---
+ arch/ia64/kernel/module.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
- include/linux/init_task.h |   85 ++-------------------------------------------
- init/init_task.c          |   83 +++++++++++++++++++++++++++++++++++++++++++-
- 2 files changed, 85 insertions(+), 83 deletions(-)
-
-diff --git a/include/linux/init_task.h b/include/linux/init_task.h
-index e889d338cf3e..7e41bc6a19af 100644
---- a/include/linux/init_task.h
-+++ b/include/linux/init_task.h
-@@ -210,89 +210,12 @@ extern struct cred init_cred;
- # define INIT_TASK_TI(tsk)
- #endif
- 
--/*
-- *  INIT_TASK is used to set up the first task table, touch at
-- * your own risk!. Base=0, limit=0x1fffff (=2MB)
-- */
--#define INIT_TASK(tsk)	\
--{									\
--	INIT_TASK_TI(tsk)						\
--	.state		= 0,						\
--	.stack		= init_stack,					\
--	.usage		= ATOMIC_INIT(2),				\
--	.flags		= PF_KTHREAD,					\
--	.prio		= MAX_PRIO-20,					\
--	.static_prio	= MAX_PRIO-20,					\
--	.normal_prio	= MAX_PRIO-20,					\
--	.policy		= SCHED_NORMAL,					\
--	.cpus_allowed	= CPU_MASK_ALL,					\
--	.nr_cpus_allowed= NR_CPUS,					\
--	.mm		= NULL,						\
--	.active_mm	= &init_mm,					\
--	.restart_block = {						\
--		.fn = do_no_restart_syscall,				\
--	},								\
--	.se		= {						\
--		.group_node 	= LIST_HEAD_INIT(tsk.se.group_node),	\
--	},								\
--	.rt		= {						\
--		.run_list	= LIST_HEAD_INIT(tsk.rt.run_list),	\
--		.time_slice	= RR_TIMESLICE,				\
--	},								\
--	.tasks		= LIST_HEAD_INIT(tsk.tasks),			\
--	INIT_PUSHABLE_TASKS(tsk)					\
--	INIT_CGROUP_SCHED(tsk)						\
--	.ptraced	= LIST_HEAD_INIT(tsk.ptraced),			\
--	.ptrace_entry	= LIST_HEAD_INIT(tsk.ptrace_entry),		\
--	.real_parent	= &tsk,						\
--	.parent		= &tsk,						\
--	.children	= LIST_HEAD_INIT(tsk.children),			\
--	.sibling	= LIST_HEAD_INIT(tsk.sibling),			\
--	.group_leader	= &tsk,						\
--	RCU_POINTER_INITIALIZER(real_cred, &init_cred),			\
--	RCU_POINTER_INITIALIZER(cred, &init_cred),			\
--	.comm		= INIT_TASK_COMM,				\
--	.thread		= INIT_THREAD,					\
--	.fs		= &init_fs,					\
--	.files		= &init_files,					\
--	.signal		= &init_signals,				\
--	.sighand	= &init_sighand,				\
--	.nsproxy	= &init_nsproxy,				\
--	.pending	= {						\
--		.list = LIST_HEAD_INIT(tsk.pending.list),		\
--		.signal = {{0}}},					\
--	.blocked	= {{0}},					\
--	.alloc_lock	= __SPIN_LOCK_UNLOCKED(tsk.alloc_lock),		\
--	.journal_info	= NULL,						\
--	INIT_CPU_TIMERS(tsk)						\
--	.pi_lock	= __RAW_SPIN_LOCK_UNLOCKED(tsk.pi_lock),	\
--	.timer_slack_ns = 50000, /* 50 usec default slack */		\
--	.pids = {							\
--		[PIDTYPE_PID]  = INIT_PID_LINK(PIDTYPE_PID),		\
--		[PIDTYPE_PGID] = INIT_PID_LINK(PIDTYPE_PGID),		\
--		[PIDTYPE_SID]  = INIT_PID_LINK(PIDTYPE_SID),		\
--	},								\
--	.thread_group	= LIST_HEAD_INIT(tsk.thread_group),		\
--	.thread_node	= LIST_HEAD_INIT(init_signals.thread_head),	\
--	INIT_IDS							\
--	INIT_PERF_EVENTS(tsk)						\
--	INIT_TRACE_IRQFLAGS						\
--	INIT_LOCKDEP							\
--	INIT_FTRACE_GRAPH						\
--	INIT_TRACE_RECURSION						\
--	INIT_TASK_RCU_PREEMPT(tsk)					\
--	INIT_TASK_RCU_TASKS(tsk)					\
--	INIT_CPUSET_SEQ(tsk)						\
--	INIT_RT_MUTEXES(tsk)						\
--	INIT_PREV_CPUTIME(tsk)						\
--	INIT_VTIME(tsk)							\
--	INIT_NUMA_BALANCING(tsk)					\
--	INIT_KASAN(tsk)							\
--}
--
--
- /* Attach to the init_task data structure for proper alignment */
-+#ifdef CONFIG_ARCH_TASK_STRUCT_ON_STACK
- #define __init_task_data __attribute__((__section__(".data..init_task")))
-+#else
-+#define __init_task_data /**/
-+#endif
- 
- /* Attach to the thread_info data structure for proper alignment */
- #define __init_thread_info __attribute__((__section__(".data..init_thread_info")))
-diff --git a/init/init_task.c b/init/init_task.c
-index 14770aa71634..7a8bc40f13fc 100644
---- a/init/init_task.c
-+++ b/init/init_task.c
-@@ -15,12 +15,91 @@
- static struct signal_struct init_signals = INIT_SIGNALS(init_signals);
- static struct sighand_struct init_sighand = INIT_SIGHAND(init_sighand);
- 
--/* Initial task structure */
-+
-+/*
-+ * Set up the first task table, touch at your own risk!. Base=0,
-+ * limit=0x1fffff (=2MB)
-+ */
- struct task_struct init_task
- #ifdef CONFIG_ARCH_TASK_STRUCT_ON_STACK
- 	__init_task_data
- #endif
--	= INIT_TASK(init_task);
-+= {
-+	INIT_TASK_TI(init_task)
-+	.state		= 0,
-+	.stack		= init_stack,
-+	.usage		= ATOMIC_INIT(2),
-+	.flags		= PF_KTHREAD,
-+	.prio		= MAX_PRIO-20,
-+	.static_prio	= MAX_PRIO-20,
-+	.normal_prio	= MAX_PRIO-20,
-+	.policy		= SCHED_NORMAL,
-+	.cpus_allowed	= CPU_MASK_ALL,
-+	.nr_cpus_allowed= NR_CPUS,
-+	.mm		= NULL,
-+	.active_mm	= &init_mm,
-+	.restart_block = {
-+		.fn = do_no_restart_syscall,
-+	},
-+	.se		= {
-+		.group_node 	= LIST_HEAD_INIT(init_task.se.group_node),
-+	},
-+	.rt		= {
-+		.run_list	= LIST_HEAD_INIT(init_task.rt.run_list),
-+		.time_slice	= RR_TIMESLICE,
-+	},
-+	.tasks		= LIST_HEAD_INIT(init_task.tasks),
-+	INIT_PUSHABLE_TASKS(init_task)
-+	INIT_CGROUP_SCHED(init_task)
-+	.ptraced	= LIST_HEAD_INIT(init_task.ptraced),
-+	.ptrace_entry	= LIST_HEAD_INIT(init_task.ptrace_entry),
-+	.real_parent	= &init_task,
-+	.parent		= &init_task,
-+	.children	= LIST_HEAD_INIT(init_task.children),
-+	.sibling	= LIST_HEAD_INIT(init_task.sibling),
-+	.group_leader	= &init_task,
-+	RCU_POINTER_INITIALIZER(real_cred, &init_cred),
-+	RCU_POINTER_INITIALIZER(cred, &init_cred),
-+	.comm		= INIT_TASK_COMM,
-+	.thread		= INIT_THREAD,
-+	.fs		= &init_fs,
-+	.files		= &init_files,
-+	.signal		= &init_signals,
-+	.sighand	= &init_sighand,
-+	.nsproxy	= &init_nsproxy,
-+	.pending	= {
-+		.list = LIST_HEAD_INIT(init_task.pending.list),
-+		.signal = {{0}}
-+	},
-+	.blocked	= {{0}},
-+	.alloc_lock	= __SPIN_LOCK_UNLOCKED(init_task.alloc_lock),
-+	.journal_info	= NULL,
-+	INIT_CPU_TIMERS(init_task)
-+	.pi_lock	= __RAW_SPIN_LOCK_UNLOCKED(init_task.pi_lock),
-+	.timer_slack_ns = 50000, /* 50 usec default slack */
-+	.pids = {
-+		[PIDTYPE_PID]  = INIT_PID_LINK(PIDTYPE_PID),
-+		[PIDTYPE_PGID] = INIT_PID_LINK(PIDTYPE_PGID),
-+		[PIDTYPE_SID]  = INIT_PID_LINK(PIDTYPE_SID),
-+	},
-+	.thread_group	= LIST_HEAD_INIT(init_task.thread_group),
-+	.thread_node	= LIST_HEAD_INIT(init_signals.thread_head),
-+	INIT_IDS
-+	INIT_PERF_EVENTS(init_task)
-+	INIT_TRACE_IRQFLAGS
-+	INIT_LOCKDEP
-+	INIT_FTRACE_GRAPH
-+	INIT_TRACE_RECURSION
-+	INIT_TASK_RCU_PREEMPT(init_task)
-+	INIT_TASK_RCU_TASKS(init_task)
-+	INIT_CPUSET_SEQ(init_task)
-+	INIT_RT_MUTEXES(init_task)
-+	INIT_PREV_CPUTIME(init_task)
-+	INIT_VTIME(init_task)
-+	INIT_NUMA_BALANCING(init_task)
-+	INIT_KASAN(init_task)
-+};
-+
- EXPORT_SYMBOL(init_task);
- 
- /*
+diff --git a/arch/ia64/kernel/module.c b/arch/ia64/kernel/module.c
+index 6ab0ae7d6535..d1d945c6bd05 100644
+--- a/arch/ia64/kernel/module.c
++++ b/arch/ia64/kernel/module.c
+@@ -153,7 +153,7 @@ slot (const struct insn *insn)
+ static int
+ apply_imm64 (struct module *mod, struct insn *insn, uint64_t val)
+ {
+-	if (slot(insn) !=3D 2) {
++	if (slot(insn) !=3D 1 && slot(insn) !=3D 2) {
+ 		printk(KERN_ERR "%s: invalid slot number %d for IMM64\n",
+ 		       mod->name, slot(insn));
+ 		return 0;
+@@ -165,7 +165,7 @@ apply_imm64 (struct module *mod, struct insn *insn, uin=
+t64_t val)
+ static int
+ apply_imm60 (struct module *mod, struct insn *insn, uint64_t val)
+ {
+-	if (slot(insn) !=3D 2) {
++	if (slot(insn) !=3D 1 && slot(insn) !=3D 2) {
+ 		printk(KERN_ERR "%s: invalid slot number %d for IMM60\n",
+ 		       mod->name, slot(insn));
+ 		return 0;
+--=20
+2.7.4
 
