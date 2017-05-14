@@ -1,65 +1,65 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Date: Fri, 26 May 2017 06:54:31 +0000
-Subject: Re: [PATCH 1/1] futex: remove duplicated code
-Message-Id: <alpine.DEB.2.20.1705260849520.1902@nanos>
+From: Mauro Carvalho Chehab <mchehab@s-opensource.com>
+Date: Sun, 14 May 2017 15:38:40 +0000
+Subject: [PATCH 06/13] ia64, scsi: update references for the device-io book
+Message-Id: <2e8bf21bea1eed30c96dfee69a87278e1b75270d.1494775891.git.mchehab@s-opensource.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20170515130742.18357-1-jslaby@suse.cz>
- <20170515131644.GA3605@arm.com> <alpine.DEB.2.20.1705222259580.2407@nanos>
- <20170525142829.GO2859@arm.com>
-In-Reply-To: <20170525142829.GO2859@arm.com>
+References: <cover.1494775891.git.mchehab@s-opensource.com>
+In-Reply-To: <cover.1494775891.git.mchehab@s-opensource.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Will Deacon <will.deacon@arm.com>
-Cc: linux-mips@linux-mips.org, Rich Felker <dalias@libc.org>, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Max Filippov <jcmvbkbc@gmail.com>, Paul Mackerras <paulus@samba.org>, "H. Peter Anvin" <hpa@zytor.com>, sparclinux@vger.kernel.org, Jiri Slaby <jslaby@suse.cz>, Jonas Bonn <jonas@southpole.se>, linux-s390@vger.kernel.org, linux-arch@vger.kernel.org, Yoshinori Sato <ysato@users.sourceforge.jp>, linux-hexagon@vger.kernel.org, Helge Deller <deller@gmx.de>, x86@kernel.org, "James E.J. Bottomley" <jejb@parisc-linux.org>, Ingo Molnar <mingo@redhat.com>, Catalin Marinas <catalin.marinas@arm.com>, Matt Turner <mattst88@gmail.com>, linux-snps-arc@lists.infradead.org, Fenghua Yu <fenghua.yu@intel.com>, Arnd Bergmann <arnd@arndb.de>, linux-xtensa@linux-xtensa.org, Stefan Kristiansson <stefan.kristiansson@saunalahti.fi>
+To: Linux Doc Mailing List <linux-doc@vger.kernel.org>
+Cc: Mauro Carvalho Chehab <mchehab@s-opensource.com>, Mauro Carvalho Chehab <mchehab@infradead.org>, linux-kernel@vger.kernel.org, Jonathan Corbet <corbet@lwn.net>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Michael Reed <mdr@sgi.com>, "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>, "Martin K. Petersen" <martin.petersen@oracle.com>, linux-ia64@vger.kernel.org, linux-scsi@vger.kernel.org
 
-On Thu, 25 May 2017, Will Deacon wrote:
-> On Mon, May 22, 2017 at 11:11:33PM +0200, Thomas Gleixner wrote:
-> > On Mon, 15 May 2017, Will Deacon wrote:
-> > > On Mon, May 15, 2017 at 03:07:42PM +0200, Jiri Slaby wrote:
-> > > > There is code duplicated over all architecture's headers for
-> > > > futex_atomic_op_inuser. Namely op decoding, access_ok check for uaddr,
-> > > > and comparison of the result.
-> > > > 
-> > > > Remove this duplication and leave up to the arches only the needed
-> > > > assembly which is now in arch_futex_atomic_op_inuser.
-> > > > 
-> > > > Note that s390 removed access_ok check in d12a29703 ("s390/uaccess:
-> > > > remove pointless access_ok() checks") as access_ok there returns true.
-> > > > We introduce it back to the helper for the sake of simplicity (it gets
-> > > > optimized away anyway).
-> > > 
-> > > Whilst I think this is a good idea, the code in question actually results
-> > > in undefined behaviour per the C spec and is reported by UBSAN. See my
-> > > patch fixing arm64 here (which I'd forgotten about):
-> > > 
-> > > https://www.spinics.net/lists/linux-arch/msg38564.html
-> > > 
-> > > But, as stated in the thread above, I think we should go a step further
-> > > and remove FUTEX_OP_{OR,ANDN,XOR,OPARG_SHIFT} altogether. They don't
-> > > appear to be used by userspace, and this whole thing is a total mess.
-> > 
-> > You wish. The constants are not used, but FUTEX_WAKE_OP _IS_ used by
-> > glibc. They only have one argument it seems:
-> > 
-> >    #define FUTEX_OP_CLEAR_WAKE_IF_GT_ONE      ((4 << 24) | 1)
-> > 
-> > but I'm pretty sure that there is enough (probably horrible) code (think
-> > java) out there using FUTEX_WAKE_OP for whatever (non)sensical reasons in
-> > any available combination.
-> 
-> Indeed, and I'm not proposing to get rid of that. It's the grossly
-> over-engineered array of operations and the FUTEX_OP_OPARG_SHIFT modifier
-> that I think we should kill. The latter likely behaves differently across
-> different architectures and potentially depending on the toolchain you used
-> to build the kernel.
-> 
-> Does anybody know the history behind the interface design?
+The book is now at Documentation/driver-api/device-io.rst.
+Update such references.
 
-Which design?
+Signed-off-by: Mauro Carvalho Chehab <mchehab@s-opensource.com>
+---
+ arch/ia64/include/asm/io.h | 2 +-
+ arch/ia64/sn/kernel/iomv.c | 2 +-
+ drivers/scsi/qla1280.c     | 2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
 
-4732efbeb997 ("[PATCH] FUTEX_WAKE_OP: pthread_cond_signal() speedup")
+diff --git a/arch/ia64/include/asm/io.h b/arch/ia64/include/asm/io.h
+index 5de673ac9cb1..a2540e21f919 100644
+--- a/arch/ia64/include/asm/io.h
++++ b/arch/ia64/include/asm/io.h
+@@ -117,7 +117,7 @@ extern int valid_mmap_phys_addr_range (unsigned long pfn, size_t count);
+  * following the barrier will arrive after all previous writes.  For most
+  * ia64 platforms, this is a simple 'mf.a' instruction.
+  *
+- * See Documentation/DocBook/deviceiobook.tmpl for more information.
++ * See Documentation/driver-api/device-io.rst for more information.
+  */
+ static inline void ___ia64_mmiowb(void)
+ {
+diff --git a/arch/ia64/sn/kernel/iomv.c b/arch/ia64/sn/kernel/iomv.c
+index c77ebdf98119..2b22a71663c1 100644
+--- a/arch/ia64/sn/kernel/iomv.c
++++ b/arch/ia64/sn/kernel/iomv.c
+@@ -63,7 +63,7 @@ EXPORT_SYMBOL(sn_io_addr);
+ /**
+  * __sn_mmiowb - I/O space memory barrier
+  *
+- * See arch/ia64/include/asm/io.h and Documentation/DocBook/deviceiobook.tmpl
++ * See arch/ia64/include/asm/io.h and Documentation/driver-api/device-io.rst
+  * for details.
+  *
+  * On SN2, we wait for the PIO_WRITE_STATUS SHub register to clear.
+diff --git a/drivers/scsi/qla1280.c b/drivers/scsi/qla1280.c
+index 634254a52301..8a29fb09db14 100644
+--- a/drivers/scsi/qla1280.c
++++ b/drivers/scsi/qla1280.c
+@@ -3390,7 +3390,7 @@ qla1280_isp_cmd(struct scsi_qla_host *ha)
+ 	 *    On PCI bus, order reverses and write of 6 posts, then index 5,
+ 	 *       causing chip to issue full queue of stale commands
+ 	 * The mmiowb() prevents future writes from crossing the barrier.
+-	 * See Documentation/DocBook/deviceiobook.tmpl for more information.
++	 * See Documentation/driver-api/device-io.rst for more information.
+ 	 */
+ 	WRT_REG_WORD(&reg->mailbox4, ha->req_ring_index);
+ 	mmiowb();
+-- 
+2.9.3
 
-Thanks,
-
-	tglx
