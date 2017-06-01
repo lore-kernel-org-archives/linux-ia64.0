@@ -1,37 +1,140 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Fri, 16 Jun 2017 18:10:24 +0000
-Subject: [PATCH 09/44] c6x: remove DMA_ERROR_CODE
-Message-Id: <20170616181059.19206-10-hch@lst.de>
+From: Waiman Long <longman@redhat.com>
+Date: Thu, 01 Jun 2017 17:38:59 +0000
+Subject: [PATCH v5 1/9] locking/rwsem: relocate rwsem_down_read_failed()
+Message-Id: <1496338747-20398-2-git-send-email-longman@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20170616181059.19206-1-hch@lst.de>
-In-Reply-To: <20170616181059.19206-1-hch@lst.de>
+References: <1496338747-20398-1-git-send-email-longman@redhat.com>
+In-Reply-To: <1496338747-20398-1-git-send-email-longman@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: x86@kernel.org, linux-arm-kernel@lists.infradead.org, xen-devel@lists.xenproject.org, linux-c6x-dev@linux-c6x.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, openrisc@lists.librecores.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, dmaengine@vger.kernel.org, linux-tegra@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-samsung-soc@vger.kernel.org, iommu@lists.linux-foundation.org, netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
+To: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>
+Cc: linux-kernel@vger.kernel.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-arch@vger.kernel.org, Davidlohr Bueso <dave@stgolabs.net>, Dave Chinner <david@fromorbit.com>, Waiman Long <longman@redhat.com>
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+The rwsem_down_read_failed() function was relocted from above the
+optimistic spinning section to below that section. This enables
+it to use functions in that section in future patches. There is no
+code change.
+
+Signed-off-by: Waiman Long <longman@redhat.com>
 ---
- arch/c6x/include/asm/dma-mapping.h | 5 -----
- 1 file changed, 5 deletions(-)
+ kernel/locking/rwsem-xadd.c | 96 ++++++++++++++++++++++-----------------------
+ 1 file changed, 48 insertions(+), 48 deletions(-)
 
-diff --git a/arch/c6x/include/asm/dma-mapping.h b/arch/c6x/include/asm/dma-mapping.h
-index aca9f755e4f8..05daf1038111 100644
---- a/arch/c6x/include/asm/dma-mapping.h
-+++ b/arch/c6x/include/asm/dma-mapping.h
-@@ -12,11 +12,6 @@
- #ifndef _ASM_C6X_DMA_MAPPING_H
- #define _ASM_C6X_DMA_MAPPING_H
+diff --git a/kernel/locking/rwsem-xadd.c b/kernel/locking/rwsem-xadd.c
+index 34e727f..13bdbc3 100644
+--- a/kernel/locking/rwsem-xadd.c
++++ b/kernel/locking/rwsem-xadd.c
+@@ -219,54 +219,6 @@ static void __rwsem_mark_wake(struct rw_semaphore *sem,
+ }
  
--/*
-- * DMA errors are defined by all-bits-set in the DMA address.
+ /*
+- * Wait for the read lock to be granted
 - */
--#define DMA_ERROR_CODE ~0
+-__visible
+-struct rw_semaphore __sched *rwsem_down_read_failed(struct rw_semaphore *sem)
+-{
+-	long count, adjustment = -RWSEM_ACTIVE_READ_BIAS;
+-	struct rwsem_waiter waiter;
+-	DEFINE_WAKE_Q(wake_q);
 -
- extern const struct dma_map_ops c6x_dma_ops;
+-	waiter.task = current;
+-	waiter.type = RWSEM_WAITING_FOR_READ;
+-
+-	raw_spin_lock_irq(&sem->wait_lock);
+-	if (list_empty(&sem->wait_list))
+-		adjustment += RWSEM_WAITING_BIAS;
+-	list_add_tail(&waiter.list, &sem->wait_list);
+-
+-	/* we're now waiting on the lock, but no longer actively locking */
+-	count = atomic_long_add_return(adjustment, &sem->count);
+-
+-	/*
+-	 * If there are no active locks, wake the front queued process(es).
+-	 *
+-	 * If there are no writers and we are first in the queue,
+-	 * wake our own waiter to join the existing active readers !
+-	 */
+-	if (count = RWSEM_WAITING_BIAS ||
+-	    (count > RWSEM_WAITING_BIAS &&
+-	     adjustment != -RWSEM_ACTIVE_READ_BIAS))
+-		__rwsem_mark_wake(sem, RWSEM_WAKE_ANY, &wake_q);
+-
+-	raw_spin_unlock_irq(&sem->wait_lock);
+-	wake_up_q(&wake_q);
+-
+-	/* wait to be given the lock */
+-	while (true) {
+-		set_current_state(TASK_UNINTERRUPTIBLE);
+-		if (!waiter.task)
+-			break;
+-		schedule();
+-	}
+-
+-	__set_current_state(TASK_RUNNING);
+-	return sem;
+-}
+-EXPORT_SYMBOL(rwsem_down_read_failed);
+-
+-/*
+  * This function must be called with the sem->wait_lock held to prevent
+  * race conditions between checking the rwsem wait list and setting the
+  * sem->count accordingly.
+@@ -461,6 +413,54 @@ static inline bool rwsem_has_spinner(struct rw_semaphore *sem)
+ #endif
  
- static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
+ /*
++ * Wait for the read lock to be granted
++ */
++__visible
++struct rw_semaphore __sched *rwsem_down_read_failed(struct rw_semaphore *sem)
++{
++	long count, adjustment = -RWSEM_ACTIVE_READ_BIAS;
++	struct rwsem_waiter waiter;
++	DEFINE_WAKE_Q(wake_q);
++
++	waiter.task = current;
++	waiter.type = RWSEM_WAITING_FOR_READ;
++
++	raw_spin_lock_irq(&sem->wait_lock);
++	if (list_empty(&sem->wait_list))
++		adjustment += RWSEM_WAITING_BIAS;
++	list_add_tail(&waiter.list, &sem->wait_list);
++
++	/* we're now waiting on the lock, but no longer actively locking */
++	count = atomic_long_add_return(adjustment, &sem->count);
++
++	/*
++	 * If there are no active locks, wake the front queued process(es).
++	 *
++	 * If there are no writers and we are first in the queue,
++	 * wake our own waiter to join the existing active readers !
++	 */
++	if (count = RWSEM_WAITING_BIAS ||
++	    (count > RWSEM_WAITING_BIAS &&
++	     adjustment != -RWSEM_ACTIVE_READ_BIAS))
++		__rwsem_mark_wake(sem, RWSEM_WAKE_ANY, &wake_q);
++
++	raw_spin_unlock_irq(&sem->wait_lock);
++	wake_up_q(&wake_q);
++
++	/* wait to be given the lock */
++	while (true) {
++		set_current_state(TASK_UNINTERRUPTIBLE);
++		if (!waiter.task)
++			break;
++		schedule();
++	}
++
++	__set_current_state(TASK_RUNNING);
++	return sem;
++}
++EXPORT_SYMBOL(rwsem_down_read_failed);
++
++/*
+  * Wait until we successfully acquire the write lock
+  */
+ static inline struct rw_semaphore *
 -- 
-2.11.0
+1.8.3.1
 
