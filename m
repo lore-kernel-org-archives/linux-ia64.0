@@ -1,7 +1,7 @@
 From: Waiman Long <longman@redhat.com>
-Date: Thu, 01 Jun 2017 17:39:01 +0000
-Subject: [PATCH v5 3/9] locking/rwsem: Move common rwsem macros to asm-generic/rwsem_types.h
-Message-Id: <1496338747-20398-4-git-send-email-longman@redhat.com>
+Date: Thu, 01 Jun 2017 17:39:00 +0000
+Subject: [PATCH v5 2/9] locking/rwsem: Stop active read lock ASAP
+Message-Id: <1496338747-20398-3-git-send-email-longman@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1496338747-20398-1-git-send-email-longman@redhat.com>
 In-Reply-To: <1496338747-20398-1-git-send-email-longman@redhat.com>
@@ -11,169 +11,83 @@ Content-Transfer-Encoding: 7bit
 To: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>
 Cc: linux-kernel@vger.kernel.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-arch@vger.kernel.org, Davidlohr Bueso <dave@stgolabs.net>, Dave Chinner <david@fromorbit.com>, Waiman Long <longman@redhat.com>
 
-Almost all the macro definitions in the various architecture specific
-rwsem.h header files are essentially the same. This patch moves all
-of them into a common header asm-generic/rwsem_types.h to eliminate
-the duplication.
+Currently, when down_read() fails, the active read locking isn't undone
+until the rwsem_down_read_failed() function grabs the wait_lock. If the
+wait_lock is contended, it may takes a while to get the lock. During
+that period, writer lock stealing will be disabled because of the
+active read lock.
 
-Suggested-by: Peter Zijlstra (Intel) <peterz@infradead.org>
+This patch will release the active read lock ASAP when either the
+optimisitic spinners are present or the trylock fails so that writer
+lock stealing can happen sooner.
+
+On a 2-socket 36-core x86-64 E5-2699 v3 system, a rwsem microbenchmark
+was run with 36 locking threads (one/core) doing 250k reader and writer
+lock/unlock operations each, the resulting locking rates (avg of 3
+runs) on a 4.12 based kernel were 510.1 Mop/s and 520.1 Mop/s without
+and with the patch respectively. That was an increase of about 2%.
+
 Signed-off-by: Waiman Long <longman@redhat.com>
 ---
- arch/alpha/include/asm/rwsem.h    |  8 +-------
- arch/ia64/include/asm/rwsem.h     |  7 ++-----
- arch/s390/include/asm/rwsem.h     |  7 +------
- arch/x86/include/asm/rwsem.h      | 19 +------------------
- include/asm-generic/rwsem.h       | 16 +---------------
- include/asm-generic/rwsem_types.h | 26 ++++++++++++++++++++++++++
- 6 files changed, 32 insertions(+), 51 deletions(-)
- create mode 100644 include/asm-generic/rwsem_types.h
+ kernel/locking/rwsem-xadd.c | 27 ++++++++++++++++++++++-----
+ 1 file changed, 22 insertions(+), 5 deletions(-)
 
-diff --git a/arch/alpha/include/asm/rwsem.h b/arch/alpha/include/asm/rwsem.h
-index 77873d0..f99e39a 100644
---- a/arch/alpha/include/asm/rwsem.h
-+++ b/arch/alpha/include/asm/rwsem.h
-@@ -13,13 +13,7 @@
- #ifdef __KERNEL__
- 
- #include <linux/compiler.h>
--
--#define RWSEM_UNLOCKED_VALUE		0x0000000000000000L
--#define RWSEM_ACTIVE_BIAS		0x0000000000000001L
--#define RWSEM_ACTIVE_MASK		0x00000000ffffffffL
--#define RWSEM_WAITING_BIAS		(-0x0000000100000000L)
--#define RWSEM_ACTIVE_READ_BIAS		RWSEM_ACTIVE_BIAS
--#define RWSEM_ACTIVE_WRITE_BIAS		(RWSEM_WAITING_BIAS + RWSEM_ACTIVE_BIAS)
-+#include <asm-generic/rwsem_types.h>
- 
- static inline void __down_read(struct rw_semaphore *sem)
+diff --git a/kernel/locking/rwsem-xadd.c b/kernel/locking/rwsem-xadd.c
+index 13bdbc3..e6c2bd5 100644
+--- a/kernel/locking/rwsem-xadd.c
++++ b/kernel/locking/rwsem-xadd.c
+@@ -418,6 +418,7 @@ static inline bool rwsem_has_spinner(struct rw_semaphore *sem)
+ __visible
+ struct rw_semaphore __sched *rwsem_down_read_failed(struct rw_semaphore *sem)
  {
-diff --git a/arch/ia64/include/asm/rwsem.h b/arch/ia64/include/asm/rwsem.h
-index 8fa98dd..21a9066 100644
---- a/arch/ia64/include/asm/rwsem.h
-+++ b/arch/ia64/include/asm/rwsem.h
-@@ -26,13 +26,10 @@
- #endif
++	bool first_in_queue = false;
+ 	long count, adjustment = -RWSEM_ACTIVE_READ_BIAS;
+ 	struct rwsem_waiter waiter;
+ 	DEFINE_WAKE_Q(wake_q);
+@@ -425,13 +426,30 @@ struct rw_semaphore __sched *rwsem_down_read_failed(struct rw_semaphore *sem)
+ 	waiter.task = current;
+ 	waiter.type = RWSEM_WAITING_FOR_READ;
  
- #include <asm/intrinsics.h>
-+#include <asm-generic/rwsem_types.h>
- 
-+#undef  RWSEM_UNLOCKED_VALUE
- #define RWSEM_UNLOCKED_VALUE		__IA64_UL_CONST(0x0000000000000000)
--#define RWSEM_ACTIVE_BIAS		(1L)
--#define RWSEM_ACTIVE_MASK		(0xffffffffL)
--#define RWSEM_WAITING_BIAS		(-0x100000000L)
--#define RWSEM_ACTIVE_READ_BIAS		RWSEM_ACTIVE_BIAS
--#define RWSEM_ACTIVE_WRITE_BIAS		(RWSEM_WAITING_BIAS + RWSEM_ACTIVE_BIAS)
- 
- /*
-  * lock for reading
-diff --git a/arch/s390/include/asm/rwsem.h b/arch/s390/include/asm/rwsem.h
-index 597e7e9..13dedc81 100644
---- a/arch/s390/include/asm/rwsem.h
-+++ b/arch/s390/include/asm/rwsem.h
-@@ -39,12 +39,7 @@
- #error "please don't include asm/rwsem.h directly, use linux/rwsem.h instead"
- #endif
- 
--#define RWSEM_UNLOCKED_VALUE	0x0000000000000000L
--#define RWSEM_ACTIVE_BIAS	0x0000000000000001L
--#define RWSEM_ACTIVE_MASK	0x00000000ffffffffL
--#define RWSEM_WAITING_BIAS	(-0x0000000100000000L)
--#define RWSEM_ACTIVE_READ_BIAS	RWSEM_ACTIVE_BIAS
--#define RWSEM_ACTIVE_WRITE_BIAS	(RWSEM_WAITING_BIAS + RWSEM_ACTIVE_BIAS)
-+#include <asm-generic/rwsem_types.h>
- 
- /*
-  * lock for reading
-diff --git a/arch/x86/include/asm/rwsem.h b/arch/x86/include/asm/rwsem.h
-index a34e0d4..b55affb 100644
---- a/arch/x86/include/asm/rwsem.h
-+++ b/arch/x86/include/asm/rwsem.h
-@@ -38,24 +38,7 @@
- 
- #ifdef __KERNEL__
- #include <asm/asm.h>
--
--/*
-- * The bias values and the counter type limits the number of
-- * potential readers/writers to 32767 for 32 bits and 2147483647
-- * for 64 bits.
-- */
--
--#ifdef CONFIG_X86_64
--# define RWSEM_ACTIVE_MASK		0xffffffffL
--#else
--# define RWSEM_ACTIVE_MASK		0x0000ffffL
--#endif
--
--#define RWSEM_UNLOCKED_VALUE		0x00000000L
--#define RWSEM_ACTIVE_BIAS		0x00000001L
--#define RWSEM_WAITING_BIAS		(-RWSEM_ACTIVE_MASK-1)
--#define RWSEM_ACTIVE_READ_BIAS		RWSEM_ACTIVE_BIAS
--#define RWSEM_ACTIVE_WRITE_BIAS		(RWSEM_WAITING_BIAS + RWSEM_ACTIVE_BIAS)
-+#include <asm-generic/rwsem_types.h>
- 
- /*
-  * lock for reading
-diff --git a/include/asm-generic/rwsem.h b/include/asm-generic/rwsem.h
-index 6c6a214..9d31d68 100644
---- a/include/asm-generic/rwsem.h
-+++ b/include/asm-generic/rwsem.h
-@@ -12,21 +12,7 @@
-  * Adapted largely from include/asm-i386/rwsem.h
-  * by Paul Mackerras <paulus@samba.org>.
-  */
--
--/*
-- * the semaphore definition
-- */
--#ifdef CONFIG_64BIT
--# define RWSEM_ACTIVE_MASK		0xffffffffL
--#else
--# define RWSEM_ACTIVE_MASK		0x0000ffffL
--#endif
--
--#define RWSEM_UNLOCKED_VALUE		0x00000000L
--#define RWSEM_ACTIVE_BIAS		0x00000001L
--#define RWSEM_WAITING_BIAS		(-RWSEM_ACTIVE_MASK-1)
--#define RWSEM_ACTIVE_READ_BIAS		RWSEM_ACTIVE_BIAS
--#define RWSEM_ACTIVE_WRITE_BIAS		(RWSEM_WAITING_BIAS + RWSEM_ACTIVE_BIAS)
-+#include <asm-generic/rwsem_types.h>
- 
- /*
-  * lock for reading
-diff --git a/include/asm-generic/rwsem_types.h b/include/asm-generic/rwsem_types.h
-new file mode 100644
-index 0000000..093ef6a
---- /dev/null
-+++ b/include/asm-generic/rwsem_types.h
-@@ -0,0 +1,26 @@
-+#ifndef _ASM_GENERIC_RWSEM_TYPES_H
-+#define _ASM_GENERIC_RWSEM_TYPES_H
++	/*
++	 * Undo read bias from down_read operation to stop active locking if:
++	 * 1) Optimistic spinners are present; or
++	 * 2) the wait_lock isn't free.
++	 * Doing that after taking the wait_lock may otherwise block writer
++	 * lock stealing for too long impacting performance.
++	 */
++	if (rwsem_has_spinner(sem) || raw_spin_is_locked(&sem->wait_lock)) {
++		atomic_long_add(-RWSEM_ACTIVE_READ_BIAS, &sem->count);
++		adjustment = 0;
++	}
 +
-+#ifdef __KERNEL__
-+
-+/*
-+ * the semaphore definition
-+ *
-+ * The bias values and the counter type limits the number of
-+ * potential readers/writers to 32767 for 32 bits and 2147483647
-+ * for 64 bits.
-+ */
-+#ifdef CONFIG_64BIT
-+# define RWSEM_ACTIVE_MASK		0xffffffffL
-+#else
-+# define RWSEM_ACTIVE_MASK		0x0000ffffL
-+#endif
-+
-+#define RWSEM_UNLOCKED_VALUE		0x00000000L
-+#define RWSEM_ACTIVE_BIAS		0x00000001L
-+#define RWSEM_WAITING_BIAS		(-RWSEM_ACTIVE_MASK-1)
-+#define RWSEM_ACTIVE_READ_BIAS		RWSEM_ACTIVE_BIAS
-+#define RWSEM_ACTIVE_WRITE_BIAS		(RWSEM_WAITING_BIAS + RWSEM_ACTIVE_BIAS)
-+
-+#endif	/* __KERNEL__ */
-+#endif	/* _ASM_GENERIC_RWSEM_TYPES_H */
+ 	raw_spin_lock_irq(&sem->wait_lock);
+-	if (list_empty(&sem->wait_list))
++	if (list_empty(&sem->wait_list)) {
+ 		adjustment += RWSEM_WAITING_BIAS;
++		first_in_queue = true;
++	}
+ 	list_add_tail(&waiter.list, &sem->wait_list);
+ 
+-	/* we're now waiting on the lock, but no longer actively locking */
+-	count = atomic_long_add_return(adjustment, &sem->count);
++	/* we're now waiting on the lock */
++	if (adjustment)
++		count = atomic_long_add_return(adjustment, &sem->count);
++	else
++		count = atomic_long_read(&sem->count);
+ 
+ 	/*
+ 	 * If there are no active locks, wake the front queued process(es).
+@@ -440,8 +458,7 @@ struct rw_semaphore __sched *rwsem_down_read_failed(struct rw_semaphore *sem)
+ 	 * wake our own waiter to join the existing active readers !
+ 	 */
+ 	if (count = RWSEM_WAITING_BIAS ||
+-	    (count > RWSEM_WAITING_BIAS &&
+-	     adjustment != -RWSEM_ACTIVE_READ_BIAS))
++	    (count > RWSEM_WAITING_BIAS && first_in_queue))
+ 		__rwsem_mark_wake(sem, RWSEM_WAKE_ANY, &wake_q);
+ 
+ 	raw_spin_unlock_irq(&sem->wait_lock);
 -- 
 1.8.3.1
 
