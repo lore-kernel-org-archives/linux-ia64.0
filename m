@@ -1,72 +1,72 @@
-From: "Eric W. Biederman" <ebiederm@xmission.com>
-Date: Fri, 30 Jun 2017 12:39:00 +0000
-Subject: [PATCH 2/8] signal/ia64: Document a conflict with SI_USER with SIGFPE
-Message-Id: <20170630123906.8865-2-ebiederm@xmission.com>
+From: Waiman Long <longman@redhat.com>
+Date: Thu, 01 Jun 2017 17:39:05 +0000
+Subject: [PATCH v5 7/9] locking/rwsem: Make rwsem_spin_on_owner() return a tri-state value
+Message-Id: <1496338747-20398-8-git-send-email-longman@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <87efu22set.fsf@xmission.com>
-In-Reply-To: <87efu22set.fsf@xmission.com>
+References: <1496338747-20398-1-git-send-email-longman@redhat.com>
+In-Reply-To: <1496338747-20398-1-git-send-email-longman@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Andy Lutomirski <luto@kernel.org>, Linus Torvalds <torvalds@linux-foundation.org>, Al Viro <viro@zeniv.linux.org.uk>, Oleg Nesterov <oleg@redhat.com>, Andrei Vagin <avagin@virtuozzo.com>, Thomas Gleixner <tglx@linutronix.de>, Greg KH <greg@kroah.com>, Andrey Vagin <avagin@openvz.org>, Serge Hallyn <serge@hallyn.com>, Pavel Emelyanov <xemul@virtuozzo.com>, Cyrill Gorcunov <gorcunov@openvz.org>, Peter Zijlstra <peterz@infradead.org>, Willy Tarreau <w@1wt.eu>, linux-arch@vger.kernel.org, linux-api@vger.kernel.org, Linux Containers <containers@lists.linux-foundation.org>, Michael Kerrisk <mtk.manpages@gmail.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+To: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>
+Cc: linux-kernel@vger.kernel.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-arch@vger.kernel.org, Davidlohr Bueso <dave@stgolabs.net>, Dave Chinner <david@fromorbit.com>, Waiman Long <longman@redhat.com>
 
-Setting si_code to __SI_FAULT results in a userspace seeing
-an si_code of 0.  This is the same si_code as SI_USER.  Posix
-and common sense requires that SI_USER not be a signal specific
-si_code.  As such this use of 0 for the si_code is a pretty
-horribly broken ABI.
+This patch modifies rwsem_spin_on_owner() to return a tri-state value
+to better reflect the state of lock holder which enables us to make a
+better decision of what to do next.
 
-Given that ia64 is on it's last legs I don't know that it is worth
-fixing this, but it is worth documenting what is going on so that
-no one decides to copy this bad decision.
-
-This was introduced in 2.3.51 so this mess has had a long time for
-people to be able to start depending on it.
-
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Signed-off-by: Waiman Long <longman@redhat.com>
 ---
- arch/ia64/include/uapi/asm/siginfo.h | 1 +
- arch/ia64/kernel/traps.c             | 4 ++--
- 2 files changed, 3 insertions(+), 2 deletions(-)
+ kernel/locking/rwsem-xadd.c | 14 +++++++++-----
+ 1 file changed, 9 insertions(+), 5 deletions(-)
 
-diff --git a/arch/ia64/include/uapi/asm/siginfo.h b/arch/ia64/include/uapi/asm/siginfo.h
-index f72bf0172bb2..fafea221f49c 100644
---- a/arch/ia64/include/uapi/asm/siginfo.h
-+++ b/arch/ia64/include/uapi/asm/siginfo.h
-@@ -108,6 +108,7 @@ typedef struct siginfo {
+diff --git a/kernel/locking/rwsem-xadd.c b/kernel/locking/rwsem-xadd.c
+index f82ce29..7d030a2 100644
+--- a/kernel/locking/rwsem-xadd.c
++++ b/kernel/locking/rwsem-xadd.c
+@@ -341,9 +341,13 @@ static inline bool rwsem_can_spin_on_owner(struct rw_semaphore *sem)
+ }
+ 
  /*
-  * SIGFPE si_codes
+- * Return true only if we can still spin on the owner field of the rwsem.
++ * Return the folowing three values depending on the lock owner state.
++ *   1	when owner has changed and no reader is detected yet.
++ *   0	when owner has change and/or owner is a reader.
++ *  -1	when optimistic spinning has to stop because either the owner stops
++ *	running or its timeslice has been used up.
   */
-+#define FPE_FIXME	(__SI_FAULT|0)	/* Broken dup of SI_USER */
- #define __FPE_DECOVF	(__SI_FAULT|9)	/* decimal overflow */
- #define __FPE_DECDIV	(__SI_FAULT|10)	/* decimal division by zero */
- #define __FPE_DECERR	(__SI_FAULT|11)	/* packed decimal error */
-diff --git a/arch/ia64/kernel/traps.c b/arch/ia64/kernel/traps.c
-index 7b1fe9462158..3cb17cf9b362 100644
---- a/arch/ia64/kernel/traps.c
-+++ b/arch/ia64/kernel/traps.c
-@@ -349,7 +349,7 @@ handle_fpu_swa (int fp_fault, struct pt_regs *regs, unsigned long isr)
- 			}
- 			siginfo.si_signo = SIGFPE;
- 			siginfo.si_errno = 0;
--			siginfo.si_code = __SI_FAULT;	/* default code */
-+			siginfo.si_code = FPE_FIXME;	/* default code */
- 			siginfo.si_addr = (void __user *) (regs->cr_iip + ia64_psr(regs)->ri);
- 			if (isr & 0x11) {
- 				siginfo.si_code = FPE_FLTINV;
-@@ -373,7 +373,7 @@ handle_fpu_swa (int fp_fault, struct pt_regs *regs, unsigned long isr)
- 			/* raise exception */
- 			siginfo.si_signo = SIGFPE;
- 			siginfo.si_errno = 0;
--			siginfo.si_code = __SI_FAULT;	/* default code */
-+			siginfo.si_code = FPE_FIXME;	/* default code */
- 			siginfo.si_addr = (void __user *) (regs->cr_iip + ia64_psr(regs)->ri);
- 			if (isr & 0x880) {
- 				siginfo.si_code = FPE_FLTOVF;
+-static noinline bool rwsem_spin_on_owner(struct rw_semaphore *sem)
++static noinline int rwsem_spin_on_owner(struct rw_semaphore *sem)
+ {
+ 	struct task_struct *owner = READ_ONCE(sem->owner);
+ 
+@@ -367,7 +371,7 @@ static noinline bool rwsem_spin_on_owner(struct rw_semaphore *sem)
+ 		if (!owner->on_cpu || need_resched() ||
+ 				vcpu_is_preempted(task_cpu(owner))) {
+ 			rcu_read_unlock();
+-			return false;
++			return -1;
+ 		}
+ 
+ 		cpu_relax();
+@@ -378,7 +382,7 @@ static noinline bool rwsem_spin_on_owner(struct rw_semaphore *sem)
+ 	 * If there is a new owner or the owner is not set, we continue
+ 	 * spinning.
+ 	 */
+-	return !rwsem_owner_is_reader(READ_ONCE(sem->owner));
++	return rwsem_owner_is_reader(READ_ONCE(sem->owner)) ? 0 : 1;
+ }
+ 
+ static bool rwsem_optimistic_spin(struct rw_semaphore *sem,
+@@ -399,7 +403,7 @@ static bool rwsem_optimistic_spin(struct rw_semaphore *sem,
+ 	 *  2) readers own the lock as we can't determine if they are
+ 	 *     actively running or not.
+ 	 */
+-	while (rwsem_spin_on_owner(sem)) {
++	while (rwsem_spin_on_owner(sem) > 0) {
+ 		/*
+ 		 * Try to acquire the lock
+ 		 */
 -- 
-2.10.1
+1.8.3.1
 
