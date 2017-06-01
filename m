@@ -1,7 +1,7 @@
 From: Waiman Long <longman@redhat.com>
-Date: Thu, 01 Jun 2017 17:39:04 +0000
-Subject: [PATCH v5 6/9] locking/rwsem: Use bit in owner to stop spinning
-Message-Id: <1496338747-20398-7-git-send-email-longman@redhat.com>
+Date: Thu, 01 Jun 2017 17:39:01 +0000
+Subject: [PATCH v5 3/9] locking/rwsem: Move common rwsem macros to asm-generic/rwsem_types.h
+Message-Id: <1496338747-20398-4-git-send-email-longman@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1496338747-20398-1-git-send-email-longman@redhat.com>
 In-Reply-To: <1496338747-20398-1-git-send-email-longman@redhat.com>
@@ -11,132 +11,169 @@ Content-Transfer-Encoding: 7bit
 To: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>
 Cc: linux-kernel@vger.kernel.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-arch@vger.kernel.org, Davidlohr Bueso <dave@stgolabs.net>, Dave Chinner <david@fromorbit.com>, Waiman Long <longman@redhat.com>
 
-To prepare for reader optimistic spinning, bit 1 of the owner field
-in the rw_semaphore structure is now used for stopping optimistic
-spinning on a reader-owned rwsem to reduce the possibility of writer
-livelocking due to constant incoming stream of readers.  That bit
-can be set by both sleeping or spinning writers.
+Almost all the macro definitions in the various architecture specific
+rwsem.h header files are essentially the same. This patch moves all
+of them into a common header asm-generic/rwsem_types.h to eliminate
+the duplication.
 
-This patch provides the helper functions to facilitate the use of
-that bit.
-
+Suggested-by: Peter Zijlstra (Intel) <peterz@infradead.org>
 Signed-off-by: Waiman Long <longman@redhat.com>
 ---
- kernel/locking/rwsem.h | 66 ++++++++++++++++++++++++++++++++++++++++++--------
- 1 file changed, 56 insertions(+), 10 deletions(-)
+ arch/alpha/include/asm/rwsem.h    |  8 +-------
+ arch/ia64/include/asm/rwsem.h     |  7 ++-----
+ arch/s390/include/asm/rwsem.h     |  7 +------
+ arch/x86/include/asm/rwsem.h      | 19 +------------------
+ include/asm-generic/rwsem.h       | 16 +---------------
+ include/asm-generic/rwsem_types.h | 26 ++++++++++++++++++++++++++
+ 6 files changed, 32 insertions(+), 51 deletions(-)
+ create mode 100644 include/asm-generic/rwsem_types.h
 
-diff --git a/kernel/locking/rwsem.h b/kernel/locking/rwsem.h
-index a699f40..3f01888 100644
---- a/kernel/locking/rwsem.h
-+++ b/kernel/locking/rwsem.h
-@@ -1,19 +1,27 @@
- /*
-- * The owner field of the rw_semaphore structure will be set to
-- * RWSEM_READ_OWNED when a reader grabs the lock. A writer will clear
-- * the owner field when it unlocks. A reader, on the other hand, will
-- * not touch the owner field when it unlocks.
-+ * The lower 2 bits of the owner field in the rw_semaphore structure are
-+ * used for the following special purposes on a reader-owned lock:
-+ * 1) Bit 0 - Mark the semaphore as being owned by readers.
-+ * 2) Bit 1 - The optimistic spinning disable bit set by a writer to disable
-+ *	      spinning on a reader-owned lock after failing to acquire the
-+ *	      lock for a certain period of time. It will be reset only when a
-+ *	      new writer acquires the lock.
-+ *
-+ * A writer will clear the owner field when it unlocks. A reader, on the other
-+ * hand, will not touch the owner field when it unlocks.
-  *
-  * In essence, the owner field now has the following 3 states:
-  *  1) 0
-  *     - lock is free or the owner hasn't set the field yet
-- *  2) RWSEM_READER_OWNED
-+ *  2) RWSEM_READER_OWNED [| RWSEM_SPIN_DISABLE_BIT]
-  *     - lock is currently or previously owned by readers (lock is free
-  *       or not set by owner yet)
-  *  3) Other non-zero value
-  *     - a writer owns the lock
-  */
--#define RWSEM_READER_OWNED	((struct task_struct *)1UL)
-+#define RWSEM_READER_OWNED_BIT	1UL
-+#define RWSEM_SPIN_DISABLE_BIT	2UL
-+#define RWSEM_READER_OWNED	((struct task_struct *)RWSEM_READER_OWNED_BIT)
+diff --git a/arch/alpha/include/asm/rwsem.h b/arch/alpha/include/asm/rwsem.h
+index 77873d0..f99e39a 100644
+--- a/arch/alpha/include/asm/rwsem.h
++++ b/arch/alpha/include/asm/rwsem.h
+@@ -13,13 +13,7 @@
+ #ifdef __KERNEL__
  
- #ifdef CONFIG_RWSEM_SPIN_ON_OWNER
- /*
-@@ -33,6 +41,11 @@ static inline void rwsem_clear_owner(struct rw_semaphore *sem)
- 	WRITE_ONCE(sem->owner, NULL);
- }
+ #include <linux/compiler.h>
+-
+-#define RWSEM_UNLOCKED_VALUE		0x0000000000000000L
+-#define RWSEM_ACTIVE_BIAS		0x0000000000000001L
+-#define RWSEM_ACTIVE_MASK		0x00000000ffffffffL
+-#define RWSEM_WAITING_BIAS		(-0x0000000100000000L)
+-#define RWSEM_ACTIVE_READ_BIAS		RWSEM_ACTIVE_BIAS
+-#define RWSEM_ACTIVE_WRITE_BIAS		(RWSEM_WAITING_BIAS + RWSEM_ACTIVE_BIAS)
++#include <asm-generic/rwsem_types.h>
  
-+static inline bool rwsem_owner_is_reader(struct task_struct *owner)
-+{
-+	return (unsigned long)owner & RWSEM_READER_OWNED_BIT;
-+}
-+
- static inline void rwsem_set_reader_owned(struct rw_semaphore *sem)
+ static inline void __down_read(struct rw_semaphore *sem)
  {
- 	/*
-@@ -40,19 +53,48 @@ static inline void rwsem_set_reader_owned(struct rw_semaphore *sem)
- 	 * do a write to the rwsem cacheline when it is really necessary
- 	 * to minimize cacheline contention.
- 	 */
--	if (sem->owner != RWSEM_READER_OWNED)
-+	if (!rwsem_owner_is_reader(READ_ONCE(sem->owner)))
- 		WRITE_ONCE(sem->owner, RWSEM_READER_OWNED);
- }
- 
- static inline bool rwsem_owner_is_writer(struct task_struct *owner)
- {
--	return owner && owner != RWSEM_READER_OWNED;
-+	return ((unsigned long)owner & ~RWSEM_SPIN_DISABLE_BIT) &&
-+		!rwsem_owner_is_reader(owner);
- }
- 
--static inline bool rwsem_owner_is_reader(struct task_struct *owner)
-+static inline bool rwsem_owner_is_spin_disabled(struct task_struct *owner)
-+{
-+	return (unsigned long)owner & RWSEM_SPIN_DISABLE_BIT;
-+}
-+
-+/*
-+ * Try to set an optimistic spinning disable bit while it is reader-owned.
-+ */
-+static inline void rwsem_set_spin_disable(struct rw_semaphore *sem)
-+{
-+	struct task_struct *new;
-+
-+	if (READ_ONCE(sem->owner) != RWSEM_READER_OWNED)
-+		return;
-+	new = (struct task_struct *)(RWSEM_READER_OWNED_BIT|
-+				     RWSEM_SPIN_DISABLE_BIT);
-+
-+	/*
-+	 * Failure in cmpxchg() will be ignored, and the caller is expected
-+	 * to retry later.
-+	 */
-+	(void)cmpxchg(&sem->owner, RWSEM_READER_OWNED, new);
-+}
-+
-+/*
-+ * Is reader-owned rwsem optimistic spinning disabled?
-+ */
-+static inline bool rwsem_is_spin_disabled(struct rw_semaphore *sem)
- {
--	return owner = RWSEM_READER_OWNED;
-+	return rwsem_owner_is_spin_disabled(READ_ONCE(sem->owner));
- }
-+
- #else
- static inline void rwsem_set_owner(struct rw_semaphore *sem)
- {
-@@ -65,4 +107,8 @@ static inline void rwsem_clear_owner(struct rw_semaphore *sem)
- static inline void rwsem_set_reader_owned(struct rw_semaphore *sem)
- {
- }
-+
-+static inline void rwsem_set_spin_disable(struct rw_semaphore *sem)
-+{
-+}
+diff --git a/arch/ia64/include/asm/rwsem.h b/arch/ia64/include/asm/rwsem.h
+index 8fa98dd..21a9066 100644
+--- a/arch/ia64/include/asm/rwsem.h
++++ b/arch/ia64/include/asm/rwsem.h
+@@ -26,13 +26,10 @@
  #endif
+ 
+ #include <asm/intrinsics.h>
++#include <asm-generic/rwsem_types.h>
+ 
++#undef  RWSEM_UNLOCKED_VALUE
+ #define RWSEM_UNLOCKED_VALUE		__IA64_UL_CONST(0x0000000000000000)
+-#define RWSEM_ACTIVE_BIAS		(1L)
+-#define RWSEM_ACTIVE_MASK		(0xffffffffL)
+-#define RWSEM_WAITING_BIAS		(-0x100000000L)
+-#define RWSEM_ACTIVE_READ_BIAS		RWSEM_ACTIVE_BIAS
+-#define RWSEM_ACTIVE_WRITE_BIAS		(RWSEM_WAITING_BIAS + RWSEM_ACTIVE_BIAS)
+ 
+ /*
+  * lock for reading
+diff --git a/arch/s390/include/asm/rwsem.h b/arch/s390/include/asm/rwsem.h
+index 597e7e9..13dedc81 100644
+--- a/arch/s390/include/asm/rwsem.h
++++ b/arch/s390/include/asm/rwsem.h
+@@ -39,12 +39,7 @@
+ #error "please don't include asm/rwsem.h directly, use linux/rwsem.h instead"
+ #endif
+ 
+-#define RWSEM_UNLOCKED_VALUE	0x0000000000000000L
+-#define RWSEM_ACTIVE_BIAS	0x0000000000000001L
+-#define RWSEM_ACTIVE_MASK	0x00000000ffffffffL
+-#define RWSEM_WAITING_BIAS	(-0x0000000100000000L)
+-#define RWSEM_ACTIVE_READ_BIAS	RWSEM_ACTIVE_BIAS
+-#define RWSEM_ACTIVE_WRITE_BIAS	(RWSEM_WAITING_BIAS + RWSEM_ACTIVE_BIAS)
++#include <asm-generic/rwsem_types.h>
+ 
+ /*
+  * lock for reading
+diff --git a/arch/x86/include/asm/rwsem.h b/arch/x86/include/asm/rwsem.h
+index a34e0d4..b55affb 100644
+--- a/arch/x86/include/asm/rwsem.h
++++ b/arch/x86/include/asm/rwsem.h
+@@ -38,24 +38,7 @@
+ 
+ #ifdef __KERNEL__
+ #include <asm/asm.h>
+-
+-/*
+- * The bias values and the counter type limits the number of
+- * potential readers/writers to 32767 for 32 bits and 2147483647
+- * for 64 bits.
+- */
+-
+-#ifdef CONFIG_X86_64
+-# define RWSEM_ACTIVE_MASK		0xffffffffL
+-#else
+-# define RWSEM_ACTIVE_MASK		0x0000ffffL
+-#endif
+-
+-#define RWSEM_UNLOCKED_VALUE		0x00000000L
+-#define RWSEM_ACTIVE_BIAS		0x00000001L
+-#define RWSEM_WAITING_BIAS		(-RWSEM_ACTIVE_MASK-1)
+-#define RWSEM_ACTIVE_READ_BIAS		RWSEM_ACTIVE_BIAS
+-#define RWSEM_ACTIVE_WRITE_BIAS		(RWSEM_WAITING_BIAS + RWSEM_ACTIVE_BIAS)
++#include <asm-generic/rwsem_types.h>
+ 
+ /*
+  * lock for reading
+diff --git a/include/asm-generic/rwsem.h b/include/asm-generic/rwsem.h
+index 6c6a214..9d31d68 100644
+--- a/include/asm-generic/rwsem.h
++++ b/include/asm-generic/rwsem.h
+@@ -12,21 +12,7 @@
+  * Adapted largely from include/asm-i386/rwsem.h
+  * by Paul Mackerras <paulus@samba.org>.
+  */
+-
+-/*
+- * the semaphore definition
+- */
+-#ifdef CONFIG_64BIT
+-# define RWSEM_ACTIVE_MASK		0xffffffffL
+-#else
+-# define RWSEM_ACTIVE_MASK		0x0000ffffL
+-#endif
+-
+-#define RWSEM_UNLOCKED_VALUE		0x00000000L
+-#define RWSEM_ACTIVE_BIAS		0x00000001L
+-#define RWSEM_WAITING_BIAS		(-RWSEM_ACTIVE_MASK-1)
+-#define RWSEM_ACTIVE_READ_BIAS		RWSEM_ACTIVE_BIAS
+-#define RWSEM_ACTIVE_WRITE_BIAS		(RWSEM_WAITING_BIAS + RWSEM_ACTIVE_BIAS)
++#include <asm-generic/rwsem_types.h>
+ 
+ /*
+  * lock for reading
+diff --git a/include/asm-generic/rwsem_types.h b/include/asm-generic/rwsem_types.h
+new file mode 100644
+index 0000000..093ef6a
+--- /dev/null
++++ b/include/asm-generic/rwsem_types.h
+@@ -0,0 +1,26 @@
++#ifndef _ASM_GENERIC_RWSEM_TYPES_H
++#define _ASM_GENERIC_RWSEM_TYPES_H
++
++#ifdef __KERNEL__
++
++/*
++ * the semaphore definition
++ *
++ * The bias values and the counter type limits the number of
++ * potential readers/writers to 32767 for 32 bits and 2147483647
++ * for 64 bits.
++ */
++#ifdef CONFIG_64BIT
++# define RWSEM_ACTIVE_MASK		0xffffffffL
++#else
++# define RWSEM_ACTIVE_MASK		0x0000ffffL
++#endif
++
++#define RWSEM_UNLOCKED_VALUE		0x00000000L
++#define RWSEM_ACTIVE_BIAS		0x00000001L
++#define RWSEM_WAITING_BIAS		(-RWSEM_ACTIVE_MASK-1)
++#define RWSEM_ACTIVE_READ_BIAS		RWSEM_ACTIVE_BIAS
++#define RWSEM_ACTIVE_WRITE_BIAS		(RWSEM_WAITING_BIAS + RWSEM_ACTIVE_BIAS)
++
++#endif	/* __KERNEL__ */
++#endif	/* _ASM_GENERIC_RWSEM_TYPES_H */
 -- 
 1.8.3.1
 
