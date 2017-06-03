@@ -1,125 +1,100 @@
-From: Kirill Tkhai <ktkhai@virtuozzo.com>
-Date: Mon, 19 Jun 2017 18:02:12 +0000
-Subject: [PATCH 1/7] rwsem-spinlock: Add killable versions of __down_read()
-Message-Id: <149789533283.9059.9829416940494747182.stgit@localhost.localdomain>
+From: Christoph Hellwig <hch@lst.de>
+Date: Sat, 03 Jun 2017 19:00:59 +0000
+Subject: [PATCH 2/5] ia64: remove HAVE_ARCH_COPY_SIGINFO
+Message-Id: <20170603190102.28866-3-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <149789463636.9059.16943955939303454611.stgit@localhost.localdomain>
-In-Reply-To: <149789463636.9059.16943955939303454611.stgit@localhost.localdomain>
+References: <20170603190102.28866-1-hch@lst.de>
+In-Reply-To: <20170603190102.28866-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, avagin@virtuozzo.com, peterz@infradead.org, heiko.carstens@de.ibm.com, hpa@zytor.com, gorcunov@virtuozzo.com, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, x86@kernel.org, mingo@redhat.com, mattst88@gmail.com, fenghua.yu@intel.com, arnd@arndb.de, ktkhai@virtuozzo.com, ink@jurassic.park.msu.ru, tglx@linutronix.de, rth@twiddle.net, tony.luck@intel.com, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, schwidefsky@de.ibm.com, davem@davemloft.net
+To: Arnd Bergmann <arnd@arndb.de>, Thomas Gleixner <tglx@linutronix.de>, "David S. Miller" <davem@davemloft.net>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-arch@vger.kernel.org, sparclinux@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Rename __down_read() in __down_read_common() and teach it
-to abort waiting in case of pending signals and killable
-state argument passed.
+Since ia64 defines __ARCH_SI_PREAMBLE_SIZE it can just use the generic
+copy_siginfo implementation, which is identical to the architecture
+specific one.
 
-Note, that we shouldn't wake anybody up in EINTR path, as:
+With that support for HAVE_ARCH_COPY_SIGINFO can go away entirely.
 
-We check for signal_pending_state() after (!waiter.task)
-test and under spinlock. So, current task wasn't able to
-be woken up. It may be in two cases: a writer is owner
-of the sem, or a writer is a first waiter of the sem.
-
-If a writer is owner of the sem, no one else may work
-with it in parallel. It will wake somebody, when it
-call up_write() or downgrade_write().
-
-If a writer is the first waiter, it will be woken up,
-when the last active reader releases the sem, and
-sem->count became 0.
-
-Also note, that set_current_state() may be moved down
-to schedule() (after !waiter.task check), as all
-assignments in this type of semaphore (including wake_up),
-occur under spinlock, so we can't miss anything.
-
-Signed-off-by: Kirill Tkhai <ktkhai@virtuozzo.com>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- include/linux/rwsem-spinlock.h  |    1 +
- kernel/locking/rwsem-spinlock.c |   37 ++++++++++++++++++++++++++++---------
- 2 files changed, 29 insertions(+), 9 deletions(-)
+ arch/ia64/include/asm/siginfo.h      | 22 ----------------------
+ arch/ia64/include/uapi/asm/siginfo.h |  1 -
+ include/linux/signal.h               |  7 +------
+ 3 files changed, 1 insertion(+), 29 deletions(-)
 
-diff --git a/include/linux/rwsem-spinlock.h b/include/linux/rwsem-spinlock.h
-index ae0528b834cd..e784761a4443 100644
---- a/include/linux/rwsem-spinlock.h
-+++ b/include/linux/rwsem-spinlock.h
-@@ -32,6 +32,7 @@ struct rw_semaphore {
- #define RWSEM_UNLOCKED_VALUE		0x00000000
+diff --git a/arch/ia64/include/asm/siginfo.h b/arch/ia64/include/asm/siginfo.h
+index 6f2e2dd0f28f..dd2f2fce976b 100644
+--- a/arch/ia64/include/asm/siginfo.h
++++ b/arch/ia64/include/asm/siginfo.h
+@@ -1,23 +1 @@
+-/*
+- * Based on <asm-i386/siginfo.h>.
+- *
+- * Modified 1998-2002
+- *	David Mosberger-Tang <davidm@hpl.hp.com>, Hewlett-Packard Co
+- */
+-#ifndef _ASM_IA64_SIGINFO_H
+-#define _ASM_IA64_SIGINFO_H
+-
+-#include <linux/string.h>
+ #include <uapi/asm/siginfo.h>
+-
+-static inline void
+-copy_siginfo (siginfo_t *to, siginfo_t *from)
+-{
+-	if (from->si_code < 0)
+-		memcpy(to, from, sizeof(siginfo_t));
+-	else
+-		/* _sigchld is currently the largest know union member */
+-		memcpy(to, from, 4*sizeof(int) + sizeof(from->_sifields._sigchld));
+-}
+-
+-#endif /* _ASM_IA64_SIGINFO_H */
+diff --git a/arch/ia64/include/uapi/asm/siginfo.h b/arch/ia64/include/uapi/asm/siginfo.h
+index f72bf0172bb2..4694c64252d6 100644
+--- a/arch/ia64/include/uapi/asm/siginfo.h
++++ b/arch/ia64/include/uapi/asm/siginfo.h
+@@ -11,7 +11,6 @@
+ #define __ARCH_SI_PREAMBLE_SIZE	(4 * sizeof(int))
  
- extern void __down_read(struct rw_semaphore *sem);
-+extern int __must_check __down_read_killable(struct rw_semaphore *sem);
- extern int __down_read_trylock(struct rw_semaphore *sem);
- extern void __down_write(struct rw_semaphore *sem);
- extern int __must_check __down_write_killable(struct rw_semaphore *sem);
-diff --git a/kernel/locking/rwsem-spinlock.c b/kernel/locking/rwsem-spinlock.c
-index 20819df98125..0848634c5512 100644
---- a/kernel/locking/rwsem-spinlock.c
-+++ b/kernel/locking/rwsem-spinlock.c
-@@ -126,7 +126,7 @@ __rwsem_wake_one_writer(struct rw_semaphore *sem)
- /*
-  * get a read lock on the semaphore
-  */
--void __sched __down_read(struct rw_semaphore *sem)
-+int __sched __down_read_common(struct rw_semaphore *sem, int state)
+ #define HAVE_ARCH_SIGINFO_T
+-#define HAVE_ARCH_COPY_SIGINFO
+ #define HAVE_ARCH_COPY_SIGINFO_TO_USER
+ 
+ #include <asm-generic/siginfo.h>
+diff --git a/include/linux/signal.h b/include/linux/signal.h
+index 1f5a16620693..80c7418be359 100644
+--- a/include/linux/signal.h
++++ b/include/linux/signal.h
+@@ -3,16 +3,13 @@
+ 
+ #include <linux/bug.h>
+ #include <linux/signal_types.h>
++#include <linux/string.h>
+ 
+ struct task_struct;
+ 
+ /* for sysctl */
+ extern int print_fatal_signals;
+ 
+-#ifndef HAVE_ARCH_COPY_SIGINFO
+-
+-#include <linux/string.h>
+-
+ static inline void copy_siginfo(struct siginfo *to, struct siginfo *from)
  {
- 	struct rwsem_waiter waiter;
- 	unsigned long flags;
-@@ -140,8 +140,6 @@ void __sched __down_read(struct rw_semaphore *sem)
- 		goto out;
- 	}
- 
--	set_current_state(TASK_UNINTERRUPTIBLE);
--
- 	/* set up my own style of waitqueue */
- 	waiter.task = current;
- 	waiter.type = RWSEM_WAITING_FOR_READ;
-@@ -149,20 +147,41 @@ void __sched __down_read(struct rw_semaphore *sem)
- 
- 	list_add_tail(&waiter.list, &sem->wait_list);
- 
--	/* we don't need to touch the semaphore struct anymore */
--	raw_spin_unlock_irqrestore(&sem->wait_lock, flags);
--
- 	/* wait to be given the lock */
- 	for (;;) {
- 		if (!waiter.task)
- 			break;
-+		if (signal_pending_state(state, current))
-+			goto out_nolock;
-+		set_current_state(state);
-+		raw_spin_unlock_irqrestore(&sem->wait_lock, flags);
- 		schedule();
--		set_current_state(TASK_UNINTERRUPTIBLE);
-+		raw_spin_lock_irqsave(&sem->wait_lock, flags);
- 	}
- 
--	__set_current_state(TASK_RUNNING);
-+	raw_spin_unlock_irqrestore(&sem->wait_lock, flags);
-  out:
--	;
-+	return 0;
-+
-+out_nolock:
-+	/*
-+	 * We didn't take the lock, so that there is a writer, which
-+	 * is owner or the first waiter of the sem. If it's a waiter,
-+	 * it will be woken by current owner. Not need to wake anybody.
-+	 */
-+	list_del(&waiter.list);
-+	raw_spin_unlock_irqrestore(&sem->wait_lock, flags);
-+	return -EINTR;
-+}
-+
-+void __sched __down_read(struct rw_semaphore *sem)
-+{
-+	__down_read_common(sem, TASK_UNINTERRUPTIBLE);
-+}
-+
-+int __sched __down_read_killable(struct rw_semaphore *sem)
-+{
-+	return __down_read_common(sem, TASK_KILLABLE);
+ 	if (from->si_code < 0)
+@@ -22,8 +19,6 @@ static inline void copy_siginfo(struct siginfo *to, struct siginfo *from)
+ 		memcpy(to, from, __ARCH_SI_PREAMBLE_SIZE + sizeof(from->_sifields._sigchld));
  }
  
+-#endif
+-
  /*
+  * Define some primitives to manipulate sigset_t.
+  */
+-- 
+2.11.0
 
