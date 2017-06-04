@@ -1,140 +1,36 @@
-From: Waiman Long <longman@redhat.com>
-Date: Thu, 01 Jun 2017 17:38:59 +0000
-Subject: [PATCH v5 1/9] locking/rwsem: relocate rwsem_down_read_failed()
-Message-Id: <1496338747-20398-2-git-send-email-longman@redhat.com>
+From: Colin King <colin.king@canonical.com>
+Date: Sun, 04 Jun 2017 22:56:34 +0000
+Subject: [PATCH][RESEND] ia64, err-inject: fix spelling mistake: "capapbilities" -> "capabilities"
+Message-Id: <20170604225634.317-1-colin.king@canonical.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1496338747-20398-1-git-send-email-longman@redhat.com>
-In-Reply-To: <1496338747-20398-1-git-send-email-longman@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>
-Cc: linux-kernel@vger.kernel.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-arch@vger.kernel.org, Davidlohr Bueso <dave@stgolabs.net>, Dave Chinner <david@fromorbit.com>, Waiman Long <longman@redhat.com>
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Jan Kara <jack@suse.cz>, =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>, Jesper Nilsson <jesper.nilsson@axis.com>, Lorenzo Stoakes <lstoakes@gmail.com>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>, linux-ia64@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
 
-The rwsem_down_read_failed() function was relocted from above the
-optimistic spinning section to below that section. This enables
-it to use functions in that section in future patches. There is no
-code change.
+From: Colin Ian King <colin.king@canonical.com>
 
-Signed-off-by: Waiman Long <longman@redhat.com>
+trivial fix to spelling mistake in printk debug message
+
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
 ---
- kernel/locking/rwsem-xadd.c | 96 ++++++++++++++++++++++-----------------------
- 1 file changed, 48 insertions(+), 48 deletions(-)
+ arch/ia64/kernel/err_inject.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/kernel/locking/rwsem-xadd.c b/kernel/locking/rwsem-xadd.c
-index 34e727f..13bdbc3 100644
---- a/kernel/locking/rwsem-xadd.c
-+++ b/kernel/locking/rwsem-xadd.c
-@@ -219,54 +219,6 @@ static void __rwsem_mark_wake(struct rw_semaphore *sem,
- }
+diff --git a/arch/ia64/kernel/err_inject.c b/arch/ia64/kernel/err_inject.c
+index 85bba43e7d5d..34e460bd8a95 100644
+--- a/arch/ia64/kernel/err_inject.c
++++ b/arch/ia64/kernel/err_inject.c
+@@ -117,7 +117,7 @@ store_call_start(struct device *dev, struct device_attribute *attr,
  
- /*
-- * Wait for the read lock to be granted
-- */
--__visible
--struct rw_semaphore __sched *rwsem_down_read_failed(struct rw_semaphore *sem)
--{
--	long count, adjustment = -RWSEM_ACTIVE_READ_BIAS;
--	struct rwsem_waiter waiter;
--	DEFINE_WAKE_Q(wake_q);
--
--	waiter.task = current;
--	waiter.type = RWSEM_WAITING_FOR_READ;
--
--	raw_spin_lock_irq(&sem->wait_lock);
--	if (list_empty(&sem->wait_list))
--		adjustment += RWSEM_WAITING_BIAS;
--	list_add_tail(&waiter.list, &sem->wait_list);
--
--	/* we're now waiting on the lock, but no longer actively locking */
--	count = atomic_long_add_return(adjustment, &sem->count);
--
--	/*
--	 * If there are no active locks, wake the front queued process(es).
--	 *
--	 * If there are no writers and we are first in the queue,
--	 * wake our own waiter to join the existing active readers !
--	 */
--	if (count = RWSEM_WAITING_BIAS ||
--	    (count > RWSEM_WAITING_BIAS &&
--	     adjustment != -RWSEM_ACTIVE_READ_BIAS))
--		__rwsem_mark_wake(sem, RWSEM_WAKE_ANY, &wake_q);
--
--	raw_spin_unlock_irq(&sem->wait_lock);
--	wake_up_q(&wake_q);
--
--	/* wait to be given the lock */
--	while (true) {
--		set_current_state(TASK_UNINTERRUPTIBLE);
--		if (!waiter.task)
--			break;
--		schedule();
--	}
--
--	__set_current_state(TASK_RUNNING);
--	return sem;
--}
--EXPORT_SYMBOL(rwsem_down_read_failed);
--
--/*
-  * This function must be called with the sem->wait_lock held to prevent
-  * race conditions between checking the rwsem wait list and setting the
-  * sem->count accordingly.
-@@ -461,6 +413,54 @@ static inline bool rwsem_has_spinner(struct rw_semaphore *sem)
+ #ifdef ERR_INJ_DEBUG
+ 	printk(KERN_DEBUG "Returns: status=%d,\n", (int)status[cpu]);
+-	printk(KERN_DEBUG "capapbilities=%lx,\n", capabilities[cpu]);
++	printk(KERN_DEBUG "capabilities=%lx,\n", capabilities[cpu]);
+ 	printk(KERN_DEBUG "resources=%lx\n", resources[cpu]);
  #endif
- 
- /*
-+ * Wait for the read lock to be granted
-+ */
-+__visible
-+struct rw_semaphore __sched *rwsem_down_read_failed(struct rw_semaphore *sem)
-+{
-+	long count, adjustment = -RWSEM_ACTIVE_READ_BIAS;
-+	struct rwsem_waiter waiter;
-+	DEFINE_WAKE_Q(wake_q);
-+
-+	waiter.task = current;
-+	waiter.type = RWSEM_WAITING_FOR_READ;
-+
-+	raw_spin_lock_irq(&sem->wait_lock);
-+	if (list_empty(&sem->wait_list))
-+		adjustment += RWSEM_WAITING_BIAS;
-+	list_add_tail(&waiter.list, &sem->wait_list);
-+
-+	/* we're now waiting on the lock, but no longer actively locking */
-+	count = atomic_long_add_return(adjustment, &sem->count);
-+
-+	/*
-+	 * If there are no active locks, wake the front queued process(es).
-+	 *
-+	 * If there are no writers and we are first in the queue,
-+	 * wake our own waiter to join the existing active readers !
-+	 */
-+	if (count = RWSEM_WAITING_BIAS ||
-+	    (count > RWSEM_WAITING_BIAS &&
-+	     adjustment != -RWSEM_ACTIVE_READ_BIAS))
-+		__rwsem_mark_wake(sem, RWSEM_WAKE_ANY, &wake_q);
-+
-+	raw_spin_unlock_irq(&sem->wait_lock);
-+	wake_up_q(&wake_q);
-+
-+	/* wait to be given the lock */
-+	while (true) {
-+		set_current_state(TASK_UNINTERRUPTIBLE);
-+		if (!waiter.task)
-+			break;
-+		schedule();
-+	}
-+
-+	__set_current_state(TASK_RUNNING);
-+	return sem;
-+}
-+EXPORT_SYMBOL(rwsem_down_read_failed);
-+
-+/*
-  * Wait until we successfully acquire the write lock
-  */
- static inline struct rw_semaphore *
+ 	return size;
 -- 
-1.8.3.1
+2.11.0
 
