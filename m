@@ -1,123 +1,70 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Fri, 16 Jun 2017 18:10:38 +0000
-Subject: [PATCH 23/44] x86/calgary: implement ->mapping_error
-Message-Id: <20170616181059.19206-24-hch@lst.de>
+From: Julia Lawall <julia.lawall@lip6.fr>
+Date: Tue, 06 Jun 2017 08:45:16 +0000
+Subject: [ia64:cqm_and_mbm 10/18] arch/x86/kernel/cpu/intel_rdt_rdtgroup.c:1122:5-9: WARNING: Unsigned expres
+Message-Id: <alpine.DEB.2.20.1706061044330.3023@hadrien>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20170616181059.19206-1-hch@lst.de>
-In-Reply-To: <20170616181059.19206-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: x86@kernel.org, linux-arm-kernel@lists.infradead.org, xen-devel@lists.xenproject.org, linux-c6x-dev@linux-c6x.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, openrisc@lists.librecores.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, dmaengine@vger.kernel.org, linux-tegra@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-samsung-soc@vger.kernel.org, iommu@lists.linux-foundation.org, netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-DMA_ERROR_CODE is going to go away, so don't rely on it.
+Please check on whether rmid can be signed.
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+julia
+
+---------- Forwarded message ----------
+Date: Tue, 6 Jun 2017 16:24:23 +0800
+From: kbuild test robot <fengguang.wu@intel.com>
+To: kbuild@01.org
+Cc: Julia Lawall <julia.lawall@lip6.fr>
+Subject: [ia64:cqm_and_mbm 10/18]
+    arch/x86/kernel/cpu/intel_rdt_rdtgroup.c:1122:5-9: WARNING: Unsigned
+    expression compared with zero: rmid < 0
+
+CC: kbuild-all@01.org
+CC: linux-ia64@vger.kernel.org
+TO: Vikas Shivappa <vikas.shivappa@linux.intel.com>
+CC: Tony Luck <tony.luck@intel.com>
+
+tree:   https://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git cqm_and_mbm
+head:   e1a50409e356aed21c7a822b513cef97ca74934b
+commit: aae042f2b4e0961dea80c859d3128c47b66d499b [10/18] x86/intel_rdt/cqm: Add mkdir support for RDT monitoring
+:::::: branch date: 9 hours ago
+:::::: commit date: 9 hours ago
+
+>> arch/x86/kernel/cpu/intel_rdt_rdtgroup.c:1122:5-9: WARNING: Unsigned expression compared with zero: rmid < 0
+
+git remote add ia64 https://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git
+git remote update ia64
+git checkout aae042f2b4e0961dea80c859d3128c47b66d499b
+vim +1122 arch/x86/kernel/cpu/intel_rdt_rdtgroup.c
+
+5ff193fb Fenghua Yu     2016-10-28  1106  	kernfs_kill_sb(sb);
+5ff193fb Fenghua Yu     2016-10-28  1107  	mutex_unlock(&rdtgroup_mutex);
+5ff193fb Fenghua Yu     2016-10-28  1108  }
+5ff193fb Fenghua Yu     2016-10-28  1109
+5ff193fb Fenghua Yu     2016-10-28  1110  static struct file_system_type rdt_fs_type = {
+5ff193fb Fenghua Yu     2016-10-28  1111  	.name    = "resctrl",
+5ff193fb Fenghua Yu     2016-10-28  1112  	.mount   = rdt_mount,
+5ff193fb Fenghua Yu     2016-10-28  1113  	.kill_sb = rdt_kill_sb,
+5ff193fb Fenghua Yu     2016-10-28  1114  };
+5ff193fb Fenghua Yu     2016-10-28  1115
+aae042f2 Vikas Shivappa 2017-06-03  1116  static int mkdir_rdt_common(struct kernfs_node *kn, enum rdt_group_type rtype,
+aae042f2 Vikas Shivappa 2017-06-03  1117  			    struct rdtgroup *rdtgrp)
+aae042f2 Vikas Shivappa 2017-06-03  1118  {
+aae042f2 Vikas Shivappa 2017-06-03  1119  	u32 rmid;
+aae042f2 Vikas Shivappa 2017-06-03  1120
+aae042f2 Vikas Shivappa 2017-06-03  1121  	rmid = alloc_rmid();
+aae042f2 Vikas Shivappa 2017-06-03 @1122  	if (rmid < 0)
+aae042f2 Vikas Shivappa 2017-06-03  1123  		return rmid;
+aae042f2 Vikas Shivappa 2017-06-03  1124
+aae042f2 Vikas Shivappa 2017-06-03  1125  	rdtgrp->rmid = rmid;
+aae042f2 Vikas Shivappa 2017-06-03  1126  	rdtgrp->type = rtype;
+aae042f2 Vikas Shivappa 2017-06-03  1127
+aae042f2 Vikas Shivappa 2017-06-03  1128  	return 0;
+aae042f2 Vikas Shivappa 2017-06-03  1129  }
+aae042f2 Vikas Shivappa 2017-06-03  1130
+
 ---
- arch/x86/kernel/pci-calgary_64.c | 24 ++++++++++++++++--------
- 1 file changed, 16 insertions(+), 8 deletions(-)
-
-diff --git a/arch/x86/kernel/pci-calgary_64.c b/arch/x86/kernel/pci-calgary_64.c
-index fda7867046d0..e75b490f2b0b 100644
---- a/arch/x86/kernel/pci-calgary_64.c
-+++ b/arch/x86/kernel/pci-calgary_64.c
-@@ -50,6 +50,8 @@
- #include <asm/x86_init.h>
- #include <asm/iommu_table.h>
- 
-+#define CALGARY_MAPPING_ERROR	0
-+
- #ifdef CONFIG_CALGARY_IOMMU_ENABLED_BY_DEFAULT
- int use_calgary __read_mostly = 1;
- #else
-@@ -252,7 +254,7 @@ static unsigned long iommu_range_alloc(struct device *dev,
- 			if (panic_on_overflow)
- 				panic("Calgary: fix the allocator.\n");
- 			else
--				return DMA_ERROR_CODE;
-+				return CALGARY_MAPPING_ERROR;
- 		}
- 	}
- 
-@@ -272,10 +274,10 @@ static dma_addr_t iommu_alloc(struct device *dev, struct iommu_table *tbl,
- 
- 	entry = iommu_range_alloc(dev, tbl, npages);
- 
--	if (unlikely(entry = DMA_ERROR_CODE)) {
-+	if (unlikely(entry = CALGARY_MAPPING_ERROR)) {
- 		pr_warn("failed to allocate %u pages in iommu %p\n",
- 			npages, tbl);
--		return DMA_ERROR_CODE;
-+		return CALGARY_MAPPING_ERROR;
- 	}
- 
- 	/* set the return dma address */
-@@ -295,7 +297,7 @@ static void iommu_free(struct iommu_table *tbl, dma_addr_t dma_addr,
- 	unsigned long flags;
- 
- 	/* were we called with bad_dma_address? */
--	badend = DMA_ERROR_CODE + (EMERGENCY_PAGES * PAGE_SIZE);
-+	badend = CALGARY_MAPPING_ERROR + (EMERGENCY_PAGES * PAGE_SIZE);
- 	if (unlikely(dma_addr < badend)) {
- 		WARN(1, KERN_ERR "Calgary: driver tried unmapping bad DMA "
- 		       "address 0x%Lx\n", dma_addr);
-@@ -380,7 +382,7 @@ static int calgary_map_sg(struct device *dev, struct scatterlist *sg,
- 		npages = iommu_num_pages(vaddr, s->length, PAGE_SIZE);
- 
- 		entry = iommu_range_alloc(dev, tbl, npages);
--		if (entry = DMA_ERROR_CODE) {
-+		if (entry = CALGARY_MAPPING_ERROR) {
- 			/* makes sure unmap knows to stop */
- 			s->dma_length = 0;
- 			goto error;
-@@ -398,7 +400,7 @@ static int calgary_map_sg(struct device *dev, struct scatterlist *sg,
- error:
- 	calgary_unmap_sg(dev, sg, nelems, dir, 0);
- 	for_each_sg(sg, s, nelems, i) {
--		sg->dma_address = DMA_ERROR_CODE;
-+		sg->dma_address = CALGARY_MAPPING_ERROR;
- 		sg->dma_length = 0;
- 	}
- 	return 0;
-@@ -453,7 +455,7 @@ static void* calgary_alloc_coherent(struct device *dev, size_t size,
- 
- 	/* set up tces to cover the allocated range */
- 	mapping = iommu_alloc(dev, tbl, ret, npages, DMA_BIDIRECTIONAL);
--	if (mapping = DMA_ERROR_CODE)
-+	if (mapping = CALGARY_MAPPING_ERROR)
- 		goto free;
- 	*dma_handle = mapping;
- 	return ret;
-@@ -478,6 +480,11 @@ static void calgary_free_coherent(struct device *dev, size_t size,
- 	free_pages((unsigned long)vaddr, get_order(size));
- }
- 
-+static int calgary_mapping_error(struct device *dev, dma_addr_t dma_addr)
-+{
-+	return dma_addr = CALGARY_MAPPING_ERROR;
-+}
-+
- static const struct dma_map_ops calgary_dma_ops = {
- 	.alloc = calgary_alloc_coherent,
- 	.free = calgary_free_coherent,
-@@ -485,6 +492,7 @@ static const struct dma_map_ops calgary_dma_ops = {
- 	.unmap_sg = calgary_unmap_sg,
- 	.map_page = calgary_map_page,
- 	.unmap_page = calgary_unmap_page,
-+	.mapping_error = calgary_mapping_error,
- };
- 
- static inline void __iomem * busno_to_bbar(unsigned char num)
-@@ -732,7 +740,7 @@ static void __init calgary_reserve_regions(struct pci_dev *dev)
- 	struct iommu_table *tbl = pci_iommu(dev->bus);
- 
- 	/* reserve EMERGENCY_PAGES from bad_dma_address and up */
--	iommu_range_reserve(tbl, DMA_ERROR_CODE, EMERGENCY_PAGES);
-+	iommu_range_reserve(tbl, CALGARY_MAPPING_ERROR, EMERGENCY_PAGES);
- 
- 	/* avoid the BIOS/VGA first 640KB-1MB region */
- 	/* for CalIOC2 - avoid the entire first MB */
--- 
-2.11.0
-
+0-DAY kernel test infrastructure                Open Source Technology Center
+https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
