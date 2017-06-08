@@ -1,41 +1,36 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Fri, 16 Jun 2017 18:10:48 +0000
-Subject: [PATCH 33/44] openrisc: remove arch-specific dma_supported implementation
-Message-Id: <20170616181059.19206-34-hch@lst.de>
+Date: Thu, 08 Jun 2017 13:25:35 +0000
+Subject: [PATCH 10/44] ia64: remove DMA_ERROR_CODE
+Message-Id: <20170608132609.32662-11-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20170616181059.19206-1-hch@lst.de>
-In-Reply-To: <20170616181059.19206-1-hch@lst.de>
+References: <20170608132609.32662-1-hch@lst.de>
+In-Reply-To: <20170608132609.32662-1-hch-jcswGhMUV9g@public.gmane.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: x86@kernel.org, linux-arm-kernel@lists.infradead.org, xen-devel@lists.xenproject.org, linux-c6x-dev@linux-c6x.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, openrisc@lists.librecores.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, dmaengine@vger.kernel.org, linux-tegra@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-samsung-soc@vger.kernel.org, iommu@lists.linux-foundation.org, netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
+To: x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org, linux-c6x-dev-jPsnJVOj+W6hPH1hqNUYSQ@public.gmane.org, linux-hexagon-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, openrisc-cunTk1MwBs9a3B2Vnqf2dGD2FQJk+8+b@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org, dmaengine-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, linux-samsung-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 
-This implementation is simply bogus - openrisc only has a simple
-direct mapped DMA implementation and thus doesn't care about the
-address.
+All ia64 dma_mapping_ops instances already have a mapping_error member.
 
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- arch/openrisc/include/asm/dma-mapping.h | 7 -------
- 1 file changed, 7 deletions(-)
+ arch/ia64/include/asm/dma-mapping.h | 2 --
+ 1 file changed, 2 deletions(-)
 
-diff --git a/arch/openrisc/include/asm/dma-mapping.h b/arch/openrisc/include/asm/dma-mapping.h
-index a4ea139c2ef9..f41bd3cb76d9 100644
---- a/arch/openrisc/include/asm/dma-mapping.h
-+++ b/arch/openrisc/include/asm/dma-mapping.h
-@@ -33,11 +33,4 @@ static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
- 	return &or1k_dma_map_ops;
- }
+diff --git a/arch/ia64/include/asm/dma-mapping.h b/arch/ia64/include/asm/dma-mapping.h
+index 73ec3c6f4cfe..3ce5ab4339f3 100644
+--- a/arch/ia64/include/asm/dma-mapping.h
++++ b/arch/ia64/include/asm/dma-mapping.h
+@@ -12,8 +12,6 @@
  
--#define HAVE_ARCH_DMA_SUPPORTED 1
--static inline int dma_supported(struct device *dev, u64 dma_mask)
--{
--	/* Support 32 bit DMA mask exclusively */
--	return dma_mask = DMA_BIT_MASK(32);
--}
+ #define ARCH_HAS_DMA_GET_REQUIRED_MASK
+ 
+-#define DMA_ERROR_CODE 0
 -
- #endif	/* __ASM_OPENRISC_DMA_MAPPING_H */
+ extern const struct dma_map_ops *dma_ops;
+ extern struct ia64_machine_vector ia64_mv;
+ extern void set_iommu_machvec(void);
 -- 
 2.11.0
 
