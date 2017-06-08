@@ -1,84 +1,42 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Fri, 16 Jun 2017 18:10:41 +0000
-Subject: [PATCH 26/44] dma-mapping: remove DMA_ERROR_CODE
-Message-Id: <20170616181059.19206-27-hch@lst.de>
+Date: Thu, 08 Jun 2017 13:25:26 +0000
+Subject: [PATCH 01/44] firmware/ivc: use dma_mapping_error
+Message-Id: <20170608132609.32662-2-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20170616181059.19206-1-hch@lst.de>
-In-Reply-To: <20170616181059.19206-1-hch@lst.de>
+References: <20170608132609.32662-1-hch@lst.de>
+In-Reply-To: <20170608132609.32662-1-hch-jcswGhMUV9g@public.gmane.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: x86@kernel.org, linux-arm-kernel@lists.infradead.org, xen-devel@lists.xenproject.org, linux-c6x-dev@linux-c6x.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, openrisc@lists.librecores.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, dmaengine@vger.kernel.org, linux-tegra@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-samsung-soc@vger.kernel.org, iommu@lists.linux-foundation.org, netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
+To: x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org, linux-c6x-dev-jPsnJVOj+W6hPH1hqNUYSQ@public.gmane.org, linux-hexagon-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, openrisc-cunTk1MwBs9a3B2Vnqf2dGD2FQJk+8+b@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org, dmaengine-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, linux-samsung-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 
-And update the documentation - dma_mapping_error has been supported
-everywhere for a long time.
+DMA_ERROR_CODE is not supposed to be used by drivers.
 
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- Documentation/DMA-API-HOWTO.txt | 31 +++++--------------------------
- include/linux/dma-mapping.h     |  5 -----
- 2 files changed, 5 insertions(+), 31 deletions(-)
+ drivers/firmware/tegra/ivc.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/Documentation/DMA-API-HOWTO.txt b/Documentation/DMA-API-HOWTO.txt
-index 979228bc9035..4ed388356898 100644
---- a/Documentation/DMA-API-HOWTO.txt
-+++ b/Documentation/DMA-API-HOWTO.txt
-@@ -550,32 +550,11 @@ and to unmap it:
- 	dma_unmap_single(dev, dma_handle, size, direction);
+diff --git a/drivers/firmware/tegra/ivc.c b/drivers/firmware/tegra/ivc.c
+index 29ecfd815320..a01461d63f68 100644
+--- a/drivers/firmware/tegra/ivc.c
++++ b/drivers/firmware/tegra/ivc.c
+@@ -646,12 +646,12 @@ int tegra_ivc_init(struct tegra_ivc *ivc, struct device *peer, void *rx,
+ 	if (peer) {
+ 		ivc->rx.phys = dma_map_single(peer, rx, queue_size,
+ 					      DMA_BIDIRECTIONAL);
+-		if (ivc->rx.phys = DMA_ERROR_CODE)
++		if (dma_mapping_error(peer, ivc->rx.phys))
+ 			return -ENOMEM;
  
- You should call dma_mapping_error() as dma_map_single() could fail and return
--error. Not all DMA implementations support the dma_mapping_error() interface.
--However, it is a good practice to call dma_mapping_error() interface, which
--will invoke the generic mapping error check interface. Doing so will ensure
--that the mapping code will work correctly on all DMA implementations without
--any dependency on the specifics of the underlying implementation. Using the
--returned address without checking for errors could result in failures ranging
--from panics to silent data corruption. A couple of examples of incorrect ways
--to check for errors that make assumptions about the underlying DMA
--implementation are as follows and these are applicable to dma_map_page() as
--well.
--
--Incorrect example 1:
--	dma_addr_t dma_handle;
--
--	dma_handle = dma_map_single(dev, addr, size, direction);
--	if ((dma_handle & 0xffff != 0) || (dma_handle >= 0x1000000)) {
--		goto map_error;
--	}
--
--Incorrect example 2:
--	dma_addr_t dma_handle;
--
--	dma_handle = dma_map_single(dev, addr, size, direction);
--	if (dma_handle = DMA_ERROR_CODE) {
--		goto map_error;
--	}
-+error.  Doing so will ensure that the mapping code will work correctly on all
-+DMA implementations without any dependency on the specifics of the underlying
-+implementation. Using the returned address without checking for errors could
-+result in failures ranging from panics to silent data corruption.  The same
-+applies to dma_map_page() as well.
- 
- You should call dma_unmap_single() when the DMA activity is finished, e.g.,
- from the interrupt which told you that the DMA transfer is done.
-diff --git a/include/linux/dma-mapping.h b/include/linux/dma-mapping.h
-index 4f3eecedca2d..a57875309bfd 100644
---- a/include/linux/dma-mapping.h
-+++ b/include/linux/dma-mapping.h
-@@ -546,12 +546,7 @@ static inline int dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
- 
- 	if (get_dma_ops(dev)->mapping_error)
- 		return get_dma_ops(dev)->mapping_error(dev, dma_addr);
--
--#ifdef DMA_ERROR_CODE
--	return dma_addr = DMA_ERROR_CODE;
--#else
- 	return 0;
--#endif
- }
- 
- #ifndef HAVE_ARCH_DMA_SUPPORTED
+ 		ivc->tx.phys = dma_map_single(peer, tx, queue_size,
+ 					      DMA_BIDIRECTIONAL);
+-		if (ivc->tx.phys = DMA_ERROR_CODE) {
++		if (dma_mapping_error(peer, ivc->tx.phys)) {
+ 			dma_unmap_single(peer, ivc->rx.phys, queue_size,
+ 					 DMA_BIDIRECTIONAL);
+ 			return -ENOMEM;
 -- 
 2.11.0
 
