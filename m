@@ -1,115 +1,92 @@
-From: Robin Murphy <robin.murphy@arm.com>
-Date: Mon, 19 Jun 2017 15:12:32 +0000
-Subject: Re: [PATCH 06/44] iommu/dma: don't rely on DMA_ERROR_CODE
-Message-Id: <18ff1d49-4a13-3dea-8a4d-fb778aec37dc@arm.com>
+From: Christoph Hellwig <hch@lst.de>
+Date: Thu, 08 Jun 2017 13:26:05 +0000
+Subject: [PATCH 40/44] tile: remove dma_supported and mapping_error methods
+Message-Id: <20170608132609.32662-41-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20170616181059.19206-1-hch@lst.de>
-	<20170616181059.19206-7-hch@lst.de>
-In-Reply-To: <20170616181059.19206-7-hch-jcswGhMUV9g@public.gmane.org>
+References: <20170608132609.32662-1-hch@lst.de>
+In-Reply-To: <20170608132609.32662-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org, linux-c6x-dev-jPsnJVOj+W6hPH1hqNUYSQ@public.gmane.org, linux-hexagon-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, openrisc-cunTk1MwBs9a3B2Vnqf2dGD2FQJk+8+b@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org, dmaengine-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, linux-samsung-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: x86@kernel.org, linux-arm-kernel@lists.infradead.org, xen-devel@lists.xenproject.org, linux-c6x-dev@linux-c6x.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, openrisc@lists.librecores.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, dmaengine@vger.kernel.org, linux-tegra@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-samsung-soc@vger.kernel.org, iommu@lists.linux-foundation.org, netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
 
-On 16/06/17 19:10, Christoph Hellwig wrote:
-> DMA_ERROR_CODE is not a public API and will go away soon.  dma dma-iommu
-> driver already implements a proper ->mapping_error method, so it's only
-> using the value internally.  Add a new local define using the value
-> that arm64 which is the only current user of dma-iommu.
+These just duplicate the default behavior if no method is provided.
 
-I was angling at just open-coding 0/!dma_addr/etc. for simplicity rather
-than having anything #defined at all - nothing except the 4th and final
-hunks actually have any relevance to  dma_mapping_error(), and I reckon
-it's plenty clear enough in context. The rest is just proactively
-blatting address arguments with "arbitrary definitely-invalid value",
-which is more paranoia than anything else (and arguably unnecessary).
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ arch/tile/kernel/pci-dma.c | 30 ------------------------------
+ 1 file changed, 30 deletions(-)
 
-It's not the biggest deal, though, so either way:
-
-Reviewed-by: Robin Murphy <robin.murphy@arm.com>
-
-> Signed-off-by: Christoph Hellwig <hch@lst.de>
-> ---
->  drivers/iommu/dma-iommu.c | 18 ++++++++++--------
->  1 file changed, 10 insertions(+), 8 deletions(-)
-> 
-> diff --git a/drivers/iommu/dma-iommu.c b/drivers/iommu/dma-iommu.c
-> index 62618e77bedc..9403336f1fa6 100644
-> --- a/drivers/iommu/dma-iommu.c
-> +++ b/drivers/iommu/dma-iommu.c
-> @@ -31,6 +31,8 @@
->  #include <linux/scatterlist.h>
->  #include <linux/vmalloc.h>
->  
-> +#define IOMMU_MAPPING_ERROR	0
-> +
->  struct iommu_dma_msi_page {
->  	struct list_head	list;
->  	dma_addr_t		iova;
-> @@ -500,7 +502,7 @@ void iommu_dma_free(struct device *dev, struct page **pages, size_t size,
->  {
->  	__iommu_dma_unmap(iommu_get_domain_for_dev(dev), *handle, size);
->  	__iommu_dma_free_pages(pages, PAGE_ALIGN(size) >> PAGE_SHIFT);
-> -	*handle = DMA_ERROR_CODE;
-> +	*handle = IOMMU_MAPPING_ERROR;
->  }
->  
->  /**
-> @@ -533,7 +535,7 @@ struct page **iommu_dma_alloc(struct device *dev, size_t size, gfp_t gfp,
->  	dma_addr_t iova;
->  	unsigned int count, min_size, alloc_sizes = domain->pgsize_bitmap;
->  
-> -	*handle = DMA_ERROR_CODE;
-> +	*handle = IOMMU_MAPPING_ERROR;
->  
->  	min_size = alloc_sizes & -alloc_sizes;
->  	if (min_size < PAGE_SIZE) {
-> @@ -627,11 +629,11 @@ static dma_addr_t __iommu_dma_map(struct device *dev, phys_addr_t phys,
->  
->  	iova = iommu_dma_alloc_iova(domain, size, dma_get_mask(dev), dev);
->  	if (!iova)
-> -		return DMA_ERROR_CODE;
-> +		return IOMMU_MAPPING_ERROR;
->  
->  	if (iommu_map(domain, iova, phys - iova_off, size, prot)) {
->  		iommu_dma_free_iova(cookie, iova, size);
-> -		return DMA_ERROR_CODE;
-> +		return IOMMU_MAPPING_ERROR;
->  	}
->  	return iova + iova_off;
->  }
-> @@ -671,7 +673,7 @@ static int __finalise_sg(struct device *dev, struct scatterlist *sg, int nents,
->  
->  		s->offset += s_iova_off;
->  		s->length = s_length;
-> -		sg_dma_address(s) = DMA_ERROR_CODE;
-> +		sg_dma_address(s) = IOMMU_MAPPING_ERROR;
->  		sg_dma_len(s) = 0;
->  
->  		/*
-> @@ -714,11 +716,11 @@ static void __invalidate_sg(struct scatterlist *sg, int nents)
->  	int i;
->  
->  	for_each_sg(sg, s, nents, i) {
-> -		if (sg_dma_address(s) != DMA_ERROR_CODE)
-> +		if (sg_dma_address(s) != IOMMU_MAPPING_ERROR)
->  			s->offset += sg_dma_address(s);
->  		if (sg_dma_len(s))
->  			s->length = sg_dma_len(s);
-> -		sg_dma_address(s) = DMA_ERROR_CODE;
-> +		sg_dma_address(s) = IOMMU_MAPPING_ERROR;
->  		sg_dma_len(s) = 0;
->  	}
->  }
-> @@ -836,7 +838,7 @@ void iommu_dma_unmap_resource(struct device *dev, dma_addr_t handle,
->  
->  int iommu_dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
->  {
-> -	return dma_addr = DMA_ERROR_CODE;
-> +	return dma_addr = IOMMU_MAPPING_ERROR;
->  }
->  
->  static struct iommu_dma_msi_page *iommu_dma_get_msi_page(struct device *dev,
-> 
+diff --git a/arch/tile/kernel/pci-dma.c b/arch/tile/kernel/pci-dma.c
+index 569bb6dd154a..f2abedc8a080 100644
+--- a/arch/tile/kernel/pci-dma.c
++++ b/arch/tile/kernel/pci-dma.c
+@@ -317,18 +317,6 @@ static void tile_dma_sync_sg_for_device(struct device *dev,
+ 	}
+ }
+ 
+-static inline int
+-tile_dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
+-{
+-	return 0;
+-}
+-
+-static inline int
+-tile_dma_supported(struct device *dev, u64 mask)
+-{
+-	return 1;
+-}
+-
+ static const struct dma_map_ops tile_default_dma_map_ops = {
+ 	.alloc = tile_dma_alloc_coherent,
+ 	.free = tile_dma_free_coherent,
+@@ -340,8 +328,6 @@ static const struct dma_map_ops tile_default_dma_map_ops = {
+ 	.sync_single_for_device = tile_dma_sync_single_for_device,
+ 	.sync_sg_for_cpu = tile_dma_sync_sg_for_cpu,
+ 	.sync_sg_for_device = tile_dma_sync_sg_for_device,
+-	.mapping_error = tile_dma_mapping_error,
+-	.dma_supported = tile_dma_supported
+ };
+ 
+ const struct dma_map_ops *tile_dma_map_ops = &tile_default_dma_map_ops;
+@@ -504,18 +490,6 @@ static void tile_pci_dma_sync_sg_for_device(struct device *dev,
+ 	}
+ }
+ 
+-static inline int
+-tile_pci_dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
+-{
+-	return 0;
+-}
+-
+-static inline int
+-tile_pci_dma_supported(struct device *dev, u64 mask)
+-{
+-	return 1;
+-}
+-
+ static const struct dma_map_ops tile_pci_default_dma_map_ops = {
+ 	.alloc = tile_pci_dma_alloc_coherent,
+ 	.free = tile_pci_dma_free_coherent,
+@@ -527,8 +501,6 @@ static const struct dma_map_ops tile_pci_default_dma_map_ops = {
+ 	.sync_single_for_device = tile_pci_dma_sync_single_for_device,
+ 	.sync_sg_for_cpu = tile_pci_dma_sync_sg_for_cpu,
+ 	.sync_sg_for_device = tile_pci_dma_sync_sg_for_device,
+-	.mapping_error = tile_pci_dma_mapping_error,
+-	.dma_supported = tile_pci_dma_supported
+ };
+ 
+ const struct dma_map_ops *gx_pci_dma_map_ops = &tile_pci_default_dma_map_ops;
+@@ -578,8 +550,6 @@ static const struct dma_map_ops pci_hybrid_dma_ops = {
+ 	.sync_single_for_device = tile_pci_dma_sync_single_for_device,
+ 	.sync_sg_for_cpu = tile_pci_dma_sync_sg_for_cpu,
+ 	.sync_sg_for_device = tile_pci_dma_sync_sg_for_device,
+-	.mapping_error = tile_pci_dma_mapping_error,
+-	.dma_supported = tile_pci_dma_supported
+ };
+ 
+ const struct dma_map_ops *gx_legacy_pci_dma_map_ops = &pci_swiotlb_dma_ops;
+-- 
+2.11.0
 
