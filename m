@@ -1,37 +1,65 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Fri, 16 Jun 2017 18:10:39 +0000
-Subject: [PATCH 24/44] x86: remove DMA_ERROR_CODE
-Message-Id: <20170616181059.19206-25-hch@lst.de>
+Date: Thu, 08 Jun 2017 13:26:09 +0000
+Subject: [PATCH 44/44] powerpc: merge __dma_set_mask into dma_set_mask
+Message-Id: <20170608132609.32662-45-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20170616181059.19206-1-hch@lst.de>
-In-Reply-To: <20170616181059.19206-1-hch@lst.de>
+References: <20170608132609.32662-1-hch@lst.de>
+In-Reply-To: <20170608132609.32662-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: x86@kernel.org, linux-arm-kernel@lists.infradead.org, xen-devel@lists.xenproject.org, linux-c6x-dev@linux-c6x.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, openrisc@lists.librecores.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, dmaengine@vger.kernel.org, linux-tegra@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-samsung-soc@vger.kernel.org, iommu@lists.linux-foundation.org, netdev@vger.kernel.org
 Cc: linux-kernel@vger.kernel.org
 
-All dma_map_ops instances now handle their errors through
-->mapping_error.
-
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- arch/x86/include/asm/dma-mapping.h | 2 --
- 1 file changed, 2 deletions(-)
+ arch/powerpc/include/asm/dma-mapping.h |  1 -
+ arch/powerpc/kernel/dma.c              | 13 ++++---------
+ 2 files changed, 4 insertions(+), 10 deletions(-)
 
-diff --git a/arch/x86/include/asm/dma-mapping.h b/arch/x86/include/asm/dma-mapping.h
-index 08a0838b83fb..c35d228aa381 100644
---- a/arch/x86/include/asm/dma-mapping.h
-+++ b/arch/x86/include/asm/dma-mapping.h
-@@ -19,8 +19,6 @@
- # define ISA_DMA_BIT_MASK DMA_BIT_MASK(32)
- #endif
+diff --git a/arch/powerpc/include/asm/dma-mapping.h b/arch/powerpc/include/asm/dma-mapping.h
+index 73aedbe6c977..eaece3d3e225 100644
+--- a/arch/powerpc/include/asm/dma-mapping.h
++++ b/arch/powerpc/include/asm/dma-mapping.h
+@@ -112,7 +112,6 @@ static inline void set_dma_offset(struct device *dev, dma_addr_t off)
+ #define HAVE_ARCH_DMA_SET_MASK 1
+ extern int dma_set_mask(struct device *dev, u64 dma_mask);
  
--#define DMA_ERROR_CODE	0
+-extern int __dma_set_mask(struct device *dev, u64 dma_mask);
+ extern u64 __dma_get_required_mask(struct device *dev);
+ 
+ static inline bool dma_capable(struct device *dev, dma_addr_t addr, size_t size)
+diff --git a/arch/powerpc/kernel/dma.c b/arch/powerpc/kernel/dma.c
+index 466c9f07b288..4194bbbbdb10 100644
+--- a/arch/powerpc/kernel/dma.c
++++ b/arch/powerpc/kernel/dma.c
+@@ -314,14 +314,6 @@ EXPORT_SYMBOL(dma_set_coherent_mask);
+ 
+ #define PREALLOC_DMA_DEBUG_ENTRIES (1 << 16)
+ 
+-int __dma_set_mask(struct device *dev, u64 dma_mask)
+-{
+-	if (!dev->dma_mask || !dma_supported(dev, dma_mask))
+-		return -EIO;
+-	*dev->dma_mask = dma_mask;
+-	return 0;
+-}
 -
- extern int iommu_merge;
- extern struct device x86_dma_fallback_dev;
- extern int panic_on_overflow;
+ int dma_set_mask(struct device *dev, u64 dma_mask)
+ {
+ 	if (ppc_md.dma_set_mask)
+@@ -334,7 +326,10 @@ int dma_set_mask(struct device *dev, u64 dma_mask)
+ 			return phb->controller_ops.dma_set_mask(pdev, dma_mask);
+ 	}
+ 
+-	return __dma_set_mask(dev, dma_mask);
++	if (!dev->dma_mask || !dma_supported(dev, dma_mask))
++		return -EIO;
++	*dev->dma_mask = dma_mask;
++	return 0;
+ }
+ EXPORT_SYMBOL(dma_set_mask);
+ 
 -- 
 2.11.0
 
