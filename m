@@ -1,10 +1,10 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Thu, 08 Jun 2017 13:25:57 +0000
+Date: Fri, 16 Jun 2017 18:10:47 +0000
 Subject: [PATCH 32/44] hexagon: remove the unused dma_is_consistent prototype
-Message-Id: <20170608132609.32662-33-hch@lst.de>
+Message-Id: <20170616181059.19206-33-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20170608132609.32662-1-hch@lst.de>
-In-Reply-To: <20170608132609.32662-1-hch@lst.de>
+References: <20170616181059.19206-1-hch@lst.de>
+In-Reply-To: <20170616181059.19206-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
