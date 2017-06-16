@@ -1,10 +1,10 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Thu, 08 Jun 2017 13:26:03 +0000
+Date: Fri, 16 Jun 2017 18:10:53 +0000
 Subject: [PATCH 38/44] arm: implement ->dma_supported instead of ->set_dma_mask
-Message-Id: <20170608132609.32662-39-hch@lst.de>
+Message-Id: <20170616181059.19206-39-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20170608132609.32662-1-hch@lst.de>
-In-Reply-To: <20170608132609.32662-1-hch@lst.de>
+References: <20170616181059.19206-1-hch@lst.de>
+In-Reply-To: <20170616181059.19206-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -19,7 +19,7 @@ Signed-off-by: Christoph Hellwig <hch@lst.de>
  1 file changed, 3 insertions(+), 4 deletions(-)
 
 diff --git a/arch/arm/common/dmabounce.c b/arch/arm/common/dmabounce.c
-index 4aabf117e136..d89a0b56b245 100644
+index 6ecd5be5d37e..9a92de63426f 100644
 --- a/arch/arm/common/dmabounce.c
 +++ b/arch/arm/common/dmabounce.c
 @@ -445,12 +445,12 @@ static void dmabounce_sync_for_device(struct device *dev,
@@ -37,7 +37,7 @@ index 4aabf117e136..d89a0b56b245 100644
  }
  
  static int dmabounce_mapping_error(struct device *dev, dma_addr_t dma_addr)
-@@ -474,9 +474,8 @@ static const struct dma_map_ops dmabounce_ops = {
+@@ -471,9 +471,8 @@ static const struct dma_map_ops dmabounce_ops = {
  	.unmap_sg		= arm_dma_unmap_sg,
  	.sync_sg_for_cpu	= arm_dma_sync_sg_for_cpu,
  	.sync_sg_for_device	= arm_dma_sync_sg_for_device,
