@@ -1,10 +1,10 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Thu, 08 Jun 2017 13:25:59 +0000
+Date: Fri, 16 Jun 2017 18:10:49 +0000
 Subject: [PATCH 34/44] arm: remove arch specific dma_supported implementation
-Message-Id: <20170608132609.32662-35-hch@lst.de>
+Message-Id: <20170616181059.19206-35-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20170608132609.32662-1-hch@lst.de>
-In-Reply-To: <20170608132609.32662-1-hch@lst.de>
+References: <20170616181059.19206-1-hch@lst.de>
+In-Reply-To: <20170616181059.19206-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -25,10 +25,10 @@ Signed-off-by: Christoph Hellwig <hch@lst.de>
  4 files changed, 8 insertions(+), 5 deletions(-)
 
 diff --git a/arch/arm/common/dmabounce.c b/arch/arm/common/dmabounce.c
-index bad457395ff1..4aabf117e136 100644
+index 4060378e0f14..6ecd5be5d37e 100644
 --- a/arch/arm/common/dmabounce.c
 +++ b/arch/arm/common/dmabounce.c
-@@ -476,6 +476,7 @@ static const struct dma_map_ops dmabounce_ops = {
+@@ -473,6 +473,7 @@ static const struct dma_map_ops dmabounce_ops = {
  	.sync_sg_for_device	= arm_dma_sync_sg_for_device,
  	.set_dma_mask		= dmabounce_set_mask,
  	.mapping_error		= dmabounce_mapping_error,
@@ -63,7 +63,7 @@ index 52a8fd5a8edb..8dabcfdf4505 100644
  #error Please update to __arch_pfn_to_dma
  #endif
 diff --git a/arch/arm/mm/dma-mapping.c b/arch/arm/mm/dma-mapping.c
-index 2dbc94b5fe5c..2938b724826e 100644
+index 8f2c5a8a98f0..b9677ada421f 100644
 --- a/arch/arm/mm/dma-mapping.c
 +++ b/arch/arm/mm/dma-mapping.c
 @@ -199,6 +199,7 @@ const struct dma_map_ops arm_dma_ops = {
