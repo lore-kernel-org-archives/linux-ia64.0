@@ -1,10 +1,10 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Thu, 08 Jun 2017 13:25:54 +0000
+Date: Fri, 16 Jun 2017 18:10:44 +0000
 Subject: [PATCH 29/44] dma-noop: remove dma_supported and mapping_error methods
-Message-Id: <20170608132609.32662-30-hch@lst.de>
+Message-Id: <20170616181059.19206-30-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20170608132609.32662-1-hch@lst.de>
-In-Reply-To: <20170608132609.32662-1-hch@lst.de>
+References: <20170616181059.19206-1-hch@lst.de>
+In-Reply-To: <20170616181059.19206-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
