@@ -1,72 +1,83 @@
-From: Waiman Long <longman@redhat.com>
-Date: Thu, 01 Jun 2017 17:39:05 +0000
-Subject: [PATCH v5 7/9] locking/rwsem: Make rwsem_spin_on_owner() return a tri-state value
-Message-Id: <1496338747-20398-8-git-send-email-longman@redhat.com>
+From: Kirill Tkhai <ktkhai@virtuozzo.com>
+Date: Mon, 19 Jun 2017 18:03:28 +0000
+Subject: [PATCH 7/7] rwsem: Add down_read_killable()
+Message-Id: <149789540861.9059.16507519363746458694.stgit@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1496338747-20398-1-git-send-email-longman@redhat.com>
-In-Reply-To: <1496338747-20398-1-git-send-email-longman@redhat.com>
+References: <149789463636.9059.16943955939303454611.stgit@localhost.localdomain>
+In-Reply-To: <149789463636.9059.16943955939303454611.stgit@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>
-Cc: linux-kernel@vger.kernel.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-arch@vger.kernel.org, Davidlohr Bueso <dave@stgolabs.net>, Dave Chinner <david@fromorbit.com>, Waiman Long <longman@redhat.com>
+To: linux-ia64@vger.kernel.org, avagin@virtuozzo.com, peterz@infradead.org, heiko.carstens@de.ibm.com, hpa@zytor.com, gorcunov@virtuozzo.com, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, x86@kernel.org, mingo@redhat.com, mattst88@gmail.com, fenghua.yu@intel.com, arnd@arndb.de, ktkhai@virtuozzo.com, ink@jurassic.park.msu.ru, tglx@linutronix.de, rth@twiddle.net, tony.luck@intel.com, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, schwidefsky@de.ibm.com, davem@davemloft.net
 
-This patch modifies rwsem_spin_on_owner() to return a tri-state value
-to better reflect the state of lock holder which enables us to make a
-better decision of what to do next.
+Similar to down_read() and down_write_killable(),
+add killable version of down_read(), based on
+__down_read_killable() function, added in previous
+patches.
 
-Signed-off-by: Waiman Long <longman@redhat.com>
+Signed-off-by: Kirill Tkhai <ktkhai@virtuozzo.com>
 ---
- kernel/locking/rwsem-xadd.c | 14 +++++++++-----
- 1 file changed, 9 insertions(+), 5 deletions(-)
+ include/asm-generic/rwsem.h |    8 ++++++++
+ include/linux/rwsem.h       |    1 +
+ kernel/locking/rwsem.c      |   16 ++++++++++++++++
+ 3 files changed, 25 insertions(+)
 
-diff --git a/kernel/locking/rwsem-xadd.c b/kernel/locking/rwsem-xadd.c
-index f82ce29..7d030a2 100644
---- a/kernel/locking/rwsem-xadd.c
-+++ b/kernel/locking/rwsem-xadd.c
-@@ -341,9 +341,13 @@ static inline bool rwsem_can_spin_on_owner(struct rw_semaphore *sem)
+diff --git a/include/asm-generic/rwsem.h b/include/asm-generic/rwsem.h
+index 6c6a2141f271..2f71b913b555 100644
+--- a/include/asm-generic/rwsem.h
++++ b/include/asm-generic/rwsem.h
+@@ -37,6 +37,14 @@ static inline void __down_read(struct rw_semaphore *sem)
+ 		rwsem_down_read_failed(sem);
  }
+ 
++static inline int __down_read_killable(struct rw_semaphore *sem)
++{
++	if (unlikely(atomic_long_inc_return_acquire(&sem->count) <= 0))
++		if (IS_ERR(rwsem_down_read_failed_killable(sem)))
++			return -EINTR;
++	return 0;
++}
++
+ static inline int __down_read_trylock(struct rw_semaphore *sem)
+ {
+ 	long tmp;
+diff --git a/include/linux/rwsem.h b/include/linux/rwsem.h
+index 0ad7318ff299..6ac8ee5f15dd 100644
+--- a/include/linux/rwsem.h
++++ b/include/linux/rwsem.h
+@@ -111,6 +111,7 @@ static inline int rwsem_is_contended(struct rw_semaphore *sem)
+  * lock for reading
+  */
+ extern void down_read(struct rw_semaphore *sem);
++extern int __must_check down_read_killable(struct rw_semaphore *sem);
  
  /*
-- * Return true only if we can still spin on the owner field of the rwsem.
-+ * Return the folowing three values depending on the lock owner state.
-+ *   1	when owner has changed and no reader is detected yet.
-+ *   0	when owner has change and/or owner is a reader.
-+ *  -1	when optimistic spinning has to stop because either the owner stops
-+ *	running or its timeslice has been used up.
+  * trylock for reading -- returns 1 if successful, 0 if contention
+diff --git a/kernel/locking/rwsem.c b/kernel/locking/rwsem.c
+index 4d48b1c4870d..e53f7746d9fd 100644
+--- a/kernel/locking/rwsem.c
++++ b/kernel/locking/rwsem.c
+@@ -28,6 +28,22 @@ void __sched down_read(struct rw_semaphore *sem)
+ 
+ EXPORT_SYMBOL(down_read);
+ 
++int __sched down_read_killable(struct rw_semaphore *sem)
++{
++	might_sleep();
++	rwsem_acquire_read(&sem->dep_map, 0, 0, _RET_IP_);
++
++	if (LOCK_CONTENDED_RETURN(sem, __down_read_trylock, __down_read_killable)) {
++		rwsem_release(&sem->dep_map, 1, _RET_IP_);
++		return -EINTR;
++	}
++
++	rwsem_set_reader_owned(sem);
++	return 0;
++}
++
++EXPORT_SYMBOL(down_read_killable);
++
+ /*
+  * trylock for reading -- returns 1 if successful, 0 if contention
   */
--static noinline bool rwsem_spin_on_owner(struct rw_semaphore *sem)
-+static noinline int rwsem_spin_on_owner(struct rw_semaphore *sem)
- {
- 	struct task_struct *owner = READ_ONCE(sem->owner);
- 
-@@ -367,7 +371,7 @@ static noinline bool rwsem_spin_on_owner(struct rw_semaphore *sem)
- 		if (!owner->on_cpu || need_resched() ||
- 				vcpu_is_preempted(task_cpu(owner))) {
- 			rcu_read_unlock();
--			return false;
-+			return -1;
- 		}
- 
- 		cpu_relax();
-@@ -378,7 +382,7 @@ static noinline bool rwsem_spin_on_owner(struct rw_semaphore *sem)
- 	 * If there is a new owner or the owner is not set, we continue
- 	 * spinning.
- 	 */
--	return !rwsem_owner_is_reader(READ_ONCE(sem->owner));
-+	return rwsem_owner_is_reader(READ_ONCE(sem->owner)) ? 0 : 1;
- }
- 
- static bool rwsem_optimistic_spin(struct rw_semaphore *sem,
-@@ -399,7 +403,7 @@ static bool rwsem_optimistic_spin(struct rw_semaphore *sem,
- 	 *  2) readers own the lock as we can't determine if they are
- 	 *     actively running or not.
- 	 */
--	while (rwsem_spin_on_owner(sem)) {
-+	while (rwsem_spin_on_owner(sem) > 0) {
- 		/*
- 		 * Try to acquire the lock
- 		 */
--- 
-1.8.3.1
 
