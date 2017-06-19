@@ -1,63 +1,88 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Fri, 16 Jun 2017 18:10:37 +0000
-Subject: [PATCH 22/44] x86/pci-nommu: implement ->mapping_error
-Message-Id: <20170616181059.19206-23-hch@lst.de>
+From: Kirill Tkhai <ktkhai@virtuozzo.com>
+Date: Mon, 19 Jun 2017 18:02:00 +0000
+Subject: [PATCH 0/7] rwsem: Implement down_read_killable()
+Message-Id: <149789463636.9059.16943955939303454611.stgit@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20170616181059.19206-1-hch@lst.de>
-In-Reply-To: <20170616181059.19206-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: x86@kernel.org, linux-arm-kernel@lists.infradead.org, xen-devel@lists.xenproject.org, linux-c6x-dev@linux-c6x.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, openrisc@lists.librecores.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, dmaengine@vger.kernel.org, linux-tegra@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-samsung-soc@vger.kernel.org, iommu@lists.linux-foundation.org, netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org, avagin@virtuozzo.com, peterz@infradead.org, heiko.carstens@de.ibm.com, hpa@zytor.com, gorcunov@virtuozzo.com, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, x86@kernel.org, mingo@redhat.com, mattst88@gmail.com, fenghua.yu@intel.com, arnd@arndb.de, ktkhai@virtuozzo.com, ink@jurassic.park.msu.ru, tglx@linutronix.de, rth@twiddle.net, tony.luck@intel.com, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, schwidefsky@de.ibm.com, davem@davemloft.net
 
-DMA_ERROR_CODE is going to go away, so don't rely on it.
+This series implements killable version of down_read()
+similar to already existing down_write_killable() function.
+Patches [1-2/7] add arch-independent low-level primitives
+for the both rwsem types.
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+Patches [3-6/7] add arch-dependent primitives for
+the architectures, that use rwsem-xadd implementation.
+The assembly code was modified in x86 case only, the rest
+of architectures does not need such change.
+
+I tested the series in x86 (which uses RWSEM_XCHGADD_ALGORITHM
+config option), and also the RWSEM_GENERIC_SPINLOCK case,
+which were manually written in Kconfig. alpha, ia64 and s390
+are compile-tested only, but I believe, their changes are
+pretty easy. Please, people, who work with them, take your
+look at the corresponding patches.
+
+***
+
+Where this came from. Cycle of creation/destroying net
+namespace is slow at the moment as it's made under net_mutex.
+During cleanup_net(), the mutex is held the whole time,
+while RCU is synchronizing. This takes a lot of time,
+especially when RCU is preemptible, and at this time
+the creation of new net namespaces is blocked. But
+this moment may be optimized by using small locks
+in pernet callbacks, where they are need, and by
+converting net_mutex into rw semaphore. In cleanup_net()
+it's only need to prevent from registration/unregistration
+of pernet_subsys and pernet_devices, which actions
+can't be missed by unhashed dead net namespace.
+down_read guarantees that, and it's lite-weight.
+
+Using the rwsem improves the create/destroy cycle performance
+on my development kernel much:
+
+$time for i in {1..10000}; do unshare -n -- bash -c exit; done
+
+MUTEX:
+real 1m13,372s
+user 0m9,278s
+sys 0m17.181s
+
+RWSEM:
+real 0m17,482s
+user 0m3,791s
+sys 0m13,723s
+
+Of course, it's just an example, and it's a generic use
+function. It may be used in other places.
+
 ---
- arch/x86/kernel/pci-nommu.c | 10 +++++++++-
- 1 file changed, 9 insertions(+), 1 deletion(-)
 
-diff --git a/arch/x86/kernel/pci-nommu.c b/arch/x86/kernel/pci-nommu.c
-index a88952ef371c..085fe6ce4049 100644
---- a/arch/x86/kernel/pci-nommu.c
-+++ b/arch/x86/kernel/pci-nommu.c
-@@ -11,6 +11,8 @@
- #include <asm/iommu.h>
- #include <asm/dma.h>
- 
-+#define NOMMU_MAPPING_ERROR		0
-+
- static int
- check_addr(char *name, struct device *hwdev, dma_addr_t bus, size_t size)
- {
-@@ -33,7 +35,7 @@ static dma_addr_t nommu_map_page(struct device *dev, struct page *page,
- 	dma_addr_t bus = page_to_phys(page) + offset;
- 	WARN_ON(size = 0);
- 	if (!check_addr("map_single", dev, bus, size))
--		return DMA_ERROR_CODE;
-+		return NOMMU_MAPPING_ERROR;
- 	flush_write_buffers();
- 	return bus;
- }
-@@ -88,6 +90,11 @@ static void nommu_sync_sg_for_device(struct device *dev,
- 	flush_write_buffers();
- }
- 
-+static int nommu_mapping_error(struct device *dev, dma_addr_t dma_addr)
-+{
-+	return dma_addr = NOMMU_MAPPING_ERROR;
-+}
-+
- const struct dma_map_ops nommu_dma_ops = {
- 	.alloc			= dma_generic_alloc_coherent,
- 	.free			= dma_generic_free_coherent,
-@@ -96,4 +103,5 @@ const struct dma_map_ops nommu_dma_ops = {
- 	.sync_single_for_device = nommu_sync_single_for_device,
- 	.sync_sg_for_device	= nommu_sync_sg_for_device,
- 	.is_phys		= 1,
-+	.mapping_error		= nommu_mapping_error,
- };
--- 
-2.11.0
+Kirill Tkhai (7):
+      rwsem-spinlock: Add killable versions of __down_read()
+      rwsem-spinlock: Add killable versions of rwsem_down_read_failed()
+      alpha: Add __down_read_killable()
+      ia64: Add __down_read_killable()
+      s390: Add __down_read_killable()
+      x86: Add __down_read_killable()
+      rwsem: Add down_read_killable()
 
+
+ arch/alpha/include/asm/rwsem.h  |   18 ++++++++++++++++--
+ arch/ia64/include/asm/rwsem.h   |   22 +++++++++++++++++++---
+ arch/s390/include/asm/rwsem.h   |   18 ++++++++++++++++--
+ arch/x86/include/asm/rwsem.h    |   37 +++++++++++++++++++++++++++----------
+ arch/x86/lib/rwsem.S            |   12 ++++++++++++
+ include/asm-generic/rwsem.h     |    8 ++++++++
+ include/linux/rwsem-spinlock.h  |    1 +
+ include/linux/rwsem.h           |    2 ++
+ kernel/locking/rwsem-spinlock.c |   37 ++++++++++++++++++++++++++++---------
+ kernel/locking/rwsem-xadd.c     |   33 ++++++++++++++++++++++++++++++---
+ kernel/locking/rwsem.c          |   16 ++++++++++++++++
+ 11 files changed, 175 insertions(+), 29 deletions(-)
+
+--
+Signed-off-by: Kirill Tkhai <ktkhai@virtuozzo.com>
