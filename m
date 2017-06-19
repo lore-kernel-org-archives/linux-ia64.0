@@ -1,92 +1,105 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Fri, 16 Jun 2017 18:10:55 +0000
-Subject: [PATCH 40/44] tile: remove dma_supported and mapping_error methods
-Message-Id: <20170616181059.19206-41-hch@lst.de>
+From: Kirill Tkhai <ktkhai@virtuozzo.com>
+Date: Mon, 19 Jun 2017 18:02:26 +0000
+Subject: [PATCH 2/7] rwsem-spinlock: Add killable versions of rwsem_down_read_failed()
+Message-Id: <149789534632.9059.2901382369609922565.stgit@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20170616181059.19206-1-hch@lst.de>
-In-Reply-To: <20170616181059.19206-1-hch@lst.de>
+References: <149789463636.9059.16943955939303454611.stgit@localhost.localdomain>
+In-Reply-To: <149789463636.9059.16943955939303454611.stgit@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: x86@kernel.org, linux-arm-kernel@lists.infradead.org, xen-devel@lists.xenproject.org, linux-c6x-dev@linux-c6x.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, openrisc@lists.librecores.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, dmaengine@vger.kernel.org, linux-tegra@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-samsung-soc@vger.kernel.org, iommu@lists.linux-foundation.org, netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org, avagin@virtuozzo.com, peterz@infradead.org, heiko.carstens@de.ibm.com, hpa@zytor.com, gorcunov@virtuozzo.com, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, x86@kernel.org, mingo@redhat.com, mattst88@gmail.com, fenghua.yu@intel.com, arnd@arndb.de, ktkhai@virtuozzo.com, ink@jurassic.park.msu.ru, tglx@linutronix.de, rth@twiddle.net, tony.luck@intel.com, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, schwidefsky@de.ibm.com, davem@davemloft.net
 
-These just duplicate the default behavior if no method is provided.
+Rename rwsem_down_read_failed() in __rwsem_down_read_failed_common()
+and teach it to abort waiting in case of pending signals and killable
+state argument passed.
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+Note, that we shouldn't wake anybody up in EINTR path, as:
+
+We check for (waiter.task) under spinlock before we go to out_nolock
+path. Current task wasn't able to be woken up, so there are
+a writer, owning the sem, or a writer, which is the first waiter.
+In the both cases we shouldn't wake anybody. If there is a writer,
+owning the sem, and we were the only waiter, remove RWSEM_WAITING_BIAS,
+as there are no waiters anymore.
+
+Signed-off-by: Kirill Tkhai <ktkhai@virtuozzo.com>
 ---
- arch/tile/kernel/pci-dma.c | 30 ------------------------------
- 1 file changed, 30 deletions(-)
+ include/linux/rwsem.h       |    1 +
+ kernel/locking/rwsem-xadd.c |   33 ++++++++++++++++++++++++++++++---
+ 2 files changed, 31 insertions(+), 3 deletions(-)
 
-diff --git a/arch/tile/kernel/pci-dma.c b/arch/tile/kernel/pci-dma.c
-index 569bb6dd154a..f2abedc8a080 100644
---- a/arch/tile/kernel/pci-dma.c
-+++ b/arch/tile/kernel/pci-dma.c
-@@ -317,18 +317,6 @@ static void tile_dma_sync_sg_for_device(struct device *dev,
+diff --git a/include/linux/rwsem.h b/include/linux/rwsem.h
+index dd1d14250340..0ad7318ff299 100644
+--- a/include/linux/rwsem.h
++++ b/include/linux/rwsem.h
+@@ -44,6 +44,7 @@ struct rw_semaphore {
+ };
+ 
+ extern struct rw_semaphore *rwsem_down_read_failed(struct rw_semaphore *sem);
++extern struct rw_semaphore *rwsem_down_read_failed_killable(struct rw_semaphore *sem);
+ extern struct rw_semaphore *rwsem_down_write_failed(struct rw_semaphore *sem);
+ extern struct rw_semaphore *rwsem_down_write_failed_killable(struct rw_semaphore *sem);
+ extern struct rw_semaphore *rwsem_wake(struct rw_semaphore *);
+diff --git a/kernel/locking/rwsem-xadd.c b/kernel/locking/rwsem-xadd.c
+index 34e727f18e49..02f660666ab8 100644
+--- a/kernel/locking/rwsem-xadd.c
++++ b/kernel/locking/rwsem-xadd.c
+@@ -221,8 +221,8 @@ static void __rwsem_mark_wake(struct rw_semaphore *sem,
+ /*
+  * Wait for the read lock to be granted
+  */
+-__visible
+-struct rw_semaphore __sched *rwsem_down_read_failed(struct rw_semaphore *sem)
++static inline struct rw_semaphore __sched *
++__rwsem_down_read_failed_common(struct rw_semaphore *sem, int state)
+ {
+ 	long count, adjustment = -RWSEM_ACTIVE_READ_BIAS;
+ 	struct rwsem_waiter waiter;
+@@ -255,17 +255,44 @@ struct rw_semaphore __sched *rwsem_down_read_failed(struct rw_semaphore *sem)
+ 
+ 	/* wait to be given the lock */
+ 	while (true) {
+-		set_current_state(TASK_UNINTERRUPTIBLE);
++		set_current_state(state);
+ 		if (!waiter.task)
+ 			break;
++		if (signal_pending_state(state, current)) {
++			raw_spin_lock_irq(&sem->wait_lock);
++			if (waiter.task)
++				goto out_nolock;
++			raw_spin_unlock_irq(&sem->wait_lock);
++			break;
++		}
+ 		schedule();
  	}
+ 
+ 	__set_current_state(TASK_RUNNING);
+ 	return sem;
++out_nolock:
++	list_del(&waiter.list);
++	if (list_empty(&sem->wait_list))
++		atomic_long_add(-RWSEM_WAITING_BIAS, &sem->count);
++	raw_spin_unlock_irq(&sem->wait_lock);
++	__set_current_state(TASK_RUNNING);
++	return ERR_PTR(-EINTR);
++}
++
++__visible struct rw_semaphore * __sched
++rwsem_down_read_failed(struct rw_semaphore *sem)
++{
++	return __rwsem_down_read_failed_common(sem, TASK_UNINTERRUPTIBLE);
  }
+ EXPORT_SYMBOL(rwsem_down_read_failed);
  
--static inline int
--tile_dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
--{
--	return 0;
--}
--
--static inline int
--tile_dma_supported(struct device *dev, u64 mask)
--{
--	return 1;
--}
--
- static const struct dma_map_ops tile_default_dma_map_ops = {
- 	.alloc = tile_dma_alloc_coherent,
- 	.free = tile_dma_free_coherent,
-@@ -340,8 +328,6 @@ static const struct dma_map_ops tile_default_dma_map_ops = {
- 	.sync_single_for_device = tile_dma_sync_single_for_device,
- 	.sync_sg_for_cpu = tile_dma_sync_sg_for_cpu,
- 	.sync_sg_for_device = tile_dma_sync_sg_for_device,
--	.mapping_error = tile_dma_mapping_error,
--	.dma_supported = tile_dma_supported
- };
- 
- const struct dma_map_ops *tile_dma_map_ops = &tile_default_dma_map_ops;
-@@ -504,18 +490,6 @@ static void tile_pci_dma_sync_sg_for_device(struct device *dev,
- 	}
- }
- 
--static inline int
--tile_pci_dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
--{
--	return 0;
--}
--
--static inline int
--tile_pci_dma_supported(struct device *dev, u64 mask)
--{
--	return 1;
--}
--
- static const struct dma_map_ops tile_pci_default_dma_map_ops = {
- 	.alloc = tile_pci_dma_alloc_coherent,
- 	.free = tile_pci_dma_free_coherent,
-@@ -527,8 +501,6 @@ static const struct dma_map_ops tile_pci_default_dma_map_ops = {
- 	.sync_single_for_device = tile_pci_dma_sync_single_for_device,
- 	.sync_sg_for_cpu = tile_pci_dma_sync_sg_for_cpu,
- 	.sync_sg_for_device = tile_pci_dma_sync_sg_for_device,
--	.mapping_error = tile_pci_dma_mapping_error,
--	.dma_supported = tile_pci_dma_supported
- };
- 
- const struct dma_map_ops *gx_pci_dma_map_ops = &tile_pci_default_dma_map_ops;
-@@ -578,8 +550,6 @@ static const struct dma_map_ops pci_hybrid_dma_ops = {
- 	.sync_single_for_device = tile_pci_dma_sync_single_for_device,
- 	.sync_sg_for_cpu = tile_pci_dma_sync_sg_for_cpu,
- 	.sync_sg_for_device = tile_pci_dma_sync_sg_for_device,
--	.mapping_error = tile_pci_dma_mapping_error,
--	.dma_supported = tile_pci_dma_supported
- };
- 
- const struct dma_map_ops *gx_legacy_pci_dma_map_ops = &pci_swiotlb_dma_ops;
--- 
-2.11.0
++__visible struct rw_semaphore * __sched
++rwsem_down_read_failed_killable(struct rw_semaphore *sem)
++{
++	return __rwsem_down_read_failed_common(sem, TASK_KILLABLE);
++}
++EXPORT_SYMBOL(rwsem_down_read_failed_killable);
++
+ /*
+  * This function must be called with the sem->wait_lock held to prevent
+  * race conditions between checking the rwsem wait list and setting the
 
