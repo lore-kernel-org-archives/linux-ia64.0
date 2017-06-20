@@ -1,36 +1,24 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Tue, 20 Jun 2017 13:15:03 +0000
+Date: Tue, 20 Jun 2017 13:16:23 +0000
 Subject: Re: new dma-mapping tree, was Re: clean up and modularize arch dma_mapping interface V2
-Message-Id: <20170620131503.GA30769@lst.de>
+Message-Id: <20170620131623.GB30769@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20170620124140.GA27163@lst.de>
- <6025d4d4-1975-9598-c16d-26d17d029ec7@arm.com>
-In-Reply-To: <6025d4d4-1975-9598-c16d-26d17d029ec7@arm.com>
+References: <20170616181059.19206-1-hch@lst.de> <20170620124140.GA27163@lst.de> <20170620230400.1a5ae889@canb.auug.org.au>
+In-Reply-To: <20170620230400.1a5ae889@canb.auug.org.au>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Robin Murphy <robin.murphy@arm.com>
-Cc: linux-mips@linux-mips.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, dri-devel@lists.freedesktop.org, sparclinux@vger.kernel.org, Christoph Hellwig <hch@lst.de>, Stephen Rothwell <sfr@canb.auug.org.au>, linux-samsung-soc@vger.kernel.org, linux-c6x-dev@linux-c6x.org, linux-hexagon@vger.kernel.org, x86@kernel.org, Linus Torvalds <torvalds@linux-foundation.org>, xen-devel@lists.xenproject.org, linux-xtensa@linux-xtensa.org, linux-s390@vger.kernel.org, openrisc@lists.librecores.org, linux-tegra@vger.kernel.org, linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org, iommu@lists.linux-foundation.org, dmaengine@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Cc: Christoph Hellwig <hch@lst.de>, Linus Torvalds <torvalds@linux-foundation.org>, x86@kernel.org, linux-arm-kernel@lists.infradead.org, xen-devel@lists.xenproject.org, linux-c6x-dev@linux-c6x.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, openrisc@lists.librecores.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, dmaengine@vger.kernel.org, linux-tegra@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-samsung-soc@vger.kernel.org, iommu@lists.linux-foundation.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org, Marek Szyprowski <m.szyprowski@samsung.com>, Kyungmin Park <kyungmin.park@samsung.com>
 
-On Tue, Jun 20, 2017 at 02:14:36PM +0100, Robin Murphy wrote:
-> Hi Christoph,
+On Tue, Jun 20, 2017 at 11:04:00PM +1000, Stephen Rothwell wrote:
+> git://git.linaro.org/people/mszyprowski/linux-dma-mapping.git#dma-mapping-next
 > 
-> On 20/06/17 13:41, Christoph Hellwig wrote:
-> > On Fri, Jun 16, 2017 at 08:10:15PM +0200, Christoph Hellwig wrote:
-> >> I plan to create a new dma-mapping tree to collect all this work.
-> >> Any volunteers for co-maintainers, especially from the iommu gang?
-> > 
-> > Ok, I've created the new tree:
-> > 
-> >    git://git.infradead.org/users/hch/dma-mapping.git for-next
-> > 
-> > Gitweb:
-> > 
-> >    http://git.infradead.org/users/hch/dma-mapping.git/shortlog/refs/heads/for-next
-> > 
-> > And below is the patch to add the MAINTAINERS entry, additions welcome.
+> Contacts: Marek Szyprowski and Kyungmin Park (cc'd)
 > 
-> I'm happy to be a reviewer, since I've been working in this area for
-> some time, particularly with the dma-iommu code and arm64 DMA ops.
+> I have called your tree dma-mapping-hch for now.  The other tree has
+> not been updated since 4.9-rc1 and I am not sure how general it is.
+> Marek, Kyungmin, any comments?
 
-Great, I'll add you!
+I'd be happy to join efforts - co-maintainers and reviers are always
+welcome.
