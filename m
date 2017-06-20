@@ -1,53 +1,19 @@
-From: Daniel Vetter <daniel@ffwll.ch>
-Date: Tue, 20 Jun 2017 09:19:02 +0000
+From: Christoph Hellwig <hch@lst.de>
+Date: Tue, 20 Jun 2017 13:17:11 +0000
 Subject: Re: clean up and modularize arch dma_mapping interface
-Message-Id: <20170620091902.2dldmf43vhazq6yh@phenom.ffwll.local>
+Message-Id: <20170620131711.GC30769@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20170608132609.32662-1-hch@lst.de>
-In-Reply-To: <20170608132609.32662-1-hch@lst.de>
+	<20170620091902.2dldmf43vhazq6yh@phenom.ffwll.local>
+In-Reply-To: <20170620091902.2dldmf43vhazq6yh-dv86pmgwkMBes7Z6vYuT8azUEOm+Xw19@public.gmane.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch@lst.de>
-Cc: linux-mips@linux-mips.org, linux-samsung-soc@vger.kernel.org, linux-ia64@vger.kernel.org, linux-c6x-dev@linux-c6x.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org, linux-tegra@vger.kernel.org, linux-kernel@vger.kernel.org, dri-devel@lists.freedesktop.org, dmaengine@vger.kernel.org, iommu@lists.linux-foundation.org, openrisc@lists.librecores.org, netdev@vger.kernel.org, sparclinux@vger.kernel.org, xen-devel@lists.xenproject.org, linuxppc-dev@lists.ozlabs.org, linux-arm-kernel@lists.infradead.org
+To: Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, xen-devel-GuqFBffKawtpuQazS67q72D2FQJk+8+b@public.gmane.org, linux-c6x-dev-jPsnJVOj+W6hPH1hqNUYSQ@public.gmane.org, linux-hexagon-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, openrisc-cunTk1MwBs9a3B2Vnqf2dGD2FQJk+8+b@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org, dmaengine-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-tegra-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org, linux-samsung-soc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 
-On Thu, Jun 08, 2017 at 03:25:25PM +0200, Christoph Hellwig wrote:
-> Hi all,
-> 
-> for a while we have a generic implementation of the dma mapping routines
-> that call into per-arch or per-device operations.  But right now there
-> still are various bits in the interfaces where don't clearly operate
-> on these ops.  This series tries to clean up a lot of those (but not all
-> yet, but the series is big enough).  It gets rid of the DMA_ERROR_CODE
-> way of signaling failures of the mapping routines from the
-> implementations to the generic code (and cleans up various drivers that
-> were incorrectly using it), and gets rid of the ->set_dma_mask routine
-> in favor of relying on the ->dma_capable method that can be used in
-> the same way, but which requires less code duplication.
-> 
-> Btw, we don't seem to have a tree every-growing amount of common dma
-> mapping code, and given that I have a fair amount of all over the tree
-> work in that area in my plate I'd like to start one.  Any good reason
-> to that?  Anyone willing to volunteer as co maintainer?
-> 
-> The whole series is also available in git:
-> 
->     git://git.infradead.org/users/hch/misc.git dma-map
+On Tue, Jun 20, 2017 at 11:19:02AM +0200, Daniel Vetter wrote:
+> Ack for the 2 drm patches, but I can also pick them up through drm-misc if
+> you prefer that (but then it'll be 4.14).
 
-Ack for the 2 drm patches, but I can also pick them up through drm-misc if
-you prefer that (but then it'll be 4.14).
--Daniel
-
-> 
-> Gitweb:
-> 
->     http://git.infradead.org/users/hch/misc.git/shortlog/refs/heads/dma-map
-> _______________________________________________
-> dri-devel mailing list
-> dri-devel@lists.freedesktop.org
-> https://lists.freedesktop.org/mailman/listinfo/dri-devel
-
--- 
-Daniel Vetter
-Software Engineer, Intel Corporation
-http://blog.ffwll.ch
+Nah, I'll plan to set up a dma-mapping tree so that we'll have common
+place for dma-mapping work.
