@@ -1,290 +1,224 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Fri, 16 Jun 2017 18:10:40 +0000
-Subject: [PATCH 25/44] arm: implement ->mapping_error
-Message-Id: <20170616181059.19206-26-hch@lst.de>
+From: Palmer Dabbelt <palmer@dabbelt.com>
+Date: Sat, 24 Jun 2017 01:50:43 +0000
+Subject: [PATCH 2/3] pci: Add a generic, weakly-linked pcibios_align_resource
+Message-Id: <20170624015044.16746-3-palmer@dabbelt.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20170616181059.19206-1-hch@lst.de>
-In-Reply-To: <20170616181059.19206-1-hch@lst.de>
+References: <20170624015044.16746-1-palmer@dabbelt.com>
+In-Reply-To: <20170624015044.16746-1-palmer@dabbelt.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: x86@kernel.org, linux-arm-kernel@lists.infradead.org, xen-devel@lists.xenproject.org, linux-c6x-dev@linux-c6x.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, openrisc@lists.librecores.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, dmaengine@vger.kernel.org, linux-tegra@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-samsung-soc@vger.kernel.org, iommu@lists.linux-foundation.org, netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
+To: linux-pci@vger.kernel.org
+Cc: linux-snps-arc@lists.infradead.org
 
-DMA_ERROR_CODE is going to go away, so don't rely on it.
+Multiple architectures define this as trivial function, and I'm adding
+another one as part of the RISC-V port.  This adds a __weak version of
+pcibios_align_resource and deletes the now obselete ones in a handful of
+ports.
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+The only functional change should be that a handful of ports used to
+export pcibios_fixup_bus.  Only some architectures export this, so I
+just dropped it.
+
+Signed-off-by: Palmer Dabbelt <palmer@dabbelt.com>
 ---
- arch/arm/common/dmabounce.c        | 13 +++++++++---
- arch/arm/include/asm/dma-iommu.h   |  2 ++
- arch/arm/include/asm/dma-mapping.h |  1 -
- arch/arm/mm/dma-mapping.c          | 41 ++++++++++++++++++++++++--------------
- 4 files changed, 38 insertions(+), 19 deletions(-)
+ arch/arc/kernel/pcibios.c        |  9 ---------
+ arch/arm64/kernel/pci.c          |  9 ---------
+ arch/ia64/pci/pci.c              |  7 -------
+ arch/microblaze/pci/pci-common.c |  7 -------
+ arch/sparc/kernel/leon_pci.c     |  6 ------
+ arch/sparc/kernel/pci.c          |  6 ------
+ arch/sparc/kernel/pcic.c         |  6 ------
+ arch/tile/kernel/pci.c           | 10 ----------
+ arch/tile/kernel/pci_gx.c        |  9 ---------
+ drivers/pci/setup-res.c          | 12 ++++++++++++
+ 10 files changed, 12 insertions(+), 69 deletions(-)
 
-diff --git a/arch/arm/common/dmabounce.c b/arch/arm/common/dmabounce.c
-index 9b1b7be2ec0e..4060378e0f14 100644
---- a/arch/arm/common/dmabounce.c
-+++ b/arch/arm/common/dmabounce.c
-@@ -33,6 +33,7 @@
- #include <linux/scatterlist.h>
+diff --git a/arch/arc/kernel/pcibios.c b/arch/arc/kernel/pcibios.c
+index 1c8df8fd5fed..05aba5a7b5d2 100644
+--- a/arch/arc/kernel/pcibios.c
++++ b/arch/arc/kernel/pcibios.c
+@@ -7,12 +7,3 @@
+  */
  
- #include <asm/cacheflush.h>
-+#include <asm/dma-iommu.h>
+ #include <linux/pci.h>
+-
+-/*
+- * We don't have to worry about legacy ISA devices, so nothing to do here
+- */
+-resource_size_t pcibios_align_resource(void *data, const struct resource *res,
+-				resource_size_t size, resource_size_t align)
+-{
+-	return res->start;
+-}
+diff --git a/arch/arm64/kernel/pci.c b/arch/arm64/kernel/pci.c
+index 4c7f451aca05..9753ca23cfa1 100644
+--- a/arch/arm64/kernel/pci.c
++++ b/arch/arm64/kernel/pci.c
+@@ -23,15 +23,6 @@
+ #include <linux/slab.h>
  
- #undef STATS
- 
-@@ -256,7 +257,7 @@ static inline dma_addr_t map_single(struct device *dev, void *ptr, size_t size,
- 	if (buf = NULL) {
- 		dev_err(dev, "%s: unable to map unsafe buffer %p!\n",
- 		       __func__, ptr);
--		return DMA_ERROR_CODE;
-+		return ARM_MAPPING_ERROR;
- 	}
- 
- 	dev_dbg(dev, "%s: unsafe buffer %p (dma=%#x) mapped to %p (dma=%#x)\n",
-@@ -326,7 +327,7 @@ static dma_addr_t dmabounce_map_page(struct device *dev, struct page *page,
- 
- 	ret = needs_bounce(dev, dma_addr, size);
- 	if (ret < 0)
--		return DMA_ERROR_CODE;
-+		return ARM_MAPPING_ERROR;
- 
- 	if (ret = 0) {
- 		arm_dma_ops.sync_single_for_device(dev, dma_addr, size, dir);
-@@ -335,7 +336,7 @@ static dma_addr_t dmabounce_map_page(struct device *dev, struct page *page,
- 
- 	if (PageHighMem(page)) {
- 		dev_err(dev, "DMA buffer bouncing of HIGHMEM pages is not supported\n");
--		return DMA_ERROR_CODE;
-+		return ARM_MAPPING_ERROR;
- 	}
- 
- 	return map_single(dev, page_address(page) + offset, size, dir, attrs);
-@@ -452,6 +453,11 @@ static int dmabounce_set_mask(struct device *dev, u64 dma_mask)
- 	return arm_dma_ops.set_dma_mask(dev, dma_mask);
+ /*
+- * We don't have to worry about legacy ISA devices, so nothing to do here
+- */
+-resource_size_t pcibios_align_resource(void *data, const struct resource *res,
+-				resource_size_t size, resource_size_t align)
+-{
+-	return res->start;
+-}
+-
+-/*
+  * Try to assign the IRQ number when probing a new device
+  */
+ int pcibios_alloc_irq(struct pci_dev *dev)
+diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
+index 4068bde623dc..f5ec736100ee 100644
+--- a/arch/ia64/pci/pci.c
++++ b/arch/ia64/pci/pci.c
+@@ -411,13 +411,6 @@ pcibios_disable_device (struct pci_dev *dev)
+ 		acpi_pci_irq_disable(dev);
  }
  
-+static int dmabounce_mapping_error(struct device *dev, dma_addr_t dma_addr)
+-resource_size_t
+-pcibios_align_resource (void *data, const struct resource *res,
+-		        resource_size_t size, resource_size_t align)
+-{
+-	return res->start;
+-}
+-
+ /**
+  * ia64_pci_get_legacy_mem - generic legacy mem routine
+  * @bus: bus to get legacy memory base address for
+diff --git a/arch/microblaze/pci/pci-common.c b/arch/microblaze/pci/pci-common.c
+index 940f266e5d5c..5835c09c6e26 100644
+--- a/arch/microblaze/pci/pci-common.c
++++ b/arch/microblaze/pci/pci-common.c
+@@ -823,13 +823,6 @@ void pcibios_setup_bus_devices(struct pci_bus *bus)
+  * but we want to try to avoid allocating at 0x2900-0x2bff
+  * which might have be mirrored at 0x0100-0x03ff..
+  */
+-resource_size_t pcibios_align_resource(void *data, const struct resource *res,
+-				resource_size_t size, resource_size_t align)
+-{
+-	return res->start;
+-}
+-EXPORT_SYMBOL(pcibios_align_resource);
+-
+ int pcibios_add_device(struct pci_dev *dev)
+ {
+ 	dev->irq = of_irq_parse_and_map_pci(dev, 0, 0);
+diff --git a/arch/sparc/kernel/leon_pci.c b/arch/sparc/kernel/leon_pci.c
+index 4371f72ff025..0eafdf3d036d 100644
+--- a/arch/sparc/kernel/leon_pci.c
++++ b/arch/sparc/kernel/leon_pci.c
+@@ -94,9 +94,3 @@ void pcibios_fixup_bus(struct pci_bus *pbus)
+ 		}
+ 	}
+ }
+-
+-resource_size_t pcibios_align_resource(void *data, const struct resource *res,
+-				resource_size_t size, resource_size_t align)
+-{
+-	return res->start;
+-}
+diff --git a/arch/sparc/kernel/pci.c b/arch/sparc/kernel/pci.c
+index 78d3dc25e126..3f8670c92951 100644
+--- a/arch/sparc/kernel/pci.c
++++ b/arch/sparc/kernel/pci.c
+@@ -690,12 +690,6 @@ struct pci_bus *pci_scan_one_pbm(struct pci_pbm_info *pbm,
+ 	return bus;
+ }
+ 
+-resource_size_t pcibios_align_resource(void *data, const struct resource *res,
+-				resource_size_t size, resource_size_t align)
+-{
+-	return res->start;
+-}
+-
+ int pcibios_enable_device(struct pci_dev *dev, int mask)
+ {
+ 	u16 cmd, oldcmd;
+diff --git a/arch/sparc/kernel/pcic.c b/arch/sparc/kernel/pcic.c
+index a38787b84322..e038e343f2c1 100644
+--- a/arch/sparc/kernel/pcic.c
++++ b/arch/sparc/kernel/pcic.c
+@@ -746,12 +746,6 @@ static void watchdog_reset() {
+ }
+ #endif
+ 
+-resource_size_t pcibios_align_resource(void *data, const struct resource *res,
+-				resource_size_t size, resource_size_t align)
+-{
+-	return res->start;
+-}
+-
+ int pcibios_enable_device(struct pci_dev *pdev, int mask)
+ {
+ 	return 0;
+diff --git a/arch/tile/kernel/pci.c b/arch/tile/kernel/pci.c
+index 3113d4d5c329..8999a20ed9d1 100644
+--- a/arch/tile/kernel/pci.c
++++ b/arch/tile/kernel/pci.c
+@@ -67,16 +67,6 @@ static struct pci_ops tile_cfg_ops;
+ 
+ 
+ /*
+- * We don't need to worry about the alignment of resources.
+- */
+-resource_size_t pcibios_align_resource(void *data, const struct resource *res,
+-			    resource_size_t size, resource_size_t align)
+-{
+-	return res->start;
+-}
+-EXPORT_SYMBOL(pcibios_align_resource);
+-
+-/*
+  * Open a FD to the hypervisor PCI device.
+  *
+  * controller_id is the controller number, config type is 0 or 1 for
+diff --git a/arch/tile/kernel/pci_gx.c b/arch/tile/kernel/pci_gx.c
+index b89172b592cc..0a7642184a9a 100644
+--- a/arch/tile/kernel/pci_gx.c
++++ b/arch/tile/kernel/pci_gx.c
+@@ -108,15 +108,6 @@ static struct pci_ops tile_cfg_ops;
+ /* Mask of CPUs that should receive PCIe interrupts. */
+ static struct cpumask intr_cpus_map;
+ 
+-/* We don't need to worry about the alignment of resources. */
+-resource_size_t pcibios_align_resource(void *data, const struct resource *res,
+-				       resource_size_t size,
+-				       resource_size_t align)
+-{
+-	return res->start;
+-}
+-EXPORT_SYMBOL(pcibios_align_resource);
+-
+ /*
+  * Pick a CPU to receive and handle the PCIe interrupts, based on the IRQ #.
+  * For now, we simply send interrupts to non-dataplane CPUs.
+diff --git a/drivers/pci/setup-res.c b/drivers/pci/setup-res.c
+index 85774b7a316a..597ed1f8b15c 100644
+--- a/drivers/pci/setup-res.c
++++ b/drivers/pci/setup-res.c
+@@ -234,6 +234,18 @@ static int pci_revert_fw_address(struct resource *res, struct pci_dev *dev,
+ 	return 0;
+ }
+ 
++/*
++ * We don't have to worry about legacy ISA devices, so nothing to do here.
++ * This is marked as __weak because multiple architectures define it, it should
++ * eventually go away.
++ */
++__attribute__ ((weak))
++resource_size_t pcibios_align_resource(void *data, const struct resource *res,
++                                      resource_size_t size, resource_size_t align)
 +{
-+	return arm_dma_ops.mapping_error(dev, dma_addr);
++       return res->start;
 +}
 +
- static const struct dma_map_ops dmabounce_ops = {
- 	.alloc			= arm_dma_alloc,
- 	.free			= arm_dma_free,
-@@ -466,6 +472,7 @@ static const struct dma_map_ops dmabounce_ops = {
- 	.sync_sg_for_cpu	= arm_dma_sync_sg_for_cpu,
- 	.sync_sg_for_device	= arm_dma_sync_sg_for_device,
- 	.set_dma_mask		= dmabounce_set_mask,
-+	.mapping_error		= dmabounce_mapping_error,
- };
- 
- static int dmabounce_init_pool(struct dmabounce_pool *pool, struct device *dev,
-diff --git a/arch/arm/include/asm/dma-iommu.h b/arch/arm/include/asm/dma-iommu.h
-index 2ef282f96651..389a26a10ea3 100644
---- a/arch/arm/include/asm/dma-iommu.h
-+++ b/arch/arm/include/asm/dma-iommu.h
-@@ -9,6 +9,8 @@
- #include <linux/kmemcheck.h>
- #include <linux/kref.h>
- 
-+#define ARM_MAPPING_ERROR		(~(dma_addr_t)0x0)
-+
- struct dma_iommu_mapping {
- 	/* iommu specific data */
- 	struct iommu_domain	*domain;
-diff --git a/arch/arm/include/asm/dma-mapping.h b/arch/arm/include/asm/dma-mapping.h
-index 680d3f3889e7..52a8fd5a8edb 100644
---- a/arch/arm/include/asm/dma-mapping.h
-+++ b/arch/arm/include/asm/dma-mapping.h
-@@ -12,7 +12,6 @@
- #include <xen/xen.h>
- #include <asm/xen/hypervisor.h>
- 
--#define DMA_ERROR_CODE	(~(dma_addr_t)0x0)
- extern const struct dma_map_ops arm_dma_ops;
- extern const struct dma_map_ops arm_coherent_dma_ops;
- 
-diff --git a/arch/arm/mm/dma-mapping.c b/arch/arm/mm/dma-mapping.c
-index bd83c531828a..8f2c5a8a98f0 100644
---- a/arch/arm/mm/dma-mapping.c
-+++ b/arch/arm/mm/dma-mapping.c
-@@ -180,6 +180,11 @@ static void arm_dma_sync_single_for_device(struct device *dev,
- 	__dma_page_cpu_to_dev(page, offset, size, dir);
- }
- 
-+static int arm_dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
-+{
-+	return dma_addr = ARM_MAPPING_ERROR;
-+}
-+
- const struct dma_map_ops arm_dma_ops = {
- 	.alloc			= arm_dma_alloc,
- 	.free			= arm_dma_free,
-@@ -193,6 +198,7 @@ const struct dma_map_ops arm_dma_ops = {
- 	.sync_single_for_device	= arm_dma_sync_single_for_device,
- 	.sync_sg_for_cpu	= arm_dma_sync_sg_for_cpu,
- 	.sync_sg_for_device	= arm_dma_sync_sg_for_device,
-+	.mapping_error		= arm_dma_mapping_error,
- };
- EXPORT_SYMBOL(arm_dma_ops);
- 
-@@ -211,6 +217,7 @@ const struct dma_map_ops arm_coherent_dma_ops = {
- 	.get_sgtable		= arm_dma_get_sgtable,
- 	.map_page		= arm_coherent_dma_map_page,
- 	.map_sg			= arm_dma_map_sg,
-+	.mapping_error		= arm_dma_mapping_error,
- };
- EXPORT_SYMBOL(arm_coherent_dma_ops);
- 
-@@ -799,7 +806,7 @@ static void *__dma_alloc(struct device *dev, size_t size, dma_addr_t *handle,
- 	gfp &= ~(__GFP_COMP);
- 	args.gfp = gfp;
- 
--	*handle = DMA_ERROR_CODE;
-+	*handle = ARM_MAPPING_ERROR;
- 	allowblock = gfpflags_allow_blocking(gfp);
- 	cma = allowblock ? dev_get_cma_area(dev) : false;
- 
-@@ -1254,7 +1261,7 @@ static inline dma_addr_t __alloc_iova(struct dma_iommu_mapping *mapping,
- 	if (i = mapping->nr_bitmaps) {
- 		if (extend_iommu_mapping(mapping)) {
- 			spin_unlock_irqrestore(&mapping->lock, flags);
--			return DMA_ERROR_CODE;
-+			return ARM_MAPPING_ERROR;
- 		}
- 
- 		start = bitmap_find_next_zero_area(mapping->bitmaps[i],
-@@ -1262,7 +1269,7 @@ static inline dma_addr_t __alloc_iova(struct dma_iommu_mapping *mapping,
- 
- 		if (start > mapping->bits) {
- 			spin_unlock_irqrestore(&mapping->lock, flags);
--			return DMA_ERROR_CODE;
-+			return ARM_MAPPING_ERROR;
- 		}
- 
- 		bitmap_set(mapping->bitmaps[i], start, count);
-@@ -1445,7 +1452,7 @@ __iommu_create_mapping(struct device *dev, struct page **pages, size_t size,
- 	int i;
- 
- 	dma_addr = __alloc_iova(mapping, size);
--	if (dma_addr = DMA_ERROR_CODE)
-+	if (dma_addr = ARM_MAPPING_ERROR)
- 		return dma_addr;
- 
- 	iova = dma_addr;
-@@ -1472,7 +1479,7 @@ __iommu_create_mapping(struct device *dev, struct page **pages, size_t size,
- fail:
- 	iommu_unmap(mapping->domain, dma_addr, iova-dma_addr);
- 	__free_iova(mapping, dma_addr, size);
--	return DMA_ERROR_CODE;
-+	return ARM_MAPPING_ERROR;
- }
- 
- static int __iommu_remove_mapping(struct device *dev, dma_addr_t iova, size_t size)
-@@ -1533,7 +1540,7 @@ static void *__iommu_alloc_simple(struct device *dev, size_t size, gfp_t gfp,
- 		return NULL;
- 
- 	*handle = __iommu_create_mapping(dev, &page, size, attrs);
--	if (*handle = DMA_ERROR_CODE)
-+	if (*handle = ARM_MAPPING_ERROR)
- 		goto err_mapping;
- 
- 	return addr;
-@@ -1561,7 +1568,7 @@ static void *__arm_iommu_alloc_attrs(struct device *dev, size_t size,
- 	struct page **pages;
- 	void *addr = NULL;
- 
--	*handle = DMA_ERROR_CODE;
-+	*handle = ARM_MAPPING_ERROR;
- 	size = PAGE_ALIGN(size);
- 
- 	if (coherent_flag  = COHERENT || !gfpflags_allow_blocking(gfp))
-@@ -1582,7 +1589,7 @@ static void *__arm_iommu_alloc_attrs(struct device *dev, size_t size,
- 		return NULL;
- 
- 	*handle = __iommu_create_mapping(dev, pages, size, attrs);
--	if (*handle = DMA_ERROR_CODE)
-+	if (*handle = ARM_MAPPING_ERROR)
- 		goto err_buffer;
- 
- 	if (attrs & DMA_ATTR_NO_KERNEL_MAPPING)
-@@ -1732,10 +1739,10 @@ static int __map_sg_chunk(struct device *dev, struct scatterlist *sg,
- 	int prot;
- 
- 	size = PAGE_ALIGN(size);
--	*handle = DMA_ERROR_CODE;
-+	*handle = ARM_MAPPING_ERROR;
- 
- 	iova_base = iova = __alloc_iova(mapping, size);
--	if (iova = DMA_ERROR_CODE)
-+	if (iova = ARM_MAPPING_ERROR)
- 		return -ENOMEM;
- 
- 	for (count = 0, s = sg; count < (size >> PAGE_SHIFT); s = sg_next(s)) {
-@@ -1775,7 +1782,7 @@ static int __iommu_map_sg(struct device *dev, struct scatterlist *sg, int nents,
- 	for (i = 1; i < nents; i++) {
- 		s = sg_next(s);
- 
--		s->dma_address = DMA_ERROR_CODE;
-+		s->dma_address = ARM_MAPPING_ERROR;
- 		s->dma_length = 0;
- 
- 		if (s->offset || (size & ~PAGE_MASK) || size + s->length > max) {
-@@ -1950,7 +1957,7 @@ static dma_addr_t arm_coherent_iommu_map_page(struct device *dev, struct page *p
- 	int ret, prot, len = PAGE_ALIGN(size + offset);
- 
- 	dma_addr = __alloc_iova(mapping, len);
--	if (dma_addr = DMA_ERROR_CODE)
-+	if (dma_addr = ARM_MAPPING_ERROR)
- 		return dma_addr;
- 
- 	prot = __dma_info_to_prot(dir, attrs);
-@@ -1962,7 +1969,7 @@ static dma_addr_t arm_coherent_iommu_map_page(struct device *dev, struct page *p
- 	return dma_addr + offset;
- fail:
- 	__free_iova(mapping, dma_addr, len);
--	return DMA_ERROR_CODE;
-+	return ARM_MAPPING_ERROR;
- }
- 
- /**
-@@ -2056,7 +2063,7 @@ static dma_addr_t arm_iommu_map_resource(struct device *dev,
- 	size_t len = PAGE_ALIGN(size + offset);
- 
- 	dma_addr = __alloc_iova(mapping, len);
--	if (dma_addr = DMA_ERROR_CODE)
-+	if (dma_addr = ARM_MAPPING_ERROR)
- 		return dma_addr;
- 
- 	prot = __dma_info_to_prot(dir, attrs) | IOMMU_MMIO;
-@@ -2068,7 +2075,7 @@ static dma_addr_t arm_iommu_map_resource(struct device *dev,
- 	return dma_addr + offset;
- fail:
- 	__free_iova(mapping, dma_addr, len);
--	return DMA_ERROR_CODE;
-+	return ARM_MAPPING_ERROR;
- }
- 
- /**
-@@ -2140,6 +2147,8 @@ const struct dma_map_ops iommu_ops = {
- 
- 	.map_resource		= arm_iommu_map_resource,
- 	.unmap_resource		= arm_iommu_unmap_resource,
-+
-+	.mapping_error		= arm_dma_mapping_error,
- };
- 
- const struct dma_map_ops iommu_coherent_ops = {
-@@ -2156,6 +2165,8 @@ const struct dma_map_ops iommu_coherent_ops = {
- 
- 	.map_resource	= arm_iommu_map_resource,
- 	.unmap_resource	= arm_iommu_unmap_resource,
-+
-+	.mapping_error		= arm_dma_mapping_error,
- };
- 
- /**
+ static int __pci_assign_resource(struct pci_bus *bus, struct pci_dev *dev,
+ 		int resno, resource_size_t size, resource_size_t align)
+ {
 -- 
-2.11.0
+2.13.0
 
