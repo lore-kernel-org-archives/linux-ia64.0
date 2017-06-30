@@ -1,59 +1,73 @@
-From: Kirill Tkhai <ktkhai@virtuozzo.com>
-Date: Mon, 19 Jun 2017 18:02:51 +0000
-Subject: [PATCH 4/7] ia64: Add __down_read_killable()
-Message-Id: <149789537165.9059.15919512843596106349.stgit@localhost.localdomain>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Date: Fri, 30 Jun 2017 00:01:23 +0000
+Subject: [PATCH RFC 15/26] ia64: Remove spin_unlock_wait() arch-specific definitions
+Message-Id: <1498780894-8253-15-git-send-email-paulmck@linux.vnet.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <149789463636.9059.16943955939303454611.stgit@localhost.localdomain>
-In-Reply-To: <149789463636.9059.16943955939303454611.stgit@localhost.localdomain>
+References: <20170629235918.GA6445@linux.vnet.ibm.com>
+In-Reply-To: <20170629235918.GA6445@linux.vnet.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, avagin@virtuozzo.com, peterz@infradead.org, heiko.carstens@de.ibm.com, hpa@zytor.com, gorcunov@virtuozzo.com, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, x86@kernel.org, mingo@redhat.com, mattst88@gmail.com, fenghua.yu@intel.com, arnd@arndb.de, ktkhai@virtuozzo.com, ink@jurassic.park.msu.ru, tglx@linutronix.de, rth@twiddle.net, tony.luck@intel.com, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, schwidefsky@de.ibm.com, davem@davemloft.net
+To: linux-kernel@vger.kernel.org
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org, oleg@redhat.com, akpm@linux-foundation.org, mingo@redhat.com, dave@stgolabs.net, manfred@colorfullife.com, tj@kernel.org, arnd@arndb.de, linux-arch@vger.kernel.org, will.deacon@arm.com, peterz@infradead.org, stern@rowland.harvard.edu, parri.andrea@gmail.com, torvalds@linux-foundation.org, "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-Similar to __down_write_killable(), and read killable primitive.
+There is no agreed-upon definition of spin_unlock_wait()'s semantics,
+and it appears that all callers could do just as well with a lock/unlock
+pair.  This commit therefore removes the underlying arch-specific
+arch_spin_unlock_wait().
 
-Signed-off-by: Kirill Tkhai <ktkhai@virtuozzo.com>
+Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: <linux-ia64@vger.kernel.org>
+Cc: Will Deacon <will.deacon@arm.com>
+Cc: Peter Zijlstra <peterz@infradead.org>
+Cc: Alan Stern <stern@rowland.harvard.edu>
+Cc: Andrea Parri <parri.andrea@gmail.com>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>
 ---
- arch/ia64/include/asm/rwsem.h |   22 +++++++++++++++++++---
- 1 file changed, 19 insertions(+), 3 deletions(-)
+ arch/ia64/include/asm/spinlock.h | 21 ---------------------
+ 1 file changed, 21 deletions(-)
 
-diff --git a/arch/ia64/include/asm/rwsem.h b/arch/ia64/include/asm/rwsem.h
-index 8fa98dd303b4..1fb8b7cb1c98 100644
---- a/arch/ia64/include/asm/rwsem.h
-+++ b/arch/ia64/include/asm/rwsem.h
-@@ -37,15 +37,31 @@
- /*
-  * lock for reading
-  */
--static inline void
--__down_read (struct rw_semaphore *sem)
-+static inline int
-+___down_read (struct rw_semaphore *sem)
- {
- 	long result = ia64_fetchadd8_acq((unsigned long *)&sem->count.counter, 1);
- 
--	if (result < 0)
-+	return (result < 0);
-+}
-+
-+static inline void
-+__down_read (struct rw_semaphore *sem)
-+{
-+	if (___down_read(sem))
- 		rwsem_down_read_failed(sem);
+diff --git a/arch/ia64/include/asm/spinlock.h b/arch/ia64/include/asm/spinlock.h
+index ca9e76149a4a..df2c121164b8 100644
+--- a/arch/ia64/include/asm/spinlock.h
++++ b/arch/ia64/include/asm/spinlock.h
+@@ -76,22 +76,6 @@ static __always_inline void __ticket_spin_unlock(arch_spinlock_t *lock)
+ 	ACCESS_ONCE(*p) = (tmp + 2) & ~1;
  }
  
-+static inline int
-+__down_read_killable (struct rw_semaphore *sem)
-+{
-+	if (___down_read(sem))
-+		if (IS_ERR(rwsem_down_read_failed_killable(sem)))
-+			return -EINTR;
-+
-+	return 0;
-+}
-+
- /*
-  * lock for writing
-  */
+-static __always_inline void __ticket_spin_unlock_wait(arch_spinlock_t *lock)
+-{
+-	int	*p = (int *)&lock->lock, ticket;
+-
+-	ia64_invala();
+-
+-	for (;;) {
+-		asm volatile ("ld4.c.nc %0=[%1]" : "=r"(ticket) : "r"(p) : "memory");
+-		if (!(((ticket >> TICKET_SHIFT) ^ ticket) & TICKET_MASK))
+-			return;
+-		cpu_relax();
+-	}
+-
+-	smp_acquire__after_ctrl_dep();
+-}
+-
+ static inline int __ticket_spin_is_locked(arch_spinlock_t *lock)
+ {
+ 	long tmp = ACCESS_ONCE(lock->lock);
+@@ -143,11 +127,6 @@ static __always_inline void arch_spin_lock_flags(arch_spinlock_t *lock,
+ 	arch_spin_lock(lock);
+ }
+ 
+-static inline void arch_spin_unlock_wait(arch_spinlock_t *lock)
+-{
+-	__ticket_spin_unlock_wait(lock);
+-}
+-
+ #define arch_read_can_lock(rw)		(*(volatile int *)(rw) >= 0)
+ #define arch_write_can_lock(rw)	(*(volatile int *)(rw) = 0)
+ 
+-- 
+2.5.2
 
