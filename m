@@ -1,53 +1,72 @@
-From: Nicholas Piggin <npiggin@gmail.com>
-Date: Wed, 21 Jun 2017 07:56:37 +0000
-Subject: [PATCH 1/2] ia64: thin archives fix linking
-Message-Id: <20170621075638.19251-2-npiggin@gmail.com>
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Date: Fri, 30 Jun 2017 12:39:00 +0000
+Subject: [PATCH 2/8] signal/ia64: Document a conflict with SI_USER with SIGFPE
+Message-Id: <20170630123906.8865-2-ebiederm@xmission.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20170621075638.19251-1-npiggin@gmail.com>
-In-Reply-To: <20170621075638.19251-1-npiggin@gmail.com>
+References: <87efu22set.fsf@xmission.com>
+In-Reply-To: <87efu22set.fsf@xmission.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Masahiro Yamada <yamada.masahiro@socionext.com>
-Cc: Nicholas Piggin <npiggin@gmail.com>, linux-kbuild@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: Andy Lutomirski <luto@kernel.org>, Linus Torvalds <torvalds@linux-foundation.org>, Al Viro <viro@zeniv.linux.org.uk>, Oleg Nesterov <oleg@redhat.com>, Andrei Vagin <avagin@virtuozzo.com>, Thomas Gleixner <tglx@linutronix.de>, Greg KH <greg@kroah.com>, Andrey Vagin <avagin@openvz.org>, Serge Hallyn <serge@hallyn.com>, Pavel Emelyanov <xemul@virtuozzo.com>, Cyrill Gorcunov <gorcunov@openvz.org>, Peter Zijlstra <peterz@infradead.org>, Willy Tarreau <w@1wt.eu>, linux-arch@vger.kernel.org, linux-api@vger.kernel.org, Linux Containers <containers@lists.linux-foundation.org>, Michael Kerrisk <mtk.manpages@gmail.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-The VDSO symbols can't be linked into built-in.o when building with
-thin archives, so change this to linking them into the final link.
+Setting si_code to __SI_FAULT results in a userspace seeing
+an si_code of 0.  This is the same si_code as SI_USER.  Posix
+and common sense requires that SI_USER not be a signal specific
+si_code.  As such this use of 0 for the si_code is a pretty
+horribly broken ABI.
+
+Given that ia64 is on it's last legs I don't know that it is worth
+fixing this, but it is worth documenting what is going on so that
+no one decides to copy this bad decision.
+
+This was introduced in 2.3.51 so this mess has had a long time for
+people to be able to start depending on it.
 
 Cc: Tony Luck <tony.luck@intel.com>
 Cc: Fenghua Yu <fenghua.yu@intel.com>
 Cc: linux-ia64@vger.kernel.org
-Signed-off-by: Nicholas Piggin <npiggin@gmail.com>
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- arch/ia64/Makefile             | 1 +
- arch/ia64/kernel/Makefile.gate | 3 ---
- 2 files changed, 1 insertion(+), 3 deletions(-)
+ arch/ia64/include/uapi/asm/siginfo.h | 1 +
+ arch/ia64/kernel/traps.c             | 4 ++--
+ 2 files changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/arch/ia64/Makefile b/arch/ia64/Makefile
-index c100d780f1eb..302f7edbcfd1 100644
---- a/arch/ia64/Makefile
-+++ b/arch/ia64/Makefile
-@@ -22,6 +22,7 @@ CHECKFLAGS	+= -m64 -D__ia64=1 -D__ia64__=1 -D_LP64 -D__LP64__
- 
- OBJCOPYFLAGS	:= --strip-all
- LDFLAGS_vmlinux	:= -static
-+LDFLAGS_vmlinux	+= -R arch/ia64/kernel/gate-syms.o
- KBUILD_LDFLAGS_MODULE += -T $(srctree)/arch/ia64/module.lds
- KBUILD_AFLAGS_KERNEL := -mconstant-gp
- EXTRA		:diff --git a/arch/ia64/kernel/Makefile.gate b/arch/ia64/kernel/Makefile.gate
-index a32903ada016..9d9c69100d35 100644
---- a/arch/ia64/kernel/Makefile.gate
-+++ b/arch/ia64/kernel/Makefile.gate
-@@ -14,9 +14,6 @@ GATECFLAGS_gate.so = -shared -s -Wl,-soname=linux-gate.so.1 \
- $(obj)/gate.so: $(obj)/gate.lds $(obj)/gate.o FORCE
- 	$(call if_changed,gate)
- 
--$(obj)/built-in.o: $(obj)/gate-syms.o
--$(obj)/built-in.o: ld_flags += -R $(obj)/gate-syms.o
--
- GATECFLAGS_gate-syms.o = -r
- $(obj)/gate-syms.o: $(obj)/gate.lds $(obj)/gate.o FORCE
- 	$(call if_changed,gate)
+diff --git a/arch/ia64/include/uapi/asm/siginfo.h b/arch/ia64/include/uapi/asm/siginfo.h
+index f72bf0172bb2..fafea221f49c 100644
+--- a/arch/ia64/include/uapi/asm/siginfo.h
++++ b/arch/ia64/include/uapi/asm/siginfo.h
+@@ -108,6 +108,7 @@ typedef struct siginfo {
+ /*
+  * SIGFPE si_codes
+  */
++#define FPE_FIXME	(__SI_FAULT|0)	/* Broken dup of SI_USER */
+ #define __FPE_DECOVF	(__SI_FAULT|9)	/* decimal overflow */
+ #define __FPE_DECDIV	(__SI_FAULT|10)	/* decimal division by zero */
+ #define __FPE_DECERR	(__SI_FAULT|11)	/* packed decimal error */
+diff --git a/arch/ia64/kernel/traps.c b/arch/ia64/kernel/traps.c
+index 7b1fe9462158..3cb17cf9b362 100644
+--- a/arch/ia64/kernel/traps.c
++++ b/arch/ia64/kernel/traps.c
+@@ -349,7 +349,7 @@ handle_fpu_swa (int fp_fault, struct pt_regs *regs, unsigned long isr)
+ 			}
+ 			siginfo.si_signo = SIGFPE;
+ 			siginfo.si_errno = 0;
+-			siginfo.si_code = __SI_FAULT;	/* default code */
++			siginfo.si_code = FPE_FIXME;	/* default code */
+ 			siginfo.si_addr = (void __user *) (regs->cr_iip + ia64_psr(regs)->ri);
+ 			if (isr & 0x11) {
+ 				siginfo.si_code = FPE_FLTINV;
+@@ -373,7 +373,7 @@ handle_fpu_swa (int fp_fault, struct pt_regs *regs, unsigned long isr)
+ 			/* raise exception */
+ 			siginfo.si_signo = SIGFPE;
+ 			siginfo.si_errno = 0;
+-			siginfo.si_code = __SI_FAULT;	/* default code */
++			siginfo.si_code = FPE_FIXME;	/* default code */
+ 			siginfo.si_addr = (void __user *) (regs->cr_iip + ia64_psr(regs)->ri);
+ 			if (isr & 0x880) {
+ 				siginfo.si_code = FPE_FLTOVF;
 -- 
-2.11.0
+2.10.1
 
