@@ -1,68 +1,76 @@
-From: Joe Perches <joe@perches.com>
-Date: Wed, 05 Jul 2017 20:02:22 +0000
-Subject: [PATCH 13/18] drivers: tty: serial: Move inline before return type
-Message-Id: <55d3e89d50bb03d603bfb28019fab07f48bdc714.1499284835.git.joe@perches.com>
+From: David Howells <dhowells@redhat.com>
+Date: Thu, 20 Jul 2017 12:50:48 +0000
+Subject: [PATCH 5/5] Unroll INIT_STRUCT_PID
+Message-Id: <150055504878.20414.2817022733059449213.stgit@warthog.procyon.org.uk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1499284835.git.joe@perches.com>
-In-Reply-To: <cover.1499284835.git.joe@perches.com>
+References: <150055501157.20414.14957264566013145790.stgit@warthog.procyon.org.uk>
+In-Reply-To: <150055501157.20414.14957264566013145790.stgit@warthog.procyon.org.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>, Pat Gefre <pfg@sgi.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: Jiri Slaby <jslaby@suse.com>, linux-serial@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: mingo@kernel.org
+Cc: linux-arch@vger.kernel.org, dhowells@redhat.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Make the code like the rest of the kernel.
+Unroll INIT_STRUCT_PID in the single place that uses it.  There doesn't
+seem any point in the macro.
 
-Signed-off-by: Joe Perches <joe@perches.com>
+Signed-off-by: David Howells <dhowells@redhat.com>
 ---
- drivers/tty/serial/ioc3_serial.c | 4 ++--
- drivers/tty/serial/ioc4_serial.c | 4 ++--
- 2 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/tty/serial/ioc3_serial.c b/drivers/tty/serial/ioc3_serial.c
-index 2a61dd6b4009..906ee770ff4a 100644
---- a/drivers/tty/serial/ioc3_serial.c
-+++ b/drivers/tty/serial/ioc3_serial.c
-@@ -377,7 +377,7 @@ static struct ioc3_port *get_ioc3_port(struct uart_port *the_port)
-  *			called per port from attach...
-  * @port: port to initialize
-  */
--static int inline port_init(struct ioc3_port *port)
-+static inline int port_init(struct ioc3_port *port)
- {
- 	uint32_t sio_cr;
- 	struct port_hooks *hooks = port->ip_hooks;
-@@ -1430,7 +1430,7 @@ static int receive_chars(struct uart_port *the_port)
-  * @pending: interrupts to handle
-  */
+ include/linux/init_task.h |   15 ---------------
+ kernel/pid.c              |   15 ++++++++++++++-
+ 2 files changed, 14 insertions(+), 16 deletions(-)
+
+diff --git a/include/linux/init_task.h b/include/linux/init_task.h
+index fc51c709d19d..4d181cc252cf 100644
+--- a/include/linux/init_task.h
++++ b/include/linux/init_task.h
+@@ -46,21 +46,6 @@ extern struct cred init_cred;
+ #endif
  
--static int inline
-+static inline int
- ioc3uart_intr_one(struct ioc3_submodule *is,
- 			struct ioc3_driver_data *idd,
- 			unsigned int pending)
-diff --git a/drivers/tty/serial/ioc4_serial.c b/drivers/tty/serial/ioc4_serial.c
-index f96bcf9bee25..43d7d32eb150 100644
---- a/drivers/tty/serial/ioc4_serial.c
-+++ b/drivers/tty/serial/ioc4_serial.c
-@@ -824,7 +824,7 @@ pending_intrs(struct ioc4_soft *soft, int type)
-  *			called per port from attach...
-  * @port: port to initialize
-  */
--static int inline port_init(struct ioc4_port *port)
-+static inline int port_init(struct ioc4_port *port)
- {
- 	uint32_t sio_cr;
- 	struct hooks *hooks = port->ip_hooks;
-@@ -1048,7 +1048,7 @@ static irqreturn_t ioc4_intr(int irq, void *arg)
-  *			IOC4 with serial ports in the system.
-  * @idd: Master module data for this IOC4
-  */
--static int inline ioc4_attach_local(struct ioc4_driver_data *idd)
-+static inline int ioc4_attach_local(struct ioc4_driver_data *idd)
- {
- 	struct ioc4_port *port;
- 	struct ioc4_port *ports[IOC4_NUM_SERIAL_PORTS];
--- 
-2.10.0.rc2.1.g053435c
+ 
+-#define INIT_STRUCT_PID {						\
+-	.count 		= ATOMIC_INIT(1),				\
+-	.tasks		= {						\
+-		{ .first = NULL },					\
+-		{ .first = NULL },					\
+-		{ .first = NULL },					\
+-	},								\
+-	.level		= 0,						\
+-	.numbers	= { {						\
+-		.nr		= 0,					\
+-		.ns		= &init_pid_ns,				\
+-		.pid_chain	= { .next = NULL, .pprev = NULL },	\
+-	}, }								\
+-}
+-
+ #define INIT_PID_LINK(type) 					\
+ {								\
+ 	.node = {						\
+diff --git a/kernel/pid.c b/kernel/pid.c
+index 731c4e528f4e..d276a050d73e 100644
+--- a/kernel/pid.c
++++ b/kernel/pid.c
+@@ -44,7 +44,20 @@
+ 	hash_long((unsigned long)nr + (unsigned long)ns, pidhash_shift)
+ static struct hlist_head *pid_hash;
+ static unsigned int pidhash_shift = 4;
+-struct pid init_struct_pid = INIT_STRUCT_PID;
++struct pid init_struct_pid = {
++	.count 		= ATOMIC_INIT(1),
++	.tasks		= {
++		{ .first = NULL },
++		{ .first = NULL },
++		{ .first = NULL },
++	},
++	.level		= 0,
++	.numbers	= { {
++		.nr		= 0,
++		.ns		= &init_pid_ns,
++		.pid_chain	= { .next = NULL, .pprev = NULL },
++	}, }
++};
+ 
+ int pid_max = PID_MAX_DEFAULT;
+ 
 
