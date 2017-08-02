@@ -1,43 +1,37 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Sun, 27 Aug 2017 16:10:22 +0000
-Subject: [PATCH 02/12] mips: don't use dma_cache_sync to implement fd_cacheflush
-Message-Id: <20170827161032.22772-3-hch@lst.de>
+From: Bjorn Helgaas <helgaas@kernel.org>
+Date: Wed, 02 Aug 2017 20:00:31 +0000
+Subject: Re: pci: Add generic pcibios_{fixup_bus,align_resource}
+Message-Id: <20170802200031.GD20308@bhelgaas-glaptop.roam.corp.google.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20170827161032.22772-1-hch@lst.de>
-In-Reply-To: <20170827161032.22772-1-hch-jcswGhMUV9g@public.gmane.org>
+References: <20170624015044.16746-1-palmer@dabbelt.com>
+In-Reply-To: <20170624015044.16746-1-palmer@dabbelt.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Cc: Chris Zankel <chris-YvXeqwSYzG2sTnJN9+BGXg@public.gmane.org>, Michal Simek <monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org>, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Max Filippov <jcmvbkbc-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Guan Xuetao <gxt-TG0Ac1+ktVePQbnJrJN+5g@public.gmane.org>
+To: Palmer Dabbelt <palmer@dabbelt.com>
+Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org, bhelgaas@google.com, hch@infradead.org, Arnd Bergmann <arnd@arndb.de>, linux-snps-arc@lists.infradead.org, linux-cris-kernel@axis.com, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org
 
-The floppy drivers doesn't otherwise use the DMA API, so indirecting
-through it just for cache flushing in MIPS-specific code just call
-dma_cache_wback_inv directly.
+On Fri, Jun 23, 2017 at 06:50:41PM -0700, Palmer Dabbelt wrote:
+> While upstreaming the RISC-V port, it was pointed out that multiple
+> architectures have copied the mostly empty versions of at least one of these
+> functions.  This defines weakly bound versions of the common functions and
+> removes the now obselete functions from other ports.
+> 
+> This has been split out from the RISC-V submission so we can decouple all these
+> generic changes from our port review process.  There's some discussion on an
+> earlier version of the patch here
+> 
+>   https://lkml.org/lkml/2017/6/6/998
+> 
+> but I'm afraid a lot of this is really out of my wheelhouse (and I'm pretty
+> slammed trying to get the RISC-V port in better shape), so I'm afraid I'm not
+> going to be able to perform the full cleanup suggested.
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
----
- arch/mips/include/asm/floppy.h | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Applied to pci/resource for v4.14, thanks!
 
-diff --git a/arch/mips/include/asm/floppy.h b/arch/mips/include/asm/floppy.h
-index d75aed36480a..021d09ae5670 100644
---- a/arch/mips/include/asm/floppy.h
-+++ b/arch/mips/include/asm/floppy.h
-@@ -10,11 +10,11 @@
- #ifndef _ASM_FLOPPY_H
- #define _ASM_FLOPPY_H
- 
--#include <linux/dma-mapping.h>
-+#include <asm/io.h>
- 
- static inline void fd_cacheflush(char * addr, long size)
- {
--	dma_cache_sync(NULL, addr, size, DMA_BIDIRECTIONAL);
-+	dma_cache_wback_inv((unsigned long)addr, size);
- }
- 
- #define MAX_BUFFER_SECTORS 24
--- 
-2.11.0
+There's room for future improvement, e.g., using per-host callbacks,
+etc., but I think this is a clear improvement as-is.
 
+There's some folklore about the evils of weak symbols, but I don't
+know the details.  It would be useful to have them codified somewhere
+in Documentation/ or near the __weak definition.
