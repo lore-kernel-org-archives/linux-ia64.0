@@ -1,37 +1,39 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Sun, 27 Aug 2017 16:10:23 +0000
-Subject: [PATCH 03/12] frv: make dma_cache_sync a no-op
-Message-Id: <20170827161032.22772-4-hch@lst.de>
+From: Helge Deller <deller@gmx.de>
+Date: Tue, 08 Aug 2017 16:28:41 +0000
+Subject: [PATCH] random: fix warning message on ia64 and parisc
+Message-Id: <20170808162841.GA8668@p100.box>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20170827161032.22772-1-hch@lst.de>
-In-Reply-To: <20170827161032.22772-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: iommu@lists.linux-foundation.org
-Cc: Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, Michal Simek <monstr@monstr.eu>, David Howells <dhowells@redhat.com>, Guan Xuetao <gxt@mprc.pku.edu.cn>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org, linux-mips@linux-mips.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-xtensa@linux-xtensa.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Theodore Ts'o <tytso@mit.edu>, "Jason A. Donenfeld" <Jason@zx2c4.com>, linux-kernel@vger.kernel.org, linux-parisc@vger.kernel.org, torvalds@linux-foundation.org, kernel-hardening@lists.openwall.com, linux-ia64@vger.kernel.org
 
-frv does not implement DMA_ATTR_NON_CONSISTENT allocations, so it doesn't
-make any sense to do any work in dma_cache_sync given that it must be a
-no-op when dma_alloc_attrs returns coherent memory.
+Fix the warning message on the parisc and IA64 architectures to show the
+correct function name of the caller by using %pS instead of %pF. The
+message is printed with the value of _RET_IP_ which calls
+__builtin_return_address(0) and as such returns the IP address caller
+instead of pointer to a function descriptor of the caller.
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
----
- arch/frv/include/asm/dma-mapping.h | 1 -
- 1 file changed, 1 deletion(-)
+The effect of this patch is visible on the parisc and ia64 architectures
+only since those are the ones which use function descriptors while on
+all others %pS and %pF will behave the same.
 
-diff --git a/arch/frv/include/asm/dma-mapping.h b/arch/frv/include/asm/dma-mapping.h
-index 354900917585..da0e5c9744c4 100644
---- a/arch/frv/include/asm/dma-mapping.h
-+++ b/arch/frv/include/asm/dma-mapping.h
-@@ -18,7 +18,6 @@ static inline
- void dma_cache_sync(struct device *dev, void *vaddr, size_t size,
- 		    enum dma_data_direction direction)
- {
--	flush_write_buffers();
+Cc: Theodore Ts'o <tytso@mit.edu>
+Cc: Jason A. Donenfeld <Jason@zx2c4.com>
+Signed-off-by: Helge Deller <deller@gmx.de>
+Fixes: eecabf567422 ("random: suppress spammy warnings about unseeded randomness")
+Fixes: d06bfd1989fe ("random: warn when kernel uses unseeded randomness")
+
+diff --git a/drivers/char/random.c b/drivers/char/random.c
+index afa3ce7..8ad9270 100644
+--- a/drivers/char/random.c
++++ b/drivers/char/random.c
+@@ -1492,7 +1492,7 @@ static void _warn_unseeded_randomness(const char *func_name, void *caller,
+ #ifndef CONFIG_WARN_ALL_UNSEEDED_RANDOM
+ 	print_once = true;
+ #endif
+-	pr_notice("random: %s called from %pF with crng_init=%d\n",
++	pr_notice("random: %s called from %pS with crng_init=%d\n",
+ 		  func_name, caller, crng_init);
  }
  
- #endif  /* _ASM_DMA_MAPPING_H */
--- 
-2.11.0
-
