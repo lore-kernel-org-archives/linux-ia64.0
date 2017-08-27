@@ -1,65 +1,41 @@
-From: James Hogan <james.hogan@imgtec.com>
-Date: Fri, 04 Aug 2017 15:22:04 +0000
-Subject: Re: [PATCH] uapi: fix another asm/shmbuf.h userspace compilation error
-Message-Id: <20170804152203.GA31455@jhogan-linux.le.imgtec.org>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="ofekNuVaYCKmvJ0U"
+From: Christoph Hellwig <hch@lst.de>
+Date: Sun, 27 Aug 2017 16:10:25 +0000
+Subject: [PATCH 05/12] ia64: make dma_cache_sync a no-op
+Message-Id: <20170827161032.22772-6-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20170302004607.GE27132@altlinux.org>
- <CAK8P3a1=-Q=gVRyk+PwqxTeTPXa4yrmqWKG7SyZng2d7bcbG=g@mail.gmail.com>
-In-Reply-To: <CAK8P3a1=-Q=gVRyk+PwqxTeTPXa4yrmqWKG7SyZng2d7bcbG=g@mail.gmail.com>
-To: Arnd Bergmann <arnd@arndb.de>
-Cc: "Dmitry V. Levin" <ldv@altlinux.org>, linux-mips@linux-mips.org, linux-ia64@vger.kernel.org, linux-xtensa@linux-xtensa.org, Heiko Carstens <heiko.carstens@de.ibm.com>, David Howells <dhowells@redhat.com>, Max Filippov <jcmvbkbc@gmail.com>, Paul Mackerras <paulus@samba.org>, "H. Peter Anvin" <hpa@zytor.com>, sparclinux@vger.kernel.org, Hans-Christian Egtvedt <egtvedt@samfundet.no>, linux-arch <linux-arch@vger.kernel.org>, linux-s390@vger.kernel.org, linux-am33-list@redhat.com, x86@kernel.org, Ingo Molnar <mingo@redhat.com>, Haavard Skinnemoen <hskinnemoen@gmail.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Chris Zankel <chris@zankel.net>, Tony Luck <tony.luck@intel.com>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Ralf Baechle <ralf@linux-mips.org>, linux-alpha@vger.kernel.org, Martin Schwidefsky <schwidefsky@de.ibm.com>, linuxppc-dev@lists.ozlabs.org, "David S. Miller" <davem@davemloft.net>
+References: <20170827161032.22772-1-hch@lst.de>
+In-Reply-To: <20170827161032.22772-1-hch-jcswGhMUV9g@public.gmane.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Cc: Chris Zankel <chris-YvXeqwSYzG2sTnJN9+BGXg@public.gmane.org>, Michal Simek <monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org>, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Max Filippov <jcmvbkbc-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Guan Xuetao <gxt-TG0Ac1+ktVePQbnJrJN+5g@public.gmane.org>
 
---ofekNuVaYCKmvJ0U
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+ia64 does not implement DMA_ATTR_NON_CONSISTENT allocations, so it doesn't
+make any sense to do any work in dma_cache_sync given that it must be a
+no-op when dma_alloc_attrs returns coherent memory.
 
-On Thu, Mar 02, 2017 at 02:07:20PM +0100, Arnd Bergmann wrote:
-> On Thu, Mar 2, 2017 at 1:46 AM, Dmitry V. Levin <ldv@altlinux.org> wrote:
-> > Replace size_t with __kernel_size_t to fix asm/shmbuf.h userspace
-> > compilation errors like this:
-> >
-> > /usr/include/asm-generic/shmbuf.h:28:2: error: unknown type name 'size_=
-t'
-> >   size_t   shm_segsz; /* size of segment (bytes) */
-> >
-> > x32 is the only architecture where sizeof(size_t) is less than
-> > sizeof(__kernel_size_t), but as the kernel treats shm_segsz field as
-> > __kernel_size_t anyway, UAPI should follow.  Thanks to little-endiannes
-> > of x32 and 64-bit alignment of the field following shm_segsz, this
-> > change doesn't break ABI, and the difference doesn't manifest itself
-> > easily.
-> >
-> > Signed-off-by: Dmitry V. Levin <ldv@altlinux.org>
->=20
-> Acked-by: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ arch/ia64/include/asm/dma-mapping.h | 5 -----
+ 1 file changed, 5 deletions(-)
 
-Out of interest, is there a plan for merging these patches from Dmitry?
+diff --git a/arch/ia64/include/asm/dma-mapping.h b/arch/ia64/include/asm/dma-mapping.h
+index 3ce5ab4339f3..99dfc1aa9d3c 100644
+--- a/arch/ia64/include/asm/dma-mapping.h
++++ b/arch/ia64/include/asm/dma-mapping.h
+@@ -48,11 +48,6 @@ static inline void
+ dma_cache_sync (struct device *dev, void *vaddr, size_t size,
+ 	enum dma_data_direction dir)
+ {
+-	/*
+-	 * IA-64 is cache-coherent, so this is mostly a no-op.  However, we do need to
+-	 * ensure that dma_cache_sync() enforces order, hence the mb().
+-	 */
+-	mb();
+ }
+ 
+ #endif /* _ASM_IA64_DMA_MAPPING_H */
+-- 
+2.11.0
 
-Cheers
-James
-
---ofekNuVaYCKmvJ0U
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAEBCAAdFiEEd80NauSabkiESfLYbAtpk944dnoFAlmEkRMACgkQbAtpk944
-dnrAMg/+K3doXr6onSUJPfVtAuAORRxr6EypmBdFZs5/qV4cwNTkljJ0c/yGAKaM
-fUM6pJ9n56h7YGG0/y2m+YCI56TPWyh8HnoKTNyhgDtg+Sn1e2Ub4dXyEjYdQhXN
-TMTzPsP/COyFkrStEulbLuGoaU4t7UMFk5nU7FTQ1BpCeyuEO5opnUpA3JMZwehK
-KK7orqZYUE+iZ8QfbEXiuHr68EsvpMeHj0z6WNkXD/8gRzSFTMqf5wHFpm3cNTJ7
-3BRJx3LOkkE3amkPOm1kIOPWkMAEIFF11hRc79e4Wpkak6tnoCowkLvVNadB+UH2
-bb5BTgwifuU83lrWsqC6gzs6e4PR0DEAgQofoLy5uGQjVgYqJ970Q8/Cl4xsfvcL
-qVVFp8oGN5oZoXFiMWhYVQydG4m9TaruA2vOZK3F9fdrNBmd4t+fNxF+l3CTfa79
-dAGLliqjUunWrW8WBrFmIySw9Sxl8DbJKyl0jxaJUbfGCnmsmkCZO4fP8h3BK37Y
-mjMPsH3AjUnkBSLRBK+d261LMYCBgMY/SpUWwR7RqRbtxrqO7voVeNcyXQ1c4tVE
-cYJhQpy57wjDKE0luxGSU0o1ATJst6xcL+URKTvRoxIWrkZXUBPnwfusoedLqTxd
-f5AIFSEhwz7t8hBSEweo8qITuBmr86QmyKPwYN4R9xkonfb2Kis=
-=9M2T
------END PGP SIGNATURE-----
-
---ofekNuVaYCKmvJ0U--
