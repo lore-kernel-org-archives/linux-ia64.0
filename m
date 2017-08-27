@@ -1,106 +1,93 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Sun, 27 Aug 2017 16:10:21 +0000
-Subject: [PATCH 01/12] floppy: consolidate the dummy fd_cacheflush definition
-Message-Id: <20170827161032.22772-2-hch@lst.de>
+Date: Sun, 27 Aug 2017 16:10:29 +0000
+Subject: [PATCH 09/12] unicore32: make dma_cache_sync a no-op
+Message-Id: <20170827161032.22772-10-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20170827161032.22772-1-hch@lst.de>
-In-Reply-To: <20170827161032.22772-1-hch-jcswGhMUV9g@public.gmane.org>
+In-Reply-To: <20170827161032.22772-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Cc: Chris Zankel <chris-YvXeqwSYzG2sTnJN9+BGXg@public.gmane.org>, Michal Simek <monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org>, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Max Filippov <jcmvbkbc-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Guan Xuetao <gxt-TG0Ac1+ktVePQbnJrJN+5g@public.gmane.org>
+To: iommu@lists.linux-foundation.org
+Cc: Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, Michal Simek <monstr@monstr.eu>, David Howells <dhowells@redhat.com>, Guan Xuetao <gxt@mprc.pku.edu.cn>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org, linux-mips@linux-mips.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-xtensa@linux-xtensa.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Only mips defines this helper, so remove all the other arch definitions.
+unicore32 does not implement DMA_ATTR_NON_CONSISTENT allocations, so it
+doesn't make any sense to do any work in dma_cache_sync given that it
+must be a no-op when dma_alloc_attrs returns coherent memory.
 
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- arch/alpha/include/asm/floppy.h    | 2 --
- arch/powerpc/include/asm/floppy.h  | 2 --
- arch/sparc/include/asm/floppy_32.h | 1 -
- arch/sparc/include/asm/floppy_64.h | 1 -
- drivers/block/floppy.c             | 4 ++++
- 5 files changed, 4 insertions(+), 6 deletions(-)
+ arch/unicore32/include/asm/cacheflush.h  |  9 ---------
+ arch/unicore32/include/asm/dma-mapping.h | 17 -----------------
+ arch/unicore32/mm/proc-syms.c            |  3 ---
+ 3 files changed, 29 deletions(-)
 
-diff --git a/arch/alpha/include/asm/floppy.h b/arch/alpha/include/asm/floppy.h
-index bae97eb19d26..942924756cf2 100644
---- a/arch/alpha/include/asm/floppy.h
-+++ b/arch/alpha/include/asm/floppy.h
-@@ -24,7 +24,6 @@
- #define fd_set_dma_count(count) set_dma_count(FLOPPY_DMA,count)
- #define fd_enable_irq()         enable_irq(FLOPPY_IRQ)
- #define fd_disable_irq()        disable_irq(FLOPPY_IRQ)
--#define fd_cacheflush(addr,size) /* nothing */
- #define fd_request_irq()        request_irq(FLOPPY_IRQ, floppy_interrupt,\
- 					    0, "floppy", NULL)
- #define fd_free_irq()           free_irq(FLOPPY_IRQ, NULL)
-@@ -62,7 +61,6 @@ alpha_fd_dma_setup(char *addr, unsigned long size, int mode, int io)
- 	prev_dir = dir;
+diff --git a/arch/unicore32/include/asm/cacheflush.h b/arch/unicore32/include/asm/cacheflush.h
+index c0301e6c8b81..a5e08e2d5d6d 100644
+--- a/arch/unicore32/include/asm/cacheflush.h
++++ b/arch/unicore32/include/asm/cacheflush.h
+@@ -102,15 +102,6 @@ extern void __cpuc_flush_dcache_area(void *, size_t);
+ extern void __cpuc_flush_kern_dcache_area(void *addr, size_t size);
  
- 	fd_clear_dma_ff();
--	fd_cacheflush(addr, size);
- 	fd_set_dma_mode(mode);
- 	set_dma_addr(FLOPPY_DMA, bus_addr);
- 	fd_set_dma_count(size);
-diff --git a/arch/powerpc/include/asm/floppy.h b/arch/powerpc/include/asm/floppy.h
-index 936a904ae78c..167c44b58848 100644
---- a/arch/powerpc/include/asm/floppy.h
-+++ b/arch/powerpc/include/asm/floppy.h
-@@ -25,7 +25,6 @@
- #define fd_get_dma_residue()    fd_ops->_get_dma_residue(FLOPPY_DMA)
- #define fd_enable_irq()         enable_irq(FLOPPY_IRQ)
- #define fd_disable_irq()        disable_irq(FLOPPY_IRQ)
--#define fd_cacheflush(addr,size) /* nothing */
- #define fd_free_irq()           free_irq(FLOPPY_IRQ, NULL);
+ /*
+- * These are private to the dma-mapping API.  Do not use directly.
+- * Their sole purpose is to ensure that data held in the cache
+- * is visible to DMA, or data written by DMA to system memory is
+- * visible to the CPU.
+- */
+-extern void __cpuc_dma_clean_range(unsigned long, unsigned long);
+-extern void __cpuc_dma_flush_range(unsigned long, unsigned long);
+-
+-/*
+  * Copy user data from/to a page which is mapped into a different
+  * processes address space.  Really, we want to allow our "user
+  * space" model to handle this.
+diff --git a/arch/unicore32/include/asm/dma-mapping.h b/arch/unicore32/include/asm/dma-mapping.h
+index 518ba5848dd6..e949855bb794 100644
+--- a/arch/unicore32/include/asm/dma-mapping.h
++++ b/arch/unicore32/include/asm/dma-mapping.h
+@@ -18,9 +18,6 @@
+ #include <linux/scatterlist.h>
+ #include <linux/swiotlb.h>
  
- #include <linux/pci.h>
-@@ -152,7 +151,6 @@ static int hard_dma_setup(char *addr, unsigned long size, int mode, int io)
- 	prev_dir = dir;
+-#include <asm/memory.h>
+-#include <asm/cacheflush.h>
+-
+ extern const struct dma_map_ops swiotlb_dma_map_ops;
  
- 	fd_clear_dma_ff();
--	fd_cacheflush(addr, size);
- 	fd_set_dma_mode(mode);
- 	set_dma_addr(FLOPPY_DMA, bus_addr);
- 	fd_set_dma_count(size);
-diff --git a/arch/sparc/include/asm/floppy_32.h b/arch/sparc/include/asm/floppy_32.h
-index 071b83e52f15..dab58525229e 100644
---- a/arch/sparc/include/asm/floppy_32.h
-+++ b/arch/sparc/include/asm/floppy_32.h
-@@ -70,7 +70,6 @@ static struct sun_floppy_ops sun_fdops;
- #define fd_set_dma_count(count)   sun_fd_set_dma_count(count)
- #define fd_enable_irq()           /* nothing... */
- #define fd_disable_irq()          /* nothing... */
--#define fd_cacheflush(addr, size) /* nothing... */
- #define fd_request_irq()          sun_fd_request_irq()
- #define fd_free_irq()             /* nothing... */
- #if 0  /* P3: added by Alain, these cause a MMU corruption. 19960524 XXX */
-diff --git a/arch/sparc/include/asm/floppy_64.h b/arch/sparc/include/asm/floppy_64.h
-index 625756406a7e..a1db35a22c99 100644
---- a/arch/sparc/include/asm/floppy_64.h
-+++ b/arch/sparc/include/asm/floppy_64.h
-@@ -72,7 +72,6 @@ static struct sun_floppy_ops sun_fdops;
- #define fd_set_dma_addr(addr)     sun_fdops.fd_set_dma_addr(addr)
- #define fd_set_dma_count(count)   sun_fdops.fd_set_dma_count(count)
- #define get_dma_residue(x)        sun_fdops.get_dma_residue()
--#define fd_cacheflush(addr, size) /* nothing... */
- #define fd_request_irq()          sun_fdops.fd_request_irq()
- #define fd_free_irq()             sun_fdops.fd_free_irq()
- #define fd_eject(drive)           sun_fdops.fd_eject(drive)
-diff --git a/drivers/block/floppy.c b/drivers/block/floppy.c
-index 9c00f29e40c1..b1d896f9a227 100644
---- a/drivers/block/floppy.c
-+++ b/drivers/block/floppy.c
-@@ -275,6 +275,10 @@ static int set_next_request(void);
- #define fd_dma_mem_alloc(size) __get_dma_pages(GFP_KERNEL, get_order(size))
- #endif
- 
-+#ifndef fd_cacheflush
-+#define fd_cacheflush(addr, size) /* nothing... */
-+#endif
-+
- static inline void fallback_on_nodma_alloc(char **addr, size_t l)
+ static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
+@@ -51,20 +48,6 @@ static inline void dma_mark_clean(void *addr, size_t size) {}
+ static inline void dma_cache_sync(struct device *dev, void *vaddr,
+ 		size_t size, enum dma_data_direction direction)
  {
- #ifdef FLOPPY_CAN_FALLBACK_ON_NODMA
+-	unsigned long start = (unsigned long)vaddr;
+-	unsigned long end   = start + size;
+-
+-	switch (direction) {
+-	case DMA_NONE:
+-		BUG();
+-	case DMA_FROM_DEVICE:
+-	case DMA_BIDIRECTIONAL:	/* writeback and invalidate */
+-		__cpuc_dma_flush_range(start, end);
+-		break;
+-	case DMA_TO_DEVICE:		/* writeback only */
+-		__cpuc_dma_clean_range(start, end);
+-		break;
+-	}
+ }
+ 
+ #endif /* __KERNEL__ */
+diff --git a/arch/unicore32/mm/proc-syms.c b/arch/unicore32/mm/proc-syms.c
+index 21c00fc85c99..df215fd6d639 100644
+--- a/arch/unicore32/mm/proc-syms.c
++++ b/arch/unicore32/mm/proc-syms.c
+@@ -20,6 +20,3 @@ EXPORT_SYMBOL(cpu_dcache_clean_area);
+ EXPORT_SYMBOL(cpu_set_pte);
+ 
+ EXPORT_SYMBOL(__cpuc_coherent_kern_range);
+-
+-EXPORT_SYMBOL(__cpuc_dma_flush_range);
+-EXPORT_SYMBOL(__cpuc_dma_clean_range);
 -- 
 2.11.0
 
