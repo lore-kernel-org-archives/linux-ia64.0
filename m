@@ -1,135 +1,72 @@
-From: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
-Date: Wed, 20 Sep 2017 16:29:07 +0000
-Subject: [RFC][PATCH v2 5/7] parisc64: Add .opd based function descriptor dereference
-Message-Id: <20170920162910.32053-6-sergey.senozhatsky@gmail.com>
+From: Dou Liyang <douly.fnst@cn.fujitsu.com>
+Date: Fri, 01 Sep 2017 02:56:32 +0000
+Subject: [PATCH v2 0/7] Remove the parent_node() for each arch
+Message-Id: <1504234599-29533-1-git-send-email-douly.fnst@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20170920162910.32053-1-sergey.senozhatsky@gmail.com>
-In-Reply-To: <20170920162910.32053-1-sergey.senozhatsky@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, James Bottomley <jejb@parisc-linux.org>, Helge Deller <deller@gmx.de>
-Cc: Petr Mladek <pmladek@suse.com>, Steven Rostedt <rostedt@goodmis.org>, Andrew Morton <akpm@linux-foundation.org>, Jessica Yu <jeyu@kernel.org>, Alexei Starovoitov <ast@kernel.org>, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org, Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
+To: akpm@linux-foundation.org, linux-kernel@vger.kernel.org
+Cc: Dou Liyang <douly.fnst@cn.fujitsu.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, Ralf Baechle <ralf@linux-mips.org>, James Hogan <james.hogan@imgtec.com>, linux-mips@linux-mips.org, Martin Schwidefsky <schwidefsky@de.ibm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, Michael Holzheu <holzheu@linux.vnet.ibm.com>, linux-s390@vger.kernel.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, linux-sh@vger.kernel.org, "David S. Miller" <davem@davemloft.net>, sparclinux@vger.kernel.org, Chris Metcalf <cmetcalf@mellanox.com>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org
 
-We are moving towards separate kernel and module function descriptor
-dereference callbacks. This patch enables it for parisc64.
+Changelog:
 
-For pointers that belong to the kernel
--  Added __start_opd and __end_opd pointers, to track the kernel
-   .opd section address range;
+v1 --> v2:
+   --Remove the patches which have been add to each arch tree individually.
+      [01/11] arm64   ...Has been added to arm64 tree, Queued for 4.14
+      [03/11] metag   ...Has been added to the -mm tree
+      [05/11] powerpc ...Has been added to the powerpc tree
+      [10/11] x86     ...Has been added to the tip sched/core
 
--  Added dereference_kernel_function_descriptor(). Now we
-   will dereference only function pointers that are within
-   [__start_opd, __end_opd];
+   --Rebase the remaining patches and repost.
 
-For pointers that belong to a module
--  Added dereference_module_function_descriptor() to handle module
-   function descriptor dereference. Now we will dereference only
-   pointers that are within [module->opd.start, module->opd.end].
+Michael reports the parent_node() will never be invoked since the
+Commit a7be6e5a7f8d ("mm: drop useless local parameters of
+__register_one_node()") removes the last user of it. 
 
-Signed-off-by: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
-Signed-off-by: Helge Deller <deller@gmx.de>
----
- arch/parisc/boot/compressed/vmlinux.lds.S |  2 ++
- arch/parisc/include/asm/sections.h        |  2 ++
- arch/parisc/kernel/module.c               | 17 +++++++++++++++++
- arch/parisc/kernel/process.c              |  9 +++++++++
- arch/parisc/kernel/vmlinux.lds.S          |  2 ++
- 5 files changed, 32 insertions(+)
+So we start removing it from the topology.h headers for each arch.
 
-diff --git a/arch/parisc/boot/compressed/vmlinux.lds.S b/arch/parisc/boot/compressed/vmlinux.lds.S
-index a4ce3314e78e..4ebd4e65524c 100644
---- a/arch/parisc/boot/compressed/vmlinux.lds.S
-+++ b/arch/parisc/boot/compressed/vmlinux.lds.S
-@@ -29,7 +29,9 @@ SECTIONS
- 	. = ALIGN(16);
- 	/* Linkage tables */
- 	.opd : {
-+		__start_opd = .;
- 		*(.opd)
-+		__end_opd = .;
- 	} PROVIDE (__gp = .);
- 	.plt : {
- 		*(.plt)
-diff --git a/arch/parisc/include/asm/sections.h b/arch/parisc/include/asm/sections.h
-index 59fbe0067112..845ddc9a3421 100644
---- a/arch/parisc/include/asm/sections.h
-+++ b/arch/parisc/include/asm/sections.h
-@@ -7,6 +7,8 @@
- #ifdef CONFIG_64BIT
- #undef dereference_function_descriptor
- unsigned long dereference_function_descriptor(unsigned long);
-+#undef dereference_kernel_function_descriptor
-+unsigned long dereference_kernel_function_descriptor(unsigned long);
- #endif
- 
- #endif
-diff --git a/arch/parisc/kernel/module.c b/arch/parisc/kernel/module.c
-index f1a76935a314..28f89b3dcc11 100644
---- a/arch/parisc/kernel/module.c
-+++ b/arch/parisc/kernel/module.c
-@@ -66,6 +66,7 @@
- 
- #include <asm/pgtable.h>
- #include <asm/unwind.h>
-+#include <asm/sections.h>
- 
- #if 0
- #define DEBUGP printk
-@@ -954,3 +955,19 @@ void module_arch_cleanup(struct module *mod)
- {
- 	deregister_unwind_table(mod);
- }
-+
-+#ifdef CONFIG_64BIT
-+unsigned long dereference_module_function_descriptor(struct module *mod,
-+						     unsigned long addr)
-+{
-+	unsigned long start_opd = (Elf64_Addr)mod->core_layout.base +
-+				   mod->arch.fdesc_offset;
-+	unsigned long end_opd = start_opd +
-+				mod->arch.fdesc_count * sizeof(Elf64_Fdesc);
-+
-+	if (addr < start_opd || addr >= end_opd)
-+		return addr;
-+
-+	return dereference_function_descriptor(addr);
-+}
-+#endif
-diff --git a/arch/parisc/kernel/process.c b/arch/parisc/kernel/process.c
-index f00a5f93492a..ff13726b2d2d 100644
---- a/arch/parisc/kernel/process.c
-+++ b/arch/parisc/kernel/process.c
-@@ -276,6 +276,15 @@ unsigned long dereference_function_descriptor(unsigned long ptr)
- 		ptr = (unsigned long)p;
- 	return ptr;
- }
-+
-+unsigned long dereference_kernel_function_descriptor(unsigned long addr)
-+{
-+	if (addr < (unsigned long)__start_opd ||
-+			addr >= (unsigned long)__end_opd)
-+		return addr;
-+
-+	return dereference_function_descriptor(addr);
-+}
- #endif
- 
- static inline unsigned long brk_rnd(void)
-diff --git a/arch/parisc/kernel/vmlinux.lds.S b/arch/parisc/kernel/vmlinux.lds.S
-index ffe2cbf52d1a..ab030895dd1e 100644
---- a/arch/parisc/kernel/vmlinux.lds.S
-+++ b/arch/parisc/kernel/vmlinux.lds.S
-@@ -99,7 +99,9 @@ SECTIONS
- 	. = ALIGN(16);
- 	/* Linkage tables */
- 	.opd : {
-+		__start_opd = .;
- 		*(.opd)
-+		__end_opd = .;
- 	} PROVIDE (__gp = .);
- 	.plt : {
- 		*(.plt)
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
+Cc: Ralf Baechle <ralf@linux-mips.org>
+Cc: James Hogan <james.hogan@imgtec.com>
+Cc: linux-mips@linux-mips.org
+Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
+Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
+Cc: Michael Holzheu <holzheu@linux.vnet.ibm.com>
+Cc: linux-s390@vger.kernel.org
+Cc: Yoshinori Sato <ysato@users.sourceforge.jp>
+Cc: Rich Felker <dalias@libc.org>
+Cc: linux-sh@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: sparclinux@vger.kernel.org
+Cc: Chris Metcalf <cmetcalf@mellanox.com>
+Cc: Arnd Bergmann <arnd@arndb.de>
+Cc: linux-arch@vger.kernel.org
+Cc: akpm@linux-foundation.org
+
+Dou Liyang (7):
+  ia64: topology: Remove the unused parent_node() macro
+  MIPS: numa: Remove the unused parent_node() macro
+  s390/topology: Remove the unused parent_node() macro
+  sh/numa: Remove the unused parent_node() macro
+  sparc64/topology: Remove the unused parent_node() macro
+  tile/topology: Remove the unused parent_node() macro
+  asm-generic: numa: Remove the unused parent_node() macro
+
+ arch/ia64/include/asm/topology.h                 | 7 -------
+ arch/mips/include/asm/mach-ip27/topology.h       | 1 -
+ arch/mips/include/asm/mach-loongson64/topology.h | 1 -
+ arch/s390/include/asm/topology.h                 | 6 ------
+ arch/sh/include/asm/topology.h                   | 1 -
+ arch/sparc/include/asm/topology_64.h             | 2 --
+ arch/tile/include/asm/topology.h                 | 6 ------
+ include/asm-generic/topology.h                   | 3 ---
+ 8 files changed, 27 deletions(-)
+
 -- 
-2.14.1
+2.5.5
+
+
 
