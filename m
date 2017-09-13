@@ -1,137 +1,75 @@
-From: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
-Date: Sat, 30 Sep 2017 02:53:14 +0000
-Subject: [PATCHv3 2/7] sections: split dereference_function_descriptor()
-Message-Id: <20170930025319.987-3-sergey.senozhatsky@gmail.com>
+From: Dou Liyang <douly.fnst@cn.fujitsu.com>
+Date: Wed, 13 Sep 2017 09:17:54 +0000
+Subject: [PATCH v9] ACPI / init: Invoke early ACPI initialization earlier
+Message-Id: <1505294274-441-1-git-send-email-douly.fnst@cn.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20170930025319.987-1-sergey.senozhatsky@gmail.com>
-In-Reply-To: <20170930025319.987-1-sergey.senozhatsky@gmail.com>
+References: <1505293975-26005-1-git-send-email-douly.fnst@cn.fujitsu.com>
+In-Reply-To: <1505293975-26005-1-git-send-email-douly.fnst@cn.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Petr Mladek <pmladek@suse.com>, Steven Rostedt <rostedt@goodmis.org>
-Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, James Bottomley <jejb@parisc-linux.org>, Helge Deller <deller@gmx.de>, Andrew Morton <akpm@linux-foundation.org>, Jessica Yu <jeyu@kernel.org>, Alexei Starovoitov <ast@kernel.org>, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org, Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
+To: linux-kernel@vger.kernel.org
+Cc: Dou Liyang <douly.fnst@cn.fujitsu.com>, linux-acpi@vger.kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, "Zheng, Lv" <lv.zheng@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, Michael Ellerman <mpe@ellerman.id.au>, Will Deacon <will.deacon@arm.com>, linux-arm-kernel@lists.infradead.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, yinghai@kernel.org, bhe@redhat.com, bp@alien8.de
 
-There are two format specifiers to print out a pointer in symbolic
-format: '%pS/%ps' and '%pF/%pf'. On most architectures, the two
-mean exactly the same thing, but some architectures (ia64, ppc64,
-parisc64) use an indirect pointer for C function pointers, where
-the function pointer points to a function descriptor (which in
-turn contains the actual pointer to the code). The '%pF/%pf, when
-used appropriately, automatically does the appropriate function
-descriptor dereference on such architectures.
+Linux uses acpi_early_init() to put the ACPI table management into the
+late stage from the early stage. This two stages are different. the
+mapped ACPI tables in early stage is temporary and should be unmapped,
+but in late stage, it is permanent and don't need to be unmapped.
 
-The "when used appropriately" part is tricky. Basically this is
-a subtle ABI detail, specific to some platforms, that made it to
-the API level and people can be unaware of it and miss the whole
-"we need to dereference the function" business out. [1] proves
-that point (note that it fixes only '%pF' and '%pS', there might
-be '%pf' and '%ps' cases as well).
+Originally, mapping and parsing the DMAR table should be in the late stage.
+However, Initializing interrupt delivery mode earlier will move it into
+the early stage. This causes an ACPI error warning when Linux reallocates
+the ACPI root tables.
 
-It appears that we can handle everything within the affected
-arches and make '%pS/%ps' smart enough to retire '%pF/%pf'.
-Function descriptors live in .opd elf section and all affected
-arches (ia64, ppc64, parisc64) handle it properly for kernel
-and modules. So we, technically, can decide if the dereference
-is needed by simply looking at the pointer: if it belongs to
-.opd section then we need to dereference it.
+Commit b064a8fa77df ("ACPI / init: Switch over platform to the ACPI mode
+later") splits the ACPI early initialization code into acpi_early_init()
+and acpi_subsystem_init(). This makes acpi_early_init() more independently
 
-The kernel and modules have their own .opd sections, obviously,
-that's why we need to split dereference_function_descriptor()
-and use separate kernel and module dereference arch callbacks.
+So, invoke acpi_early_init() earlier before late_time_init(), Keep the DMAR
+be mapped and parsed in late stage like before.
 
-This patch does the first step, it
-a) adds dereference_kernel_function_descriptor() function.
-b) adds a weak alias to dereference_module_function_descriptor()
-   function.
-
-So, for the time being, we will have:
-1) dereference_function_descriptor()
-   A generic function, that simply dereferences the pointer. There is
-   bunch of places that call it: kgdbts, init/main.c, extable, etc.
-
-2) dereference_kernel_function_descriptor()
-   A function to call on kernel symbols that does kernel .opd section
-   address range test.
-
-3) dereference_module_function_descriptor()
-   A function to call on modules' symbols that does modules' .opd
-   section address range test.
-
-[1] https://marc.info/?l=linux-kernel&m0472969730573
-
-Signed-off-by: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
-Tested-by: Helge Deller <deller@gmx.de> # parisc64
-Tested-by: Santosh Sivaraj <santosh@fossix.org> # powerpc64
-Acked-by: Michael Ellerman <mpe@ellerman.id.au> # powerpc64
-Tested-by: Tony Luck <tony.luck@intel.com> # ia64
+Reported-by: Xiaolong Ye <xiaolong.ye@intel.com>
+Signed-off-by: Dou Liyang <douly.fnst@cn.fujitsu.com>
+Cc: linux-acpi@vger.kernel.org
+Cc: Rafael J. Wysocki <rjw@rjwysocki.net>
+Cc: Zheng, Lv <lv.zheng@intel.com>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Ingo Molnar <mingo@redhat.com>
+Cc: "H. Peter Anvin" <hpa@zytor.com>
+Cc: x86@kernel.org
+Cc: Michael Ellerman <mpe@ellerman.id.au>
+Cc: Will Deacon <will.deacon@arm.com>
+Cc: linux-arm-kernel@lists.infradead.org
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
+Cc: yinghai@kernel.org
+Cc: bhe@redhat.com
+Cc: bp@alien8.de
 ---
- include/asm-generic/sections.h | 8 ++++++--
- include/linux/moduleloader.h   | 4 ++++
- kernel/module.c                | 6 ++++++
- 3 files changed, 16 insertions(+), 2 deletions(-)
+ init/main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/include/asm-generic/sections.h b/include/asm-generic/sections.h
-index e5da44eddd2f..387f22c41e0d 100644
---- a/include/asm-generic/sections.h
-+++ b/include/asm-generic/sections.h
-@@ -29,6 +29,7 @@
-  *	__ctors_start, __ctors_end
-  *	__irqentry_text_start, __irqentry_text_end
-  *	__softirqentry_text_start, __softirqentry_text_end
-+ *	__start_opd, __end_opd
-  */
- extern char _text[], _stext[], _etext[];
- extern char _data[], _sdata[], _edata[];
-@@ -47,12 +48,15 @@ extern char __softirqentry_text_start[], __softirqentry_text_end[];
- /* Start and end of .ctors section - used for constructor calls. */
- extern char __ctors_start[], __ctors_end[];
- 
-+/* Start and end of .opd section - used for function descriptors. */
-+extern char __start_opd[], __end_opd[];
-+
- extern __visible const void __nosave_begin, __nosave_end;
- 
--/* function descriptor handling (if any).  Override
-- * in asm/sections.h */
-+/* Function descriptor handling (if any).  Override in asm/sections.h */
- #ifndef dereference_function_descriptor
- #define dereference_function_descriptor(p) (p)
-+#define dereference_kernel_function_descriptor(p) (p)
- #endif
- 
- /* random extra sections (if any).  Override
-diff --git a/include/linux/moduleloader.h b/include/linux/moduleloader.h
-index 4d0cb9bba93e..172904e9cded 100644
---- a/include/linux/moduleloader.h
-+++ b/include/linux/moduleloader.h
-@@ -85,6 +85,10 @@ void module_arch_cleanup(struct module *mod);
- /* Any cleanup before freeing mod->module_init */
- void module_arch_freeing_init(struct module *mod);
- 
-+/* Dereference module function descriptor */
-+unsigned long dereference_module_function_descriptor(struct module *mod,
-+						     unsigned long addr);
-+
- #ifdef CONFIG_KASAN
- #include <linux/kasan.h>
- #define MODULE_ALIGN (PAGE_SIZE << KASAN_SHADOW_SCALE_SHIFT)
-diff --git a/kernel/module.c b/kernel/module.c
-index ea77ab13bead..b792e814150a 100644
---- a/kernel/module.c
-+++ b/kernel/module.c
-@@ -2121,6 +2121,12 @@ void __weak module_arch_freeing_init(struct module *mod)
- {
- }
- 
-+unsigned long __weak dereference_module_function_descriptor(struct module *mod,
-+							    unsigned long addr)
-+{
-+	return addr;
-+}
-+
- /* Free a module, remove from lists, etc. */
- static void free_module(struct module *mod)
- {
+diff --git a/init/main.c b/init/main.c
+index 0ee9c686..2fb98a4 100644
+--- a/init/main.c
++++ b/init/main.c
+@@ -664,12 +664,12 @@ asmlinkage __visible void __init start_kernel(void)
+ 	debug_objects_mem_init();
+ 	setup_per_cpu_pageset();
+ 	numa_policy_init();
++	acpi_early_init();
+ 	if (late_time_init)
+ 		late_time_init();
+ 	calibrate_delay();
+ 	pidmap_init();
+ 	anon_vma_init();
+-	acpi_early_init();
+ #ifdef CONFIG_X86
+ 	if (efi_enabled(EFI_RUNTIME_SERVICES))
+ 		efi_enter_virtual_mode();
 -- 
-2.14.2
+2.5.5
+
+
 
