@@ -1,83 +1,128 @@
-From: Kirill Tkhai <ktkhai@virtuozzo.com>
-Date: Fri, 29 Sep 2017 16:06:38 +0000
-Subject: [PATCH REBASED 5/6] rwsem: Add down_read_killable()
-Message-Id: <150670119884.23930.2585570605960763239.stgit@localhost.localdomain>
+From: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
+Date: Sat, 16 Sep 2017 03:53:47 +0000
+Subject: [PATCH 5/5] symbol lookup: use new kernel and module dereference functions
+Message-Id: <20170916035347.19705-6-sergey.senozhatsky@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <150670038738.23930.7190484711222807884.stgit@localhost.localdomain>
-In-Reply-To: <150670038738.23930.7190484711222807884.stgit@localhost.localdomain>
+References: <20170916035347.19705-1-sergey.senozhatsky@gmail.com>
+In-Reply-To: <20170916035347.19705-1-sergey.senozhatsky@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, avagin@virtuozzo.com, peterz@infradead.org, heiko.carstens@de.ibm.com, hpa@zytor.com, gorcunov@virtuozzo.com, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, x86@kernel.org, mingo@redhat.com, mattst88@gmail.com, fenghua.yu@intel.com, arnd@arndb.de, ktkhai@virtuozzo.com, ink@jurassic.park.msu.ru, tglx@linutronix.de, rth@twiddle.net, tony.luck@intel.com, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, schwidefsky@de.ibm.com, davem@davemloft.net, rientjes@google.com, viro@zeniv.linux.org.uk
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, "James E . J . Bottomley" <jejb@parisc-linux.org>, Helge Deller <deller@gmx.de>
+Cc: Petr Mladek <pmladek@suse.com>, Steven Rostedt <rostedt@goodmis.org>, Andrew Morton <akpm@linux-foundation.org>, Jessica Yu <jeyu@kernel.org>, Alexei Starovoitov <ast@kernel.org>, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org, Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
 
-Similar to down_read() and down_write_killable(),
-add killable version of down_read(), based on
-__down_read_killable() function, added in previous
-patches.
+Call appropriate function descriptor dereference ARCH callbacks:
+- dereference_kernel_function_descriptor() if the pointer is a
+  kernel symbol;
 
-Signed-off-by: Kirill Tkhai <ktkhai@virtuozzo.com>
+- dereference_module_function_descriptor() if the pointer is a
+  module symbol.
+
+This patch also removes dereference_function_descriptor() from
+'%pF/%pf' vsprintf handler, because it has the same behavior with
+'%pS/%ps' now.
+
+Signed-off-by: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
 ---
- include/asm-generic/rwsem.h |    8 ++++++++
- include/linux/rwsem.h       |    1 +
- kernel/locking/rwsem.c      |   16 ++++++++++++++++
- 3 files changed, 25 insertions(+)
+ Documentation/printk-formats.txt | 15 +++++----------
+ kernel/kallsyms.c                |  1 +
+ kernel/module.c                  |  1 +
+ lib/vsprintf.c                   |  5 +----
+ 4 files changed, 8 insertions(+), 14 deletions(-)
 
-diff --git a/include/asm-generic/rwsem.h b/include/asm-generic/rwsem.h
-index 6c6a2141f271..2f71b913b555 100644
---- a/include/asm-generic/rwsem.h
-+++ b/include/asm-generic/rwsem.h
-@@ -37,6 +37,14 @@ static inline void __down_read(struct rw_semaphore *sem)
- 		rwsem_down_read_failed(sem);
- }
+diff --git a/Documentation/printk-formats.txt b/Documentation/printk-formats.txt
+index 361789df51ec..b2afafc84638 100644
+--- a/Documentation/printk-formats.txt
++++ b/Documentation/printk-formats.txt
+@@ -50,26 +50,23 @@ Symbols/Function Pointers
  
-+static inline int __down_read_killable(struct rw_semaphore *sem)
-+{
-+	if (unlikely(atomic_long_inc_return_acquire(&sem->count) <= 0))
-+		if (IS_ERR(rwsem_down_read_failed_killable(sem)))
-+			return -EINTR;
-+	return 0;
-+}
-+
- static inline int __down_read_trylock(struct rw_semaphore *sem)
- {
- 	long tmp;
-diff --git a/include/linux/rwsem.h b/include/linux/rwsem.h
-index 0ad7318ff299..6ac8ee5f15dd 100644
---- a/include/linux/rwsem.h
-+++ b/include/linux/rwsem.h
-@@ -111,6 +111,7 @@ static inline int rwsem_is_contended(struct rw_semaphore *sem)
-  * lock for reading
-  */
- extern void down_read(struct rw_semaphore *sem);
-+extern int __must_check down_read_killable(struct rw_semaphore *sem);
+ ::
  
- /*
-  * trylock for reading -- returns 1 if successful, 0 if contention
-diff --git a/kernel/locking/rwsem.c b/kernel/locking/rwsem.c
-index 4d48b1c4870d..e53f7746d9fd 100644
---- a/kernel/locking/rwsem.c
-+++ b/kernel/locking/rwsem.c
-@@ -28,6 +28,22 @@ void __sched down_read(struct rw_semaphore *sem)
++	%pS	versatile_init+0x0/0x110
++	%ps	versatile_init
+ 	%pF	versatile_init+0x0/0x110
+ 	%pf	versatile_init
+-	%pS	versatile_init+0x0/0x110
+ 	%pSR	versatile_init+0x9/0x110
+ 		(with __builtin_extract_return_addr() translation)
+-	%ps	versatile_init
+ 	%pB	prev_fn_of_versatile_init+0x88/0x88
  
- EXPORT_SYMBOL(down_read);
+-The ``F`` and ``f`` specifiers are for printing function pointers,
+-for example, f->func, &gettimeofday. They have the same result as
+-``S`` and ``s`` specifiers. But they do an extra conversion on
+-ia64, ppc64 and parisc64 architectures where the function pointers
+-are actually function descriptors.
+-
+ The ``S`` and ``s`` specifiers can be used for printing symbols
+ from direct addresses, for example, __builtin_return_address(0),
+ (void *)regs->ip. They result in the symbol name with (``S``) or
+ without (``s``) offsets. If KALLSYMS are disabled then the symbol
+ address is printed instead.
  
-+int __sched down_read_killable(struct rw_semaphore *sem)
-+{
-+	might_sleep();
-+	rwsem_acquire_read(&sem->dep_map, 0, 0, _RET_IP_);
++Note, that the ``F`` and ``f`` specifiers are identical to ``S`` (``s``)
++and thus deprecated.
 +
-+	if (LOCK_CONTENDED_RETURN(sem, __down_read_trylock, __down_read_killable)) {
-+		rwsem_release(&sem->dep_map, 1, _RET_IP_);
-+		return -EINTR;
-+	}
-+
-+	rwsem_set_reader_owned(sem);
-+	return 0;
-+}
-+
-+EXPORT_SYMBOL(down_read_killable);
-+
- /*
-  * trylock for reading -- returns 1 if successful, 0 if contention
-  */
+ The ``B`` specifier results in the symbol name with offsets and should be
+ used when printing stack backtraces. The specifier takes into
+ consideration the effect of compiler optimisations which may occur
+@@ -77,8 +74,6 @@ when tail-call``s are used and marked with the noreturn GCC attribute.
+ 
+ Examples::
+ 
+-	printk("Going to call: %pF\n", gettimeofday);
+-	printk("Going to call: %pF\n", p->func);
+ 	printk("%s: called from %pS\n", __func__, (void *)_RET_IP_);
+ 	printk("%s: called from %pS\n", __func__,
+ 				(void *)__builtin_return_address(0));
+diff --git a/kernel/kallsyms.c b/kernel/kallsyms.c
+index 127e7cfafa55..e2fc09ea9509 100644
+--- a/kernel/kallsyms.c
++++ b/kernel/kallsyms.c
+@@ -322,6 +322,7 @@ const char *kallsyms_lookup(unsigned long addr,
+ 	if (is_ksym_addr(addr)) {
+ 		unsigned long pos;
+ 
++		addr = dereference_kernel_function_descriptor(addr);
+ 		pos = get_symbol_pos(addr, symbolsize, offset);
+ 		/* Grab name */
+ 		kallsyms_expand_symbol(get_symbol_offset(pos),
+diff --git a/kernel/module.c b/kernel/module.c
+index 87cdb46863cd..4f591f2bbf5a 100644
+--- a/kernel/module.c
++++ b/kernel/module.c
+@@ -3948,6 +3948,7 @@ const char *module_address_lookup(unsigned long addr,
+ 	preempt_disable();
+ 	mod = __module_address(addr);
+ 	if (mod) {
++		addr = dereference_module_function_descriptor(mod, addr);
+ 		if (modname)
+ 			*modname = mod->name;
+ 		ret = get_ksymbol(mod, addr, size, offset);
+diff --git a/lib/vsprintf.c b/lib/vsprintf.c
+index 86c3385b9eb3..bf04b4f5d8e7 100644
+--- a/lib/vsprintf.c
++++ b/lib/vsprintf.c
+@@ -40,7 +40,6 @@
+ #include "../mm/internal.h"	/* For the trace_print_flags arrays */
+ 
+ #include <asm/page.h>		/* for PAGE_SIZE */
+-#include <asm/sections.h>	/* for dereference_function_descriptor() */
+ #include <asm/byteorder.h>	/* cpu_to_le16 */
+ 
+ #include <linux/string_helpers.h>
+@@ -1721,10 +1720,8 @@ char *pointer(const char *fmt, char *buf, char *end, void *ptr,
+ 	}
+ 
+ 	switch (*fmt) {
+-	case 'F':
++	case 'F': /* %pF and %pf are kept for compatibility reasons only */
+ 	case 'f':
+-		ptr = dereference_function_descriptor(ptr);
+-		/* Fallthrough */
+ 	case 'S':
+ 	case 's':
+ 	case 'B':
+-- 
+2.14.1
 
