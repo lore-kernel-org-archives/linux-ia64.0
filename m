@@ -1,62 +1,98 @@
-From: Martin Schwidefsky <schwidefsky@de.ibm.com>
-Date: Sat, 30 Sep 2017 10:39:46 +0000
-Subject: Re: [PATCH REBASED 3/6] s390: Add __down_read_killable()
-Message-Id: <20170930123946.7bb586c2@mschwideX1>
+From: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
+Date: Sat, 16 Sep 2017 03:53:42 +0000
+Subject: [PATCH 0/5] [RFC] printk/ia64/ppc64/parisc64: let's deprecate %pF/%pf printk specifiers
+Message-Id: <20170916035347.19705-1-sergey.senozhatsky@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <150670038738.23930.7190484711222807884.stgit@localhost.localdomain>
-        <150670117817.23930.13068785028558453848.stgit@localhost.localdomain>
-        <20170930092002.GA4623@osiris>
-        <20170930123612.0fb250fe@mschwideX1>
-In-Reply-To: <20170930123612.0fb250fe@mschwideX1>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Heiko Carstens <heiko.carstens@de.ibm.com>
-Cc: Kirill Tkhai <ktkhai@virtuozzo.com>, linux-ia64@vger.kernel.org, avagin@virtuozzo.com, peterz@infradead.org, hpa@zytor.com, gorcunov@virtuozzo.com, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, x86@kernel.org, mingo@redhat.com, mattst88@gmail.com, fenghua.yu@intel.com, arnd@arndb.de, ink@jurassic.park.msu.ru, tglx@linutronix.de, rth@twiddle.net, tony.luck@intel.com, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, davem@davemloft.net, rientjes@google.com, viro@zeniv.linux.org.uk
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, "James E . J . Bottomley" <jejb@parisc-linux.org>, Helge Deller <deller@gmx.de>
+Cc: Petr Mladek <pmladek@suse.com>, Steven Rostedt <rostedt@goodmis.org>, Andrew Morton <akpm@linux-foundation.org>, Jessica Yu <jeyu@kernel.org>, Alexei Starovoitov <ast@kernel.org>, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org, Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
 
-On Sat, 30 Sep 2017 12:36:12 +0200
-Martin Schwidefsky <schwidefsky@de.ibm.com> wrote:
+	Hello
 
-> On Sat, 30 Sep 2017 11:20:02 +0200
-> Heiko Carstens <heiko.carstens@de.ibm.com> wrote:
->=20
-> > On Fri, Sep 29, 2017 at 07:06:18PM +0300, Kirill Tkhai wrote: =20
-> > > Similar to __down_write_killable(), and read killable primitive.
-> > >=20
-> > > Signed-off-by: Kirill Tkhai <ktkhai@virtuozzo.com>
-> > > ---
-> > >  arch/s390/include/asm/rwsem.h |   18 ++++++++++++++++--
-> > >  1 file changed, 16 insertions(+), 2 deletions(-)
-> > >=20
-> > > diff --git a/arch/s390/include/asm/rwsem.h b/arch/s390/include/asm/rw=
-sem.h   =20
-> >=20
-> > FWIW, while looking into this patch I realized that we never optimized =
-our
-> > rwsem primitives to make use of new atomic instructions.
-> >=20
-> > The generic rwsem header file however does, since it uses atomic ops wh=
-ich
-> > we did optimize. Even when compiling for old machines the generic versi=
-on
-> > generates better code. Therefore I will remove the 15 years old s390
-> > implementation and switch to the generic version instead. =20
->=20
-> Take care not to conflict with the queued spinlock/rwlock patches on the
-> features branch.=20
->=20
-> https://git.kernel.org/pub/scm/linux/kernel/git/s390/linux.git/commit/?h=
-=FEatures&id=EB3b7b848fb3dd00f7a57d633d4ae4d194aa7865
->=20
-> Me thinks that what you have in mind is already done.
+	RFC
 
-Argh, pitfall rwlock !=3D rwsem. Using the atomic_ops for the rwsem code ma=
-kes
-a lot of sense. Yes, please..
+	On some arches C function pointers are indirect and point to
+a function descriptor, which contains the actual pointer to the code.
+This mostly doesn't matter, except for cases when people want to print
+out function pointers in symbolic format, because the usual '%pS/%ps'
+does not work on those arches as expected. That's the reason why we
+have '%pF/%pf', but since it's here because of a subtle ABI detail
+specific to some arches (ppc64/ia64/parisc64) it's easy to misuse
+'%pF/%pf' and '%pS/%ps' (see [1], for example).
+	
+	This patch set attempts to move ia64/ppc64/parisc64 C function
+pointer ABI details out of printk() to arch code. Function dereference
+code now checks if a pointer belongs to a .opd ELF section and dereferences
+that pointer only if it does. The kernel and modules have their own .opd
+sections that's why I use two different ARCH functions: for kernel and
+for module pointer dereference.
 
---=20
-blue skies,
-   Martin.
+	I planned to remove dereference_function_descriptor() entirely,
+but then I discovered a bunch other uses cases (kgdbts, init/main.c,
+extable, etc.), so I decided to keep dereference_function_descriptor()
+around because the main point of this patch set is to deprecate %pF/%pf.
+But at the same time, I think I can go further and handle both kernel
+and module descriptor dereference in dereference_function_descriptor().
+We need a module pointer for module .opd check, so that will come at an
+extra cost of module lookup (may be there will some other issues along
+the way, haven't checked it).
 
-"Reality continues to ruin my life." - Calvin.
+Right now we've got:
+
+- dereference_function_descriptor(addr)
+	a generic (old) function. it simply attempts to dereference
+	whatever pointer we give it.
+
+- dereference_kernel_function_descriptor(addr)
+	dereferences a kernel pointer if it's within the kernel's .opd
+	section.
+
+- dereference_module_function_descriptor(module, addr)
+	dereference a module pointer if it's within the module's .opd
+	section.
+
+
+*** A BIG NOTE ***
+	I don't own ia64/ppc64/parisc64 hardware, so the patches are not
+	tested. Sorry about that!
+
+
+Another note:
+	I need to check what is BPF symbol lookup and do we need to
+	do any dereference there.
+
+
+[1] https://marc.info/?l=linux-kernel&m0472969730573
+
+Sergey Senozhatsky (5):
+  sections: split dereference_function_descriptor()
+  ia64: Add .opd based function descriptor dereference
+  powerpc64: Add .opd based function descriptor dereference
+  parisc64: Add .opd based function descriptor dereference
+  symbol lookup: use new kernel and module dereference functions
+
+ Documentation/printk-formats.txt          | 15 +++++----------
+ arch/ia64/include/asm/sections.h          | 14 +++++++++++++-
+ arch/ia64/kernel/module.c                 | 13 +++++++++++++
+ arch/ia64/kernel/vmlinux.lds.S            |  2 ++
+ arch/parisc/boot/compressed/vmlinux.lds.S |  2 ++
+ arch/parisc/include/asm/sections.h        |  3 +++
+ arch/parisc/kernel/module.c               | 14 ++++++++++++++
+ arch/parisc/kernel/process.c              | 10 ++++++++++
+ arch/parisc/kernel/vmlinux.lds.S          |  2 ++
+ arch/powerpc/include/asm/module.h         |  3 +++
+ arch/powerpc/include/asm/sections.h       | 13 +++++++++++++
+ arch/powerpc/kernel/module_64.c           | 16 ++++++++++++++++
+ arch/powerpc/kernel/vmlinux.lds.S         |  2 ++
+ include/asm-generic/sections.h            |  4 ++--
+ include/linux/moduleloader.h              |  4 ++++
+ kernel/kallsyms.c                         |  1 +
+ kernel/module.c                           |  7 +++++++
+ lib/vsprintf.c                            |  5 +----
+ 18 files changed, 113 insertions(+), 17 deletions(-)
+
+-- 
+2.14.1
 
