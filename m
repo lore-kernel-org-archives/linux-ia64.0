@@ -1,34 +1,36 @@
-From: Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>
-Date: Tue, 19 Sep 2017 02:08:13 +0000
-Subject: Re: [PATCH 0/5] [RFC] printk/ia64/ppc64/parisc64: let's deprecate %pF/%pf printk specifiers
-Message-Id: <20170919020812.GB16991@jagdpanzerIV.localdomain>
+From: David Laight <David.Laight@ACULAB.COM>
+Date: Tue, 19 Sep 2017 13:38:42 +0000
+Subject: RE: [PATCH 0/5] [RFC] printk/ia64/ppc64/parisc64: let's deprecate %pF/%pf printk specifiers
+Message-Id: <063D6719AE5E284EB5DD2968C1650D6DD007A0D0@AcuExch.aculab.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20170916035347.19705-1-sergey.senozhatsky@gmail.com>
  <20170918174432.4fksyzco2g6gczwe@intel.com>
-In-Reply-To: <20170918174432.4fksyzco2g6gczwe@intel.com>
+ <20170918183902.GA30752@p100.box>
+ <20170919020537.GA16991@jagdpanzerIV.localdomain>
+In-Reply-To: <20170919020537.GA16991@jagdpanzerIV.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>
-Cc: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>, Fenghua Yu <fenghua.yu@intel.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, "James E . J . Bottomley" <jejb@parisc-linux.org>, Helge Deller <deller@gmx.de>, Petr Mladek <pmladek@suse.com>, Steven Rostedt <rostedt@goodmis.org>, Andrew Morton <akpm@linux-foundation.org>, Jessica Yu <jeyu@kernel.org>, Alexei Starovoitov <ast@kernel.org>, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org
+To: 'Sergey Senozhatsky' <sergey.senozhatsky.work@gmail.com>, Helge Deller <deller@gmx.de>
+Cc: Fenghua Yu <fenghua.yu@intel.com>, "Luck, Tony" <tony.luck@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Petr Mladek <pmladek@suse.com>, Jessica Yu <jeyu@kernel.org>, "James E . J . Bottomley" <jejb@parisc-linux.org>, Steven Rostedt <rostedt@goodmis.org>, Alexei Starovoitov <ast@kernel.org>, Sergey Senozhatsky <sergey.senozhatsky@gmail.com>, Paul Mackerras <paulus@samba.org>, Andrew Morton <akpm@linux-foundation.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 
-On (09/18/17 10:44), Luck, Tony wrote:
-[..]
-> 
-> A few new warnings when building on ia64:
-> 
-> arch/ia64/kernel/module.c:931: warning: passing argument 1 of 'dereference_function_descriptor' makes pointer from integer without a cast
-> arch/ia64/kernel/module.c:931: warning: return makes integer from pointer without a cast
-> kernel/kallsyms.c:325: warning: assignment makes integer from pointer without a cast
-> kernel/kallsyms.c:325: warning: passing argument 1 of 'dereference_kernel_function_descriptor' makes pointer from integer without a cast
+From: Sergey Senozhatsky
+> Sent: 19 September 2017 03:06
+...
+> I'll simply convert everything to `unsigned long'. including the
+> dereference_function_descriptor() function [I believe there are
+> still some casts happening when we pass addr from kernel/module
+> dereference functions to dereference_function_descriptor(), or
+> when we return `void *' back to symbol resolution code, etc.)
+> besides, it seems that everything that uses
+> dereference_function_descriptor() wants `unsigned long' anyway:
 
-got it, will address in v2.
+Using 'unsigned long' for any kind of pointer is an accident
+waiting do happen.
+It also makes it difficult to typecheck the function calls.
+Using 'void *' isn't any better.
+Either a pointer to an undefined struct, or a struct containing
+a single 'char' member, is likely to be safest.
 
-[..]
-> Which looks like what you wanted. People unaware of the vagaries
-> of ppc64/ia64/parisc64 can use the wrong %p[SF] variant, but still
-> get the right output.
+	David
 
-thanks!
-
-	-ss
