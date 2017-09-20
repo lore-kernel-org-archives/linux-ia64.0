@@ -1,59 +1,124 @@
-From: Kirill Tkhai <ktkhai@virtuozzo.com>
-Date: Fri, 29 Sep 2017 16:06:07 +0000
-Subject: [PATCH REBASED 2/6] ia64: Add __down_read_killable()
-Message-Id: <150670116749.23930.14976888440968191759.stgit@localhost.localdomain>
+From: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
+Date: Wed, 20 Sep 2017 16:29:06 +0000
+Subject: [RFC][PATCH v2 4/7] powerpc64: Add .opd based function descriptor dereference
+Message-Id: <20170920162910.32053-5-sergey.senozhatsky@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <150670038738.23930.7190484711222807884.stgit@localhost.localdomain>
-In-Reply-To: <150670038738.23930.7190484711222807884.stgit@localhost.localdomain>
+References: <20170920162910.32053-1-sergey.senozhatsky@gmail.com>
+In-Reply-To: <20170920162910.32053-1-sergey.senozhatsky@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, avagin@virtuozzo.com, peterz@infradead.org, heiko.carstens@de.ibm.com, hpa@zytor.com, gorcunov@virtuozzo.com, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, x86@kernel.org, mingo@redhat.com, mattst88@gmail.com, fenghua.yu@intel.com, arnd@arndb.de, ktkhai@virtuozzo.com, ink@jurassic.park.msu.ru, tglx@linutronix.de, rth@twiddle.net, tony.luck@intel.com, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, schwidefsky@de.ibm.com, davem@davemloft.net, rientjes@google.com, viro@zeniv.linux.org.uk
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, James Bottomley <jejb@parisc-linux.org>, Helge Deller <deller@gmx.de>
+Cc: Petr Mladek <pmladek@suse.com>, Steven Rostedt <rostedt@goodmis.org>, Andrew Morton <akpm@linux-foundation.org>, Jessica Yu <jeyu@kernel.org>, Alexei Starovoitov <ast@kernel.org>, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org, Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
 
-Similar to __down_write_killable(), and read killable primitive.
+We are moving towards separate kernel and module function descriptor
+dereference callbacks. This patch enables it for powerpc64.
 
-Signed-off-by: Kirill Tkhai <ktkhai@virtuozzo.com>
+For pointers that belong to the kernel
+-  Added __start_opd and __end_opd pointers, to track the kernel
+   .opd section address range;
+
+-  Added dereference_kernel_function_descriptor(). Now we
+   will dereference only function pointers that are within
+   [__start_opd, __end_opd];
+
+For pointers that belong to a module
+-  Added dereference_module_function_descriptor() to handle module
+   function descriptor dereference. Now we will dereference only
+   pointers that are within [module->opd.start, module->opd.end].
+
+Signed-off-by: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
 ---
- arch/ia64/include/asm/rwsem.h |   22 +++++++++++++++++++---
- 1 file changed, 19 insertions(+), 3 deletions(-)
+ arch/powerpc/include/asm/module.h   |  3 +++
+ arch/powerpc/include/asm/sections.h | 11 +++++++++++
+ arch/powerpc/kernel/module_64.c     | 16 ++++++++++++++++
+ arch/powerpc/kernel/vmlinux.lds.S   |  2 ++
+ 4 files changed, 32 insertions(+)
 
-diff --git a/arch/ia64/include/asm/rwsem.h b/arch/ia64/include/asm/rwsem.h
-index 8fa98dd303b4..1fb8b7cb1c98 100644
---- a/arch/ia64/include/asm/rwsem.h
-+++ b/arch/ia64/include/asm/rwsem.h
-@@ -37,15 +37,31 @@
- /*
-  * lock for reading
-  */
--static inline void
--__down_read (struct rw_semaphore *sem)
-+static inline int
-+___down_read (struct rw_semaphore *sem)
- {
- 	long result = ia64_fetchadd8_acq((unsigned long *)&sem->count.counter, 1);
+diff --git a/arch/powerpc/include/asm/module.h b/arch/powerpc/include/asm/module.h
+index 6c0132c7212f..7e28442827f1 100644
+--- a/arch/powerpc/include/asm/module.h
++++ b/arch/powerpc/include/asm/module.h
+@@ -45,6 +45,9 @@ struct mod_arch_specific {
+ 	unsigned long tramp;
+ #endif
  
--	if (result < 0)
-+	return (result < 0);
-+}
++	/* For module function descriptor dereference */
++	unsigned long start_opd;
++	unsigned long end_opd;
+ #else /* powerpc64 */
+ 	/* Indices of PLT sections within module. */
+ 	unsigned int core_plt_section;
+diff --git a/arch/powerpc/include/asm/sections.h b/arch/powerpc/include/asm/sections.h
+index 67379b8945e8..6b4ee0d1645f 100644
+--- a/arch/powerpc/include/asm/sections.h
++++ b/arch/powerpc/include/asm/sections.h
+@@ -75,6 +75,17 @@ static inline unsigned long dereference_function_descriptor(unsigned long ptr)
+ 		ptr = (unsigned long)p;
+ 	return ptr;
+ }
 +
-+static inline void
-+__down_read (struct rw_semaphore *sem)
++#undef dereference_kernel_function_descriptor
++static inline unsigned long
++dereference_kernel_function_descriptor(unsigned long addr)
 +{
-+	if (___down_read(sem))
- 		rwsem_down_read_failed(sem);
++	if (addr < (unsigned long)__start_opd ||
++			addr >= (unsigned long)__end_opd)
++		return addr;
++
++	return dereference_function_descriptor(addr);
++}
+ #endif /* PPC64_ELF_ABI_v1 */
+ 
+ #endif
+diff --git a/arch/powerpc/kernel/module_64.c b/arch/powerpc/kernel/module_64.c
+index 0b0f89685b67..94caec045a90 100644
+--- a/arch/powerpc/kernel/module_64.c
++++ b/arch/powerpc/kernel/module_64.c
+@@ -344,6 +344,11 @@ int module_frob_arch_sections(Elf64_Ehdr *hdr,
+ 		else if (strcmp(secstrings+sechdrs[i].sh_name,"__versions")=0)
+ 			dedotify_versions((void *)hdr + sechdrs[i].sh_offset,
+ 					  sechdrs[i].sh_size);
++		else if (!strcmp(secstrings + sechdrs[i].sh_name, ".opd")) {
++			me->arch.start_opd = sechdrs[i].sh_addr;
++			me->arch.end_opd = sechdrs[i].sh_addr +
++					   sechdrs[i].sh_size;
++		}
+ 
+ 		/* We don't handle .init for the moment: rename to _init */
+ 		while ((p = strstr(secstrings + sechdrs[i].sh_name, ".init")))
+@@ -712,6 +717,17 @@ int apply_relocate_add(Elf64_Shdr *sechdrs,
+ 	return 0;
  }
  
-+static inline int
-+__down_read_killable (struct rw_semaphore *sem)
++#ifdef PPC64_ELF_ABI_v1
++unsigned long dereference_module_function_descriptor(struct module *mod,
++						     unsigned long addr)
 +{
-+	if (___down_read(sem))
-+		if (IS_ERR(rwsem_down_read_failed_killable(sem)))
-+			return -EINTR;
++	if (addr < mod->arch.start_opd || addr >= mod->arch.end_opd)
++		return addr;
 +
-+	return 0;
++	return dereference_function_descriptor(addr);
 +}
++#endif /* PPC64_ELF_ABI_v1 */
 +
- /*
-  * lock for writing
-  */
+ #ifdef CONFIG_DYNAMIC_FTRACE
+ 
+ #ifdef CC_USING_MPROFILE_KERNEL
+diff --git a/arch/powerpc/kernel/vmlinux.lds.S b/arch/powerpc/kernel/vmlinux.lds.S
+index 882628fa6987..70e10251e083 100644
+--- a/arch/powerpc/kernel/vmlinux.lds.S
++++ b/arch/powerpc/kernel/vmlinux.lds.S
+@@ -277,7 +277,9 @@ SECTIONS
+ 	}
+ 
+ 	.opd : AT(ADDR(.opd) - LOAD_OFFSET) {
++		__start_opd = .;
+ 		*(.opd)
++		__end_opd = .;
+ 	}
+ 
+ 	. = ALIGN(256);
+-- 
+2.14.1
 
