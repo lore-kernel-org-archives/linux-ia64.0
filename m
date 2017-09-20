@@ -1,50 +1,43 @@
-From: Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>
-Date: Wed, 20 Sep 2017 00:47:15 +0000
-Subject: Re: [PATCH 0/5] [RFC] printk/ia64/ppc64/parisc64: let's deprecate %pF/%pf printk specifiers
-Message-Id: <20170920004715.GA6298@jagdpanzerIV.localdomain>
+From: David Laight <David.Laight@ACULAB.COM>
+Date: Wed, 20 Sep 2017 08:41:40 +0000
+Subject: RE: [PATCH 0/5] [RFC] printk/ia64/ppc64/parisc64: let's deprecate %pF/%pf printk specifiers
+Message-Id: <063D6719AE5E284EB5DD2968C1650D6DD007AF31@AcuExch.aculab.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20170916035347.19705-1-sergey.senozhatsky@gmail.com>
  <20170918174432.4fksyzco2g6gczwe@intel.com>
  <20170918183902.GA30752@p100.box>
  <20170919020537.GA16991@jagdpanzerIV.localdomain>
- <f1e7c2b0-8c52-7e21-b311-d886f5c4c20e@gmx.de>
- <20170919200357.GA15803@p100.box>
-In-Reply-To: <20170919200357.GA15803@p100.box>
+ <063D6719AE5E284EB5DD2968C1650D6DD007A0D0@AcuExch.aculab.com>
+ <a7a0f1f6-781b-eba3-9b81-69b979503990@gmx.de>
+In-Reply-To: <a7a0f1f6-781b-eba3-9b81-69b979503990@gmx.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Helge Deller <deller@gmx.de>
-Cc: Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>, Sergey Senozhatsky <sergey.senozhatsky@gmail.com>, "Luck, Tony" <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, "James E . J . Bottomley" <jejb@parisc-linux.org>, Petr Mladek <pmladek@suse.com>, Steven Rostedt <rostedt@goodmis.org>, Andrew Morton <akpm@linux-foundation.org>, Jessica Yu <jeyu@kernel.org>, Alexei Starovoitov <ast@kernel.org>, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org
+To: 'Helge Deller' <deller@gmx.de>, 'Sergey Senozhatsky' <sergey.senozhatsky.work@gmail.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>, "Luck, Tony" <tony.luck@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Petr Mladek <pmladek@suse.com>, Jessica Yu <jeyu@kernel.org>, "James E . J . Bottomley" <jejb@parisc-linux.org>, Steven Rostedt <rostedt@goodmis.org>, Alexei Starovoitov <ast@kernel.org>, Sergey Senozhatsky <sergey.senozhatsky@gmail.com>, Paul Mackerras <paulus@samba.org>, Andrew Morton <akpm@linux-foundation.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 
-On (09/19/17 22:03), Helge Deller wrote:
-[..]
-> Your implementation of dereference_module_function_descriptor() in
-> arch/parisc/kernel/module.c is faulty.
-> mod->arch.fdesc_offset is relative to the base address of the module,
-> so you need to add to mod->core_layout.base.
+From: Helge Deller
+> Sent: 19 September 2017 21:08
+...
+> > Using 'unsigned long' for any kind of pointer is an accident
+> > waiting do happen.
+> > It also makes it difficult to typecheck the function calls.
+> > Using 'void *' isn't any better.
+> > Either a pointer to an undefined struct, or a struct containing
+> > a single 'char' member, is likely to be safest.
+> 
+> David, you might be right in most cases, but in this case I'd prefer
+> unsigned long too. I think this will create the least amount of
+> typecasts here.
 
-aha, got it. I should have figured that out.
-many thanks!
+I've not looked at the specifics case...
 
+Another option is using a struct with a single member and
+passing it by value.
+This could be used for things like user-space pointers or
+even errno values.
+The only problem is old ABI where even small structures are
+always passed by reference.
 
-> Here is the relevant patch to fix this issue (against mainline).
-> Additionally I compare against mod->arch.fdesc_count instead of
-> mod->arch.fdesc_max.
+	David
 
-hmm, .fdesc_max looked relevant to me. it's count_fdescs() - the
-number of R_PARISC_FPTR64 relocation entries.
-
-but ok, will use .fdesc_count.
-
-
-> Can you please fold it into your patch
-> [PATCH 4/5] parisc64: Add .opd based function descriptor dereference
-> for the next round?
-
-sure, will fold. + SoB.
-
-I think I'll try to re-spin the series today (or tomorrow, I'm slightly
-overloaded with another stuff right now). I've received enough bug reports
-no need to wait for another week ;)
-
-	-ss
