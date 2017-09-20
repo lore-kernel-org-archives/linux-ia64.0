@@ -1,38 +1,58 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Sun, 27 Aug 2017 16:10:28 +0000
-Subject: [PATCH 08/12] powerpc: make dma_cache_sync a no-op
-Message-Id: <20170827161032.22772-9-hch@lst.de>
+From: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
+Date: Wed, 20 Sep 2017 16:29:09 +0000
+Subject: [RFC][PATCH v2 7/7] checkpatch: add pF/pf deprecation warning
+Message-Id: <20170920162910.32053-8-sergey.senozhatsky@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20170827161032.22772-1-hch@lst.de>
-In-Reply-To: <20170827161032.22772-1-hch-jcswGhMUV9g@public.gmane.org>
+References: <20170920162910.32053-1-sergey.senozhatsky@gmail.com>
+In-Reply-To: <20170920162910.32053-1-sergey.senozhatsky@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Cc: Chris Zankel <chris-YvXeqwSYzG2sTnJN9+BGXg@public.gmane.org>, Michal Simek <monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org>, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Max Filippov <jcmvbkbc-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Guan Xuetao <gxt-TG0Ac1+ktVePQbnJrJN+5g@public.gmane.org>
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, James Bottomley <jejb@parisc-linux.org>, Helge Deller <deller@gmx.de>
+Cc: Petr Mladek <pmladek@suse.com>, Steven Rostedt <rostedt@goodmis.org>, Andrew Morton <akpm@linux-foundation.org>, Jessica Yu <jeyu@kernel.org>, Alexei Starovoitov <ast@kernel.org>, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org, Sergey Senozhatsky <sergey.senozhatsky@gmail.com>, Andy Whitcroft <apw@canonical.com>, Joe Perches <joe@perches.com>
 
-powerpc does not implement DMA_ATTR_NON_CONSISTENT allocations, so it
-doesn't make any sense to do any work in dma_cache_sync given that it
-must be a no-op when dma_alloc_attrs returns coherent memory.
+We deprecated '%pF/%pf' printk specifiers, since '%pS/%ps' is now smart
+enough to handle function pointer dereference on platforms where such
+dereference is required.
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+checkpatch warning example:
+
+WARNING: Use '%pS/%ps' instead. This pointer extension was deprecated: '%pF'
+
+Signed-off-by: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
+Cc: Andy Whitcroft <apw@canonical.com>
+Cc: Joe Perches <joe@perches.com>
 ---
- arch/powerpc/include/asm/dma-mapping.h | 2 --
- 1 file changed, 2 deletions(-)
+ scripts/checkpatch.pl | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/arch/powerpc/include/asm/dma-mapping.h b/arch/powerpc/include/asm/dma-mapping.h
-index eaece3d3e225..320846442bfb 100644
---- a/arch/powerpc/include/asm/dma-mapping.h
-+++ b/arch/powerpc/include/asm/dma-mapping.h
-@@ -144,8 +144,6 @@ static inline phys_addr_t dma_to_phys(struct device *dev, dma_addr_t daddr)
- static inline void dma_cache_sync(struct device *dev, void *vaddr, size_t size,
- 		enum dma_data_direction direction)
- {
--	BUG_ON(direction = DMA_NONE);
--	__dma_sync(vaddr, size, (int)direction);
- }
+diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
+index dd2c262aebbf..5945e4843466 100755
+--- a/scripts/checkpatch.pl
++++ b/scripts/checkpatch.pl
+@@ -5762,18 +5762,20 @@ sub process {
+ 		        for (my $count = $linenr; $count <= $lc; $count++) {
+ 				my $fmt = get_quoted_string($lines[$count - 1], raw_line($count, 0));
+ 				$fmt =~ s/%%//g;
+-				if ($fmt =~ /(\%[\*\d\.]*p(?![\WFfSsBKRraEhMmIiUDdgVCbGNO]).)/) {
++				if ($fmt =~ /(\%[\*\d\.]*p(?![\WSsBKRraEhMmIiUDdgVCbGNO]).)/) {
+ 					$bad_extension = $1;
+ 					last;
+ 				}
+ 			}
+ 			if ($bad_extension ne "") {
+ 				my $stat_real = raw_line($linenr, 0);
++				my $error_msg = "Invalid vsprintf pointer extension ";
+ 				for (my $count = $linenr + 1; $count <= $lc; $count++) {
+ 					$stat_real = $stat_real . "\n" . raw_line($count, 0);
+ 				}
++				$error_msg = "Use '%pS/%ps' instead. This pointer extension was deprecated:" if ($bad_extension =~ /pF|pf/);
+ 				WARN("VSPRINTF_POINTER_EXTENSION",
+-				     "Invalid vsprintf pointer extension '$bad_extension'\n" . "$here\n$stat_real\n");
++				     "$error_msg '$bad_extension'\n" . "$here\n$stat_real\n");
+ 			}
+ 		}
  
- #endif /* __KERNEL__ */
 -- 
-2.11.0
+2.14.1
 
