@@ -1,109 +1,38 @@
-From: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
-Date: Wed, 20 Sep 2017 16:29:02 +0000
-Subject: [RFC][PATCH v2 0/7] printk/ia64/ppc64/parisc64: let's deprecate %pF/%pf printk specifiers
-Message-Id: <20170920162910.32053-1-sergey.senozhatsky@gmail.com>
+From: Helge Deller <deller@gmx.de>
+Date: Wed, 20 Sep 2017 20:14:49 +0000
+Subject: Re: [RFC][PATCH v2 0/7] printk/ia64/ppc64/parisc64: let's deprecate %pF/%pf printk specifiers
+Message-Id: <b0665fe7-fc57-7795-3cee-f33cd806b850@gmx.de>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20170920162910.32053-1-sergey.senozhatsky@gmail.com>
+In-Reply-To: <20170920162910.32053-1-sergey.senozhatsky@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, James Bottomley <jejb@parisc-linux.org>, Helge Deller <deller@gmx.de>
-Cc: Petr Mladek <pmladek@suse.com>, Steven Rostedt <rostedt@goodmis.org>, Andrew Morton <akpm@linux-foundation.org>, Jessica Yu <jeyu@kernel.org>, Alexei Starovoitov <ast@kernel.org>, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org, Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
+To: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, James Bottomley <jejb@parisc-linux.org>
+Cc: Petr Mladek <pmladek@suse.com>, Steven Rostedt <rostedt@goodmis.org>, Andrew Morton <akpm@linux-foundation.org>, Jessica Yu <jeyu@kernel.org>, Alexei Starovoitov <ast@kernel.org>, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org
 
-        Hello
-
-        RFC
-
-        On some arches C function pointers are indirect and point to
-a function descriptor, which contains the actual pointer to the code.
-This mostly doesn't matter, except for cases when people want to print
-out function pointers in symbolic format, because the usual '%pS/%ps'
-does not work on those arches as expected. That's the reason why we
-have '%pF/%pf', but since it's here because of a subtle ABI detail
-specific to some arches (ppc64/ia64/parisc64) it's easy to misuse
-'%pF/%pf' and '%pS/%ps' (see [1], for example).
-
-        This patch set attempts to move ia64/ppc64/parisc64 C function
-pointer ABI details out of printk() to arch code. Function dereference
-code now checks if a pointer belongs to a .opd ELF section and dereferences
-that pointer only if it does. The kernel and modules have their own .opd
-sections that's why I use two different ARCH functions: for kernel and
-for module pointer dereference.
-
-        I planned to remove dereference_function_descriptor() entirely,
-but then I discovered a bunch other uses cases (kgdbts, init/main.c,
-extable, etc.), so I decided to keep dereference_function_descriptor()
-around because the main point of this patch set is to deprecate %pF/%pf.
-But at the same time, I think I can go further and handle both kernel
-and module descriptor dereference in dereference_function_descriptor().
-We need a module pointer for module .opd check, so that will come at an
-extra cost of module lookup (may be there will some other issues along
-the way, haven't checked it).
-
-Right now we've got:
-
-- dereference_function_descriptor(addr)
-        a generic (old) function. it simply attempts to dereference
-        whatever pointer we give it.
-
-- dereference_kernel_function_descriptor(addr)
-        dereferences a kernel pointer if it's within the kernel's .opd
-        section.
-
-- dereference_module_function_descriptor(module, addr)
-        dereference a module pointer if it's within the module's .opd
-        section.
+On 20.09.2017 18:29, Sergey Senozhatsky wrote:
+>          This patch set attempts to move ia64/ppc64/parisc64 C function
+> pointer ABI details out of printk() to arch code. Function dereference
+> code now checks if a pointer belongs to a .opd ELF section and dereferences
+> that pointer only if it does. The kernel and modules have their own .opd
+> sections that's why I use two different ARCH functions: for kernel and
+> for module pointer dereference.
+> ...> *** A BIG NOTE ***
+>          I don't own ia64/ppc64/parisc64 hardware, so the patches are not
+>          tested. Sorry about that!
 
 
-*** A BIG NOTE ***
-        I don't own ia64/ppc64/parisc64 hardware, so the patches are not
-        tested. Sorry about that!
+I just now tested your patch series successfully on parisc64.
 
-Another note:
-        I need to check what is BPF symbol lookup and do we need to
-        do any dereference there.
+You may add to the whole series:
+Tested-by: Helge Deller <deller@gmx.de> # parisc64
 
-v2:
--- convert dereference_function_descriptor() to unsigned long
--- fix kernel descriptor range checks (Helge)
--- fix parisc module descriptor range check (Helge)
--- fix ppc64 module range check
--- add checkpatch patch
+  
+> Another note:
+>          I need to check what is BPF symbol lookup and do we need to
+>          do any dereference there.
 
+Not relevant for parisc, since we don't support it yet.
 
-Sergey Senozhatsky (7):
-  switch dereference_function_descriptor() to `unsigned long'
-  sections: split dereference_function_descriptor()
-  ia64: Add .opd based function descriptor dereference
-  powerpc64: Add .opd based function descriptor dereference
-  parisc64: Add .opd based function descriptor dereference
-  symbol lookup: use new kernel and module dereference functions
-  checkpatch: add pF/pf deprecation warning
-
- Documentation/printk-formats.txt          | 15 +++++----------
- arch/ia64/include/asm/sections.h          | 16 ++++++++++++----
- arch/ia64/kernel/module.c                 | 13 +++++++++++++
- arch/ia64/kernel/vmlinux.lds.S            |  2 ++
- arch/parisc/boot/compressed/vmlinux.lds.S |  2 ++
- arch/parisc/include/asm/sections.h        |  4 +++-
- arch/parisc/kernel/module.c               | 17 +++++++++++++++++
- arch/parisc/kernel/process.c              | 15 ++++++++++++---
- arch/parisc/kernel/vmlinux.lds.S          |  2 ++
- arch/parisc/mm/init.c                     |  4 ++--
- arch/powerpc/include/asm/module.h         |  3 +++
- arch/powerpc/include/asm/sections.h       | 17 ++++++++++++++---
- arch/powerpc/kernel/module_64.c           | 16 ++++++++++++++++
- arch/powerpc/kernel/vmlinux.lds.S         |  2 ++
- drivers/misc/kgdbts.c                     |  2 +-
- include/asm-generic/sections.h            |  8 ++++++--
- include/linux/moduleloader.h              |  4 ++++
- init/main.c                               |  2 +-
- kernel/extable.c                          |  2 +-
- kernel/kallsyms.c                         |  1 +
- kernel/module.c                           |  9 ++++++++-
- lib/vsprintf.c                            |  5 +----
- scripts/checkpatch.pl                     |  6 ++++--
- 23 files changed, 132 insertions(+), 35 deletions(-)
-
--- 
-2.14.1
-
+Helge
