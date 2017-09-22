@@ -1,53 +1,36 @@
-From: Kirill Tkhai <ktkhai@virtuozzo.com>
-Date: Fri, 29 Sep 2017 16:06:48 +0000
-Subject: [PATCH REBASED 6/6] fs: Use killable down_read() in iterate_dir()
-Message-Id: <150670120820.23930.5455667921545937220.stgit@localhost.localdomain>
+From: Allen Pais <allen.lkml@gmail.com>
+Date: Fri, 22 Sep 2017 11:38:01 +0000
+Subject: [PATCH 2/3] ia64: mca: use setup_timer() helper.
+Message-Id: <1506079562-5068-3-git-send-email-allen.lkml@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <150670038738.23930.7190484711222807884.stgit@localhost.localdomain>
-In-Reply-To: <150670038738.23930.7190484711222807884.stgit@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, avagin@virtuozzo.com, peterz@infradead.org, heiko.carstens@de.ibm.com, hpa@zytor.com, gorcunov@virtuozzo.com, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, x86@kernel.org, mingo@redhat.com, mattst88@gmail.com, fenghua.yu@intel.com, arnd@arndb.de, ktkhai@virtuozzo.com, ink@jurassic.park.msu.ru, tglx@linutronix.de, rth@twiddle.net, tony.luck@intel.com, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, schwidefsky@de.ibm.com, davem@davemloft.net, rientjes@google.com, viro@zeniv.linux.org.uk
+To: linux-ia64@vger.kernel.org
 
-There was mutex_lock_interruptible() initially, and it was changed
-to rwsem, but there were not killable rwsem primitives that time.
-From commit 9902af79c01a:
+   Use setup_timer function instead of initializing timer with the
+   function and data fields.
 
-    "The main issue is the lack of down_write_killable(), so the places
-     like readdir.c switched to plain inode_lock(); once killable
-     variants of rwsem primitives appear, that'll be dealt with"
-
-Use down_read_killable() same as down_write_killable() in !shared
-case, as concurrent inode_lock() may take much time, that may be
-wanted to be interrupted by user.
-
-Signed-off-by: Kirill Tkhai <ktkhai@virtuozzo.com>
+Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
- fs/readdir.c |   11 +++++------
- 1 file changed, 5 insertions(+), 6 deletions(-)
+ arch/ia64/sn/kernel/mca.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/fs/readdir.c b/fs/readdir.c
-index 89659549c09d..7c584bbb4ce3 100644
---- a/fs/readdir.c
-+++ b/fs/readdir.c
-@@ -36,13 +36,12 @@ int iterate_dir(struct file *file, struct dir_context *ctx)
- 	if (res)
- 		goto out;
+diff --git a/arch/ia64/sn/kernel/mca.c b/arch/ia64/sn/kernel/mca.c
+index 5b799d4d..5783e92 100644
+--- a/arch/ia64/sn/kernel/mca.c
++++ b/arch/ia64/sn/kernel/mca.c
+@@ -80,9 +80,8 @@ static void sn_cpei_timer_handler(unsigned long dummy)
  
--	if (shared) {
--		inode_lock_shared(inode);
--	} else {
-+	if (shared)
-+		res = down_read_killable(&inode->i_rwsem);
-+	else
- 		res = down_write_killable(&inode->i_rwsem);
--		if (res)
--			goto out;
--	}
-+	if (res)
-+		goto out;
+ void sn_init_cpei_timer(void)
+ {
+-	init_timer(&sn_cpei_timer);
++	setup_timer(&sn_cpei_timer, sn_cpei_timer_handler, 0UL);
+ 	sn_cpei_timer.expires = jiffies + CPEI_INTERVAL;
+-	sn_cpei_timer.function = sn_cpei_timer_handler;
+ 	add_timer(&sn_cpei_timer);
+ }
  
- 	res = -ENOENT;
- 	if (!IS_DEADDIR(inode)) {
+-- 
+2.7.4
 
