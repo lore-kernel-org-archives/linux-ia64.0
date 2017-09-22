@@ -1,55 +1,37 @@
-From: Kirill Tkhai <ktkhai@virtuozzo.com>
-Date: Fri, 29 Sep 2017 16:05:45 +0000
-Subject: [PATCH REBASED 0/6] rwsem: Implement down_read_killable()
-Message-Id: <150670038738.23930.7190484711222807884.stgit@localhost.localdomain>
+From: Allen Pais <allen.lkml@gmail.com>
+Date: Fri, 22 Sep 2017 11:38:00 +0000
+Subject: [PATCH 1/3] ia64: bte: use setup_timer() helper.
+Message-Id: <1506079562-5068-2-git-send-email-allen.lkml@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, avagin@virtuozzo.com, peterz@infradead.org, heiko.carstens@de.ibm.com, hpa@zytor.com, gorcunov@virtuozzo.com, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, x86@kernel.org, mingo@redhat.com, mattst88@gmail.com, fenghua.yu@intel.com, arnd@arndb.de, ktkhai@virtuozzo.com, ink@jurassic.park.msu.ru, tglx@linutronix.de, rth@twiddle.net, tony.luck@intel.com, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, schwidefsky@de.ibm.com, davem@davemloft.net, rientjes@google.com, viro@zeniv.linux.org.uk
+To: linux-ia64@vger.kernel.org
 
-Hi,
+   Use setup_timer function instead of initializing timer with the
+   function and data fields.
 
-this is resending of the series, I previously sent. There are no changes
-in separate patches except of [4/6], which is rebased on recent tip.git.
-
-Two patches from the previous sending are already applied by Peter,
-so they are not in this series. They are:
-83ced169d9a0 "locking/rwsem-xadd: Add killable versions of rwsem_down_read_failed()" and
-0aa1125fa8bc "locking/rwsem-spinlock: Add killable versions of __down_read()"
-
-Also, there is one patch more [6/6], which was sent separate in
-the reply to the first series.
-
-So, there is no changes (except [4/6]). Please, take a look.
+Signed-off-by: Allen Pais <allen.lkml@gmail.com>
 ---
+ arch/ia64/sn/kernel/bte.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-The series introduces new down_read_killable() primitive, which
-is similar to down_read(), but it may be interrupted by a signal.
-The most touched is architectures code. Also, it marks a new user
-of the primitive, which is iterate_dir().
+diff --git a/arch/ia64/sn/kernel/bte.c b/arch/ia64/sn/kernel/bte.c
+index b2eb484..fff6c4b 100644
+--- a/arch/ia64/sn/kernel/bte.c
++++ b/arch/ia64/sn/kernel/bte.c
+@@ -436,9 +436,8 @@ void bte_init_node(nodepda_t * mynodepda, cnodeid_t cnode)
+ 	 * will point at this one bte_recover structure to get the lock.
+ 	 */
+ 	spin_lock_init(&mynodepda->bte_recovery_lock);
+-	init_timer(&mynodepda->bte_recovery_timer);
+-	mynodepda->bte_recovery_timer.function = bte_error_handler;
+-	mynodepda->bte_recovery_timer.data = (unsigned long)mynodepda;
++	setup_timer(&mynodepda->bte_recovery_timer, bte_error_handler,
++		    (unsigned long)mynodepda);
+ 
+ 	for (i = 0; i < BTES_PER_NODE; i++) {
+ 		u64 *base_addr;
+-- 
+2.7.4
 
----
-
-Kirill Tkhai (6):
-      alpha: Add __down_read_killable()
-      ia64: Add __down_read_killable()
-      s390: Add __down_read_killable()
-      x86: Add __down_read_killable()
-      rwsem: Add down_read_killable()
-      fs: Use killable down_read() in iterate_dir()
-
-
- arch/alpha/include/asm/rwsem.h |   18 ++++++++++++++++--
- arch/ia64/include/asm/rwsem.h  |   22 +++++++++++++++++++---
- arch/s390/include/asm/rwsem.h  |   18 ++++++++++++++++--
- arch/x86/include/asm/rwsem.h   |   35 +++++++++++++++++++++++++----------
- arch/x86/lib/rwsem.S           |   12 ++++++++++++
- fs/readdir.c                   |   11 +++++------
- include/asm-generic/rwsem.h    |    8 ++++++++
- include/linux/rwsem.h          |    1 +
- kernel/locking/rwsem.c         |   16 ++++++++++++++++
- 9 files changed, 118 insertions(+), 23 deletions(-)
-
---
-Signed-off-by: Kirill Tkhai <ktkhai@virtuozzo.com>
