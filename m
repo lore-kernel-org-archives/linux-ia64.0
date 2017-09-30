@@ -1,59 +1,34 @@
-From: Kirill Tkhai <ktkhai@virtuozzo.com>
-Date: Fri, 29 Sep 2017 16:06:18 +0000
-Subject: [PATCH REBASED 3/6] s390: Add __down_read_killable()
-Message-Id: <150670117817.23930.13068785028558453848.stgit@localhost.localdomain>
+From: Heiko Carstens <heiko.carstens@de.ibm.com>
+Date: Sat, 30 Sep 2017 09:20:02 +0000
+Subject: Re: [PATCH REBASED 3/6] s390: Add __down_read_killable()
+Message-Id: <20170930092002.GA4623@osiris>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <150670038738.23930.7190484711222807884.stgit@localhost.localdomain>
-In-Reply-To: <150670038738.23930.7190484711222807884.stgit@localhost.localdomain>
+ <150670117817.23930.13068785028558453848.stgit@localhost.localdomain>
+In-Reply-To: <150670117817.23930.13068785028558453848.stgit@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, avagin@virtuozzo.com, peterz@infradead.org, heiko.carstens@de.ibm.com, hpa@zytor.com, gorcunov@virtuozzo.com, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, x86@kernel.org, mingo@redhat.com, mattst88@gmail.com, fenghua.yu@intel.com, arnd@arndb.de, ktkhai@virtuozzo.com, ink@jurassic.park.msu.ru, tglx@linutronix.de, rth@twiddle.net, tony.luck@intel.com, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, schwidefsky@de.ibm.com, davem@davemloft.net, rientjes@google.com, viro@zeniv.linux.org.uk
+To: Kirill Tkhai <ktkhai@virtuozzo.com>
+Cc: linux-ia64@vger.kernel.org, avagin@virtuozzo.com, peterz@infradead.org, hpa@zytor.com, gorcunov@virtuozzo.com, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, x86@kernel.org, mingo@redhat.com, mattst88@gmail.com, fenghua.yu@intel.com, arnd@arndb.de, ink@jurassic.park.msu.ru, tglx@linutronix.de, rth@twiddle.net, tony.luck@intel.com, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, schwidefsky@de.ibm.com, davem@davemloft.net, rientjes@google.com, viro@zeniv.linux.org.uk
 
-Similar to __down_write_killable(), and read killable primitive.
+On Fri, Sep 29, 2017 at 07:06:18PM +0300, Kirill Tkhai wrote:
+> Similar to __down_write_killable(), and read killable primitive.
+> 
+> Signed-off-by: Kirill Tkhai <ktkhai@virtuozzo.com>
+> ---
+>  arch/s390/include/asm/rwsem.h |   18 ++++++++++++++++--
+>  1 file changed, 16 insertions(+), 2 deletions(-)
+> 
+> diff --git a/arch/s390/include/asm/rwsem.h b/arch/s390/include/asm/rwsem.h
 
-Signed-off-by: Kirill Tkhai <ktkhai@virtuozzo.com>
----
- arch/s390/include/asm/rwsem.h |   18 ++++++++++++++++--
- 1 file changed, 16 insertions(+), 2 deletions(-)
+FWIW, while looking into this patch I realized that we never optimized our
+rwsem primitives to make use of new atomic instructions.
 
-diff --git a/arch/s390/include/asm/rwsem.h b/arch/s390/include/asm/rwsem.h
-index 597e7e96b59e..6bef7d5fbf1c 100644
---- a/arch/s390/include/asm/rwsem.h
-+++ b/arch/s390/include/asm/rwsem.h
-@@ -49,7 +49,7 @@
- /*
-  * lock for reading
-  */
--static inline void __down_read(struct rw_semaphore *sem)
-+static inline int ___down_read(struct rw_semaphore *sem)
- {
- 	signed long old, new;
- 
-@@ -62,10 +62,24 @@ static inline void __down_read(struct rw_semaphore *sem)
- 		: "=&d" (old), "=&d" (new), "=Q" (sem->count)
- 		: "Q" (sem->count), "i" (RWSEM_ACTIVE_READ_BIAS)
- 		: "cc", "memory");
--	if (old < 0)
-+	return (old < 0);
-+}
-+
-+static inline void __down_read(struct rw_semaphore *sem)
-+{
-+	if (___down_read(sem))
- 		rwsem_down_read_failed(sem);
- }
- 
-+static inline int __down_read_killable(struct rw_semaphore *sem)
-+{
-+	if (___down_read(sem))
-+		if (IS_ERR(rwsem_down_read_failed_killable(sem)))
-+			return -EINTR;
-+
-+	return 0;
-+}
-+
- /*
-  * trylock for reading -- returns 1 if successful, 0 if contention
-  */
+The generic rwsem header file however does, since it uses atomic ops which
+we did optimize. Even when compiling for old machines the generic version
+generates better code. Therefore I will remove the 15 years old s390
+implementation and switch to the generic version instead.
+
+The same might be true for alpha and ia64...
 
