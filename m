@@ -1,39 +1,29 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Date: Mon, 09 Oct 2017 13:10:02 +0000
-Subject: Re: [PATCH 1/4] PCI: Remove redundant pcibios_set_master() declarations
-Message-Id: <20171009131002.GF20977@linux-mips.org>
+From: Christoph Hellwig <hch@lst.de>
+Date: Tue, 03 Oct 2017 10:43:00 +0000
+Subject: refactor dma_cache_sync V2
+Message-Id: <20171003104311.10058-1-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20171005201939.18300.25690.stgit@bhelgaas-glaptop.roam.corp.google.com>
- <20171005203842.18300.67328.stgit@bhelgaas-glaptop.roam.corp.google.com>
-In-Reply-To: <20171005203842.18300.67328.stgit@bhelgaas-glaptop.roam.corp.google.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <helgaas@kernel.org>
-Cc: linux-pci@vger.kernel.org, linux-mips@linux-mips.org, Rich Felker <dalias@libc.org>, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, David Howells <dhowells@redhat.com>, Max Filippov <jcmvbkbc@gmail.com>, Paul Mackerras <paulus@samba.org>, "H. Peter Anvin" <hpa@zytor.com>, sparclinux@vger.kernel.org, Jesper Nilsson <jesper.nilsson@axis.com>, linux-am33-list@redhat.com, Yoshinori Sato <ysato@users.sourceforge.jp>, Michael Ellerman <mpe@ellerman.id.au>, Helge Deller <deller@gmx.de>, x86@kernel.org, "James E.J. Bottomley" <jejb@parisc-linux.org>, Ingo Molnar <mingo@redhat.com>, Matt Turner <mattst88@gmail.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-xtensa@linux-xtensa.org, Mikael Starvik <starvik@axis.com>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Thomas Gleixner <tglx@linutronix.de>, Richard Henderson <rth@twiddle.net>, Chris Zankel <chris@zankel.net>, Tony Luck <tony.luck@intel.com>, linux-cris-kernel@axis.com, linux-parisc@vger.kernel.org, linux-alpha@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, "David S. Miller" <davem@davemloft.net>
+To: iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Cc: Chris Zankel <chris-YvXeqwSYzG2sTnJN9+BGXg@public.gmane.org>, Michal Simek <monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org>, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Max Filippov <jcmvbkbc-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Guan Xuetao <gxt-TG0Ac1+ktVePQbnJrJN+5g@public.gmane.org>
 
-On Thu, Oct 05, 2017 at 03:38:42PM -0500, Bjorn Helgaas wrote:
+The dma_cache_sync routines is used to flush caches for memory returned
+by dma_alloc_attrs with the DMA_ATTR_NON_CONSISTENT flag (or previously
+from dma_alloc_noncoherent), but the requirements for it seems to be
+frequently misunderstood.  dma_cache_sync is documented to be a no-op for
+allocations that do not have the DMA_ATTR_NON_CONSISTENT flag set, and
+yet a lot of architectures implement it in some way despite not
+implementing DMA_ATTR_NON_CONSISTENT.
 
-> From: Bjorn Helgaas <bhelgaas@google.com>
-> 
-> All users of pcibios_set_master() include <linux/pci.h>, which already has
-> a declaration.  Remove the unnecessary declarations from the <asm/pci.h>
-> files.
-> 
-> Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
-> ---
->  arch/alpha/include/asm/pci.h   |    2 --
->  arch/cris/include/asm/pci.h    |    1 -
->  arch/frv/include/asm/pci.h     |    2 --
->  arch/mips/include/asm/pci.h    |    2 --
->  arch/mn10300/include/asm/pci.h |    2 --
->  arch/parisc/include/asm/pci.h  |    1 -
->  arch/sh/include/asm/pci.h      |    2 --
->  arch/x86/include/asm/pci.h     |    1 -
->  8 files changed, 13 deletions(-)
+This series removes a few abuses of dma_cache_sync for non-DMA API
+purposes, then changes all remaining architectures that do not implement
+DMA_ATTR_NON_CONSISTENT to implement dma_cache_sync as a no-op, and
+then adds the struct dma_map_ops indirection we use for all other
+DMA mapping operations to dma_cache_sync as well, thus removing all but
+two implementations of the function.
 
-For MIPS:
-
-Acked-by: Ralf Baechle <ralf@linux-mips.org>
-
-  Ralf
+Changes since V1:
+ - drop the mips fd_cacheflush, merged via maintainer
+ - spelling fix in last commit descriptions (thanks Geert)
