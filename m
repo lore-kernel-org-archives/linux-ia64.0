@@ -1,743 +1,480 @@
-From: Waiman Long <longman@redhat.com>
-Date: Wed, 18 Oct 2017 18:30:18 +0000
-Subject: [PATCH-tip v7 02/15] locking/rwsem: Implement a new locking scheme
-Message-Id: <1508351431-22375-3-git-send-email-longman@redhat.com>
+From: Christoph Hellwig <hch@lst.de>
+Date: Tue, 03 Oct 2017 10:43:11 +0000
+Subject: [PATCH 11/11] dma-mapping: turn dma_cache_sync into a dma_map_ops method
+Message-Id: <20171003104311.10058-12-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1508351431-22375-1-git-send-email-longman@redhat.com>
-In-Reply-To: <1508351431-22375-1-git-send-email-longman@redhat.com>
+References: <20171003104311.10058-1-hch@lst.de>
+In-Reply-To: <20171003104311.10058-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>
-Cc: linux-kernel@vger.kernel.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-arch@vger.kernel.org, Davidlohr Bueso <dave@stgolabs.net>, Dave Chinner <david@fromorbit.com>, Waiman Long <longman@redhat.com>
+To: iommu@lists.linux-foundation.org
+Cc: Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, Michal Simek <monstr@monstr.eu>, David Howells <dhowells@redhat.com>, Guan Xuetao <gxt@mprc.pku.edu.cn>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, x86@kernel.org, linux-mips@linux-mips.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-xtensa@linux-xtensa.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org
 
-The current way of using various reader, writer and waiting biases
-in the rwsem code are confusing and hard to understand. I have to
-reread the rwsem count guide in the rwsem-xadd.c file from time to
-time to remind myself how this whole thing works. It also makes the
-rwsem code harder to be optimized.
+After we removed all the dead wood it turns out only two architectures
+actually implement dma_cache_sync as a real op: mips and parisc.  Add
+a cache_sync method to struct dma_map_ops and implement it for the
+mips defualt DMA ops, and the parisc pa11 ops.
 
-To make rwsem more sane, a new locking scheme similar to the one in
-qrwlock is now being used.  The count is now a 32-bit atomic value
-in all architectures. The current bit definitions are:
+Note that arm, arc and openrisc support DMA_ATTR_NON_CONSISTENT, but
+never provided a functional dma_cache_sync implementations, which
+seems somewhat odd.
 
-  Bit  0    - writer locked bit
-  Bit  1    - waiters present bit
-  Bits 2-7  - reserved for future extension
-  Bits 8-31 - reader count
-
-Now the cmpxchg instruction is used to acquire the write lock. The
-read lock is still acquired with xadd instruction, so there is no
-change here.  This scheme will allow up to 16M active readers which
-should be more than enough. We can always use some more reserved bits
-if necessary.
-
-The same generic locking code will be used for all the architectures
-and the architecture specific files will be retired.
-
-This patch also hide the fastpath implementation of rwsem (now in
-kernel/locking/rwsem-xadd.h) from the other kernel code as
-include/linux/rwsem.h will not include it.
-
-With a locking microbenchmark running on 3.13 based kernel, the total
-locking rates (in Mops/s) of the benchmark on a 2-socket 36-core
-x86-64 system before and after the patch were as follows:
-
-                  Before Patch      After Patch
-   # of Threads  wlock    rlock    wlock    rlock
-   ------------  -----    -----    -----    -----
-        1        39.039   33.401   40.432   33.093
-        2         9.767   17.250   11.424   18.763
-        4         9.069   17.580   10.085   17.372
-        8         9.390   15.372   11.733   14.507
-
-The locking rates of the benchmark on a 16-processor Power8 system
-were as follows:
-
-                  Before Patch      After Patch
-   # of Threads  wlock    rlock    wlock    rlock
-   ------------  -----    -----    -----    -----
-        1        15.086   13.738    9.373   13.597
-        2         4.864    6.280    5.514    6.309
-        4         3.286    4.932    4.153    5.011
-        8         2.637    2.248    3.528    2.189
-
-The locking rates of the benchmark on a 32-core Cavium ARM64 system
-were as follows:
-
-                  Before Patch      After Patch
-   # of Threads  wlock    rlock    wlock    rlock
-   ------------  -----    -----    -----    -----
-        1        4.849    3.972    5.194    4.223
-        2        3.165    4.628    3.077    4.885
-        4        0.742    3.856    0.716    4.136
-        8        1.639    2.443    1.330    2.475
-
-For read lock, locking performance was about the same before and
-after the patch. For write lock, the new code had better contended
-performance (2 or more threads) for both x86 and ppc, but it seemed to
-slow down a bit in arm64. The uncontended performance, however, suffers
-quite a bit in ppc, but not in x86 and arm64. So cmpxchg does have a
-noticeable higher cost than xadd in ppc, the elimination of the atomic
-count reversal in slowpath helps the contended performance, though.
-
-Signed-off-by: Waiman Long <longman@redhat.com>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- include/asm-generic/rwsem.h   | 139 --------------------------------------
- include/linux/rwsem.h         |  12 ++--
- kernel/locking/percpu-rwsem.c |   2 +
- kernel/locking/rwsem-xadd.c   | 150 ++++++++++++++----------------------------
- kernel/locking/rwsem-xadd.h   | 128 +++++++++++++++++++++++++++++++++++
- kernel/locking/rwsem.h        |   4 ++
- 6 files changed, 187 insertions(+), 248 deletions(-)
- delete mode 100644 include/asm-generic/rwsem.h
- create mode 100644 kernel/locking/rwsem-xadd.h
+ arch/alpha/include/asm/dma-mapping.h      |  2 --
+ arch/cris/include/asm/dma-mapping.h       |  6 ------
+ arch/frv/include/asm/dma-mapping.h        |  6 ------
+ arch/hexagon/include/asm/dma-mapping.h    |  3 ---
+ arch/ia64/include/asm/dma-mapping.h       |  6 ------
+ arch/m32r/include/asm/dma-mapping.h       |  5 -----
+ arch/m68k/include/asm/dma-mapping.h       |  6 ------
+ arch/metag/include/asm/dma-mapping.h      | 10 ----------
+ arch/microblaze/include/asm/dma-mapping.h |  5 -----
+ arch/mips/include/asm/dma-mapping.h       |  3 ---
+ arch/mips/mm/dma-default.c                |  7 +++----
+ arch/mn10300/include/asm/dma-mapping.h    |  6 ------
+ arch/nios2/include/asm/dma-mapping.h      |  9 ---------
+ arch/parisc/include/asm/dma-mapping.h     |  8 --------
+ arch/parisc/kernel/pci-dma.c              |  8 ++++++++
+ arch/powerpc/include/asm/dma-mapping.h    |  5 -----
+ arch/s390/include/asm/dma-mapping.h       |  5 -----
+ arch/sh/include/asm/dma-mapping.h         |  6 ------
+ arch/sparc/include/asm/dma-mapping.h      |  8 --------
+ arch/tile/include/asm/dma-mapping.h       |  9 ---------
+ arch/unicore32/include/asm/dma-mapping.h  |  5 -----
+ arch/x86/include/asm/dma-mapping.h        |  6 ------
+ arch/xtensa/include/asm/dma-mapping.h     |  5 -----
+ include/linux/dma-mapping.h               | 13 +++++++++++++
+ 24 files changed, 24 insertions(+), 128 deletions(-)
 
-diff --git a/include/asm-generic/rwsem.h b/include/asm-generic/rwsem.h
-deleted file mode 100644
-index b2d68d2..0000000
---- a/include/asm-generic/rwsem.h
-+++ /dev/null
-@@ -1,139 +0,0 @@
--#ifndef _ASM_GENERIC_RWSEM_H
--#define _ASM_GENERIC_RWSEM_H
--
--#ifndef _LINUX_RWSEM_H
--#error "Please don't include <asm/rwsem.h> directly, use <linux/rwsem.h> instead."
--#endif
--
--#ifdef __KERNEL__
--
--/*
-- * R/W semaphores originally for PPC using the stuff in lib/rwsem.c.
-- * Adapted largely from include/asm-i386/rwsem.h
-- * by Paul Mackerras <paulus@samba.org>.
-- */
--
--/*
-- * the semaphore definition
-- */
--#ifdef CONFIG_64BIT
--# define RWSEM_ACTIVE_MASK		0xffffffffL
--#else
--# define RWSEM_ACTIVE_MASK		0x0000ffffL
--#endif
--
--#define RWSEM_UNLOCKED_VALUE		0x00000000L
--#define RWSEM_ACTIVE_BIAS		0x00000001L
--#define RWSEM_WAITING_BIAS		(-RWSEM_ACTIVE_MASK-1)
--#define RWSEM_ACTIVE_READ_BIAS		RWSEM_ACTIVE_BIAS
--#define RWSEM_ACTIVE_WRITE_BIAS		(RWSEM_WAITING_BIAS + RWSEM_ACTIVE_BIAS)
--
--/*
-- * lock for reading
-- */
--static inline void __down_read(struct rw_semaphore *sem)
--{
--	if (unlikely(atomic_long_inc_return_acquire(&sem->count) <= 0))
--		rwsem_down_read_failed(sem);
--}
--
--static inline int __down_read_killable(struct rw_semaphore *sem)
--{
--	if (unlikely(atomic_long_inc_return_acquire(&sem->count) <= 0)) {
--		if (IS_ERR(rwsem_down_read_failed_killable(sem)))
--			return -EINTR;
--	}
--
--	return 0;
--}
--
--static inline int __down_read_trylock(struct rw_semaphore *sem)
--{
--	long tmp;
--
--	while ((tmp = atomic_long_read(&sem->count)) >= 0) {
--		if (tmp = atomic_long_cmpxchg_acquire(&sem->count, tmp,
--				   tmp + RWSEM_ACTIVE_READ_BIAS)) {
--			return 1;
--		}
--	}
--	return 0;
--}
--
--/*
-- * lock for writing
-- */
--static inline void __down_write(struct rw_semaphore *sem)
--{
--	long tmp;
--
--	tmp = atomic_long_add_return_acquire(RWSEM_ACTIVE_WRITE_BIAS,
--					     &sem->count);
--	if (unlikely(tmp != RWSEM_ACTIVE_WRITE_BIAS))
--		rwsem_down_write_failed(sem);
--}
--
--static inline int __down_write_killable(struct rw_semaphore *sem)
--{
--	long tmp;
--
--	tmp = atomic_long_add_return_acquire(RWSEM_ACTIVE_WRITE_BIAS,
--					     &sem->count);
--	if (unlikely(tmp != RWSEM_ACTIVE_WRITE_BIAS))
--		if (IS_ERR(rwsem_down_write_failed_killable(sem)))
--			return -EINTR;
--	return 0;
--}
--
--static inline int __down_write_trylock(struct rw_semaphore *sem)
--{
--	long tmp;
--
--	tmp = atomic_long_cmpxchg_acquire(&sem->count, RWSEM_UNLOCKED_VALUE,
--		      RWSEM_ACTIVE_WRITE_BIAS);
--	return tmp = RWSEM_UNLOCKED_VALUE;
--}
--
--/*
-- * unlock after reading
-- */
--static inline void __up_read(struct rw_semaphore *sem)
--{
--	long tmp;
--
--	tmp = atomic_long_dec_return_release(&sem->count);
--	if (unlikely(tmp < -1 && (tmp & RWSEM_ACTIVE_MASK) = 0))
--		rwsem_wake(sem);
--}
--
--/*
-- * unlock after writing
-- */
--static inline void __up_write(struct rw_semaphore *sem)
--{
--	if (unlikely(atomic_long_sub_return_release(RWSEM_ACTIVE_WRITE_BIAS,
--						    &sem->count) < 0))
--		rwsem_wake(sem);
--}
--
--/*
-- * downgrade write lock to read lock
-- */
--static inline void __downgrade_write(struct rw_semaphore *sem)
--{
--	long tmp;
--
--	/*
--	 * When downgrading from exclusive to shared ownership,
--	 * anything inside the write-locked region cannot leak
--	 * into the read side. In contrast, anything in the
--	 * read-locked region is ok to be re-ordered into the
--	 * write side. As such, rely on RELEASE semantics.
--	 */
--	tmp = atomic_long_add_return_release(-RWSEM_WAITING_BIAS, &sem->count);
--	if (tmp < 0)
--		rwsem_downgrade_wake(sem);
--}
--
--#endif	/* __KERNEL__ */
--#endif	/* _ASM_GENERIC_RWSEM_H */
-diff --git a/include/linux/rwsem.h b/include/linux/rwsem.h
-index 6ac8ee5..398c748 100644
---- a/include/linux/rwsem.h
-+++ b/include/linux/rwsem.h
-@@ -25,11 +25,10 @@
- #include <linux/rwsem-spinlock.h> /* use a generic implementation */
- #define __RWSEM_INIT_COUNT(name)	.count = RWSEM_UNLOCKED_VALUE
- #else
--/* All arch specific implementations share the same struct */
- struct rw_semaphore {
--	atomic_long_t count;
--	struct list_head wait_list;
-+	atomic_t count;
- 	raw_spinlock_t wait_lock;
-+	struct list_head wait_list;
- #ifdef CONFIG_RWSEM_SPIN_ON_OWNER
- 	struct optimistic_spin_queue osq; /* spinner MCS lock */
- 	/*
-@@ -50,16 +49,15 @@ struct rw_semaphore {
- extern struct rw_semaphore *rwsem_wake(struct rw_semaphore *);
- extern struct rw_semaphore *rwsem_downgrade_wake(struct rw_semaphore *sem);
- 
--/* Include the arch specific part */
--#include <asm/rwsem.h>
-+#define RWSEM_UNLOCKED_VALUE	0
- 
- /* In all implementations count != 0 means locked */
- static inline int rwsem_is_locked(struct rw_semaphore *sem)
- {
--	return atomic_long_read(&sem->count) != 0;
-+	return atomic_read(&sem->count) != RWSEM_UNLOCKED_VALUE;
+diff --git a/arch/alpha/include/asm/dma-mapping.h b/arch/alpha/include/asm/dma-mapping.h
+index 5d53666935e6..399a4f49355e 100644
+--- a/arch/alpha/include/asm/dma-mapping.h
++++ b/arch/alpha/include/asm/dma-mapping.h
+@@ -8,6 +8,4 @@ static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
+ 	return dma_ops;
  }
  
--#define __RWSEM_INIT_COUNT(name)	.count = ATOMIC_LONG_INIT(RWSEM_UNLOCKED_VALUE)
-+#define __RWSEM_INIT_COUNT(name)	.count = ATOMIC_INIT(RWSEM_UNLOCKED_VALUE)
- #endif
- 
- /* Common initializer macros and functions */
-diff --git a/kernel/locking/percpu-rwsem.c b/kernel/locking/percpu-rwsem.c
-index 883cf1b..f17dad9 100644
---- a/kernel/locking/percpu-rwsem.c
-+++ b/kernel/locking/percpu-rwsem.c
-@@ -7,6 +7,8 @@
- #include <linux/sched.h>
- #include <linux/errno.h>
- 
-+#include "rwsem.h"
-+
- int __percpu_init_rwsem(struct percpu_rw_semaphore *sem,
- 			const char *name, struct lock_class_key *rwsem_key)
- {
-diff --git a/kernel/locking/rwsem-xadd.c b/kernel/locking/rwsem-xadd.c
-index db5dedf..1d02b8b 100644
---- a/kernel/locking/rwsem-xadd.c
-+++ b/kernel/locking/rwsem-xadd.c
-@@ -21,52 +21,20 @@
- #include "rwsem.h"
- 
- /*
-- * Guide to the rw_semaphore's count field for common values.
-- * (32-bit case illustrated, similar for 64-bit)
-+ * Guide to the rw_semaphore's count field.
-  *
-- * 0x0000000X	(1) X readers active or attempting lock, no writer waiting
-- *		    X = #active_readers + #readers attempting to lock
-- *		    (X*ACTIVE_BIAS)
-+ * When the RWSEM_WRITER_LOCKED bit in count is set, the lock is owned
-+ * by a writer.
-  *
-- * 0x00000000	rwsem is unlocked, and no one is waiting for the lock or
-- *		attempting to read lock or write lock.
-- *
-- * 0xffff000X	(1) X readers active or attempting lock, with waiters for lock
-- *		    X = #active readers + # readers attempting lock
-- *		    (X*ACTIVE_BIAS + WAITING_BIAS)
-- *		(2) 1 writer attempting lock, no waiters for lock
-- *		    X-1 = #active readers + #readers attempting lock
-- *		    ((X-1)*ACTIVE_BIAS + ACTIVE_WRITE_BIAS)
-- *		(3) 1 writer active, no waiters for lock
-- *		    X-1 = #active readers + #readers attempting lock
-- *		    ((X-1)*ACTIVE_BIAS + ACTIVE_WRITE_BIAS)
-- *
-- * 0xffff0001	(1) 1 reader active or attempting lock, waiters for lock
-- *		    (WAITING_BIAS + ACTIVE_BIAS)
-- *		(2) 1 writer active or attempting lock, no waiters for lock
-- *		    (ACTIVE_WRITE_BIAS)
-- *
-- * 0xffff0000	(1) There are writers or readers queued but none active
-- *		    or in the process of attempting lock.
-- *		    (WAITING_BIAS)
-- *		Note: writer can attempt to steal lock for this count by adding
-- *		ACTIVE_WRITE_BIAS in cmpxchg and checking the old count
-- *
-- * 0xfffe0001	(1) 1 writer active, or attempting lock. Waiters on queue.
-- *		    (ACTIVE_WRITE_BIAS + WAITING_BIAS)
-- *
-- * Note: Readers attempt to lock by adding ACTIVE_BIAS in down_read and checking
-- *	 the count becomes more than 0 for successful lock acquisition,
-- *	 i.e. the case where there are only readers or nobody has lock.
-- *	 (1st and 2nd case above).
-- *
-- *	 Writers attempt to lock by adding ACTIVE_WRITE_BIAS in down_write and
-- *	 checking the count becomes ACTIVE_WRITE_BIAS for successful lock
-- *	 acquisition (i.e. nobody else has lock or attempts lock).  If
-- *	 unsuccessful, in rwsem_down_write_failed, we'll check to see if there
-- *	 are only waiters but none active (5th case above), and attempt to
-- *	 steal the lock.
-+ * The lock is owned by readers when
-+ * (1) the RWSEM_WRITER_LOCKED isn't set in count,
-+ * (2) some of the reader bits are set in count, and
-+ * (3) the owner field is RWSEM_READ_OWNED.
-  *
-+ * Having some reader bits set is not enough to guarantee a readers owned
-+ * lock as the readers may be in the process of backing out from the count
-+ * and a writer has just released the lock. So another writer may steal
-+ * the lock immediately after that.
-  */
- 
- /*
-@@ -82,7 +50,7 @@ void __init_rwsem(struct rw_semaphore *sem, const char *name,
- 	debug_check_no_locks_freed((void *)sem, sizeof(*sem));
- 	lockdep_init_map(&sem->dep_map, name, key, 0);
- #endif
--	atomic_long_set(&sem->count, RWSEM_UNLOCKED_VALUE);
-+	atomic_set(&sem->count, RWSEM_UNLOCKED_VALUE);
- 	raw_spin_lock_init(&sem->wait_lock);
- 	INIT_LIST_HEAD(&sem->wait_list);
- #ifdef CONFIG_RWSEM_SPIN_ON_OWNER
-@@ -112,9 +80,8 @@ enum rwsem_wake_type {
- 
- /*
-  * handle the lock release when processes blocked on it that can now run
-- * - if we come here from up_xxxx(), then:
-- *   - the 'active part' of count (&0x0000ffff) reached 0 (but may have changed)
-- *   - the 'waiting part' of count (&0xffff0000) is -ve (and will still be so)
-+ * - if we come here from up_xxxx(), then the RWSEM_FLAG_WAITERS bit must
-+ *   have been set.
-  * - there must be someone on the queue
-  * - the wait_lock must be held by the caller
-  * - tasks are marked for wakeup, the caller must later invoke wake_up_q()
-@@ -128,7 +95,7 @@ static void __rwsem_mark_wake(struct rw_semaphore *sem,
- 			      struct wake_q_head *wake_q)
- {
- 	struct rwsem_waiter *waiter, *tmp;
--	long oldcount, woken = 0, adjustment = 0;
-+	int oldcount, woken = 0, adjustment = 0;
- 
- 	/*
- 	 * Take a peek at the queue head waiter such that we can determine
-@@ -157,22 +124,11 @@ static void __rwsem_mark_wake(struct rw_semaphore *sem,
- 	 * so we can bail out early if a writer stole the lock.
- 	 */
- 	if (wake_type != RWSEM_WAKE_READ_OWNED) {
--		adjustment = RWSEM_ACTIVE_READ_BIAS;
-- try_reader_grant:
--		oldcount = atomic_long_fetch_add(adjustment, &sem->count);
--		if (unlikely(oldcount < RWSEM_WAITING_BIAS)) {
--			/*
--			 * If the count is still less than RWSEM_WAITING_BIAS
--			 * after removing the adjustment, it is assumed that
--			 * a writer has stolen the lock. We have to undo our
--			 * reader grant.
--			 */
--			if (atomic_long_add_return(-adjustment, &sem->count) <
--			    RWSEM_WAITING_BIAS)
--				return;
+-#define dma_cache_sync(dev, va, size, dir)		  ((void)0)
 -
--			/* Last active locker left. Retry waking readers. */
--			goto try_reader_grant;
-+		adjustment = RWSEM_READER_BIAS;
-+		oldcount = atomic_fetch_add(adjustment, &sem->count);
-+		if (unlikely(oldcount & RWSEM_WRITER_LOCKED)) {
-+			atomic_sub(adjustment, &sem->count);
-+			return;
- 		}
- 		/*
- 		 * It is not really necessary to set it to reader-owned here,
-@@ -208,14 +164,14 @@ static void __rwsem_mark_wake(struct rw_semaphore *sem,
- 		smp_store_release(&waiter->task, NULL);
- 	}
- 
--	adjustment = woken * RWSEM_ACTIVE_READ_BIAS - adjustment;
-+	adjustment = woken * RWSEM_READER_BIAS - adjustment;
- 	if (list_empty(&sem->wait_list)) {
- 		/* hit end of list above */
--		adjustment -= RWSEM_WAITING_BIAS;
-+		adjustment -= RWSEM_FLAG_WAITERS;
- 	}
- 
- 	if (adjustment)
--		atomic_long_add(adjustment, &sem->count);
-+		atomic_add(adjustment, &sem->count);
- }
- 
- /*
-@@ -223,24 +179,17 @@ static void __rwsem_mark_wake(struct rw_semaphore *sem,
-  * race conditions between checking the rwsem wait list and setting the
-  * sem->count accordingly.
-  */
--static inline bool rwsem_try_write_lock(long count, struct rw_semaphore *sem)
-+static inline bool rwsem_try_write_lock(int count, struct rw_semaphore *sem)
- {
--	/*
--	 * Avoid trying to acquire write lock if count isn't RWSEM_WAITING_BIAS.
--	 */
--	if (count != RWSEM_WAITING_BIAS)
-+	int new;
-+
-+	if (RWSEM_COUNT_LOCKED(count))
- 		return false;
- 
--	/*
--	 * Acquire the lock by trying to set it to ACTIVE_WRITE_BIAS. If there
--	 * are other tasks on the wait list, we need to add on WAITING_BIAS.
--	 */
--	count = list_is_singular(&sem->wait_list) ?
--			RWSEM_ACTIVE_WRITE_BIAS :
--			RWSEM_ACTIVE_WRITE_BIAS + RWSEM_WAITING_BIAS;
-+	new = count + RWSEM_WRITER_LOCKED -
-+	     (list_is_singular(&sem->wait_list) ? RWSEM_FLAG_WAITERS : 0);
- 
--	if (atomic_long_cmpxchg_acquire(&sem->count, RWSEM_WAITING_BIAS, count)
--							= RWSEM_WAITING_BIAS) {
-+	if (atomic_cmpxchg_acquire(&sem->count, count, new) = count) {
- 		rwsem_set_owner(sem);
- 		return true;
- 	}
-@@ -254,14 +203,14 @@ static inline bool rwsem_try_write_lock(long count, struct rw_semaphore *sem)
-  */
- static inline bool rwsem_try_write_lock_unqueued(struct rw_semaphore *sem)
- {
--	long old, count = atomic_long_read(&sem->count);
-+	int old, count = atomic_read(&sem->count);
- 
- 	while (true) {
--		if (!(count = 0 || count = RWSEM_WAITING_BIAS))
-+		if (RWSEM_COUNT_LOCKED(count))
- 			return false;
- 
--		old = atomic_long_cmpxchg_acquire(&sem->count, count,
--				      count + RWSEM_ACTIVE_WRITE_BIAS);
-+		old = atomic_cmpxchg_acquire(&sem->count, count,
-+				count + RWSEM_WRITER_LOCKED);
- 		if (old = count) {
- 			rwsem_set_owner(sem);
- 			return true;
-@@ -418,7 +367,7 @@ static inline bool rwsem_has_spinner(struct rw_semaphore *sem)
- static inline struct rw_semaphore __sched *
- __rwsem_down_read_failed_common(struct rw_semaphore *sem, int state)
- {
--	long count, adjustment = -RWSEM_ACTIVE_READ_BIAS;
-+	int count, adjustment = -RWSEM_READER_BIAS;
- 	struct rwsem_waiter waiter;
- 	DEFINE_WAKE_Q(wake_q);
- 
-@@ -427,11 +376,11 @@ static inline bool rwsem_has_spinner(struct rw_semaphore *sem)
- 
- 	raw_spin_lock_irq(&sem->wait_lock);
- 	if (list_empty(&sem->wait_list))
--		adjustment += RWSEM_WAITING_BIAS;
-+		adjustment += RWSEM_FLAG_WAITERS;
- 	list_add_tail(&waiter.list, &sem->wait_list);
- 
- 	/* we're now waiting on the lock, but no longer actively locking */
--	count = atomic_long_add_return(adjustment, &sem->count);
-+	count = atomic_add_return(adjustment, &sem->count);
- 
- 	/*
- 	 * If there are no active locks, wake the front queued process(es).
-@@ -439,9 +388,7 @@ static inline bool rwsem_has_spinner(struct rw_semaphore *sem)
- 	 * If there are no writers and we are first in the queue,
- 	 * wake our own waiter to join the existing active readers !
- 	 */
--	if (count = RWSEM_WAITING_BIAS ||
--	    (count > RWSEM_WAITING_BIAS &&
--	     adjustment != -RWSEM_ACTIVE_READ_BIAS))
-+	if (!RWSEM_COUNT_LOCKED(count))
- 		__rwsem_mark_wake(sem, RWSEM_WAKE_ANY, &wake_q);
- 
- 	raw_spin_unlock_irq(&sem->wait_lock);
-@@ -467,7 +414,7 @@ static inline bool rwsem_has_spinner(struct rw_semaphore *sem)
- out_nolock:
- 	list_del(&waiter.list);
- 	if (list_empty(&sem->wait_list))
--		atomic_long_add(-RWSEM_WAITING_BIAS, &sem->count);
-+		atomic_add(-RWSEM_FLAG_WAITERS, &sem->count);
- 	raw_spin_unlock_irq(&sem->wait_lock);
- 	__set_current_state(TASK_RUNNING);
- 	return ERR_PTR(-EINTR);
-@@ -493,15 +440,12 @@ static inline bool rwsem_has_spinner(struct rw_semaphore *sem)
- static inline struct rw_semaphore *
- __rwsem_down_write_failed_common(struct rw_semaphore *sem, int state)
- {
--	long count;
-+	int count;
- 	bool waiting = true; /* any queued threads before us */
- 	struct rwsem_waiter waiter;
- 	struct rw_semaphore *ret = sem;
- 	DEFINE_WAKE_Q(wake_q);
- 
--	/* undo write bias from down_write operation, stop active locking */
--	count = atomic_long_sub_return(RWSEM_ACTIVE_WRITE_BIAS, &sem->count);
--
- 	/* do optimistic spinning and steal lock if possible */
- 	if (rwsem_optimistic_spin(sem))
- 		return sem;
-@@ -523,14 +467,14 @@ static inline bool rwsem_has_spinner(struct rw_semaphore *sem)
- 
- 	/* we're now waiting on the lock, but no longer actively locking */
- 	if (waiting) {
--		count = atomic_long_read(&sem->count);
-+		count = atomic_read(&sem->count);
- 
- 		/*
- 		 * If there were already threads queued before us and there are
- 		 * no active writers, the lock must be read owned; so we try to
- 		 * wake any read locks that were queued ahead of us.
- 		 */
--		if (count > RWSEM_WAITING_BIAS) {
-+		if (!(count & RWSEM_WRITER_LOCKED)) {
- 			__rwsem_mark_wake(sem, RWSEM_WAKE_READERS, &wake_q);
- 			/*
- 			 * The wakeup is normally called _after_ the wait_lock
-@@ -547,8 +491,9 @@ static inline bool rwsem_has_spinner(struct rw_semaphore *sem)
- 			wake_q_init(&wake_q);
- 		}
- 
--	} else
--		count = atomic_long_add_return(RWSEM_WAITING_BIAS, &sem->count);
-+	} else {
-+		count = atomic_add_return(RWSEM_FLAG_WAITERS, &sem->count);
-+	}
- 
- 	/* wait until we successfully acquire the lock */
- 	set_current_state(state);
-@@ -564,7 +509,8 @@ static inline bool rwsem_has_spinner(struct rw_semaphore *sem)
- 
- 			schedule();
- 			set_current_state(state);
--		} while ((count = atomic_long_read(&sem->count)) & RWSEM_ACTIVE_MASK);
-+			count = atomic_read(&sem->count);
-+		} while (RWSEM_COUNT_LOCKED(count));
- 
- 		raw_spin_lock_irq(&sem->wait_lock);
- 	}
-@@ -579,7 +525,7 @@ static inline bool rwsem_has_spinner(struct rw_semaphore *sem)
- 	raw_spin_lock_irq(&sem->wait_lock);
- 	list_del(&waiter.list);
- 	if (list_empty(&sem->wait_list))
--		atomic_long_add(-RWSEM_WAITING_BIAS, &sem->count);
-+		atomic_add(-RWSEM_FLAG_WAITERS, &sem->count);
- 	else
- 		__rwsem_mark_wake(sem, RWSEM_WAKE_ANY, &wake_q);
- 	raw_spin_unlock_irq(&sem->wait_lock);
-diff --git a/kernel/locking/rwsem-xadd.h b/kernel/locking/rwsem-xadd.h
-new file mode 100644
-index 0000000..f0e8ba3
---- /dev/null
-+++ b/kernel/locking/rwsem-xadd.h
-@@ -0,0 +1,128 @@
-+#ifndef _ASM_GENERIC_RWSEM_H
-+#define _ASM_GENERIC_RWSEM_H
-+
-+#include <linux/rwsem.h>
-+
-+/*
-+ * The definition of the atomic counter in the semaphore:
-+ *
-+ * Bit  0    - writer locked bit
-+ * Bit  1    - waiters present bit
-+ * Bits 2-7  - reserved
-+ * Bits 8-31 - 24-bit reader count
-+ *
-+ * atomic_fetch_add() is used to obtain reader lock, whereas atomic_cmpxchg()
-+ * will be used to obtain writer lock.
-+ */
-+#define RWSEM_WRITER_LOCKED	0X00000001
-+#define RWSEM_FLAG_WAITERS	0X00000002
-+#define RWSEM_READER_BIAS	0x00000100
-+#define RWSEM_READER_SHIFT	8
-+#define RWSEM_READER_MASK	(~((1U << RWSEM_READER_SHIFT) - 1))
-+#define RWSEM_LOCK_MASK 	(RWSEM_WRITER_LOCKED|RWSEM_READER_MASK)
-+#define RWSEM_READ_FAILED_MASK	(RWSEM_WRITER_LOCKED|RWSEM_FLAG_WAITERS)
-+
-+#define RWSEM_COUNT_LOCKED(c)	((c) & RWSEM_LOCK_MASK)
-+
-+/*
-+ * lock for reading
-+ */
-+static inline void __down_read(struct rw_semaphore *sem)
-+{
-+	if (unlikely(atomic_fetch_add_acquire(RWSEM_READER_BIAS, &sem->count)
-+		     & RWSEM_READ_FAILED_MASK))
-+		rwsem_down_read_failed(sem);
-+}
-+
-+static inline int __down_read_killable(struct rw_semaphore *sem)
-+{
-+	if (unlikely(atomic_fetch_add_acquire(RWSEM_READER_BIAS, &sem->count)
-+		& RWSEM_READ_FAILED_MASK)) {
-+		if (IS_ERR(rwsem_down_read_failed_killable(sem)))
-+			return -EINTR;
-+	}
-+
-+	return 0;
-+}
-+
-+static inline int __down_read_trylock(struct rw_semaphore *sem)
-+{
-+	int tmp;
-+
-+	while (!((tmp = atomic_read(&sem->count)) & RWSEM_READ_FAILED_MASK)) {
-+		if (tmp = atomic_cmpxchg_acquire(&sem->count, tmp,
-+				   tmp + RWSEM_READER_BIAS)) {
-+			return 1;
-+		}
-+	}
-+	return 0;
-+}
-+
-+/*
-+ * lock for writing
-+ */
-+static inline void __down_write(struct rw_semaphore *sem)
-+{
-+	if (unlikely(atomic_cmpxchg_acquire(&sem->count, 0,
-+					    RWSEM_WRITER_LOCKED)))
-+		rwsem_down_write_failed(sem);
-+}
-+
-+static inline int __down_write_killable(struct rw_semaphore *sem)
-+{
-+	if (unlikely(atomic_cmpxchg_acquire(&sem->count, 0,
-+					    RWSEM_WRITER_LOCKED)))
-+		if (IS_ERR(rwsem_down_write_failed_killable(sem)))
-+			return -EINTR;
-+	return 0;
-+}
-+
-+static inline int __down_write_trylock(struct rw_semaphore *sem)
-+{
-+	return !atomic_cmpxchg_acquire(&sem->count, 0, RWSEM_WRITER_LOCKED);
-+}
-+
-+/*
-+ * unlock after reading
-+ */
-+static inline void __up_read(struct rw_semaphore *sem)
-+{
-+	int tmp;
-+
-+	tmp = atomic_add_return_release(-RWSEM_READER_BIAS, &sem->count);
-+	if (unlikely((tmp & (RWSEM_LOCK_MASK|RWSEM_FLAG_WAITERS))
-+			= RWSEM_FLAG_WAITERS))
-+		rwsem_wake(sem);
-+}
-+
-+/*
-+ * unlock after writing
-+ */
-+static inline void __up_write(struct rw_semaphore *sem)
-+{
-+	if (unlikely(atomic_fetch_add_release(-RWSEM_WRITER_LOCKED,
-+			&sem->count) & RWSEM_FLAG_WAITERS))
-+		rwsem_wake(sem);
-+}
-+
-+/*
-+ * downgrade write lock to read lock
-+ */
-+static inline void __downgrade_write(struct rw_semaphore *sem)
-+{
-+	int tmp;
-+
-+	/*
-+	 * When downgrading from exclusive to shared ownership,
-+	 * anything inside the write-locked region cannot leak
-+	 * into the read side. In contrast, anything in the
-+	 * read-locked region is ok to be re-ordered into the
-+	 * write side. As such, rely on RELEASE semantics.
-+	 */
-+	tmp = atomic_fetch_add_release(-RWSEM_WRITER_LOCKED+RWSEM_READER_BIAS,
-+					&sem->count);
-+	if (tmp & RWSEM_FLAG_WAITERS)
-+		rwsem_downgrade_wake(sem);
-+}
-+
-+#endif	/* _ASM_GENERIC_RWSEM_H */
-diff --git a/kernel/locking/rwsem.h b/kernel/locking/rwsem.h
-index a699f40..adcc5af 100644
---- a/kernel/locking/rwsem.h
-+++ b/kernel/locking/rwsem.h
-@@ -66,3 +66,7 @@ static inline void rwsem_set_reader_owned(struct rw_semaphore *sem)
- {
+ #endif	/* _ALPHA_DMA_MAPPING_H */
+diff --git a/arch/cris/include/asm/dma-mapping.h b/arch/cris/include/asm/dma-mapping.h
+index 256169de3743..e30adde42beb 100644
+--- a/arch/cris/include/asm/dma-mapping.h
++++ b/arch/cris/include/asm/dma-mapping.h
+@@ -16,10 +16,4 @@ static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
  }
  #endif
+ 
+-static inline void
+-dma_cache_sync(struct device *dev, void *vaddr, size_t size,
+-	       enum dma_data_direction direction)
+-{
+-}
+-
+ #endif
+diff --git a/arch/frv/include/asm/dma-mapping.h b/arch/frv/include/asm/dma-mapping.h
+index da0e5c9744c4..da24ae943f02 100644
+--- a/arch/frv/include/asm/dma-mapping.h
++++ b/arch/frv/include/asm/dma-mapping.h
+@@ -14,10 +14,4 @@ static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
+ 	return &frv_dma_ops;
+ }
+ 
+-static inline
+-void dma_cache_sync(struct device *dev, void *vaddr, size_t size,
+-		    enum dma_data_direction direction)
+-{
+-}
+-
+ #endif  /* _ASM_DMA_MAPPING_H */
+diff --git a/arch/hexagon/include/asm/dma-mapping.h b/arch/hexagon/include/asm/dma-mapping.h
+index 463dbc18f853..5208de242e79 100644
+--- a/arch/hexagon/include/asm/dma-mapping.h
++++ b/arch/hexagon/include/asm/dma-mapping.h
+@@ -37,9 +37,6 @@ static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
+ 	return dma_ops;
+ }
+ 
+-extern void dma_cache_sync(struct device *dev, void *vaddr, size_t size,
+-			   enum dma_data_direction direction);
+-
+ static inline bool dma_capable(struct device *dev, dma_addr_t addr, size_t size)
+ {
+ 	if (!dev->dma_mask)
+diff --git a/arch/ia64/include/asm/dma-mapping.h b/arch/ia64/include/asm/dma-mapping.h
+index 99dfc1aa9d3c..9e5b5df76ff8 100644
+--- a/arch/ia64/include/asm/dma-mapping.h
++++ b/arch/ia64/include/asm/dma-mapping.h
+@@ -44,10 +44,4 @@ static inline phys_addr_t dma_to_phys(struct device *dev, dma_addr_t daddr)
+ 	return daddr;
+ }
+ 
+-static inline void
+-dma_cache_sync (struct device *dev, void *vaddr, size_t size,
+-	enum dma_data_direction dir)
+-{
+-}
+-
+ #endif /* _ASM_IA64_DMA_MAPPING_H */
+diff --git a/arch/m32r/include/asm/dma-mapping.h b/arch/m32r/include/asm/dma-mapping.h
+index aff3ae8b62f7..9e993daed7a0 100644
+--- a/arch/m32r/include/asm/dma-mapping.h
++++ b/arch/m32r/include/asm/dma-mapping.h
+@@ -13,11 +13,6 @@ static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
+ 	return &dma_noop_ops;
+ }
+ 
+-static inline void dma_cache_sync(struct device *dev, void *vaddr, size_t size,
+-				  enum dma_data_direction direction)
+-{
+-}
+-
+ static inline bool dma_capable(struct device *dev, dma_addr_t addr, size_t size)
+ {
+ 	if (!dev->dma_mask)
+diff --git a/arch/m68k/include/asm/dma-mapping.h b/arch/m68k/include/asm/dma-mapping.h
+index 9210e470771b..9a0d559fcc13 100644
+--- a/arch/m68k/include/asm/dma-mapping.h
++++ b/arch/m68k/include/asm/dma-mapping.h
+@@ -8,10 +8,4 @@ static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
+         return &m68k_dma_ops;
+ }
+ 
+-static inline void dma_cache_sync(struct device *dev, void *vaddr, size_t size,
+-				  enum dma_data_direction dir)
+-{
+-	/* we use coherent allocation, so not much to do here. */
+-}
+-
+ #endif  /* _M68K_DMA_MAPPING_H */
+diff --git a/arch/metag/include/asm/dma-mapping.h b/arch/metag/include/asm/dma-mapping.h
+index ea573be2b6d0..340265dcf839 100644
+--- a/arch/metag/include/asm/dma-mapping.h
++++ b/arch/metag/include/asm/dma-mapping.h
+@@ -8,14 +8,4 @@ static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
+ 	return &metag_dma_ops;
+ }
+ 
+-/*
+- * dma_alloc_attrs() always returns non-cacheable memory, so there's no need to
+- * do any flushing here.
+- */
+-static inline void
+-dma_cache_sync(struct device *dev, void *vaddr, size_t size,
+-	       enum dma_data_direction direction)
+-{
+-}
+-
+ #endif
+diff --git a/arch/microblaze/include/asm/dma-mapping.h b/arch/microblaze/include/asm/dma-mapping.h
+index ad448e4aedb6..6b9ea39405b8 100644
+--- a/arch/microblaze/include/asm/dma-mapping.h
++++ b/arch/microblaze/include/asm/dma-mapping.h
+@@ -25,9 +25,4 @@ static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
+ 	return &dma_direct_ops;
+ }
+ 
+-static inline void dma_cache_sync(struct device *dev, void *vaddr, size_t size,
+-		enum dma_data_direction direction)
+-{
+-}
+-
+ #endif	/* _ASM_MICROBLAZE_DMA_MAPPING_H */
+diff --git a/arch/mips/include/asm/dma-mapping.h b/arch/mips/include/asm/dma-mapping.h
+index aba71385f9d1..6ea1439430a2 100644
+--- a/arch/mips/include/asm/dma-mapping.h
++++ b/arch/mips/include/asm/dma-mapping.h
+@@ -26,9 +26,6 @@ static inline bool dma_capable(struct device *dev, dma_addr_t addr, size_t size)
+ 
+ static inline void dma_mark_clean(void *addr, size_t size) {}
+ 
+-extern void dma_cache_sync(struct device *dev, void *vaddr, size_t size,
+-	       enum dma_data_direction direction);
+-
+ #define arch_setup_dma_ops arch_setup_dma_ops
+ static inline void arch_setup_dma_ops(struct device *dev, u64 dma_base,
+ 				      u64 size, const struct iommu_ops *iommu,
+diff --git a/arch/mips/mm/dma-default.c b/arch/mips/mm/dma-default.c
+index c01bd20d0208..2e2514e00720 100644
+--- a/arch/mips/mm/dma-default.c
++++ b/arch/mips/mm/dma-default.c
+@@ -383,7 +383,7 @@ static int mips_dma_supported(struct device *dev, u64 mask)
+ 	return plat_dma_supported(dev, mask);
+ }
+ 
+-void dma_cache_sync(struct device *dev, void *vaddr, size_t size,
++static void mips_dma_cache_sync(struct device *dev, void *vaddr, size_t size,
+ 			 enum dma_data_direction direction)
+ {
+ 	BUG_ON(direction = DMA_NONE);
+@@ -392,8 +392,6 @@ void dma_cache_sync(struct device *dev, void *vaddr, size_t size,
+ 		__dma_sync_virtual(vaddr, size, direction);
+ }
+ 
+-EXPORT_SYMBOL(dma_cache_sync);
+-
+ static const struct dma_map_ops mips_default_dma_map_ops = {
+ 	.alloc = mips_dma_alloc_coherent,
+ 	.free = mips_dma_free_coherent,
+@@ -407,7 +405,8 @@ static const struct dma_map_ops mips_default_dma_map_ops = {
+ 	.sync_sg_for_cpu = mips_dma_sync_sg_for_cpu,
+ 	.sync_sg_for_device = mips_dma_sync_sg_for_device,
+ 	.mapping_error = mips_dma_mapping_error,
+-	.dma_supported = mips_dma_supported
++	.dma_supported = mips_dma_supported,
++	.cache_sync = mips_dma_cache_sync,
+ };
+ 
+ const struct dma_map_ops *mips_dma_map_ops = &mips_default_dma_map_ops;
+diff --git a/arch/mn10300/include/asm/dma-mapping.h b/arch/mn10300/include/asm/dma-mapping.h
+index dc24163b190f..439e474ed6d7 100644
+--- a/arch/mn10300/include/asm/dma-mapping.h
++++ b/arch/mn10300/include/asm/dma-mapping.h
+@@ -18,10 +18,4 @@ static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
+ 	return &mn10300_dma_ops;
+ }
+ 
+-static inline
+-void dma_cache_sync(void *vaddr, size_t size,
+-		    enum dma_data_direction direction)
+-{
+-}
+-
+ #endif
+diff --git a/arch/nios2/include/asm/dma-mapping.h b/arch/nios2/include/asm/dma-mapping.h
+index f8dc62222741..6ceb92251da0 100644
+--- a/arch/nios2/include/asm/dma-mapping.h
++++ b/arch/nios2/include/asm/dma-mapping.h
+@@ -17,13 +17,4 @@ static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
+ 	return &nios2_dma_ops;
+ }
+ 
+-/*
+- * dma_alloc_attrs() always returns non-cacheable memory, so there's no need to
+- * do any flushing here.
+- */
+-static inline void dma_cache_sync(struct device *dev, void *vaddr, size_t size,
+-				  enum dma_data_direction direction)
+-{
+-}
+-
+ #endif /* _ASM_NIOS2_DMA_MAPPING_H */
+diff --git a/arch/parisc/include/asm/dma-mapping.h b/arch/parisc/include/asm/dma-mapping.h
+index 2b16282add69..cb26bbd71d8a 100644
+--- a/arch/parisc/include/asm/dma-mapping.h
++++ b/arch/parisc/include/asm/dma-mapping.h
+@@ -32,14 +32,6 @@ static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
+ 	return hppa_dma_ops;
+ }
+ 
+-static inline void
+-dma_cache_sync(struct device *dev, void *vaddr, size_t size,
+-	       enum dma_data_direction direction)
+-{
+-	if (hppa_dma_ops->sync_single_for_cpu)
+-		flush_kernel_dcache_range((unsigned long)vaddr, size);
+-}
+-
+ static inline void *
+ parisc_walk_tree(struct device *dev)
+ {
+diff --git a/arch/parisc/kernel/pci-dma.c b/arch/parisc/kernel/pci-dma.c
+index bd4c0a7471d3..f87c34cb3b43 100644
+--- a/arch/parisc/kernel/pci-dma.c
++++ b/arch/parisc/kernel/pci-dma.c
+@@ -571,6 +571,12 @@ static void pa11_dma_sync_sg_for_device(struct device *dev, struct scatterlist *
+ 		flush_kernel_vmap_range(sg_virt(sg), sg->length);
+ }
+ 
++static void pa11_dma_cache_sync(struct device *dev, void *vaddr, size_t size,
++	       enum dma_data_direction direction)
++{
++	flush_kernel_dcache_range((unsigned long)vaddr, size);
++}
 +
-+#ifdef CONFIG_RWSEM_XCHGADD_ALGORITHM
-+#include "rwsem-xadd.h"
-+#endif
+ const struct dma_map_ops pcxl_dma_ops = {
+ 	.dma_supported =	pa11_dma_supported,
+ 	.alloc =		pa11_dma_alloc,
+@@ -583,6 +589,7 @@ const struct dma_map_ops pcxl_dma_ops = {
+ 	.sync_single_for_device = pa11_dma_sync_single_for_device,
+ 	.sync_sg_for_cpu =	pa11_dma_sync_sg_for_cpu,
+ 	.sync_sg_for_device =	pa11_dma_sync_sg_for_device,
++	.cache_sync =		pa11_dma_cache_sync,
+ };
+ 
+ static void *pcx_dma_alloc(struct device *dev, size_t size,
+@@ -619,4 +626,5 @@ const struct dma_map_ops pcx_dma_ops = {
+ 	.sync_single_for_device = pa11_dma_sync_single_for_device,
+ 	.sync_sg_for_cpu =	pa11_dma_sync_sg_for_cpu,
+ 	.sync_sg_for_device =	pa11_dma_sync_sg_for_device,
++	.cache_sync =		pa11_dma_cache_sync,
+ };
+diff --git a/arch/powerpc/include/asm/dma-mapping.h b/arch/powerpc/include/asm/dma-mapping.h
+index 320846442bfb..2e43c2ef7632 100644
+--- a/arch/powerpc/include/asm/dma-mapping.h
++++ b/arch/powerpc/include/asm/dma-mapping.h
+@@ -141,10 +141,5 @@ static inline phys_addr_t dma_to_phys(struct device *dev, dma_addr_t daddr)
+ 
+ #define ARCH_HAS_DMA_MMAP_COHERENT
+ 
+-static inline void dma_cache_sync(struct device *dev, void *vaddr, size_t size,
+-		enum dma_data_direction direction)
+-{
+-}
+-
+ #endif /* __KERNEL__ */
+ #endif	/* _ASM_DMA_MAPPING_H */
+diff --git a/arch/s390/include/asm/dma-mapping.h b/arch/s390/include/asm/dma-mapping.h
+index 512ad0eaa11a..b17304b13de5 100644
+--- a/arch/s390/include/asm/dma-mapping.h
++++ b/arch/s390/include/asm/dma-mapping.h
+@@ -15,11 +15,6 @@ static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
+ 	return &dma_noop_ops;
+ }
+ 
+-static inline void dma_cache_sync(struct device *dev, void *vaddr, size_t size,
+-				  enum dma_data_direction direction)
+-{
+-}
+-
+ static inline bool dma_capable(struct device *dev, dma_addr_t addr, size_t size)
+ {
+ 	if (!dev->dma_mask)
+diff --git a/arch/sh/include/asm/dma-mapping.h b/arch/sh/include/asm/dma-mapping.h
+index b46194ecef17..e89df111c017 100644
+--- a/arch/sh/include/asm/dma-mapping.h
++++ b/arch/sh/include/asm/dma-mapping.h
+@@ -9,12 +9,6 @@ static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
+ 	return dma_ops;
+ }
+ 
+-static inline void dma_cache_sync(struct device *dev, void *vaddr, size_t size,
+-		    enum dma_data_direction dir)
+-{
+-}
+-
+-/* arch/sh/mm/consistent.c */
+ extern void *dma_generic_alloc_coherent(struct device *dev, size_t size,
+ 					dma_addr_t *dma_addr, gfp_t flag,
+ 					unsigned long attrs);
+diff --git a/arch/sparc/include/asm/dma-mapping.h b/arch/sparc/include/asm/dma-mapping.h
+index 60bf1633d554..b298ed45cb23 100644
+--- a/arch/sparc/include/asm/dma-mapping.h
++++ b/arch/sparc/include/asm/dma-mapping.h
+@@ -5,14 +5,6 @@
+ #include <linux/mm.h>
+ #include <linux/dma-debug.h>
+ 
+-static inline void dma_cache_sync(struct device *dev, void *vaddr, size_t size,
+-				  enum dma_data_direction dir)
+-{
+-	/* Since dma_{alloc,free}_noncoherent() allocated coherent memory, this
+-	 * routine can be a nop.
+-	 */
+-}
+-
+ extern const struct dma_map_ops *dma_ops;
+ extern const struct dma_map_ops pci32_dma_ops;
+ 
+diff --git a/arch/tile/include/asm/dma-mapping.h b/arch/tile/include/asm/dma-mapping.h
+index 7061dc8af43a..97ad62878290 100644
+--- a/arch/tile/include/asm/dma-mapping.h
++++ b/arch/tile/include/asm/dma-mapping.h
+@@ -67,13 +67,4 @@ static inline bool dma_capable(struct device *dev, dma_addr_t addr, size_t size)
+ #define HAVE_ARCH_DMA_SET_MASK 1
+ int dma_set_mask(struct device *dev, u64 mask);
+ 
+-/*
+- * dma_alloc_attrs() always returns non-cacheable memory, so there's no need to
+- * do any flushing here.
+- */
+-static inline void dma_cache_sync(struct device *dev, void *vaddr, size_t size,
+-				  enum dma_data_direction direction)
+-{
+-}
+-
+ #endif /* _ASM_TILE_DMA_MAPPING_H */
+diff --git a/arch/unicore32/include/asm/dma-mapping.h b/arch/unicore32/include/asm/dma-mapping.h
+index e949855bb794..ac608c2f6af6 100644
+--- a/arch/unicore32/include/asm/dma-mapping.h
++++ b/arch/unicore32/include/asm/dma-mapping.h
+@@ -45,10 +45,5 @@ static inline phys_addr_t dma_to_phys(struct device *dev, dma_addr_t daddr)
+ 
+ static inline void dma_mark_clean(void *addr, size_t size) {}
+ 
+-static inline void dma_cache_sync(struct device *dev, void *vaddr,
+-		size_t size, enum dma_data_direction direction)
+-{
+-}
+-
+ #endif /* __KERNEL__ */
+ #endif
+diff --git a/arch/x86/include/asm/dma-mapping.h b/arch/x86/include/asm/dma-mapping.h
+index c6d3367be916..c26747340ba5 100644
+--- a/arch/x86/include/asm/dma-mapping.h
++++ b/arch/x86/include/asm/dma-mapping.h
+@@ -67,12 +67,6 @@ static inline phys_addr_t dma_to_phys(struct device *dev, dma_addr_t daddr)
+ }
+ #endif /* CONFIG_X86_DMA_REMAP */
+ 
+-static inline void
+-dma_cache_sync(struct device *dev, void *vaddr, size_t size,
+-	enum dma_data_direction dir)
+-{
+-}
+-
+ static inline unsigned long dma_alloc_coherent_mask(struct device *dev,
+ 						    gfp_t gfp)
+ {
+diff --git a/arch/xtensa/include/asm/dma-mapping.h b/arch/xtensa/include/asm/dma-mapping.h
+index 353e0314d6ba..153bf2370988 100644
+--- a/arch/xtensa/include/asm/dma-mapping.h
++++ b/arch/xtensa/include/asm/dma-mapping.h
+@@ -23,11 +23,6 @@ static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
+ 	return &xtensa_dma_map_ops;
+ }
+ 
+-static inline void dma_cache_sync(struct device *dev, void *vaddr, size_t size,
+-		    enum dma_data_direction direction)
+-{
+-}
+-
+ static inline dma_addr_t phys_to_dma(struct device *dev, phys_addr_t paddr)
+ {
+ 	return (dma_addr_t)paddr;
+diff --git a/include/linux/dma-mapping.h b/include/linux/dma-mapping.h
+index 29ce9815da87..028a375d240d 100644
+--- a/include/linux/dma-mapping.h
++++ b/include/linux/dma-mapping.h
+@@ -126,6 +126,8 @@ struct dma_map_ops {
+ 	void (*sync_sg_for_device)(struct device *dev,
+ 				   struct scatterlist *sg, int nents,
+ 				   enum dma_data_direction dir);
++	void (*cache_sync)(struct device *dev, void *vaddr, size_t size,
++			enum dma_data_direction direction);
+ 	int (*mapping_error)(struct device *dev, dma_addr_t dma_addr);
+ 	int (*dma_supported)(struct device *dev, u64 mask);
+ #ifdef ARCH_HAS_DMA_GET_REQUIRED_MASK
+@@ -436,6 +438,17 @@ dma_sync_sg_for_device(struct device *dev, struct scatterlist *sg,
+ #define dma_map_page(d, p, o, s, r) dma_map_page_attrs(d, p, o, s, r, 0)
+ #define dma_unmap_page(d, a, s, r) dma_unmap_page_attrs(d, a, s, r, 0)
+ 
++static inline void
++dma_cache_sync(struct device *dev, void *vaddr, size_t size,
++		enum dma_data_direction dir)
++{
++	const struct dma_map_ops *ops = get_dma_ops(dev);
++
++	BUG_ON(!valid_dma_direction(dir));
++	if (ops->cache_sync)
++		ops->cache_sync(dev, vaddr, size, dir);
++}
++
+ extern int dma_common_mmap(struct device *dev, struct vm_area_struct *vma,
+ 			   void *cpu_addr, dma_addr_t dma_addr, size_t size);
+ 
 -- 
-1.8.3.1
+2.14.1
 
