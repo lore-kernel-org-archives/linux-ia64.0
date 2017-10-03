@@ -1,61 +1,47 @@
-From: Waiman Long <longman@redhat.com>
-Date: Wed, 11 Oct 2017 18:01:56 +0000
-Subject: [PATCH v6 05/11] locking/rwsem: Move rwsem internal function declarations to rwsem-xadd.h
-Message-Id: <1507744922-15196-6-git-send-email-longman@redhat.com>
+From: Christoph Hellwig <hch@lst.de>
+Date: Tue, 03 Oct 2017 10:43:06 +0000
+Subject: [PATCH 06/11] mn10300: make dma_cache_sync a no-op
+Message-Id: <20171003104311.10058-7-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1507744922-15196-1-git-send-email-longman@redhat.com>
-In-Reply-To: <1507744922-15196-1-git-send-email-longman@redhat.com>
+References: <20171003104311.10058-1-hch@lst.de>
+In-Reply-To: <20171003104311.10058-1-hch-jcswGhMUV9g@public.gmane.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>
-Cc: linux-kernel@vger.kernel.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-arch@vger.kernel.org, Davidlohr Bueso <dave@stgolabs.net>, Dave Chinner <david@fromorbit.com>, Waiman Long <longman@redhat.com>
+To: iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Cc: Chris Zankel <chris-YvXeqwSYzG2sTnJN9+BGXg@public.gmane.org>, Michal Simek <monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org>, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Max Filippov <jcmvbkbc-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Guan Xuetao <gxt-TG0Ac1+ktVePQbnJrJN+5g@public.gmane.org>
 
-We don't need to expose rwsem internal functions which are not supposed
-to be called directly from other kernel code.
+mn10300 does not implement DMA_ATTR_NON_CONSISTENT allocations, so it
+doesn't make any sense to do any work in dma_cache_sync given that it must
+be a no-op when dma_alloc_attrs returns coherent memory.
 
-Signed-off-by: Waiman Long <longman@redhat.com>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- include/linux/rwsem.h       | 7 -------
- kernel/locking/rwsem-xadd.h | 7 +++++++
- 2 files changed, 7 insertions(+), 7 deletions(-)
+ arch/mn10300/include/asm/dma-mapping.h | 4 ----
+ 1 file changed, 4 deletions(-)
 
-diff --git a/include/linux/rwsem.h b/include/linux/rwsem.h
-index d0f59df..32389ee 100644
---- a/include/linux/rwsem.h
-+++ b/include/linux/rwsem.h
-@@ -42,13 +42,6 @@ struct rw_semaphore {
- #endif
- };
+diff --git a/arch/mn10300/include/asm/dma-mapping.h b/arch/mn10300/include/asm/dma-mapping.h
+index 737ef574b3ea..dc24163b190f 100644
+--- a/arch/mn10300/include/asm/dma-mapping.h
++++ b/arch/mn10300/include/asm/dma-mapping.h
+@@ -11,9 +11,6 @@
+ #ifndef _ASM_DMA_MAPPING_H
+ #define _ASM_DMA_MAPPING_H
  
--extern struct rw_semaphore *rwsem_down_read_failed(struct rw_semaphore *sem);
--extern struct rw_semaphore *rwsem_down_read_failed_killable(struct rw_semaphore *sem);
--extern struct rw_semaphore *rwsem_down_write_failed(struct rw_semaphore *sem);
--extern struct rw_semaphore *rwsem_down_write_failed_killable(struct rw_semaphore *sem);
--extern struct rw_semaphore *rwsem_wake(struct rw_semaphore *);
--extern struct rw_semaphore *rwsem_downgrade_wake(struct rw_semaphore *sem);
+-#include <asm/cache.h>
+-#include <asm/io.h>
 -
- #define RWSEM_UNLOCKED_VALUE	0
+ extern const struct dma_map_ops mn10300_dma_ops;
  
- /* In all implementations count != 0 means locked */
-diff --git a/kernel/locking/rwsem-xadd.h b/kernel/locking/rwsem-xadd.h
-index 4c19539..9b30f0c 100644
---- a/kernel/locking/rwsem-xadd.h
-+++ b/kernel/locking/rwsem-xadd.h
-@@ -90,6 +90,13 @@ static inline void rwsem_set_reader_owned(struct rw_semaphore *sem)
+ static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
+@@ -25,7 +22,6 @@ static inline
+ void dma_cache_sync(void *vaddr, size_t size,
+ 		    enum dma_data_direction direction)
+ {
+-	mn10300_dcache_flush_inv();
+ }
  
- #define RWSEM_COUNT_IS_LOCKED(c)	((c) & RWSEM_LOCK_MASK)
- 
-+extern struct rw_semaphore *rwsem_down_read_failed(struct rw_semaphore *sem);
-+extern struct rw_semaphore *rwsem_down_read_failed_killable(struct rw_semaphore *sem);
-+extern struct rw_semaphore *rwsem_down_write_failed(struct rw_semaphore *sem);
-+extern struct rw_semaphore *rwsem_down_write_failed_killable(struct rw_semaphore *sem);
-+extern struct rw_semaphore *rwsem_wake(struct rw_semaphore *);
-+extern struct rw_semaphore *rwsem_downgrade_wake(struct rw_semaphore *sem);
-+
- /*
-  * lock for reading
-  */
+ #endif
 -- 
-1.8.3.1
+2.14.1
 
