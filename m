@@ -1,36 +1,41 @@
-From: Petr Mladek <pmladek@suse.com>
-Date: Fri, 20 Oct 2017 13:25:44 +0000
-Subject: Re: [PATCHv3 1/7] switch dereference_function_descriptor() to `unsigned long'
-Message-Id: <20171020132544.GA13783@pathway.suse.cz>
+From: Christoph Hellwig <hch@lst.de>
+Date: Tue, 03 Oct 2017 10:43:04 +0000
+Subject: [PATCH 04/11] ia64: make dma_cache_sync a no-op
+Message-Id: <20171003104311.10058-5-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20170930025319.987-1-sergey.senozhatsky@gmail.com>
- <20170930025319.987-2-sergey.senozhatsky@gmail.com>
- <20171004082414.GC20084@pathway.suse.cz>
- <20171019065004.GF449@jagdpanzerIV>
-In-Reply-To: <20171019065004.GF449@jagdpanzerIV>
+References: <20171003104311.10058-1-hch@lst.de>
+In-Reply-To: <20171003104311.10058-1-hch-jcswGhMUV9g@public.gmane.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>
-Cc: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>, Steven Rostedt <rostedt@goodmis.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, James Bottomley <jejb@parisc-linux.org>, Helge Deller <deller@gmx.de>, Andrew Morton <akpm@linux-foundation.org>, Jessica Yu <jeyu@kernel.org>, Alexei Starovoitov <ast@kernel.org>, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org
+To: iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Cc: Chris Zankel <chris-YvXeqwSYzG2sTnJN9+BGXg@public.gmane.org>, Michal Simek <monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org>, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Max Filippov <jcmvbkbc-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Guan Xuetao <gxt-TG0Ac1+ktVePQbnJrJN+5g@public.gmane.org>
 
-On Thu 2017-10-19 15:50:04, Sergey Senozhatsky wrote:
-> On (10/04/17 10:24), Petr Mladek wrote:
-> [..]
-> > To make it clear. All these comments are not a big deal and I do
-> > not want to invalidate all the acked-by and tested-by just because
-> > of them.
-> >
-> > But please, consider removing this change if we need to do
-> > another iteration of this patchset. IMHO, there is no real win
-> > and it would just pollute the git history.
-> 
-> I tend to rather keep it. would that cause any problems on your side?
-> it saves a ton of ugly casts later in the patch set and lets us to drop
-> some casts from the modules code/etc. the patch is here because otherwise
-> I had to add a bunch of new casts.
+ia64 does not implement DMA_ATTR_NON_CONSISTENT allocations, so it doesn't
+make any sense to do any work in dma_cache_sync given that it must be a
+no-op when dma_alloc_attrs returns coherent memory.
 
-OK, let's keep it.
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ arch/ia64/include/asm/dma-mapping.h | 5 -----
+ 1 file changed, 5 deletions(-)
 
-Best Regards,
-Petr
+diff --git a/arch/ia64/include/asm/dma-mapping.h b/arch/ia64/include/asm/dma-mapping.h
+index 3ce5ab4339f3..99dfc1aa9d3c 100644
+--- a/arch/ia64/include/asm/dma-mapping.h
++++ b/arch/ia64/include/asm/dma-mapping.h
+@@ -48,11 +48,6 @@ static inline void
+ dma_cache_sync (struct device *dev, void *vaddr, size_t size,
+ 	enum dma_data_direction dir)
+ {
+-	/*
+-	 * IA-64 is cache-coherent, so this is mostly a no-op.  However, we do need to
+-	 * ensure that dma_cache_sync() enforces order, hence the mb().
+-	 */
+-	mb();
+ }
+ 
+ #endif /* _ASM_IA64_DMA_MAPPING_H */
+-- 
+2.14.1
+
