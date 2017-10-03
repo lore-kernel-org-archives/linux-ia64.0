@@ -1,121 +1,37 @@
-From: Waiman Long <longman@redhat.com>
-Date: Wed, 18 Oct 2017 18:30:28 +0000
-Subject: [PATCH-tip v7 12/15] locking/rwsem: Eliminate redundant writer wakeup calls
-Message-Id: <1508351431-22375-13-git-send-email-longman@redhat.com>
+From: Christoph Hellwig <hch@lst.de>
+Date: Tue, 03 Oct 2017 10:43:03 +0000
+Subject: [PATCH 03/11] frv: make dma_cache_sync a no-op
+Message-Id: <20171003104311.10058-4-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1508351431-22375-1-git-send-email-longman@redhat.com>
-In-Reply-To: <1508351431-22375-1-git-send-email-longman@redhat.com>
+References: <20171003104311.10058-1-hch@lst.de>
+In-Reply-To: <20171003104311.10058-1-hch-jcswGhMUV9g@public.gmane.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>
-Cc: linux-kernel@vger.kernel.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-arch@vger.kernel.org, Davidlohr Bueso <dave@stgolabs.net>, Dave Chinner <david@fromorbit.com>, Waiman Long <longman@redhat.com>
+To: iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Cc: Chris Zankel <chris-YvXeqwSYzG2sTnJN9+BGXg@public.gmane.org>, Michal Simek <monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org>, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Max Filippov <jcmvbkbc-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Guan Xuetao <gxt-TG0Ac1+ktVePQbnJrJN+5g@public.gmane.org>
 
-When tasks with short lock hold time acquire a rwsem consecutively,
-it is possible that they all try to wake up the same waiting task at
-unlock time. Beside the first wakeup, the rests are a waste of precious
-CPU cycles. This patch limits the actual wakeup call to only one.
+frv does not implement DMA_ATTR_NON_CONSISTENT allocations, so it doesn't
+make any sense to do any work in dma_cache_sync given that it must be a
+no-op when dma_alloc_attrs returns coherent memory.
 
-To simplify sychronization of the waking flag, the inner schedule
-loop of __rwsem_down_write_failed_common() is removed and
-raw_spin_lock_irq() is always called after wakeup.
-
-Signed-off-by: Waiman Long <longman@redhat.com>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- kernel/locking/rwsem-xadd.c | 39 +++++++++++++++++++++------------------
- 1 file changed, 21 insertions(+), 18 deletions(-)
+ arch/frv/include/asm/dma-mapping.h | 1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/kernel/locking/rwsem-xadd.c b/kernel/locking/rwsem-xadd.c
-index ba00795..3bdbf39 100644
---- a/kernel/locking/rwsem-xadd.c
-+++ b/kernel/locking/rwsem-xadd.c
-@@ -70,6 +70,7 @@ struct rwsem_waiter {
- 	struct list_head list;
- 	struct task_struct *task;
- 	enum rwsem_waiter_type type;
-+	bool waking;	/* For writer, protected by wait_lock */
- 	unsigned long timeout;
- };
+diff --git a/arch/frv/include/asm/dma-mapping.h b/arch/frv/include/asm/dma-mapping.h
+index 354900917585..da0e5c9744c4 100644
+--- a/arch/frv/include/asm/dma-mapping.h
++++ b/arch/frv/include/asm/dma-mapping.h
+@@ -18,7 +18,6 @@ static inline
+ void dma_cache_sync(struct device *dev, void *vaddr, size_t size,
+ 		    enum dma_data_direction direction)
+ {
+-	flush_write_buffers();
+ }
  
-@@ -129,6 +130,12 @@ static void __rwsem_mark_wake(struct rw_semaphore *sem,
- 	if (waiter->type = RWSEM_WAITING_FOR_WRITE) {
- 		if (wake_type = RWSEM_WAKE_ANY) {
- 			/*
-+			 * No redundant wakeup if the waiter is waking up.
-+			 */
-+			if (waiter->waking)
-+				return;
-+
-+			/*
- 			 * Mark writer at the front of the queue for wakeup.
- 			 * Until the task is actually later awoken later by
- 			 * the caller, other writers are able to steal it.
-@@ -136,6 +143,7 @@ static void __rwsem_mark_wake(struct rw_semaphore *sem,
- 			 * will notice the queued writer.
- 			 */
- 			wake_q_add(wake_q, waiter->task);
-+			waiter->waking = true;
- 		}
- 
- 		return;
-@@ -600,6 +608,7 @@ static inline bool rwsem_has_spinner(struct rw_semaphore *sem)
- 	 */
- 	waiter.task = current;
- 	waiter.type = RWSEM_WAITING_FOR_WRITE;
-+	waiter.waking = false;
- 	waiter.timeout = jiffies + RWSEM_WAIT_TIMEOUT;
- 
- 	raw_spin_lock_irq(&sem->wait_lock);
-@@ -646,29 +655,24 @@ static inline bool rwsem_has_spinner(struct rw_semaphore *sem)
- 		if (rwsem_try_write_lock(count, sem, first))
- 			break;
- 
--		raw_spin_unlock_irq(&sem->wait_lock);
-+		if (signal_pending_state(state, current))
-+			goto out_nolock;
- 
--		/* Block until there are no active lockers. */
--		for (;;) {
--			if (signal_pending_state(state, current))
--				goto out_nolock;
-+		if (!first)
-+			first = rwsem_waiter_is_first(sem, &waiter);
- 
--			schedule();
--			set_current_state(state);
--			count = atomic_read(&sem->count);
-+		waiter.waking = false;
-+		raw_spin_unlock_irq(&sem->wait_lock);
- 
--			if (!first)
--				first = rwsem_waiter_is_first(sem, &waiter);
-+		if (first && !RWSEM_COUNT_HANDOFF(count) &&
-+		    time_after(jiffies, waiter.timeout))
-+			atomic_or(RWSEM_FLAG_WHANDOFF, &sem->count);
- 
--			if (!RWSEM_COUNT_LOCKED(count))
--				break;
--
--			if (first && !RWSEM_COUNT_HANDOFF(count) &&
--			    time_after(jiffies, waiter.timeout))
--				atomic_or(RWSEM_FLAG_WHANDOFF, &sem->count);
--		}
-+		schedule();
-+		set_current_state(state);
- 
- 		raw_spin_lock_irq(&sem->wait_lock);
-+		count = atomic_read(&sem->count);
- 	}
- 	__set_current_state(TASK_RUNNING);
- 	list_del(&waiter.list);
-@@ -678,7 +682,6 @@ static inline bool rwsem_has_spinner(struct rw_semaphore *sem)
- 
- out_nolock:
- 	__set_current_state(TASK_RUNNING);
--	raw_spin_lock_irq(&sem->wait_lock);
- 	list_del(&waiter.list);
- 	adjustment = 0;
- 	if (list_empty(&sem->wait_list))
+ #endif  /* _ASM_DMA_MAPPING_H */
 -- 
-1.8.3.1
+2.14.1
 
