@@ -1,43 +1,42 @@
-From: Petr Mladek <pmladek@suse.com>
-Date: Wed, 04 Oct 2017 09:05:26 +0000
-Subject: Re: [PATCHv3 3/7] ia64: Add .opd based function descriptor dereference
-Message-Id: <20171004090526.GE20084@pathway.suse.cz>
+From: Peter Zijlstra <peterz@infradead.org>
+Date: Tue, 03 Oct 2017 09:03:03 +0000
+Subject: Re: [PATCH REBASED 0/6] rwsem: Implement down_read_killable()
+Message-Id: <20171003090303.aclppj3jozdirtxl@hirez.programming.kicks-ass.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20170930025319.987-1-sergey.senozhatsky@gmail.com>
- <20170930025319.987-4-sergey.senozhatsky@gmail.com>
-In-Reply-To: <20170930025319.987-4-sergey.senozhatsky@gmail.com>
+References: <150670038738.23930.7190484711222807884.stgit@localhost.localdomain>
+In-Reply-To: <150670038738.23930.7190484711222807884.stgit@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
-Cc: Steven Rostedt <rostedt@goodmis.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, James Bottomley <jejb@parisc-linux.org>, Helge Deller <deller@gmx.de>, Andrew Morton <akpm@linux-foundation.org>, Jessica Yu <jeyu@kernel.org>, Alexei Starovoitov <ast@kernel.org>, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org
+To: Kirill Tkhai <ktkhai@virtuozzo.com>
+Cc: linux-ia64@vger.kernel.org, avagin@virtuozzo.com, heiko.carstens@de.ibm.com, hpa@zytor.com, gorcunov@virtuozzo.com, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, x86@kernel.org, mingo@redhat.com, mattst88@gmail.com, fenghua.yu@intel.com, arnd@arndb.de, ink@jurassic.park.msu.ru, tglx@linutronix.de, rth@twiddle.net, tony.luck@intel.com, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, schwidefsky@de.ibm.com, davem@davemloft.net, rientjes@google.com, viro@zeniv.linux.org.uk
 
-On Sat 2017-09-30 11:53:15, Sergey Senozhatsky wrote:
-> We are moving towards separate kernel and module function descriptor
-> dereference callbacks. This patch enables it for IA64.
+On Fri, Sep 29, 2017 at 07:05:45PM +0300, Kirill Tkhai wrote:
+> The series introduces new down_read_killable() primitive, which
+> is similar to down_read(), but it may be interrupted by a signal.
+> The most touched is architectures code. Also, it marks a new user
+> of the primitive, which is iterate_dir().
 > 
-> For pointers that belong to the kernel
-> -  Added __start_opd and __end_opd pointers, to track the kernel
->    .opd section address range;
+> ---
 > 
-> -  Added dereference_kernel_function_descriptor(). Now we
->    will dereference only function pointers that are within
->    [__start_opd, __end_opd];
+> Kirill Tkhai (6):
+>       alpha: Add __down_read_killable()
+>       ia64: Add __down_read_killable()
+>       s390: Add __down_read_killable()
+>       x86: Add __down_read_killable()
+>       rwsem: Add down_read_killable()
+>       fs: Use killable down_read() in iterate_dir()
 > 
-> For pointers that belong to a module
-> -  Added dereference_module_function_descriptor() to handle module
->    function descriptor dereference. Now we will dereference only
->    pointers that are within [module->opd.start, module->opd.end].
 > 
-> Signed-off-by: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
-> Tested-by: Helge Deller <deller@gmx.de> # parisc64
-> Tested-by: Santosh Sivaraj <santosh@fossix.org> # powerpc64
-> Acked-by: Michael Ellerman <mpe@ellerman.id.au> # powerpc64
-> Tested-by: Tony Luck <tony.luck@intel.com> # ia64
+>  arch/alpha/include/asm/rwsem.h |   18 ++++++++++++++++--
+>  arch/ia64/include/asm/rwsem.h  |   22 +++++++++++++++++++---
+>  arch/s390/include/asm/rwsem.h  |   18 ++++++++++++++++--
+>  arch/x86/include/asm/rwsem.h   |   35 +++++++++++++++++++++++++----------
+>  arch/x86/lib/rwsem.S           |   12 ++++++++++++
+>  fs/readdir.c                   |   11 +++++------
+>  include/asm-generic/rwsem.h    |    8 ++++++++
+>  include/linux/rwsem.h          |    1 +
+>  kernel/locking/rwsem.c         |   16 ++++++++++++++++
+>  9 files changed, 118 insertions(+), 23 deletions(-)
 
-Looks good to me.
-
-Reviewed-by: Petr Mladek <pmladek@suse.com>
-
-Best Regards,
-Petr
+thanks!
