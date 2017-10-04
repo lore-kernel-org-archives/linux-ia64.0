@@ -1,78 +1,89 @@
-From: Waiman Long <longman@redhat.com>
-Date: Thu, 19 Oct 2017 15:21:40 +0000
-Subject: Re: [PATCH-tip v7 00/15] locking/rwsem: Rework rwsem-xadd & enable new rwsem features
-Message-Id: <ecb6fd0b-a242-1426-112e-e582898565d2@redhat.com>
+From: Petr Mladek <pmladek@suse.com>
+Date: Wed, 04 Oct 2017 08:24:14 +0000
+Subject: Re: [PATCHv3 1/7] switch dereference_function_descriptor() to `unsigned long'
+Message-Id: <20171004082414.GC20084@pathway.suse.cz>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1508351431-22375-1-git-send-email-longman@redhat.com>
-In-Reply-To: <1508351431-22375-1-git-send-email-longman@redhat.com>
+References: <20170930025319.987-1-sergey.senozhatsky@gmail.com>
+ <20170930025319.987-2-sergey.senozhatsky@gmail.com>
+In-Reply-To: <20170930025319.987-2-sergey.senozhatsky@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>
-Cc: linux-kernel@vger.kernel.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-arch@vger.kernel.org, Davidlohr Bueso <dave@stgolabs.net>, Dave Chinner <david@fromorbit.com>
+To: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
+Cc: Steven Rostedt <rostedt@goodmis.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, James Bottomley <jejb@parisc-linux.org>, Helge Deller <deller@gmx.de>, Andrew Morton <akpm@linux-foundation.org>, Jessica Yu <jeyu@kernel.org>, Alexei Starovoitov <ast@kernel.org>, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org
 
-Hi,
+On Sat 2017-09-30 11:53:13, Sergey Senozhatsky wrote:
+> Convert dereference_function_descriptor() to accept and return
+> `unsigned long'. There will be two new ARCH function for kernel
+> and module function pointer dereference, which will work with
+> `unsigned long', so the patch unifies interfaces.
+> 
+> Besides, dereference_function_descriptor() mostly work with
+> `unsigned long':
+> 
+> Convert dereference_function_descriptor() users tree-wide.
 
-I had just run the rwsem microbenchmark on a 1-socket 44-core Qualcomm
-Amberwing (Centriq 2400) arm64 system. There were 18 writer and 18
-reader threads running.
+I am not sure if this is a real win. If I count correctly,
+the net result is 6 additional casts in this patch. Many
+casts are still needed also in the other patches.
 
-For the patched kernel, the results were:
 
-                       Reader                       Writer
-  CS Load         Locking Ops/Thread           Locking Ops/Thread
-  -------         ------------------           ------------------
-     1          18,800/103,894/223,371      496,362/695,560/1,034,278
-    10          28,503/ 68,834/154,348      425,708/791,553/1,469,845
-    50           7,997/ 28,278/102,327      431,577/897,064/1,898,146
-   100          31,628/ 52,555/ 89,431      432,844/580,496/  910,290
- 1us sleep      15,625/ 16,071/ 16,535       42,339/ 44,866/   46,189
+> diff --git a/arch/ia64/include/asm/sections.h b/arch/ia64/include/asm/sections.h
+> index 2ab2003698ef..de6bfa1ef8fb 100644
+> --- a/arch/ia64/include/asm/sections.h
+> +++ b/arch/ia64/include/asm/sections.h
+> @@ -27,13 +27,13 @@ extern char __start_unwind[], __end_unwind[];
+>  extern char __start_ivt_text[], __end_ivt_text[];
+>  
+>  #undef dereference_function_descriptor
+> -static inline void *dereference_function_descriptor(void *ptr)
+> +static inline unsigned long dereference_function_descriptor(unsigned long ptr)
 
-                     Reader                       Writer
-  CS Load     Slowpath Locking Ops         Slowpath Locking Ops
-  -------     --------------------         --------------------
-     1            1,296,904                     11,196,177
-    10            1,125,334                     13,242,082
-    50              284,342                     14,960,882
-   100              916,305                      9,652,818
- 1us sleep          289,177                        807,584
+I would also expect that a function called "dereference*" would work with
+a pointer. The parameter is called ptr but it is unsigned long.
 
-                 All Writers        Half Writers
-  CS Load    Locking Ops/Thread  Locking Ops/Thread     % Change
-  -------    ------------------  ------------------     --------
-     1           1,634,230           695,560             -57.4
-    10           1,658,228           791,553             -52.3
-    50           1,494,180           897,064             -40.0
-   100           1,089,364           580,496             -46.7
- 1us sleep          25,380            44,866             +76.8
+>  {
+> -	struct fdesc *desc = ptr;
+> +	struct fdesc *desc = (struct fdesc *)ptr;
+>  	void *p;
+>  
+>  	if (!probe_kernel_address(&desc->ip, p))
+> -		ptr = p;
+> +		ptr = (unsigned long)p;
+>  	return ptr;
+>  }
+>  
+> diff --git a/arch/parisc/mm/init.c b/arch/parisc/mm/init.c
+> index 1ca9a2b4239f..06e1b79e2946 100644
+> --- a/arch/parisc/mm/init.c
+> +++ b/arch/parisc/mm/init.c
+> @@ -389,10 +389,10 @@ static void __init setup_bootmem(void)
+>  static int __init parisc_text_address(unsigned long vaddr)
+>  {
+>  	static unsigned long head_ptr __initdata;
+> +	unsigned long addr = (unsigned long)&parisc_kernel_start;
+>  
+>  	if (!head_ptr)
+> -		head_ptr = PAGE_MASK & (unsigned long)
+> -			dereference_function_descriptor(&parisc_kernel_start);
+> +		head_ptr = PAGE_MASK & dereference_function_descriptor(addr);
 
-It is obvious that for arm64, the writers are preferred under all
-circumstances. One special thing about the results was that for the
-all writers case, the number of slowpath calls were exceedingly small.
-It was about 1000 or less which are significantly less than in x86-64
-which was in the millions. Maybe it was due to the LL/SC architecture
-that allows it to stay in the fast path as much as possible with
-homogenous operation.
+IMHO, this is harder to read than the original. You need to
+search the definition of "addr" and check its manipulation
+to understand the meaning.
 
-The corresponding results for the unpatched kernel were:
+>  
+>  	return core_kernel_text(vaddr) || vaddr = head_ptr;
+>  }
 
-                       Reader                       Writer
-  CS Load         Locking Ops/Thread           Locking Ops/Thread
-  -------         ------------------           ------------------
-     1           23,898/23,899/23,905        45,264/177,375/461,387
-    10           25,114/25,115/25,122        26,188/190,517/458,960
-    50           23,762/23,762/23,763        67,862/174,640/269,519
-   100           25,050/25,051/25,053        57,214/200,725/814,178
- 1us sleep            6/     6/     7             6/ 58,512/180,892
 
-                 All Writers        Half Writers
-  CS Load    Locking Ops/Thread  Locking Ops/Thread     % Change
-  -------    ------------------  ------------------     --------
-     1           1,687,691           177,375             -89.5
-    10           1,627,061           190,517             -88.3
-    50           1,469,431           174,640             -88.1
-   100           1,148,905           200,725             -82.5
- 1us sleep          29,865            58,512             +95.9
+To make it clear. All these comments are not a big deal and I do
+not want to invalidate all the acked-by and tested-by just because
+of them.
 
-Cheers,
-Longman
+But please, consider removing this change if we need to do
+another iteration of this patchset. IMHO, there is no real win
+and it would just pollute the git history.
+
+Best Regards,
+Petr
