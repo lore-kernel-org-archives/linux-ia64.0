@@ -1,143 +1,43 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Date: Fri, 20 Oct 2017 16:14:11 +0000
-Subject: [PATCH] ia64/kernel/ptrace: Use common error handling code in two functions
-Message-Id: <48f0efa9-ae84-c338-3f07-1f39fc3ad6a6@users.sourceforge.net>
+From: Petr Mladek <pmladek@suse.com>
+Date: Wed, 04 Oct 2017 09:05:26 +0000
+Subject: Re: [PATCHv3 3/7] ia64: Add .opd based function descriptor dereference
+Message-Id: <20171004090526.GE20084@pathway.suse.cz>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20170930025319.987-1-sergey.senozhatsky@gmail.com>
+ <20170930025319.987-4-sergey.senozhatsky@gmail.com>
+In-Reply-To: <20170930025319.987-4-sergey.senozhatsky@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, Fenghua Yu <fenghua.yu@intel.com>, Oleg Nesterov <oleg@redhat.com>, Tony Luck <tony.luck@intel.com>
-Cc: LKML <linux-kernel@vger.kernel.org>, kernel-janitors@vger.kernel.org
+To: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
+Cc: Steven Rostedt <rostedt@goodmis.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, James Bottomley <jejb@parisc-linux.org>, Helge Deller <deller@gmx.de>, Andrew Morton <akpm@linux-foundation.org>, Jessica Yu <jeyu@kernel.org>, Alexei Starovoitov <ast@kernel.org>, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org
 
-From: Markus Elfring <elfring@users.sourceforge.net>
-Date: Fri, 20 Oct 2017 18:00:52 +0200
+On Sat 2017-09-30 11:53:15, Sergey Senozhatsky wrote:
+> We are moving towards separate kernel and module function descriptor
+> dereference callbacks. This patch enables it for IA64.
+> 
+> For pointers that belong to the kernel
+> -  Added __start_opd and __end_opd pointers, to track the kernel
+>    .opd section address range;
+> 
+> -  Added dereference_kernel_function_descriptor(). Now we
+>    will dereference only function pointers that are within
+>    [__start_opd, __end_opd];
+> 
+> For pointers that belong to a module
+> -  Added dereference_module_function_descriptor() to handle module
+>    function descriptor dereference. Now we will dereference only
+>    pointers that are within [module->opd.start, module->opd.end].
+> 
+> Signed-off-by: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
+> Tested-by: Helge Deller <deller@gmx.de> # parisc64
+> Tested-by: Santosh Sivaraj <santosh@fossix.org> # powerpc64
+> Acked-by: Michael Ellerman <mpe@ellerman.id.au> # powerpc64
+> Tested-by: Tony Luck <tony.luck@intel.com> # ia64
 
-* Add a jump target so that a bit of exception handling can be better
-  reused at the end of these functions.
+Looks good to me.
 
-  This issue was detected by using the Coccinelle software.
+Reviewed-by: Petr Mladek <pmladek@suse.com>
 
-* Adjust the indentation for six if statements.
-
-Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
----
- arch/ia64/kernel/ptrace.c | 63 +++++++++++++++++++++++++----------------------
- 1 file changed, 33 insertions(+), 30 deletions(-)
-
-diff --git a/arch/ia64/kernel/ptrace.c b/arch/ia64/kernel/ptrace.c
-index 3f8293378a83..447e3f353014 100644
---- a/arch/ia64/kernel/ptrace.c
-+++ b/arch/ia64/kernel/ptrace.c
-@@ -1537,11 +1537,10 @@ void do_gpregs_get(struct unw_frame_info *info, void *arg)
- 			 (dst->pos + dst->count) : ELF_GR_OFFSET(16);
- 		for (i = dst->pos; i < min_copy; i += sizeof(elf_greg_t),
- 				index++)
--			if (access_elf_reg(dst->target, info, i,
--						&tmp[index], 0) < 0) {
--				dst->ret = -EIO;
--				return;
--			}
-+			if (access_elf_reg(dst->target, info, i, &tmp[index], 0)
-+			    < 0)
-+				goto e_io;
-+
- 		dst->ret = user_regset_copyout(&dst->pos, &dst->count,
- 				&dst->u.get.kbuf, &dst->u.get.ubuf, tmp,
- 				ELF_GR_OFFSET(1), ELF_GR_OFFSET(16));
-@@ -1566,11 +1565,10 @@ void do_gpregs_get(struct unw_frame_info *info, void *arg)
- 			 (dst->pos + dst->count) : ELF_CR_IIP_OFFSET;
- 		for (i = dst->pos; i < min_copy; i += sizeof(elf_greg_t),
- 				index++)
--			if (access_elf_reg(dst->target, info, i,
--						&tmp[index], 0) < 0) {
--				dst->ret = -EIO;
--				return;
--			}
-+			if (access_elf_reg(dst->target, info, i, &tmp[index], 0)
-+			    < 0)
-+				goto e_io;
-+
- 		dst->ret = user_regset_copyout(&dst->pos, &dst->count,
- 				&dst->u.get.kbuf, &dst->u.get.ubuf, tmp,
- 				ELF_NAT_OFFSET, ELF_CR_IIP_OFFSET);
-@@ -1587,15 +1585,19 @@ void do_gpregs_get(struct unw_frame_info *info, void *arg)
- 			 (dst->pos + dst->count) : ELF_AR_END_OFFSET;
- 		for (i = dst->pos; i < min_copy; i += sizeof(elf_greg_t),
- 				index++)
--			if (access_elf_reg(dst->target, info, i,
--						&tmp[index], 0) < 0) {
--				dst->ret = -EIO;
--				return;
--			}
-+			if (access_elf_reg(dst->target, info, i, &tmp[index], 0)
-+			    < 0)
-+				goto e_io;
-+
- 		dst->ret = user_regset_copyout(&dst->pos, &dst->count,
- 				&dst->u.get.kbuf, &dst->u.get.ubuf, tmp,
- 				ELF_CR_IIP_OFFSET, ELF_AR_END_OFFSET);
- 	}
-+
-+	return;
-+
-+e_io:
-+	dst->ret = -EIO;
- }
- 
- void do_gpregs_set(struct unw_frame_info *info, void *arg)
-@@ -1628,11 +1630,10 @@ void do_gpregs_set(struct unw_frame_info *info, void *arg)
- 		if (dst->ret)
- 			return;
- 		for ( ; i < dst->pos; i += sizeof(elf_greg_t), index++)
--			if (access_elf_reg(dst->target, info, i,
--						&tmp[index], 1) < 0) {
--				dst->ret = -EIO;
--				return;
--			}
-+			if (access_elf_reg(dst->target, info, i, &tmp[index], 1)
-+			    < 0)
-+				goto e_io;
-+
- 		if (dst->count = 0)
- 			return;
- 	}
-@@ -1657,11 +1658,10 @@ void do_gpregs_set(struct unw_frame_info *info, void *arg)
- 		if (dst->ret)
- 			return;
- 		for (; i < dst->pos; i += sizeof(elf_greg_t), index++)
--			if (access_elf_reg(dst->target, info, i,
--						&tmp[index], 1) < 0) {
--				dst->ret = -EIO;
--				return;
--			}
-+			if (access_elf_reg(dst->target, info, i, &tmp[index], 1)
-+			    < 0)
-+				goto e_io;
-+
- 		if (dst->count = 0)
- 			return;
- 	}
-@@ -1678,12 +1678,15 @@ void do_gpregs_set(struct unw_frame_info *info, void *arg)
- 		if (dst->ret)
- 			return;
- 		for ( ; i < dst->pos; i += sizeof(elf_greg_t), index++)
--			if (access_elf_reg(dst->target, info, i,
--						&tmp[index], 1) < 0) {
--				dst->ret = -EIO;
--				return;
--			}
-+			if (access_elf_reg(dst->target, info, i, &tmp[index], 1)
-+			    < 0)
-+				goto e_io;
- 	}
-+
-+	return;
-+
-+e_io:
-+	dst->ret = -EIO;
- }
- 
- #define ELF_FP_OFFSET(i)	(i * sizeof(elf_fpreg_t))
--- 
-2.14.2
-
+Best Regards,
+Petr
