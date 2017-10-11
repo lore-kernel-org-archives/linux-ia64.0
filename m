@@ -1,37 +1,194 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Tue, 03 Oct 2017 10:43:03 +0000
-Subject: [PATCH 03/11] frv: make dma_cache_sync a no-op
-Message-Id: <20171003104311.10058-4-hch@lst.de>
+From: Waiman Long <longman@redhat.com>
+Date: Wed, 11 Oct 2017 18:01:52 +0000
+Subject: [PATCH v6 01/11] locking/rwsem: relocate rwsem_down_read_failed()
+Message-Id: <1507744922-15196-2-git-send-email-longman@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20171003104311.10058-1-hch@lst.de>
-In-Reply-To: <20171003104311.10058-1-hch-jcswGhMUV9g@public.gmane.org>
+References: <1507744922-15196-1-git-send-email-longman@redhat.com>
+In-Reply-To: <1507744922-15196-1-git-send-email-longman@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Cc: Chris Zankel <chris-YvXeqwSYzG2sTnJN9+BGXg@public.gmane.org>, Michal Simek <monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org>, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Max Filippov <jcmvbkbc-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Guan Xuetao <gxt-TG0Ac1+ktVePQbnJrJN+5g@public.gmane.org>
+To: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>
+Cc: linux-kernel@vger.kernel.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-arch@vger.kernel.org, Davidlohr Bueso <dave@stgolabs.net>, Dave Chinner <david@fromorbit.com>, Waiman Long <longman@redhat.com>
 
-frv does not implement DMA_ATTR_NON_CONSISTENT allocations, so it doesn't
-make any sense to do any work in dma_cache_sync given that it must be a
-no-op when dma_alloc_attrs returns coherent memory.
+The rwsem_down_read_failed*() functions were relocted from above the
+optimistic spinning section to below that section. This enables
+them to use functions in that section in future patches. There is no
+code change.
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+Signed-off-by: Waiman Long <longman@redhat.com>
 ---
- arch/frv/include/asm/dma-mapping.h | 1 -
- 1 file changed, 1 deletion(-)
+ kernel/locking/rwsem-xadd.c | 150 ++++++++++++++++++++++----------------------
+ 1 file changed, 75 insertions(+), 75 deletions(-)
 
-diff --git a/arch/frv/include/asm/dma-mapping.h b/arch/frv/include/asm/dma-mapping.h
-index 354900917585..da0e5c9744c4 100644
---- a/arch/frv/include/asm/dma-mapping.h
-+++ b/arch/frv/include/asm/dma-mapping.h
-@@ -18,7 +18,6 @@ static inline
- void dma_cache_sync(struct device *dev, void *vaddr, size_t size,
- 		    enum dma_data_direction direction)
- {
--	flush_write_buffers();
+diff --git a/kernel/locking/rwsem-xadd.c b/kernel/locking/rwsem-xadd.c
+index 1fefe6d..db5dedf 100644
+--- a/kernel/locking/rwsem-xadd.c
++++ b/kernel/locking/rwsem-xadd.c
+@@ -219,81 +219,6 @@ static void __rwsem_mark_wake(struct rw_semaphore *sem,
  }
  
- #endif  /* _ASM_DMA_MAPPING_H */
+ /*
+- * Wait for the read lock to be granted
+- */
+-static inline struct rw_semaphore __sched *
+-__rwsem_down_read_failed_common(struct rw_semaphore *sem, int state)
+-{
+-	long count, adjustment = -RWSEM_ACTIVE_READ_BIAS;
+-	struct rwsem_waiter waiter;
+-	DEFINE_WAKE_Q(wake_q);
+-
+-	waiter.task = current;
+-	waiter.type = RWSEM_WAITING_FOR_READ;
+-
+-	raw_spin_lock_irq(&sem->wait_lock);
+-	if (list_empty(&sem->wait_list))
+-		adjustment += RWSEM_WAITING_BIAS;
+-	list_add_tail(&waiter.list, &sem->wait_list);
+-
+-	/* we're now waiting on the lock, but no longer actively locking */
+-	count = atomic_long_add_return(adjustment, &sem->count);
+-
+-	/*
+-	 * If there are no active locks, wake the front queued process(es).
+-	 *
+-	 * If there are no writers and we are first in the queue,
+-	 * wake our own waiter to join the existing active readers !
+-	 */
+-	if (count = RWSEM_WAITING_BIAS ||
+-	    (count > RWSEM_WAITING_BIAS &&
+-	     adjustment != -RWSEM_ACTIVE_READ_BIAS))
+-		__rwsem_mark_wake(sem, RWSEM_WAKE_ANY, &wake_q);
+-
+-	raw_spin_unlock_irq(&sem->wait_lock);
+-	wake_up_q(&wake_q);
+-
+-	/* wait to be given the lock */
+-	while (true) {
+-		set_current_state(state);
+-		if (!waiter.task)
+-			break;
+-		if (signal_pending_state(state, current)) {
+-			raw_spin_lock_irq(&sem->wait_lock);
+-			if (waiter.task)
+-				goto out_nolock;
+-			raw_spin_unlock_irq(&sem->wait_lock);
+-			break;
+-		}
+-		schedule();
+-	}
+-
+-	__set_current_state(TASK_RUNNING);
+-	return sem;
+-out_nolock:
+-	list_del(&waiter.list);
+-	if (list_empty(&sem->wait_list))
+-		atomic_long_add(-RWSEM_WAITING_BIAS, &sem->count);
+-	raw_spin_unlock_irq(&sem->wait_lock);
+-	__set_current_state(TASK_RUNNING);
+-	return ERR_PTR(-EINTR);
+-}
+-
+-__visible struct rw_semaphore * __sched
+-rwsem_down_read_failed(struct rw_semaphore *sem)
+-{
+-	return __rwsem_down_read_failed_common(sem, TASK_UNINTERRUPTIBLE);
+-}
+-EXPORT_SYMBOL(rwsem_down_read_failed);
+-
+-__visible struct rw_semaphore * __sched
+-rwsem_down_read_failed_killable(struct rw_semaphore *sem)
+-{
+-	return __rwsem_down_read_failed_common(sem, TASK_KILLABLE);
+-}
+-EXPORT_SYMBOL(rwsem_down_read_failed_killable);
+-
+-/*
+  * This function must be called with the sem->wait_lock held to prevent
+  * race conditions between checking the rwsem wait list and setting the
+  * sem->count accordingly.
+@@ -488,6 +413,81 @@ static inline bool rwsem_has_spinner(struct rw_semaphore *sem)
+ #endif
+ 
+ /*
++ * Wait for the read lock to be granted
++ */
++static inline struct rw_semaphore __sched *
++__rwsem_down_read_failed_common(struct rw_semaphore *sem, int state)
++{
++	long count, adjustment = -RWSEM_ACTIVE_READ_BIAS;
++	struct rwsem_waiter waiter;
++	DEFINE_WAKE_Q(wake_q);
++
++	waiter.task = current;
++	waiter.type = RWSEM_WAITING_FOR_READ;
++
++	raw_spin_lock_irq(&sem->wait_lock);
++	if (list_empty(&sem->wait_list))
++		adjustment += RWSEM_WAITING_BIAS;
++	list_add_tail(&waiter.list, &sem->wait_list);
++
++	/* we're now waiting on the lock, but no longer actively locking */
++	count = atomic_long_add_return(adjustment, &sem->count);
++
++	/*
++	 * If there are no active locks, wake the front queued process(es).
++	 *
++	 * If there are no writers and we are first in the queue,
++	 * wake our own waiter to join the existing active readers !
++	 */
++	if (count = RWSEM_WAITING_BIAS ||
++	    (count > RWSEM_WAITING_BIAS &&
++	     adjustment != -RWSEM_ACTIVE_READ_BIAS))
++		__rwsem_mark_wake(sem, RWSEM_WAKE_ANY, &wake_q);
++
++	raw_spin_unlock_irq(&sem->wait_lock);
++	wake_up_q(&wake_q);
++
++	/* wait to be given the lock */
++	while (true) {
++		set_current_state(state);
++		if (!waiter.task)
++			break;
++		if (signal_pending_state(state, current)) {
++			raw_spin_lock_irq(&sem->wait_lock);
++			if (waiter.task)
++				goto out_nolock;
++			raw_spin_unlock_irq(&sem->wait_lock);
++			break;
++		}
++		schedule();
++	}
++
++	__set_current_state(TASK_RUNNING);
++	return sem;
++out_nolock:
++	list_del(&waiter.list);
++	if (list_empty(&sem->wait_list))
++		atomic_long_add(-RWSEM_WAITING_BIAS, &sem->count);
++	raw_spin_unlock_irq(&sem->wait_lock);
++	__set_current_state(TASK_RUNNING);
++	return ERR_PTR(-EINTR);
++}
++
++__visible struct rw_semaphore * __sched
++rwsem_down_read_failed(struct rw_semaphore *sem)
++{
++	return __rwsem_down_read_failed_common(sem, TASK_UNINTERRUPTIBLE);
++}
++EXPORT_SYMBOL(rwsem_down_read_failed);
++
++__visible struct rw_semaphore * __sched
++rwsem_down_read_failed_killable(struct rw_semaphore *sem)
++{
++	return __rwsem_down_read_failed_common(sem, TASK_KILLABLE);
++}
++EXPORT_SYMBOL(rwsem_down_read_failed_killable);
++
++/*
+  * Wait until we successfully acquire the write lock
+  */
+ static inline struct rw_semaphore *
 -- 
-2.14.1
+1.8.3.1
 
