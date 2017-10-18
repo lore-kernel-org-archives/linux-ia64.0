@@ -1,47 +1,180 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Tue, 03 Oct 2017 10:43:06 +0000
-Subject: [PATCH 06/11] mn10300: make dma_cache_sync a no-op
-Message-Id: <20171003104311.10058-7-hch@lst.de>
+From: Waiman Long <longman@redhat.com>
+Date: Wed, 18 Oct 2017 18:30:30 +0000
+Subject: [PATCH-tip v7 14/15] locking/rwsem: Make waiting writer to optimistically spin for the lock
+Message-Id: <1508351431-22375-15-git-send-email-longman@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20171003104311.10058-1-hch@lst.de>
-In-Reply-To: <20171003104311.10058-1-hch-jcswGhMUV9g@public.gmane.org>
+References: <1508351431-22375-1-git-send-email-longman@redhat.com>
+In-Reply-To: <1508351431-22375-1-git-send-email-longman@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Cc: Chris Zankel <chris-YvXeqwSYzG2sTnJN9+BGXg@public.gmane.org>, Michal Simek <monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org>, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-xtensa-PjhNF2WwrV/0Sa2dR60CXw@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Howells <dhowells-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, Max Filippov <jcmvbkbc-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, Guan Xuetao <gxt-TG0Ac1+ktVePQbnJrJN+5g@public.gmane.org>
+To: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>
+Cc: linux-kernel@vger.kernel.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-arch@vger.kernel.org, Davidlohr Bueso <dave@stgolabs.net>, Dave Chinner <david@fromorbit.com>, Waiman Long <longman@redhat.com>
 
-mn10300 does not implement DMA_ATTR_NON_CONSISTENT allocations, so it
-doesn't make any sense to do any work in dma_cache_sync given that it must
-be a no-op when dma_alloc_attrs returns coherent memory.
+When waiting writers set the handoff bit, they went back to sleep. This
+introduced a waiting period during which the rwsem could not be
+acquired, but the designated waiter was not ready to acquire it. To
+help eliminating this waiting period, the writer that set the handoff
+bit will then optimistically spin for the rwsem instead of going to
+sleep immediately.
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+The waiting writer in the front of the queue will also set the handoff
+bit after it has slept at least once to make rwsem favor writers more
+than readers.
+
+Signed-off-by: Waiman Long <longman@redhat.com>
 ---
- arch/mn10300/include/asm/dma-mapping.h | 4 ----
- 1 file changed, 4 deletions(-)
+ kernel/locking/rwsem-xadd.c | 64 ++++++++++++++++++++++++++++++++-------------
+ 1 file changed, 46 insertions(+), 18 deletions(-)
 
-diff --git a/arch/mn10300/include/asm/dma-mapping.h b/arch/mn10300/include/asm/dma-mapping.h
-index 737ef574b3ea..dc24163b190f 100644
---- a/arch/mn10300/include/asm/dma-mapping.h
-+++ b/arch/mn10300/include/asm/dma-mapping.h
-@@ -11,9 +11,6 @@
- #ifndef _ASM_DMA_MAPPING_H
- #define _ASM_DMA_MAPPING_H
+diff --git a/kernel/locking/rwsem-xadd.c b/kernel/locking/rwsem-xadd.c
+index edb5ecc..42129fa 100644
+--- a/kernel/locking/rwsem-xadd.c
++++ b/kernel/locking/rwsem-xadd.c
+@@ -294,17 +294,28 @@ static inline int rwsem_try_read_lock_unqueued(struct rw_semaphore *sem)
  
--#include <asm/cache.h>
--#include <asm/io.h>
--
- extern const struct dma_map_ops mn10300_dma_ops;
- 
- static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
-@@ -25,7 +22,6 @@ static inline
- void dma_cache_sync(void *vaddr, size_t size,
- 		    enum dma_data_direction direction)
+ /*
+  * Try to acquire write lock before the writer has been put on wait queue.
++ *
++ * The fwaiter flag can only be set by a waiting writer at the head of the
++ * wait queue. So the handoff flag can be ignored and cleared in this case.
+  */
+-static inline int rwsem_try_write_lock_unqueued(struct rw_semaphore *sem)
++static inline int rwsem_try_write_lock_unqueued(struct rw_semaphore *sem,
++						bool fwaiter)
  {
--	mn10300_dcache_flush_inv();
+-	int old, count = atomic_read(&sem->count);
++	int old, new, count = atomic_read(&sem->count);
+ 
+ 	while (true) {
+-		if (RWSEM_COUNT_LOCKED_OR_HANDOFF(count))
++		if (RWSEM_COUNT_LOCKED(count))
+ 			return 0;
+ 
+-		old = atomic_cmpxchg_acquire(&sem->count, count,
+-				count + RWSEM_WRITER_LOCKED);
++		new = count + RWSEM_WRITER_LOCKED;
++		if (RWSEM_COUNT_HANDOFF(count)) {
++			if (fwaiter)
++				new -= RWSEM_FLAG_WHANDOFF;
++			else
++				return 0;
++		}
++
++		old = atomic_cmpxchg_acquire(&sem->count, count, new);
+ 		if (old = count) {
+ 			rwsem_set_owner(sem);
+ 			return 1;
+@@ -389,7 +400,7 @@ static noinline int rwsem_spin_on_owner(struct rw_semaphore *sem)
  }
  
- #endif
+ static bool rwsem_optimistic_spin(struct rw_semaphore *sem,
+-				  enum rwsem_waiter_type type)
++				  enum rwsem_waiter_type type, bool fwaiter)
+ {
+ 	int taken = 0;
+ 	bool reader = (type = RWSEM_WAITING_FOR_READ);
+@@ -401,7 +412,7 @@ static bool rwsem_optimistic_spin(struct rw_semaphore *sem,
+ 	preempt_disable();
+ 
+ 	/* sem->wait_lock should not be held when doing optimistic spinning */
+-	if (!osq_lock(&sem->osq))
++	if (!fwaiter && !osq_lock(&sem->osq))
+ 		goto done;
+ 
+ 	if (rwsem_is_spin_disabled(sem))
+@@ -425,7 +436,7 @@ static bool rwsem_optimistic_spin(struct rw_semaphore *sem,
+ 		 * Try to acquire the lock
+ 		 */
+ 		taken = reader ? rwsem_try_read_lock_unqueued(sem)
+-			       : rwsem_try_write_lock_unqueued(sem);
++			       : rwsem_try_write_lock_unqueued(sem, fwaiter);
+ 
+ 		if (taken)
+ 			break;
+@@ -474,7 +485,8 @@ static bool rwsem_optimistic_spin(struct rw_semaphore *sem,
+ 		 */
+ 		cpu_relax();
+ 	}
+-	osq_unlock(&sem->osq);
++	if (!fwaiter)
++		osq_unlock(&sem->osq);
+ done:
+ 	preempt_enable();
+ 	return taken > 0;
+@@ -494,8 +506,9 @@ static inline bool rwsem_can_spin_on_owner(struct rw_semaphore *sem)
+ 	return false;
+ }
+ 
+-static inline bool
+-rwsem_optimistic_spin(struct rw_semaphore *sem, enum rwsem_waiter_type type)
++static inline bool rwsem_optimistic_spin(struct rw_semaphore *sem,
++					 enum rwsem_waiter_type type,
++					 bool fwaiter)
+ {
+ 	return false;
+ }
+@@ -541,7 +554,7 @@ static inline bool rwsem_has_spinner(struct rw_semaphore *sem)
+ 		 * Do optimistic spinning and steal lock if possible.
+ 		 */
+ 		if (can_spin &&
+-		    rwsem_optimistic_spin(sem, RWSEM_WAITING_FOR_READ))
++		    rwsem_optimistic_spin(sem, RWSEM_WAITING_FOR_READ, false))
+ 			return sem;
+ 	}
+ 
+@@ -627,7 +640,7 @@ static inline bool rwsem_has_spinner(struct rw_semaphore *sem)
+ 
+ 	/* do optimistic spinning and steal lock if possible */
+ 	if (rwsem_can_spin_on_owner(sem, false) &&
+-	    rwsem_optimistic_spin(sem, RWSEM_WAITING_FOR_WRITE))
++	    rwsem_optimistic_spin(sem, RWSEM_WAITING_FOR_WRITE, false))
+ 		return sem;
+ 
+ 	/*
+@@ -637,7 +650,6 @@ static inline bool rwsem_has_spinner(struct rw_semaphore *sem)
+ 	waiter.task = current;
+ 	waiter.type = RWSEM_WAITING_FOR_WRITE;
+ 	waiter.waking = false;
+-	waiter.timeout = jiffies + RWSEM_WAIT_TIMEOUT;
+ 
+ 	raw_spin_lock_irq(&sem->wait_lock);
+ 
+@@ -691,14 +703,30 @@ static inline bool rwsem_has_spinner(struct rw_semaphore *sem)
+ 
+ 		waiter.waking = false;
+ 		raw_spin_unlock_irq(&sem->wait_lock);
++		schedule();
+ 
+-		if (first && !RWSEM_COUNT_HANDOFF(count) &&
+-		    time_after(jiffies, waiter.timeout))
++		if (!first)
++			goto relock;
++		/*
++		 * As writer can optimistically spin for the rwsem here,
++		 * we are setting the handoff bit after it has slept at
++		 * least once.
++		 */
++		if (!RWSEM_COUNT_HANDOFF(count))
+ 			atomic_or(RWSEM_FLAG_WHANDOFF, &sem->count);
+ 
+-		schedule();
++		/*
++		 * Optimistically spin on the lock after the handoff bit is
++		 * set.
++		 */
++		if (rwsem_optimistic_spin(sem, RWSEM_WAITING_FOR_WRITE, true)) {
++			 raw_spin_lock_irq(&sem->wait_lock);
++			 if (list_is_singular(&sem->wait_list))
++				atomic_sub(RWSEM_FLAG_WAITERS, &sem->count);
++			 break;
++		}
++relock:
+ 		set_current_state(state);
+-
+ 		raw_spin_lock_irq(&sem->wait_lock);
+ 		count = atomic_read(&sem->count);
+ 	}
 -- 
-2.14.1
+1.8.3.1
 
