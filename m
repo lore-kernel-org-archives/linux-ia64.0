@@ -1,56 +1,143 @@
-From: Waiman Long <longman@redhat.com>
-Date: Wed, 18 Oct 2017 18:30:31 +0000
-Subject: [PATCH-tip v7 15/15] locking/rwsem: Wake up all readers in wait queue
-Message-Id: <1508351431-22375-16-git-send-email-longman@redhat.com>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Date: Fri, 20 Oct 2017 16:14:11 +0000
+Subject: [PATCH] ia64/kernel/ptrace: Use common error handling code in two functions
+Message-Id: <48f0efa9-ae84-c338-3f07-1f39fc3ad6a6@users.sourceforge.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1508351431-22375-1-git-send-email-longman@redhat.com>
-In-Reply-To: <1508351431-22375-1-git-send-email-longman@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>
-Cc: linux-kernel@vger.kernel.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-arch@vger.kernel.org, Davidlohr Bueso <dave@stgolabs.net>, Dave Chinner <david@fromorbit.com>, Waiman Long <longman@redhat.com>
+To: linux-ia64@vger.kernel.org, Fenghua Yu <fenghua.yu@intel.com>, Oleg Nesterov <oleg@redhat.com>, Tony Luck <tony.luck@intel.com>
+Cc: LKML <linux-kernel@vger.kernel.org>, kernel-janitors@vger.kernel.org
 
-When the front of the wait queue is a reader, other readers
-immediately following the first reader will also be woken up at the
-same time.
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Fri, 20 Oct 2017 18:00:52 +0200
 
-Assuming that the lock hold times of the other readers still in the
-queue will be about the same as the readers that are being woken up,
-there is really not much additional cost other than the additional
-latency due to the wakeup of additional tasks by the waker. Therefore
-all the readers in the queue are woken up to improve reader throughput.
+* Add a jump target so that a bit of exception handling can be better
+  reused at the end of these functions.
 
-Signed-off-by: Waiman Long <longman@redhat.com>
+  This issue was detected by using the Coccinelle software.
+
+* Adjust the indentation for six if statements.
+
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
- kernel/locking/rwsem-xadd.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ arch/ia64/kernel/ptrace.c | 63 +++++++++++++++++++++++++----------------------
+ 1 file changed, 33 insertions(+), 30 deletions(-)
 
-diff --git a/kernel/locking/rwsem-xadd.c b/kernel/locking/rwsem-xadd.c
-index 42129fa..e8da0a9 100644
---- a/kernel/locking/rwsem-xadd.c
-+++ b/kernel/locking/rwsem-xadd.c
-@@ -177,16 +177,16 @@ static void __rwsem_mark_wake(struct rw_semaphore *sem,
+diff --git a/arch/ia64/kernel/ptrace.c b/arch/ia64/kernel/ptrace.c
+index 3f8293378a83..447e3f353014 100644
+--- a/arch/ia64/kernel/ptrace.c
++++ b/arch/ia64/kernel/ptrace.c
+@@ -1537,11 +1537,10 @@ void do_gpregs_get(struct unw_frame_info *info, void *arg)
+ 			 (dst->pos + dst->count) : ELF_GR_OFFSET(16);
+ 		for (i = dst->pos; i < min_copy; i += sizeof(elf_greg_t),
+ 				index++)
+-			if (access_elf_reg(dst->target, info, i,
+-						&tmp[index], 0) < 0) {
+-				dst->ret = -EIO;
+-				return;
+-			}
++			if (access_elf_reg(dst->target, info, i, &tmp[index], 0)
++			    < 0)
++				goto e_io;
++
+ 		dst->ret = user_regset_copyout(&dst->pos, &dst->count,
+ 				&dst->u.get.kbuf, &dst->u.get.ubuf, tmp,
+ 				ELF_GR_OFFSET(1), ELF_GR_OFFSET(16));
+@@ -1566,11 +1565,10 @@ void do_gpregs_get(struct unw_frame_info *info, void *arg)
+ 			 (dst->pos + dst->count) : ELF_CR_IIP_OFFSET;
+ 		for (i = dst->pos; i < min_copy; i += sizeof(elf_greg_t),
+ 				index++)
+-			if (access_elf_reg(dst->target, info, i,
+-						&tmp[index], 0) < 0) {
+-				dst->ret = -EIO;
+-				return;
+-			}
++			if (access_elf_reg(dst->target, info, i, &tmp[index], 0)
++			    < 0)
++				goto e_io;
++
+ 		dst->ret = user_regset_copyout(&dst->pos, &dst->count,
+ 				&dst->u.get.kbuf, &dst->u.get.ubuf, tmp,
+ 				ELF_NAT_OFFSET, ELF_CR_IIP_OFFSET);
+@@ -1587,15 +1585,19 @@ void do_gpregs_get(struct unw_frame_info *info, void *arg)
+ 			 (dst->pos + dst->count) : ELF_AR_END_OFFSET;
+ 		for (i = dst->pos; i < min_copy; i += sizeof(elf_greg_t),
+ 				index++)
+-			if (access_elf_reg(dst->target, info, i,
+-						&tmp[index], 0) < 0) {
+-				dst->ret = -EIO;
+-				return;
+-			}
++			if (access_elf_reg(dst->target, info, i, &tmp[index], 0)
++			    < 0)
++				goto e_io;
++
+ 		dst->ret = user_regset_copyout(&dst->pos, &dst->count,
+ 				&dst->u.get.kbuf, &dst->u.get.ubuf, tmp,
+ 				ELF_CR_IIP_OFFSET, ELF_AR_END_OFFSET);
  	}
++
++	return;
++
++e_io:
++	dst->ret = -EIO;
+ }
  
- 	/*
--	 * Grant an infinite number of read locks to the readers at the front
--	 * of the queue. We know that woken will be at least 1 as we accounted
--	 * for above. Note we increment the 'active part' of the count by the
-+	 * Grant an infinite number of read locks to all the readers in the
-+	 * queue. We know that woken will be at least 1 as we accounted for
-+	 * above. Note we increment the 'active part' of the count by the
- 	 * number of readers before waking any processes up.
- 	 */
- 	list_for_each_entry_safe(waiter, tmp, &sem->wait_list, list) {
- 		struct task_struct *tsk;
+ void do_gpregs_set(struct unw_frame_info *info, void *arg)
+@@ -1628,11 +1630,10 @@ void do_gpregs_set(struct unw_frame_info *info, void *arg)
+ 		if (dst->ret)
+ 			return;
+ 		for ( ; i < dst->pos; i += sizeof(elf_greg_t), index++)
+-			if (access_elf_reg(dst->target, info, i,
+-						&tmp[index], 1) < 0) {
+-				dst->ret = -EIO;
+-				return;
+-			}
++			if (access_elf_reg(dst->target, info, i, &tmp[index], 1)
++			    < 0)
++				goto e_io;
++
+ 		if (dst->count = 0)
+ 			return;
+ 	}
+@@ -1657,11 +1658,10 @@ void do_gpregs_set(struct unw_frame_info *info, void *arg)
+ 		if (dst->ret)
+ 			return;
+ 		for (; i < dst->pos; i += sizeof(elf_greg_t), index++)
+-			if (access_elf_reg(dst->target, info, i,
+-						&tmp[index], 1) < 0) {
+-				dst->ret = -EIO;
+-				return;
+-			}
++			if (access_elf_reg(dst->target, info, i, &tmp[index], 1)
++			    < 0)
++				goto e_io;
++
+ 		if (dst->count = 0)
+ 			return;
+ 	}
+@@ -1678,12 +1678,15 @@ void do_gpregs_set(struct unw_frame_info *info, void *arg)
+ 		if (dst->ret)
+ 			return;
+ 		for ( ; i < dst->pos; i += sizeof(elf_greg_t), index++)
+-			if (access_elf_reg(dst->target, info, i,
+-						&tmp[index], 1) < 0) {
+-				dst->ret = -EIO;
+-				return;
+-			}
++			if (access_elf_reg(dst->target, info, i, &tmp[index], 1)
++			    < 0)
++				goto e_io;
+ 	}
++
++	return;
++
++e_io:
++	dst->ret = -EIO;
+ }
  
- 		if (waiter->type = RWSEM_WAITING_FOR_WRITE)
--			break;
-+			continue;
- 
- 		woken++;
- 		tsk = waiter->task;
+ #define ELF_FP_OFFSET(i)	(i * sizeof(elf_fpreg_t))
 -- 
-1.8.3.1
+2.14.2
 
