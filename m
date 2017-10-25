@@ -1,233 +1,271 @@
-From: Waiman Long <longman@redhat.com>
-Date: Wed, 18 Oct 2017 18:30:29 +0000
-Subject: [PATCH-tip v7 13/15] locking/rwsem: Improve fairness to writers
-Message-Id: <1508351431-22375-14-git-send-email-longman@redhat.com>
+From: Kees Cook <keescook@chromium.org>
+Date: Wed, 25 Oct 2017 10:25:43 +0000
+Subject: [PATCH] ia64: Convert timers to use timer_setup()
+Message-Id: <20171025102543.GA145788@beast>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1508351431-22375-1-git-send-email-longman@redhat.com>
-In-Reply-To: <1508351431-22375-1-git-send-email-longman@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>
-Cc: linux-kernel@vger.kernel.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-arch@vger.kernel.org, Davidlohr Bueso <dave@stgolabs.net>, Dave Chinner <david@fromorbit.com>, Waiman Long <longman@redhat.com>
+To: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>, Ingo Molnar <mingo@kernel.org>, Joe Perches <joe@perches.com>, Andrew Morton <akpm@linux-foundation.org>, Thomas Gleixner <tglx@linutronix.de>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-When the spin disable bit in the owner field is set, writers will
-stop spinning. However, an incoming stream of readers will be able to
-go to the front of the OSQ and acquire the lock continuously without
-ever releasing the read lock. This can lead to writer starvation.
+In preparation for unconditionally passing the struct timer_list pointer to
+all timer callbacks, switch to using the new timer_setup() and from_timer()
+to pass the timer pointer explicitly.
 
-Two changes are made to improve fairness to writers and hence prevent
-writer starvation. The readers will stop spinning and go to the wait
-queue when:
+One less trivial change was removing the repeated casting for callers
+of bte_error_handler() by fixing its function declaration and adding a
+small wrapper for the timer callback instead.
 
- 1) It is not the first reader and the current time doesn't match
-    the timestamp stored in the owner field.
- 2) Writers cannot spin on reader.
-
-This will allow the reader count to eventually reach 0 and wake up
-the first waiter in the wait queue.
-
-Signed-off-by: Waiman Long <longman@redhat.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: Ingo Molnar <mingo@kernel.org>
+Cc: Joe Perches <joe@perches.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Cc: linux-ia64@vger.kernel.org
+Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- kernel/locking/rwsem-xadd.c | 60 +++++++++++++++++++++++++++++++++------------
- kernel/locking/rwsem-xadd.h | 32 +++++++++++++++++++-----
- 2 files changed, 70 insertions(+), 22 deletions(-)
+ arch/ia64/include/asm/sn/bte.h  |  4 +++-
+ arch/ia64/kernel/mca.c          |  8 ++++----
+ arch/ia64/kernel/salinfo.c      |  5 ++---
+ arch/ia64/sn/kernel/bte.c       | 12 ++++++++----
+ arch/ia64/sn/kernel/bte_error.c | 17 ++++++-----------
+ arch/ia64/sn/kernel/huberror.c  |  2 +-
+ arch/ia64/sn/kernel/mca.c       |  5 ++---
+ 7 files changed, 26 insertions(+), 27 deletions(-)
 
-diff --git a/kernel/locking/rwsem-xadd.c b/kernel/locking/rwsem-xadd.c
-index 3bdbf39..edb5ecc 100644
---- a/kernel/locking/rwsem-xadd.c
-+++ b/kernel/locking/rwsem-xadd.c
-@@ -169,10 +169,11 @@ static void __rwsem_mark_wake(struct rw_semaphore *sem,
+diff --git a/arch/ia64/include/asm/sn/bte.h b/arch/ia64/include/asm/sn/bte.h
+index cc6c4dbf53af..cd71ab5faf62 100644
+--- a/arch/ia64/include/asm/sn/bte.h
++++ b/arch/ia64/include/asm/sn/bte.h
+@@ -17,6 +17,8 @@
+ #include <asm/sn/types.h>
+ #include <asm/sn/shub_mmr.h>
+ 
++struct nodepda_s;
++
+ #define IBCT_NOTIFY             (0x1UL << 4)
+ #define IBCT_ZFIL_MODE          (0x1UL << 0)
+ 
+@@ -210,7 +212,7 @@ struct bteinfo_s {
+  */
+ extern bte_result_t bte_copy(u64, u64, u64, u64, void *);
+ extern bte_result_t bte_unaligned_copy(u64, u64, u64, u64);
+-extern void bte_error_handler(unsigned long);
++extern void bte_error_handler(struct nodepda_s *);
+ 
+ #define bte_zero(dest, len, mode, notification) \
+ 	bte_copy(0, dest, len, ((mode) | BTE_ZERO_FILL), notification)
+diff --git a/arch/ia64/kernel/mca.c b/arch/ia64/kernel/mca.c
+index 555b11180156..6115464d5f03 100644
+--- a/arch/ia64/kernel/mca.c
++++ b/arch/ia64/kernel/mca.c
+@@ -1513,7 +1513,7 @@ ia64_mca_cmc_int_caller(int cmc_irq, void *arg)
+  *
+  */
+ static void
+-ia64_mca_cmc_poll (unsigned long dummy)
++ia64_mca_cmc_poll (struct timer_list *unused)
+ {
+ 	/* Trigger a CMC interrupt cascade  */
+ 	platform_send_ipi(cpumask_first(cpu_online_mask), IA64_CMCP_VECTOR,
+@@ -1590,7 +1590,7 @@ ia64_mca_cpe_int_caller(int cpe_irq, void *arg)
+  *
+  */
+ static void
+-ia64_mca_cpe_poll (unsigned long dummy)
++ia64_mca_cpe_poll (struct timer_list *unused)
+ {
+ 	/* Trigger a CPE interrupt cascade  */
+ 	platform_send_ipi(cpumask_first(cpu_online_mask), IA64_CPEP_VECTOR,
+@@ -2098,7 +2098,7 @@ ia64_mca_late_init(void)
+ 		return 0;
+ 
+ 	/* Setup the CMCI/P vector and handler */
+-	setup_timer(&cmc_poll_timer, ia64_mca_cmc_poll, 0UL);
++	timer_setup(&cmc_poll_timer, ia64_mca_cmc_poll, 0);
+ 
+ 	/* Unmask/enable the vector */
+ 	cmc_polling_enabled = 0;
+@@ -2109,7 +2109,7 @@ ia64_mca_late_init(void)
+ #ifdef CONFIG_ACPI
+ 	/* Setup the CPEI/P vector and handler */
+ 	cpe_vector = acpi_request_vector(ACPI_INTERRUPT_CPEI);
+-	setup_timer(&cpe_poll_timer, ia64_mca_cpe_poll, 0UL);
++	timer_setup(&cpe_poll_timer, ia64_mca_cpe_poll, 0);
+ 
+ 	{
+ 		unsigned int irq;
+diff --git a/arch/ia64/kernel/salinfo.c b/arch/ia64/kernel/salinfo.c
+index 63dc9cdc95c5..52c404b08904 100644
+--- a/arch/ia64/kernel/salinfo.c
++++ b/arch/ia64/kernel/salinfo.c
+@@ -263,7 +263,7 @@ salinfo_timeout_check(struct salinfo_data *data)
+ }
+ 
+ static void
+-salinfo_timeout (unsigned long arg)
++salinfo_timeout(struct timer_list *unused)
+ {
+ 	ia64_mlogbuf_dump();
+ 	salinfo_timeout_check(salinfo_data + SAL_INFO_TYPE_MCA);
+@@ -623,9 +623,8 @@ salinfo_init(void)
+ 
+ 	*sdir++ = salinfo_dir;
+ 
+-	init_timer(&salinfo_timer);
++	timer_setup(&salinfo_timer, salinfo_timeout, 0);
+ 	salinfo_timer.expires = jiffies + SALINFO_TIMER_DELAY;
+-	salinfo_timer.function = &salinfo_timeout;
+ 	add_timer(&salinfo_timer);
+ 
+ 	i = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "ia64/salinfo:online",
+diff --git a/arch/ia64/sn/kernel/bte.c b/arch/ia64/sn/kernel/bte.c
+index b2eb48490754..9146192b86f5 100644
+--- a/arch/ia64/sn/kernel/bte.c
++++ b/arch/ia64/sn/kernel/bte.c
+@@ -219,7 +219,7 @@ bte_result_t bte_copy(u64 src, u64 dest, u64 len, u64 mode, void *notification)
+ 				BTE_LNSTAT_LOAD(bte), *bte->most_rcnt_na) );
+ 			bte->bte_error_count++;
+ 			bte->bh_error = IBLS_ERROR;
+-			bte_error_handler((unsigned long)NODEPDA(bte->bte_cnode));
++			bte_error_handler(NODEPDA(bte->bte_cnode));
+ 			*bte->most_rcnt_na = BTE_WORD_AVAILABLE;
+ 			goto retry_bteop;
+ 		}
+@@ -414,6 +414,12 @@ EXPORT_SYMBOL(bte_unaligned_copy);
+  * Block Transfer Engine initialization functions.
+  *
+  ***********************************************************************/
++static void bte_recovery_timeout(struct timer_list *t)
++{
++	struct nodepda_s *nodepda = from_timer(nodepda, t, bte_recovery_timer);
++
++	bte_error_handler(nodepda);
++}
+ 
+ /*
+  * bte_init_node(nodepda, cnode)
+@@ -436,9 +442,7 @@ void bte_init_node(nodepda_t * mynodepda, cnodeid_t cnode)
+ 	 * will point at this one bte_recover structure to get the lock.
+ 	 */
+ 	spin_lock_init(&mynodepda->bte_recovery_lock);
+-	init_timer(&mynodepda->bte_recovery_timer);
+-	mynodepda->bte_recovery_timer.function = bte_error_handler;
+-	mynodepda->bte_recovery_timer.data = (unsigned long)mynodepda;
++	timer_setup(&mynodepda->bte_recovery_timer, bte_recovery_timeout, 0);
+ 
+ 	for (i = 0; i < BTES_PER_NODE; i++) {
+ 		u64 *base_addr;
+diff --git a/arch/ia64/sn/kernel/bte_error.c b/arch/ia64/sn/kernel/bte_error.c
+index 4cb09f3f1efc..d92786c09b34 100644
+--- a/arch/ia64/sn/kernel/bte_error.c
++++ b/arch/ia64/sn/kernel/bte_error.c
+@@ -27,15 +27,12 @@
+  * transfers to be queued.
+  */
+ 
+-void bte_error_handler(unsigned long);
+-
+ /*
+  * Wait until all BTE related CRBs are completed
+  * and then reset the interfaces.
+  */
+-int shub1_bte_error_handler(unsigned long _nodepda)
++static int shub1_bte_error_handler(struct nodepda_s *err_nodepda)
+ {
+-	struct nodepda_s *err_nodepda = (struct nodepda_s *)_nodepda;
+ 	struct timer_list *recovery_timer = &err_nodepda->bte_recovery_timer;
+ 	nasid_t nasid;
+ 	int i;
+@@ -131,9 +128,8 @@ int shub1_bte_error_handler(unsigned long _nodepda)
+  * Wait until all BTE related CRBs are completed
+  * and then reset the interfaces.
+  */
+-int shub2_bte_error_handler(unsigned long _nodepda)
++static int shub2_bte_error_handler(struct nodepda_s *err_nodepda)
+ {
+-	struct nodepda_s *err_nodepda = (struct nodepda_s *)_nodepda;
+ 	struct timer_list *recovery_timer = &err_nodepda->bte_recovery_timer;
+ 	struct bteinfo_s *bte;
+ 	nasid_t nasid;
+@@ -170,9 +166,8 @@ int shub2_bte_error_handler(unsigned long _nodepda)
+  * Wait until all BTE related CRBs are completed
+  * and then reset the interfaces.
+  */
+-void bte_error_handler(unsigned long _nodepda)
++void bte_error_handler(struct nodepda_s *err_nodepda)
+ {
+-	struct nodepda_s *err_nodepda = (struct nodepda_s *)_nodepda;
+ 	spinlock_t *recovery_lock = &err_nodepda->bte_recovery_lock;
+ 	int i;
+ 	unsigned long irq_flags;
+@@ -199,12 +194,12 @@ void bte_error_handler(unsigned long _nodepda)
+ 	}
+ 
+ 	if (is_shub1()) {
+-		if (shub1_bte_error_handler(_nodepda)) {
++		if (shub1_bte_error_handler(err_nodepda)) {
+ 			spin_unlock_irqrestore(recovery_lock, irq_flags);
  			return;
  		}
- 		/*
--		 * Set it to reader-owned for first reader.
-+		 * Since the wait queue head is a reader, we can set a
-+		 * new timestamp even if it is not the first reader to
-+		 * acquire the current lock.
- 		 */
--		if (!(oldcount >> RWSEM_READER_SHIFT))
--			rwsem_set_reader_owned(sem);
-+		rwsem_set_reader_owned(sem);
- 	}
- 
- 	/*
-@@ -249,44 +250,64 @@ static void __rwsem_mark_wake(struct rw_semaphore *sem,
- #ifdef CONFIG_RWSEM_SPIN_ON_OWNER
- /*
-  * Try to acquire read lock before the reader is put on wait queue.
-- * Lock acquisition isn't allowed if the rwsem is locked or a writer handoff
-- * is ongoing.
-+ *
-+ * Lock acquisition isn't allowed if the rwsem is locked.
-+ *
-+ * To avoid writer starvation and have more more fairness, it has to stop
-+ * spinning if the reader count isn't 0, waiter is present and there is a
-+ * timestamp mismatch.
-+ *
-+ * This will allow the reader count to go to 0 and wake up the first one
-+ * in the wait queue which can initiate the handoff protocol, if necessary.
-+ *
-+ * Return:  1 - lock acquired
-+ *	    0 - lock acquisition failed
-+ *	   -1 - stop spinning
-  */
--static inline bool rwsem_try_read_lock_unqueued(struct rw_semaphore *sem)
-+static inline int rwsem_try_read_lock_unqueued(struct rw_semaphore *sem)
- {
- 	int count = atomic_read(&sem->count);
- 
- 	if (RWSEM_COUNT_WLOCKED(count) || RWSEM_COUNT_HANDOFF_WRITER(count))
--		return false;
-+		return 0;
- 
- 	count = atomic_fetch_add_acquire(RWSEM_READER_BIAS, &sem->count);
- 	if (!RWSEM_COUNT_WLOCKED(count) && !RWSEM_COUNT_HANDOFF_WRITER(count)) {
--		if (!(count >> RWSEM_READER_SHIFT))
-+		if (!(count >> RWSEM_READER_SHIFT)) {
- 			rwsem_set_reader_owned(sem);
--		return true;
-+		} else if (count & RWSEM_FLAG_WAITERS) {
-+			struct task_struct *owner = READ_ONCE(sem->owner);
-+
-+			if (rwsem_owner_is_reader(owner) &&
-+			   !rwsem_owner_timestamp_match(owner)) {
-+				atomic_add(-RWSEM_READER_BIAS, &sem->count);
-+				return -1;
-+			}
-+		}
-+		return 1;
- 	}
- 
- 	/* Back out the change */
- 	atomic_add(-RWSEM_READER_BIAS, &sem->count);
--	return false;
-+	return 0;
- }
- 
- /*
-  * Try to acquire write lock before the writer has been put on wait queue.
-  */
--static inline bool rwsem_try_write_lock_unqueued(struct rw_semaphore *sem)
-+static inline int rwsem_try_write_lock_unqueued(struct rw_semaphore *sem)
- {
- 	int old, count = atomic_read(&sem->count);
- 
- 	while (true) {
- 		if (RWSEM_COUNT_LOCKED_OR_HANDOFF(count))
--			return false;
-+			return 0;
- 
- 		old = atomic_cmpxchg_acquire(&sem->count, count,
- 				count + RWSEM_WRITER_LOCKED);
- 		if (old = count) {
- 			rwsem_set_owner(sem);
--			return true;
-+			return 1;
+ 	} else {
+-		if (shub2_bte_error_handler(_nodepda)) {
++		if (shub2_bte_error_handler(err_nodepda)) {
+ 			spin_unlock_irqrestore(recovery_lock, irq_flags);
+ 			return;
  		}
+@@ -255,6 +250,6 @@ bte_crb_error_handler(cnodeid_t cnode, int btenum,
  
- 		count = old;
-@@ -370,7 +391,7 @@ static noinline int rwsem_spin_on_owner(struct rw_semaphore *sem)
- static bool rwsem_optimistic_spin(struct rw_semaphore *sem,
- 				  enum rwsem_waiter_type type)
- {
--	bool taken = false;
-+	int taken = 0;
- 	bool reader = (type = RWSEM_WAITING_FOR_READ);
- 	int owner_state;	/* Lock owner state */
- 	int rspin_cnt = RWSEM_RSPIN_THRESHOLD;
-@@ -390,10 +411,17 @@ static bool rwsem_optimistic_spin(struct rw_semaphore *sem,
- 	 * Optimistically spin on the owner field and attempt to acquire the
- 	 * lock whenever the owner changes. Spinning will be stopped when:
- 	 *  1) the owning writer isn't running; or
--	 *  2) writer: readers own the lock and spinning count has reached 0;
-+	 *  2) readers own the lock and spinning count has reached 0;
- 	 */
- 	while ((owner_state = rwsem_spin_on_owner(sem)) >= 0) {
- 		/*
-+		 * For fairness, reader will stop taking reader-owned lock
-+		 * when writers cannot spin on reader.
-+		 */
-+		if (reader && !rspin_cnt && !owner_state)
-+			break;
-+
-+		/*
- 		 * Try to acquire the lock
- 		 */
- 		taken = reader ? rwsem_try_read_lock_unqueued(sem)
-@@ -449,7 +477,7 @@ static bool rwsem_optimistic_spin(struct rw_semaphore *sem,
- 	osq_unlock(&sem->osq);
- done:
- 	preempt_enable();
--	return taken;
-+	return taken > 0;
+ 	BTE_PRINTK(("Got an error on cnode %d bte %d: HW error type 0x%x\n",
+ 		bte->bte_cnode, bte->bte_num, ioe->ie_errortype));
+-	bte_error_handler((unsigned long) NODEPDA(cnode));
++	bte_error_handler(NODEPDA(cnode));
  }
  
- /*
-diff --git a/kernel/locking/rwsem-xadd.h b/kernel/locking/rwsem-xadd.h
-index 1e87e85..ea87bf1 100644
---- a/kernel/locking/rwsem-xadd.h
-+++ b/kernel/locking/rwsem-xadd.h
-@@ -4,10 +4,16 @@
- #include <linux/rwsem.h>
+diff --git a/arch/ia64/sn/kernel/huberror.c b/arch/ia64/sn/kernel/huberror.c
+index f925dec2da92..97fa56dddf50 100644
+--- a/arch/ia64/sn/kernel/huberror.c
++++ b/arch/ia64/sn/kernel/huberror.c
+@@ -50,7 +50,7 @@ static irqreturn_t hub_eint_handler(int irq, void *arg)
+ 			if ((int)ret_stuff.v0)
+ 				panic("%s: Fatal TIO Error", __func__);
+ 		} else
+-			bte_error_handler((unsigned long)NODEPDA(nasid_to_cnodeid(nasid)));
++			bte_error_handler(NODEPDA(nasid_to_cnodeid(nasid)));
  
- /*
-- * The owner field of the rw_semaphore structure will be set to
-- * RWSEM_READ_OWNED when a reader grabs the lock. A writer will clear
-- * the owner field when it unlocks. A reader, on the other hand, will
-- * not touch the owner field when it unlocks.
-+ * When a reader acquires the lock, the RWSEM_READ_OWNED bit of the owner
-+ * field will be set. In addition, a timestamp based on the current jiffies
-+ * value will be put into the upper bits of the owner. An incoming reader in
-+ * the slowpath will not be allowed to join the read lock if the current
-+ * time does not match the timestamp. This check will prevent a continuous
-+ * stream of incoming readers from monopolizing the lock and starving the
-+ * writers.
-+ *
-+ * A writer will clear the owner field when it unlocks. A reader, on the
-+ * other hand, will not touch the owner field when it unlocks.
-  *
-  * In essence, the owner field now has the following 3 states:
-  *  1) 0
-@@ -19,8 +25,11 @@
-  *  3) Other non-zero value
-  *     - a writer owns the lock
-  */
--#define RWSEM_READER_OWNED	(1UL)
--#define RWSEM_SPIN_DISABLED	(2UL)
-+#define RWSEM_READER_OWNED		(1UL)
-+#define RWSEM_SPIN_DISABLED		(2UL)
-+#define RWSEM_READER_TIMESTAMP_SHIFT	8
-+#define RWSEM_READER_TIMESTAMP_MASK	\
-+	~((1UL << RWSEM_READER_TIMESTAMP_SHIFT) - 1)
- 
- #ifdef CONFIG_RWSEM_SPIN_ON_OWNER
- /*
-@@ -46,6 +55,8 @@ static inline void rwsem_clear_owner(struct rw_semaphore *sem)
- static inline void rwsem_set_reader_owned(struct rw_semaphore *sem)
- {
- 	WRITE_ONCE(sem->owner, (void *)RWSEM_READER_OWNED);
-+	WRITE_ONCE(sem->owner, (void *)(RWSEM_READER_OWNED |
-+		  (jiffies << RWSEM_READER_TIMESTAMP_SHIFT)));
+ 	return IRQ_HANDLED;
+ }
+diff --git a/arch/ia64/sn/kernel/mca.c b/arch/ia64/sn/kernel/mca.c
+index 5b799d4deb74..bc3bd930c74c 100644
+--- a/arch/ia64/sn/kernel/mca.c
++++ b/arch/ia64/sn/kernel/mca.c
+@@ -72,7 +72,7 @@ static void sn_cpei_handler(int irq, void *devid, struct pt_regs *regs)
+ 	ia64_sn_plat_cpei_handler();
  }
  
- static inline bool rwsem_owner_is_writer(struct task_struct *owner)
-@@ -58,6 +69,15 @@ static inline bool rwsem_owner_is_reader(struct task_struct *owner)
- 	return (unsigned long)owner & RWSEM_READER_OWNED;
+-static void sn_cpei_timer_handler(unsigned long dummy)
++static void sn_cpei_timer_handler(struct timer_list *unused)
+ {
+ 	sn_cpei_handler(-1, NULL, NULL);
+ 	mod_timer(&sn_cpei_timer, jiffies + CPEI_INTERVAL);
+@@ -80,9 +80,8 @@ static void sn_cpei_timer_handler(unsigned long dummy)
+ 
+ void sn_init_cpei_timer(void)
+ {
+-	init_timer(&sn_cpei_timer);
++	timer_setup(&sn_cpei_timer, sn_cpei_timer_handler, 0);
+ 	sn_cpei_timer.expires = jiffies + CPEI_INTERVAL;
+-	sn_cpei_timer.function = sn_cpei_timer_handler;
+ 	add_timer(&sn_cpei_timer);
  }
  
-+/*
-+ * Return true if the timestamp matches the current time.
-+ */
-+static inline bool rwsem_owner_timestamp_match(struct task_struct *owner)
-+{
-+	return ((unsigned long)owner & RWSEM_READER_TIMESTAMP_MASK) =
-+	       (jiffies << RWSEM_READER_TIMESTAMP_SHIFT);
-+}
-+
- static inline bool rwsem_owner_is_spin_disabled(struct task_struct *owner)
- {
- 	return (unsigned long)owner & RWSEM_SPIN_DISABLED;
 -- 
-1.8.3.1
+2.7.4
 
+
+-- 
+Kees Cook
+Pixel Security
