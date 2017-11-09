@@ -1,7 +1,7 @@
 From: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
-Date: Thu, 09 Nov 2017 23:48:25 +0000
-Subject: [PATCHv4 1/6] sections: split dereference_function_descriptor()
-Message-Id: <20171109234830.5067-2-sergey.senozhatsky@gmail.com>
+Date: Thu, 09 Nov 2017 23:48:28 +0000
+Subject: [PATCHv4 4/6] parisc64: Add .opd based function descriptor dereference
+Message-Id: <20171109234830.5067-5-sergey.senozhatsky@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20171109234830.5067-1-sergey.senozhatsky@gmail.com>
 In-Reply-To: <20171109234830.5067-1-sergey.senozhatsky@gmail.com>
@@ -11,122 +11,130 @@ Content-Transfer-Encoding: 7bit
 To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Helge Deller <deller@gmx.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, James Bottomley <jejb@parisc-linux.org>
 Cc: Andrew Morton <akpm@linux-foundation.org>, Jessica Yu <jeyu@kernel.org>, Petr Mladek <pmladek@suse.com>, Steven Rostedt <rostedt@goodmis.org>, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org, Sergey Senozhatsky <sergey.senozhatsky@gmail.com>, Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>
 
-There are two format specifiers to print out a pointer in symbolic
-format: '%pS/%ps' and '%pF/%pf'. On most architectures, the two
-mean exactly the same thing, but some architectures (ia64, ppc64,
-parisc64) use an indirect pointer for C function pointers, where
-the function pointer points to a function descriptor (which in
-turn contains the actual pointer to the code). The '%pF/%pf, when
-used appropriately, automatically does the appropriate function
-descriptor dereference on such architectures.
+We are moving towards separate kernel and module function descriptor
+dereference callbacks. This patch enables it for parisc64.
 
-The "when used appropriately" part is tricky. Basically this is
-a subtle ABI detail, specific to some platforms, that made it to
-the API level and people can be unaware of it and miss the whole
-"we need to dereference the function" business out. [1] proves
-that point (note that it fixes only '%pF' and '%pS', there might
-be '%pf' and '%ps' cases as well).
+For pointers that belong to the kernel
+-  Added __start_opd and __end_opd pointers, to track the kernel
+   .opd section address range;
 
-It appears that we can handle everything within the affected
-arches and make '%pS/%ps' smart enough to retire '%pF/%pf'.
-Function descriptors live in .opd elf section and all affected
-arches (ia64, ppc64, parisc64) handle it properly for kernel
-and modules. So we, technically, can decide if the dereference
-is needed by simply looking at the pointer: if it belongs to
-.opd section then we need to dereference it.
+-  Added dereference_kernel_function_descriptor(). Now we
+   will dereference only function pointers that are within
+   [__start_opd, __end_opd);
 
-The kernel and modules have their own .opd sections, obviously,
-that's why we need to split dereference_function_descriptor()
-and use separate kernel and module dereference arch callbacks.
-
-This patch does the first step, it
-a) adds dereference_kernel_function_descriptor() function.
-b) adds a weak alias to dereference_module_function_descriptor()
-   function.
-
-So, for the time being, we will have:
-1) dereference_function_descriptor()
-   A generic function, that simply dereferences the pointer. There is
-   bunch of places that call it: kgdbts, init/main.c, extable, etc.
-
-2) dereference_kernel_function_descriptor()
-   A function to call on kernel symbols that does kernel .opd section
-   address range test.
-
-3) dereference_module_function_descriptor()
-   A function to call on modules' symbols that does modules' .opd
-   section address range test.
-
-[1] https://marc.info/?l=linux-kernel&m0472969730573
+For pointers that belong to a module
+-  Added dereference_module_function_descriptor() to handle module
+   function descriptor dereference. Now we will dereference only
+   pointers that are within [module->opd.start, module->opd.end).
 
 Signed-off-by: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
+Signed-off-by: Helge Deller <deller@gmx.de>
 ---
- include/asm-generic/sections.h | 8 ++++++--
- include/linux/module.h         | 3 +++
- kernel/module.c                | 6 ++++++
- 3 files changed, 15 insertions(+), 2 deletions(-)
+ arch/parisc/boot/compressed/vmlinux.lds.S |  2 ++
+ arch/parisc/include/asm/sections.h        |  6 ++++++
+ arch/parisc/kernel/module.c               | 16 ++++++++++++++++
+ arch/parisc/kernel/process.c              |  9 +++++++++
+ arch/parisc/kernel/vmlinux.lds.S          |  2 ++
+ 5 files changed, 35 insertions(+)
 
-diff --git a/include/asm-generic/sections.h b/include/asm-generic/sections.h
-index 03cc5f9bba71..849cd8eb5ca0 100644
---- a/include/asm-generic/sections.h
-+++ b/include/asm-generic/sections.h
-@@ -30,6 +30,7 @@
-  *	__ctors_start, __ctors_end
-  *	__irqentry_text_start, __irqentry_text_end
-  *	__softirqentry_text_start, __softirqentry_text_end
-+ *	__start_opd, __end_opd
-  */
- extern char _text[], _stext[], _etext[];
- extern char _data[], _sdata[], _edata[];
-@@ -49,12 +50,15 @@ extern char __start_once[], __end_once[];
- /* Start and end of .ctors section - used for constructor calls. */
- extern char __ctors_start[], __ctors_end[];
+diff --git a/arch/parisc/boot/compressed/vmlinux.lds.S b/arch/parisc/boot/compressed/vmlinux.lds.S
+index a4ce3314e78e..4ebd4e65524c 100644
+--- a/arch/parisc/boot/compressed/vmlinux.lds.S
++++ b/arch/parisc/boot/compressed/vmlinux.lds.S
+@@ -29,7 +29,9 @@ SECTIONS
+ 	. = ALIGN(16);
+ 	/* Linkage tables */
+ 	.opd : {
++		__start_opd = .;
+ 		*(.opd)
++		__end_opd = .;
+ 	} PROVIDE (__gp = .);
+ 	.plt : {
+ 		*(.plt)
+diff --git a/arch/parisc/include/asm/sections.h b/arch/parisc/include/asm/sections.h
+index accdf40aa5b7..5a40b51df80c 100644
+--- a/arch/parisc/include/asm/sections.h
++++ b/arch/parisc/include/asm/sections.h
+@@ -6,8 +6,14 @@
+ #include <asm-generic/sections.h>
  
-+/* Start and end of .opd section - used for function descriptors. */
-+extern char __start_opd[], __end_opd[];
+ #ifdef CONFIG_64BIT
 +
- extern __visible const void __nosave_begin, __nosave_end;
- 
--/* function descriptor handling (if any).  Override
-- * in asm/sections.h */
-+/* Function descriptor handling (if any).  Override in asm/sections.h */
- #ifndef dereference_function_descriptor
- #define dereference_function_descriptor(p) (p)
-+#define dereference_kernel_function_descriptor(p) (p)
++#define HAVE_DEREFERENCE_FUNCTION_DESCRIPTOR 1
++
+ #undef dereference_function_descriptor
+ void *dereference_function_descriptor(void *);
++
++#undef dereference_kernel_function_descriptor
++void *dereference_kernel_function_descriptor(void *);
  #endif
  
- /* random extra sections (if any).  Override
-diff --git a/include/linux/module.h b/include/linux/module.h
-index c69b49abe877..9dac6973b001 100644
---- a/include/linux/module.h
-+++ b/include/linux/module.h
-@@ -606,6 +606,9 @@ int ref_module(struct module *a, struct module *b);
- 	__mod ? __mod->name : "kernel";		\
- })
+ #endif
+diff --git a/arch/parisc/kernel/module.c b/arch/parisc/kernel/module.c
+index f1a76935a314..b5b3cb00f1fb 100644
+--- a/arch/parisc/kernel/module.c
++++ b/arch/parisc/kernel/module.c
+@@ -66,6 +66,7 @@
  
-+/* Dereference module function descriptor */
-+void *dereference_module_function_descriptor(struct module *mod, void *ptr);
-+
- /* For kallsyms to ask for address resolution.  namebuf should be at
-  * least KSYM_NAME_LEN long: a pointer to namebuf is returned if
-  * found, otherwise NULL. */
-diff --git a/kernel/module.c b/kernel/module.c
-index ab2978e4239c..1d6e996caa13 100644
---- a/kernel/module.c
-+++ b/kernel/module.c
-@@ -3938,6 +3938,12 @@ static const char *get_ksymbol(struct module *mod,
- 	return symname(kallsyms, best);
+ #include <asm/pgtable.h>
+ #include <asm/unwind.h>
++#include <asm/sections.h>
+ 
+ #if 0
+ #define DEBUGP printk
+@@ -954,3 +955,18 @@ void module_arch_cleanup(struct module *mod)
+ {
+ 	deregister_unwind_table(mod);
  }
- 
-+void * __weak dereference_module_function_descriptor(struct module *mod,
-+						     void *ptr)
-+{
-+	return ptr;
-+}
 +
- /* For kallsyms to ask for address resolution.  NULL means not found.  Careful
-  * not to lock to avoid deadlock on oopses, simply disable preemption. */
- const char *module_address_lookup(unsigned long addr,
++#ifdef CONFIG_64BIT
++void *dereference_module_function_descriptor(struct module *mod, void *ptr)
++{
++	unsigned long start_opd = (Elf64_Addr)mod->core_layout.base +
++				   mod->arch.fdesc_offset;
++	unsigned long end_opd = start_opd +
++				mod->arch.fdesc_count * sizeof(Elf64_Fdesc);
++
++	if (ptr < (void *)start_opd || ptr >= (void *)end_opd)
++		return ptr;
++
++	return dereference_function_descriptor(ptr);
++}
++#endif
+diff --git a/arch/parisc/kernel/process.c b/arch/parisc/kernel/process.c
+index 30f92391a93e..6c4585103a91 100644
+--- a/arch/parisc/kernel/process.c
++++ b/arch/parisc/kernel/process.c
+@@ -276,6 +276,15 @@ void *dereference_function_descriptor(void *ptr)
+ 		ptr = p;
+ 	return ptr;
+ }
++
++void *dereference_kernel_function_descriptor(void *ptr)
++{
++	if (ptr < (void *)__start_opd ||
++			ptr >= (void *)__end_opd)
++		return ptr;
++
++	return dereference_function_descriptor(ptr);
++}
+ #endif
+ 
+ static inline unsigned long brk_rnd(void)
+diff --git a/arch/parisc/kernel/vmlinux.lds.S b/arch/parisc/kernel/vmlinux.lds.S
+index 159a2ec0b4e0..da2e31190efa 100644
+--- a/arch/parisc/kernel/vmlinux.lds.S
++++ b/arch/parisc/kernel/vmlinux.lds.S
+@@ -100,7 +100,9 @@ SECTIONS
+ 	. = ALIGN(16);
+ 	/* Linkage tables */
+ 	.opd : {
++		__start_opd = .;
+ 		*(.opd)
++		__end_opd = .;
+ 	} PROVIDE (__gp = .);
+ 	.plt : {
+ 		*(.plt)
 -- 
 2.15.0
 
