@@ -1,277 +1,115 @@
-From: Waiman Long <longman@redhat.com>
-Date: Wed, 11 Oct 2017 18:02:02 +0000
-Subject: [PATCH v6 11/11] locking/rwsem: Enable count-based spinning on reader
-Message-Id: <1507744922-15196-12-git-send-email-longman@redhat.com>
+From: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
+Date: Thu, 09 Nov 2017 23:48:24 +0000
+Subject: [PATCHv4 0/6] printk/ia64/ppc64/parisc64: let's deprecate %pF/%pf printk specifiers
+Message-Id: <20171109234830.5067-1-sergey.senozhatsky@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1507744922-15196-1-git-send-email-longman@redhat.com>
-In-Reply-To: <1507744922-15196-1-git-send-email-longman@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>
-Cc: linux-kernel@vger.kernel.org, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-arch@vger.kernel.org, Davidlohr Bueso <dave@stgolabs.net>, Dave Chinner <david@fromorbit.com>, Waiman Long <longman@redhat.com>
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Helge Deller <deller@gmx.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, James Bottomley <jejb@parisc-linux.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>, Jessica Yu <jeyu@kernel.org>, Petr Mladek <pmladek@suse.com>, Steven Rostedt <rostedt@goodmis.org>, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org, Sergey Senozhatsky <sergey.senozhatsky@gmail.com>, Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>
 
-When the rwsem is owned by reader, writers stop optimistic spinning
-simply because there is no easy way to figure out if all the readers
-are actively running or not. However, there are scenarios where
-the readers are unlikely to sleep and optimistic spinning can help
-performance.
+	Hello,
 
-This patch provides a simple mechanism for spinning on a reader-owned
-rwsem. It is a loop count threshold based spinning where the count will
-get reset whenenver the the rwsem reader count value changes indicating
-that the rwsem is still active. There is another maximum count value
-that limits that maximum number of spinnings that can happen.
+	A reworked version. There is a new dereference_symbol_descriptor()
+function now, where "the magic happens", so I don't touch kallsyms_lookup()
+and module_address_lookup() anymore.
 
-When the loop or max counts reach 0, a bit will be set in the owner
-field to indicate that no more optimistic spinning should be done on
-this rwsem until it becomes writer owned again.
+	All Ack-s/Tested-by-s were dropped, since the patch set has been
+reworked. I'm kindly asking arch-s maintainers and developers to test it
+once again. Sorry for any inconveniences and thanks for your help in
+advance.
 
-The spinning threshold and maximum values can be overridden by
-architecture specific rwsem.h header file, if necessary. The current
-default threshold value is 512 iterations.
+=====================================
+	On some arches C function pointers are indirect and point to
+a function descriptor, which contains the actual pointer to the code.
+This mostly doesn't matter, except for cases when people want to print
+out function pointers in symbolic format, because the usual '%pS/%ps'
+does not work on those arches as expected. That's the reason why we
+have '%pF/%pf', but since it's here because of a subtle ABI detail
+specific to some arches (ppc64/ia64/parisc64) it's easy to misuse
+'%pF/%pf' and '%pS/%ps' (see [1], for example).
 
-On a 2-socket 40-core x86-64 Gold 6148 system, a rwsem microbenchmark
-was run with 40 locking threads (one/core) doing 10s of equal number
-of reader and writer lock/unlock operations on the same rwsem
-alternatively, the resulting locking total rates on a 4.14 based
-kernel were 927 kop/s and 3218 kop/s without and with the patch
-respectively. That was an increase of about 247%.
+	This patch set attempts to move ia64/ppc64/parisc64 C function
+pointer ABI details out of printk() to arch code. Function dereference
+code now checks if a pointer belongs to a .opd ELF section and dereferences
+that pointer only if it does. The kernel and modules have their own .opd
+sections that's why I use two different ARCH functions: for kernel and
+for module pointer dereference.
 
-Signed-off-by: Waiman Long <longman@redhat.com>
----
- kernel/locking/rwsem-xadd.c | 97 +++++++++++++++++++++++++++++++++++++++------
- kernel/locking/rwsem-xadd.h | 27 +++++++++++++
- 2 files changed, 111 insertions(+), 13 deletions(-)
+	I planned to remove dereference_function_descriptor() entirely,
+but then I discovered a bunch other uses cases (kgdbts, init/main.c,
+extable, etc.), so I decided to keep dereference_function_descriptor()
+around because the main point of this patch set is to deprecate %pF/%pf.
+But at the same time, I think I can go further and handle both kernel
+and module descriptor dereference in dereference_function_descriptor().
+We need a module pointer for module .opd check, so that will come at an
+extra cost of module lookup (may be there will some other issues along
+the way, haven't checked it).
 
-diff --git a/kernel/locking/rwsem-xadd.c b/kernel/locking/rwsem-xadd.c
-index d0f3778..62147a9 100644
---- a/kernel/locking/rwsem-xadd.c
-+++ b/kernel/locking/rwsem-xadd.c
-@@ -90,6 +90,22 @@ enum rwsem_wake_type {
- #define RWSEM_WAIT_TIMEOUT	((HZ - 1)/100 + 1)
- 
- /*
-+ * Reader-owned rwsem spinning threshold and maximum value
-+ *
-+ * This threshold and maximum values can be overridden by architecture
-+ * specific value. The loop count will be reset whenenver the rwsem count
-+ * value changes. The max value constrains the total number of reader-owned
-+ * lock spinnings that can happen.
-+ */
-+#ifdef	ARCH_RWSEM_RSPIN_THRESHOLD
-+# define RWSEM_RSPIN_THRESHOLD	ARCH_RWSEM_RSPIN_THRESHOLD
-+# define RWSEM_RSPIN_MAX	ARCH_RWSEM_RSPIN_MAX
-+#else
-+# define RWSEM_RSPIN_THRESHOLD	(1 << 9)
-+# define RWSEM_RSPIN_MAX	(1 << 12)
-+#endif
-+
-+/*
-  * handle the lock release when processes blocked on it that can now run
-  * - if we come here from up_xxxx(), then:
-  *   - the 'active part' of count (&0x0000ffff) reached 0 (but may have changed)
-@@ -230,8 +246,17 @@ static void __rwsem_mark_wake(struct rw_semaphore *sem,
- #ifdef CONFIG_RWSEM_SPIN_ON_OWNER
- /*
-  * Try to acquire read lock before the reader is put on wait queue.
-+ *
-+ * To avoid writer starvation, it cannot acquire the lock if the reader
-+ * count isn't 0 and there is a timestamp mismatch. In this case, the
-+ * reader has to stop spinning.
-+ *
-+ * This will at least allow the reader count to go to 0 and wake up the
-+ * first one in the wait queue which can initiate the handoff protocol,
-+ * if necessary.
-  */
--static inline bool rwsem_try_read_lock_unqueued(struct rw_semaphore *sem)
-+static inline bool rwsem_try_read_lock_unqueued(struct rw_semaphore *sem,
-+						bool *stop_spin)
- {
- 	int count = atomic_read(&sem->count);
- 
-@@ -240,11 +265,21 @@ static inline bool rwsem_try_read_lock_unqueued(struct rw_semaphore *sem)
- 
- 	count = atomic_fetch_add_acquire(RWSEM_READER_BIAS, &sem->count);
- 	if (!(count & (RWSEM_FLAG_HANDOFF|RWSEM_WRITER_LOCKED))) {
--		if (!(count >> RWSEM_READER_SHIFT))
-+		if (!(count >> RWSEM_READER_SHIFT)) {
- 			rwsem_set_reader_owned(sem);
-+		} else {
-+			struct task_struct *owner = READ_ONCE(sem->owner);
-+
-+			if (rwsem_owner_is_reader(owner) &&
-+			   !rwsem_owner_timestamp_match(owner)) {
-+				*stop_spin = true;
-+				goto backout;
-+			}
-+		}
- 		return true;
- 	}
- 
-+backout:
- 	/* Back out the change */
- 	atomic_add(-RWSEM_READER_BIAS, &sem->count);
- 	return false;
-@@ -272,7 +307,8 @@ static inline bool rwsem_try_write_lock_unqueued(struct rw_semaphore *sem)
- 	}
- }
- 
--static inline bool rwsem_can_spin_on_owner(struct rw_semaphore *sem)
-+static inline bool rwsem_can_spin_on_owner(struct rw_semaphore *sem,
-+					   bool reader)
- {
- 	struct task_struct *owner;
- 	bool ret = true;
-@@ -284,9 +320,9 @@ static inline bool rwsem_can_spin_on_owner(struct rw_semaphore *sem)
- 	owner = READ_ONCE(sem->owner);
- 	if (!rwsem_owner_is_writer(owner)) {
- 		/*
--		 * Don't spin if the rwsem is readers owned.
-+		 * Don't spin if the rspin disable bit is set for writer.
- 		 */
--		ret = !rwsem_owner_is_reader(owner);
-+		ret = reader || !rwsem_owner_is_spin_disabled(owner);
- 		goto done;
- 	}
- 
-@@ -349,6 +385,11 @@ static noinline int rwsem_spin_on_owner(struct rw_semaphore *sem)
- rwsem_optimistic_spin(struct rw_semaphore *sem, enum rwsem_waiter_type type)
- {
- 	bool taken = false;
-+	bool stop_spin = false;
-+	int owner_state;	/* Lock owner state */
-+	int rspin_cnt = RWSEM_RSPIN_THRESHOLD;
-+	int rspin_max = RWSEM_RSPIN_MAX;
-+	int old_count = 0;
- 
- 	preempt_disable();
- 
-@@ -356,25 +397,55 @@ static noinline int rwsem_spin_on_owner(struct rw_semaphore *sem)
- 	if (!osq_lock(&sem->osq))
- 		goto done;
- 
-+	if (rwsem_is_spin_disabled(sem))
-+		rspin_cnt = 0;
-+
- 	/*
- 	 * Optimistically spin on the owner field and attempt to acquire the
- 	 * lock whenever the owner changes. Spinning will be stopped when:
--	 *  1) the owning writer isn't running; or
--	 *  2) readers own the lock as we can't determine if they are
--	 *     actively running or not.
-+	 *  1) the owning writer isn't running;
-+	 *  2) writer: readers own the lock and spinning count has reached 0;
-+	 *  3) reader: timestamp mismatch.
- 	 */
--	while (rwsem_spin_on_owner(sem) > 0) {
-+	while ((owner_state = rwsem_spin_on_owner(sem)) >= 0) {
- 		/*
- 		 * Try to acquire the lock
- 		 */
- 		taken = (type = RWSEM_WAITING_FOR_WRITE)
- 		      ? rwsem_try_write_lock_unqueued(sem)
--		      : rwsem_try_read_lock_unqueued(sem);
-+		      : rwsem_try_read_lock_unqueued(sem, &stop_spin);
- 
--		if (taken)
-+		if (taken || stop_spin)
- 			break;
- 
- 		/*
-+		 * We only decremnt the rspin_cnt when the lock is owned
-+		 * by readers (owner_state = 0). In which case,
-+		 * rwsem_spin_on_owner() will essentially be a no-op
-+		 * and we will be spinning in this main loop. The spinning
-+		 * count will be reset whenever the rwsem count value
-+		 * changes.
-+		 */
-+		if (!owner_state) {
-+			int count;
-+
-+			if (!rspin_cnt || !rspin_max) {
-+				if (!rwsem_is_spin_disabled(sem))
-+					rwsem_set_spin_disabled(sem);
-+				break;
-+			}
-+
-+			count = atomic_read(&sem->count) >> RWSEM_READER_SHIFT;
-+			if (count != old_count) {
-+				old_count = count;
-+				rspin_cnt = RWSEM_RSPIN_THRESHOLD;
-+			} else {
-+				rspin_cnt--;
-+			}
-+			rspin_max--;
-+		}
-+
-+		/*
- 		 * When there's no owner, we might have preempted between the
- 		 * owner acquiring the lock and setting the owner field. If
- 		 * we're an RT task that will live-lock because we won't let
-@@ -474,7 +545,7 @@ static inline bool rwsem_has_spinner(struct rw_semaphore *sem)
- 	 * 1) Optimistic spinners are present; or
- 	 * 2) optimistic spinning is allowed.
- 	 */
--	can_spin = rwsem_can_spin_on_owner(sem);
-+	can_spin = rwsem_can_spin_on_owner(sem, true);
- 	if (can_spin || rwsem_has_spinner(sem)) {
- 		atomic_add(-RWSEM_READER_BIAS, &sem->count);
- 		adjustment = 0;
-@@ -570,7 +641,7 @@ static inline bool rwsem_has_spinner(struct rw_semaphore *sem)
- 	DEFINE_WAKE_Q(wake_q);
- 
- 	/* do optimistic spinning and steal lock if possible */
--	if (rwsem_can_spin_on_owner(sem) &&
-+	if (rwsem_can_spin_on_owner(sem, false) &&
- 	    rwsem_optimistic_spin(sem, RWSEM_WAITING_FOR_WRITE))
- 		return sem;
- 
-diff --git a/kernel/locking/rwsem-xadd.h b/kernel/locking/rwsem-xadd.h
-index bf47d4a..6b60aac 100644
---- a/kernel/locking/rwsem-xadd.h
-+++ b/kernel/locking/rwsem-xadd.h
-@@ -27,6 +27,7 @@
-  *     - a writer owns the lock
-  */
- #define RWSEM_READER_OWNED		(1UL)
-+#define RWSEM_SPIN_DISABLED		(2UL)
- #define RWSEM_READER_TIMESTAMP_SHIFT	8
- #define RWSEM_READER_TIMESTAMP_MASK	\
- 	~((1UL << RWSEM_READER_TIMESTAMP_SHIFT) - 1)
-@@ -81,6 +82,32 @@ static inline bool rwsem_is_reader_owned(struct rw_semaphore *sem)
- {
- 	return rwsem_owner_is_reader(READ_ONCE(sem->owner));
- }
-+
-+static inline bool rwsem_owner_is_spin_disabled(struct task_struct *owner)
-+{
-+	return (unsigned long)owner & RWSEM_SPIN_DISABLED;
-+}
-+
-+/*
-+ * Try to set an optimistic spinning disable bit while it is reader-owned.
-+ */
-+static inline void rwsem_set_spin_disabled(struct rw_semaphore *sem)
-+{
-+	struct task_struct *owner = READ_ONCE(sem->owner);
-+
-+	/*
-+	 * Failure in cmpxchg() will be ignored, and the caller is expected
-+	 * to retry later.
-+	 */
-+	if (rwsem_owner_is_reader(owner))
-+		cmpxchg(&sem->owner, owner,
-+			(void *)((unsigned long)owner|RWSEM_SPIN_DISABLED));
-+}
-+
-+static inline bool rwsem_is_spin_disabled(struct rw_semaphore *sem)
-+{
-+	return rwsem_owner_is_spin_disabled(READ_ONCE(sem->owner));
-+}
- #else
- static inline void rwsem_set_owner(struct rw_semaphore *sem)
- {
+Right now we've got:
+
+- dereference_function_descriptor(addr)
+        a generic (old) function. it simply attempts to dereference
+        whatever pointer we give it.
+
+- dereference_kernel_function_descriptor(addr)
+        dereferences a kernel pointer if it's within the kernel's .opd
+        section.
+
+- dereference_module_function_descriptor(module, addr)
+        dereference a module pointer if it's within the module's .opd
+        section.
+
+v4:
+-- don't switch to ulong in derefence functions, keep using void pointer
+-- introduce dereference_symbol_descriptor() function
+-- avoid any dereference in kallsyms lookup/module address lookup
+-- improved documentation
+-- since this is a new version, I dropped all the the Ack-s and Tested-by-s
+
+v3:
+-- picked up ACKs and Tested-by
+-- tweaked checkpatch warning (Joe)
+-- updated Documentation
+
+v2:
+-- convert dereference_function_descriptor() to unsigned long
+-- fix kernel descriptor range checks (Helge)
+-- fix parisc module descriptor range check (Helge)
+-- fix ppc64 module range check
+-- add checkpatch patch
+
+Sergey Senozhatsky (6):
+  sections: split dereference_function_descriptor()
+  ia64: Add .opd based function descriptor dereference
+  powerpc64: Add .opd based function descriptor dereference
+  parisc64: Add .opd based function descriptor dereference
+  symbol lookup: introduce dereference_symbol_descriptor()
+  checkpatch: add pF/pf deprecation warning
+
+ Documentation/printk-formats.txt          | 49 ++++++++++++-------------------
+ arch/ia64/include/asm/sections.h          | 10 ++++++-
+ arch/ia64/kernel/module.c                 | 12 ++++++++
+ arch/ia64/kernel/vmlinux.lds.S            |  2 ++
+ arch/parisc/boot/compressed/vmlinux.lds.S |  2 ++
+ arch/parisc/include/asm/sections.h        |  6 ++++
+ arch/parisc/kernel/module.c               | 16 ++++++++++
+ arch/parisc/kernel/process.c              |  9 ++++++
+ arch/parisc/kernel/vmlinux.lds.S          |  2 ++
+ arch/powerpc/include/asm/module.h         |  3 ++
+ arch/powerpc/include/asm/sections.h       | 12 ++++++++
+ arch/powerpc/kernel/module_64.c           | 14 +++++++++
+ arch/powerpc/kernel/vmlinux.lds.S         |  2 ++
+ include/asm-generic/sections.h            |  8 +++--
+ include/linux/kallsyms.h                  |  2 ++
+ include/linux/module.h                    |  3 ++
+ kernel/kallsyms.c                         | 19 ++++++++++++
+ kernel/module.c                           |  6 ++++
+ lib/vsprintf.c                            |  5 ++--
+ scripts/checkpatch.pl                     | 11 +++++--
+ 20 files changed, 155 insertions(+), 38 deletions(-)
+
 -- 
-1.8.3.1
+2.15.0
 
