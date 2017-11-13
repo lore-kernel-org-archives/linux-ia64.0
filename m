@@ -1,49 +1,36 @@
-From: " M,Shakour Rosarita" <hassanamira04@gmail.com>
-Date: Wed, 15 Nov 2017 11:34:29 +0000
-Subject: Hello Dear...
-Message-Id: <CADmkupg0xBAVBPJTQH6kqm2O55RzkF38J1GMSnoSxuHD5rDUDg@mail.gmail.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Mon, 13 Nov 2017 17:45:12 +0000
+Subject: [GIT PULL] ia64 for v4.15
+Message-Id: <20171113174503.meab66wclsmqrkdz@agluck-desk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <CAMyxZDE63FQAQ=JTZN_2Ks1T4PC7+RQ2oo6+S3vs4Q0Mp-K2iQ@mail.gmail.com>
-In-Reply-To: <CAMyxZDE63FQAQ=JTZN_2Ks1T4PC7+RQ2oo6+S3vs4Q0Mp-K2iQ@mail.gmail.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
-To: 
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-ia64@vger.kernel.org
 
-Hello Dear...
+The following changes since commit 0b07194bb55ed836c2cc7c22e866b87a14681984:
 
-I know that this message will come to you as a surprise. I hoped that
-you will not expose or betray this trust and confident that I am about
-to repose on you, my name is M, Shakour Rosarita. I am 19 years old
-Girl, female, from Tartu Syria, (never married) 61 kg, white in
-complexion, and I am currently living in the refugee camp here in
-Abidjan Ivory Coast, My late beloved father M,Shakour Hassin was a
-renowned businessman and owner of Natour Petrol Station in Syria, he
-was killed in a stampede riot in Tartu, Syria.
-When I got the news about my parents. I fled to a nearby country
-Jordan before I joined a ferry to Africa and came to Abidjan capital
-city Ivory Coast West Africa find safety here.
-I came in 2015 to Abidjan and I now live in refugee camps here as
-refugees are allowed freely to enter here without, My late father
-deposited (US$6.200.000.00m) My late father kept the money at the bank
-of Africa, I want you to help me transfer the money to your hand so
-that you will help me bring me into your country for my continue
-education.
+  Linux 4.14-rc7 (2017-10-29 13:58:38 -0700)
 
-I sent my pictures here for you to see. Who I am seriously looking for
-a good-person in my life, so I want to hear from you soon and learn
-more about you.
+are available in the git repository at:
 
-I am an open-minded and friendly girl to share a good time with you
-and have fun and enjoy on the go, bird watching, the rest of our
-lives. My Hobbies, tourism books, dance, music, soccer, tennis,
-swimming and cinema.
-I would just think about you, including your dose and doesn=E2=80=99t .I
-believe we will do well together, and live like one family.
-Thank you and God bless you, for you in your promise to help me here,
-looking forward to your reply by the grace of God and have a good day.
-I hope you send me your photos as well? I await your next reply in
-faith please reply through my private email at
-(mshakourrosarita22@gmail.com):
-Thanks.
-Ms Rosarita
+  git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git tags/please-pull-gettime_vsyscall_update
+
+for you to fetch changes up to d4d1fc61eb38ff8e5af657e2d2f2290859a277f2:
+
+  ia64: Update fsyscall gettime to use modern vsyscall_update (2017-10-31 10:58:36 -0700)
+
+----------------------------------------------------------------
+Stop ia64 being the last holdout using GENERIC_TIME_VSYSCALL_OLD
+so John Stultz can drop that code.
+
+----------------------------------------------------------------
+Tony Luck (1):
+      ia64: Update fsyscall gettime to use modern vsyscall_update
+
+ arch/ia64/Kconfig                     |  2 +-
+ arch/ia64/kernel/asm-offsets.c        |  2 ++
+ arch/ia64/kernel/fsys.S               |  8 +++----
+ arch/ia64/kernel/fsyscall_gtod_data.h | 10 +++++++--
+ arch/ia64/kernel/time.c               | 40 ++++++++++++++++++-----------------
+ 5 files changed, 36 insertions(+), 26 deletions(-)
