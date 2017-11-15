@@ -1,12 +1,14 @@
-From: "M,Shakour Rosarita" <hassantara789@gmail.com>
-Date: Mon, 13 Nov 2017 12:08:18 +0000
+From: " M,Shakour Rosarita" <hassanamira04@gmail.com>
+Date: Wed, 15 Nov 2017 11:34:29 +0000
 Subject: Hello Dear...
-Message-Id: <CAMyxZDE63FQAQ=JTZN_2Ks1T4PC7+RQ2oo6+S3vs4Q0Mp-K2iQ@mail.gmail.com>
+Message-Id: <CADmkupg0xBAVBPJTQH6kqm2O55RzkF38J1GMSnoSxuHD5rDUDg@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <CAMyxZDE63FQAQ=JTZN_2Ks1T4PC7+RQ2oo6+S3vs4Q0Mp-K2iQ@mail.gmail.com>
+In-Reply-To: <CAMyxZDE63FQAQ=JTZN_2Ks1T4PC7+RQ2oo6+S3vs4Q0Mp-K2iQ@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: quoted-printable
-To: linux-ia64@vger.kernel.org
+To: 
 
 Hello Dear...
 
