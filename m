@@ -1,41 +1,58 @@
-From: Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>
-Date: Wed, 29 Nov 2017 07:24:58 +0000
-Subject: Re: [PATCHv4 0/6] printk/ia64/ppc64/parisc64: let's deprecate %pF/%pf printk specifiers
-Message-Id: <20171129072458.GA468@jagdpanzerIV>
+From: Ganapatrao Kulkarni <ganapatrao.kulkarni@cavium.com>
+Date: Wed, 15 Nov 2017 17:41:02 +0000
+Subject: [PATCH] acpi, numa, ia64: Parse all entries of SRAT memory affinity table
+Message-Id: <20171115172902.20083-1-ganapatrao.kulkarni@cavium.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20171109234830.5067-1-sergey.senozhatsky@gmail.com>
- <20171128154710.ytqixlioc3hrcbl3@pathway.suse.cz>
-In-Reply-To: <20171128154710.ytqixlioc3hrcbl3@pathway.suse.cz>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Petr Mladek <pmladek@suse.com>
-Cc: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Helge Deller <deller@gmx.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, James Bottomley <jejb@parisc-linux.org>, Andrew Morton <akpm@linux-foundation.org>, Jessica Yu <jeyu@kernel.org>, Steven Rostedt <rostedt@goodmis.org>, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org, Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>
+To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-acpi@vger.kernel.org
+Cc: fenghua.yu@intel.com, tony.luck@intel.com, rjw@rjwysocki.net, lenb@kernel.org, guohanjun@huawei.com, jnair@caviumnetworks.com, gpkulkarni@gmail.com, Robert.Richter@cavium.com
 
-On (11/28/17 16:47), Petr Mladek wrote:
-> On Fri 2017-11-10 08:48:24, Sergey Senozhatsky wrote:
-> > 	Hello,
-> > 
-> > 	A reworked version. There is a new dereference_symbol_descriptor()
-> > function now, where "the magic happens", so I don't touch kallsyms_lookup()
-> > and module_address_lookup() anymore.
-> 
-> The new version looks good to me. Thanks a lot for reworking it.
-> I feel much better now. For the whole series:
-> 
-> Reviewed-by: Petr Mladek <pmladek@suse.com>
-> 
-> > 	All Ack-s/Tested-by-s were dropped, since the patch set has been
-> > reworked. I'm kindly asking arch-s maintainers and developers to test it
-> > once again. Sorry for any inconveniences and thanks for your help in
-> > advance.
-> 
-> I see that it was tested on all affected architectures. Thanks a lot
-> all testers.
-> 
-> It seems that we are ready to go. I am going to push this into
-> for-4.16 branch in printk.git.
+In current implementation, SRAT Memory Affinity Structure table
+parsing is restricted to number of maximum memblocks allowed
+(NR_NODE_MEMBLKS). However NR_NODE_MEMBLKS is defined individually as
+per architecture requirements. Hence removing the restriction of
+SRAT Memory Affinity Structure parsing in acpi driver code and
+let architecture code check for allowed memblocks count.
+This check is already added in x86 and extending same to ia64.
 
-thanks.
+Signed-off-by: Ganapatrao Kulkarni <ganapatrao.kulkarni@cavium.com>
+---
+ arch/ia64/kernel/acpi.c | 5 +++++
+ drivers/acpi/numa.c     | 3 +--
+ 2 files changed, 6 insertions(+), 2 deletions(-)
 
-	-ss
+diff --git a/arch/ia64/kernel/acpi.c b/arch/ia64/kernel/acpi.c
+index 1d29b2f..1dacbf5 100644
+--- a/arch/ia64/kernel/acpi.c
++++ b/arch/ia64/kernel/acpi.c
+@@ -504,6 +504,11 @@ acpi_numa_memory_affinity_init(struct acpi_srat_mem_affinity *ma)
+ 	if (!(ma->flags & ACPI_SRAT_MEM_ENABLED))
+ 		return -1;
+ 
++	if (num_node_memblks >= NR_NODE_MEMBLKS) {
++		pr_err("NUMA: too many memblk ranges\n");
++		return -EINVAL;
++	}
++
+ 	/* record this node in proximity bitmap */
+ 	pxm_bit_set(pxm);
+ 
+diff --git a/drivers/acpi/numa.c b/drivers/acpi/numa.c
+index 917f1cc..8ccaae3 100644
+--- a/drivers/acpi/numa.c
++++ b/drivers/acpi/numa.c
+@@ -460,8 +460,7 @@ int __init acpi_numa_init(void)
+ 					srat_proc, ARRAY_SIZE(srat_proc), 0);
+ 
+ 		cnt = acpi_table_parse_srat(ACPI_SRAT_TYPE_MEMORY_AFFINITY,
+-					    acpi_parse_memory_affinity,
+-					    NR_NODE_MEMBLKS);
++					    acpi_parse_memory_affinity, 0);
+ 	}
+ 
+ 	/* SLIT: System Locality Information Table */
+-- 
+2.9.4
+
