@@ -1,27 +1,41 @@
-From: Julian Calaby <julian.calaby@gmail.com>
-Date: Fri, 29 Dec 2017 10:11:56 +0000
-Subject: Re: [PATCH 17/67] microblaze: rename dma_direct to dma_microblaze
-Message-Id: <CAGRGNgW1qwLcCAvU2Jc=3_7b-0Bu016to3cQUgVsc+ca0No_6g@mail.gmail.com>
+From: "Rafael J. Wysocki" <rjw@rjwysocki.net>
+Date: Mon, 04 Dec 2017 14:46:58 +0000
+Subject: Re: [PATCH] acpi, numa, ia64: Parse all entries of SRAT memory affinity table
+Message-Id: <7029225.zYlq9pRjNx@aspire.rjw.lan>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20171229081911.2802-1-hch@lst.de> <20171229081911.2802-18-hch@lst.de>
-In-Reply-To: <20171229081911.2802-18-hch@lst.de>
+References: <20171115172902.20083-1-ganapatrao.kulkarni@cavium.com> <CAJZ5v0in=eK9RT5ODGYp8FEggCOKeRdxKdD3JkiAoxqTuveuWA@mail.gmail.com> <CAKTKpr4n2154Ep1541mjzFntyWxVtMWvxJf87UYQT-1XP37CZA@mail.gmail.com>
+In-Reply-To: <CAKTKpr4n2154Ep1541mjzFntyWxVtMWvxJf87UYQT-1XP37CZA@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch@lst.de>
-Cc: iommu@lists.linux-foundation.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, "Mailing List, Arm" <linux-arm-kernel@lists.infradead.org>, adi-buildroot-devel@lists.sourceforge.net, linux-c6x-dev@linux-c6x.org, linux-cris-kernel@axis.com, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-metag@vger.kernel.org, Michal Simek <monstr@monstr.eu>, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, patches@groups.riscv.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux <sparclinux@vger.kernel.org>, Guan Xuetao <gxt@mprc.pku.edu.cn>, x86@kernel.org, linux-arch@vger.kernel.org, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Ganapatrao Kulkarni <gklkml16@gmail.com>
+Cc: "Rafael J. Wysocki" <rafael@kernel.org>, "Luck, Tony" <tony.luck@intel.com>, Ganapatrao Kulkarni <ganapatrao.kulkarni@cavium.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>, "Yu, Fenghua" <fenghua.yu@intel.com>, "lenb@kernel.org" <lenb@kernel.org>, "guohanjun@huawei.com" <guohanjun@huawei.com>, "jnair@caviumnetworks.com" <jnair@caviumnetworks.com>, "gpkulkarni@gmail.com" <gpkulkarni@gmail.com>, "Robert.Richter@cavium.com" <Robert.Richter@cavium.com>
 
-Hi Christoph,
+On Tuesday, November 21, 2017 6:10:53 PM CET Ganapatrao Kulkarni wrote:
+> On Tue, Nov 21, 2017 at 6:22 PM, Rafael J. Wysocki <rafael@kernel.org> wrote:
+> > On Tue, Nov 21, 2017 at 5:16 AM, Ganapatrao Kulkarni <gklkml16@gmail.com> wrote:
+> >> On Thu, Nov 16, 2017 at 12:16 AM, Luck, Tony <tony.luck@intel.com> wrote:
+> >>>> This check is already added in x86 and extending same to ia64.
+> >>>
+> >>> Looks OK.
+> >>>
+> >>> Acked-by: Tony Luck <tony.luck@intel.com>
+> >>
+> >> thanks Tony.
+> >>
+> >> ACPI Maintainers,
+> >> any comments on this patch? i can send rebasing to 4.15-rc1?
+> >
+> > I've queued it up already.
+> 
+> thanks Rafael.
+> >
+> > Is there any urgent need for that to go into 4.15?
+> 
+> not really.
 
-On Fri, Dec 29, 2017 at 7:18 PM, Christoph Hellwig <hch@lst.de> wrote:
-> This frees the dma_direct_* namespace for a generic implementation.
-
-Don't you mean "dma_nommu" not "dma_microblaze" in the subject line?
+OK, applied and queued up for 4.16.
 
 Thanks,
+Rafael
 
--- 
-Julian Calaby
-
-Email: julian.calaby@gmail.com
-Profile: http://www.google.com/profiles/julian.calaby/
