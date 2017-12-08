@@ -1,212 +1,142 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Fri, 29 Dec 2017 08:18:26 +0000
-Subject: [PATCH 22/67] dma-mapping: clear harmful GFP_* flags in common code
-Message-Id: <20171229081911.2802-23-hch@lst.de>
+From: David Howells <dhowells@redhat.com>
+Date: Fri, 08 Dec 2017 15:51:51 +0000
+Subject: [PATCH 4/5] Expand the INIT_SIGNALS and INIT_SIGHAND macros and remove
+Message-Id: <151274831156.9961.11214505146256879075.stgit@warthog.procyon.org.uk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20171229081911.2802-1-hch@lst.de>
-In-Reply-To: <20171229081911.2802-1-hch@lst.de>
+References: <151274828194.9961.4230316917108602662.stgit@warthog.procyon.org.uk>
+In-Reply-To: <151274828194.9961.4230316917108602662.stgit@warthog.procyon.org.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: iommu@lists.linux-foundation.org
-Cc: linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, adi-buildroot-devel@lists.sourceforge.net, linux-c6x-dev@linux-c6x.org, linux-cris-kernel@axis.com, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-metag@vger.kernel.org, Michal Simek <monstr@monstr.eu>, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, patches@groups.riscv.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, Guan Xuetao <gxt@mprc.pku.edu.cn>, x86@kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-arch@vger.kernel.org, x86@kernel.org, linux-ia64@vger.kernel.org
+Cc: dhowells@redhat.com, torvalds@linux-foundation.org, linux-kernel@vger.kernel.org
 
-Life the code from x86 so that we behave consistently.  In the future we
-should probably warn if any of these is set.
+There doesn't seem to be any need to have the INIT_SIGNALS and INIT_SIGHAND
+macros, so expand them in their single places of use and remove them.
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+Signed-off-by: David Howells <dhowells@redhat.com>
 ---
- arch/cris/arch-v32/drivers/pci/dma.c      | 3 ---
- arch/h8300/kernel/dma.c                   | 3 ---
- arch/m68k/kernel/dma.c                    | 2 --
- arch/mips/cavium-octeon/dma-octeon.c      | 3 ---
- arch/mips/loongson64/common/dma-swiotlb.c | 3 ---
- arch/mips/mm/dma-default.c                | 3 ---
- arch/mips/netlogic/common/nlm-dma.c       | 3 ---
- arch/mn10300/mm/dma-alloc.c               | 3 ---
- arch/nios2/mm/dma-mapping.c               | 3 ---
- arch/powerpc/kernel/dma.c                 | 3 ---
- arch/x86/kernel/pci-dma.c                 | 2 --
- include/linux/dma-mapping.h               | 7 +++++++
- 12 files changed, 7 insertions(+), 31 deletions(-)
 
-diff --git a/arch/cris/arch-v32/drivers/pci/dma.c b/arch/cris/arch-v32/drivers/pci/dma.c
-index aa16ce27e036..c7e3056885d3 100644
---- a/arch/cris/arch-v32/drivers/pci/dma.c
-+++ b/arch/cris/arch-v32/drivers/pci/dma.c
-@@ -22,9 +22,6 @@ static void *v32_dma_alloc(struct device *dev, size_t size,
- {
- 	void *ret;
+ include/linux/init_task.h |   43 ++++---------------------------------------
+ init/init_task.c          |   30 ++++++++++++++++++++++++++++--
+ 2 files changed, 32 insertions(+), 41 deletions(-)
+
+diff --git a/include/linux/init_task.h b/include/linux/init_task.h
+index b1385e1dca63..5b5f41328115 100644
+--- a/include/linux/init_task.h
++++ b/include/linux/init_task.h
+@@ -23,6 +23,9 @@
  
--	/* ignore region specifiers */
--	gfp &= ~(__GFP_DMA | __GFP_HIGHMEM);
+ extern struct files_struct init_files;
+ extern struct fs_struct init_fs;
++extern struct nsproxy init_nsproxy;
++extern struct group_info init_groups;
++extern struct cred init_cred;
+ 
+ #ifndef CONFIG_VIRT_CPU_ACCOUNTING_NATIVE
+ #define INIT_PREV_CPUTIME(x)	.prev_cputime = {			\
+@@ -33,52 +36,16 @@ extern struct fs_struct init_fs;
+ #endif
+ 
+ #ifdef CONFIG_POSIX_TIMERS
+-#define INIT_POSIX_TIMERS(s)						\
+-	.posix_timers = LIST_HEAD_INIT(s.posix_timers),
+ #define INIT_CPU_TIMERS(s)						\
+ 	.cpu_timers = {							\
+ 		LIST_HEAD_INIT(s.cpu_timers[0]),			\
+ 		LIST_HEAD_INIT(s.cpu_timers[1]),			\
+-		LIST_HEAD_INIT(s.cpu_timers[2]),								\
+-	},
+-#define INIT_CPUTIMER(s)						\
+-	.cputimer	= { 						\
+-		.cputime_atomic	= INIT_CPUTIME_ATOMIC,			\
+-		.running	= false,				\
+-		.checking_timer = false,				\
++		LIST_HEAD_INIT(s.cpu_timers[2]),			\
+ 	},
+ #else
+-#define INIT_POSIX_TIMERS(s)
+ #define INIT_CPU_TIMERS(s)
+-#define INIT_CPUTIMER(s)
+ #endif
+ 
+-#define INIT_SIGNALS(sig) {						\
+-	.nr_threads	= 1,						\
+-	.thread_head	= LIST_HEAD_INIT(init_task.thread_node),	\
+-	.wait_chldexit	= __WAIT_QUEUE_HEAD_INITIALIZER(sig.wait_chldexit),\
+-	.shared_pending	= { 						\
+-		.list = LIST_HEAD_INIT(sig.shared_pending.list),	\
+-		.signal =  {{0}}},					\
+-	INIT_POSIX_TIMERS(sig)						\
+-	INIT_CPU_TIMERS(sig)						\
+-	.rlim		= INIT_RLIMITS,					\
+-	INIT_CPUTIMER(sig)						\
+-	INIT_PREV_CPUTIME(sig)						\
+-	.cred_guard_mutex =						\
+-		 __MUTEX_INITIALIZER(sig.cred_guard_mutex),		\
+-}
 -
- 	if (dev = NULL || (dev->coherent_dma_mask < 0xffffffff))
- 		gfp |= GFP_DMA;
- 
-diff --git a/arch/h8300/kernel/dma.c b/arch/h8300/kernel/dma.c
-index 0e92214310c4..4e27b74df973 100644
---- a/arch/h8300/kernel/dma.c
-+++ b/arch/h8300/kernel/dma.c
-@@ -16,9 +16,6 @@ static void *dma_alloc(struct device *dev, size_t size,
- {
- 	void *ret;
- 
--	/* ignore region specifiers */
--	gfp &= ~(__GFP_DMA | __GFP_HIGHMEM);
+-extern struct nsproxy init_nsproxy;
 -
- 	if (dev = NULL || (*dev->dma_mask < 0xffffffff))
- 		gfp |= GFP_DMA;
- 	ret = (void *)__get_free_pages(gfp, get_order(size));
-diff --git a/arch/m68k/kernel/dma.c b/arch/m68k/kernel/dma.c
-index e0167418072b..2f3492e8295c 100644
---- a/arch/m68k/kernel/dma.c
-+++ b/arch/m68k/kernel/dma.c
-@@ -76,8 +76,6 @@ static void *m68k_dma_alloc(struct device *dev, size_t size,
- 		dma_addr_t *dma_handle, gfp_t gfp, unsigned long attrs)
- {
- 	void *ret;
--	/* ignore region specifiers */
--	gfp &= ~(__GFP_DMA | __GFP_HIGHMEM);
- 
- 	if (dev = NULL || (*dev->dma_mask < 0xffffffff))
- 		gfp |= GFP_DMA;
-diff --git a/arch/mips/cavium-octeon/dma-octeon.c b/arch/mips/cavium-octeon/dma-octeon.c
-index c64bd87f0b6e..5baf79fce643 100644
---- a/arch/mips/cavium-octeon/dma-octeon.c
-+++ b/arch/mips/cavium-octeon/dma-octeon.c
-@@ -161,9 +161,6 @@ static void *octeon_dma_alloc_coherent(struct device *dev, size_t size,
- {
- 	void *ret;
- 
--	/* ignore region specifiers */
--	gfp &= ~(__GFP_DMA | __GFP_DMA32 | __GFP_HIGHMEM);
+-#define INIT_SIGHAND(sighand) {						\
+-	.count		= ATOMIC_INIT(1), 				\
+-	.action		= { { { .sa_handler = SIG_DFL, } }, },		\
+-	.siglock	= __SPIN_LOCK_UNLOCKED(sighand.siglock),	\
+-	.signalfd_wqh	= __WAIT_QUEUE_HEAD_INITIALIZER(sighand.signalfd_wqh),	\
+-}
 -
- 	if (IS_ENABLED(CONFIG_ZONE_DMA) && dev = NULL)
- 		gfp |= __GFP_DMA;
- 	else if (IS_ENABLED(CONFIG_ZONE_DMA) &&
-diff --git a/arch/mips/loongson64/common/dma-swiotlb.c b/arch/mips/loongson64/common/dma-swiotlb.c
-index ef07740cee61..15388c24a504 100644
---- a/arch/mips/loongson64/common/dma-swiotlb.c
-+++ b/arch/mips/loongson64/common/dma-swiotlb.c
-@@ -15,9 +15,6 @@ static void *loongson_dma_alloc_coherent(struct device *dev, size_t size,
- {
- 	void *ret;
+-extern struct group_info init_groups;
  
--	/* ignore region specifiers */
--	gfp &= ~(__GFP_DMA | __GFP_DMA32 | __GFP_HIGHMEM);
+ #define INIT_STRUCT_PID {						\
+ 	.count 		= ATOMIC_INIT(1),				\
+@@ -103,8 +70,6 @@ extern struct group_info init_groups;
+ 	.pid = &init_struct_pid,				\
+ }
+ 
+-extern struct cred init_cred;
 -
- 	if ((IS_ENABLED(CONFIG_ISA) && dev = NULL) ||
- 	    (IS_ENABLED(CONFIG_ZONE_DMA) &&
- 	     dev->coherent_dma_mask < DMA_BIT_MASK(32)))
-diff --git a/arch/mips/mm/dma-default.c b/arch/mips/mm/dma-default.c
-index 3cd93e0c7a29..6f6b1399e98e 100644
---- a/arch/mips/mm/dma-default.c
-+++ b/arch/mips/mm/dma-default.c
-@@ -93,9 +93,6 @@ static gfp_t massage_gfp_flags(const struct device *dev, gfp_t gfp)
- {
- 	gfp_t dma_flag;
+ #define INIT_TASK_COMM "swapper"
  
--	/* ignore region specifiers */
--	gfp &= ~(__GFP_DMA | __GFP_DMA32 | __GFP_HIGHMEM);
--
- #ifdef CONFIG_ISA
- 	if (dev = NULL)
- 		dma_flag = __GFP_DMA;
-diff --git a/arch/mips/netlogic/common/nlm-dma.c b/arch/mips/netlogic/common/nlm-dma.c
-index 0ec9d9da6d51..49c975b6aa28 100644
---- a/arch/mips/netlogic/common/nlm-dma.c
-+++ b/arch/mips/netlogic/common/nlm-dma.c
-@@ -47,9 +47,6 @@ static char *nlm_swiotlb;
- static void *nlm_dma_alloc_coherent(struct device *dev, size_t size,
- 	dma_addr_t *dma_handle, gfp_t gfp, unsigned long attrs)
- {
--	/* ignore region specifiers */
--	gfp &= ~(__GFP_DMA | __GFP_DMA32 | __GFP_HIGHMEM);
--
- #ifdef CONFIG_ZONE_DMA32
- 	if (dev->coherent_dma_mask <= DMA_BIT_MASK(32))
- 		gfp |= __GFP_DMA32;
-diff --git a/arch/mn10300/mm/dma-alloc.c b/arch/mn10300/mm/dma-alloc.c
-index 55876a87c247..2629f1f4b04e 100644
---- a/arch/mn10300/mm/dma-alloc.c
-+++ b/arch/mn10300/mm/dma-alloc.c
-@@ -37,9 +37,6 @@ static void *mn10300_dma_alloc(struct device *dev, size_t size,
- 		goto done;
- 	}
+ /* Attach to the init_task data structure for proper alignment */
+diff --git a/init/init_task.c b/init/init_task.c
+index aa4030a939e5..3ac6e754cf64 100644
+--- a/init/init_task.c
++++ b/init/init_task.c
+@@ -13,8 +13,34 @@
+ #include <asm/pgtable.h>
+ #include <linux/uaccess.h>
  
--	/* ignore region specifiers */
--	gfp &= ~(__GFP_DMA | __GFP_HIGHMEM);
--
- 	if (dev = NULL || dev->coherent_dma_mask < 0xffffffff)
- 		gfp |= GFP_DMA;
- 
-diff --git a/arch/nios2/mm/dma-mapping.c b/arch/nios2/mm/dma-mapping.c
-index 599bcc09c9e7..9e54f8cb3459 100644
---- a/arch/nios2/mm/dma-mapping.c
-+++ b/arch/nios2/mm/dma-mapping.c
-@@ -63,9 +63,6 @@ static void *nios2_dma_alloc(struct device *dev, size_t size,
- {
- 	void *ret;
- 
--	/* ignore region specifiers */
--	gfp &= ~(__GFP_DMA | __GFP_HIGHMEM);
--
- 	/* optimized page clearing */
- 	gfp |= __GFP_ZERO;
- 
-diff --git a/arch/powerpc/kernel/dma.c b/arch/powerpc/kernel/dma.c
-index 5d49da094a93..1723001d5de1 100644
---- a/arch/powerpc/kernel/dma.c
-+++ b/arch/powerpc/kernel/dma.c
-@@ -105,9 +105,6 @@ void *__dma_nommu_alloc_coherent(struct device *dev, size_t size,
- 	};
- #endif /* CONFIG_FSL_SOC */
- 
--	/* ignore region specifiers */
--	flag  &= ~(__GFP_HIGHMEM);
--
- 	page = alloc_pages_node(node, flag, get_order(size));
- 	if (page = NULL)
- 		return NULL;
-diff --git a/arch/x86/kernel/pci-dma.c b/arch/x86/kernel/pci-dma.c
-index 8439e6de6156..61a8f1cb3829 100644
---- a/arch/x86/kernel/pci-dma.c
-+++ b/arch/x86/kernel/pci-dma.c
-@@ -87,7 +87,6 @@ void *dma_generic_alloc_coherent(struct device *dev, size_t size,
- 
- 	dma_mask = dma_alloc_coherent_mask(dev, flag);
- 
--	flag &= ~__GFP_ZERO;
- again:
- 	page = NULL;
- 	/* CMA can be used only in the context which permits sleeping */
-@@ -139,7 +138,6 @@ bool arch_dma_alloc_attrs(struct device **dev, gfp_t *gfp)
- 	if (!*dev)
- 		*dev = &x86_dma_fallback_dev;
- 
--	*gfp &= ~(__GFP_DMA | __GFP_HIGHMEM | __GFP_DMA32);
- 	*gfp = dma_alloc_coherent_gfp_flags(*dev, *gfp);
- 
- 	if (!is_device_dma_capable(*dev))
-diff --git a/include/linux/dma-mapping.h b/include/linux/dma-mapping.h
-index 2779d544485c..fd5197af882a 100644
---- a/include/linux/dma-mapping.h
-+++ b/include/linux/dma-mapping.h
-@@ -525,6 +525,13 @@ static inline void *dma_alloc_attrs(struct device *dev, size_t size,
- 	if (dma_alloc_from_dev_coherent(dev, size, dma_handle, &cpu_addr))
- 		return cpu_addr;
- 
-+	/*
-+	 * Let the implementation decide on the zone to allocate from, and
-+	 * decide on the way of zeroing the memory given that the memory
-+	 * returned should always be zeroed.
-+	 */
-+	flag &= ~(__GFP_DMA | __GFP_DMA32 | __GFP_HIGHMEM | __GFP_ZERO);
+-static struct signal_struct init_signals = INIT_SIGNALS(init_signals);
+-static struct sighand_struct init_sighand = INIT_SIGHAND(init_sighand);
++static struct signal_struct init_signals = {
++	.nr_threads	= 1,
++	.thread_head	= LIST_HEAD_INIT(init_task.thread_node),
++	.wait_chldexit	= __WAIT_QUEUE_HEAD_INITIALIZER(init_signals.wait_chldexit),
++	.shared_pending	= {
++		.list = LIST_HEAD_INIT(init_signals.shared_pending.list),
++		.signal =  {{0}}
++	},
++	.rlim		= INIT_RLIMITS,
++	.cred_guard_mutex = __MUTEX_INITIALIZER(init_signals.cred_guard_mutex),
++#ifdef CONFIG_POSIX_TIMERS
++	.posix_timers = LIST_HEAD_INIT(init_signals.posix_timers),
++	.cputimer	= {
++		.cputime_atomic	= INIT_CPUTIME_ATOMIC,
++		.running	= false,
++		.checking_timer = false,
++	},
++#endif
++	INIT_CPU_TIMERS(init_signals)
++	INIT_PREV_CPUTIME(init_signals)
++};
 +
- 	if (!arch_dma_alloc_attrs(&dev, &flag))
- 		return NULL;
- 	if (!ops->alloc)
--- 
-2.14.2
++static struct sighand_struct init_sighand = {
++	.count		= ATOMIC_INIT(1),
++	.action		= { { { .sa_handler = SIG_DFL, } }, },
++	.siglock	= __SPIN_LOCK_UNLOCKED(init_sighand.siglock),
++	.signalfd_wqh	= __WAIT_QUEUE_HEAD_INITIALIZER(init_sighand.signalfd_wqh),
++};
+ 
+ /*
+  * Set up the first task table, touch at your own risk!. Base=0,
 
