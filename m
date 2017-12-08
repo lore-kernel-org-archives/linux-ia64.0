@@ -1,86 +1,75 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Fri, 29 Dec 2017 08:18:43 +0000
-Subject: [PATCH 39/67] iommu/amd_iommu: use dma_direct_* helpers for the direct mapping case
-Message-Id: <20171229081911.2802-40-hch@lst.de>
+From: David Howells <dhowells@redhat.com>
+Date: Fri, 08 Dec 2017 15:51:59 +0000
+Subject: [PATCH 5/5] Expand INIT_STRUCT_PID and remove
+Message-Id: <151274831897.9961.5697313993537741716.stgit@warthog.procyon.org.uk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20171229081911.2802-1-hch@lst.de>
-In-Reply-To: <20171229081911.2802-1-hch@lst.de>
+References: <151274828194.9961.4230316917108602662.stgit@warthog.procyon.org.uk>
+In-Reply-To: <151274828194.9961.4230316917108602662.stgit@warthog.procyon.org.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: iommu@lists.linux-foundation.org
-Cc: linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, adi-buildroot-devel@lists.sourceforge.net, linux-c6x-dev@linux-c6x.org, linux-cris-kernel@axis.com, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-metag@vger.kernel.org, Michal Simek <monstr@monstr.eu>, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, patches@groups.riscv.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, Guan Xuetao <gxt@mprc.pku.edu.cn>, x86@kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-arch@vger.kernel.org, x86@kernel.org, linux-ia64@vger.kernel.org
+Cc: dhowells@redhat.com, torvalds@linux-foundation.org, linux-kernel@vger.kernel.org
 
-This adds support for CMA allocations, but is otherwise identical.
+Expand INIT_STRUCT_PID in the single place that uses it and then remove it.
+There doesn't seem any point in the macro.
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+Signed-off-by: David Howells <dhowells@redhat.com>
 ---
- drivers/iommu/Kconfig     |  1 +
- drivers/iommu/amd_iommu.c | 27 +++++++++------------------
- 2 files changed, 10 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/iommu/Kconfig b/drivers/iommu/Kconfig
-index f3a21343e636..dc7c1914645d 100644
---- a/drivers/iommu/Kconfig
-+++ b/drivers/iommu/Kconfig
-@@ -107,6 +107,7 @@ config IOMMU_PGTABLES_L2
- # AMD IOMMU support
- config AMD_IOMMU
- 	bool "AMD IOMMU support"
-+	select DMA_DIRECT_OPS
- 	select SWIOTLB
- 	select PCI_MSI
- 	select PCI_ATS
-diff --git a/drivers/iommu/amd_iommu.c b/drivers/iommu/amd_iommu.c
-index ea4734de5357..a2ad149ab0bf 100644
---- a/drivers/iommu/amd_iommu.c
-+++ b/drivers/iommu/amd_iommu.c
-@@ -2592,11 +2592,9 @@ static void *alloc_coherent(struct device *dev, size_t size,
- 	struct page *page;
+ include/linux/init_task.h |   15 ---------------
+ kernel/pid.c              |   14 +++++++++++++-
+ 2 files changed, 13 insertions(+), 16 deletions(-)
+
+diff --git a/include/linux/init_task.h b/include/linux/init_task.h
+index 5b5f41328115..a454b8aeb938 100644
+--- a/include/linux/init_task.h
++++ b/include/linux/init_task.h
+@@ -46,21 +46,6 @@ extern struct cred init_cred;
+ #define INIT_CPU_TIMERS(s)
+ #endif
  
- 	domain = get_domain(dev);
--	if (PTR_ERR(domain) = -EINVAL) {
--		page = alloc_pages(flag, get_order(size));
--		*dma_addr = page_to_phys(page);
--		return page_address(page);
--	} else if (IS_ERR(domain))
-+	if (PTR_ERR(domain) = -EINVAL)
-+		return dma_direct_alloc(dev, size, dma_addr, flag, attrs);
-+	else if (IS_ERR(domain))
- 		return NULL;
- 
- 	dma_dom   = to_dma_ops_domain(domain);
-@@ -2642,24 +2640,17 @@ static void free_coherent(struct device *dev, size_t size,
- 			  void *virt_addr, dma_addr_t dma_addr,
- 			  unsigned long attrs)
- {
--	struct protection_domain *domain;
--	struct dma_ops_domain *dma_dom;
--	struct page *page;
-+	struct protection_domain *domain = get_domain(dev);
- 
--	page = virt_to_page(virt_addr);
- 	size = PAGE_ALIGN(size);
- 
--	domain = get_domain(dev);
--	if (IS_ERR(domain))
--		goto free_mem;
 -
--	dma_dom = to_dma_ops_domain(domain);
-+	if (!IS_ERR(domain)) {
-+		struct dma_ops_domain *dma_dom = to_dma_ops_domain(domain);
+-#define INIT_STRUCT_PID {						\
+-	.count 		= ATOMIC_INIT(1),				\
+-	.tasks		= {						\
+-		{ .first = NULL },					\
+-		{ .first = NULL },					\
+-		{ .first = NULL },					\
+-	},								\
+-	.level		= 0,						\
+-	.numbers	= { {						\
+-		.nr		= 0,					\
+-		.ns		= &init_pid_ns,				\
+-	}, }								\
+-}
+-
+ #define INIT_PID_LINK(type) 					\
+ {								\
+ 	.node = {						\
+diff --git a/kernel/pid.c b/kernel/pid.c
+index b13b624e2c49..161af2eda943 100644
+--- a/kernel/pid.c
++++ b/kernel/pid.c
+@@ -41,7 +41,19 @@
+ #include <linux/sched/task.h>
+ #include <linux/idr.h>
  
--	__unmap_single(dma_dom, dma_addr, size, DMA_BIDIRECTIONAL);
-+		__unmap_single(dma_dom, dma_addr, size, DMA_BIDIRECTIONAL);
-+	}
+-struct pid init_struct_pid = INIT_STRUCT_PID;
++struct pid init_struct_pid = {
++	.count 		= ATOMIC_INIT(1),
++	.tasks		= {
++		{ .first = NULL },
++		{ .first = NULL },
++		{ .first = NULL },
++	},
++	.level		= 0,
++	.numbers	= { {
++		.nr		= 0,
++		.ns		= &init_pid_ns,
++	}, }
++};
  
--free_mem:
--	if (!dma_release_from_contiguous(dev, page, size >> PAGE_SHIFT))
--		__free_pages(page, get_order(size));
-+	dma_direct_free(dev, size, virt_addr, dma_addr, attrs);
- }
+ int pid_max = PID_MAX_DEFAULT;
  
- /*
--- 
-2.14.2
 
