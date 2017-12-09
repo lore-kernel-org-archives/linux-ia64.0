@@ -1,45 +1,59 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Fri, 29 Dec 2017 08:18:46 +0000
-Subject: [PATCH 42/67] arm64: rename swiotlb_dma_ops
-Message-Id: <20171229081911.2802-43-hch@lst.de>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Date: Sat, 09 Dec 2017 18:06:28 +0000
+Subject: [PATCH 3/3] serial: ioc3: Adjust two function calls together with a variable assignment
+Message-Id: <cb8e7643-bc3d-780e-58cf-497874305574@users.sourceforge.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20171229081911.2802-1-hch@lst.de>
-In-Reply-To: <20171229081911.2802-1-hch@lst.de>
+References: <962f1172-3f27-c6b5-653f-c09f2e8fe431@users.sourceforge.net>
+In-Reply-To: <962f1172-3f27-c6b5-653f-c09f2e8fe431@users.sourceforge.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: iommu@lists.linux-foundation.org
-Cc: linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, adi-buildroot-devel@lists.sourceforge.net, linux-c6x-dev@linux-c6x.org, linux-cris-kernel@axis.com, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-metag@vger.kernel.org, Michal Simek <monstr@monstr.eu>, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, patches@groups.riscv.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, Guan Xuetao <gxt@mprc.pku.edu.cn>, x86@kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-serial@vger.kernel.org, linux-ia64@vger.kernel.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Jiri Slaby <jslaby@suse.com>, Pat Gefre <pfg@sgi.com>
+Cc: LKML <linux-kernel@vger.kernel.org>, kernel-janitors@vger.kernel.org
 
-We'll need that name for a generic implementation soon.
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Sat, 9 Dec 2017 18:48:57 +0100
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+The script "checkpatch.pl" pointed information out like the following.
+
+ERROR: do not use assignment in if condition
+
+Thus fix the affected source code places.
+
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
- arch/arm64/mm/dma-mapping.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/tty/serial/ioc3_serial.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/arch/arm64/mm/dma-mapping.c b/arch/arm64/mm/dma-mapping.c
-index f3a637b98487..6840426bbe77 100644
---- a/arch/arm64/mm/dma-mapping.c
-+++ b/arch/arm64/mm/dma-mapping.c
-@@ -368,7 +368,7 @@ static int __swiotlb_dma_mapping_error(struct device *hwdev, dma_addr_t addr)
- 	return 0;
- }
- 
--static const struct dma_map_ops swiotlb_dma_ops = {
-+static const struct dma_map_ops arm64_swiotlb_dma_ops = {
- 	.alloc = __dma_alloc,
- 	.free = __dma_free,
- 	.mmap = __swiotlb_mmap,
-@@ -923,7 +923,7 @@ void arch_setup_dma_ops(struct device *dev, u64 dma_base, u64 size,
- 			const struct iommu_ops *iommu, bool coherent)
+diff --git a/drivers/tty/serial/ioc3_serial.c b/drivers/tty/serial/ioc3_serial.c
+index d211bb1407d3..0170d6f2bcdf 100644
+--- a/drivers/tty/serial/ioc3_serial.c
++++ b/drivers/tty/serial/ioc3_serial.c
+@@ -1540,8 +1540,8 @@ ioc3uart_intr_one(struct ioc3_submodule *is,
+ 			 * hasn't been delivered to the cpu yet anyway, even
+ 			 * though we see it as asserted when we read the sio_ir.
+ 			 */
+-			if ((sio_ir = PENDING(card_ptr, idd))
+-					& hooks->intr_rx_high) {
++			sio_ir = PENDING(card_ptr, idd);
++			if (sio_ir & hooks->intr_rx_high) {
+ 				if (port->ip_flags & READ_ABORTED) {
+ 					rx_high_rd_aborted++;
+ 				}
+@@ -2162,10 +2162,10 @@ static struct ioc3_submodule ioc3uart_ops = {
+  */
+ static int __init ioc3uart_init(void)
  {
- 	if (!dev->dma_ops)
--		dev->dma_ops = &swiotlb_dma_ops;
-+		dev->dma_ops = &arm64_swiotlb_dma_ops;
- 
- 	dev->archdata.dma_coherent = coherent;
- 	__iommu_setup_dma_ops(dev, dma_base, size, iommu);
+-	int ret;
+-
+ 	/* register with serial core */
+-	if ((ret = uart_register_driver(&ioc3_uart)) < 0) {
++	int ret = uart_register_driver(&ioc3_uart);
++
++	if (ret < 0) {
+ 		printk(KERN_WARNING
+ 		       "%s: Couldn't register IOC3 uart serial driver\n",
+ 		       __func__);
 -- 
-2.14.2
+2.15.1
 
