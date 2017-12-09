@@ -1,57 +1,52 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Fri, 29 Dec 2017 08:18:52 +0000
-Subject: [PATCH 48/67] swiotlb: rely on dev->coherent_dma_mask
-Message-Id: <20171229081911.2802-49-hch@lst.de>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Date: Sat, 09 Dec 2017 18:05:13 +0000
+Subject: [PATCH 2/3] serial: ioc3: Improve size determinations in ioc3uart_probe()
+Message-Id: <e1d44286-d7e9-d118-ef02-fd4b1cd3a330@users.sourceforge.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20171229081911.2802-1-hch@lst.de>
-In-Reply-To: <20171229081911.2802-1-hch@lst.de>
+References: <962f1172-3f27-c6b5-653f-c09f2e8fe431@users.sourceforge.net>
+In-Reply-To: <962f1172-3f27-c6b5-653f-c09f2e8fe431@users.sourceforge.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: iommu@lists.linux-foundation.org
-Cc: linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, adi-buildroot-devel@lists.sourceforge.net, linux-c6x-dev@linux-c6x.org, linux-cris-kernel@axis.com, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-metag@vger.kernel.org, Michal Simek <monstr@monstr.eu>, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, patches@groups.riscv.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, Guan Xuetao <gxt@mprc.pku.edu.cn>, x86@kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-serial@vger.kernel.org, linux-ia64@vger.kernel.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Jiri Slaby <jslaby@suse.com>, Pat Gefre <pfg@sgi.com>
+Cc: LKML <linux-kernel@vger.kernel.org>, kernel-janitors@vger.kernel.org
 
-These days the coherent DMA mask is always set, so don't work around the
-lack of it.
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Sat, 9 Dec 2017 18:38:13 +0100
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+Replace the specification of two data structures by pointer dereferences
+as the parameter for the operator "sizeof" to make the corresponding size
+determination a bit safer according to the Linux coding style convention.
+
+This issue was detected by using the Coccinelle software.
+
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
- lib/swiotlb.c | 10 +++-------
- 1 file changed, 3 insertions(+), 7 deletions(-)
+ drivers/tty/serial/ioc3_serial.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/lib/swiotlb.c b/lib/swiotlb.c
-index e0b8980334c3..a14fff30ee9d 100644
---- a/lib/swiotlb.c
-+++ b/lib/swiotlb.c
-@@ -716,15 +716,11 @@ swiotlb_alloc_coherent(struct device *hwdev, size_t size,
- 	dma_addr_t dev_addr;
- 	void *ret;
- 	int order = get_order(size);
--	u64 dma_mask = DMA_BIT_MASK(32);
--
--	if (hwdev && hwdev->coherent_dma_mask)
--		dma_mask = hwdev->coherent_dma_mask;
+diff --git a/drivers/tty/serial/ioc3_serial.c b/drivers/tty/serial/ioc3_serial.c
+index 0007c2d65028..d211bb1407d3 100644
+--- a/drivers/tty/serial/ioc3_serial.c
++++ b/drivers/tty/serial/ioc3_serial.c
+@@ -2016,7 +2016,7 @@ ioc3uart_probe(struct ioc3_submodule *is, struct ioc3_driver_data *idd)
  
- 	ret = (void *)__get_free_pages(flags, order);
- 	if (ret) {
- 		dev_addr = swiotlb_virt_to_bus(hwdev, ret);
--		if (dev_addr + size - 1 > dma_mask) {
-+		if (dev_addr + size - 1 > hwdev->coherent_dma_mask) {
- 			/*
- 			 * The allocated memory isn't reachable by the device.
- 			 */
-@@ -747,9 +743,9 @@ swiotlb_alloc_coherent(struct device *hwdev, size_t size,
- 		dev_addr = swiotlb_phys_to_dma(hwdev, paddr);
+ 	DPRINT_CONFIG(("%s (0x%p, 0x%p)\n", __func__, is, idd));
  
- 		/* Confirm address can be DMA'd by device */
--		if (dev_addr + size - 1 > dma_mask) {
-+		if (dev_addr + size - 1 > hwdev->coherent_dma_mask) {
- 			printk("hwdev DMA mask = 0x%016Lx, dev_addr = 0x%016Lx\n",
--			       (unsigned long long)dma_mask,
-+			       (unsigned long long)hwdev->coherent_dma_mask,
- 			       (unsigned long long)dev_addr);
+-	card_ptr = kzalloc(sizeof(struct ioc3_card), GFP_KERNEL);
++	card_ptr = kzalloc(sizeof(*card_ptr), GFP_KERNEL);
+ 	if (!card_ptr)
+ 		return -ENOMEM;
  
- 			/*
+@@ -2034,7 +2034,7 @@ ioc3uart_probe(struct ioc3_submodule *is, struct ioc3_driver_data *idd)
+ 
+ 	/* Create port structures for each port */
+ 	for (phys_port = 0; phys_port < PORTS_PER_CARD; phys_port++) {
+-		port = kzalloc(sizeof(struct ioc3_port), GFP_KERNEL);
++		port = kzalloc(sizeof(*port), GFP_KERNEL);
+ 		if (!port) {
+ 			ret = -ENOMEM;
+ 			goto out4;
 -- 
-2.14.2
+2.15.1
 
