@@ -1,114 +1,55 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Fri, 29 Dec 2017 08:18:57 +0000
-Subject: [PATCH 53/67] swiotlb: remove swiotlb_set_mem_attributes
-Message-Id: <20171229081911.2802-54-hch@lst.de>
+From: SF Markus Elfring <elfring@users.sourceforge.net>
+Date: Sat, 09 Dec 2017 18:03:54 +0000
+Subject: [PATCH 1/3] serial: ioc3: Delete error messages for a failed memory allocation in ioc3uart_probe()
+Message-Id: <3975ebe3-f1fa-a545-696d-06d701e707cc@users.sourceforge.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20171229081911.2802-1-hch@lst.de>
-In-Reply-To: <20171229081911.2802-1-hch@lst.de>
+References: <962f1172-3f27-c6b5-653f-c09f2e8fe431@users.sourceforge.net>
+In-Reply-To: <962f1172-3f27-c6b5-653f-c09f2e8fe431@users.sourceforge.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: iommu@lists.linux-foundation.org
-Cc: linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, adi-buildroot-devel@lists.sourceforge.net, linux-c6x-dev@linux-c6x.org, linux-cris-kernel@axis.com, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-metag@vger.kernel.org, Michal Simek <monstr@monstr.eu>, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, patches@groups.riscv.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, Guan Xuetao <gxt@mprc.pku.edu.cn>, x86@kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-serial@vger.kernel.org, linux-ia64@vger.kernel.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Jiri Slaby <jslaby@suse.com>, Pat Gefre <pfg@sgi.com>
+Cc: LKML <linux-kernel@vger.kernel.org>, kernel-janitors@vger.kernel.org
 
-Now that set_memory_decrypted is always available we can just call
-it directly.
+From: Markus Elfring <elfring@users.sourceforge.net>
+Date: Sat, 9 Dec 2017 18:34:36 +0100
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+Omit extra messages for a memory allocation failure in this function.
+
+This issue was detected by using the Coccinelle software.
+
+Signed-off-by: Markus Elfring <elfring@users.sourceforge.net>
 ---
- arch/x86/include/asm/mem_encrypt.h |  2 --
- arch/x86/mm/mem_encrypt.c          |  9 ---------
- lib/swiotlb.c                      | 12 ++++++------
- 3 files changed, 6 insertions(+), 17 deletions(-)
+ drivers/tty/serial/ioc3_serial.c | 8 ++------
+ 1 file changed, 2 insertions(+), 6 deletions(-)
 
-diff --git a/arch/x86/include/asm/mem_encrypt.h b/arch/x86/include/asm/mem_encrypt.h
-index c9459a4c3c68..549894d496da 100644
---- a/arch/x86/include/asm/mem_encrypt.h
-+++ b/arch/x86/include/asm/mem_encrypt.h
-@@ -48,8 +48,6 @@ int __init early_set_memory_encrypted(unsigned long vaddr, unsigned long size);
- /* Architecture __weak replacement functions */
- void __init mem_encrypt_init(void);
+diff --git a/drivers/tty/serial/ioc3_serial.c b/drivers/tty/serial/ioc3_serial.c
+index d8a1cdd6a53d..0007c2d65028 100644
+--- a/drivers/tty/serial/ioc3_serial.c
++++ b/drivers/tty/serial/ioc3_serial.c
+@@ -2017,11 +2017,9 @@ ioc3uart_probe(struct ioc3_submodule *is, struct ioc3_driver_data *idd)
+ 	DPRINT_CONFIG(("%s (0x%p, 0x%p)\n", __func__, is, idd));
  
--void swiotlb_set_mem_attributes(void *vaddr, unsigned long size);
--
- bool sme_active(void);
- bool sev_active(void);
+ 	card_ptr = kzalloc(sizeof(struct ioc3_card), GFP_KERNEL);
+-	if (!card_ptr) {
+-		printk(KERN_WARNING "ioc3_attach_one"
+-		       ": unable to get memory for the IOC3\n");
++	if (!card_ptr)
+ 		return -ENOMEM;
+-	}
++
+ 	idd->data[is->id] = card_ptr;
+ 	Submodule_slot = is->id;
  
-diff --git a/arch/x86/mm/mem_encrypt.c b/arch/x86/mm/mem_encrypt.c
-index 93de36cc3dd9..b279e90c85cd 100644
---- a/arch/x86/mm/mem_encrypt.c
-+++ b/arch/x86/mm/mem_encrypt.c
-@@ -379,15 +379,6 @@ void __init mem_encrypt_init(void)
- 			     : "Secure Memory Encryption (SME)");
- }
- 
--void swiotlb_set_mem_attributes(void *vaddr, unsigned long size)
--{
--	WARN(PAGE_ALIGN(size) != size,
--	     "size is not page-aligned (%#lx)\n", size);
--
--	/* Make the SWIOTLB buffer area decrypted */
--	set_memory_decrypted((unsigned long)vaddr, size >> PAGE_SHIFT);
--}
--
- static void __init sme_clear_pgd(pgd_t *pgd_base, unsigned long start,
- 				 unsigned long end)
- {
-diff --git a/lib/swiotlb.c b/lib/swiotlb.c
-index 85b2ad9299e3..4ea0b5710618 100644
---- a/lib/swiotlb.c
-+++ b/lib/swiotlb.c
-@@ -31,6 +31,7 @@
- #include <linux/gfp.h>
- #include <linux/scatterlist.h>
- #include <linux/mem_encrypt.h>
-+#include <linux/set_memory.h>
- 
- #include <asm/io.h>
- #include <asm/dma.h>
-@@ -156,8 +157,6 @@ unsigned long swiotlb_size_or_default(void)
- 	return size ? size : (IO_TLB_DEFAULT_SIZE);
- }
- 
--void __weak swiotlb_set_mem_attributes(void *vaddr, unsigned long size) { }
--
- /* Note that this doesn't work with highmem page */
- static dma_addr_t swiotlb_virt_to_bus(struct device *hwdev,
- 				      volatile void *address)
-@@ -202,12 +201,12 @@ void __init swiotlb_update_mem_attributes(void)
- 
- 	vaddr = phys_to_virt(io_tlb_start);
- 	bytes = PAGE_ALIGN(io_tlb_nslabs << IO_TLB_SHIFT);
--	swiotlb_set_mem_attributes(vaddr, bytes);
-+	set_memory_decrypted((unsigned long)vaddr, bytes >> PAGE_SHIFT);
- 	memset(vaddr, 0, bytes);
- 
- 	vaddr = phys_to_virt(io_tlb_overflow_buffer);
- 	bytes = PAGE_ALIGN(io_tlb_overflow);
--	swiotlb_set_mem_attributes(vaddr, bytes);
-+	set_memory_decrypted((unsigned long)vaddr, bytes >> PAGE_SHIFT);
- 	memset(vaddr, 0, bytes);
- }
- 
-@@ -348,7 +347,7 @@ swiotlb_late_init_with_tbl(char *tlb, unsigned long nslabs)
- 	io_tlb_start = virt_to_phys(tlb);
- 	io_tlb_end = io_tlb_start + bytes;
- 
--	swiotlb_set_mem_attributes(tlb, bytes);
-+	set_memory_decrypted((unsigned long)tlb, bytes >> PAGE_SHIFT);
- 	memset(tlb, 0, bytes);
- 
- 	/*
-@@ -359,7 +358,8 @@ swiotlb_late_init_with_tbl(char *tlb, unsigned long nslabs)
- 	if (!v_overflow_buffer)
- 		goto cleanup2;
- 
--	swiotlb_set_mem_attributes(v_overflow_buffer, io_tlb_overflow);
-+	set_memory_decrypted((unsigned long)v_overflow_buffer,
-+			io_tlb_overflow >> PAGE_SHIFT);
- 	memset(v_overflow_buffer, 0, io_tlb_overflow);
- 	io_tlb_overflow_buffer = virt_to_phys(v_overflow_buffer);
- 
+@@ -2038,8 +2036,6 @@ ioc3uart_probe(struct ioc3_submodule *is, struct ioc3_driver_data *idd)
+ 	for (phys_port = 0; phys_port < PORTS_PER_CARD; phys_port++) {
+ 		port = kzalloc(sizeof(struct ioc3_port), GFP_KERNEL);
+ 		if (!port) {
+-			printk(KERN_WARNING
+-			       "IOC3 serial memory not available for port\n");
+ 			ret = -ENOMEM;
+ 			goto out4;
+ 		}
 -- 
-2.14.2
+2.15.1
 
