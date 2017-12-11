@@ -1,168 +1,54 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Fri, 29 Dec 2017 08:19:06 +0000
-Subject: [PATCH 62/67] mips/netlogic: remove swiotlb support
-Message-Id: <20171229081911.2802-63-hch@lst.de>
+From: Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>
+Date: Mon, 11 Dec 2017 12:50:13 +0000
+Subject: [PATCH 01/13] arm: do not use print_symbol()
+Message-Id: <20171211125025.2270-2-sergey.senozhatsky@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20171229081911.2802-1-hch@lst.de>
-In-Reply-To: <20171229081911.2802-1-hch@lst.de>
+References: <20171211125025.2270-1-sergey.senozhatsky@gmail.com>
+In-Reply-To: <20171211125025.2270-1-sergey.senozhatsky@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: iommu@lists.linux-foundation.org
-Cc: linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, adi-buildroot-devel@lists.sourceforge.net, linux-c6x-dev@linux-c6x.org, linux-cris-kernel@axis.com, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-metag@vger.kernel.org, Michal Simek <monstr@monstr.eu>, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, patches@groups.riscv.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, Guan Xuetao <gxt@mprc.pku.edu.cn>, x86@kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-arm-kernel@lists.infradead.org
 
-nlm_swiotlb_dma_ops is unused code, so the whole swiotlb support is dead.
-If it gets resurrected at some point it should use the generic
-swiotlb_dma_ops instead.
+print_symbol() uses extra stack space to sprintf() symbol
+information and then to feed that buffer to printk()
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+  char buffer[KSYM_SYMBOL_LEN];
+
+  sprint_symbol(buffer, address);
+  printk(fmt, buffer);
+
+Replace print_symbol() with a direct printk("%pS") call.
+
+Signed-off-by: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
+Cc: Russell King <linux@armlinux.org.uk>
 ---
- arch/mips/include/asm/netlogic/common.h |  3 --
- arch/mips/netlogic/Kconfig              |  5 --
- arch/mips/netlogic/common/Makefile      |  1 -
- arch/mips/netlogic/common/nlm-dma.c     | 94 ---------------------------------
- 4 files changed, 103 deletions(-)
- delete mode 100644 arch/mips/netlogic/common/nlm-dma.c
+ arch/arm/kernel/process.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/arch/mips/include/asm/netlogic/common.h b/arch/mips/include/asm/netlogic/common.h
-index a6e6cbebe046..57616649b4f3 100644
---- a/arch/mips/include/asm/netlogic/common.h
-+++ b/arch/mips/include/asm/netlogic/common.h
-@@ -87,9 +87,6 @@ unsigned int nlm_get_cpu_frequency(void);
- extern const struct plat_smp_ops nlm_smp_ops;
- extern char nlm_reset_entry[], nlm_reset_entry_end[];
+diff --git a/arch/arm/kernel/process.c b/arch/arm/kernel/process.c
+index d96714e1858c..db004f6f547a 100644
+--- a/arch/arm/kernel/process.c
++++ b/arch/arm/kernel/process.c
+@@ -21,7 +21,6 @@
+ #include <linux/unistd.h>
+ #include <linux/user.h>
+ #include <linux/interrupt.h>
+-#include <linux/kallsyms.h>
+ #include <linux/init.h>
+ #include <linux/elfcore.h>
+ #include <linux/pm.h>
+@@ -121,8 +120,8 @@ void __show_regs(struct pt_regs *regs)
  
--/* SWIOTLB */
--extern const struct dma_map_ops nlm_swiotlb_dma_ops;
--
- extern unsigned int nlm_threads_per_core;
- extern cpumask_t nlm_cpumask;
+ 	show_regs_print_info(KERN_DEFAULT);
  
-diff --git a/arch/mips/netlogic/Kconfig b/arch/mips/netlogic/Kconfig
-index 8296b13affd2..7fcfc7fe9f14 100644
---- a/arch/mips/netlogic/Kconfig
-+++ b/arch/mips/netlogic/Kconfig
-@@ -89,9 +89,4 @@ config IOMMU_HELPER
- config NEED_SG_DMA_LENGTH
- 	bool
- 
--config SWIOTLB
--	def_bool y
--	select NEED_SG_DMA_LENGTH
--	select IOMMU_HELPER
--
- endif
-diff --git a/arch/mips/netlogic/common/Makefile b/arch/mips/netlogic/common/Makefile
-index 60d00b5d748e..89f6e3f39fed 100644
---- a/arch/mips/netlogic/common/Makefile
-+++ b/arch/mips/netlogic/common/Makefile
-@@ -1,6 +1,5 @@
- # SPDX-License-Identifier: GPL-2.0
- obj-y				+= irq.o time.o
--obj-y				+= nlm-dma.o
- obj-y				+= reset.o
- obj-$(CONFIG_SMP)		+= smp.o smpboot.o
- obj-$(CONFIG_EARLY_PRINTK)	+= earlycons.o
-diff --git a/arch/mips/netlogic/common/nlm-dma.c b/arch/mips/netlogic/common/nlm-dma.c
-deleted file mode 100644
-index 49c975b6aa28..000000000000
---- a/arch/mips/netlogic/common/nlm-dma.c
-+++ /dev/null
-@@ -1,94 +0,0 @@
--/*
--*  Copyright (C) 2003-2013 Broadcom Corporation
--*  All Rights Reserved
-- *
-- * This software is available to you under a choice of one of two
-- * licenses.  You may choose to be licensed under the terms of the GNU
-- * General Public License (GPL) Version 2, available from the file
-- * COPYING in the main directory of this source tree, or the Broadcom
-- * license below:
-- *
-- * Redistribution and use in source and binary forms, with or without
-- * modification, are permitted provided that the following conditions
-- * are met:
-- *
-- * 1. Redistributions of source code must retain the above copyright
-- *    notice, this list of conditions and the following disclaimer.
-- * 2. Redistributions in binary form must reproduce the above copyright
-- *    notice, this list of conditions and the following disclaimer in
-- *    the documentation and/or other materials provided with the
-- *    distribution.
-- *
-- * THIS SOFTWARE IS PROVIDED BY BROADCOM ``AS IS'' AND ANY EXPRESS OR
-- * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-- * ARE DISCLAIMED. IN NO EVENT SHALL BROADCOM OR CONTRIBUTORS BE LIABLE
-- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
-- * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
-- * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
-- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-- */
--#include <linux/dma-mapping.h>
--#include <linux/scatterlist.h>
--#include <linux/bootmem.h>
--#include <linux/export.h>
--#include <linux/swiotlb.h>
--#include <linux/types.h>
--#include <linux/init.h>
--#include <linux/mm.h>
--
--#include <asm/bootinfo.h>
--
--static char *nlm_swiotlb;
--
--static void *nlm_dma_alloc_coherent(struct device *dev, size_t size,
--	dma_addr_t *dma_handle, gfp_t gfp, unsigned long attrs)
--{
--#ifdef CONFIG_ZONE_DMA32
--	if (dev->coherent_dma_mask <= DMA_BIT_MASK(32))
--		gfp |= __GFP_DMA32;
--#endif
--
--	/* Don't invoke OOM killer */
--	gfp |= __GFP_NORETRY;
--
--	return swiotlb_alloc_coherent(dev, size, dma_handle, gfp);
--}
--
--static void nlm_dma_free_coherent(struct device *dev, size_t size,
--	void *vaddr, dma_addr_t dma_handle, unsigned long attrs)
--{
--	swiotlb_free_coherent(dev, size, vaddr, dma_handle);
--}
--
--const struct dma_map_ops nlm_swiotlb_dma_ops = {
--	.alloc = nlm_dma_alloc_coherent,
--	.free = nlm_dma_free_coherent,
--	.map_page = swiotlb_map_page,
--	.unmap_page = swiotlb_unmap_page,
--	.map_sg = swiotlb_map_sg_attrs,
--	.unmap_sg = swiotlb_unmap_sg_attrs,
--	.sync_single_for_cpu = swiotlb_sync_single_for_cpu,
--	.sync_single_for_device = swiotlb_sync_single_for_device,
--	.sync_sg_for_cpu = swiotlb_sync_sg_for_cpu,
--	.sync_sg_for_device = swiotlb_sync_sg_for_device,
--	.mapping_error = swiotlb_dma_mapping_error,
--	.dma_supported = swiotlb_dma_supported
--};
--
--void __init plat_swiotlb_setup(void)
--{
--	size_t swiotlbsize;
--	unsigned long swiotlb_nslabs;
--
--	swiotlbsize = 1 << 20; /* 1 MB for now */
--	swiotlb_nslabs = swiotlbsize >> IO_TLB_SHIFT;
--	swiotlb_nslabs = ALIGN(swiotlb_nslabs, IO_TLB_SEGSIZE);
--	swiotlbsize = swiotlb_nslabs << IO_TLB_SHIFT;
--
--	nlm_swiotlb = alloc_bootmem_low_pages(swiotlbsize);
--	swiotlb_init_with_tbl(nlm_swiotlb, swiotlb_nslabs, 1);
--}
+-	print_symbol("PC is at %s\n", instruction_pointer(regs));
+-	print_symbol("LR is at %s\n", regs->ARM_lr);
++	printk("PC is at %pS\n", instruction_pointer(regs));
++	printk("LR is at %pS\n", (void *)regs->ARM_lr);
+ 	printk("pc : [<%08lx>]    lr : [<%08lx>]    psr: %08lx\n",
+ 	       regs->ARM_pc, regs->ARM_lr, regs->ARM_cpsr);
+ 	printk("sp : %08lx  ip : %08lx  fp : %08lx\n",
 -- 
-2.14.2
+2.15.1
 
