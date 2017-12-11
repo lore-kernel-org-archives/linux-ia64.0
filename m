@@ -1,133 +1,44 @@
 From: Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>
-Date: Thu, 21 Dec 2017 05:54:27 +0000
-Subject: Re: [PATCH 00/13] replace print_symbol() with printk()-s
-Message-Id: <20171221055427.GA385@jagdpanzerIV>
+Date: Mon, 11 Dec 2017 12:50:25 +0000
+Subject: [PATCH 13/13] arc: do not use __print_symbol()
+Message-Id: <20171211125025.2270-14-sergey.senozhatsky@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20171211125025.2270-1-sergey.senozhatsky@gmail.com>
- <1513009569.26342.43.camel@perches.com>
- <20171212024757.GC7798@jagdpanzerIV>
- <1513048252.3036.23.camel@perches.com>
-In-Reply-To: <1513048252.3036.23.camel@perches.com>
+In-Reply-To: <20171211125025.2270-1-sergey.senozhatsky@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-arm-kernel@lists.infradead.org
 
-On (12/11/17 19:10), Joe Perches wrote:
-[..]
-> As far as I'm concerned, as soon as there is
-> no longer a single user in the kernel tree,
-> better to delete it instead.
+__print_symbol() uses extra stack space to sprintf() symbol
+information and then to feed that buffer to printk()
 
-sounds good to me. can drop it, once the series upstreamed.
+  char buffer[KSYM_SYMBOL_LEN];
 
-8< ---
+  sprint_symbol(buffer, address);
+  printk(fmt, buffer);
 
-From: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
-Subject: [PATCH] kallsyms: remove print_symbol() function
-
-No more print_symbol()/__print_symbol() users left, remove these
-symbols.
+Replace __print_symbol() with a direct printk("%pS") call.
 
 Signed-off-by: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
-Suggested-by: Joe Perches <joe@perches.com>
+Cc: Vineet Gupta <vgupta@synopsys.com>
 ---
- Documentation/filesystems/sysfs.txt                    |  4 ++--
- Documentation/translations/zh_CN/filesystems/sysfs.txt |  4 ++--
- include/linux/kallsyms.h                               | 18 ------------------
- kernel/kallsyms.c                                      | 11 -----------
- 4 files changed, 4 insertions(+), 33 deletions(-)
+ arch/arc/kernel/stacktrace.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/Documentation/filesystems/sysfs.txt b/Documentation/filesystems/sysfs.txt
-index 9a3658cc399e..a1426cabcef1 100644
---- a/Documentation/filesystems/sysfs.txt
-+++ b/Documentation/filesystems/sysfs.txt
-@@ -154,8 +154,8 @@ static ssize_t dev_attr_show(struct kobject *kobj, struct attribute *attr,
-         if (dev_attr->show)
-                 ret = dev_attr->show(dev, dev_attr, buf);
-         if (ret >= (ssize_t)PAGE_SIZE) {
--                print_symbol("dev_attr_show: %s returned bad count\n",
--                                (unsigned long)dev_attr->show);
-+                printk("dev_attr_show: %pS returned bad count\n",
-+                                dev_attr->show);
-         }
-         return ret;
- }
-diff --git a/Documentation/translations/zh_CN/filesystems/sysfs.txt b/Documentation/translations/zh_CN/filesystems/sysfs.txt
-index 7d3b05edb8ce..452271dda141 100644
---- a/Documentation/translations/zh_CN/filesystems/sysfs.txt
-+++ b/Documentation/translations/zh_CN/filesystems/sysfs.txt
-@@ -167,8 +167,8 @@ static ssize_t dev_attr_show(struct kobject *kobj, struct attribute *attr,
-         if (dev_attr->show)
-                 ret = dev_attr->show(dev, dev_attr, buf);
-         if (ret >= (ssize_t)PAGE_SIZE) {
--                print_symbol("dev_attr_show: %s returned bad count\n",
--                                (unsigned long)dev_attr->show);
-+                printk("dev_attr_show: %pS returned bad count\n",
-+                                dev_attr->show);
-         }
-         return ret;
- }
-diff --git a/include/linux/kallsyms.h b/include/linux/kallsyms.h
-index 7288f9c395b6..d79d1e7486bd 100644
---- a/include/linux/kallsyms.h
-+++ b/include/linux/kallsyms.h
-@@ -94,9 +94,6 @@ extern int sprint_symbol(char *buffer, unsigned long address);
- extern int sprint_symbol_no_offset(char *buffer, unsigned long address);
- extern int sprint_backtrace(char *buffer, unsigned long address);
- 
--/* Look up a kernel symbol and print it to the kernel messages. */
--extern void __print_symbol(const char *fmt, unsigned long address);
--
- int lookup_symbol_name(unsigned long addr, char *symname);
- int lookup_symbol_attrs(unsigned long addr, unsigned long *size, unsigned long *offset, char *modname, char *name);
- 
-@@ -166,23 +163,8 @@ static inline int kallsyms_show_value(void)
- 	return false;
- }
- 
--/* Stupid that this does nothing, but I didn't create this mess. */
--#define __print_symbol(fmt, addr)
- #endif /*CONFIG_KALLSYMS*/
- 
--/* This macro allows us to keep printk typechecking */
--static __printf(1, 2)
--void __check_printsym_format(const char *fmt, ...)
--{
--}
--
--static inline void print_symbol(const char *fmt, unsigned long addr)
--{
--	__check_printsym_format(fmt, "");
--	__print_symbol(fmt, (unsigned long)
--		       __builtin_extract_return_addr((void *)addr));
--}
--
- static inline void print_ip_sym(unsigned long ip)
+diff --git a/arch/arc/kernel/stacktrace.c b/arch/arc/kernel/stacktrace.c
+index 74315f302971..bf40e06f3fb8 100644
+--- a/arch/arc/kernel/stacktrace.c
++++ b/arch/arc/kernel/stacktrace.c
+@@ -163,7 +163,7 @@ arc_unwind_core(struct task_struct *tsk, struct pt_regs *regs,
+  */
+ static int __print_sym(unsigned int address, void *unused)
  {
- 	printk("[<%p>] %pS\n", (void *) ip, (void *) ip);
-diff --git a/kernel/kallsyms.c b/kernel/kallsyms.c
-index 24f456689f9c..a23e21ada81b 100644
---- a/kernel/kallsyms.c
-+++ b/kernel/kallsyms.c
-@@ -429,17 +429,6 @@ int sprint_backtrace(char *buffer, unsigned long address)
- 	return __sprint_symbol(buffer, address, -1, 1);
+-	__print_symbol("  %s\n", address);
++	printk("  %pS\n", (void *)address);
+ 	return 0;
  }
  
--/* Look up a kernel symbol and print it to the kernel messages. */
--void __print_symbol(const char *fmt, unsigned long address)
--{
--	char buffer[KSYM_SYMBOL_LEN];
--
--	sprint_symbol(buffer, address);
--
--	printk(fmt, buffer);
--}
--EXPORT_SYMBOL(__print_symbol);
--
- /* To avoid using get_symbol_offset for every symbol, we carry prefix along. */
- struct kallsym_iter {
- 	loff_t pos;
 -- 
 2.15.1
 
