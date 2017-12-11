@@ -1,35 +1,54 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Fri, 29 Dec 2017 08:18:12 +0000
-Subject: [PATCH 08/67] powerpc: remove unused flush_write_buffers definition
-Message-Id: <20171229081911.2802-9-hch@lst.de>
+From: Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>
+Date: Mon, 11 Dec 2017 12:50:19 +0000
+Subject: [PATCH 07/13] unicore32: do not use print_symbol()
+Message-Id: <20171211125025.2270-8-sergey.senozhatsky@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20171229081911.2802-1-hch@lst.de>
-In-Reply-To: <20171229081911.2802-1-hch-jcswGhMUV9g@public.gmane.org>
+References: <20171211125025.2270-1-sergey.senozhatsky@gmail.com>
+In-Reply-To: <20171211125025.2270-1-sergey.senozhatsky@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Cc: linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Guan Xuetao <gxt-TG0Ac1+ktVePQbnJrJN+5g@public.gmane.org>, linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-c6x-dev-jPsnJVOj+W6hPH1hqNUYSQ@public.gmane.org, linux-hexagon-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-snps-arc-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, adi-buildroot-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-m68k-cunTk1MwBs8S/qaLPR03pWD2FQJk+8+b@public.gmane.org, patches-q3qR2WxjNRFS9aJRtSZj7A@public.gmane.org, linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Michal Simek <monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org>, linux-parisc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-cris-kernel-VrBV9hrLPhE@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-alpha-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+To: linux-arm-kernel@lists.infradead.org
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+print_symbol() uses extra stack space to sprintf() symbol
+information and then to feed that buffer to printk()
+
+  char buffer[KSYM_SYMBOL_LEN];
+
+  sprint_symbol(buffer, address);
+  printk(fmt, buffer);
+
+Replace print_symbol() with a direct printk("%pS") call.
+
+Signed-off-by: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
+Cc: Guan Xuetao <gxt@mprc.pku.edu.cn>
 ---
- arch/powerpc/include/asm/dma-mapping.h | 3 ---
- 1 file changed, 3 deletions(-)
+ arch/unicore32/kernel/process.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/arch/powerpc/include/asm/dma-mapping.h b/arch/powerpc/include/asm/dma-mapping.h
-index 5a6cbe11db6f..592c7f418aa0 100644
---- a/arch/powerpc/include/asm/dma-mapping.h
-+++ b/arch/powerpc/include/asm/dma-mapping.h
-@@ -107,9 +107,6 @@ static inline void set_dma_offset(struct device *dev, dma_addr_t off)
- 		dev->archdata.dma_offset = off;
- }
+diff --git a/arch/unicore32/kernel/process.c b/arch/unicore32/kernel/process.c
+index ddaf78ae6854..9a9d49bccc02 100644
+--- a/arch/unicore32/kernel/process.c
++++ b/arch/unicore32/kernel/process.c
+@@ -23,7 +23,6 @@
+ #include <linux/delay.h>
+ #include <linux/reboot.h>
+ #include <linux/interrupt.h>
+-#include <linux/kallsyms.h>
+ #include <linux/init.h>
+ #include <linux/cpu.h>
+ #include <linux/elfcore.h>
+@@ -139,8 +138,8 @@ void __show_regs(struct pt_regs *regs)
+ 	char buf[64];
  
--/* this will be removed soon */
--#define flush_write_buffers()
--
- #define HAVE_ARCH_DMA_SET_MASK 1
- extern int dma_set_mask(struct device *dev, u64 dma_mask);
- 
+ 	show_regs_print_info(KERN_DEFAULT);
+-	print_symbol("PC is at %s\n", instruction_pointer(regs));
+-	print_symbol("LR is at %s\n", regs->UCreg_lr);
++	printk("PC is at %pS\n", instruction_pointer(regs));
++	printk("LR is at %pS\n", (void *)regs->UCreg_lr);
+ 	printk(KERN_DEFAULT "pc : [<%08lx>]    lr : [<%08lx>]    psr: %08lx\n"
+ 	       "sp : %08lx  ip : %08lx  fp : %08lx\n",
+ 		regs->UCreg_pc, regs->UCreg_lr, regs->UCreg_asr,
 -- 
-2.14.2
+2.15.1
 
