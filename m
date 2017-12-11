@@ -1,53 +1,55 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Fri, 29 Dec 2017 08:18:36 +0000
-Subject: [PATCH 32/67] dma-direct: add support for allocation from ZONE_DMA and ZONE_DMA32
-Message-Id: <20171229081911.2802-33-hch@lst.de>
+From: Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>
+Date: Mon, 11 Dec 2017 12:50:14 +0000
+Subject: [PATCH 02/13] arm64: do not use print_symbol()
+Message-Id: <20171211125025.2270-3-sergey.senozhatsky@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20171229081911.2802-1-hch@lst.de>
-In-Reply-To: <20171229081911.2802-1-hch@lst.de>
+References: <20171211125025.2270-1-sergey.senozhatsky@gmail.com>
+In-Reply-To: <20171211125025.2270-1-sergey.senozhatsky@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: iommu@lists.linux-foundation.org
-Cc: linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, adi-buildroot-devel@lists.sourceforge.net, linux-c6x-dev@linux-c6x.org, linux-cris-kernel@axis.com, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-metag@vger.kernel.org, Michal Simek <monstr@monstr.eu>, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, patches@groups.riscv.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, Guan Xuetao <gxt@mprc.pku.edu.cn>, x86@kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-arm-kernel@lists.infradead.org
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+print_symbol() uses extra stack space to sprintf() symbol
+information and then to feed that buffer to printk()
+
+  char buffer[KSYM_SYMBOL_LEN];
+
+  sprint_symbol(buffer, address);
+  printk(fmt, buffer);
+
+Replace print_symbol() with a direct printk("%pS") call.
+
+Signed-off-by: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
+Cc: Catalin Marinas <catalin.marinas@arm.com>
+Cc: Will Deacon <will.deacon@arm.com>
 ---
- lib/dma-direct.c | 14 ++++++++++++++
- 1 file changed, 14 insertions(+)
+ arch/arm64/kernel/process.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/lib/dma-direct.c b/lib/dma-direct.c
-index 7e913728e099..2e9b9494610c 100644
---- a/lib/dma-direct.c
-+++ b/lib/dma-direct.c
-@@ -12,6 +12,14 @@
+diff --git a/arch/arm64/kernel/process.c b/arch/arm64/kernel/process.c
+index 6b7dcf4310ac..44bed43814e2 100644
+--- a/arch/arm64/kernel/process.c
++++ b/arch/arm64/kernel/process.c
+@@ -35,7 +35,6 @@
+ #include <linux/delay.h>
+ #include <linux/reboot.h>
+ #include <linux/interrupt.h>
+-#include <linux/kallsyms.h>
+ #include <linux/init.h>
+ #include <linux/cpu.h>
+ #include <linux/elfcore.h>
+@@ -221,8 +220,8 @@ void __show_regs(struct pt_regs *regs)
  
- #define DIRECT_MAPPING_ERROR		0
+ 	show_regs_print_info(KERN_DEFAULT);
+ 	print_pstate(regs);
+-	print_symbol("pc : %s\n", regs->pc);
+-	print_symbol("lr : %s\n", lr);
++	printk("pc : %pS\n", (void *)regs->pc);
++	printk("lr : %pS\n", (void *)lr);
+ 	printk("sp : %016llx\n", sp);
  
-+/*
-+ * Most architectures use ZONE_DMA for the first 16 Megabytes, but
-+ * some use it for entirely different regions:
-+ */
-+#ifndef ARCH_ZONE_DMA_BITS
-+#define ARCH_ZONE_DMA_BITS 24
-+#endif
-+
- static bool
- check_addr(struct device *dev, dma_addr_t dma_addr, size_t size,
- 		const char *caller)
-@@ -40,6 +48,12 @@ void *dma_direct_alloc(struct device *dev, size_t size, dma_addr_t *dma_handle,
- 	int page_order = get_order(size);
- 	struct page *page = NULL;
- 
-+	/* GFP_DMA32 and GFP_DMA are no ops without the corresponding zones: */
-+	if (dev->coherent_dma_mask < DMA_BIT_MASK(32))
-+		gfp |= GFP_DMA32;
-+	else if (dev->coherent_dma_mask < DMA_BIT_MASK(ARCH_ZONE_DMA_BITS))
-+		gfp |= GFP_DMA;
-+
- again:
- 	/* CMA can be used only in the context which permits sleeping */
- 	if (gfpflags_allow_blocking(gfp)) {
+ 	i = top_reg;
 -- 
-2.14.2
+2.15.1
 
