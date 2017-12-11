@@ -1,7 +1,7 @@
 From: Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>
-Date: Mon, 11 Dec 2017 12:50:21 +0000
-Subject: [PATCH 09/13] drivers: do not use print_symbol()
-Message-Id: <20171211125025.2270-10-sergey.senozhatsky@gmail.com>
+Date: Mon, 11 Dec 2017 12:50:15 +0000
+Subject: [PATCH 03/13] c6x: do not use print_symbol()
+Message-Id: <20171211125025.2270-4-sergey.senozhatsky@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20171211125025.2270-1-sergey.senozhatsky@gmail.com>
 In-Reply-To: <20171211125025.2270-1-sergey.senozhatsky@gmail.com>
@@ -21,34 +21,34 @@ information and then to feed that buffer to printk()
 Replace print_symbol() with a direct printk("%pS") call.
 
 Signed-off-by: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: Mark Salter <msalter@redhat.com>
+Cc: Aurelien Jacquiot <jacquiot.aurelien@gmail.com>
 ---
- drivers/base/core.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+ arch/c6x/kernel/traps.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/drivers/base/core.c b/drivers/base/core.c
-index bf45587bcb46..36e20498159b 100644
---- a/drivers/base/core.c
-+++ b/drivers/base/core.c
-@@ -20,7 +20,6 @@
- #include <linux/of.h>
- #include <linux/of_device.h>
- #include <linux/genhd.h>
+diff --git a/arch/c6x/kernel/traps.c b/arch/c6x/kernel/traps.c
+index 09b8a40d5680..4c1d4b84dd2b 100644
+--- a/arch/c6x/kernel/traps.c
++++ b/arch/c6x/kernel/traps.c
+@@ -11,7 +11,6 @@
+ #include <linux/module.h>
+ #include <linux/ptrace.h>
+ #include <linux/sched/debug.h>
 -#include <linux/kallsyms.h>
- #include <linux/mutex.h>
- #include <linux/pm_runtime.h>
- #include <linux/netdevice.h>
-@@ -685,8 +684,8 @@ static ssize_t dev_attr_show(struct kobject *kobj, struct attribute *attr,
- 	if (dev_attr->show)
- 		ret = dev_attr->show(dev, dev_attr, buf);
- 	if (ret >= (ssize_t)PAGE_SIZE) {
--		print_symbol("dev_attr_show: %s returned bad count\n",
--				(unsigned long)dev_attr->show);
-+		printk("dev_attr_show: %pS returned bad count\n",
-+				dev_attr->show);
+ #include <linux/bug.h>
+ 
+ #include <asm/soc.h>
+@@ -375,8 +374,7 @@ static void show_trace(unsigned long *stack, unsigned long *endstack)
+ 			if (i % 5 = 0)
+ 				pr_debug("\n	    ");
+ #endif
+-			pr_debug(" [<%08lx>]", addr);
+-			print_symbol(" %s\n", addr);
++			pr_debug(" [<%08lx>] %pS\n", addr, (void *)addr);
+ 			i++;
+ 		}
  	}
- 	return ret;
- }
 -- 
 2.15.1
 
