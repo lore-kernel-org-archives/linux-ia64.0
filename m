@@ -1,41 +1,61 @@
-From: "Rafael J. Wysocki" <rjw@rjwysocki.net>
-Date: Mon, 04 Dec 2017 14:46:58 +0000
-Subject: Re: [PATCH] acpi, numa, ia64: Parse all entries of SRAT memory affinity table
-Message-Id: <7029225.zYlq9pRjNx@aspire.rjw.lan>
+From: Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>
+Date: Mon, 11 Dec 2017 12:50:23 +0000
+Subject: [PATCH 11/13] irq debug: do not use print_symbol()
+Message-Id: <20171211125025.2270-12-sergey.senozhatsky@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20171115172902.20083-1-ganapatrao.kulkarni@cavium.com> <CAJZ5v0in=eK9RT5ODGYp8FEggCOKeRdxKdD3JkiAoxqTuveuWA@mail.gmail.com> <CAKTKpr4n2154Ep1541mjzFntyWxVtMWvxJf87UYQT-1XP37CZA@mail.gmail.com>
-In-Reply-To: <CAKTKpr4n2154Ep1541mjzFntyWxVtMWvxJf87UYQT-1XP37CZA@mail.gmail.com>
+References: <20171211125025.2270-1-sergey.senozhatsky@gmail.com>
+In-Reply-To: <20171211125025.2270-1-sergey.senozhatsky@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ganapatrao Kulkarni <gklkml16@gmail.com>
-Cc: "Rafael J. Wysocki" <rafael@kernel.org>, "Luck, Tony" <tony.luck@intel.com>, Ganapatrao Kulkarni <ganapatrao.kulkarni@cavium.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>, "Yu, Fenghua" <fenghua.yu@intel.com>, "lenb@kernel.org" <lenb@kernel.org>, "guohanjun@huawei.com" <guohanjun@huawei.com>, "jnair@caviumnetworks.com" <jnair@caviumnetworks.com>, "gpkulkarni@gmail.com" <gpkulkarni@gmail.com>, "Robert.Richter@cavium.com" <Robert.Richter@cavium.com>
+To: linux-arm-kernel@lists.infradead.org
 
-On Tuesday, November 21, 2017 6:10:53 PM CET Ganapatrao Kulkarni wrote:
-> On Tue, Nov 21, 2017 at 6:22 PM, Rafael J. Wysocki <rafael@kernel.org> wrote:
-> > On Tue, Nov 21, 2017 at 5:16 AM, Ganapatrao Kulkarni <gklkml16@gmail.com> wrote:
-> >> On Thu, Nov 16, 2017 at 12:16 AM, Luck, Tony <tony.luck@intel.com> wrote:
-> >>>> This check is already added in x86 and extending same to ia64.
-> >>>
-> >>> Looks OK.
-> >>>
-> >>> Acked-by: Tony Luck <tony.luck@intel.com>
-> >>
-> >> thanks Tony.
-> >>
-> >> ACPI Maintainers,
-> >> any comments on this patch? i can send rebasing to 4.15-rc1?
-> >
-> > I've queued it up already.
-> 
-> thanks Rafael.
-> >
-> > Is there any urgent need for that to go into 4.15?
-> 
-> not really.
+print_symbol() uses extra stack space to sprintf() symbol
+information and then to feed that buffer to printk()
 
-OK, applied and queued up for 4.16.
+  char buffer[KSYM_SYMBOL_LEN];
 
-Thanks,
-Rafael
+  sprint_symbol(buffer, address);
+  printk(fmt, buffer);
+
+Replace print_symbol() with a direct printk("%pS") call.
+
+Signed-off-by: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+---
+ kernel/irq/debug.h | 8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
+
+diff --git a/kernel/irq/debug.h b/kernel/irq/debug.h
+index 17f05ef8f575..5766e15c1160 100644
+--- a/kernel/irq/debug.h
++++ b/kernel/irq/debug.h
+@@ -3,8 +3,6 @@
+  * Debugging printout:
+  */
+ 
+-#include <linux/kallsyms.h>
+-
+ #define ___P(f) if (desc->status_use_accessors & f) printk("%14s set\n", #f)
+ #define ___PS(f) if (desc->istate & f) printk("%14s set\n", #f)
+ /* FIXME */
+@@ -15,13 +13,13 @@ static inline void print_irq_desc(unsigned int irq, struct irq_desc *desc)
+ 	printk("irq %d, desc: %p, depth: %d, count: %d, unhandled: %d\n",
+ 		irq, desc, desc->depth, desc->irq_count, desc->irqs_unhandled);
+ 	printk("->handle_irq():  %p, ", desc->handle_irq);
+-	print_symbol("%s\n", (unsigned long)desc->handle_irq);
++	pr_cont("%pS\n", desc->handle_irq);
+ 	printk("->irq_data.chip(): %p, ", desc->irq_data.chip);
+-	print_symbol("%s\n", (unsigned long)desc->irq_data.chip);
++	pr_cont("%pS\n", desc->irq_data.chip);
+ 	printk("->action(): %p\n", desc->action);
+ 	if (desc->action) {
+ 		printk("->action->handler(): %p, ", desc->action->handler);
+-		print_symbol("%s\n", (unsigned long)desc->action->handler);
++		pr_cont("%pS\n", desc->action->handler);
+ 	}
+ 
+ 	___P(IRQ_LEVEL);
+-- 
+2.15.1
 
