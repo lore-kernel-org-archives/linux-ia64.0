@@ -1,109 +1,158 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Fri, 29 Dec 2017 08:19:10 +0000
-Subject: [PATCH 66/67] swiotlb: remove swiotlb_{alloc,free}_coherent
-Message-Id: <20171229081911.2802-67-hch@lst.de>
+Date: Fri, 29 Dec 2017 08:18:39 +0000
+Subject: [PATCH 35/67] h8300: use dma-direct
+Message-Id: <20171229081911.2802-36-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20171229081911.2802-1-hch@lst.de>
-In-Reply-To: <20171229081911.2802-1-hch-jcswGhMUV9g@public.gmane.org>
+In-Reply-To: <20171229081911.2802-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Cc: linux-alpha-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-snps-arc-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, adi-buildroot-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-c6x-dev-jPsnJVOj+W6hPH1hqNUYSQ@public.gmane.org, linux-cris-kernel-VrBV9hrLPhE@public.gmane.org, linux-hexagon-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-m68k-cunTk1MwBs8S/qaLPR03pWD2FQJk+8+b@public.gmane.org, linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Michal Simek <monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org>, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, linux-parisc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, patches-q3qR2WxjNRFS9aJRtSZj7A@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Guan Xuetao <gxt-TG0Ac1+ktVePQbnJrJN+5g@public.gmane.org>, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: iommu@lists.linux-foundation.org
+Cc: linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, adi-buildroot-devel@lists.sourceforge.net, linux-c6x-dev@linux-c6x.org, linux-cris-kernel@axis.com, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-metag@vger.kernel.org, Michal Simek <monstr@monstr.eu>, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, patches@groups.riscv.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, Guan Xuetao <gxt@mprc.pku.edu.cn>, x86@kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Unused now that everyone uses swiotlb_{alloc,free}.
+Replace the bare-bones h8300 direct dma mapping implementation with
+the fully featured generic dma-direct one.
 
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- include/linux/swiotlb.h |  8 --------
- lib/swiotlb.c           | 41 -----------------------------------------
- 2 files changed, 49 deletions(-)
+ arch/h8300/Kconfig                   |  1 +
+ arch/h8300/include/asm/Kbuild        |  1 +
+ arch/h8300/include/asm/dma-mapping.h | 12 -------
+ arch/h8300/kernel/Makefile           |  2 +-
+ arch/h8300/kernel/dma.c              | 67 ------------------------------------
+ 5 files changed, 3 insertions(+), 80 deletions(-)
+ delete mode 100644 arch/h8300/include/asm/dma-mapping.h
+ delete mode 100644 arch/h8300/kernel/dma.c
 
-diff --git a/include/linux/swiotlb.h b/include/linux/swiotlb.h
-index 5b1f2a00491c..965be92c33b5 100644
---- a/include/linux/swiotlb.h
-+++ b/include/linux/swiotlb.h
-@@ -72,14 +72,6 @@ void *swiotlb_alloc(struct device *hwdev, size_t size, dma_addr_t *dma_handle,
- void swiotlb_free(struct device *dev, size_t size, void *vaddr,
- 		dma_addr_t dma_addr, unsigned long attrs);
+diff --git a/arch/h8300/Kconfig b/arch/h8300/Kconfig
+index f8d3fde08190..091d6d04b5e5 100644
+--- a/arch/h8300/Kconfig
++++ b/arch/h8300/Kconfig
+@@ -23,6 +23,7 @@ config H8300
+ 	select HAVE_ARCH_KGDB
+ 	select HAVE_ARCH_HASH
+ 	select CPU_NO_EFFICIENT_FFS
++	select DMA_DIRECT_OPS
  
--extern void
--*swiotlb_alloc_coherent(struct device *hwdev, size_t size,
--			dma_addr_t *dma_handle, gfp_t flags);
+ config CPU_BIG_ENDIAN
+ 	def_bool y
+diff --git a/arch/h8300/include/asm/Kbuild b/arch/h8300/include/asm/Kbuild
+index bc077491d299..642752c94306 100644
+--- a/arch/h8300/include/asm/Kbuild
++++ b/arch/h8300/include/asm/Kbuild
+@@ -9,6 +9,7 @@ generic-y += delay.h
+ generic-y += device.h
+ generic-y += div64.h
+ generic-y += dma.h
++generic-y += dma-mapping.h
+ generic-y += emergency-restart.h
+ generic-y += exec.h
+ generic-y += extable.h
+diff --git a/arch/h8300/include/asm/dma-mapping.h b/arch/h8300/include/asm/dma-mapping.h
+deleted file mode 100644
+index 21bb1fc3a6f1..000000000000
+--- a/arch/h8300/include/asm/dma-mapping.h
++++ /dev/null
+@@ -1,12 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0 */
+-#ifndef _H8300_DMA_MAPPING_H
+-#define _H8300_DMA_MAPPING_H
 -
--extern void
--swiotlb_free_coherent(struct device *hwdev, size_t size,
--		      void *vaddr, dma_addr_t dma_handle);
+-extern const struct dma_map_ops h8300_dma_map_ops;
 -
- extern dma_addr_t swiotlb_map_page(struct device *dev, struct page *page,
- 				   unsigned long offset, size_t size,
- 				   enum dma_data_direction dir,
-diff --git a/lib/swiotlb.c b/lib/swiotlb.c
-index 4ea0b5710618..77a40b508db8 100644
---- a/lib/swiotlb.c
-+++ b/lib/swiotlb.c
-@@ -157,13 +157,6 @@ unsigned long swiotlb_size_or_default(void)
- 	return size ? size : (IO_TLB_DEFAULT_SIZE);
- }
- 
--/* Note that this doesn't work with highmem page */
--static dma_addr_t swiotlb_virt_to_bus(struct device *hwdev,
--				      volatile void *address)
+-static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
 -{
--	return phys_to_dma(hwdev, virt_to_phys(address));
+-	return &h8300_dma_map_ops;
 -}
 -
- static bool no_iotlb_memory;
+-#endif
+diff --git a/arch/h8300/kernel/Makefile b/arch/h8300/kernel/Makefile
+index b62e830525c6..307aa51576dd 100644
+--- a/arch/h8300/kernel/Makefile
++++ b/arch/h8300/kernel/Makefile
+@@ -7,7 +7,7 @@ extra-y := vmlinux.lds
  
- void swiotlb_print_info(void)
-@@ -743,31 +736,6 @@ swiotlb_alloc_buffer(struct device *dev, size_t size, dma_addr_t *dma_handle)
- 	return NULL;
- }
+ obj-y := process.o traps.o ptrace.o \
+ 	 signal.o setup.o syscalls.o \
+-	 irq.o entry.o dma.o
++	 irq.o entry.o
  
--void *
--swiotlb_alloc_coherent(struct device *hwdev, size_t size,
--		       dma_addr_t *dma_handle, gfp_t flags)
+ obj-$(CONFIG_ROMKERNEL) += head_rom.o
+ obj-$(CONFIG_RAMKERNEL) += head_ram.o
+diff --git a/arch/h8300/kernel/dma.c b/arch/h8300/kernel/dma.c
+deleted file mode 100644
+index 4e27b74df973..000000000000
+--- a/arch/h8300/kernel/dma.c
++++ /dev/null
+@@ -1,67 +0,0 @@
+-/*
+- * This file is subject to the terms and conditions of the GNU General Public
+- * License.  See the file COPYING in the main directory of this archive
+- * for more details.
+- */
+-
+-#include <linux/dma-mapping.h>
+-#include <linux/kernel.h>
+-#include <linux/scatterlist.h>
+-#include <linux/module.h>
+-#include <asm/pgalloc.h>
+-
+-static void *dma_alloc(struct device *dev, size_t size,
+-		       dma_addr_t *dma_handle, gfp_t gfp,
+-		       unsigned long attrs)
 -{
--	int order = get_order(size);
 -	void *ret;
 -
--	ret = (void *)__get_free_pages(flags, order);
--	if (ret) {
--		*dma_handle = swiotlb_virt_to_bus(hwdev, ret);
--		if (*dma_handle  + size - 1 <= hwdev->coherent_dma_mask) {
--			memset(ret, 0, size);
--			return ret;
--		}
+-	if (dev = NULL || (*dev->dma_mask < 0xffffffff))
+-		gfp |= GFP_DMA;
+-	ret = (void *)__get_free_pages(gfp, get_order(size));
 -
--		/*
--		 * The allocated memory isn't reachable by the device.
--		 */
--		free_pages((unsigned long) ret, order);
+-	if (ret != NULL) {
+-		memset(ret, 0, size);
+-		*dma_handle = virt_to_phys(ret);
+-	}
+-	return ret;
+-}
+-
+-static void dma_free(struct device *dev, size_t size,
+-		     void *vaddr, dma_addr_t dma_handle,
+-		     unsigned long attrs)
+-
+-{
+-	free_pages((unsigned long)vaddr, get_order(size));
+-}
+-
+-static dma_addr_t map_page(struct device *dev, struct page *page,
+-				  unsigned long offset, size_t size,
+-				  enum dma_data_direction direction,
+-				  unsigned long attrs)
+-{
+-	return page_to_phys(page) + offset;
+-}
+-
+-static int map_sg(struct device *dev, struct scatterlist *sgl,
+-		  int nents, enum dma_data_direction direction,
+-		  unsigned long attrs)
+-{
+-	struct scatterlist *sg;
+-	int i;
+-
+-	for_each_sg(sgl, sg, nents, i) {
+-		sg->dma_address = sg_phys(sg);
 -	}
 -
--	return swiotlb_alloc_buffer(hwdev, size, dma_handle);
+-	return nents;
 -}
--EXPORT_SYMBOL(swiotlb_alloc_coherent);
 -
- static bool swiotlb_free_buffer(struct device *dev, size_t size,
- 		dma_addr_t dma_addr)
- {
-@@ -787,15 +755,6 @@ static bool swiotlb_free_buffer(struct device *dev, size_t size,
- 	return true;
- }
- 
--void
--swiotlb_free_coherent(struct device *hwdev, size_t size, void *vaddr,
--		      dma_addr_t dev_addr)
--{
--	if (!swiotlb_free_buffer(hwdev, size, dev_addr))
--		free_pages((unsigned long)vaddr, get_order(size));
--}
--EXPORT_SYMBOL(swiotlb_free_coherent);
--
- static void
- swiotlb_full(struct device *dev, size_t size, enum dma_data_direction dir,
- 	     int do_panic)
+-const struct dma_map_ops h8300_dma_map_ops = {
+-	.alloc = dma_alloc,
+-	.free = dma_free,
+-	.map_page = map_page,
+-	.map_sg = map_sg,
+-	.is_phys = true,
+-};
+-EXPORT_SYMBOL(h8300_dma_map_ops);
 -- 
 2.14.2
 
