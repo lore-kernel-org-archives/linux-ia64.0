@@ -1,7 +1,7 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Fri, 29 Dec 2017 08:18:38 +0000
-Subject: [PATCH 34/67] cris: use dma-direct
-Message-Id: <20171229081911.2802-35-hch@lst.de>
+Date: Fri, 29 Dec 2017 08:18:47 +0000
+Subject: [PATCH 43/67] ia64: rename swiotlb_dma_ops
+Message-Id: <20171229081911.2802-44-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20171229081911.2802-1-hch@lst.de>
 In-Reply-To: <20171229081911.2802-1-hch@lst.de>
@@ -9,177 +9,101 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: iommu@lists.linux-foundation.org
-Cc: linux-mips@linux-mips.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, linux-hexagon@vger.kernel.org, x86@kernel.org, linux-snps-arc@lists.infradead.org, adi-buildroot-devel@lists.sourceforge.net, linux-m68k@lists.linux-m68k.org, patches@groups.riscv.org, linux-metag@vger.kernel.org, linux-arm-kernel@lists.infradead.org, Michal Simek <monstr@monstr.eu>, linux-parisc@vger.kernel.org, linux-cris-kernel@axis.com, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
+Cc: linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, adi-buildroot-devel@lists.sourceforge.net, linux-c6x-dev@linux-c6x.org, linux-cris-kernel@axis.com, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-metag@vger.kernel.org, Michal Simek <monstr@monstr.eu>, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, patches@groups.riscv.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, Guan Xuetao <gxt@mprc.pku.edu.cn>, x86@kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
 
-cris currently has an incomplete direct mapping dma_map_ops implementation
-is PCI support is enabled.  Replace it with the fully feature generic
-dma-direct implementation.
+We'll need that name for a generic implementation soon.
 
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- arch/cris/Kconfig                       |  4 ++
- arch/cris/arch-v32/drivers/pci/Makefile |  2 +-
- arch/cris/arch-v32/drivers/pci/dma.c    | 78 ---------------------------------
- arch/cris/include/asm/Kbuild            |  1 +
- arch/cris/include/asm/dma-mapping.h     | 20 ---------
- 5 files changed, 6 insertions(+), 99 deletions(-)
- delete mode 100644 arch/cris/arch-v32/drivers/pci/dma.c
- delete mode 100644 arch/cris/include/asm/dma-mapping.h
+ arch/ia64/hp/common/hwsw_iommu.c | 4 ++--
+ arch/ia64/hp/common/sba_iommu.c  | 6 +++---
+ arch/ia64/kernel/pci-swiotlb.c   | 6 +++---
+ 3 files changed, 8 insertions(+), 8 deletions(-)
 
-diff --git a/arch/cris/Kconfig b/arch/cris/Kconfig
-index 54d3f426763b..cd5a0865c97f 100644
---- a/arch/cris/Kconfig
-+++ b/arch/cris/Kconfig
-@@ -33,6 +33,9 @@ config GENERIC_CALIBRATE_DELAY
- config NO_IOPORT_MAP
- 	def_bool y if !PCI
+diff --git a/arch/ia64/hp/common/hwsw_iommu.c b/arch/ia64/hp/common/hwsw_iommu.c
+index 63d8e1d2477f..41279f0442bd 100644
+--- a/arch/ia64/hp/common/hwsw_iommu.c
++++ b/arch/ia64/hp/common/hwsw_iommu.c
+@@ -19,7 +19,7 @@
+ #include <linux/export.h>
+ #include <asm/machvec.h>
  
-+config NO_DMA
-+	def_bool y if !PCI
-+
- config FORCE_MAX_ZONEORDER
- 	int
- 	default 6
-@@ -72,6 +75,7 @@ config CRIS
- 	select GENERIC_SCHED_CLOCK if ETRAX_ARCH_V32
- 	select HAVE_DEBUG_BUGVERBOSE if ETRAX_ARCH_V32
- 	select HAVE_NMI
-+	select DMA_DIRECT_OPS if PCI
+-extern const struct dma_map_ops sba_dma_ops, swiotlb_dma_ops;
++extern const struct dma_map_ops sba_dma_ops, ia64_swiotlb_dma_ops;
  
- config HZ
- 	int
-diff --git a/arch/cris/arch-v32/drivers/pci/Makefile b/arch/cris/arch-v32/drivers/pci/Makefile
-index bff7482f2444..93c8be6170b1 100644
---- a/arch/cris/arch-v32/drivers/pci/Makefile
-+++ b/arch/cris/arch-v32/drivers/pci/Makefile
-@@ -2,4 +2,4 @@
- # Makefile for Etrax cardbus driver
- #
+ /* swiotlb declarations & definitions: */
+ extern int swiotlb_late_init_with_default_size (size_t size);
+@@ -38,7 +38,7 @@ static inline int use_swiotlb(struct device *dev)
+ const struct dma_map_ops *hwsw_dma_get_ops(struct device *dev)
+ {
+ 	if (use_swiotlb(dev))
+-		return &swiotlb_dma_ops;
++		return &ia64_swiotlb_dma_ops;
+ 	return &sba_dma_ops;
+ }
+ EXPORT_SYMBOL(hwsw_dma_get_ops);
+diff --git a/arch/ia64/hp/common/sba_iommu.c b/arch/ia64/hp/common/sba_iommu.c
+index 6f05aba9012f..d68849ad2ee1 100644
+--- a/arch/ia64/hp/common/sba_iommu.c
++++ b/arch/ia64/hp/common/sba_iommu.c
+@@ -2093,7 +2093,7 @@ static int __init acpi_sba_ioc_init_acpi(void)
+ /* This has to run before acpi_scan_init(). */
+ arch_initcall(acpi_sba_ioc_init_acpi);
  
--obj-$(CONFIG_ETRAX_CARDBUS)        += bios.o dma.o
-+obj-$(CONFIG_ETRAX_CARDBUS)        += bios.o
-diff --git a/arch/cris/arch-v32/drivers/pci/dma.c b/arch/cris/arch-v32/drivers/pci/dma.c
-deleted file mode 100644
-index c7e3056885d3..000000000000
---- a/arch/cris/arch-v32/drivers/pci/dma.c
-+++ /dev/null
-@@ -1,78 +0,0 @@
--// SPDX-License-Identifier: GPL-2.0
--/*
-- * Dynamic DMA mapping support.
-- *
-- * On cris there is no hardware dynamic DMA address translation,
-- * so consistent alloc/free are merely page allocation/freeing.
-- * The rest of the dynamic DMA mapping interface is implemented
-- * in asm/pci.h.
-- *
-- * Borrowed from i386.
-- */
--
--#include <linux/types.h>
--#include <linux/mm.h>
--#include <linux/string.h>
--#include <linux/pci.h>
--#include <linux/gfp.h>
--#include <asm/io.h>
--
--static void *v32_dma_alloc(struct device *dev, size_t size,
--		dma_addr_t *dma_handle, gfp_t gfp, unsigned long attrs)
--{
--	void *ret;
--
--	if (dev = NULL || (dev->coherent_dma_mask < 0xffffffff))
--		gfp |= GFP_DMA;
--
--	ret = (void *)__get_free_pages(gfp,  get_order(size));
--
--	if (ret != NULL) {
--		memset(ret, 0, size);
--		*dma_handle = virt_to_phys(ret);
--	}
--	return ret;
--}
--
--static void v32_dma_free(struct device *dev, size_t size, void *vaddr,
--		dma_addr_t dma_handle, unsigned long attrs)
--{
--	free_pages((unsigned long)vaddr, get_order(size));
--}
--
--static inline dma_addr_t v32_dma_map_page(struct device *dev,
--		struct page *page, unsigned long offset, size_t size,
--		enum dma_data_direction direction, unsigned long attrs)
--{
--	return page_to_phys(page) + offset;
--}
--
--static inline int v32_dma_map_sg(struct device *dev, struct scatterlist *sg,
--		int nents, enum dma_data_direction direction,
--		unsigned long attrs)
--{
--	printk("Map sg\n");
--	return nents;
--}
--
--static inline int v32_dma_supported(struct device *dev, u64 mask)
--{
--        /*
--         * we fall back to GFP_DMA when the mask isn't all 1s,
--         * so we can't guarantee allocations that must be
--         * within a tighter range than GFP_DMA..
--         */
--        if (mask < 0x00ffffff)
--                return 0;
--	return 1;
--}
--
--const struct dma_map_ops v32_dma_ops = {
--	.alloc			= v32_dma_alloc,
--	.free			= v32_dma_free,
--	.map_page		= v32_dma_map_page,
--	.map_sg                 = v32_dma_map_sg,
--	.dma_supported		= v32_dma_supported,
--	.is_phys		= true,
--};
--EXPORT_SYMBOL(v32_dma_ops);
-diff --git a/arch/cris/include/asm/Kbuild b/arch/cris/include/asm/Kbuild
-index 460349cb147f..8cf45ac30c1b 100644
---- a/arch/cris/include/asm/Kbuild
-+++ b/arch/cris/include/asm/Kbuild
-@@ -5,6 +5,7 @@ generic-y += cmpxchg.h
- generic-y += current.h
- generic-y += device.h
- generic-y += div64.h
-+generic-y += dma-mapping.h
- generic-y += emergency-restart.h
- generic-y += exec.h
- generic-y += extable.h
-diff --git a/arch/cris/include/asm/dma-mapping.h b/arch/cris/include/asm/dma-mapping.h
-deleted file mode 100644
-index 1553bdb30a0c..000000000000
---- a/arch/cris/include/asm/dma-mapping.h
-+++ /dev/null
-@@ -1,20 +0,0 @@
--/* SPDX-License-Identifier: GPL-2.0 */
--#ifndef _ASM_CRIS_DMA_MAPPING_H
--#define _ASM_CRIS_DMA_MAPPING_H
--
--#ifdef CONFIG_PCI
--extern const struct dma_map_ops v32_dma_ops;
--
--static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
--{
--	return &v32_dma_ops;
--}
--#else
--static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
--{
--	BUG();
--	return NULL;
--}
--#endif
--
--#endif
+-extern const struct dma_map_ops swiotlb_dma_ops;
++extern const struct dma_map_ops ia64_swiotlb_dma_ops;
+ 
+ static int __init
+ sba_init(void)
+@@ -2108,7 +2108,7 @@ sba_init(void)
+ 	 * a successful kdump kernel boot is to use the swiotlb.
+ 	 */
+ 	if (is_kdump_kernel()) {
+-		dma_ops = &swiotlb_dma_ops;
++		dma_ops = &ia64_swiotlb_dma_ops;
+ 		if (swiotlb_late_init_with_default_size(64 * (1<<20)) != 0)
+ 			panic("Unable to initialize software I/O TLB:"
+ 				  " Try machvec=dig boot option");
+@@ -2130,7 +2130,7 @@ sba_init(void)
+ 		 * If we didn't find something sba_iommu can claim, we
+ 		 * need to setup the swiotlb and switch to the dig machvec.
+ 		 */
+-		dma_ops = &swiotlb_dma_ops;
++		dma_ops = &ia64_swiotlb_dma_ops;
+ 		if (swiotlb_late_init_with_default_size(64 * (1<<20)) != 0)
+ 			panic("Unable to find SBA IOMMU or initialize "
+ 			      "software I/O TLB: Try machvec=dig boot option");
+diff --git a/arch/ia64/kernel/pci-swiotlb.c b/arch/ia64/kernel/pci-swiotlb.c
+index 5e50939aa03e..f1ae873a8c35 100644
+--- a/arch/ia64/kernel/pci-swiotlb.c
++++ b/arch/ia64/kernel/pci-swiotlb.c
+@@ -31,7 +31,7 @@ static void ia64_swiotlb_free_coherent(struct device *dev, size_t size,
+ 	swiotlb_free_coherent(dev, size, vaddr, dma_addr);
+ }
+ 
+-const struct dma_map_ops swiotlb_dma_ops = {
++const struct dma_map_ops ia64_swiotlb_dma_ops = {
+ 	.alloc = ia64_swiotlb_alloc_coherent,
+ 	.free = ia64_swiotlb_free_coherent,
+ 	.map_page = swiotlb_map_page,
+@@ -48,7 +48,7 @@ const struct dma_map_ops swiotlb_dma_ops = {
+ 
+ void __init swiotlb_dma_init(void)
+ {
+-	dma_ops = &swiotlb_dma_ops;
++	dma_ops = &ia64_swiotlb_dma_ops;
+ 	swiotlb_init(1);
+ }
+ 
+@@ -60,7 +60,7 @@ void __init pci_swiotlb_init(void)
+ 		printk(KERN_INFO "PCI-DMA: Re-initialize machine vector.\n");
+ 		machvec_init("dig");
+ 		swiotlb_init(1);
+-		dma_ops = &swiotlb_dma_ops;
++		dma_ops = &ia64_swiotlb_dma_ops;
+ #else
+ 		panic("Unable to find Intel IOMMU");
+ #endif
 -- 
 2.14.2
 
