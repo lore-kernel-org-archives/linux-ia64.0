@@ -1,43 +1,45 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Fri, 29 Dec 2017 08:18:08 +0000
-Subject: [PATCH 04/67] arm64: don't override dma_max_pfn
-Message-Id: <20171229081911.2802-5-hch@lst.de>
+Date: Fri, 29 Dec 2017 08:18:46 +0000
+Subject: [PATCH 42/67] arm64: rename swiotlb_dma_ops
+Message-Id: <20171229081911.2802-43-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20171229081911.2802-1-hch@lst.de>
-In-Reply-To: <20171229081911.2802-1-hch-jcswGhMUV9g@public.gmane.org>
+In-Reply-To: <20171229081911.2802-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Cc: linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Guan Xuetao <gxt-TG0Ac1+ktVePQbnJrJN+5g@public.gmane.org>, linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-c6x-dev-jPsnJVOj+W6hPH1hqNUYSQ@public.gmane.org, linux-hexagon-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-snps-arc-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, adi-buildroot-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-m68k-cunTk1MwBs8S/qaLPR03pWD2FQJk+8+b@public.gmane.org, patches-q3qR2WxjNRFS9aJRtSZj7A@public.gmane.org, linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Michal Simek <monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org>, linux-parisc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-cris-kernel-VrBV9hrLPhE@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-alpha-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+To: iommu@lists.linux-foundation.org
+Cc: linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, adi-buildroot-devel@lists.sourceforge.net, linux-c6x-dev@linux-c6x.org, linux-cris-kernel@axis.com, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-metag@vger.kernel.org, Michal Simek <monstr@monstr.eu>, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, patches@groups.riscv.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, Guan Xuetao <gxt@mprc.pku.edu.cn>, x86@kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
 
-The generic version now takes dma_pfn_offset into account, so there is no
-more need for an architecture override.
+We'll need that name for a generic implementation soon.
 
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- arch/arm64/include/asm/dma-mapping.h | 9 ---------
- 1 file changed, 9 deletions(-)
+ arch/arm64/mm/dma-mapping.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/arch/arm64/include/asm/dma-mapping.h b/arch/arm64/include/asm/dma-mapping.h
-index 0df756b24863..eada887a93bf 100644
---- a/arch/arm64/include/asm/dma-mapping.h
-+++ b/arch/arm64/include/asm/dma-mapping.h
-@@ -76,14 +76,5 @@ static inline void dma_mark_clean(void *addr, size_t size)
- {
+diff --git a/arch/arm64/mm/dma-mapping.c b/arch/arm64/mm/dma-mapping.c
+index f3a637b98487..6840426bbe77 100644
+--- a/arch/arm64/mm/dma-mapping.c
++++ b/arch/arm64/mm/dma-mapping.c
+@@ -368,7 +368,7 @@ static int __swiotlb_dma_mapping_error(struct device *hwdev, dma_addr_t addr)
+ 	return 0;
  }
  
--/* Override for dma_max_pfn() */
--static inline unsigned long dma_max_pfn(struct device *dev)
--{
--	dma_addr_t dma_max = (dma_addr_t)*dev->dma_mask;
--
--	return (ulong)dma_to_phys(dev, dma_max) >> PAGE_SHIFT;
--}
--#define dma_max_pfn(dev) dma_max_pfn(dev)
--
- #endif	/* __KERNEL__ */
- #endif	/* __ASM_DMA_MAPPING_H */
+-static const struct dma_map_ops swiotlb_dma_ops = {
++static const struct dma_map_ops arm64_swiotlb_dma_ops = {
+ 	.alloc = __dma_alloc,
+ 	.free = __dma_free,
+ 	.mmap = __swiotlb_mmap,
+@@ -923,7 +923,7 @@ void arch_setup_dma_ops(struct device *dev, u64 dma_base, u64 size,
+ 			const struct iommu_ops *iommu, bool coherent)
+ {
+ 	if (!dev->dma_ops)
+-		dev->dma_ops = &swiotlb_dma_ops;
++		dev->dma_ops = &arm64_swiotlb_dma_ops;
+ 
+ 	dev->archdata.dma_coherent = coherent;
+ 	__iommu_setup_dma_ops(dev, dma_base, size, iommu);
 -- 
 2.14.2
 
