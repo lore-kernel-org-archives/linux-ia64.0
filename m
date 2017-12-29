@@ -1,7 +1,7 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Fri, 29 Dec 2017 08:18:39 +0000
-Subject: [PATCH 35/67] h8300: use dma-direct
-Message-Id: <20171229081911.2802-36-hch@lst.de>
+Date: Fri, 29 Dec 2017 08:18:48 +0000
+Subject: [PATCH 44/67] powerpc: rename swiotlb_dma_ops
+Message-Id: <20171229081911.2802-45-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20171229081911.2802-1-hch@lst.de>
 In-Reply-To: <20171229081911.2802-1-hch@lst.de>
@@ -11,148 +11,77 @@ Content-Transfer-Encoding: 7bit
 To: iommu@lists.linux-foundation.org
 Cc: linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, adi-buildroot-devel@lists.sourceforge.net, linux-c6x-dev@linux-c6x.org, linux-cris-kernel@axis.com, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-metag@vger.kernel.org, Michal Simek <monstr@monstr.eu>, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, patches@groups.riscv.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, Guan Xuetao <gxt@mprc.pku.edu.cn>, x86@kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Replace the bare-bones h8300 direct dma mapping implementation with
-the fully featured generic dma-direct one.
+We'll need that name for a generic implementation soon.
 
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- arch/h8300/Kconfig                   |  1 +
- arch/h8300/include/asm/Kbuild        |  1 +
- arch/h8300/include/asm/dma-mapping.h | 12 -------
- arch/h8300/kernel/Makefile           |  2 +-
- arch/h8300/kernel/dma.c              | 67 ------------------------------------
- 5 files changed, 3 insertions(+), 80 deletions(-)
- delete mode 100644 arch/h8300/include/asm/dma-mapping.h
- delete mode 100644 arch/h8300/kernel/dma.c
+ arch/powerpc/include/asm/swiotlb.h | 2 +-
+ arch/powerpc/kernel/dma-swiotlb.c  | 4 ++--
+ arch/powerpc/kernel/dma.c          | 2 +-
+ arch/powerpc/sysdev/fsl_pci.c      | 2 +-
+ 4 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/arch/h8300/Kconfig b/arch/h8300/Kconfig
-index f8d3fde08190..091d6d04b5e5 100644
---- a/arch/h8300/Kconfig
-+++ b/arch/h8300/Kconfig
-@@ -23,6 +23,7 @@ config H8300
- 	select HAVE_ARCH_KGDB
- 	select HAVE_ARCH_HASH
- 	select CPU_NO_EFFICIENT_FFS
-+	select DMA_DIRECT_OPS
+diff --git a/arch/powerpc/include/asm/swiotlb.h b/arch/powerpc/include/asm/swiotlb.h
+index 9341ee804d19..f65ecf57b66c 100644
+--- a/arch/powerpc/include/asm/swiotlb.h
++++ b/arch/powerpc/include/asm/swiotlb.h
+@@ -13,7 +13,7 @@
  
- config CPU_BIG_ENDIAN
- 	def_bool y
-diff --git a/arch/h8300/include/asm/Kbuild b/arch/h8300/include/asm/Kbuild
-index bc077491d299..642752c94306 100644
---- a/arch/h8300/include/asm/Kbuild
-+++ b/arch/h8300/include/asm/Kbuild
-@@ -9,6 +9,7 @@ generic-y += delay.h
- generic-y += device.h
- generic-y += div64.h
- generic-y += dma.h
-+generic-y += dma-mapping.h
- generic-y += emergency-restart.h
- generic-y += exec.h
- generic-y += extable.h
-diff --git a/arch/h8300/include/asm/dma-mapping.h b/arch/h8300/include/asm/dma-mapping.h
-deleted file mode 100644
-index 21bb1fc3a6f1..000000000000
---- a/arch/h8300/include/asm/dma-mapping.h
-+++ /dev/null
-@@ -1,12 +0,0 @@
--/* SPDX-License-Identifier: GPL-2.0 */
--#ifndef _H8300_DMA_MAPPING_H
--#define _H8300_DMA_MAPPING_H
--
--extern const struct dma_map_ops h8300_dma_map_ops;
--
--static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
--{
--	return &h8300_dma_map_ops;
--}
--
--#endif
-diff --git a/arch/h8300/kernel/Makefile b/arch/h8300/kernel/Makefile
-index b62e830525c6..307aa51576dd 100644
---- a/arch/h8300/kernel/Makefile
-+++ b/arch/h8300/kernel/Makefile
-@@ -7,7 +7,7 @@ extra-y := vmlinux.lds
+ #include <linux/swiotlb.h>
  
- obj-y := process.o traps.o ptrace.o \
- 	 signal.o setup.o syscalls.o \
--	 irq.o entry.o dma.o
-+	 irq.o entry.o
+-extern const struct dma_map_ops swiotlb_dma_ops;
++extern const struct dma_map_ops powerpc_swiotlb_dma_ops;
  
- obj-$(CONFIG_ROMKERNEL) += head_rom.o
- obj-$(CONFIG_RAMKERNEL) += head_ram.o
-diff --git a/arch/h8300/kernel/dma.c b/arch/h8300/kernel/dma.c
-deleted file mode 100644
-index 4e27b74df973..000000000000
---- a/arch/h8300/kernel/dma.c
-+++ /dev/null
-@@ -1,67 +0,0 @@
--/*
-- * This file is subject to the terms and conditions of the GNU General Public
-- * License.  See the file COPYING in the main directory of this archive
-- * for more details.
-- */
--
--#include <linux/dma-mapping.h>
--#include <linux/kernel.h>
--#include <linux/scatterlist.h>
--#include <linux/module.h>
--#include <asm/pgalloc.h>
--
--static void *dma_alloc(struct device *dev, size_t size,
--		       dma_addr_t *dma_handle, gfp_t gfp,
--		       unsigned long attrs)
--{
--	void *ret;
--
--	if (dev = NULL || (*dev->dma_mask < 0xffffffff))
--		gfp |= GFP_DMA;
--	ret = (void *)__get_free_pages(gfp, get_order(size));
--
--	if (ret != NULL) {
--		memset(ret, 0, size);
--		*dma_handle = virt_to_phys(ret);
--	}
--	return ret;
--}
--
--static void dma_free(struct device *dev, size_t size,
--		     void *vaddr, dma_addr_t dma_handle,
--		     unsigned long attrs)
--
--{
--	free_pages((unsigned long)vaddr, get_order(size));
--}
--
--static dma_addr_t map_page(struct device *dev, struct page *page,
--				  unsigned long offset, size_t size,
--				  enum dma_data_direction direction,
--				  unsigned long attrs)
--{
--	return page_to_phys(page) + offset;
--}
--
--static int map_sg(struct device *dev, struct scatterlist *sgl,
--		  int nents, enum dma_data_direction direction,
--		  unsigned long attrs)
--{
--	struct scatterlist *sg;
--	int i;
--
--	for_each_sg(sgl, sg, nents, i) {
--		sg->dma_address = sg_phys(sg);
--	}
--
--	return nents;
--}
--
--const struct dma_map_ops h8300_dma_map_ops = {
--	.alloc = dma_alloc,
--	.free = dma_free,
--	.map_page = map_page,
--	.map_sg = map_sg,
--	.is_phys = true,
--};
--EXPORT_SYMBOL(h8300_dma_map_ops);
+ extern unsigned int ppc_swiotlb_enable;
+ int __init swiotlb_setup_bus_notifier(void);
+diff --git a/arch/powerpc/kernel/dma-swiotlb.c b/arch/powerpc/kernel/dma-swiotlb.c
+index f1e99b9cee97..506ac4fafac5 100644
+--- a/arch/powerpc/kernel/dma-swiotlb.c
++++ b/arch/powerpc/kernel/dma-swiotlb.c
+@@ -46,7 +46,7 @@ static u64 swiotlb_powerpc_get_required(struct device *dev)
+  * map_page, and unmap_page on highmem, use normal dma_ops
+  * for everything else.
+  */
+-const struct dma_map_ops swiotlb_dma_ops = {
++const struct dma_map_ops powerpc_swiotlb_dma_ops = {
+ 	.alloc = __dma_nommu_alloc_coherent,
+ 	.free = __dma_nommu_free_coherent,
+ 	.mmap = dma_nommu_mmap_coherent,
+@@ -89,7 +89,7 @@ static int ppc_swiotlb_bus_notify(struct notifier_block *nb,
+ 
+ 	/* May need to bounce if the device can't address all of DRAM */
+ 	if ((dma_get_mask(dev) + 1) < memblock_end_of_DRAM())
+-		set_dma_ops(dev, &swiotlb_dma_ops);
++		set_dma_ops(dev, &powerpc_swiotlb_dma_ops);
+ 
+ 	return NOTIFY_DONE;
+ }
+diff --git a/arch/powerpc/kernel/dma.c b/arch/powerpc/kernel/dma.c
+index 1723001d5de1..b787692b91ee 100644
+--- a/arch/powerpc/kernel/dma.c
++++ b/arch/powerpc/kernel/dma.c
+@@ -33,7 +33,7 @@ static u64 __maybe_unused get_pfn_limit(struct device *dev)
+ 	struct dev_archdata __maybe_unused *sd = &dev->archdata;
+ 
+ #ifdef CONFIG_SWIOTLB
+-	if (sd->max_direct_dma_addr && dev->dma_ops = &swiotlb_dma_ops)
++	if (sd->max_direct_dma_addr && dev->dma_ops = &powerpc_swiotlb_dma_ops)
+ 		pfn = min_t(u64, pfn, sd->max_direct_dma_addr >> PAGE_SHIFT);
+ #endif
+ 
+diff --git a/arch/powerpc/sysdev/fsl_pci.c b/arch/powerpc/sysdev/fsl_pci.c
+index e4d0133bbeeb..61e07c78d64f 100644
+--- a/arch/powerpc/sysdev/fsl_pci.c
++++ b/arch/powerpc/sysdev/fsl_pci.c
+@@ -118,7 +118,7 @@ static void setup_swiotlb_ops(struct pci_controller *hose)
+ {
+ 	if (ppc_swiotlb_enable) {
+ 		hose->controller_ops.dma_dev_setup = pci_dma_dev_setup_swiotlb;
+-		set_pci_dma_ops(&swiotlb_dma_ops);
++		set_pci_dma_ops(&powerpc_swiotlb_dma_ops);
+ 	}
+ }
+ #else
 -- 
 2.14.2
 
