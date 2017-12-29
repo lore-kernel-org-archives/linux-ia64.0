@@ -1,7 +1,7 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Fri, 29 Dec 2017 08:18:32 +0000
-Subject: [PATCH 28/67] dma-direct: add support for CMA allocation
-Message-Id: <20171229081911.2802-29-hch@lst.de>
+Date: Fri, 29 Dec 2017 08:18:53 +0000
+Subject: [PATCH 49/67] swiotlb: refactor coherent buffer freeing
+Message-Id: <20171229081911.2802-50-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20171229081911.2802-1-hch@lst.de>
 In-Reply-To: <20171229081911.2802-1-hch@lst.de>
@@ -11,64 +11,75 @@ Content-Transfer-Encoding: 7bit
 To: iommu@lists.linux-foundation.org
 Cc: linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, adi-buildroot-devel@lists.sourceforge.net, linux-c6x-dev@linux-c6x.org, linux-cris-kernel@axis.com, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-metag@vger.kernel.org, Michal Simek <monstr@monstr.eu>, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, patches@groups.riscv.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, Guan Xuetao <gxt@mprc.pku.edu.cn>, x86@kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Try the CMA allocator for coherent allocations if supported.
+Factor out a new swiotlb_free_buffer helper that checks if an address
+is allocated from the swiotlb bounce buffer, and if yes frees it.
 
-Roughly modelled after the x86 code.
+This allows to simplify the swiotlb_free implemenation that uses
+dma_direct_free to free the non-bounce buffer allocations.
 
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- lib/dma-direct.c | 24 ++++++++++++++++++------
- 1 file changed, 18 insertions(+), 6 deletions(-)
+ lib/swiotlb.c | 35 +++++++++++++++++++++--------------
+ 1 file changed, 21 insertions(+), 14 deletions(-)
 
-diff --git a/lib/dma-direct.c b/lib/dma-direct.c
-index ddd9dcf4e663..d0266b39788b 100644
---- a/lib/dma-direct.c
-+++ b/lib/dma-direct.c
-@@ -7,6 +7,7 @@
- #include <linux/mm.h>
- #include <linux/dma-direct.h>
- #include <linux/scatterlist.h>
-+#include <linux/dma-contiguous.h>
- #include <linux/pfn.h>
- 
- #define DIRECT_MAPPING_ERROR		0
-@@ -30,19 +31,30 @@ check_addr(struct device *dev, dma_addr_t dma_addr, size_t size,
- static void *dma_direct_alloc(struct device *dev, size_t size,
- 		dma_addr_t *dma_handle, gfp_t gfp, unsigned long attrs)
- {
--	void *ret;
-+	unsigned int count = PAGE_ALIGN(size) >> PAGE_SHIFT;
-+	int page_order = get_order(size);
-+	struct page *page = NULL;
- 
--	ret = (void *)__get_free_pages(gfp, get_order(size));
--	if (ret)
--		*dma_handle = phys_to_dma(dev, virt_to_phys(ret));
-+	/* CMA can be used only in the context which permits sleeping */
-+	if (gfpflags_allow_blocking(gfp))
-+		page = dma_alloc_from_contiguous(dev, count, page_order, gfp);
-+	if (!page)
-+		page = alloc_pages(gfp, page_order);
-+	if (!page)
-+		return NULL;
- 
--	return ret;
-+	*dma_handle = phys_to_dma(dev, page_to_phys(page));
-+	memset(page_address(page), 0, size);
-+	return page_address(page);
+diff --git a/lib/swiotlb.c b/lib/swiotlb.c
+index a14fff30ee9d..adb4dd0091fa 100644
+--- a/lib/swiotlb.c
++++ b/lib/swiotlb.c
+@@ -773,22 +773,31 @@ swiotlb_alloc_coherent(struct device *hwdev, size_t size,
  }
+ EXPORT_SYMBOL(swiotlb_alloc_coherent);
  
- static void dma_direct_free(struct device *dev, size_t size, void *cpu_addr,
++static bool swiotlb_free_buffer(struct device *dev, size_t size,
++		dma_addr_t dma_addr)
++{
++	phys_addr_t phys_addr = dma_to_phys(dev, dma_addr);
++
++	WARN_ON_ONCE(irqs_disabled());
++
++	if (!is_swiotlb_buffer(phys_addr))
++		return false;
++
++	/*
++	 * DMA_TO_DEVICE to avoid memcpy in swiotlb_tbl_unmap_single.
++	 * DMA_ATTR_SKIP_CPU_SYNC is optional.
++	 */
++	swiotlb_tbl_unmap_single(dev, phys_addr, size, DMA_TO_DEVICE,
++				 DMA_ATTR_SKIP_CPU_SYNC);
++	return true;
++}
++
+ void
+ swiotlb_free_coherent(struct device *hwdev, size_t size, void *vaddr,
+ 		      dma_addr_t dev_addr)
+ {
+-	phys_addr_t paddr = dma_to_phys(hwdev, dev_addr);
+-
+-	WARN_ON(irqs_disabled());
+-	if (!is_swiotlb_buffer(paddr))
++	if (!swiotlb_free_buffer(hwdev, size, dev_addr))
+ 		free_pages((unsigned long)vaddr, get_order(size));
+-	else
+-		/*
+-		 * DMA_TO_DEVICE to avoid memcpy in swiotlb_tbl_unmap_single.
+-		 * DMA_ATTR_SKIP_CPU_SYNC is optional.
+-		 */
+-		swiotlb_tbl_unmap_single(hwdev, paddr, size, DMA_TO_DEVICE,
+-					 DMA_ATTR_SKIP_CPU_SYNC);
+ }
+ EXPORT_SYMBOL(swiotlb_free_coherent);
+ 
+@@ -1103,9 +1112,7 @@ void *swiotlb_alloc(struct device *dev, size_t size, dma_addr_t *dma_handle,
+ void swiotlb_free(struct device *dev, size_t size, void *vaddr,
  		dma_addr_t dma_addr, unsigned long attrs)
  {
--	free_pages((unsigned long)cpu_addr, get_order(size));
-+	unsigned int count = PAGE_ALIGN(size) >> PAGE_SHIFT;
-+
-+	if (!dma_release_from_contiguous(dev, virt_to_page(cpu_addr), count))
-+		free_pages((unsigned long)cpu_addr, get_order(size));
+-	if (is_swiotlb_buffer(dma_to_phys(dev, dma_addr)))
+-		swiotlb_free_coherent(dev, size, vaddr, dma_addr);
+-	else
++	if (!swiotlb_free_buffer(dev, size, dma_addr))
+ 		dma_direct_free(dev, size, vaddr, dma_addr, attrs);
  }
  
- static dma_addr_t dma_direct_map_page(struct device *dev, struct page *page,
 -- 
 2.14.2
 
