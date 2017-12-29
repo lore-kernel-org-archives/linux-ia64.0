@@ -1,87 +1,131 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Fri, 29 Dec 2017 08:18:48 +0000
-Subject: [PATCH 44/67] powerpc: rename swiotlb_dma_ops
-Message-Id: <20171229081911.2802-45-hch@lst.de>
+Date: Fri, 29 Dec 2017 08:19:03 +0000
+Subject: [PATCH 59/67] unicore32: use generic swiotlb_ops
+Message-Id: <20171229081911.2802-60-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20171229081911.2802-1-hch@lst.de>
-In-Reply-To: <20171229081911.2802-1-hch@lst.de>
+In-Reply-To: <20171229081911.2802-1-hch-jcswGhMUV9g@public.gmane.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: iommu@lists.linux-foundation.org
-Cc: linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, adi-buildroot-devel@lists.sourceforge.net, linux-c6x-dev@linux-c6x.org, linux-cris-kernel@axis.com, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-metag@vger.kernel.org, Michal Simek <monstr@monstr.eu>, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, patches@groups.riscv.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, Guan Xuetao <gxt@mprc.pku.edu.cn>, x86@kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
+To: iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Cc: linux-alpha-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-snps-arc-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, adi-buildroot-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-c6x-dev-jPsnJVOj+W6hPH1hqNUYSQ@public.gmane.org, linux-cris-kernel-VrBV9hrLPhE@public.gmane.org, linux-hexagon-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-m68k-cunTk1MwBs8S/qaLPR03pWD2FQJk+8+b@public.gmane.org, linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Michal Simek <monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org>, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, linux-parisc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, patches-q3qR2WxjNRFS9aJRtSZj7A@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Guan Xuetao <gxt-TG0Ac1+ktVePQbnJrJN+5g@public.gmane.org>, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 
-We'll need that name for a generic implementation soon.
+These are identical to the unicore32 ops, and would also support CMA
+if enabled on unicore32.
 
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- arch/powerpc/include/asm/swiotlb.h | 2 +-
- arch/powerpc/kernel/dma-swiotlb.c  | 4 ++--
- arch/powerpc/kernel/dma.c          | 2 +-
- arch/powerpc/sysdev/fsl_pci.c      | 2 +-
- 4 files changed, 5 insertions(+), 5 deletions(-)
+ arch/unicore32/include/asm/dma-mapping.h |  9 +-----
+ arch/unicore32/mm/Kconfig                |  1 +
+ arch/unicore32/mm/Makefile               |  2 --
+ arch/unicore32/mm/dma-swiotlb.c          | 48 --------------------------------
+ 4 files changed, 2 insertions(+), 58 deletions(-)
+ delete mode 100644 arch/unicore32/mm/dma-swiotlb.c
 
-diff --git a/arch/powerpc/include/asm/swiotlb.h b/arch/powerpc/include/asm/swiotlb.h
-index 9341ee804d19..f65ecf57b66c 100644
---- a/arch/powerpc/include/asm/swiotlb.h
-+++ b/arch/powerpc/include/asm/swiotlb.h
-@@ -13,7 +13,7 @@
+diff --git a/arch/unicore32/include/asm/dma-mapping.h b/arch/unicore32/include/asm/dma-mapping.h
+index f2bfec273aa7..790bc2ef4af2 100644
+--- a/arch/unicore32/include/asm/dma-mapping.h
++++ b/arch/unicore32/include/asm/dma-mapping.h
+@@ -12,18 +12,11 @@
+ #ifndef __UNICORE_DMA_MAPPING_H__
+ #define __UNICORE_DMA_MAPPING_H__
  
+-#ifdef __KERNEL__
+-
+-#include <linux/mm_types.h>
+-#include <linux/scatterlist.h>
  #include <linux/swiotlb.h>
  
--extern const struct dma_map_ops swiotlb_dma_ops;
-+extern const struct dma_map_ops powerpc_swiotlb_dma_ops;
- 
- extern unsigned int ppc_swiotlb_enable;
- int __init swiotlb_setup_bus_notifier(void);
-diff --git a/arch/powerpc/kernel/dma-swiotlb.c b/arch/powerpc/kernel/dma-swiotlb.c
-index f1e99b9cee97..506ac4fafac5 100644
---- a/arch/powerpc/kernel/dma-swiotlb.c
-+++ b/arch/powerpc/kernel/dma-swiotlb.c
-@@ -46,7 +46,7 @@ static u64 swiotlb_powerpc_get_required(struct device *dev)
-  * map_page, and unmap_page on highmem, use normal dma_ops
-  * for everything else.
-  */
--const struct dma_map_ops swiotlb_dma_ops = {
-+const struct dma_map_ops powerpc_swiotlb_dma_ops = {
- 	.alloc = __dma_nommu_alloc_coherent,
- 	.free = __dma_nommu_free_coherent,
- 	.mmap = dma_nommu_mmap_coherent,
-@@ -89,7 +89,7 @@ static int ppc_swiotlb_bus_notify(struct notifier_block *nb,
- 
- 	/* May need to bounce if the device can't address all of DRAM */
- 	if ((dma_get_mask(dev) + 1) < memblock_end_of_DRAM())
--		set_dma_ops(dev, &swiotlb_dma_ops);
-+		set_dma_ops(dev, &powerpc_swiotlb_dma_ops);
- 
- 	return NOTIFY_DONE;
- }
-diff --git a/arch/powerpc/kernel/dma.c b/arch/powerpc/kernel/dma.c
-index 1723001d5de1..b787692b91ee 100644
---- a/arch/powerpc/kernel/dma.c
-+++ b/arch/powerpc/kernel/dma.c
-@@ -33,7 +33,7 @@ static u64 __maybe_unused get_pfn_limit(struct device *dev)
- 	struct dev_archdata __maybe_unused *sd = &dev->archdata;
- 
- #ifdef CONFIG_SWIOTLB
--	if (sd->max_direct_dma_addr && dev->dma_ops = &swiotlb_dma_ops)
-+	if (sd->max_direct_dma_addr && dev->dma_ops = &powerpc_swiotlb_dma_ops)
- 		pfn = min_t(u64, pfn, sd->max_direct_dma_addr >> PAGE_SHIFT);
- #endif
- 
-diff --git a/arch/powerpc/sysdev/fsl_pci.c b/arch/powerpc/sysdev/fsl_pci.c
-index e4d0133bbeeb..61e07c78d64f 100644
---- a/arch/powerpc/sysdev/fsl_pci.c
-+++ b/arch/powerpc/sysdev/fsl_pci.c
-@@ -118,7 +118,7 @@ static void setup_swiotlb_ops(struct pci_controller *hose)
+-extern const struct dma_map_ops swiotlb_dma_map_ops;
+-
+ static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
  {
- 	if (ppc_swiotlb_enable) {
- 		hose->controller_ops.dma_dev_setup = pci_dma_dev_setup_swiotlb;
--		set_pci_dma_ops(&swiotlb_dma_ops);
-+		set_pci_dma_ops(&powerpc_swiotlb_dma_ops);
- 	}
+-	return &swiotlb_dma_map_ops;
++	return &swiotlb_dma_ops;
  }
- #else
+ 
+-#endif /* __KERNEL__ */
+ #endif
+diff --git a/arch/unicore32/mm/Kconfig b/arch/unicore32/mm/Kconfig
+index c256460cd363..e9154a59d561 100644
+--- a/arch/unicore32/mm/Kconfig
++++ b/arch/unicore32/mm/Kconfig
+@@ -42,6 +42,7 @@ config CPU_TLB_SINGLE_ENTRY_DISABLE
+ 
+ config SWIOTLB
+ 	def_bool y
++	select DMA_DIRECT_OPS
+ 
+ config IOMMU_HELPER
+ 	def_bool SWIOTLB
+diff --git a/arch/unicore32/mm/Makefile b/arch/unicore32/mm/Makefile
+index 681c0ef5ec9e..8106260583ab 100644
+--- a/arch/unicore32/mm/Makefile
++++ b/arch/unicore32/mm/Makefile
+@@ -6,8 +6,6 @@
+ obj-y				:= extable.o fault.o init.o pgd.o mmu.o
+ obj-y				+= flush.o ioremap.o
+ 
+-obj-$(CONFIG_SWIOTLB)		+= dma-swiotlb.o
+-
+ obj-$(CONFIG_MODULES)		+= proc-syms.o
+ 
+ obj-$(CONFIG_ALIGNMENT_TRAP)	+= alignment.o
+diff --git a/arch/unicore32/mm/dma-swiotlb.c b/arch/unicore32/mm/dma-swiotlb.c
+deleted file mode 100644
+index 525413d6690e..000000000000
+--- a/arch/unicore32/mm/dma-swiotlb.c
++++ /dev/null
+@@ -1,48 +0,0 @@
+-/*
+- * Contains routines needed to support swiotlb for UniCore32.
+- *
+- * Copyright (C) 2010 Guan Xuetao
+- *
+- * This program is free software; you can redistribute  it and/or modify it
+- * under  the terms of  the GNU General  Public License as published by the
+- * Free Software Foundation;  either version 2 of the  License, or (at your
+- * option) any later version.
+- */
+-#include <linux/pci.h>
+-#include <linux/cache.h>
+-#include <linux/module.h>
+-#include <linux/dma-mapping.h>
+-#include <linux/swiotlb.h>
+-#include <linux/bootmem.h>
+-
+-#include <asm/dma.h>
+-
+-static void *unicore_swiotlb_alloc_coherent(struct device *dev, size_t size,
+-					    dma_addr_t *dma_handle, gfp_t flags,
+-					    unsigned long attrs)
+-{
+-	return swiotlb_alloc_coherent(dev, size, dma_handle, flags);
+-}
+-
+-static void unicore_swiotlb_free_coherent(struct device *dev, size_t size,
+-					  void *vaddr, dma_addr_t dma_addr,
+-					  unsigned long attrs)
+-{
+-	swiotlb_free_coherent(dev, size, vaddr, dma_addr);
+-}
+-
+-const struct dma_map_ops swiotlb_dma_map_ops = {
+-	.alloc = unicore_swiotlb_alloc_coherent,
+-	.free = unicore_swiotlb_free_coherent,
+-	.map_sg = swiotlb_map_sg_attrs,
+-	.unmap_sg = swiotlb_unmap_sg_attrs,
+-	.dma_supported = swiotlb_dma_supported,
+-	.map_page = swiotlb_map_page,
+-	.unmap_page = swiotlb_unmap_page,
+-	.sync_single_for_cpu = swiotlb_sync_single_for_cpu,
+-	.sync_single_for_device = swiotlb_sync_single_for_device,
+-	.sync_sg_for_cpu = swiotlb_sync_sg_for_cpu,
+-	.sync_sg_for_device = swiotlb_sync_sg_for_device,
+-	.mapping_error = swiotlb_dma_mapping_error,
+-};
+-EXPORT_SYMBOL(swiotlb_dma_map_ops);
 -- 
 2.14.2
 
