@@ -1,78 +1,36 @@
-From: Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>
-Date: Mon, 11 Dec 2017 12:50:16 +0000
-Subject: [PATCH 04/13] ia64: do not use print_symbol()
-Message-Id: <20171211125025.2270-5-sergey.senozhatsky@gmail.com>
+From: Christoph Hellwig <hch@lst.de>
+Date: Fri, 29 Dec 2017 08:18:06 +0000
+Subject: [PATCH 02/67] alpha: mark jensen as broken
+Message-Id: <20171229081911.2802-3-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20171211125025.2270-1-sergey.senozhatsky@gmail.com>
-In-Reply-To: <20171211125025.2270-1-sergey.senozhatsky@gmail.com>
+References: <20171229081911.2802-1-hch@lst.de>
+In-Reply-To: <20171229081911.2802-1-hch-jcswGhMUV9g@public.gmane.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-arm-kernel@lists.infradead.org
+To: iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Cc: linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Guan Xuetao <gxt-TG0Ac1+ktVePQbnJrJN+5g@public.gmane.org>, linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-c6x-dev-jPsnJVOj+W6hPH1hqNUYSQ@public.gmane.org, linux-hexagon-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-snps-arc-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, adi-buildroot-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-m68k-cunTk1MwBs8S/qaLPR03pWD2FQJk+8+b@public.gmane.org, patches-q3qR2WxjNRFS9aJRtSZj7A@public.gmane.org, linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Michal Simek <monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org>, linux-parisc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-cris-kernel-VrBV9hrLPhE@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-alpha-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 
-print_symbol() uses extra stack space to sprintf() symbol
-information and then to feed that buffer to printk()
+CONFIG_ALPHA_JENSEN has failed to compile since commit aca05038
+("alpha/dma: use common noop dma ops"), so mark it as broken.
 
-  char buffer[KSYM_SYMBOL_LEN];
-
-  sprint_symbol(buffer, address);
-  printk(fmt, buffer);
-
-Replace print_symbol() with a direct printk("%pS") call.
-
-Additionally ia64_do_show_stack() had extra buffer [128
-bytes on stack], which we also can drop now.
-
-Signed-off-by: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- arch/ia64/kernel/process.c | 10 +++-------
- 1 file changed, 3 insertions(+), 7 deletions(-)
+ arch/alpha/Kconfig | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/arch/ia64/kernel/process.c b/arch/ia64/kernel/process.c
-index dda0082056b3..968b5f33e725 100644
---- a/arch/ia64/kernel/process.c
-+++ b/arch/ia64/kernel/process.c
-@@ -13,7 +13,6 @@
- #include <linux/pm.h>
- #include <linux/elf.h>
- #include <linux/errno.h>
--#include <linux/kallsyms.h>
- #include <linux/kernel.h>
- #include <linux/mm.h>
- #include <linux/slab.h>
-@@ -69,7 +68,6 @@ void
- ia64_do_show_stack (struct unw_frame_info *info, void *arg)
- {
- 	unsigned long ip, sp, bsp;
--	char buf[128];			/* don't make it so big that it overflows the stack! */
+diff --git a/arch/alpha/Kconfig b/arch/alpha/Kconfig
+index b31b974a03cb..e96adcbcab41 100644
+--- a/arch/alpha/Kconfig
++++ b/arch/alpha/Kconfig
+@@ -209,6 +209,7 @@ config ALPHA_EIGER
  
- 	printk("\nCall Trace:\n");
- 	do {
-@@ -79,11 +77,9 @@ ia64_do_show_stack (struct unw_frame_info *info, void *arg)
- 
- 		unw_get_sp(info, &sp);
- 		unw_get_bsp(info, &bsp);
--		snprintf(buf, sizeof(buf),
--			 " [<%016lx>] %%s\n"
-+		printk(" [<%016lx>] %pS\n"
- 			 "                                sp=%016lx bsp=%016lx\n",
--			 ip, sp, bsp);
--		print_symbol(buf, ip);
-+			 ip, (void *)ip, sp, bsp);
- 	} while (unw_unwind(info) >= 0);
- }
- 
-@@ -111,7 +107,7 @@ show_regs (struct pt_regs *regs)
- 	printk("psr : %016lx ifs : %016lx ip  : [<%016lx>]    %s (%s)\n",
- 	       regs->cr_ipsr, regs->cr_ifs, ip, print_tainted(),
- 	       init_utsname()->release);
--	print_symbol("ip is at %s\n", ip);
-+	printk("ip is at %pS\n", (void *)ip);
- 	printk("unat: %016lx pfs : %016lx rsc : %016lx\n",
- 	       regs->ar_unat, regs->ar_pfs, regs->ar_rsc);
- 	printk("rnat: %016lx bsps: %016lx pr  : %016lx\n",
+ config ALPHA_JENSEN
+ 	bool "Jensen"
++	depends on BROKEN
+ 	help
+ 	  DEC PC 150 AXP (aka Jensen): This is a very old Digital system - one
+ 	  of the first-generation Alpha systems. A number of these systems
 -- 
-2.15.1
+2.14.2
 
