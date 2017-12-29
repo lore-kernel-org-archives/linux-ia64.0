@@ -1,73 +1,37 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Fri, 29 Dec 2017 08:18:42 +0000
-Subject: [PATCH 38/67] x86/amd_gart: clean up gart_alloc_coherent
-Message-Id: <20171229081911.2802-39-hch@lst.de>
+Date: Fri, 29 Dec 2017 08:18:25 +0000
+Subject: [PATCH 21/67] dma-mapping: warn when there is no coherent_dma_mask
+Message-Id: <20171229081911.2802-22-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20171229081911.2802-1-hch@lst.de>
-In-Reply-To: <20171229081911.2802-1-hch@lst.de>
+In-Reply-To: <20171229081911.2802-1-hch-jcswGhMUV9g@public.gmane.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: iommu@lists.linux-foundation.org
-Cc: linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, adi-buildroot-devel@lists.sourceforge.net, linux-c6x-dev@linux-c6x.org, linux-cris-kernel@axis.com, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-metag@vger.kernel.org, Michal Simek <monstr@monstr.eu>, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, patches@groups.riscv.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, Guan Xuetao <gxt@mprc.pku.edu.cn>, x86@kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
+To: iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Cc: linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Guan Xuetao <gxt-TG0Ac1+ktVePQbnJrJN+5g@public.gmane.org>, linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-c6x-dev-jPsnJVOj+W6hPH1hqNUYSQ@public.gmane.org, linux-hexagon-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-snps-arc-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, adi-buildroot-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-m68k-cunTk1MwBs8S/qaLPR03pWD2FQJk+8+b@public.gmane.org, patches-q3qR2WxjNRFS9aJRtSZj7A@public.gmane.org, linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Michal Simek <monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org>, linux-parisc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-cris-kernel-VrBV9hrLPhE@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-alpha-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 
-Don't rely on the gfp mask from dma_alloc_coherent_gfp_flags to make the
-fallback decision, and streamline the code flow a bit.
+These days all devices should have a DMA coherent mask, and most dma_ops
+implementations rely on that fact.  But just to be sure add an assert to
+ring the warning bell if that is not the case.
 
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- arch/x86/kernel/amd_gart_64.c | 36 ++++++++++++++++++------------------
- 1 file changed, 18 insertions(+), 18 deletions(-)
+ include/linux/dma-mapping.h | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/arch/x86/kernel/amd_gart_64.c b/arch/x86/kernel/amd_gart_64.c
-index 52e3abcf3e70..92054815023e 100644
---- a/arch/x86/kernel/amd_gart_64.c
-+++ b/arch/x86/kernel/amd_gart_64.c
-@@ -484,26 +484,26 @@ gart_alloc_coherent(struct device *dev, size_t size, dma_addr_t *dma_addr,
- 	unsigned long align_mask;
- 	struct page *page;
+diff --git a/include/linux/dma-mapping.h b/include/linux/dma-mapping.h
+index e77e2dec4723..2779d544485c 100644
+--- a/include/linux/dma-mapping.h
++++ b/include/linux/dma-mapping.h
+@@ -520,6 +520,7 @@ static inline void *dma_alloc_attrs(struct device *dev, size_t size,
+ 	void *cpu_addr;
  
--	if (force_iommu && !(flag & GFP_DMA)) {
--		flag &= ~(__GFP_DMA | __GFP_HIGHMEM | __GFP_DMA32);
--		page = alloc_pages(flag | __GFP_ZERO, get_order(size));
--		if (!page)
--			return NULL;
--
--		align_mask = (1UL << get_order(size)) - 1;
--		paddr = dma_map_area(dev, page_to_phys(page), size,
--				     DMA_BIDIRECTIONAL, align_mask);
--
--		flush_gart();
--		if (paddr != bad_dma_addr) {
--			*dma_addr = paddr;
--			return page_address(page);
--		}
--		__free_pages(page, get_order(size));
--	} else
-+	if (!force_iommu || dev->coherent_dma_mask <= DMA_BIT_MASK(24))
- 		return dma_direct_alloc(dev, size, dma_addr, flag, attrs);
+ 	BUG_ON(!ops);
++	WARN_ON_ONCE(!dev->coherent_dma_mask);
  
--	return NULL;
-+	flag &= ~(__GFP_DMA | __GFP_HIGHMEM | __GFP_DMA32);
-+	page = alloc_pages(flag | __GFP_ZERO, get_order(size));
-+	if (!page)
-+		return NULL;
-+
-+	align_mask = (1UL << get_order(size)) - 1;
-+	paddr = dma_map_area(dev, page_to_phys(page), size, DMA_BIDIRECTIONAL,
-+			align_mask);
-+
-+	flush_gart();
-+	if (unlikely(paddr = bad_dma_addr)) {
-+		__free_pages(page, get_order(size));
-+		return NULL;
-+	}
-+
-+	*dma_addr = paddr;
-+	return page_address(page);
- }
- 
- /* free a coherent mapping */
+ 	if (dma_alloc_from_dev_coherent(dev, size, dma_handle, &cpu_addr))
+ 		return cpu_addr;
 -- 
 2.14.2
 
