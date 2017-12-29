@@ -1,224 +1,34 @@
-From: David Howells <dhowells@redhat.com>
-Date: Fri, 08 Dec 2017 15:51:37 +0000
-Subject: [PATCH 2/5] Expand INIT_TASK() in init/init_task.c and remove
-Message-Id: <151274829701.9961.12390203402383079959.stgit@warthog.procyon.org.uk>
+From: Christoph Hellwig <hch@lst.de>
+Date: Fri, 29 Dec 2017 08:18:10 +0000
+Subject: [PATCH 06/67] hexagon: remove unused flush_write_buffers definition
+Message-Id: <20171229081911.2802-7-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <151274828194.9961.4230316917108602662.stgit@warthog.procyon.org.uk>
-In-Reply-To: <151274828194.9961.4230316917108602662.stgit@warthog.procyon.org.uk>
+References: <20171229081911.2802-1-hch@lst.de>
+In-Reply-To: <20171229081911.2802-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-arch@vger.kernel.org, x86@kernel.org, linux-ia64@vger.kernel.org
-Cc: dhowells@redhat.com, torvalds@linux-foundation.org, linux-kernel@vger.kernel.org
+To: iommu@lists.linux-foundation.org
+Cc: linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, adi-buildroot-devel@lists.sourceforge.net, linux-c6x-dev@linux-c6x.org, linux-cris-kernel@axis.com, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-metag@vger.kernel.org, Michal Simek <monstr@monstr.eu>, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, patches@groups.riscv.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, Guan Xuetao <gxt@mprc.pku.edu.cn>, x86@kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
 
-It's no longer necessary to have an INIT_TASK() macro, and this can be
-expanded into the one place it is now used and removed.
-
-Signed-off-by: David Howells <dhowells@redhat.com>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
+ arch/hexagon/include/asm/io.h | 2 --
+ 1 file changed, 2 deletions(-)
 
- include/linux/init_task.h |   87 ++-------------------------------------------
- init/init_task.c          |   85 +++++++++++++++++++++++++++++++++++++++++++-
- 2 files changed, 87 insertions(+), 85 deletions(-)
-
-diff --git a/include/linux/init_task.h b/include/linux/init_task.h
-index 30a89b99a5af..9711611b831d 100644
---- a/include/linux/init_task.h
-+++ b/include/linux/init_task.h
-@@ -218,91 +218,12 @@ extern struct cred init_cred;
- #define INIT_TASK_SECURITY
- #endif
+diff --git a/arch/hexagon/include/asm/io.h b/arch/hexagon/include/asm/io.h
+index 66f5e9a61efc..9e8621d94ee9 100644
+--- a/arch/hexagon/include/asm/io.h
++++ b/arch/hexagon/include/asm/io.h
+@@ -330,8 +330,6 @@ static inline void outsl(unsigned long port, const void *buffer, int count)
+ 	}
+ }
  
--/*
-- *  INIT_TASK is used to set up the first task table, touch at
-- * your own risk!. Base=0, limit=0x1fffff (=2MB)
-- */
--#define INIT_TASK(tsk)	\
--{									\
--	INIT_TASK_TI(tsk)						\
--	.state		= 0,						\
--	.stack		= init_stack,					\
--	.usage		= ATOMIC_INIT(2),				\
--	.flags		= PF_KTHREAD,					\
--	.prio		= MAX_PRIO-20,					\
--	.static_prio	= MAX_PRIO-20,					\
--	.normal_prio	= MAX_PRIO-20,					\
--	.policy		= SCHED_NORMAL,					\
--	.cpus_allowed	= CPU_MASK_ALL,					\
--	.nr_cpus_allowed= NR_CPUS,					\
--	.mm		= NULL,						\
--	.active_mm	= &init_mm,					\
--	.restart_block = {						\
--		.fn = do_no_restart_syscall,				\
--	},								\
--	.se		= {						\
--		.group_node 	= LIST_HEAD_INIT(tsk.se.group_node),	\
--	},								\
--	.rt		= {						\
--		.run_list	= LIST_HEAD_INIT(tsk.rt.run_list),	\
--		.time_slice	= RR_TIMESLICE,				\
--	},								\
--	.tasks		= LIST_HEAD_INIT(tsk.tasks),			\
--	INIT_PUSHABLE_TASKS(tsk)					\
--	INIT_CGROUP_SCHED(tsk)						\
--	.ptraced	= LIST_HEAD_INIT(tsk.ptraced),			\
--	.ptrace_entry	= LIST_HEAD_INIT(tsk.ptrace_entry),		\
--	.real_parent	= &tsk,						\
--	.parent		= &tsk,						\
--	.children	= LIST_HEAD_INIT(tsk.children),			\
--	.sibling	= LIST_HEAD_INIT(tsk.sibling),			\
--	.group_leader	= &tsk,						\
--	RCU_POINTER_INITIALIZER(real_cred, &init_cred),			\
--	RCU_POINTER_INITIALIZER(cred, &init_cred),			\
--	.comm		= INIT_TASK_COMM,				\
--	.thread		= INIT_THREAD,					\
--	.fs		= &init_fs,					\
--	.files		= &init_files,					\
--	.signal		= &init_signals,				\
--	.sighand	= &init_sighand,				\
--	.nsproxy	= &init_nsproxy,				\
--	.pending	= {						\
--		.list = LIST_HEAD_INIT(tsk.pending.list),		\
--		.signal = {{0}}},					\
--	.blocked	= {{0}},					\
--	.alloc_lock	= __SPIN_LOCK_UNLOCKED(tsk.alloc_lock),		\
--	.journal_info	= NULL,						\
--	INIT_CPU_TIMERS(tsk)						\
--	.pi_lock	= __RAW_SPIN_LOCK_UNLOCKED(tsk.pi_lock),	\
--	.timer_slack_ns = 50000, /* 50 usec default slack */		\
--	.pids = {							\
--		[PIDTYPE_PID]  = INIT_PID_LINK(PIDTYPE_PID),		\
--		[PIDTYPE_PGID] = INIT_PID_LINK(PIDTYPE_PGID),		\
--		[PIDTYPE_SID]  = INIT_PID_LINK(PIDTYPE_SID),		\
--	},								\
--	.thread_group	= LIST_HEAD_INIT(tsk.thread_group),		\
--	.thread_node	= LIST_HEAD_INIT(init_signals.thread_head),	\
--	INIT_IDS							\
--	INIT_PERF_EVENTS(tsk)						\
--	INIT_TRACE_IRQFLAGS						\
--	INIT_LOCKDEP							\
--	INIT_FTRACE_GRAPH						\
--	INIT_TRACE_RECURSION						\
--	INIT_TASK_RCU_PREEMPT(tsk)					\
--	INIT_TASK_RCU_TASKS(tsk)					\
--	INIT_CPUSET_SEQ(tsk)						\
--	INIT_RT_MUTEXES(tsk)						\
--	INIT_PREV_CPUTIME(tsk)						\
--	INIT_VTIME(tsk)							\
--	INIT_NUMA_BALANCING(tsk)					\
--	INIT_KASAN(tsk)							\
--	INIT_LIVEPATCH(tsk)						\
--	INIT_TASK_SECURITY						\
--}
+-#define flush_write_buffers() do { } while (0)
 -
--
- /* Attach to the init_task data structure for proper alignment */
-+#ifdef CONFIG_ARCH_TASK_STRUCT_ON_STACK
- #define __init_task_data __attribute__((__section__(".data..init_task")))
-+#else
-+#define __init_task_data /**/
-+#endif
+ #endif /* __KERNEL__ */
  
- /* Attach to the thread_info data structure for proper alignment */
- #define __init_thread_info __attribute__((__section__(".data..init_thread_info")))
-diff --git a/init/init_task.c b/init/init_task.c
-index 2285aa42cbe1..7b2436f02dad 100644
---- a/init/init_task.c
-+++ b/init/init_task.c
-@@ -16,12 +16,93 @@
- static struct signal_struct init_signals = INIT_SIGNALS(init_signals);
- static struct sighand_struct init_sighand = INIT_SIGHAND(init_sighand);
- 
--/* Initial task structure */
-+
-+/*
-+ * Set up the first task table, touch at your own risk!. Base=0,
-+ * limit=0x1fffff (=2MB)
-+ */
- struct task_struct init_task
- #ifdef CONFIG_ARCH_TASK_STRUCT_ON_STACK
- 	__init_task_data
  #endif
--	= INIT_TASK(init_task);
-+= {
-+	INIT_TASK_TI(init_task)
-+	.state		= 0,
-+	.stack		= init_stack,
-+	.usage		= ATOMIC_INIT(2),
-+	.flags		= PF_KTHREAD,
-+	.prio		= MAX_PRIO-20,
-+	.static_prio	= MAX_PRIO-20,
-+	.normal_prio	= MAX_PRIO-20,
-+	.policy		= SCHED_NORMAL,
-+	.cpus_allowed	= CPU_MASK_ALL,
-+	.nr_cpus_allowed= NR_CPUS,
-+	.mm		= NULL,
-+	.active_mm	= &init_mm,
-+	.restart_block = {
-+		.fn = do_no_restart_syscall,
-+	},
-+	.se		= {
-+		.group_node 	= LIST_HEAD_INIT(init_task.se.group_node),
-+	},
-+	.rt		= {
-+		.run_list	= LIST_HEAD_INIT(init_task.rt.run_list),
-+		.time_slice	= RR_TIMESLICE,
-+	},
-+	.tasks		= LIST_HEAD_INIT(init_task.tasks),
-+	INIT_PUSHABLE_TASKS(init_task)
-+	INIT_CGROUP_SCHED(init_task)
-+	.ptraced	= LIST_HEAD_INIT(init_task.ptraced),
-+	.ptrace_entry	= LIST_HEAD_INIT(init_task.ptrace_entry),
-+	.real_parent	= &init_task,
-+	.parent		= &init_task,
-+	.children	= LIST_HEAD_INIT(init_task.children),
-+	.sibling	= LIST_HEAD_INIT(init_task.sibling),
-+	.group_leader	= &init_task,
-+	RCU_POINTER_INITIALIZER(real_cred, &init_cred),
-+	RCU_POINTER_INITIALIZER(cred, &init_cred),
-+	.comm		= INIT_TASK_COMM,
-+	.thread		= INIT_THREAD,
-+	.fs		= &init_fs,
-+	.files		= &init_files,
-+	.signal		= &init_signals,
-+	.sighand	= &init_sighand,
-+	.nsproxy	= &init_nsproxy,
-+	.pending	= {
-+		.list = LIST_HEAD_INIT(init_task.pending.list),
-+		.signal = {{0}}
-+	},
-+	.blocked	= {{0}},
-+	.alloc_lock	= __SPIN_LOCK_UNLOCKED(init_task.alloc_lock),
-+	.journal_info	= NULL,
-+	INIT_CPU_TIMERS(init_task)
-+	.pi_lock	= __RAW_SPIN_LOCK_UNLOCKED(init_task.pi_lock),
-+	.timer_slack_ns = 50000, /* 50 usec default slack */
-+	.pids = {
-+		[PIDTYPE_PID]  = INIT_PID_LINK(PIDTYPE_PID),
-+		[PIDTYPE_PGID] = INIT_PID_LINK(PIDTYPE_PGID),
-+		[PIDTYPE_SID]  = INIT_PID_LINK(PIDTYPE_SID),
-+	},
-+	.thread_group	= LIST_HEAD_INIT(init_task.thread_group),
-+	.thread_node	= LIST_HEAD_INIT(init_signals.thread_head),
-+	INIT_IDS
-+	INIT_PERF_EVENTS(init_task)
-+	INIT_TRACE_IRQFLAGS
-+	INIT_LOCKDEP
-+	INIT_FTRACE_GRAPH
-+	INIT_TRACE_RECURSION
-+	INIT_TASK_RCU_PREEMPT(init_task)
-+	INIT_TASK_RCU_TASKS(init_task)
-+	INIT_CPUSET_SEQ(init_task)
-+	INIT_RT_MUTEXES(init_task)
-+	INIT_PREV_CPUTIME(init_task)
-+	INIT_VTIME(init_task)
-+	INIT_NUMA_BALANCING(init_task)
-+	INIT_KASAN(init_task)
-+	INIT_LIVEPATCH(init_task)
-+	INIT_TASK_SECURITY
-+};
-+
- EXPORT_SYMBOL(init_task);
- 
- /*
+-- 
+2.14.2
 
