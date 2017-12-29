@@ -1,842 +1,279 @@
-From: David Howells <dhowells@redhat.com>
-Date: Fri, 08 Dec 2017 15:51:29 +0000
-Subject: [PATCH 1/5] Construct init thread stack in the linker script rather than by union
-Message-Id: <151274828931.9961.17801232134228415862.stgit@warthog.procyon.org.uk>
+From: Christoph Hellwig <hch@lst.de>
+Date: Fri, 29 Dec 2017 08:18:29 +0000
+Subject: [PATCH 25/67] dma-direct: rename dma_noop to dma_direct
+Message-Id: <20171229081911.2802-26-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <151274828194.9961.4230316917108602662.stgit@warthog.procyon.org.uk>
-In-Reply-To: <151274828194.9961.4230316917108602662.stgit@warthog.procyon.org.uk>
+References: <20171229081911.2802-1-hch@lst.de>
+In-Reply-To: <20171229081911.2802-1-hch-jcswGhMUV9g@public.gmane.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-arch@vger.kernel.org, x86@kernel.org, linux-ia64@vger.kernel.org
-Cc: dhowells@redhat.com, torvalds@linux-foundation.org, linux-kernel@vger.kernel.org
+To: iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Cc: linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Guan Xuetao <gxt-TG0Ac1+ktVePQbnJrJN+5g@public.gmane.org>, linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-c6x-dev-jPsnJVOj+W6hPH1hqNUYSQ@public.gmane.org, linux-hexagon-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-snps-arc-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, adi-buildroot-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-m68k-cunTk1MwBs8S/qaLPR03pWD2FQJk+8+b@public.gmane.org, patches-q3qR2WxjNRFS9aJRtSZj7A@public.gmane.org, linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Michal Simek <monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org>, linux-parisc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-cris-kernel-VrBV9hrLPhE@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-alpha-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 
-Construct the init thread stack in the linker script rather than doing it
-by means of a union so that ia64's init_task.c can be got rid of.
+The trivial direct mapping implementation already does a virtual to
+physical translation which isn't strictly a noop, and will soon learn
+to do non-direct but linear physical to dma translations through the
+device offset and a few small tricks.  Rename it to a better fitting
+name.
 
-The following symbols are then made available from INIT_TASK_DATA() linker
-script macro:
-
-	init_thread_union
-	init_stack
-
-INIT_TASK_DATA() also expands the region to THREAD_SIZE to accommodate the
-size of the init stack.  init_thread_union is given its own section so that
-it can be placed into the stack space in the right order.  I'm assuming
-that the ia64 ordering is correct and that the task_struct is first and the
-thread_info second.
-
-Signed-off-by: David Howells <dhowells@redhat.com>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
+ MAINTAINERS                        |  2 +-
+ arch/arm/Kconfig                   |  2 +-
+ arch/arm/include/asm/dma-mapping.h |  2 +-
+ arch/arm/mm/dma-mapping-nommu.c    |  8 ++++----
+ arch/m32r/Kconfig                  |  2 +-
+ arch/riscv/Kconfig                 |  2 +-
+ arch/s390/Kconfig                  |  2 +-
+ include/asm-generic/dma-mapping.h  |  2 +-
+ include/linux/dma-mapping.h        |  2 +-
+ lib/Kconfig                        |  2 +-
+ lib/Makefile                       |  2 +-
+ lib/{dma-noop.c => dma-direct.c}   | 35 +++++++++++++++--------------------
+ 12 files changed, 29 insertions(+), 34 deletions(-)
+ rename lib/{dma-noop.c => dma-direct.c} (53%)
 
- arch/Kconfig                              |    4 +--
- arch/alpha/include/asm/thread_info.h      |    3 --
- arch/arc/include/asm/thread_info.h        |    3 --
- arch/arm/include/asm/thread_info.h        |    3 --
- arch/arm64/include/asm/thread_info.h      |    2 -
- arch/blackfin/include/asm/thread_info.h   |    2 -
- arch/c6x/include/asm/thread_info.h        |    3 --
- arch/cris/include/asm/processor.h         |    2 -
- arch/cris/include/asm/thread_info.h       |    2 -
- arch/frv/include/asm/thread_info.h        |    3 --
- arch/h8300/include/asm/thread_info.h      |    3 --
- arch/hexagon/include/asm/thread_info.h    |    3 --
- arch/ia64/Kconfig                         |    2 +
- arch/ia64/Makefile                        |    2 +
- arch/ia64/include/asm/thread_info.h       |    4 +--
- arch/ia64/kernel/Makefile                 |    2 +
- arch/ia64/kernel/init_task.c              |   44 -----------------------------
- arch/ia64/kernel/vmlinux.lds.S            |    1 +
- arch/m32r/include/asm/thread_info.h       |    3 --
- arch/m68k/include/asm/thread_info.h       |    4 ---
- arch/metag/include/asm/thread_info.h      |    3 --
- arch/microblaze/include/asm/thread_info.h |    3 --
- arch/mips/include/asm/thread_info.h       |    3 --
- arch/mn10300/include/asm/thread_info.h    |    2 -
- arch/nios2/include/asm/thread_info.h      |    3 --
- arch/openrisc/include/asm/processor.h     |    2 -
- arch/openrisc/include/asm/thread_info.h   |    2 -
- arch/parisc/include/asm/thread_info.h     |    3 --
- arch/powerpc/include/asm/thread_info.h    |    3 --
- arch/s390/include/asm/thread_info.h       |    2 -
- arch/score/include/asm/thread_info.h      |    3 --
- arch/sh/include/asm/thread_info.h         |    3 --
- arch/sparc/include/asm/thread_info_32.h   |    3 --
- arch/sparc/include/asm/thread_info_64.h   |    3 --
- arch/tile/include/asm/thread_info.h       |    3 --
- arch/um/include/asm/processor-generic.h   |    5 +++
- arch/um/include/asm/thread_info.h         |    9 ++----
- arch/um/include/asm/vmlinux.lds.h         |    2 +
- arch/um/kernel/dyn.lds.S                  |    3 +-
- arch/um/kernel/um_arch.c                  |    2 +
- arch/um/kernel/uml.lds.S                  |    2 +
- arch/unicore32/include/asm/thread_info.h  |    3 --
- arch/x86/include/asm/thread_info.h        |    2 -
- arch/xtensa/include/asm/thread_info.h     |    3 --
- include/asm-generic/vmlinux.lds.h         |    4 +++
- include/linux/init_task.h                 |    3 ++
- include/linux/sched.h                     |    9 ++++++
- init/Makefile                             |    2 -
- init/init_task.c                          |   10 ++++---
- 49 files changed, 42 insertions(+), 153 deletions(-)
- delete mode 100644 arch/ia64/kernel/init_task.c
- create mode 100644 arch/um/include/asm/vmlinux.lds.h
-
-diff --git a/arch/Kconfig b/arch/Kconfig
-index 400b9e1b2f27..a26d6f8ab967 100644
---- a/arch/Kconfig
-+++ b/arch/Kconfig
-@@ -234,8 +234,8 @@ config ARCH_HAS_FORTIFY_SOURCE
- config ARCH_HAS_SET_MEMORY
+diff --git a/MAINTAINERS b/MAINTAINERS
+index a8b35d9f41b2..b4005fe06e4c 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -4336,7 +4336,7 @@ T:	git git://git.infradead.org/users/hch/dma-mapping.git
+ W:	http://git.infradead.org/users/hch/dma-mapping.git
+ S:	Supported
+ F:	lib/dma-debug.c
+-F:	lib/dma-noop.c
++F:	lib/dma-direct.c
+ F:	lib/dma-virt.c
+ F:	drivers/base/dma-mapping.c
+ F:	drivers/base/dma-coherent.c
+diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
+index 00d889a37965..430a0aa710d6 100644
+--- a/arch/arm/Kconfig
++++ b/arch/arm/Kconfig
+@@ -25,7 +25,7 @@ config ARM
+ 	select CLONE_BACKWARDS
+ 	select CPU_PM if (SUSPEND || CPU_IDLE)
+ 	select DCACHE_WORD_ACCESS if HAVE_EFFICIENT_UNALIGNED_ACCESS
+-	select DMA_NOOP_OPS if !MMU
++	select DMA_DIRECT_OPS if !MMU
+ 	select EDAC_SUPPORT
+ 	select EDAC_ATOMIC_SCRUB
+ 	select GENERIC_ALLOCATOR
+diff --git a/arch/arm/include/asm/dma-mapping.h b/arch/arm/include/asm/dma-mapping.h
+index e5d9020c9ee1..8436f6ade57d 100644
+--- a/arch/arm/include/asm/dma-mapping.h
++++ b/arch/arm/include/asm/dma-mapping.h
+@@ -18,7 +18,7 @@ extern const struct dma_map_ops arm_coherent_dma_ops;
+ 
+ static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
+ {
+-	return IS_ENABLED(CONFIG_MMU) ? &arm_dma_ops : &dma_noop_ops;
++	return IS_ENABLED(CONFIG_MMU) ? &arm_dma_ops : &dma_direct_ops;
+ }
+ 
+ #ifdef __arch_page_to_dma
+diff --git a/arch/arm/mm/dma-mapping-nommu.c b/arch/arm/mm/dma-mapping-nommu.c
+index 1cced700e45a..49e9831dc0f1 100644
+--- a/arch/arm/mm/dma-mapping-nommu.c
++++ b/arch/arm/mm/dma-mapping-nommu.c
+@@ -22,7 +22,7 @@
+ #include "dma.h"
+ 
+ /*
+- *  dma_noop_ops is used if
++ *  dma_direct_ops is used if
+  *   - MMU/MPU is off
+  *   - cpu is v7m w/o cache support
+  *   - device is coherent
+@@ -39,7 +39,7 @@ static void *arm_nommu_dma_alloc(struct device *dev, size_t size,
+ 				 unsigned long attrs)
+ 
+ {
+-	const struct dma_map_ops *ops = &dma_noop_ops;
++	const struct dma_map_ops *ops = &dma_direct_ops;
+ 	void *ret;
+ 
+ 	/*
+@@ -70,7 +70,7 @@ static void arm_nommu_dma_free(struct device *dev, size_t size,
+ 			       void *cpu_addr, dma_addr_t dma_addr,
+ 			       unsigned long attrs)
+ {
+-	const struct dma_map_ops *ops = &dma_noop_ops;
++	const struct dma_map_ops *ops = &dma_direct_ops;
+ 
+ 	if (attrs & DMA_ATTR_NON_CONSISTENT) {
+ 		ops->free(dev, size, cpu_addr, dma_addr, attrs);
+@@ -214,7 +214,7 @@ EXPORT_SYMBOL(arm_nommu_dma_ops);
+ 
+ static const struct dma_map_ops *arm_nommu_get_dma_map_ops(bool coherent)
+ {
+-	return coherent ? &dma_noop_ops : &arm_nommu_dma_ops;
++	return coherent ? &dma_direct_ops : &arm_nommu_dma_ops;
+ }
+ 
+ void arch_setup_dma_ops(struct device *dev, u64 dma_base, u64 size,
+diff --git a/arch/m32r/Kconfig b/arch/m32r/Kconfig
+index 498398d915c1..dd84ee194579 100644
+--- a/arch/m32r/Kconfig
++++ b/arch/m32r/Kconfig
+@@ -19,7 +19,7 @@ config M32R
+ 	select MODULES_USE_ELF_RELA
+ 	select HAVE_DEBUG_STACKOVERFLOW
+ 	select CPU_NO_EFFICIENT_FFS
+-	select DMA_NOOP_OPS
++	select DMA_DIRECT_OPS
+ 	select ARCH_NO_COHERENT_DMA_MMAP if !MMU
+ 
+ config SBUS
+diff --git a/arch/riscv/Kconfig b/arch/riscv/Kconfig
+index 2c6adf12713a..865e14f50c14 100644
+--- a/arch/riscv/Kconfig
++++ b/arch/riscv/Kconfig
+@@ -83,7 +83,7 @@ config PGTABLE_LEVELS
+ config HAVE_KPROBES
+ 	def_bool n
+ 
+-config DMA_NOOP_OPS
++config DMA_DIRECT_OPS
+ 	def_bool y
+ 
+ menu "Platform type"
+diff --git a/arch/s390/Kconfig b/arch/s390/Kconfig
+index 829c67986db7..9376637229c9 100644
+--- a/arch/s390/Kconfig
++++ b/arch/s390/Kconfig
+@@ -140,7 +140,7 @@ config S390
+ 	select HAVE_DEBUG_KMEMLEAK
+ 	select HAVE_DMA_API_DEBUG
+ 	select HAVE_DMA_CONTIGUOUS
+-	select DMA_NOOP_OPS
++	select DMA_DIRECT_OPS
+ 	select HAVE_DYNAMIC_FTRACE
+ 	select HAVE_DYNAMIC_FTRACE_WITH_REGS
+ 	select HAVE_EFFICIENT_UNALIGNED_ACCESS
+diff --git a/include/asm-generic/dma-mapping.h b/include/asm-generic/dma-mapping.h
+index 164031531d85..880a292d792f 100644
+--- a/include/asm-generic/dma-mapping.h
++++ b/include/asm-generic/dma-mapping.h
+@@ -4,7 +4,7 @@
+ 
+ static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
+ {
+-	return &dma_noop_ops;
++	return &dma_direct_ops;
+ }
+ 
+ #endif /* _ASM_GENERIC_DMA_MAPPING_H */
+diff --git a/include/linux/dma-mapping.h b/include/linux/dma-mapping.h
+index 72568bf4fc12..ff3528de5322 100644
+--- a/include/linux/dma-mapping.h
++++ b/include/linux/dma-mapping.h
+@@ -143,7 +143,7 @@ struct dma_map_ops {
+ 	bool is_phys;
+ };
+ 
+-extern const struct dma_map_ops dma_noop_ops;
++extern const struct dma_map_ops dma_direct_ops;
+ extern const struct dma_map_ops dma_virt_ops;
+ 
+ #define DMA_BIT_MASK(n)	(((n) = 64) ? ~0ULL : ((1ULL<<(n))-1))
+diff --git a/lib/Kconfig b/lib/Kconfig
+index c5e84fbcb30b..9d3d649c9dc9 100644
+--- a/lib/Kconfig
++++ b/lib/Kconfig
+@@ -409,7 +409,7 @@ config HAS_DMA
+ 	depends on !NO_DMA
+ 	default y
+ 
+-config DMA_NOOP_OPS
++config DMA_DIRECT_OPS
  	bool
+ 	depends on HAS_DMA && (!64BIT || ARCH_DMA_ADDR_T_64BIT)
+ 	default n
+diff --git a/lib/Makefile b/lib/Makefile
+index d11c48ec8ffd..749851abe85a 100644
+--- a/lib/Makefile
++++ b/lib/Makefile
+@@ -28,7 +28,7 @@ lib-y := ctype.o string.o vsprintf.o cmdline.o \
  
--# Select if arch init_task initializer is different to init/init_task.c
--config ARCH_INIT_TASK
-+# Select if arch init_task must go in the __init_task_data section
-+config ARCH_TASK_STRUCT_ON_STACK
-        bool
+ lib-$(CONFIG_MMU) += ioremap.o
+ lib-$(CONFIG_SMP) += cpumask.o
+-lib-$(CONFIG_DMA_NOOP_OPS) += dma-noop.o
++lib-$(CONFIG_DMA_DIRECT_OPS) += dma-direct.o
+ lib-$(CONFIG_DMA_VIRT_OPS) += dma-virt.o
  
- # Select if arch has its private alloc_task_struct() function
-diff --git a/arch/alpha/include/asm/thread_info.h b/arch/alpha/include/asm/thread_info.h
-index 8c20c5e35432..807d7b9a1860 100644
---- a/arch/alpha/include/asm/thread_info.h
-+++ b/arch/alpha/include/asm/thread_info.h
-@@ -39,9 +39,6 @@ struct thread_info {
- 	.preempt_count	= INIT_PREEMPT_COUNT,	\
- }
+ lib-y	+= kobject.o klist.o
+diff --git a/lib/dma-noop.c b/lib/dma-direct.c
+similarity index 53%
+rename from lib/dma-noop.c
+rename to lib/dma-direct.c
+index c3728a0551f5..439db40854b7 100644
+--- a/lib/dma-noop.c
++++ b/lib/dma-direct.c
+@@ -10,9 +10,8 @@
+ #include <linux/scatterlist.h>
+ #include <linux/pfn.h>
  
--#define init_thread_info	(init_thread_union.thread_info)
--#define init_stack		(init_thread_union.stack)
--
- /* How to get the thread information struct from C.  */
- register struct thread_info *__current_thread_info __asm__("$8");
- #define current_thread_info()  __current_thread_info
-diff --git a/arch/arc/include/asm/thread_info.h b/arch/arc/include/asm/thread_info.h
-index 2d79e527fa50..c85947bac5e5 100644
---- a/arch/arc/include/asm/thread_info.h
-+++ b/arch/arc/include/asm/thread_info.h
-@@ -62,9 +62,6 @@ struct thread_info {
- 	.addr_limit = KERNEL_DS,		\
- }
- 
--#define init_thread_info    (init_thread_union.thread_info)
--#define init_stack          (init_thread_union.stack)
--
- static inline __attribute_const__ struct thread_info *current_thread_info(void)
+-static void *dma_noop_alloc(struct device *dev, size_t size,
+-			    dma_addr_t *dma_handle, gfp_t gfp,
+-			    unsigned long attrs)
++static void *dma_direct_alloc(struct device *dev, size_t size,
++		dma_addr_t *dma_handle, gfp_t gfp, unsigned long attrs)
  {
- 	register unsigned long sp asm("sp");
-diff --git a/arch/arm/include/asm/thread_info.h b/arch/arm/include/asm/thread_info.h
-index 776757d1604a..e71cc35de163 100644
---- a/arch/arm/include/asm/thread_info.h
-+++ b/arch/arm/include/asm/thread_info.h
-@@ -75,9 +75,6 @@ struct thread_info {
- 	.addr_limit	= KERNEL_DS,					\
+ 	void *ret;
+ 
+@@ -23,24 +22,21 @@ static void *dma_noop_alloc(struct device *dev, size_t size,
+ 	return ret;
  }
  
--#define init_thread_info	(init_thread_union.thread_info)
--#define init_stack		(init_thread_union.stack)
--
- /*
-  * how to get the current stack pointer in C
-  */
-diff --git a/arch/arm64/include/asm/thread_info.h b/arch/arm64/include/asm/thread_info.h
-index eb431286bacd..740aa03c5f0d 100644
---- a/arch/arm64/include/asm/thread_info.h
-+++ b/arch/arm64/include/asm/thread_info.h
-@@ -51,8 +51,6 @@ struct thread_info {
- 	.addr_limit	= KERNEL_DS,					\
- }
- 
--#define init_stack		(init_thread_union.stack)
--
- #define thread_saved_pc(tsk)	\
- 	((unsigned long)(tsk->thread.cpu_context.pc))
- #define thread_saved_sp(tsk)	\
-diff --git a/arch/blackfin/include/asm/thread_info.h b/arch/blackfin/include/asm/thread_info.h
-index 2966b93850a1..a5aeab4e5f2d 100644
---- a/arch/blackfin/include/asm/thread_info.h
-+++ b/arch/blackfin/include/asm/thread_info.h
-@@ -56,8 +56,6 @@ struct thread_info {
- 	.cpu		= 0,			\
- 	.preempt_count	= INIT_PREEMPT_COUNT,	\
- }
--#define init_thread_info	(init_thread_union.thread_info)
--#define init_stack		(init_thread_union.stack)
- 
- /* Given a task stack pointer, you can find its corresponding
-  * thread_info structure just by masking it to the THREAD_SIZE
-diff --git a/arch/c6x/include/asm/thread_info.h b/arch/c6x/include/asm/thread_info.h
-index acc70c135ab8..59a5697fe0f3 100644
---- a/arch/c6x/include/asm/thread_info.h
-+++ b/arch/c6x/include/asm/thread_info.h
-@@ -60,9 +60,6 @@ struct thread_info {
- 	.addr_limit	= KERNEL_DS,		\
- }
- 
--#define init_thread_info	(init_thread_union.thread_info)
--#define init_stack		(init_thread_union.stack)
--
- /* get the thread information struct of current task */
- static inline __attribute__((const))
- struct thread_info *current_thread_info(void)
-diff --git a/arch/cris/include/asm/processor.h b/arch/cris/include/asm/processor.h
-index 124dd5ec7f65..137f6159214d 100644
---- a/arch/cris/include/asm/processor.h
-+++ b/arch/cris/include/asm/processor.h
-@@ -59,8 +59,6 @@ static inline void release_thread(struct task_struct *dead_task)
-         /* Nothing needs to be done.  */
- }
- 
--#define init_stack      (init_thread_union.stack)
--
- #define cpu_relax()     barrier()
- 
- void default_idle(void);
-diff --git a/arch/cris/include/asm/thread_info.h b/arch/cris/include/asm/thread_info.h
-index 472830c90997..0f9218397deb 100644
---- a/arch/cris/include/asm/thread_info.h
-+++ b/arch/cris/include/asm/thread_info.h
-@@ -56,8 +56,6 @@ struct thread_info {
- 	.addr_limit	= KERNEL_DS,			\
- }
- 
--#define init_thread_info	(init_thread_union.thread_info)
--
- #endif /* !__ASSEMBLY__ */
- 
- /*
-diff --git a/arch/frv/include/asm/thread_info.h b/arch/frv/include/asm/thread_info.h
-index ccba3b6ce918..0f950845fad9 100644
---- a/arch/frv/include/asm/thread_info.h
-+++ b/arch/frv/include/asm/thread_info.h
-@@ -64,9 +64,6 @@ struct thread_info {
- 	.addr_limit	= KERNEL_DS,		\
- }
- 
--#define init_thread_info	(init_thread_union.thread_info)
--#define init_stack		(init_thread_union.stack)
--
- /* how to get the thread information struct from C */
- register struct thread_info *__current_thread_info asm("gr15");
- 
-diff --git a/arch/h8300/include/asm/thread_info.h b/arch/h8300/include/asm/thread_info.h
-index 072b92c0d8b5..0cdaa302d3d2 100644
---- a/arch/h8300/include/asm/thread_info.h
-+++ b/arch/h8300/include/asm/thread_info.h
-@@ -46,9 +46,6 @@ struct thread_info {
- 	.addr_limit	= KERNEL_DS,		\
- }
- 
--#define init_thread_info	(init_thread_union.thread_info)
--#define init_stack		(init_thread_union.stack)
--
- /* how to get the thread information struct from C */
- static inline struct thread_info *current_thread_info(void)
+-static void dma_noop_free(struct device *dev, size_t size,
+-			  void *cpu_addr, dma_addr_t dma_addr,
+-			  unsigned long attrs)
++static void dma_direct_free(struct device *dev, size_t size, void *cpu_addr,
++		dma_addr_t dma_addr, unsigned long attrs)
  {
-diff --git a/arch/hexagon/include/asm/thread_info.h b/arch/hexagon/include/asm/thread_info.h
-index b80fe1db7b64..f41f9c6f0e31 100644
---- a/arch/hexagon/include/asm/thread_info.h
-+++ b/arch/hexagon/include/asm/thread_info.h
-@@ -84,9 +84,6 @@ struct thread_info {
- 	.regs = NULL,			\
+ 	free_pages((unsigned long)cpu_addr, get_order(size));
  }
  
--#define init_thread_info        (init_thread_union.thread_info)
--#define init_stack              (init_thread_union.stack)
--
- /* Tacky preprocessor trickery */
- #define	qqstr(s) qstr(s)
- #define qstr(s) #s
-diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-index 49583c5a5d44..315c51f58811 100644
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -43,7 +43,7 @@ config IA64
- 	select ARCH_HAVE_NMI_SAFE_CMPXCHG
- 	select GENERIC_IOMAP
- 	select GENERIC_SMP_IDLE_THREAD
--	select ARCH_INIT_TASK
-+	select ARCH_TASK_STRUCT_ON_STACK
- 	select ARCH_TASK_STRUCT_ALLOCATOR
- 	select ARCH_THREAD_STACK_ALLOCATOR
- 	select ARCH_CLOCKSOURCE_DATA
-diff --git a/arch/ia64/Makefile b/arch/ia64/Makefile
-index c100d780f1eb..2dd7f519ad0b 100644
---- a/arch/ia64/Makefile
-+++ b/arch/ia64/Makefile
-@@ -42,7 +42,7 @@ $(error Sorry, you need a newer version of the assember, one that is built from
- endif
+-static dma_addr_t dma_noop_map_page(struct device *dev, struct page *page,
+-				      unsigned long offset, size_t size,
+-				      enum dma_data_direction dir,
+-				      unsigned long attrs)
++static dma_addr_t dma_direct_map_page(struct device *dev, struct page *page,
++		unsigned long offset, size_t size, enum dma_data_direction dir,
++		unsigned long attrs)
+ {
+ 	return page_to_phys(page) + offset - PFN_PHYS(dev->dma_pfn_offset);
+ }
  
- KBUILD_CFLAGS += $(cflags-y)
--head-y := arch/ia64/kernel/head.o arch/ia64/kernel/init_task.o
-+head-y := arch/ia64/kernel/head.o
+-static int dma_noop_map_sg(struct device *dev, struct scatterlist *sgl, int nents,
+-			     enum dma_data_direction dir,
+-			     unsigned long attrs)
++static int dma_direct_map_sg(struct device *dev, struct scatterlist *sgl,
++		int nents, enum dma_data_direction dir, unsigned long attrs)
+ {
+ 	int i;
+ 	struct scatterlist *sg;
+@@ -58,12 +54,11 @@ static int dma_noop_map_sg(struct device *dev, struct scatterlist *sgl, int nent
+ 	return nents;
+ }
  
- libs-y				+= arch/ia64/lib/
- core-y				+= arch/ia64/kernel/ arch/ia64/mm/
-diff --git a/arch/ia64/include/asm/thread_info.h b/arch/ia64/include/asm/thread_info.h
-index 1d172a4119a7..64a1011f6812 100644
---- a/arch/ia64/include/asm/thread_info.h
-+++ b/arch/ia64/include/asm/thread_info.h
-@@ -12,6 +12,8 @@
- #include <asm/processor.h>
- #include <asm/ptrace.h>
- 
-+#define THREAD_SIZE			KERNEL_STACK_SIZE
-+
- #ifndef __ASSEMBLY__
- 
- /*
-@@ -41,8 +43,6 @@ struct thread_info {
- #endif
+-const struct dma_map_ops dma_noop_ops = {
+-	.alloc			= dma_noop_alloc,
+-	.free			= dma_noop_free,
+-	.map_page		= dma_noop_map_page,
+-	.map_sg			= dma_noop_map_sg,
++const struct dma_map_ops dma_direct_ops = {
++	.alloc			= dma_direct_alloc,
++	.free			= dma_direct_free,
++	.map_page		= dma_direct_map_page,
++	.map_sg			= dma_direct_map_sg,
+ 	.is_phys		= true,
  };
- 
--#define THREAD_SIZE			KERNEL_STACK_SIZE
 -
- #define INIT_THREAD_INFO(tsk)			\
- {						\
- 	.task		= &tsk,			\
-diff --git a/arch/ia64/kernel/Makefile b/arch/ia64/kernel/Makefile
-index 14ad79f394e5..0b4c65a1af25 100644
---- a/arch/ia64/kernel/Makefile
-+++ b/arch/ia64/kernel/Makefile
-@@ -7,7 +7,7 @@ ifdef CONFIG_DYNAMIC_FTRACE
- CFLAGS_REMOVE_ftrace.o = -pg
- endif
- 
--extra-y	:= head.o init_task.o vmlinux.lds
-+extra-y	:= head.o vmlinux.lds
- 
- obj-y := entry.o efi.o efi_stub.o gate-data.o fsys.o ia64_ksyms.o irq.o irq_ia64.o	\
- 	 irq_lsapic.o ivt.o machvec.o pal.o patch.o process.o perfmon.o ptrace.o sal.o		\
-diff --git a/arch/ia64/kernel/init_task.c b/arch/ia64/kernel/init_task.c
-deleted file mode 100644
-index 8df9245e29d9..000000000000
---- a/arch/ia64/kernel/init_task.c
-+++ /dev/null
-@@ -1,44 +0,0 @@
--// SPDX-License-Identifier: GPL-2.0
--/*
-- * This is where we statically allocate and initialize the initial
-- * task.
-- *
-- * Copyright (C) 1999, 2002-2003 Hewlett-Packard Co
-- *	David Mosberger-Tang <davidm@hpl.hp.com>
-- */
--
--#include <linux/init.h>
--#include <linux/mm.h>
--#include <linux/fs.h>
--#include <linux/module.h>
--#include <linux/sched.h>
--#include <linux/init_task.h>
--#include <linux/mqueue.h>
--
--#include <linux/uaccess.h>
--#include <asm/pgtable.h>
--
--static struct signal_struct init_signals = INIT_SIGNALS(init_signals);
--static struct sighand_struct init_sighand = INIT_SIGHAND(init_sighand);
--/*
-- * Initial task structure.
-- *
-- * We need to make sure that this is properly aligned due to the way process stacks are
-- * handled. This is done by having a special ".data..init_task" section...
-- */
--#define init_thread_info	init_task_mem.s.thread_info
--#define init_stack		init_task_mem.stack
--
--union {
--	struct {
--		struct task_struct task;
--		struct thread_info thread_info;
--	} s;
--	unsigned long stack[KERNEL_STACK_SIZE/sizeof (unsigned long)];
--} init_task_mem asm ("init_task") __init_task_data -	{{
--	.task =		INIT_TASK(init_task_mem.s.task),
--	.thread_info =	INIT_THREAD_INFO(init_task_mem.s.task)
--}};
--
--EXPORT_SYMBOL(init_task);
-diff --git a/arch/ia64/kernel/vmlinux.lds.S b/arch/ia64/kernel/vmlinux.lds.S
-index 58db59da0bd8..b0b2070e0591 100644
---- a/arch/ia64/kernel/vmlinux.lds.S
-+++ b/arch/ia64/kernel/vmlinux.lds.S
-@@ -3,6 +3,7 @@
- #include <asm/cache.h>
- #include <asm/ptrace.h>
- #include <asm/pgtable.h>
-+#include <asm/thread_info.h>
- 
- #include <asm-generic/vmlinux.lds.h>
- 
-diff --git a/arch/m32r/include/asm/thread_info.h b/arch/m32r/include/asm/thread_info.h
-index b3a215b0ce0a..ba00f1032587 100644
---- a/arch/m32r/include/asm/thread_info.h
-+++ b/arch/m32r/include/asm/thread_info.h
-@@ -56,9 +56,6 @@ struct thread_info {
- 	.addr_limit	= KERNEL_DS,		\
- }
- 
--#define init_thread_info	(init_thread_union.thread_info)
--#define init_stack		(init_thread_union.stack)
--
- /* how to get the thread information struct from C */
- static inline struct thread_info *current_thread_info(void)
- {
-diff --git a/arch/m68k/include/asm/thread_info.h b/arch/m68k/include/asm/thread_info.h
-index 928035591f2e..015f1ca38305 100644
---- a/arch/m68k/include/asm/thread_info.h
-+++ b/arch/m68k/include/asm/thread_info.h
-@@ -41,8 +41,6 @@ struct thread_info {
- 	.preempt_count	= INIT_PREEMPT_COUNT,	\
- }
- 
--#define init_stack		(init_thread_union.stack)
--
- #ifndef __ASSEMBLY__
- /* how to get the thread information struct from C */
- static inline struct thread_info *current_thread_info(void)
-@@ -58,8 +56,6 @@ static inline struct thread_info *current_thread_info(void)
- }
- #endif
- 
--#define init_thread_info	(init_thread_union.thread_info)
--
- /* entry.S relies on these definitions!
-  * bits 0-7 are tested at every exception exit
-  * bits 8-15 are also tested at syscall exit
-diff --git a/arch/metag/include/asm/thread_info.h b/arch/metag/include/asm/thread_info.h
-index 554f73a77e6e..a1a9c7f5ca8c 100644
---- a/arch/metag/include/asm/thread_info.h
-+++ b/arch/metag/include/asm/thread_info.h
-@@ -74,9 +74,6 @@ struct thread_info {
- 	.addr_limit	= KERNEL_DS,		\
- }
- 
--#define init_thread_info	(init_thread_union.thread_info)
--#define init_stack		(init_thread_union.stack)
--
- /* how to get the current stack pointer from C */
- register unsigned long current_stack_pointer asm("A0StP") __used;
- 
-diff --git a/arch/microblaze/include/asm/thread_info.h b/arch/microblaze/include/asm/thread_info.h
-index e7e8954e9815..9afe4b5bd6c8 100644
---- a/arch/microblaze/include/asm/thread_info.h
-+++ b/arch/microblaze/include/asm/thread_info.h
-@@ -86,9 +86,6 @@ struct thread_info {
- 	.addr_limit	= KERNEL_DS,		\
- }
- 
--#define init_thread_info	(init_thread_union.thread_info)
--#define init_stack		(init_thread_union.stack)
--
- /* how to get the thread information struct from C */
- static inline struct thread_info *current_thread_info(void)
- {
-diff --git a/arch/mips/include/asm/thread_info.h b/arch/mips/include/asm/thread_info.h
-index 5e8927f99a76..4993db40482c 100644
---- a/arch/mips/include/asm/thread_info.h
-+++ b/arch/mips/include/asm/thread_info.h
-@@ -49,9 +49,6 @@ struct thread_info {
- 	.addr_limit	= KERNEL_DS,		\
- }
- 
--#define init_thread_info	(init_thread_union.thread_info)
--#define init_stack		(init_thread_union.stack)
--
- /* How to get the thread information struct from C.  */
- register struct thread_info *__current_thread_info __asm__("$28");
- 
-diff --git a/arch/mn10300/include/asm/thread_info.h b/arch/mn10300/include/asm/thread_info.h
-index f5f90bbf019d..1748a7b25bf8 100644
---- a/arch/mn10300/include/asm/thread_info.h
-+++ b/arch/mn10300/include/asm/thread_info.h
-@@ -79,8 +79,6 @@ struct thread_info {
- 	.addr_limit	= KERNEL_DS,		\
- }
- 
--#define init_thread_info	(init_thread_union.thread_info)
--#define init_stack		(init_thread_union.stack)
- #define init_uregs							\
- 	((struct pt_regs *)						\
- 	 ((unsigned long) init_stack + THREAD_SIZE - sizeof(struct pt_regs)))
-diff --git a/arch/nios2/include/asm/thread_info.h b/arch/nios2/include/asm/thread_info.h
-index d69c338bd19c..7349a4fa635b 100644
---- a/arch/nios2/include/asm/thread_info.h
-+++ b/arch/nios2/include/asm/thread_info.h
-@@ -63,9 +63,6 @@ struct thread_info {
- 	.addr_limit	= KERNEL_DS,		\
- }
- 
--#define init_thread_info	(init_thread_union.thread_info)
--#define init_stack		(init_thread_union.stack)
--
- /* how to get the thread information struct from C */
- static inline struct thread_info *current_thread_info(void)
- {
-diff --git a/arch/openrisc/include/asm/processor.h b/arch/openrisc/include/asm/processor.h
-index 396d8f306c21..af31a9fe736a 100644
---- a/arch/openrisc/include/asm/processor.h
-+++ b/arch/openrisc/include/asm/processor.h
-@@ -84,8 +84,6 @@ void start_thread(struct pt_regs *regs, unsigned long nip, unsigned long sp);
- void release_thread(struct task_struct *);
- unsigned long get_wchan(struct task_struct *p);
- 
--#define init_stack      (init_thread_union.stack)
--
- #define cpu_relax()     barrier()
- 
- #endif /* __ASSEMBLY__ */
-diff --git a/arch/openrisc/include/asm/thread_info.h b/arch/openrisc/include/asm/thread_info.h
-index c229aa6bb502..5c15dfa2fd4f 100644
---- a/arch/openrisc/include/asm/thread_info.h
-+++ b/arch/openrisc/include/asm/thread_info.h
-@@ -79,8 +79,6 @@ struct thread_info {
- 	.ksp            = 0,                            \
- }
- 
--#define init_thread_info	(init_thread_union.thread_info)
--
- /* how to get the thread information struct from C */
- register struct thread_info *current_thread_info_reg asm("r10");
- #define current_thread_info()   (current_thread_info_reg)
-diff --git a/arch/parisc/include/asm/thread_info.h b/arch/parisc/include/asm/thread_info.h
-index c980a02a52bc..f6e9c56f0e1b 100644
---- a/arch/parisc/include/asm/thread_info.h
-+++ b/arch/parisc/include/asm/thread_info.h
-@@ -25,9 +25,6 @@ struct thread_info {
- 	.preempt_count	= INIT_PREEMPT_COUNT,	\
- }
- 
--#define init_thread_info        (init_thread_union.thread_info)
--#define init_stack              (init_thread_union.stack)
--
- /* how to get the thread information struct from C */
- #define current_thread_info()	((struct thread_info *)mfctl(30))
- 
-diff --git a/arch/powerpc/include/asm/thread_info.h b/arch/powerpc/include/asm/thread_info.h
-index a264c3ad366b..4a12c00f8de3 100644
---- a/arch/powerpc/include/asm/thread_info.h
-+++ b/arch/powerpc/include/asm/thread_info.h
-@@ -58,9 +58,6 @@ struct thread_info {
- 	.flags =	0,			\
- }
- 
--#define init_thread_info	(init_thread_union.thread_info)
--#define init_stack		(init_thread_union.stack)
--
- #define THREAD_SIZE_ORDER	(THREAD_SHIFT - PAGE_SHIFT)
- 
- /* how to get the thread information struct from C */
-diff --git a/arch/s390/include/asm/thread_info.h b/arch/s390/include/asm/thread_info.h
-index 0880a37b6d3b..25d6ec3aaddd 100644
---- a/arch/s390/include/asm/thread_info.h
-+++ b/arch/s390/include/asm/thread_info.h
-@@ -42,8 +42,6 @@ struct thread_info {
- 	.flags		= 0,			\
- }
- 
--#define init_stack		(init_thread_union.stack)
--
- void arch_release_task_struct(struct task_struct *tsk);
- int arch_dup_task_struct(struct task_struct *dst, struct task_struct *src);
- 
-diff --git a/arch/score/include/asm/thread_info.h b/arch/score/include/asm/thread_info.h
-index ad51b56e51bd..bc4c7c90550f 100644
---- a/arch/score/include/asm/thread_info.h
-+++ b/arch/score/include/asm/thread_info.h
-@@ -58,9 +58,6 @@ struct thread_info {
- 	.addr_limit	= KERNEL_DS,		\
- }
- 
--#define init_thread_info	(init_thread_union.thread_info)
--#define init_stack		(init_thread_union.stack)
--
- /* How to get the thread information struct from C. */
- register struct thread_info *__current_thread_info __asm__("r28");
- #define current_thread_info()	__current_thread_info
-diff --git a/arch/sh/include/asm/thread_info.h b/arch/sh/include/asm/thread_info.h
-index becb798f1b04..cf5c792bf70b 100644
---- a/arch/sh/include/asm/thread_info.h
-+++ b/arch/sh/include/asm/thread_info.h
-@@ -63,9 +63,6 @@ struct thread_info {
- 	.addr_limit	= KERNEL_DS,		\
- }
- 
--#define init_thread_info	(init_thread_union.thread_info)
--#define init_stack		(init_thread_union.stack)
--
- /* how to get the current stack pointer from C */
- register unsigned long current_stack_pointer asm("r15") __used;
- 
-diff --git a/arch/sparc/include/asm/thread_info_32.h b/arch/sparc/include/asm/thread_info_32.h
-index febaaeb1a0fe..548b366165dd 100644
---- a/arch/sparc/include/asm/thread_info_32.h
-+++ b/arch/sparc/include/asm/thread_info_32.h
-@@ -63,9 +63,6 @@ struct thread_info {
- 	.preempt_count	=	INIT_PREEMPT_COUNT,	\
- }
- 
--#define init_thread_info	(init_thread_union.thread_info)
--#define init_stack		(init_thread_union.stack)
--
- /* how to get the thread information struct from C */
- register struct thread_info *current_thread_info_reg asm("g6");
- #define current_thread_info()   (current_thread_info_reg)
-diff --git a/arch/sparc/include/asm/thread_info_64.h b/arch/sparc/include/asm/thread_info_64.h
-index caf915321ba9..f7e7b0baec9f 100644
---- a/arch/sparc/include/asm/thread_info_64.h
-+++ b/arch/sparc/include/asm/thread_info_64.h
-@@ -120,9 +120,6 @@ struct thread_info {
- 	.preempt_count	=	INIT_PREEMPT_COUNT,	\
- }
- 
--#define init_thread_info	(init_thread_union.thread_info)
--#define init_stack		(init_thread_union.stack)
--
- /* how to get the thread information struct from C */
- register struct thread_info *current_thread_info_reg asm("g6");
- #define current_thread_info()	(current_thread_info_reg)
-diff --git a/arch/tile/include/asm/thread_info.h b/arch/tile/include/asm/thread_info.h
-index b7659b8f1117..2adcacd85749 100644
---- a/arch/tile/include/asm/thread_info.h
-+++ b/arch/tile/include/asm/thread_info.h
-@@ -59,9 +59,6 @@ struct thread_info {
- 	.align_ctl	= 0,			\
- }
- 
--#define init_thread_info	(init_thread_union.thread_info)
--#define init_stack		(init_thread_union.stack)
--
- #endif /* !__ASSEMBLY__ */
- 
- #if PAGE_SIZE < 8192
-diff --git a/arch/um/include/asm/processor-generic.h b/arch/um/include/asm/processor-generic.h
-index 86942a492454..b58b746d3f2c 100644
---- a/arch/um/include/asm/processor-generic.h
-+++ b/arch/um/include/asm/processor-generic.h
-@@ -58,7 +58,10 @@ static inline void release_thread(struct task_struct *task)
- {
- }
- 
--#define init_stack	(init_thread_union.stack)
-+static inline void mm_copy_segments(struct mm_struct *from_mm,
-+				    struct mm_struct *new_mm)
-+{
-+}
- 
- /*
-  * User space process size: 3GB (default).
-diff --git a/arch/um/include/asm/thread_info.h b/arch/um/include/asm/thread_info.h
-index 9300f7630d2a..4eecd960ee8c 100644
---- a/arch/um/include/asm/thread_info.h
-+++ b/arch/um/include/asm/thread_info.h
-@@ -6,6 +6,9 @@
- #ifndef __UM_THREAD_INFO_H
- #define __UM_THREAD_INFO_H
- 
-+#define THREAD_SIZE_ORDER CONFIG_KERNEL_STACK_ORDER
-+#define THREAD_SIZE ((1 << CONFIG_KERNEL_STACK_ORDER) * PAGE_SIZE)
-+
- #ifndef __ASSEMBLY__
- 
- #include <asm/types.h>
-@@ -37,10 +40,6 @@ struct thread_info {
- 	.real_thread = NULL,			\
- }
- 
--#define init_thread_info	(init_thread_union.thread_info)
--#define init_stack		(init_thread_union.stack)
--
--#define THREAD_SIZE ((1 << CONFIG_KERNEL_STACK_ORDER) * PAGE_SIZE)
- /* how to get the thread information struct from C */
- static inline struct thread_info *current_thread_info(void)
- {
-@@ -53,8 +52,6 @@ static inline struct thread_info *current_thread_info(void)
- 	return ti;
- }
- 
--#define THREAD_SIZE_ORDER CONFIG_KERNEL_STACK_ORDER
--
- #endif
- 
- #define TIF_SYSCALL_TRACE	0	/* syscall trace active */
-diff --git a/arch/um/include/asm/vmlinux.lds.h b/arch/um/include/asm/vmlinux.lds.h
-new file mode 100644
-index 000000000000..149494ae78ea
---- /dev/null
-+++ b/arch/um/include/asm/vmlinux.lds.h
-@@ -0,0 +1,2 @@
-+#include <asm/thread_info.h>
-+#include <asm-generic/vmlinux.lds.h>
-diff --git a/arch/um/kernel/dyn.lds.S b/arch/um/kernel/dyn.lds.S
-index d417e3899700..5568cf882371 100644
---- a/arch/um/kernel/dyn.lds.S
-+++ b/arch/um/kernel/dyn.lds.S
-@@ -1,5 +1,4 @@
--/* SPDX-License-Identifier: GPL-2.0 */
--#include <asm-generic/vmlinux.lds.h>
-+#include <asm/vmlinux.lds.h>
- #include <asm/page.h>
- 
- OUTPUT_FORMAT(ELF_FORMAT)
-diff --git a/arch/um/kernel/um_arch.c b/arch/um/kernel/um_arch.c
-index f433690b9b37..a818ccef30ca 100644
---- a/arch/um/kernel/um_arch.c
-+++ b/arch/um/kernel/um_arch.c
-@@ -54,7 +54,7 @@ struct cpuinfo_um boot_cpu_data = {
- 
- union thread_union cpu0_irqstack
- 	__attribute__((__section__(".data..init_irqstack"))) -		{ INIT_THREAD_INFO(init_task) };
-+		{ .thread_info = INIT_THREAD_INFO(init_task) };
- 
- /* Changed in setup_arch, which is called in early boot */
- static char host_info[(__NEW_UTS_LEN + 1) * 5];
-diff --git a/arch/um/kernel/uml.lds.S b/arch/um/kernel/uml.lds.S
-index 3d6ed6ba5b78..36b07ec09742 100644
---- a/arch/um/kernel/uml.lds.S
-+++ b/arch/um/kernel/uml.lds.S
-@@ -1,5 +1,5 @@
- /* SPDX-License-Identifier: GPL-2.0 */
--#include <asm-generic/vmlinux.lds.h>
-+#include <asm/vmlinux.lds.h>
- #include <asm/page.h>
- 
- OUTPUT_FORMAT(ELF_FORMAT)
-diff --git a/arch/unicore32/include/asm/thread_info.h b/arch/unicore32/include/asm/thread_info.h
-index e79ad6d5b5b2..5fb728f3b49a 100644
---- a/arch/unicore32/include/asm/thread_info.h
-+++ b/arch/unicore32/include/asm/thread_info.h
-@@ -87,9 +87,6 @@ struct thread_info {
- 	.addr_limit	= KERNEL_DS,					\
- }
- 
--#define init_thread_info	(init_thread_union.thread_info)
--#define init_stack		(init_thread_union.stack)
--
- /*
-  * how to get the thread information struct from C
-  */
-diff --git a/arch/x86/include/asm/thread_info.h b/arch/x86/include/asm/thread_info.h
-index 70f425947dc5..5f4cf6586a50 100644
---- a/arch/x86/include/asm/thread_info.h
-+++ b/arch/x86/include/asm/thread_info.h
-@@ -62,8 +62,6 @@ struct thread_info {
- 	.flags		= 0,			\
- }
- 
--#define init_stack		(init_thread_union.stack)
--
- #else /* !__ASSEMBLY__ */
- 
- #include <asm/asm-offsets.h>
-diff --git a/arch/xtensa/include/asm/thread_info.h b/arch/xtensa/include/asm/thread_info.h
-index 7be2400f745a..2ccd37510aaa 100644
---- a/arch/xtensa/include/asm/thread_info.h
-+++ b/arch/xtensa/include/asm/thread_info.h
-@@ -77,9 +77,6 @@ struct thread_info {
- 	.addr_limit	= KERNEL_DS,		\
- }
- 
--#define init_thread_info	(init_thread_union.thread_info)
--#define init_stack		(init_thread_union.stack)
--
- /* how to get the thread information struct from C */
- static inline struct thread_info *current_thread_info(void)
- {
-diff --git a/include/asm-generic/vmlinux.lds.h b/include/asm-generic/vmlinux.lds.h
-index ee8b707d9fa9..a564b83bf013 100644
---- a/include/asm-generic/vmlinux.lds.h
-+++ b/include/asm-generic/vmlinux.lds.h
-@@ -268,7 +268,11 @@
- #define INIT_TASK_DATA(align)						\
- 	. = ALIGN(align);						\
- 	VMLINUX_SYMBOL(__start_init_task) = .;				\
-+	VMLINUX_SYMBOL(init_thread_union) = .;				\
-+	VMLINUX_SYMBOL(init_stack) = .;					\
- 	*(.data..init_task)						\
-+	*(.data..init_thread_info)					\
-+	. = VMLINUX_SYMBOL(__start_init_task) + THREAD_SIZE;		\
- 	VMLINUX_SYMBOL(__end_init_task) = .;
- 
- /*
-diff --git a/include/linux/init_task.h b/include/linux/init_task.h
-index 6a532629c983..30a89b99a5af 100644
---- a/include/linux/init_task.h
-+++ b/include/linux/init_task.h
-@@ -304,5 +304,8 @@ extern struct cred init_cred;
- /* Attach to the init_task data structure for proper alignment */
- #define __init_task_data __attribute__((__section__(".data..init_task")))
- 
-+/* Attach to the thread_info data structure for proper alignment */
-+#define __init_thread_info __attribute__((__section__(".data..init_thread_info")))
-+
- 
- #endif
-diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 21991d668d35..b8b23f5b31a6 100644
---- a/include/linux/sched.h
-+++ b/include/linux/sched.h
-@@ -1457,12 +1457,21 @@ extern void ia64_set_curr_task(int cpu, struct task_struct *p);
- void yield(void);
- 
- union thread_union {
-+#ifndef CONFIG_ARCH_TASK_STRUCT_ON_STACK
-+	struct task_struct task;
-+#endif
- #ifndef CONFIG_THREAD_INFO_IN_TASK
- 	struct thread_info thread_info;
- #endif
- 	unsigned long stack[THREAD_SIZE/sizeof(long)];
- };
- 
-+#ifndef CONFIG_THREAD_INFO_IN_TASK
-+extern struct thread_info init_thread_info;
-+#endif
-+
-+extern unsigned long init_stack[THREAD_SIZE / sizeof(unsigned long)];
-+
- #ifdef CONFIG_THREAD_INFO_IN_TASK
- static inline struct thread_info *task_thread_info(struct task_struct *task)
- {
-diff --git a/init/Makefile b/init/Makefile
-index 1dbb23787290..a3e5ce2bcf08 100644
---- a/init/Makefile
-+++ b/init/Makefile
-@@ -13,9 +13,7 @@ obj-$(CONFIG_BLK_DEV_INITRD)   += initramfs.o
- endif
- obj-$(CONFIG_GENERIC_CALIBRATE_DELAY) += calibrate.o
- 
--ifneq ($(CONFIG_ARCH_INIT_TASK),y)
- obj-y                          += init_task.o
--endif
- 
- mounts-y			:= do_mounts.o
- mounts-$(CONFIG_BLK_DEV_RAM)	+= do_mounts_rd.o
-diff --git a/init/init_task.c b/init/init_task.c
-index 9325fee7dc82..2285aa42cbe1 100644
---- a/init/init_task.c
-+++ b/init/init_task.c
-@@ -17,15 +17,17 @@ static struct signal_struct init_signals = INIT_SIGNALS(init_signals);
- static struct sighand_struct init_sighand = INIT_SIGHAND(init_sighand);
- 
- /* Initial task structure */
--struct task_struct init_task = INIT_TASK(init_task);
-+struct task_struct init_task
-+#ifdef CONFIG_ARCH_TASK_STRUCT_ON_STACK
-+	__init_task_data
-+#endif
-+	= INIT_TASK(init_task);
- EXPORT_SYMBOL(init_task);
- 
- /*
-  * Initial thread structure. Alignment of this is handled by a special
-  * linker map entry.
-  */
--union thread_union init_thread_union __init_task_data = {
- #ifndef CONFIG_THREAD_INFO_IN_TASK
--	INIT_THREAD_INFO(init_task)
-+struct thread_info init_thread_info __init_thread_info = INIT_THREAD_INFO(init_task);
- #endif
--};
+-EXPORT_SYMBOL(dma_noop_ops);
++EXPORT_SYMBOL(dma_direct_ops);
+-- 
+2.14.2
 
