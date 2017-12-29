@@ -1,114 +1,43 @@
-From: David Howells <dhowells@redhat.com>
-Date: Fri, 08 Dec 2017 15:51:22 +0000
-Subject: [PATCH 0/5] Consolidate init_task handling and expand macros
-Message-Id: <151274828194.9961.4230316917108602662.stgit@warthog.procyon.org.uk>
+From: Christoph Hellwig <hch@lst.de>
+Date: Fri, 29 Dec 2017 08:18:08 +0000
+Subject: [PATCH 04/67] arm64: don't override dma_max_pfn
+Message-Id: <20171229081911.2802-5-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20171229081911.2802-1-hch@lst.de>
+In-Reply-To: <20171229081911.2802-1-hch-jcswGhMUV9g@public.gmane.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-arch@vger.kernel.org, x86@kernel.org, linux-ia64@vger.kernel.org
-Cc: dhowells@redhat.com, torvalds@linux-foundation.org, linux-kernel@vger.kernel.org
+To: iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Cc: linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Guan Xuetao <gxt-TG0Ac1+ktVePQbnJrJN+5g@public.gmane.org>, linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-c6x-dev-jPsnJVOj+W6hPH1hqNUYSQ@public.gmane.org, linux-hexagon-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-snps-arc-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, adi-buildroot-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-m68k-cunTk1MwBs8S/qaLPR03pWD2FQJk+8+b@public.gmane.org, patches-q3qR2WxjNRFS9aJRtSZj7A@public.gmane.org, linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Michal Simek <monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org>, linux-parisc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-cris-kernel-VrBV9hrLPhE@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-alpha-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 
+The generic version now takes dma_pfn_offset into account, so there is no
+more need for an architecture override.
 
-It doesn't seem useful to have the init_task in a header file rather than
-in a normal source file.  We could consolidate init_task handling instead and
-expand out various macros.
-
-Here's a series of patches that consolidate init_task handling:
-
- (1) Alter the INIT_TASK_DATA linker script macro to set init_thread_union
-     and init_stack rather than defining these in C.
-
-     Insert init_task and init_thread_into into the init_stack area in the
-     linker script as appropriate to the configuration, with different
-     section markers so that they end up correctly ordered.
-
-     We can then get merge ia64's init_task.c into the main one.
-
-We then have a bunch of single-use INIT_*() macros that seem only to be
-macros because they used to be used per-arch.  We can then expand these in
-place of the user and get rid of a few lines and a lot of backslashes.
-
- (2) Expand INIT_TASK() in place.
-
- (3) Expand in place various small INIT_*() macros that are defined
-     conditionally.  Expand them and surround them by #if[n]def/#endif in
-     the .c file as it takes fewer lines.
-
- (4) Expand INIT_SIGNALS() and INIT_SIGHAND() in place.
-
- (5) Expand INIT_STRUCT_PID in place.
-
-These macros can then be discarded.
-
-The patches can be found here also:
-
-	http://git.kernel.org/cgit/linux/kernel/git/dhowells/linux-fs.git/log/?h=init_task
-
-David
+Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
-David Howells (5):
-      Construct init thread stack in the linker script rather than by union
-      Expand INIT_TASK() in init/init_task.c and remove
-      Expand various INIT_* macros and remove
-      Expand the INIT_SIGNALS and INIT_SIGHAND macros and remove
-      Expand INIT_STRUCT_PID and remove
+ arch/arm64/include/asm/dma-mapping.h | 9 ---------
+ 1 file changed, 9 deletions(-)
 
-
- arch/Kconfig                              |    4 
- arch/alpha/include/asm/thread_info.h      |    3 
- arch/arc/include/asm/thread_info.h        |    3 
- arch/arm/include/asm/thread_info.h        |    3 
- arch/arm64/include/asm/thread_info.h      |    2 
- arch/blackfin/include/asm/thread_info.h   |    2 
- arch/c6x/include/asm/thread_info.h        |    3 
- arch/cris/include/asm/processor.h         |    2 
- arch/cris/include/asm/thread_info.h       |    2 
- arch/frv/include/asm/thread_info.h        |    3 
- arch/h8300/include/asm/thread_info.h      |    3 
- arch/hexagon/include/asm/thread_info.h    |    3 
- arch/ia64/Kconfig                         |    2 
- arch/ia64/Makefile                        |    2 
- arch/ia64/include/asm/thread_info.h       |    4 
- arch/ia64/kernel/Makefile                 |    2 
- arch/ia64/kernel/init_task.c              |   44 -----
- arch/ia64/kernel/vmlinux.lds.S            |    1 
- arch/m32r/include/asm/thread_info.h       |    3 
- arch/m68k/include/asm/thread_info.h       |    4 
- arch/metag/include/asm/thread_info.h      |    3 
- arch/microblaze/include/asm/thread_info.h |    3 
- arch/mips/include/asm/thread_info.h       |    3 
- arch/mn10300/include/asm/thread_info.h    |    2 
- arch/nios2/include/asm/thread_info.h      |    3 
- arch/openrisc/include/asm/processor.h     |    2 
- arch/openrisc/include/asm/thread_info.h   |    2 
- arch/parisc/include/asm/thread_info.h     |    3 
- arch/powerpc/include/asm/thread_info.h    |    3 
- arch/s390/include/asm/thread_info.h       |    2 
- arch/score/include/asm/thread_info.h      |    3 
- arch/sh/include/asm/thread_info.h         |    3 
- arch/sparc/include/asm/thread_info_32.h   |    3 
- arch/sparc/include/asm/thread_info_64.h   |    3 
- arch/tile/include/asm/thread_info.h       |    3 
- arch/um/include/asm/processor-generic.h   |    5 -
- arch/um/include/asm/thread_info.h         |    9 -
- arch/um/include/asm/vmlinux.lds.h         |    2 
- arch/um/kernel/dyn.lds.S                  |    3 
- arch/um/kernel/um_arch.c                  |    2 
- arch/um/kernel/uml.lds.S                  |    2 
- arch/unicore32/include/asm/thread_info.h  |    3 
- arch/x86/include/asm/thread_info.h        |    2 
- arch/xtensa/include/asm/thread_info.h     |    3 
- include/asm-generic/vmlinux.lds.h         |    4 
- include/linux/ftrace.h                    |   12 -
- include/linux/init_task.h                 |  258 +----------------------------
- include/linux/irqflags.h                  |    2 
- include/linux/lockdep.h                   |    3 
- include/linux/sched.h                     |    9 +
- init/Makefile                             |    2 
- init/init_task.c                          |  170 ++++++++++++++++++-
- kernel/pid.c                              |   14 +-
- 53 files changed, 219 insertions(+), 422 deletions(-)
- delete mode 100644 arch/ia64/kernel/init_task.c
- create mode 100644 arch/um/include/asm/vmlinux.lds.h
+diff --git a/arch/arm64/include/asm/dma-mapping.h b/arch/arm64/include/asm/dma-mapping.h
+index 0df756b24863..eada887a93bf 100644
+--- a/arch/arm64/include/asm/dma-mapping.h
++++ b/arch/arm64/include/asm/dma-mapping.h
+@@ -76,14 +76,5 @@ static inline void dma_mark_clean(void *addr, size_t size)
+ {
+ }
+ 
+-/* Override for dma_max_pfn() */
+-static inline unsigned long dma_max_pfn(struct device *dev)
+-{
+-	dma_addr_t dma_max = (dma_addr_t)*dev->dma_mask;
+-
+-	return (ulong)dma_to_phys(dev, dma_max) >> PAGE_SHIFT;
+-}
+-#define dma_max_pfn(dev) dma_max_pfn(dev)
+-
+ #endif	/* __KERNEL__ */
+ #endif	/* __ASM_DMA_MAPPING_H */
+-- 
+2.14.2
 
