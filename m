@@ -1,24 +1,28 @@
-From: Palmer Dabbelt <palmer@sifive.com>
-Date: Fri, 15 Dec 2017 18:52:27 +0000
-Subject: Re: Adding init_task consolidation patches to linux-next
-Message-Id: <mhng-e886f5b8-ad7b-4b93-bae9-f14cd323e561@palmer-si-x1c4>
+From: Christoph Hellwig <hch@lst.de>
+Date: Fri, 29 Dec 2017 08:18:04 +0000
+Subject: consolidate direct dma mapping and swiotlb support
+Message-Id: <20171229081911.2802-1-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-In-Reply-To: <27011.1513326997@warthog.procyon.org.uk>
-References: <10228.1512748600@warthog.procyon.org.uk>
-In-Reply-To: <10228.1512748600@warthog.procyon.org.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: dhowells@redhat.com
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>, linux-arch@vger.kernel.org, x86@kernel.org, linux-ia64@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>, linux-kernel@vger.kernel.org, linux-next@vger.kernel.org
+To: iommu@lists.linux-foundation.org
+Cc: linux-mips@linux-mips.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, linux-hexagon@vger.kernel.org, x86@kernel.org, linux-snps-arc@lists.infradead.org, adi-buildroot-devel@lists.sourceforge.net, linux-m68k@lists.linux-m68k.org, patches@groups.riscv.org, linux-metag@vger.kernel.org, linux-arm-kernel@lists.infradead.org, Michal Simek <monstr@monstr.eu>, linux-parisc@vger.kernel.org, linux-cris-kernel@axis.com, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
 
-On Fri, 15 Dec 2017 00:36:37 PST (-0800), dhowells@redhat.com wrote:
-> Palmer Dabbelt <palmer@sifive.com> wrote:
->
->> Thanks!  It works for me.
->
-> Excellent, thanks!  Can I put you down as a Tested-by for riscv?
+Almost every architecture supports a direct dma mapping implementation,
+where no iommu is used and the device dma address is a 1:1 mapping to
+the physical address or has a simple linear offset.  Currently the
+code for this implementation is most duplicated over the architectures,
+and the duplicated again in the swiotlb code, and then duplicated again
+for special cases like the x86 memory encryption DMA ops.
 
-Sure.
+This series takes the existing very simple dma-noop dma mapping
+implementation, enhances it with all the x86 features and quirks, and
+creates a common set of architecture hooks for it and the swiotlb code.
 
-Tested-by: Palmer Dabbelt <palmer@sifive.com>
+It then switches a large number of architectures to this generic
+direct map implement and the new generic swiotlb dma_map ops.
+
+Note that for now this only handles architectures that do cache coherent
+DMA, but a similar consolidation for non-coherent architectures is in the
+work for later merge windows.
