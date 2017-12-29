@@ -1,50 +1,57 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Fri, 29 Dec 2017 08:18:19 +0000
-Subject: [PATCH 15/67] hexagon: use the generic dma_capable helper
-Message-Id: <20171229081911.2802-16-hch@lst.de>
+Date: Fri, 29 Dec 2017 08:18:52 +0000
+Subject: [PATCH 48/67] swiotlb: rely on dev->coherent_dma_mask
+Message-Id: <20171229081911.2802-49-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20171229081911.2802-1-hch@lst.de>
-In-Reply-To: <20171229081911.2802-1-hch-jcswGhMUV9g@public.gmane.org>
+In-Reply-To: <20171229081911.2802-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Cc: linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Guan Xuetao <gxt-TG0Ac1+ktVePQbnJrJN+5g@public.gmane.org>, linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-c6x-dev-jPsnJVOj+W6hPH1hqNUYSQ@public.gmane.org, linux-hexagon-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-snps-arc-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, adi-buildroot-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-m68k-cunTk1MwBs8S/qaLPR03pWD2FQJk+8+b@public.gmane.org, patches-q3qR2WxjNRFS9aJRtSZj7A@public.gmane.org, linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Michal Simek <monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org>, linux-parisc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-cris-kernel-VrBV9hrLPhE@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-alpha-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+To: iommu@lists.linux-foundation.org
+Cc: linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, adi-buildroot-devel@lists.sourceforge.net, linux-c6x-dev@linux-c6x.org, linux-cris-kernel@axis.com, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-metag@vger.kernel.org, Michal Simek <monstr@monstr.eu>, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, patches@groups.riscv.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, Guan Xuetao <gxt@mprc.pku.edu.cn>, x86@kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
+
+These days the coherent DMA mask is always set, so don't work around the
+lack of it.
 
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- arch/hexagon/include/asm/dma-mapping.h | 7 -------
- arch/hexagon/kernel/dma.c              | 1 +
- 2 files changed, 1 insertion(+), 7 deletions(-)
+ lib/swiotlb.c | 10 +++-------
+ 1 file changed, 3 insertions(+), 7 deletions(-)
 
-diff --git a/arch/hexagon/include/asm/dma-mapping.h b/arch/hexagon/include/asm/dma-mapping.h
-index 5208de242e79..263f6acbfb0f 100644
---- a/arch/hexagon/include/asm/dma-mapping.h
-+++ b/arch/hexagon/include/asm/dma-mapping.h
-@@ -37,11 +37,4 @@ static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
- 	return dma_ops;
- }
- 
--static inline bool dma_capable(struct device *dev, dma_addr_t addr, size_t size)
--{
--	if (!dev->dma_mask)
--		return 0;
--	return addr + size - 1 <= *dev->dma_mask;
--}
+diff --git a/lib/swiotlb.c b/lib/swiotlb.c
+index e0b8980334c3..a14fff30ee9d 100644
+--- a/lib/swiotlb.c
++++ b/lib/swiotlb.c
+@@ -716,15 +716,11 @@ swiotlb_alloc_coherent(struct device *hwdev, size_t size,
+ 	dma_addr_t dev_addr;
+ 	void *ret;
+ 	int order = get_order(size);
+-	u64 dma_mask = DMA_BIT_MASK(32);
 -
- #endif
-diff --git a/arch/hexagon/kernel/dma.c b/arch/hexagon/kernel/dma.c
-index 3683bb9c05a2..c1d24e37807c 100644
---- a/arch/hexagon/kernel/dma.c
-+++ b/arch/hexagon/kernel/dma.c
-@@ -19,6 +19,7 @@
-  */
+-	if (hwdev && hwdev->coherent_dma_mask)
+-		dma_mask = hwdev->coherent_dma_mask;
  
- #include <linux/dma-mapping.h>
-+#include <linux/dma-direct.h>
- #include <linux/bootmem.h>
- #include <linux/genalloc.h>
- #include <asm/dma-mapping.h>
+ 	ret = (void *)__get_free_pages(flags, order);
+ 	if (ret) {
+ 		dev_addr = swiotlb_virt_to_bus(hwdev, ret);
+-		if (dev_addr + size - 1 > dma_mask) {
++		if (dev_addr + size - 1 > hwdev->coherent_dma_mask) {
+ 			/*
+ 			 * The allocated memory isn't reachable by the device.
+ 			 */
+@@ -747,9 +743,9 @@ swiotlb_alloc_coherent(struct device *hwdev, size_t size,
+ 		dev_addr = swiotlb_phys_to_dma(hwdev, paddr);
+ 
+ 		/* Confirm address can be DMA'd by device */
+-		if (dev_addr + size - 1 > dma_mask) {
++		if (dev_addr + size - 1 > hwdev->coherent_dma_mask) {
+ 			printk("hwdev DMA mask = 0x%016Lx, dev_addr = 0x%016Lx\n",
+-			       (unsigned long long)dma_mask,
++			       (unsigned long long)hwdev->coherent_dma_mask,
+ 			       (unsigned long long)dev_addr);
+ 
+ 			/*
 -- 
 2.14.2
 
