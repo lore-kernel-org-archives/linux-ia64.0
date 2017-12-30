@@ -1,44 +1,23 @@
-From: Vladimir Murzin <vladimir.murzin@arm.com>
-Date: Fri, 29 Dec 2017 10:52:14 +0000
+From: Christoph Hellwig <hch@lst.de>
+Date: Sat, 30 Dec 2017 10:56:35 +0000
 Subject: Re: consolidate direct dma mapping and swiotlb support
-Message-Id: <23fee3bb-61ce-1735-b264-3acc0109c858@arm.com>
+Message-Id: <20171230105635.GA23696@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20171229081911.2802-1-hch@lst.de>
-In-Reply-To: <20171229081911.2802-1-hch@lst.de>
+	<23fee3bb-61ce-1735-b264-3acc0109c858@arm.com>
+In-Reply-To: <23fee3bb-61ce-1735-b264-3acc0109c858-5wv7dgnIgG8@public.gmane.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch@lst.de>, iommu@lists.linux-foundation.org
-Cc: linux-mips@linux-mips.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, linux-hexagon@vger.kernel.org, x86@kernel.org, linux-snps-arc@lists.infradead.org, adi-buildroot-devel@lists.sourceforge.net, linux-m68k@lists.linux-m68k.org, patches@groups.riscv.org, linux-metag@vger.kernel.org, linux-arm-kernel@lists.infradead.org, Michal Simek <monstr@monstr.eu>, linux-parisc@vger.kernel.org, linux-cris-kernel@axis.com, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
+To: Vladimir Murzin <vladimir.murzin-5wv7dgnIgG8@public.gmane.org>
+Cc: linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Guan Xuetao <gxt-TG0Ac1+ktVePQbnJrJN+5g@public.gmane.org>, Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>, linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-c6x-dev-jPsnJVOj+W6hPH1hqNUYSQ@public.gmane.org, linux-hexagon-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-snps-arc-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, adi-buildroot-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-m68k-cunTk1MwBs8S/qaLPR03pWD2FQJk+8+b@public.gmane.org, patches-q3qR2WxjNRFS9aJRtSZj7A@public.gmane.org, linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Michal Simek <monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org>, linux-cris-kernel-VrBV9hrLPhE@public.gmane.org, linux-parisc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, linux-alpha-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 
-On 29/12/17 08:18, Christoph Hellwig wrote:
-> Almost every architecture supports a direct dma mapping implementation,
-> where no iommu is used and the device dma address is a 1:1 mapping to
-> the physical address or has a simple linear offset.  Currently the
-> code for this implementation is most duplicated over the architectures,
-> and the duplicated again in the swiotlb code, and then duplicated again
-> for special cases like the x86 memory encryption DMA ops.
-> 
-> This series takes the existing very simple dma-noop dma mapping
-> implementation, enhances it with all the x86 features and quirks, and
-> creates a common set of architecture hooks for it and the swiotlb code.
-> 
-> It then switches a large number of architectures to this generic
-> direct map implement and the new generic swiotlb dma_map ops.
-> 
-> Note that for now this only handles architectures that do cache coherent
-> DMA, but a similar consolidation for non-coherent architectures is in the
-> work for later merge windows.
+On Fri, Dec 29, 2017 at 10:52:14AM +0000, Vladimir Murzin wrote:
+> Is it available in your dma-mapping.git or somewhere else?
 
-Is it available in your dma-mapping.git or somewhere else?
+  git://git.infradead.org/users/hch/misc.git dma-direct
 
-Cheers
-Vladimir
+Gitweb:
 
-> 
-> _______________________________________________
-> linux-arm-kernel mailing list
-> linux-arm-kernel@lists.infradead.org
-> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
-> 
+  http://git.infradead.org/users/hch/misc.git/shortlog/refs/heads/dma-direct
 
