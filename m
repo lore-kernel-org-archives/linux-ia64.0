@@ -1,110 +1,53 @@
-From: Vladimir Murzin <vladimir.murzin@arm.com>
-Date: Tue, 02 Jan 2018 16:44:21 +0000
-Subject: Re: [PATCH 31/67] dma-direct: make dma_direct_{alloc, free} available to other implementations
-Message-Id: <f7aca03c-e893-d10a-7a28-bb3c9ae47900@arm.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Date: Tue, 02 Jan 2018 10:36:00 +0000
+Subject: Re: [PATCH 02/67] alpha: mark jensen as broken
+Message-Id: <CAMuHMdUXSMuQ=RoZp86CODVk5Ubd3R+jtqOur_Uqnu+7h_m9AA@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20171229081911.2802-1-hch@lst.de>
- <20171229081911.2802-32-hch@lst.de>
-In-Reply-To: <20171229081911.2802-32-hch@lst.de>
+References: <20171229081911.2802-1-hch@lst.de> <20171229081911.2802-3-hch@lst.de>
+In-Reply-To: <20171229081911.2802-3-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch@lst.de>, iommu@lists.linux-foundation.org
-Cc: linux-mips@linux-mips.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, linux-hexagon@vger.kernel.org, x86@kernel.org, linux-snps-arc@lists.infradead.org, adi-buildroot-devel@lists.sourceforge.net, linux-m68k@lists.linux-m68k.org, patches@groups.riscv.org, linux-metag@vger.kernel.org, linux-arm-kernel@lists.infradead.org, Michal Simek <monstr@monstr.eu>, linux-parisc@vger.kernel.org, linux-cris-kernel@axis.com, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
+To: Christoph Hellwig <hch@lst.de>
+Cc: iommu@lists.linux-foundation.org, alpha <linux-alpha@vger.kernel.org>, arcml <linux-snps-arc@lists.infradead.org>, linux-arm-kernel@lists.infradead.org, adi-buildroot-devel@lists.sourceforge.net, linux-c6x-dev@linux-c6x.org, Cris <linux-cris-kernel@axis.com>, "open list:QUALCOMM HEXAGON..." <linux-hexagon@vger.kernel.org>, linux-ia64@vger.kernel.org, linux-m68k <linux-m68k@lists.linux-m68k.org>, "open list:METAG ARCHITECTURE" <linux-metag@vger.kernel.org>, Michal Simek <monstr@monstr.eu>, Linux MIPS Mailing List <linux-mips@linux-mips.org>, Parisc List <linux-parisc@vger.kernel.org>, linuxppc-dev@lists.ozlabs.org, patches@groups.riscv.org, linux-s390 <linux-s390@vger.kernel.org>, Linux-sh list <linux-sh@vger.kernel.org>, sparclinux <sparclinux@vger.kernel.or>
 
-On 29/12/17 08:18, Christoph Hellwig wrote:
-> So that they don't need to indirect through the operation vector.
-> 
+Hi Christoph,
+
+On Fri, Dec 29, 2017 at 9:18 AM, Christoph Hellwig <hch@lst.de> wrote:
+> CONFIG_ALPHA_JENSEN has failed to compile since commit aca05038
+> ("alpha/dma: use common noop dma ops"), so mark it as broken.
+
+unknown revision or path not in the working tree.
+Ah, you dropped the leading "6":
+6aca0503847f6329460b15b3ab2b0e30bb752793
+is less than 2 years old, though.
+
+>
 > Signed-off-by: Christoph Hellwig <hch@lst.de>
 > ---
->  arch/arm/mm/dma-mapping-nommu.c | 9 +++------
->  include/linux/dma-direct.h      | 5 +++++
->  lib/dma-direct.c                | 6 +++---
->  3 files changed, 11 insertions(+), 9 deletions(-)
-> 
-> diff --git a/arch/arm/mm/dma-mapping-nommu.c b/arch/arm/mm/dma-mapping-nommu.c
-> index 49e9831dc0f1..b4cf3e4e9d4a 100644
-> --- a/arch/arm/mm/dma-mapping-nommu.c
-> +++ b/arch/arm/mm/dma-mapping-nommu.c
-> @@ -11,7 +11,7 @@
->  
->  #include <linux/export.h>
->  #include <linux/mm.h>
-> -#include <linux/dma-mapping.h>
-> +#include <linux/dma-direct.h>
->  #include <linux/scatterlist.h>
->  
->  #include <asm/cachetype.h>
-> @@ -39,7 +39,6 @@ static void *arm_nommu_dma_alloc(struct device *dev, size_t size,
->  				 unsigned long attrs)
->  
->  {
-> -	const struct dma_map_ops *ops = &dma_direct_ops;
->  	void *ret;
->  
->  	/*
-> @@ -48,7 +47,7 @@ static void *arm_nommu_dma_alloc(struct device *dev, size_t size,
->  	 */
->  
->  	if (attrs & DMA_ATTR_NON_CONSISTENT)
-> -		return ops->alloc(dev, size, dma_handle, gfp, attrs);
-> +		return dma_direct_alloc(dev, size, dma_handle, gfp, attrs);
->  
->  	ret = dma_alloc_from_global_coherent(size, dma_handle);
->  
-> @@ -70,10 +69,8 @@ static void arm_nommu_dma_free(struct device *dev, size_t size,
->  			       void *cpu_addr, dma_addr_t dma_addr,
->  			       unsigned long attrs)
->  {
-> -	const struct dma_map_ops *ops = &dma_direct_ops;
-> -
->  	if (attrs & DMA_ATTR_NON_CONSISTENT) {
-> -		ops->free(dev, size, cpu_addr, dma_addr, attrs);
-> +		dma_direct_free(dev, size, cpu_addr, dma_addr, attrs);
->  	} else {
->  		int ret = dma_release_from_global_coherent(get_order(size),
->  							   cpu_addr);
-> diff --git a/include/linux/dma-direct.h b/include/linux/dma-direct.h
-> index 10e924b7cba7..4788bf0bf683 100644
-> --- a/include/linux/dma-direct.h
-> +++ b/include/linux/dma-direct.h
-> @@ -38,4 +38,9 @@ static inline void dma_mark_clean(void *addr, size_t size)
->  }
->  #endif /* CONFIG_ARCH_HAS_DMA_MARK_CLEAN */
->  
-> +void *dma_direct_alloc(struct device *dev, size_t size, dma_addr_t *dma_handle,
-> +		gfp_t gfp, unsigned long attrs);
-> +void dma_direct_free(struct device *dev, size_t size, void *cpu_addr,
-> +		dma_addr_t dma_addr, unsigned long attrs);
-> +
->  #endif /* _LINUX_DMA_DIRECT_H */
-> diff --git a/lib/dma-direct.c b/lib/dma-direct.c
-> index f8467cb3d89a..7e913728e099 100644
-> --- a/lib/dma-direct.c
-> +++ b/lib/dma-direct.c
-> @@ -33,8 +33,8 @@ static bool dma_coherent_ok(struct device *dev, phys_addr_t phys, size_t size)
->  	return phys_to_dma(dev, phys) + size <= dev->coherent_dma_mask;
->  }
->  
-> -static void *dma_direct_alloc(struct device *dev, size_t size,
-> -		dma_addr_t *dma_handle, gfp_t gfp, unsigned long attrs)
-> +void *dma_direct_alloc(struct device *dev, size_t size, dma_addr_t *dma_handle,
-> +		gfp_t gfp, unsigned long attrs)
->  {
->  	unsigned int count = PAGE_ALIGN(size) >> PAGE_SHIFT;
->  	int page_order = get_order(size);
-> @@ -71,7 +71,7 @@ static void *dma_direct_alloc(struct device *dev, size_t size,
->  	return page_address(page);
->  }
->  
-> -static void dma_direct_free(struct device *dev, size_t size, void *cpu_addr,
-> +void dma_direct_free(struct device *dev, size_t size, void *cpu_addr,
->  		dma_addr_t dma_addr, unsigned long attrs)
->  {
->  	unsigned int count = PAGE_ALIGN(size) >> PAGE_SHIFT;
-> 
+>  arch/alpha/Kconfig | 1 +
+>  1 file changed, 1 insertion(+)
+>
+> diff --git a/arch/alpha/Kconfig b/arch/alpha/Kconfig
+> index b31b974a03cb..e96adcbcab41 100644
+> --- a/arch/alpha/Kconfig
+> +++ b/arch/alpha/Kconfig
+> @@ -209,6 +209,7 @@ config ALPHA_EIGER
+>
+>  config ALPHA_JENSEN
+>         bool "Jensen"
+> +       depends on BROKEN
+>         help
+>           DEC PC 150 AXP (aka Jensen): This is a very old Digital system - one
+>           of the first-generation Alpha systems. A number of these systems
 
-Reviewed-by: Vladimir Murzin <vladimir.murzin@arm.com>
+Gr{oetje,eeting}s,
 
-Thanks
-Vladimir
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
