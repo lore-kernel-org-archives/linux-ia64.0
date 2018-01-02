@@ -1,80 +1,32 @@
-From: Vladimir Murzin <vladimir.murzin@arm.com>
-Date: Wed, 10 Jan 2018 09:32:16 +0000
-Subject: Re: [PATCH 29/33] dma-direct: retry allocations using GFP_DMA for small masks
-Message-Id: <93966313-cc79-8173-48e6-157caa443322@arm.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Date: Tue, 02 Jan 2018 10:38:07 +0000
+Subject: Re: [PATCH 22/67] dma-mapping: clear harmful GFP_* flags in common code
+Message-Id: <CAMuHMdX6+E0tN-qxybQ27DoygpUsWngi8J+Fz6K2WZ=FCCuO_A@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180110080027.13879-1-hch@lst.de>
- <20180110080027.13879-30-hch@lst.de>
-In-Reply-To: <20180110080027.13879-30-hch@lst.de>
+References: <20171229081911.2802-1-hch@lst.de> <20171229081911.2802-23-hch@lst.de>
+In-Reply-To: <20171229081911.2802-23-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch@lst.de>, iommu@lists.linux-foundation.org
-Cc: linux-mips@linux-mips.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, linux-hexagon@vger.kernel.org, x86@kernel.org, Konrad Rzeszutek Wilk <konrad@darnok.org>, linux-snps-arc@lists.infradead.org, linux-m68k@lists.linux-m68k.org, patches@groups.riscv.org, linux-metag@vger.kernel.org, linux-arm-kernel@lists.infradead.org, Michal Simek <monstr@monstr.eu>, linux-parisc@vger.kernel.org, linux-cris-kernel@axis.com, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
+To: Christoph Hellwig <hch@lst.de>
+Cc: iommu@lists.linux-foundation.org, alpha <linux-alpha@vger.kernel.org>, arcml <linux-snps-arc@lists.infradead.org>, linux-arm-kernel@lists.infradead.org, adi-buildroot-devel@lists.sourceforge.net, linux-c6x-dev@linux-c6x.org, Cris <linux-cris-kernel@axis.com>, "open list:QUALCOMM HEXAGON..." <linux-hexagon@vger.kernel.org>, linux-ia64@vger.kernel.org, linux-m68k <linux-m68k@lists.linux-m68k.org>, "open list:METAG ARCHITECTURE" <linux-metag@vger.kernel.org>, Michal Simek <monstr@monstr.eu>, Linux MIPS Mailing List <linux-mips@linux-mips.org>, Parisc List <linux-parisc@vger.kernel.org>, linuxppc-dev@lists.ozlabs.org, patches@groups.riscv.org, linux-s390 <linux-s390@vger.kernel.org>, Linux-sh list <linux-sh@vger.kernel.org>, sparclinux <sparclinux@vger.kernel.or>
 
-On 10/01/18 08:00, Christoph Hellwig wrote:
-> If an attempt to allocate memory succeeded, but isn't inside the
-> supported DMA mask, retry the allocation with GFP_DMA set as a
-> last resort.
-> 
-> Based on the x86 code, but an off by one error in what is now
-> dma_coherent_ok has been fixed vs the x86 code.
-> 
+On Fri, Dec 29, 2017 at 9:18 AM, Christoph Hellwig <hch@lst.de> wrote:
+> Life the code from x86 so that we behave consistently.  In the future we
+> should probably warn if any of these is set.
+>
 > Signed-off-by: Christoph Hellwig <hch@lst.de>
-> ---
->  lib/dma-direct.c | 25 ++++++++++++++++++++++++-
->  1 file changed, 24 insertions(+), 1 deletion(-)
-> 
-> diff --git a/lib/dma-direct.c b/lib/dma-direct.c
-> index 8f76032ebc3c..4e43c2bb7f5f 100644
-> --- a/lib/dma-direct.c
-> +++ b/lib/dma-direct.c
-> @@ -35,6 +35,11 @@ check_addr(struct device *dev, dma_addr_t dma_addr, size_t size,
->  	return true;
->  }
->  
-> +static bool dma_coherent_ok(struct device *dev, phys_addr_t phys, size_t size)
-> +{
-> +	return phys_to_dma(dev, phys) + size - 1 <= dev->coherent_dma_mask;
-> +}
-> +
->  static void *dma_direct_alloc(struct device *dev, size_t size,
->  		dma_addr_t *dma_handle, gfp_t gfp, unsigned long attrs)
->  {
-> @@ -48,11 +53,29 @@ static void *dma_direct_alloc(struct device *dev, size_t size,
->  	if (dev->coherent_dma_mask <= DMA_BIT_MASK(32) && !(gfp & GFP_DMA))
->  		gfp |= GFP_DMA32;
->  
-> +again:
->  	/* CMA can be used only in the context which permits sleeping */
-> -	if (gfpflags_allow_blocking(gfp))
-> +	if (gfpflags_allow_blocking(gfp)) {
->  		page = dma_alloc_from_contiguous(dev, count, page_order, gfp);
-> +		if (page && !dma_coherent_ok(dev, page_to_phys(page), size)) {
-> +			dma_release_from_contiguous(dev, page, count);
-> +			page = NULL;
-> +		}
-> +	}
->  	if (!page)
->  		page = alloc_pages_node(dev_to_node(dev), gfp, page_order);
-> +
-> +	if (page && !dma_coherent_ok(dev, page_to_phys(page), size)) {
-> +		__free_pages(page, page_order);
-> +		page = NULL;
-> +
-> +		if (dev->coherent_dma_mask < DMA_BIT_MASK(32) &&
-> +		    !(gfp & GFP_DMA)) {
-> +			gfp = (gfp & ~GFP_DMA32) | GFP_DMA;
-> +			goto again;
-> +		}
-> +	}
-> +
->  	if (!page)
->  		return NULL;
->  
-> 
 
-Reviewed-by: Vladimir Murzin <vladimir.murzin@arm.com>
+For m68k:
+Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
 
-Cheers
-Vladimir
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
