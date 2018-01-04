@@ -1,26 +1,32 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Thu, 04 Jan 2018 08:48:28 +0000
+Date: Thu, 04 Jan 2018 08:49:30 +0000
 Subject: Re: [PATCH 16/67] powerpc: rename dma_direct_ to dma_nommu_
-Message-Id: <20180104084828.GA3251@lst.de>
+Message-Id: <20180104084930.GB3251@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20171229081911.2802-1-hch@lst.de>
-	<20171229081911.2802-17-hch@lst.de>
-	<878tdgtwzp.fsf@concordia.ellerman.id.au>
-	<CAMuHMdWWus2kNSOzS94k-3678826W1YjKwCWTquu3hBLZ80cvw@mail.gmail.com>
-	<87h8s3cvel.fsf@concordia.ellerman.id.au>
-	<CAMuHMdWYDz_jHNxQ-B8944520R-myzHkjkL1rKWUjA38inU7cw@mail.gmail.com>
-	<CAGRGNgV+DnZAAtiE5oe8rxp4=_JHJrtSQc8F5jrgN0rgYKfwjA@mail.gmail.com>
-In-Reply-To: <CAGRGNgV+DnZAAtiE5oe8rxp4=_JHJrtSQc8F5jrgN0rgYKfwjA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+References: <20171229081911.2802-1-hch@lst.de> <20171229081911.2802-17-hch@lst.de> <878tdgtwzp.fsf@concordia.ellerman.id.au>
+In-Reply-To: <878tdgtwzp.fsf@concordia.ellerman.id.au>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Julian Calaby <julian.calaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Cc: Linux MIPS Mailing List <linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org>, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Linux-sh list <linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, sparclinux <sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Guan Xuetao <gxt-TG0Ac1+ktVePQbnJrJN+5g@public.gmane.org>, Christoph Hellwig <hch-jcswGhMUV9g@public.gmane.org>, Linux-Arch <linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-s390 <linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-c6x-dev-jPsnJVOj+W6hPH1hqNUYSQ@public.gmane.org, Michael Ellerman <mpe-Gsx/Oe8HsFggBc27wqDAHg@public.gmane.org>, the arch/x86 maintainers <x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>, arcml <linux-snps-arc-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, alpha <linux-alpha-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, adi-buildroot-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-m68k <linux-m68k-cunTk1MwBs8S/qaLPR03pWD2FQJk+8+b@public.gmane.org>, patches-q3qR2WxjNRFS9aJRtSZj7A@public.gmane.org, "open list:METAG ARCHITECTURE" <linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, "Mailing List, Arm" <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>, Michal Simek <monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org>, Cris <linux-cris-kernel-VrBV9hrLPhE@public.gmane.org>, Parisc List <linux-parisc@vg>
+To: Michael Ellerman <mpe@ellerman.id.au>
+Cc: Christoph Hellwig <hch@lst.de>, iommu@lists.linux-foundation.org, linux-mips@linux-mips.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, linux-hexagon@vger.kernel.org, x86@kernel.org, linux-snps-arc@lists.infradead.org, adi-buildroot-devel@lists.sourceforge.net, linux-m68k@lists.linux-m68k.org, patches@groups.riscv.org, linux-metag@vger.kernel.org, linux-arm-kernel@lists.infradead.org, Michal Simek <monstr@monstr.eu>, linux-parisc@vger.kernel.org, linux-cris-kernel@axis.com, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
 
-On Wed, Jan 03, 2018 at 07:19:46PM +1100, Julian Calaby wrote:
-> If this is indeed a linear mapping, can we just remove this and
-> replace it with the new "generic" mapping being introduced by this
-> patchset?
+On Tue, Jan 02, 2018 at 08:45:30PM +1100, Michael Ellerman wrote:
+> Christoph Hellwig <hch@lst.de> writes:
+> 
+> > We want to use the dma_direct_ namespace for a generic implementation,
+> > so rename powerpc to the second best choice: dma_nommu_.
+> 
+> I'm not a fan of "nommu". Some of the users of direct ops *are* using an
+> IOMMU, they're just setting up a 1:1 mapping once at init time, rather
+> than mapping dynamically.
+> 
+> Though I don't have a good idea for a better name, maybe "1to1",
+> "linear", "premapped" ?
 
-That is the long-term plan.  But as the powerpc one includes support
-for non-coherent DMA it will have to wait for the next batch.
+It seems like a nice counter part to the dma_iommu_ops used just about
+anywhere else in ppc.
+
+But I'll happily take any maintainer bike shed decision for the next
+series.  Remember that in a merge window or two it will hopefully
+go away in favor of the new generic dma_direct ops.
