@@ -1,37 +1,34 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Fri, 12 Jan 2018 08:42:26 +0000
-Subject: [PATCH 28/34] dma-direct: use node local allocations for coherent memory
-Message-Id: <20180112084232.2857-29-hch@lst.de>
+Date: Thu, 04 Jan 2018 08:52:05 +0000
+Subject: Re: [PATCH 27/67] dma-direct: add dma address sanity checks
+Message-Id: <20180104085205.GC3251@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180112084232.2857-1-hch@lst.de>
-In-Reply-To: <20180112084232.2857-1-hch@lst.de>
+References: <20171229081911.2802-1-hch@lst.de> <20171229081911.2802-28-hch@lst.de> <CAMuHMdWg3PnTXezMCcr3oGf-83-cjvcj4wGiPk7j2pY1Tgzo9Q@mail.gmail.com>
+In-Reply-To: <CAMuHMdWg3PnTXezMCcr3oGf-83-cjvcj4wGiPk7j2pY1Tgzo9Q@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: iommu@lists.linux-foundation.org
-Cc: Konrad Rzeszutek Wilk <konrad@darnok.org>, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org, linux-cris-kernel@axis.com, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-metag@vger.kernel.org, Michal Simek <monstr@monstr.eu>, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, patches@groups.riscv.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, Guan Xuetao <gxt@mprc.pku.edu.cn>, x86@kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Cc: Christoph Hellwig <hch@lst.de>, iommu@lists.linux-foundation.org, Linux MIPS Mailing List <linux-mips@linux-mips.org>, linux-ia64@vger.kernel.org, Linux-sh list <linux-sh@vger.kernel.org>, sparclinux <sparclinux@vger.kernel.org>, Guan Xuetao <gxt@mprc.pku.edu.cn>, Linux-Arch <linux-arch@vger.kernel.org>, linux-s390 <linux-s390@vger.kernel.org>, linux-c6x-dev@linux-c6x.org, "open list:QUALCOMM HEXAGON..." <linux-hexagon@vger.kernel.org>, the arch/x86 maintainers <x86@kernel.org>, arcml <linux-snps-arc@lists.infradead.org>, adi-buildroot-devel@lists.sourceforge.net, linux-m68k <linux-m68k@lists.linux-m68k.org>, patches@groups.riscv.org, "open list:METAG ARCHITECTURE" <linux-metag@vger.kernel.org>, linux-arm-kernel@lists.infradead.org, Michal Simek <mon>
 
-To preserve the x86 behavior.
+On Fri, Dec 29, 2017 at 03:12:25PM +0100, Geert Uytterhoeven wrote:
+> > +check_addr(struct device *dev, dma_addr_t dma_addr, size_t size,
+> > +               const char *caller)
+> > +{
+> > +       if (unlikely(dev && !dma_capable(dev, dma_addr, size))) {
+> > +               if (*dev->dma_mask >= DMA_BIT_MASK(32)) {
+> > +                       dev_err(dev,
+> > +                               "%s: overflow %llx+%zu of device mask %llx\n",
+> 
+> Please use "%pad" to format dma_addr_t ...
+> 
+> > +                               caller, (long long)dma_addr, size,
+> 
+> ... and use &dma_addr.
+> 
+> > +                               (long long)*dev->dma_mask);
+> 
+> This cast is not needed, as u64 is unsigned long long in kernelspace on
+> all architectures.
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
-Reviewed-by: Robin Murphy <robin.murphy@arm.com>
----
- lib/dma-direct.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/lib/dma-direct.c b/lib/dma-direct.c
-index a9ae98be7af3..f04a424f91fa 100644
---- a/lib/dma-direct.c
-+++ b/lib/dma-direct.c
-@@ -38,7 +38,7 @@ static void *dma_direct_alloc(struct device *dev, size_t size,
- 	if (gfpflags_allow_blocking(gfp))
- 		page = dma_alloc_from_contiguous(dev, count, page_order, gfp);
- 	if (!page)
--		page = alloc_pages(gfp, page_order);
-+		page = alloc_pages_node(dev_to_node(dev), gfp, page_order);
- 	if (!page)
- 		return NULL;
- 
--- 
-2.14.2
-
+Thanks, fixed.
