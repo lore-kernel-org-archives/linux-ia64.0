@@ -1,7 +1,7 @@
-From: Petr Mladek <pmladek@suse.com>
-Date: Fri, 05 Jan 2018 11:38:42 +0000
+From: Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>
+Date: Fri, 05 Jan 2018 12:01:31 +0000
 Subject: Re: [PATCH 00/13] replace print_symbol() with printk()-s
-Message-Id: <20180105113842.fczbwxuznyqqilom@pathway.suse.cz>
+Message-Id: <20180105120131.GA417@jagdpanzerIV>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20171211125025.2270-1-sergey.senozhatsky@gmail.com>
  <20180105100300.j3svmcvvpfe2iows@pathway.suse.cz>
@@ -12,31 +12,48 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-arm-kernel@lists.infradead.org
 
-On Fri 2018-01-05 19:21:05, Sergey Senozhatsky wrote:
-> On (01/05/18 11:03), Petr Mladek wrote:
-> [..]
-> > Anyway, print_symbol() is an old weird API and it would be nice
-> > to eventually get rid of it. I could take this patches into
-> > printk.git.
-> 
-> no objections from my side if the patch set will go through the printk tree.
-> shall we wait for ACKs or can we move on? do you plan to land it in 4.16?
-
-I am going to add this into for-4.16 branch.
-
-It is a rather cosmetic and trivial change. Therefore I do not think
-that we would need to wait for all the ACKs. Anyway, I am going to
-proactively check for potential conflicts with linux-next.
-
-> > Would you mind if I change the commit messages to something like?:
-> > 
+On (01/05/18 19:21), Sergey Senozhatsky wrote:
 > >     print_symbol() is an old weird API. It has been
 > >     obsoleted by printk() and %pS format specifier.
 > 
-> I wouldn't. let's drop the "weird" part. other than that looks
-> good to me.
+> I wouldn't. let's drop the "weird" part.
 
-OK.
+hm...
 
-Best Regards,
-Petr
+you are right, it is weird. and the weird part here is that
+print_symbol() is used for things like __show_regs()
+
+       print_symbol("PC is at %s\n", instruction_pointer(regs));
+       print_symbol("LR is at %s\n", regs->ARM_lr);
+       printk("pc : [<%08lx>]    lr : [<%08lx>]    psr: %08lx\n",
+              regs->ARM_pc, regs->ARM_lr, regs->ARM_cpsr);
+
+or for EMERG error reporting
+
+        pr_emerg("unexpected fault for address: 0x%08lx, last fault for address: 0x%08lx\n",
+                 addr, my_reason->addr);
+        print_pte(addr);
+       print_symbol(KERN_EMERG "faulting IP is at %s\n", regs->ip);
+       print_symbol(KERN_EMERG "last faulting IP was at %s\n", my_reason->ip);
+ #ifdef __i386__
+        pr_emerg("eax: %08lx   ebx: %08lx   ecx: %08lx   edx: %08lx\n",
+                 regs->ax, regs->bx, regs->cx, regs->dx);
+
+or for error reporting in sysfs
+
+               print_symbol("fill_read_buffer: %s returned bad count\n",
+                       (unsigned long)ops->show);
+
+and so on.
+
+but, print_symbol() is compiled out on !CONFIG_KALLSYMS systems. so,
+basically, we compile out some of errors print outs; even more, on ia64
+ia64_do_show_stack() does nothing when there is no CONFIG_KALLSYMS [all
+ia64 defconfigs have KALLSYMS_ALL enabled]. printk(%pS), unlike
+print_symbol(), is not compiled out and prints the function address
+when symbolic name is not available. but, at a glance, print_symbol()
+in most of the cases has printk(registers) next to it or before it, so
+it doesn't look like we are introducing a regression here by switching
+to printk(%pS).
+
+	-ss
