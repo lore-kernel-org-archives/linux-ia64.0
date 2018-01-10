@@ -1,50 +1,37 @@
-From: Robin Murphy <robin.murphy@arm.com>
-Date: Wed, 10 Jan 2018 17:10:02 +0000
-Subject: Re: [PATCH 21/22] arm64: replace ZONE_DMA with ZONE_DMA32
-Message-Id: <3c3263ca-b0ab-654a-d67d-f5ff5e31280c@arm.com>
+From: Christoph Hellwig <hch@lst.de>
+Date: Wed, 10 Jan 2018 08:00:03 +0000
+Subject: [PATCH 09/33] dma-mapping: take dma_pfn_offset into account in dma_max_pfn
+Message-Id: <20180110080027.13879-10-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180110080932.14157-1-hch@lst.de>
- <20180110080932.14157-22-hch@lst.de>
- <0371cef8-d980-96da-9cb5-3609c39be18a@arm.com>
- <20180110155517.GA18774@lst.de> <20180110155546.GB18903@lst.de>
-In-Reply-To: <20180110155546.GB18903@lst.de>
+References: <20180110080027.13879-1-hch@lst.de>
+In-Reply-To: <20180110080027.13879-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch@lst.de>
-Cc: iommu@lists.linux-foundation.org, linux-arch@vger.kernel.org, linux-mips@linux-mips.org, Michal Simek <monstr@monstr.eu>, linux-ia64@vger.kernel.org, =?UTF-8?Q?Christian_K=c3=b6nig?= <ckoenig.leichtzumerken@gmail.com>, x86@kernel.org, linux-kernel@vger.kernel.org, Konrad Rzeszutek Wilk <konrad@darnok.org>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linuxppc-dev@lists.ozlabs.org, linux-arm-kernel@lists.infradead.org
+To: iommu@lists.linux-foundation.org
+Cc: Konrad Rzeszutek Wilk <konrad@darnok.org>, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org, linux-cris-kernel@axis.com, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-metag@vger.kernel.org, Michal Simek <monstr@monstr.eu>, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, patches@groups.riscv.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, Guan Xuetao <gxt@mprc.pku.edu.cn>, x86@kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On 10/01/18 15:55, Christoph Hellwig wrote:
-> On Wed, Jan 10, 2018 at 04:55:17PM +0100, Christoph Hellwig wrote:
->> On Wed, Jan 10, 2018 at 12:58:14PM +0000, Robin Murphy wrote:
->>> On 10/01/18 08:09, Christoph Hellwig wrote:
->>>> arm64 uses ZONE_DMA for allocations below 32-bits.  These days we
->>>> name the zone for that ZONE_DMA32, which will allow to use the
->>>> dma-direct and generic swiotlb code as-is, so rename it.
->>>
->>> I do wonder if we could also "upgrade" GFP_DMA to GFP_DMA32 somehow when
->>> !ZONE_DMA - there are almost certainly arm64 drivers out there using a
->>> combination of GFP_DMA and streaming mappings which will no longer get the
->>> guaranteed 32-bit addresses they expect after this. I'm not sure quite how
->>> feasible that is, though :/
->>
->> I can't find anything obvious in the tree. The alternative would be
->> to keep ZONE_DMA and set ARCH_ZONE_DMA_BITS.
->>
->>> That said, I do agree that this is an appropriate change (the legacy of
->>> GFP_DMA is obviously horrible), so, provided we get plenty of time to find
->>> and fix the fallout when it lands:
->>>
->>> Reviewed-by: Robin Murphy <robin.murphy@arm.com>
->>
->> I was hoping to get this into 4.15.  What would be proper time to
->> fix the fallout?
-> 
-> Err, 4.16 of course.
+This makes sure the generic version can be used with architectures /
+devices that have a DMA offset in the direct mapping.
 
-Hee hee - cramming it into 4.15 is exactly what I wouldn't want to do, 
-even if Linus would accept it :)
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ include/linux/dma-mapping.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Landing it this merge window for 4.16-rc1 sounds good if we can manage that.
+diff --git a/include/linux/dma-mapping.h b/include/linux/dma-mapping.h
+index 81ed9b2d84dc..d84951865be7 100644
+--- a/include/linux/dma-mapping.h
++++ b/include/linux/dma-mapping.h
+@@ -692,7 +692,7 @@ static inline int dma_set_seg_boundary(struct device *dev, unsigned long mask)
+ #ifndef dma_max_pfn
+ static inline unsigned long dma_max_pfn(struct device *dev)
+ {
+-	return *dev->dma_mask >> PAGE_SHIFT;
++	return (*dev->dma_mask >> PAGE_SHIFT) + dev->dma_pfn_offset;
+ }
+ #endif
+ 
+-- 
+2.14.2
 
-Robin.
