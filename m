@@ -1,37 +1,37 @@
-From: Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>
-Date: Wed, 17 Jan 2018 02:36:37 +0000
-Subject: Re: [PATCH 00/13] replace print_symbol() with printk()-s
-Message-Id: <20180117023637.GC423@jagdpanzerIV>
+From: Christoph Hellwig <hch@lst.de>
+Date: Wed, 10 Jan 2018 08:00:00 +0000
+Subject: [PATCH 06/33] m32r: remove the unused dma_capable helper
+Message-Id: <20180110080027.13879-7-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20171211125025.2270-1-sergey.senozhatsky@gmail.com>
- <20180105100300.j3svmcvvpfe2iows@pathway.suse.cz>
- <20180105102105.GB471@jagdpanzerIV>
- <20180105102538.GC471@jagdpanzerIV>
- <20180105144239.i3pc6npgmoi4ddln@pathway.suse.cz>
- <20180108020942.GB533@jagdpanzerIV>
- <20180116163301.lh76kvjheyobjgkp@pathway.suse.cz>
-In-Reply-To: <20180116163301.lh76kvjheyobjgkp@pathway.suse.cz>
+References: <20180110080027.13879-1-hch@lst.de>
+In-Reply-To: <20180110080027.13879-1-hch@lst.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="macroman"
-Content-Transfer-Encoding: base64
-To: linux-arm-kernel@lists.infradead.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: iommu@lists.linux-foundation.org
+Cc: Konrad Rzeszutek Wilk <konrad@darnok.org>, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org, linux-cris-kernel@axis.com, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-metag@vger.kernel.org, Michal Simek <monstr@monstr.eu>, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, patches@groups.riscv.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, Guan Xuetao <gxt@mprc.pku.edu.cn>, x86@kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
 
-T24gKDAxLzE2LzE4IDE3OjMzKSwgUGV0ciBNbGFkZWsgd3JvdGU6ClsuLl0KPiA+IEpGSSwgdGhl
-IHBhdGNoIGlzIGluIExpbnVzJ3MgdHJlZSBhcyBvZiBub3cgKGQwNzI5YmM2YmVlNzk3ZmIpLgo+
-IAo+IEdyZWF0LiBJIGhhdmUgcHVzaGVkIHRoZSBwYXRjaCB0aGF0IHJlbW92ZXMgcHJpbnRrX3N5
-bWJvbCgpCj4gaW50byBwcmludGsuZ2l0LCBicmFuY2ggZm9yLTQuMTYtcHJpbnQtc3ltYm9sLgo+
-IAo+IE5vdGUgdGhhdCBJIGhhdmUgdXBkYXRlZCB0aGUgY29tbWl0IG1lc3NhZ2Ugc2ltaWxhciB3
-YXkKPiBsaWtlIEkgZGlkIGZvciB0aGUgb3RoZXIgY29tbWl0cy4gRXNwZWNpYWxseSBJIHdhbnRl
-ZAo+IHRvIG1lbnRpb24gd2hhdCBpdCB3YXMgb2Jzb2xldGVkIGJ5LiBUaGUgbWVzc2FnZSBpczoK
-PiAKPiAgIGthbGxzeW1zOiByZW1vdmUgcHJpbnRfc3ltYm9sKCkgZnVuY3Rpb24KPiAKPiAgIE5v
-IG1vcmUgcHJpbnRfc3ltYm9sKCkvX19wcmludF9zeW1ib2woKSB1c2VycyBsZWZ0LCByZW1vdmUg
-dGhlc2UKPiAgIHN5bWJvbHMuCj4gCj4gICBJdCB3YXMgYSB2ZXJ5IG9sZCBBUEkgdGhhdCBlbmNv
-dXJhZ2VkIHBlb3BsZSB1c2UgY29udGludW91cyBsaW5lcy4KPiAgIEl0IGhhZCBiZWVuIG9ic29s
-ZXRlZCBieSAlcFMgZm9ybWF0IHNwZWNpZmllciBpbiBhIG5vcm1hbCBwcmludGsoKQo+ICAgY2Fs
-bC4KPiAKPiAKPiBTZWUgYWxzbwo+IGh0dHBzOi8vZ2l0Lmtlcm5lbC5vcmcvcHViL3NjbS9saW51
-eC9rZXJuZWwvZ2l0L3BtbGFkZWsvcHJpbnRrLmdpdC9jb21taXQvP2g9Zm9yLTQuMTYtcHJpbnQt
-c3ltYm9sJmlk0jI3OWM5ZDdmN2RiN2Y5NzU2NzM2OGJmYzQ1MzliMzQxMWFkZjhkCgp0aGFua3Mh
-CgoJLXNzCi0tClRvIHVuc3Vic2NyaWJlIGZyb20gdGhpcyBsaXN0OiBzZW5kIHRoZSBsaW5lICJ1
-bnN1YnNjcmliZSBsaW51eC1pYTY0IiBpbgp0aGUgYm9keSBvZiBhIG1lc3NhZ2UgdG8gbWFqb3Jk
-b21vQHZnZXIua2VybmVsLm9yZwpNb3JlIG1ham9yZG9tbyBpbmZvIGF0ICBodHRwOi8vdmdlci5r
-ZXJuZWwub3JnL21ham9yZG9tby1pbmZvLmh0bWw=
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ arch/m32r/include/asm/dma-mapping.h | 7 -------
+ 1 file changed, 7 deletions(-)
+
+diff --git a/arch/m32r/include/asm/dma-mapping.h b/arch/m32r/include/asm/dma-mapping.h
+index 336ffe60814b..8967fb659691 100644
+--- a/arch/m32r/include/asm/dma-mapping.h
++++ b/arch/m32r/include/asm/dma-mapping.h
+@@ -14,11 +14,4 @@ static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
+ 	return &dma_noop_ops;
+ }
+ 
+-static inline bool dma_capable(struct device *dev, dma_addr_t addr, size_t size)
+-{
+-	if (!dev->dma_mask)
+-		return false;
+-	return addr + size - 1 <= *dev->dma_mask;
+-}
+-
+ #endif /* _ASM_M32R_DMA_MAPPING_H */
+-- 
+2.14.2
+
