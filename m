@@ -1,37 +1,34 @@
-From: Davidlohr Bueso <dave@stgolabs.net>
-Date: Mon, 22 Jan 2018 17:21:37 +0000
-Subject: [PATCH] ia64/err-inject: Use get_user_pages_fast()
-Message-Id: <20180122172137.26849-1-dave@stgolabs.net>
+From: Christoph Hellwig <hch@lst.de>
+Date: Wed, 10 Jan 2018 08:09:10 +0000
+Subject: consolidate swiotlb dma_map implementations
+Message-Id: <20180110080932.14157-1-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: tony.luck@intel.com, fenghua.yu@intel.com
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, dave@stgolabs.net, Davidlohr Bueso <dbueso@suse.de>
+To: iommu@lists.linux-foundation.org
+Cc: Konrad Rzeszutek Wilk <konrad@darnok.org>, Michal Simek <monstr@monstr.eu>, Guan Xuetao <gxt@mprc.pku.edu.cn>, =?UTF-8?q?Christian=20K=C3=B6nig?= <ckoenig.leichtzumerken@gmail.com>, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linuxppc-dev@lists.ozlabs.org, x86@kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
 
-At the point of sysfs callback, the call to gup is
-done without mmap_sem (or any lock for that matter).
-This is racy. As such, use the get_user_pages_fast()
-alternative and safely avoid taking the lock, if possible.
+A lot of architectures have essentially identical dma_map_ops
+implementations to use swiotlb.  This series adds new generic
+swiotlb_alloc/free helpers that take the attrs argument exposed
+in dma_map_ops, and which do an enhanced direct allocation
+modelled after x86 and reused from the dma-direct code, and
+then switches most architectures over to it.  The only exceptions
+are mips, which requires additional cache flushing which will
+need a new abstraction, and x86 itself which will be handled in
+a later series with other x86 dma mapping changes.
 
-Signed-off-by: Davidlohr Bueso <dbueso@suse.de>
----
- arch/ia64/kernel/err_inject.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+To support the generic code a few architectures that currently
+use ZONE_DMA/GFP_DMA for <= 32-bit allocations are switched to
+implement ZONE_DMA32 instead.
 
-diff --git a/arch/ia64/kernel/err_inject.c b/arch/ia64/kernel/err_inject.c
-index 85bba43e7d5d..658a8e06a69b 100644
---- a/arch/ia64/kernel/err_inject.c
-+++ b/arch/ia64/kernel/err_inject.c
-@@ -142,7 +142,7 @@ store_virtual_to_phys(struct device *dev, struct device_attribute *attr,
- 	u64 virt_addr=simple_strtoull(buf, NULL, 16);
- 	int ret;
- 
--	ret = get_user_pages(virt_addr, 1, FOLL_WRITE, NULL, NULL);
-+	ret = get_user_pages_fast(virt_addr, 1, FOLL_WRITE, NULL);
- 	if (ret<=0) {
- #ifdef ERR_INJ_DEBUG
- 		printk("Virtual address %lx is not existing.\n",virt_addr);
--- 
-2.13.6
+This series is based on the previously sent series to consolidate
+the direct dma mapping implementation.  A git tree with this
+series as well as the prerequisites is available here:
 
+   git://git.infradead.org/users/hch/misc.git swiotlb
+
+Gitweb:
+
+   http://git.infradead.org/users/hch/misc.git/shortlog/refs/heads/swiotlb
