@@ -1,34 +1,81 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Wed, 10 Jan 2018 07:59:57 +0000
-Subject: [PATCH 03/33] m32r: remove unused flush_write_buffers definition
-Message-Id: <20180110080027.13879-4-hch@lst.de>
+Date: Wed, 10 Jan 2018 08:09:11 +0000
+Subject: [PATCH 01/22] swiotlb: suppress warning when __GFP_NOWARN is set
+Message-Id: <20180110080932.14157-2-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180110080027.13879-1-hch@lst.de>
-In-Reply-To: <20180110080027.13879-1-hch-jcswGhMUV9g@public.gmane.org>
+References: <20180110080932.14157-1-hch@lst.de>
+In-Reply-To: <20180110080932.14157-1-hch@lst.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Cc: linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Guan Xuetao <gxt-TG0Ac1+ktVePQbnJrJN+5g@public.gmane.org>, linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-c6x-dev-jPsnJVOj+W6hPH1hqNUYSQ@public.gmane.org, linux-hexagon-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, Konrad Rzeszutek Wilk <konrad-Gq0aWv8utHQdnm+yROfE0A@public.gmane.org>, linux-snps-arc-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-m68k-cunTk1MwBs8S/qaLPR03pWD2FQJk+8+b@public.gmane.org, patches-q3qR2WxjNRFS9aJRtSZj7A@public.gmane.org, linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Michal Simek <monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org>, linux-parisc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-cris-kernel-VrBV9hrLPhE@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-alpha-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: iommu@lists.linux-foundation.org
+Cc: Konrad Rzeszutek Wilk <konrad@darnok.org>, Michal Simek <monstr@monstr.eu>, Guan Xuetao <gxt@mprc.pku.edu.cn>, =?UTF-8?q?Christian=20K=C3=B6nig?= <ckoenig.leichtzumerken@gmail.com>, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linuxppc-dev@lists.ozlabs.org, x86@kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org, =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>, stable@vger.kernel.org
 
+From: Christian König <ckoenig.leichtzumerken@gmail.com>
+
+TTM tries to allocate coherent memory in chunks of 2MB first to improve
+TLB efficiency and falls back to allocating 4K pages if that fails.
+
+Suppress the warning when the 2MB allocations fails since there is a
+valid fall back path.
+
+Signed-off-by: Christian König <christian.koenig@amd.com>
+Reported-by: Mike Galbraith <efault@gmx.de>
+Acked-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Bug: https://bugs.freedesktop.org/show_bug.cgi?id4082
+CC: stable@vger.kernel.org
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- arch/m32r/include/asm/io.h | 2 --
- 1 file changed, 2 deletions(-)
+ lib/swiotlb.c | 15 +++++++++------
+ 1 file changed, 9 insertions(+), 6 deletions(-)
 
-diff --git a/arch/m32r/include/asm/io.h b/arch/m32r/include/asm/io.h
-index 1b653bb16f9a..a4272d8f0d9c 100644
---- a/arch/m32r/include/asm/io.h
-+++ b/arch/m32r/include/asm/io.h
-@@ -191,8 +191,6 @@ static inline void _writel(unsigned long l, unsigned long addr)
+diff --git a/lib/swiotlb.c b/lib/swiotlb.c
+index 6583f3512386..125c1062119f 100644
+--- a/lib/swiotlb.c
++++ b/lib/swiotlb.c
+@@ -586,7 +586,7 @@ phys_addr_t swiotlb_tbl_map_single(struct device *hwdev,
  
- #define mmiowb()
- 
--#define flush_write_buffers() do { } while (0)  /* M32R_FIXME */
--
- static inline void
- memset_io(volatile void __iomem *addr, unsigned char val, int count)
+ not_found:
+ 	spin_unlock_irqrestore(&io_tlb_lock, flags);
+-	if (printk_ratelimit())
++	if (!(attrs & DMA_ATTR_NO_WARN) && printk_ratelimit())
+ 		dev_warn(hwdev, "swiotlb buffer is full (sz: %zd bytes)\n", size);
+ 	return SWIOTLB_MAP_ERROR;
+ found:
+@@ -713,6 +713,7 @@ void *
+ swiotlb_alloc_coherent(struct device *hwdev, size_t size,
+ 		       dma_addr_t *dma_handle, gfp_t flags)
  {
++	bool warn = !(flags & __GFP_NOWARN);
+ 	dma_addr_t dev_addr;
+ 	void *ret;
+ 	int order = get_order(size);
+@@ -738,8 +739,8 @@ swiotlb_alloc_coherent(struct device *hwdev, size_t size,
+ 		 * GFP_DMA memory; fall back on map_single(), which
+ 		 * will grab memory from the lowest available address range.
+ 		 */
+-		phys_addr_t paddr = map_single(hwdev, 0, size,
+-					       DMA_FROM_DEVICE, 0);
++		phys_addr_t paddr = map_single(hwdev, 0, size, DMA_FROM_DEVICE,
++					       warn ? 0 : DMA_ATTR_NO_WARN);
+ 		if (paddr = SWIOTLB_MAP_ERROR)
+ 			goto err_warn;
+ 
+@@ -769,9 +770,11 @@ swiotlb_alloc_coherent(struct device *hwdev, size_t size,
+ 	return ret;
+ 
+ err_warn:
+-	pr_warn("swiotlb: coherent allocation failed for device %s size=%zu\n",
+-		dev_name(hwdev), size);
+-	dump_stack();
++	if (warn && printk_ratelimit()) {
++		pr_warn("swiotlb: coherent allocation failed for device %s size=%zu\n",
++			dev_name(hwdev), size);
++		dump_stack();
++	}
+ 
+ 	return NULL;
+ }
 -- 
 2.14.2
 
