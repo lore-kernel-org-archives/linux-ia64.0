@@ -1,81 +1,80 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Wed, 10 Jan 2018 08:09:11 +0000
-Subject: [PATCH 01/22] swiotlb: suppress warning when __GFP_NOWARN is set
-Message-Id: <20180110080932.14157-2-hch@lst.de>
+Date: Fri, 12 Jan 2018 08:42:15 +0000
+Subject: [PATCH 17/34] microblaze: remove dma_nommu_dma_supported
+Message-Id: <20180112084232.2857-18-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180110080932.14157-1-hch@lst.de>
-In-Reply-To: <20180110080932.14157-1-hch@lst.de>
+References: <20180112084232.2857-1-hch@lst.de>
+In-Reply-To: <20180112084232.2857-1-hch@lst.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: iommu@lists.linux-foundation.org
-Cc: Konrad Rzeszutek Wilk <konrad@darnok.org>, Michal Simek <monstr@monstr.eu>, Guan Xuetao <gxt@mprc.pku.edu.cn>, =?UTF-8?q?Christian=20K=C3=B6nig?= <ckoenig.leichtzumerken@gmail.com>, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linuxppc-dev@lists.ozlabs.org, x86@kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org, =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>, stable@vger.kernel.org
+Cc: Konrad Rzeszutek Wilk <konrad@darnok.org>, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org, linux-cris-kernel@axis.com, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-metag@vger.kernel.org, Michal Simek <monstr@monstr.eu>, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, patches@groups.riscv.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, Guan Xuetao <gxt@mprc.pku.edu.cn>, x86@kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
 
-From: Christian König <ckoenig.leichtzumerken@gmail.com>
+Always returning 1 is the same behavior as not supplying a method at all.
 
-TTM tries to allocate coherent memory in chunks of 2MB first to improve
-TLB efficiency and falls back to allocating 4K pages if that fails.
-
-Suppress the warning when the 2MB allocations fails since there is a
-valid fall back path.
-
-Signed-off-by: Christian König <christian.koenig@amd.com>
-Reported-by: Mike Galbraith <efault@gmx.de>
-Acked-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Bug: https://bugs.freedesktop.org/show_bug.cgi?id4082
-CC: stable@vger.kernel.org
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- lib/swiotlb.c | 15 +++++++++------
- 1 file changed, 9 insertions(+), 6 deletions(-)
+ arch/microblaze/kernel/dma.c | 6 ------
+ arch/parisc/kernel/pci-dma.c | 7 -------
+ 2 files changed, 13 deletions(-)
 
-diff --git a/lib/swiotlb.c b/lib/swiotlb.c
-index 6583f3512386..125c1062119f 100644
---- a/lib/swiotlb.c
-+++ b/lib/swiotlb.c
-@@ -586,7 +586,7 @@ phys_addr_t swiotlb_tbl_map_single(struct device *hwdev,
- 
- not_found:
- 	spin_unlock_irqrestore(&io_tlb_lock, flags);
--	if (printk_ratelimit())
-+	if (!(attrs & DMA_ATTR_NO_WARN) && printk_ratelimit())
- 		dev_warn(hwdev, "swiotlb buffer is full (sz: %zd bytes)\n", size);
- 	return SWIOTLB_MAP_ERROR;
- found:
-@@ -713,6 +713,7 @@ void *
- swiotlb_alloc_coherent(struct device *hwdev, size_t size,
- 		       dma_addr_t *dma_handle, gfp_t flags)
- {
-+	bool warn = !(flags & __GFP_NOWARN);
- 	dma_addr_t dev_addr;
- 	void *ret;
- 	int order = get_order(size);
-@@ -738,8 +739,8 @@ swiotlb_alloc_coherent(struct device *hwdev, size_t size,
- 		 * GFP_DMA memory; fall back on map_single(), which
- 		 * will grab memory from the lowest available address range.
- 		 */
--		phys_addr_t paddr = map_single(hwdev, 0, size,
--					       DMA_FROM_DEVICE, 0);
-+		phys_addr_t paddr = map_single(hwdev, 0, size, DMA_FROM_DEVICE,
-+					       warn ? 0 : DMA_ATTR_NO_WARN);
- 		if (paddr = SWIOTLB_MAP_ERROR)
- 			goto err_warn;
- 
-@@ -769,9 +770,11 @@ swiotlb_alloc_coherent(struct device *hwdev, size_t size,
- 	return ret;
- 
- err_warn:
--	pr_warn("swiotlb: coherent allocation failed for device %s size=%zu\n",
--		dev_name(hwdev), size);
--	dump_stack();
-+	if (warn && printk_ratelimit()) {
-+		pr_warn("swiotlb: coherent allocation failed for device %s size=%zu\n",
-+			dev_name(hwdev), size);
-+		dump_stack();
-+	}
- 
- 	return NULL;
+diff --git a/arch/microblaze/kernel/dma.c b/arch/microblaze/kernel/dma.c
+index 450803e5731a..b45d8f8967af 100644
+--- a/arch/microblaze/kernel/dma.c
++++ b/arch/microblaze/kernel/dma.c
+@@ -89,11 +89,6 @@ static int dma_nommu_map_sg(struct device *dev, struct scatterlist *sgl,
+ 	return nents;
  }
+ 
+-static int dma_nommu_dma_supported(struct device *dev, u64 mask)
+-{
+-	return 1;
+-}
+-
+ static inline dma_addr_t dma_nommu_map_page(struct device *dev,
+ 					     struct page *page,
+ 					     unsigned long offset,
+@@ -209,7 +204,6 @@ const struct dma_map_ops dma_nommu_ops = {
+ 	.free			= dma_nommu_free_coherent,
+ 	.mmap			= dma_nommu_mmap_coherent,
+ 	.map_sg			= dma_nommu_map_sg,
+-	.dma_supported		= dma_nommu_dma_supported,
+ 	.map_page		= dma_nommu_map_page,
+ 	.unmap_page		= dma_nommu_unmap_page,
+ 	.sync_single_for_cpu	= dma_nommu_sync_single_for_cpu,
+diff --git a/arch/parisc/kernel/pci-dma.c b/arch/parisc/kernel/pci-dma.c
+index c0dfd892f70c..91bc0cac03a1 100644
+--- a/arch/parisc/kernel/pci-dma.c
++++ b/arch/parisc/kernel/pci-dma.c
+@@ -75,11 +75,6 @@ void dump_resmap(void)
+ static inline void dump_resmap(void) {;}
+ #endif
+ 
+-static int pa11_dma_supported( struct device *dev, u64 mask)
+-{
+-	return 1;
+-}
+-
+ static inline int map_pte_uncached(pte_t * pte,
+ 		unsigned long vaddr,
+ 		unsigned long size, unsigned long *paddr_ptr)
+@@ -579,7 +574,6 @@ static void pa11_dma_cache_sync(struct device *dev, void *vaddr, size_t size,
+ }
+ 
+ const struct dma_map_ops pcxl_dma_ops = {
+-	.dma_supported =	pa11_dma_supported,
+ 	.alloc =		pa11_dma_alloc,
+ 	.free =			pa11_dma_free,
+ 	.map_page =		pa11_dma_map_page,
+@@ -616,7 +610,6 @@ static void pcx_dma_free(struct device *dev, size_t size, void *vaddr,
+ }
+ 
+ const struct dma_map_ops pcx_dma_ops = {
+-	.dma_supported =	pa11_dma_supported,
+ 	.alloc =		pcx_dma_alloc,
+ 	.free =			pcx_dma_free,
+ 	.map_page =		pa11_dma_map_page,
 -- 
 2.14.2
 
