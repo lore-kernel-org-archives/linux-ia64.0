@@ -1,106 +1,78 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Fri, 12 Jan 2018 08:42:29 +0000
-Subject: [PATCH 31/34] dma-direct: make dma_direct_{alloc,free} available to other implementations
-Message-Id: <20180112084232.2857-32-hch@lst.de>
+Date: Fri, 12 Jan 2018 08:42:23 +0000
+Subject: [PATCH 25/34] dma-direct: use phys_to_dma
+Message-Id: <20180112084232.2857-26-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20180112084232.2857-1-hch@lst.de>
-In-Reply-To: <20180112084232.2857-1-hch@lst.de>
+In-Reply-To: <20180112084232.2857-1-hch-jcswGhMUV9g@public.gmane.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: iommu@lists.linux-foundation.org
-Cc: Konrad Rzeszutek Wilk <konrad@darnok.org>, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org, linux-cris-kernel@axis.com, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-metag@vger.kernel.org, Michal Simek <monstr@monstr.eu>, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, patches@groups.riscv.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, Guan Xuetao <gxt@mprc.pku.edu.cn>, x86@kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
+To: iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Cc: linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Guan Xuetao <gxt-TG0Ac1+ktVePQbnJrJN+5g@public.gmane.org>, linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-c6x-dev-jPsnJVOj+W6hPH1hqNUYSQ@public.gmane.org, linux-hexagon-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, Konrad Rzeszutek Wilk <konrad-Gq0aWv8utHQdnm+yROfE0A@public.gmane.org>, linux-snps-arc-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-m68k-cunTk1MwBs8S/qaLPR03pWD2FQJk+8+b@public.gmane.org, patches-q3qR2WxjNRFS9aJRtSZj7A@public.gmane.org, linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Michal Simek <monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org>, linux-parisc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-cris-kernel-VrBV9hrLPhE@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-alpha-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 
-So that they don't need to indirect through the operation vector.
+This means it uses whatever linear remapping scheme that the architecture
+provides is used in the generic dma_direct ops.
 
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 Reviewed-by: Vladimir Murzin <vladimir.murzin@arm.com>
 ---
- arch/arm/mm/dma-mapping-nommu.c | 9 +++------
- include/linux/dma-direct.h      | 5 +++++
- lib/dma-direct.c                | 6 +++---
- 3 files changed, 11 insertions(+), 9 deletions(-)
+ lib/dma-direct.c | 18 +++++++-----------
+ 1 file changed, 7 insertions(+), 11 deletions(-)
 
-diff --git a/arch/arm/mm/dma-mapping-nommu.c b/arch/arm/mm/dma-mapping-nommu.c
-index 4d8042521e89..619f24a42d09 100644
---- a/arch/arm/mm/dma-mapping-nommu.c
-+++ b/arch/arm/mm/dma-mapping-nommu.c
-@@ -11,7 +11,7 @@
- 
+diff --git a/lib/dma-direct.c b/lib/dma-direct.c
+index 0ec3262a3148..12ea9653781b 100644
+--- a/lib/dma-direct.c
++++ b/lib/dma-direct.c
+@@ -1,12 +1,11 @@
+ // SPDX-License-Identifier: GPL-2.0
+ /*
+- *	lib/dma-noop.c
+- *
+- * DMA operations that map to physical addresses without flushing memory.
++ * DMA operations that map physical memory directly without using an IOMMU or
++ * flushing caches.
+  */
  #include <linux/export.h>
  #include <linux/mm.h>
 -#include <linux/dma-mapping.h>
 +#include <linux/dma-direct.h>
  #include <linux/scatterlist.h>
+ #include <linux/pfn.h>
  
- #include <asm/cachetype.h>
-@@ -39,7 +39,6 @@ static void *arm_nommu_dma_alloc(struct device *dev, size_t size,
- 				 unsigned long attrs)
+@@ -17,7 +16,7 @@ static void *dma_direct_alloc(struct device *dev, size_t size,
  
+ 	ret = (void *)__get_free_pages(gfp, get_order(size));
+ 	if (ret)
+-		*dma_handle = virt_to_phys(ret) - PFN_PHYS(dev->dma_pfn_offset);
++		*dma_handle = phys_to_dma(dev, virt_to_phys(ret));
+ 
+ 	return ret;
+ }
+@@ -32,7 +31,7 @@ static dma_addr_t dma_direct_map_page(struct device *dev, struct page *page,
+ 		unsigned long offset, size_t size, enum dma_data_direction dir,
+ 		unsigned long attrs)
  {
--	const struct dma_map_ops *ops = &dma_direct_ops;
- 	void *ret;
+-	return page_to_phys(page) + offset - PFN_PHYS(dev->dma_pfn_offset);
++	return phys_to_dma(dev, page_to_phys(page)) + offset;
+ }
  
- 	/*
-@@ -48,7 +47,7 @@ static void *arm_nommu_dma_alloc(struct device *dev, size_t size,
- 	 */
+ static int dma_direct_map_sg(struct device *dev, struct scatterlist *sgl,
+@@ -42,12 +41,9 @@ static int dma_direct_map_sg(struct device *dev, struct scatterlist *sgl,
+ 	struct scatterlist *sg;
  
- 	if (attrs & DMA_ATTR_NON_CONSISTENT)
--		return ops->alloc(dev, size, dma_handle, gfp, attrs);
-+		return dma_direct_alloc(dev, size, dma_handle, gfp, attrs);
- 
- 	ret = dma_alloc_from_global_coherent(size, dma_handle);
- 
-@@ -70,10 +69,8 @@ static void arm_nommu_dma_free(struct device *dev, size_t size,
- 			       void *cpu_addr, dma_addr_t dma_addr,
- 			       unsigned long attrs)
- {
--	const struct dma_map_ops *ops = &dma_direct_ops;
+ 	for_each_sg(sgl, sg, nents, i) {
+-		dma_addr_t offset = PFN_PHYS(dev->dma_pfn_offset);
+-		void *va;
 -
- 	if (attrs & DMA_ATTR_NON_CONSISTENT) {
--		ops->free(dev, size, cpu_addr, dma_addr, attrs);
-+		dma_direct_free(dev, size, cpu_addr, dma_addr, attrs);
- 	} else {
- 		int ret = dma_release_from_global_coherent(get_order(size),
- 							   cpu_addr);
-diff --git a/include/linux/dma-direct.h b/include/linux/dma-direct.h
-index 10e924b7cba7..4788bf0bf683 100644
---- a/include/linux/dma-direct.h
-+++ b/include/linux/dma-direct.h
-@@ -38,4 +38,9 @@ static inline void dma_mark_clean(void *addr, size_t size)
- }
- #endif /* CONFIG_ARCH_HAS_DMA_MARK_CLEAN */
- 
-+void *dma_direct_alloc(struct device *dev, size_t size, dma_addr_t *dma_handle,
-+		gfp_t gfp, unsigned long attrs);
-+void dma_direct_free(struct device *dev, size_t size, void *cpu_addr,
-+		dma_addr_t dma_addr, unsigned long attrs);
+ 		BUG_ON(!sg_page(sg));
+-		va = sg_virt(sg);
+-		sg_dma_address(sg) = (dma_addr_t)virt_to_phys(va) - offset;
 +
- #endif /* _LINUX_DMA_DIRECT_H */
-diff --git a/lib/dma-direct.c b/lib/dma-direct.c
-index 4e43c2bb7f5f..784a68dfdbe3 100644
---- a/lib/dma-direct.c
-+++ b/lib/dma-direct.c
-@@ -40,8 +40,8 @@ static bool dma_coherent_ok(struct device *dev, phys_addr_t phys, size_t size)
- 	return phys_to_dma(dev, phys) + size - 1 <= dev->coherent_dma_mask;
- }
++		sg_dma_address(sg) = phys_to_dma(dev, sg_phys(sg));
+ 		sg_dma_len(sg) = sg->length;
+ 	}
  
--static void *dma_direct_alloc(struct device *dev, size_t size,
--		dma_addr_t *dma_handle, gfp_t gfp, unsigned long attrs)
-+void *dma_direct_alloc(struct device *dev, size_t size, dma_addr_t *dma_handle,
-+		gfp_t gfp, unsigned long attrs)
- {
- 	unsigned int count = PAGE_ALIGN(size) >> PAGE_SHIFT;
- 	int page_order = get_order(size);
-@@ -84,7 +84,7 @@ static void *dma_direct_alloc(struct device *dev, size_t size,
- 	return page_address(page);
- }
- 
--static void dma_direct_free(struct device *dev, size_t size, void *cpu_addr,
-+void dma_direct_free(struct device *dev, size_t size, void *cpu_addr,
- 		dma_addr_t dma_addr, unsigned long attrs)
- {
- 	unsigned int count = PAGE_ALIGN(size) >> PAGE_SHIFT;
 -- 
 2.14.2
 
