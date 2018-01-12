@@ -1,47 +1,61 @@
-From: Jesper Nilsson <jesper.nilsson@axis.com>
-Date: Tue, 09 Jan 2018 15:55:50 +0000
-Subject: Re: [PATCH 05/67] dma-mapping: replace PCI_DMA_BUS_IS_PHYS with a flag in struct dma_map_ops
-Message-Id: <20180109155550.GP32368@axis.com>
+From: Christoph Hellwig <hch@lst.de>
+Date: Fri, 12 Jan 2018 08:42:27 +0000
+Subject: [PATCH 29/34] dma-direct: add support for allocation from ZONE_DMA and ZONE_DMA32
+Message-Id: <20180112084232.2857-30-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20171229081911.2802-1-hch@lst.de>
- <20171229081911.2802-6-hch@lst.de>
-In-Reply-To: <20171229081911.2802-6-hch@lst.de>
+References: <20180112084232.2857-1-hch@lst.de>
+In-Reply-To: <20180112084232.2857-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch@lst.de>
-Cc: iommu@lists.linux-foundation.org, linux-mips@linux-mips.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, linux-hexagon@vger.kernel.org, x86@kernel.org, linux-snps-arc@lists.infradead.org, adi-buildroot-devel@lists.sourceforge.net, linux-m68k@lists.linux-m68k.org, patches@groups.riscv.org, linux-metag@vger.kernel.org, linux-arm-kernel@lists.infradead.org, Michal Simek <monstr@monstr.eu>, linux-parisc@vger.kernel.org, linux-cris-kernel@axis.com, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
+To: iommu@lists.linux-foundation.org
+Cc: Konrad Rzeszutek Wilk <konrad@darnok.org>, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org, linux-cris-kernel@axis.com, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-metag@vger.kernel.org, Michal Simek <monstr@monstr.eu>, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, patches@groups.riscv.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, Guan Xuetao <gxt@mprc.pku.edu.cn>, x86@kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Fri, Dec 29, 2017 at 09:18:09AM +0100, Christoph Hellwig wrote:
-> The current PCI_DMA_BUS_IS_PHYS decided if a dma implementation is bound
-> by the dma mask in the device because it directly maps to a physical
-> address range (modulo an offset in the device), or if it is virtualized
-> by an iommu and can map any address (that includes virtual iommus like
-> swiotlb).  The problem with this scheme is that it is per-architecture and
-> not per dma_ops instance, and we are growing more and more setups that
-> have multiple different dma operations in use on a single system, for
-> which this scheme can't provide a correct answer.  Depending on the
-> architecture that means we either get a false positive or false negative
-> at the moment.
-> 
-> This patch instead extents the is_phys flag in struct dma_map_ops that
-> is currently only used by a few architectures to be used tree wide.
-> 
-> Note that this means that we now need a struct device parent in the
-> Scsi_Host or netdevice.  Every modern driver has these, but there might
-> still be a few outdated legacy drivers out there, which now won't make
-> an intelligent decision.
-> 
-> Signed-off-by: Christoph Hellwig <hch@lst.de>
+This allows to dip into zones for lower memory if they are available.
+If one of the zones is not available the corresponding GFP_* flag
+will evaluate to 0 so they won't change anything.  We provide an
+arch tunable for those architectures that do not use GFP_DMA for
+the lowest 24-bits, given that there are a few.
 
-For the CRIS part:
+Roughly based on the x86 code.
 
-Acked-by: Jesper Nilsson <jesper.nilsson@axis.com>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ lib/dma-direct.c | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
 
-> ---
->  arch/cris/arch-v32/drivers/pci/dma.c  |  1 +
->  arch/cris/include/asm/pci.h           |  6 ------
-
-/^JN - Jesper Nilsson
+diff --git a/lib/dma-direct.c b/lib/dma-direct.c
+index f04a424f91fa..8f76032ebc3c 100644
+--- a/lib/dma-direct.c
++++ b/lib/dma-direct.c
+@@ -12,6 +12,14 @@
+ 
+ #define DIRECT_MAPPING_ERROR		0
+ 
++/*
++ * Most architectures use ZONE_DMA for the first 16 Megabytes, but
++ * some use it for entirely different regions:
++ */
++#ifndef ARCH_ZONE_DMA_BITS
++#define ARCH_ZONE_DMA_BITS 24
++#endif
++
+ static bool
+ check_addr(struct device *dev, dma_addr_t dma_addr, size_t size,
+ 		const char *caller)
+@@ -34,6 +42,12 @@ static void *dma_direct_alloc(struct device *dev, size_t size,
+ 	int page_order = get_order(size);
+ 	struct page *page = NULL;
+ 
++	/* GFP_DMA32 and GFP_DMA are no ops without the corresponding zones: */
++	if (dev->coherent_dma_mask <= DMA_BIT_MASK(ARCH_ZONE_DMA_BITS))
++		gfp |= GFP_DMA;
++	if (dev->coherent_dma_mask <= DMA_BIT_MASK(32) && !(gfp & GFP_DMA))
++		gfp |= GFP_DMA32;
++
+ 	/* CMA can be used only in the context which permits sleeping */
+ 	if (gfpflags_allow_blocking(gfp))
+ 		page = dma_alloc_from_contiguous(dev, count, page_order, gfp);
 -- 
-               Jesper Nilsson -- jesper.nilsson@axis.com
+2.14.2
+
