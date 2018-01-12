@@ -1,157 +1,114 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Wed, 10 Jan 2018 08:00:27 +0000
-Subject: [PATCH 33/33] h8300: use dma-direct
-Message-Id: <20180110080027.13879-34-hch@lst.de>
+Date: Fri, 12 Jan 2018 08:42:20 +0000
+Subject: [PATCH 22/34] dma-mapping: add an arch_dma_supported hook
+Message-Id: <20180112084232.2857-23-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180110080027.13879-1-hch@lst.de>
-In-Reply-To: <20180110080027.13879-1-hch@lst.de>
+References: <20180112084232.2857-1-hch@lst.de>
+In-Reply-To: <20180112084232.2857-1-hch-jcswGhMUV9g@public.gmane.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: iommu@lists.linux-foundation.org
-Cc: Konrad Rzeszutek Wilk <konrad@darnok.org>, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org, linux-cris-kernel@axis.com, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-metag@vger.kernel.org, Michal Simek <monstr@monstr.eu>, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, patches@groups.riscv.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, Guan Xuetao <gxt@mprc.pku.edu.cn>, x86@kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
+To: iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Cc: linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Guan Xuetao <gxt-TG0Ac1+ktVePQbnJrJN+5g@public.gmane.org>, linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-c6x-dev-jPsnJVOj+W6hPH1hqNUYSQ@public.gmane.org, linux-hexagon-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, Konrad Rzeszutek Wilk <konrad-Gq0aWv8utHQdnm+yROfE0A@public.gmane.org>, linux-snps-arc-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-m68k-cunTk1MwBs8S/qaLPR03pWD2FQJk+8+b@public.gmane.org, patches-q3qR2WxjNRFS9aJRtSZj7A@public.gmane.org, linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Michal Simek <monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org>, linux-parisc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-cris-kernel-VrBV9hrLPhE@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-alpha-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 
-Replace the bare-bones h8300 direct dma mapping implementation with
-the fully featured generic dma-direct one.
+To implement the x86 forbid_dac and iommu_sac_force we want an arch hook
+so that it can apply the global options across all dma_map_ops
+implementations.
 
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- arch/h8300/Kconfig                   |  1 +
- arch/h8300/include/asm/Kbuild        |  1 +
- arch/h8300/include/asm/dma-mapping.h | 12 -------
- arch/h8300/kernel/Makefile           |  2 +-
- arch/h8300/kernel/dma.c              | 66 ------------------------------------
- 5 files changed, 3 insertions(+), 79 deletions(-)
- delete mode 100644 arch/h8300/include/asm/dma-mapping.h
- delete mode 100644 arch/h8300/kernel/dma.c
+ arch/x86/include/asm/dma-mapping.h |  3 +++
+ arch/x86/kernel/pci-dma.c          | 19 ++++++++++++-------
+ include/linux/dma-mapping.h        | 11 +++++++++++
+ 3 files changed, 26 insertions(+), 7 deletions(-)
 
-diff --git a/arch/h8300/Kconfig b/arch/h8300/Kconfig
-index f8d3fde08190..091d6d04b5e5 100644
---- a/arch/h8300/Kconfig
-+++ b/arch/h8300/Kconfig
-@@ -23,6 +23,7 @@ config H8300
- 	select HAVE_ARCH_KGDB
- 	select HAVE_ARCH_HASH
- 	select CPU_NO_EFFICIENT_FFS
-+	select DMA_DIRECT_OPS
+diff --git a/arch/x86/include/asm/dma-mapping.h b/arch/x86/include/asm/dma-mapping.h
+index dfdc9357a349..6277c83c0eb1 100644
+--- a/arch/x86/include/asm/dma-mapping.h
++++ b/arch/x86/include/asm/dma-mapping.h
+@@ -30,6 +30,9 @@ static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
+ 	return dma_ops;
+ }
  
- config CPU_BIG_ENDIAN
- 	def_bool y
-diff --git a/arch/h8300/include/asm/Kbuild b/arch/h8300/include/asm/Kbuild
-index bc077491d299..642752c94306 100644
---- a/arch/h8300/include/asm/Kbuild
-+++ b/arch/h8300/include/asm/Kbuild
-@@ -9,6 +9,7 @@ generic-y += delay.h
- generic-y += device.h
- generic-y += div64.h
- generic-y += dma.h
-+generic-y += dma-mapping.h
- generic-y += emergency-restart.h
- generic-y += exec.h
- generic-y += extable.h
-diff --git a/arch/h8300/include/asm/dma-mapping.h b/arch/h8300/include/asm/dma-mapping.h
-deleted file mode 100644
-index 21bb1fc3a6f1..000000000000
---- a/arch/h8300/include/asm/dma-mapping.h
-+++ /dev/null
-@@ -1,12 +0,0 @@
--/* SPDX-License-Identifier: GPL-2.0 */
--#ifndef _H8300_DMA_MAPPING_H
--#define _H8300_DMA_MAPPING_H
--
--extern const struct dma_map_ops h8300_dma_map_ops;
--
--static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
--{
--	return &h8300_dma_map_ops;
--}
--
--#endif
-diff --git a/arch/h8300/kernel/Makefile b/arch/h8300/kernel/Makefile
-index b62e830525c6..307aa51576dd 100644
---- a/arch/h8300/kernel/Makefile
-+++ b/arch/h8300/kernel/Makefile
-@@ -7,7 +7,7 @@ extra-y := vmlinux.lds
++int arch_dma_supported(struct device *dev, u64 mask);
++#define arch_dma_supported arch_dma_supported
++
+ bool arch_dma_alloc_attrs(struct device **dev, gfp_t *gfp);
+ #define arch_dma_alloc_attrs arch_dma_alloc_attrs
  
- obj-y := process.o traps.o ptrace.o \
- 	 signal.o setup.o syscalls.o \
--	 irq.o entry.o dma.o
-+	 irq.o entry.o
+diff --git a/arch/x86/kernel/pci-dma.c b/arch/x86/kernel/pci-dma.c
+index 61a8f1cb3829..df7ab02f959f 100644
+--- a/arch/x86/kernel/pci-dma.c
++++ b/arch/x86/kernel/pci-dma.c
+@@ -215,7 +215,7 @@ static __init int iommu_setup(char *p)
+ }
+ early_param("iommu", iommu_setup);
  
- obj-$(CONFIG_ROMKERNEL) += head_rom.o
- obj-$(CONFIG_RAMKERNEL) += head_ram.o
-diff --git a/arch/h8300/kernel/dma.c b/arch/h8300/kernel/dma.c
-deleted file mode 100644
-index d44ba5db4ac3..000000000000
---- a/arch/h8300/kernel/dma.c
-+++ /dev/null
-@@ -1,66 +0,0 @@
--/*
-- * This file is subject to the terms and conditions of the GNU General Public
-- * License.  See the file COPYING in the main directory of this archive
-- * for more details.
-- */
+-int x86_dma_supported(struct device *dev, u64 mask)
++int arch_dma_supported(struct device *dev, u64 mask)
+ {
+ #ifdef CONFIG_PCI
+ 	if (mask > 0xffffffff && forbid_dac > 0) {
+@@ -224,12 +224,6 @@ int x86_dma_supported(struct device *dev, u64 mask)
+ 	}
+ #endif
+ 
+-	/* Copied from i386. Doesn't make much sense, because it will
+-	   only work for pci_alloc_coherent.
+-	   The caller just has to use GFP_DMA in this case. */
+-	if (mask < DMA_BIT_MASK(24))
+-		return 0;
 -
--#include <linux/dma-mapping.h>
--#include <linux/kernel.h>
--#include <linux/scatterlist.h>
--#include <linux/module.h>
--#include <asm/pgalloc.h>
--
--static void *dma_alloc(struct device *dev, size_t size,
--		       dma_addr_t *dma_handle, gfp_t gfp,
--		       unsigned long attrs)
--{
--	void *ret;
--
--	if (dev = NULL || (*dev->dma_mask < 0xffffffff))
--		gfp |= GFP_DMA;
--	ret = (void *)__get_free_pages(gfp, get_order(size));
--
--	if (ret != NULL) {
--		memset(ret, 0, size);
--		*dma_handle = virt_to_phys(ret);
--	}
--	return ret;
--}
--
--static void dma_free(struct device *dev, size_t size,
--		     void *vaddr, dma_addr_t dma_handle,
--		     unsigned long attrs)
--
--{
--	free_pages((unsigned long)vaddr, get_order(size));
--}
--
--static dma_addr_t map_page(struct device *dev, struct page *page,
--				  unsigned long offset, size_t size,
--				  enum dma_data_direction direction,
--				  unsigned long attrs)
--{
--	return page_to_phys(page) + offset;
--}
--
--static int map_sg(struct device *dev, struct scatterlist *sgl,
--		  int nents, enum dma_data_direction direction,
--		  unsigned long attrs)
--{
--	struct scatterlist *sg;
--	int i;
--
--	for_each_sg(sgl, sg, nents, i) {
--		sg->dma_address = sg_phys(sg);
--	}
--
--	return nents;
--}
--
--const struct dma_map_ops h8300_dma_map_ops = {
--	.alloc = dma_alloc,
--	.free = dma_free,
--	.map_page = map_page,
--	.map_sg = map_sg,
--};
--EXPORT_SYMBOL(h8300_dma_map_ops);
+ 	/* Tell the device to use SAC when IOMMU force is on.  This
+ 	   allows the driver to use cheaper accesses in some cases.
+ 
+@@ -249,6 +243,17 @@ int x86_dma_supported(struct device *dev, u64 mask)
+ 
+ 	return 1;
+ }
++EXPORT_SYMBOL(arch_dma_supported);
++
++int x86_dma_supported(struct device *dev, u64 mask)
++{
++	/* Copied from i386. Doesn't make much sense, because it will
++	   only work for pci_alloc_coherent.
++	   The caller just has to use GFP_DMA in this case. */
++	if (mask < DMA_BIT_MASK(24))
++		return 0;
++	return 1;
++}
+ 
+ static int __init pci_iommu_init(void)
+ {
+diff --git a/include/linux/dma-mapping.h b/include/linux/dma-mapping.h
+index 88bcb1a8211d..d67742dad904 100644
+--- a/include/linux/dma-mapping.h
++++ b/include/linux/dma-mapping.h
+@@ -576,6 +576,14 @@ static inline int dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
+ 	return 0;
+ }
+ 
++/*
++ * This is a hack for the legacy x86 forbid_dac and iommu_sac_force. Please
++ * don't use this is new code.
++ */
++#ifndef arch_dma_supported
++#define arch_dma_supported(dev, mask)	(1)
++#endif
++
+ static inline void dma_check_mask(struct device *dev, u64 mask)
+ {
+ 	if (sme_active() && (mask < (((u64)sme_get_me_mask() << 1) - 1)))
+@@ -588,6 +596,9 @@ static inline int dma_supported(struct device *dev, u64 mask)
+ 
+ 	if (!ops)
+ 		return 0;
++	if (!arch_dma_supported(dev, mask))
++		return 0;
++
+ 	if (!ops->dma_supported)
+ 		return 1;
+ 	return ops->dma_supported(dev, mask);
 -- 
 2.14.2
 
