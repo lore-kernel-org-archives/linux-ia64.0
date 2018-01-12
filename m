@@ -1,131 +1,34 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Wed, 10 Jan 2018 08:09:21 +0000
-Subject: [PATCH 11/22] swiotlb: remove various exports
-Message-Id: <20180110080932.14157-12-hch@lst.de>
+Date: Fri, 12 Jan 2018 08:42:00 +0000
+Subject: [PATCH 02/34] hexagon: remove unused flush_write_buffers definition
+Message-Id: <20180112084232.2857-3-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180110080932.14157-1-hch@lst.de>
-In-Reply-To: <20180110080932.14157-1-hch@lst.de>
+References: <20180112084232.2857-1-hch@lst.de>
+In-Reply-To: <20180112084232.2857-1-hch-jcswGhMUV9g@public.gmane.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: iommu@lists.linux-foundation.org
-Cc: Konrad Rzeszutek Wilk <konrad@darnok.org>, Michal Simek <monstr@monstr.eu>, Guan Xuetao <gxt@mprc.pku.edu.cn>, =?UTF-8?q?Christian=20K=C3=B6nig?= <ckoenig.leichtzumerken@gmail.com>, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linuxppc-dev@lists.ozlabs.org, x86@kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
-
-All these symbols are only used by arch dma_ops implementations or
-xen-swiotlb.  None of which can be modular.
+To: iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Cc: linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Guan Xuetao <gxt-TG0Ac1+ktVePQbnJrJN+5g@public.gmane.org>, linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-c6x-dev-jPsnJVOj+W6hPH1hqNUYSQ@public.gmane.org, linux-hexagon-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, Konrad Rzeszutek Wilk <konrad-Gq0aWv8utHQdnm+yROfE0A@public.gmane.org>, linux-snps-arc-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-m68k-cunTk1MwBs8S/qaLPR03pWD2FQJk+8+b@public.gmane.org, patches-q3qR2WxjNRFS9aJRtSZj7A@public.gmane.org, linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Michal Simek <monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org>, linux-parisc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-cris-kernel-VrBV9hrLPhE@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-alpha-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- lib/swiotlb.c | 13 -------------
- 1 file changed, 13 deletions(-)
+ arch/hexagon/include/asm/io.h | 2 --
+ 1 file changed, 2 deletions(-)
 
-diff --git a/lib/swiotlb.c b/lib/swiotlb.c
-index bf2d19ee91c1..1eac51ff77a4 100644
---- a/lib/swiotlb.c
-+++ b/lib/swiotlb.c
-@@ -605,7 +605,6 @@ phys_addr_t swiotlb_tbl_map_single(struct device *hwdev,
- 
- 	return tlb_addr;
- }
--EXPORT_SYMBOL_GPL(swiotlb_tbl_map_single);
- 
- /*
-  * Allocates bounce buffer and returns its kernel virtual address.
-@@ -675,7 +674,6 @@ void swiotlb_tbl_unmap_single(struct device *hwdev, phys_addr_t tlb_addr,
- 	}
- 	spin_unlock_irqrestore(&io_tlb_lock, flags);
- }
--EXPORT_SYMBOL_GPL(swiotlb_tbl_unmap_single);
- 
- void swiotlb_tbl_sync_single(struct device *hwdev, phys_addr_t tlb_addr,
- 			     size_t size, enum dma_data_direction dir,
-@@ -707,7 +705,6 @@ void swiotlb_tbl_sync_single(struct device *hwdev, phys_addr_t tlb_addr,
- 		BUG();
+diff --git a/arch/hexagon/include/asm/io.h b/arch/hexagon/include/asm/io.h
+index 66f5e9a61efc..9e8621d94ee9 100644
+--- a/arch/hexagon/include/asm/io.h
++++ b/arch/hexagon/include/asm/io.h
+@@ -330,8 +330,6 @@ static inline void outsl(unsigned long port, const void *buffer, int count)
  	}
  }
--EXPORT_SYMBOL_GPL(swiotlb_tbl_sync_single);
  
- static inline bool dma_coherent_ok(struct device *dev, dma_addr_t addr,
- 		size_t size)
-@@ -884,7 +881,6 @@ dma_addr_t swiotlb_map_page(struct device *dev, struct page *page,
+-#define flush_write_buffers() do { } while (0)
+-
+ #endif /* __KERNEL__ */
  
- 	return swiotlb_phys_to_dma(dev, io_tlb_overflow_buffer);
- }
--EXPORT_SYMBOL_GPL(swiotlb_map_page);
- 
- /*
-  * Unmap a single streaming mode DMA translation.  The dma_addr and size must
-@@ -925,7 +921,6 @@ void swiotlb_unmap_page(struct device *hwdev, dma_addr_t dev_addr,
- {
- 	unmap_single(hwdev, dev_addr, size, dir, attrs);
- }
--EXPORT_SYMBOL_GPL(swiotlb_unmap_page);
- 
- /*
-  * Make physical memory consistent for a single streaming mode DMA translation
-@@ -963,7 +958,6 @@ swiotlb_sync_single_for_cpu(struct device *hwdev, dma_addr_t dev_addr,
- {
- 	swiotlb_sync_single(hwdev, dev_addr, size, dir, SYNC_FOR_CPU);
- }
--EXPORT_SYMBOL(swiotlb_sync_single_for_cpu);
- 
- void
- swiotlb_sync_single_for_device(struct device *hwdev, dma_addr_t dev_addr,
-@@ -971,7 +965,6 @@ swiotlb_sync_single_for_device(struct device *hwdev, dma_addr_t dev_addr,
- {
- 	swiotlb_sync_single(hwdev, dev_addr, size, dir, SYNC_FOR_DEVICE);
- }
--EXPORT_SYMBOL(swiotlb_sync_single_for_device);
- 
- /*
-  * Map a set of buffers described by scatterlist in streaming mode for DMA.
-@@ -1023,7 +1016,6 @@ swiotlb_map_sg_attrs(struct device *hwdev, struct scatterlist *sgl, int nelems,
- 	}
- 	return nelems;
- }
--EXPORT_SYMBOL(swiotlb_map_sg_attrs);
- 
- /*
-  * Unmap a set of streaming mode DMA translations.  Again, cpu read rules
-@@ -1043,7 +1035,6 @@ swiotlb_unmap_sg_attrs(struct device *hwdev, struct scatterlist *sgl,
- 		unmap_single(hwdev, sg->dma_address, sg_dma_len(sg), dir,
- 			     attrs);
- }
--EXPORT_SYMBOL(swiotlb_unmap_sg_attrs);
- 
- /*
-  * Make physical memory consistent for a set of streaming mode DMA translations
-@@ -1071,7 +1062,6 @@ swiotlb_sync_sg_for_cpu(struct device *hwdev, struct scatterlist *sg,
- {
- 	swiotlb_sync_sg(hwdev, sg, nelems, dir, SYNC_FOR_CPU);
- }
--EXPORT_SYMBOL(swiotlb_sync_sg_for_cpu);
- 
- void
- swiotlb_sync_sg_for_device(struct device *hwdev, struct scatterlist *sg,
-@@ -1079,14 +1069,12 @@ swiotlb_sync_sg_for_device(struct device *hwdev, struct scatterlist *sg,
- {
- 	swiotlb_sync_sg(hwdev, sg, nelems, dir, SYNC_FOR_DEVICE);
- }
--EXPORT_SYMBOL(swiotlb_sync_sg_for_device);
- 
- int
- swiotlb_dma_mapping_error(struct device *hwdev, dma_addr_t dma_addr)
- {
- 	return (dma_addr = swiotlb_phys_to_dma(hwdev, io_tlb_overflow_buffer));
- }
--EXPORT_SYMBOL(swiotlb_dma_mapping_error);
- 
- /*
-  * Return whether the given device DMA address mask can be supported
-@@ -1099,7 +1087,6 @@ swiotlb_dma_supported(struct device *hwdev, u64 mask)
- {
- 	return swiotlb_phys_to_dma(hwdev, io_tlb_end - 1) <= mask;
- }
--EXPORT_SYMBOL(swiotlb_dma_supported);
- 
- #ifdef CONFIG_DMA_DIRECT_OPS
- void *swiotlb_alloc(struct device *dev, size_t size, dma_addr_t *dma_handle,
+ #endif
 -- 
 2.14.2
 
