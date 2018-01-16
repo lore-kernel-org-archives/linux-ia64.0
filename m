@@ -1,45 +1,16 @@
-From: =?UTF-8?Q?Christian_K=c3=b6nig?= <ckoenig.leichtzumerken@gmail.com>
-Date: Wed, 10 Jan 2018 08:23:08 +0000
+From: Christoph Hellwig <hch@infradead.org>
+Date: Tue, 16 Jan 2018 07:53:38 +0000
 Subject: Re: consolidate swiotlb dma_map implementations
-Message-Id: <5ef96935-f781-96e1-37cc-528d399f0150@gmail.com>
+Message-Id: <20180116075338.GB12693@infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20180110080932.14157-1-hch@lst.de>
 In-Reply-To: <20180110080932.14157-1-hch@lst.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Christoph Hellwig <hch@lst.de>, iommu@lists.linux-foundation.org
-Cc: Konrad Rzeszutek Wilk <konrad@darnok.org>, Michal Simek <monstr@monstr.eu>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linuxppc-dev@lists.ozlabs.org, x86@kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Christoph Hellwig <hch@lst.de>
+Cc: iommu@lists.linux-foundation.org, linux-arch@vger.kernel.org, linux-mips@linux-mips.org, Michal Simek <monstr@monstr.eu>, linux-ia64@vger.kernel.org, Christian =?iso-8859-1?Q?K=F6nig?= <ckoenig.leichtzumerken@gmail.com>, x86@kernel.org, linux-kernel@vger.kernel.org, Konrad Rzeszutek Wilk <konrad@darnok.org>, Guan Xuetao <gxt@mprc.pku.edu.cn>, linuxppc-dev@lists.ozlabs.org, linux-arm-kernel@lists.infradead.org
 
-Acked-by: Christian K=C3=B6nig <christian.koenig@amd.com> for the whole ser=
-ies.
-
-Regards,
-Christian.
-
-Am 10.01.2018 um 09:09 schrieb Christoph Hellwig:
-> A lot of architectures have essentially identical dma_map_ops
-> implementations to use swiotlb.  This series adds new generic
-> swiotlb_alloc/free helpers that take the attrs argument exposed
-> in dma_map_ops, and which do an enhanced direct allocation
-> modelled after x86 and reused from the dma-direct code, and
-> then switches most architectures over to it.  The only exceptions
-> are mips, which requires additional cache flushing which will
-> need a new abstraction, and x86 itself which will be handled in
-> a later series with other x86 dma mapping changes.
->
-> To support the generic code a few architectures that currently
-> use ZONE_DMA/GFP_DMA for <=3D 32-bit allocations are switched to
-> implement ZONE_DMA32 instead.
->
-> This series is based on the previously sent series to consolidate
-> the direct dma mapping implementation.  A git tree with this
-> series as well as the prerequisites is available here:
->
->     git://git.infradead.org/users/hch/misc.git swiotlb
->
-> Gitweb:
->
->     http://git.infradead.org/users/hch/misc.git/shortlog/refs/heads/swiot=
-lb
-
+I've pulled this into the dma-mapping for-next tree, including the
+missing free_pages noted.  I'd be fine to rebase another day or two
+for additional reviews or important fixes.
