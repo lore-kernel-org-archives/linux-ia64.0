@@ -1,28 +1,28 @@
-From: Jesper Nilsson <jesper.nilsson@axis.com>
-Date: Tue, 09 Jan 2018 15:54:54 +0000
-Subject: Re: [PATCH 22/67] dma-mapping: clear harmful GFP_* flags in common code
-Message-Id: <20180109155454.GO32368@axis.com>
+From: Thomas Gleixner <tglx@linutronix.de>
+Date: Wed, 17 Jan 2018 11:14:50 +0000
+Subject: Re: [PATCH 4/5] Expand the INIT_SIGNALS and INIT_SIGHAND macros and remove
+Message-Id: <alpine.DEB.2.20.1801171214120.1777@nanos>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20171229081911.2802-1-hch@lst.de>
- <20171229081911.2802-23-hch@lst.de>
-In-Reply-To: <20171229081911.2802-23-hch@lst.de>
+References: <alpine.DEB.2.20.1712281559410.1899@nanos> <151274828194.9961.4230316917108602662.stgit@warthog.procyon.org.uk> <151274831156.9961.11214505146256879075.stgit@warthog.procyon.org.uk> <19929.1514903630@warthog.procyon.org.uk>
+In-Reply-To: <19929.1514903630@warthog.procyon.org.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch@lst.de>
-Cc: iommu@lists.linux-foundation.org, linux-mips@linux-mips.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, Guan Xuetao <gxt@mprc.pku.edu.cn>, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, linux-hexagon@vger.kernel.org, x86@kernel.org, linux-snps-arc@lists.infradead.org, adi-buildroot-devel@lists.sourceforge.net, linux-m68k@lists.linux-m68k.org, patches@groups.riscv.org, linux-metag@vger.kernel.org, linux-arm-kernel@lists.infradead.org, Michal Simek <monstr@monstr.eu>, linux-parisc@vger.kernel.org, linux-cris-kernel@axis.com, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
+To: David Howells <dhowells@redhat.com>
+Cc: linux-arch@vger.kernel.org, x86@kernel.org, linux-ia64@vger.kernel.org, torvalds@linux-foundation.org, linux-kernel@vger.kernel.org
 
-On Fri, Dec 29, 2017 at 09:18:26AM +0100, Christoph Hellwig wrote:
-> Life the code from x86 so that we behave consistently.  In the future we
-> should probably warn if any of these is set.
+On Tue, 2 Jan 2018, David Howells wrote:
+
+> Thomas Gleixner <tglx@linutronix.de> wrote:
 > 
-> Signed-off-by: Christoph Hellwig <hch@lst.de>
+> > >  #define INIT_CPU_TIMERS(s)						\
+> > ...
+> > That macro is only used in init_task.c Why not moving it there and get rid
+> > of the whole macro maze in the header file?
+> 
+> The reason I didn't get rid of it is that it's got more than one expansion
+> point.  Same for INIT_PREV_CPUTIME and INIT_PID_LINK.
 
-Acked-by: Jesper Nilsson <jesper.nilsson@axis.com>
+Ah, sorry I missed that. So yes, the current patch is fine.
 
-> ---
->  arch/cris/arch-v32/drivers/pci/dma.c      | 3 ---
-
-/^JN - Jesper Nilsson
--- 
-               Jesper Nilsson -- jesper.nilsson@axis.com
+Acked-by: Thomas Gleixner <tglx@linutronix.de>
