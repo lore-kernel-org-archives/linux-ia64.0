@@ -1,7 +1,7 @@
-From: Jakub Jelinek <jakub@redhat.com>
-Date: Thu, 18 Jan 2018 19:19:39 +0000
-Subject: Re: [PATCH] ia64: Rewrite atomic_add and atomic_sub
-Message-Id: <20180118191939.GH2063@tucnak>
+From: Tony Luck <tony.luck@intel.com>
+Date: Thu, 18 Jan 2018 21:52:17 +0000
+Subject: [PATCH] ia64: Rewrite atomic_add and atomic_sub
+Message-Id: <20180118215217.20528-1-tony.luck@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20180118183953.29257-1-willy@infradead.org>
 In-Reply-To: <20180118183953.29257-1-willy@infradead.org>
@@ -10,40 +10,79 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, Jan 18, 2018 at 11:02:43AM -0800, Luck, Tony wrote:
-> On Thu, Jan 18, 2018 at 10:39:53AM -0800, Matthew Wilcox wrote:
-> > +	int __i = (i);							\
-> > +	static const int __ia64_atomic_p = __ia64_atomic_const(i);	\
-> > +	__ia64_atomic_p ? ia64_fetch_and_add(__i, &(v)->counter) :	\
-> > +				ia64_atomic_add(__i, v);		\
-> 
-> "static"?  Is that safe? What if we are executing
-> atomic_add on multiple cpus at the same time?
+From: Matthew Wilcox <mawilcox@microsoft.com>
 
-In C static vars must be initialized only at compile time, each expansion
-of the macro has a different scope and different static variable.
-If they wouldn't be optimized away, each of them would waste 4 bytes
-in .rodata section, but the point of the patch is do this only when
-optimizing and let the compiler optimize away those variables.
-As the static variables need the initializers to be evaluated early in
-the compiler FE, it means __builtin_constant_p is resolved away right after
-folding the argument, compared to automatic variables where when optimizing
-__builtin_constant_p folding is deferred until inlining and lots of other
-optimizations are performed.
+Force __builtin_constant_p to evaluate whether the argument to atomic_add
+& atomic_sub is constant in the front-end before optimisations which
+can lead GCC to output a call to __bad_increment_for_ia64_fetch_and_add().
 
-What this means is if you do:
-atomic_add_return (4, something);
-it will be optimized into ia64_fetch_and_add, but if you e.g. do:
-int x = 4;
-atomic_add_return (x, something);
-it will not, similarly:
-static inline void
-foo (int x, ...)
-{
-  atomic_add_return (x, something);
-}
-and call
-foo (4, ...);
-then it will be again just ia64_atomic_add.
+See GCC bugzilla 83653.
 
-	Jakub
+Signed-off-by: Jakub Jelinek <jakub@redhat.com>
+Signed-off-by: Matthew Wilcox <mawilcox@microsoft.com>
+Signed-off-by: Tony Luck <tony.luck@intel.com>
+---
+
+Linus: Willy isn't pining for the old days working on ia64. He
+has some patches to generic code that he can't push because this
+compiler issue breaks the ia64 build with his new stuff applied.
+
+ arch/ia64/include/asm/atomic.h | 37 +++++++++++++++++++------------------
+ 1 file changed, 19 insertions(+), 18 deletions(-)
+
+diff --git a/arch/ia64/include/asm/atomic.h b/arch/ia64/include/asm/atomic.h
+index 28e02c99be6d..762eeb0fcc1d 100644
+--- a/arch/ia64/include/asm/atomic.h
++++ b/arch/ia64/include/asm/atomic.h
+@@ -65,29 +65,30 @@ ia64_atomic_fetch_##op (int i, atomic_t *v)				\
+ ATOMIC_OPS(add, +)
+ ATOMIC_OPS(sub, -)
+ 
+-#define atomic_add_return(i,v)						\
++#ifdef __OPTIMIZE__
++#define __ia64_atomic_const(i)	__builtin_constant_p(i) ?		\
++		((i) = 1 || (i) = 4 || (i) = 8 || (i) = 16 ||	\
++		 (i) = -1 || (i) = -4 || (i) = -8 || (i) = -16) : 0
++
++#define atomic_add_return(i, v)						\
+ ({									\
+-	int __ia64_aar_i = (i);						\
+-	(__builtin_constant_p(i)					\
+-	 && (   (__ia64_aar_i =  1) || (__ia64_aar_i =   4)		\
+-	     || (__ia64_aar_i =  8) || (__ia64_aar_i =  16)		\
+-	     || (__ia64_aar_i = -1) || (__ia64_aar_i =  -4)		\
+-	     || (__ia64_aar_i = -8) || (__ia64_aar_i = -16)))		\
+-		? ia64_fetch_and_add(__ia64_aar_i, &(v)->counter)	\
+-		: ia64_atomic_add(__ia64_aar_i, v);			\
++	int __i = (i);							\
++	static const int __ia64_atomic_p = __ia64_atomic_const(i);	\
++	__ia64_atomic_p ? ia64_fetch_and_add(__i, &(v)->counter) :	\
++				ia64_atomic_add(__i, v);		\
+ })
+ 
+-#define atomic_sub_return(i,v)						\
++#define atomic_sub_return(i, v)						\
+ ({									\
+-	int __ia64_asr_i = (i);						\
+-	(__builtin_constant_p(i)					\
+-	 && (   (__ia64_asr_i =   1) || (__ia64_asr_i =   4)		\
+-	     || (__ia64_asr_i =   8) || (__ia64_asr_i =  16)		\
+-	     || (__ia64_asr_i =  -1) || (__ia64_asr_i =  -4)		\
+-	     || (__ia64_asr_i =  -8) || (__ia64_asr_i = -16)))	\
+-		? ia64_fetch_and_add(-__ia64_asr_i, &(v)->counter)	\
+-		: ia64_atomic_sub(__ia64_asr_i, v);			\
++	int __i = (i);							\
++	static const int __ia64_atomic_p = __ia64_atomic_const(i);	\
++	__ia64_atomic_p ? ia64_fetch_and_add(-__i, &(v)->counter) :	\
++				ia64_atomic_sub(__i, v);		\
+ })
++#else
++#define atomic_add_return(i, v)	ia64_atomic_add(i, v)
++#define atomic_sub_return(i, v)	ia64_atomic_sub(i, v)
++#endif
+ 
+ #define atomic_fetch_add(i,v)						\
+ ({									\
+-- 
+2.14.1
+
