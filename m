@@ -1,47 +1,92 @@
-From: Davidlohr Bueso <dave@stgolabs.net>
-Date: Tue, 27 Feb 2018 17:16:09 +0000
-Subject: Re: [PATCH] ia64/err-inject: Use get_user_pages_fast()
-Message-Id: <20180227171609.jdt73iqx56kmybrl@linux-n805>
+From: Sergei Trofimovich <slyfox@gentoo.org>
+Date: Fri, 02 Feb 2018 22:12:24 +0000
+Subject: [PATCH] ia64: fix ptrace(PTRACE_GETREGS) (unbreaks strace, gdb)
+Message-Id: <20180202221224.16597-1-slyfox@gentoo.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180122172137.26849-1-dave@stgolabs.net>
-In-Reply-To: <20180122172137.26849-1-dave@stgolabs.net>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: akpm@linux-foundation.org, tony.luck@intel.com, fenghua.yu@intel.com
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Davidlohr Bueso <dbueso@suse.de>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: quoted-printable
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: Sergei Trofimovich <slyfox@gentoo.org>
 
-Andrew, if you're ok with the patch below, could it be routed
-your way?
+The strace breakage looks like that:
+./strace: get_regs: get_regs_error: Input/output error
 
-Thanks,
-Davidlohr
+It happens because ia64 needs to load unwind tables
+to read certain registers. Unwind tables fail to load
+due to GCC quirk on the following code:
 
-On Mon, 22 Jan 2018, Davidlohr Bueso wrote:
+    extern char __end_unwind[];
+    const struct unw_table_entry *end =3D (struct unw_table_entry *)table_e=
+nd;
+    table->end =3D segment_base + end[-1].end_offset;
 
->At the point of sysfs callback, the call to gup is
->done without mmap_sem (or any lock for that matter).
->This is racy. As such, use the get_user_pages_fast()
->alternative and safely avoid taking the lock, if possible.
->
->Signed-off-by: Davidlohr Bueso <dbueso@suse.de>
->---
-> arch/ia64/kernel/err_inject.c | 2 +-
-> 1 file changed, 1 insertion(+), 1 deletion(-)
->
->diff --git a/arch/ia64/kernel/err_inject.c b/arch/ia64/kernel/err_inject.c
->index 85bba43e7d5d..658a8e06a69b 100644
->--- a/arch/ia64/kernel/err_inject.c
->+++ b/arch/ia64/kernel/err_inject.c
->@@ -142,7 +142,7 @@ store_virtual_to_phys(struct device *dev, struct device_attribute *attr,
-> 	u64 virt_addr=simple_strtoull(buf, NULL, 16);
-> 	int ret;
->
->-	ret = get_user_pages(virt_addr, 1, FOLL_WRITE, NULL, NULL);
->+	ret = get_user_pages_fast(virt_addr, 1, FOLL_WRITE, NULL);
-> 	if (ret<=0) {
-> #ifdef ERR_INJ_DEBUG
-> 		printk("Virtual address %lx is not existing.\n",virt_addr);
->-- 
->2.13.6
->
+GCC does not generate correct code for this single memory
+reference after constant propagation (see https://gcc.gnu.org/PR84184).
+Two triggers are required for bad code generation:
+- '__end_unwind' has alignment lower (char), than
+  'struct unw_table_entry' (8).
+- symbol offset is negative.
+
+This commit workarounds it by fixing alignment of '__end_unwind'.
+While at it use hidden symbols to generate shorter gp-relative
+relocations.
+
+CC: Tony Luck <tony.luck@intel.com>
+CC: Fenghua Yu <fenghua.yu@intel.com>
+CC: linux-ia64@vger.kernel.org
+CC: linux-kernel@vger.kernel.org
+Bug: https://github.com/strace/strace/issues/33
+Bug: https://gcc.gnu.org/PR84184
+Reported-by: =C3=89meric Maschino <emeric.maschino@gmail.com>
+Signed-off-by: Sergei Trofimovich <slyfox@gentoo.org>
+---
+ arch/ia64/include/asm/sections.h |  1 -
+ arch/ia64/kernel/unwind.c        | 15 ++++++++++++++-
+ 2 files changed, 14 insertions(+), 2 deletions(-)
+
+diff --git a/arch/ia64/include/asm/sections.h b/arch/ia64/include/asm/secti=
+ons.h
+index f3481408594e..0fc4f1757a44 100644
+--- a/arch/ia64/include/asm/sections.h
++++ b/arch/ia64/include/asm/sections.h
+@@ -24,7 +24,6 @@ extern char __start_gate_mckinley_e9_patchlist[], __end_g=
+ate_mckinley_e9_patchli
+ extern char __start_gate_vtop_patchlist[], __end_gate_vtop_patchlist[];
+ extern char __start_gate_fsyscall_patchlist[], __end_gate_fsyscall_patchli=
+st[];
+ extern char __start_gate_brl_fsys_bubble_down_patchlist[], __end_gate_brl_=
+fsys_bubble_down_patchlist[];
+-extern char __start_unwind[], __end_unwind[];
+ extern char __start_ivt_text[], __end_ivt_text[];
+=20
+ #undef dereference_function_descriptor
+diff --git a/arch/ia64/kernel/unwind.c b/arch/ia64/kernel/unwind.c
+index e04efa088902..025ba6700790 100644
+--- a/arch/ia64/kernel/unwind.c
++++ b/arch/ia64/kernel/unwind.c
+@@ -2243,7 +2243,20 @@ __initcall(create_gate_table);
+ void __init
+ unw_init (void)
+ {
+-	extern char __gp[];
++	#define __ia64_hidden __attribute__((visibility("hidden")))
++	/*
++	 * We use hidden symbols to generate more efficient code using
++	 * gp-relative addressing.
++	 */
++	extern char __gp[] __ia64_hidden;
++	/*
++	 * Unwind tables need to have proper alignment as init_unwind_table()
++	 * uses negative offsets against '__end_unwind'.
++	 * See https://gcc.gnu.org/PR84184
++	 */
++	extern const struct unw_table_entry __start_unwind[] __ia64_hidden;
++	extern const struct unw_table_entry __end_unwind[] __ia64_hidden;
++	#undef __ia64_hidden
+ 	extern void unw_hash_index_t_is_too_narrow (void);
+ 	long i, off;
+=20
+--=20
+2.16.1
+
