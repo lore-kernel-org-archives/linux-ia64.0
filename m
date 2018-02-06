@@ -1,59 +1,83 @@
-From: Sergei Trofimovich <slyfox@gentoo.org>
-Date: Sun, 11 Feb 2018 18:51:34 +0000
-Subject: Re: [PATCH] ia64: fix ptrace(PTRACE_GETREGS) (unbreaks strace, gdb)
-Message-Id: <20180211185134.76ccfd45@sf>
+From: Masahiro Yamada <yamada.masahiro@socionext.com>
+Date: Tue, 06 Feb 2018 00:34:46 +0000
+Subject: [PATCH 06/14] kbuild: define PYTHON2 and PYTHON3 variables instead of PYTHON
+Message-Id: <1517877294-4826-7-git-send-email-yamada.masahiro@socionext.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180202221224.16597-1-slyfox@gentoo.org>
-        <20180202222231.23favlxecnxcencr@agluck-desk>
-        <20180202230220.13b74e8c@sf>
-In-Reply-To: <20180202230220.13b74e8c@sf>
+References: <1517877294-4826-1-git-send-email-yamada.masahiro@socionext.com>
+In-Reply-To: <1517877294-4826-1-git-send-email-yamada.masahiro@socionext.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, stanton_arch@mail.com
+To: linux-kbuild@vger.kernel.org
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Andrew Morton <akpm@linux-foundation.org>, Nicolas Pitre <nicolas.pitre@linaro.org>, "Luis R . Rodriguez" <mcgrof@suse.com>, Randy Dunlap <rdunlap@infradead.org>, Ulf Magnusson <ulfalizer@gmail.com>, Sam Ravnborg <sam@ravnborg.org>, Michal Marek <michal.lkml@markovi.net>, Linus Torvalds <torvalds@linux-foundation.org>, Masahiro Yamada <yamada.masahiro@socionext.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Fenghua Yu <fenghua.yu@intel.com>
 
-On Fri, 2 Feb 2018 23:02:20 +0000
-Sergei Trofimovich <slyfox@gentoo.org> wrote:
+The variable 'PYTHON' allows users to specify a proper executable
+name in case the default 'python' does not work.  However, this does
+not address the case where both Python 2 and Python 3 scripts are
+used in one system.
 
-> On Fri, 2 Feb 2018 14:22:32 -0800
-> "Luck, Tony" <tony.luck@intel.com> wrote:
-> 
-> > On Fri, Feb 02, 2018 at 10:12:24PM +0000, Sergei Trofimovich wrote:  
-> > > The strace breakage looks like that:
-> > > ./strace: get_regs: get_regs_error: Input/output error
-> > > 
-> > > It happens because ia64 needs to load unwind tables
-> > > to read certain registers. Unwind tables fail to load
-> > > due to GCC quirk on the following code:
-> > > 
-> > >     extern char __end_unwind[];
-> > >     const struct unw_table_entry *end = (struct unw_table_entry *)table_end;
-> > >     table->end = segment_base + end[-1].end_offset;
-> > > 
-> > > GCC does not generate correct code for this single memory
-> > > reference after constant propagation (see https://gcc.gnu.org/PR84184).    
-> > 
-> > I'm not seeing this ... probably because I build with
-> > a pre-historic 4.3.4 version of gcc.
-> > 
-> > Do you know which version(s) are affected? I'm not looking
-> > for an exhaustive list, just the one on which you found this
-> > would be good.
-> > 
-> > -Tony  
-> 
-> Original bug https://bugs.gentoo.org/518130 claims regression appeared
-> around gcc-4.5. Locally am seeing the problem with gcc-6.4.0, gcc-7.2.0 and
-> gcc-8 (HEAD).
+PEP 394 (https://www.python.org/dev/peps/pep-0394/) provides a
+convention for Python scripts portability.  Here is a quotation:
 
-Another report on the positive patch effect:
+  In order to tolerate differences across platforms, all new code
+  that needs to invoke the Python interpreter should not specify
+  'python', but rather should specify either 'python2' or 'python3'.
+  This distinction should be made in shebangs, when invoking from a
+  shell script, when invoking via the system() call, or when invoking
+  in any other context.
 
-rx2600 boots successfully with this patch (did not without, my guess is due to
-early access fault at bad address): https://bugs.gentoo.org/579278#c13
+arch/ia64/scripts/unwcheck.py is apparently written in Python 2, so
+it should be invoked by 'python2'.
 
-Tested-by: stanton_arch@mail.com
+It is legitimate to use 'python' for scripts compatible with both
+Python 2 and Python 3, but this is rare (at least I do not see the
+case in kernel tree).  You do not need to make efforts to write your
+scripts in that way.  Anyway, Python 2 will retire in 2020.
 
+This commit is needed for my new scripts written in Python 3.
+
+Signed-off-by: Masahiro Yamada <yamada.masahiro@socionext.com>
+---
+
+ Makefile           | 5 +++--
+ arch/ia64/Makefile | 2 +-
+ 2 files changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index 11aff0f..c4e935c 100644
+--- a/Makefile
++++ b/Makefile
+@@ -384,7 +384,8 @@ GENKSYMS	= scripts/genksyms/genksyms
+ INSTALLKERNEL  := installkernel
+ DEPMOD		= /sbin/depmod
+ PERL		= perl
+-PYTHON		= python
++PYTHON2		= python2
++PYTHON3		= python3
+ CHECK		= sparse
+ 
+ CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
+@@ -430,7 +431,7 @@ GCC_PLUGINS_CFLAGS : 
+ export ARCH SRCARCH CONFIG_SHELL HOSTCC HOSTCFLAGS CROSS_COMPILE AS LD CC
+ export CPP AR NM STRIP OBJCOPY OBJDUMP HOSTLDFLAGS HOST_LOADLIBES
+-export MAKE LEX YACC AWK GENKSYMS INSTALLKERNEL PERL PYTHON UTS_MACHINE
++export MAKE LEX YACC AWK GENKSYMS INSTALLKERNEL PERL PYTHON2 PYTHON3 UTS_MACHINE
+ export HOSTCXX HOSTCXXFLAGS LDFLAGS_MODULE CHECK CHECKFLAGS
+ 
+ export KBUILD_CPPFLAGS NOSTDINC_FLAGS LINUXINCLUDE OBJCOPYFLAGS LDFLAGS
+diff --git a/arch/ia64/Makefile b/arch/ia64/Makefile
+index 2dd7f51..862a2ba 100644
+--- a/arch/ia64/Makefile
++++ b/arch/ia64/Makefile
+@@ -75,7 +75,7 @@ vmlinux.gz: vmlinux
+ 	$(Q)$(MAKE) $(build)=$(boot) $@
+ 
+ unwcheck: vmlinux
+-	-$(Q)READELF=$(READELF) $(PYTHON) $(srctree)/arch/ia64/scripts/unwcheck.py $<
++	-$(Q)READELF=$(READELF) $(PYTHON2) $(srctree)/arch/ia64/scripts/unwcheck.py $<
+ 
+ archclean:
+ 	$(Q)$(MAKE) $(clean)=$(boot)
 -- 
+2.7.4
 
-  Sergei
