@@ -1,36 +1,43 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Wed, 10 Jan 2018 07:59:55 +0000
-Subject: [PATCH 01/33] alpha: mark jensen as broken
-Message-Id: <20180110080027.13879-2-hch@lst.de>
+From: Guenter Roeck <linux@roeck-us.net>
+Date: Mon, 12 Feb 2018 22:32:13 +0000
+Subject: [PATCH] ia64: Remove pci-swiotlb.o from kernel Makefile
+Message-Id: <1518474733-2972-1-git-send-email-linux@roeck-us.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180110080027.13879-1-hch@lst.de>
-In-Reply-To: <20180110080027.13879-1-hch-jcswGhMUV9g@public.gmane.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Cc: linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sh-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, sparclinux-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Guan Xuetao <gxt-TG0Ac1+ktVePQbnJrJN+5g@public.gmane.org>, linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-s390-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-c6x-dev-jPsnJVOj+W6hPH1hqNUYSQ@public.gmane.org, linux-hexagon-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, Konrad Rzeszutek Wilk <konrad-Gq0aWv8utHQdnm+yROfE0A@public.gmane.org>, linux-snps-arc-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-m68k-cunTk1MwBs8S/qaLPR03pWD2FQJk+8+b@public.gmane.org, patches-q3qR2WxjNRFS9aJRtSZj7A@public.gmane.org, linux-metag-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Michal Simek <monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org>, linux-parisc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-cris-kernel-VrBV9hrLPhE@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-alpha-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Guenter Roeck <linux@roeck-us.net>, Christoph Hellwig <hch@lst.de>, =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
 
-CONFIG_ALPHA_JENSEN has failed to compile since commit 6aca0503
-("alpha/dma: use common noop dma ops"), so mark it as broken.
+Commit 4fac8076df85 ("ia64: clean up swiotlb support") removed
+arch/ia64/kernel/pci-swiotlb.c but neglected to update the ia64
+kernel Makefile. This results in
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+make[2]: *** No rule to make target 'arch/ia64/kernel/pci-swiotlb.o',
+	needed by 'arch/ia64/kernel/built-in.o'.  Stop.
+
+when trying to build ia64 images.
+
+Fixes: 4fac8076df85 ("ia64: clean up swiotlb support")
+Cc: Christoph Hellwig <hch@lst.de>
+Cc: Christian K=C3=B6nig <christian.koenig@amd.com>
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 ---
- arch/alpha/Kconfig | 1 +
- 1 file changed, 1 insertion(+)
+ arch/ia64/kernel/Makefile | 1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/arch/alpha/Kconfig b/arch/alpha/Kconfig
-index b31b974a03cb..e96adcbcab41 100644
---- a/arch/alpha/Kconfig
-+++ b/arch/alpha/Kconfig
-@@ -209,6 +209,7 @@ config ALPHA_EIGER
- 
- config ALPHA_JENSEN
- 	bool "Jensen"
-+	depends on BROKEN
- 	help
- 	  DEC PC 150 AXP (aka Jensen): This is a very old Digital system - one
- 	  of the first-generation Alpha systems. A number of these systems
--- 
-2.14.2
+diff --git a/arch/ia64/kernel/Makefile b/arch/ia64/kernel/Makefile
+index 0b4c65a1af25..498f3da3f225 100644
+--- a/arch/ia64/kernel/Makefile
++++ b/arch/ia64/kernel/Makefile
+@@ -41,7 +41,6 @@ ifneq ($(CONFIG_IA64_ESI),)
+ obj-y				+=3D esi_stub.o	# must be in kernel proper
+ endif
+ obj-$(CONFIG_INTEL_IOMMU)	+=3D pci-dma.o
+-obj-$(CONFIG_SWIOTLB)		+=3D pci-swiotlb.o
+=20
+ obj-$(CONFIG_BINFMT_ELF)	+=3D elfcore.o
+=20
+--=20
+2.7.4
 
