@@ -1,16 +1,43 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Sat, 10 Feb 2018 08:39:56 +0000
-Subject: Re: [PATCH] ia64: fix build failure with CONFIG_SWIOTLB
-Message-Id: <20180210083956.GA27696@lst.de>
+From: Davidlohr Bueso <dave@stgolabs.net>
+Date: Tue, 13 Feb 2018 22:22:02 +0000
+Subject: Re: [PATCH] ia64/err-inject: Use get_user_pages_fast()
+Message-Id: <20180213222202.egl4lo3xhj4jr2uv@linux-n805>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1518118760-5224-1-git-send-email-clabbe@baylibre.com>
-In-Reply-To: <1518118760-5224-1-git-send-email-clabbe@baylibre.com>
+References: <20180122172137.26849-1-dave@stgolabs.net>
+In-Reply-To: <20180122172137.26849-1-dave@stgolabs.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Corentin Labbe <clabbe@baylibre.com>
-Cc: fenghua.yu@intel.com, tony.luck@intel.com, hch@lst.de, christian.koenig@amd.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: tony.luck@intel.com, fenghua.yu@intel.com
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Davidlohr Bueso <dbueso@suse.de>
 
-Thanks,
+ping
 
-I'll send this along to Linus with other dma-mapping fixes.
+On Mon, 22 Jan 2018, Davidlohr Bueso wrote:
+
+>At the point of sysfs callback, the call to gup is
+>done without mmap_sem (or any lock for that matter).
+>This is racy. As such, use the get_user_pages_fast()
+>alternative and safely avoid taking the lock, if possible.
+>
+>Signed-off-by: Davidlohr Bueso <dbueso@suse.de>
+>---
+> arch/ia64/kernel/err_inject.c | 2 +-
+> 1 file changed, 1 insertion(+), 1 deletion(-)
+>
+>diff --git a/arch/ia64/kernel/err_inject.c b/arch/ia64/kernel/err_inject.c
+>index 85bba43e7d5d..658a8e06a69b 100644
+>--- a/arch/ia64/kernel/err_inject.c
+>+++ b/arch/ia64/kernel/err_inject.c
+>@@ -142,7 +142,7 @@ store_virtual_to_phys(struct device *dev, struct device_attribute *attr,
+> 	u64 virt_addr=simple_strtoull(buf, NULL, 16);
+> 	int ret;
+>
+>-	ret = get_user_pages(virt_addr, 1, FOLL_WRITE, NULL, NULL);
+>+	ret = get_user_pages_fast(virt_addr, 1, FOLL_WRITE, NULL);
+> 	if (ret<=0) {
+> #ifdef ERR_INJ_DEBUG
+> 		printk("Virtual address %lx is not existing.\n",virt_addr);
+>-- 
+>2.13.6
+>
