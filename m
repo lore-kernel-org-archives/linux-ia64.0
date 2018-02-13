@@ -1,43 +1,19 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Date: Mon, 12 Feb 2018 22:32:13 +0000
-Subject: [PATCH] ia64: Remove pci-swiotlb.o from kernel Makefile
-Message-Id: <1518474733-2972-1-git-send-email-linux@roeck-us.net>
+From: Christoph Hellwig <hch@lst.de>
+Date: Tue, 13 Feb 2018 01:44:12 +0000
+Subject: Re: [PATCH] ia64: Remove pci-swiotlb.o from kernel Makefile
+Message-Id: <20180213014412.GA3303@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1518474733-2972-1-git-send-email-linux@roeck-us.net>
+In-Reply-To: <1518474733-2972-1-git-send-email-linux@roeck-us.net>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Guenter Roeck <linux@roeck-us.net>, Christoph Hellwig <hch@lst.de>, =?UTF-8?q?Christian=20K=C3=B6nig?= <christian.koenig@amd.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Guenter Roeck <linux@roeck-us.net>
+Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Christoph Hellwig <hch@lst.de>, Christian =?iso-8859-1?Q?K=F6nig?= <christian.koenig@amd.com>
 
-Commit 4fac8076df85 ("ia64: clean up swiotlb support") removed
-arch/ia64/kernel/pci-swiotlb.c but neglected to update the ia64
-kernel Makefile. This results in
+Thanks Guenter,
 
-make[2]: *** No rule to make target 'arch/ia64/kernel/pci-swiotlb.o',
-	needed by 'arch/ia64/kernel/built-in.o'.  Stop.
+I actually got a similar report a few days ago and prepared the same
+patch as part of the dma-mapping fixup series I'm about to send out:
 
-when trying to build ia64 images.
-
-Fixes: 4fac8076df85 ("ia64: clean up swiotlb support")
-Cc: Christoph Hellwig <hch@lst.de>
-Cc: Christian K=C3=B6nig <christian.koenig@amd.com>
-Signed-off-by: Guenter Roeck <linux@roeck-us.net>
----
- arch/ia64/kernel/Makefile | 1 -
- 1 file changed, 1 deletion(-)
-
-diff --git a/arch/ia64/kernel/Makefile b/arch/ia64/kernel/Makefile
-index 0b4c65a1af25..498f3da3f225 100644
---- a/arch/ia64/kernel/Makefile
-+++ b/arch/ia64/kernel/Makefile
-@@ -41,7 +41,6 @@ ifneq ($(CONFIG_IA64_ESI),)
- obj-y				+=3D esi_stub.o	# must be in kernel proper
- endif
- obj-$(CONFIG_INTEL_IOMMU)	+=3D pci-dma.o
--obj-$(CONFIG_SWIOTLB)		+=3D pci-swiotlb.o
-=20
- obj-$(CONFIG_BINFMT_ELF)	+=3D elfcore.o
-=20
---=20
-2.7.4
-
+	http://git.infradead.org/users/hch/misc.git/commitdiff/f9f787e3fe227329d27768566e925e4d94c5f517
