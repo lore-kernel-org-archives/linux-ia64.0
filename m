@@ -1,17 +1,21 @@
 From: Davidlohr Bueso <dave@stgolabs.net>
-Date: Tue, 13 Feb 2018 22:22:02 +0000
+Date: Tue, 27 Feb 2018 17:16:09 +0000
 Subject: Re: [PATCH] ia64/err-inject: Use get_user_pages_fast()
-Message-Id: <20180213222202.egl4lo3xhj4jr2uv@linux-n805>
+Message-Id: <20180227171609.jdt73iqx56kmybrl@linux-n805>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20180122172137.26849-1-dave@stgolabs.net>
 In-Reply-To: <20180122172137.26849-1-dave@stgolabs.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: tony.luck@intel.com, fenghua.yu@intel.com
+To: akpm@linux-foundation.org, tony.luck@intel.com, fenghua.yu@intel.com
 Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Davidlohr Bueso <dbueso@suse.de>
 
-ping
+Andrew, if you're ok with the patch below, could it be routed
+your way?
+
+Thanks,
+Davidlohr
 
 On Mon, 22 Jan 2018, Davidlohr Bueso wrote:
 
