@@ -1,33 +1,46 @@
-From: Rich Felker <dalias@libc.org>
-Date: Fri, 30 Mar 2018 13:33:48 +0000
-Subject: Re: [RFC PATCH v2 0/2] Randomization of address chosen by mmap.
-Message-Id: <20180330133348.GR1436@brightrain.aerifal.cx>
+From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+Date: Thu, 01 Mar 2018 23:37:21 +0000
+Subject: [RFC 2/5] ia64/sn/hwperf: use seq_open_data
+Message-Id: <20180301233724.20440-2-linux@rasmusvillemoes.dk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1521736598-12812-1-git-send-email-blackzert@gmail.com>
- <20180330075508.GA21798@amd>
-In-Reply-To: <20180330075508.GA21798@amd>
+References: <20180301233724.20440-1-linux@rasmusvillemoes.dk>
+In-Reply-To: <20180301233724.20440-1-linux@rasmusvillemoes.dk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Pavel Machek <pavel@ucw.cz>
-Cc: Ilya Smith <blackzert@gmail.com>, rth@twiddle.net, ink@jurassic.park.msu.ru, mattst88@gmail.com, vgupta@synopsys.com, linux@armlinux.org.uk, tony.luck@intel.com, fenghua.yu@intel.com, jhogan@kernel.org, ralf@linux-mips.org, jejb@parisc-linux.org, deller@gmx.de, benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au, schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com, ysato@users.sourceforge.jp, davem@davemloft.net, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, x86@kernel.org, nyc@holomorphy.com, viro@zeniv.linux.org.uk, arnd@arndb.de, gregkh@linuxfoundation.org, deepa.kernel@gmail.com, mhocko@suse.com, hughd@google.com, kstewart@linuxfoundation.org, pombredanne@nexb.com, akpm@linux-foundation.org, steve.capper@arm.com, punit.agrawal@arm.com, paul.burton@mips.com, aneesh.kumar@linux.vnet.ibm.com, npiggin@gmail.com, keescook@chromium.org, bhsharma@redhat.com, riel@redhat.com, nitin.m.gupta@oracle.com, kirill.shutemov@linux.intel.com, dan.j.williams@intel.com, jack@suse.cz, ross.zwisler@linux.intel.com, jglisse@redhat.com, willy@infradead.org, aarcange@redhat.com, oleg@redhat.com, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-mm@kvack.org
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: Rasmus Villemoes <linux@rasmusvillemoes.dk>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Fri, Mar 30, 2018 at 09:55:08AM +0200, Pavel Machek wrote:
-> Hi!
-> 
-> > Current implementation doesn't randomize address returned by mmap.
-> > All the entropy ends with choosing mmap_base_addr at the process
-> > creation. After that mmap build very predictable layout of address
-> > space. It allows to bypass ASLR in many cases. This patch make
-> > randomization of address on any mmap call.
-> 
-> How will this interact with people debugging their application, and
-> getting different behaviours based on memory layout?
-> 
-> strace, strace again, get different results?
+This code should check the return value of seq_open(); if it failed,
+file->private_data is NULL. But we can avoid the issue entirely and
+simplify the code by letting seq_open_data() set the ->private member
+to objbuf.
 
-Normally gdb disables ASLR for the process when invoking a program to
-debug. I don't see why that would be terribly useful with strace but
-you can do the same if you want.
+Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+---
+ arch/ia64/sn/kernel/sn2/sn_hwperf.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
 
-Rich
+diff --git a/arch/ia64/sn/kernel/sn2/sn_hwperf.c b/arch/ia64/sn/kernel/sn2/sn_hwperf.c
+index 55febd65911a..fba7f3ad99f4 100644
+--- a/arch/ia64/sn/kernel/sn2/sn_hwperf.c
++++ b/arch/ia64/sn/kernel/sn2/sn_hwperf.c
+@@ -941,14 +941,11 @@ static int sn_hwperf_init(void)
+ int sn_topology_open(struct inode *inode, struct file *file)
+ {
+ 	int e;
+-	struct seq_file *seq;
+ 	struct sn_hwperf_object_info *objbuf;
+ 	int nobj;
+ 
+ 	if ((e = sn_hwperf_enum_objects(&nobj, &objbuf)) = 0) {
+-		e = seq_open(file, &sn_topology_seq_ops);
+-		seq = file->private_data;
+-		seq->private = objbuf;
++		e = seq_open_data(file, &sn_topology_seq_ops, objbuf);
+ 	}
+ 
+ 	return e;
+-- 
+2.15.1
+
