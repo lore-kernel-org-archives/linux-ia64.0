@@ -1,253 +1,81 @@
-From: Mike Rapoport <rppt@linux.vnet.ibm.com>
-Date: Wed, 21 Mar 2018 19:22:27 +0000
-Subject: [PATCH 11/32] docs/vm: ksm.txt: convert to ReST format
-Message-Id: <1521660168-14372-12-git-send-email-rppt@linux.vnet.ibm.com>
+From: Sergei Trofimovich <slyfox@gentoo.org>
+Date: Fri, 09 Mar 2018 23:15:55 +0000
+Subject: [PATCH v2, simpler] ia64: fix ptrace(PTRACE_GETREGS) (unbreaks strace, gdb)
+Message-Id: <20180309231555.16925-1-slyfox@gentoo.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1521660168-14372-1-git-send-email-rppt@linux.vnet.ibm.com>
-In-Reply-To: <1521660168-14372-1-git-send-email-rppt@linux.vnet.ibm.com>
+References: <20180211185134.76ccfd45@sf>
+In-Reply-To: <20180211185134.76ccfd45@sf>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Jonathan Corbet <corbet@lwn.net>
-Cc: Andrey Ryabinin <aryabinin@virtuozzo.com>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Ralf Baechle <ralf@linux-mips.org>, James Hogan <jhogan@kernel.org>, Michael Ellerman <mpe@ellerman.id.au>, Alexander Viro <viro@zeniv.linux.org.uk>, linux-kernel@vger.kernel.org, linux-doc@vger.kernel.org, kasan-dev@googlegroups.com, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linuxppc-dev@lists.ozlabs.org, linux-fsdevel@vger.kernel.org, linux-mm@kvack.org, Mike Rapoport <rppt@linux.vnet.ibm.com>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: quoted-printable
+To: Tony Luck <tony.luck@intel.com>
+Cc: Sergei Trofimovich <slyfox@gentoo.org>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Signed-off-by: Mike Rapoport <rppt@linux.vnet.ibm.com>
+The strace breakage looks like that:
+./strace: get_regs: get_regs_error: Input/output error
+
+It happens because ia64 needs to load unwind tables
+to read certain registers in 'PTRACE_GETREGS'. Unwind
+tables fail to load at kernel startup due to GCC quirk
+on the following code (logged as PR 84184):
+
+    extern char __end_unwind[];
+    const struct unw_table_entry *end =3D (struct unw_table_entry *)table_e=
+nd;
+    table->end =3D segment_base + end[-1].end_offset;
+
+GCC does not generate correct code for this single memory
+reference after constant propagation.
+Two triggers are required for bad code generation:
+- '__end_unwind' has alignment lower (char), than
+  'struct unw_table_entry' (8).
+- symbol offset is negative.
+
+This commit workarounds it by disabling inline on
+init_unwind_table(). This way we avoid const-propagation
+of '__end_unwind' and pass address via register.
+
+Tested in ski (emulator) and on rx2600, rx3600 (real hardware).
+In case of rx2600 it unbreaks booting.
+
+This patch is a lighter version of patch
+https://lkml.org/lkml/2018/2/2/914
+
+CC: Tony Luck <tony.luck@intel.com>
+CC: Fenghua Yu <fenghua.yu@intel.com>
+CC: linux-ia64@vger.kernel.org
+CC: linux-kernel@vger.kernel.org
+Bug: https://github.com/strace/strace/issues/33
+Bug: https://gcc.gnu.org/PR84184
+Reported-by: =C3=89meric Maschino <emeric.maschino@gmail.com>
+Tested-by: stanton_arch@mail.com
+Signed-off-by: Sergei Trofimovich <slyfox@gentoo.org>
 ---
- Documentation/vm/ksm.txt | 215 ++++++++++++++++++++++++-----------------------
- 1 file changed, 110 insertions(+), 105 deletions(-)
+ arch/ia64/kernel/unwind.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
 
-diff --git a/Documentation/vm/ksm.txt b/Documentation/vm/ksm.txt
-index 6686bd2..87e7eef 100644
---- a/Documentation/vm/ksm.txt
-+++ b/Documentation/vm/ksm.txt
-@@ -1,8 +1,11 @@
--How to use the Kernel Samepage Merging feature
------------------------------------------------
-+.. _ksm:
-+
-+===========+Kernel Samepage Merging
-+=========== 
- KSM is a memory-saving de-duplication feature, enabled by CONFIG_KSM=y,
--added to the Linux kernel in 2.6.32.  See mm/ksm.c for its implementation,
-+added to the Linux kernel in 2.6.32.  See ``mm/ksm.c`` for its implementation,
- and http://lwn.net/Articles/306704/ and http://lwn.net/Articles/330589/
- 
- The KSM daemon ksmd periodically scans those areas of user memory which
-@@ -51,110 +54,112 @@ Applications should be considerate in their use of MADV_MERGEABLE,
- restricting its use to areas likely to benefit.  KSM's scans may use a lot
- of processing power: some installations will disable KSM for that reason.
- 
--The KSM daemon is controlled by sysfs files in /sys/kernel/mm/ksm/,
-+The KSM daemon is controlled by sysfs files in ``/sys/kernel/mm/ksm/``,
- readable by all but writable only by root:
- 
--pages_to_scan    - how many present pages to scan before ksmd goes to sleep
--                   e.g. "echo 100 > /sys/kernel/mm/ksm/pages_to_scan"
--                   Default: 100 (chosen for demonstration purposes)
--
--sleep_millisecs  - how many milliseconds ksmd should sleep before next scan
--                   e.g. "echo 20 > /sys/kernel/mm/ksm/sleep_millisecs"
--                   Default: 20 (chosen for demonstration purposes)
--
--merge_across_nodes - specifies if pages from different numa nodes can be merged.
--                   When set to 0, ksm merges only pages which physically
--                   reside in the memory area of same NUMA node. That brings
--                   lower latency to access of shared pages. Systems with more
--                   nodes, at significant NUMA distances, are likely to benefit
--                   from the lower latency of setting 0. Smaller systems, which
--                   need to minimize memory usage, are likely to benefit from
--                   the greater sharing of setting 1 (default). You may wish to
--                   compare how your system performs under each setting, before
--                   deciding on which to use. merge_across_nodes setting can be
--                   changed only when there are no ksm shared pages in system:
--                   set run 2 to unmerge pages first, then to 1 after changing
--                   merge_across_nodes, to remerge according to the new setting.
--                   Default: 1 (merging across nodes as in earlier releases)
--
--run              - set 0 to stop ksmd from running but keep merged pages,
--                   set 1 to run ksmd e.g. "echo 1 > /sys/kernel/mm/ksm/run",
--                   set 2 to stop ksmd and unmerge all pages currently merged,
--                         but leave mergeable areas registered for next run
--                   Default: 0 (must be changed to 1 to activate KSM,
--                               except if CONFIG_SYSFS is disabled)
--
--use_zero_pages   - specifies whether empty pages (i.e. allocated pages
--                   that only contain zeroes) should be treated specially.
--                   When set to 1, empty pages are merged with the kernel
--                   zero page(s) instead of with each other as it would
--                   happen normally. This can improve the performance on
--                   architectures with coloured zero pages, depending on
--                   the workload. Care should be taken when enabling this
--                   setting, as it can potentially degrade the performance
--                   of KSM for some workloads, for example if the checksums
--                   of pages candidate for merging match the checksum of
--                   an empty page. This setting can be changed at any time,
--                   it is only effective for pages merged after the change.
--                   Default: 0 (normal KSM behaviour as in earlier releases)
--
--max_page_sharing - Maximum sharing allowed for each KSM page. This
--                   enforces a deduplication limit to avoid the virtual
--                   memory rmap lists to grow too large. The minimum
--                   value is 2 as a newly created KSM page will have at
--                   least two sharers. The rmap walk has O(N)
--                   complexity where N is the number of rmap_items
--                   (i.e. virtual mappings) that are sharing the page,
--                   which is in turn capped by max_page_sharing. So
--                   this effectively spread the the linear O(N)
--                   computational complexity from rmap walk context
--                   over different KSM pages. The ksmd walk over the
--                   stable_node "chains" is also O(N), but N is the
--                   number of stable_node "dups", not the number of
--                   rmap_items, so it has not a significant impact on
--                   ksmd performance. In practice the best stable_node
--                   "dup" candidate will be kept and found at the head
--                   of the "dups" list. The higher this value the
--                   faster KSM will merge the memory (because there
--                   will be fewer stable_node dups queued into the
--                   stable_node chain->hlist to check for pruning) and
--                   the higher the deduplication factor will be, but
--                   the slowest the worst case rmap walk could be for
--                   any given KSM page. Slowing down the rmap_walk
--                   means there will be higher latency for certain
--                   virtual memory operations happening during
--                   swapping, compaction, NUMA balancing and page
--                   migration, in turn decreasing responsiveness for
--                   the caller of those virtual memory operations. The
--                   scheduler latency of other tasks not involved with
--                   the VM operations doing the rmap walk is not
--                   affected by this parameter as the rmap walks are
--                   always schedule friendly themselves.
--
--stable_node_chains_prune_millisecs - How frequently to walk the whole
--                   list of stable_node "dups" linked in the
--                   stable_node "chains" in order to prune stale
--                   stable_nodes. Smaller milllisecs values will free
--                   up the KSM metadata with lower latency, but they
--                   will make ksmd use more CPU during the scan. This
--                   only applies to the stable_node chains so it's a
--                   noop if not a single KSM page hit the
--                   max_page_sharing yet (there would be no stable_node
--                   chains in such case).
--
--The effectiveness of KSM and MADV_MERGEABLE is shown in /sys/kernel/mm/ksm/:
--
--pages_shared     - how many shared pages are being used
--pages_sharing    - how many more sites are sharing them i.e. how much saved
--pages_unshared   - how many pages unique but repeatedly checked for merging
--pages_volatile   - how many pages changing too fast to be placed in a tree
--full_scans       - how many times all mergeable areas have been scanned
--
--stable_node_chains - number of stable node chains allocated, this is
--		     effectively the number of KSM pages that hit the
--		     max_page_sharing limit
--stable_node_dups   - number of stable node dups queued into the
--		     stable_node chains
-+pages_to_scan
-+        how many present pages to scan before ksmd goes to sleep
-+        e.g. ``echo 100 > /sys/kernel/mm/ksm/pages_to_scan`` Default: 100
-+        (chosen for demonstration purposes)
-+
-+sleep_millisecs
-+        how many milliseconds ksmd should sleep before next scan
-+        e.g. ``echo 20 > /sys/kernel/mm/ksm/sleep_millisecs`` Default: 20
-+        (chosen for demonstration purposes)
-+
-+merge_across_nodes
-+        specifies if pages from different numa nodes can be merged.
-+        When set to 0, ksm merges only pages which physically reside
-+        in the memory area of same NUMA node. That brings lower
-+        latency to access of shared pages. Systems with more nodes, at
-+        significant NUMA distances, are likely to benefit from the
-+        lower latency of setting 0. Smaller systems, which need to
-+        minimize memory usage, are likely to benefit from the greater
-+        sharing of setting 1 (default). You may wish to compare how
-+        your system performs under each setting, before deciding on
-+        which to use. merge_across_nodes setting can be changed only
-+        when there are no ksm shared pages in system: set run 2 to
-+        unmerge pages first, then to 1 after changing
-+        merge_across_nodes, to remerge according to the new setting.
-+        Default: 1 (merging across nodes as in earlier releases)
-+
-+run
-+        set 0 to stop ksmd from running but keep merged pages,
-+        set 1 to run ksmd e.g. ``echo 1 > /sys/kernel/mm/ksm/run``,
-+        set 2 to stop ksmd and unmerge all pages currently merged, but
-+        leave mergeable areas registered for next run Default: 0 (must
-+        be changed to 1 to activate KSM, except if CONFIG_SYSFS is
-+        disabled)
-+
-+use_zero_pages
-+        specifies whether empty pages (i.e. allocated pages that only
-+        contain zeroes) should be treated specially.  When set to 1,
-+        empty pages are merged with the kernel zero page(s) instead of
-+        with each other as it would happen normally. This can improve
-+        the performance on architectures with coloured zero pages,
-+        depending on the workload. Care should be taken when enabling
-+        this setting, as it can potentially degrade the performance of
-+        KSM for some workloads, for example if the checksums of pages
-+        candidate for merging match the checksum of an empty
-+        page. This setting can be changed at any time, it is only
-+        effective for pages merged after the change.  Default: 0
-+        (normal KSM behaviour as in earlier releases)
-+
-+max_page_sharing
-+        Maximum sharing allowed for each KSM page. This enforces a
-+        deduplication limit to avoid the virtual memory rmap lists to
-+        grow too large. The minimum value is 2 as a newly created KSM
-+        page will have at least two sharers. The rmap walk has O(N)
-+        complexity where N is the number of rmap_items (i.e. virtual
-+        mappings) that are sharing the page, which is in turn capped
-+        by max_page_sharing. So this effectively spread the the linear
-+        O(N) computational complexity from rmap walk context over
-+        different KSM pages. The ksmd walk over the stable_node
-+        "chains" is also O(N), but N is the number of stable_node
-+        "dups", not the number of rmap_items, so it has not a
-+        significant impact on ksmd performance. In practice the best
-+        stable_node "dup" candidate will be kept and found at the head
-+        of the "dups" list. The higher this value the faster KSM will
-+        merge the memory (because there will be fewer stable_node dups
-+        queued into the stable_node chain->hlist to check for pruning)
-+        and the higher the deduplication factor will be, but the
-+        slowest the worst case rmap walk could be for any given KSM
-+        page. Slowing down the rmap_walk means there will be higher
-+        latency for certain virtual memory operations happening during
-+        swapping, compaction, NUMA balancing and page migration, in
-+        turn decreasing responsiveness for the caller of those virtual
-+        memory operations. The scheduler latency of other tasks not
-+        involved with the VM operations doing the rmap walk is not
-+        affected by this parameter as the rmap walks are always
-+        schedule friendly themselves.
-+
-+stable_node_chains_prune_millisecs
-+        How frequently to walk the whole list of stable_node "dups"
-+        linked in the stable_node "chains" in order to prune stale
-+        stable_nodes. Smaller milllisecs values will free up the KSM
-+        metadata with lower latency, but they will make ksmd use more
-+        CPU during the scan. This only applies to the stable_node
-+        chains so it's a noop if not a single KSM page hit the
-+        max_page_sharing yet (there would be no stable_node chains in
-+        such case).
-+
-+The effectiveness of KSM and MADV_MERGEABLE is shown in ``/sys/kernel/mm/ksm/``:
-+
-+pages_shared
-+        how many shared pages are being used
-+pages_sharing
-+        how many more sites are sharing them i.e. how much saved
-+pages_unshared
-+        how many pages unique but repeatedly checked for merging
-+pages_volatile
-+        how many pages changing too fast to be placed in a tree
-+full_scans
-+        how many times all mergeable areas have been scanned
-+stable_node_chains
-+        number of stable node chains allocated, this is effectively
-+        the number of KSM pages that hit the max_page_sharing limit
-+stable_node_dups
-+        number of stable node dups queued into the stable_node chains
- 
- A high ratio of pages_sharing to pages_shared indicates good sharing, but
- a high ratio of pages_unshared to pages_sharing indicates wasted effort.
--- 
-2.7.4
+diff --git a/arch/ia64/kernel/unwind.c b/arch/ia64/kernel/unwind.c
+index e04efa088902..a18190bc99a9 100644
+--- a/arch/ia64/kernel/unwind.c
++++ b/arch/ia64/kernel/unwind.c
+@@ -2078,7 +2078,14 @@ unw_init_from_blocked_task (struct unw_frame_info *i=
+nfo, struct task_struct *t)
+ }
+ EXPORT_SYMBOL(unw_init_from_blocked_task);
+=20
+-static void
++/*
++ * We use 'noinline' to evade GCC bug https://gcc.gnu.org/PR84184
++ * where gcc code generator emits incorrect code when '__end_unwind'
++ * is const-propagated to 'end[-1].end_offset' and gcc generates
++ * incorrect code. The prigger there is negative offset relative
++ * to externally-defined symbol.
++ */
++noinline static void
+ init_unwind_table (struct unw_table *table, const char *name, unsigned lon=
+g segment_base,
+ 		   unsigned long gp, const void *table_start, const void *table_end)
+ {
+--=20
+2.16.2
 
