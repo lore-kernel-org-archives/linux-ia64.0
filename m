@@ -1,31 +1,106 @@
-From: Ilya Smith <blackzert@gmail.com>
-Date: Fri, 23 Mar 2018 17:49:03 +0000
-Subject: Re: [RFC PATCH v2 2/2] Architecture defined limit on memory region random shift.
-Message-Id: <548B6BB8-FD6F-4F8D-B67F-2809305C617D@gmail.com>
+From: Bjorn Helgaas <helgaas@kernel.org>
+Date: Tue, 13 Mar 2018 21:45:49 +0000
+Subject: [PATCH] PCI/MSI: Don't set up INTx if MSI or MSI-X is enabled
+Message-Id: <152097754955.241946.9551793957889760940.stgit@bhelgaas-glaptop.roam.corp.google.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1521736598-12812-1-git-send-email-blackzert@gmail.com>
- <1521736598-12812-3-git-send-email-blackzert@gmail.com>
- <20180322135448.046ada120ecd1ab3dd8f94aa@linux-foundation.org>
-In-Reply-To: <20180322135448.046ada120ecd1ab3dd8f94aa@linux-foundation.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>
-Cc: rth@twiddle.net, ink@jurassic.park.msu.ru, mattst88@gmail.com, vgupta@synopsys.com, linux@armlinux.org.uk, tony.luck@intel.com, fenghua.yu@intel.com, jhogan@kernel.org, ralf@linux-mips.org, jejb@parisc-linux.org, deller@gmx.de, benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au, schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, x86@kernel.org, nyc@holomorphy.com, viro@zeniv.linux.org.uk, arnd@arndb.de, gregkh@linuxfoundation.org, deepa.kernel@gmail.com, mhocko@suse.com, hughd@google.com, kstewart@linuxfoundation.org, pombredanne@nexb.com, steve.capper@arm.com, punit.agrawal@arm.com, paul.burton@mips.com, aneesh.kumar@linux.vnet.ibm.com, npiggin@gmail.com, keescook@chromium.org, bhsharma@redhat.com, riel@redhat.com, nitin.m.gupta@oracle.com, kirill.shutemov@linux.intel.com, dan.j.williams@intel.com, jack@suse.cz, ross.zwisler@linux.intel.com, jglisse@redhat.com, willy@infradead.org, aarcange@redhat.com, oleg@redhat.com, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-mm@kvack.org
+To: linux-pci@vger.kernel.org
+Cc: Mikael Starvik <starvik@axis.com>, Jesper Nilsson <jesper.nilsson@axis.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, David Howells <dhowells@redhat.com>, "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>, linux-cris-kernel@axis.com, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-am33-list@redhat.com
 
+From: Bjorn Helgaas <bhelgaas@google.com>
 
-> On 22 Mar 2018, at 23:54, Andrew Morton <akpm@linux-foundation.org> wrote:
-> 
-> 
-> Please add changelogs.  An explanation of what a "limit on memory
-> region random shift" is would be nice ;) Why does it exist, why are we
-> doing this, etc.  Surely there's something to be said - at present this
-> is just a lump of random code?
-> 
-> 
-> 
-Sorry, my bad. The main idea of this limit is to decrease possible memory 
-fragmentation. This is not so big problem on 64bit process, but really big for 
-32 bit processes since may cause failure memory allocation. To control memory 
-fragmentation and protect 32 bit systems (or architectures) this limit was 
-introduce by this patch. It could be also moved to CONFIG_ as well.
+If a device already has MSI or MSI-X enabled, there's no need to set up its
+legacy INTx interrupt.
+
+bba6f6fc68e7 ("[PATCH] MSI-X: fix resume crash") changed the cris, frv,
+x86, and ia64 arches to skip INTx setup when MSI is enabled.
+
+16cf0ebc35dd ("x86/PCI: Do not use interrupt links for devices using
+MSI-X") extended that by changing x86 to also skip INTx setup when MSI-X is
+enabled.
+
+Change the remaining arches (cris, frv, and ia64) to skip INTx setup when
+either MSI or MSI-X is enabled.
+
+Also update mn10300 (which didn't exist at the time of bba6f6fc68e7) to
+follow the same pattern.
+
+Signed-off-by: Bjorn Helgaas <bhelgaas@google.com>
+---
+ arch/cris/arch-v32/drivers/pci/bios.c |    2 +-
+ arch/frv/mb93090-mb00/pci-vdk.c       |    2 +-
+ arch/ia64/pci/pci.c                   |    4 ++--
+ arch/mn10300/unit-asb2305/pci.c       |    8 +++++---
+ 4 files changed, 9 insertions(+), 7 deletions(-)
+
+diff --git a/arch/cris/arch-v32/drivers/pci/bios.c b/arch/cris/arch-v32/drivers/pci/bios.c
+index 6b9e6cfaa29e..c2bed0cc060b 100644
+--- a/arch/cris/arch-v32/drivers/pci/bios.c
++++ b/arch/cris/arch-v32/drivers/pci/bios.c
+@@ -68,7 +68,7 @@ int pcibios_enable_device(struct pci_dev *dev, int mask)
+ 	if ((err = pcibios_enable_resources(dev, mask)) < 0)
+ 		return err;
+ 
+-	if (!dev->msi_enabled)
++	if (!pci_dev_msi_enabled(dev))
+ 		pcibios_enable_irq(dev);
+ 	return 0;
+ }
+diff --git a/arch/frv/mb93090-mb00/pci-vdk.c b/arch/frv/mb93090-mb00/pci-vdk.c
+index f211839e2cae..4a55d1b82d21 100644
+--- a/arch/frv/mb93090-mb00/pci-vdk.c
++++ b/arch/frv/mb93090-mb00/pci-vdk.c
+@@ -413,7 +413,7 @@ int pcibios_enable_device(struct pci_dev *dev, int mask)
+ 
+ 	if ((err = pci_enable_resources(dev, mask)) < 0)
+ 		return err;
+-	if (!dev->msi_enabled)
++	if (!pci_dev_msi_enabled(dev))
+ 		pcibios_enable_irq(dev);
+ 	return 0;
+ }
+diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
+index f5ec736100ee..7ccc64d5fe3e 100644
+--- a/arch/ia64/pci/pci.c
++++ b/arch/ia64/pci/pci.c
+@@ -398,7 +398,7 @@ pcibios_enable_device (struct pci_dev *dev, int mask)
+ 	if (ret < 0)
+ 		return ret;
+ 
+-	if (!dev->msi_enabled)
++	if (!pci_dev_msi_enabled(dev))
+ 		return acpi_pci_irq_enable(dev);
+ 	return 0;
+ }
+@@ -407,7 +407,7 @@ void
+ pcibios_disable_device (struct pci_dev *dev)
+ {
+ 	BUG_ON(atomic_read(&dev->enable_cnt));
+-	if (!dev->msi_enabled)
++	if (!pci_dev_msi_enabled(dev))
+ 		acpi_pci_irq_disable(dev);
+ }
+ 
+diff --git a/arch/mn10300/unit-asb2305/pci.c b/arch/mn10300/unit-asb2305/pci.c
+index 3dfe2d31c67b..4d36ea517679 100644
+--- a/arch/mn10300/unit-asb2305/pci.c
++++ b/arch/mn10300/unit-asb2305/pci.c
+@@ -399,10 +399,12 @@ int pcibios_enable_device(struct pci_dev *dev, int mask)
+ {
+ 	int err;
+ 
+-	err = pci_enable_resources(dev, mask);
+-	if (err = 0)
++	if ((err = pci_enable_resources(dev, mask)) < 0)
++		return err;
++
++	if (!pci_dev_msi_enabled(dev))
+ 		pcibios_enable_irq(dev);
+-	return err;
++	return 0;
+ }
+ 
+ /*
+
