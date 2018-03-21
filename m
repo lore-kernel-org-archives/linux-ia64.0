@@ -1,7 +1,7 @@
 From: Mike Rapoport <rppt@linux.vnet.ibm.com>
-Date: Wed, 21 Mar 2018 19:22:20 +0000
-Subject: [PATCH 04/32] docs/vm: frontswap.txt: convert to ReST format
-Message-Id: <1521660168-14372-5-git-send-email-rppt@linux.vnet.ibm.com>
+Date: Wed, 21 Mar 2018 19:22:28 +0000
+Subject: [PATCH 12/32] docs/vm: mmu_notifier.txt: convert to ReST format
+Message-Id: <1521660168-14372-13-git-send-email-rppt@linux.vnet.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1521660168-14372-1-git-send-email-rppt@linux.vnet.ibm.com>
 In-Reply-To: <1521660168-14372-1-git-send-email-rppt@linux.vnet.ibm.com>
@@ -13,135 +13,143 @@ Cc: Andrey Ryabinin <aryabinin@virtuozzo.com>, Richard Henderson <rth@twiddle.ne
 
 Signed-off-by: Mike Rapoport <rppt@linux.vnet.ibm.com>
 ---
- Documentation/vm/frontswap.txt | 59 ++++++++++++++++++++++++++----------------
- 1 file changed, 37 insertions(+), 22 deletions(-)
+ Documentation/vm/mmu_notifier.txt | 108 ++++++++++++++++++++------------------
+ 1 file changed, 57 insertions(+), 51 deletions(-)
 
-diff --git a/Documentation/vm/frontswap.txt b/Documentation/vm/frontswap.txt
-index c71a019..1979f43 100644
---- a/Documentation/vm/frontswap.txt
-+++ b/Documentation/vm/frontswap.txt
-@@ -1,13 +1,20 @@
-+.. _frontswap:
+diff --git a/Documentation/vm/mmu_notifier.txt b/Documentation/vm/mmu_notifier.txt
+index 23b4625..47baa1c 100644
+--- a/Documentation/vm/mmu_notifier.txt
++++ b/Documentation/vm/mmu_notifier.txt
+@@ -1,7 +1,10 @@
++.. _mmu_notifier:
 +
-+====+Frontswap
-+====+
- Frontswap provides a "transcendent memory" interface for swap pages.
- In some environments, dramatic performance savings may be obtained because
- swapped pages are saved in RAM (or a RAM-like device) instead of a swap disk.
+ When do you need to notify inside page table lock ?
++========================= 
+ When clearing a pte/pmd we are given a choice to notify the event through
+-(notify version of *_clear_flush call mmu_notifier_invalidate_range) under
++(notify version of \*_clear_flush call mmu_notifier_invalidate_range) under
+ the page table lock. But that notification is not necessary in all cases.
  
--(Note, frontswap -- and cleancache (merged at 3.0) -- are the "frontends"
-+(Note, frontswap -- and :ref:`cleancache` (merged at 3.0) -- are the "frontends"
- and the only necessary changes to the core kernel for transcendent memory;
- all other supporting code -- the "backends" -- is implemented as drivers.
--See the LWN.net article "Transcendent memory in a nutshell" for a detailed
--overview of frontswap and related kernel parts:
--https://lwn.net/Articles/454795/ )
-+See the LWN.net article `Transcendent memory in a nutshell`_
-+for a detailed overview of frontswap and related kernel parts)
+ For secondary TLB (non CPU TLB) like IOMMU TLB or device TLB (when device use
+@@ -18,6 +21,7 @@ a page that might now be used by some completely different task.
+ 
+ Case B is more subtle. For correctness it requires the following sequence to
+ happen:
 +
-+.. _Transcendent memory in a nutshell: https://lwn.net/Articles/454795/
+   - take page table lock
+   - clear page table entry and notify ([pmd/pte]p_huge_clear_flush_notify())
+   - set page table entry to point to new page
+@@ -28,58 +32,60 @@ the device.
  
- Frontswap is so named because it can be thought of as the opposite of
- a "backing" store for a swap device.  The storage is assumed to be
-@@ -50,19 +57,27 @@ or the store fails AND the page is invalidated.  This ensures stale data may
- never be obtained from frontswap.
+ Consider the following scenario (device use a feature similar to ATS/PASID):
  
- If properly configured, monitoring of frontswap is done via debugfs in
--the /sys/kernel/debug/frontswap directory.  The effectiveness of
-+the `/sys/kernel/debug/frontswap` directory.  The effectiveness of
- frontswap can be measured (across all swap devices) with:
+-Two address addrA and addrB such that |addrA - addrB| >= PAGE_SIZE we assume
++Two address addrA and addrB such that \|addrA - addrB\| >= PAGE_SIZE we assume
+ they are write protected for COW (other case of B apply too).
  
--failed_stores	- how many store attempts have failed
--loads		- how many loads were attempted (all should succeed)
--succ_stores	- how many store attempts have succeeded
--invalidates	- how many invalidates were attempted
-+``failed_stores``
-+	how many store attempts have failed
+-[Time N] --------------------------------------------------------------------
+-CPU-thread-0  {try to write to addrA}
+-CPU-thread-1  {try to write to addrB}
+-CPU-thread-2  {}
+-CPU-thread-3  {}
+-DEV-thread-0  {read addrA and populate device TLB}
+-DEV-thread-2  {read addrB and populate device TLB}
+-[Time N+1] ------------------------------------------------------------------
+-CPU-thread-0  {COW_step0: {mmu_notifier_invalidate_range_start(addrA)}}
+-CPU-thread-1  {COW_step0: {mmu_notifier_invalidate_range_start(addrB)}}
+-CPU-thread-2  {}
+-CPU-thread-3  {}
+-DEV-thread-0  {}
+-DEV-thread-2  {}
+-[Time N+2] ------------------------------------------------------------------
+-CPU-thread-0  {COW_step1: {update page table to point to new page for addrA}}
+-CPU-thread-1  {COW_step1: {update page table to point to new page for addrB}}
+-CPU-thread-2  {}
+-CPU-thread-3  {}
+-DEV-thread-0  {}
+-DEV-thread-2  {}
+-[Time N+3] ------------------------------------------------------------------
+-CPU-thread-0  {preempted}
+-CPU-thread-1  {preempted}
+-CPU-thread-2  {write to addrA which is a write to new page}
+-CPU-thread-3  {}
+-DEV-thread-0  {}
+-DEV-thread-2  {}
+-[Time N+3] ------------------------------------------------------------------
+-CPU-thread-0  {preempted}
+-CPU-thread-1  {preempted}
+-CPU-thread-2  {}
+-CPU-thread-3  {write to addrB which is a write to new page}
+-DEV-thread-0  {}
+-DEV-thread-2  {}
+-[Time N+4] ------------------------------------------------------------------
+-CPU-thread-0  {preempted}
+-CPU-thread-1  {COW_step3: {mmu_notifier_invalidate_range_end(addrB)}}
+-CPU-thread-2  {}
+-CPU-thread-3  {}
+-DEV-thread-0  {}
+-DEV-thread-2  {}
+-[Time N+5] ------------------------------------------------------------------
+-CPU-thread-0  {preempted}
+-CPU-thread-1  {}
+-CPU-thread-2  {}
+-CPU-thread-3  {}
+-DEV-thread-0  {read addrA from old page}
+-DEV-thread-2  {read addrB from new page}
++::
 +
-+``loads``
-+	how many loads were attempted (all should succeed)
-+
-+``succ_stores``
-+	how many store attempts have succeeded
-+
-+``invalidates``
-+	how many invalidates were attempted
++ [Time N] --------------------------------------------------------------------
++ CPU-thread-0  {try to write to addrA}
++ CPU-thread-1  {try to write to addrB}
++ CPU-thread-2  {}
++ CPU-thread-3  {}
++ DEV-thread-0  {read addrA and populate device TLB}
++ DEV-thread-2  {read addrB and populate device TLB}
++ [Time N+1] ------------------------------------------------------------------
++ CPU-thread-0  {COW_step0: {mmu_notifier_invalidate_range_start(addrA)}}
++ CPU-thread-1  {COW_step0: {mmu_notifier_invalidate_range_start(addrB)}}
++ CPU-thread-2  {}
++ CPU-thread-3  {}
++ DEV-thread-0  {}
++ DEV-thread-2  {}
++ [Time N+2] ------------------------------------------------------------------
++ CPU-thread-0  {COW_step1: {update page table to point to new page for addrA}}
++ CPU-thread-1  {COW_step1: {update page table to point to new page for addrB}}
++ CPU-thread-2  {}
++ CPU-thread-3  {}
++ DEV-thread-0  {}
++ DEV-thread-2  {}
++ [Time N+3] ------------------------------------------------------------------
++ CPU-thread-0  {preempted}
++ CPU-thread-1  {preempted}
++ CPU-thread-2  {write to addrA which is a write to new page}
++ CPU-thread-3  {}
++ DEV-thread-0  {}
++ DEV-thread-2  {}
++ [Time N+3] ------------------------------------------------------------------
++ CPU-thread-0  {preempted}
++ CPU-thread-1  {preempted}
++ CPU-thread-2  {}
++ CPU-thread-3  {write to addrB which is a write to new page}
++ DEV-thread-0  {}
++ DEV-thread-2  {}
++ [Time N+4] ------------------------------------------------------------------
++ CPU-thread-0  {preempted}
++ CPU-thread-1  {COW_step3: {mmu_notifier_invalidate_range_end(addrB)}}
++ CPU-thread-2  {}
++ CPU-thread-3  {}
++ DEV-thread-0  {}
++ DEV-thread-2  {}
++ [Time N+5] ------------------------------------------------------------------
++ CPU-thread-0  {preempted}
++ CPU-thread-1  {}
++ CPU-thread-2  {}
++ CPU-thread-3  {}
++ DEV-thread-0  {read addrA from old page}
++ DEV-thread-2  {read addrB from new page}
  
- A backend implementation may provide additional metrics.
- 
- FAQ
-+= 
--1) Where's the value?
-+* Where's the value?
- 
- When a workload starts swapping, performance falls through the floor.
- Frontswap significantly increases performance in many such workloads by
-@@ -117,8 +132,8 @@ A KVM implementation is underway and has been RFC'ed to lkml.  And,
- using frontswap, investigation is also underway on the use of NVM as
- a memory extension technology.
- 
--2) Sure there may be performance advantages in some situations, but
--   what's the space/time overhead of frontswap?
-+* Sure there may be performance advantages in some situations, but
-+  what's the space/time overhead of frontswap?
- 
- If CONFIG_FRONTSWAP is disabled, every frontswap hook compiles into
- nothingness and the only overhead is a few extra bytes per swapon'ed
-@@ -148,8 +163,8 @@ pressure that can potentially outweigh the other advantages.  A
- backend, such as zcache, must implement policies to carefully (but
- dynamically) manage memory limits to ensure this doesn't happen.
- 
--3) OK, how about a quick overview of what this frontswap patch does
--   in terms that a kernel hacker can grok?
-+* OK, how about a quick overview of what this frontswap patch does
-+  in terms that a kernel hacker can grok?
- 
- Let's assume that a frontswap "backend" has registered during
- kernel initialization; this registration indicates that this
-@@ -188,9 +203,9 @@ and (potentially) a swap device write are replaced by a "frontswap backend
- store" and (possibly) a "frontswap backend loads", which are presumably much
- faster.
- 
--4) Can't frontswap be configured as a "special" swap device that is
--   just higher priority than any real swap device (e.g. like zswap,
--   or maybe swap-over-nbd/NFS)?
-+* Can't frontswap be configured as a "special" swap device that is
-+  just higher priority than any real swap device (e.g. like zswap,
-+  or maybe swap-over-nbd/NFS)?
- 
- No.  First, the existing swap subsystem doesn't allow for any kind of
- swap hierarchy.  Perhaps it could be rewritten to accommodate a hierarchy,
-@@ -240,9 +255,9 @@ installation, frontswap is useless.  Swapless portable devices
- can still use frontswap but a backend for such devices must configure
- some kind of "ghost" swap device and ensure that it is never used.
- 
--5) Why this weird definition about "duplicate stores"?  If a page
--   has been previously successfully stored, can't it always be
--   successfully overwritten?
-+* Why this weird definition about "duplicate stores"?  If a page
-+  has been previously successfully stored, can't it always be
-+  successfully overwritten?
- 
- Nearly always it can, but no, sometimes it cannot.  Consider an example
- where data is compressed and the original 4K page has been compressed
-@@ -254,7 +269,7 @@ the old data and ensure that it is no longer accessible.  Since the
- swap subsystem then writes the new data to the read swap device,
- this is the correct course of action to ensure coherency.
- 
--6) What is frontswap_shrink for?
-+* What is frontswap_shrink for?
- 
- When the (non-frontswap) swap subsystem swaps out a page to a real
- swap device, that page is only taking up low-value pre-allocated disk
-@@ -267,7 +282,7 @@ to "repatriate" pages sent to a remote machine back to the local machine;
- this is driven using the frontswap_shrink mechanism when memory pressure
- subsides.
- 
--7) Why does the frontswap patch create the new include file swapfile.h?
-+* Why does the frontswap patch create the new include file swapfile.h?
- 
- The frontswap code depends on some swap-subsystem-internal data
- structures that have, over the years, moved back and forth between
+ So here because at time N+2 the clear page table entry was not pair with a
+ notification to invalidate the secondary TLB, the device see the new value for
 -- 
 2.7.4
 
