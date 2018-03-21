@@ -1,52 +1,202 @@
-From: Jonathan Corbet <corbet@lwn.net>
-Date: Thu, 29 Mar 2018 21:46:07 +0000
-Subject: Re: [PATCH 00/32] docs/vm: convert to ReST format
-Message-Id: <20180329154607.3d8bda75@lwn.net>
+From: Mike Rapoport <rppt@linux.vnet.ibm.com>
+Date: Wed, 21 Mar 2018 19:22:17 +0000
+Subject: [PATCH 01/32] docs/vm: active_mm.txt convert to ReST format
+Message-Id: <1521660168-14372-2-git-send-email-rppt@linux.vnet.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1521660168-14372-1-git-send-email-rppt@linux.vnet.ibm.com>
 In-Reply-To: <1521660168-14372-1-git-send-email-rppt@linux.vnet.ibm.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Mike Rapoport <rppt@linux.vnet.ibm.com>
-Cc: Andrey Ryabinin <aryabinin@virtuozzo.com>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Ralf Baechle <ralf@linux-mips.org>, James Hogan <jhogan@kernel.org>, Michael Ellerman <mpe@ellerman.id.au>, Alexander Viro <viro@zeniv.linux.org.uk>, linux-kernel@vger.kernel.org, linux-doc@vger.kernel.org, kasan-dev@googlegroups.com, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linuxppc-dev@lists.ozlabs.org, linux-fsdevel@vger.kernel.org, linux-mm@kvack.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: quoted-printable
+To: Jonathan Corbet <corbet@lwn.net>
+Cc: Andrey Ryabinin <aryabinin@virtuozzo.com>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Ralf Baechle <ralf@linux-mips.org>, James Hogan <jhogan@kernel.org>, Michael Ellerman <mpe@ellerman.id.au>, Alexander Viro <viro@zeniv.linux.org.uk>, linux-kernel@vger.kernel.org, linux-doc@vger.kernel.org, kasan-dev@googlegroups.com, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linuxppc-dev@lists.ozlabs.org, linux-fsdevel@vger.kernel.org, linux-mm@kvack.org, Mike Rapoport <rppt@linux.vnet.ibm.com>
 
-On Wed, 21 Mar 2018 21:22:16 +0200
-Mike Rapoport <rppt@linux.vnet.ibm.com> wrote:
+Just add a label for cross-referencing and indent the text to make it
+``literal``
 
-> These patches convert files in Documentation/vm to ReST format, add an
-> initial index and link it to the top level documentation.
-> 
-> There are no contents changes in the documentation, except few spelling
-> fixes. The relatively large diffstat stems from the indentation and
-> paragraph wrapping changes.
-> 
-> I've tried to keep the formatting as consistent as possible, but I could
-> miss some places that needed markup and add some markup where it was not
-> necessary.
+Signed-off-by: Mike Rapoport <rppt@linux.vnet.ibm.com>
+---
+ Documentation/vm/active_mm.txt | 174 +++++++++++++++++++++----------------=
+----
+ 1 file changed, 91 insertions(+), 83 deletions(-)
 
-So I've been pondering on these for a bit.  It looks like a reasonable and
-straightforward RST conversion, no real complaints there.  But I do have a
-couple of concerns...
+diff --git a/Documentation/vm/active_mm.txt b/Documentation/vm/active_mm.txt
+index dbf4581..c84471b 100644
+--- a/Documentation/vm/active_mm.txt
++++ b/Documentation/vm/active_mm.txt
+@@ -1,83 +1,91 @@
+-List:       linux-kernel
+-Subject:    Re: active_mm
+-From:       Linus Torvalds <torvalds () transmeta ! com>
+-Date:       1999-07-30 21:36:24
+-
+-Cc'd to linux-kernel, because I don't write explanations all that often,
+-and when I do I feel better about more people reading them.
+-
+-On Fri, 30 Jul 1999, David Mosberger wrote:
+->
+-> Is there a brief description someplace on how "mm" vs. "active_mm" in
+-> the task_struct are supposed to be used?  (My apologies if this was
+-> discussed on the mailing lists---I just returned from vacation and
+-> wasn't able to follow linux-kernel for a while).
+-
+-Basically, the new setup is:
+-
+- - we have "real address spaces" and "anonymous address spaces". The
+-   difference is that an anonymous address space doesn't care about the
+-   user-level page tables at all, so when we do a context switch into an
+-   anonymous address space we just leave the previous address space
+-   active.
+-
+-   The obvious use for a "anonymous address space" is any thread that
+-   doesn't need any user mappings - all kernel threads basically fall into
+-   this category, but even "real" threads can temporarily say that for
+-   some amount of time they are not going to be interested in user space,
+-   and that the scheduler might as well try to avoid wasting time on
+-   switching the VM state around. Currently only the old-style bdflush
+-   sync does that.
+-
+- - "tsk->mm" points to the "real address space". For an anonymous process,
+-   tsk->mm will be NULL, for the logical reason that an anonymous process
+-   really doesn't _have_ a real address space at all.
+-
+- - however, we obviously need to keep track of which address space we
+-   "stole" for such an anonymous user. For that, we have "tsk->active_mm",
+-   which shows what the currently active address space is.
+-
+-   The rule is that for a process with a real address space (ie tsk->mm is
+-   non-NULL) the active_mm obviously always has to be the same as the real
+-   one.
+-
+-   For a anonymous process, tsk->mm =3D NULL, and tsk->active_mm is the
+-   "borrowed" mm while the anonymous process is running. When the
+-   anonymous process gets scheduled away, the borrowed address space is
+-   returned and cleared.
+-
+-To support all that, the "struct mm_struct" now has two counters: a
+-"mm_users" counter that is how many "real address space users" there are,
+-and a "mm_count" counter that is the number of "lazy" users (ie anonymous
+-users) plus one if there are any real users.
+-
+-Usually there is at least one real user, but it could be that the real
+-user exited on another CPU while a lazy user was still active, so you do
+-actually get cases where you have a address space that is _only_ used by
+-lazy users. That is often a short-lived state, because once that thread
+-gets scheduled away in favour of a real thread, the "zombie" mm gets
+-released because "mm_users" becomes zero.
+-
+-Also, a new rule is that _nobody_ ever has "init_mm" as a real MM any
+-more. "init_mm" should be considered just a "lazy context when no other
+-context is available", and in fact it is mainly used just at bootup when
+-no real VM has yet been created. So code that used to check
+-
+-	if (current->mm =3D &init_mm)
+-
+-should generally just do
+-
+-	if (!current->mm)
+-
+-instead (which makes more sense anyway - the test is basically one of "do
+-we have a user context", and is generally done by the page fault handler
+-and things like that).
+-
+-Anyway, I put a pre-patch-2.3.13-1 on ftp.kernel.org just a moment ago,
+-because it slightly changes the interfaces to accommodate the alpha (who
+-would have thought it, but the alpha actually ends up having one of the
+-ugliest context switch codes - unlike the other architectures where the MM
+-and register state is separate, the alpha PALcode joins the two, and you
+-need to switch both together).
+-
+-(From http://marc.info/?l=3Dlinux-kernel&m=93337278602211&w=3D2)
++.. _active_mm:
++
++=3D=3D=3D=3D+Active MM
++=3D=3D=3D=3D+
++::
++
++ List:       linux-kernel
++ Subject:    Re: active_mm
++ From:       Linus Torvalds <torvalds () transmeta ! com>
++ Date:       1999-07-30 21:36:24
++
++ Cc'd to linux-kernel, because I don't write explanations all that often,
++ and when I do I feel better about more people reading them.
++
++ On Fri, 30 Jul 1999, David Mosberger wrote:
++ >
++ > Is there a brief description someplace on how "mm" vs. "active_mm" in
++ > the task_struct are supposed to be used?  (My apologies if this was
++ > discussed on the mailing lists---I just returned from vacation and
++ > wasn't able to follow linux-kernel for a while).
++
++ Basically, the new setup is:
++
++  - we have "real address spaces" and "anonymous address spaces". The
++    difference is that an anonymous address space doesn't care about the
++    user-level page tables at all, so when we do a context switch into an
++    anonymous address space we just leave the previous address space
++    active.
++
++    The obvious use for a "anonymous address space" is any thread that
++    doesn't need any user mappings - all kernel threads basically fall into
++    this category, but even "real" threads can temporarily say that for
++    some amount of time they are not going to be interested in user space,
++    and that the scheduler might as well try to avoid wasting time on
++    switching the VM state around. Currently only the old-style bdflush
++    sync does that.
++
++  - "tsk->mm" points to the "real address space". For an anonymous process,
++    tsk->mm will be NULL, for the logical reason that an anonymous process
++    really doesn't _have_ a real address space at all.
++
++  - however, we obviously need to keep track of which address space we
++    "stole" for such an anonymous user. For that, we have "tsk->active_mm",
++    which shows what the currently active address space is.
++
++    The rule is that for a process with a real address space (ie tsk->mm is
++    non-NULL) the active_mm obviously always has to be the same as the real
++    one.
++
++    For a anonymous process, tsk->mm =3D NULL, and tsk->active_mm is the
++    "borrowed" mm while the anonymous process is running. When the
++    anonymous process gets scheduled away, the borrowed address space is
++    returned and cleared.
++
++ To support all that, the "struct mm_struct" now has two counters: a
++ "mm_users" counter that is how many "real address space users" there are,
++ and a "mm_count" counter that is the number of "lazy" users (ie anonymous
++ users) plus one if there are any real users.
++
++ Usually there is at least one real user, but it could be that the real
++ user exited on another CPU while a lazy user was still active, so you do
++ actually get cases where you have a address space that is _only_ used by
++ lazy users. That is often a short-lived state, because once that thread
++ gets scheduled away in favour of a real thread, the "zombie" mm gets
++ released because "mm_users" becomes zero.
++
++ Also, a new rule is that _nobody_ ever has "init_mm" as a real MM any
++ more. "init_mm" should be considered just a "lazy context when no other
++ context is available", and in fact it is mainly used just at bootup when
++ no real VM has yet been created. So code that used to check
++
++ 	if (current->mm =3D &init_mm)
++
++ should generally just do
++
++ 	if (!current->mm)
++
++ instead (which makes more sense anyway - the test is basically one of "do
++ we have a user context", and is generally done by the page fault handler
++ and things like that).
++
++ Anyway, I put a pre-patch-2.3.13-1 on ftp.kernel.org just a moment ago,
++ because it slightly changes the interfaces to accommodate the alpha (who
++ would have thought it, but the alpha actually ends up having one of the
++ ugliest context switch codes - unlike the other architectures where the MM
++ and register state is separate, the alpha PALcode joins the two, and you
++ need to switch both together).
++
++ (From http://marc.info/?l=3Dlinux-kernel&m=93337278602211&w=3D2)
+--=20
+2.7.4
 
-One is that, as we move documentation into RST, I'm really trying to
-organize it a bit so that it is better tuned to the various audiences we
-have.  For example, ksm.txt is going to be of interest to sysadmin types,
-who might want to tune it.  mmu_notifier.txt is of interest to ...
-somebody, but probably nobody who is thinking in user space.  And so on.
-
-So I would really like to see this material split up and put into the
-appropriate places in the RST hierarchy - admin-guide for administrative
-stuff, core-api for kernel development topics, etc.  That, of course,
-could be done separately from the RST conversion, but I suspect I know
-what will (or will not) happen if we agree to defer that for now :)
-
-The other is the inevitable merge conflicts that changing that many doc
-files will create.  Sending the patches through Andrew could minimize
-that, I guess, or at least make it his problem.  Alternatively, we could
-try to do it as an end-of-merge-window sort of thing.  I can try to manage
-that, but an ack or two from the mm crowd would be nice to have.
-
-Thanks,
-
-jon
