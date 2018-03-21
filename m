@@ -1,7 +1,7 @@
 From: Mike Rapoport <rppt@linux.vnet.ibm.com>
-Date: Wed, 21 Mar 2018 19:22:25 +0000
-Subject: [PATCH 09/32] docs/vm: hwpoison.txt: convert to ReST format
-Message-Id: <1521660168-14372-10-git-send-email-rppt@linux.vnet.ibm.com>
+Date: Wed, 21 Mar 2018 19:22:30 +0000
+Subject: [PATCH 14/32] docs/vm: overcommit-accounting: convert to ReST format
+Message-Id: <1521660168-14372-15-git-send-email-rppt@linux.vnet.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1521660168-14372-1-git-send-email-rppt@linux.vnet.ibm.com>
 In-Reply-To: <1521660168-14372-1-git-send-email-rppt@linux.vnet.ibm.com>
@@ -13,213 +13,147 @@ Cc: Andrey Ryabinin <aryabinin@virtuozzo.com>, Richard Henderson <rth@twiddle.ne
 
 Signed-off-by: Mike Rapoport <rppt@linux.vnet.ibm.com>
 ---
- Documentation/vm/hwpoison.txt | 141 +++++++++++++++++++++---------------------
- 1 file changed, 70 insertions(+), 71 deletions(-)
+ Documentation/vm/overcommit-accounting | 107 ++++++++++++++++++---------------
+ 1 file changed, 57 insertions(+), 50 deletions(-)
 
-diff --git a/Documentation/vm/hwpoison.txt b/Documentation/vm/hwpoison.txt
-index e912d7e..b1a8c24 100644
---- a/Documentation/vm/hwpoison.txt
-+++ b/Documentation/vm/hwpoison.txt
-@@ -1,7 +1,14 @@
-+.. hwpoison:
+diff --git a/Documentation/vm/overcommit-accounting b/Documentation/vm/overcommit-accounting
+index cbfaaa6..0dd54bb 100644
+--- a/Documentation/vm/overcommit-accounting
++++ b/Documentation/vm/overcommit-accounting
+@@ -1,80 +1,87 @@
++.. _overcommit_accounting:
 +
-+====
-+hwpoison
-+====
-+
- What is hwpoison?
-+======== 
- Upcoming Intel CPUs have support for recovering from some memory errors
--(``MCA recovery''). This requires the OS to declare a page "poisoned",
-+(``MCA recovery``). This requires the OS to declare a page "poisoned",
- kill the processes associated with it and avoid using it in the future.
++==========+Overcommit Accounting
++==========+
+ The Linux kernel supports the following overcommit handling modes
  
- This patchkit implements the necessary infrastructure in the VM.
-@@ -46,9 +53,10 @@ address. This in theory allows other applications to handle
- memory failures too. The expection is that near all applications
- won't do that, but some very specialized ones might.
+-0	-	Heuristic overcommit handling. Obvious overcommits of
+-		address space are refused. Used for a typical system. It
+-		ensures a seriously wild allocation fails while allowing
+-		overcommit to reduce swap usage.  root is allowed to 
+-		allocate slightly more memory in this mode. This is the 
+-		default.
++0
++	Heuristic overcommit handling. Obvious overcommits of address
++	space are refused. Used for a typical system. It ensures a
++	seriously wild allocation fails while allowing overcommit to
++	reduce swap usage.  root is allowed to allocate slightly more
++	memory in this mode. This is the default.
  
-----
-+Failure recovery modes
-+===========
+-1	-	Always overcommit. Appropriate for some scientific
+-		applications. Classic example is code using sparse arrays
+-		and just relying on the virtual memory consisting almost
+-		entirely of zero pages.
++1
++	Always overcommit. Appropriate for some scientific
++	applications. Classic example is code using sparse arrays and
++	just relying on the virtual memory consisting almost entirely
++	of zero pages.
  
--There are two (actually three) modi memory failure recovery can be in:
-+There are two (actually three) modes memory failure recovery can be in:
+-2	-	Don't overcommit. The total address space commit
+-		for the system is not permitted to exceed swap + a
+-		configurable amount (default is 50%) of physical RAM.
+-		Depending on the amount you use, in most situations
+-		this means a process will not be killed while accessing
+-		pages but will receive errors on memory allocation as
+-		appropriate.
++2
++	Don't overcommit. The total address space commit for the
++	system is not permitted to exceed swap + a configurable amount
++	(default is 50%) of physical RAM.  Depending on the amount you
++	use, in most situations this means a process will not be
++	killed while accessing pages but will receive errors on memory
++	allocation as appropriate.
  
- vm.memory_failure_recovery sysctl set to zero:
- 	All memory failures cause a panic. Do not attempt recovery.
-@@ -67,9 +75,8 @@ late kill
- 	This is best for memory error unaware applications and default
- 	Note some pages are always handled as late kill.
+-		Useful for applications that want to guarantee their
+-		memory allocations will be available in the future
+-		without having to initialize every page.
++	Useful for applications that want to guarantee their memory
++	allocations will be available in the future without having to
++	initialize every page.
  
-----
--
--User control:
-+User control
+-The overcommit policy is set via the sysctl `vm.overcommit_memory'.
++The overcommit policy is set via the sysctl ``vm.overcommit_memory``.
+ 
+-The overcommit amount can be set via `vm.overcommit_ratio' (percentage)
+-or `vm.overcommit_kbytes' (absolute value).
++The overcommit amount can be set via ``vm.overcommit_ratio`` (percentage)
++or ``vm.overcommit_kbytes`` (absolute value).
+ 
+ The current overcommit limit and amount committed are viewable in
+-/proc/meminfo as CommitLimit and Committed_AS respectively.
++``/proc/meminfo`` as CommitLimit and Committed_AS respectively.
+ 
+ Gotchas
+--------
++=== 
+ The C language stack growth does an implicit mremap. If you want absolute
+-guarantees and run close to the edge you MUST mmap your stack for the 
++guarantees and run close to the edge you MUST mmap your stack for the
+ largest size you think you will need. For typical stack usage this does
+ not matter much but it's a corner case if you really really care
+ 
+-In mode 2 the MAP_NORESERVE flag is ignored. 
++In mode 2 the MAP_NORESERVE flag is ignored.
+ 
+ 
+ How It Works
+-------------
 +======
  
- vm.memory_failure_recovery
- 	See sysctl.txt
-@@ -79,11 +86,19 @@ vm.memory_failure_early_kill
+ The overcommit is based on the following rules
  
- PR_MCE_KILL
- 	Set early/late kill mode/revert to system default
--	arg1: PR_MCE_KILL_CLEAR: Revert to system default
--	arg1: PR_MCE_KILL_SET: arg2 defines thread specific mode
--		PR_MCE_KILL_EARLY: Early kill
--		PR_MCE_KILL_LATE:  Late kill
--		PR_MCE_KILL_DEFAULT: Use system global default
+ For a file backed map
+-	SHARED or READ-only	-	0 cost (the file is the map not swap)
+-	PRIVATE WRITABLE	-	size of mapping per instance
++	| SHARED or READ-only	-	0 cost (the file is the map not swap)
++	| PRIVATE WRITABLE	-	size of mapping per instance
+ 
+-For an anonymous or /dev/zero map
+-	SHARED			-	size of mapping
+-	PRIVATE READ-only	-	0 cost (but of little use)
+-	PRIVATE WRITABLE	-	size of mapping per instance
++For an anonymous or ``/dev/zero`` map
++	| SHARED			-	size of mapping
++	| PRIVATE READ-only	-	0 cost (but of little use)
++	| PRIVATE WRITABLE	-	size of mapping per instance
+ 
+ Additional accounting
+-	Pages made writable copies by mmap
+-	shmfs memory drawn from the same pool
++	| Pages made writable copies by mmap
++	| shmfs memory drawn from the same pool
+ 
+ Status
+-------
+-
+-o	We account mmap memory mappings
+-o	We account mprotect changes in commit
+-o	We account mremap changes in size
+-o	We account brk
+-o	We account munmap
+-o	We report the commit status in /proc
+-o	Account and check on fork
+-o	Review stack handling/building on exec
+-o	SHMfs accounting
+-o	Implement actual limit enforcement
++===
 +
-+	arg1: PR_MCE_KILL_CLEAR:
-+		Revert to system default
-+	arg1: PR_MCE_KILL_SET:
-+		arg2 defines thread specific mode
-+
-+		PR_MCE_KILL_EARLY:
-+			Early kill
-+		PR_MCE_KILL_LATE:
-+			Late kill
-+		PR_MCE_KILL_DEFAULT
-+			Use system global default
-+
- 	Note that if you want to have a dedicated thread which handles
- 	the SIGBUS(BUS_MCEERR_AO) on behalf of the process, you should
- 	call prctl(PR_MCE_KILL_EARLY) on the designated thread. Otherwise,
-@@ -92,77 +107,64 @@ PR_MCE_KILL
- PR_MCE_KILL_GET
- 	return current mode
++*	We account mmap memory mappings
++*	We account mprotect changes in commit
++*	We account mremap changes in size
++*	We account brk
++*	We account munmap
++*	We report the commit status in /proc
++*	Account and check on fork
++*	Review stack handling/building on exec
++*	SHMfs accounting
++*	Implement actual limit enforcement
  
-+Testing
-+=== 
-----
--
--Testing:
--
--madvise(MADV_HWPOISON, ....)
--	(as root)
--	Poison a page in the process for testing
--
-+* madvise(MADV_HWPOISON, ....) (as root) - Poison a page in the
-+  process for testing
- 
--hwpoison-inject module through debugfs
-+* hwpoison-inject module through debugfs ``/sys/kernel/debug/hwpoison/``
- 
--/sys/kernel/debug/hwpoison/
-+  corrupt-pfn
-+	Inject hwpoison fault at PFN echoed into this file. This does
-+	some early filtering to avoid corrupted unintended pages in test suites.
- 
--corrupt-pfn
-+  unpoison-pfn
-+	Software-unpoison page at PFN echoed into this file. This way
-+	a page can be reused again.  This only works for Linux
-+	injected failures, not for real memory failures.
- 
--Inject hwpoison fault at PFN echoed into this file. This does
--some early filtering to avoid corrupted unintended pages in test suites.
-+  Note these injection interfaces are not stable and might change between
-+  kernel versions
- 
--unpoison-pfn
-+  corrupt-filter-dev-major, corrupt-filter-dev-minor
-+	Only handle memory failures to pages associated with the file
-+	system defined by block device major/minor.  -1U is the
-+	wildcard value.  This should be only used for testing with
-+	artificial injection.
- 
--Software-unpoison page at PFN echoed into this file. This
--way a page can be reused again.
--This only works for Linux injected failures, not for real
--memory failures.
-+  corrupt-filter-memcg
-+	Limit injection to pages owned by memgroup. Specified by inode
-+	number of the memcg.
- 
--Note these injection interfaces are not stable and might change between
--kernel versions
-+	Example::
- 
--corrupt-filter-dev-major
--corrupt-filter-dev-minor
-+		mkdir /sys/fs/cgroup/mem/hwpoison
- 
--Only handle memory failures to pages associated with the file system defined
--by block device major/minor.  -1U is the wildcard value.
--This should be only used for testing with artificial injection.
-+	        usemem -m 100 -s 1000 &
-+		echo `jobs -p` > /sys/fs/cgroup/mem/hwpoison/tasks
- 
--corrupt-filter-memcg
-+		memcg_ino=$(ls -id /sys/fs/cgroup/mem/hwpoison | cut -f1 -d' ')
-+		echo $memcg_ino > /debug/hwpoison/corrupt-filter-memcg
- 
--Limit injection to pages owned by memgroup. Specified by inode number
--of the memcg.
-+		page-types -p `pidof init`   --hwpoison  # shall do nothing
-+		page-types -p `pidof usemem` --hwpoison  # poison its pages
- 
--Example:
--        mkdir /sys/fs/cgroup/mem/hwpoison
-+  corrupt-filter-flags-mask, corrupt-filter-flags-value
-+	When specified, only poison pages if ((page_flags & mask) =
-+	value).  This allows stress testing of many kinds of
-+	pages. The page_flags are the same as in /proc/kpageflags. The
-+	flag bits are defined in include/linux/kernel-page-flags.h and
-+	documented in Documentation/vm/pagemap.txt
- 
--        usemem -m 100 -s 1000 &
--        echo `jobs -p` > /sys/fs/cgroup/mem/hwpoison/tasks
-+* Architecture specific MCE injector
- 
--        memcg_ino=$(ls -id /sys/fs/cgroup/mem/hwpoison | cut -f1 -d' ')
--        echo $memcg_ino > /debug/hwpoison/corrupt-filter-memcg
-+  x86 has mce-inject, mce-test
- 
--        page-types -p `pidof init`   --hwpoison  # shall do nothing
--        page-types -p `pidof usemem` --hwpoison  # poison its pages
-+  Some portable hwpoison test programs in mce-test, see below.
- 
--corrupt-filter-flags-mask
--corrupt-filter-flags-value
--
--When specified, only poison pages if ((page_flags & mask) = value).
--This allows stress testing of many kinds of pages. The page_flags
--are the same as in /proc/kpageflags. The flag bits are defined in
--include/linux/kernel-page-flags.h and documented in
--Documentation/vm/pagemap.txt
--
--Architecture specific MCE injector
--
--x86 has mce-inject, mce-test
--
--Some portable hwpoison test programs in mce-test, see blow.
--
-----
--
--References:
-+References
-+=====
- 
- http://halobates.de/mce-lc09-2.pdf
- 	Overview presentation from LinuxCon 09
-@@ -174,14 +176,11 @@ git://git.kernel.org/pub/scm/utils/cpu/mce/mce-inject.git
- 	x86 specific injector
- 
- 
-----
--
--Limitations:
--
-+Limitations
-+===== - Not all page types are supported and never will. Most kernel internal
--objects cannot be recovered, only LRU pages for now.
-+  objects cannot be recovered, only LRU pages for now.
- - Right now hugepage support is missing.
- 
- ---
- Andi Kleen, Oct 2009
--
+ To Do
+------
+-o	Account ptrace pages (this is hard)
++==+*	Account ptrace pages (this is hard)
 -- 
 2.7.4
 
