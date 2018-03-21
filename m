@@ -1,7 +1,7 @@
 From: Mike Rapoport <rppt@linux.vnet.ibm.com>
-Date: Wed, 21 Mar 2018 19:22:42 +0000
-Subject: [PATCH 26/32] docs/vm: unevictable-lru.txt: convert to ReST format
-Message-Id: <1521660168-14372-27-git-send-email-rppt@linux.vnet.ibm.com>
+Date: Wed, 21 Mar 2018 19:22:19 +0000
+Subject: [PATCH 03/32] docs/vm: cleancache.txt: convert to ReST format
+Message-Id: <1521660168-14372-4-git-send-email-rppt@linux.vnet.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1521660168-14372-1-git-send-email-rppt@linux.vnet.ibm.com>
 In-Reply-To: <1521660168-14372-1-git-send-email-rppt@linux.vnet.ibm.com>
@@ -13,294 +13,205 @@ Cc: Andrey Ryabinin <aryabinin@virtuozzo.com>, Richard Henderson <rth@twiddle.ne
 
 Signed-off-by: Mike Rapoport <rppt@linux.vnet.ibm.com>
 ---
- Documentation/vm/unevictable-lru.txt | 117 +++++++++++++++--------------------
- 1 file changed, 49 insertions(+), 68 deletions(-)
+ Documentation/vm/cleancache.txt | 105 ++++++++++++++++++++++++----------------
+ 1 file changed, 62 insertions(+), 43 deletions(-)
 
-diff --git a/Documentation/vm/unevictable-lru.txt b/Documentation/vm/unevictable-lru.txt
-index e147185..fdd84cb 100644
---- a/Documentation/vm/unevictable-lru.txt
-+++ b/Documentation/vm/unevictable-lru.txt
-@@ -1,37 +1,13 @@
--			===============
--			UNEVICTABLE LRU INFRASTRUCTURE
--			===============
--
--====
--CONTENTS
--====
--
-- (*) The Unevictable LRU
--
--     - The unevictable page list.
--     - Memory control group interaction.
--     - Marking address spaces unevictable.
--     - Detecting Unevictable Pages.
--     - vmscan's handling of unevictable pages.
--
-- (*) mlock()'d pages.
--
--     - History.
--     - Basic management.
--     - mlock()/mlockall() system call handling.
--     - Filtering special vmas.
--     - munlock()/munlockall() system call handling.
--     - Migrating mlocked pages.
--     - Compacting mlocked pages.
--     - mmap(MAP_LOCKED) system call handling.
--     - munmap()/exit()/exec() system call handling.
--     - try_to_unmap().
--     - try_to_munlock() reverse map scan.
--     - Page reclaim in shrink_*_list().
-+.. _unevictable_lru:
+diff --git a/Documentation/vm/cleancache.txt b/Documentation/vm/cleancache.txt
+index e4b49df..68cba91 100644
+--- a/Documentation/vm/cleancache.txt
++++ b/Documentation/vm/cleancache.txt
+@@ -1,4 +1,11 @@
+-MOTIVATION
++.. _cleancache:
++
++=====
++Cleancache
++=====
++
++Motivation
++=====
  
-+===============
-+Unevictable LRU Infrastructure
+ Cleancache is a new optional feature provided by the VFS layer that
+ potentially dramatically increases page cache effectiveness for
+@@ -21,9 +28,10 @@ Transcendent memory "drivers" for cleancache are currently implemented
+ in Xen (using hypervisor memory) and zcache (using in-kernel compressed
+ memory) and other implementations are in development.
+ 
+-FAQs are included below.
++:ref:`FAQs <faq>` are included below.
+ 
+-IMPLEMENTATION OVERVIEW
++Implementation Overview
++=========== 
+ A cleancache "backend" that provides transcendent memory registers itself
+ to the kernel's cleancache "frontend" by calling cleancache_register_ops,
+@@ -80,22 +88,33 @@ different Linux threads are simultaneously putting and invalidating a page
+ with the same handle, the results are indeterminate.  Callers must
+ lock the page to ensure serial behavior.
+ 
+-CLEANCACHE PERFORMANCE METRICS
++Cleancache Performance Metrics
 +===============
  
--======
--INTRODUCTION
-+.. contents:: :local:
+ If properly configured, monitoring of cleancache is done via debugfs in
+-the /sys/kernel/debug/cleancache directory.  The effectiveness of cleancache
++the `/sys/kernel/debug/cleancache` directory.  The effectiveness of cleancache
+ can be measured (across all filesystems) with:
+ 
+-succ_gets	- number of gets that were successful
+-failed_gets	- number of gets that failed
+-puts		- number of puts attempted (all "succeed")
+-invalidates	- number of invalidates attempted
++``succ_gets``
++	number of gets that were successful
 +
++``failed_gets``
++	number of gets that failed
 +
-+Introduction
- ======
- 
- This document describes the Linux memory manager's "Unevictable LRU"
-@@ -46,8 +22,8 @@ details - the "what does it do?" - by reading the code.  One hopes that the
- descriptions below add value by provide the answer to "why does it do that?".
- 
- 
--=========-THE UNEVICTABLE LRU
++``puts``
++	number of puts attempted (all "succeed")
 +
-+The Unevictable LRU
- ========= 
- The Unevictable LRU facility adds an additional LRU list to track unevictable
-@@ -66,17 +42,17 @@ completely unresponsive.
++``invalidates``
++	number of invalidates attempted
  
- The unevictable list addresses the following classes of unevictable pages:
+ A backend implementation may provide additional metrics.
  
-- (*) Those owned by ramfs.
-+ * Those owned by ramfs.
- 
-- (*) Those mapped into SHM_LOCK'd shared memory regions.
-+ * Those mapped into SHM_LOCK'd shared memory regions.
- 
-- (*) Those mapped into VM_LOCKED [mlock()ed] VMAs.
-+ * Those mapped into VM_LOCKED [mlock()ed] VMAs.
- 
- The infrastructure may also be able to handle other conditions that make pages
- unevictable, either by definition or by circumstance, in the future.
- 
- 
--THE UNEVICTABLE PAGE LIST
-+The Unevictable Page List
- -------------------------
- 
- The Unevictable LRU infrastructure consists of an additional, per-zone, LRU list
-@@ -118,7 +94,7 @@ the unevictable list when one task has the page isolated from the LRU and other
- tasks are changing the "evictability" state of the page.
- 
- 
--MEMORY CONTROL GROUP INTERACTION
-+Memory Control Group Interaction
- --------------------------------
- 
- The unevictable LRU facility interacts with the memory control group [aka
-@@ -144,7 +120,9 @@ effects:
-      the control group to thrash or to OOM-kill tasks.
- 
- 
--MARKING ADDRESS SPACES UNEVICTABLE
-+.. _mark_addr_space_unevict:
++.. _faq:
 +
-+Marking Address Spaces Unevictable
- ----------------------------------
+ FAQ
++= 
+-1) Where's the value? (Andrew Morton)
++* Where's the value? (Andrew Morton)
  
- For facilities such as ramfs none of the pages attached to the address space
-@@ -152,15 +130,15 @@ may be evicted.  To prevent eviction of any such pages, the AS_UNEVICTABLE
- address space flag is provided, and this can be manipulated by a filesystem
- using a number of wrapper functions:
+ Cleancache provides a significant performance benefit to many workloads
+ in many environments with negligible overhead by improving the
+@@ -137,8 +156,8 @@ device that stores pages of data in a compressed state.  And
+ the proposed "RAMster" driver shares RAM across multiple physical
+ systems.
  
-- (*) void mapping_set_unevictable(struct address_space *mapping);
-+ * ``void mapping_set_unevictable(struct address_space *mapping);``
+-2) Why does cleancache have its sticky fingers so deep inside the
+-   filesystems and VFS? (Andrew Morton and Christoph Hellwig)
++* Why does cleancache have its sticky fingers so deep inside the
++  filesystems and VFS? (Andrew Morton and Christoph Hellwig)
  
- 	Mark the address space as being completely unevictable.
+ The core hooks for cleancache in VFS are in most cases a single line
+ and the minimum set are placed precisely where needed to maintain
+@@ -168,9 +187,9 @@ filesystems in the future.
+ The total impact of the hooks to existing fs and mm files is only
+ about 40 lines added (not counting comments and blank lines).
  
-- (*) void mapping_clear_unevictable(struct address_space *mapping);
-+ * ``void mapping_clear_unevictable(struct address_space *mapping);``
+-3) Why not make cleancache asynchronous and batched so it can
+-   more easily interface with real devices with DMA instead
+-   of copying each individual page? (Minchan Kim)
++* Why not make cleancache asynchronous and batched so it can more
++  easily interface with real devices with DMA instead of copying each
++  individual page? (Minchan Kim)
  
- 	Mark the address space as being evictable.
+ The one-page-at-a-time copy semantics simplifies the implementation
+ on both the frontend and backend and also allows the backend to
+@@ -182,8 +201,8 @@ are avoided.  While the interface seems odd for a "real device"
+ or for real kernel-addressable RAM, it makes perfect sense for
+ transcendent memory.
  
-- (*) int mapping_unevictable(struct address_space *mapping);
-+ * ``int mapping_unevictable(struct address_space *mapping);``
+-4) Why is non-shared cleancache "exclusive"?  And where is the
+-   page "invalidated" after a "get"? (Minchan Kim)
++* Why is non-shared cleancache "exclusive"?  And where is the
++  page "invalidated" after a "get"? (Minchan Kim)
  
- 	Query the address space, and return true if it is completely
- 	unevictable.
-@@ -177,12 +155,13 @@ These are currently used in two places in the kernel:
-      ensure they're in memory.
+ The main reason is to free up space in transcendent memory and
+ to avoid unnecessary cleancache_invalidate calls.  If you want inclusive,
+@@ -193,7 +212,7 @@ be easily extended to add a "get_no_invalidate" call.
  
+ The invalidate is done by the cleancache backend implementation.
  
--DETECTING UNEVICTABLE PAGES
-+Detecting Unevictable Pages
- ---------------------------
+-5) What's the performance impact?
++* What's the performance impact?
  
- The function page_evictable() in vmscan.c determines whether a page is
--evictable or not using the query function outlined above [see section "Marking
--address spaces unevictable"] to check the AS_UNEVICTABLE flag.
-+evictable or not using the query function outlined above [see section
-+:ref:`Marking address spaces unevictable <mark_addr_space_unevict>`]
-+to check the AS_UNEVICTABLE flag.
+ Performance analysis has been presented at OLS'09 and LCA'10.
+ Briefly, performance gains can be significant on most workloads,
+@@ -206,7 +225,7 @@ single-core systems with slow memory-copy speeds, cleancache
+ has little value, but in newer multicore machines, especially
+ consolidated/virtualized machines, it has great value.
  
- For address spaces that are so marked after being populated (as SHM regions
- might be), the lock action (eg: SHM_LOCK) can be lazy, and need not populate
-@@ -202,7 +181,7 @@ flag, PG_mlocked (as wrapped by PageMlocked()), which is set when a page is
- faulted into a VM_LOCKED vma, or found in a vma being VM_LOCKED.
+-6) How do I add cleancache support for filesystem X? (Boaz Harrash)
++* How do I add cleancache support for filesystem X? (Boaz Harrash)
  
+ Filesystems that are well-behaved and conform to certain
+ restrictions can utilize cleancache simply by making a call to
+@@ -217,26 +236,26 @@ not enable the optional cleancache.
  
--VMSCAN'S HANDLING OF UNEVICTABLE PAGES
-+Vmscan's Handling of Unevictable Pages
- --------------------------------------
+ Some points for a filesystem to consider:
  
- If unevictable pages are culled in the fault path, or moved to the unevictable
-@@ -233,8 +212,7 @@ extra evictabilty checks should not occur in the majority of calls to
- putback_lru_page().
+-- The FS should be block-device-based (e.g. a ram-based FS such
+-  as tmpfs should not enable cleancache)
+-- To ensure coherency/correctness, the FS must ensure that all
+-  file removal or truncation operations either go through VFS or
+-  add hooks to do the equivalent cleancache "invalidate" operations
+-- To ensure coherency/correctness, either inode numbers must
+-  be unique across the lifetime of the on-disk file OR the
+-  FS must provide an "encode_fh" function.
+-- The FS must call the VFS superblock alloc and deactivate routines
+-  or add hooks to do the equivalent cleancache calls done there.
+-- To maximize performance, all pages fetched from the FS should
+-  go through the do_mpag_readpage routine or the FS should add
+-  hooks to do the equivalent (cf. btrfs)
+-- Currently, the FS blocksize must be the same as PAGESIZE.  This
+-  is not an architectural restriction, but no backends currently
+-  support anything different.
+-- A clustered FS should invoke the "shared_init_fs" cleancache
+-  hook to get best performance for some backends.
+-
+-7) Why not use the KVA of the inode as the key? (Christoph Hellwig)
++  - The FS should be block-device-based (e.g. a ram-based FS such
++    as tmpfs should not enable cleancache)
++  - To ensure coherency/correctness, the FS must ensure that all
++    file removal or truncation operations either go through VFS or
++    add hooks to do the equivalent cleancache "invalidate" operations
++  - To ensure coherency/correctness, either inode numbers must
++    be unique across the lifetime of the on-disk file OR the
++    FS must provide an "encode_fh" function.
++  - The FS must call the VFS superblock alloc and deactivate routines
++    or add hooks to do the equivalent cleancache calls done there.
++  - To maximize performance, all pages fetched from the FS should
++    go through the do_mpag_readpage routine or the FS should add
++    hooks to do the equivalent (cf. btrfs)
++  - Currently, the FS blocksize must be the same as PAGESIZE.  This
++    is not an architectural restriction, but no backends currently
++    support anything different.
++  - A clustered FS should invoke the "shared_init_fs" cleancache
++    hook to get best performance for some backends.
++
++* Why not use the KVA of the inode as the key? (Christoph Hellwig)
  
+ If cleancache would use the inode virtual address instead of
+ inode/filehandle, the pool id could be eliminated.  But, this
+@@ -251,7 +270,7 @@ of cleancache would be lost because the cache of pages in cleanache
+ is potentially much larger than the kernel pagecache and is most
+ useful if the pages survive inode cache removal.
  
--======-MLOCKED PAGES
-+MLOCKED Pages
- ====== 
- The unevictable page list is also useful for mlock(), in addition to ramfs and
-@@ -242,7 +220,7 @@ SYSV SHM.  Note that mlock() is only available in CONFIG_MMU=y situations; in
- NOMMU situations, all mappings are effectively mlocked.
+-8) Why is a global variable required?
++* Why is a global variable required?
  
+ The cleancache_enabled flag is checked in all of the frequently-used
+ cleancache hooks.  The alternative is a function call to check a static
+@@ -262,14 +281,14 @@ global variable allows cleancache to be enabled by default at compile
+ time, but have insignificant performance impact when cleancache remains
+ disabled at runtime.
  
--HISTORY
-+History
- -------
+-9) Does cleanache work with KVM?
++* Does cleanache work with KVM?
  
- The "Unevictable mlocked Pages" infrastructure is based on work originally
-@@ -263,7 +241,7 @@ replaced by walking the reverse map to determine whether any VM_LOCKED VMAs
- mapped the page.  More on this below.
+ The memory model of KVM is sufficiently different that a cleancache
+ backend may have less value for KVM.  This remains to be tested,
+ especially in an overcommitted system.
  
+-10) Does cleancache work in userspace?  It sounds useful for
+-   memory hungry caches like web browsers.  (Jamie Lokier)
++* Does cleancache work in userspace?  It sounds useful for
++  memory hungry caches like web browsers.  (Jamie Lokier)
  
--BASIC MANAGEMENT
-+Basic Management
- ----------------
- 
- mlocked pages - pages mapped into a VM_LOCKED VMA - are a class of unevictable
-@@ -304,10 +282,10 @@ mlocked pages become unlocked and rescued from the unevictable list when:
-  (4) before a page is COW'd in a VM_LOCKED VMA.
- 
- 
--mlock()/mlockall() SYSTEM CALL HANDLING
-+mlock()/mlockall() System Call Handling
- ---------------------------------------
- 
--Both [do_]mlock() and [do_]mlockall() system call handlers call mlock_fixup()
-+Both [do\_]mlock() and [do\_]mlockall() system call handlers call mlock_fixup()
- for each VMA in the range specified by the call.  In the case of mlockall(),
- this is the entire active address space of the task.  Note that mlock_fixup()
- is used for both mlocking and munlocking a range of memory.  A call to mlock()
-@@ -351,7 +329,7 @@ mlock_vma_page() is unable to isolate the page from the LRU, vmscan will handle
- it later if and when it attempts to reclaim the page.
- 
- 
--FILTERING SPECIAL VMAS
-+Filtering Special VMAs
- ----------------------
- 
- mlock_fixup() filters several classes of "special" VMAs:
-@@ -379,8 +357,9 @@ VM_LOCKED flag.  Therefore, we won't have to deal with them later during
- munlock(), munmap() or task exit.  Neither does mlock_fixup() account these
- VMAs against the task's "locked_vm".
- 
-+.. _munlock_munlockall_handling:
- 
--munlock()/munlockall() SYSTEM CALL HANDLING
-+munlock()/munlockall() System Call Handling
- -------------------------------------------
- 
- The munlock() and munlockall() system calls are handled by the same functions -
-@@ -426,7 +405,7 @@ This is fine, because we'll catch it later if and if vmscan tries to reclaim
- the page.  This should be relatively rare.
- 
- 
--MIGRATING MLOCKED PAGES
-+Migrating MLOCKED Pages
- -----------------------
- 
- A page that is being migrated has been isolated from the LRU lists and is held
-@@ -451,7 +430,7 @@ list because of a race between munlock and migration, page migration uses the
- putback_lru_page() function to add migrated pages back to the LRU.
- 
- 
--COMPACTING MLOCKED PAGES
-+Compacting MLOCKED Pages
- ------------------------
- 
- The unevictable LRU can be scanned for compactable regions and the default
-@@ -461,7 +440,7 @@ unevictable LRU is enabled, the work of compaction is mostly handled by
- the page migration code and the same work flow as described in MIGRATING
- MLOCKED PAGES will apply.
- 
--MLOCKING TRANSPARENT HUGE PAGES
-+MLOCKING Transparent Huge Pages
- -------------------------------
- 
- A transparent huge page is represented by a single entry on an LRU list.
-@@ -483,7 +462,7 @@ to unevictable LRU and the rest can be reclaimed.
- 
- See also comment in follow_trans_huge_pmd().
- 
--mmap(MAP_LOCKED) SYSTEM CALL HANDLING
-+mmap(MAP_LOCKED) System Call Handling
- -------------------------------------
- 
- In addition the mlock()/mlockall() system calls, an application can request
-@@ -514,7 +493,7 @@ memory range accounted as locked_vm, as the protections could be changed later
- and pages allocated into that region.
- 
- 
--munmap()/exit()/exec() SYSTEM CALL HANDLING
-+munmap()/exit()/exec() System Call Handling
- -------------------------------------------
- 
- When unmapping an mlocked region of memory, whether by an explicit call to
-@@ -568,16 +547,18 @@ munlock or munmap system calls, mm teardown (munlock_vma_pages_all), reclaim,
- holepunching, and truncation of file pages and their anonymous COWed pages.
- 
- 
--try_to_munlock() REVERSE MAP SCAN
-+try_to_munlock() Reverse Map Scan
- ---------------------------------
- 
-- [!] TODO/FIXME: a better name might be page_mlocked() - analogous to the
--     page_referenced() reverse map walker.
-+.. warning::
-+   [!] TODO/FIXME: a better name might be page_mlocked() - analogous to the
-+   page_referenced() reverse map walker.
- 
--When munlock_vma_page() [see section "munlock()/munlockall() System Call
--Handling" above] tries to munlock a page, it needs to determine whether or not
--the page is mapped by any VM_LOCKED VMA without actually attempting to unmap
--all PTEs from the page.  For this purpose, the unevictable/mlock infrastructure
-+When munlock_vma_page() [see section :ref:`munlock()/munlockall() System Call
-+Handling <munlock_munlockall_handling>` above] tries to munlock a
-+page, it needs to determine whether or not the page is mapped by any
-+VM_LOCKED VMA without actually attempting to unmap all PTEs from the
-+page.  For this purpose, the unevictable/mlock infrastructure
- introduced a variant of try_to_unmap() called try_to_munlock().
- 
- try_to_munlock() calls the same functions as try_to_unmap() for anonymous and
-@@ -595,7 +576,7 @@ large region or tearing down a large address space that has been mlocked via
- mlockall(), overall this is a fairly rare event.
- 
- 
--PAGE RECLAIM IN shrink_*_list()
-+Page Reclaim in shrink_*_list()
- -------------------------------
- 
- shrink_active_list() culls any obviously unevictable pages - i.e.
+ No plans yet, though we agree it sounds useful, at least for
+ apps that bypass the page cache (e.g. O_DIRECT).
 -- 
 2.7.4
 
