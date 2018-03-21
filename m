@@ -1,47 +1,253 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Tue, 06 Mar 2018 00:58:01 +0000
-Subject: [GIT PULL] ia64 changes for 4.16
-Message-Id: <20180306005800.dacsxozfjz2vhqk7@agluck-desk>
+From: Mike Rapoport <rppt@linux.vnet.ibm.com>
+Date: Wed, 21 Mar 2018 19:22:27 +0000
+Subject: [PATCH 11/32] docs/vm: ksm.txt: convert to ReST format
+Message-Id: <1521660168-14372-12-git-send-email-rppt@linux.vnet.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1521660168-14372-1-git-send-email-rppt@linux.vnet.ibm.com>
+In-Reply-To: <1521660168-14372-1-git-send-email-rppt@linux.vnet.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Jonathan Corbet <corbet@lwn.net>
+Cc: Andrey Ryabinin <aryabinin@virtuozzo.com>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Ralf Baechle <ralf@linux-mips.org>, James Hogan <jhogan@kernel.org>, Michael Ellerman <mpe@ellerman.id.au>, Alexander Viro <viro@zeniv.linux.org.uk>, linux-kernel@vger.kernel.org, linux-doc@vger.kernel.org, kasan-dev@googlegroups.com, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linuxppc-dev@lists.ozlabs.org, linux-fsdevel@vger.kernel.org, linux-mm@kvack.org, Mike Rapoport <rppt@linux.vnet.ibm.com>
 
-The following changes since commit 661e50bc853209e41a5c14a290ca4decc43cbfd1:
+Signed-off-by: Mike Rapoport <rppt@linux.vnet.ibm.com>
+---
+ Documentation/vm/ksm.txt | 215 ++++++++++++++++++++++++-----------------------
+ 1 file changed, 110 insertions(+), 105 deletions(-)
 
-  Linux 4.16-rc4 (2018-03-04 14:54:11 -0800)
+diff --git a/Documentation/vm/ksm.txt b/Documentation/vm/ksm.txt
+index 6686bd2..87e7eef 100644
+--- a/Documentation/vm/ksm.txt
++++ b/Documentation/vm/ksm.txt
+@@ -1,8 +1,11 @@
+-How to use the Kernel Samepage Merging feature
+-----------------------------------------------
++.. _ksm:
++
++===========+Kernel Samepage Merging
++=========== 
+ KSM is a memory-saving de-duplication feature, enabled by CONFIG_KSM=y,
+-added to the Linux kernel in 2.6.32.  See mm/ksm.c for its implementation,
++added to the Linux kernel in 2.6.32.  See ``mm/ksm.c`` for its implementation,
+ and http://lwn.net/Articles/306704/ and http://lwn.net/Articles/330589/
+ 
+ The KSM daemon ksmd periodically scans those areas of user memory which
+@@ -51,110 +54,112 @@ Applications should be considerate in their use of MADV_MERGEABLE,
+ restricting its use to areas likely to benefit.  KSM's scans may use a lot
+ of processing power: some installations will disable KSM for that reason.
+ 
+-The KSM daemon is controlled by sysfs files in /sys/kernel/mm/ksm/,
++The KSM daemon is controlled by sysfs files in ``/sys/kernel/mm/ksm/``,
+ readable by all but writable only by root:
+ 
+-pages_to_scan    - how many present pages to scan before ksmd goes to sleep
+-                   e.g. "echo 100 > /sys/kernel/mm/ksm/pages_to_scan"
+-                   Default: 100 (chosen for demonstration purposes)
+-
+-sleep_millisecs  - how many milliseconds ksmd should sleep before next scan
+-                   e.g. "echo 20 > /sys/kernel/mm/ksm/sleep_millisecs"
+-                   Default: 20 (chosen for demonstration purposes)
+-
+-merge_across_nodes - specifies if pages from different numa nodes can be merged.
+-                   When set to 0, ksm merges only pages which physically
+-                   reside in the memory area of same NUMA node. That brings
+-                   lower latency to access of shared pages. Systems with more
+-                   nodes, at significant NUMA distances, are likely to benefit
+-                   from the lower latency of setting 0. Smaller systems, which
+-                   need to minimize memory usage, are likely to benefit from
+-                   the greater sharing of setting 1 (default). You may wish to
+-                   compare how your system performs under each setting, before
+-                   deciding on which to use. merge_across_nodes setting can be
+-                   changed only when there are no ksm shared pages in system:
+-                   set run 2 to unmerge pages first, then to 1 after changing
+-                   merge_across_nodes, to remerge according to the new setting.
+-                   Default: 1 (merging across nodes as in earlier releases)
+-
+-run              - set 0 to stop ksmd from running but keep merged pages,
+-                   set 1 to run ksmd e.g. "echo 1 > /sys/kernel/mm/ksm/run",
+-                   set 2 to stop ksmd and unmerge all pages currently merged,
+-                         but leave mergeable areas registered for next run
+-                   Default: 0 (must be changed to 1 to activate KSM,
+-                               except if CONFIG_SYSFS is disabled)
+-
+-use_zero_pages   - specifies whether empty pages (i.e. allocated pages
+-                   that only contain zeroes) should be treated specially.
+-                   When set to 1, empty pages are merged with the kernel
+-                   zero page(s) instead of with each other as it would
+-                   happen normally. This can improve the performance on
+-                   architectures with coloured zero pages, depending on
+-                   the workload. Care should be taken when enabling this
+-                   setting, as it can potentially degrade the performance
+-                   of KSM for some workloads, for example if the checksums
+-                   of pages candidate for merging match the checksum of
+-                   an empty page. This setting can be changed at any time,
+-                   it is only effective for pages merged after the change.
+-                   Default: 0 (normal KSM behaviour as in earlier releases)
+-
+-max_page_sharing - Maximum sharing allowed for each KSM page. This
+-                   enforces a deduplication limit to avoid the virtual
+-                   memory rmap lists to grow too large. The minimum
+-                   value is 2 as a newly created KSM page will have at
+-                   least two sharers. The rmap walk has O(N)
+-                   complexity where N is the number of rmap_items
+-                   (i.e. virtual mappings) that are sharing the page,
+-                   which is in turn capped by max_page_sharing. So
+-                   this effectively spread the the linear O(N)
+-                   computational complexity from rmap walk context
+-                   over different KSM pages. The ksmd walk over the
+-                   stable_node "chains" is also O(N), but N is the
+-                   number of stable_node "dups", not the number of
+-                   rmap_items, so it has not a significant impact on
+-                   ksmd performance. In practice the best stable_node
+-                   "dup" candidate will be kept and found at the head
+-                   of the "dups" list. The higher this value the
+-                   faster KSM will merge the memory (because there
+-                   will be fewer stable_node dups queued into the
+-                   stable_node chain->hlist to check for pruning) and
+-                   the higher the deduplication factor will be, but
+-                   the slowest the worst case rmap walk could be for
+-                   any given KSM page. Slowing down the rmap_walk
+-                   means there will be higher latency for certain
+-                   virtual memory operations happening during
+-                   swapping, compaction, NUMA balancing and page
+-                   migration, in turn decreasing responsiveness for
+-                   the caller of those virtual memory operations. The
+-                   scheduler latency of other tasks not involved with
+-                   the VM operations doing the rmap walk is not
+-                   affected by this parameter as the rmap walks are
+-                   always schedule friendly themselves.
+-
+-stable_node_chains_prune_millisecs - How frequently to walk the whole
+-                   list of stable_node "dups" linked in the
+-                   stable_node "chains" in order to prune stale
+-                   stable_nodes. Smaller milllisecs values will free
+-                   up the KSM metadata with lower latency, but they
+-                   will make ksmd use more CPU during the scan. This
+-                   only applies to the stable_node chains so it's a
+-                   noop if not a single KSM page hit the
+-                   max_page_sharing yet (there would be no stable_node
+-                   chains in such case).
+-
+-The effectiveness of KSM and MADV_MERGEABLE is shown in /sys/kernel/mm/ksm/:
+-
+-pages_shared     - how many shared pages are being used
+-pages_sharing    - how many more sites are sharing them i.e. how much saved
+-pages_unshared   - how many pages unique but repeatedly checked for merging
+-pages_volatile   - how many pages changing too fast to be placed in a tree
+-full_scans       - how many times all mergeable areas have been scanned
+-
+-stable_node_chains - number of stable node chains allocated, this is
+-		     effectively the number of KSM pages that hit the
+-		     max_page_sharing limit
+-stable_node_dups   - number of stable node dups queued into the
+-		     stable_node chains
++pages_to_scan
++        how many present pages to scan before ksmd goes to sleep
++        e.g. ``echo 100 > /sys/kernel/mm/ksm/pages_to_scan`` Default: 100
++        (chosen for demonstration purposes)
++
++sleep_millisecs
++        how many milliseconds ksmd should sleep before next scan
++        e.g. ``echo 20 > /sys/kernel/mm/ksm/sleep_millisecs`` Default: 20
++        (chosen for demonstration purposes)
++
++merge_across_nodes
++        specifies if pages from different numa nodes can be merged.
++        When set to 0, ksm merges only pages which physically reside
++        in the memory area of same NUMA node. That brings lower
++        latency to access of shared pages. Systems with more nodes, at
++        significant NUMA distances, are likely to benefit from the
++        lower latency of setting 0. Smaller systems, which need to
++        minimize memory usage, are likely to benefit from the greater
++        sharing of setting 1 (default). You may wish to compare how
++        your system performs under each setting, before deciding on
++        which to use. merge_across_nodes setting can be changed only
++        when there are no ksm shared pages in system: set run 2 to
++        unmerge pages first, then to 1 after changing
++        merge_across_nodes, to remerge according to the new setting.
++        Default: 1 (merging across nodes as in earlier releases)
++
++run
++        set 0 to stop ksmd from running but keep merged pages,
++        set 1 to run ksmd e.g. ``echo 1 > /sys/kernel/mm/ksm/run``,
++        set 2 to stop ksmd and unmerge all pages currently merged, but
++        leave mergeable areas registered for next run Default: 0 (must
++        be changed to 1 to activate KSM, except if CONFIG_SYSFS is
++        disabled)
++
++use_zero_pages
++        specifies whether empty pages (i.e. allocated pages that only
++        contain zeroes) should be treated specially.  When set to 1,
++        empty pages are merged with the kernel zero page(s) instead of
++        with each other as it would happen normally. This can improve
++        the performance on architectures with coloured zero pages,
++        depending on the workload. Care should be taken when enabling
++        this setting, as it can potentially degrade the performance of
++        KSM for some workloads, for example if the checksums of pages
++        candidate for merging match the checksum of an empty
++        page. This setting can be changed at any time, it is only
++        effective for pages merged after the change.  Default: 0
++        (normal KSM behaviour as in earlier releases)
++
++max_page_sharing
++        Maximum sharing allowed for each KSM page. This enforces a
++        deduplication limit to avoid the virtual memory rmap lists to
++        grow too large. The minimum value is 2 as a newly created KSM
++        page will have at least two sharers. The rmap walk has O(N)
++        complexity where N is the number of rmap_items (i.e. virtual
++        mappings) that are sharing the page, which is in turn capped
++        by max_page_sharing. So this effectively spread the the linear
++        O(N) computational complexity from rmap walk context over
++        different KSM pages. The ksmd walk over the stable_node
++        "chains" is also O(N), but N is the number of stable_node
++        "dups", not the number of rmap_items, so it has not a
++        significant impact on ksmd performance. In practice the best
++        stable_node "dup" candidate will be kept and found at the head
++        of the "dups" list. The higher this value the faster KSM will
++        merge the memory (because there will be fewer stable_node dups
++        queued into the stable_node chain->hlist to check for pruning)
++        and the higher the deduplication factor will be, but the
++        slowest the worst case rmap walk could be for any given KSM
++        page. Slowing down the rmap_walk means there will be higher
++        latency for certain virtual memory operations happening during
++        swapping, compaction, NUMA balancing and page migration, in
++        turn decreasing responsiveness for the caller of those virtual
++        memory operations. The scheduler latency of other tasks not
++        involved with the VM operations doing the rmap walk is not
++        affected by this parameter as the rmap walks are always
++        schedule friendly themselves.
++
++stable_node_chains_prune_millisecs
++        How frequently to walk the whole list of stable_node "dups"
++        linked in the stable_node "chains" in order to prune stale
++        stable_nodes. Smaller milllisecs values will free up the KSM
++        metadata with lower latency, but they will make ksmd use more
++        CPU during the scan. This only applies to the stable_node
++        chains so it's a noop if not a single KSM page hit the
++        max_page_sharing yet (there would be no stable_node chains in
++        such case).
++
++The effectiveness of KSM and MADV_MERGEABLE is shown in ``/sys/kernel/mm/ksm/``:
++
++pages_shared
++        how many shared pages are being used
++pages_sharing
++        how many more sites are sharing them i.e. how much saved
++pages_unshared
++        how many pages unique but repeatedly checked for merging
++pages_volatile
++        how many pages changing too fast to be placed in a tree
++full_scans
++        how many times all mergeable areas have been scanned
++stable_node_chains
++        number of stable node chains allocated, this is effectively
++        the number of KSM pages that hit the max_page_sharing limit
++stable_node_dups
++        number of stable node dups queued into the stable_node chains
+ 
+ A high ratio of pages_sharing to pages_shared indicates good sharing, but
+ a high ratio of pages_unshared to pages_sharing indicates wasted effort.
+-- 
+2.7.4
 
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git tags/please-pull-ia64_misc
-
-for you to fetch changes up to 48e362dd96f37d819042f848888b2c6407e01e6d:
-
-  ia64/err-inject: fix spelling mistake: "capapbilities" -> "capabilities" (2018-03-05 14:44:53 -0800)
-
-----------------------------------------------------------------
-More atomic cleanup from willy. Fix a python script to work with version 3.
-Some other small cleanups.
-
-----------------------------------------------------------------
-Colin Ian King (1):
-      ia64/err-inject: fix spelling mistake: "capapbilities" -> "capabilities"
-
-Corentin Labbe (1):
-      ia64: convert unwcheck.py to python3
-
-Davidlohr Bueso (1):
-      ia64/err-inject: Use get_user_pages_fast()
-
-Matthew Wilcox (1):
-      ia64: Convert remaining atomic operations
-
-Sergei Trofimovich (1):
-      ia64: doc: tweak whitespace for 'console=' parameter
-
- Documentation/ia64/serial.txt  |  2 +-
- arch/ia64/include/asm/atomic.h | 69 ++++++++++++++----------------------------
- arch/ia64/kernel/err_inject.c  |  4 +--
- arch/ia64/scripts/unwcheck.py  | 16 +++++-----
- 4 files changed, 34 insertions(+), 57 deletions(-)
