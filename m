@@ -1,164 +1,174 @@
-From: Andreas Dilger <adilger@dilger.ca>
-Date: Thu, 01 Mar 2018 23:44:10 +0000
-Subject: Re: [RFC 1/5] seq_file: introduce seq_open_data helper
-Message-Id: <FCCCD016-8402-42E5-B92F-79287D67B27C@dilger.ca>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="Apple-Mail=_9B87DCCE-81B6-4AB2-A810-550E560575CD"
+From: Mike Rapoport <rppt@linux.vnet.ibm.com>
+Date: Wed, 21 Mar 2018 19:22:16 +0000
+Subject: [PATCH 00/32] docs/vm: convert to ReST format
+Message-Id: <1521660168-14372-1-git-send-email-rppt@linux.vnet.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180301233724.20440-1-linux@rasmusvillemoes.dk>
-In-Reply-To: <20180301233724.20440-1-linux@rasmusvillemoes.dk>
-To: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-Cc: Jonathan Corbet <corbet@lwn.net>, Alexander Viro <viro@zeniv.linux.org.uk>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>, linuxppc-dev@lists.ozlabs.org, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org
-
-
---Apple-Mail=_9B87DCCE-81B6-4AB2-A810-550E560575CD
-Content-Transfer-Encoding: quoted-printable
-Content-Type: text/plain;
-	charset=us-ascii
-
-On Mar 1, 2018, at 4:37 PM, Rasmus Villemoes <linux@rasmusvillemoes.dk> =
-wrote:
->=20
-> There are quite a few callers of seq_open that could be simplified by
-> setting the ->private member via the seq_open call instead of fetching
-> file->private_data afterwards.
->=20
-> Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-> ---
-> I've just included a few examples of possible users of this helper,
-> there are many more similar cases. As a bonus, the first two fix
-> potential NULL derefs (if one believes that seq_open can actually
-> fail).
->=20
-> seq_open_private would have been a better name, but that one is
-> already taken...
->=20
-> Documentation/filesystems/seq_file.txt | 9 +++++----
-> fs/seq_file.c                          | 9 ++++++++-
-> include/linux/seq_file.h               | 1 +
-> 3 files changed, 14 insertions(+), 5 deletions(-)
->=20
-> diff --git a/Documentation/filesystems/seq_file.txt =
-b/Documentation/filesystems/seq_file.txt
-> index 9de4303201e1..68571b8275d8 100644
-> --- a/Documentation/filesystems/seq_file.txt
-> +++ b/Documentation/filesystems/seq_file.txt
-> @@ -234,10 +234,11 @@ Here, the call to seq_open() takes the =
-seq_operations structure we created
-> before, and gets set up to iterate through the virtual file.
->=20
-> On a successful open, seq_open() stores the struct seq_file pointer in
-> -file->private_data. If you have an application where the same =
-iterator can
-> -be used for more than one file, you can store an arbitrary pointer in =
-the
-> -private field of the seq_file structure; that value can then be =
-retrieved
-> -by the iterator functions.
-> +file->private_data. If you have an application where the same =
-iterator
-> +can be used for more than one file, you can store an arbitrary =
-pointer
-> +in the private field of the seq_file structure; that value can then =
-be
-> +retrieved by the iterator functions. Using the wrapper =
-seq_open_data()
-> +allows you to set the initial value for that field.
->=20
-> There is also a wrapper function to seq_open() called =
-seq_open_private(). It
-> kmallocs a zero filled block of memory and stores a pointer to it in =
-the
-> diff --git a/fs/seq_file.c b/fs/seq_file.c
-> index eea09f6d8830..f2145cb6e23d 100644
-> --- a/fs/seq_file.c
-> +++ b/fs/seq_file.c
-> @@ -45,7 +45,7 @@ static void *seq_buf_alloc(unsigned long size)
->  *	Note: seq_open() will allocate a struct seq_file and store its
->  *	pointer in @file->private_data. This pointer should not be =
-modified.
->  */
-> -int seq_open(struct file *file, const struct seq_operations *op)
-> +int seq_open_data(struct file *file, const struct seq_operations *op, =
-void *data)
-> {
-> 	struct seq_file *p;
->=20
-> @@ -59,6 +59,7 @@ int seq_open(struct file *file, const struct =
-seq_operations *op)
->=20
-> 	mutex_init(&p->lock);
-> 	p->op =3D op;
-> +	p->private =3D data;
->=20
-> 	// No refcounting: the lifetime of 'p' is constrained
-> 	// to the lifetime of the file.
-> @@ -85,6 +86,12 @@ int seq_open(struct file *file, const struct =
-seq_operations *op)
-> }
-> EXPORT_SYMBOL(seq_open);
->=20
-> +int seq_open(struct file *file, const struct seq_operations *op)
-> +{
-> +	return seq_open_data(file, op, NULL);
-> +}
-> +EXPORT_SYMBOL(seq_open_data);
-
-This is a bit confusing.  You export "seq_open" after seq_open_data(),
-and export "seq_open_data" here after seq_open().  Not strictly a bug,
-but could become one in the future.
-
-Cheers, Andreas
-
-> +
-> static int traverse(struct seq_file *m, loff_t offset)
-> {
-> 	loff_t pos =3D 0, index;
-> diff --git a/include/linux/seq_file.h b/include/linux/seq_file.h
-> index ab437dd2e3b9..f5ff376fa62b 100644
-> --- a/include/linux/seq_file.h
-> +++ b/include/linux/seq_file.h
-> @@ -107,6 +107,7 @@ void seq_pad(struct seq_file *m, char c);
->=20
-> char *mangle_path(char *s, const char *p, const char *esc);
-> int seq_open(struct file *, const struct seq_operations *);
-> +int seq_open_data(struct file *, const struct seq_operations *, void =
-*);
-> ssize_t seq_read(struct file *, char __user *, size_t, loff_t *);
-> loff_t seq_lseek(struct file *, loff_t, int);
-> int seq_release(struct inode *, struct file *);
-> --
-> 2.15.1
->=20
-
-
-
-
-
---Apple-Mail=_9B87DCCE-81B6-4AB2-A810-550E560575CD
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename=signature.asc
-Content-Type: application/pgp-signature;
-	name=signature.asc
-Content-Description: Message signed with OpenPGP
+To: Jonathan Corbet <corbet@lwn.net>
+Cc: Andrey Ryabinin <aryabinin@virtuozzo.com>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Ralf Baechle <ralf@linux-mips.org>, James Hogan <jhogan@kernel.org>, Michael Ellerman <mpe@ellerman.id.au>, Alexander Viro <viro@zeniv.linux.org.uk>, linux-kernel@vger.kernel.org, linux-doc@vger.kernel.org, kasan-dev@googlegroups.com, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linuxppc-dev@lists.ozlabs.org, linux-fsdevel@vger.kernel.org, linux-mm@kvack.org, Mike Rapoport <rppt@linux.vnet.ibm.com>
 
------BEGIN PGP SIGNATURE-----
-Comment: GPGTools - http://gpgtools.org
+Hi,
 
-iQIzBAEBCAAdFiEEDb73u6ZejP5ZMprvcqXauRfMH+AFAlqYkEsACgkQcqXauRfM
-H+AzdQ//S1/2JezuOJUxxbNc11QjDvMOoBPM7D11h6Ht5dT0+Tw0dFBFBcG+gqGl
-28MxwK+4sUU3A00/LgUxopfeoKw6+ve4NZFZYh0kwZoEXMoCxkB2tECNRYMrkiDR
-TDY70i4VZ5Bch1xd31FB3bZb+ukkls1R0Z/6WjfUhG8D/5yPBA9PQS0+jHo+tHHX
-y4aJS9eCwKPRHtP5LpCkuaEKZFxL48RWFghHcqhfd8fXRuFD9Q6/mPhLkH3/fX4y
-IsbUFW2ozrN94/3OWM+1+4r8eC1mpe+DqRkqg/4G0CX6agfpmpkUh++8QGP6fufV
-RG5pAaMwEpqXsFygvwvWFJEkeLp1BFybgmGKe3gN9A7arlyhxhW8J+8FbPBpduq4
-T/Okk/qcJhSMVV/at9sybRKMvZ40IX0E5jRwmPG/AQl1Bsj/yyOTmJCTHAowIydx
-VkYxTsmSPjnVm2LPELBCEPUqT5jDgpFDBzr148l6ks6Q1Vxiw0MJZL+zruRtOfcC
-wHa05O5AZjwRXpk8LBWE48x2qroLjM5Oruqkjg53DX7LgHUxRwhY4li7gGnfxmTf
-gZl526gU0fx6xPsiV6F6sLazf91BmmUi0x12n4nJMjESLMJP4OrRkhgNtiM1uK/m
-cp/UMSnVXC0ks7HiE8CP08WcFoho6LoazlgEXHawk4Y/+fRwWy8=
-=E59S
------END PGP SIGNATURE-----
+These patches convert files in Documentation/vm to ReST format, add an
+initial index and link it to the top level documentation.
 
---Apple-Mail=_9B87DCCE-81B6-4AB2-A810-550E560575CD--
+There are no contents changes in the documentation, except few spelling
+fixes. The relatively large diffstat stems from the indentation and
+paragraph wrapping changes.
+
+I've tried to keep the formatting as consistent as possible, but I could
+miss some places that needed markup and add some markup where it was not
+necessary.
+
+
+Mike Rapoport (32):
+  docs/vm: active_mm.txt convert to ReST format
+  docs/vm: balance: convert to ReST format
+  docs/vm: cleancache.txt: convert to ReST format
+  docs/vm: frontswap.txt: convert to ReST format
+  docs/vm: highmem.txt: convert to ReST format
+  docs/vm: hmm.txt: convert to ReST format
+  docs/vm: hugetlbpage.txt: convert to ReST format
+  docs/vm: hugetlbfs_reserv.txt: convert to ReST format
+  docs/vm: hwpoison.txt: convert to ReST format
+  docs/vm: idle_page_tracking.txt: convert to ReST format
+  docs/vm: ksm.txt: convert to ReST format
+  docs/vm: mmu_notifier.txt: convert to ReST format
+  docs/vm: numa_memory_policy.txt: convert to ReST format
+  docs/vm: overcommit-accounting: convert to ReST format
+  docs/vm: page_frags convert to ReST format
+  docs/vm: numa: convert to ReST format
+  docs/vm: pagemap.txt: convert to ReST format
+  docs/vm: page_migration: convert to ReST format
+  docs/vm: page_owner: convert to ReST format
+  docs/vm: remap_file_pages.txt: conert to ReST format
+  docs/vm: slub.txt: convert to ReST format
+  docs/vm: soft-dirty.txt: convert to ReST format
+  docs/vm: split_page_table_lock: convert to ReST format
+  docs/vm: swap_numa.txt: convert to ReST format
+  docs/vm: transhuge.txt: convert to ReST format
+  docs/vm: unevictable-lru.txt: convert to ReST format
+  docs/vm: userfaultfd.txt: convert to ReST format
+  docs/vm: z3fold.txt: convert to ReST format
+  docs/vm: zsmalloc.txt: convert to ReST format
+  docs/vm: zswap.txt: convert to ReST format
+  docs/vm: rename documentation files to .rst
+  docs/vm: add index.rst and link MM documentation to top level index
+
+ Documentation/ABI/stable/sysfs-devices-node        |   2 +-
+ .../ABI/testing/sysfs-kernel-mm-hugepages          |   2 +-
+ Documentation/ABI/testing/sysfs-kernel-mm-ksm      |   2 +-
+ Documentation/ABI/testing/sysfs-kernel-slab        |   4 +-
+ Documentation/admin-guide/kernel-parameters.txt    |  12 +-
+ Documentation/dev-tools/kasan.rst                  |   2 +-
+ Documentation/filesystems/proc.txt                 |   4 +-
+ Documentation/filesystems/tmpfs.txt                |   2 +-
+ Documentation/index.rst                            |   3 +-
+ Documentation/sysctl/vm.txt                        |   6 +-
+ Documentation/vm/00-INDEX                          |  58 +--
+ Documentation/vm/active_mm.rst                     |  91 ++++
+ Documentation/vm/active_mm.txt                     |  83 ----
+ Documentation/vm/{balance => balance.rst}          |  15 +-
+ .../vm/{cleancache.txt => cleancache.rst}          | 105 +++--
+ Documentation/vm/conf.py                           |  10 +
+ Documentation/vm/{frontswap.txt => frontswap.rst}  |  59 ++-
+ Documentation/vm/{highmem.txt => highmem.rst}      |  87 ++--
+ Documentation/vm/{hmm.txt => hmm.rst}              |  66 ++-
+ .../{hugetlbfs_reserv.txt => hugetlbfs_reserv.rst} | 212 +++++----
+ .../vm/{hugetlbpage.txt => hugetlbpage.rst}        | 243 ++++++-----
+ Documentation/vm/{hwpoison.txt => hwpoison.rst}    | 141 +++---
+ ...le_page_tracking.txt => idle_page_tracking.rst} |  55 ++-
+ Documentation/vm/index.rst                         |  56 +++
+ Documentation/vm/ksm.rst                           | 183 ++++++++
+ Documentation/vm/ksm.txt                           | 178 --------
+ Documentation/vm/mmu_notifier.rst                  |  99 +++++
+ Documentation/vm/mmu_notifier.txt                  |  93 ----
+ Documentation/vm/{numa => numa.rst}                |   6 +-
+ Documentation/vm/numa_memory_policy.rst            | 485 +++++++++++++++++++++
+ Documentation/vm/numa_memory_policy.txt            | 452 -------------------
+ Documentation/vm/overcommit-accounting             |  80 ----
+ Documentation/vm/overcommit-accounting.rst         |  87 ++++
+ Documentation/vm/{page_frags => page_frags.rst}    |   5 +-
+ .../vm/{page_migration => page_migration.rst}      | 149 ++++---
+ .../vm/{page_owner.txt => page_owner.rst}          |  34 +-
+ Documentation/vm/{pagemap.txt => pagemap.rst}      | 170 ++++----
+ .../{remap_file_pages.txt => remap_file_pages.rst} |   6 +
+ Documentation/vm/slub.rst                          | 361 +++++++++++++++
+ Documentation/vm/slub.txt                          | 342 ---------------
+ .../vm/{soft-dirty.txt => soft-dirty.rst}          |  20 +-
+ ...t_page_table_lock => split_page_table_lock.rst} |  12 +-
+ Documentation/vm/{swap_numa.txt => swap_numa.rst}  |  55 ++-
+ Documentation/vm/{transhuge.txt => transhuge.rst}  | 286 +++++++-----
+ .../{unevictable-lru.txt => unevictable-lru.rst}   | 117 +++--
+ .../vm/{userfaultfd.txt => userfaultfd.rst}        |  66 +--
+ Documentation/vm/{z3fold.txt => z3fold.rst}        |   6 +-
+ Documentation/vm/{zsmalloc.txt => zsmalloc.rst}    |  60 ++-
+ Documentation/vm/{zswap.txt => zswap.rst}          |  71 +--
+ MAINTAINERS                                        |   2 +-
+ arch/alpha/Kconfig                                 |   2 +-
+ arch/ia64/Kconfig                                  |   2 +-
+ arch/mips/Kconfig                                  |   2 +-
+ arch/powerpc/Kconfig                               |   2 +-
+ fs/Kconfig                                         |   2 +-
+ fs/dax.c                                           |   2 +-
+ fs/proc/task_mmu.c                                 |   4 +-
+ include/linux/hmm.h                                |   2 +-
+ include/linux/memremap.h                           |   4 +-
+ include/linux/mmu_notifier.h                       |   2 +-
+ include/linux/sched/mm.h                           |   4 +-
+ include/linux/swap.h                               |   2 +-
+ mm/Kconfig                                         |   6 +-
+ mm/cleancache.c                                    |   2 +-
+ mm/frontswap.c                                     |   2 +-
+ mm/hmm.c                                           |   2 +-
+ mm/huge_memory.c                                   |   4 +-
+ mm/hugetlb.c                                       |   4 +-
+ mm/ksm.c                                           |   4 +-
+ mm/mmap.c                                          |   2 +-
+ mm/rmap.c                                          |   6 +-
+ mm/util.c                                          |   2 +-
+ 72 files changed, 2604 insertions(+), 2205 deletions(-)
+ create mode 100644 Documentation/vm/active_mm.rst
+ delete mode 100644 Documentation/vm/active_mm.txt
+ rename Documentation/vm/{balance => balance.rst} (96%)
+ rename Documentation/vm/{cleancache.txt => cleancache.rst} (83%)
+ create mode 100644 Documentation/vm/conf.py
+ rename Documentation/vm/{frontswap.txt => frontswap.rst} (91%)
+ rename Documentation/vm/{highmem.txt => highmem.rst} (64%)
+ rename Documentation/vm/{hmm.txt => hmm.rst} (92%)
+ rename Documentation/vm/{hugetlbfs_reserv.txt => hugetlbfs_reserv.rst} (87%)
+ rename Documentation/vm/{hugetlbpage.txt => hugetlbpage.rst} (64%)
+ rename Documentation/vm/{hwpoison.txt => hwpoison.rst} (60%)
+ rename Documentation/vm/{idle_page_tracking.txt => idle_page_tracking.rst} (72%)
+ create mode 100644 Documentation/vm/index.rst
+ create mode 100644 Documentation/vm/ksm.rst
+ delete mode 100644 Documentation/vm/ksm.txt
+ create mode 100644 Documentation/vm/mmu_notifier.rst
+ delete mode 100644 Documentation/vm/mmu_notifier.txt
+ rename Documentation/vm/{numa => numa.rst} (99%)
+ create mode 100644 Documentation/vm/numa_memory_policy.rst
+ delete mode 100644 Documentation/vm/numa_memory_policy.txt
+ delete mode 100644 Documentation/vm/overcommit-accounting
+ create mode 100644 Documentation/vm/overcommit-accounting.rst
+ rename Documentation/vm/{page_frags => page_frags.rst} (97%)
+ rename Documentation/vm/{page_migration => page_migration.rst} (63%)
+ rename Documentation/vm/{page_owner.txt => page_owner.rst} (86%)
+ rename Documentation/vm/{pagemap.txt => pagemap.rst} (60%)
+ rename Documentation/vm/{remap_file_pages.txt => remap_file_pages.rst} (92%)
+ create mode 100644 Documentation/vm/slub.rst
+ delete mode 100644 Documentation/vm/slub.txt
+ rename Documentation/vm/{soft-dirty.txt => soft-dirty.rst} (67%)
+ rename Documentation/vm/{split_page_table_lock => split_page_table_lock.rst} (95%)
+ rename Documentation/vm/{swap_numa.txt => swap_numa.rst} (74%)
+ rename Documentation/vm/{transhuge.txt => transhuge.rst} (74%)
+ rename Documentation/vm/{unevictable-lru.txt => unevictable-lru.rst} (92%)
+ rename Documentation/vm/{userfaultfd.txt => userfaultfd.rst} (89%)
+ rename Documentation/vm/{z3fold.txt => z3fold.rst} (97%)
+ rename Documentation/vm/{zsmalloc.txt => zsmalloc.rst} (71%)
+ rename Documentation/vm/{zswap.txt => zswap.rst} (74%)
+
+-- 
+2.7.4
+
