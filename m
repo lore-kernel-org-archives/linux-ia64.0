@@ -1,7 +1,7 @@
 From: Mike Rapoport <rppt@linux.vnet.ibm.com>
-Date: Wed, 21 Mar 2018 19:22:26 +0000
-Subject: [PATCH 10/32] docs/vm: idle_page_tracking.txt: convert to ReST format
-Message-Id: <1521660168-14372-11-git-send-email-rppt@linux.vnet.ibm.com>
+Date: Wed, 21 Mar 2018 19:22:34 +0000
+Subject: [PATCH 18/32] docs/vm: page_migration: convert to ReST format
+Message-Id: <1521660168-14372-19-git-send-email-rppt@linux.vnet.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1521660168-14372-1-git-send-email-rppt@linux.vnet.ibm.com>
 In-Reply-To: <1521660168-14372-1-git-send-email-rppt@linux.vnet.ibm.com>
@@ -13,114 +13,220 @@ Cc: Andrey Ryabinin <aryabinin@virtuozzo.com>, Richard Henderson <rth@twiddle.ne
 
 Signed-off-by: Mike Rapoport <rppt@linux.vnet.ibm.com>
 ---
- Documentation/vm/idle_page_tracking.txt | 55 +++++++++++++++++++++------------
- 1 file changed, 36 insertions(+), 19 deletions(-)
+ Documentation/vm/page_migration | 149 +++++++++++++++++++++-------------------
+ 1 file changed, 77 insertions(+), 72 deletions(-)
 
-diff --git a/Documentation/vm/idle_page_tracking.txt b/Documentation/vm/idle_page_tracking.txt
-index 85dcc3b..9cbe6f8 100644
---- a/Documentation/vm/idle_page_tracking.txt
-+++ b/Documentation/vm/idle_page_tracking.txt
-@@ -1,4 +1,11 @@
--MOTIVATION
-+.. _idle_page_tracking:
+diff --git a/Documentation/vm/page_migration b/Documentation/vm/page_migration
+index 0478ae2..07b67a8 100644
+--- a/Documentation/vm/page_migration
++++ b/Documentation/vm/page_migration
+@@ -1,5 +1,8 @@
++.. _page_migration:
 +
-+=========
-+Idle Page Tracking
-+=========
-+
-+Motivation
-+=====
++=======
+ Page migration
+---------------
++=======
  
- The idle page tracking feature allows to track which memory pages are being
- accessed by a workload and which are idle. This information can be useful for
-@@ -8,10 +15,14 @@ or deciding where to place the workload within a compute cluster.
+ Page migration allows the moving of the physical location of pages between
+ nodes in a numa system while the process is running. This means that the
+@@ -20,7 +23,7 @@ Page migration functions are provided by the numactl package by Andi Kleen
+ (a version later than 0.9.3 is required. Get it from
+ ftp://oss.sgi.com/www/projects/libnuma/download/). numactl provides libnuma
+ which provides an interface similar to other numa functionality for page
+-migration.  cat /proc/<pid>/numa_maps allows an easy review of where the
++migration.  cat ``/proc/<pid>/numa_maps`` allows an easy review of where the
+ pages of a process are located. See also the numa_maps documentation in the
+ proc(5) man page.
  
- It is enabled by CONFIG_IDLE_PAGE_TRACKING=y.
+@@ -56,8 +59,8 @@ description for those trying to use migrate_pages() from the kernel
+ (for userspace usage see the Andi Kleen's numactl package mentioned above)
+ and then a low level description of how the low level details work.
  
--USER API
-+.. _user_api:
+-A. In kernel use of migrate_pages()
+------------------------------------
++In kernel use of migrate_pages()
++================
  
--The idle page tracking API is located at /sys/kernel/mm/page_idle. Currently,
--it consists of the only read-write file, /sys/kernel/mm/page_idle/bitmap.
-+User API
-+====
-+
-+The idle page tracking API is located at ``/sys/kernel/mm/page_idle``.
-+Currently, it consists of the only read-write file,
-+``/sys/kernel/mm/page_idle/bitmap``.
+ 1. Remove pages from the LRU.
  
- The file implements a bitmap where each bit corresponds to a memory page. The
- bitmap is represented by an array of 8-byte integers, and the page at PFN #i is
-@@ -19,8 +30,9 @@ mapped to bit #i%64 of array element #i/64, byte order is native. When a bit is
- set, the corresponding page is idle.
+@@ -78,8 +81,8 @@ A. In kernel use of migrate_pages()
+    the new page for each page that is considered for
+    moving.
  
- A page is considered idle if it has not been accessed since it was marked idle
--(for more details on what "accessed" actually means see the IMPLEMENTATION
--DETAILS section). To mark a page idle one has to set the bit corresponding to
-+(for more details on what "accessed" actually means see the :ref:`Implementation
-+Details <impl_details>` section).
-+To mark a page idle one has to set the bit corresponding to
- the page by writing to the file. A value written to the file is OR-ed with the
- current bitmap value.
+-B. How migrate_pages() works
+-----------------------------
++How migrate_pages() works
++============ 
+ migrate_pages() does several passes over its list of pages. A page is moved
+ if all references to a page are removable at the time. The page has
+@@ -142,8 +145,8 @@ Steps:
+ 20. The new page is moved to the LRU and can be scanned by the swapper
+     etc again.
  
-@@ -30,9 +42,9 @@ page types (e.g. SLAB pages) an attempt to mark a page idle is silently ignored,
- and hence such pages are never reported idle.
- 
- For huge pages the idle flag is set only on the head page, so one has to read
--/proc/kpageflags in order to correctly count idle huge pages.
-+``/proc/kpageflags`` in order to correctly count idle huge pages.
- 
--Reading from or writing to /sys/kernel/mm/page_idle/bitmap will return
-+Reading from or writing to ``/sys/kernel/mm/page_idle/bitmap`` will return
- -EINVAL if you are not starting the read/write on an 8-byte boundary, or
- if the size of the read/write is not a multiple of 8 bytes. Writing to
- this file beyond max PFN will return -ENXIO.
-@@ -41,21 +53,25 @@ That said, in order to estimate the amount of pages that are not used by a
- workload one should:
- 
-  1. Mark all the workload's pages as idle by setting corresponding bits in
--    /sys/kernel/mm/page_idle/bitmap. The pages can be found by reading
--    /proc/pid/pagemap if the workload is represented by a process, or by
--    filtering out alien pages using /proc/kpagecgroup in case the workload is
--    placed in a memory cgroup.
-+    ``/sys/kernel/mm/page_idle/bitmap``. The pages can be found by reading
-+    ``/proc/pid/pagemap`` if the workload is represented by a process, or by
-+    filtering out alien pages using ``/proc/kpagecgroup`` in case the workload
-+    is placed in a memory cgroup.
- 
-  2. Wait until the workload accesses its working set.
- 
-- 3. Read /sys/kernel/mm/page_idle/bitmap and count the number of bits set. If
--    one wants to ignore certain types of pages, e.g. mlocked pages since they
--    are not reclaimable, he or she can filter them out using /proc/kpageflags.
-+ 3. Read ``/sys/kernel/mm/page_idle/bitmap`` and count the number of bits set.
-+    If one wants to ignore certain types of pages, e.g. mlocked pages since they
-+    are not reclaimable, he or she can filter them out using
-+    ``/proc/kpageflags``.
-+
-+See Documentation/vm/pagemap.txt for more information about
-+``/proc/pid/pagemap``, ``/proc/kpageflags``, and ``/proc/kpagecgroup``.
- 
--See Documentation/vm/pagemap.txt for more information about /proc/pid/pagemap,
--/proc/kpageflags, and /proc/kpagecgroup.
-+.. _impl_details:
- 
--IMPLEMENTATION DETAILS
-+Implementation Details
+-C. Non-LRU page migration
+--------------------------
++Non-LRU page migration
 +===========
  
- The kernel internally keeps track of accesses to user memory pages in order to
- reclaim unreferenced pages first on memory shortage conditions. A page is
-@@ -77,7 +93,8 @@ When a dirty page is written to swap or disk as a result of memory reclaim or
- exceeding the dirty memory limit, it is not marked referenced.
+ Although original migration aimed for reducing the latency of memory access
+ for NUMA, compaction who want to create high-order page is also main customer.
+@@ -164,89 +167,91 @@ migration path.
+ If a driver want to make own pages movable, it should define three functions
+ which are function pointers of struct address_space_operations.
  
- The idle memory tracking feature adds a new page flag, the Idle flag. This flag
--is set manually, by writing to /sys/kernel/mm/page_idle/bitmap (see the USER API
-+is set manually, by writing to ``/sys/kernel/mm/page_idle/bitmap`` (see the
-+:ref:`User API <user_api>`
- section), and cleared automatically whenever a page is referenced as defined
- above.
+-1. bool (*isolate_page) (struct page *page, isolate_mode_t mode);
++1. ``bool (*isolate_page) (struct page *page, isolate_mode_t mode);``
  
+-What VM expects on isolate_page function of driver is to return *true*
+-if driver isolates page successfully. On returing true, VM marks the page
+-as PG_isolated so concurrent isolation in several CPUs skip the page
+-for isolation. If a driver cannot isolate the page, it should return *false*.
++   What VM expects on isolate_page function of driver is to return *true*
++   if driver isolates page successfully. On returing true, VM marks the page
++   as PG_isolated so concurrent isolation in several CPUs skip the page
++   for isolation. If a driver cannot isolate the page, it should return *false*.
+ 
+-Once page is successfully isolated, VM uses page.lru fields so driver
+-shouldn't expect to preserve values in that fields.
++   Once page is successfully isolated, VM uses page.lru fields so driver
++   shouldn't expect to preserve values in that fields.
+ 
+-2. int (*migratepage) (struct address_space *mapping,
+-		struct page *newpage, struct page *oldpage, enum migrate_mode);
++2. ``int (*migratepage) (struct address_space *mapping,``
++|	``struct page *newpage, struct page *oldpage, enum migrate_mode);``
+ 
+-After isolation, VM calls migratepage of driver with isolated page.
+-The function of migratepage is to move content of the old page to new page
+-and set up fields of struct page newpage. Keep in mind that you should
+-indicate to the VM the oldpage is no longer movable via __ClearPageMovable()
+-under page_lock if you migrated the oldpage successfully and returns
+-MIGRATEPAGE_SUCCESS. If driver cannot migrate the page at the moment, driver
+-can return -EAGAIN. On -EAGAIN, VM will retry page migration in a short time
+-because VM interprets -EAGAIN as "temporal migration failure". On returning
+-any error except -EAGAIN, VM will give up the page migration without retrying
+-in this time.
++   After isolation, VM calls migratepage of driver with isolated page.
++   The function of migratepage is to move content of the old page to new page
++   and set up fields of struct page newpage. Keep in mind that you should
++   indicate to the VM the oldpage is no longer movable via __ClearPageMovable()
++   under page_lock if you migrated the oldpage successfully and returns
++   MIGRATEPAGE_SUCCESS. If driver cannot migrate the page at the moment, driver
++   can return -EAGAIN. On -EAGAIN, VM will retry page migration in a short time
++   because VM interprets -EAGAIN as "temporal migration failure". On returning
++   any error except -EAGAIN, VM will give up the page migration without retrying
++   in this time.
+ 
+-Driver shouldn't touch page.lru field VM using in the functions.
++   Driver shouldn't touch page.lru field VM using in the functions.
+ 
+-3. void (*putback_page)(struct page *);
++3. ``void (*putback_page)(struct page *);``
+ 
+-If migration fails on isolated page, VM should return the isolated page
+-to the driver so VM calls driver's putback_page with migration failed page.
+-In this function, driver should put the isolated page back to the own data
+-structure.
++   If migration fails on isolated page, VM should return the isolated page
++   to the driver so VM calls driver's putback_page with migration failed page.
++   In this function, driver should put the isolated page back to the own data
++   structure.
+ 
+ 4. non-lru movable page flags
+ 
+-There are two page flags for supporting non-lru movable page.
++   There are two page flags for supporting non-lru movable page.
+ 
+-* PG_movable
++   * PG_movable
+ 
+-Driver should use the below function to make page movable under page_lock.
++     Driver should use the below function to make page movable under page_lock::
+ 
+ 	void __SetPageMovable(struct page *page, struct address_space *mapping)
+ 
+-It needs argument of address_space for registering migration family functions
+-which will be called by VM. Exactly speaking, PG_movable is not a real flag of
+-struct page. Rather than, VM reuses page->mapping's lower bits to represent it.
++     It needs argument of address_space for registering migration
++     family functions which will be called by VM. Exactly speaking,
++     PG_movable is not a real flag of struct page. Rather than, VM
++     reuses page->mapping's lower bits to represent it.
+ 
++::
+ 	#define PAGE_MAPPING_MOVABLE 0x2
+ 	page->mapping = page->mapping | PAGE_MAPPING_MOVABLE;
+ 
+-so driver shouldn't access page->mapping directly. Instead, driver should
+-use page_mapping which mask off the low two bits of page->mapping under
+-page lock so it can get right struct address_space.
+-
+-For testing of non-lru movable page, VM supports __PageMovable function.
+-However, it doesn't guarantee to identify non-lru movable page because
+-page->mapping field is unified with other variables in struct page.
+-As well, if driver releases the page after isolation by VM, page->mapping
+-doesn't have stable value although it has PAGE_MAPPING_MOVABLE
+-(Look at __ClearPageMovable). But __PageMovable is cheap to catch whether
+-page is LRU or non-lru movable once the page has been isolated. Because
+-LRU pages never can have PAGE_MAPPING_MOVABLE in page->mapping. It is also
+-good for just peeking to test non-lru movable pages before more expensive
+-checking with lock_page in pfn scanning to select victim.
+-
+-For guaranteeing non-lru movable page, VM provides PageMovable function.
+-Unlike __PageMovable, PageMovable functions validates page->mapping and
+-mapping->a_ops->isolate_page under lock_page. The lock_page prevents sudden
+-destroying of page->mapping.
+-
+-Driver using __SetPageMovable should clear the flag via __ClearMovablePage
+-under page_lock before the releasing the page.
+-
+-* PG_isolated
+-
+-To prevent concurrent isolation among several CPUs, VM marks isolated page
+-as PG_isolated under lock_page. So if a CPU encounters PG_isolated non-lru
+-movable page, it can skip it. Driver doesn't need to manipulate the flag
+-because VM will set/clear it automatically. Keep in mind that if driver
+-sees PG_isolated page, it means the page have been isolated by VM so it
+-shouldn't touch page.lru field.
+-PG_isolated is alias with PG_reclaim flag so driver shouldn't use the flag
+-for own purpose.
++     so driver shouldn't access page->mapping directly. Instead, driver should
++     use page_mapping which mask off the low two bits of page->mapping under
++     page lock so it can get right struct address_space.
++
++     For testing of non-lru movable page, VM supports __PageMovable function.
++     However, it doesn't guarantee to identify non-lru movable page because
++     page->mapping field is unified with other variables in struct page.
++     As well, if driver releases the page after isolation by VM, page->mapping
++     doesn't have stable value although it has PAGE_MAPPING_MOVABLE
++     (Look at __ClearPageMovable). But __PageMovable is cheap to catch whether
++     page is LRU or non-lru movable once the page has been isolated. Because
++     LRU pages never can have PAGE_MAPPING_MOVABLE in page->mapping. It is also
++     good for just peeking to test non-lru movable pages before more expensive
++     checking with lock_page in pfn scanning to select victim.
++
++     For guaranteeing non-lru movable page, VM provides PageMovable function.
++     Unlike __PageMovable, PageMovable functions validates page->mapping and
++     mapping->a_ops->isolate_page under lock_page. The lock_page prevents sudden
++     destroying of page->mapping.
++
++     Driver using __SetPageMovable should clear the flag via __ClearMovablePage
++     under page_lock before the releasing the page.
++
++   * PG_isolated
++
++     To prevent concurrent isolation among several CPUs, VM marks isolated page
++     as PG_isolated under lock_page. So if a CPU encounters PG_isolated non-lru
++     movable page, it can skip it. Driver doesn't need to manipulate the flag
++     because VM will set/clear it automatically. Keep in mind that if driver
++     sees PG_isolated page, it means the page have been isolated by VM so it
++     shouldn't touch page.lru field.
++     PG_isolated is alias with PG_reclaim flag so driver shouldn't use the flag
++     for own purpose.
+ 
+ Christoph Lameter, May 8, 2006.
+ Minchan Kim, Mar 28, 2016.
 -- 
 2.7.4
 
