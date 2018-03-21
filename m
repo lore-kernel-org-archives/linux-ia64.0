@@ -1,7 +1,7 @@
 From: Mike Rapoport <rppt@linux.vnet.ibm.com>
-Date: Wed, 21 Mar 2018 19:22:23 +0000
-Subject: [PATCH 07/32] docs/vm: hugetlbpage.txt: convert to ReST format
-Message-Id: <1521660168-14372-8-git-send-email-rppt@linux.vnet.ibm.com>
+Date: Wed, 21 Mar 2018 19:22:33 +0000
+Subject: [PATCH 17/32] docs/vm: pagemap.txt: convert to ReST format
+Message-Id: <1521660168-14372-18-git-send-email-rppt@linux.vnet.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1521660168-14372-1-git-send-email-rppt@linux.vnet.ibm.com>
 In-Reply-To: <1521660168-14372-1-git-send-email-rppt@linux.vnet.ibm.com>
@@ -13,430 +13,246 @@ Cc: Andrey Ryabinin <aryabinin@virtuozzo.com>, Richard Henderson <rth@twiddle.ne
 
 Signed-off-by: Mike Rapoport <rppt@linux.vnet.ibm.com>
 ---
- Documentation/vm/hugetlbpage.txt | 243 ++++++++++++++++++++++-----------------
- 1 file changed, 139 insertions(+), 104 deletions(-)
+ Documentation/vm/pagemap.txt | 164 +++++++++++++++++++++++--------------------
+ 1 file changed, 89 insertions(+), 75 deletions(-)
 
-diff --git a/Documentation/vm/hugetlbpage.txt b/Documentation/vm/hugetlbpage.txt
-index faf077d..3bb0d99 100644
---- a/Documentation/vm/hugetlbpage.txt
-+++ b/Documentation/vm/hugetlbpage.txt
-@@ -1,3 +1,11 @@
-+.. _hugetlbpage:
+diff --git a/Documentation/vm/pagemap.txt b/Documentation/vm/pagemap.txt
+index eafcefa..bd6d717 100644
+--- a/Documentation/vm/pagemap.txt
++++ b/Documentation/vm/pagemap.txt
+@@ -1,13 +1,16 @@
+-pagemap, from the userspace perspective
+----------------------------------------
++.. _pagemap:
 +
-+======+HugeTLB Pages
-+======+
-+Overview
-+====
++===================
++pagemap from the Userspace Perspective
++===================
  
- The intent of this file is to give a brief summary of hugetlbpage support in
- the Linux kernel.  This support is built on top of multiple page size support
-@@ -18,53 +26,59 @@ First the Linux kernel needs to be built with the CONFIG_HUGETLBFS
- automatically when CONFIG_HUGETLBFS is selected) configuration
- options.
+ pagemap is a new (as of 2.6.25) set of interfaces in the kernel that allow
+ userspace programs to examine the page tables and related information by
+-reading files in /proc.
++reading files in ``/proc``.
  
--The /proc/meminfo file provides information about the total number of
-+The ``/proc/meminfo`` file provides information about the total number of
- persistent hugetlb pages in the kernel's huge page pool.  It also displays
- default huge page size and information about the number of free, reserved
- and surplus huge pages in the pool of huge pages of default size.
- The huge page size is needed for generating the proper alignment and
- size of the arguments to system calls that map huge page regions.
+ There are four components to pagemap:
  
--The output of "cat /proc/meminfo" will include lines like:
-+The output of ``cat /proc/meminfo`` will include lines like::
+- * /proc/pid/pagemap.  This file lets a userspace process find out which
++ * ``/proc/pid/pagemap``.  This file lets a userspace process find out which
+    physical frame each virtual page is mapped to.  It contains one 64-bit
+    value for each virtual page, containing the following data (from
+    fs/proc/task_mmu.c, above pagemap_read):
+@@ -37,24 +40,24 @@ There are four components to pagemap:
+    determine which areas of memory are actually mapped and llseek to
+    skip over unmapped regions.
  
--.....
--HugePages_Total: uuu
--HugePages_Free:  vvv
--HugePages_Rsvd:  www
--HugePages_Surp:  xxx
--Hugepagesize:    yyy kB
--Hugetlb:         zzz kB
-+	HugePages_Total: uuu
-+	HugePages_Free:  vvv
-+	HugePages_Rsvd:  www
-+	HugePages_Surp:  xxx
-+	Hugepagesize:    yyy kB
-+	Hugetlb:         zzz kB
+- * /proc/kpagecount.  This file contains a 64-bit count of the number of
++ * ``/proc/kpagecount``.  This file contains a 64-bit count of the number of
+    times each page is mapped, indexed by PFN.
  
- where:
--HugePages_Total is the size of the pool of huge pages.
--HugePages_Free  is the number of huge pages in the pool that are not yet
--                allocated.
--HugePages_Rsvd  is short for "reserved," and is the number of huge pages for
--                which a commitment to allocate from the pool has been made,
--                but no allocation has yet been made.  Reserved huge pages
--                guarantee that an application will be able to allocate a
--                huge page from the pool of huge pages at fault time.
--HugePages_Surp  is short for "surplus," and is the number of huge pages in
--                the pool above the value in /proc/sys/vm/nr_hugepages. The
--                maximum number of surplus huge pages is controlled by
--                /proc/sys/vm/nr_overcommit_hugepages.
--Hugepagesize    is the default hugepage size (in Kb).
--Hugetlb         is the total amount of memory (in kB), consumed by huge
--                pages of all sizes.
--                If huge pages of different sizes are in use, this number
--                will exceed HugePages_Total * Hugepagesize. To get more
--                detailed information, please, refer to
--                /sys/kernel/mm/hugepages (described below).
+- * /proc/kpageflags.  This file contains a 64-bit set of flags for each
++ * ``/proc/kpageflags``.  This file contains a 64-bit set of flags for each
+    page, indexed by PFN.
+ 
+-   The flags are (from fs/proc/page.c, above kpageflags_read):
 -
+-     0. LOCKED
+-     1. ERROR
+-     2. REFERENCED
+-     3. UPTODATE
+-     4. DIRTY
+-     5. LRU
+-     6. ACTIVE
+-     7. SLAB
+-     8. WRITEBACK
+-     9. RECLAIM
++   The flags are (from ``fs/proc/page.c``, above kpageflags_read):
++
++    0. LOCKED
++    1. ERROR
++    2. REFERENCED
++    3. UPTODATE
++    4. DIRTY
++    5. LRU
++    6. ACTIVE
++    7. SLAB
++    8. WRITEBACK
++    9. RECLAIM
+     10. BUDDY
+     11. MMAP
+     12. ANON
+@@ -72,98 +75,108 @@ There are four components to pagemap:
+     24. ZERO_PAGE
+     25. IDLE
+ 
+- * /proc/kpagecgroup.  This file contains a 64-bit inode number of the
++ * ``/proc/kpagecgroup``.  This file contains a 64-bit inode number of the
+    memory cgroup each page is charged to, indexed by PFN. Only available when
+    CONFIG_MEMCG is set.
+ 
+ Short descriptions to the page flags:
 -
--/proc/filesystems should also show a filesystem of type "hugetlbfs" configured
--in the kernel.
+- 0. LOCKED
+-    page is being locked for exclusive access, eg. by undergoing read/write IO
 -
--/proc/sys/vm/nr_hugepages indicates the current number of "persistent" huge
+- 7. SLAB
+-    page is managed by the SLAB/SLOB/SLUB/SLQB kernel memory allocator
+-    When compound page is used, SLUB/SLQB will only set this flag on the head
+-    page; SLOB will not flag it at all.
+-
+-10. BUDDY
++==================+
++0 - LOCKED
++   page is being locked for exclusive access, eg. by undergoing read/write IO
++7 - SLAB
++   page is managed by the SLAB/SLOB/SLUB/SLQB kernel memory allocator
++   When compound page is used, SLUB/SLQB will only set this flag on the head
++   page; SLOB will not flag it at all.
++10 - BUDDY
+     a free memory block managed by the buddy system allocator
+     The buddy system organizes free memory in blocks of various orders.
+     An order N block has 2^N physically contiguous pages, with the BUDDY flag
+     set for and _only_ for the first page.
+-
+-15. COMPOUND_HEAD
+-16. COMPOUND_TAIL
++15 - COMPOUND_HEAD
+     A compound page with order N consists of 2^N physically contiguous pages.
+     A compound page with order 2 takes the form of "HTTT", where H donates its
+     head page and T donates its tail page(s).  The major consumers of compound
+     pages are hugeTLB pages (Documentation/vm/hugetlbpage.txt), the SLUB etc.
+     memory allocators and various device drivers. However in this interface,
+     only huge/giga pages are made visible to end users.
+-17. HUGE
++16 - COMPOUND_TAIL
++    A compound page tail (see description above).
++17 - HUGE
+     this is an integral part of a HugeTLB page
+-
+-19. HWPOISON
++19 - HWPOISON
+     hardware detected memory corruption on this page: don't touch the data!
+-
+-20. NOPAGE
++20 - NOPAGE
+     no page frame exists at the requested address
+-
+-21. KSM
++21 - KSM
+     identical memory pages dynamically shared between one or more processes
+-
+-22. THP
++22 - THP
+     contiguous pages which construct transparent hugepages
+-
+-23. BALLOON
++23 - BALLOON
+     balloon compaction page
+-
+-24. ZERO_PAGE
++24 - ZERO_PAGE
+     zero page for pfn_zero or huge_zero page
+-
+-25. IDLE
++25 - IDLE
+     page has not been accessed since it was marked idle (see
+     Documentation/vm/idle_page_tracking.txt). Note that this flag may be
+     stale in case the page was accessed via a PTE. To make sure the flag
+-    is up-to-date one has to read /sys/kernel/mm/page_idle/bitmap first.
+-
+-    [IO related page flags]
+- 1. ERROR     IO error occurred
+- 3. UPTODATE  page has up-to-date data
+-              ie. for file backed page: (in-memory data revision >= on-disk one)
+- 4. DIRTY     page has been written to, hence contains new data
+-              ie. for file backed page: (in-memory data revision >  on-disk one)
+- 8. WRITEBACK page is being synced to disk
+-
+-    [LRU related page flags]
+- 5. LRU         page is in one of the LRU lists
+- 6. ACTIVE      page is in the active LRU list
+-18. UNEVICTABLE page is in the unevictable (non-)LRU list
+-                It is somehow pinned and not a candidate for LRU page reclaims,
+-		eg. ramfs pages, shmctl(SHM_LOCK) and mlock() memory segments
+- 2. REFERENCED  page has been referenced since last LRU list enqueue/requeue
+- 9. RECLAIM     page will be reclaimed soon after its pageout IO completed
+-11. MMAP        a memory mapped page
+-12. ANON        a memory mapped page that is not part of a file
+-13. SWAPCACHE   page is mapped to swap space, ie. has an associated swap entry
+-14. SWAPBACKED  page is backed by swap/RAM
++    is up-to-date one has to read ``/sys/kernel/mm/page_idle/bitmap`` first.
 +
-+HugePages_Total
-+	is the size of the pool of huge pages.
-+HugePages_Free
-+	is the number of huge pages in the pool that are not yet
-+        allocated.
-+HugePages_Rsvd
-+	is short for "reserved," and is the number of huge pages for
-+        which a commitment to allocate from the pool has been made,
-+        but no allocation has yet been made.  Reserved huge pages
-+        guarantee that an application will be able to allocate a
-+        huge page from the pool of huge pages at fault time.
-+HugePages_Surp
-+	is short for "surplus," and is the number of huge pages in
-+        the pool above the value in ``/proc/sys/vm/nr_hugepages``. The
-+        maximum number of surplus huge pages is controlled by
-+        ``/proc/sys/vm/nr_overcommit_hugepages``.
-+Hugepagesize
-+	is the default hugepage size (in Kb).
-+Hugetlb
-+        is the total amount of memory (in kB), consumed by huge
-+        pages of all sizes.
-+        If huge pages of different sizes are in use, this number
-+        will exceed HugePages_Total \* Hugepagesize. To get more
-+        detailed information, please, refer to
-+        ``/sys/kernel/mm/hugepages`` (described below).
++IO related page flags
++---------------------
 +
++1 - ERROR
++   IO error occurred
++3 - UPTODATE
++   page has up-to-date data
++   ie. for file backed page: (in-memory data revision >= on-disk one)
++4 - DIRTY
++   page has been written to, hence contains new data
++   ie. for file backed page: (in-memory data revision >  on-disk one)
++8 - WRITEBACK
++   page is being synced to disk
 +
-+``/proc/filesystems`` should also show a filesystem of type "hugetlbfs"
-+configured in the kernel.
++LRU related page flags
++----------------------
 +
-+``/proc/sys/vm/nr_hugepages`` indicates the current number of "persistent" huge
- pages in the kernel's huge page pool.  "Persistent" huge pages will be
- returned to the huge page pool when freed by a task.  A user with root
- privileges can dynamically allocate more or free some persistent huge pages
--by increasing or decreasing the value of 'nr_hugepages'.
-+by increasing or decreasing the value of ``nr_hugepages``.
++5 - LRU
++   page is in one of the LRU lists
++6 - ACTIVE
++   page is in the active LRU list
++18 - UNEVICTABLE
++   page is in the unevictable (non-)LRU list It is somehow pinned and
++   not a candidate for LRU page reclaims, eg. ramfs pages,
++   shmctl(SHM_LOCK) and mlock() memory segments
++2 - REFERENCED
++   page has been referenced since last LRU list enqueue/requeue
++9 - RECLAIM
++   page will be reclaimed soon after its pageout IO completed
++11 - MMAP
++   a memory mapped page
++12 - ANON
++   a memory mapped page that is not part of a file
++13 - SWAPCACHE
++   page is mapped to swap space, ie. has an associated swap entry
++14 - SWAPBACKED
++   page is backed by swap/RAM
  
- Pages that are used as huge pages are reserved inside the kernel and cannot
- be used for other purposes.  Huge pages cannot be swapped out under
-@@ -86,10 +100,10 @@ with a huge page size selection parameter "hugepagesz=<size>".  <size> must
- be specified in bytes with optional scale suffix [kKmMgG].  The default huge
- page size may be selected with the "default_hugepagesz=<size>" boot parameter.
+ The page-types tool in the tools/vm directory can be used to query the
+ above flags.
  
--When multiple huge page sizes are supported, /proc/sys/vm/nr_hugepages
-+When multiple huge page sizes are supported, ``/proc/sys/vm/nr_hugepages``
- indicates the current number of pre-allocated huge pages of the default size.
- Thus, one can use the following command to dynamically allocate/deallocate
--default sized persistent huge pages:
-+default sized persistent huge pages::
+-Using pagemap to do something useful:
++Using pagemap to do something useful
++==================
  
- 	echo 20 > /proc/sys/vm/nr_hugepages
+ The general procedure for using pagemap to find out about a process' memory
+ usage goes like this:
  
-@@ -98,7 +112,7 @@ huge page pool to 20, allocating or freeing huge pages, as required.
+- 1. Read /proc/pid/maps to determine which parts of the memory space are
++ 1. Read ``/proc/pid/maps`` to determine which parts of the memory space are
+     mapped to what.
+  2. Select the maps you are interested in -- all of them, or a particular
+     library, or the stack or the heap, etc.
+- 3. Open /proc/pid/pagemap and seek to the pages you would like to examine.
++ 3. Open ``/proc/pid/pagemap`` and seek to the pages you would like to examine.
+  4. Read a u64 for each page from pagemap.
+- 5. Open /proc/kpagecount and/or /proc/kpageflags.  For each PFN you just
+-    read, seek to that entry in the file, and read the data you want.
++ 5. Open ``/proc/kpagecount`` and/or ``/proc/kpageflags``.  For each PFN you
++    just read, seek to that entry in the file, and read the data you want.
  
- On a NUMA platform, the kernel will attempt to distribute the huge page pool
- over all the set of allowed nodes specified by the NUMA memory policy of the
--task that modifies nr_hugepages.  The default for the allowed nodes--when the
-+task that modifies ``nr_hugepages``. The default for the allowed nodes--when the
- task has default memory policy--is all on-line nodes with memory.  Allowed
- nodes with insufficient available, contiguous memory for a huge page will be
- silently skipped when allocating persistent huge pages.  See the discussion
-@@ -117,51 +131,52 @@ init files.  This will enable the kernel to allocate huge pages early in
- the boot process when the possibility of getting physical contiguous pages
- is still very high.  Administrators can verify the number of huge pages
- actually allocated by checking the sysctl or meminfo.  To check the per node
--distribution of huge pages in a NUMA system, use:
-+distribution of huge pages in a NUMA system, use::
+ For example, to find the "unique set size" (USS), which is the amount of
+ memory that a process is using that is not shared with any other process,
+@@ -171,7 +184,8 @@ you can go through every map in the process, find the PFNs, look those up
+ in kpagecount, and tally up the number of pages that are only referenced
+ once.
  
- 	cat /sys/devices/system/node/node*/meminfo | fgrep Huge
- 
--/proc/sys/vm/nr_overcommit_hugepages specifies how large the pool of
--huge pages can grow, if more huge pages than /proc/sys/vm/nr_hugepages are
-+``/proc/sys/vm/nr_overcommit_hugepages`` specifies how large the pool of
-+huge pages can grow, if more huge pages than ``/proc/sys/vm/nr_hugepages`` are
- requested by applications.  Writing any non-zero value into this file
- indicates that the hugetlb subsystem is allowed to try to obtain that
- number of "surplus" huge pages from the kernel's normal page pool, when the
- persistent huge page pool is exhausted. As these surplus huge pages become
- unused, they are freed back to the kernel's normal page pool.
- 
--When increasing the huge page pool size via nr_hugepages, any existing surplus
--pages will first be promoted to persistent huge pages.  Then, additional
-+When increasing the huge page pool size via ``nr_hugepages``, any existing
-+surplus pages will first be promoted to persistent huge pages.  Then, additional
- huge pages will be allocated, if necessary and if possible, to fulfill
- the new persistent huge page pool size.
- 
- The administrator may shrink the pool of persistent huge pages for
--the default huge page size by setting the nr_hugepages sysctl to a
-+the default huge page size by setting the ``nr_hugepages`` sysctl to a
- smaller value.  The kernel will attempt to balance the freeing of huge pages
--across all nodes in the memory policy of the task modifying nr_hugepages.
-+across all nodes in the memory policy of the task modifying ``nr_hugepages``.
- Any free huge pages on the selected nodes will be freed back to the kernel's
- normal page pool.
- 
--Caveat: Shrinking the persistent huge page pool via nr_hugepages such that
-+Caveat: Shrinking the persistent huge page pool via ``nr_hugepages`` such that
- it becomes less than the number of huge pages in use will convert the balance
- of the in-use huge pages to surplus huge pages.  This will occur even if
- the number of surplus pages it would exceed the overcommit value.  As long as
--this condition holds--that is, until nr_hugepages+nr_overcommit_hugepages is
-+this condition holds--that is, until ``nr_hugepages+nr_overcommit_hugepages`` is
- increased sufficiently, or the surplus huge pages go out of use and are freed--
- no more surplus huge pages will be allowed to be allocated.
- 
- With support for multiple huge page pools at run-time available, much of
--the huge page userspace interface in /proc/sys/vm has been duplicated in sysfs.
--The /proc interfaces discussed above have been retained for backwards
--compatibility. The root huge page control directory in sysfs is:
-+the huge page userspace interface in ``/proc/sys/vm`` has been duplicated in
-+sysfs.
-+The ``/proc`` interfaces discussed above have been retained for backwards
-+compatibility. The root huge page control directory in sysfs is::
- 
- 	/sys/kernel/mm/hugepages
- 
- For each huge page size supported by the running kernel, a subdirectory
--will exist, of the form:
-+will exist, of the form::
- 
- 	hugepages-${size}kB
- 
--Inside each of these directories, the same set of files will exist:
-+Inside each of these directories, the same set of files will exist::
- 
- 	nr_hugepages
- 	nr_hugepages_mempolicy
-@@ -176,33 +191,33 @@ which function as described above for the default huge page-sized case.
- Interaction of Task Memory Policy with Huge Page Allocation/Freeing
- ================================= 
--Whether huge pages are allocated and freed via the /proc interface or
--the /sysfs interface using the nr_hugepages_mempolicy attribute, the NUMA
--nodes from which huge pages are allocated or freed are controlled by the
--NUMA memory policy of the task that modifies the nr_hugepages_mempolicy
--sysctl or attribute.  When the nr_hugepages attribute is used, mempolicy
-+Whether huge pages are allocated and freed via the ``/proc`` interface or
-+the ``/sysfs`` interface using the ``nr_hugepages_mempolicy`` attribute, the
-+NUMA nodes from which huge pages are allocated or freed are controlled by the
-+NUMA memory policy of the task that modifies the ``nr_hugepages_mempolicy``
-+sysctl or attribute.  When the ``nr_hugepages`` attribute is used, mempolicy
- is ignored.
- 
- The recommended method to allocate or free huge pages to/from the kernel
--huge page pool, using the nr_hugepages example above, is:
-+huge page pool, using the ``nr_hugepages`` example above, is::
- 
-     numactl --interleave <node-list> echo 20 \
- 				>/proc/sys/vm/nr_hugepages_mempolicy
- 
--or, more succinctly:
-+or, more succinctly::
- 
-     numactl -m <node-list> echo 20 >/proc/sys/vm/nr_hugepages_mempolicy
- 
--This will allocate or free abs(20 - nr_hugepages) to or from the nodes
-+This will allocate or free ``abs(20 - nr_hugepages)`` to or from the nodes
- specified in <node-list>, depending on whether number of persistent huge pages
- is initially less than or greater than 20, respectively.  No huge pages will be
- allocated nor freed on any node not included in the specified <node-list>.
- 
--When adjusting the persistent hugepage count via nr_hugepages_mempolicy, any
-+When adjusting the persistent hugepage count via ``nr_hugepages_mempolicy``, any
- memory policy mode--bind, preferred, local or interleave--may be used.  The
- resulting effect on persistent huge page allocation is as follows:
- 
--1) Regardless of mempolicy mode [see Documentation/vm/numa_memory_policy.txt],
-+#. Regardless of mempolicy mode [see Documentation/vm/numa_memory_policy.txt],
-    persistent huge pages will be distributed across the node or nodes
-    specified in the mempolicy as if "interleave" had been specified.
-    However, if a node in the policy does not contain sufficient contiguous
-@@ -212,7 +227,7 @@ resulting effect on persistent huge page allocation is as follows:
-    possibly, allocation of persistent huge pages on nodes not allowed by
-    the task's memory policy.
- 
--2) One or more nodes may be specified with the bind or interleave policy.
-+#. One or more nodes may be specified with the bind or interleave policy.
-    If more than one node is specified with the preferred policy, only the
-    lowest numeric id will be used.  Local policy will select the node where
-    the task is running at the time the nodes_allowed mask is constructed.
-@@ -222,20 +237,20 @@ resulting effect on persistent huge page allocation is as follows:
-    indeterminate.  Thus, local policy is not very useful for this purpose.
-    Any of the other mempolicy modes may be used to specify a single node.
- 
--3) The nodes allowed mask will be derived from any non-default task mempolicy,
-+#. The nodes allowed mask will be derived from any non-default task mempolicy,
-    whether this policy was set explicitly by the task itself or one of its
-    ancestors, such as numactl.  This means that if the task is invoked from a
-    shell with non-default policy, that policy will be used.  One can specify a
-    node list of "all" with numactl --interleave or --membind [-m] to achieve
-    interleaving over all nodes in the system or cpuset.
- 
--4) Any task mempolicy specified--e.g., using numactl--will be constrained by
-+#. Any task mempolicy specified--e.g., using numactl--will be constrained by
-    the resource limits of any cpuset in which the task runs.  Thus, there will
-    be no way for a task with non-default policy running in a cpuset with a
-    subset of the system nodes to allocate huge pages outside the cpuset
-    without first moving to a cpuset that contains all of the desired nodes.
- 
--5) Boot-time huge page allocation attempts to distribute the requested number
-+#. Boot-time huge page allocation attempts to distribute the requested number
-    of huge pages over all on-lines nodes with memory.
- 
- Per Node Hugepages Attributes
-@@ -243,22 +258,22 @@ Per Node Hugepages Attributes
- 
- A subset of the contents of the root huge page control directory in sysfs,
- described above, will be replicated under each the system device of each
--NUMA node with memory in:
-+NUMA node with memory in::
- 
- 	/sys/devices/system/node/node[0-9]*/hugepages/
- 
- Under this directory, the subdirectory for each supported huge page size
--contains the following attribute files:
-+contains the following attribute files::
- 
- 	nr_hugepages
- 	free_hugepages
- 	surplus_hugepages
- 
--The free_' and surplus_' attribute files are read-only.  They return the number
-+The free\_' and surplus\_' attribute files are read-only.  They return the number
- of free and surplus [overcommitted] huge pages, respectively, on the parent
- node.
- 
--The nr_hugepages attribute returns the total number of huge pages on the
-+The ``nr_hugepages`` attribute returns the total number of huge pages on the
- specified node.  When this attribute is written, the number of persistent huge
- pages on the parent node will be adjusted to the specified value, if sufficient
- resources exist, regardless of the task's mempolicy or cpuset constraints.
-@@ -273,37 +288,51 @@ Using Huge Pages
- 
- If the user applications are going to request huge pages using mmap system
- call, then it is required that system administrator mount a file system of
--type hugetlbfs:
-+type hugetlbfs::
- 
-   mount -t hugetlbfs \
- 	-o uid=<value>,gid=<value>,mode=<value>,pagesize=<value>,size=<value>,\
- 	min_size=<value>,nr_inodes=<value> none /mnt/huge
- 
- This command mounts a (pseudo) filesystem of type hugetlbfs on the directory
--/mnt/huge.  Any files created on /mnt/huge uses huge pages.  The uid and gid
--options sets the owner and group of the root of the file system.  By default
--the uid and gid of the current process are taken.  The mode option sets the
--mode of root of file system to value & 01777.  This value is given in octal.
--By default the value 0755 is picked. If the platform supports multiple huge
--page sizes, the pagesize option can be used to specify the huge page size and
--associated pool.  pagesize is specified in bytes.  If pagesize is not specified
--the platform's default huge page size and associated pool will be used. The
--size option sets the maximum value of memory (huge pages) allowed for that
--filesystem (/mnt/huge).  The size option can be specified in bytes, or as a
--percentage of the specified huge page pool (nr_hugepages).  The size is
--rounded down to HPAGE_SIZE boundary.  The min_size option sets the minimum
--value of memory (huge pages) allowed for the filesystem.  min_size can be
--specified in the same way as size, either bytes or a percentage of the
--huge page pool.  At mount time, the number of huge pages specified by
--min_size are reserved for use by the filesystem.  If there are not enough
--free huge pages available, the mount will fail.  As huge pages are allocated
--to the filesystem and freed, the reserve count is adjusted so that the sum
--of allocated and reserved huge pages is always at least min_size.  The option
--nr_inodes sets the maximum number of inodes that /mnt/huge can use.  If the
--size, min_size or nr_inodes option is not provided on command line then
--no limits are set.  For pagesize, size, min_size and nr_inodes options, you
--can use [G|g]/[M|m]/[K|k] to represent giga/mega/kilo. For example, size=2K
--has the same meaning as size 48.
-+``/mnt/huge``.  Any files created on ``/mnt/huge`` uses huge pages.
-+
-+The ``uid`` and ``gid`` options sets the owner and group of the root of the
-+file system.  By default the ``uid`` and ``gid`` of the current process
-+are taken.
-+
-+The ``mode`` option sets the mode of root of file system to value & 01777.
-+This value is given in octal. By default the value 0755 is picked.
-+
-+If the platform supports multiple huge page sizes, the ``pagesize`` option can
-+be used to specify the huge page size and associated pool. ``pagesize``
-+is specified in bytes. If ``pagesize`` is not specified the platform's
-+default huge page size and associated pool will be used.
-+
-+The ``size`` option sets the maximum value of memory (huge pages) allowed
-+for that filesystem (``/mnt/huge``). The ``size`` option can be specified
-+in bytes, or as a percentage of the specified huge page pool (``nr_hugepages``).
-+The size is rounded down to HPAGE_SIZE boundary.
-+
-+The ``min_size`` option sets the minimum value of memory (huge pages) allowed
-+for the filesystem. ``min_size`` can be specified in the same way as ``size``,
-+either bytes or a percentage of the huge page pool.
-+At mount time, the number of huge pages specified by ``min_size`` are reserved
-+for use by the filesystem.
-+If there are not enough free huge pages available, the mount will fail.
-+As huge pages are allocated to the filesystem and freed, the reserve count
-+is adjusted so that the sum of allocated and reserved huge pages is always
-+at least ``min_size``.
-+
-+The option ``nr_inodes`` sets the maximum number of inodes that ``/mnt/huge``
-+can use.
-+
-+If the ``size``, ``min_size`` or ``nr_inodes`` option is not provided on
-+command line then no limits are set.
-+
-+For ``pagesize``, ``size``, ``min_size`` and ``nr_inodes`` options, you can
-+use [G|g]/[M|m]/[K|k] to represent giga/mega/kilo.
-+For example, size=2K has the same meaning as size 48.
- 
- While read system calls are supported on files that reside on hugetlb
- file systems, write system calls are not.
-@@ -313,12 +342,12 @@ used to change the file attributes on hugetlbfs.
- 
- Also, it is important to note that no such mount command is required if
- applications are going to use only shmat/shmget system calls or mmap with
--MAP_HUGETLB.  For an example of how to use mmap with MAP_HUGETLB see map_hugetlb
--below.
-+MAP_HUGETLB.  For an example of how to use mmap with MAP_HUGETLB see
-+:ref:`map_hugetlb <map_hugetlb>` below.
- 
- Users who wish to use hugetlb memory via shared memory segment should be a
- member of a supplementary group and system admin needs to configure that gid
--into /proc/sys/vm/hugetlb_shm_group.  It is possible for same or different
-+into ``/proc/sys/vm/hugetlb_shm_group``.  It is possible for same or different
- applications to use any combination of mmaps and shm* calls, though the mount of
- filesystem will be required for using mmap calls without MAP_HUGETLB.
- 
-@@ -332,15 +361,21 @@ a hugetlb page and the length is smaller than the hugepage size.
- Examples
- ====
- 
--1) map_hugetlb: see tools/testing/selftests/vm/map_hugetlb.c
-+.. _map_hugetlb:
-+
-+``map_hugetlb``
-+	see tools/testing/selftests/vm/map_hugetlb.c
-+
-+``hugepage-shm``
-+	see tools/testing/selftests/vm/hugepage-shm.c
- 
--2) hugepage-shm:  see tools/testing/selftests/vm/hugepage-shm.c
-+``hugepage-mmap``
-+	see tools/testing/selftests/vm/hugepage-mmap.c
- 
--3) hugepage-mmap:  see tools/testing/selftests/vm/hugepage-mmap.c
-+The `libhugetlbfs`_  library provides a wide range of userspace tools
-+to help with huge page usability, environment setup, and control.
- 
--4) The libhugetlbfs (https://github.com/libhugetlbfs/libhugetlbfs) library
--   provides a wide range of userspace tools to help with huge page usability,
--   environment setup, and control.
-+.. _libhugetlbfs: https://github.com/libhugetlbfs/libhugetlbfs
- 
- Kernel development regression testing
- ==================-- 
+-Other notes:
++Other notes
++===== 
+ Reading from any of the files will return -EINVAL if you are not starting
+ the read on an 8-byte boundary (e.g., if you sought an odd number of bytes
+-- 
 2.7.4
 
