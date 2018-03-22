@@ -1,273 +1,99 @@
-From: Alexander Sverdlin <alexander.sverdlin@nokia.com>
-Date: Fri, 23 Feb 2018 16:58:47 +0000
-Subject: [PATCH 1/3] ftrace: Add module to ftrace_make_call() parameters
-Message-Id: <20180223165849.16388-2-alexander.sverdlin@nokia.com>
+From: Ilya Smith <blackzert@gmail.com>
+Date: Thu, 22 Mar 2018 16:36:36 +0000
+Subject: [RFC PATCH v2 0/2] Randomization of address chosen by mmap.
+Message-Id: <1521736598-12812-1-git-send-email-blackzert@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180223165849.16388-1-alexander.sverdlin@nokia.com>
-In-Reply-To: <20180223165849.16388-1-alexander.sverdlin@nokia.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-arm-kernel@lists.infradead.org
+To: rth@twiddle.net, ink@jurassic.park.msu.ru, mattst88@gmail.com, vgupta@synopsys.com, linux@armlinux.org.uk, tony.luck@intel.com, fenghua.yu@intel.com, jhogan@kernel.org, ralf@linux-mips.org, jejb@parisc-linux.org, deller@gmx.de, benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au, schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, x86@kernel.org, nyc@holomorphy.com, viro@zeniv.linux.org.uk, arnd@arndb.de, blackzert@gmail.com, gregkh@linuxfoundation.org, deepa.kernel@gmail.com, mhocko@suse.com, hughd@google.com, kstewart@linuxfoundation.org, pombredanne@nexb.com, akpm@linux-foundation.org, steve.capper@arm.com, punit.agrawal@arm.com, paul.burton@mips.com, aneesh.kumar@linux.vnet.ibm.com, npiggin@gmail.com, keescook@chromium.org, bhsharma@redhat.com, riel@redhat.com, nitin.m.gupta@oracle.com, kirill.shutemov@linux.intel.com, dan.j.williams@intel.com, jack@suse.cz, ross.zwisler@linux.intel.com, jglisse@redhat.com, willy@infradead.org, aarcange@redhat.com, oleg@redhat.com, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-metag@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-mm@kvack.org
 
-ARM support for modules' PLTs will require a module pointer in
-ftrace_make_call() exactly as ftrace_make_nop() has it. Change the function
-signature without functional change for now.
+Current implementation doesn't randomize address returned by mmap.
+All the entropy ends with choosing mmap_base_addr at the process
+creation. After that mmap build very predictable layout of address
+space. It allows to bypass ASLR in many cases. This patch make
+randomization of address on any mmap call.
 
-Signed-off-by: Alexander Sverdlin <alexander.sverdlin@nokia.com>
 ---
- arch/arm/kernel/ftrace.c           | 3 ++-
- arch/arm64/kernel/ftrace.c         | 3 ++-
- arch/blackfin/kernel/ftrace.c      | 3 ++-
- arch/ia64/kernel/ftrace.c          | 3 ++-
- arch/metag/kernel/ftrace.c         | 3 ++-
- arch/microblaze/kernel/ftrace.c    | 3 ++-
- arch/mips/kernel/ftrace.c          | 3 ++-
- arch/powerpc/kernel/trace/ftrace.c | 3 ++-
- arch/s390/kernel/ftrace.c          | 3 ++-
- arch/sh/kernel/ftrace.c            | 3 ++-
- arch/sparc/kernel/ftrace.c         | 3 ++-
- arch/tile/kernel/ftrace.c          | 3 ++-
- arch/x86/kernel/ftrace.c           | 3 ++-
- include/linux/ftrace.h             | 4 +++-
- kernel/trace/ftrace.c              | 6 +++---
- 15 files changed, 32 insertions(+), 17 deletions(-)
+v2: Changed the way how gap was chosen. Now we don't get all possible
+gaps. Random address generated and used as a tree walking direction.
+Tree walked with backtracking till suitable gap will be found.
+When the gap was found, address randomly shifted from next vma start.
 
-diff --git a/arch/arm/kernel/ftrace.c b/arch/arm/kernel/ftrace.c
-index 5617932..be20adc 100644
---- a/arch/arm/kernel/ftrace.c
-+++ b/arch/arm/kernel/ftrace.c
-@@ -162,7 +162,8 @@ int ftrace_update_ftrace_func(ftrace_func_t func)
- 	return ret;
- }
- 
--int ftrace_make_call(struct dyn_ftrace *rec, unsigned long addr)
-+int ftrace_make_call(struct module *mod, struct dyn_ftrace *rec,
-+		     unsigned long addr)
- {
- 	unsigned long new, old;
- 	unsigned long ip = rec->ip;
-diff --git a/arch/arm64/kernel/ftrace.c b/arch/arm64/kernel/ftrace.c
-index 50986e3..e3a95d3 100644
---- a/arch/arm64/kernel/ftrace.c
-+++ b/arch/arm64/kernel/ftrace.c
-@@ -68,7 +68,8 @@ int ftrace_update_ftrace_func(ftrace_func_t func)
- /*
-  * Turn on the call to ftrace_caller() in instrumented function
-  */
--int ftrace_make_call(struct dyn_ftrace *rec, unsigned long addr)
-+int ftrace_make_call(struct module *mod, struct dyn_ftrace *rec,
-+		     unsigned long addr)
- {
- 	unsigned long pc = rec->ip;
- 	u32 old, new;
-diff --git a/arch/blackfin/kernel/ftrace.c b/arch/blackfin/kernel/ftrace.c
-index 8dad758..61ffc99 100644
---- a/arch/blackfin/kernel/ftrace.c
-+++ b/arch/blackfin/kernel/ftrace.c
-@@ -45,7 +45,8 @@ int ftrace_make_nop(struct module *mod, struct dyn_ftrace *rec,
- 	return ftrace_modify_code(rec->ip, mnop, sizeof(mnop));
- }
- 
--int ftrace_make_call(struct dyn_ftrace *rec, unsigned long addr)
-+int ftrace_make_call(struct module *mod, struct dyn_ftrace *rec,
-+		     unsigned long addr)
- {
- 	/* Restore the mcount call site */
- 	unsigned char call[8];
-diff --git a/arch/ia64/kernel/ftrace.c b/arch/ia64/kernel/ftrace.c
-index cee411e..658a011 100644
---- a/arch/ia64/kernel/ftrace.c
-+++ b/arch/ia64/kernel/ftrace.c
-@@ -169,7 +169,8 @@ int ftrace_make_nop(struct module *mod,
- 	return ftrace_modify_code(rec->ip, NULL, new, 0);
- }
- 
--int ftrace_make_call(struct dyn_ftrace *rec, unsigned long addr)
-+int ftrace_make_call(struct module *mod, struct dyn_ftrace *rec,
-+		     unsigned long addr)
- {
- 	unsigned long ip = rec->ip;
- 	unsigned char *old, *new;
-diff --git a/arch/metag/kernel/ftrace.c b/arch/metag/kernel/ftrace.c
-index f7b23d3..635652a 100644
---- a/arch/metag/kernel/ftrace.c
-+++ b/arch/metag/kernel/ftrace.c
-@@ -104,7 +104,8 @@ int ftrace_make_nop(struct module *mod,
- 	return ftrace_modify_code(ip, old, new);
- }
- 
--int ftrace_make_call(struct dyn_ftrace *rec, unsigned long addr)
-+int ftrace_make_call(struct module *mod, struct dyn_ftrace *rec,
-+		     unsigned long addr)
- {
- 	unsigned char *new, *old;
- 	unsigned long ip = rec->ip;
-diff --git a/arch/microblaze/kernel/ftrace.c b/arch/microblaze/kernel/ftrace.c
-index d57563c..01b314a 100644
---- a/arch/microblaze/kernel/ftrace.c
-+++ b/arch/microblaze/kernel/ftrace.c
-@@ -161,7 +161,8 @@ int ftrace_make_nop(struct module *mod,
- }
- 
- /* I believe that first is called ftrace_make_nop before this function */
--int ftrace_make_call(struct dyn_ftrace *rec, unsigned long addr)
-+int ftrace_make_call(struct module *mod, struct dyn_ftrace *rec,
-+		     unsigned long addr)
- {
- 	int ret;
- 	pr_debug("%s: addr:0x%x, rec->ip: 0x%x, imm:0x%x\n",
-diff --git a/arch/mips/kernel/ftrace.c b/arch/mips/kernel/ftrace.c
-index 7f3dfdb..9dcec19 100644
---- a/arch/mips/kernel/ftrace.c
-+++ b/arch/mips/kernel/ftrace.c
-@@ -200,7 +200,8 @@ int ftrace_make_nop(struct module *mod,
- #endif
- }
- 
--int ftrace_make_call(struct dyn_ftrace *rec, unsigned long addr)
-+int ftrace_make_call(struct module *mod, struct dyn_ftrace *rec,
-+		     unsigned long addr)
- {
- 	unsigned int new;
- 	unsigned long ip = rec->ip;
-diff --git a/arch/powerpc/kernel/trace/ftrace.c b/arch/powerpc/kernel/trace/ftrace.c
-index 4741fe1..b198433 100644
---- a/arch/powerpc/kernel/trace/ftrace.c
-+++ b/arch/powerpc/kernel/trace/ftrace.c
-@@ -437,7 +437,8 @@ __ftrace_make_call(struct dyn_ftrace *rec, unsigned long addr)
- #endif /* CONFIG_PPC64 */
- #endif /* CONFIG_MODULES */
- 
--int ftrace_make_call(struct dyn_ftrace *rec, unsigned long addr)
-+int ftrace_make_call(struct module *mod, struct dyn_ftrace *rec,
-+		     unsigned long addr)
- {
- 	unsigned long ip = rec->ip;
- 	unsigned int old, new;
-diff --git a/arch/s390/kernel/ftrace.c b/arch/s390/kernel/ftrace.c
-index dc76d81..1691d53 100644
---- a/arch/s390/kernel/ftrace.c
-+++ b/arch/s390/kernel/ftrace.c
-@@ -136,7 +136,8 @@ int ftrace_make_nop(struct module *mod, struct dyn_ftrace *rec,
- 	return 0;
- }
- 
--int ftrace_make_call(struct dyn_ftrace *rec, unsigned long addr)
-+int ftrace_make_call(struct module *mod, struct dyn_ftrace *rec,
-+		     unsigned long addr)
- {
- 	struct ftrace_insn orig, new, old;
- 
-diff --git a/arch/sh/kernel/ftrace.c b/arch/sh/kernel/ftrace.c
-index 96dd9f7..2d3cacd 100644
---- a/arch/sh/kernel/ftrace.c
-+++ b/arch/sh/kernel/ftrace.c
-@@ -242,7 +242,8 @@ int ftrace_make_nop(struct module *mod,
- 	return ftrace_modify_code(rec->ip, old, new);
- }
- 
--int ftrace_make_call(struct dyn_ftrace *rec, unsigned long addr)
-+int ftrace_make_call(struct module *mod, struct dyn_ftrace *rec,
-+		     unsigned long addr)
- {
- 	unsigned char *new, *old;
- 	unsigned long ip = rec->ip;
-diff --git a/arch/sparc/kernel/ftrace.c b/arch/sparc/kernel/ftrace.c
-index 915dda4..36117b5 100644
---- a/arch/sparc/kernel/ftrace.c
-+++ b/arch/sparc/kernel/ftrace.c
-@@ -63,7 +63,8 @@ int ftrace_make_nop(struct module *mod, struct dyn_ftrace *rec, unsigned long ad
- 	return ftrace_modify_code(ip, old, new);
- }
- 
--int ftrace_make_call(struct dyn_ftrace *rec, unsigned long addr)
-+int ftrace_make_call(struct module *mod, struct dyn_ftrace *rec,
-+		     unsigned long addr)
- {
- 	unsigned long ip = rec->ip;
- 	u32 old, new;
-diff --git a/arch/tile/kernel/ftrace.c b/arch/tile/kernel/ftrace.c
-index b827a41..749e50f 100644
---- a/arch/tile/kernel/ftrace.c
-+++ b/arch/tile/kernel/ftrace.c
-@@ -136,7 +136,8 @@ int ftrace_update_ftrace_func(ftrace_func_t func)
- 	return ret;
- }
- 
--int ftrace_make_call(struct dyn_ftrace *rec, unsigned long addr)
-+int ftrace_make_call(struct module *mod, struct dyn_ftrace *rec,
-+		     unsigned long addr)
- {
- 	unsigned long new, old;
- 	unsigned long ip = rec->ip;
-diff --git a/arch/x86/kernel/ftrace.c b/arch/x86/kernel/ftrace.c
-index 01ebcb6..389f15c 100644
---- a/arch/x86/kernel/ftrace.c
-+++ b/arch/x86/kernel/ftrace.c
-@@ -162,7 +162,8 @@ int ftrace_make_nop(struct module *mod,
- 	return -EINVAL;
- }
- 
--int ftrace_make_call(struct dyn_ftrace *rec, unsigned long addr)
-+int ftrace_make_call(struct module *mod, struct dyn_ftrace *rec,
-+		     unsigned long addr)
- {
- 	unsigned const char *new, *old;
- 	unsigned long ip = rec->ip;
-diff --git a/include/linux/ftrace.h b/include/linux/ftrace.h
-index 9c3c9a3..1e8c421 100644
---- a/include/linux/ftrace.h
-+++ b/include/linux/ftrace.h
-@@ -536,6 +536,7 @@ extern int ftrace_make_nop(struct module *mod,
- 
- /**
-  * ftrace_make_call - convert a nop call site into a call to addr
-+ * @mod: module structure if called by module load initialization
-  * @rec: the mcount call site record
-  * @addr: the address that the call site should call
-  *
-@@ -554,7 +555,8 @@ extern int ftrace_make_nop(struct module *mod,
-  *  -EPERM  on error writing to the location
-  * Any other value will be considered a failure.
-  */
--extern int ftrace_make_call(struct dyn_ftrace *rec, unsigned long addr);
-+extern int ftrace_make_call(struct module *mod, struct dyn_ftrace *rec,
-+			    unsigned long addr);
- 
- #ifdef CONFIG_DYNAMIC_FTRACE_WITH_REGS
- /**
-diff --git a/kernel/trace/ftrace.c b/kernel/trace/ftrace.c
-index eac9ce2..d32f2f5 100644
---- a/kernel/trace/ftrace.c
-+++ b/kernel/trace/ftrace.c
-@@ -2421,7 +2421,7 @@ unsigned long ftrace_get_addr_curr(struct dyn_ftrace *rec)
- }
- 
- static int
--__ftrace_replace_code(struct dyn_ftrace *rec, int enable)
-+__ftrace_replace_code(struct module *mod, struct dyn_ftrace *rec, int enable)
- {
- 	unsigned long ftrace_old_addr;
- 	unsigned long ftrace_addr;
-@@ -2442,7 +2442,7 @@ __ftrace_replace_code(struct dyn_ftrace *rec, int enable)
- 
- 	case FTRACE_UPDATE_MAKE_CALL:
- 		ftrace_bug_type = FTRACE_BUG_CALL;
--		return ftrace_make_call(rec, ftrace_addr);
-+		return ftrace_make_call(mod, rec, ftrace_addr);
- 
- 	case FTRACE_UPDATE_MAKE_NOP:
- 		ftrace_bug_type = FTRACE_BUG_NOP;
-@@ -2470,7 +2470,7 @@ void __weak ftrace_replace_code(int enable)
- 		if (rec->flags & FTRACE_FL_DISABLED)
- 			continue;
- 
--		failed = __ftrace_replace_code(rec, enable);
-+		failed = __ftrace_replace_code(NULL, rec, enable);
- 		if (failed) {
- 			ftrace_bug(failed, rec);
- 			/* Stop processing */
+The vm_unmapped_area_info structure was extended with new field random_shift
+what might be used to set arch-depended limit on shift to next vma start.
+In case of x86-64 architecture this shift is 256 pages for 32 bit applications
+and 0x1000000 pages for 64 bit.
+
+To get the entropy pseudo-random is used. This is because on Intel x86-64
+processors instruction RDRAND works very slow if buffer is consumed -
+after about 10000 iterations.
+
+This feature could be enabled by setting randomize_va_space with 4.
+
+---
+Performance:
+After applying this patch single mmap took about 7% longer according to
+following test:
+
+    before = rdtsc();
+    addr = mmap(0, SIZE, PROT_READ | PROT_WRITE, 
+                 MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+    after = rdtsc();
+    diff = after - before;
+    munmap(addr, SIZE)
+    ...
+    unsigned long long total = 0;
+    for(int i = 0; i < count; ++i) {
+        total += one_iteration();
+    }
+    printf("%lld\n", total);
+
+Time is consumed by div instruction in computation of the address.
+
+make kernel:
+echo 2 > /proc/sys/kernel/randomize_va_space 
+make mrproper && make defconfig && time make 
+real    11m9.925s
+user    10m17.829s
+sys 1m4.969s
+
+echo 4 > /proc/sys/kernel/randomize_va_space 
+make mrproper && make defconfig && time make 
+real    11m12.806s
+user    10m18.305s
+sys 1m4.281s
+
+
+Ilya Smith (2):
+  Randomization of address chosen by mmap.
+  Architecture defined limit on memory region random shift.
+
+ arch/alpha/kernel/osf_sys.c         |   1 +
+ arch/arc/mm/mmap.c                  |   1 +
+ arch/arm/mm/mmap.c                  |   2 +
+ arch/frv/mm/elf-fdpic.c             |   1 +
+ arch/ia64/kernel/sys_ia64.c         |   1 +
+ arch/ia64/mm/hugetlbpage.c          |   1 +
+ arch/metag/mm/hugetlbpage.c         |   1 +
+ arch/mips/mm/mmap.c                 |   1 +
+ arch/parisc/kernel/sys_parisc.c     |   2 +
+ arch/powerpc/mm/hugetlbpage-radix.c |   1 +
+ arch/powerpc/mm/mmap.c              |   2 +
+ arch/powerpc/mm/slice.c             |   2 +
+ arch/s390/mm/mmap.c                 |   2 +
+ arch/sh/mm/mmap.c                   |   2 +
+ arch/sparc/kernel/sys_sparc_32.c    |   1 +
+ arch/sparc/kernel/sys_sparc_64.c    |   2 +
+ arch/sparc/mm/hugetlbpage.c         |   2 +
+ arch/tile/mm/hugetlbpage.c          |   2 +
+ arch/x86/kernel/sys_x86_64.c        |   4 +
+ arch/x86/mm/hugetlbpage.c           |   4 +
+ fs/hugetlbfs/inode.c                |   1 +
+ include/linux/mm.h                  |  17 ++--
+ mm/mmap.c                           | 165 ++++++++++++++++++++++++++++++++++++
+ 23 files changed, 213 insertions(+), 5 deletions(-)
+
 -- 
-2.4.6
+2.7.4
 
