@@ -1,63 +1,29 @@
-From: Philippe CORNU <philippe.cornu@st.com>
-Date: Thu, 05 Apr 2018 12:53:56 +0000
+From: Sasha Levin <Alexander.Levin@microsoft.com>
+Date: Fri, 06 Apr 2018 20:05:28 +0000
 Subject: Re: [PATCH] drm/sti: Depend on OF rather than selecting it
-Message-Id: <24f85eb5-b6fc-5c4c-fe31-979d13df8924@st.com>
+Message-Id: <MW2PR2101MB1034D8A52505BFE74A9B443CFBBA0@MW2PR2101MB1034.namprd21.prod.outlook.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20180403053401.30045-1-oohall@gmail.com>
- <CA+M3ks4RPe_jo-LKKCNU22fzQWO3nvJEiZYg_mB6tSVd9PgqZA@mail.gmail.com>
-In-Reply-To: <CA+M3ks4RPe_jo-LKKCNU22fzQWO3nvJEiZYg_mB6tSVd9PgqZA@mail.gmail.com>
+In-Reply-To: <20180403053401.30045-1-oohall@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Benjamin Gaignard <benjamin.gaignard@linaro.org>, Oliver O'Halloran <oohall@gmail.com>
-Cc: "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, David Airlie <airlied@linux.ie>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, "stable@vger.kernel.org" <stable@vger.kernel.org>, "dri-devel@lists.freedesktop.org" <dri-devel@lists.freedesktop.org>, Vincent ABRIOU <vincent.abriou@st.com>
+To: Sasha Levin <Alexander.Levin@microsoft.com>, Oliver O'Halloran <oohall@gmail.com>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Cc: Oliver O'Halloran <oohall@gmail.com>, Benjamin Gaignard <benjamin.gaignard@linaro.org>, Vincent Abriou <vincent.abriou@st.com>, David Airlie <airlied@linux.ie>, "dri-devel@lists.freedesktop.org" <dri-devel@lists.freedesktop.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "stable@vger.kernel.org" <stable@vger.kernel.org>, "stable@vger.kernel.org" <stable@vger.kernel.org>
 
-DQoNCk9uIDA0LzA1LzIwMTggMDE6MDUgUE0sIEJlbmphbWluIEdhaWduYXJkIHdyb3RlOg0KPiAy
-MDE4LTA0LTAzIDc6MzQgR01UKzAyOjAwIE9saXZlciBPJ0hhbGxvcmFuIDxvb2hhbGxAZ21haWwu
-Y29tPjoNCj4+IENvbW1pdCBjYzZiNzQxYzZmNjMgKCJkcm06IHN0aTogcmVtb3ZlIHVzZWxlc3Mg
-ZmllbGRzIGZyb20gdnRnDQo+PiBzdHJ1Y3R1cmUiKSByZXdvcmtlZCBzb21lIGNvZGUgaW5zaWRl
-IG9mIHRoaXMgZHJpdmVyIGFuZCBtYWRlIGl0IHNlbGVjdA0KPj4gQ09ORklHX09GLiBUaGlzIHJl
-c3VsdHMgaW4gdGhlIGVudGlyZSBPRiBsYXllciBiZWluZyBlbmFibGVkIHdoZW4NCj4+IGJ1aWxk
-aW5nIGFuIGFsbG1vZGNvbmZpZyBvbiBpYTY0LiBPRiBvbiBpYTY0IGlzIGNvbXBsZXRlbHkgdW5z
-dXBwb3J0ZWQNCj4+IHNvIHRoaXMgaXNuJ3QgYSBncmVhdCBzdGF0ZSBvZiBhZmZhaXJzLg0KPj4N
-Cj4+IFRoZSAwZGF5IHJvYm90IG5vdGljZWQgYSBsaW5rLXRpbWUgZmFpbHVyZSBvbiBpYTY0IGNh
-dXNlZCBieQ0KPj4gdXNpbmcgb2Zfbm9kZV90b19uaWQoKSBpbiBhbiBvdGhlcndpc2UgdW5yZWxh
-dGVkIGRyaXZlci4gVGhlDQo+PiBnZW5lcmljIGZhbGxiYWNrIGZvciBvZl9ub2RlX3RvX25pZCgp
-IG9ubHkgZXhpc3RzIHdoZW46DQo+Pg0KPj4gICAgICAgICAgZGVmaW5lZChDT05GSUdfT0YpICYm
-IGRlZmluZWQoQ09ORklHX05VTUEpID09IGZhbHNlDQo+Pg0KPj4gU2luY2UgQ09ORklHX05VTUEg
-aXMgdXN1YWxseSBzZWxlY3RlZCBmb3IgSUE2NCB3ZSBnZXQgdGhlIGxpbmsgZmFpbHVyZS4NCj4+
-IEZpeCB0aGlzIGJ5IG1ha2luZyB0aGUgZHJpdmVyIGRlcGVuZCBvbiBPRiByYXRoZXIgdGhhbiBz
-ZWxlY3RpbmcgaXQsDQo+PiBvZGRzIGFyZSB0aGF0IHdhcyB0aGUgb3JpZ2luYWwgaW50ZW50Lg0K
-Pj4NCj4+IExpbms6IGh0dHBzOi8vbGlzdHMuMDEub3JnL3BpcGVybWFpbC9rYnVpbGQtYWxsLzIw
-MTgtTWFyY2gvMDQ1MTcyLmh0bWwNCj4+IEZpeGVzOiBjYzZiNzQxYzZmNjMgKCJkcm06IHN0aTog
-cmVtb3ZlIHVzZWxlc3MgZmllbGRzIGZyb20gdnRnIHN0cnVjdHVyZSIpDQo+PiBDYzogQmVuamFt
-aW4gR2FpZ25hcmQgPGJlbmphbWluLmdhaWduYXJkQGxpbmFyby5vcmc+DQo+PiBDYzogVmluY2Vu
-dCBBYnJpb3UgPHZpbmNlbnQuYWJyaW91QHN0LmNvbT4NCj4+IENjOiBEYXZpZCBBaXJsaWUgPGFp
-cmxpZWRAbGludXguaWU+DQo+PiBDYzogZHJpLWRldmVsQGxpc3RzLmZyZWVkZXNrdG9wLm9yZw0K
-Pj4gQ2M6IGxpbnV4LWlhNjRAdmdlci5rZXJuZWwub3JnDQo+PiBDYzogc3RhYmxlQHZnZXIua2Vy
-bmVsLm9yZw0KPj4gU2lnbmVkLW9mZi1ieTogT2xpdmVyIE8nSGFsbG9yYW4gPG9vaGFsbEBnbWFp
-bC5jb20+DQo+IA0KPiBSZXZpZXdlZC1ieTogQmVuamFtaW4gR2FpZ25hcmQgPGJlbmphbWluLmdh
-aWduYXJkQGxpbmFyby5vcmc+DQoNCkFwcGxpZWQgb24gZHJtLW1pc2MtbmV4dA0KDQpNYW55IHRo
-YW5rcyBmb3IgeW91ciBwYXRjaCwNClBoaWxpcHBlIDotKQ0KDQo+IA0KPj4gLS0tDQo+PiBDY2Bl
-ZCB0byBzdGFibGUgc2luY2UgdGhlIGlhNjQgZ3V5cyBtaWdodCB3YW50IGl0IGJhY2twb3J0ZWQu
-IEknbSBub3QNCj4+IGJvdGhlcmVkIGlmIGl0IGp1c3QgZ29lcyBpbnRvIG1haW5saW5lLg0KPj4g
-LS0tDQo+PiAgIGRyaXZlcnMvZ3B1L2RybS9zdGkvS2NvbmZpZyB8IDMgKy0tDQo+PiAgIDEgZmls
-ZSBjaGFuZ2VkLCAxIGluc2VydGlvbigrKSwgMiBkZWxldGlvbnMoLSkNCj4+DQo+PiBkaWZmIC0t
-Z2l0IGEvZHJpdmVycy9ncHUvZHJtL3N0aS9LY29uZmlnIGIvZHJpdmVycy9ncHUvZHJtL3N0aS9L
-Y29uZmlnDQo+PiBpbmRleCBjY2E0YjNjOWFlYjUuLjE5NjNjYzFiMWNjNSAxMDA2NDQNCj4+IC0t
-LSBhL2RyaXZlcnMvZ3B1L2RybS9zdGkvS2NvbmZpZw0KPj4gKysrIGIvZHJpdmVycy9ncHUvZHJt
-L3N0aS9LY29uZmlnDQo+PiBAQCAtMSw2ICsxLDYgQEANCj4+ICAgY29uZmlnIERSTV9TVEkNCj4+
-ICAgICAgICAgIHRyaXN0YXRlICJEUk0gU3VwcG9ydCBmb3IgU1RNaWNyb2VsZWN0cm9uaWNzIFNv
-QyBzdGlINHh4IFNlcmllcyINCj4+IC0gICAgICAgZGVwZW5kcyBvbiBEUk0gJiYgKEFSQ0hfU1RJ
-IHx8IEFSQ0hfTVVMVElQTEFURk9STSkNCj4+ICsgICAgICAgZGVwZW5kcyBvbiBPRiAmJiBEUk0g
-JiYgKEFSQ0hfU1RJIHx8IEFSQ0hfTVVMVElQTEFURk9STSkNCj4+ICAgICAgICAgIHNlbGVjdCBS
-RVNFVF9DT05UUk9MTEVSDQo+PiAgICAgICAgICBzZWxlY3QgRFJNX0tNU19IRUxQRVINCj4+ICAg
-ICAgICAgIHNlbGVjdCBEUk1fR0VNX0NNQV9IRUxQRVINCj4+IEBAIC04LDYgKzgsNSBAQCBjb25m
-aWcgRFJNX1NUSQ0KPj4gICAgICAgICAgc2VsZWN0IERSTV9QQU5FTA0KPj4gICAgICAgICAgc2Vs
-ZWN0IEZXX0xPQURFUg0KPj4gICAgICAgICAgc2VsZWN0IFNORF9TT0NfSERNSV9DT0RFQyBpZiBT
-TkRfU09DDQo+PiAtICAgICAgIHNlbGVjdCBPRg0KPj4gICAgICAgICAgaGVscA0KPj4gICAgICAg
-ICAgICBDaG9vc2UgdGhpcyBvcHRpb24gdG8gZW5hYmxlIERSTSBvbiBTVE0gc3RpSDR4eCBjaGlw
-c2V0DQo+PiAtLQ0KPj4gMi45LjUNCj4+DQo+IF9fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fDQo+IGRyaS1kZXZlbCBtYWlsaW5nIGxpc3QNCj4gZHJpLWRldmVs
-QGxpc3RzLmZyZWVkZXNrdG9wLm9yZw0KPiBodHRwczovL2xpc3RzLmZyZWVkZXNrdG9wLm9yZy9t
-YWlsbWFuL2xpc3RpbmZvL2RyaS1kZXZlbA0KPiA
+Hi,
+
+[This is an automated email]
+
+This commit has been processed because it contains a "Fixes:" tag,
+fixing commit: cc6b741c6f63 drm: sti: remove useless fields from vtg structure.
+
+The bot has also determined it's probably a bug fixing patch. (score: 96.6729)
+
+The bot has tested the following trees: v4.16.
+
+v4.16: Build OK!
+
+--
+Thanks,
+Sasha
