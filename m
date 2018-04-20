@@ -1,90 +1,73 @@
-From: James Hogan <jhogan@kernel.org>
-Date: Wed, 11 Apr 2018 10:19:27 +0000
-Subject: Re: [PATCH] bug.h: Work around GCC PR82365 in BUG()
-Message-Id: <20180411101927.GA29949@saruman>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="AhhlLboLdkugWU4S"
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Date: Fri, 20 Apr 2018 01:04:03 +0000
+Subject: [REVIEW][PATCH 12/17] signal/ia64: Replace FPE_FIXME with FPE_FLTUNK
+Message-Id: <20180420010408.24438-12-ebiederm@xmission.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20171219114112.939391-1-arnd@arndb.de>
- <20180410224805.GA21429@saruman>
- <CAK8P3a0-_u7_FCj-nH0izBv4ub6krm1uA32bwi2jtBzXJePcnQ@mail.gmail.com>
- <20180411095359.GB21429@saruman>
- <CAK8P3a2_ihWCuUvDz_SVA1TMomkO1d7pa6e2bOQkZcEVP+Ff-A@mail.gmail.com>
-In-Reply-To: <CAK8P3a2_ihWCuUvDz_SVA1TMomkO1d7pa6e2bOQkZcEVP+Ff-A@mail.gmail.com>
-To: Arnd Bergmann <arnd@arndb.de>
-Cc: "open list:RALINK MIPS ARCHITECTURE" <linux-mips@linux-mips.org>, Paul Burton <paul.burton@mips.com>, Maciej Rozycki <macro@mips.com>, linux-arch <linux-arch@vger.kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Linux Kbuild mailing list <linux-kbuild@vger.kernel.org>, Vineet Gupta <vgupta@synopsys.com>, Mikael Starvik <starvik@axis.com>, Jesper Nilsson <jesper.nilsson@axis.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Geert Uytterhoeven <geert@linux-m68k.org>, "David S. Miller" <davem@davemloft.net>, Christopher Li <sparse@chrisli.org>, Thomas Gleixner <tglx@linutronix.de>, Peter Zijlstra <peterz@infradead.org>, Kees Cook <keescook@chromium.org>, Ingo Molnar <mingo@kernel.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Will Deacon <will.deacon@arm.com>, "Steven Rostedt (VMware)" <rostedt@goodmis.org>, Mark Rutland <mark.rutland@arm.com>, "open list:SYNOPSYS ARC ARCHITECTURE" <linux-snps-arc@lists.infradead.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-cris-kernel@axis.com, linux-ia64@vger.kernel.org, linux-m68k@vger.kernel.org, sparclinux <sparclinux@vger.kernel.org>, linux-sparse@vger.kernel.org, linux-alpha@vger.kernel.org
+References: <878t9ilmhv.fsf@xmission.com>
+In-Reply-To: <878t9ilmhv.fsf@xmission.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-arch@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, linux-api@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
+Using an si_code of 0 that aliases with SI_USER is clearly the wrong
+thing todo, and causes problems in interesting ways.
 
---AhhlLboLdkugWU4S
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+The newly defined FPE_FLTUNK semantically appears to fit the bill so
+use it instead.
 
-On Wed, Apr 11, 2018 at 12:08:51PM +0200, Arnd Bergmann wrote:
-> On Wed, Apr 11, 2018 at 11:54 AM, James Hogan <jhogan@kernel.org> wrote:
-> > On Wed, Apr 11, 2018 at 09:30:56AM +0200, Arnd Bergmann wrote:
-> >> On Wed, Apr 11, 2018 at 12:48 AM, James Hogan <jhogan@kernel.org> wrot=
-e:
-> >> > Before I forward port those patches to add .insn for MIPS, is that s=
-ort
-> >> > of approach (an arch specific asm/compiler-gcc.h to allow MIPS to
-> >> > override barrier_before_unreachable()) an acceptable fix?
-> >>
-> >> That sounds fine to me. However, I would suggest making that
-> >> asm/compiler.h instead of asm/compiler-gcc.h, so we can also
-> >> use the same file to include workarounds for clang if needed.
-> >
-> > Yes, though there are a few asm/compiler.h's already, and the alpha one
-> > includes linux/compiler.h before undefining inline, so seems to have its
-> > own specific purpose...
->=20
-> Interesting. For the other ones, including asm/compiler.h from linux/comp=
-iler.h
-> seems appropriate though, so the question would be what to do with the
-> alpha case. I think we can simply remove that header file and replace
-> it with this patch:
->=20
-> diff --git a/arch/alpha/Kconfig b/arch/alpha/Kconfig
-> index b2022885ced8..5502404f54cd 100644
-> --- a/arch/alpha/Kconfig
-> +++ b/arch/alpha/Kconfig
-> @@ -81,6 +81,9 @@ config PGTABLE_LEVELS
->         int
->         default 3
->=20
-> +config OPTIMIZE_INLINING
-> +       def_bool y
-> +
->  source "init/Kconfig"
->  source "kernel/Kconfig.freezer"
->=20
-> which should have the same effect.
+Given recent experience in this area odds are it will not
+break anything.  Fixing it removes a hazard to kernel maintenance.
 
-Hmm yes, and I suppose alpha would need ARCH_SUPPORTS_OPTIMIZED_INLINING
-too. I'll give it a try.
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
+Fixes: 987159266c45 ("Linux version 2.3.48")
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+---
+ arch/ia64/include/uapi/asm/siginfo.h | 7 -------
+ arch/ia64/kernel/traps.c             | 4 ++--
+ 2 files changed, 2 insertions(+), 9 deletions(-)
 
-Cheers
-James
+diff --git a/arch/ia64/include/uapi/asm/siginfo.h b/arch/ia64/include/uapi/asm/siginfo.h
+index 5aa454ed89db..52b5af424511 100644
+--- a/arch/ia64/include/uapi/asm/siginfo.h
++++ b/arch/ia64/include/uapi/asm/siginfo.h
+@@ -27,11 +27,4 @@
+ #define __ISR_VALID_BIT	0
+ #define __ISR_VALID	(1 << __ISR_VALID_BIT)
+ 
+-/*
+- * SIGFPE si_codes
+- */
+-#ifdef __KERNEL__
+-#define FPE_FIXME	0	/* Broken dup of SI_USER */
+-#endif /* __KERNEL__ */
+-
+ #endif /* _UAPI_ASM_IA64_SIGINFO_H */
+diff --git a/arch/ia64/kernel/traps.c b/arch/ia64/kernel/traps.c
+index 972873ed1ae5..c6f4932073a1 100644
+--- a/arch/ia64/kernel/traps.c
++++ b/arch/ia64/kernel/traps.c
+@@ -353,7 +353,7 @@ handle_fpu_swa (int fp_fault, struct pt_regs *regs, unsigned long isr)
+ 			clear_siginfo(&siginfo);
+ 			siginfo.si_signo = SIGFPE;
+ 			siginfo.si_errno = 0;
+-			siginfo.si_code = FPE_FIXME;	/* default code */
++			siginfo.si_code = FPE_FLTUNK;	/* default code */
+ 			siginfo.si_addr = (void __user *) (regs->cr_iip + ia64_psr(regs)->ri);
+ 			if (isr & 0x11) {
+ 				siginfo.si_code = FPE_FLTINV;
+@@ -380,7 +380,7 @@ handle_fpu_swa (int fp_fault, struct pt_regs *regs, unsigned long isr)
+ 			clear_siginfo(&siginfo);
+ 			siginfo.si_signo = SIGFPE;
+ 			siginfo.si_errno = 0;
+-			siginfo.si_code = FPE_FIXME;	/* default code */
++			siginfo.si_code = FPE_FLTUNK;	/* default code */
+ 			siginfo.si_addr = (void __user *) (regs->cr_iip + ia64_psr(regs)->ri);
+ 			if (isr & 0x880) {
+ 				siginfo.si_code = FPE_FLTOVF;
+-- 
+2.14.1
 
---AhhlLboLdkugWU4S
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAEBCAAdFiEEd80NauSabkiESfLYbAtpk944dnoFAlrN4S4ACgkQbAtpk944
-dnoXAxAAsHoTKQyZDTU/r/kGekG1pEfs0mc8yWLe9iRHbilM5u/YOGj6o0cqkkv8
-7YEH7lfapOs5Fi3+t+kXezfDtIijHFiwlgWJXnqe8z1ZRoovmIw4BYZvZGRMUjrf
-syPK/fOx2ZkQ+L3Zv02UdXfITV2rvWaK58olIs9Qnl7mwkUViA7cK3tzRtOhyKG1
-mEi58L9dOR8SZIGLJjUvBHpMDKyXsTb1AD4chQ5I3TCs8eCOq5FCOb6b0sa9P2x5
-UOpiJ1IMORXgML+FQ2o8lakjkk7b+jmj+NP4dgtydiMqlwZTcXydXW7POh7HMzko
-G6R2+QQiDl8Wf8fqTokXskTT3v2/vM+TwufVJlxWTqirUmuDN2l8AICSXO0Y3PR4
-aTJPIamIA/izYNBo0ukletJRH89TdHdzG5zSNypm6tYu5Vil69A20NnRHHQOYAk6
-Wt1BZUZp9/hz1bcxMCT9jnB10xDO/cXOIODWiwWQQbgx/upbK6oFOHh8YKxgSnXQ
-HFPAwV5tFNT7jVabbj43IQ2lIg+LlwLxL96VghSWxfmOrbUbZhBq7owHp3wwPYiF
-2TAD34tz6oWpgismxcQMV3dnIILncctozEKBleRA63TxYh8gCSH/QsvTi+3zZI2M
-8jnlOr4EkFefBAHhOAjZQE14qDig9/rW8FgnJTAhLteAF8f5wY0=
-=HfmN
------END PGP SIGNATURE-----
-
---AhhlLboLdkugWU4S--
