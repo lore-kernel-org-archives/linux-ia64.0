@@ -1,73 +1,36 @@
-From: "Eric W. Biederman" <ebiederm@xmission.com>
-Date: Fri, 20 Apr 2018 01:04:03 +0000
-Subject: [REVIEW][PATCH 12/17] signal/ia64: Replace FPE_FIXME with FPE_FLTUNK
-Message-Id: <20180420010408.24438-12-ebiederm@xmission.com>
+From: Arvind Yadav <arvind.yadav.cs@gmail.com>
+Date: Wed, 25 Apr 2018 14:56:45 +0000
+Subject: [PATCH] IA64: tiocx: use put_device() instead of kfree()
+Message-Id: <1bcbd268184312155aec041bdd87c775ddb7cd8f.1524667391.git.arvind.yadav.cs@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <878t9ilmhv.fsf@xmission.com>
-In-Reply-To: <878t9ilmhv.fsf@xmission.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-arch@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org, linux-api@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+To: tony.luck@intel.com, fenghua.yu@intel.com
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-Using an si_code of 0 that aliases with SI_USER is clearly the wrong
-thing todo, and causes problems in interesting ways.
+Never directly free @dev after calling device_register(), even
+if it returned an error. Always use put_device() to give up the
+reference initialized.
 
-The newly defined FPE_FLTUNK semantically appears to fit the bill so
-use it instead.
-
-Given recent experience in this area odds are it will not
-break anything.  Fixing it removes a hazard to kernel maintenance.
-
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org
-Fixes: 987159266c45 ("Linux version 2.3.48")
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
 ---
- arch/ia64/include/uapi/asm/siginfo.h | 7 -------
- arch/ia64/kernel/traps.c             | 4 ++--
- 2 files changed, 2 insertions(+), 9 deletions(-)
+ arch/ia64/sn/kernel/tiocx.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/ia64/include/uapi/asm/siginfo.h b/arch/ia64/include/uapi/asm/siginfo.h
-index 5aa454ed89db..52b5af424511 100644
---- a/arch/ia64/include/uapi/asm/siginfo.h
-+++ b/arch/ia64/include/uapi/asm/siginfo.h
-@@ -27,11 +27,4 @@
- #define __ISR_VALID_BIT	0
- #define __ISR_VALID	(1 << __ISR_VALID_BIT)
- 
--/*
-- * SIGFPE si_codes
-- */
--#ifdef __KERNEL__
--#define FPE_FIXME	0	/* Broken dup of SI_USER */
--#endif /* __KERNEL__ */
--
- #endif /* _UAPI_ASM_IA64_SIGINFO_H */
-diff --git a/arch/ia64/kernel/traps.c b/arch/ia64/kernel/traps.c
-index 972873ed1ae5..c6f4932073a1 100644
---- a/arch/ia64/kernel/traps.c
-+++ b/arch/ia64/kernel/traps.c
-@@ -353,7 +353,7 @@ handle_fpu_swa (int fp_fault, struct pt_regs *regs, unsigned long isr)
- 			clear_siginfo(&siginfo);
- 			siginfo.si_signo = SIGFPE;
- 			siginfo.si_errno = 0;
--			siginfo.si_code = FPE_FIXME;	/* default code */
-+			siginfo.si_code = FPE_FLTUNK;	/* default code */
- 			siginfo.si_addr = (void __user *) (regs->cr_iip + ia64_psr(regs)->ri);
- 			if (isr & 0x11) {
- 				siginfo.si_code = FPE_FLTINV;
-@@ -380,7 +380,7 @@ handle_fpu_swa (int fp_fault, struct pt_regs *regs, unsigned long isr)
- 			clear_siginfo(&siginfo);
- 			siginfo.si_signo = SIGFPE;
- 			siginfo.si_errno = 0;
--			siginfo.si_code = FPE_FIXME;	/* default code */
-+			siginfo.si_code = FPE_FLTUNK;	/* default code */
- 			siginfo.si_addr = (void __user *) (regs->cr_iip + ia64_psr(regs)->ri);
- 			if (isr & 0x880) {
- 				siginfo.si_code = FPE_FLTOVF;
+diff --git a/arch/ia64/sn/kernel/tiocx.c b/arch/ia64/sn/kernel/tiocx.c
+index 32d0380..fd515bc 100644
+--- a/arch/ia64/sn/kernel/tiocx.c
++++ b/arch/ia64/sn/kernel/tiocx.c
+@@ -209,7 +209,7 @@ cx_device_register(nasid_t nasid, int part_num, int mfg_num,
+ 	dev_set_name(&cx_dev->dev, "%d", cx_dev->cx_id.nasid);
+ 	r = device_register(&cx_dev->dev);
+ 	if (r) {
+-		kfree(cx_dev);
++		put_device(&cx_dev->dev);
+ 		return r;
+ 	}
+ 	get_device(&cx_dev->dev);
 -- 
-2.14.1
+2.7.4
 
