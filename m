@@ -1,26 +1,11 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Mon, 28 May 2018 08:39:31 +0000
-Subject: Re: [PATCH 7/7] x86: switch the VIA 32-bit DMA quirk to use the struct device flag
-Message-Id: <20180528083931.GA7169@lst.de>
+From: rudi@ithb.ac.id
+Date: Sun, 06 May 2018 16:09:12 +0000
+Subject: =?utf-8?b?V29obHTDpHRpZ2tlaXRzc3BlbmRlIGluIEjDtmhlIHZvbiDigqwgMi4wMDAu?= =?utf-8?q?000=2C00?=
+Message-Id: <20180506160553.BC81A8472AE@mail.ithb.ac.id>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180525143512.1466-1-hch@lst.de> <20180525143512.1466-8-hch@lst.de> <alpine.DEB.2.21.1805280808280.1585@nanos.tec.linutronix.de> <20180528061859.GA4145@lst.de> <alpine.DEB.2.21.1805280817310.1585@nanos.tec.linutronix.de> <20180528062725.GA4309@lst.de> <alpine.DEB.2.21.1805280823240.1585@nanos.tec.linutronix.de>
-In-Reply-To: <alpine.DEB.2.21.1805280823240.1585@nanos.tec.linutronix.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Thomas Gleixner <tglx@linutronix.de>
-Cc: Christoph Hellwig <hch@lst.de>, Ingo Molnar <mingo@redhat.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, x86@kernel.org, iommu@lists.linux-foundation.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: linux-ia64@vger.kernel.org
 
-On Mon, May 28, 2018 at 08:23:35AM +0200, Thomas Gleixner wrote:
-> > > They remove the commandline switch before having the replacement in place
-> > > unless I'm misreading something.
-> > 
-> > The command line switch to force 32-bit dma is removed without
-> > replacement.   The PCI quirk for force the 32-bit dma for VIA bridges
-> > is kept in place, and switch to a different mechanism in this patch.
-> 
-> Fair enough
-
-Thanks.  Do you want me to repost them for the x86 tree, or should
-just pull the changes with the commit logs fixed to the dma-mapping
-tree?
+Hallo, Ich bin Jeff Lindsay, Südkalifornien, Vereinigte Staaten von Amerika, Sie haben eine Wohltätigkeitsspende in Höhe von € 2.000.000,00, ich habe die America Lotterie in Amerika im Wert von $ 447,8 Millionen gewonnen, und ich gebe einen Teil davon an fünf glückliche Menschen und Nächstenliebe Häuser in Schwur, Armut von dieser Welt zu beseitigen, ich kämpfe Armut. Kontaktieren Sie mich für weitere Informationen: jefflindsaydonatingfunds@gmail.com
