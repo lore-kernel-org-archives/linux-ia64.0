@@ -1,51 +1,55 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Date: Fri, 18 May 2018 09:01:41 +0000
-Subject: Re: [PATCH 4.9 27/33] futex: Remove duplicated code and fix undefined behaviour
-Message-Id: <20180518090141.GA10227@kroah.com>
+From: "Luis R. Rodriguez" <mcgrof@kernel.org>
+Date: Wed, 09 May 2018 01:04:38 +0000
+Subject: Re: [PATCH] mm: provide a fallback for PAGE_KERNEL_RO for architectures
+Message-Id: <20180509010438.GM27853@wotan.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180518081535.096308218@linuxfoundation.org>
- <20180518081536.166573281@linuxfoundation.org>
- <e8dc5f94-3b52-dcf0-3b5e-b442bde7d803@suse.cz>
-In-Reply-To: <e8dc5f94-3b52-dcf0-3b5e-b442bde7d803@suse.cz>
+References: <20180428001526.22475-1-mcgrof@kernel.org>
+ <20180428031810.GA14566@bombadil.infradead.org>
+In-Reply-To: <20180428031810.GA14566@bombadil.infradead.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
-To: Jiri Slaby <jslaby@suse.cz>
-Cc: linux-kernel@vger.kernel.org, stable@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, Russell King <rmk+kernel@armlinux.org.uk>, "Darren Hart (VMware)" <dvhart@infradead.org>, linux-mips@linux-mips.org, Rich Felker <dalias@libc.org>, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, peterz@infradead.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Max Filippov <jcmvbkbc@gmail.com>, Paul Mackerras <paulus@samba.org>, sparclinux@vger.kernel.org, Jonas Bonn <jonas@southpole.se>, linux-s390@vger.kernel.org, linux-arch@vger.kernel.org, Yoshinori Sato <ysato@users.sourceforge.jp>, linux-hexagon@vger.kernel.org, Helge Deller <deller@gmx.de>, "James E.J. Bottomley" <jejb@parisc-linux.org>, Catalin Marinas <catalin.marinas@arm.com>, Matt Turner <matt>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Matthew Wilcox <willy@infradead.org>, Tony Luck <tony.luck@intel.com>
+Cc: "Luis R. Rodriguez" <mcgrof@kernel.org>, arnd@arndb.de, gregkh@linuxfoundation.org, linux-arch@vger.kernel.org, linux-fsdevel@vger.kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-On Fri, May 18, 2018 at 10:30:24AM +0200, Jiri Slaby wrote:
-> On 05/18/2018, 10:16 AM, Greg Kroah-Hartman wrote:
-> > 4.9-stable review patch.  If anyone has any objections, please let me k=
-now.
-> >=20
-> > ------------------
-> >=20
-> > From: Jiri Slaby <jslaby@suse.cz>
-> >=20
-> > commit 30d6e0a4190d37740e9447e4e4815f06992dd8c3 upstream.
-> ...
-> > --- a/kernel/futex.c
-> > +++ b/kernel/futex.c
-> > @@ -1458,6 +1458,45 @@ out:
-> >  	return ret;
-> >  }
-> > =20
-> > +static int futex_atomic_op_inuser(unsigned int encoded_op, u32 __user =
-*uaddr)
-> > +{
-> > +	unsigned int op =3D	  (encoded_op & 0x70000000) >> 28;
-> > +	unsigned int cmp =3D	  (encoded_op & 0x0f000000) >> 24;
-> > +	int oparg =3D sign_extend32((encoded_op & 0x00fff000) >> 12, 12);
-> > +	int cmparg =3D sign_extend32(encoded_op & 0x00000fff, 12);
->=20
-> 12 is wrong here =E2=80=93 wherever you apply this, you need also a follo=
-w-up fix:
-> commit d70ef22892ed6c066e51e118b225923c9b74af34
-> Author: Jiri Slaby <jslaby@suse.cz>
-> Date:   Thu Nov 30 15:35:44 2017 +0100
->=20
->     futex: futex_wake_op, fix sign_extend32 sign bits
+On Fri, Apr 27, 2018 at 08:18:10PM -0700, Matthew Wilcox wrote:
+> On Fri, Apr 27, 2018 at 05:15:26PM -0700, Luis R. Rodriguez wrote:
+> > Some architectures do not define PAGE_KERNEL_RO, best we can do
+> > for them is to provide a fallback onto PAGE_KERNEL. Remove the
+> > hack from the firmware loader and move it onto the asm-generic
+> > header, and document while at it the affected architectures
+> > which do not have a PAGE_KERNEL_RO:
+> > 
+> >   o alpha
+> >   o ia64
+> >   o m68k
+> >   o mips
+> >   o sparc64
+> >   o sparc
+> 
+> ia64 doesn't have it?
+> 
+> *fx: riffles through architecture book*
+> 
+> That seems like an oversight of the Linux port.  Tony, Fenghua, any thoughts?
 
-Thanks for letting me know, I've now queued it up to the needed trees.
+Poke *Tony, Fenghua* ?
 
-greg k-h
+> (also, Luis, maybe move the PAGE_KERNEL_EXEC fallback the same way you
+> moved the PAGE_KERNEL_RO fallback?)
+
+Done. Will queue in the generic PAGE_KERNEL_EXEC patch to my series.
+
+> --- >8 ---
+> 
+> ia64: Add PAGE_KERNEL_RO and PAGE_KERNEL_EXEC
+> 
+> The rest of the kernel was falling back to simple PAGE_KERNEL pages; using
+> PAGE_KERNEL_RO and PAGE_KERNEL_EXEC provide better protection against
+> unintended writes.
+> 
+> Signed-off-by: Matthew Wilcox <mawilcox@microsoft.com>
+
+Nice, should I queue this into my series as well?
+
+  Luis
