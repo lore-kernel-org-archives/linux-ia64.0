@@ -1,37 +1,41 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Date: Fri, 25 May 2018 16:35:32 +0000
-Subject: Re: [PATCH 1/7] core, dma-direct: add a flag 32-bit dma limits
-Message-Id: <20180525163532.GA13399@kroah.com>
+From: Christoph Hellwig <hch@lst.de>
+Date: Fri, 25 May 2018 14:35:09 +0000
+Subject: [PATCH 4/7] x86: remove a stray reference to pci-nommu.c
+Message-Id: <20180525143512.1466-5-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20180525143512.1466-1-hch@lst.de>
- <20180525143512.1466-2-hch@lst.de>
- <20180525145012.GA3863@kroah.com>
- <20180525162307.GB28900@lst.de>
-In-Reply-To: <20180525162307.GB28900@lst.de>
+In-Reply-To: <20180525143512.1466-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch@lst.de>
-Cc: Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, x86@kernel.org, iommu@lists.linux-foundation.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, netdev@vger.kernel.org
+To: Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: x86@kernel.org, iommu@lists.linux-foundation.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, netdev@vger.kernel.org
 
-On Fri, May 25, 2018 at 06:23:07PM +0200, Christoph Hellwig wrote:
-> On Fri, May 25, 2018 at 04:50:12PM +0200, Greg Kroah-Hartman wrote:
-> > On Fri, May 25, 2018 at 04:35:06PM +0200, Christoph Hellwig wrote:
-> > > Various PCI bridges (VIA PCI, Xilinx PCIe) limit DMA to only 32-bits
-> > > even if the device itself supports more.  Add a single bit flag to
-> > > struct device (to be moved into the dma extension once we around it)
-> > 
-> > "once we around it"?  I don't understand, sorry.
-> 
-> Should be "once we get around it", which in proper grammar should
-> probably be "once we get to it".  Anyway, the point is that right
-> now struct device is bloated with a lot of fields for dma/iommu
-> purposes and we need to clean this up.  It's been on my TODO list
-> for a while.
+This is just the minimal workaround.  The file file is mostly either stale
+and/or duplicative of Documentation/admin-guide/kernel-parameters.txt,
+but that is much more work than I'm willing to do right now.
 
-Ah, makes sense, that's fine with me, I'd love to see that get cleaned
-up.
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ Documentation/x86/x86_64/boot-options.txt | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-thanks,
+diff --git a/Documentation/x86/x86_64/boot-options.txt b/Documentation/x86/x86_64/boot-options.txt
+index b297c48389b9..153b3a57fba2 100644
+--- a/Documentation/x86/x86_64/boot-options.txt
++++ b/Documentation/x86/x86_64/boot-options.txt
+@@ -187,9 +187,9 @@ PCI
+ 
+ IOMMU (input/output memory management unit)
+ 
+- Currently four x86-64 PCI-DMA mapping implementations exist:
++ Multiple x86-64 PCI-DMA mapping implementations exist, for example:
+ 
+-   1. <arch/x86_64/kernel/pci-nommu.c>: use no hardware/software IOMMU at all
++   1. <lib/dma-direct.c>: use no hardware/software IOMMU at all
+       (e.g. because you have < 3 GB memory).
+       Kernel boot message: "PCI-DMA: Disabling IOMMU"
+ 
+-- 
+2.17.0
 
-greg k-h
