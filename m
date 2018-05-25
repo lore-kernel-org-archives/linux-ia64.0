@@ -1,168 +1,65 @@
-From: Daniel Thompson <daniel.thompson@linaro.org>
-Date: Thu, 31 May 2018 08:38:32 +0000
-Subject: Re: [PATCH] kbuild: add machine size to CHEKCFLAGS
-Message-Id: <20180531083832.glzcj23cgucev77v@holly.lan>
+From: Christoph Hellwig <hch@lst.de>
+Date: Fri, 25 May 2018 14:35:06 +0000
+Subject: [PATCH 1/7] core, dma-direct: add a flag 32-bit dma limits
+Message-Id: <20180525143512.1466-2-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180530204838.22079-1-luc.vanoostenryck@gmail.com>
-In-Reply-To: <20180530204838.22079-1-luc.vanoostenryck@gmail.com>
+References: <20180525143512.1466-1-hch@lst.de>
+In-Reply-To: <20180525143512.1466-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Luc Van Oostenryck <luc.vanoostenryck@gmail.com>
-Cc: Masahiro Yamada <yamada.masahiro@socionext.com>, Michal Marek <michal.lkml@markovi.net>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Ralf Baechle <ralf@linux-mips.org>, James Hogan <jhogan@kernel.org>, "James E . J . Bottomley" <jejb@parisc-linux.org>, Helge Deller <deller@gmx.de>, "David S . Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H . Peter Anvin" <hpa@zytor.com>, x86@kernel.org, Brendan Higgins <brendanhiggins@google.com>
+To: Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: x86@kernel.org, iommu@lists.linux-foundation.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, netdev@vger.kernel.org
 
-On Wed, May 30, 2018 at 10:48:38PM +0200, Luc Van Oostenryck wrote:
-> By default, sparse assumes a 64bit machine when compiled on x86-64
-> and 32bit when compiled on anything else.
-> 
-> This can of course create all sort of problems for the other archs, like
-> issuing false warnings ('shift too big (32) for type unsigned long'), or
-> worse, failing to emit legitimate warnings.
-> 
-> Fix this by adding the -m32/-m64 flag, depending on CONFIG_64BIT,
-> to CHECKFLAGS in the main Makefile (and so for all archs).
-> Also, remove the now unneeded -m32/-m64 in arch specific Makefiles.
-> 
-> Signed-off-by: Luc Van Oostenryck <luc.vanoostenryck@gmail.com>
+Various PCI bridges (VIA PCI, Xilinx PCIe) limit DMA to only 32-bits
+even if the device itself supports more.  Add a single bit flag to
+struct device (to be moved into the dma extension once we around it)
+to flag such devices and reject larger DMA to them.
 
-Looks like a good clean up to me. However the typo in the Subject: line
-did attract my attention.
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ include/linux/device.h | 3 +++
+ lib/dma-direct.c       | 6 ++++++
+ 2 files changed, 9 insertions(+)
 
+diff --git a/include/linux/device.h b/include/linux/device.h
+index 477956990f5e..fa317e45f5e6 100644
+--- a/include/linux/device.h
++++ b/include/linux/device.h
+@@ -904,6 +904,8 @@ struct dev_links_info {
+  * @offline:	Set after successful invocation of bus type's .offline().
+  * @of_node_reused: Set if the device-tree node is shared with an ancestor
+  *              device.
++ * @dma_32bit_limit: bridge limited to 32bit DMA even if the device itself
++ *		indicates support for a higher limit in the dma_mask field.
+  *
+  * At the lowest level, every device in a Linux system is represented by an
+  * instance of struct device. The device structure contains the information
+@@ -992,6 +994,7 @@ struct device {
+ 	bool			offline_disabled:1;
+ 	bool			offline:1;
+ 	bool			of_node_reused:1;
++	bool			dma_32bit_limit:1;
+ };
+ 
+ static inline struct device *kobj_to_dev(struct kobject *kobj)
+diff --git a/lib/dma-direct.c b/lib/dma-direct.c
+index bbfb229aa067..0151a7b2bc87 100644
+--- a/lib/dma-direct.c
++++ b/lib/dma-direct.c
+@@ -165,6 +165,12 @@ int dma_direct_supported(struct device *dev, u64 mask)
+ 	if (mask < DMA_BIT_MASK(32))
+ 		return 0;
+ #endif
++	/*
++	 * Various PCI/PCIe bridges have broken support for > 32bit DMA even
++	 * if the device itself might support it.
++	 */
++	if (dev->dma_32bit_limit && mask > DMA_BIT_MASK(32))
++		return 0;
+ 	return 1;
+ }
+ 
+-- 
+2.17.0
 
-Daniel.
-
-
-> ---
->  Makefile             | 3 +++
->  arch/alpha/Makefile  | 2 +-
->  arch/arm/Makefile    | 2 +-
->  arch/arm64/Makefile  | 2 +-
->  arch/ia64/Makefile   | 2 +-
->  arch/mips/Makefile   | 3 ---
->  arch/parisc/Makefile | 2 +-
->  arch/sparc/Makefile  | 2 +-
->  arch/x86/Makefile    | 2 +-
->  9 files changed, 10 insertions(+), 10 deletions(-)
-> 
-> diff --git a/Makefile b/Makefile
-> index 6c6610913..18379987c 100644
-> --- a/Makefile
-> +++ b/Makefile
-> @@ -881,6 +881,9 @@ endif
->  # insure the checker run with the right endianness
->  CHECKFLAGS += $(if $(CONFIG_CPU_BIG_ENDIAN),-mbig-endian,-mlittle-endian)
->  
-> +# the checker needs the correct machine size
-> +CHECKFLAGS += $(if $(CONFIG_64BIT),-m64,-m32)
-> +
->  # Default kernel image to build when no specific target is given.
->  # KBUILD_IMAGE may be overruled on the command line or
->  # set in the environment
-> diff --git a/arch/alpha/Makefile b/arch/alpha/Makefile
-> index 2cc3cc519..c5ec8c09c 100644
-> --- a/arch/alpha/Makefile
-> +++ b/arch/alpha/Makefile
-> @@ -11,7 +11,7 @@
->  NM := $(NM) -B
->  
->  LDFLAGS_vmlinux	:= -static -N #-relax
-> -CHECKFLAGS	+= -D__alpha__ -m64
-> +CHECKFLAGS	+= -D__alpha__
->  cflags-y	:= -pipe -mno-fp-regs -ffixed-8
->  cflags-y	+= $(call cc-option, -fno-jump-tables)
->  
-> diff --git a/arch/arm/Makefile b/arch/arm/Makefile
-> index e4e537f27..f32a5468d 100644
-> --- a/arch/arm/Makefile
-> +++ b/arch/arm/Makefile
-> @@ -135,7 +135,7 @@ endif
->  KBUILD_CFLAGS	+=$(CFLAGS_ABI) $(CFLAGS_ISA) $(arch-y) $(tune-y) $(call cc-option,-mshort-load-bytes,$(call cc-option,-malignment-traps,)) -msoft-float -Uarm
->  KBUILD_AFLAGS	+=$(CFLAGS_ABI) $(AFLAGS_ISA) $(arch-y) $(tune-y) -include asm/unified.h -msoft-float
->  
-> -CHECKFLAGS	+= -D__arm__ -m32
-> +CHECKFLAGS	+= -D__arm__
->  
->  #Default value
->  head-y		:= arch/arm/kernel/head$(MMUEXT).o
-> diff --git a/arch/arm64/Makefile b/arch/arm64/Makefile
-> index 87f7d2f9f..3c353b471 100644
-> --- a/arch/arm64/Makefile
-> +++ b/arch/arm64/Makefile
-> @@ -78,7 +78,7 @@ LDFLAGS		+= -maarch64linux
->  UTS_MACHINE	:= aarch64
->  endif
->  
-> -CHECKFLAGS	+= -D__aarch64__ -m64
-> +CHECKFLAGS	+= -D__aarch64__
->  
->  ifeq ($(CONFIG_ARM64_MODULE_PLTS),y)
->  KBUILD_LDFLAGS_MODULE	+= -T $(srctree)/arch/arm64/kernel/module.lds
-> diff --git a/arch/ia64/Makefile b/arch/ia64/Makefile
-> index 2dd7f519a..45f59808b 100644
-> --- a/arch/ia64/Makefile
-> +++ b/arch/ia64/Makefile
-> @@ -18,7 +18,7 @@ READELF := $(CROSS_COMPILE)readelf
->  
->  export AWK
->  
-> -CHECKFLAGS	+= -m64 -D__ia64=1 -D__ia64__=1 -D_LP64 -D__LP64__
-> +CHECKFLAGS	+= -D__ia64=1 -D__ia64__=1 -D_LP64 -D__LP64__
->  
->  OBJCOPYFLAGS	:= --strip-all
->  LDFLAGS_vmlinux	:= -static
-> diff --git a/arch/mips/Makefile b/arch/mips/Makefile
-> index 5e9fce076..e2122cca4 100644
-> --- a/arch/mips/Makefile
-> +++ b/arch/mips/Makefile
-> @@ -309,9 +309,6 @@ ifdef CONFIG_MIPS
->  CHECKFLAGS += $(shell $(CC) $(KBUILD_CFLAGS) -dM -E -x c /dev/null | \
->  	egrep -vw '__GNUC_(|MINOR_|PATCHLEVEL_)_' | \
->  	sed -e "s/^\#define /-D'/" -e "s/ /'='/" -e "s/$$/'/" -e 's/\$$/&&/g')
-> -ifdef CONFIG_64BIT
-> -CHECKFLAGS		+= -m64
-> -endif
->  endif
->  
->  OBJCOPYFLAGS		+= --remove-section=.reginfo
-> diff --git a/arch/parisc/Makefile b/arch/parisc/Makefile
-> index 348ae4779..714284ea6 100644
-> --- a/arch/parisc/Makefile
-> +++ b/arch/parisc/Makefile
-> @@ -28,7 +28,7 @@ export LIBGCC
->  
->  ifdef CONFIG_64BIT
->  UTS_MACHINE	:= parisc64
-> -CHECKFLAGS	+= -D__LP64__=1 -m64
-> +CHECKFLAGS	+= -D__LP64__=1
->  CC_ARCHES	= hppa64
->  LD_BFD		:= elf64-hppa-linux
->  else # 32-bit
-> diff --git a/arch/sparc/Makefile b/arch/sparc/Makefile
-> index edac927e4..966a13d2b 100644
-> --- a/arch/sparc/Makefile
-> +++ b/arch/sparc/Makefile
-> @@ -39,7 +39,7 @@ else
->  # sparc64
->  #
->  
-> -CHECKFLAGS    += -D__sparc__ -D__sparc_v9__ -D__arch64__ -m64
-> +CHECKFLAGS    += -D__sparc__ -D__sparc_v9__ -D__arch64__
->  LDFLAGS       := -m elf64_sparc
->  export BITS   := 64
->  UTS_MACHINE   := sparc64
-> diff --git a/arch/x86/Makefile b/arch/x86/Makefile
-> index 60135cbd9..f0a6ea224 100644
-> --- a/arch/x86/Makefile
-> +++ b/arch/x86/Makefile
-> @@ -94,7 +94,7 @@ ifeq ($(CONFIG_X86_32),y)
->  else
->          BITS := 64
->          UTS_MACHINE := x86_64
-> -        CHECKFLAGS += -D__x86_64__ -m64
-> +        CHECKFLAGS += -D__x86_64__
->  
->          biarch := -m64
->          KBUILD_AFLAGS += -m64
-> -- 
-> 2.17.0
-> 
