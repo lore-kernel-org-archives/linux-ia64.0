@@ -1,45 +1,61 @@
-From: "Luis R. Rodriguez" <mcgrof@kernel.org>
-Date: Thu, 10 May 2018 01:15:16 +0000
-Subject: Re: [PATCH] mm: provide a fallback for PAGE_KERNEL_RO for architectures
-Message-Id: <20180510011516.GZ27853@wotan.suse.de>
+From: Christoph Hellwig <hch@lst.de>
+Date: Fri, 25 May 2018 14:35:11 +0000
+Subject: [PATCH 6/7] x86: remove the explicit nodac and allowdac option
+Message-Id: <20180525143512.1466-7-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180428001526.22475-1-mcgrof@kernel.org>
- <20180428031810.GA14566@bombadil.infradead.org>
- <20180509010438.GM27853@wotan.suse.de>
- <20180509013935.GA8131@bombadil.infradead.org>
-In-Reply-To: <20180509013935.GA8131@bombadil.infradead.org>
+References: <20180525143512.1466-1-hch@lst.de>
+In-Reply-To: <20180525143512.1466-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Matthew Wilcox <willy@infradead.org>
-Cc: "Luis R. Rodriguez" <mcgrof@kernel.org>, Tony Luck <tony.luck@intel.com>, arnd@arndb.de, gregkh@linuxfoundation.org, linux-arch@vger.kernel.org, linux-fsdevel@vger.kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+To: Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: x86@kernel.org, iommu@lists.linux-foundation.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, netdev@vger.kernel.org
 
-On Tue, May 08, 2018 at 06:39:35PM -0700, Matthew Wilcox wrote:
-> On Wed, May 09, 2018 at 01:04:38AM +0000, Luis R. Rodriguez wrote:
-> > On Fri, Apr 27, 2018 at 08:18:10PM -0700, Matthew Wilcox wrote:
-> > > ia64: Add PAGE_KERNEL_RO and PAGE_KERNEL_EXEC
-> > > 
-> > > The rest of the kernel was falling back to simple PAGE_KERNEL pages; using
-> > > PAGE_KERNEL_RO and PAGE_KERNEL_EXEC provide better protection against
-> > > unintended writes.
-> > > 
-> > > Signed-off-by: Matthew Wilcox <mawilcox@microsoft.com>
-> > 
-> > Nice, should I queue this into my series as well?
-> 
-> A little reluctant to queue it without anyone having tested it.  Heck,
-> I didn't even check it compiled ;-)
-> 
-> We used to just break architectures and let them fix it up for this kind
-> of thing.
+This is something drivers should decide (modulo chipset quirks like
+for VIA), which as far as I can tell is how things have been handled
+for the last 15 years.
 
-History is wonderful.
+Note that we keep the usedac option for now, as it is used in the wild
+to override the too generic VIA quirk.
 
-> That's not really acceptable nowadays, but I don't know how
-> we get arch maintainers to fix up their ports now.
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ Documentation/x86/x86_64/boot-options.txt | 5 -----
+ arch/x86/kernel/pci-dma.c                 | 4 ++--
+ 2 files changed, 2 insertions(+), 7 deletions(-)
 
-OK then in that case I'll proceed with my patches for now and just
-document they don't have it. Once and folks test the patch we can
-consider it.
+diff --git a/Documentation/x86/x86_64/boot-options.txt b/Documentation/x86/x86_64/boot-options.txt
+index 341588ec4e29..8d109ef67ab6 100644
+--- a/Documentation/x86/x86_64/boot-options.txt
++++ b/Documentation/x86/x86_64/boot-options.txt
+@@ -236,11 +236,6 @@ IOMMU (input/output memory management unit)
+     nomerge            Don't do scatter-gather (SG) merging.
+     noaperture         Ask the IOMMU not to touch the aperture for AGP.
+     noagp              Don't initialize the AGP driver and use full aperture.
+-    allowdac           Allow double-address cycle (DAC) mode, i.e. DMA >4GB.
+-                       DAC is used with 32-bit PCI to push a 64-bit address in
+-                       two cycles. When off all DMA over >4GB is forced through
+-                       an IOMMU or software bounce buffering.
+-    nodac              Forbid DAC mode, i.e. DMA >4GB.
+     panic              Always panic when IOMMU overflows.
+     calgary            Use the Calgary IOMMU if it is available
+ 
+diff --git a/arch/x86/kernel/pci-dma.c b/arch/x86/kernel/pci-dma.c
+index 91dff954b745..b5cbef974bd1 100644
+--- a/arch/x86/kernel/pci-dma.c
++++ b/arch/x86/kernel/pci-dma.c
+@@ -125,9 +125,9 @@ static __init int iommu_setup(char *p)
+ 		if (!strncmp(p, "forcesac", 8))
+ 			pr_warn("forcesac option ignored.\n");
+ 		if (!strncmp(p, "allowdac", 8))
+-			forbid_dac = 0;
++			pr_warn("allowdac option ignored.\n");
+ 		if (!strncmp(p, "nodac", 5))
+-			forbid_dac = 1;
++			pr_warn("nodac option ignored.\n");
+ 		if (!strncmp(p, "usedac", 6)) {
+ 			forbid_dac = -1;
+ 			return 1;
+-- 
+2.17.0
 
-  Luis
