@@ -1,23 +1,32 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Fri, 25 May 2018 14:35:05 +0000
-Subject: refactor 32-bit dma limit quirks
-Message-Id: <20180525143512.1466-1-hch@lst.de>
+From: Li Qiang <liq3ea@gmail.com>
+Date: Wed, 30 May 2018 06:03:14 +0000
+Subject: [PATCH] ia64: pgtable.h: fix a comment typo
+Message-Id: <1527660194-4265-1-git-send-email-liq3ea@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: x86@kernel.org, iommu@lists.linux-foundation.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, netdev@vger.kernel.org
+To: tony.luck@intel.com, fenghua.yu@intel.com
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Li Qiang <liq3ea@gmail.com>
 
-Hi all,
+Signed-off-by: Li Qiang <liq3ea@gmail.com>
+---
+ arch/ia64/include/asm/pgtable.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-x86 currently has some quirks to force lower dma masks.  They are mostly
-useful for certain VIA systems that otherwise corrupt data, but otherwise
-don't make much sense given that the modern DMA APIs do the right thing
-automatically.
+diff --git a/arch/ia64/include/asm/pgtable.h b/arch/ia64/include/asm/pgtable.h
+index 165827774bea..2cccfbb23c2d 100644
+--- a/arch/ia64/include/asm/pgtable.h
++++ b/arch/ia64/include/asm/pgtable.h
+@@ -336,7 +336,7 @@ static inline void set_pte(pte_t *ptep, pte_t pteval)
+ 	if (pte_present_exec_user(pteval) &&
+ 	    (!pte_present(*ptep) ||
+ 		pte_pfn(*ptep) != pte_pfn(pteval)))
+-		/* load_module() calles flush_icache_range() explicitly*/
++		/* load_module() calls flush_icache_range() explicitly*/
+ 		__ia64_sync_icache_dcache(pteval);
+ 	*ptep = pteval;
+ }
+-- 
+2.11.0
 
-This series dumps a few of these old kernel command lines (including their
-not really working version on ia64), and moves the VIA quirk to a flag
-in struct device so that it can be apply generically.  This will be needed
-to support Xylinx root ports with a similar issue that show up in common
-RISC-V boards.
