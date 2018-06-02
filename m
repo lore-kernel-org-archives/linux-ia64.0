@@ -1,47 +1,172 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Date: Mon, 11 Jun 2018 20:06:01 +0000
-Subject: Re: perfmon trouble
-Message-Id: <20180611200601.GW30522@ZenIV.linux.org.uk>
+From: Masahiro Yamada <yamada.masahiro@socionext.com>
+Date: Sat, 02 Jun 2018 07:53:48 +0000
+Subject: Re: [PATCH] kbuild: add machine size to CHEKCFLAGS
+Message-Id: <CAK7LNASGYhAGbHbVzb+bbnpOsh2Vvt-C0cYpzu55b0PS-Oqc4Q@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180608184842.GD30522@ZenIV.linux.org.uk>
- <CA+55aFz9cS3m=wZxqKbzrCLEjhPoPddKw5U2MDKNqbG79Wx6bw@mail.gmail.com>
- <20180609051051.GF30522@ZenIV.linux.org.uk>
- <20180609155107.GH30522@ZenIV.linux.org.uk>
- <20180611021028.GT30522@ZenIV.linux.org.uk>
- <20180611162313.GA6942@infradead.org>
- <20180611164859.GA28292@bombadil.infradead.org>
- <CA+55aFykGPDTVN=UvrcDvwV3S_sixXREu8D7eK+x695OmA2PNw@mail.gmail.com>
- <20180611171811.GB28292@bombadil.infradead.org>
- <CABPqkBTwqtFxtFsCjTNyHa_T1_vCbCQWHwo42RZAbg0QRi1BFw@mail.gmail.com>
-In-Reply-To: <CABPqkBTwqtFxtFsCjTNyHa_T1_vCbCQWHwo42RZAbg0QRi1BFw@mail.gmail.com>
+References: <20180530204838.22079-1-luc.vanoostenryck@gmail.com>
+In-Reply-To: <20180530204838.22079-1-luc.vanoostenryck@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Stephane Eranian <eranian@google.com>
-Cc: willy@infradead.org, Linus Torvalds <torvalds@linux-foundation.org>, hch@infradead.org, LKML <linux-kernel@vger.kernel.org>, linux-fsdevel@vger.kernel.org, "Luck, Tony" <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+To: Luc Van Oostenryck <luc.vanoostenryck@gmail.com>
+Cc: Michal Marek <michal.lkml@markovi.net>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Ralf Baechle <ralf@linux-mips.org>, James Hogan <jhogan@kernel.org>, "James E . J . Bottomley" <jejb@parisc-linux.org>, Helge Deller <deller@gmx.de>, "David S . Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H . Peter Anvin" <hpa@zytor.com>, X86 ML <x86@kernel.org>, Brendan Higgins <brendanhiggins@google.com>, Martin Blumenstingl <martin.blumenstingl@googl>
 
-On Mon, Jun 11, 2018 at 11:51:34AM -0700, Stephane Eranian wrote:
+2018-05-31 5:48 GMT+09:00 Luc Van Oostenryck <luc.vanoostenryck@gmail.com>:
+> By default, sparse assumes a 64bit machine when compiled on x86-64
+> and 32bit when compiled on anything else.
+>
+> This can of course create all sort of problems for the other archs, like
+> issuing false warnings ('shift too big (32) for type unsigned long'), or
+> worse, failing to emit legitimate warnings.
+>
+> Fix this by adding the -m32/-m64 flag, depending on CONFIG_64BIT,
+> to CHECKFLAGS in the main Makefile (and so for all archs).
+> Also, remove the now unneeded -m32/-m64 in arch specific Makefiles.
+>
+> Signed-off-by: Luc Van Oostenryck <luc.vanoostenryck@gmail.com>
+> ---
 
-> Thanks Al for the careful analysis. If I understand correctly, the
-> problem seems to be that on
-> execve the mapping of the sampling buffer is not destroyed and then on
-> close, the kernel
-> unmaps whatever the new binary had in that address range. The fix
-> would be to ensure
-> the mmap is destroyed on execve.
+Fixed CHEKCFLAGS -> CHECKFLAGS
+and applied to linux-kbuild.  Thanks!
 
-mmap *is* destroyed on execve; it's just that perfmon doesn't notice and
-then tries to destroy it again on close, nevermind that it's a different
-process, different mapping, etc.
 
-> My problem is that I do not have IA64 hw anymore, so whatever the fix,
-> I will not be able
-> to test this. In the meantime, I agree with Matthew, simply disable
-> PERFMON support.
 
-Out of curiosity - what happened to never-went-into-mainline rewrite
-of perfmon circa 2008?  perfmon2 sourceforget site has a collection
-of those, up to 2.6.29; AFAICS, they did have a somewhat saner syscall
-interface (no auto-mmap on creation, no auto-munmap attempts on close).
-By this point it obviously would've been too late to resurrect anyway,
-but I wonder what happened with it...
+>  Makefile             | 3 +++
+>  arch/alpha/Makefile  | 2 +-
+>  arch/arm/Makefile    | 2 +-
+>  arch/arm64/Makefile  | 2 +-
+>  arch/ia64/Makefile   | 2 +-
+>  arch/mips/Makefile   | 3 ---
+>  arch/parisc/Makefile | 2 +-
+>  arch/sparc/Makefile  | 2 +-
+>  arch/x86/Makefile    | 2 +-
+>  9 files changed, 10 insertions(+), 10 deletions(-)
+>
+> diff --git a/Makefile b/Makefile
+> index 6c6610913..18379987c 100644
+> --- a/Makefile
+> +++ b/Makefile
+> @@ -881,6 +881,9 @@ endif
+>  # insure the checker run with the right endianness
+>  CHECKFLAGS += $(if $(CONFIG_CPU_BIG_ENDIAN),-mbig-endian,-mlittle-endian)
+>
+> +# the checker needs the correct machine size
+> +CHECKFLAGS += $(if $(CONFIG_64BIT),-m64,-m32)
+> +
+>  # Default kernel image to build when no specific target is given.
+>  # KBUILD_IMAGE may be overruled on the command line or
+>  # set in the environment
+> diff --git a/arch/alpha/Makefile b/arch/alpha/Makefile
+> index 2cc3cc519..c5ec8c09c 100644
+> --- a/arch/alpha/Makefile
+> +++ b/arch/alpha/Makefile
+> @@ -11,7 +11,7 @@
+>  NM := $(NM) -B
+>
+>  LDFLAGS_vmlinux        := -static -N #-relax
+> -CHECKFLAGS     += -D__alpha__ -m64
+> +CHECKFLAGS     += -D__alpha__
+>  cflags-y       := -pipe -mno-fp-regs -ffixed-8
+>  cflags-y       += $(call cc-option, -fno-jump-tables)
+>
+> diff --git a/arch/arm/Makefile b/arch/arm/Makefile
+> index e4e537f27..f32a5468d 100644
+> --- a/arch/arm/Makefile
+> +++ b/arch/arm/Makefile
+> @@ -135,7 +135,7 @@ endif
+>  KBUILD_CFLAGS  +=$(CFLAGS_ABI) $(CFLAGS_ISA) $(arch-y) $(tune-y) $(call cc-option,-mshort-load-bytes,$(call cc-option,-malignment-traps,)) -msoft-float -Uarm
+>  KBUILD_AFLAGS  +=$(CFLAGS_ABI) $(AFLAGS_ISA) $(arch-y) $(tune-y) -include asm/unified.h -msoft-float
+>
+> -CHECKFLAGS     += -D__arm__ -m32
+> +CHECKFLAGS     += -D__arm__
+>
+>  #Default value
+>  head-y         := arch/arm/kernel/head$(MMUEXT).o
+> diff --git a/arch/arm64/Makefile b/arch/arm64/Makefile
+> index 87f7d2f9f..3c353b471 100644
+> --- a/arch/arm64/Makefile
+> +++ b/arch/arm64/Makefile
+> @@ -78,7 +78,7 @@ LDFLAGS               += -maarch64linux
+>  UTS_MACHINE    := aarch64
+>  endif
+>
+> -CHECKFLAGS     += -D__aarch64__ -m64
+> +CHECKFLAGS     += -D__aarch64__
+>
+>  ifeq ($(CONFIG_ARM64_MODULE_PLTS),y)
+>  KBUILD_LDFLAGS_MODULE  += -T $(srctree)/arch/arm64/kernel/module.lds
+> diff --git a/arch/ia64/Makefile b/arch/ia64/Makefile
+> index 2dd7f519a..45f59808b 100644
+> --- a/arch/ia64/Makefile
+> +++ b/arch/ia64/Makefile
+> @@ -18,7 +18,7 @@ READELF := $(CROSS_COMPILE)readelf
+>
+>  export AWK
+>
+> -CHECKFLAGS     += -m64 -D__ia64=1 -D__ia64__=1 -D_LP64 -D__LP64__
+> +CHECKFLAGS     += -D__ia64=1 -D__ia64__=1 -D_LP64 -D__LP64__
+>
+>  OBJCOPYFLAGS   := --strip-all
+>  LDFLAGS_vmlinux        := -static
+> diff --git a/arch/mips/Makefile b/arch/mips/Makefile
+> index 5e9fce076..e2122cca4 100644
+> --- a/arch/mips/Makefile
+> +++ b/arch/mips/Makefile
+> @@ -309,9 +309,6 @@ ifdef CONFIG_MIPS
+>  CHECKFLAGS += $(shell $(CC) $(KBUILD_CFLAGS) -dM -E -x c /dev/null | \
+>         egrep -vw '__GNUC_(|MINOR_|PATCHLEVEL_)_' | \
+>         sed -e "s/^\#define /-D'/" -e "s/ /'='/" -e "s/$$/'/" -e 's/\$$/&&/g')
+> -ifdef CONFIG_64BIT
+> -CHECKFLAGS             += -m64
+> -endif
+>  endif
+>
+>  OBJCOPYFLAGS           += --remove-section=.reginfo
+> diff --git a/arch/parisc/Makefile b/arch/parisc/Makefile
+> index 348ae4779..714284ea6 100644
+> --- a/arch/parisc/Makefile
+> +++ b/arch/parisc/Makefile
+> @@ -28,7 +28,7 @@ export LIBGCC
+>
+>  ifdef CONFIG_64BIT
+>  UTS_MACHINE    := parisc64
+> -CHECKFLAGS     += -D__LP64__=1 -m64
+> +CHECKFLAGS     += -D__LP64__=1
+>  CC_ARCHES      = hppa64
+>  LD_BFD         := elf64-hppa-linux
+>  else # 32-bit
+> diff --git a/arch/sparc/Makefile b/arch/sparc/Makefile
+> index edac927e4..966a13d2b 100644
+> --- a/arch/sparc/Makefile
+> +++ b/arch/sparc/Makefile
+> @@ -39,7 +39,7 @@ else
+>  # sparc64
+>  #
+>
+> -CHECKFLAGS    += -D__sparc__ -D__sparc_v9__ -D__arch64__ -m64
+> +CHECKFLAGS    += -D__sparc__ -D__sparc_v9__ -D__arch64__
+>  LDFLAGS       := -m elf64_sparc
+>  export BITS   := 64
+>  UTS_MACHINE   := sparc64
+> diff --git a/arch/x86/Makefile b/arch/x86/Makefile
+> index 60135cbd9..f0a6ea224 100644
+> --- a/arch/x86/Makefile
+> +++ b/arch/x86/Makefile
+> @@ -94,7 +94,7 @@ ifeq ($(CONFIG_X86_32),y)
+>  else
+>          BITS := 64
+>          UTS_MACHINE := x86_64
+> -        CHECKFLAGS += -D__x86_64__ -m64
+> +        CHECKFLAGS += -D__x86_64__
+>
+>          biarch := -m64
+>          KBUILD_AFLAGS += -m64
+> --
+> 2.17.0
+>
+
+
+
+-- 
+Best Regards
+Masahiro Yamada
