@@ -1,60 +1,71 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Fri, 25 May 2018 14:35:07 +0000
-Subject: [PATCH 2/7] ia64: remove the dead iommu_sac_force variable
-Message-Id: <20180525143512.1466-3-hch@lst.de>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Date: Mon, 18 Jun 2018 09:28:32 +0000
+Subject: Re: Build regressions/improvements in v4.18-rc1
+Message-Id: <CAMuHMdULmiArTvYsEqnyg5SB6PqjZnNANLAyYcqqYeYmHKJ5Dw@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180525143512.1466-1-hch@lst.de>
-In-Reply-To: <20180525143512.1466-1-hch@lst.de>
+References: <20180618091729.11091-1-geert@linux-m68k.org>
+In-Reply-To: <20180618091729.11091-1-geert@linux-m68k.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: x86@kernel.org, iommu@lists.linux-foundation.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, netdev@vger.kernel.org
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>, sparclinux <sparclinux@vger.kernel.org>, linux-ia64@vger.kernel.org, Linux MIPS Mailing List <linux-mips@linux-mips.org>, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, Linux-sh list <linux-sh@vger.kernel.org>
 
-Looks like copy and paste from x86 that never actually got used.
+On Mon, Jun 18, 2018 at 11:18 AM Geert Uytterhoeven
+<geert@linux-m68k.org> wrote:
+> Below is the list of build error/warning regressions/improvements in
+> v4.18-rc1[1] compared to v4.17[2].
+>
+> Summarized:
+>   - build errors: +11/-1
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
----
- arch/ia64/kernel/pci-dma.c | 19 -------------------
- 1 file changed, 19 deletions(-)
+> [1] http://kisskb.ellerman.id.au/kisskb/head/ce397d215ccd07b8ae3f71db689aedb85d56ab40/ (233 out of 244 configs)
+> [2] http://kisskb.ellerman.id.au/kisskb/head/29dcea88779c856c7dc92040a0c01233263101d4/ (all 244 configs)
 
-diff --git a/arch/ia64/kernel/pci-dma.c b/arch/ia64/kernel/pci-dma.c
-index b5df084c0af4..50b6ad282a90 100644
---- a/arch/ia64/kernel/pci-dma.c
-+++ b/arch/ia64/kernel/pci-dma.c
-@@ -18,8 +18,6 @@
- dma_addr_t bad_dma_address __read_mostly;
- EXPORT_SYMBOL(bad_dma_address);
- 
--static int iommu_sac_force __read_mostly;
--
- int no_iommu __read_mostly;
- #ifdef CONFIG_IOMMU_DEBUG
- int force_iommu __read_mostly = 1;
-@@ -61,23 +59,6 @@ int iommu_dma_supported(struct device *dev, u64 mask)
- 	if (mask < DMA_BIT_MASK(24))
- 		return 0;
- 
--	/* Tell the device to use SAC when IOMMU force is on.  This
--	   allows the driver to use cheaper accesses in some cases.
--
--	   Problem with this is that if we overflow the IOMMU area and
--	   return DAC as fallback address the device may not handle it
--	   correctly.
--
--	   As a special case some controllers have a 39bit address
--	   mode that is as efficient as 32bit (aic79xx). Don't force
--	   SAC for these.  Assume all masks <= 40 bits are of this
--	   type. Normally this doesn't make any difference, but gives
--	   more gentle handling of IOMMU overflow. */
--	if (iommu_sac_force && (mask >= DMA_BIT_MASK(40))) {
--		dev_info(dev, "Force SAC with mask %llx\n", mask);
--		return 0;
--	}
--
- 	return 1;
- }
- EXPORT_SYMBOL(iommu_dma_supported);
--- 
-2.17.0
+> 11 error regressions:
+>   + /kisskb/src/drivers/ata/pata_ali.c: error: implicit declaration of function 'pci_domain_nr' [-Werror=implicit-function-declaration]:  => 469:38
 
+sparc64/sparc-allmodconfig
+
+>   + /kisskb/src/mm/memblock.c: error: redefinition of 'memblock_virt_alloc_try_nid':  => 1413:15
+>   + /kisskb/src/mm/memblock.c: error: redefinition of 'memblock_virt_alloc_try_nid_nopanic':  => 1377:15
+>   + /kisskb/src/mm/memblock.c: error: redefinition of 'memblock_virt_alloc_try_nid_raw':  => 1340:15
+
+ia64/ia64-defconfig
+mips/bigsur_defconfig
+mips/cavium_octeon_defconfig
+mips/ip22_defconfig
+mips/ip27_defconfig
+mips/ip32_defconfig
+mips/malta_defconfig
+mips/mips-allmodconfig
+mips/mips-allnoconfig
+mips/mips-defconfig
+mipsel/mips-allmodconfig
+mipsel/mips-allnoconfig
+mipsel/mips-defconfig
+
+>   + error: ".radix__flush_pwc_lpid" [arch/powerpc/kvm/kvm-hv.ko] undefined!:  => N/A
+>   + error: ".radix__flush_tlb_lpid_page" [arch/powerpc/kvm/kvm-hv.ko] undefined!:  => N/A
+>   + error: ".radix__local_flush_tlb_lpid_guest" [arch/powerpc/kvm/kvm-hv.ko] undefined!:  => N/A
+>   + error: "radix__flush_pwc_lpid" [arch/powerpc/kvm/kvm-hv.ko] undefined!:  => N/A
+>   + error: "radix__flush_tlb_lpid_page" [arch/powerpc/kvm/kvm-hv.ko] undefined!:  => N/A
+>   + error: "radix__local_flush_tlb_lpid_guest" [arch/powerpc/kvm/kvm-hv.ko] undefined!:  => N/A
+
+powerpc/ppc64_defconfig+NO_RADIX
+ppc64le/powernv_defconfig+NO_RADIX (what's in a name ;-)
+
+>   + {standard input}: Error: offset to unaligned destination:  => 2268, 2316, 1691, 1362, 1455, 1598, 2502, 1645, 1988, 1927, 1409, 2615, 1548, 2409, 1268, 2363, 1314, 1208, 1785, 2034, 2222, 2661, 1880, 2552, 1161, 2082, 1833, 2455, 2176, 2129, 1501, 1738
+
+sh4/sh-randconfig (doesn't seem to be a new issue, seen before on v4.12-rc3)
+
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
