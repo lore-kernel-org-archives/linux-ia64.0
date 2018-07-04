@@ -1,48 +1,169 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Tue, 10 Jul 2018 11:44:43 +0000
-Subject: Re: [RFC PATCH 1/2] dma-mapping: Clean up dma_set_*mask() hooks
-Message-Id: <20180710114443.GC32688@lst.de>
+From: Alexandre Ghiti <alex@ghiti.fr>
+Date: Wed, 04 Jul 2018 05:52:01 +0000
+Subject: [PATCH 05/11] hugetlb: Introduce generic version of huge_ptep_clear_flush
+Message-Id: <20180704055207.27978-6-alex@ghiti.fr>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <55ac9550c311f056dcfeed9b2c8265375f17b155.1530726467.git.robin.murphy@arm.com>
- <20180705193738.GB28905@lst.de>
- <33175bb1-d198-a9fd-ff37-e8c4132f47f8@arm.com>
- <20180708150708.GA14418@lst.de>
- <3ce04634-a467-ec6b-7b90-6cd916d9b532@arm.com>
-In-Reply-To: <3ce04634-a467-ec6b-7b90-6cd916d9b532@arm.com>
+References: <20180704055207.27978-1-alex@ghiti.fr>
+In-Reply-To: <20180704055207.27978-1-alex@ghiti.fr>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Robin Murphy <robin.murphy@arm.com>
-Cc: Christoph Hellwig <hch@lst.de>, m.szyprowski@samsung.com, iommu@lists.linux-foundation.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
+To: linux@armlinux.org.uk, catalin.marinas@arm.com, will.deacon@arm.com, tony.luck@intel.com, fenghua.yu@intel.com, ralf@linux-mips.org, paul.burton@mips.com, jhogan@kernel.org, jejb@parisc-linux.org, deller@gmx.de, benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, x86@kernel.org, arnd@arndb.de, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org
+Cc: Alexandre Ghiti <alex@ghiti.fr>
 
-On Mon, Jul 09, 2018 at 03:53:50PM +0100, Robin Murphy wrote:
-> Oh, for sure, the generic fix would be the longer-term goal, this was just 
-> an expedient compromise because I want to get *something* landed for 4.19. 
-> Since in practice this is predominantly affecting arm64, doing the 
-> arch-specific fix to appease affected customers then working to generalise 
-> it afterwards seemed to carry the lowest risk.
->
-> That said, I think I can see a relatively safe and clean alternative 
-> approach based on converting dma_32bit_limit to a mask, so I'll spin some 
-> patches around that idea ASAP to continue the discussion.
+arm, x86 architectures use the same version of
+huge_ptep_clear_flush, so move this generic implementation into
+asm-generic/hugetlb.h.
 
-Great!  I really want to sort out this area as soon as possible, and
-introducing more arch specific code isn't really helping with that.  In
-fact my whole drive to consolidate code is based on the fact that
-I want to fix issues like this in one code base instead of 20 slightly
-different ones.
+Signed-off-by: Alexandre Ghiti <alex@ghiti.fr>
+---
+ arch/arm/include/asm/hugetlb-3level.h | 6 ------
+ arch/arm64/include/asm/hugetlb.h      | 1 +
+ arch/ia64/include/asm/hugetlb.h       | 1 +
+ arch/mips/include/asm/hugetlb.h       | 1 +
+ arch/parisc/include/asm/hugetlb.h     | 1 +
+ arch/powerpc/include/asm/hugetlb.h    | 1 +
+ arch/sh/include/asm/hugetlb.h         | 1 +
+ arch/sparc/include/asm/hugetlb.h      | 1 +
+ arch/x86/include/asm/hugetlb.h        | 6 ------
+ include/asm-generic/hugetlb.h         | 8 ++++++++
+ 10 files changed, 15 insertions(+), 12 deletions(-)
 
-FYI, this is the Xilinx/RISC-V use case for the 32-bit limit,
-which I'll need to respin a bit based on linux-pci feedback:
+diff --git a/arch/arm/include/asm/hugetlb-3level.h b/arch/arm/include/asm/hugetlb-3level.h
+index ad36e84b819a..b897541520ef 100644
+--- a/arch/arm/include/asm/hugetlb-3level.h
++++ b/arch/arm/include/asm/hugetlb-3level.h
+@@ -37,12 +37,6 @@ static inline pte_t huge_ptep_get(pte_t *ptep)
+ 	return retval;
+ }
+ 
+-static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
+-					 unsigned long addr, pte_t *ptep)
+-{
+-	ptep_clear_flush(vma, addr, ptep);
+-}
+-
+ static inline void huge_ptep_set_wrprotect(struct mm_struct *mm,
+ 					   unsigned long addr, pte_t *ptep)
+ {
+diff --git a/arch/arm64/include/asm/hugetlb.h b/arch/arm64/include/asm/hugetlb.h
+index 6ae0bcafe162..4c8dd488554d 100644
+--- a/arch/arm64/include/asm/hugetlb.h
++++ b/arch/arm64/include/asm/hugetlb.h
+@@ -71,6 +71,7 @@ extern pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
+ 				     unsigned long addr, pte_t *ptep);
+ extern void huge_ptep_set_wrprotect(struct mm_struct *mm,
+ 				    unsigned long addr, pte_t *ptep);
++#define __HAVE_ARCH_HUGE_PTEP_CLEAR_FLUSH
+ extern void huge_ptep_clear_flush(struct vm_area_struct *vma,
+ 				  unsigned long addr, pte_t *ptep);
+ #define __HAVE_ARCH_HUGE_PTE_CLEAR
+diff --git a/arch/ia64/include/asm/hugetlb.h b/arch/ia64/include/asm/hugetlb.h
+index 6719c74da0de..41b5f6adeee4 100644
+--- a/arch/ia64/include/asm/hugetlb.h
++++ b/arch/ia64/include/asm/hugetlb.h
+@@ -20,6 +20,7 @@ static inline int is_hugepage_only_range(struct mm_struct *mm,
+ 		REGION_NUMBER((addr)+(len)-1) = RGN_HPAGE);
+ }
+ 
++#define __HAVE_ARCH_HUGE_PTEP_CLEAR_FLUSH
+ static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
+ 					 unsigned long addr, pte_t *ptep)
+ {
+diff --git a/arch/mips/include/asm/hugetlb.h b/arch/mips/include/asm/hugetlb.h
+index 0959cc5a41fa..7df1f116a3cc 100644
+--- a/arch/mips/include/asm/hugetlb.h
++++ b/arch/mips/include/asm/hugetlb.h
+@@ -48,6 +48,7 @@ static inline pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
+ 	return pte;
+ }
+ 
++#define __HAVE_ARCH_HUGE_PTEP_CLEAR_FLUSH
+ static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
+ 					 unsigned long addr, pte_t *ptep)
+ {
+diff --git a/arch/parisc/include/asm/hugetlb.h b/arch/parisc/include/asm/hugetlb.h
+index 6e281e1bb336..9afff26747a1 100644
+--- a/arch/parisc/include/asm/hugetlb.h
++++ b/arch/parisc/include/asm/hugetlb.h
+@@ -32,6 +32,7 @@ static inline int prepare_hugepage_range(struct file *file,
+ 	return 0;
+ }
+ 
++#define __HAVE_ARCH_HUGE_PTEP_CLEAR_FLUSH
+ static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
+ 					 unsigned long addr, pte_t *ptep)
+ {
+diff --git a/arch/powerpc/include/asm/hugetlb.h b/arch/powerpc/include/asm/hugetlb.h
+index ec3e0c2e78f8..de0769f0b5b2 100644
+--- a/arch/powerpc/include/asm/hugetlb.h
++++ b/arch/powerpc/include/asm/hugetlb.h
+@@ -143,6 +143,7 @@ static inline pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
+ #endif
+ }
+ 
++#define __HAVE_ARCH_HUGE_PTEP_CLEAR_FLUSH
+ static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
+ 					 unsigned long addr, pte_t *ptep)
+ {
+diff --git a/arch/sh/include/asm/hugetlb.h b/arch/sh/include/asm/hugetlb.h
+index 08ee6c00b5e9..9abf9c86b769 100644
+--- a/arch/sh/include/asm/hugetlb.h
++++ b/arch/sh/include/asm/hugetlb.h
+@@ -25,6 +25,7 @@ static inline int prepare_hugepage_range(struct file *file,
+ 	return 0;
+ }
+ 
++#define __HAVE_ARCH_HUGE_PTEP_CLEAR_FLUSH
+ static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
+ 					 unsigned long addr, pte_t *ptep)
+ {
+diff --git a/arch/sparc/include/asm/hugetlb.h b/arch/sparc/include/asm/hugetlb.h
+index 944e3a4bfaff..651a9593fcee 100644
+--- a/arch/sparc/include/asm/hugetlb.h
++++ b/arch/sparc/include/asm/hugetlb.h
+@@ -42,6 +42,7 @@ static inline int prepare_hugepage_range(struct file *file,
+ 	return 0;
+ }
+ 
++#define __HAVE_ARCH_HUGE_PTEP_CLEAR_FLUSH
+ static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
+ 					 unsigned long addr, pte_t *ptep)
+ {
+diff --git a/arch/x86/include/asm/hugetlb.h b/arch/x86/include/asm/hugetlb.h
+index 48b8d9b13cc6..8347d5abf882 100644
+--- a/arch/x86/include/asm/hugetlb.h
++++ b/arch/x86/include/asm/hugetlb.h
+@@ -27,12 +27,6 @@ static inline int prepare_hugepage_range(struct file *file,
+ 	return 0;
+ }
+ 
+-static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
+-					 unsigned long addr, pte_t *ptep)
+-{
+-	ptep_clear_flush(vma, addr, ptep);
+-}
+-
+ static inline int huge_pte_none(pte_t pte)
+ {
+ 	return pte_none(pte);
+diff --git a/include/asm-generic/hugetlb.h b/include/asm-generic/hugetlb.h
+index 0f6f151780dd..ffa63fd8388d 100644
+--- a/include/asm-generic/hugetlb.h
++++ b/include/asm-generic/hugetlb.h
+@@ -65,4 +65,12 @@ static inline pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
+ }
+ #endif
+ 
++#ifndef __HAVE_ARCH_HUGE_PTEP_CLEAR_FLUSH
++static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
++		unsigned long addr, pte_t *ptep)
++{
++	ptep_clear_flush(vma, addr, ptep);
++}
++#endif
++
+ #endif /* _ASM_GENERIC_HUGETLB_H */
+-- 
+2.16.2
 
-http://git.infradead.org/users/hch/misc.git/shortlog/refs/heads/xilinx-dma-32
-
-> It's entirely possible to plug an old PCI soundcard via a bridge adapter 
-> into a modern board where the card's 24-bit DMA mask reaches nothing but 
-> the SoC's boot flash, and no IOMMU is available (e.g. some of the smaller 
-> NXP Layercape stuff); I still think there should be an error in such rare 
-> cases when DMA is utterly impossible, but otherwise I agree it would be 
-> much nicer for drivers to just provide their preferred mask and let the ops 
-> massage it as necessary.
-
-Ok, I guess we need still need to keep the return value for that.
