@@ -1,59 +1,60 @@
-From: Mike Kravetz <mike.kravetz@oracle.com>
-Date: Thu, 26 Jul 2018 18:40:49 +0000
-Subject: Re: [PATCH v4 01/11] hugetlb: Harmonize hugetlb.h arch specific defines with pgtable.h
-Message-Id: <1f95fdc7-378b-9c2a-15ae-da78578a27bf@oracle.com>
+From: Alexandre Ghiti <alex@ghiti.fr>
+Date: Wed, 04 Jul 2018 05:51:56 +0000
+Subject: [PATCH 00/11] hugetlb: Factorize architecture hugetlb primitives
+Message-Id: <20180704055207.27978-1-alex@ghiti.fr>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180705110716.3919-1-alex@ghiti.fr>
- <20180705110716.3919-2-alex@ghiti.fr>
-In-Reply-To: <20180705110716.3919-2-alex@ghiti.fr>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Alexandre Ghiti <alex@ghiti.fr>, linux@armlinux.org.uk, catalin.marinas@arm.com, will.deacon@arm.com, tony.luck@intel.com, fenghua.yu@intel.com, ralf@linux-mips.org, paul.burton@mips.com, jhogan@kernel.org, jejb@parisc-linux.org, deller@gmx.de, benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, x86@kernel.org, arnd@arndb.de, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org
+To: linux@armlinux.org.uk, catalin.marinas@arm.com, will.deacon@arm.com, tony.luck@intel.com, fenghua.yu@intel.com, ralf@linux-mips.org, paul.burton@mips.com, jhogan@kernel.org, jejb@parisc-linux.org, deller@gmx.de, benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, x86@kernel.org, arnd@arndb.de, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org
+Cc: Alexandre Ghiti <alex@ghiti.fr>
 
-On 07/05/2018 04:07 AM, Alexandre Ghiti wrote:
-> asm-generic/hugetlb.h proposes generic implementations of hugetlb
-> related functions: use __HAVE_ARCH_HUGE* defines in order to make arch
-> specific implementations of hugetlb functions consistent with pgtable.h
-> scheme.
-> 
+In order to reduce copy/paste of functions across architectures and then
+make riscv hugetlb port simpler and smaller, this patchset intends to
+factorize the numerous hugetlb primitives that are defined across all the
+architectures.
 
-Reviewed-by: Mike Kravetz <mike.kravetz@oracle.com>
+Except for prepare_hugepage_range, this patchset moves the versions that
+are just pass-through to standard pte primitives into
+asm-generic/hugetlb.h by using the same #ifdef semantic that can be
+found in asm-generic/pgtable.h, i.e. __HAVE_ARCH_***.
+
+s390 architecture has not been tackled in this serie since it does not
+use asm-generic/hugetlb.h at all.
+powerpc could be factorized a bit more (cf huge_ptep_set_wrprotect).
+
+This patchset has been compiled on x86 only.
+
+Alexandre Ghiti (11):
+  hugetlb: Harmonize hugetlb.h arch specific defines with pgtable.h
+  hugetlb: Introduce generic version of hugetlb_free_pgd_range
+  hugetlb: Introduce generic version of set_huge_pte_at
+  hugetlb: Introduce generic version of huge_ptep_get_and_clear
+  hugetlb: Introduce generic version of huge_ptep_clear_flush
+  hugetlb: Introduce generic version of huge_pte_none
+  hugetlb: Introduce generic version of huge_pte_wrprotect
+  hugetlb: Introduce generic version of prepare_hugepage_range
+  hugetlb: Introduce generic version of huge_ptep_set_wrprotect
+  hugetlb: Introduce generic version of huge_ptep_set_access_flags
+  hugetlb: Introduce generic version of huge_ptep_get
+
+ arch/arm/include/asm/hugetlb-3level.h        | 32 +---------
+ arch/arm/include/asm/hugetlb.h               | 33 +----------
+ arch/arm64/include/asm/hugetlb.h             | 39 +++---------
+ arch/ia64/include/asm/hugetlb.h              | 47 ++-------------
+ arch/mips/include/asm/hugetlb.h              | 40 +++----------
+ arch/parisc/include/asm/hugetlb.h            | 33 +++--------
+ arch/powerpc/include/asm/book3s/32/pgtable.h |  2 +
+ arch/powerpc/include/asm/book3s/64/pgtable.h |  1 +
+ arch/powerpc/include/asm/hugetlb.h           | 43 ++------------
+ arch/powerpc/include/asm/nohash/32/pgtable.h |  2 +
+ arch/powerpc/include/asm/nohash/64/pgtable.h |  1 +
+ arch/sh/include/asm/hugetlb.h                | 54 ++---------------
+ arch/sparc/include/asm/hugetlb.h             | 40 +++----------
+ arch/x86/include/asm/hugetlb.h               | 72 +----------------------
+ include/asm-generic/hugetlb.h                | 88 +++++++++++++++++++++++++++-
+ 15 files changed, 143 insertions(+), 384 deletions(-)
+
 -- 
-Mike Kravetz
+2.16.2
 
-> Signed-off-by: Alexandre Ghiti <alex@ghiti.fr>
-> ---
->  arch/arm64/include/asm/hugetlb.h | 2 +-
->  include/asm-generic/hugetlb.h    | 2 +-
->  2 files changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/arch/arm64/include/asm/hugetlb.h b/arch/arm64/include/asm/hugetlb.h
-> index e73f68569624..3fcf14663dfa 100644
-> --- a/arch/arm64/include/asm/hugetlb.h
-> +++ b/arch/arm64/include/asm/hugetlb.h
-> @@ -81,9 +81,9 @@ extern void huge_ptep_set_wrprotect(struct mm_struct *mm,
->  				    unsigned long addr, pte_t *ptep);
->  extern void huge_ptep_clear_flush(struct vm_area_struct *vma,
->  				  unsigned long addr, pte_t *ptep);
-> +#define __HAVE_ARCH_HUGE_PTE_CLEAR
->  extern void huge_pte_clear(struct mm_struct *mm, unsigned long addr,
->  			   pte_t *ptep, unsigned long sz);
-> -#define huge_pte_clear huge_pte_clear
->  extern void set_huge_swap_pte_at(struct mm_struct *mm, unsigned long addr,
->  				 pte_t *ptep, pte_t pte, unsigned long sz);
->  #define set_huge_swap_pte_at set_huge_swap_pte_at
-> diff --git a/include/asm-generic/hugetlb.h b/include/asm-generic/hugetlb.h
-> index 9d0cde8ab716..3da7cff52360 100644
-> --- a/include/asm-generic/hugetlb.h
-> +++ b/include/asm-generic/hugetlb.h
-> @@ -32,7 +32,7 @@ static inline pte_t huge_pte_modify(pte_t pte, pgprot_t newprot)
->  	return pte_modify(pte, newprot);
->  }
->  
-> -#ifndef huge_pte_clear
-> +#ifndef __HAVE_ARCH_HUGE_PTE_CLEAR
->  static inline void huge_pte_clear(struct mm_struct *mm, unsigned long addr,
->  		    pte_t *ptep, unsigned long sz)
->  {
-> 
