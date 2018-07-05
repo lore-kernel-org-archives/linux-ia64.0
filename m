@@ -1,106 +1,60 @@
-From: "vip" <nm18@a.yock.com>
-Date: Mon, 23 Jul 2018 04:29:38 +0000
-Subject: linux-ia64@vger.kernel.org =?GB2312?B?zai5/cvRy/fI7bz+wLTL0cv3ufrN4r/Nu6fU9rzT0KfCyg==?=
-Message-Id: <201807231229382711245@a.yock.com>
+From: Alexandre Ghiti <alex@ghiti.fr>
+Date: Thu, 05 Jul 2018 05:03:12 +0000
+Subject: [PATCH v2 00/11] hugetlb: Factorize architecture hugetlb primitives
+Message-Id: <20180705050323.301-1-alex@ghiti.fr>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux@armlinux.org.uk, catalin.marinas@arm.com, will.deacon@arm.com, tony.luck@intel.com, fenghua.yu@intel.com, ralf@linux-mips.org, paul.burton@mips.com, jhogan@kernel.org, jejb@parisc-linux.org, deller@gmx.de, benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, x86@kernel.org, arnd@arndb.de, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org
+Cc: Alexandre Ghiti <alex@ghiti.fr>
 
-PGh0bWw+DQogIDxoZWFkPg0KICAgIDx0aXRsZT48L3RpdGxlPg0KICAgIDxtZXRhIGNvbnRlbnQ9
-InRleHQvaHRtbDsgY2hhcnNldD1nYjIzMTIiIGh0dHAtZXF1aXY9IkNvbnRlbnQtVHlwZSIgLz4N
-CiAgPC9oZWFkPg0KICA8Ym9keT4NCiAgICA8ZGl2Pjxmb250IGNvbG9yPSIjMDAwMGZmIiBzaXpl
-PSI1IiBmYWNlPSJDb3VyaWVyIE5ldyBDWVIiPiYjMjA1NzA7JiMyMjgwNjsmIzM2MTUyOyYjNjUy
-OTI7JiMyMDAyNjsmIzIyODA2OyYjMzYxNTI7JiMyMzQ1ODsmIzI1MTQzOyYjMjQzMjA7JiMyMTQ1
-NzsmIzM4NTkwOyYjNjUyOTI7JiMyNDkzMDsmIzY1MjkyOyYjMzYxMzY7JiMzNzMyNzsmIzI0MDQ2
-OyYjMzI3ODA7JiMyMTQ1NzsmIzI0ODMzOyYjMzAzNDA7JiMyNjM3OTsmIzIxNDUxOyYjMzA0NzU7
-JiMzNjgwNzsmIzI2NDY5Ozxmb250IGNvbG9yPSIjZmZmZmZmIj4mIzEyMjkwOzlpbW5QUVNVVVY4
-MCA8L2ZvbnQ+PC9mb250PjwvZGl2Pg0KICAgIDxkaXY+PGZvbnQgY29sb3I9IiMwMDAwZmYiIHNp
-emU9IjUiIGZhY2U9IkNvdXJpZXIgTmV3IENZUiI+JiMzMDQ0NjsmIzIxMDY5OyYjMjQ0NTY7JiMy
-MjgxMDsmIzIyODA2OyYjMzYxNTI7JiMyMDIyNTsmIzE5OTk0OyYjMjAxOTc7JiMyMTQ1MDsmIzE5
-OTk0OyYjMjExNTM7JiMyMTU5MjsmIzIwMzgxOyYjMjg5ODI7JiMyMjc4ODsmIzIwMTEwOyYjMzQ5
-ODc7JiMyMTE2MDsmIzIzNDU4OyYjMjUxNDM7JiMyNDMyMDsmIzIxNDU3OyYjMjYwNDE7JiMyNDMz
-NTsmIzY1MjkyOyYjMjAzODE7JiMyODk4MjsmIzI2MTU5OyYjMzY4OTA7JiMzNjgwNzsmIzI0MTc5
-OyYjMjE0ODg7JiM2NTI5MjsmIzIzNjM3OyYjMjAyNTA7JiM2NTI5MjsmIzI1MTYzOyYjMjQwMzc7
-JiMzMTYxNjsmIzIxMzMzOyYjMzAzNDA7JiMzNTg5NTsmIzI3NDY4OyYjMjU2Mjg7JiMzMjAzNDsm
-IzMxNTYxOyYjMjYwNDE7JiMyNDMzNTsmIzI2NDY5OyYjMjQzMjA7JiMyMTQ1NzsmIzIzNDU4OyYj
-MjUxNDM7JiM2NTI5MjsmIzI1OTI4OyYjMjk1NzU7JiMyMDMwMjsmIzE5OTc5OyYjMTIyOTA7PGZv
-bnQgY29sb3I9IiNmZmZmZmYiPiAwOFVQa2UwOFRPamYwIDwvZm9udD48L2ZvbnQ+PC9kaXY+DQog
-ICAgPGRpdj48Zm9udCBjb2xvcj0iIzAwMDBmZiIgc2l6ZT0iNSIgZmFjZT0iQ291cmllciBOZXcg
-Q1lSIj4mIzIwMTc0OyYjMjQzMjA7JiMyMTQ1NzsmIzIzNDU4OyYjMjUxNDM7JiMzMDM0MDsmIzM1
-MjgyOyYjMjQyMzA7JiMyNjQ2OTsmIzM1ODI4OyYjNjUyOTI7JiMyMjkxNDsmIzIwMzA5OyYjMjYz
-Nzc7JiMyNTkyODsmIzI0MzIwOyYjMjE0NTc7JiMyNjM1NjsmIzIyODEwOyYjMjM0NTg7JiMyNTE0
-MzsmIzI1MTA0OyYjMjAwMjY7JiMyMTUwODsmIzIyODIzOyYjMjAyMjU7JiMxOTk5NDsmIzIxNjQ0
-OyYjMTk5OTQ7JiMyMTE1MzsmIzIxNTkyOyYjMzAzNDA7JiMzODU5MDsmIzM5MDY0OyYjNjUyODE7
-IDwvZm9udD48L2Rpdj4NCiAgICA8ZGl2Pjxmb250IGNvbG9yPSIjMDAwMGZmIiBzaXplPSI1IiBm
-YWNlPSJDb3VyaWVyIE5ldyBDWVIiPiYjMjUxMDU7JiMyMDIwNDsmIzMxOTk1OyYjMzI0Nzk7JiMy
-MTQ4NzsmIzIwMTk3OyYjMzY3MzE7JiMyNjQ5NDsmIzIwMDI2OyYjMjAzMjA7JiMyMDU3MDsmIzIx
-MDQwOyYjNjUzMDY7PC9mb250PjwvZGl2Pg0KICAgIDxkaXY+PGZvbnQgY29sb3I9IiMwMDAwZmYi
-IHNpemU9IjUiIGZhY2U9IkNvdXJpZXIgTmV3IENZUiI+JiM2NTI4ODsxJiM2NTI4OTsgJiMyNzU5
-OTsmIzIyODI1OyYjMjAwMjY7JiMyMDMyMDsmIzI1NjI4OyYjMzIwMzQ7JiMzNjgwNzsmIzE5OTc1
-OyYjMjIyNjk7JiMyMjgwNjsmIzM0ODkyOyYjMTk5OTQ7JiMzMDQ0NjsmIzI2NjMxOyYjMjM0NTg7
-JiMyNTE0MzsmIzIwNDQ5OyYjMjQ2ODc7JiM2NTI5MjsmIzMxOTk1OyYjMzI0Nzk7JiMxOTk2ODsm
-IzIyODI1OyYjMzAzNDA7JiMyNDAzNzsmIzIwMzE2OyYjMzczMjc7JiMyNTI2OTsmIzE5OTY4OyYj
-MjAwMTA7JiMxOTk5NDsmIzIxMTUzOyYjMjE1OTI7JiMxOTk2ODsmIzIwMDEwOyYjMjYzNzY7JiMz
-MDM0MDsmIzI1NjI4OyYjMzIwMzQ7JiMzNzMyNzsmIzEyMjkwOzwvZm9udD48L2Rpdj4NCiAgICA8
-ZGl2Pjxmb250IGNvbG9yPSIjMDAwMGZmIiBzaXplPSI1IiBmYWNlPSJDb3VyaWVyIE5ldyBDWVIi
-PiYjNjUyODg7MiYjNjUyODk7ICYjMjc1OTk7JiMyMjgyNTsmIzIzNDUwOyYjMjYxMDI7JiMxMjI4
-OTsmIzIzNDUwOyYjMzczMjc7JiMzMzI1ODsmIzIxMTYwOyYjMTk5Njg7JiMyMzU0NTsmIzE5OTY4
-OyYjMjUyMzc7JiMzNjg4MjsmIzI0MzIwOyYjMjE0NTc7JiMyMDQ0OTsmIzI1NTEyOyYjMjQxOTE7
-JiMzMzI2NzsmIzIwMzIwOyYjMzAzNDA7JiMzMDQ0NjsmIzI2NjMxOyYjMjM0NTg7JiMyNTE0Mzsm
-IzY1MjkyOyYjMzU3NTM7JiMyMDMyMDsmIzI3NTk5OyYjMjI4MjU7JiMzNjczMTsmIzI2NDk0OyYj
-MjI2ODY7JiMyMTE1MjszJiMyMDAxMDsmIzM1ODEwOyYjMzA0MjQ7JiM2NTI5MjsmIzI5OTc4OyYj
-MzMyNjc7JiMyNjM1NjsmIzIyODEwOyYjMzU4MTA7JiMzMDQyNDsmIzEyMjkwOzwvZm9udD48L2Rp
-dj4NCiAgICA8ZGl2Pjxmb250IGNvbG9yPSIjMDAwMGZmIiBzaXplPSI1IiBmYWNlPSJDb3VyaWVy
-IE5ldyBDWVIiPiYjNjUyODg7MyYjNjUyODk7ICYjMjI2ODY7JiMyMTE1MjsmIzIyMjQyOyYjMzg0
-MzE7JiMyMDk1NzsmIzMyODU4OyYjMjExNDc7JiM2NTI5MjsmIzM1NzUzOyYjMjc1OTk7JiMyMDAx
-MDsmIzE5OTk0OyYjMjExNTM7JiMyMTU5MjsmIzI3NTk5OyYjMjI4MjU7JiMzNzExNzsmIzI2Mzc3
-OyYjMjAxMDc7JiMyMTQ4NzsmIzIwNTcwOyYjNjUyOTI7JiMzMjc4MDsmIzIwOTQzOyYjMjM1Njk7
-JiMyMDE1NDsmIzI1MTY1OyYjMjc5Njk7JiMyMjgzMzsmIzEyMjkwOzwvZm9udD48L2Rpdj4NCiAg
-ICA8ZGl2Pjxmb250IGNvbG9yPSIjMDAwMGZmIiBzaXplPSI1IiBmYWNlPSJDb3VyaWVyIE5ldyBD
-WVIiPiYjNjUyODg7NCYjNjUyODk7ICYjMjA5NDM7JiMyMzU2OTsmIzIyMzEyO0IyQiYjMjQxNzk7
-JiMyMTQ4ODsmIzMxNTYxOyYjMjQ0NTM7JiMzMDM0MDsmIzI2MTAyOyYjMzgzODg7JiM2NTI5Mjsm
-IzIzNjM3OyYjMjAyNTA7JiMzOTY0MDsmIzI2MTE0OyYjMzYxNTM7JiMyOTk5MjsmIzMwMzQwOyYj
-MjUyMzc7JiMyMDgzNzsmIzY1MjkyOyYjMjI2ODY7JiMyMTE1MjsmIzMyNzY5OyYjMjE1OTI7JiMy
-NDAzNzsmIzMxMjE1OyYjMjY0OTc7JiMyNDYxNTsmIzY1MjkyOyYjMzU3NTM7JiMyNjAzMjsmIzI1
-MTYzOyYjMjQ1NTU7JiMzNjg5NTsmIzIwODM3OyYjMzgzNzY7JiMxMjI5MDsmIzM4NDc3OyYjMjAz
-MDI7JiMyMjgwNjsmIzM2MTUyOyYjMjM0NTg7JiMyNTE0MzsmIzI0MzIwOyYjMjE0NTc7JiMyNTEw
-NDsmIzI2NDEyOyYjMTIyOTA7PC9mb250PjwvZGl2Pg0KICAgIDxkaXY+PGZvbnQgY29sb3I9IiMw
-MDAwZmYiIHNpemU9IjUiIGZhY2U9IkNvdXJpZXIgTmV3IENZUiI+JiM2NTI4ODs1JiM2NTI4OTsg
-JiMyNTEwNTsmIzIxNDk2OyYjMjAwMjY7JiMyMDIyNTsmIzE5OTk0OyYjMjU1NTI7JiMyMDM3OTsm
-IzE5OTg3OyYjMTk5OTQ7JiMzNTI5OTsmIzIwOTE1OyYjMjYwNDE7JiMyNjY5NjsmIzIyODcxOyYj
-MzkxODQ7JiMyNjM4MTsmIzIxMTUzOyYjNjUyOTI7JiMxOTk2ODsmIzIyODcxOyYjMjM0MzY7JiMy
-NTk3MjsmIzMxOTk1OyYjMzI0Nzk7JiMyMTI3MDsmIzIzNDU4OyYjMjUxNDM7JiMyNDMyMDsmIzIx
-NDU3OyYjMjYwNDE7JiMyNjY5NjsmIzY1MjkyOyYjMjYzNTY7JiMyMTE1MjsmIzMwNDY1OyYjMjYx
-MDI7JiMzMDQ2NTsmIzIxMTQ3OyYjNjUyOTI7JiMyODM4NTsmIzM2Mjc1OyYjMjAwMTM7JiMyMjgy
-MzsmIzIyNDExOyYjMjAyMjU7JiMxOTk5NDsmIzI3NTk5OyYjMjI4MjU7JiMzMDM0MDsmIzI1NTEy
-OyYjMjQxOTE7JiMzNzMyNzsmIzY1Mjg4OyYjMjc1OTk7JiMyMjgyNTsmIzIxNDg3OyYjMjE0NTc7
-NSYjMTk5NzU7KyYjMjM1NTM7JiMzNzAzODsmIzIwMjE0OyYjNjUyODk7JiMxMjI5MDsmIzI1MjE1
-OyYjMzU4MzQ7JiMzMDMzNDsmIzIwOTk4OyYjMzAzMzQ7JiMyMDk4NjsmIzI1OTI4OyYjMjY1MjQ7
-JiM2NTI5MjsmIzI2MDgwOyYjMjU5Mjg7JiMyMDg0MDsmIzM5MDY5OyYjMzY4NjQ7JiMyNzQ1NDsm
-IzY1MjgxOyYjNjUyODE7PC9mb250PjwvZGl2Pg0KICAgIDxkaXY+PGZvbnQgY29sb3I9IiMwMDAw
-ZmYiIHNpemU9IjUiIGZhY2U9IkNvdXJpZXIgTmV3IENZUiI+JiM2NTI4ODs2JiM2NTI4OTsgJiMy
-NjQyNjsmIzIwMjUwOyYjMzAwNDE7JiMzMjQ3MzsmIzIwMzIwOyYjMTIyOTA7JiMzNjg5MDsmIzM2
-ODA3OyYjMjUxMDU7JiMyMTQ5NjsmIzMxOTk1OyYjMzI0Nzk7JiMxOTk2ODsmIzIwMDEwOyYjMjYx
-NDM7JiMyNjM5OTsmIzIwOTg2OyYjMjY2Nzk7JiMyMTY5NzsmIzIxMzMzOyYjNjUyOTI7JiMyMDk4
-NjsmIzM1NzQ2OyYjMjEzMzM7JiMzMDM0MDsmIzIzNDU4OyYjMjUxNDM7JiMyMjgyMzsmIzI2Mzc3
-OyYjMjAxNTQ7JiMyMjMxMjsmIzEyMjkwOyYjMzY4NjY7JiMyOTk5MjsmIzIwMTEwOyYjMjI4MDY7
-JiMzNjE1MjsmIzIxNTA4OyYjMzQ4OTI7JiMxOTk5NDsmIzIwMTk3OyYjMjE0NTA7JiMyMDAxMDsm
-IzIwMTU0O1NPSE8mIzEyMjkwOyA8L2ZvbnQ+PC9kaXY+DQogICAgPGRpdj48Zm9udCBjb2xvcj0i
-IzAwMDBmZiIgc2l6ZT0iNSIgZmFjZT0iQ291cmllciBOZXcgQ1lSIj4mIzMwNDQ2OyYjMjEwNjk7
-JiMyMDg0MDsmIzIyMjY5OyYjMjAwMDQ7JiMxOTk3NTsmIzIyODEwOyYjMjM0Nzg7JiMyMjgwNjsm
-IzM2MTUyOyYjMjAyMjU7JiMxOTk5NDsmIzI5OTkyOyYjMjUxNDM7JiMyNzQ5MTsmIzIyMzEyOyYj
-MjU5MTA7JiMzMDQxMDsmIzY1MjkyOyYjMjk5OTI7JiMyNTE0MzsmIzM2ODI0OyYjMjIzMTI7JiMx
-OTk4MTsmIzI2MDI5OyYjMjI2ODY7JiMyMTE1MjsmIzY1MjkyOyYjMjAzMjA7JiMzNjgyNDsmIzIy
-MzEyOyYjMjkzNjk7JiMzNTk0NzsmIzI3ODA5OyYjMjYzNzc7JiMyMjkwOTsmIzMwMzQwOyYjMjM0
-NTg7JiMyNTE0MzsmIzI0MzIwOyYjMjE0NTc7JiMyNjA0MTsmIzI2Njk2OyYjMjE1Mjc7JiM2NTMx
-MTsmIzIzNTQ1OyYjMjAxMTA7JiMyOTYxNjsmIzIyMzEyOyYjMjUxNjM7JiMxOTk3ODsmIzIyODA2
-OyYjMzYxNTI7JiMzNjE2NDsmIzI4MzA0OyYjMjgzODU7JiMyNDg0NzsmIzIxNTI3OyYjNjUzMTE7
-JiMyMDMwOTsmIzE5OTgxOyYjMjAxMDI7JiMzNTI5OTsmIzE5OTc5OyYjMjUxMDU7JiMyMTQ5Njsm
-IzMxOTk1OyYjMzI0Nzk7JiM2NTMxMTsgPC9mb250PjwvZGl2Pg0KICAgIDxkaXY+PGZvbnQgc2l6
-ZT0iNSIgZmFjZT0iQ291cmllciBOZXcgQ1lSIj48Zm9udCBjb2xvcj0iIzAwMDBmZiI+JiMzNTgx
-NDsgJiMzNTgxMDs8Zm9udCBjb2xvcj0iI2ZmMDAwMCIgc2l6ZT0iNyI+USBRJiM2NTMwNjsyNzU1
-MzY1MDQzPC9mb250PiZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyA8Zm9udCBzaXplPSI2
-Ij4mIzMzMjY4OyAmIzMwMDA1OyYjNjUzMDY7MDc1NS0zNjMwMDc1MDwvZm9udD48L2ZvbnQ+PC9m
-b250PjwvZGl2Pg0KICA8L2JvZHk+DQo8L2h0bWw+
+In order to reduce copy/paste of functions across architectures and then
+make riscv hugetlb port (and future ports) simpler and smaller, this
+patchset intends to factorize the numerous hugetlb primitives that are defined
+across all the architectures.
+
+Except for prepare_hugepage_range, this patchset moves the versions that
+are just pass-through to standard pte primitives into
+asm-generic/hugetlb.h by using the same #ifdef semantic that can be
+found in asm-generic/pgtable.h, i.e. __HAVE_ARCH_***.
+
+s390 architecture has not been tackled in this serie since it does not
+use asm-generic/hugetlb.h at all.
+powerpc could be factorized a bit more (cf huge_ptep_set_wrprotect).
+
+This patchset has been compiled on x86 only.
+
+Alexandre Ghiti (11):
+  hugetlb: Harmonize hugetlb.h arch specific defines with pgtable.h
+  hugetlb: Introduce generic version of hugetlb_free_pgd_range
+  hugetlb: Introduce generic version of set_huge_pte_at
+  hugetlb: Introduce generic version of huge_ptep_get_and_clear
+  hugetlb: Introduce generic version of huge_ptep_clear_flush
+  hugetlb: Introduce generic version of huge_pte_none
+  hugetlb: Introduce generic version of huge_pte_wrprotect
+  hugetlb: Introduce generic version of prepare_hugepage_range
+  hugetlb: Introduce generic version of huge_ptep_set_wrprotect
+  hugetlb: Introduce generic version of huge_ptep_set_access_flags
+  hugetlb: Introduce generic version of huge_ptep_get
+
+ arch/arm/include/asm/hugetlb-3level.h        | 32 +---------
+ arch/arm/include/asm/hugetlb.h               | 33 +----------
+ arch/arm64/include/asm/hugetlb.h             | 39 +++---------
+ arch/ia64/include/asm/hugetlb.h              | 47 ++-------------
+ arch/mips/include/asm/hugetlb.h              | 40 +++----------
+ arch/parisc/include/asm/hugetlb.h            | 33 +++--------
+ arch/powerpc/include/asm/book3s/32/pgtable.h |  2 +
+ arch/powerpc/include/asm/book3s/64/pgtable.h |  1 +
+ arch/powerpc/include/asm/hugetlb.h           | 43 ++------------
+ arch/powerpc/include/asm/nohash/32/pgtable.h |  2 +
+ arch/powerpc/include/asm/nohash/64/pgtable.h |  1 +
+ arch/sh/include/asm/hugetlb.h                | 54 ++---------------
+ arch/sparc/include/asm/hugetlb.h             | 40 +++----------
+ arch/x86/include/asm/hugetlb.h               | 72 +----------------------
+ include/asm-generic/hugetlb.h                | 88 +++++++++++++++++++++++++++-
+ 15 files changed, 143 insertions(+), 384 deletions(-)
+
+-- 
+2.16.2
+
