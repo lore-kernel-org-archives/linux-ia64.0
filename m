@@ -1,10 +1,10 @@
 From: Alexandre Ghiti <alex@ghiti.fr>
-Date: Wed, 04 Jul 2018 05:51:58 +0000
+Date: Thu, 05 Jul 2018 04:58:38 +0000
 Subject: [PATCH 02/11] hugetlb: Introduce generic version of hugetlb_free_pgd_range
-Message-Id: <20180704055207.27978-3-alex@ghiti.fr>
+Message-Id: <20180705045847.32575-3-alex@ghiti.fr>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180704055207.27978-1-alex@ghiti.fr>
-In-Reply-To: <20180704055207.27978-1-alex@ghiti.fr>
+References: <20180705045847.32575-1-alex@ghiti.fr>
+In-Reply-To: <20180705045847.32575-1-alex@ghiti.fr>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
