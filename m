@@ -1,8 +1,10 @@
 From: Alexandre Ghiti <alex@ghiti.fr>
-Date: Wed, 04 Jul 2018 05:51:56 +0000
+Date: Thu, 05 Jul 2018 04:58:36 +0000
 Subject: [PATCH 00/11] hugetlb: Factorize architecture hugetlb primitives
-Message-Id: <20180704055207.27978-1-alex@ghiti.fr>
+Message-Id: <20180705045847.32575-1-alex@ghiti.fr>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20180704055207.27978-1-alex@ghiti.fr>
+In-Reply-To: <20180704055207.27978-1-alex@ghiti.fr>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -10,9 +12,9 @@ To: linux@armlinux.org.uk, catalin.marinas@arm.com, will.deacon@arm.com, tony.lu
 Cc: Alexandre Ghiti <alex@ghiti.fr>
 
 In order to reduce copy/paste of functions across architectures and then
-make riscv hugetlb port simpler and smaller, this patchset intends to
-factorize the numerous hugetlb primitives that are defined across all the
-architectures.
+make riscv hugetlb port (and future ports) simpler and smaller, this patchset
+intends to factorize the numerous hugetlb primitives that are defined across all
+the architectures.
 
 Except for prepare_hugepage_range, this patchset moves the versions that
 are just pass-through to standard pte primitives into
