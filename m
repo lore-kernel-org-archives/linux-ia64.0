@@ -1,74 +1,55 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Date: Fri, 06 Jul 2018 05:46:43 +0000
-Subject: [PATCH 4.17 22/46] drm/sti: Depend on OF rather than selecting it
-Message-Id: <20180706054525.666782487@linuxfoundation.org>
+From: Alexandre Ghiti <alex@ghiti.fr>
+Date: Thu, 05 Jul 2018 05:12:32 +0000
+Subject: [PATCH v2 01/11] hugetlb: Harmonize hugetlb.h arch specific defines with pgtable.h
+Message-Id: <20180705051242.694-1-alex@ghiti.fr>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180706054524.595521988@linuxfoundation.org>
-In-Reply-To: <20180706054524.595521988@linuxfoundation.org>
+References: <20180705050323.301-1-alex@ghiti.fr>
+In-Reply-To: <20180705050323.301-1-alex@ghiti.fr>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>, stable@vger.kernel.org, Benjamin Gaignard <benjamin.gaignard@linaro.org>, Vincent Abriou <vincent.abriou@st.com>, David Airlie <airlied@linux.ie>, dri-devel@lists.freedesktop.org, linux-ia64@vger.kernel.org, Oliver OHalloran <oohall@gmail.com>, Philippe Cornu <philippe.cornu@st.com>
+To: linux@armlinux.org.uk, catalin.marinas@arm.com, will.deacon@arm.com, tony.luck@intel.com, fenghua.yu@intel.com, ralf@linux-mips.org, paul.burton@mips.com, jhogan@kernel.org, jejb@parisc-linux.org, deller@gmx.de, benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, x86@kernel.org, arnd@arndb.de, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org
+Cc: Alexandre Ghiti <alex@ghiti.fr>
 
-4.17-stable review patch.  If anyone has any objections, please let me know.
+asm-generic/hugetlb.h proposes generic implementations of hugetlb
+related functions: use __HAVE_ARCH_HUGE* defines in order to make arch
+specific implementations of hugetlb functions consistent with pgtable.h
+scheme.
 
-------------------
-
-From: Oliver O'Halloran <oohall@gmail.com>
-
-commit c9fea6f4379c72b7c59e1efceab09a35bc7eac43 upstream.
-
-Commit cc6b741c6f63 ("drm: sti: remove useless fields from vtg
-structure") reworked some code inside of this driver and made it select
-CONFIG_OF. This results in the entire OF layer being enabled when
-building an allmodconfig on ia64. OF on ia64 is completely unsupported
-so this isn't a great state of affairs.
-
-The 0day robot noticed a link-time failure on ia64 caused by
-using of_node_to_nid() in an otherwise unrelated driver. The
-generic fallback for of_node_to_nid() only exists when:
-
-	defined(CONFIG_OF) && defined(CONFIG_NUMA) = false
-
-Since CONFIG_NUMA is usually selected for IA64 we get the link failure.
-Fix this by making the driver depend on OF rather than selecting it,
-odds are that was the original intent.
-
-Link: https://lists.01.org/pipermail/kbuild-all/2018-March/045172.html
-Fixes: cc6b741c6f63 ("drm: sti: remove useless fields from vtg structure")
-Cc: Benjamin Gaignard <benjamin.gaignard@linaro.org>
-Cc: Vincent Abriou <vincent.abriou@st.com>
-Cc: David Airlie <airlied@linux.ie>
-Cc: dri-devel@lists.freedesktop.org
-Cc: linux-ia64@vger.kernel.org
-Cc: stable@vger.kernel.org
-Signed-off-by: Oliver O'Halloran <oohall@gmail.com>
-Reviewed-by: Benjamin Gaignard <benjamin.gaignard@linaro.org>
-Signed-off-by: Philippe Cornu <philippe.cornu@st.com>
-Link: https://patchwork.freedesktop.org/patch/msgid/20180403053401.30045-1-oohall@gmail.com
-Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-
+Signed-off-by: Alexandre Ghiti <alex@ghiti.fr>
 ---
- drivers/gpu/drm/sti/Kconfig |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ arch/arm64/include/asm/hugetlb.h | 2 +-
+ include/asm-generic/hugetlb.h    | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
---- a/drivers/gpu/drm/sti/Kconfig
-+++ b/drivers/gpu/drm/sti/Kconfig
-@@ -1,6 +1,6 @@
- config DRM_STI
- 	tristate "DRM Support for STMicroelectronics SoC stiH4xx Series"
--	depends on DRM && (ARCH_STI || ARCH_MULTIPLATFORM)
-+	depends on OF && DRM && (ARCH_STI || ARCH_MULTIPLATFORM)
- 	select RESET_CONTROLLER
- 	select DRM_KMS_HELPER
- 	select DRM_GEM_CMA_HELPER
-@@ -8,6 +8,5 @@ config DRM_STI
- 	select DRM_PANEL
- 	select FW_LOADER
- 	select SND_SOC_HDMI_CODEC if SND_SOC
--	select OF
- 	help
- 	  Choose this option to enable DRM on STM stiH4xx chipset
-
+diff --git a/arch/arm64/include/asm/hugetlb.h b/arch/arm64/include/asm/hugetlb.h
+index e73f68569624..3fcf14663dfa 100644
+--- a/arch/arm64/include/asm/hugetlb.h
++++ b/arch/arm64/include/asm/hugetlb.h
+@@ -81,9 +81,9 @@ extern void huge_ptep_set_wrprotect(struct mm_struct *mm,
+ 				    unsigned long addr, pte_t *ptep);
+ extern void huge_ptep_clear_flush(struct vm_area_struct *vma,
+ 				  unsigned long addr, pte_t *ptep);
++#define __HAVE_ARCH_HUGE_PTE_CLEAR
+ extern void huge_pte_clear(struct mm_struct *mm, unsigned long addr,
+ 			   pte_t *ptep, unsigned long sz);
+-#define huge_pte_clear huge_pte_clear
+ extern void set_huge_swap_pte_at(struct mm_struct *mm, unsigned long addr,
+ 				 pte_t *ptep, pte_t pte, unsigned long sz);
+ #define set_huge_swap_pte_at set_huge_swap_pte_at
+diff --git a/include/asm-generic/hugetlb.h b/include/asm-generic/hugetlb.h
+index 9d0cde8ab716..3da7cff52360 100644
+--- a/include/asm-generic/hugetlb.h
++++ b/include/asm-generic/hugetlb.h
+@@ -32,7 +32,7 @@ static inline pte_t huge_pte_modify(pte_t pte, pgprot_t newprot)
+ 	return pte_modify(pte, newprot);
+ }
+ 
+-#ifndef huge_pte_clear
++#ifndef __HAVE_ARCH_HUGE_PTE_CLEAR
+ static inline void huge_pte_clear(struct mm_struct *mm, unsigned long addr,
+ 		    pte_t *ptep, unsigned long sz)
+ {
+-- 
+2.16.2
 
