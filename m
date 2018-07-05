@@ -1,10 +1,10 @@
 From: Alexandre Ghiti <alex@ghiti.fr>
-Date: Wed, 04 Jul 2018 05:51:57 +0000
+Date: Thu, 05 Jul 2018 04:58:37 +0000
 Subject: [PATCH 01/11] hugetlb: Harmonize hugetlb.h arch specific defines with pgtable.h
-Message-Id: <20180704055207.27978-2-alex@ghiti.fr>
+Message-Id: <20180705045847.32575-2-alex@ghiti.fr>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180704055207.27978-1-alex@ghiti.fr>
-In-Reply-To: <20180704055207.27978-1-alex@ghiti.fr>
+References: <20180705045847.32575-1-alex@ghiti.fr>
+In-Reply-To: <20180705045847.32575-1-alex@ghiti.fr>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
