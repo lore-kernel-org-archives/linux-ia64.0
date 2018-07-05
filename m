@@ -1,245 +1,228 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Mon, 04 Jun 2018 15:52:23 +0000
-Subject: [RFC PATCH -tip v5 08/27] ia64: kprobes: Remove jprobe implementation
-Message-Id: <152812754313.10068.18139644090022750444.stgit@devbox>
+From: Alexandre Ghiti <alex@ghiti.fr>
+Date: Thu, 05 Jul 2018 11:07:14 +0000
+Subject: [PATCH v4 09/11] hugetlb: Introduce generic version of huge_ptep_set_wrprotect
+Message-Id: <20180705110716.3919-10-alex@ghiti.fr>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <152812730943.10068.5166429445118734697.stgit@devbox>
-In-Reply-To: <152812730943.10068.5166429445118734697.stgit@devbox>
+References: <20180705110716.3919-1-alex@ghiti.fr>
+In-Reply-To: <20180705110716.3919-1-alex@ghiti.fr>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@kernel.org>
-Cc: Masami Hiramatsu <mhiramat@kernel.org>, Ingo Molnar <mingo@redhat.com>, "H . Peter Anvin" <hpa@zytor.com>, linux-kernel@vger.kernel.org, Ananth N Mavinakayanahalli <ananth@linux.vnet.ibm.com>, Andrew Morton <akpm@linux-foundation.org>, Steven Rostedt <rostedt@goodmis.org>, linux-arch@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+To: linux@armlinux.org.uk, catalin.marinas@arm.com, will.deacon@arm.com, tony.luck@intel.com, fenghua.yu@intel.com, ralf@linux-mips.org, paul.burton@mips.com, jhogan@kernel.org, jejb@parisc-linux.org, deller@gmx.de, benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, x86@kernel.org, arnd@arndb.de, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org
+Cc: Alexandre Ghiti <alex@ghiti.fr>
 
-Remove arch dependent setjump/longjump functions
-and unused fields in kprobe_ctlblk for jprobes
-from arch/ia64.
+arm, ia64, mips, sh, x86 architectures use the same version
+of huge_ptep_set_wrprotect, so move this generic implementation into
+asm-generic/hugetlb.h.
+Note: powerpc uses twice for book3s/32 and nohash/32 the same version as
+the above architectures, but the modification was not straightforward
+and hence has not been done.
 
-Note that since ia64 jprobes code a bit different
-from other arch, this keeps __IA64_BREAK_JPROBE
-for checking break_handler. It will be removed
-with break_handler() call afterwards.
-
-Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org
+Signed-off-by: Alexandre Ghiti <alex@ghiti.fr>
 ---
- arch/ia64/include/asm/kprobes.h |    2 -
- arch/ia64/kernel/Makefile       |    2 -
- arch/ia64/kernel/jprobes.S      |   90 ---------------------------------------
- arch/ia64/kernel/kprobes.c      |   70 ------------------------------
- 4 files changed, 1 insertion(+), 163 deletions(-)
- delete mode 100644 arch/ia64/kernel/jprobes.S
+ arch/arm/include/asm/hugetlb-3level.h        | 6 ------
+ arch/arm64/include/asm/hugetlb.h             | 1 +
+ arch/ia64/include/asm/hugetlb.h              | 6 ------
+ arch/mips/include/asm/hugetlb.h              | 6 ------
+ arch/parisc/include/asm/hugetlb.h            | 1 +
+ arch/powerpc/include/asm/book3s/32/pgtable.h | 2 ++
+ arch/powerpc/include/asm/book3s/64/pgtable.h | 1 +
+ arch/powerpc/include/asm/nohash/32/pgtable.h | 2 ++
+ arch/powerpc/include/asm/nohash/64/pgtable.h | 1 +
+ arch/sh/include/asm/hugetlb.h                | 6 ------
+ arch/sparc/include/asm/hugetlb.h             | 1 +
+ arch/x86/include/asm/hugetlb.h               | 6 ------
+ include/asm-generic/hugetlb.h                | 8 ++++++++
+ 13 files changed, 17 insertions(+), 30 deletions(-)
 
-diff --git a/arch/ia64/include/asm/kprobes.h b/arch/ia64/include/asm/kprobes.h
-index 0302b3664789..580356a2eea6 100644
---- a/arch/ia64/include/asm/kprobes.h
-+++ b/arch/ia64/include/asm/kprobes.h
-@@ -82,8 +82,6 @@ struct prev_kprobe {
- #define ARCH_PREV_KPROBE_SZ 2
- struct kprobe_ctlblk {
- 	unsigned long kprobe_status;
--	struct pt_regs jprobe_saved_regs;
--	unsigned long jprobes_saved_stacked_regs[MAX_PARAM_RSE_SIZE];
- 	unsigned long *bsp;
- 	unsigned long cfm;
- 	atomic_t prev_kprobe_index;
-diff --git a/arch/ia64/kernel/Makefile b/arch/ia64/kernel/Makefile
-index 498f3da3f225..d0c0ccdd656a 100644
---- a/arch/ia64/kernel/Makefile
-+++ b/arch/ia64/kernel/Makefile
-@@ -25,7 +25,7 @@ obj-$(CONFIG_NUMA)		+= numa.o
- obj-$(CONFIG_PERFMON)		+= perfmon_default_smpl.o
- obj-$(CONFIG_IA64_CYCLONE)	+= cyclone.o
- obj-$(CONFIG_IA64_MCA_RECOVERY)	+= mca_recovery.o
--obj-$(CONFIG_KPROBES)		+= kprobes.o jprobes.o
-+obj-$(CONFIG_KPROBES)		+= kprobes.o
- obj-$(CONFIG_DYNAMIC_FTRACE)	+= ftrace.o
- obj-$(CONFIG_KEXEC)		+= machine_kexec.o relocate_kernel.o crash.o
- obj-$(CONFIG_CRASH_DUMP)	+= crash_dump.o
-diff --git a/arch/ia64/kernel/jprobes.S b/arch/ia64/kernel/jprobes.S
-deleted file mode 100644
-index f69389c7be1d..000000000000
---- a/arch/ia64/kernel/jprobes.S
-+++ /dev/null
-@@ -1,90 +0,0 @@
--/*
-- * Jprobe specific operations
-- *
-- * This program is free software; you can redistribute it and/or modify
-- * it under the terms of the GNU General Public License as published by
-- * the Free Software Foundation; either version 2 of the License, or
-- * (at your option) any later version.
-- *
-- * This program is distributed in the hope that it will be useful,
-- * but WITHOUT ANY WARRANTY; without even the implied warranty of
-- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-- * GNU General Public License for more details.
-- *
-- * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-- *
-- * Copyright (C) Intel Corporation, 2005
-- *
-- * 2005-May     Rusty Lynch <rusty.lynch@intel.com> and Anil S Keshavamurthy
-- *              <anil.s.keshavamurthy@intel.com> initial implementation
-- *
-- * Jprobes (a.k.a. "jump probes" which is built on-top of kprobes) allow a
-- * probe to be inserted into the beginning of a function call.  The fundamental
-- * difference between a jprobe and a kprobe is the jprobe handler is executed
-- * in the same context as the target function, while the kprobe handlers
-- * are executed in interrupt context.
-- *
-- * For jprobes we initially gain control by placing a break point in the
-- * first instruction of the targeted function.  When we catch that specific
-- * break, we:
-- *        * set the return address to our jprobe_inst_return() function
-- *        * jump to the jprobe handler function
-- *
-- * Since we fixed up the return address, the jprobe handler will return to our
-- * jprobe_inst_return() function, giving us control again.  At this point we
-- * are back in the parents frame marker, so we do yet another call to our
-- * jprobe_break() function to fix up the frame marker as it would normally
-- * exist in the target function.
-- *
-- * Our jprobe_return function then transfers control back to kprobes.c by
-- * executing a break instruction using one of our reserved numbers.  When we
-- * catch that break in kprobes.c, we continue like we do for a normal kprobe
-- * by single stepping the emulated instruction, and then returning execution
-- * to the correct location.
-- */
--#include <asm/asmmacro.h>
--#include <asm/break.h>
--
--	/*
--	 * void jprobe_break(void)
--	 */
--	.section .kprobes.text, "ax"
--ENTRY(jprobe_break)
--	break.m __IA64_BREAK_JPROBE
--END(jprobe_break)
--
--	/*
--	 * void jprobe_inst_return(void)
--	 */
--GLOBAL_ENTRY(jprobe_inst_return)
--	br.call.sptk.many b0=jprobe_break
--END(jprobe_inst_return)
--
--GLOBAL_ENTRY(invalidate_stacked_regs)
--	movl r16=invalidate_restore_cfm
--	;;
--	mov b6=r16
--	;;
--	br.ret.sptk.many b6
--	;;
--invalidate_restore_cfm:
--	mov r16=ar.rsc
--	;;
--	mov ar.rsc=r0
--	;;
--	loadrs
--	;;
--	mov ar.rsc=r16
--	;;
--	br.cond.sptk.many rp
--END(invalidate_stacked_regs)
--
--GLOBAL_ENTRY(flush_register_stack)
--	// flush dirty regs to backing store (must be first in insn group)
--	flushrs
--	;;
--	br.ret.sptk.many rp
--END(flush_register_stack)
--
-diff --git a/arch/ia64/kernel/kprobes.c b/arch/ia64/kernel/kprobes.c
-index f5f3a5e6fcd1..823e4bd03a18 100644
---- a/arch/ia64/kernel/kprobes.c
-+++ b/arch/ia64/kernel/kprobes.c
-@@ -35,8 +35,6 @@
- #include <asm/sections.h>
- #include <asm/exception.h>
- 
--extern void jprobe_inst_return(void);
--
- DEFINE_PER_CPU(struct kprobe *, current_kprobe) = NULL;
- DEFINE_PER_CPU(struct kprobe_ctlblk, kprobe_ctlblk);
- 
-@@ -1040,74 +1038,6 @@ unsigned long arch_deref_entry_point(void *entry)
- 	return ((struct fnptr *)entry)->ip;
+diff --git a/arch/arm/include/asm/hugetlb-3level.h b/arch/arm/include/asm/hugetlb-3level.h
+index b897541520ef..8247cd6a2ac6 100644
+--- a/arch/arm/include/asm/hugetlb-3level.h
++++ b/arch/arm/include/asm/hugetlb-3level.h
+@@ -37,12 +37,6 @@ static inline pte_t huge_ptep_get(pte_t *ptep)
+ 	return retval;
  }
  
--int __kprobes setjmp_pre_handler(struct kprobe *p, struct pt_regs *regs)
+-static inline void huge_ptep_set_wrprotect(struct mm_struct *mm,
+-					   unsigned long addr, pte_t *ptep)
 -{
--	struct jprobe *jp = container_of(p, struct jprobe, kp);
--	unsigned long addr = arch_deref_entry_point(jp->entry);
--	struct kprobe_ctlblk *kcb = get_kprobe_ctlblk();
--	struct param_bsp_cfm pa;
--	int bytes;
--
--	/*
--	 * Callee owns the argument space and could overwrite it, eg
--	 * tail call optimization. So to be absolutely safe
--	 * we save the argument space before transferring the control
--	 * to instrumented jprobe function which runs in
--	 * the process context
--	 */
--	pa.ip = regs->cr_iip;
--	unw_init_running(ia64_get_bsp_cfm, &pa);
--	bytes = (char *)ia64_rse_skip_regs(pa.bsp, pa.cfm & 0x3f)
--				- (char *)pa.bsp;
--	memcpy( kcb->jprobes_saved_stacked_regs,
--		pa.bsp,
--		bytes );
--	kcb->bsp = pa.bsp;
--	kcb->cfm = pa.cfm;
--
--	/* save architectural state */
--	kcb->jprobe_saved_regs = *regs;
--
--	/* after rfi, execute the jprobe instrumented function */
--	regs->cr_iip = addr & ~0xFULL;
--	ia64_psr(regs)->ri = addr & 0xf;
--	regs->r1 = ((struct fnptr *)(jp->entry))->gp;
--
--	/*
--	 * fix the return address to our jprobe_inst_return() function
--	 * in the jprobes.S file
--	 */
--	regs->b0 = ((struct fnptr *)(jprobe_inst_return))->ip;
--
--	return 1;
+-	ptep_set_wrprotect(mm, addr, ptep);
 -}
 -
--/* ia64 does not need this */
--void __kprobes jprobe_return(void)
+ static inline int huge_ptep_set_access_flags(struct vm_area_struct *vma,
+ 					     unsigned long addr, pte_t *ptep,
+ 					     pte_t pte, int dirty)
+diff --git a/arch/arm64/include/asm/hugetlb.h b/arch/arm64/include/asm/hugetlb.h
+index 3e7f6e69b28d..f4f69ae5466e 100644
+--- a/arch/arm64/include/asm/hugetlb.h
++++ b/arch/arm64/include/asm/hugetlb.h
+@@ -48,6 +48,7 @@ extern int huge_ptep_set_access_flags(struct vm_area_struct *vma,
+ #define __HAVE_ARCH_HUGE_PTEP_GET_AND_CLEAR
+ extern pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
+ 				     unsigned long addr, pte_t *ptep);
++#define __HAVE_ARCH_HUGE_PTEP_SET_WRPROTECT
+ extern void huge_ptep_set_wrprotect(struct mm_struct *mm,
+ 				    unsigned long addr, pte_t *ptep);
+ #define __HAVE_ARCH_HUGE_PTEP_CLEAR_FLUSH
+diff --git a/arch/ia64/include/asm/hugetlb.h b/arch/ia64/include/asm/hugetlb.h
+index cbe296271030..49d1f7949f3a 100644
+--- a/arch/ia64/include/asm/hugetlb.h
++++ b/arch/ia64/include/asm/hugetlb.h
+@@ -27,12 +27,6 @@ static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
+ {
+ }
+ 
+-static inline void huge_ptep_set_wrprotect(struct mm_struct *mm,
+-					   unsigned long addr, pte_t *ptep)
 -{
+-	ptep_set_wrprotect(mm, addr, ptep);
 -}
 -
--int __kprobes longjmp_break_handler(struct kprobe *p, struct pt_regs *regs)
+ static inline int huge_ptep_set_access_flags(struct vm_area_struct *vma,
+ 					     unsigned long addr, pte_t *ptep,
+ 					     pte_t pte, int dirty)
+diff --git a/arch/mips/include/asm/hugetlb.h b/arch/mips/include/asm/hugetlb.h
+index 6ff2531cfb1d..3dcf5debf8c4 100644
+--- a/arch/mips/include/asm/hugetlb.h
++++ b/arch/mips/include/asm/hugetlb.h
+@@ -63,12 +63,6 @@ static inline int huge_pte_none(pte_t pte)
+ 	return !val || (val = (unsigned long)invalid_pte_table);
+ }
+ 
+-static inline void huge_ptep_set_wrprotect(struct mm_struct *mm,
+-					   unsigned long addr, pte_t *ptep)
 -{
--	struct kprobe_ctlblk *kcb = get_kprobe_ctlblk();
--	int bytes;
--
--	/* restoring architectural state */
--	*regs = kcb->jprobe_saved_regs;
--
--	/* restoring the original argument space */
--	flush_register_stack();
--	bytes = (char *)ia64_rse_skip_regs(kcb->bsp, kcb->cfm & 0x3f)
--				- (char *)kcb->bsp;
--	memcpy( kcb->bsp,
--		kcb->jprobes_saved_stacked_regs,
--		bytes );
--	invalidate_stacked_regs();
--
--	preempt_enable_no_resched();
--	return 1;
+-	ptep_set_wrprotect(mm, addr, ptep);
 -}
 -
- static struct kprobe trampoline_p = {
- 	.pre_handler = trampoline_probe_handler
- };
+ static inline int huge_ptep_set_access_flags(struct vm_area_struct *vma,
+ 					     unsigned long addr,
+ 					     pte_t *ptep, pte_t pte,
+diff --git a/arch/parisc/include/asm/hugetlb.h b/arch/parisc/include/asm/hugetlb.h
+index fb7e0fd858a3..9c3950ca2974 100644
+--- a/arch/parisc/include/asm/hugetlb.h
++++ b/arch/parisc/include/asm/hugetlb.h
+@@ -39,6 +39,7 @@ static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
+ {
+ }
+ 
++#define __HAVE_ARCH_HUGE_PTEP_SET_WRPROTECT
+ void huge_ptep_set_wrprotect(struct mm_struct *mm,
+ 					   unsigned long addr, pte_t *ptep);
+ 
+diff --git a/arch/powerpc/include/asm/book3s/32/pgtable.h b/arch/powerpc/include/asm/book3s/32/pgtable.h
+index 02f5acd7ccc4..d2cd1d0226e9 100644
+--- a/arch/powerpc/include/asm/book3s/32/pgtable.h
++++ b/arch/powerpc/include/asm/book3s/32/pgtable.h
+@@ -228,6 +228,8 @@ static inline void ptep_set_wrprotect(struct mm_struct *mm, unsigned long addr,
+ {
+ 	pte_update(ptep, (_PAGE_RW | _PAGE_HWWRITE), _PAGE_RO);
+ }
++
++#define __HAVE_ARCH_HUGE_PTEP_SET_WRPROTECT
+ static inline void huge_ptep_set_wrprotect(struct mm_struct *mm,
+ 					   unsigned long addr, pte_t *ptep)
+ {
+diff --git a/arch/powerpc/include/asm/book3s/64/pgtable.h b/arch/powerpc/include/asm/book3s/64/pgtable.h
+index 42aafba7a308..7d957f7c47cd 100644
+--- a/arch/powerpc/include/asm/book3s/64/pgtable.h
++++ b/arch/powerpc/include/asm/book3s/64/pgtable.h
+@@ -451,6 +451,7 @@ static inline void ptep_set_wrprotect(struct mm_struct *mm, unsigned long addr,
+ 		pte_update(mm, addr, ptep, 0, _PAGE_PRIVILEGED, 0);
+ }
+ 
++#define __HAVE_ARCH_HUGE_PTEP_SET_WRPROTECT
+ static inline void huge_ptep_set_wrprotect(struct mm_struct *mm,
+ 					   unsigned long addr, pte_t *ptep)
+ {
+diff --git a/arch/powerpc/include/asm/nohash/32/pgtable.h b/arch/powerpc/include/asm/nohash/32/pgtable.h
+index 7c46a98cc7f4..f39e200d9591 100644
+--- a/arch/powerpc/include/asm/nohash/32/pgtable.h
++++ b/arch/powerpc/include/asm/nohash/32/pgtable.h
+@@ -249,6 +249,8 @@ static inline void ptep_set_wrprotect(struct mm_struct *mm, unsigned long addr,
+ {
+ 	pte_update(ptep, (_PAGE_RW | _PAGE_HWWRITE), _PAGE_RO);
+ }
++
++#define __HAVE_ARCH_HUGE_PTEP_SET_WRPROTECT
+ static inline void huge_ptep_set_wrprotect(struct mm_struct *mm,
+ 					   unsigned long addr, pte_t *ptep)
+ {
+diff --git a/arch/powerpc/include/asm/nohash/64/pgtable.h b/arch/powerpc/include/asm/nohash/64/pgtable.h
+index dd0c7236208f..69fbf7e9b4db 100644
+--- a/arch/powerpc/include/asm/nohash/64/pgtable.h
++++ b/arch/powerpc/include/asm/nohash/64/pgtable.h
+@@ -238,6 +238,7 @@ static inline void ptep_set_wrprotect(struct mm_struct *mm, unsigned long addr,
+ 	pte_update(mm, addr, ptep, _PAGE_RW, 0, 0);
+ }
+ 
++#define __HAVE_ARCH_HUGE_PTEP_SET_WRPROTECT
+ static inline void huge_ptep_set_wrprotect(struct mm_struct *mm,
+ 					   unsigned long addr, pte_t *ptep)
+ {
+diff --git a/arch/sh/include/asm/hugetlb.h b/arch/sh/include/asm/hugetlb.h
+index f1bbd255ee43..8df4004977b9 100644
+--- a/arch/sh/include/asm/hugetlb.h
++++ b/arch/sh/include/asm/hugetlb.h
+@@ -32,12 +32,6 @@ static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
+ {
+ }
+ 
+-static inline void huge_ptep_set_wrprotect(struct mm_struct *mm,
+-					   unsigned long addr, pte_t *ptep)
+-{
+-	ptep_set_wrprotect(mm, addr, ptep);
+-}
+-
+ static inline int huge_ptep_set_access_flags(struct vm_area_struct *vma,
+ 					     unsigned long addr, pte_t *ptep,
+ 					     pte_t pte, int dirty)
+diff --git a/arch/sparc/include/asm/hugetlb.h b/arch/sparc/include/asm/hugetlb.h
+index 2101ea217f33..c41754a113f3 100644
+--- a/arch/sparc/include/asm/hugetlb.h
++++ b/arch/sparc/include/asm/hugetlb.h
+@@ -32,6 +32,7 @@ static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
+ {
+ }
+ 
++#define __HAVE_ARCH_HUGE_PTEP_SET_WRPROTECT
+ static inline void huge_ptep_set_wrprotect(struct mm_struct *mm,
+ 					   unsigned long addr, pte_t *ptep)
+ {
+diff --git a/arch/x86/include/asm/hugetlb.h b/arch/x86/include/asm/hugetlb.h
+index 2e5117d37c7d..de370836a17d 100644
+--- a/arch/x86/include/asm/hugetlb.h
++++ b/arch/x86/include/asm/hugetlb.h
+@@ -12,12 +12,6 @@ static inline int is_hugepage_only_range(struct mm_struct *mm,
+ 	return 0;
+ }
+ 
+-static inline void huge_ptep_set_wrprotect(struct mm_struct *mm,
+-					   unsigned long addr, pte_t *ptep)
+-{
+-	ptep_set_wrprotect(mm, addr, ptep);
+-}
+-
+ static inline int huge_ptep_set_access_flags(struct vm_area_struct *vma,
+ 					     unsigned long addr, pte_t *ptep,
+ 					     pte_t pte, int dirty)
+diff --git a/include/asm-generic/hugetlb.h b/include/asm-generic/hugetlb.h
+index 6c0c8b0c71e0..9b9039845278 100644
+--- a/include/asm-generic/hugetlb.h
++++ b/include/asm-generic/hugetlb.h
+@@ -102,4 +102,12 @@ static inline int prepare_hugepage_range(struct file *file,
+ }
+ #endif
+ 
++#ifndef __HAVE_ARCH_HUGE_PTEP_SET_WRPROTECT
++static inline void huge_ptep_set_wrprotect(struct mm_struct *mm,
++		unsigned long addr, pte_t *ptep)
++{
++	ptep_set_wrprotect(mm, addr, ptep);
++}
++#endif
++
+ #endif /* _ASM_GENERIC_HUGETLB_H */
+-- 
+2.16.2
 
