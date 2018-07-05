@@ -1,11 +1,10 @@
 From: Alexandre Ghiti <alex@ghiti.fr>
-Date: Thu, 05 Jul 2018 05:12:36 +0000
-Subject: [PATCH v2 05/11] hugetlb: Introduce generic version of huge_ptep_clear_flush
-Message-Id: <20180705051242.694-5-alex@ghiti.fr>
+Date: Thu, 05 Jul 2018 05:16:34 +0000
+Subject: [PATCH v3 05/11] hugetlb: Introduce generic version of huge_ptep_clear_flush
+Message-Id: <20180705051640.790-6-alex@ghiti.fr>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180705050323.301-1-alex@ghiti.fr>
- <20180705051242.694-1-alex@ghiti.fr>
-In-Reply-To: <20180705051242.694-1-alex@ghiti.fr>
+References: <20180705051640.790-1-alex@ghiti.fr>
+In-Reply-To: <20180705051640.790-1-alex@ghiti.fr>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
