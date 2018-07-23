@@ -1,180 +1,169 @@
-From: Alexandre Ghiti <alex@ghiti.fr>
-Date: Thu, 05 Jul 2018 05:12:35 +0000
-Subject: [PATCH v2 04/11] hugetlb: Introduce generic version of huge_ptep_get_and_clear
-Message-Id: <20180705051242.694-4-alex@ghiti.fr>
+From: Mike Rapoport <rppt@linux.vnet.ibm.com>
+Date: Mon, 23 Jul 2018 05:56:57 +0000
+Subject: [PATCH 3/4] ia64: use mem_data to detect nodes' minimal and maximal PFNs
+Message-Id: <1532325418-22617-4-git-send-email-rppt@linux.vnet.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180705050323.301-1-alex@ghiti.fr>
- <20180705051242.694-1-alex@ghiti.fr>
-In-Reply-To: <20180705051242.694-1-alex@ghiti.fr>
+References: <1532325418-22617-1-git-send-email-rppt@linux.vnet.ibm.com>
+In-Reply-To: <1532325418-22617-1-git-send-email-rppt@linux.vnet.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux@armlinux.org.uk, catalin.marinas@arm.com, will.deacon@arm.com, tony.luck@intel.com, fenghua.yu@intel.com, ralf@linux-mips.org, paul.burton@mips.com, jhogan@kernel.org, jejb@parisc-linux.org, deller@gmx.de, benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, x86@kernel.org, arnd@arndb.de, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org
-Cc: Alexandre Ghiti <alex@ghiti.fr>
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: Michal Hocko <mhocko@kernel.org>, linux-ia64@vger.kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, Mike Rapoport <rppt@linux.vnet.ibm.com>
 
-arm, ia64, sh, x86 architectures use the
-same version of huge_ptep_get_and_clear, so move this generic
-implementation into asm-generic/hugetlb.h.
+When EFI memory map is traversed to determine the extents of each node, the
+minimal and maximal PFNs are stored in the bootmem_data structures. The
+same information ls later stored in the mem_data array of 'struct
+early_node_data'.
 
-Signed-off-by: Alexandre Ghiti <alex@ghiti.fr>
+Switch to using mem_data from the very beginning.
+
+Signed-off-by: Mike Rapoport <rppt@linux.vnet.ibm.com>
 ---
- arch/arm/include/asm/hugetlb-3level.h | 6 ------
- arch/arm64/include/asm/hugetlb.h      | 1 +
- arch/ia64/include/asm/hugetlb.h       | 6 ------
- arch/mips/include/asm/hugetlb.h       | 1 +
- arch/parisc/include/asm/hugetlb.h     | 1 +
- arch/powerpc/include/asm/hugetlb.h    | 1 +
- arch/sh/include/asm/hugetlb.h         | 6 ------
- arch/sparc/include/asm/hugetlb.h      | 1 +
- arch/x86/include/asm/hugetlb.h        | 6 ------
- include/asm-generic/hugetlb.h         | 8 ++++++++
- 10 files changed, 13 insertions(+), 24 deletions(-)
+ arch/ia64/mm/discontig.c | 60 +++++++++++-------------------------------------
+ 1 file changed, 14 insertions(+), 46 deletions(-)
 
-diff --git a/arch/arm/include/asm/hugetlb-3level.h b/arch/arm/include/asm/hugetlb-3level.h
-index 398fb06e8207..ad36e84b819a 100644
---- a/arch/arm/include/asm/hugetlb-3level.h
-+++ b/arch/arm/include/asm/hugetlb-3level.h
-@@ -49,12 +49,6 @@ static inline void huge_ptep_set_wrprotect(struct mm_struct *mm,
- 	ptep_set_wrprotect(mm, addr, ptep);
+diff --git a/arch/ia64/mm/discontig.c b/arch/ia64/mm/discontig.c
+index 6148ea8..8e99d8e 100644
+--- a/arch/ia64/mm/discontig.c
++++ b/arch/ia64/mm/discontig.c
+@@ -57,33 +57,31 @@ pg_data_t *pgdat_list[MAX_NUMNODES];
+ 	     (((node)*PERCPU_PAGE_SIZE) & (MAX_NODE_ALIGN_OFFSET - 1)))
+ 
+ /**
+- * build_node_maps - callback to setup bootmem structs for each node
++ * build_node_maps - callback to setup mem_data structs for each node
+  * @start: physical start of range
+  * @len: length of range
+  * @node: node where this range resides
+  *
+- * We allocate a struct bootmem_data for each piece of memory that we wish to
++ * Detect extents of each piece of memory that we wish to
+  * treat as a virtually contiguous block (i.e. each node). Each such block
+  * must start on an %IA64_GRANULE_SIZE boundary, so we round the address down
+  * if necessary.  Any non-existent pages will simply be part of the virtual
+- * memmap.  We also update min_low_pfn and max_low_pfn here as we receive
+- * memory ranges from the caller.
++ * memmap.
+  */
+ static int __init build_node_maps(unsigned long start, unsigned long len,
+ 				  int node)
+ {
+ 	unsigned long spfn, epfn, end = start + len;
+-	struct bootmem_data *bdp = &bootmem_node_data[node];
+ 
+ 	epfn = GRANULEROUNDUP(end) >> PAGE_SHIFT;
+ 	spfn = GRANULEROUNDDOWN(start) >> PAGE_SHIFT;
+ 
+-	if (!bdp->node_low_pfn) {
+-		bdp->node_min_pfn = spfn;
+-		bdp->node_low_pfn = epfn;
++	if (!mem_data[node].min_pfn) {
++		mem_data[node].min_pfn = spfn;
++		mem_data[node].max_pfn = epfn;
+ 	} else {
+-		bdp->node_min_pfn = min(spfn, bdp->node_min_pfn);
+-		bdp->node_low_pfn = max(epfn, bdp->node_low_pfn);
++		mem_data[node].min_pfn = min(spfn, mem_data[node].min_pfn);
++		mem_data[node].max_pfn = max(epfn, mem_data[node].max_pfn);
+ 	}
+ 
+ 	return 0;
+@@ -323,19 +321,18 @@ static int __init find_pernode_space(unsigned long start, unsigned long len,
+ {
+ 	unsigned long spfn, epfn;
+ 	unsigned long pernodesize = 0, pernode, pages, mapsize;
+-	struct bootmem_data *bdp = &bootmem_node_data[node];
+ 
+ 	spfn = start >> PAGE_SHIFT;
+ 	epfn = (start + len) >> PAGE_SHIFT;
+ 
+-	pages = bdp->node_low_pfn - bdp->node_min_pfn;
++	pages = mem_data[node].max_pfn - mem_data[node].min_pfn;
+ 	mapsize = bootmem_bootmap_pages(pages) << PAGE_SHIFT;
+ 
+ 	/*
+ 	 * Make sure this memory falls within this node's usable memory
+ 	 * since we may have thrown some away in build_maps().
+ 	 */
+-	if (spfn < bdp->node_min_pfn || epfn > bdp->node_low_pfn)
++	if (spfn < mem_data[node].min_pfn || epfn > mem_data[node].max_pfn)
+ 		return 0;
+ 
+ 	/* Don't setup this node's local space twice... */
+@@ -397,7 +394,7 @@ static void __init reserve_pernode_space(void)
+ 		bdp = pdp->bdata;
+ 
+ 		/* First the bootmem_map itself */
+-		pages = bdp->node_low_pfn - bdp->node_min_pfn;
++		pages = mem_data[node].max_pfn - mem_data[node].min_pfn;
+ 		size = bootmem_bootmap_pages(pages) << PAGE_SHIFT;
+ 		base = __pa(bdp->node_bootmem_map);
+ 		reserve_bootmem_node(pdp, base, size, BOOTMEM_DEFAULT);
+@@ -541,10 +538,8 @@ void __init find_memory(void)
+ 	efi_memmap_walk(find_max_min_low_pfn, NULL);
+ 
+ 	for_each_online_node(node)
+-		if (bootmem_node_data[node].node_low_pfn) {
++		if (mem_data[node].min_pfn)
+ 			node_clear(node, memory_less_mask);
+-			mem_data[node].min_pfn = ~0UL;
+-		}
+ 
+ 	efi_memmap_walk(filter_memory, register_active_ranges);
+ 
+@@ -568,8 +563,8 @@ void __init find_memory(void)
+ 
+ 		init_bootmem_node(pgdat_list[node],
+ 				  map>>PAGE_SHIFT,
+-				  bdp->node_min_pfn,
+-				  bdp->node_low_pfn);
++				  mem_data[node].min_pfn,
++				  mem_data[node].max_pfn);
+ 	}
+ 
+ 	efi_memmap_walk(filter_rsvd_memory, free_node_bootmem);
+@@ -652,31 +647,6 @@ void call_pernode_memory(unsigned long start, unsigned long len, void *arg)
  }
  
--static inline pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
--					    unsigned long addr, pte_t *ptep)
+ /**
+- * count_node_pages - callback to build per-node memory info structures
+- * @start: physical start of range
+- * @len: length of range
+- * @node: node where this range resides
+- *
+- * Each node has it's own number of physical pages, DMAable pages, start, and
+- * end page frame number.  This routine will be called by call_pernode_memory()
+- * for each piece of usable memory and will setup these values for each node.
+- * Very similar to build_maps().
+- */
+-static __init int count_node_pages(unsigned long start, unsigned long len, int node)
 -{
--	return ptep_get_and_clear(mm, addr, ptep);
+-	unsigned long end = start + len;
+-
+-	start = GRANULEROUNDDOWN(start);
+-	end = GRANULEROUNDUP(end);
+-	mem_data[node].max_pfn = max(mem_data[node].max_pfn,
+-				     end >> PAGE_SHIFT);
+-	mem_data[node].min_pfn = min(mem_data[node].min_pfn,
+-				     start >> PAGE_SHIFT);
+-
+-	return 0;
 -}
 -
- static inline int huge_ptep_set_access_flags(struct vm_area_struct *vma,
- 					     unsigned long addr, pte_t *ptep,
- 					     pte_t pte, int dirty)
-diff --git a/arch/arm64/include/asm/hugetlb.h b/arch/arm64/include/asm/hugetlb.h
-index 874661a1dff1..6ae0bcafe162 100644
---- a/arch/arm64/include/asm/hugetlb.h
-+++ b/arch/arm64/include/asm/hugetlb.h
-@@ -66,6 +66,7 @@ extern void set_huge_pte_at(struct mm_struct *mm, unsigned long addr,
- extern int huge_ptep_set_access_flags(struct vm_area_struct *vma,
- 				      unsigned long addr, pte_t *ptep,
- 				      pte_t pte, int dirty);
-+#define __HAVE_ARCH_HUGE_PTEP_GET_AND_CLEAR
- extern pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
- 				     unsigned long addr, pte_t *ptep);
- extern void huge_ptep_set_wrprotect(struct mm_struct *mm,
-diff --git a/arch/ia64/include/asm/hugetlb.h b/arch/ia64/include/asm/hugetlb.h
-index a235d6f60fb3..6719c74da0de 100644
---- a/arch/ia64/include/asm/hugetlb.h
-+++ b/arch/ia64/include/asm/hugetlb.h
-@@ -20,12 +20,6 @@ static inline int is_hugepage_only_range(struct mm_struct *mm,
- 		REGION_NUMBER((addr)+(len)-1) = RGN_HPAGE);
- }
+-/**
+  * paging_init - setup page tables
+  *
+  * paging_init() sets up the page tables for each node of the system and frees
+@@ -692,8 +662,6 @@ void __init paging_init(void)
  
--static inline pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
--					    unsigned long addr, pte_t *ptep)
--{
--	return ptep_get_and_clear(mm, addr, ptep);
--}
+ 	max_dma = virt_to_phys((void *) MAX_DMA_ADDRESS) >> PAGE_SHIFT;
+ 
+-	efi_memmap_walk(filter_rsvd_memory, count_node_pages);
 -
- static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
- 					 unsigned long addr, pte_t *ptep)
- {
-diff --git a/arch/mips/include/asm/hugetlb.h b/arch/mips/include/asm/hugetlb.h
-index 8ea439041d5d..0959cc5a41fa 100644
---- a/arch/mips/include/asm/hugetlb.h
-+++ b/arch/mips/include/asm/hugetlb.h
-@@ -36,6 +36,7 @@ static inline int prepare_hugepage_range(struct file *file,
- 	return 0;
- }
+ 	sparse_memory_present_with_active_regions(MAX_NUMNODES);
+ 	sparse_init();
  
-+#define __HAVE_ARCH_HUGE_PTEP_GET_AND_CLEAR
- static inline pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
- 					    unsigned long addr, pte_t *ptep)
- {
-diff --git a/arch/parisc/include/asm/hugetlb.h b/arch/parisc/include/asm/hugetlb.h
-index 77c8adbac7c3..6e281e1bb336 100644
---- a/arch/parisc/include/asm/hugetlb.h
-+++ b/arch/parisc/include/asm/hugetlb.h
-@@ -8,6 +8,7 @@
- void set_huge_pte_at(struct mm_struct *mm, unsigned long addr,
- 		     pte_t *ptep, pte_t pte);
- 
-+#define __HAVE_ARCH_HUGE_PTEP_GET_AND_CLEAR
- pte_t huge_ptep_get_and_clear(struct mm_struct *mm, unsigned long addr,
- 			      pte_t *ptep);
- 
-diff --git a/arch/powerpc/include/asm/hugetlb.h b/arch/powerpc/include/asm/hugetlb.h
-index ba7d5d8b543f..ec3e0c2e78f8 100644
---- a/arch/powerpc/include/asm/hugetlb.h
-+++ b/arch/powerpc/include/asm/hugetlb.h
-@@ -132,6 +132,7 @@ static inline int prepare_hugepage_range(struct file *file,
- 	return 0;
- }
- 
-+#define __HAVE_ARCH_HUGE_PTEP_GET_AND_CLEAR
- static inline pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
- 					    unsigned long addr, pte_t *ptep)
- {
-diff --git a/arch/sh/include/asm/hugetlb.h b/arch/sh/include/asm/hugetlb.h
-index bc552e37c1c9..08ee6c00b5e9 100644
---- a/arch/sh/include/asm/hugetlb.h
-+++ b/arch/sh/include/asm/hugetlb.h
-@@ -25,12 +25,6 @@ static inline int prepare_hugepage_range(struct file *file,
- 	return 0;
- }
- 
--static inline pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
--					    unsigned long addr, pte_t *ptep)
--{
--	return ptep_get_and_clear(mm, addr, ptep);
--}
--
- static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
- 					 unsigned long addr, pte_t *ptep)
- {
-diff --git a/arch/sparc/include/asm/hugetlb.h b/arch/sparc/include/asm/hugetlb.h
-index 16b0c53ea6c9..944e3a4bfaff 100644
---- a/arch/sparc/include/asm/hugetlb.h
-+++ b/arch/sparc/include/asm/hugetlb.h
-@@ -16,6 +16,7 @@ extern struct pud_huge_patch_entry __pud_huge_patch, __pud_huge_patch_end;
- void set_huge_pte_at(struct mm_struct *mm, unsigned long addr,
- 		     pte_t *ptep, pte_t pte);
- 
-+#define __HAVE_ARCH_HUGE_PTEP_GET_AND_CLEAR
- pte_t huge_ptep_get_and_clear(struct mm_struct *mm, unsigned long addr,
- 			      pte_t *ptep);
- 
-diff --git a/arch/x86/include/asm/hugetlb.h b/arch/x86/include/asm/hugetlb.h
-index 554d5614b375..48b8d9b13cc6 100644
---- a/arch/x86/include/asm/hugetlb.h
-+++ b/arch/x86/include/asm/hugetlb.h
-@@ -27,12 +27,6 @@ static inline int prepare_hugepage_range(struct file *file,
- 	return 0;
- }
- 
--static inline pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
--					    unsigned long addr, pte_t *ptep)
--{
--	return ptep_get_and_clear(mm, addr, ptep);
--}
--
- static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
- 					 unsigned long addr, pte_t *ptep)
- {
-diff --git a/include/asm-generic/hugetlb.h b/include/asm-generic/hugetlb.h
-index ee010b756246..0f6f151780dd 100644
---- a/include/asm-generic/hugetlb.h
-+++ b/include/asm-generic/hugetlb.h
-@@ -57,4 +57,12 @@ static inline void set_huge_pte_at(struct mm_struct *mm, unsigned long addr,
- }
- #endif
- 
-+#ifndef __HAVE_ARCH_HUGE_PTEP_GET_AND_CLEAR
-+static inline pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
-+		unsigned long addr, pte_t *ptep)
-+{
-+	return ptep_get_and_clear(mm, addr, ptep);
-+}
-+#endif
-+
- #endif /* _ASM_GENERIC_HUGETLB_H */
 -- 
-2.16.2
+2.7.4
 
