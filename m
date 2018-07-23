@@ -1,26 +1,28 @@
-From: Mike Kravetz <mike.kravetz@oracle.com>
-Date: Sat, 21 Jul 2018 00:24:12 +0000
+From: Michael Ellerman <mpe@ellerman.id.au>
+Date: Mon, 23 Jul 2018 14:00:37 +0000
 Subject: Re: [PATCH v4 00/11] hugetlb: Factorize hugetlb architecture primitives
-Message-Id: <75195a7d-3d0f-4e55-92cc-4ad772683c75@oracle.com>
+Message-Id: <87d0vehx16.fsf@concordia.ellerman.id.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180705110716.3919-1-alex@ghiti.fr>
- <20180709141621.GD22297@dhcp22.suse.cz>
- <2173685f-7f85-7acb-4685-2383210c5fa2@ghiti.fr>
+References: <20180705110716.3919-1-alex@ghiti.fr> <20180709141621.GD22297@dhcp22.suse.cz> <2173685f-7f85-7acb-4685-2383210c5fa2@ghiti.fr>
 In-Reply-To: <2173685f-7f85-7acb-4685-2383210c5fa2@ghiti.fr>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Alex Ghiti <alex@ghiti.fr>, Michal Hocko <mhocko@kernel.org>
-Cc: linux-mips@linux-mips.org, dalias@libc.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, benh@kernel.crashing.org, will.deacon@arm.com, jejb@parisc-linux.org, paulus@samba.org, hpa@zytor.com, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, ysato@users.sourceforge.jp, mpe@ellerman.id.au, deller@gmx.de, x86@kernel.org, linux@armlinux.org.uk, mingo@redhat.com, catalin.marinas@arm.com, jhogan@kernel.org, fenghua.yu@intel.com, arnd@arndb.de, tglx@linutronix.de, linux-arm-kernel@lists.infradead.org, tony.luck@intel.com, linux-parisc@vger.kernel.org, linux-kernel@vger.kernel.org, ralf@linux-mips.org, paul.burton@mips.com, Naoya Horiguchi <n-horiguchi@ah.jp.nec.com>, linuxppc-dev@lists.ozlabs.org, davem@davemloft.net
+Cc: linux@armlinux.org.uk, catalin.marinas@arm.com, will.deacon@arm.com, tony.luck@intel.com, fenghua.yu@intel.com, ralf@linux-mips.org, paul.burton@mips.com, jhogan@kernel.org, jejb@parisc-linux.org, deller@gmx.de, benh@kernel.crashing.org, paulus@samba.org, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, x86@kernel.org, arnd@arndb.de, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, Naoya Horiguchi <n-horiguchi@ah.jp.nec.com>, Mike Kravetz <mike.kravetz@oracle.com>
 
-On 07/20/2018 11:37 AM, Alex Ghiti wrote:
+Alex Ghiti <alex@ghiti.fr> writes:
+
 > Does anyone have any suggestion about those patches ?
 
-I only took a quick look.  From the hugetlb perspective, I like the
-idea of moving routines to a common file.  If any of the arch owners
-(or anyone else) agree, I can do a review of the series.
--- 
-Mike Kravetz
+Cross compiling it for some non-x86 arches would be a good start :)
+
+There are cross compilers available here:
+
+  https://mirrors.edge.kernel.org/pub/tools/crosstool/
+
+
+cheers
 
 > On 07/09/2018 02:16 PM, Michal Hocko wrote:
 >> [CC hugetlb guys - http://lkml.kernel.org/r/20180705110716.3919-1-alex@ghiti.fr]
@@ -85,4 +87,3 @@ Mike Kravetz
 >>>
 >>> -- 
 >>> 2.16.2
-> 
