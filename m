@@ -1,57 +1,53 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Tue, 31 Jul 2018 15:16:20 +0000
-Subject: [PATCH 2/4] ia64: remove the dead iommu_sac_force variable
-Message-Id: <20180731151622.11305-3-hch@lst.de>
+From: Mike Rapoport <rppt@linux.vnet.ibm.com>
+Date: Mon, 23 Jul 2018 05:56:55 +0000
+Subject: [PATCH 1/4] ia64: contig/paging_init: reduce code duplication
+Message-Id: <1532325418-22617-2-git-send-email-rppt@linux.vnet.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1532325418-22617-1-git-send-email-rppt@linux.vnet.ibm.com>
+In-Reply-To: <1532325418-22617-1-git-send-email-rppt@linux.vnet.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: Michal Hocko <mhocko@kernel.org>, linux-ia64@vger.kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, Mike Rapoport <rppt@linux.vnet.ibm.com>
 
-Looks like copy and paste from x86 that never actually got used.
+The FLATMEM version of paging_init has calls to free_area_init_nodes() in
+the end of every branch of 'if' and 'ifdef' statements.
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+Let's call this function outside the 'ifdef' and 'if' statements instead.
+
+Signed-off-by: Mike Rapoport <rppt@linux.vnet.ibm.com>
 ---
- arch/ia64/kernel/pci-dma.c | 19 -------------------
- 1 file changed, 19 deletions(-)
+ arch/ia64/mm/contig.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/arch/ia64/kernel/pci-dma.c b/arch/ia64/kernel/pci-dma.c
-index b5df084c0af4..50b6ad282a90 100644
---- a/arch/ia64/kernel/pci-dma.c
-+++ b/arch/ia64/kernel/pci-dma.c
-@@ -18,8 +18,6 @@
- dma_addr_t bad_dma_address __read_mostly;
- EXPORT_SYMBOL(bad_dma_address);
+diff --git a/arch/ia64/mm/contig.c b/arch/ia64/mm/contig.c
+index 7d64b30..1835144 100644
+--- a/arch/ia64/mm/contig.c
++++ b/arch/ia64/mm/contig.c
+@@ -248,7 +248,6 @@ paging_init (void)
+ 	efi_memmap_walk(find_largest_hole, (u64 *)&max_gap);
+ 	if (max_gap < LARGE_GAP) {
+ 		vmem_map = (struct page *) 0;
+-		free_area_init_nodes(max_zone_pfns);
+ 	} else {
+ 		unsigned long map_size;
  
--static int iommu_sac_force __read_mostly;
--
- int no_iommu __read_mostly;
- #ifdef CONFIG_IOMMU_DEBUG
- int force_iommu __read_mostly = 1;
-@@ -61,23 +59,6 @@ int iommu_dma_supported(struct device *dev, u64 mask)
- 	if (mask < DMA_BIT_MASK(24))
- 		return 0;
+@@ -266,13 +265,12 @@ paging_init (void)
+ 		 */
+ 		NODE_DATA(0)->node_mem_map = vmem_map +
+ 			find_min_pfn_with_active_regions();
+-		free_area_init_nodes(max_zone_pfns);
  
--	/* Tell the device to use SAC when IOMMU force is on.  This
--	   allows the driver to use cheaper accesses in some cases.
--
--	   Problem with this is that if we overflow the IOMMU area and
--	   return DAC as fallback address the device may not handle it
--	   correctly.
--
--	   As a special case some controllers have a 39bit address
--	   mode that is as efficient as 32bit (aic79xx). Don't force
--	   SAC for these.  Assume all masks <= 40 bits are of this
--	   type. Normally this doesn't make any difference, but gives
--	   more gentle handling of IOMMU overflow. */
--	if (iommu_sac_force && (mask >= DMA_BIT_MASK(40))) {
--		dev_info(dev, "Force SAC with mask %llx\n", mask);
--		return 0;
--	}
--
- 	return 1;
+ 		printk("Virtual mem_map starts at 0x%p\n", mem_map);
+ 	}
+ #else /* !CONFIG_VIRTUAL_MEM_MAP */
+ 	memblock_add_node(0, PFN_PHYS(max_low_pfn), 0);
+-	free_area_init_nodes(max_zone_pfns);
+ #endif /* !CONFIG_VIRTUAL_MEM_MAP */
++	free_area_init_nodes(max_zone_pfns);
+ 	zero_page_memmap_ptr = virt_to_page(ia64_imva(empty_zero_page));
  }
- EXPORT_SYMBOL(iommu_dma_supported);
 -- 
-2.18.0
+2.7.4
 
