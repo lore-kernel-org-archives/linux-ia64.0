@@ -1,40 +1,38 @@
-From: Miquel Raynal <miquel.raynal@bootlin.com>
-Date: Thu, 26 Jul 2018 23:28:38 +0000
+From: Boris Brezillon <boris.brezillon@bootlin.com>
+Date: Fri, 27 Jul 2018 05:31:37 +0000
 Subject: Re: [PATCH 1/2] ia64: use asm-generic/io.h
-Message-Id: <20180727012838.69beafb2@xps13>
+Message-Id: <20180727073137.58668bf2@bbrezillon>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20180711120824.3882108-1-arnd@arndb.de>
-        <20180720111004.3bbb6b8f@bbrezillon>
-In-Reply-To: <20180720111004.3bbb6b8f@bbrezillon>
+In-Reply-To: <20180711120824.3882108-1-arnd@arndb.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="macroman"
-Content-Transfer-Encoding: base64
-To: Boris Brezillon <boris.brezillon@bootlin.com>
-Cc: Arnd Bergmann <arnd@arndb.de>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Arnd Bergmann <arnd@arndb.de>
+Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org
 
-SGkgQm9yaXMsCgpCb3JpcyBCcmV6aWxsb24gPGJvcmlzLmJyZXppbGxvbkBib290bGluLmNvbT4g
-d3JvdGUgb24gRnJpLCAyMCBKdWwgMjAxOAoxMToxMDowNCArMDIwMDoKCj4gK01pcXVlbAo+IAo+
-IE9uIFdlZCwgMTEgSnVsIDIwMTggMTQ6MDg6MDUgKzAyMDAKPiBBcm5kIEJlcmdtYW5uIDxhcm5k
-QGFybmRiLmRlPiB3cm90ZToKPiAKPiA+IGFzbS1nZW5lcmljL2lvLmggcHJvdmlkZXMgYSBnZW5l
-cmljIGltcGxlbWVudGF0aW9uIG9mIGFsbCBJL08gYWNjZXNzb3JzLAo+ID4gd2hpY2ggdGhlIGFy
-Y2hpdGVjdHVyZXMgY2FuIG92ZXJyaWRlLgo+ID4gCj4gPiBTaW5jZSBpYTY0IGRvZXMgbm90IHBy
-b3ZpZGUgcmVhZHNsL3dyaXRlc2wgZXRjLCBhbnkgZHJpdmVyIHVzaW5nIHRob3NlCj4gPiBmYWls
-cyB0byBidWlsZCwgYW5kIGluY2x1ZGluZyBhc20tZ2VuZXJpYy9pby5oIHdpbGwgcHJvdmlkZSB0
-aGUKPiA+IG1pc3NpbmcgaW50ZXJmYWNlcywgYXMgd2VsbCBhcyBhbnkgb3RoZXIgZnV0dXJlIGlu
-dGVyZmFjZXMgdGhhdCBnZXQKPiA+IGFkZGVkIHRoZXJlLiBXZSBuZWVkIHRvICNkZWZpbmUgYSBj
-b3VwbGUgb2Ygc3ltYm9scyB0byB0aGVtc2VsdmVzCj4gPiBpbiB0aGUgaWE2NCB0byBlbnN1cmUg
-dGhhdCB3ZSB1c2UgdGhlIGlhNjQgc3BlY2lmaWMgdmVyc2lvbiBvZiB0aG9zZQo+ID4gcmF0aGVy
-IHRoYW4gdGhlIGdlbmVyaWMgb25lLgo+ID4gCj4gPiBUaGVyZSBzaG91bGQgYmUgbm8gb3RoZXIg
-ZWZmZWN0IHRoYW4gYWRkaW5nIHtyZWFkLHdyaXRlfXN7Yix3LGx9KCkKPiA+IGFzIHdlbGwgYXMg
-e2luLG91dH1ze2IsdyxsfV9wKCksIHdoaWNoIHdlcmUgYWxzbyBub3QgcHJvdmlkZWQKPiA+IGJ5
-IGlhNjQgYnV0IGFyZSBwcm92aWRlZCBieSB0aGUgZ2VuZXJpYyBoZWFkZXIgZm9yIGhpc3Rvcmlj
-IHJlYXNvbnMuCj4gPiAKPiA+IFNpZ25lZC1vZmYtYnk6IEFybmQgQmVyZ21hbm4gPGFybmRAYXJu
-ZGIuZGU+ICAKPiAKPiBBcyBmb3IgdGhlIG90aGVyIHBhdGNoLCBJIGNvbXBpbGUtdGVzdGVkIGl0
-IGFuZCBpdCBmaXhlcyB0aGUKPiBjb21waWxhdGlvbiBlcnJvcnMgcmVwb3J0ZWQgYnkga2J1aWxk
-IHJvYm90cy4KPiAKPiBUZXN0ZWQtYnk6IEJvcmlzIEJyZXppbGxvbiA8Ym9yaXMuYnJlemlsbG9u
-QGJvb3RsaW4uY29tPgo+IAo+IElmIGV2ZXJ5b25lIGlzIGZpbmUgd2l0aCB0aGF0LCB3ZSdsbCB0
-YWtlIHRoZSBwYXRjaCB0aHJvdWdoIHRoZSBOQU5ECj4gdHJlZS4KCkFwcGxpZWQgdG8gbmFuZC9u
-ZXh0LgoKVGhhbmtzLApNaXF1w6hsCi0tClRvIHVuc3Vic2NyaWJlIGZyb20gdGhpcyBsaXN0OiBz
-ZW5kIHRoZSBsaW5lICJ1bnN1YnNjcmliZSBsaW51eC1pYTY0IiBpbgp0aGUgYm9keSBvZiBhIG1l
-c3NhZ2UgdG8gbWFqb3Jkb21vQHZnZXIua2VybmVsLm9yZwpNb3JlIG1ham9yZG9tbyBpbmZvIGF0
-ICBodHRwOi8vdmdlci5rZXJuZWwub3JnL21ham9yZG9tby1pbmZvLmh0bWw=
+Hi Arnd,
+
+On Wed, 11 Jul 2018 14:08:05 +0200
+Arnd Bergmann <arnd@arndb.de> wrote:
+
+> asm-generic/io.h provides a generic implementation of all I/O accessors,
+> which the architectures can override.
+> 
+> Since ia64 does not provide readsl/writesl etc, any driver using those
+> fails to build, and including asm-generic/io.h will provide the
+> missing interfaces, as well as any other future interfaces that get
+> added there. We need to #define a couple of symbols to themselves
+> in the ia64 to ensure that we use the ia64 specific version of those
+> rather than the generic one.
+> 
+> There should be no other effect than adding {read,write}s{b,w,l}()
+> as well as {in,out}s{b,w,l}_p(), which were also not provided
+> by ia64 but are provided by the generic header for historic reasons.
+> 
+
+Kbuild robots reported the same problem on parisc an alpha :-/.
+
+Regards,
+
+Boris
