@@ -1,186 +1,72 @@
-From: Mike Kravetz <mike.kravetz@oracle.com>
-Date: Thu, 26 Jul 2018 19:12:35 +0000
-Subject: Re: [PATCH v4 10/11] hugetlb: Introduce generic version of huge_ptep_set_access_flags
-Message-Id: <ff7be1ec-be87-1691-93d4-8c055b93d054@oracle.com>
+From: Christoph Hellwig <hch@lst.de>
+Date: Mon, 30 Jul 2018 16:38:06 +0000
+Subject: [PATCH 02/20] kernel/dma/direct: refine dma_direct_alloc zone selection
+Message-Id: <20180730163824.10064-3-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180705110716.3919-1-alex@ghiti.fr>
- <20180705110716.3919-11-alex@ghiti.fr>
-In-Reply-To: <20180705110716.3919-11-alex@ghiti.fr>
+References: <20180730163824.10064-1-hch@lst.de>
+In-Reply-To: <20180730163824.10064-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Alexandre Ghiti <alex@ghiti.fr>, linux@armlinux.org.uk, catalin.marinas@arm.com, will.deacon@arm.com, tony.luck@intel.com, fenghua.yu@intel.com, ralf@linux-mips.org, paul.burton@mips.com, jhogan@kernel.org, jejb@parisc-linux.org, deller@gmx.de, benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, x86@kernel.org, arnd@arndb.de, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Robin Murphy <robin.murphy@arm.com>, linuxppc-dev@lists.ozlabs.org, iommu@lists.linux-foundation.org, linux-ia64@vger.kernel.org
 
-On 07/05/2018 04:07 AM, Alexandre Ghiti wrote:
-> arm, ia64, sh, x86 architectures use the same version
-> of huge_ptep_set_access_flags, so move this generic implementation
-> into asm-generic/hugetlb.h.
-> 
+We need to take the DMA offset and encryption bit into account when selecting
+a zone.  Add a helper that takes those into account and use it.
 
-Reviewed-by: Mike Kravetz <mike.kravetz@oracle.com>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ kernel/dma/direct.c | 16 ++++++++++++----
+ 1 file changed, 12 insertions(+), 4 deletions(-)
+
+diff --git a/kernel/dma/direct.c b/kernel/dma/direct.c
+index d32d4f0d2c0c..c2c1df8827f2 100644
+--- a/kernel/dma/direct.c
++++ b/kernel/dma/direct.c
+@@ -58,6 +58,14 @@ static bool dma_coherent_ok(struct device *dev, phys_addr_t phys, size_t size)
+ 	return addr + size - 1 <= dev->coherent_dma_mask;
+ }
+ 
++static bool dma_coherent_below(struct device *dev, u64 mask)
++{
++	dma_addr_t addr = force_dma_unencrypted() ?
++		__phys_to_dma(dev, mask) : phys_to_dma(dev, mask);
++
++	return dev->coherent_dma_mask <= addr;
++}
++
+ void *dma_direct_alloc(struct device *dev, size_t size, dma_addr_t *dma_handle,
+ 		gfp_t gfp, unsigned long attrs)
+ {
+@@ -70,9 +78,9 @@ void *dma_direct_alloc(struct device *dev, size_t size, dma_addr_t *dma_handle,
+ 	gfp &= ~__GFP_ZERO;
+ 
+ 	/* GFP_DMA32 and GFP_DMA are no ops without the corresponding zones: */
+-	if (dev->coherent_dma_mask <= DMA_BIT_MASK(ARCH_ZONE_DMA_BITS))
++	if (dma_coherent_below(dev, DMA_BIT_MASK(ARCH_ZONE_DMA_BITS)))
+ 		gfp |= GFP_DMA;
+-	if (dev->coherent_dma_mask <= DMA_BIT_MASK(32) && !(gfp & GFP_DMA))
++	if (dma_coherent_below(dev, DMA_BIT_MASK(32) && !(gfp & GFP_DMA)))
+ 		gfp |= GFP_DMA32;
+ 
+ again:
+@@ -92,14 +100,14 @@ void *dma_direct_alloc(struct device *dev, size_t size, dma_addr_t *dma_handle,
+ 		page = NULL;
+ 
+ 		if (IS_ENABLED(CONFIG_ZONE_DMA32) &&
+-		    dev->coherent_dma_mask < DMA_BIT_MASK(64) &&
++		    dma_coherent_below(dev, DMA_BIT_MASK(64)) &&
+ 		    !(gfp & (GFP_DMA32 | GFP_DMA))) {
+ 			gfp |= GFP_DMA32;
+ 			goto again;
+ 		}
+ 
+ 		if (IS_ENABLED(CONFIG_ZONE_DMA) &&
+-		    dev->coherent_dma_mask < DMA_BIT_MASK(32) &&
++		    dma_coherent_below(dev, DMA_BIT_MASK(32)) &&
+ 		    !(gfp & GFP_DMA)) {
+ 			gfp = (gfp & ~GFP_DMA32) | GFP_DMA;
+ 			goto again;
 -- 
-Mike Kravetz
+2.18.0
 
-> Signed-off-by: Alexandre Ghiti <alex@ghiti.fr>
-> ---
->  arch/arm/include/asm/hugetlb-3level.h | 7 -------
->  arch/arm64/include/asm/hugetlb.h      | 1 +
->  arch/ia64/include/asm/hugetlb.h       | 7 -------
->  arch/mips/include/asm/hugetlb.h       | 1 +
->  arch/parisc/include/asm/hugetlb.h     | 1 +
->  arch/powerpc/include/asm/hugetlb.h    | 1 +
->  arch/sh/include/asm/hugetlb.h         | 7 -------
->  arch/sparc/include/asm/hugetlb.h      | 1 +
->  arch/x86/include/asm/hugetlb.h        | 7 -------
->  include/asm-generic/hugetlb.h         | 9 +++++++++
->  10 files changed, 14 insertions(+), 28 deletions(-)
-> 
-> diff --git a/arch/arm/include/asm/hugetlb-3level.h b/arch/arm/include/asm/hugetlb-3level.h
-> index 8247cd6a2ac6..54e4b097b1f5 100644
-> --- a/arch/arm/include/asm/hugetlb-3level.h
-> +++ b/arch/arm/include/asm/hugetlb-3level.h
-> @@ -37,11 +37,4 @@ static inline pte_t huge_ptep_get(pte_t *ptep)
->  	return retval;
->  }
->  
-> -static inline int huge_ptep_set_access_flags(struct vm_area_struct *vma,
-> -					     unsigned long addr, pte_t *ptep,
-> -					     pte_t pte, int dirty)
-> -{
-> -	return ptep_set_access_flags(vma, addr, ptep, pte, dirty);
-> -}
-> -
->  #endif /* _ASM_ARM_HUGETLB_3LEVEL_H */
-> diff --git a/arch/arm64/include/asm/hugetlb.h b/arch/arm64/include/asm/hugetlb.h
-> index f4f69ae5466e..80887abcef7f 100644
-> --- a/arch/arm64/include/asm/hugetlb.h
-> +++ b/arch/arm64/include/asm/hugetlb.h
-> @@ -42,6 +42,7 @@ extern pte_t arch_make_huge_pte(pte_t entry, struct vm_area_struct *vma,
->  #define __HAVE_ARCH_HUGE_SET_HUGE_PTE_AT
->  extern void set_huge_pte_at(struct mm_struct *mm, unsigned long addr,
->  			    pte_t *ptep, pte_t pte);
-> +#define __HAVE_ARCH_HUGE_PTEP_SET_ACCESS_FLAGS
->  extern int huge_ptep_set_access_flags(struct vm_area_struct *vma,
->  				      unsigned long addr, pte_t *ptep,
->  				      pte_t pte, int dirty);
-> diff --git a/arch/ia64/include/asm/hugetlb.h b/arch/ia64/include/asm/hugetlb.h
-> index 49d1f7949f3a..e9b42750fdf5 100644
-> --- a/arch/ia64/include/asm/hugetlb.h
-> +++ b/arch/ia64/include/asm/hugetlb.h
-> @@ -27,13 +27,6 @@ static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
->  {
->  }
->  
-> -static inline int huge_ptep_set_access_flags(struct vm_area_struct *vma,
-> -					     unsigned long addr, pte_t *ptep,
-> -					     pte_t pte, int dirty)
-> -{
-> -	return ptep_set_access_flags(vma, addr, ptep, pte, dirty);
-> -}
-> -
->  static inline pte_t huge_ptep_get(pte_t *ptep)
->  {
->  	return *ptep;
-> diff --git a/arch/mips/include/asm/hugetlb.h b/arch/mips/include/asm/hugetlb.h
-> index 3dcf5debf8c4..120adc3b2ffd 100644
-> --- a/arch/mips/include/asm/hugetlb.h
-> +++ b/arch/mips/include/asm/hugetlb.h
-> @@ -63,6 +63,7 @@ static inline int huge_pte_none(pte_t pte)
->  	return !val || (val = (unsigned long)invalid_pte_table);
->  }
->  
-> +#define __HAVE_ARCH_HUGE_PTEP_SET_ACCESS_FLAGS
->  static inline int huge_ptep_set_access_flags(struct vm_area_struct *vma,
->  					     unsigned long addr,
->  					     pte_t *ptep, pte_t pte,
-> diff --git a/arch/parisc/include/asm/hugetlb.h b/arch/parisc/include/asm/hugetlb.h
-> index 9c3950ca2974..165b4e5a6f32 100644
-> --- a/arch/parisc/include/asm/hugetlb.h
-> +++ b/arch/parisc/include/asm/hugetlb.h
-> @@ -43,6 +43,7 @@ static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
->  void huge_ptep_set_wrprotect(struct mm_struct *mm,
->  					   unsigned long addr, pte_t *ptep);
->  
-> +#define __HAVE_ARCH_HUGE_PTEP_SET_ACCESS_FLAGS
->  int huge_ptep_set_access_flags(struct vm_area_struct *vma,
->  					     unsigned long addr, pte_t *ptep,
->  					     pte_t pte, int dirty);
-> diff --git a/arch/powerpc/include/asm/hugetlb.h b/arch/powerpc/include/asm/hugetlb.h
-> index 69c14ecac133..658bf7136a3c 100644
-> --- a/arch/powerpc/include/asm/hugetlb.h
-> +++ b/arch/powerpc/include/asm/hugetlb.h
-> @@ -137,6 +137,7 @@ static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
->  	flush_hugetlb_page(vma, addr);
->  }
->  
-> +#define __HAVE_ARCH_HUGE_PTEP_SET_ACCESS_FLAGS
->  extern int huge_ptep_set_access_flags(struct vm_area_struct *vma,
->  				      unsigned long addr, pte_t *ptep,
->  				      pte_t pte, int dirty);
-> diff --git a/arch/sh/include/asm/hugetlb.h b/arch/sh/include/asm/hugetlb.h
-> index 8df4004977b9..c87195ae0cfa 100644
-> --- a/arch/sh/include/asm/hugetlb.h
-> +++ b/arch/sh/include/asm/hugetlb.h
-> @@ -32,13 +32,6 @@ static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
->  {
->  }
->  
-> -static inline int huge_ptep_set_access_flags(struct vm_area_struct *vma,
-> -					     unsigned long addr, pte_t *ptep,
-> -					     pte_t pte, int dirty)
-> -{
-> -	return ptep_set_access_flags(vma, addr, ptep, pte, dirty);
-> -}
-> -
->  static inline pte_t huge_ptep_get(pte_t *ptep)
->  {
->  	return *ptep;
-> diff --git a/arch/sparc/include/asm/hugetlb.h b/arch/sparc/include/asm/hugetlb.h
-> index c41754a113f3..028a1465fbe7 100644
-> --- a/arch/sparc/include/asm/hugetlb.h
-> +++ b/arch/sparc/include/asm/hugetlb.h
-> @@ -40,6 +40,7 @@ static inline void huge_ptep_set_wrprotect(struct mm_struct *mm,
->  	set_huge_pte_at(mm, addr, ptep, pte_wrprotect(old_pte));
->  }
->  
-> +#define __HAVE_ARCH_HUGE_PTEP_SET_ACCESS_FLAGS
->  static inline int huge_ptep_set_access_flags(struct vm_area_struct *vma,
->  					     unsigned long addr, pte_t *ptep,
->  					     pte_t pte, int dirty)
-> diff --git a/arch/x86/include/asm/hugetlb.h b/arch/x86/include/asm/hugetlb.h
-> index de370836a17d..1df8944904c6 100644
-> --- a/arch/x86/include/asm/hugetlb.h
-> +++ b/arch/x86/include/asm/hugetlb.h
-> @@ -12,13 +12,6 @@ static inline int is_hugepage_only_range(struct mm_struct *mm,
->  	return 0;
->  }
->  
-> -static inline int huge_ptep_set_access_flags(struct vm_area_struct *vma,
-> -					     unsigned long addr, pte_t *ptep,
-> -					     pte_t pte, int dirty)
-> -{
-> -	return ptep_set_access_flags(vma, addr, ptep, pte, dirty);
-> -}
-> -
->  static inline pte_t huge_ptep_get(pte_t *ptep)
->  {
->  	return *ptep;
-> diff --git a/include/asm-generic/hugetlb.h b/include/asm-generic/hugetlb.h
-> index 9b9039845278..f3c99a03ee83 100644
-> --- a/include/asm-generic/hugetlb.h
-> +++ b/include/asm-generic/hugetlb.h
-> @@ -110,4 +110,13 @@ static inline void huge_ptep_set_wrprotect(struct mm_struct *mm,
->  }
->  #endif
->  
-> +#ifndef __HAVE_ARCH_HUGE_PTEP_SET_ACCESS_FLAGS
-> +static inline int huge_ptep_set_access_flags(struct vm_area_struct *vma,
-> +		unsigned long addr, pte_t *ptep,
-> +		pte_t pte, int dirty)
-> +{
-> +	return ptep_set_access_flags(vma, addr, ptep, pte, dirty);
-> +}
-> +#endif
-> +
->  #endif /* _ASM_GENERIC_HUGETLB_H */
-> 
