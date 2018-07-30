@@ -1,187 +1,107 @@
-From: Alexandre Ghiti <alex@ghiti.fr>
-Date: Tue, 31 Jul 2018 06:01:55 +0000
-Subject: [PATCH v5 11/11] hugetlb: Introduce generic version of huge_ptep_get
-Message-Id: <20180731060155.16915-12-alex@ghiti.fr>
+From: Christoph Hellwig <hch@lst.de>
+Date: Mon, 30 Jul 2018 16:38:16 +0000
+Subject: [PATCH 12/20] powerpc/dma: use phys_to_dma instead of get_dma_offset
+Message-Id: <20180730163824.10064-13-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180731060155.16915-1-alex@ghiti.fr>
-In-Reply-To: <20180731060155.16915-1-alex@ghiti.fr>
+References: <20180730163824.10064-1-hch@lst.de>
+In-Reply-To: <20180730163824.10064-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org, mike.kravetz@oracle.com, linux@armlinux.org.uk, catalin.marinas@arm.com, will.deacon@arm.com, tony.luck@intel.com, fenghua.yu@intel.com, ralf@linux-mips.org, paul.burton@mips.com, jhogan@kernel.org, jejb@parisc-linux.org, deller@gmx.de, benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, x86@kernel.org, arnd@arndb.de, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org
-Cc: Alexandre Ghiti <alex@ghiti.fr>
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Robin Murphy <robin.murphy@arm.com>, linuxppc-dev@lists.ozlabs.org, iommu@lists.linux-foundation.org, linux-ia64@vger.kernel.org
 
-ia64, mips, parisc, powerpc, sh, sparc, x86 architectures use the
-same version of huge_ptep_get, so move this generic implementation into
-asm-generic/hugetlb.h.
+Use the standard portable helper instead of the powerpc specific one,
+which is about to go away.
 
-Signed-off-by: Alexandre Ghiti <alex@ghiti.fr>
-Reviewed-by: Mike Kravetz <mike.kravetz@oracle.com>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- arch/arm/include/asm/hugetlb-3level.h | 1 +
- arch/arm64/include/asm/hugetlb.h      | 1 +
- arch/ia64/include/asm/hugetlb.h       | 5 -----
- arch/mips/include/asm/hugetlb.h       | 5 -----
- arch/parisc/include/asm/hugetlb.h     | 5 -----
- arch/powerpc/include/asm/hugetlb.h    | 5 -----
- arch/sh/include/asm/hugetlb.h         | 5 -----
- arch/sparc/include/asm/hugetlb.h      | 5 -----
- arch/x86/include/asm/hugetlb.h        | 5 -----
- include/asm-generic/hugetlb.h         | 7 +++++++
- 10 files changed, 9 insertions(+), 35 deletions(-)
+ arch/powerpc/kernel/dma-swiotlb.c |  5 ++---
+ arch/powerpc/kernel/dma.c         | 12 ++++++------
+ 2 files changed, 8 insertions(+), 9 deletions(-)
 
-diff --git a/arch/arm/include/asm/hugetlb-3level.h b/arch/arm/include/asm/hugetlb-3level.h
-index 54e4b097b1f5..0d9f3918fa7e 100644
---- a/arch/arm/include/asm/hugetlb-3level.h
-+++ b/arch/arm/include/asm/hugetlb-3level.h
-@@ -29,6 +29,7 @@
-  * ptes.
-  * (The valid bit is automatically cleared by set_pte_at for PROT_NONE ptes).
+diff --git a/arch/powerpc/kernel/dma-swiotlb.c b/arch/powerpc/kernel/dma-swiotlb.c
+index 88f3963ca30f..f6e0701c5303 100644
+--- a/arch/powerpc/kernel/dma-swiotlb.c
++++ b/arch/powerpc/kernel/dma-swiotlb.c
+@@ -11,7 +11,7 @@
+  *
   */
-+#define __HAVE_ARCH_HUGE_PTEP_GET
- static inline pte_t huge_ptep_get(pte_t *ptep)
- {
- 	pte_t retval = *ptep;
-diff --git a/arch/arm64/include/asm/hugetlb.h b/arch/arm64/include/asm/hugetlb.h
-index 80887abcef7f..fb6609875455 100644
---- a/arch/arm64/include/asm/hugetlb.h
-+++ b/arch/arm64/include/asm/hugetlb.h
-@@ -20,6 +20,7 @@
  
- #include <asm/page.h>
+-#include <linux/dma-mapping.h>
++#include <linux/dma-direct.h>
+ #include <linux/memblock.h>
+ #include <linux/pfn.h>
+ #include <linux/of_platform.h>
+@@ -31,9 +31,8 @@ static u64 swiotlb_powerpc_get_required(struct device *dev)
+ 	end = memblock_end_of_DRAM();
+ 	if (max_direct_dma_addr && end > max_direct_dma_addr)
+ 		end = max_direct_dma_addr;
+-	end += get_dma_offset(dev);
  
-+#define __HAVE_ARCH_HUGE_PTEP_GET
- static inline pte_t huge_ptep_get(pte_t *ptep)
- {
- 	return READ_ONCE(*ptep);
-diff --git a/arch/ia64/include/asm/hugetlb.h b/arch/ia64/include/asm/hugetlb.h
-index e9b42750fdf5..36cc0396b214 100644
---- a/arch/ia64/include/asm/hugetlb.h
-+++ b/arch/ia64/include/asm/hugetlb.h
-@@ -27,11 +27,6 @@ static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
- {
- }
+-	mask = 1ULL << (fls64(end) - 1);
++	mask = 1ULL << (fls64(phys_to_dma(dev, end)) - 1);
+ 	mask += mask - 1;
  
--static inline pte_t huge_ptep_get(pte_t *ptep)
--{
--	return *ptep;
--}
--
- static inline void arch_clear_hugepage_flags(struct page *page)
- {
- }
-diff --git a/arch/mips/include/asm/hugetlb.h b/arch/mips/include/asm/hugetlb.h
-index 120adc3b2ffd..425bb6fc3bda 100644
---- a/arch/mips/include/asm/hugetlb.h
-+++ b/arch/mips/include/asm/hugetlb.h
-@@ -82,11 +82,6 @@ static inline int huge_ptep_set_access_flags(struct vm_area_struct *vma,
- 	return changed;
- }
+ 	return mask;
+diff --git a/arch/powerpc/kernel/dma.c b/arch/powerpc/kernel/dma.c
+index eceaa92e6986..3487de83bb37 100644
+--- a/arch/powerpc/kernel/dma.c
++++ b/arch/powerpc/kernel/dma.c
+@@ -6,7 +6,7 @@
+  */
  
--static inline pte_t huge_ptep_get(pte_t *ptep)
--{
--	return *ptep;
--}
--
- static inline void arch_clear_hugepage_flags(struct page *page)
+ #include <linux/device.h>
+-#include <linux/dma-mapping.h>
++#include <linux/dma-direct.h>
+ #include <linux/dma-debug.h>
+ #include <linux/gfp.h>
+ #include <linux/memblock.h>
+@@ -43,7 +43,7 @@ static u64 __maybe_unused get_pfn_limit(struct device *dev)
+ static int dma_nommu_dma_supported(struct device *dev, u64 mask)
  {
- }
-diff --git a/arch/parisc/include/asm/hugetlb.h b/arch/parisc/include/asm/hugetlb.h
-index 165b4e5a6f32..7cb595dcb7d7 100644
---- a/arch/parisc/include/asm/hugetlb.h
-+++ b/arch/parisc/include/asm/hugetlb.h
-@@ -48,11 +48,6 @@ int huge_ptep_set_access_flags(struct vm_area_struct *vma,
- 					     unsigned long addr, pte_t *ptep,
- 					     pte_t pte, int dirty);
+ #ifdef CONFIG_PPC64
+-	u64 limit = get_dma_offset(dev) + (memblock_end_of_DRAM() - 1);
++	u64 limit = phys_to_dma(dev, (memblock_end_of_DRAM() - 1));
  
--static inline pte_t huge_ptep_get(pte_t *ptep)
--{
--	return *ptep;
--}
--
- static inline void arch_clear_hugepage_flags(struct page *page)
- {
- }
-diff --git a/arch/powerpc/include/asm/hugetlb.h b/arch/powerpc/include/asm/hugetlb.h
-index 658bf7136a3c..33a2d9e3ea9e 100644
---- a/arch/powerpc/include/asm/hugetlb.h
-+++ b/arch/powerpc/include/asm/hugetlb.h
-@@ -142,11 +142,6 @@ extern int huge_ptep_set_access_flags(struct vm_area_struct *vma,
- 				      unsigned long addr, pte_t *ptep,
- 				      pte_t pte, int dirty);
+ 	/* Limit fits in the mask, we are good */
+ 	if (mask >= limit)
+@@ -104,7 +104,7 @@ void *__dma_nommu_alloc_coherent(struct device *dev, size_t size,
+ 		return NULL;
+ 	ret = page_address(page);
+ 	memset(ret, 0, size);
+-	*dma_handle = __pa(ret) + get_dma_offset(dev);
++	*dma_handle = phys_to_dma(dev,__pa(ret));
  
--static inline pte_t huge_ptep_get(pte_t *ptep)
--{
--	return *ptep;
--}
--
- static inline void arch_clear_hugepage_flags(struct page *page)
- {
+ 	return ret;
  }
-diff --git a/arch/sh/include/asm/hugetlb.h b/arch/sh/include/asm/hugetlb.h
-index c87195ae0cfa..6f025fe18146 100644
---- a/arch/sh/include/asm/hugetlb.h
-+++ b/arch/sh/include/asm/hugetlb.h
-@@ -32,11 +32,6 @@ static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
+@@ -188,7 +188,7 @@ static int dma_nommu_map_sg(struct device *dev, struct scatterlist *sgl,
+ 	int i;
+ 
+ 	for_each_sg(sgl, sg, nents, i) {
+-		sg->dma_address = sg_phys(sg) + get_dma_offset(dev);
++		sg->dma_address = phys_to_dma(dev, sg_phys(sg));
+ 		sg->dma_length = sg->length;
+ 
+ 		if (attrs & DMA_ATTR_SKIP_CPU_SYNC)
+@@ -210,7 +210,7 @@ static u64 dma_nommu_get_required_mask(struct device *dev)
  {
+ 	u64 end, mask;
+ 
+-	end = memblock_end_of_DRAM() + get_dma_offset(dev);
++	end = phys_to_dma(dev, memblock_end_of_DRAM());
+ 
+ 	mask = 1ULL << (fls64(end) - 1);
+ 	mask += mask - 1;
+@@ -228,7 +228,7 @@ static inline dma_addr_t dma_nommu_map_page(struct device *dev,
+ 	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
+ 		__dma_sync_page(page, offset, size, dir);
+ 
+-	return page_to_phys(page) + offset + get_dma_offset(dev);
++	return phys_to_dma(dev, page_to_phys(page)) + offset;
  }
  
--static inline pte_t huge_ptep_get(pte_t *ptep)
--{
--	return *ptep;
--}
--
- static inline void arch_clear_hugepage_flags(struct page *page)
- {
- 	clear_bit(PG_dcache_clean, &page->flags);
-diff --git a/arch/sparc/include/asm/hugetlb.h b/arch/sparc/include/asm/hugetlb.h
-index 028a1465fbe7..3963f80d1cb3 100644
---- a/arch/sparc/include/asm/hugetlb.h
-+++ b/arch/sparc/include/asm/hugetlb.h
-@@ -53,11 +53,6 @@ static inline int huge_ptep_set_access_flags(struct vm_area_struct *vma,
- 	return changed;
- }
- 
--static inline pte_t huge_ptep_get(pte_t *ptep)
--{
--	return *ptep;
--}
--
- static inline void arch_clear_hugepage_flags(struct page *page)
- {
- }
-diff --git a/arch/x86/include/asm/hugetlb.h b/arch/x86/include/asm/hugetlb.h
-index 574d42eb081e..7469d321f072 100644
---- a/arch/x86/include/asm/hugetlb.h
-+++ b/arch/x86/include/asm/hugetlb.h
-@@ -13,11 +13,6 @@ static inline int is_hugepage_only_range(struct mm_struct *mm,
- 	return 0;
- }
- 
--static inline pte_t huge_ptep_get(pte_t *ptep)
--{
--	return *ptep;
--}
--
- static inline void arch_clear_hugepage_flags(struct page *page)
- {
- }
-diff --git a/include/asm-generic/hugetlb.h b/include/asm-generic/hugetlb.h
-index f3c99a03ee83..71d7b77eea50 100644
---- a/include/asm-generic/hugetlb.h
-+++ b/include/asm-generic/hugetlb.h
-@@ -119,4 +119,11 @@ static inline int huge_ptep_set_access_flags(struct vm_area_struct *vma,
- }
- #endif
- 
-+#ifndef __HAVE_ARCH_HUGE_PTEP_GET
-+static inline pte_t huge_ptep_get(pte_t *ptep)
-+{
-+	return *ptep;
-+}
-+#endif
-+
- #endif /* _ASM_GENERIC_HUGETLB_H */
+ static inline void dma_nommu_unmap_page(struct device *dev,
 -- 
-2.16.2
+2.18.0
 
