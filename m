@@ -1,60 +1,100 @@
-From: Alexandre Ghiti <alex@ghiti.fr>
-Date: Thu, 05 Jul 2018 05:03:12 +0000
-Subject: [PATCH v2 00/11] hugetlb: Factorize architecture hugetlb primitives
-Message-Id: <20180705050323.301-1-alex@ghiti.fr>
+From: Christoph Hellwig <hch@lst.de>
+Date: Mon, 30 Jul 2018 16:38:24 +0000
+Subject: [PATCH 20/20] powerpc/dma: remove dma_nommu_mmap_coherent
+Message-Id: <20180730163824.10064-21-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20180730163824.10064-1-hch@lst.de>
+In-Reply-To: <20180730163824.10064-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux@armlinux.org.uk, catalin.marinas@arm.com, will.deacon@arm.com, tony.luck@intel.com, fenghua.yu@intel.com, ralf@linux-mips.org, paul.burton@mips.com, jhogan@kernel.org, jejb@parisc-linux.org, deller@gmx.de, benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, x86@kernel.org, arnd@arndb.de, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org
-Cc: Alexandre Ghiti <alex@ghiti.fr>
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Robin Murphy <robin.murphy@arm.com>, linuxppc-dev@lists.ozlabs.org, iommu@lists.linux-foundation.org, linux-ia64@vger.kernel.org
 
-In order to reduce copy/paste of functions across architectures and then
-make riscv hugetlb port (and future ports) simpler and smaller, this
-patchset intends to factorize the numerous hugetlb primitives that are defined
-across all the architectures.
+The remaining implementation for coherent caches is functionally
+identical to the default provided in common code.
 
-Except for prepare_hugepage_range, this patchset moves the versions that
-are just pass-through to standard pte primitives into
-asm-generic/hugetlb.h by using the same #ifdef semantic that can be
-found in asm-generic/pgtable.h, i.e. __HAVE_ARCH_***.
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ arch/powerpc/include/asm/dma-mapping.h |  7 -------
+ arch/powerpc/kernel/dma-iommu.c        |  1 -
+ arch/powerpc/kernel/dma.c              | 13 -------------
+ arch/powerpc/platforms/pseries/vio.c   |  1 -
+ 4 files changed, 22 deletions(-)
 
-s390 architecture has not been tackled in this serie since it does not
-use asm-generic/hugetlb.h at all.
-powerpc could be factorized a bit more (cf huge_ptep_set_wrprotect).
-
-This patchset has been compiled on x86 only.
-
-Alexandre Ghiti (11):
-  hugetlb: Harmonize hugetlb.h arch specific defines with pgtable.h
-  hugetlb: Introduce generic version of hugetlb_free_pgd_range
-  hugetlb: Introduce generic version of set_huge_pte_at
-  hugetlb: Introduce generic version of huge_ptep_get_and_clear
-  hugetlb: Introduce generic version of huge_ptep_clear_flush
-  hugetlb: Introduce generic version of huge_pte_none
-  hugetlb: Introduce generic version of huge_pte_wrprotect
-  hugetlb: Introduce generic version of prepare_hugepage_range
-  hugetlb: Introduce generic version of huge_ptep_set_wrprotect
-  hugetlb: Introduce generic version of huge_ptep_set_access_flags
-  hugetlb: Introduce generic version of huge_ptep_get
-
- arch/arm/include/asm/hugetlb-3level.h        | 32 +---------
- arch/arm/include/asm/hugetlb.h               | 33 +----------
- arch/arm64/include/asm/hugetlb.h             | 39 +++---------
- arch/ia64/include/asm/hugetlb.h              | 47 ++-------------
- arch/mips/include/asm/hugetlb.h              | 40 +++----------
- arch/parisc/include/asm/hugetlb.h            | 33 +++--------
- arch/powerpc/include/asm/book3s/32/pgtable.h |  2 +
- arch/powerpc/include/asm/book3s/64/pgtable.h |  1 +
- arch/powerpc/include/asm/hugetlb.h           | 43 ++------------
- arch/powerpc/include/asm/nohash/32/pgtable.h |  2 +
- arch/powerpc/include/asm/nohash/64/pgtable.h |  1 +
- arch/sh/include/asm/hugetlb.h                | 54 ++---------------
- arch/sparc/include/asm/hugetlb.h             | 40 +++----------
- arch/x86/include/asm/hugetlb.h               | 72 +----------------------
- include/asm-generic/hugetlb.h                | 88 +++++++++++++++++++++++++++-
- 15 files changed, 143 insertions(+), 384 deletions(-)
-
+diff --git a/arch/powerpc/include/asm/dma-mapping.h b/arch/powerpc/include/asm/dma-mapping.h
+index 879c4efba785..e62e23aa3714 100644
+--- a/arch/powerpc/include/asm/dma-mapping.h
++++ b/arch/powerpc/include/asm/dma-mapping.h
+@@ -18,13 +18,6 @@
+ #include <asm/io.h>
+ #include <asm/swiotlb.h>
+ 
+-/* Some dma direct funcs must be visible for use in other dma_ops */
+-extern int dma_nommu_mmap_coherent(struct device *dev,
+-				    struct vm_area_struct *vma,
+-				    void *cpu_addr, dma_addr_t handle,
+-				    size_t size, unsigned long attrs);
+-
+-
+ static inline unsigned long device_to_mask(struct device *dev)
+ {
+ 	if (dev->dma_mask && *dev->dma_mask)
+diff --git a/arch/powerpc/kernel/dma-iommu.c b/arch/powerpc/kernel/dma-iommu.c
+index f9fe2080ceb9..bf5234e1f71b 100644
+--- a/arch/powerpc/kernel/dma-iommu.c
++++ b/arch/powerpc/kernel/dma-iommu.c
+@@ -114,7 +114,6 @@ int dma_iommu_mapping_error(struct device *dev, dma_addr_t dma_addr)
+ struct dma_map_ops dma_iommu_ops = {
+ 	.alloc			= dma_iommu_alloc_coherent,
+ 	.free			= dma_iommu_free_coherent,
+-	.mmap			= dma_nommu_mmap_coherent,
+ 	.map_sg			= dma_iommu_map_sg,
+ 	.unmap_sg		= dma_iommu_unmap_sg,
+ 	.dma_supported		= dma_iommu_dma_supported,
+diff --git a/arch/powerpc/kernel/dma.c b/arch/powerpc/kernel/dma.c
+index 08b12cbd7abf..5b71c9d1b8cc 100644
+--- a/arch/powerpc/kernel/dma.c
++++ b/arch/powerpc/kernel/dma.c
+@@ -70,18 +70,6 @@ static void dma_nommu_free_coherent(struct device *dev, size_t size,
+ 	iommu_free_coherent(iommu, size, vaddr, dma_handle);
+ }
+ 
+-int dma_nommu_mmap_coherent(struct device *dev, struct vm_area_struct *vma,
+-			     void *cpu_addr, dma_addr_t handle, size_t size,
+-			     unsigned long attrs)
+-{
+-	unsigned long pfn = page_to_pfn(virt_to_page(cpu_addr));
+-
+-	return remap_pfn_range(vma, vma->vm_start,
+-			       pfn + vma->vm_pgoff,
+-			       vma->vm_end - vma->vm_start,
+-			       vma->vm_page_prot);
+-}
+-
+ /* note: needs to be called arch_get_required_mask for dma-noncoherent.c */
+ u64 arch_get_required_mask(struct device *dev)
+ {
+@@ -98,7 +86,6 @@ u64 arch_get_required_mask(struct device *dev)
+ const struct dma_map_ops dma_nommu_ops = {
+ 	.alloc				= dma_nommu_alloc_coherent,
+ 	.free				= dma_nommu_free_coherent,
+-	.mmap				= dma_nommu_mmap_coherent,
+ 	.map_sg				= dma_direct_map_sg,
+ 	.map_page			= dma_direct_map_page,
+ 	.get_required_mask		= arch_get_required_mask,
+diff --git a/arch/powerpc/platforms/pseries/vio.c b/arch/powerpc/platforms/pseries/vio.c
+index 49e04ec19238..51d564313bd0 100644
+--- a/arch/powerpc/platforms/pseries/vio.c
++++ b/arch/powerpc/platforms/pseries/vio.c
+@@ -618,7 +618,6 @@ static u64 vio_dma_get_required_mask(struct device *dev)
+ static const struct dma_map_ops vio_dma_mapping_ops = {
+ 	.alloc             = vio_dma_iommu_alloc_coherent,
+ 	.free              = vio_dma_iommu_free_coherent,
+-	.mmap		   = dma_nommu_mmap_coherent,
+ 	.map_sg            = vio_dma_iommu_map_sg,
+ 	.unmap_sg          = vio_dma_iommu_unmap_sg,
+ 	.map_page          = vio_dma_iommu_map_page,
 -- 
-2.16.2
+2.18.0
 
