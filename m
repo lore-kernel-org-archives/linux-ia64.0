@@ -1,72 +1,42 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Mon, 30 Jul 2018 16:38:06 +0000
-Subject: [PATCH 02/20] kernel/dma/direct: refine dma_direct_alloc zone selection
-Message-Id: <20180730163824.10064-3-hch@lst.de>
+From: Nick Desaulniers <ndesaulniers@google.com>
+Date: Tue, 31 Jul 2018 23:09:06 +0000
+Subject: Re: Getting the instruction pointer on a per arch basis
+Message-Id: <CAKwvOdn1Ri2VP9hNfKwQ3WMzL278e7-3DGusZc1cwQZbk9H6nw@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180730163824.10064-1-hch@lst.de>
-In-Reply-To: <20180730163824.10064-1-hch@lst.de>
+References: <CAKwvOdku_BOi6m2ugaef6=8+VH_+KAHH-Ch+uZZqMr8WAKARCw@mail.gmail.com>
+In-Reply-To: <CAKwvOdku_BOi6m2ugaef6=8+VH_+KAHH-Ch+uZZqMr8WAKARCw@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
-Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Robin Murphy <robin.murphy@arm.com>, linuxppc-dev@lists.ozlabs.org, iommu@lists.linux-foundation.org, linux-ia64@vger.kernel.org
+To: schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, tony.luck@intel.com, fenghua.yu@intel.com, msalter@redhat.com, jacquiot.aurelien@gmail.com, "David S. Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, mingo@redhat.com
+Cc: Pirama Arumuga Nainar <pirama@google.com>, Greg Hackmann <ghackmann@google.com>, Mark Salyzyn <salyzyn@google.com>, LKML <linux-kernel@vger.kernel.org>, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-ia64@vger.kernel.org, linux-c6x-dev@linux-c6x.org, sparclinux@vger.kernel.org
 
-We need to take the DMA offset and encryption bit into account when selecting
-a zone.  Add a helper that takes those into account and use it.
++ More maintainers and lists for visibility
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
----
- kernel/dma/direct.c | 16 ++++++++++++----
- 1 file changed, 12 insertions(+), 4 deletions(-)
-
-diff --git a/kernel/dma/direct.c b/kernel/dma/direct.c
-index d32d4f0d2c0c..c2c1df8827f2 100644
---- a/kernel/dma/direct.c
-+++ b/kernel/dma/direct.c
-@@ -58,6 +58,14 @@ static bool dma_coherent_ok(struct device *dev, phys_addr_t phys, size_t size)
- 	return addr + size - 1 <= dev->coherent_dma_mask;
- }
- 
-+static bool dma_coherent_below(struct device *dev, u64 mask)
-+{
-+	dma_addr_t addr = force_dma_unencrypted() ?
-+		__phys_to_dma(dev, mask) : phys_to_dma(dev, mask);
-+
-+	return dev->coherent_dma_mask <= addr;
-+}
-+
- void *dma_direct_alloc(struct device *dev, size_t size, dma_addr_t *dma_handle,
- 		gfp_t gfp, unsigned long attrs)
- {
-@@ -70,9 +78,9 @@ void *dma_direct_alloc(struct device *dev, size_t size, dma_addr_t *dma_handle,
- 	gfp &= ~__GFP_ZERO;
- 
- 	/* GFP_DMA32 and GFP_DMA are no ops without the corresponding zones: */
--	if (dev->coherent_dma_mask <= DMA_BIT_MASK(ARCH_ZONE_DMA_BITS))
-+	if (dma_coherent_below(dev, DMA_BIT_MASK(ARCH_ZONE_DMA_BITS)))
- 		gfp |= GFP_DMA;
--	if (dev->coherent_dma_mask <= DMA_BIT_MASK(32) && !(gfp & GFP_DMA))
-+	if (dma_coherent_below(dev, DMA_BIT_MASK(32) && !(gfp & GFP_DMA)))
- 		gfp |= GFP_DMA32;
- 
- again:
-@@ -92,14 +100,14 @@ void *dma_direct_alloc(struct device *dev, size_t size, dma_addr_t *dma_handle,
- 		page = NULL;
- 
- 		if (IS_ENABLED(CONFIG_ZONE_DMA32) &&
--		    dev->coherent_dma_mask < DMA_BIT_MASK(64) &&
-+		    dma_coherent_below(dev, DMA_BIT_MASK(64)) &&
- 		    !(gfp & (GFP_DMA32 | GFP_DMA))) {
- 			gfp |= GFP_DMA32;
- 			goto again;
- 		}
- 
- 		if (IS_ENABLED(CONFIG_ZONE_DMA) &&
--		    dev->coherent_dma_mask < DMA_BIT_MASK(32) &&
-+		    dma_coherent_below(dev, DMA_BIT_MASK(32)) &&
- 		    !(gfp & GFP_DMA)) {
- 			gfp = (gfp & ~GFP_DMA32) | GFP_DMA;
- 			goto again;
--- 
-2.18.0
-
+On Tue, Jul 31, 2018 at 3:32 PM Nick Desaulniers
+<ndesaulniers@google.com> wrote:
+>
+> I'm currently looking into cleaning up the code duplication between
+> current_text_addr() and _THIS_IP_, virtually every implementation of
+> current_text_addr() and _THIS_IP_ itself are basically:
+>
+> #define _THIS_IP_ ({ __label__ _l; _l: &&_l; })
+>
+> For a few arch's, they have inline assembly instead (for
+> current_text_addr()).  Examples:
+> * s390
+> * sh
+> * ia64
+> * x86 (um and 32b)
+> * c6x
+> * sparc
+>
+> I have a patch that cuts down on the duplication, but I don't
+> understand why the few arch specific implementations are necessary.  I
+> could reduce the duplication further if it's ok to just use the
+> statement expression.
+>
+> Does anyone know why this is the case?
+> --
+> Thanks,
+> ~Nick Desaulniers
