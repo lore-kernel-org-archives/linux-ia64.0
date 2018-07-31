@@ -1,59 +1,154 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Tue, 10 Jul 2018 15:08:24 +0000
-Subject: Re: [RFC PATCH 2/2] dma-mapping: Clean up dma_get_required_mask() hooks
-Message-Id: <20180710150824.GA12274@lst.de>
+Date: Tue, 31 Jul 2018 17:20:31 +0000
+Subject: [PATCH] ia64: fix barrier placement for write* / dma mapping
+Message-Id: <20180731172031.4447-2-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <55ac9550c311f056dcfeed9b2c8265375f17b155.1530726467.git.robin.murphy@arm.com>
- <08256121f325ceed7f6b88c1a5d3cf949698787d.1530726467.git.robin.murphy@arm.com>
- <20180710113908.GB32688@lst.de>
- <3b8a23b6-6015-3e8e-07f0-b75920a1e264@arm.com>
-In-Reply-To: <3b8a23b6-6015-3e8e-07f0-b75920a1e264@arm.com>
+References: <20180731172031.4447-1-hch@lst.de>
+In-Reply-To: <20180731172031.4447-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Robin Murphy <robin.murphy@arm.com>
-Cc: Christoph Hellwig <hch@lst.de>, m.szyprowski@samsung.com, iommu@lists.linux-foundation.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: Sinan Kaya <okaya@codeaurora.org>, Arnd Bergmann <arnd@arndb.de>, linux-ia64@vger.kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org, iommu@lists.linux-foundation.org
 
-On Tue, Jul 10, 2018 at 01:29:20PM +0100, Robin Murphy wrote:
->> What I've done is to:
->>
->>   1) provide the get_required_mask unconditionally in struct dma_map_ops
->>   2) default to what is the current dma_get_required_mask implementation
->>      if nothing else is specified.
->
-> Yeah, there's already 17 pointers in dma_map_ops of which about half are 
-> optional, so these awkward #ifdefs to save one more probably aren't worth 
-> the inconsistency they bring. It feels like this guy mostly goes 
-> hand-in-hand with dma_supported, so ack to giving it the same look and 
-> feel.
+memory-barriers.txt has been updated with the following requirement.
 
-This whole area needs a major refactoring - we currentl have three
-different APIs to deal with addressability: dma_get_required_mask,
-dma_capable/dma_set_mask and dma_capable from dma-direct.h, and there
-is plenty of unexplainable mismatches between them.
+"When using writel(), a prior wmb() is not needed to guarantee that the
+cache coherent memory writes have completed before writing to the MMIO
+region."
 
-Sorting this out has been on my TODO list, but I think it can only
-effectively be done once the direct mapping implementations are
-reasonably consolidated.
+The current writeX() and iowriteX() implementations on ia64 are not
+satisfying this requirement as the barrier is after the register write.
 
->> What I still had on my todo list but not done yet:
->>
->>   3) go through all instances and check if the current default
->>      makes sense, at it based on direct addressability.  For most
->>      iommu instances it seems like we should just return a 64-bit mask.
->
-> That's reasonable, although in many cases we should know the effective 
-> IOMMU input address size which would be even neater.
+This adds the missing memory barriers, and instead drops them from the
+dma sync routine where they are misplaced (and were missing in the
+more important map/unmap cases anyway).
 
-Sure.  Maybe I just need to steps 1 and 2 and let maintainers fill
-in.
+All this doesn't affect the SN2 platform, which already has barrier
+in the I/O accessors, and none in dma mapping (but then again
+swiotlb doesn't have any either).
 
->>   4) figure out how to take the dma offsets into account for it
->
-> AFAICS it might boil down to simply:
->
-> 	mask = roundup_pow_of_two(phys_to_dma(dev, PFN_PHYS(max_pfn))) - 1;
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ arch/ia64/hp/common/sba_iommu.c     |  4 ----
+ arch/ia64/include/asm/dma-mapping.h |  5 -----
+ arch/ia64/include/asm/io.h          |  5 +++++
+ arch/ia64/kernel/machvec.c          | 16 ----------------
+ arch/ia64/kernel/pci-dma.c          |  5 -----
+ 5 files changed, 5 insertions(+), 30 deletions(-)
 
-That looks way to sensible.  Which reminds me that I need to research
-the history behind the low_totalram/high_totalram magic in
-dma_get_required_mask.
+diff --git a/arch/ia64/hp/common/sba_iommu.c b/arch/ia64/hp/common/sba_iommu.c
+index ee5b652d320a..e8da6503ed2f 100644
+--- a/arch/ia64/hp/common/sba_iommu.c
++++ b/arch/ia64/hp/common/sba_iommu.c
+@@ -2207,10 +2207,6 @@ const struct dma_map_ops sba_dma_ops = {
+ 	.unmap_page		= sba_unmap_page,
+ 	.map_sg			= sba_map_sg_attrs,
+ 	.unmap_sg		= sba_unmap_sg_attrs,
+-	.sync_single_for_cpu	= machvec_dma_sync_single,
+-	.sync_sg_for_cpu	= machvec_dma_sync_sg,
+-	.sync_single_for_device	= machvec_dma_sync_single,
+-	.sync_sg_for_device	= machvec_dma_sync_sg,
+ 	.dma_supported		= sba_dma_supported,
+ 	.mapping_error		= sba_dma_mapping_error,
+ };
+diff --git a/arch/ia64/include/asm/dma-mapping.h b/arch/ia64/include/asm/dma-mapping.h
+index 76e4d6632d68..2b8cd4a6d958 100644
+--- a/arch/ia64/include/asm/dma-mapping.h
++++ b/arch/ia64/include/asm/dma-mapping.h
+@@ -16,11 +16,6 @@ extern const struct dma_map_ops *dma_ops;
+ extern struct ia64_machine_vector ia64_mv;
+ extern void set_iommu_machvec(void);
+ 
+-extern void machvec_dma_sync_single(struct device *, dma_addr_t, size_t,
+-				    enum dma_data_direction);
+-extern void machvec_dma_sync_sg(struct device *, struct scatterlist *, int,
+-				enum dma_data_direction);
+-
+ static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
+ {
+ 	return platform_dma_get_ops(NULL);
+diff --git a/arch/ia64/include/asm/io.h b/arch/ia64/include/asm/io.h
+index fb0651961e2c..ba5523b67eaf 100644
+--- a/arch/ia64/include/asm/io.h
++++ b/arch/ia64/include/asm/io.h
+@@ -22,6 +22,7 @@
+ 
+ #include <asm/unaligned.h>
+ #include <asm/early_ioremap.h>
++#include <asm/barrier.h>
+ 
+ /* We don't use IO slowdowns on the ia64, but.. */
+ #define __SLOW_DOWN_IO	do { } while (0)
+@@ -345,24 +346,28 @@ ___ia64_readq (const volatile void __iomem *addr)
+ static inline void
+ __writeb (unsigned char val, volatile void __iomem *addr)
+ {
++	mb();
+ 	*(volatile unsigned char __force *) addr = val;
+ }
+ 
+ static inline void
+ __writew (unsigned short val, volatile void __iomem *addr)
+ {
++	mb();
+ 	*(volatile unsigned short __force *) addr = val;
+ }
+ 
+ static inline void
+ __writel (unsigned int val, volatile void __iomem *addr)
+ {
++	mb();
+ 	*(volatile unsigned int __force *) addr = val;
+ }
+ 
+ static inline void
+ __writeq (unsigned long val, volatile void __iomem *addr)
+ {
++	mb();
+ 	*(volatile unsigned long __force *) addr = val;
+ }
+ 
+diff --git a/arch/ia64/kernel/machvec.c b/arch/ia64/kernel/machvec.c
+index 7bfe98859911..1b604d02250b 100644
+--- a/arch/ia64/kernel/machvec.c
++++ b/arch/ia64/kernel/machvec.c
+@@ -73,19 +73,3 @@ machvec_timer_interrupt (int irq, void *dev_id)
+ {
+ }
+ EXPORT_SYMBOL(machvec_timer_interrupt);
+-
+-void
+-machvec_dma_sync_single(struct device *hwdev, dma_addr_t dma_handle, size_t size,
+-			enum dma_data_direction dir)
+-{
+-	mb();
+-}
+-EXPORT_SYMBOL(machvec_dma_sync_single);
+-
+-void
+-machvec_dma_sync_sg(struct device *hwdev, struct scatterlist *sg, int n,
+-		    enum dma_data_direction dir)
+-{
+-	mb();
+-}
+-EXPORT_SYMBOL(machvec_dma_sync_sg);
+diff --git a/arch/ia64/kernel/pci-dma.c b/arch/ia64/kernel/pci-dma.c
+index 3c2884bef3d4..2512aa3029f5 100644
+--- a/arch/ia64/kernel/pci-dma.c
++++ b/arch/ia64/kernel/pci-dma.c
+@@ -55,11 +55,6 @@ void __init pci_iommu_alloc(void)
+ {
+ 	dma_ops = &intel_dma_ops;
+ 
+-	intel_dma_ops.sync_single_for_cpu = machvec_dma_sync_single;
+-	intel_dma_ops.sync_sg_for_cpu = machvec_dma_sync_sg;
+-	intel_dma_ops.sync_single_for_device = machvec_dma_sync_single;
+-	intel_dma_ops.sync_sg_for_device = machvec_dma_sync_sg;
+-
+ 	/*
+ 	 * The order of these functions is important for
+ 	 * fall-back/fail-over reasons
+-- 
+2.18.0
+
