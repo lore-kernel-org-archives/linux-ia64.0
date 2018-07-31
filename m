@@ -1,67 +1,56 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Tue, 31 Jul 2018 15:16:21 +0000
-Subject: [PATCH 3/4] ia64: remove iommu_dma_supported
-Message-Id: <20180731151622.11305-4-hch@lst.de>
+From: Alexandre Ghiti <alex@ghiti.fr>
+Date: Tue, 31 Jul 2018 06:01:45 +0000
+Subject: [PATCH v5 01/11] hugetlb: Harmonize hugetlb.h arch specific defines with pgtable.h
+Message-Id: <20180731060155.16915-2-alex@ghiti.fr>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20180731060155.16915-1-alex@ghiti.fr>
+In-Reply-To: <20180731060155.16915-1-alex@ghiti.fr>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-mm@kvack.org, mike.kravetz@oracle.com, linux@armlinux.org.uk, catalin.marinas@arm.com, will.deacon@arm.com, tony.luck@intel.com, fenghua.yu@intel.com, ralf@linux-mips.org, paul.burton@mips.com, jhogan@kernel.org, jejb@parisc-linux.org, deller@gmx.de, benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, x86@kernel.org, arnd@arndb.de, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org
+Cc: Alexandre Ghiti <alex@ghiti.fr>
 
-The generic dma_direct_supported helper already used by intel-iommu on
-x86 does a better job than the ia64 reimplementation.
+asm-generic/hugetlb.h proposes generic implementations of hugetlb
+related functions: use __HAVE_ARCH_HUGE* defines in order to make arch
+specific implementations of hugetlb functions consistent with pgtable.h
+scheme.
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+Signed-off-by: Alexandre Ghiti <alex@ghiti.fr>
+Reviewed-by: Mike Kravetz <mike.kravetz@oracle.com>
 ---
- arch/ia64/kernel/pci-dma.c  | 13 -------------
- drivers/iommu/intel-iommu.c |  2 --
- 2 files changed, 15 deletions(-)
+ arch/arm64/include/asm/hugetlb.h | 2 +-
+ include/asm-generic/hugetlb.h    | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/arch/ia64/kernel/pci-dma.c b/arch/ia64/kernel/pci-dma.c
-index 50b6ad282a90..3c2884bef3d4 100644
---- a/arch/ia64/kernel/pci-dma.c
-+++ b/arch/ia64/kernel/pci-dma.c
-@@ -51,18 +51,6 @@ iommu_dma_init(void)
- 	return;
+diff --git a/arch/arm64/include/asm/hugetlb.h b/arch/arm64/include/asm/hugetlb.h
+index e73f68569624..3fcf14663dfa 100644
+--- a/arch/arm64/include/asm/hugetlb.h
++++ b/arch/arm64/include/asm/hugetlb.h
+@@ -81,9 +81,9 @@ extern void huge_ptep_set_wrprotect(struct mm_struct *mm,
+ 				    unsigned long addr, pte_t *ptep);
+ extern void huge_ptep_clear_flush(struct vm_area_struct *vma,
+ 				  unsigned long addr, pte_t *ptep);
++#define __HAVE_ARCH_HUGE_PTE_CLEAR
+ extern void huge_pte_clear(struct mm_struct *mm, unsigned long addr,
+ 			   pte_t *ptep, unsigned long sz);
+-#define huge_pte_clear huge_pte_clear
+ extern void set_huge_swap_pte_at(struct mm_struct *mm, unsigned long addr,
+ 				 pte_t *ptep, pte_t pte, unsigned long sz);
+ #define set_huge_swap_pte_at set_huge_swap_pte_at
+diff --git a/include/asm-generic/hugetlb.h b/include/asm-generic/hugetlb.h
+index 9d0cde8ab716..3da7cff52360 100644
+--- a/include/asm-generic/hugetlb.h
++++ b/include/asm-generic/hugetlb.h
+@@ -32,7 +32,7 @@ static inline pte_t huge_pte_modify(pte_t pte, pgprot_t newprot)
+ 	return pte_modify(pte, newprot);
  }
  
--int iommu_dma_supported(struct device *dev, u64 mask)
--{
--	/* Copied from i386. Doesn't make much sense, because it will
--	   only work for pci_alloc_coherent.
--	   The caller just has to use GFP_DMA in this case. */
--	if (mask < DMA_BIT_MASK(24))
--		return 0;
--
--	return 1;
--}
--EXPORT_SYMBOL(iommu_dma_supported);
--
- void __init pci_iommu_alloc(void)
+-#ifndef huge_pte_clear
++#ifndef __HAVE_ARCH_HUGE_PTE_CLEAR
+ static inline void huge_pte_clear(struct mm_struct *mm, unsigned long addr,
+ 		    pte_t *ptep, unsigned long sz)
  {
- 	dma_ops = &intel_dma_ops;
-@@ -71,7 +59,6 @@ void __init pci_iommu_alloc(void)
- 	intel_dma_ops.sync_sg_for_cpu = machvec_dma_sync_sg;
- 	intel_dma_ops.sync_single_for_device = machvec_dma_sync_single;
- 	intel_dma_ops.sync_sg_for_device = machvec_dma_sync_sg;
--	intel_dma_ops.dma_supported = iommu_dma_supported;
- 
- 	/*
- 	 * The order of these functions is important for
-diff --git a/drivers/iommu/intel-iommu.c b/drivers/iommu/intel-iommu.c
-index 115ff26e9ced..1be2609bd094 100644
---- a/drivers/iommu/intel-iommu.c
-+++ b/drivers/iommu/intel-iommu.c
-@@ -3897,9 +3897,7 @@ const struct dma_map_ops intel_dma_ops = {
- 	.map_page = intel_map_page,
- 	.unmap_page = intel_unmap_page,
- 	.mapping_error = intel_mapping_error,
--#ifdef CONFIG_X86
- 	.dma_supported = dma_direct_supported,
--#endif
- };
- 
- static inline int iommu_domain_cache_init(void)
 -- 
-2.18.0
+2.16.2
 
