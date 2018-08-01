@@ -1,36 +1,71 @@
-From: Alexandre Ghiti <alex@ghiti.fr>
-Date: Wed, 01 Aug 2018 11:50:49 +0000
-Subject: Re: [PATCH v5 00/11] hugetlb: Factorize hugetlb architecture primitives
-Message-Id: <1cee9f98-4cff-3e42-6cc8-088310e406d9@ghiti.fr>
+From: Christoph Hellwig <hch@lst.de>
+Date: Wed, 01 Aug 2018 16:02:50 +0000
+Subject: [PATCH 7/9] ia64/sn2: remove no-ops dma sync methods
+Message-Id: <20180801160252.25629-8-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180731060155.16915-1-alex@ghiti.fr>
- <20180731160640.11306628@doriath>
-In-Reply-To: <20180731160640.11306628@doriath>
+References: <20180801160252.25629-1-hch@lst.de>
+In-Reply-To: <20180801160252.25629-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Luiz Capitulino <lcapitulino@redhat.com>
-Cc: linux-mm@kvack.org, mike.kravetz@oracle.com, linux@armlinux.org.uk, catalin.marinas@arm.com, will.deacon@arm.com, tony.luck@intel.com, fenghua.yu@intel.com, ralf@linux-mips.org, paul.burton@mips.com, jhogan@kernel.org, jejb@parisc-linux.org, deller@gmx.de, benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, x86@kernel.org, arnd@arndb.de, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: David Woodhouse <dwmw2@infradead.org>, linux-ia64@vger.kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org, iommu@lists.linux-foundation.org
 
-On 07/31/2018 10:06 PM, Luiz Capitulino wrote:
-> On Tue, 31 Jul 2018 06:01:44 +0000
-> Alexandre Ghiti <alex@ghiti.fr> wrote:
->
->> [CC linux-mm for inclusion in -mm tree]
->>
->> In order to reduce copy/paste of functions across architectures and then
->> make riscv hugetlb port (and future ports) simpler and smaller, this
->> patchset intends to factorize the numerous hugetlb primitives that are
->> defined across all the architectures.
-> [...]
->
->>   15 files changed, 139 insertions(+), 382 deletions(-)
-> I imagine you're mostly interested in non-x86 review at this point, but
-> as this series is looking amazing:
->
-> Reviewed-by: Luiz Capitulino <lcapitulino@redhat.com>
+These do nothing but duplicating an assert that would have triggered
+earlier on setting the dma mask, so remove them.
 
-It's always good to have another feedback :)
-Thanks for your review Luiz,
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ arch/ia64/sn/pci/pci_dma.c | 29 -----------------------------
+ 1 file changed, 29 deletions(-)
 
-Alex
+diff --git a/arch/ia64/sn/pci/pci_dma.c b/arch/ia64/sn/pci/pci_dma.c
+index 74c934a997bb..3b944fba0a3e 100644
+--- a/arch/ia64/sn/pci/pci_dma.c
++++ b/arch/ia64/sn/pci/pci_dma.c
+@@ -314,31 +314,6 @@ static int sn_dma_map_sg(struct device *dev, struct scatterlist *sgl,
+ 	return nhwentries;
+ }
+ 
+-static void sn_dma_sync_single_for_cpu(struct device *dev, dma_addr_t dma_handle,
+-				       size_t size, enum dma_data_direction dir)
+-{
+-	BUG_ON(!dev_is_pci(dev));
+-}
+-
+-static void sn_dma_sync_single_for_device(struct device *dev, dma_addr_t dma_handle,
+-					  size_t size,
+-					  enum dma_data_direction dir)
+-{
+-	BUG_ON(!dev_is_pci(dev));
+-}
+-
+-static void sn_dma_sync_sg_for_cpu(struct device *dev, struct scatterlist *sg,
+-				   int nelems, enum dma_data_direction dir)
+-{
+-	BUG_ON(!dev_is_pci(dev));
+-}
+-
+-static void sn_dma_sync_sg_for_device(struct device *dev, struct scatterlist *sg,
+-				      int nelems, enum dma_data_direction dir)
+-{
+-	BUG_ON(!dev_is_pci(dev));
+-}
+-
+ static int sn_dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
+ {
+ 	return 0;
+@@ -467,10 +442,6 @@ static struct dma_map_ops sn_dma_ops = {
+ 	.unmap_page		= sn_dma_unmap_page,
+ 	.map_sg			= sn_dma_map_sg,
+ 	.unmap_sg		= sn_dma_unmap_sg,
+-	.sync_single_for_cpu 	= sn_dma_sync_single_for_cpu,
+-	.sync_sg_for_cpu	= sn_dma_sync_sg_for_cpu,
+-	.sync_single_for_device = sn_dma_sync_single_for_device,
+-	.sync_sg_for_device	= sn_dma_sync_sg_for_device,
+ 	.mapping_error		= sn_dma_mapping_error,
+ 	.dma_supported		= sn_dma_supported,
+ };
+-- 
+2.18.0
+
