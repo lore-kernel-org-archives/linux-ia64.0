@@ -1,147 +1,35 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Wed, 29 Aug 2018 12:59:11 +0000
-Subject: [PATCH net-next 2/3] asm-generic: generalize asm/sockios.h
-Message-Id: <20180829130308.3504560-2-arnd@arndb.de>
+From: Christoph Hellwig <hch@lst.de>
+Date: Wed, 01 Aug 2018 16:02:47 +0000
+Subject: [PATCH 4/9] ia64: remove the unused bad_dma_address symbol
+Message-Id: <20180801160252.25629-5-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180829130308.3504560-1-arnd@arndb.de>
-In-Reply-To: <20180829130308.3504560-1-arnd@arndb.de>
+References: <20180801160252.25629-1-hch@lst.de>
+In-Reply-To: <20180801160252.25629-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>
-Cc: linux-arch@vger.kernel.org, y2038@lists.linaro.org, Arnd Bergmann <arnd@arndb.de>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "James E.J. Bottomley" <jejb@parisc-linux.org>, Helge Deller <deller@gmx.de>, Thomas Gleixner <tglx@linutronix.de>, x86@kernel.org, Al Viro <viro@zeniv.linux.org.uk>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-parisc@vger.kernel.org, sparclinux@vger.kernel.org
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: David Woodhouse <dwmw2@infradead.org>, linux-ia64@vger.kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org, iommu@lists.linux-foundation.org
 
-ia64, parisc and sparc just use a copy of the generic version
-of asm/sockios.h, and x86 is a redirect to the same file, so we
-can just let the header file be generated.
-
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- arch/ia64/include/uapi/asm/Kbuild      |  1 +
- arch/ia64/include/uapi/asm/sockios.h   | 21 ---------------------
- arch/parisc/include/uapi/asm/Kbuild    |  1 +
- arch/parisc/include/uapi/asm/sockios.h | 14 --------------
- arch/sparc/include/uapi/asm/Kbuild     |  1 +
- arch/sparc/include/uapi/asm/sockios.h  | 15 ---------------
- arch/x86/include/uapi/asm/Kbuild       |  1 +
- arch/x86/include/uapi/asm/sockios.h    |  1 -
- 8 files changed, 4 insertions(+), 51 deletions(-)
- delete mode 100644 arch/ia64/include/uapi/asm/sockios.h
- delete mode 100644 arch/parisc/include/uapi/asm/sockios.h
- delete mode 100644 arch/sparc/include/uapi/asm/sockios.h
- delete mode 100644 arch/x86/include/uapi/asm/sockios.h
+ arch/ia64/kernel/pci-dma.c | 3 ---
+ 1 file changed, 3 deletions(-)
 
-diff --git a/arch/ia64/include/uapi/asm/Kbuild b/arch/ia64/include/uapi/asm/Kbuild
-index 3982e673e967..a6377ad3ba1c 100644
---- a/arch/ia64/include/uapi/asm/Kbuild
-+++ b/arch/ia64/include/uapi/asm/Kbuild
-@@ -8,3 +8,4 @@ generic-y += msgbuf.h
- generic-y += poll.h
- generic-y += sembuf.h
- generic-y += shmbuf.h
-+generic-y += sockios.h
-diff --git a/arch/ia64/include/uapi/asm/sockios.h b/arch/ia64/include/uapi/asm/sockios.h
-deleted file mode 100644
-index f27a12f95d20..000000000000
---- a/arch/ia64/include/uapi/asm/sockios.h
-+++ /dev/null
-@@ -1,21 +0,0 @@
--/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
--#ifndef _ASM_IA64_SOCKIOS_H
--#define _ASM_IA64_SOCKIOS_H
--
--/*
-- * Socket-level I/O control calls.
-- *
-- * Based on <asm-i386/sockios.h>.
-- *
-- * Modified 1998, 1999
-- *	David Mosberger-Tang <davidm@hpl.hp.com>, Hewlett-Packard Co
-- */
--#define FIOSETOWN 	0x8901
--#define SIOCSPGRP	0x8902
--#define FIOGETOWN	0x8903
--#define SIOCGPGRP	0x8904
--#define SIOCATMARK	0x8905
--#define SIOCGSTAMP	0x8906		/* Get stamp (timeval) */
--#define SIOCGSTAMPNS	0x8907		/* Get stamp (timespec) */
--
--#endif /* _ASM_IA64_SOCKIOS_H */
-diff --git a/arch/parisc/include/uapi/asm/Kbuild b/arch/parisc/include/uapi/asm/Kbuild
-index 286ef5a5904b..be6c171f57f7 100644
---- a/arch/parisc/include/uapi/asm/Kbuild
-+++ b/arch/parisc/include/uapi/asm/Kbuild
-@@ -7,3 +7,4 @@ generic-y += kvm_para.h
- generic-y += param.h
- generic-y += poll.h
- generic-y += resource.h
-+generic-y += sockios.h
-diff --git a/arch/parisc/include/uapi/asm/sockios.h b/arch/parisc/include/uapi/asm/sockios.h
-deleted file mode 100644
-index 66a3ba64d53f..000000000000
---- a/arch/parisc/include/uapi/asm/sockios.h
-+++ /dev/null
-@@ -1,14 +0,0 @@
--/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
--#ifndef __ARCH_PARISC_SOCKIOS__
--#define __ARCH_PARISC_SOCKIOS__
--
--/* Socket-level I/O control calls. */
--#define FIOSETOWN 	0x8901
--#define SIOCSPGRP	0x8902
--#define FIOGETOWN	0x8903
--#define SIOCGPGRP	0x8904
--#define SIOCATMARK	0x8905
--#define SIOCGSTAMP	0x8906		/* Get stamp (timeval) */
--#define SIOCGSTAMPNS	0x8907		/* Get stamp (timespec) */
--
--#endif
-diff --git a/arch/sparc/include/uapi/asm/Kbuild b/arch/sparc/include/uapi/asm/Kbuild
-index 4680ba246b55..8fdae51d0eae 100644
---- a/arch/sparc/include/uapi/asm/Kbuild
-+++ b/arch/sparc/include/uapi/asm/Kbuild
-@@ -2,4 +2,5 @@
- include include/uapi/asm-generic/Kbuild.asm
+diff --git a/arch/ia64/kernel/pci-dma.c b/arch/ia64/kernel/pci-dma.c
+index 3c2884bef3d4..924966e5aa25 100644
+--- a/arch/ia64/kernel/pci-dma.c
++++ b/arch/ia64/kernel/pci-dma.c
+@@ -15,9 +15,6 @@
+ #include <linux/kernel.h>
+ #include <asm/page.h>
  
- generic-y += bpf_perf_event.h
-+generic-y += sockios.h
- generic-y += types.h
-diff --git a/arch/sparc/include/uapi/asm/sockios.h b/arch/sparc/include/uapi/asm/sockios.h
-deleted file mode 100644
-index 18a3ec14a847..000000000000
---- a/arch/sparc/include/uapi/asm/sockios.h
-+++ /dev/null
-@@ -1,15 +0,0 @@
--/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
--#ifndef _ASM_SPARC_SOCKIOS_H
--#define _ASM_SPARC_SOCKIOS_H
+-dma_addr_t bad_dma_address __read_mostly;
+-EXPORT_SYMBOL(bad_dma_address);
 -
--/* Socket-level I/O control calls. */
--#define FIOSETOWN 	0x8901
--#define SIOCSPGRP	0x8902
--#define FIOGETOWN	0x8903
--#define SIOCGPGRP	0x8904
--#define SIOCATMARK	0x8905
--#define SIOCGSTAMP	0x8906		/* Get stamp (timeval) */
--#define SIOCGSTAMPNS	0x8907		/* Get stamp (timespec) */
--
--#endif /* !(_ASM_SPARC_SOCKIOS_H) */
--
-diff --git a/arch/x86/include/uapi/asm/Kbuild b/arch/x86/include/uapi/asm/Kbuild
-index 322681622d1e..1d489e6b237e 100644
---- a/arch/x86/include/uapi/asm/Kbuild
-+++ b/arch/x86/include/uapi/asm/Kbuild
-@@ -6,3 +6,4 @@ generated-y += unistd_32.h
- generated-y += unistd_64.h
- generated-y += unistd_x32.h
- generic-y += poll.h
-+generic-y += sockios.h
-diff --git a/arch/x86/include/uapi/asm/sockios.h b/arch/x86/include/uapi/asm/sockios.h
-deleted file mode 100644
-index def6d4746ee7..000000000000
---- a/arch/x86/include/uapi/asm/sockios.h
-+++ /dev/null
-@@ -1 +0,0 @@
--#include <asm-generic/sockios.h>
+ int no_iommu __read_mostly;
+ #ifdef CONFIG_IOMMU_DEBUG
+ int force_iommu __read_mostly = 1;
 -- 
 2.18.0
+
