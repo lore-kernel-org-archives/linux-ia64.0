@@ -1,47 +1,50 @@
-From: zhong jiang <zhongjiang@huawei.com>
-Date: Tue, 14 Aug 2018 10:35:22 +0000
-Subject: [PATCH v2] ia64: Use ARRAY_SIZE to replace its implementation
-Message-Id: <1534242922-29258-1-git-send-email-zhongjiang@huawei.com>
+From: Christoph Hellwig <hch@lst.de>
+Date: Wed, 01 Aug 2018 16:02:48 +0000
+Subject: [PATCH 5/9] ia64: remove the unused pci_iommu_shutdown function
+Message-Id: <20180801160252.25629-6-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20180801160252.25629-1-hch@lst.de>
+In-Reply-To: <20180801160252.25629-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: tony.luck@intel.com, fenghua.yu@intel.com
-Cc: dhowells@redhat.com, rppt@linux.vnet.ibm.com, golf@perches.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: David Woodhouse <dwmw2@infradead.org>, linux-ia64@vger.kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org, iommu@lists.linux-foundation.org
 
-We prefer to ARRAY_SIZE rather than duplicating its implementation.
-And just one place use the #define variable, therefore, remove
-PFM_CMD_COUNT definition altogether.
-
-Signed-off-by: zhong jiang <zhongjiang@huawei.com>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
-v1->v2:
-  -  According to Joe's suggestion. remove the #define variable,
-     and use ARRAY_SIZE to replace directly.
+ arch/ia64/include/asm/iommu.h | 1 -
+ arch/ia64/kernel/pci-dma.c    | 5 -----
+ 2 files changed, 6 deletions(-)
 
- arch/ia64/kernel/perfmon.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
-
-diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
-index a9d4dc6..bfe0094c 100644
---- a/arch/ia64/kernel/perfmon.c
-+++ b/arch/ia64/kernel/perfmon.c
-@@ -4645,7 +4645,6 @@ static char *pfmfs_dname(struct dentry *dentry, char *buffer, int buflen)
- /* 32 */PFM_CMD(pfm_write_ibrs, PFM_CMD_PCLRWS, PFM_CMD_ARG_MANY, pfarg_dbreg_t, NULL),
- /* 33 */PFM_CMD(pfm_write_dbrs, PFM_CMD_PCLRWS, PFM_CMD_ARG_MANY, pfarg_dbreg_t, NULL)
- };
--#define PFM_CMD_COUNT	(sizeof(pfm_cmd_tab)/sizeof(pfm_cmd_desc_t))
+diff --git a/arch/ia64/include/asm/iommu.h b/arch/ia64/include/asm/iommu.h
+index 156b9d8e1932..5397e5aa3704 100644
+--- a/arch/ia64/include/asm/iommu.h
++++ b/arch/ia64/include/asm/iommu.h
+@@ -5,7 +5,6 @@
+ /* 10 seconds */
+ #define DMAR_OPERATION_TIMEOUT (((cycles_t) local_cpu_data->itc_freq)*10)
  
- static int
- pfm_check_task_state(pfm_context_t *ctx, int cmd, unsigned long flags)
-@@ -4770,7 +4769,7 @@ static char *pfmfs_dname(struct dentry *dentry, char *buffer, int buflen)
- 	 */
- 	if (unlikely(pmu_conf = NULL)) return -ENOSYS;
+-extern void pci_iommu_shutdown(void);
+ extern void no_iommu_init(void);
+ #ifdef	CONFIG_INTEL_IOMMU
+ extern int force_iommu, no_iommu;
+diff --git a/arch/ia64/kernel/pci-dma.c b/arch/ia64/kernel/pci-dma.c
+index 924966e5aa25..936af0ec7f8f 100644
+--- a/arch/ia64/kernel/pci-dma.c
++++ b/arch/ia64/kernel/pci-dma.c
+@@ -37,11 +37,6 @@ static int __init pci_iommu_init(void)
+ /* Must execute after PCI subsystem */
+ fs_initcall(pci_iommu_init);
  
--	if (unlikely(cmd < 0 || cmd >= PFM_CMD_COUNT)) {
-+	if (unlikely(cmd < 0 || cmd >= ARRAY_SIZE(pfm_cmd_tab))) {
- 		DPRINT(("invalid cmd=%d\n", cmd));
- 		return -EINVAL;
- 	}
+-void pci_iommu_shutdown(void)
+-{
+-	return;
+-}
+-
+ void __init
+ iommu_dma_init(void)
+ {
 -- 
-1.7.12.4
+2.18.0
+
