@@ -1,18 +1,22 @@
-From: David Howells <dhowells@redhat.com>
-Date: Tue, 14 Aug 2018 16:18:26 +0000
-Subject: Re: [PATCH 0/2] Use ARRAY_SIZE to replace its implementation
-Message-Id: <31000.1534263506@warthog.procyon.org.uk>
+From: elena_figueroa@hmha.gob.ec
+Date: Sun, 05 Aug 2018 19:08:36 +0000
+Subject: =?utf-8?b?V29obHTDpHRpZ2tlaXRzc3BlbmRlIGluIEjDtmhlIHZvbiDigqwgMi4wMDAu?= =?utf-8?q?000=2C00_EUR?=
+Message-Id: <20180805190839.8733E1FA4897@mail.hmha.gob.ec>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1534214814-9043-1-git-send-email-zhongjiang@huawei.com>
-In-Reply-To: <1534214814-9043-1-git-send-email-zhongjiang@huawei.com>
+References: <20180506160553.BC81A8472AE@mail.ithb.ac.id>
+In-Reply-To: <20180506160553.BC81A8472AE@mail.ithb.ac.id>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: zhong jiang <zhongjiang@huawei.com>
-Cc: dhowells@redhat.com, tony.luck@intel.com, fenghua.yu@intel.com, benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au, oleg@redhat.com, rppt@linux.vnet.ibm.com, akpm@linux-foundation.org, viro@zeniv.linux.org.uk, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: linux-ia64@vger.kernel.org
 
-> "Use ARRAY_SIZE to replace its implementation"
-
-Um, the subject line doesn't make sense.
-
-David
+Hallo, ich bin Herr Tayeb Souami, New Jersey, Vereinigte Staaten von Amerika, Sie haben eine Wohltätigkeitsspende in Höhe von € 2.000.000,00, ich habe die America Lotterie in Amerika im Wert von $ 315 Millionen gewonnen, und ich gebe einen Teil davon an fünf glückliche Menschen und wohltätige Häuser, um Armut aus dieser Welt zu beseitigen, bekämpfe ich die Armut. Kontaktieren Sie mich für weitere Informationen: wumt.claimservice@gmail.com
+ 
+Das ist dein Spendencode: [DFC530342018]
+ 
+Antworten Sie mit dem Spendencode auf diese E-Mail: wumt.claimservice@gmail.com
+ 
+Ich hoffe, Sie und Ihre Familie glücklich zu machen.
+ 
+Grüße
+Herr Tayeb Souami
