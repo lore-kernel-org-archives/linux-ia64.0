@@ -1,70 +1,197 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Wed, 01 Aug 2018 16:02:46 +0000
-Subject: [PATCH 3/9] ia64: remove iommu_dma_supported
-Message-Id: <20180801160252.25629-4-hch@lst.de>
+From: Alexandre Ghiti <alex@ghiti.fr>
+Date: Mon, 06 Aug 2018 17:57:03 +0000
+Subject: [PATCH v6 03/11] hugetlb: Introduce generic version of set_huge_pte_at
+Message-Id: <20180806175711.24438-4-alex@ghiti.fr>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180801160252.25629-1-hch@lst.de>
-In-Reply-To: <20180801160252.25629-1-hch@lst.de>
+References: <20180806175711.24438-1-alex@ghiti.fr>
+In-Reply-To: <20180806175711.24438-1-alex@ghiti.fr>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
-Cc: David Woodhouse <dwmw2@infradead.org>, linux-ia64@vger.kernel.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org, iommu@lists.linux-foundation.org
+To: linux-mm@kvack.org, mike.kravetz@oracle.com, linux@armlinux.org.uk, catalin.marinas@arm.com, will.deacon@arm.com, tony.luck@intel.com, fenghua.yu@intel.com, ralf@linux-mips.org, paul.burton@mips.com, jhogan@kernel.org, jejb@parisc-linux.org, deller@gmx.de, benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, x86@kernel.org, arnd@arndb.de, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org
+Cc: Alexandre Ghiti <alex@ghiti.fr>
 
-The generic dma_direct_supported helper already used by intel-iommu on
-x86 does a better job than the ia64 reimplementation.
+arm, ia64, mips, powerpc, sh, x86 architectures use the
+same version of set_huge_pte_at, so move this generic
+implementation into asm-generic/hugetlb.h.
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+Signed-off-by: Alexandre Ghiti <alex@ghiti.fr>
+Tested-by: Helge Deller <deller@gmx.de> # parisc
+Acked-by: Catalin Marinas <catalin.marinas@arm.com> # arm64
+Acked-by: Paul Burton <paul.burton@mips.com> # MIPS parts
+Reviewed-by: Luiz Capitulino <lcapitulino@redhat.com>
+Reviewed-by: Mike Kravetz <mike.kravetz@oracle.com>
 ---
- arch/ia64/kernel/pci-dma.c  | 13 -------------
- drivers/iommu/intel-iommu.c |  2 --
- 2 files changed, 15 deletions(-)
+ arch/arm/include/asm/hugetlb-3level.h | 6 ------
+ arch/arm64/include/asm/hugetlb.h      | 1 +
+ arch/ia64/include/asm/hugetlb.h       | 6 ------
+ arch/mips/include/asm/hugetlb.h       | 6 ------
+ arch/parisc/include/asm/hugetlb.h     | 1 +
+ arch/powerpc/include/asm/hugetlb.h    | 6 ------
+ arch/sh/include/asm/hugetlb.h         | 6 ------
+ arch/sparc/include/asm/hugetlb.h      | 1 +
+ arch/x86/include/asm/hugetlb.h        | 6 ------
+ include/asm-generic/hugetlb.h         | 8 +++++++-
+ 10 files changed, 10 insertions(+), 37 deletions(-)
 
-diff --git a/arch/ia64/kernel/pci-dma.c b/arch/ia64/kernel/pci-dma.c
-index 50b6ad282a90..3c2884bef3d4 100644
---- a/arch/ia64/kernel/pci-dma.c
-+++ b/arch/ia64/kernel/pci-dma.c
-@@ -51,18 +51,6 @@ iommu_dma_init(void)
- 	return;
+diff --git a/arch/arm/include/asm/hugetlb-3level.h b/arch/arm/include/asm/hugetlb-3level.h
+index d4014fbe5ea3..398fb06e8207 100644
+--- a/arch/arm/include/asm/hugetlb-3level.h
++++ b/arch/arm/include/asm/hugetlb-3level.h
+@@ -37,12 +37,6 @@ static inline pte_t huge_ptep_get(pte_t *ptep)
+ 	return retval;
  }
  
--int iommu_dma_supported(struct device *dev, u64 mask)
+-static inline void set_huge_pte_at(struct mm_struct *mm, unsigned long addr,
+-				   pte_t *ptep, pte_t pte)
 -{
--	/* Copied from i386. Doesn't make much sense, because it will
--	   only work for pci_alloc_coherent.
--	   The caller just has to use GFP_DMA in this case. */
--	if (mask < DMA_BIT_MASK(24))
--		return 0;
--
--	return 1;
+-	set_pte_at(mm, addr, ptep, pte);
 -}
--EXPORT_SYMBOL(iommu_dma_supported);
 -
- void __init pci_iommu_alloc(void)
+ static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
+ 					 unsigned long addr, pte_t *ptep)
  {
- 	dma_ops = &intel_dma_ops;
-@@ -71,7 +59,6 @@ void __init pci_iommu_alloc(void)
- 	intel_dma_ops.sync_sg_for_cpu = machvec_dma_sync_sg;
- 	intel_dma_ops.sync_single_for_device = machvec_dma_sync_single;
- 	intel_dma_ops.sync_sg_for_device = machvec_dma_sync_sg;
--	intel_dma_ops.dma_supported = iommu_dma_supported;
+diff --git a/arch/arm64/include/asm/hugetlb.h b/arch/arm64/include/asm/hugetlb.h
+index 4af1a800a900..874661a1dff1 100644
+--- a/arch/arm64/include/asm/hugetlb.h
++++ b/arch/arm64/include/asm/hugetlb.h
+@@ -60,6 +60,7 @@ static inline void arch_clear_hugepage_flags(struct page *page)
+ extern pte_t arch_make_huge_pte(pte_t entry, struct vm_area_struct *vma,
+ 				struct page *page, int writable);
+ #define arch_make_huge_pte arch_make_huge_pte
++#define __HAVE_ARCH_HUGE_SET_HUGE_PTE_AT
+ extern void set_huge_pte_at(struct mm_struct *mm, unsigned long addr,
+ 			    pte_t *ptep, pte_t pte);
+ extern int huge_ptep_set_access_flags(struct vm_area_struct *vma,
+diff --git a/arch/ia64/include/asm/hugetlb.h b/arch/ia64/include/asm/hugetlb.h
+index afe9fa4d969b..a235d6f60fb3 100644
+--- a/arch/ia64/include/asm/hugetlb.h
++++ b/arch/ia64/include/asm/hugetlb.h
+@@ -20,12 +20,6 @@ static inline int is_hugepage_only_range(struct mm_struct *mm,
+ 		REGION_NUMBER((addr)+(len)-1) = RGN_HPAGE);
+ }
  
- 	/*
- 	 * The order of these functions is important for
-diff --git a/drivers/iommu/intel-iommu.c b/drivers/iommu/intel-iommu.c
-index 115ff26e9ced..1be2609bd094 100644
---- a/drivers/iommu/intel-iommu.c
-+++ b/drivers/iommu/intel-iommu.c
-@@ -3897,9 +3897,7 @@ const struct dma_map_ops intel_dma_ops = {
- 	.map_page = intel_map_page,
- 	.unmap_page = intel_unmap_page,
- 	.mapping_error = intel_mapping_error,
--#ifdef CONFIG_X86
- 	.dma_supported = dma_direct_supported,
--#endif
- };
+-static inline void set_huge_pte_at(struct mm_struct *mm, unsigned long addr,
+-				   pte_t *ptep, pte_t pte)
+-{
+-	set_pte_at(mm, addr, ptep, pte);
+-}
+-
+ static inline pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
+ 					    unsigned long addr, pte_t *ptep)
+ {
+diff --git a/arch/mips/include/asm/hugetlb.h b/arch/mips/include/asm/hugetlb.h
+index 53764050243e..8ea439041d5d 100644
+--- a/arch/mips/include/asm/hugetlb.h
++++ b/arch/mips/include/asm/hugetlb.h
+@@ -36,12 +36,6 @@ static inline int prepare_hugepage_range(struct file *file,
+ 	return 0;
+ }
  
- static inline int iommu_domain_cache_init(void)
+-static inline void set_huge_pte_at(struct mm_struct *mm, unsigned long addr,
+-				   pte_t *ptep, pte_t pte)
+-{
+-	set_pte_at(mm, addr, ptep, pte);
+-}
+-
+ static inline pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
+ 					    unsigned long addr, pte_t *ptep)
+ {
+diff --git a/arch/parisc/include/asm/hugetlb.h b/arch/parisc/include/asm/hugetlb.h
+index 28c23b68d38d..77c8adbac7c3 100644
+--- a/arch/parisc/include/asm/hugetlb.h
++++ b/arch/parisc/include/asm/hugetlb.h
+@@ -4,6 +4,7 @@
+ 
+ #include <asm/page.h>
+ 
++#define __HAVE_ARCH_HUGE_SET_HUGE_PTE_AT
+ void set_huge_pte_at(struct mm_struct *mm, unsigned long addr,
+ 		     pte_t *ptep, pte_t pte);
+ 
+diff --git a/arch/powerpc/include/asm/hugetlb.h b/arch/powerpc/include/asm/hugetlb.h
+index a7d5c739df9b..0794b53439d4 100644
+--- a/arch/powerpc/include/asm/hugetlb.h
++++ b/arch/powerpc/include/asm/hugetlb.h
+@@ -132,12 +132,6 @@ static inline int prepare_hugepage_range(struct file *file,
+ 	return 0;
+ }
+ 
+-static inline void set_huge_pte_at(struct mm_struct *mm, unsigned long addr,
+-				   pte_t *ptep, pte_t pte)
+-{
+-	set_pte_at(mm, addr, ptep, pte);
+-}
+-
+ static inline pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
+ 					    unsigned long addr, pte_t *ptep)
+ {
+diff --git a/arch/sh/include/asm/hugetlb.h b/arch/sh/include/asm/hugetlb.h
+index f6a51b609409..bc552e37c1c9 100644
+--- a/arch/sh/include/asm/hugetlb.h
++++ b/arch/sh/include/asm/hugetlb.h
+@@ -25,12 +25,6 @@ static inline int prepare_hugepage_range(struct file *file,
+ 	return 0;
+ }
+ 
+-static inline void set_huge_pte_at(struct mm_struct *mm, unsigned long addr,
+-				   pte_t *ptep, pte_t pte)
+-{
+-	set_pte_at(mm, addr, ptep, pte);
+-}
+-
+ static inline pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
+ 					    unsigned long addr, pte_t *ptep)
+ {
+diff --git a/arch/sparc/include/asm/hugetlb.h b/arch/sparc/include/asm/hugetlb.h
+index 59d89b52ccb7..16b0c53ea6c9 100644
+--- a/arch/sparc/include/asm/hugetlb.h
++++ b/arch/sparc/include/asm/hugetlb.h
+@@ -12,6 +12,7 @@ struct pud_huge_patch_entry {
+ extern struct pud_huge_patch_entry __pud_huge_patch, __pud_huge_patch_end;
+ #endif
+ 
++#define __HAVE_ARCH_HUGE_SET_HUGE_PTE_AT
+ void set_huge_pte_at(struct mm_struct *mm, unsigned long addr,
+ 		     pte_t *ptep, pte_t pte);
+ 
+diff --git a/arch/x86/include/asm/hugetlb.h b/arch/x86/include/asm/hugetlb.h
+index 398da3b3414c..8db9a761964d 100644
+--- a/arch/x86/include/asm/hugetlb.h
++++ b/arch/x86/include/asm/hugetlb.h
+@@ -28,12 +28,6 @@ static inline int prepare_hugepage_range(struct file *file,
+ 	return 0;
+ }
+ 
+-static inline void set_huge_pte_at(struct mm_struct *mm, unsigned long addr,
+-				   pte_t *ptep, pte_t pte)
+-{
+-	set_pte_at(mm, addr, ptep, pte);
+-}
+-
+ static inline pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
+ 					    unsigned long addr, pte_t *ptep)
+ {
+diff --git a/include/asm-generic/hugetlb.h b/include/asm-generic/hugetlb.h
+index c697ca9dda18..ee010b756246 100644
+--- a/include/asm-generic/hugetlb.h
++++ b/include/asm-generic/hugetlb.h
+@@ -47,8 +47,14 @@ static inline void hugetlb_free_pgd_range(struct mmu_gather *tlb,
+ {
+ 	free_pgd_range(tlb, addr, end, floor, ceiling);
+ }
++#endif
+ 
+-
++#ifndef __HAVE_ARCH_HUGE_SET_HUGE_PTE_AT
++static inline void set_huge_pte_at(struct mm_struct *mm, unsigned long addr,
++		pte_t *ptep, pte_t pte)
++{
++	set_pte_at(mm, addr, ptep, pte);
++}
+ #endif
+ 
+ #endif /* _ASM_GENERIC_HUGETLB_H */
 -- 
-2.18.0
+2.16.2
 
