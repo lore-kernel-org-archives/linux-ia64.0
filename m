@@ -1,40 +1,121 @@
-From: Jason Duerstock <evilmoo@gmail.com>
-Date: Mon, 27 Aug 2018 11:45:03 +0000
-Subject: Re: removig ia64, was: Re: [PATCH 3/4] mm/tlb, x86/mm: Support invalidating TLB caches for RCU_TABLE
-Message-Id: <CAP5F8cK7Yik27YT32EeJi1Hm19HFVA5bRmCbrd8ytnHQWtOEUg@mail.gmail.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Date: Thu, 09 Aug 2018 00:54:43 +0000
+Subject: Re: [PATCH 17/20] powerpc/dma-swiotlb: use generic swiotlb_dma_ops
+Message-Id: <556a4302d13b1caafb223112c4de43d959146215.camel@kernel.crashing.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180823134525.5f12b0d3@roar.ozlabs.ibm.com> <CA+55aFxneZTFxxxAjLZmj92VUJg6z7hERxJ2cHoth-GC0RuELw@mail.gmail.com>
- <776104d4c8e4fc680004d69e3a4c2594b638b6d1.camel@au1.ibm.com>
- <CA+55aFzM77G9-Q6LboPLJ=5gHma66ZQKiMGCMqXoKABirdF98w@mail.gmail.com>
- <20180823133958.GA1496@brain-police> <20180824084717.GK24124@hirez.programming.kicks-ass.net>
- <20180824113214.GK24142@hirez.programming.kicks-ass.net> <20180824113953.GL24142@hirez.programming.kicks-ass.net>
- <20180827150008.13bce08f@roar.ozlabs.ibm.com> <20180827074701.GW24124@hirez.programming.kicks-ass.net>
- <20180827085708.GA27172@infradead.org>
-In-Reply-To: <20180827085708.GA27172@infradead.org>
+References: <20180730163824.10064-1-hch@lst.de>
+ <20180730163824.10064-18-hch@lst.de>
+In-Reply-To: <20180730163824.10064-18-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: hch@infradead.org
-Cc: peterz@infradead.org, npiggin@gmail.com, will.deacon@arm.com, torvalds@linux-foundation.org, benh@au1.ibm.com, luto@kernel.org, x86@kernel.org, bp@alien8.de, riel@surriel.com, jannh@google.com, ascannell@google.com, dave.hansen@intel.com, linux-kernel@vger.kernel.org, linux-mm@kvack.org, davem@davemloft.net, schwidefsky@de.ibm.com, mpe@ellerman.id.au, tony.luck@intel.com, fenghua.yu@intel.com, linux-ia64@vger.kernel.org
+To: Christoph Hellwig <hch@lst.de>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Robin Murphy <robin.murphy@arm.com>, linuxppc-dev@lists.ozlabs.org, iommu@lists.linux-foundation.org, linux-ia64@vger.kernel.org
 
-I cannot speak to how widespread it has been adopted, but the linux
-(kernel) package for version 4.17.17 has been successfully built and
-installed for ia64 under Debian ports.  There is clearly more work to
-do to get ia64 rehabilitated, but there are over 10,000 packages
-currently successfully built for ia64 under Debian ports[1].
+On Mon, 2018-07-30 at 18:38 +0200, Christoph Hellwig wrote:
+> These are identical to the arch specific ones, so remove them.
+> 
+> Signed-off-by: Christoph Hellwig <hch@lst.de>
 
-Jason
+Acked-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 
-[1] https://buildd.debian.org/status/architecture.php?a=ia64&suite=sid
-On Mon, Aug 27, 2018 at 4:57 AM Christoph Hellwig <hch@infradead.org> wrote:
->
-> On Mon, Aug 27, 2018 at 09:47:01AM +0200, Peter Zijlstra wrote:
-> > sh is trivial, arm seems doable, with a bit of luck we can do 'rm -rf
-> > arch/ia64' leaving us with s390.
->
-> Is removing ia64 a serious plan?  It is the cause for a fair share of
-> oddities in dma lang, and I did not have much luck getting maintainer
-> replies lately, but I didn't know of a plan to get rid of it.
->
-> What is the state of people still using ia64 mainline kernels vs just
-> old distros in the still existing machines?
+> ---
+>  arch/powerpc/include/asm/dma-direct.h |  4 ++++
+>  arch/powerpc/include/asm/swiotlb.h    |  2 --
+>  arch/powerpc/kernel/dma-swiotlb.c     | 28 ++-------------------------
+>  arch/powerpc/sysdev/fsl_pci.c         |  2 +-
+>  4 files changed, 7 insertions(+), 29 deletions(-)
+> 
+> diff --git a/arch/powerpc/include/asm/dma-direct.h b/arch/powerpc/include/asm/dma-direct.h
+> index 0fba19445ae8..657f84ddb20d 100644
+> --- a/arch/powerpc/include/asm/dma-direct.h
+> +++ b/arch/powerpc/include/asm/dma-direct.h
+> @@ -30,4 +30,8 @@ static inline phys_addr_t __dma_to_phys(struct device *dev, dma_addr_t daddr)
+>  		return daddr - PCI_DRAM_OFFSET;
+>  	return daddr - dev->archdata.dma_offset;
+>  }
+> +
+> +u64 swiotlb_powerpc_get_required(struct device *dev);
+> +#define swiotlb_get_required_mask swiotlb_powerpc_get_required
+> +
+>  #endif /* ASM_POWERPC_DMA_DIRECT_H */
+> diff --git a/arch/powerpc/include/asm/swiotlb.h b/arch/powerpc/include/asm/swiotlb.h
+> index f65ecf57b66c..1d8c1da26ab3 100644
+> --- a/arch/powerpc/include/asm/swiotlb.h
+> +++ b/arch/powerpc/include/asm/swiotlb.h
+> @@ -13,8 +13,6 @@
+>  
+>  #include <linux/swiotlb.h>
+>  
+> -extern const struct dma_map_ops powerpc_swiotlb_dma_ops;
+> -
+>  extern unsigned int ppc_swiotlb_enable;
+>  int __init swiotlb_setup_bus_notifier(void);
+>  
+> diff --git a/arch/powerpc/kernel/dma-swiotlb.c b/arch/powerpc/kernel/dma-swiotlb.c
+> index 25986fcd1e5e..0c269de61f39 100644
+> --- a/arch/powerpc/kernel/dma-swiotlb.c
+> +++ b/arch/powerpc/kernel/dma-swiotlb.c
+> @@ -24,7 +24,7 @@
+>  
+>  unsigned int ppc_swiotlb_enable;
+>  
+> -static u64 swiotlb_powerpc_get_required(struct device *dev)
+> +u64 swiotlb_powerpc_get_required(struct device *dev)
+>  {
+>  	u64 end, mask, max_direct_dma_addr = dev->archdata.max_direct_dma_addr;
+>  
+> @@ -38,30 +38,6 @@ static u64 swiotlb_powerpc_get_required(struct device *dev)
+>  	return mask;
+>  }
+>  
+> -/*
+> - * At the moment, all platforms that use this code only require
+> - * swiotlb to be used if we're operating on HIGHMEM.  Since
+> - * we don't ever call anything other than map_sg, unmap_sg,
+> - * map_page, and unmap_page on highmem, use normal dma_ops
+> - * for everything else.
+> - */
+> -const struct dma_map_ops powerpc_swiotlb_dma_ops = {
+> -	.alloc = dma_direct_alloc,
+> -	.free = dma_direct_free,
+> -	.mmap = dma_nommu_mmap_coherent,
+> -	.map_sg = swiotlb_map_sg_attrs,
+> -	.unmap_sg = swiotlb_unmap_sg_attrs,
+> -	.dma_supported = swiotlb_dma_supported,
+> -	.map_page = swiotlb_map_page,
+> -	.unmap_page = swiotlb_unmap_page,
+> -	.sync_single_for_cpu = swiotlb_sync_single_for_cpu,
+> -	.sync_single_for_device = swiotlb_sync_single_for_device,
+> -	.sync_sg_for_cpu = swiotlb_sync_sg_for_cpu,
+> -	.sync_sg_for_device = swiotlb_sync_sg_for_device,
+> -	.mapping_error = swiotlb_dma_mapping_error,
+> -	.get_required_mask = swiotlb_powerpc_get_required,
+> -};
+> -
+>  void pci_dma_dev_setup_swiotlb(struct pci_dev *pdev)
+>  {
+>  	struct pci_controller *hose;
+> @@ -88,7 +64,7 @@ static int ppc_swiotlb_bus_notify(struct notifier_block *nb,
+>  
+>  	/* May need to bounce if the device can't address all of DRAM */
+>  	if ((dma_get_mask(dev) + 1) < memblock_end_of_DRAM())
+> -		set_dma_ops(dev, &powerpc_swiotlb_dma_ops);
+> +		set_dma_ops(dev, &swiotlb_dma_ops);
+>  
+>  	return NOTIFY_DONE;
+>  }
+> diff --git a/arch/powerpc/sysdev/fsl_pci.c b/arch/powerpc/sysdev/fsl_pci.c
+> index 918be816b097..daf44bc0108d 100644
+> --- a/arch/powerpc/sysdev/fsl_pci.c
+> +++ b/arch/powerpc/sysdev/fsl_pci.c
+> @@ -118,7 +118,7 @@ static void setup_swiotlb_ops(struct pci_controller *hose)
+>  {
+>  	if (ppc_swiotlb_enable) {
+>  		hose->controller_ops.dma_dev_setup = pci_dma_dev_setup_swiotlb;
+> -		set_pci_dma_ops(&powerpc_swiotlb_dma_ops);
+> +		set_pci_dma_ops(&swiotlb_dma_ops);
+>  	}
+>  }
+>  #else
+
