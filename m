@@ -1,187 +1,110 @@
-From: Alexandre Ghiti <alex@ghiti.fr>
-Date: Mon, 06 Aug 2018 17:57:10 +0000
-Subject: [PATCH v6 10/11] hugetlb: Introduce generic version of huge_ptep_set_access_flags
-Message-Id: <20180806175711.24438-11-alex@ghiti.fr>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Date: Thu, 09 Aug 2018 00:43:15 +0000
+Subject: Re: [PATCH 12/20] powerpc/dma: use phys_to_dma instead of get_dma_offset
+Message-Id: <a28a4e70e829f25ccd1286f8fba657f670f2a685.camel@kernel.crashing.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180806175711.24438-1-alex@ghiti.fr>
-In-Reply-To: <20180806175711.24438-1-alex@ghiti.fr>
+References: <20180730163824.10064-1-hch@lst.de>
+ <20180730163824.10064-13-hch@lst.de>
+In-Reply-To: <20180730163824.10064-13-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org, mike.kravetz@oracle.com, linux@armlinux.org.uk, catalin.marinas@arm.com, will.deacon@arm.com, tony.luck@intel.com, fenghua.yu@intel.com, ralf@linux-mips.org, paul.burton@mips.com, jhogan@kernel.org, jejb@parisc-linux.org, deller@gmx.de, benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, x86@kernel.org, arnd@arndb.de, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org
-Cc: Alexandre Ghiti <alex@ghiti.fr>
+To: Christoph Hellwig <hch@lst.de>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Robin Murphy <robin.murphy@arm.com>, linuxppc-dev@lists.ozlabs.org, iommu@lists.linux-foundation.org, linux-ia64@vger.kernel.org
 
-arm, ia64, sh, x86 architectures use the same version
-of huge_ptep_set_access_flags, so move this generic implementation
-into asm-generic/hugetlb.h.
+On Mon, 2018-07-30 at 18:38 +0200, Christoph Hellwig wrote:
+> Use the standard portable helper instead of the powerpc specific one,
+> which is about to go away.
+> 
+> Signed-off-by: Christoph Hellwig <hch@lst.de>
 
-Signed-off-by: Alexandre Ghiti <alex@ghiti.fr>
-Tested-by: Helge Deller <deller@gmx.de> # parisc
-Acked-by: Catalin Marinas <catalin.marinas@arm.com> # arm64
-Acked-by: Paul Burton <paul.burton@mips.com> # MIPS parts
-Reviewed-by: Luiz Capitulino <lcapitulino@redhat.com>
-Reviewed-by: Mike Kravetz <mike.kravetz@oracle.com>
----
- arch/arm/include/asm/hugetlb-3level.h | 7 -------
- arch/arm64/include/asm/hugetlb.h      | 1 +
- arch/ia64/include/asm/hugetlb.h       | 7 -------
- arch/mips/include/asm/hugetlb.h       | 1 +
- arch/parisc/include/asm/hugetlb.h     | 1 +
- arch/powerpc/include/asm/hugetlb.h    | 1 +
- arch/sh/include/asm/hugetlb.h         | 7 -------
- arch/sparc/include/asm/hugetlb.h      | 1 +
- arch/x86/include/asm/hugetlb.h        | 7 -------
- include/asm-generic/hugetlb.h         | 9 +++++++++
- 10 files changed, 14 insertions(+), 28 deletions(-)
+Acked-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 
-diff --git a/arch/arm/include/asm/hugetlb-3level.h b/arch/arm/include/asm/hugetlb-3level.h
-index 8247cd6a2ac6..54e4b097b1f5 100644
---- a/arch/arm/include/asm/hugetlb-3level.h
-+++ b/arch/arm/include/asm/hugetlb-3level.h
-@@ -37,11 +37,4 @@ static inline pte_t huge_ptep_get(pte_t *ptep)
- 	return retval;
- }
- 
--static inline int huge_ptep_set_access_flags(struct vm_area_struct *vma,
--					     unsigned long addr, pte_t *ptep,
--					     pte_t pte, int dirty)
--{
--	return ptep_set_access_flags(vma, addr, ptep, pte, dirty);
--}
--
- #endif /* _ASM_ARM_HUGETLB_3LEVEL_H */
-diff --git a/arch/arm64/include/asm/hugetlb.h b/arch/arm64/include/asm/hugetlb.h
-index f4f69ae5466e..80887abcef7f 100644
---- a/arch/arm64/include/asm/hugetlb.h
-+++ b/arch/arm64/include/asm/hugetlb.h
-@@ -42,6 +42,7 @@ extern pte_t arch_make_huge_pte(pte_t entry, struct vm_area_struct *vma,
- #define __HAVE_ARCH_HUGE_SET_HUGE_PTE_AT
- extern void set_huge_pte_at(struct mm_struct *mm, unsigned long addr,
- 			    pte_t *ptep, pte_t pte);
-+#define __HAVE_ARCH_HUGE_PTEP_SET_ACCESS_FLAGS
- extern int huge_ptep_set_access_flags(struct vm_area_struct *vma,
- 				      unsigned long addr, pte_t *ptep,
- 				      pte_t pte, int dirty);
-diff --git a/arch/ia64/include/asm/hugetlb.h b/arch/ia64/include/asm/hugetlb.h
-index 49d1f7949f3a..e9b42750fdf5 100644
---- a/arch/ia64/include/asm/hugetlb.h
-+++ b/arch/ia64/include/asm/hugetlb.h
-@@ -27,13 +27,6 @@ static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
- {
- }
- 
--static inline int huge_ptep_set_access_flags(struct vm_area_struct *vma,
--					     unsigned long addr, pte_t *ptep,
--					     pte_t pte, int dirty)
--{
--	return ptep_set_access_flags(vma, addr, ptep, pte, dirty);
--}
--
- static inline pte_t huge_ptep_get(pte_t *ptep)
- {
- 	return *ptep;
-diff --git a/arch/mips/include/asm/hugetlb.h b/arch/mips/include/asm/hugetlb.h
-index 3dcf5debf8c4..120adc3b2ffd 100644
---- a/arch/mips/include/asm/hugetlb.h
-+++ b/arch/mips/include/asm/hugetlb.h
-@@ -63,6 +63,7 @@ static inline int huge_pte_none(pte_t pte)
- 	return !val || (val = (unsigned long)invalid_pte_table);
- }
- 
-+#define __HAVE_ARCH_HUGE_PTEP_SET_ACCESS_FLAGS
- static inline int huge_ptep_set_access_flags(struct vm_area_struct *vma,
- 					     unsigned long addr,
- 					     pte_t *ptep, pte_t pte,
-diff --git a/arch/parisc/include/asm/hugetlb.h b/arch/parisc/include/asm/hugetlb.h
-index 9c3950ca2974..165b4e5a6f32 100644
---- a/arch/parisc/include/asm/hugetlb.h
-+++ b/arch/parisc/include/asm/hugetlb.h
-@@ -43,6 +43,7 @@ static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
- void huge_ptep_set_wrprotect(struct mm_struct *mm,
- 					   unsigned long addr, pte_t *ptep);
- 
-+#define __HAVE_ARCH_HUGE_PTEP_SET_ACCESS_FLAGS
- int huge_ptep_set_access_flags(struct vm_area_struct *vma,
- 					     unsigned long addr, pte_t *ptep,
- 					     pte_t pte, int dirty);
-diff --git a/arch/powerpc/include/asm/hugetlb.h b/arch/powerpc/include/asm/hugetlb.h
-index 69c14ecac133..658bf7136a3c 100644
---- a/arch/powerpc/include/asm/hugetlb.h
-+++ b/arch/powerpc/include/asm/hugetlb.h
-@@ -137,6 +137,7 @@ static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
- 	flush_hugetlb_page(vma, addr);
- }
- 
-+#define __HAVE_ARCH_HUGE_PTEP_SET_ACCESS_FLAGS
- extern int huge_ptep_set_access_flags(struct vm_area_struct *vma,
- 				      unsigned long addr, pte_t *ptep,
- 				      pte_t pte, int dirty);
-diff --git a/arch/sh/include/asm/hugetlb.h b/arch/sh/include/asm/hugetlb.h
-index 8df4004977b9..c87195ae0cfa 100644
---- a/arch/sh/include/asm/hugetlb.h
-+++ b/arch/sh/include/asm/hugetlb.h
-@@ -32,13 +32,6 @@ static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
- {
- }
- 
--static inline int huge_ptep_set_access_flags(struct vm_area_struct *vma,
--					     unsigned long addr, pte_t *ptep,
--					     pte_t pte, int dirty)
--{
--	return ptep_set_access_flags(vma, addr, ptep, pte, dirty);
--}
--
- static inline pte_t huge_ptep_get(pte_t *ptep)
- {
- 	return *ptep;
-diff --git a/arch/sparc/include/asm/hugetlb.h b/arch/sparc/include/asm/hugetlb.h
-index c41754a113f3..028a1465fbe7 100644
---- a/arch/sparc/include/asm/hugetlb.h
-+++ b/arch/sparc/include/asm/hugetlb.h
-@@ -40,6 +40,7 @@ static inline void huge_ptep_set_wrprotect(struct mm_struct *mm,
- 	set_huge_pte_at(mm, addr, ptep, pte_wrprotect(old_pte));
- }
- 
-+#define __HAVE_ARCH_HUGE_PTEP_SET_ACCESS_FLAGS
- static inline int huge_ptep_set_access_flags(struct vm_area_struct *vma,
- 					     unsigned long addr, pte_t *ptep,
- 					     pte_t pte, int dirty)
-diff --git a/arch/x86/include/asm/hugetlb.h b/arch/x86/include/asm/hugetlb.h
-index a3f781f7a264..574d42eb081e 100644
---- a/arch/x86/include/asm/hugetlb.h
-+++ b/arch/x86/include/asm/hugetlb.h
-@@ -13,13 +13,6 @@ static inline int is_hugepage_only_range(struct mm_struct *mm,
- 	return 0;
- }
- 
--static inline int huge_ptep_set_access_flags(struct vm_area_struct *vma,
--					     unsigned long addr, pte_t *ptep,
--					     pte_t pte, int dirty)
--{
--	return ptep_set_access_flags(vma, addr, ptep, pte, dirty);
--}
--
- static inline pte_t huge_ptep_get(pte_t *ptep)
- {
- 	return *ptep;
-diff --git a/include/asm-generic/hugetlb.h b/include/asm-generic/hugetlb.h
-index 9b9039845278..f3c99a03ee83 100644
---- a/include/asm-generic/hugetlb.h
-+++ b/include/asm-generic/hugetlb.h
-@@ -110,4 +110,13 @@ static inline void huge_ptep_set_wrprotect(struct mm_struct *mm,
- }
- #endif
- 
-+#ifndef __HAVE_ARCH_HUGE_PTEP_SET_ACCESS_FLAGS
-+static inline int huge_ptep_set_access_flags(struct vm_area_struct *vma,
-+		unsigned long addr, pte_t *ptep,
-+		pte_t pte, int dirty)
-+{
-+	return ptep_set_access_flags(vma, addr, ptep, pte, dirty);
-+}
-+#endif
-+
- #endif /* _ASM_GENERIC_HUGETLB_H */
--- 
-2.16.2
+> ---
+>  arch/powerpc/kernel/dma-swiotlb.c |  5 ++---
+>  arch/powerpc/kernel/dma.c         | 12 ++++++------
+>  2 files changed, 8 insertions(+), 9 deletions(-)
+> 
+> diff --git a/arch/powerpc/kernel/dma-swiotlb.c b/arch/powerpc/kernel/dma-swiotlb.c
+> index 88f3963ca30f..f6e0701c5303 100644
+> --- a/arch/powerpc/kernel/dma-swiotlb.c
+> +++ b/arch/powerpc/kernel/dma-swiotlb.c
+> @@ -11,7 +11,7 @@
+>   *
+>   */
+>  
+> -#include <linux/dma-mapping.h>
+> +#include <linux/dma-direct.h>
+>  #include <linux/memblock.h>
+>  #include <linux/pfn.h>
+>  #include <linux/of_platform.h>
+> @@ -31,9 +31,8 @@ static u64 swiotlb_powerpc_get_required(struct device *dev)
+>         end = memblock_end_of_DRAM();
+>         if (max_direct_dma_addr && end > max_direct_dma_addr)
+>                 end = max_direct_dma_addr;
+> -       end += get_dma_offset(dev);
+>  
+> -       mask = 1ULL << (fls64(end) - 1);
+> +       mask = 1ULL << (fls64(phys_to_dma(dev, end)) - 1);
+>         mask += mask - 1;
+>  
+>         return mask;
+> diff --git a/arch/powerpc/kernel/dma.c b/arch/powerpc/kernel/dma.c
+> index eceaa92e6986..3487de83bb37 100644
+> --- a/arch/powerpc/kernel/dma.c
+> +++ b/arch/powerpc/kernel/dma.c
+> @@ -6,7 +6,7 @@
+>   */
+>  
+>  #include <linux/device.h>
+> -#include <linux/dma-mapping.h>
+> +#include <linux/dma-direct.h>
+>  #include <linux/dma-debug.h>
+>  #include <linux/gfp.h>
+>  #include <linux/memblock.h>
+> @@ -43,7 +43,7 @@ static u64 __maybe_unused get_pfn_limit(struct device *dev)
+>  static int dma_nommu_dma_supported(struct device *dev, u64 mask)
+>  {
+>  #ifdef CONFIG_PPC64
+> -       u64 limit = get_dma_offset(dev) + (memblock_end_of_DRAM() - 1);
+> +       u64 limit = phys_to_dma(dev, (memblock_end_of_DRAM() - 1));
+>  
+>         /* Limit fits in the mask, we are good */
+>         if (mask >= limit)
+> @@ -104,7 +104,7 @@ void *__dma_nommu_alloc_coherent(struct device *dev, size_t size,
+>                 return NULL;
+>         ret = page_address(page);
+>         memset(ret, 0, size);
+> -       *dma_handle = __pa(ret) + get_dma_offset(dev);
+> +       *dma_handle = phys_to_dma(dev,__pa(ret));
+>  
+>         return ret;
+>  }
+> @@ -188,7 +188,7 @@ static int dma_nommu_map_sg(struct device *dev, struct scatterlist *sgl,
+>         int i;
+>  
+>         for_each_sg(sgl, sg, nents, i) {
+> -               sg->dma_address = sg_phys(sg) + get_dma_offset(dev);
+> +               sg->dma_address = phys_to_dma(dev, sg_phys(sg));
+>                 sg->dma_length = sg->length;
+>  
+>                 if (attrs & DMA_ATTR_SKIP_CPU_SYNC)
+> @@ -210,7 +210,7 @@ static u64 dma_nommu_get_required_mask(struct device *dev)
+>  {
+>         u64 end, mask;
+>  
+> -       end = memblock_end_of_DRAM() + get_dma_offset(dev);
+> +       end = phys_to_dma(dev, memblock_end_of_DRAM());
+>  
+>         mask = 1ULL << (fls64(end) - 1);
+>         mask += mask - 1;
+> @@ -228,7 +228,7 @@ static inline dma_addr_t dma_nommu_map_page(struct device *dev,
+>         if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
+>                 __dma_sync_page(page, offset, size, dir);
+>  
+> -       return page_to_phys(page) + offset + get_dma_offset(dev);
+> +       return phys_to_dma(dev, page_to_phys(page)) + offset;
+>  }
+>  
+>  static inline void dma_nommu_unmap_page(struct device *dev,
 
