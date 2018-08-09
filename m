@@ -1,59 +1,92 @@
-From: Scott Wood <oss@buserror.net>
-Date: Mon, 27 Aug 2018 08:51:23 +0000
-Subject: Re: [PATCH 16/20] powerpc/dma: use dma_direct_{alloc,free}
-Message-Id: <f48ee881bf38c97575202a8921bf8df2ff2136cb.camel@buserror.net>
+From: Firoz Khan <firoz.khan@linaro.org>
+Date: Thu, 09 Aug 2018 05:17:10 +0000
+Subject: [PATCH 0/5] System call table generation support
+Message-Id: <1533791115-3681-1-git-send-email-firoz.khan@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180730163824.10064-1-hch@lst.de>
- <20180730163824.10064-17-hch@lst.de>
- <4d5c934ea7bc9802eb3653e6afe7583cb05e4484.camel@kernel.crashing.org>
-In-Reply-To: <4d5c934ea7bc9802eb3653e6afe7583cb05e4484.camel@kernel.crashing.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>, Christoph Hellwig <hch@lst.de>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
-Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Robin Murphy <robin.murphy@arm.com>, linuxppc-dev@lists.ozlabs.org, iommu@lists.linux-foundation.org, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: y2038@lists.linaro.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, arnd@arndb.de, deepa.kernel@gmail.com, marcin.juszkiewicz@linaro.org, firoz.khan@linaro.org
 
-On Thu, 2018-08-09 at 10:52 +1000, Benjamin Herrenschmidt wrote:
-> On Mon, 2018-07-30 at 18:38 +0200, Christoph Hellwig wrote:
-> > These do the same functionality as the existing helpers, but do it
-> > simpler, and also allow the (optional) use of CMA.
-> > 
-> > Note that the swiotlb code now calls into the dma_direct code directly,
-> > given that it doesn't work with noncoherent caches at all, and isn't
-> > called
-> > when we have an iommu either, so the iommu special case in
-> > dma_nommu_alloc_coherent isn't required for swiotlb.
-> 
-> I am not convinced that this will produce the same results due to
-> the way the zone picking works.
-> 
-> As for the interaction with swiotlb, we'll need the FSL guys to have
-> a look. Scott, do you remember what this is about ?
+The purpose of this patch series is:
+1. We can easily add/modify/delete system call by changing entry 
+in syscall.tbl file. No need to manually edit many files.
 
-dma_direct_alloc() has similar (though not identical[1]) zone picking, so I
-think it will work.  Needs testing though, and I no longer have a book3e
-machine with a PCIe card in it.
+2. It is easy to unify the system call implementation across all 
+the architectures. 
 
-The odd thing about this platform (fsl book3e) is the 31-bit[2] limitation on
-PCI.  We currently use ZONE_DMA32 for this, rather than ZONE_DMA, at Ben's
-request[3].  dma_direct_alloc() regards ZONE_DMA32 as being fixed at 32-bits,
-but it doesn't really matter as long as limit_zone_pfn() still works, and the
-allocation is made below 2 GiB.  If we were to switch to ZONE_DMA, and have
-both 31-bit and 32-bit zones, then dma_direct_alloc() would have a problem
-knowing when to use the 31-bit zone since it's based on a non-power-of-2 limit
-that isn't reflected in the dma mask.
+The system call tables are in different format in all architecture 
+and it will be difficult to manually add or modify the system calls
+manually in the respective files. To make it easy by keeping a script 
+and which'll generate the header file and syscall table file so this 
+change will unify the implementation across all architectures.
 
--Scott
+syscall.tbl contains the list of available system calls along with 
+system call number and corresponding entry point. Add a new system 
+call in this architecture will be possible by adding new entry in 
+the syscall.tbl file.
 
-[1] The logic in dma_direct_alloc() seems wrong -- the zone should need to fit
-in the mask, not the other way around.  If ARCH_ZONE_DMA_BITS is 24, then
-0x007fffff should be a failure rather than GFP_DMA, 0x7fffffff should be
-GFP_DMA rather than GFP_DMA32, and 0x3ffffffff should be GFP_DMA32 rather than
-an unrestricted allocation (in each case assuming that the end of RAM is
-beyond the mask).
+Adding a new table entry consisting of:
+        - System call number.
+        - ABI.
+        - System call name.
+        - Entry point name.
 
-[2] The actual limit is closer to 4 GiB, but not quite due to special windows.
- swiotlb still uses the real limit when deciding whether to bounce, so the dma
-mask is still 32 bits.
+ARM, s390 and x86 architecuture does exist the similar support. I 
+leverage their implementation to come up with a generic solution.
 
-[3] https://lists.ozlabs.org/pipermail/linuxppc-dev/2012-July/099593.html
+I have done the same support for work for alpha, m68k, microblaze, 
+mips, parisc, powerpc, sh, sparc, and xtensa. But I started sending 
+the patch for one architecuture for review. Below mentioned git
+repository contains more details.
+Git repo:- https://github.com/frzkhn/system_call_table_generator/
+
+Finally, this is the ground work for solving the Y2038 issue. We 
+need to add/change two dozen of system calls to solve Y2038 issue. 
+So this patch series will help to easily modify from existing 
+system call to Y2038 compatible system calls.
+
+I started working system call table generation on 4.17-rc1. I used 
+marcin's script - https://github.com/hrw/syscalls-table to generate 
+the syscall.tbl file. And this will be the input to the system call 
+table generation script. But there are couple system call got add 
+in the latest rc release. If run Marcin's script on latest release,
+it will generate a different syscall.tbl. But I still use the old 
+file - syscall.tbl and once all review got over I'll update 
+syscall.tbl alone w.r.to the tip of the kernel. The impact of this
+is, few of the system call won't work.
+
+Firoz Khan (5):
+  ia64: Replace NR_syscalls macro from asm/unistd.h
+  ia64: Added an offset for system call number
+  ia64: Replaced the system call table entry from entry.S
+  ia64: Added system call table generation support
+  ia64: uapi header and system call table file generation
+
+ arch/ia64/Makefile                      |   3 +
+ arch/ia64/include/asm/Kbuild            |   2 +
+ arch/ia64/include/asm/unistd.h          |   4 -
+ arch/ia64/include/uapi/asm/Kbuild       |   2 +
+ arch/ia64/include/uapi/asm/unistd.h     | 331 +------------------------------
+ arch/ia64/kernel/entry.S                | 335 +-------------------------------
+ arch/ia64/kernel/fsys.S                 |   2 +-
+ arch/ia64/kernel/gate.S                 |   4 +-
+ arch/ia64/kernel/ivt.S                  |   2 +-
+ arch/ia64/kernel/patch.c                |   2 +-
+ arch/ia64/kernel/syscall.S              |  13 ++
+ arch/ia64/kernel/syscalls/Makefile      |  40 ++++
+ arch/ia64/kernel/syscalls/syscall.tbl   | 334 +++++++++++++++++++++++++++++++
+ arch/ia64/kernel/syscalls/syscallhdr.sh |  33 ++++
+ arch/ia64/kernel/syscalls/syscalltbl.sh |  34 ++++
+ arch/ia64/mm/init.c                     |   6 +-
+ 16 files changed, 474 insertions(+), 673 deletions(-)
+ create mode 100644 arch/ia64/kernel/syscall.S
+ create mode 100644 arch/ia64/kernel/syscalls/Makefile
+ create mode 100644 arch/ia64/kernel/syscalls/syscall.tbl
+ create mode 100644 arch/ia64/kernel/syscalls/syscallhdr.sh
+ create mode 100644 arch/ia64/kernel/syscalls/syscalltbl.sh
+
+-- 
+1.9.1
+
