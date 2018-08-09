@@ -1,37 +1,77 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 20 Aug 2018 22:13:57 +0000
-Subject: [GIT PULL] convert ia64 to use NO_BOOTMEM
-Message-Id: <20180820221357.GA18540@agluck-desk>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Date: Thu, 09 Aug 2018 00:45:22 +0000
+Subject: Re: [PATCH 13/20] powerpc/dma: remove get_dma_offset
+Message-Id: <65b4dfcc38a7ace49f3bcac95cf9e2d3ef544650.camel@kernel.crashing.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20180730163824.10064-1-hch@lst.de>
+ <20180730163824.10064-14-hch@lst.de>
+In-Reply-To: <20180730163824.10064-14-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Christoph Hellwig <hch@lst.de>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Robin Murphy <robin.murphy@arm.com>, linuxppc-dev@lists.ozlabs.org, iommu@lists.linux-foundation.org, linux-ia64@vger.kernel.org
 
-The following changes since commit d72e90f33aa4709ebecc5005562f52335e106a60:
+On Mon, 2018-07-30 at 18:38 +0200, Christoph Hellwig wrote:
+> Just fold the calculation into __phys_to_dma/__dma_to_phys as those are
+> the only places that should know about it.
+> 
+> Signed-off-by: Christoph Hellwig <hch@lst.de>
 
-  Linux 4.18-rc6 (2018-07-22 14:12:20 -0700)
+Acked-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 
-are available in the Git repository at:
+> ---
+>  arch/powerpc/include/asm/dma-direct.h  |  8 ++++++--
+>  arch/powerpc/include/asm/dma-mapping.h | 16 ----------------
+>  2 files changed, 6 insertions(+), 18 deletions(-)
+> 
+> diff --git a/arch/powerpc/include/asm/dma-direct.h b/arch/powerpc/include/asm/dma-direct.h
+> index 7702875aabb7..0fba19445ae8 100644
+> --- a/arch/powerpc/include/asm/dma-direct.h
+> +++ b/arch/powerpc/include/asm/dma-direct.h
+> @@ -19,11 +19,15 @@ static inline bool dma_capable(struct device *dev, dma_addr_t addr, size_t size)
+>  
+>  static inline dma_addr_t __phys_to_dma(struct device *dev, phys_addr_t paddr)
+>  {
+> -	return paddr + get_dma_offset(dev);
+> +	if (!dev)
+> +		return paddr + PCI_DRAM_OFFSET;
+> +	return paddr + dev->archdata.dma_offset;
+>  }
+>  
+>  static inline phys_addr_t __dma_to_phys(struct device *dev, dma_addr_t daddr)
+>  {
+> -	return daddr - get_dma_offset(dev);
+> +	if (!dev)
+> +		return daddr - PCI_DRAM_OFFSET;
+> +	return daddr - dev->archdata.dma_offset;
+>  }
+>  #endif /* ASM_POWERPC_DMA_DIRECT_H */
+> diff --git a/arch/powerpc/include/asm/dma-mapping.h b/arch/powerpc/include/asm/dma-mapping.h
+> index dacd0f93f2b2..f0bf7ac2686c 100644
+> --- a/arch/powerpc/include/asm/dma-mapping.h
+> +++ b/arch/powerpc/include/asm/dma-mapping.h
+> @@ -80,22 +80,6 @@ static inline const struct dma_map_ops *get_arch_dma_ops(struct bus_type *bus)
+>  	return NULL;
+>  }
+>  
+> -/*
+> - * get_dma_offset()
+> - *
+> - * Get the dma offset on configurations where the dma address can be determined
+> - * from the physical address by looking at a simple offset.  Direct dma and
+> - * swiotlb use this function, but it is typically not used by implementations
+> - * with an iommu.
+> - */
+> -static inline dma_addr_t get_dma_offset(struct device *dev)
+> -{
+> -	if (dev)
+> -		return dev->archdata.dma_offset;
+> -
+> -	return PCI_DRAM_OFFSET;
+> -}
+> -
+>  static inline void set_dma_offset(struct device *dev, dma_addr_t off)
+>  {
+>  	if (dev)
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git tags/please-pull-noboot
-
-for you to fetch changes up to f62800992e5917f2bed143dbcdce2501bc6933a9:
-
-  ia64: switch to NO_BOOTMEM (2018-07-23 11:32:36 -0700)
-
-----------------------------------------------------------------
-Mike Rapoport kindly fixed up ia64 to work with NO_BOOTMEM
-
-----------------------------------------------------------------
-Mike Rapoport (4):
-      ia64: contig/paging_init: reduce code duplication
-      ia64: remove unused num_dma_physpages member from 'struct early_node_data'
-      ia64: use mem_data to detect nodes' minimal and maximal PFNs
-      ia64: switch to NO_BOOTMEM
-
- arch/ia64/Kconfig        |   1 +
- arch/ia64/kernel/setup.c |  11 +++-
- arch/ia64/mm/contig.c    |  75 +++-----------------------
- arch/ia64/mm/discontig.c | 134 ++++++-----------------------------------------
- 4 files changed, 33 insertions(+), 188 deletions(-)
