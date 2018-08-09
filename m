@@ -1,41 +1,103 @@
-From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-Date: Thu, 16 Aug 2018 11:42:02 +0000
-Subject: [PATCH] ia64/sn/hwperf: check seq_open return value to avoid NULL deref
-Message-Id: <20180816114202.7094-1-linux@rasmusvillemoes.dk>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Date: Thu, 09 Aug 2018 01:05:09 +0000
+Subject: Re: [PATCH 20/20] powerpc/dma: remove dma_nommu_mmap_coherent
+Message-Id: <0b6b08b001ca2f7998192cc4bb7b8e13a0758b43.camel@kernel.crashing.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20180730163824.10064-1-hch@lst.de>
+ <20180730163824.10064-21-hch@lst.de>
+In-Reply-To: <20180730163824.10064-21-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
-Cc: Rasmus Villemoes <linux@rasmusvillemoes.dk>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Christoph Hellwig <hch@lst.de>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Robin Murphy <robin.murphy@arm.com>, linuxppc-dev@lists.ozlabs.org, iommu@lists.linux-foundation.org, linux-ia64@vger.kernel.org
 
-This code should check the return value of seq_open(); if it failed,
-file->private_data is NULL. But in that case we then need to dispose of
-objbuf to prevent a resource leak.
+On Mon, 2018-07-30 at 18:38 +0200, Christoph Hellwig wrote:
+> The remaining implementation for coherent caches is functionally
+> identical to the default provided in common code.
+> 
+> Signed-off-by: Christoph Hellwig <hch@lst.de>
 
-Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
----
- arch/ia64/sn/kernel/sn2/sn_hwperf.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+Acked-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 
-diff --git a/arch/ia64/sn/kernel/sn2/sn_hwperf.c b/arch/ia64/sn/kernel/sn2/sn_hwperf.c
-index 55febd65911a..9e36f0b7d9ae 100644
---- a/arch/ia64/sn/kernel/sn2/sn_hwperf.c
-+++ b/arch/ia64/sn/kernel/sn2/sn_hwperf.c
-@@ -947,8 +947,12 @@ int sn_topology_open(struct inode *inode, struct file *file)
- 
- 	if ((e = sn_hwperf_enum_objects(&nobj, &objbuf)) = 0) {
- 		e = seq_open(file, &sn_topology_seq_ops);
--		seq = file->private_data;
--		seq->private = objbuf;
-+		if (e) {
-+			vfree(objbuf);
-+		} else {
-+			seq = file->private_data;
-+			seq->private = objbuf;
-+		}
- 	}
- 
- 	return e;
--- 
-2.16.4
+> ---
+>  arch/powerpc/include/asm/dma-mapping.h |  7 -------
+>  arch/powerpc/kernel/dma-iommu.c        |  1 -
+>  arch/powerpc/kernel/dma.c              | 13 -------------
+>  arch/powerpc/platforms/pseries/vio.c   |  1 -
+>  4 files changed, 22 deletions(-)
+> 
+> diff --git a/arch/powerpc/include/asm/dma-mapping.h b/arch/powerpc/include/asm/dma-mapping.h
+> index 879c4efba785..e62e23aa3714 100644
+> --- a/arch/powerpc/include/asm/dma-mapping.h
+> +++ b/arch/powerpc/include/asm/dma-mapping.h
+> @@ -18,13 +18,6 @@
+>  #include <asm/io.h>
+>  #include <asm/swiotlb.h>
+>  
+> -/* Some dma direct funcs must be visible for use in other dma_ops */
+> -extern int dma_nommu_mmap_coherent(struct device *dev,
+> -				    struct vm_area_struct *vma,
+> -				    void *cpu_addr, dma_addr_t handle,
+> -				    size_t size, unsigned long attrs);
+> -
+> -
+>  static inline unsigned long device_to_mask(struct device *dev)
+>  {
+>  	if (dev->dma_mask && *dev->dma_mask)
+> diff --git a/arch/powerpc/kernel/dma-iommu.c b/arch/powerpc/kernel/dma-iommu.c
+> index f9fe2080ceb9..bf5234e1f71b 100644
+> --- a/arch/powerpc/kernel/dma-iommu.c
+> +++ b/arch/powerpc/kernel/dma-iommu.c
+> @@ -114,7 +114,6 @@ int dma_iommu_mapping_error(struct device *dev, dma_addr_t dma_addr)
+>  struct dma_map_ops dma_iommu_ops = {
+>  	.alloc			= dma_iommu_alloc_coherent,
+>  	.free			= dma_iommu_free_coherent,
+> -	.mmap			= dma_nommu_mmap_coherent,
+>  	.map_sg			= dma_iommu_map_sg,
+>  	.unmap_sg		= dma_iommu_unmap_sg,
+>  	.dma_supported		= dma_iommu_dma_supported,
+> diff --git a/arch/powerpc/kernel/dma.c b/arch/powerpc/kernel/dma.c
+> index 08b12cbd7abf..5b71c9d1b8cc 100644
+> --- a/arch/powerpc/kernel/dma.c
+> +++ b/arch/powerpc/kernel/dma.c
+> @@ -70,18 +70,6 @@ static void dma_nommu_free_coherent(struct device *dev, size_t size,
+>  	iommu_free_coherent(iommu, size, vaddr, dma_handle);
+>  }
+>  
+> -int dma_nommu_mmap_coherent(struct device *dev, struct vm_area_struct *vma,
+> -			     void *cpu_addr, dma_addr_t handle, size_t size,
+> -			     unsigned long attrs)
+> -{
+> -	unsigned long pfn = page_to_pfn(virt_to_page(cpu_addr));
+> -
+> -	return remap_pfn_range(vma, vma->vm_start,
+> -			       pfn + vma->vm_pgoff,
+> -			       vma->vm_end - vma->vm_start,
+> -			       vma->vm_page_prot);
+> -}
+> -
+>  /* note: needs to be called arch_get_required_mask for dma-noncoherent.c */
+>  u64 arch_get_required_mask(struct device *dev)
+>  {
+> @@ -98,7 +86,6 @@ u64 arch_get_required_mask(struct device *dev)
+>  const struct dma_map_ops dma_nommu_ops = {
+>  	.alloc				= dma_nommu_alloc_coherent,
+>  	.free				= dma_nommu_free_coherent,
+> -	.mmap				= dma_nommu_mmap_coherent,
+>  	.map_sg				= dma_direct_map_sg,
+>  	.map_page			= dma_direct_map_page,
+>  	.get_required_mask		= arch_get_required_mask,
+> diff --git a/arch/powerpc/platforms/pseries/vio.c b/arch/powerpc/platforms/pseries/vio.c
+> index 49e04ec19238..51d564313bd0 100644
+> --- a/arch/powerpc/platforms/pseries/vio.c
+> +++ b/arch/powerpc/platforms/pseries/vio.c
+> @@ -618,7 +618,6 @@ static u64 vio_dma_get_required_mask(struct device *dev)
+>  static const struct dma_map_ops vio_dma_mapping_ops = {
+>  	.alloc             = vio_dma_iommu_alloc_coherent,
+>  	.free              = vio_dma_iommu_free_coherent,
+> -	.mmap		   = dma_nommu_mmap_coherent,
+>  	.map_sg            = vio_dma_iommu_map_sg,
+>  	.unmap_sg          = vio_dma_iommu_unmap_sg,
+>  	.map_page          = vio_dma_iommu_map_page,
+
