@@ -1,28 +1,39 @@
-From: Sergei Trofimovich <slyfox@gentoo.org>
-Date: Sat, 04 Aug 2018 21:33:36 +0000
-Subject: Re: [PATCH v2, simpler] ia64: fix ptrace(PTRACE_GETREGS) (unbreaks strace, gdb)
-Message-Id: <20180804223336.5f29778e@sf>
+From: zhong jiang <zhongjiang@huawei.com>
+Date: Fri, 10 Aug 2018 02:38:50 +0000
+Subject: [PATCH] ia64:tioce_provider: Use kmemdup rather than implement the function
+Message-Id: <1533868730-65425-1-git-send-email-zhongjiang@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180211185134.76ccfd45@sf>
-        <20180309231555.16925-1-slyfox@gentoo.org>
-In-Reply-To: <20180309231555.16925-1-slyfox@gentoo.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: tony.luck@intel.com, fenghua.yu@intel.com
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Fri,  9 Mar 2018 23:15:55 +0000
-Sergei Trofimovich <slyfox@gentoo.org> wrote:
+The kmemdup has implemented the function that kmalloc() + memcpy will
+do. So just replace them to make the code concise.
 
-I tried to explain in more detail breakage mechanics
-of unwinder and gcc code generation quirks at:
-    https://trofi.github.io/posts/210-ptrace-and-accidental-boot-fix-on-ia64.html
-Hopefully it gives better intuition of code change
-caused by both proposed patches.
+Signed-off-by: zhong jiang <zhongjiang@huawei.com>
+---
+ arch/ia64/sn/pci/tioce_provider.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-I personally think v1 patch is slightly more robust.
-
+diff --git a/arch/ia64/sn/pci/tioce_provider.c b/arch/ia64/sn/pci/tioce_provider.c
+index 3bd9abc..9ba61bc 100644
+--- a/arch/ia64/sn/pci/tioce_provider.c
++++ b/arch/ia64/sn/pci/tioce_provider.c
+@@ -1000,11 +1000,11 @@
+ 	 * Allocate kernel bus soft and copy from prom.
+ 	 */
+ 
+-	tioce_common = kzalloc(sizeof(struct tioce_common), GFP_KERNEL);
++	tioce_common = kmemdup(prom_bussoft, sizeof(struct tioce_common),
++			       GFP_KERNEL);
+ 	if (!tioce_common)
+ 		return NULL;
+ 
+-	memcpy(tioce_common, prom_bussoft, sizeof(struct tioce_common));
+ 	tioce_common->ce_pcibus.bs_base = (unsigned long)
+ 		ioremap(REGION_OFFSET(tioce_common->ce_pcibus.bs_base),
+ 			sizeof(struct tioce_common));
 -- 
-
-  Sergei
+1.7.12.4
