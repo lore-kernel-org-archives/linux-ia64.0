@@ -1,37 +1,32 @@
-From: Joe Perches <golf@perches.com>
-Date: Tue, 14 Aug 2018 04:49:36 +0000
+From: Michael Ellerman <mpe@ellerman.id.au>
+Date: Tue, 14 Aug 2018 09:28:46 +0000
 Subject: Re: [PATCH 2/2] powerpc: Use ARRAY_SIZE to replace its implementation
-Message-Id: <c998658f11cd202fffa4b96b97af196049d78ec0.camel@perches.com>
+Message-Id: <874lfxjnzl.fsf@concordia.ellerman.id.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1534214814-9043-1-git-send-email-zhongjiang@huawei.com>
-         <1534214814-9043-3-git-send-email-zhongjiang@huawei.com>
+References: <1534214814-9043-1-git-send-email-zhongjiang@huawei.com> <1534214814-9043-3-git-send-email-zhongjiang@huawei.com>
 In-Reply-To: <1534214814-9043-3-git-send-email-zhongjiang@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: zhong jiang <zhongjiang@huawei.com>, tony.luck@intel.com, fenghua.yu@intel.com, benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au, oleg@redhat.com, rppt@linux.vnet.ibm.com, dhowells@redhat.com, akpm@linux-foundation.org, viro@zeniv.linux.org.uk
+To: zhong jiang <zhongjiang@huawei.com>, tony.luck@intel.com, fenghua.yu@intel.com, benh@kernel.crashing.org, paulus@samba.org, oleg@redhat.com, rppt@linux.vnet.ibm.com, dhowells@redhat.com, akpm@linux-foundation.org, viro@zeniv.linux.org.uk
 Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
 
-On Tue, 2018-08-14 at 10:46 +0800, zhong jiang wrote:
+zhong jiang <zhongjiang@huawei.com> writes:
 > Use ARRAY_SIZE instead of dividing sizeof array with sizeof an element.
 > So just replace it.
-
-Better to remove the extern and the const altogether here as well.
-
-$ git grep -w powerpc_num_opcodes
-arch/powerpc/xmon/ppc-dis.c:  opcode_end = powerpc_opcodes + powerpc_num_opcodes;
-arch/powerpc/xmon/ppc-opc.c:const int powerpc_num_opcodes arch/powerpc/xmon/ppc.h:extern const int powerpc_num_opcodes;
-
-And this one could be removed instead:
-
-$ git grep -w vle_num_opcodes
-arch/powerpc/xmon/ppc-opc.c:const int vle_num_opcodes arch/powerpc/xmon/ppc.h:extern const int vle_num_opcodes;
-
+>
 > Signed-off-by: zhong jiang <zhongjiang@huawei.com>
 > ---
 >  arch/powerpc/xmon/ppc-opc.c | 12 ++++--------
 >  1 file changed, 4 insertions(+), 8 deletions(-)
-> 
+
+This code is copied from binutils and we don't want to needlessly cause
+it to diverge from the binutils copy.
+
+So thanks but no thanks.
+
+cheers
+
 > diff --git a/arch/powerpc/xmon/ppc-opc.c b/arch/powerpc/xmon/ppc-opc.c
 > index ac2b55b..f3f57a1 100644
 > --- a/arch/powerpc/xmon/ppc-opc.c
@@ -70,3 +65,5 @@ arch/powerpc/xmon/ppc-opc.c:const int vle_num_opcodes arch/powerpc/xmon/ppc.h:ex
 >  
 > -const int powerpc_num_macros > -  sizeof (powerpc_macros) / sizeof (powerpc_macros[0]);
 > +const int powerpc_num_macros = ARRAY_SIZE(powerpc_macros);
+> -- 
+> 1.7.12.4
