@@ -1,26 +1,23 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Wed, 22 Aug 2018 07:04:07 +0000
-Subject: Re: [PATCH 17/20] powerpc/dma-swiotlb: use generic swiotlb_dma_ops
-Message-Id: <20180822070406.GE19284@lst.de>
+From: zhong jiang <zhongjiang@huawei.com>
+Date: Tue, 14 Aug 2018 02:46:52 +0000
+Subject: [PATCH 0/2] Use ARRAY_SIZE to replace its implementation
+Message-Id: <1534214814-9043-1-git-send-email-zhongjiang@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180730163824.10064-1-hch@lst.de>
- <20180730163824.10064-18-hch@lst.de>
- <556a4302d13b1caafb223112c4de43d959146215.camel@kernel.crashing.org>
- <777010cd04645b55aa4197eddcc880f010f0ef6d.camel@kernel.crashing.org>
-In-Reply-To: <777010cd04645b55aa4197eddcc880f010f0ef6d.camel@kernel.crashing.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Cc: Christoph Hellwig <hch@lst.de>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Robin Murphy <robin.murphy@arm.com>, linuxppc-dev@lists.ozlabs.org, iommu@lists.linux-foundation.org, linux-ia64@vger.kernel.org
+To: tony.luck@intel.com, fenghua.yu@intel.com, benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au, oleg@redhat.com, rppt@linux.vnet.ibm.com, dhowells@redhat.com, akpm@linux-foundation.org, viro@zeniv.linux.org.uk
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
 
-On Thu, Aug 09, 2018 at 11:57:53AM +1000, Benjamin Herrenschmidt wrote:
-> Note: We will still need to implement some custom variant of this
-> for our secure VMs ... 
-> 
-> Basically we'll need to use the existing bounce bufferring as-is but
-> the condition will be different, it won't be whether the address is
-> below a certain limit, it will be *always*.
+The issue is detected with the help of Coccinelle.
 
-The conditions are in the dma_capable() helper that the architecture
-can override (and which powerpc already does override).
+zhong jiang (2):
+  ia64: Use ARRAY_SIZE to replace its implementation
+  powerpc: Use ARRAY_SIZE to replace its implementation
+
+ arch/ia64/kernel/perfmon.c  |  2 +-
+ arch/powerpc/xmon/ppc-opc.c | 12 ++++--------
+ 2 files changed, 5 insertions(+), 9 deletions(-)
+
+-- 
+1.7.12.4
