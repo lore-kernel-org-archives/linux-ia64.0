@@ -1,78 +1,36 @@
-From: Alexandre Ghiti <alex@ghiti.fr>
-Date: Fri, 03 Aug 2018 09:47:10 +0000
-Subject: Re: [PATCH v5 09/11] hugetlb: Introduce generic version of huge_ptep_set_wrprotect
-Message-Id: <ef7fbd80-84a9-0b39-f948-413dea6f6469@ghiti.fr>
+From: zhong jiang <zhongjiang@huawei.com>
+Date: Tue, 14 Aug 2018 02:46:53 +0000
+Subject: [PATCH 1/2] ia64: Use ARRAY_SIZE to replace its implementation
+Message-Id: <1534214814-9043-2-git-send-email-zhongjiang@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180731060155.16915-1-alex@ghiti.fr>
- <20180731060155.16915-10-alex@ghiti.fr>
- <87h8kfhg7o.fsf@concordia.ellerman.id.au>
- <6acb1389-6998-bafb-cf69-174fd522c04c@ghiti.fr>
- <90bf556f-144d-24b8-d2f6-70fee4a30559@ghiti.fr>
- <87muu3hlzc.fsf@concordia.ellerman.id.au>
-In-Reply-To: <87muu3hlzc.fsf@concordia.ellerman.id.au>
+References: <1534214814-9043-1-git-send-email-zhongjiang@huawei.com>
+In-Reply-To: <1534214814-9043-1-git-send-email-zhongjiang@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Michael Ellerman <mpe@ellerman.id.au>, linux-mm@kvack.org, mike.kravetz@oracle.com, linux@armlinux.org.uk, catalin.marinas@arm.com, will.deacon@arm.com, tony.luck@intel.com, fenghua.yu@intel.com, ralf@linux-mips.org, paul.burton@mips.com, jhogan@kernel.org, jejb@parisc-linux.org, deller@gmx.de, benh@kernel.crashing.org, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, x86@kernel.org, arnd@arndb.de, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, "aneesh.kumar@linux.ibm.com" <aneesh.kumar@linux.ibm.c>
+To: tony.luck@intel.com, fenghua.yu@intel.com, benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au, oleg@redhat.com, rppt@linux.vnet.ibm.com, dhowells@redhat.com, akpm@linux-foundation.org, viro@zeniv.linux.org.uk
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
 
-Hi Michael,
+We prefer to ARRAY_SIZE rather than duplicating its implementation.
+So just replace it.
 
-Thanks, I will then remove those two specific implementations and we'll 
-use the generic ones.
+Signed-off-by: zhong jiang <zhongjiang@huawei.com>
+---
+ arch/ia64/kernel/perfmon.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-I send a v6 asap.
-
-Thanks again,
-
-Alex
-
-
-On 08/03/2018 10:51 AM, Michael Ellerman wrote:
-> Hi Alex,
->
-> Sorry missed your previous mail.
->
-> Alex Ghiti <alex@ghiti.fr> writes:
->> Ok, I tried every defconfig available:
->>
->> - for the nohash/32, I found that I could use mpc885_ads_defconfig and I
->> activated HUGETLBFS.
->> I removed the definition of huge_ptep_set_wrprotect from
->> nohash/32/pgtable.h, add an #error in
->> include/asm-generic/hugetlb.h right before the generic definition of
->> huge_ptep_set_wrprotect,
->> and fell onto it at compile-time:
->> => I'm pretty confident then that removing the definition of
->> huge_ptep_set_wrprotect does not
->> break anythingin this case.
-> Thanks, that sounds good.
->
->> - regardind book3s/32, I did not find any defconfig with
->> CONFIG_PPC_BOOK3S_32, CONFIG_PPC32
->> allowing to enable huge page support (ie CONFIG_SYS_SUPPORTS_HUGETLBFS)
->> => Do you have a defconfig that would allow me to try the same as above ?
-> I think you're right, it's dead code AFAICS.
->
-> We have:
->
-> config PPC_BOOK3S_64
->          ...
-> 	select SYS_SUPPORTS_HUGETLBFS
->
-> config PPC_FSL_BOOK3E
->          ...
-> 	select SYS_SUPPORTS_HUGETLBFS if PHYS_64BIT || PPC64
->
-> config PPC_8xx
-> 	...
-> 	select SYS_SUPPORTS_HUGETLBFS
->
->
-> So we can't ever enable HUGETLBFS for Book3S 32.
->
-> Presumably the code got copied when we split the headers apart.
->
-> So I think you can just ignore that one, and we'll delete it.
->
-> cheers
-
+diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
+index a9d4dc6..6cbe6e0 100644
+--- a/arch/ia64/kernel/perfmon.c
++++ b/arch/ia64/kernel/perfmon.c
+@@ -4645,7 +4645,7 @@ static char *pfmfs_dname(struct dentry *dentry, char *buffer, int buflen)
+ /* 32 */PFM_CMD(pfm_write_ibrs, PFM_CMD_PCLRWS, PFM_CMD_ARG_MANY, pfarg_dbreg_t, NULL),
+ /* 33 */PFM_CMD(pfm_write_dbrs, PFM_CMD_PCLRWS, PFM_CMD_ARG_MANY, pfarg_dbreg_t, NULL)
+ };
+-#define PFM_CMD_COUNT	(sizeof(pfm_cmd_tab)/sizeof(pfm_cmd_desc_t))
++#define PFM_CMD_COUNT	ARRAY_SIZE(pfm_cmd_tab)
+ 
+ static int
+ pfm_check_task_state(pfm_context_t *ctx, int cmd, unsigned long flags)
+-- 
+1.7.12.4
