@@ -1,23 +1,18 @@
-From: zhong jiang <zhongjiang@huawei.com>
-Date: Tue, 14 Aug 2018 02:46:52 +0000
-Subject: [PATCH 0/2] Use ARRAY_SIZE to replace its implementation
-Message-Id: <1534214814-9043-1-git-send-email-zhongjiang@huawei.com>
+From: David Howells <dhowells@redhat.com>
+Date: Tue, 14 Aug 2018 16:18:26 +0000
+Subject: Re: [PATCH 0/2] Use ARRAY_SIZE to replace its implementation
+Message-Id: <31000.1534263506@warthog.procyon.org.uk>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1534214814-9043-1-git-send-email-zhongjiang@huawei.com>
+In-Reply-To: <1534214814-9043-1-git-send-email-zhongjiang@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: tony.luck@intel.com, fenghua.yu@intel.com, benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au, oleg@redhat.com, rppt@linux.vnet.ibm.com, dhowells@redhat.com, akpm@linux-foundation.org, viro@zeniv.linux.org.uk
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
+To: zhong jiang <zhongjiang@huawei.com>
+Cc: dhowells@redhat.com, tony.luck@intel.com, fenghua.yu@intel.com, benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au, oleg@redhat.com, rppt@linux.vnet.ibm.com, akpm@linux-foundation.org, viro@zeniv.linux.org.uk, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
 
-The issue is detected with the help of Coccinelle.
+> "Use ARRAY_SIZE to replace its implementation"
 
-zhong jiang (2):
-  ia64: Use ARRAY_SIZE to replace its implementation
-  powerpc: Use ARRAY_SIZE to replace its implementation
+Um, the subject line doesn't make sense.
 
- arch/ia64/kernel/perfmon.c  |  2 +-
- arch/powerpc/xmon/ppc-opc.c | 12 ++++--------
- 2 files changed, 5 insertions(+), 9 deletions(-)
-
--- 
-1.7.12.4
+David
