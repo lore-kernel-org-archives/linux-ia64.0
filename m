@@ -1,195 +1,44 @@
-From: Alexandre Ghiti <alex@ghiti.fr>
-Date: Mon, 06 Aug 2018 17:57:06 +0000
-Subject: [PATCH v6 06/11] hugetlb: Introduce generic version of huge_pte_none
-Message-Id: <20180806175711.24438-7-alex@ghiti.fr>
+From: Tony Luck <tony.luck@intel.com>
+Date: Wed, 22 Aug 2018 20:39:21 +0000
+Subject: [PATCH] ia64: Fix allnoconfig section mismatch for ioc_init/ioc_iommu_info
+Message-Id: <20180822203921.30244-1-tony.luck@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180806175711.24438-1-alex@ghiti.fr>
-In-Reply-To: <20180806175711.24438-1-alex@ghiti.fr>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org, mike.kravetz@oracle.com, linux@armlinux.org.uk, catalin.marinas@arm.com, will.deacon@arm.com, tony.luck@intel.com, fenghua.yu@intel.com, ralf@linux-mips.org, paul.burton@mips.com, jhogan@kernel.org, jejb@parisc-linux.org, deller@gmx.de, benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, x86@kernel.org, arnd@arndb.de, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org
-Cc: Alexandre Ghiti <alex@ghiti.fr>
+To: linux-ia64@vger.kernel.org
 
-arm, arm64, ia64, mips, parisc, powerpc, sh, sparc, x86 architectures
-use the same version of huge_pte_none, so move this generic
-implementation into asm-generic/hugetlb.h.
+This has been broken for an embarassingly long time (since v4.4).
 
-Signed-off-by: Alexandre Ghiti <alex@ghiti.fr>
-Tested-by: Helge Deller <deller@gmx.de> # parisc
-Acked-by: Catalin Marinas <catalin.marinas@arm.com> # arm64
-Acked-by: Paul Burton <paul.burton@mips.com> # MIPS parts
-Reviewed-by: Luiz Capitulino <lcapitulino@redhat.com>
-Reviewed-by: Mike Kravetz <mike.kravetz@oracle.com>
+Just needs a couple of __init tags on functions to make the sections
+match up.
+
+Signed-off-by: Tony Luck <tony.luck@intel.com>
 ---
- arch/arm/include/asm/hugetlb.h     | 5 -----
- arch/arm64/include/asm/hugetlb.h   | 5 -----
- arch/ia64/include/asm/hugetlb.h    | 5 -----
- arch/mips/include/asm/hugetlb.h    | 1 +
- arch/parisc/include/asm/hugetlb.h  | 5 -----
- arch/powerpc/include/asm/hugetlb.h | 5 -----
- arch/sh/include/asm/hugetlb.h      | 5 -----
- arch/sparc/include/asm/hugetlb.h   | 5 -----
- arch/x86/include/asm/hugetlb.h     | 5 -----
- include/asm-generic/hugetlb.h      | 7 +++++++
- 10 files changed, 8 insertions(+), 40 deletions(-)
+ arch/ia64/hp/common/sba_iommu.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/arch/arm/include/asm/hugetlb.h b/arch/arm/include/asm/hugetlb.h
-index 537660891f9f..c821b550d6a4 100644
---- a/arch/arm/include/asm/hugetlb.h
-+++ b/arch/arm/include/asm/hugetlb.h
-@@ -44,11 +44,6 @@ static inline int prepare_hugepage_range(struct file *file,
- 	return 0;
- }
+diff --git a/arch/ia64/hp/common/sba_iommu.c b/arch/ia64/hp/common/sba_iommu.c
+index ee5b652d320a..671ce1e3f6f2 100644
+--- a/arch/ia64/hp/common/sba_iommu.c
++++ b/arch/ia64/hp/common/sba_iommu.c
+@@ -1805,7 +1805,7 @@ static struct ioc_iommu ioc_iommu_info[] __initdata = {
+ 	{ SX2000_IOC_ID, "sx2000", NULL },
+ };
  
--static inline int huge_pte_none(pte_t pte)
--{
--	return pte_none(pte);
--}
--
- static inline pte_t huge_pte_wrprotect(pte_t pte)
+-static void ioc_init(unsigned long hpa, struct ioc *ioc)
++static void __init ioc_init(unsigned long hpa, struct ioc *ioc)
  {
- 	return pte_wrprotect(pte);
-diff --git a/arch/arm64/include/asm/hugetlb.h b/arch/arm64/include/asm/hugetlb.h
-index 4c8dd488554d..49247c6f94db 100644
---- a/arch/arm64/include/asm/hugetlb.h
-+++ b/arch/arm64/include/asm/hugetlb.h
-@@ -42,11 +42,6 @@ static inline int prepare_hugepage_range(struct file *file,
- 	return 0;
- }
+ 	struct ioc_iommu *info;
  
--static inline int huge_pte_none(pte_t pte)
--{
--	return pte_none(pte);
--}
--
- static inline pte_t huge_pte_wrprotect(pte_t pte)
- {
- 	return pte_wrprotect(pte);
-diff --git a/arch/ia64/include/asm/hugetlb.h b/arch/ia64/include/asm/hugetlb.h
-index 41b5f6adeee4..bf573500b3c4 100644
---- a/arch/ia64/include/asm/hugetlb.h
-+++ b/arch/ia64/include/asm/hugetlb.h
-@@ -26,11 +26,6 @@ static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
- {
- }
- 
--static inline int huge_pte_none(pte_t pte)
--{
--	return pte_none(pte);
--}
--
- static inline pte_t huge_pte_wrprotect(pte_t pte)
- {
- 	return pte_wrprotect(pte);
-diff --git a/arch/mips/include/asm/hugetlb.h b/arch/mips/include/asm/hugetlb.h
-index 7df1f116a3cc..1c9c4531376c 100644
---- a/arch/mips/include/asm/hugetlb.h
-+++ b/arch/mips/include/asm/hugetlb.h
-@@ -55,6 +55,7 @@ static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
- 	flush_tlb_page(vma, addr & huge_page_mask(hstate_vma(vma)));
- }
- 
-+#define __HAVE_ARCH_HUGE_PTE_NONE
- static inline int huge_pte_none(pte_t pte)
- {
- 	unsigned long val = pte_val(pte) & ~_PAGE_GLOBAL;
-diff --git a/arch/parisc/include/asm/hugetlb.h b/arch/parisc/include/asm/hugetlb.h
-index 9afff26747a1..c09d8c74553c 100644
---- a/arch/parisc/include/asm/hugetlb.h
-+++ b/arch/parisc/include/asm/hugetlb.h
-@@ -38,11 +38,6 @@ static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
- {
- }
- 
--static inline int huge_pte_none(pte_t pte)
--{
--	return pte_none(pte);
--}
--
- static inline pte_t huge_pte_wrprotect(pte_t pte)
- {
- 	return pte_wrprotect(pte);
-diff --git a/arch/powerpc/include/asm/hugetlb.h b/arch/powerpc/include/asm/hugetlb.h
-index 0b02856aa85b..3562d46585ba 100644
---- a/arch/powerpc/include/asm/hugetlb.h
-+++ b/arch/powerpc/include/asm/hugetlb.h
-@@ -152,11 +152,6 @@ static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
- 	flush_hugetlb_page(vma, addr);
- }
- 
--static inline int huge_pte_none(pte_t pte)
--{
--	return pte_none(pte);
--}
--
- static inline pte_t huge_pte_wrprotect(pte_t pte)
- {
- 	return pte_wrprotect(pte);
-diff --git a/arch/sh/include/asm/hugetlb.h b/arch/sh/include/asm/hugetlb.h
-index 9abf9c86b769..a9f8266f33cf 100644
---- a/arch/sh/include/asm/hugetlb.h
-+++ b/arch/sh/include/asm/hugetlb.h
-@@ -31,11 +31,6 @@ static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
- {
- }
- 
--static inline int huge_pte_none(pte_t pte)
--{
--	return pte_none(pte);
--}
--
- static inline pte_t huge_pte_wrprotect(pte_t pte)
- {
- 	return pte_wrprotect(pte);
-diff --git a/arch/sparc/include/asm/hugetlb.h b/arch/sparc/include/asm/hugetlb.h
-index 651a9593fcee..11115bbd712e 100644
---- a/arch/sparc/include/asm/hugetlb.h
-+++ b/arch/sparc/include/asm/hugetlb.h
-@@ -48,11 +48,6 @@ static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
- {
- }
- 
--static inline int huge_pte_none(pte_t pte)
--{
--	return pte_none(pte);
--}
--
- static inline pte_t huge_pte_wrprotect(pte_t pte)
- {
- 	return pte_wrprotect(pte);
-diff --git a/arch/x86/include/asm/hugetlb.h b/arch/x86/include/asm/hugetlb.h
-index fd59673e7a0a..42d872054791 100644
---- a/arch/x86/include/asm/hugetlb.h
-+++ b/arch/x86/include/asm/hugetlb.h
-@@ -28,11 +28,6 @@ static inline int prepare_hugepage_range(struct file *file,
- 	return 0;
- }
- 
--static inline int huge_pte_none(pte_t pte)
--{
--	return pte_none(pte);
--}
--
- static inline pte_t huge_pte_wrprotect(pte_t pte)
- {
- 	return pte_wrprotect(pte);
-diff --git a/include/asm-generic/hugetlb.h b/include/asm-generic/hugetlb.h
-index ffa63fd8388d..2fc3d68424e9 100644
---- a/include/asm-generic/hugetlb.h
-+++ b/include/asm-generic/hugetlb.h
-@@ -73,4 +73,11 @@ static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
- }
+@@ -2002,7 +2002,7 @@ sba_map_ioc_to_node(struct ioc *ioc, acpi_handle handle)
  #endif
+ }
  
-+#ifndef __HAVE_ARCH_HUGE_PTE_NONE
-+static inline int huge_pte_none(pte_t pte)
-+{
-+	return pte_none(pte);
-+}
-+#endif
-+
- #endif /* _ASM_GENERIC_HUGETLB_H */
+-static void acpi_sba_ioc_add(struct ioc *ioc)
++static void __init acpi_sba_ioc_add(struct ioc *ioc)
+ {
+ 	acpi_handle handle = ioc->handle;
+ 	acpi_status status;
 -- 
-2.16.2
-
+2.17.1
