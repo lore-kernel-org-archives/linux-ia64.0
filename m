@@ -1,48 +1,32 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Date: Wed, 22 Aug 2018 23:50:46 +0000
-Subject: Re: [PATCH 08/20] powerpc/dma: remove the unused dma_nommu_ops export
-Message-Id: <fcbf37b6f8a032713a1e07f837544be21f3567d9.camel@kernel.crashing.org>
+From: Christoph Hellwig <hch@infradead.org>
+Date: Mon, 27 Aug 2018 08:57:08 +0000
+Subject: removig ia64, was: Re: [PATCH 3/4] mm/tlb, x86/mm: Support invalidating TLB caches for RCU_TABLE_FRE
+Message-Id: <20180827085708.GA27172@infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180730163824.10064-1-hch@lst.de>
- <20180730163824.10064-9-hch@lst.de> <20180731121625.GA29793@lst.de>
- <f7daffa5481ab82f345aa5bf9f63f40caa068456.camel@kernel.crashing.org>
- <20180822064531.GA19284@lst.de>
-In-Reply-To: <20180822064531.GA19284@lst.de>
+References: <20180823134525.5f12b0d3@roar.ozlabs.ibm.com>
+ <CA+55aFxneZTFxxxAjLZmj92VUJg6z7hERxJ2cHoth-GC0RuELw@mail.gmail.com>
+ <776104d4c8e4fc680004d69e3a4c2594b638b6d1.camel@au1.ibm.com>
+ <CA+55aFzM77G9-Q6LboPLJ=5gHma66ZQKiMGCMqXoKABirdF98w@mail.gmail.com>
+ <20180823133958.GA1496@brain-police>
+ <20180824084717.GK24124@hirez.programming.kicks-ass.net>
+ <20180824113214.GK24142@hirez.programming.kicks-ass.net>
+ <20180824113953.GL24142@hirez.programming.kicks-ass.net>
+ <20180827150008.13bce08f@roar.ozlabs.ibm.com>
+ <20180827074701.GW24124@hirez.programming.kicks-ass.net>
+In-Reply-To: <20180827074701.GW24124@hirez.programming.kicks-ass.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch@lst.de>
-Cc: Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linuxppc-dev@lists.ozlabs.org, iommu@lists.linux-foundation.org, linux-ia64@vger.kernel.org, Robin Murphy <robin.murphy@arm.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+To: Peter Zijlstra <peterz@infradead.org>
+Cc: Nicholas Piggin <npiggin@gmail.com>, Will Deacon <will.deacon@arm.com>, Linus Torvalds <torvalds@linux-foundation.org>, Benjamin Herrenschmidt <benh@au1.ibm.com>, Andrew Lutomirski <luto@kernel.org>, the arch/x86 maintainers <x86@kernel.org>, Borislav Petkov <bp@alien8.de>, Rik van Riel <riel@surriel.com>, Jann Horn <jannh@google.com>, Adin Scannell <ascannell@google.com>, Dave Hansen <dave.hansen@intel.com>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-mm <linux-mm@kvack.org>, David Miller <davem@davemloft.net>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-On Wed, 2018-08-22 at 08:45 +0200, Christoph Hellwig wrote:
-> On Thu, Aug 09, 2018 at 10:01:16AM +1000, Benjamin Herrenschmidt wrote:
-> > On Tue, 2018-07-31 at 14:16 +0200, Christoph Hellwig wrote:
-> > > It turns out cxl actually uses it.  So for now skip this patch,
-> > > although random code in drivers messing with dma ops will need to
-> > > be sorted out sooner or later.
-> > 
-> > CXL devices are "special", they bypass the classic iommu in favor of
-> > allowing the device to operate using the main processor page tables
-> > using an MMU context (so basically the device can use userspace
-> > addresses directly), akin to ATS.
-> > 
-> > I think the code currently uses the nommu ops as a way to do a simple
-> > kernel mapping for kernel drivers using CXL (not userspace stuff)
-> > though.
-> 
-> Its still a horrible idea to have this in drivers/, we need some
-> core API to mediate this behavior.  Also if the device supports
-> using virtual addresses dma_nommu_ops seems wrong as it won't do
-> the right thing for e.g. vmalloc addresses not mapped into the
-> kernel linear mapping (which I guess can't currently happen on
-> powerpc, but still..)
+On Mon, Aug 27, 2018 at 09:47:01AM +0200, Peter Zijlstra wrote:
+> sh is trivial, arm seems doable, with a bit of luck we can do 'rm -rf
+> arch/ia64' leaving us with s390.
 
-You are right it won't do the right thing, but neither will standard
-DMA ops, will they ? Drivers know not to try to dma_map vmalloc
-addresses without first getting the underlying page, nothing unusal
-there.
+Is removing ia64 a serious plan?  It is the cause for a fair share of
+oddities in dma lang, and I did not have much luck getting maintainer
+replies lately, but I didn't know of a plan to get rid of it.
 
-Yes I agree having this in drivers somewhat sucks though.
-
-Cheers,
-Ben.
+What is the state of people still using ia64 mainline kernels vs just
+old distros in the still existing machines?
