@@ -1,191 +1,147 @@
-From: Alexandre Ghiti <alex@ghiti.fr>
-Date: Mon, 06 Aug 2018 17:57:11 +0000
-Subject: [PATCH v6 11/11] hugetlb: Introduce generic version of huge_ptep_get
-Message-Id: <20180806175711.24438-12-alex@ghiti.fr>
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Wed, 29 Aug 2018 12:59:11 +0000
+Subject: [PATCH net-next 2/3] asm-generic: generalize asm/sockios.h
+Message-Id: <20180829130308.3504560-2-arnd@arndb.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180806175711.24438-1-alex@ghiti.fr>
-In-Reply-To: <20180806175711.24438-1-alex@ghiti.fr>
+References: <20180829130308.3504560-1-arnd@arndb.de>
+In-Reply-To: <20180829130308.3504560-1-arnd@arndb.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org, mike.kravetz@oracle.com, linux@armlinux.org.uk, catalin.marinas@arm.com, will.deacon@arm.com, tony.luck@intel.com, fenghua.yu@intel.com, ralf@linux-mips.org, paul.burton@mips.com, jhogan@kernel.org, jejb@parisc-linux.org, deller@gmx.de, benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, x86@kernel.org, arnd@arndb.de, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org
-Cc: Alexandre Ghiti <alex@ghiti.fr>
+To: netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>
+Cc: linux-arch@vger.kernel.org, y2038@lists.linaro.org, Arnd Bergmann <arnd@arndb.de>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "James E.J. Bottomley" <jejb@parisc-linux.org>, Helge Deller <deller@gmx.de>, Thomas Gleixner <tglx@linutronix.de>, x86@kernel.org, Al Viro <viro@zeniv.linux.org.uk>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-parisc@vger.kernel.org, sparclinux@vger.kernel.org
 
-ia64, mips, parisc, powerpc, sh, sparc, x86 architectures use the
-same version of huge_ptep_get, so move this generic implementation into
-asm-generic/hugetlb.h.
+ia64, parisc and sparc just use a copy of the generic version
+of asm/sockios.h, and x86 is a redirect to the same file, so we
+can just let the header file be generated.
 
-Signed-off-by: Alexandre Ghiti <alex@ghiti.fr>
-Tested-by: Helge Deller <deller@gmx.de> # parisc
-Acked-by: Catalin Marinas <catalin.marinas@arm.com> # arm64
-Acked-by: Paul Burton <paul.burton@mips.com> # MIPS parts
-Reviewed-by: Luiz Capitulino <lcapitulino@redhat.com>
-Reviewed-by: Mike Kravetz <mike.kravetz@oracle.com>
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- arch/arm/include/asm/hugetlb-3level.h | 1 +
- arch/arm64/include/asm/hugetlb.h      | 1 +
- arch/ia64/include/asm/hugetlb.h       | 5 -----
- arch/mips/include/asm/hugetlb.h       | 5 -----
- arch/parisc/include/asm/hugetlb.h     | 5 -----
- arch/powerpc/include/asm/hugetlb.h    | 5 -----
- arch/sh/include/asm/hugetlb.h         | 5 -----
- arch/sparc/include/asm/hugetlb.h      | 5 -----
- arch/x86/include/asm/hugetlb.h        | 5 -----
- include/asm-generic/hugetlb.h         | 7 +++++++
- 10 files changed, 9 insertions(+), 35 deletions(-)
+ arch/ia64/include/uapi/asm/Kbuild      |  1 +
+ arch/ia64/include/uapi/asm/sockios.h   | 21 ---------------------
+ arch/parisc/include/uapi/asm/Kbuild    |  1 +
+ arch/parisc/include/uapi/asm/sockios.h | 14 --------------
+ arch/sparc/include/uapi/asm/Kbuild     |  1 +
+ arch/sparc/include/uapi/asm/sockios.h  | 15 ---------------
+ arch/x86/include/uapi/asm/Kbuild       |  1 +
+ arch/x86/include/uapi/asm/sockios.h    |  1 -
+ 8 files changed, 4 insertions(+), 51 deletions(-)
+ delete mode 100644 arch/ia64/include/uapi/asm/sockios.h
+ delete mode 100644 arch/parisc/include/uapi/asm/sockios.h
+ delete mode 100644 arch/sparc/include/uapi/asm/sockios.h
+ delete mode 100644 arch/x86/include/uapi/asm/sockios.h
 
-diff --git a/arch/arm/include/asm/hugetlb-3level.h b/arch/arm/include/asm/hugetlb-3level.h
-index 54e4b097b1f5..0d9f3918fa7e 100644
---- a/arch/arm/include/asm/hugetlb-3level.h
-+++ b/arch/arm/include/asm/hugetlb-3level.h
-@@ -29,6 +29,7 @@
-  * ptes.
-  * (The valid bit is automatically cleared by set_pte_at for PROT_NONE ptes).
-  */
-+#define __HAVE_ARCH_HUGE_PTEP_GET
- static inline pte_t huge_ptep_get(pte_t *ptep)
- {
- 	pte_t retval = *ptep;
-diff --git a/arch/arm64/include/asm/hugetlb.h b/arch/arm64/include/asm/hugetlb.h
-index 80887abcef7f..fb6609875455 100644
---- a/arch/arm64/include/asm/hugetlb.h
-+++ b/arch/arm64/include/asm/hugetlb.h
-@@ -20,6 +20,7 @@
- 
- #include <asm/page.h>
- 
-+#define __HAVE_ARCH_HUGE_PTEP_GET
- static inline pte_t huge_ptep_get(pte_t *ptep)
- {
- 	return READ_ONCE(*ptep);
-diff --git a/arch/ia64/include/asm/hugetlb.h b/arch/ia64/include/asm/hugetlb.h
-index e9b42750fdf5..36cc0396b214 100644
---- a/arch/ia64/include/asm/hugetlb.h
-+++ b/arch/ia64/include/asm/hugetlb.h
-@@ -27,11 +27,6 @@ static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
- {
- }
- 
--static inline pte_t huge_ptep_get(pte_t *ptep)
--{
--	return *ptep;
--}
+diff --git a/arch/ia64/include/uapi/asm/Kbuild b/arch/ia64/include/uapi/asm/Kbuild
+index 3982e673e967..a6377ad3ba1c 100644
+--- a/arch/ia64/include/uapi/asm/Kbuild
++++ b/arch/ia64/include/uapi/asm/Kbuild
+@@ -8,3 +8,4 @@ generic-y += msgbuf.h
+ generic-y += poll.h
+ generic-y += sembuf.h
+ generic-y += shmbuf.h
++generic-y += sockios.h
+diff --git a/arch/ia64/include/uapi/asm/sockios.h b/arch/ia64/include/uapi/asm/sockios.h
+deleted file mode 100644
+index f27a12f95d20..000000000000
+--- a/arch/ia64/include/uapi/asm/sockios.h
++++ /dev/null
+@@ -1,21 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
+-#ifndef _ASM_IA64_SOCKIOS_H
+-#define _ASM_IA64_SOCKIOS_H
 -
- static inline void arch_clear_hugepage_flags(struct page *page)
- {
- }
-diff --git a/arch/mips/include/asm/hugetlb.h b/arch/mips/include/asm/hugetlb.h
-index 120adc3b2ffd..425bb6fc3bda 100644
---- a/arch/mips/include/asm/hugetlb.h
-+++ b/arch/mips/include/asm/hugetlb.h
-@@ -82,11 +82,6 @@ static inline int huge_ptep_set_access_flags(struct vm_area_struct *vma,
- 	return changed;
- }
- 
--static inline pte_t huge_ptep_get(pte_t *ptep)
--{
--	return *ptep;
--}
+-/*
+- * Socket-level I/O control calls.
+- *
+- * Based on <asm-i386/sockios.h>.
+- *
+- * Modified 1998, 1999
+- *	David Mosberger-Tang <davidm@hpl.hp.com>, Hewlett-Packard Co
+- */
+-#define FIOSETOWN 	0x8901
+-#define SIOCSPGRP	0x8902
+-#define FIOGETOWN	0x8903
+-#define SIOCGPGRP	0x8904
+-#define SIOCATMARK	0x8905
+-#define SIOCGSTAMP	0x8906		/* Get stamp (timeval) */
+-#define SIOCGSTAMPNS	0x8907		/* Get stamp (timespec) */
 -
- static inline void arch_clear_hugepage_flags(struct page *page)
- {
- }
-diff --git a/arch/parisc/include/asm/hugetlb.h b/arch/parisc/include/asm/hugetlb.h
-index 165b4e5a6f32..7cb595dcb7d7 100644
---- a/arch/parisc/include/asm/hugetlb.h
-+++ b/arch/parisc/include/asm/hugetlb.h
-@@ -48,11 +48,6 @@ int huge_ptep_set_access_flags(struct vm_area_struct *vma,
- 					     unsigned long addr, pte_t *ptep,
- 					     pte_t pte, int dirty);
- 
--static inline pte_t huge_ptep_get(pte_t *ptep)
--{
--	return *ptep;
--}
+-#endif /* _ASM_IA64_SOCKIOS_H */
+diff --git a/arch/parisc/include/uapi/asm/Kbuild b/arch/parisc/include/uapi/asm/Kbuild
+index 286ef5a5904b..be6c171f57f7 100644
+--- a/arch/parisc/include/uapi/asm/Kbuild
++++ b/arch/parisc/include/uapi/asm/Kbuild
+@@ -7,3 +7,4 @@ generic-y += kvm_para.h
+ generic-y += param.h
+ generic-y += poll.h
+ generic-y += resource.h
++generic-y += sockios.h
+diff --git a/arch/parisc/include/uapi/asm/sockios.h b/arch/parisc/include/uapi/asm/sockios.h
+deleted file mode 100644
+index 66a3ba64d53f..000000000000
+--- a/arch/parisc/include/uapi/asm/sockios.h
++++ /dev/null
+@@ -1,14 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
+-#ifndef __ARCH_PARISC_SOCKIOS__
+-#define __ARCH_PARISC_SOCKIOS__
 -
- static inline void arch_clear_hugepage_flags(struct page *page)
- {
- }
-diff --git a/arch/powerpc/include/asm/hugetlb.h b/arch/powerpc/include/asm/hugetlb.h
-index 658bf7136a3c..33a2d9e3ea9e 100644
---- a/arch/powerpc/include/asm/hugetlb.h
-+++ b/arch/powerpc/include/asm/hugetlb.h
-@@ -142,11 +142,6 @@ extern int huge_ptep_set_access_flags(struct vm_area_struct *vma,
- 				      unsigned long addr, pte_t *ptep,
- 				      pte_t pte, int dirty);
- 
--static inline pte_t huge_ptep_get(pte_t *ptep)
--{
--	return *ptep;
--}
+-/* Socket-level I/O control calls. */
+-#define FIOSETOWN 	0x8901
+-#define SIOCSPGRP	0x8902
+-#define FIOGETOWN	0x8903
+-#define SIOCGPGRP	0x8904
+-#define SIOCATMARK	0x8905
+-#define SIOCGSTAMP	0x8906		/* Get stamp (timeval) */
+-#define SIOCGSTAMPNS	0x8907		/* Get stamp (timespec) */
 -
- static inline void arch_clear_hugepage_flags(struct page *page)
- {
- }
-diff --git a/arch/sh/include/asm/hugetlb.h b/arch/sh/include/asm/hugetlb.h
-index c87195ae0cfa..6f025fe18146 100644
---- a/arch/sh/include/asm/hugetlb.h
-+++ b/arch/sh/include/asm/hugetlb.h
-@@ -32,11 +32,6 @@ static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
- {
- }
+-#endif
+diff --git a/arch/sparc/include/uapi/asm/Kbuild b/arch/sparc/include/uapi/asm/Kbuild
+index 4680ba246b55..8fdae51d0eae 100644
+--- a/arch/sparc/include/uapi/asm/Kbuild
++++ b/arch/sparc/include/uapi/asm/Kbuild
+@@ -2,4 +2,5 @@
+ include include/uapi/asm-generic/Kbuild.asm
  
--static inline pte_t huge_ptep_get(pte_t *ptep)
--{
--	return *ptep;
--}
+ generic-y += bpf_perf_event.h
++generic-y += sockios.h
+ generic-y += types.h
+diff --git a/arch/sparc/include/uapi/asm/sockios.h b/arch/sparc/include/uapi/asm/sockios.h
+deleted file mode 100644
+index 18a3ec14a847..000000000000
+--- a/arch/sparc/include/uapi/asm/sockios.h
++++ /dev/null
+@@ -1,15 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
+-#ifndef _ASM_SPARC_SOCKIOS_H
+-#define _ASM_SPARC_SOCKIOS_H
 -
- static inline void arch_clear_hugepage_flags(struct page *page)
- {
- 	clear_bit(PG_dcache_clean, &page->flags);
-diff --git a/arch/sparc/include/asm/hugetlb.h b/arch/sparc/include/asm/hugetlb.h
-index 028a1465fbe7..3963f80d1cb3 100644
---- a/arch/sparc/include/asm/hugetlb.h
-+++ b/arch/sparc/include/asm/hugetlb.h
-@@ -53,11 +53,6 @@ static inline int huge_ptep_set_access_flags(struct vm_area_struct *vma,
- 	return changed;
- }
- 
--static inline pte_t huge_ptep_get(pte_t *ptep)
--{
--	return *ptep;
--}
+-/* Socket-level I/O control calls. */
+-#define FIOSETOWN 	0x8901
+-#define SIOCSPGRP	0x8902
+-#define FIOGETOWN	0x8903
+-#define SIOCGPGRP	0x8904
+-#define SIOCATMARK	0x8905
+-#define SIOCGSTAMP	0x8906		/* Get stamp (timeval) */
+-#define SIOCGSTAMPNS	0x8907		/* Get stamp (timespec) */
 -
- static inline void arch_clear_hugepage_flags(struct page *page)
- {
- }
-diff --git a/arch/x86/include/asm/hugetlb.h b/arch/x86/include/asm/hugetlb.h
-index 574d42eb081e..7469d321f072 100644
---- a/arch/x86/include/asm/hugetlb.h
-+++ b/arch/x86/include/asm/hugetlb.h
-@@ -13,11 +13,6 @@ static inline int is_hugepage_only_range(struct mm_struct *mm,
- 	return 0;
- }
- 
--static inline pte_t huge_ptep_get(pte_t *ptep)
--{
--	return *ptep;
--}
+-#endif /* !(_ASM_SPARC_SOCKIOS_H) */
 -
- static inline void arch_clear_hugepage_flags(struct page *page)
- {
- }
-diff --git a/include/asm-generic/hugetlb.h b/include/asm-generic/hugetlb.h
-index f3c99a03ee83..71d7b77eea50 100644
---- a/include/asm-generic/hugetlb.h
-+++ b/include/asm-generic/hugetlb.h
-@@ -119,4 +119,11 @@ static inline int huge_ptep_set_access_flags(struct vm_area_struct *vma,
- }
- #endif
- 
-+#ifndef __HAVE_ARCH_HUGE_PTEP_GET
-+static inline pte_t huge_ptep_get(pte_t *ptep)
-+{
-+	return *ptep;
-+}
-+#endif
-+
- #endif /* _ASM_GENERIC_HUGETLB_H */
+diff --git a/arch/x86/include/uapi/asm/Kbuild b/arch/x86/include/uapi/asm/Kbuild
+index 322681622d1e..1d489e6b237e 100644
+--- a/arch/x86/include/uapi/asm/Kbuild
++++ b/arch/x86/include/uapi/asm/Kbuild
+@@ -6,3 +6,4 @@ generated-y += unistd_32.h
+ generated-y += unistd_64.h
+ generated-y += unistd_x32.h
+ generic-y += poll.h
++generic-y += sockios.h
+diff --git a/arch/x86/include/uapi/asm/sockios.h b/arch/x86/include/uapi/asm/sockios.h
+deleted file mode 100644
+index def6d4746ee7..000000000000
+--- a/arch/x86/include/uapi/asm/sockios.h
++++ /dev/null
+@@ -1 +0,0 @@
+-#include <asm-generic/sockios.h>
 -- 
-2.16.2
-
+2.18.0
