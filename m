@@ -1,39 +1,40 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 24 Sep 2018 17:38:20 +0000
-Subject: Re: [REVIEW][PATCH 0/3] signal/ia64: siginfo fixes and cleanups
-Message-Id: <20180924173818.GA9522@agluck-desk>
+From: Mike Rapoport <rppt@linux.vnet.ibm.com>
+Date: Wed, 05 Sep 2018 15:59:25 +0000
+Subject: [RFC PATCH 10/29] memblock: replace __alloc_bootmem_node_nopanic with memblock_alloc_try_nid_nopanic
+Message-Id: <1536163184-26356-11-git-send-email-rppt@linux.vnet.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <87bm8n2czz.fsf@xmission.com>
-In-Reply-To: <87bm8n2czz.fsf@xmission.com>
+References: <1536163184-26356-1-git-send-email-rppt@linux.vnet.ibm.com>
+In-Reply-To: <1536163184-26356-1-git-send-email-rppt@linux.vnet.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Cc: linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, linux-ia64@vger.kernel.org, Fenghua Yu <fenghua.yu@intel.com>
+To: linux-mm@kvack.org
+Cc: Andrew Morton <akpm@linux-foundation.org>, "David S. Miller" <davem@davemloft.net>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Michael Ellerman <mpe@ellerman.id.au>, Michal Hocko <mhocko@suse.com>, Paul Burton <paul.burton@mips.com>, Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org, Mike Rapoport <rppt@linux.vnet.ibm.com>
 
-On Mon, Sep 24, 2018 at 04:20:32PM +0200, Eric W. Biederman wrote:
-> 
-> It turns out that ia64 is one of the noticable offenders.  Ever since
-> ia64 was merged in 2.3.43 it has been generating incorrect siginfo for
-> SIGSEGV assocaited with the inability to setup a signal stack frame
-> or cleanup a signal stack frame.
+The __alloc_bootmem_node_nopanic() is used only once, there is no reason to
+add a wrapper for memblock_alloc_try_nid_nopanic for it.
 
-I'll blame that on the "previous administration". I didn't start work
-on Linux until 2.3.99, and didn't take over as maintainer until 2.6.11 :-)
+Signed-off-by: Mike Rapoport <rppt@linux.vnet.ibm.com>
+---
+ arch/x86/kernel/setup_percpu.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-> I don't think I have made made any mistakes in this coversion but if
-> people can look the code over and see if they can spot anything I would
-> appreciate it.
-
-I don't see any mistakes either. It builds and boots. Obviously I don't
-have a test case for this issue (or it would have been found long ago).
-
-> My intention is to merge this through my siginfo tree.  If you feel it
-> should go through your arch tree let me know.   All of the prerequisites
-> should have been merged several releases ago.
-
-Sure. Merge away.
-
-Acked-by: Tony Luck <tony.luck@intel.com>
-
--Tony
+diff --git a/arch/x86/kernel/setup_percpu.c b/arch/x86/kernel/setup_percpu.c
+index ea554f8..67d48e26 100644
+--- a/arch/x86/kernel/setup_percpu.c
++++ b/arch/x86/kernel/setup_percpu.c
+@@ -112,8 +112,10 @@ static void * __init pcpu_alloc_bootmem(unsigned int cpu, unsigned long size,
+ 		pr_debug("per cpu data for cpu%d %lu bytes at %016lx\n",
+ 			 cpu, size, __pa(ptr));
+ 	} else {
+-		ptr = __alloc_bootmem_node_nopanic(NODE_DATA(node),
+-						   size, align, goal);
++		ptr = memblock_alloc_try_nid_nopanic(size, align, goal,
++						     BOOTMEM_ALLOC_ACCESSIBLE,
++						     node);
++
+ 		pr_debug("per cpu data for cpu%d %lu bytes on node%d at %016lx\n",
+ 			 cpu, size, node, __pa(ptr));
+ 	}
+-- 
+2.7.4
