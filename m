@@ -1,110 +1,70 @@
-From: Mike Rapoport <rppt@linux.vnet.ibm.com>
-Date: Wed, 05 Sep 2018 15:59:31 +0000
-Subject: [RFC PATCH 16/29] memblock: replace __alloc_bootmem_node with appropriate memblock_ API
-Message-Id: <1536163184-26356-17-git-send-email-rppt@linux.vnet.ibm.com>
+From: Michal Hocko <mhocko@kernel.org>
+Date: Thu, 06 Sep 2018 08:38:41 +0000
+Subject: Re: [RFC PATCH 16/29] memblock: replace __alloc_bootmem_node with appropriate memblock_ API
+Message-Id: <20180906083841.GA14951@dhcp22.suse.cz>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1536163184-26356-1-git-send-email-rppt@linux.vnet.ibm.com>
-In-Reply-To: <1536163184-26356-1-git-send-email-rppt@linux.vnet.ibm.com>
+ <1536163184-26356-17-git-send-email-rppt@linux.vnet.ibm.com>
+In-Reply-To: <1536163184-26356-17-git-send-email-rppt@linux.vnet.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org
-Cc: Andrew Morton <akpm@linux-foundation.org>, "David S. Miller" <davem@davemloft.net>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Michael Ellerman <mpe@ellerman.id.au>, Michal Hocko <mhocko@suse.com>, Paul Burton <paul.burton@mips.com>, Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org, Mike Rapoport <rppt@linux.vnet.ibm.com>
+To: Mike Rapoport <rppt@linux.vnet.ibm.com>
+Cc: linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>, "David S. Miller" <davem@davemloft.net>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Michael Ellerman <mpe@ellerman.id.au>, Paul Burton <paul.burton@mips.com>, Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Use memblock_alloc_try_nid whenever goal (i.e. mininal address is
-specified) and memblock_alloc_node otherwise.
+On Wed 05-09-18 18:59:31, Mike Rapoport wrote:
+> Use memblock_alloc_try_nid whenever goal (i.e. mininal address is
+> specified) and memblock_alloc_node otherwise.
 
-Signed-off-by: Mike Rapoport <rppt@linux.vnet.ibm.com>
----
- arch/ia64/mm/discontig.c       |  6 ++++--
- arch/ia64/mm/init.c            |  2 +-
- arch/powerpc/kernel/setup_64.c |  6 ++++--
- arch/sparc/kernel/setup_64.c   | 10 ++++------
- arch/sparc/kernel/smp_64.c     |  4 ++--
- 5 files changed, 15 insertions(+), 13 deletions(-)
+I suspect you wanted to say (i.e. minimal address) is specified
 
-diff --git a/arch/ia64/mm/discontig.c b/arch/ia64/mm/discontig.c
-index 1928d57..918dda9 100644
---- a/arch/ia64/mm/discontig.c
-+++ b/arch/ia64/mm/discontig.c
-@@ -451,8 +451,10 @@ static void __init *memory_less_node_alloc(int nid, unsigned long pernodesize)
- 	if (bestnode = -1)
- 		bestnode = anynode;
- 
--	ptr = __alloc_bootmem_node(pgdat_list[bestnode], pernodesize,
--		PERCPU_PAGE_SIZE, __pa(MAX_DMA_ADDRESS));
-+	ptr = memblock_alloc_try_nid(pernodesize, PERCPU_PAGE_SIZE,
-+				     __pa(MAX_DMA_ADDRESS),
-+				     BOOTMEM_ALLOC_ACCESSIBLE,
-+				     bestnode);
- 
- 	return ptr;
- }
-diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
-index ffcc358..2169ca5 100644
---- a/arch/ia64/mm/init.c
-+++ b/arch/ia64/mm/init.c
-@@ -459,7 +459,7 @@ int __init create_mem_map_page_table(u64 start, u64 end, void *arg)
- 		pte = pte_offset_kernel(pmd, address);
- 
- 		if (pte_none(*pte))
--			set_pte(pte, pfn_pte(__pa(memblock_alloc_node(PAGE_SIZE, PAGE_SIZE, node))) >> PAGE_SHIFT,
-+			set_pte(pte, pfn_pte(__pa(memblock_alloc_node(PAGE_SIZE, PAGE_SIZE, node)) >> PAGE_SHIFT,
- 					     PAGE_KERNEL));
- 	}
- 	return 0;
-diff --git a/arch/powerpc/kernel/setup_64.c b/arch/powerpc/kernel/setup_64.c
-index 6a501b2..6add560 100644
---- a/arch/powerpc/kernel/setup_64.c
-+++ b/arch/powerpc/kernel/setup_64.c
-@@ -757,8 +757,10 @@ void __init emergency_stack_init(void)
- 
- static void * __init pcpu_fc_alloc(unsigned int cpu, size_t size, size_t align)
- {
--	return __alloc_bootmem_node(NODE_DATA(early_cpu_to_node(cpu)), size, align,
--				    __pa(MAX_DMA_ADDRESS));
-+	return memblock_alloc_try_nid(size, align, __pa(MAX_DMA_ADDRESS),
-+				      BOOTMEM_ALLOC_ACCESSIBLE,
-+				      early_cpu_to_node(cpu));
-+
- }
- 
- static void __init pcpu_fc_free(void *ptr, size_t size)
-diff --git a/arch/sparc/kernel/setup_64.c b/arch/sparc/kernel/setup_64.c
-index 206bf81..5fb11ea 100644
---- a/arch/sparc/kernel/setup_64.c
-+++ b/arch/sparc/kernel/setup_64.c
-@@ -622,12 +622,10 @@ void __init alloc_irqstack_bootmem(void)
- 	for_each_possible_cpu(i) {
- 		node = cpu_to_node(i);
- 
--		softirq_stack[i] = __alloc_bootmem_node(NODE_DATA(node),
--							THREAD_SIZE,
--							THREAD_SIZE, 0);
--		hardirq_stack[i] = __alloc_bootmem_node(NODE_DATA(node),
--							THREAD_SIZE,
--							THREAD_SIZE, 0);
-+		softirq_stack[i] = memblock_alloc_node(THREAD_SIZE,
-+						       THREAD_SIZE, node);
-+		hardirq_stack[i] = memblock_alloc_node(THREAD_SIZE,
-+						       THREAD_SIZE, node);
- 	}
- }
- 
-diff --git a/arch/sparc/kernel/smp_64.c b/arch/sparc/kernel/smp_64.c
-index d3ea1f3..83ff88d 100644
---- a/arch/sparc/kernel/smp_64.c
-+++ b/arch/sparc/kernel/smp_64.c
-@@ -1594,8 +1594,8 @@ static void * __init pcpu_alloc_bootmem(unsigned int cpu, size_t size,
- 		pr_debug("per cpu data for cpu%d %lu bytes at %016lx\n",
- 			 cpu, size, __pa(ptr));
- 	} else {
--		ptr = __alloc_bootmem_node(NODE_DATA(node),
--					   size, align, goal);
-+		ptr = memblock_alloc_try_nid(size, align, goal,
-+					     BOOTMEM_ALLOC_ACCESSIBLE, node);
- 		pr_debug("per cpu data for cpu%d %lu bytes on node%d at "
- 			 "%016lx\n", cpu, size, node, __pa(ptr));
- 	}
+> Signed-off-by: Mike Rapoport <rppt@linux.vnet.ibm.com>
+
+Acked-by: Michal Hocko <mhocko@suse.com>
+
+One note below
+
+> ---
+>  arch/ia64/mm/discontig.c       |  6 ++++--
+>  arch/ia64/mm/init.c            |  2 +-
+>  arch/powerpc/kernel/setup_64.c |  6 ++++--
+>  arch/sparc/kernel/setup_64.c   | 10 ++++------
+>  arch/sparc/kernel/smp_64.c     |  4 ++--
+>  5 files changed, 15 insertions(+), 13 deletions(-)
+> 
+> diff --git a/arch/ia64/mm/discontig.c b/arch/ia64/mm/discontig.c
+> index 1928d57..918dda9 100644
+> --- a/arch/ia64/mm/discontig.c
+> +++ b/arch/ia64/mm/discontig.c
+> @@ -451,8 +451,10 @@ static void __init *memory_less_node_alloc(int nid, unsigned long pernodesize)
+>  	if (bestnode = -1)
+>  		bestnode = anynode;
+>  
+> -	ptr = __alloc_bootmem_node(pgdat_list[bestnode], pernodesize,
+> -		PERCPU_PAGE_SIZE, __pa(MAX_DMA_ADDRESS));
+> +	ptr = memblock_alloc_try_nid(pernodesize, PERCPU_PAGE_SIZE,
+> +				     __pa(MAX_DMA_ADDRESS),
+> +				     BOOTMEM_ALLOC_ACCESSIBLE,
+> +				     bestnode);
+>  
+>  	return ptr;
+>  }
+> diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
+> index ffcc358..2169ca5 100644
+> --- a/arch/ia64/mm/init.c
+> +++ b/arch/ia64/mm/init.c
+> @@ -459,7 +459,7 @@ int __init create_mem_map_page_table(u64 start, u64 end, void *arg)
+>  		pte = pte_offset_kernel(pmd, address);
+>  
+>  		if (pte_none(*pte))
+> -			set_pte(pte, pfn_pte(__pa(memblock_alloc_node(PAGE_SIZE, PAGE_SIZE, node))) >> PAGE_SHIFT,
+> +			set_pte(pte, pfn_pte(__pa(memblock_alloc_node(PAGE_SIZE, PAGE_SIZE, node)) >> PAGE_SHIFT,
+>  					     PAGE_KERNEL));
+
+This doesn't seem to belong to the patch, right?
+
+>  	}
+>  	return 0;
 -- 
-2.7.4
+Michal Hocko
+SUSE Labs
