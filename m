@@ -1,50 +1,59 @@
-From: Michal Hocko <mhocko@kernel.org>
-Date: Thu, 06 Sep 2018 07:53:19 +0000
-Subject: Re: [RFC PATCH 11/29] memblock: replace alloc_bootmem_pages_nopanic with memblock_alloc_nopanic
-Message-Id: <20180906075319.GT14951@dhcp22.suse.cz>
+From: Christoph Hellwig <hch@lst.de>
+Date: Mon, 17 Sep 2018 17:10:31 +0000
+Subject: [PATCH 9/9] intel-iommu: mark intel_dma_ops static
+Message-Id: <20180917171031.3853-10-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1536163184-26356-1-git-send-email-rppt@linux.vnet.ibm.com>
- <1536163184-26356-12-git-send-email-rppt@linux.vnet.ibm.com>
-In-Reply-To: <1536163184-26356-12-git-send-email-rppt@linux.vnet.ibm.com>
+References: <20180801160252.25629-10-hch@lst.de>
+In-Reply-To: <20180801160252.25629-10-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Mike Rapoport <rppt@linux.vnet.ibm.com>
-Cc: linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>, "David S. Miller" <davem@davemloft.net>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Michael Ellerman <mpe@ellerman.id.au>, Paul Burton <paul.burton@mips.com>, Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-On Wed 05-09-18 18:59:26, Mike Rapoport wrote:
-> The alloc_bootmem_pages_nopanic(size) is a shortcut for
-> __alloc_bootmem_nopanic(x, PAGE_SIZE, BOOTMEM_LOW_LIMIT) and can be
-> replaced by memblock_alloc_nopanic(size, PAGE_SIZE)
+ia64 currently explicitly assigns it to dma_ops, but that same work is
+already done by intel_iommu_init a little later, so we can remove the
+duplicate assignment and mark the variable static.
 
-It is not so straightforward because you really have to go deep down the
-callpath to see they are doing the same thing essentially.
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ arch/ia64/kernel/pci-dma.c  | 4 ----
+ drivers/iommu/intel-iommu.c | 2 +-
+ 2 files changed, 1 insertion(+), 5 deletions(-)
 
-> Signed-off-by: Mike Rapoport <rppt@linux.vnet.ibm.com>
-
-Acked-by: Michal Hocko <mhocko@suse.com>
-
-> ---
->  drivers/usb/early/xhci-dbc.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/usb/early/xhci-dbc.c b/drivers/usb/early/xhci-dbc.c
-> index e15e896..16df968 100644
-> --- a/drivers/usb/early/xhci-dbc.c
-> +++ b/drivers/usb/early/xhci-dbc.c
-> @@ -94,7 +94,7 @@ static void * __init xdbc_get_page(dma_addr_t *dma_addr)
->  {
->  	void *virt;
->  
-> -	virt = alloc_bootmem_pages_nopanic(PAGE_SIZE);
-> +	virt = memblock_alloc_nopanic(PAGE_SIZE, PAGE_SIZE);
->  	if (!virt)
->  		return NULL;
->  
-> -- 
-> 2.7.4
-> 
-
+diff --git a/arch/ia64/kernel/pci-dma.c b/arch/ia64/kernel/pci-dma.c
+index 5a5bf5a82ac2..fe988c49f01c 100644
+--- a/arch/ia64/kernel/pci-dma.c
++++ b/arch/ia64/kernel/pci-dma.c
+@@ -24,8 +24,6 @@ int force_iommu __read_mostly;
+ 
+ int iommu_pass_through;
+ 
+-extern struct dma_map_ops intel_dma_ops;
+-
+ static int __init pci_iommu_init(void)
+ {
+ 	if (iommu_detected)
+@@ -39,8 +37,6 @@ fs_initcall(pci_iommu_init);
+ 
+ void __init pci_iommu_alloc(void)
+ {
+-	dma_ops = &intel_dma_ops;
+-
+ 	/*
+ 	 * The order of these functions is important for
+ 	 * fall-back/fail-over reasons
+diff --git a/drivers/iommu/intel-iommu.c b/drivers/iommu/intel-iommu.c
+index e72efef97924..0ee6516de41a 100644
+--- a/drivers/iommu/intel-iommu.c
++++ b/drivers/iommu/intel-iommu.c
+@@ -3895,7 +3895,7 @@ static int intel_mapping_error(struct device *dev, dma_addr_t dma_addr)
+ 	return !dma_addr;
+ }
+ 
+-const struct dma_map_ops intel_dma_ops = {
++static const struct dma_map_ops intel_dma_ops = {
+ 	.alloc = intel_alloc_coherent,
+ 	.free = intel_free_coherent,
+ 	.map_sg = intel_map_sg,
 -- 
-Michal Hocko
-SUSE Labs
+2.18.0
