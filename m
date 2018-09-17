@@ -1,47 +1,69 @@
-From: Mike Rapoport <rppt@linux.vnet.ibm.com>
-Date: Thu, 06 Sep 2018 13:30:23 +0000
-Subject: Re: [RFC PATCH 00/29] mm: remove bootmem allocator
-Message-Id: <20180906133023.GL27492@rapoport-lnx>
+From: Christoph Hellwig <hch@lst.de>
+Date: Mon, 17 Sep 2018 17:10:29 +0000
+Subject: [PATCH 7/9] ia64/sn2: remove no-ops dma sync methods
+Message-Id: <20180917171031.3853-8-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1536163184-26356-1-git-send-email-rppt@linux.vnet.ibm.com>
- <CAEbi=3dKL1zOYc0DC3yXm=7srw6tUfx-JR=o9n4pVrGp+Sosug@mail.gmail.com>
-In-Reply-To: <CAEbi=3dKL1zOYc0DC3yXm=7srw6tUfx-JR=o9n4pVrGp+Sosug@mail.gmail.com>
+References: <20180801160252.25629-8-hch@lst.de>
+In-Reply-To: <20180801160252.25629-8-hch@lst.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: Greentime Hu <green.hu@gmail.com>
-Cc: linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>, David Miller <davem@davemloft.net>, gregkh@linuxfoundation.org, mingo@redhat.com, mpe@ellerman.id.au, mhocko@suse.com, paul.burton@mips.com, Thomas Gleixner <tglx@linutronix.de>, tony.luck@intel.com, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linuxppc-dev@lists.ozlabs.org, sparclinux <sparclinux@vger.kernel.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-ia64@vger.kernel.org
 
-On Thu, Sep 06, 2018 at 10:33:48AM +0800, Greentime Hu wrote:
-> Mike Rapoport <rppt@linux.vnet.ibm.com> 於 2018年9月6日 週四 上午12:04寫道：
-> >
-> > Hi,
-> >
-> > These patches switch early memory managment to use memblock directly
-> > without any bootmem compatibility wrappers. As the result both bootmem and
-> > nobootmem are removed.
-> >
-> > There are still a couple of things to sort out, the most important is the
-> > removal of bootmem usage in MIPS.
-> >
-> > Still, IMHO, the series is in sufficient state to post and get the early
-> > feedback.
-> >
-> > The patches are build-tested with defconfig for most architectures (I
-> > couldn't find a compiler for nds32 and unicore32) and boot-tested on x86
-> > VM.
-> >
-> Hi Mike,
-> 
-> There are nds32 toolchains.
-> https://mirrors.edge.kernel.org/pub/tools/crosstool/files/bin/x86_64/8.1.0/x86_64-gcc-8.1.0-nolibc-nds32le-linux.tar.gz
-> https://github.com/vincentzwc/prebuilt-nds32-toolchain/releases/download/20180521/nds32le-linux-glibc-v3-upstream.tar.gz
+These do nothing but duplicating an assert that would have triggered
+earlier on setting the dma mask, so remove them.
 
-Thanks!
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ arch/ia64/sn/pci/pci_dma.c | 29 -----------------------------
+ 1 file changed, 29 deletions(-)
+
+diff --git a/arch/ia64/sn/pci/pci_dma.c b/arch/ia64/sn/pci/pci_dma.c
+index 74c934a997bb..3b944fba0a3e 100644
+--- a/arch/ia64/sn/pci/pci_dma.c
++++ b/arch/ia64/sn/pci/pci_dma.c
+@@ -314,31 +314,6 @@ static int sn_dma_map_sg(struct device *dev, struct scatterlist *sgl,
+ 	return nhwentries;
+ }
  
-> Sorry, we have no qemu yet.
-> 
-
+-static void sn_dma_sync_single_for_cpu(struct device *dev, dma_addr_t dma_handle,
+-				       size_t size, enum dma_data_direction dir)
+-{
+-	BUG_ON(!dev_is_pci(dev));
+-}
+-
+-static void sn_dma_sync_single_for_device(struct device *dev, dma_addr_t dma_handle,
+-					  size_t size,
+-					  enum dma_data_direction dir)
+-{
+-	BUG_ON(!dev_is_pci(dev));
+-}
+-
+-static void sn_dma_sync_sg_for_cpu(struct device *dev, struct scatterlist *sg,
+-				   int nelems, enum dma_data_direction dir)
+-{
+-	BUG_ON(!dev_is_pci(dev));
+-}
+-
+-static void sn_dma_sync_sg_for_device(struct device *dev, struct scatterlist *sg,
+-				      int nelems, enum dma_data_direction dir)
+-{
+-	BUG_ON(!dev_is_pci(dev));
+-}
+-
+ static int sn_dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
+ {
+ 	return 0;
+@@ -467,10 +442,6 @@ static struct dma_map_ops sn_dma_ops = {
+ 	.unmap_page		= sn_dma_unmap_page,
+ 	.map_sg			= sn_dma_map_sg,
+ 	.unmap_sg		= sn_dma_unmap_sg,
+-	.sync_single_for_cpu 	= sn_dma_sync_single_for_cpu,
+-	.sync_sg_for_cpu	= sn_dma_sync_sg_for_cpu,
+-	.sync_single_for_device = sn_dma_sync_single_for_device,
+-	.sync_sg_for_device	= sn_dma_sync_sg_for_device,
+ 	.mapping_error		= sn_dma_mapping_error,
+ 	.dma_supported		= sn_dma_supported,
+ };
 -- 
-Sincerely yours,
-Mike.
+2.18.0
