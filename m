@@ -1,53 +1,66 @@
-From: Michal Hocko <mhocko@kernel.org>
-Date: Thu, 06 Sep 2018 07:49:19 +0000
-Subject: Re: [RFC PATCH 10/29] memblock: replace __alloc_bootmem_node_nopanic with memblock_alloc_try_nid_nop
-Message-Id: <20180906074919.GS14951@dhcp22.suse.cz>
+From: Christoph Hellwig <hch@lst.de>
+Date: Mon, 17 Sep 2018 17:10:25 +0000
+Subject: [PATCH 3/9] ia64: remove iommu_dma_supported
+Message-Id: <20180917171031.3853-4-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1536163184-26356-1-git-send-email-rppt@linux.vnet.ibm.com>
- <1536163184-26356-11-git-send-email-rppt@linux.vnet.ibm.com>
-In-Reply-To: <1536163184-26356-11-git-send-email-rppt@linux.vnet.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Mike Rapoport <rppt@linux.vnet.ibm.com>
-Cc: linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>, "David S. Miller" <davem@davemloft.net>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Michael Ellerman <mpe@ellerman.id.au>, Paul Burton <paul.burton@mips.com>, Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-On Wed 05-09-18 18:59:25, Mike Rapoport wrote:
-> The __alloc_bootmem_node_nopanic() is used only once, there is no reason to
-> add a wrapper for memblock_alloc_try_nid_nopanic for it.
+The generic dma_direct_supported helper already used by intel-iommu on
+x86 does a better job than the ia64 reimplementation.
 
-OK, it took me a bit longer to see they are equivalent. Both zero the
-memory and fallback to a different node if the given one doesn't have a
-proper range. So good. Lack of proper documentation didn't really help.
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ arch/ia64/kernel/pci-dma.c  | 13 -------------
+ drivers/iommu/intel-iommu.c |  2 --
+ 2 files changed, 15 deletions(-)
+
+diff --git a/arch/ia64/kernel/pci-dma.c b/arch/ia64/kernel/pci-dma.c
+index 50b6ad282a90..3c2884bef3d4 100644
+--- a/arch/ia64/kernel/pci-dma.c
++++ b/arch/ia64/kernel/pci-dma.c
+@@ -51,18 +51,6 @@ iommu_dma_init(void)
+ 	return;
+ }
  
-> Signed-off-by: Mike Rapoport <rppt@linux.vnet.ibm.com>
-
-Acked-by: Michal Hocko <mhocko@suse.com>
-
-> ---
->  arch/x86/kernel/setup_percpu.c | 6 ++++--
->  1 file changed, 4 insertions(+), 2 deletions(-)
-> 
-> diff --git a/arch/x86/kernel/setup_percpu.c b/arch/x86/kernel/setup_percpu.c
-> index ea554f8..67d48e26 100644
-> --- a/arch/x86/kernel/setup_percpu.c
-> +++ b/arch/x86/kernel/setup_percpu.c
-> @@ -112,8 +112,10 @@ static void * __init pcpu_alloc_bootmem(unsigned int cpu, unsigned long size,
->  		pr_debug("per cpu data for cpu%d %lu bytes at %016lx\n",
->  			 cpu, size, __pa(ptr));
->  	} else {
-> -		ptr = __alloc_bootmem_node_nopanic(NODE_DATA(node),
-> -						   size, align, goal);
-> +		ptr = memblock_alloc_try_nid_nopanic(size, align, goal,
-> +						     BOOTMEM_ALLOC_ACCESSIBLE,
-> +						     node);
-> +
->  		pr_debug("per cpu data for cpu%d %lu bytes on node%d at %016lx\n",
->  			 cpu, size, node, __pa(ptr));
->  	}
-> -- 
-> 2.7.4
-
+-int iommu_dma_supported(struct device *dev, u64 mask)
+-{
+-	/* Copied from i386. Doesn't make much sense, because it will
+-	   only work for pci_alloc_coherent.
+-	   The caller just has to use GFP_DMA in this case. */
+-	if (mask < DMA_BIT_MASK(24))
+-		return 0;
+-
+-	return 1;
+-}
+-EXPORT_SYMBOL(iommu_dma_supported);
+-
+ void __init pci_iommu_alloc(void)
+ {
+ 	dma_ops = &intel_dma_ops;
+@@ -71,7 +59,6 @@ void __init pci_iommu_alloc(void)
+ 	intel_dma_ops.sync_sg_for_cpu = machvec_dma_sync_sg;
+ 	intel_dma_ops.sync_single_for_device = machvec_dma_sync_single;
+ 	intel_dma_ops.sync_sg_for_device = machvec_dma_sync_sg;
+-	intel_dma_ops.dma_supported = iommu_dma_supported;
+ 
+ 	/*
+ 	 * The order of these functions is important for
+diff --git a/drivers/iommu/intel-iommu.c b/drivers/iommu/intel-iommu.c
+index 5f3f10cf9d9d..e72efef97924 100644
+--- a/drivers/iommu/intel-iommu.c
++++ b/drivers/iommu/intel-iommu.c
+@@ -3903,9 +3903,7 @@ const struct dma_map_ops intel_dma_ops = {
+ 	.map_page = intel_map_page,
+ 	.unmap_page = intel_unmap_page,
+ 	.mapping_error = intel_mapping_error,
+-#ifdef CONFIG_X86
+ 	.dma_supported = dma_direct_supported,
+-#endif
+ };
+ 
+ static inline int iommu_domain_cache_init(void)
 -- 
-Michal Hocko
-SUSE Labs
+2.18.0
