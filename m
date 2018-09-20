@@ -1,33 +1,69 @@
-From: Michal Hocko <mhocko@kernel.org>
-Date: Wed, 26 Sep 2018 09:41:54 +0000
-Subject: Re: [PATCH 00/30] mm: remove bootmem allocator
-Message-Id: <20180926094154.GT6278@dhcp22.suse.cz>
+From: Christoph Hellwig <hch@lst.de>
+Date: Thu, 20 Sep 2018 07:26:54 +0000
+Subject: [PATCH 3/9] ia64: remove iommu_dma_supported
+Message-Id: <20180920072700.22396-4-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1536927045-23536-1-git-send-email-rppt@linux.vnet.ibm.com>
-In-Reply-To: <1536927045-23536-1-git-send-email-rppt@linux.vnet.ibm.com>
+References: <20180920072700.22396-1-hch@lst.de>
+In-Reply-To: <20180920072700.22396-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Mike Rapoport <rppt@linux.vnet.ibm.com>
-Cc: linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>, Catalin Marinas <catalin.marinas@arm.com>, Chris Zankel <chris@zankel.net>, "David S. Miller" <davem@davemloft.net>, Geert Uytterhoeven <geert@linux-m68k.org>, Greentime Hu <green.hu@gmail.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Guan Xuetao <gxt@pku.edu.cn>, Ingo Molnar <mingo@redhat.com>, "James E.J. Bottomley" <jejb@parisc-linux.org>, Jonas Bonn <jonas@southpole.se>, Jonathan Corbet <corbet@lwn.net>, Ley Foon Tan <lftan@altera.com>, Mark Salter <msalter@redhat.com>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Matt Turner <mattst88@gmail.com>, Michael Ellerman <mpe@ellerman.id.au>, Michal Simek <monstr@monstr.eu>, Palmer Dabbelt <palmer@sifive.com>, Paul Burton <paul.burton@mips.com>, Richard Kuo <rkuo@codeaurora.org>, Richard Weinberger <richard@nod.at>, Rich Felker <dalias@libc.org>, Russell King <linux@armlinux.org.uk>, Serge Semin <fancer.lancer@gmail.com>, Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, Vineet Gupta <vgupta@synopsys.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-um@lists.infradead.org, nios2-dev@lists.rocketboards.org, openrisc@lists.librecores.org, sparclinux@vger.kernel.org, uclinux-h8-devel@lists.sourceforge.jp
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org, iommu@lists.linux-foundation.org, linux-kernel@vger.kernel.org
 
-On Fri 14-09-18 15:10:15, Mike Rapoport wrote:
-[...]
->  326 files changed, 866 insertions(+), 2539 deletions(-)
->  delete mode 100644 include/linux/bootmem.h
->  delete mode 100644 mm/bootmem.c
->  delete mode 100644 mm/nobootmem.c
+The generic dma_direct_supported helper already used by intel-iommu on
+x86 does a better job than the ia64 reimplementation.
 
-I _really_ love this part the most! Not only we got rid of the
-translation which always has been a headache but also this nicely shows
-how having multiple allocators hurt. I believe further cleanups on top
-will make the boot allocator even a place where you look and your eyes
-do not want to jump out.
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ arch/ia64/kernel/pci-dma.c  | 13 -------------
+ drivers/iommu/intel-iommu.c |  2 --
+ 2 files changed, 15 deletions(-)
 
-I have only went through patches without my acks from the previous
-iteration and there are only minor comments. This looks good overall.
-
-Nice work Mike!
+diff --git a/arch/ia64/kernel/pci-dma.c b/arch/ia64/kernel/pci-dma.c
+index 50b6ad282a90..3c2884bef3d4 100644
+--- a/arch/ia64/kernel/pci-dma.c
++++ b/arch/ia64/kernel/pci-dma.c
+@@ -51,18 +51,6 @@ iommu_dma_init(void)
+ 	return;
+ }
+ 
+-int iommu_dma_supported(struct device *dev, u64 mask)
+-{
+-	/* Copied from i386. Doesn't make much sense, because it will
+-	   only work for pci_alloc_coherent.
+-	   The caller just has to use GFP_DMA in this case. */
+-	if (mask < DMA_BIT_MASK(24))
+-		return 0;
+-
+-	return 1;
+-}
+-EXPORT_SYMBOL(iommu_dma_supported);
+-
+ void __init pci_iommu_alloc(void)
+ {
+ 	dma_ops = &intel_dma_ops;
+@@ -71,7 +59,6 @@ void __init pci_iommu_alloc(void)
+ 	intel_dma_ops.sync_sg_for_cpu = machvec_dma_sync_sg;
+ 	intel_dma_ops.sync_single_for_device = machvec_dma_sync_single;
+ 	intel_dma_ops.sync_sg_for_device = machvec_dma_sync_sg;
+-	intel_dma_ops.dma_supported = iommu_dma_supported;
+ 
+ 	/*
+ 	 * The order of these functions is important for
+diff --git a/drivers/iommu/intel-iommu.c b/drivers/iommu/intel-iommu.c
+index 5f3f10cf9d9d..e72efef97924 100644
+--- a/drivers/iommu/intel-iommu.c
++++ b/drivers/iommu/intel-iommu.c
+@@ -3903,9 +3903,7 @@ const struct dma_map_ops intel_dma_ops = {
+ 	.map_page = intel_map_page,
+ 	.unmap_page = intel_unmap_page,
+ 	.mapping_error = intel_mapping_error,
+-#ifdef CONFIG_X86
+ 	.dma_supported = dma_direct_supported,
+-#endif
+ };
+ 
+ static inline int iommu_domain_cache_init(void)
 -- 
-Michal Hocko
-SUSE Labs
+2.18.0
