@@ -1,14 +1,15 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Mon, 17 Sep 2018 17:10:31 +0000
+Date: Thu, 20 Sep 2018 07:27:00 +0000
 Subject: [PATCH 9/9] intel-iommu: mark intel_dma_ops static
-Message-Id: <20180917171031.3853-10-hch@lst.de>
+Message-Id: <20180920072700.22396-10-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180801160252.25629-10-hch@lst.de>
-In-Reply-To: <20180801160252.25629-10-hch@lst.de>
+References: <20180920072700.22396-1-hch@lst.de>
+In-Reply-To: <20180920072700.22396-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org, iommu@lists.linux-foundation.org, linux-kernel@vger.kernel.org
 
 ia64 currently explicitly assigns it to dma_ops, but that same work is
 already done by intel_iommu_init a little later, so we can remove the
