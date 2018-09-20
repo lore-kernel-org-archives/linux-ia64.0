@@ -1,129 +1,184 @@
-From: Mike Rapoport <rppt@linux.vnet.ibm.com>
-Date: Wed, 05 Sep 2018 15:59:20 +0000
-Subject: [RFC PATCH 05/29] mm: nobootmem: remove dead code
-Message-Id: <1536163184-26356-6-git-send-email-rppt@linux.vnet.ibm.com>
+From: Alexandre Ghiti <alex@ghiti.fr>
+Date: Thu, 20 Sep 2018 06:03:51 +0000
+Subject: [PATCH v7 04/11] hugetlb: Introduce generic version of huge_ptep_get_and_clear
+Message-Id: <20180920060358.16606-5-alex@ghiti.fr>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1536163184-26356-1-git-send-email-rppt@linux.vnet.ibm.com>
-In-Reply-To: <1536163184-26356-1-git-send-email-rppt@linux.vnet.ibm.com>
+References: <20180920060358.16606-1-alex@ghiti.fr>
+In-Reply-To: <20180920060358.16606-1-alex@ghiti.fr>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org
-Cc: Andrew Morton <akpm@linux-foundation.org>, "David S. Miller" <davem@davemloft.net>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Michael Ellerman <mpe@ellerman.id.au>, Michal Hocko <mhocko@suse.com>, Paul Burton <paul.burton@mips.com>, Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org, Mike Rapoport <rppt@linux.vnet.ibm.com>
+To: akpm@linux-foundation.org
+Cc: linux-mips@linux-mips.org, dalias@libc.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, benh@kernel.crashing.org, will.deacon@arm.com, jejb@parisc-linux.org, linux-mm@kvack.org, paulus@samba.org, hpa@zytor.com, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, ysato@users.sourceforge.jp, mpe@ellerman.id.au, deller@gmx.de, x86@kernel.org, linux@armlinux.org.uk, mingo@redhat.com, catalin.marinas@arm.com, jhogan@kernel.org, fenghua.yu@intel.com, arnd@arndb.de, tglx@linutronix.de, linux-arm-kernel@lists.infradead.org, tony.luck@intel.com, Alexandre Ghiti <alex@ghiti.fr>, linux-parisc@vger.kernel.org, linux-kernel@vger.kernel.org, ralf@linux-mips.org, paul.burton@mips.com, linuxppc-dev@lists.ozlabs.org, davem@davemloft.net, mike.kravetz@oracle.com
 
-Several bootmem functions and macros are not used. Remove them.
+arm, ia64, sh, x86 architectures use the
+same version of huge_ptep_get_and_clear, so move this generic
+implementation into asm-generic/hugetlb.h.
 
-Signed-off-by: Mike Rapoport <rppt@linux.vnet.ibm.com>
+Signed-off-by: Alexandre Ghiti <alex@ghiti.fr>
+Tested-by: Helge Deller <deller@gmx.de> # parisc
+Acked-by: Catalin Marinas <catalin.marinas@arm.com> # arm64
+Acked-by: Paul Burton <paul.burton@mips.com> # MIPS parts
+Acked-by: Ingo Molnar <mingo@kernel.org> # x86
+Reviewed-by: Luiz Capitulino <lcapitulino@redhat.com>
+Reviewed-by: Mike Kravetz <mike.kravetz@oracle.com>
 ---
- include/linux/bootmem.h | 26 --------------------------
- mm/nobootmem.c          | 35 -----------------------------------
- 2 files changed, 61 deletions(-)
+ arch/arm/include/asm/hugetlb-3level.h | 6 ------
+ arch/arm64/include/asm/hugetlb.h      | 1 +
+ arch/ia64/include/asm/hugetlb.h       | 6 ------
+ arch/mips/include/asm/hugetlb.h       | 1 +
+ arch/parisc/include/asm/hugetlb.h     | 1 +
+ arch/powerpc/include/asm/hugetlb.h    | 1 +
+ arch/sh/include/asm/hugetlb.h         | 6 ------
+ arch/sparc/include/asm/hugetlb.h      | 1 +
+ arch/x86/include/asm/hugetlb.h        | 6 ------
+ include/asm-generic/hugetlb.h         | 8 ++++++++
+ 10 files changed, 13 insertions(+), 24 deletions(-)
 
-diff --git a/include/linux/bootmem.h b/include/linux/bootmem.h
-index fce6278..b74bafd1 100644
---- a/include/linux/bootmem.h
-+++ b/include/linux/bootmem.h
-@@ -36,17 +36,6 @@ extern void free_bootmem_node(pg_data_t *pgdat,
- extern void free_bootmem(unsigned long physaddr, unsigned long size);
- extern void free_bootmem_late(unsigned long physaddr, unsigned long size);
- 
--/*
-- * Flags for reserve_bootmem (also if CONFIG_HAVE_ARCH_BOOTMEM_NODE,
-- * the architecture-specific code should honor this).
-- *
-- * If flags is BOOTMEM_DEFAULT, then the return value is always 0 (success).
-- * If flags contains BOOTMEM_EXCLUSIVE, then -EBUSY is returned if the memory
-- * already was reserved.
-- */
--#define BOOTMEM_DEFAULT		0
--#define BOOTMEM_EXCLUSIVE	(1<<0)
--
- extern void *__alloc_bootmem(unsigned long size,
- 			     unsigned long align,
- 			     unsigned long goal);
-@@ -73,13 +62,6 @@ void *___alloc_bootmem_node_nopanic(pg_data_t *pgdat,
- extern void *__alloc_bootmem_low(unsigned long size,
- 				 unsigned long align,
- 				 unsigned long goal) __malloc;
--void *__alloc_bootmem_low_nopanic(unsigned long size,
--				 unsigned long align,
--				 unsigned long goal) __malloc;
--extern void *__alloc_bootmem_low_node(pg_data_t *pgdat,
--				      unsigned long size,
--				      unsigned long align,
--				      unsigned long goal) __malloc;
- 
- /* We are using top down, so it is safe to use 0 here */
- #define BOOTMEM_LOW_LIMIT 0
-@@ -92,8 +74,6 @@ extern void *__alloc_bootmem_low_node(pg_data_t *pgdat,
- 	__alloc_bootmem(x, SMP_CACHE_BYTES, BOOTMEM_LOW_LIMIT)
- #define alloc_bootmem_align(x, align) \
- 	__alloc_bootmem(x, align, BOOTMEM_LOW_LIMIT)
--#define alloc_bootmem_nopanic(x) \
--	__alloc_bootmem_nopanic(x, SMP_CACHE_BYTES, BOOTMEM_LOW_LIMIT)
- #define alloc_bootmem_pages(x) \
- 	__alloc_bootmem(x, PAGE_SIZE, BOOTMEM_LOW_LIMIT)
- #define alloc_bootmem_pages_nopanic(x) \
-@@ -104,17 +84,11 @@ extern void *__alloc_bootmem_low_node(pg_data_t *pgdat,
- 	__alloc_bootmem_node_nopanic(pgdat, x, SMP_CACHE_BYTES, BOOTMEM_LOW_LIMIT)
- #define alloc_bootmem_pages_node(pgdat, x) \
- 	__alloc_bootmem_node(pgdat, x, PAGE_SIZE, BOOTMEM_LOW_LIMIT)
--#define alloc_bootmem_pages_node_nopanic(pgdat, x) \
--	__alloc_bootmem_node_nopanic(pgdat, x, PAGE_SIZE, BOOTMEM_LOW_LIMIT)
- 
- #define alloc_bootmem_low(x) \
- 	__alloc_bootmem_low(x, SMP_CACHE_BYTES, 0)
--#define alloc_bootmem_low_pages_nopanic(x) \
--	__alloc_bootmem_low_nopanic(x, PAGE_SIZE, 0)
- #define alloc_bootmem_low_pages(x) \
- 	__alloc_bootmem_low(x, PAGE_SIZE, 0)
--#define alloc_bootmem_low_pages_node(pgdat, x) \
--	__alloc_bootmem_low_node(pgdat, x, PAGE_SIZE, 0)
- 
- /* FIXME: use MEMBLOCK_ALLOC_* variants here */
- #define BOOTMEM_ALLOC_ACCESSIBLE	0
-diff --git a/mm/nobootmem.c b/mm/nobootmem.c
-index d4d0cd4..44ce7de 100644
---- a/mm/nobootmem.c
-+++ b/mm/nobootmem.c
-@@ -404,38 +404,3 @@ void * __init __alloc_bootmem_low(unsigned long size, unsigned long align,
- {
- 	return ___alloc_bootmem(size, align, goal, ARCH_LOW_ADDRESS_LIMIT);
+diff --git a/arch/arm/include/asm/hugetlb-3level.h b/arch/arm/include/asm/hugetlb-3level.h
+index 398fb06e8207..ad36e84b819a 100644
+--- a/arch/arm/include/asm/hugetlb-3level.h
++++ b/arch/arm/include/asm/hugetlb-3level.h
+@@ -49,12 +49,6 @@ static inline void huge_ptep_set_wrprotect(struct mm_struct *mm,
+ 	ptep_set_wrprotect(mm, addr, ptep);
  }
--
--void * __init __alloc_bootmem_low_nopanic(unsigned long size,
--					  unsigned long align,
--					  unsigned long goal)
+ 
+-static inline pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
+-					    unsigned long addr, pte_t *ptep)
 -{
--	return ___alloc_bootmem_nopanic(size, align, goal,
--					ARCH_LOW_ADDRESS_LIMIT);
+-	return ptep_get_and_clear(mm, addr, ptep);
 -}
 -
--/**
-- * __alloc_bootmem_low_node - allocate low boot memory from a specific node
-- * @pgdat: node to allocate from
-- * @size: size of the request in bytes
-- * @align: alignment of the region
-- * @goal: preferred starting address of the region
-- *
-- * The goal is dropped if it can not be satisfied and the allocation will
-- * fall back to memory below @goal.
-- *
-- * Allocation may fall back to any node in the system if the specified node
-- * can not hold the requested memory.
-- *
-- * The function panics if the request can not be satisfied.
-- *
-- * Return: address of the allocated region.
-- */
--void * __init __alloc_bootmem_low_node(pg_data_t *pgdat, unsigned long size,
--				       unsigned long align, unsigned long goal)
+ static inline int huge_ptep_set_access_flags(struct vm_area_struct *vma,
+ 					     unsigned long addr, pte_t *ptep,
+ 					     pte_t pte, int dirty)
+diff --git a/arch/arm64/include/asm/hugetlb.h b/arch/arm64/include/asm/hugetlb.h
+index 874661a1dff1..6ae0bcafe162 100644
+--- a/arch/arm64/include/asm/hugetlb.h
++++ b/arch/arm64/include/asm/hugetlb.h
+@@ -66,6 +66,7 @@ extern void set_huge_pte_at(struct mm_struct *mm, unsigned long addr,
+ extern int huge_ptep_set_access_flags(struct vm_area_struct *vma,
+ 				      unsigned long addr, pte_t *ptep,
+ 				      pte_t pte, int dirty);
++#define __HAVE_ARCH_HUGE_PTEP_GET_AND_CLEAR
+ extern pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
+ 				     unsigned long addr, pte_t *ptep);
+ extern void huge_ptep_set_wrprotect(struct mm_struct *mm,
+diff --git a/arch/ia64/include/asm/hugetlb.h b/arch/ia64/include/asm/hugetlb.h
+index a235d6f60fb3..6719c74da0de 100644
+--- a/arch/ia64/include/asm/hugetlb.h
++++ b/arch/ia64/include/asm/hugetlb.h
+@@ -20,12 +20,6 @@ static inline int is_hugepage_only_range(struct mm_struct *mm,
+ 		REGION_NUMBER((addr)+(len)-1) = RGN_HPAGE);
+ }
+ 
+-static inline pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
+-					    unsigned long addr, pte_t *ptep)
 -{
--	if (WARN_ON_ONCE(slab_is_available()))
--		return kzalloc_node(size, GFP_NOWAIT, pgdat->node_id);
--
--	return ___alloc_bootmem_node(pgdat, size, align, goal,
--				     ARCH_LOW_ADDRESS_LIMIT);
+-	return ptep_get_and_clear(mm, addr, ptep);
 -}
+-
+ static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
+ 					 unsigned long addr, pte_t *ptep)
+ {
+diff --git a/arch/mips/include/asm/hugetlb.h b/arch/mips/include/asm/hugetlb.h
+index 8ea439041d5d..0959cc5a41fa 100644
+--- a/arch/mips/include/asm/hugetlb.h
++++ b/arch/mips/include/asm/hugetlb.h
+@@ -36,6 +36,7 @@ static inline int prepare_hugepage_range(struct file *file,
+ 	return 0;
+ }
+ 
++#define __HAVE_ARCH_HUGE_PTEP_GET_AND_CLEAR
+ static inline pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
+ 					    unsigned long addr, pte_t *ptep)
+ {
+diff --git a/arch/parisc/include/asm/hugetlb.h b/arch/parisc/include/asm/hugetlb.h
+index 77c8adbac7c3..6e281e1bb336 100644
+--- a/arch/parisc/include/asm/hugetlb.h
++++ b/arch/parisc/include/asm/hugetlb.h
+@@ -8,6 +8,7 @@
+ void set_huge_pte_at(struct mm_struct *mm, unsigned long addr,
+ 		     pte_t *ptep, pte_t pte);
+ 
++#define __HAVE_ARCH_HUGE_PTEP_GET_AND_CLEAR
+ pte_t huge_ptep_get_and_clear(struct mm_struct *mm, unsigned long addr,
+ 			      pte_t *ptep);
+ 
+diff --git a/arch/powerpc/include/asm/hugetlb.h b/arch/powerpc/include/asm/hugetlb.h
+index 33b899624922..91bdc84b76ce 100644
+--- a/arch/powerpc/include/asm/hugetlb.h
++++ b/arch/powerpc/include/asm/hugetlb.h
+@@ -129,6 +129,7 @@ static inline int prepare_hugepage_range(struct file *file,
+ 	return 0;
+ }
+ 
++#define __HAVE_ARCH_HUGE_PTEP_GET_AND_CLEAR
+ static inline pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
+ 					    unsigned long addr, pte_t *ptep)
+ {
+diff --git a/arch/sh/include/asm/hugetlb.h b/arch/sh/include/asm/hugetlb.h
+index bc552e37c1c9..08ee6c00b5e9 100644
+--- a/arch/sh/include/asm/hugetlb.h
++++ b/arch/sh/include/asm/hugetlb.h
+@@ -25,12 +25,6 @@ static inline int prepare_hugepage_range(struct file *file,
+ 	return 0;
+ }
+ 
+-static inline pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
+-					    unsigned long addr, pte_t *ptep)
+-{
+-	return ptep_get_and_clear(mm, addr, ptep);
+-}
+-
+ static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
+ 					 unsigned long addr, pte_t *ptep)
+ {
+diff --git a/arch/sparc/include/asm/hugetlb.h b/arch/sparc/include/asm/hugetlb.h
+index 16b0c53ea6c9..944e3a4bfaff 100644
+--- a/arch/sparc/include/asm/hugetlb.h
++++ b/arch/sparc/include/asm/hugetlb.h
+@@ -16,6 +16,7 @@ extern struct pud_huge_patch_entry __pud_huge_patch, __pud_huge_patch_end;
+ void set_huge_pte_at(struct mm_struct *mm, unsigned long addr,
+ 		     pte_t *ptep, pte_t pte);
+ 
++#define __HAVE_ARCH_HUGE_PTEP_GET_AND_CLEAR
+ pte_t huge_ptep_get_and_clear(struct mm_struct *mm, unsigned long addr,
+ 			      pte_t *ptep);
+ 
+diff --git a/arch/x86/include/asm/hugetlb.h b/arch/x86/include/asm/hugetlb.h
+index 8db9a761964d..e9e7fef867ad 100644
+--- a/arch/x86/include/asm/hugetlb.h
++++ b/arch/x86/include/asm/hugetlb.h
+@@ -28,12 +28,6 @@ static inline int prepare_hugepage_range(struct file *file,
+ 	return 0;
+ }
+ 
+-static inline pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
+-					    unsigned long addr, pte_t *ptep)
+-{
+-	return ptep_get_and_clear(mm, addr, ptep);
+-}
+-
+ static inline void huge_ptep_clear_flush(struct vm_area_struct *vma,
+ 					 unsigned long addr, pte_t *ptep)
+ {
+diff --git a/include/asm-generic/hugetlb.h b/include/asm-generic/hugetlb.h
+index ee010b756246..0f6f151780dd 100644
+--- a/include/asm-generic/hugetlb.h
++++ b/include/asm-generic/hugetlb.h
+@@ -57,4 +57,12 @@ static inline void set_huge_pte_at(struct mm_struct *mm, unsigned long addr,
+ }
+ #endif
+ 
++#ifndef __HAVE_ARCH_HUGE_PTEP_GET_AND_CLEAR
++static inline pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
++		unsigned long addr, pte_t *ptep)
++{
++	return ptep_get_and_clear(mm, addr, ptep);
++}
++#endif
++
+ #endif /* _ASM_GENERIC_HUGETLB_H */
 -- 
-2.7.4
+2.16.2
