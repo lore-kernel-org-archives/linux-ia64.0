@@ -1,49 +1,123 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Thu, 20 Sep 2018 07:26:56 +0000
-Subject: [PATCH 5/9] ia64: remove the unused pci_iommu_shutdown function
-Message-Id: <20180920072700.22396-6-hch@lst.de>
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Date: Mon, 24 Sep 2018 14:21:41 +0000
+Subject: [REVIEW][PATCH 1/3] signal/ia64: Use the generic force_sigsegv in setup_frame
+Message-Id: <20180924142143.21356-1-ebiederm@xmission.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180920072700.22396-1-hch@lst.de>
-In-Reply-To: <20180920072700.22396-1-hch@lst.de>
+References: <87pnx32j2p.fsf@xmission.com>
+In-Reply-To: <87pnx32j2p.fsf@xmission.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org, iommu@lists.linux-foundation.org, linux-kernel@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: linux-arch@vger.kernel.org, linux-ia64@vger.kernel.org, Fenghua Yu <fenghua.yu@intel.com>, Tony Luck <tony.luck@intel.com>, "Eric W. Biederman" <ebiederm@xmission.com>
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+The ia64 handling of failure to setup a signal frame has been trying
+to set overlapping fields in struct siginfo since 2.3.43.  The si_pid
+and si_uid fields are stomped when the si_addr field is set.  The
+si_code of SI_KERNEL indicates that si_pid and si_uid should be valid,
+and that si_addr does not exist.
+
+Being at odds with the definition of SI_KERNEL and with nothing to
+indicate that this was a signal frame setup failure there is no way
+for userspace to know that si_addr was filled out instead.
+
+In practice failure to setup a signal frame is rare, and si_pid and
+si_uid are always set to 0 when si_code is SI_KERNEL so I expect no
+one has looked closely enough before to see this weirdness.  Further
+the only difference between force_sigsegv_info and the generic
+force_sigsegv other than the return code is that force_sigsegv_info
+stomps the si_uid and si_pid fields.
+
+Remove the bug and simplify the code by using force_sigsegv in this
+case just like other architectures.
+
+Fixes: 2.3.43
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 ---
- arch/ia64/include/asm/iommu.h | 1 -
- arch/ia64/kernel/pci-dma.c    | 5 -----
- 2 files changed, 6 deletions(-)
+ arch/ia64/kernel/signal.c | 50 ++++++++++-----------------------------
+ 1 file changed, 12 insertions(+), 38 deletions(-)
 
-diff --git a/arch/ia64/include/asm/iommu.h b/arch/ia64/include/asm/iommu.h
-index 156b9d8e1932..5397e5aa3704 100644
---- a/arch/ia64/include/asm/iommu.h
-+++ b/arch/ia64/include/asm/iommu.h
-@@ -5,7 +5,6 @@
- /* 10 seconds */
- #define DMAR_OPERATION_TIMEOUT (((cycles_t) local_cpu_data->itc_freq)*10)
+diff --git a/arch/ia64/kernel/signal.c b/arch/ia64/kernel/signal.c
+index d1234a5ba4c5..01fc133b2e4c 100644
+--- a/arch/ia64/kernel/signal.c
++++ b/arch/ia64/kernel/signal.c
+@@ -231,37 +231,6 @@ rbs_on_sig_stack (unsigned long bsp)
+ 	return (bsp - current->sas_ss_sp < current->sas_ss_size);
+ }
  
--extern void pci_iommu_shutdown(void);
- extern void no_iommu_init(void);
- #ifdef	CONFIG_INTEL_IOMMU
- extern int force_iommu, no_iommu;
-diff --git a/arch/ia64/kernel/pci-dma.c b/arch/ia64/kernel/pci-dma.c
-index 924966e5aa25..936af0ec7f8f 100644
---- a/arch/ia64/kernel/pci-dma.c
-+++ b/arch/ia64/kernel/pci-dma.c
-@@ -37,11 +37,6 @@ static int __init pci_iommu_init(void)
- /* Must execute after PCI subsystem */
- fs_initcall(pci_iommu_init);
- 
--void pci_iommu_shutdown(void)
+-static long
+-force_sigsegv_info (int sig, void __user *addr)
 -{
--	return;
+-	unsigned long flags;
+-	struct siginfo si;
+-
+-	clear_siginfo(&si);
+-	if (sig = SIGSEGV) {
+-		/*
+-		 * Acquiring siglock around the sa_handler-update is almost
+-		 * certainly overkill, but this isn't a
+-		 * performance-critical path and I'd rather play it safe
+-		 * here than having to debug a nasty race if and when
+-		 * something changes in kernel/signal.c that would make it
+-		 * no longer safe to modify sa_handler without holding the
+-		 * lock.
+-		 */
+-		spin_lock_irqsave(&current->sighand->siglock, flags);
+-		current->sighand->action[sig - 1].sa.sa_handler = SIG_DFL;
+-		spin_unlock_irqrestore(&current->sighand->siglock, flags);
+-	}
+-	si.si_signo = SIGSEGV;
+-	si.si_errno = 0;
+-	si.si_code = SI_KERNEL;
+-	si.si_pid = task_pid_vnr(current);
+-	si.si_uid = from_kuid_munged(current_user_ns(), current_uid());
+-	si.si_addr = addr;
+-	force_sig_info(SIGSEGV, &si, current);
+-	return 1;
 -}
 -
- void __init
- iommu_dma_init(void)
+ static long
+ setup_frame(struct ksignal *ksig, sigset_t *set, struct sigscratch *scr)
  {
+@@ -295,15 +264,18 @@ setup_frame(struct ksignal *ksig, sigset_t *set, struct sigscratch *scr)
+ 			 * instead so we will die with SIGSEGV.
+ 			 */
+ 			check_sp = (new_sp - sizeof(*frame)) & -STACK_ALIGN;
+-			if (!likely(on_sig_stack(check_sp)))
+-				return force_sigsegv_info(ksig->sig, (void __user *)
+-							  check_sp);
++			if (!likely(on_sig_stack(check_sp))) {
++				force_sigsegv(ksig->sig, current);
++				return 1;
++			}
+ 		}
+ 	}
+ 	frame = (void __user *) ((new_sp - sizeof(*frame)) & -STACK_ALIGN);
+ 
+-	if (!access_ok(VERIFY_WRITE, frame, sizeof(*frame)))
+-		return force_sigsegv_info(ksig->sig, frame);
++	if (!access_ok(VERIFY_WRITE, frame, sizeof(*frame))) {
++		force_sigsegv(ksig->sig, current);
++		return 1;
++	}
+ 
+ 	err  = __put_user(ksig->sig, &frame->arg0);
+ 	err |= __put_user(&frame->info, &frame->arg1);
+@@ -317,8 +289,10 @@ setup_frame(struct ksignal *ksig, sigset_t *set, struct sigscratch *scr)
+ 	err |= __save_altstack(&frame->sc.sc_stack, scr->pt.r12);
+ 	err |= setup_sigcontext(&frame->sc, set, scr);
+ 
+-	if (unlikely(err))
+-		return force_sigsegv_info(ksig->sig, frame);
++	if (unlikely(err)) {
++		force_sigsegv(ksig->sig, current);
++		return 1;
++	}
+ 
+ 	scr->pt.r12 = (unsigned long) frame - 16;	/* new stack pointer */
+ 	scr->pt.ar_fpsr = FPSR_DEFAULT;			/* reset fpsr for signal handler */
 -- 
-2.18.0
+2.17.1
