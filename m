@@ -1,88 +1,65 @@
-From: Alexandre Ghiti <alex@ghiti.fr>
-Date: Thu, 20 Sep 2018 06:03:47 +0000
-Subject: [PATCH v7 00/11] hugetlb: Factorize hugetlb architecture primitives
-Message-Id: <20180920060358.16606-1-alex@ghiti.fr>
+From: "Eric W. Biederman" <ebiederm@xmission.com>
+Date: Mon, 24 Sep 2018 14:21:42 +0000
+Subject: [REVIEW][PATCH 2/3] signal/ia64: Use the force_sig(SIGSEGV,...) in ia64_rt_sigreturn
+Message-Id: <20180924142143.21356-2-ebiederm@xmission.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <87pnx32j2p.fsf@xmission.com>
+In-Reply-To: <87pnx32j2p.fsf@xmission.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@linux-foundation.org
-Cc: linux-mm@kvack.org, mike.kravetz@oracle.com, linux@armlinux.org.uk, catalin.marinas@arm.com, will.deacon@arm.com, tony.luck@intel.com, fenghua.yu@intel.com, ralf@linux-mips.org, paul.burton@mips.com, jhogan@kernel.org, jejb@parisc-linux.org, deller@gmx.de, benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, x86@kernel.org, arnd@arndb.de, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, Alexandre Ghiti <alex@ghiti.fr>
+To: linux-kernel@vger.kernel.org
+Cc: linux-arch@vger.kernel.org, linux-ia64@vger.kernel.org, Fenghua Yu <fenghua.yu@intel.com>, Tony Luck <tony.luck@intel.com>, "Eric W. Biederman" <ebiederm@xmission.com>
 
-Hi Andrew,
+The ia64 handling of failure to return from a signal frame has been trying
+to set overlapping fields in struct siginfo since 2.3.43.  The si_code
+corresponds to the fields that were stomped (not the field that is
+actually written), so I can not imagine a piece of userspace code
+making sense of the signal frame if it looks closely.
 
-As suggested by people who reviewed/acked this series, please consider
-including this series into -mm tree.
+In practice failure to return from a signal frame is a rare event that
+almost never happens.  Someone using an alternate signal stack to
+recover and looking in detail is even more rare.  So I presume no one
+has ever noticed and reported this ia64 nonsense.
 
-In order to reduce copy/paste of functions across architectures and then         
-make riscv hugetlb port (and future ports) simpler and smaller, this             
-patchset intends to factorize the numerous hugetlb primitives that are           
-defined across all the architectures.                                            
-                                                                                 
-Except for prepare_hugepage_range, this patchset moves the versions that         
-are just pass-through to standard pte primitives into                            
-asm-generic/hugetlb.h by using the same #ifdef semantic that can be              
-found in asm-generic/pgtable.h, i.e. __HAVE_ARCH_***.                            
-                                                                                 
-s390 architecture has not been tackled in this serie since it does not           
-use asm-generic/hugetlb.h at all.                                                
-                                                                                 
-This patchset has been compiled on all addressed architectures with              
-success (except for parisc, but the problem does not come from this              
-series).                 
+Sort this out by causing ia64 to use force_sig(SIGSEGV) like other architectures.
 
-v7:
-  Add Ingo Molnar Acked-By for x86.
+Fixes: 2.3.43
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+---
+ arch/ia64/kernel/signal.c | 10 +---------
+ 1 file changed, 1 insertion(+), 9 deletions(-)
 
-v6:                                                                              
-  - Remove nohash/32 and book3s/32 powerpc specific implementations in
-    order to use the generic ones.                                                        
-  - Add all the Reviewed-by, Acked-by and Tested-by in the commits,              
-    thanks to everyone.                                                          
-                                                                                 
-v5:                                                                              
-  As suggested by Mike Kravetz, no need to move the #include                     
-  <asm-generic/hugetlb.h> for arm and x86 architectures, let it live at          
-  the top of the file.                                                           
-                                                                                 
-v4:                                                                              
-  Fix powerpc build error due to misplacing of #include                          
-  <asm-generic/hugetlb.h> outside of #ifdef CONFIG_HUGETLB_PAGE, as              
-  pointed by Christophe Leroy.                                                   
-                                                                                 
-v1, v2, v3:                                                                      
-  Same version, just problems with email provider and misuse of                  
-  --batch-size option of git send-email
-
-Alexandre Ghiti (11):
-  hugetlb: Harmonize hugetlb.h arch specific defines with pgtable.h
-  hugetlb: Introduce generic version of hugetlb_free_pgd_range
-  hugetlb: Introduce generic version of set_huge_pte_at
-  hugetlb: Introduce generic version of huge_ptep_get_and_clear
-  hugetlb: Introduce generic version of huge_ptep_clear_flush
-  hugetlb: Introduce generic version of huge_pte_none
-  hugetlb: Introduce generic version of huge_pte_wrprotect
-  hugetlb: Introduce generic version of prepare_hugepage_range
-  hugetlb: Introduce generic version of huge_ptep_set_wrprotect
-  hugetlb: Introduce generic version of huge_ptep_set_access_flags
-  hugetlb: Introduce generic version of huge_ptep_get
-
- arch/arm/include/asm/hugetlb-3level.h        | 32 +---------
- arch/arm/include/asm/hugetlb.h               | 30 ----------
- arch/arm64/include/asm/hugetlb.h             | 39 +++---------
- arch/ia64/include/asm/hugetlb.h              | 47 ++-------------
- arch/mips/include/asm/hugetlb.h              | 40 +++----------
- arch/parisc/include/asm/hugetlb.h            | 33 +++--------
- arch/powerpc/include/asm/book3s/32/pgtable.h |  6 --
- arch/powerpc/include/asm/book3s/64/pgtable.h |  1 +
- arch/powerpc/include/asm/hugetlb.h           | 43 ++------------
- arch/powerpc/include/asm/nohash/32/pgtable.h |  6 --
- arch/powerpc/include/asm/nohash/64/pgtable.h |  1 +
- arch/sh/include/asm/hugetlb.h                | 54 ++---------------
- arch/sparc/include/asm/hugetlb.h             | 40 +++----------
- arch/x86/include/asm/hugetlb.h               | 69 ----------------------
- include/asm-generic/hugetlb.h                | 88 +++++++++++++++++++++++++++-
- 15 files changed, 135 insertions(+), 394 deletions(-)
-
+diff --git a/arch/ia64/kernel/signal.c b/arch/ia64/kernel/signal.c
+index 01fc133b2e4c..9a960829a01d 100644
+--- a/arch/ia64/kernel/signal.c
++++ b/arch/ia64/kernel/signal.c
+@@ -110,7 +110,6 @@ ia64_rt_sigreturn (struct sigscratch *scr)
+ {
+ 	extern char ia64_strace_leave_kernel, ia64_leave_kernel;
+ 	struct sigcontext __user *sc;
+-	struct siginfo si;
+ 	sigset_t set;
+ 	long retval;
+ 
+@@ -153,14 +152,7 @@ ia64_rt_sigreturn (struct sigscratch *scr)
+ 	return retval;
+ 
+   give_sigsegv:
+-	clear_siginfo(&si);
+-	si.si_signo = SIGSEGV;
+-	si.si_errno = 0;
+-	si.si_code = SI_KERNEL;
+-	si.si_pid = task_pid_vnr(current);
+-	si.si_uid = from_kuid_munged(current_user_ns(), current_uid());
+-	si.si_addr = sc;
+-	force_sig_info(SIGSEGV, &si, current);
++	force_sig(SIGSEGV, current);
+ 	return retval;
+ }
+ 
 -- 
-2.16.2
+2.17.1
