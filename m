@@ -1,42 +1,49 @@
-From: Michal Hocko <mhocko@kernel.org>
-Date: Wed, 26 Sep 2018 14:23:19 +0000
-Subject: Re: [PATCH 14/30] memblock: add align parameter to memblock_alloc_node()
-Message-Id: <20180926142319.GA6278@dhcp22.suse.cz>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Mon, 24 Sep 2018 14:20:32 +0000
+Subject: [REVIEW][PATCH 0/3] signal/ia64: siginfo fixes and cleanups
+Message-Id: <87bm8n2czz.fsf@xmission.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1536927045-23536-1-git-send-email-rppt@linux.vnet.ibm.com>
- <1536927045-23536-15-git-send-email-rppt@linux.vnet.ibm.com>
- <20180926093127.GO6278@dhcp22.suse.cz>
- <20180926093648.GP6278@dhcp22.suse.cz>
- <20180926134335.GF4628@rapoport-lnx>
-In-Reply-To: <20180926134335.GF4628@rapoport-lnx>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Mike Rapoport <rppt@linux.vnet.ibm.com>
-Cc: linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>, Catalin Marinas <catalin.marinas@arm.com>, Chris Zankel <chris@zankel.net>, "David S. Miller" <davem@davemloft.net>, Geert Uytterhoeven <geert@linux-m68k.org>, Greentime Hu <green.hu@gmail.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Guan Xuetao <gxt@pku.edu.cn>, Ingo Molnar <mingo@redhat.com>, "James E.J. Bottomley" <jejb@parisc-linux.org>, Jonas Bonn <jonas@southpole.se>, Jonathan Corbet <corbet@lwn.net>, Ley Foon Tan <lftan@altera.com>, Mark Salter <msalter@redhat.com>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Matt Turner <mattst88@gmail.com>, Michael Ellerman <mpe@ellerman.id.au>, Michal Simek <monstr@monstr.eu>, Palmer Dabbelt <palmer@sifive.com>, Paul Burton <paul.burton@mips.com>, Richard Kuo <rkuo@codeaurora.org>, Richard Weinberger <richard@nod.at>, Rich Felker <dalias@libc.org>, Russell King <linux@armlinux.org.uk>, Serge Semin <fancer.lancer@gmail.com>, Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, Vineet Gupta <vgupta@synopsys.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-um@lists.infradead.org, nios2-dev@lists.rocketboards.org, openrisc@lists.librecores.org, sparclinux@vger.kernel.org, uclinux-h8-devel@lists.sourceforge.jp
+To: linux-kernel@vger.kernel.org
+Cc: linux-arch@vger.kernel.org, linux-ia64@vger.kernel.org, Fenghua Yu <fenghua.yu@intel.com>, Tony Luck <tony.luck@intel.com>
 
-On Wed 26-09-18 16:43:35, Mike Rapoport wrote:
-> On Wed, Sep 26, 2018 at 11:36:48AM +0200, Michal Hocko wrote:
-> > On Wed 26-09-18 11:31:27, Michal Hocko wrote:
-> > > On Fri 14-09-18 15:10:29, Mike Rapoport wrote:
-> > > > With the align parameter memblock_alloc_node() can be used as drop in
-> > > > replacement for alloc_bootmem_pages_node() and __alloc_bootmem_node(),
-> > > > which is done in the following patches.
-> > > 
-> > > /me confused. Why do we need this patch at all? Maybe it should be
-> > > folded into the later patch you are refereing here?
-> > 
-> > OK, I can see 1536927045-23536-17-git-send-email-rppt@linux.vnet.ibm.com
-> > now. If you are going to repost for whatever reason please merge those
-> > two. Also I would get rid of the implicit "0 implies SMP_CACHE_BYTES"
-> > behavior. It is subtle and you have to dig deep to find that out. Why
-> > not make it explicit?
-> 
-> Agree. I'd just prefer to make it a separate patch rather then resend the
-> whole series. 
 
-Sure, no objection from me.
+I have been slowly cleaning up the architectues ever since I discovered
+that the pattern of passing in struct siginfo is error prone, and
+occassionally results in borken siginfo being sent to userspace.
 
--- 
-Michal Hocko
-SUSE Labs
+It turns out that ia64 is one of the noticable offenders.  Ever since
+ia64 was merged in 2.3.43 it has been generating incorrect siginfo for
+SIGSEGV assocaited with the inability to setup a signal stack frame
+or cleanup a signal stack frame.
+
+This is pretty esoteric case and the problem was only some values that
+should be 0 being something else so I am not surpised it was missed.
+
+The following series fixes the two buggy cases I have found and then
+cleans up replaces force_sig_info with force_sig_fault to avoid errors
+of this kind in the future.
+
+I don't think I have made made any mistakes in this coversion but if
+people can look the code over and see if they can spot anything I would
+appreciate it.
+
+My intention is to merge this through my siginfo tree.  If you feel it
+should go through your arch tree let me know.   All of the prerequisites
+should have been merged several releases ago.
+
+Eric W. Biederman (3):
+      signal/ia64: Use the generic force_sigsegv in setup_frame
+      signal/ia64: Use the force_sig(SIGSEGV,...) in ia64_rt_sigreturn
+      signal/ia64: Use force_sig_fault where appropriate
+
+ arch/ia64/kernel/brl_emu.c   |  31 ++--------
+ arch/ia64/kernel/signal.c    |  60 ++++--------------
+ arch/ia64/kernel/traps.c     | 144 ++++++++++++-------------------------------
+ arch/ia64/kernel/unaligned.c |  12 +---
+ arch/ia64/mm/fault.c         |  12 +---
+ 5 files changed, 62 insertions(+), 197 deletions(-)
+
+Eric
