@@ -1,56 +1,24 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Mon, 17 Sep 2018 17:10:24 +0000
-Subject: [PATCH 2/9] ia64: remove the dead iommu_sac_force variable
-Message-Id: <20180917171031.3853-3-hch@lst.de>
+From: Michal Hocko <mhocko@kernel.org>
+Date: Wed, 26 Sep 2018 09:37:39 +0000
+Subject: Re: [PATCH 16/30] memblock: replace __alloc_bootmem_node with appropriate memblock_ API
+Message-Id: <20180926093739.GQ6278@dhcp22.suse.cz>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1536927045-23536-1-git-send-email-rppt@linux.vnet.ibm.com>
+ <1536927045-23536-17-git-send-email-rppt@linux.vnet.ibm.com>
+In-Reply-To: <1536927045-23536-17-git-send-email-rppt@linux.vnet.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Mike Rapoport <rppt@linux.vnet.ibm.com>
+Cc: linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>, Catalin Marinas <catalin.marinas@arm.com>, Chris Zankel <chris@zankel.net>, "David S. Miller" <davem@davemloft.net>, Geert Uytterhoeven <geert@linux-m68k.org>, Greentime Hu <green.hu@gmail.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Guan Xuetao <gxt@pku.edu.cn>, Ingo Molnar <mingo@redhat.com>, "James E.J. Bottomley" <jejb@parisc-linux.org>, Jonas Bonn <jonas@southpole.se>, Jonathan Corbet <corbet@lwn.net>, Ley Foon Tan <lftan@altera.com>, Mark Salter <msalter@redhat.com>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Matt Turner <mattst88@gmail.com>, Michael Ellerman <mpe@ellerman.id.au>, Michal Simek <monstr@monstr.eu>, Palmer Dabbelt <palmer@sifive.com>, Paul Burton <paul.burton@mips.com>, Richard Kuo <rkuo@codeaurora.org>, Richard Weinberger <richard@nod.at>, Rich Felker <dalias@libc.org>, Russell King <linux@armlinux.org.uk>, Serge Semin <fancer.lancer@gmail.com>, Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, Vineet Gupta <vgupta@synopsys.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@linux-mips.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-um@lists.infradead.org, nios2-dev@lists.rocketboards.org, openrisc@lists.librecores.org, sparclinux@vger.kernel.org, uclinux-h8-devel@lists.sourceforge.jp
 
-Looks like copy and paste from x86 that never actually got used.
+On Fri 14-09-18 15:10:31, Mike Rapoport wrote:
+> Use memblock_alloc_try_nid whenever goal (i.e. minimal address is
+> specified) and memblock_alloc_node otherwise.
+> 
+> Signed-off-by: Mike Rapoport <rppt@linux.vnet.ibm.com>
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
----
- arch/ia64/kernel/pci-dma.c | 19 -------------------
- 1 file changed, 19 deletions(-)
-
-diff --git a/arch/ia64/kernel/pci-dma.c b/arch/ia64/kernel/pci-dma.c
-index b5df084c0af4..50b6ad282a90 100644
---- a/arch/ia64/kernel/pci-dma.c
-+++ b/arch/ia64/kernel/pci-dma.c
-@@ -18,8 +18,6 @@
- dma_addr_t bad_dma_address __read_mostly;
- EXPORT_SYMBOL(bad_dma_address);
- 
--static int iommu_sac_force __read_mostly;
--
- int no_iommu __read_mostly;
- #ifdef CONFIG_IOMMU_DEBUG
- int force_iommu __read_mostly = 1;
-@@ -61,23 +59,6 @@ int iommu_dma_supported(struct device *dev, u64 mask)
- 	if (mask < DMA_BIT_MASK(24))
- 		return 0;
- 
--	/* Tell the device to use SAC when IOMMU force is on.  This
--	   allows the driver to use cheaper accesses in some cases.
--
--	   Problem with this is that if we overflow the IOMMU area and
--	   return DAC as fallback address the device may not handle it
--	   correctly.
--
--	   As a special case some controllers have a 39bit address
--	   mode that is as efficient as 32bit (aic79xx). Don't force
--	   SAC for these.  Assume all masks <= 40 bits are of this
--	   type. Normally this doesn't make any difference, but gives
--	   more gentle handling of IOMMU overflow. */
--	if (iommu_sac_force && (mask >= DMA_BIT_MASK(40))) {
--		dev_info(dev, "Force SAC with mask %llx\n", mask);
--		return 0;
--	}
--
- 	return 1;
- }
- EXPORT_SYMBOL(iommu_dma_supported);
+Acked-by: Michal Hocko <mhocko@suse.com>
 -- 
-2.18.0
+Michal Hocko
+SUSE Labs
