@@ -1,46 +1,82 @@
-From: Michal Hocko <mhocko@kernel.org>
-Date: Thu, 06 Sep 2018 07:41:14 +0000
-Subject: Re: [RFC PATCH 09/29] memblock: replace alloc_bootmem_low with memblock_alloc_low
-Message-Id: <20180906074114.GR14951@dhcp22.suse.cz>
+From: Firoz Khan <firoz.khan@linaro.org>
+Date: Thu, 27 Sep 2018 14:27:13 +0000
+Subject: [PATCH v2 0/7] System call table generation support
+Message-Id: <1538057720-3392-1-git-send-email-firoz.khan@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1536163184-26356-1-git-send-email-rppt@linux.vnet.ibm.com>
- <1536163184-26356-10-git-send-email-rppt@linux.vnet.ibm.com>
-In-Reply-To: <1536163184-26356-10-git-send-email-rppt@linux.vnet.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Mike Rapoport <rppt@linux.vnet.ibm.com>
-Cc: linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>, "David S. Miller" <davem@davemloft.net>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Michael Ellerman <mpe@ellerman.id.au>, Paul Burton <paul.burton@mips.com>, Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Philippe Ombredanne <pombredanne@nexb.com>, Kate Stewart <kstewart@linuxfoundation.org>
+Cc: y2038@lists.linaro.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, arnd@arndb.de, deepa.kernel@gmail.com, marcin.juszkiewicz@linaro.org, firoz.khan@linaro.org
 
-On Wed 05-09-18 18:59:24, Mike Rapoport wrote:
-> The functions are equivalent, just the later does not require nobootmem
-> translation layer.
-> 
-> Signed-off-by: Mike Rapoport <rppt@linux.vnet.ibm.com>
+The purpose of this patch series is:
+1. We can easily add/modify/delete system call by changing entry 
+in syscall.tbl file. No need to manually edit many files.
 
-modulo @memblock_alloc_low@@memblock_virt_alloc_low@
-Acked-by: Michal Hocko <mhocko@suse.com>
+2. It is easy to unify the system call implementation across all 
+the architectures. 
 
-> ---
->  arch/x86/kernel/tce_64.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/arch/x86/kernel/tce_64.c b/arch/x86/kernel/tce_64.c
-> index f386bad..54c9b5a 100644
-> --- a/arch/x86/kernel/tce_64.c
-> +++ b/arch/x86/kernel/tce_64.c
-> @@ -173,7 +173,7 @@ void * __init alloc_tce_table(void)
->  	size = table_size_to_number_of_entries(specified_table_size);
->  	size *= TCE_ENTRY_SIZE;
->  
-> -	return __alloc_bootmem_low(size, size, 0);
-> +	return memblock_alloc_low(size, size);
->  }
->  
->  void __init free_tce_table(void *tbl)
-> -- 
-> 2.7.4
+The system call tables are in different format in all architecture 
+and it will be difficult to manually add or modify the system calls
+in the respective files manually. To make it easy by keeping a script 
+and which'll generate the header file and syscall table file so this 
+change will unify them across all architectures.
+
+syscall.tbl contains the list of available system calls along with 
+system call number and corresponding entry point. Add a new system 
+call in this architecture will be possible by adding new entry in 
+the syscall.tbl file.
+
+Adding a new table entry consisting of:
+        - System call number.
+        - ABI.
+        - System call name.
+        - Entry point name.
+        - Compat entry name, if required.
+
+ARM, s390 and x86 architecuture does exist the similar support. I 
+leverage their implementation to come up with a generic solution.
+
+I have done the same support for work for alpha, microblaze, sparc,
+mips, parisc, powerpc, sh, sparc, and xtensa. But I started sending 
+the patch for one architecuture for review. Below mentioned git
+repository contains more details.
+Git repo:- https://github.com/frzkhn/system_call_table_generator/
+
+Added an extra patch to add __NR_old_getpagesize macro.
+Added an extra patch to keep __IGNORE* entries in asm/unistd.h.
+
+Finally, this is the ground work for solving the Y2038 issue. We 
+need to add/change two dozen of system calls to solve Y2038 issue. 
+So this patch series will help to easily modify from existing 
+system call to Y2038 compatible system calls.
+
+Firoz Khan (7):
+  ia64: add __NR_old_getpagesize macro
+  ia64: replace NR_syscalls macro from asm/unistd.h
+  ia64: add an offset for system call number
+  ia64: replace the system call table entries from entry.S
+  ia64: add system call table generation support
+  ia64: uapi header and system call table file generation
+  ia64: add __IGNORE* entries in asm/unistd.h
+
+ arch/ia64/Makefile                      |   3 +
+ arch/ia64/include/asm/Kbuild            |   1 +
+ arch/ia64/include/asm/unistd.h          |  13 +-
+ arch/ia64/include/uapi/asm/Kbuild       |   1 +
+ arch/ia64/include/uapi/asm/unistd.h     | 334 +-------------------------------
+ arch/ia64/kernel/entry.S                | 333 +------------------------------
+ arch/ia64/kernel/syscall_table.S        |  12 ++
+ arch/ia64/kernel/syscalls/Makefile      |  40 ++++
+ arch/ia64/kernel/syscalls/syscall.tbl   | 328 +++++++++++++++++++++++++++++++
+ arch/ia64/kernel/syscalls/syscallhdr.sh |  35 ++++
+ arch/ia64/kernel/syscalls/syscalltbl.sh |  34 ++++
+ 11 files changed, 469 insertions(+), 665 deletions(-)
+ create mode 100644 arch/ia64/kernel/syscall_table.S
+ create mode 100644 arch/ia64/kernel/syscalls/Makefile
+ create mode 100644 arch/ia64/kernel/syscalls/syscall.tbl
+ create mode 100644 arch/ia64/kernel/syscalls/syscallhdr.sh
+ create mode 100644 arch/ia64/kernel/syscalls/syscalltbl.sh
 
 -- 
-Michal Hocko
-SUSE Labs
+1.9.1
