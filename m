@@ -1,82 +1,35 @@
-From: Firoz Khan <firoz.khan@linaro.org>
-Date: Thu, 27 Sep 2018 14:27:13 +0000
-Subject: [PATCH v2 0/7] System call table generation support
-Message-Id: <1538057720-3392-1-git-send-email-firoz.khan@linaro.org>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Fri, 28 Sep 2018 17:30:45 +0000
+Subject: Re: [PATCH v2 0/7] System call table generation support
+Message-Id: <20180928173044.GA16322@agluck-desk>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1538057720-3392-1-git-send-email-firoz.khan@linaro.org>
+In-Reply-To: <1538057720-3392-1-git-send-email-firoz.khan@linaro.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Philippe Ombredanne <pombredanne@nexb.com>, Kate Stewart <kstewart@linuxfoundation.org>
-Cc: y2038@lists.linaro.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, arnd@arndb.de, deepa.kernel@gmail.com, marcin.juszkiewicz@linaro.org, firoz.khan@linaro.org
+To: Firoz Khan <firoz.khan@linaro.org>
+Cc: linux-ia64@vger.kernel.org, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Philippe Ombredanne <pombredanne@nexb.com>, Kate Stewart <kstewart@linuxfoundation.org>, y2038@lists.linaro.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, arnd@arndb.de, deepa.kernel@gmail.com, marcin.juszkiewicz@linaro.org
 
-The purpose of this patch series is:
-1. We can easily add/modify/delete system call by changing entry 
-in syscall.tbl file. No need to manually edit many files.
+Still does not boot. Last part of console log (nothing unusual
+before the "Kernel panic" line):
 
-2. It is easy to unify the system call implementation across all 
-the architectures. 
 
-The system call tables are in different format in all architecture 
-and it will be difficult to manually add or modify the system calls
-in the respective files manually. To make it easy by keeping a script 
-and which'll generate the header file and syscall table file so this 
-change will unify them across all architectures.
+EFI Variables Facility v0.08 2004-May-17
+sd 5:0:0:0: [sdb] 286749488 512-byte logical blocks: (147 GB/137 GiB)
+sd 5:0:0:0: [sdb] Write Protect is off
+sd 5:0:0:0: [sdb] Write cache: enabled, read cache: enabled, supports DPO and FUA
+ sdb: sdb1 sdb2
+sd 5:0:0:0: [sdb] Attached SCSI disk
+NET: Registered protocol family 17
+console [netcon0] enabled
+netconsole: network logging started
+Freeing unused kernel memory: 960K
+This architecture does not have kernel memory protection.
+Run /init as init process
+Kernel panic - not syncing: Attempted to kill init! exitcode=0x00007f00
 
-syscall.tbl contains the list of available system calls along with 
-system call number and corresponding entry point. Add a new system 
-call in this architecture will be possible by adding new entry in 
-the syscall.tbl file.
+---[ end Kernel panic - not syncing: Attempted to kill init! exitcode=0x00007f00
+ ]---
 
-Adding a new table entry consisting of:
-        - System call number.
-        - ABI.
-        - System call name.
-        - Entry point name.
-        - Compat entry name, if required.
-
-ARM, s390 and x86 architecuture does exist the similar support. I 
-leverage their implementation to come up with a generic solution.
-
-I have done the same support for work for alpha, microblaze, sparc,
-mips, parisc, powerpc, sh, sparc, and xtensa. But I started sending 
-the patch for one architecuture for review. Below mentioned git
-repository contains more details.
-Git repo:- https://github.com/frzkhn/system_call_table_generator/
-
-Added an extra patch to add __NR_old_getpagesize macro.
-Added an extra patch to keep __IGNORE* entries in asm/unistd.h.
-
-Finally, this is the ground work for solving the Y2038 issue. We 
-need to add/change two dozen of system calls to solve Y2038 issue. 
-So this patch series will help to easily modify from existing 
-system call to Y2038 compatible system calls.
-
-Firoz Khan (7):
-  ia64: add __NR_old_getpagesize macro
-  ia64: replace NR_syscalls macro from asm/unistd.h
-  ia64: add an offset for system call number
-  ia64: replace the system call table entries from entry.S
-  ia64: add system call table generation support
-  ia64: uapi header and system call table file generation
-  ia64: add __IGNORE* entries in asm/unistd.h
-
- arch/ia64/Makefile                      |   3 +
- arch/ia64/include/asm/Kbuild            |   1 +
- arch/ia64/include/asm/unistd.h          |  13 +-
- arch/ia64/include/uapi/asm/Kbuild       |   1 +
- arch/ia64/include/uapi/asm/unistd.h     | 334 +-------------------------------
- arch/ia64/kernel/entry.S                | 333 +------------------------------
- arch/ia64/kernel/syscall_table.S        |  12 ++
- arch/ia64/kernel/syscalls/Makefile      |  40 ++++
- arch/ia64/kernel/syscalls/syscall.tbl   | 328 +++++++++++++++++++++++++++++++
- arch/ia64/kernel/syscalls/syscallhdr.sh |  35 ++++
- arch/ia64/kernel/syscalls/syscalltbl.sh |  34 ++++
- 11 files changed, 469 insertions(+), 665 deletions(-)
- create mode 100644 arch/ia64/kernel/syscall_table.S
- create mode 100644 arch/ia64/kernel/syscalls/Makefile
- create mode 100644 arch/ia64/kernel/syscalls/syscall.tbl
- create mode 100644 arch/ia64/kernel/syscalls/syscallhdr.sh
- create mode 100644 arch/ia64/kernel/syscalls/syscalltbl.sh
-
--- 
-1.9.1
+-Tony
