@@ -1,11 +1,11 @@
 From: Firoz Khan <firoz.khan@linaro.org>
-Date: Mon, 01 Oct 2018 14:27:54 +0000
-Subject: Re: [PATCH v2 6/7] ia64: uapi header and system call table file generation
-Message-Id: <CALxhOnjrjF1XuwGd_F5xFz97noTvebhzdCvN51v93zOTuQqDiA@mail.gmail.com>
+Date: Mon, 01 Oct 2018 14:30:37 +0000
+Subject: Re: [PATCH v2 1/7] ia64: add __NR_old_getpagesize macro
+Message-Id: <CALxhOnjiKpnON7rGnf5a4Enbj3cTagD4DgvTyt-3XFxXk-Ps+A@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1538057720-3392-1-git-send-email-firoz.khan@linaro.org>
- <1538057720-3392-7-git-send-email-firoz.khan@linaro.org> <CAK8P3a3YkR7Qr=XnqvQTOn=v34rCBfW1+dqU5xpV4ysar+C4yg@mail.gmail.com>
-In-Reply-To: <CAK8P3a3YkR7Qr=XnqvQTOn=v34rCBfW1+dqU5xpV4ysar+C4yg@mail.gmail.com>
+ <1538057720-3392-2-git-send-email-firoz.khan@linaro.org> <CAK8P3a3zhVOymM4--mJ5dfbee3buhp2vw4uxQHgxVoDCDTuR2w@mail.gmail.com>
+In-Reply-To: <CAK8P3a3zhVOymM4--mJ5dfbee3buhp2vw4uxQHgxVoDCDTuR2w@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -14,19 +14,21 @@ Cc: linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fen
 
 Hi Arnd,
 
-On Fri, 28 Sep 2018 at 17:40, Arnd Bergmann <arnd@arndb.de> wrote:
+On Fri, 28 Sep 2018 at 17:41, Arnd Bergmann <arnd@arndb.de> wrote:
 >
 > On Thu, Sep 27, 2018 at 4:16 PM Firoz Khan <firoz.khan@linaro.org> wrote:
+> >
+> > Add __NR_old_getpagesize in order to not break old user space
+> > as it is reserved for backwards compatibility with old __NR_
+> > getpagesize.
 >
-> > +#include <asm/syscall_table.h>
-> >         .org sys_call_table + 8*NR_syscalls     // guard against failures to increase NR_syscalls
-> > +#undef __SYSCALL
->
-> This part looks odd: according to the comment, this should only guard against
-> the table getting out of sync. However, with the script, that will never happen.
+> That description doesn't really make sense here.
 
-Thanks for pointing it out this error.
+Sure I'll some more details. But rest of the patch looks good?
+This is some I was bit confused! In header there is no entry, but
+in system call table has the entry for the system call.
 
 - Firoz
+
 >
->       Arnd
+>         Arnd
