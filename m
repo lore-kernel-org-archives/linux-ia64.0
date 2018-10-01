@@ -1,90 +1,44 @@
-From: Mike Rapoport <rppt@linux.vnet.ibm.com>
-Date: Thu, 11 Oct 2018 06:08:50 +0000
-Subject: Re: [PATCH] memblock: stop using implicit alignement to SMP_CACHE_BYTES
-Message-Id: <20181011060850.GA19822@rapoport-lnx>
+From: Firoz Khan <firoz.khan@linaro.org>
+Date: Mon, 01 Oct 2018 14:33:38 +0000
+Subject: Re: [PATCH v2 0/7] System call table generation support
+Message-Id: <CALxhOni76kqr795gDemsb6QQn7LeM7jL7DqFA8pesJuJaBKFHg@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1538687224-17535-1-git-send-email-rppt@linux.vnet.ibm.com>
- <20181005151934.87226fa92825c3002a475413@linux-foundation.org>
-In-Reply-To: <20181005151934.87226fa92825c3002a475413@linux-foundation.org>
+References: <1538057720-3392-1-git-send-email-firoz.khan@linaro.org> <20180928173044.GA16322@agluck-desk>
+In-Reply-To: <20180928173044.GA16322@agluck-desk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>
-Cc: linux-mm@kvack.org, Catalin Marinas <catalin.marinas@arm.com>, Chris Zankel <chris@zankel.net>, Geert Uytterhoeven <geert@linux-m68k.org>, Guan Xuetao <gxt@pku.edu.cn>, Ingo Molnar <mingo@redhat.com>, Matt Turner <mattst88@gmail.com>, Michael Ellerman <mpe@ellerman.id.au>, Michal Hocko <mhocko@suse.com>, Michal Simek <monstr@monstr.eu>, Paul Burton <paul.burton@mips.com>, Richard Weinberger <richard@nod.at>, Russell King <linux@armlinux.org.uk>, Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@vger.kernel.org, linux-mips@linux-mips.org, linuxppc-dev@lists.ozlabs.org, linux-um@lists.infradead.org
+To: Tony Luck <tony.luck@intel.com>
+Cc: linux-ia64@vger.kernel.org, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Philippe Ombredanne <pombredanne@nexb.com>, Kate Stewart <kstewart@linuxfoundation.org>, y2038 Mailman List <y2038@lists.linaro.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Linux-Arch <linux-arch@vger.kernel.org>, Arnd Bergmann <arnd@arndb.de>, Deepa Dinamani <deepa.kernel@gmail.com>, Marcin Juszkiewicz <marcin.juszkiewicz@linaro.org>
 
-On Fri, Oct 05, 2018 at 03:19:34PM -0700, Andrew Morton wrote:
-> On Fri,  5 Oct 2018 00:07:04 +0300 Mike Rapoport <rppt@linux.vnet.ibm.com> wrote:
-> 
-> > When a memblock allocation APIs are called with align = 0, the alignment is
-> > implicitly set to SMP_CACHE_BYTES.
-> > 
-> > Replace all such uses of memblock APIs with the 'align' parameter explicitly
-> > set to SMP_CACHE_BYTES and stop implicit alignment assignment in the
-> > memblock internal allocation functions.
-> > 
-> > For the case when memblock APIs are used via helper functions, e.g. like
-> > iommu_arena_new_node() in Alpha, the helper functions were detected with
-> > Coccinelle's help and then manually examined and updated where appropriate.
-> > 
-> > ...
-> >
-> > --- a/mm/memblock.c
-> > +++ b/mm/memblock.c
-> > @@ -1298,9 +1298,6 @@ static phys_addr_t __init memblock_alloc_range_nid(phys_addr_t size,
-> >  {
-> >  	phys_addr_t found;
-> >  
-> > -	if (!align)
-> > -		align = SMP_CACHE_BYTES;
-> > -
-> 
-> Can we add a WARN_ON_ONCE(!align) here?  To catch unconverted code
-> which sneaks in later on.
+Hi Tony,
 
-Here it goes:
+On Fri, 28 Sep 2018 at 23:01, Luck, Tony <tony.luck@intel.com> wrote:
+>
+> Still does not boot. Last part of console log (nothing unusual
+> before the "Kernel panic" line):
+>
+>
+> EFI Variables Facility v0.08 2004-May-17
+> sd 5:0:0:0: [sdb] 286749488 512-byte logical blocks: (147 GB/137 GiB)
+> sd 5:0:0:0: [sdb] Write Protect is off
+> sd 5:0:0:0: [sdb] Write cache: enabled, read cache: enabled, supports DPO and FUA
+>  sdb: sdb1 sdb2
+> sd 5:0:0:0: [sdb] Attached SCSI disk
+> NET: Registered protocol family 17
+> console [netcon0] enabled
+> netconsole: network logging started
+> Freeing unused kernel memory: 960K
+> This architecture does not have kernel memory protection.
+> Run /init as init process
+> Kernel panic - not syncing: Attempted to kill init! exitcode=0x00007f00
+>
+> ---[ end Kernel panic - not syncing: Attempted to kill init! exitcode=0x00007f00
+>  ]---
+>
 
-From baec825c58e8bc11371433d3a4b20b2216877a50 Mon Sep 17 00:00:00 2001
-From: Mike Rapoport <rppt@linux.vnet.ibm.com>
-Date: Mon, 8 Oct 2018 11:22:10 +0300
-Subject: [PATCH] memblock: warn if zero alignment was requested
+Thanks for the update. I'm planning to solve this issue asap.
 
-After update of all memblock users to explicitly specify SMP_CACHE_BYTES
-alignment rather than use 0, it is still possible that uncovered users
-may sneak in. Add a WARN_ON_ONCE for such cases.
+- Firoz
 
-Signed-off-by: Mike Rapoport <rppt@linux.vnet.ibm.com>
----
- mm/memblock.c | 6 ++++++
- 1 file changed, 6 insertions(+)
-
-diff --git a/mm/memblock.c b/mm/memblock.c
-index 0bbae56..5fefc70 100644
---- a/mm/memblock.c
-+++ b/mm/memblock.c
-@@ -1298,6 +1298,9 @@ static phys_addr_t __init memblock_alloc_range_nid(phys_addr_t size,
- {
- 	phys_addr_t found;
- 
-+	if (WARN_ON_ONCE(!align))
-+		align = SMP_CACHE_BYTES;
-+
- 	found = memblock_find_in_range_node(size, align, start, end, nid,
- 					    flags);
- 	if (found && !memblock_reserve(found, size)) {
-@@ -1420,6 +1423,9 @@ static void * __init memblock_alloc_internal(
- 	if (WARN_ON_ONCE(slab_is_available()))
- 		return kzalloc_node(size, GFP_NOWAIT, nid);
- 
-+	if (WARN_ON_ONCE(!align))
-+		align = SMP_CACHE_BYTES;
-+
- 	if (max_addr > memblock.current_limit)
- 		max_addr = memblock.current_limit;
- again:
--- 
-2.7.4
-
-
--- 
-Sincerely yours,
-Mike.
+> -Tony
