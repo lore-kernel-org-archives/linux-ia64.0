@@ -1,40 +1,50 @@
-From: Firoz Khan <firoz.khan@linaro.org>
-Date: Thu, 11 Oct 2018 04:36:49 +0000
-Subject: [PATCH v3 1/7] ia64: add __NR_old_getpagesize in uapi/asm/unistd.h
-Message-Id: <1539231895-4118-2-git-send-email-firoz.khan@linaro.org>
+From: Sergei Trofimovich <slyfox@gentoo.org>
+Date: Mon, 15 Oct 2018 19:15:00 +0000
+Subject: Re: [PATCH] ia64: enable GENERIC_HWEIGHT
+Message-Id: <20181015201500.49b4a487@sf>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1539231895-4118-1-git-send-email-firoz.khan@linaro.org>
-In-Reply-To: <1539231895-4118-1-git-send-email-firoz.khan@linaro.org>
+References: <20180914070646.29273-1-slyfox@gentoo.org>
+In-Reply-To: <20180914070646.29273-1-slyfox@gentoo.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Philippe Ombredanne <pombredanne@nexb.com>, Kate Stewart <kstewart@linuxfoundation.org>
-Cc: y2038@lists.linaro.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, arnd@arndb.de, deepa.kernel@gmail.com, marcin.juszkiewicz@linaro.org, firoz.khan@linaro.org
+To: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, linux-kernel@vger.kernel.org
 
-sys_getpagesize entry is present in entry.S file to support
-for old user interface. So we need to add an uapi entry too.
+On Fri, 14 Sep 2018 08:06:46 +0100
+Sergei Trofimovich <slyfox@gentoo.org> wrote:
 
-Add __NR_old_getpagesize in order to not break old user space
-as it is reserved for backwards compatibility with old __NR_
-getpagesize.
+> Noticed on a single driver failure:
+>   ERROR: "__sw_hweight8" [drivers/net/wireless/mediatek/mt76/mt76.ko] undefined!
+> 
+> CC: Tony Luck <tony.luck@intel.com>
+> CC: Fenghua Yu <fenghua.yu@intel.com>
+> CC: linux-ia64@vger.kernel.org
+> CC: Andrew Morton <akpm@linux-foundation.org>
+> CC: linux-kernel@vger.kernel.org
+> Signed-off-by: Sergei Trofimovich <slyfox@gentoo.org>
+> ---
+>  arch/ia64/Kconfig | 4 ++++
+>  1 file changed, 4 insertions(+)
+> 
+> diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+> index 8b4a0c1748c0..1a71f92f0b8e 100644
+> --- a/arch/ia64/Kconfig
+> +++ b/arch/ia64/Kconfig
+> @@ -576,3 +576,7 @@ config MSPEC
+>  	  If you have an ia64 and you want to enable memory special
+>  	  operations support (formerly known as fetchop), say Y here,
+>  	  otherwise say N.
+> +
+> +config GENERIC_HWEIGHT
+> +	bool
+> +	default y
+> -- 
+> 2.19.0
+> 
 
-Signed-off-by: Firoz Khan <firoz.khan@linaro.org>
----
- arch/ia64/include/uapi/asm/unistd.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Ping.
 
-diff --git a/arch/ia64/include/uapi/asm/unistd.h b/arch/ia64/include/uapi/asm/unistd.h
-index 5fe71d4..4d590c9 100644
---- a/arch/ia64/include/uapi/asm/unistd.h
-+++ b/arch/ia64/include/uapi/asm/unistd.h
-@@ -161,7 +161,7 @@
- #define __NR_nanosleep			1168
- #define __NR_nfsservctl			1169
- #define __NR_prctl			1170
--/* 1171 is reserved for backwards compatibility with old __NR_getpagesize */
-+#define __NR_old_getpagesize            1171
- #define __NR_mmap2			1172
- #define __NR_pciconfig_read		1173
- #define __NR_pciconfig_write		1174
 -- 
-1.9.1
+
+  Sergei
