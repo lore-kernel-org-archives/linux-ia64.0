@@ -1,56 +1,46 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Mon, 01 Oct 2018 14:44:16 +0000
-Subject: Re: [PATCH v2 1/7] ia64: add __NR_old_getpagesize macro
-Message-Id: <CAK8P3a3wLjX2fOpow78O4jNif-2zQvzdDuf_Gz02gxkWZRO4aw@mail.gmail.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Mon, 22 Oct 2018 20:22:54 +0000
+Subject: [GIT PULL] ia64 changes for v4.20 (v5.0?) merge window
+Message-Id: <20181022202254.GA9915@agluck-desk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1538057720-3392-1-git-send-email-firoz.khan@linaro.org>
- <1538057720-3392-2-git-send-email-firoz.khan@linaro.org> <CAK8P3a3zhVOymM4--mJ5dfbee3buhp2vw4uxQHgxVoDCDTuR2w@mail.gmail.com>
- <CALxhOnjiKpnON7rGnf5a4Enbj3cTagD4DgvTyt-3XFxXk-Ps+A@mail.gmail.com>
-In-Reply-To: <CALxhOnjiKpnON7rGnf5a4Enbj3cTagD4DgvTyt-3XFxXk-Ps+A@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Firoz Khan <firoz.khan@linaro.org>
-Cc: linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, gregkh <gregkh@linuxfoundation.org>, Philippe Ombredanne <pombredanne@nexb.com>, Kate Stewart <kstewart@linuxfoundation.org>, y2038 Mailman List <y2038@lists.linaro.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-arch <linux-arch@vger.kernel.org>, Deepa Dinamani <deepa.kernel@gmail.com>, Marcin Juszkiewicz <marcin.juszkiewicz@linaro.org>
+To: linux-ia64@vger.kernel.org
 
-On Mon, Oct 1, 2018 at 4:18 PM Firoz Khan <firoz.khan@linaro.org> wrote:
->
-> Hi Arnd,
->
-> On Fri, 28 Sep 2018 at 17:41, Arnd Bergmann <arnd@arndb.de> wrote:
-> >
-> > On Thu, Sep 27, 2018 at 4:16 PM Firoz Khan <firoz.khan@linaro.org> wrote:
-> > >
-> > > Add __NR_old_getpagesize in order to not break old user space
-> > > as it is reserved for backwards compatibility with old __NR_
-> > > getpagesize.
-> >
-> > That description doesn't really make sense here.
->
-> Sure I'll some more details. But rest of the patch looks good?
-> This is some I was bit confused! In header there is no entry, but
-> in system call table has the entry for the system call.
+The following changes since commit ad3273d5f1b99d7319a986ab568dcbde2f9e53dd:
 
-I think adding some macro for it makes sense, and the
-__NR_old_getpagesize name you picked is fine for that.
+  Merge tag 'ext4_for_linus_stable' of git://git.kernel.org/pub/scm/linux/kernel/git/tytso/ext4 (2018-09-17 09:13:47 +0200)
 
-I think generally speaking we want the unistd.h macros to
-match up with the system call entry points, and there are
-currently multiple ways they diverge:
+are available in the Git repository at:
 
-- System calls have been removed from the kernels, and the
-  macros in unistd.h are still there on some architectures but not
-  others. This is something we should clean up /after/ you are
-  done.
+  git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git tags/please-pull-next
 
-- System calls have a number but are not implemented on all
-  architectures because they don't make sense (e.g. pk pkey_add).
-  These should probably have an entry in kernel/sys_ni.c if they
-  don't already have one.
+for you to fetch changes up to 02b4da5f84d157f6a27e05ca017bdb74bcf01bee:
 
-- System calls have an entry but no macro, like the ia64
-  old_getpagesize. I think if you encounter one of these,
-  we need to fix them up before your series so we can
-  complete the conversion to generated tables.
+  intel-iommu: mark intel_dma_ops static (2018-09-17 10:15:58 -0700)
 
-        Arnd
+----------------------------------------------------------------
+Miscellaneous ia64 fixes from Christoph
+
+----------------------------------------------------------------
+Christoph Hellwig (9):
+      ia64: remove the kern_mem_attribute export
+      ia64: remove the dead iommu_sac_force variable
+      ia64: remove iommu_dma_supported
+      ia64: remove the unused bad_dma_address symbol
+      ia64: remove the unused pci_iommu_shutdown function
+      ia64: remove the unused iommu_dma_init function
+      ia64/sn2: remove no-ops dma sync methods
+      ia64: remove machvec_dma_sync_{single,sg}
+      intel-iommu: mark intel_dma_ops static
+
+ arch/ia64/hp/common/sba_iommu.c     |  4 ---
+ arch/ia64/include/asm/dma-mapping.h |  5 ----
+ arch/ia64/include/asm/iommu.h       |  2 --
+ arch/ia64/kernel/efi.c              |  1 -
+ arch/ia64/kernel/machvec.c          | 16 -----------
+ arch/ia64/kernel/pci-dma.c          | 55 -------------------------------------
+ arch/ia64/sn/pci/pci_dma.c          | 29 -------------------
+ drivers/iommu/intel-iommu.c         |  4 +--
+ 8 files changed, 1 insertion(+), 115 deletions(-)
