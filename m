@@ -1,41 +1,81 @@
-From: Firoz Khan <firoz.khan@linaro.org>
-Date: Thu, 11 Oct 2018 08:47:33 +0000
-Subject: Re: [PATCH v3 4/7] ia64: replace the system call table entries from entry.S
-Message-Id: <CALxhOni9LxYWGzKRdc6iNmr6d1CuXj_dLj4CBJeswT13zziEsQ@mail.gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Wed, 24 Oct 2018 19:32:54 +0000
+Subject: [PATCH v2 0/2] arm64: Cut rebuild time when changing CONFIG_BLK_DEV_INITRD
+Message-Id: <20181024193256.23734-1-f.fainelli@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1539231895-4118-1-git-send-email-firoz.khan@linaro.org>
- <1539231895-4118-5-git-send-email-firoz.khan@linaro.org> <CAK8P3a2JdFnAQcZ9YSOkEC_Od4QeLLP0RcWkte5MHC6VSXi0qQ@mail.gmail.com>
-In-Reply-To: <CAK8P3a2JdFnAQcZ9YSOkEC_Od4QeLLP0RcWkte5MHC6VSXi0qQ@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Arnd Bergmann <arnd@arndb.de>
-Cc: linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Philippe Ombredanne <pombredanne@nexb.com>, Kate Stewart <kstewart@linuxfoundation.org>, y2038 Mailman List <y2038@lists.linaro.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Linux-Arch <linux-arch@vger.kernel.org>, Deepa Dinamani <deepa.kernel@gmail.com>, Marcin Juszkiewicz <marcin.juszkiewicz@linaro.org>
+To: linux-kernel@vger.kernel.org
+Cc: Florian Fainelli <f.fainelli@gmail.com>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>, Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Marc Zyngier <marc.zyngier@arm.com>, Olof Johansson <olof@lixom.net>, "open list:ALPHA PORT" <linux-alpha@vger.kernel.org>, "open list:SYNOPSYS ARC ARCHITECTURE" <linux-snps-arc@lists.infradead.org>, "moderated list:ARM PORT" <linux-arm-kernel@lists.infradead.org>, "open list:C6X ARCHITECTURE" <linux-c6x-dev@linux-c6x.org>, "moderated list:H8/300
+        ARCHITECTURE" <uclinux-h8-devel@lists.sourceforge.jp>, "open list:QUALCOMM HEXAGON ARCHITECTURE" <linux-hexagon@vger.kernel.org>, "open list:IA64 Itanium PLATFORM" <linux-ia64@vger.kernel.org>, "open list:M68" <linux-m68k@lists.linux-m68k.org>
 
-On Thu, 11 Oct 2018 at 13:03, Arnd Bergmann <arnd@arndb.de> wrote:
->
-> On Thu, Oct 11, 2018 at 6:25 AM Firoz Khan <firoz.khan@linaro.org> wrote:
-> >
-> > In IA64, system call table entries are the part of entry.S file.
-> > We need to keep it in a separate file so that one of the patch in
-> > this patch series contains a system call table generation script
-> > which can separately handle system call table entries.
-> >
-> > Replaced the system call table from entry.S to syscall_table.S,
-> > this is a new file. This change will unify the implementation
-> > across all the architecture and to simplify the implementation for
-> > system call table generation using the script.
-> >
-> > Signed-off-by: Firoz Khan <firoz.khan@linaro.org>
-> > ---
-> >  arch/ia64/kernel/entry.S         | 333 +-------------------------------------
-> >  arch/ia64/kernel/syscall_table.S | 334 +++++++++++++++++++++++++++++++++++++++
->
-> According to the discussion we had on the same patch for parisc,
-> I suppose we can skip this one as well now, and just remove the
-> entries when the generated table is added.
+Hi all,
 
-Sure.
+While investigating why ARM64 required a ton of objects to be rebuilt
+when toggling CONFIG_DEV_BLK_INITRD, it became clear that this was
+because we define __early_init_dt_declare_initrd() differently and we do
+that in arch/arm64/include/asm/memory.h which gets included by a fair
+amount of other header files, and translation units as well.
 
->
->        Arnd
+Changing the value of CONFIG_DEV_BLK_INITRD is a common thing with build
+systems that generate two kernels: one with the initramfs and one
+without. buildroot is one of these build systems, OpenWrt is also
+another one that does this.
+
+This patch series proposes adding an empty initrd.h to satisfy the need
+for drivers/of/fdt.c to unconditionally include that file, and moves the
+custom __early_init_dt_declare_initrd() definition away from
+asm/memory.h
+
+This cuts the number of objects rebuilds from 1920 down to 26, so a
+factor 73 approximately.
+
+Apologies for the long CC list, please let me know how you would go
+about merging that and if another approach would be preferable, e.g:
+introducing a CONFIG_ARCH_INITRD_BELOW_START_OK Kconfig option or
+something like that.
+
+Changes in v2:
+
+- put an /* empty */ comment in the asm-generic/initrd.h file
+- trim down the CC list to maximize the chances of people receiving this
+
+Florian Fainelli (2):
+  arch: Add asm-generic/initrd.h and make use of it for most
+    architectures
+  arm64: Create asm/initrd.h
+
+ arch/alpha/include/asm/Kbuild      |  1 +
+ arch/arc/include/asm/Kbuild        |  1 +
+ arch/arm/include/asm/Kbuild        |  1 +
+ arch/arm64/include/asm/initrd.h    | 13 +++++++++++++
+ arch/arm64/include/asm/memory.h    |  8 --------
+ arch/c6x/include/asm/Kbuild        |  1 +
+ arch/h8300/include/asm/Kbuild      |  1 +
+ arch/hexagon/include/asm/Kbuild    |  1 +
+ arch/ia64/include/asm/Kbuild       |  1 +
+ arch/m68k/include/asm/Kbuild       |  1 +
+ arch/microblaze/include/asm/Kbuild |  1 +
+ arch/mips/include/asm/Kbuild       |  1 +
+ arch/nds32/include/asm/Kbuild      |  1 +
+ arch/nios2/include/asm/Kbuild      |  1 +
+ arch/openrisc/include/asm/Kbuild   |  1 +
+ arch/parisc/include/asm/Kbuild     |  1 +
+ arch/powerpc/include/asm/Kbuild    |  1 +
+ arch/riscv/include/asm/Kbuild      |  1 +
+ arch/s390/include/asm/Kbuild       |  1 +
+ arch/sh/include/asm/Kbuild         |  1 +
+ arch/sparc/include/asm/Kbuild      |  1 +
+ arch/um/include/asm/Kbuild         |  1 +
+ arch/unicore32/include/asm/Kbuild  |  1 +
+ arch/x86/include/asm/Kbuild        |  1 +
+ arch/xtensa/include/asm/Kbuild     |  1 +
+ drivers/of/fdt.c                   |  1 +
+ include/asm-generic/initrd.h       |  1 +
+ 27 files changed, 38 insertions(+), 8 deletions(-)
+ create mode 100644 arch/arm64/include/asm/initrd.h
+ create mode 100644 include/asm-generic/initrd.h
+
+-- 
+2.17.1
