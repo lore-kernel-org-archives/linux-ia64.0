@@ -1,43 +1,43 @@
 From: Firoz Khan <firoz.khan@linaro.org>
-Date: Thu, 11 Oct 2018 04:36:50 +0000
-Subject: [PATCH v3 2/7] ia64: replace NR_syscalls macro from asm/unistd.h
-Message-Id: <1539231895-4118-3-git-send-email-firoz.khan@linaro.org>
+Date: Fri, 26 Oct 2018 05:23:11 +0000
+Subject: [PATCH v4 2/5] ia64: add __NR_syscalls along with NR_syscalls
+Message-Id: <1540530674-3824-3-git-send-email-firoz.khan@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1539231895-4118-1-git-send-email-firoz.khan@linaro.org>
-In-Reply-To: <1539231895-4118-1-git-send-email-firoz.khan@linaro.org>
+References: <1540530674-3824-1-git-send-email-firoz.khan@linaro.org>
+In-Reply-To: <1540530674-3824-1-git-send-email-firoz.khan@linaro.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Philippe Ombredanne <pombredanne@nexb.com>, Kate Stewart <kstewart@linuxfoundation.org>
 Cc: y2038@lists.linaro.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, arnd@arndb.de, deepa.kernel@gmail.com, marcin.juszkiewicz@linaro.org, firoz.khan@linaro.org
 
-NR_syscalls macro holds the number of system call exist in IA64
-architecture. This macro is currently the part of asm/unistd.h
-file. We have to change the value of NR_syscalls, if we add or
-delete a system call.
+NR_syscalls macro holds the number of system call exist
+in ia64 architecture. We have to change the value of NR-
+_syscalls, if we add or delete a system call.
 
-One of the patch in this patch series has a script which will
-generate a uapi header based on syscall.tbl file. The syscall.tbl
-file contains the number of system call information. So we have
-two option to update NR_syscalls value.
+One of the patch in this patch series has a script which
+will generate a uapi header based on syscall.tbl file.
+The syscall.tbl file contains the total number of system
+calls information. So we have two option to update NR_sy-
+scalls value.
 
-1. Update NR_syscalls in asm/unistd.h manually by counting the
-   no.of system calls. No need to update NR_syscalls until we
-   either add a new system call or delete an existing system
-   call.
+1. Update NR_syscalls in asm/unistd.h manually by count-
+   ing the no.of system calls. No need to update NR_sys-
+   calls until we either add a new system call or delete
+   existing system call.
 
-2. We can keep this feature it above mentioned script, that'll
-   count the number of syscalls and keep it in a generated file.
-   In this case we don't need to explicitly update NR_syscalls
-   in asm/unistd.h file.
+2. We can keep this feature it above mentioned script,
+   that will count the number of syscalls and keep it in
+   a generated file. In this case we don't need to expli-
+   citly update NR_syscalls in asm/unistd.h file.
 
-The 2nd option will be the recommended one. For that, I come up
-with another macro - __NR_syscalls which will be updated by the
-script and it will be present in uapi/asm/unistd.h. The macro
-name changed form NR_syscalls to __NR_syscalls for making the
-name convention same across all architecture. While __NR_syscalls
-isn't strictly part of the uapi, having it as part of the generated
-header to simplifies the implementation. We also need to enclose
+The 2nd option will be the recommended one. For that, I
+added the __NR_syscalls macro in uapi/asm/unistd.h along
+with NR_syscalls asm/unistd.h. The macro __NR_syscalls
+also added for making the name convention same across all
+architecture. While __NR_syscalls isn't strictly part of
+the uapi, having it as part of the generated header to
+simplifies the implementation. We also need to enclose
 this macro with #ifdef __KERNEL__ to avoid side effects.
 
 Signed-off-by: Firoz Khan <firoz.khan@linaro.org>
