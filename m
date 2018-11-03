@@ -1,33 +1,65 @@
-From: Anshuman Khandual <anshuman.khandual@arm.com>
-Date: Mon, 26 Nov 2018 06:57:04 +0000
-Subject: Re: [PATCH] mm: Replace all open encodings for NUMA_NO_NODE
-Message-Id: <5228bcdb-b140-a86a-6c9c-488f1a723353@arm.com>
+From: =?UTF-8?q?Matias=20Bj=C3=B8rling?= <mb@lightnvm.io>
+Date: Sat, 03 Nov 2018 18:37:16 +0000
+Subject: [PATCH] ia64: export node_distance function
+Message-Id: <20181103183716.28841-1-mb@lightnvm.io>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1542966856-12619-1-git-send-email-anshuman.khandual@arm.com>
-In-Reply-To: <1542966856-12619-1-git-send-email-anshuman.khandual@arm.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Vinod Koul <vkoul@kernel.org>
-Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org, ocfs2-devel@oss.oracle.com, linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org, linux-media@vger.kernel.org, iommu@lists.linux-foundation.org, linux-rdma@vger.kernel.org, dmaengine@vger.kernel.org, linux-block@vger.kernel.org, sparclinux@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, linux-alpha@vger.kernel.org, akpm@linux-foundation.org, jiangqi903@gmail.com, hverkuil@xs4all.nl
+Content-Type: text/plain; charset="macroman"
+Content-Transfer-Encoding: base64
+To: tony.luck@intel.com, fenghua.yu@intel.com
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, axboe@fb.com, =?UTF-8?q?Matias=20Bj=C3=B8rling?= <mb@lightnvm.io>
 
-
-
-On 11/24/2018 07:35 PM, Vinod Koul wrote:
-> On 23-11-18, 15:24, Anshuman Khandual wrote:
-> 
->> --- a/drivers/dma/dmaengine.c
->> +++ b/drivers/dma/dmaengine.c
->> @@ -386,7 +386,8 @@ EXPORT_SYMBOL(dma_issue_pending_all);
->>  static bool dma_chan_is_local(struct dma_chan *chan, int cpu)
->>  {
->>  	int node = dev_to_node(chan->device->dev);
->> -	return node = -1 || cpumask_test_cpu(cpu, cpumask_of_node(node));
->> +	return node = NUMA_NO_NODE ||
->> +		cpumask_test_cpu(cpu, cpumask_of_node(node));
->>  }
-> 
-> I do not see dev_to_node being updated first, that returns -1 so I would
-> prefer to check for -1 unless it return NUMA_NO_NODE
-
-Sure will update dev_to_node() to return NUMA_NO_NODE as well.
+VGhlIG51bWFfc2xpdCB2YXJpYWJsZSB1c2VkIGJ5IG5vZGVfZGlzdGFuY2UgaXMgYXZhaWxhYmxl
+IHRvIGEKbW9kdWxlIGFzIGxvbmcgYXMgaXQgaXMgbGlua2VkIGF0IGNvbXBpbGUtdGltZS4gSG93
+ZXZlciwgaXQgaXMKbm90IGF2YWlsYWJsZSB0byBsb2FkYWJsZSBtb2R1bGVzLiBMZWFkaW5nIHRv
+IGVycm9ycyBzdWNoIGFzOgoKICBFUlJPUjogIm51bWFfc2xpdCIgW2RyaXZlcnMvbnZtZS9ob3N0
+L252bWUtY29yZS5rb10gdW5kZWZpbmVkIQoKVGhlIGVycm9yIGFib3ZlIGlzIGNhdXNlZCBieSB0
+aGUgbnZtZSBtdWx0aXBhdGggY29kZSB0aGF0IG1ha2VzCnVzZSBvZiBub2RlX2Rpc3RhbmNlIGZv
+ciBpdHMgcGF0aCBjYWxjdWxhdGlvbi4gV2hlbiB0aGUgcGF0Y2ggd2FzCmFkZGVkLCB0aGUgbGln
+aHRudm0gc3Vic3lzdGVtIHdvdWxkIHNlbGVjdCBudm1lIGFuZCBhbHdheXMgY29tcGlsZQppdCBp
+biwgbGVhZGluZyB0byB0aGUgbm9kZV9kaXN0YW5jZSBjYWxsIHRvIGFsd2F5cyBzdWNjZWVkLgpI
+b3dldmVyLCB3aGVuIHRoaXMgcmVxdWlyZW1lbnQgd2FzIHJlbW92ZWQsIG52bWUgY291bGQgYmUg
+Y29tcGlsZWQKaW4gYXMgYSBtb2R1bGUsIHdoaWNoIGV4cG9zZWQgdGhpcyBidWcuCgpUaGlzIHBh
+dGNoIGV4dHJhY3RzIG5vZGVfZGlzdGFuY2UgdG8gYSBmdW5jdGlvbiBhbmQgZXhwb3J0cyBpdC4K
+U2luY2UgQUNQSSBpcyBkZXBlbmRpbmcgb24gbm9kZV9kaXN0YW5jZSBiZWluZyBhIHNpbXBsZSBs
+b29rdXAgdG8KbnVtYV9zbGl0LCB0aGUgcHJldmlvdXMgYmVoYXZpb3IgaXMgZXhwb3NlZCBhcyBz
+bGl0X2Rpc3RhbmNlIGFuZCBpdHMKdXNlcnMgdXBkYXRlZC4KCkZpeGVzOiBmMzMzNDQ0NzA4Zjgy
+ICJudm1lOiB0YWtlIG5vZGUgbG9jYWxpdHkgaW50byBhY2NvdW50IHdoZW4gc2VsZWN0aW5nIGEg
+cGF0aCIKRml4ZXM6IDczNTY5ZTExMDMyZiAibGlnaHRudm06IHJlbW92ZSBkZXBlbmRlbmNpZXMg
+b24gQkxLX0RFVl9OVk1FIGFuZCBQQ0kiClNpZ25lZC1vZmYtYnk6IE1hdGlhcyBCasO4cmluZyA8
+bWJAbGlnaHRudm0uaW8+Ci0tLQogYXJjaC9pYTY0L2luY2x1ZGUvYXNtL251bWEuaCB8IDQgKysr
+LQogYXJjaC9pYTY0L2tlcm5lbC9hY3BpLmMgICAgICB8IDYgKysrLS0tCiBhcmNoL2lhNjQvbW0v
+bnVtYS5jICAgICAgICAgIHwgNiArKysrKysKIDMgZmlsZXMgY2hhbmdlZCwgMTIgaW5zZXJ0aW9u
+cygrKSwgNCBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9hcmNoL2lhNjQvaW5jbHVkZS9hc20v
+bnVtYS5oIGIvYXJjaC9pYTY0L2luY2x1ZGUvYXNtL251bWEuaAppbmRleCBlYmVmN2Y0MGFhYmIu
+LmM1YzI1M2NiOWJkNiAxMDA2NDQKLS0tIGEvYXJjaC9pYTY0L2luY2x1ZGUvYXNtL251bWEuaAor
+KysgYi9hcmNoL2lhNjQvaW5jbHVkZS9hc20vbnVtYS5oCkBAIC01OSw3ICs1OSw5IEBAIGV4dGVy
+biBzdHJ1Y3Qgbm9kZV9jcHVpZF9zIG5vZGVfY3B1aWRbTlJfQ1BVU107CiAgKi8KIAogZXh0ZXJu
+IHU4IG51bWFfc2xpdFtNQVhfTlVNTk9ERVMgKiBNQVhfTlVNTk9ERVNdOwotI2RlZmluZSBub2Rl
+X2Rpc3RhbmNlKGZyb20sdG8pIChudW1hX3NsaXRbKGZyb20pICogTUFYX05VTU5PREVTICsgKHRv
+KV0pCisjZGVmaW5lIHNsaXRfZGlzdGFuY2UoZnJvbSx0bykgKG51bWFfc2xpdFsoZnJvbSkgKiBN
+QVhfTlVNTk9ERVMgKyAodG8pXSkKK2V4dGVybiBpbnQgX19ub2RlX2Rpc3RhbmNlKGludCBmcm9t
+LCBpbnQgdG8pOworI2RlZmluZSBub2RlX2Rpc3RhbmNlKGZyb20sdG8pIF9fbm9kZV9kaXN0YW5j
+ZShmcm9tLCB0bykKIAogZXh0ZXJuIGludCBwYWRkcl90b19uaWQodW5zaWduZWQgbG9uZyBwYWRk
+cik7CiAKZGlmZiAtLWdpdCBhL2FyY2gvaWE2NC9rZXJuZWwvYWNwaS5jIGIvYXJjaC9pYTY0L2tl
+cm5lbC9hY3BpLmMKaW5kZXggMWRhY2JmNWU5ZTA5Li40MWViMjgxNzA5ZGEgMTAwNjQ0Ci0tLSBh
+L2FyY2gvaWE2NC9rZXJuZWwvYWNwaS5jCisrKyBiL2FyY2gvaWE2NC9rZXJuZWwvYWNwaS5jCkBA
+IC01NzgsOCArNTc4LDggQEAgdm9pZCBfX2luaXQgYWNwaV9udW1hX2ZpeHVwKHZvaWQpCiAJaWYg
+KCFzbGl0X3RhYmxlKSB7CiAJCWZvciAoaSA9IDA7IGkgPCBNQVhfTlVNTk9ERVM7IGkrKykKIAkJ
+CWZvciAoaiA9IDA7IGogPCBNQVhfTlVNTk9ERVM7IGorKykKLQkJCQlub2RlX2Rpc3RhbmNlKGks
+IGopID0gaSA9IGogPyBMT0NBTF9ESVNUQU5DRSA6Ci0JCQkJCQkJUkVNT1RFX0RJU1RBTkNFOwor
+CQkJCXNsaXRfZGlzdGFuY2UoaSwgaikgPSBpID0gaiA/CisJCQkJCUxPQ0FMX0RJU1RBTkNFIDog
+UkVNT1RFX0RJU1RBTkNFOwogCQlyZXR1cm47CiAJfQogCkBAIC01OTIsNyArNTkyLDcgQEAgdm9p
+ZCBfX2luaXQgYWNwaV9udW1hX2ZpeHVwKHZvaWQpCiAJCQlpZiAoIXB4bV9iaXRfdGVzdChqKSkK
+IAkJCQljb250aW51ZTsKIAkJCW5vZGVfdG8gPSBweG1fdG9fbm9kZShqKTsKLQkJCW5vZGVfZGlz
+dGFuY2Uobm9kZV9mcm9tLCBub2RlX3RvKSArCQkJc2xpdF9kaXN0YW5jZShub2RlX2Zyb20sIG5v
+ZGVfdG8pICAJCQkgICAgc2xpdF90YWJsZS0+ZW50cnlbaSAqIHNsaXRfdGFibGUtPmxvY2FsaXR5
+X2NvdW50ICsgal07CiAJCX0KIAl9CmRpZmYgLS1naXQgYS9hcmNoL2lhNjQvbW0vbnVtYS5jIGIv
+YXJjaC9pYTY0L21tL251bWEuYwppbmRleCBhYTE5YjdhYzgyMjIuLjU3NjlkNGIyMTI3MCAxMDA2
+NDQKLS0tIGEvYXJjaC9pYTY0L21tL251bWEuYworKysgYi9hcmNoL2lhNjQvbW0vbnVtYS5jCkBA
+IC0zNiw2ICszNiwxMiBAQCBzdHJ1Y3Qgbm9kZV9jcHVpZF9zIG5vZGVfY3B1aWRbTlJfQ1BVU10g
+ICAqLwogdTggbnVtYV9zbGl0W01BWF9OVU1OT0RFUyAqIE1BWF9OVU1OT0RFU107CiAKK2ludCBf
+X25vZGVfZGlzdGFuY2UoaW50IGZyb20sIGludCB0bykKK3sKKwlyZXR1cm4gc2xpdF9kaXN0YW5j
+ZShmcm9tLCB0byk7Cit9CitFWFBPUlRfU1lNQk9MKF9fbm9kZV9kaXN0YW5jZSk7CisKIC8qIElk
+ZW50aWZ5IHdoaWNoIGNub2RlIGEgcGh5c2ljYWwgYWRkcmVzcyByZXNpZGVzIG9uICovCiBpbnQK
+IHBhZGRyX3RvX25pZCh1bnNpZ25lZCBsb25nIHBhZGRyKQotLSAKMi4xNy4xCg==
