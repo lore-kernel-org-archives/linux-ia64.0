@@ -1,531 +1,1358 @@
-From: Firoz Khan <firoz.khan@linaro.org>
-Date: Fri, 26 Oct 2018 05:23:13 +0000
-Subject: [PATCH v4 4/5] ia64: add system call table generation support
-Message-Id: <1540530674-3824-5-git-send-email-firoz.khan@linaro.org>
+From: Anshuman Khandual <anshuman.khandual@arm.com>
+Date: Mon, 12 Nov 2018 02:53:55 +0000
+Subject: [RFC] mm: Replace all open encodings for NUMA_NO_NODE
+Message-Id: <1541990515-11670-1-git-send-email-anshuman.khandual@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1540530674-3824-1-git-send-email-firoz.khan@linaro.org>
-In-Reply-To: <1540530674-3824-1-git-send-email-firoz.khan@linaro.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Philippe Ombredanne <pombredanne@nexb.com>, Kate Stewart <kstewart@linuxfoundation.org>
-Cc: y2038@lists.linaro.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, arnd@arndb.de, deepa.kernel@gmail.com, marcin.juszkiewicz@linaro.org, firoz.khan@linaro.org
+To: linux-mm@kvack.org, linux-kernel@vger.kernel.org
+Cc: ocfs2-devel@oss.oracle.com, linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org, linux-media@vger.kernel.org, iommu@lists.linux-foundation.org, linux-rdma@vger.kernel.org, dmaengine@vger.kernel.org, linux-block@vger.kernel.org, sparclinux@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, linux-alpha@vger.kernel.org
 
-The system call tables are in different format in all
-architecture and it will be difficult to manually add,
-modify or delete the syscall table entries in the res-
-pective files. To make it easy by keeping a script and
-which will generate the uapi header and syscall table
-file. This change will also help to unify the implemen-
-tation across all architectures.
+At present there are multiple places where invalid node number is encoded
+as -1. Even though implicitly understood it is always better to have macros
+in there. Replace these open encodings for an invalid node number with the
+global macro NUMA_NO_NODE. This helps remove NUMA related assumptions like
+'invalid node' from various places redirecting them to a common definition.
 
-The system call table generation script is added in
-kernel/syscalls directory which contain the scripts to
-generate both uapi header file and system call table
-files. The syscall.tbl will be input for the scripts.
-
-syscall.tbl contains the list of available system calls
-along with system call number and corresponding entry
-point. Add a new system call in this architecture will
-be possible by adding new entry in the syscall.tbl file.
-
-Adding a new table entry consisting of:
-  	- System call number.
-	- ABI.
-	- System call name.
-	- Entry point name.
-
-syscallhdr.sh and syscalltbl.sh will generate uapi header
-unistd_64.h and syscall_table.h files respectively. Both
-.sh files will parse the content syscall.tbl to generate
-the header and table files. unistd_64.h will be included
-by uapi/asm/unistd.h and syscall_table.h is included by
-kernel/entry.S - the real system call table.
-
-ARM, s390 and x86 architecuture does have similar support.
-I leverage their implementation to come up with a generic
-solution.
-
-Signed-off-by: Firoz Khan <firoz.khan@linaro.org>
+Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
 ---
- arch/ia64/kernel/syscalls/Makefile      |  40 ++++
- arch/ia64/kernel/syscalls/syscall.tbl   | 337 ++++++++++++++++++++++++++++++++
- arch/ia64/kernel/syscalls/syscallhdr.sh |  36 ++++
- arch/ia64/kernel/syscalls/syscalltbl.sh |  32 +++
- 4 files changed, 445 insertions(+)
- create mode 100644 arch/ia64/kernel/syscalls/Makefile
- create mode 100644 arch/ia64/kernel/syscalls/syscall.tbl
- create mode 100644 arch/ia64/kernel/syscalls/syscallhdr.sh
- create mode 100644 arch/ia64/kernel/syscalls/syscalltbl.sh
+Build tested this with multiple cross compiler options like alpha, sparc,
+arm64, x86, powerpc64le etc with their default config which might not have
+compiled tested all driver related changes. I will appreciate folks giving
+this a test in their respective build environment.
 
-diff --git a/arch/ia64/kernel/syscalls/Makefile b/arch/ia64/kernel/syscalls/Makefile
-new file mode 100644
-index 0000000..813a58c
---- /dev/null
-+++ b/arch/ia64/kernel/syscalls/Makefile
-@@ -0,0 +1,40 @@
-+# SPDX-License-Identifier: GPL-2.0
-+kapi := arch/$(SRCARCH)/include/generated/asm
-+uapi := arch/$(SRCARCH)/include/generated/uapi/asm
-+
-+_dummy := $(shell [ -d '$(uapi)' ] || mkdir -p '$(uapi)')	\
-+	  $(shell [ -d '$(kapi)' ] || mkdir -p '$(kapi)')
-+
-+syscall := $(srctree)/$(src)/syscall.tbl
-+syshdr := $(srctree)/$(src)/syscallhdr.sh
-+systbl := $(srctree)/$(src)/syscalltbl.sh
-+
-+quiet_cmd_syshdr = SYSHDR  $@
-+      cmd_syshdr = $(CONFIG_SHELL) '$(syshdr)' '$<' '$@'	\
-+		   '$(syshdr_abis_$(basetarget))'		\
-+		   '$(syshdr_pfx_$(basetarget))'		\
-+		   '$(syshdr_offset_$(basetarget))'
-+
-+quiet_cmd_systbl = SYSTBL  $@
-+      cmd_systbl = $(CONFIG_SHELL) '$(systbl)' '$<' '$@'	\
-+		   '$(systbl_abis_$(basetarget))'		\
-+		   '$(systbl_abi_$(basetarget))'		\
-+		   '$(systbl_offset_$(basetarget))'
-+
-+syshdr_offset_unistd_64 := __NR_Linux
-+$(uapi)/unistd_64.h: $(syscall) $(syshdr)
-+	$(call if_changed,syshdr)
-+
-+systbl_offset_syscall_table := 1024
-+$(kapi)/syscall_table.h: $(syscall) $(systbl)
-+	$(call if_changed,systbl)
-+
-+uapisyshdr-y		+= unistd_64.h
-+kapisyshdr-y		+= syscall_table.h
-+
-+targets	+= $(uapisyshdr-y) $(kapisyshdr-y)
-+
-+PHONY += all
-+all: $(addprefix $(uapi)/,$(uapisyshdr-y))
-+all: $(addprefix $(kapi)/,$(kapisyshdr-y))
-+	@:
-diff --git a/arch/ia64/kernel/syscalls/syscall.tbl b/arch/ia64/kernel/syscalls/syscall.tbl
-new file mode 100644
-index 0000000..ef0792f
---- /dev/null
-+++ b/arch/ia64/kernel/syscalls/syscall.tbl
-@@ -0,0 +1,337 @@
-+# SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
-+#
-+# Linux system call numbers and entry vectors for ia64
-+#
-+# The format is:
-+# <number> <abi> <name> <entry point>
-+#
-+# Add 1024 to <number> will get the actual system call number
-+#
-+# The <abi> is always "common" for this file
-+#
-+0	common	ni_syscall			sys_ni_syscall
-+1	common	exit				sys_exit
-+2	common	read				sys_read
-+3	common	write				sys_write
-+4	common	open				sys_open
-+5	common	close				sys_close
-+6	common	creat				sys_creat
-+7	common	link				sys_link
-+8	common	unlink				sys_unlink
-+9	common	execve				ia64_execve
-+10	common	chdir				sys_chdir
-+11	common	fchdir				sys_fchdir
-+12	common	utimes				sys_utimes
-+13	common	mknod				sys_mknod
-+14	common	chmod				sys_chmod
-+15	common	chown				sys_chown
-+16	common	lseek				sys_lseek
-+17	common	getpid				sys_getpid
-+18	common	getppid				sys_getppid
-+19	common	mount				sys_mount
-+20	common	umount				sys_umount
-+21	common	setuid				sys_setuid
-+22	common	getuid				sys_getuid
-+23	common	geteuid				sys_geteuid
-+24	common	ptrace				sys_ptrace
-+25	common	access				sys_access
-+26	common	sync				sys_sync
-+27	common	fsync				sys_fsync
-+28	common	fdatasync			sys_fdatasync
-+29	common	kill				sys_kill
-+30	common	rename				sys_rename
-+31	common	mkdir				sys_mkdir
-+32	common	rmdir				sys_rmdir
-+33	common	dup				sys_dup
-+34	common	pipe				sys_ia64_pipe
-+35	common	times				sys_times
-+36	common	brk				ia64_brk
-+37	common	setgid				sys_setgid
-+38	common	getgid				sys_getgid
-+39	common	getegid				sys_getegid
-+40	common	acct				sys_acct
-+41	common	ioctl				sys_ioctl
-+42	common	fcntl				sys_fcntl
-+43	common	umask				sys_umask
-+44	common	chroot				sys_chroot
-+45	common	ustat				sys_ustat
-+46	common	dup2				sys_dup2
-+47	common	setreuid			sys_setreuid
-+48	common	setregid			sys_setregid
-+49	common	getresuid			sys_getresuid
-+50	common	setresuid			sys_setresuid
-+51	common	getresgid			sys_getresgid
-+52	common	setresgid			sys_setresgid
-+53	common	getgroups			sys_getgroups
-+54	common	setgroups			sys_setgroups
-+55	common	getpgid				sys_getpgid
-+56	common	setpgid				sys_setpgid
-+57	common	setsid				sys_setsid
-+58	common	getsid				sys_getsid
-+59	common	sethostname			sys_sethostname
-+60	common	setrlimit			sys_setrlimit
-+61	common	getrlimit			sys_getrlimit
-+62	common	getrusage			sys_getrusage
-+63	common	gettimeofday			sys_gettimeofday
-+64	common	settimeofday			sys_settimeofday
-+65	common	select				sys_select
-+66	common	poll				sys_poll
-+67	common	symlink				sys_symlink
-+68	common	readlink			sys_readlink
-+69	common	uselib				sys_uselib
-+70	common	swapon				sys_swapon
-+71	common	swapoff				sys_swapoff
-+72	common	reboot				sys_reboot
-+73	common	truncate			sys_truncate
-+74	common	ftruncate			sys_ftruncate
-+75	common	fchmod				sys_fchmod
-+76	common	fchown				sys_fchown
-+77	common	getpriority			ia64_getpriority
-+78	common	setpriority			sys_setpriority
-+79	common	statfs				sys_statfs
-+80	common	fstatfs				sys_fstatfs
-+81	common	gettid				sys_gettid
-+82	common	semget				sys_semget
-+83	common	semop				sys_semop
-+84	common	semctl				sys_semctl
-+85	common	msgget				sys_msgget
-+86	common	msgsnd				sys_msgsnd
-+87	common	msgrcv				sys_msgrcv
-+88	common	msgctl				sys_msgctl
-+89	common	shmget				sys_shmget
-+90	common	shmat				sys_shmat
-+91	common	shmdt				sys_shmdt
-+92	common	shmctl				sys_shmctl
-+93	common	syslog				sys_syslog
-+94	common	setitimer			sys_setitimer
-+95	common	getitimer			sys_getitimer
-+# 1120 was __NR_old_stat
-+# 1121 was __NR_old_lstat
-+# 1122 was __NR_old_fstat
-+99	common	vhangup				sys_vhangup
-+100	common	lchown				sys_lchown
-+101	common	remap_file_pages		sys_remap_file_pages
-+102	common	wait4				sys_wait4
-+103	common	sysinfo				sys_sysinfo
-+104	common	clone				sys_clone
-+105	common	setdomainname			sys_setdomainname
-+106	common	uname				sys_newuname
-+107	common	adjtimex			sys_adjtimex
-+# 1132 was __NR_create_module
-+109	common	init_module			sys_init_module
-+110	common	delete_module			sys_delete_module
-+# 1135 was __NR_get_kernel_syms
-+# 1136 was __NR_query_module
-+113	common	quotactl			sys_quotactl
-+114	common	bdflush				sys_bdflush
-+115	common	sysfs				sys_sysfs
-+116	common	personality			sys_personality
-+117	common	afs_syscall			sys_ni_syscall
-+118	common	setfsuid			sys_setfsuid
-+119	common	setfsgid			sys_setfsgid
-+120	common	getdents			sys_getdents
-+121	common	flock				sys_flock
-+122	common	readv				sys_readv
-+123	common	writev				sys_writev
-+124	common	pread64				sys_pread64
-+125	common	pwrite64			sys_pwrite64
-+126	common	_sysctl				sys_sysctl
-+127	common	mmap				sys_mmap
-+128	common	munmap				sys_munmap
-+129	common	mlock				sys_mlock
-+130	common	mlockall			sys_mlockall
-+131	common	mprotect			sys_mprotect
-+132	common	mremap				ia64_mremap
-+133	common	msync				sys_msync
-+134	common	munlock				sys_munlock
-+135	common	munlockall			sys_munlockall
-+136	common	sched_getparam			sys_sched_getparam
-+137	common	sched_setparam			sys_sched_setparam
-+138	common	sched_getscheduler		sys_sched_getscheduler
-+139	common	sched_setscheduler		sys_sched_setscheduler
-+140	common	sched_yield			sys_sched_yield
-+141	common	sched_get_priority_max		sys_sched_get_priority_max
-+142	common	sched_get_priority_min		sys_sched_get_priority_min
-+143	common	sched_rr_get_interval		sys_sched_rr_get_interval
-+144	common	nanosleep			sys_nanosleep
-+145	common	nfsservctl			sys_ni_syscall
-+146	common	prctl				sys_prctl
-+147	common	old_getpagesize			sys_getpagesize
-+148	common	mmap2				sys_mmap2
-+149	common	pciconfig_read			sys_pciconfig_read
-+150	common	pciconfig_write			sys_pciconfig_write
-+151	common	perfmonctl			sys_perfmonctl
-+152	common	sigaltstack			sys_sigaltstack
-+153	common	rt_sigaction			sys_rt_sigaction
-+154	common	rt_sigpending			sys_rt_sigpending
-+155	common	rt_sigprocmask			sys_rt_sigprocmask
-+156	common	rt_sigqueueinfo			sys_rt_sigqueueinfo
-+157	common	rt_sigreturn			sys_rt_sigreturn
-+158	common	rt_sigsuspend			sys_rt_sigsuspend
-+159	common	rt_sigtimedwait			sys_rt_sigtimedwait
-+160	common	getcwd				sys_getcwd
-+161	common	capget				sys_capget
-+162	common	capset				sys_capset
-+163	common	sendfile			sys_sendfile64
-+164	common	getpmsg				sys_ni_syscall
-+165	common	putpmsg				sys_ni_syscall
-+166	common	socket				sys_socket
-+167	common	bind				sys_bind
-+168	common	connect				sys_connect
-+169	common	listen				sys_listen
-+170	common	accept				sys_accept
-+171	common	getsockname			sys_getsockname
-+172	common	getpeername			sys_getpeername
-+173	common	socketpair			sys_socketpair
-+174	common	send				sys_send
-+175	common	sendto				sys_sendto
-+176	common	recv				sys_recv
-+177	common	recvfrom			sys_recvfrom
-+178	common	shutdown			sys_shutdown
-+179	common	setsockopt			sys_setsockopt
-+180	common	getsockopt			sys_getsockopt
-+181	common	sendmsg				sys_sendmsg
-+182	common	recvmsg				sys_recvmsg
-+183	common	pivot_root			sys_pivot_root
-+184	common	mincore				sys_mincore
-+185	common	madvise				sys_madvise
-+186	common	stat				sys_newstat
-+187	common	lstat				sys_newlstat
-+188	common	fstat				sys_newfstat
-+189	common	clone2				sys_clone2
-+190	common	getdents64			sys_getdents64
-+191	common	getunwind			sys_getunwind
-+192	common	readahead			sys_readahead
-+193	common	setxattr			sys_setxattr
-+194	common	lsetxattr			sys_lsetxattr
-+195	common	fsetxattr			sys_fsetxattr
-+196	common	getxattr			sys_getxattr
-+197	common	lgetxattr			sys_lgetxattr
-+198	common	fgetxattr			sys_fgetxattr
-+199	common	listxattr			sys_listxattr
-+200	common	llistxattr			sys_llistxattr
-+201	common	flistxattr			sys_flistxattr
-+202	common	removexattr			sys_removexattr
-+203	common	lremovexattr			sys_lremovexattr
-+204	common	fremovexattr			sys_fremovexattr
-+205	common	tkill				sys_tkill
-+206	common	futex				sys_futex
-+207	common	sched_setaffinity		sys_sched_setaffinity
-+208	common	sched_getaffinity		sys_sched_getaffinity
-+209	common	set_tid_address			sys_set_tid_address
-+210	common	fadvise64			sys_fadvise64_64
-+211	common	tgkill				sys_tgkill
-+212	common	exit_group			sys_exit_group
-+213	common	lookup_dcookie			sys_lookup_dcookie
-+214	common	io_setup			sys_io_setup
-+215	common	io_destroy			sys_io_destroy
-+216	common	io_getevents			sys_io_getevents
-+217	common	io_submit			sys_io_submit
-+218	common	io_cancel			sys_io_cancel
-+219	common	epoll_create			sys_epoll_create
-+220	common	epoll_ctl			sys_epoll_ctl
-+221	common	epoll_wait			sys_epoll_wait
-+222	common	restart_syscall			sys_restart_syscall
-+223	common	semtimedop			sys_semtimedop
-+224	common	timer_create			sys_timer_create
-+225	common	timer_settime			sys_timer_settime
-+226	common	timer_gettime			sys_timer_gettime
-+227	common	timer_getoverrun		sys_timer_getoverrun
-+228	common	timer_delete			sys_timer_delete
-+229	common	clock_settime			sys_clock_settime
-+230	common	clock_gettime			sys_clock_gettime
-+231	common	clock_getres			sys_clock_getres
-+232	common	clock_nanosleep			sys_clock_nanosleep
-+233	common	fstatfs64			sys_fstatfs64
-+234	common	statfs64			sys_statfs64
-+235	common	mbind				sys_mbind
-+236	common	get_mempolicy			sys_get_mempolicy
-+237	common	set_mempolicy			sys_set_mempolicy
-+238	common	mq_open				sys_mq_open
-+239	common	mq_unlink			sys_mq_unlink
-+240	common	mq_timedsend			sys_mq_timedsend
-+241	common	mq_timedreceive			sys_mq_timedreceive
-+242	common	mq_notify			sys_mq_notify
-+243	common	mq_getsetattr			sys_mq_getsetattr
-+244	common	kexec_load			sys_kexec_load
-+245	common	vserver				sys_ni_syscall
-+246	common	waitid				sys_waitid
-+247	common	add_key				sys_add_key
-+248	common	request_key			sys_request_key
-+249	common	keyctl				sys_keyctl
-+250	common	ioprio_set			sys_ioprio_set
-+251	common	ioprio_get			sys_ioprio_get
-+252	common	move_pages			sys_move_pages
-+253	common	inotify_init			sys_inotify_init
-+254	common	inotify_add_watch		sys_inotify_add_watch
-+255	common	inotify_rm_watch		sys_inotify_rm_watch
-+256	common	migrate_pages			sys_migrate_pages
-+257	common	openat				sys_openat
-+258	common	mkdirat				sys_mkdirat
-+259	common	mknodat				sys_mknodat
-+260	common	fchownat			sys_fchownat
-+261	common	futimesat			sys_futimesat
-+262	common	newfstatat			sys_newfstatat
-+263	common	unlinkat			sys_unlinkat
-+264	common	renameat			sys_renameat
-+265	common	linkat				sys_linkat
-+266	common	symlinkat			sys_symlinkat
-+267	common	readlinkat			sys_readlinkat
-+268	common	fchmodat			sys_fchmodat
-+269	common	faccessat			sys_faccessat
-+270	common	pselect6			sys_pselect6
-+271	common	ppoll				sys_ppoll
-+272	common	unshare				sys_unshare
-+273	common	splice				sys_splice
-+274	common	set_robust_list			sys_set_robust_list
-+275	common	get_robust_list			sys_get_robust_list
-+276	common	sync_file_range			sys_sync_file_range
-+277	common	tee				sys_tee
-+278	common	vmsplice			sys_vmsplice
-+279	common	fallocate			sys_fallocate
-+280	common	getcpu				sys_getcpu
-+281	common	epoll_pwait			sys_epoll_pwait
-+282	common	utimensat			sys_utimensat
-+283	common	signalfd			sys_signalfd
-+284	common	timerfd				sys_ni_syscall
-+285	common	eventfd				sys_eventfd
-+286	common	timerfd_create			sys_timerfd_create
-+287	common	timerfd_settime			sys_timerfd_settime
-+288	common	timerfd_gettime			sys_timerfd_gettime
-+289	common	signalfd4			sys_signalfd4
-+290	common	eventfd2			sys_eventfd2
-+291	common	epoll_create1			sys_epoll_create1
-+292	common	dup3				sys_dup3
-+293	common	pipe2				sys_pipe2
-+294	common	inotify_init1			sys_inotify_init1
-+295	common	preadv				sys_preadv
-+296	common	pwritev				sys_pwritev
-+297	common	rt_tgsigqueueinfo		sys_rt_tgsigqueueinfo
-+298	common	recvmmsg			sys_recvmmsg
-+299	common	fanotify_init			sys_fanotify_init
-+300	common	fanotify_mark			sys_fanotify_mark
-+301	common	prlimit64			sys_prlimit64
-+302	common	name_to_handle_at		sys_name_to_handle_at
-+303	common	open_by_handle_at		sys_open_by_handle_at
-+304	common	clock_adjtime			sys_clock_adjtime
-+305	common	syncfs				sys_syncfs
-+306	common	setns				sys_setns
-+307	common	sendmmsg			sys_sendmmsg
-+308	common	process_vm_readv		sys_process_vm_readv
-+309	common	process_vm_writev		sys_process_vm_writev
-+310	common	accept4				sys_accept4
-+311	common	finit_module			sys_finit_module
-+312	common	sched_setattr			sys_sched_setattr
-+313	common	sched_getattr			sys_sched_getattr
-+314	common	renameat2			sys_renameat2
-+315	common	getrandom			sys_getrandom
-+316	common	memfd_create			sys_memfd_create
-+317	common	bpf				sys_bpf
-+318	common	execveat			sys_execveat
-+319	common	userfaultfd			sys_userfaultfd
-+320	common	membarrier			sys_membarrier
-+321	common	kcmp				sys_kcmp
-+322	common	mlock2				sys_mlock2
-+323	common	copy_file_range			sys_copy_file_range
-+324	common	preadv2				sys_preadv2
-+325	common	pwritev2			sys_pwritev2
-diff --git a/arch/ia64/kernel/syscalls/syscallhdr.sh b/arch/ia64/kernel/syscalls/syscallhdr.sh
-new file mode 100644
-index 0000000..0c2d2c7
---- /dev/null
-+++ b/arch/ia64/kernel/syscalls/syscallhdr.sh
-@@ -0,0 +1,36 @@
-+#!/bin/sh
-+# SPDX-License-Identifier: GPL-2.0
-+
-+in="$1"
-+out="$2"
-+my_abis=`echo "($3)" | tr ',' '|'`
-+prefix="$4"
-+offset="$5"
-+
-+fileguard=_UAPI_ASM_IA64_`basename "$out" | sed \
-+	-e 'y/abcdefghijklmnopqrstuvwxyz/ABCDEFGHIJKLMNOPQRSTUVWXYZ/' \
-+	-e 's/[^A-Z0-9_]/_/g' -e 's/__/_/g'`
-+grep -E "^[0-9A-Fa-fXx]+[[:space:]]+${my_abis}" "$in" | sort -n | (
-+	printf "#ifndef %s\n" "${fileguard}"
-+	printf "#define %s\n" "${fileguard}"
-+	printf "\n"
-+
-+	nxt=0
-+	while read nr abi name entry ; do
-+		if [ -z "$offset" ]; then
-+			printf "#define __NR_%s%s\t%s\n" \
-+				"${prefix}" "${name}" "${nr}"
-+		else
-+			printf "#define __NR_%s%s\t(%s + %s)\n" \
-+				"${prefix}" "${name}" "${offset}" "${nr}"
-+		fi
-+		nxt=$((nr+1))
-+	done
-+
-+	printf "\n"
-+	printf "#ifdef __KERNEL__\n"
-+	printf "#define __NR_syscalls\t%s\n" "${nxt}"
-+	printf "#endif\n"
-+	printf "\n"
-+	printf "#endif /* %s */" "${fileguard}"
-+) > "$out"
-diff --git a/arch/ia64/kernel/syscalls/syscalltbl.sh b/arch/ia64/kernel/syscalls/syscalltbl.sh
-new file mode 100644
-index 0000000..85d78d9
---- /dev/null
-+++ b/arch/ia64/kernel/syscalls/syscalltbl.sh
-@@ -0,0 +1,32 @@
-+#!/bin/sh
-+# SPDX-License-Identifier: GPL-2.0
-+
-+in="$1"
-+out="$2"
-+my_abis=`echo "($3)" | tr ',' '|'`
-+my_abi="$4"
-+offset="$5"
-+
-+emit() {
-+	t_nxt="$1"
-+	t_nr="$2"
-+	t_entry="$3"
-+
-+	while [ $t_nxt -lt $t_nr ]; do
-+		printf "__SYSCALL(%s, sys_ni_syscall, )\n" "${t_nxt}"
-+		t_nxt=$((t_nxt+1))
-+	done
-+	printf "__SYSCALL(%s, %s, )\n" "${t_nxt}" "${t_entry}"
-+}
-+
-+grep -E "^[0-9A-Fa-fXx]+[[:space:]]+${my_abis}" "$in" | sort -n | (
-+	nxt=0
-+	if [ -z "$offset" ]; then
-+		offset=0
-+	fi
-+
-+	while read nr abi name entry ; do
-+		emit $((nxt+offset)) $((nr+offset)) $entry
-+		nxt=$((nr+1))
-+	done
-+) > "$out"
+All these places for replacement were found by running the following grep
+patterns on the entire kernel code. Please let me know if this might have
+missed some instances. This might also have replaced some false positives.
+I will appreciate suggestions, inputs and review.
+
+1. git grep "nid = -1"
+2. git grep "node = -1"
+3. git grep "nid = -1"
+4. git grep "node = -1"
+
+ arch/alpha/include/asm/topology.h             |  2 +-
+ arch/ia64/kernel/numa.c                       |  2 +-
+ arch/ia64/mm/discontig.c                      |  6 +++---
+ arch/ia64/sn/kernel/io_common.c               |  2 +-
+ arch/powerpc/include/asm/pci-bridge.h         |  2 +-
+ arch/powerpc/kernel/paca.c                    |  2 +-
+ arch/powerpc/kernel/pci-common.c              |  2 +-
+ arch/powerpc/mm/numa.c                        | 14 +++++++-------
+ arch/powerpc/platforms/powernv/memtrace.c     |  4 ++--
+ arch/sparc/kernel/auxio_32.c                  |  2 +-
+ arch/sparc/kernel/pci_fire.c                  |  2 +-
+ arch/sparc/kernel/pci_schizo.c                |  2 +-
+ arch/sparc/kernel/pcic.c                      |  6 +++---
+ arch/sparc/kernel/psycho_common.c             |  2 +-
+ arch/sparc/kernel/sbus.c                      |  2 +-
+ arch/sparc/mm/init_64.c                       |  6 +++---
+ arch/sparc/prom/init_32.c                     |  2 +-
+ arch/sparc/prom/init_64.c                     |  4 ++--
+ arch/sparc/prom/tree_32.c                     | 12 ++++++------
+ arch/sparc/prom/tree_64.c                     | 18 +++++++++---------
+ arch/x86/include/asm/pci.h                    |  2 +-
+ arch/x86/kernel/apic/x2apic_uv_x.c            |  6 +++---
+ arch/x86/kernel/smpboot.c                     |  2 +-
+ arch/x86/platform/olpc/olpc_dt.c              | 16 ++++++++--------
+ drivers/block/mtip32xx/mtip32xx.c             |  4 ++--
+ drivers/dma/dmaengine.c                       |  3 ++-
+ drivers/infiniband/hw/hfi1/affinity.c         |  2 +-
+ drivers/infiniband/hw/hfi1/init.c             |  2 +-
+ drivers/iommu/dmar.c                          |  4 ++--
+ drivers/iommu/intel-iommu.c                   |  2 +-
+ drivers/media/pci/ivtv/ivtvfb.c               |  2 +-
+ drivers/media/platform/vivid/vivid-osd.c      |  2 +-
+ drivers/misc/sgi-xp/xpc_uv.c                  |  2 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |  4 ++--
+ drivers/video/fbdev/mmp/fb/mmpfb.c            |  2 +-
+ drivers/video/fbdev/pxa168fb.c                |  2 +-
+ drivers/video/fbdev/w100fb.c                  |  2 +-
+ fs/ocfs2/dlm/dlmcommon.h                      |  2 +-
+ fs/ocfs2/dlm/dlmdomain.c                      | 10 +++++-----
+ fs/ocfs2/dlm/dlmmaster.c                      |  2 +-
+ fs/ocfs2/dlm/dlmrecovery.c                    |  2 +-
+ fs/ocfs2/stack_user.c                         |  6 +++---
+ init/init_task.c                              |  2 +-
+ kernel/kthread.c                              |  2 +-
+ kernel/sched/fair.c                           | 15 ++++++++-------
+ lib/cpumask.c                                 |  2 +-
+ mm/huge_memory.c                              | 12 ++++++------
+ mm/hugetlb.c                                  |  2 +-
+ mm/ksm.c                                      |  2 +-
+ mm/memory.c                                   |  6 +++---
+ mm/memory_hotplug.c                           | 12 ++++++------
+ mm/mempolicy.c                                |  2 +-
+ mm/page_alloc.c                               |  4 ++--
+ mm/page_ext.c                                 |  2 +-
+ net/core/pktgen.c                             |  2 +-
+ net/qrtr/qrtr.c                               |  2 +-
+ tools/perf/bench/numa.c                       |  6 +++---
+ 57 files changed, 125 insertions(+), 123 deletions(-)
+
+diff --git a/arch/alpha/include/asm/topology.h b/arch/alpha/include/asm/topology.h
+index e6e13a8..f6dc89c 100644
+--- a/arch/alpha/include/asm/topology.h
++++ b/arch/alpha/include/asm/topology.h
+@@ -29,7 +29,7 @@ static const struct cpumask *cpumask_of_node(int node)
+ {
+ 	int cpu;
+ 
+-	if (node = -1)
++	if (node = NUMA_NO_NODE)
+ 		return cpu_all_mask;
+ 
+ 	cpumask_clear(&node_to_cpumask_map[node]);
+diff --git a/arch/ia64/kernel/numa.c b/arch/ia64/kernel/numa.c
+index 92c3762..1315da6 100644
+--- a/arch/ia64/kernel/numa.c
++++ b/arch/ia64/kernel/numa.c
+@@ -74,7 +74,7 @@ void __init build_cpu_to_node_map(void)
+ 		cpumask_clear(&node_to_cpu_mask[node]);
+ 
+ 	for_each_possible_early_cpu(cpu) {
+-		node = -1;
++		node = NUMA_NO_NODE;
+ 		for (i = 0; i < NR_CPUS; ++i)
+ 			if (cpu_physical_id(cpu) = node_cpuid[i].phys_id) {
+ 				node = node_cpuid[i].nid;
+diff --git a/arch/ia64/mm/discontig.c b/arch/ia64/mm/discontig.c
+index 8a96578..f9c3675 100644
+--- a/arch/ia64/mm/discontig.c
++++ b/arch/ia64/mm/discontig.c
+@@ -227,7 +227,7 @@ void __init setup_per_cpu_areas(void)
+ 	 * CPUs are put into groups according to node.  Walk cpu_map
+ 	 * and create new groups at node boundaries.
+ 	 */
+-	prev_node = -1;
++	prev_node = NUMA_NO_NODE;
+ 	ai->nr_groups = 0;
+ 	for (unit = 0; unit < nr_units; unit++) {
+ 		cpu = cpu_map[unit];
+@@ -435,7 +435,7 @@ static void __init *memory_less_node_alloc(int nid, unsigned long pernodesize)
+ {
+ 	void *ptr = NULL;
+ 	u8 best = 0xff;
+-	int bestnode = -1, node, anynode = 0;
++	int bestnode = NUMA_NO_NODE, node, anynode = 0;
+ 
+ 	for_each_online_node(node) {
+ 		if (node_isset(node, memory_less_mask))
+@@ -447,7 +447,7 @@ static void __init *memory_less_node_alloc(int nid, unsigned long pernodesize)
+ 		anynode = node;
+ 	}
+ 
+-	if (bestnode = -1)
++	if (bestnode = NUMA_NO_NODE)
+ 		bestnode = anynode;
+ 
+ 	ptr = memblock_alloc_try_nid(pernodesize, PERCPU_PAGE_SIZE,
+diff --git a/arch/ia64/sn/kernel/io_common.c b/arch/ia64/sn/kernel/io_common.c
+index 8df13d0..86b3fcb 100644
+--- a/arch/ia64/sn/kernel/io_common.c
++++ b/arch/ia64/sn/kernel/io_common.c
+@@ -344,7 +344,7 @@ sn_common_bus_fixup(struct pci_bus *bus,
+ 		printk(KERN_WARNING "on node %d but only %d nodes online."
+ 		       "Association set to undetermined.\n",
+ 		       controller->node, num_online_nodes());
+-		controller->node = -1;
++		controller->node = NUMA_NO_NODE;
+ 	}
+ }
+ 
+diff --git a/arch/powerpc/include/asm/pci-bridge.h b/arch/powerpc/include/asm/pci-bridge.h
+index 94d4490..25a9e33 100644
+--- a/arch/powerpc/include/asm/pci-bridge.h
++++ b/arch/powerpc/include/asm/pci-bridge.h
+@@ -264,7 +264,7 @@ extern int pcibios_map_io_space(struct pci_bus *bus);
+ #ifdef CONFIG_NUMA
+ #define PHB_SET_NODE(PHB, NODE)		((PHB)->node = (NODE))
+ #else
+-#define PHB_SET_NODE(PHB, NODE)		((PHB)->node = -1)
++#define PHB_SET_NODE(PHB, NODE)		((PHB)->node = NUMA_NO_NODE)
+ #endif
+ 
+ #endif	/* CONFIG_PPC64 */
+diff --git a/arch/powerpc/kernel/paca.c b/arch/powerpc/kernel/paca.c
+index 913bfca..6a0bd51 100644
+--- a/arch/powerpc/kernel/paca.c
++++ b/arch/powerpc/kernel/paca.c
+@@ -36,7 +36,7 @@ static void *__init alloc_paca_data(unsigned long size, unsigned long align,
+ 	 * which will put its paca in the right place.
+ 	 */
+ 	if (cpu = boot_cpuid) {
+-		nid = -1;
++		nid = NUMA_NO_NODE;
+ 		memblock_set_bottom_up(true);
+ 	} else {
+ 		nid = early_cpu_to_node(cpu);
+diff --git a/arch/powerpc/kernel/pci-common.c b/arch/powerpc/kernel/pci-common.c
+index 88e4f69..14c33a9 100644
+--- a/arch/powerpc/kernel/pci-common.c
++++ b/arch/powerpc/kernel/pci-common.c
+@@ -132,7 +132,7 @@ struct pci_controller *pcibios_alloc_controller(struct device_node *dev)
+ 		int nid = of_node_to_nid(dev);
+ 
+ 		if (nid < 0 || !node_online(nid))
+-			nid = -1;
++			nid = NUMA_NO_NODE;
+ 
+ 		PHB_SET_NODE(phb, nid);
+ 	}
+diff --git a/arch/powerpc/mm/numa.c b/arch/powerpc/mm/numa.c
+index 3a048e9..77808a2 100644
+--- a/arch/powerpc/mm/numa.c
++++ b/arch/powerpc/mm/numa.c
+@@ -215,7 +215,7 @@ static void initialize_distance_lookup_table(int nid,
+  */
+ static int associativity_to_nid(const __be32 *associativity)
+ {
+-	int nid = -1;
++	int nid = NUMA_NO_NODE;
+ 
+ 	if (min_common_depth = -1)
+ 		goto out;
+@@ -225,7 +225,7 @@ static int associativity_to_nid(const __be32 *associativity)
+ 
+ 	/* POWER4 LPAR uses 0xffff as invalid node */
+ 	if (nid = 0xffff || nid >= MAX_NUMNODES)
+-		nid = -1;
++		nid = NUMA_NO_NODE;
+ 
+ 	if (nid > 0 &&
+ 		of_read_number(associativity, 1) >= distance_ref_points_depth) {
+@@ -244,7 +244,7 @@ static int associativity_to_nid(const __be32 *associativity)
+  */
+ static int of_node_to_nid_single(struct device_node *device)
+ {
+-	int nid = -1;
++	int nid = NUMA_NO_NODE;
+ 	const __be32 *tmp;
+ 
+ 	tmp = of_get_associativity(device);
+@@ -256,7 +256,7 @@ static int of_node_to_nid_single(struct device_node *device)
+ /* Walk the device tree upwards, looking for an associativity id */
+ int of_node_to_nid(struct device_node *device)
+ {
+-	int nid = -1;
++	int nid = NUMA_NO_NODE;
+ 
+ 	of_node_get(device);
+ 	while (device) {
+@@ -454,7 +454,7 @@ static int of_drconf_to_nid_single(struct drmem_lmb *lmb)
+  */
+ static int numa_setup_cpu(unsigned long lcpu)
+ {
+-	int nid = -1;
++	int nid = NUMA_NO_NODE;
+ 	struct device_node *cpu;
+ 
+ 	/*
+@@ -930,7 +930,7 @@ static int hot_add_drconf_scn_to_nid(unsigned long scn_addr)
+ {
+ 	struct drmem_lmb *lmb;
+ 	unsigned long lmb_size;
+-	int nid = -1;
++	int nid = NUMA_NO_NODE;
+ 
+ 	lmb_size = drmem_lmb_size();
+ 
+@@ -960,7 +960,7 @@ static int hot_add_drconf_scn_to_nid(unsigned long scn_addr)
+ static int hot_add_node_scn_to_nid(unsigned long scn_addr)
+ {
+ 	struct device_node *memory;
+-	int nid = -1;
++	int nid = NUMA_NO_NODE;
+ 
+ 	for_each_node_by_type(memory, "memory") {
+ 		unsigned long start, size;
+diff --git a/arch/powerpc/platforms/powernv/memtrace.c b/arch/powerpc/platforms/powernv/memtrace.c
+index 84d038e..1ce3bfc 100644
+--- a/arch/powerpc/platforms/powernv/memtrace.c
++++ b/arch/powerpc/platforms/powernv/memtrace.c
+@@ -223,7 +223,7 @@ static int memtrace_online(void)
+ 		ent = &memtrace_array[i];
+ 
+ 		/* We have onlined this chunk previously */
+-		if (ent->nid = -1)
++		if (ent->nid = NUMA_NO_NODE)
+ 			continue;
+ 
+ 		/* Remove from io mappings */
+@@ -257,7 +257,7 @@ static int memtrace_online(void)
+ 		 */
+ 		debugfs_remove_recursive(ent->dir);
+ 		pr_info("Added trace memory back to node %d\n", ent->nid);
+-		ent->size = ent->start = ent->nid = -1;
++		ent->size = ent->start = ent->nid = NUMA_NO_NODE;
+ 	}
+ 	if (ret)
+ 		return ret;
+diff --git a/arch/sparc/kernel/auxio_32.c b/arch/sparc/kernel/auxio_32.c
+index a32d588..39f6c59 100644
+--- a/arch/sparc/kernel/auxio_32.c
++++ b/arch/sparc/kernel/auxio_32.c
+@@ -120,7 +120,7 @@ void __init auxio_power_probe(void)
+ 	node = prom_searchsiblings(node, "obio");
+ 	node = prom_getchild(node);
+ 	node = prom_searchsiblings(node, "power");
+-	if (node = 0 || (s32)node = -1)
++	if (node = 0 || (s32)node = NUMA_NO_NODE)
+ 		return;
+ 
+ 	/* Map the power control register. */
+diff --git a/arch/sparc/kernel/pci_fire.c b/arch/sparc/kernel/pci_fire.c
+index be71ae0..474d3be 100644
+--- a/arch/sparc/kernel/pci_fire.c
++++ b/arch/sparc/kernel/pci_fire.c
+@@ -416,7 +416,7 @@ static int pci_fire_pbm_init(struct pci_pbm_info *pbm,
+ 	struct device_node *dp = op->dev.of_node;
+ 	int err;
+ 
+-	pbm->numa_node = -1;
++	pbm->numa_node = NUMA_NO_NODE;
+ 
+ 	pbm->pci_ops = &sun4u_pci_ops;
+ 	pbm->config_space_reg_bits = 12;
+diff --git a/arch/sparc/kernel/pci_schizo.c b/arch/sparc/kernel/pci_schizo.c
+index 934b97c..87bb231 100644
+--- a/arch/sparc/kernel/pci_schizo.c
++++ b/arch/sparc/kernel/pci_schizo.c
+@@ -1347,7 +1347,7 @@ static int schizo_pbm_init(struct pci_pbm_info *pbm,
+ 	pbm->next = pci_pbm_root;
+ 	pci_pbm_root = pbm;
+ 
+-	pbm->numa_node = -1;
++	pbm->numa_node = NUMA_NO_NODE;
+ 
+ 	pbm->pci_ops = &sun4u_pci_ops;
+ 	pbm->config_space_reg_bits = 8;
+diff --git a/arch/sparc/kernel/pcic.c b/arch/sparc/kernel/pcic.c
+index ee4c9a9..d5fe898 100644
+--- a/arch/sparc/kernel/pcic.c
++++ b/arch/sparc/kernel/pcic.c
+@@ -476,7 +476,7 @@ static void pcic_map_pci_device(struct linux_pcic *pcic,
+ 	unsigned long flags;
+ 	int j;
+ 
+-	if (node = 0 || node = -1) {
++	if (node = 0 || node = NUMA_NO_NODE) {
+ 		strcpy(namebuf, "???");
+ 	} else {
+ 		prom_getstring(node, "name", namebuf, 63); namebuf[63] = 0;
+@@ -535,7 +535,7 @@ pcic_fill_irq(struct linux_pcic *pcic, struct pci_dev *dev, int node)
+ 	int i, ivec;
+ 	char namebuf[64];
+ 
+-	if (node = 0 || node = -1) {
++	if (node = 0 || node = NUMA_NO_NODE) {
+ 		strcpy(namebuf, "???");
+ 	} else {
+ 		prom_getstring(node, "name", namebuf, sizeof(namebuf));
+@@ -625,7 +625,7 @@ void pcibios_fixup_bus(struct pci_bus *bus)
+ 	list_for_each_entry(dev, &bus->devices, bus_list) {
+ 		node = pdev_to_pnode(&pcic->pbm, dev);
+ 		if(node = 0)
+-			node = -1;
++			node = NUMA_NO_NODE;
+ 
+ 		/* cookies */
+ 		pcp = pci_devcookie_alloc();
+diff --git a/arch/sparc/kernel/psycho_common.c b/arch/sparc/kernel/psycho_common.c
+index 81aa91e..dcbf492 100644
+--- a/arch/sparc/kernel/psycho_common.c
++++ b/arch/sparc/kernel/psycho_common.c
+@@ -454,7 +454,7 @@ void psycho_pbm_init_common(struct pci_pbm_info *pbm, struct platform_device *op
+ 	struct device_node *dp = op->dev.of_node;
+ 
+ 	pbm->name = dp->full_name;
+-	pbm->numa_node = -1;
++	pbm->numa_node = NUMA_NO_NODE;
+ 	pbm->chip_type = chip_type;
+ 	pbm->chip_version = of_getintprop_default(dp, "version#", 0);
+ 	pbm->chip_revision = of_getintprop_default(dp, "module-revision#", 0);
+diff --git a/arch/sparc/kernel/sbus.c b/arch/sparc/kernel/sbus.c
+index c133dfc..28a4aa9 100644
+--- a/arch/sparc/kernel/sbus.c
++++ b/arch/sparc/kernel/sbus.c
+@@ -561,7 +561,7 @@ static void __init sbus_iommu_init(struct platform_device *op)
+ 
+ 	op->dev.archdata.iommu = iommu;
+ 	op->dev.archdata.stc = strbuf;
+-	op->dev.archdata.numa_node = -1;
++	op->dev.archdata.numa_node = NUMA_NO_NODE;
+ 
+ 	reg_base = regs + SYSIO_IOMMUREG_BASE;
+ 	iommu->iommu_control = reg_base + IOMMU_CONTROL;
+diff --git a/arch/sparc/mm/init_64.c b/arch/sparc/mm/init_64.c
+index 3c8aac2..cb1bed1 100644
+--- a/arch/sparc/mm/init_64.c
++++ b/arch/sparc/mm/init_64.c
+@@ -976,13 +976,13 @@ static u64 __init memblock_nid_range_sun4u(u64 start, u64 end, int *nid)
+ {
+ 	int prev_nid, new_nid;
+ 
+-	prev_nid = -1;
++	prev_nid = NUMA_NO_NODE;
+ 	for ( ; start < end; start += PAGE_SIZE) {
+ 		for (new_nid = 0; new_nid < num_node_masks; new_nid++) {
+ 			struct node_mem_mask *p = &node_masks[new_nid];
+ 
+ 			if ((start & p->mask) = p->match) {
+-				if (prev_nid = -1)
++				if (prev_nid = NUMA_NO_NODE)
+ 					prev_nid = new_nid;
+ 				break;
+ 			}
+@@ -1208,7 +1208,7 @@ int of_node_to_nid(struct device_node *dp)
+ 	md = mdesc_grab();
+ 
+ 	count = 0;
+-	nid = -1;
++	nid = NUMA_NO_NODE;
+ 	mdesc_for_each_node_by_name(md, grp, "group") {
+ 		if (!scan_arcs_for_cfg_handle(md, grp, cfg_handle)) {
+ 			nid = count;
+diff --git a/arch/sparc/prom/init_32.c b/arch/sparc/prom/init_32.c
+index d204701..4c6e540 100644
+--- a/arch/sparc/prom/init_32.c
++++ b/arch/sparc/prom/init_32.c
+@@ -58,7 +58,7 @@ void __init prom_init(struct linux_romvec *rp)
+ 	prom_nodeops = romvec->pv_nodeops;
+ 
+ 	prom_root_node = prom_getsibling(0);
+-	if ((prom_root_node = 0) || ((s32)prom_root_node = -1))
++	if ((prom_root_node = 0) || ((s32)prom_root_node = NUMA_NO_NODE))
+ 		prom_halt();
+ 
+ 	if((((unsigned long) prom_nodeops) = 0) || 
+diff --git a/arch/sparc/prom/init_64.c b/arch/sparc/prom/init_64.c
+index 103aa91..85669c0 100644
+--- a/arch/sparc/prom/init_64.c
++++ b/arch/sparc/prom/init_64.c
+@@ -36,13 +36,13 @@ void __init prom_init(void *cif_handler)
+ 	prom_cif_init(cif_handler);
+ 
+ 	prom_chosen_node = prom_finddevice(prom_chosen_path);
+-	if (!prom_chosen_node || (s32)prom_chosen_node = -1)
++	if (!prom_chosen_node || (s32)prom_chosen_node = NUMA_NO_NODE)
+ 		prom_halt();
+ 
+ 	prom_stdout = prom_getint(prom_chosen_node, "stdout");
+ 
+ 	node = prom_finddevice("/openprom");
+-	if (!node || (s32)node = -1)
++	if (!node || (s32)node = NUMA_NO_NODE)
+ 		prom_halt();
+ 
+ 	prom_getstring(node, "version", prom_version, sizeof(prom_version));
+diff --git a/arch/sparc/prom/tree_32.c b/arch/sparc/prom/tree_32.c
+index 0fed893..2d0a204 100644
+--- a/arch/sparc/prom/tree_32.c
++++ b/arch/sparc/prom/tree_32.c
+@@ -41,11 +41,11 @@ phandle prom_getchild(phandle node)
+ {
+ 	phandle cnode;
+ 
+-	if ((s32)node = -1)
++	if ((s32)node = NUMA_NO_NODE)
+ 		return 0;
+ 
+ 	cnode = __prom_getchild(node);
+-	if (cnode = 0 || (s32)cnode = -1)
++	if (cnode = 0 || (s32)cnode = NUMA_NO_NODE)
+ 		return 0;
+ 
+ 	return cnode;
+@@ -73,11 +73,11 @@ phandle prom_getsibling(phandle node)
+ {
+ 	phandle sibnode;
+ 
+-	if ((s32)node = -1)
++	if ((s32)node = NUMA_NO_NODE)
+ 		return 0;
+ 
+ 	sibnode = __prom_getsibling(node);
+-	if (sibnode = 0 || (s32)sibnode = -1)
++	if (sibnode = 0 || (s32)sibnode = NUMA_NO_NODE)
+ 		return 0;
+ 
+ 	return sibnode;
+@@ -220,7 +220,7 @@ static char *__prom_nextprop(phandle node, char * oprop)
+  */
+ char *prom_nextprop(phandle node, char *oprop, char *buffer)
+ {
+-	if (node = 0 || (s32)node = -1)
++	if (node = 0 || (s32)node = NUMA_NO_NODE)
+ 		return "";
+ 
+ 	return __prom_nextprop(node, oprop);
+@@ -304,7 +304,7 @@ phandle prom_inst2pkg(int inst)
+ 	node = (*romvec->pv_v2devops.v2_inst2pkg)(inst);
+ 	restore_current();
+ 	spin_unlock_irqrestore(&prom_lock, flags);
+-	if ((s32)node = -1)
++	if ((s32)node = NUMA_NO_NODE)
+ 		return 0;
+ 	return node;
+ }
+diff --git a/arch/sparc/prom/tree_64.c b/arch/sparc/prom/tree_64.c
+index 989e799..2b4c515 100644
+--- a/arch/sparc/prom/tree_64.c
++++ b/arch/sparc/prom/tree_64.c
+@@ -44,10 +44,10 @@ phandle prom_getchild(phandle node)
+ {
+ 	phandle cnode;
+ 
+-	if ((s32)node = -1)
++	if ((s32)node = NUMA_NO_NODE)
+ 		return 0;
+ 	cnode = __prom_getchild(node);
+-	if ((s32)cnode = -1)
++	if ((s32)cnode = NUMA_NO_NODE)
+ 		return 0;
+ 	return cnode;
+ }
+@@ -57,10 +57,10 @@ inline phandle prom_getparent(phandle node)
+ {
+ 	phandle cnode;
+ 
+-	if ((s32)node = -1)
++	if ((s32)node = NUMA_NO_NODE)
+ 		return 0;
+ 	cnode = prom_node_to_node("parent", node);
+-	if ((s32)cnode = -1)
++	if ((s32)cnode = NUMA_NO_NODE)
+ 		return 0;
+ 	return cnode;
+ }
+@@ -77,10 +77,10 @@ phandle prom_getsibling(phandle node)
+ {
+ 	phandle sibnode;
+ 
+-	if ((s32)node = -1)
++	if ((s32)node = NUMA_NO_NODE)
+ 		return 0;
+ 	sibnode = __prom_getsibling(node);
+-	if ((s32)sibnode = -1)
++	if ((s32)sibnode = NUMA_NO_NODE)
+ 		return 0;
+ 
+ 	return sibnode;
+@@ -241,7 +241,7 @@ char *prom_firstprop(phandle node, char *buffer)
+ 	unsigned long args[7];
+ 
+ 	*buffer = 0;
+-	if ((s32)node = -1)
++	if ((s32)node = NUMA_NO_NODE)
+ 		return buffer;
+ 
+ 	args[0] = (unsigned long) prom_nextprop_name;
+@@ -267,7 +267,7 @@ char *prom_nextprop(phandle node, const char *oprop, char *buffer)
+ 	unsigned long args[7];
+ 	char buf[32];
+ 
+-	if ((s32)node = -1) {
++	if ((s32)node = NUMA_NO_NODE) {
+ 		*buffer = 0;
+ 		return buffer;
+ 	}
+@@ -370,7 +370,7 @@ inline phandle prom_inst2pkg(int inst)
+ 	p1275_cmd_direct(args);
+ 
+ 	node = (int) args[4];
+-	if ((s32)node = -1)
++	if ((s32)node = NUMA_NO_NODE)
+ 		return 0;
+ 	return node;
+ }
+diff --git a/arch/x86/include/asm/pci.h b/arch/x86/include/asm/pci.h
+index 6629636..dee2a31 100644
+--- a/arch/x86/include/asm/pci.h
++++ b/arch/x86/include/asm/pci.h
+@@ -141,7 +141,7 @@ cpumask_of_pcibus(const struct pci_bus *bus)
+ 	int node;
+ 
+ 	node = __pcibus_to_node(bus);
+-	return (node = -1) ? cpu_online_mask :
++	return (node = NUMA_NO_NODE) ? cpu_online_mask :
+ 			      cpumask_of_node(node);
+ }
+ #endif
+diff --git a/arch/x86/kernel/apic/x2apic_uv_x.c b/arch/x86/kernel/apic/x2apic_uv_x.c
+index 391f358..3c3378a 100644
+--- a/arch/x86/kernel/apic/x2apic_uv_x.c
++++ b/arch/x86/kernel/apic/x2apic_uv_x.c
+@@ -1390,7 +1390,7 @@ static void __init build_socket_tables(void)
+ 	}
+ 
+ 	/* Set socket -> node values: */
+-	lnid = -1;
++	lnid = NUMA_NO_NODE;
+ 	for_each_present_cpu(cpu) {
+ 		int nid = cpu_to_node(cpu);
+ 		int apicid, sockid;
+@@ -1521,7 +1521,7 @@ static void __init uv_system_init_hub(void)
+ 			new_hub->pnode = 0xffff;
+ 
+ 		new_hub->numa_blade_id = uv_node_to_blade_id(nodeid);
+-		new_hub->memory_nid = -1;
++		new_hub->memory_nid = NUMA_NO_NODE;
+ 		new_hub->nr_possible_cpus = 0;
+ 		new_hub->nr_online_cpus = 0;
+ 	}
+@@ -1538,7 +1538,7 @@ static void __init uv_system_init_hub(void)
+ 
+ 		uv_cpu_info_per(cpu)->p_uv_hub_info = uv_hub_info_list(nodeid);
+ 		uv_cpu_info_per(cpu)->blade_cpu_id = uv_cpu_hub_info(cpu)->nr_possible_cpus++;
+-		if (uv_cpu_hub_info(cpu)->memory_nid = -1)
++		if (uv_cpu_hub_info(cpu)->memory_nid = NUMA_NO_NODE)
+ 			uv_cpu_hub_info(cpu)->memory_nid = cpu_to_node(cpu);
+ 
+ 		/* Init memoryless node: */
+diff --git a/arch/x86/kernel/smpboot.c b/arch/x86/kernel/smpboot.c
+index a9134d1..c1d45dc 100644
+--- a/arch/x86/kernel/smpboot.c
++++ b/arch/x86/kernel/smpboot.c
+@@ -841,7 +841,7 @@ wakeup_secondary_cpu_via_init(int phys_apicid, unsigned long start_eip)
+ /* reduce the number of lines printed when booting a large cpu count system */
+ static void announce_cpu(int cpu, int apicid)
+ {
+-	static int current_node = -1;
++	static int current_node = NUMA_NO_NODE;
+ 	int node = early_cpu_to_node(cpu);
+ 	static int width, node_width;
+ 
+diff --git a/arch/x86/platform/olpc/olpc_dt.c b/arch/x86/platform/olpc/olpc_dt.c
+index 24d2175..7098127 100644
+--- a/arch/x86/platform/olpc/olpc_dt.c
++++ b/arch/x86/platform/olpc/olpc_dt.c
+@@ -29,10 +29,10 @@ static phandle __init olpc_dt_getsibling(phandle node)
+ 	const void *args[] = { (void *)node };
+ 	void *res[] = { &node };
+ 
+-	if ((s32)node = -1)
++	if ((s32)node = NUMA_NO_NODE)
+ 		return 0;
+ 
+-	if (olpc_ofw("peer", args, res) || (s32)node = -1)
++	if (olpc_ofw("peer", args, res) || (s32)node = NUMA_NO_NODE)
+ 		return 0;
+ 
+ 	return node;
+@@ -43,10 +43,10 @@ static phandle __init olpc_dt_getchild(phandle node)
+ 	const void *args[] = { (void *)node };
+ 	void *res[] = { &node };
+ 
+-	if ((s32)node = -1)
++	if ((s32)node = NUMA_NO_NODE)
+ 		return 0;
+ 
+-	if (olpc_ofw("child", args, res) || (s32)node = -1) {
++	if (olpc_ofw("child", args, res) || (s32)node = NUMA_NO_NODE) {
+ 		pr_err("PROM: %s: fetching child failed!\n", __func__);
+ 		return 0;
+ 	}
+@@ -60,7 +60,7 @@ static int __init olpc_dt_getproplen(phandle node, const char *prop)
+ 	int len;
+ 	void *res[] = { &len };
+ 
+-	if ((s32)node = -1)
++	if ((s32)node = NUMA_NO_NODE)
+ 		return -1;
+ 
+ 	if (olpc_ofw("getproplen", args, res)) {
+@@ -100,7 +100,7 @@ static int __init olpc_dt_nextprop(phandle node, char *prev, char *buf)
+ 
+ 	buf[0] = '\0';
+ 
+-	if ((s32)node = -1)
++	if ((s32)node = NUMA_NO_NODE)
+ 		return -1;
+ 
+ 	if (olpc_ofw("nextprop", args, res) || success != 1)
+@@ -115,7 +115,7 @@ static int __init olpc_dt_pkg2path(phandle node, char *buf,
+ 	const void *args[] = { (void *)node, buf, (void *)buflen };
+ 	void *res[] = { len };
+ 
+-	if ((s32)node = -1)
++	if ((s32)node = NUMA_NO_NODE)
+ 		return -1;
+ 
+ 	if (olpc_ofw("package-to-path", args, res) || *len < 1)
+@@ -176,7 +176,7 @@ static phandle __init olpc_dt_finddevice(const char *path)
+ 		return 0;
+ 	}
+ 
+-	if ((s32) node = -1)
++	if ((s32) node = NUMA_NO_NODE)
+ 		return 0;
+ 
+ 	return node;
+diff --git a/drivers/block/mtip32xx/mtip32xx.c b/drivers/block/mtip32xx/mtip32xx.c
+index a7daa8a..b889452 100644
+--- a/drivers/block/mtip32xx/mtip32xx.c
++++ b/drivers/block/mtip32xx/mtip32xx.c
+@@ -4084,9 +4084,9 @@ static int get_least_used_cpu_on_node(int node)
+ /* Helper for selecting a node in round robin mode */
+ static inline int mtip_get_next_rr_node(void)
+ {
+-	static int next_node = -1;
++	static int next_node = NUMA_NO_NODE;
+ 
+-	if (next_node = -1) {
++	if (next_node = NUMA_NO_NODE) {
+ 		next_node = first_online_node;
+ 		return next_node;
+ 	}
+diff --git a/drivers/dma/dmaengine.c b/drivers/dma/dmaengine.c
+index f1a441ab..1aeefc7 100644
+--- a/drivers/dma/dmaengine.c
++++ b/drivers/dma/dmaengine.c
+@@ -386,7 +386,8 @@ EXPORT_SYMBOL(dma_issue_pending_all);
+ static bool dma_chan_is_local(struct dma_chan *chan, int cpu)
+ {
+ 	int node = dev_to_node(chan->device->dev);
+-	return node = -1 || cpumask_test_cpu(cpu, cpumask_of_node(node));
++	return node = NUMA_NO_NODE ||
++		cpumask_test_cpu(cpu, cpumask_of_node(node));
+ }
+ 
+ /**
+diff --git a/drivers/infiniband/hw/hfi1/affinity.c b/drivers/infiniband/hw/hfi1/affinity.c
+index 2baf38c..3e8acb8 100644
+--- a/drivers/infiniband/hw/hfi1/affinity.c
++++ b/drivers/infiniband/hw/hfi1/affinity.c
+@@ -777,7 +777,7 @@ void hfi1_dev_affinity_clean_up(struct hfi1_devdata *dd)
+ 	_dev_comp_vect_cpu_mask_clean_up(dd, entry);
+ unlock:
+ 	mutex_unlock(&node_affinity.lock);
+-	dd->node = -1;
++	dd->node = NUMA_NO_NODE;
+ }
+ 
+ /*
+diff --git a/drivers/infiniband/hw/hfi1/init.c b/drivers/infiniband/hw/hfi1/init.c
+index 0904490..0bf4577 100644
+--- a/drivers/infiniband/hw/hfi1/init.c
++++ b/drivers/infiniband/hw/hfi1/init.c
+@@ -1303,7 +1303,7 @@ static struct hfi1_devdata *hfi1_alloc_devdata(struct pci_dev *pdev,
+ 		dd->unit = ret;
+ 		list_add(&dd->list, &hfi1_dev_list);
+ 	}
+-	dd->node = -1;
++	dd->node = NUMA_NO_NODE;
+ 
+ 	spin_unlock_irqrestore(&hfi1_devs_lock, flags);
+ 	idr_preload_end();
+diff --git a/drivers/iommu/dmar.c b/drivers/iommu/dmar.c
+index d9c748b..86a9c19 100644
+--- a/drivers/iommu/dmar.c
++++ b/drivers/iommu/dmar.c
+@@ -477,7 +477,7 @@ static int dmar_parse_one_rhsa(struct acpi_dmar_header *header, void *arg)
+ 			int node = acpi_map_pxm_to_node(rhsa->proximity_domain);
+ 
+ 			if (!node_online(node))
+-				node = -1;
++				node = NUMA_NO_NODE;
+ 			drhd->iommu->node = node;
+ 			return 0;
+ 		}
+@@ -1062,7 +1062,7 @@ static int alloc_iommu(struct dmar_drhd_unit *drhd)
+ 	iommu->msagaw = msagaw;
+ 	iommu->segment = drhd->segment;
+ 
+-	iommu->node = -1;
++	iommu->node = NUMA_NO_NODE;
+ 
+ 	ver = readl(iommu->reg + DMAR_VER_REG);
+ 	pr_info("%s: reg_base_addr %llx ver %d:%d cap %llx ecap %llx\n",
+diff --git a/drivers/iommu/intel-iommu.c b/drivers/iommu/intel-iommu.c
+index f3ccf02..9f6fb13 100644
+--- a/drivers/iommu/intel-iommu.c
++++ b/drivers/iommu/intel-iommu.c
+@@ -1772,7 +1772,7 @@ static struct dmar_domain *alloc_domain(int flags)
+ 		return NULL;
+ 
+ 	memset(domain, 0, sizeof(*domain));
+-	domain->nid = -1;
++	domain->nid = NUMA_NO_NODE;
+ 	domain->flags = flags;
+ 	domain->has_iotlb_device = false;
+ 	INIT_LIST_HEAD(&domain->devices);
+diff --git a/drivers/media/pci/ivtv/ivtvfb.c b/drivers/media/pci/ivtv/ivtvfb.c
+index 3e02de0..81bd41c 100644
+--- a/drivers/media/pci/ivtv/ivtvfb.c
++++ b/drivers/media/pci/ivtv/ivtvfb.c
+@@ -1054,7 +1054,7 @@ static int ivtvfb_init_vidmode(struct ivtv *itv)
+ 
+ 	/* Generate valid fb_info */
+ 
+-	oi->ivtvfb_info.node = -1;
++	oi->ivtvfb_info.node = NUMA_NO_NODE;
+ 	oi->ivtvfb_info.flags = FBINFO_FLAG_DEFAULT;
+ 	oi->ivtvfb_info.fbops = &ivtvfb_ops;
+ 	oi->ivtvfb_info.par = itv;
+diff --git a/drivers/media/platform/vivid/vivid-osd.c b/drivers/media/platform/vivid/vivid-osd.c
+index 1a89593..56a2d41 100644
+--- a/drivers/media/platform/vivid/vivid-osd.c
++++ b/drivers/media/platform/vivid/vivid-osd.c
+@@ -309,7 +309,7 @@ static int vivid_fb_init_vidmode(struct vivid_dev *dev)
+ 
+ 	/* Generate valid fb_info */
+ 
+-	dev->fb_info.node = -1;
++	dev->fb_info.node = NUMA_NO_NODE;
+ 	dev->fb_info.flags = FBINFO_FLAG_DEFAULT;
+ 	dev->fb_info.fbops = &vivid_fb_ops;
+ 	dev->fb_info.par = dev;
+diff --git a/drivers/misc/sgi-xp/xpc_uv.c b/drivers/misc/sgi-xp/xpc_uv.c
+index 0441abe..eef36dd 100644
+--- a/drivers/misc/sgi-xp/xpc_uv.c
++++ b/drivers/misc/sgi-xp/xpc_uv.c
+@@ -61,7 +61,7 @@ static struct xpc_heartbeat_uv *xpc_heartbeat_uv;
+ 					 XPC_NOTIFY_MSG_SIZE_UV)
+ #define XPC_NOTIFY_IRQ_NAME		"xpc_notify"
+ 
+-static int xpc_mq_node = -1;
++static int xpc_mq_node = NUMA_NO_NODE;
+ 
+ static struct xpc_gru_mq_uv *xpc_activate_mq_uv;
+ static struct xpc_gru_mq_uv *xpc_notify_mq_uv;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 113b38e..4fae85c 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -6414,7 +6414,7 @@ int ixgbe_setup_tx_resources(struct ixgbe_ring *tx_ring)
+ {
+ 	struct device *dev = tx_ring->dev;
+ 	int orig_node = dev_to_node(dev);
+-	int ring_node = -1;
++	int ring_node = NUMA_NO_NODE;
+ 	int size;
+ 
+ 	size = sizeof(struct ixgbe_tx_buffer) * tx_ring->count;
+@@ -6508,7 +6508,7 @@ int ixgbe_setup_rx_resources(struct ixgbe_adapter *adapter,
+ {
+ 	struct device *dev = rx_ring->dev;
+ 	int orig_node = dev_to_node(dev);
+-	int ring_node = -1;
++	int ring_node = NUMA_NO_NODE;
+ 	int size;
+ 
+ 	size = sizeof(struct ixgbe_rx_buffer) * rx_ring->count;
+diff --git a/drivers/video/fbdev/mmp/fb/mmpfb.c b/drivers/video/fbdev/mmp/fb/mmpfb.c
+index ee212be..298be9b 100644
+--- a/drivers/video/fbdev/mmp/fb/mmpfb.c
++++ b/drivers/video/fbdev/mmp/fb/mmpfb.c
+@@ -519,7 +519,7 @@ static int fb_info_setup(struct fb_info *info,
+ 	/* Initialise static fb parameters.*/
+ 	info->flags = FBINFO_DEFAULT | FBINFO_PARTIAL_PAN_OK |
+ 		FBINFO_HWACCEL_XPAN | FBINFO_HWACCEL_YPAN;
+-	info->node = -1;
++	info->node = NUMA_NO_NODE;
+ 	strcpy(info->fix.id, fbi->name);
+ 	info->fix.type = FB_TYPE_PACKED_PIXELS;
+ 	info->fix.type_aux = 0;
+diff --git a/drivers/video/fbdev/pxa168fb.c b/drivers/video/fbdev/pxa168fb.c
+index e31340f..7d775de 100644
+--- a/drivers/video/fbdev/pxa168fb.c
++++ b/drivers/video/fbdev/pxa168fb.c
+@@ -649,7 +649,7 @@ static int pxa168fb_probe(struct platform_device *pdev)
+ 	 */
+ 	info->flags = FBINFO_DEFAULT | FBINFO_PARTIAL_PAN_OK |
+ 		      FBINFO_HWACCEL_XPAN | FBINFO_HWACCEL_YPAN;
+-	info->node = -1;
++	info->node = NUMA_NO_NODE;
+ 	strlcpy(info->fix.id, mi->id, 16);
+ 	info->fix.type = FB_TYPE_PACKED_PIXELS;
+ 	info->fix.type_aux = 0;
+diff --git a/drivers/video/fbdev/w100fb.c b/drivers/video/fbdev/w100fb.c
+index 696106e..8b0f20c 100644
+--- a/drivers/video/fbdev/w100fb.c
++++ b/drivers/video/fbdev/w100fb.c
+@@ -703,7 +703,7 @@ int w100fb_probe(struct platform_device *pdev)
+ 	info->fbops = &w100fb_ops;
+ 	info->flags = FBINFO_DEFAULT | FBINFO_HWACCEL_COPYAREA |
+ 		FBINFO_HWACCEL_FILLRECT;
+-	info->node = -1;
++	info->node = NUMA_NO_NODE;
+ 	info->screen_base = remapped_fbuf + (W100_FB_BASE-MEM_WINDOW_BASE);
+ 	info->screen_size = REMAPPED_FB_LEN;
+ 
+diff --git a/fs/ocfs2/dlm/dlmcommon.h b/fs/ocfs2/dlm/dlmcommon.h
+index d06e27e..11111f6 100644
+--- a/fs/ocfs2/dlm/dlmcommon.h
++++ b/fs/ocfs2/dlm/dlmcommon.h
+@@ -1121,7 +1121,7 @@ static inline void dlm_node_iter_init(unsigned long *map,
+ 				      struct dlm_node_iter *iter)
+ {
+ 	memcpy(iter->node_map, map, sizeof(iter->node_map));
+-	iter->curnode = -1;
++	iter->curnode = NUMA_NO_NODE;
+ }
+ 
+ static inline int dlm_node_iter_next(struct dlm_node_iter *iter)
+diff --git a/fs/ocfs2/dlm/dlmdomain.c b/fs/ocfs2/dlm/dlmdomain.c
+index 2acd58b..381a323 100644
+--- a/fs/ocfs2/dlm/dlmdomain.c
++++ b/fs/ocfs2/dlm/dlmdomain.c
+@@ -546,7 +546,7 @@ static void dlm_mark_domain_leaving(struct dlm_ctxt *dlm)
+ 
+ static void __dlm_print_nodes(struct dlm_ctxt *dlm)
+ {
+-	int node = -1, num = 0;
++	int node = NUMA_NO_NODE, num = 0;
+ 
+ 	assert_spin_locked(&dlm->spinlock);
+ 
+@@ -613,7 +613,7 @@ static int dlm_send_one_domain_exit(struct dlm_ctxt *dlm, u32 msg_type,
+ 
+ static void dlm_begin_exit_domain(struct dlm_ctxt *dlm)
+ {
+-	int node = -1;
++	int node = NUMA_NO_NODE;
+ 
+ 	/* Support for begin exit domain was added in 1.2 */
+ 	if (dlm->dlm_locking_proto.pv_major = 1 &&
+@@ -1407,7 +1407,7 @@ static int dlm_send_join_cancels(struct dlm_ctxt *dlm,
+ 	}
+ 
+ 	status = 0;
+-	node = -1;
++	node = NUMA_NO_NODE;
+ 	while ((node = find_next_bit(node_map, O2NM_MAX_NODES,
+ 				     node + 1)) < O2NM_MAX_NODES) {
+ 		if (node = dlm->node_num)
+@@ -1547,7 +1547,7 @@ static void dlm_send_join_asserts(struct dlm_ctxt *dlm,
+ 	int status, node, live;
+ 
+ 	status = 0;
+-	node = -1;
++	node = NUMA_NO_NODE;
+ 	while ((node = find_next_bit(node_map, O2NM_MAX_NODES,
+ 				     node + 1)) < O2NM_MAX_NODES) {
+ 		if (node = dlm->node_num)
+@@ -1631,7 +1631,7 @@ static int dlm_try_to_join_domain(struct dlm_ctxt *dlm)
+ 
+ 	spin_unlock(&dlm->spinlock);
+ 
+-	node = -1;
++	node = NUMA_NO_NODE;
+ 	while ((node = find_next_bit(ctxt->live_map, O2NM_MAX_NODES,
+ 				     node + 1)) < O2NM_MAX_NODES) {
+ 		if (node = dlm->node_num)
+diff --git a/fs/ocfs2/dlm/dlmmaster.c b/fs/ocfs2/dlm/dlmmaster.c
+index 826f056..e54bbbc 100644
+--- a/fs/ocfs2/dlm/dlmmaster.c
++++ b/fs/ocfs2/dlm/dlmmaster.c
+@@ -1183,7 +1183,7 @@ static void dlm_bitmap_diff_iter_init(struct dlm_bitmap_diff_iter *iter,
+ 	unsigned long p1, p2;
+ 	int i;
+ 
+-	iter->curnode = -1;
++	iter->curnode = NUMA_NO_NODE;
+ 	iter->orig_bm = orig_bm;
+ 	iter->cur_bm = cur_bm;
+ 
+diff --git a/fs/ocfs2/dlm/dlmrecovery.c b/fs/ocfs2/dlm/dlmrecovery.c
+index 802636d5..704fa8b 100644
+--- a/fs/ocfs2/dlm/dlmrecovery.c
++++ b/fs/ocfs2/dlm/dlmrecovery.c
+@@ -2903,7 +2903,7 @@ static int dlm_send_finalize_reco_message(struct dlm_ctxt *dlm)
+ 	}
+ 	if (stage = 1) {
+ 		/* reset the node_iter back to the top and send finalize2 */
+-		iter.curnode = -1;
++		iter.curnode = NUMA_NO_NODE;
+ 		stage = 2;
+ 		goto stage2;
+ 	}
+diff --git a/fs/ocfs2/stack_user.c b/fs/ocfs2/stack_user.c
+index d2fb97b..a673efa 100644
+--- a/fs/ocfs2/stack_user.c
++++ b/fs/ocfs2/stack_user.c
+@@ -171,7 +171,7 @@ union ocfs2_control_message {
+ static struct ocfs2_stack_plugin ocfs2_user_plugin;
+ 
+ static atomic_t ocfs2_control_opened;
+-static int ocfs2_control_this_node = -1;
++static int ocfs2_control_this_node = NUMA_NO_NODE;
+ static struct ocfs2_protocol_version running_proto;
+ 
+ static LIST_HEAD(ocfs2_live_connection_list);
+@@ -589,7 +589,7 @@ static int ocfs2_control_release(struct inode *inode, struct file *file)
+ 		 * Last valid close clears the node number and resets
+ 		 * the locking protocol version
+ 		 */
+-		ocfs2_control_this_node = -1;
++		ocfs2_control_this_node = NUMA_NO_NODE;
+ 		running_proto.pv_major = 0;
+ 		running_proto.pv_minor = 0;
+ 	}
+@@ -612,7 +612,7 @@ static int ocfs2_control_open(struct inode *inode, struct file *file)
+ 	p = kzalloc(sizeof(struct ocfs2_control_private), GFP_KERNEL);
+ 	if (!p)
+ 		return -ENOMEM;
+-	p->op_this_node = -1;
++	p->op_this_node = NUMA_NO_NODE;
+ 
+ 	mutex_lock(&ocfs2_control_lock);
+ 	file->private_data = p;
+diff --git a/init/init_task.c b/init/init_task.c
+index 5aebe3b..6641836 100644
+--- a/init/init_task.c
++++ b/init/init_task.c
+@@ -154,7 +154,7 @@ struct task_struct init_task
+ 	.vtime.state	= VTIME_SYS,
+ #endif
+ #ifdef CONFIG_NUMA_BALANCING
+-	.numa_preferred_nid = -1,
++	.numa_preferred_nid = NUMA_NO_NODE,
+ 	.numa_group	= NULL,
+ 	.numa_faults	= NULL,
+ #endif
+diff --git a/kernel/kthread.c b/kernel/kthread.c
+index 087d18d..77f3d94 100644
+--- a/kernel/kthread.c
++++ b/kernel/kthread.c
+@@ -675,7 +675,7 @@ __kthread_create_worker(int cpu, unsigned int flags,
+ {
+ 	struct kthread_worker *worker;
+ 	struct task_struct *task;
+-	int node = -1;
++	int node = NUMA_NO_NODE;
+ 
+ 	worker = kzalloc(sizeof(*worker), GFP_KERNEL);
+ 	if (!worker)
+diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
+index ee271bb..d830fa7 100644
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -1161,7 +1161,7 @@ void init_numa_balancing(unsigned long clone_flags, struct task_struct *p)
+ 
+ 	/* New address space, reset the preferred nid */
+ 	if (!(clone_flags & CLONE_VM)) {
+-		p->numa_preferred_nid = -1;
++		p->numa_preferred_nid = NUMA_NO_NODE;
+ 		return;
+ 	}
+ 
+@@ -1181,13 +1181,13 @@ void init_numa_balancing(unsigned long clone_flags, struct task_struct *p)
+ 
+ static void account_numa_enqueue(struct rq *rq, struct task_struct *p)
+ {
+-	rq->nr_numa_running += (p->numa_preferred_nid != -1);
++	rq->nr_numa_running += (p->numa_preferred_nid != NUMA_NO_NODE);
+ 	rq->nr_preferred_running += (p->numa_preferred_nid = task_node(p));
+ }
+ 
+ static void account_numa_dequeue(struct rq *rq, struct task_struct *p)
+ {
+-	rq->nr_numa_running -= (p->numa_preferred_nid != -1);
++	rq->nr_numa_running -= (p->numa_preferred_nid != NUMA_NO_NODE);
+ 	rq->nr_preferred_running -= (p->numa_preferred_nid = task_node(p));
+ }
+ 
+@@ -1401,7 +1401,7 @@ bool should_numa_migrate_memory(struct task_struct *p, struct page * page,
+ 	 * two full passes of the "multi-stage node selection" test that is
+ 	 * executed below.
+ 	 */
+-	if ((p->numa_preferred_nid = -1 || p->numa_scan_seq <= 4) &&
++	if ((p->numa_preferred_nid = NUMA_NO_NODE || p->numa_scan_seq <= 4) &&
+ 	    (cpupid_pid_unset(last_cpupid) || cpupid_match_pid(p, last_cpupid)))
+ 		return true;
+ 
+@@ -1849,7 +1849,7 @@ static void numa_migrate_preferred(struct task_struct *p)
+ 	unsigned long interval = HZ;
+ 
+ 	/* This task has no NUMA fault statistics yet */
+-	if (unlikely(p->numa_preferred_nid = -1 || !p->numa_faults))
++	if (unlikely(p->numa_preferred_nid = NUMA_NO_NODE || !p->numa_faults))
+ 		return;
+ 
+ 	/* Periodically retry migrating the task to the preferred node */
+@@ -2096,7 +2096,7 @@ static int preferred_group_nid(struct task_struct *p, int nid)
+ 
+ static void task_numa_placement(struct task_struct *p)
+ {
+-	int seq, nid, max_nid = -1;
++	int seq, nid, max_nid = NUMA_NO_NODE;
+ 	unsigned long max_faults = 0;
+ 	unsigned long fault_types[2] = { 0, 0 };
+ 	unsigned long total_faults;
+@@ -2639,7 +2639,8 @@ static void update_scan_period(struct task_struct *p, int new_cpu)
+ 		 * the preferred node.
+ 		 */
+ 		if (dst_nid = p->numa_preferred_nid ||
+-		    (p->numa_preferred_nid != -1 && src_nid != p->numa_preferred_nid))
++		    (p->numa_preferred_nid != NUMA_NO_NODE &&
++			src_nid != p->numa_preferred_nid))
+ 			return;
+ 	}
+ 
+diff --git a/lib/cpumask.c b/lib/cpumask.c
+index 8d666ab..a089c3f 100644
+--- a/lib/cpumask.c
++++ b/lib/cpumask.c
+@@ -206,7 +206,7 @@ unsigned int cpumask_local_spread(unsigned int i, int node)
+ 	/* Wrap: we always want a cpu. */
+ 	i %= num_online_cpus();
+ 
+-	if (node = -1) {
++	if (node = NUMA_NO_NODE) {
+ 		for_each_cpu(cpu, cpu_online_mask)
+ 			if (i-- = 0)
+ 				return cpu;
+diff --git a/mm/huge_memory.c b/mm/huge_memory.c
+index 55478ab..5ccf89e 100644
+--- a/mm/huge_memory.c
++++ b/mm/huge_memory.c
+@@ -1480,7 +1480,7 @@ vm_fault_t do_huge_pmd_numa_page(struct vm_fault *vmf, pmd_t pmd)
+ 	struct anon_vma *anon_vma = NULL;
+ 	struct page *page;
+ 	unsigned long haddr = vmf->address & HPAGE_PMD_MASK;
+-	int page_nid = -1, this_nid = numa_node_id();
++	int page_nid = NUMA_NO_NODE, this_nid = numa_node_id();
+ 	int target_nid, last_cpupid = -1;
+ 	bool page_locked;
+ 	bool migrated = false;
+@@ -1526,7 +1526,7 @@ vm_fault_t do_huge_pmd_numa_page(struct vm_fault *vmf, pmd_t pmd)
+ 	 */
+ 	page_locked = trylock_page(page);
+ 	target_nid = mpol_misplaced(page, vma, haddr);
+-	if (target_nid = -1) {
++	if (target_nid = NUMA_NO_NODE) {
+ 		/* If the page was locked, there are no parallel migrations */
+ 		if (page_locked)
+ 			goto clear_pmdnuma;
+@@ -1534,7 +1534,7 @@ vm_fault_t do_huge_pmd_numa_page(struct vm_fault *vmf, pmd_t pmd)
+ 
+ 	/* Migration could have started since the pmd_trans_migrating check */
+ 	if (!page_locked) {
+-		page_nid = -1;
++		page_nid = NUMA_NO_NODE;
+ 		if (!get_page_unless_zero(page))
+ 			goto out_unlock;
+ 		spin_unlock(vmf->ptl);
+@@ -1556,14 +1556,14 @@ vm_fault_t do_huge_pmd_numa_page(struct vm_fault *vmf, pmd_t pmd)
+ 	if (unlikely(!pmd_same(pmd, *vmf->pmd))) {
+ 		unlock_page(page);
+ 		put_page(page);
+-		page_nid = -1;
++		page_nid = NUMA_NO_NODE;
+ 		goto out_unlock;
+ 	}
+ 
+ 	/* Bail if we fail to protect against THP splits for any reason */
+ 	if (unlikely(!anon_vma)) {
+ 		put_page(page);
+-		page_nid = -1;
++		page_nid = NUMA_NO_NODE;
+ 		goto clear_pmdnuma;
+ 	}
+ 
+@@ -1625,7 +1625,7 @@ vm_fault_t do_huge_pmd_numa_page(struct vm_fault *vmf, pmd_t pmd)
+ 	if (anon_vma)
+ 		page_unlock_anon_vma_read(anon_vma);
+ 
+-	if (page_nid != -1)
++	if (page_nid != NUMA_NO_NODE)
+ 		task_numa_fault(last_cpupid, page_nid, HPAGE_PMD_NR,
+ 				flags);
+ 
+diff --git a/mm/hugetlb.c b/mm/hugetlb.c
+index c007fb5..b769db7 100644
+--- a/mm/hugetlb.c
++++ b/mm/hugetlb.c
+@@ -887,7 +887,7 @@ static struct page *dequeue_huge_page_nodemask(struct hstate *h, gfp_t gfp_mask,
+ 	struct zonelist *zonelist;
+ 	struct zone *zone;
+ 	struct zoneref *z;
+-	int node = -1;
++	int node = NUMA_NO_NODE;
+ 
+ 	zonelist = node_zonelist(nid, gfp_mask);
+ 
+diff --git a/mm/ksm.c b/mm/ksm.c
+index 5b0894b..d5f8834 100644
+--- a/mm/ksm.c
++++ b/mm/ksm.c
+@@ -597,7 +597,7 @@ static struct stable_node *alloc_stable_node_chain(struct stable_node *dup,
+ 		chain->chain_prune_time = jiffies;
+ 		chain->rmap_hlist_len = STABLE_NODE_CHAIN;
+ #if defined (CONFIG_DEBUG_VM) && defined(CONFIG_NUMA)
+-		chain->nid = -1; /* debug */
++		chain->nid = NUMA_NO_NODE; /* debug */
+ #endif
+ 		ksm_stable_node_chains++;
+ 
+diff --git a/mm/memory.c b/mm/memory.c
+index 4ad2d29..c0e0348 100644
+--- a/mm/memory.c
++++ b/mm/memory.c
+@@ -3564,7 +3564,7 @@ static vm_fault_t do_numa_page(struct vm_fault *vmf)
+ {
+ 	struct vm_area_struct *vma = vmf->vma;
+ 	struct page *page = NULL;
+-	int page_nid = -1;
++	int page_nid = NUMA_NO_NODE;
+ 	int last_cpupid;
+ 	int target_nid;
+ 	bool migrated = false;
+@@ -3631,7 +3631,7 @@ static vm_fault_t do_numa_page(struct vm_fault *vmf)
+ 	target_nid = numa_migrate_prep(page, vma, vmf->address, page_nid,
+ 			&flags);
+ 	pte_unmap_unlock(vmf->pte, vmf->ptl);
+-	if (target_nid = -1) {
++	if (target_nid = NUMA_NO_NODE) {
+ 		put_page(page);
+ 		goto out;
+ 	}
+@@ -3645,7 +3645,7 @@ static vm_fault_t do_numa_page(struct vm_fault *vmf)
+ 		flags |= TNF_MIGRATE_FAIL;
+ 
+ out:
+-	if (page_nid != -1)
++	if (page_nid != NUMA_NO_NODE)
+ 		task_numa_fault(last_cpupid, page_nid, 1, flags);
+ 	return 0;
+ }
+diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+index 2b2b3cc..70e02f8 100644
+--- a/mm/memory_hotplug.c
++++ b/mm/memory_hotplug.c
+@@ -688,9 +688,9 @@ static void node_states_check_changes_online(unsigned long nr_pages,
+ {
+ 	int nid = zone_to_nid(zone);
+ 
+-	arg->status_change_nid = -1;
+-	arg->status_change_nid_normal = -1;
+-	arg->status_change_nid_high = -1;
++	arg->status_change_nid = NUMA_NO_NODE;
++	arg->status_change_nid_normal = NUMA_NO_NODE;
++	arg->status_change_nid_high = NUMA_NO_NODE;
+ 
+ 	if (!node_state(nid, N_MEMORY))
+ 		arg->status_change_nid = nid;
+@@ -1484,9 +1484,9 @@ static void node_states_check_changes_offline(unsigned long nr_pages,
+ 	unsigned long present_pages = 0;
+ 	enum zone_type zt;
+ 
+-	arg->status_change_nid = -1;
+-	arg->status_change_nid_normal = -1;
+-	arg->status_change_nid_high = -1;
++	arg->status_change_nid = NUMA_NO_NODE;
++	arg->status_change_nid_normal = NUMA_NO_NODE;
++	arg->status_change_nid_high = NUMA_NO_NODE;
+ 
+ 	/*
+ 	 * Check whether node_states[N_NORMAL_MEMORY] will be changed.
+diff --git a/mm/mempolicy.c b/mm/mempolicy.c
+index 5837a06..e4f8248 100644
+--- a/mm/mempolicy.c
++++ b/mm/mempolicy.c
+@@ -2278,7 +2278,7 @@ int mpol_misplaced(struct page *page, struct vm_area_struct *vma, unsigned long
+ 	unsigned long pgoff;
+ 	int thiscpu = raw_smp_processor_id();
+ 	int thisnid = cpu_to_node(thiscpu);
+-	int polnid = -1;
++	int polnid = NUMA_NO_NODE;
+ 	int ret = -1;
+ 
+ 	pol = get_vma_policy(vma, addr);
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index a919ba5..9d38d9c 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -5846,7 +5846,7 @@ int __meminit __early_pfn_to_nid(unsigned long pfn,
+ 		return state->last_nid;
+ 
+ 	nid = memblock_search_pfn_nid(pfn, &start_pfn, &end_pfn);
+-	if (nid != -1) {
++	if (nid != NUMA_NO_NODE) {
+ 		state->last_start = start_pfn;
+ 		state->last_end = end_pfn;
+ 		state->last_nid = nid;
+@@ -6607,7 +6607,7 @@ unsigned long __init node_map_pfn_alignment(void)
+ {
+ 	unsigned long accl_mask = 0, last_end = 0;
+ 	unsigned long start, end, mask;
+-	int last_nid = -1;
++	int last_nid = NUMA_NO_NODE;
+ 	int i, nid;
+ 
+ 	for_each_mem_pfn_range(i, MAX_NUMNODES, &start, &end, &nid) {
+diff --git a/mm/page_ext.c b/mm/page_ext.c
+index ae44f7a..dfb0206 100644
+--- a/mm/page_ext.c
++++ b/mm/page_ext.c
+@@ -300,7 +300,7 @@ static int __meminit online_page_ext(unsigned long start_pfn,
+ 	start = SECTION_ALIGN_DOWN(start_pfn);
+ 	end = SECTION_ALIGN_UP(start_pfn + nr_pages);
+ 
+-	if (nid = -1) {
++	if (nid = NUMA_NO_NODE) {
+ 		/*
+ 		 * In this case, "nid" already exists and contains valid memory.
+ 		 * "start_pfn" passed to us is a pfn which is an arg for
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index 6ac9198..af3a746 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -3625,7 +3625,7 @@ static int pktgen_add_device(struct pktgen_thread *t, const char *ifname)
+ 	pkt_dev->svlan_cfi = 0;
+ 	pkt_dev->svlan_id = 0xffff;
+ 	pkt_dev->burst = 1;
+-	pkt_dev->node = -1;
++	pkt_dev->node = NUMA_NO_NODE;
+ 
+ 	err = pktgen_setup_dev(t->net, pkt_dev, ifname);
+ 	if (err)
+diff --git a/net/qrtr/qrtr.c b/net/qrtr/qrtr.c
+index 86e1e37..0c56ae2 100644
+--- a/net/qrtr/qrtr.c
++++ b/net/qrtr/qrtr.c
+@@ -101,7 +101,7 @@ static inline struct qrtr_sock *qrtr_sk(struct sock *sk)
+ 	return container_of(sk, struct qrtr_sock, sk);
+ }
+ 
+-static unsigned int qrtr_local_nid = -1;
++static unsigned int qrtr_local_nid = NUMA_NO_NODE;
+ 
+ /* for node ids */
+ static RADIX_TREE(qrtr_nodes, GFP_KERNEL);
+diff --git a/tools/perf/bench/numa.c b/tools/perf/bench/numa.c
+index 4419551..e0ad5f1 100644
+--- a/tools/perf/bench/numa.c
++++ b/tools/perf/bench/numa.c
+@@ -298,7 +298,7 @@ static cpu_set_t bind_to_node(int target_node)
+ 
+ 	CPU_ZERO(&mask);
+ 
+-	if (target_node = -1) {
++	if (target_node = NUMA_NO_NODE) {
+ 		for (cpu = 0; cpu < g->p.nr_cpus; cpu++)
+ 			CPU_SET(cpu, &mask);
+ 	} else {
+@@ -339,7 +339,7 @@ static void bind_to_memnode(int node)
+ 	unsigned long nodemask;
+ 	int ret;
+ 
+-	if (node = -1)
++	if (node = NUMA_NO_NODE)
+ 		return;
+ 
+ 	BUG_ON(g->p.nr_nodes > (int)sizeof(nodemask)*8);
+@@ -1363,7 +1363,7 @@ static void init_thread_data(void)
+ 		int cpu;
+ 
+ 		/* Allow all nodes by default: */
+-		td->bind_node = -1;
++		td->bind_node = NUMA_NO_NODE;
+ 
+ 		/* Allow all CPUs by default: */
+ 		CPU_ZERO(&td->bind_cpumask);
 -- 
-1.9.1
+2.7.4
