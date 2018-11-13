@@ -1,66 +1,78 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Fri, 30 Nov 2018 13:22:17 +0000
-Subject: [PATCH 09/23] parisc/sba_iommu: remove the mapping_error dma_map_ops method
-Message-Id: <20181130132231.16512-10-hch@lst.de>
+From: Firoz Khan <firoz.khan@linaro.org>
+Date: Tue, 13 Nov 2018 07:09:42 +0000
+Subject: [PATCH v5 2/5] ia64: add __NR_syscalls along with NR_syscalls
+Message-Id: <1542092265-20956-3-git-send-email-firoz.khan@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20181130132231.16512-1-hch@lst.de>
-In-Reply-To: <20181130132231.16512-1-hch@lst.de>
+References: <1542092265-20956-1-git-send-email-firoz.khan@linaro.org>
+In-Reply-To: <1542092265-20956-1-git-send-email-firoz.khan@linaro.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: iommu@lists.linux-foundation.org
-Cc: Linus Torvalds <torvalds@linux-foundation.org>, Jon Mason <jdmason@kudzu.us>, Joerg Roedel <joro@8bytes.org>, David Woodhouse <dwmw2@infradead.org>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, xen-devel@lists.xenproject.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Philippe Ombredanne <pombredanne@nexb.com>, Kate Stewart <kstewart@linuxfoundation.org>
+Cc: y2038@lists.linaro.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, arnd@arndb.de, deepa.kernel@gmail.com, marcin.juszkiewicz@linaro.org, firoz.khan@linaro.org
 
-The SBA iommu code already returns (~(dma_addr_t)0x0) on mapping
-failures, so we can switch over to returning DMA_MAPPING_ERROR and let
-the core dma-mapping code handle the rest.
+NR_syscalls macro holds the number of system call exist
+in ia64 architecture. We have to change the value of NR-
+_syscalls, if we add or delete a system call.
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+One of the patch in this patch series has a script which
+will generate a uapi header based on syscall.tbl file.
+The syscall.tbl file contains the total number of system
+calls information. So we have two option to update NR_sy-
+scalls value.
+
+1. Update NR_syscalls in asm/unistd.h manually by count-
+   ing the no.of system calls. No need to update NR_sys-
+   calls until we either add a new system call or delete
+   existing system call.
+
+2. We can keep this feature it above mentioned script,
+   that will count the number of syscalls and keep it in
+   a generated file. In this case we don't need to expli-
+   citly update NR_syscalls in asm/unistd.h file.
+
+The 2nd option will be the recommended one. For that, I
+added the __NR_syscalls macro in uapi/asm/unistd.h along
+with NR_syscalls asm/unistd.h. The macro __NR_syscalls
+also added for making the name convention same across all
+architecture. While __NR_syscalls isn't strictly part of
+the uapi, having it as part of the generated header to
+simplifies the implementation. We also need to enclose
+this macro with #ifdef __KERNEL__ to avoid side effects.
+
+Signed-off-by: Firoz Khan <firoz.khan@linaro.org>
 ---
- drivers/parisc/sba_iommu.c | 10 +---------
- 1 file changed, 1 insertion(+), 9 deletions(-)
+ arch/ia64/include/asm/unistd.h      | 4 +---
+ arch/ia64/include/uapi/asm/unistd.h | 4 ++++
+ 2 files changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/parisc/sba_iommu.c b/drivers/parisc/sba_iommu.c
-index c1e599a429af..452d306ce5cb 100644
---- a/drivers/parisc/sba_iommu.c
-+++ b/drivers/parisc/sba_iommu.c
-@@ -93,8 +93,6 @@
+diff --git a/arch/ia64/include/asm/unistd.h b/arch/ia64/include/asm/unistd.h
+index 49e34db..0b08ebd 100644
+--- a/arch/ia64/include/asm/unistd.h
++++ b/arch/ia64/include/asm/unistd.h
+@@ -10,9 +10,7 @@
  
- #define DEFAULT_DMA_HINT_REG	0
+ #include <uapi/asm/unistd.h>
  
--#define SBA_MAPPING_ERROR    (~(dma_addr_t)0)
 -
- struct sba_device *sba_list;
- EXPORT_SYMBOL_GPL(sba_list);
- 
-@@ -725,7 +723,7 @@ sba_map_single(struct device *dev, void *addr, size_t size,
- 
- 	ioc = GET_IOC(dev);
- 	if (!ioc)
--		return SBA_MAPPING_ERROR;
-+		return DMA_MAPPING_ERROR;
- 
- 	/* save offset bits */
- 	offset = ((dma_addr_t) (long) addr) & ~IOVP_MASK;
-@@ -1080,11 +1078,6 @@ sba_unmap_sg(struct device *dev, struct scatterlist *sglist, int nents,
- 
- }
- 
--static int sba_mapping_error(struct device *dev, dma_addr_t dma_addr)
--{
--	return dma_addr = SBA_MAPPING_ERROR;
--}
 -
- static const struct dma_map_ops sba_ops = {
- 	.dma_supported =	sba_dma_supported,
- 	.alloc =		sba_alloc,
-@@ -1093,7 +1086,6 @@ static const struct dma_map_ops sba_ops = {
- 	.unmap_page =		sba_unmap_page,
- 	.map_sg =		sba_map_sg,
- 	.unmap_sg =		sba_unmap_sg,
--	.mapping_error =	sba_mapping_error,
- };
+-#define NR_syscalls			326 /* length of syscall table */
++#define NR_syscalls		__NR_syscalls /* length of syscall table */
  
+ /*
+  * The following defines stop scripts/checksyscalls.sh from complaining about
+diff --git a/arch/ia64/include/uapi/asm/unistd.h b/arch/ia64/include/uapi/asm/unistd.h
+index 94b835c..388ab4e 100644
+--- a/arch/ia64/include/uapi/asm/unistd.h
++++ b/arch/ia64/include/uapi/asm/unistd.h
+@@ -341,4 +341,8 @@
+ #define __NR_preadv2			1348
+ #define __NR_pwritev2			1349
  
++#ifdef __KERNEL__
++#define __NR_syscalls			326
++#endif
++
+ #endif /* _UAPI_ASM_IA64_UNISTD_H */
 -- 
-2.19.1
+1.9.1
