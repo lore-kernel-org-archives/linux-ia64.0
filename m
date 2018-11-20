@@ -1,65 +1,98 @@
-From: =?UTF-8?q?Matias=20Bj=C3=B8rling?= <mb@lightnvm.io>
-Date: Sat, 03 Nov 2018 18:37:16 +0000
-Subject: [PATCH] ia64: export node_distance function
-Message-Id: <20181103183716.28841-1-mb@lightnvm.io>
+From: =?UTF-8?Q?Matias_Bj=c3=b8rling?= <mb@lightnvm.io>
+Date: Tue, 20 Nov 2018 08:34:05 +0000
+Subject: Re: [PATCH] ia64: export node_distance function
+Message-Id: <0e230c3f-15a6-1e07-53e0-b27f01ac1333@lightnvm.io>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20181103183716.28841-1-mb@lightnvm.io>
+In-Reply-To: <20181103183716.28841-1-mb@lightnvm.io>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="macroman"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
 To: tony.luck@intel.com, fenghua.yu@intel.com
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, axboe@fb.com, =?UTF-8?q?Matias=20Bj=C3=B8rling?= <mb@lightnvm.io>
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, axboe@fb.com
 
-VGhlIG51bWFfc2xpdCB2YXJpYWJsZSB1c2VkIGJ5IG5vZGVfZGlzdGFuY2UgaXMgYXZhaWxhYmxl
-IHRvIGEKbW9kdWxlIGFzIGxvbmcgYXMgaXQgaXMgbGlua2VkIGF0IGNvbXBpbGUtdGltZS4gSG93
-ZXZlciwgaXQgaXMKbm90IGF2YWlsYWJsZSB0byBsb2FkYWJsZSBtb2R1bGVzLiBMZWFkaW5nIHRv
-IGVycm9ycyBzdWNoIGFzOgoKICBFUlJPUjogIm51bWFfc2xpdCIgW2RyaXZlcnMvbnZtZS9ob3N0
-L252bWUtY29yZS5rb10gdW5kZWZpbmVkIQoKVGhlIGVycm9yIGFib3ZlIGlzIGNhdXNlZCBieSB0
-aGUgbnZtZSBtdWx0aXBhdGggY29kZSB0aGF0IG1ha2VzCnVzZSBvZiBub2RlX2Rpc3RhbmNlIGZv
-ciBpdHMgcGF0aCBjYWxjdWxhdGlvbi4gV2hlbiB0aGUgcGF0Y2ggd2FzCmFkZGVkLCB0aGUgbGln
-aHRudm0gc3Vic3lzdGVtIHdvdWxkIHNlbGVjdCBudm1lIGFuZCBhbHdheXMgY29tcGlsZQppdCBp
-biwgbGVhZGluZyB0byB0aGUgbm9kZV9kaXN0YW5jZSBjYWxsIHRvIGFsd2F5cyBzdWNjZWVkLgpI
-b3dldmVyLCB3aGVuIHRoaXMgcmVxdWlyZW1lbnQgd2FzIHJlbW92ZWQsIG52bWUgY291bGQgYmUg
-Y29tcGlsZWQKaW4gYXMgYSBtb2R1bGUsIHdoaWNoIGV4cG9zZWQgdGhpcyBidWcuCgpUaGlzIHBh
-dGNoIGV4dHJhY3RzIG5vZGVfZGlzdGFuY2UgdG8gYSBmdW5jdGlvbiBhbmQgZXhwb3J0cyBpdC4K
-U2luY2UgQUNQSSBpcyBkZXBlbmRpbmcgb24gbm9kZV9kaXN0YW5jZSBiZWluZyBhIHNpbXBsZSBs
-b29rdXAgdG8KbnVtYV9zbGl0LCB0aGUgcHJldmlvdXMgYmVoYXZpb3IgaXMgZXhwb3NlZCBhcyBz
-bGl0X2Rpc3RhbmNlIGFuZCBpdHMKdXNlcnMgdXBkYXRlZC4KCkZpeGVzOiBmMzMzNDQ0NzA4Zjgy
-ICJudm1lOiB0YWtlIG5vZGUgbG9jYWxpdHkgaW50byBhY2NvdW50IHdoZW4gc2VsZWN0aW5nIGEg
-cGF0aCIKRml4ZXM6IDczNTY5ZTExMDMyZiAibGlnaHRudm06IHJlbW92ZSBkZXBlbmRlbmNpZXMg
-b24gQkxLX0RFVl9OVk1FIGFuZCBQQ0kiClNpZ25lZC1vZmYtYnk6IE1hdGlhcyBCasO4cmluZyA8
-bWJAbGlnaHRudm0uaW8+Ci0tLQogYXJjaC9pYTY0L2luY2x1ZGUvYXNtL251bWEuaCB8IDQgKysr
-LQogYXJjaC9pYTY0L2tlcm5lbC9hY3BpLmMgICAgICB8IDYgKysrLS0tCiBhcmNoL2lhNjQvbW0v
-bnVtYS5jICAgICAgICAgIHwgNiArKysrKysKIDMgZmlsZXMgY2hhbmdlZCwgMTIgaW5zZXJ0aW9u
-cygrKSwgNCBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9hcmNoL2lhNjQvaW5jbHVkZS9hc20v
-bnVtYS5oIGIvYXJjaC9pYTY0L2luY2x1ZGUvYXNtL251bWEuaAppbmRleCBlYmVmN2Y0MGFhYmIu
-LmM1YzI1M2NiOWJkNiAxMDA2NDQKLS0tIGEvYXJjaC9pYTY0L2luY2x1ZGUvYXNtL251bWEuaAor
-KysgYi9hcmNoL2lhNjQvaW5jbHVkZS9hc20vbnVtYS5oCkBAIC01OSw3ICs1OSw5IEBAIGV4dGVy
-biBzdHJ1Y3Qgbm9kZV9jcHVpZF9zIG5vZGVfY3B1aWRbTlJfQ1BVU107CiAgKi8KIAogZXh0ZXJu
-IHU4IG51bWFfc2xpdFtNQVhfTlVNTk9ERVMgKiBNQVhfTlVNTk9ERVNdOwotI2RlZmluZSBub2Rl
-X2Rpc3RhbmNlKGZyb20sdG8pIChudW1hX3NsaXRbKGZyb20pICogTUFYX05VTU5PREVTICsgKHRv
-KV0pCisjZGVmaW5lIHNsaXRfZGlzdGFuY2UoZnJvbSx0bykgKG51bWFfc2xpdFsoZnJvbSkgKiBN
-QVhfTlVNTk9ERVMgKyAodG8pXSkKK2V4dGVybiBpbnQgX19ub2RlX2Rpc3RhbmNlKGludCBmcm9t
-LCBpbnQgdG8pOworI2RlZmluZSBub2RlX2Rpc3RhbmNlKGZyb20sdG8pIF9fbm9kZV9kaXN0YW5j
-ZShmcm9tLCB0bykKIAogZXh0ZXJuIGludCBwYWRkcl90b19uaWQodW5zaWduZWQgbG9uZyBwYWRk
-cik7CiAKZGlmZiAtLWdpdCBhL2FyY2gvaWE2NC9rZXJuZWwvYWNwaS5jIGIvYXJjaC9pYTY0L2tl
-cm5lbC9hY3BpLmMKaW5kZXggMWRhY2JmNWU5ZTA5Li40MWViMjgxNzA5ZGEgMTAwNjQ0Ci0tLSBh
-L2FyY2gvaWE2NC9rZXJuZWwvYWNwaS5jCisrKyBiL2FyY2gvaWE2NC9rZXJuZWwvYWNwaS5jCkBA
-IC01NzgsOCArNTc4LDggQEAgdm9pZCBfX2luaXQgYWNwaV9udW1hX2ZpeHVwKHZvaWQpCiAJaWYg
-KCFzbGl0X3RhYmxlKSB7CiAJCWZvciAoaSA9IDA7IGkgPCBNQVhfTlVNTk9ERVM7IGkrKykKIAkJ
-CWZvciAoaiA9IDA7IGogPCBNQVhfTlVNTk9ERVM7IGorKykKLQkJCQlub2RlX2Rpc3RhbmNlKGks
-IGopID0gaSA9IGogPyBMT0NBTF9ESVNUQU5DRSA6Ci0JCQkJCQkJUkVNT1RFX0RJU1RBTkNFOwor
-CQkJCXNsaXRfZGlzdGFuY2UoaSwgaikgPSBpID0gaiA/CisJCQkJCUxPQ0FMX0RJU1RBTkNFIDog
-UkVNT1RFX0RJU1RBTkNFOwogCQlyZXR1cm47CiAJfQogCkBAIC01OTIsNyArNTkyLDcgQEAgdm9p
-ZCBfX2luaXQgYWNwaV9udW1hX2ZpeHVwKHZvaWQpCiAJCQlpZiAoIXB4bV9iaXRfdGVzdChqKSkK
-IAkJCQljb250aW51ZTsKIAkJCW5vZGVfdG8gPSBweG1fdG9fbm9kZShqKTsKLQkJCW5vZGVfZGlz
-dGFuY2Uobm9kZV9mcm9tLCBub2RlX3RvKSArCQkJc2xpdF9kaXN0YW5jZShub2RlX2Zyb20sIG5v
-ZGVfdG8pICAJCQkgICAgc2xpdF90YWJsZS0+ZW50cnlbaSAqIHNsaXRfdGFibGUtPmxvY2FsaXR5
-X2NvdW50ICsgal07CiAJCX0KIAl9CmRpZmYgLS1naXQgYS9hcmNoL2lhNjQvbW0vbnVtYS5jIGIv
-YXJjaC9pYTY0L21tL251bWEuYwppbmRleCBhYTE5YjdhYzgyMjIuLjU3NjlkNGIyMTI3MCAxMDA2
-NDQKLS0tIGEvYXJjaC9pYTY0L21tL251bWEuYworKysgYi9hcmNoL2lhNjQvbW0vbnVtYS5jCkBA
-IC0zNiw2ICszNiwxMiBAQCBzdHJ1Y3Qgbm9kZV9jcHVpZF9zIG5vZGVfY3B1aWRbTlJfQ1BVU10g
-ICAqLwogdTggbnVtYV9zbGl0W01BWF9OVU1OT0RFUyAqIE1BWF9OVU1OT0RFU107CiAKK2ludCBf
-X25vZGVfZGlzdGFuY2UoaW50IGZyb20sIGludCB0bykKK3sKKwlyZXR1cm4gc2xpdF9kaXN0YW5j
-ZShmcm9tLCB0byk7Cit9CitFWFBPUlRfU1lNQk9MKF9fbm9kZV9kaXN0YW5jZSk7CisKIC8qIElk
-ZW50aWZ5IHdoaWNoIGNub2RlIGEgcGh5c2ljYWwgYWRkcmVzcyByZXNpZGVzIG9uICovCiBpbnQK
-IHBhZGRyX3RvX25pZCh1bnNpZ25lZCBsb25nIHBhZGRyKQotLSAKMi4xNy4xCg==
+On 11/03/2018 07:37 PM, Matias Bjørling wrote:
+> The numa_slit variable used by node_distance is available to a
+> module as long as it is linked at compile-time. However, it is
+> not available to loadable modules. Leading to errors such as:
+> 
+>    ERROR: "numa_slit" [drivers/nvme/host/nvme-core.ko] undefined!
+> 
+> The error above is caused by the nvme multipath code that makes
+> use of node_distance for its path calculation. When the patch was
+> added, the lightnvm subsystem would select nvme and always compile
+> it in, leading to the node_distance call to always succeed.
+> However, when this requirement was removed, nvme could be compiled
+> in as a module, which exposed this bug.
+> 
+> This patch extracts node_distance to a function and exports it.
+> Since ACPI is depending on node_distance being a simple lookup to
+> numa_slit, the previous behavior is exposed as slit_distance and its
+> users updated.
+> 
+> Fixes: f333444708f82 "nvme: take node locality into account when selecting a path"
+> Fixes: 73569e11032f "lightnvm: remove dependencies on BLK_DEV_NVME and PCI"
+> Signed-off-by: Matias Bjøring <mb@lightnvm.io>
+> ---
+>   arch/ia64/include/asm/numa.h | 4 +++-
+>   arch/ia64/kernel/acpi.c      | 6 +++---
+>   arch/ia64/mm/numa.c          | 6 ++++++
+>   3 files changed, 12 insertions(+), 4 deletions(-)
+> 
+> diff --git a/arch/ia64/include/asm/numa.h b/arch/ia64/include/asm/numa.h
+> index ebef7f40aabb..c5c253cb9bd6 100644
+> --- a/arch/ia64/include/asm/numa.h
+> +++ b/arch/ia64/include/asm/numa.h
+> @@ -59,7 +59,9 @@ extern struct node_cpuid_s node_cpuid[NR_CPUS];
+>    */
+>   
+>   extern u8 numa_slit[MAX_NUMNODES * MAX_NUMNODES];
+> -#define node_distance(from,to) (numa_slit[(from) * MAX_NUMNODES + (to)])
+> +#define slit_distance(from,to) (numa_slit[(from) * MAX_NUMNODES + (to)])
+> +extern int __node_distance(int from, int to);
+> +#define node_distance(from,to) __node_distance(from, to)
+>   
+>   extern int paddr_to_nid(unsigned long paddr);
+>   
+> diff --git a/arch/ia64/kernel/acpi.c b/arch/ia64/kernel/acpi.c
+> index 1dacbf5e9e09..41eb281709da 100644
+> --- a/arch/ia64/kernel/acpi.c
+> +++ b/arch/ia64/kernel/acpi.c
+> @@ -578,8 +578,8 @@ void __init acpi_numa_fixup(void)
+>   	if (!slit_table) {
+>   		for (i = 0; i < MAX_NUMNODES; i++)
+>   			for (j = 0; j < MAX_NUMNODES; j++)
+> -				node_distance(i, j) = i = j ? LOCAL_DISTANCE :
+> -							REMOTE_DISTANCE;
+> +				slit_distance(i, j) = i = j ?
+> +					LOCAL_DISTANCE : REMOTE_DISTANCE;
+>   		return;
+>   	}
+>   
+> @@ -592,7 +592,7 @@ void __init acpi_numa_fixup(void)
+>   			if (!pxm_bit_test(j))
+>   				continue;
+>   			node_to = pxm_to_node(j);
+> -			node_distance(node_from, node_to) > +			slit_distance(node_from, node_to) >   			    slit_table->entry[i * slit_table->locality_count + j];
+>   		}
+>   	}
+> diff --git a/arch/ia64/mm/numa.c b/arch/ia64/mm/numa.c
+> index aa19b7ac8222..5769d4b21270 100644
+> --- a/arch/ia64/mm/numa.c
+> +++ b/arch/ia64/mm/numa.c
+> @@ -36,6 +36,12 @@ struct node_cpuid_s node_cpuid[NR_CPUS] >    */
+>   u8 numa_slit[MAX_NUMNODES * MAX_NUMNODES];
+>   
+> +int __node_distance(int from, int to)
+> +{
+> +	return slit_distance(from, to);
+> +}
+> +EXPORT_SYMBOL(__node_distance);
+> +
+>   /* Identify which cnode a physical address resides on */
+>   int
+>   paddr_to_nid(unsigned long paddr)
+> 
+
+Tony and Fenghua, could you please take a look at the above patch? 
+kbuild has been bugging me for a fix.
