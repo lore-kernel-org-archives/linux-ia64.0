@@ -1,7 +1,7 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Thu, 22 Nov 2018 14:03:00 +0000
-Subject: [PATCH 04/24] dma-direct: remove the mapping_error dma_map_ops method
-Message-Id: <20181122140320.24080-5-hch@lst.de>
+Date: Thu, 22 Nov 2018 14:03:14 +0000
+Subject: [PATCH 18/24] x86/calgary: remove the mapping_error dma_map_ops method
+Message-Id: <20181122140320.24080-19-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20181122140320.24080-1-hch@lst.de>
 In-Reply-To: <20181122140320.24080-1-hch@lst.de>
@@ -11,136 +11,127 @@ Content-Transfer-Encoding: 7bit
 To: iommu@lists.linux-foundation.org
 Cc: Linus Torvalds <torvalds@linux-foundation.org>, Jon Mason <jdmason@kudzu.us>, Joerg Roedel <joro@8bytes.org>, David Woodhouse <dwmw2@infradead.org>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, xen-devel@lists.xenproject.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
 
-The dma-direct code already returns (~(dma_addr_t)0x0) on mapping
-failures, so we can switch over to returning DMA_MAPPING_ERROR and let
-the core dma-mapping code handle the rest.
+Return DMA_MAPPING_ERROR instead of the magic bad_dma_addr on a dma
+mapping failure and let the core dma-mapping code handle the rest.
+
+Remove the magic EMERGENCY_PAGES that the bad_dma_addr gets redirected to.
 
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- arch/powerpc/kernel/dma-swiotlb.c |  1 -
- include/linux/dma-direct.h        |  3 ---
- kernel/dma/direct.c               |  8 +-------
- kernel/dma/swiotlb.c              | 11 +++++------
- 4 files changed, 6 insertions(+), 17 deletions(-)
+ arch/x86/kernel/pci-calgary_64.c | 29 +++++++----------------------
+ 1 file changed, 7 insertions(+), 22 deletions(-)
 
-diff --git a/arch/powerpc/kernel/dma-swiotlb.c b/arch/powerpc/kernel/dma-swiotlb.c
-index 5fc335f4d9cd..3d8df2cf8be9 100644
---- a/arch/powerpc/kernel/dma-swiotlb.c
-+++ b/arch/powerpc/kernel/dma-swiotlb.c
-@@ -59,7 +59,6 @@ const struct dma_map_ops powerpc_swiotlb_dma_ops = {
- 	.sync_single_for_device = swiotlb_sync_single_for_device,
- 	.sync_sg_for_cpu = swiotlb_sync_sg_for_cpu,
- 	.sync_sg_for_device = swiotlb_sync_sg_for_device,
--	.mapping_error = dma_direct_mapping_error,
- 	.get_required_mask = swiotlb_powerpc_get_required,
- };
+diff --git a/arch/x86/kernel/pci-calgary_64.c b/arch/x86/kernel/pci-calgary_64.c
+index bbfc8b1e9104..e76ec1b8ed1f 100644
+--- a/arch/x86/kernel/pci-calgary_64.c
++++ b/arch/x86/kernel/pci-calgary_64.c
+@@ -51,8 +51,6 @@
+ #include <asm/x86_init.h>
+ #include <asm/iommu_table.h>
  
-diff --git a/include/linux/dma-direct.h b/include/linux/dma-direct.h
-index 9e66bfe369aa..e7600f92d876 100644
---- a/include/linux/dma-direct.h
-+++ b/include/linux/dma-direct.h
-@@ -5,8 +5,6 @@
- #include <linux/dma-mapping.h>
- #include <linux/mem_encrypt.h>
- 
--#define DIRECT_MAPPING_ERROR		(~(dma_addr_t)0)
+-#define CALGARY_MAPPING_ERROR	0
 -
- #ifdef CONFIG_ARCH_HAS_PHYS_TO_DMA
- #include <asm/dma-direct.h>
+ #ifdef CONFIG_CALGARY_IOMMU_ENABLED_BY_DEFAULT
+ int use_calgary __read_mostly = 1;
  #else
-@@ -73,5 +71,4 @@ dma_addr_t dma_direct_map_page(struct device *dev, struct page *page,
- int dma_direct_map_sg(struct device *dev, struct scatterlist *sgl, int nents,
- 		enum dma_data_direction dir, unsigned long attrs);
- int dma_direct_supported(struct device *dev, u64 mask);
--int dma_direct_mapping_error(struct device *dev, dma_addr_t dma_addr);
- #endif /* _LINUX_DMA_DIRECT_H */
-diff --git a/kernel/dma/direct.c b/kernel/dma/direct.c
-index 22a12ab5a5e9..d4335a03193a 100644
---- a/kernel/dma/direct.c
-+++ b/kernel/dma/direct.c
-@@ -265,7 +265,7 @@ dma_addr_t dma_direct_map_page(struct device *dev, struct page *page,
- 	dma_addr_t dma_addr = phys_to_dma(dev, phys);
+@@ -157,8 +155,6 @@ static const unsigned long phb_debug_offsets[] = {
  
- 	if (!check_addr(dev, dma_addr, size, __func__))
--		return DIRECT_MAPPING_ERROR;
+ #define PHB_DEBUG_STUFF_OFFSET	0x0020
+ 
+-#define EMERGENCY_PAGES 32 /* = 128KB */
+-
+ unsigned int specified_table_size = TCE_TABLE_SIZE_UNSPECIFIED;
+ static int translate_empty_slots __read_mostly = 0;
+ static int calgary_detected __read_mostly = 0;
+@@ -255,7 +251,7 @@ static unsigned long iommu_range_alloc(struct device *dev,
+ 			if (panic_on_overflow)
+ 				panic("Calgary: fix the allocator.\n");
+ 			else
+-				return CALGARY_MAPPING_ERROR;
++				return DMA_MAPPING_ERROR;
+ 		}
+ 	}
+ 
+@@ -274,11 +270,10 @@ static dma_addr_t iommu_alloc(struct device *dev, struct iommu_table *tbl,
+ 	dma_addr_t ret;
+ 
+ 	entry = iommu_range_alloc(dev, tbl, npages);
+-
+-	if (unlikely(entry = CALGARY_MAPPING_ERROR)) {
++	if (unlikely(entry = DMA_MAPPING_ERROR)) {
+ 		pr_warn("failed to allocate %u pages in iommu %p\n",
+ 			npages, tbl);
+-		return CALGARY_MAPPING_ERROR;
 +		return DMA_MAPPING_ERROR;
+ 	}
  
- 	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
- 		dma_direct_sync_single_for_device(dev, dma_addr, size, dir);
-@@ -312,11 +312,6 @@ int dma_direct_supported(struct device *dev, u64 mask)
- 	return mask >= phys_to_dma(dev, min_mask);
+ 	/* set the return dma address */
+@@ -298,8 +293,7 @@ static void iommu_free(struct iommu_table *tbl, dma_addr_t dma_addr,
+ 	unsigned long flags;
+ 
+ 	/* were we called with bad_dma_address? */
+-	badend = CALGARY_MAPPING_ERROR + (EMERGENCY_PAGES * PAGE_SIZE);
+-	if (unlikely(dma_addr < badend)) {
++	if (unlikely(dma_addr = DMA_MAPPING_ERROR)) {
+ 		WARN(1, KERN_ERR "Calgary: driver tried unmapping bad DMA "
+ 		       "address 0x%Lx\n", dma_addr);
+ 		return;
+@@ -383,7 +377,7 @@ static int calgary_map_sg(struct device *dev, struct scatterlist *sg,
+ 		npages = iommu_num_pages(vaddr, s->length, PAGE_SIZE);
+ 
+ 		entry = iommu_range_alloc(dev, tbl, npages);
+-		if (entry = CALGARY_MAPPING_ERROR) {
++		if (entry = DMA_MAPPING_ERROR) {
+ 			/* makes sure unmap knows to stop */
+ 			s->dma_length = 0;
+ 			goto error;
+@@ -401,7 +395,7 @@ static int calgary_map_sg(struct device *dev, struct scatterlist *sg,
+ error:
+ 	calgary_unmap_sg(dev, sg, nelems, dir, 0);
+ 	for_each_sg(sg, s, nelems, i) {
+-		sg->dma_address = CALGARY_MAPPING_ERROR;
++		sg->dma_address = DMA_MAPPING_ERROR;
+ 		sg->dma_length = 0;
+ 	}
+ 	return 0;
+@@ -454,7 +448,7 @@ static void* calgary_alloc_coherent(struct device *dev, size_t size,
+ 
+ 	/* set up tces to cover the allocated range */
+ 	mapping = iommu_alloc(dev, tbl, ret, npages, DMA_BIDIRECTIONAL);
+-	if (mapping = CALGARY_MAPPING_ERROR)
++	if (mapping = DMA_MAPPING_ERROR)
+ 		goto free;
+ 	*dma_handle = mapping;
+ 	return ret;
+@@ -479,11 +473,6 @@ static void calgary_free_coherent(struct device *dev, size_t size,
+ 	free_pages((unsigned long)vaddr, get_order(size));
  }
  
--int dma_direct_mapping_error(struct device *dev, dma_addr_t dma_addr)
+-static int calgary_mapping_error(struct device *dev, dma_addr_t dma_addr)
 -{
--	return dma_addr = DIRECT_MAPPING_ERROR;
+-	return dma_addr = CALGARY_MAPPING_ERROR;
 -}
 -
- const struct dma_map_ops dma_direct_ops = {
- 	.alloc			= dma_direct_alloc,
- 	.free			= dma_direct_free,
-@@ -335,7 +330,6 @@ const struct dma_map_ops dma_direct_ops = {
- #endif
- 	.get_required_mask	= dma_direct_get_required_mask,
- 	.dma_supported		= dma_direct_supported,
--	.mapping_error		= dma_direct_mapping_error,
- 	.cache_sync		= arch_dma_cache_sync,
+ static const struct dma_map_ops calgary_dma_ops = {
+ 	.alloc = calgary_alloc_coherent,
+ 	.free = calgary_free_coherent,
+@@ -491,7 +480,6 @@ static const struct dma_map_ops calgary_dma_ops = {
+ 	.unmap_sg = calgary_unmap_sg,
+ 	.map_page = calgary_map_page,
+ 	.unmap_page = calgary_unmap_page,
+-	.mapping_error = calgary_mapping_error,
+ 	.dma_supported = dma_direct_supported,
  };
- EXPORT_SYMBOL(dma_direct_ops);
-diff --git a/kernel/dma/swiotlb.c b/kernel/dma/swiotlb.c
-index 045930e32c0e..ff1ce81bb623 100644
---- a/kernel/dma/swiotlb.c
-+++ b/kernel/dma/swiotlb.c
-@@ -631,21 +631,21 @@ static dma_addr_t swiotlb_bounce_page(struct device *dev, phys_addr_t *phys,
- 	if (unlikely(swiotlb_force = SWIOTLB_NO_FORCE)) {
- 		dev_warn_ratelimited(dev,
- 			"Cannot do DMA to address %pa\n", phys);
--		return DIRECT_MAPPING_ERROR;
-+		return DMA_MAPPING_ERROR;
- 	}
  
- 	/* Oh well, have to allocate and map a bounce buffer. */
- 	*phys = swiotlb_tbl_map_single(dev, __phys_to_dma(dev, io_tlb_start),
- 			*phys, size, dir, attrs);
- 	if (*phys = SWIOTLB_MAP_ERROR)
--		return DIRECT_MAPPING_ERROR;
-+		return DMA_MAPPING_ERROR;
+@@ -739,9 +727,6 @@ static void __init calgary_reserve_regions(struct pci_dev *dev)
+ 	u64 start;
+ 	struct iommu_table *tbl = pci_iommu(dev->bus);
  
- 	/* Ensure that the address returned is DMA'ble */
- 	dma_addr = __phys_to_dma(dev, *phys);
- 	if (unlikely(!dma_capable(dev, dma_addr, size))) {
- 		swiotlb_tbl_unmap_single(dev, *phys, size, dir,
- 			attrs | DMA_ATTR_SKIP_CPU_SYNC);
--		return DIRECT_MAPPING_ERROR;
-+		return DMA_MAPPING_ERROR;
- 	}
- 
- 	return dma_addr;
-@@ -680,7 +680,7 @@ dma_addr_t swiotlb_map_page(struct device *dev, struct page *page,
- 
- 	if (!dev_is_dma_coherent(dev) &&
- 	    (attrs & DMA_ATTR_SKIP_CPU_SYNC) = 0 &&
--	    dev_addr != DIRECT_MAPPING_ERROR)
-+	    dev_addr != DMA_MAPPING_ERROR)
- 		arch_sync_dma_for_device(dev, phys, size, dir);
- 
- 	return dev_addr;
-@@ -789,7 +789,7 @@ swiotlb_map_sg_attrs(struct device *dev, struct scatterlist *sgl, int nelems,
- 	for_each_sg(sgl, sg, nelems, i) {
- 		sg->dma_address = swiotlb_map_page(dev, sg_page(sg), sg->offset,
- 				sg->length, dir, attrs);
--		if (sg->dma_address = DIRECT_MAPPING_ERROR)
-+		if (sg->dma_address = DMA_MAPPING_ERROR)
- 			goto out_error;
- 		sg_dma_len(sg) = sg->length;
- 	}
-@@ -869,7 +869,6 @@ swiotlb_dma_supported(struct device *hwdev, u64 mask)
- }
- 
- const struct dma_map_ops swiotlb_dma_ops = {
--	.mapping_error		= dma_direct_mapping_error,
- 	.alloc			= dma_direct_alloc,
- 	.free			= dma_direct_free,
- 	.sync_single_for_cpu	= swiotlb_sync_single_for_cpu,
+-	/* reserve EMERGENCY_PAGES from bad_dma_address and up */
+-	iommu_range_reserve(tbl, CALGARY_MAPPING_ERROR, EMERGENCY_PAGES);
+-
+ 	/* avoid the BIOS/VGA first 640KB-1MB region */
+ 	/* for CalIOC2 - avoid the entire first MB */
+ 	if (is_calgary(dev->device)) {
 -- 
 2.19.1
