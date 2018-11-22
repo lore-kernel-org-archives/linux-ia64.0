@@ -1,102 +1,56 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Fri, 30 Nov 2018 13:22:14 +0000
-Subject: [PATCH 06/23] s390: remove the mapping_error dma_map_ops method
-Message-Id: <20181130132231.16512-7-hch@lst.de>
+Date: Thu, 22 Nov 2018 14:03:11 +0000
+Subject: [PATCH 15/24] ia64/sba_iommu: remove the mapping_error dma_map_ops method
+Message-Id: <20181122140320.24080-16-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20181130132231.16512-1-hch@lst.de>
-In-Reply-To: <20181130132231.16512-1-hch@lst.de>
+References: <20181122140320.24080-1-hch@lst.de>
+In-Reply-To: <20181122140320.24080-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: iommu@lists.linux-foundation.org
 Cc: Linus Torvalds <torvalds@linux-foundation.org>, Jon Mason <jdmason@kudzu.us>, Joerg Roedel <joro@8bytes.org>, David Woodhouse <dwmw2@infradead.org>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, xen-devel@lists.xenproject.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
 
-S390 already returns (~(dma_addr_t)0x0) on mapping failures, so we can
-switch over to returning DMA_MAPPING_ERROR and let the core dma-mapping
-code handle the rest.
+Return DMA_MAPPING_ERROR instead of 0 on a dma mapping failure and let
+the core dma-mapping code handle the rest.
 
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- arch/s390/pci/pci_dma.c | 18 +++++-------------
- 1 file changed, 5 insertions(+), 13 deletions(-)
+ arch/ia64/hp/common/sba_iommu.c | 8 +-------
+ 1 file changed, 1 insertion(+), 7 deletions(-)
 
-diff --git a/arch/s390/pci/pci_dma.c b/arch/s390/pci/pci_dma.c
-index d387a0fbdd7e..346ba382193a 100644
---- a/arch/s390/pci/pci_dma.c
-+++ b/arch/s390/pci/pci_dma.c
-@@ -15,8 +15,6 @@
- #include <linux/pci.h>
- #include <asm/pci_dma.h>
+diff --git a/arch/ia64/hp/common/sba_iommu.c b/arch/ia64/hp/common/sba_iommu.c
+index b953282d4704..0316af2cb426 100644
+--- a/arch/ia64/hp/common/sba_iommu.c
++++ b/arch/ia64/hp/common/sba_iommu.c
+@@ -974,7 +974,7 @@ static dma_addr_t sba_map_page(struct device *dev, struct page *page,
  
--#define S390_MAPPING_ERROR		(~(dma_addr_t) 0x0)
--
- static struct kmem_cache *dma_region_table_cache;
- static struct kmem_cache *dma_page_table_cache;
- static int s390_iommu_strict;
-@@ -301,7 +299,7 @@ static dma_addr_t dma_alloc_address(struct device *dev, int size)
+ 	pide = sba_alloc_range(ioc, dev, size);
+ 	if (pide < 0)
+-		return 0;
++		return DMA_MAPPING_ERROR;
  
- out_error:
- 	spin_unlock_irqrestore(&zdev->iommu_bitmap_lock, flags);
--	return S390_MAPPING_ERROR;
-+	return DMA_MAPPING_ERROR;
+ 	iovp = (dma_addr_t) pide << iovp_shift;
+ 
+@@ -2151,11 +2151,6 @@ static int sba_dma_supported (struct device *dev, u64 mask)
+ 	return ((mask & 0xFFFFFFFFUL) = 0xFFFFFFFFUL);
  }
  
- static void dma_free_address(struct device *dev, dma_addr_t dma_addr, int size)
-@@ -349,7 +347,7 @@ static dma_addr_t s390_dma_map_pages(struct device *dev, struct page *page,
- 	/* This rounds up number of pages based on size and offset */
- 	nr_pages = iommu_num_pages(pa, size, PAGE_SIZE);
- 	dma_addr = dma_alloc_address(dev, nr_pages);
--	if (dma_addr = S390_MAPPING_ERROR) {
-+	if (dma_addr = DMA_MAPPING_ERROR) {
- 		ret = -ENOSPC;
- 		goto out_err;
- 	}
-@@ -372,7 +370,7 @@ static dma_addr_t s390_dma_map_pages(struct device *dev, struct page *page,
- out_err:
- 	zpci_err("map error:\n");
- 	zpci_err_dma(ret, pa);
--	return S390_MAPPING_ERROR;
-+	return DMA_MAPPING_ERROR;
- }
- 
- static void s390_dma_unmap_pages(struct device *dev, dma_addr_t dma_addr,
-@@ -449,7 +447,7 @@ static int __s390_dma_map_sg(struct device *dev, struct scatterlist *sg,
- 	int ret;
- 
- 	dma_addr_base = dma_alloc_address(dev, nr_pages);
--	if (dma_addr_base = S390_MAPPING_ERROR)
-+	if (dma_addr_base = DMA_MAPPING_ERROR)
- 		return -ENOMEM;
- 
- 	dma_addr = dma_addr_base;
-@@ -496,7 +494,7 @@ static int s390_dma_map_sg(struct device *dev, struct scatterlist *sg,
- 	for (i = 1; i < nr_elements; i++) {
- 		s = sg_next(s);
- 
--		s->dma_address = S390_MAPPING_ERROR;
-+		s->dma_address = DMA_MAPPING_ERROR;
- 		s->dma_length = 0;
- 
- 		if (s->offset || (size & ~PAGE_MASK) ||
-@@ -546,11 +544,6 @@ static void s390_dma_unmap_sg(struct device *dev, struct scatterlist *sg,
- 	}
- }
- 	
--static int s390_mapping_error(struct device *dev, dma_addr_t dma_addr)
+-static int sba_dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
 -{
--	return dma_addr = S390_MAPPING_ERROR;
+-	return 0;
 -}
 -
- int zpci_dma_init_device(struct zpci_dev *zdev)
- {
- 	int rc;
-@@ -675,7 +668,6 @@ const struct dma_map_ops s390_pci_dma_ops = {
- 	.unmap_sg	= s390_dma_unmap_sg,
- 	.map_page	= s390_dma_map_pages,
- 	.unmap_page	= s390_dma_unmap_pages,
--	.mapping_error	= s390_mapping_error,
- 	/* dma_supported is unconditionally true without a callback */
+ __setup("nosbagart", nosbagart);
+ 
+ static int __init
+@@ -2189,7 +2184,6 @@ const struct dma_map_ops sba_dma_ops = {
+ 	.map_sg			= sba_map_sg_attrs,
+ 	.unmap_sg		= sba_unmap_sg_attrs,
+ 	.dma_supported		= sba_dma_supported,
+-	.mapping_error		= sba_dma_mapping_error,
  };
- EXPORT_SYMBOL_GPL(s390_pci_dma_ops);
+ 
+ void sba_dma_init(void)
 -- 
 2.19.1
