@@ -1,35 +1,58 @@
-From: lijiang <lijiang@redhat.com>
-Date: Thu, 29 Nov 2018 02:14:14 +0000
-Subject: Re: [PATCH 1/2 RESEND v7] resource: add the new I/O resource descriptor 'IORES_DESC_RESERVED'
-Message-Id: <4e072e7c-52d2-9ead-2494-4c90b5465ea1@redhat.com>
+From: Christoph Hellwig <hch@lst.de>
+Date: Thu, 22 Nov 2018 14:02:56 +0000
+Subject: remove the ->mapping_error method from dma_map_ops V2
+Message-Id: <20181122140320.24080-1-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20181124051223.19994-1-lijiang@redhat.com>
- <20181124051223.19994-2-lijiang@redhat.com>
- <ae405fe9-94fd-3fb7-decd-c7821cf95b7d@intel.com>
- <460c5552-a48e-3523-275a-7f94d0f08f9b@redhat.com>
- <703ce20d-be09-9b8d-d457-5b002a50dff7@intel.com>
- <d84fbefb-f856-c600-5207-c63f48b1b308@redhat.com>
- <4ff951f6-c1bf-ff98-b70b-a138e54488af@intel.com>
-In-Reply-To: <4ff951f6-c1bf-ff98-b70b-a138e54488af@intel.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: Dave Hansen <dave.hansen@intel.com>, linux-kernel@vger.kernel.org
-Cc: kexec@lists.infradead.org, x86@kernel.org, linux-ia64@vger.kernel.org, linux-efi@vger.kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, akpm@linux-foundation.org, dave.hansen@linux.intel.com, luto@kernel.org, peterz@infradead.org, ard.biesheuvel@linaro.org, tony.luck@intel.com, fenghua.yu@intel.com, dyoung@redhat.com, bhe@redhat.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: iommu@lists.linux-foundation.org
+Cc: Linus Torvalds <torvalds@linux-foundation.org>, Jon Mason <jdmason@kudzu.us>, Joerg Roedel <joro@8bytes.org>, David Woodhouse <dwmw2@infradead.org>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, xen-devel@lists.xenproject.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
 
-在 2018年11月29日 00:02, Dave Hansen 写道:
-> On 11/27/18 7:51 PM, lijiang wrote:
->> But now, the 'E820_TYPE_RESERVED' type is converted to the descriptor 'IORES_DESC_RESERVED'
->> instead of 'IORES_DESC_NONE', it has been changed and the value of 'mem_flags.desc_other'
->> is equal to 'true'. This is wrong.
-> 
-> Thanks for the improved description of the problem.  Seems to all make
-> sense now.
-> 
-> Could you include this in the changelog for the next version?
-> 
+Error reporting for the dma_map_single and dma_map_page operations is
+currently a mess.  Both APIs directly return the dma_addr_t to be used for
+the DMA, with a magic error escape that is specific to the instance and
+checked by another method provided.  This has a few downsides:
 
-Ok, i will include these changes in patch v8. Also thanks for your advice.
+ - the error check is easily forgotten and a __must_check marker doesn't
+   help as the value always is consumed anyway
+ - the error checking requires another indirect call, which have gotten
+   incredibly expensive
+ - a lot of code is wasted on implementing these methods
 
-Regards,
-Lianbo
+The historical reason for this is that people thought DMA mappings would
+not fail when the API was created, which sounds like a really bad
+assumption in retrospective, and then we tried to cram error handling
+onto it later on.
+
+There basically are two variants:  the error code is 0 because the
+implementation will never return 0 as a valid DMA address, or the error
+code is all-F as the implementation won't ever return an address that
+high.  The old AMD GART is the only one not falling into these two camps
+as it picks sort of a relative zero relative to where it is mapped.
+
+The 0 return doesn't work for direct mappings that have ram at address
+zero and a lot of IOMMUs that start allocating bus space from address
+zero, so we can't consolidate on that, but I think we can move everyone
+to all-Fs, which the patch here does.  The reason for that is that
+there is only one way to ever get this address: by doing a 1-byte long,
+1-byte aligned mapping, but all our mappings are not only longer but
+generally aligned, and the mappings have to keep at least the basic
+alignment.
+
+Note that the first two patches are queued up for 4.20 and included
+for reference.
+
+A git tree is also available here:
+
+    git://git.infradead.org/users/hch/misc.git dma-mapping-error.2
+
+Gitweb:
+
+    http://git.infradead.org/users/hch/misc.git/shortlog/refs/heads/dma-mapping-error.2
+
+Changes since v1:
+ - dropped the signature change
+ - split into multiple patches
+ - fixed the iova allocator return check in amd-iommu
+ - remove EMERGENCY_PAGES in amd_gart and calgary
