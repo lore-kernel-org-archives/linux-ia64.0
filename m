@@ -1,51 +1,105 @@
-From: David Hildenbrand <david@redhat.com>
-Date: Fri, 30 Nov 2018 17:59:22 +0000
-Subject: [PATCH RFCv2 4/4] mm/memory_hotplug: Drop MEMORY_TYPE_UNSPECIFIED
-Message-Id: <20181130175922.10425-5-david@redhat.com>
+From: Christoph Hellwig <hch@lst.de>
+Date: Thu, 22 Nov 2018 14:03:15 +0000
+Subject: [PATCH 19/24] iommu: remove the mapping_error dma_map_ops method
+Message-Id: <20181122140320.24080-20-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20181130175922.10425-1-david@redhat.com>
-In-Reply-To: <20181130175922.10425-1-david@redhat.com>
+References: <20181122140320.24080-1-hch@lst.de>
+In-Reply-To: <20181122140320.24080-1-hch@lst.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="macroman"
-Content-Transfer-Encoding: base64
-To: linux-mm@kvack.org
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-acpi@vger.kernel.org, devel@linuxdriverproject.org, xen-devel@lists.xenproject.org, x86@kernel.org, David Hildenbrand <david@redhat.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Ingo Molnar <mingo@kernel.org>, Pavel Tatashin <pasha.tatashin@oracle.com>, Stephen Rothwell <sfr@canb.auug.org.au>, Andrew Banman <andrew.banman@hpe.com>, "mike.travis@hpe.com" <mike.travis@hpe.com>, Oscar Salvador <osalvador@suse.com>, Dave Hansen <dave.hansen@linux.intel.com>, Michal Hocko <mhocko@kernel.org>, =?UTF-8?q?Michal=20Such=C3=A1nek?
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: iommu@lists.linux-foundation.org
+Cc: Linus Torvalds <torvalds@linux-foundation.org>, Jon Mason <jdmason@kudzu.us>, Joerg Roedel <joro@8bytes.org>, David Woodhouse <dwmw2@infradead.org>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, xen-devel@lists.xenproject.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
 
-V2Ugbm93IGhhdmUgcHJvcGVyIHR5cGVzIGZvciBhbGwgdXNlcnMsIHdlIGNhbiBkcm9wIHRoaXMg
-b25lLgoKQ2M6IEdyZWcgS3JvYWgtSGFydG1hbiA8Z3JlZ2toQGxpbnV4Zm91bmRhdGlvbi5vcmc+
-CkNjOiAiUmFmYWVsIEouIFd5c29ja2kiIDxyYWZhZWxAa2VybmVsLm9yZz4KQ2M6IEFuZHJldyBN
-b3J0b24gPGFrcG1AbGludXgtZm91bmRhdGlvbi5vcmc+CkNjOiBJbmdvIE1vbG5hciA8bWluZ29A
-a2VybmVsLm9yZz4KQ2M6IFBhdmVsIFRhdGFzaGluIDxwYXNoYS50YXRhc2hpbkBvcmFjbGUuY29t
-PgpDYzogU3RlcGhlbiBSb3Rod2VsbCA8c2ZyQGNhbmIuYXV1Zy5vcmcuYXU+CkNjOiBBbmRyZXcg
-QmFubWFuIDxhbmRyZXcuYmFubWFuQGhwZS5jb20+CkNjOiAibWlrZS50cmF2aXNAaHBlLmNvbSIg
-PG1pa2UudHJhdmlzQGhwZS5jb20+CkNjOiBPc2NhciBTYWx2YWRvciA8b3NhbHZhZG9yQHN1c2Uu
-Y29tPgpDYzogRGF2ZSBIYW5zZW4gPGRhdmUuaGFuc2VuQGxpbnV4LmludGVsLmNvbT4KQ2M6IE1p
-Y2hhbCBIb2NrbyA8bWhvY2tvQGtlcm5lbC5vcmc+CkNjOiBNaWNoYWwgU3VjaMOhbmVrIDxtc3Vj
-aGFuZWtAc3VzZS5kZT4KQ2M6IFZpdGFseSBLdXpuZXRzb3YgPHZrdXpuZXRzQHJlZGhhdC5jb20+
-CkNjOiBEYW4gV2lsbGlhbXMgPGRhbi5qLndpbGxpYW1zQGludGVsLmNvbT4KQ2M6IFBhdmVsIFRh
-dGFzaGluIDxwYXZlbC50YXRhc2hpbkBtaWNyb3NvZnQuY29tPgpTaWduZWQtb2ZmLWJ5OiBEYXZp
-ZCBIaWxkZW5icmFuZCA8ZGF2aWRAcmVkaGF0LmNvbT4KLS0tCiBkcml2ZXJzL2Jhc2UvbWVtb3J5
-LmMgIHwgMyAtLS0KIGluY2x1ZGUvbGludXgvbWVtb3J5LmggfCA1IC0tLS0tCiAyIGZpbGVzIGNo
-YW5nZWQsIDggZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9iYXNlL21lbW9yeS5j
-IGIvZHJpdmVycy9iYXNlL21lbW9yeS5jCmluZGV4IGM1ZmRjYTdhMzAwOS4uYTZlNTI0ZjBlYTM4
-IDEwMDY0NAotLS0gYS9kcml2ZXJzL2Jhc2UvbWVtb3J5LmMKKysrIGIvZHJpdmVycy9iYXNlL21l
-bW9yeS5jCkBAIC0zODgsOSArMzg4LDYgQEAgc3RhdGljIHNzaXplX3QgdHlwZV9zaG93KHN0cnVj
-dCBkZXZpY2UgKmRldiwgc3RydWN0IGRldmljZV9hdHRyaWJ1dGUgKmF0dHIsCiAJc3NpemVfdCBs
-ZW4gPSAwOwogCiAJc3dpdGNoIChtZW0tPnR5cGUpIHsKLQljYXNlIE1FTU9SWV9CTE9DS19VTlNQ
-RUNJRklFRDoKLQkJbGVuID0gc3ByaW50ZihidWYsICJ1bnNwZWNpZmllZFxuIik7Ci0JCWJyZWFr
-OwogCWNhc2UgTUVNT1JZX0JMT0NLX0JPT1Q6CiAJCWxlbiA9IHNwcmludGYoYnVmLCAiYm9vdFxu
-Iik7CiAJCWJyZWFrOwpkaWZmIC0tZ2l0IGEvaW5jbHVkZS9saW51eC9tZW1vcnkuaCBiL2luY2x1
-ZGUvbGludXgvbWVtb3J5LmgKaW5kZXggYTNhMWU5NzY0ODA1Li4xMTY3OTYyMmY3NDMgMTAwNjQ0
-Ci0tLSBhL2luY2x1ZGUvbGludXgvbWVtb3J5LmgKKysrIGIvaW5jbHVkZS9saW51eC9tZW1vcnku
-aApAQCAtNTAsMTAgKzUwLDYgQEAgaW50IHNldF9tZW1vcnlfYmxvY2tfc2l6ZV9vcmRlcih1bnNp
-Z25lZCBpbnQgb3JkZXIpOwogICogIE5vIG1lbW9yeSBibG9jayBpcyB0byBiZSBjcmVhdGVkIChl
-LmcuIGRldmljZSBtZW1vcnkpLiBOb3QgZXhwb3NlZCB0bwogICogIHVzZXIgc3BhY2UuCiAgKgot
-ICogTUVNT1JZX0JMT0NLX1VOU1BFQ0lGSUVEOgotICogIFRoZSB0eXBlIG9mIG1lbW9yeSBibG9j
-ayB3YXMgbm90IGZ1cnRoZXIgc3BlY2lmaWVkIHdoZW4gYWRkaW5nIHRoZQotICogIG1lbW9yeSBi
-bG9jay4KLSAqCiAgKiBNRU1PUllfQkxPQ0tfQk9PVDoKICAqICBUaGlzIG1lbW9yeSBibG9jayB3
-YXMgYWRkZWQgZHVyaW5nIGJvb3QgYnkgdGhlIGJhc2ljIHN5c3RlbS4gTm8KICAqICBzcGVjaWZp
-YyBkZXZpY2UgZHJpdmVyIHRha2VzIGNhcmUgb2YgdGhpcyBtZW1vcnkgYmxvY2suIFRoaXMgbWVt
-b3J5CkBAIC0xMDMsNyArOTksNiBAQCBpbnQgc2V0X21lbW9yeV9ibG9ja19zaXplX29yZGVyKHVu
-c2lnbmVkIGludCBvcmRlcik7CiAgKi8KIGVudW0gewogCU1FTU9SWV9CTE9DS19OT05FID0gMCwK
-LQlNRU1PUllfQkxPQ0tfVU5TUEVDSUZJRUQsCiAJTUVNT1JZX0JMT0NLX0JPT1QsCiAJTUVNT1JZ
-X0JMT0NLX0RJTU0sCiAJTUVNT1JZX0JMT0NLX0RJTU1fVU5SRU1PVkFCTEUsCi0tIAoyLjE3LjIK
+Return DMA_MAPPING_ERROR instead of 0 on a dma mapping failure and let
+the core dma-mapping code handle the rest.
+
+Note that the existing code used AMD_IOMMU_MAPPING_ERROR to check from
+a 0 return from the IOVA allocator, which is replaced with an explicit
+0 as in the implementation and other users of that interface.
+
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ drivers/iommu/amd_iommu.c | 18 +++++-------------
+ 1 file changed, 5 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/iommu/amd_iommu.c b/drivers/iommu/amd_iommu.c
+index 1167ff0416cf..c5d6c7c42b0a 100644
+--- a/drivers/iommu/amd_iommu.c
++++ b/drivers/iommu/amd_iommu.c
+@@ -55,8 +55,6 @@
+ #include "amd_iommu_types.h"
+ #include "irq_remapping.h"
+ 
+-#define AMD_IOMMU_MAPPING_ERROR	0
+-
+ #define CMD_SET_TYPE(cmd, t) ((cmd)->data[1] |= ((t) << 28))
+ 
+ #define LOOP_TIMEOUT	100000
+@@ -2339,7 +2337,7 @@ static dma_addr_t __map_single(struct device *dev,
+ 	paddr &= PAGE_MASK;
+ 
+ 	address = dma_ops_alloc_iova(dev, dma_dom, pages, dma_mask);
+-	if (address = AMD_IOMMU_MAPPING_ERROR)
++	if (!address)
+ 		goto out;
+ 
+ 	prot = dir2prot(direction);
+@@ -2376,7 +2374,7 @@ static dma_addr_t __map_single(struct device *dev,
+ 
+ 	dma_ops_free_iova(dma_dom, address, pages);
+ 
+-	return AMD_IOMMU_MAPPING_ERROR;
++	return DMA_MAPPING_ERROR;
+ }
+ 
+ /*
+@@ -2427,7 +2425,7 @@ static dma_addr_t map_page(struct device *dev, struct page *page,
+ 	if (PTR_ERR(domain) = -EINVAL)
+ 		return (dma_addr_t)paddr;
+ 	else if (IS_ERR(domain))
+-		return AMD_IOMMU_MAPPING_ERROR;
++		return DMA_MAPPING_ERROR;
+ 
+ 	dma_mask = *dev->dma_mask;
+ 	dma_dom = to_dma_ops_domain(domain);
+@@ -2504,7 +2502,7 @@ static int map_sg(struct device *dev, struct scatterlist *sglist,
+ 	npages = sg_num_pages(dev, sglist, nelems);
+ 
+ 	address = dma_ops_alloc_iova(dev, dma_dom, npages, dma_mask);
+-	if (address = AMD_IOMMU_MAPPING_ERROR)
++	if (address = DMA_MAPPING_ERROR)
+ 		goto out_err;
+ 
+ 	prot = dir2prot(direction);
+@@ -2627,7 +2625,7 @@ static void *alloc_coherent(struct device *dev, size_t size,
+ 	*dma_addr = __map_single(dev, dma_dom, page_to_phys(page),
+ 				 size, DMA_BIDIRECTIONAL, dma_mask);
+ 
+-	if (*dma_addr = AMD_IOMMU_MAPPING_ERROR)
++	if (*dma_addr = DMA_MAPPING_ERROR)
+ 		goto out_free;
+ 
+ 	return page_address(page);
+@@ -2678,11 +2676,6 @@ static int amd_iommu_dma_supported(struct device *dev, u64 mask)
+ 	return check_device(dev);
+ }
+ 
+-static int amd_iommu_mapping_error(struct device *dev, dma_addr_t dma_addr)
+-{
+-	return dma_addr = AMD_IOMMU_MAPPING_ERROR;
+-}
+-
+ static const struct dma_map_ops amd_iommu_dma_ops = {
+ 	.alloc		= alloc_coherent,
+ 	.free		= free_coherent,
+@@ -2691,7 +2684,6 @@ static const struct dma_map_ops amd_iommu_dma_ops = {
+ 	.map_sg		= map_sg,
+ 	.unmap_sg	= unmap_sg,
+ 	.dma_supported	= amd_iommu_dma_supported,
+-	.mapping_error	= amd_iommu_mapping_error,
+ };
+ 
+ static int init_reserved_iova_ranges(void)
+-- 
+2.19.1
