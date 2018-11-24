@@ -1,303 +1,494 @@
-From: David Hildenbrand <david@redhat.com>
-Date: Fri, 30 Nov 2018 17:59:21 +0000
-Subject: [PATCH RFCv2 3/4] mm/memory_hotplug: Introduce and use more memory types
-Message-Id: <20181130175922.10425-4-david@redhat.com>
+From: Deepa Dinamani <deepa.kernel@gmail.com>
+Date: Sat, 24 Nov 2018 02:20:35 +0000
+Subject: [PATCH 8/8] socket: Add SO_TIMESTAMPING_NEW
+Message-Id: <20181124022035.17519-9-deepa.kernel@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20181130175922.10425-1-david@redhat.com>
-In-Reply-To: <20181130175922.10425-1-david@redhat.com>
+References: <20181124022035.17519-1-deepa.kernel@gmail.com>
+In-Reply-To: <20181124022035.17519-1-deepa.kernel@gmail.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="macroman"
-Content-Transfer-Encoding: base64
-To: linux-mm@kvack.org
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-acpi@vger.kernel.org, devel@linuxdriverproject.org, xen-devel@lists.xenproject.org, x86@kernel.org, David Hildenbrand <david@redhat.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <lenb@kernel.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, "K. Y. Srinivasan" <kys@microsoft.com>, Haiyang Zhang <haiyangz@microsoft.com>, Stephen Hemminger <sthemmin@microsoft.com>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, Boris Ostrovsky <boris.o>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: davem@davemloft.net, linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org, viro@zeniv.linux.org.uk, arnd@arndb.de, y2038@lists.linaro.org, chris@zankel.net, fenghua.yu@intel.com, rth@twiddle.net, tglx@linutronix.de, ubraun@linux.ibm.com, linux-alpha@vger.kernel.org, linux-arch@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@linux-mips.org, linux-s390@vger.kernel.org, linux-xtensa@linux-xtensa.org, sparclinux@vger.kernel.org
 
-TGV0J3MgaW50cm9kdWNlIG5ldyB0eXBlcyBmb3IgZGlmZmVyZW50IGtpbmRzIG9mIG1lbW9yeSBi
-bG9ja3MgYW5kIHVzZQp0aGVtIGluIGV4aXN0aW5nIGNvZGUuIEFzIEkgZG9uJ3Qgc2VlIGFuIGVh
-c3kgd2F5IHRvIHNwbGl0IHRoaXMgdXAsCmRvIGl0IGluIG9uZSBodW5rIGZvciBub3cuCgphY3Bp
-OgogVXNlIERJTU0gb3IgRElNTV9VTlJFTU9WQUJMRSBkZXBlbmRpbmcgb24gaG90cmVtb3ZlIHN1
-cHBvcnQgaW4gdGhlIGtlcm5lbC4KIFByb3Blcmx5IGNoYW5nZSB0aGUgdHlwZSB3aGVuIHRyeWlu
-ZyB0byBhZGQgbWVtb3J5IHRoYXQgd2FzIGFscmVhZHkKIGRldGVjdGVkIGFuZCB1c2VkIGR1cmlu
-ZyBib290IChzbyB0aGlzIG1lbW9yeSB3aWxsIGNvcnJlY3RseSBlbmQgdXAgYXMKICJhY3BpIiBp
-biB1c2VyIHNwYWNlKS4KCnBzZXJpZXM6CiBVc2UgRElNTSBvciBESU1NX1VOUkVNT1ZBQkxFIGRl
-cGVuZGluZyBvbiBob3RyZW1vdmUgc3VwcG9ydCBpbiB0aGUga2VybmVsLgogQXMgZmFyIGFzIEkg
-c2VlLCBoYW5kbGluZyBsaWtlIGluIHRoZSBhY3BpIGNhc2UgZm9yIGV4aXN0aW5nIGJsb2NrcyBp
-cwogbm90IHJlcXVpcmVkLgoKcHJvYmVkIG1lbW9yeSBmcm9tIHVzZXIgc3BhY2U6CiBVc2UgRElN
-TV9VTlJFTU9WQUJMRSBhcyB0aGVyZSBpcyBubyBpbnRlcmZhY2UgdG8gZ2V0IHJpZCBvZiB0aGlz
-IGNvZGUKIGFnYWluLgoKaHZfYmFsbG9vbix4ZW4vYmFsbG9vbjoKIFVzZSBCQUxMT09OLiBBcyBz
-aW1wbGUgYXMgdGhhdCA6KQoKczM5MHgvc2NscDoKIFVzZSBhIGRlZGljYXRlZCB0eXBlIFMzOTBY
-X1NUQU5EQlkgYXMgdGhpcyB0eXBlIG9mIG1lbW9yeSBhbmQgaXQncwogc2VtYW50aWNzIGFyZSB2
-ZXJ5IHMzOTB4IHNwZWNpZmljLgoKcG93ZXJudi9tZW10cmFjZToKIE9ubHkgYWxsb3cgdG8gdXNl
-IEJPT1QgbWVtb3J5IGZvciBtZW10cmFjZS4gSSBjb25zaWRlciB0aGlzIGNvZGUgaW4KIGdlbmVy
-YWwgZGFuZ2Vyb3VzLCBidXQgd2UgaGF2ZSB0byBrZWVwIGl0IHdvcmtpbmcgLi4uIG1vc3QgcHJv
-YmFibHkganVzdAogYSBkZWJ1ZyBmZWF0dXJlLgoKQ2M6IEJlbmphbWluIEhlcnJlbnNjaG1pZHQg
-PGJlbmhAa2VybmVsLmNyYXNoaW5nLm9yZz4KQ2M6IFBhdWwgTWFja2VycmFzIDxwYXVsdXNAc2Ft
-YmEub3JnPgpDYzogTWljaGFlbCBFbGxlcm1hbiA8bXBlQGVsbGVybWFuLmlkLmF1PgpDYzogIlJh
-ZmFlbCBKLiBXeXNvY2tpIiA8cmp3QHJqd3lzb2NraS5uZXQ+CkNjOiBMZW4gQnJvd24gPGxlbmJA
-a2VybmVsLm9yZz4KQ2M6IEdyZWcgS3JvYWgtSGFydG1hbiA8Z3JlZ2toQGxpbnV4Zm91bmRhdGlv
-bi5vcmc+CkNjOiAiSy4gWS4gU3Jpbml2YXNhbiIgPGt5c0BtaWNyb3NvZnQuY29tPgpDYzogSGFp
-eWFuZyBaaGFuZyA8aGFpeWFuZ3pAbWljcm9zb2Z0LmNvbT4KQ2M6IFN0ZXBoZW4gSGVtbWluZ2Vy
-IDxzdGhlbW1pbkBtaWNyb3NvZnQuY29tPgpDYzogTWFydGluIFNjaHdpZGVmc2t5IDxzY2h3aWRl
-ZnNreUBkZS5pYm0uY29tPgpDYzogSGVpa28gQ2Fyc3RlbnMgPGhlaWtvLmNhcnN0ZW5zQGRlLmli
-bS5jb20+CkNjOiBCb3JpcyBPc3Ryb3Zza3kgPGJvcmlzLm9zdHJvdnNreUBvcmFjbGUuY29tPgpD
-YzogSnVlcmdlbiBHcm9zcyA8amdyb3NzQHN1c2UuY29tPgpDYzogU3RlZmFubyBTdGFiZWxsaW5p
-IDxzc3RhYmVsbGluaUBrZXJuZWwub3JnPgpDYzogUmFzaG1pY2EgR3VwdGEgPHJhc2htaWNhLmdA
-Z21haWwuY29tPgpDYzogQW5kcmV3IE1vcnRvbiA8YWtwbUBsaW51eC1mb3VuZGF0aW9uLm9yZz4K
-Q2M6IFBhdmVsIFRhdGFzaGluIDxwYXZlbC50YXRhc2hpbkBtaWNyb3NvZnQuY29tPgpDYzogQmFs
-YmlyIFNpbmdoIDxic2luZ2hhcm9yYUBnbWFpbC5jb20+CkNjOiBNaWNoYWVsIE5ldWxpbmcgPG1p
-a2V5QG5ldWxpbmcub3JnPgpDYzogTmF0aGFuIEZvbnRlbm90IDxuZm9udEBsaW51eC52bmV0Lmli
-bS5jb20+CkNjOiBZdWVIYWliaW5nIDx5dWVoYWliaW5nQGh1YXdlaS5jb20+CkNjOiBWYXNpbHkg
-R29yYmlrIDxnb3JAbGludXguaWJtLmNvbT4KQ2M6IEluZ28gTW9sbmFyIDxtaW5nb0BrZXJuZWwu
-b3JnPgpDYzogU3RlcGhlbiBSb3Rod2VsbCA8c2ZyQGNhbmIuYXV1Zy5vcmcuYXU+CkNjOiAibWlr
-ZS50cmF2aXNAaHBlLmNvbSIgPG1pa2UudHJhdmlzQGhwZS5jb20+CkNjOiBPc2NhciBTYWx2YWRv
-ciA8b3NhbHZhZG9yQHN1c2UuZGU+CkNjOiBKb29uc29vIEtpbSA8aWFtam9vbnNvby5raW1AbGdl
-LmNvbT4KQ2M6IE1hdGhpZXUgTWFsYXRlcnJlIDxtYWxhdEBkZWJpYW4ub3JnPgpDYzogTWljaGFs
-IEhvY2tvIDxtaG9ja29Ac3VzZS5jb20+CkNjOiBBcnVuIEtTIDxhcnVua3NAY29kZWF1cm9yYS5v
-cmc+CkNjOiBBbmRyZXcgQmFubWFuIDxhbmRyZXcuYmFubWFuQGhwZS5jb20+CkNjOiBEYXZlIEhh
-bnNlbiA8ZGF2ZS5oYW5zZW5AbGludXguaW50ZWwuY29tPgpDYzogTWljaGFsIFN1Y2jDoW5layA8
-bXN1Y2hhbmVrQHN1c2UuZGU+CkNjOiBWaXRhbHkgS3V6bmV0c292IDx2a3V6bmV0c0ByZWRoYXQu
-Y29tPgpDYzogRGFuIFdpbGxpYW1zIDxkYW4uai53aWxsaWFtc0BpbnRlbC5jb20+ClNpZ25lZC1v
-ZmYtYnk6IERhdmlkIEhpbGRlbmJyYW5kIDxkYXZpZEByZWRoYXQuY29tPgoKLS0tCgpBdCBmaXJz
-dCBJIHRyaWVkIHRvIGFic3RyYWN0IHRoZSB0eXBlcyBxdWl0ZSBhIGxvdCwgYnV0IEkgdGhpbmsg
-dGhlcmUKYXJlIHN1YnRsZSBkaWZmZXJlbmNlcyB0aGF0IGFyZSB3b3J0aCBkaWZmZXJlbnRpYXRp
-bmcuIE1vcmUgZGV0YWlscyBhYm91dAp0aGUgdHlwZXMgY2FuIGJlIGZvdW5kIGluIHRoZSBleGNl
-c3NpdmUgZG9jdW1lbnRhdGlvbi4KCkl0IGlzIHdvcnQgbm90aW5nIHRoYXQgQkFMTE9PTl9NT1ZB
-QkxFIGhhcyBubyB1c2VyIHlldCwgYnV0IEkgaGF2ZQpzb21ldGhpbmcgaW4gbWluZCB0aGF0IG1p
-Z2h0IHdhbnQgdG8gbWFrZSB1c2Ugb2YgdGhhdCAodmlydGlvLW1lbSkuCkp1c3QgaW5jbHVkZWQg
-aXQgdG8gZGlzY3VzcyB0aGUgZ2VuZXJhbCBhcHByb2FjaC4gSSBjYW4gZHJvcCBpdCBmcm9tCnRo
-aXMgcGF0Y2guCi0tLQogYXJjaC9wb3dlcnBjL3BsYXRmb3Jtcy9wb3dlcm52L21lbXRyYWNlLmMg
-ICAgIHwgIDkgKystLQogLi4uL3BsYXRmb3Jtcy9wc2VyaWVzL2hvdHBsdWctbWVtb3J5LmMgICAg
-ICAgIHwgIDcgKystCiBkcml2ZXJzL2FjcGkvYWNwaV9tZW1ob3RwbHVnLmMgICAgICAgICAgICAg
-ICAgfCAxNiArKysrKystCiBkcml2ZXJzL2Jhc2UvbWVtb3J5LmMgICAgICAgICAgICAgICAgICAg
-ICAgICAgfCAxOCArKysrKystCiBkcml2ZXJzL2h2L2h2X2JhbGxvb24uYyAgICAgICAgICAgICAg
-ICAgICAgICAgfCAgMyArLQogZHJpdmVycy9zMzkwL2NoYXIvc2NscF9jbWQuYyAgICAgICAgICAg
-ICAgICAgIHwgIDMgKy0KIGRyaXZlcnMveGVuL2JhbGxvb24uYyAgICAgICAgICAgICAgICAgICAg
-ICAgICB8ICAyICstCiBpbmNsdWRlL2xpbnV4L21lbW9yeS5oICAgICAgICAgICAgICAgICAgICAg
-ICAgfCA0NyArKysrKysrKysrKysrKysrKystCiBpbmNsdWRlL2xpbnV4L21lbW9yeV9ob3RwbHVn
-LmggICAgICAgICAgICAgICAgfCAgNiArLS0KIG1tL21lbW9yeV9ob3RwbHVnLmMgICAgICAgICAg
-ICAgICAgICAgICAgICAgICB8IDE1ICsrKy0tLQogMTAgZmlsZXMgY2hhbmdlZCwgMTA0IGluc2Vy
-dGlvbnMoKyksIDIyIGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL2FyY2gvcG93ZXJwYy9wbGF0
-Zm9ybXMvcG93ZXJudi9tZW10cmFjZS5jIGIvYXJjaC9wb3dlcnBjL3BsYXRmb3Jtcy9wb3dlcm52
-L21lbXRyYWNlLmMKaW5kZXggMjQ4YTM4YWQyNWM3Li41ZDA4ZGI4NzA5MWUgMTAwNjQ0Ci0tLSBh
-L2FyY2gvcG93ZXJwYy9wbGF0Zm9ybXMvcG93ZXJudi9tZW10cmFjZS5jCisrKyBiL2FyY2gvcG93
-ZXJwYy9wbGF0Zm9ybXMvcG93ZXJudi9tZW10cmFjZS5jCkBAIC01NCw5ICs1NCw5IEBAIHN0YXRp
-YyBjb25zdCBzdHJ1Y3QgZmlsZV9vcGVyYXRpb25zIG1lbXRyYWNlX2ZvcHMgPSB7CiAJLm9wZW4J
-PSBzaW1wbGVfb3BlbiwKIH07CiAKLXN0YXRpYyBpbnQgY2hlY2tfbWVtYmxvY2tfb25saW5lKHN0
-cnVjdCBtZW1vcnlfYmxvY2sgKm1lbSwgdm9pZCAqYXJnKQorc3RhdGljIGludCBjaGVja19tZW1i
-bG9ja19ib290X2FuZF9vbmxpbmUoc3RydWN0IG1lbW9yeV9ibG9jayAqbWVtLCB2b2lkICphcmcp
-CiB7Ci0JaWYgKG1lbS0+c3RhdGUgIT0gTUVNX09OTElORSkKKwlpZiAobWVtLT50eXBlICE9IE1F
-TV9CTE9DS19CT09UIHx8IG1lbS0+c3RhdGUgIT0gTUVNX09OTElORSkKIAkJcmV0dXJuIC0xOwog
-CiAJcmV0dXJuIDA7CkBAIC03Nyw3ICs3Nyw3IEBAIHN0YXRpYyBib29sIG1lbXRyYWNlX29mZmxp
-bmVfcGFnZXModTMyIG5pZCwgdTY0IHN0YXJ0X3BmbiwgdTY0IG5yX3BhZ2VzKQogCXU2NCBlbmRf
-cGZuID0gc3RhcnRfcGZuICsgbnJfcGFnZXMgLSAxOwogCiAJaWYgKHdhbGtfbWVtb3J5X3Jhbmdl
-KHN0YXJ0X3BmbiwgZW5kX3BmbiwgTlVMTCwKLQkgICAgY2hlY2tfbWVtYmxvY2tfb25saW5lKSkK
-KwkgICAgY2hlY2tfbWVtYmxvY2tfYm9vdF9hbmRfb25saW5lKSkKIAkJcmV0dXJuIGZhbHNlOwog
-CiAJd2Fsa19tZW1vcnlfcmFuZ2Uoc3RhcnRfcGZuLCBlbmRfcGZuLCAodm9pZCAqKU1FTV9HT0lO
-R19PRkZMSU5FLApAQCAtMjMzLDcgKzIzMyw4IEBAIHN0YXRpYyBpbnQgbWVtdHJhY2Vfb25saW5l
-KHZvaWQpCiAJCQllbnQtPm1lbSA9IDA7CiAJCX0KIAotCQlpZiAoYWRkX21lbW9yeShlbnQtPm5p
-ZCwgZW50LT5zdGFydCwgZW50LT5zaXplKSkgeworCQlpZiAoYWRkX21lbW9yeShlbnQtPm5pZCwg
-ZW50LT5zdGFydCwgZW50LT5zaXplLAorCQkJICAgICAgIE1FTU9SWV9CTE9DS19CT09UKSkgewog
-CQkJcHJfZXJyKCJGYWlsZWQgdG8gYWRkIHRyYWNlIG1lbW9yeSB0byBub2RlICVkXG4iLAogCQkJ
-CWVudC0+bmlkKTsKIAkJCXJldCArPSAxOwpkaWZmIC0tZ2l0IGEvYXJjaC9wb3dlcnBjL3BsYXRm
-b3Jtcy9wc2VyaWVzL2hvdHBsdWctbWVtb3J5LmMgYi9hcmNoL3Bvd2VycGMvcGxhdGZvcm1zL3Bz
-ZXJpZXMvaG90cGx1Zy1tZW1vcnkuYwppbmRleCAyYTk4M2I1YTUyZTEuLjVmOTEzNTljNzk5MyAx
-MDA2NDQKLS0tIGEvYXJjaC9wb3dlcnBjL3BsYXRmb3Jtcy9wc2VyaWVzL2hvdHBsdWctbWVtb3J5
-LmMKKysrIGIvYXJjaC9wb3dlcnBjL3BsYXRmb3Jtcy9wc2VyaWVzL2hvdHBsdWctbWVtb3J5LmMK
-QEAgLTY1MSw3ICs2NTEsNyBAQCBzdGF0aWMgaW50IGRscGFyX21lbW9yeV9yZW1vdmVfYnlfaWMo
-dTMyIGxtYnNfdG9fcmVtb3ZlLCB1MzIgZHJjX2luZGV4KQogc3RhdGljIGludCBkbHBhcl9hZGRf
-bG1iKHN0cnVjdCBkcm1lbV9sbWIgKmxtYikKIHsKIAl1bnNpZ25lZCBsb25nIGJsb2NrX3N6Owot
-CWludCBuaWQsIHJjOworCWludCBuaWQsIHJjLCB0eXBlID0gTUVNT1JZX0JMT0NLX0RJTU07CiAK
-IAlpZiAobG1iLT5mbGFncyAmIERSQ09ORl9NRU1fQVNTSUdORUQpCiAJCXJldHVybiAtRUlOVkFM
-OwpAQCAtNjY3LDggKzY2NywxMSBAQCBzdGF0aWMgaW50IGRscGFyX2FkZF9sbWIoc3RydWN0IGRy
-bWVtX2xtYiAqbG1iKQogCS8qIEZpbmQgdGhlIG5vZGUgaWQgZm9yIHRoaXMgYWRkcmVzcyAqLwog
-CW5pZCA9IG1lbW9yeV9hZGRfcGh5c2FkZHJfdG9fbmlkKGxtYi0+YmFzZV9hZGRyKTsKIAorCWlm
-ICghSVNfRU5BQkxFRChDT05GSUdfTUVNT1JZX0hPVFJFTU9WRSkpCisJCXR5cGUgPSBNRU1PUllf
-QkxPQ0tfRElNTV9VTlJFTU9WQUJMRTsKKwogCS8qIEFkZCB0aGUgbWVtb3J5ICovCi0JcmMgPSBf
-X2FkZF9tZW1vcnkobmlkLCBsbWItPmJhc2VfYWRkciwgYmxvY2tfc3opOworCXJjID0gX19hZGRf
-bWVtb3J5KG5pZCwgbG1iLT5iYXNlX2FkZHIsIGJsb2NrX3N6LCB0eXBlKTsKIAlpZiAocmMpIHsK
-IAkJaW52YWxpZGF0ZV9sbWJfYXNzb2NpYXRpdml0eV9pbmRleChsbWIpOwogCQlyZXR1cm4gcmM7
-CmRpZmYgLS1naXQgYS9kcml2ZXJzL2FjcGkvYWNwaV9tZW1ob3RwbHVnLmMgYi9kcml2ZXJzL2Fj
-cGkvYWNwaV9tZW1ob3RwbHVnLmMKaW5kZXggOGZlMDk2MGVhNTcyLi5mODQxMTEzYjQ1MGQgMTAw
-NjQ0Ci0tLSBhL2RyaXZlcnMvYWNwaS9hY3BpX21lbWhvdHBsdWcuYworKysgYi9kcml2ZXJzL2Fj
-cGkvYWNwaV9tZW1ob3RwbHVnLmMKQEAgLTE3Nyw2ICsxNzcsMTMgQEAgc3RhdGljIHVuc2lnbmVk
-IGxvbmcgYWNwaV9tZW1pbmZvX2VuZF9wZm4oc3RydWN0IGFjcGlfbWVtb3J5X2luZm8gKmluZm8p
-CiAKIHN0YXRpYyBpbnQgYWNwaV9iaW5kX21lbWJsayhzdHJ1Y3QgbWVtb3J5X2Jsb2NrICptZW0s
-IHZvaWQgKmFyZykKIHsKKwkvKiBzd2l0Y2ggdGhlIHR5cGUgb2YgbWVtb3J5IGJsb2NrIGlmIHRo
-aXMgbWVtb3J5IHdhcyBhbHJlYWR5IHByZXNlbnQgKi8KKwlpZiAobWVtLT50eXBlID0gTUVNT1JZ
-X0JMT0NLX0JPT1QpIHsKKwkJaWYgKElTX0VOQUJMRUQoQ09ORklHX01FTU9SWV9IT1RSRU1PVkUp
-KQorCQkJbWVtLT50eXBlID0gTUVNT1JZX0JMT0NLX0RJTU07CisJCWVsc2UKKwkJCW1lbS0+dHlw
-ZSA9IE1FTU9SWV9CTE9DS19ESU1NX1VOUkVNT1ZBQkxFOworCX0KIAlyZXR1cm4gYWNwaV9iaW5k
-X29uZSgmbWVtLT5kZXYsIGFyZyk7CiB9CiAKQEAgLTE5MSw2ICsxOTgsNyBAQCBzdGF0aWMgaW50
-IGFjcGlfYmluZF9tZW1vcnlfYmxvY2tzKHN0cnVjdCBhY3BpX21lbW9yeV9pbmZvICppbmZvLAog
-c3RhdGljIGludCBhY3BpX3VuYmluZF9tZW1ibGsoc3RydWN0IG1lbW9yeV9ibG9jayAqbWVtLCB2
-b2lkICphcmcpCiB7CiAJYWNwaV91bmJpbmRfb25lKCZtZW0tPmRldik7CisJbWVtLT50eXBlID0g
-TUVNT1JZX0JMT0NLX0JPT1Q7CiAJcmV0dXJuIDA7CiB9CiAKQEAgLTIwMywxMCArMjExLDEzIEBA
-IHN0YXRpYyB2b2lkIGFjcGlfdW5iaW5kX21lbW9yeV9ibG9ja3Moc3RydWN0IGFjcGlfbWVtb3J5
-X2luZm8gKmluZm8pCiBzdGF0aWMgaW50IGFjcGlfbWVtb3J5X2VuYWJsZV9kZXZpY2Uoc3RydWN0
-IGFjcGlfbWVtb3J5X2RldmljZSAqbWVtX2RldmljZSkKIHsKIAlhY3BpX2hhbmRsZSBoYW5kbGUg
-PSBtZW1fZGV2aWNlLT5kZXZpY2UtPmhhbmRsZTsKLQlpbnQgcmVzdWx0LCBudW1fZW5hYmxlZCA9
-IDA7CisJaW50IHJlc3VsdCwgbnVtX2VuYWJsZWQgPSAwLCB0eXBlID0gTUVNT1JZX0JMT0NLX0RJ
-TU07CiAJc3RydWN0IGFjcGlfbWVtb3J5X2luZm8gKmluZm87CiAJaW50IG5vZGU7CiAKKwlpZiAo
-IUlTX0VOQUJMRUQoQ09ORklHX01FTU9SWV9IT1RSRU1PVkUpKQorCQl0eXBlID0gTUVNT1JZX0JM
-T0NLX0RJTU1fVU5SRU1PVkFCTEU7CisKIAlub2RlID0gYWNwaV9nZXRfbm9kZShoYW5kbGUpOwog
-CS8qCiAJICogVGVsbCB0aGUgVk0gdGhlcmUgaXMgbW9yZSBtZW1vcnkgaGVyZS4uLgpAQCAtMjI4
-LDcgKzIzOSw4IEBAIHN0YXRpYyBpbnQgYWNwaV9tZW1vcnlfZW5hYmxlX2RldmljZShzdHJ1Y3Qg
-YWNwaV9tZW1vcnlfZGV2aWNlICptZW1fZGV2aWNlKQogCQlpZiAobm9kZSA8IDApCiAJCQlub2Rl
-ID0gbWVtb3J5X2FkZF9waHlzYWRkcl90b19uaWQoaW5mby0+c3RhcnRfYWRkcik7CiAKLQkJcmVz
-dWx0ID0gX19hZGRfbWVtb3J5KG5vZGUsIGluZm8tPnN0YXJ0X2FkZHIsIGluZm8tPmxlbmd0aCk7
-CisJCXJlc3VsdCA9IF9fYWRkX21lbW9yeShub2RlLCBpbmZvLT5zdGFydF9hZGRyLCBpbmZvLT5s
-ZW5ndGgsCisJCQkJICAgICAgdHlwZSk7CiAKIAkJLyoKIAkJICogSWYgdGhlIG1lbW9yeSBibG9j
-ayBoYXMgYmVlbiB1c2VkIGJ5IHRoZSBrZXJuZWwsIGFkZF9tZW1vcnkoKQpkaWZmIC0tZ2l0IGEv
-ZHJpdmVycy9iYXNlL21lbW9yeS5jIGIvZHJpdmVycy9iYXNlL21lbW9yeS5jCmluZGV4IGM0MjMw
-MDA4MmM4OC4uYzVmZGNhN2EzMDA5IDEwMDY0NAotLS0gYS9kcml2ZXJzL2Jhc2UvbWVtb3J5LmMK
-KysrIGIvZHJpdmVycy9iYXNlL21lbW9yeS5jCkBAIC0zOTQsNiArMzk0LDIxIEBAIHN0YXRpYyBz
-c2l6ZV90IHR5cGVfc2hvdyhzdHJ1Y3QgZGV2aWNlICpkZXYsIHN0cnVjdCBkZXZpY2VfYXR0cmli
-dXRlICphdHRyLAogCWNhc2UgTUVNT1JZX0JMT0NLX0JPT1Q6CiAJCWxlbiA9IHNwcmludGYoYnVm
-LCAiYm9vdFxuIik7CiAJCWJyZWFrOworCWNhc2UgTUVNT1JZX0JMT0NLX0RJTU06CisJCWxlbiA9
-IHNwcmludGYoYnVmLCAiZGltbVxuIik7CisJCWJyZWFrOworCWNhc2UgTUVNT1JZX0JMT0NLX0RJ
-TU1fVU5SRU1PVkFCTEU6CisJCWxlbiA9IHNwcmludGYoYnVmLCAiZGltbS11bnJlbW92YWJsZVxu
-Iik7CisJCWJyZWFrOworCWNhc2UgTUVNT1JZX0JMT0NLX0JBTExPT046CisJCWxlbiA9IHNwcmlu
-dGYoYnVmLCAiYmFsbG9vblxuIik7CisJCWJyZWFrOworCWNhc2UgTUVNT1JZX0JMT0NLX0JBTExP
-T05fTU9WQUJMRToKKwkJbGVuID0gc3ByaW50ZihidWYsICJiYWxsb29uLW1vdmFibGVcbiIpOwor
-CQlicmVhazsKKwljYXNlIE1FTU9SWV9CTE9DS19TMzkwWF9TVEFOREJZOgorCQlsZW4gPSBzcHJp
-bnRmKGJ1ZiwgInMzOTB4LXN0YW5kYnlcbiIpOworCQlicmVhazsKIAlkZWZhdWx0OgogCQlsZW4g
-PSBzcHJpbnRmKGJ1ZiwgIkVSUk9SLVVOS05PV04tJWxkXG4iLAogCQkJCW1lbS0+c3RhdGUpOwpA
-QCAtNTM4LDcgKzU1Myw4IEBAIG1lbW9yeV9wcm9iZV9zdG9yZShzdHJ1Y3QgZGV2aWNlICpkZXYs
-IHN0cnVjdCBkZXZpY2VfYXR0cmlidXRlICphdHRyLAogCiAJbmlkID0gbWVtb3J5X2FkZF9waHlz
-YWRkcl90b19uaWQocGh5c19hZGRyKTsKIAlyZXQgPSBfX2FkZF9tZW1vcnkobmlkLCBwaHlzX2Fk
-ZHIsCi0JCQkgICBNSU5fTUVNT1JZX0JMT0NLX1NJWkUgKiBzZWN0aW9uc19wZXJfYmxvY2spOwor
-CQkJICAgTUlOX01FTU9SWV9CTE9DS19TSVpFICogc2VjdGlvbnNfcGVyX2Jsb2NrLAorCQkJICAg
-TUVNT1JZX0JMT0NLX0RJTU1fVU5SRU1PVkFCTEUpOwogCiAJaWYgKHJldCkKIAkJZ290byBvdXQ7
-CmRpZmYgLS1naXQgYS9kcml2ZXJzL2h2L2h2X2JhbGxvb24uYyBiL2RyaXZlcnMvaHYvaHZfYmFs
-bG9vbi5jCmluZGV4IDQ3NzE5ODYyZTU3Zi4uZjUwMmVhNmNkMjU1IDEwMDY0NAotLS0gYS9kcml2
-ZXJzL2h2L2h2X2JhbGxvb24uYworKysgYi9kcml2ZXJzL2h2L2h2X2JhbGxvb24uYwpAQCAtNzQx
-LDcgKzc0MSw4IEBAIHN0YXRpYyB2b2lkIGh2X21lbV9ob3RfYWRkKHVuc2lnbmVkIGxvbmcgc3Rh
-cnQsIHVuc2lnbmVkIGxvbmcgc2l6ZSwKIAogCQluaWQgPSBtZW1vcnlfYWRkX3BoeXNhZGRyX3Rv
-X25pZChQRk5fUEhZUyhzdGFydF9wZm4pKTsKIAkJcmV0ID0gYWRkX21lbW9yeShuaWQsIFBGTl9Q
-SFlTKChzdGFydF9wZm4pKSwKLQkJCQkoSEFfQ0hVTksgPDwgUEFHRV9TSElGVCkpOworCQkJCSAo
-SEFfQ0hVTksgPDwgUEFHRV9TSElGVCksCisJCQkJIE1FTU9SWV9CTE9DS19CQUxMT09OKTsKIAog
-CQlpZiAocmV0KSB7CiAJCQlwcl9lcnIoImhvdF9hZGQgbWVtb3J5IGZhaWxlZCBlcnJvciBpcyAl
-ZFxuIiwgcmV0KTsKZGlmZiAtLWdpdCBhL2RyaXZlcnMvczM5MC9jaGFyL3NjbHBfY21kLmMgYi9k
-cml2ZXJzL3MzOTAvY2hhci9zY2xwX2NtZC5jCmluZGV4IDM3ZDQyZGUwNjA3OS4uMGNhNmY3N2U3
-ZTFkIDEwMDY0NAotLS0gYS9kcml2ZXJzL3MzOTAvY2hhci9zY2xwX2NtZC5jCisrKyBiL2RyaXZl
-cnMvczM5MC9jaGFyL3NjbHBfY21kLmMKQEAgLTQwNiw3ICs0MDYsOCBAQCBzdGF0aWMgdm9pZCBf
-X2luaXQgYWRkX21lbW9yeV9tZXJnZWQodTE2IHJuKQogCWlmICghc2l6ZSkKIAkJZ290byBza2lw
-X2FkZDsKIAlmb3IgKGFkZHIgPSBzdGFydDsgYWRkciA8IHN0YXJ0ICsgc2l6ZTsgYWRkciArPSBi
-bG9ja19zaXplKQotCQlhZGRfbWVtb3J5KG51bWFfcGZuX3RvX25pZChQRk5fRE9XTihhZGRyKSks
-IGFkZHIsIGJsb2NrX3NpemUpOworCQlhZGRfbWVtb3J5KG51bWFfcGZuX3RvX25pZChQRk5fRE9X
-TihhZGRyKSksIGFkZHIsIGJsb2NrX3NpemUsCisJCQkgICBNRU1PUllfQkxPQ0tfUzM5MFhfU1RB
-TkRCWSk7CiBza2lwX2FkZDoKIAlmaXJzdF9ybiA9IHJuOwogCW51bSA9IDE7CmRpZmYgLS1naXQg
-YS9kcml2ZXJzL3hlbi9iYWxsb29uLmMgYi9kcml2ZXJzL3hlbi9iYWxsb29uLmMKaW5kZXggNWQy
-ZDdhOTE3YjRlLi45NTNmZjg2ZDYwOWIgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMveGVuL2JhbGxvb24u
-YworKysgYi9kcml2ZXJzL3hlbi9iYWxsb29uLmMKQEAgLTM1Miw3ICszNTIsNyBAQCBzdGF0aWMg
-ZW51bSBicF9zdGF0ZSByZXNlcnZlX2FkZGl0aW9uYWxfbWVtb3J5KHZvaWQpCiAJbXV0ZXhfdW5s
-b2NrKCZiYWxsb29uX211dGV4KTsKIAkvKiBhZGRfbWVtb3J5X3Jlc291cmNlKCkgcmVxdWlyZXMg
-dGhlIGRldmljZV9ob3RwbHVnIGxvY2sgKi8KIAlsb2NrX2RldmljZV9ob3RwbHVnKCk7Ci0JcmMg
-PSBhZGRfbWVtb3J5X3Jlc291cmNlKG5pZCwgcmVzb3VyY2UpOworCXJjID0gYWRkX21lbW9yeV9y
-ZXNvdXJjZShuaWQsIHJlc291cmNlLCBNRU1PUllfQkxPQ0tfQkFMTE9PTik7CiAJdW5sb2NrX2Rl
-dmljZV9ob3RwbHVnKCk7CiAJbXV0ZXhfbG9jaygmYmFsbG9vbl9tdXRleCk7CiAKZGlmZiAtLWdp
-dCBhL2luY2x1ZGUvbGludXgvbWVtb3J5LmggYi9pbmNsdWRlL2xpbnV4L21lbW9yeS5oCmluZGV4
-IDlmMzllZjQxZTZkMi4uYTNhMWU5NzY0ODA1IDEwMDY0NAotLS0gYS9pbmNsdWRlL2xpbnV4L21l
-bW9yeS5oCisrKyBiL2luY2x1ZGUvbGludXgvbWVtb3J5LmgKQEAgLTU5LDEyICs1OSw1NyBAQCBp
-bnQgc2V0X21lbW9yeV9ibG9ja19zaXplX29yZGVyKHVuc2lnbmVkIGludCBvcmRlcik7CiAgKiAg
-c3BlY2lmaWMgZGV2aWNlIGRyaXZlciB0YWtlcyBjYXJlIG9mIHRoaXMgbWVtb3J5IGJsb2NrLiBU
-aGlzIG1lbW9yeQogICogIGJsb2NrIHR5cGUgaXMgb25saW5lZCBhdXRvbWF0aWNhbGx5IGJ5IHRo
-ZSBrZXJuZWwgZHVyaW5nIGJvb3QgYW5kIG1pZ2h0CiAgKiAgbGF0ZXIgYmUgbWFuYWdlZCBieSBh
-IGRpZmZlcmVudCBkZXZpY2UgZHJpdmVyLCBpbiB3aGljaCBjYXNlIHRoZSB0eXBlCi0gKiAgbWln
-aHQgY2hhbmdlLgorICogIG1pZ2h0IGNoYW5nZSAoZS5nLiB0byBNRU1PUllfQkxPQ0tfRElNTSku
-CisgKgorICogTUVNT1JZX0JMT0NLX0RJTU06CisgKiAgVGhpcyBtZW1vcnkgYmxvY2sgaXMgbWFu
-YWdlZCBieSBhIGRldmljZSBkcml2ZXIgdGFraW5nIGNhcmUgb2YgRElNTXMKKyAqICAob3Igc2lt
-aWxhcikuIE9uY2UgYWxsIG1lbW9yeSBibG9ja3MgYmVsb25naW5nIHRvIHRoZSBESU1NIGhhdmUg
-YmVlbgorICogIG9mZmxpbmVkLCB0aGUgRElNTSBhbG9uZyB3aXRoIHRoZSBtZW1vcnkgYmxvY2tz
-IGNhbiBiZSByZW1vdmVkIHRvCisgKiAgZWZmZWN0aXZlbHkgdW5wbHVnIGl0LiBUaGlzIG1lbW9y
-eSBibG9jayB0eXBlIGlzIHVzdWFsbHkgb25saW5lZCB0byB0aGUKKyAqICBNT1ZBQkxFIHpvbmUs
-IHRvIG1ha2Ugb2ZmbGluaW5nIGFuZCB1bnBsdWcgcG9zc2libGUuIEV4YW1wbGVzIGluY2x1ZGUK
-KyAqICBBQ1BJIERJTU1zIGFuZCBQUEMgTE1CcyBpZiB0aGUga2VybmVsIHN1cHBvcnRzIHJlbW92
-YWwgb2YgbWVtb3J5LgorICoKKyAqIE1FTU9SWV9CTE9DS19ESU1NX1VOUkVNT1ZBQkxFOgorICog
-IFRoaXMgbWVtb3J5IGJsb2NrIGlzIG1hbmFnZWQgYnkgYSBkZXZpY2UgZHJpdmVyIHRha2luZyBj
-YXJlIG9mIERJTU1zCisgKiAgKG9yIHNpbWlsYXIpLiBUaGVyZSBpcyBlaXRoZXIgbm8gSFcgaW50
-ZXJmYWNlIHRvIHJlbW92ZSB0aGUgRElNTSBvcgorICogIHRoZSBrZXJuZWwgZG9lcyBub3Qgc3Vw
-cG9ydCBvZmZsaW5pbmcvcmVtb3ZhbCBvZiBtZW1vcnksIHNvIHRoaXMgbWVtb3J5CisgKiAgYmxv
-Y2sgY2FuIG5ldmVyIGJlIHJlbW92ZWQuIEV4YW1wbGVzIGluY2x1ZGUgQUNQSSBESU1NcyBhbmQg
-UFBDIExNQnMKKyAqICB3aGVuIHJlbW92YWwgb2YgbWVtb3J5IGlzIG5vdCBzdXBwb3J0ZWQgYnkg
-dGhlIGtlcm5lbCwgYXMgd2VsbCBhcworICogIG1lbW9yeSBwcm9iZWQgbWFudWFsbHkgZnJvbSB1
-c2VyIHNwYWNlLgorICogIFRoaXMgbWVtb3J5IGJsb2NrIHR5cGUgaXMgdXN1YWxseSBvbmxpbmVk
-IHRvIHRoZSBOT1JNQUwgem9uZS4KKyAqCisgKiBNRU1PUllfQkxPQ0tfQkFMTE9PTjoKKyAqICBU
-aGlzIG1lbW9yeSBibG9jayB3YXMgYWRkZWQgYnkgYSBiYWxsb29uIGRldmljZSBkcml2ZXIgKG9y
-IHNpbWlsYXIpCisgKiAgdGhhdCBkb2VzIG5vdCByZXF1aXJlIGEgc3BlY2lmaWMgem9uZSBmb3Ig
-b3B0aW1hbCBvcGVyYXRpb24KKyAqICAoZS5nLiB1bnBsdWcgbWVtb3J5IHVzaW5nIGJhbGxvb24g
-aW5mbGF0aW9uIG9uIHRoaXMgbWVtb3J5IGJsb2NrIG9uCisgKiAgcGFnZSBncmFudWxhcml0eSku
-IEV4YW1wbGVzIGluY2x1ZGUgbWVtb3J5IGFkZGVkIGJ5IHRoZSBYRU4gYW5kIEh5cGVyLVYKKyAq
-ICBiYWxsb29uIGRyaXZlci4KKyAqICBUaGlzIG1lbW9yeSBibG9jayB0eXBlIGlzIHVzdWFsbHkg
-b25saW5lZCB0byB0aGUgTk9STUFMIHpvbmUuCisgKgorICogTUVNT1JZX0JMT0NLX0JBTExPT05f
-TU9WQUJMRToKKyAqICBUaGlzIG1lbW9yeSBibG9jayB3YXMgYWRkZWQgYnkgYSBiYWxsb29uIGRl
-dmljZSBkcml2ZXIgKG9yIHNpbWlsYXIpCisgKiAgdGhhdCBzdWdnZXN0cyB0byBvbmxpbmUgdGhp
-cyBtZW1vcnkgYmxvY2sgdG8gdGhlIE1PVkFCTEUgem9uZSBmb3IKKyAqICBvcHRpbWFsIG9wZXJh
-dGlvbiAoYS5nLiB1bnBsdWcgdXNpbmcgYmFsbG9vbiBpbmZsYXRpb24gb24gdGhpcyBtZW1vcnkK
-KyAqICBibG9jayBpbiBiaWdnZXIgY2h1bmtzIHRoYW4gcGFnZXMpLiBUaGVyZSBhcmUgbm8gZXhh
-bXBsZXMgeWV0LgorICogIFRoaXMgbWVtb3J5IGJsb2NrIHR5cGUgaXMgdXN1YWxseSBvbmxpbmVk
-IHRvIHRoZSBNT1ZBQkxFIHpvbmUuCisgKgorICogTUVNT1JZX0JMT0NLX1MzOTBYX1NUQU5EQlk6
-CisgKiAgVGhlIG1lbW9yeSBibG9jayBpcyBzcGVjaWFsIHN0YW5kYnkgbWVtb3J5IG9uIHMzOTB4
-LiBBcyBsb25nIGFzCisgKiAgb2ZmbGluZSwgbm8gbWVtb3J5IHdpbGwgYmUgYWxsb2NhdGVkIHRv
-IHRoZSBzeXN0ZW0gZm9yIHRoaXMgbWVtb3J5CisgKiAgYmxvY2suIE9ubGluaW5nIG1lbW9yeSB3
-aWxsIHJlc3VsdCBpbiBtZW1vcnkgZ2V0dGluZyBhbGxvY2F0ZWQgdG8gdGhlCisgKiAgc3lzdGVt
-IGFuZCBtZW1vcnkgY2FuIHVzdWFsbHkgbm90IGJlIG9mZmxpbmVkIGFnYWluLiBUaGUgbWVtb3J5
-IGJsb2NrCisgKiAgd2lsbCBuZXZlciBiZSByZW1vdmVkLiBUaGlzIG1lbW9yeSB0eXBlIGlzIHVz
-dWFsbHkgbm90IG9ubGluZWQKKyAqICBhdXRvbWF0aWNhbGx5IGJ1dCBleHBsaWNpdGx5IGJ5IHRo
-ZSBhZG1pbmlzdHJhdG9yLgogICovCiBlbnVtIHsKIAlNRU1PUllfQkxPQ0tfTk9ORSA9IDAsCiAJ
-TUVNT1JZX0JMT0NLX1VOU1BFQ0lGSUVELAogCU1FTU9SWV9CTE9DS19CT09ULAorCU1FTU9SWV9C
-TE9DS19ESU1NLAorCU1FTU9SWV9CTE9DS19ESU1NX1VOUkVNT1ZBQkxFLAorCU1FTU9SWV9CTE9D
-S19CQUxMT09OLAorCU1FTU9SWV9CTE9DS19CQUxMT09OX01PVkFCTEUsCisJTUVNT1JZX0JMT0NL
-X1MzOTBYX1NUQU5EQlksCiB9OwogCiAvKiBUaGVzZSBzdGF0ZXMgYXJlIGV4cG9zZWQgdG8gdXNl
-cnNwYWNlIGFzIHRleHQgc3RyaW5ncyBpbiBzeXNmcyAqLwpkaWZmIC0tZ2l0IGEvaW5jbHVkZS9s
-aW51eC9tZW1vcnlfaG90cGx1Zy5oIGIvaW5jbHVkZS9saW51eC9tZW1vcnlfaG90cGx1Zy5oCmlu
-ZGV4IDY2N2EzN2FhOWEzYy4uN2M4ODk1Mjk5ZThjIDEwMDY0NAotLS0gYS9pbmNsdWRlL2xpbnV4
-L21lbW9yeV9ob3RwbHVnLmgKKysrIGIvaW5jbHVkZS9saW51eC9tZW1vcnlfaG90cGx1Zy5oCkBA
-IC0zMjYsOSArMzI2LDkgQEAgc3RhdGljIGlubGluZSB2b2lkIF9fcmVtb3ZlX21lbW9yeShpbnQg
-bmlkLCB1NjQgc3RhcnQsIHU2NCBzaXplKSB7fQogZXh0ZXJuIHZvaWQgX19yZWYgZnJlZV9hcmVh
-X2luaXRfY29yZV9ob3RwbHVnKGludCBuaWQpOwogZXh0ZXJuIGludCB3YWxrX21lbW9yeV9yYW5n
-ZSh1bnNpZ25lZCBsb25nIHN0YXJ0X3BmbiwgdW5zaWduZWQgbG9uZyBlbmRfcGZuLAogCQl2b2lk
-ICphcmcsIGludCAoKmZ1bmMpKHN0cnVjdCBtZW1vcnlfYmxvY2sgKiwgdm9pZCAqKSk7Ci1leHRl
-cm4gaW50IF9fYWRkX21lbW9yeShpbnQgbmlkLCB1NjQgc3RhcnQsIHU2NCBzaXplKTsKLWV4dGVy
-biBpbnQgYWRkX21lbW9yeShpbnQgbmlkLCB1NjQgc3RhcnQsIHU2NCBzaXplKTsKLWV4dGVybiBp
-bnQgYWRkX21lbW9yeV9yZXNvdXJjZShpbnQgbmlkLCBzdHJ1Y3QgcmVzb3VyY2UgKnJlc291cmNl
-KTsKK2V4dGVybiBpbnQgX19hZGRfbWVtb3J5KGludCBuaWQsIHU2NCBzdGFydCwgdTY0IHNpemUs
-IGludCB0eXBlKTsKK2V4dGVybiBpbnQgYWRkX21lbW9yeShpbnQgbmlkLCB1NjQgc3RhcnQsIHU2
-NCBzaXplLCBpbnQgdHlwZSk7CitleHRlcm4gaW50IGFkZF9tZW1vcnlfcmVzb3VyY2UoaW50IG5p
-ZCwgc3RydWN0IHJlc291cmNlICpyZXNvdXJjZSwgaW50IHR5cGUpOwogZXh0ZXJuIGludCBhcmNo
-X2FkZF9tZW1vcnkoaW50IG5pZCwgdTY0IHN0YXJ0LCB1NjQgc2l6ZSwKIAkJCSAgIHN0cnVjdCB2
-bWVtX2FsdG1hcCAqYWx0bWFwLCBpbnQgdHlwZSk7CiBleHRlcm4gdm9pZCBtb3ZlX3Bmbl9yYW5n
-ZV90b196b25lKHN0cnVjdCB6b25lICp6b25lLCB1bnNpZ25lZCBsb25nIHN0YXJ0X3BmbiwKZGlm
-ZiAtLWdpdCBhL21tL21lbW9yeV9ob3RwbHVnLmMgYi9tbS9tZW1vcnlfaG90cGx1Zy5jCmluZGV4
-IDcyNDZmYWE0NDQ4OC4uZjEwOTAwMmQ2ZTZlIDEwMDY0NAotLS0gYS9tbS9tZW1vcnlfaG90cGx1
-Zy5jCisrKyBiL21tL21lbW9yeV9ob3RwbHVnLmMKQEAgLTEwNzEsNyArMTA3MSw3IEBAIHN0YXRp
-YyBpbnQgb25saW5lX21lbW9yeV9ibG9jayhzdHJ1Y3QgbWVtb3J5X2Jsb2NrICptZW0sIHZvaWQg
-KmFyZykKICAqCiAgKiB3ZSBhcmUgT0sgY2FsbGluZyBfX21lbWluaXQgc3R1ZmYgaGVyZSAtIHdl
-IGhhdmUgQ09ORklHX01FTU9SWV9IT1RQTFVHCiAgKi8KLWludCBfX3JlZiBhZGRfbWVtb3J5X3Jl
-c291cmNlKGludCBuaWQsIHN0cnVjdCByZXNvdXJjZSAqcmVzKQoraW50IF9fcmVmIGFkZF9tZW1v
-cnlfcmVzb3VyY2UoaW50IG5pZCwgc3RydWN0IHJlc291cmNlICpyZXMsIGludCB0eXBlKQogewog
-CXU2NCBzdGFydCwgc2l6ZTsKIAlib29sIG5ld19ub2RlID0gZmFsc2U7CkBAIC0xMDgwLDYgKzEw
-ODAsOSBAQCBpbnQgX19yZWYgYWRkX21lbW9yeV9yZXNvdXJjZShpbnQgbmlkLCBzdHJ1Y3QgcmVz
-b3VyY2UgKnJlcykKIAlzdGFydCA9IHJlcy0+c3RhcnQ7CiAJc2l6ZSA9IHJlc291cmNlX3NpemUo
-cmVzKTsKIAorCWlmICh0eXBlID0gTUVNT1JZX0JMT0NLX05PTkUpCisJCXJldHVybiAtRUlOVkFM
-OworCiAJcmV0ID0gY2hlY2tfaG90cGx1Z19tZW1vcnlfcmFuZ2Uoc3RhcnQsIHNpemUpOwogCWlm
-IChyZXQpCiAJCXJldHVybiByZXQ7CkBAIC0xMTAwLDcgKzExMDMsNyBAQCBpbnQgX19yZWYgYWRk
-X21lbW9yeV9yZXNvdXJjZShpbnQgbmlkLCBzdHJ1Y3QgcmVzb3VyY2UgKnJlcykKIAluZXdfbm9k
-ZSA9IHJldDsKIAogCS8qIGNhbGwgYXJjaCdzIG1lbW9yeSBob3RhZGQgKi8KLQlyZXQgPSBhcmNo
-X2FkZF9tZW1vcnkobmlkLCBzdGFydCwgc2l6ZSwgTlVMTCwgTUVNT1JZX1RZUEVfVU5TUEVDSUZJ
-RUQpOworCXJldCA9IGFyY2hfYWRkX21lbW9yeShuaWQsIHN0YXJ0LCBzaXplLCBOVUxMLCB0eXBl
-KTsKIAlpZiAocmV0IDwgMCkKIAkJZ290byBlcnJvcjsKIApAQCAtMTE0MSw3ICsxMTQ0LDcgQEAg
-aW50IF9fcmVmIGFkZF9tZW1vcnlfcmVzb3VyY2UoaW50IG5pZCwgc3RydWN0IHJlc291cmNlICpy
-ZXMpCiB9CiAKIC8qIHJlcXVpcmVzIGRldmljZV9ob3RwbHVnX2xvY2ssIHNlZSBhZGRfbWVtb3J5
-X3Jlc291cmNlKCkgKi8KLWludCBfX3JlZiBfX2FkZF9tZW1vcnkoaW50IG5pZCwgdTY0IHN0YXJ0
-LCB1NjQgc2l6ZSkKK2ludCBfX3JlZiBfX2FkZF9tZW1vcnkoaW50IG5pZCwgdTY0IHN0YXJ0LCB1
-NjQgc2l6ZSwgaW50IHR5cGUpCiB7CiAJc3RydWN0IHJlc291cmNlICpyZXM7CiAJaW50IHJldDsK
-QEAgLTExNTAsMTggKzExNTMsMTggQEAgaW50IF9fcmVmIF9fYWRkX21lbW9yeShpbnQgbmlkLCB1
-NjQgc3RhcnQsIHU2NCBzaXplKQogCWlmIChJU19FUlIocmVzKSkKIAkJcmV0dXJuIFBUUl9FUlIo
-cmVzKTsKIAotCXJldCA9IGFkZF9tZW1vcnlfcmVzb3VyY2UobmlkLCByZXMpOworCXJldCA9IGFk
-ZF9tZW1vcnlfcmVzb3VyY2UobmlkLCByZXMsIHR5cGUpOwogCWlmIChyZXQgPCAwKQogCQlyZWxl
-YXNlX21lbW9yeV9yZXNvdXJjZShyZXMpOwogCXJldHVybiByZXQ7CiB9CiAKLWludCBhZGRfbWVt
-b3J5KGludCBuaWQsIHU2NCBzdGFydCwgdTY0IHNpemUpCitpbnQgYWRkX21lbW9yeShpbnQgbmlk
-LCB1NjQgc3RhcnQsIHU2NCBzaXplLCBpbnQgdHlwZSkKIHsKIAlpbnQgcmM7CiAKIAlsb2NrX2Rl
-dmljZV9ob3RwbHVnKCk7Ci0JcmMgPSBfX2FkZF9tZW1vcnkobmlkLCBzdGFydCwgc2l6ZSk7CisJ
-cmMgPSBfX2FkZF9tZW1vcnkobmlkLCBzdGFydCwgc2l6ZSwgdHlwZSk7CiAJdW5sb2NrX2Rldmlj
-ZV9ob3RwbHVnKCk7CiAKIAlyZXR1cm4gcmM7Ci0tIAoyLjE3LjIK
+Add SO_TIMESTAMPING_NEW variant of socket timestamp options.
+This is the y2038 safe versions of the SO_TIMESTAMPING_OLD
+for all architectures.
+
+Signed-off-by: Deepa Dinamani <deepa.kernel@gmail.com>
+Cc: chris@zankel.net
+Cc: fenghua.yu@intel.com
+Cc: rth@twiddle.net
+Cc: tglx@linutronix.de
+Cc: ubraun@linux.ibm.com
+Cc: linux-alpha@vger.kernel.org
+Cc: linux-arch@vger.kernel.org
+Cc: linux-ia64@vger.kernel.org
+Cc: linux-mips@linux-mips.org
+Cc: linux-s390@vger.kernel.org
+Cc: linux-xtensa@linux-xtensa.org
+Cc: sparclinux@vger.kernel.org
+---
+ arch/alpha/include/uapi/asm/socket.h  |  5 +-
+ arch/mips/include/uapi/asm/socket.h   |  5 +-
+ arch/parisc/include/uapi/asm/socket.h |  5 +-
+ arch/sparc/include/uapi/asm/socket.h  |  8 +--
+ include/linux/socket.h                |  7 +++
+ include/uapi/asm-generic/socket.h     |  5 +-
+ include/uapi/linux/errqueue.h         |  4 ++
+ net/core/scm.c                        | 27 ++++++++++
+ net/core/sock.c                       | 73 +++++++++++++++------------
+ net/ipv4/tcp.c                        | 29 ++++++-----
+ net/smc/af_smc.c                      |  3 +-
+ net/socket.c                          | 16 +++---
+ 12 files changed, 122 insertions(+), 65 deletions(-)
+
+diff --git a/arch/alpha/include/uapi/asm/socket.h b/arch/alpha/include/uapi/asm/socket.h
+index 352e3dc0b3d9..8b9f6f7f8087 100644
+--- a/arch/alpha/include/uapi/asm/socket.h
++++ b/arch/alpha/include/uapi/asm/socket.h
+@@ -116,19 +116,20 @@
+ 
+ #define SO_TIMESTAMP_NEW         62
+ #define SO_TIMESTAMPNS_NEW       63
++#define SO_TIMESTAMPING_NEW      64
+ 
+ #if !defined(__KERNEL__)
+ 
+ #if __BITS_PER_LONG = 64
+ #define SO_TIMESTAMP		SO_TIMESTAMP_OLD
+ #define SO_TIMESTAMPNS		SO_TIMESTAMPNS_OLD
++#define SO_TIMESTAMPING		SO_TIMESTAMPING_OLD
+ #else
+ #define SO_TIMESTAMP (sizeof(time_t) = sizeof(__kernel_long_t) ? SO_TIMESTAMP_OLD : SO_TIMESTAMP_NEW)
+ #define SO_TIMESTAMPNS (sizeof(time_t) = sizeof(__kernel_long_t) ? SO_TIMESTAMPNS_OLD : SO_TIMESTAMPNS_NEW)
++#define SO_TIMESTAMPING (sizeof(time_t) = sizeof(__kernel_long_t) ? SO_TIMESTAMPING_OLD : SO_TIMESTAMPING_NEW)
+ #endif
+ 
+-#define SO_TIMESTAMPING        SO_TIMESTAMPING_OLD
+-
+ #define SCM_TIMESTAMP          SO_TIMESTAMP
+ #define SCM_TIMESTAMPNS        SO_TIMESTAMPNS
+ #define SCM_TIMESTAMPING       SO_TIMESTAMPING
+diff --git a/arch/mips/include/uapi/asm/socket.h b/arch/mips/include/uapi/asm/socket.h
+index d1752e3f1248..9fc80c5d54e4 100644
+--- a/arch/mips/include/uapi/asm/socket.h
++++ b/arch/mips/include/uapi/asm/socket.h
+@@ -126,19 +126,20 @@
+ 
+ #define SO_TIMESTAMP_NEW         62
+ #define SO_TIMESTAMPNS_NEW       63
++#define SO_TIMESTAMPING_NEW      64
+ 
+ #if !defined(__KERNEL__)
+ 
+ #if __BITS_PER_LONG = 64
+ #define SO_TIMESTAMP		SO_TIMESTAMP_OLD
+ #define SO_TIMESTAMPNS		SO_TIMESTAMPNS_OLD
++#define SO_TIMESTAMPING		SO_TIMESTAMPING_OLD
+ #else
+ #define SO_TIMESTAMP (sizeof(time_t) = sizeof(__kernel_long_t) ? SO_TIMESTAMP_OLD : SO_TIMESTAMP_NEW)
+ #define SO_TIMESTAMPNS (sizeof(time_t) = sizeof(__kernel_long_t) ? SO_TIMESTAMPNS_OLD : SO_TIMESTAMPNS_NEW)
++#define SO_TIMESTAMPING (sizeof(time_t) = sizeof(__kernel_long_t) ? SO_TIMESTAMPING_OLD : SO_TIMESTAMPING_NEW)
+ #endif
+ 
+-#define SO_TIMESTAMPING        SO_TIMESTAMPING_OLD
+-
+ #define SCM_TIMESTAMP          SO_TIMESTAMP
+ #define SCM_TIMESTAMPNS        SO_TIMESTAMPNS
+ #define SCM_TIMESTAMPING       SO_TIMESTAMPING
+diff --git a/arch/parisc/include/uapi/asm/socket.h b/arch/parisc/include/uapi/asm/socket.h
+index 0a45b668abd1..82f1c9447d6b 100644
+--- a/arch/parisc/include/uapi/asm/socket.h
++++ b/arch/parisc/include/uapi/asm/socket.h
+@@ -107,19 +107,20 @@
+ 
+ #define SO_TIMESTAMP_NEW         0x4037
+ #define SO_TIMESTAMPNS_NEW       0x4038
++#define SO_TIMESTAMPING_NEW      0x4039
+ 
+ #if !defined(__KERNEL__)
+ 
+ #if __BITS_PER_LONG = 64
+ #define SO_TIMESTAMP		SO_TIMESTAMP_OLD
+ #define SO_TIMESTAMPNS		SO_TIMESTAMPNS_OLD
++#define SO_TIMESTAMPING		SO_TIMESTAMPING_OLD
+ #else
+ #define SO_TIMESTAMP (sizeof(time_t) = sizeof(__kernel_long_t) ? SO_TIMESTAMP_OLD : SO_TIMESTAMP_NEW)
+ #define SO_TIMESTAMPNS (sizeof(time_t) = sizeof(__kernel_long_t) ? SO_TIMESTAMPNS_OLD : SO_TIMESTAMPNS_NEW)
++#define SO_TIMESTAMPING (sizeof(time_t) = sizeof(__kernel_long_t) ? SO_TIMESTAMPING_OLD : SO_TIMESTAMPING_NEW)
+ #endif
+ 
+-#define SO_TIMESTAMPING        SO_TIMESTAMPING_OLD
+-
+ #define SCM_TIMESTAMP          SO_TIMESTAMP
+ #define SCM_TIMESTAMPNS        SO_TIMESTAMPNS
+ #define SCM_TIMESTAMPING       SO_TIMESTAMPING
+diff --git a/arch/sparc/include/uapi/asm/socket.h b/arch/sparc/include/uapi/asm/socket.h
+index dc8527cae5a7..5bdbb25c28d2 100644
+--- a/arch/sparc/include/uapi/asm/socket.h
++++ b/arch/sparc/include/uapi/asm/socket.h
+@@ -106,20 +106,22 @@
+ #define SO_TIMESTAMPNS_OLD       0x0021
+ #define SO_TIMESTAMPING_OLD      0x0023
+ 
+-#define SO_TIMESTAMP_NEW         0x0040
+-#define SO_TIMESTAMPNS_NEW       0x0041
++#define SO_TIMESTAMP_NEW         0x0041
++#define SO_TIMESTAMPNS_NEW       0x0042
++#define SO_TIMESTAMPING_NEW      0x0043
+ 
+ #if !defined(__KERNEL__)
+ 
+ #if __BITS_PER_LONG = 64
+ #define SO_TIMESTAMP		SO_TIMESTAMP_OLD
+ #define SO_TIMESTAMPNS		SO_TIMESTAMPNS_OLD
++#define SO_TIMESTAMPING		SO_TIMESTAMPING_OLD
+ #else
+ #define SO_TIMESTAMP (sizeof(time_t) = sizeof(__kernel_long_t) ? SO_TIMESTAMP_OLD : SO_TIMESTAMP_NEW)
+ #define SO_TIMESTAMPNS (sizeof(time_t) = sizeof(__kernel_long_t) ? SO_TIMESTAMPNS_OLD : SO_TIMESTAMPNS_NEW)
++#define SO_TIMESTAMPING (sizeof(time_t) = sizeof(__kernel_long_t) ? SO_TIMESTAMPING_OLD : SO_TIMESTAMPING_NEW)
+ #endif
+ 
+-#define SO_TIMESTAMPING        SO_TIMESTAMPING_OLD
+ 
+ #define SCM_TIMESTAMP          SO_TIMESTAMP
+ #define SCM_TIMESTAMPNS        SO_TIMESTAMPNS
+diff --git a/include/linux/socket.h b/include/linux/socket.h
+index 8b571e9b9f76..372fd77698a2 100644
+--- a/include/linux/socket.h
++++ b/include/linux/socket.h
+@@ -350,6 +350,13 @@ extern int put_cmsg(struct msghdr*, int level, int type, int len, void *data);
+ 
+ struct timespec64;
+ 
++struct scm_timestamping_internal {
++	struct timespec64 ts[3];
++};
++
++extern void put_cmsg_scm_timestamping64(struct msghdr *msg, struct scm_timestamping_internal *tss);
++extern void put_cmsg_scm_timestamping(struct msghdr *msg, struct scm_timestamping_internal *tss);
++
+ /* The __sys_...msg variants allow MSG_CMSG_COMPAT iff
+  * forbid_cmsg_compat=false
+  */
+diff --git a/include/uapi/asm-generic/socket.h b/include/uapi/asm-generic/socket.h
+index 0b0fae6b57a9..2fdfb6126246 100644
+--- a/include/uapi/asm-generic/socket.h
++++ b/include/uapi/asm-generic/socket.h
+@@ -110,6 +110,7 @@
+ 
+ #define SO_TIMESTAMP_NEW         62
+ #define SO_TIMESTAMPNS_NEW       63
++#define SO_TIMESTAMPING_NEW         64
+ 
+ #if !defined(__KERNEL__)
+ 
+@@ -117,13 +118,13 @@
+ /* on 64-bit and x32, avoid the ?: operator */
+ #define SO_TIMESTAMP		SO_TIMESTAMP_OLD
+ #define SO_TIMESTAMPNS		SO_TIMESTAMPNS_OLD
++#define SO_TIMESTAMPING		SO_TIMESTAMPING_OLD
+ #else
+ #define SO_TIMESTAMP (sizeof(time_t) = sizeof(__kernel_long_t) ? SO_TIMESTAMP_OLD : SO_TIMESTAMP_NEW)
+ #define SO_TIMESTAMPNS (sizeof(time_t) = sizeof(__kernel_long_t) ? SO_TIMESTAMPNS_OLD : SO_TIMESTAMPNS_NEW)
++#define SO_TIMESTAMPING (sizeof(time_t) = sizeof(__kernel_long_t) ? SO_TIMESTAMPING_OLD : SO_TIMESTAMPING_NEW)
+ #endif
+ 
+-#define SO_TIMESTAMPING        SO_TIMESTAMPING_OLD
+-
+ #define SCM_TIMESTAMP          SO_TIMESTAMP
+ #define SCM_TIMESTAMPNS        SO_TIMESTAMPNS
+ #define SCM_TIMESTAMPING       SO_TIMESTAMPING
+diff --git a/include/uapi/linux/errqueue.h b/include/uapi/linux/errqueue.h
+index c0151200f7d1..d955b9e32288 100644
+--- a/include/uapi/linux/errqueue.h
++++ b/include/uapi/linux/errqueue.h
+@@ -41,6 +41,10 @@ struct scm_timestamping {
+ 	struct timespec ts[3];
+ };
+ 
++struct scm_timestamping64 {
++	struct __kernel_timespec ts[3];
++};
++
+ /* The type of scm_timestamping, passed in sock_extended_err ee_info.
+  * This defines the type of ts[0]. For SCM_TSTAMP_SND only, if ts[0]
+  * is zero, then this is a hardware timestamp and recorded in ts[2].
+diff --git a/net/core/scm.c b/net/core/scm.c
+index b1ff8a441748..52ef219cf6df 100644
+--- a/net/core/scm.c
++++ b/net/core/scm.c
+@@ -29,6 +29,7 @@
+ #include <linux/pid.h>
+ #include <linux/nsproxy.h>
+ #include <linux/slab.h>
++#include <linux/errqueue.h>
+ 
+ #include <linux/uaccess.h>
+ 
+@@ -252,6 +253,32 @@ int put_cmsg(struct msghdr * msg, int level, int type, int len, void *data)
+ }
+ EXPORT_SYMBOL(put_cmsg);
+ 
++void put_cmsg_scm_timestamping64(struct msghdr *msg, struct scm_timestamping_internal *tss_internal)
++{
++	struct scm_timestamping64 tss;
++	int i;
++
++	for (i = 0; i < ARRAY_SIZE(tss.ts); i++) {
++		tss.ts[i].tv_sec = tss_internal->ts[i].tv_sec;
++		tss.ts[i].tv_nsec = tss_internal->ts[i].tv_nsec;
++	}
++
++	put_cmsg(msg, SOL_SOCKET, SO_TIMESTAMPING_NEW, sizeof(tss), &tss);
++}
++EXPORT_SYMBOL(put_cmsg_scm_timestamping64);
++
++void put_cmsg_scm_timestamping(struct msghdr *msg, struct scm_timestamping_internal *tss_internal)
++{
++	struct scm_timestamping tss;
++	int i;
++
++	for (i = 0; i < ARRAY_SIZE(tss.ts); i++)
++		tss.ts[i] = timespec64_to_timespec(tss_internal->ts[i]);
++
++	put_cmsg(msg, SOL_SOCKET, SO_TIMESTAMPING_OLD, sizeof(tss), &tss);
++}
++EXPORT_SYMBOL(put_cmsg_scm_timestamping);
++
+ void scm_detach_fds(struct msghdr *msg, struct scm_cookie *scm)
+ {
+ 	struct cmsghdr __user *cm
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 7b485dfaa400..29cc1f0f0071 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -677,6 +677,45 @@ static void setsockopt_timestamp(struct sock *sk, int type, int val)
+ 	sock_enable_timestamp(sk, SOCK_TIMESTAMP);
+ }
+ 
++static int setsockopt_timestamping(struct sock *sk, int type, int val)
++{
++	if (type = SO_TIMESTAMPING_NEW)
++		sock_set_flag(sk, SOCK_TSTAMP_NEW);
++
++	if (val & ~SOF_TIMESTAMPING_MASK)
++		return -EINVAL;
++
++	if (val & SOF_TIMESTAMPING_OPT_ID &&
++	    !(sk->sk_tsflags & SOF_TIMESTAMPING_OPT_ID)) {
++		if (sk->sk_protocol = IPPROTO_TCP &&
++		    sk->sk_type = SOCK_STREAM) {
++			if ((1 << sk->sk_state) &
++			    (TCPF_CLOSE | TCPF_LISTEN))
++				return -EINVAL;
++			sk->sk_tskey = tcp_sk(sk)->snd_una;
++		} else {
++			sk->sk_tskey = 0;
++		}
++	}
++
++	if (val & SOF_TIMESTAMPING_OPT_STATS &&
++	    !(val & SOF_TIMESTAMPING_OPT_TSONLY))
++		return -EINVAL;
++
++	sk->sk_tsflags = val;
++	if (val & SOF_TIMESTAMPING_RX_SOFTWARE) {
++		sock_enable_timestamp(sk,
++				      SOCK_TIMESTAMPING_RX_SOFTWARE);
++	} else {
++		if (type = SO_TIMESTAMPING_NEW)
++			sock_reset_flag(sk, SOCK_TSTAMP_NEW);
++		sock_disable_timestamp(sk,
++				       (1UL << SOCK_TIMESTAMPING_RX_SOFTWARE));
++	}
++
++	return 0;
++}
++
+ /*
+  *	This is meant for all protocols to use and covers goings on
+  *	at the socket level. Everything here is generic.
+@@ -852,39 +891,7 @@ int sock_setsockopt(struct socket *sock, int level, int optname,
+ 		break;
+ 
+ 	case SO_TIMESTAMPING_OLD:
+-		if (val & ~SOF_TIMESTAMPING_MASK) {
+-			ret = -EINVAL;
+-			break;
+-		}
+-
+-		if (val & SOF_TIMESTAMPING_OPT_ID &&
+-		    !(sk->sk_tsflags & SOF_TIMESTAMPING_OPT_ID)) {
+-			if (sk->sk_protocol = IPPROTO_TCP &&
+-			    sk->sk_type = SOCK_STREAM) {
+-				if ((1 << sk->sk_state) &
+-				    (TCPF_CLOSE | TCPF_LISTEN)) {
+-					ret = -EINVAL;
+-					break;
+-				}
+-				sk->sk_tskey = tcp_sk(sk)->snd_una;
+-			} else {
+-				sk->sk_tskey = 0;
+-			}
+-		}
+-
+-		if (val & SOF_TIMESTAMPING_OPT_STATS &&
+-		    !(val & SOF_TIMESTAMPING_OPT_TSONLY)) {
+-			ret = -EINVAL;
+-			break;
+-		}
+-
+-		sk->sk_tsflags = val;
+-		if (val & SOF_TIMESTAMPING_RX_SOFTWARE)
+-			sock_enable_timestamp(sk,
+-					      SOCK_TIMESTAMPING_RX_SOFTWARE);
+-		else
+-			sock_disable_timestamp(sk,
+-					       (1UL << SOCK_TIMESTAMPING_RX_SOFTWARE));
++		ret = setsockopt_timestamping(sk, optname, val);
+ 		break;
+ 
+ 	case SO_RCVLOWAT:
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index b470f470343a..09ef0d8141fb 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -1847,17 +1847,17 @@ static int tcp_zerocopy_receive(struct sock *sk,
+ #endif
+ 
+ static void tcp_update_recv_tstamps(struct sk_buff *skb,
+-				    struct scm_timestamping *tss)
++				    struct scm_timestamping_internal *tss)
+ {
+ 	if (skb->tstamp)
+-		tss->ts[0] = ktime_to_timespec(skb->tstamp);
++		tss->ts[0] = ktime_to_timespec64(skb->tstamp);
+ 	else
+-		tss->ts[0] = (struct timespec) {0};
++		tss->ts[0] = (struct timespec64) {0};
+ 
+ 	if (skb_hwtstamps(skb)->hwtstamp)
+-		tss->ts[2] = ktime_to_timespec(skb_hwtstamps(skb)->hwtstamp);
++		tss->ts[2] = ktime_to_timespec64(skb_hwtstamps(skb)->hwtstamp);
+ 	else
+-		tss->ts[2] = (struct timespec) {0};
++		tss->ts[2] = (struct timespec64) {0};
+ }
+ 
+ static void tcp_recv_sw_timestamp(struct msghdr *msg, const struct sock *sk, struct timespec64 *ts)
+@@ -1900,29 +1900,30 @@ static void tcp_recv_sw_timestamp(struct msghdr *msg, const struct sock *sk, str
+ 
+ /* Similar to __sock_recv_timestamp, but does not require an skb */
+ static void tcp_recv_timestamp(struct msghdr *msg, const struct sock *sk,
+-			       struct scm_timestamping *tss)
++			       struct scm_timestamping_internal *tss)
+ {
+ 	bool has_timestamping = false;
+-	struct timespec64 ts = timespec_to_timespec64(tss->ts[0]);
+ 
+-	tcp_recv_sw_timestamp(msg, sk, &ts);
++	tcp_recv_sw_timestamp(msg, sk, &tss->ts[0]);
+ 
+ 	if (sk->sk_tsflags & SOF_TIMESTAMPING_SOFTWARE)
+ 		has_timestamping = true;
+ 	else
+-		tss->ts[0] = (struct timespec) {0};
++		tss->ts[0] = (struct timespec64) {0};
+ 
+ 	if (tss->ts[2].tv_sec || tss->ts[2].tv_nsec) {
+ 		if (sk->sk_tsflags & SOF_TIMESTAMPING_RAW_HARDWARE)
+ 			has_timestamping = true;
+ 		else
+-			tss->ts[2] = (struct timespec) {0};
++			tss->ts[2] = (struct timespec64) {0};
+ 	}
+ 
+ 	if (has_timestamping) {
+-		tss->ts[1] = (struct timespec) {0};
+-		put_cmsg(msg, SOL_SOCKET, SO_TIMESTAMPING_OLD,
+-			 sizeof(*tss), tss);
++		tss->ts[1] = (struct timespec64) {0};
++		if (sock_flag(sk, SOCK_TSTAMP_NEW))
++			put_cmsg_scm_timestamping64(msg, tss);
++		else
++			put_cmsg_scm_timestamping(msg, tss);
+ 	}
+ }
+ 
+@@ -1963,7 +1964,7 @@ int tcp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int nonblock,
+ 	long timeo;
+ 	struct sk_buff *skb, *last;
+ 	u32 urg_hole = 0;
+-	struct scm_timestamping tss;
++	struct scm_timestamping_internal tss;
+ 	bool has_tss = false;
+ 	bool has_cmsg;
+ 
+diff --git a/net/smc/af_smc.c b/net/smc/af_smc.c
+index 80e2119f1c70..e588305e9cf4 100644
+--- a/net/smc/af_smc.c
++++ b/net/smc/af_smc.c
+@@ -280,7 +280,8 @@ static void smc_copy_sock_settings(struct sock *nsk, struct sock *osk,
+ 			     (1UL << SOCK_RXQ_OVFL) | \
+ 			     (1UL << SOCK_WIFI_STATUS) | \
+ 			     (1UL << SOCK_NOFCS) | \
+-			     (1UL << SOCK_FILTER_LOCKED))
++			     (1UL << SOCK_FILTER_LOCKED) | \
++			     (1UL << SOCK_TSTAMP_NEW))
+ /* copy only relevant settings and flags of SOL_SOCKET level from smc to
+  * clc socket (since smc is not called for these options from net/core)
+  */
+diff --git a/net/socket.c b/net/socket.c
+index 9abeb6bc9cfe..14fa6febfc3d 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -731,6 +731,7 @@ static void sock_recv_sw_timestamp(struct msghdr *msg, struct sock *sk,
+ 			 sizeof(ts), &ts);
+ 	}
+ }
++
+ /*
+  * called from sock_recv_timestamp() if sock_flag(sk, SOCK_RCVTSTAMP)
+  * or sock_flag(sk, SOCK_RCVTSTAMPNS)
+@@ -739,8 +740,8 @@ void __sock_recv_timestamp(struct msghdr *msg, struct sock *sk,
+ 	struct sk_buff *skb)
+ {
+ 	int need_software_tstamp = sock_flag(sk, SOCK_RCVTSTAMP) || sock_flag(sk, SOCK_RCVTSTAMPNS);
+-	struct scm_timestamping tss;
+-	int empty = 1, false_tstamp = 0;
++	struct scm_timestamping_internal tss;
++	int empty = 1, false_tstamp = 0, new_tstamp = 0;
+ 	struct skb_shared_hwtstamps *shhwtstamps  		skb_hwtstamps(skb);
+ 
+@@ -756,20 +757,23 @@ void __sock_recv_timestamp(struct msghdr *msg, struct sock *sk,
+ 
+ 	memset(&tss, 0, sizeof(tss));
+ 	if ((sk->sk_tsflags & SOF_TIMESTAMPING_SOFTWARE) &&
+-	    ktime_to_timespec_cond(skb->tstamp, tss.ts + 0))
++	    ktime_to_timespec64_cond(skb->tstamp, tss.ts + 0))
+ 		empty = 0;
+ 	if (shhwtstamps &&
+ 	    (sk->sk_tsflags & SOF_TIMESTAMPING_RAW_HARDWARE) &&
+ 	    !skb_is_swtx_tstamp(skb, false_tstamp) &&
+-	    ktime_to_timespec_cond(shhwtstamps->hwtstamp, tss.ts + 2)) {
++	    ktime_to_timespec64_cond(shhwtstamps->hwtstamp, tss.ts + 2)) {
+ 		empty = 0;
+ 		if ((sk->sk_tsflags & SOF_TIMESTAMPING_OPT_PKTINFO) &&
+ 		    !skb_is_err_queue(skb))
+ 			put_ts_pktinfo(msg, skb);
+ 	}
+ 	if (!empty) {
+-		put_cmsg(msg, SOL_SOCKET,
+-			 SO_TIMESTAMPING_OLD, sizeof(tss), &tss);
++		new_tstamp = sock_flag(sk, SOCK_TSTAMP_NEW);
++		if (new_tstamp)
++			put_cmsg_scm_timestamping64(msg, &tss);
++		else
++			put_cmsg_scm_timestamping(msg, &tss);
+ 
+ 		if (skb_is_err_queue(skb) && skb->len &&
+ 		    SKB_EXT_ERR(skb)->opt_stats)
+-- 
+2.17.1
