@@ -1,66 +1,69 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Fri, 30 Nov 2018 13:22:16 +0000
-Subject: [PATCH 08/23] parisc/ccio: remove the mapping_error dma_map_ops method
-Message-Id: <20181130132231.16512-9-hch@lst.de>
+From: Lianbo Jiang <lijiang@redhat.com>
+Date: Sat, 24 Nov 2018 05:12:23 +0000
+Subject: [PATCH 2/2 RESEND v7] x86/kexec_file: add reserved e820 ranges to kdump kernel e820 table
+Message-Id: <20181124051223.19994-3-lijiang@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20181130132231.16512-1-hch@lst.de>
-In-Reply-To: <20181130132231.16512-1-hch@lst.de>
+References: <20181124051223.19994-1-lijiang@redhat.com>
+In-Reply-To: <20181124051223.19994-1-lijiang@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: iommu@lists.linux-foundation.org
-Cc: Linus Torvalds <torvalds@linux-foundation.org>, Jon Mason <jdmason@kudzu.us>, Joerg Roedel <joro@8bytes.org>, David Woodhouse <dwmw2@infradead.org>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, xen-devel@lists.xenproject.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: kexec@lists.infradead.org, x86@kernel.org, linux-ia64@vger.kernel.org, linux-efi@vger.kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, akpm@linux-foundation.org, dave.hansen@linux.intel.com, luto@kernel.org, peterz@infradead.org, ard.biesheuvel@linaro.org, tony.luck@intel.com, fenghua.yu@intel.com, dyoung@redhat.com, bhe@redhat.com
 
-The CCIO iommu code already returns (~(dma_addr_t)0x0) on mapping
-failures, so we can switch over to returning DMA_MAPPING_ERROR and let
-the core dma-mapping code handle the rest.
+At present, when use the kexec_file_load syscall to load the kernel image
+and initramfs(for example: kexec -s -p xxx), the upstream kernel does not
+pass the e820 reserved ranges to the second kernel, which might cause two
+problems:
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+The first one is the MMCONFIG issue. The basic problem is that this device
+is in PCI segment 1 and the kernel PCI probing can not find it without all
+the e820 I/O reservations being present in the e820 table. And the kdump
+kernel does not have those reservations because the kexec command does not
+pass the I/O reservation via the "memmap=xxx" command line option. (This
+problem does not show up for other vendors, as SGI is apparently the
+actually fails for everyone, but devices in segment 0 are then found by
+some legacy lookup method.) The workaround for this is to pass the I/O
+reserved regions to the kdump kernel.
+
+MMCONFIG(aka ECAM) space is described in the ACPI MCFG table. If you don't
+have ECAM: (a) PCI devices won't work at all on non-x86 systems that use
+only ECAM for config access, (b) you won't be albe to access devices on
+non-0 segments, (c) you won't be able to access extended config space(
+address 0x100-0xffff), which means none of the Extended Capabilities will
+be available(AER, ACS, ATS, etc). [Bjorn's comment]
+
+The second issue is that the SME kdump kernel doesn't work without the
+e820 reserved ranges. When SME is active in kdump kernel, actually, those
+reserved regions are still decrypted, but because those reserved ranges are
+not present at all in kdump kernel e820 table, those reserved regions are
+considered as encrypted, it goes wrong.
+
+The e820 reserved range is useful in kdump kernel, so it is necessary to
+pass the e820 reserved ranges to kdump kernel.
+
+Suggested-by: Dave Young <dyoung@redhat.com>
+Signed-off-by: Lianbo Jiang <lijiang@redhat.com>
 ---
- drivers/parisc/ccio-dma.c | 10 +---------
- 1 file changed, 1 insertion(+), 9 deletions(-)
+ arch/x86/kernel/crash.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/drivers/parisc/ccio-dma.c b/drivers/parisc/ccio-dma.c
-index 701a7d6a74d5..714aac72df0e 100644
---- a/drivers/parisc/ccio-dma.c
-+++ b/drivers/parisc/ccio-dma.c
-@@ -110,8 +110,6 @@
- #define CMD_TLB_DIRECT_WRITE 35         /* IO_COMMAND for I/O TLB Writes     */
- #define CMD_TLB_PURGE        33         /* IO_COMMAND to Purge I/O TLB entry */
+diff --git a/arch/x86/kernel/crash.c b/arch/x86/kernel/crash.c
+index f631a3f15587..5354a84f1684 100644
+--- a/arch/x86/kernel/crash.c
++++ b/arch/x86/kernel/crash.c
+@@ -380,6 +380,12 @@ int crash_setup_memmap_entries(struct kimage *image, struct boot_params *params)
+ 	walk_iomem_res_desc(IORES_DESC_ACPI_NV_STORAGE, flags, 0, -1, &cmd,
+ 			memmap_entry_callback);
  
--#define CCIO_MAPPING_ERROR    (~(dma_addr_t)0)
--
- struct ioa_registers {
-         /* Runway Supervisory Set */
-         int32_t    unused1[12];
-@@ -740,7 +738,7 @@ ccio_map_single(struct device *dev, void *addr, size_t size,
- 	BUG_ON(!dev);
- 	ioc = GET_IOC(dev);
- 	if (!ioc)
--		return CCIO_MAPPING_ERROR;
-+		return DMA_MAPPING_ERROR;
- 
- 	BUG_ON(size <= 0);
- 
-@@ -1021,11 +1019,6 @@ ccio_unmap_sg(struct device *dev, struct scatterlist *sglist, int nents,
- 	DBG_RUN_SG("%s() DONE (nents %d)\n", __func__, nents);
- }
- 
--static int ccio_mapping_error(struct device *dev, dma_addr_t dma_addr)
--{
--	return dma_addr = CCIO_MAPPING_ERROR;
--}
--
- static const struct dma_map_ops ccio_ops = {
- 	.dma_supported =	ccio_dma_supported,
- 	.alloc =		ccio_alloc,
-@@ -1034,7 +1027,6 @@ static const struct dma_map_ops ccio_ops = {
- 	.unmap_page =		ccio_unmap_page,
- 	.map_sg = 		ccio_map_sg,
- 	.unmap_sg = 		ccio_unmap_sg,
--	.mapping_error =	ccio_mapping_error,
- };
- 
- #ifdef CONFIG_PROC_FS
++	/* Add e820 reserved ranges */
++	cmd.type = E820_TYPE_RESERVED;
++	flags = IORESOURCE_MEM;
++	walk_iomem_res_desc(IORES_DESC_RESERVED, flags, 0, -1, &cmd,
++			   memmap_entry_callback);
++
+ 	/* Add crashk_low_res region */
+ 	if (crashk_low_res.end) {
+ 		ei.addr = crashk_low_res.start;
 -- 
-2.19.1
+2.17.1
