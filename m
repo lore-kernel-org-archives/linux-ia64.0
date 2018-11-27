@@ -1,97 +1,23 @@
-From: Tony Luck <tony.luck@intel.com>
-Date: Mon, 26 Nov 2018 19:27:03 +0000
-Subject: [PATCH] ia64: export node_distance function
-Message-Id: <20181126192703.16899-1-tony.luck@intel.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Tue, 27 Nov 2018 02:16:41 +0000
+Subject: Re: [PATCH] ia64: export node_distance function
+Message-Id: <CAHk-=wi4JV5dRLRrHmus0XaXu7YTszdUWEKQBVdx7taTBFg-eg@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20181103183716.28841-1-mb@lightnvm.io>
 In-Reply-To: <20181103183716.28841-1-mb@lightnvm.io>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-From: Matias Bjørling <mb@lightnvm.io>
+On Mon, Nov 26, 2018 at 11:27 AM Tony Luck <tony.luck@intel.com> wrote:
+>
+> The numa_slit variable used by node_distance is available to a
+> module as long as it is linked at compile-time. However, it is
+> not available to loadable modules. Leading to errors such as:
+[...]
 
-The numa_slit variable used by node_distance is available to a
-module as long as it is linked at compile-time. However, it is
-not available to loadable modules. Leading to errors such as:
+Tony: Just checking - you aren't planning on doing a git pull request,
+and want me to apply this directly as a patch?
 
-  ERROR: "numa_slit" [drivers/nvme/host/nvme-core.ko] undefined!
-
-The error above is caused by the nvme multipath code that makes
-use of node_distance for its path calculation. When the patch was
-added, the lightnvm subsystem would select nvme and always compile
-it in, leading to the node_distance call to always succeed.
-However, when this requirement was removed, nvme could be compiled
-in as a module, which exposed this bug.
-
-This patch extracts node_distance to a function and exports it.
-Since ACPI is depending on node_distance being a simple lookup to
-numa_slit, the previous behavior is exposed as slit_distance and its
-users updated.
-
-Fixes: f333444708f82 "nvme: take node locality into account when selecting a path"
-Fixes: 73569e11032f "lightnvm: remove dependencies on BLK_DEV_NVME and PCI"
-Signed-off-by: Matias Bjøring <mb@lightnvm.io>
-Signed-off-by: Tony Luck <tony.luck@intel.com>
----
- arch/ia64/include/asm/numa.h | 4 +++-
- arch/ia64/kernel/acpi.c      | 6 +++---
- arch/ia64/mm/numa.c          | 6 ++++++
- 3 files changed, 12 insertions(+), 4 deletions(-)
-
-diff --git a/arch/ia64/include/asm/numa.h b/arch/ia64/include/asm/numa.h
-index ebef7f40aabb..c5c253cb9bd6 100644
---- a/arch/ia64/include/asm/numa.h
-+++ b/arch/ia64/include/asm/numa.h
-@@ -59,7 +59,9 @@ extern struct node_cpuid_s node_cpuid[NR_CPUS];
-  */
- 
- extern u8 numa_slit[MAX_NUMNODES * MAX_NUMNODES];
--#define node_distance(from,to) (numa_slit[(from) * MAX_NUMNODES + (to)])
-+#define slit_distance(from,to) (numa_slit[(from) * MAX_NUMNODES + (to)])
-+extern int __node_distance(int from, int to);
-+#define node_distance(from,to) __node_distance(from, to)
- 
- extern int paddr_to_nid(unsigned long paddr);
- 
-diff --git a/arch/ia64/kernel/acpi.c b/arch/ia64/kernel/acpi.c
-index 1dacbf5e9e09..41eb281709da 100644
---- a/arch/ia64/kernel/acpi.c
-+++ b/arch/ia64/kernel/acpi.c
-@@ -578,8 +578,8 @@ void __init acpi_numa_fixup(void)
- 	if (!slit_table) {
- 		for (i = 0; i < MAX_NUMNODES; i++)
- 			for (j = 0; j < MAX_NUMNODES; j++)
--				node_distance(i, j) = i = j ? LOCAL_DISTANCE :
--							REMOTE_DISTANCE;
-+				slit_distance(i, j) = i = j ?
-+					LOCAL_DISTANCE : REMOTE_DISTANCE;
- 		return;
- 	}
- 
-@@ -592,7 +592,7 @@ void __init acpi_numa_fixup(void)
- 			if (!pxm_bit_test(j))
- 				continue;
- 			node_to = pxm_to_node(j);
--			node_distance(node_from, node_to) +			slit_distance(node_from, node_to)  			    slit_table->entry[i * slit_table->locality_count + j];
- 		}
- 	}
-diff --git a/arch/ia64/mm/numa.c b/arch/ia64/mm/numa.c
-index 3861d6e32d5f..a03803506b0c 100644
---- a/arch/ia64/mm/numa.c
-+++ b/arch/ia64/mm/numa.c
-@@ -36,6 +36,12 @@ struct node_cpuid_s node_cpuid[NR_CPUS]   */
- u8 numa_slit[MAX_NUMNODES * MAX_NUMNODES];
- 
-+int __node_distance(int from, int to)
-+{
-+	return slit_distance(from, to);
-+}
-+EXPORT_SYMBOL(__node_distance);
-+
- /* Identify which cnode a physical address resides on */
- int
- paddr_to_nid(unsigned long paddr)
--- 
-2.19.1
+             Linus
