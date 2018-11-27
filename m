@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Tue, 27 Nov 2018 02:28:14 +0000
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Tue, 27 Nov 2018 02:33:09 +0000
 Subject: Re: [PATCH] ia64: export node_distance function
-Message-Id: <DE5B1FBB-78A1-4DB9-BF3B-F276B84BC0B1@intel.com>
+Message-Id: <CAHk-=whyU2k7B1u5mf4bYYxBDgkMyX1o8RkyLhE1yv4QA2KpWg@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20181103183716.28841-1-mb@lightnvm.io>
 In-Reply-To: <20181103183716.28841-1-mb@lightnvm.io>
@@ -10,21 +10,21 @@ Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-Correct. Unless you=92d prefer it as a git pull.
+On Mon, Nov 26, 2018 at 6:28 PM Luck, Tony <tony.luck@intel.com> wrote:
+>
+> Correct. Unless you=E2=80=99d prefer it as a git pull.
 
-Sent from my iPhone
+I have applied it as a patch - it's just that if you're somebody I
+know sends me git pull requests _too_, then it's generally best to
+tell me explicitly that this patch is supposed to be applied as a
+patch.
 
-> On Nov 26, 2018, at 18:17, Linus Torvalds <torvalds@linux-foundation.org>=
- wrote:
->=20
->> On Mon, Nov 26, 2018 at 11:27 AM Tony Luck <tony.luck@intel.com> wrote:
->>=20
->> The numa_slit variable used by node_distance is available to a
->> module as long as it is linked at compile-time. However, it is
->> not available to loadable modules. Leading to errors such as:
-> [...]
->=20
-> Tony: Just checking - you aren't planning on doing a git pull request,
-> and want me to apply this directly as a patch?
->=20
->             Linus
+Otherwise it's ambiguous - am I cc'd for some informational reason and
+I'll get it later in a git pull request, or did you send it to me
+explicitly because you're _not_ planning on sending it as a git pull..
+
+Put another way: if I'm not sure what I'm supposed to do about a
+patch, mistakes happen (ie I can go "ok, I saw it, I'll archive it and
+get it later through git").
+
+                  Linus
