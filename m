@@ -1,107 +1,68 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Thu, 22 Nov 2018 14:03:03 +0000
-Subject: [PATCH 07/24] mips/jazz: remove the mapping_error dma_map_ops method
-Message-Id: <20181122140320.24080-8-hch@lst.de>
+From: Lianbo Jiang <lijiang@redhat.com>
+Date: Thu, 29 Nov 2018 08:09:56 +0000
+Subject: [PATCH 2/2 v8] x86/kexec_file: add reserved e820 ranges to kdump kernel e820 table
+Message-Id: <20181129080956.20776-3-lijiang@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20181122140320.24080-1-hch@lst.de>
-In-Reply-To: <20181122140320.24080-1-hch@lst.de>
+References: <20181129080956.20776-1-lijiang@redhat.com>
+In-Reply-To: <20181129080956.20776-1-lijiang@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: iommu@lists.linux-foundation.org
-Cc: Linus Torvalds <torvalds@linux-foundation.org>, Jon Mason <jdmason@kudzu.us>, Joerg Roedel <joro@8bytes.org>, David Woodhouse <dwmw2@infradead.org>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, xen-devel@lists.xenproject.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: kexec@lists.infradead.org, x86@kernel.org, linux-ia64@vger.kernel.org, linux-efi@vger.kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, akpm@linux-foundation.org, dave.hansen@linux.intel.com, luto@kernel.org, peterz@infradead.org, ard.biesheuvel@linaro.org, tony.luck@intel.com, fenghua.yu@intel.com, dyoung@redhat.com, bhe@redhat.com
 
-The Jazz iommu code already returns (~(dma_addr_t)0x0) on mapping
-failures, so we can switch over to returning DMA_MAPPING_ERROR and
-let the core dma-mapping code handle the rest.
+At present, when use the kexec_file_load syscall to load the kernel image
+and initramfs(for example: kexec -s -p xxx), kernel does not pass the e820
+reserved ranges to the second kernel, which might cause two problems:
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+The first one is the MMCONFIG issue. The basic problem is that this device
+is in PCI segment 1 and the kernel PCI probing can not find it without all
+the e820 I/O reservations being present in the e820 table. And the kdump
+kernel does not have those reservations because the kexec command does not
+pass the I/O reservation via the "memmap=xxx" command line option. (This
+problem does not show up for other vendors, as SGI is apparently the
+actually fails for everyone, but devices in segment 0 are then found by
+some legacy lookup method.) The workaround for this is to pass the I/O
+reserved regions to the kdump kernel.
+
+MMCONFIG(aka ECAM) space is described in the ACPI MCFG table. If you don't
+have ECAM: (a) PCI devices won't work at all on non-x86 systems that use
+only ECAM for config access, (b) you won't be albe to access devices on
+non-0 segments, (c) you won't be able to access extended config space(
+address 0x100-0xffff), which means none of the Extended Capabilities will
+be available(AER, ACS, ATS, etc). [Bjorn's comment]
+
+The second issue is that the SME kdump kernel doesn't work without the
+e820 reserved ranges. When SME is active in kdump kernel, actually, those
+reserved regions are still decrypted, but because those reserved ranges are
+not present at all in kdump kernel e820 table, those reserved regions are
+considered as encrypted, it goes wrong.
+
+The e820 reserved range is useful in kdump kernel, so it is necessary to
+pass the e820 reserved ranges to kdump kernel.
+
+Suggested-by: Dave Young <dyoung@redhat.com>
+Signed-off-by: Lianbo Jiang <lijiang@redhat.com>
 ---
- arch/mips/include/asm/jazzdma.h |  6 ------
- arch/mips/jazz/jazzdma.c        | 16 +++++-----------
- 2 files changed, 5 insertions(+), 17 deletions(-)
+ arch/x86/kernel/crash.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/arch/mips/include/asm/jazzdma.h b/arch/mips/include/asm/jazzdma.h
-index d913439c738c..d13f940022d5 100644
---- a/arch/mips/include/asm/jazzdma.h
-+++ b/arch/mips/include/asm/jazzdma.h
-@@ -39,12 +39,6 @@ extern int vdma_get_enable(int channel);
- #define VDMA_PAGE(a)		((unsigned int)(a) >> 12)
- #define VDMA_OFFSET(a)		((unsigned int)(a) & (VDMA_PAGESIZE-1))
+diff --git a/arch/x86/kernel/crash.c b/arch/x86/kernel/crash.c
+index f631a3f15587..5354a84f1684 100644
+--- a/arch/x86/kernel/crash.c
++++ b/arch/x86/kernel/crash.c
+@@ -380,6 +380,12 @@ int crash_setup_memmap_entries(struct kimage *image, struct boot_params *params)
+ 	walk_iomem_res_desc(IORES_DESC_ACPI_NV_STORAGE, flags, 0, -1, &cmd,
+ 			memmap_entry_callback);
  
--/*
-- * error code returned by vdma_alloc()
-- * (See also arch/mips/kernel/jazzdma.c)
-- */
--#define VDMA_ERROR		0xffffffff
--
- /*
-  * VDMA pagetable entry description
-  */
-diff --git a/arch/mips/jazz/jazzdma.c b/arch/mips/jazz/jazzdma.c
-index 4c41ed0a637e..6256d35dbf4d 100644
---- a/arch/mips/jazz/jazzdma.c
-+++ b/arch/mips/jazz/jazzdma.c
-@@ -104,12 +104,12 @@ unsigned long vdma_alloc(unsigned long paddr, unsigned long size)
- 		if (vdma_debug)
- 			printk("vdma_alloc: Invalid physical address: %08lx\n",
- 			       paddr);
--		return VDMA_ERROR;	/* invalid physical address */
-+		return DMA_MAPPING_ERROR;	/* invalid physical address */
- 	}
- 	if (size > 0x400000 || size = 0) {
- 		if (vdma_debug)
- 			printk("vdma_alloc: Invalid size: %08lx\n", size);
--		return VDMA_ERROR;	/* invalid physical address */
-+		return DMA_MAPPING_ERROR;	/* invalid physical address */
- 	}
- 
- 	spin_lock_irqsave(&vdma_lock, flags);
-@@ -123,7 +123,7 @@ unsigned long vdma_alloc(unsigned long paddr, unsigned long size)
- 		       first < VDMA_PGTBL_ENTRIES) first++;
- 		if (first + pages > VDMA_PGTBL_ENTRIES) {	/* nothing free */
- 			spin_unlock_irqrestore(&vdma_lock, flags);
--			return VDMA_ERROR;
-+			return DMA_MAPPING_ERROR;
- 		}
- 
- 		last = first + 1;
-@@ -569,7 +569,7 @@ static void *jazz_dma_alloc(struct device *dev, size_t size,
- 		return NULL;
- 
- 	*dma_handle = vdma_alloc(virt_to_phys(ret), size);
--	if (*dma_handle = VDMA_ERROR) {
-+	if (*dma_handle = DMA_MAPPING_ERROR) {
- 		dma_direct_free_pages(dev, size, ret, *dma_handle, attrs);
- 		return NULL;
- 	}
-@@ -620,7 +620,7 @@ static int jazz_dma_map_sg(struct device *dev, struct scatterlist *sglist,
- 			arch_sync_dma_for_device(dev, sg_phys(sg), sg->length,
- 				dir);
- 		sg->dma_address = vdma_alloc(sg_phys(sg), sg->length);
--		if (sg->dma_address = VDMA_ERROR)
-+		if (sg->dma_address = DMA_MAPPING_ERROR)
- 			return 0;
- 		sg_dma_len(sg) = sg->length;
- 	}
-@@ -674,11 +674,6 @@ static void jazz_dma_sync_sg_for_cpu(struct device *dev,
- 		arch_sync_dma_for_cpu(dev, sg_phys(sg), sg->length, dir);
- }
- 
--static int jazz_dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
--{
--	return dma_addr = VDMA_ERROR;
--}
--
- const struct dma_map_ops jazz_dma_ops = {
- 	.alloc			= jazz_dma_alloc,
- 	.free			= jazz_dma_free,
-@@ -692,6 +687,5 @@ const struct dma_map_ops jazz_dma_ops = {
- 	.sync_sg_for_device	= jazz_dma_sync_sg_for_device,
- 	.dma_supported		= dma_direct_supported,
- 	.cache_sync		= arch_dma_cache_sync,
--	.mapping_error		= jazz_dma_mapping_error,
- };
- EXPORT_SYMBOL(jazz_dma_ops);
++	/* Add e820 reserved ranges */
++	cmd.type = E820_TYPE_RESERVED;
++	flags = IORESOURCE_MEM;
++	walk_iomem_res_desc(IORES_DESC_RESERVED, flags, 0, -1, &cmd,
++			   memmap_entry_callback);
++
+ 	/* Add crashk_low_res region */
+ 	if (crashk_low_res.end) {
+ 		ei.addr = crashk_low_res.start;
 -- 
-2.19.1
+2.17.1
