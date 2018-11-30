@@ -1,7 +1,7 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Fri, 30 Nov 2018 13:22:21 +0000
-Subject: [PATCH 13/23] ia64/sba_iommu: remove the mapping_error dma_map_ops method
-Message-Id: <20181130132231.16512-14-hch@lst.de>
+Date: Fri, 30 Nov 2018 13:22:29 +0000
+Subject: [PATCH 21/23] xen-swiotlb: remove the mapping_error dma_map_ops method
+Message-Id: <20181130132231.16512-22-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20181130132231.16512-1-hch@lst.de>
 In-Reply-To: <20181130132231.16512-1-hch@lst.de>
@@ -16,41 +16,57 @@ the core dma-mapping code handle the rest.
 
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- arch/ia64/hp/common/sba_iommu.c | 8 +-------
- 1 file changed, 1 insertion(+), 7 deletions(-)
+ drivers/xen/swiotlb-xen.c | 12 ++----------
+ 1 file changed, 2 insertions(+), 10 deletions(-)
 
-diff --git a/arch/ia64/hp/common/sba_iommu.c b/arch/ia64/hp/common/sba_iommu.c
-index c56f28c98102..0d21c0b5b23d 100644
---- a/arch/ia64/hp/common/sba_iommu.c
-+++ b/arch/ia64/hp/common/sba_iommu.c
-@@ -974,7 +974,7 @@ static dma_addr_t sba_map_page(struct device *dev, struct page *page,
+diff --git a/drivers/xen/swiotlb-xen.c b/drivers/xen/swiotlb-xen.c
+index 2a7f545bd0b5..6dc969d5ea2f 100644
+--- a/drivers/xen/swiotlb-xen.c
++++ b/drivers/xen/swiotlb-xen.c
+@@ -53,8 +53,6 @@
+  * API.
+  */
  
- 	pide = sba_alloc_range(ioc, dev, size);
- 	if (pide < 0)
--		return 0;
+-#define XEN_SWIOTLB_ERROR_CODE	(~(dma_addr_t)0x0)
+-
+ static char *xen_io_tlb_start, *xen_io_tlb_end;
+ static unsigned long xen_io_tlb_nslabs;
+ /*
+@@ -406,7 +404,7 @@ static dma_addr_t xen_swiotlb_map_page(struct device *dev, struct page *page,
+ 	map = swiotlb_tbl_map_single(dev, start_dma_addr, phys, size, dir,
+ 				     attrs);
+ 	if (map = SWIOTLB_MAP_ERROR)
+-		return XEN_SWIOTLB_ERROR_CODE;
 +		return DMA_MAPPING_ERROR;
  
- 	iovp = (dma_addr_t) pide << iovp_shift;
+ 	dev_addr = xen_phys_to_bus(map);
+ 	xen_dma_map_page(dev, pfn_to_page(map >> PAGE_SHIFT),
+@@ -421,7 +419,7 @@ static dma_addr_t xen_swiotlb_map_page(struct device *dev, struct page *page,
+ 	attrs |= DMA_ATTR_SKIP_CPU_SYNC;
+ 	swiotlb_tbl_unmap_single(dev, map, size, dir, attrs);
  
-@@ -2155,11 +2155,6 @@ static int sba_dma_supported (struct device *dev, u64 mask)
- 	return ((mask & 0xFFFFFFFFUL) = 0xFFFFFFFFUL);
+-	return XEN_SWIOTLB_ERROR_CODE;
++	return DMA_MAPPING_ERROR;
  }
  
--static int sba_dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
+ /*
+@@ -700,11 +698,6 @@ xen_swiotlb_get_sgtable(struct device *dev, struct sg_table *sgt,
+ 	return dma_common_get_sgtable(dev, sgt, cpu_addr, handle, size, attrs);
+ }
+ 
+-static int xen_swiotlb_mapping_error(struct device *dev, dma_addr_t dma_addr)
 -{
--	return 0;
+-	return dma_addr = XEN_SWIOTLB_ERROR_CODE;
 -}
 -
- __setup("nosbagart", nosbagart);
- 
- static int __init
-@@ -2193,7 +2188,6 @@ const struct dma_map_ops sba_dma_ops = {
- 	.map_sg			= sba_map_sg_attrs,
- 	.unmap_sg		= sba_unmap_sg_attrs,
- 	.dma_supported		= sba_dma_supported,
--	.mapping_error		= sba_dma_mapping_error,
+ const struct dma_map_ops xen_swiotlb_dma_ops = {
+ 	.alloc = xen_swiotlb_alloc_coherent,
+ 	.free = xen_swiotlb_free_coherent,
+@@ -719,5 +712,4 @@ const struct dma_map_ops xen_swiotlb_dma_ops = {
+ 	.dma_supported = xen_swiotlb_dma_supported,
+ 	.mmap = xen_swiotlb_dma_mmap,
+ 	.get_sgtable = xen_swiotlb_get_sgtable,
+-	.mapping_error	= xen_swiotlb_mapping_error,
  };
- 
- void sba_dma_init(void)
 -- 
 2.19.1
