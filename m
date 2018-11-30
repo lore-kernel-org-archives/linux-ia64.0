@@ -1,198 +1,219 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Thu, 22 Nov 2018 14:03:10 +0000
-Subject: [PATCH 14/24] ia64/sba_iommu: improve internal map_page users
-Message-Id: <20181122140320.24080-15-hch@lst.de>
+Date: Fri, 30 Nov 2018 13:22:12 +0000
+Subject: [PATCH 04/23] powerpc/iommu: remove the mapping_error dma_map_ops method
+Message-Id: <20181130132231.16512-5-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20181122140320.24080-1-hch@lst.de>
-In-Reply-To: <20181122140320.24080-1-hch@lst.de>
+References: <20181130132231.16512-1-hch@lst.de>
+In-Reply-To: <20181130132231.16512-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: iommu@lists.linux-foundation.org
 Cc: Linus Torvalds <torvalds@linux-foundation.org>, Jon Mason <jdmason@kudzu.us>, Joerg Roedel <joro@8bytes.org>, David Woodhouse <dwmw2@infradead.org>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, xen-devel@lists.xenproject.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Remove the odd sba_{un,}map_single_attrs wrappers, check errors
-everywhere, and remove the completly bogus alloc_pages_node call that
-uses the dma attributes argument as the node id.
+The powerpc iommu code already returns (~(dma_addr_t)0x0) on mapping
+failures, so we can switch over to returning DMA_MAPPING_ERROR and let
+the core dma-mapping code handle the rest.
 
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- arch/ia64/hp/common/sba_iommu.c | 71 ++++++++++++---------------------
- 1 file changed, 26 insertions(+), 45 deletions(-)
+ arch/powerpc/include/asm/iommu.h     |  4 ----
+ arch/powerpc/kernel/dma-iommu.c      |  6 ------
+ arch/powerpc/kernel/iommu.c          | 28 ++++++++++++++--------------
+ arch/powerpc/platforms/cell/iommu.c  |  1 -
+ arch/powerpc/platforms/pseries/vio.c |  3 +--
+ 5 files changed, 15 insertions(+), 27 deletions(-)
 
-diff --git a/arch/ia64/hp/common/sba_iommu.c b/arch/ia64/hp/common/sba_iommu.c
-index e8a93b07283e..b953282d4704 100644
---- a/arch/ia64/hp/common/sba_iommu.c
-+++ b/arch/ia64/hp/common/sba_iommu.c
-@@ -907,11 +907,12 @@ sba_mark_invalid(struct ioc *ioc, dma_addr_t iova, size_t byte_cnt)
- }
+diff --git a/arch/powerpc/include/asm/iommu.h b/arch/powerpc/include/asm/iommu.h
+index 35db0cbc9222..55312990d1d2 100644
+--- a/arch/powerpc/include/asm/iommu.h
++++ b/arch/powerpc/include/asm/iommu.h
+@@ -143,8 +143,6 @@ struct scatterlist;
  
- /**
-- * sba_map_single_attrs - map one buffer and return IOVA for DMA
-+ * sba_map_page - map one buffer and return IOVA for DMA
-  * @dev: instance of PCI owned by the driver that's asking.
-- * @addr:  driver buffer to map.
-- * @size:  number of bytes to map in driver buffer.
-- * @dir:  R/W or both.
-+ * @page: page to map
-+ * @poff: offset into page
-+ * @size: number of bytes to map
-+ * @dir: dma direction
-  * @attrs: optional dma attributes
-  *
-  * See Documentation/DMA-API-HOWTO.txt
-@@ -944,7 +945,7 @@ static dma_addr_t sba_map_page(struct device *dev, struct page *page,
-  		** Device is bit capable of DMA'ing to the buffer...
- 		** just return the PCI address of ptr
-  		*/
--		DBG_BYPASS("sba_map_single_attrs() bypass mask/addr: "
-+		DBG_BYPASS("sba_map_page() bypass mask/addr: "
- 			   "0x%lx/0x%lx\n",
- 		           to_pci_dev(dev)->dma_mask, pci_addr);
- 		return pci_addr;
-@@ -966,7 +967,7 @@ static dma_addr_t sba_map_page(struct device *dev, struct page *page,
+ #ifdef CONFIG_PPC64
  
- #ifdef ASSERT_PDIR_SANITY
- 	spin_lock_irqsave(&ioc->res_lock, flags);
--	if (sba_check_pdir(ioc,"Check before sba_map_single_attrs()"))
-+	if (sba_check_pdir(ioc,"Check before sba_map_page()"))
- 		panic("Sanity check failed");
- 	spin_unlock_irqrestore(&ioc->res_lock, flags);
- #endif
-@@ -997,20 +998,12 @@ static dma_addr_t sba_map_page(struct device *dev, struct page *page,
- 	/* form complete address */
- #ifdef ASSERT_PDIR_SANITY
- 	spin_lock_irqsave(&ioc->res_lock, flags);
--	sba_check_pdir(ioc,"Check after sba_map_single_attrs()");
-+	sba_check_pdir(ioc,"Check after sba_map_page()");
- 	spin_unlock_irqrestore(&ioc->res_lock, flags);
- #endif
- 	return SBA_IOVA(ioc, iovp, offset);
- }
- 
--static dma_addr_t sba_map_single_attrs(struct device *dev, void *addr,
--				       size_t size, enum dma_data_direction dir,
--				       unsigned long attrs)
--{
--	return sba_map_page(dev, virt_to_page(addr),
--			    (unsigned long)addr & ~PAGE_MASK, size, dir, attrs);
--}
+-#define IOMMU_MAPPING_ERROR		(~(dma_addr_t)0x0)
 -
- #ifdef ENABLE_MARK_CLEAN
- static SBA_INLINE void
- sba_mark_clean(struct ioc *ioc, dma_addr_t iova, size_t size)
-@@ -1036,7 +1029,7 @@ sba_mark_clean(struct ioc *ioc, dma_addr_t iova, size_t size)
- #endif
- 
- /**
-- * sba_unmap_single_attrs - unmap one IOVA and free resources
-+ * sba_unmap_page - unmap one IOVA and free resources
-  * @dev: instance of PCI owned by the driver that's asking.
-  * @iova:  IOVA of driver buffer previously mapped.
-  * @size:  number of bytes mapped in driver buffer.
-@@ -1063,7 +1056,7 @@ static void sba_unmap_page(struct device *dev, dma_addr_t iova, size_t size,
- 		/*
- 		** Address does not fall w/in IOVA, must be bypassing
- 		*/
--		DBG_BYPASS("sba_unmap_single_attrs() bypass addr: 0x%lx\n",
-+		DBG_BYPASS("sba_unmap_page() bypass addr: 0x%lx\n",
- 			   iova);
- 
- #ifdef ENABLE_MARK_CLEAN
-@@ -1114,12 +1107,6 @@ static void sba_unmap_page(struct device *dev, dma_addr_t iova, size_t size,
- #endif /* DELAYED_RESOURCE_CNT = 0 */
- }
- 
--void sba_unmap_single_attrs(struct device *dev, dma_addr_t iova, size_t size,
--			    enum dma_data_direction dir, unsigned long attrs)
--{
--	sba_unmap_page(dev, iova, size, dir, attrs);
--}
--
- /**
-  * sba_alloc_coherent - allocate/map shared mem for DMA
-  * @dev: instance of PCI owned by the driver that's asking.
-@@ -1132,30 +1119,20 @@ static void *
- sba_alloc_coherent(struct device *dev, size_t size, dma_addr_t *dma_handle,
- 		   gfp_t flags, unsigned long attrs)
+ static inline void set_iommu_table_base(struct device *dev,
+ 					struct iommu_table *base)
  {
-+	struct page *page;
- 	struct ioc *ioc;
- 	void *addr;
+@@ -242,8 +240,6 @@ static inline int __init tce_iommu_bus_notifier_init(void)
+ }
+ #endif /* !CONFIG_IOMMU_API */
  
- 	ioc = GET_IOC(dev);
- 	ASSERT(ioc);
- 
--#ifdef CONFIG_NUMA
--	{
--		struct page *page;
+-int dma_iommu_mapping_error(struct device *dev, dma_addr_t dma_addr);
 -
--		page = alloc_pages_node(ioc->node, flags, get_order(size));
--		if (unlikely(!page))
--			return NULL;
+ #else
+ 
+ static inline void *get_iommu_table_base(struct device *dev)
+diff --git a/arch/powerpc/kernel/dma-iommu.c b/arch/powerpc/kernel/dma-iommu.c
+index f9fe2080ceb9..5ebacf0fe41a 100644
+--- a/arch/powerpc/kernel/dma-iommu.c
++++ b/arch/powerpc/kernel/dma-iommu.c
+@@ -106,11 +106,6 @@ static u64 dma_iommu_get_required_mask(struct device *dev)
+ 	return mask;
+ }
+ 
+-int dma_iommu_mapping_error(struct device *dev, dma_addr_t dma_addr)
+-{
+-	return dma_addr = IOMMU_MAPPING_ERROR;
+-}
 -
--		addr = page_address(page);
--	}
--#else
--	addr = (void *) __get_free_pages(flags, get_order(size));
--#endif
--	if (unlikely(!addr))
-+	page = alloc_pages(ioc->node, get_order(size));
-+	if (unlikely(!page))
- 		return NULL;
+ struct dma_map_ops dma_iommu_ops = {
+ 	.alloc			= dma_iommu_alloc_coherent,
+ 	.free			= dma_iommu_free_coherent,
+@@ -121,6 +116,5 @@ struct dma_map_ops dma_iommu_ops = {
+ 	.map_page		= dma_iommu_map_page,
+ 	.unmap_page		= dma_iommu_unmap_page,
+ 	.get_required_mask	= dma_iommu_get_required_mask,
+-	.mapping_error		= dma_iommu_mapping_error,
+ };
+ EXPORT_SYMBOL(dma_iommu_ops);
+diff --git a/arch/powerpc/kernel/iommu.c b/arch/powerpc/kernel/iommu.c
+index f0dc680e659a..ca7f73488c62 100644
+--- a/arch/powerpc/kernel/iommu.c
++++ b/arch/powerpc/kernel/iommu.c
+@@ -197,11 +197,11 @@ static unsigned long iommu_range_alloc(struct device *dev,
+ 	if (unlikely(npages = 0)) {
+ 		if (printk_ratelimit())
+ 			WARN_ON(1);
+-		return IOMMU_MAPPING_ERROR;
++		return DMA_MAPPING_ERROR;
+ 	}
  
-+	addr = page_address(page);
- 	memset(addr, 0, size);
--	*dma_handle = virt_to_phys(addr);
-+	*dma_handle = page_to_phys(page);
+ 	if (should_fail_iommu(dev))
+-		return IOMMU_MAPPING_ERROR;
++		return DMA_MAPPING_ERROR;
  
- #ifdef ALLOW_IOV_BYPASS
- 	ASSERT(dev->coherent_dma_mask);
-@@ -1174,9 +1151,10 @@ sba_alloc_coherent(struct device *dev, size_t size, dma_addr_t *dma_handle,
- 	 * If device can't bypass or bypass is disabled, pass the 32bit fake
- 	 * device to map single to get an iova mapping.
+ 	/*
+ 	 * We don't need to disable preemption here because any CPU can
+@@ -277,7 +277,7 @@ static unsigned long iommu_range_alloc(struct device *dev,
+ 		} else {
+ 			/* Give up */
+ 			spin_unlock_irqrestore(&(pool->lock), flags);
+-			return IOMMU_MAPPING_ERROR;
++			return DMA_MAPPING_ERROR;
+ 		}
+ 	}
+ 
+@@ -309,13 +309,13 @@ static dma_addr_t iommu_alloc(struct device *dev, struct iommu_table *tbl,
+ 			      unsigned long attrs)
+ {
+ 	unsigned long entry;
+-	dma_addr_t ret = IOMMU_MAPPING_ERROR;
++	dma_addr_t ret = DMA_MAPPING_ERROR;
+ 	int build_fail;
+ 
+ 	entry = iommu_range_alloc(dev, tbl, npages, NULL, mask, align_order);
+ 
+-	if (unlikely(entry = IOMMU_MAPPING_ERROR))
+-		return IOMMU_MAPPING_ERROR;
++	if (unlikely(entry = DMA_MAPPING_ERROR))
++		return DMA_MAPPING_ERROR;
+ 
+ 	entry += tbl->it_offset;	/* Offset into real TCE table */
+ 	ret = entry << tbl->it_page_shift;	/* Set the return dma address */
+@@ -327,12 +327,12 @@ static dma_addr_t iommu_alloc(struct device *dev, struct iommu_table *tbl,
+ 
+ 	/* tbl->it_ops->set() only returns non-zero for transient errors.
+ 	 * Clean up the table bitmap in this case and return
+-	 * IOMMU_MAPPING_ERROR. For all other errors the functionality is
++	 * DMA_MAPPING_ERROR. For all other errors the functionality is
+ 	 * not altered.
  	 */
--	*dma_handle = sba_map_single_attrs(&ioc->sac_only_dev->dev, addr,
--					   size, 0, 0);
--
-+	*dma_handle = sba_map_page(&ioc->sac_only_dev->dev, page, 0, size,
-+			DMA_BIDIRECTIONAL, 0);
-+	if (dma_mapping_error(dev, *dma_handle))
-+		return NULL;
- 	return addr;
- }
+ 	if (unlikely(build_fail)) {
+ 		__iommu_free(tbl, ret, npages);
+-		return IOMMU_MAPPING_ERROR;
++		return DMA_MAPPING_ERROR;
+ 	}
  
-@@ -1193,7 +1171,7 @@ sba_alloc_coherent(struct device *dev, size_t size, dma_addr_t *dma_handle,
- static void sba_free_coherent(struct device *dev, size_t size, void *vaddr,
- 			      dma_addr_t dma_handle, unsigned long attrs)
+ 	/* Flush/invalidate TLB caches if necessary */
+@@ -477,7 +477,7 @@ int ppc_iommu_map_sg(struct device *dev, struct iommu_table *tbl,
+ 		DBG("  - vaddr: %lx, size: %lx\n", vaddr, slen);
+ 
+ 		/* Handle failure */
+-		if (unlikely(entry = IOMMU_MAPPING_ERROR)) {
++		if (unlikely(entry = DMA_MAPPING_ERROR)) {
+ 			if (!(attrs & DMA_ATTR_NO_WARN) &&
+ 			    printk_ratelimit())
+ 				dev_info(dev, "iommu_alloc failed, tbl %p "
+@@ -544,7 +544,7 @@ int ppc_iommu_map_sg(struct device *dev, struct iommu_table *tbl,
+ 	 */
+ 	if (outcount < incount) {
+ 		outs = sg_next(outs);
+-		outs->dma_address = IOMMU_MAPPING_ERROR;
++		outs->dma_address = DMA_MAPPING_ERROR;
+ 		outs->dma_length = 0;
+ 	}
+ 
+@@ -562,7 +562,7 @@ int ppc_iommu_map_sg(struct device *dev, struct iommu_table *tbl,
+ 			npages = iommu_num_pages(s->dma_address, s->dma_length,
+ 						 IOMMU_PAGE_SIZE(tbl));
+ 			__iommu_free(tbl, vaddr, npages);
+-			s->dma_address = IOMMU_MAPPING_ERROR;
++			s->dma_address = DMA_MAPPING_ERROR;
+ 			s->dma_length = 0;
+ 		}
+ 		if (s = outs)
+@@ -776,7 +776,7 @@ dma_addr_t iommu_map_page(struct device *dev, struct iommu_table *tbl,
+ 			  unsigned long mask, enum dma_data_direction direction,
+ 			  unsigned long attrs)
  {
--	sba_unmap_single_attrs(dev, dma_handle, size, 0, 0);
-+	sba_unmap_page(dev, dma_handle, size, 0, 0);
- 	free_pages((unsigned long) vaddr, get_order(size));
- }
- 
-@@ -1483,7 +1461,10 @@ static int sba_map_sg_attrs(struct device *dev, struct scatterlist *sglist,
- 	/* Fast path single entry scatterlists. */
- 	if (nents = 1) {
- 		sglist->dma_length = sglist->length;
--		sglist->dma_address = sba_map_single_attrs(dev, sba_sg_address(sglist), sglist->length, dir, attrs);
-+		sglist->dma_address = sba_map_page(dev, sg_page(sglist),
-+				sglist->offset, sglist->length, dir, attrs);
-+		if (dma_mapping_error(dev, sglist->dma_address))
-+			return 0;
- 		return 1;
+-	dma_addr_t dma_handle = IOMMU_MAPPING_ERROR;
++	dma_addr_t dma_handle = DMA_MAPPING_ERROR;
+ 	void *vaddr;
+ 	unsigned long uaddr;
+ 	unsigned int npages, align;
+@@ -796,7 +796,7 @@ dma_addr_t iommu_map_page(struct device *dev, struct iommu_table *tbl,
+ 		dma_handle = iommu_alloc(dev, tbl, vaddr, npages, direction,
+ 					 mask >> tbl->it_page_shift, align,
+ 					 attrs);
+-		if (dma_handle = IOMMU_MAPPING_ERROR) {
++		if (dma_handle = DMA_MAPPING_ERROR) {
+ 			if (!(attrs & DMA_ATTR_NO_WARN) &&
+ 			    printk_ratelimit())  {
+ 				dev_info(dev, "iommu_alloc failed, tbl %p "
+@@ -868,7 +868,7 @@ void *iommu_alloc_coherent(struct device *dev, struct iommu_table *tbl,
+ 	io_order = get_iommu_order(size, tbl);
+ 	mapping = iommu_alloc(dev, tbl, ret, nio_pages, DMA_BIDIRECTIONAL,
+ 			      mask >> tbl->it_page_shift, io_order, 0);
+-	if (mapping = IOMMU_MAPPING_ERROR) {
++	if (mapping = DMA_MAPPING_ERROR) {
+ 		free_pages((unsigned long)ret, order);
+ 		return NULL;
  	}
+diff --git a/arch/powerpc/platforms/cell/iommu.c b/arch/powerpc/platforms/cell/iommu.c
+index 12352a58072a..af2a3c15e0ec 100644
+--- a/arch/powerpc/platforms/cell/iommu.c
++++ b/arch/powerpc/platforms/cell/iommu.c
+@@ -654,7 +654,6 @@ static const struct dma_map_ops dma_iommu_fixed_ops = {
+ 	.dma_supported  = dma_suported_and_switch,
+ 	.map_page       = dma_fixed_map_page,
+ 	.unmap_page     = dma_fixed_unmap_page,
+-	.mapping_error	= dma_iommu_mapping_error,
+ };
  
-@@ -1572,8 +1553,8 @@ static void sba_unmap_sg_attrs(struct device *dev, struct scatterlist *sglist,
+ static void cell_dma_dev_setup(struct device *dev)
+diff --git a/arch/powerpc/platforms/pseries/vio.c b/arch/powerpc/platforms/pseries/vio.c
+index 88f1ad1d6309..a29ad7db918a 100644
+--- a/arch/powerpc/platforms/pseries/vio.c
++++ b/arch/powerpc/platforms/pseries/vio.c
+@@ -519,7 +519,7 @@ static dma_addr_t vio_dma_iommu_map_page(struct device *dev, struct page *page,
+ {
+ 	struct vio_dev *viodev = to_vio_dev(dev);
+ 	struct iommu_table *tbl;
+-	dma_addr_t ret = IOMMU_MAPPING_ERROR;
++	dma_addr_t ret = DMA_MAPPING_ERROR;
  
- 	while (nents && sglist->dma_length) {
+ 	tbl = get_iommu_table_base(dev);
+ 	if (vio_cmo_alloc(viodev, roundup(size, IOMMU_PAGE_SIZE(tbl)))) {
+@@ -625,7 +625,6 @@ static const struct dma_map_ops vio_dma_mapping_ops = {
+ 	.unmap_page        = vio_dma_iommu_unmap_page,
+ 	.dma_supported     = vio_dma_iommu_dma_supported,
+ 	.get_required_mask = vio_dma_get_required_mask,
+-	.mapping_error	   = dma_iommu_mapping_error,
+ };
  
--		sba_unmap_single_attrs(dev, sglist->dma_address,
--				       sglist->dma_length, dir, attrs);
-+		sba_unmap_page(dev, sglist->dma_address, sglist->dma_length,
-+			       dir, attrs);
- 		sglist = sg_next(sglist);
- 		nents--;
- 	}
+ /**
 -- 
 2.19.1
