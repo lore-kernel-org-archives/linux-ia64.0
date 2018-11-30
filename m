@@ -1,10 +1,10 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Thu, 22 Nov 2018 14:03:15 +0000
-Subject: [PATCH 19/24] iommu: remove the mapping_error dma_map_ops method
-Message-Id: <20181122140320.24080-20-hch@lst.de>
+Date: Fri, 30 Nov 2018 13:22:28 +0000
+Subject: [PATCH 20/23] iommu/dma-iommu: remove the mapping_error dma_map_ops method
+Message-Id: <20181130132231.16512-21-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20181122140320.24080-1-hch@lst.de>
-In-Reply-To: <20181122140320.24080-1-hch@lst.de>
+References: <20181130132231.16512-1-hch@lst.de>
+In-Reply-To: <20181130132231.16512-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -14,92 +14,152 @@ Cc: Linus Torvalds <torvalds@linux-foundation.org>, Jon Mason <jdmason@kudzu.us>
 Return DMA_MAPPING_ERROR instead of 0 on a dma mapping failure and let
 the core dma-mapping code handle the rest.
 
-Note that the existing code used AMD_IOMMU_MAPPING_ERROR to check from
-a 0 return from the IOVA allocator, which is replaced with an explicit
-0 as in the implementation and other users of that interface.
-
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- drivers/iommu/amd_iommu.c | 18 +++++-------------
- 1 file changed, 5 insertions(+), 13 deletions(-)
+ arch/arm64/mm/dma-mapping.c |  7 +++----
+ drivers/iommu/dma-iommu.c   | 23 ++++++++---------------
+ include/linux/dma-iommu.h   |  1 -
+ 3 files changed, 11 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/iommu/amd_iommu.c b/drivers/iommu/amd_iommu.c
-index 1167ff0416cf..c5d6c7c42b0a 100644
---- a/drivers/iommu/amd_iommu.c
-+++ b/drivers/iommu/amd_iommu.c
-@@ -55,8 +55,6 @@
- #include "amd_iommu_types.h"
- #include "irq_remapping.h"
+diff --git a/arch/arm64/mm/dma-mapping.c b/arch/arm64/mm/dma-mapping.c
+index fdc26ea5036c..4cc70029cf8d 100644
+--- a/arch/arm64/mm/dma-mapping.c
++++ b/arch/arm64/mm/dma-mapping.c
+@@ -397,7 +397,7 @@ static void *__iommu_alloc_attrs(struct device *dev, size_t size,
+ 			return NULL;
  
--#define AMD_IOMMU_MAPPING_ERROR	0
--
- #define CMD_SET_TYPE(cmd, t) ((cmd)->data[1] |= ((t) << 28))
+ 		*handle = iommu_dma_map_page(dev, page, 0, iosize, ioprot);
+-		if (iommu_dma_mapping_error(dev, *handle)) {
++		if (*handle = DMA_MAPPING_ERROR) {
+ 			if (coherent)
+ 				__free_pages(page, get_order(size));
+ 			else
+@@ -414,7 +414,7 @@ static void *__iommu_alloc_attrs(struct device *dev, size_t size,
+ 			return NULL;
  
- #define LOOP_TIMEOUT	100000
-@@ -2339,7 +2337,7 @@ static dma_addr_t __map_single(struct device *dev,
- 	paddr &= PAGE_MASK;
+ 		*handle = iommu_dma_map_page(dev, page, 0, iosize, ioprot);
+-		if (iommu_dma_mapping_error(dev, *handle)) {
++		if (*handle = DMA_MAPPING_ERROR) {
+ 			dma_release_from_contiguous(dev, page,
+ 						    size >> PAGE_SHIFT);
+ 			return NULL;
+@@ -574,7 +574,7 @@ static dma_addr_t __iommu_map_page(struct device *dev, struct page *page,
+ 	dma_addr_t dev_addr = iommu_dma_map_page(dev, page, offset, size, prot);
  
- 	address = dma_ops_alloc_iova(dev, dma_dom, pages, dma_mask);
--	if (address = AMD_IOMMU_MAPPING_ERROR)
-+	if (!address)
- 		goto out;
+ 	if (!coherent && !(attrs & DMA_ATTR_SKIP_CPU_SYNC) &&
+-	    !iommu_dma_mapping_error(dev, dev_addr))
++	    dev_addr != DMA_MAPPING_ERROR)
+ 		__dma_map_area(page_address(page) + offset, size, dir);
  
- 	prot = dir2prot(direction);
-@@ -2376,7 +2374,7 @@ static dma_addr_t __map_single(struct device *dev,
- 
- 	dma_ops_free_iova(dma_dom, address, pages);
- 
--	return AMD_IOMMU_MAPPING_ERROR;
-+	return DMA_MAPPING_ERROR;
- }
- 
- /*
-@@ -2427,7 +2425,7 @@ static dma_addr_t map_page(struct device *dev, struct page *page,
- 	if (PTR_ERR(domain) = -EINVAL)
- 		return (dma_addr_t)paddr;
- 	else if (IS_ERR(domain))
--		return AMD_IOMMU_MAPPING_ERROR;
-+		return DMA_MAPPING_ERROR;
- 
- 	dma_mask = *dev->dma_mask;
- 	dma_dom = to_dma_ops_domain(domain);
-@@ -2504,7 +2502,7 @@ static int map_sg(struct device *dev, struct scatterlist *sglist,
- 	npages = sg_num_pages(dev, sglist, nelems);
- 
- 	address = dma_ops_alloc_iova(dev, dma_dom, npages, dma_mask);
--	if (address = AMD_IOMMU_MAPPING_ERROR)
-+	if (address = DMA_MAPPING_ERROR)
- 		goto out_err;
- 
- 	prot = dir2prot(direction);
-@@ -2627,7 +2625,7 @@ static void *alloc_coherent(struct device *dev, size_t size,
- 	*dma_addr = __map_single(dev, dma_dom, page_to_phys(page),
- 				 size, DMA_BIDIRECTIONAL, dma_mask);
- 
--	if (*dma_addr = AMD_IOMMU_MAPPING_ERROR)
-+	if (*dma_addr = DMA_MAPPING_ERROR)
- 		goto out_free;
- 
- 	return page_address(page);
-@@ -2678,11 +2676,6 @@ static int amd_iommu_dma_supported(struct device *dev, u64 mask)
- 	return check_device(dev);
- }
- 
--static int amd_iommu_mapping_error(struct device *dev, dma_addr_t dma_addr)
--{
--	return dma_addr = AMD_IOMMU_MAPPING_ERROR;
--}
--
- static const struct dma_map_ops amd_iommu_dma_ops = {
- 	.alloc		= alloc_coherent,
- 	.free		= free_coherent,
-@@ -2691,7 +2684,6 @@ static const struct dma_map_ops amd_iommu_dma_ops = {
- 	.map_sg		= map_sg,
- 	.unmap_sg	= unmap_sg,
- 	.dma_supported	= amd_iommu_dma_supported,
--	.mapping_error	= amd_iommu_mapping_error,
+ 	return dev_addr;
+@@ -657,7 +657,6 @@ static const struct dma_map_ops iommu_dma_ops = {
+ 	.sync_sg_for_device = __iommu_sync_sg_for_device,
+ 	.map_resource = iommu_dma_map_resource,
+ 	.unmap_resource = iommu_dma_unmap_resource,
+-	.mapping_error = iommu_dma_mapping_error,
  };
  
- static int init_reserved_iova_ranges(void)
+ static int __init __iommu_dma_init(void)
+diff --git a/drivers/iommu/dma-iommu.c b/drivers/iommu/dma-iommu.c
+index d1b04753b204..60c7e9e9901e 100644
+--- a/drivers/iommu/dma-iommu.c
++++ b/drivers/iommu/dma-iommu.c
+@@ -32,8 +32,6 @@
+ #include <linux/scatterlist.h>
+ #include <linux/vmalloc.h>
+ 
+-#define IOMMU_MAPPING_ERROR	0
+-
+ struct iommu_dma_msi_page {
+ 	struct list_head	list;
+ 	dma_addr_t		iova;
+@@ -523,7 +521,7 @@ void iommu_dma_free(struct device *dev, struct page **pages, size_t size,
+ {
+ 	__iommu_dma_unmap(iommu_get_dma_domain(dev), *handle, size);
+ 	__iommu_dma_free_pages(pages, PAGE_ALIGN(size) >> PAGE_SHIFT);
+-	*handle = IOMMU_MAPPING_ERROR;
++	*handle = DMA_MAPPING_ERROR;
+ }
+ 
+ /**
+@@ -556,7 +554,7 @@ struct page **iommu_dma_alloc(struct device *dev, size_t size, gfp_t gfp,
+ 	dma_addr_t iova;
+ 	unsigned int count, min_size, alloc_sizes = domain->pgsize_bitmap;
+ 
+-	*handle = IOMMU_MAPPING_ERROR;
++	*handle = DMA_MAPPING_ERROR;
+ 
+ 	min_size = alloc_sizes & -alloc_sizes;
+ 	if (min_size < PAGE_SIZE) {
+@@ -649,11 +647,11 @@ static dma_addr_t __iommu_dma_map(struct device *dev, phys_addr_t phys,
+ 
+ 	iova = iommu_dma_alloc_iova(domain, size, dma_get_mask(dev), dev);
+ 	if (!iova)
+-		return IOMMU_MAPPING_ERROR;
++		return DMA_MAPPING_ERROR;
+ 
+ 	if (iommu_map(domain, iova, phys - iova_off, size, prot)) {
+ 		iommu_dma_free_iova(cookie, iova, size);
+-		return IOMMU_MAPPING_ERROR;
++		return DMA_MAPPING_ERROR;
+ 	}
+ 	return iova + iova_off;
+ }
+@@ -694,7 +692,7 @@ static int __finalise_sg(struct device *dev, struct scatterlist *sg, int nents,
+ 
+ 		s->offset += s_iova_off;
+ 		s->length = s_length;
+-		sg_dma_address(s) = IOMMU_MAPPING_ERROR;
++		sg_dma_address(s) = DMA_MAPPING_ERROR;
+ 		sg_dma_len(s) = 0;
+ 
+ 		/*
+@@ -737,11 +735,11 @@ static void __invalidate_sg(struct scatterlist *sg, int nents)
+ 	int i;
+ 
+ 	for_each_sg(sg, s, nents, i) {
+-		if (sg_dma_address(s) != IOMMU_MAPPING_ERROR)
++		if (sg_dma_address(s) != DMA_MAPPING_ERROR)
+ 			s->offset += sg_dma_address(s);
+ 		if (sg_dma_len(s))
+ 			s->length = sg_dma_len(s);
+-		sg_dma_address(s) = IOMMU_MAPPING_ERROR;
++		sg_dma_address(s) = DMA_MAPPING_ERROR;
+ 		sg_dma_len(s) = 0;
+ 	}
+ }
+@@ -858,11 +856,6 @@ void iommu_dma_unmap_resource(struct device *dev, dma_addr_t handle,
+ 	__iommu_dma_unmap(iommu_get_dma_domain(dev), handle, size);
+ }
+ 
+-int iommu_dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
+-{
+-	return dma_addr = IOMMU_MAPPING_ERROR;
+-}
+-
+ static struct iommu_dma_msi_page *iommu_dma_get_msi_page(struct device *dev,
+ 		phys_addr_t msi_addr, struct iommu_domain *domain)
+ {
+@@ -882,7 +875,7 @@ static struct iommu_dma_msi_page *iommu_dma_get_msi_page(struct device *dev,
+ 		return NULL;
+ 
+ 	iova = __iommu_dma_map(dev, msi_addr, size, prot, domain);
+-	if (iommu_dma_mapping_error(dev, iova))
++	if (iova = DMA_MAPPING_ERROR)
+ 		goto out_free_page;
+ 
+ 	INIT_LIST_HEAD(&msi_page->list);
+diff --git a/include/linux/dma-iommu.h b/include/linux/dma-iommu.h
+index e8ca5e654277..e760dc5d1fa8 100644
+--- a/include/linux/dma-iommu.h
++++ b/include/linux/dma-iommu.h
+@@ -69,7 +69,6 @@ dma_addr_t iommu_dma_map_resource(struct device *dev, phys_addr_t phys,
+ 		size_t size, enum dma_data_direction dir, unsigned long attrs);
+ void iommu_dma_unmap_resource(struct device *dev, dma_addr_t handle,
+ 		size_t size, enum dma_data_direction dir, unsigned long attrs);
+-int iommu_dma_mapping_error(struct device *dev, dma_addr_t dma_addr);
+ 
+ /* The DMA API isn't _quite_ the whole story, though... */
+ void iommu_dma_map_msi_msg(int irq, struct msi_msg *msg);
 -- 
 2.19.1
