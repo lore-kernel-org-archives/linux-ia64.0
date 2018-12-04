@@ -1,77 +1,65 @@
-From: Konrad Rzeszutek Wilk <konrad@darnok.org>
-Date: Sun, 02 Dec 2018 12:42:42 +0000
-Subject: Re: [PATCH 21/23] xen-swiotlb: remove the mapping_error dma_map_ops method
-Message-Id: <20181202124241.GB3166@localhost.localdomain>
+From: Christoph Hellwig <hch@lst.de>
+Date: Tue, 04 Dec 2018 16:16:44 +0000
+Subject: [PATCH 4/5] dma-direct: use dma_direct_map_page to implement dma_direct_map_sg
+Message-Id: <20181204161645.8038-5-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20181130132231.16512-1-hch@lst.de>
- <20181130132231.16512-22-hch@lst.de>
-In-Reply-To: <20181130132231.16512-22-hch@lst.de>
+References: <20181204161645.8038-1-hch@lst.de>
+In-Reply-To: <20181204161645.8038-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch@lst.de>
-Cc: iommu@lists.linux-foundation.org, Linus Torvalds <torvalds@linux-foundation.org>, Jon Mason <jdmason@kudzu.us>, Joerg Roedel <joro@8bytes.org>, David Woodhouse <dwmw2@infradead.org>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, xen-devel@lists.xenproject.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, linux-ia64@vger.kernel.org, iommu@lists.linux-foundation.org, x86@kernel.org, linux-kernel@vger.kernel.org
 
-On Fri, Nov 30, 2018 at 02:22:29PM +0100, Christoph Hellwig wrote:
-> Return DMA_MAPPING_ERROR instead of 0 on a dma mapping failure and let
-> the core dma-mapping code handle the rest.
-> 
-> Signed-off-by: Christoph Hellwig <hch@lst.de>
+No need to duplicate the mapping logic.
 
-Reviewed-by: Konrad Rzeszutek Wilk <konrad@darnok.org>
-> ---
->  drivers/xen/swiotlb-xen.c | 12 ++----------
->  1 file changed, 2 insertions(+), 10 deletions(-)
-> 
-> diff --git a/drivers/xen/swiotlb-xen.c b/drivers/xen/swiotlb-xen.c
-> index 2a7f545bd0b5..6dc969d5ea2f 100644
-> --- a/drivers/xen/swiotlb-xen.c
-> +++ b/drivers/xen/swiotlb-xen.c
-> @@ -53,8 +53,6 @@
->   * API.
->   */
->  
-> -#define XEN_SWIOTLB_ERROR_CODE	(~(dma_addr_t)0x0)
-> -
->  static char *xen_io_tlb_start, *xen_io_tlb_end;
->  static unsigned long xen_io_tlb_nslabs;
->  /*
-> @@ -406,7 +404,7 @@ static dma_addr_t xen_swiotlb_map_page(struct device *dev, struct page *page,
->  	map = swiotlb_tbl_map_single(dev, start_dma_addr, phys, size, dir,
->  				     attrs);
->  	if (map = SWIOTLB_MAP_ERROR)
-> -		return XEN_SWIOTLB_ERROR_CODE;
-> +		return DMA_MAPPING_ERROR;
->  
->  	dev_addr = xen_phys_to_bus(map);
->  	xen_dma_map_page(dev, pfn_to_page(map >> PAGE_SHIFT),
-> @@ -421,7 +419,7 @@ static dma_addr_t xen_swiotlb_map_page(struct device *dev, struct page *page,
->  	attrs |= DMA_ATTR_SKIP_CPU_SYNC;
->  	swiotlb_tbl_unmap_single(dev, map, size, dir, attrs);
->  
-> -	return XEN_SWIOTLB_ERROR_CODE;
-> +	return DMA_MAPPING_ERROR;
->  }
->  
->  /*
-> @@ -700,11 +698,6 @@ xen_swiotlb_get_sgtable(struct device *dev, struct sg_table *sgt,
->  	return dma_common_get_sgtable(dev, sgt, cpu_addr, handle, size, attrs);
->  }
->  
-> -static int xen_swiotlb_mapping_error(struct device *dev, dma_addr_t dma_addr)
-> -{
-> -	return dma_addr = XEN_SWIOTLB_ERROR_CODE;
-> -}
-> -
->  const struct dma_map_ops xen_swiotlb_dma_ops = {
->  	.alloc = xen_swiotlb_alloc_coherent,
->  	.free = xen_swiotlb_free_coherent,
-> @@ -719,5 +712,4 @@ const struct dma_map_ops xen_swiotlb_dma_ops = {
->  	.dma_supported = xen_swiotlb_dma_supported,
->  	.mmap = xen_swiotlb_dma_mmap,
->  	.get_sgtable = xen_swiotlb_get_sgtable,
-> -	.mapping_error	= xen_swiotlb_mapping_error,
->  };
-> -- 
-> 2.19.1
-> 
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ kernel/dma/direct.c | 14 +++++---------
+ 1 file changed, 5 insertions(+), 9 deletions(-)
+
+diff --git a/kernel/dma/direct.c b/kernel/dma/direct.c
+index edb24f94ea1e..d45306473c90 100644
+--- a/kernel/dma/direct.c
++++ b/kernel/dma/direct.c
+@@ -217,6 +217,7 @@ static void dma_direct_sync_single_for_device(struct device *dev,
+ 	arch_sync_dma_for_device(dev, dma_to_phys(dev, addr), size, dir);
+ }
+ 
++#if defined(CONFIG_ARCH_HAS_SYNC_DMA_FOR_DEVICE)
+ static void dma_direct_sync_sg_for_device(struct device *dev,
+ 		struct scatterlist *sgl, int nents, enum dma_data_direction dir)
+ {
+@@ -229,6 +230,7 @@ static void dma_direct_sync_sg_for_device(struct device *dev,
+ 	for_each_sg(sgl, sg, nents, i)
+ 		arch_sync_dma_for_device(dev, sg_phys(sg), sg->length, dir);
+ }
++#endif
+ 
+ #if defined(CONFIG_ARCH_HAS_SYNC_DMA_FOR_CPU) || \
+     defined(CONFIG_ARCH_HAS_SYNC_DMA_FOR_CPU_ALL)
+@@ -294,19 +296,13 @@ int dma_direct_map_sg(struct device *dev, struct scatterlist *sgl, int nents,
+ 	struct scatterlist *sg;
+ 
+ 	for_each_sg(sgl, sg, nents, i) {
+-		BUG_ON(!sg_page(sg));
+-
+-		sg_dma_address(sg) = phys_to_dma(dev, sg_phys(sg));
+-		if (unlikely(dev && !dma_capable(dev, sg_dma_address(sg),
+-				sg->length))) {
+-			report_addr(dev, sg_dma_address(sg), sg->length);
++		sg->dma_address = dma_direct_map_page(dev, sg_page(sg),
++				sg->offset, sg->length, dir, attrs);
++		if (sg->dma_address = DMA_MAPPING_ERROR)
+ 			return 0;
+-		}
+ 		sg_dma_len(sg) = sg->length;
+ 	}
+ 
+-	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
+-		dma_direct_sync_sg_for_device(dev, sgl, nents, dir);
+ 	return nents;
+ }
+ 
+-- 
+2.19.1
