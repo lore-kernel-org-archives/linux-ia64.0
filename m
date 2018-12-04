@@ -1,149 +1,70 @@
-From: Masahiro Yamada <yamada.masahiro@socionext.com>
-Date: Mon, 24 Dec 2018 15:18:15 +0000
-Subject: Re: [PATCH 1/3] treewide: remove explicit rules for *offsets.s
-Message-Id: <CAK7LNATVQY+w3o0j6sKp7ZiLMJX2SorddmsHbskqmMwimzPh7A@mail.gmail.com>
+From: Robin Murphy <robin.murphy@arm.com>
+Date: Tue, 04 Dec 2018 16:41:34 +0000
+Subject: Re: [PATCH 01/23] dma-mapping: provide a generic DMA_MAPPING_ERROR
+Message-Id: <653ca801-63a1-3c19-ee09-ade19fa2bbb8@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1545472235-12782-1-git-send-email-yamada.masahiro@socionext.com>
-In-Reply-To: <1545472235-12782-1-git-send-email-yamada.masahiro@socionext.com>
+References: <20181130132231.16512-1-hch@lst.de>
+ <20181130132231.16512-2-hch@lst.de>
+In-Reply-To: <20181130132231.16512-2-hch@lst.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Linux Kbuild mailing list <linux-kbuild@vger.kernel.org>
-Cc: Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>, Networking <netdev@vger.kernel.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Daniel Borkmann <daniel@iogearbox.net>, Ludovic Desroches <ludovic.desroches@microchip.com>, Alexandre Belloni <alexandre.belloni@bootlin.com>, Tony Lindgren <tony@atomide.com>, Nicolas Ferre <nicolas.ferre@microchip.com>, Fenghua Yu <fenghua.yu@intel.com>, Linux-OMAP <linux-omap@vger.kernel.org>, Russell King <linux@armlinux.org.uk>, linux-arm-kernel <linux-arm-kernel@lists.infradead.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Christoph Hellwig <hch@lst.de>, iommu@lists.linux-foundation.org
+Cc: linux-arch@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>, x86@kernel.org, linux-kernel@vger.kernel.org, xen-devel@lists.xenproject.org, David Woodhouse <dwmw2@infradead.org>, linux-arm-kernel@lists.infradead.org
 
-On Sun, Dec 23, 2018 at 7:32 PM Masahiro Yamada
-<yamada.masahiro@socionext.com> wrote:
->
-> These explicit rules are unneeded because scripts/Makefile.build
-> provides a pattern rule to create %.s from %.c
->
-> Signed-off-by: Masahiro Yamada <yamada.masahiro@socionext.com>
+On 30/11/2018 13:22, Christoph Hellwig wrote:
+> Error handling of the dma_map_single and dma_map_page APIs is a little
+> problematic at the moment, in that we use different encodings in the
+> returned dma_addr_t to indicate an error.  That means we require an
+> additional indirect call to figure out if a dma mapping call returned
+> an error, and a lot of boilerplate code to implement these semantics.
+> 
+> Instead return the maximum addressable value as the error.  As long
+> as we don't allow mapping single-byte ranges with single-byte alignment
+> this value can never be a valid return.  Additionaly if drivers do
+> not check the return value from the dma_map* routines this values means
+> they will generally not be pointed to actual memory.
+> 
+> Once the default value is added here we can start removing the
+> various mapping_error methods and just rely on this generic check.
+> 
+> Signed-off-by: Christoph Hellwig <hch@lst.de>
 > ---
+>   include/linux/dma-mapping.h | 6 ++++++
+>   1 file changed, 6 insertions(+)
+> 
+> diff --git a/include/linux/dma-mapping.h b/include/linux/dma-mapping.h
+> index 0f81c713f6e9..46bd612d929e 100644
+> --- a/include/linux/dma-mapping.h
+> +++ b/include/linux/dma-mapping.h
+> @@ -133,6 +133,8 @@ struct dma_map_ops {
+>   	u64 (*get_required_mask)(struct device *dev);
+>   };
+>   
+> +#define DMA_MAPPING_ERROR		(~(dma_addr_t)0)
+> +
+>   extern const struct dma_map_ops dma_direct_ops;
+>   extern const struct dma_map_ops dma_virt_ops;
+>   
+> @@ -576,6 +578,10 @@ static inline int dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
+>   	const struct dma_map_ops *ops = get_dma_ops(dev);
+>   
+>   	debug_dma_mapping_error(dev, dma_addr);
+> +
+> +	if (dma_addr = DMA_MAPPING_ERROR)
+> +		return 1;
+> +
+>   	if (ops->mapping_error)
+>   		return ops->mapping_error(dev, dma_addr);
+>   	return 0;
 
-Series, applied to linux-kbuild.
+I'd have been inclined to put the default check here, i.e.
 
+-	return 0
++	return dma_addr = DMA_MAPPING_ERROR
 
->  Kbuild                              | 9 +--------
->  arch/arm/mach-at91/Makefile         | 3 ---
->  arch/arm/mach-omap2/Makefile        | 3 ---
->  arch/ia64/kernel/Makefile           | 5 -----
->  drivers/memory/Makefile.asm-offsets | 3 ---
->  samples/bpf/Makefile                | 3 ---
->  6 files changed, 1 insertion(+), 25 deletions(-)
->
-> diff --git a/Kbuild b/Kbuild
-> index 0053042..b24210c 100644
-> --- a/Kbuild
-> +++ b/Kbuild
-> @@ -16,10 +16,6 @@ bounds-file :=3D include/generated/bounds.h
->  always  :=3D $(bounds-file)
->  targets :=3D kernel/bounds.s
->
-> -# We use internal kbuild rules to avoid the "is up to date" message from=
- make
-> -kernel/bounds.s: kernel/bounds.c FORCE
-> -       $(call if_changed_dep,cc_s_c)
-> -
->  $(obj)/$(bounds-file): kernel/bounds.s FORCE
->         $(call filechk,offsets,__LINUX_BOUNDS_H__)
->
-> @@ -50,10 +46,7 @@ offsets-file :=3D include/generated/asm-offsets.h
->  always  +=3D $(offsets-file)
->  targets +=3D arch/$(SRCARCH)/kernel/asm-offsets.s
->
-> -# We use internal kbuild rules to avoid the "is up to date" message from=
- make
-> -arch/$(SRCARCH)/kernel/asm-offsets.s: arch/$(SRCARCH)/kernel/asm-offsets=
-.c \
-> -                                      $(obj)/$(timeconst-file) $(obj)/$(=
-bounds-file) FORCE
-> -       $(call if_changed_dep,cc_s_c)
-> +arch/$(SRCARCH)/kernel/asm-offsets.s: $(obj)/$(timeconst-file) $(obj)/$(=
-bounds-file)
->
->  $(obj)/$(offsets-file): arch/$(SRCARCH)/kernel/asm-offsets.s FORCE
->         $(call filechk,offsets,__ASM_OFFSETS_H__)
-> diff --git a/arch/arm/mach-at91/Makefile b/arch/arm/mach-at91/Makefile
-> index 7415f18..f87066b 100644
-> --- a/arch/arm/mach-at91/Makefile
-> +++ b/arch/arm/mach-at91/Makefile
-> @@ -19,9 +19,6 @@ ifeq ($(CONFIG_PM_DEBUG),y)
->  CFLAGS_pm.o +=3D -DDEBUG
->  endif
->
-> -arch/arm/mach-at91/pm_data-offsets.s: arch/arm/mach-at91/pm_data-offsets=
-.c
-> -       $(call if_changed_dep,cc_s_c)
-> -
->  include/generated/at91_pm_data-offsets.h: arch/arm/mach-at91/pm_data-off=
-sets.s FORCE
->         $(call filechk,offsets,__PM_DATA_OFFSETS_H__)
->
-> diff --git a/arch/arm/mach-omap2/Makefile b/arch/arm/mach-omap2/Makefile
-> index 01377c2..55c482c 100644
-> --- a/arch/arm/mach-omap2/Makefile
-> +++ b/arch/arm/mach-omap2/Makefile
-> @@ -236,9 +236,6 @@ obj-y                                       +=3D omap=
-_phy_internal.o
->
->  obj-$(CONFIG_MACH_OMAP2_TUSB6010)      +=3D usb-tusb6010.o
->
-> -arch/arm/mach-omap2/pm-asm-offsets.s: arch/arm/mach-omap2/pm-asm-offsets=
-.c
-> -       $(call if_changed_dep,cc_s_c)
-> -
->  include/generated/ti-pm-asm-offsets.h: arch/arm/mach-omap2/pm-asm-offset=
-s.s FORCE
->         $(call filechk,offsets,__TI_PM_ASM_OFFSETS_H__)
->
-> diff --git a/arch/ia64/kernel/Makefile b/arch/ia64/kernel/Makefile
-> index d0c0ccd..7372d99 100644
-> --- a/arch/ia64/kernel/Makefile
-> +++ b/arch/ia64/kernel/Makefile
-> @@ -50,10 +50,5 @@ CFLAGS_traps.o  +=3D -mfixed-range=F2-f5,f16-f31
->  # The gate DSO image is built using a special linker script.
->  include $(src)/Makefile.gate
->
-> -# We use internal kbuild rules to avoid the "is up to date" message from=
- make
-> -arch/$(SRCARCH)/kernel/nr-irqs.s: arch/$(SRCARCH)/kernel/nr-irqs.c
-> -       $(Q)mkdir -p $(dir $@)
-> -       $(call if_changed_dep,cc_s_c)
-> -
->  include/generated/nr-irqs.h: arch/$(SRCARCH)/kernel/nr-irqs.s FORCE
->         $(call filechk,offsets,__ASM_NR_IRQS_H__)
-> diff --git a/drivers/memory/Makefile.asm-offsets b/drivers/memory/Makefil=
-e.asm-offsets
-> index 843ff60..f968dfa 100644
-> --- a/drivers/memory/Makefile.asm-offsets
-> +++ b/drivers/memory/Makefile.asm-offsets
-> @@ -1,5 +1,2 @@
-> -drivers/memory/emif-asm-offsets.s: drivers/memory/emif-asm-offsets.c
-> -       $(call if_changed_dep,cc_s_c)
-> -
->  include/generated/ti-emif-asm-offsets.h: drivers/memory/emif-asm-offsets=
-.s FORCE
->         $(call filechk,offsets,__TI_EMIF_ASM_OFFSETS_H__)
-> diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
-> index be0a961..100a49d 100644
-> --- a/samples/bpf/Makefile
-> +++ b/samples/bpf/Makefile
-> @@ -227,9 +227,6 @@ $(LIBBPF): FORCE
->  # Fix up variables inherited from Kbuild that tools/ build system won't =
-like
->         $(MAKE) -C $(dir $@) RM=3D'rm -rf' LDFLAGS=3D srctree=3D$(BPF_SAM=
-PLES_PATH)/../../ O>
-> -$(obj)/syscall_nrs.s:  $(src)/syscall_nrs.c
-> -       $(call if_changed_dep,cc_s_c)
-> -
->  $(obj)/syscall_nrs.h:  $(obj)/syscall_nrs.s FORCE
->         $(call filechk,offsets,__SYSCALL_NRS_H__)
->
-> --
-> 2.7.4
->
+such that the callback retains full precedence and we don't have to deal 
+with the non-trivial removals immediately if it comes to it. Not that it 
+makes a vast difference though, so either way,
 
-
---=20
-Best Regards
-Masahiro Yamada
+Reviewed-by: Robin Murphy <robin.murphy@arm.com>
