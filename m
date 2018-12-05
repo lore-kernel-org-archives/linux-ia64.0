@@ -1,92 +1,32 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Fri, 07 Dec 2018 19:07:08 +0000
-Subject: [PATCH 03/15] dma-direct: improve addressability error reporting
-Message-Id: <20181207190720.18517-4-hch@lst.de>
+From: Anshuman Khandual <anshuman.khandual@arm.com>
+Date: Wed, 05 Dec 2018 11:32:57 +0000
+Subject: Re: [LKP] [mm] 19717e78a0: stderr.if(target_node==NUMA_NO_NODE){
+Message-Id: <d75d097f-78a5-865e-a80a-b1e6faeff337@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20181207190720.18517-1-hch@lst.de>
-In-Reply-To: <20181207190720.18517-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: iommu@lists.linux-foundation.org, Linus Torvalds <torvalds@linux-foundation.org>, Jesper Dangaard Brouer <brouer@redhat.com>
-Cc: Tariq Toukan <tariqt@mellanox.com>, Ilias Apalodimas <ilias.apalodimas@linaro.org>, =?UTF-8?q?Toke=20H=C3=B8iland-J=C3=B8rgensen?= <toke@toke.dk>, Robin Murphy <robin.murphy@arm.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Marek Szyprowski <m.szyprowski@samsung.com>, Keith Busch <keith.busch@intel.com>, Jonathan Derrick <jonathan.derrick@intel.com>, linux-pci@vger.kernel.org, linux-ia64@vger.kernel.org, x86@kernel.org, linux-kernel@vger.kernel.org
+To: kernel test robot <rong.a.chen@intel.com>
+Cc: linux-mm@kvack.org, linux-kernel@vger.kernel.org, ocfs2-devel@oss.oracle.com, linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org, netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org, linux-media@vger.kernel.org, iommu@lists.linux-foundation.org, linux-rdma@vger.kernel.org, dmaengine@vger.kernel.org, linux-block@vger.kernel.org, sparclinux@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, linux-alpha@vger.kernel.org, akpm@linux-foundation.org, jiangqi903@gmail.com, hverkuil@xs4all.nl, vkoul@kernel.org, lkp@01.org
 
-Only report report a DMA addressability report once to avoid spewing the
-kernel log with repeated message.  Also provide a stack trace to make it
-easy to find the actual caller that caused the problem.
+On 12/05/2018 10:30 AM, kernel test robot wrote:
+> FYI, we noticed the following commit (built with gcc-7):
+> 
+> commit: 19717e78a04d51512cf0e7b9b09c61f06b2af071 ("[PATCH V2] mm: Replace all open encodings for NUMA_NO_NODE")
+> url: https://github.com/0day-ci/linux/commits/Anshuman-Khandual/mm-Replace-all-open-encodings-for-NUMA_NO_NODE/20181126-203831
+> 
+> 
+> in testcase: perf-sanity-tests
+> with following parameters:
+> 
+> 	perf_compiler: gcc
+> 	ucode: 0x7000013
+> 
+> 
+> 
+> on test machine: 16 threads Intel(R) Xeon(R) CPU D-1541 @ 2.10GHz with 8G memory
+> 
+> caused below changes (please refer to attached dmesg/kmsg for entire log/backtrace):
 
-Last but not least move the actual check into the fast path and only
-leave the error reporting in a helper.
-
-Signed-off-by: Christoph Hellwig <hch@lst.de>
----
- kernel/dma/direct.c | 36 +++++++++++++++---------------------
- 1 file changed, 15 insertions(+), 21 deletions(-)
-
-diff --git a/kernel/dma/direct.c b/kernel/dma/direct.c
-index 308f88a750c8..edb24f94ea1e 100644
---- a/kernel/dma/direct.c
-+++ b/kernel/dma/direct.c
-@@ -30,27 +30,16 @@ static inline bool force_dma_unencrypted(void)
- 	return sev_active();
- }
- 
--static bool
--check_addr(struct device *dev, dma_addr_t dma_addr, size_t size,
--		const char *caller)
-+static void report_addr(struct device *dev, dma_addr_t dma_addr, size_t size)
- {
--	if (unlikely(dev && !dma_capable(dev, dma_addr, size))) {
--		if (!dev->dma_mask) {
--			dev_err(dev,
--				"%s: call on device without dma_mask\n",
--				caller);
--			return false;
--		}
--
--		if (*dev->dma_mask >= DMA_BIT_MASK(32) || dev->bus_dma_mask) {
--			dev_err(dev,
--				"%s: overflow %pad+%zu of device mask %llx bus mask %llx\n",
--				caller, &dma_addr, size,
--				*dev->dma_mask, dev->bus_dma_mask);
--		}
--		return false;
-+	if (!dev->dma_mask) {
-+		dev_err_once(dev, "DMA map on device without dma_mask\n");
-+	} else if (*dev->dma_mask >= DMA_BIT_MASK(32) || dev->bus_dma_mask) {
-+		dev_err_once(dev,
-+			"overflow %pad+%zu of DMA mask %llx bus mask %llx\n",
-+			&dma_addr, size, *dev->dma_mask, dev->bus_dma_mask);
- 	}
--	return true;
-+	WARN_ON_ONCE(1);
- }
- 
- static inline dma_addr_t phys_to_dma_direct(struct device *dev,
-@@ -288,8 +277,10 @@ dma_addr_t dma_direct_map_page(struct device *dev, struct page *page,
- 	phys_addr_t phys = page_to_phys(page) + offset;
- 	dma_addr_t dma_addr = phys_to_dma(dev, phys);
- 
--	if (!check_addr(dev, dma_addr, size, __func__))
-+	if (unlikely(dev && !dma_capable(dev, dma_addr, size))) {
-+		report_addr(dev, dma_addr, size);
- 		return DMA_MAPPING_ERROR;
-+	}
- 
- 	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
- 		dma_direct_sync_single_for_device(dev, dma_addr, size, dir);
-@@ -306,8 +297,11 @@ int dma_direct_map_sg(struct device *dev, struct scatterlist *sgl, int nents,
- 		BUG_ON(!sg_page(sg));
- 
- 		sg_dma_address(sg) = phys_to_dma(dev, sg_phys(sg));
--		if (!check_addr(dev, sg_dma_address(sg), sg->length, __func__))
-+		if (unlikely(dev && !dma_capable(dev, sg_dma_address(sg),
-+				sg->length))) {
-+			report_addr(dev, sg_dma_address(sg), sg->length);
- 			return 0;
-+		}
- 		sg_dma_len(sg) = sg->length;
- 	}
- 
--- 
-2.19.1
+The fix (in Andrew's staging tree) from Stephen Rothwell which adds <linux/numa.h>
+definitions to <tools/include/linux/numa.h> should fix this.
