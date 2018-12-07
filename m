@@ -1,92 +1,177 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Tue, 04 Dec 2018 16:16:43 +0000
-Subject: [PATCH 3/5] dma-direct: improve addressability error reporting
-Message-Id: <20181204161645.8038-4-hch@lst.de>
+Date: Fri, 07 Dec 2018 19:07:11 +0000
+Subject: [PATCH 06/15] dma-mapping: simplify the dma_sync_single_range_for_{cpu,device} implementation
+Message-Id: <20181207190720.18517-7-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20181204161645.8038-1-hch@lst.de>
-In-Reply-To: <20181204161645.8038-1-hch@lst.de>
+References: <20181207190720.18517-1-hch@lst.de>
+In-Reply-To: <20181207190720.18517-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, linux-ia64@vger.kernel.org, iommu@lists.linux-foundation.org, x86@kernel.org, linux-kernel@vger.kernel.org
+To: iommu@lists.linux-foundation.org, Linus Torvalds <torvalds@linux-foundation.org>, Jesper Dangaard Brouer <brouer@redhat.com>
+Cc: Tariq Toukan <tariqt@mellanox.com>, Ilias Apalodimas <ilias.apalodimas@linaro.org>, =?UTF-8?q?Toke=20H=C3=B8iland-J=C3=B8rgensen?= <toke@toke.dk>, Robin Murphy <robin.murphy@arm.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Marek Szyprowski <m.szyprowski@samsung.com>, Keith Busch <keith.busch@intel.com>, Jonathan Derrick <jonathan.derrick@intel.com>, linux-pci@vger.kernel.org, linux-ia64@vger.kernel.org, x86@kernel.org, linux-kernel@vger.kernel.org
 
-Only report report a DMA addressability report once to avoid spewing the
-kernel log with repeated message.  Also provide a stack trace to make it
-easy to find the actual caller that caused the problem.
-
-Last but not least move the actual check into the fast path and only
-leave the error reporting in a helper.
+We can just call the regular calls after adding offset the the address instead
+of reimplementing them.
 
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- kernel/dma/direct.c | 36 +++++++++++++++---------------------
- 1 file changed, 15 insertions(+), 21 deletions(-)
+ include/linux/dma-debug.h   | 27 ------------------------
+ include/linux/dma-mapping.h | 34 +++++++++---------------------
+ kernel/dma/debug.c          | 42 -------------------------------------
+ 3 files changed, 10 insertions(+), 93 deletions(-)
 
-diff --git a/kernel/dma/direct.c b/kernel/dma/direct.c
-index 308f88a750c8..edb24f94ea1e 100644
---- a/kernel/dma/direct.c
-+++ b/kernel/dma/direct.c
-@@ -30,27 +30,16 @@ static inline bool force_dma_unencrypted(void)
- 	return sev_active();
- }
+diff --git a/include/linux/dma-debug.h b/include/linux/dma-debug.h
+index 30213adbb6b9..c85e097a984c 100644
+--- a/include/linux/dma-debug.h
++++ b/include/linux/dma-debug.h
+@@ -72,17 +72,6 @@ extern void debug_dma_sync_single_for_device(struct device *dev,
+ 					     dma_addr_t dma_handle,
+ 					     size_t size, int direction);
  
--static bool
--check_addr(struct device *dev, dma_addr_t dma_addr, size_t size,
--		const char *caller)
-+static void report_addr(struct device *dev, dma_addr_t dma_addr, size_t size)
- {
--	if (unlikely(dev && !dma_capable(dev, dma_addr, size))) {
--		if (!dev->dma_mask) {
--			dev_err(dev,
--				"%s: call on device without dma_mask\n",
--				caller);
--			return false;
--		}
+-extern void debug_dma_sync_single_range_for_cpu(struct device *dev,
+-						dma_addr_t dma_handle,
+-						unsigned long offset,
+-						size_t size,
+-						int direction);
 -
--		if (*dev->dma_mask >= DMA_BIT_MASK(32) || dev->bus_dma_mask) {
--			dev_err(dev,
--				"%s: overflow %pad+%zu of device mask %llx bus mask %llx\n",
--				caller, &dma_addr, size,
--				*dev->dma_mask, dev->bus_dma_mask);
--		}
--		return false;
-+	if (!dev->dma_mask) {
-+		dev_err_once(dev, "DMA map on device without dma_mask\n");
-+	} else if (*dev->dma_mask >= DMA_BIT_MASK(32) || dev->bus_dma_mask) {
-+		dev_err_once(dev,
-+			"overflow %pad+%zu of DMA mask %llx bus mask %llx\n",
-+			&dma_addr, size, *dev->dma_mask, dev->bus_dma_mask);
- 	}
--	return true;
-+	WARN_ON_ONCE(1);
+-extern void debug_dma_sync_single_range_for_device(struct device *dev,
+-						   dma_addr_t dma_handle,
+-						   unsigned long offset,
+-						   size_t size, int direction);
+-
+ extern void debug_dma_sync_sg_for_cpu(struct device *dev,
+ 				      struct scatterlist *sg,
+ 				      int nelems, int direction);
+@@ -174,22 +163,6 @@ static inline void debug_dma_sync_single_for_device(struct device *dev,
+ {
  }
  
- static inline dma_addr_t phys_to_dma_direct(struct device *dev,
-@@ -288,8 +277,10 @@ dma_addr_t dma_direct_map_page(struct device *dev, struct page *page,
- 	phys_addr_t phys = page_to_phys(page) + offset;
- 	dma_addr_t dma_addr = phys_to_dma(dev, phys);
+-static inline void debug_dma_sync_single_range_for_cpu(struct device *dev,
+-						       dma_addr_t dma_handle,
+-						       unsigned long offset,
+-						       size_t size,
+-						       int direction)
+-{
+-}
+-
+-static inline void debug_dma_sync_single_range_for_device(struct device *dev,
+-							  dma_addr_t dma_handle,
+-							  unsigned long offset,
+-							  size_t size,
+-							  int direction)
+-{
+-}
+-
+ static inline void debug_dma_sync_sg_for_cpu(struct device *dev,
+ 					     struct scatterlist *sg,
+ 					     int nelems, int direction)
+diff --git a/include/linux/dma-mapping.h b/include/linux/dma-mapping.h
+index 7799c2b27849..8916499d2805 100644
+--- a/include/linux/dma-mapping.h
++++ b/include/linux/dma-mapping.h
+@@ -360,6 +360,13 @@ static inline void dma_sync_single_for_cpu(struct device *dev, dma_addr_t addr,
+ 	debug_dma_sync_single_for_cpu(dev, addr, size, dir);
+ }
  
--	if (!check_addr(dev, dma_addr, size, __func__))
-+	if (unlikely(dev && !dma_capable(dev, dma_addr, size))) {
-+		report_addr(dev, dma_addr, size);
- 		return DMA_MAPPING_ERROR;
-+	}
++static inline void dma_sync_single_range_for_cpu(struct device *dev,
++		dma_addr_t addr, unsigned long offset, size_t size,
++		enum dma_data_direction dir)
++{
++	return dma_sync_single_for_cpu(dev, addr + offset, size, dir);
++}
++
+ static inline void dma_sync_single_for_device(struct device *dev,
+ 					      dma_addr_t addr, size_t size,
+ 					      enum dma_data_direction dir)
+@@ -372,32 +379,11 @@ static inline void dma_sync_single_for_device(struct device *dev,
+ 	debug_dma_sync_single_for_device(dev, addr, size, dir);
+ }
  
- 	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
- 		dma_direct_sync_single_for_device(dev, dma_addr, size, dir);
-@@ -306,8 +297,11 @@ int dma_direct_map_sg(struct device *dev, struct scatterlist *sgl, int nents,
- 		BUG_ON(!sg_page(sg));
+-static inline void dma_sync_single_range_for_cpu(struct device *dev,
+-						 dma_addr_t addr,
+-						 unsigned long offset,
+-						 size_t size,
+-						 enum dma_data_direction dir)
+-{
+-	const struct dma_map_ops *ops = get_dma_ops(dev);
+-
+-	BUG_ON(!valid_dma_direction(dir));
+-	if (ops->sync_single_for_cpu)
+-		ops->sync_single_for_cpu(dev, addr + offset, size, dir);
+-	debug_dma_sync_single_range_for_cpu(dev, addr, offset, size, dir);
+-}
+-
+ static inline void dma_sync_single_range_for_device(struct device *dev,
+-						    dma_addr_t addr,
+-						    unsigned long offset,
+-						    size_t size,
+-						    enum dma_data_direction dir)
++		dma_addr_t addr, unsigned long offset, size_t size,
++		enum dma_data_direction dir)
+ {
+-	const struct dma_map_ops *ops = get_dma_ops(dev);
+-
+-	BUG_ON(!valid_dma_direction(dir));
+-	if (ops->sync_single_for_device)
+-		ops->sync_single_for_device(dev, addr + offset, size, dir);
+-	debug_dma_sync_single_range_for_device(dev, addr, offset, size, dir);
++	return dma_sync_single_for_device(dev, addr + offset, size, dir);
+ }
  
- 		sg_dma_address(sg) = phys_to_dma(dev, sg_phys(sg));
--		if (!check_addr(dev, sg_dma_address(sg), sg->length, __func__))
-+		if (unlikely(dev && !dma_capable(dev, sg_dma_address(sg),
-+				sg->length))) {
-+			report_addr(dev, sg_dma_address(sg), sg->length);
- 			return 0;
-+		}
- 		sg_dma_len(sg) = sg->length;
- 	}
+ static inline void
+diff --git a/kernel/dma/debug.c b/kernel/dma/debug.c
+index 231ca4628062..3214833b47e2 100644
+--- a/kernel/dma/debug.c
++++ b/kernel/dma/debug.c
+@@ -1662,48 +1662,6 @@ void debug_dma_sync_single_for_device(struct device *dev,
+ }
+ EXPORT_SYMBOL(debug_dma_sync_single_for_device);
  
+-void debug_dma_sync_single_range_for_cpu(struct device *dev,
+-					 dma_addr_t dma_handle,
+-					 unsigned long offset, size_t size,
+-					 int direction)
+-{
+-	struct dma_debug_entry ref;
+-
+-	if (unlikely(dma_debug_disabled()))
+-		return;
+-
+-	ref.type         = dma_debug_single;
+-	ref.dev          = dev;
+-	ref.dev_addr     = dma_handle;
+-	ref.size         = offset + size;
+-	ref.direction    = direction;
+-	ref.sg_call_ents = 0;
+-
+-	check_sync(dev, &ref, true);
+-}
+-EXPORT_SYMBOL(debug_dma_sync_single_range_for_cpu);
+-
+-void debug_dma_sync_single_range_for_device(struct device *dev,
+-					    dma_addr_t dma_handle,
+-					    unsigned long offset,
+-					    size_t size, int direction)
+-{
+-	struct dma_debug_entry ref;
+-
+-	if (unlikely(dma_debug_disabled()))
+-		return;
+-
+-	ref.type         = dma_debug_single;
+-	ref.dev          = dev;
+-	ref.dev_addr     = dma_handle;
+-	ref.size         = offset + size;
+-	ref.direction    = direction;
+-	ref.sg_call_ents = 0;
+-
+-	check_sync(dev, &ref, false);
+-}
+-EXPORT_SYMBOL(debug_dma_sync_single_range_for_device);
+-
+ void debug_dma_sync_sg_for_cpu(struct device *dev, struct scatterlist *sg,
+ 			       int nelems, int direction)
+ {
 -- 
 2.19.1
