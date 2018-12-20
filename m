@@ -1,65 +1,51 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Tue, 04 Dec 2018 16:16:44 +0000
-Subject: [PATCH 4/5] dma-direct: use dma_direct_map_page to implement dma_direct_map_sg
-Message-Id: <20181204161645.8038-5-hch@lst.de>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Thu, 20 Dec 2018 18:54:05 +0000
+Subject: [GIT PULL] ia64 update for v4.21/v5.0/whatever
+Message-Id: <20181220185405.GA17602@agluck-desk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20181204161645.8038-1-hch@lst.de>
-In-Reply-To: <20181204161645.8038-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>, Marek Szyprowski <m.szyprowski@samsung.com>, Robin Murphy <robin.murphy@arm.com>, linux-ia64@vger.kernel.org, iommu@lists.linux-foundation.org, x86@kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-No need to duplicate the mapping logic.
+The following changes since commit 651022382c7f8da46cb4872a545ee1da6d097d2a:
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
----
- kernel/dma/direct.c | 14 +++++---------
- 1 file changed, 5 insertions(+), 9 deletions(-)
+  Linux 4.20-rc1 (2018-11-04 15:37:52 -0800)
 
-diff --git a/kernel/dma/direct.c b/kernel/dma/direct.c
-index edb24f94ea1e..d45306473c90 100644
---- a/kernel/dma/direct.c
-+++ b/kernel/dma/direct.c
-@@ -217,6 +217,7 @@ static void dma_direct_sync_single_for_device(struct device *dev,
- 	arch_sync_dma_for_device(dev, dma_to_phys(dev, addr), size, dir);
- }
- 
-+#if defined(CONFIG_ARCH_HAS_SYNC_DMA_FOR_DEVICE)
- static void dma_direct_sync_sg_for_device(struct device *dev,
- 		struct scatterlist *sgl, int nents, enum dma_data_direction dir)
- {
-@@ -229,6 +230,7 @@ static void dma_direct_sync_sg_for_device(struct device *dev,
- 	for_each_sg(sgl, sg, nents, i)
- 		arch_sync_dma_for_device(dev, sg_phys(sg), sg->length, dir);
- }
-+#endif
- 
- #if defined(CONFIG_ARCH_HAS_SYNC_DMA_FOR_CPU) || \
-     defined(CONFIG_ARCH_HAS_SYNC_DMA_FOR_CPU_ALL)
-@@ -294,19 +296,13 @@ int dma_direct_map_sg(struct device *dev, struct scatterlist *sgl, int nents,
- 	struct scatterlist *sg;
- 
- 	for_each_sg(sgl, sg, nents, i) {
--		BUG_ON(!sg_page(sg));
--
--		sg_dma_address(sg) = phys_to_dma(dev, sg_phys(sg));
--		if (unlikely(dev && !dma_capable(dev, sg_dma_address(sg),
--				sg->length))) {
--			report_addr(dev, sg_dma_address(sg), sg->length);
-+		sg->dma_address = dma_direct_map_page(dev, sg_page(sg),
-+				sg->offset, sg->length, dir, attrs);
-+		if (sg->dma_address = DMA_MAPPING_ERROR)
- 			return 0;
--		}
- 		sg_dma_len(sg) = sg->length;
- 	}
- 
--	if (!(attrs & DMA_ATTR_SKIP_CPU_SYNC))
--		dma_direct_sync_sg_for_device(dev, sgl, nents, dir);
- 	return nents;
- }
- 
--- 
-2.19.1
+are available in the Git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git please-pull-y2038prep
+
+for you to fetch changes up to c51836246f9772dfab8ca7bb945f4a566fe502d5:
+
+  ia64: generate uapi header and system call table files (2018-11-13 08:56:25 -0800)
+
+----------------------------------------------------------------
+Change ia64 to make it easier to update system call tables
+(in line with some other architectures). This is in preparation
+for y2038 changes which are forecasted to add several new system
+calls.
+
+----------------------------------------------------------------
+Firoz Khan (5):
+      ia64: add __NR_old_getpagesize in uapi header file
+      ia64: add __NR_syscalls along with NR_syscalls
+      ia64: add an offset for system call number
+      ia64: add system call table generation support
+      ia64: generate uapi header and system call table files
+
+ arch/ia64/Makefile                      |   3 +
+ arch/ia64/include/asm/Kbuild            |   1 +
+ arch/ia64/include/asm/unistd.h          |   4 +-
+ arch/ia64/include/uapi/asm/Kbuild       |   1 +
+ arch/ia64/include/uapi/asm/unistd.h     | 332 +------------------------------
+ arch/ia64/kernel/entry.S                | 331 +------------------------------
+ arch/ia64/kernel/syscalls/Makefile      |  40 ++++
+ arch/ia64/kernel/syscalls/syscall.tbl   | 337 ++++++++++++++++++++++++++++++++
+ arch/ia64/kernel/syscalls/syscallhdr.sh |  36 ++++
+ arch/ia64/kernel/syscalls/syscalltbl.sh |  32 +++
+ 10 files changed, 458 insertions(+), 659 deletions(-)
+ create mode 100644 arch/ia64/kernel/syscalls/Makefile
+ create mode 100644 arch/ia64/kernel/syscalls/syscall.tbl
+ create mode 100644 arch/ia64/kernel/syscalls/syscallhdr.sh
+ create mode 100644 arch/ia64/kernel/syscalls/syscalltbl.sh
