@@ -1,37 +1,61 @@
-From: Catalin Marinas <catalin.marinas@arm.com>
-Date: Fri, 25 Jan 2019 15:47:25 +0000
-Subject: Re: [PATCH v2 25/29] y2038: syscalls: rename y2038 compat syscalls
-Message-Id: <20190125154724.GH25901@arrakis.emea.arm.com>
+From: Firoz Khan <firoz.khan@linaro.org>
+Date: Wed, 02 Jan 2019 15:34:46 +0000
+Subject: [PATCH 1/2] ia64: remove nargs from __SYSCALL
+Message-Id: <1546442567-20637-2-git-send-email-firoz.khan@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190118161835.2259170-1-arnd@arndb.de>
- <20190118161835.2259170-26-arnd@arndb.de>
-In-Reply-To: <20190118161835.2259170-26-arnd@arndb.de>
+References: <1546442567-20637-1-git-send-email-firoz.khan@linaro.org>
+In-Reply-To: <1546442567-20637-1-git-send-email-firoz.khan@linaro.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Arnd Bergmann <arnd@arndb.de>
-Cc: y2038@lists.linaro.org, linux-api@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, mattst88@gmail.com, linux@armlinux.org.uk, will.deacon@arm.com, tony.luck@intel.com, fenghua.yu@intel.com, geert@linux-m68k.org, monstr@monstr.eu, paul.burton@mips.com, deller@gmx.de, benh@kernel.crashing.org, mpe@ellerman.id.au, schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com, dalias@libc.org, davem@davemloft.net, luto@kernel.org, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, x86@kernel.org, jcmvbkbc@gmail.com, akpm@linux-foundation.org, deepa.kernel@gmail.com, ebiederm@xmission.com, firoz.khan@linaro.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Philippe Ombredanne <pombredanne@nexb.com>, Thomas Gleixner <tglx@linutronix.de>, Kate Stewart <kstewart@linuxfoundation.org>
+Cc: y2038@lists.linaro.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, arnd@arndb.de, deepa.kernel@gmail.com, marcin.juszkiewicz@linaro.org, firoz.khan@linaro.org
 
-On Fri, Jan 18, 2019 at 05:18:31PM +0100, Arnd Bergmann wrote:
-> A lot of system calls that pass a time_t somewhere have an implementation
-> using a COMPAT_SYSCALL_DEFINEx() on 64-bit architectures, and have
-> been reworked so that this implementation can now be used on 32-bit
-> architectures as well.
-> 
-> The missing step is to redefine them using the regular SYSCALL_DEFINEx()
-> to get them out of the compat namespace and make it possible to build them
-> on 32-bit architectures.
-> 
-> Any system call that ends in 'time' gets a '32' suffix on its name for
-> that version, while the others get a '_time32' suffix, to distinguish
-> them from the normal version, which takes a 64-bit time argument in the
-> future.
-> 
-> In this step, only 64-bit architectures are changed, doing this rename
-> first lets us avoid touching the 32-bit architectures twice.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+The __SYSCALL macro's arguments are system call number,
+system call entry name and number of arguments for the
+system call.
 
-For arm64:
+Argument- nargs in __SYSCALL(nr, entry, nargs) is neither
+calculated nor used anywhere. So it would be better to
+keep the implementaion as  __SYSCALL(nr, entry). This will
+unifies the implementation with some other architetures
+too.
 
-Acked-by: Catalin Marinas <catalin.marinas@arm.com>
+Signed-off-by: Firoz Khan <firoz.khan@linaro.org>
+---
+ arch/ia64/kernel/entry.S                | 2 +-
+ arch/ia64/kernel/syscalls/syscalltbl.sh | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/arch/ia64/kernel/entry.S b/arch/ia64/kernel/entry.S
+index a9992be..204b56d 100644
+--- a/arch/ia64/kernel/entry.S
++++ b/arch/ia64/kernel/entry.S
+@@ -1426,7 +1426,7 @@ END(ftrace_stub)
+ 
+ #endif /* CONFIG_FUNCTION_TRACER */
+ 
+-#define __SYSCALL(nr, entry, nargs) data8 entry
++#define __SYSCALL(nr, entry)	data8 entry
+ 	.rodata
+ 	.align 8
+ 	.globl sys_call_table
+diff --git a/arch/ia64/kernel/syscalls/syscalltbl.sh b/arch/ia64/kernel/syscalls/syscalltbl.sh
+index 85d78d9..904b8e6 100644
+--- a/arch/ia64/kernel/syscalls/syscalltbl.sh
++++ b/arch/ia64/kernel/syscalls/syscalltbl.sh
+@@ -13,10 +13,10 @@ emit() {
+ 	t_entry="$3"
+ 
+ 	while [ $t_nxt -lt $t_nr ]; do
+-		printf "__SYSCALL(%s, sys_ni_syscall, )\n" "${t_nxt}"
++		printf "__SYSCALL(%s,sys_ni_syscall)\n" "${t_nxt}"
+ 		t_nxt=$((t_nxt+1))
+ 	done
+-	printf "__SYSCALL(%s, %s, )\n" "${t_nxt}" "${t_entry}"
++	printf "__SYSCALL(%s,%s)\n" "${t_nxt}" "${t_entry}"
+ }
+ 
+ grep -E "^[0-9A-Fa-fXx]+[[:space:]]+${my_abis}" "$in" | sort -n | (
+-- 
+1.9.1
