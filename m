@@ -1,33 +1,38 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Thu, 10 Jan 2019 16:24:22 +0000
-Subject: [PATCH 02/15] ia64: add statx and io_pgetevents syscalls
-Message-Id: <20190110162435.309262-3-arnd@arndb.de>
+From: Firoz Khan <firoz.khan@linaro.org>
+Date: Wed, 02 Jan 2019 15:34:45 +0000
+Subject: [PATCH 0/2] ia64: Unify the system call scripts
+Message-Id: <1546442567-20637-1-git-send-email-firoz.khan@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190110162435.309262-1-arnd@arndb.de>
-In-Reply-To: <20190110162435.309262-1-arnd@arndb.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: y2038@lists.linaro.org, linux-api@vger.kernel.org, linux-kernel@vger.kernel.org
-Cc: dalias@libc.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, catalin.marinas@arm.com, will.deacon@arm.com, linux@dominikbrodowski.net, jcmvbkbc@gmail.com, deepa.kernel@gmail.com, hpa@zytor.com, sparclinux@vger.kernel.org, linux-s390@vger.kernel.org, dave@stgolabs.net, mpe@ellerman.id.au, deller@gmx.de, x86@kernel.org, linux@armlinux.org.uk, mingo@redhat.com, geert@linux-m68k.org, firoz.khan@linaro.org, mattst88@gmail.com, fenghua.yu@intel.com, Arnd Bergmann <arnd@arndb.de>, heiko.carstens@de.ibm.com, linux-m68k@lists.linux-m68k.org, ink@jurassic.park.msu.ru, luto@kernel.org, tglx@linutronix.de, linux-arm-kernel@lists.infradead.org, monstr@monstr.eu, tony.luck@intel.com, linux-parisc@vger.kernel.org, linux-mips@vger.kernel.org, paul.burton@mips.com, ebiederm@xmission.com, linux-alpha@vger.kernel.org, schwidefsky@de.ibm.com, akpm@linux-foundation.org, linuxppc-dev
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Philippe Ombredanne <pombredanne@nexb.com>, Thomas Gleixner <tglx@linutronix.de>, Kate Stewart <kstewart@linuxfoundation.org>
+Cc: y2038@lists.linaro.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, arnd@arndb.de, deepa.kernel@gmail.com, marcin.juszkiewicz@linaro.org, firoz.khan@linaro.org
 
-All architectures should implement these two, so assign numbers
-and hook them up on ia64.
+System call table generation support is provided for
+alpha, ia64, m68k, microblaze, mips, parisc, powerpc,
+sh, sparc and xtensa architectures. The implementat-
+ions are almost similar across all the above archte-
+ctures. In order to reduce the source code across all
+the above architectures, create common ".sh" files and
+keep it in the common directory, script/. This will 
+be a generic scripts which can use for all the above
+architectures.
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- arch/ia64/kernel/syscalls/syscall.tbl | 2 ++
- 1 file changed, 2 insertions(+)
+This patch depends on;
+ https://lore.kernel.org/lkml/1546439331-18646-1-git-send-email-firoz.khan@linaro.org/
 
-diff --git a/arch/ia64/kernel/syscalls/syscall.tbl b/arch/ia64/kernel/syscalls/syscall.tbl
-index e97caf51be42..52585281205b 100644
---- a/arch/ia64/kernel/syscalls/syscall.tbl
-+++ b/arch/ia64/kernel/syscalls/syscall.tbl
-@@ -335,3 +335,5 @@
- 323	common	copy_file_range			sys_copy_file_range
- 324	common	preadv2				sys_preadv2
- 325	common	pwritev2			sys_pwritev2
-+326	common	statx				sys_statx
-+327	common	io_pgetevents			sys_io_pgetevents
+Firoz Khan (2):
+  ia64: remove nargs from __SYSCALL
+  ia64: generate uapi header and system call table files
+
+ arch/ia64/kernel/entry.S                |  2 +-
+ arch/ia64/kernel/syscalls/Makefile      | 11 ++++++++--
+ arch/ia64/kernel/syscalls/syscallhdr.sh | 36 ---------------------------------
+ arch/ia64/kernel/syscalls/syscalltbl.sh | 32 -----------------------------
+ 4 files changed, 10 insertions(+), 71 deletions(-)
+ delete mode 100644 arch/ia64/kernel/syscalls/syscallhdr.sh
+ delete mode 100644 arch/ia64/kernel/syscalls/syscalltbl.sh
+
 -- 
-2.20.0
+1.9.1
