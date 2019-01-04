@@ -1,39 +1,50 @@
-From: Tony Luck <tony.luck@gmail.com>
-Date: Thu, 03 Jan 2019 17:35:08 +0000
+From: Christoph Hellwig <hch@lst.de>
+Date: Fri, 04 Jan 2019 08:09:10 +0000
 Subject: Re: [PATCH 02/15] swiotlb: remove dma_mark_clean
-Message-Id: <CA+8MBbKXTRGLn1Wvpp1avQCZ186i5Cbo0puvSoNNuKO7_AcwZg@mail.gmail.com>
+Message-Id: <20190104080910.GA15221@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20181207190720.18517-1-hch@lst.de> <20181207190720.18517-3-hch@lst.de>
- <CA+8MBb+9prWYSmp25K-LMUv1_0eekvFqXhoj87CV9zcaXfMDGg@mail.gmail.com> <20190103072356.GA24163@lst.de>
-In-Reply-To: <20190103072356.GA24163@lst.de>
+References: <20181207190720.18517-1-hch@lst.de> <20181207190720.18517-3-hch@lst.de> <CA+8MBb+9prWYSmp25K-LMUv1_0eekvFqXhoj87CV9zcaXfMDGg@mail.gmail.com> <20190103072356.GA24163@lst.de> <CA+8MBbKXTRGLn1Wvpp1avQCZ186i5Cbo0puvSoNNuKO7_AcwZg@mail.gmail.com>
+In-Reply-To: <CA+8MBbKXTRGLn1Wvpp1avQCZ186i5Cbo0puvSoNNuKO7_AcwZg@mail.gmail.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: Christoph Hellwig <hch@lst.de>
-Cc: iommu@lists.linux-foundation.org, Linus Torvalds <torvalds@linux-foundation.org>, Jesper Dangaard Brouer <brouer@redhat.com>, Tariq Toukan <tariqt@mellanox.com>, Ilias Apalodimas <ilias.apalodimas@linaro.org>, =?UTF-8?B?VG9rZSBIw7hpbGFuZC1Kw7hyZ2Vuc2Vu?= <toke@toke.dk>, Robin Murphy <robin.murphy@arm.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Fenghua Yu <fenghua.yu@intel.com>, Marek Szyprowski <m.szyprowski@samsung.com>, Keith Busch <keith.busch@intel.com>, Jonathan Derrick <jonathan.derrick@intel.com>, linux-pci@vger.kernel.org, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, X86-ML <x86@kernel.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset="macroman"
+Content-Transfer-Encoding: base64
+To: Tony Luck <tony.luck@gmail.com>
+Cc: Christoph Hellwig <hch@lst.de>, iommu@lists.linux-foundation.org, Linus Torvalds <torvalds@linux-foundation.org>, Jesper Dangaard Brouer <brouer@redhat.com>, Tariq Toukan <tariqt@mellanox.com>, Ilias Apalodimas <ilias.apalodimas@linaro.org>, Toke =?iso-8859-1?Q?H=F8iland-J=F8rgensen?= <toke@toke.dk>, Robin Murphy <robin.murphy@arm.com>, Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>, Fenghua Yu <fenghua.yu@intel.com>, Marek Szyprowski <m.szyprowski@samsung.com>, Keith Busch <keith.busch@intel.com>, Jonathan Derrick <jonathan.derrick@intel.com>, linux-pci@vger.kernel.org, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, X86-ML <x86@kernel.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 
-On Wed, Jan 2, 2019 at 11:23 PM Christoph Hellwig <hch@lst.de> wrote:
-> I think something like the patch below should fix it:
->
-> diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-> index ccd56f5df8cd..8d7396bd1790 100644
-> --- a/arch/ia64/Kconfig
-> +++ b/arch/ia64/Kconfig
-> @@ -31,7 +31,7 @@ config IA64
->         select HAVE_MEMBLOCK_NODE_MAP
->         select HAVE_VIRT_CPU_ACCOUNTING
->         select ARCH_HAS_DMA_COHERENT_TO_PFN if SWIOTLB
-> -       select ARCH_HAS_SYNC_DMA_FOR_CPU
-> +       select ARCH_HAS_SYNC_DMA_FOR_CPU if SWIOTLB
-
-Close. But no cigar. Now I get:
-
-  CC      arch/ia64/mm/init.o
-arch/ia64/mm/init.c:75:6: error: redefinition of ‘arch_sync_dma_for_cpu’
-./include/linux/dma-noncoherent.h:61:20: note: previous definition of
-‘arch_sync_dma_for_cpu’ was here
-make[1]: *** [arch/ia64/mm/init.o] Error 1
-make: *** [arch/ia64/mm/init.o] Error 2
-
-
--Tony
+T25lIG1vcmUgaWZkZWYgdG8gcmVzY3VlLi4KCkJ0dywgZG8geW91IGtub3cgd2h5IHdlIG9ubHkg
+cGxheSB0aGVzZSBtYXJrIGNsZWFuIGJpdHMgZm9yIHN3aW90bGIKYW5kIG5vdCBmb3IgdGhlIHZh
+cmlvdXMgaW9tbXVzPwoKQWxzbyBkbyB5b3UgaGF2ZSBhbnkgZ29vZCByZWNlaXBlIHRvIGJ1aWxk
+IGFuIGlhNjQgY3Jvc3MgY29tcGlsZXIgb24KYSByZWNlbnQgRGViaWFuIHN5c3RlbT8gIFVubGlr
+ZSBtb3N0IGFyY2hpdGVjdHVyZXMgRGViaWFuIGRvZXNuJ3QgaGF2ZQphIHByZS1idWlsdCBvbmUs
+IGFuZCB0aGUgc2NyaXB0IGZyb20gdGhlIGtlcm5lbCBiddGWbGRib3QgZG9lc24ndCB3b3JrCmVp
+dGhlciB1bmZvcnR1bmF0ZWx5LgoKLS0tCkZyb20gM2Y1ZjMyOTdhYTk4OWNmMjdiM2ZlMTBlMmQw
+MTA0MjIzMzI1NzRiMyBNb24gU2VwIDE3IDAwOjAwOjAwIDIwMDEKRnJvbTogQ2hyaXN0b3BoIEhl
+bGx3aWcgPGhjaEBsc3QuZGU+CkRhdGU6IEZyaSwgNCBKYW4gMjAxOSAwOTowNjowNSArMDEwMApT
+dWJqZWN0OiBpYTY0OiBmaXggY29tcGlsZSB3aXRob3V0IHN3aW90bGIKClNvbWUgbm9uLWdlbmVy
+aWMgaWE2NCBjb25maWdzIGRvbid0IGJ1aWxkIHN3aW90bGIsIGFuZCB0aHVzIHNob3VsZCBub3QK
+cHVsbCBpbiB0aGUgZ2VuZXJpYyBub24tY29oZXJlbnQgRE1BIGluZnJhc3RydWN0dXJlLgoKRml4
+ZXM6IDY4YzYwODM0NWMgKCJzd2lvdGxiOiByZW1vdmUgZG1hX21hcmtfY2xlYW4iKQpSZXBvcnRl
+ZC1ieTogVG9ueSBMdWNrIDx0b255Lmx1Y2tAZ21haWwuY29tPgpTaWduZWQtb2ZmLWJ5OiBDaHJp
+c3RvcGggSGVsbHdpZyA8aGNoQGxzdC5kZT4KLS0tCiBhcmNoL2lhNjQvS2NvbmZpZyAgIHwgMiAr
+LQogYXJjaC9pYTY0L21tL2luaXQuYyB8IDIgKysKIDIgZmlsZXMgY2hhbmdlZCwgMyBpbnNlcnRp
+b25zKCspLCAxIGRlbGV0aW9uKC0pCgpkaWZmIC0tZ2l0IGEvYXJjaC9pYTY0L0tjb25maWcgYi9h
+cmNoL2lhNjQvS2NvbmZpZwppbmRleCBjY2Q1NmY1ZGY4Y2QuLjhkNzM5NmJkMTc5MCAxMDA2NDQK
+LS0tIGEvYXJjaC9pYTY0L0tjb25maWcKKysrIGIvYXJjaC9pYTY0L0tjb25maWcKQEAgLTMxLDcg
+KzMxLDcgQEAgY29uZmlnIElBNjQKIAlzZWxlY3QgSEFWRV9NRU1CTE9DS19OT0RFX01BUAogCXNl
+bGVjdCBIQVZFX1ZJUlRfQ1BVX0FDQ09VTlRJTkcKIAlzZWxlY3QgQVJDSF9IQVNfRE1BX0NPSEVS
+RU5UX1RPX1BGTiBpZiBTV0lPVExCCi0Jc2VsZWN0IEFSQ0hfSEFTX1NZTkNfRE1BX0ZPUl9DUFUK
+KwlzZWxlY3QgQVJDSF9IQVNfU1lOQ19ETUFfRk9SX0NQVSBpZiBTV0lPVExCCiAJc2VsZWN0IFZJ
+UlRfVE9fQlVTCiAJc2VsZWN0IEFSQ0hfRElTQ0FSRF9NRU1CTE9DSwogCXNlbGVjdCBHRU5FUklD
+X0lSUV9QUk9CRQpkaWZmIC0tZ2l0IGEvYXJjaC9pYTY0L21tL2luaXQuYyBiL2FyY2gvaWE2NC9t
+bS9pbml0LmMKaW5kZXggMDU1MzgyNjIyZjA3Li4yOWQ4NDE1MjVjYTEgMTAwNjQ0Ci0tLSBhL2Fy
+Y2gvaWE2NC9tbS9pbml0LmMKKysrIGIvYXJjaC9pYTY0L21tL2luaXQuYwpAQCAtNjcsNiArNjcs
+NyBAQCBfX2lhNjRfc3luY19pY2FjaGVfZGNhY2hlIChwdGVfdCBwdGUpCiAJc2V0X2JpdChQR19h
+cmNoXzEsICZwYWdlLT5mbGFncyk7CS8qIG1hcmsgcGFnZSBhcyBjbGVhbiAqLwogfQogCisjaWZk
+ZWYgQ09ORklHX1NXSU9UTEIKIC8qCiAgKiBTaW5jZSBETUEgaXMgaS1jYWNoZSBjb2hlcmVudCwg
+YW55IChjb21wbGV0ZSkgcGFnZXMgdGhhdCB3ZXJlIHdyaXR0ZW4gdmlhCiAgKiBETUEgY2FuIGJl
+IG1hcmtlZCBhcyAiY2xlYW4iIHNvIHRoYXQgbGF6eV9tbXVfcHJvdF91cGRhdGUoKSBkb2Vzbid0
+IGhhdmUgdG8KQEAgLTgxLDYgKzgyLDcgQEAgdm9pZCBhcmNoX3N5bmNfZG1hX2Zvcl9jcHUoc3Ry
+dWN0IGRldmljZSAqZGV2LCBwaHlzX2FkZHJfdCBwYWRkciwKIAkJc2V0X2JpdChQR19hcmNoXzEs
+ICZwZm5fdG9fcGFnZShwZm4pLT5mbGFncyk7CiAJfSB3aGlsZSAoKytwZm4gPD0gUEhZU19QRk4o
+cGFkZHIgKyBzaXplIC0gMSkpOwogfQorI2VuZGlmCiAKIGlubGluZSB2b2lkCiBpYTY0X3NldF9y
+YnNfYm90ICh2b2lkKQotLSAKMi4yMC4xCg==
