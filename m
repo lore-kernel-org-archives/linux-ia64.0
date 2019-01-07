@@ -1,37 +1,92 @@
-From: Russell King - ARM Linux admin <linux@armlinux.org.uk>
-Date: Fri, 25 Jan 2019 16:21:06 +0000
-Subject: Re: [PATCH v2 07/29] ARM: add kexec_file_load system call number
-Message-Id: <20190125162106.axfhoxxdutkmaeh3@e5254000004ec.dyn.armlinux.org.uk>
+From: Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>
+Date: Mon, 07 Jan 2019 09:54:33 +0000
+Subject: [PATCH] ia64: tweak BREAK_LOGLEVEL and RESTORE_LOGLEVEL
+Message-Id: <20190107095433.6497-1-sergey.senozhatsky@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190118161835.2259170-1-arnd@arndb.de>
- <20190118161835.2259170-8-arnd@arndb.de>
- <20190125154359.GG25901@arrakis.emea.arm.com>
-In-Reply-To: <20190125154359.GG25901@arrakis.emea.arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Catalin Marinas <catalin.marinas@arm.com>
-Cc: Arnd Bergmann <arnd@arndb.de>, y2038@lists.linaro.org, linux-api@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, mattst88@gmail.com, will.deacon@arm.com, tony.luck@intel.com, fenghua.yu@intel.com, geert@linux-m68k.org, monstr@monstr.eu, paul.burton@mips.com, deller@gmx.de, benh@kernel.crashing.org, mpe@ellerman.id.au, schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com, dalias@libc.org, davem@davemloft.net, luto@kernel.org, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, x86@kernel.org, jcmvbkbc@gmail.com, akpm@linux-foundation.org, deepa.kernel@gmail.com, ebiederm@xmission.com, firoz.khan@linaro.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.or
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
 
-On Fri, Jan 25, 2019 at 03:43:59PM +0000, Catalin Marinas wrote:
-> On Fri, Jan 18, 2019 at 05:18:13PM +0100, Arnd Bergmann wrote:
-> > diff --git a/arch/arm/tools/syscall.tbl b/arch/arm/tools/syscall.tbl
-> > index 86de9eb34296..20ed7e026723 100644
-> > --- a/arch/arm/tools/syscall.tbl
-> > +++ b/arch/arm/tools/syscall.tbl
-> > @@ -415,3 +415,4 @@
-> >  398	common	rseq			sys_rseq
-> >  399	common	io_pgetevents		sys_io_pgetevents
-> >  400	common	migrate_pages		sys_migrate_pages
-> > +401	common	kexec_file_load		sys_kexec_file_load
-> 
-> I presume on arm32 this would still return -ENOSYS.
+a) Do not pass console_loglevel to macros, use console_loglevel directly.
+b) Use CONSOLE_LOGLEVEL_MOTORMOUTH instead of a naked number
+c) Use bust_spinlocks() to set/clear oops_in_progress
+d) Fix checkpatch error: Macros with multiple statements should be
+                         enclosed in a do - while loop
 
-Yes, I already checked.  If CONFIG_KEXEC_FILE is not set, then
-kernel/kexec_file.c is not built, and we fall back to the stub
-in kernel/sys_ni.c.
+Signed-off-by: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
+---
+ arch/ia64/kernel/mca.c | 36 ++++++++++++++++++++----------------
+ 1 file changed, 20 insertions(+), 16 deletions(-)
 
+diff --git a/arch/ia64/kernel/mca.c b/arch/ia64/kernel/mca.c
+index 91bd1e129379..06fb40f5c2d6 100644
+--- a/arch/ia64/kernel/mca.c
++++ b/arch/ia64/kernel/mca.c
+@@ -188,19 +188,23 @@ static unsigned int mlogbuf_finished = 0;
+ static unsigned long mlogbuf_timestamp = 0;
+ 
+ static int loglevel_save = -1;
+-#define BREAK_LOGLEVEL(__console_loglevel)		\
+-	oops_in_progress = 1;				\
+-	if (loglevel_save < 0)				\
+-		loglevel_save = __console_loglevel;	\
+-	__console_loglevel = 15;
+-
+-#define RESTORE_LOGLEVEL(__console_loglevel)		\
+-	if (loglevel_save >= 0) {			\
+-		__console_loglevel = loglevel_save;	\
+-		loglevel_save = -1;			\
+-	}						\
+-	mlogbuf_finished = 0;				\
+-	oops_in_progress = 0;
++#define BREAK_LOGLEVEL()					\
++	do {							\
++		bust_spinlocks(1);				\
++		if (loglevel_save < 0)				\
++			loglevel_save = __console_loglevel;	\
++		console_loglevel = CONSOLE_LOGLEVEL_MOTORMOUTH;	\
++	} while (0)
++
++#define RESTORE_LOGLEVEL()					\
++	do {							\
++		if (loglevel_save >= 0) {			\
++			console_loglevel = loglevel_save;	\
++			loglevel_save = -1;			\
++		}						\
++		mlogbuf_finished = 0;				\
++		bust_spinlocks(0);				\
++	} while (0)
+ 
+ /*
+  * Push messages into buffer, print them later if not urgent.
+@@ -287,7 +291,7 @@ EXPORT_SYMBOL(ia64_mlogbuf_dump);
+  */
+ static void ia64_mlogbuf_finish(int wait)
+ {
+-	BREAK_LOGLEVEL(console_loglevel);
++	BREAK_LOGLEVEL();
+ 
+ 	spin_lock_init(&mlogbuf_rlock);
+ 	ia64_mlogbuf_dump();
+@@ -1616,7 +1620,7 @@ default_monarch_init_process(struct notifier_block *self, unsigned long val, voi
+ 	 * To enable show_stack from INIT, we use oops_in_progress which should
+ 	 * be used in real oops. This would cause something wrong after INIT.
+ 	 */
+-	BREAK_LOGLEVEL(console_loglevel);
++	BREAK_LOGLEVEL();
+ 	ia64_mlogbuf_dump_from_init();
+ 
+ 	printk(KERN_ERR "Processes interrupted by INIT -");
+@@ -1641,7 +1645,7 @@ default_monarch_init_process(struct notifier_block *self, unsigned long val, voi
+ 		read_unlock(&tasklist_lock);
+ 	}
+ 	/* FIXME: This will not restore zapped printk locks. */
+-	RESTORE_LOGLEVEL(console_loglevel);
++	RESTORE_LOGLEVEL();
+ 	return NOTIFY_DONE;
+ }
+ 
 -- 
-RMK's Patch system: https://www.armlinux.org.uk/developer/patches/
-FTTC broadband for 0.8mile line in suburbia: sync at 12.1Mbps down 622kbps up
-According to speedtest.net: 11.9Mbps down 500kbps up
+2.20.1
