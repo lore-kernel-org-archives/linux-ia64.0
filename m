@@ -1,48 +1,34 @@
-From: "Gustavo A. R. Silva" <gustavo@embeddedor.com>
-Date: Mon, 14 Jan 2019 16:54:55 +0000
-Subject: Re: [PATCH] perfmon: use ARRAY_SIZE() macro
-Message-Id: <24b5302a-3e6e-0cd4-7521-bedacb7766d9@embeddedor.com>
+From: lijiang <lijiang@redhat.com>
+Date: Mon, 07 Jan 2019 05:10:26 +0000
+Subject: Re: [PATCH 1/2 v8] resource: add the new I/O resource descriptor 'IORES_DESC_RESERVED'
+Message-Id: <9e994396-4bf9-ed96-a8e7-c4ca2f69170d@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20181225025815.GA25908@embeddedor>
-In-Reply-To: <20181225025815.GA25908@embeddedor>
+References: <20181129080956.20776-1-lijiang@redhat.com>
+ <20181129080956.20776-2-lijiang@redhat.com>
+ <20181130033703.GA23624@dhcp-128-65.nay.redhat.com>
+ <bbf6352b-b060-4cb8-dfd2-99166b0149a7@redhat.com>
+ <20181206201147.GG3986@zn.tnic>
+In-Reply-To: <20181206201147.GG3986@zn.tnic>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: Borislav Petkov <bp@alien8.de>
+Cc: Dave Young <dyoung@redhat.com>, linux-kernel@vger.kernel.org, kexec@lists.infradead.org, x86@kernel.org, linux-ia64@vger.kernel.org, linux-efi@vger.kernel.org, tglx@linutronix.de, mingo@redhat.com, akpm@linux-foundation.org, dave.hansen@linux.intel.com, luto@kernel.org, peterz@infradead.org, ard.biesheuvel@linaro.org, tony.luck@intel.com, fenghua.yu@intel.com, bhe@redhat.com, Tom Lendacky <thomas.lendacky@amd.com>, Toshi Kani <toshi.kani@hp.com>, Dan Williams <dan.j.williams@intel.com>
 
-Hi,
-
-Friendly ping:
-
-Who can take this, please?
-
-Thanks
---
-Gustavo
-
-On 12/24/18 8:58 PM, Gustavo A. R. Silva wrote:
-> Use ARRAY_SIZE instead of dividing sizeof array with sizeof an element
-> or, as in this particular case, sizeof the structure name.
+在 2018年12月07日 04:11, Borislav Petkov 写道:
+> On Fri, Nov 30, 2018 at 03:04:44PM +0800, lijiang wrote:
+>> I have noticed the changes on x86, but for IA64, i'm not sure whether it should do the same
+>> thing, so keep it as before.
+>>
+>> If IA64 people would like to give any comment, that will be appreciated.
 > 
-> This issue was detected with the help of Coccinelle.
+> I think you should not touch ia64 and not make Tony unnecessarily power
+> up the old rust.
 > 
-> Signed-off-by: Gustavo A. R. Silva <gustavo@embeddedor.com>
-> ---
->   arch/ia64/kernel/perfmon.c | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
-> index 46bff1661836..b39df5078e19 100644
-> --- a/arch/ia64/kernel/perfmon.c
-> +++ b/arch/ia64/kernel/perfmon.c
-> @@ -4644,7 +4644,7 @@ static pfm_cmd_desc_t pfm_cmd_tab[]={
->   /* 32 */PFM_CMD(pfm_write_ibrs, PFM_CMD_PCLRWS, PFM_CMD_ARG_MANY, pfarg_dbreg_t, NULL),
->   /* 33 */PFM_CMD(pfm_write_dbrs, PFM_CMD_PCLRWS, PFM_CMD_ARG_MANY, pfarg_dbreg_t, NULL)
->   };
-> -#define PFM_CMD_COUNT	(sizeof(pfm_cmd_tab)/sizeof(pfm_cmd_desc_t))
-> +#define PFM_CMD_COUNT	ARRAY_SIZE(pfm_cmd_tab)
->   
->   static int
->   pfm_check_task_state(pfm_context_t *ctx, int cmd, unsigned long flags)
+
+Ok, i will get rid of previous changes to IA64 in next post.
+
+Thanks.
+
+> :-)
 > 
