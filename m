@@ -1,239 +1,100 @@
-From: Mike Rapoport <rppt@linux.ibm.com>
-Date: Mon, 21 Jan 2019 08:03:54 +0000
-Subject: [PATCH v2 07/21] memblock: memblock_phys_alloc(): don't panic
-Message-Id: <1548057848-15136-8-git-send-email-rppt@linux.ibm.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Thu, 10 Jan 2019 16:24:25 +0000
+Subject: [PATCH 05/15] alpha: update syscall macro definitions
+Message-Id: <20190110162435.309262-6-arnd@arndb.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1548057848-15136-1-git-send-email-rppt@linux.ibm.com>
-In-Reply-To: <1548057848-15136-1-git-send-email-rppt@linux.ibm.com>
+References: <20190110162435.309262-1-arnd@arndb.de>
+In-Reply-To: <20190110162435.309262-1-arnd@arndb.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org
-Cc: Rich Felker <dalias@libc.org>, linux-ia64@vger.kernel.org, devicetree@vger.kernel.org, Catalin Marinas <catalin.marinas@arm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, x86@kernel.org, linux-mips@vger.kernel.org, Max Filippov <jcmvbkbc@gmail.com>, Guo Ren <guoren@kernel.org>, sparclinux@vger.kernel.org, Christoph Hellwig <hch@lst.de>, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Richard Weinberger <richard@nod.at>, linux-sh@vger.kernel.org, Russell King <linux@armlinux.org.uk>, kasan-dev@googlegroups.com, Mike Rapoport <rppt@linux.ibm.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Mark Salter <msalter@redhat.com>, Dennis Zhou <dennis@kernel.org>, Matt Turner <mattst88@gmail.com>, linux-snps-arc@lists.infradead.org, uclinux-h8-devel@lists.sourceforge.jp, Petr Mladek <pmladek@suse.com>, linux-xtensa@linux-xtensa.org, linux-alpha@vger.kernel.org, linux-um@lists.infradead.org, linux-m68k@lists.linux-m68k.org, Rob Herring <robh+dt@kernel.org>, Greentime Hu <green.hu@gmail.com>, xen-devel@lists.xenproject.org, Stafford Horne <shorne@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, linux-arm-kernel@lists.infradead.org, Michal Simek <monstr@monstr.eu>, Tony Luck <tony.luck@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org, Paul Burton <paul.burton@mips.com>, Vineet Gupta <vgupta@synopsys.com>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, "David S. Miller" <davem@davemloft.net>, openrisc@lists.librecores.org
+To: y2038@lists.linaro.org, linux-api@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: Arnd Bergmann <arnd@arndb.de>, ink@jurassic.park.msu.ru, mattst88@gmail.com, linux@armlinux.org.uk, catalin.marinas@arm.com, will.deacon@arm.com, tony.luck@intel.com, fenghua.yu@intel.com, geert@linux-m68k.org, monstr@monstr.eu, paul.burton@mips.com, deller@gmx.de, mpe@ellerman.id.au, schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com, dalias@libc.org, davem@davemloft.net, luto@kernel.org, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, x86@kernel.org, jcmvbkbc@gmail.com, firoz.khan@linaro.org, ebiederm@xmission.com, deepa.kernel@gmail.com, linux@dominikbrodowski.net, akpm@linux-foundation.org, dave@stgolabs.net, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-paris
 
-Make the memblock_phys_alloc() function an inline wrapper for
-memblock_phys_alloc_range() and update the memblock_phys_alloc() callers to
-check the returned value and panic in case of error.
+Other architectures commonly use __NR_umount2 for sys_umount,
+only ia64 and alpha use __NR_umount here. In order to synchronize
+the generated tables, use umount2 like everyone else, and add back
+the old name from asm/unistd.h for compatibility.
 
-Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
+For shmat, alpha uses the osf_shmat name, we can do the same thing
+here, which means we don't have to add an entry in the __IGNORE
+list now that shmat is mandatory everywhere
+
+alarm, creat, pause, time, and utime are optional everywhere
+these days, no need to list them here any more.
+
+I considered also adding the regular versions of the get*id system
+calls that have different names and calling conventions on alpha,
+which would further help unify the syscall ABI, but for now
+I decided against that.
+
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- arch/arm/mm/init.c                   | 4 ++++
- arch/arm64/mm/mmu.c                  | 2 ++
- arch/powerpc/sysdev/dart_iommu.c     | 3 +++
- arch/s390/kernel/crash_dump.c        | 3 +++
- arch/s390/kernel/setup.c             | 3 +++
- arch/sh/boards/mach-ap325rxa/setup.c | 3 +++
- arch/sh/boards/mach-ecovec24/setup.c | 6 ++++++
- arch/sh/boards/mach-kfr2r09/setup.c  | 3 +++
- arch/sh/boards/mach-migor/setup.c    | 3 +++
- arch/sh/boards/mach-se/7724/setup.c  | 6 ++++++
- arch/xtensa/mm/kasan_init.c          | 3 +++
- include/linux/memblock.h             | 7 ++++++-
- mm/memblock.c                        | 5 -----
- 13 files changed, 45 insertions(+), 6 deletions(-)
+ arch/alpha/include/asm/unistd.h        | 6 ------
+ arch/alpha/include/uapi/asm/unistd.h   | 5 +++++
+ arch/alpha/kernel/syscalls/syscall.tbl | 4 ++--
+ 3 files changed, 7 insertions(+), 8 deletions(-)
 
-diff --git a/arch/arm/mm/init.c b/arch/arm/mm/init.c
-index b76b90e..15dddfe 100644
---- a/arch/arm/mm/init.c
-+++ b/arch/arm/mm/init.c
-@@ -206,6 +206,10 @@ phys_addr_t __init arm_memblock_steal(phys_addr_t size, phys_addr_t align)
- 	BUG_ON(!arm_memblock_steal_permitted);
+diff --git a/arch/alpha/include/asm/unistd.h b/arch/alpha/include/asm/unistd.h
+index 21b706a5b772..564ba87bdc38 100644
+--- a/arch/alpha/include/asm/unistd.h
++++ b/arch/alpha/include/asm/unistd.h
+@@ -22,18 +22,12 @@
+ /*
+  * Ignore legacy syscalls that we don't use.
+  */
+-#define __IGNORE_alarm
+-#define __IGNORE_creat
+ #define __IGNORE_getegid
+ #define __IGNORE_geteuid
+ #define __IGNORE_getgid
+ #define __IGNORE_getpid
+ #define __IGNORE_getppid
+ #define __IGNORE_getuid
+-#define __IGNORE_pause
+-#define __IGNORE_time
+-#define __IGNORE_utime
+-#define __IGNORE_umount2
  
- 	phys = memblock_phys_alloc(size, align);
-+	if (!phys)
-+		panic("Failed to steal %pa bytes at %pS\n",
-+		      &size, (void *)_RET_IP_);
+ /* Alpha doesn't have protection keys. */
+ #define __IGNORE_pkey_mprotect
+diff --git a/arch/alpha/include/uapi/asm/unistd.h b/arch/alpha/include/uapi/asm/unistd.h
+index 9ba724f116f1..4507071f995f 100644
+--- a/arch/alpha/include/uapi/asm/unistd.h
++++ b/arch/alpha/include/uapi/asm/unistd.h
+@@ -2,6 +2,11 @@
+ #ifndef _UAPI_ALPHA_UNISTD_H
+ #define _UAPI_ALPHA_UNISTD_H
+ 
++/* These are traditionally the names linux-alpha uses for
++ * the two otherwise generic system calls */
++#define __NR_umount	__NR_umount2
++#define __NR_osf_shmat	__NR_shmat
 +
- 	memblock_free(phys, size);
- 	memblock_remove(phys, size);
+ #include <asm/unistd_32.h>
  
-diff --git a/arch/arm64/mm/mmu.c b/arch/arm64/mm/mmu.c
-index b6f5aa5..a74e4be 100644
---- a/arch/arm64/mm/mmu.c
-+++ b/arch/arm64/mm/mmu.c
-@@ -104,6 +104,8 @@ static phys_addr_t __init early_pgtable_alloc(void)
- 	void *ptr;
- 
- 	phys = memblock_phys_alloc(PAGE_SIZE, PAGE_SIZE);
-+	if (!phys)
-+		panic("Failed to allocate page table page\n");
- 
- 	/*
- 	 * The FIX_{PGD,PUD,PMD} slots may be in active use, but the FIX_PTE
-diff --git a/arch/powerpc/sysdev/dart_iommu.c b/arch/powerpc/sysdev/dart_iommu.c
-index 25bc25f..b82c9ff 100644
---- a/arch/powerpc/sysdev/dart_iommu.c
-+++ b/arch/powerpc/sysdev/dart_iommu.c
-@@ -265,6 +265,9 @@ static void allocate_dart(void)
- 	 * prefetching into invalid pages and corrupting data
- 	 */
- 	tmp = memblock_phys_alloc(DART_PAGE_SIZE, DART_PAGE_SIZE);
-+	if (!tmp)
-+		panic("DART: table allocation failed\n");
-+
- 	dart_emptyval = DARTMAP_VALID | ((tmp >> DART_PAGE_SHIFT) &
- 					 DARTMAP_RPNMASK);
- 
-diff --git a/arch/s390/kernel/crash_dump.c b/arch/s390/kernel/crash_dump.c
-index 97eae38..f96a585 100644
---- a/arch/s390/kernel/crash_dump.c
-+++ b/arch/s390/kernel/crash_dump.c
-@@ -61,6 +61,9 @@ struct save_area * __init save_area_alloc(bool is_boot_cpu)
- 	struct save_area *sa;
- 
- 	sa = (void *) memblock_phys_alloc(sizeof(*sa), 8);
-+	if (!sa)
-+		panic("Failed to allocate save area\n");
-+
- 	if (is_boot_cpu)
- 		list_add(&sa->list, &dump_save_areas);
- 	else
-diff --git a/arch/s390/kernel/setup.c b/arch/s390/kernel/setup.c
-index 72dd23e..da48397 100644
---- a/arch/s390/kernel/setup.c
-+++ b/arch/s390/kernel/setup.c
-@@ -968,6 +968,9 @@ static void __init setup_randomness(void)
- 
- 	vmms = (struct sysinfo_3_2_2 *) memblock_phys_alloc(PAGE_SIZE,
- 							    PAGE_SIZE);
-+	if (!vmms)
-+		panic("Failed to allocate memory for sysinfo structure\n");
-+
- 	if (stsi(vmms, 3, 2, 2) = 0 && vmms->count)
- 		add_device_randomness(&vmms->vm, sizeof(vmms->vm[0]) * vmms->count);
- 	memblock_free((unsigned long) vmms, PAGE_SIZE);
-diff --git a/arch/sh/boards/mach-ap325rxa/setup.c b/arch/sh/boards/mach-ap325rxa/setup.c
-index d7ceab6..08a0cc9 100644
---- a/arch/sh/boards/mach-ap325rxa/setup.c
-+++ b/arch/sh/boards/mach-ap325rxa/setup.c
-@@ -558,6 +558,9 @@ static void __init ap325rxa_mv_mem_reserve(void)
- 	phys_addr_t size = CEU_BUFFER_MEMORY_SIZE;
- 
- 	phys = memblock_phys_alloc(size, PAGE_SIZE);
-+	if (!phys)
-+		panic("Failed to allocate CEU memory\n");
-+
- 	memblock_free(phys, size);
- 	memblock_remove(phys, size);
- 
-diff --git a/arch/sh/boards/mach-ecovec24/setup.c b/arch/sh/boards/mach-ecovec24/setup.c
-index a3901806..fd264a6 100644
---- a/arch/sh/boards/mach-ecovec24/setup.c
-+++ b/arch/sh/boards/mach-ecovec24/setup.c
-@@ -1481,11 +1481,17 @@ static void __init ecovec_mv_mem_reserve(void)
- 	phys_addr_t size = CEU_BUFFER_MEMORY_SIZE;
- 
- 	phys = memblock_phys_alloc(size, PAGE_SIZE);
-+	if (!phys)
-+		panic("Failed to allocate CEU0 memory\n");
-+
- 	memblock_free(phys, size);
- 	memblock_remove(phys, size);
- 	ceu0_dma_membase = phys;
- 
- 	phys = memblock_phys_alloc(size, PAGE_SIZE);
-+	if (!phys)
-+		panic("Failed to allocate CEU1 memory\n");
-+
- 	memblock_free(phys, size);
- 	memblock_remove(phys, size);
- 	ceu1_dma_membase = phys;
-diff --git a/arch/sh/boards/mach-kfr2r09/setup.c b/arch/sh/boards/mach-kfr2r09/setup.c
-index 55bdf4a..ebe90d06 100644
---- a/arch/sh/boards/mach-kfr2r09/setup.c
-+++ b/arch/sh/boards/mach-kfr2r09/setup.c
-@@ -632,6 +632,9 @@ static void __init kfr2r09_mv_mem_reserve(void)
- 	phys_addr_t size = CEU_BUFFER_MEMORY_SIZE;
- 
- 	phys = memblock_phys_alloc(size, PAGE_SIZE);
-+	if (!phys)
-+		panic("Failed to allocate CEU memory\n");
-+
- 	memblock_free(phys, size);
- 	memblock_remove(phys, size);
- 
-diff --git a/arch/sh/boards/mach-migor/setup.c b/arch/sh/boards/mach-migor/setup.c
-index ba7eee6..1adff09 100644
---- a/arch/sh/boards/mach-migor/setup.c
-+++ b/arch/sh/boards/mach-migor/setup.c
-@@ -631,6 +631,9 @@ static void __init migor_mv_mem_reserve(void)
- 	phys_addr_t size = CEU_BUFFER_MEMORY_SIZE;
- 
- 	phys = memblock_phys_alloc(size, PAGE_SIZE);
-+	if (!phys)
-+		panic("Failed to allocate CEU memory\n");
-+
- 	memblock_free(phys, size);
- 	memblock_remove(phys, size);
- 
-diff --git a/arch/sh/boards/mach-se/7724/setup.c b/arch/sh/boards/mach-se/7724/setup.c
-index 4696e10..201631a 100644
---- a/arch/sh/boards/mach-se/7724/setup.c
-+++ b/arch/sh/boards/mach-se/7724/setup.c
-@@ -966,11 +966,17 @@ static void __init ms7724se_mv_mem_reserve(void)
- 	phys_addr_t size = CEU_BUFFER_MEMORY_SIZE;
- 
- 	phys = memblock_phys_alloc(size, PAGE_SIZE);
-+	if (!phys)
-+		panic("Failed to allocate CEU0 memory\n");
-+
- 	memblock_free(phys, size);
- 	memblock_remove(phys, size);
- 	ceu0_dma_membase = phys;
- 
- 	phys = memblock_phys_alloc(size, PAGE_SIZE);
-+	if (!phys)
-+		panic("Failed to allocate CEU1 memory\n");
-+
- 	memblock_free(phys, size);
- 	memblock_remove(phys, size);
- 	ceu1_dma_membase = phys;
-diff --git a/arch/xtensa/mm/kasan_init.c b/arch/xtensa/mm/kasan_init.c
-index 48dbb03..4852848 100644
---- a/arch/xtensa/mm/kasan_init.c
-+++ b/arch/xtensa/mm/kasan_init.c
-@@ -54,6 +54,9 @@ static void __init populate(void *start, void *end)
- 			phys_addr_t phys  				memblock_phys_alloc(PAGE_SIZE, PAGE_SIZE);
- 
-+			if (!phys)
-+				panic("Failed to allocate page table page\n");
-+
- 			set_pte(pte + j, pfn_pte(PHYS_PFN(phys), PAGE_KERNEL));
- 		}
- 	}
-diff --git a/include/linux/memblock.h b/include/linux/memblock.h
-index 66dfdb3..7883c74 100644
---- a/include/linux/memblock.h
-+++ b/include/linux/memblock.h
-@@ -374,7 +374,12 @@ phys_addr_t memblock_phys_alloc_range(phys_addr_t size, phys_addr_t align,
- phys_addr_t memblock_phys_alloc_nid(phys_addr_t size, phys_addr_t align, int nid);
- phys_addr_t memblock_phys_alloc_try_nid(phys_addr_t size, phys_addr_t align, int nid);
- 
--phys_addr_t memblock_phys_alloc(phys_addr_t size, phys_addr_t align);
-+static inline phys_addr_t memblock_phys_alloc(phys_addr_t size,
-+					      phys_addr_t align)
-+{
-+	return memblock_phys_alloc_range(size, align, 0,
-+					 MEMBLOCK_ALLOC_ACCESSIBLE);
-+}
- 
- void *memblock_alloc_try_nid_raw(phys_addr_t size, phys_addr_t align,
- 				 phys_addr_t min_addr, phys_addr_t max_addr,
-diff --git a/mm/memblock.c b/mm/memblock.c
-index 8aabb1b..461e40a3 100644
---- a/mm/memblock.c
-+++ b/mm/memblock.c
-@@ -1382,11 +1382,6 @@ phys_addr_t __init memblock_alloc_base(phys_addr_t size, phys_addr_t align, phys
- 	return alloc;
- }
- 
--phys_addr_t __init memblock_phys_alloc(phys_addr_t size, phys_addr_t align)
--{
--	return memblock_alloc_base(size, align, MEMBLOCK_ALLOC_ACCESSIBLE);
--}
--
- phys_addr_t __init memblock_phys_alloc_try_nid(phys_addr_t size, phys_addr_t align, int nid)
- {
- 	phys_addr_t res = memblock_phys_alloc_nid(size, align, nid);
+ #endif /* _UAPI_ALPHA_UNISTD_H */
+diff --git a/arch/alpha/kernel/syscalls/syscall.tbl b/arch/alpha/kernel/syscalls/syscall.tbl
+index e09558edae73..f920b65e8c49 100644
+--- a/arch/alpha/kernel/syscalls/syscall.tbl
++++ b/arch/alpha/kernel/syscalls/syscall.tbl
+@@ -29,7 +29,7 @@
+ 19	common	lseek				sys_lseek
+ 20	common	getxpid				sys_getxpid
+ 21	common	osf_mount			sys_osf_mount
+-22	common	umount				sys_umount
++22	common	umount2				sys_umount
+ 23	common	setuid				sys_setuid
+ 24	common	getxuid				sys_getxuid
+ 25	common	exec_with_loader		sys_ni_syscall
+@@ -183,7 +183,7 @@
+ 206	common	semop				sys_semop
+ 207	common	osf_utsname			sys_osf_utsname
+ 208	common	lchown				sys_lchown
+-209	common	osf_shmat			sys_shmat
++209	common	shmat				sys_shmat
+ 210	common	shmctl				sys_shmctl
+ 211	common	shmdt				sys_shmdt
+ 212	common	shmget				sys_shmget
 -- 
-2.7.4
+2.20.0
