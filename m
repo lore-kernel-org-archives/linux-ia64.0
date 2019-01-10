@@ -1,7 +1,7 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Date: Thu, 10 Jan 2019 16:24:23 +0000
-Subject: [PATCH 03/15] ia64: assign syscall numbers for perf and seccomp
-Message-Id: <20190110162435.309262-4-arnd@arndb.de>
+Date: Thu, 10 Jan 2019 16:24:28 +0000
+Subject: [PATCH 08/15] m68k: assign syscall number for seccomp
+Message-Id: <20190110162435.309262-9-arnd@arndb.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20190110162435.309262-1-arnd@arndb.de>
 In-Reply-To: <20190110162435.309262-1-arnd@arndb.de>
@@ -9,29 +9,28 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: y2038@lists.linaro.org, linux-api@vger.kernel.org, linux-kernel@vger.kernel.org
-Cc: dalias@libc.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, catalin.marinas@arm.com, will.deacon@arm.com, linux@dominikbrodowski.net, jcmvbkbc@gmail.com, deepa.kernel@gmail.com, hpa@zytor.com, sparclinux@vger.kernel.org, linux-s390@vger.kernel.org, dave@stgolabs.net, mpe@ellerman.id.au, deller@gmx.de, x86@kernel.org, linux@armlinux.org.uk, mingo@redhat.com, geert@linux-m68k.org, firoz.khan@linaro.org, mattst88@gmail.com, fenghua.yu@intel.com, Arnd Bergmann <arnd@arndb.de>, heiko.carstens@de.ibm.com, linux-m68k@lists.linux-m68k.org, ink@jurassic.park.msu.ru, luto@kernel.org, tglx@linutronix.de, linux-arm-kernel@lists.infradead.org, monstr@monstr.eu, tony.luck@intel.com, linux-parisc@vger.kernel.org, linux-mips@vger.kernel.org, paul.burton@mips.com, ebiederm@xmission.com, linux-alpha@vger.kernel.org, schwidefsky@de.ibm.com, akpm@linux-foundation.org, linuxppc-dev
+Cc: Arnd Bergmann <arnd@arndb.de>, ink@jurassic.park.msu.ru, mattst88@gmail.com, linux@armlinux.org.uk, catalin.marinas@arm.com, will.deacon@arm.com, tony.luck@intel.com, fenghua.yu@intel.com, geert@linux-m68k.org, monstr@monstr.eu, paul.burton@mips.com, deller@gmx.de, mpe@ellerman.id.au, schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com, dalias@libc.org, davem@davemloft.net, luto@kernel.org, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, x86@kernel.org, jcmvbkbc@gmail.com, firoz.khan@linaro.org, ebiederm@xmission.com, deepa.kernel@gmail.com, linux@dominikbrodowski.net, akpm@linux-foundation.org, dave@stgolabs.net, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-paris
 
-Most architectures have assigned numbers for both seccomp and
-perf_event_open, even when they do not implement either.
+Most architectures have assigned a numbers for the seccomp syscall
+even when they do not implement it.
 
-ia64 is an exception here, so for consistency lets add numbers for both
-of them. Unless CONFIG_PERF_EVENTS and CONFIG_SECCOMP are implemented,
-the system calls just return -ENOSYS.
+m68k is an exception here, so for consistency lets add the number.
+Unless CONFIG_SECCOMP is implemented, the system call just
+returns -ENOSYS.
 
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- arch/ia64/kernel/syscalls/syscall.tbl | 2 ++
- 1 file changed, 2 insertions(+)
+ arch/m68k/kernel/syscalls/syscall.tbl | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/arch/ia64/kernel/syscalls/syscall.tbl b/arch/ia64/kernel/syscalls/syscall.tbl
-index 52585281205b..2e93dbdcdb80 100644
---- a/arch/ia64/kernel/syscalls/syscall.tbl
-+++ b/arch/ia64/kernel/syscalls/syscall.tbl
-@@ -337,3 +337,5 @@
- 325	common	pwritev2			sys_pwritev2
- 326	common	statx				sys_statx
- 327	common	io_pgetevents			sys_io_pgetevents
-+328	common	perf_event_open			sys_perf_event_open
-+329	common	seccomp				sys_seccomp
+diff --git a/arch/m68k/kernel/syscalls/syscall.tbl b/arch/m68k/kernel/syscalls/syscall.tbl
+index 1a95c4a1bc0d..85779d6ef935 100644
+--- a/arch/m68k/kernel/syscalls/syscall.tbl
++++ b/arch/m68k/kernel/syscalls/syscall.tbl
+@@ -387,3 +387,4 @@
+ 377	common	preadv2				sys_preadv2
+ 378	common	pwritev2			sys_pwritev2
+ 379	common	statx				sys_statx
++380	common	seccomp				sys_seccomp
 -- 
 2.20.0
