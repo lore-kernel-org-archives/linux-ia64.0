@@ -1,66 +1,132 @@
-From: Mike Rapoport <rppt@linux.ibm.com>
-Date: Wed, 16 Jan 2019 13:44:20 +0000
-Subject: [PATCH 20/21] memblock: memblock_alloc_try_nid: don't panic
-Message-Id: <1547646261-32535-21-git-send-email-rppt@linux.ibm.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Thu, 10 Jan 2019 17:22:07 +0000
+Subject: [PATCH 02/11] time: Add struct __kernel_timex
+Message-Id: <20190110172216.313063-3-arnd@arndb.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1547646261-32535-1-git-send-email-rppt@linux.ibm.com>
-In-Reply-To: <1547646261-32535-1-git-send-email-rppt@linux.ibm.com>
+References: <20190110172216.313063-1-arnd@arndb.de>
+In-Reply-To: <20190110172216.313063-1-arnd@arndb.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org
-Cc: Rich Felker <dalias@libc.org>, linux-ia64@vger.kernel.org, devicetree@vger.kernel.org, Catalin Marinas <catalin.marinas@arm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, x86@kernel.org, linux-mips@vger.kernel.org, Max Filippov <jcmvbkbc@gmail.com>, Guo Ren <guoren@kernel.org>, sparclinux@vger.kernel.org, Christoph Hellwig <hch@lst.de>, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Richard Weinberger <richard@nod.at>, linux-sh@vger.kernel.org, Russell King <linux@armlinux.org.uk>, kasan-dev@googlegroups.com, Mike Rapoport <rppt@linux.ibm.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Mark Salter <msalter@redhat.com>, Dennis Zhou <dennis@kernel.org>, Matt Turner <mattst88@gmail.com>, linux-snps-arc@lists.infradead.org, uclinux-h8-devel@lists.sourceforge.jp, Petr Mladek <pmladek@suse.com>, linux-xtensa@linux-xtensa.org, linux-alpha@vger.kernel.org, linux-um@lists.infradead.org, linux-m68k@lists.linux-m68k.org, Rob Herring <robh+dt@kernel.org>, Greentime Hu <green.hu@gmail.com>, xen-devel@lists.xenproject.org, Stafford Horne <shorne@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, linux-arm-kernel@lists.infradead.org, Michal Simek <monstr@monstr.eu>, Tony Luck <tony.luck@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org, Paul Burton <paul.burton@mips.com>, Vineet Gupta <vgupta@synopsys.com>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, "David S. Miller" <davem@davemloft.net>, openrisc@lists.librecores.org
+To: y2038@lists.linaro.org, linux-api@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: dalias@libc.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, catalin.marinas@arm.com, will.deacon@arm.com, jcmvbkbc@gmail.com, deepa.kernel@gmail.com, hpa@zytor.com, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, mpe@ellerman.id.au, deller@gmx.de, x86@kernel.org, linux@armlinux.org.uk, mingo@redhat.com, geert@linux-m68k.org, benh@kernel.crashing.org, firoz.khan@linaro.org, mattst88@gmail.com, fenghua.yu@intel.com, Arnd Bergmann <arnd@arndb.de>, heiko.carstens@de.ibm.com, linux-fsdevel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, luto@kernel.org, tglx@linutronix.de, linux-arm-kernel@lists.infradead.org, monstr@monstr.eu, tony.luck@intel.com, linux-parisc@vger.kernel.org, netdev@vger.kernel.org, linux-mips@vger.kernel.org, paul.burton@mips.com, ebiederm@xmission.com, linux-alpha@vger.kernel.org, schwidefsky@de.ibm.com, akp
 
-As all the memblock_alloc*() users are now checking the return value and
-panic() in case of error, the panic() call can be removed from the core
-memblock allocator, namely memblock_alloc_try_nid().
+From: Deepa Dinamani <deepa.kernel@gmail.com>
 
-Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
+struct timex uses struct timeval internally.
+struct timeval is not y2038 safe.
+Introduce a new UAPI type struct __kernel_timex
+that is y2038 safe.
+
+struct __kernel_timex uses a timeval type that is
+similar to struct __kernel_timespec which preserves the
+same structure size across 32 bit and 64 bit ABIs.
+struct __kernel_timex also restructures other members of the
+structure to make the structure the same on 64 bit and 32 bit
+architectures.
+Note that struct __kernel_timex is the same as struct timex
+on a 64 bit architecture.
+
+The above solution is similar to other new y2038 syscalls
+that are being introduced: both 32 bit and 64 bit ABIs
+have a common entry, and the compat entry supports the old 32 bit
+syscall interface.
+
+Alternatives considered were:
+1. Add new time type to struct timex that makes use of padded
+   bits. This time type could be based on the struct __kernel_timespec.
+   modes will use a flag to notify which time structure should be
+   used internally.
+   This needs some application level changes on both 64 bit and 32 bit
+   architectures. Although 64 bit machines could continue to use the
+   older timeval structure without any changes.
+
+2. Add a new u8 type to struct timex that makes use of padded bits. This
+   can be used to save higher order tv_sec bits. modes will use a flag to
+   notify presence of such a type.
+   This will need some application level changes on 32 bit architectures.
+
+3. Add a new compat_timex structure that differs in only the size of the
+   time type; keep rest of struct timex the same.
+   This requires extra syscalls to manage all 3 cases on 64 bit
+   architectures. This will not need any application level changes but will
+   add more complexity from kernel side.
+
+Signed-off-by: Deepa Dinamani <deepa.kernel@gmail.com>
 ---
- mm/memblock.c | 15 +++++----------
- 1 file changed, 5 insertions(+), 10 deletions(-)
+ include/linux/timex.h      |  7 +++++++
+ include/uapi/linux/timex.h | 41 ++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 48 insertions(+)
 
-diff --git a/mm/memblock.c b/mm/memblock.c
-index 03b3929..7164275 100644
---- a/mm/memblock.c
-+++ b/mm/memblock.c
-@@ -1526,7 +1526,7 @@ void * __init memblock_alloc_try_nid_nopanic(
- }
+diff --git a/include/linux/timex.h b/include/linux/timex.h
+index 39c25dbebfe8..7f40e9e42ecc 100644
+--- a/include/linux/timex.h
++++ b/include/linux/timex.h
+@@ -53,6 +53,13 @@
+ #ifndef _LINUX_TIMEX_H
+ #define _LINUX_TIMEX_H
  
- /**
-- * memblock_alloc_try_nid - allocate boot memory block with panicking
-+ * memblock_alloc_try_nid - allocate boot memory block
-  * @size: size of memory block to be allocated in bytes
-  * @align: alignment of the region and block's size
-  * @min_addr: the lower bound of the memory region from where the allocation
-@@ -1536,9 +1536,8 @@ void * __init memblock_alloc_try_nid_nopanic(
-  *	      allocate only from memory limited by memblock.current_limit value
-  * @nid: nid of the free area to find, %NUMA_NO_NODE for any node
-  *
-- * Public panicking version of memblock_alloc_try_nid_nopanic()
-- * which provides debug information (including caller info), if enabled,
-- * and panics if the request can not be satisfied.
-+ * Public function, provides additional debug information (including caller
-+ * info), if enabled. This function zeroes the allocated memory.
-  *
-  * Return:
-  * Virtual address of allocated memory block on success, NULL on failure.
-@@ -1555,14 +1554,10 @@ void * __init memblock_alloc_try_nid(
- 		     &max_addr, (void *)_RET_IP_);
- 	ptr = memblock_alloc_internal(size, align,
- 					   min_addr, max_addr, nid);
--	if (ptr) {
-+	if (ptr)
- 		memset(ptr, 0, size);
--		return ptr;
--	}
++/* CONFIG_64BIT_TIME enables new 64 bit time_t syscalls in the compat path
++ * and 32-bit emulation.
++ */
++#ifndef CONFIG_64BIT_TIME
++#define __kernel_timex timex
++#endif
++
+ #include <uapi/linux/timex.h>
  
--	panic("%s: Failed to allocate %llu bytes align=0x%llx nid=%d from=%pa max_addr=%pa\n",
--	      __func__, (u64)size, (u64)align, nid, &min_addr, &max_addr);
--	return NULL;
-+	return ptr;
- }
+ #define ADJ_ADJTIME		0x8000	/* switch between adjtime/adjtimex modes */
+diff --git a/include/uapi/linux/timex.h b/include/uapi/linux/timex.h
+index 92685d826444..a1c6b73016a5 100644
+--- a/include/uapi/linux/timex.h
++++ b/include/uapi/linux/timex.h
+@@ -92,6 +92,47 @@ struct timex {
+ 	int  :32; int  :32; int  :32;
+ };
  
- /**
++struct __kernel_timex_timeval {
++	__kernel_time64_t       tv_sec;
++	long long		tv_usec;
++};
++
++#ifndef __kernel_timex
++struct __kernel_timex {
++	unsigned int modes;	/* mode selector */
++	int :32;            /* pad */
++	long long offset;	/* time offset (usec) */
++	long long freq;	/* frequency offset (scaled ppm) */
++	long long maxerror;/* maximum error (usec) */
++	long long esterror;/* estimated error (usec) */
++	int status;		/* clock command/status */
++	int :32;            /* pad */
++	long long constant;/* pll time constant */
++	long long precision;/* clock precision (usec) (read only) */
++	long long tolerance;/* clock frequency tolerance (ppm)
++				   * (read only)
++				   */
++	struct __kernel_timex_timeval time;	/* (read only, except for ADJ_SETOFFSET) */
++	long long tick;	/* (modified) usecs between clock ticks */
++
++	long long ppsfreq;/* pps frequency (scaled ppm) (ro) */
++	long long jitter; /* pps jitter (us) (ro) */
++	int shift;              /* interval duration (s) (shift) (ro) */
++	int :32;            /* pad */
++	long long stabil;            /* pps stability (scaled ppm) (ro) */
++	long long jitcnt; /* jitter limit exceeded (ro) */
++	long long calcnt; /* calibration intervals (ro) */
++	long long errcnt; /* calibration errors (ro) */
++	long long stbcnt; /* stability limit exceeded (ro) */
++
++	int tai;		/* TAI offset (ro) */
++
++	int  :32; int  :32; int  :32; int  :32;
++	int  :32; int  :32; int  :32; int  :32;
++	int  :32; int  :32; int  :32;
++};
++#endif
++
+ /*
+  * Mode codes (timex.mode)
+  */
 -- 
-2.7.4
+2.20.0
