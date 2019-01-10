@@ -1,81 +1,37 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Date: Fri, 18 Jan 2019 16:18:07 +0000
-Subject: [PATCH v2 01/29] ia64: add __NR_umount2 definition
-Message-Id: <20190118161835.2259170-2-arnd@arndb.de>
+Date: Thu, 10 Jan 2019 16:24:24 +0000
+Subject: [PATCH 04/15] alpha: wire up io_pgetevents system call
+Message-Id: <20190110162435.309262-5-arnd@arndb.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190118161835.2259170-1-arnd@arndb.de>
-In-Reply-To: <20190118161835.2259170-1-arnd@arndb.de>
+References: <20190110162435.309262-1-arnd@arndb.de>
+In-Reply-To: <20190110162435.309262-1-arnd@arndb.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: y2038@lists.linaro.org, linux-api@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org
-Cc: dalias@libc.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, catalin.marinas@arm.com, will.deacon@arm.com, jcmvbkbc@gmail.com, deepa.kernel@gmail.com, hpa@zytor.com, sparclinux@vger.kernel.org, linux-s390@vger.kernel.org, mpe@ellerman.id.au, deller@gmx.de, x86@kernel.org, linux@armlinux.org.uk, mingo@redhat.com, geert@linux-m68k.org, benh@kernel.crashing.org, firoz.khan@linaro.org, mattst88@gmail.com, fenghua.yu@intel.com, Arnd Bergmann <arnd@arndb.de>, heiko.carstens@de.ibm.com, linux-fsdevel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, luto@kernel.org, tglx@linutronix.de, linux-arm-kernel@lists.infradead.org, monstr@monstr.eu, tony.luck@intel.com, linux-parisc@vger.kernel.org, netdev@vger.kernel.org, linux-mips@vger.kernel.org, paul.burton@mips.com, ebiederm@xmission.com, linux-alpha@vger.kernel.org, schwidefsky@de.ibm.com, akpm@linux-foundation.orglinu
+To: y2038@lists.linaro.org, linux-api@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: Arnd Bergmann <arnd@arndb.de>, ink@jurassic.park.msu.ru, mattst88@gmail.com, linux@armlinux.org.uk, catalin.marinas@arm.com, will.deacon@arm.com, tony.luck@intel.com, fenghua.yu@intel.com, geert@linux-m68k.org, monstr@monstr.eu, paul.burton@mips.com, deller@gmx.de, mpe@ellerman.id.au, schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com, dalias@libc.org, davem@davemloft.net, luto@kernel.org, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, x86@kernel.org, jcmvbkbc@gmail.com, firoz.khan@linaro.org, ebiederm@xmission.com, deepa.kernel@gmail.com, linux@dominikbrodowski.net, akpm@linux-foundation.org, dave@stgolabs.net, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-paris
 
-Other architectures commonly use __NR_umount2 for sys_umount,
-only ia64 and alpha use __NR_umount here. In order to synchronize
-the generated tables, use umount2 like everyone else, and add back
-the old name from asm/unistd.h for compatibility.
+The io_pgetevents system call was added in linux-4.18 but has
+no entry for alpha:
 
-The __IGNORE_* lines are now all obsolete and can be removed as
-a side-effect.
+warning: #warning syscall io_pgetevents not implemented [-Wcpp]
 
+Assign a the next system call number here.
+
+Cc: stable@vger.kernel.org
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- arch/ia64/include/asm/unistd.h        | 14 --------------
- arch/ia64/include/uapi/asm/unistd.h   |  2 ++
- arch/ia64/kernel/syscalls/syscall.tbl |  2 +-
- 3 files changed, 3 insertions(+), 15 deletions(-)
+ arch/alpha/kernel/syscalls/syscall.tbl | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/arch/ia64/include/asm/unistd.h b/arch/ia64/include/asm/unistd.h
-index 0b08ebd2dfde..9ba6110b10b9 100644
---- a/arch/ia64/include/asm/unistd.h
-+++ b/arch/ia64/include/asm/unistd.h
-@@ -12,20 +12,6 @@
- 
- #define NR_syscalls		__NR_syscalls /* length of syscall table */
- 
--/*
-- * The following defines stop scripts/checksyscalls.sh from complaining about
-- * unimplemented system calls.  Glibc provides for each of these by using
-- * more modern equivalent system calls.
-- */
--#define __IGNORE_fork		/* clone() */
--#define __IGNORE_time		/* gettimeofday() */
--#define __IGNORE_alarm		/* setitimer(ITIMER_REAL, ... */
--#define __IGNORE_pause		/* rt_sigprocmask(), rt_sigsuspend() */
--#define __IGNORE_utime		/* utimes() */
--#define __IGNORE_getpgrp	/* getpgid() */
--#define __IGNORE_vfork		/* clone() */
--#define __IGNORE_umount2	/* umount() */
--
- #define __ARCH_WANT_NEW_STAT
- #define __ARCH_WANT_SYS_UTIME
- 
-diff --git a/arch/ia64/include/uapi/asm/unistd.h b/arch/ia64/include/uapi/asm/unistd.h
-index b2513922dcb5..013e0bcacc39 100644
---- a/arch/ia64/include/uapi/asm/unistd.h
-+++ b/arch/ia64/include/uapi/asm/unistd.h
-@@ -15,6 +15,8 @@
- 
- #define __NR_Linux      1024
- 
-+#define __NR_umount __NR_umount2
-+
- #include <asm/unistd_64.h>
- 
- #endif /* _UAPI_ASM_IA64_UNISTD_H */
-diff --git a/arch/ia64/kernel/syscalls/syscall.tbl b/arch/ia64/kernel/syscalls/syscall.tbl
-index b22203b40bfe..e97caf51be42 100644
---- a/arch/ia64/kernel/syscalls/syscall.tbl
-+++ b/arch/ia64/kernel/syscalls/syscall.tbl
-@@ -29,7 +29,7 @@
- 17	common	getpid				sys_getpid
- 18	common	getppid				sys_getppid
- 19	common	mount				sys_mount
--20	common	umount				sys_umount
-+20	common	umount2				sys_umount
- 21	common	setuid				sys_setuid
- 22	common	getuid				sys_getuid
- 23	common	geteuid				sys_geteuid
+diff --git a/arch/alpha/kernel/syscalls/syscall.tbl b/arch/alpha/kernel/syscalls/syscall.tbl
+index 7b56a53be5e3..e09558edae73 100644
+--- a/arch/alpha/kernel/syscalls/syscall.tbl
++++ b/arch/alpha/kernel/syscalls/syscall.tbl
+@@ -451,3 +451,4 @@
+ 520	common	preadv2				sys_preadv2
+ 521	common	pwritev2			sys_pwritev2
+ 522	common	statx				sys_statx
++523	common	io_pgetevents			sys_io_pgetevents
 -- 
 2.20.0
