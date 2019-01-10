@@ -1,61 +1,112 @@
-From: Firoz Khan <firoz.khan@linaro.org>
-Date: Wed, 02 Jan 2019 15:34:46 +0000
-Subject: [PATCH 1/2] ia64: remove nargs from __SYSCALL
-Message-Id: <1546442567-20637-2-git-send-email-firoz.khan@linaro.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Thu, 10 Jan 2019 17:22:14 +0000
+Subject: [PATCH 09/11] y2038: remove struct definition redirects
+Message-Id: <20190110172216.313063-10-arnd@arndb.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1546442567-20637-1-git-send-email-firoz.khan@linaro.org>
-In-Reply-To: <1546442567-20637-1-git-send-email-firoz.khan@linaro.org>
+References: <20190110172216.313063-1-arnd@arndb.de>
+In-Reply-To: <20190110172216.313063-1-arnd@arndb.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Philippe Ombredanne <pombredanne@nexb.com>, Thomas Gleixner <tglx@linutronix.de>, Kate Stewart <kstewart@linuxfoundation.org>
-Cc: y2038@lists.linaro.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org, arnd@arndb.de, deepa.kernel@gmail.com, marcin.juszkiewicz@linaro.org, firoz.khan@linaro.org
+To: y2038@lists.linaro.org, linux-api@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: Arnd Bergmann <arnd@arndb.de>, mattst88@gmail.com, linux@armlinux.org.uk, catalin.marinas@arm.com, will.deacon@arm.com, tony.luck@intel.com, fenghua.yu@intel.com, geert@linux-m68k.org, monstr@monstr.eu, paul.burton@mips.com, deller@gmx.de, benh@kernel.crashing.org, mpe@ellerman.id.au, schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com, dalias@libc.org, davem@davemloft.net, luto@kernel.org, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, x86@kernel.org, jcmvbkbc@gmail.com, akpm@linux-foundation.org, deepa.kernel@gmail.com, ebiederm@xmission.com, firoz.khan@linaro.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.or
 
-The __SYSCALL macro's arguments are system call number,
-system call entry name and number of arguments for the
-system call.
+We now use 64-bit time_t on all architectures, so the __kernel_timex,
+__kernel_timeval and __kernel_timespec redirects can be removed
+after having served their purpose.
 
-Argument- nargs in __SYSCALL(nr, entry, nargs) is neither
-calculated nor used anywhere. So it would be better to
-keep the implementaion as  __SYSCALL(nr, entry). This will
-unifies the implementation with some other architetures
-too.
+This makes it all much less confusing, as the __kernel_* types
+now always refer to the same layout based on 64-bit time_t across
+all 32-bit and 64-bit architectures.
 
-Signed-off-by: Firoz Khan <firoz.khan@linaro.org>
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- arch/ia64/kernel/entry.S                | 2 +-
- arch/ia64/kernel/syscalls/syscalltbl.sh | 4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
+ include/linux/time64.h     | 8 --------
+ include/linux/timex.h      | 7 -------
+ include/uapi/linux/time.h  | 4 ----
+ include/uapi/linux/timex.h | 2 --
+ 4 files changed, 21 deletions(-)
 
-diff --git a/arch/ia64/kernel/entry.S b/arch/ia64/kernel/entry.S
-index a9992be..204b56d 100644
---- a/arch/ia64/kernel/entry.S
-+++ b/arch/ia64/kernel/entry.S
-@@ -1426,7 +1426,7 @@ END(ftrace_stub)
+diff --git a/include/linux/time64.h b/include/linux/time64.h
+index 05634afba0db..f38d382ffec1 100644
+--- a/include/linux/time64.h
++++ b/include/linux/time64.h
+@@ -7,14 +7,6 @@
+ typedef __s64 time64_t;
+ typedef __u64 timeu64_t;
  
- #endif /* CONFIG_FUNCTION_TRACER */
+-/* CONFIG_64BIT_TIME enables new 64 bit time_t syscalls in the compat path
+- * and 32-bit emulation.
+- */
+-#ifndef CONFIG_64BIT_TIME
+-#define __kernel_timespec timespec
+-#define __kernel_itimerspec itimerspec
+-#endif
+-
+ #include <uapi/linux/time.h>
  
--#define __SYSCALL(nr, entry, nargs) data8 entry
-+#define __SYSCALL(nr, entry)	data8 entry
- 	.rodata
- 	.align 8
- 	.globl sys_call_table
-diff --git a/arch/ia64/kernel/syscalls/syscalltbl.sh b/arch/ia64/kernel/syscalls/syscalltbl.sh
-index 85d78d9..904b8e6 100644
---- a/arch/ia64/kernel/syscalls/syscalltbl.sh
-+++ b/arch/ia64/kernel/syscalls/syscalltbl.sh
-@@ -13,10 +13,10 @@ emit() {
- 	t_entry="$3"
+ struct timespec64 {
+diff --git a/include/linux/timex.h b/include/linux/timex.h
+index 4aff9f0d1367..ce0859763670 100644
+--- a/include/linux/timex.h
++++ b/include/linux/timex.h
+@@ -53,13 +53,6 @@
+ #ifndef _LINUX_TIMEX_H
+ #define _LINUX_TIMEX_H
  
- 	while [ $t_nxt -lt $t_nr ]; do
--		printf "__SYSCALL(%s, sys_ni_syscall, )\n" "${t_nxt}"
-+		printf "__SYSCALL(%s,sys_ni_syscall)\n" "${t_nxt}"
- 		t_nxt=$((t_nxt+1))
- 	done
--	printf "__SYSCALL(%s, %s, )\n" "${t_nxt}" "${t_entry}"
-+	printf "__SYSCALL(%s,%s)\n" "${t_nxt}" "${t_entry}"
- }
+-/* CONFIG_64BIT_TIME enables new 64 bit time_t syscalls in the compat path
+- * and 32-bit emulation.
+- */
+-#ifndef CONFIG_64BIT_TIME
+-#define __kernel_timex timex
+-#endif
+-
+ #include <uapi/linux/timex.h>
  
- grep -E "^[0-9A-Fa-fXx]+[[:space:]]+${my_abis}" "$in" | sort -n | (
+ #define ADJ_ADJTIME		0x8000	/* switch between adjtime/adjtimex modes */
+diff --git a/include/uapi/linux/time.h b/include/uapi/linux/time.h
+index 6b56a2208be7..b03f8717c312 100644
+--- a/include/uapi/linux/time.h
++++ b/include/uapi/linux/time.h
+@@ -42,19 +42,15 @@ struct itimerval {
+ 	struct timeval it_value;	/* current value */
+ };
+ 
+-#ifndef __kernel_timespec
+ struct __kernel_timespec {
+ 	__kernel_time64_t       tv_sec;                 /* seconds */
+ 	long long               tv_nsec;                /* nanoseconds */
+ };
+-#endif
+ 
+-#ifndef __kernel_itimerspec
+ struct __kernel_itimerspec {
+ 	struct __kernel_timespec it_interval;    /* timer period */
+ 	struct __kernel_timespec it_value;       /* timer expiration */
+ };
+-#endif
+ 
+ /*
+  * legacy timeval structure, only embedded in structures that
+diff --git a/include/uapi/linux/timex.h b/include/uapi/linux/timex.h
+index a1c6b73016a5..9f517f9010bb 100644
+--- a/include/uapi/linux/timex.h
++++ b/include/uapi/linux/timex.h
+@@ -97,7 +97,6 @@ struct __kernel_timex_timeval {
+ 	long long		tv_usec;
+ };
+ 
+-#ifndef __kernel_timex
+ struct __kernel_timex {
+ 	unsigned int modes;	/* mode selector */
+ 	int :32;            /* pad */
+@@ -131,7 +130,6 @@ struct __kernel_timex {
+ 	int  :32; int  :32; int  :32; int  :32;
+ 	int  :32; int  :32; int  :32;
+ };
+-#endif
+ 
+ /*
+  * Mode codes (timex.mode)
 -- 
-1.9.1
+2.20.0
