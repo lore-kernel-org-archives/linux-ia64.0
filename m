@@ -1,16 +1,15 @@
 From: Michael Ellerman <mpe@ellerman.id.au>
-Date: Mon, 14 Jan 2019 03:40:14 +0000
+Date: Mon, 14 Jan 2019 03:59:41 +0000
 Subject: Re: [PATCH 14/15] arch: add split IPC system calls where needed
-Message-Id: <87r2df29gh.fsf@concordia.ellerman.id.au>
+Message-Id: <87pnsz28k2.fsf@concordia.ellerman.id.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190110162435.309262-1-arnd@arndb.de>
- <20190110162435.309262-15-arnd@arndb.de>
+References: <20190110162435.309262-1-arnd@arndb.de> <20190110162435.309262-15-arnd@arndb.de>
 In-Reply-To: <20190110162435.309262-15-arnd@arndb.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: y2038@lists.linaro.org, linux-api@vger.kernel.org, linux-kernel@vger.kernel.org
-Cc: dalias@libc.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, catalin.marinas@arm.com, will.deacon@arm.com, linux@dominikbrodowski.net, jcmvbkbc@gmail.com, deepa.kernel@gmail.com, hpa@zytor.com, sparclinux@vger.kernel.org, linux-s390@vger.kernel.org, dave@stgolabs.net, deller@gmx.de, x86@kernel.org, linux@armlinux.org.uk, mingo@redhat.com, geert@linux-m68k.org, firoz.khan@linaro.org, mattst88@gmail.com, fenghua.yu@intel.com, Arnd Bergmann <arnd@arndb.de>, heiko.carstens@de.ibm.com, linux-m68k@lists.linux-m68k.org, ink@jurassic.park.msu.ru, luto@kernel.org, tglx@linutronix.de, linux-arm-kernel@lists.infradead.org, monstr@monstr.eu, tony.luck@intel.com, linux-parisc@vger.kernel.org, linux-mips@vger.kernel.org, paul.burton@mips.com, ebiederm@xmission.com, linux-alpha@vger.kernel.org, schwidefsky@de.ibm.com, akpm@linux-foundation.org, linuxppc-dev@lists.ozlabs.orgd
+Cc: Arnd Bergmann <arnd@arndb.de>, ink@jurassic.park.msu.ru, mattst88@gmail.com, linux@armlinux.org.uk, catalin.marinas@arm.com, will.deacon@arm.com, tony.luck@intel.com, fenghua.yu@intel.com, geert@linux-m68k.org, monstr@monstr.eu, paul.burton@mips.com, deller@gmx.de, schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com, dalias@libc.org, davem@davemloft.net, luto@kernel.org, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, x86@kernel.org, jcmvbkbc@gmail.com, firoz.khan@linaro.org, ebiederm@xmission.com, deepa.kernel@gmail.com, linux@dominikbrodowski.net, akpm@linux-foundation.org, dave@stgolabs.net, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.orgl
 
 Hi Arnd,
 
@@ -79,9 +78,10 @@ I'll try and send them today.
 We already have a gap at 366-377 from when we tried to add the split IPC
 calls a few years back.
 
-I guess I don't mind leaving that gap and using the common numbers.
+I guess I don't mind leaving that gap and using the common numbers as
+you've done here.
 
-But would be good to add a comment pointing out that we have room there
-for arch specific syscalls as well.
+But it would be good to add a comment pointing out that we have room
+at 366 for more arch specific syscalls as well.
 
 cheers
