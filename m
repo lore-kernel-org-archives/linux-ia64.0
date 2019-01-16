@@ -1,10 +1,10 @@
 From: Mike Rapoport <rppt@linux.ibm.com>
-Date: Mon, 21 Jan 2019 08:03:58 +0000
-Subject: [PATCH v2 11/21] memblock: make memblock_find_in_range_node() and choose_memblock_flags() static
-Message-Id: <1548057848-15136-12-git-send-email-rppt@linux.ibm.com>
+Date: Wed, 16 Jan 2019 13:44:11 +0000
+Subject: [PATCH 11/21] memblock: make memblock_find_in_range_node() and choose_memblock_flags() static
+Message-Id: <1547646261-32535-12-git-send-email-rppt@linux.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1548057848-15136-1-git-send-email-rppt@linux.ibm.com>
-In-Reply-To: <1548057848-15136-1-git-send-email-rppt@linux.ibm.com>
+References: <1547646261-32535-1-git-send-email-rppt@linux.ibm.com>
+In-Reply-To: <1547646261-32535-1-git-send-email-rppt@linux.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
