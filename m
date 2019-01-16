@@ -1,100 +1,41 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Fri, 18 Jan 2019 16:18:11 +0000
-Subject: [PATCH v2 05/29] alpha: update syscall macro definitions
-Message-Id: <20190118161835.2259170-6-arnd@arndb.de>
+From: Mike Rapoport <rppt@linux.ibm.com>
+Date: Wed, 16 Jan 2019 13:44:01 +0000
+Subject: [PATCH 01/21] openrisc: prefer memblock APIs returning virtual address
+Message-Id: <1547646261-32535-2-git-send-email-rppt@linux.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190118161835.2259170-1-arnd@arndb.de>
-In-Reply-To: <20190118161835.2259170-1-arnd@arndb.de>
+References: <1547646261-32535-1-git-send-email-rppt@linux.ibm.com>
+In-Reply-To: <1547646261-32535-1-git-send-email-rppt@linux.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: y2038@lists.linaro.org, linux-api@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org
-Cc: Arnd Bergmann <arnd@arndb.de>, mattst88@gmail.com, linux@armlinux.org.uk, catalin.marinas@arm.com, will.deacon@arm.com, tony.luck@intel.com, fenghua.yu@intel.com, geert@linux-m68k.org, monstr@monstr.eu, paul.burton@mips.com, deller@gmx.de, benh@kernel.crashing.org, mpe@ellerman.id.au, schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com, dalias@libc.org, davem@davemloft.net, luto@kernel.org, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, x86@kernel.org, jcmvbkbc@gmail.com, akpm@linux-foundation.org, deepa.kernel@gmail.com, ebiederm@xmission.com, firoz.khan@linaro.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.or
+To: linux-mm@kvack.org
+Cc: Rich Felker <dalias@libc.org>, linux-ia64@vger.kernel.org, devicetree@vger.kernel.org, Catalin Marinas <catalin.marinas@arm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, x86@kernel.org, linux-mips@vger.kernel.org, Max Filippov <jcmvbkbc@gmail.com>, Guo Ren <guoren@kernel.org>, sparclinux@vger.kernel.org, Christoph Hellwig <hch@lst.de>, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Richard Weinberger <richard@nod.at>, linux-sh@vger.kernel.org, Russell King <linux@armlinux.org.uk>, kasan-dev@googlegroups.com, Mike Rapoport <rppt@linux.ibm.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Mark Salter <msalter@redhat.com>, Dennis Zhou <dennis@kernel.org>, Matt Turner <mattst88@gmail.com>, linux-snps-arc@lists.infradead.org, uclinux-h8-devel@lists.sourceforge.jp, Petr Mladek <pmladek@suse.com>, linux-xtensa@linux-xtensa.org, linux-alpha@vger.kernel.org, linux-um@lists.infradead.org, linux-m68k@lists.linux-m68k.org, Rob Herring <robh+dt@kernel.org>, Greentime Hu <green.hu@gmail.com>, xen-devel@lists.xenproject.org, Stafford Horne <shorne@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, linux-arm-kernel@lists.infradead.org, Michal Simek <monstr@monstr.eu>, Tony Luck <tony.luck@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org, Paul Burton <paul.burton@mips.com>, Vineet Gupta <vgupta@synopsys.com>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, "David S. Miller" <davem@davemloft.net>, openrisc@lists.librecores.org
 
-Other architectures commonly use __NR_umount2 for sys_umount,
-only ia64 and alpha use __NR_umount here. In order to synchronize
-the generated tables, use umount2 like everyone else, and add back
-the old name from asm/unistd.h for compatibility.
+The allocation of the page tables memory in openrics uses
+memblock_phys_alloc() and then converts the returned physical address to
+virtual one. Use memblock_alloc_raw() and add a panic() if the allocation
+fails.
 
-For shmat, alpha uses the osf_shmat name, we can do the same thing
-here, which means we don't have to add an entry in the __IGNORE
-list now that shmat is mandatory everywhere
-
-alarm, creat, pause, time, and utime are optional everywhere
-these days, no need to list them here any more.
-
-I considered also adding the regular versions of the get*id system
-calls that have different names and calling conventions on alpha,
-which would further help unify the syscall ABI, but for now
-I decided against that.
-
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
 ---
- arch/alpha/include/asm/unistd.h        | 6 ------
- arch/alpha/include/uapi/asm/unistd.h   | 5 +++++
- arch/alpha/kernel/syscalls/syscall.tbl | 4 ++--
- 3 files changed, 7 insertions(+), 8 deletions(-)
+ arch/openrisc/mm/init.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/arch/alpha/include/asm/unistd.h b/arch/alpha/include/asm/unistd.h
-index 21b706a5b772..564ba87bdc38 100644
---- a/arch/alpha/include/asm/unistd.h
-+++ b/arch/alpha/include/asm/unistd.h
-@@ -22,18 +22,12 @@
- /*
-  * Ignore legacy syscalls that we don't use.
-  */
--#define __IGNORE_alarm
--#define __IGNORE_creat
- #define __IGNORE_getegid
- #define __IGNORE_geteuid
- #define __IGNORE_getgid
- #define __IGNORE_getpid
- #define __IGNORE_getppid
- #define __IGNORE_getuid
--#define __IGNORE_pause
--#define __IGNORE_time
--#define __IGNORE_utime
--#define __IGNORE_umount2
+diff --git a/arch/openrisc/mm/init.c b/arch/openrisc/mm/init.c
+index d157310..caeb418 100644
+--- a/arch/openrisc/mm/init.c
++++ b/arch/openrisc/mm/init.c
+@@ -105,7 +105,10 @@ static void __init map_ram(void)
+ 			}
  
- /* Alpha doesn't have protection keys. */
- #define __IGNORE_pkey_mprotect
-diff --git a/arch/alpha/include/uapi/asm/unistd.h b/arch/alpha/include/uapi/asm/unistd.h
-index 9ba724f116f1..4507071f995f 100644
---- a/arch/alpha/include/uapi/asm/unistd.h
-+++ b/arch/alpha/include/uapi/asm/unistd.h
-@@ -2,6 +2,11 @@
- #ifndef _UAPI_ALPHA_UNISTD_H
- #define _UAPI_ALPHA_UNISTD_H
+ 			/* Alloc one page for holding PTE's... */
+-			pte = (pte_t *) __va(memblock_phys_alloc(PAGE_SIZE, PAGE_SIZE));
++			pte = memblock_alloc_raw(PAGE_SIZE, PAGE_SIZE);
++			if (!pte)
++				panic("%s: Failed to allocate page for PTEs\n",
++				      __func__);
+ 			set_pmd(pme, __pmd(_KERNPG_TABLE + __pa(pte)));
  
-+/* These are traditionally the names linux-alpha uses for
-+ * the two otherwise generic system calls */
-+#define __NR_umount	__NR_umount2
-+#define __NR_osf_shmat	__NR_shmat
-+
- #include <asm/unistd_32.h>
- 
- #endif /* _UAPI_ALPHA_UNISTD_H */
-diff --git a/arch/alpha/kernel/syscalls/syscall.tbl b/arch/alpha/kernel/syscalls/syscall.tbl
-index e09558edae73..f920b65e8c49 100644
---- a/arch/alpha/kernel/syscalls/syscall.tbl
-+++ b/arch/alpha/kernel/syscalls/syscall.tbl
-@@ -29,7 +29,7 @@
- 19	common	lseek				sys_lseek
- 20	common	getxpid				sys_getxpid
- 21	common	osf_mount			sys_osf_mount
--22	common	umount				sys_umount
-+22	common	umount2				sys_umount
- 23	common	setuid				sys_setuid
- 24	common	getxuid				sys_getxuid
- 25	common	exec_with_loader		sys_ni_syscall
-@@ -183,7 +183,7 @@
- 206	common	semop				sys_semop
- 207	common	osf_utsname			sys_osf_utsname
- 208	common	lchown				sys_lchown
--209	common	osf_shmat			sys_shmat
-+209	common	shmat				sys_shmat
- 210	common	shmctl				sys_shmctl
- 211	common	shmdt				sys_shmdt
- 212	common	shmget				sys_shmget
+ 			/* Fill the newly allocated page with PTE'S */
 -- 
-2.20.0
+2.7.4
