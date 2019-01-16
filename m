@@ -1,112 +1,178 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Thu, 10 Jan 2019 17:22:14 +0000
-Subject: [PATCH 09/11] y2038: remove struct definition redirects
-Message-Id: <20190110172216.313063-10-arnd@arndb.de>
+From: Mike Rapoport <rppt@linux.ibm.com>
+Date: Wed, 16 Jan 2019 13:44:02 +0000
+Subject: [PATCH 02/21] powerpc: use memblock functions returning virtual address
+Message-Id: <1547646261-32535-3-git-send-email-rppt@linux.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190110172216.313063-1-arnd@arndb.de>
-In-Reply-To: <20190110172216.313063-1-arnd@arndb.de>
+References: <1547646261-32535-1-git-send-email-rppt@linux.ibm.com>
+In-Reply-To: <1547646261-32535-1-git-send-email-rppt@linux.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: y2038@lists.linaro.org, linux-api@vger.kernel.org, linux-kernel@vger.kernel.org
-Cc: Arnd Bergmann <arnd@arndb.de>, mattst88@gmail.com, linux@armlinux.org.uk, catalin.marinas@arm.com, will.deacon@arm.com, tony.luck@intel.com, fenghua.yu@intel.com, geert@linux-m68k.org, monstr@monstr.eu, paul.burton@mips.com, deller@gmx.de, benh@kernel.crashing.org, mpe@ellerman.id.au, schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com, dalias@libc.org, davem@davemloft.net, luto@kernel.org, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, x86@kernel.org, jcmvbkbc@gmail.com, akpm@linux-foundation.org, deepa.kernel@gmail.com, ebiederm@xmission.com, firoz.khan@linaro.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.or
+To: linux-mm@kvack.org
+Cc: Rich Felker <dalias@libc.org>, linux-ia64@vger.kernel.org, devicetree@vger.kernel.org, Catalin Marinas <catalin.marinas@arm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, x86@kernel.org, linux-mips@vger.kernel.org, Max Filippov <jcmvbkbc@gmail.com>, Guo Ren <guoren@kernel.org>, sparclinux@vger.kernel.org, Christoph Hellwig <hch@lst.de>, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Richard Weinberger <richard@nod.at>, linux-sh@vger.kernel.org, Russell King <linux@armlinux.org.uk>, kasan-dev@googlegroups.com, Mike Rapoport <rppt@linux.ibm.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Mark Salter <msalter@redhat.com>, Dennis Zhou <dennis@kernel.org>, Matt Turner <mattst88@gmail.com>, linux-snps-arc@lists.infradead.org, uclinux-h8-devel@lists.sourceforge.jp, Petr Mladek <pmladek@suse.com>, linux-xtensa@linux-xten
 
-We now use 64-bit time_t on all architectures, so the __kernel_timex,
-__kernel_timeval and __kernel_timespec redirects can be removed
-after having served their purpose.
+From: Christophe Leroy <christophe.leroy@c-s.fr>
 
-This makes it all much less confusing, as the __kernel_* types
-now always refer to the same layout based on 64-bit time_t across
-all 32-bit and 64-bit architectures.
+Since only the virtual address of allocated blocks is used,
+lets use functions returning directly virtual address.
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Those functions have the advantage of also zeroing the block.
+
+[ MR:
+ - updated error message in alloc_stack() to be more verbose
+ - convereted several additional call sites ]
+
+Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
+Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
 ---
- include/linux/time64.h     | 8 --------
- include/linux/timex.h      | 7 -------
- include/uapi/linux/time.h  | 4 ----
- include/uapi/linux/timex.h | 2 --
- 4 files changed, 21 deletions(-)
+ arch/powerpc/kernel/dt_cpu_ftrs.c |  3 +--
+ arch/powerpc/kernel/irq.c         |  5 -----
+ arch/powerpc/kernel/paca.c        |  6 +++++-
+ arch/powerpc/kernel/prom.c        |  5 ++++-
+ arch/powerpc/kernel/setup_32.c    | 26 ++++++++++++++++----------
+ 5 files changed, 26 insertions(+), 19 deletions(-)
 
-diff --git a/include/linux/time64.h b/include/linux/time64.h
-index 05634afba0db..f38d382ffec1 100644
---- a/include/linux/time64.h
-+++ b/include/linux/time64.h
-@@ -7,14 +7,6 @@
- typedef __s64 time64_t;
- typedef __u64 timeu64_t;
+diff --git a/arch/powerpc/kernel/dt_cpu_ftrs.c b/arch/powerpc/kernel/dt_cpu_ftrs.c
+index 8be3721..2554824 100644
+--- a/arch/powerpc/kernel/dt_cpu_ftrs.c
++++ b/arch/powerpc/kernel/dt_cpu_ftrs.c
+@@ -813,7 +813,6 @@ static int __init process_cpufeatures_node(unsigned long node,
+ 	int len;
  
--/* CONFIG_64BIT_TIME enables new 64 bit time_t syscalls in the compat path
-- * and 32-bit emulation.
-- */
--#ifndef CONFIG_64BIT_TIME
--#define __kernel_timespec timespec
--#define __kernel_itimerspec itimerspec
--#endif
--
- #include <uapi/linux/time.h>
+ 	f = &dt_cpu_features[i];
+-	memset(f, 0, sizeof(struct dt_cpu_feature));
  
- struct timespec64 {
-diff --git a/include/linux/timex.h b/include/linux/timex.h
-index 4aff9f0d1367..ce0859763670 100644
---- a/include/linux/timex.h
-+++ b/include/linux/timex.h
-@@ -53,13 +53,6 @@
- #ifndef _LINUX_TIMEX_H
- #define _LINUX_TIMEX_H
+ 	f->node = node;
  
--/* CONFIG_64BIT_TIME enables new 64 bit time_t syscalls in the compat path
-- * and 32-bit emulation.
-- */
--#ifndef CONFIG_64BIT_TIME
--#define __kernel_timex timex
--#endif
--
- #include <uapi/linux/timex.h>
+@@ -1008,7 +1007,7 @@ static int __init dt_cpu_ftrs_scan_callback(unsigned long node, const char
+ 	/* Count and allocate space for cpu features */
+ 	of_scan_flat_dt_subnodes(node, count_cpufeatures_subnodes,
+ 						&nr_dt_cpu_features);
+-	dt_cpu_features = __va(memblock_phys_alloc(sizeof(struct dt_cpu_feature) * nr_dt_cpu_features, PAGE_SIZE));
++	dt_cpu_features = memblock_alloc(sizeof(struct dt_cpu_feature) * nr_dt_cpu_features, PAGE_SIZE);
  
- #define ADJ_ADJTIME		0x8000	/* switch between adjtime/adjtimex modes */
-diff --git a/include/uapi/linux/time.h b/include/uapi/linux/time.h
-index 6b56a2208be7..b03f8717c312 100644
---- a/include/uapi/linux/time.h
-+++ b/include/uapi/linux/time.h
-@@ -42,19 +42,15 @@ struct itimerval {
- 	struct timeval it_value;	/* current value */
- };
+ 	cpufeatures_setup_start(isa);
  
--#ifndef __kernel_timespec
- struct __kernel_timespec {
- 	__kernel_time64_t       tv_sec;                 /* seconds */
- 	long long               tv_nsec;                /* nanoseconds */
- };
--#endif
+diff --git a/arch/powerpc/kernel/irq.c b/arch/powerpc/kernel/irq.c
+index 916ddc4..4a44bc3 100644
+--- a/arch/powerpc/kernel/irq.c
++++ b/arch/powerpc/kernel/irq.c
+@@ -725,18 +725,15 @@ void exc_lvl_ctx_init(void)
+ #endif
+ #endif
  
--#ifndef __kernel_itimerspec
- struct __kernel_itimerspec {
- 	struct __kernel_timespec it_interval;    /* timer period */
- 	struct __kernel_timespec it_value;       /* timer expiration */
- };
--#endif
+-		memset((void *)critirq_ctx[cpu_nr], 0, THREAD_SIZE);
+ 		tp = critirq_ctx[cpu_nr];
+ 		tp->cpu = cpu_nr;
+ 		tp->preempt_count = 0;
  
- /*
-  * legacy timeval structure, only embedded in structures that
-diff --git a/include/uapi/linux/timex.h b/include/uapi/linux/timex.h
-index a1c6b73016a5..9f517f9010bb 100644
---- a/include/uapi/linux/timex.h
-+++ b/include/uapi/linux/timex.h
-@@ -97,7 +97,6 @@ struct __kernel_timex_timeval {
- 	long long		tv_usec;
- };
+ #ifdef CONFIG_BOOKE
+-		memset((void *)dbgirq_ctx[cpu_nr], 0, THREAD_SIZE);
+ 		tp = dbgirq_ctx[cpu_nr];
+ 		tp->cpu = cpu_nr;
+ 		tp->preempt_count = 0;
  
--#ifndef __kernel_timex
- struct __kernel_timex {
- 	unsigned int modes;	/* mode selector */
- 	int :32;            /* pad */
-@@ -131,7 +130,6 @@ struct __kernel_timex {
- 	int  :32; int  :32; int  :32; int  :32;
- 	int  :32; int  :32; int  :32;
- };
--#endif
+-		memset((void *)mcheckirq_ctx[cpu_nr], 0, THREAD_SIZE);
+ 		tp = mcheckirq_ctx[cpu_nr];
+ 		tp->cpu = cpu_nr;
+ 		tp->preempt_count = HARDIRQ_OFFSET;
+@@ -754,12 +751,10 @@ void irq_ctx_init(void)
+ 	int i;
  
- /*
-  * Mode codes (timex.mode)
+ 	for_each_possible_cpu(i) {
+-		memset((void *)softirq_ctx[i], 0, THREAD_SIZE);
+ 		tp = softirq_ctx[i];
+ 		tp->cpu = i;
+ 		klp_init_thread_info(tp);
+ 
+-		memset((void *)hardirq_ctx[i], 0, THREAD_SIZE);
+ 		tp = hardirq_ctx[i];
+ 		tp->cpu = i;
+ 		klp_init_thread_info(tp);
+diff --git a/arch/powerpc/kernel/paca.c b/arch/powerpc/kernel/paca.c
+index 8c890c6..e7382ab 100644
+--- a/arch/powerpc/kernel/paca.c
++++ b/arch/powerpc/kernel/paca.c
+@@ -196,7 +196,11 @@ void __init allocate_paca_ptrs(void)
+ 	paca_nr_cpu_ids = nr_cpu_ids;
+ 
+ 	paca_ptrs_size = sizeof(struct paca_struct *) * nr_cpu_ids;
+-	paca_ptrs = __va(memblock_phys_alloc(paca_ptrs_size, SMP_CACHE_BYTES));
++	paca_ptrs = memblock_alloc_raw(paca_ptrs_size, SMP_CACHE_BYTES);
++	if (!paca_ptrs)
++		panic("Failed to allocate %d bytes for paca pointers\n",
++		      paca_ptrs_size);
++
+ 	memset(paca_ptrs, 0x88, paca_ptrs_size);
+ }
+ 
+diff --git a/arch/powerpc/kernel/prom.c b/arch/powerpc/kernel/prom.c
+index e97aaf2..c0ed4fa 100644
+--- a/arch/powerpc/kernel/prom.c
++++ b/arch/powerpc/kernel/prom.c
+@@ -127,7 +127,10 @@ static void __init move_device_tree(void)
+ 	if ((memory_limit && (start + size) > PHYSICAL_START + memory_limit) ||
+ 	    !memblock_is_memory(start + size - 1) ||
+ 	    overlaps_crashkernel(start, size) || overlaps_initrd(start, size)) {
+-		p = __va(memblock_phys_alloc(size, PAGE_SIZE));
++		p = memblock_alloc_raw(size, PAGE_SIZE);
++		if (!p)
++			panic("Failed to allocate %lu bytes to move device tree\n",
++			      size);
+ 		memcpy(p, initial_boot_params, size);
+ 		initial_boot_params = p;
+ 		DBG("Moved device tree to 0x%px\n", p);
+diff --git a/arch/powerpc/kernel/setup_32.c b/arch/powerpc/kernel/setup_32.c
+index 947f904..1f0b762 100644
+--- a/arch/powerpc/kernel/setup_32.c
++++ b/arch/powerpc/kernel/setup_32.c
+@@ -196,6 +196,17 @@ static int __init ppc_init(void)
+ }
+ arch_initcall(ppc_init);
+ 
++static void *__init alloc_stack(void)
++{
++	void *ptr = memblock_alloc(THREAD_SIZE, THREAD_SIZE);
++
++	if (!ptr)
++		panic("cannot allocate %d bytes for stack at %pS\n",
++		      THREAD_SIZE, (void *)_RET_IP_);
++
++	return ptr;
++}
++
+ void __init irqstack_early_init(void)
+ {
+ 	unsigned int i;
+@@ -203,10 +214,8 @@ void __init irqstack_early_init(void)
+ 	/* interrupt stacks must be in lowmem, we get that for free on ppc32
+ 	 * as the memblock is limited to lowmem by default */
+ 	for_each_possible_cpu(i) {
+-		softirq_ctx[i] = (struct thread_info *)
+-			__va(memblock_phys_alloc(THREAD_SIZE, THREAD_SIZE));
+-		hardirq_ctx[i] = (struct thread_info *)
+-			__va(memblock_phys_alloc(THREAD_SIZE, THREAD_SIZE));
++		softirq_ctx[i] = alloc_stack();
++		hardirq_ctx[i] = alloc_stack();
+ 	}
+ }
+ 
+@@ -224,13 +233,10 @@ void __init exc_lvl_early_init(void)
+ 		hw_cpu = 0;
+ #endif
+ 
+-		critirq_ctx[hw_cpu] = (struct thread_info *)
+-			__va(memblock_phys_alloc(THREAD_SIZE, THREAD_SIZE));
++		critirq_ctx[hw_cpu] = alloc_stack();
+ #ifdef CONFIG_BOOKE
+-		dbgirq_ctx[hw_cpu] = (struct thread_info *)
+-			__va(memblock_phys_alloc(THREAD_SIZE, THREAD_SIZE));
+-		mcheckirq_ctx[hw_cpu] = (struct thread_info *)
+-			__va(memblock_phys_alloc(THREAD_SIZE, THREAD_SIZE));
++		dbgirq_ctx[hw_cpu] = alloc_stack();
++		mcheckirq_ctx[hw_cpu] = alloc_stack();
+ #endif
+ 	}
+ }
 -- 
-2.20.0
+2.7.4
