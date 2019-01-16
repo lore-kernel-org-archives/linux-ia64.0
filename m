@@ -1,607 +1,138 @@
-From: "Dmitry V. Levin" <ldv@altlinux.org>
-Date: Mon, 07 Jan 2019 02:54:47 +0000
-Subject: [PATCH v7 20/22] syscall_get_arch: add "struct task_struct *" argument
-Message-Id: <20190107025447.GT1207@altlinux.org>
+From: Mike Rapoport <rppt@linux.ibm.com>
+Date: Wed, 16 Jan 2019 13:44:08 +0000
+Subject: [PATCH 08/21] memblock: drop __memblock_alloc_base()
+Message-Id: <1547646261-32535-9-git-send-email-rppt@linux.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190107025101.GA1182@altlinux.org>
+References: <1547646261-32535-1-git-send-email-rppt@linux.ibm.com>
+In-Reply-To: <1547646261-32535-1-git-send-email-rppt@linux.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Vineet Gupta <vgupta@synopsys.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>, Aurelien Jacquiot <jacquiot.aurelien@gmail.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Richard Kuo <rkuo@codeaurora.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Michal Simek <monstr@monstr.eu>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, Ley Foon Tan <lftan@altera.com>, Jonas Bonn <jonas@southpole.se>, Stefan Kristiansson <stefan.kristiansson@saunalahti.fi>, Stafford Horne <shorne@gmail.com>, "James E.J. Bottomley" <jejb@parisc-linux.org>, Helge Deller <deller@gmx.de>, Al
-Cc: linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Palmer Dabbelt <palmer@sifive.com>, linux-mips@vger.kernel.org, Paul Mackerras <paulus@samba.org>, Ralf Baechle <ralf@linux-mips.org>, "H. Peter Anvin" <hpa@zytor.com>, sparclinux@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-riscv@lists.infradead.org, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, Paul Moore <paul@paul-moore.com>, Michael Ellerman <mpe@ellerman.id.au>, x86@kernel.org, Eugene Syromyatnikov <esyr@redhat.com>, Elvira Khabirova <lineprinter@altlinux.org>, Mark Salter <msalter@redhat.com>, James Hogan <jhogan@kernel.org>, linux-snps-arc@lists.infradead.org, uclinux-h8-devel@lists.sourceforge.jp, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, linux-um@lists.infradead.org, linux-m68k@lists.linux-m68k.org, openrisc@lists.l
+To: linux-mm@kvack.org
+Cc: Rich Felker <dalias@libc.org>, linux-ia64@vger.kernel.org, devicetree@vger.kernel.org, Catalin Marinas <catalin.marinas@arm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, x86@kernel.org, linux-mips@vger.kernel.org, Max Filippov <jcmvbkbc@gmail.com>, Guo Ren <guoren@kernel.org>, sparclinux@vger.kernel.org, Christoph Hellwig <hch@lst.de>, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Richard Weinberger <richard@nod.at>, linux-sh@vger.kernel.org, Russell King <linux@armlinux.org.uk>, kasan-dev@googlegroups.com, Mike Rapoport <rppt@linux.ibm.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Mark Salter <msalter@redhat.com>, Dennis Zhou <dennis@kernel.org>, Matt Turner <mattst88@gmail.com>, linux-snps-arc@lists.infradead.org, uclinux-h8-devel@lists.sourceforge.jp, Petr Mladek <pmladek@suse.com>, linux-xtensa@linux-xtensa.org, linux-alpha@vger.kernel.org, linux-um@lists.infradead.org, linux-m68k@lists.linux-m68k.org, Rob Herring <robh+dt@kernel.org>, Greentime Hu <green.hu@gmail.com>, xen-devel@lists.xenproject.org, Stafford Horne <shorne@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, linux-arm-kernel@lists.infradead.org, Michal Simek <monstr@monstr.eu>, Tony Luck <tony.luck@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org, Paul Burton <paul.burton@mips.com>, Vineet Gupta <vgupta@synopsys.com>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, "David S. Miller" <davem@davemloft.net>, openrisc@lists.librecores.org
 
-This argument is required to extend the generic ptrace API with
-PTRACE_GET_SYSCALL_INFO request: syscall_get_arch() is going
-to be called from ptrace_request() along with syscall_get_nr(),
-syscall_get_arguments(), syscall_get_error(), and
-syscall_get_return_value() functions with a tracee as their argument.
+The __memblock_alloc_base() function tries to allocate a memory up to the
+limit specified by its max_addr parameter. Depending on the value of this
+parameter, the __memblock_alloc_base() can is replaced with the appropriate
+memblock_phys_alloc*() variant.
 
-Reverts: 5e937a9ae913 ("syscall_get_arch: remove useless function arguments")
-Reverts: 1002d94d3076 ("syscall.h: fix doc text for syscall_get_arch()")
-Reviewed-by: Andy Lutomirski <luto@kernel.org> # for x86
-Reviewed-by: Palmer Dabbelt <palmer@sifive.com>
-Acked-by: Paul Burton <paul.burton@mips.com> # MIPS parts
-Acked-by: Michael Ellerman <mpe@ellerman.id.au> (powerpc)
-Acked-by: Kees Cook <keescook@chromium.org> # seccomp parts
-Acked-by: Mark Salter <msalter@redhat.com> # for the c6x bit
-Acked-by: Paul Moore <paul@paul-moore.com> # audit related parts
-Cc: Eric Paris <eparis@redhat.com>
-Cc: Richard Henderson <rth@twiddle.net>
-Cc: Ivan Kokshaysky <ink@jurassic.park.msu.ru>
-Cc: Matt Turner <mattst88@gmail.com>
-Cc: Vineet Gupta <vgupta@synopsys.com>
-Cc: Russell King <linux@armlinux.org.uk>
-Cc: Catalin Marinas <catalin.marinas@arm.com>
-Cc: Will Deacon <will.deacon@arm.com>
-Cc: Aurelien Jacquiot <jacquiot.aurelien@gmail.com>
-Cc: Yoshinori Sato <ysato@users.sourceforge.jp>
-Cc: Richard Kuo <rkuo@codeaurora.org>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: Geert Uytterhoeven <geert@linux-m68k.org>
-Cc: Michal Simek <monstr@monstr.eu>
-Cc: Greentime Hu <green.hu@gmail.com>
-Cc: Vincent Chen <deanbo422@gmail.com>
-Cc: Ley Foon Tan <lftan@altera.com>
-Cc: Jonas Bonn <jonas@southpole.se>
-Cc: Stefan Kristiansson <stefan.kristiansson@saunalahti.fi>
-Cc: Stafford Horne <shorne@gmail.com>
-Cc: James E.J. Bottomley <jejb@parisc-linux.org>
-Cc: Helge Deller <deller@gmx.de>
-Cc: Albert Ou <aou@eecs.berkeley.edu>
-Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
-Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
-Cc: Rich Felker <dalias@libc.org>
-Cc: David S. Miller <davem@davemloft.net>
-Cc: Guan Xuetao <gxt@pku.edu.cn>
-Cc: Jeff Dike <jdike@addtoit.com>
-Cc: Richard Weinberger <richard@nod.at>
-Cc: Chris Zankel <chris@zankel.net>
-Cc: Max Filippov <jcmvbkbc@gmail.com>
-Cc: Arnd Bergmann <arnd@arndb.de>
-Cc: Will Drewry <wad@chromium.org>
-Cc: Oleg Nesterov <oleg@redhat.com>
-Cc: Elvira Khabirova <lineprinter@altlinux.org>
-Cc: Eugene Syromyatnikov <esyr@redhat.com>
-Cc: Ralf Baechle <ralf@linux-mips.org>
-Cc: James Hogan <jhogan@kernel.org>
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Cc: Paul Mackerras <paulus@samba.org>
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: Ingo Molnar <mingo@redhat.com>
-Cc: Borislav Petkov <bp@alien8.de>
-Cc: H. Peter Anvin <hpa@zytor.com>
-Cc: x86@kernel.org
-Cc: linux-alpha@vger.kernel.org
-Cc: linux-snps-arc@lists.infradead.org
-Cc: linux-arm-kernel@lists.infradead.org
-Cc: linux-c6x-dev@linux-c6x.org
-Cc: uclinux-h8-devel@lists.sourceforge.jp
-Cc: linux-hexagon@vger.kernel.org
-Cc: linux-ia64@vger.kernel.org
-Cc: linux-m68k@lists.linux-m68k.org
-Cc: linux-mips@vger.kernel.org
-Cc: nios2-dev@lists.rocketboards.org
-Cc: openrisc@lists.librecores.org
-Cc: linux-parisc@vger.kernel.org
-Cc: linuxppc-dev@lists.ozlabs.org
-Cc: linux-riscv@lists.infradead.org
-Cc: linux-s390@vger.kernel.org
-Cc: linux-sh@vger.kernel.org
-Cc: sparclinux@vger.kernel.org
-Cc: linux-um@lists.infradead.org
-Cc: linux-xtensa@linux-xtensa.org
-Cc: linux-arch@vger.kernel.org
-Cc: linux-audit@redhat.com
-Signed-off-by: Dmitry V. Levin <ldv@altlinux.org>
+Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
 ---
+ arch/sh/kernel/machine_kexec.c |  3 ++-
+ arch/x86/kernel/e820.c         |  2 +-
+ arch/x86/mm/numa.c             | 12 ++++--------
+ drivers/of/of_reserved_mem.c   |  7 ++-----
+ include/linux/memblock.h       |  2 --
+ mm/memblock.c                  |  9 ++-------
+ 6 files changed, 11 insertions(+), 24 deletions(-)
 
-Notes:
-    v7: added more Acked-by
-    v6: added more Acked-by
-    v5: added Cc
-    v2: cleaned up mips part, added Reviewed-by
-
- arch/alpha/include/asm/syscall.h      |  2 +-
- arch/arc/include/asm/syscall.h        |  2 +-
- arch/arm/include/asm/syscall.h        |  2 +-
- arch/arm64/include/asm/syscall.h      |  4 ++--
- arch/c6x/include/asm/syscall.h        |  2 +-
- arch/csky/include/asm/syscall.h       |  2 +-
- arch/h8300/include/asm/syscall.h      |  2 +-
- arch/hexagon/include/asm/syscall.h    |  2 +-
- arch/ia64/include/asm/syscall.h       |  2 +-
- arch/m68k/include/asm/syscall.h       |  2 +-
- arch/microblaze/include/asm/syscall.h |  2 +-
- arch/mips/include/asm/syscall.h       |  6 +++---
- arch/mips/kernel/ptrace.c             |  2 +-
- arch/nds32/include/asm/syscall.h      |  2 +-
- arch/nios2/include/asm/syscall.h      |  2 +-
- arch/openrisc/include/asm/syscall.h   |  2 +-
- arch/parisc/include/asm/syscall.h     |  4 ++--
- arch/powerpc/include/asm/syscall.h    | 10 ++++++++--
- arch/riscv/include/asm/syscall.h      |  2 +-
- arch/s390/include/asm/syscall.h       |  4 ++--
- arch/sh/include/asm/syscall_32.h      |  2 +-
- arch/sh/include/asm/syscall_64.h      |  2 +-
- arch/sparc/include/asm/syscall.h      |  5 +++--
- arch/unicore32/include/asm/syscall.h  |  2 +-
- arch/x86/include/asm/syscall.h        |  8 +++++---
- arch/x86/um/asm/syscall.h             |  2 +-
- arch/xtensa/include/asm/syscall.h     |  2 +-
- include/asm-generic/syscall.h         |  5 +++--
- kernel/auditsc.c                      |  4 ++--
- kernel/seccomp.c                      |  4 ++--
- 30 files changed, 52 insertions(+), 42 deletions(-)
-
-diff --git a/arch/alpha/include/asm/syscall.h b/arch/alpha/include/asm/syscall.h
-index c67d6a69d7c8..20078aef0922 100644
---- a/arch/alpha/include/asm/syscall.h
-+++ b/arch/alpha/include/asm/syscall.h
-@@ -33,7 +33,7 @@ syscall_get_return_value(struct task_struct *task, struct pt_regs *regs)
- }
- 
- static inline int
--syscall_get_arch(void)
-+syscall_get_arch(struct task_struct *task)
+diff --git a/arch/sh/kernel/machine_kexec.c b/arch/sh/kernel/machine_kexec.c
+index b9f9f1a..63d63a3 100644
+--- a/arch/sh/kernel/machine_kexec.c
++++ b/arch/sh/kernel/machine_kexec.c
+@@ -168,7 +168,8 @@ void __init reserve_crashkernel(void)
+ 	crash_size = PAGE_ALIGN(resource_size(&crashk_res));
+ 	if (!crashk_res.start) {
+ 		unsigned long max = memblock_end_of_DRAM() - memory_limit;
+-		crashk_res.start = __memblock_alloc_base(crash_size, PAGE_SIZE, max);
++		crashk_res.start = memblock_phys_alloc_range(crash_size,
++							     PAGE_SIZE, 0, max);
+ 		if (!crashk_res.start) {
+ 			pr_err("crashkernel allocation failed\n");
+ 			goto disable;
+diff --git a/arch/x86/kernel/e820.c b/arch/x86/kernel/e820.c
+index 50895c2..9c0eb54 100644
+--- a/arch/x86/kernel/e820.c
++++ b/arch/x86/kernel/e820.c
+@@ -778,7 +778,7 @@ u64 __init e820__memblock_alloc_reserved(u64 size, u64 align)
  {
- 	return AUDIT_ARCH_ALPHA;
- }
-diff --git a/arch/arc/include/asm/syscall.h b/arch/arc/include/asm/syscall.h
-index c7fc4c0c3bcb..caf2697ef5b7 100644
---- a/arch/arc/include/asm/syscall.h
-+++ b/arch/arc/include/asm/syscall.h
-@@ -70,7 +70,7 @@ syscall_get_arguments(struct task_struct *task, struct pt_regs *regs,
- }
+ 	u64 addr;
  
- static inline int
--syscall_get_arch(void)
-+syscall_get_arch(struct task_struct *task)
- {
- 	return IS_ENABLED(CONFIG_ISA_ARCOMPACT)
- 		? (IS_ENABLED(CONFIG_CPU_BIG_ENDIAN)
-diff --git a/arch/arm/include/asm/syscall.h b/arch/arm/include/asm/syscall.h
-index 06dea6bce293..3940ceac0bdc 100644
---- a/arch/arm/include/asm/syscall.h
-+++ b/arch/arm/include/asm/syscall.h
-@@ -104,7 +104,7 @@ static inline void syscall_set_arguments(struct task_struct *task,
- 	memcpy(&regs->ARM_r0 + i, args, n * sizeof(args[0]));
- }
- 
--static inline int syscall_get_arch(void)
-+static inline int syscall_get_arch(struct task_struct *task)
- {
- 	/* ARM tasks don't change audit architectures on the fly. */
- 	return AUDIT_ARCH_ARM;
-diff --git a/arch/arm64/include/asm/syscall.h b/arch/arm64/include/asm/syscall.h
-index ad8be16a39c9..1870df03f774 100644
---- a/arch/arm64/include/asm/syscall.h
-+++ b/arch/arm64/include/asm/syscall.h
-@@ -117,9 +117,9 @@ static inline void syscall_set_arguments(struct task_struct *task,
-  * We don't care about endianness (__AUDIT_ARCH_LE bit) here because
-  * AArch64 has the same system calls both on little- and big- endian.
-  */
--static inline int syscall_get_arch(void)
-+static inline int syscall_get_arch(struct task_struct *task)
- {
--	if (is_compat_task())
-+	if (is_compat_thread(task_thread_info(task)))
- 		return AUDIT_ARCH_ARM;
- 
- 	return AUDIT_ARCH_AARCH64;
-diff --git a/arch/c6x/include/asm/syscall.h b/arch/c6x/include/asm/syscall.h
-index 39dbd1ef994c..595057191c9c 100644
---- a/arch/c6x/include/asm/syscall.h
-+++ b/arch/c6x/include/asm/syscall.h
-@@ -121,7 +121,7 @@ static inline void syscall_set_arguments(struct task_struct *task,
+-	addr = __memblock_alloc_base(size, align, MEMBLOCK_ALLOC_ACCESSIBLE);
++	addr = memblock_phys_alloc(size, align);
+ 	if (addr) {
+ 		e820__range_update_kexec(addr, size, E820_TYPE_RAM, E820_TYPE_RESERVED);
+ 		pr_info("update e820_table_kexec for e820__memblock_alloc_reserved()\n");
+diff --git a/arch/x86/mm/numa.c b/arch/x86/mm/numa.c
+index 1308f54..f85ae42 100644
+--- a/arch/x86/mm/numa.c
++++ b/arch/x86/mm/numa.c
+@@ -195,15 +195,11 @@ static void __init alloc_node_data(int nid)
+ 	 * Allocate node data.  Try node-local memory and then any node.
+ 	 * Never allocate in DMA zone.
+ 	 */
+-	nd_pa = memblock_phys_alloc_nid(nd_size, SMP_CACHE_BYTES, nid);
++	nd_pa = memblock_phys_alloc_try_nid(nd_size, SMP_CACHE_BYTES, nid);
+ 	if (!nd_pa) {
+-		nd_pa = __memblock_alloc_base(nd_size, SMP_CACHE_BYTES,
+-					      MEMBLOCK_ALLOC_ACCESSIBLE);
+-		if (!nd_pa) {
+-			pr_err("Cannot find %zu bytes in any node (initial node: %d)\n",
+-			       nd_size, nid);
+-			return;
+-		}
++		pr_err("Cannot find %zu bytes in any node (initial node: %d)\n",
++		       nd_size, nid);
++		return;
  	}
- }
+ 	nd = __va(nd_pa);
  
--static inline int syscall_get_arch(void)
-+static inline int syscall_get_arch(struct task_struct *task)
+diff --git a/drivers/of/of_reserved_mem.c b/drivers/of/of_reserved_mem.c
+index 1977ee0..499f16d 100644
+--- a/drivers/of/of_reserved_mem.c
++++ b/drivers/of/of_reserved_mem.c
+@@ -31,13 +31,10 @@ int __init __weak early_init_dt_alloc_reserved_memory_arch(phys_addr_t size,
+ 	phys_addr_t *res_base)
  {
- 	return IS_ENABLED(CONFIG_CPU_BIG_ENDIAN)
- 		? AUDIT_ARCH_C6XBE : AUDIT_ARCH_C6X;
-diff --git a/arch/csky/include/asm/syscall.h b/arch/csky/include/asm/syscall.h
-index d637445737b7..150ffb894fa2 100644
---- a/arch/csky/include/asm/syscall.h
-+++ b/arch/csky/include/asm/syscall.h
-@@ -70,7 +70,7 @@ syscall_set_arguments(struct task_struct *task, struct pt_regs *regs,
- }
- 
- static inline int
--syscall_get_arch(void)
-+syscall_get_arch(struct task_struct *task)
- {
- 	return AUDIT_ARCH_CSKY;
- }
-diff --git a/arch/h8300/include/asm/syscall.h b/arch/h8300/include/asm/syscall.h
-index 0a6565d12836..5c2ab1072700 100644
---- a/arch/h8300/include/asm/syscall.h
-+++ b/arch/h8300/include/asm/syscall.h
-@@ -62,7 +62,7 @@ syscall_get_return_value(struct task_struct *task, struct pt_regs *regs)
- }
- 
- static inline int
--syscall_get_arch(void)
-+syscall_get_arch(struct task_struct *task)
- {
- 	return AUDIT_ARCH_H8300;
- }
-diff --git a/arch/hexagon/include/asm/syscall.h b/arch/hexagon/include/asm/syscall.h
-index c3290c0bc458..94bdfd22f912 100644
---- a/arch/hexagon/include/asm/syscall.h
-+++ b/arch/hexagon/include/asm/syscall.h
-@@ -60,7 +60,7 @@ static inline long syscall_get_return_value(struct task_struct *task,
- 	return regs->r00;
- }
- 
--static inline int syscall_get_arch(void)
-+static inline int syscall_get_arch(struct task_struct *task)
- {
- 	return AUDIT_ARCH_HEXAGON;
- }
-diff --git a/arch/ia64/include/asm/syscall.h b/arch/ia64/include/asm/syscall.h
-index 1d0b875fec44..47ab33f5448a 100644
---- a/arch/ia64/include/asm/syscall.h
-+++ b/arch/ia64/include/asm/syscall.h
-@@ -81,7 +81,7 @@ static inline void syscall_set_arguments(struct task_struct *task,
- 	ia64_syscall_get_set_arguments(task, regs, i, n, args, 1);
- }
- 
--static inline int syscall_get_arch(void)
-+static inline int syscall_get_arch(struct task_struct *task)
- {
- 	return AUDIT_ARCH_IA64;
- }
-diff --git a/arch/m68k/include/asm/syscall.h b/arch/m68k/include/asm/syscall.h
-index c87b14417753..e5ea2e20d3a5 100644
---- a/arch/m68k/include/asm/syscall.h
-+++ b/arch/m68k/include/asm/syscall.h
-@@ -34,7 +34,7 @@ syscall_get_return_value(struct task_struct *task, struct pt_regs *regs)
- }
- 
- static inline int
--syscall_get_arch(void)
-+syscall_get_arch(struct task_struct *task)
- {
- 	return AUDIT_ARCH_M68K;
- }
-diff --git a/arch/microblaze/include/asm/syscall.h b/arch/microblaze/include/asm/syscall.h
-index 220decd605a4..77a86fafa974 100644
---- a/arch/microblaze/include/asm/syscall.h
-+++ b/arch/microblaze/include/asm/syscall.h
-@@ -101,7 +101,7 @@ static inline void syscall_set_arguments(struct task_struct *task,
- asmlinkage unsigned long do_syscall_trace_enter(struct pt_regs *regs);
- asmlinkage void do_syscall_trace_leave(struct pt_regs *regs);
- 
--static inline int syscall_get_arch(void)
-+static inline int syscall_get_arch(struct task_struct *task)
- {
- 	return AUDIT_ARCH_MICROBLAZE;
- }
-diff --git a/arch/mips/include/asm/syscall.h b/arch/mips/include/asm/syscall.h
-index 04ab927ff47d..466957d0474b 100644
---- a/arch/mips/include/asm/syscall.h
-+++ b/arch/mips/include/asm/syscall.h
-@@ -146,14 +146,14 @@ extern const unsigned long sys_call_table[];
- extern const unsigned long sys32_call_table[];
- extern const unsigned long sysn32_call_table[];
- 
--static inline int syscall_get_arch(void)
-+static inline int syscall_get_arch(struct task_struct *task)
- {
- 	int arch = AUDIT_ARCH_MIPS;
- #ifdef CONFIG_64BIT
--	if (!test_thread_flag(TIF_32BIT_REGS)) {
-+	if (!test_tsk_thread_flag(task, TIF_32BIT_REGS)) {
- 		arch |= __AUDIT_ARCH_64BIT;
- 		/* N32 sets only TIF_32BIT_ADDR */
--		if (test_thread_flag(TIF_32BIT_ADDR))
-+		if (test_tsk_thread_flag(task, TIF_32BIT_ADDR))
- 			arch |= __AUDIT_ARCH_CONVENTION_MIPS64_N32;
- 	}
- #endif
-diff --git a/arch/mips/kernel/ptrace.c b/arch/mips/kernel/ptrace.c
-index 0057c910bc2f..2ead6ff919b7 100644
---- a/arch/mips/kernel/ptrace.c
-+++ b/arch/mips/kernel/ptrace.c
-@@ -1418,7 +1418,7 @@ asmlinkage long syscall_trace_enter(struct pt_regs *regs, long syscall)
- 		unsigned long args[6];
- 
- 		sd.nr = syscall;
--		sd.arch = syscall_get_arch();
-+		sd.arch = syscall_get_arch(current);
- 		syscall_get_arguments(current, regs, 0, 6, args);
- 		for (i = 0; i < 6; i++)
- 			sd.args[i] = args[i];
-diff --git a/arch/nds32/include/asm/syscall.h b/arch/nds32/include/asm/syscall.h
-index 569149ca25da..e109acd225e6 100644
---- a/arch/nds32/include/asm/syscall.h
-+++ b/arch/nds32/include/asm/syscall.h
-@@ -187,7 +187,7 @@ void syscall_set_arguments(struct task_struct *task, struct pt_regs *regs,
- 	memcpy(&regs->uregs[0] + i, args, n * sizeof(args[0]));
- }
- 
--static inline int syscall_get_arch(void)
-+static inline int syscall_get_arch(struct task_struct *task)
- {
- 	return IS_ENABLED(CONFIG_CPU_BIG_ENDIAN)
- 		? AUDIT_ARCH_NDS32BE : AUDIT_ARCH_NDS32;
-diff --git a/arch/nios2/include/asm/syscall.h b/arch/nios2/include/asm/syscall.h
-index cf35e210fc4d..f0f6ae208e78 100644
---- a/arch/nios2/include/asm/syscall.h
-+++ b/arch/nios2/include/asm/syscall.h
-@@ -136,7 +136,7 @@ static inline void syscall_set_arguments(struct task_struct *task,
- 	}
- }
- 
--static inline int syscall_get_arch(void)
-+static inline int syscall_get_arch(struct task_struct *task)
- {
- 	return AUDIT_ARCH_NIOS2;
- }
-diff --git a/arch/openrisc/include/asm/syscall.h b/arch/openrisc/include/asm/syscall.h
-index 2db9f1cf0694..46b10c674bd2 100644
---- a/arch/openrisc/include/asm/syscall.h
-+++ b/arch/openrisc/include/asm/syscall.h
-@@ -72,7 +72,7 @@ syscall_set_arguments(struct task_struct *task, struct pt_regs *regs,
- 	memcpy(&regs->gpr[3 + i], args, n * sizeof(args[0]));
- }
- 
--static inline int syscall_get_arch(void)
-+static inline int syscall_get_arch(struct task_struct *task)
- {
- 	return AUDIT_ARCH_OPENRISC;
- }
-diff --git a/arch/parisc/include/asm/syscall.h b/arch/parisc/include/asm/syscall.h
-index 477511ff7546..310016e1925d 100644
---- a/arch/parisc/include/asm/syscall.h
-+++ b/arch/parisc/include/asm/syscall.h
-@@ -69,11 +69,11 @@ static inline void syscall_rollback(struct task_struct *task,
- 	/* do nothing */
- }
- 
--static inline int syscall_get_arch(void)
-+static inline int syscall_get_arch(struct task_struct *task)
- {
- 	int arch = AUDIT_ARCH_PARISC;
- #ifdef CONFIG_64BIT
--	if (!is_compat_task())
-+	if (!__is_compat_task(task))
- 		arch = AUDIT_ARCH_PARISC64;
- #endif
- 	return arch;
-diff --git a/arch/powerpc/include/asm/syscall.h b/arch/powerpc/include/asm/syscall.h
-index b522781ad7c0..7375808c566c 100644
---- a/arch/powerpc/include/asm/syscall.h
-+++ b/arch/powerpc/include/asm/syscall.h
-@@ -109,9 +109,15 @@ static inline void syscall_set_arguments(struct task_struct *task,
- 		regs->orig_gpr3 = args[0];
- }
- 
--static inline int syscall_get_arch(void)
-+static inline int syscall_get_arch(struct task_struct *task)
- {
--	int arch = is_32bit_task() ? AUDIT_ARCH_PPC : AUDIT_ARCH_PPC64;
-+	int arch;
+ 	phys_addr_t base;
+-	/*
+-	 * We use __memblock_alloc_base() because memblock_alloc_base()
+-	 * panic()s on allocation failure.
+-	 */
 +
-+	if (IS_ENABLED(CONFIG_PPC64) && !test_tsk_thread_flag(task, TIF_32BIT))
-+		arch = AUDIT_ARCH_PPC64;
-+	else
-+		arch = AUDIT_ARCH_PPC;
-+
- #ifdef __LITTLE_ENDIAN__
- 	arch |= __AUDIT_ARCH_LE;
- #endif
-diff --git a/arch/riscv/include/asm/syscall.h b/arch/riscv/include/asm/syscall.h
-index bba3da6ef157..ca120a36a037 100644
---- a/arch/riscv/include/asm/syscall.h
-+++ b/arch/riscv/include/asm/syscall.h
-@@ -100,7 +100,7 @@ static inline void syscall_set_arguments(struct task_struct *task,
- 	memcpy(&regs->a1 + i * sizeof(regs->a1), args, n * sizeof(regs->a0));
+ 	end = !end ? MEMBLOCK_ALLOC_ANYWHERE : end;
+ 	align = !align ? SMP_CACHE_BYTES : align;
+-	base = __memblock_alloc_base(size, align, end);
++	base = memblock_phys_alloc_range(size, align, 0, end);
+ 	if (!base)
+ 		return -ENOMEM;
+ 
+diff --git a/include/linux/memblock.h b/include/linux/memblock.h
+index 7883c74..768e2b4 100644
+--- a/include/linux/memblock.h
++++ b/include/linux/memblock.h
+@@ -496,8 +496,6 @@ static inline bool memblock_bottom_up(void)
+ 
+ phys_addr_t memblock_alloc_base(phys_addr_t size, phys_addr_t align,
+ 				phys_addr_t max_addr);
+-phys_addr_t __memblock_alloc_base(phys_addr_t size, phys_addr_t align,
+-				  phys_addr_t max_addr);
+ phys_addr_t memblock_phys_mem_size(void);
+ phys_addr_t memblock_reserved_size(void);
+ phys_addr_t memblock_mem_size(unsigned long limit_pfn);
+diff --git a/mm/memblock.c b/mm/memblock.c
+index 461e40a3..e5ffdcd 100644
+--- a/mm/memblock.c
++++ b/mm/memblock.c
+@@ -1363,17 +1363,12 @@ phys_addr_t __init memblock_phys_alloc_nid(phys_addr_t size, phys_addr_t align,
+ 	return ret;
  }
  
--static inline int syscall_get_arch(void)
-+static inline int syscall_get_arch(struct task_struct *task)
+-phys_addr_t __init __memblock_alloc_base(phys_addr_t size, phys_addr_t align, phys_addr_t max_addr)
+-{
+-	return memblock_alloc_range_nid(size, align, 0, max_addr, NUMA_NO_NODE,
+-					MEMBLOCK_NONE);
+-}
+-
+ phys_addr_t __init memblock_alloc_base(phys_addr_t size, phys_addr_t align, phys_addr_t max_addr)
  {
- #ifdef CONFIG_64BIT
- 	return AUDIT_ARCH_RISCV64;
-diff --git a/arch/s390/include/asm/syscall.h b/arch/s390/include/asm/syscall.h
-index 96f9a9151fde..5a40ea8b90ea 100644
---- a/arch/s390/include/asm/syscall.h
-+++ b/arch/s390/include/asm/syscall.h
-@@ -92,10 +92,10 @@ static inline void syscall_set_arguments(struct task_struct *task,
- 		regs->orig_gpr2 = args[0];
- }
+ 	phys_addr_t alloc;
  
--static inline int syscall_get_arch(void)
-+static inline int syscall_get_arch(struct task_struct *task)
- {
- #ifdef CONFIG_COMPAT
--	if (test_tsk_thread_flag(current, TIF_31BIT))
-+	if (test_tsk_thread_flag(task, TIF_31BIT))
- 		return AUDIT_ARCH_S390;
- #endif
- 	return AUDIT_ARCH_S390X;
-diff --git a/arch/sh/include/asm/syscall_32.h b/arch/sh/include/asm/syscall_32.h
-index 6e118799831c..08de429eccd4 100644
---- a/arch/sh/include/asm/syscall_32.h
-+++ b/arch/sh/include/asm/syscall_32.h
-@@ -95,7 +95,7 @@ static inline void syscall_set_arguments(struct task_struct *task,
- 	}
- }
+-	alloc = __memblock_alloc_base(size, align, max_addr);
++	alloc = memblock_alloc_range_nid(size, align, 0, max_addr, NUMA_NO_NODE,
++					MEMBLOCK_NONE);
  
--static inline int syscall_get_arch(void)
-+static inline int syscall_get_arch(struct task_struct *task)
- {
- 	int arch = AUDIT_ARCH_SH;
- 
-diff --git a/arch/sh/include/asm/syscall_64.h b/arch/sh/include/asm/syscall_64.h
-index 43882580c7f9..9b62a2404531 100644
---- a/arch/sh/include/asm/syscall_64.h
-+++ b/arch/sh/include/asm/syscall_64.h
-@@ -63,7 +63,7 @@ static inline void syscall_set_arguments(struct task_struct *task,
- 	memcpy(&regs->regs[2 + i], args, n * sizeof(args[0]));
- }
- 
--static inline int syscall_get_arch(void)
-+static inline int syscall_get_arch(struct task_struct *task)
- {
- 	int arch = AUDIT_ARCH_SH;
- 
-diff --git a/arch/sparc/include/asm/syscall.h b/arch/sparc/include/asm/syscall.h
-index 053989e3f6a6..9ffb367c17fd 100644
---- a/arch/sparc/include/asm/syscall.h
-+++ b/arch/sparc/include/asm/syscall.h
-@@ -128,10 +128,11 @@ static inline void syscall_set_arguments(struct task_struct *task,
- 		regs->u_regs[UREG_I0 + i + j] = args[j];
- }
- 
--static inline int syscall_get_arch(void)
-+static inline int syscall_get_arch(struct task_struct *task)
- {
- #if defined(CONFIG_SPARC64) && defined(CONFIG_COMPAT)
--	return in_compat_syscall() ? AUDIT_ARCH_SPARC : AUDIT_ARCH_SPARC64;
-+	return test_tsk_thread_flag(task, TIF_32BIT)
-+		? AUDIT_ARCH_SPARC : AUDIT_ARCH_SPARC64;
- #elif defined(CONFIG_SPARC64)
- 	return AUDIT_ARCH_SPARC64;
- #else
-diff --git a/arch/unicore32/include/asm/syscall.h b/arch/unicore32/include/asm/syscall.h
-index 267e97e256bd..1451bce52eb8 100644
---- a/arch/unicore32/include/asm/syscall.h
-+++ b/arch/unicore32/include/asm/syscall.h
-@@ -39,7 +39,7 @@ syscall_get_return_value(struct task_struct *task, struct pt_regs *regs)
- }
- 
- static inline int
--syscall_get_arch(void)
-+syscall_get_arch(struct task_struct *task)
- {
- 	return AUDIT_ARCH_UNICORE;
- }
-diff --git a/arch/x86/include/asm/syscall.h b/arch/x86/include/asm/syscall.h
-index d653139857af..435f3f09279c 100644
---- a/arch/x86/include/asm/syscall.h
-+++ b/arch/x86/include/asm/syscall.h
-@@ -107,7 +107,7 @@ static inline void syscall_set_arguments(struct task_struct *task,
- 	memcpy(&regs->bx + i, args, n * sizeof(args[0]));
- }
- 
--static inline int syscall_get_arch(void)
-+static inline int syscall_get_arch(struct task_struct *task)
- {
- 	return AUDIT_ARCH_I386;
- }
-@@ -236,10 +236,12 @@ static inline void syscall_set_arguments(struct task_struct *task,
- 		}
- }
- 
--static inline int syscall_get_arch(void)
-+static inline int syscall_get_arch(struct task_struct *task)
- {
- 	/* x32 tasks should be considered AUDIT_ARCH_X86_64. */
--	return in_ia32_syscall() ? AUDIT_ARCH_I386 : AUDIT_ARCH_X86_64;
-+	return (IS_ENABLED(CONFIG_IA32_EMULATION) &&
-+		task->thread_info.status & TS_COMPAT)
-+		? AUDIT_ARCH_I386 : AUDIT_ARCH_X86_64;
- }
- #endif	/* CONFIG_X86_32 */
- 
-diff --git a/arch/x86/um/asm/syscall.h b/arch/x86/um/asm/syscall.h
-index ef898af102d1..56a2f0913e3c 100644
---- a/arch/x86/um/asm/syscall.h
-+++ b/arch/x86/um/asm/syscall.h
-@@ -9,7 +9,7 @@ typedef asmlinkage long (*sys_call_ptr_t)(unsigned long, unsigned long,
- 					  unsigned long, unsigned long,
- 					  unsigned long, unsigned long);
- 
--static inline int syscall_get_arch(void)
-+static inline int syscall_get_arch(struct task_struct *task)
- {
- #ifdef CONFIG_X86_32
- 	return AUDIT_ARCH_I386;
-diff --git a/arch/xtensa/include/asm/syscall.h b/arch/xtensa/include/asm/syscall.h
-index a168bf81c7f4..0681ca656809 100644
---- a/arch/xtensa/include/asm/syscall.h
-+++ b/arch/xtensa/include/asm/syscall.h
-@@ -14,7 +14,7 @@
- #include <asm/ptrace.h>
- #include <uapi/linux/audit.h>
- 
--static inline int syscall_get_arch(void)
-+static inline int syscall_get_arch(struct task_struct *task)
- {
- 	return AUDIT_ARCH_XTENSA;
- }
-diff --git a/include/asm-generic/syscall.h b/include/asm-generic/syscall.h
-index fdefe27fa63f..43216b431770 100644
---- a/include/asm-generic/syscall.h
-+++ b/include/asm-generic/syscall.h
-@@ -194,16 +194,17 @@ syscall_set_arguments(struct task_struct *task, struct pt_regs *regs,
- 
- /**
-  * syscall_get_arch - return the AUDIT_ARCH for the current system call
-+ * @task:	task of interest, must be blocked
-  *
-  * Returns the AUDIT_ARCH_* based on the system call convention in use.
-  *
-- * It's only valid to call this when current is stopped on entry to a system
-+ * It's only valid to call this when @task is stopped on entry to a system
-  * call, due to %TIF_SYSCALL_TRACE, %TIF_SYSCALL_AUDIT, or %TIF_SECCOMP.
-  *
-  * Architectures which permit CONFIG_HAVE_ARCH_SECCOMP_FILTER must
-  * provide an implementation of this.
-  */
- static int
--syscall_get_arch(void);
-+syscall_get_arch(struct task_struct *task);
- 
- #endif	/* _ASM_GENERIC_SYSCALL_H */
-diff --git a/kernel/auditsc.c b/kernel/auditsc.c
-index 6593a5207fb0..919fe4ef4314 100644
---- a/kernel/auditsc.c
-+++ b/kernel/auditsc.c
-@@ -1505,7 +1505,7 @@ void __audit_syscall_entry(int major, unsigned long a1, unsigned long a2,
- 			return;
- 	}
- 
--	context->arch	    = syscall_get_arch();
-+	context->arch	    = syscall_get_arch(current);
- 	context->major      = major;
- 	context->argv[0]    = a1;
- 	context->argv[1]    = a2;
-@@ -2480,7 +2480,7 @@ void audit_seccomp(unsigned long syscall, long signr, int code)
- 		return;
- 	audit_log_task(ab);
- 	audit_log_format(ab, " sig=%ld arch=%x syscall=%ld compat=%d ip=0x%lx code=0x%x",
--			 signr, syscall_get_arch(), syscall,
-+			 signr, syscall_get_arch(current), syscall,
- 			 in_compat_syscall(), KSTK_EIP(current), code);
- 	audit_log_end(ab);
- }
-diff --git a/kernel/seccomp.c b/kernel/seccomp.c
-index d7f538847b84..803a69e6af37 100644
---- a/kernel/seccomp.c
-+++ b/kernel/seccomp.c
-@@ -148,7 +148,7 @@ static void populate_seccomp_data(struct seccomp_data *sd)
- 	unsigned long args[6];
- 
- 	sd->nr = syscall_get_nr(task, regs);
--	sd->arch = syscall_get_arch();
-+	sd->arch = syscall_get_arch(task);
- 	syscall_get_arguments(task, regs, 0, 6, args);
- 	sd->args[0] = args[0];
- 	sd->args[1] = args[1];
-@@ -589,7 +589,7 @@ static void seccomp_init_siginfo(kernel_siginfo_t *info, int syscall, int reason
- 	info->si_code = SYS_SECCOMP;
- 	info->si_call_addr = (void __user *)KSTK_EIP(current);
- 	info->si_errno = reason;
--	info->si_arch = syscall_get_arch();
-+	info->si_arch = syscall_get_arch(current);
- 	info->si_syscall = syscall;
- }
- 
+ 	if (alloc = 0)
+ 		panic("ERROR: Failed to allocate %pa bytes below %pa.\n",
 -- 
-ldv
+2.7.4
