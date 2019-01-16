@@ -1,7 +1,7 @@
 From: Mike Rapoport <rppt@linux.ibm.com>
-Date: Wed, 16 Jan 2019 13:44:18 +0000
-Subject: [PATCH 18/21] swiotlb: add checks for the return value of memblock_alloc*()
-Message-Id: <1547646261-32535-19-git-send-email-rppt@linux.ibm.com>
+Date: Wed, 16 Jan 2019 13:44:06 +0000
+Subject: [PATCH 06/21] memblock: memblock_phys_alloc_try_nid(): don't panic
+Message-Id: <1547646261-32535-7-git-send-email-rppt@linux.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1547646261-32535-1-git-send-email-rppt@linux.ibm.com>
 In-Reply-To: <1547646261-32535-1-git-send-email-rppt@linux.ibm.com>
@@ -11,53 +11,66 @@ Content-Transfer-Encoding: 7bit
 To: linux-mm@kvack.org
 Cc: Rich Felker <dalias@libc.org>, linux-ia64@vger.kernel.org, devicetree@vger.kernel.org, Catalin Marinas <catalin.marinas@arm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, x86@kernel.org, linux-mips@vger.kernel.org, Max Filippov <jcmvbkbc@gmail.com>, Guo Ren <guoren@kernel.org>, sparclinux@vger.kernel.org, Christoph Hellwig <hch@lst.de>, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Richard Weinberger <richard@nod.at>, linux-sh@vger.kernel.org, Russell King <linux@armlinux.org.uk>, kasan-dev@googlegroups.com, Mike Rapoport <rppt@linux.ibm.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Mark Salter <msalter@redhat.com>, Dennis Zhou <dennis@kernel.org>, Matt Turner <mattst88@gmail.com>, linux-snps-arc@lists.infradead.org, uclinux-h8-devel@lists.sourceforge.jp, Petr Mladek <pmladek@suse.com>, linux-xtensa@linux-xtensa.org, linux-alpha@vger.kernel.org, linux-um@lists.infradead.org, linux-m68k@lists.linux-m68k.org, Rob Herring <robh+dt@kernel.org>, Greentime Hu <green.hu@gmail.com>, xen-devel@lists.xenproject.org, Stafford Horne <shorne@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, linux-arm-kernel@lists.infradead.org, Michal Simek <monstr@monstr.eu>, Tony Luck <tony.luck@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org, Paul Burton <paul.burton@mips.com>, Vineet Gupta <vgupta@synopsys.com>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, "David S. Miller" <davem@davemloft.net>, openrisc@lists.librecores.org
 
-Add panic() calls if memblock_alloc() returns NULL.
+The memblock_phys_alloc_try_nid() function tries to allocate memory from
+the requested node and then falls back to allocation from any node in the
+system. The memblock_alloc_base() fallback used by this function panics if
+the allocation fails.
 
-The panic() format duplicates the one used by memblock itself and in order
-to avoid explosion with long parameters list replace open coded allocation
-size calculations with a local variable.
+Replace the memblock_alloc_base() fallback with the direct call to
+memblock_alloc_range_nid() and update the memblock_phys_alloc_try_nid()
+callers to check the returned value and panic in case of error.
 
 Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
 ---
- kernel/dma/swiotlb.c | 19 +++++++++++++------
- 1 file changed, 13 insertions(+), 6 deletions(-)
+ arch/arm64/mm/numa.c   | 4 ++++
+ arch/powerpc/mm/numa.c | 4 ++++
+ mm/memblock.c          | 4 +++-
+ 3 files changed, 11 insertions(+), 1 deletion(-)
 
-diff --git a/kernel/dma/swiotlb.c b/kernel/dma/swiotlb.c
-index d636177..e78835c8 100644
---- a/kernel/dma/swiotlb.c
-+++ b/kernel/dma/swiotlb.c
-@@ -191,6 +191,7 @@ void __init swiotlb_update_mem_attributes(void)
- int __init swiotlb_init_with_tbl(char *tlb, unsigned long nslabs, int verbose)
- {
- 	unsigned long i, bytes;
-+	size_t alloc_size;
+diff --git a/arch/arm64/mm/numa.c b/arch/arm64/mm/numa.c
+index ae34e3a..2c61ea4 100644
+--- a/arch/arm64/mm/numa.c
++++ b/arch/arm64/mm/numa.c
+@@ -237,6 +237,10 @@ static void __init setup_node_data(int nid, u64 start_pfn, u64 end_pfn)
+ 		pr_info("Initmem setup node %d [<memory-less node>]\n", nid);
  
- 	bytes = nslabs << IO_TLB_SHIFT;
+ 	nd_pa = memblock_phys_alloc_try_nid(nd_size, SMP_CACHE_BYTES, nid);
++	if (!nd_pa)
++		panic("Cannot allocate %zu bytes for node %d data\n",
++		      nd_size, nid);
++
+ 	nd = __va(nd_pa);
  
-@@ -203,12 +204,18 @@ int __init swiotlb_init_with_tbl(char *tlb, unsigned long nslabs, int verbose)
- 	 * to find contiguous free memory regions of size up to IO_TLB_SEGSIZE
- 	 * between io_tlb_start and io_tlb_end.
- 	 */
--	io_tlb_list = memblock_alloc(
--				PAGE_ALIGN(io_tlb_nslabs * sizeof(int)),
--				PAGE_SIZE);
--	io_tlb_orig_addr = memblock_alloc(
--				PAGE_ALIGN(io_tlb_nslabs * sizeof(phys_addr_t)),
--				PAGE_SIZE);
-+	alloc_size = PAGE_ALIGN(io_tlb_nslabs * sizeof(int));
-+	io_tlb_list = memblock_alloc(alloc_size, PAGE_SIZE);
-+	if (!io_tlb_list)
-+		panic("%s: Failed to allocate %lu bytes align=0x%lx\n",
-+		      __func__, alloc_size, PAGE_SIZE);
+ 	/* report and initialize */
+diff --git a/arch/powerpc/mm/numa.c b/arch/powerpc/mm/numa.c
+index 270cefb..8f2bbe1 100644
+--- a/arch/powerpc/mm/numa.c
++++ b/arch/powerpc/mm/numa.c
+@@ -788,6 +788,10 @@ static void __init setup_node_data(int nid, u64 start_pfn, u64 end_pfn)
+ 	int tnid;
+ 
+ 	nd_pa = memblock_phys_alloc_try_nid(nd_size, SMP_CACHE_BYTES, nid);
++	if (!nd_pa)
++		panic("Cannot allocate %zu bytes for node %d data\n",
++		      nd_size, nid);
 +
-+	alloc_size = PAGE_ALIGN(io_tlb_nslabs * sizeof(phys_addr_t));
-+	io_tlb_orig_addr = memblock_alloc(alloc_size, PAGE_SIZE);
-+	if (!io_tlb_orig_addr)
-+		panic("%s: Failed to allocate %lu bytes align=0x%lx\n",
-+		      __func__, alloc_size, PAGE_SIZE);
-+
- 	for (i = 0; i < io_tlb_nslabs; i++) {
- 		io_tlb_list[i] = IO_TLB_SEGSIZE - OFFSET(i, IO_TLB_SEGSIZE);
- 		io_tlb_orig_addr[i] = INVALID_PHYS_ADDR;
+ 	nd = __va(nd_pa);
+ 
+ 	/* report and initialize */
+diff --git a/mm/memblock.c b/mm/memblock.c
+index f019aee..8aabb1b 100644
+--- a/mm/memblock.c
++++ b/mm/memblock.c
+@@ -1393,7 +1393,9 @@ phys_addr_t __init memblock_phys_alloc_try_nid(phys_addr_t size, phys_addr_t ali
+ 
+ 	if (res)
+ 		return res;
+-	return memblock_alloc_base(size, align, MEMBLOCK_ALLOC_ACCESSIBLE);
++	return memblock_alloc_range_nid(size, align, 0,
++					MEMBLOCK_ALLOC_ACCESSIBLE,
++					NUMA_NO_NODE, MEMBLOCK_NONE);
+ }
+ 
+ /**
 -- 
 2.7.4
