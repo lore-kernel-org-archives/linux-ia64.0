@@ -1,141 +1,199 @@
-From: Mike Rapoport <rppt@linux.ibm.com>
-Date: Thu, 31 Jan 2019 07:14:59 +0000
-Subject: Re: [PATCH v2 19/21] treewide: add checks for the return value of memblock_alloc*()
-Message-Id: <20190131071459.GC28876@rapoport-lnx>
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Fri, 18 Jan 2019 16:18:19 +0000
+Subject: [PATCH v2 13/29] arch: add split IPC system calls where needed
+Message-Id: <20190118161835.2259170-14-arnd@arndb.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1548057848-15136-1-git-send-email-rppt@linux.ibm.com>
- <1548057848-15136-20-git-send-email-rppt@linux.ibm.com>
- <b7c12014-14ae-2a38-900c-41fd145307bc@c-s.fr>
- <20190131064139.GB28876@rapoport-lnx>
- <8838f7ab-998b-6d78-02a8-a53f8a3619d9@c-s.fr>
- <d5e4ff5b-d33a-e641-8159-d4f83bc28d0b@c-s.fr>
-In-Reply-To: <d5e4ff5b-d33a-e641-8159-d4f83bc28d0b@c-s.fr>
+References: <20190118161835.2259170-1-arnd@arndb.de>
+In-Reply-To: <20190118161835.2259170-1-arnd@arndb.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Christophe Leroy <christophe.leroy@c-s.fr>
-Cc: Rich Felker <dalias@libc.org>, linux-ia64@vger.kernel.org, Petr Mladek <pmladek@suse.com>, linux-sh@vger.kernel.org, Catalin Marinas <catalin.marinas@arm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, linux-kernel@vger.kernel.org, Max Filippov <jcmvbkbc@gmail.com>, Guo Ren <guoren@kernel.org>, sparclinux@vger.kernel.org, Christoph Hellwig <hch@lst.de>, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Richard Weinberger <richard@nod.at>, x86@kernel.org, Russell King <linux@armlinux.org.uk>, kasan-dev@googlegroups.com, Geert Uytterhoeven <geert@linux-m68k.org>, Mark Salter <msalter@redhat.com>, Dennis Zhou <dennis@kernel.org>, Matt Turner <mattst88@gmail.com>, linux-snps-arc@lists.infradead.org, uclinux-h8-devel@lists.sourceforge.jp, devicetree@vger.kernel.org, Stephen Rothwell <sfr@canb.auug.org.au>, linux-xtensa@linux-xtensa.org, linux-um@lists.infradead.org, linux-m68k@lists.linux-m68k.org, Rob Herring <robh+dt@kernel.org>, Greentime Hu <green.hu@gmail.com>, xen-devel@lists.xenproject.org, Stafford Horne <shorne@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, linux-arm-kernel@lists.infradead.org, Michal Simek <monstr@monstr.eu>, Tony Luck <tony.luck@intel.com>, linux-mm@kvack.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-usb@vger.kernel.org, linux-mips@vger.kernel.org, Paul Burton <paul.burton@mips.com>, Vineet Gupta <vgupta@synopsys.com>, linux-alpha@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, "David S. Miller" <davem@davemloft.net>, openrisc@lists.librecores.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: y2038@lists.linaro.org, linux-api@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org
+Cc: dalias@libc.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, catalin.marinas@arm.com, will.deacon@arm.com, jcmvbkbc@gmail.com, deepa.kernel@gmail.com, hpa@zytor.com, sparclinux@vger.kernel.org, linux-s390@vger.kernel.org, mpe@ellerman.id.au, deller@gmx.de, x86@kernel.org, linux@armlinux.org.uk, mingo@redhat.com, geert@linux-m68k.org, benh@kernel.crashing.org, firoz.khan@linaro.org, mattst88@gmail.com, fenghua.yu@intel.com, Arnd Bergmann <arnd@arndb.de>, heiko.carstens@de.ibm.com, linux-fsdevel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, luto@kernel.org, tglx@linutronix.de, linux-arm-kernel@lists.infradead.org, monstr@monstr.eu, tony.luck@intel.com, linux-parisc@vger.kernel.org, netdev@vger.kernel.org, linux-mips@vger.kernel.org, paul.burton@mips.com, ebiederm@xmission.com, linux-alpha@vger.kernel.org, schwidefsky@de.ibm.com, akpm@linux-foundation.orglinu
 
-On Thu, Jan 31, 2019 at 08:07:29AM +0100, Christophe Leroy wrote:
->=20
->=20
-> Le 31/01/2019 =E0 07:44, Christophe Leroy a =E9crit=A0:
-> >
-> >
-> >Le 31/01/2019 =E0 07:41, Mike Rapoport a =E9crit=A0:
-> >>On Thu, Jan 31, 2019 at 07:07:46AM +0100, Christophe Leroy wrote:
-> >>>
-> >>>
-> >>>Le 21/01/2019 =E0 09:04, Mike Rapoport a =E9crit=A0:
-> >>>>Add check for the return value of memblock_alloc*() functions and call
-> >>>>panic() in case of error.
-> >>>>The panic message repeats the one used by panicing memblock
-> >>>>allocators with
-> >>>>adjustment of parameters to include only relevant ones.
-> >>>>
-> >>>>The replacement was mostly automated with semantic patches like the o=
-ne
-> >>>>below with manual massaging of format strings.
-> >>>>
-> >>>>@@
-> >>>>expression ptr, size, align;
-> >>>>@@
-> >>>>ptr =3D memblock_alloc(size, align);
-> >>>>+ if (!ptr)
-> >>>>+=A0=A0=A0=A0 panic("%s: Failed to allocate %lu bytes align=3D0x%lx\n=
-", __func__,
-> >>>>size, align);
-> >>>>
-> >>>>Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
-> >>>>Reviewed-by: Guo Ren <ren_guo@c-sky.com>=A0=A0=A0=A0=A0=A0=A0=A0=A0=
-=A0=A0=A0 # c-sky
-> >>>>Acked-by: Paul Burton <paul.burton@mips.com>=A0=A0=A0=A0=A0=A0=A0=A0 =
-# MIPS
-> >>>>Acked-by: Heiko Carstens <heiko.carstens@de.ibm.com> # s390
-> >>>>Reviewed-by: Juergen Gross <jgross@suse.com>=A0=A0=A0=A0=A0=A0=A0=A0 =
-# Xen
-> >>>>---
-> >>>
-> >>>[...]
-> >>>
-> >>>>diff --git a/mm/sparse.c b/mm/sparse.c
-> >>>>index 7ea5dc6..ad94242 100644
-> >>>>--- a/mm/sparse.c
-> >>>>+++ b/mm/sparse.c
-> >>>
-> >>>[...]
-> >>>
-> >>>>@@ -425,6 +436,10 @@ static void __init sparse_buffer_init(unsigned
-> >>>>long size, int nid)
-> >>>>=A0=A0=A0=A0=A0=A0=A0=A0=A0 memblock_alloc_try_nid_raw(size, PAGE_SIZ=
-E,
-> >>>>=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
-=A0=A0 __pa(MAX_DMA_ADDRESS),
-> >>>>=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
-=A0=A0 MEMBLOCK_ALLOC_ACCESSIBLE, nid);
-> >>>>+=A0=A0=A0 if (!sparsemap_buf)
-> >>>>+=A0=A0=A0=A0=A0=A0=A0 panic("%s: Failed to allocate %lu bytes align=
-=3D0x%lx nid=3D%d
-> >>>>from=3D%lx\n",
-> >>>>+=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 __func__, size, PAGE_SIZE, n=
-id, __pa(MAX_DMA_ADDRESS));
-> >>>>+
-> >>>
-> >>>memblock_alloc_try_nid_raw() does not panic (help explicitly says:
-> >>>Does not
-> >>>zero allocated memory, does not panic if request cannot be satisfied.).
-> >>
-> >>"Does not panic" does not mean it always succeeds.
-> >
-> >I agree, but at least here you are changing the behaviour by making it
-> >panic explicitly. Are we sure there are not cases where the system could
-> >just continue functionning ? Maybe a WARN_ON() would be enough there ?
->=20
-> Looking more in details, it looks like everything is done to live with
-> sparsemap_buf NULL, all functions using it check it so having it NULL
-> shouldn't imply a panic I believe, see code below.
+The IPC system call handling is highly inconsistent across architectures,
+some use sys_ipc, some use separate calls, and some use both.  We also
+have some architectures that require passing IPC_64 in the flags, and
+others that set it implicitly.
 
-You are right, I'm preparing the fix right now.
-=20
-> static void *sparsemap_buf __meminitdata;
-> static void *sparsemap_buf_end __meminitdata;
->=20
-> static void __init sparse_buffer_init(unsigned long size, int nid)
-> {
-> 	WARN_ON(sparsemap_buf);	/* forgot to call sparse_buffer_fini()? */
-> 	sparsemap_buf > 		memblock_alloc_try_nid_raw(size, PAGE_SIZE,
-> 						__pa(MAX_DMA_ADDRESS),
-> 						MEMBLOCK_ALLOC_ACCESSIBLE, nid);
-> 	sparsemap_buf_end =3D sparsemap_buf + size;
-> }
->=20
-> static void __init sparse_buffer_fini(void)
-> {
-> 	unsigned long size =3D sparsemap_buf_end - sparsemap_buf;
->=20
-> 	if (sparsemap_buf && size > 0)
-> 		memblock_free_early(__pa(sparsemap_buf), size);
-> 	sparsemap_buf =3D NULL;
-> }
->=20
-> void * __meminit sparse_buffer_alloc(unsigned long size)
-> {
-> 	void *ptr =3D NULL;
->=20
-> 	if (sparsemap_buf) {
-> 		ptr =3D PTR_ALIGN(sparsemap_buf, size);
-> 		if (ptr + size > sparsemap_buf_end)
-> 			ptr =3D NULL;
-> 		else
-> 			sparsemap_buf =3D ptr + size;
-> 	}
-> 	return ptr;
-> }
->=20
->=20
-> Christophe
->=20
+For the additon of a y2083 safe semtimedop() system call, I chose to only
+support the separate entry points, but that requires first supporting
+the regular ones with their own syscall numbers.
 
---=20
-Sincerely yours,
-Mike.
+The IPC_64 is now implied by the new semctl/shmctl/msgctl system
+calls even on the architectures that require passing it with the ipc()
+multiplexer.
+
+I'm not adding the new semtimedop() or semop() on 32-bit architectures,
+those will get implemented using the new semtimedop_time64() version
+that gets added along with the other time64 calls.
+Three 64-bit architectures (powerpc, s390 and sparc) get semtimedop().
+
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+One aspect here that might be a bit controversial is the use of
+the same system call numbers across all architectures, synchronizing
+all of them with the x86-32 numbers. With the new syscall.tbl
+files, I hope we can just keep doing that in the future, and no
+longer require the architecture maintainers to assign a number.
+
+This is mainly useful for implementers of the C libraries: if
+we can add future system calls everywhere at the same time, using
+a particular version of the kernel headers also guarantees that
+the system call number macro is visible.
+---
+ arch/m68k/kernel/syscalls/syscall.tbl     | 11 +++++++++++
+ arch/mips/kernel/syscalls/syscall_o32.tbl | 11 +++++++++++
+ arch/powerpc/kernel/syscalls/syscall.tbl  | 13 +++++++++++++
+ arch/s390/kernel/syscalls/syscall.tbl     | 12 ++++++++++++
+ arch/sh/kernel/syscalls/syscall.tbl       | 11 +++++++++++
+ arch/sparc/kernel/syscalls/syscall.tbl    | 12 ++++++++++++
+ arch/x86/entry/syscalls/syscall_32.tbl    | 11 +++++++++++
+ 7 files changed, 81 insertions(+)
+
+diff --git a/arch/m68k/kernel/syscalls/syscall.tbl b/arch/m68k/kernel/syscalls/syscall.tbl
+index 85779d6ef935..5354ba02eed2 100644
+--- a/arch/m68k/kernel/syscalls/syscall.tbl
++++ b/arch/m68k/kernel/syscalls/syscall.tbl
+@@ -388,3 +388,14 @@
+ 378	common	pwritev2			sys_pwritev2
+ 379	common	statx				sys_statx
+ 380	common	seccomp				sys_seccomp
++# room for arch specific calls
++393	common	semget				sys_semget
++394	common	semctl				sys_semctl
++395	common	shmget				sys_shmget
++396	common	shmctl				sys_shmctl
++397	common	shmat				sys_shmat
++398	common	shmdt				sys_shmdt
++399	common	msgget				sys_msgget
++400	common	msgsnd				sys_msgsnd
++401	common	msgrcv				sys_msgrcv
++402	common	msgctl				sys_msgctl
+diff --git a/arch/mips/kernel/syscalls/syscall_o32.tbl b/arch/mips/kernel/syscalls/syscall_o32.tbl
+index 3d5a47b80d2b..fa47ea8cc6ef 100644
+--- a/arch/mips/kernel/syscalls/syscall_o32.tbl
++++ b/arch/mips/kernel/syscalls/syscall_o32.tbl
+@@ -380,3 +380,14 @@
+ 366	o32	statx				sys_statx
+ 367	o32	rseq				sys_rseq
+ 368	o32	io_pgetevents			sys_io_pgetevents		compat_sys_io_pgetevents
++# room for arch specific calls
++393	o32	semget				sys_semget
++394	o32	semctl				sys_semctl			compat_sys_semctl
++395	o32	shmget				sys_shmget
++396	o32	shmctl				sys_shmctl			compat_sys_shmctl
++397	o32	shmat				sys_shmat			compat_sys_shmat
++398	o32	shmdt				sys_shmdt
++399	o32	msgget				sys_msgget
++400	o32	msgsnd				sys_msgsnd			compat_sys_msgsnd
++401	o32	msgrcv				sys_msgrcv			compat_sys_msgrcv
++402	o32	msgctl				sys_msgctl			compat_sys_msgctl
+diff --git a/arch/powerpc/kernel/syscalls/syscall.tbl b/arch/powerpc/kernel/syscalls/syscall.tbl
+index db3bbb8744af..7555874ce39c 100644
+--- a/arch/powerpc/kernel/syscalls/syscall.tbl
++++ b/arch/powerpc/kernel/syscalls/syscall.tbl
+@@ -414,6 +414,7 @@
+ 363	spu	switch_endian			sys_ni_syscall
+ 364	common	userfaultfd			sys_userfaultfd
+ 365	common	membarrier			sys_membarrier
++# 366-377 originally left for IPC, now unused
+ 378	nospu	mlock2				sys_mlock2
+ 379	nospu	copy_file_range			sys_copy_file_range
+ 380	common	preadv2				sys_preadv2			compat_sys_preadv2
+@@ -425,3 +426,15 @@
+ 386	nospu	pkey_mprotect			sys_pkey_mprotect
+ 387	nospu	rseq				sys_rseq
+ 388	nospu	io_pgetevents			sys_io_pgetevents		compat_sys_io_pgetevents
++# room for arch specific syscalls
++392	64	semtimedop			sys_semtimedop
++393	common	semget				sys_semget
++394	common	semctl				sys_semctl			compat_sys_semctl
++395	common	shmget				sys_shmget
++396	common	shmctl				sys_shmctl			compat_sys_shmctl
++397	common	shmat				sys_shmat			compat_sys_shmat
++398	common	shmdt				sys_shmdt
++399	common	msgget				sys_msgget
++400	common	msgsnd				sys_msgsnd			compat_sys_msgsnd
++401	common	msgrcv				sys_msgrcv			compat_sys_msgrcv
++402	common	msgctl				sys_msgctl			compat_sys_msgctl
+diff --git a/arch/s390/kernel/syscalls/syscall.tbl b/arch/s390/kernel/syscalls/syscall.tbl
+index 7413fd318e2a..0bccb01c6202 100644
+--- a/arch/s390/kernel/syscalls/syscall.tbl
++++ b/arch/s390/kernel/syscalls/syscall.tbl
+@@ -391,3 +391,15 @@
+ 381  common	kexec_file_load		sys_kexec_file_load		sys_kexec_file_load
+ 382  common	io_pgetevents		sys_io_pgetevents		compat_sys_io_pgetevents
+ 383  common	rseq			sys_rseq			sys_rseq
++# room for arch specific syscalls
++392	64	semtimedop		sys_semtimedop			-
++393  common	semget			sys_semget			sys_semget
++394  common	semctl			sys_semctl			compat_sys_semctl
++395  common	shmget			sys_shmget			sys_shmget
++396  common	shmctl			sys_shmctl			compat_sys_shmctl
++397  common	shmat			sys_shmat			compat_sys_shmat
++398  common	shmdt			sys_shmdt 			sys_shmdt
++399  common	msgget			sys_msgget			sys_msgget
++400  common	msgsnd			sys_msgsnd			compat_sys_msgsnd
++401  common	msgrcv			sys_msgrcv			compat_sys_msgrcv
++402  common	msgctl			sys_msgctl			compat_sys_msgctl
+diff --git a/arch/sh/kernel/syscalls/syscall.tbl b/arch/sh/kernel/syscalls/syscall.tbl
+index a70db013dbc7..6d0b84e3ef2d 100644
+--- a/arch/sh/kernel/syscalls/syscall.tbl
++++ b/arch/sh/kernel/syscalls/syscall.tbl
+@@ -391,3 +391,14 @@
+ 381	common	preadv2				sys_preadv2
+ 382	common	pwritev2			sys_pwritev2
+ 383	common	statx				sys_statx
++# room for arch specific syscalls
++393	common	semget				sys_semget
++394	common	semctl				sys_semctl
++395	common	shmget				sys_shmget
++396	common	shmctl				sys_shmctl
++397	common	shmat				sys_shmat
++398	common	shmdt				sys_shmdt
++399	common	msgget				sys_msgget
++400	common	msgsnd				sys_msgsnd
++401	common	msgrcv				sys_msgrcv
++402	common	msgctl				sys_msgctl
+diff --git a/arch/sparc/kernel/syscalls/syscall.tbl b/arch/sparc/kernel/syscalls/syscall.tbl
+index c8c77c05ea97..8c9580302422 100644
+--- a/arch/sparc/kernel/syscalls/syscall.tbl
++++ b/arch/sparc/kernel/syscalls/syscall.tbl
+@@ -407,3 +407,15 @@
+ 359	common	pwritev2		sys_pwritev2			compat_sys_pwritev2
+ 360	common	statx			sys_statx
+ 361	common	io_pgetevents		sys_io_pgetevents		compat_sys_io_pgetevents
++# room for arch specific syscalls
++392	64	semtimedop			sys_semtimedop
++393	common	semget			sys_semget
++394	common	semctl			sys_semctl			compat_sys_semctl
++395	common	shmget			sys_shmget
++396	common	shmctl			sys_shmctl			compat_sys_shmctl
++397	common	shmat			sys_shmat			compat_sys_shmat
++398	common	shmdt			sys_shmdt
++399	common	msgget			sys_msgget
++400	common	msgsnd			sys_msgsnd			compat_sys_msgsnd
++401	common	msgrcv			sys_msgrcv			compat_sys_msgrcv
++402	common	msgctl			sys_msgctl			compat_sys_msgctl
+diff --git a/arch/x86/entry/syscalls/syscall_32.tbl b/arch/x86/entry/syscalls/syscall_32.tbl
+index 3cf7b533b3d1..fef80b92eb7e 100644
+--- a/arch/x86/entry/syscalls/syscall_32.tbl
++++ b/arch/x86/entry/syscalls/syscall_32.tbl
+@@ -398,3 +398,14 @@
+ 384	i386	arch_prctl		sys_arch_prctl			__ia32_compat_sys_arch_prctl
+ 385	i386	io_pgetevents		sys_io_pgetevents		__ia32_compat_sys_io_pgetevents
+ 386	i386	rseq			sys_rseq			__ia32_sys_rseq
++# room for arch specific syscalls
++393	i386	semget			sys_semget    			__ia32_sys_semget
++394	i386	semctl			sys_semctl    			__ia32_compat_sys_semctl
++395	i386	shmget			sys_shmget    			__ia32_sys_shmget
++396	i386	shmctl			sys_shmctl    			__ia32_compat_sys_shmctl
++397	i386	shmat			sys_shmat     			__ia32_compat_sys_shmat
++398	i386	shmdt			sys_shmdt     			__ia32_sys_shmdt
++399	i386	msgget			sys_msgget    			__ia32_sys_msgget
++400	i386	msgsnd			sys_msgsnd    			__ia32_compat_sys_msgsnd
++401	i386	msgrcv			sys_msgrcv    			__ia32_compat_sys_msgrcv
++402	i386	msgctl			sys_msgctl    			__ia32_compat_sys_msgctl
+-- 
+2.20.0
