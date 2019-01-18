@@ -1,59 +1,104 @@
-From: Heiko Carstens <heiko.carstens@de.ibm.com>
-Date: Fri, 18 Jan 2019 08:43:02 +0000
-Subject: Re: [PATCH 19/21] treewide: add checks for the return value of memblock_alloc*()
-Message-Id: <20190118084302.GA4160@osiris>
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Fri, 18 Jan 2019 16:18:23 +0000
+Subject: [PATCH v2 17/29] syscalls: remove obsolete __IGNORE_ macros
+Message-Id: <20190118161835.2259170-18-arnd@arndb.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1547646261-32535-1-git-send-email-rppt@linux.ibm.com>
- <1547646261-32535-20-git-send-email-rppt@linux.ibm.com>
-In-Reply-To: <1547646261-32535-20-git-send-email-rppt@linux.ibm.com>
+References: <20190118161835.2259170-1-arnd@arndb.de>
+In-Reply-To: <20190118161835.2259170-1-arnd@arndb.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Mike Rapoport <rppt@linux.ibm.com>
-Cc: Rich Felker <dalias@libc.org>, linux-ia64@vger.kernel.org, devicetree@vger.kernel.org, Catalin Marinas <catalin.marinas@arm.com>, x86@kernel.org, linux-mips@vger.kernel.org, Max Filippov <jcmvbkbc@gmail.com>, Guo Ren <guoren@kernel.org>, sparclinux@vger.kernel.org, Christoph Hellwig <hch@lst.de>, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Richard Weinberger <richard@nod.at>, linux-sh@vger.kernel.org, Russell King <linux@armlinux.org.uk>, kasan-dev@googlegroups.com, Geert Uytterhoeven <geert@linux-m68k.org>, Mark Salter <msalter@redhat.com>, Dennis Zhou <dennis@kernel.org>, Matt Turner <mattst88@gmail.com>, linux-snps-arc@lists.infradead.org, uclinux-h8-devel@lists.sourceforge.jp, Petr Mladek <pmladek@suse.com>, linux-xtensa@linux-xtensa.org, linux-alpha@vger.kernel.org, linux-um@lists.infradead.org, linux-m68k@lists.linux-m68k.org, Rob Herring <robh+dt@kernel.org>, Greentime Hu <green.hu@gmail.com>, xen-devel@lists.xenproject.org, Stafford Horne <shorne@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, linux-arm-kernel@lists.infradead.org, Michal Simek <monstr@monstr.eu>, Tony Luck <tony.luck@intel.com>, linux-mm@kvack.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org, Paul Burton <paul.burton@mips.com>, Vineet Gupta <vgupta@synopsys.com>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, "David S. Miller" <davem@davemloft.net>, openrisc@lists.librecores.org
+To: y2038@lists.linaro.org, linux-api@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org
+Cc: Arnd Bergmann <arnd@arndb.de>, mattst88@gmail.com, linux@armlinux.org.uk, catalin.marinas@arm.com, will.deacon@arm.com, tony.luck@intel.com, fenghua.yu@intel.com, geert@linux-m68k.org, monstr@monstr.eu, paul.burton@mips.com, deller@gmx.de, benh@kernel.crashing.org, mpe@ellerman.id.au, schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com, dalias@libc.org, davem@davemloft.net, luto@kernel.org, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, x86@kernel.org, jcmvbkbc@gmail.com, akpm@linux-foundation.org, deepa.kernel@gmail.com, ebiederm@xmission.com, firoz.khan@linaro.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.or
 
-On Wed, Jan 16, 2019 at 03:44:19PM +0200, Mike Rapoport wrote:
-> Add check for the return value of memblock_alloc*() functions and call
-> panic() in case of error.
-> The panic message repeats the one used by panicing memblock allocators with
-> adjustment of parameters to include only relevant ones.
-> 
-> The replacement was mostly automated with semantic patches like the one
-> below with manual massaging of format strings.
-> 
-> @@
-> expression ptr, size, align;
-> @@
-> ptr = memblock_alloc(size, align);
-> + if (!ptr)
-> + 	panic("%s: Failed to allocate %lu bytes align=0x%lx\n", __func__,
-> size, align);
-> 
-> Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
-...
-> diff --git a/arch/s390/numa/toptree.c b/arch/s390/numa/toptree.c
-> index 71a608c..0118c77 100644
-> --- a/arch/s390/numa/toptree.c
-> +++ b/arch/s390/numa/toptree.c
-> @@ -31,10 +31,14 @@ struct toptree __ref *toptree_alloc(int level, int id)
->  {
->  	struct toptree *res;
-> 
-> -	if (slab_is_available())
-> +	if (slab_is_available()) {
->  		res = kzalloc(sizeof(*res), GFP_KERNEL);
-> -	else
-> +	} else {
->  		res = memblock_alloc(sizeof(*res), 8);
-> +		if (!res)
-> +			panic("%s: Failed to allocate %zu bytes align=0x%x\n",
-> +			      __func__, sizeof(*res), 8);
-> +	}
->  	if (!res)
->  		return res;
+These are all for ignoring the lack of obsolete system calls,
+which have been marked the same way in scripts/checksyscall.sh,
+so these can be removed.
 
-Please remove this hunk, since the code _should_ be able to handle
-allocation failures anyway (see end of quoted code).
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ arch/mips/include/asm/unistd.h   | 16 ----------------
+ arch/parisc/include/asm/unistd.h |  3 ---
+ arch/s390/include/asm/unistd.h   |  2 --
+ arch/xtensa/include/asm/unistd.h | 12 ------------
+ 4 files changed, 33 deletions(-)
 
-Otherwise for the s390 bits:
-Acked-by: Heiko Carstens <heiko.carstens@de.ibm.com>
+diff --git a/arch/mips/include/asm/unistd.h b/arch/mips/include/asm/unistd.h
+index b23d74a601b3..5e9eeb83d8d4 100644
+--- a/arch/mips/include/asm/unistd.h
++++ b/arch/mips/include/asm/unistd.h
+@@ -53,22 +53,6 @@
+ #define __ARCH_WANT_SYS_FORK
+ #define __ARCH_WANT_SYS_CLONE
+ 
+-/* whitelists for checksyscalls */
+-#define __IGNORE_select
+-#define __IGNORE_vfork
+-#define __IGNORE_time
+-#define __IGNORE_uselib
+-#define __IGNORE_fadvise64_64
+-#define __IGNORE_getdents64
+-#if _MIPS_SIM = _MIPS_SIM_NABI32
+-#define __IGNORE_truncate64
+-#define __IGNORE_ftruncate64
+-#define __IGNORE_stat64
+-#define __IGNORE_lstat64
+-#define __IGNORE_fstat64
+-#define __IGNORE_fstatat64
+-#endif
+-
+ #endif /* !__ASSEMBLY__ */
+ 
+ #endif /* _ASM_UNISTD_H */
+diff --git a/arch/parisc/include/asm/unistd.h b/arch/parisc/include/asm/unistd.h
+index 9ec1026af877..385eae49ed02 100644
+--- a/arch/parisc/include/asm/unistd.h
++++ b/arch/parisc/include/asm/unistd.h
+@@ -10,9 +10,6 @@
+ 
+ #define SYS_ify(syscall_name)   __NR_##syscall_name
+ 
+-#define __IGNORE_select			/* newselect */
+-#define __IGNORE_fadvise64		/* fadvise64_64 */
+-
+ #ifndef ASM_LINE_SEP
+ # define ASM_LINE_SEP ;
+ #endif
+diff --git a/arch/s390/include/asm/unistd.h b/arch/s390/include/asm/unistd.h
+index ed08f114ee91..59202ceea1f6 100644
+--- a/arch/s390/include/asm/unistd.h
++++ b/arch/s390/include/asm/unistd.h
+@@ -10,8 +10,6 @@
+ #include <uapi/asm/unistd.h>
+ #include <asm/unistd_nr.h>
+ 
+-#define __IGNORE_time
+-
+ #define __ARCH_WANT_NEW_STAT
+ #define __ARCH_WANT_OLD_READDIR
+ #define __ARCH_WANT_SYS_ALARM
+diff --git a/arch/xtensa/include/asm/unistd.h b/arch/xtensa/include/asm/unistd.h
+index 0d34629dafc5..81cc52ea1bd5 100644
+--- a/arch/xtensa/include/asm/unistd.h
++++ b/arch/xtensa/include/asm/unistd.h
+@@ -10,18 +10,6 @@
+ #define __ARCH_WANT_SYS_UTIME
+ #define __ARCH_WANT_SYS_GETPGRP
+ 
+-/* 
+- * Ignore legacy system calls in the checksyscalls.sh script
+- */
+-
+-#define __IGNORE_fork				/* use clone */
+-#define __IGNORE_time
+-#define __IGNORE_alarm				/* use setitimer */
+-#define __IGNORE_pause
+-#define __IGNORE_mmap				/* use mmap2 */
+-#define __IGNORE_vfork				/* use clone */
+-#define __IGNORE_fadvise64			/* use fadvise64_64 */
+-
+ #define NR_syscalls				__NR_syscalls
+ 
+ #endif /* _XTENSA_UNISTD_H */
+-- 
+2.20.0
