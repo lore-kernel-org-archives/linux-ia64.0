@@ -1,40 +1,67 @@
-From: Michael Ellerman <mpe@ellerman.id.au>
-Date: Tue, 29 Jan 2019 09:58:13 +0000
-Subject: Re: [PATCH v2 06/21] memblock: memblock_phys_alloc_try_nid(): don't panic
-Message-Id: <87va27rdje.fsf@concordia.ellerman.id.au>
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Fri, 18 Jan 2019 16:18:13 +0000
+Subject: [PATCH v2 07/29] ARM: add kexec_file_load system call number
+Message-Id: <20190118161835.2259170-8-arnd@arndb.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1548057848-15136-1-git-send-email-rppt@linux.ibm.com>
- <1548057848-15136-7-git-send-email-rppt@linux.ibm.com>
- <87y373rdll.fsf@concordia.ellerman.id.au>
-In-Reply-To: <87y373rdll.fsf@concordia.ellerman.id.au>
+References: <20190118161835.2259170-1-arnd@arndb.de>
+In-Reply-To: <20190118161835.2259170-1-arnd@arndb.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Mike Rapoport <rppt@linux.ibm.com>, linux-mm@kvack.org
-Cc: Rich Felker <dalias@libc.org>, linux-ia64@vger.kernel.org, devicetree@vger.kernel.org, Catalin Marinas <catalin.marinas@arm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, x86@kernel.org, linux-mips@vger.kernel.org, Max Filippov <jcmvbkbc@gmail.com>, Guo Ren <guoren@kernel.org>, sparclinux@vger.kernel.org, Christoph Hellwig <hch@lst.de>, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Richard Weinberger <richard@nod.at>, linux-sh@vger.kernel.org, Russell King <linux@armlinux.org.uk>, kasan-dev@googlegroups.com, Geert Uytterhoeven <geert@linux-m68k.org>, Mark Salter <msalter@redhat.com>, Dennis Zhou <dennis@kernel.org>, Matt Turner <mattst88@gmail.com>, linux-snps-arc@lists.infradead.org, uclinux-h8-devel@lists.sourceforge.jp, Petr Mladek <pmladek@suse.com>, linux-xtensa@linux-xtensa.org, linux-alpha@vger.kernel.org, linux-um@lists.infradead.org, linux-m68k@lists.linux-m68k.org, Rob Herring <robh+dt@kernel.org>, Greentime Hu <green.hu@gmail.com>, xen-devel@lists.xenproject.org, Stafford Horne <shorne@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, linux-arm-kernel@lists.infradead.org, Michal Simek <monstr@monstr.eu>, Tony Luck <tony.luck@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org, Paul Burton <paul.burton@mips.com>, openrisc@lists.librecores.org, Vineet Gupta <vgupta@synopsys.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, "David S. Miller" <davem@davemloft.net>
+To: y2038@lists.linaro.org, linux-api@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org
+Cc: dalias@libc.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, catalin.marinas@arm.com, will.deacon@arm.com, jcmvbkbc@gmail.com, deepa.kernel@gmail.com, hpa@zytor.com, sparclinux@vger.kernel.org, linux-s390@vger.kernel.org, mpe@ellerman.id.au, deller@gmx.de, x86@kernel.org, linux@armlinux.org.uk, mingo@redhat.com, geert@linux-m68k.org, benh@kernel.crashing.org, firoz.khan@linaro.org, mattst88@gmail.com, fenghua.yu@intel.com, Arnd Bergmann <arnd@arndb.de>, heiko.carstens@de.ibm.com, linux-fsdevel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, luto@kernel.org, tglx@linutronix.de, linux-arm-kernel@lists.infradead.org, monstr@monstr.eu, tony.luck@intel.com, linux-parisc@vger.kernel.org, netdev@vger.kernel.org, linux-mips@vger.kernel.org, paul.burton@mips.com, ebiederm@xmission.com, linux-alpha@vger.kernel.org, schwidefsky@de.ibm.com, akpm@linux-foundation.orglinu
 
-Michael Ellerman <mpe@ellerman.id.au> writes:
+A couple of architectures including arm64 already implement the
+kexec_file_load system call, on many others we have assigned a system
+call number for it, but not implemented it yet.
 
-> Mike Rapoport <rppt@linux.ibm.com> writes:
->
->> diff --git a/arch/arm64/mm/numa.c b/arch/arm64/mm/numa.c
->> index ae34e3a..2c61ea4 100644
->> --- a/arch/arm64/mm/numa.c
->> +++ b/arch/arm64/mm/numa.c
->> @@ -237,6 +237,10 @@ static void __init setup_node_data(int nid, u64 start_pfn, u64 end_pfn)
->>  		pr_info("Initmem setup node %d [<memory-less node>]\n", nid);
->>  
->>  	nd_pa = memblock_phys_alloc_try_nid(nd_size, SMP_CACHE_BYTES, nid);
->> +	if (!nd_pa)
->> +		panic("Cannot allocate %zu bytes for node %d data\n",
->> +		      nd_size, nid);
->> +
->>  	nd = __va(nd_pa);
+Adding the number in arch/arm/ lets us use the system call on arm64
+systems in compat mode, and also reduces the number of differences
+between architectures. If we want to implement kexec_file_load on ARM
+in the future, the number assignment means that kexec tools can already
+be built with the now current set of kernel headers.
 
-Wrong hunk, O_o
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ arch/arm/tools/syscall.tbl        | 1 +
+ arch/arm64/include/asm/unistd.h   | 2 +-
+ arch/arm64/include/asm/unistd32.h | 2 ++
+ 3 files changed, 4 insertions(+), 1 deletion(-)
 
-> Acked-by: Michael Ellerman <mpe@ellerman.id.au> (powerpc)
-
-You know what I mean though :)
-
-cheers
+diff --git a/arch/arm/tools/syscall.tbl b/arch/arm/tools/syscall.tbl
+index 86de9eb34296..20ed7e026723 100644
+--- a/arch/arm/tools/syscall.tbl
++++ b/arch/arm/tools/syscall.tbl
+@@ -415,3 +415,4 @@
+ 398	common	rseq			sys_rseq
+ 399	common	io_pgetevents		sys_io_pgetevents
+ 400	common	migrate_pages		sys_migrate_pages
++401	common	kexec_file_load		sys_kexec_file_load
+diff --git a/arch/arm64/include/asm/unistd.h b/arch/arm64/include/asm/unistd.h
+index 261216c3336e..2c30e6f145ff 100644
+--- a/arch/arm64/include/asm/unistd.h
++++ b/arch/arm64/include/asm/unistd.h
+@@ -44,7 +44,7 @@
+ #define __ARM_NR_compat_set_tls		(__ARM_NR_COMPAT_BASE + 5)
+ #define __ARM_NR_COMPAT_END		(__ARM_NR_COMPAT_BASE + 0x800)
+ 
+-#define __NR_compat_syscalls		401
++#define __NR_compat_syscalls		402
+ #endif
+ 
+ #define __ARCH_WANT_SYS_CLONE
+diff --git a/arch/arm64/include/asm/unistd32.h b/arch/arm64/include/asm/unistd32.h
+index f15bcbacb8f6..8ca1d4c304f4 100644
+--- a/arch/arm64/include/asm/unistd32.h
++++ b/arch/arm64/include/asm/unistd32.h
+@@ -823,6 +823,8 @@ __SYSCALL(__NR_rseq, sys_rseq)
+ __SYSCALL(__NR_io_pgetevents, compat_sys_io_pgetevents)
+ #define __NR_migrate_pages 400
+ __SYSCALL(__NR_migrate_pages, compat_sys_migrate_pages)
++#define __NR_kexec_file_load 401
++__SYSCALL(__NR_kexec_file_load, sys_kexec_file_load)
+ 
+ /*
+  * Please add new compat syscalls above this comment and update
+-- 
+2.20.0
