@@ -1,96 +1,43 @@
-From: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
-Date: Mon, 07 Jan 2019 14:52:58 +0000
-Subject: [PATCHv2] ia64: tweak BREAK_LOGLEVEL and RESTORE_LOGLEVEL
-Message-Id: <20190107145258.22918-1-sergey.senozhatsky@gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Fri, 18 Jan 2019 16:18:21 +0000
+Subject: [PATCH v2 15/29] alpha: add standard statfs64/fstatfs64 syscalls
+Message-Id: <20190118161835.2259170-16-arnd@arndb.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190107095433.6497-1-sergey.senozhatsky@gmail.com>
-In-Reply-To: <20190107095433.6497-1-sergey.senozhatsky@gmail.com>
+References: <20190118161835.2259170-1-arnd@arndb.de>
+In-Reply-To: <20190118161835.2259170-1-arnd@arndb.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Sergey Senozhatsky <sergey.senozhatsky@gmail.com>, Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>
+To: y2038@lists.linaro.org, linux-api@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org
+Cc: Arnd Bergmann <arnd@arndb.de>, mattst88@gmail.com, linux@armlinux.org.uk, catalin.marinas@arm.com, will.deacon@arm.com, tony.luck@intel.com, fenghua.yu@intel.com, geert@linux-m68k.org, monstr@monstr.eu, paul.burton@mips.com, deller@gmx.de, benh@kernel.crashing.org, mpe@ellerman.id.au, schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com, dalias@libc.org, davem@davemloft.net, luto@kernel.org, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, x86@kernel.org, jcmvbkbc@gmail.com, akpm@linux-foundation.org, deepa.kernel@gmail.com, ebiederm@xmission.com, firoz.khan@linaro.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.or
 
-From: Sergey Senozhatsky <sergey.senozhatsky.work@gmail.com>
+As Joseph Myers points out, alpha has never had a standard statfs64
+interface and instead returns only 32-bit numbers here.
 
-a) Do not pass console_loglevel to macros, use console_loglevel directly.
-b) Use CONSOLE_LOGLEVEL_MOTORMOUTH instead of a naked number
-c) Use bust_spinlocks() to set/clear oops_in_progress
-d) Fix checkpatch error: Macros with multiple statements should be
-                         enclosed in a do - while loop
+While there is an old osf_statfs64 system call that returns additional
+data, this has some other quirks and does not get used in glibc.
 
-Signed-off-by: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
+I considered making the stat64 structure layout compatible with
+with the one used by the kernel on most other 64 bit architecture that
+implement it (ia64, parisc, powerpc, and sparc), but in the end
+decided to stay with the one that was traditionally defined in
+the alpha headers but not used, since this is also what glibc
+exposes to user space.
+
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- arch/ia64/kernel/mca.c | 36 ++++++++++++++++++++----------------
- 1 file changed, 20 insertions(+), 16 deletions(-)
+ arch/alpha/kernel/syscalls/syscall.tbl | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/arch/ia64/kernel/mca.c b/arch/ia64/kernel/mca.c
-index 91bd1e129379..940f34db97d3 100644
---- a/arch/ia64/kernel/mca.c
-+++ b/arch/ia64/kernel/mca.c
-@@ -188,19 +188,23 @@ static unsigned int mlogbuf_finished = 0;
- static unsigned long mlogbuf_timestamp = 0;
- 
- static int loglevel_save = -1;
--#define BREAK_LOGLEVEL(__console_loglevel)		\
--	oops_in_progress = 1;				\
--	if (loglevel_save < 0)				\
--		loglevel_save = __console_loglevel;	\
--	__console_loglevel = 15;
--
--#define RESTORE_LOGLEVEL(__console_loglevel)		\
--	if (loglevel_save >= 0) {			\
--		__console_loglevel = loglevel_save;	\
--		loglevel_save = -1;			\
--	}						\
--	mlogbuf_finished = 0;				\
--	oops_in_progress = 0;
-+#define BREAK_LOGLEVEL()					\
-+	do {							\
-+		bust_spinlocks(1);				\
-+		if (loglevel_save < 0)				\
-+			loglevel_save = console_loglevel;	\
-+		console_loglevel = CONSOLE_LOGLEVEL_MOTORMOUTH;	\
-+	} while (0)
-+
-+#define RESTORE_LOGLEVEL()					\
-+	do {							\
-+		if (loglevel_save >= 0) {			\
-+			console_loglevel = loglevel_save;	\
-+			loglevel_save = -1;			\
-+		}						\
-+		mlogbuf_finished = 0;				\
-+		bust_spinlocks(0);				\
-+	} while (0)
- 
- /*
-  * Push messages into buffer, print them later if not urgent.
-@@ -287,7 +291,7 @@ EXPORT_SYMBOL(ia64_mlogbuf_dump);
-  */
- static void ia64_mlogbuf_finish(int wait)
- {
--	BREAK_LOGLEVEL(console_loglevel);
-+	BREAK_LOGLEVEL();
- 
- 	spin_lock_init(&mlogbuf_rlock);
- 	ia64_mlogbuf_dump();
-@@ -1616,7 +1620,7 @@ default_monarch_init_process(struct notifier_block *self, unsigned long val, voi
- 	 * To enable show_stack from INIT, we use oops_in_progress which should
- 	 * be used in real oops. This would cause something wrong after INIT.
- 	 */
--	BREAK_LOGLEVEL(console_loglevel);
-+	BREAK_LOGLEVEL();
- 	ia64_mlogbuf_dump_from_init();
- 
- 	printk(KERN_ERR "Processes interrupted by INIT -");
-@@ -1641,7 +1645,7 @@ default_monarch_init_process(struct notifier_block *self, unsigned long val, voi
- 		read_unlock(&tasklist_lock);
- 	}
- 	/* FIXME: This will not restore zapped printk locks. */
--	RESTORE_LOGLEVEL(console_loglevel);
-+	RESTORE_LOGLEVEL();
- 	return NOTIFY_DONE;
- }
- 
+diff --git a/arch/alpha/kernel/syscalls/syscall.tbl b/arch/alpha/kernel/syscalls/syscall.tbl
+index 25b4a7e76943..0ebd59fdcb8b 100644
+--- a/arch/alpha/kernel/syscalls/syscall.tbl
++++ b/arch/alpha/kernel/syscalls/syscall.tbl
+@@ -456,3 +456,5 @@
+ 525	common	pkey_free			sys_pkey_free
+ 526	common	pkey_mprotect			sys_pkey_mprotect
+ 527	common	rseq				sys_rseq
++528	common	statfs64			sys_statfs64
++529	common	fstatfs64			sys_fstatfs64
 -- 
-2.20.1
+2.20.0
