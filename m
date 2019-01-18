@@ -1,43 +1,37 @@
-From: Dennis Clarke <dclarke@blastwave.org>
-Date: Fri, 18 Jan 2019 17:19:56 +0000
+From: James Bottomley <James.Bottomley@HansenPartnership.com>
+Date: Fri, 18 Jan 2019 17:45:18 +0000
 Subject: Re: [PATCH v2 00/29] y2038: add time64 syscalls
-Message-Id: <37173869-7516-55c5-8e4a-0c7bef011a62@blastwave.org>
+Message-Id: <1547833518.2794.36.camel@HansenPartnership.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20190118161835.2259170-1-arnd@arndb.de>
- <be3863ae-d903-8e9e-5e6c-e4a58fac189d@blastwave.org>
- <CAK8P3a3xUpbk+Wpo5kdDtZ81jQuzEZH6jdmJJNeNM+acueg+Dw@mail.gmail.com>
-In-Reply-To: <CAK8P3a3xUpbk+Wpo5kdDtZ81jQuzEZH6jdmJJNeNM+acueg+Dw@mail.gmail.com>
+         <be3863ae-d903-8e9e-5e6c-e4a58fac189d@blastwave.org>
+In-Reply-To: <be3863ae-d903-8e9e-5e6c-e4a58fac189d@blastwave.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Arnd Bergmann <arnd@arndb.de>
-Cc: Rich Felker <dalias@libc.org>, linux-ia64@vger.kernel.org, Linux-sh list <linux-sh@vger.kernel.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Heiko Carstens <heiko.carstens@de.ibm.com>, linux-mips@vger.kernel.org, Max Filippov <jcmvbkbc@gmail.com>, Networking <netdev@vger.kernel.org>, Deepa Dinamani <deepa.kernel@gmail.com>, "H. Peter Anvin" <hpa@zytor.com>, sparclinux <sparclinux@vger.kernel.org>, linux-arch <linux-arch@vger.kernel.org>, linux-s390 <linux-s390@vger.kernel.org>, y2038 Mailman List <y2038@lists.linaro.org>, Michael Ellerman <mpe@ellerman.id.au>, Helge Deller <deller@gmx.de>, the arch/x86 maintainers <x86@kernel.org>, Russell King - ARM Linux <linux@armlinux.org.uk>, Ingo Molnar <mingo@redhat.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Catalin Marinas <catalin.marinas@arm.com>, Firoz Khan <firoz.khan@linaro.org>, Matt Turner <mattst88@gmai>
+To: Dennis Clarke <dclarke@blastwave.org>, Arnd Bergmann <arnd@arndb.de>, y2038@lists.linaro.org, linux-api@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org
+Cc: mattst88@gmail.com, linux@armlinux.org.uk, catalin.marinas@arm.com, will.deacon@arm.com, tony.luck@intel.com, fenghua.yu@intel.com, geert@linux-m68k.org, monstr@monstr.eu, paul.burton@mips.com, deller@gmx.de, benh@kernel.crashing.org, mpe@ellerman.id.au, schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com, dalias@libc.org, davem@davemloft.net, luto@kernel.org, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, x86@kernel.org, jcmvbkbc@gmail.com, akpm@linux-foundation.org, deepa.kernel@gmail.com, ebiederm@xmission.com, firoz.khan@linaro.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org
 
-On 1/18/19 12:14 PM, Arnd Bergmann wrote:
-> On Fri, Jan 18, 2019 at 5:57 PM Dennis Clarke <dclarke@blastwave.org> wrote:
->>
->> On 1/18/19 11:18 AM, Arnd Bergmann wrote:
->>> This is a minor update of the patches I posted last week, I
->>> would like to add this into linux-next now, but would still do
->>> changes if there are concerns about the contents. The first
->>> version did not see a lot of replies, which could mean that
->>> either everyone is happy with it, or that it was largely ignored.
->>>
->>> See also the article at https://lwn.net/Articles/776435/.
->>
->> I would be happy to read "Approaching the kernel year-2038 end game"
->> however it is behind a pay wall.  Perhaps it may be best to just
->> host interesting articles about open source idea elsewhere.
+On Fri, 2019-01-18 at 11:57 -0500, Dennis Clarke wrote:
+> On 1/18/19 11:18 AM, Arnd Bergmann wrote:
+> > This is a minor update of the patches I posted last week, I
+> > would like to add this into linux-next now, but would still do
+> > changes if there are concerns about the contents. The first
+> > version did not see a lot of replies, which could mean that
+> > either everyone is happy with it, or that it was largely ignored.
+> > 
+> > See also the article at https://lwn.net/Articles/776435/.
 > 
-> It's a short summary of the current state.
+> I would be happy to read "Approaching the kernel year-2038 end game"
+> however it is behind a pay wall.  Perhaps it may be best to just
+> host interesting articles about open source idea elsewhere.
 
-Oh, I pay. Also to FSF and other places however I was merely ranting
-very very quietly that so much open source is becoming commercialized
-in so many ways.  Sort of expected really.
+Hey, this is an unfair characterization: lwn.net operates an early
+access subscription model, so you can't read the above for 14 days
+after publication without paying for an lwn.net subscription, but by
+the time these patches are upstream there will be no paywall because it
+will expire on 24 January and that URL will then be readable by all. 
+That makes LWN.net a nice, reliable resource for us while still
+supporting some business model to keep it going.
 
-Pardon my little rant .. I will go back to hacking OpenSSL 1.1.1a and
-trying to get Apache httpd 2.4.38 release running cleanly.
-
-Dennis
-
-
+James
