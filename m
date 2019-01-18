@@ -1,45 +1,84 @@
-From: Petr Mladek <pmladek@suse.com>
-Date: Wed, 30 Jan 2019 13:38:45 +0000
-Subject: Re: [PATCH v2 21/21] memblock: drop memblock_alloc_*_nopanic() variants
-Message-Id: <20190130133845.nps4itatl4fm6dcl@pathway.suse.cz>
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Fri, 18 Jan 2019 16:18:12 +0000
+Subject: [PATCH v2 06/29] ARM: add migrate_pages() system call
+Message-Id: <20190118161835.2259170-7-arnd@arndb.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1548057848-15136-1-git-send-email-rppt@linux.ibm.com>
- <1548057848-15136-22-git-send-email-rppt@linux.ibm.com>
-In-Reply-To: <1548057848-15136-22-git-send-email-rppt@linux.ibm.com>
+References: <20190118161835.2259170-1-arnd@arndb.de>
+In-Reply-To: <20190118161835.2259170-1-arnd@arndb.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Mike Rapoport <rppt@linux.ibm.com>
-Cc: Rich Felker <dalias@libc.org>, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Catalin Marinas <catalin.marinas@arm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, linux-mips@vger.kernel.org, Max Filippov <jcmvbkbc@gmail.com>, Guo Ren <guoren@kernel.org>, sparclinux@vger.kernel.org, Christoph Hellwig <hch@lst.de>, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Richard Weinberger <richard@nod.at>, x86@kernel.org, Russell King <linux@armlinux.org.uk>, kasan-dev@googlegroups.com, Geert Uytterhoeven <geert@linux-m68k.org>, Mark Salter <msalter@redhat.com>, Dennis Zhou <dennis@kernel.org>, Matt Turner <mattst88@gmail.com>, linux-snps-arc@lists.infradead.org, uclinux-h8-devel@lists.sourceforge.jp, devicetree@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-alpha@vger.kernel.org, linux-um@lists.infradead.org, linux-m68k@lists.linux-m68k.org, Rob Herring <robh+dt@kernel.org>, Greentime Hu <green.hu@gmail.com>, xen-devel@lists.xenproject.org, Stafford Horne <shorne@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, linux-arm-kernel@lists.infradead.org, Michal Simek <monstr@monstr.eu>, Tony Luck <tony.luck@intel.com>, linux-mm@kvack.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org, Paul Burton <paul.burton@mips.com>, Vineet Gupta <vgupta@synopsys.com>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, "David S. Miller" <davem@davemloft.net>, openrisc@lists.librecores.org
+To: y2038@lists.linaro.org, linux-api@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org
+Cc: dalias@libc.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, catalin.marinas@arm.com, will.deacon@arm.com, jcmvbkbc@gmail.com, deepa.kernel@gmail.com, hpa@zytor.com, sparclinux@vger.kernel.org, linux-s390@vger.kernel.org, mpe@ellerman.id.au, deller@gmx.de, x86@kernel.org, linux@armlinux.org.uk, mingo@redhat.com, geert@linux-m68k.org, benh@kernel.crashing.org, firoz.khan@linaro.org, mattst88@gmail.com, fenghua.yu@intel.com, Arnd Bergmann <arnd@arndb.de>, heiko.carstens@de.ibm.com, linux-fsdevel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, luto@kernel.org, tglx@linutronix.de, linux-arm-kernel@lists.infradead.org, monstr@monstr.eu, tony.luck@intel.com, linux-parisc@vger.kernel.org, netdev@vger.kernel.org, linux-mips@vger.kernel.org, paul.burton@mips.com, ebiederm@xmission.com, linux-alpha@vger.kernel.org, schwidefsky@de.ibm.com, akpm@linux-foundation.orglinu
 
-On Mon 2019-01-21 10:04:08, Mike Rapoport wrote:
-> As all the memblock allocation functions return NULL in case of error
-> rather than panic(), the duplicates with _nopanic suffix can be removed.
-> 
-> Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
-> Acked-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-> ---
->  arch/arc/kernel/unwind.c       |  3 +--
->  arch/sh/mm/init.c              |  2 +-
->  arch/x86/kernel/setup_percpu.c | 10 +++++-----
->  arch/x86/mm/kasan_init_64.c    | 14 ++++++++------
->  drivers/firmware/memmap.c      |  2 +-
->  drivers/usb/early/xhci-dbc.c   |  2 +-
->  include/linux/memblock.h       | 35 -----------------------------------
->  kernel/dma/swiotlb.c           |  2 +-
->  kernel/printk/printk.c         |  9 +--------
+The migrate_pages system call has an assigned number on all architectures
+except ARM. When it got added initially in commit d80ade7b3231 ("ARM:
+Fix warning: #warning syscall migrate_pages not implemented"), it was
+intentionally left out based on the observation that there are no 32-bit
+ARM NUMA systems.
 
-For printk:
-Reviewed-by: Petr Mladek <pmladek@suse.com>
-Acked-by: Petr Mladek <pmladek@suse.com>
+However, there are now arm64 NUMA machines that can in theory run 32-bit
+kernels (actually enabling NUMA there would require additional work)
+as well as 32-bit user space on 64-bit kernels, so that argument is no
+longer very strong.
 
-Best Regards,
-Petr
+Assigning the number lets us use the system call on 64-bit kernels as well
+as providing a more consistent set of syscalls across architectures.
 
->  mm/memblock.c                  | 35 -----------------------------------
->  mm/page_alloc.c                | 10 +++++-----
->  mm/page_ext.c                  |  2 +-
->  mm/percpu.c                    | 11 ++++-------
->  mm/sparse.c                    |  6 ++----
->  14 files changed, 31 insertions(+), 112 deletions(-)
-> 
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ arch/arm/include/asm/unistd.h     | 1 -
+ arch/arm/tools/syscall.tbl        | 1 +
+ arch/arm64/include/asm/unistd.h   | 2 +-
+ arch/arm64/include/asm/unistd32.h | 2 ++
+ 4 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm/include/asm/unistd.h b/arch/arm/include/asm/unistd.h
+index 88ef2ce1f69a..d713587dfcf4 100644
+--- a/arch/arm/include/asm/unistd.h
++++ b/arch/arm/include/asm/unistd.h
+@@ -45,7 +45,6 @@
+  * Unimplemented (or alternatively implemented) syscalls
+  */
+ #define __IGNORE_fadvise64_64
+-#define __IGNORE_migrate_pages
+ 
+ #ifdef __ARM_EABI__
+ /*
+diff --git a/arch/arm/tools/syscall.tbl b/arch/arm/tools/syscall.tbl
+index 8edf93b4490f..86de9eb34296 100644
+--- a/arch/arm/tools/syscall.tbl
++++ b/arch/arm/tools/syscall.tbl
+@@ -414,3 +414,4 @@
+ 397	common	statx			sys_statx
+ 398	common	rseq			sys_rseq
+ 399	common	io_pgetevents		sys_io_pgetevents
++400	common	migrate_pages		sys_migrate_pages
+diff --git a/arch/arm64/include/asm/unistd.h b/arch/arm64/include/asm/unistd.h
+index a7b1fc58ffdf..261216c3336e 100644
+--- a/arch/arm64/include/asm/unistd.h
++++ b/arch/arm64/include/asm/unistd.h
+@@ -44,7 +44,7 @@
+ #define __ARM_NR_compat_set_tls		(__ARM_NR_COMPAT_BASE + 5)
+ #define __ARM_NR_COMPAT_END		(__ARM_NR_COMPAT_BASE + 0x800)
+ 
+-#define __NR_compat_syscalls		400
++#define __NR_compat_syscalls		401
+ #endif
+ 
+ #define __ARCH_WANT_SYS_CLONE
+diff --git a/arch/arm64/include/asm/unistd32.h b/arch/arm64/include/asm/unistd32.h
+index 04ee190b90fe..f15bcbacb8f6 100644
+--- a/arch/arm64/include/asm/unistd32.h
++++ b/arch/arm64/include/asm/unistd32.h
+@@ -821,6 +821,8 @@ __SYSCALL(__NR_statx, sys_statx)
+ __SYSCALL(__NR_rseq, sys_rseq)
+ #define __NR_io_pgetevents 399
+ __SYSCALL(__NR_io_pgetevents, compat_sys_io_pgetevents)
++#define __NR_migrate_pages 400
++__SYSCALL(__NR_migrate_pages, compat_sys_migrate_pages)
+ 
+ /*
+  * Please add new compat syscalls above this comment and update
+-- 
+2.20.0
