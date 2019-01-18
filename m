@@ -1,87 +1,37 @@
-From: Masahiro Yamada <yamada.masahiro@socionext.com>
-Date: Fri, 25 Jan 2019 07:18:23 +0000
-Subject: [PATCH] ia64: prefix header search path with $(srctree)/
-Message-Id: <1548400703-27945-1-git-send-email-yamada.masahiro@socionext.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Fri, 18 Jan 2019 16:18:09 +0000
+Subject: [PATCH v2 03/29] ia64: assign syscall numbers for perf and seccomp
+Message-Id: <20190118161835.2259170-4-arnd@arndb.de>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20190118161835.2259170-1-arnd@arndb.de>
+In-Reply-To: <20190118161835.2259170-1-arnd@arndb.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
-Cc: Masahiro Yamada <yamada.masahiro@socionext.com>, linux-kernel@vger.kernel.org
+To: y2038@lists.linaro.org, linux-api@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org
+Cc: dalias@libc.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, catalin.marinas@arm.com, will.deacon@arm.com, jcmvbkbc@gmail.com, deepa.kernel@gmail.com, hpa@zytor.com, sparclinux@vger.kernel.org, linux-s390@vger.kernel.org, mpe@ellerman.id.au, deller@gmx.de, x86@kernel.org, linux@armlinux.org.uk, mingo@redhat.com, geert@linux-m68k.org, benh@kernel.crashing.org, firoz.khan@linaro.org, mattst88@gmail.com, fenghua.yu@intel.com, Arnd Bergmann <arnd@arndb.de>, heiko.carstens@de.ibm.com, linux-fsdevel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, luto@kernel.org, tglx@linutronix.de, linux-arm-kernel@lists.infradead.org, monstr@monstr.eu, tony.luck@intel.com, linux-parisc@vger.kernel.org, netdev@vger.kernel.org, linux-mips@vger.kernel.org, paul.burton@mips.com, ebiederm@xmission.com, linux-alpha@vger.kernel.org, schwidefsky@de.ibm.com, akpm@linux-foundation.orglinu
 
-Currently, the Kbuild core manipulates header search paths in a crazy
-way [1].
+Most architectures have assigned numbers for both seccomp and
+perf_event_open, even when they do not implement either.
 
-To fix this mess, I want all Makefiles to add explicit $(srctree)/ to
-the search paths in the srctree. Some Makefiles are already written in
-that way, but not all. The goal of this work is to make the notation
-consistent, and finally get rid of the gross hacks.
+ia64 is an exception here, so for consistency lets add numbers for both
+of them. Unless CONFIG_PERF_EVENTS and CONFIG_SECCOMP are implemented,
+the system calls just return -ENOSYS.
 
-Having whitespaces after -I does not matter since commit 48f6e3cf5bc6
-("kbuild: do not drop -I without parameter").
-
-I removed some header search paths because I was able to build ia64
-without them.
-
-[1]: https://patchwork.kernel.org/patch/9632347/
-
-Signed-off-by: Masahiro Yamada <yamada.masahiro@socionext.com>
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
+ arch/ia64/kernel/syscalls/syscall.tbl | 2 ++
+ 1 file changed, 2 insertions(+)
 
- arch/ia64/sn/kernel/Makefile     | 2 +-
- arch/ia64/sn/kernel/sn2/Makefile | 2 --
- arch/ia64/sn/pci/Makefile        | 2 --
- arch/ia64/sn/pci/pcibr/Makefile  | 2 +-
- 4 files changed, 2 insertions(+), 6 deletions(-)
-
-diff --git a/arch/ia64/sn/kernel/Makefile b/arch/ia64/sn/kernel/Makefile
-index d27df1d..9c349dd 100644
---- a/arch/ia64/sn/kernel/Makefile
-+++ b/arch/ia64/sn/kernel/Makefile
-@@ -7,7 +7,7 @@
- # Copyright (C) 1999,2001-2006,2008 Silicon Graphics, Inc.  All Rights Reserved.
- #
- 
--ccflags-y := -Iarch/ia64/sn/include
-+ccflags-y := -I $(srctree)/arch/ia64/sn/include
- 
- obj-y				+= setup.o bte.o bte_error.o irq.o mca.o idle.o \
- 				   huberror.o io_acpi_init.o io_common.o \
-diff --git a/arch/ia64/sn/kernel/sn2/Makefile b/arch/ia64/sn/kernel/sn2/Makefile
-index 3d09108..170bde4 100644
---- a/arch/ia64/sn/kernel/sn2/Makefile
-+++ b/arch/ia64/sn/kernel/sn2/Makefile
-@@ -9,7 +9,5 @@
- # sn2 specific kernel files
- #
- 
--ccflags-y := -Iarch/ia64/sn/include
--
- obj-y += cache.o io.o ptc_deadlock.o sn2_smp.o sn_proc_fs.o \
- 	 prominfo_proc.o timer.o timer_interrupt.o sn_hwperf.o
-diff --git a/arch/ia64/sn/pci/Makefile b/arch/ia64/sn/pci/Makefile
-index df2a901..321576b 100644
---- a/arch/ia64/sn/pci/Makefile
-+++ b/arch/ia64/sn/pci/Makefile
-@@ -7,6 +7,4 @@
- #
- # Makefile for the sn pci general routines.
- 
--ccflags-y := -Iarch/ia64/sn/include
--
- obj-y := pci_dma.o tioca_provider.o tioce_provider.o pcibr/
-diff --git a/arch/ia64/sn/pci/pcibr/Makefile b/arch/ia64/sn/pci/pcibr/Makefile
-index 396bcae..712f6af 100644
---- a/arch/ia64/sn/pci/pcibr/Makefile
-+++ b/arch/ia64/sn/pci/pcibr/Makefile
-@@ -7,7 +7,7 @@
- #
- # Makefile for the sn2 io routines.
- 
--ccflags-y := -Iarch/ia64/sn/include
-+ccflags-y := -I $(srctree)/arch/ia64/sn/include
- 
- obj-y				+=  pcibr_dma.o pcibr_reg.o \
- 				    pcibr_ate.o pcibr_provider.o
+diff --git a/arch/ia64/kernel/syscalls/syscall.tbl b/arch/ia64/kernel/syscalls/syscall.tbl
+index 52585281205b..2e93dbdcdb80 100644
+--- a/arch/ia64/kernel/syscalls/syscall.tbl
++++ b/arch/ia64/kernel/syscalls/syscall.tbl
+@@ -337,3 +337,5 @@
+ 325	common	pwritev2			sys_pwritev2
+ 326	common	statx				sys_statx
+ 327	common	io_pgetevents			sys_io_pgetevents
++328	common	perf_event_open			sys_perf_event_open
++329	common	seccomp				sys_seccomp
 -- 
-2.7.4
+2.20.0
