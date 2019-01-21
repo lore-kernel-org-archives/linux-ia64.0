@@ -1,36 +1,37 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Fri, 18 Jan 2019 16:18:14 +0000
-Subject: [PATCH v2 08/29] m68k: assign syscall number for seccomp
-Message-Id: <20190118161835.2259170-9-arnd@arndb.de>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Date: Mon, 21 Jan 2019 08:55:38 +0000
+Subject: Re: [PATCH v2 08/29] m68k: assign syscall number for seccomp
+Message-Id: <CAMuHMdUH+vJ89O6-Qm1p9r6h30z2ZRred1aQd6=h0sk6xXULMQ@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20190118161835.2259170-1-arnd@arndb.de>
-In-Reply-To: <20190118161835.2259170-1-arnd@arndb.de>
+ <20190118161835.2259170-9-arnd@arndb.de>
+In-Reply-To: <20190118161835.2259170-9-arnd@arndb.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: y2038@lists.linaro.org, linux-api@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arch@vger.kernel.org
-Cc: Arnd Bergmann <arnd@arndb.de>, mattst88@gmail.com, linux@armlinux.org.uk, catalin.marinas@arm.com, will.deacon@arm.com, tony.luck@intel.com, fenghua.yu@intel.com, geert@linux-m68k.org, monstr@monstr.eu, paul.burton@mips.com, deller@gmx.de, benh@kernel.crashing.org, mpe@ellerman.id.au, schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com, dalias@libc.org, davem@davemloft.net, luto@kernel.org, tglx@linutronix.de, mingo@redhat.com, hpa@zytor.com, x86@kernel.org, jcmvbkbc@gmail.com, akpm@linux-foundation.org, deepa.kernel@gmail.com, ebiederm@xmission.com, firoz.khan@linaro.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.or
+To: Arnd Bergmann <arnd@arndb.de>
+Cc: Rich Felker <dalias@libc.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Linux-sh list <linux-sh@vger.kernel.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Heiko Carstens <heiko.carstens@de.ibm.com>, linux-mips@vger.kernel.org, Max Filippov <jcmvbkbc@gmail.com>, netdev <netdev@vger.kernel.org>, Deepa Dinamani <deepa.kernel@gmail.com>, "H. Peter Anvin" <hpa@zytor.com>, sparclinux <sparclinux@vger.kernel.org>, Linux-Arch <linux-arch@vger.kernel.org>, linux-s390 <linux-s390@vger.kernel.org>, y2038 Mailman List <y2038@lists.linaro.org>, Michael Ellerman <mpe@ellerman.id.au>, Helge Deller <deller@gmx.de>, the arch/x86 maintainers <x86@kernel.org>, Russell King <linux@armlinux.org.uk>, Ingo Molnar <mingo@redhat.com>, Firoz Khan <firoz.khan@linaro.org>, Catalin Marinas <catalin.marinas@arm.com>, Matt Turner <mattst88@gmail.com>, Fenghua Yu <fenghua.>
 
-Most architectures have assigned a numbers for the seccomp syscall
-even when they do not implement it.
+On Fri, Jan 18, 2019 at 5:20 PM Arnd Bergmann <arnd@arndb.de> wrote:
+> Most architectures have assigned a numbers for the seccomp syscall
+> even when they do not implement it.
+>
+> m68k is an exception here, so for consistency lets add the number.
+> Unless CONFIG_SECCOMP is implemented, the system call just
+> returns -ENOSYS.
+>
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-m68k is an exception here, so for consistency lets add the number.
-Unless CONFIG_SECCOMP is implemented, the system call just
-returns -ENOSYS.
+Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- arch/m68k/kernel/syscalls/syscall.tbl | 1 +
- 1 file changed, 1 insertion(+)
+Gr{oetje,eeting}s,
 
-diff --git a/arch/m68k/kernel/syscalls/syscall.tbl b/arch/m68k/kernel/syscalls/syscall.tbl
-index 1a95c4a1bc0d..85779d6ef935 100644
---- a/arch/m68k/kernel/syscalls/syscall.tbl
-+++ b/arch/m68k/kernel/syscalls/syscall.tbl
-@@ -387,3 +387,4 @@
- 377	common	preadv2				sys_preadv2
- 378	common	pwritev2			sys_pwritev2
- 379	common	statx				sys_statx
-+380	common	seccomp				sys_seccomp
--- 
-2.20.0
+                        Geert
+
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
