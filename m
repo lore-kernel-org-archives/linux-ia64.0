@@ -1,178 +1,161 @@
 From: Mike Rapoport <rppt@linux.ibm.com>
-Date: Wed, 16 Jan 2019 13:44:02 +0000
-Subject: [PATCH 02/21] powerpc: use memblock functions returning virtual address
-Message-Id: <1547646261-32535-3-git-send-email-rppt@linux.ibm.com>
+Date: Mon, 21 Jan 2019 08:03:59 +0000
+Subject: [PATCH v2 12/21] arch: use memblock_alloc() instead of memblock_alloc_from(size, align, 0)
+Message-Id: <1548057848-15136-13-git-send-email-rppt@linux.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1547646261-32535-1-git-send-email-rppt@linux.ibm.com>
-In-Reply-To: <1547646261-32535-1-git-send-email-rppt@linux.ibm.com>
+References: <1548057848-15136-1-git-send-email-rppt@linux.ibm.com>
+In-Reply-To: <1548057848-15136-1-git-send-email-rppt@linux.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-mm@kvack.org
-Cc: Rich Felker <dalias@libc.org>, linux-ia64@vger.kernel.org, devicetree@vger.kernel.org, Catalin Marinas <catalin.marinas@arm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, x86@kernel.org, linux-mips@vger.kernel.org, Max Filippov <jcmvbkbc@gmail.com>, Guo Ren <guoren@kernel.org>, sparclinux@vger.kernel.org, Christoph Hellwig <hch@lst.de>, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Richard Weinberger <richard@nod.at>, linux-sh@vger.kernel.org, Russell King <linux@armlinux.org.uk>, kasan-dev@googlegroups.com, Mike Rapoport <rppt@linux.ibm.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Mark Salter <msalter@redhat.com>, Dennis Zhou <dennis@kernel.org>, Matt Turner <mattst88@gmail.com>, linux-snps-arc@lists.infradead.org, uclinux-h8-devel@lists.sourceforge.jp, Petr Mladek <pmladek@suse.com>, linux-xtensa@linux-xten
+Cc: Rich Felker <dalias@libc.org>, linux-ia64@vger.kernel.org, devicetree@vger.kernel.org, Catalin Marinas <catalin.marinas@arm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, x86@kernel.org, linux-mips@vger.kernel.org, Max Filippov <jcmvbkbc@gmail.com>, Guo Ren <guoren@kernel.org>, sparclinux@vger.kernel.org, Christoph Hellwig <hch@lst.de>, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Richard Weinberger <richard@nod.at>, linux-sh@vger.kernel.org, Russell King <linux@armlinux.org.uk>, kasan-dev@googlegroups.com, Mike Rapoport <rppt@linux.ibm.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Mark Salter <msalter@redhat.com>, Dennis Zhou <dennis@kernel.org>, Matt Turner <mattst88@gmail.com>, linux-snps-arc@lists.infradead.org, uclinux-h8-devel@lists.sourceforge.jp, Petr Mladek <pmladek@suse.com>, linux-xtensa@linux-xtensa.org, linux-alpha@vger.kernel.org, linux-um@lists.infradead.org, linux-m68k@lists.linux-m68k.org, Rob Herring <robh+dt@kernel.org>, Greentime Hu <green.hu@gmail.com>, xen-devel@lists.xenproject.org, Stafford Horne <shorne@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, linux-arm-kernel@lists.infradead.org, Michal Simek <monstr@monstr.eu>, Tony Luck <tony.luck@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org, Paul Burton <paul.burton@mips.com>, Vineet Gupta <vgupta@synopsys.com>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, "David S. Miller" <davem@davemloft.net>, openrisc@lists.librecores.org
 
-From: Christophe Leroy <christophe.leroy@c-s.fr>
+The last parameter of memblock_alloc_from() is the lower limit for the
+memory allocation. When it is 0, the call is equivalent to
+memblock_alloc().
 
-Since only the virtual address of allocated blocks is used,
-lets use functions returning directly virtual address.
-
-Those functions have the advantage of also zeroing the block.
-
-[ MR:
- - updated error message in alloc_stack() to be more verbose
- - convereted several additional call sites ]
-
-Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
 Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
+Acked-by: Paul Burton <paul.burton@mips.com> # MIPS part
 ---
- arch/powerpc/kernel/dt_cpu_ftrs.c |  3 +--
- arch/powerpc/kernel/irq.c         |  5 -----
- arch/powerpc/kernel/paca.c        |  6 +++++-
- arch/powerpc/kernel/prom.c        |  5 ++++-
- arch/powerpc/kernel/setup_32.c    | 26 ++++++++++++++++----------
- 5 files changed, 26 insertions(+), 19 deletions(-)
+ arch/alpha/kernel/core_cia.c  |  2 +-
+ arch/alpha/kernel/pci_iommu.c |  4 ++--
+ arch/alpha/kernel/setup.c     |  2 +-
+ arch/ia64/kernel/mca.c        |  3 +--
+ arch/mips/kernel/traps.c      |  2 +-
+ arch/sparc/kernel/prom_32.c   |  2 +-
+ arch/sparc/mm/init_32.c       |  2 +-
+ arch/sparc/mm/srmmu.c         | 10 +++++-----
+ 8 files changed, 13 insertions(+), 14 deletions(-)
 
-diff --git a/arch/powerpc/kernel/dt_cpu_ftrs.c b/arch/powerpc/kernel/dt_cpu_ftrs.c
-index 8be3721..2554824 100644
---- a/arch/powerpc/kernel/dt_cpu_ftrs.c
-+++ b/arch/powerpc/kernel/dt_cpu_ftrs.c
-@@ -813,7 +813,6 @@ static int __init process_cpufeatures_node(unsigned long node,
- 	int len;
+diff --git a/arch/alpha/kernel/core_cia.c b/arch/alpha/kernel/core_cia.c
+index 867e873..466cd44 100644
+--- a/arch/alpha/kernel/core_cia.c
++++ b/arch/alpha/kernel/core_cia.c
+@@ -331,7 +331,7 @@ cia_prepare_tbia_workaround(int window)
+ 	long i;
  
- 	f = &dt_cpu_features[i];
--	memset(f, 0, sizeof(struct dt_cpu_feature));
+ 	/* Use minimal 1K map. */
+-	ppte = memblock_alloc_from(CIA_BROKEN_TBIA_SIZE, 32768, 0);
++	ppte = memblock_alloc(CIA_BROKEN_TBIA_SIZE, 32768);
+ 	pte = (virt_to_phys(ppte) >> (PAGE_SHIFT - 1)) | 1;
  
- 	f->node = node;
+ 	for (i = 0; i < CIA_BROKEN_TBIA_SIZE / sizeof(unsigned long); ++i)
+diff --git a/arch/alpha/kernel/pci_iommu.c b/arch/alpha/kernel/pci_iommu.c
+index aa0f50d..e4cf77b 100644
+--- a/arch/alpha/kernel/pci_iommu.c
++++ b/arch/alpha/kernel/pci_iommu.c
+@@ -87,13 +87,13 @@ iommu_arena_new_node(int nid, struct pci_controller *hose, dma_addr_t base,
+ 		printk("%s: couldn't allocate arena ptes from node %d\n"
+ 		       "    falling back to system-wide allocation\n",
+ 		       __func__, nid);
+-		arena->ptes = memblock_alloc_from(mem_size, align, 0);
++		arena->ptes = memblock_alloc(mem_size, align);
+ 	}
  
-@@ -1008,7 +1007,7 @@ static int __init dt_cpu_ftrs_scan_callback(unsigned long node, const char
- 	/* Count and allocate space for cpu features */
- 	of_scan_flat_dt_subnodes(node, count_cpufeatures_subnodes,
- 						&nr_dt_cpu_features);
--	dt_cpu_features = __va(memblock_phys_alloc(sizeof(struct dt_cpu_feature) * nr_dt_cpu_features, PAGE_SIZE));
-+	dt_cpu_features = memblock_alloc(sizeof(struct dt_cpu_feature) * nr_dt_cpu_features, PAGE_SIZE);
+ #else /* CONFIG_DISCONTIGMEM */
  
- 	cpufeatures_setup_start(isa);
+ 	arena = memblock_alloc(sizeof(*arena), SMP_CACHE_BYTES);
+-	arena->ptes = memblock_alloc_from(mem_size, align, 0);
++	arena->ptes = memblock_alloc(mem_size, align);
  
-diff --git a/arch/powerpc/kernel/irq.c b/arch/powerpc/kernel/irq.c
-index 916ddc4..4a44bc3 100644
---- a/arch/powerpc/kernel/irq.c
-+++ b/arch/powerpc/kernel/irq.c
-@@ -725,18 +725,15 @@ void exc_lvl_ctx_init(void)
- #endif
- #endif
+ #endif /* CONFIG_DISCONTIGMEM */
  
--		memset((void *)critirq_ctx[cpu_nr], 0, THREAD_SIZE);
- 		tp = critirq_ctx[cpu_nr];
- 		tp->cpu = cpu_nr;
- 		tp->preempt_count = 0;
+diff --git a/arch/alpha/kernel/setup.c b/arch/alpha/kernel/setup.c
+index 4b5b1b2..5d4c76a 100644
+--- a/arch/alpha/kernel/setup.c
++++ b/arch/alpha/kernel/setup.c
+@@ -293,7 +293,7 @@ move_initrd(unsigned long mem_limit)
+ 	unsigned long size;
  
- #ifdef CONFIG_BOOKE
--		memset((void *)dbgirq_ctx[cpu_nr], 0, THREAD_SIZE);
- 		tp = dbgirq_ctx[cpu_nr];
- 		tp->cpu = cpu_nr;
- 		tp->preempt_count = 0;
- 
--		memset((void *)mcheckirq_ctx[cpu_nr], 0, THREAD_SIZE);
- 		tp = mcheckirq_ctx[cpu_nr];
- 		tp->cpu = cpu_nr;
- 		tp->preempt_count = HARDIRQ_OFFSET;
-@@ -754,12 +751,10 @@ void irq_ctx_init(void)
- 	int i;
- 
- 	for_each_possible_cpu(i) {
--		memset((void *)softirq_ctx[i], 0, THREAD_SIZE);
- 		tp = softirq_ctx[i];
- 		tp->cpu = i;
- 		klp_init_thread_info(tp);
- 
--		memset((void *)hardirq_ctx[i], 0, THREAD_SIZE);
- 		tp = hardirq_ctx[i];
- 		tp->cpu = i;
- 		klp_init_thread_info(tp);
-diff --git a/arch/powerpc/kernel/paca.c b/arch/powerpc/kernel/paca.c
-index 8c890c6..e7382ab 100644
---- a/arch/powerpc/kernel/paca.c
-+++ b/arch/powerpc/kernel/paca.c
-@@ -196,7 +196,11 @@ void __init allocate_paca_ptrs(void)
- 	paca_nr_cpu_ids = nr_cpu_ids;
- 
- 	paca_ptrs_size = sizeof(struct paca_struct *) * nr_cpu_ids;
--	paca_ptrs = __va(memblock_phys_alloc(paca_ptrs_size, SMP_CACHE_BYTES));
-+	paca_ptrs = memblock_alloc_raw(paca_ptrs_size, SMP_CACHE_BYTES);
-+	if (!paca_ptrs)
-+		panic("Failed to allocate %d bytes for paca pointers\n",
-+		      paca_ptrs_size);
-+
- 	memset(paca_ptrs, 0x88, paca_ptrs_size);
- }
- 
-diff --git a/arch/powerpc/kernel/prom.c b/arch/powerpc/kernel/prom.c
-index e97aaf2..c0ed4fa 100644
---- a/arch/powerpc/kernel/prom.c
-+++ b/arch/powerpc/kernel/prom.c
-@@ -127,7 +127,10 @@ static void __init move_device_tree(void)
- 	if ((memory_limit && (start + size) > PHYSICAL_START + memory_limit) ||
- 	    !memblock_is_memory(start + size - 1) ||
- 	    overlaps_crashkernel(start, size) || overlaps_initrd(start, size)) {
--		p = __va(memblock_phys_alloc(size, PAGE_SIZE));
-+		p = memblock_alloc_raw(size, PAGE_SIZE);
-+		if (!p)
-+			panic("Failed to allocate %lu bytes to move device tree\n",
-+			      size);
- 		memcpy(p, initial_boot_params, size);
- 		initial_boot_params = p;
- 		DBG("Moved device tree to 0x%px\n", p);
-diff --git a/arch/powerpc/kernel/setup_32.c b/arch/powerpc/kernel/setup_32.c
-index 947f904..1f0b762 100644
---- a/arch/powerpc/kernel/setup_32.c
-+++ b/arch/powerpc/kernel/setup_32.c
-@@ -196,6 +196,17 @@ static int __init ppc_init(void)
- }
- arch_initcall(ppc_init);
- 
-+static void *__init alloc_stack(void)
-+{
-+	void *ptr = memblock_alloc(THREAD_SIZE, THREAD_SIZE);
-+
-+	if (!ptr)
-+		panic("cannot allocate %d bytes for stack at %pS\n",
-+		      THREAD_SIZE, (void *)_RET_IP_);
-+
-+	return ptr;
-+}
-+
- void __init irqstack_early_init(void)
+ 	size = initrd_end - initrd_start;
+-	start = memblock_alloc_from(PAGE_ALIGN(size), PAGE_SIZE, 0);
++	start = memblock_alloc(PAGE_ALIGN(size), PAGE_SIZE);
+ 	if (!start || __pa(start) + size > mem_limit) {
+ 		initrd_start = initrd_end = 0;
+ 		return NULL;
+diff --git a/arch/ia64/kernel/mca.c b/arch/ia64/kernel/mca.c
+index 91bd1e1..74d148b 100644
+--- a/arch/ia64/kernel/mca.c
++++ b/arch/ia64/kernel/mca.c
+@@ -1835,8 +1835,7 @@ format_mca_init_stack(void *mca_data, unsigned long offset,
+ /* Caller prevents this from being called after init */
+ static void * __ref mca_bootmem(void)
  {
- 	unsigned int i;
-@@ -203,10 +214,8 @@ void __init irqstack_early_init(void)
- 	/* interrupt stacks must be in lowmem, we get that for free on ppc32
- 	 * as the memblock is limited to lowmem by default */
- 	for_each_possible_cpu(i) {
--		softirq_ctx[i] = (struct thread_info *)
--			__va(memblock_phys_alloc(THREAD_SIZE, THREAD_SIZE));
--		hardirq_ctx[i] = (struct thread_info *)
--			__va(memblock_phys_alloc(THREAD_SIZE, THREAD_SIZE));
-+		softirq_ctx[i] = alloc_stack();
-+		hardirq_ctx[i] = alloc_stack();
- 	}
+-	return memblock_alloc_from(sizeof(struct ia64_mca_cpu),
+-				   KERNEL_STACK_SIZE, 0);
++	return memblock_alloc(sizeof(struct ia64_mca_cpu), KERNEL_STACK_SIZE);
  }
  
-@@ -224,13 +233,10 @@ void __init exc_lvl_early_init(void)
- 		hw_cpu = 0;
- #endif
+ /* Do per-CPU MCA-related initialization.  */
+diff --git a/arch/mips/kernel/traps.c b/arch/mips/kernel/traps.c
+index c91097f..2bbdee5 100644
+--- a/arch/mips/kernel/traps.c
++++ b/arch/mips/kernel/traps.c
+@@ -2291,7 +2291,7 @@ void __init trap_init(void)
+ 		phys_addr_t ebase_pa;
  
--		critirq_ctx[hw_cpu] = (struct thread_info *)
--			__va(memblock_phys_alloc(THREAD_SIZE, THREAD_SIZE));
-+		critirq_ctx[hw_cpu] = alloc_stack();
- #ifdef CONFIG_BOOKE
--		dbgirq_ctx[hw_cpu] = (struct thread_info *)
--			__va(memblock_phys_alloc(THREAD_SIZE, THREAD_SIZE));
--		mcheckirq_ctx[hw_cpu] = (struct thread_info *)
--			__va(memblock_phys_alloc(THREAD_SIZE, THREAD_SIZE));
-+		dbgirq_ctx[hw_cpu] = alloc_stack();
-+		mcheckirq_ctx[hw_cpu] = alloc_stack();
- #endif
- 	}
- }
+ 		ebase = (unsigned long)
+-			memblock_alloc_from(size, 1 << fls(size), 0);
++			memblock_alloc(size, 1 << fls(size));
+ 
+ 		/*
+ 		 * Try to ensure ebase resides in KSeg0 if possible.
+diff --git a/arch/sparc/kernel/prom_32.c b/arch/sparc/kernel/prom_32.c
+index 42d7f2a..38940af 100644
+--- a/arch/sparc/kernel/prom_32.c
++++ b/arch/sparc/kernel/prom_32.c
+@@ -32,7 +32,7 @@ void * __init prom_early_alloc(unsigned long size)
+ {
+ 	void *ret;
+ 
+-	ret = memblock_alloc_from(size, SMP_CACHE_BYTES, 0UL);
++	ret = memblock_alloc(size, SMP_CACHE_BYTES);
+ 	if (ret != NULL)
+ 		memset(ret, 0, size);
+ 
+diff --git a/arch/sparc/mm/init_32.c b/arch/sparc/mm/init_32.c
+index d900952..a8ff298 100644
+--- a/arch/sparc/mm/init_32.c
++++ b/arch/sparc/mm/init_32.c
+@@ -264,7 +264,7 @@ void __init mem_init(void)
+ 	i = last_valid_pfn >> ((20 - PAGE_SHIFT) + 5);
+ 	i += 1;
+ 	sparc_valid_addr_bitmap = (unsigned long *)
+-		memblock_alloc_from(i << 2, SMP_CACHE_BYTES, 0UL);
++		memblock_alloc(i << 2, SMP_CACHE_BYTES);
+ 
+ 	if (sparc_valid_addr_bitmap = NULL) {
+ 		prom_printf("mem_init: Cannot alloc valid_addr_bitmap.\n");
+diff --git a/arch/sparc/mm/srmmu.c b/arch/sparc/mm/srmmu.c
+index b609362..a400ec3 100644
+--- a/arch/sparc/mm/srmmu.c
++++ b/arch/sparc/mm/srmmu.c
+@@ -303,13 +303,13 @@ static void __init srmmu_nocache_init(void)
+ 
+ 	bitmap_bits = srmmu_nocache_size >> SRMMU_NOCACHE_BITMAP_SHIFT;
+ 
+-	srmmu_nocache_pool = memblock_alloc_from(srmmu_nocache_size,
+-						 SRMMU_NOCACHE_ALIGN_MAX, 0UL);
++	srmmu_nocache_pool = memblock_alloc(srmmu_nocache_size,
++					    SRMMU_NOCACHE_ALIGN_MAX);
+ 	memset(srmmu_nocache_pool, 0, srmmu_nocache_size);
+ 
+ 	srmmu_nocache_bitmap -		memblock_alloc_from(BITS_TO_LONGS(bitmap_bits) * sizeof(long),
+-				    SMP_CACHE_BYTES, 0UL);
++		memblock_alloc(BITS_TO_LONGS(bitmap_bits) * sizeof(long),
++			       SMP_CACHE_BYTES);
+ 	bit_map_init(&srmmu_nocache_map, srmmu_nocache_bitmap, bitmap_bits);
+ 
+ 	srmmu_swapper_pg_dir = __srmmu_get_nocache(SRMMU_PGD_TABLE_SIZE, SRMMU_PGD_TABLE_SIZE);
+@@ -467,7 +467,7 @@ static void __init sparc_context_init(int numctx)
+ 	unsigned long size;
+ 
+ 	size = numctx * sizeof(struct ctx_list);
+-	ctx_list_pool = memblock_alloc_from(size, SMP_CACHE_BYTES, 0UL);
++	ctx_list_pool = memblock_alloc(size, SMP_CACHE_BYTES);
+ 
+ 	for (ctx = 0; ctx < numctx; ctx++) {
+ 		struct ctx_list *clist;
 -- 
 2.7.4
