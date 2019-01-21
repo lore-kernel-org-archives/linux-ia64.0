@@ -1,59 +1,142 @@
-From: Tony Luck <tony.luck@intel.com>
-Date: Fri, 04 Jan 2019 21:03:08 +0000
-Subject: [PATCH:Linus please apply] ia64: fix compile without swiotlb
-Message-Id: <20190104210308.7657-1-tony.luck@intel.com>
+From: Mike Rapoport <rppt@linux.ibm.com>
+Date: Mon, 21 Jan 2019 08:03:50 +0000
+Subject: [PATCH v2 03/21] memblock: replace memblock_alloc_base(ANYWHERE) with memblock_phys_alloc
+Message-Id: <1548057848-15136-4-git-send-email-rppt@linux.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1548057848-15136-1-git-send-email-rppt@linux.ibm.com>
+In-Reply-To: <1548057848-15136-1-git-send-email-rppt@linux.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-mm@kvack.org
+Cc: Rich Felker <dalias@libc.org>, linux-ia64@vger.kernel.org, devicetree@vger.kernel.org, Catalin Marinas <catalin.marinas@arm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, x86@kernel.org, linux-mips@vger.kernel.org, Max Filippov <jcmvbkbc@gmail.com>, Guo Ren <guoren@kernel.org>, sparclinux@vger.kernel.org, Christoph Hellwig <hch@lst.de>, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Richard Weinberger <richard@nod.at>, linux-sh@vger.kernel.org, Russell King <linux@armlinux.org.uk>, kasan-dev@googlegroups.com, Mike Rapoport <rppt@linux.ibm.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Mark Salter <msalter@redhat.com>, Dennis Zhou <dennis@kernel.org>, Matt Turner <mattst88@gmail.com>, linux-snps-arc@lists.infradead.org, uclinux-h8-devel@lists.sourceforge.jp, Petr Mladek <pmladek@suse.com>, linux-xtensa@linux-xtensa.org, linux-alpha@vger.kernel.org, linux-um@lists.infradead.org, linux-m68k@lists.linux-m68k.org, Rob Herring <robh+dt@kernel.org>, Greentime Hu <green.hu@gmail.com>, xen-devel@lists.xenproject.org, Stafford Horne <shorne@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, linux-arm-kernel@lists.infradead.org, Michal Simek <monstr@monstr.eu>, Tony Luck <tony.luck@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org, Paul Burton <paul.burton@mips.com>, Vineet Gupta <vgupta@synopsys.com>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, "David S. Miller" <davem@davemloft.net>, openrisc@lists.librecores.org
 
-From: Christoph Hellwig <hch@lst.de>
+The calls to memblock_alloc_base(size, align, MEMBLOCK_ALLOC_ANYWHERE) and
+memblock_phys_alloc(size, align) are equivalent as both try to allocate
+'size' bytes with 'align' alignment anywhere in the memory and panic if hte
+allocation fails.
 
-Some non-generic ia64 configs don't build swiotlb, and thus should not
-pull in the generic non-coherent DMA infrastructure.
+The conversion is done using the following semantic patch:
 
-Fixes: 68c608345c ("swiotlb: remove dma_mark_clean")
-Reported-by: Tony Luck <tony.luck@gmail.com>
-Signed-off-by: Christoph Hellwig <hch@lst.de>
-Signed-off-by: Tony Luck <tony.luck@intel.com>
+@@
+expression size, align;
+@@
+- memblock_alloc_base(size, align, MEMBLOCK_ALLOC_ANYWHERE)
++ memblock_phys_alloc(size, align)
+
+Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
 ---
- arch/ia64/Kconfig   | 2 +-
- arch/ia64/mm/init.c | 2 ++
- 2 files changed, 3 insertions(+), 1 deletion(-)
+ arch/arm/mm/init.c                   | 2 +-
+ arch/sh/boards/mach-ap325rxa/setup.c | 2 +-
+ arch/sh/boards/mach-ecovec24/setup.c | 4 ++--
+ arch/sh/boards/mach-kfr2r09/setup.c  | 2 +-
+ arch/sh/boards/mach-migor/setup.c    | 2 +-
+ arch/sh/boards/mach-se/7724/setup.c  | 4 ++--
+ arch/xtensa/mm/kasan_init.c          | 3 +--
+ 7 files changed, 9 insertions(+), 10 deletions(-)
 
-diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-index ccd56f5df8cd..8d7396bd1790 100644
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -31,7 +31,7 @@ config IA64
- 	select HAVE_MEMBLOCK_NODE_MAP
- 	select HAVE_VIRT_CPU_ACCOUNTING
- 	select ARCH_HAS_DMA_COHERENT_TO_PFN if SWIOTLB
--	select ARCH_HAS_SYNC_DMA_FOR_CPU
-+	select ARCH_HAS_SYNC_DMA_FOR_CPU if SWIOTLB
- 	select VIRT_TO_BUS
- 	select ARCH_DISCARD_MEMBLOCK
- 	select GENERIC_IRQ_PROBE
-diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
-index 055382622f07..29d841525ca1 100644
---- a/arch/ia64/mm/init.c
-+++ b/arch/ia64/mm/init.c
-@@ -67,6 +67,7 @@ __ia64_sync_icache_dcache (pte_t pte)
- 	set_bit(PG_arch_1, &page->flags);	/* mark page as clean */
- }
+diff --git a/arch/arm/mm/init.c b/arch/arm/mm/init.c
+index 478ea8b..b76b90e 100644
+--- a/arch/arm/mm/init.c
++++ b/arch/arm/mm/init.c
+@@ -205,7 +205,7 @@ phys_addr_t __init arm_memblock_steal(phys_addr_t size, phys_addr_t align)
  
-+#ifdef CONFIG_SWIOTLB
- /*
-  * Since DMA is i-cache coherent, any (complete) pages that were written via
-  * DMA can be marked as "clean" so that lazy_mmu_prot_update() doesn't have to
-@@ -81,6 +82,7 @@ void arch_sync_dma_for_cpu(struct device *dev, phys_addr_t paddr,
- 		set_bit(PG_arch_1, &pfn_to_page(pfn)->flags);
- 	} while (++pfn <= PHYS_PFN(paddr + size - 1));
- }
-+#endif
+ 	BUG_ON(!arm_memblock_steal_permitted);
  
- inline void
- ia64_set_rbs_bot (void)
+-	phys = memblock_alloc_base(size, align, MEMBLOCK_ALLOC_ANYWHERE);
++	phys = memblock_phys_alloc(size, align);
+ 	memblock_free(phys, size);
+ 	memblock_remove(phys, size);
+ 
+diff --git a/arch/sh/boards/mach-ap325rxa/setup.c b/arch/sh/boards/mach-ap325rxa/setup.c
+index 8f234d04..d7ceab6 100644
+--- a/arch/sh/boards/mach-ap325rxa/setup.c
++++ b/arch/sh/boards/mach-ap325rxa/setup.c
+@@ -557,7 +557,7 @@ static void __init ap325rxa_mv_mem_reserve(void)
+ 	phys_addr_t phys;
+ 	phys_addr_t size = CEU_BUFFER_MEMORY_SIZE;
+ 
+-	phys = memblock_alloc_base(size, PAGE_SIZE, MEMBLOCK_ALLOC_ANYWHERE);
++	phys = memblock_phys_alloc(size, PAGE_SIZE);
+ 	memblock_free(phys, size);
+ 	memblock_remove(phys, size);
+ 
+diff --git a/arch/sh/boards/mach-ecovec24/setup.c b/arch/sh/boards/mach-ecovec24/setup.c
+index 22b4106..a3901806 100644
+--- a/arch/sh/boards/mach-ecovec24/setup.c
++++ b/arch/sh/boards/mach-ecovec24/setup.c
+@@ -1480,12 +1480,12 @@ static void __init ecovec_mv_mem_reserve(void)
+ 	phys_addr_t phys;
+ 	phys_addr_t size = CEU_BUFFER_MEMORY_SIZE;
+ 
+-	phys = memblock_alloc_base(size, PAGE_SIZE, MEMBLOCK_ALLOC_ANYWHERE);
++	phys = memblock_phys_alloc(size, PAGE_SIZE);
+ 	memblock_free(phys, size);
+ 	memblock_remove(phys, size);
+ 	ceu0_dma_membase = phys;
+ 
+-	phys = memblock_alloc_base(size, PAGE_SIZE, MEMBLOCK_ALLOC_ANYWHERE);
++	phys = memblock_phys_alloc(size, PAGE_SIZE);
+ 	memblock_free(phys, size);
+ 	memblock_remove(phys, size);
+ 	ceu1_dma_membase = phys;
+diff --git a/arch/sh/boards/mach-kfr2r09/setup.c b/arch/sh/boards/mach-kfr2r09/setup.c
+index 203d249..55bdf4a 100644
+--- a/arch/sh/boards/mach-kfr2r09/setup.c
++++ b/arch/sh/boards/mach-kfr2r09/setup.c
+@@ -631,7 +631,7 @@ static void __init kfr2r09_mv_mem_reserve(void)
+ 	phys_addr_t phys;
+ 	phys_addr_t size = CEU_BUFFER_MEMORY_SIZE;
+ 
+-	phys = memblock_alloc_base(size, PAGE_SIZE, MEMBLOCK_ALLOC_ANYWHERE);
++	phys = memblock_phys_alloc(size, PAGE_SIZE);
+ 	memblock_free(phys, size);
+ 	memblock_remove(phys, size);
+ 
+diff --git a/arch/sh/boards/mach-migor/setup.c b/arch/sh/boards/mach-migor/setup.c
+index f4ad33c..ba7eee6 100644
+--- a/arch/sh/boards/mach-migor/setup.c
++++ b/arch/sh/boards/mach-migor/setup.c
+@@ -630,7 +630,7 @@ static void __init migor_mv_mem_reserve(void)
+ 	phys_addr_t phys;
+ 	phys_addr_t size = CEU_BUFFER_MEMORY_SIZE;
+ 
+-	phys = memblock_alloc_base(size, PAGE_SIZE, MEMBLOCK_ALLOC_ANYWHERE);
++	phys = memblock_phys_alloc(size, PAGE_SIZE);
+ 	memblock_free(phys, size);
+ 	memblock_remove(phys, size);
+ 
+diff --git a/arch/sh/boards/mach-se/7724/setup.c b/arch/sh/boards/mach-se/7724/setup.c
+index fdbec22a..4696e10 100644
+--- a/arch/sh/boards/mach-se/7724/setup.c
++++ b/arch/sh/boards/mach-se/7724/setup.c
+@@ -965,12 +965,12 @@ static void __init ms7724se_mv_mem_reserve(void)
+ 	phys_addr_t phys;
+ 	phys_addr_t size = CEU_BUFFER_MEMORY_SIZE;
+ 
+-	phys = memblock_alloc_base(size, PAGE_SIZE, MEMBLOCK_ALLOC_ANYWHERE);
++	phys = memblock_phys_alloc(size, PAGE_SIZE);
+ 	memblock_free(phys, size);
+ 	memblock_remove(phys, size);
+ 	ceu0_dma_membase = phys;
+ 
+-	phys = memblock_alloc_base(size, PAGE_SIZE, MEMBLOCK_ALLOC_ANYWHERE);
++	phys = memblock_phys_alloc(size, PAGE_SIZE);
+ 	memblock_free(phys, size);
+ 	memblock_remove(phys, size);
+ 	ceu1_dma_membase = phys;
+diff --git a/arch/xtensa/mm/kasan_init.c b/arch/xtensa/mm/kasan_init.c
+index 1734cda..48dbb03 100644
+--- a/arch/xtensa/mm/kasan_init.c
++++ b/arch/xtensa/mm/kasan_init.c
+@@ -52,8 +52,7 @@ static void __init populate(void *start, void *end)
+ 
+ 		for (k = 0; k < PTRS_PER_PTE; ++k, ++j) {
+ 			phys_addr_t phys -				memblock_alloc_base(PAGE_SIZE, PAGE_SIZE,
+-						    MEMBLOCK_ALLOC_ANYWHERE);
++				memblock_phys_alloc(PAGE_SIZE, PAGE_SIZE);
+ 
+ 			set_pte(pte + j, pfn_pte(PHYS_PFN(phys), PAGE_KERNEL));
+ 		}
 -- 
-2.19.1
+2.7.4
