@@ -1,196 +1,302 @@
-From: lijiang <lijiang@redhat.com>
-Date: Fri, 25 Jan 2019 11:55:43 +0000
-Subject: Re: [PATCH 1/2 v8] resource: add the new I/O resource descriptor 'IORES_DESC_RESERVED'
-Message-Id: <9d5826a4-fce4-fcfe-c821-7bb5e019a59a@redhat.com>
+From: Mike Rapoport <rppt@linux.ibm.com>
+Date: Mon, 21 Jan 2019 08:03:57 +0000
+Subject: [PATCH v2 10/21] memblock: refactor internal allocation functions
+Message-Id: <1548057848-15136-11-git-send-email-rppt@linux.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20181129080956.20776-1-lijiang@redhat.com>
- <20181129080956.20776-2-lijiang@redhat.com>
- <20181130033703.GA23624@dhcp-128-65.nay.redhat.com>
- <b8936194-01ef-8b8f-254e-039fc951855d@amd.com>
-In-Reply-To: <b8936194-01ef-8b8f-254e-039fc951855d@amd.com>
+References: <1548057848-15136-1-git-send-email-rppt@linux.ibm.com>
+In-Reply-To: <1548057848-15136-1-git-send-email-rppt@linux.ibm.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: "Lendacky, Thomas" <Thomas.Lendacky@amd.com>
-Cc: Dave Young <dyoung@redhat.com>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "kexec@lists.infradead.org" <kexec@lists.infradead.org>, "x86@kernel.org" <x86@kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-efi@vger.kernel.org" <linux-efi@vger.kernel.org>, "tglx@linutronix.de" <tglx@linutronix.de>, "mingo@redhat.com" <mingo@redhat.com>, "bp@alien8.de" <bp@alien8.de>, "akpm@linux-foundation.org" <akpm@linux-foundation.org>, "dave.hansen@linux.intel.com" <dave.hansen@linux.intel.com>, "luto@kernel.org" <luto@kernel.org>, "peterz@infradead.org" <peterz@infradead.org>, "ard.biesheuvel@linaro.org" <ard.biesheuvel@linaro.org>, "tony.luck@intel.com" <tony.luck@intel.com>, "fenghua.yu@intel.com" <fenghua.yu@intel.com>, "bhe@redhat.com" <bhe@redhat.com>, Toshi Kani <toshi.kani@hp.com>, Dan Williams <dan.j.williams@intel.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-mm@kvack.org
+Cc: Rich Felker <dalias@libc.org>, linux-ia64@vger.kernel.org, devicetree@vger.kernel.org, Catalin Marinas <catalin.marinas@arm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, x86@kernel.org, linux-mips@vger.kernel.org, Max Filippov <jcmvbkbc@gmail.com>, Guo Ren <guoren@kernel.org>, sparclinux@vger.kernel.org, Christoph Hellwig <hch@lst.de>, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Richard Weinberger <richard@nod.at>, linux-sh@vger.kernel.org, Russell King <linux@armlinux.org.uk>, kasan-dev@googlegroups.com, Mike Rapoport <rppt@linux.ibm.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Mark Salter <msalter@redhat.com>, Dennis Zhou <dennis@kernel.org>, Matt Turner <mattst88@gmail.com>, linux-snps-arc@lists.infradead.org, uclinux-h8-devel@lists.sourceforge.jp, Petr Mladek <pmladek@suse.com>, linux-xtensa@linux-xtensa.org, linux-alpha@vger.kernel.org, linux-um@lists.infradead.org, linux-m68k@lists.linux-m68k.org, Rob Herring <robh+dt@kernel.org>, Greentime Hu <green.hu@gmail.com>, xen-devel@lists.xenproject.org, Stafford Horne <shorne@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, linux-arm-kernel@lists.infradead.org, Michal Simek <monstr@monstr.eu>, Tony Luck <tony.luck@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org, Paul Burton <paul.burton@mips.com>, Vineet Gupta <vgupta@synopsys.com>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, "David S. Miller" <davem@davemloft.net>, openrisc@lists.librecores.org
 
-在 2018年12月05日 05:33, Lendacky, Thomas 写道:
-> On 11/29/2018 09:37 PM, Dave Young wrote:
->> + more people
->>
->> On 11/29/18 at 04:09pm, Lianbo Jiang wrote:
->>> When doing kexec_file_load, the first kernel needs to pass the e820
->>> reserved ranges to the second kernel. But kernel can not exactly
->>> match the e820 reserved ranges when walking through the iomem resources
->>> with the descriptor 'IORES_DESC_NONE', because several e820 types(
->>> e.g. E820_TYPE_RESERVED_KERN/E820_TYPE_RAM/E820_TYPE_UNUSABLE/E820
->>> _TYPE_RESERVED) are converted to the descriptor 'IORES_DESC_NONE'. It
->>> may pass these four types to the kdump kernel, that is not desired result.
->>>
->>> So, this patch adds a new I/O resource descriptor 'IORES_DESC_RESERVED'
->>> for the iomem resources search interfaces. It is helpful to exactly
->>> match the reserved resource ranges when walking through iomem resources.
->>>
->>> In addition, since the new descriptor 'IORES_DESC_RESERVED' is introduced,
->>> these code originally related to the descriptor 'IORES_DESC_NONE' need to
->>> be updated. Otherwise, it will be easily confused and also cause some
->>> errors. Because the 'E820_TYPE_RESERVED' type is converted to the new
->>> descriptor 'IORES_DESC_RESERVED' instead of 'IORES_DESC_NONE', it has been
->>> changed.
->>>
->>> Suggested-by: Dave Young <dyoung@redhat.com>
->>> Signed-off-by: Lianbo Jiang <lijiang@redhat.com>
->>> ---
->>>  arch/ia64/kernel/efi.c |  4 ++++
->>>  arch/x86/kernel/e820.c |  2 +-
->>>  arch/x86/mm/ioremap.c  | 13 ++++++++++++-
->>>  include/linux/ioport.h |  1 +
->>>  kernel/resource.c      |  6 +++---
->>>  5 files changed, 21 insertions(+), 5 deletions(-)
->>>
->>> diff --git a/arch/ia64/kernel/efi.c b/arch/ia64/kernel/efi.c
->>> index 8f106638913c..1841e9b4db30 100644
->>> --- a/arch/ia64/kernel/efi.c
->>> +++ b/arch/ia64/kernel/efi.c
->>> @@ -1231,6 +1231,10 @@ efi_initialize_iomem_resources(struct resource *code_resource,
->>>  				break;
->>>  
->>>  			case EFI_RESERVED_TYPE:
->>> +				name = "reserved";
->>
->> Ingo updated X86 code to use "Reserved",  I think it would be good to do
->> same for this case as well
->>
->>> +				desc = IORES_DESC_RESERVED;
->>> +				break;
->>> +
->>>  			case EFI_RUNTIME_SERVICES_CODE:
->>>  			case EFI_RUNTIME_SERVICES_DATA:
->>>  			case EFI_ACPI_RECLAIM_MEMORY:
->>
->> Originally, above 3 are all "reserved", so probably they all should be
->> IORES_DESC_RESERVED.
->>
->> Can any IA64 people to review this?
->>
->>> diff --git a/arch/x86/kernel/e820.c b/arch/x86/kernel/e820.c
->>> index 50895c2f937d..57fafdafb860 100644
->>> --- a/arch/x86/kernel/e820.c
->>> +++ b/arch/x86/kernel/e820.c
->>> @@ -1048,10 +1048,10 @@ static unsigned long __init e820_type_to_iores_desc(struct e820_entry *entry)
->>>  	case E820_TYPE_NVS:		return IORES_DESC_ACPI_NV_STORAGE;
->>>  	case E820_TYPE_PMEM:		return IORES_DESC_PERSISTENT_MEMORY;
->>>  	case E820_TYPE_PRAM:		return IORES_DESC_PERSISTENT_MEMORY_LEGACY;
->>> +	case E820_TYPE_RESERVED:	return IORES_DESC_RESERVED;
->>>  	case E820_TYPE_RESERVED_KERN:	/* Fall-through: */
->>>  	case E820_TYPE_RAM:		/* Fall-through: */
->>>  	case E820_TYPE_UNUSABLE:	/* Fall-through: */
->>> -	case E820_TYPE_RESERVED:	/* Fall-through: */
->>>  	default:			return IORES_DESC_NONE;
->>>  	}
->>>  }
->>> diff --git a/arch/x86/mm/ioremap.c b/arch/x86/mm/ioremap.c
->>> index 5378d10f1d31..fea2ef99415d 100644
->>> --- a/arch/x86/mm/ioremap.c
->>> +++ b/arch/x86/mm/ioremap.c
->>> @@ -83,7 +83,18 @@ static bool __ioremap_check_ram(struct resource *res)
->>>  
->>>  static int __ioremap_check_desc_other(struct resource *res)
->>>  {
->>> -	return (res->desc != IORES_DESC_NONE);
->>> +	/*
->>> +	 * But now, the 'E820_TYPE_RESERVED' type is converted to the new
->>> +	 * descriptor 'IORES_DESC_RESERVED' instead of 'IORES_DESC_NONE',
->>> +	 * it has been changed. And the value of 'mem_flags.desc_other'
->>> +	 * is equal to 'true' if we don't strengthen the condition in this
->>> +	 * function, that is wrong. Because originally it is equal to
->>> +	 * 'false' for the same reserved type.
->>> +	 *
->>> +	 * So, that would be nice to keep it the same as before.
->>> +	 */
->>> +	return ((res->desc != IORES_DESC_NONE) &&
->>> +		(res->desc != IORES_DESC_RESERVED));
->>>  }
->>
->> Added Tom since he added the check function.  Is it possible to only
->> check explict valid desc types instead of exclude IORES_DESC_NONE?
-> 
-> Sorry for the delay...
-> 
-> The original intent of the check was to map most memory as encrypted under
-> SEV if it was marked with a specific descriptor, since it was likely to
-> not be MMIO. I tried converting most things that mapped memory to memremap
-> vs ioremap, but ACPI was one area that I left alone and this check catches
-> the mapping of the ACPI tables. I suppose it's possible to change this to
-> check just for IORES_DESC_ACPI_* values, but I would have to do some
-> testing.
-> 
+Currently, memblock has several internal functions with overlapping
+functionality. They all call memblock_find_in_range_node() to find free
+memory and then reserve the allocated range and mark it with kmemleak.
+However, there is difference in the allocation constraints and in fallback
+strategies.
 
-If you have any updates, would you mind sharing the test results about this
-issue?
+The allocations returning physical address first attempt to find free
+memory on the specified node within mirrored memory regions, then retry on
+the same node without the requirement for memory mirroring and finally fall
+back to all available memory.
 
-Thank you, Tom.
+The allocations returning virtual address start with clamping the allowed
+range to memblock.current_limit, attempt to allocate from the specified
+node from regions with mirroring and with user defined minimal address. If
+such allocation fails, next attempt is done with node restriction lifted.
+Next, the allocation is retried with minimal address reset to zero and at
+last without the requirement for mirrored regions.
 
-Lianbo
+Let's consolidate various fallbacks handling and make them more consistent
+for physical and virtual variants. Most of the fallback handling is moved
+to memblock_alloc_range_nid() and it now handles node and mirror fallbacks.
 
-> Thanks,
-> Tom
-> 
->>
->>>  
->>>  static int __ioremap_res_check(struct resource *res, void *arg)
->>> diff --git a/include/linux/ioport.h b/include/linux/ioport.h
->>> index da0ebaec25f0..6ed59de48bd5 100644
->>> --- a/include/linux/ioport.h
->>> +++ b/include/linux/ioport.h
->>> @@ -133,6 +133,7 @@ enum {
->>>  	IORES_DESC_PERSISTENT_MEMORY_LEGACY	= 5,
->>>  	IORES_DESC_DEVICE_PRIVATE_MEMORY	= 6,
->>>  	IORES_DESC_DEVICE_PUBLIC_MEMORY		= 7,
->>> +	IORES_DESC_RESERVED			= 8,
->>>  };
->>>  
->>>  /* helpers to define resources */
->>> diff --git a/kernel/resource.c b/kernel/resource.c
->>> index b0fbf685c77a..f34a632c4169 100644
->>> --- a/kernel/resource.c
->>> +++ b/kernel/resource.c
->>> @@ -994,7 +994,7 @@ __reserve_region_with_split(struct resource *root, resource_size_t start,
->>>  	res->start = start;
->>>  	res->end = end;
->>>  	res->flags = type | IORESOURCE_BUSY;
->>> -	res->desc = IORES_DESC_NONE;
->>> +	res->desc = IORES_DESC_RESERVED;
->>>  
->>>  	while (1) {
->>>  
->>> @@ -1029,7 +1029,7 @@ __reserve_region_with_split(struct resource *root, resource_size_t start,
->>>  				next_res->start = conflict->end + 1;
->>>  				next_res->end = end;
->>>  				next_res->flags = type | IORESOURCE_BUSY;
->>> -				next_res->desc = IORES_DESC_NONE;
->>> +				next_res->desc = IORES_DESC_RESERVED;
->>>  			}
->>>  		} else {
->>>  			res->start = conflict->end + 1;
->>> @@ -1477,7 +1477,7 @@ static int __init reserve_setup(char *str)
->>>  			res->start = io_start;
->>>  			res->end = io_start + io_num - 1;
->>>  			res->flags |= IORESOURCE_BUSY;
->>> -			res->desc = IORES_DESC_NONE;
->>> +			res->desc = IORES_DESC_RESERVED;
->>>  			res->child = NULL;
->>>  			if (request_resource(parent, res) = 0)
->>>  				reserved = x+1;
->>> -- 
->>> 2.17.1
->>>
->>
->>
->> There are a lot of places call region_intersects which use DESC_NONE,
->> I'm not sure if needed changes accordingly.  Cced Dan and Toshi.
->>
->>
->> Thanks
->> Dave
->>
+The memblock_alloc_internal() uses memblock_alloc_range_nid() to get a
+physical address of the allocated range and converts it to virtual address.
+
+The fallback for allocation below the specified minimal address remains in
+memblock_alloc_internal() because memblock_alloc_range_nid() is used by CMA
+with exact requirement for lower bounds.
+
+The memblock_phys_alloc_nid() function is completely dropped as it is not
+used anywhere outside memblock and its only usage can be replaced by a call
+to memblock_alloc_range_nid().
+
+Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
+---
+ include/linux/memblock.h |   1 -
+ mm/memblock.c            | 173 +++++++++++++++++++++--------------------------
+ 2 files changed, 78 insertions(+), 96 deletions(-)
+
+diff --git a/include/linux/memblock.h b/include/linux/memblock.h
+index 6874fdc..cf4cd9c 100644
+--- a/include/linux/memblock.h
++++ b/include/linux/memblock.h
+@@ -371,7 +371,6 @@ static inline int memblock_get_region_node(const struct memblock_region *r)
+ 
+ phys_addr_t memblock_phys_alloc_range(phys_addr_t size, phys_addr_t align,
+ 				      phys_addr_t start, phys_addr_t end);
+-phys_addr_t memblock_phys_alloc_nid(phys_addr_t size, phys_addr_t align, int nid);
+ phys_addr_t memblock_phys_alloc_try_nid(phys_addr_t size, phys_addr_t align, int nid);
+ 
+ static inline phys_addr_t memblock_phys_alloc(phys_addr_t size,
+diff --git a/mm/memblock.c b/mm/memblock.c
+index 531fa77..739f769 100644
+--- a/mm/memblock.c
++++ b/mm/memblock.c
+@@ -1312,30 +1312,84 @@ __next_mem_pfn_range_in_zone(u64 *idx, struct zone *zone,
+ 
+ #endif /* CONFIG_DEFERRED_STRUCT_PAGE_INIT */
+ 
++/**
++ * memblock_alloc_range_nid - allocate boot memory block
++ * @size: size of memory block to be allocated in bytes
++ * @align: alignment of the region and block's size
++ * @start: the lower bound of the memory region to allocate (phys address)
++ * @end: the upper bound of the memory region to allocate (phys address)
++ * @nid: nid of the free area to find, %NUMA_NO_NODE for any node
++ *
++ * The allocation is performed from memory region limited by
++ * memblock.current_limit if @max_addr = %MEMBLOCK_ALLOC_ACCESSIBLE.
++ *
++ * If the specified node can not hold the requested memory the
++ * allocation falls back to any node in the system
++ *
++ * For systems with memory mirroring, the allocation is attempted first
++ * from the regions with mirroring enabled and then retried from any
++ * memory region.
++ *
++ * In addition, function sets the min_count to 0 using kmemleak_alloc_phys for
++ * allocated boot memory block, so that it is never reported as leaks.
++ *
++ * Return:
++ * Physical address of allocated memory block on success, %0 on failure.
++ */
+ static phys_addr_t __init memblock_alloc_range_nid(phys_addr_t size,
+ 					phys_addr_t align, phys_addr_t start,
+-					phys_addr_t end, int nid,
+-					enum memblock_flags flags)
++					phys_addr_t end, int nid)
+ {
++	enum memblock_flags flags = choose_memblock_flags();
+ 	phys_addr_t found;
+ 
++	if (WARN_ONCE(nid = MAX_NUMNODES, "Usage of MAX_NUMNODES is deprecated. Use NUMA_NO_NODE instead\n"))
++		nid = NUMA_NO_NODE;
++
+ 	if (!align) {
+ 		/* Can't use WARNs this early in boot on powerpc */
+ 		dump_stack();
+ 		align = SMP_CACHE_BYTES;
+ 	}
+ 
++	if (end > memblock.current_limit)
++		end = memblock.current_limit;
++
++again:
+ 	found = memblock_find_in_range_node(size, align, start, end, nid,
+ 					    flags);
+-	if (found && !memblock_reserve(found, size)) {
++	if (found && !memblock_reserve(found, size))
++		goto done;
++
++	if (nid != NUMA_NO_NODE) {
++		found = memblock_find_in_range_node(size, align, start,
++						    end, NUMA_NO_NODE,
++						    flags);
++		if (found && !memblock_reserve(found, size))
++			goto done;
++	}
++
++	if (flags & MEMBLOCK_MIRROR) {
++		flags &= ~MEMBLOCK_MIRROR;
++		pr_warn("Could not allocate %pap bytes of mirrored memory\n",
++			&size);
++		goto again;
++	}
++
++	return 0;
++
++done:
++	/* Skip kmemleak for kasan_init() due to high volume. */
++	if (end != MEMBLOCK_ALLOC_KASAN)
+ 		/*
+-		 * The min_count is set to 0 so that memblock allocations are
+-		 * never reported as leaks.
++		 * The min_count is set to 0 so that memblock allocated
++		 * blocks are never reported as leaks. This is because many
++		 * of these blocks are only referred via the physical
++		 * address which is not looked up by kmemleak.
+ 		 */
+ 		kmemleak_alloc_phys(found, size, 0, 0);
+-		return found;
+-	}
+-	return 0;
++
++	return found;
+ }
+ 
+ phys_addr_t __init memblock_phys_alloc_range(phys_addr_t size,
+@@ -1343,35 +1397,13 @@ phys_addr_t __init memblock_phys_alloc_range(phys_addr_t size,
+ 					     phys_addr_t start,
+ 					     phys_addr_t end)
+ {
+-	return memblock_alloc_range_nid(size, align, start, end, NUMA_NO_NODE,
+-					MEMBLOCK_NONE);
+-}
+-
+-phys_addr_t __init memblock_phys_alloc_nid(phys_addr_t size, phys_addr_t align, int nid)
+-{
+-	enum memblock_flags flags = choose_memblock_flags();
+-	phys_addr_t ret;
+-
+-again:
+-	ret = memblock_alloc_range_nid(size, align, 0,
+-				       MEMBLOCK_ALLOC_ACCESSIBLE, nid, flags);
+-
+-	if (!ret && (flags & MEMBLOCK_MIRROR)) {
+-		flags &= ~MEMBLOCK_MIRROR;
+-		goto again;
+-	}
+-	return ret;
++	return memblock_alloc_range_nid(size, align, start, end, NUMA_NO_NODE);
+ }
+ 
+ phys_addr_t __init memblock_phys_alloc_try_nid(phys_addr_t size, phys_addr_t align, int nid)
+ {
+-	phys_addr_t res = memblock_phys_alloc_nid(size, align, nid);
+-
+-	if (res)
+-		return res;
+-	return memblock_alloc_range_nid(size, align, 0,
+-					MEMBLOCK_ALLOC_ACCESSIBLE,
+-					NUMA_NO_NODE, MEMBLOCK_NONE);
++	return memblock_alloc_range_nid(size, align, 0, nid,
++					MEMBLOCK_ALLOC_ACCESSIBLE);
+ }
+ 
+ /**
+@@ -1382,19 +1414,13 @@ phys_addr_t __init memblock_phys_alloc_try_nid(phys_addr_t size, phys_addr_t ali
+  * @max_addr: the upper bound of the memory region to allocate (phys address)
+  * @nid: nid of the free area to find, %NUMA_NO_NODE for any node
+  *
+- * The @min_addr limit is dropped if it can not be satisfied and the allocation
+- * will fall back to memory below @min_addr. Also, allocation may fall back
+- * to any node in the system if the specified node can not
+- * hold the requested memory.
+- *
+- * The allocation is performed from memory region limited by
+- * memblock.current_limit if @max_addr = %MEMBLOCK_ALLOC_ACCESSIBLE.
+- *
+- * The phys address of allocated boot memory block is converted to virtual and
+- * allocated memory is reset to 0.
++ * Allocates memory block using memblock_alloc_range_nid() and
++ * converts the returned physical address to virtual.
+  *
+- * In addition, function sets the min_count to 0 using kmemleak_alloc for
+- * allocated boot memory block, so that it is never reported as leaks.
++ * The @min_addr limit is dropped if it can not be satisfied and the allocation
++ * will fall back to memory below @min_addr. Other constraints, such
++ * as node and mirrored memory will be handled again in
++ * memblock_alloc_range_nid().
+  *
+  * Return:
+  * Virtual address of allocated memory block on success, NULL on failure.
+@@ -1405,11 +1431,6 @@ static void * __init memblock_alloc_internal(
+ 				int nid)
+ {
+ 	phys_addr_t alloc;
+-	void *ptr;
+-	enum memblock_flags flags = choose_memblock_flags();
+-
+-	if (WARN_ONCE(nid = MAX_NUMNODES, "Usage of MAX_NUMNODES is deprecated. Use NUMA_NO_NODE instead\n"))
+-		nid = NUMA_NO_NODE;
+ 
+ 	/*
+ 	 * Detect any accidental use of these APIs after slab is ready, as at
+@@ -1419,54 +1440,16 @@ static void * __init memblock_alloc_internal(
+ 	if (WARN_ON_ONCE(slab_is_available()))
+ 		return kzalloc_node(size, GFP_NOWAIT, nid);
+ 
+-	if (!align) {
+-		dump_stack();
+-		align = SMP_CACHE_BYTES;
+-	}
+-
+-	if (max_addr > memblock.current_limit)
+-		max_addr = memblock.current_limit;
+-again:
+-	alloc = memblock_find_in_range_node(size, align, min_addr, max_addr,
+-					    nid, flags);
+-	if (alloc && !memblock_reserve(alloc, size))
+-		goto done;
+-
+-	if (nid != NUMA_NO_NODE) {
+-		alloc = memblock_find_in_range_node(size, align, min_addr,
+-						    max_addr, NUMA_NO_NODE,
+-						    flags);
+-		if (alloc && !memblock_reserve(alloc, size))
+-			goto done;
+-	}
+-
+-	if (min_addr) {
+-		min_addr = 0;
+-		goto again;
+-	}
+-
+-	if (flags & MEMBLOCK_MIRROR) {
+-		flags &= ~MEMBLOCK_MIRROR;
+-		pr_warn("Could not allocate %pap bytes of mirrored memory\n",
+-			&size);
+-		goto again;
+-	}
++	alloc = memblock_alloc_range_nid(size, align, min_addr, max_addr, nid);
+ 
+-	return NULL;
+-done:
+-	ptr = phys_to_virt(alloc);
++	/* retry allocation without lower limit */
++	if (!alloc && min_addr)
++		alloc = memblock_alloc_range_nid(size, align, 0, max_addr, nid);
+ 
+-	/* Skip kmemleak for kasan_init() due to high volume. */
+-	if (max_addr != MEMBLOCK_ALLOC_KASAN)
+-		/*
+-		 * The min_count is set to 0 so that bootmem allocated
+-		 * blocks are never reported as leaks. This is because many
+-		 * of these blocks are only referred via the physical
+-		 * address which is not looked up by kmemleak.
+-		 */
+-		kmemleak_alloc(ptr, size, 0, 0);
++	if (!alloc)
++		return NULL;
+ 
+-	return ptr;
++	return phys_to_virt(alloc);
+ }
+ 
+ /**
+-- 
+2.7.4
