@@ -1,41 +1,87 @@
-From: Mike Rapoport <rppt@linux.ibm.com>
-Date: Wed, 16 Jan 2019 13:44:01 +0000
-Subject: [PATCH 01/21] openrisc: prefer memblock APIs returning virtual address
-Message-Id: <1547646261-32535-2-git-send-email-rppt@linux.ibm.com>
+From: Masahiro Yamada <yamada.masahiro@socionext.com>
+Date: Fri, 25 Jan 2019 07:18:23 +0000
+Subject: [PATCH] ia64: prefix header search path with $(srctree)/
+Message-Id: <1548400703-27945-1-git-send-email-yamada.masahiro@socionext.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1547646261-32535-1-git-send-email-rppt@linux.ibm.com>
-In-Reply-To: <1547646261-32535-1-git-send-email-rppt@linux.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org
-Cc: Rich Felker <dalias@libc.org>, linux-ia64@vger.kernel.org, devicetree@vger.kernel.org, Catalin Marinas <catalin.marinas@arm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, x86@kernel.org, linux-mips@vger.kernel.org, Max Filippov <jcmvbkbc@gmail.com>, Guo Ren <guoren@kernel.org>, sparclinux@vger.kernel.org, Christoph Hellwig <hch@lst.de>, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Richard Weinberger <richard@nod.at>, linux-sh@vger.kernel.org, Russell King <linux@armlinux.org.uk>, kasan-dev@googlegroups.com, Mike Rapoport <rppt@linux.ibm.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Mark Salter <msalter@redhat.com>, Dennis Zhou <dennis@kernel.org>, Matt Turner <mattst88@gmail.com>, linux-snps-arc@lists.infradead.org, uclinux-h8-devel@lists.sourceforge.jp, Petr Mladek <pmladek@suse.com>, linux-xtensa@linux-xtensa.org, linux-alpha@vger.kernel.org, linux-um@lists.infradead.org, linux-m68k@lists.linux-m68k.org, Rob Herring <robh+dt@kernel.org>, Greentime Hu <green.hu@gmail.com>, xen-devel@lists.xenproject.org, Stafford Horne <shorne@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, linux-arm-kernel@lists.infradead.org, Michal Simek <monstr@monstr.eu>, Tony Luck <tony.luck@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org, Paul Burton <paul.burton@mips.com>, Vineet Gupta <vgupta@synopsys.com>, Michael Ellerman <mpe@ellerman.id.au>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, "David S. Miller" <davem@davemloft.net>, openrisc@lists.librecores.org
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+Cc: Masahiro Yamada <yamada.masahiro@socionext.com>, linux-kernel@vger.kernel.org
 
-The allocation of the page tables memory in openrics uses
-memblock_phys_alloc() and then converts the returned physical address to
-virtual one. Use memblock_alloc_raw() and add a panic() if the allocation
-fails.
+Currently, the Kbuild core manipulates header search paths in a crazy
+way [1].
 
-Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
+To fix this mess, I want all Makefiles to add explicit $(srctree)/ to
+the search paths in the srctree. Some Makefiles are already written in
+that way, but not all. The goal of this work is to make the notation
+consistent, and finally get rid of the gross hacks.
+
+Having whitespaces after -I does not matter since commit 48f6e3cf5bc6
+("kbuild: do not drop -I without parameter").
+
+I removed some header search paths because I was able to build ia64
+without them.
+
+[1]: https://patchwork.kernel.org/patch/9632347/
+
+Signed-off-by: Masahiro Yamada <yamada.masahiro@socionext.com>
 ---
- arch/openrisc/mm/init.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/arch/openrisc/mm/init.c b/arch/openrisc/mm/init.c
-index d157310..caeb418 100644
---- a/arch/openrisc/mm/init.c
-+++ b/arch/openrisc/mm/init.c
-@@ -105,7 +105,10 @@ static void __init map_ram(void)
- 			}
+ arch/ia64/sn/kernel/Makefile     | 2 +-
+ arch/ia64/sn/kernel/sn2/Makefile | 2 --
+ arch/ia64/sn/pci/Makefile        | 2 --
+ arch/ia64/sn/pci/pcibr/Makefile  | 2 +-
+ 4 files changed, 2 insertions(+), 6 deletions(-)
+
+diff --git a/arch/ia64/sn/kernel/Makefile b/arch/ia64/sn/kernel/Makefile
+index d27df1d..9c349dd 100644
+--- a/arch/ia64/sn/kernel/Makefile
++++ b/arch/ia64/sn/kernel/Makefile
+@@ -7,7 +7,7 @@
+ # Copyright (C) 1999,2001-2006,2008 Silicon Graphics, Inc.  All Rights Reserved.
+ #
  
- 			/* Alloc one page for holding PTE's... */
--			pte = (pte_t *) __va(memblock_phys_alloc(PAGE_SIZE, PAGE_SIZE));
-+			pte = memblock_alloc_raw(PAGE_SIZE, PAGE_SIZE);
-+			if (!pte)
-+				panic("%s: Failed to allocate page for PTEs\n",
-+				      __func__);
- 			set_pmd(pme, __pmd(_KERNPG_TABLE + __pa(pte)));
+-ccflags-y := -Iarch/ia64/sn/include
++ccflags-y := -I $(srctree)/arch/ia64/sn/include
  
- 			/* Fill the newly allocated page with PTE'S */
+ obj-y				+= setup.o bte.o bte_error.o irq.o mca.o idle.o \
+ 				   huberror.o io_acpi_init.o io_common.o \
+diff --git a/arch/ia64/sn/kernel/sn2/Makefile b/arch/ia64/sn/kernel/sn2/Makefile
+index 3d09108..170bde4 100644
+--- a/arch/ia64/sn/kernel/sn2/Makefile
++++ b/arch/ia64/sn/kernel/sn2/Makefile
+@@ -9,7 +9,5 @@
+ # sn2 specific kernel files
+ #
+ 
+-ccflags-y := -Iarch/ia64/sn/include
+-
+ obj-y += cache.o io.o ptc_deadlock.o sn2_smp.o sn_proc_fs.o \
+ 	 prominfo_proc.o timer.o timer_interrupt.o sn_hwperf.o
+diff --git a/arch/ia64/sn/pci/Makefile b/arch/ia64/sn/pci/Makefile
+index df2a901..321576b 100644
+--- a/arch/ia64/sn/pci/Makefile
++++ b/arch/ia64/sn/pci/Makefile
+@@ -7,6 +7,4 @@
+ #
+ # Makefile for the sn pci general routines.
+ 
+-ccflags-y := -Iarch/ia64/sn/include
+-
+ obj-y := pci_dma.o tioca_provider.o tioce_provider.o pcibr/
+diff --git a/arch/ia64/sn/pci/pcibr/Makefile b/arch/ia64/sn/pci/pcibr/Makefile
+index 396bcae..712f6af 100644
+--- a/arch/ia64/sn/pci/pcibr/Makefile
++++ b/arch/ia64/sn/pci/pcibr/Makefile
+@@ -7,7 +7,7 @@
+ #
+ # Makefile for the sn2 io routines.
+ 
+-ccflags-y := -Iarch/ia64/sn/include
++ccflags-y := -I $(srctree)/arch/ia64/sn/include
+ 
+ obj-y				+=  pcibr_dma.o pcibr_reg.o \
+ 				    pcibr_ate.o pcibr_provider.o
 -- 
 2.7.4
