@@ -1,77 +1,187 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Date: Mon, 11 Feb 2019 17:04:47 +0000
-Subject: Re: [PATCH] locking/rwsem: Remove arch specific rwsem files
-Message-Id: <20190211170447.GO32477@hirez.programming.kicks-ass.net>
+From: Waiman Long <longman@redhat.com>
+Date: Thu, 07 Feb 2019 19:07:04 +0000
+Subject: [PATCH-tip 00/22] locking/rwsem: Rework rwsem-xadd & enable new rwsem features
+Message-Id: <1549566446-27967-1-git-send-email-longman@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1549850450-10171-1-git-send-email-longman@redhat.com>
- <20190211115833.GY32511@hirez.programming.kicks-ass.net>
- <e470384d-fb7b-132d-253b-23c495e7c285@redhat.com>
-In-Reply-To: <e470384d-fb7b-132d-253b-23c495e7c285@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Waiman Long <longman@redhat.com>
-Cc: linux-arch@vger.kernel.org, linux-xtensa@linux-xtensa.org, Davidlohr Bueso <dave@stgolabs.net>, linux-ia64@vger.kernel.org, Tim Chen <tim.c.chen@linux.intel.com>, Arnd Bergmann <arnd@arndb.de>, linux-sh@vger.kernel.org, linux-hexagon@vger.kernel.org, x86@kernel.org, Will Deacon <will.deacon@arm.com>, linux-kernel@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, "H. Peter Anvin" <hpa@zytor.com>, linux-alpha@vger.kernel.org, sparclinux@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, linuxppc-dev@lists.ozlabs.org, Andrew Morton <akpm@linux-foundation.org>, linux-arm-kernel@lists.infradead.org
+To: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>, Will Deacon <will.deacon@arm.com>, Thomas Gleixner <tglx@linutronix.de>
+Cc: linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Borislav Petkov <bp@alien8.de>, "H. Peter Anvin" <hpa@zytor.com>, Davidlohr Bueso <dave@stgolabs.net>, Linus Torvalds <torvalds@linux-foundation.org>, Andrew Morton <akpm@linux-foundation.org>, Tim Chen <tim.c.chen@linux.intel.com>, Waiman Long <longman@redhat.com>
 
-On Mon, Feb 11, 2019 at 11:35:24AM -0500, Waiman Long wrote:
-> On 02/11/2019 06:58 AM, Peter Zijlstra wrote:
-> > Which is clearly worse. Now we can write that as:
-> >
-> >   int __down_read_trylock2(unsigned long *l)
-> >   {
-> > 	  long tmp = READ_ONCE(*l);
-> >
-> > 	  while (tmp >= 0) {
-> > 		  if (try_cmpxchg(l, &tmp, tmp + 1))
-> > 			  return 1;
-> > 	  }
-> >
-> > 	  return 0;
-> >   }
-> >
-> > which generates:
-> >
-> >   0000000000000030 <__down_read_trylock2>:
-> >   30:   48 8b 07                mov    (%rdi),%rax
-> >   33:   48 85 c0                test   %rax,%rax
-> >   36:   78 18                   js     50 <__down_read_trylock2+0x20>
-> >   38:   48 8d 50 01             lea    0x1(%rax),%rdx
-> >   3c:   f0 48 0f b1 17          lock cmpxchg %rdx,(%rdi)
-> >   41:   75 f0                   jne    33 <__down_read_trylock2+0x3>
-> >   43:   b8 01 00 00 00          mov    $0x1,%eax
-> >   48:   c3                      retq
-> >   49:   0f 1f 80 00 00 00 00    nopl   0x0(%rax)
-> >   50:   31 c0                   xor    %eax,%eax
-> >   52:   c3                      retq
-> >
-> > Which is a lot better; but not quite there yet.
-> >
-> >
-> > I've tried quite a bit, but I can't seem to get GCC to generate the:
-> >
-> > 	add $1,%rdx
-> > 	jle
-> >
-> > required; stuff like:
-> >
-> > 	new = old + 1;
-> > 	if (new <= 0)
-> >
-> > generates:
-> >
-> > 	lea 0x1(%rax),%rdx
-> > 	test %rdx, %rdx
-> > 	jle
-> 
-> Thanks for the suggested code snippet. So you want to replace "lea
-> 0x1(%rax), %rdx" by "add $1,%rdx"?
-> 
-> I think the compiler is doing that so as to use the address generation
-> unit for addition instead of using the ALU. That will leave the ALU
-> available for doing other arithmetic operation in parallel. I don't
-> think it is a good idea to override the compiler and force it to use
-> ALU. So I am not going to try doing that. It is only 1 or 2 more of
-> codes anyway.
+This patchset revamps the current rwsem-xadd implementation to make
+it saner and easier to work with. This patchset removes all the
+architecture specific assembly code and uses generic C code for all
+architectures. This eases maintenance and enables us to enhance the
+code more easily.
 
-Yeah, I was trying to see what I could make it do.. #2 really should be
-good enough, but you know how it is once you're poking at it :-)
+This patchset also implements the following 3 new features:
+
+ 1) Waiter lock handoff
+ 2) Reader optimistic spinning
+ 3) Store write-lock owner in the atomic count (x86-64 only)
+
+Waiter lock handoff is similar to the mechanism currently in the mutex
+code. This ensures that lock starvation won't happen.
+
+Reader optimistic spinning enables readers to acquire the lock more
+quickly.  So workloads that use a mix of readers and writers should
+see an increase in performance.
+
+Finally, storing the write-lock owner into the count will allow
+optimistic spinners to get to the lock holder's task structure more
+quickly and eliminating the timing gap where the write lock is acquired
+but the owner isn't known yet. This is important for RT tasks where
+spinning on a lock with an unknown owner is not allowed.
+
+Because of the fact that multiple readers can share the same lock,
+there is a natural preference for readers when measuring in term of
+locking throughput as more readers are likely to get into the locking
+fast path than the writers. With waiter lock handoff, we are not going
+to starve the writers.
+
+Patches 1-2 reworks the qspinlock_stat code to make it generic (lock
+event counting) so that it can be used by all architectures and all
+locking code.
+
+Patch 3 reloctes the rwsem_down_read_failed() and associated functions
+to below the optimistic spinning functions.
+
+Patch 4 eliminates all architecture specific code and use generic C
+code for all.
+
+Patch 5 moves code that manages the owner field closer to the rwsem
+lock fast path as it is not needed by the rwsem-spinlock code.
+
+Patch 6 renames rwsem.h to rwsem-xadd.h as it is now specific to
+rwsem-xadd.c only.
+
+Patch 7 hides the internal rwsem-xadd functions from the public.
+
+Patch 8 moves the DEBUG_RWSEMS_WARN_ON checks from rwsem.c to
+kernel/locking/rwsem-xadd.h and adds some new ones.
+
+Patch 9 enhances the DEBUG_RWSEMS_WARN_ON macro to print out rwsem
+internal states that can be useful for debugging purpose.
+
+Patch 10 enables lock event countings in the rwsem code.
+
+Patch 11 implements a new rwsem locking scheme similar to what qrwlock
+is current doing. Write lock is done by atomic_cmpxchg() while read
+lock is still being done by atomic_add().
+
+Patch 12 implments lock handoff to prevent lock starvation.
+
+Patch 13 removes rwsem_wake() wakeup optimization as it doesn't work
+with lock handoff.
+
+Patch 14 adds some new rwsem owner access helper functions.
+
+Patch 15 merges the write-lock owner task pointer into the count.
+Only 64-bit count has enough space to provide a reasonable number of bits
+for reader count. ARM64 seems to have problem with the current encoding
+scheme. So this owner merging is currently limited to x86-64 only.
+
+Patch 16 eliminates redundant computation of the merged owner-count.
+
+Patch 17 reduces the chance of missed optimistic spinning opportunity
+because of some race conditions.
+
+Patch 18 makes rwsem_spin_on_owner() returns a tri-state value.
+
+Patch 19 enables reader to spin on a writer-owned rwsem.
+
+Patch 20 enables lock waiters to spin on a reader-owned rwsem with
+limited number of tries.
+
+Patch 21 makes reader wakeup to wake all the readers in the wait queue
+instead of just those in the front.
+
+Patch 22 disallows RT tasks to spin on a rwsem with unknown owner.
+
+In term of performance, eliminating architecture specific assembly code
+and using generic code doesn't seem to have any impact on performance.
+
+Supporting lock handoff does have a minor performance impact on highly
+contended rwsem, but it is a price worth paying for preventing lock
+starvation.
+
+Reader optimistic spinning is generally good for performance. Of course,
+there will be some corner cases where performance may suffer.
+
+Merging owner into count does have a minor performance impact. We can
+discuss if this is a feature we want to have in the rwsem code.
+
+There are also some performance data scattered in some of the patches.
+
+
+Waiman Long (22):
+  locking/qspinlock_stat: Introduce a generic lockevent counting APIs
+  locking/lock_events: Make lock_events available for all archs & other
+    locks
+  locking/rwsem: Relocate rwsem_down_read_failed()
+  locking/rwsem: Remove arch specific rwsem files
+  locking/rwsem: Move owner setting code from rwsem.c to rwsem.h
+  locking/rwsem: Rename kernel/locking/rwsem.h
+  locking/rwsem: Move rwsem internal function declarations to
+    rwsem-xadd.h
+  locking/rwsem: Add debug check for __down_read*()
+  locking/rwsem: Enhance DEBUG_RWSEMS_WARN_ON() macro
+  locking/rwsem: Enable lock event counting
+  locking/rwsem: Implement a new locking scheme
+  locking/rwsem: Implement lock handoff to prevent lock starvation
+  locking/rwsem: Remove rwsem_wake() wakeup optimization
+  locking/rwsem: Add more rwsem owner access helpers
+  locking/rwsem: Merge owner into count on x86-64
+  locking/rwsem: Remove redundant computation of writer lock word
+  locking/rwsem: Recheck owner if it is not on cpu
+  locking/rwsem: Make rwsem_spin_on_owner() return a tri-state value
+  locking/rwsem: Enable readers spinning on writer
+  locking/rwsem: Enable count-based spinning on reader
+  locking/rwsem: Wake up all readers in wait queue
+  locking/rwsem: Ensure an RT task will not spin on reader
+
+ MAINTAINERS                         |   1 -
+ arch/Kconfig                        |  10 +
+ arch/alpha/include/asm/rwsem.h      | 211 -----------
+ arch/arm/include/asm/Kbuild         |   1 -
+ arch/arm64/include/asm/Kbuild       |   1 -
+ arch/hexagon/include/asm/Kbuild     |   1 -
+ arch/ia64/include/asm/rwsem.h       | 172 ---------
+ arch/powerpc/include/asm/Kbuild     |   1 -
+ arch/s390/include/asm/Kbuild        |   1 -
+ arch/sh/include/asm/Kbuild          |   1 -
+ arch/sparc/include/asm/Kbuild       |   1 -
+ arch/x86/Kconfig                    |   8 -
+ arch/x86/include/asm/rwsem.h        | 237 -------------
+ arch/x86/lib/Makefile               |   1 -
+ arch/x86/lib/rwsem.S                | 156 ---------
+ arch/xtensa/include/asm/Kbuild      |   1 -
+ include/asm-generic/rwsem.h         | 140 --------
+ include/linux/rwsem.h               |  11 +-
+ kernel/locking/Makefile             |   1 +
+ kernel/locking/lock_events.c        | 153 ++++++++
+ kernel/locking/lock_events.h        |  55 +++
+ kernel/locking/lock_events_list.h   |  71 ++++
+ kernel/locking/percpu-rwsem.c       |   4 +
+ kernel/locking/qspinlock.c          |   8 +-
+ kernel/locking/qspinlock_paravirt.h |  19 +-
+ kernel/locking/qspinlock_stat.h     | 242 +++----------
+ kernel/locking/rwsem-xadd.c         | 682 +++++++++++++++++++++---------------
+ kernel/locking/rwsem-xadd.h         | 436 +++++++++++++++++++++++
+ kernel/locking/rwsem.c              |  31 +-
+ kernel/locking/rwsem.h              | 134 -------
+ 30 files changed, 1197 insertions(+), 1594 deletions(-)
+ delete mode 100644 arch/alpha/include/asm/rwsem.h
+ delete mode 100644 arch/ia64/include/asm/rwsem.h
+ delete mode 100644 arch/x86/include/asm/rwsem.h
+ delete mode 100644 arch/x86/lib/rwsem.S
+ delete mode 100644 include/asm-generic/rwsem.h
+ create mode 100644 kernel/locking/lock_events.c
+ create mode 100644 kernel/locking/lock_events.h
+ create mode 100644 kernel/locking/lock_events_list.h
+ create mode 100644 kernel/locking/rwsem-xadd.h
+ delete mode 100644 kernel/locking/rwsem.h
+
+-- 
+1.8.3.1
