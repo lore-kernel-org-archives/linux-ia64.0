@@ -1,7 +1,7 @@
 From: Waiman Long <longman@redhat.com>
-Date: Thu, 07 Feb 2019 19:07:12 +0000
-Subject: [PATCH-tip 08/22] locking/rwsem: Add debug check for __down_read*()
-Message-Id: <1549566446-27967-9-git-send-email-longman@redhat.com>
+Date: Thu, 07 Feb 2019 19:07:17 +0000
+Subject: [PATCH-tip 13/22] locking/rwsem: Remove rwsem_wake() wakeup optimization
+Message-Id: <1549566446-27967-14-git-send-email-longman@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1549566446-27967-1-git-send-email-longman@redhat.com>
 In-Reply-To: <1549566446-27967-1-git-send-email-longman@redhat.com>
@@ -11,99 +11,125 @@ Content-Transfer-Encoding: 7bit
 To: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>, Will Deacon <will.deacon@arm.com>, Thomas Gleixner <tglx@linutronix.de>
 Cc: linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Borislav Petkov <bp@alien8.de>, "H. Peter Anvin" <hpa@zytor.com>, Davidlohr Bueso <dave@stgolabs.net>, Linus Torvalds <torvalds@linux-foundation.org>, Andrew Morton <akpm@linux-foundation.org>, Tim Chen <tim.c.chen@linux.intel.com>, Waiman Long <longman@redhat.com>
 
-When rwsem_down_read_failed*() return, the read lock is acquired
-indirectly by others. So debug checks are added in __down_read() and
-__down_read_killable() to make sure the rwsem is really reader-owned.
+With the commit 59aabfc7e959 ("locking/rwsem: Reduce spinlock contention
+in wakeup after up_read()/up_write()"), the rwsem_wake() forgoes doing
+a wakeup if the wait_lock cannot be directly acquired and an optimistic
+spinning locker is present.  This can help performance by avoiding
+spinning on the wait_lock when it is contended.
 
-The other debug check calls in kernel/locking/rwsem.c except the
-one in up_read_non_owner() are also moved over to rwsem-xadd.h.
+With the later commit 133e89ef5ef3 ("locking/rwsem: Enable lockless
+waiter wakeup(s)"), the performance advantage of the above optimization
+diminishes as the average wait_lock hold time become much shorter.
+
+By supporting rwsem lock handoff, we can no longer relies on the fact
+that the presence of an optimistic spinning locker will ensure that the
+lock will be acquired by a task soon. This can lead to missed wakeup
+and application hang. So the commit 59aabfc7e959 ("locking/rwsem:
+Reduce spinlock contention in wakeup after up_read()/up_write()")
+will have to be reverted.
 
 Signed-off-by: Waiman Long <longman@redhat.com>
 ---
- kernel/locking/rwsem-xadd.h | 12 ++++++++++--
- kernel/locking/rwsem.c      |  3 ---
- 2 files changed, 10 insertions(+), 5 deletions(-)
+ kernel/locking/rwsem-xadd.c | 74 ---------------------------------------------
+ 1 file changed, 74 deletions(-)
 
-diff --git a/kernel/locking/rwsem-xadd.h b/kernel/locking/rwsem-xadd.h
-index 64e7d62..77151c3 100644
---- a/kernel/locking/rwsem-xadd.h
-+++ b/kernel/locking/rwsem-xadd.h
-@@ -165,10 +165,13 @@ static inline void rwsem_clear_reader_owned(struct rw_semaphore *sem)
-  */
- static inline void __down_read(struct rw_semaphore *sem)
- {
--	if (unlikely(atomic_long_inc_return_acquire(&sem->count) <= 0))
-+	if (unlikely(atomic_long_inc_return_acquire(&sem->count) <= 0)) {
- 		rwsem_down_read_failed(sem);
--	else
-+		DEBUG_RWSEMS_WARN_ON(!((unsigned long)sem->owner &
-+					RWSEM_READER_OWNED));
-+	} else {
- 		rwsem_set_reader_owned(sem);
-+	}
+diff --git a/kernel/locking/rwsem-xadd.c b/kernel/locking/rwsem-xadd.c
+index 12b1d61..5f74bae 100644
+--- a/kernel/locking/rwsem-xadd.c
++++ b/kernel/locking/rwsem-xadd.c
+@@ -378,25 +378,11 @@ static bool rwsem_optimistic_spin(struct rw_semaphore *sem)
+ 	lockevent_cond_inc(rwsem_opt_fail, !taken);
+ 	return taken;
  }
- 
- static inline int __down_read_killable(struct rw_semaphore *sem)
-@@ -176,6 +179,8 @@ static inline int __down_read_killable(struct rw_semaphore *sem)
- 	if (unlikely(atomic_long_inc_return_acquire(&sem->count) <= 0)) {
- 		if (IS_ERR(rwsem_down_read_failed_killable(sem)))
- 			return -EINTR;
-+		DEBUG_RWSEMS_WARN_ON(!((unsigned long)sem->owner &
-+					RWSEM_READER_OWNED));
- 	} else {
- 		rwsem_set_reader_owned(sem);
- 	}
-@@ -243,6 +248,7 @@ static inline void __up_read(struct rw_semaphore *sem)
+-
+-/*
+- * Return true if the rwsem has active spinner
+- */
+-static inline bool rwsem_has_spinner(struct rw_semaphore *sem)
+-{
+-	return osq_is_locked(&sem->osq);
+-}
+-
+ #else
+ static bool rwsem_optimistic_spin(struct rw_semaphore *sem)
  {
- 	long tmp;
- 
-+	DEBUG_RWSEMS_WARN_ON(!((unsigned long)sem->owner & RWSEM_READER_OWNED));
- 	rwsem_clear_reader_owned(sem);
- 	tmp = atomic_long_dec_return_release(&sem->count);
- 	if (unlikely(tmp < -1 && (tmp & RWSEM_ACTIVE_MASK) = 0))
-@@ -254,6 +260,7 @@ static inline void __up_read(struct rw_semaphore *sem)
-  */
- static inline void __up_write(struct rw_semaphore *sem)
- {
-+	DEBUG_RWSEMS_WARN_ON(sem->owner != current);
- 	rwsem_clear_owner(sem);
- 	if (unlikely(atomic_long_sub_return_release(RWSEM_ACTIVE_WRITE_BIAS,
- 						    &sem->count) < 0))
-@@ -274,6 +281,7 @@ static inline void __downgrade_write(struct rw_semaphore *sem)
- 	 * read-locked region is ok to be re-ordered into the
- 	 * write side. As such, rely on RELEASE semantics.
- 	 */
-+	DEBUG_RWSEMS_WARN_ON(sem->owner != current);
- 	tmp = atomic_long_add_return_release(-RWSEM_WAITING_BIAS, &sem->count);
- 	rwsem_set_reader_owned(sem);
- 	if (tmp < 0)
-diff --git a/kernel/locking/rwsem.c b/kernel/locking/rwsem.c
-index b3b4582..598fc7c 100644
---- a/kernel/locking/rwsem.c
-+++ b/kernel/locking/rwsem.c
-@@ -114,7 +114,6 @@ int down_write_trylock(struct rw_semaphore *sem)
- void up_read(struct rw_semaphore *sem)
- {
- 	rwsem_release(&sem->dep_map, 1, _RET_IP_);
--	DEBUG_RWSEMS_WARN_ON(!((unsigned long)sem->owner & RWSEM_READER_OWNED));
- 
- 	__up_read(sem);
+ 	return false;
  }
-@@ -127,7 +126,6 @@ void up_read(struct rw_semaphore *sem)
- void up_write(struct rw_semaphore *sem)
- {
- 	rwsem_release(&sem->dep_map, 1, _RET_IP_);
--	DEBUG_RWSEMS_WARN_ON(sem->owner != current);
+-
+-static inline bool rwsem_has_spinner(struct rw_semaphore *sem)
+-{
+-	return false;
+-}
+ #endif
  
- 	__up_write(sem);
- }
-@@ -140,7 +138,6 @@ void up_write(struct rw_semaphore *sem)
- void downgrade_write(struct rw_semaphore *sem)
- {
- 	lock_downgrade(&sem->dep_map, _RET_IP_);
--	DEBUG_RWSEMS_WARN_ON(sem->owner != current);
+ /*
+@@ -662,67 +648,7 @@ struct rw_semaphore *rwsem_wake(struct rw_semaphore *sem, long count)
+ 	unsigned long flags;
+ 	DEFINE_WAKE_Q(wake_q);
  
- 	__downgrade_write(sem);
- }
+-	/*
+-	* __rwsem_down_write_failed_common(sem)
+-	*   rwsem_optimistic_spin(sem)
+-	*     osq_unlock(sem->osq)
+-	*   ...
+-	*   atomic_long_add_return(&sem->count)
+-	*
+-	*      - VS -
+-	*
+-	*              __up_write()
+-	*                if (atomic_long_sub_return_release(&sem->count) < 0)
+-	*                  rwsem_wake(sem)
+-	*                    osq_is_locked(&sem->osq)
+-	*
+-	* And __up_write() must observe !osq_is_locked() when it observes the
+-	* atomic_long_add_return() in order to not miss a wakeup.
+-	*
+-	* This boils down to:
+-	*
+-	* [S.rel] X = 1                [RmW] r0 = (Y += 0)
+-	*         MB                         RMB
+-	* [RmW]   Y += 1               [L]   r1 = X
+-	*
+-	* exists (r0=1 /\ r1=0)
+-	*/
+-	smp_rmb();
+-
+-	/*
+-	 * If a spinner is present and the handoff flag isn't set, it is
+-	 * not necessary to do the wakeup.
+-	 *
+-	 * Try to do wakeup only if the trylock succeeds to minimize
+-	 * spinlock contention which may introduce too much delay in the
+-	 * unlock operation.
+-	 *
+-	 *    spinning writer		up_write/up_read caller
+-	 *    ---------------		-----------------------
+-	 * [S]   osq_unlock()		[L]   osq
+-	 *	 MB			      RMB
+-	 * [RmW] rwsem_try_write_lock() [RmW] spin_trylock(wait_lock)
+-	 *
+-	 * Here, it is important to make sure that there won't be a missed
+-	 * wakeup while the rwsem is free and the only spinning writer goes
+-	 * to sleep without taking the rwsem. Even when the spinning writer
+-	 * is just going to break out of the waiting loop, it will still do
+-	 * a trylock in rwsem_down_write_failed() before sleeping. IOW, if
+-	 * rwsem_has_spinner() is true, it will guarantee at least one
+-	 * trylock attempt on the rwsem later on.
+-	 */
+-	if (rwsem_has_spinner(sem) && !RWSEM_COUNT_HANDOFF(count)) {
+-		/*
+-		 * The smp_rmb() here is to make sure that the spinner
+-		 * state is consulted before reading the wait_lock.
+-		 */
+-		smp_rmb();
+-		if (!raw_spin_trylock_irqsave(&sem->wait_lock, flags))
+-			return sem;
+-		goto locked;
+-	}
+ 	raw_spin_lock_irqsave(&sem->wait_lock, flags);
+-locked:
+ 
+ 	if (!list_empty(&sem->wait_list))
+ 		__rwsem_mark_wake(sem, RWSEM_WAKE_ANY, &wake_q);
 -- 
 1.8.3.1
