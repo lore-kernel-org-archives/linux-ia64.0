@@ -1,483 +1,168 @@
-From: Deepa Dinamani <deepa.kernel@gmail.com>
-Date: Fri, 01 Feb 2019 15:43:47 +0000
-Subject: [PATCH net-next v4 03/12] arch: Use asm-generic/socket.h when possible
-Message-Id: <20190201154356.15536-4-deepa.kernel@gmail.com>
+From: Waiman Long <longman@redhat.com>
+Date: Thu, 07 Feb 2019 19:07:18 +0000
+Subject: [PATCH-tip 14/22] locking/rwsem: Add more rwsem owner access helpers
+Message-Id: <1549566446-27967-15-git-send-email-longman@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190201154356.15536-1-deepa.kernel@gmail.com>
-In-Reply-To: <20190201154356.15536-1-deepa.kernel@gmail.com>
+References: <1549566446-27967-1-git-send-email-longman@redhat.com>
+In-Reply-To: <1549566446-27967-1-git-send-email-longman@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: davem@davemloft.net, linux-kernel@vger.kernel.org
-Cc: netdev@vger.kernel.org, arnd@arndb.de, y2038@lists.linaro.org, chris@zankel.net, fenghua.yu@intel.com, tglx@linutronix.de, schwidefsky@de.ibm.com, linux-ia64@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-s390@vger.kernel.org
+To: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>, Will Deacon <will.deacon@arm.com>, Thomas Gleixner <tglx@linutronix.de>
+Cc: linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Borislav Petkov <bp@alien8.de>, "H. Peter Anvin" <hpa@zytor.com>, Davidlohr Bueso <dave@stgolabs.net>, Linus Torvalds <torvalds@linux-foundation.org>, Andrew Morton <akpm@linux-foundation.org>, Tim Chen <tim.c.chen@linux.intel.com>, Waiman Long <longman@redhat.com>
 
-Many architectures maintain an arch specific copy of the
-file even though there are no differences with the asm-generic
-one. Allow these architectures to use the generic one instead.
+Before combining owner and count, we are adding two new helpers for
+accessing the owner value in the rwsem.
 
-Signed-off-by: Deepa Dinamani <deepa.kernel@gmail.com>
-Acked-by: Max Filippov <jcmvbkbc@gmail.com>
-Acked-by: Heiko Carstens <heiko.carstens@de.ibm.com>
-Cc: chris@zankel.net
-Cc: fenghua.yu@intel.com
-Cc: tglx@linutronix.de
-Cc: schwidefsky@de.ibm.com
-Cc: linux-ia64@vger.kernel.org
-Cc: linux-xtensa@linux-xtensa.org
-Cc: linux-s390@vger.kernel.org
+ 1) struct task_struct *rwsem_get_owner(struct rw_semaphore *sem)
+ 2) bool is_rwsem_reader_owned(struct rw_semaphore *sem)
+
+Signed-off-by: Waiman Long <longman@redhat.com>
 ---
- arch/ia64/include/uapi/asm/Kbuild     |   1 +
- arch/ia64/include/uapi/asm/socket.h   | 122 -------------------------
- arch/s390/include/uapi/asm/Kbuild     |   1 +
- arch/s390/include/uapi/asm/socket.h   | 119 ------------------------
- arch/x86/include/uapi/asm/Kbuild      |   1 +
- arch/x86/include/uapi/asm/socket.h    |   1 -
- arch/xtensa/include/asm/Kbuild        |   1 +
- arch/xtensa/include/uapi/asm/Kbuild   |   1 +
- arch/xtensa/include/uapi/asm/socket.h | 124 --------------------------
- 9 files changed, 5 insertions(+), 366 deletions(-)
- delete mode 100644 arch/ia64/include/uapi/asm/socket.h
- delete mode 100644 arch/s390/include/uapi/asm/socket.h
- delete mode 100644 arch/x86/include/uapi/asm/socket.h
- delete mode 100644 arch/xtensa/include/uapi/asm/socket.h
+ kernel/locking/rwsem-xadd.c | 11 ++++++-----
+ kernel/locking/rwsem-xadd.h | 32 ++++++++++++++++++++++++++------
+ kernel/locking/rwsem.c      |  3 +--
+ 3 files changed, 33 insertions(+), 13 deletions(-)
 
-diff --git a/arch/ia64/include/uapi/asm/Kbuild b/arch/ia64/include/uapi/asm/Kbuild
-index 5b819e53c397..b71c5f787783 100644
---- a/arch/ia64/include/uapi/asm/Kbuild
-+++ b/arch/ia64/include/uapi/asm/Kbuild
-@@ -2,3 +2,4 @@ include include/uapi/asm-generic/Kbuild.asm
+diff --git a/kernel/locking/rwsem-xadd.c b/kernel/locking/rwsem-xadd.c
+index 5f74bae..719d390 100644
+--- a/kernel/locking/rwsem-xadd.c
++++ b/kernel/locking/rwsem-xadd.c
+@@ -277,7 +277,7 @@ static inline bool rwsem_can_spin_on_owner(struct rw_semaphore *sem)
+ 		return false;
  
- generated-y += unistd_64.h
- generic-y += kvm_para.h
-+generic-y += socket.h
-diff --git a/arch/ia64/include/uapi/asm/socket.h b/arch/ia64/include/uapi/asm/socket.h
-deleted file mode 100644
-index ba0d245f9576..000000000000
---- a/arch/ia64/include/uapi/asm/socket.h
-+++ /dev/null
-@@ -1,122 +0,0 @@
--/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
--#ifndef _ASM_IA64_SOCKET_H
--#define _ASM_IA64_SOCKET_H
--
--/*
-- * Socket related defines.
-- *
-- * Based on <asm-i386/socket.h>.
-- *
-- * Modified 1998-2000
-- *	David Mosberger-Tang <davidm@hpl.hp.com>, Hewlett-Packard Co
-- */
--
--#include <asm/sockios.h>
--
--/* For setsockopt(2) */
--#define SOL_SOCKET	1
--
--#define SO_DEBUG	1
--#define SO_REUSEADDR	2
--#define SO_TYPE		3
--#define SO_ERROR	4
--#define SO_DONTROUTE	5
--#define SO_BROADCAST	6
--#define SO_SNDBUF	7
--#define SO_RCVBUF	8
--#define SO_SNDBUFFORCE	32
--#define SO_RCVBUFFORCE	33
--#define SO_KEEPALIVE	9
--#define SO_OOBINLINE	10
--#define SO_NO_CHECK	11
--#define SO_PRIORITY	12
--#define SO_LINGER	13
--#define SO_BSDCOMPAT	14
--#define SO_REUSEPORT	15
--#define SO_PASSCRED	16
--#define SO_PEERCRED	17
--#define SO_RCVLOWAT	18
--#define SO_SNDLOWAT	19
--#define SO_RCVTIMEO	20
--#define SO_SNDTIMEO	21
--
--/* Security levels - as per NRL IPv6 - don't actually do anything */
--#define SO_SECURITY_AUTHENTICATION		22
--#define SO_SECURITY_ENCRYPTION_TRANSPORT	23
--#define SO_SECURITY_ENCRYPTION_NETWORK		24
--
--#define SO_BINDTODEVICE		25
--
--/* Socket filtering */
--#define SO_ATTACH_FILTER	26
--#define SO_DETACH_FILTER	27
--#define SO_GET_FILTER		SO_ATTACH_FILTER
--
--#define SO_PEERNAME		28
--#define SO_TIMESTAMP		29
--#define SCM_TIMESTAMP		SO_TIMESTAMP
--
--#define SO_ACCEPTCONN		30
--
--#define SO_PEERSEC             31
--#define SO_PASSSEC		34
--#define SO_TIMESTAMPNS		35
--#define SCM_TIMESTAMPNS		SO_TIMESTAMPNS
--
--#define SO_MARK			36
--
--#define SO_TIMESTAMPING		37
--#define SCM_TIMESTAMPING	SO_TIMESTAMPING
--
--#define SO_PROTOCOL		38
--#define SO_DOMAIN		39
--
--#define SO_RXQ_OVFL             40
--
--#define SO_WIFI_STATUS		41
--#define SCM_WIFI_STATUS		SO_WIFI_STATUS
--#define SO_PEEK_OFF		42
--
--/* Instruct lower device to use last 4-bytes of skb data as FCS */
--#define SO_NOFCS		43
--
--#define SO_LOCK_FILTER		44
--
--#define SO_SELECT_ERR_QUEUE	45
--
--#define SO_BUSY_POLL		46
--
--#define SO_MAX_PACING_RATE	47
--
--#define SO_BPF_EXTENSIONS	48
--
--#define SO_INCOMING_CPU		49
--
--#define SO_ATTACH_BPF		50
--#define SO_DETACH_BPF		SO_DETACH_FILTER
--
--#define SO_ATTACH_REUSEPORT_CBPF	51
--#define SO_ATTACH_REUSEPORT_EBPF	52
--
--#define SO_CNX_ADVICE		53
--
--#define SCM_TIMESTAMPING_OPT_STATS	54
--
--#define SO_MEMINFO		55
--
--#define SO_INCOMING_NAPI_ID	56
--
--#define SO_COOKIE		57
--
--#define SCM_TIMESTAMPING_PKTINFO	58
--
--#define SO_PEERGROUPS		59
--
--#define SO_ZEROCOPY		60
--
--#define SO_TXTIME		61
--#define SCM_TXTIME		SO_TXTIME
--
--#define SO_BINDTOIFINDEX	62
--
--#endif /* _ASM_IA64_SOCKET_H */
-diff --git a/arch/s390/include/uapi/asm/Kbuild b/arch/s390/include/uapi/asm/Kbuild
-index da3e0d48abbc..6b0f30b14642 100644
---- a/arch/s390/include/uapi/asm/Kbuild
-+++ b/arch/s390/include/uapi/asm/Kbuild
-@@ -3,3 +3,4 @@ include include/uapi/asm-generic/Kbuild.asm
+ 	rcu_read_lock();
+-	owner = READ_ONCE(sem->owner);
++	owner = rwsem_get_owner(sem);
+ 	if (owner) {
+ 		ret = is_rwsem_owner_spinnable(owner) &&
+ 		      owner_on_cpu(owner);
+@@ -291,13 +291,13 @@ static inline bool rwsem_can_spin_on_owner(struct rw_semaphore *sem)
+  */
+ static noinline bool rwsem_spin_on_owner(struct rw_semaphore *sem)
+ {
+-	struct task_struct *owner = READ_ONCE(sem->owner);
++	struct task_struct *owner = rwsem_get_owner(sem);
  
- generated-y += unistd_32.h
- generated-y += unistd_64.h
-+generic-y += socket.h
-diff --git a/arch/s390/include/uapi/asm/socket.h b/arch/s390/include/uapi/asm/socket.h
-deleted file mode 100644
-index 49c971587087..000000000000
---- a/arch/s390/include/uapi/asm/socket.h
-+++ /dev/null
-@@ -1,119 +0,0 @@
--/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
--/*
-- *  S390 version
-- *
-- *  Derived from "include/asm-i386/socket.h"
-- */
--
--#ifndef _ASM_SOCKET_H
--#define _ASM_SOCKET_H
--
--#include <asm/sockios.h>
--
--/* For setsockopt(2) */
--#define SOL_SOCKET	1
--
--#define SO_DEBUG	1
--#define SO_REUSEADDR	2
--#define SO_TYPE		3
--#define SO_ERROR	4
--#define SO_DONTROUTE	5
--#define SO_BROADCAST	6
--#define SO_SNDBUF	7
--#define SO_RCVBUF	8
--#define SO_SNDBUFFORCE	32
--#define SO_RCVBUFFORCE	33
--#define SO_KEEPALIVE	9
--#define SO_OOBINLINE	10
--#define SO_NO_CHECK	11
--#define SO_PRIORITY	12
--#define SO_LINGER	13
--#define SO_BSDCOMPAT	14
--#define SO_REUSEPORT	15
--#define SO_PASSCRED	16
--#define SO_PEERCRED	17
--#define SO_RCVLOWAT	18
--#define SO_SNDLOWAT	19
--#define SO_RCVTIMEO	20
--#define SO_SNDTIMEO	21
--
--/* Security levels - as per NRL IPv6 - don't actually do anything */
--#define SO_SECURITY_AUTHENTICATION		22
--#define SO_SECURITY_ENCRYPTION_TRANSPORT	23
--#define SO_SECURITY_ENCRYPTION_NETWORK		24
--
--#define SO_BINDTODEVICE	25
--
--/* Socket filtering */
--#define SO_ATTACH_FILTER        26
--#define SO_DETACH_FILTER        27
--#define SO_GET_FILTER		SO_ATTACH_FILTER
--
--#define SO_PEERNAME		28
--#define SO_TIMESTAMP		29
--#define SCM_TIMESTAMP		SO_TIMESTAMP
--
--#define SO_ACCEPTCONN		30
--
--#define SO_PEERSEC		31
--#define SO_PASSSEC		34
--#define SO_TIMESTAMPNS		35
--#define SCM_TIMESTAMPNS		SO_TIMESTAMPNS
--
--#define SO_MARK			36
--
--#define SO_TIMESTAMPING		37
--#define SCM_TIMESTAMPING	SO_TIMESTAMPING
--
--#define SO_PROTOCOL		38
--#define SO_DOMAIN		39
--
--#define SO_RXQ_OVFL             40
--
--#define SO_WIFI_STATUS		41
--#define SCM_WIFI_STATUS		SO_WIFI_STATUS
--#define SO_PEEK_OFF		42
--
--/* Instruct lower device to use last 4-bytes of skb data as FCS */
--#define SO_NOFCS		43
--
--#define SO_LOCK_FILTER		44
--
--#define SO_SELECT_ERR_QUEUE	45
--
--#define SO_BUSY_POLL		46
--
--#define SO_MAX_PACING_RATE	47
--
--#define SO_BPF_EXTENSIONS	48
--
--#define SO_INCOMING_CPU		49
--
--#define SO_ATTACH_BPF		50
--#define SO_DETACH_BPF		SO_DETACH_FILTER
--
--#define SO_ATTACH_REUSEPORT_CBPF	51
--#define SO_ATTACH_REUSEPORT_EBPF	52
--
--#define SO_CNX_ADVICE		53
--
--#define SCM_TIMESTAMPING_OPT_STATS	54
--
--#define	SO_MEMINFO		55
--
--#define SO_INCOMING_NAPI_ID	56
--
--#define SO_COOKIE		57
--
--#define SCM_TIMESTAMPING_PKTINFO	58
--
--#define SO_PEERGROUPS		59
--
--#define SO_ZEROCOPY		60
--
--#define SO_TXTIME		61
--#define SCM_TXTIME		SO_TXTIME
--
--#define SO_BINDTOIFINDEX	62
--
--#endif /* _ASM_SOCKET_H */
-diff --git a/arch/x86/include/uapi/asm/Kbuild b/arch/x86/include/uapi/asm/Kbuild
-index f6648e9928b3..efe701b7c6ce 100644
---- a/arch/x86/include/uapi/asm/Kbuild
-+++ b/arch/x86/include/uapi/asm/Kbuild
-@@ -3,3 +3,4 @@ include include/uapi/asm-generic/Kbuild.asm
- generated-y += unistd_32.h
- generated-y += unistd_64.h
- generated-y += unistd_x32.h
-+generic-y += socket.h
-diff --git a/arch/x86/include/uapi/asm/socket.h b/arch/x86/include/uapi/asm/socket.h
-deleted file mode 100644
-index 6b71384b9d8b..000000000000
---- a/arch/x86/include/uapi/asm/socket.h
-+++ /dev/null
-@@ -1 +0,0 @@
--#include <asm-generic/socket.h>
-diff --git a/arch/xtensa/include/asm/Kbuild b/arch/xtensa/include/asm/Kbuild
-index e255683cd520..809f39ce08c0 100644
---- a/arch/xtensa/include/asm/Kbuild
-+++ b/arch/xtensa/include/asm/Kbuild
-@@ -25,6 +25,7 @@ generic-y += percpu.h
- generic-y += preempt.h
- generic-y += rwsem.h
- generic-y += sections.h
-+generic-y += socket.h
- generic-y += topology.h
- generic-y += trace_clock.h
- generic-y += vga.h
-diff --git a/arch/xtensa/include/uapi/asm/Kbuild b/arch/xtensa/include/uapi/asm/Kbuild
-index 960bf1e4be53..6b43e5049ff7 100644
---- a/arch/xtensa/include/uapi/asm/Kbuild
-+++ b/arch/xtensa/include/uapi/asm/Kbuild
-@@ -2,3 +2,4 @@ include include/uapi/asm-generic/Kbuild.asm
+ 	if (!is_rwsem_owner_spinnable(owner))
+ 		return false;
  
- generated-y += unistd_32.h
- generic-y += kvm_para.h
-+generic-y += socket.h
-diff --git a/arch/xtensa/include/uapi/asm/socket.h b/arch/xtensa/include/uapi/asm/socket.h
-deleted file mode 100644
-index b434217783d0..000000000000
---- a/arch/xtensa/include/uapi/asm/socket.h
-+++ /dev/null
-@@ -1,124 +0,0 @@
--/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
--/*
-- * include/asm-xtensa/socket.h
-- *
-- * Copied from i386.
-- *
-- * This file is subject to the terms and conditions of the GNU General Public
-- * License.  See the file "COPYING" in the main directory of this archive
-- * for more details.
-- */
--
--#ifndef _XTENSA_SOCKET_H
--#define _XTENSA_SOCKET_H
--
--#include <asm/sockios.h>
--
--/* For setsockoptions(2) */
--#define SOL_SOCKET	1
--
--#define SO_DEBUG	1
--#define SO_REUSEADDR	2
--#define SO_TYPE		3
--#define SO_ERROR	4
--#define SO_DONTROUTE	5
--#define SO_BROADCAST	6
--#define SO_SNDBUF	7
--#define SO_RCVBUF	8
--#define SO_SNDBUFFORCE	32
--#define SO_RCVBUFFORCE	33
--#define SO_KEEPALIVE	9
--#define SO_OOBINLINE	10
--#define SO_NO_CHECK	11
--#define SO_PRIORITY	12
--#define SO_LINGER	13
--#define SO_BSDCOMPAT	14
--#define SO_REUSEPORT	15
--#define SO_PASSCRED	16
--#define SO_PEERCRED	17
--#define SO_RCVLOWAT	18
--#define SO_SNDLOWAT	19
--#define SO_RCVTIMEO	20
--#define SO_SNDTIMEO	21
--
--/* Security levels - as per NRL IPv6 - don't actually do anything */
--
--#define SO_SECURITY_AUTHENTICATION		22
--#define SO_SECURITY_ENCRYPTION_TRANSPORT	23
--#define SO_SECURITY_ENCRYPTION_NETWORK		24
--
--#define SO_BINDTODEVICE	25
--
--/* Socket filtering */
--
--#define SO_ATTACH_FILTER        26
--#define SO_DETACH_FILTER        27
--#define SO_GET_FILTER		SO_ATTACH_FILTER
--
--#define SO_PEERNAME		28
--#define SO_TIMESTAMP		29
--#define SCM_TIMESTAMP		SO_TIMESTAMP
--
--#define SO_ACCEPTCONN		30
--#define SO_PEERSEC		31
--#define SO_PASSSEC		34
--#define SO_TIMESTAMPNS		35
--#define SCM_TIMESTAMPNS		SO_TIMESTAMPNS
--
--#define SO_MARK			36
--
--#define SO_TIMESTAMPING		37
--#define SCM_TIMESTAMPING	SO_TIMESTAMPING
--
--#define SO_PROTOCOL		38
--#define SO_DOMAIN		39
--
--#define SO_RXQ_OVFL             40
--
--#define SO_WIFI_STATUS		41
--#define SCM_WIFI_STATUS		SO_WIFI_STATUS
--#define SO_PEEK_OFF		42
--
--/* Instruct lower device to use last 4-bytes of skb data as FCS */
--#define SO_NOFCS		43
--
--#define SO_LOCK_FILTER		44
--
--#define SO_SELECT_ERR_QUEUE	45
--
--#define SO_BUSY_POLL		46
--
--#define SO_MAX_PACING_RATE	47
--
--#define SO_BPF_EXTENSIONS	48
--
--#define SO_INCOMING_CPU		49
--
--#define SO_ATTACH_BPF		50
--#define SO_DETACH_BPF		SO_DETACH_FILTER
--
--#define SO_ATTACH_REUSEPORT_CBPF	51
--#define SO_ATTACH_REUSEPORT_EBPF	52
--
--#define SO_CNX_ADVICE		53
--
--#define SCM_TIMESTAMPING_OPT_STATS	54
--
--#define SO_MEMINFO		55
--
--#define SO_INCOMING_NAPI_ID	56
--
--#define SO_COOKIE		57
--
--#define SCM_TIMESTAMPING_PKTINFO	58
--
--#define SO_PEERGROUPS		59
--
--#define SO_ZEROCOPY		60
--
--#define SO_TXTIME		61
--#define SCM_TXTIME		SO_TXTIME
--
--#define SO_BINDTOIFINDEX	62
--
--#endif	/* _XTENSA_SOCKET_H */
+ 	rcu_read_lock();
+-	while (owner && (READ_ONCE(sem->owner) = owner)) {
++	while (owner && (rwsem_get_owner(sem) = owner)) {
+ 		/*
+ 		 * Ensure we emit the owner->on_cpu, dereference _after_
+ 		 * checking sem->owner still matches owner, if that fails,
+@@ -323,7 +323,7 @@ static noinline bool rwsem_spin_on_owner(struct rw_semaphore *sem)
+ 	 * If there is a new owner or the owner is not set, we continue
+ 	 * spinning.
+ 	 */
+-	return is_rwsem_owner_spinnable(READ_ONCE(sem->owner));
++	return is_rwsem_owner_spinnable(rwsem_get_owner(sem));
+ }
+ 
+ static bool rwsem_optimistic_spin(struct rw_semaphore *sem)
+@@ -361,7 +361,8 @@ static bool rwsem_optimistic_spin(struct rw_semaphore *sem)
+ 		 * we're an RT task that will live-lock because we won't let
+ 		 * the owner complete.
+ 		 */
+-		if (!sem->owner && (need_resched() || rt_task(current)))
++		if (!rwsem_get_owner(sem) &&
++		   (need_resched() || rt_task(current)))
+ 			break;
+ 
+ 		/*
+diff --git a/kernel/locking/rwsem-xadd.h b/kernel/locking/rwsem-xadd.h
+index 6d4890d..277a134 100644
+--- a/kernel/locking/rwsem-xadd.h
++++ b/kernel/locking/rwsem-xadd.h
+@@ -83,6 +83,11 @@ static inline void rwsem_clear_owner(struct rw_semaphore *sem)
+ 	WRITE_ONCE(sem->owner, NULL);
+ }
+ 
++static inline struct task_struct *rwsem_get_owner(struct rw_semaphore *sem)
++{
++	return READ_ONCE(sem->owner);
++}
++
+ /*
+  * The task_struct pointer of the last owning reader will be left in
+  * the owner field.
+@@ -116,6 +121,23 @@ static inline bool is_rwsem_owner_spinnable(struct task_struct *owner)
+ }
+ 
+ /*
++ * Return true if the rwsem is owned by a reader.
++ */
++static inline bool is_rwsem_reader_owned(struct rw_semaphore *sem)
++{
++#ifdef CONFIG_DEBUG_RWSEMS
++	/*
++	 * Check the count to see if it is write-locked.
++	 */
++	long count = atomic_long_read(&sem->count);
++
++	if (count & RWSEM_WRITER_MASK)
++		return false;
++#endif
++	return (unsigned long)sem->owner & RWSEM_READER_OWNED;
++}
++
++/*
+  * Return true if rwsem is owned by an anonymous writer or readers.
+  */
+ static inline bool rwsem_has_anonymous_owner(struct task_struct *owner)
+@@ -135,6 +157,7 @@ static inline void rwsem_clear_reader_owned(struct rw_semaphore *sem)
+ {
+ 	unsigned long val = (unsigned long)current | RWSEM_READER_OWNED
+ 						   | RWSEM_ANONYMOUSLY_OWNED;
++
+ 	if (READ_ONCE(sem->owner) = (struct task_struct *)val)
+ 		cmpxchg_relaxed((unsigned long *)&sem->owner, val,
+ 				RWSEM_READER_OWNED | RWSEM_ANONYMOUSLY_OWNED);
+@@ -181,8 +204,7 @@ static inline void __down_read(struct rw_semaphore *sem)
+ 	if (unlikely(atomic_long_fetch_add_acquire(RWSEM_READER_BIAS,
+ 			&sem->count) & RWSEM_READ_FAILED_MASK)) {
+ 		rwsem_down_read_failed(sem);
+-		DEBUG_RWSEMS_WARN_ON(!((unsigned long)sem->owner &
+-					RWSEM_READER_OWNED), sem);
++		DEBUG_RWSEMS_WARN_ON(!is_rwsem_reader_owned(sem), sem);
+ 	} else {
+ 		rwsem_set_reader_owned(sem);
+ 	}
+@@ -194,8 +216,7 @@ static inline int __down_read_killable(struct rw_semaphore *sem)
+ 			&sem->count) & RWSEM_READ_FAILED_MASK)) {
+ 		if (IS_ERR(rwsem_down_read_failed_killable(sem)))
+ 			return -EINTR;
+-		DEBUG_RWSEMS_WARN_ON(!((unsigned long)sem->owner &
+-					RWSEM_READER_OWNED), sem);
++		DEBUG_RWSEMS_WARN_ON(!is_rwsem_reader_owned(sem), sem);
+ 	} else {
+ 		rwsem_set_reader_owned(sem);
+ 	}
+@@ -254,8 +275,7 @@ static inline void __up_read(struct rw_semaphore *sem)
+ {
+ 	long tmp;
+ 
+-	DEBUG_RWSEMS_WARN_ON(!((unsigned long)sem->owner & RWSEM_READER_OWNED),
+-				sem);
++	DEBUG_RWSEMS_WARN_ON(!is_rwsem_reader_owned(sem), sem);
+ 	rwsem_clear_reader_owned(sem);
+ 	tmp = atomic_long_add_return_release(-RWSEM_READER_BIAS, &sem->count);
+ 	if (unlikely((tmp & (RWSEM_LOCK_MASK|RWSEM_FLAG_WAITERS))
+diff --git a/kernel/locking/rwsem.c b/kernel/locking/rwsem.c
+index bdfca7c..79fa6e4 100644
+--- a/kernel/locking/rwsem.c
++++ b/kernel/locking/rwsem.c
+@@ -203,8 +203,7 @@ int __sched down_write_killable_nested(struct rw_semaphore *sem, int subclass)
+ 
+ void up_read_non_owner(struct rw_semaphore *sem)
+ {
+-	DEBUG_RWSEMS_WARN_ON(!((unsigned long)sem->owner & RWSEM_READER_OWNED),
+-				sem);
++	DEBUG_RWSEMS_WARN_ON(!is_rwsem_reader_owned(sem), sem);
+ 	__up_read(sem);
+ }
+ 
 -- 
-2.17.1
+1.8.3.1
