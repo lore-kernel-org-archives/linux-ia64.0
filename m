@@ -1,51 +1,75 @@
-From: Michal Hocko <mhocko@kernel.org>
-Date: Wed, 13 Feb 2019 09:40:34 +0000
-Subject: [PATCH v2 2/2] mm: be more verbose about zonelist initialization
-Message-Id: <20190213094034.1341-1-mhocko@kernel.org>
+From: Waiman Long <longman@redhat.com>
+Date: Thu, 07 Feb 2019 19:07:26 +0000
+Subject: [PATCH-tip 22/22] locking/rwsem: Ensure an RT task will not spin on reader
+Message-Id: <1549566446-27967-23-git-send-email-longman@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190212095343.23315-3-mhocko@kernel.org>
-In-Reply-To: <20190212095343.23315-3-mhocko@kernel.org>
+References: <1549566446-27967-1-git-send-email-longman@redhat.com>
+In-Reply-To: <1549566446-27967-1-git-send-email-longman@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org
-Cc: Pingfan Liu <kernelfans@gmail.com>, Dave Hansen <dave.hansen@intel.com>, Peter Zijlstra <peterz@infradead.org>, x86@kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>, Ingo Molnar <mingo@elte.hu>, Michal Hocko <mhocko@suse.com>
+To: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>, Will Deacon <will.deacon@arm.com>, Thomas Gleixner <tglx@linutronix.de>
+Cc: linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Borislav Petkov <bp@alien8.de>, "H. Peter Anvin" <hpa@zytor.com>, Davidlohr Bueso <dave@stgolabs.net>, Linus Torvalds <torvalds@linux-foundation.org>, Andrew Morton <akpm@linux-foundation.org>, Tim Chen <tim.c.chen@linux.intel.com>, Waiman Long <longman@redhat.com>
 
-From: Michal Hocko <mhocko@suse.com>
+An RT task can do optimistic spinning only if the lock holder is
+actually running. If the state of the lock holder isn't known, there
+is a possibility that high priority of the RT task may block forward
+progress of the lock holder if they happen to reside on the same CPU.
+This will lead to deadlock. So we have to make sure that an RT task
+will not spin on a reader-owned rwsem.
 
-We have seen several bugs where zonelists have not been initialized
-properly and it is not really straightforward to track those bugs down.
-One way to help a bit at least is to dump zonelists of each node when
-they are (re)initialized.
-
-Signed-off-by: Michal Hocko <mhocko@suse.com>
+Signed-off-by: Waiman Long <longman@redhat.com>
 ---
- mm/page_alloc.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ kernel/locking/rwsem-xadd.c | 16 ++++++++++------
+ 1 file changed, 10 insertions(+), 6 deletions(-)
 
-diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-index 2e097f336126..02c843f0db4f 100644
---- a/mm/page_alloc.c
-+++ b/mm/page_alloc.c
-@@ -5234,6 +5234,7 @@ static void build_zonelists(pg_data_t *pgdat)
- 	int node, load, nr_nodes = 0;
- 	nodemask_t used_mask;
- 	int local_node, prev_node;
-+	struct zone *zone;
+diff --git a/kernel/locking/rwsem-xadd.c b/kernel/locking/rwsem-xadd.c
+index 3cf2e84..ac1f6c4 100644
+--- a/kernel/locking/rwsem-xadd.c
++++ b/kernel/locking/rwsem-xadd.c
+@@ -349,12 +349,14 @@ static inline bool rwsem_can_spin_on_owner(struct rw_semaphore *sem)
  
- 	/* NUMA-aware ordering of nodes */
- 	local_node = pgdat->node_id;
-@@ -5259,6 +5260,11 @@ static void build_zonelists(pg_data_t *pgdat)
- 
- 	build_zonelists_in_node_order(pgdat, node_order, nr_nodes);
- 	build_thisnode_zonelists(pgdat);
-+
-+	pr_info("node[%d] zonelist: ", pgdat->node_id);
-+	for_each_zone_zonelist(zone, z, &pgdat->node_zonelists[ZONELIST_FALLBACK], MAX_NR_ZONES-1)
-+		pr_cont("%d:%s ", zone_to_nid(zone), zone->name);
-+	pr_cont("\n");
+ /*
+  * Return the folowing three values depending on the lock owner state.
++ *   2	when owner is currently NULL
+  *   1	when owner changes and no reader is detected yet.
+  *   0	when owner changes and the new owner may be a reader.
+  *  -1	when optimistic spinning has to stop because either the owner stops
+  *	running, is unknown, or its timeslice has been used up.
+  */
+ enum owner_state {
++	OWNER_NULL = 2,
+ 	OWNER_SPINNABLE = 1,
+ 	OWNER_READER = 0,
+ 	OWNER_NONSPINNABLE = -1,
+@@ -405,7 +407,8 @@ static noinline enum owner_state rwsem_spin_on_owner(struct rw_semaphore *sem)
+ 	owner = rwsem_get_owner(sem);
+ 	if (!is_rwsem_owner_spinnable(owner))
+ 		return OWNER_NONSPINNABLE;
+-	return is_rwsem_owner_reader(owner) ? OWNER_READER : OWNER_SPINNABLE;
++	return !owner ? OWNER_NULL :
++	       is_rwsem_owner_reader(owner) ? OWNER_READER : OWNER_SPINNABLE;
  }
  
- #ifdef CONFIG_HAVE_MEMORYLESS_NODES
+ static bool rwsem_optimistic_spin(struct rw_semaphore *sem, const long wlock)
+@@ -442,12 +445,13 @@ static bool rwsem_optimistic_spin(struct rw_semaphore *sem, const long wlock)
+ 			break;
+ 
+ 		/*
+-		 * When there's no owner, we might have preempted between the
+-		 * owner acquiring the lock and setting the owner field. If
+-		 * we're an RT task that will live-lock because we won't let
+-		 * the owner complete.
++		 * An RT task cannot do optimistic spinning if it cannot
++		 * be sure the lock holder is running. When there's no owner
++		 * or is reader-owned, an RT task has to stop spinning or
++		 * live-lock may happen if the current task and the lock
++		 * holder happen to run in the same CPU.
+ 		 */
+-		if (!rwsem_get_owner(sem) &&
++		if ((owner_state != OWNER_SPINNABLE) &&
+ 		   (need_resched() || rt_task(current)))
+ 			break;
+ 
 -- 
-2.20.1
+1.8.3.1
