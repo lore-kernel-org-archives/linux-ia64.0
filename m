@@ -1,40 +1,75 @@
 From: Waiman Long <longman@redhat.com>
-Date: Mon, 11 Feb 2019 13:32:57 +0000
+Date: Mon, 11 Feb 2019 16:35:24 +0000
 Subject: Re: [PATCH] locking/rwsem: Remove arch specific rwsem files
-Message-Id: <9b03594e-d7b0-e042-374e-9f045dcb692c@redhat.com>
+Message-Id: <e470384d-fb7b-132d-253b-23c495e7c285@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1549850450-10171-1-git-send-email-longman@redhat.com>
- <a610aeb2-b1cb-0d57-8078-97d1051481f9@redhat.com>
- <20190211071159.GA55579@gmail.com> <20190211103927.GA118071@gmail.com>
-In-Reply-To: <20190211103927.GA118071@gmail.com>
+ <20190211115833.GY32511@hirez.programming.kicks-ass.net>
+In-Reply-To: <20190211115833.GY32511@hirez.programming.kicks-ass.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ingo Molnar <mingo@kernel.org>
-Cc: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>, Will Deacon <will.deacon@arm.com>, Thomas Gleixner <tglx@linutronix.de>, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Borislav Petkov <bp@alien8.de>, "H. Peter Anvin" <hpa@zytor.com>, Davidlohr Bueso <dave@stgolabs.net>, Linus Torvalds <torvalds@linux-foundation.org>, Andrew Morton <akpm@linux-foundation.org>, Tim Chen <tim.c.chen@linux.intel.com>
+To: Peter Zijlstra <peterz@infradead.org>
+Cc: Ingo Molnar <mingo@redhat.com>, Will Deacon <will.deacon@arm.com>, Thomas Gleixner <tglx@linutronix.de>, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Borislav Petkov <bp@alien8.de>, "H. Peter Anvin" <hpa@zytor.com>, Davidlohr Bueso <dave@stgolabs.net>, Linus Torvalds <torvalds@linux-foundation.org>, Andrew Morton <akpm@linux-foundation.org>, Tim Chen <tim.c.chen@linux.intel.com>
 
-On 02/11/2019 05:39 AM, Ingo Molnar wrote:
-> * Ingo Molnar <mingo@kernel.org> wrote:
+On 02/11/2019 06:58 AM, Peter Zijlstra wrote:
+> Which is clearly worse. Now we can write that as:
 >
->> Sounds good to me - I've merged this patch, will push it out after 
->> testing.
-> Based on Peter's feedback I'm delaying this - performance testing on at 
-> least one key ll/sc arch would be nice indeed.
+>   int __down_read_trylock2(unsigned long *l)
+>   {
+> 	  long tmp = READ_ONCE(*l);
 >
-> Thanks,
+> 	  while (tmp >= 0) {
+> 		  if (try_cmpxchg(l, &tmp, tmp + 1))
+> 			  return 1;
+> 	  }
 >
-> 	Ingo
+> 	  return 0;
+>   }
+>
+> which generates:
+>
+>   0000000000000030 <__down_read_trylock2>:
+>   30:   48 8b 07                mov    (%rdi),%rax
+>   33:   48 85 c0                test   %rax,%rax
+>   36:   78 18                   js     50 <__down_read_trylock2+0x20>
+>   38:   48 8d 50 01             lea    0x1(%rax),%rdx
+>   3c:   f0 48 0f b1 17          lock cmpxchg %rdx,(%rdi)
+>   41:   75 f0                   jne    33 <__down_read_trylock2+0x3>
+>   43:   b8 01 00 00 00          mov    $0x1,%eax
+>   48:   c3                      retq
+>   49:   0f 1f 80 00 00 00 00    nopl   0x0(%rax)
+>   50:   31 c0                   xor    %eax,%eax
+>   52:   c3                      retq
+>
+> Which is a lot better; but not quite there yet.
+>
+>
+> I've tried quite a bit, but I can't seem to get GCC to generate the:
+>
+> 	add $1,%rdx
+> 	jle
+>
+> required; stuff like:
+>
+> 	new = old + 1;
+> 	if (new <= 0)
+>
+> generates:
+>
+> 	lea 0x1(%rax),%rdx
+> 	test %rdx, %rdx
+> 	jle
 
-Yes, I will twist the generic code to generate better code.
+Thanks for the suggested code snippet. So you want to replace "lea
+0x1(%rax), %rdx" by "add $1,%rdx"?
 
-As I said in the commit log, only x86, ia64 and alpha provide assembly
-code to replace the generic C code. The ll/sc archs that I have access
-to (ARM64, ppc) are all using the generic C code anyway. I actually had
-done some performance measurement on both those platforms and didn't see
-any performance difference. I didn't include them as they were using
-generic code before. I will rerun the tests after I twisted the generic
-C code.
+I think the compiler is doing that so as to use the address generation
+unit for addition instead of using the ALU. That will leave the ALU
+available for doing other arithmetic operation in parallel. I don't
+think it is a good idea to override the compiler and force it to use
+ALU. So I am not going to try doing that. It is only 1 or 2 more of
+codes anyway.
 
-Thanks,
+Cheers,
 Longman
-
