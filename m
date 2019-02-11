@@ -1,43 +1,41 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Sat, 09 Feb 2019 00:03:43 +0000
+From: Ingo Molnar <mingo@kernel.org>
+Date: Mon, 11 Feb 2019 07:38:28 +0000
 Subject: Re: [PATCH-tip 00/22] locking/rwsem: Rework rwsem-xadd & enable new rwsem features
-Message-Id: <CAHk-=whzAGRJQE43NHaC8sCECLr-QnpHYst+TJq-qhfp9eK-Qw@mail.gmail.com>
+Message-Id: <20190211073828.GB106308@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1549566446-27967-1-git-send-email-longman@redhat.com>
- <CAHk-=wjfyrFBjifzmgMVrkrvEePEPaBTDq7D=f2i5kD2E=SqRQ@mail.gmail.com>
- <d7476dfb-1653-747b-b865-5597ba5fc1c1@redhat.com>
-In-Reply-To: <d7476dfb-1653-747b-b865-5597ba5fc1c1@redhat.com>
+ <20190207195119.lglz4lb7cnf4ndn2@linux-r8p5>
+ <45b7bbb8-c953-9951-ae6f-e2c3202e5cf2@redhat.com>
+In-Reply-To: <45b7bbb8-c953-9951-ae6f-e2c3202e5cf2@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Waiman Long <longman@redhat.com>
-Cc: linux-arch <linux-arch@vger.kernel.org>, linux-xtensa@linux-xtensa.org, Davidlohr Bueso <dave@stgolabs.net>, linux-ia64@vger.kernel.org, Tim Chen <tim.c.chen@linux.intel.com>, Arnd Bergmann <arnd@arndb.de>, Linux-sh list <linux-sh@vger.kernel.org>, Peter Zijlstra <peterz@infradead.org>, linux-hexagon@vger.kernel.org, the arch/x86 maintainers <x86@kernel.org>, Will Deacon <will.deacon@arm.com>, Linux List Kernel Mailing <linux-kernel@vger.kernel.org>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, "H. Peter Anvin" <hpa@zytor.com>, linux-alpha@vger.kernel.org, sparclinux@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, linuxppc-dev@lists.ozlabs.org, Andrew Morton <akpm@linux-foundation.org>, linux-arm-kernel@lists.infradead.org
+Cc: Davidlohr Bueso <dave@stgolabs.net>, Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>, Will Deacon <will.deacon@arm.com>, Thomas Gleixner <tglx@linutronix.de>, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Borislav Petkov <bp@alien8.de>, "H. Peter Anvin" <hpa@zytor.com>, Linus Torvalds <torvalds@linux-foundation.org>, Andrew Morton <akpm@linux-foundation.org>, Tim Chen <tim.c.chen@linux.intel.com>
 
-On Fri, Feb 8, 2019 at 12:31 PM Waiman Long <longman@redhat.com> wrote:
->
-> >  (b) what's the new fastpath case
->
-> The only change in the fastpath is the use of cmpxchg for writer lock.
 
-.. since a big deal here was about using the generic atomic accessor
-functions, I really was looking forward to seeing the *actual* fast
-path code generation.
+* Waiman Long <longman@redhat.com> wrote:
 
-In other words, right now I have very little visibility in how it
-actually affects the code. Looking at the patches themselves doesn't
-make it obvious. I was hoping for the overview to really explain the
-whole "before and after" situation, and it didn't. Not at the high
-level, and not at a low level. And no performance numbers in the
-overview either.
+> On 02/07/2019 02:51 PM, Davidlohr Bueso wrote:
+> > On Thu, 07 Feb 2019, Waiman Long wrote:
+> >> 30 files changed, 1197 insertions(+), 1594 deletions(-)
+> >
+> > Performance numbers on numerous workloads, pretty please.
+> >
+> > I'll go and throw this at my mmap_sem intensive workloads
+> > I've collected.
+> >
+> > Thanks,
+> > Davidlohr
+> 
+> Thanks for getting some of the performance numbers. This is the initial
+> draft after more than 1 years of hibernation. I will also get other
+> performance numbers in subsequent revision of the patch.
 
-And yes, I see the numbers in the patches, but what I really hoped for
-was some real load numbers. In particular, I would have loved to see
-numbers from th ekernel test robot "will-it-scale.per_thread_ops"
-case, which is the one that had a 65% regression due to the lack of
-reader spinning.
+If you could sort all the invariant preparatory patches to the head of 
+the series I can merge them to reduce overall complexity and simplify 
+performance testing and review of the rest.
 
-So I was kind of hoping to hear whether that regression is basically
-entirely gone with this patch series, or if we still have a regression
-due to the extra downgrade, or what?
+Thanks,
 
-                 Linus
+	Ingo
