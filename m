@@ -1,484 +1,1326 @@
-From: Deepa Dinamani <deepa.kernel@gmail.com>
-Date: Sat, 02 Feb 2019 15:34:45 +0000
-Subject: [PATCH net-next v5 03/12] arch: Use asm-generic/socket.h when possible
-Message-Id: <20190202153454.7121-4-deepa.kernel@gmail.com>
+From: Waiman Long <longman@redhat.com>
+Date: Wed, 13 Feb 2019 20:32:11 +0000
+Subject: [PATCH v3 1/2] locking/rwsem: Remove arch specific rwsem files
+Message-Id: <1550089932-6888-2-git-send-email-longman@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190202153454.7121-1-deepa.kernel@gmail.com>
-In-Reply-To: <20190202153454.7121-1-deepa.kernel@gmail.com>
+References: <1550089932-6888-1-git-send-email-longman@redhat.com>
+In-Reply-To: <1550089932-6888-1-git-send-email-longman@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: davem@davemloft.net, linux-kernel@vger.kernel.org
-Cc: netdev@vger.kernel.org, arnd@arndb.de, y2038@lists.linaro.org, chris@zankel.net, fenghua.yu@intel.com, tglx@linutronix.de, schwidefsky@de.ibm.com, linux-ia64@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-s390@vger.kernel.org
+To: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>, Will Deacon <will.deacon@arm.com>, Thomas Gleixner <tglx@linutronix.de>
+Cc: linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Borislav Petkov <bp@alien8.de>, "H. Peter Anvin" <hpa@zytor.com>, Davidlohr Bueso <dave@stgolabs.net>, Linus Torvalds <torvalds@linux-foundation.org>, Andrew Morton <akpm@linux-foundation.org>, Tim Chen <tim.c.chen@linux.intel.com>, Waiman Long <longman@redhat.com>
 
-Many architectures maintain an arch specific copy of the
-file even though there are no differences with the asm-generic
-one. Allow these architectures to use the generic one instead.
+As the generic rwsem-xadd code is using the appropriate acquire and
+release versions of the atomic operations, the arch specific rwsem.h
+files will not be that much faster than the generic code as long as the
+atomic functions are properly implemented. So we can remove those arch
+specific rwsem.h and stop building asm/rwsem.h to reduce maintenance
+effort.
 
-Signed-off-by: Deepa Dinamani <deepa.kernel@gmail.com>
-Acked-by: Max Filippov <jcmvbkbc@gmail.com>
-Acked-by: Heiko Carstens <heiko.carstens@de.ibm.com>
-Acked-by: Willem de Bruijn <willemb@google.com>
-Cc: chris@zankel.net
-Cc: fenghua.yu@intel.com
-Cc: tglx@linutronix.de
-Cc: schwidefsky@de.ibm.com
-Cc: linux-ia64@vger.kernel.org
-Cc: linux-xtensa@linux-xtensa.org
-Cc: linux-s390@vger.kernel.org
+Currently, only x86, alpha and ia64 have implemented architecture
+specific fast paths. I don't have access to alpha and ia64 systems for
+testing, but they are legacy systems that are not likely to be updated
+to the latest kernel anyway.
+
+By using a rwsem microbenchmark, the total locking rates on a 4-socket
+56-core 112-thread x86-64 system before and after the patch were as
+follows (mixed means equal # of read and write locks):
+
+                      Before Patch              After Patch
+   # of Threads  wlock   rlock   mixed     wlock   rlock   mixed
+   ------------  -----   -----   -----     -----   -----   -----
+        1        29,201  30,143  29,458    28,615  30,172  29,201
+        2         6,807  13,299   1,171     7,725  15,025   1,804
+        4         6,504  12,755   1,520     7,127  14,286   1,345
+        8         6,762  13,412     764     6,826  13,652     726
+       16         6,693  15,408     662     6,599  15,938     626
+       32         6,145  15,286     496     5,549  15,487     511
+       64         5,812  15,495      60     5,858  15,572      60
+
+There were some run-to-run variations for the multi-thread tests. For
+x86-64, using the generic C code fast path seems to be a little bit
+faster than the assembly version with low lock contention.  Looking at
+the assembly version of the fast paths, there are assembly to/from C
+code wrappers that save and restore all the callee-clobbered registers
+(7 registers on x86-64). The assembly generated from the generic C
+code doesn't need to do that. That may explain the slight performance
+gain here.
+
+The generic asm rwsem.h can also be merged into kernel/locking/rwsem.h
+with no code change as no other code other than those under
+kernel/locking needs to access the internal rwsem macros and functions.
+
+Signed-off-by: Waiman Long <longman@redhat.com>
 ---
- arch/ia64/include/uapi/asm/Kbuild     |   1 +
- arch/ia64/include/uapi/asm/socket.h   | 122 -------------------------
- arch/s390/include/uapi/asm/Kbuild     |   1 +
- arch/s390/include/uapi/asm/socket.h   | 119 ------------------------
- arch/x86/include/uapi/asm/Kbuild      |   1 +
- arch/x86/include/uapi/asm/socket.h    |   1 -
- arch/xtensa/include/asm/Kbuild        |   1 +
- arch/xtensa/include/uapi/asm/Kbuild   |   1 +
- arch/xtensa/include/uapi/asm/socket.h | 124 --------------------------
- 9 files changed, 5 insertions(+), 366 deletions(-)
- delete mode 100644 arch/ia64/include/uapi/asm/socket.h
- delete mode 100644 arch/s390/include/uapi/asm/socket.h
- delete mode 100644 arch/x86/include/uapi/asm/socket.h
- delete mode 100644 arch/xtensa/include/uapi/asm/socket.h
+ MAINTAINERS                     |   1 -
+ arch/alpha/include/asm/rwsem.h  | 211 -----------------------------------
+ arch/arm/include/asm/Kbuild     |   1 -
+ arch/arm64/include/asm/Kbuild   |   1 -
+ arch/hexagon/include/asm/Kbuild |   1 -
+ arch/ia64/include/asm/rwsem.h   | 172 -----------------------------
+ arch/powerpc/include/asm/Kbuild |   1 -
+ arch/s390/include/asm/Kbuild    |   1 -
+ arch/sh/include/asm/Kbuild      |   1 -
+ arch/sparc/include/asm/Kbuild   |   1 -
+ arch/x86/include/asm/rwsem.h    | 237 ----------------------------------------
+ arch/x86/lib/Makefile           |   1 -
+ arch/x86/lib/rwsem.S            | 156 --------------------------
+ arch/xtensa/include/asm/Kbuild  |   1 -
+ include/asm-generic/rwsem.h     | 140 ------------------------
+ include/linux/rwsem.h           |   4 +-
+ kernel/locking/percpu-rwsem.c   |   2 +
+ kernel/locking/rwsem.h          | 130 ++++++++++++++++++++++
+ 18 files changed, 133 insertions(+), 929 deletions(-)
+ delete mode 100644 arch/alpha/include/asm/rwsem.h
+ delete mode 100644 arch/ia64/include/asm/rwsem.h
+ delete mode 100644 arch/x86/include/asm/rwsem.h
+ delete mode 100644 arch/x86/lib/rwsem.S
+ delete mode 100644 include/asm-generic/rwsem.h
 
-diff --git a/arch/ia64/include/uapi/asm/Kbuild b/arch/ia64/include/uapi/asm/Kbuild
-index 5b819e53c397..b71c5f787783 100644
---- a/arch/ia64/include/uapi/asm/Kbuild
-+++ b/arch/ia64/include/uapi/asm/Kbuild
-@@ -2,3 +2,4 @@ include include/uapi/asm-generic/Kbuild.asm
- 
- generated-y += unistd_64.h
- generic-y += kvm_para.h
-+generic-y += socket.h
-diff --git a/arch/ia64/include/uapi/asm/socket.h b/arch/ia64/include/uapi/asm/socket.h
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 9919840..053f536 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -8926,7 +8926,6 @@ F:	arch/*/include/asm/spinlock*.h
+ F:	include/linux/rwlock*.h
+ F:	include/linux/mutex*.h
+ F:	include/linux/rwsem*.h
+-F:	arch/*/include/asm/rwsem.h
+ F:	include/linux/seqlock.h
+ F:	lib/locking*.[ch]
+ F:	kernel/locking/
+diff --git a/arch/alpha/include/asm/rwsem.h b/arch/alpha/include/asm/rwsem.h
 deleted file mode 100644
-index ba0d245f9576..000000000000
---- a/arch/ia64/include/uapi/asm/socket.h
+index cf8fc8f9..0000000
+--- a/arch/alpha/include/asm/rwsem.h
 +++ /dev/null
-@@ -1,122 +0,0 @@
--/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
--#ifndef _ASM_IA64_SOCKET_H
--#define _ASM_IA64_SOCKET_H
+@@ -1,211 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0 */
+-#ifndef _ALPHA_RWSEM_H
+-#define _ALPHA_RWSEM_H
 -
 -/*
-- * Socket related defines.
-- *
-- * Based on <asm-i386/socket.h>.
-- *
-- * Modified 1998-2000
-- *	David Mosberger-Tang <davidm@hpl.hp.com>, Hewlett-Packard Co
+- * Written by Ivan Kokshaysky <ink@jurassic.park.msu.ru>, 2001.
+- * Based on asm-alpha/semaphore.h and asm-i386/rwsem.h
 - */
 -
--#include <asm/sockios.h>
+-#ifndef _LINUX_RWSEM_H
+-#error "please don't include asm/rwsem.h directly, use linux/rwsem.h instead"
+-#endif
 -
--/* For setsockopt(2) */
--#define SOL_SOCKET	1
+-#ifdef __KERNEL__
 -
--#define SO_DEBUG	1
--#define SO_REUSEADDR	2
--#define SO_TYPE		3
--#define SO_ERROR	4
--#define SO_DONTROUTE	5
--#define SO_BROADCAST	6
--#define SO_SNDBUF	7
--#define SO_RCVBUF	8
--#define SO_SNDBUFFORCE	32
--#define SO_RCVBUFFORCE	33
--#define SO_KEEPALIVE	9
--#define SO_OOBINLINE	10
--#define SO_NO_CHECK	11
--#define SO_PRIORITY	12
--#define SO_LINGER	13
--#define SO_BSDCOMPAT	14
--#define SO_REUSEPORT	15
--#define SO_PASSCRED	16
--#define SO_PEERCRED	17
--#define SO_RCVLOWAT	18
--#define SO_SNDLOWAT	19
--#define SO_RCVTIMEO	20
--#define SO_SNDTIMEO	21
+-#include <linux/compiler.h>
 -
--/* Security levels - as per NRL IPv6 - don't actually do anything */
--#define SO_SECURITY_AUTHENTICATION		22
--#define SO_SECURITY_ENCRYPTION_TRANSPORT	23
--#define SO_SECURITY_ENCRYPTION_NETWORK		24
+-#define RWSEM_UNLOCKED_VALUE		0x0000000000000000L
+-#define RWSEM_ACTIVE_BIAS		0x0000000000000001L
+-#define RWSEM_ACTIVE_MASK		0x00000000ffffffffL
+-#define RWSEM_WAITING_BIAS		(-0x0000000100000000L)
+-#define RWSEM_ACTIVE_READ_BIAS		RWSEM_ACTIVE_BIAS
+-#define RWSEM_ACTIVE_WRITE_BIAS		(RWSEM_WAITING_BIAS + RWSEM_ACTIVE_BIAS)
 -
--#define SO_BINDTODEVICE		25
+-static inline int ___down_read(struct rw_semaphore *sem)
+-{
+-	long oldcount;
+-#ifndef	CONFIG_SMP
+-	oldcount = sem->count.counter;
+-	sem->count.counter += RWSEM_ACTIVE_READ_BIAS;
+-#else
+-	long temp;
+-	__asm__ __volatile__(
+-	"1:	ldq_l	%0,%1\n"
+-	"	addq	%0,%3,%2\n"
+-	"	stq_c	%2,%1\n"
+-	"	beq	%2,2f\n"
+-	"	mb\n"
+-	".subsection 2\n"
+-	"2:	br	1b\n"
+-	".previous"
+-	:"=&r" (oldcount), "=m" (sem->count), "=&r" (temp)
+-	:"Ir" (RWSEM_ACTIVE_READ_BIAS), "m" (sem->count) : "memory");
+-#endif
+-	return (oldcount < 0);
+-}
 -
--/* Socket filtering */
--#define SO_ATTACH_FILTER	26
--#define SO_DETACH_FILTER	27
--#define SO_GET_FILTER		SO_ATTACH_FILTER
+-static inline void __down_read(struct rw_semaphore *sem)
+-{
+-	if (unlikely(___down_read(sem)))
+-		rwsem_down_read_failed(sem);
+-}
 -
--#define SO_PEERNAME		28
--#define SO_TIMESTAMP		29
--#define SCM_TIMESTAMP		SO_TIMESTAMP
+-static inline int __down_read_killable(struct rw_semaphore *sem)
+-{
+-	if (unlikely(___down_read(sem)))
+-		if (IS_ERR(rwsem_down_read_failed_killable(sem)))
+-			return -EINTR;
 -
--#define SO_ACCEPTCONN		30
+-	return 0;
+-}
 -
--#define SO_PEERSEC             31
--#define SO_PASSSEC		34
--#define SO_TIMESTAMPNS		35
--#define SCM_TIMESTAMPNS		SO_TIMESTAMPNS
--
--#define SO_MARK			36
--
--#define SO_TIMESTAMPING		37
--#define SCM_TIMESTAMPING	SO_TIMESTAMPING
--
--#define SO_PROTOCOL		38
--#define SO_DOMAIN		39
--
--#define SO_RXQ_OVFL             40
--
--#define SO_WIFI_STATUS		41
--#define SCM_WIFI_STATUS		SO_WIFI_STATUS
--#define SO_PEEK_OFF		42
--
--/* Instruct lower device to use last 4-bytes of skb data as FCS */
--#define SO_NOFCS		43
--
--#define SO_LOCK_FILTER		44
--
--#define SO_SELECT_ERR_QUEUE	45
--
--#define SO_BUSY_POLL		46
--
--#define SO_MAX_PACING_RATE	47
--
--#define SO_BPF_EXTENSIONS	48
--
--#define SO_INCOMING_CPU		49
--
--#define SO_ATTACH_BPF		50
--#define SO_DETACH_BPF		SO_DETACH_FILTER
--
--#define SO_ATTACH_REUSEPORT_CBPF	51
--#define SO_ATTACH_REUSEPORT_EBPF	52
--
--#define SO_CNX_ADVICE		53
--
--#define SCM_TIMESTAMPING_OPT_STATS	54
--
--#define SO_MEMINFO		55
--
--#define SO_INCOMING_NAPI_ID	56
--
--#define SO_COOKIE		57
--
--#define SCM_TIMESTAMPING_PKTINFO	58
--
--#define SO_PEERGROUPS		59
--
--#define SO_ZEROCOPY		60
--
--#define SO_TXTIME		61
--#define SCM_TXTIME		SO_TXTIME
--
--#define SO_BINDTOIFINDEX	62
--
--#endif /* _ASM_IA64_SOCKET_H */
-diff --git a/arch/s390/include/uapi/asm/Kbuild b/arch/s390/include/uapi/asm/Kbuild
-index da3e0d48abbc..6b0f30b14642 100644
---- a/arch/s390/include/uapi/asm/Kbuild
-+++ b/arch/s390/include/uapi/asm/Kbuild
-@@ -3,3 +3,4 @@ include include/uapi/asm-generic/Kbuild.asm
- 
- generated-y += unistd_32.h
- generated-y += unistd_64.h
-+generic-y += socket.h
-diff --git a/arch/s390/include/uapi/asm/socket.h b/arch/s390/include/uapi/asm/socket.h
-deleted file mode 100644
-index 49c971587087..000000000000
---- a/arch/s390/include/uapi/asm/socket.h
-+++ /dev/null
-@@ -1,119 +0,0 @@
--/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 -/*
-- *  S390 version
+- * trylock for reading -- returns 1 if successful, 0 if contention
+- */
+-static inline int __down_read_trylock(struct rw_semaphore *sem)
+-{
+-	long old, new, res;
+-
+-	res = atomic_long_read(&sem->count);
+-	do {
+-		new = res + RWSEM_ACTIVE_READ_BIAS;
+-		if (new <= 0)
+-			break;
+-		old = res;
+-		res = atomic_long_cmpxchg(&sem->count, old, new);
+-	} while (res != old);
+-	return res >= 0 ? 1 : 0;
+-}
+-
+-static inline long ___down_write(struct rw_semaphore *sem)
+-{
+-	long oldcount;
+-#ifndef	CONFIG_SMP
+-	oldcount = sem->count.counter;
+-	sem->count.counter += RWSEM_ACTIVE_WRITE_BIAS;
+-#else
+-	long temp;
+-	__asm__ __volatile__(
+-	"1:	ldq_l	%0,%1\n"
+-	"	addq	%0,%3,%2\n"
+-	"	stq_c	%2,%1\n"
+-	"	beq	%2,2f\n"
+-	"	mb\n"
+-	".subsection 2\n"
+-	"2:	br	1b\n"
+-	".previous"
+-	:"=&r" (oldcount), "=m" (sem->count), "=&r" (temp)
+-	:"Ir" (RWSEM_ACTIVE_WRITE_BIAS), "m" (sem->count) : "memory");
+-#endif
+-	return oldcount;
+-}
+-
+-static inline void __down_write(struct rw_semaphore *sem)
+-{
+-	if (unlikely(___down_write(sem)))
+-		rwsem_down_write_failed(sem);
+-}
+-
+-static inline int __down_write_killable(struct rw_semaphore *sem)
+-{
+-	if (unlikely(___down_write(sem))) {
+-		if (IS_ERR(rwsem_down_write_failed_killable(sem)))
+-			return -EINTR;
+-	}
+-
+-	return 0;
+-}
+-
+-/*
+- * trylock for writing -- returns 1 if successful, 0 if contention
+- */
+-static inline int __down_write_trylock(struct rw_semaphore *sem)
+-{
+-	long ret = atomic_long_cmpxchg(&sem->count, RWSEM_UNLOCKED_VALUE,
+-			   RWSEM_ACTIVE_WRITE_BIAS);
+-	if (ret = RWSEM_UNLOCKED_VALUE)
+-		return 1;
+-	return 0;
+-}
+-
+-static inline void __up_read(struct rw_semaphore *sem)
+-{
+-	long oldcount;
+-#ifndef	CONFIG_SMP
+-	oldcount = sem->count.counter;
+-	sem->count.counter -= RWSEM_ACTIVE_READ_BIAS;
+-#else
+-	long temp;
+-	__asm__ __volatile__(
+-	"	mb\n"
+-	"1:	ldq_l	%0,%1\n"
+-	"	subq	%0,%3,%2\n"
+-	"	stq_c	%2,%1\n"
+-	"	beq	%2,2f\n"
+-	".subsection 2\n"
+-	"2:	br	1b\n"
+-	".previous"
+-	:"=&r" (oldcount), "=m" (sem->count), "=&r" (temp)
+-	:"Ir" (RWSEM_ACTIVE_READ_BIAS), "m" (sem->count) : "memory");
+-#endif
+-	if (unlikely(oldcount < 0))
+-		if ((int)oldcount - RWSEM_ACTIVE_READ_BIAS = 0)
+-			rwsem_wake(sem);
+-}
+-
+-static inline void __up_write(struct rw_semaphore *sem)
+-{
+-	long count;
+-#ifndef	CONFIG_SMP
+-	sem->count.counter -= RWSEM_ACTIVE_WRITE_BIAS;
+-	count = sem->count.counter;
+-#else
+-	long temp;
+-	__asm__ __volatile__(
+-	"	mb\n"
+-	"1:	ldq_l	%0,%1\n"
+-	"	subq	%0,%3,%2\n"
+-	"	stq_c	%2,%1\n"
+-	"	beq	%2,2f\n"
+-	"	subq	%0,%3,%0\n"
+-	".subsection 2\n"
+-	"2:	br	1b\n"
+-	".previous"
+-	:"=&r" (count), "=m" (sem->count), "=&r" (temp)
+-	:"Ir" (RWSEM_ACTIVE_WRITE_BIAS), "m" (sem->count) : "memory");
+-#endif
+-	if (unlikely(count))
+-		if ((int)count = 0)
+-			rwsem_wake(sem);
+-}
+-
+-/*
+- * downgrade write lock to read lock
+- */
+-static inline void __downgrade_write(struct rw_semaphore *sem)
+-{
+-	long oldcount;
+-#ifndef	CONFIG_SMP
+-	oldcount = sem->count.counter;
+-	sem->count.counter -= RWSEM_WAITING_BIAS;
+-#else
+-	long temp;
+-	__asm__ __volatile__(
+-	"1:	ldq_l	%0,%1\n"
+-	"	addq	%0,%3,%2\n"
+-	"	stq_c	%2,%1\n"
+-	"	beq	%2,2f\n"
+-	"	mb\n"
+-	".subsection 2\n"
+-	"2:	br	1b\n"
+-	".previous"
+-	:"=&r" (oldcount), "=m" (sem->count), "=&r" (temp)
+-	:"Ir" (-RWSEM_WAITING_BIAS), "m" (sem->count) : "memory");
+-#endif
+-	if (unlikely(oldcount < 0))
+-		rwsem_downgrade_wake(sem);
+-}
+-
+-#endif /* __KERNEL__ */
+-#endif /* _ALPHA_RWSEM_H */
+diff --git a/arch/arm/include/asm/Kbuild b/arch/arm/include/asm/Kbuild
+index 1d66db9..989e1a7 100644
+--- a/arch/arm/include/asm/Kbuild
++++ b/arch/arm/include/asm/Kbuild
+@@ -12,7 +12,6 @@ generic-y += mm-arch-hooks.h
+ generic-y += msi.h
+ generic-y += parport.h
+ generic-y += preempt.h
+-generic-y += rwsem.h
+ generic-y += seccomp.h
+ generic-y += segment.h
+ generic-y += serial.h
+diff --git a/arch/arm64/include/asm/Kbuild b/arch/arm64/include/asm/Kbuild
+index 1e17ea5..60a933b 100644
+--- a/arch/arm64/include/asm/Kbuild
++++ b/arch/arm64/include/asm/Kbuild
+@@ -16,7 +16,6 @@ generic-y += mm-arch-hooks.h
+ generic-y += msi.h
+ generic-y += qrwlock.h
+ generic-y += qspinlock.h
+-generic-y += rwsem.h
+ generic-y += segment.h
+ generic-y += serial.h
+ generic-y += set_memory.h
+diff --git a/arch/hexagon/include/asm/Kbuild b/arch/hexagon/include/asm/Kbuild
+index b25fd42..0a12feb 100644
+--- a/arch/hexagon/include/asm/Kbuild
++++ b/arch/hexagon/include/asm/Kbuild
+@@ -26,7 +26,6 @@ generic-y += mm-arch-hooks.h
+ generic-y += pci.h
+ generic-y += percpu.h
+ generic-y += preempt.h
+-generic-y += rwsem.h
+ generic-y += sections.h
+ generic-y += segment.h
+ generic-y += serial.h
+diff --git a/arch/ia64/include/asm/rwsem.h b/arch/ia64/include/asm/rwsem.h
+deleted file mode 100644
+index 9179106..0000000
+--- a/arch/ia64/include/asm/rwsem.h
++++ /dev/null
+@@ -1,172 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0 */
+-/*
+- * R/W semaphores for ia64
 - *
-- *  Derived from "include/asm-i386/socket.h"
+- * Copyright (C) 2003 Ken Chen <kenneth.w.chen@intel.com>
+- * Copyright (C) 2003 Asit Mallick <asit.k.mallick@intel.com>
+- * Copyright (C) 2005 Christoph Lameter <cl@linux.com>
+- *
+- * Based on asm-i386/rwsem.h and other architecture implementation.
+- *
+- * The MSW of the count is the negated number of active writers and
+- * waiting lockers, and the LSW is the total number of active locks.
+- *
+- * The lock count is initialized to 0 (no active and no waiting lockers).
+- *
+- * When a writer subtracts WRITE_BIAS, it'll get 0xffffffff00000001 for
+- * the case of an uncontended lock. Readers increment by 1 and see a positive
+- * value when uncontended, negative if there are writers (and maybe) readers
+- * waiting (in which case it goes to sleep).
 - */
 -
--#ifndef _ASM_SOCKET_H
--#define _ASM_SOCKET_H
+-#ifndef _ASM_IA64_RWSEM_H
+-#define _ASM_IA64_RWSEM_H
 -
--#include <asm/sockios.h>
+-#ifndef _LINUX_RWSEM_H
+-#error "Please don't include <asm/rwsem.h> directly, use <linux/rwsem.h> instead."
+-#endif
 -
--/* For setsockopt(2) */
--#define SOL_SOCKET	1
+-#include <asm/intrinsics.h>
 -
--#define SO_DEBUG	1
--#define SO_REUSEADDR	2
--#define SO_TYPE		3
--#define SO_ERROR	4
--#define SO_DONTROUTE	5
--#define SO_BROADCAST	6
--#define SO_SNDBUF	7
--#define SO_RCVBUF	8
--#define SO_SNDBUFFORCE	32
--#define SO_RCVBUFFORCE	33
--#define SO_KEEPALIVE	9
--#define SO_OOBINLINE	10
--#define SO_NO_CHECK	11
--#define SO_PRIORITY	12
--#define SO_LINGER	13
--#define SO_BSDCOMPAT	14
--#define SO_REUSEPORT	15
--#define SO_PASSCRED	16
--#define SO_PEERCRED	17
--#define SO_RCVLOWAT	18
--#define SO_SNDLOWAT	19
--#define SO_RCVTIMEO	20
--#define SO_SNDTIMEO	21
+-#define RWSEM_UNLOCKED_VALUE		__IA64_UL_CONST(0x0000000000000000)
+-#define RWSEM_ACTIVE_BIAS		(1L)
+-#define RWSEM_ACTIVE_MASK		(0xffffffffL)
+-#define RWSEM_WAITING_BIAS		(-0x100000000L)
+-#define RWSEM_ACTIVE_READ_BIAS		RWSEM_ACTIVE_BIAS
+-#define RWSEM_ACTIVE_WRITE_BIAS		(RWSEM_WAITING_BIAS + RWSEM_ACTIVE_BIAS)
 -
--/* Security levels - as per NRL IPv6 - don't actually do anything */
--#define SO_SECURITY_AUTHENTICATION		22
--#define SO_SECURITY_ENCRYPTION_TRANSPORT	23
--#define SO_SECURITY_ENCRYPTION_NETWORK		24
+-/*
+- * lock for reading
+- */
+-static inline int
+-___down_read (struct rw_semaphore *sem)
+-{
+-	long result = ia64_fetchadd8_acq((unsigned long *)&sem->count.counter, 1);
 -
--#define SO_BINDTODEVICE	25
+-	return (result < 0);
+-}
 -
--/* Socket filtering */
--#define SO_ATTACH_FILTER        26
--#define SO_DETACH_FILTER        27
--#define SO_GET_FILTER		SO_ATTACH_FILTER
+-static inline void
+-__down_read (struct rw_semaphore *sem)
+-{
+-	if (___down_read(sem))
+-		rwsem_down_read_failed(sem);
+-}
 -
--#define SO_PEERNAME		28
--#define SO_TIMESTAMP		29
--#define SCM_TIMESTAMP		SO_TIMESTAMP
+-static inline int
+-__down_read_killable (struct rw_semaphore *sem)
+-{
+-	if (___down_read(sem))
+-		if (IS_ERR(rwsem_down_read_failed_killable(sem)))
+-			return -EINTR;
 -
--#define SO_ACCEPTCONN		30
+-	return 0;
+-}
 -
--#define SO_PEERSEC		31
--#define SO_PASSSEC		34
--#define SO_TIMESTAMPNS		35
--#define SCM_TIMESTAMPNS		SO_TIMESTAMPNS
+-/*
+- * lock for writing
+- */
+-static inline long
+-___down_write (struct rw_semaphore *sem)
+-{
+-	long old, new;
 -
--#define SO_MARK			36
+-	do {
+-		old = atomic_long_read(&sem->count);
+-		new = old + RWSEM_ACTIVE_WRITE_BIAS;
+-	} while (atomic_long_cmpxchg_acquire(&sem->count, old, new) != old);
 -
--#define SO_TIMESTAMPING		37
--#define SCM_TIMESTAMPING	SO_TIMESTAMPING
+-	return old;
+-}
 -
--#define SO_PROTOCOL		38
--#define SO_DOMAIN		39
+-static inline void
+-__down_write (struct rw_semaphore *sem)
+-{
+-	if (___down_write(sem))
+-		rwsem_down_write_failed(sem);
+-}
 -
--#define SO_RXQ_OVFL             40
+-static inline int
+-__down_write_killable (struct rw_semaphore *sem)
+-{
+-	if (___down_write(sem)) {
+-		if (IS_ERR(rwsem_down_write_failed_killable(sem)))
+-			return -EINTR;
+-	}
 -
--#define SO_WIFI_STATUS		41
--#define SCM_WIFI_STATUS		SO_WIFI_STATUS
--#define SO_PEEK_OFF		42
+-	return 0;
+-}
 -
--/* Instruct lower device to use last 4-bytes of skb data as FCS */
--#define SO_NOFCS		43
+-/*
+- * unlock after reading
+- */
+-static inline void
+-__up_read (struct rw_semaphore *sem)
+-{
+-	long result = ia64_fetchadd8_rel((unsigned long *)&sem->count.counter, -1);
 -
--#define SO_LOCK_FILTER		44
+-	if (result < 0 && (--result & RWSEM_ACTIVE_MASK) = 0)
+-		rwsem_wake(sem);
+-}
 -
--#define SO_SELECT_ERR_QUEUE	45
+-/*
+- * unlock after writing
+- */
+-static inline void
+-__up_write (struct rw_semaphore *sem)
+-{
+-	long old, new;
 -
--#define SO_BUSY_POLL		46
+-	do {
+-		old = atomic_long_read(&sem->count);
+-		new = old - RWSEM_ACTIVE_WRITE_BIAS;
+-	} while (atomic_long_cmpxchg_release(&sem->count, old, new) != old);
 -
--#define SO_MAX_PACING_RATE	47
+-	if (new < 0 && (new & RWSEM_ACTIVE_MASK) = 0)
+-		rwsem_wake(sem);
+-}
 -
--#define SO_BPF_EXTENSIONS	48
+-/*
+- * trylock for reading -- returns 1 if successful, 0 if contention
+- */
+-static inline int
+-__down_read_trylock (struct rw_semaphore *sem)
+-{
+-	long tmp;
+-	while ((tmp = atomic_long_read(&sem->count)) >= 0) {
+-		if (tmp = atomic_long_cmpxchg_acquire(&sem->count, tmp, tmp+1)) {
+-			return 1;
+-		}
+-	}
+-	return 0;
+-}
 -
--#define SO_INCOMING_CPU		49
+-/*
+- * trylock for writing -- returns 1 if successful, 0 if contention
+- */
+-static inline int
+-__down_write_trylock (struct rw_semaphore *sem)
+-{
+-	long tmp = atomic_long_cmpxchg_acquire(&sem->count,
+-			RWSEM_UNLOCKED_VALUE, RWSEM_ACTIVE_WRITE_BIAS);
+-	return tmp = RWSEM_UNLOCKED_VALUE;
+-}
 -
--#define SO_ATTACH_BPF		50
--#define SO_DETACH_BPF		SO_DETACH_FILTER
+-/*
+- * downgrade write lock to read lock
+- */
+-static inline void
+-__downgrade_write (struct rw_semaphore *sem)
+-{
+-	long old, new;
 -
--#define SO_ATTACH_REUSEPORT_CBPF	51
--#define SO_ATTACH_REUSEPORT_EBPF	52
+-	do {
+-		old = atomic_long_read(&sem->count);
+-		new = old - RWSEM_WAITING_BIAS;
+-	} while (atomic_long_cmpxchg_release(&sem->count, old, new) != old);
 -
--#define SO_CNX_ADVICE		53
+-	if (old < 0)
+-		rwsem_downgrade_wake(sem);
+-}
 -
--#define SCM_TIMESTAMPING_OPT_STATS	54
--
--#define	SO_MEMINFO		55
--
--#define SO_INCOMING_NAPI_ID	56
--
--#define SO_COOKIE		57
--
--#define SCM_TIMESTAMPING_PKTINFO	58
--
--#define SO_PEERGROUPS		59
--
--#define SO_ZEROCOPY		60
--
--#define SO_TXTIME		61
--#define SCM_TXTIME		SO_TXTIME
--
--#define SO_BINDTOIFINDEX	62
--
--#endif /* _ASM_SOCKET_H */
-diff --git a/arch/x86/include/uapi/asm/Kbuild b/arch/x86/include/uapi/asm/Kbuild
-index f6648e9928b3..efe701b7c6ce 100644
---- a/arch/x86/include/uapi/asm/Kbuild
-+++ b/arch/x86/include/uapi/asm/Kbuild
-@@ -3,3 +3,4 @@ include include/uapi/asm-generic/Kbuild.asm
- generated-y += unistd_32.h
- generated-y += unistd_64.h
- generated-y += unistd_x32.h
-+generic-y += socket.h
-diff --git a/arch/x86/include/uapi/asm/socket.h b/arch/x86/include/uapi/asm/socket.h
+-#endif /* _ASM_IA64_RWSEM_H */
+diff --git a/arch/powerpc/include/asm/Kbuild b/arch/powerpc/include/asm/Kbuild
+index 77ff7fb..75bd77a 100644
+--- a/arch/powerpc/include/asm/Kbuild
++++ b/arch/powerpc/include/asm/Kbuild
+@@ -9,6 +9,5 @@ generic-y += irq_work.h
+ generic-y += local64.h
+ generic-y += mcs_spinlock.h
+ generic-y += preempt.h
+-generic-y += rwsem.h
+ generic-y += vtime.h
+ generic-y += msi.h
+diff --git a/arch/s390/include/asm/Kbuild b/arch/s390/include/asm/Kbuild
+index e323977..4b77b42 100644
+--- a/arch/s390/include/asm/Kbuild
++++ b/arch/s390/include/asm/Kbuild
+@@ -21,7 +21,6 @@ generic-y += local64.h
+ generic-y += mcs_spinlock.h
+ generic-y += mm-arch-hooks.h
+ generic-y += preempt.h
+-generic-y += rwsem.h
+ generic-y += trace_clock.h
+ generic-y += unaligned.h
+ generic-y += word-at-a-time.h
+diff --git a/arch/sh/include/asm/Kbuild b/arch/sh/include/asm/Kbuild
+index a6ef3fe..b89fce4 100644
+--- a/arch/sh/include/asm/Kbuild
++++ b/arch/sh/include/asm/Kbuild
+@@ -16,7 +16,6 @@ generic-y += mm-arch-hooks.h
+ generic-y += parport.h
+ generic-y += percpu.h
+ generic-y += preempt.h
+-generic-y += rwsem.h
+ generic-y += serial.h
+ generic-y += sizes.h
+ generic-y += trace_clock.h
+diff --git a/arch/sparc/include/asm/Kbuild b/arch/sparc/include/asm/Kbuild
+index b82f64e..e843fc0 100644
+--- a/arch/sparc/include/asm/Kbuild
++++ b/arch/sparc/include/asm/Kbuild
+@@ -17,7 +17,6 @@ generic-y += mm-arch-hooks.h
+ generic-y += module.h
+ generic-y += msi.h
+ generic-y += preempt.h
+-generic-y += rwsem.h
+ generic-y += serial.h
+ generic-y += trace_clock.h
+ generic-y += word-at-a-time.h
+diff --git a/arch/x86/include/asm/rwsem.h b/arch/x86/include/asm/rwsem.h
 deleted file mode 100644
-index 6b71384b9d8b..000000000000
---- a/arch/x86/include/uapi/asm/socket.h
+index 4c25cf6..0000000
+--- a/arch/x86/include/asm/rwsem.h
 +++ /dev/null
-@@ -1 +0,0 @@
--#include <asm-generic/socket.h>
+@@ -1,237 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0 */
+-/* rwsem.h: R/W semaphores implemented using XADD/CMPXCHG for i486+
+- *
+- * Written by David Howells (dhowells@redhat.com).
+- *
+- * Derived from asm-x86/semaphore.h
+- *
+- *
+- * The MSW of the count is the negated number of active writers and waiting
+- * lockers, and the LSW is the total number of active locks
+- *
+- * The lock count is initialized to 0 (no active and no waiting lockers).
+- *
+- * When a writer subtracts WRITE_BIAS, it'll get 0xffff0001 for the case of an
+- * uncontended lock. This can be determined because XADD returns the old value.
+- * Readers increment by 1 and see a positive value when uncontended, negative
+- * if there are writers (and maybe) readers waiting (in which case it goes to
+- * sleep).
+- *
+- * The value of WAITING_BIAS supports up to 32766 waiting processes. This can
+- * be extended to 65534 by manually checking the whole MSW rather than relying
+- * on the S flag.
+- *
+- * The value of ACTIVE_BIAS supports up to 65535 active processes.
+- *
+- * This should be totally fair - if anything is waiting, a process that wants a
+- * lock will go to the back of the queue. When the currently active lock is
+- * released, if there's a writer at the front of the queue, then that and only
+- * that will be woken up; if there's a bunch of consecutive readers at the
+- * front, then they'll all be woken up, but no other readers will be.
+- */
+-
+-#ifndef _ASM_X86_RWSEM_H
+-#define _ASM_X86_RWSEM_H
+-
+-#ifndef _LINUX_RWSEM_H
+-#error "please don't include asm/rwsem.h directly, use linux/rwsem.h instead"
+-#endif
+-
+-#ifdef __KERNEL__
+-#include <asm/asm.h>
+-
+-/*
+- * The bias values and the counter type limits the number of
+- * potential readers/writers to 32767 for 32 bits and 2147483647
+- * for 64 bits.
+- */
+-
+-#ifdef CONFIG_X86_64
+-# define RWSEM_ACTIVE_MASK		0xffffffffL
+-#else
+-# define RWSEM_ACTIVE_MASK		0x0000ffffL
+-#endif
+-
+-#define RWSEM_UNLOCKED_VALUE		0x00000000L
+-#define RWSEM_ACTIVE_BIAS		0x00000001L
+-#define RWSEM_WAITING_BIAS		(-RWSEM_ACTIVE_MASK-1)
+-#define RWSEM_ACTIVE_READ_BIAS		RWSEM_ACTIVE_BIAS
+-#define RWSEM_ACTIVE_WRITE_BIAS		(RWSEM_WAITING_BIAS + RWSEM_ACTIVE_BIAS)
+-
+-/*
+- * lock for reading
+- */
+-#define ____down_read(sem, slow_path)					\
+-({									\
+-	struct rw_semaphore* ret;					\
+-	asm volatile("# beginning down_read\n\t"			\
+-		     LOCK_PREFIX _ASM_INC "(%[sem])\n\t"		\
+-		     /* adds 0x00000001 */				\
+-		     "  jns        1f\n"				\
+-		     "  call " slow_path "\n"				\
+-		     "1:\n\t"						\
+-		     "# ending down_read\n\t"				\
+-		     : "+m" (sem->count), "=a" (ret),			\
+-			ASM_CALL_CONSTRAINT				\
+-		     : [sem] "a" (sem)					\
+-		     : "memory", "cc");					\
+-	ret;								\
+-})
+-
+-static inline void __down_read(struct rw_semaphore *sem)
+-{
+-	____down_read(sem, "call_rwsem_down_read_failed");
+-}
+-
+-static inline int __down_read_killable(struct rw_semaphore *sem)
+-{
+-	if (IS_ERR(____down_read(sem, "call_rwsem_down_read_failed_killable")))
+-		return -EINTR;
+-	return 0;
+-}
+-
+-/*
+- * trylock for reading -- returns 1 if successful, 0 if contention
+- */
+-static inline bool __down_read_trylock(struct rw_semaphore *sem)
+-{
+-	long result, tmp;
+-	asm volatile("# beginning __down_read_trylock\n\t"
+-		     "  mov          %[count],%[result]\n\t"
+-		     "1:\n\t"
+-		     "  mov          %[result],%[tmp]\n\t"
+-		     "  add          %[inc],%[tmp]\n\t"
+-		     "  jle	     2f\n\t"
+-		     LOCK_PREFIX "  cmpxchg  %[tmp],%[count]\n\t"
+-		     "  jnz	     1b\n\t"
+-		     "2:\n\t"
+-		     "# ending __down_read_trylock\n\t"
+-		     : [count] "+m" (sem->count), [result] "=&a" (result),
+-		       [tmp] "=&r" (tmp)
+-		     : [inc] "i" (RWSEM_ACTIVE_READ_BIAS)
+-		     : "memory", "cc");
+-	return result >= 0;
+-}
+-
+-/*
+- * lock for writing
+- */
+-#define ____down_write(sem, slow_path)			\
+-({							\
+-	long tmp;					\
+-	struct rw_semaphore* ret;			\
+-							\
+-	asm volatile("# beginning down_write\n\t"	\
+-		     LOCK_PREFIX "  xadd      %[tmp],(%[sem])\n\t"	\
+-		     /* adds 0xffff0001, returns the old value */ \
+-		     "  test " __ASM_SEL(%w1,%k1) "," __ASM_SEL(%w1,%k1) "\n\t" \
+-		     /* was the active mask 0 before? */\
+-		     "  jz        1f\n"			\
+-		     "  call " slow_path "\n"		\
+-		     "1:\n"				\
+-		     "# ending down_write"		\
+-		     : "+m" (sem->count), [tmp] "=d" (tmp),	\
+-		       "=a" (ret), ASM_CALL_CONSTRAINT	\
+-		     : [sem] "a" (sem), "[tmp]" (RWSEM_ACTIVE_WRITE_BIAS) \
+-		     : "memory", "cc");			\
+-	ret;						\
+-})
+-
+-static inline void __down_write(struct rw_semaphore *sem)
+-{
+-	____down_write(sem, "call_rwsem_down_write_failed");
+-}
+-
+-static inline int __down_write_killable(struct rw_semaphore *sem)
+-{
+-	if (IS_ERR(____down_write(sem, "call_rwsem_down_write_failed_killable")))
+-		return -EINTR;
+-
+-	return 0;
+-}
+-
+-/*
+- * trylock for writing -- returns 1 if successful, 0 if contention
+- */
+-static inline bool __down_write_trylock(struct rw_semaphore *sem)
+-{
+-	bool result;
+-	long tmp0, tmp1;
+-	asm volatile("# beginning __down_write_trylock\n\t"
+-		     "  mov          %[count],%[tmp0]\n\t"
+-		     "1:\n\t"
+-		     "  test " __ASM_SEL(%w1,%k1) "," __ASM_SEL(%w1,%k1) "\n\t"
+-		     /* was the active mask 0 before? */
+-		     "  jnz          2f\n\t"
+-		     "  mov          %[tmp0],%[tmp1]\n\t"
+-		     "  add          %[inc],%[tmp1]\n\t"
+-		     LOCK_PREFIX "  cmpxchg  %[tmp1],%[count]\n\t"
+-		     "  jnz	     1b\n\t"
+-		     "2:\n\t"
+-		     CC_SET(e)
+-		     "# ending __down_write_trylock\n\t"
+-		     : [count] "+m" (sem->count), [tmp0] "=&a" (tmp0),
+-		       [tmp1] "=&r" (tmp1), CC_OUT(e) (result)
+-		     : [inc] "er" (RWSEM_ACTIVE_WRITE_BIAS)
+-		     : "memory");
+-	return result;
+-}
+-
+-/*
+- * unlock after reading
+- */
+-static inline void __up_read(struct rw_semaphore *sem)
+-{
+-	long tmp;
+-	asm volatile("# beginning __up_read\n\t"
+-		     LOCK_PREFIX "  xadd      %[tmp],(%[sem])\n\t"
+-		     /* subtracts 1, returns the old value */
+-		     "  jns        1f\n\t"
+-		     "  call call_rwsem_wake\n" /* expects old value in %edx */
+-		     "1:\n"
+-		     "# ending __up_read\n"
+-		     : "+m" (sem->count), [tmp] "=d" (tmp)
+-		     : [sem] "a" (sem), "[tmp]" (-RWSEM_ACTIVE_READ_BIAS)
+-		     : "memory", "cc");
+-}
+-
+-/*
+- * unlock after writing
+- */
+-static inline void __up_write(struct rw_semaphore *sem)
+-{
+-	long tmp;
+-	asm volatile("# beginning __up_write\n\t"
+-		     LOCK_PREFIX "  xadd      %[tmp],(%[sem])\n\t"
+-		     /* subtracts 0xffff0001, returns the old value */
+-		     "  jns        1f\n\t"
+-		     "  call call_rwsem_wake\n" /* expects old value in %edx */
+-		     "1:\n\t"
+-		     "# ending __up_write\n"
+-		     : "+m" (sem->count), [tmp] "=d" (tmp)
+-		     : [sem] "a" (sem), "[tmp]" (-RWSEM_ACTIVE_WRITE_BIAS)
+-		     : "memory", "cc");
+-}
+-
+-/*
+- * downgrade write lock to read lock
+- */
+-static inline void __downgrade_write(struct rw_semaphore *sem)
+-{
+-	asm volatile("# beginning __downgrade_write\n\t"
+-		     LOCK_PREFIX _ASM_ADD "%[inc],(%[sem])\n\t"
+-		     /*
+-		      * transitions 0xZZZZ0001 -> 0xYYYY0001 (i386)
+-		      *     0xZZZZZZZZ00000001 -> 0xYYYYYYYY00000001 (x86_64)
+-		      */
+-		     "  jns       1f\n\t"
+-		     "  call call_rwsem_downgrade_wake\n"
+-		     "1:\n\t"
+-		     "# ending __downgrade_write\n"
+-		     : "+m" (sem->count)
+-		     : [sem] "a" (sem), [inc] "er" (-RWSEM_WAITING_BIAS)
+-		     : "memory", "cc");
+-}
+-
+-#endif /* __KERNEL__ */
+-#endif /* _ASM_X86_RWSEM_H */
+diff --git a/arch/x86/lib/Makefile b/arch/x86/lib/Makefile
+index 140e618..9866520 100644
+--- a/arch/x86/lib/Makefile
++++ b/arch/x86/lib/Makefile
+@@ -23,7 +23,6 @@ obj-$(CONFIG_SMP) += msr-smp.o cache-smp.o
+ lib-y := delay.o misc.o cmdline.o cpu.o
+ lib-y += usercopy_$(BITS).o usercopy.o getuser.o putuser.o
+ lib-y += memcpy_$(BITS).o
+-lib-$(CONFIG_RWSEM_XCHGADD_ALGORITHM) += rwsem.o
+ lib-$(CONFIG_INSTRUCTION_DECODER) += insn.o inat.o insn-eval.o
+ lib-$(CONFIG_RANDOMIZE_BASE) += kaslr.o
+ lib-$(CONFIG_FUNCTION_ERROR_INJECTION)	+= error-inject.o
+diff --git a/arch/x86/lib/rwsem.S b/arch/x86/lib/rwsem.S
+deleted file mode 100644
+index dc2ab6e..0000000
+--- a/arch/x86/lib/rwsem.S
++++ /dev/null
+@@ -1,156 +0,0 @@
+-/*
+- * x86 semaphore implementation.
+- *
+- * (C) Copyright 1999 Linus Torvalds
+- *
+- * Portions Copyright 1999 Red Hat, Inc.
+- *
+- *	This program is free software; you can redistribute it and/or
+- *	modify it under the terms of the GNU General Public License
+- *	as published by the Free Software Foundation; either version
+- *	2 of the License, or (at your option) any later version.
+- *
+- * rw semaphores implemented November 1999 by Benjamin LaHaise <bcrl@kvack.org>
+- */
+-
+-#include <linux/linkage.h>
+-#include <asm/alternative-asm.h>
+-#include <asm/frame.h>
+-
+-#define __ASM_HALF_REG(reg)	__ASM_SEL(reg, e##reg)
+-#define __ASM_HALF_SIZE(inst)	__ASM_SEL(inst##w, inst##l)
+-
+-#ifdef CONFIG_X86_32
+-
+-/*
+- * The semaphore operations have a special calling sequence that
+- * allow us to do a simpler in-line version of them. These routines
+- * need to convert that sequence back into the C sequence when
+- * there is contention on the semaphore.
+- *
+- * %eax contains the semaphore pointer on entry. Save the C-clobbered
+- * registers (%eax, %edx and %ecx) except %eax which is either a return
+- * value or just gets clobbered. Same is true for %edx so make sure GCC
+- * reloads it after the slow path, by making it hold a temporary, for
+- * example see ____down_write().
+- */
+-
+-#define save_common_regs \
+-	pushl %ecx
+-
+-#define restore_common_regs \
+-	popl %ecx
+-
+-	/* Avoid uglifying the argument copying x86-64 needs to do. */
+-	.macro movq src, dst
+-	.endm
+-
+-#else
+-
+-/*
+- * x86-64 rwsem wrappers
+- *
+- * This interfaces the inline asm code to the slow-path
+- * C routines. We need to save the call-clobbered regs
+- * that the asm does not mark as clobbered, and move the
+- * argument from %rax to %rdi.
+- *
+- * NOTE! We don't need to save %rax, because the functions
+- * will always return the semaphore pointer in %rax (which
+- * is also the input argument to these helpers)
+- *
+- * The following can clobber %rdx because the asm clobbers it:
+- *   call_rwsem_down_write_failed
+- *   call_rwsem_wake
+- * but %rdi, %rsi, %rcx, %r8-r11 always need saving.
+- */
+-
+-#define save_common_regs \
+-	pushq %rdi; \
+-	pushq %rsi; \
+-	pushq %rcx; \
+-	pushq %r8;  \
+-	pushq %r9;  \
+-	pushq %r10; \
+-	pushq %r11
+-
+-#define restore_common_regs \
+-	popq %r11; \
+-	popq %r10; \
+-	popq %r9; \
+-	popq %r8; \
+-	popq %rcx; \
+-	popq %rsi; \
+-	popq %rdi
+-
+-#endif
+-
+-/* Fix up special calling conventions */
+-ENTRY(call_rwsem_down_read_failed)
+-	FRAME_BEGIN
+-	save_common_regs
+-	__ASM_SIZE(push,) %__ASM_REG(dx)
+-	movq %rax,%rdi
+-	call rwsem_down_read_failed
+-	__ASM_SIZE(pop,) %__ASM_REG(dx)
+-	restore_common_regs
+-	FRAME_END
+-	ret
+-ENDPROC(call_rwsem_down_read_failed)
+-
+-ENTRY(call_rwsem_down_read_failed_killable)
+-	FRAME_BEGIN
+-	save_common_regs
+-	__ASM_SIZE(push,) %__ASM_REG(dx)
+-	movq %rax,%rdi
+-	call rwsem_down_read_failed_killable
+-	__ASM_SIZE(pop,) %__ASM_REG(dx)
+-	restore_common_regs
+-	FRAME_END
+-	ret
+-ENDPROC(call_rwsem_down_read_failed_killable)
+-
+-ENTRY(call_rwsem_down_write_failed)
+-	FRAME_BEGIN
+-	save_common_regs
+-	movq %rax,%rdi
+-	call rwsem_down_write_failed
+-	restore_common_regs
+-	FRAME_END
+-	ret
+-ENDPROC(call_rwsem_down_write_failed)
+-
+-ENTRY(call_rwsem_down_write_failed_killable)
+-	FRAME_BEGIN
+-	save_common_regs
+-	movq %rax,%rdi
+-	call rwsem_down_write_failed_killable
+-	restore_common_regs
+-	FRAME_END
+-	ret
+-ENDPROC(call_rwsem_down_write_failed_killable)
+-
+-ENTRY(call_rwsem_wake)
+-	FRAME_BEGIN
+-	/* do nothing if still outstanding active readers */
+-	__ASM_HALF_SIZE(dec) %__ASM_HALF_REG(dx)
+-	jnz 1f
+-	save_common_regs
+-	movq %rax,%rdi
+-	call rwsem_wake
+-	restore_common_regs
+-1:	FRAME_END
+-	ret
+-ENDPROC(call_rwsem_wake)
+-
+-ENTRY(call_rwsem_downgrade_wake)
+-	FRAME_BEGIN
+-	save_common_regs
+-	__ASM_SIZE(push,) %__ASM_REG(dx)
+-	movq %rax,%rdi
+-	call rwsem_downgrade_wake
+-	__ASM_SIZE(pop,) %__ASM_REG(dx)
+-	restore_common_regs
+-	FRAME_END
+-	ret
+-ENDPROC(call_rwsem_downgrade_wake)
 diff --git a/arch/xtensa/include/asm/Kbuild b/arch/xtensa/include/asm/Kbuild
-index e255683cd520..809f39ce08c0 100644
+index e255683..7026b37 100644
 --- a/arch/xtensa/include/asm/Kbuild
 +++ b/arch/xtensa/include/asm/Kbuild
-@@ -25,6 +25,7 @@ generic-y += percpu.h
+@@ -23,7 +23,6 @@ generic-y += mm-arch-hooks.h
+ generic-y += param.h
+ generic-y += percpu.h
  generic-y += preempt.h
- generic-y += rwsem.h
+-generic-y += rwsem.h
  generic-y += sections.h
-+generic-y += socket.h
  generic-y += topology.h
  generic-y += trace_clock.h
- generic-y += vga.h
-diff --git a/arch/xtensa/include/uapi/asm/Kbuild b/arch/xtensa/include/uapi/asm/Kbuild
-index 960bf1e4be53..6b43e5049ff7 100644
---- a/arch/xtensa/include/uapi/asm/Kbuild
-+++ b/arch/xtensa/include/uapi/asm/Kbuild
-@@ -2,3 +2,4 @@ include include/uapi/asm-generic/Kbuild.asm
- 
- generated-y += unistd_32.h
- generic-y += kvm_para.h
-+generic-y += socket.h
-diff --git a/arch/xtensa/include/uapi/asm/socket.h b/arch/xtensa/include/uapi/asm/socket.h
+diff --git a/include/asm-generic/rwsem.h b/include/asm-generic/rwsem.h
 deleted file mode 100644
-index b434217783d0..000000000000
---- a/arch/xtensa/include/uapi/asm/socket.h
+index 93e67a0..0000000
+--- a/include/asm-generic/rwsem.h
 +++ /dev/null
-@@ -1,124 +0,0 @@
--/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
+@@ -1,140 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0 */
+-#ifndef _ASM_GENERIC_RWSEM_H
+-#define _ASM_GENERIC_RWSEM_H
+-
+-#ifndef _LINUX_RWSEM_H
+-#error "Please don't include <asm/rwsem.h> directly, use <linux/rwsem.h> instead."
+-#endif
+-
+-#ifdef __KERNEL__
+-
 -/*
-- * include/asm-xtensa/socket.h
-- *
-- * Copied from i386.
-- *
-- * This file is subject to the terms and conditions of the GNU General Public
-- * License.  See the file "COPYING" in the main directory of this archive
-- * for more details.
+- * R/W semaphores originally for PPC using the stuff in lib/rwsem.c.
+- * Adapted largely from include/asm-i386/rwsem.h
+- * by Paul Mackerras <paulus@samba.org>.
 - */
 -
--#ifndef _XTENSA_SOCKET_H
--#define _XTENSA_SOCKET_H
+-/*
+- * the semaphore definition
+- */
+-#ifdef CONFIG_64BIT
+-# define RWSEM_ACTIVE_MASK		0xffffffffL
+-#else
+-# define RWSEM_ACTIVE_MASK		0x0000ffffL
+-#endif
 -
--#include <asm/sockios.h>
+-#define RWSEM_UNLOCKED_VALUE		0x00000000L
+-#define RWSEM_ACTIVE_BIAS		0x00000001L
+-#define RWSEM_WAITING_BIAS		(-RWSEM_ACTIVE_MASK-1)
+-#define RWSEM_ACTIVE_READ_BIAS		RWSEM_ACTIVE_BIAS
+-#define RWSEM_ACTIVE_WRITE_BIAS		(RWSEM_WAITING_BIAS + RWSEM_ACTIVE_BIAS)
 -
--/* For setsockoptions(2) */
--#define SOL_SOCKET	1
+-/*
+- * lock for reading
+- */
+-static inline void __down_read(struct rw_semaphore *sem)
+-{
+-	if (unlikely(atomic_long_inc_return_acquire(&sem->count) <= 0))
+-		rwsem_down_read_failed(sem);
+-}
 -
--#define SO_DEBUG	1
--#define SO_REUSEADDR	2
--#define SO_TYPE		3
--#define SO_ERROR	4
--#define SO_DONTROUTE	5
--#define SO_BROADCAST	6
--#define SO_SNDBUF	7
--#define SO_RCVBUF	8
--#define SO_SNDBUFFORCE	32
--#define SO_RCVBUFFORCE	33
--#define SO_KEEPALIVE	9
--#define SO_OOBINLINE	10
--#define SO_NO_CHECK	11
--#define SO_PRIORITY	12
--#define SO_LINGER	13
--#define SO_BSDCOMPAT	14
--#define SO_REUSEPORT	15
--#define SO_PASSCRED	16
--#define SO_PEERCRED	17
--#define SO_RCVLOWAT	18
--#define SO_SNDLOWAT	19
--#define SO_RCVTIMEO	20
--#define SO_SNDTIMEO	21
+-static inline int __down_read_killable(struct rw_semaphore *sem)
+-{
+-	if (unlikely(atomic_long_inc_return_acquire(&sem->count) <= 0)) {
+-		if (IS_ERR(rwsem_down_read_failed_killable(sem)))
+-			return -EINTR;
+-	}
 -
--/* Security levels - as per NRL IPv6 - don't actually do anything */
+-	return 0;
+-}
 -
--#define SO_SECURITY_AUTHENTICATION		22
--#define SO_SECURITY_ENCRYPTION_TRANSPORT	23
--#define SO_SECURITY_ENCRYPTION_NETWORK		24
+-static inline int __down_read_trylock(struct rw_semaphore *sem)
+-{
+-	long tmp;
 -
--#define SO_BINDTODEVICE	25
+-	while ((tmp = atomic_long_read(&sem->count)) >= 0) {
+-		if (tmp = atomic_long_cmpxchg_acquire(&sem->count, tmp,
+-				   tmp + RWSEM_ACTIVE_READ_BIAS)) {
+-			return 1;
+-		}
+-	}
+-	return 0;
+-}
 -
--/* Socket filtering */
+-/*
+- * lock for writing
+- */
+-static inline void __down_write(struct rw_semaphore *sem)
+-{
+-	long tmp;
 -
--#define SO_ATTACH_FILTER        26
--#define SO_DETACH_FILTER        27
--#define SO_GET_FILTER		SO_ATTACH_FILTER
+-	tmp = atomic_long_add_return_acquire(RWSEM_ACTIVE_WRITE_BIAS,
+-					     &sem->count);
+-	if (unlikely(tmp != RWSEM_ACTIVE_WRITE_BIAS))
+-		rwsem_down_write_failed(sem);
+-}
 -
--#define SO_PEERNAME		28
--#define SO_TIMESTAMP		29
--#define SCM_TIMESTAMP		SO_TIMESTAMP
+-static inline int __down_write_killable(struct rw_semaphore *sem)
+-{
+-	long tmp;
 -
--#define SO_ACCEPTCONN		30
--#define SO_PEERSEC		31
--#define SO_PASSSEC		34
--#define SO_TIMESTAMPNS		35
--#define SCM_TIMESTAMPNS		SO_TIMESTAMPNS
+-	tmp = atomic_long_add_return_acquire(RWSEM_ACTIVE_WRITE_BIAS,
+-					     &sem->count);
+-	if (unlikely(tmp != RWSEM_ACTIVE_WRITE_BIAS))
+-		if (IS_ERR(rwsem_down_write_failed_killable(sem)))
+-			return -EINTR;
+-	return 0;
+-}
 -
--#define SO_MARK			36
+-static inline int __down_write_trylock(struct rw_semaphore *sem)
+-{
+-	long tmp;
 -
--#define SO_TIMESTAMPING		37
--#define SCM_TIMESTAMPING	SO_TIMESTAMPING
+-	tmp = atomic_long_cmpxchg_acquire(&sem->count, RWSEM_UNLOCKED_VALUE,
+-		      RWSEM_ACTIVE_WRITE_BIAS);
+-	return tmp = RWSEM_UNLOCKED_VALUE;
+-}
 -
--#define SO_PROTOCOL		38
--#define SO_DOMAIN		39
+-/*
+- * unlock after reading
+- */
+-static inline void __up_read(struct rw_semaphore *sem)
+-{
+-	long tmp;
 -
--#define SO_RXQ_OVFL             40
+-	tmp = atomic_long_dec_return_release(&sem->count);
+-	if (unlikely(tmp < -1 && (tmp & RWSEM_ACTIVE_MASK) = 0))
+-		rwsem_wake(sem);
+-}
 -
--#define SO_WIFI_STATUS		41
--#define SCM_WIFI_STATUS		SO_WIFI_STATUS
--#define SO_PEEK_OFF		42
+-/*
+- * unlock after writing
+- */
+-static inline void __up_write(struct rw_semaphore *sem)
+-{
+-	if (unlikely(atomic_long_sub_return_release(RWSEM_ACTIVE_WRITE_BIAS,
+-						    &sem->count) < 0))
+-		rwsem_wake(sem);
+-}
 -
--/* Instruct lower device to use last 4-bytes of skb data as FCS */
--#define SO_NOFCS		43
+-/*
+- * downgrade write lock to read lock
+- */
+-static inline void __downgrade_write(struct rw_semaphore *sem)
+-{
+-	long tmp;
 -
--#define SO_LOCK_FILTER		44
+-	/*
+-	 * When downgrading from exclusive to shared ownership,
+-	 * anything inside the write-locked region cannot leak
+-	 * into the read side. In contrast, anything in the
+-	 * read-locked region is ok to be re-ordered into the
+-	 * write side. As such, rely on RELEASE semantics.
+-	 */
+-	tmp = atomic_long_add_return_release(-RWSEM_WAITING_BIAS, &sem->count);
+-	if (tmp < 0)
+-		rwsem_downgrade_wake(sem);
+-}
 -
--#define SO_SELECT_ERR_QUEUE	45
+-#endif	/* __KERNEL__ */
+-#endif	/* _ASM_GENERIC_RWSEM_H */
+diff --git a/include/linux/rwsem.h b/include/linux/rwsem.h
+index 67dbb57..6e56006 100644
+--- a/include/linux/rwsem.h
++++ b/include/linux/rwsem.h
+@@ -57,15 +57,13 @@ struct rw_semaphore {
+ extern struct rw_semaphore *rwsem_wake(struct rw_semaphore *);
+ extern struct rw_semaphore *rwsem_downgrade_wake(struct rw_semaphore *sem);
+ 
+-/* Include the arch specific part */
+-#include <asm/rwsem.h>
 -
--#define SO_BUSY_POLL		46
--
--#define SO_MAX_PACING_RATE	47
--
--#define SO_BPF_EXTENSIONS	48
--
--#define SO_INCOMING_CPU		49
--
--#define SO_ATTACH_BPF		50
--#define SO_DETACH_BPF		SO_DETACH_FILTER
--
--#define SO_ATTACH_REUSEPORT_CBPF	51
--#define SO_ATTACH_REUSEPORT_EBPF	52
--
--#define SO_CNX_ADVICE		53
--
--#define SCM_TIMESTAMPING_OPT_STATS	54
--
--#define SO_MEMINFO		55
--
--#define SO_INCOMING_NAPI_ID	56
--
--#define SO_COOKIE		57
--
--#define SCM_TIMESTAMPING_PKTINFO	58
--
--#define SO_PEERGROUPS		59
--
--#define SO_ZEROCOPY		60
--
--#define SO_TXTIME		61
--#define SCM_TXTIME		SO_TXTIME
--
--#define SO_BINDTOIFINDEX	62
--
--#endif	/* _XTENSA_SOCKET_H */
+ /* In all implementations count != 0 means locked */
+ static inline int rwsem_is_locked(struct rw_semaphore *sem)
+ {
+ 	return atomic_long_read(&sem->count) != 0;
+ }
+ 
++#define RWSEM_UNLOCKED_VALUE		0L
+ #define __RWSEM_INIT_COUNT(name)	.count = ATOMIC_LONG_INIT(RWSEM_UNLOCKED_VALUE)
+ #endif
+ 
+diff --git a/kernel/locking/percpu-rwsem.c b/kernel/locking/percpu-rwsem.c
+index 883cf1b..f17dad9 100644
+--- a/kernel/locking/percpu-rwsem.c
++++ b/kernel/locking/percpu-rwsem.c
+@@ -7,6 +7,8 @@
+ #include <linux/sched.h>
+ #include <linux/errno.h>
+ 
++#include "rwsem.h"
++
+ int __percpu_init_rwsem(struct percpu_rw_semaphore *sem,
+ 			const char *name, struct lock_class_key *rwsem_key)
+ {
+diff --git a/kernel/locking/rwsem.h b/kernel/locking/rwsem.h
+index bad2bca..067e265 100644
+--- a/kernel/locking/rwsem.h
++++ b/kernel/locking/rwsem.h
+@@ -32,6 +32,26 @@
+ # define DEBUG_RWSEMS_WARN_ON(c)
+ #endif
+ 
++/*
++ * R/W semaphores originally for PPC using the stuff in lib/rwsem.c.
++ * Adapted largely from include/asm-i386/rwsem.h
++ * by Paul Mackerras <paulus@samba.org>.
++ */
++
++/*
++ * the semaphore definition
++ */
++#ifdef CONFIG_64BIT
++# define RWSEM_ACTIVE_MASK		0xffffffffL
++#else
++# define RWSEM_ACTIVE_MASK		0x0000ffffL
++#endif
++
++#define RWSEM_ACTIVE_BIAS		0x00000001L
++#define RWSEM_WAITING_BIAS		(-RWSEM_ACTIVE_MASK-1)
++#define RWSEM_ACTIVE_READ_BIAS		RWSEM_ACTIVE_BIAS
++#define RWSEM_ACTIVE_WRITE_BIAS		(RWSEM_WAITING_BIAS + RWSEM_ACTIVE_BIAS)
++
+ #ifdef CONFIG_RWSEM_SPIN_ON_OWNER
+ /*
+  * All writes to owner are protected by WRITE_ONCE() to make sure that
+@@ -132,3 +152,113 @@ static inline void rwsem_clear_reader_owned(struct rw_semaphore *sem)
+ {
+ }
+ #endif
++
++#ifdef CONFIG_RWSEM_XCHGADD_ALGORITHM
++/*
++ * lock for reading
++ */
++static inline void __down_read(struct rw_semaphore *sem)
++{
++	if (unlikely(atomic_long_inc_return_acquire(&sem->count) <= 0))
++		rwsem_down_read_failed(sem);
++}
++
++static inline int __down_read_killable(struct rw_semaphore *sem)
++{
++	if (unlikely(atomic_long_inc_return_acquire(&sem->count) <= 0)) {
++		if (IS_ERR(rwsem_down_read_failed_killable(sem)))
++			return -EINTR;
++	}
++
++	return 0;
++}
++
++static inline int __down_read_trylock(struct rw_semaphore *sem)
++{
++	long tmp;
++
++	while ((tmp = atomic_long_read(&sem->count)) >= 0) {
++		if (tmp = atomic_long_cmpxchg_acquire(&sem->count, tmp,
++				   tmp + RWSEM_ACTIVE_READ_BIAS)) {
++			return 1;
++		}
++	}
++	return 0;
++}
++
++/*
++ * lock for writing
++ */
++static inline void __down_write(struct rw_semaphore *sem)
++{
++	long tmp;
++
++	tmp = atomic_long_add_return_acquire(RWSEM_ACTIVE_WRITE_BIAS,
++					     &sem->count);
++	if (unlikely(tmp != RWSEM_ACTIVE_WRITE_BIAS))
++		rwsem_down_write_failed(sem);
++}
++
++static inline int __down_write_killable(struct rw_semaphore *sem)
++{
++	long tmp;
++
++	tmp = atomic_long_add_return_acquire(RWSEM_ACTIVE_WRITE_BIAS,
++					     &sem->count);
++	if (unlikely(tmp != RWSEM_ACTIVE_WRITE_BIAS))
++		if (IS_ERR(rwsem_down_write_failed_killable(sem)))
++			return -EINTR;
++	return 0;
++}
++
++static inline int __down_write_trylock(struct rw_semaphore *sem)
++{
++	long tmp;
++
++	tmp = atomic_long_cmpxchg_acquire(&sem->count, RWSEM_UNLOCKED_VALUE,
++		      RWSEM_ACTIVE_WRITE_BIAS);
++	return tmp = RWSEM_UNLOCKED_VALUE;
++}
++
++/*
++ * unlock after reading
++ */
++static inline void __up_read(struct rw_semaphore *sem)
++{
++	long tmp;
++
++	tmp = atomic_long_dec_return_release(&sem->count);
++	if (unlikely(tmp < -1 && (tmp & RWSEM_ACTIVE_MASK) = 0))
++		rwsem_wake(sem);
++}
++
++/*
++ * unlock after writing
++ */
++static inline void __up_write(struct rw_semaphore *sem)
++{
++	if (unlikely(atomic_long_sub_return_release(RWSEM_ACTIVE_WRITE_BIAS,
++						    &sem->count) < 0))
++		rwsem_wake(sem);
++}
++
++/*
++ * downgrade write lock to read lock
++ */
++static inline void __downgrade_write(struct rw_semaphore *sem)
++{
++	long tmp;
++
++	/*
++	 * When downgrading from exclusive to shared ownership,
++	 * anything inside the write-locked region cannot leak
++	 * into the read side. In contrast, anything in the
++	 * read-locked region is ok to be re-ordered into the
++	 * write side. As such, rely on RELEASE semantics.
++	 */
++	tmp = atomic_long_add_return_release(-RWSEM_WAITING_BIAS, &sem->count);
++	if (tmp < 0)
++		rwsem_downgrade_wake(sem);
++}
++
++#endif /* CONFIG_RWSEM_XCHGADD_ALGORITHM */
 -- 
-2.17.1
+1.8.3.1
