@@ -1,41 +1,72 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Date: Thu, 14 Feb 2019 10:37:15 +0000
+From: Waiman Long <longman@redhat.com>
+Date: Thu, 14 Feb 2019 22:05:27 +0000
 Subject: Re: [PATCH v4 0/3] locking/rwsem: Rwsem rearchitecture part 0
-Message-Id: <20190214103715.GI32494@hirez.programming.kicks-ass.net>
+Message-Id: <5c373ba6-419e-c4d5-965f-a566a6182b28@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1550095217-12047-1-git-send-email-longman@redhat.com>
-In-Reply-To: <1550095217-12047-1-git-send-email-longman@redhat.com>
+ <20190214103715.GI32494@hirez.programming.kicks-ass.net>
+In-Reply-To: <20190214103715.GI32494@hirez.programming.kicks-ass.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Waiman Long <longman@redhat.com>
-Cc: linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Will Deacon <will.deacon@arm.com>, linux-mips@vger.kernel.org, "H. Peter Anvin" <hpa@zytor.com>, sparclinux@vger.kernel.org, linux-riscv@lists.infradead.org, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, Davidlohr Bueso <dave@stgolabs.net>, linux-c6x-dev@linux-c6x.org, linux-hexagon@vger.kernel.org, x86@kernel.org, Ingo Molnar <mingo@redhat.com>, uclinux-h8-devel@lists.sourceforge.jp, linux-xtensa@linux-xtensa.org, Arnd Bergmann <arnd@arndb.de>, linux-um@lists.infradead.org, linux-m68k@lists.linux-m68k.org, openrisc@lists.librecores.org, Borislav Petkov <bp@alien8.de>, Thomas Gleixner <tglx@linutronix.de>, linux-arm-kernel@lists.infradead.org, Tim Chen <tim.c.chen@linux.intel.com>, linux-parisc@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>, linux-kernel@vger.kernel.org, linux-alpha@vger.ker
+To: Peter Zijlstra <peterz@infradead.org>
+Cc: Ingo Molnar <mingo@redhat.com>, Will Deacon <will.deacon@arm.com>, Thomas Gleixner <tglx@linutronix.de>, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org, uclinux-h8-devel@lists.sourceforge.jp, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, nios2-dev@lists.rocketboards.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Borislav Petkov <bp@alien>
 
-On Wed, Feb 13, 2019 at 05:00:14PM -0500, Waiman Long wrote:
-> v4:
->  - Remove rwsem-spinlock.c and make all archs use rwsem-xadd.c.
-> 
-> v3:
->  - Optimize __down_read_trylock() for the uncontended case as suggested
->    by Linus.
-> 
-> v2:
->  - Add patch 2 to optimize __down_read_trylock() as suggested by PeterZ.
->  - Update performance test data in patch 1.
-> 
-> The goal of this patchset is to remove the architecture specific files
-> for rwsem-xadd to make it easer to add enhancements in the later rwsem
-> patches. It also removes the legacy rwsem-spinlock.c file and make all
-> the architectures use one single implementation of rwsem - rwsem-xadd.c.
-> 
-> Waiman Long (3):
->   locking/rwsem: Remove arch specific rwsem files
->   locking/rwsem: Remove rwsem-spinlock.c & use rwsem-xadd.c for all
->     archs
->   locking/rwsem: Optimize down_read_trylock()
-
-Acked-by: Peter Zijlstra (Intel) <peterz@infradead.org>
-
-with the caveat that I'm happy to exchange patch 3 back to my earlier
-suggestion in case Will expesses concerns wrt the ARM64 performance of
-Linus' suggestion.
+T24gMDIvMTQvMjAxOSAwNTozNyBBTSwgUGV0ZXIgWmlqbHN0cmEgd3JvdGU6Cj4gT24gV2Vk
+LCBGZWIgMTMsIDIwMTkgYXQgMDU6MDA6MTRQTSAtMDUwMCwgV2FpbWFuIExvbmcgd3JvdGU6
+Cj4+IHY0Ogo+PiAgLSBSZW1vdmUgcndzZW0tc3BpbmxvY2suYyBhbmQgbWFrZSBhbGwgYXJj
+aHMgdXNlIHJ3c2VtLXhhZGQuYy4KPj4KPj4gdjM6Cj4+ICAtIE9wdGltaXplIF9fZG93bl9y
+ZWFkX3RyeWxvY2soKSBmb3IgdGhlIHVuY29udGVuZGVkIGNhc2UgYXMgc3VnZ2VzdGVkCj4+
+ICAgIGJ5IExpbnVzLgo+Pgo+PiB2MjoKPj4gIC0gQWRkIHBhdGNoIDIgdG8gb3B0aW1pemUg
+X19kb3duX3JlYWRfdHJ5bG9jaygpIGFzIHN1Z2dlc3RlZCBieSBQZXRlclouCj4+ICAtIFVw
+ZGF0ZSBwZXJmb3JtYW5jZSB0ZXN0IGRhdGEgaW4gcGF0Y2ggMS4KPj4KPj4gVGhlIGdvYWwg
+b2YgdGhpcyBwYXRjaHNldCBpcyB0byByZW1vdmUgdGhlIGFyY2hpdGVjdHVyZSBzcGVjaWZp
+YyBmaWxlcwo+PiBmb3IgcndzZW0teGFkZCB0byBtYWtlIGl0IGVhc2VyIHRvIGFkZCBlbmhh
+bmNlbWVudHMgaW4gdGhlIGxhdGVyIHJ3c2VtCj4+IHBhdGNoZXMuIEl0IGFsc28gcmVtb3Zl
+cyB0aGUgbGVnYWN5IHJ3c2VtLXNwaW5sb2NrLmMgZmlsZSBhbmQgbWFrZSBhbGwKPj4gdGhl
+IGFyY2hpdGVjdHVyZXMgdXNlIG9uZSBzaW5nbGUgaW1wbGVtZW50YXRpb24gb2YgcndzZW0g
+LSByd3NlbS14YWRkLmMuCj4+Cj4+IFdhaW1hbiBMb25nICgzKToKPj4gICBsb2NraW5nL3J3
+c2VtOiBSZW1vdmUgYXJjaCBzcGVjaWZpYyByd3NlbSBmaWxlcwo+PiAgIGxvY2tpbmcvcndz
+ZW06IFJlbW92ZSByd3NlbS1zcGlubG9jay5jICYgdXNlIHJ3c2VtLXhhZGQuYyBmb3IgYWxs
+Cj4+ICAgICBhcmNocwo+PiAgIGxvY2tpbmcvcndzZW06IE9wdGltaXplIGRvd25fcmVhZF90
+cnlsb2NrKCkKPiBBY2tlZC1ieTogUGV0ZXIgWmlqbHN0cmEgKEludGVsKSA8cGV0ZXJ6QGlu
+ZnJhZGVhZC5vcmc+Cj4KPiB3aXRoIHRoZSBjYXZlYXQgdGhhdCBJJ20gaGFwcHkgdG8gZXhj
+aGFuZ2UgcGF0Y2ggMyBiYWNrIHRvIG15IGVhcmxpZXIKPiBzdWdnZXN0aW9uIGluIGNhc2Ug
+V2lsbCBleHBlc3NlcyBjb25jZXJucyB3cnQgdGhlIEFSTTY0IHBlcmZvcm1hbmNlIG9mCj4g
+TGludXMnIHN1Z2dlc3Rpb24uCgpJIGluc2VydGVkIGEgZmV3IGxvY2sgZXZlbnQgY291bnRl
+cnMgaW50byB0aGUgcndzZW0gdHJ5bG9jayBjb2RlOgoKc3RhdGljIGlubGluZSBpbnQgX19k
+b3duX3JlYWRfdHJ5bG9jayhzdHJ1Y3Qgcndfc2VtYXBob3JlICpzZW0pCnsKwqDCoMKgwqDC
+oMKgwqAgLyoKwqDCoMKgwqDCoMKgwqDCoCAqIE9wdGltaXplIGZvciB0aGUgY2FzZSB3aGVu
+IHRoZSByd3NlbSBpcyBub3QgbG9ja2VkIGF0IGFsbC4KwqDCoMKgwqDCoMKgwqDCoCAqLwrC
+oMKgwqDCoMKgwqDCoCBsb25nIHRtcCA9IFJXU0VNX1VOTE9DS0VEX1ZBTFVFOwoKwqDCoMKg
+wqDCoMKgwqAgbG9ja2V2ZW50X2luYyhyd3NlbV9ydHJ5bG9jayk7CsKgwqDCoMKgwqDCoMKg
+IGRvIHsKwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgIGlmIChhdG9taWNfbG9uZ190
+cnlfY21weGNoZ19hY3F1aXJlKCZzZW0tPmNvdW50LCAmdG1wLArCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgwqAgdG1wICsgUldTRU1fQUNUSVZFX1JFQURfQklBUykpIHsKwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCByd3NlbV9zZXRfcmVhZGVyX293
+bmVkKHNlbSk7CsKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqAgcmV0dXJuIDE7CsKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCB9CsKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoCBsb2NrZXZlbnRfaW5jKHJ3c2VtX3J0cnlsb2NrX3Jl
+dHJ5KTsKwqDCoMKgwqDCoMKgwqAgfSB3aGlsZSAodG1wID49IDApOwrCoMKgwqDCoMKgwqDC
+oCBsb2NrZXZlbnRfaW5jKHJ3c2VtX3J0cnlsb2NrX2ZhaWwpOwrCoMKgwqDCoMKgwqDCoCBy
+ZXR1cm4gMDsKfQoKc3RhdGljIGlubGluZSBpbnQgX19kb3duX3dyaXRlX3RyeWxvY2soc3Ry
+dWN0IHJ3X3NlbWFwaG9yZSAqc2VtKQp7CsKgwqDCoMKgwqDCoMKgIGxvbmcgdG1wOwoKwqDC
+oMKgwqDCoMKgwqAgbG9ja2V2ZW50X2luYyhyd3NlbV93dHJ5bG9jayk7CsKgwqDCoMKgwqDC
+oMKgIHRtcCA9IGF0b21pY19sb25nX2NtcHhjaGdfYWNxdWlyZSgmc2VtLT5jb3VudCwgUldT
+RU1fVU5MT0NLRURfVkFMVUUsCsKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoCBSV1NFTV9BQ1RJVkVfV1JJVEVfQklBUyk7CsKgwqDCoMKgwqDCoMKgIGlmICh0
+bXAgPT0gUldTRU1fVU5MT0NLRURfVkFMVUUpIHsKwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgIHJ3c2VtX3NldF9vd25lcihzZW0pOwrCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqAgcmV0dXJuIHRydWU7CsKgwqDCoMKgwqDCoMKgIH0KwqDCoMKgwqDCoMKgwqAgbG9j
+a2V2ZW50X2luYyhyd3NlbV93dHJ5bG9ja19mYWlsKTsKwqDCoMKgwqDCoMKgwqAgcmV0dXJu
+IGZhbHNlOwp9CgpJIGJvb3RlZCB0aGUgbmV3IGtlcm5lbCBvbiBhIDQtc29ja2V0IDU2LWNv
+cmUgMTEyLXRocmVhZCBCcm9hZHdlbGwKc3lzdGVtLiBUaGUgY291bnRlciB2YWx1ZXMKCjEp
+IEFmdGVyIGJvb3R1cDoKCnJ3c2VtX3J0cnlsb2NrPTc4NDAyOQpyd3NlbV9ydHJ5bG9ja19m
+YWlsPTU5CnJ3c2VtX3J0cnlsb2NrX3JldHJ5PTM5NApyd3NlbV93dHJ5bG9jaz0xODI4NApy
+d3NlbV93dHJ5bG9ja19mYWlsPTIzMAoKMikgQWZ0ZXIgcGFyYWxsZWwga2VybmVsIGJ1aWxk
+ICgtajExMik6Cgpyd3NlbV9ydHJ5bG9jaz0zMzg2Njc1NTkKcndzZW1fcnRyeWxvY2tfZmFp
+bD0xOApyd3NlbV9ydHJ5bG9ja19yZXRyeT01MQpyd3NlbV93dHJ5bG9jaz0xNzAxNjMzMgpy
+d3NlbV93dHJ5bG9ja19mYWlsPTk4MDU4CgpBdCBsZWFzdCBmb3IgdGhlc2UgdHdvIHVzZSBj
+YXNlcywgdHJ5LWZvci1vd25lcnNoaXAgYXMgc3VnZ2VzdGVkIGJ5CkxpbnVzIGlzIHRoZSBy
+aWdodCBjaG9pY2UuCgpDaGVlcnMsCkxvbmdtYW4KCg=
