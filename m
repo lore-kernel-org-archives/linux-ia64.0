@@ -1,69 +1,59 @@
-From: Michal Hocko <mhocko@kernel.org>
-Date: Mon, 11 Feb 2019 14:52:17 +0000
-Subject: Re: [RFC PATCH] x86, numa: always initialize all possible nodes
-Message-Id: <20190211145217.GE15609@dhcp22.suse.cz>
+From: Steven Price <steven.price@arm.com>
+Date: Wed, 27 Feb 2019 17:05:42 +0000
+Subject: [PATCH v3 08/34] ia64: mm: Add p?d_large() definitions
+Message-Id: <20190227170608.27963-9-steven.price@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190114082416.30939-1-mhocko@kernel.org>
- <20190124141727.GN4087@dhcp22.suse.cz>
- <3a7a3cf2-b7d9-719e-85b0-352be49a6d0f@intel.com>
- <20190125105008.GJ3560@dhcp22.suse.cz>
- <20190211134909.GA107845@gmail.com>
-In-Reply-To: <20190211134909.GA107845@gmail.com>
+References: <20190227170608.27963-1-steven.price@arm.com>
+In-Reply-To: <20190227170608.27963-1-steven.price@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ingo Molnar <mingo@kernel.org>
-Cc: Dave Hansen <dave.hansen@intel.com>, linux-mm@kvack.org, Pingfan Liu <kernelfans@gmail.com>, Peter Zijlstra <peterz@infradead.org>, x86@kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+To: linux-mm@kvack.org
+Cc: Steven Price <steven.price@arm.com>, Andy Lutomirski <luto@kernel.org>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Arnd Bergmann <arnd@arndb.de>, Borislav Petkov <bp@alien8.de>, Catalin Marinas <catalin.marinas@arm.com>, Dave Hansen <dave.hansen@linux.intel.com>, Ingo Molnar <mingo@redhat.com>, James Morse <james.morse@arm.com>, =?UTF-8?q?J=C3=A9r=C3=B4me=20Glisse?= <jglisse@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Thomas Gleixner <tglx@linutronix.de>, Will Deacon <will.deacon@arm.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, Mark Rutland <Mark.Rutland@arm.com>, "Liang, Kan" <kan.liang@linux.intel.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-On Mon 11-02-19 14:49:09, Ingo Molnar wrote:
-> 
-> * Michal Hocko <mhocko@kernel.org> wrote:
-> 
-> > On Thu 24-01-19 11:10:50, Dave Hansen wrote:
-> > > On 1/24/19 6:17 AM, Michal Hocko wrote:
-> > > > and nr_cpus set to 4. The underlying reason is tha the device is bound
-> > > > to node 2 which doesn't have any memory and init_cpu_to_node only
-> > > > initializes memory-less nodes for possible cpus which nr_cpus restrics.
-> > > > This in turn means that proper zonelists are not allocated and the page
-> > > > allocator blows up.
-> > > 
-> > > This looks OK to me.
-> > > 
-> > > Could we add a few DEBUG_VM checks that *look* for these invalid
-> > > zonelists?  Or, would our existing list debugging have caught this?
-> > 
-> > Currently we simply blow up because those zonelists are NULL. I do not
-> > think we have a way to check whether an existing zonelist is actually 
-> > _correct_ other thatn check it for NULL. But what would we do in the
-> > later case?
-> > 
-> > > Basically, is this bug also a sign that we need better debugging around
-> > > this?
-> > 
-> > My earlier patch had a debugging printk to display the zonelists and
-> > that might be worthwhile I guess. Basically something like this
-> > 
-> > diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-> > index 2e097f336126..c30d59f803fb 100644
-> > --- a/mm/page_alloc.c
-> > +++ b/mm/page_alloc.c
-> > @@ -5259,6 +5259,11 @@ static void build_zonelists(pg_data_t *pgdat)
-> >  
-> >  	build_zonelists_in_node_order(pgdat, node_order, nr_nodes);
-> >  	build_thisnode_zonelists(pgdat);
-> > +
-> > +	pr_info("node[%d] zonelist: ", pgdat->node_id);
-> > +	for_each_zone_zonelist(zone, z, &pgdat->node_zonelists[ZONELIST_FALLBACK], MAX_NR_ZONES-1)
-> > +		pr_cont("%d:%s ", zone_to_nid(zone), zone->name);
-> > +	pr_cont("\n");
-> >  }
-> 
-> Looks like this patch fell through the cracks - any update on this?
+walk_page_range() is going to be allowed to walk page tables other than
+those of user space. For this it needs to know when it has reached a
+'leaf' entry in the page tables. This information is provided by the
+p?d_large() functions/macros.
 
-I was waiting for some feedback. As there were no complains about the
-above debugging output I will make it a separate patch and post both
-patches later this week. I just have to go through my backlog pile after
-vacation.
+For ia64 leaf entries are always at the lowest level, so implement
+stubs returning 0.
+
+CC: Tony Luck <tony.luck@intel.com>
+CC: Fenghua Yu <fenghua.yu@intel.com>
+CC: linux-ia64@vger.kernel.org
+Signed-off-by: Steven Price <steven.price@arm.com>
+---
+ arch/ia64/include/asm/pgtable.h | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/arch/ia64/include/asm/pgtable.h b/arch/ia64/include/asm/pgtable.h
+index b1e7468eb65a..84dda295391b 100644
+--- a/arch/ia64/include/asm/pgtable.h
++++ b/arch/ia64/include/asm/pgtable.h
+@@ -271,6 +271,7 @@ extern unsigned long VMALLOC_END;
+ #define pmd_none(pmd)			(!pmd_val(pmd))
+ #define pmd_bad(pmd)			(!ia64_phys_addr_valid(pmd_val(pmd)))
+ #define pmd_present(pmd)		(pmd_val(pmd) != 0UL)
++#define pmd_large(pmd)			(0)
+ #define pmd_clear(pmdp)			(pmd_val(*(pmdp)) = 0UL)
+ #define pmd_page_vaddr(pmd)		((unsigned long) __va(pmd_val(pmd) & _PFN_MASK))
+ #define pmd_page(pmd)			virt_to_page((pmd_val(pmd) + PAGE_OFFSET))
+@@ -278,6 +279,7 @@ extern unsigned long VMALLOC_END;
+ #define pud_none(pud)			(!pud_val(pud))
+ #define pud_bad(pud)			(!ia64_phys_addr_valid(pud_val(pud)))
+ #define pud_present(pud)		(pud_val(pud) != 0UL)
++#define pud_large(pud)			(0)
+ #define pud_clear(pudp)			(pud_val(*(pudp)) = 0UL)
+ #define pud_page_vaddr(pud)		((unsigned long) __va(pud_val(pud) & _PFN_MASK))
+ #define pud_page(pud)			virt_to_page((pud_val(pud) + PAGE_OFFSET))
+@@ -286,6 +288,7 @@ extern unsigned long VMALLOC_END;
+ #define pgd_none(pgd)			(!pgd_val(pgd))
+ #define pgd_bad(pgd)			(!ia64_phys_addr_valid(pgd_val(pgd)))
+ #define pgd_present(pgd)		(pgd_val(pgd) != 0UL)
++#define pgd_large(pgd)			(0)
+ #define pgd_clear(pgdp)			(pgd_val(*(pgdp)) = 0UL)
+ #define pgd_page_vaddr(pgd)		((unsigned long) __va(pgd_val(pgd) & _PFN_MASK))
+ #define pgd_page(pgd)			virt_to_page((pgd_val(pgd) + PAGE_OFFSET))
 -- 
-Michal Hocko
-SUSE Labs
+2.20.1
