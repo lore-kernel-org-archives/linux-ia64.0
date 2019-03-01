@@ -1,41 +1,28 @@
-From: Robert Richter <rrichter@marvell.com>
-Date: Wed, 20 Mar 2019 14:48:34 +0000
-Subject: Re: [PATCH] efi: Unify dmi setup code over architectures arm/arm64, io64 and x86
-Message-Id: <20190320144828.a7iui7v5cwt45myr@rric.localdomain>
+From: "Kirill A. Shutemov" <kirill@shutemov.name>
+Date: Fri, 01 Mar 2019 21:57:28 +0000
+Subject: Re: [PATCH v3 08/34] ia64: mm: Add p?d_large() definitions
+Message-Id: <20190301215728.nk7466zohdlgelcb@kshutemo-mobl1>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190320130502.16667-1-rrichter@marvell.com>
- <20190320131607.vgst3r7ynha55ikw@rric.localdomain>
-In-Reply-To: <20190320131607.vgst3r7ynha55ikw@rric.localdomain>
+References: <20190227170608.27963-1-steven.price@arm.com>
+ <20190227170608.27963-9-steven.price@arm.com>
+In-Reply-To: <20190227170608.27963-9-steven.price@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, "H. Peter Anvin" <hpa@zytor.com>, "x86@kernel.org" <x86@kernel.org>, Jean Delvare <jdelvare@suse.com>, Ard Biesheuvel <ard.biesheuvel@linaro.org>
-Cc: Marcin Benka <mbenka@marvell.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linux-efi@vger.kernel.org" <linux-efi@vger.kernel.org>
+To: Steven Price <steven.price@arm.com>
+Cc: linux-mm@kvack.org, Andy Lutomirski <luto@kernel.org>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Arnd Bergmann <arnd@arndb.de>, Borislav Petkov <bp@alien8.de>, Catalin Marinas <catalin.marinas@arm.com>, Dave Hansen <dave.hansen@linux.intel.com>, Ingo Molnar <mingo@redhat.com>, James Morse <james.morse@arm.com>, =?utf-8?B?SsOpcsO0bWU=?= Glisse <jglisse@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Thomas Gleixner <tglx@linutronix.de>, Will Deacon <will.deacon@arm.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, Mark Rutland <Mark.Rutland@arm.com>, "Liang, Kan" <kan.liang@linux.intel.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-On 20.03.19 13:16:13, Robert Richter wrote:
+On Wed, Feb 27, 2019 at 05:05:42PM +0000, Steven Price wrote:
+> walk_page_range() is going to be allowed to walk page tables other than
+> those of user space. For this it needs to know when it has reached a
+> 'leaf' entry in the page tables. This information is provided by the
+> p?d_large() functions/macros.
+> 
+> For ia64 leaf entries are always at the lowest level, so implement
+> stubs returning 0.
 
-> diff --git a/drivers/firmware/efi/arm-runtime.c b/drivers/firmware/efi/arm-runtime.c
-> index 4a0dfe4ab829..c250b767030e 100644
-> --- a/drivers/firmware/efi/arm-runtime.c
-> +++ b/drivers/firmware/efi/arm-runtime.c
-> @@ -162,14 +162,10 @@ void efi_virtmap_unload(void)
->  static int __init arm_dmi_init(void)
->  {
->  	/*
-> -	 * On arm64/ARM, DMI depends on UEFI, and dmi_scan_machine() needs to
-> +	 * On arm64/ARM, DMI depends on UEFI, and dmi_setup() needs to
->  	 * be called early because dmi_id_init(), which is an arch_initcall
->  	 * itself, depends on dmi_scan_machine() having been called already.
->  	 */
-> -	dmi_scan_machine();
-> -	dmi_memdev_walk();
-> -	if (dmi_available)
-> -		dmi_set_dump_stack_arch_desc();
+Are you sure about this? I see pte_mkhuge defined for ia64 and Kconfig
+contains hugetlb references.
 
-This went wrong in the last stage of a comment rework. A dmi_setup()
-should be here. Will resubmit. Sorry.
-
--Robert
-
->  	return 0;
->  }
+-- 
+ Kirill A. Shutemov
