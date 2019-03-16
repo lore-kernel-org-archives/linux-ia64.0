@@ -1,96 +1,213 @@
-From: Waiman Long <longman@redhat.com>
-Date: Fri, 22 Mar 2019 14:30:05 +0000
-Subject: [PATCH v5 0/3] locking/rwsem: Rwsem rearchitecture part 0
-Message-Id: <20190322143008.21313-1-longman@redhat.com>
+From: lijiang <lijiang@redhat.com>
+Date: Sat, 16 Mar 2019 07:31:00 +0000
+Subject: Re: [PATCH 1/2 v8] resource: add the new I/O resource descriptor 'IORES_DESC_RESERVED'
+Message-Id: <95661569-d9c9-af13-11c4-c0d752710a1f@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20181129080956.20776-1-lijiang@redhat.com>
+ <20181129080956.20776-2-lijiang@redhat.com>
+ <20181130033703.GA23624@dhcp-128-65.nay.redhat.com>
+ <b8936194-01ef-8b8f-254e-039fc951855d@amd.com>
+In-Reply-To: <b8936194-01ef-8b8f-254e-039fc951855d@amd.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>, Will Deacon <will.deacon@arm.com>, Thomas Gleixner <tglx@linutronix.de>
-Cc: linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org, uclinux-h8-devel@lists.sourceforge.jp, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, nios2-dev@lists.rocketboards.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Borislav Petkov <bp@alien8.de>, "H. Peter Anvin" <hpa@zytor.com>, Davidlohr Bueso <dave@stgolabs.net>, Linus Torvalds <tor>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: "Lendacky, Thomas" <Thomas.Lendacky@amd.com>
+Cc: Dave Young <dyoung@redhat.com>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "kexec@lists.infradead.org" <kexec@lists.infradead.org>, "x86@kernel.org" <x86@kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-efi@vger.kernel.org" <linux-efi@vger.kernel.org>, "tglx@linutronix.de" <tglx@linutronix.de>, "mingo@redhat.com" <mingo@redhat.com>, "bp@alien8.de" <bp@alien8.de>, "akpm@linux-foundation.org" <akpm@linux-foundation.org>, "dave.hansen@linux.intel.com" <dave.hansen@linux.intel.com>, "luto@kernel.org" <luto@kernel.org>, "peterz@infradead.org" <peterz@infradead.org>, "ard.biesheuvel@linaro.org" <ard.biesheuvel@linaro.org>, "tony.luck@intel.com" <tony.luck@intel.com>, "fenghua.yu@intel.com" <fenghua.yu@intel.com>, "bhe@redhat.com" <bhe@redhat.com>, Toshi Kani <toshi.kani@hp.com>, Dan Williams <dan.j.williams@intel.com>
 
-v5:
- - Rebase to the latest v5.1 tree and fix conflicts in 
-   arch/{xtensa,s390}/include/asm/Kbuild.
 
-v4:
- - Remove rwsem-spinlock.c and make all archs use rwsem-xadd.c.
 
-v3:
- - Optimize __down_read_trylock() for the uncontended case as suggested
-   by Linus.
+在 2018年12月05日 05:33, Lendacky, Thomas 写道:
+> On 11/29/2018 09:37 PM, Dave Young wrote:
+>> + more people
+>>
+>> On 11/29/18 at 04:09pm, Lianbo Jiang wrote:
+>>> When doing kexec_file_load, the first kernel needs to pass the e820
+>>> reserved ranges to the second kernel. But kernel can not exactly
+>>> match the e820 reserved ranges when walking through the iomem resources
+>>> with the descriptor 'IORES_DESC_NONE', because several e820 types(
+>>> e.g. E820_TYPE_RESERVED_KERN/E820_TYPE_RAM/E820_TYPE_UNUSABLE/E820
+>>> _TYPE_RESERVED) are converted to the descriptor 'IORES_DESC_NONE'. It
+>>> may pass these four types to the kdump kernel, that is not desired result.
+>>>
+>>> So, this patch adds a new I/O resource descriptor 'IORES_DESC_RESERVED'
+>>> for the iomem resources search interfaces. It is helpful to exactly
+>>> match the reserved resource ranges when walking through iomem resources.
+>>>
+>>> In addition, since the new descriptor 'IORES_DESC_RESERVED' is introduced,
+>>> these code originally related to the descriptor 'IORES_DESC_NONE' need to
+>>> be updated. Otherwise, it will be easily confused and also cause some
+>>> errors. Because the 'E820_TYPE_RESERVED' type is converted to the new
+>>> descriptor 'IORES_DESC_RESERVED' instead of 'IORES_DESC_NONE', it has been
+>>> changed.
+>>>
+>>> Suggested-by: Dave Young <dyoung@redhat.com>
+>>> Signed-off-by: Lianbo Jiang <lijiang@redhat.com>
+>>> ---
+>>>  arch/ia64/kernel/efi.c |  4 ++++
+>>>  arch/x86/kernel/e820.c |  2 +-
+>>>  arch/x86/mm/ioremap.c  | 13 ++++++++++++-
+>>>  include/linux/ioport.h |  1 +
+>>>  kernel/resource.c      |  6 +++---
+>>>  5 files changed, 21 insertions(+), 5 deletions(-)
+>>>
+>>> diff --git a/arch/ia64/kernel/efi.c b/arch/ia64/kernel/efi.c
+>>> index 8f106638913c..1841e9b4db30 100644
+>>> --- a/arch/ia64/kernel/efi.c
+>>> +++ b/arch/ia64/kernel/efi.c
+>>> @@ -1231,6 +1231,10 @@ efi_initialize_iomem_resources(struct resource *code_resource,
+>>>  				break;
+>>>  
+>>>  			case EFI_RESERVED_TYPE:
+>>> +				name = "reserved";
+>>
+>> Ingo updated X86 code to use "Reserved",  I think it would be good to do
+>> same for this case as well
+>>
+>>> +				desc = IORES_DESC_RESERVED;
+>>> +				break;
+>>> +
+>>>  			case EFI_RUNTIME_SERVICES_CODE:
+>>>  			case EFI_RUNTIME_SERVICES_DATA:
+>>>  			case EFI_ACPI_RECLAIM_MEMORY:
+>>
+>> Originally, above 3 are all "reserved", so probably they all should be
+>> IORES_DESC_RESERVED.
+>>
+>> Can any IA64 people to review this?
+>>
+>>> diff --git a/arch/x86/kernel/e820.c b/arch/x86/kernel/e820.c
+>>> index 50895c2f937d..57fafdafb860 100644
+>>> --- a/arch/x86/kernel/e820.c
+>>> +++ b/arch/x86/kernel/e820.c
+>>> @@ -1048,10 +1048,10 @@ static unsigned long __init e820_type_to_iores_desc(struct e820_entry *entry)
+>>>  	case E820_TYPE_NVS:		return IORES_DESC_ACPI_NV_STORAGE;
+>>>  	case E820_TYPE_PMEM:		return IORES_DESC_PERSISTENT_MEMORY;
+>>>  	case E820_TYPE_PRAM:		return IORES_DESC_PERSISTENT_MEMORY_LEGACY;
+>>> +	case E820_TYPE_RESERVED:	return IORES_DESC_RESERVED;
+>>>  	case E820_TYPE_RESERVED_KERN:	/* Fall-through: */
+>>>  	case E820_TYPE_RAM:		/* Fall-through: */
+>>>  	case E820_TYPE_UNUSABLE:	/* Fall-through: */
+>>> -	case E820_TYPE_RESERVED:	/* Fall-through: */
+>>>  	default:			return IORES_DESC_NONE;
+>>>  	}
+>>>  }
+>>> diff --git a/arch/x86/mm/ioremap.c b/arch/x86/mm/ioremap.c
+>>> index 5378d10f1d31..fea2ef99415d 100644
+>>> --- a/arch/x86/mm/ioremap.c
+>>> +++ b/arch/x86/mm/ioremap.c
+>>> @@ -83,7 +83,18 @@ static bool __ioremap_check_ram(struct resource *res)
+>>>  
+>>>  static int __ioremap_check_desc_other(struct resource *res)
+>>>  {
+>>> -	return (res->desc != IORES_DESC_NONE);
+>>> +	/*
+>>> +	 * But now, the 'E820_TYPE_RESERVED' type is converted to the new
+>>> +	 * descriptor 'IORES_DESC_RESERVED' instead of 'IORES_DESC_NONE',
+>>> +	 * it has been changed. And the value of 'mem_flags.desc_other'
+>>> +	 * is equal to 'true' if we don't strengthen the condition in this
+>>> +	 * function, that is wrong. Because originally it is equal to
+>>> +	 * 'false' for the same reserved type.
+>>> +	 *
+>>> +	 * So, that would be nice to keep it the same as before.
+>>> +	 */
+>>> +	return ((res->desc != IORES_DESC_NONE) &&
+>>> +		(res->desc != IORES_DESC_RESERVED));
+>>>  }
+>>
+>> Added Tom since he added the check function.  Is it possible to only
+>> check explict valid desc types instead of exclude IORES_DESC_NONE?
+> 
+> Sorry for the delay...
+> 
+> The original intent of the check was to map most memory as encrypted under
+> SEV if it was marked with a specific descriptor, since it was likely to
+> not be MMIO. I tried converting most things that mapped memory to memremap
+> vs ioremap, but ACPI was one area that I left alone and this check catches
+> the mapping of the ACPI tables. I suppose it's possible to change this to
+> check just for IORES_DESC_ACPI_* values, but I would have to do some
+> testing.
 
-v2:
- - Add patch 2 to optimize __down_read_trylock() as suggested by PeterZ.
- - Update performance test data in patch 1.
+Recently, i tested it according to your advice, here it is really checking for the
+'IORES_DESC_ACPI_*' values.  If you agree to this change, i would add the following
+patch into this patch set and post them again.
 
-The goal of this patchset is to remove the architecture specific files
-for rwsem-xadd to make it easer to add enhancements in the later rwsem
-patches. It also removes the legacy rwsem-spinlock.c file and make all
-the architectures use one single implementation of rwsem - rwsem-xadd.c.
+[root@localhost linux]# git diff arch/x86/mm/ioremap.c
+diff --git a/arch/x86/mm/ioremap.c b/arch/x86/mm/ioremap.c
+index 0029604af8a4..0e3ba620612d 100644
+--- a/arch/x86/mm/ioremap.c
++++ b/arch/x86/mm/ioremap.c
+@@ -83,7 +83,8 @@ static bool __ioremap_check_ram(struct resource *res)
+ 
+ static int __ioremap_check_desc_other(struct resource *res)
+ {
+-       return (res->desc != IORES_DESC_NONE);
++       return ((res->desc = IORES_DESC_ACPI_TABLES) ||
++               (res->desc = IORES_DESC_ACPI_NV_STORAGE));
+ }
 
-Waiman Long (3):
-  locking/rwsem: Remove arch specific rwsem files
-  locking/rwsem: Remove rwsem-spinlock.c & use rwsem-xadd.c for all
-    archs
-  locking/rwsem: Optimize down_read_trylock()
 
- MAINTAINERS                     |   1 -
- arch/alpha/Kconfig              |   7 -
- arch/alpha/include/asm/rwsem.h  | 211 --------------------
- arch/arc/Kconfig                |   3 -
- arch/arm/Kconfig                |   4 -
- arch/arm/include/asm/Kbuild     |   1 -
- arch/arm64/Kconfig              |   3 -
- arch/arm64/include/asm/Kbuild   |   1 -
- arch/c6x/Kconfig                |   3 -
- arch/csky/Kconfig               |   3 -
- arch/h8300/Kconfig              |   3 -
- arch/hexagon/Kconfig            |   6 -
- arch/hexagon/include/asm/Kbuild |   1 -
- arch/ia64/Kconfig               |   4 -
- arch/ia64/include/asm/rwsem.h   | 172 ----------------
- arch/m68k/Kconfig               |   7 -
- arch/microblaze/Kconfig         |   6 -
- arch/mips/Kconfig               |   7 -
- arch/nds32/Kconfig              |   3 -
- arch/nios2/Kconfig              |   3 -
- arch/openrisc/Kconfig           |   6 -
- arch/parisc/Kconfig             |   6 -
- arch/powerpc/Kconfig            |   7 -
- arch/powerpc/include/asm/Kbuild |   1 -
- arch/riscv/Kconfig              |   3 -
- arch/s390/Kconfig               |   6 -
- arch/s390/include/asm/Kbuild    |   1 -
- arch/sh/Kconfig                 |   6 -
- arch/sh/include/asm/Kbuild      |   1 -
- arch/sparc/Kconfig              |   8 -
- arch/sparc/include/asm/Kbuild   |   1 -
- arch/unicore32/Kconfig          |   6 -
- arch/x86/Kconfig                |   3 -
- arch/x86/include/asm/rwsem.h    | 237 ----------------------
- arch/x86/lib/Makefile           |   1 -
- arch/x86/lib/rwsem.S            | 156 ---------------
- arch/x86/um/Kconfig             |   6 -
- arch/x86/um/Makefile            |   1 -
- arch/xtensa/Kconfig             |   3 -
- arch/xtensa/include/asm/Kbuild  |   1 -
- include/asm-generic/rwsem.h     | 140 -------------
- include/linux/rwsem-spinlock.h  |  47 -----
- include/linux/rwsem.h           |   9 +-
- kernel/Kconfig.locks            |   2 +-
- kernel/locking/Makefile         |   4 +-
- kernel/locking/percpu-rwsem.c   |   2 +
- kernel/locking/rwsem-spinlock.c | 339 --------------------------------
- kernel/locking/rwsem.h          | 130 ++++++++++++
- 48 files changed, 135 insertions(+), 1447 deletions(-)
- delete mode 100644 arch/alpha/include/asm/rwsem.h
- delete mode 100644 arch/ia64/include/asm/rwsem.h
- delete mode 100644 arch/x86/include/asm/rwsem.h
- delete mode 100644 arch/x86/lib/rwsem.S
- delete mode 100644 include/asm-generic/rwsem.h
- delete mode 100644 include/linux/rwsem-spinlock.h
- delete mode 100644 kernel/locking/rwsem-spinlock.c
+Thanks.
+Lianbo
 
--- 
-2.18.1
+> 
+> Thanks,
+> Tom
+> 
+>>
+>>>  
+>>>  static int __ioremap_res_check(struct resource *res, void *arg)
+>>> diff --git a/include/linux/ioport.h b/include/linux/ioport.h
+>>> index da0ebaec25f0..6ed59de48bd5 100644
+>>> --- a/include/linux/ioport.h
+>>> +++ b/include/linux/ioport.h
+>>> @@ -133,6 +133,7 @@ enum {
+>>>  	IORES_DESC_PERSISTENT_MEMORY_LEGACY	= 5,
+>>>  	IORES_DESC_DEVICE_PRIVATE_MEMORY	= 6,
+>>>  	IORES_DESC_DEVICE_PUBLIC_MEMORY		= 7,
+>>> +	IORES_DESC_RESERVED			= 8,
+>>>  };
+>>>  
+>>>  /* helpers to define resources */
+>>> diff --git a/kernel/resource.c b/kernel/resource.c
+>>> index b0fbf685c77a..f34a632c4169 100644
+>>> --- a/kernel/resource.c
+>>> +++ b/kernel/resource.c
+>>> @@ -994,7 +994,7 @@ __reserve_region_with_split(struct resource *root, resource_size_t start,
+>>>  	res->start = start;
+>>>  	res->end = end;
+>>>  	res->flags = type | IORESOURCE_BUSY;
+>>> -	res->desc = IORES_DESC_NONE;
+>>> +	res->desc = IORES_DESC_RESERVED;
+>>>  
+>>>  	while (1) {
+>>>  
+>>> @@ -1029,7 +1029,7 @@ __reserve_region_with_split(struct resource *root, resource_size_t start,
+>>>  				next_res->start = conflict->end + 1;
+>>>  				next_res->end = end;
+>>>  				next_res->flags = type | IORESOURCE_BUSY;
+>>> -				next_res->desc = IORES_DESC_NONE;
+>>> +				next_res->desc = IORES_DESC_RESERVED;
+>>>  			}
+>>>  		} else {
+>>>  			res->start = conflict->end + 1;
+>>> @@ -1477,7 +1477,7 @@ static int __init reserve_setup(char *str)
+>>>  			res->start = io_start;
+>>>  			res->end = io_start + io_num - 1;
+>>>  			res->flags |= IORESOURCE_BUSY;
+>>> -			res->desc = IORES_DESC_NONE;
+>>> +			res->desc = IORES_DESC_RESERVED;
+>>>  			res->child = NULL;
+>>>  			if (request_resource(parent, res) = 0)
+>>>  				reserved = x+1;
+>>> -- 
+>>> 2.17.1
+>>>
+>>
+>>
+>> There are a lot of places call region_intersects which use DESC_NONE,
+>> I'm not sure if needed changes accordingly.  Cced Dan and Toshi.
+>>
+>>
+>> Thanks
+>> Dave
+>>
