@@ -1,42 +1,53 @@
-From: Davidlohr Bueso <dave@stgolabs.net>
-Date: Fri, 22 Mar 2019 19:30:10 +0000
+From: Waiman Long <longman@redhat.com>
+Date: Fri, 22 Mar 2019 20:27:26 +0000
 Subject: Re: [PATCH v5 1/3] locking/rwsem: Remove arch specific rwsem files
-Message-Id: <20190322193010.azb7rmmmaclhal35@linux-r8p5>
+Message-Id: <45315aa9-f006-c4ca-705f-71d6c2650508@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20190322143008.21313-1-longman@redhat.com>
  <20190322143008.21313-2-longman@redhat.com>
  <CAHk-=wikkO-1f1=FEOEzkSnaDg3yJLP=4Vd59UCuLBztFd0KOw@mail.gmail.com>
-In-Reply-To: <CAHk-=wikkO-1f1=FEOEzkSnaDg3yJLP=4Vd59UCuLBztFd0KOw@mail.gmail.com>
+ <20190322193010.azb7rmmmaclhal35@linux-r8p5>
+In-Reply-To: <20190322193010.azb7rmmmaclhal35@linux-r8p5>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Cc: Waiman Long <longman@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>, Will Deacon <will.deacon@arm.com>, Thomas Gleixner <tglx@linutronix.de>, Linux List Kernel Mailing <linux-kernel@vger.kernel.org>, "linux-alpha@vger.kernel.org" <linux-alpha@vger.kernel.org>, "linux-alpha@vger.kernel.org" <linux-arm-kernel@lists.infradead.org>, linux-c6x-dev@linux-c6x.org, uclinux-h8-devel@lists.sourceforge.jp, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k <linux-m68k@lists.linux-m68k.org>, linux-mips@vger.kernel.org, nios2-dev@lists.rocketboards.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.orgLinux-shlist
+To: Davidlohr Bueso <dave@stgolabs.net>, Linus Torvalds <torvalds@linux-foundation.org>
+Cc: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>, Will Deacon <will.deacon@arm.com>, Thomas Gleixner <tglx@linutronix.de>, Linux List Kernel Mailing <linux-kernel@vger.kernel.org>, "linux-alpha@vger.kernel.org" <linux-alpha@vger.kernel.org>, "linux-alpha@vger.kernel.org" <linux-arm-kernel@lists.infradead.org>, linux-c6x-dev@linux-c6x.org, uclinux-h8-devel@lists.sourceforge.jp, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k <linux-m68k@lists.linux-m68k.org>, linux-mips@vger.kernel.org, nios2-dev@lists.rocketboards.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, Linux-sh list <linux-sh@vger.kernel.org>, sparclinux@vg
 
-On Fri, 22 Mar 2019, Linus Torvalds wrote:
->Some of them _might_ be performance-critical. There's the one on
->mmap_sem in the fault handling path, for example. And yes, I'd expect
->the normal case to very much be "no other readers or writers" for that
->one.
-
-Yeah, the mmap_sem case in the fault path is really expecting an unlocked
-state. To the point that four archs have added branch predictions, ie:
-
- 92181f190b6 (x86: optimise x86's do_page_fault (C entry point for the page fault path))
- b15021d994f (powerpc/mm: Add a bunch of (un)likely annotations to do_page_fault)
-
-And using PROFILE_ANNOTATED_BRANCHES shows pretty clearly:
-(without resetting the counters)
-
- correct incorrect  %        Function              File          Line
- ------- ---------  -        --------              ----          ----
-  4603685       34   0 do_user_addr_fault         fault.c          1416 (bootup)
-382327745      449   0 do_user_addr_fault         fault.c          1416 (kernel build)
-399446159      461   0 do_user_addr_fault         fault.c          1416 (redis benchmark)
-
-It would probably wouldn't harm doing the unlikely() for all archs, or
-alternatively, add likely() to the atomic_long_try_cmpxchg_acquire in
-patch 3 and do it implicitly but maybe that would be less flexible(?)
-
-Thanks,
-Davidlohr
+T24gMDMvMjIvMjAxOSAwMzozMCBQTSwgRGF2aWRsb2hyIEJ1ZXNvIHdyb3RlOgo+IE9uIEZy
+aSwgMjIgTWFyIDIwMTksIExpbnVzIFRvcnZhbGRzIHdyb3RlOgo+PiBTb21lIG9mIHRoZW0g
+X21pZ2h0XyBiZSBwZXJmb3JtYW5jZS1jcml0aWNhbC4gVGhlcmUncyB0aGUgb25lIG9uCj4+
+IG1tYXBfc2VtIGluIHRoZSBmYXVsdCBoYW5kbGluZyBwYXRoLCBmb3IgZXhhbXBsZS4gQW5k
+IHllcywgSSdkIGV4cGVjdAo+PiB0aGUgbm9ybWFsIGNhc2UgdG8gdmVyeSBtdWNoIGJlICJu
+byBvdGhlciByZWFkZXJzIG9yIHdyaXRlcnMiIGZvciB0aGF0Cj4+IG9uZS4KPgo+IFllYWgs
+IHRoZSBtbWFwX3NlbSBjYXNlIGluIHRoZSBmYXVsdCBwYXRoIGlzIHJlYWxseSBleHBlY3Rp
+bmcgYW4gdW5sb2NrZWQKPiBzdGF0ZS4gVG8gdGhlIHBvaW50IHRoYXQgZm91ciBhcmNocyBo
+YXZlIGFkZGVkIGJyYW5jaCBwcmVkaWN0aW9ucywgaWU6Cj4KPiA5MjE4MWYxOTBiNiAoeDg2
+OiBvcHRpbWlzZSB4ODYncyBkb19wYWdlX2ZhdWx0IChDIGVudHJ5IHBvaW50IGZvciB0aGUK
+PiBwYWdlIGZhdWx0IHBhdGgpKQo+IGIxNTAyMWQ5OTRmIChwb3dlcnBjL21tOiBBZGQgYSBi
+dW5jaCBvZiAodW4pbGlrZWx5IGFubm90YXRpb25zIHRvCj4gZG9fcGFnZV9mYXVsdCkKPgo+
+IEFuZCB1c2luZyBQUk9GSUxFX0FOTk9UQVRFRF9CUkFOQ0hFUyBzaG93cyBwcmV0dHkgY2xl
+YXJseToKPiAod2l0aG91dCByZXNldHRpbmcgdGhlIGNvdW50ZXJzKQo+Cj4gY29ycmVjdCBp
+bmNvcnJlY3TCoCAlwqDCoMKgwqDCoMKgwqAgRnVuY3Rpb27CoMKgwqDCoMKgwqDCoMKgwqDC
+oMKgwqDCoCBGaWxlwqDCoMKgwqDCoMKgwqDCoMKgIExpbmUKPiAtLS0tLS0tIC0tLS0tLS0t
+LcKgIC3CoMKgwqDCoMKgwqDCoCAtLS0tLS0tLcKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+IC0tLS3CoMKgwqDCoMKgwqDCoMKgwqAgLS0tLQo+IMKgNDYwMzY4NcKgwqDCoMKgwqDCoCAz
+NMKgwqAgMCBkb191c2VyX2FkZHJfZmF1bHTCoMKgwqDCoMKgwqDCoMKgIGZhdWx0LmPCoMKg
+wqDCoMKgwqDCoMKgwqAgMTQxNgo+IChib290dXApCj4gMzgyMzI3NzQ1wqDCoMKgwqDCoCA0
+NDnCoMKgIDAgZG9fdXNlcl9hZGRyX2ZhdWx0wqDCoMKgwqDCoMKgwqDCoCBmYXVsdC5jwqDC
+oMKgwqDCoMKgwqDCoMKgCj4gMTQxNiAoa2VybmVsIGJ1aWxkKQo+IDM5OTQ0NjE1OcKgwqDC
+oMKgwqAgNDYxwqDCoCAwIGRvX3VzZXJfYWRkcl9mYXVsdMKgwqDCoMKgwqDCoMKgwqAgZmF1
+bHQuY8KgwqDCoMKgwqDCoMKgwqDCoAo+IDE0MTYgKHJlZGlzIGJlbmNobWFyaykKPgo+IEl0
+IHdvdWxkIHByb2JhYmx5IHdvdWxkbid0IGhhcm0gZG9pbmcgdGhlIHVubGlrZWx5KCkgZm9y
+IGFsbCBhcmNocywgb3IKPiBhbHRlcm5hdGl2ZWx5LCBhZGQgbGlrZWx5KCkgdG8gdGhlIGF0
+b21pY19sb25nX3RyeV9jbXB4Y2hnX2FjcXVpcmUgaW4KPiBwYXRjaCAzIGFuZCBkbyBpdCBp
+bXBsaWNpdGx5IGJ1dCBtYXliZSB0aGF0IHdvdWxkIGJlIGxlc3MgZmxleGlibGUoPykKPgo+
+IFRoYW5rcywKPiBEYXZpZGxvaHIKCkkgaGFkIHVzZWQgdGhlIG15IGxvY2sgZXZlbnQgY291
+bnRpbmcgY29kZSB0byBjb3VudCB0aGUgbnVtYmVyIG9mCmNvbnRlbmRlZCBhbmQgdW5jb250
+ZW5kZWQgdHJ5bG9ja3MuIEkgdGVzdGVkIGJvdGggYm9vdHVwIGFuZCBrZXJuZWwKYnVpbGQu
+IEkgdGhpbmsgSSBzYXcgbGVzcyB0aGFuIDElIHdlcmUgY29udGVuZGVkLCB0aGUgcmVzdHMg
+d2VyZSBhbGwKdW5jb250ZW5kZWQuIFRoYXQgaXMgc2ltaWxhciB0byB3aGF0IHlvdSBnb3Qu
+IEkgdGhvdWdodCBJIGhhZCBzZW50IHRoZQpkYXRhIG91dCBwcmV2aW91c2x5LCBidXQgSSBj
+b3VsZG4ndCBmaW5kIHRoZSBlbWFpbC4gVGhhdCB3YXMgdGhlIG1haW4KcmVhc29uIHdoeSBJ
+IHRvb2sgTGludXMnIHN1Z2dlc3Rpb24gdG8gb3B0aW1pemUgaXQgZm9yIHRoZSB1bmNvbnRl
+bmRlZCBjYXNlLgoKVGhhbmtzLApMb25nbWFuCgo
