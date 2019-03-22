@@ -1,79 +1,115 @@
-From: Steven Price <steven.price@arm.com>
-Date: Wed, 06 Mar 2019 13:45:07 +0000
-Subject: Re: [PATCH v3 08/34] ia64: mm: Add p?d_large() definitions
-Message-Id: <aab0ac18-fe3b-a753-009e-8704edb15623@arm.com>
+From: Waiman Long <longman@redhat.com>
+Date: Fri, 22 Mar 2019 14:30:08 +0000
+Subject: [PATCH v5 3/3] locking/rwsem: Optimize down_read_trylock()
+Message-Id: <20190322143008.21313-4-longman@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190227170608.27963-1-steven.price@arm.com>
- <20190227170608.27963-9-steven.price@arm.com>
- <20190301215728.nk7466zohdlgelcb@kshutemo-mobl1>
- <15100043-26e4-2ee1-28fe-101e12f74926@arm.com>
- <20190304190637.GA13947@agluck-desk>
-In-Reply-To: <20190304190637.GA13947@agluck-desk>
+References: <20190322143008.21313-1-longman@redhat.com>
+In-Reply-To: <20190322143008.21313-1-longman@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>
-Cc: Mark Rutland <Mark.Rutland@arm.com>, linux-ia64@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Catalin Marinas <catalin.marinas@arm.com>, Dave Hansen <dave.hansen@linux.intel.com>, Will Deacon <will.deacon@arm.com>, linux-mm@kvack.org, "H. Peter Anvin" <hpa@zytor.com>, "Liang, Kan" <kan.liang@linux.intel.com>, x86@kernel.org, Ingo Molnar <mingo@redhat.com>, Fenghua Yu <fenghua.yu@intel.com>, Arnd Bergmann <arnd@arndb.de>, =?UTF-8?B?SsOpcsO0bWUgR2xpc3Nl?= <jglisse@redhat.com>, Borislav Petkov <bp@alien8.de>, Andy Lutomirski <luto@kernel.org>, "Kirill A. Shutemov" <kirill@shutemov.name>, Thomas Gleixner <tglx@linutronix.de>, linux-arm-kernel@lists.infradead.org, Ard Biesheuvel <ard.biesheuvel@linaro.org>, linux-kernel@vger.kernel.org, James Morse <james.morse@arm.com>
+To: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>, Will Deacon <will.deacon@arm.com>, Thomas Gleixner <tglx@linutronix.de>
+Cc: linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org, uclinux-h8-devel@lists.sourceforge.jp, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, nios2-dev@lists.rocketboards.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Borislav Petkov <bp@alien8.de>, "H. Peter Anvin" <hpa@zytor.com>, Davidlohr Bueso <dave@stgolabs.net>, Linus Torvalds <tor>
 
-On 04/03/2019 19:06, Luck, Tony wrote:
-> On Mon, Mar 04, 2019 at 01:16:47PM +0000, Steven Price wrote:
->> On 01/03/2019 21:57, Kirill A. Shutemov wrote:
->>> On Wed, Feb 27, 2019 at 05:05:42PM +0000, Steven Price wrote:
->>>> walk_page_range() is going to be allowed to walk page tables other than
->>>> those of user space. For this it needs to know when it has reached a
->>>> 'leaf' entry in the page tables. This information is provided by the
->>>> p?d_large() functions/macros.
->>>>
->>>> For ia64 leaf entries are always at the lowest level, so implement
->>>> stubs returning 0.
->>>
->>> Are you sure about this? I see pte_mkhuge defined for ia64 and Kconfig
->>> contains hugetlb references.
->>>
->>
->> I'm not completely familiar with ia64, but my understanding is that it
->> doesn't have the situation where a page table walk ends early - there is
->> always the full depth of entries. The p?d_huge() functions always return 0.
->>
->> However my understanding is that it does support huge TLB entries, so
->> when populating the TLB a region larger than a standard page can be mapped.
->>
->> I'd definitely welcome review by someone more familiar with ia64 to
->> check my assumptions.
-> 
-> ia64 has several ways to manage page tables. The one
-> used by Linux has multi-level table walks like other
-> architectures, but we don't allow mixing of different
-> page sizes within a "region" (there are eight regions
-> selected by the high 3 bits of the virtual address).
+Modify __down_read_trylock() to optimize for an unlocked rwsem and make
+it generate slightly better code.
 
-I'd gathered ia64 has this "region" concept, from what I can tell the
-existing p?d_present() etc macros are assuming a particular
-configuration of a region, and so the p?d_large macros would follow that
-scheme. This of course does limit any generic page walking code to
-dealing only with this one type of region, but that doesn't seem
-unreasonable.
+Before this patch, down_read_trylock:
 
-> Is the series in some GIT tree that I can pull, rather
-> than tracking down all 34 pieces?  I can try it out and
-> see if things work/break.
+   0x0000000000000000 <+0>:     callq  0x5 <down_read_trylock+5>
+   0x0000000000000005 <+5>:     jmp    0x18 <down_read_trylock+24>
+   0x0000000000000007 <+7>:     lea    0x1(%rdx),%rcx
+   0x000000000000000b <+11>:    mov    %rdx,%rax
+   0x000000000000000e <+14>:    lock cmpxchg %rcx,(%rdi)
+   0x0000000000000013 <+19>:    cmp    %rax,%rdx
+   0x0000000000000016 <+22>:    je     0x23 <down_read_trylock+35>
+   0x0000000000000018 <+24>:    mov    (%rdi),%rdx
+   0x000000000000001b <+27>:    test   %rdx,%rdx
+   0x000000000000001e <+30>:    jns    0x7 <down_read_trylock+7>
+   0x0000000000000020 <+32>:    xor    %eax,%eax
+   0x0000000000000022 <+34>:    retq
+   0x0000000000000023 <+35>:    mov    %gs:0x0,%rax
+   0x000000000000002c <+44>:    or     $0x3,%rax
+   0x0000000000000030 <+48>:    mov    %rax,0x20(%rdi)
+   0x0000000000000034 <+52>:    mov    $0x1,%eax
+   0x0000000000000039 <+57>:    retq
 
-At the moment I don't have a public tree - I'm trying to get that set
-up. In the meantime you can download the entire series as a mbox from
-patchwork:
+After patch, down_read_trylock:
 
-https://patchwork.kernel.org/series/85673/mbox/
+   0x0000000000000000 <+0>:	callq  0x5 <down_read_trylock+5>
+   0x0000000000000005 <+5>:	xor    %eax,%eax
+   0x0000000000000007 <+7>:	lea    0x1(%rax),%rdx
+   0x000000000000000b <+11>:	lock cmpxchg %rdx,(%rdi)
+   0x0000000000000010 <+16>:	jne    0x29 <down_read_trylock+41>
+   0x0000000000000012 <+18>:	mov    %gs:0x0,%rax
+   0x000000000000001b <+27>:	or     $0x3,%rax
+   0x000000000000001f <+31>:	mov    %rax,0x20(%rdi)
+   0x0000000000000023 <+35>:	mov    $0x1,%eax
+   0x0000000000000028 <+40>:	retq
+   0x0000000000000029 <+41>:	test   %rax,%rax
+   0x000000000000002c <+44>:	jns    0x7 <down_read_trylock+7>
+   0x000000000000002e <+46>:	xor    %eax,%eax
+   0x0000000000000030 <+48>:	retq
 
-(it's currently based on v5.0-rc6)
+By using a rwsem microbenchmark, the down_read_trylock() rate (with a
+load of 10 to lengthen the lock critical section) on a x86-64 system
+before and after the patch were:
 
-However you won't see anything particularly interesting on ia64 (yet)
-because my focus has been converting the PTDUMP implementations that
-several architecture have (arm, arm64, powerpc, s390, x86) but not ia64.
-For now I've also only done the PTDUMP work for arm64/x86 as a way of
-testing out the idea. Ideally the PTDUMP code can be made generic enough
-that implementing it for other architecture (including ia64) will be
-trivial.
+                 Before Patch    After Patch
+   # of Threads     rlock           rlock
+   ------------     -----           -----
+        1           14,496          14,716
+        2            8,644           8,453
+	4            6,799           6,983
+	8            5,664           7,190
 
-Thanks,
+On a ARM64 system, the performance results were:
 
-Steve
+                 Before Patch    After Patch
+   # of Threads     rlock           rlock
+   ------------     -----           -----
+        1           23,676          24,488
+        2            7,697           9,502
+        4            4,945           3,440
+        8            2,641           1,603
+
+For the uncontended case (1 thread), the new down_read_trylock() is a
+little bit faster. For the contended cases, the new down_read_trylock()
+perform pretty well in x86-64, but performance degrades at high
+contention level on ARM64.
+
+Suggested-by: Linus Torvalds <torvalds@linux-foundation.org>
+Signed-off-by: Waiman Long <longman@redhat.com>
+---
+ kernel/locking/rwsem.h | 13 ++++++++-----
+ 1 file changed, 8 insertions(+), 5 deletions(-)
+
+diff --git a/kernel/locking/rwsem.h b/kernel/locking/rwsem.h
+index 45ee00236e03..1f5775aa6a1d 100644
+--- a/kernel/locking/rwsem.h
++++ b/kernel/locking/rwsem.h
+@@ -174,14 +174,17 @@ static inline int __down_read_killable(struct rw_semaphore *sem)
+ 
+ static inline int __down_read_trylock(struct rw_semaphore *sem)
+ {
+-	long tmp;
++	/*
++	 * Optimize for the case when the rwsem is not locked at all.
++	 */
++	long tmp = RWSEM_UNLOCKED_VALUE;
+ 
+-	while ((tmp = atomic_long_read(&sem->count)) >= 0) {
+-		if (tmp = atomic_long_cmpxchg_acquire(&sem->count, tmp,
+-				   tmp + RWSEM_ACTIVE_READ_BIAS)) {
++	do {
++		if (atomic_long_try_cmpxchg_acquire(&sem->count, &tmp,
++					tmp + RWSEM_ACTIVE_READ_BIAS)) {
+ 			return 1;
+ 		}
+-	}
++	} while (tmp >= 0);
+ 	return 0;
+ }
+ 
+-- 
+2.18.1
