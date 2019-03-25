@@ -1,125 +1,167 @@
-From: Christophe Leroy <christophe.leroy@c-s.fr>
-Date: Mon, 25 Mar 2019 15:25:24 +0000
-Subject: Re: [PATCH v5 3/3] locking/rwsem: Optimize down_read_trylock()
-Message-Id: <014279a5-8998-8e03-adb3-c3d611dff171@c-s.fr>
+From: "Lendacky, Thomas" <Thomas.Lendacky@amd.com>
+Date: Mon, 25 Mar 2019 19:34:25 +0000
+Subject: Re: [PATCH 1/2 v8] resource: add the new I/O resource descriptor 'IORES_DESC_RESERVED'
+Message-Id: <b1556461-fe83-2ba0-00a3-e8ecf3e286fe@amd.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190322143008.21313-1-longman@redhat.com>
- <20190322143008.21313-4-longman@redhat.com>
-In-Reply-To: <20190322143008.21313-4-longman@redhat.com>
+References: <20181129080956.20776-1-lijiang@redhat.com>
+ <20181129080956.20776-2-lijiang@redhat.com>
+ <20181130033703.GA23624@dhcp-128-65.nay.redhat.com>
+ <b8936194-01ef-8b8f-254e-039fc951855d@amd.com>
+ <95661569-d9c9-af13-11c4-c0d752710a1f@redhat.com>
+In-Reply-To: <95661569-d9c9-af13-11c4-c0d752710a1f@redhat.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: Waiman Long <longman@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@redhat.com>, Will Deacon <will.deacon@arm.com>, Thomas Gleixner <tglx@linutronix.de>
-Cc: linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, linux-mips@vger.kernel.org, "H. Peter Anvin" <hpa@zytor.com>, sparclinux@vger.kernel.org, linux-riscv@lists.infradead.org, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, Davidlohr Bueso <dave@stgolabs.net>, linux-c6x-dev@linux-c6x.org, linux-hexagon@vger.kernel.org, x86@kernel.org, uclinux-h8-devel@lists.sourceforge.jp, linux-xtensa@linux-xtensa.org, Arnd Bergmann <arnd@arndb.de>, linux-um@lists.infradead.org, linux-m68k@lists.linux-m68k.org, openrisc@lists.librecores.org, Borislav Petkov <bp@alien8.de>, linux-arm-kernel@lists.infradead.org, Tim Chen <tim.c.chen@linux.intel.com>, linux-parisc@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.or
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: lijiang <lijiang@redhat.com>
+Cc: Dave Young <dyoung@redhat.com>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "kexec@lists.infradead.org" <kexec@lists.infradead.org>, "x86@kernel.org" <x86@kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-efi@vger.kernel.org" <linux-efi@vger.kernel.org>, "tglx@linutronix.de" <tglx@linutronix.de>, "mingo@redhat.com" <mingo@redhat.com>, "bp@alien8.de" <bp@alien8.de>, "akpm@linux-foundation.org" <akpm@linux-foundation.org>, "dave.hansen@linux.intel.com" <dave.hansen@linux.intel.com>, "luto@kernel.org" <luto@kernel.org>, "peterz@infradead.org" <peterz@infradead.org>, "ard.biesheuvel@linaro.org" <ard.biesheuvel@linaro.org>, "tony.luck@intel.com" <tony.luck@intel.com>, "fenghua.yu@intel.com" <fenghua.yu@intel.com>, "bhe@redhat.com" <bhe@redhat.com>, Toshi Kani <toshi.kani@hp.com>, Dan Williams <dan.j.williams@intel.com>
 
-Hi,
-
-Could you share the microbenchmark you are using ?
-
-I'd like to test the series on powerpc.
-
-Thanks
-Christophe
-
-Le 22/03/2019 à 15:30, Waiman Long a écrit :
-> Modify __down_read_trylock() to optimize for an unlocked rwsem and make
-> it generate slightly better code.
-> 
-> Before this patch, down_read_trylock:
-> 
->     0x0000000000000000 <+0>:     callq  0x5 <down_read_trylock+5>
->     0x0000000000000005 <+5>:     jmp    0x18 <down_read_trylock+24>
->     0x0000000000000007 <+7>:     lea    0x1(%rdx),%rcx
->     0x000000000000000b <+11>:    mov    %rdx,%rax
->     0x000000000000000e <+14>:    lock cmpxchg %rcx,(%rdi)
->     0x0000000000000013 <+19>:    cmp    %rax,%rdx
->     0x0000000000000016 <+22>:    je     0x23 <down_read_trylock+35>
->     0x0000000000000018 <+24>:    mov    (%rdi),%rdx
->     0x000000000000001b <+27>:    test   %rdx,%rdx
->     0x000000000000001e <+30>:    jns    0x7 <down_read_trylock+7>
->     0x0000000000000020 <+32>:    xor    %eax,%eax
->     0x0000000000000022 <+34>:    retq
->     0x0000000000000023 <+35>:    mov    %gs:0x0,%rax
->     0x000000000000002c <+44>:    or     $0x3,%rax
->     0x0000000000000030 <+48>:    mov    %rax,0x20(%rdi)
->     0x0000000000000034 <+52>:    mov    $0x1,%eax
->     0x0000000000000039 <+57>:    retq
-> 
-> After patch, down_read_trylock:
-> 
->     0x0000000000000000 <+0>:	callq  0x5 <down_read_trylock+5>
->     0x0000000000000005 <+5>:	xor    %eax,%eax
->     0x0000000000000007 <+7>:	lea    0x1(%rax),%rdx
->     0x000000000000000b <+11>:	lock cmpxchg %rdx,(%rdi)
->     0x0000000000000010 <+16>:	jne    0x29 <down_read_trylock+41>
->     0x0000000000000012 <+18>:	mov    %gs:0x0,%rax
->     0x000000000000001b <+27>:	or     $0x3,%rax
->     0x000000000000001f <+31>:	mov    %rax,0x20(%rdi)
->     0x0000000000000023 <+35>:	mov    $0x1,%eax
->     0x0000000000000028 <+40>:	retq
->     0x0000000000000029 <+41>:	test   %rax,%rax
->     0x000000000000002c <+44>:	jns    0x7 <down_read_trylock+7>
->     0x000000000000002e <+46>:	xor    %eax,%eax
->     0x0000000000000030 <+48>:	retq
-> 
-> By using a rwsem microbenchmark, the down_read_trylock() rate (with a
-> load of 10 to lengthen the lock critical section) on a x86-64 system
-> before and after the patch were:
-> 
->                   Before Patch    After Patch
->     # of Threads     rlock           rlock
->     ------------     -----           -----
->          1           14,496          14,716
->          2            8,644           8,453
-> 	4            6,799           6,983
-> 	8            5,664           7,190
-> 
-> On a ARM64 system, the performance results were:
-> 
->                   Before Patch    After Patch
->     # of Threads     rlock           rlock
->     ------------     -----           -----
->          1           23,676          24,488
->          2            7,697           9,502
->          4            4,945           3,440
->          8            2,641           1,603
-> 
-> For the uncontended case (1 thread), the new down_read_trylock() is a
-> little bit faster. For the contended cases, the new down_read_trylock()
-> perform pretty well in x86-64, but performance degrades at high
-> contention level on ARM64.
-> 
-> Suggested-by: Linus Torvalds <torvalds@linux-foundation.org>
-> Signed-off-by: Waiman Long <longman@redhat.com>
-> ---
->   kernel/locking/rwsem.h | 13 ++++++++-----
->   1 file changed, 8 insertions(+), 5 deletions(-)
-> 
-> diff --git a/kernel/locking/rwsem.h b/kernel/locking/rwsem.h
-> index 45ee00236e03..1f5775aa6a1d 100644
-> --- a/kernel/locking/rwsem.h
-> +++ b/kernel/locking/rwsem.h
-> @@ -174,14 +174,17 @@ static inline int __down_read_killable(struct rw_semaphore *sem)
->   
->   static inline int __down_read_trylock(struct rw_semaphore *sem)
->   {
-> -	long tmp;
-> +	/*
-> +	 * Optimize for the case when the rwsem is not locked at all.
-> +	 */
-> +	long tmp = RWSEM_UNLOCKED_VALUE;
->   
-> -	while ((tmp = atomic_long_read(&sem->count)) >= 0) {
-> -		if (tmp = atomic_long_cmpxchg_acquire(&sem->count, tmp,
-> -				   tmp + RWSEM_ACTIVE_READ_BIAS)) {
-> +	do {
-> +		if (atomic_long_try_cmpxchg_acquire(&sem->count, &tmp,
-> +					tmp + RWSEM_ACTIVE_READ_BIAS)) {
->   			return 1;
->   		}
-> -	}
-> +	} while (tmp >= 0);
->   	return 0;
->   }
->   
-> 
+T24gMy8xNi8xOSAyOjMxIEFNLCBsaWppYW5nIHdyb3RlOg0KPiANCj4gDQo+IOWcqCAyMDE45bm0
+MTLmnIgwNeaXpSAwNTozMywgTGVuZGFja3ksIFRob21hcyDlhpnpgZM6DQo+PiBPbiAxMS8yOS8y
+MDE4IDA5OjM3IFBNLCBEYXZlIFlvdW5nIHdyb3RlOg0KPj4+ICsgbW9yZSBwZW9wbGUNCj4+Pg0K
+Pj4+IE9uIDExLzI5LzE4IGF0IDA0OjA5cG0sIExpYW5ibyBKaWFuZyB3cm90ZToNCj4+Pj4gV2hl
+biBkb2luZyBrZXhlY19maWxlX2xvYWQsIHRoZSBmaXJzdCBrZXJuZWwgbmVlZHMgdG8gcGFzcyB0
+aGUgZTgyMA0KPj4+PiByZXNlcnZlZCByYW5nZXMgdG8gdGhlIHNlY29uZCBrZXJuZWwuIEJ1dCBr
+ZXJuZWwgY2FuIG5vdCBleGFjdGx5DQo+Pj4+IG1hdGNoIHRoZSBlODIwIHJlc2VydmVkIHJhbmdl
+cyB3aGVuIHdhbGtpbmcgdGhyb3VnaCB0aGUgaW9tZW0gcmVzb3VyY2VzDQo+Pj4+IHdpdGggdGhl
+IGRlc2NyaXB0b3IgJ0lPUkVTX0RFU0NfTk9ORScsIGJlY2F1c2Ugc2V2ZXJhbCBlODIwIHR5cGVz
+KA0KPj4+PiBlLmcuIEU4MjBfVFlQRV9SRVNFUlZFRF9LRVJOL0U4MjBfVFlQRV9SQU0vRTgyMF9U
+WVBFX1VOVVNBQkxFL0U4MjANCj4+Pj4gX1RZUEVfUkVTRVJWRUQpIGFyZSBjb252ZXJ0ZWQgdG8g
+dGhlIGRlc2NyaXB0b3IgJ0lPUkVTX0RFU0NfTk9ORScuIEl0DQo+Pj4+IG1heSBwYXNzIHRoZXNl
+IGZvdXIgdHlwZXMgdG8gdGhlIGtkdW1wIGtlcm5lbCwgdGhhdCBpcyBub3QgZGVzaXJlZCByZXN1
+bHQuDQo+Pj4+DQo+Pj4+IFNvLCB0aGlzIHBhdGNoIGFkZHMgYSBuZXcgSS9PIHJlc291cmNlIGRl
+c2NyaXB0b3IgJ0lPUkVTX0RFU0NfUkVTRVJWRUQnDQo+Pj4+IGZvciB0aGUgaW9tZW0gcmVzb3Vy
+Y2VzIHNlYXJjaCBpbnRlcmZhY2VzLiBJdCBpcyBoZWxwZnVsIHRvIGV4YWN0bHkNCj4+Pj4gbWF0
+Y2ggdGhlIHJlc2VydmVkIHJlc291cmNlIHJhbmdlcyB3aGVuIHdhbGtpbmcgdGhyb3VnaCBpb21l
+bSByZXNvdXJjZXMuDQo+Pj4+DQo+Pj4+IEluIGFkZGl0aW9uLCBzaW5jZSB0aGUgbmV3IGRlc2Ny
+aXB0b3IgJ0lPUkVTX0RFU0NfUkVTRVJWRUQnIGlzIGludHJvZHVjZWQsDQo+Pj4+IHRoZXNlIGNv
+ZGUgb3JpZ2luYWxseSByZWxhdGVkIHRvIHRoZSBkZXNjcmlwdG9yICdJT1JFU19ERVNDX05PTkUn
+IG5lZWQgdG8NCj4+Pj4gYmUgdXBkYXRlZC4gT3RoZXJ3aXNlLCBpdCB3aWxsIGJlIGVhc2lseSBj
+b25mdXNlZCBhbmQgYWxzbyBjYXVzZSBzb21lDQo+Pj4+IGVycm9ycy4gQmVjYXVzZSB0aGUgJ0U4
+MjBfVFlQRV9SRVNFUlZFRCcgdHlwZSBpcyBjb252ZXJ0ZWQgdG8gdGhlIG5ldw0KPj4+PiBkZXNj
+cmlwdG9yICdJT1JFU19ERVNDX1JFU0VSVkVEJyBpbnN0ZWFkIG9mICdJT1JFU19ERVNDX05PTkUn
+LCBpdCBoYXMgYmVlbg0KPj4+PiBjaGFuZ2VkLg0KPj4+Pg0KPj4+PiBTdWdnZXN0ZWQtYnk6IERh
+dmUgWW91bmcgPGR5b3VuZ0ByZWRoYXQuY29tPg0KPj4+PiBTaWduZWQtb2ZmLWJ5OiBMaWFuYm8g
+SmlhbmcgPGxpamlhbmdAcmVkaGF0LmNvbT4NCj4+Pj4gLS0tDQo+Pj4+ICBhcmNoL2lhNjQva2Vy
+bmVsL2VmaS5jIHwgIDQgKysrKw0KPj4+PiAgYXJjaC94ODYva2VybmVsL2U4MjAuYyB8ICAyICst
+DQo+Pj4+ICBhcmNoL3g4Ni9tbS9pb3JlbWFwLmMgIHwgMTMgKysrKysrKysrKysrLQ0KPj4+PiAg
+aW5jbHVkZS9saW51eC9pb3BvcnQuaCB8ICAxICsNCj4+Pj4gIGtlcm5lbC9yZXNvdXJjZS5jICAg
+ICAgfCAgNiArKystLS0NCj4+Pj4gIDUgZmlsZXMgY2hhbmdlZCwgMjEgaW5zZXJ0aW9ucygrKSwg
+NSBkZWxldGlvbnMoLSkNCj4+Pj4NCj4+Pj4gZGlmZiAtLWdpdCBhL2FyY2gvaWE2NC9rZXJuZWwv
+ZWZpLmMgYi9hcmNoL2lhNjQva2VybmVsL2VmaS5jDQo+Pj4+IGluZGV4IDhmMTA2NjM4OTEzYy4u
+MTg0MWU5YjRkYjMwIDEwMDY0NA0KPj4+PiAtLS0gYS9hcmNoL2lhNjQva2VybmVsL2VmaS5jDQo+
+Pj4+ICsrKyBiL2FyY2gvaWE2NC9rZXJuZWwvZWZpLmMNCj4+Pj4gQEAgLTEyMzEsNiArMTIzMSwx
+MCBAQCBlZmlfaW5pdGlhbGl6ZV9pb21lbV9yZXNvdXJjZXMoc3RydWN0IHJlc291cmNlICpjb2Rl
+X3Jlc291cmNlLA0KPj4+PiAgCQkJCWJyZWFrOw0KPj4+PiAgDQo+Pj4+ICAJCQljYXNlIEVGSV9S
+RVNFUlZFRF9UWVBFOg0KPj4+PiArCQkJCW5hbWUgPSAicmVzZXJ2ZWQiOw0KPj4+DQo+Pj4gSW5n
+byB1cGRhdGVkIFg4NiBjb2RlIHRvIHVzZSAiUmVzZXJ2ZWQiLCAgSSB0aGluayBpdCB3b3VsZCBi
+ZSBnb29kIHRvIGRvDQo+Pj4gc2FtZSBmb3IgdGhpcyBjYXNlIGFzIHdlbGwNCj4+Pg0KPj4+PiAr
+CQkJCWRlc2MgPSBJT1JFU19ERVNDX1JFU0VSVkVEOw0KPj4+PiArCQkJCWJyZWFrOw0KPj4+PiAr
+DQo+Pj4+ICAJCQljYXNlIEVGSV9SVU5USU1FX1NFUlZJQ0VTX0NPREU6DQo+Pj4+ICAJCQljYXNl
+IEVGSV9SVU5USU1FX1NFUlZJQ0VTX0RBVEE6DQo+Pj4+ICAJCQljYXNlIEVGSV9BQ1BJX1JFQ0xB
+SU1fTUVNT1JZOg0KPj4+DQo+Pj4gT3JpZ2luYWxseSwgYWJvdmUgMyBhcmUgYWxsICJyZXNlcnZl
+ZCIsIHNvIHByb2JhYmx5IHRoZXkgYWxsIHNob3VsZCBiZQ0KPj4+IElPUkVTX0RFU0NfUkVTRVJW
+RUQuDQo+Pj4NCj4+PiBDYW4gYW55IElBNjQgcGVvcGxlIHRvIHJldmlldyB0aGlzPw0KPj4+DQo+
+Pj4+IGRpZmYgLS1naXQgYS9hcmNoL3g4Ni9rZXJuZWwvZTgyMC5jIGIvYXJjaC94ODYva2VybmVs
+L2U4MjAuYw0KPj4+PiBpbmRleCA1MDg5NWMyZjkzN2QuLjU3ZmFmZGFmYjg2MCAxMDA2NDQNCj4+
+Pj4gLS0tIGEvYXJjaC94ODYva2VybmVsL2U4MjAuYw0KPj4+PiArKysgYi9hcmNoL3g4Ni9rZXJu
+ZWwvZTgyMC5jDQo+Pj4+IEBAIC0xMDQ4LDEwICsxMDQ4LDEwIEBAIHN0YXRpYyB1bnNpZ25lZCBs
+b25nIF9faW5pdCBlODIwX3R5cGVfdG9faW9yZXNfZGVzYyhzdHJ1Y3QgZTgyMF9lbnRyeSAqZW50
+cnkpDQo+Pj4+ICAJY2FzZSBFODIwX1RZUEVfTlZTOgkJcmV0dXJuIElPUkVTX0RFU0NfQUNQSV9O
+Vl9TVE9SQUdFOw0KPj4+PiAgCWNhc2UgRTgyMF9UWVBFX1BNRU06CQlyZXR1cm4gSU9SRVNfREVT
+Q19QRVJTSVNURU5UX01FTU9SWTsNCj4+Pj4gIAljYXNlIEU4MjBfVFlQRV9QUkFNOgkJcmV0dXJu
+IElPUkVTX0RFU0NfUEVSU0lTVEVOVF9NRU1PUllfTEVHQUNZOw0KPj4+PiArCWNhc2UgRTgyMF9U
+WVBFX1JFU0VSVkVEOglyZXR1cm4gSU9SRVNfREVTQ19SRVNFUlZFRDsNCj4+Pj4gIAljYXNlIEU4
+MjBfVFlQRV9SRVNFUlZFRF9LRVJOOgkvKiBGYWxsLXRocm91Z2g6ICovDQo+Pj4+ICAJY2FzZSBF
+ODIwX1RZUEVfUkFNOgkJLyogRmFsbC10aHJvdWdoOiAqLw0KPj4+PiAgCWNhc2UgRTgyMF9UWVBF
+X1VOVVNBQkxFOgkvKiBGYWxsLXRocm91Z2g6ICovDQo+Pj4+IC0JY2FzZSBFODIwX1RZUEVfUkVT
+RVJWRUQ6CS8qIEZhbGwtdGhyb3VnaDogKi8NCj4+Pj4gIAlkZWZhdWx0OgkJCXJldHVybiBJT1JF
+U19ERVNDX05PTkU7DQo+Pj4+ICAJfQ0KPj4+PiAgfQ0KPj4+PiBkaWZmIC0tZ2l0IGEvYXJjaC94
+ODYvbW0vaW9yZW1hcC5jIGIvYXJjaC94ODYvbW0vaW9yZW1hcC5jDQo+Pj4+IGluZGV4IDUzNzhk
+MTBmMWQzMS4uZmVhMmVmOTk0MTVkIDEwMDY0NA0KPj4+PiAtLS0gYS9hcmNoL3g4Ni9tbS9pb3Jl
+bWFwLmMNCj4+Pj4gKysrIGIvYXJjaC94ODYvbW0vaW9yZW1hcC5jDQo+Pj4+IEBAIC04Myw3ICs4
+MywxOCBAQCBzdGF0aWMgYm9vbCBfX2lvcmVtYXBfY2hlY2tfcmFtKHN0cnVjdCByZXNvdXJjZSAq
+cmVzKQ0KPj4+PiAgDQo+Pj4+ICBzdGF0aWMgaW50IF9faW9yZW1hcF9jaGVja19kZXNjX290aGVy
+KHN0cnVjdCByZXNvdXJjZSAqcmVzKQ0KPj4+PiAgew0KPj4+PiAtCXJldHVybiAocmVzLT5kZXNj
+ICE9IElPUkVTX0RFU0NfTk9ORSk7DQo+Pj4+ICsJLyoNCj4+Pj4gKwkgKiBCdXQgbm93LCB0aGUg
+J0U4MjBfVFlQRV9SRVNFUlZFRCcgdHlwZSBpcyBjb252ZXJ0ZWQgdG8gdGhlIG5ldw0KPj4+PiAr
+CSAqIGRlc2NyaXB0b3IgJ0lPUkVTX0RFU0NfUkVTRVJWRUQnIGluc3RlYWQgb2YgJ0lPUkVTX0RF
+U0NfTk9ORScsDQo+Pj4+ICsJICogaXQgaGFzIGJlZW4gY2hhbmdlZC4gQW5kIHRoZSB2YWx1ZSBv
+ZiAnbWVtX2ZsYWdzLmRlc2Nfb3RoZXInDQo+Pj4+ICsJICogaXMgZXF1YWwgdG8gJ3RydWUnIGlm
+IHdlIGRvbid0IHN0cmVuZ3RoZW4gdGhlIGNvbmRpdGlvbiBpbiB0aGlzDQo+Pj4+ICsJICogZnVu
+Y3Rpb24sIHRoYXQgaXMgd3JvbmcuIEJlY2F1c2Ugb3JpZ2luYWxseSBpdCBpcyBlcXVhbCB0bw0K
+Pj4+PiArCSAqICdmYWxzZScgZm9yIHRoZSBzYW1lIHJlc2VydmVkIHR5cGUuDQo+Pj4+ICsJICoN
+Cj4+Pj4gKwkgKiBTbywgdGhhdCB3b3VsZCBiZSBuaWNlIHRvIGtlZXAgaXQgdGhlIHNhbWUgYXMg
+YmVmb3JlLg0KPj4+PiArCSAqLw0KPj4+PiArCXJldHVybiAoKHJlcy0+ZGVzYyAhPSBJT1JFU19E
+RVNDX05PTkUpICYmDQo+Pj4+ICsJCShyZXMtPmRlc2MgIT0gSU9SRVNfREVTQ19SRVNFUlZFRCkp
+Ow0KPj4+PiAgfQ0KPj4+DQo+Pj4gQWRkZWQgVG9tIHNpbmNlIGhlIGFkZGVkIHRoZSBjaGVjayBm
+dW5jdGlvbi4gIElzIGl0IHBvc3NpYmxlIHRvIG9ubHkNCj4+PiBjaGVjayBleHBsaWN0IHZhbGlk
+IGRlc2MgdHlwZXMgaW5zdGVhZCBvZiBleGNsdWRlIElPUkVTX0RFU0NfTk9ORT8NCj4+DQo+PiBT
+b3JyeSBmb3IgdGhlIGRlbGF5Li4uDQo+Pg0KPj4gVGhlIG9yaWdpbmFsIGludGVudCBvZiB0aGUg
+Y2hlY2sgd2FzIHRvIG1hcCBtb3N0IG1lbW9yeSBhcyBlbmNyeXB0ZWQgdW5kZXINCj4+IFNFViBp
+ZiBpdCB3YXMgbWFya2VkIHdpdGggYSBzcGVjaWZpYyBkZXNjcmlwdG9yLCBzaW5jZSBpdCB3YXMg
+bGlrZWx5IHRvDQo+PiBub3QgYmUgTU1JTy4gSSB0cmllZCBjb252ZXJ0aW5nIG1vc3QgdGhpbmdz
+IHRoYXQgbWFwcGVkIG1lbW9yeSB0byBtZW1yZW1hcA0KPj4gdnMgaW9yZW1hcCwgYnV0IEFDUEkg
+d2FzIG9uZSBhcmVhIHRoYXQgSSBsZWZ0IGFsb25lIGFuZCB0aGlzIGNoZWNrIGNhdGNoZXMNCj4+
+IHRoZSBtYXBwaW5nIG9mIHRoZSBBQ1BJIHRhYmxlcy4gSSBzdXBwb3NlIGl0J3MgcG9zc2libGUg
+dG8gY2hhbmdlIHRoaXMgdG8NCj4+IGNoZWNrIGp1c3QgZm9yIElPUkVTX0RFU0NfQUNQSV8qIHZh
+bHVlcywgYnV0IEkgd291bGQgaGF2ZSB0byBkbyBzb21lDQo+PiB0ZXN0aW5nLg0KPiANCj4gUmVj
+ZW50bHksIGkgdGVzdGVkIGl0IGFjY29yZGluZyB0byB5b3VyIGFkdmljZSwgaGVyZSBpdCBpcyBy
+ZWFsbHkgY2hlY2tpbmcgZm9yIHRoZQ0KPiAnSU9SRVNfREVTQ19BQ1BJXyonIHZhbHVlcy4gIElm
+IHlvdSBhZ3JlZSB0byB0aGlzIGNoYW5nZSwgaSB3b3VsZCBhZGQgdGhlIGZvbGxvd2luZw0KPiBw
+YXRjaCBpbnRvIHRoaXMgcGF0Y2ggc2V0IGFuZCBwb3N0IHRoZW0gYWdhaW4uDQo+IA0KPiBbcm9v
+dEBsb2NhbGhvc3QgbGludXhdIyBnaXQgZGlmZiBhcmNoL3g4Ni9tbS9pb3JlbWFwLmMNCj4gZGlm
+ZiAtLWdpdCBhL2FyY2gveDg2L21tL2lvcmVtYXAuYyBiL2FyY2gveDg2L21tL2lvcmVtYXAuYw0K
+PiBpbmRleCAwMDI5NjA0YWY4YTQuLjBlM2JhNjIwNjEyZCAxMDA2NDQNCj4gLS0tIGEvYXJjaC94
+ODYvbW0vaW9yZW1hcC5jDQo+ICsrKyBiL2FyY2gveDg2L21tL2lvcmVtYXAuYw0KPiBAQCAtODMs
+NyArODMsOCBAQCBzdGF0aWMgYm9vbCBfX2lvcmVtYXBfY2hlY2tfcmFtKHN0cnVjdCByZXNvdXJj
+ZSAqcmVzKQ0KPiAgDQo+ICBzdGF0aWMgaW50IF9faW9yZW1hcF9jaGVja19kZXNjX290aGVyKHN0
+cnVjdCByZXNvdXJjZSAqcmVzKQ0KPiAgew0KPiAtICAgICAgIHJldHVybiAocmVzLT5kZXNjICE9
+IElPUkVTX0RFU0NfTk9ORSk7DQo+ICsgICAgICAgcmV0dXJuICgocmVzLT5kZXNjID09IElPUkVT
+X0RFU0NfQUNQSV9UQUJMRVMpIHx8DQo+ICsgICAgICAgICAgICAgICAocmVzLT5kZXNjID09IElP
+UkVTX0RFU0NfQUNQSV9OVl9TVE9SQUdFKSk7DQoNCkknbSBub3QgYSBiaWcgZmFuIG9mIHRoaXMu
+IEkgdGhpbmsgeW91IHNob3VsZCBsZWF2ZSBpdCBhcyB0aGUgcHJldmlvdXMNCmNoZWNrIHlvdSBo
+YWQgZm9yIElPUkVTX0RFU0NfTk9ORSBhbmQgSU9SRVNfREVTQ19SRVNFUlZFRC4gVGhlcmUncyBu
+bw0KdGVsbGluZyB3aGF0IHR5cGUgb2YgcmVzb3VyY2VzIG1heSBiZSBtYXBwZWQgaW4gdGhlIGZ1
+dHVyZSB3aGVyZSB0aGlzDQp3aWxsIGJyZWFrLg0KDQpBZGRpbmcgYSBuaWNlIGNvbW1lbnQgaGVy
+ZSBhYm91dCBob3cgSU9SRVNfREVTQ19OT05FIG9yaWdpbmFsbHkgd2FzIHRvDQppZGVudGlmeSBN
+TUlPIGFuZCByZXNlcnZlZCBhcmVhcy4gTm93IElPUkVTX0RFU0NfUkVTRVJWRUQgaGFzIGJlZW4g
+Y3JlYXRlZA0KZm9yIHRoZSByZXNlcnZlZCBhcmVhcyBzbyB0aGUgY2hlY2sgbmVlZHMgdG8gYmUg
+ZXhwYW5kZWQgc28gdGhhdCB0aGVzZQ0KYXJlYXMgYXJlbid0IG1hcHBlZCBlbmNyeXB0ZWQgd2hl
+biB1c2luZyBpb3JlbWFwLg0KDQpUaGFua3MsDQpUb20NCg0KPiAgfQ0KPiANCj4gDQo+IFRoYW5r
+cy4NCj4gTGlhbmJvDQo+IA0KPj4NCj4+IFRoYW5rcywNCj4+IFRvbQ0KPj4NCj4+Pg0KPj4+PiAg
+DQo+Pj4+ICBzdGF0aWMgaW50IF9faW9yZW1hcF9yZXNfY2hlY2soc3RydWN0IHJlc291cmNlICpy
+ZXMsIHZvaWQgKmFyZykNCj4+Pj4gZGlmZiAtLWdpdCBhL2luY2x1ZGUvbGludXgvaW9wb3J0Lmgg
+Yi9pbmNsdWRlL2xpbnV4L2lvcG9ydC5oDQo+Pj4+IGluZGV4IGRhMGViYWVjMjVmMC4uNmVkNTlk
+ZTQ4YmQ1IDEwMDY0NA0KPj4+PiAtLS0gYS9pbmNsdWRlL2xpbnV4L2lvcG9ydC5oDQo+Pj4+ICsr
+KyBiL2luY2x1ZGUvbGludXgvaW9wb3J0LmgNCj4+Pj4gQEAgLTEzMyw2ICsxMzMsNyBAQCBlbnVt
+IHsNCj4+Pj4gIAlJT1JFU19ERVNDX1BFUlNJU1RFTlRfTUVNT1JZX0xFR0FDWQk9IDUsDQo+Pj4+
+ICAJSU9SRVNfREVTQ19ERVZJQ0VfUFJJVkFURV9NRU1PUlkJPSA2LA0KPj4+PiAgCUlPUkVTX0RF
+U0NfREVWSUNFX1BVQkxJQ19NRU1PUlkJCT0gNywNCj4+Pj4gKwlJT1JFU19ERVNDX1JFU0VSVkVE
+CQkJPSA4LA0KPj4+PiAgfTsNCj4+Pj4gIA0KPj4+PiAgLyogaGVscGVycyB0byBkZWZpbmUgcmVz
+b3VyY2VzICovDQo+Pj4+IGRpZmYgLS1naXQgYS9rZXJuZWwvcmVzb3VyY2UuYyBiL2tlcm5lbC9y
+ZXNvdXJjZS5jDQo+Pj4+IGluZGV4IGIwZmJmNjg1Yzc3YS4uZjM0YTYzMmM0MTY5IDEwMDY0NA0K
+Pj4+PiAtLS0gYS9rZXJuZWwvcmVzb3VyY2UuYw0KPj4+PiArKysgYi9rZXJuZWwvcmVzb3VyY2Uu
+Yw0KPj4+PiBAQCAtOTk0LDcgKzk5NCw3IEBAIF9fcmVzZXJ2ZV9yZWdpb25fd2l0aF9zcGxpdChz
+dHJ1Y3QgcmVzb3VyY2UgKnJvb3QsIHJlc291cmNlX3NpemVfdCBzdGFydCwNCj4+Pj4gIAlyZXMt
+PnN0YXJ0ID0gc3RhcnQ7DQo+Pj4+ICAJcmVzLT5lbmQgPSBlbmQ7DQo+Pj4+ICAJcmVzLT5mbGFn
+cyA9IHR5cGUgfCBJT1JFU09VUkNFX0JVU1k7DQo+Pj4+IC0JcmVzLT5kZXNjID0gSU9SRVNfREVT
+Q19OT05FOw0KPj4+PiArCXJlcy0+ZGVzYyA9IElPUkVTX0RFU0NfUkVTRVJWRUQ7DQo+Pj4+ICAN
+Cj4+Pj4gIAl3aGlsZSAoMSkgew0KPj4+PiAgDQo+Pj4+IEBAIC0xMDI5LDcgKzEwMjksNyBAQCBf
+X3Jlc2VydmVfcmVnaW9uX3dpdGhfc3BsaXQoc3RydWN0IHJlc291cmNlICpyb290LCByZXNvdXJj
+ZV9zaXplX3Qgc3RhcnQsDQo+Pj4+ICAJCQkJbmV4dF9yZXMtPnN0YXJ0ID0gY29uZmxpY3QtPmVu
+ZCArIDE7DQo+Pj4+ICAJCQkJbmV4dF9yZXMtPmVuZCA9IGVuZDsNCj4+Pj4gIAkJCQluZXh0X3Jl
+cy0+ZmxhZ3MgPSB0eXBlIHwgSU9SRVNPVVJDRV9CVVNZOw0KPj4+PiAtCQkJCW5leHRfcmVzLT5k
+ZXNjID0gSU9SRVNfREVTQ19OT05FOw0KPj4+PiArCQkJCW5leHRfcmVzLT5kZXNjID0gSU9SRVNf
+REVTQ19SRVNFUlZFRDsNCj4+Pj4gIAkJCX0NCj4+Pj4gIAkJfSBlbHNlIHsNCj4+Pj4gIAkJCXJl
+cy0+c3RhcnQgPSBjb25mbGljdC0+ZW5kICsgMTsNCj4+Pj4gQEAgLTE0NzcsNyArMTQ3Nyw3IEBA
+IHN0YXRpYyBpbnQgX19pbml0IHJlc2VydmVfc2V0dXAoY2hhciAqc3RyKQ0KPj4+PiAgCQkJcmVz
+LT5zdGFydCA9IGlvX3N0YXJ0Ow0KPj4+PiAgCQkJcmVzLT5lbmQgPSBpb19zdGFydCArIGlvX251
+bSAtIDE7DQo+Pj4+ICAJCQlyZXMtPmZsYWdzIHw9IElPUkVTT1VSQ0VfQlVTWTsNCj4+Pj4gLQkJ
+CXJlcy0+ZGVzYyA9IElPUkVTX0RFU0NfTk9ORTsNCj4+Pj4gKwkJCXJlcy0+ZGVzYyA9IElPUkVT
+X0RFU0NfUkVTRVJWRUQ7DQo+Pj4+ICAJCQlyZXMtPmNoaWxkID0gTlVMTDsNCj4+Pj4gIAkJCWlm
+IChyZXF1ZXN0X3Jlc291cmNlKHBhcmVudCwgcmVzKSA9PSAwKQ0KPj4+PiAgCQkJCXJlc2VydmVk
+ID0geCsxOw0KPj4+PiAtLSANCj4+Pj4gMi4xNy4xDQo+Pj4+DQo+Pj4NCj4+Pg0KPj4+IFRoZXJl
+IGFyZSBhIGxvdCBvZiBwbGFjZXMgY2FsbCByZWdpb25faW50ZXJzZWN0cyB3aGljaCB1c2UgREVT
+Q19OT05FLA0KPj4+IEknbSBub3Qgc3VyZSBpZiBuZWVkZWQgY2hhbmdlcyBhY2NvcmRpbmdseS4g
+IENjZWQgRGFuIGFuZCBUb3NoaS4NCj4+Pg0KPj4+DQo+Pj4gVGhhbmtzDQo+Pj4gRGF2ZQ0KPj4+
+DQo
