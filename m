@@ -1,37 +1,37 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Date: Mon, 29 Apr 2019 14:23:21 +0000
-Subject: Re: [PATCH 01/41] drivers: tty: serial: dz: use dev_err() instead of printk()
-Message-Id: <20190429142321.GA29007@kroah.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Date: Mon, 01 Apr 2019 08:19:09 +0000
+Subject: Re: [PATCH 2/2] arch: add pidfd and io_uring syscalls everywhere
+Message-Id: <CAMuHMdXa1qvNzAOFNBs4s6uNvNU4PX8O17K-c12eLni698Lf_A@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1556369542-13247-1-git-send-email-info@metux.net>
- <1556369542-13247-2-git-send-email-info@metux.net>
- <20190427132959.GA11368@kroah.com>
- <e10175d0-bc3b-a4ab-cb47-0b4761bfb629@metux.net>
-In-Reply-To: <e10175d0-bc3b-a4ab-cb47-0b4761bfb629@metux.net>
+References: <20190325143521.34928-1-arnd@arndb.de>
+ <20190325144737.703921-1-arnd@arndb.de>
+In-Reply-To: <20190325144737.703921-1-arnd@arndb.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Enrico Weigelt, metux IT consult" <lkml@metux.net>
-Cc: "Enrico Weigelt, metux IT consult" <info@metux.net>, linux-kernel@vger.kernel.org, andrew@aj.id.au, andriy.shevchenko@linux.intel.com, macro@linux-mips.org, vz@mleia.com, slemieux.tyco@gmail.com, khilman@baylibre.com, liviu.dudau@arm.com, sudeep.holla@arm.com, lorenzo.pieralisi@arm.com, davem@davemloft.net, jacmet@sunsite.dk, linux@prisktech.co.nz, matthias.bgg@gmail.com, linux-mips@vger.kernel.org, linux-serial@vger.kernel.org, linux-ia64@vger.kernel.org, linux-amlogic@lists.infradead.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
+Cc: Rich Felker <dalias@libc.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Linux-sh list <linux-sh@vger.kernel.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Heiko Carstens <heiko.carstens@de.ibm.com>, linux-mips@vger.kernel.org, "James E . J . Bottomley" <James.Bottomley@hansenpartnership.com>, Max Filippov <jcmvbkbc@gmail.com>, Paul Mackerras <paulus@samba.org>, sparclinux <sparclinux@vger.kernel.org>, linux-s390 <linux-s390@vger.kernel.org>, Michael Ellerman <mpe@ellerman.id.au>, Helge Deller <deller@gmx.de>, Russell King <linux@armlinux.org.uk>, Firoz Khan <firoz.khan@linaro.org>, Catalin Marinas <catalin.marinas@arm.com>, James Hogan <jhogan@kernel.org>, Matt Turner <mattst88@gmail.com>, Fenghua Yu <fenghua.yu@intel.com>, Will Deacon <will.deacon@arm.com>, linux-m68k <linux-m68k@lists.linux-m68k.org>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Linux ARM <linux-arm-kernel@lists.infradead.org>, Richard Henderson <rth@twiddle.net>, Michal Simek <monstr@monstr.eu>, Tony Luck <tony.luck@intel.com>, Parisc List <linux-parisc@vger.kernel.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Ralf Baechle <ralf@linux-mips.org>, Paul Burton <paul.burton@mips.com>, alpha <linux-alpha@vger.kernel.org>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, "David S . Miller" <davem@davemloft.net>
 
-On Mon, Apr 29, 2019 at 04:11:15PM +0200, Enrico Weigelt, metux IT consult wrote:
-> On 27.04.19 15:29, Greg KH wrote:
-> > On Sat, Apr 27, 2019 at 02:51:42PM +0200, Enrico Weigelt, metux IT consult wrote:
-> >> Using dev_err() instead of printk() for more consistent output.
-> >> (prints device name, etc).
-> >>
-> >> Signed-off-by: Enrico Weigelt <info@metux.net>
-> > 
-> > Your "From:" line does not match the signed-off-by line, so I can't take
-> > any of these if I wanted to :(
-> 
-> Grmpf. I've manually changed it, as you isisted in having my company
-> name remove from it ....
+On Mon, Mar 25, 2019 at 3:48 PM Arnd Bergmann <arnd@arndb.de> wrote:
+> Add the io_uring and pidfd_send_signal system calls to all architectures.
+>
+> These system calls are designed to handle both native and compat tasks,
+> so all entries are the same across architectures, only arm-compat and
+> the generic tale still use an old format.
+>
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Yes, that's fine, but the lines have to match.  See the documentation
-for how to have a "From:" in the changelog text to override whatever
-your email client happens to pollute the email with :)
+>  arch/m68k/kernel/syscalls/syscall.tbl       | 4 ++++
 
-thanks,
+Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
 
-greg k-h
+Gr{oetje,eeting}s,
+
+                        Geert
+
+-- 
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
