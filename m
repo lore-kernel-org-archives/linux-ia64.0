@@ -1,101 +1,112 @@
-From: "Enrico Weigelt, metux IT consult" <info@metux.net>
-Date: Sat, 27 Apr 2019 12:52:06 +0000
-Subject: [PATCH 25/41] drivers: tty: serial: timbuart: fix formatting issues
-Message-Id: <1556369542-13247-26-git-send-email-info@metux.net>
+From: Zhen Lei <thunder.leizhen@huawei.com>
+Date: Tue, 09 Apr 2019 12:53:05 +0000
+Subject: [PATCH v5 3/6] iommu: add iommu_default_dma_mode_get/set() helper
+Message-Id: <20190409125308.18304-4-thunder.leizhen@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1556369542-13247-1-git-send-email-info@metux.net>
-In-Reply-To: <1556369542-13247-1-git-send-email-info@metux.net>
+References: <20190409125308.18304-1-thunder.leizhen@huawei.com>
+In-Reply-To: <20190409125308.18304-1-thunder.leizhen@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: gregkh@linuxfoundation.org, andrew@aj.id.au, andriy.shevchenko@linux.intel.com, macro@linux-mips.org, vz@mleia.com, slemieux.tyco@gmail.com, khilman@baylibre.com, liviu.dudau@arm.com, sudeep.holla@arm.com, lorenzo.pieralisi@arm.com, davem@davemloft.net, jacmet@sunsite.dk, linux@prisktech.co.nz, matthias.bgg@gmail.com, linux-mips@vger.kernel.org, linux-serial@vger.kernel.org, linux-ia64@vger.kernel.org, linux-amlogic@lists.infradead.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org
+To: Jean-Philippe Brucker <jean-philippe.brucker@arm.com>, John Garry <john.garry@huawei.com>, Robin Murphy <robin.murphy@arm.com>, Will Deacon <will.deacon@arm.com>, Joerg Roedel <joro@8bytes.org>, Jonathan Corbet <corbet@lwn.net>, linux-doc <linux-doc@vger.kernel.org>, Sebastian Ott <sebott@linux.ibm.com>, Gerald Schaefer <gerald.schaefer@de.ibm.com>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, "H . Peter Anvin" <hpa@zytor.com>, David Woodhouse <dwmw2@infradead.org>, iommu <iommu@lists.linux-foundation.org>, linux-kernel <linux-kernel@vger.kernel.org>, linux-s390 <linux-s390@vger.kernel.org>, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, x86 <x86@kernel.org>, linux-ia64 <linux-ia64@vger.kernel.org>
+Cc: Zhen Lei <thunder.leizhen@huawei.com>, Hanjun Guo <guohanjun@huawei.com>
 
-Fix checkpatch warnings:
+Also add IOMMU_DMA_MODE_IS_{STRICT|LAZT|PASSTHROUGH}() to make the code
+looks cleaner.
 
-    WARNING: Missing a blank line after declarations
-    #43: FILE: drivers/tty/serial/timbuart.c:43:
-    +	u32 ier = ioread32(port->membase + TIMBUART_IER) & ~RXFLAGS;
-    +	iowrite32(ier, port->membase + TIMBUART_IER);
+There is no functional change, just prepare for the following patches.
 
-    WARNING: Missing a blank line after declarations
-    #50: FILE: drivers/tty/serial/timbuart.c:50:
-    +	u32 ier = ioread32(port->membase + TIMBUART_IER) & ~TXBAE;
-    +	iowrite32(ier, port->membase + TIMBUART_IER);
-
-    WARNING: Missing a blank line after declarations
-    #86: FILE: drivers/tty/serial/timbuart.c:86:
-    +		u8 ch = ioread8(port->membase + TIMBUART_RXFIFO);
-    +		port->icount.rx++;
-
-    WARNING: Missing a blank line after declarations
-    #202: FILE: drivers/tty/serial/timbuart.c:202:
-    +	u8 cts = ioread8(port->membase + TIMBUART_CTRL);
-    +	dev_dbg(port->dev, "%s - cts %x\n", __func__, cts);
-
-    WARNING: Block comments use * on subsequent lines
-    #296: FILE: drivers/tty/serial/timbuart.c:296:
-    +	/* The serial layer calls into this once with old = NULL when setting
-    +	   up initially */
-
-    WARNING: Block comments use a trailing */ on a separate line
-    #296: FILE: drivers/tty/serial/timbuart.c:296:
-
-Signed-off-by: Enrico Weigelt <info@metux.net>
+Signed-off-by: Zhen Lei <thunder.leizhen@huawei.com>
 ---
- drivers/tty/serial/timbuart.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+ drivers/iommu/iommu.c | 18 ++++++++++++++----
+ include/linux/iommu.h | 18 ++++++++++++++++++
+ 2 files changed, 32 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/tty/serial/timbuart.c b/drivers/tty/serial/timbuart.c
-index dcce936..d80c332 100644
---- a/drivers/tty/serial/timbuart.c
-+++ b/drivers/tty/serial/timbuart.c
-@@ -40,6 +40,7 @@ static void timbuart_stop_rx(struct uart_port *port)
- {
- 	/* spin lock held by upper layer, disable all RX interrupts */
- 	u32 ier = ioread32(port->membase + TIMBUART_IER) & ~RXFLAGS;
+diff --git a/drivers/iommu/iommu.c b/drivers/iommu/iommu.c
+index f4171bf4b46eaeb..86239dd46003fd4 100644
+--- a/drivers/iommu/iommu.c
++++ b/drivers/iommu/iommu.c
+@@ -195,6 +195,17 @@ static int __init iommu_dma_mode_setup(char *str)
+ }
+ early_param("iommu.dma_mode", iommu_dma_mode_setup);
+ 
++int iommu_default_dma_mode_get(void)
++{
++	return iommu_default_dma_mode;
++}
 +
- 	iowrite32(ier, port->membase + TIMBUART_IER);
++void iommu_default_dma_mode_set(int mode)
++{
++	WARN_ON(mode > IOMMU_DMA_MODE_PASSTHROUGH);
++	iommu_default_dma_mode = mode;
++}
++
+ static ssize_t iommu_group_attr_show(struct kobject *kobj,
+ 				     struct attribute *__attr, char *buf)
+ {
+@@ -1136,9 +1147,8 @@ struct iommu_group *iommu_group_get_for_dev(struct device *dev)
+ 	 */
+ 	if (!group->default_domain) {
+ 		struct iommu_domain *dom;
+-		int def_domain_type -			(iommu_default_dma_mode = IOMMU_DMA_MODE_PASSTHROUGH)
+-			? IOMMU_DOMAIN_IDENTITY : IOMMU_DOMAIN_DMA;
++		int def_domain_type = IOMMU_DMA_MODE_IS_PASSTHROUGH() ?
++				IOMMU_DOMAIN_IDENTITY : IOMMU_DOMAIN_DMA;
+ 
+ 		dom = __iommu_domain_alloc(dev->bus, def_domain_type);
+ 		if (!dom && def_domain_type != IOMMU_DOMAIN_DMA) {
+@@ -1154,7 +1164,7 @@ struct iommu_group *iommu_group_get_for_dev(struct device *dev)
+ 		if (!group->domain)
+ 			group->domain = dom;
+ 
+-		if (dom && (iommu_default_dma_mode = IOMMU_DMA_MODE_LAZY)) {
++		if (dom && IOMMU_DMA_MODE_IS_LAZY()) {
+ 			int attr = 1;
+ 			iommu_domain_set_attr(dom,
+ 					      DOMAIN_ATTR_DMA_USE_FLUSH_QUEUE,
+diff --git a/include/linux/iommu.h b/include/linux/iommu.h
+index c3f4e3416176496..3668a8b3846996a 100644
+--- a/include/linux/iommu.h
++++ b/include/linux/iommu.h
+@@ -46,6 +46,12 @@
+ #define IOMMU_DMA_MODE_STRICT		0x0
+ #define IOMMU_DMA_MODE_LAZY		0x1
+ #define IOMMU_DMA_MODE_PASSTHROUGH	0x2
++#define IOMMU_DMA_MODE_IS_STRICT() \
++		(iommu_default_dma_mode_get() = IOMMU_DMA_MODE_STRICT)
++#define IOMMU_DMA_MODE_IS_LAZY() \
++		(iommu_default_dma_mode_get() = IOMMU_DMA_MODE_LAZY)
++#define IOMMU_DMA_MODE_IS_PASSTHROUGH() \
++		(iommu_default_dma_mode_get() = IOMMU_DMA_MODE_PASSTHROUGH)
+ 
+ struct iommu_ops;
+ struct iommu_group;
+@@ -421,6 +427,9 @@ static inline void dev_iommu_fwspec_set(struct device *dev,
+ int iommu_probe_device(struct device *dev);
+ void iommu_release_device(struct device *dev);
+ 
++extern int iommu_default_dma_mode_get(void);
++extern void iommu_default_dma_mode_set(int mode);
++
+ #else /* CONFIG_IOMMU_API */
+ 
+ struct iommu_ops {};
+@@ -705,6 +714,15 @@ const struct iommu_ops *iommu_ops_from_fwnode(struct fwnode_handle *fwnode)
+ 	return NULL;
  }
  
-@@ -47,6 +48,7 @@ static void timbuart_stop_tx(struct uart_port *port)
- {
- 	/* spinlock held by upper layer, disable TX interrupt */
- 	u32 ier = ioread32(port->membase + TIMBUART_IER) & ~TXBAE;
++static inline int iommu_default_dma_mode_get(void)
++{
++	return IOMMU_DMA_MODE_PASSTHROUGH;
++}
 +
- 	iowrite32(ier, port->membase + TIMBUART_IER);
- }
- 
-@@ -83,6 +85,7 @@ static void timbuart_rx_chars(struct uart_port *port)
- 
- 	while (ioread32(port->membase + TIMBUART_ISR) & RXDP) {
- 		u8 ch = ioread8(port->membase + TIMBUART_RXFIFO);
++static inline void iommu_default_dma_mode_set(int mode)
++{
++}
 +
- 		port->icount.rx++;
- 		tty_insert_flip_char(tport, ch, TTY_NORMAL);
- 	}
-@@ -199,6 +202,7 @@ static void timbuart_tasklet(unsigned long arg)
- static unsigned int timbuart_get_mctrl(struct uart_port *port)
- {
- 	u8 cts = ioread8(port->membase + TIMBUART_CTRL);
-+
- 	dev_dbg(port->dev, "%s - cts %x\n", __func__, cts);
+ #endif /* CONFIG_IOMMU_API */
  
- 	if (cts & TIMBUART_CTRL_CTS)
-@@ -293,7 +297,8 @@ static void timbuart_set_termios(struct uart_port *port,
- 	baud = baudrates[bindex];
- 
- 	/* The serial layer calls into this once with old = NULL when setting
--	   up initially */
-+	 * up initially
-+	 */
- 	if (old)
- 		tty_termios_copy_hw(termios, old);
- 	tty_termios_encode_baud_rate(termios, baud, baud);
-@@ -500,4 +505,3 @@ static int timbuart_remove(struct platform_device *dev)
- MODULE_DESCRIPTION("Timberdale UART driver");
- MODULE_LICENSE("GPL v2");
- MODULE_ALIAS("platform:timb-uart");
--
+ #ifdef CONFIG_IOMMU_DEBUGFS
 -- 
-1.9.1
+1.8.3
+
