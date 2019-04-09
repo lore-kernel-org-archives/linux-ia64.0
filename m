@@ -1,115 +1,119 @@
-From: David Hildenbrand <david@redhat.com>
-Date: Wed, 24 Apr 2019 10:25:11 +0000
-Subject: [PATCH v1 7/7] mm/memory_hotplug: Make unregister_memory_block_under_nodes() never fail
-Message-Id: <20190424102511.29318-8-david@redhat.com>
+From: Zhen Lei <thunder.leizhen@huawei.com>
+Date: Tue, 09 Apr 2019 12:53:04 +0000
+Subject: [PATCH v5 2/6] iommu: add build options corresponding to iommu.dma_mode
+Message-Id: <20190409125308.18304-3-thunder.leizhen@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190424102511.29318-1-david@redhat.com>
-In-Reply-To: <20190424102511.29318-1-david@redhat.com>
+References: <20190409125308.18304-1-thunder.leizhen@huawei.com>
+In-Reply-To: <20190409125308.18304-1-thunder.leizhen@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, akpm@linux-foundation.org, Dan Williams <dan.j.williams@intel.com>, David Hildenbrand <david@redhat.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Alex Deucher <alexander.deucher@amd.com>, "David S. Miller" <davem@davemloft.net>, Mark Brown <broonie@kernel.org>, Chris Wilson <chris@chris-wilson.co.uk>, Oscar Salvador <osalvador@suse.de>, Jonathan Cameron <Jonathan.Cameron@huawei.com>
+To: Jean-Philippe Brucker <jean-philippe.brucker@arm.com>, John Garry <john.garry@huawei.com>, Robin Murphy <robin.murphy@arm.com>, Will Deacon <will.deacon@arm.com>, Joerg Roedel <joro@8bytes.org>, Jonathan Corbet <corbet@lwn.net>, linux-doc <linux-doc@vger.kernel.org>, Sebastian Ott <sebott@linux.ibm.com>, Gerald Schaefer <gerald.schaefer@de.ibm.com>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, "H . Peter Anvin" <hpa@zytor.com>, David Woodhouse <dwmw2@infradead.org>, iommu <iommu@lists.linux-foundation.org>, linux-kernel <linux-kernel@vger.kernel.org>, linux-s390 <linux-s390@vger.kernel.org>, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, x86 <x86@kernel.org>, linux-ia64 <linux-ia64@vger.kernel.org>
+Cc: Zhen Lei <thunder.leizhen@huawei.com>, Hanjun Guo <guohanjun@huawei.com>
 
-We really don't want anything during memory hotunplug to fail.
-We always pass a valid memory block device, that check can go. Avoid
-allocating memory and eventually failing. As we are always called under
-lock, we can use a static piece of memory. This avoids having to put
-the structure onto the stack, having to guess about the stack size
-of callers.
+First, add build option IOMMU_DEFAULT_{LAZY|STRICT}, so that we have the
+opportunity to set {lazy|strict} mode as default at build time. Then put
+the three config options in an choice, make people can only choose one of
+the three at a time, the same to the boot options iommu.dma_mode.
 
-Patch inspired by a patch from Oscar Salvador.
-
-In the future, there might be no need to iterate over nodes at all.
-mem->nid should tell us exactly what to remove. Memory block devices
-with mixed nodes (added during boot) should properly fenced off and never
-removed.
-
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: "Rafael J. Wysocki" <rafael@kernel.org>
-Cc: Alex Deucher <alexander.deucher@amd.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Mark Brown <broonie@kernel.org>
-Cc: Chris Wilson <chris@chris-wilson.co.uk>
-Cc: David Hildenbrand <david@redhat.com>
-Cc: Oscar Salvador <osalvador@suse.de>
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: Jonathan Cameron <Jonathan.Cameron@huawei.com>
-Signed-off-by: David Hildenbrand <david@redhat.com>
+Signed-off-by: Zhen Lei <thunder.leizhen@huawei.com>
 ---
- drivers/base/node.c  | 18 +++++-------------
- include/linux/node.h |  5 ++---
- 2 files changed, 7 insertions(+), 16 deletions(-)
+ Documentation/admin-guide/kernel-parameters.txt |  6 ++--
+ drivers/iommu/Kconfig                           | 43 +++++++++++++++++++++----
+ drivers/iommu/iommu.c                           |  4 ++-
+ 3 files changed, 42 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/base/node.c b/drivers/base/node.c
-index 04fdfa99b8bc..9be88fd05147 100644
---- a/drivers/base/node.c
-+++ b/drivers/base/node.c
-@@ -803,20 +803,14 @@ int register_mem_sect_under_node(struct memory_block *mem_blk, void *arg)
+diff --git a/Documentation/admin-guide/kernel-parameters.txt b/Documentation/admin-guide/kernel-parameters.txt
+index f7766f8ac8b9084..92d1b3151d003c2 100644
+--- a/Documentation/admin-guide/kernel-parameters.txt
++++ b/Documentation/admin-guide/kernel-parameters.txt
+@@ -1811,9 +1811,9 @@
+ 			1 - Bypass the IOMMU for DMA.
+ 			unset - Use value of CONFIG_IOMMU_DEFAULT_PASSTHROUGH.
  
- /*
-  * Unregister memory block device under all nodes that it spans.
-+ * Has to be called with mem_sysfs_mutex held (due to unlinked_nodes).
-  */
--int unregister_memory_block_under_nodes(struct memory_block *mem_blk)
-+void unregister_memory_block_under_nodes(struct memory_block *mem_blk)
- {
--	NODEMASK_ALLOC(nodemask_t, unlinked_nodes, GFP_KERNEL);
- 	unsigned long pfn, sect_start_pfn, sect_end_pfn;
-+	static nodemask_t unlinked_nodes;
+-	iommu.dma_mode= Configure default dma mode. if unset, use the value
+-			of CONFIG_IOMMU_DEFAULT_PASSTHROUGH to determine
+-			passthrough or not.
++	iommu.dma_mode= Configure default dma mode. if unset, use the build
++			options(such as CONFIG_IOMMU_DEFAULT_PASSTHROUGH) to
++			choose which mode to be used.
+ 			Note: For historical reasons, ARM64/S390/PPC/X86 have
+ 			their specific options. Currently, only ARM64 support
+ 			this boot option, and hope other ARCHs to use this as
+diff --git a/drivers/iommu/Kconfig b/drivers/iommu/Kconfig
+index 6f07f3b21816c64..1986f9767da488b 100644
+--- a/drivers/iommu/Kconfig
++++ b/drivers/iommu/Kconfig
+@@ -74,17 +74,46 @@ config IOMMU_DEBUGFS
+ 	  debug/iommu directory, and then populate a subdirectory with
+ 	  entries as required.
  
--	if (!mem_blk) {
--		NODEMASK_FREE(unlinked_nodes);
--		return -EFAULT;
--	}
--	if (!unlinked_nodes)
--		return -ENOMEM;
--	nodes_clear(*unlinked_nodes);
--
-+	nodes_clear(unlinked_nodes);
- 	sect_start_pfn = section_nr_to_pfn(mem_blk->start_section_nr);
- 	sect_end_pfn = section_nr_to_pfn(mem_blk->end_section_nr);
- 	for (pfn = sect_start_pfn; pfn <= sect_end_pfn; pfn++) {
-@@ -827,15 +821,13 @@ int unregister_memory_block_under_nodes(struct memory_block *mem_blk)
- 			continue;
- 		if (!node_online(nid))
- 			continue;
--		if (node_test_and_set(nid, *unlinked_nodes))
-+		if (node_test_and_set(nid, unlinked_nodes))
- 			continue;
- 		sysfs_remove_link(&node_devices[nid]->dev.kobj,
- 			 kobject_name(&mem_blk->dev.kobj));
- 		sysfs_remove_link(&mem_blk->dev.kobj,
- 			 kobject_name(&node_devices[nid]->dev.kobj));
- 	}
--	NODEMASK_FREE(unlinked_nodes);
--	return 0;
- }
+-config IOMMU_DEFAULT_PASSTHROUGH
+-	bool "IOMMU passthrough by default"
++choice
++	prompt "IOMMU dma mode"
+ 	depends on IOMMU_API
+-        help
+-	  Enable passthrough by default, removing the need to pass in
+-	  iommu.passthrough=on or iommu=pt through command line. If this
+-	  is enabled, you can still disable with iommu.passthrough=off
+-	  or iommu=nopt depending on the architecture.
++	default IOMMU_DEFAULT_STRICT
++	help
++	  This option allows IOMMU dma mode to be chose at build time, to
++	  override the default dma mode of each ARCHs, removing the need to
++	  pass in kernel parameters through command line. You can still use the
++	  generic boot option iommu.dma_mode or ARCHs specific boot options to
++	  override this option again.
++
++config IOMMU_DEFAULT_PASSTHROUGH
++	bool "passthrough"
++	help
++	  In this mode, the dma access through IOMMU without any addresses
++	  transformation. That means, the wrong or illegal dma access can not
++	  be caught, no error information will be reported.
  
- int link_mem_sections(int nid, unsigned long start_pfn, unsigned long end_pfn)
-diff --git a/include/linux/node.h b/include/linux/node.h
-index 02a29e71b175..548c226966a2 100644
---- a/include/linux/node.h
-+++ b/include/linux/node.h
-@@ -139,7 +139,7 @@ extern int register_cpu_under_node(unsigned int cpu, unsigned int nid);
- extern int unregister_cpu_under_node(unsigned int cpu, unsigned int nid);
- extern int register_mem_sect_under_node(struct memory_block *mem_blk,
- 						void *arg);
--extern int unregister_memory_block_under_nodes(struct memory_block *mem_blk);
-+extern void unregister_memory_block_under_nodes(struct memory_block *mem_blk);
+ 	  If unsure, say N here.
  
- extern int register_memory_node_under_compute_node(unsigned int mem_nid,
- 						   unsigned int cpu_nid,
-@@ -175,9 +175,8 @@ static inline int register_mem_sect_under_node(struct memory_block *mem_blk,
- {
- 	return 0;
- }
--static inline int unregister_memory_block_under_nodes(struct memory_block *mem_blk)
-+static inline void unregister_memory_block_under_nodes(struct memory_block *mem_blk)
- {
--	return 0;
- }
++config IOMMU_DEFAULT_LAZY
++	bool "lazy"
++	help
++	  Support lazy mode, where for every IOMMU DMA unmap operation, the
++	  flush operation of IOTLB and the free operation of IOVA are deferred.
++	  They are only guaranteed to be done before the related IOVA will be
++	  reused.
++
++config IOMMU_DEFAULT_STRICT
++	bool "strict"
++	help
++	  For every IOMMU DMA unmap operation, the flush operation of IOTLB and
++	  the free operation of IOVA are guaranteed to be done in the unmap
++	  function.
++
++	  This mode is safer than the two above, but it maybe slow in some high
++	  performace scenarios.
++
++endchoice
++
+ config OF_IOMMU
+        def_bool y
+        depends on OF && IOMMU_API
+diff --git a/drivers/iommu/iommu.c b/drivers/iommu/iommu.c
+index df1ce8e22385b48..f4171bf4b46eaeb 100644
+--- a/drivers/iommu/iommu.c
++++ b/drivers/iommu/iommu.c
+@@ -39,8 +39,10 @@
+ static struct kset *iommu_group_kset;
+ static DEFINE_IDA(iommu_group_ida);
  
- static inline void register_hugetlbfs_with_node(node_registration_func_t reg,
+-#ifdef CONFIG_IOMMU_DEFAULT_PASSTHROUGH
++#if defined(CONFIG_IOMMU_DEFAULT_PASSTHROUGH)
+ #define IOMMU_DEFAULT_DMA_MODE		IOMMU_DMA_MODE_PASSTHROUGH
++#elif defined(CONFIG_IOMMU_DEFAULT_LAZY)
++#define IOMMU_DEFAULT_DMA_MODE		IOMMU_DMA_MODE_LAZY
+ #else
+ #define IOMMU_DEFAULT_DMA_MODE		IOMMU_DMA_MODE_STRICT
+ #endif
 -- 
-2.20.1
+1.8.3
+
