@@ -1,102 +1,38 @@
-From: Dave Young <dyoung@redhat.com>
-Date: Mon, 29 Apr 2019 05:04:10 +0000
-Subject: Re: [PATCHv2] kernel/crash: make parse_crashkernel()'s return value more indicant
-Message-Id: <20190429050410.GA7982@dhcp-128-65.nay.redhat.com>
+From: Nick Desaulniers <ndesaulniers@google.com>
+Date: Tue, 23 Apr 2019 20:48:20 +0000
+Subject: [PATCH] ia64: require -Wl,--hash-style=sysv
+Message-Id: <20190423204821.241925-1-ndesaulniers@google.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1556087581-14513-1-git-send-email-kernelfans@gmail.com>
- <10dc5468-6cd9-85c7-ba66-1dfa5aa922b7@suse.com>
- <CAFgQCTstd667wP6g+maxYekz4u3iBR2R=FHUiS1V=XxTs6MKUw@mail.gmail.com>
- <20190428083710.GA11981@dhcp-128-65.nay.redhat.com>
- <CAFgQCTvQezGM7xgY2Q1RSUiQ7wLdxtUAeztrO3AqDfjx8f2kdg@mail.gmail.com>
- <CAFgQCTszGixzH5ZrwOzjbp7W91Wxo3XvA+EeEx0ErVVcYMr0FA@mail.gmail.com>
-In-Reply-To: <CAFgQCTszGixzH5ZrwOzjbp7W91Wxo3XvA+EeEx0ErVVcYMr0FA@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Pingfan Liu <kernelfans@gmail.com>
-Cc: Rich Felker <dalias@libc.org>, linux-ia64@vger.kernel.org, Julien Thierry <julien.thierry@arm.com>, Yangtao Li <tiny.windzz@gmail.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Palmer Dabbelt <palmer@sifive.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, Stefan Agner <stefan@agner.ch>, linux-mips@vger.kernel.org, Paul Mackerras <paulus@samba.org>, "H. Peter Anvin" <hpa@zytor.com>, Thomas Gleixner <tglx@linutronix.de>, Logan Gunthorpe <logang@deltatee.com>, linux-s390@vger.kernel.org, Florian Fainelli <f.fainelli@gmail.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, linux-sh@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>, x86@kernel.org, Russell King <linux@armlinux.org.uk>, Ingo Molnar <mingo@redhat.com>, Hari Bathini <hbathini@linux.ibm.com>, Catalin Marinas <catalin.marinas@arm.com>, James Hogan <jhogan@kernel.org>, Fenghua Yu <fenghua.yu@intel.com>, Tony Luck <tony.luck@intel.com>, Will Deacon <will.deacon@arm.com>, Johannes Weiner <hannes@cmpxchg.org>, Ananth N Mavinakayanahalli <ananth@linux.vnet.ibm.com>, Borislav Petkov <bp@alien8.de>, David Hildenbrand <david@redhat.com>, linux-arm-kernel@lists.infradead.org, Jens Axboe <axboe@kernel.dk>, Matthias Brugger <mbrugger@suse.com>, Baoquan He <bhe@redhat.com>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Robin Murphy <robin.murphy@arm.com>, kexec@lists.infradead.org, LKML <linux-kernel@vger.kernel.org>, Ralf Baechle <ralf@linux-mips.org>, Thomas Bogendoerfer <tbogendoerfer@suse.de>, Paul Burton <paul.burton@mips.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, Greg Hackmann <ghackmann@android.com>
+To: tony.luck@intel.com, fenghua.yu@intel.com
+Cc: Nick Desaulniers <ndesaulniers@google.com>, clang-built-linux@googlegroups.com, Masahiro Yamada <yamada.masahiro@socionext.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On 04/29/19 at 12:48pm, Pingfan Liu wrote:
-> On Mon, Apr 29, 2019 at 11:04 AM Pingfan Liu <kernelfans@gmail.com> wrote:
-> >
-> > On Sun, Apr 28, 2019 at 4:37 PM Dave Young <dyoung@redhat.com> wrote:
-> > >
-> > > On 04/25/19 at 04:20pm, Pingfan Liu wrote:
-> > > > On Wed, Apr 24, 2019 at 4:31 PM Matthias Brugger <mbrugger@suse.com> wrote:
-> > > > >
-> > > > >
-> > > > [...]
-> > > > > > @@ -139,6 +141,8 @@ static int __init parse_crashkernel_simple(char *cmdline,
-> > > > > >               pr_warn("crashkernel: unrecognized char: %c\n", *cur);
-> > > > > >               return -EINVAL;
-> > > > > >       }
-> > > > > > +     if (*crash_size = 0)
-> > > > > > +             return -EINVAL;
-> > > > >
-> > > > > This covers the case where I pass an argument like "crashkernel=0M" ?
-> > > > > Can't we fix that by using kstrtoull() in memparse and check if the return value
-> > > > > is < 0? In that case we could return without updating the retptr and we will be
-> > > > > fine.
-> > > > >
-> > > > It seems that kstrtoull() treats 0M as invalid parameter, while
-> > > > simple_strtoull() does not.
-> > > >
-> > > > If changed like your suggestion, then all the callers of memparse()
-> > > > will treats 0M as invalid parameter. This affects many components
-> > > > besides kexec.  Not sure this can be done or not.
-> > >
-> > > simple_strtoull is obsolete, move to kstrtoull is the right way.
-> > >
-> > > $ git grep memparse|wc
-> > >     158     950   10479
-> > >
-> > > Except some documentation/tools etc there are still a log of callers
-> > > which directly use the return value as the ull number without error
-> > > checking.
-> > >
-> > > So it would be good to mark memparse as obsolete as well in
-> > > lib/cmdline.c, and introduce a new function eg. kmemparse() to use
-> > > kstrtoull,  and return a real error code, and save the size in an
-> > > argument like &size.  Then update X86 crashkernel code to use it.
-> > >
-> > Thank for your good suggestion.
-> >
-> Go through the v5.0 kernel code, I think it will be a huge job.
-> 
-> The difference between unsigned long long simple_strtoull(const char
-> *cp, char **endp, unsigned int base) and int _kstrtoull(const char *s,
-> unsigned int base, unsigned long long *res) is bigger than expected,
-> especially the output parameter @res. Many references to
-> memparse(const char *ptr, char **retptr) rely on @retptr to work. A
-> typical example from arch/x86/kernel/e820.c
->         mem_size = memparse(p, &p);
->         if (p = oldp)
->                 return -EINVAL;
-> 
->         userdef = 1;
->         if (*p = '@') {  <----------- here
->                 start_at = memparse(p+1, &p);
->                 e820__range_add(start_at, mem_size, E820_TYPE_RAM);
->         } else if (*p = '#') {
->                 start_at = memparse(p+1, &p);
->                 e820__range_add(start_at, mem_size, E820_TYPE_ACPI);
->         } else if (*p = '$') {
->                 start_at = memparse(p+1, &p);
->                 e820__range_add(start_at, mem_size, E820_TYPE_RESERVED);
->         }
-> 
-> So we need to resolve the prototype of kstrtoull() firstly, and maybe
-> kstrtouint() etc too. All of them have lots of references in kernel.
-> 
-> Any idea about this?
+Towards the goal of removing cc-ldoption, it seems that --hash-stylewas added to binutils 2.17.50.0.2 in 2006. The minimal required version
+of binutils for the kernel according to
+Documentation/process/changes.rst is 2.20.
 
+Link: https://gcc.gnu.org/ml/gcc/2007-01/msg01141.html
+Cc: clang-built-linux@googlegroups.com
+Suggested-by: Masahiro Yamada <yamada.masahiro@socionext.com>
+Signed-off-by: Nick Desaulniers <ndesaulniers@google.com>
+---
+ arch/ia64/kernel/Makefile.gate | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Not only this place, a lot of other places, I think no hurry to fix them
-all at one time.
-
-As we talked just do it according to previous reply,  mark memparse as
-obsolete, and create a new function to use kstrtoull, and make it used
-in crashkernel code first.
-
-Thanks
-Dave
+diff --git a/arch/ia64/kernel/Makefile.gate b/arch/ia64/kernel/Makefile.gate
+index f53faf48b7ce..846867bff6d6 100644
+--- a/arch/ia64/kernel/Makefile.gate
++++ b/arch/ia64/kernel/Makefile.gate
+@@ -11,7 +11,7 @@ quiet_cmd_gate = GATE    $@
+       cmd_gate = $(CC) -nostdlib $(GATECFLAGS_$(@F)) -Wl,-T,$(filter-out FORCE,$^) -o $@
+ 
+ GATECFLAGS_gate.so = -shared -s -Wl,-soname=linux-gate.so.1 \
+-		     $(call cc-ldoption, -Wl$(comma)--hash-style=sysv)
++		     -Wl,--hash-style=sysv
+ $(obj)/gate.so: $(obj)/gate.lds $(obj)/gate.o FORCE
+ 	$(call if_changed,gate)
+ 
+-- 
+2.21.0.593.g511ec345e18-goog
