@@ -1,123 +1,87 @@
-From: Zhen Lei <thunder.leizhen@huawei.com>
-Date: Sun, 07 Apr 2019 12:41:45 +0000
-Subject: [PATCH v4 4/6] s390/pci: use common boot option iommu.dma_mode
-Message-Id: <20190407124147.13576-5-thunder.leizhen@huawei.com>
+From: David Hildenbrand <david@redhat.com>
+Date: Wed, 24 Apr 2019 10:25:09 +0000
+Subject: [PATCH v1 5/7] mm/memory_hotplug: Drop MHP_MEMBLOCK_API
+Message-Id: <20190424102511.29318-6-david@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190407124147.13576-1-thunder.leizhen@huawei.com>
-In-Reply-To: <20190407124147.13576-1-thunder.leizhen@huawei.com>
+References: <20190424102511.29318-1-david@redhat.com>
+In-Reply-To: <20190424102511.29318-1-david@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jean-Philippe Brucker <jean-philippe.brucker@arm.com>, John Garry <john.garry@huawei.com>, Robin Murphy <robin.murphy@arm.com>, Will Deacon <will.deacon@arm.com>, Joerg Roedel <joro@8bytes.org>, Jonathan Corbet <corbet@lwn.net>, linux-doc <linux-doc@vger.kernel.org>, Sebastian Ott <sebott@linux.ibm.com>, Gerald Schaefer <gerald.schaefer@de.ibm.com>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, "H . Peter Anvin" <hpa@zytor.com>, David Woodhouse <dwmw2@infradead.org>, iommu <iommu@lists.linux-foundation.org>, linux-kernel <linux-kernel@vger.kernel.org>, linux-s390 <linux-s390@vger.kernel.org>, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, x86 <x86@kernel.org>, linux-ia64 <linux-ia64@vger.kernel.org>
-Cc: Zhen Lei <thunder.leizhen@huawei.com>, Hanjun Guo <guohanjun@huawei.com>
+To: linux-mm@kvack.org
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, akpm@linux-foundation.org, Dan Williams <dan.j.williams@intel.com>, David Hildenbrand <david@redhat.com>, Michal Hocko <mhocko@suse.com>, Oscar Salvador <osalvador@suse.com>, Pavel Tatashin <pasha.tatashin@soleen.com>, Wei Yang <richard.weiyang@gmail.com>, Joonsoo Kim <iamjoonsoo.kim@lge.com>, Qian Cai <cai@lca.pw>, Arun KS <arunks@codeaurora.org>, Mathieu Malaterre <malat@debian.org>
 
-s390_iommu=strict can be replaced with iommu.dma_mode=strict.
+No longer needed, the callers of arch_add_memory() can handle this
+manually.
 
-Signed-off-by: Zhen Lei <thunder.leizhen@huawei.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: David Hildenbrand <david@redhat.com>
+Cc: Michal Hocko <mhocko@suse.com>
+Cc: Oscar Salvador <osalvador@suse.com>
+Cc: Pavel Tatashin <pasha.tatashin@soleen.com>
+Cc: Wei Yang <richard.weiyang@gmail.com>
+Cc: Joonsoo Kim <iamjoonsoo.kim@lge.com>
+Cc: Qian Cai <cai@lca.pw>
+Cc: Arun KS <arunks@codeaurora.org>
+Cc: Mathieu Malaterre <malat@debian.org>
+Signed-off-by: David Hildenbrand <david@redhat.com>
 ---
- Documentation/admin-guide/kernel-parameters.txt |  7 -------
- arch/s390/pci/pci_dma.c                         | 20 +++++---------------
- drivers/iommu/Kconfig                           |  1 +
- 3 files changed, 6 insertions(+), 22 deletions(-)
+ include/linux/memory_hotplug.h | 8 --------
+ mm/memory_hotplug.c            | 9 +++------
+ 2 files changed, 3 insertions(+), 14 deletions(-)
 
-diff --git a/Documentation/admin-guide/kernel-parameters.txt b/Documentation/admin-guide/kernel-parameters.txt
-index 60409ad23b2ac8b..a2df11945b33fc9 100644
---- a/Documentation/admin-guide/kernel-parameters.txt
-+++ b/Documentation/admin-guide/kernel-parameters.txt
-@@ -4095,13 +4095,6 @@
+diff --git a/include/linux/memory_hotplug.h b/include/linux/memory_hotplug.h
+index 2d4de313926d..2f1f87e13baa 100644
+--- a/include/linux/memory_hotplug.h
++++ b/include/linux/memory_hotplug.h
+@@ -128,14 +128,6 @@ extern void arch_remove_memory(int nid, u64 start, u64 size,
+ extern void __remove_pages(struct zone *zone, unsigned long start_pfn,
+ 			   unsigned long nr_pages, struct vmem_altmap *altmap);
  
- 	S		[KNL] Run init in single mode
- 
--	s390_iommu=	[HW,S390]
--			Set s390 IOTLB flushing mode
--		strict
--			With strict flushing every unmap operation will result in
--			an IOTLB flush. Default is lazy flushing before reuse,
--			which is faster.
+-/*
+- * Do we want sysfs memblock files created. This will allow userspace to online
+- * and offline memory explicitly. Lack of this bit means that the caller has to
+- * call move_pfn_range_to_zone to finish the initialization.
+- */
 -
- 	sa1100ir	[NET]
- 			See drivers/net/irda/sa1100_ir.c.
+-#define MHP_MEMBLOCK_API               (1<<0)
+-
+ /* reasonably generic interface to expand the physical pages */
+ extern int __add_pages(int nid, unsigned long start_pfn, unsigned long nr_pages,
+ 		       struct mhp_restrictions *restrictions);
+diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+index e1637c8a0723..107f72952347 100644
+--- a/mm/memory_hotplug.c
++++ b/mm/memory_hotplug.c
+@@ -250,7 +250,7 @@ void __init register_page_bootmem_info_node(struct pglist_data *pgdat)
+ #endif /* CONFIG_HAVE_BOOTMEM_INFO_NODE */
  
-diff --git a/arch/s390/pci/pci_dma.c b/arch/s390/pci/pci_dma.c
-index 9e52d1527f71495..6f1615c16f33995 100644
---- a/arch/s390/pci/pci_dma.c
-+++ b/arch/s390/pci/pci_dma.c
-@@ -17,7 +17,6 @@
- 
- static struct kmem_cache *dma_region_table_cache;
- static struct kmem_cache *dma_page_table_cache;
--static int s390_iommu_strict;
- 
- static int zpci_refresh_global(struct zpci_dev *zdev)
+ static int __meminit __add_section(int nid, unsigned long phys_start_pfn,
+-		struct vmem_altmap *altmap, bool want_memblock)
++				   struct vmem_altmap *altmap)
  {
-@@ -193,13 +192,13 @@ static int __dma_purge_tlb(struct zpci_dev *zdev, dma_addr_t dma_addr,
- 		if (!zdev->tlb_refresh)
- 			return 0;
- 	} else {
--		if (!s390_iommu_strict)
-+		if (IOMMU_DMA_MODE_IS_LAZY())
- 			return 0;
+ 	int ret;
+ 
+@@ -293,8 +293,7 @@ int __ref __add_pages(int nid, unsigned long phys_start_pfn,
  	}
  
- 	ret = zpci_refresh_trans((u64) zdev->fh << 32, dma_addr,
- 				 PAGE_ALIGN(size));
--	if (ret = -ENOMEM && !s390_iommu_strict) {
-+	if (ret = -ENOMEM && IOMMU_DMA_MODE_IS_LAZY()) {
- 		/* enable the hypervisor to free some resources */
- 		if (zpci_refresh_global(zdev))
- 			goto out;
-@@ -278,7 +277,7 @@ static dma_addr_t dma_alloc_address(struct device *dev, int size)
- 	spin_lock_irqsave(&zdev->iommu_bitmap_lock, flags);
- 	offset = __dma_alloc_iommu(dev, zdev->next_bit, size);
- 	if (offset = -1) {
--		if (!s390_iommu_strict) {
-+		if (IOMMU_DMA_MODE_IS_LAZY()) {
- 			/* global flush before DMA addresses are reused */
- 			if (zpci_refresh_global(zdev))
- 				goto out_error;
-@@ -313,7 +312,7 @@ static void dma_free_address(struct device *dev, dma_addr_t dma_addr, int size)
- 	if (!zdev->iommu_bitmap)
- 		goto out;
+ 	for (i = start_sec; i <= end_sec; i++) {
+-		err = __add_section(nid, section_nr_to_pfn(i), altmap,
+-				restrictions->flags & MHP_MEMBLOCK_API);
++		err = __add_section(nid, section_nr_to_pfn(i), altmap);
  
--	if (s390_iommu_strict)
-+	if (!IOMMU_DMA_MODE_IS_LAZY())
- 		bitmap_clear(zdev->iommu_bitmap, offset, size);
- 	else
- 		bitmap_set(zdev->lazy_bitmap, offset, size);
-@@ -584,7 +583,7 @@ int zpci_dma_init_device(struct zpci_dev *zdev)
- 		rc = -ENOMEM;
- 		goto free_dma_table;
- 	}
--	if (!s390_iommu_strict) {
-+	if (IOMMU_DMA_MODE_IS_LAZY()) {
- 		zdev->lazy_bitmap = vzalloc(zdev->iommu_pages / 8);
- 		if (!zdev->lazy_bitmap) {
- 			rc = -ENOMEM;
-@@ -671,12 +670,3 @@ void zpci_dma_exit(void)
- 	/* dma_supported is unconditionally true without a callback */
- };
- EXPORT_SYMBOL_GPL(s390_pci_dma_ops);
--
--static int __init s390_iommu_setup(char *str)
--{
--	if (!strncmp(str, "strict", 6))
--		s390_iommu_strict = 1;
--	return 0;
--}
--
--__setup("s390_iommu=", s390_iommu_setup);
-diff --git a/drivers/iommu/Kconfig b/drivers/iommu/Kconfig
-index 19118cfdea1c335..d88dc44d60d88ea 100644
---- a/drivers/iommu/Kconfig
-+++ b/drivers/iommu/Kconfig
-@@ -77,6 +77,7 @@ config IOMMU_DEBUGFS
- choice
- 	prompt "IOMMU dma mode"
- 	depends on IOMMU_API
-+	default IOMMU_DMA_MODE_LAZY if S390_IOMMU
- 	default IOMMU_DMA_MODE_STRICT
- 	help
- 	  IOMMU dma mode, such as: passthrough, lazy, strict.
+ 		/*
+ 		 * EEXIST is finally dealt with by ioresource collision
+@@ -1066,9 +1065,7 @@ static int online_memory_block(struct memory_block *mem, void *arg)
+  */
+ int __ref add_memory_resource(int nid, struct resource *res)
+ {
+-	struct mhp_restrictions restrictions = {
+-		.flags = MHP_MEMBLOCK_API,
+-	};
++	struct mhp_restrictions restrictions = {};
+ 	u64 start, size;
+ 	bool new_node = false;
+ 	int ret;
 -- 
-1.8.3
-
+2.20.1
