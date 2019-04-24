@@ -1,44 +1,55 @@
-From: "Enrico Weigelt, metux IT consult" <lkml@metux.net>
-Date: Mon, 29 Apr 2019 18:26:51 +0000
-Subject: Re: [PATCH 13/41] drivers: tty: serial: uartlite: fill mapsize and use it
-Message-Id: <cb01328c-6308-d9c7-17ba-644d983b0a50@metux.net>
+From: David Hildenbrand <david@redhat.com>
+Date: Wed, 24 Apr 2019 10:25:06 +0000
+Subject: [PATCH v1 2/7] s390x/mm: Implement arch_remove_memory()
+Message-Id: <20190424102511.29318-3-david@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1556369542-13247-1-git-send-email-info@metux.net>
- <1556369542-13247-14-git-send-email-info@metux.net>
- <87muk8rg82.fsf@dell.be.48ers.dk>
-In-Reply-To: <87muk8rg82.fsf@dell.be.48ers.dk>
+References: <20190424102511.29318-1-david@redhat.com>
+In-Reply-To: <20190424102511.29318-1-david@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Peter Korsgaard <peter@korsgaard.com>, "Enrico Weigelt, metux IT consult" <info@metux.net>
-Cc: linux-kernel@vger.kernel.org, lorenzo.pieralisi@arm.com, linux-ia64@vger.kernel.org, linux-serial@vger.kernel.org, andrew@aj.id.au, gregkh@linuxfoundation.org, sudeep.holla@arm.com, liviu.dudau@arm.com, linux-mips@vger.kernel.org, vz@mleia.com, linux@prisktech.co.nz, sparclinux@vger.kernel.org, khilman@baylibre.com, macro@linux-mips.org, slemieux.tyco@gmail.com, matthias.bgg@gmail.com, jacmet@sunsite.dk, linux-amlogic@lists.infradead.org, andriy.shevchenko@linux.intel.com, linuxppc-dev@lists.ozlabs.org, davem@davemloft.net
+To: linux-mm@kvack.org
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, akpm@linux-foundation.org, Dan Williams <dan.j.williams@intel.com>, David Hildenbrand <david@redhat.com>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, Michal Hocko <mhocko@suse.com>, Mike Rapoport <rppt@linux.vnet.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Oscar Salvador <osalvador@suse.com>
 
-On 29.04.19 17:19, Peter Korsgaard wrote:
->>>>>> "Enrico" = Enrico Weigelt, metux IT consult <info@metux.net> writes:
-> 
->  > Fill the struct uart_port->mapsize field and use it, insteaf of
-> 
-> s/insteaf/instead/
+Will come in handy when wanting to handle errors after
+arch_add_memory().
 
-Fixed.
+Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
+Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Michal Hocko <mhocko@suse.com>
+Cc: Mike Rapoport <rppt@linux.vnet.ibm.com>
+Cc: David Hildenbrand <david@redhat.com>
+Cc: Vasily Gorbik <gor@linux.ibm.com>
+Cc: Oscar Salvador <osalvador@suse.com>
+Signed-off-by: David Hildenbrand <david@redhat.com>
+---
+ arch/s390/mm/init.c | 13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
 
->  > hardcoded values in many places. This makes the code layout a bit
->  > more consistent and easily allows using generic helpers for the
->  > io memory handling.
-> 
->  > Candidates for such helpers could be eg. the request+ioremap and
->  > iounmap+release combinations.
-> 
->  > Signed-off-by: Enrico Weigelt <info@metux.net>
-> 
-> Acked-by: Peter Korsgaard <peter@korsgaard.com>
-
-thanks for review.
-
-
---mtx
-
+diff --git a/arch/s390/mm/init.c b/arch/s390/mm/init.c
+index 31b1071315d7..2636d62df04e 100644
+--- a/arch/s390/mm/init.c
++++ b/arch/s390/mm/init.c
+@@ -237,12 +237,13 @@ int arch_add_memory(int nid, u64 start, u64 size,
+ void arch_remove_memory(int nid, u64 start, u64 size,
+ 			struct vmem_altmap *altmap)
+ {
+-	/*
+-	 * There is no hardware or firmware interface which could trigger a
+-	 * hot memory remove on s390. So there is nothing that needs to be
+-	 * implemented.
+-	 */
+-	BUG();
++	unsigned long start_pfn = start >> PAGE_SHIFT;
++	unsigned long nr_pages = size >> PAGE_SHIFT;
++	struct zone *zone;
++
++	vmem_remove_mapping(start, size);
++	zone = page_zone(pfn_to_page(start_pfn));
++	__remove_pages(zone, start_pfn, nr_pages, altmap);
+ }
+ #endif
+ #endif /* CONFIG_MEMORY_HOTPLUG */
 -- 
-Enrico Weigelt, metux IT consult
-Free software and Linux embedded engineering
-info@metux.net -- +49-151-27565287
+2.20.1
