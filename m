@@ -1,26 +1,56 @@
-From: Peter Korsgaard <peter@korsgaard.com>
-Date: Mon, 29 Apr 2019 15:26:00 +0000
-Subject: Re: [PATCH 12/41] drivers: tty: serial: uartlite: use dev_dbg() instead of pr_debug()
-Message-Id: <875zqwrfxz.fsf@dell.be.48ers.dk>
+From: "Enrico Weigelt, metux IT consult" <info@metux.net>
+Date: Sat, 27 Apr 2019 12:51:42 +0000
+Subject: [PATCH 01/41] drivers: tty: serial: dz: use dev_err() instead of printk()
+Message-Id: <1556369542-13247-2-git-send-email-info@metux.net>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1556369542-13247-1-git-send-email-info@metux.net>
-        <1556369542-13247-13-git-send-email-info@metux.net>
-In-Reply-To: <1556369542-13247-13-git-send-email-info@metux.net> (Enrico
-        Weigelt's message of "Sat, 27 Apr 2019 14:51:53 +0200")
+In-Reply-To: <1556369542-13247-1-git-send-email-info@metux.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Enrico Weigelt, metux IT consult" <info@metux.net>
-Cc: linux-kernel@vger.kernel.org, lorenzo.pieralisi@arm.com, linux-ia64@vger.kernel.org, linux-serial@vger.kernel.org, andrew@aj.id.au, gregkh@linuxfoundation.org, sudeep.holla@arm.com, liviu.dudau@arm.com, linux-mips@vger.kernel.org, vz@mleia.com, linux@prisktech.co.nz, sparclinux@vger.kernel.org, khilman@baylibre.com, macro@linux-mips.org, slemieux.tyco@gmail.com, matthias.bgg@gmail.com, jacmet@sunsite.dk, linux-amlogic@lists.infradead.org, andriy.shevchenko@linux.intel.com, linuxppc-dev@lists.ozlabs.org, davem@davemloft.net
+To: linux-kernel@vger.kernel.org
+Cc: gregkh@linuxfoundation.org, andrew@aj.id.au, andriy.shevchenko@linux.intel.com, macro@linux-mips.org, vz@mleia.com, slemieux.tyco@gmail.com, khilman@baylibre.com, liviu.dudau@arm.com, sudeep.holla@arm.com, lorenzo.pieralisi@arm.com, davem@davemloft.net, jacmet@sunsite.dk, linux@prisktech.co.nz, matthias.bgg@gmail.com, linux-mips@vger.kernel.org, linux-serial@vger.kernel.org, linux-ia64@vger.kernel.org, linux-amlogic@lists.infradead.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org
 
->>>>> "Enrico" = Enrico Weigelt, metux IT consult <info@metux.net> writes:
+Using dev_err() instead of printk() for more consistent output.
+(prints device name, etc).
 
- > Using dev_dbg() instead of pr_debg() for more consistent output.
- > (prints device name, etc).
+Signed-off-by: Enrico Weigelt <info@metux.net>
+---
+ drivers/tty/serial/dz.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
- > Signed-off-by: Enrico Weigelt <info@metux.net>
-
-Acked-by: Peter Korsgaard <peter@korsgaard.com>
-
+diff --git a/drivers/tty/serial/dz.c b/drivers/tty/serial/dz.c
+index 7b57e84..96e35af 100644
+--- a/drivers/tty/serial/dz.c
++++ b/drivers/tty/serial/dz.c
+@@ -416,7 +416,7 @@ static int dz_startup(struct uart_port *uport)
+ 			  IRQF_SHARED, "dz", mux);
+ 	if (ret) {
+ 		atomic_add(-1, &mux->irq_guard);
+-		printk(KERN_ERR "dz: Cannot get IRQ %d!\n", dport->port.irq);
++		dev_err(uport->dev, "Cannot get IRQ %d!\n", dport->port.irq);
+ 		return ret;
+ 	}
+ 
+@@ -680,7 +680,7 @@ static int dz_map_port(struct uart_port *uport)
+ 		uport->membase = ioremap_nocache(uport->mapbase,
+ 						 dec_kn_slot_size);
+ 	if (!uport->membase) {
+-		printk(KERN_ERR "dz: Cannot map MMIO\n");
++		dev_err(uport->dev, "Cannot map MMIO\n");
+ 		return -ENOMEM;
+ 	}
+ 	return 0;
+@@ -697,8 +697,8 @@ static int dz_request_port(struct uart_port *uport)
+ 		if (!request_mem_region(uport->mapbase, dec_kn_slot_size,
+ 					"dz")) {
+ 			atomic_add(-1, &mux->map_guard);
+-			printk(KERN_ERR
+-			       "dz: Unable to reserve MMIO resource\n");
++			dev_err(uport->dev,
++				"Unable to reserve MMIO resource\n");
+ 			return -EBUSY;
+ 		}
+ 	}
 -- 
-Bye, Peter Korsgaard
+1.9.1
