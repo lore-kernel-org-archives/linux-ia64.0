@@ -1,298 +1,481 @@
-From: Zhen Lei <thunder.leizhen@huawei.com>
-Date: Tue, 09 Apr 2019 12:53:08 +0000
-Subject: [PATCH v5 6/6] x86/iommu: add support for generic boot option iommu.dma_mode
-Message-Id: <20190409125308.18304-7-thunder.leizhen@huawei.com>
+From: "Enrico Weigelt, metux IT consult" <info@metux.net>
+Date: Sat, 27 Apr 2019 12:52:08 +0000
+Subject: [PATCH 27/41] drivers: tty: serial: sunzilog: fix formatting issues
+Message-Id: <1556369542-13247-28-git-send-email-info@metux.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190409125308.18304-1-thunder.leizhen@huawei.com>
-In-Reply-To: <20190409125308.18304-1-thunder.leizhen@huawei.com>
+References: <1556369542-13247-1-git-send-email-info@metux.net>
+In-Reply-To: <1556369542-13247-1-git-send-email-info@metux.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jean-Philippe Brucker <jean-philippe.brucker@arm.com>, John Garry <john.garry@huawei.com>, Robin Murphy <robin.murphy@arm.com>, Will Deacon <will.deacon@arm.com>, Joerg Roedel <joro@8bytes.org>, Jonathan Corbet <corbet@lwn.net>, linux-doc <linux-doc@vger.kernel.org>, Sebastian Ott <sebott@linux.ibm.com>, Gerald Schaefer <gerald.schaefer@de.ibm.com>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, "H . Peter Anvin" <hpa@zytor.com>, David Woodhouse <dwmw2@infradead.org>, iommu <iommu@lists.linux-foundation.org>, linux-kernel <linux-kernel@vger.kernel.org>, linux-s390 <linux-s390@vger.kernel.org>, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, x86 <x86@kernel.org>, linux-ia64 <linux-ia64@vger.kernel.org>
-Cc: Zhen Lei <thunder.leizhen@huawei.com>, Hanjun Guo <guohanjun@huawei.com>
+To: linux-kernel@vger.kernel.org
+Cc: gregkh@linuxfoundation.org, andrew@aj.id.au, andriy.shevchenko@linux.intel.com, macro@linux-mips.org, vz@mleia.com, slemieux.tyco@gmail.com, khilman@baylibre.com, liviu.dudau@arm.com, sudeep.holla@arm.com, lorenzo.pieralisi@arm.com, davem@davemloft.net, jacmet@sunsite.dk, linux@prisktech.co.nz, matthias.bgg@gmail.com, linux-mips@vger.kernel.org, linux-serial@vger.kernel.org, linux-ia64@vger.kernel.org, linux-amlogic@lists.infradead.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org
 
-The following equivalence or replacement relationship exists:
-iommu=pt <--> iommu.dma_mode=passthrough.
-iommu=nopt can be replaced with iommu.dma_mode=lazy.
-intel_iommu=strict <--> iommu.dma_mode=strict.
-amd_iommu=fullflush <--> iommu.dma_mode=strict.
+Fix checkpatch warnings:
 
-Signed-off-by: Zhen Lei <thunder.leizhen@huawei.com>
+    WARNING: Use #include <linux/io.h> instead of <asm/io.h>
+    #38: FILE: drivers/tty/serial/sunzilog.c:38:
+    +#include <asm/io.h>
+
+    WARNING: line over 80 characters
+    #109: FILE: drivers/tty/serial/sunzilog.c:109:
+    +#define ZILOG_CHANNEL_FROM_PORT(PORT)	((struct zilog_channel __iomem *)((PORT)->membase))
+
+    WARNING: line over 80 characters
+    #116: FILE: drivers/tty/serial/sunzilog.c:116:
+    +#define ZS_WANTS_MODEM_STATUS(UP)	((UP)->flags & SUNZILOG_FLAG_MODEM_STATUS)
+
+    WARNING: line over 80 characters
+    #179: FILE: drivers/tty/serial/sunzilog.c:179:
+    +static int __load_zsregs(struct zilog_channel __iomem *channel, unsigned char *regs)
+
+    WARNING: Missing a blank line after declarations
+    #188: FILE: drivers/tty/serial/sunzilog.c:188:
+    +		unsigned char stat = read_zsreg(channel, R1);
+    +		if (stat & ALL_SNT)
+
+    ERROR: trailing whitespace
+    #231: FILE: drivers/tty/serial/sunzilog.c:231:
+    +^I$
+
+    WARNING: braces {} are not necessary for any arm of this statement
+    #276: FILE: drivers/tty/serial/sunzilog.c:276:
+    +		if (ZS_TX_ACTIVE(up)) {
+    [...]
+    +		} else {
+    [...]
+
+    ERROR: else should follow close brace '}'
+    #378: FILE: drivers/tty/serial/sunzilog.c:378:
+    +			}
+    +			else if (r1 & PAR_ERR)
+
+    ERROR: code indent should use tabs where possible
+    #397: FILE: drivers/tty/serial/sunzilog.c:397:
+    +^I^I    ^Itty_insert_flip_char(port, ch, flag);$
+
+    WARNING: please, no space before tabs
+    #397: FILE: drivers/tty/serial/sunzilog.c:397:
+    +^I^I    ^Itty_insert_flip_char(port, ch, flag);$
+
+    WARNING: line over 80 characters
+    #440: FILE: drivers/tty/serial/sunzilog.c:440:
+    +		/* The Zilog just gives us an interrupt when DCD/CTS/etc. change.
+
+    WARNING: line over 80 characters
+    #441: FILE: drivers/tty/serial/sunzilog.c:441:
+    +		 * But it does not tell us which bit has changed, we have to keep
+
+    WARNING: Missing a blank line after declarations
+    #464: FILE: drivers/tty/serial/sunzilog.c:464:
+    +		unsigned char status = readb(&channel->control);
+    +		ZSDELAY();
+
+    WARNING: line over 80 characters
+    #468: FILE: drivers/tty/serial/sunzilog.c:468:
+    +		 * It can occur because of how we do serial console writes.  It would
+
+    WARNING: line over 80 characters
+    #469: FILE: drivers/tty/serial/sunzilog.c:469:
+    +		 * be nice to transmit console writes just like we normally would for
+
+    WARNING: line over 80 characters
+    #470: FILE: drivers/tty/serial/sunzilog.c:470:
+    +		 * a TTY line. (ie. buffered and TX interrupt driven).  That is not
+
+    WARNING: line over 80 characters
+    #471: FILE: drivers/tty/serial/sunzilog.c:471:
+    +		 * easy because console writes cannot sleep.  One solution might be
+
+    WARNING: line over 80 characters
+    #593: FILE: drivers/tty/serial/sunzilog.c:593:
+    +static __inline__ unsigned char sunzilog_read_channel_status(struct uart_port *port)
+
+    WARNING: plain inline is preferred over __inline__
+    #593: FILE: drivers/tty/serial/sunzilog.c:593:
+    +static __inline__ unsigned char sunzilog_read_channel_status(struct uart_port *port)
+
+    ERROR: trailing whitespace
+    #664: FILE: drivers/tty/serial/sunzilog.c:664:
+    +^I/* NOTE: Not subject to 'transmitter active' rule.  */ $
+
+    ERROR: trailing whitespace
+    #752: FILE: drivers/tty/serial/sunzilog.c:752:
+    +^I^I/* NOTE: Not subject to 'transmitter active' rule.  */ $
+
+    ERROR: trailing whitespace
+    #779: FILE: drivers/tty/serial/sunzilog.c:779:
+    +^I^I/* NOTE: Not subject to 'transmitter active' rule.  */ $
+
+    WARNING: line over 80 characters
+    #999: FILE: drivers/tty/serial/sunzilog.c:999:
+    +static int sunzilog_verify_port(struct uart_port *port, struct serial_struct *ser)
+
+    WARNING: Missing a blank line after declarations
+    #1142: FILE: drivers/tty/serial/sunzilog.c:1142:
+    +		unsigned char val = readb(&channel->control);
+    +		if (val & Tx_BUF_EMP) {
+
+    WARNING: Prefer [subsystem eg: netdev]_info([subsystem]dev, ... then dev_info(dev, ... then pr_info(...  to printk(KERN_INFO ...
+    #1230: FILE: drivers/tty/serial/sunzilog.c:1230:
+    +	printk(KERN_INFO "Console: ttyS%d (SunZilog zs%d)\n",
+
+    WARNING: braces {} are not necessary for single statement blocks
+    #1383: FILE: drivers/tty/serial/sunzilog.c:1383:
+    +		if (__load_zsregs(channel, up->curregs)) {
+    +			up->flags |= SUNZILOG_FLAG_ESCC;
+    +		}
+
+    WARNING: quoted string split across lines
+    #1493: FILE: drivers/tty/serial/sunzilog.c:1493:
+    +		dev_info(&op->dev, "Keyboard at MMIO 0x%llx (irq = %d) "
+    +		       "is a %s\n",
+
+    WARNING: quoted string split across lines
+    #1497: FILE: drivers/tty/serial/sunzilog.c:1497:
+    +		dev_info(&op->dev, "Mouse at MMIO 0x%llx (irq = %d) "
+    +		       "is a %s\n",
+
+    WARNING: Missing a blank line after declarations
+    #1581: FILE: drivers/tty/serial/sunzilog.c:1581:
+    +		struct uart_sunzilog_port *up = sunzilog_irq_chain;
+    +		err = request_irq(zilog_irq, sunzilog_interrupt, IRQF_SHARED,
+
+    WARNING: line over 80 characters
+    #1590: FILE: drivers/tty/serial/sunzilog.c:1590:
+    +			/* printk (KERN_INFO "Enable IRQ for ZILOG Hardware %p\n", up); */
+
+    WARNING: line over 80 characters
+    #1627: FILE: drivers/tty/serial/sunzilog.c:1627:
+    +			/* printk (KERN_INFO "Disable IRQ for ZILOG Hardware %p\n", up); */
+
+    ERROR: trailing statements should be on next line
+    #1248: FILE: drivers/tty/serial/sunzilog.c:1248:
+    +	case B150: baud = 150; break;
+
+    ERROR: trailing statements should be on next line
+    #1249: FILE: drivers/tty/serial/sunzilog.c:1249:
+    +	case B300: baud = 300; break;
+
+    ERROR: trailing statements should be on next line
+    #1250: FILE: drivers/tty/serial/sunzilog.c:1250:
+    +	case B600: baud = 600; break;
+
+    ERROR: trailing statements should be on next line
+    #1251: FILE: drivers/tty/serial/sunzilog.c:1251:
+    +	case B1200: baud = 1200; break;
+
+    ERROR: trailing statements should be on next line
+    #1252: FILE: drivers/tty/serial/sunzilog.c:1252:
+    +	case B2400: baud = 2400; break;
+
+    ERROR: trailing statements should be on next line
+    #1253: FILE: drivers/tty/serial/sunzilog.c:1253:
+    +	case B4800: baud = 4800; break;
+
+    ERROR: trailing statements should be on next line
+    #1254: FILE: drivers/tty/serial/sunzilog.c:1254:
+    +	default: case B9600: baud = 9600; break;
+
+    ERROR: trailing statements should be on next line
+    #1255: FILE: drivers/tty/serial/sunzilog.c:1255:
+    +	case B19200: baud = 19200; break;
+
+    ERROR: trailing statements should be on next line
+    #1256: FILE: drivers/tty/serial/sunzilog.c:1256:
+    +	case B38400: baud = 38400; break;
+
+Signed-off-by: Enrico Weigelt <info@metux.net>
 ---
- Documentation/admin-guide/kernel-parameters.txt |  6 ++---
- arch/ia64/include/asm/iommu.h                   |  2 --
- arch/ia64/kernel/pci-dma.c                      |  2 --
- arch/x86/include/asm/iommu.h                    |  1 -
- arch/x86/kernel/pci-dma.c                       | 35 ++++++++++++-------------
- drivers/iommu/Kconfig                           |  2 +-
- drivers/iommu/amd_iommu.c                       | 10 +++----
- drivers/iommu/amd_iommu_init.c                  |  4 +--
- drivers/iommu/amd_iommu_types.h                 |  6 -----
- drivers/iommu/intel-iommu.c                     |  9 +++----
- 10 files changed, 31 insertions(+), 46 deletions(-)
+ drivers/tty/serial/sunzilog.c | 118 +++++++++++++++++++++++++++---------------
+ 1 file changed, 76 insertions(+), 42 deletions(-)
 
-diff --git a/Documentation/admin-guide/kernel-parameters.txt b/Documentation/admin-guide/kernel-parameters.txt
-index 176f96032d9d62a..ca6edc529d6a614 100644
---- a/Documentation/admin-guide/kernel-parameters.txt
-+++ b/Documentation/admin-guide/kernel-parameters.txt
-@@ -1815,9 +1815,9 @@
- 			options(such as CONFIG_IOMMU_DEFAULT_PASSTHROUGH) to
- 			choose which mode to be used.
- 			Note: For historical reasons, ARM64/S390/PPC/X86 have
--			their specific options. Currently, only ARM64/S390/PPC
--			support this boot option, and hope other ARCHs to use
--			this as generic boot option.
-+			their specific options, but strongly recommended switch
-+			to use this one, the new ARCHs should use this generic
-+			boot option.
- 		passthrough
- 			Configure DMA to bypass the IOMMU by default.
- 		lazy
-diff --git a/arch/ia64/include/asm/iommu.h b/arch/ia64/include/asm/iommu.h
-index 7429a72f3f92199..92aceef63710861 100644
---- a/arch/ia64/include/asm/iommu.h
-+++ b/arch/ia64/include/asm/iommu.h
-@@ -8,10 +8,8 @@
- extern void no_iommu_init(void);
- #ifdef	CONFIG_INTEL_IOMMU
- extern int force_iommu, no_iommu;
--extern int iommu_pass_through;
- extern int iommu_detected;
- #else
--#define iommu_pass_through	(0)
- #define no_iommu		(1)
- #define iommu_detected		(0)
- #endif
-diff --git a/arch/ia64/kernel/pci-dma.c b/arch/ia64/kernel/pci-dma.c
-index fe988c49f01ce6a..f5d49cd3fbb01a9 100644
---- a/arch/ia64/kernel/pci-dma.c
-+++ b/arch/ia64/kernel/pci-dma.c
-@@ -22,8 +22,6 @@
- int force_iommu __read_mostly;
- #endif
+diff --git a/drivers/tty/serial/sunzilog.c b/drivers/tty/serial/sunzilog.c
+index 6285bba..17b0520 100644
+--- a/drivers/tty/serial/sunzilog.c
++++ b/drivers/tty/serial/sunzilog.c
+@@ -106,14 +106,17 @@ struct uart_sunzilog_port {
  
--int iommu_pass_through;
--
- static int __init pci_iommu_init(void)
+ static void sunzilog_putchar(struct uart_port *port, int ch);
+ 
+-#define ZILOG_CHANNEL_FROM_PORT(PORT)	((struct zilog_channel __iomem *)((PORT)->membase))
+-#define UART_ZILOG(PORT)		((struct uart_sunzilog_port *)(PORT))
++#define ZILOG_CHANNEL_FROM_PORT(PORT)	\
++	((struct zilog_channel __iomem *)((PORT)->membase))
++#define UART_ZILOG(PORT)		\
++	((struct uart_sunzilog_port *)(PORT))
+ 
+ #define ZS_IS_KEYB(UP)	((UP)->flags & SUNZILOG_FLAG_CONS_KEYB)
+ #define ZS_IS_MOUSE(UP)	((UP)->flags & SUNZILOG_FLAG_CONS_MOUSE)
+ #define ZS_IS_CONS(UP)	((UP)->flags & SUNZILOG_FLAG_IS_CONS)
+ #define ZS_IS_KGDB(UP)	((UP)->flags & SUNZILOG_FLAG_IS_KGDB)
+-#define ZS_WANTS_MODEM_STATUS(UP)	((UP)->flags & SUNZILOG_FLAG_MODEM_STATUS)
++#define ZS_WANTS_MODEM_STATUS(UP)	\
++	((UP)->flags & SUNZILOG_FLAG_MODEM_STATUS)
+ #define ZS_IS_CHANNEL_A(UP)	((UP)->flags & SUNZILOG_FLAG_IS_CHANNEL_A)
+ #define ZS_REGS_HELD(UP)	((UP)->flags & SUNZILOG_FLAG_REGS_HELD)
+ #define ZS_TX_STOPPED(UP)	((UP)->flags & SUNZILOG_FLAG_TX_STOPPED)
+@@ -176,7 +179,8 @@ static void sunzilog_clear_fifo(struct zilog_channel __iomem *channel)
+ /* This function must only be called when the TX is not busy.  The UART
+  * port lock must be held and local interrupts disabled.
+  */
+-static int __load_zsregs(struct zilog_channel __iomem *channel, unsigned char *regs)
++static int __load_zsregs(struct zilog_channel __iomem *channel,
++			 unsigned char *regs)
  {
- 	if (iommu_detected)
-diff --git a/arch/x86/include/asm/iommu.h b/arch/x86/include/asm/iommu.h
-index baedab8ac5385f7..b91623d521d9f0f 100644
---- a/arch/x86/include/asm/iommu.h
-+++ b/arch/x86/include/asm/iommu.h
-@@ -4,7 +4,6 @@
- 
- extern int force_iommu, no_iommu;
- extern int iommu_detected;
--extern int iommu_pass_through;
- 
- /* 10 seconds */
- #define DMAR_OPERATION_TIMEOUT ((cycles_t) tsc_khz*10*1000)
-diff --git a/arch/x86/kernel/pci-dma.c b/arch/x86/kernel/pci-dma.c
-index d460998ae828514..fc64928e47cb860 100644
---- a/arch/x86/kernel/pci-dma.c
-+++ b/arch/x86/kernel/pci-dma.c
-@@ -6,6 +6,7 @@
- #include <linux/memblock.h>
- #include <linux/gfp.h>
- #include <linux/pci.h>
-+#include <linux/iommu.h>
- 
- #include <asm/proto.h>
- #include <asm/dma.h>
-@@ -34,21 +35,6 @@
- /* Set this to 1 if there is a HW IOMMU in the system */
- int iommu_detected __read_mostly = 0;
- 
--/*
-- * This variable becomes 1 if iommu=pt is passed on the kernel command line.
-- * If this variable is 1, IOMMU implementations do no DMA translation for
-- * devices and allow every device to access to whole physical memory. This is
-- * useful if a user wants to use an IOMMU only for KVM device assignment to
-- * guests and not for driver dma translation.
-- * It is also possible to disable by default in kernel config, and enable with
-- * iommu=nopt at boot time.
-- */
--#ifdef CONFIG_IOMMU_DEFAULT_PASSTHROUGH
--int iommu_pass_through __read_mostly = 1;
--#else
--int iommu_pass_through __read_mostly;
--#endif
--
- extern struct iommu_table_entry __iommu_table[], __iommu_table_end[];
- 
- /* Dummy device used for NULL arguments (normally ISA). */
-@@ -139,10 +125,23 @@ static __init int iommu_setup(char *p)
- 		if (!strncmp(p, "soft", 4))
- 			swiotlb = 1;
- #endif
+ 	int i;
+ 	int escc;
+@@ -185,6 +189,7 @@ static int __load_zsregs(struct zilog_channel __iomem *channel, unsigned char *r
+ 	/* Let pending transmits finish.  */
+ 	for (i = 0; i < 1000; i++) {
+ 		unsigned char stat = read_zsreg(channel, R1);
 +
-+		/*
-+		 * IOMMU implementations do no DMA translation for devices and
-+		 * allow every device to access to whole physical memory. This
-+		 * is useful if a user wants to use an IOMMU only for KVM
-+		 * device assignment to guests and not for driver dma
-+		 * translation.
-+		 */
- 		if (!strncmp(p, "pt", 2))
--			iommu_pass_through = 1;
--		if (!strncmp(p, "nopt", 4))
--			iommu_pass_through = 0;
-+			iommu_default_dma_mode_set(IOMMU_DMA_MODE_PASSTHROUGH);
+ 		if (stat & ALL_SNT)
+ 			break;
+ 		udelay(100);
+@@ -228,7 +233,7 @@ static int __load_zsregs(struct zilog_channel __iomem *channel, unsigned char *r
+ 	/* Lower and upper byte of baud rate generator divisor.  */
+ 	write_zsreg(channel, R12, regs[R12]);
+ 	write_zsreg(channel, R13, regs[R13]);
+-	
 +
-+		/*
-+		 * The default dma mode is lazy on X86. And if dma mode is
-+		 * already nopt, keep it no change.
-+		 */
-+		if (!strncmp(p, "nopt", 4) && IOMMU_DMA_MODE_IS_PASSTHROUGH())
-+			iommu_default_dma_mode_set(IOMMU_DMA_MODE_LAZY);
+ 	/* Now rewrite R14, with BRENAB (if set).  */
+ 	write_zsreg(channel, R14, regs[R14]);
  
- 		gart_parse_options(p);
- 
-diff --git a/drivers/iommu/Kconfig b/drivers/iommu/Kconfig
-index 5dca666b22e6cd5..ace8cb467d742f9 100644
---- a/drivers/iommu/Kconfig
-+++ b/drivers/iommu/Kconfig
-@@ -78,7 +78,7 @@ choice
- 	prompt "IOMMU dma mode"
- 	depends on IOMMU_API
- 	default IOMMU_DEFAULT_PASSTHROUGH if (PPC_POWERNV && PCI)
--	default IOMMU_DEFAULT_LAZY if S390_IOMMU
-+	default IOMMU_DEFAULT_LAZY if (AMD_IOMMU || INTEL_IOMMU || S390_IOMMU)
- 	default IOMMU_DEFAULT_STRICT
- 	help
- 	  This option allows IOMMU dma mode to be chose at build time, to
-diff --git a/drivers/iommu/amd_iommu.c b/drivers/iommu/amd_iommu.c
-index f7cdd2ab7f11f6c..44be42f1e887ea4 100644
---- a/drivers/iommu/amd_iommu.c
-+++ b/drivers/iommu/amd_iommu.c
-@@ -448,7 +448,7 @@ static int iommu_init_device(struct device *dev)
- 	 * invalid address), we ignore the capability for the device so
- 	 * it'll be forced to go into translation mode.
- 	 */
--	if ((iommu_pass_through || !amd_iommu_force_isolation) &&
-+	if ((IOMMU_DMA_MODE_IS_PASSTHROUGH() || !amd_iommu_force_isolation) &&
- 	    dev_is_pci(dev) && pci_iommuv2_capable(to_pci_dev(dev))) {
- 		struct amd_iommu *iommu;
- 
-@@ -2274,7 +2274,7 @@ static int amd_iommu_add_device(struct device *dev)
- 
- 	BUG_ON(!dev_data);
- 
--	if (iommu_pass_through || dev_data->iommu_v2)
-+	if (IOMMU_DMA_MODE_IS_PASSTHROUGH() || dev_data->iommu_v2)
- 		iommu_request_dm_for_dev(dev);
- 
- 	/* Domains are initialized for this device - have a look what we ended up with */
-@@ -2479,7 +2479,7 @@ static void __unmap_single(struct dma_ops_domain *dma_dom,
- 		start += PAGE_SIZE;
- 	}
- 
--	if (amd_iommu_unmap_flush) {
-+	if (IOMMU_DMA_MODE_IS_STRICT()) {
- 		domain_flush_tlb(&dma_dom->domain);
- 		domain_flush_complete(&dma_dom->domain);
- 		dma_ops_free_iova(dma_dom, dma_addr, pages);
-@@ -2853,10 +2853,10 @@ int __init amd_iommu_init_api(void)
- 
- int __init amd_iommu_init_dma_ops(void)
+@@ -273,11 +278,10 @@ static void sunzilog_maybe_update_regs(struct uart_sunzilog_port *up,
+ 				       struct zilog_channel __iomem *channel)
  {
--	swiotlb        = (iommu_pass_through || sme_me_mask) ? 1 : 0;
-+	swiotlb = (IOMMU_DMA_MODE_IS_PASSTHROUGH() || sme_me_mask) ? 1 : 0;
- 	iommu_detected = 1;
- 
--	if (amd_iommu_unmap_flush)
-+	if (IOMMU_DMA_MODE_IS_STRICT())
- 		pr_info("IO/TLB flush on unmap enabled\n");
- 	else
- 		pr_info("Lazy IO/TLB flushing enabled\n");
-diff --git a/drivers/iommu/amd_iommu_init.c b/drivers/iommu/amd_iommu_init.c
-index 1b1378619fc9ec2..eae18aae2bafd39 100644
---- a/drivers/iommu/amd_iommu_init.c
-+++ b/drivers/iommu/amd_iommu_init.c
-@@ -166,8 +166,6 @@ struct ivmd_header {
- 					   to handle */
- LIST_HEAD(amd_iommu_unity_map);		/* a list of required unity mappings
- 					   we find in ACPI */
--bool amd_iommu_unmap_flush;		/* if true, flush on every unmap */
--
- LIST_HEAD(amd_iommu_list);		/* list of all AMD IOMMUs in the
- 					   system */
- 
-@@ -2857,7 +2855,7 @@ static int __init parse_amd_iommu_options(char *str)
- {
- 	for (; *str; ++str) {
- 		if (strncmp(str, "fullflush", 9) = 0)
--			amd_iommu_unmap_flush = true;
-+			iommu_default_dma_mode_set(IOMMU_DMA_MODE_STRICT);
- 		if (strncmp(str, "off", 3) = 0)
- 			amd_iommu_disabled = true;
- 		if (strncmp(str, "force_isolation", 15) = 0)
-diff --git a/drivers/iommu/amd_iommu_types.h b/drivers/iommu/amd_iommu_types.h
-index 87965e4d964771b..724182f158523a1 100644
---- a/drivers/iommu/amd_iommu_types.h
-+++ b/drivers/iommu/amd_iommu_types.h
-@@ -743,12 +743,6 @@ struct unity_map_entry {
- /* allocation bitmap for domain ids */
- extern unsigned long *amd_iommu_pd_alloc_bitmap;
- 
--/*
-- * If true, the addresses will be flushed on unmap time, not when
-- * they are reused
-- */
--extern bool amd_iommu_unmap_flush;
--
- /* Smallest max PASID supported by any IOMMU in the system */
- extern u32 amd_iommu_max_pasid;
- 
-diff --git a/drivers/iommu/intel-iommu.c b/drivers/iommu/intel-iommu.c
-index 28cb713d728ceef..57203f895382831 100644
---- a/drivers/iommu/intel-iommu.c
-+++ b/drivers/iommu/intel-iommu.c
-@@ -362,7 +362,6 @@ static int domain_detach_iommu(struct dmar_domain *domain,
- 
- static int dmar_map_gfx = 1;
- static int dmar_forcedac;
--static int intel_iommu_strict;
- static int intel_iommu_superpage = 1;
- static int intel_iommu_sm;
- static int iommu_identity_mapping;
-@@ -453,7 +452,7 @@ static int __init intel_iommu_setup(char *str)
- 			dmar_forcedac = 1;
- 		} else if (!strncmp(str, "strict", 6)) {
- 			pr_info("Disable batched IOTLB flush\n");
--			intel_iommu_strict = 1;
-+			iommu_default_dma_mode_set(IOMMU_DMA_MODE_STRICT);
- 		} else if (!strncmp(str, "sp_off", 6)) {
- 			pr_info("Disable supported super page\n");
- 			intel_iommu_superpage = 0;
-@@ -3408,7 +3407,7 @@ static int __init init_dmars(void)
- 		iommu->flush.flush_iotlb(iommu, 0, 0, 0, DMA_TLB_GLOBAL_FLUSH);
+ 	if (!ZS_REGS_HELD(up)) {
+-		if (ZS_TX_ACTIVE(up)) {
++		if (ZS_TX_ACTIVE(up))
+ 			up->flags |= SUNZILOG_FLAG_REGS_HELD;
+-		} else {
++		else
+ 			__load_zsregs(channel, up->curregs);
+-		}
  	}
- 
--	if (iommu_pass_through)
-+	if (IOMMU_DMA_MODE_IS_PASSTHROUGH())
- 		iommu_identity_mapping |= IDENTMAP_ALL;
- 
- #ifdef CONFIG_INTEL_IOMMU_BROKEN_GFX_WA
-@@ -3749,7 +3748,7 @@ static void intel_unmap(struct device *dev, dma_addr_t dev_addr, size_t size)
- 
- 	freelist = domain_unmap(domain, start_pfn, last_pfn);
- 
--	if (intel_iommu_strict) {
-+	if (IOMMU_DMA_MODE_IS_STRICT()) {
- 		iommu_flush_iotlb_psi(iommu, domain, start_pfn,
- 				      nrpages, !freelist, 0);
- 		/* free iova */
-@@ -5460,7 +5459,7 @@ static void quirk_calpella_no_shadow_gtt(struct pci_dev *dev)
- 	} else if (dmar_map_gfx) {
- 		/* we have to ensure the gfx device is idle before we flush */
- 		pci_info(dev, "Disabling batched IOTLB flush on Ironlake\n");
--		intel_iommu_strict = 1;
-+		iommu_default_dma_mode_set(IOMMU_DMA_MODE_STRICT);
-        }
  }
- DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x0040, quirk_calpella_no_shadow_gtt);
+ 
+@@ -374,8 +378,7 @@ static void sunzilog_kbdms_receive_chars(struct uart_sunzilog_port *up,
+ 				up->port.icount.brk++;
+ 				if (uart_handle_break(&up->port))
+ 					continue;
+-			}
+-			else if (r1 & PAR_ERR)
++			} else if (r1 & PAR_ERR)
+ 				up->port.icount.parity++;
+ 			else if (r1 & CRC_ERR)
+ 				up->port.icount.frame++;
+@@ -394,7 +397,7 @@ static void sunzilog_kbdms_receive_chars(struct uart_sunzilog_port *up,
+ 
+ 		if (up->port.ignore_status_mask = 0xff ||
+ 		    (r1 & up->port.ignore_status_mask) = 0) {
+-		    	tty_insert_flip_char(port, ch, flag);
++			tty_insert_flip_char(port, ch, flag);
+ 		}
+ 		if (r1 & Rx_OVR)
+ 			tty_insert_flip_char(port, 0, TTY_OVERRUN);
+@@ -437,9 +440,9 @@ static void sunzilog_status_handle(struct uart_sunzilog_port *up,
+ 		if (status & SYNC)
+ 			up->port.icount.dsr++;
+ 
+-		/* The Zilog just gives us an interrupt when DCD/CTS/etc. change.
+-		 * But it does not tell us which bit has changed, we have to keep
+-		 * track of this ourselves.
++		/* The Zilog just gives us an interrupt when DCD/CTS/etc.
++		 * change.But it does not tell us which bit has changed,
++		 * we have to keep track of this ourselves.
+ 		 */
+ 		if ((status ^ up->prev_status) ^ DCD)
+ 			uart_handle_dcd_change(&up->port,
+@@ -461,15 +464,17 @@ static void sunzilog_transmit_chars(struct uart_sunzilog_port *up,
+ 
+ 	if (ZS_IS_CONS(up)) {
+ 		unsigned char status = readb(&channel->control);
++
+ 		ZSDELAY();
+ 
+ 		/* TX still busy?  Just wait for the next TX done interrupt.
+ 		 *
+-		 * It can occur because of how we do serial console writes.  It would
+-		 * be nice to transmit console writes just like we normally would for
+-		 * a TTY line. (ie. buffered and TX interrupt driven).  That is not
+-		 * easy because console writes cannot sleep.  One solution might be
+-		 * to poll on enough port->xmit space becoming free.  -DaveM
++		 * It can occur because of how we do serial console writes.
++		 * It would be nice to transmit console writes just like we
++		 * normally would for a TTY line. (ie. buffered and TX
++		 * interrupt driven).  That is not easy because console
++		 * writes cannot sleep.  One solution might be to poll on
++		 * enough port->xmit space becoming free.  -DaveM
+ 		 */
+ 		if (!(status & Tx_BUF_EMP))
+ 			return;
+@@ -590,7 +595,8 @@ static irqreturn_t sunzilog_interrupt(int irq, void *dev_id)
+ /* A convenient way to quickly get R0 status.  The caller must _not_ hold the
+  * port lock, it is acquired here.
+  */
+-static __inline__ unsigned char sunzilog_read_channel_status(struct uart_port *port)
++static inline unsigned char
++sunzilog_read_channel_status(struct uart_port *port)
+ {
+ 	struct zilog_channel __iomem *channel;
+ 	unsigned char status;
+@@ -661,13 +667,13 @@ static void sunzilog_set_mctrl(struct uart_port *port, unsigned int mctrl)
+ 	else
+ 		clear_bits |= DTR;
+ 
+-	/* NOTE: Not subject to 'transmitter active' rule.  */ 
++	/* NOTE: Not subject to 'transmitter active' rule. */
+ 	up->curregs[R5] |= set_bits;
+ 	up->curregs[R5] &= ~clear_bits;
+ 	write_zsreg(channel, R5, up->curregs[R5]);
+ }
+ 
+-/* The port lock is held and interrupts are disabled.  */
++/* The port lock is held and interrupts are disabled. */
+ static void sunzilog_stop_tx(struct uart_port *port)
+ {
+ 	struct uart_sunzilog_port *up @@ -749,7 +755,7 @@ static void sunzilog_enable_ms(struct uart_port *port)
+ 	if (new_reg != up->curregs[R15]) {
+ 		up->curregs[R15] = new_reg;
+ 
+-		/* NOTE: Not subject to 'transmitter active' rule.  */ 
++		/* NOTE: Not subject to 'transmitter active' rule. */
+ 		write_zsreg(channel, R15, up->curregs[R15] & ~WR7pEN);
+ 	}
+ }
+@@ -776,7 +782,7 @@ static void sunzilog_break_ctl(struct uart_port *port, int break_state)
+ 	if (new_reg != up->curregs[R5]) {
+ 		up->curregs[R5] = new_reg;
+ 
+-		/* NOTE: Not subject to 'transmitter active' rule.  */ 
++		/* NOTE: Not subject to 'transmitter active' rule. */
+ 		write_zsreg(channel, R5, up->curregs[R5]);
+ 	}
+ 
+@@ -996,7 +1002,8 @@ static void sunzilog_config_port(struct uart_port *port, int flags)
+ }
+ 
+ /* We do not support letting the user mess with the divisor, IRQ, etc. */
+-static int sunzilog_verify_port(struct uart_port *port, struct serial_struct *ser)
++static int sunzilog_verify_port(struct uart_port *port,
++				struct serial_struct *ser)
+ {
+ 	return -EINVAL;
+ }
+@@ -1139,6 +1146,7 @@ static void sunzilog_putchar(struct uart_port *port, int ch)
+ 	 */
+ 	do {
+ 		unsigned char val = readb(&channel->control);
++
+ 		if (val & Tx_BUF_EMP) {
+ 			ZSDELAY();
+ 			break;
+@@ -1237,15 +1245,34 @@ static int __init sunzilog_console_setup(struct console *con, char *options)
+ 	 * this hackish cflag thing is OK.
+ 	 */
+ 	switch (con->cflag & CBAUD) {
+-	case B150: baud = 150; break;
+-	case B300: baud = 300; break;
+-	case B600: baud = 600; break;
+-	case B1200: baud = 1200; break;
+-	case B2400: baud = 2400; break;
+-	case B4800: baud = 4800; break;
+-	default: case B9600: baud = 9600; break;
+-	case B19200: baud = 19200; break;
+-	case B38400: baud = 38400; break;
++	case B150:
++		baud = 150;
++		break;
++	case B300:
++		baud = 300;
++		break;
++	case B600:
++		baud = 600;
++		break;
++	case B1200:
++		baud = 1200;
++		break;
++	case B2400:
++		baud = 2400;
++		break;
++	case B4800:
++		baud = 4800;
++		break;
++	default:
++	case B9600:
++		baud = 9600;
++		break;
++	case B19200:
++		baud = 19200;
++		break;
++	case B38400:
++		baud = 38400;
++		break;
+ 	}
+ 
+ 	brg = BPS_TO_BRG(baud, ZS_CLOCK / ZS_CLOCK_DIVISOR);
+@@ -1380,9 +1407,9 @@ static void sunzilog_init_hw(struct uart_sunzilog_port *up)
+ 		up->curregs[R14] = BRSRC | BRENAB;
+ 		up->curregs[R15] = FIFOEN; /* Use FIFO if on ESCC */
+ 		up->curregs[R7p] = TxFIFO_LVL | RxFIFO_LVL;
+-		if (__load_zsregs(channel, up->curregs)) {
++		if (__load_zsregs(channel, up->curregs))
+ 			up->flags |= SUNZILOG_FLAG_ESCC;
+-		}
++
+ 		/* Only enable interrupts if an ISR handler available */
+ 		if (up->flags & SUNZILOG_FLAG_ISR_HANDLER)
+ 			up->curregs[R9] |= MIE;
+@@ -1489,12 +1516,12 @@ static int zs_probe(struct platform_device *op)
+ 		}
+ 		uart_inst++;
+ 	} else {
+-		dev_info(&op->dev, "Keyboard at MMIO 0x%llx (irq = %d) "
+-		       "is a %s\n",
++		dev_info(&op->dev,
++		       "Keyboard at MMIO 0x%llx (irq = %d) is a %s\n",
+ 		       (unsigned long long) up[0].port.mapbase,
+ 		       op->archdata.irqs[0], sunzilog_type(&up[0].port));
+-		dev_info(&op->dev, "Mouse at MMIO 0x%llx (irq = %d) "
+-		       "is a %s\n",
++		dev_info(&op->dev,
++		       "Mouse at MMIO 0x%llx (irq = %d) is a %s\n",
+ 		       (unsigned long long) up[1].port.mapbase,
+ 		       op->archdata.irqs[0], sunzilog_type(&up[1].port));
+ 		kbm_inst++;
+@@ -1578,6 +1605,7 @@ static int __init sunzilog_init(void)
+ 
+ 	if (zilog_irq) {
+ 		struct uart_sunzilog_port *up = sunzilog_irq_chain;
++
+ 		err = request_irq(zilog_irq, sunzilog_interrupt, IRQF_SHARED,
+ 				  "zs", sunzilog_irq_chain);
+ 		if (err)
+@@ -1587,7 +1615,10 @@ static int __init sunzilog_init(void)
+ 		while (up) {
+ 			struct zilog_channel __iomem *channel;
+ 
+-			/* printk (KERN_INFO "Enable IRQ for ZILOG Hardware %p\n", up); */
++			/* printk(KERN_INFO
++			 *        "Enable IRQ for ZILOG Hardware %p\n",
++			 *        up);
++			 */
+ 			channel          = ZILOG_CHANNEL_FROM_PORT(&up->port);
+ 			up->flags       |= SUNZILOG_FLAG_ISR_HANDLER;
+ 			up->curregs[R9] |= MIE;
+@@ -1624,7 +1655,10 @@ static void __exit sunzilog_exit(void)
+ 		while (up) {
+ 			struct zilog_channel __iomem *channel;
+ 
+-			/* printk (KERN_INFO "Disable IRQ for ZILOG Hardware %p\n", up); */
++			/* printk(KERN_INFO
++			 *        "Disable IRQ for ZILOG Hardware %p\n",
++			 *        up);
++			 */
+ 			channel          = ZILOG_CHANNEL_FROM_PORT(&up->port);
+ 			up->flags       &= ~SUNZILOG_FLAG_ISR_HANDLER;
+ 			up->curregs[R9] &= ~MIE;
 -- 
-1.8.3
-
+1.9.1
