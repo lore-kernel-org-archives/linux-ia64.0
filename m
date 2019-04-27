@@ -1,44 +1,64 @@
-From: Michal Hocko <mhocko@kernel.org>
-Date: Tue, 16 Apr 2019 06:54:32 +0000
-Subject: Re: [PATCH 0/2] x86, numa: always initialize all possible nodes
-Message-Id: <20190416065432.GC11561@dhcp22.suse.cz>
+From: "Enrico Weigelt, metux IT consult" <info@metux.net>
+Date: Sat, 27 Apr 2019 12:52:02 +0000
+Subject: [PATCH 21/41] drivers: tty: serial: cpm_uart: fix includes
+Message-Id: <1556369542-13247-22-git-send-email-info@metux.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190212095343.23315-1-mhocko@kernel.org>
- <20190226131201.GA10588@dhcp22.suse.cz>
- <20190415114209.GJ3366@dhcp22.suse.cz>
-In-Reply-To: <20190415114209.GJ3366@dhcp22.suse.cz>
+References: <1556369542-13247-1-git-send-email-info@metux.net>
+In-Reply-To: <1556369542-13247-1-git-send-email-info@metux.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>
-Cc: Pingfan Liu <kernelfans@gmail.com>, Dave Hansen <dave.hansen@intel.com>, Peter Zijlstra <peterz@infradead.org>, x86@kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>, Ingo Molnar <mingo@elte.hu>
+To: linux-kernel@vger.kernel.org
+Cc: gregkh@linuxfoundation.org, andrew@aj.id.au, andriy.shevchenko@linux.intel.com, macro@linux-mips.org, vz@mleia.com, slemieux.tyco@gmail.com, khilman@baylibre.com, liviu.dudau@arm.com, sudeep.holla@arm.com, lorenzo.pieralisi@arm.com, davem@davemloft.net, jacmet@sunsite.dk, linux@prisktech.co.nz, matthias.bgg@gmail.com, linux-mips@vger.kernel.org, linux-serial@vger.kernel.org, linux-ia64@vger.kernel.org, linux-amlogic@lists.infradead.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org
 
-Forgot to cc Andrew. Now for real.
+Fixing checkpatch warning:
 
-Andrew please note that Dave has reviewed the patch
-http://lkml.kernel.org/r/77b364e5-a30c-964a-6985-00b759dac128@intel.com
+    WARNING: Use #include <linux/io.h> instead of <asm/io.h>
+    #25: FILE: drivers/tty/serial/cpm_uart/cpm_uart_cpm2.c:25:
+    +#include <asm/io.h>
 
-Or do you want me to resubmit?
+    WARNING: Use #include <linux/io.h> instead of <asm/io.h>
+    +#include <asm/io.h>
 
-On Mon 15-04-19 13:42:09, Michal Hocko wrote:
-> On Tue 26-02-19 14:12:01, Michal Hocko wrote:
-> > On Tue 12-02-19 10:53:41, Michal Hocko wrote:
-> > > Hi,
-> > > this has been posted as an RFC previously [1]. There didn't seem to be
-> > > any objections so I am reposting this for inclusion. I have added a
-> > > debugging patch which prints the zonelist setup for each numa node
-> > > for an easier debugging of a broken zonelist setup.
-> > > 
-> > > [1] http://lkml.kernel.org/r/20190114082416.30939-1-mhocko@kernel.org
-> > 
-> > Friendly ping. I haven't heard any complains so can we route this via
-> > tip/x86/mm or should we go via mmotm.
-> 
-> It seems that Dave is busy. Let's add Andrew. Can we get this [1] merged
-> finally, please?
-> 
-> [1] http://lkml.kernel.org/r/20190212095343.23315-1-mhocko@kernel.org
+    WARNING: Use #include <linux/delay.h> instead of <asm/delay.h>
+    +#include <asm/delay.h>
 
+Signed-off-by: Enrico Weigelt <info@metux.net>
+---
+ drivers/tty/serial/cpm_uart/cpm_uart_core.c | 4 ++--
+ drivers/tty/serial/cpm_uart/cpm_uart_cpm2.c | 2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/tty/serial/cpm_uart/cpm_uart_core.c b/drivers/tty/serial/cpm_uart/cpm_uart_core.c
+index 374b8bb..c831d31 100644
+--- a/drivers/tty/serial/cpm_uart/cpm_uart_core.c
++++ b/drivers/tty/serial/cpm_uart/cpm_uart_core.c
+@@ -33,10 +33,10 @@
+ #include <linux/gpio.h>
+ #include <linux/of_gpio.h>
+ #include <linux/clk.h>
++#include <linux/io.h>
++#include <linux/delay.h>
+ 
+-#include <asm/io.h>
+ #include <asm/irq.h>
+-#include <asm/delay.h>
+ #include <asm/fs_pd.h>
+ #include <asm/udbg.h>
+ 
+diff --git a/drivers/tty/serial/cpm_uart/cpm_uart_cpm2.c b/drivers/tty/serial/cpm_uart/cpm_uart_cpm2.c
+index ef1ae08..40cfcf4 100644
+--- a/drivers/tty/serial/cpm_uart/cpm_uart_cpm2.c
++++ b/drivers/tty/serial/cpm_uart/cpm_uart_cpm2.c
+@@ -21,8 +21,8 @@
+ #include <linux/device.h>
+ #include <linux/memblock.h>
+ #include <linux/dma-mapping.h>
++#include <linux/io.h>
+ 
+-#include <asm/io.h>
+ #include <asm/irq.h>
+ #include <asm/fs_pd.h>
+ #include <asm/prom.h>
 -- 
-Michal Hocko
-SUSE Labs
+1.9.1
