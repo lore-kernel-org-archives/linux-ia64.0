@@ -1,58 +1,39 @@
-From: David Howells <dhowells@redhat.com>
-Date: Thu, 14 Mar 2019 16:10:32 +0000
-Subject: [PATCH 12/38] vfs: Convert ia64 perfmon to fs_context
-Message-Id: <155257983288.13720.10412307262671159711.stgit@warthog.procyon.org.uk>
+From: "Enrico Weigelt, metux IT consult" <info@metux.net>
+Date: Sat, 27 Apr 2019 12:51:46 +0000
+Subject: [PATCH 05/41] drivers: tty: serial: dz: use pr_info() instead of incomplete printk()
+Message-Id: <1556369542-13247-6-git-send-email-info@metux.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <155257972443.13720.11743171471060355965.stgit@warthog.procyon.org.uk>
-In-Reply-To: <155257972443.13720.11743171471060355965.stgit@warthog.procyon.org.uk>
+References: <1556369542-13247-1-git-send-email-info@metux.net>
+In-Reply-To: <1556369542-13247-1-git-send-email-info@metux.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: viro@zeniv.linux.org.uk
-Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, dhowells@redhat.com, linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: gregkh@linuxfoundation.org, andrew@aj.id.au, andriy.shevchenko@linux.intel.com, macro@linux-mips.org, vz@mleia.com, slemieux.tyco@gmail.com, khilman@baylibre.com, liviu.dudau@arm.com, sudeep.holla@arm.com, lorenzo.pieralisi@arm.com, davem@davemloft.net, jacmet@sunsite.dk, linux@prisktech.co.nz, matthias.bgg@gmail.com, linux-mips@vger.kernel.org, linux-serial@vger.kernel.org, linux-ia64@vger.kernel.org, linux-amlogic@lists.infradead.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org
 
-Signed-off-by: David Howells <dhowells@redhat.com>
-cc: Tony Luck <tony.luck@intel.com>
-cc: Fenghua Yu <fenghua.yu@intel.com>
-cc: linux-ia64@vger.kernel.org
+Fix the checkpatch warning:
+
+    WARNING: printk() should include KERN_<LEVEL> facility level
+    #934: FILE: dz.c:934:
+    +	printk("%s%s\n", dz_name, dz_version);
+
+Signed-off-by: Enrico Weigelt <info@metux.net>
 ---
+ drivers/tty/serial/dz.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
- arch/ia64/kernel/perfmon.c |   14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
-
-diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
-index 7a969f4c3534..4b5770736ac5 100644
---- a/arch/ia64/kernel/perfmon.c
-+++ b/arch/ia64/kernel/perfmon.c
-@@ -38,6 +38,7 @@
- #include <linux/smp.h>
- #include <linux/pagemap.h>
- #include <linux/mount.h>
-+#include <linux/fs_context.h>
- #include <linux/bitops.h>
- #include <linux/capability.h>
- #include <linux/rcupdate.h>
-@@ -599,17 +600,16 @@ pfm_unprotect_ctx_ctxsw(pfm_context_t *x, unsigned long f)
- /* forward declaration */
- static const struct dentry_operations pfmfs_dentry_operations;
+diff --git a/drivers/tty/serial/dz.c b/drivers/tty/serial/dz.c
+index 559d076..e2670c4 100644
+--- a/drivers/tty/serial/dz.c
++++ b/drivers/tty/serial/dz.c
+@@ -931,7 +931,7 @@ static int __init dz_init(void)
+ 	if (IOASIC)
+ 		return -ENXIO;
  
--static struct dentry *
--pfmfs_mount(struct file_system_type *fs_type, int flags, const char *dev_name, void *data)
-+static int pfmfs_init_fs_context(struct fs_context *fc)
- {
--	return mount_pseudo(fs_type, "pfm:", NULL, &pfmfs_dentry_operations,
--			PFMFS_MAGIC);
-+	return vfs_init_pseudo_fs_context(fc, "pfm:", NULL, NULL,
-+					  &pfmfs_dentry_operations, PFMFS_MAGIC);
- }
+-	printk("%s%s\n", dz_name, dz_version);
++	pr_info("%s%s\n", dz_name, dz_version);
  
- static struct file_system_type pfm_fs_type = {
--	.name     = "pfmfs",
--	.mount    = pfmfs_mount,
--	.kill_sb  = kill_anon_super,
-+	.name			= "pfmfs",
-+	.init_fs_context	= pfmfs_init_fs_context,
-+	.kill_sb		= kill_anon_super,
- };
- MODULE_ALIAS_FS("pfmfs");
+ 	dz_init_ports();
  
+-- 
+1.9.1
