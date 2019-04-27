@@ -1,51 +1,85 @@
-From: "Leizhen (ThunderTown)" <thunder.leizhen@huawei.com>
-Date: Mon, 08 Apr 2019 09:51:56 +0000
-Subject: Re: [PATCH v4 0/6] normalize IOMMU dma mode boot options
-Message-Id: <5CAB19BC.2040804@huawei.com>
+From: "Enrico Weigelt, metux IT consult" <info@metux.net>
+Date: Sat, 27 Apr 2019 12:52:03 +0000
+Subject: [PATCH 22/41] drivers: tty: serial: cpm_uart: fix logging calls
+Message-Id: <1556369542-13247-23-git-send-email-info@metux.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190407124147.13576-1-thunder.leizhen@huawei.com>
- <b20fd8a6-88ce-7d26-8eb0-ed9f095988a6@huawei.com>
- <5CAABD03.9000301@huawei.com>
- <alpine.DEB.2.21.1904080829490.1840@nanos.tec.linutronix.de>
-In-Reply-To: <alpine.DEB.2.21.1904080829490.1840@nanos.tec.linutronix.de>
+References: <1556369542-13247-1-git-send-email-info@metux.net>
+In-Reply-To: <1556369542-13247-1-git-send-email-info@metux.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thomas Gleixner <tglx@linutronix.de>
-Cc: Hanjun Guo <guohanjun@huawei.com>, Jean-Philippe Brucker <jean-philippe.brucker@arm.com>, John Garry <john.garry@huawei.com>, Robin Murphy <robin.murphy@arm.com>, Will Deacon <will.deacon@arm.com>, Joerg Roedel <joro@8bytes.org>, Jonathan Corbet <corbet@lwn.net>, linux-doc <linux-doc@vger.kernel.org>, Sebastian Ott <sebott@linux.ibm.com>, Gerald Schaefer <gerald.schaefer@de.ibm.com>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, "H . Peter Anvin" <hpa@zytor.com>, David Woodhouse <dwmw2@infradead.org>, iommu <iommu@lists.linux-foundation.org>, linux-kernel <linux-kernel@vger.kernel.org>, linux-s390 <linux-s390@vger.kernel.org>, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, x86 <x86@kernel.org>, linux-ia64 <linux-ia64@vger.kernel.org>
+To: linux-kernel@vger.kernel.org
+Cc: gregkh@linuxfoundation.org, andrew@aj.id.au, andriy.shevchenko@linux.intel.com, macro@linux-mips.org, vz@mleia.com, slemieux.tyco@gmail.com, khilman@baylibre.com, liviu.dudau@arm.com, sudeep.holla@arm.com, lorenzo.pieralisi@arm.com, davem@davemloft.net, jacmet@sunsite.dk, linux@prisktech.co.nz, matthias.bgg@gmail.com, linux-mips@vger.kernel.org, linux-serial@vger.kernel.org, linux-ia64@vger.kernel.org, linux-amlogic@lists.infradead.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org
 
+Fix checkpatch warnings by using pr_err():
 
+    WARNING: Prefer [subsystem eg: netdev]_err([subsystem]dev, ... then dev_err(dev, ... then pr_err(...  to printk(KERN_ERR ...
+    #109: FILE: drivers/tty/serial/cpm_uart/cpm_uart_cpm2.c:109:
+    +		printk(KERN_ERR
 
-On 2019/4/8 14:32, Thomas Gleixner wrote:
-> On Mon, 8 Apr 2019, Leizhen (ThunderTown) wrote:
->>>
->>> This will break systems using boot options as now, and I think
->>> this is unacceptable. If you want to do so, just introduce iommu.dma_mode
->>> on top of those iommu boot options with dma mode boot options unchanged,
->>> and iommu.dma_mode is for all archs but compatible with them.
->>
->> I just changed the boot options name, but keep the function no change. I added
->> all related maintainers/supporters in the "to=" list, maybe we can disuss this.
-> 
-> Changing the name _IS_ the problem. Think about unattended updates.
-> 
->> Should I add some "obsoleted" warnings for old options and keep them for a while?
-> 
-> No, just keep the old options around for backwards compatibilty sake. We
-> just do not add new arch specific options in the future. New options need
-> to use the generic iommu.dma_mode name space.
+    WARNING: Prefer [subsystem eg: netdev]_err([subsystem]dev, ... then dev_err(dev, ... then pr_err(...  to printk(KERN_ERR ...
+    #128: FILE: drivers/tty/serial/cpm_uart/cpm_uart_cpm2.c:128:
+    +		printk(KERN_ERR
 
-OK, thanks for your advise.
+    WARNING: Prefer [subsystem eg: netdev]_err([subsystem]dev, ... then dev_err(dev, ... then pr_err(...  to printk(KERN_ERR ...
+    +           printk(KERN_ERR
 
+    WARNING: Prefer [subsystem eg: netdev]_err([subsystem]dev, ... then dev_err(dev, ... then pr_err(...  to printk(KERN_ERR ...
+    +           printk(KERN_ERR
 
-> 
-> Thanks,
-> 
-> 	tglx
-> 
-> .
-> 
+Signed-off-by: Enrico Weigelt <info@metux.net>
+---
+ drivers/tty/serial/cpm_uart/cpm_uart_cpm1.c | 6 ++----
+ drivers/tty/serial/cpm_uart/cpm_uart_cpm2.c | 6 ++----
+ 2 files changed, 4 insertions(+), 8 deletions(-)
 
+diff --git a/drivers/tty/serial/cpm_uart/cpm_uart_cpm1.c b/drivers/tty/serial/cpm_uart/cpm_uart_cpm1.c
+index 56fc527..aed61e9 100644
+--- a/drivers/tty/serial/cpm_uart/cpm_uart_cpm1.c
++++ b/drivers/tty/serial/cpm_uart/cpm_uart_cpm1.c
+@@ -71,8 +71,7 @@ int cpm_uart_allocbuf(struct uart_cpm_port *pinfo, unsigned int is_con)
+ 	dpmemsz = sizeof(cbd_t) * (pinfo->rx_nrfifos + pinfo->tx_nrfifos);
+ 	dp_offset = cpm_dpalloc(dpmemsz, 8);
+ 	if (IS_ERR_VALUE(dp_offset)) {
+-		printk(KERN_ERR
+-		       "cpm_uart_cpm1.c: could not allocate buffer descriptors\n");
++		pr_err("cpm_uart_cpm1.c: could not allocate buffer descriptors\n");
+ 		return -ENOMEM;
+ 	}
+ 	dp_mem = cpm_dpram_addr(dp_offset);
+@@ -90,8 +89,7 @@ int cpm_uart_allocbuf(struct uart_cpm_port *pinfo, unsigned int is_con)
+ 
+ 	if (mem_addr = NULL) {
+ 		cpm_dpfree(dp_offset);
+-		printk(KERN_ERR
+-		       "cpm_uart_cpm1.c: could not allocate coherent memory\n");
++		pr_err("cpm_uart_cpm1.c: could not allocate coherent memory\n");
+ 		return -ENOMEM;
+ 	}
+ 
+diff --git a/drivers/tty/serial/cpm_uart/cpm_uart_cpm2.c b/drivers/tty/serial/cpm_uart/cpm_uart_cpm2.c
+index 40cfcf4..a0fccda 100644
+--- a/drivers/tty/serial/cpm_uart/cpm_uart_cpm2.c
++++ b/drivers/tty/serial/cpm_uart/cpm_uart_cpm2.c
+@@ -106,8 +106,7 @@ int cpm_uart_allocbuf(struct uart_cpm_port *pinfo, unsigned int is_con)
+ 	dpmemsz = sizeof(cbd_t) * (pinfo->rx_nrfifos + pinfo->tx_nrfifos);
+ 	dp_offset = cpm_dpalloc(dpmemsz, 8);
+ 	if (IS_ERR_VALUE(dp_offset)) {
+-		printk(KERN_ERR
+-		       "cpm_uart_cpm.c: could not allocate buffer descriptors\n");
++		pr_err("cpm_uart_cpm.c: could not allocate buffer descriptors\n");
+ 		return -ENOMEM;
+ 	}
+ 
+@@ -125,8 +124,7 @@ int cpm_uart_allocbuf(struct uart_cpm_port *pinfo, unsigned int is_con)
+ 
+ 	if (mem_addr = NULL) {
+ 		cpm_dpfree(dp_offset);
+-		printk(KERN_ERR
+-		       "cpm_uart_cpm.c: could not allocate coherent memory\n");
++		pr_err("cpm_uart_cpm.c: could not allocate coherent memory\n");
+ 		return -ENOMEM;
+ 	}
+ 
 -- 
-Thanks!
-BestRegards
+1.9.1
