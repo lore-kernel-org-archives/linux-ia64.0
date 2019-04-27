@@ -1,7 +1,7 @@
 From: Greg KH <gregkh@linuxfoundation.org>
-Date: Sat, 27 Apr 2019 13:29:59 +0000
+Date: Sat, 27 Apr 2019 13:31:17 +0000
 Subject: Re: [PATCH 01/41] drivers: tty: serial: dz: use dev_err() instead of printk()
-Message-Id: <20190427132959.GA11368@kroah.com>
+Message-Id: <20190427133117.GC11368@kroah.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1556369542-13247-1-git-send-email-info@metux.net>
  <1556369542-13247-2-git-send-email-info@metux.net>
@@ -17,11 +17,10 @@ On Sat, Apr 27, 2019 at 02:51:42PM +0200, Enrico Weigelt, metux IT consult wrote
 > (prints device name, etc).
 > 
 > Signed-off-by: Enrico Weigelt <info@metux.net>
+> ---
+>  drivers/tty/serial/dz.c | 8 ++++----
 
-Your "From:" line does not match the signed-off-by line, so I can't take
-any of these if I wanted to :(
-
-Please fix up.
+Do you have this hardware to test any of these changes with?
 
 thanks,
 
