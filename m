@@ -1,151 +1,74 @@
-From: Pingfan Liu <kernelfans@gmail.com>
-Date: Fri, 19 Apr 2019 14:45:35 +0000
-Subject: Re: [PATCH] kernel/crash: make parse_crashkernel()'s return value more indicant
-Message-Id: <CAFgQCTtaP24gXUs_dh4h8qCsA-TKHc5A-vs5oiezfwuR_qjQvA@mail.gmail.com>
+From: "Enrico Weigelt, metux IT consult" <info@metux.net>
+Date: Sat, 27 Apr 2019 12:51:57 +0000
+Subject: [PATCH 16/41] drivers: tty: serial: uartlite: fix overlong lines
+Message-Id: <1556369542-13247-17-git-send-email-info@metux.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1555660717-18731-1-git-send-email-kernelfans@gmail.com>
- <alpine.DEB.2.21.1904191009040.3174@nanos.tec.linutronix.de>
-In-Reply-To: <alpine.DEB.2.21.1904191009040.3174@nanos.tec.linutronix.de>
+References: <1556369542-13247-1-git-send-email-info@metux.net>
+In-Reply-To: <1556369542-13247-1-git-send-email-info@metux.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thomas Gleixner <tglx@linutronix.de>
-Cc: Rich Felker <dalias@libc.org>, linux-ia64@vger.kernel.org, Julien Thierry <julien.thierry@arm.com>, Yangtao Li <tiny.windzz@gmail.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Palmer Dabbelt <palmer@sifive.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, x86@kernel.org, Stefan Agner <stefan@agner.ch>, linux-mips@vger.kernel.org, Paul Mackerras <paulus@samba.org>, "H. Peter Anvin" <hpa@zytor.com>, linux-s390@vger.kernel.org, Florian Fainelli <f.fainelli@gmail.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, linux-sh@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>, David Hildenbrand <david@redhat.com>, Russell King <linux@armlinux.org.uk>, Ingo Molnar <mingo@redhat.com>, linux-arm-kernel@lists.infradead.org, Catalin Marinas <catalin.marinas@arm.com>, James Hogan <jhogan@kernel.org>, Dave Young <dyoung@redhat.com>, Fenghua Yu <fenghua.yu@intel.com>, Will Deacon <will.deacon@arm.com>, linuxppc-dev@lists.ozlabs.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Ananth N Mavinakayanahalli <ananth@linux.vnet.ibm.com>, Borislav Petkov <bp@alien8.de>, Hari Bathini <hbathini@linux.ibm.com>, Jens Axboe <axboe@kernel.dk>, Tony Luck <tony.luck@intel.com>, Baoquan He <bhe@redhat.com>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Robin Murphy <robin.murphy@arm.com>, LKML <linux-kernel@vger.kernel.org>, Ralf Baechle <ralf@linux-mips.org>, Thomas Bogendoerfer <tbogendoerfer@suse.de>, Paul Burton <paul.burton@mips.com>, Johannes Weiner <hannes@cmpxchg.org>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Andrew Morton <akpm@linux-foundation.org>, Logan Gunthorpe <logang@deltatee.com>, Greg Hackmann <ghackmann@android.com>
+To: linux-kernel@vger.kernel.org
+Cc: gregkh@linuxfoundation.org, andrew@aj.id.au, andriy.shevchenko@linux.intel.com, macro@linux-mips.org, vz@mleia.com, slemieux.tyco@gmail.com, khilman@baylibre.com, liviu.dudau@arm.com, sudeep.holla@arm.com, lorenzo.pieralisi@arm.com, davem@davemloft.net, jacmet@sunsite.dk, linux@prisktech.co.nz, matthias.bgg@gmail.com, linux-mips@vger.kernel.org, linux-serial@vger.kernel.org, linux-ia64@vger.kernel.org, linux-amlogic@lists.infradead.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org
 
-On Fri, Apr 19, 2019 at 4:19 PM Thomas Gleixner <tglx@linutronix.de> wrote:
->
-> On Fri, 19 Apr 2019, Pingfan Liu wrote:
->
-> > At present, both return and crash_size should be checked to guarantee the
-> > success of parse_crashkernel().
-> > Simplify the way by returning negative if fail, positive if success. In
-> > case of failure, -EINVAL for bad syntax, -1 for the parsing results in
-> > crash_size=0.
->
-> I'm not entirely sure what you are trying to say here, but '-1' is not an
-> improvement at all. We surely are not short of proper error codes, right?
->
-The different negative return values are only used by x86. The option
-"crashkernel=X,high", which is only used on x86, causes parse_kernel()
-to return -EINVAL, then let parse_crashkernel_high() have a try.
+Fix checkpatch warnings:
 
-When parsing crashkernel=size@offset and crashkernel=range1:size1,
-there are other cases of failure, which is not worth to call
-parse_crashkernel_high() to have a try. That is "-1" aiming for.
+    WARNING: line over 80 characters
+    #283: FILE: drivers/tty/serial/uartlite.c:283:
+    +	ret = request_irq(port->irq, ulite_isr, IRQF_SHARED | IRQF_TRIGGER_RISING,
 
-First, in parse_crashkernel_mem(), if demanded size is bigger than
-system ram, this one looks like -ENOMEM, but -ENOMEM normally is used
-for allocation. Second, in parse_crashkernel_mem(), if system ram is
-not inside the range listed by "crashkernel=". Third, crashkernel=0MB
-is given in the option (not in practice, but can not forbid user to do
-so).
+    WARNING: Missing a blank line after declarations
+    #577: FILE: drivers/tty/serial/uartlite.c:577:
+    +	struct earlycon_device *device = console->data;
+    +	uart_console_write(&device->port, s, n, early_uartlite_putc);
 
-All of these cases can be treated as -EINVAL, but hard to define the
-error codes.
-> Also I don't see any positive return value > 0. So what is this about:
->
-Yes. 0 is enough for success.  I had thought about returning 1 if
-@offset is specified in crashkernel. But at present, no use case for
-it.
+    WARNING: line over 80 characters
+    #590: FILE: drivers/tty/serial/uartlite.c:590:
+    +OF_EARLYCON_DECLARE(uartlite_b, "xlnx,opb-uartlite-1.00.b", early_uartlite_setup);
 
-> > --- a/arch/ia64/kernel/setup.c
-> > +++ b/arch/ia64/kernel/setup.c
-> > @@ -277,7 +277,7 @@ static void __init setup_crashkernel(unsigned long total, int *n)
-> >
-> >       ret = parse_crashkernel(boot_command_line, total,
-> >                       &size, &base);
-> > -     if (ret = 0 && size > 0) {
-> > +     if (ret >= 0) {
->
->   ^^^^^^^^^^^^^^^^^^^^^^^^^^^  ????
->
-> >       if (!memory_region_available(crash_base, crash_size)) {
-> > diff --git a/arch/powerpc/kernel/fadump.c b/arch/powerpc/kernel/fadump.c
-> > index 45a8d0b..0b626e2 100644
-> > --- a/arch/powerpc/kernel/fadump.c
-> > +++ b/arch/powerpc/kernel/fadump.c
-> > @@ -376,7 +376,7 @@ static inline unsigned long fadump_calculate_reserve_size(void)
-> >        */
-> >       ret = parse_crashkernel(boot_command_line, memblock_phys_mem_size(),
-> >                               &size, &base);
-> > -     if (ret = 0 && size > 0) {
-> > +     if (ret >= 0) {
->
-> and this ?
->
-> >               unsigned long max_size;
-> >
-> >               if (fw_dump.reserve_bootvar)
-> > diff --git a/arch/powerpc/kernel/machine_kexec.c b/arch/powerpc/kernel/machine_kexec.c
-> > index 63f5a93..9f3e61a 100644
-> > --- a/arch/powerpc/kernel/machine_kexec.c
-> > +++ b/arch/powerpc/kernel/machine_kexec.c
-> > @@ -122,7 +122,7 @@ void __init reserve_crashkernel(void)
-> >       /* use common parsing */
-> >       ret = parse_crashkernel(boot_command_line, memblock_phys_mem_size(),
-> >                       &crash_size, &crash_base);
-> > -     if (ret = 0 && crash_size > 0) {
-> > +     if (ret >= 0) {
->
-> Again.
->
-> >               crashk_res.start = crash_base;
-> >               crashk_res.end = crash_base + crash_size - 1;
-> >       }
-> > --- a/arch/sh/kernel/machine_kexec.c
-> > +++ b/arch/sh/kernel/machine_kexec.c
-> > @@ -157,7 +157,7 @@ void __init reserve_crashkernel(void)
-> >
-> >       ret = parse_crashkernel(boot_command_line, memblock_phys_mem_size(),
-> >                       &crash_size, &crash_base);
-> > -     if (ret = 0 && crash_size > 0) {
-> > +     if (ret >= 0) {
->
-> And some more.
->
-> >               crashk_res.start = crash_base;
-> >               crashk_res.end = crash_base + crash_size - 1;
-> >       }
-> > diff --git a/arch/x86/kernel/setup.c b/arch/x86/kernel/setup.c
-> > index 3d872a5..62d07d4 100644
-> > --- a/arch/x86/kernel/setup.c
-> > +++ b/arch/x86/kernel/setup.c
-> > @@ -526,11 +526,11 @@ static void __init reserve_crashkernel(void)
-> >
-> >       /* crashkernel=XM */
-> >       ret = parse_crashkernel(boot_command_line, total_mem, &crash_size, &crash_base);
-> > -     if (ret != 0 || crash_size <= 0) {
-> > +     if (ret = -EINVAL) {
->
-> Without an explanation why this proceedes on error codes other than EINVAL
-> this is uncomprehensible. Comments exist for a reason.
->
-As explained above, deciding whether to let parse_crashkernel_high() try.
+    WARNING: line over 80 characters
+    #591: FILE: drivers/tty/serial/uartlite.c:591:
+    +OF_EARLYCON_DECLARE(uartlite_a, "xlnx,xps-uartlite-1.00.a", early_uartlite_setup);
 
-> >               /* crashkernel=X,high */
-> >               ret = parse_crashkernel_high(boot_command_line, total_mem,
-> >                                            &crash_size, &crash_base);
-> > -             if (ret != 0 || crash_size <= 0)
-> > +             if (ret < 0)
-> >                       return;
-> >               high = true;
->
-> > @@ -87,7 +87,7 @@ static int __init parse_crashkernel_mem(char *cmdline,
-> >               cur = tmp;
-> >               if (size >= system_ram) {
-> >                       pr_warn("crashkernel: invalid size\n");
-> > -                     return -EINVAL;
-> > +                     return -1;
->
-> Well, this is incomprehensible as well. The pr_warn() says invalid and then
-> you change the error code to something magic.
->
-As explained above, want to know whether worth to let
-parse_crashkernel_high() try.
+Signed-off-by: Enrico Weigelt <info@metux.net>
+---
+ drivers/tty/serial/uartlite.c | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
 
-What about the following alternative method? Treating crash_size=0 as
--EINVAL. Then on x86, just call parse_crashkernel_high() blindly to
-have a try. Thanks for your review.
-
-Regards,
-Pingfan
+diff --git a/drivers/tty/serial/uartlite.c b/drivers/tty/serial/uartlite.c
+index 6f79353..0140cec 100644
+--- a/drivers/tty/serial/uartlite.c
++++ b/drivers/tty/serial/uartlite.c
+@@ -280,7 +280,8 @@ static int ulite_startup(struct uart_port *port)
+ 		return ret;
+ 	}
+ 
+-	ret = request_irq(port->irq, ulite_isr, IRQF_SHARED | IRQF_TRIGGER_RISING,
++	ret = request_irq(port->irq, ulite_isr,
++			  IRQF_SHARED | IRQF_TRIGGER_RISING,
+ 			  "uartlite", port);
+ 	if (ret)
+ 		return ret;
+@@ -574,6 +575,7 @@ static void early_uartlite_write(struct console *console,
+ 				 const char *s, unsigned int n)
+ {
+ 	struct earlycon_device *device = console->data;
++
+ 	uart_console_write(&device->port, s, n, early_uartlite_putc);
+ }
+ 
+@@ -587,8 +589,10 @@ static int __init early_uartlite_setup(struct earlycon_device *device,
+ 	return 0;
+ }
+ EARLYCON_DECLARE(uartlite, early_uartlite_setup);
+-OF_EARLYCON_DECLARE(uartlite_b, "xlnx,opb-uartlite-1.00.b", early_uartlite_setup);
+-OF_EARLYCON_DECLARE(uartlite_a, "xlnx,xps-uartlite-1.00.a", early_uartlite_setup);
++OF_EARLYCON_DECLARE(uartlite_b, "xlnx,opb-uartlite-1.00.b",
++		    early_uartlite_setup);
++OF_EARLYCON_DECLARE(uartlite_a, "xlnx,xps-uartlite-1.00.a",
++		    early_uartlite_setup);
+ 
+ #endif /* CONFIG_SERIAL_UARTLITE_CONSOLE */
+ 
+-- 
+1.9.1
