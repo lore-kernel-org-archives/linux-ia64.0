@@ -1,87 +1,63 @@
-From: David Hildenbrand <david@redhat.com>
-Date: Wed, 24 Apr 2019 10:25:09 +0000
-Subject: [PATCH v1 5/7] mm/memory_hotplug: Drop MHP_MEMBLOCK_API
-Message-Id: <20190424102511.29318-6-david@redhat.com>
+From: "Enrico Weigelt, metux IT consult" <info@metux.net>
+Date: Sat, 27 Apr 2019 12:52:10 +0000
+Subject: [PATCH 29/41] drivers: tty: serial: sunzilog: cleanup logging
+Message-Id: <1556369542-13247-30-git-send-email-info@metux.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190424102511.29318-1-david@redhat.com>
-In-Reply-To: <20190424102511.29318-1-david@redhat.com>
+References: <1556369542-13247-1-git-send-email-info@metux.net>
+In-Reply-To: <1556369542-13247-1-git-send-email-info@metux.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, akpm@linux-foundation.org, Dan Williams <dan.j.williams@intel.com>, David Hildenbrand <david@redhat.com>, Michal Hocko <mhocko@suse.com>, Oscar Salvador <osalvador@suse.com>, Pavel Tatashin <pasha.tatashin@soleen.com>, Wei Yang <richard.weiyang@gmail.com>, Joonsoo Kim <iamjoonsoo.kim@lge.com>, Qian Cai <cai@lca.pw>, Arun KS <arunks@codeaurora.org>, Mathieu Malaterre <malat@debian.org>
+To: linux-kernel@vger.kernel.org
+Cc: gregkh@linuxfoundation.org, andrew@aj.id.au, andriy.shevchenko@linux.intel.com, macro@linux-mips.org, vz@mleia.com, slemieux.tyco@gmail.com, khilman@baylibre.com, liviu.dudau@arm.com, sudeep.holla@arm.com, lorenzo.pieralisi@arm.com, davem@davemloft.net, jacmet@sunsite.dk, linux@prisktech.co.nz, matthias.bgg@gmail.com, linux-mips@vger.kernel.org, linux-serial@vger.kernel.org, linux-ia64@vger.kernel.org, linux-amlogic@lists.infradead.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org
 
-No longer needed, the callers of arch_add_memory() can handle this
-manually.
+Fix checkpatch warning:
 
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: David Hildenbrand <david@redhat.com>
-Cc: Michal Hocko <mhocko@suse.com>
-Cc: Oscar Salvador <osalvador@suse.com>
-Cc: Pavel Tatashin <pasha.tatashin@soleen.com>
-Cc: Wei Yang <richard.weiyang@gmail.com>
-Cc: Joonsoo Kim <iamjoonsoo.kim@lge.com>
-Cc: Qian Cai <cai@lca.pw>
-Cc: Arun KS <arunks@codeaurora.org>
-Cc: Mathieu Malaterre <malat@debian.org>
-Signed-off-by: David Hildenbrand <david@redhat.com>
+    WARNING: Prefer [subsystem eg: netdev]_info([subsystem]dev, ... then dev_info(dev, ... then pr_info(...  to printk(KERN_INFO ...
+    #1238: FILE: drivers/tty/serial/sunzilog.c:1238:
+    +	printk(KERN_INFO "Console: ttyS%d (SunZilog zs%d)\n",
+
+Signed-off-by: Enrico Weigelt <info@metux.net>
 ---
- include/linux/memory_hotplug.h | 8 --------
- mm/memory_hotplug.c            | 9 +++------
- 2 files changed, 3 insertions(+), 14 deletions(-)
+ drivers/tty/serial/sunzilog.c | 12 +++++-------
+ 1 file changed, 5 insertions(+), 7 deletions(-)
 
-diff --git a/include/linux/memory_hotplug.h b/include/linux/memory_hotplug.h
-index 2d4de313926d..2f1f87e13baa 100644
---- a/include/linux/memory_hotplug.h
-+++ b/include/linux/memory_hotplug.h
-@@ -128,14 +128,6 @@ extern void arch_remove_memory(int nid, u64 start, u64 size,
- extern void __remove_pages(struct zone *zone, unsigned long start_pfn,
- 			   unsigned long nr_pages, struct vmem_altmap *altmap);
+diff --git a/drivers/tty/serial/sunzilog.c b/drivers/tty/serial/sunzilog.c
+index 85edb0d..dba723c 100644
+--- a/drivers/tty/serial/sunzilog.c
++++ b/drivers/tty/serial/sunzilog.c
+@@ -1235,7 +1235,7 @@ static int __init sunzilog_console_setup(struct console *con, char *options)
+ 	if (up->port.type != PORT_SUNZILOG)
+ 		return -1;
  
--/*
-- * Do we want sysfs memblock files created. This will allow userspace to online
-- * and offline memory explicitly. Lack of this bit means that the caller has to
-- * call move_pfn_range_to_zone to finish the initialization.
-- */
--
--#define MHP_MEMBLOCK_API               (1<<0)
--
- /* reasonably generic interface to expand the physical pages */
- extern int __add_pages(int nid, unsigned long start_pfn, unsigned long nr_pages,
- 		       struct mhp_restrictions *restrictions);
-diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
-index e1637c8a0723..107f72952347 100644
---- a/mm/memory_hotplug.c
-+++ b/mm/memory_hotplug.c
-@@ -250,7 +250,7 @@ void __init register_page_bootmem_info_node(struct pglist_data *pgdat)
- #endif /* CONFIG_HAVE_BOOTMEM_INFO_NODE */
+-	printk(KERN_INFO "Console: ttyS%d (SunZilog zs%d)\n",
++	pr_info("Console: ttyS%d (SunZilog zs%d)\n",
+ 	       (sunzilog_reg.minor - 64) + con->index, con->index);
  
- static int __meminit __add_section(int nid, unsigned long phys_start_pfn,
--		struct vmem_altmap *altmap, bool want_memblock)
-+				   struct vmem_altmap *altmap)
- {
- 	int ret;
+ 	/* Get firmware console settings.  */
+@@ -1615,9 +1615,8 @@ static int __init sunzilog_init(void)
+ 		while (up) {
+ 			struct zilog_channel __iomem *channel;
  
-@@ -293,8 +293,7 @@ int __ref __add_pages(int nid, unsigned long phys_start_pfn,
- 	}
+-			/* printk(KERN_INFO
+-			 *        "Enable IRQ for ZILOG Hardware %p\n",
+-			 *        up);
++			/* pr_info("Enable IRQ for ZILOG Hardware %p\n",
++			 *         up);
+ 			 */
+ 			channel          = ZILOG_CHANNEL_FROM_PORT(&up->port);
+ 			up->flags       |= SUNZILOG_FLAG_ISR_HANDLER;
+@@ -1655,9 +1654,8 @@ static void __exit sunzilog_exit(void)
+ 		while (up) {
+ 			struct zilog_channel __iomem *channel;
  
- 	for (i = start_sec; i <= end_sec; i++) {
--		err = __add_section(nid, section_nr_to_pfn(i), altmap,
--				restrictions->flags & MHP_MEMBLOCK_API);
-+		err = __add_section(nid, section_nr_to_pfn(i), altmap);
- 
- 		/*
- 		 * EEXIST is finally dealt with by ioresource collision
-@@ -1066,9 +1065,7 @@ static int online_memory_block(struct memory_block *mem, void *arg)
-  */
- int __ref add_memory_resource(int nid, struct resource *res)
- {
--	struct mhp_restrictions restrictions = {
--		.flags = MHP_MEMBLOCK_API,
--	};
-+	struct mhp_restrictions restrictions = {};
- 	u64 start, size;
- 	bool new_node = false;
- 	int ret;
+-			/* printk(KERN_INFO
+-			 *        "Disable IRQ for ZILOG Hardware %p\n",
+-			 *        up);
++			/* pr_info("Disable IRQ for ZILOG Hardware %p\n",
++			 *         up);
+ 			 */
+ 			channel          = ZILOG_CHANNEL_FROM_PORT(&up->port);
+ 			up->flags       &= ~SUNZILOG_FLAG_ISR_HANDLER;
 -- 
-2.20.1
+1.9.1
