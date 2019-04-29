@@ -1,7 +1,7 @@
 From: "Enrico Weigelt, metux IT consult" <lkml@metux.net>
-Date: Mon, 29 Apr 2019 07:23:21 +0000
+Date: Mon, 29 Apr 2019 12:37:04 +0000
 Subject: Re: [PATCH 01/41] drivers: tty: serial: dz: use dev_err() instead of printk()
-Message-Id: <721dc048-8b5f-e7f5-2dab-f0f328435e0c@metux.net>
+Message-Id: <bae3f23b-8823-f089-c40e-024ba225555f@metux.net>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1556369542-13247-1-git-send-email-info@metux.net>
  <1556369542-13247-2-git-send-email-info@metux.net>
@@ -26,7 +26,6 @@ On 27.04.19 15:31, Greg KH wrote:
 
 Unfortunately not :(
 
-Do you happen to know anybody who has ?
 
 --mtx
 
