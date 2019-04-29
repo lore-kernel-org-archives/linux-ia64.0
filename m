@@ -1,30 +1,29 @@
 From: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
-Date: Mon, 29 Apr 2019 10:38:17 +0000
+Date: Mon, 29 Apr 2019 11:34:07 +0000
 Subject: Re: [PATCH] ia64: fix ptrace(PTRACE_GETREGS) (unbreaks strace, gdb)
-Message-Id: <def7f1cf-96b1-b0a9-88b8-3d24eb3b6075@physik.fu-berlin.de>
+Message-Id: <906b63c0-9032-995b-f1a4-4eb384e26314@physik.fu-berlin.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20180202221224.16597-1-slyfox@gentoo.org>
-In-Reply-To: <20180202221224.16597-1-slyfox@gentoo.org>
+References: <def7f1cf-96b1-b0a9-88b8-3d24eb3b6075@physik.fu-berlin.de>
+In-Reply-To: <def7f1cf-96b1-b0a9-88b8-3d24eb3b6075@physik.fu-berlin.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: quoted-printable
 To: Tony Luck <tony.luck@intel.com>
 Cc: Sergei Trofimovich <slyfox@gentoo.org>, Frank Scheiner <frank.scheiner@web.de>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Hello!
+Hi!
 
-Is there a chance that Sergey's patch from [1] could get applied upstream?
+On 4/29/19 12:38 PM, John Paul Adrian Glaubitz wrote:
+> Is there a chance that Sergey's patch from [1] could get applied upstream?
 
-Currently, the kernel in Debian doesn't boot on the RX2800 and crashes very
-early directly after the bootloader. I can also confirm that both strace
-and gdb currently don't build on Debian/ia64 due to this particular bug.
+Apparently it's sufficient to rebuild the kernel with a gcc which has
+this [1] fix applied. Will give this a try and report back.
 
-Thanks,
 Adrian
 
-> [1] https://lkml.org/lkml/2018/2/2/914
+> [1] https://gcc.gnu.org/bugzilla/show_bug.cgi?id=86984
 
--- 
+--=20
  .''`.  John Paul Adrian Glaubitz
 : :' :  Debian Developer - glaubitz@debian.org
 `. `'   Freie Universitaet Berlin - glaubitz@physik.fu-berlin.de
