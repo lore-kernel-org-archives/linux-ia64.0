@@ -1,36 +1,50 @@
-From: Zhen Lei <thunder.leizhen@huawei.com>
-Date: Thu, 30 May 2019 03:48:31 +0000
-Subject: [PATCH v8 7/7] ia64: hide build option IOMMU_DEFAULT_PASSTHROUGH
-Message-Id: <20190530034831.4184-8-thunder.leizhen@huawei.com>
+From: "Maciej W. Rozycki" <macro@linux-mips.org>
+Date: Wed, 01 May 2019 02:29:36 +0000
+Subject: Re: [PATCH 06/41] drivers: tty: serial: sb1250-duart: use dev_err() instead of printk()
+Message-Id: <alpine.LFD.2.21.1905010257020.30973@eddie.linux-mips.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190530034831.4184-1-thunder.leizhen@huawei.com>
-In-Reply-To: <20190530034831.4184-1-thunder.leizhen@huawei.com>
+References: <1556369542-13247-1-git-send-email-info@metux.net> <1556369542-13247-7-git-send-email-info@metux.net>
+In-Reply-To: <1556369542-13247-7-git-send-email-info@metux.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jean-Philippe Brucker <jean-philippe.brucker@arm.com>, John Garry <john.garry@huawei.com>, Robin Murphy <robin.murphy@arm.com>, Will Deacon <will.deacon@arm.com>, Joerg Roedel <joro@8bytes.org>, Jonathan Corbet <corbet@lwn.net>, linux-doc <linux-doc@vger.kernel.org>, Sebastian Ott <sebott@linux.ibm.com>, Gerald Schaefer <gerald.schaefer@de.ibm.com>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, "H . Peter Anvin" <hpa@zytor.com>, David Woodhouse <dwmw2@infradead.org>, iommu <iommu@lists.linux-foundation.org>, linux-kernel <linux-kernel@vger.kernel.org>, linux-s390 <linux-s390@vger.kernel.org>, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, x86 <x86@kernel.org>, linux-ia64 <linux-ia64@vger.kernel.org>
-Cc: Zhen Lei <thunder.leizhen@huawei.com>, Hanjun Guo <guohanjun@huawei.com>
+To: "Enrico Weigelt, metux IT consult" <info@metux.net>
+Cc: linux-kernel@vger.kernel.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, andrew@aj.id.au, andriy.shevchenko@linux.intel.com, vz@mleia.com, slemieux.tyco@gmail.com, khilman@baylibre.com, liviu.dudau@arm.com, sudeep.holla@arm.com, lorenzo.pieralisi@arm.com, "David S. Miller" <davem@davemloft.net>, jacmet@sunsite.dk, linux@prisktech.co.nz, matthias.bgg@gmail.com, linux-mips@vger.kernel.org, linux-serial@vger.kernel.org, linux-ia64@vger.kernel.org, linux-amlogic@lists.infradead.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org
 
-The DMA mode PASSTHROUGH is not used on ia64.
+On Sat, 27 Apr 2019, Enrico Weigelt, metux IT consult wrote:
 
-Signed-off-by: Zhen Lei <thunder.leizhen@huawei.com>
----
- drivers/iommu/Kconfig | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> diff --git a/drivers/tty/serial/sb1250-duart.c b/drivers/tty/serial/sb1250-duart.c
+> index 329aced..655961c 100644
+> --- a/drivers/tty/serial/sb1250-duart.c
+> +++ b/drivers/tty/serial/sb1250-duart.c
+> @@ -663,7 +663,6 @@ static void sbd_release_port(struct uart_port *uport)
+>  
+>  static int sbd_map_port(struct uart_port *uport)
+>  {
+> -	const char *err = KERN_ERR "sbd: Cannot map MMIO\n";
+>  	struct sbd_port *sport = to_sport(uport);
+>  	struct sbd_duart *duart = sport->duart;
+>  
+> @@ -671,7 +670,7 @@ static int sbd_map_port(struct uart_port *uport)
+>  		uport->membase = ioremap_nocache(uport->mapbase,
+>  						 DUART_CHANREG_SPACING);
+>  	if (!uport->membase) {
+> -		printk(err);
+> +		dev_err(uport->dev, "Cannot map MMIO (base)\n");
+>  		return -ENOMEM;
+>  	}
+>  
+> @@ -679,7 +678,7 @@ static int sbd_map_port(struct uart_port *uport)
+>  		sport->memctrl = ioremap_nocache(duart->mapctrl,
+>  						 DUART_CHANREG_SPACING);
+>  	if (!sport->memctrl) {
+> -		printk(err);
+> +		dev_err(uport->dev, "Cannot map MMIO (ctrl)\n");
+>  		iounmap(uport->membase);
+>  		uport->membase = NULL;
+>  		return -ENOMEM;
 
-diff --git a/drivers/iommu/Kconfig b/drivers/iommu/Kconfig
-index f6c030433d38048..f7400e35628dce4 100644
---- a/drivers/iommu/Kconfig
-+++ b/drivers/iommu/Kconfig
-@@ -89,7 +89,7 @@ choice
- 
- config IOMMU_DEFAULT_PASSTHROUGH
- 	bool "passthrough"
--	depends on !S390_IOMMU
-+	depends on (!S390_IOMMU && !IA64)
- 	help
- 	  In this mode, the DMA access through IOMMU without any addresses
- 	  translation. That means, the wrong or illegal DMA access can not
--- 
-1.8.3
+ Hmm, what's the point to have separate messages, which consume extra 
+memory, for a hardly if at all possible error condition?
 
+  Maciej
