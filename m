@@ -1,27 +1,29 @@
-From: Michael Ellerman <mpe@ellerman.id.au>
-Date: Thu, 02 May 2019 15:31:10 +0000
-Subject: Re: [PATCH] memblock: make keeping memblock memory opt-in rather than opt-out
-Message-Id: <87h8acyitd.fsf@concordia.ellerman.id.au>
+From: Michal Hocko <mhocko@kernel.org>
+Date: Thu, 02 May 2019 13:00:31 +0000
+Subject: Re: [PATCH 1/2] x86, numa: always initialize all possible nodes
+Message-Id: <20190502130031.GC29835@dhcp22.suse.cz>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1556102150-32517-1-git-send-email-rppt@linux.ibm.com>
-In-Reply-To: <1556102150-32517-1-git-send-email-rppt@linux.ibm.com>
+References: <20190212095343.23315-1-mhocko@kernel.org>
+ <20190212095343.23315-2-mhocko@kernel.org>
+ <34f96661-41c2-27cc-422d-5a7aab526f87@google.com>
+In-Reply-To: <34f96661-41c2-27cc-422d-5a7aab526f87@google.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Mike Rapoport <rppt@linux.ibm.com>, Andrew Morton <akpm@linux-foundation.org>
-Cc: Rich Felker <dalias@libc.org>, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Heiko Carstens <heiko.carstens@de.ibm.com>, linux-mips@vger.kernel.org, linux-mm@kvack.org, Paul Mackerras <paulus@samba.org>, "H. Peter Anvin" <hpa@zytor.com>, linux-s390@vger.kernel.org, Yoshinori Sato <ysato@users.sourceforge.jp>, linux-hexagon@vger.kernel.org, x86@kernel.org, Russell King <linux@armlinux.org.uk>, Ingo Molnar <mingo@redhat.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Catalin Marinas <catalin.marinas@arm.com>, James Hogan <jhogan@kernel.org>, Fenghua Yu <fenghua.yu@intel.com>, Will Deacon <will.deacon@arm.com>, linux-m68k@lists.linux-m68k.org, Borislav Petkov <bp@alien8.de>, nios2-dev@lists.rocketboards.org, Thomas Gleixner <tglx@linutronix.de>, linux-arm-kernel@lists.infradead.org, Tony Luck <tony.luck@intel.com>, kexec@lists.infradead.org, linux-kernel@vger.kernel.org, Ralf Baechle <ralf@linux-mips.org>, Richard Kuo <rkuo@codeaurora.org>, Paul Burton <paul.burton@mips.com>, Eric Biederman <ebiederm@xmission.com>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Ley Foon Tan <lftan@altera.com>, linuxppc-dev@lists.ozlabs.org
+To: Barret Rhoden <brho@google.com>
+Cc: linux-mm@kvack.org, Pingfan Liu <kernelfans@gmail.com>, Dave Hansen <dave.hansen@intel.com>, Peter Zijlstra <peterz@infradead.org>, x86@kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>, Ingo Molnar <mingo@elte.hu>
 
-Mike Rapoport <rppt@linux.ibm.com> writes:
-> diff --git a/arch/powerpc/Kconfig b/arch/powerpc/Kconfig
-> index 2d0be82..39877b9 100644
-> --- a/arch/powerpc/Kconfig
-> +++ b/arch/powerpc/Kconfig
-> @@ -143,6 +143,7 @@ config PPC
->  	select ARCH_HAS_UBSAN_SANITIZE_ALL
->  	select ARCH_HAS_ZONE_DEVICE		if PPC_BOOK3S_64
->  	select ARCH_HAVE_NMI_SAFE_CMPXCHG
-> +	select ARCH_KEEP_MEMBLOCK
+On Wed 01-05-19 15:12:32, Barret Rhoden wrote:
+[...]
+> A more elegant solution may be to avoid registering with sysfs during early
+> boot, or something else entirely.  But I figured I'd ask for help at this
+> point.  =)
 
-Acked-by: Michael Ellerman <mpe@ellerman.id.au> (powerpc)
+Thanks for the report and an excellent analysis! This is really helpful.
+I will think about this some more but I am traveling this week. It seems
+really awkward to register a sysfs file for an empty range. That looks
+like a bug to me.
 
-cheers
+-- 
+Michal Hocko
+SUSE Labs
