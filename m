@@ -1,43 +1,67 @@
-From: Dan Williams <dan.j.williams@intel.com>
-Date: Wed, 08 May 2019 13:50:25 +0000
-Subject: Re: [PATCH v2 7/8] mm/memory_hotplug: Make unregister_memory_block_under_nodes() never fail
-Message-Id: <CAPcyv4jtS6G_ZqLCdO4gOjS9K2cuX=ywFHemhSb46aQvS8pa8A@mail.gmail.com>
+From: David Hildenbrand <david@redhat.com>
+Date: Tue, 07 May 2019 18:38:04 +0000
+Subject: [PATCH v2 8/8] mm/memory_hotplug: Remove "zone" parameter from sparse_remove_one_section
+Message-Id: <20190507183804.5512-9-david@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190507183804.5512-1-david@redhat.com> <20190507183804.5512-8-david@redhat.com>
- <CAPcyv4h2PgzQZrD0UU=4Qz_yH2C_hiYQyqV9U7CCkjpmHZ5xjQ@mail.gmail.com> <1d369ae4-7183-b455-646a-65bbbe697281@redhat.com>
-In-Reply-To: <1d369ae4-7183-b455-646a-65bbbe697281@redhat.com>
+References: <20190507183804.5512-1-david@redhat.com>
+In-Reply-To: <20190507183804.5512-1-david@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Hildenbrand <david@redhat.com>
-Cc: Linux MM <linux-mm@kvack.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, linux-s390 <linux-s390@vger.kernel.org>, Linux-sh <linux-sh@vger.kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Alex Deucher <alexander.deucher@amd.com>, "David S. Miller" <davem@davemloft.net>, Mark Brown <broonie@kernel.org>, Chris Wilson <chris@chris-wilson.co.uk>, Oscar Salvador <osalvador@suse.de>, Jonathan Cameron <Jonathan.Cameron@huawei.com>
+To: linux-mm@kvack.org
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, akpm@linux-foundation.org, Dan Williams <dan.j.williams@intel.com>, David Hildenbrand <david@redhat.com>
 
-On Wed, May 8, 2019 at 12:22 AM David Hildenbrand <david@redhat.com> wrote:
->
->
-> >>  drivers/base/node.c  | 18 +++++-------------
-> >>  include/linux/node.h |  5 ++---
-> >>  2 files changed, 7 insertions(+), 16 deletions(-)
-> >>
-> >> diff --git a/drivers/base/node.c b/drivers/base/node.c
-> >> index 04fdfa99b8bc..9be88fd05147 100644
-> >> --- a/drivers/base/node.c
-> >> +++ b/drivers/base/node.c
-> >> @@ -803,20 +803,14 @@ int register_mem_sect_under_node(struct memory_block *mem_blk, void *arg)
-> >>
-> >>  /*
-> >>   * Unregister memory block device under all nodes that it spans.
-> >> + * Has to be called with mem_sysfs_mutex held (due to unlinked_nodes).
-> >
-> > Given this comment can bitrot relative to the implementation lets
-> > instead add an explicit:
-> >
-> >     lockdep_assert_held(&mem_sysfs_mutex);
->
-> That would require to make the mutex non-static. Is that what you
-> suggest, or any other alternative?
+Unused, and memory unplug path should never care about zones. This is
+the job of memory offlining. ZONE_DEVICE might require special care -
+the caller of arch_remove_memory() should handle this.
 
-If the concern is other code paths taking the lock when they shouldn't
-then you could make a public "lockdep_assert_mem_sysfs_held()" to do
-the same, but I otherwise think the benefit of inline lock validation
-is worth the price of adding a new non-static symbol.
+Signed-off-by: David Hildenbrand <david@redhat.com>
+---
+ include/linux/memory_hotplug.h | 2 +-
+ mm/memory_hotplug.c            | 2 +-
+ mm/sparse.c                    | 4 ++--
+ 3 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/include/linux/memory_hotplug.h b/include/linux/memory_hotplug.h
+index 2f1f87e13baa..1a4257c5f74c 100644
+--- a/include/linux/memory_hotplug.h
++++ b/include/linux/memory_hotplug.h
+@@ -346,7 +346,7 @@ extern void move_pfn_range_to_zone(struct zone *zone, unsigned long start_pfn,
+ extern bool is_memblock_offlined(struct memory_block *mem);
+ extern int sparse_add_one_section(int nid, unsigned long start_pfn,
+ 				  struct vmem_altmap *altmap);
+-extern void sparse_remove_one_section(struct zone *zone, struct mem_section *ms,
++extern void sparse_remove_one_section(struct mem_section *ms,
+ 		unsigned long map_offset, struct vmem_altmap *altmap);
+ extern struct page *sparse_decode_mem_map(unsigned long coded_mem_map,
+ 					  unsigned long pnum);
+diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+index 527fe4f9c620..e0340c8f6df4 100644
+--- a/mm/memory_hotplug.c
++++ b/mm/memory_hotplug.c
+@@ -523,7 +523,7 @@ static void __remove_section(struct zone *zone, struct mem_section *ms,
+ 	start_pfn = section_nr_to_pfn((unsigned long)scn_nr);
+ 	__remove_zone(zone, start_pfn);
+ 
+-	sparse_remove_one_section(zone, ms, map_offset, altmap);
++	sparse_remove_one_section(ms, map_offset, altmap);
+ }
+ 
+ /**
+diff --git a/mm/sparse.c b/mm/sparse.c
+index d1d5e05f5b8d..1552c855d62a 100644
+--- a/mm/sparse.c
++++ b/mm/sparse.c
+@@ -800,8 +800,8 @@ static void free_section_usemap(struct page *memmap, unsigned long *usemap,
+ 		free_map_bootmem(memmap);
+ }
+ 
+-void sparse_remove_one_section(struct zone *zone, struct mem_section *ms,
+-		unsigned long map_offset, struct vmem_altmap *altmap)
++void sparse_remove_one_section(struct mem_section *ms, unsigned long map_offset,
++			       struct vmem_altmap *altmap)
+ {
+ 	struct page *memmap = NULL;
+ 	unsigned long *usemap = NULL;
+-- 
+2.20.1
