@@ -1,59 +1,61 @@
-From: Pingfan Liu <kernelfans@gmail.com>
-Date: Fri, 24 May 2019 03:11:13 +0000
-Subject: Re: [PATCHv2] kernel/crash: make parse_crashkernel()'s return value more indicant
-Message-Id: <CAFgQCTuAEbST8ZdSJmPDTPbqkL3uZ8j6U-vTWT879wARDhUwTw@mail.gmail.com>
+From: Nick Desaulniers <ndesaulniers@google.com>
+Date: Wed, 08 May 2019 19:22:39 +0000
+Subject: Re: [PATCH] ia64: require -Wl,--hash-style=sysv
+Message-Id: <CAKwvOd=tA3-i65B_92QHaJrpEREzBB91QkkqgRANncwfb2d-Kg@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1556087581-14513-1-git-send-email-kernelfans@gmail.com>
- <10dc5468-6cd9-85c7-ba66-1dfa5aa922b7@suse.com>
- <CAFgQCTstd667wP6g+maxYekz4u3iBR2R=FHUiS1V=XxTs6MKUw@mail.gmail.com>
- <CAFgQCTtQm7SuBRfXik6B065Aa+uQ=Mx6i+Y1q+NJU1GEiUgH4g@mail.gmail.com>
-In-Reply-To: <CAFgQCTtQm7SuBRfXik6B065Aa+uQ=Mx6i+Y1q+NJU1GEiUgH4g@mail.gmail.com>
+References: <20190423204821.241925-1-ndesaulniers@google.com> <CAKwvOd=ws1D95ydQjGtK0U0KQ-5poyj8Oek5Yka6-cvtCdpJ-g@mail.gmail.com>
+In-Reply-To: <CAKwvOd=ws1D95ydQjGtK0U0KQ-5poyj8Oek5Yka6-cvtCdpJ-g@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Matthias Brugger <mbrugger@suse.com>
-Cc: Rich Felker <dalias@libc.org>, linux-ia64@vger.kernel.org, Julien Thierry <julien.thierry@arm.com>, Yangtao Li <tiny.windzz@gmail.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Palmer Dabbelt <palmer@sifive.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, Stefan Agner <stefan@agner.ch>, linux-mips@vger.kernel.org, Paul Mackerras <paulus@samba.org>, "H. Peter Anvin" <hpa@zytor.com>, Thomas Gleixner <tglx@linutronix.de>, Logan Gunthorpe <logang@deltatee.com>, linux-s390@vger.kernel.org, Florian Fainelli <f.fainelli@gmail.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, linux-sh@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>, x86@kernel.org, Russell King <linux@armlinux.org.uk>, Ingo Molnar <mingo@redhat.com>, Hari Bathini <hbathini@linux.ibm.com>, Catalin Marinas <catalin.marinas@arm.com>, James Hogan <jhogan@kernel.org>, Dave Young <dyoung@redhat.com>, Fenghua Yu <fenghua.yu@intel.com>, Will Deacon <will.deacon@arm.com>, Johannes Weiner <hannes@cmpxchg.org>, Ananth N Mavinakayanahalli <ananth@linux.vnet.ibm.com>, Borislav Petkov <bp@alien8.de>, David Hildenbrand <david@redhat.com>, linux-arm-kernel@lists.infradead.org, Jens Axboe <axboe@kernel.dk>, Tony Luck <tony.luck@intel.com>, Baoquan He <bhe@redhat.com>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Robin Murphy <robin.murphy@arm.com>, LKML <linux-kernel@vger.kernel.org>, Ralf Baechle <ralf@linux-mips.org>, Thomas Bogendoerfer <tbogendoerfer@suse.de>, Paul Burton <paul.burton@mips.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, Greg Hackmann <ghackmann@android.com>
+To: tony.luck@intel.com, fenghua.yu@intel.com
+Cc: clang-built-linux <clang-built-linux@googlegroups.com>, Masahiro Yamada <yamada.masahiro@socionext.com>, linux-ia64@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
 
-Matthias, ping? Any suggestions?
+bumping for review, as the merge window is now open.
 
+On Tue, Apr 30, 2019 at 1:24 PM Nick Desaulniers
+<ndesaulniers@google.com> wrote:
+>
+> On Tue, Apr 23, 2019 at 1:48 PM Nick Desaulniers
+> <ndesaulniers@google.com> wrote:
+> >
+> > Towards the goal of removing cc-ldoption, it seems that --hash-style> > was added to binutils 2.17.50.0.2 in 2006. The minimal required version
+> > of binutils for the kernel according to
+> > Documentation/process/changes.rst is 2.20.
+> >
+> > Link: https://gcc.gnu.org/ml/gcc/2007-01/msg01141.html
+> > Cc: clang-built-linux@googlegroups.com
+> > Suggested-by: Masahiro Yamada <yamada.masahiro@socionext.com>
+> > Signed-off-by: Nick Desaulniers <ndesaulniers@google.com>
+> > ---
+> >  arch/ia64/kernel/Makefile.gate | 2 +-
+> >  1 file changed, 1 insertion(+), 1 deletion(-)
+> >
+> > diff --git a/arch/ia64/kernel/Makefile.gate b/arch/ia64/kernel/Makefile.gate
+> > index f53faf48b7ce..846867bff6d6 100644
+> > --- a/arch/ia64/kernel/Makefile.gate
+> > +++ b/arch/ia64/kernel/Makefile.gate
+> > @@ -11,7 +11,7 @@ quiet_cmd_gate = GATE    $@
+> >        cmd_gate = $(CC) -nostdlib $(GATECFLAGS_$(@F)) -Wl,-T,$(filter-out FORCE,$^) -o $@
+> >
+> >  GATECFLAGS_gate.so = -shared -s -Wl,-soname=linux-gate.so.1 \
+> > -                    $(call cc-ldoption, -Wl$(comma)--hash-style=sysv)
+> > +                    -Wl,--hash-style=sysv
+> >  $(obj)/gate.so: $(obj)/gate.lds $(obj)/gate.o FORCE
+> >         $(call if_changed,gate)
+> >
+> > --
+> > 2.21.0.593.g511ec345e18-goog
+> >
+>
+> bumping for review
+>
+> --
+> Thanks,
+> ~Nick Desaulniers
+
+
+
+-- 
 Thanks,
-Pingfan
-
-
-On Thu, May 2, 2019 at 2:22 PM Pingfan Liu <kernelfans@gmail.com> wrote:
->
-> On Thu, Apr 25, 2019 at 4:20 PM Pingfan Liu <kernelfans@gmail.com> wrote:
-> >
-> > On Wed, Apr 24, 2019 at 4:31 PM Matthias Brugger <mbrugger@suse.com> wrote:
-> > >
-> > >
-> > [...]
-> > > > @@ -139,6 +141,8 @@ static int __init parse_crashkernel_simple(char *cmdline,
-> > > >               pr_warn("crashkernel: unrecognized char: %c\n", *cur);
-> > > >               return -EINVAL;
-> > > >       }
-> > > > +     if (*crash_size = 0)
-> > > > +             return -EINVAL;
-> > >
-> > > This covers the case where I pass an argument like "crashkernel=0M" ?
-> > > Can't we fix that by using kstrtoull() in memparse and check if the return value
-> > > is < 0? In that case we could return without updating the retptr and we will be
-> > > fine.
-> After a series of work, I suddenly realized that it can not be done
-> like this way. "0M" causes kstrtoull() to return -EINVAL, but this is
-> caused by "M", not "0". If passing "0" to kstrtoull(), it will return
-> 0 on success.
->
-> > >
-> > It seems that kstrtoull() treats 0M as invalid parameter, while
-> > simple_strtoull() does not.
-> >
-> My careless going through the code. And I tested with a valid value
-> "256M" using kstrtoull(), it also returned -EINVAL.
->
-> So I think there is no way to distinguish 0 from a positive value
-> inside this basic math function.
-> Do I miss anything?
->
-> Thanks and regards,
-> Pingfan
+~Nick Desaulniers
