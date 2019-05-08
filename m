@@ -1,91 +1,146 @@
 From: David Hildenbrand <david@redhat.com>
-Date: Tue, 07 May 2019 21:27:17 +0000
+Date: Wed, 08 May 2019 08:35:26 +0000
 Subject: Re: [PATCH v2 4/8] mm/memory_hotplug: Create memory block devices after arch_add_memory()
-Message-Id: <a41438f2-6bac-a2ad-96ec-234762c1cd37@redhat.com>
+Message-Id: <094f6f72-b02f-585f-6ffa-d631c71808d6@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20190507183804.5512-1-david@redhat.com>
  <20190507183804.5512-5-david@redhat.com>
- <CAPcyv4jiVyaPbUrQwSiy65xk=EegJwuGSDKkVYWkGiTJz847gg@mail.gmail.com>
-In-Reply-To: <CAPcyv4jiVyaPbUrQwSiy65xk=EegJwuGSDKkVYWkGiTJz847gg@mail.gmail.com>
+In-Reply-To: <20190507183804.5512-5-david@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Dan Williams <dan.j.williams@intel.com>
-Cc: Linux MM <linux-mm@kvack.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, linux-s390 <linux-s390@vger.kernel.org>, Linux-sh <linux-sh@vger.kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, "Rafael J. Wysocki" <rafael@kernel.org>, "mike.travis@hpe.com" <mike.travis@hpe.com>, Ingo Molnar <mingo@kernel.org>, Andrew Banman <andrew.banman@hpe.com>, Oscar Salvador <osalvador@suse.de>, Michal Hocko <mhocko@suse.com>, Pavel Tatashin <pasha.tatashin@soleen.com>, Qian Cai <cai@lca.pw>, Wei Yang <richard.weiyang@gmail.com>, Arun KS <arunks@codeaurora.org>, Mathieu Malaterre <malat@debian.org>
+To: linux-mm@kvack.org
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, akpm@linux-foundation.org, Dan Williams <dan.j.williams@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, "Rafael J. Wysocki" <rafael@kernel.org>, "mike.travis@hpe.com" <mike.travis@hpe.com>, Ingo Molnar <mingo@kernel.org>, Andrew Banman <andrew.banman@hpe.com>, Oscar Salvador <osalvador@suse.de>, Michal Hocko <mhocko@suse.com>, Pavel Tatashin <pasha.tatashin@soleen.com>, Qian Cai <cai@lca.pw>, Wei Yang <richard.weiyang@gmail.com>, Arun KS <arunks@codeaurora.org>, Mathieu Malaterre <malat@debian.org>
 
->> +static void unregister_memory(struct memory_block *memory)
->> +{
->> +       BUG_ON(memory->dev.bus != &memory_subsys);
+On 07.05.19 20:38, David Hildenbrand wrote:
+> Only memory to be added to the buddy and to be onlined/offlined by
+> user space using memory block devices needs (and should have!) memory
+> block devices.
 > 
-> Given this should never happen and only a future kernel developer
-> might trip over it, do we really need to kill that developer's
-> machine? I.e. s/BUG/WARN/? I guess an argument can be made to move
-> such a change that to a follow-on patch since you're just preserving
-> existing behavior, but I figure might as well address these as the
-> code is refactored.
-
-I assume only
-
-if (WARN ...)
-	return;
-
-makes sense then, right?
-
+> Factor out creation of memory block devices Create all devices after
+> arch_add_memory() succeeded. We can later drop the want_memblock parameter,
+> because it is now effectively stale.
 > 
->> +
->> +       /* drop the ref. we got via find_memory_block() */
->> +       put_device(&memory->dev);
->> +       device_unregister(&memory->dev);
->> +}
->> +
->>  /*
->> - * need an interface for the VM to add new memory regions,
->> - * but without onlining it.
->> + * Create memory block devices for the given memory area. Start and size
->> + * have to be aligned to memory block granularity. Memory block devices
->> + * will be initialized as offline.
->>   */
->> -int hotplug_memory_register(int nid, struct mem_section *section)
->> +int hotplug_memory_register(unsigned long start, unsigned long size)
->>  {
->> -       int ret = 0;
->> +       unsigned long block_nr_pages = memory_block_size_bytes() >> PAGE_SHIFT;
->> +       unsigned long start_pfn = PFN_DOWN(start);
->> +       unsigned long end_pfn = start_pfn + (size >> PAGE_SHIFT);
->> +       unsigned long pfn;
->>         struct memory_block *mem;
->> +       int ret = 0;
->>
->> -       mutex_lock(&mem_sysfs_mutex);
->> +       BUG_ON(!IS_ALIGNED(start, memory_block_size_bytes()));
->> +       BUG_ON(!IS_ALIGNED(size, memory_block_size_bytes()));
+> Only after memory block devices have been added, memory can be onlined
+> by user space. This implies, that memory is not visible to user space at
+> all before arch_add_memory() succeeded.
 > 
-> Perhaps:
+> Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+> Cc: "Rafael J. Wysocki" <rafael@kernel.org>
+> Cc: David Hildenbrand <david@redhat.com>
+> Cc: "mike.travis@hpe.com" <mike.travis@hpe.com>
+> Cc: Andrew Morton <akpm@linux-foundation.org>
+> Cc: Ingo Molnar <mingo@kernel.org>
+> Cc: Andrew Banman <andrew.banman@hpe.com>
+> Cc: Oscar Salvador <osalvador@suse.de>
+> Cc: Michal Hocko <mhocko@suse.com>
+> Cc: Pavel Tatashin <pasha.tatashin@soleen.com>
+> Cc: Qian Cai <cai@lca.pw>
+> Cc: Wei Yang <richard.weiyang@gmail.com>
+> Cc: Arun KS <arunks@codeaurora.org>
+> Cc: Mathieu Malaterre <malat@debian.org>
+> Signed-off-by: David Hildenbrand <david@redhat.com>
+> ---
+>  drivers/base/memory.c  | 70 ++++++++++++++++++++++++++----------------
+>  include/linux/memory.h |  2 +-
+>  mm/memory_hotplug.c    | 15 ++++-----
+>  3 files changed, 53 insertions(+), 34 deletions(-)
 > 
->     if (WARN_ON(...))
->         return -EINVAL;
-> 
+> diff --git a/drivers/base/memory.c b/drivers/base/memory.c
+> index 6e0cb4fda179..862c202a18ca 100644
+> --- a/drivers/base/memory.c
+> +++ b/drivers/base/memory.c
+> @@ -701,44 +701,62 @@ static int add_memory_block(int base_section_nr)
+>  	return 0;
+>  }
+>  
+> +static void unregister_memory(struct memory_block *memory)
+> +{
+> +	BUG_ON(memory->dev.bus != &memory_subsys);
+> +
+> +	/* drop the ref. we got via find_memory_block() */
+> +	put_device(&memory->dev);
+> +	device_unregister(&memory->dev);
+> +}
+> +
+>  /*
+> - * need an interface for the VM to add new memory regions,
+> - * but without onlining it.
+> + * Create memory block devices for the given memory area. Start and size
+> + * have to be aligned to memory block granularity. Memory block devices
+> + * will be initialized as offline.
+>   */
+> -int hotplug_memory_register(int nid, struct mem_section *section)
+> +int hotplug_memory_register(unsigned long start, unsigned long size)
+>  {
+> -	int ret = 0;
+> +	unsigned long block_nr_pages = memory_block_size_bytes() >> PAGE_SHIFT;
+> +	unsigned long start_pfn = PFN_DOWN(start);
+> +	unsigned long end_pfn = start_pfn + (size >> PAGE_SHIFT);
+> +	unsigned long pfn;
+>  	struct memory_block *mem;
+> +	int ret = 0;
+>  
+> -	mutex_lock(&mem_sysfs_mutex);
+> +	BUG_ON(!IS_ALIGNED(start, memory_block_size_bytes()));
+> +	BUG_ON(!IS_ALIGNED(size, memory_block_size_bytes()));
+>  
+> -	mem = find_memory_block(section);
+> -	if (mem) {
+> -		mem->section_count++;
+> -		put_device(&mem->dev);
+> -	} else {
+> -		ret = init_memory_block(&mem, section, MEM_OFFLINE);
+> +	mutex_lock(&mem_sysfs_mutex);
+> +	for (pfn = start_pfn; pfn != end_pfn; pfn += block_nr_pages) {
+> +		mem = find_memory_block(__pfn_to_section(pfn));
+> +		if (mem) {
+> +			WARN_ON_ONCE(false);
+> +			put_device(&mem->dev);
+> +			continue;
+> +		}
+> +		ret = init_memory_block(&mem, __pfn_to_section(pfn),
+> +					MEM_OFFLINE);
+>  		if (ret)
+> -			goto out;
+> -		mem->section_count++;
+> +			break;
+> +		mem->section_count = memory_block_size_bytes() /
+> +				     MIN_MEMORY_BLOCK_SIZE;
+> +	}
+> +	if (ret) {
+> +		end_pfn = pfn;
+> +		for (pfn = start_pfn; pfn != end_pfn; pfn += block_nr_pages) {
+> +			mem = find_memory_block(__pfn_to_section(pfn));
+> +			if (!mem)
+> +				continue;
+> +			mem->section_count = 0;
+> +			unregister_memory(mem);
+> +		}
+>  	}
+> -
+> -out:
+>  	mutex_unlock(&mem_sysfs_mutex);
+>  	return ret;
+>  }
+>  
+> -static void
+> -unregister_memory(struct memory_block *memory)
+> -{
+> -	BUG_ON(memory->dev.bus != &memory_subsys);
+> -
+> -	/* drop the ref. we got via find_memory_block() */
+> -	put_device(&memory->dev);
+> -	device_unregister(&memory->dev);
+> -}
+> -
+> -void unregister_memory_section(struct mem_section *section)
+> +static int remove_memory_section(struct mem_section *section)
+>  {
 
-Yes, guess this souldn't hurt.
+The function change is misplaces in this patch will drop it so this
+patch compiles without the other patches.
 
->>
->> -       mem = find_memory_block(section);
->> -       if (mem) {
->> -               mem->section_count++;
->> -               put_device(&mem->dev);
->> -       } else {
->> -               ret = init_memory_block(&mem, section, MEM_OFFLINE);
->> +       mutex_lock(&mem_sysfs_mutex);
->> +       for (pfn = start_pfn; pfn != end_pfn; pfn += block_nr_pages) {
->> +               mem = find_memory_block(__pfn_to_section(pfn));
->> +               if (mem) {
->> +                       WARN_ON_ONCE(false);
-> 
-> ?? Isn't that a nop?
-
-Yes, that makes no sense :)
-
-Thanks!
 
 -- 
 
