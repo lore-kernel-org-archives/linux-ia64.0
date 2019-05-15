@@ -1,63 +1,52 @@
-From: Aleksa Sarai <cyphar@cyphar.com>
-Date: Wed, 15 May 2019 14:51:05 +0000
+From: Oleg Nesterov <oleg@redhat.com>
+Date: Wed, 15 May 2019 15:19:13 +0000
 Subject: Re: [PATCH 1/2] pid: add pidfd_open()
-Message-Id: <20190515145105.t7u6v5wxsq2tnbwj@yavin>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="2zvewrqzesizclxu"
+Message-Id: <20190515151912.GE18892@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20190515100400.3450-1-christian@brauner.io>
- <4c5ae46657e1931a832def5645db61eb0bf1accd.camel@opteya.com>
- <20190515141634.lrc5ynllcmjr64mn@brauner.io>
-In-Reply-To: <20190515141634.lrc5ynllcmjr64mn@brauner.io>
+ <20190515143857.GB18892@redhat.com>
+ <20190515144927.f2yxyi6w6lhn3xx7@brauner.io>
+In-Reply-To: <20190515144927.f2yxyi6w6lhn3xx7@brauner.io>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: Christian Brauner <christian@brauner.io>
-Cc: Yann Droneaud <ydroneaud@opteya.com>, jannh@google.com, oleg@redhat.com, viro@zeniv.linux.org.uk, torvalds@linux-foundation.org, linux-kernel@vger.kernel.org, arnd@arndb.de, dhowells@redhat.com, akpm@linux-foundation.org, ebiederm@xmission.com, elena.reshetova@intel.com, keescook@chromium.org, luto@amacapital.net, luto@kernel.org, tglx@linutronix.de, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-api@vger.kernel.org, linux-arch@vger.kernel.org, linux-kselftest@vger.kernel.org
+Cc: jannh@google.com, viro@zeniv.linux.org.uk, torvalds@linux-foundation.org, linux-kernel@vger.kernel.org, arnd@arndb.de, dhowells@redhat.com, akpm@linux-foundation.org, cyphar@cyphar.com, ebiederm@xmission.com, elena.reshetova@intel.com, keescook@chromium.org, luto@amacapital.net, luto@kernel.org, tglx@linutronix.de, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-api@vger.kernel.org, linux-arch@vger.kernel.org, linux-kselftest@vger.kernel.org
+
+On 05/15, Christian Brauner wrote:
+>
+> On Wed, May 15, 2019 at 04:38:58PM +0200, Oleg Nesterov wrote:
+> >
+> > it seems that you can do a single check
+> >
+> > 	tsk = pid_task(p, PIDTYPE_TGID);
+> > 	if (!tsk)
+> > 		ret = -ESRCH;
+> >
+> > this even looks more correct if we race with exec changing the leader.
+>
+> The logic here being that you can only reach the thread_group leader
+> from struct pid if PIDTYPE_PID = PIDTYPE_TGID for this struct pid?
+
+Not exactly... it is not that PIDTYPE_PID = PIDTYPE_TGID for this pid,
+struct pid has no "type" or something like this.
+
+The logic is that pid->tasks[PIDTYPE_XXX] is the list of task which use
+this pid as "XXX" type.
+
+For example, clone(CLONE_THREAD) creates a pid which has a single non-
+empty list, pid->tasks[PIDTYPE_PID]. This pid can't be used as TGID or
+SID.
+
+So if pid_task(PIDTYPE_TGID) returns non-NULL we know that this pid was
+used for a group-leader, see copy_process() which does
+
+	if (thread_group_leader(p))
+		attach_pid(p, PIDTYPE_TGID);
 
 
---2zvewrqzesizclxu
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+If we race with exec which changes the leader pid_task(TGID) can return
+the old leader. We do not care, but this means that we should not check
+thread_group_leader().
 
-On 2019-05-15, Christian Brauner <christian@brauner.io> wrote:
-> On Wed, May 15, 2019 at 04:00:20PM +0200, Yann Droneaud wrote:
-> > Would it be possible to create file descriptor with "restricted"
-> > operation ?
-> >=20
-> > - O_RDONLY: waiting for process completion allowed (for example)
-> > - O_WRONLY: sending process signal allowed
->=20
-> Yes, something like this is likely going to be possible in the future.
-> We had discussion around this. But mapping this to O_RDONLY and O_WRONLY
-> is not the right model. It makes more sense to have specialized flags
-> that restrict actions.
-
-Not to mention that the O_* flags have silly values which we shouldn't
-replicate in new syscalls IMHO.
-
---=20
-Aleksa Sarai
-Senior Software Engineer (Containers)
-SUSE Linux GmbH
-<https://www.cyphar.com/>
-
---2zvewrqzesizclxu
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAABCAAdFiEEb6Gz4/mhjNy+aiz1Snvnv3Dem58FAlzcJ1kACgkQSnvnv3De
-m5+m3g//R5zkvJNpR/uERo7fQzZ+8FbxYCxRtilFUHcBIdsgV/Lx50jsUxWug4Zl
-9r3C4jToLLKtMADwKihJR+E1ftE2STZ85hvLL0wpKX2kUqQcby7sU+XqgAFDuFXe
-eJLnHxTbErqrqcU8Qz1+0nTAxiPcekV2c7jB1+jQtFvakcqlxaT2CtK2/7P3sw2P
-G8mLXOL8uRx2WQ4z94SwfQ4kFwx14SIfWOA3kXVCDsuOoisQBqFsq9WhTwVsTb1X
-H9KRNF58YIjBkWTVe3VcJZiVKXfqZxYbZDhHSQiibqyFZ3JkBjeo+FS9xoGqCNkl
-I1M/BRHkyfhy1fIA8sIq82Bf1XXj4gaunsAk26xJqdpNnwUzXLT9IqXB/cD+D0+/
-v6SzkNckMf/igucg6Ev9n8Z+Asst7aTfDLkrtPubFrYsD8FjgsU7xqMlN5lnVMx3
-ovXX+xt0yRgVaczFTA0oWlc316Cje3SfchGc5dYce1BdsM98UaveoFKqsZ2QFyA7
-sHNClAFebnAGwYAcOAWgz4dU+B2YmDv1Z1xJ52IyGcPo4KGXYBfY9X3J+rIXTLhc
-0qp7vr8JIII/pSDquixjtG+aI+eLtl0g72mUM1KlOGDJZhQG14VRasjEI1M098Fk
-GRGn0Y2fOWPigwhq0zRKpIIp2d3YXZY8TamkTEMXPY3azLq50Jk=
-=+Ix9
------END PGP SIGNATURE-----
-
---2zvewrqzesizclxu--
+Oleg.
