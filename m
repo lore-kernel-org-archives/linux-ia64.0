@@ -1,43 +1,46 @@
-From: Michael Ellerman <mpe@ellerman.id.au>
-Date: Tue, 28 May 2019 03:43:43 +0000
-Subject: Re: [PATCH v3 2/3] arch: wire-up close_range()
-Message-Id: <87woibp7kg.fsf@concordia.ellerman.id.au>
+From: Tony Luck <tony.luck@intel.com>
+Date: Thu, 16 May 2019 01:04:14 +0000
+Subject: [PATCH: Linus please apply] ia64: Make sure that we have a mmiowb function real early
+Message-Id: <20190516010414.30623-1-tony.luck@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190524111047.6892-1-christian@brauner.io> <20190524111047.6892-3-christian@brauner.io>
-In-Reply-To: <20190524111047.6892-3-christian@brauner.io>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: viro@zeniv.linux.org.uk, linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org, torvalds@linux-foundation.org, fweimer@redhat.com
-Cc: jannh@google.com, oleg@redhat.com, tglx@linutronix.de, arnd@arndb.de, shuah@kernel.org, dhowells@redhat.com, tkjos@android.com, ldv@altlinux.org, miklos@szeredi.hu, Christian Brauner <christian@brauner.io>, linux-api@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org, x86@kernel.org
+To: linux-ia64@vger.kernel.org
 
-Christian Brauner <christian@brauner.io> writes:
-> diff --git a/arch/powerpc/kernel/syscalls/syscall.tbl b/arch/powerpc/kernel/syscalls/syscall.tbl
-> index 103655d84b4b..ba2c1f078cbd 100644
-> --- a/arch/powerpc/kernel/syscalls/syscall.tbl
-> +++ b/arch/powerpc/kernel/syscalls/syscall.tbl
-> @@ -515,3 +515,4 @@
->  431	common	fsconfig			sys_fsconfig
->  432	common	fsmount				sys_fsmount
->  433	common	fspick				sys_fspick
-> +435	common	close_range			sys_close_range
+Generic kernels feed many operation through the "machvec"
+logic to get the correct form of the operation for the
+current system. "mmiowb()" is one of those operations.
 
-With a minor build fix the selftest passes for me on ppc64le:
+Although machvec is initialized very early in boot, it isn't
+early enough for a recent upstream kernel change that added
+mmiowb to the spin_unlock() path.
 
-  # ./close_range_test 
-  1..9
-  ok 1 do not allow invalid flag values for close_range()
-  ok 2 close_range() from 3 to 53
-  ok 3 fcntl() verify closed range from 3 to 53
-  ok 4 close_range() from 54 to 95
-  ok 5 fcntl() verify closed range from 54 to 95
-  ok 6 close_range() from 96 to 102
-  ok 7 fcntl() verify closed range from 96 to 102
-  ok 8 close_range() closed single file descriptor
-  ok 9 fcntl() verify closed single file descriptor
-  # Pass 9 Fail 0 Xfail 0 Xpass 0 Skip 0 Error 0
+Statically initialize the mmiowb field of machvec so that we
+won't die with a call through a NULL pointer. This should be
+safe because we do the real initialization of machvec before
+bringing up any addtional CPUs or doing any I/O.
 
+Fixes: 49ca6462fc9e ("ia64/mmiowb: Add unconditional mmiowb() to arch_spin_unlock()")
+Signed-off-by: Tony Luck <tony.luck@intel.com>
+---
+ arch/ia64/kernel/machvec.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-Acked-by: Michael Ellerman <mpe@ellerman.id.au> (powerpc)
-
-cheers
+diff --git a/arch/ia64/kernel/machvec.c b/arch/ia64/kernel/machvec.c
+index 1b604d02250b..ebd82535f51b 100644
+--- a/arch/ia64/kernel/machvec.c
++++ b/arch/ia64/kernel/machvec.c
+@@ -10,7 +10,9 @@
+ 
+ #include <asm/page.h>
+ 
+-struct ia64_machine_vector ia64_mv;
++struct ia64_machine_vector ia64_mv = {
++	.mmiowb	= ___ia64_mmiowb
++};
+ EXPORT_SYMBOL(ia64_mv);
+ 
+ static struct ia64_machine_vector * __init
+-- 
+2.20.1
