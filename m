@@ -1,68 +1,69 @@
-From: Christian Brauner <christian@brauner.io>
-Date: Thu, 16 May 2019 14:05:08 +0000
+From: Aleksa Sarai <cyphar@cyphar.com>
+Date: Thu, 16 May 2019 14:53:41 +0000
 Subject: Re: [PATCH 1/2] pid: add pidfd_open()
-Message-Id: <20190516140507.75crjbaulasw6mj6@brauner.io>
+Message-Id: <20190516145341.xx7bpyakezvpqujj@yavin>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="rl3rpkoiju4ooj2k"
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20190515100400.3450-1-christian@brauner.io>
  <CAKOZuesPF+ftwqsNDMBy1LpwJgWTNuQm9-E=C90sSTBYEEsDww@mail.gmail.com>
  <20190516130813.i66ujfzftbgpqhnh@brauner.io>
- <CAG48ez05OtBi_yX+071TrrfK3zKOn9h1kFyPr5rttiqQAZ0sEA@mail.gmail.com>
-In-Reply-To: <CAG48ez05OtBi_yX+071TrrfK3zKOn9h1kFyPr5rttiqQAZ0sEA@mail.gmail.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Jann Horn <jannh@google.com>
-Cc: Daniel Colascione <dancol@google.com>, Oleg Nesterov <oleg@redhat.com>, Al Viro <viro@zeniv.linux.org.uk>, Linus Torvalds <torvalds@linux-foundation.org>, linux-kernel <linux-kernel@vger.kernel.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Andrew Morton <akpm@linux-foundation.org>, Aleksa Sarai <cyphar@cyphar.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Elena Reshetova <elena.reshetova@intel.com>, Kees Cook <keescook@chromium.org>, Andy Lutomirski <luto@amacapital.net>, Andy Lutomirski <luto@kernel.org>, Thomas Gleixner <tglx@linutronix.de>, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kern
+In-Reply-To: <20190516130813.i66ujfzftbgpqhnh@brauner.io>
+To: Christian Brauner <christian@brauner.io>
+Cc: Daniel Colascione <dancol@google.com>, Jann Horn <jannh@google.com>, Oleg Nesterov <oleg@redhat.com>, Al Viro <viro@zeniv.linux.org.uk>, Linus Torvalds <torvalds@linux-foundation.org>, linux-kernel <linux-kernel@vger.kernel.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Andrew Morton <akpm@linux-foundation.org>, "Eric W. Biederman" <ebiederm@xmission.com>, elena.reshetova@intel.com, Kees Cook <keescook@chromium.org>, Andy Lutomirski <luto@amacapital.net>, Andy Lutomirski <luto@kernel.org>, Thomas Gleixner <tglx@linutronix.de>, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozl
 
-On Thu, May 16, 2019 at 04:03:27PM +0200, Jann Horn wrote:
-> On Thu, May 16, 2019 at 3:08 PM Christian Brauner <christian@brauner.io> wrote:
-> > On Wed, May 15, 2019 at 10:45:06AM -0700, Daniel Colascione wrote:
-> > > On Wed, May 15, 2019 at 3:04 AM Christian Brauner <christian@brauner.io> wrote:
-> > > >
-> > > > This adds the pidfd_open() syscall. It allows a caller to retrieve pollable
-> > > > pidfds for a process which did not get created via CLONE_PIDFD, i.e. for a
-> > > > process that is created via traditional fork()/clone() calls that is only
-> > > > referenced by a PID:
-> [...]
-> > > > +/**
-> > > > + * pidfd_open() - Open new pid file descriptor.
-> > > > + *
-> > > > + * @pid:   pid for which to retrieve a pidfd
-> > > > + * @flags: flags to pass
-> > > > + *
-> > > > + * This creates a new pid file descriptor with the O_CLOEXEC flag set for
-> > > > + * the process identified by @pid. Currently, the process identified by
-> > > > + * @pid must be a thread-group leader. This restriction currently exists
-> > > > + * for all aspects of pidfds including pidfd creation (CLONE_PIDFD cannot
-> > > > + * be used with CLONE_THREAD) and pidfd polling (only supports thread group
-> > > > + * leaders).
-> > > > + *
-> > > > + * Return: On success, a cloexec pidfd is returned.
-> > > > + *         On error, a negative errno number will be returned.
-> > > > + */
-> > > > +SYSCALL_DEFINE2(pidfd_open, pid_t, pid, unsigned int, flags)
-> > > > +{
-> [...]
-> > > > +       if (pid <= 0)
-> > > > +               return -EINVAL;
-> > >
-> > > WDYT of defining pid = 0 to mean "open myself"?
-> >
-> > I'm torn. It be a nice shortcut of course but pid being 0 is usually an
-> > indicator for child processes. So unless the getpid() before
-> > pidfd_open() is an issue I'd say let's leave it as is. If you really
-> > want the shortcut might -1 be better?
-> 
-> Joining the bikeshed painting club: Please don't allow either 0 or -1
-> as shortcut for "self". James Forshaw found an Android security bug a
-> while back (https://bugs.chromium.org/p/project-zero/issues/detail?idr7)
-> that passed a PID to getpidcon(), except that the PID was 0
-> (placeholder for oneway binder transactions), and then the service
-> thought it was talking to itself. You could pick some other number and
-> provide a #define for that, but I think pidfd_open(getpid(), ...)
-> makes more sense.
 
-Yes, I agree. I left it as is for v1, i.e. no shortcut; getpid() should
-do.
+--rl3rpkoiju4ooj2k
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Christian
+On 2019-05-16, Christian Brauner <christian@brauner.io> wrote:
+> On Wed, May 15, 2019 at 10:45:06AM -0700, Daniel Colascione wrote:
+> > On Wed, May 15, 2019 at 3:04 AM Christian Brauner <christian@brauner.io=
+> wrote:
+> > > +       if (pid <=3D 0)
+> > > +               return -EINVAL;
+> >=20
+> > WDYT of defining pid =3D=3D 0 to mean "open myself"?
+>=20
+> I'm torn. It be a nice shortcut of course but pid being 0 is usually an
+> indicator for child processes. So unless the getpid() before
+> pidfd_open() is an issue I'd say let's leave it as is. If you really
+> want the shortcut might -1 be better?
+
+I'd suggest not using negative numbers, and instead reserving them for
+PIDTYPE_TGID if we ever want to have that in the future. IMHO, doing
+
+  pfd =3D pidfd_open(getpid(), 0);
+
+is not the end of the world.
+
+
+--=20
+Aleksa Sarai
+Senior Software Engineer (Containers)
+SUSE Linux GmbH
+<https://www.cyphar.com/>
+
+--rl3rpkoiju4ooj2k
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAABCAAdFiEEb6Gz4/mhjNy+aiz1Snvnv3Dem58FAlzdeXUACgkQSnvnv3De
+m58cOhAArH3Suh66uovI36Cs+UiaKF7pQq8Uj5fLxF9TEp/xA0aglqcZbJKrUIKr
+DIaXBIm1GOitsaCBH/+k2puVlhgNpCPaskXKCWTACjS5l6z7NBQ3o4ZDgmy9sS6/
+MgIMUnFpdpX+4qRBZPsvsfknvtBO9eI8cVfZIzo4NZnUzs5zRU6qToEKWCjQNscK
+RzO+BsCNNkQXXlHBkNrdX4ue058LJyEAYop8gqPAMorepNpbcydpkRq1YWGbd4iS
+3F5ZTCHdstprw5ZmFcLUaedwf4O1X9B+eulR82Y2PHSVoOHgidE3KcdouxMEXQlh
+8KOVL1cpD2h+AdGu9znbvhKLP87kDoSbTSznKZ3dlFdk6YQQbOMvofXAay/zXRnJ
+6GXTZ6r8KDhtoJTNdYRoBQUf+pgzLKLwPdnkzLfu3CFPMy6YpaBMFFt7DwTNG6Du
+Q1nI8HIBPe0Sf7VNyv5qaixRR5rfKnqv80FPdQZD0MGsXTU7z7Iv9rZ7/g+/4ZdH
+yLhuLIARtcqLd2LSNmHQFuBbuDxODQbtqS/89FmshKn+WHowS3/406NNYsvvdwTY
+NGeva57n7Ke7NmdsO1uVsxPmTUHaxp55Vx0BTIQN4+in7mlYdf6I4qD0cVE1TGJQ
+3AF3dH8bQrznZvmJUjXZY8dWRD4StRbAp822rBOY4+QyhbySjoY=
+=SYyW
+-----END PGP SIGNATURE-----
+
+--rl3rpkoiju4ooj2k--
