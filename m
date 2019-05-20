@@ -1,24 +1,31 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Mon, 20 May 2019 14:37:03 +0000
+From: Christian Brauner <christian@brauner.io>
+Date: Mon, 20 May 2019 14:48:23 +0000
 Subject: Re: [PATCH v2 1/2] pid: add pidfd_open()
-Message-Id: <CAK8P3a1cZZ6SQe5mGjhga=MgTvCGF6OKyjvosR8J6z6EpH+rVA@mail.gmail.com>
+Message-Id: <20190520144822.xfaifawi65jus6ng@brauner.io>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20190520134605.29116-1-christian@brauner.io>
-In-Reply-To: <20190520134605.29116-1-christian@brauner.io>
+ <CAK8P3a1cZZ6SQe5mGjhga=MgTvCGF6OKyjvosR8J6z6EpH+rVA@mail.gmail.com>
+In-Reply-To: <CAK8P3a1cZZ6SQe5mGjhga=MgTvCGF6OKyjvosR8J6z6EpH+rVA@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christian Brauner <christian@brauner.io>
+To: Arnd Bergmann <arnd@arndb.de>
 Cc: Jann Horn <jannh@google.com>, Oleg Nesterov <oleg@redhat.com>, Al Viro <viro@zeniv.linux.org.uk>, Linus Torvalds <torvalds@linux-foundation.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Andrew Morton <akpm@linux-foundation.org>, cyphar@cyphar.com, David Howells <dhowells@redhat.com>, "Eric W . Biederman" <ebiederm@xmission.com>, "Reshetova, Elena" <elena.reshetova@intel.com>, Kees Cook <keescook@chromium.org>, Andy Lutomirski <luto@amacapital.net>, Andy Lutomirski <luto@kernel.org>, Thomas Gleixner <tglx@linutronix.de>, alpha <linux-alpha@vger.kernel.org>, Linux ARM <linux-arm-kernel@lists.infradead.org>, linux-ia64@vger.kernel.org, linux-m68k <linux-m68k@lists.linux-m68k.org>, linux-mips@vger.kernel.org, Parisc List <linux-parisc@v>
 
-On Mon, May 20, 2019 at 3:46 PM Christian Brauner <christian@brauner.io> wrote:
->
-> In line with Arnd's recent changes to consolidate syscall numbers across
-> architectures, I have added the pidfd_open() syscall to all architectures
-> at the same time.
+On Mon, May 20, 2019 at 04:37:03PM +0200, Arnd Bergmann wrote:
+> On Mon, May 20, 2019 at 3:46 PM Christian Brauner <christian@brauner.io> wrote:
+> >
+> > In line with Arnd's recent changes to consolidate syscall numbers across
+> > architectures, I have added the pidfd_open() syscall to all architectures
+> > at the same time.
+> 
+> Thanks! I've checked that the ones you have added are all
+> done correctly. However, double-checking that you got all of them,
+> I noticed that you missed mips-o32 and mips-n64. With those added:
+> 
+> Acked-by: Arnd Bergmann <arnd@arndb.de>
 
-Thanks! I've checked that the ones you have added are all
-done correctly. However, double-checking that you got all of them,
-I noticed that you missed mips-o32 and mips-n64. With those added:
-
-Acked-by: Arnd Bergmann <arnd@arndb.de>
+Perfect, will plumb mips-o32 and mips-n64 and resend once more with your
+ack added.
+Sidenote: You plan on merging the common syscall tables or will there be
+a script to do this work per-arch in the future?
