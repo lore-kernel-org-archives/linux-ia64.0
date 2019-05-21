@@ -1,7 +1,7 @@
 From: Christian Brauner <christian@brauner.io>
-Date: Tue, 21 May 2019 13:18:50 +0000
+Date: Tue, 21 May 2019 13:23:23 +0000
 Subject: Re: [PATCH 1/2] open: add close_range()
-Message-Id: <20190521131849.2mguu5sszhbxhvgu@brauner.io>
+Message-Id: <20190521132252.y5wt7d7o4bdjns4e@brauner.io>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20190521113448.20654-1-christian@brauner.io>
  <87tvdoau12.fsf@oldenburg2.str.redhat.com>
@@ -12,7 +12,7 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Florian Weimer <fweimer@redhat.com>
-Cc: viro@zeniv.linux.org.uk, linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org, linux-api@vger.kernel.org, jannh@google.com, oleg@redhat.com, tglx@linutronix.de, torvalds@linux-foundation.org, arnd@arndb.de, shuah@kernel.org, dhowells@redhat.com, tkjos@android.com, ldv@altlinux.org, miklos@szeredi.hu, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org, linux-kselftest@vger.kernel.org, x86@kernel.org
+Cc: linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org, dhowells@redhat.com, linux-kselftest@vger.kernel.org, sparclinux@vger.kernel.org, shuah@kernel.org, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, miklos@szeredi.hu, x86@kernel.org, torvalds@linux-foundation.org, linux-mips@vger.kernel.org, linux-xtensa@linux-xtensa.org, tkjos@android.com, arnd@arndb.de, jannh@google.com, linux-m68k@lists.linux-m68k.org, viro@zeniv.linux.org.uk, tglx@linutronix.de, ldv@altlinux.org, linux-arm-kernel@lists.infradead.org, linux-parisc@vger.kernel.org, linux-api@vger.kernel.org, oleg@redhat.com, linux-alpha@vger.kernel.org, linux-fsdevel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
 
 On Tue, May 21, 2019 at 03:10:11PM +0200, Florian Weimer wrote:
 > * Christian Brauner:
@@ -29,6 +29,16 @@ On Tue, May 21, 2019 at 03:10:11PM +0200, Florian Weimer wrote:
 > 
 > The highest open descriptor isn't istering for fdwalk because nextfd
 > would just fail.
+
+Sure. I was thinking about other usecases. For example, sometimes in
+userspace you want to do the following:
+save_fd = dup(fd, <well-known-number-at-the-end-of-the-range);
+close_range(3, (save_fd - 1));
+
+Which brings me to another point. So even if we don't do close_range() I
+would like libc to maybe give us something like close_range() for such
+scenarios.
+
 > 
 > > But then I wonder if nextfd() needs to be a syscall and isn't just
 > > either:
@@ -38,12 +48,6 @@ On Tue, May 21, 2019 at 03:10:11PM +0200, Florian Weimer wrote:
 > 
 > I think the fcntl route is a bit iffy because you might need it to get
 > the *first* valid descriptor.
-
-Oh, how would that be difficult? Maybe I'm missing context.
-Couldn't you just do
-
-fcntl(0, F_GET_NEXT)
-
 > 
 > >> to userspace, so that we can use that to implement both fdwalk and
 > >> closefrom.  But maybe fdwalk is just too obscure, given the existence of
@@ -53,12 +57,6 @@ fcntl(0, F_GET_NEXT)
 > 
 > Agreed.  Just wanted to bring it up for completeness.  I certainly don't
 > want to derail the implementation of close_range.
-
-No, that's perfectly fine. I mean, you clearly need this and are one of
-the major stakeholders. For example, Rust (probably also Python) will
-call down into libc and not use the syscall directly. They kinda do this
-with getfdtable<sm> rn already.
-So what you say makes sense for libc has some relevance for the other
-tools as well.
-
-Christian
+> 
+> Thanks,
+> Florian
