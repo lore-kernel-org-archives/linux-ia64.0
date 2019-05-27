@@ -1,46 +1,68 @@
-From: Christian Brauner <christian@brauner.io>
-Date: Wed, 22 May 2019 08:12:11 +0000
-Subject: Re: [PATCH 1/2] open: add close_range()
-Message-Id: <CAHrFyr4NV_5Z7TRSXTaurd4KCTLiHqKb47dN=bdY46HiL9ZY3Q@mail.gmail.com>
+From: David Hildenbrand <david@redhat.com>
+Date: Mon, 27 May 2019 11:11:52 +0000
+Subject: [PATCH v3 11/11] mm/memory_hotplug: Remove "zone" parameter from sparse_remove_one_section
+Message-Id: <20190527111152.16324-12-david@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190521150006.GJ17978@ZenIV.linux.org.uk> <20190521113448.20654-1-christian@brauner.io>
- <28114.1558456227@warthog.procyon.org.uk> <20190521164141.rbehqnghiej3gfua@brauner.io>
- <CAHk-=wgtHm4t71oKbykE=awiVv2H2wCy8yH0L_FsyhHQ5OSO+Q@mail.gmail.com>
-In-Reply-To: <CAHk-=wgtHm4t71oKbykE=awiVv2H2wCy8yH0L_FsyhHQ5OSO+Q@mail.gmail.com>
+References: <20190527111152.16324-1-david@redhat.com>
+In-Reply-To: <20190527111152.16324-1-david@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Cc: David Howells <dhowells@redhat.com>, Al Viro <viro@zeniv.linux.org.uk>, Linux List Kernel Mailing <linux-kernel@vger.kernel.org>, linux-fsdevel <linux-fsdevel@vger.kernel.org>, Linux API <linux-api@vger.kernel.org>, Jann Horn <jannh@google.com>, Florian Weimer <fweimer@redhat.com>, Oleg Nesterov <oleg@redhat.com>, Thomas Gleixner <tglx@linutronix.de>, Arnd Bergmann <arnd@arndb.de>, Shuah Khan <shuah@kernel.org>, Todd Kjos <tkjos@android.com>, "Dmitry V. Levin" <ldv@altlinux.org>, Miklos Szeredi <miklos@szeredi.hu>, alpha <linux-alpha@vger.kernel.org>, Linux ARM <linux-arm-kernel@lists.infradead.org>, linux-ia64@vger.kernel.org, linux-m68k <linux-m68k@lists.linux-m68k.org>, linux-mips@vger.kernel.org, Parisc List <linux-parisc@vger.kernel.org>
+To: linux-mm@kvack.org
+Cc: linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, David Hildenbrand <david@redhat.com>, linux-kernel@vger.kernel.org, Wei Yang <richard.weiyang@gmail.com>, Igor Mammedov <imammedo@redhat.com>, akpm@linux-foundation.org, linuxppc-dev@lists.ozlabs.org, Dan Williams <dan.j.williams@intel.com>, linux-arm-kernel@lists.infradead.org
 
-On Tue, May 21, 2019 at 10:23 PM Linus Torvalds
-<torvalds@linux-foundation.org> wrote:
->
-> On Tue, May 21, 2019 at 9:41 AM Christian Brauner <christian@brauner.io> wrote:
-> >
-> > Yeah, you mentioned this before. I do like being able to specify an
-> > upper bound to have the ability to place fds strategically after said
-> > upper bound.
->
-> I suspect that's the case.
->
-> And if somebody really wants to just close everything and uses a large
-> upper bound, we can - if we really want to - just compare the upper
-> bound to the file table size, and do an optimized case for that. We do
-> that upper bound comparison anyway to limit the size of the walk, so
-> *if* it's a big deal, that case could then do the whole "shrink
-> fdtable" case too.
+The parameter is unused, so let's drop it. Memory removal paths should
+never care about zones. This is the job of memory offlining and will
+require more refactorings.
 
-Makes sense.
+Reviewed-by: Dan Williams <dan.j.williams@intel.com>
+Signed-off-by: David Hildenbrand <david@redhat.com>
+---
+ include/linux/memory_hotplug.h | 2 +-
+ mm/memory_hotplug.c            | 2 +-
+ mm/sparse.c                    | 4 ++--
+ 3 files changed, 4 insertions(+), 4 deletions(-)
 
->
-> But I don't believe it's worth optimizing for unless somebody really
-> has a load where that is shown to be a big deal.   Just do the silly
-> and simple loop, and add a cond_resched() in the loop, like
-> close_files() does for the "we have a _lot_ of files open" case.
-
-Ok. I will resend a v1 later with the cond_resched() logic you and Al
-suggested added.
-
-Thanks!
-Christian
+diff --git a/include/linux/memory_hotplug.h b/include/linux/memory_hotplug.h
+index 2f1f87e13baa..1a4257c5f74c 100644
+--- a/include/linux/memory_hotplug.h
++++ b/include/linux/memory_hotplug.h
+@@ -346,7 +346,7 @@ extern void move_pfn_range_to_zone(struct zone *zone, unsigned long start_pfn,
+ extern bool is_memblock_offlined(struct memory_block *mem);
+ extern int sparse_add_one_section(int nid, unsigned long start_pfn,
+ 				  struct vmem_altmap *altmap);
+-extern void sparse_remove_one_section(struct zone *zone, struct mem_section *ms,
++extern void sparse_remove_one_section(struct mem_section *ms,
+ 		unsigned long map_offset, struct vmem_altmap *altmap);
+ extern struct page *sparse_decode_mem_map(unsigned long coded_mem_map,
+ 					  unsigned long pnum);
+diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+index 82136c5b4c5f..e48ec7b9dee2 100644
+--- a/mm/memory_hotplug.c
++++ b/mm/memory_hotplug.c
+@@ -524,7 +524,7 @@ static void __remove_section(struct zone *zone, struct mem_section *ms,
+ 	start_pfn = section_nr_to_pfn((unsigned long)scn_nr);
+ 	__remove_zone(zone, start_pfn);
+ 
+-	sparse_remove_one_section(zone, ms, map_offset, altmap);
++	sparse_remove_one_section(ms, map_offset, altmap);
+ }
+ 
+ /**
+diff --git a/mm/sparse.c b/mm/sparse.c
+index d1d5e05f5b8d..1552c855d62a 100644
+--- a/mm/sparse.c
++++ b/mm/sparse.c
+@@ -800,8 +800,8 @@ static void free_section_usemap(struct page *memmap, unsigned long *usemap,
+ 		free_map_bootmem(memmap);
+ }
+ 
+-void sparse_remove_one_section(struct zone *zone, struct mem_section *ms,
+-		unsigned long map_offset, struct vmem_altmap *altmap)
++void sparse_remove_one_section(struct mem_section *ms, unsigned long map_offset,
++			       struct vmem_altmap *altmap)
+ {
+ 	struct page *memmap = NULL;
+ 	unsigned long *usemap = NULL;
+-- 
+2.20.1
