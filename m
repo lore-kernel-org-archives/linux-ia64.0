@@ -1,81 +1,47 @@
-From: Masahiro Yamada <yamada.masahiro@socionext.com>
-Date: Thu, 09 May 2019 00:44:39 +0000
-Subject: Re: [PATCH] ia64: require -Wl,--hash-style=sysv
-Message-Id: <CAK7LNAR80+TxOHUN9cqPB3iHCJcK13HkyMmaVru1wHbe-KfeGQ@mail.gmail.com>
+From: David Hildenbrand <david@redhat.com>
+Date: Mon, 27 May 2019 11:11:43 +0000
+Subject: [PATCH v3 02/11] s390x/mm: Fail when an altmap is used for arch_add_memory()
+Message-Id: <20190527111152.16324-3-david@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190423204821.241925-1-ndesaulniers@google.com>
- <CAKwvOd=ws1D95ydQjGtK0U0KQ-5poyj8Oek5Yka6-cvtCdpJ-g@mail.gmail.com> <CAKwvOd=tA3-i65B_92QHaJrpEREzBB91QkkqgRANncwfb2d-Kg@mail.gmail.com>
-In-Reply-To: <CAKwvOd=tA3-i65B_92QHaJrpEREzBB91QkkqgRANncwfb2d-Kg@mail.gmail.com>
+References: <20190527111152.16324-1-david@redhat.com>
+In-Reply-To: <20190527111152.16324-1-david@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Nick Desaulniers <ndesaulniers@google.com>
-Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, clang-built-linux <clang-built-linux@googlegroups.com>, linux-ia64@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+To: linux-mm@kvack.org
+Cc: Oscar Salvador <osalvador@suse.com>, linux-s390@vger.kernel.org, Michal Hocko <mhocko@suse.com>, linux-ia64@vger.kernel.org, Vasily Gorbik <gor@linux.ibm.com>, linux-sh@vger.kernel.org, David Hildenbrand <david@redhat.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, linux-kernel@vger.kernel.org, Wei Yang <richard.weiyang@gmail.com>, Mike Rapoport <rppt@linux.vnet.ibm.com>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Igor Mammedov <imammedo@redhat.com>, akpm@linux-foundation.org, linuxppc-dev@lists.ozlabs.org, Dan Williams <dan.j.williams@intel.com>, linux-arm-kernel@lists.infradead.org
 
-On Thu, May 9, 2019 at 4:27 AM Nick Desaulniers <ndesaulniers@google.com> wrote:
->
-> bumping for review, as the merge window is now open.
+ZONE_DEVICE is not yet supported, fail if an altmap is passed, so we
+don't forget arch_add_memory()/arch_remove_memory() when unlocking
+support.
 
+Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
+Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Michal Hocko <mhocko@suse.com>
+Cc: Mike Rapoport <rppt@linux.vnet.ibm.com>
+Cc: David Hildenbrand <david@redhat.com>
+Cc: Vasily Gorbik <gor@linux.ibm.com>
+Cc: Oscar Salvador <osalvador@suse.com>
+Suggested-by: Dan Williams <dan.j.williams@intel.com>
+Signed-off-by: David Hildenbrand <david@redhat.com>
+---
+ arch/s390/mm/init.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-ia64 is not very active these days.
-
-I applied this to my kbuild tree.
-I will send PR for this in the current MW.
-
-Thanks.
-
-
-
-
-> On Tue, Apr 30, 2019 at 1:24 PM Nick Desaulniers
-> <ndesaulniers@google.com> wrote:
-> >
-> > On Tue, Apr 23, 2019 at 1:48 PM Nick Desaulniers
-> > <ndesaulniers@google.com> wrote:
-> > >
-> > > Towards the goal of removing cc-ldoption, it seems that --hash-style> > > was added to binutils 2.17.50.0.2 in 2006. The minimal required version
-> > > of binutils for the kernel according to
-> > > Documentation/process/changes.rst is 2.20.
-> > >
-> > > Link: https://gcc.gnu.org/ml/gcc/2007-01/msg01141.html
-> > > Cc: clang-built-linux@googlegroups.com
-> > > Suggested-by: Masahiro Yamada <yamada.masahiro@socionext.com>
-> > > Signed-off-by: Nick Desaulniers <ndesaulniers@google.com>
-> > > ---
-> > >  arch/ia64/kernel/Makefile.gate | 2 +-
-> > >  1 file changed, 1 insertion(+), 1 deletion(-)
-> > >
-> > > diff --git a/arch/ia64/kernel/Makefile.gate b/arch/ia64/kernel/Makefile.gate
-> > > index f53faf48b7ce..846867bff6d6 100644
-> > > --- a/arch/ia64/kernel/Makefile.gate
-> > > +++ b/arch/ia64/kernel/Makefile.gate
-> > > @@ -11,7 +11,7 @@ quiet_cmd_gate = GATE    $@
-> > >        cmd_gate = $(CC) -nostdlib $(GATECFLAGS_$(@F)) -Wl,-T,$(filter-out FORCE,$^) -o $@
-> > >
-> > >  GATECFLAGS_gate.so = -shared -s -Wl,-soname=linux-gate.so.1 \
-> > > -                    $(call cc-ldoption, -Wl$(comma)--hash-style=sysv)
-> > > +                    -Wl,--hash-style=sysv
-> > >  $(obj)/gate.so: $(obj)/gate.lds $(obj)/gate.o FORCE
-> > >         $(call if_changed,gate)
-> > >
-> > > --
-> > > 2.21.0.593.g511ec345e18-goog
-> > >
-> >
-> > bumping for review
-> >
-> > --
-> > Thanks,
-> > ~Nick Desaulniers
->
->
->
-> --
-> Thanks,
-> ~Nick Desaulniers
-
-
-
+diff --git a/arch/s390/mm/init.c b/arch/s390/mm/init.c
+index 14d1eae9fe43..d552e330fbcc 100644
+--- a/arch/s390/mm/init.c
++++ b/arch/s390/mm/init.c
+@@ -226,6 +226,9 @@ int arch_add_memory(int nid, u64 start, u64 size,
+ 	unsigned long size_pages = PFN_DOWN(size);
+ 	int rc;
+ 
++	if (WARN_ON_ONCE(restrictions->altmap))
++		return -EINVAL;
++
+ 	rc = vmem_add_mapping(start, size);
+ 	if (rc)
+ 		return rc;
 -- 
-Best Regards
-Masahiro Yamada
+2.20.1
