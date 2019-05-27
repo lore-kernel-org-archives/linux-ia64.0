@@ -1,69 +1,71 @@
-From: Aleksa Sarai <cyphar@cyphar.com>
-Date: Thu, 16 May 2019 14:53:41 +0000
-Subject: Re: [PATCH 1/2] pid: add pidfd_open()
-Message-Id: <20190516145341.xx7bpyakezvpqujj@yavin>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="rl3rpkoiju4ooj2k"
+From: David Hildenbrand <david@redhat.com>
+Date: Mon, 27 May 2019 11:11:45 +0000
+Subject: [PATCH v3 04/11] arm64/mm: Add temporary arch_remove_memory() implementation
+Message-Id: <20190527111152.16324-5-david@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190515100400.3450-1-christian@brauner.io>
- <CAKOZuesPF+ftwqsNDMBy1LpwJgWTNuQm9-E=C90sSTBYEEsDww@mail.gmail.com>
- <20190516130813.i66ujfzftbgpqhnh@brauner.io>
-In-Reply-To: <20190516130813.i66ujfzftbgpqhnh@brauner.io>
-To: Christian Brauner <christian@brauner.io>
-Cc: Daniel Colascione <dancol@google.com>, Jann Horn <jannh@google.com>, Oleg Nesterov <oleg@redhat.com>, Al Viro <viro@zeniv.linux.org.uk>, Linus Torvalds <torvalds@linux-foundation.org>, linux-kernel <linux-kernel@vger.kernel.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Andrew Morton <akpm@linux-foundation.org>, "Eric W. Biederman" <ebiederm@xmission.com>, elena.reshetova@intel.com, Kees Cook <keescook@chromium.org>, Andy Lutomirski <luto@amacapital.net>, Andy Lutomirski <luto@kernel.org>, Thomas Gleixner <tglx@linutronix.de>, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozl
+References: <20190527111152.16324-1-david@redhat.com>
+In-Reply-To: <20190527111152.16324-1-david@redhat.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-mm@kvack.org
+Cc: Mark Rutland <mark.rutland@arm.com>, linux-s390@vger.kernel.org, Ard Biesheuvel <ard.biesheuvel@linaro.org>, linux-ia64@vger.kernel.org, Yu Zhao <yuzhao@google.com>, Anshuman Khandual <anshuman.khandual@arm.com>, linux-sh@vger.kernel.org, Catalin Marinas <catalin.marinas@arm.com>, David Hildenbrand <david@redhat.com>, Will Deacon <will.deacon@arm.com>, linux-kernel@vger.kernel.org, Wei Yang <richard.weiyang@gmail.com>, Jun Yao <yaojun8558363@gmail.com>, Chintan Pandya <cpandya@codeaurora.org>, Igor Mammedov <imammedo@redhat.com>, akpm@linux-foundation.org, Mike Rapoport <rppt@linux.ibm.com>, linuxppc-dev@lists.ozlabs.org, Dan Williams <dan.j.williams@intel.com>, linux-arm-kernel@lists.infradead.org, Robin Murphy <robin.murphy@arm.com>
 
+A proper arch_remove_memory() implementation is on its way, which also
+cleanly removes page tables in arch_add_memory() in case something goes
+wrong.
 
---rl3rpkoiju4ooj2k
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+As we want to use arch_remove_memory() in case something goes wrong
+during memory hotplug after arch_add_memory() finished, let's add
+a temporary hack that is sufficient enough until we get a proper
+implementation that cleans up page table entries.
 
-On 2019-05-16, Christian Brauner <christian@brauner.io> wrote:
-> On Wed, May 15, 2019 at 10:45:06AM -0700, Daniel Colascione wrote:
-> > On Wed, May 15, 2019 at 3:04 AM Christian Brauner <christian@brauner.io=
-> wrote:
-> > > +       if (pid <=3D 0)
-> > > +               return -EINVAL;
-> >=20
-> > WDYT of defining pid =3D=3D 0 to mean "open myself"?
->=20
-> I'm torn. It be a nice shortcut of course but pid being 0 is usually an
-> indicator for child processes. So unless the getpid() before
-> pidfd_open() is an issue I'd say let's leave it as is. If you really
-> want the shortcut might -1 be better?
+We will remove CONFIG_MEMORY_HOTREMOVE around this code in follow up
+patches.
 
-I'd suggest not using negative numbers, and instead reserving them for
-PIDTYPE_TGID if we ever want to have that in the future. IMHO, doing
+Cc: Catalin Marinas <catalin.marinas@arm.com>
+Cc: Will Deacon <will.deacon@arm.com>
+Cc: Mark Rutland <mark.rutland@arm.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Cc: Chintan Pandya <cpandya@codeaurora.org>
+Cc: Mike Rapoport <rppt@linux.ibm.com>
+Cc: Jun Yao <yaojun8558363@gmail.com>
+Cc: Yu Zhao <yuzhao@google.com>
+Cc: Robin Murphy <robin.murphy@arm.com>
+Cc: Anshuman Khandual <anshuman.khandual@arm.com>
+Signed-off-by: David Hildenbrand <david@redhat.com>
+---
+ arch/arm64/mm/mmu.c | 19 +++++++++++++++++++
+ 1 file changed, 19 insertions(+)
 
-  pfd =3D pidfd_open(getpid(), 0);
-
-is not the end of the world.
-
-
---=20
-Aleksa Sarai
-Senior Software Engineer (Containers)
-SUSE Linux GmbH
-<https://www.cyphar.com/>
-
---rl3rpkoiju4ooj2k
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQIzBAABCAAdFiEEb6Gz4/mhjNy+aiz1Snvnv3Dem58FAlzdeXUACgkQSnvnv3De
-m58cOhAArH3Suh66uovI36Cs+UiaKF7pQq8Uj5fLxF9TEp/xA0aglqcZbJKrUIKr
-DIaXBIm1GOitsaCBH/+k2puVlhgNpCPaskXKCWTACjS5l6z7NBQ3o4ZDgmy9sS6/
-MgIMUnFpdpX+4qRBZPsvsfknvtBO9eI8cVfZIzo4NZnUzs5zRU6qToEKWCjQNscK
-RzO+BsCNNkQXXlHBkNrdX4ue058LJyEAYop8gqPAMorepNpbcydpkRq1YWGbd4iS
-3F5ZTCHdstprw5ZmFcLUaedwf4O1X9B+eulR82Y2PHSVoOHgidE3KcdouxMEXQlh
-8KOVL1cpD2h+AdGu9znbvhKLP87kDoSbTSznKZ3dlFdk6YQQbOMvofXAay/zXRnJ
-6GXTZ6r8KDhtoJTNdYRoBQUf+pgzLKLwPdnkzLfu3CFPMy6YpaBMFFt7DwTNG6Du
-Q1nI8HIBPe0Sf7VNyv5qaixRR5rfKnqv80FPdQZD0MGsXTU7z7Iv9rZ7/g+/4ZdH
-yLhuLIARtcqLd2LSNmHQFuBbuDxODQbtqS/89FmshKn+WHowS3/406NNYsvvdwTY
-NGeva57n7Ke7NmdsO1uVsxPmTUHaxp55Vx0BTIQN4+in7mlYdf6I4qD0cVE1TGJQ
-3AF3dH8bQrznZvmJUjXZY8dWRD4StRbAp822rBOY4+QyhbySjoY=
-=SYyW
------END PGP SIGNATURE-----
-
---rl3rpkoiju4ooj2k--
+diff --git a/arch/arm64/mm/mmu.c b/arch/arm64/mm/mmu.c
+index a1bfc4413982..e569a543c384 100644
+--- a/arch/arm64/mm/mmu.c
++++ b/arch/arm64/mm/mmu.c
+@@ -1084,4 +1084,23 @@ int arch_add_memory(int nid, u64 start, u64 size,
+ 	return __add_pages(nid, start >> PAGE_SHIFT, size >> PAGE_SHIFT,
+ 			   restrictions);
+ }
++#ifdef CONFIG_MEMORY_HOTREMOVE
++void arch_remove_memory(int nid, u64 start, u64 size,
++			struct vmem_altmap *altmap)
++{
++	unsigned long start_pfn = start >> PAGE_SHIFT;
++	unsigned long nr_pages = size >> PAGE_SHIFT;
++	struct zone *zone;
++
++	/*
++	 * FIXME: Cleanup page tables (also in arch_add_memory() in case
++	 * adding fails). Until then, this function should only be used
++	 * during memory hotplug (adding memory), not for memory
++	 * unplug. ARCH_ENABLE_MEMORY_HOTREMOVE must not be
++	 * unlocked yet.
++	 */
++	zone = page_zone(pfn_to_page(start_pfn));
++	__remove_pages(zone, start_pfn, nr_pages, altmap);
++}
++#endif
+ #endif
+-- 
+2.20.1
