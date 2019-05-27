@@ -1,86 +1,80 @@
-From: Christian Brauner <christian@brauner.io>
-Date: Tue, 28 May 2019 09:57:56 +0000
-Subject: Re: [PATCH v2 2/2] tests: add close_range() tests
-Message-Id: <20190528095754.peumcgjysw2nq24y@brauner.io>
+From: David Hildenbrand <david@redhat.com>
+Date: Mon, 27 May 2019 11:11:46 +0000
+Subject: [PATCH v3 05/11] drivers/base/memory: Pass a block_id to init_memory_block()
+Message-Id: <20190527111152.16324-6-david@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190523154747.15162-1-christian@brauner.io>
- <20190523154747.15162-3-christian@brauner.io>
- <8736kzqpdm.fsf@concordia.ellerman.id.au>
-In-Reply-To: <8736kzqpdm.fsf@concordia.ellerman.id.au>
+References: <20190527111152.16324-1-david@redhat.com>
+In-Reply-To: <20190527111152.16324-1-david@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Michael Ellerman <mpe@ellerman.id.au>
-Cc: viro@zeniv.linux.org.uk, linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org, linux-api@vger.kernel.org, torvalds@linux-foundation.org, fweimer@redhat.com, jannh@google.com, oleg@redhat.com, tglx@linutronix.de, arnd@arndb.de, shuah@kernel.org, dhowells@redhat.com, tkjos@android.com, ldv@altlinux.org, miklos@szeredi.hu, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org, linux-kselftest@vger.kernel.org, x86@kernel.org
+To: linux-mm@kvack.org
+Cc: linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, David Hildenbrand <david@redhat.com>, linux-kernel@vger.kernel.org, Wei Yang <richard.weiyang@gmail.com>, "Rafael J. Wysocki" <rafael@kernel.org>, Igor Mammedov <imammedo@redhat.com>, akpm@linux-foundation.org, linuxppc-dev@lists.ozlabs.org, Dan Williams <dan.j.williams@intel.com>, linux-arm-kernel@lists.infradead.org
 
-On Tue, May 28, 2019 at 12:33:41PM +1000, Michael Ellerman wrote:
-> Christian Brauner <christian@brauner.io> writes:
-> > This adds basic tests for the new close_range() syscall.
-> > - test that no invalid flags can be passed
-> > - test that a range of file descriptors is correctly closed
-> > - test that a range of file descriptors is correctly closed if there there
-> >   are already closed file descriptors in the range
-> > - test that max_fd is correctly capped to the current fdtable maximum
-> >
-> > Signed-off-by: Christian Brauner <christian@brauner.io>
-> > Cc: Arnd Bergmann <arnd@arndb.de>
-> > Cc: Jann Horn <jannh@google.com>
-> > Cc: David Howells <dhowells@redhat.com>
-> > Cc: Dmitry V. Levin <ldv@altlinux.org>
-> > Cc: Oleg Nesterov <oleg@redhat.com>
-> > Cc: Linus Torvalds <torvalds@linux-foundation.org>
-> > Cc: Florian Weimer <fweimer@redhat.com>
-> > Cc: linux-api@vger.kernel.org
-> > ---
-> > v1: unchanged
-> > v2:
-> > - Christian Brauner <christian@brauner.io>:
-> >   - verify that close_range() correctly closes a single file descriptor
-> > ---
-> >  tools/testing/selftests/Makefile              |   1 +
-> >  tools/testing/selftests/core/.gitignore       |   1 +
-> >  tools/testing/selftests/core/Makefile         |   6 +
-> >  .../testing/selftests/core/close_range_test.c | 142 ++++++++++++++++++
-> >  4 files changed, 150 insertions(+)
-> >  create mode 100644 tools/testing/selftests/core/.gitignore
-> >  create mode 100644 tools/testing/selftests/core/Makefile
-> >  create mode 100644 tools/testing/selftests/core/close_range_test.c
-> >
-> > diff --git a/tools/testing/selftests/core/.gitignore b/tools/testing/selftests/core/.gitignore
-> > new file mode 100644
-> > index 000000000000..6e6712ce5817
-> > --- /dev/null
-> > +++ b/tools/testing/selftests/core/.gitignore
-> > @@ -0,0 +1 @@
-> > +close_range_test
-> > diff --git a/tools/testing/selftests/core/Makefile b/tools/testing/selftests/core/Makefile
-> > new file mode 100644
-> > index 000000000000..de3ae68aa345
-> > --- /dev/null
-> > +++ b/tools/testing/selftests/core/Makefile
-> > @@ -0,0 +1,6 @@
-> > +CFLAGS += -g -I../../../../usr/include/ -I../../../../include
-> 
-> Your second -I pulls the unexported kernel headers in, userspace
-> programs shouldn't include unexported kernel headers.
-> 
-> It breaks the build on powerpc with eg:
-> 
->   powerpc64le-linux-gnu-gcc -g -I../../../../usr/include/ -I../../../../include    close_range_test.c  -o /output/kselftest/core/close_range_test
->   In file included from /usr/powerpc64le-linux-gnu/include/bits/fcntl-linux.h:346,
->                    from /usr/powerpc64le-linux-gnu/include/bits/fcntl.h:62,
->                    from /usr/powerpc64le-linux-gnu/include/fcntl.h:35,
->                    from close_range_test.c:5:
->   ../../../../include/linux/falloc.h:13:2: error: unknown type name '__s16'
->     __s16  l_type;
->     ^~~~~
-> 
-> 
-> Did you do that on purpose or just copy it from one of the other
-> Makefiles? :)
+We'll rework hotplug_memory_register() shortly, so it no longer consumes
+pass a section.
 
-I originally did that on purpose because checkpatch was yammering on
-about me not having used ARRAY_SIZE(). But that include can go, you are
-right.
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: "Rafael J. Wysocki" <rafael@kernel.org>
+Signed-off-by: David Hildenbrand <david@redhat.com>
+---
+ drivers/base/memory.c | 15 +++++++--------
+ 1 file changed, 7 insertions(+), 8 deletions(-)
 
-Christian
+diff --git a/drivers/base/memory.c b/drivers/base/memory.c
+index f180427e48f4..f914fa6fe350 100644
+--- a/drivers/base/memory.c
++++ b/drivers/base/memory.c
+@@ -651,21 +651,18 @@ int register_memory(struct memory_block *memory)
+ 	return ret;
+ }
+ 
+-static int init_memory_block(struct memory_block **memory,
+-			     struct mem_section *section, unsigned long state)
++static int init_memory_block(struct memory_block **memory, int block_id,
++			     unsigned long state)
+ {
+ 	struct memory_block *mem;
+ 	unsigned long start_pfn;
+-	int scn_nr;
+ 	int ret = 0;
+ 
+ 	mem = kzalloc(sizeof(*mem), GFP_KERNEL);
+ 	if (!mem)
+ 		return -ENOMEM;
+ 
+-	scn_nr = __section_nr(section);
+-	mem->start_section_nr -			base_memory_block_id(scn_nr) * sections_per_block;
++	mem->start_section_nr = block_id * sections_per_block;
+ 	mem->end_section_nr = mem->start_section_nr + sections_per_block - 1;
+ 	mem->state = state;
+ 	start_pfn = section_nr_to_pfn(mem->start_section_nr);
+@@ -694,7 +691,8 @@ static int add_memory_block(int base_section_nr)
+ 
+ 	if (section_count = 0)
+ 		return 0;
+-	ret = init_memory_block(&mem, __nr_to_section(section_nr), MEM_ONLINE);
++	ret = init_memory_block(&mem, base_memory_block_id(base_section_nr),
++				MEM_ONLINE);
+ 	if (ret)
+ 		return ret;
+ 	mem->section_count = section_count;
+@@ -707,6 +705,7 @@ static int add_memory_block(int base_section_nr)
+  */
+ int hotplug_memory_register(int nid, struct mem_section *section)
+ {
++	int block_id = base_memory_block_id(__section_nr(section));
+ 	int ret = 0;
+ 	struct memory_block *mem;
+ 
+@@ -717,7 +716,7 @@ int hotplug_memory_register(int nid, struct mem_section *section)
+ 		mem->section_count++;
+ 		put_device(&mem->dev);
+ 	} else {
+-		ret = init_memory_block(&mem, section, MEM_OFFLINE);
++		ret = init_memory_block(&mem, block_id, MEM_OFFLINE);
+ 		if (ret)
+ 			goto out;
+ 		mem->section_count++;
+-- 
+2.20.1
