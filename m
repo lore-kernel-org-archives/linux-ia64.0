@@ -1,52 +1,59 @@
-From: Pavel Tatashin <pasha.tatashin@soleen.com>
-Date: Thu, 30 May 2019 21:07:05 +0000
-Subject: Re: [PATCH v3 07/11] mm/memory_hotplug: Create memory block devices after arch_add_memory()
-Message-Id: <CA+CK2bBLtZL8qxsjJt-tdaOraJCbDYfH2cbQ1ABJJ8hYif8LiQ@mail.gmail.com>
+From: David Hildenbrand <david@redhat.com>
+Date: Mon, 27 May 2019 11:11:42 +0000
+Subject: [PATCH v3 01/11] mm/memory_hotplug: Simplify and fix check_hotplug_memory_range()
+Message-Id: <20190527111152.16324-2-david@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20190527111152.16324-1-david@redhat.com>
- <20190527111152.16324-8-david@redhat.com>
-In-Reply-To: <20190527111152.16324-8-david@redhat.com>
+In-Reply-To: <20190527111152.16324-1-david@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Hildenbrand <david@redhat.com>
-Cc: Ingo Molnar <mingo@kernel.org>, linux-s390@vger.kernel.org, Michal Hocko <mhocko@suse.com>, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, "mike.travis@hpe.com" <mike.travis@hpe.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, "Rafael J. Wysocki" <rafael@kernel.org>, Mathieu Malaterre <malat@debian.org>, LKML <linux-kernel@vger.kernel.org>, Arun KS <arunks@codeaurora.org>, Wei Yang <richard.weiyang@gmail.com>, linux-mm <linux-mm@kvack.org>, Andrew Banman <andrew.banman@hpe.com>, Qian Cai <cai@lca.pw>, Igor Mammedov <imammedo@redhat.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, Dan Williams <dan.j.williams@intel.com>, Linux ARM <linux-arm-kernel@lists.infradead.org>, Oscar Salvador <osalvador@suse.de>
+To: linux-mm@kvack.org
+Cc: linux-s390@vger.kernel.org, Michal Hocko <mhocko@suse.com>, linux-ia64@vger.kernel.org, Pavel Tatashin <pasha.tatashin@soleen.com>, linux-sh@vger.kernel.org, Mathieu Malaterre <malat@debian.org>, David Hildenbrand <david@redhat.com>, linux-kernel@vger.kernel.org, Wei Yang <richard.weiyang@gmail.com>, Arun KS <arunks@codeaurora.org>, Qian Cai <cai@lca.pw>, Wei Yang <richardw.yang@linux.intel.com>, Igor Mammedov <imammedo@redhat.com>, akpm@linux-foundation.org, linuxppc-dev@lists.ozlabs.org, Dan Williams <dan.j.williams@intel.com>, linux-arm-kernel@lists.infradead.org, Oscar Salvador <osalvador@suse.de>
 
-On Mon, May 27, 2019 at 7:12 AM David Hildenbrand <david@redhat.com> wrote:
->
-> Only memory to be added to the buddy and to be onlined/offlined by
-> user space using /sys/devices/system/memory/... needs (and should have!)
-> memory block devices.
->
-> Factor out creation of memory block devices. Create all devices after
-> arch_add_memory() succeeded. We can later drop the want_memblock parameter,
-> because it is now effectively stale.
->
-> Only after memory block devices have been added, memory can be onlined
-> by user space. This implies, that memory is not visible to user space at
-> all before arch_add_memory() succeeded.
->
-> While at it
-> - use WARN_ON_ONCE instead of BUG_ON in moved unregister_memory()
-> - introduce find_memory_block_by_id() to search via block id
-> - Use find_memory_block_by_id() in init_memory_block() to catch
->   duplicates
->
-> Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-> Cc: "Rafael J. Wysocki" <rafael@kernel.org>
-> Cc: David Hildenbrand <david@redhat.com>
-> Cc: "mike.travis@hpe.com" <mike.travis@hpe.com>
-> Cc: Andrew Morton <akpm@linux-foundation.org>
-> Cc: Ingo Molnar <mingo@kernel.org>
-> Cc: Andrew Banman <andrew.banman@hpe.com>
-> Cc: Oscar Salvador <osalvador@suse.de>
-> Cc: Michal Hocko <mhocko@suse.com>
-> Cc: Pavel Tatashin <pasha.tatashin@soleen.com>
-> Cc: Qian Cai <cai@lca.pw>
-> Cc: Wei Yang <richard.weiyang@gmail.com>
-> Cc: Arun KS <arunks@codeaurora.org>
-> Cc: Mathieu Malaterre <malat@debian.org>
-> Signed-off-by: David Hildenbrand <david@redhat.com>
+By converting start and size to page granularity, we actually ignore
+unaligned parts within a page instead of properly bailing out with an
+error.
 
-LGTM
-Reviewed-by: Pavel Tatashin <pasha.tatashin@soleen.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Oscar Salvador <osalvador@suse.de>
+Cc: Michal Hocko <mhocko@suse.com>
+Cc: David Hildenbrand <david@redhat.com>
+Cc: Pavel Tatashin <pasha.tatashin@soleen.com>
+Cc: Qian Cai <cai@lca.pw>
+Cc: Wei Yang <richard.weiyang@gmail.com>
+Cc: Arun KS <arunks@codeaurora.org>
+Cc: Mathieu Malaterre <malat@debian.org>
+Reviewed-by: Dan Williams <dan.j.williams@intel.com>
+Reviewed-by: Wei Yang <richardw.yang@linux.intel.com>
+Signed-off-by: David Hildenbrand <david@redhat.com>
+---
+ mm/memory_hotplug.c | 11 +++--------
+ 1 file changed, 3 insertions(+), 8 deletions(-)
+
+diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+index e096c987d261..762887b2358b 100644
+--- a/mm/memory_hotplug.c
++++ b/mm/memory_hotplug.c
+@@ -1051,16 +1051,11 @@ int try_online_node(int nid)
+ 
+ static int check_hotplug_memory_range(u64 start, u64 size)
+ {
+-	unsigned long block_sz = memory_block_size_bytes();
+-	u64 block_nr_pages = block_sz >> PAGE_SHIFT;
+-	u64 nr_pages = size >> PAGE_SHIFT;
+-	u64 start_pfn = PFN_DOWN(start);
+-
+ 	/* memory range must be block size aligned */
+-	if (!nr_pages || !IS_ALIGNED(start_pfn, block_nr_pages) ||
+-	    !IS_ALIGNED(nr_pages, block_nr_pages)) {
++	if (!size || !IS_ALIGNED(start, memory_block_size_bytes()) ||
++	    !IS_ALIGNED(size, memory_block_size_bytes())) {
+ 		pr_err("Block size [%#lx] unaligned hotplug range: start %#llx, size %#llx",
+-		       block_sz, start, size);
++		       memory_block_size_bytes(), start, size);
+ 		return -EINVAL;
+ 	}
+ 
+-- 
+2.20.1
