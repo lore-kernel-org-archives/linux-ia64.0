@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Tue, 28 May 2019 16:39:51 +0000
-Subject: RE: [PATCH - Linus please apply] ia64: fix build errors by exporting paddr_to_nid()
-Message-Id: <3908561D78D1C84285E8C5FCA982C28F7E97462E@ORSMSX104.amr.corp.intel.com>
+From: Randy Dunlap <rdunlap@infradead.org>
+Date: Tue, 28 May 2019 16:56:40 +0000
+Subject: Re: [PATCH - Linus please apply] ia64: fix build errors by exporting paddr_to_nid()
+Message-Id: <6ab98945-7163-04d8-0139-6c1c1936e455@infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20190528161430.27697-1-tony.luck@intel.com>
 In-Reply-To: <20190528161430.27697-1-tony.luck@intel.com>
@@ -10,11 +10,21 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-PiBKdXN0IG91dCBvZiBjdXJpb3NpdHksIHdoYXQgY2F1c2VkIHRoaXMgZXJyb3I/IEl0IGRvZXNu
-J3QgX2xvb2tfIG5ldywNCj4ganVzdCBqdWRnaW5nIGZyb20gdGhlIHBhdGNoIGl0c2VsZi4gSXMg
-dGhpcyBqdXN0IGEgY29uZmlndXJhdGlvbiB0aGF0DQo+IG5vYm9keSBoYXMgbm90aWNlZCBiZWZv
-cmUsIG9yIHNvbWV0aGluZyBlbHNlIHRoYXQgY2hhbmdlZCB0aGF0IGNhdXNlZA0KPiBpdCB0byBo
-YXBwZW4gbm93Pw0KDQpJJ20gY29uZnVzZWQgYnkgdGhlIGVycm9yIGJlY2F1c2UgSSBkb24ndCBz
-ZWUgaXQgdXNpbmcgYW4gb2xkZXIgKDQuNi40KSB2ZXJzaW9uDQpvZiBnY2MuIEJ1dCBSYW5keSBp
-cyBidWlsZGluZyB3aXRoIHNvbWV0aGluZyBtb2Rlcm4gYW5kIHJ1bnMgaW50byBpdC4NCg0KU28g
-c29tZSBhZ2dyZXNzaXZlIG9wdGltaXphdGlvbi9pbmxpbmU/DQoNCi1Ub255DQo
+On 5/28/19 9:39 AM, Luck, Tony wrote:
+>> Just out of curiosity, what caused this error? It doesn't _look_ new,
+>> just judging from the patch itself. Is this just a configuration that
+>> nobody has noticed before, or something else that changed that caused
+>> it to happen now?
+> 
+> I'm confused by the error because I don't see it using an older (4.6.4) version
+> of gcc. But Randy is building with something modern and runs into it.
+> 
+> So some aggressive optimization/inline?
+> 
+> -Tony
+
+kbuild test robot reported the build error.  It uses gcc 7.x.
+I am using gcc 8.1 from kernel.org crosstools.
+
+-- 
+~Randy
