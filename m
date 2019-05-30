@@ -1,51 +1,97 @@
-From: "Leizhen (ThunderTown)" <thunder.leizhen@huawei.com>
-Date: Tue, 28 May 2019 13:05:50 +0000
-Subject: Re: [PATCH v7 1/1] iommu: enhance IOMMU dma mode build options
-Message-Id: <5CED322E.20102@huawei.com>
+From: Zhen Lei <thunder.leizhen@huawei.com>
+Date: Thu, 30 May 2019 03:48:25 +0000
+Subject: [PATCH v8 1/7] iommu: enhance IOMMU default DMA mode build options
+Message-Id: <20190530034831.4184-2-thunder.leizhen@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190520135947.14960-1-thunder.leizhen@huawei.com>
- <20190520135947.14960-2-thunder.leizhen@huawei.com>
- <20190527142140.GH8420@8bytes.org>
-In-Reply-To: <20190527142140.GH8420@8bytes.org>
+References: <20190530034831.4184-1-thunder.leizhen@huawei.com>
+In-Reply-To: <20190530034831.4184-1-thunder.leizhen@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Joerg Roedel <joro@8bytes.org>
-Cc: Jean-Philippe Brucker <jean-philippe.brucker@arm.com>, John Garry <john.garry@huawei.com>, Robin Murphy <robin.murphy@arm.com>, Will Deacon <will.deacon@arm.com>, Jonathan Corbet <corbet@lwn.net>, linux-doc <linux-doc@vger.kernel.org>, Sebastian Ott <sebott@linux.ibm.com>, Gerald Schaefer <gerald.schaefer@de.ibm.com>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, "H . Peter Anvin" <hpa@zytor.com>, David Woodhouse <dwmw2@infradead.org>, iommu <iommu@lists.linux-foundation.org>, linux-kernel <linux-kernel@vger.kernel.org>, linux-s390 <linux-s390@vger.kernel.org>, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, x86 <x86@kernel.org>, linux-ia64 <linux-ia64@vger.kernel.org>, Hanjun Guo <guohanjun@huawei.com>
+To: Jean-Philippe Brucker <jean-philippe.brucker@arm.com>, John Garry <john.garry@huawei.com>, Robin Murphy <robin.murphy@arm.com>, Will Deacon <will.deacon@arm.com>, Joerg Roedel <joro@8bytes.org>, Jonathan Corbet <corbet@lwn.net>, linux-doc <linux-doc@vger.kernel.org>, Sebastian Ott <sebott@linux.ibm.com>, Gerald Schaefer <gerald.schaefer@de.ibm.com>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, "H . Peter Anvin" <hpa@zytor.com>, David Woodhouse <dwmw2@infradead.org>, iommu <iommu@lists.linux-foundation.org>, linux-kernel <linux-kernel@vger.kernel.org>, linux-s390 <linux-s390@vger.kernel.org>, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, x86 <x86@kernel.org>, linux-ia64 <linux-ia64@vger.kernel.org>
+Cc: Zhen Lei <thunder.leizhen@huawei.com>, Hanjun Guo <guohanjun@huawei.com>
 
+First, add build option IOMMU_DEFAULT_{LAZY|STRICT}, so that we have the
+opportunity to set {lazy|strict} mode as default at build time. Then put
+the three config options in an choice, make people can only choose one of
+the three at a time.
 
+Signed-off-by: Zhen Lei <thunder.leizhen@huawei.com>
+---
+ drivers/iommu/Kconfig | 42 +++++++++++++++++++++++++++++++++++-------
+ drivers/iommu/iommu.c |  3 ++-
+ 2 files changed, 37 insertions(+), 8 deletions(-)
 
-On 2019/5/27 22:21, Joerg Roedel wrote:
-> Hi Zhen Lei,
-> 
-> On Mon, May 20, 2019 at 09:59:47PM +0800, Zhen Lei wrote:
->>  arch/ia64/kernel/pci-dma.c                |  2 +-
->>  arch/powerpc/platforms/powernv/pci-ioda.c |  3 ++-
->>  arch/s390/pci/pci_dma.c                   |  2 +-
->>  arch/x86/kernel/pci-dma.c                 |  7 ++---
->>  drivers/iommu/Kconfig                     | 44 ++++++++++++++++++++++++++-----
->>  drivers/iommu/amd_iommu_init.c            |  3 ++-
->>  drivers/iommu/intel-iommu.c               |  2 +-
->>  drivers/iommu/iommu.c                     |  3 ++-
->>  8 files changed, 48 insertions(+), 18 deletions(-)
-> 
-> This needs Acks from the arch maintainers of ia64, powerpc, s390 and
-> x86, at least.
-> 
-> It is easier for them if you split it up into the Kconfig change and
-> separete patches per arch and per iommu driver. Then collect the Acks on
-> the individual patches.
-
-OK, thanks. I will do it tomorrow.
-
-> 
-> Thanks,
-> 
-> 	Joerg
-> 
-> .
-> 
-
+diff --git a/drivers/iommu/Kconfig b/drivers/iommu/Kconfig
+index 83664db5221df02..d6a1a45f80ffbf5 100644
+--- a/drivers/iommu/Kconfig
++++ b/drivers/iommu/Kconfig
+@@ -75,17 +75,45 @@ config IOMMU_DEBUGFS
+ 	  debug/iommu directory, and then populate a subdirectory with
+ 	  entries as required.
+ 
+-config IOMMU_DEFAULT_PASSTHROUGH
+-	bool "IOMMU passthrough by default"
++choice
++	prompt "IOMMU default DMA mode"
+ 	depends on IOMMU_API
+-        help
+-	  Enable passthrough by default, removing the need to pass in
+-	  iommu.passthrough=on or iommu=pt through command line. If this
+-	  is enabled, you can still disable with iommu.passthrough=off
+-	  or iommu=nopt depending on the architecture.
++	default IOMMU_DEFAULT_STRICT
++	help
++	  This option allows IOMMU DMA mode to be chose at build time, to
++	  override the default DMA mode of each ARCHs, removing the need to
++	  pass in kernel parameters through command line. You can still use
++	  ARCHs specific boot options to override this option again.
++
++config IOMMU_DEFAULT_PASSTHROUGH
++	bool "passthrough"
++	help
++	  In this mode, the DMA access through IOMMU without any addresses
++	  translation. That means, the wrong or illegal DMA access can not
++	  be caught, no error information will be reported.
+ 
+ 	  If unsure, say N here.
+ 
++config IOMMU_DEFAULT_LAZY
++	bool "lazy"
++	help
++	  Support lazy mode, where for every IOMMU DMA unmap operation, the
++	  flush operation of IOTLB and the free operation of IOVA are deferred.
++	  They are only guaranteed to be done before the related IOVA will be
++	  reused.
++
++config IOMMU_DEFAULT_STRICT
++	bool "strict"
++	help
++	  For every IOMMU DMA unmap operation, the flush operation of IOTLB and
++	  the free operation of IOVA are guaranteed to be done in the unmap
++	  function.
++
++	  This mode is safer than the two above, but it maybe slower in some
++	  high performace scenarios.
++
++endchoice
++
+ config OF_IOMMU
+        def_bool y
+        depends on OF && IOMMU_API
+diff --git a/drivers/iommu/iommu.c b/drivers/iommu/iommu.c
+index 67ee6623f9b2a4d..56bce221285b15f 100644
+--- a/drivers/iommu/iommu.c
++++ b/drivers/iommu/iommu.c
+@@ -43,7 +43,8 @@
+ #else
+ static unsigned int iommu_def_domain_type = IOMMU_DOMAIN_DMA;
+ #endif
+-static bool iommu_dma_strict __read_mostly = true;
++static bool iommu_dma_strict __read_mostly +			IS_ENABLED(CONFIG_IOMMU_DEFAULT_STRICT);
+ 
+ struct iommu_group {
+ 	struct kobject kobj;
 -- 
-Thanks!
-BestRegards
+1.8.3
+
