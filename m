@@ -1,133 +1,59 @@
-From: "Leizhen (ThunderTown)" <thunder.leizhen@huawei.com>
-Date: Fri, 31 May 2019 10:03:16 +0000
+From: John Garry <john.garry@huawei.com>
+Date: Fri, 31 May 2019 10:42:45 +0000
 Subject: Re: [PATCH v8 1/7] iommu: enhance IOMMU default DMA mode build options
-Message-Id: <030bafab-58f5-8bb1-0533-2977d6e138b2@huawei.com>
+Message-Id: <55d0e30c-5bca-41fc-5bf0-4366dc387afd@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20190530034831.4184-1-thunder.leizhen@huawei.com>
  <20190530034831.4184-2-thunder.leizhen@huawei.com>
  <645bd526-4eb0-4a36-2dda-023f009247ab@huawei.com>
-In-Reply-To: <645bd526-4eb0-4a36-2dda-023f009247ab@huawei.com>
+ <030bafab-58f5-8bb1-0533-2977d6e138b2@huawei.com>
+In-Reply-To: <030bafab-58f5-8bb1-0533-2977d6e138b2@huawei.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: John Garry <john.garry@huawei.com>, Jean-Philippe Brucker <jean-philippe.brucker@arm.com>, Robin Murphy <robin.murphy@arm.com>, Will Deacon <will.deacon@arm.com>, Joerg Roedel <joro@8bytes.org>, Jonathan Corbet <corbet@lwn.net>, linux-doc <linux-doc@vger.kernel.org>, Sebastian Ott <sebott@linux.ibm.com>, Gerald Schaefer <gerald.schaefer@de.ibm.com>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, "H . Peter Anvin" <hpa@zytor.com>, David Woodhouse <dwmw2@infradead.org>, iommu <iommu@lists.linux-foundation.org>, linux-kernel <linux-kernel@vger.kernel.org>, linux-s390 <linux-s390@vger.kernel.org>, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, x86 <x86@kernel.org>, linux-ia64 <linux-ia64@vger.kernel.org>
+Content-Type: text/plain; charset="windows-1254"
+Content-Transfer-Encoding: base64
+To: "Leizhen (ThunderTown)" <thunder.leizhen@huawei.com>, Jean-Philippe Brucker <jean-philippe.brucker@arm.com>, Robin Murphy <robin.murphy@arm.com>, Will Deacon <will.deacon@arm.com>, Joerg Roedel <joro@8bytes.org>, Jonathan Corbet <corbet@lwn.net>, linux-doc <linux-doc@vger.kernel.org>, Sebastian Ott <sebott@linux.ibm.com>, Gerald Schaefer <gerald.schaefer@de.ibm.com>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, "H . Peter Anvin" <hpa@zytor.com>, David Woodhouse <dwmw2@infradead.org>, iommu <iommu@lists.linux-foundation.org>, linux-kernel <linux-kernel@vger.kernel.org>, linux-s390 <linux-s390@vger.kernel.org>, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, x86 <x86@kernel.org>, linux-ia64 <linux-ia64@vger.kernel.org>
 Cc: Hanjun Guo <guohanjun@huawei.com>, Linuxarm <linuxarm@huawei.com>
 
-
-
-On 2019/5/30 20:20, John Garry wrote:
-> On 30/05/2019 04:48, Zhen Lei wrote:
->> First, add build option IOMMU_DEFAULT_{LAZY|STRICT}, so that we have the
->> opportunity to set {lazy|strict} mode as default at build time. Then put
->> the three config options in an choice, make people can only choose one of
->> the three at a time.
->>
-> 
-> Since this was not picked up, but modulo (somtimes same) comments below:
-> 
-> Reviewed-by: John Garry <john.garry@huawei.com>
-> 
->> Signed-off-by: Zhen Lei <thunder.leizhen@huawei.com>
->> ---
->>  drivers/iommu/Kconfig | 42 +++++++++++++++++++++++++++++++++++-------
->>  drivers/iommu/iommu.c |  3 ++-
->>  2 files changed, 37 insertions(+), 8 deletions(-)
->>
->> diff --git a/drivers/iommu/Kconfig b/drivers/iommu/Kconfig
->> index 83664db5221df02..d6a1a45f80ffbf5 100644
->> --- a/drivers/iommu/Kconfig
->> +++ b/drivers/iommu/Kconfig
->> @@ -75,17 +75,45 @@ config IOMMU_DEBUGFS
->>        debug/iommu directory, and then populate a subdirectory with
->>        entries as required.
->>
->> -config IOMMU_DEFAULT_PASSTHROUGH
->> -    bool "IOMMU passthrough by default"
->> +choice
->> +    prompt "IOMMU default DMA mode"
->>      depends on IOMMU_API
->> -        help
->> -      Enable passthrough by default, removing the need to pass in
->> -      iommu.passthrough=on or iommu=pt through command line. If this
->> -      is enabled, you can still disable with iommu.passthrough=off
->> -      or iommu=nopt depending on the architecture.
->> +    default IOMMU_DEFAULT_STRICT
->> +    help
->> +      This option allows IOMMU DMA mode to be chose at build time, to
-> 
-> As before:
-> /s/chose/chosen/, /s/allows IOMMU/allows an IOMMU/
-I'm sorry that the previous version was not modified.
-
-> 
->> +      override the default DMA mode of each ARCHs, removing the need to
-> 
-> Again, as before:
-> ARCHs should be singular
-OK
-
-> 
->> +      pass in kernel parameters through command line. You can still use
->> +      ARCHs specific boot options to override this option again.
->> +
->> +config IOMMU_DEFAULT_PASSTHROUGH
->> +    bool "passthrough"
->> +    help
->> +      In this mode, the DMA access through IOMMU without any addresses
->> +      translation. That means, the wrong or illegal DMA access can not
->> +      be caught, no error information will be reported.
->>
->>        If unsure, say N here.
->>
->> +config IOMMU_DEFAULT_LAZY
->> +    bool "lazy"
->> +    help
->> +      Support lazy mode, where for every IOMMU DMA unmap operation, the
->> +      flush operation of IOTLB and the free operation of IOVA are deferred.
->> +      They are only guaranteed to be done before the related IOVA will be
->> +      reused.
-> 
-> why no advisory on how to set if unsure?
-Because the LAZY and STRICT have their own advantages and disadvantages.
-
-Should I say: If unsure, keep the default。
-
-> 
->> +
->> +config IOMMU_DEFAULT_STRICT
->> +    bool "strict"
->> +    help
->> +      For every IOMMU DMA unmap operation, the flush operation of IOTLB and
->> +      the free operation of IOVA are guaranteed to be done in the unmap
->> +      function.
->> +
->> +      This mode is safer than the two above, but it maybe slower in some
->> +      high performace scenarios.
-> 
-> and here?
-> 
->> +
->> +endchoice
->> +
->>  config OF_IOMMU
->>         def_bool y
->>         depends on OF && IOMMU_API
->> diff --git a/drivers/iommu/iommu.c b/drivers/iommu/iommu.c
->> index 67ee6623f9b2a4d..56bce221285b15f 100644
->> --- a/drivers/iommu/iommu.c
->> +++ b/drivers/iommu/iommu.c
->> @@ -43,7 +43,8 @@
->>  #else
->>  static unsigned int iommu_def_domain_type = IOMMU_DOMAIN_DMA;
->>  #endif
->> -static bool iommu_dma_strict __read_mostly = true;
->> +static bool iommu_dma_strict __read_mostly >> +            IS_ENABLED(CONFIG_IOMMU_DEFAULT_STRICT);
->>
->>  struct iommu_group {
->>      struct kobject kobj;
->>
-> 
-> 
-> 
-> .
-> 
+Cj4+PiAtY29uZmlnIElPTU1VX0RFRkFVTFRfUEFTU1RIUk9VR0gKPj4+IC0gICAgYm9vbCAiSU9N
+TVUgcGFzc3Rocm91Z2ggYnkgZGVmYXVsdCIKPj4+ICtjaG9pY2UKPj4+ICsgICAgcHJvbXB0ICJJ
+T01NVSBkZWZhdWx0IERNQSBtb2RlIgo+Pj4gICAgICBkZXBlbmRzIG9uIElPTU1VX0FQSQo+Pj4g
+LSAgICAgICAgaGVscAo+Pj4gLSAgICAgIEVuYWJsZSBwYXNzdGhyb3VnaCBieSBkZWZhdWx0LCBy
+ZW1vdmluZyB0aGUgbmVlZCB0byBwYXNzIGluCj4+PiAtICAgICAgaW9tbXUucGFzc3Rocm91Z2g9
+b24gb3IgaW9tbXU9cHQgdGhyb3VnaCBjb21tYW5kIGxpbmUuIElmIHRoaXMKPj4+IC0gICAgICBp
+cyBlbmFibGVkLCB5b3UgY2FuIHN0aWxsIGRpc2FibGUgd2l0aCBpb21tdS5wYXNzdGhyb3VnaD1v
+ZmYKPj4+IC0gICAgICBvciBpb21tdT1ub3B0IGRlcGVuZGluZyBvbiB0aGUgYXJjaGl0ZWN0dXJl
+Lgo+Pj4gKyAgICBkZWZhdWx0IElPTU1VX0RFRkFVTFRfU1RSSUNUCj4+PiArICAgIGhlbHAKPj4+
+ICsgICAgICBUaGlzIG9wdGlvbiBhbGxvd3MgSU9NTVUgRE1BIG1vZGUgdG8gYmUgY2hvc2UgYXQg
+YnVpbGQgdGltZSwgdG8KPj4KPj4gQXMgYmVmb3JlOgo+PiAvcy9jaG9zZS9jaG9zZW4vLCAvcy9h
+bGxvd3MgSU9NTVUvYWxsb3dzIGFuIElPTU1VLwo+IEknbSBzb3JyeSB0aGF0IHRoZSBwcmV2aW91
+cyB2ZXJzaW9uIHdhcyBub3QgbW9kaWZpZWQuCj4KPj4KPj4+ICsgICAgICBvdmVycmlkZSB0aGUg
+ZGVmYXVsdCBETUEgbW9kZSBvZiBlYWNoIEFSQ0hzLCByZW1vdmluZyB0aGUgbmVlZCB0bwo+Pgo+
+PiBBZ2FpbiwgYXMgYmVmb3JlOgo+PiBBUkNIcyBzaG91bGQgYmUgc2luZ3VsYXIKPiBPSwo+Cj4+
+Cj4+PiArICAgICAgcGFzcyBpbiBrZXJuZWwgcGFyYW1ldGVycyB0aHJvdWdoIGNvbW1hbmQgbGlu
+ZS4gWW91IGNhbiBzdGlsbCB1c2UKPj4+ICsgICAgICBBUkNIcyBzcGVjaWZpYyBib290IG9wdGlv
+bnMgdG8gb3ZlcnJpZGUgdGhpcyBvcHRpb24gYWdhaW4uCgoqCgo+Pj4gKwo+Pj4gK2NvbmZpZyBJ
+T01NVV9ERUZBVUxUX1BBU1NUSFJPVUdICj4+PiArICAgIGJvb2wgInBhc3N0aHJvdWdoIgo+Pj4g
+KyAgICBoZWxwCj4+PiArICAgICAgSW4gdGhpcyBtb2RlLCB0aGUgRE1BIGFjY2VzcyB0aHJvdWdo
+IElPTU1VIHdpdGhvdXQgYW55IGFkZHJlc3Nlcwo+Pj4gKyAgICAgIHRyYW5zbGF0aW9uLiBUaGF0
+IG1lYW5zLCB0aGUgd3Jvbmcgb3IgaWxsZWdhbCBETUEgYWNjZXNzIGNhbiBub3QKPj4+ICsgICAg
+ICBiZSBjYXVnaHQsIG5vIGVycm9yIGluZm9ybWF0aW9uIHdpbGwgYmUgcmVwb3J0ZWQuCj4+Pgo+
+Pj4gICAgICAgIElmIHVuc3VyZSwgc2F5IE4gaGVyZS4KPj4+Cj4+PiArY29uZmlnIElPTU1VX0RF
+RkFVTFRfTEFaWQo+Pj4gKyAgICBib29sICJsYXp5Igo+Pj4gKyAgICBoZWxwCj4+PiArICAgICAg
+U3VwcG9ydCBsYXp5IG1vZGUsIHdoZXJlIGZvciBldmVyeSBJT01NVSBETUEgdW5tYXAgb3BlcmF0
+aW9uLCB0aGUKPj4+ICsgICAgICBmbHVzaCBvcGVyYXRpb24gb2YgSU9UTEIgYW5kIHRoZSBmcmVl
+IG9wZXJhdGlvbiBvZiBJT1ZBIGFyZSBkZWZlcnJlZC4KPj4+ICsgICAgICBUaGV5IGFyZSBvbmx5
+IGd1YXJhbnRlZWQgdG8gYmUgZG9uZSBiZWZvcmUgdGhlIHJlbGF0ZWQgSU9WQSB3aWxsIGJlCj4+
+PiArICAgICAgcmV1c2VkLgo+Pgo+PiB3aHkgbm8gYWR2aXNvcnkgb24gaG93IHRvIHNldCBpZiB1
+bnN1cmU/Cj4gQmVjYXVzZSB0aGUgTEFaWSBhbmQgU1RSSUNUIGhhdmUgdGhlaXIgb3duIGFkdmFu
+dGFnZXMgYW5kIGRpc2FkdmFudGFnZXMuCj4KPiBTaG91bGQgSSBzYXk6IElmIHVuc3VyZSwga2Vl
+cCB0aGUgZGVmYXVsdOOAggoKTWF5YmUuIFNvIHlvdSBjb3VsZCBwdXQgdGhpcyBpbiB0aGUgaGVs
+cCBmb3IgdGhlIGNob2ljZSwgKiBhYm92ZSwgYW5kIApyZW1vdmUgdGhlIGFkdmlzb3J5IG9uIElP
+TU1VX0RFRkFVTFRfUEFTU1RIUk9VR0guCgpIb3dldmVyIHRoZSBtYWludGFpbmVyIG1heSBoYXZl
+IGEgZGlmZmVyZW50IHZpZXcuCgpUaGFua3MsCkpvaG4KCj4KPj4KPj4+ICsKPj4+ICtjb25maWcg
+SU9NTVVfREVGQVVMVF9TVFJJQ1QKPj4+ICsgICAgYm9vbCAic3RyaWN0Igo+Pj4gKyAgICBoZWxw
+Cj4+PiArICAgICAgRm9yIGV2ZXJ5IElPTU1VIERNQSB1bm1hcCBvcGVyYXRpb24sIHRoZSBmbHVz
+aCBvcGVyYXRpb24gb2YgSU9UTEIgYW5kCj4+PiArICAgICAgdGhlIGZyZWUgb3BlcmF0aW9uIG9m
+IElPVkEgYXJlIGd1YXJhbnRlZWQgdG8gYmUgZG9uZSBpbiB0aGUgdW5tYXAKPj4+ICsgICAgICBm
+dW5jdGlvbi4KPj4+ICsKPj4+ICsgICAgICBUaGlzIG1vZGUgaXMgc2FmZXIgdGhhbiB0aGUgdHdv
+IGFib3ZlLCBidXQgaXQgbWF5YmUgc2xvd2VyIGluIHNvbWUKPj4+ICsgICAgICBoaWdoIHBlcmZv
+cm1hY2Ugc2NlbmFyaW9zLgo+Pgo+PiBhbmQgaGVyZT8K
