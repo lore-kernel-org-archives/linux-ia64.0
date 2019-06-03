@@ -1,38 +1,63 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Date: Tue, 04 Jun 2019 07:59:49 +0000
-Subject: Re: [PATCH] ia64: configs: Remove useless UEVENT_HELPER_PATH
-Message-Id: <CAMuHMdWkuhJ+Y+RTu=TK0CN4xKDQ0hRDY-FJc3EKRvJwz8f5rQ@mail.gmail.com>
+From: Matthias Schiffer <matthias.schiffer@ew.tq-group.com>
+Date: Mon, 03 Jun 2019 10:57:25 +0000
+Subject: [PATCH modules 1/2] module: allow arch overrides for .exit section names
+Message-Id: <20190603105726.22436-2-matthias.schiffer@ew.tq-group.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1559635002-20533-1-git-send-email-krzk@kernel.org>
-In-Reply-To: <1559635002-20533-1-git-send-email-krzk@kernel.org>
+References: <20190603105726.22436-1-matthias.schiffer@ew.tq-group.com>
+In-Reply-To: <20190603105726.22436-1-matthias.schiffer@ew.tq-group.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Krzysztof Kozlowski <krzk@kernel.org>
-Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Geert Uytterhoeven <geert+renesas@glider.be>
+To: Russell King <linux@armlinux.org.uk>, Jessica Yu <jeyu@kernel.org>
+Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, Matthias Schiffer <matthias.schiffer@ew.tq-group.com>
 
-On Tue, Jun 4, 2019 at 9:56 AM Krzysztof Kozlowski <krzk@kernel.org> wrote:
-> Remove the CONFIG_UEVENT_HELPER_PATH because:
-> 1. It is disabled since commit 1be01d4a5714 ("driver: base: Disable
->    CONFIG_UEVENT_HELPER by default") as its dependency (UEVENT_HELPER) was
->    made default to 'n',
-> 2. It is not recommended (help message: "This should not be used today
->    [...] creates a high system load") and was kept only for ancient
->    userland,
-> 3. Certain userland specifically requests it to be disabled (systemd
->    README: "Legacy hotplug slows down the system and confuses udev").
->
-> Signed-off-by: Krzysztof Kozlowski <krzk@kernel.org>
+Some archs like ARM store unwind information for .exit.text in sections
+with unusual names. As this unwind information refers to .exit.text, it
+must not be loaded when .exit.text is not loaded (when CONFIG_MODULE_UNLOAD
+is unset); otherwise, loading a module can fail due to relocation failures.
 
-Acked-by: Geert Uytterhoeven <geert+renesas@glider.be>
+Signed-off-by: Matthias Schiffer <matthias.schiffer@ew.tq-group.com>
+---
+ include/linux/moduleloader.h | 8 ++++++++
+ kernel/module.c              | 2 +-
+ 2 files changed, 9 insertions(+), 1 deletion(-)
 
-Gr{oetje,eeting}s,
-
-                        Geert
-
+diff --git a/include/linux/moduleloader.h b/include/linux/moduleloader.h
+index 31013c2effd3..cddbd85fb659 100644
+--- a/include/linux/moduleloader.h
++++ b/include/linux/moduleloader.h
+@@ -5,6 +5,7 @@
+ 
+ #include <linux/module.h>
+ #include <linux/elf.h>
++#include <linux/string.h>
+ 
+ /* These may be implemented by architectures that need to hook into the
+  * module loader code.  Architectures that don't need to do anything special
+@@ -93,4 +94,11 @@ void module_arch_freeing_init(struct module *mod);
+ #define MODULE_ALIGN PAGE_SIZE
+ #endif
+ 
++#ifndef HAVE_ARCH_MODULE_EXIT_SECTION
++static inline bool module_exit_section(const char *name)
++{
++	return strstarts(name, ".exit");
++}
++#endif
++
+ #endif
+diff --git a/kernel/module.c b/kernel/module.c
+index 6e6712b3aaf5..e8e4cd0a471f 100644
+--- a/kernel/module.c
++++ b/kernel/module.c
+@@ -2924,7 +2924,7 @@ static int rewrite_section_headers(struct load_info *info, int flags)
+ 
+ #ifndef CONFIG_MODULE_UNLOAD
+ 		/* Don't load .exit sections */
+-		if (strstarts(info->secstrings+shdr->sh_name, ".exit"))
++		if (module_exit_section(info->secstrings+shdr->sh_name))
+ 			shdr->sh_flags &= ~(unsigned long)SHF_ALLOC;
+ #endif
+ 	}
 -- 
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+2.17.1
