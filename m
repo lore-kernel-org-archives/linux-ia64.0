@@ -1,25 +1,89 @@
-From: Frank Scheiner <frank.scheiner@web.de>
-Date: Fri, 28 Jun 2019 07:35:25 +0000
-Subject: Re: Regression in 543cea9a - was: Re: Kernel problem on rx2800 i2
-Message-Id: <6ecf5f63-6b77-2836-79ee-258438ba4bd0@web.de>
+From: Wei Yang <richard.weiyang@gmail.com>
+Date: Mon, 03 Jun 2019 21:49:32 +0000
+Subject: Re: [PATCH v3 05/11] drivers/base/memory: Pass a block_id to init_memory_block()
+Message-Id: <20190603214932.3xsvxwiiutcve4tz@master>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1d62aadd-67b6-da13-53cc-4b5213de8937@physik.fu-berlin.de>
-In-Reply-To: <1d62aadd-67b6-da13-53cc-4b5213de8937@physik.fu-berlin.de>
+References: <20190527111152.16324-1-david@redhat.com>
+ <20190527111152.16324-6-david@redhat.com>
+In-Reply-To: <20190527111152.16324-6-david@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: David Hildenbrand <david@redhat.com>
+Cc: linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, "Rafael J. Wysocki" <rafael@kernel.org>, linux-kernel@vger.kernel.org, Wei Yang <richard.weiyang@gmail.com>, linux-mm@kvack.org, Igor Mammedov <imammedo@redhat.com>, akpm@linux-foundation.org, linuxppc-dev@lists.ozlabs.org, Dan Williams <dan.j.williams@intel.com>, linux-arm-kernel@lists.infradead.org
 
-On 6/28/19 08:26, Christoph Hellwig wrote:
-> Btw, as a workaround you could try to disable CONFIG_NUMA in
-> your .config - as far as I can tell the rx2800 i2 is not actually
-> a NUMA system.
+On Mon, May 27, 2019 at 01:11:46PM +0200, David Hildenbrand wrote:
+>We'll rework hotplug_memory_register() shortly, so it no longer consumes
+>pass a section.
+>
+>Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+>Cc: "Rafael J. Wysocki" <rafael@kernel.org>
+>Signed-off-by: David Hildenbrand <david@redhat.com>
+>---
+> drivers/base/memory.c | 15 +++++++--------
+> 1 file changed, 7 insertions(+), 8 deletions(-)
+>
+>diff --git a/drivers/base/memory.c b/drivers/base/memory.c
+>index f180427e48f4..f914fa6fe350 100644
+>--- a/drivers/base/memory.c
+>+++ b/drivers/base/memory.c
+>@@ -651,21 +651,18 @@ int register_memory(struct memory_block *memory)
+> 	return ret;
+> }
+> 
+>-static int init_memory_block(struct memory_block **memory,
+>-			     struct mem_section *section, unsigned long state)
+>+static int init_memory_block(struct memory_block **memory, int block_id,
+>+			     unsigned long state)
+> {
+> 	struct memory_block *mem;
+> 	unsigned long start_pfn;
+>-	int scn_nr;
+> 	int ret = 0;
+> 
+> 	mem = kzalloc(sizeof(*mem), GFP_KERNEL);
+> 	if (!mem)
+> 		return -ENOMEM;
+> 
+>-	scn_nr = __section_nr(section);
+>-	mem->start_section_nr >-			base_memory_block_id(scn_nr) * sections_per_block;
+>+	mem->start_section_nr = block_id * sections_per_block;
+> 	mem->end_section_nr = mem->start_section_nr + sections_per_block - 1;
+> 	mem->state = state;
+> 	start_pfn = section_nr_to_pfn(mem->start_section_nr);
+>@@ -694,7 +691,8 @@ static int add_memory_block(int base_section_nr)
+> 
+> 	if (section_count = 0)
+> 		return 0;
+>-	ret = init_memory_block(&mem, __nr_to_section(section_nr), MEM_ONLINE);
+>+	ret = init_memory_block(&mem, base_memory_block_id(base_section_nr),
+>+				MEM_ONLINE);
 
-Actually I think it is a NUMA system. Maybe it's not acting like one in
-my configuration, as I only have a single processor installed. But the
-Tukwila has its memory controller integrated into the processor and
-interconnects with other processors or chipset components via QPI like
-the Nehalem. This can be compared to Opterons and HyperTransport.
+If my understanding is correct, section_nr could be removed too.
 
-Cheers,
-Frank
+> 	if (ret)
+> 		return ret;
+> 	mem->section_count = section_count;
+>@@ -707,6 +705,7 @@ static int add_memory_block(int base_section_nr)
+>  */
+> int hotplug_memory_register(int nid, struct mem_section *section)
+> {
+>+	int block_id = base_memory_block_id(__section_nr(section));
+> 	int ret = 0;
+> 	struct memory_block *mem;
+> 
+>@@ -717,7 +716,7 @@ int hotplug_memory_register(int nid, struct mem_section *section)
+> 		mem->section_count++;
+> 		put_device(&mem->dev);
+> 	} else {
+>-		ret = init_memory_block(&mem, section, MEM_OFFLINE);
+>+		ret = init_memory_block(&mem, block_id, MEM_OFFLINE);
+> 		if (ret)
+> 			goto out;
+> 		mem->section_count++;
+>-- 
+>2.20.1
+
+-- 
+Wei Yang
+Help you, Help me
