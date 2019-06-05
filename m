@@ -1,74 +1,77 @@
-From: Anshuman Khandual <anshuman.khandual@arm.com>
-Date: Mon, 03 Jun 2019 04:53:20 +0000
-Subject: Re: [RFC] mm: Generalize notify_page_fault()
-Message-Id: <6338fef8-e097-a76e-5c07-455d0d9b6e24@arm.com>
+From: Wei Yang <richard.weiyang@gmail.com>
+Date: Wed, 05 Jun 2019 21:21:25 +0000
+Subject: Re: [PATCH v3 11/11] mm/memory_hotplug: Remove "zone" parameter from sparse_remove_one_section
+Message-Id: <20190605212125.gwmvjjicylhp3wcz@master>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1559195713-6956-1-git-send-email-anshuman.khandual@arm.com>
- <20190530110639.GC23461@bombadil.infradead.org>
- <4f9a610d-e856-60f6-4467-09e9c3836771@arm.com>
- <20190530133954.GA2024@bombadil.infradead.org>
- <f1995445-d5ab-f292-d26c-809581002184@arm.com>
- <20190531174854.GA31852@bombadil.infradead.org>
-In-Reply-To: <20190531174854.GA31852@bombadil.infradead.org>
+References: <20190527111152.16324-1-david@redhat.com>
+ <20190527111152.16324-12-david@redhat.com>
+In-Reply-To: <20190527111152.16324-12-david@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Matthew Wilcox <willy@infradead.org>
-Cc: Mark Rutland <mark.rutland@arm.com>, Michal Hocko <mhocko@suse.com>, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>, linux-mm@kvack.org, Paul Mackerras <paulus@samba.org>, sparclinux@vger.kernel.org, linux-s390@vger.kernel.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Michael Ellerman <mpe@ellerman.id.au>, Russell King <linux@armlinux.org.uk>, Fenghua Yu <fenghua.yu@intel.com>, Stephen Rothwell <sfr@canb.auug.org.au>, Andrey Konovalov <andreyknvl@google.com>, linux-arm-kernel@lists.infradead.org, Christophe Leroy <christophe.leroy@c-s.fr>, Tony Luck <tony.luck@intel.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, linux-kernel@vger.kernel.org, Martin Schwidefsky <schwidefsky@de.ibm.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, "David S. Miller" <davem@davemloft.net>
+To: David Hildenbrand <david@redhat.com>
+Cc: linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org, Wei Yang <richard.weiyang@gmail.com>, linux-mm@kvack.org, Igor Mammedov <imammedo@redhat.com>, akpm@linux-foundation.org, linuxppc-dev@lists.ozlabs.org, Dan Williams <dan.j.williams@intel.com>, linux-arm-kernel@lists.infradead.org
 
+On Mon, May 27, 2019 at 01:11:52PM +0200, David Hildenbrand wrote:
+>The parameter is unused, so let's drop it. Memory removal paths should
+>never care about zones. This is the job of memory offlining and will
+>require more refactorings.
+>
+>Reviewed-by: Dan Williams <dan.j.williams@intel.com>
+>Signed-off-by: David Hildenbrand <david@redhat.com>
 
+Reviewed-by: Wei Yang <richardw.yang@linux.intel.com>
 
-On 05/31/2019 11:18 PM, Matthew Wilcox wrote:
-> On Fri, May 31, 2019 at 02:17:43PM +0530, Anshuman Khandual wrote:
->> On 05/30/2019 07:09 PM, Matthew Wilcox wrote:
->>> On Thu, May 30, 2019 at 05:31:15PM +0530, Anshuman Khandual wrote:
->>>> On 05/30/2019 04:36 PM, Matthew Wilcox wrote:
->>>>> The two handle preemption differently.  Why is x86 wrong and this one
->>>>> correct?
->>>>
->>>> Here it expects context to be already non-preemptible where as the proposed
->>>> generic function makes it non-preemptible with a preempt_[disable|enable]()
->>>> pair for the required code section, irrespective of it's present state. Is
->>>> not this better ?
->>>
->>> git log -p arch/x86/mm/fault.c
->>>
->>> search for 'kprobes'.
->>>
->>> tell me what you think.
->>
->> Are you referring to these following commits
->>
->> a980c0ef9f6d ("x86/kprobes: Refactor kprobes_fault() like kprobe_exceptions_notify()")
->> b506a9d08bae ("x86: code clarification patch to Kprobes arch code")
->>
->> In particular the later one (b506a9d08bae). It explains how the invoking context
->> in itself should be non-preemptible for the kprobes processing context irrespective
->> of whether kprobe_running() or perhaps smp_processor_id() is safe or not. Hence it
->> does not make much sense to continue when original invoking context is preemptible.
->> Instead just bail out earlier. This seems to be making more sense than preempt
->> disable-enable pair. If there are no concerns about this change from other platforms,
->> I will change the preemption behavior in proposed generic function next time around.
+>---
+> include/linux/memory_hotplug.h | 2 +-
+> mm/memory_hotplug.c            | 2 +-
+> mm/sparse.c                    | 4 ++--
+> 3 files changed, 4 insertions(+), 4 deletions(-)
+>
+>diff --git a/include/linux/memory_hotplug.h b/include/linux/memory_hotplug.h
+>index 2f1f87e13baa..1a4257c5f74c 100644
+>--- a/include/linux/memory_hotplug.h
+>+++ b/include/linux/memory_hotplug.h
+>@@ -346,7 +346,7 @@ extern void move_pfn_range_to_zone(struct zone *zone, unsigned long start_pfn,
+> extern bool is_memblock_offlined(struct memory_block *mem);
+> extern int sparse_add_one_section(int nid, unsigned long start_pfn,
+> 				  struct vmem_altmap *altmap);
+>-extern void sparse_remove_one_section(struct zone *zone, struct mem_section *ms,
+>+extern void sparse_remove_one_section(struct mem_section *ms,
+> 		unsigned long map_offset, struct vmem_altmap *altmap);
+> extern struct page *sparse_decode_mem_map(unsigned long coded_mem_map,
+> 					  unsigned long pnum);
+>diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+>index 82136c5b4c5f..e48ec7b9dee2 100644
+>--- a/mm/memory_hotplug.c
+>+++ b/mm/memory_hotplug.c
+>@@ -524,7 +524,7 @@ static void __remove_section(struct zone *zone, struct mem_section *ms,
+> 	start_pfn = section_nr_to_pfn((unsigned long)scn_nr);
+> 	__remove_zone(zone, start_pfn);
 > 
-> Exactly.
+>-	sparse_remove_one_section(zone, ms, map_offset, altmap);
+>+	sparse_remove_one_section(ms, map_offset, altmap);
+> }
 > 
-> So, any of the arch maintainers know of a reason they behave differently
-> from x86 in this regard?  Or can Anshuman use the x86 implementation
-> for all the architectures supporting kprobes?
+> /**
+>diff --git a/mm/sparse.c b/mm/sparse.c
+>index d1d5e05f5b8d..1552c855d62a 100644
+>--- a/mm/sparse.c
+>+++ b/mm/sparse.c
+>@@ -800,8 +800,8 @@ static void free_section_usemap(struct page *memmap, unsigned long *usemap,
+> 		free_map_bootmem(memmap);
+> }
+> 
+>-void sparse_remove_one_section(struct zone *zone, struct mem_section *ms,
+>-		unsigned long map_offset, struct vmem_altmap *altmap)
+>+void sparse_remove_one_section(struct mem_section *ms, unsigned long map_offset,
+>+			       struct vmem_altmap *altmap)
+> {
+> 	struct page *memmap = NULL;
+> 	unsigned long *usemap = NULL;
+>-- 
+>2.20.1
 
-So the generic notify_page_fault() will be like this.
-
-int __kprobes notify_page_fault(struct pt_regs *regs, unsigned int trap)
-{
-        int ret = 0;
-
-        /*
-         * To be potentially processing a kprobe fault and to be allowed
-         * to call kprobe_running(), we have to be non-preemptible.
-         */
-        if (kprobes_built_in() && !preemptible() && !user_mode(regs)) {
-                if (kprobe_running() && kprobe_fault_handler(regs, trap))
-                        ret = 1;
-        }
-        return ret;
-}
+-- 
+Wei Yang
+Help you, Help me
