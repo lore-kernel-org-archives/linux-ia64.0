@@ -1,364 +1,447 @@
-From: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
-Date: Wed, 26 Jun 2019 16:15:52 +0000
-Subject: Re: Kernel problem on rx2800 i2
-Message-Id: <b997082b-176f-7c0c-1328-0d22fbfd3916@physik.fu-berlin.de>
+From: Anshuman Khandual <anshuman.khandual@arm.com>
+Date: Fri, 07 Jun 2019 10:46:15 +0000
+Subject: [RFC V3] mm: Generalize and rename notify_page_fault() as kprobe_page_fault()
+Message-Id: <1559903655-5609-1-git-send-email-anshuman.khandual@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <f3d9d882-dd22-1782-6ec8-c88cb1880a83@web.de>
-In-Reply-To: <f3d9d882-dd22-1782-6ec8-c88cb1880a83@web.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
-To: linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-kernel@vger.kernel.org, linux-mm@kvack.org
+Cc: Mark Rutland <mark.rutland@arm.com>, Michal Hocko <mhocko@suse.com>, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Catalin Marinas <catalin.marinas@arm.com>, Dave Hansen <dave.hansen@linux.intel.com>, Will Deacon <will.deacon@arm.com>, Paul Mackerras <paulus@samba.org>, sparclinux@vger.kernel.org, Stephen Rothwell <sfr@canb.auug.org.au>, linux-s390@vger.kernel.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Michael Ellerman <mpe@ellerman.id.au>, x86@kernel.org, Russell King <linux@armlinux.org.uk>, Matthew Wilcox <willy@infradead.org>, Ingo Molnar <mingo@redhat.com>, Fenghua Yu <fenghua.yu@intel.com>, Anshuman Khandual <anshuman.khandual@arm.com>, Andrey Konovalov <andreyknvl@google.com>, Andy Lutomirski <luto@kernel.org>, Thomas Gleixner <tglx@linutronix.de>, linux-arm-kernel@lists.infradead.org, Christophe Leroy <christophe.leroy@c-s.fr>, Tony Luck <tony.luck@intel.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, "David S. Miller" <davem@davemloft.net>
 
-Hi!
+Very similar definitions for notify_page_fault() are being used by multiple
+architectures duplicating much of the same code. This attempts to unify all
+of them into a generic implementation, rename it as kprobe_page_fault() and
+then move it to a common header.
 
-I'm CC'ing Michael Karcher, who is really good at tracking down
-such bugs.
+kprobes_built_in() can detect CONFIG_KPROBES, hence new kprobe_page_fault()
+need not be wrapped again within CONFIG_KPROBES. Trap number argument can
+now contain upto an 'unsigned int' accommodating all possible platforms.
 
-Adrian
+kprobe_page_fault() goes the x86 way while dealing with preemption context.
+As explained in these following commits the invoking context in itself must
+be non-preemptible for kprobes processing context irrespective of whether
+kprobe_running() or perhaps smp_processor_id() is safe or not. It does not
+make much sense to continue when original context is preemptible. Instead
+just bail out earlier.
 
-On 6/26/19 5:58 PM, Christoph Hellwig wrote:
-> I'm running out of luck trying to understand the issue with the
-> zone list.  Adding the ia64 mailing list in addition to Tony
-> to see if someone can figure out how a alloc_pages_node for the
-> node stored in an AHCI PCIe pci_dev could cause an oops in the
-> zonelist lookup.
->=20
-> On Fri, Jun 21, 2019 at 10:08:06PM +0200, Frank Scheiner wrote:
->> Hi there,
->>
->> recent testing of a Debian v4.19.37 kernel showed a problem on my rx2800
->> i2 happening during kernel boot:
->>
->> ```
->> [    0.000000] Linux version 4.19.0-5-itanium
->> (debian-kernel@lists.debian.org) (gcc version 8.3.0 (Debian
->> 8.3.0-10~ia64.1)) #1 SMP Debian 4.19.37-3 (2019-05-18)
->> [    0.000000] EFI v2.10 by HP:
->> [    0.000000] efi:  SALsystab=3D0x6fdd63a18  ACPI 2.0=3D0x3d3c4014
->> HCDP=3D0x6ffff8798  SMBIOS=3D0x3d368000
->> [    0.000000] booting generic kernel on platform dig
->> [    0.000000] PCDP: v3 at 0x6ffff8798
->> [    0.000000] earlycon: uart8250 at I/O port 0x4000 (options '115200n8')
->> [    0.000000] bootconsole [uart8250] enabled
->> [    0.000000] ACPI: Early table checksum verification disabled
->> [    0.000000] ACPI: RSDP 0x000000003D3C4014 000024 (v02 HP    )
->> [    0.000000] ACPI: XSDT 0x000000003D3C4580 000124 (v01 HP     RX2800-2
->> 00000001      01000013)
->> [...]
->> [   13.993718] Unpacking initramfs...
->> [...]
->> [   22.655630] Run /init as init process
->> [   22.818930] SCSI subsystem initialized
->> [   22.844653] ACPI: bus type USB registered
->> [   22.878940] HP HPSA Driver (v 3.4.20-125)
->> [   22.930628] usbcore: registered new interface driver usbfs
->> [   23.072034] usbcore: registered new interface driver hub
->> [   23.072925] hpsa 0000:01:00.0: Logical aborts not supported
->> [   23.150942] usbcore: registered new device driver usb
->> [   23.231690] hpsa 0000:01:00.0: HP SSD Smart Path aborts not supported
->> [   23.306942] ehci_hcd: USB 2.0 'Enhanced' Host Controller (EHCI) Driver
->> [   23.417101] systemd-udevd[115]: NaT consumption 2216203124768 [1]
->> [   23.488663] ehci-pci: EHCI PCI platform driver
->> [   23.490942] uhci_hcd: USB Universal Host Controller Interface driver
->> [   23.420927] Modules linked in: uhci_hcd(+) ehci_pci(+) ehci_hcd
->> hpsa(+) scsi_transport_sas usbcore scsi_mod usb_common
->> [   23.420927]
->> [   23.420927] CPU: 6 PID: 115 Comm: systemd-udevd Not tainted
->> 4.19.0-5-itanium #1 Debian 4.19.37-3
->> [   23.420927] Hardware name: hp Integrity rx2800 i2, BIOS 01.93 09/12/2=
-012
->> [   23.420927] psr : 0000121008026010 ifs : 8000000000002046 ip  :
->> [<a0000001002af041>]    Not tainted (4.19.0-5-itanium Debian 4.19.37-3)
->> [   23.420927] ip is at __alloc_pages_nodemask+0x261/0x20c0
->> [   23.420927] unat: 0000000000000000 pfs : 0000000000000793 rsc :
->> 0000000000000003
->> [   23.420927] rnat: 0000000000000000 bsps: 0000000000000000 pr  :
->> 85aaa9a99a6a6659
->> [   23.420927] ldrs: 0000000000000000 ccv : 0000000000000000 fpsr:
->> 0009804c8a70433f
->> [   23.420927] csd : 0000000000000000 ssd : 0000000000000000
->> [   23.420927] b0  : a0000001001710e0 b6  : a0000001003948c0 b7  :
->> a0000001000469c0
->> [   23.420927] f6  : 10012bffff00000000000 f7  : 1003e00000000000bffff
->> [   23.420927] f8  : 1003e0000000000003fc0 f9  : 1003effffffffffffffab
->> [   23.420927] f10 : 10016818d087e7cd81a78 f11 : 1003e000000000000002a
->> [   23.420927] r1  : a0000001015d6ba0 r2  : a0000001013643c8 r3  :
->> fffffffffffc04b8
->> [   23.420927] r8  : 0000000000001440 r9  : e000000001507708 r10 :
->> 0000000000000008
->> [   23.420927] r11 : ffffffffffd8d818 r12 : e000000682fcfbd0 r13 :
->> e000000682fc8000
->> [   23.420927] r14 : a0000001013643b8 r15 : ffffffffffd8d828 r16 :
->> 00000000007fffff
->> [   23.420927] r17 : 0000000000000008 r18 : 0000000000000000 r19 :
->> e000000001507710
->> [   23.420927] r20 : 0000000000000000 r21 : 0000000000002500 r22 :
->> 0000000000000000
->> [   23.420927] r23 : 0000000000000000 r24 : 0000000000000000 r25 :
->> 0000000000000000
->> [   23.420927] r26 : 0000000000000000 r27 : 0000000000000000 r28 :
->> e000000682fc87b0
->> [   23.420927] r29 : 0000000000200000 r30 : 0000000000000000 r31 :
->> 0000000000000000
->> [   23.420927]
->> [   23.420927] Call Trace:
->> [   23.420927]  [<a000000100014bd0>] show_stack+0x90/0xc0
->> [   23.420927]                                 sp=E000000682fcf790
->> bsp=E000000682fc9c80
->> [   23.420927]  [<a0000001000152d0>] show_regs+0x6d0/0xa00
->> [   23.420927]                                 sp=E000000682fcf960
->> bsp=E000000682fc9c10
->> [   23.420927]  [<a000000100029330>] die+0x1b0/0x460
->> [   23.420927]                                 sp=E000000682fcf980
->> bsp=E000000682fc9bc8
->> [   23.420927]  [<a000000100e75100>] ia64_fault+0x5a0/0xf60
->> [   23.420927]                                 sp=E000000682fcf980
->> bsp=E000000682fc9b70
->> [   23.420927]  [<a00000010000c9c0>] ia64_leave_kernel+0x0/0x270
->> [   23.420927]                                 sp=E000000682fcfa00
->> bsp=E000000682fc9b70
->> [   23.420927]  [<a0000001002af040>] __alloc_pages_nodemask+0x260/0x20c0
->> [   23.420927]                                 sp=E000000682fcfbd0
->> bsp=E000000682fc9938
->> [   23.420927]  [<a0000001001710e0>] dma_direct_alloc+0x140/0x2e0
->> [   23.420927]                                 sp=E000000682fcfc40
->> bsp=E000000682fc98c0
->> [   23.420927]  [<a000000100173910>] swiotlb_alloc+0x50/0x2e0
->> [   23.420927]                                 sp=E000000682fcfc40
->> bsp=E000000682fc9868
->> ```
->>
->> The machine doesn't continue boot afterwards. The machine boots fine
->> with a 4.14.x with Gentoo patches but also no later minor kernel version
->> with Gentoo patches works on it. With some testing I could limit the
->> Linux versions, between which the problematic change could have been
->> introduced, to 4.15.x and 4.16.x. Bisecting between tag v4.15.18 (good)
->> and tag v4.16-rc1 (bad) pointed to commit
->> 543cea9accd9804307541cb93d3ed7ec94b07237 ([1]) as first bad commit.
->>
->> [1]:
->> https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/commit/=
-?idT3cea9accd9804307541cb93d3ed7ec94b07237
->>
->> The kernel messages with problematic kernels from the bisecting process
->> look different to the ones from the above shown v4.19.37 from Debian tho=
-ugh:
->>
->> ```
->> Linux version 4.15.0-rc7-00047-g543cea9accd9-dirty (root@rx2800-i2) (gcc
->> version 7.3.0 (Gentoo 7.3.0-r3 p1.4)) #1 SMP Thu Jun 13 22:16:30 CEST 20=
-19
->> EFI v2.10 by HP:
->> efi:  SALsystab=3D0xdfdd63a18  ACPI 2.0=3D0x3d3c4014  HCDP=3D0xdffff8798
->> SMBIOS=3D0x3d368000
->> booting generic kernel on platform dig
->> PCDP: v3 at 0xdffff8798
->> earlycon: uart8250 at I/O port 0x4000 (options '115200n8')
->> bootconsole [uart8250] enabled
->> ACPI: Early table checksum verification disabled
->> ACPI: RSDP 0x000000003D3C4014 000024 (v02 HP    )
->> ACPI: XSDT 0x000000003D3C4580 000124 (v01 HP     RX2800-2 00000001
->> 01000013)
->> [...]
->> Trying to unpack rootfs image as initramfs...
->> [...]
->> Loading Adaptec I2O RAID: Version 2.4 Build 5go
->> Detecting Adaptec I2O RAID controllers...
->> ahci 0000:00:1f.2: AHCI 0001.0200 32 slots 6 ports 3 Gbps 0x3f impl SATA
->> mode
->> ahci 0000:00:1f.2: flags: 64bit ncq sntf pm led clo pio slum part ccc ems
->> Unable to handle kernel NULL pointer dereference (address 00000000000016=
-88)
->> swapper/0[1]: Oops 11012296146944 [1]
->> Modules linked in:
->>
->> CPU: 0 PID: 1 Comm: swapper/0 Not tainted
->> 4.15.0-rc7-00047-g543cea9accd9-dirty #1
->> Hardware name: hp Integrity rx2800 i2, BIOS 01.93 09/12/2012
->> psr : 00001210084a6010 ifs : 8000000000001734 ip  : [<a000000100180401>]
->>    Not tainted (4.15.0-rc7-00047-g543cea9accd9-dirty)
->> ip is at __alloc_pages_nodemask+0x1a1/0x1670
->> unat: 0000000000000000 pfs : 0000000000001734 rsc : 0000000000000003
->> rnat: 000000038c5ad78d bsps: 000000000001003e pr  : 565595a66aa65799
->> ldrs: 0000000000000000 ccv : 000000032e40a799 fpsr: 0009804c8a70433f
->> csd : 0000000000000000 ssd : 0000000000000000
->> b0  : a0000001001802c0 b6  : a000000100050b50 b7  : a0000001007e83d0
->> f6  : 1003e0000000000000000 f7  : 1003e00000000000164ff
->> f8  : 1003e0000000000000f00 f9  : 1003e000000000000000f
->> f10 : 1003e0000000000000400 f11 : 1003e0000000000003c00
->> r1  : a00000010155edc0 r2  : a0000001012b5e90 r3  : 0000000001ffffff
->> r8  : 0000000000001680 r9  : 0000000000250015 r10 : e000000001519980
->> r11 : e000000001519988 r12 : e000000d8334fcf0 r13 : e000000d83348000
->> r14 : ffffffffffd570d0 r15 : 0000000000000008 r16 : e000000001519990
->> r17 : 0000000000000000 r18 : 0000000000001680 r19 : 0000000000000000
->> r20 : 0000000000000000 r21 : 0000000000000000 r22 : 0000000000000000
->> r23 : 0000000000000000 r24 : ffffffffffd570c0 r25 : a0000001012b5e80
->> r26 : 0000000000000000 r27 : 0000000000000000 r28 : 0000000000001688
->> r29 : 0000000000000358 r30 : 0000000000000000 r31 : 0000000000000081
->>
->> Call Trace:
->>  [<a000000100013760>] show_stack+0x40/0x90
->>                                 sp=E000000d8334f8c0 bsp=E000000d83349890
->>  [<a0000001000140e0>] show_regs+0x930/0x940
->>                                 sp=E000000d8334fa90 bsp=E000000d83349820
->>  [<a00000010003a7d0>] die+0x1a0/0x2f0
->>                                 sp=E000000d8334fa90 bsp=E000000d833497d8
->>  [<a000000100063140>] ia64_do_page_fault+0x830/0xa30
->>                                 sp=E000000d8334fa90 bsp=E000000d83349740
->>  [<a00000010000c400>] ia64_leave_kernel+0x0/0x270
->>                                 sp=E000000d8334fb20 bsp=E000000d83349740
->>  [<a000000100180400>] __alloc_pages_nodemask+0x1a0/0x1670
->>                                 sp=E000000d8334fcf0 bsp=E000000d83349598
->>  [<a000000100d70100>] dma_direct_alloc+0x170/0x470
->>                                 sp=E000000d8334fd50 bsp=E000000d83349518
->>  [<a0000001006a8770>] swiotlb_alloc+0x50/0x90
->>                                 sp=E000000d8334fd50 bsp=E000000d833494d8
->>  [<a00000010083abd0>] dmam_alloc_coherent+0x250/0x2c0
->>                                 sp=E000000d8334fd50 bsp=E000000d83349488
->>  [<a0000001009990c0>] ahci_port_start+0x2f0/0x4b0
->>                                 sp=E000000d8334fd50 bsp=E000000d83349440
->>  [<a000000100958490>] ata_host_start+0x310/0x470
->>                                 sp=E000000d8334fd60 bsp=E000000d833493d0
->>  [<a000000100964a70>] ata_host_activate+0x20/0x290
->>                                 sp=E000000d8334fd60 bsp=E000000d83349370
->>  [<a000000100999570>] ahci_host_activate+0x2f0/0x300
->>                                 sp=E000000d8334fd60 bsp=E000000d83349300
->>  [<a0000001009923d0>] ahci_init_one+0x1580/0x20b0
->>                                 sp=E000000d8334fd60 bsp=E000000d83349258
->>  [<a0000001006d0610>] local_pci_probe+0x90/0x150
->>                                 sp=E000000d8334fdc0 bsp=E000000d83349218
->>  [<a0000001006d1a30>] pci_device_probe+0x2f0/0x310
->>                                 sp=E000000d8334fdc0 bsp=E000000d833491d8
->>  [<a0000001008229f0>] driver_probe_device+0x520/0x720
->>                                 sp=E000000d8334fde0 bsp=E000000d83349170
->>  [<a000000100822d10>] __driver_attach+0x120/0x190
->>                                 sp=E000000d8334fde0 bsp=E000000d83349140
->>  [<a00000010081ec00>] bus_for_each_dev+0x120/0x140
->>                                 sp=E000000d8334fde0 bsp=E000000d83349100
->>  [<a000000100821bf0>] driver_attach+0x40/0x60
->>                                 sp=E000000d8334fdf0 bsp=E000000d833490e0
->>  [<a0000001008211b0>] bus_add_driver+0x400/0x4a0
->>                                 sp=E000000d8334fdf0 bsp=E000000d83349090
->>  [<a000000100823fc0>] driver_register+0x240/0x2d0
->>                                 sp=E000000d8334fdf0 bsp=E000000d83349068
->>  [<a0000001006cfde0>] __pci_register_driver+0xa0/0xc0
->>                                 sp=E000000d8334fdf0 bsp=E000000d83349038
->>  [<a0000001010ecdb0>] ahci_pci_driver_init+0x50/0x70
->>                                 sp=E000000d8334fdf0 bsp=E000000d83349020
->>  [<a00000010000a950>] do_one_initcall+0x290/0x2a0
->>                                 sp=E000000d8334fdf0 bsp=E000000d83348fe0
->>  [<a0000001010a1c10>] kernel_init_freeable+0x400/0x430
->>                                 sp=E000000d8334fe30 bsp=E000000d83348f78
->>  [<a000000100d93860>] kernel_init+0x20/0x280
->>                                 sp=E000000d8334fe30 bsp=E000000d83348f58
->>  [<a00000010000c1f0>] call_payload+0x50/0x80
->>                                 sp=E000000d8334fe30 bsp=E000000d83348f40
->> Disabling lock debugging due to kernel taint
->> Kernel panic - not syncing: Attempted to kill init! exitcode=3D0x0000000b
->>
->> ---[ end Kernel panic - not syncing: Attempted to kill init!
->> exitcode=3D0x0000000b
->> ```
->>
->> ...but because of the result below - spoiler: a v4.19.37 kernel working
->> on my rx2800 i2 - I assume they're created by the very same issue.
->>
->> Starting at tag v4.19.37 I then reverted the following commits:
->>
->> * cf65a0f6f6ff7631ba0ac0513a14ca5b65320d80 [2]
->>
->> * 16e73adbca76fd18733278cb688b0ddb4cad162c [3]
->>
->> * 9d37c094dacda531ac3e529dd4dd139e3c0b7811 [4]
->>
->> * 4fac8076df854aa4ddb8acbf6cce9d337300219e [5]
->>
->> * 543cea9accd9804307541cb93d3ed7ec94b07237 [6]
->>
->> ...and compiled a kernel using the localmodconfig target to create a
->> minimal config. The resulting kernel booted fine on my rx2800 i2:
->>
->> ```
->> Linux version 4.19.37-00005-g55bd603c2590-dirty (root@rx2800-i2) (gcc
->> version 7.3.0 (Gentoo 7.3.0-r3 p1.4)) #1 SMP Thu Jun 20 23:58:57 CEST 20=
-19
->> EFI v2.10 by HP:
->> efi:  SALsystab=3D0xdfdd63a18  ACPI 2.0=3D0x3d3c4014  HCDP=3D0xdffff8798
->> SMBIOS=3D0x3d368000
->> booting generic kernel on platform dig
->> PCDP: v3 at 0xdffff8798
->> earlycon: uart8250 at I/O port 0x4000 (options '115200n8')
->> bootconsole [uart8250] enabled
->> ACPI: Early table checksum verification disabled
->> ACPI: RSDP 0x000000003D3C4014 000024 (v02 HP    )
->> ACPI: XSDT 0x000000003D3C4580 000124 (v01 HP     RX2800-2 00000001
->> 01000013)
->> [...]
->>  * Starting sshd ...
->>  [ ok ]
->>  * Starting local ...
->>  [ ok ]
->>
->>
->> This is rx2800-i2[...] (Linux ia64 4.19.37-00005-g55bd603c2590-dirty)
->> 20:49:42
->> ```
->>
->> [2]:
->> https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/commit/=
-?id=CF65a0f6f6ff7631ba0ac0513a14ca5b65320d80
->>
->> [3]:
->> https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/commit/=
-?id=16e73adbca76fd18733278cb688b0ddb4cad162c
->>
->> [4]:
->> https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/commit/=
-?id=9D37c094dacda531ac3e529dd4dd139e3c0b7811
->>
->> [5]:
->> https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/commit/=
-?idOac8076df854aa4ddb8acbf6cce9d337300219e
->>
->> [6]:
->> https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/commit/=
-?idT3cea9accd9804307541cb93d3ed7ec94b07237
->>
->> ****
->>
->> Please note:
->>
->> * that I'm always using the "ia64: fix ptrace" patch ([7]) in addition,
->> as I'm compiling with gcc 7.3.0 on Gentoo;
->>
->> [7]: https://lore.kernel.org/patchwork/patch/884685/
->>
->> * that the original problem only shows on my rx2800 i2 and not on my
->> other ia64 gear (rx4640 with Madison, rx2620 with Montecito and rx2660
->> with Montvale), so could be related to the different system architecture
->> of the Tukwila based rx2800 i2 (UMA =3D> NUMA IIC);
->>
->> I just now tried to compile a more recent v5.2-rc5 kernel with the above
->> commits reverted, but that fails. There seem to have been further
->> changes made since v4.19.37 for which I would still need to find the
->> respective commits to revert. But I assume this work could be unneeded
->> for a further examination of the problem, so I don't follow this for
->> now. If it is needed please let me know.
->>
->> James Clarke already had an idea what could be involved in this issue.
->> Maybe he can give his assessment.
->>
->> If you want me to try a patch for a specific Linux version, please let
->> me know. The same if you need further information from me.
->>
->> Cheers
->> Frank
-> ---end quoted text---
->=20
+commit a980c0ef9f6d
+("x86/kprobes: Refactor kprobes_fault() like kprobe_exceptions_notify()")
 
---=20
- .''`.  John Paul Adrian Glaubitz
-: :' :  Debian Developer - glaubitz@debian.org
-`. `'   Freie Universitaet Berlin - glaubitz@physik.fu-berlin.de
-  `-    GPG: 62FF 8A75 84E0 2956 9546  0006 7426 3B37 F5B5 F913
+commit b506a9d08bae ("x86: code clarification patch to Kprobes arch code")
+
+Cc: linux-arm-kernel@lists.infradead.org
+Cc: linux-ia64@vger.kernel.org
+Cc: linuxppc-dev@lists.ozlabs.org
+Cc: linux-s390@vger.kernel.org
+Cc: linux-sh@vger.kernel.org
+Cc: sparclinux@vger.kernel.org
+Cc: x86@kernel.org
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Michal Hocko <mhocko@suse.com>
+Cc: Matthew Wilcox <willy@infradead.org>
+Cc: Mark Rutland <mark.rutland@arm.com>
+Cc: Christophe Leroy <christophe.leroy@c-s.fr>
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>
+Cc: Andrey Konovalov <andreyknvl@google.com>
+Cc: Michael Ellerman <mpe@ellerman.id.au>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Russell King <linux@armlinux.org.uk>
+Cc: Catalin Marinas <catalin.marinas@arm.com>
+Cc: Will Deacon <will.deacon@arm.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
+Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
+Cc: Yoshinori Sato <ysato@users.sourceforge.jp>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Peter Zijlstra <peterz@infradead.org>
+Cc: Ingo Molnar <mingo@redhat.com>
+Cc: Andy Lutomirski <luto@kernel.org>
+Cc: Dave Hansen <dave.hansen@linux.intel.com>
+
+Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
+---
+Testing:
+
+- Build and boot tested on arm64 and x86
+- Build tested on some other archs (arm, sparc64, alpha, powerpc etc)
+
+Changes in RFC V3:
+
+- Updated the commit message with an explaination for new preemption behaviour
+- Moved notify_page_fault() to kprobes.h with 'static nokprobe_inline' per Matthew
+- Changed notify_page_fault() return type from int to bool per Michael Ellerman
+- Renamed notify_page_fault() as kprobe_page_fault() per Peterz
+
+Changes in RFC V2: (https://patchwork.kernel.org/patch/10974221/)
+
+- Changed generic notify_page_fault() per Mathew Wilcox
+- Changed x86 to use new generic notify_page_fault()
+- s/must not/need not/ in commit message per Matthew Wilcox
+
+Changes in RFC V1: (https://patchwork.kernel.org/patch/10968273/)
+
+ arch/arm/mm/fault.c      | 24 +-----------------------
+ arch/arm64/mm/fault.c    | 24 +-----------------------
+ arch/ia64/mm/fault.c     | 24 +-----------------------
+ arch/powerpc/mm/fault.c  | 23 ++---------------------
+ arch/s390/mm/fault.c     | 16 +---------------
+ arch/sh/mm/fault.c       | 18 ++----------------
+ arch/sparc/mm/fault_64.c | 16 +---------------
+ arch/x86/mm/fault.c      | 21 ++-------------------
+ include/linux/kprobes.h  | 16 ++++++++++++++++
+ 9 files changed, 27 insertions(+), 155 deletions(-)
+
+diff --git a/arch/arm/mm/fault.c b/arch/arm/mm/fault.c
+index 58f69fa..94a97a4 100644
+--- a/arch/arm/mm/fault.c
++++ b/arch/arm/mm/fault.c
+@@ -30,28 +30,6 @@
+ 
+ #ifdef CONFIG_MMU
+ 
+-#ifdef CONFIG_KPROBES
+-static inline int notify_page_fault(struct pt_regs *regs, unsigned int fsr)
+-{
+-	int ret = 0;
+-
+-	if (!user_mode(regs)) {
+-		/* kprobe_running() needs smp_processor_id() */
+-		preempt_disable();
+-		if (kprobe_running() && kprobe_fault_handler(regs, fsr))
+-			ret = 1;
+-		preempt_enable();
+-	}
+-
+-	return ret;
+-}
+-#else
+-static inline int notify_page_fault(struct pt_regs *regs, unsigned int fsr)
+-{
+-	return 0;
+-}
+-#endif
+-
+ /*
+  * This is useful to dump out the page tables associated with
+  * 'addr' in mm 'mm'.
+@@ -266,7 +244,7 @@ do_page_fault(unsigned long addr, unsigned int fsr, struct pt_regs *regs)
+ 	vm_fault_t fault;
+ 	unsigned int flags = FAULT_FLAG_ALLOW_RETRY | FAULT_FLAG_KILLABLE;
+ 
+-	if (notify_page_fault(regs, fsr))
++	if (kprobe_page_fault(regs, fsr))
+ 		return 0;
+ 
+ 	tsk = current;
+diff --git a/arch/arm64/mm/fault.c b/arch/arm64/mm/fault.c
+index a30818e..8fe4bbc 100644
+--- a/arch/arm64/mm/fault.c
++++ b/arch/arm64/mm/fault.c
+@@ -70,28 +70,6 @@ static inline const struct fault_info *esr_to_debug_fault_info(unsigned int esr)
+ 	return debug_fault_info + DBG_ESR_EVT(esr);
+ }
+ 
+-#ifdef CONFIG_KPROBES
+-static inline int notify_page_fault(struct pt_regs *regs, unsigned int esr)
+-{
+-	int ret = 0;
+-
+-	/* kprobe_running() needs smp_processor_id() */
+-	if (!user_mode(regs)) {
+-		preempt_disable();
+-		if (kprobe_running() && kprobe_fault_handler(regs, esr))
+-			ret = 1;
+-		preempt_enable();
+-	}
+-
+-	return ret;
+-}
+-#else
+-static inline int notify_page_fault(struct pt_regs *regs, unsigned int esr)
+-{
+-	return 0;
+-}
+-#endif
+-
+ static void data_abort_decode(unsigned int esr)
+ {
+ 	pr_alert("Data abort info:\n");
+@@ -446,7 +424,7 @@ static int __kprobes do_page_fault(unsigned long addr, unsigned int esr,
+ 	unsigned long vm_flags = VM_READ | VM_WRITE;
+ 	unsigned int mm_flags = FAULT_FLAG_ALLOW_RETRY | FAULT_FLAG_KILLABLE;
+ 
+-	if (notify_page_fault(regs, esr))
++	if (kprobe_page_fault(regs, esr))
+ 		return 0;
+ 
+ 	tsk = current;
+diff --git a/arch/ia64/mm/fault.c b/arch/ia64/mm/fault.c
+index 5baeb02..22582f8 100644
+--- a/arch/ia64/mm/fault.c
++++ b/arch/ia64/mm/fault.c
+@@ -21,28 +21,6 @@
+ 
+ extern int die(char *, struct pt_regs *, long);
+ 
+-#ifdef CONFIG_KPROBES
+-static inline int notify_page_fault(struct pt_regs *regs, int trap)
+-{
+-	int ret = 0;
+-
+-	if (!user_mode(regs)) {
+-		/* kprobe_running() needs smp_processor_id() */
+-		preempt_disable();
+-		if (kprobe_running() && kprobe_fault_handler(regs, trap))
+-			ret = 1;
+-		preempt_enable();
+-	}
+-
+-	return ret;
+-}
+-#else
+-static inline int notify_page_fault(struct pt_regs *regs, int trap)
+-{
+-	return 0;
+-}
+-#endif
+-
+ /*
+  * Return TRUE if ADDRESS points at a page in the kernel's mapped segment
+  * (inside region 5, on ia64) and that page is present.
+@@ -116,7 +94,7 @@ ia64_do_page_fault (unsigned long address, unsigned long isr, struct pt_regs *re
+ 	/*
+ 	 * This is to handle the kprobes on user space access instructions
+ 	 */
+-	if (notify_page_fault(regs, TRAP_BRKPT))
++	if (kprobe_page_fault(regs, TRAP_BRKPT))
+ 		return;
+ 
+ 	if (user_mode(regs))
+diff --git a/arch/powerpc/mm/fault.c b/arch/powerpc/mm/fault.c
+index ec6b7ad..f20ee668 100644
+--- a/arch/powerpc/mm/fault.c
++++ b/arch/powerpc/mm/fault.c
+@@ -42,26 +42,6 @@
+ #include <asm/debug.h>
+ #include <asm/kup.h>
+ 
+-static inline bool notify_page_fault(struct pt_regs *regs)
+-{
+-	bool ret = false;
+-
+-#ifdef CONFIG_KPROBES
+-	/* kprobe_running() needs smp_processor_id() */
+-	if (!user_mode(regs)) {
+-		preempt_disable();
+-		if (kprobe_running() && kprobe_fault_handler(regs, 11))
+-			ret = true;
+-		preempt_enable();
+-	}
+-#endif /* CONFIG_KPROBES */
+-
+-	if (unlikely(debugger_fault_handler(regs)))
+-		ret = true;
+-
+-	return ret;
+-}
+-
+ /*
+  * Check whether the instruction inst is a store using
+  * an update addressing form which will update r1.
+@@ -462,8 +442,9 @@ static int __do_page_fault(struct pt_regs *regs, unsigned long address,
+ 	int is_write = page_fault_is_write(error_code);
+ 	vm_fault_t fault, major = 0;
+ 	bool must_retry = false;
++	int kprobe_fault = kprobe_page_fault(regs, 11);
+ 
+-	if (notify_page_fault(regs))
++	if (unlikely(debugger_fault_handler(regs) || kprobe_fault))
+ 		return 0;
+ 
+ 	if (unlikely(page_fault_is_bad(error_code))) {
+diff --git a/arch/s390/mm/fault.c b/arch/s390/mm/fault.c
+index 91ce03f..bb77a2c 100644
+--- a/arch/s390/mm/fault.c
++++ b/arch/s390/mm/fault.c
+@@ -67,20 +67,6 @@ static int __init fault_init(void)
+ }
+ early_initcall(fault_init);
+ 
+-static inline int notify_page_fault(struct pt_regs *regs)
+-{
+-	int ret = 0;
+-
+-	/* kprobe_running() needs smp_processor_id() */
+-	if (kprobes_built_in() && !user_mode(regs)) {
+-		preempt_disable();
+-		if (kprobe_running() && kprobe_fault_handler(regs, 14))
+-			ret = 1;
+-		preempt_enable();
+-	}
+-	return ret;
+-}
+-
+ /*
+  * Find out which address space caused the exception.
+  * Access register mode is impossible, ignore space = 3.
+@@ -411,7 +397,7 @@ static inline vm_fault_t do_exception(struct pt_regs *regs, int access)
+ 	 */
+ 	clear_pt_regs_flag(regs, PIF_PER_TRAP);
+ 
+-	if (notify_page_fault(regs))
++	if (kprobe_page_fault(regs, 14))
+ 		return 0;
+ 
+ 	mm = tsk->mm;
+diff --git a/arch/sh/mm/fault.c b/arch/sh/mm/fault.c
+index 6defd2c6..74cd4ac 100644
+--- a/arch/sh/mm/fault.c
++++ b/arch/sh/mm/fault.c
+@@ -24,20 +24,6 @@
+ #include <asm/tlbflush.h>
+ #include <asm/traps.h>
+ 
+-static inline int notify_page_fault(struct pt_regs *regs, int trap)
+-{
+-	int ret = 0;
+-
+-	if (kprobes_built_in() && !user_mode(regs)) {
+-		preempt_disable();
+-		if (kprobe_running() && kprobe_fault_handler(regs, trap))
+-			ret = 1;
+-		preempt_enable();
+-	}
+-
+-	return ret;
+-}
+-
+ static void
+ force_sig_info_fault(int si_signo, int si_code, unsigned long address,
+ 		     struct task_struct *tsk)
+@@ -415,14 +401,14 @@ asmlinkage void __kprobes do_page_fault(struct pt_regs *regs,
+ 	if (unlikely(fault_in_kernel_space(address))) {
+ 		if (vmalloc_fault(address) >= 0)
+ 			return;
+-		if (notify_page_fault(regs, vec))
++		if (kprobe_page_fault(regs, vec))
+ 			return;
+ 
+ 		bad_area_nosemaphore(regs, error_code, address);
+ 		return;
+ 	}
+ 
+-	if (unlikely(notify_page_fault(regs, vec)))
++	if (unlikely(kprobe_page_fault(regs, vec)))
+ 		return;
+ 
+ 	/* Only enable interrupts if they were on before the fault */
+diff --git a/arch/sparc/mm/fault_64.c b/arch/sparc/mm/fault_64.c
+index 8f8a604..6865f9c 100644
+--- a/arch/sparc/mm/fault_64.c
++++ b/arch/sparc/mm/fault_64.c
+@@ -38,20 +38,6 @@
+ 
+ int show_unhandled_signals = 1;
+ 
+-static inline __kprobes int notify_page_fault(struct pt_regs *regs)
+-{
+-	int ret = 0;
+-
+-	/* kprobe_running() needs smp_processor_id() */
+-	if (kprobes_built_in() && !user_mode(regs)) {
+-		preempt_disable();
+-		if (kprobe_running() && kprobe_fault_handler(regs, 0))
+-			ret = 1;
+-		preempt_enable();
+-	}
+-	return ret;
+-}
+-
+ static void __kprobes unhandled_fault(unsigned long address,
+ 				      struct task_struct *tsk,
+ 				      struct pt_regs *regs)
+@@ -285,7 +271,7 @@ asmlinkage void __kprobes do_sparc64_fault(struct pt_regs *regs)
+ 
+ 	fault_code = get_thread_fault_code();
+ 
+-	if (notify_page_fault(regs))
++	if (kprobe_page_fault(regs, 0))
+ 		goto exit_exception;
+ 
+ 	si_code = SEGV_MAPERR;
+diff --git a/arch/x86/mm/fault.c b/arch/x86/mm/fault.c
+index 46df4c6..5400f4e 100644
+--- a/arch/x86/mm/fault.c
++++ b/arch/x86/mm/fault.c
+@@ -46,23 +46,6 @@ kmmio_fault(struct pt_regs *regs, unsigned long addr)
+ 	return 0;
+ }
+ 
+-static nokprobe_inline int kprobes_fault(struct pt_regs *regs)
+-{
+-	if (!kprobes_built_in())
+-		return 0;
+-	if (user_mode(regs))
+-		return 0;
+-	/*
+-	 * To be potentially processing a kprobe fault and to be allowed to call
+-	 * kprobe_running(), we have to be non-preemptible.
+-	 */
+-	if (preemptible())
+-		return 0;
+-	if (!kprobe_running())
+-		return 0;
+-	return kprobe_fault_handler(regs, X86_TRAP_PF);
+-}
+-
+ /*
+  * Prefetch quirks:
+  *
+@@ -1280,7 +1263,7 @@ do_kern_addr_fault(struct pt_regs *regs, unsigned long hw_error_code,
+ 		return;
+ 
+ 	/* kprobes don't want to hook the spurious faults: */
+-	if (kprobes_fault(regs))
++	if (kprobe_page_fault(regs, X86_TRAP_PF))
+ 		return;
+ 
+ 	/*
+@@ -1311,7 +1294,7 @@ void do_user_addr_fault(struct pt_regs *regs,
+ 	mm = tsk->mm;
+ 
+ 	/* kprobes don't want to hook the spurious faults: */
+-	if (unlikely(kprobes_fault(regs)))
++	if (unlikely(kprobe_page_fault(regs, X86_TRAP_PF)))
+ 		return;
+ 
+ 	/*
+diff --git a/include/linux/kprobes.h b/include/linux/kprobes.h
+index 443d980..064dd15 100644
+--- a/include/linux/kprobes.h
++++ b/include/linux/kprobes.h
+@@ -458,4 +458,20 @@ static inline bool is_kprobe_optinsn_slot(unsigned long addr)
+ }
+ #endif
+ 
++static nokprobe_inline bool kprobe_page_fault(struct pt_regs *regs,
++					      unsigned int trap)
++{
++	int ret = 0;
++
++	/*
++	 * To be potentially processing a kprobe fault and to be allowed
++	 * to call kprobe_running(), we have to be non-preemptible.
++	 */
++	if (kprobes_built_in() && !preemptible() && !user_mode(regs)) {
++		if (kprobe_running() && kprobe_fault_handler(regs, trap))
++			ret = 1;
++	}
++	return ret;
++}
++
+ #endif /* _LINUX_KPROBES_H */
+-- 
+2.7.4
