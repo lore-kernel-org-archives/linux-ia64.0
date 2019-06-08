@@ -1,15 +1,17 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Date: Thu, 20 Jun 2019 17:57:23 +0000
-Subject: [PATCH 4.9 109/117] ia64: fix build errors by exporting paddr_to_nid()
-Message-Id: <20190620174358.131774440@linuxfoundation.org>
+From: Sasha Levin <sashal@kernel.org>
+Date: Sat, 08 Jun 2019 11:47:49 +0000
+Subject: [PATCH AUTOSEL 4.9 13/20] ia64: fix build errors by exporting paddr_to_nid()
+Message-Id: <20190608114756.9742-13-sashal@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190620174351.964339809@linuxfoundation.org>
-In-Reply-To: <20190620174351.964339809@linuxfoundation.org>
+References: <20190608114756.9742-1-sashal@kernel.org>
+In-Reply-To: <20190608114756.9742-1-sashal@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>, stable@vger.kernel.org, kbuild test robot <lkp@intel.com>, Randy Dunlap <rdunlap@infradead.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>, Sasha Levin <sashal@kernel.org>
+To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
+Cc: Randy Dunlap <rdunlap@infradead.org>, kbuild test robot <lkp@intel.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>, Sasha Levin <sashal@kernel.org>
+
+From: Randy Dunlap <rdunlap@infradead.org>
 
 [ Upstream commit 9a626c4a6326da4433a0d4d4a8a7d1571caf1ed3 ]
 
@@ -63,5 +65,3 @@ index aa19b7ac8222..476c7b4be378 100644
  /*
 -- 
 2.20.1
-
-
