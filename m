@@ -1,92 +1,35 @@
-From: Matthias Schiffer <matthias.schiffer@ew.tq-group.com>
-Date: Thu, 06 Jun 2019 15:27:12 +0000
-Subject: Re: [PATCH modules 1/2] module: allow arch overrides for .exit section names
-Message-Id: <004bda07469769f8a6e0609efd0327f184307493.camel@ew.tq-group.com>
+From: Oscar Salvador <osalvador@suse.de>
+Date: Mon, 10 Jun 2019 17:07:06 +0000
+Subject: Re: [PATCH v3 02/11] s390x/mm: Fail when an altmap is used for arch_add_memory()
+Message-Id: <20190610170705.GD5643@linux>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190603105726.22436-1-matthias.schiffer@ew.tq-group.com>
-         <20190603105726.22436-2-matthias.schiffer@ew.tq-group.com>
-         <20190606150946.GA27669@linux-8ccs>
-In-Reply-To: <20190606150946.GA27669@linux-8ccs>
+References: <20190527111152.16324-1-david@redhat.com>
+ <20190527111152.16324-3-david@redhat.com>
+In-Reply-To: <20190527111152.16324-3-david@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jessica Yu <jeyu@kernel.org>
-Cc: Russell King <linux@armlinux.org.uk>, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: David Hildenbrand <david@redhat.com>
+Cc: Oscar Salvador <osalvador@suse.com>, linux-s390@vger.kernel.org, Michal Hocko <mhocko@suse.com>, linux-ia64@vger.kernel.org, Vasily Gorbik <gor@linux.ibm.com>, linux-sh@vger.kernel.org, Heiko Carstens <heiko.carstens@de.ibm.com>, linux-kernel@vger.kernel.org, Wei Yang <richard.weiyang@gmail.com>, linux-mm@kvack.org, Mike Rapoport <rppt@linux.vnet.ibm.com>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Igor Mammedov <imammedo@redhat.com>, akpm@linux-foundation.org, linuxppc-dev@lists.ozlabs.org, Dan Williams <dan.j.williams@intel.com>, linux-arm-kernel@lists.infradead.org
 
-On Thu, 2019-06-06 at 17:09 +0200, Jessica Yu wrote:
-> +++ Matthias Schiffer [03/06/19 12:57 +0200]:
-> > Some archs like ARM store unwind information for .exit.text in
-> > sections
-> > with unusual names. As this unwind information refers to
-> > .exit.text, it
-> > must not be loaded when .exit.text is not loaded (when
-> > CONFIG_MODULE_UNLOAD
-> > is unset); otherwise, loading a module can fail due to relocation
-> > failures.
-> > 
-> > Signed-off-by: Matthias Schiffer <matthias.schiffer@ew.tq-group.com
-> > >
-> > ---
-> > include/linux/moduleloader.h | 8 ++++++++
-> > kernel/module.c              | 2 +-
-> > 2 files changed, 9 insertions(+), 1 deletion(-)
-> > 
-> > diff --git a/include/linux/moduleloader.h
-> > b/include/linux/moduleloader.h
-> > index 31013c2effd3..cddbd85fb659 100644
-> > --- a/include/linux/moduleloader.h
-> > +++ b/include/linux/moduleloader.h
-> > @@ -5,6 +5,7 @@
-> > 
-> > #include <linux/module.h>
-> > #include <linux/elf.h>
-> > +#include <linux/string.h>
-> > 
-> > /* These may be implemented by architectures that need to hook into
-> > the
-> >  * module loader code.  Architectures that don't need to do
-> > anything special
-> > @@ -93,4 +94,11 @@ void module_arch_freeing_init(struct module
-> > *mod);
-> > #define MODULE_ALIGN PAGE_SIZE
-> > #endif
-> > 
-> > +#ifndef HAVE_ARCH_MODULE_EXIT_SECTION
-> > +static inline bool module_exit_section(const char *name)
-> > +{
-> > +	return strstarts(name, ".exit");
-> > +}
-> > +#endif
-> > +
+On Mon, May 27, 2019 at 01:11:43PM +0200, David Hildenbrand wrote:
+> ZONE_DEVICE is not yet supported, fail if an altmap is passed, so we
+> don't forget arch_add_memory()/arch_remove_memory() when unlocking
+> support.
 > 
-> Hi Matthias,
-> 
-> For sake of consistency, could we implement this as an arch-
-> overridable
-> __weak symbol like the rest of the module arch-overrides in
-> moduleloader.h?
+> Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
+> Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
+> Cc: Andrew Morton <akpm@linux-foundation.org>
+> Cc: Michal Hocko <mhocko@suse.com>
+> Cc: Mike Rapoport <rppt@linux.vnet.ibm.com>
+> Cc: David Hildenbrand <david@redhat.com>
+> Cc: Vasily Gorbik <gor@linux.ibm.com>
+> Cc: Oscar Salvador <osalvador@suse.com>
+> Suggested-by: Dan Williams <dan.j.williams@intel.com>
+> Signed-off-by: David Hildenbrand <david@redhat.com>
 
-Fine with me - making such a tiny function inlineable just seemed more
-appropriate to me. I can send a v2 tomorrow.
+Reviewed-by: Oscar Salvador <osalvador@suse.de>
 
-
-> 
-> > #endif
-> > diff --git a/kernel/module.c b/kernel/module.c
-> > index 6e6712b3aaf5..e8e4cd0a471f 100644
-> > --- a/kernel/module.c
-> > +++ b/kernel/module.c
-> > @@ -2924,7 +2924,7 @@ static int rewrite_section_headers(struct
-> > load_info *info, int flags)
-> > 
-> > #ifndef CONFIG_MODULE_UNLOAD
-> > 		/* Don't load .exit sections */
-> > -		if (strstarts(info->secstrings+shdr->sh_name, ".exit"))
-> > +		if (module_exit_section(info->secstrings+shdr-
-> > >sh_name))
-> > 			shdr->sh_flags &= ~(unsigned long)SHF_ALLOC;
-> > #endif
-> > 	}
-> > -- 
-> > 2.17.1
-> > 
+-- 
+Oscar Salvador
+SUSE L3
