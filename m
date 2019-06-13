@@ -1,53 +1,64 @@
 From: Zhen Lei <thunder.leizhen@huawei.com>
-Date: Thu, 13 Jun 2019 08:42:39 +0000
-Subject: [PATCH v9 6/7] iommu/amd: add support for IOMMU default DMA mode build options
-Message-Id: <20190613084240.16768-7-thunder.leizhen@huawei.com>
+Date: Thu, 13 Jun 2019 08:42:33 +0000
+Subject: [PATCH v9 0/7] iommu: enhance IOMMU default DMA mode build options
+Message-Id: <20190613084240.16768-1-thunder.leizhen@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190613084240.16768-1-thunder.leizhen@huawei.com>
-In-Reply-To: <20190613084240.16768-1-thunder.leizhen@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Jean-Philippe Brucker <jean-philippe.brucker@arm.com>, John Garry <john.garry@huawei.com>, Robin Murphy <robin.murphy@arm.com>, Will Deacon <will.deacon@arm.com>, Joerg Roedel <joro@8bytes.org>, Jonathan Corbet <corbet@lwn.net>, linux-doc <linux-doc@vger.kernel.org>, Sebastian Ott <sebott@linux.ibm.com>, Gerald Schaefer <gerald.schaefer@de.ibm.com>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, "H . Peter Anvin" <hpa@zytor.com>, David Woodhouse <dwmw2@infradead.org>, iommu <iommu@lists.linux-foundation.org>, linux-kernel <linux-kernel@vger.kernel.org>, linux-s390 <linux-s390@vger.kernel.org>, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, x86 <x86@kernel.org>, linux-ia64 <linux-ia64@vger.kernel.org>
 Cc: Zhen Lei <thunder.leizhen@huawei.com>
 
-The default DMA mode of AMD IOMMU is LAZY, this patch make it can be set
-to STRICT at build time. It can be overridden by boot option.
+v8--> v9
+1. Fix some text editing errors
 
-There is no functional change.
+v7--> v8
+1. Split into multiple small patches base on ARCHs or IOMMU drivers.
+2. Hide the unsupported build options on the related ARCH or IOMMU.
 
-Signed-off-by: Zhen Lei <thunder.leizhen@huawei.com>
----
- drivers/iommu/Kconfig          | 2 +-
- drivers/iommu/amd_iommu_init.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+v6 --> v7:
+1. Fix some text editing errors
 
-diff --git a/drivers/iommu/Kconfig b/drivers/iommu/Kconfig
-index fd297b0e0330d27..70741fd73b07785 100644
---- a/drivers/iommu/Kconfig
-+++ b/drivers/iommu/Kconfig
-@@ -79,7 +79,7 @@ choice
- 	prompt "IOMMU default DMA mode"
- 	depends on IOMMU_API
- 	default IOMMU_DEFAULT_PASSTHROUGH if (PPC_POWERNV && PCI)
--	default IOMMU_DEFAULT_LAZY if (INTEL_IOMMU || S390_IOMMU)
-+	default IOMMU_DEFAULT_LAZY if (AMD_IOMMU || INTEL_IOMMU || S390_IOMMU)
- 	default IOMMU_DEFAULT_STRICT
- 	help
- 	  This option allows an IOMMU DMA mode to be chosen at build time, to
-diff --git a/drivers/iommu/amd_iommu_init.c b/drivers/iommu/amd_iommu_init.c
-index 07d84dbab564e4d..b7d5c1757425946 100644
---- a/drivers/iommu/amd_iommu_init.c
-+++ b/drivers/iommu/amd_iommu_init.c
-@@ -154,7 +154,7 @@ struct ivmd_header {
- 					   to handle */
- LIST_HEAD(amd_iommu_unity_map);		/* a list of required unity mappings
- 					   we find in ACPI */
--bool amd_iommu_unmap_flush;		/* if true, flush on every unmap */
-+bool amd_iommu_unmap_flush = IS_ENABLED(CONFIG_IOMMU_DEFAULT_STRICT);	/* if true, flush on every unmap */
- 
- LIST_HEAD(amd_iommu_list);		/* list of all AMD IOMMUs in the
- 					   system */
+v5 --> v6:
+1. give up adding boot option iommu.dma_mode
+
+v4 --> v5:
+As Hanjun and Thomas Gleixner's suggestion:
+1. Keep the old ARCH specific boot options no change.
+2. Keep build option CONFIG_IOMMU_DEFAULT_PASSTHROUGH no change.
+
+v4:
+As Robin Murphy's suggestion:
+"It's also not necessarily obvious to the user how this interacts with
+IOMMU_DEFAULT_PASSTHROUGH, so if we really do go down this route, maybe it
+would be better to refactor the whole lot into a single selection of something
+like IOMMU_DEFAULT_MODE anyway."
+
+In this version, I tried to normalize the IOMMU dma mode boot options for all
+ARCHs. When IOMMU is enabled, there are 3 dma modes: paasthrough(bypass),
+lazy(mapping but defer the IOTLB invalidation), strict. But currently each
+ARCHs defined their private boot options, different with each other. For
+example, to enable/disable "passthrough", ARM64 use iommu.passthrough=1/0,
+X86 use iommu=pt/nopt, PPC/POWERNV use iommu=nobypass.
+
+Zhen Lei (7):
+  iommu: enhance IOMMU default DMA mode build options
+  x86/dma: use IS_ENABLED() to simplify the code
+  s390/pci: add support for IOMMU default DMA mode build options
+  powernv/iommu: add support for IOMMU default DMA mode build options
+  iommu/vt-d: add support for IOMMU default DMA mode build options
+  iommu/amd: add support for IOMMU default DMA mode build options
+  ia64: hide build option IOMMU_DEFAULT_PASSTHROUGH
+
+ arch/powerpc/platforms/powernv/pci-ioda.c |  3 +-
+ arch/s390/pci/pci_dma.c                   |  2 +-
+ arch/x86/kernel/pci-dma.c                 |  6 +---
+ drivers/iommu/Kconfig                     | 48 +++++++++++++++++++++++++------
+ drivers/iommu/amd_iommu_init.c            |  2 +-
+ drivers/iommu/intel-iommu.c               |  2 +-
+ drivers/iommu/iommu.c                     |  3 +-
+ 7 files changed, 48 insertions(+), 18 deletions(-)
+
 -- 
 1.8.3
 
