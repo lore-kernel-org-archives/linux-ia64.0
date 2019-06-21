@@ -1,27 +1,30 @@
-From: Oscar Salvador <osalvador@suse.de>
-Date: Mon, 10 Jun 2019 16:58:35 +0000
-Subject: Re: [PATCH v3 11/11] mm/memory_hotplug: Remove "zone" parameter from sparse_remove_one_section
-Message-Id: <20190610165834.GC5643@linux>
+From: "DIAL DIRECT LOANS SA" <dialdirect@info.org>
+Date: Fri, 21 Jun 2019 06:18:28 +0000
+Subject: LOANS !!!
+Message-Id: <022af39b07a2cc81bd072b96ced29599.squirrel@mail.vodokanal.poltava.ua>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190527111152.16324-1-david@redhat.com>
- <20190527111152.16324-12-david@redhat.com>
-In-Reply-To: <20190527111152.16324-12-david@redhat.com>
+References: <86675f682c024e22f23fdc774efdfcf4.squirrel@mail.vodokanal.poltava.ua>
+In-Reply-To: <86675f682c024e22f23fdc774efdfcf4.squirrel@mail.vodokanal.poltava.ua>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Hildenbrand <david@redhat.com>
-Cc: linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org, Wei Yang <richard.weiyang@gmail.com>, linux-mm@kvack.org, Igor Mammedov <imammedo@redhat.com>, akpm@linux-foundation.org, linuxppc-dev@lists.ozlabs.org, Dan Williams <dan.j.williams@intel.com>, linux-arm-kernel@lists.infradead.org
+To: linux-ia64@vger.kernel.org
 
-On Mon, May 27, 2019 at 01:11:52PM +0200, David Hildenbrand wrote:
-> The parameter is unused, so let's drop it. Memory removal paths should
-> never care about zones. This is the job of memory offlining and will
-> require more refactorings.
-> 
-> Reviewed-by: Dan Williams <dan.j.williams@intel.com>
-> Signed-off-by: David Hildenbrand <david@redhat.com>
 
-Reviewed-by: Oscar Salvador <osalvador@suse.de>
+Dial Direct Loan SA
 
--- 
-Oscar Salvador
-SUSE L3
+
+Consolidate your debts with Dial Direct Loan SA for your peace of
+mind at a fixed interest rate of 4.75%,personal and business loans
+are also welcome.For details file in your applications by sending an email
+to:dialdirectloanssa@mail2consultant.com.
+
+
+
+Yours in Service,
+Susan Muller (Mrs.),
+Senior Consultant,
+Loan Application Team
+Dial Direct Loan SA
+Tel No: +27717231058
+
