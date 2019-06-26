@@ -1,7 +1,7 @@
-From: "DIAL DIRECT LOANS SA" <dialdirect@info.org>
-Date: Fri, 21 Jun 2019 06:18:28 +0000
+From: "Dial Direct Loans" <dialdirect@info.org>
+Date: Wed, 26 Jun 2019 11:19:01 +0000
 Subject: LOANS !!!
-Message-Id: <022af39b07a2cc81bd072b96ced29599.squirrel@mail.vodokanal.poltava.ua>
+Message-Id: <be6afb8d68f3a6f3240e3c6a1756ccb8.squirrel@mail.vodokanal.poltava.ua>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <86675f682c024e22f23fdc774efdfcf4.squirrel@mail.vodokanal.poltava.ua>
 In-Reply-To: <86675f682c024e22f23fdc774efdfcf4.squirrel@mail.vodokanal.poltava.ua>
@@ -16,8 +16,9 @@ Dial Direct Loan SA
 
 Consolidate your debts with Dial Direct Loan SA for your peace of
 mind at a fixed interest rate of 4.75%,personal and business loans
-are also welcome.For details file in your applications by sending an email
-to:dialdirectloanssa@mail2consultant.com.
+are also welcome.For details  and file in your applications by sending an
+email
+to:infodialdirectloans@mail2consultant.com
 
 
 
