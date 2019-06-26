@@ -1,52 +1,36 @@
-From: Matthias Schiffer <matthias.schiffer@ew.tq-group.com>
-Date: Fri, 07 Jun 2019 10:49:12 +0000
-Subject: [PATCH modules v2 2/2] ARM: module: recognize unwind exit sections
-Message-Id: <20190607104912.6252-3-matthias.schiffer@ew.tq-group.com>
+From: Michal Hocko <mhocko@kernel.org>
+Date: Wed, 26 Jun 2019 13:54:50 +0000
+Subject: Re: [PATCH 1/2] x86, numa: always initialize all possible nodes
+Message-Id: <20190626135450.GW17798@dhcp22.suse.cz>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190607104912.6252-1-matthias.schiffer@ew.tq-group.com>
-In-Reply-To: <20190607104912.6252-1-matthias.schiffer@ew.tq-group.com>
+References: <20190212095343.23315-1-mhocko@kernel.org>
+ <20190212095343.23315-2-mhocko@kernel.org>
+ <34f96661-41c2-27cc-422d-5a7aab526f87@google.com>
+ <20190502130031.GC29835@dhcp22.suse.cz>
+In-Reply-To: <20190502130031.GC29835@dhcp22.suse.cz>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Russell King <linux@armlinux.org.uk>, Jessica Yu <jeyu@kernel.org>
-Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, Matthias Schiffer <matthias.schiffer@ew.tq-group.com>
+To: Barret Rhoden <brho@google.com>
+Cc: linux-mm@kvack.org, Pingfan Liu <kernelfans@gmail.com>, Dave Hansen <dave.hansen@intel.com>, Peter Zijlstra <peterz@infradead.org>, x86@kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Michael Ellerman <mpe@ellerman.id.au>, Tony Luck <tony.luck@intel.com>, linuxppc-dev@lists.ozlabs.org, linux-ia64@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>, Ingo Molnar <mingo@elte.hu>
 
-In addition to the prefix ".exit", ".ARM.extab.exit" and ".ARM.exidx.exit"
-must be recognized as exit sections as well. Otherwise, loading modules can
-fail without CONFIG_MODULE_UNLOAD depending on the memory layout, when
-relocations for the unwind sections refer to the .exit.text section:
+On Thu 02-05-19 09:00:31, Michal Hocko wrote:
+> On Wed 01-05-19 15:12:32, Barret Rhoden wrote:
+> [...]
+> > A more elegant solution may be to avoid registering with sysfs during early
+> > boot, or something else entirely.  But I figured I'd ask for help at this
+> > point.  =)
+> 
+> Thanks for the report and an excellent analysis! This is really helpful.
+> I will think about this some more but I am traveling this week. It seems
+> really awkward to register a sysfs file for an empty range. That looks
+> like a bug to me.
 
-  imx_sdma: section 16 reloc 0 sym '': relocation 42 out of range
-  (0x7f015260 -> 0xc0f5a5e8)
+I am sorry, but I didn't get to this for a long time and I am still
+busy. The patch has been dropped from the mm tree (thus linux-next). I
+hope I can revisit this or somebody else will take over and finish this
+work. This is much more trickier than I anticipated unfortunately.
 
-where 0x7F000000 is the module load area and 0xC0000000 is the vmalloc
-area. Relocation 42 refers to R_ARM_PREL31, which is limited to signed
-31bit offsets.
-
-Signed-off-by: Matthias Schiffer <matthias.schiffer@ew.tq-group.com>
----
-v2: Use __weak function as suggested by Jessica
-
- arch/arm/kernel/module.c | 7 +++++++
- 1 file changed, 7 insertions(+)
-
-diff --git a/arch/arm/kernel/module.c b/arch/arm/kernel/module.c
-index 3ff571c2c71c..692001aabb0f 100644
---- a/arch/arm/kernel/module.c
-+++ b/arch/arm/kernel/module.c
-@@ -58,6 +58,13 @@ void *module_alloc(unsigned long size)
- }
- #endif
- 
-+bool module_exit_section(const char *name)
-+{
-+	return strstarts(name, ".exit") ||
-+		strstarts(name, ".ARM.extab.exit") ||
-+		strstarts(name, ".ARM.exidx.exit");
-+}
-+
- int
- apply_relocate(Elf32_Shdr *sechdrs, const char *strtab, unsigned int symindex,
- 	       unsigned int relindex, struct module *module)
 -- 
-2.17.1
+Michal Hocko
+SUSE Labs
