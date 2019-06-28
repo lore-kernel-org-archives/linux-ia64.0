@@ -1,96 +1,46 @@
-From: Wei Yang <richard.weiyang@gmail.com>
-Date: Tue, 04 Jun 2019 21:47:53 +0000
-Subject: Re: [PATCH v3 08/11] mm/memory_hotplug: Drop MHP_MEMBLOCK_API
-Message-Id: <20190604214753.utbdrjtjavgi7yhf@master>
+From: Anshuman Khandual <anshuman.khandual@arm.com>
+Date: Fri, 28 Jun 2019 04:56:41 +0000
+Subject: [RFC 0/2] arm64: Enable vmemmap from device memory
+Message-Id: <1561697083-7329-1-git-send-email-anshuman.khandual@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190527111152.16324-1-david@redhat.com>
- <20190527111152.16324-9-david@redhat.com>
-In-Reply-To: <20190527111152.16324-9-david@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Hildenbrand <david@redhat.com>
-Cc: Oscar Salvador <osalvador@suse.com>, linux-s390@vger.kernel.org, Michal Hocko <mhocko@suse.com>, linux-ia64@vger.kernel.org, Pavel Tatashin <pasha.tatashin@soleen.com>, linux-sh@vger.kernel.org, Mathieu Malaterre <malat@debian.org>, Joonsoo Kim <iamjoonsoo.kim@lge.com>, linux-kernel@vger.kernel.org, Wei Yang <richard.weiyang@gmail.com>, linux-mm@kvack.org, Arun KS <arunks@codeaurora.org>, Qian Cai <cai@lca.pw>, Igor Mammedov <imammedo@redhat.com>, akpm@linux-foundation.org, linuxppc-dev@lists.ozlabs.org, Dan Williams <dan.j.williams@intel.com>, linux-arm-kernel@lists.infradead.org
+To: linux-mm@kvack.org
+Cc: Anshuman Khandual <anshuman.khandual@arm.com>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will.deacon@arm.com>, Mark Rutland <mark.rutland@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, x86@kernel.org, linux-kernel@vger.kernel.org
 
-On Mon, May 27, 2019 at 01:11:49PM +0200, David Hildenbrand wrote:
->No longer needed, the callers of arch_add_memory() can handle this
->manually.
->
->Cc: Andrew Morton <akpm@linux-foundation.org>
->Cc: David Hildenbrand <david@redhat.com>
->Cc: Michal Hocko <mhocko@suse.com>
->Cc: Oscar Salvador <osalvador@suse.com>
->Cc: Pavel Tatashin <pasha.tatashin@soleen.com>
->Cc: Wei Yang <richard.weiyang@gmail.com>
->Cc: Joonsoo Kim <iamjoonsoo.kim@lge.com>
->Cc: Qian Cai <cai@lca.pw>
->Cc: Arun KS <arunks@codeaurora.org>
->Cc: Mathieu Malaterre <malat@debian.org>
->Signed-off-by: David Hildenbrand <david@redhat.com>
+This series enables vmemmap mapping allocation from device memory ranges on
+arm64. Before that it enables vmemmap_populate_basepages() to accommodate
+struct vmem_altmap based requests.
 
-Reviewed-by: Wei Yang <richardw.yang@linux.intel.com>
+This series is based on linux next (next-20190613) along with v6 arm64
+hot-remove series [1]. 
 
->---
-> include/linux/memory_hotplug.h | 8 --------
-> mm/memory_hotplug.c            | 9 +++------
-> 2 files changed, 3 insertions(+), 14 deletions(-)
->
->diff --git a/include/linux/memory_hotplug.h b/include/linux/memory_hotplug.h
->index 2d4de313926d..2f1f87e13baa 100644
->--- a/include/linux/memory_hotplug.h
->+++ b/include/linux/memory_hotplug.h
->@@ -128,14 +128,6 @@ extern void arch_remove_memory(int nid, u64 start, u64 size,
-> extern void __remove_pages(struct zone *zone, unsigned long start_pfn,
-> 			   unsigned long nr_pages, struct vmem_altmap *altmap);
-> 
->-/*
->- * Do we want sysfs memblock files created. This will allow userspace to online
->- * and offline memory explicitly. Lack of this bit means that the caller has to
->- * call move_pfn_range_to_zone to finish the initialization.
->- */
->-
->-#define MHP_MEMBLOCK_API               (1<<0)
->-
-> /* reasonably generic interface to expand the physical pages */
-> extern int __add_pages(int nid, unsigned long start_pfn, unsigned long nr_pages,
-> 		       struct mhp_restrictions *restrictions);
->diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
->index b1fde90bbf19..9a92549ef23b 100644
->--- a/mm/memory_hotplug.c
->+++ b/mm/memory_hotplug.c
->@@ -251,7 +251,7 @@ void __init register_page_bootmem_info_node(struct pglist_data *pgdat)
-> #endif /* CONFIG_HAVE_BOOTMEM_INFO_NODE */
-> 
-> static int __meminit __add_section(int nid, unsigned long phys_start_pfn,
->-		struct vmem_altmap *altmap, bool want_memblock)
->+				   struct vmem_altmap *altmap)
-> {
-> 	int ret;
-> 
->@@ -294,8 +294,7 @@ int __ref __add_pages(int nid, unsigned long phys_start_pfn,
-> 	}
-> 
-> 	for (i = start_sec; i <= end_sec; i++) {
->-		err = __add_section(nid, section_nr_to_pfn(i), altmap,
->-				restrictions->flags & MHP_MEMBLOCK_API);
->+		err = __add_section(nid, section_nr_to_pfn(i), altmap);
-> 
-> 		/*
-> 		 * EEXIST is finally dealt with by ioresource collision
->@@ -1067,9 +1066,7 @@ static int online_memory_block(struct memory_block *mem, void *arg)
->  */
-> int __ref add_memory_resource(int nid, struct resource *res)
-> {
->-	struct mhp_restrictions restrictions = {
->-		.flags = MHP_MEMBLOCK_API,
->-	};
->+	struct mhp_restrictions restrictions = {};
-> 	u64 start, size;
-> 	bool new_node = false;
-> 	int ret;
->-- 
->2.20.1
+[1] https://lkml.org/lkml/2019/6/19/3
+
+Cc: Catalin Marinas <catalin.marinas@arm.com>
+Cc: Will Deacon <will.deacon@arm.com>
+Cc: Mark Rutland <mark.rutland@arm.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: Dave Hansen <dave.hansen@linux.intel.com>
+Cc: Andy Lutomirski <luto@kernel.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: linux-arm-kernel@lists.infradead.org
+Cc: linux-ia64@vger.kernel.org
+Cc: x86@kernel.org
+Cc: linux-kernel@vger.kernel.org
+
+Anshuman Khandual (2):
+  mm/sparsemem: Add vmem_altmap support in vmemmap_populate_basepages()
+  arm64/mm: Enable device memory allocation and free for vmemmap mapping
+
+ arch/arm64/mm/mmu.c      | 57 +++++++++++++++++++++++++++++++-----------------
+ arch/ia64/mm/discontig.c |  2 +-
+ arch/x86/mm/init_64.c    |  4 ++--
+ include/linux/mm.h       |  5 +++--
+ mm/sparse-vmemmap.c      | 16 +++++++++-----
+ 5 files changed, 54 insertions(+), 30 deletions(-)
 
 -- 
-Wei Yang
-Help you, Help me
+2.7.4
