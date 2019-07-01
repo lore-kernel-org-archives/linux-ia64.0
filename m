@@ -1,89 +1,65 @@
-From: Christian Brauner <christian@brauner.io>
-Date: Fri, 19 Jul 2019 12:20:59 +0000
-Subject: Re: [PATCH 1/2] arch: mark syscall number 435 reserved for clone3
-Message-Id: <20190719122058.njbtwy2fbd6xrp2d@brauner.io>
+From: Michal Hocko <mhocko@kernel.org>
+Date: Mon, 01 Jul 2019 07:45:03 +0000
+Subject: Re: [PATCH v3 03/11] s390x/mm: Implement arch_remove_memory()
+Message-Id: <20190701074503.GD6376@dhcp22.suse.cz>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190714192205.27190-1-christian@brauner.io>
- <20190714192205.27190-2-christian@brauner.io>
- <e14eb2f9-43cb-0b9d-dec4-b7e7dcd62091@de.ibm.com>
- <20190716130631.tohj4ub54md25dys@brauner.io>
- <874l3i8h0l.fsf@concordia.ellerman.id.au>
- <20190719102503.tm3ahvkh4rwykmws@brauner.io>
- <871rym8egj.fsf@concordia.ellerman.id.au>
-In-Reply-To: <871rym8egj.fsf@concordia.ellerman.id.au>
+References: <20190527111152.16324-1-david@redhat.com>
+ <20190527111152.16324-4-david@redhat.com>
+In-Reply-To: <20190527111152.16324-4-david@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Michael Ellerman <mpe@ellerman.id.au>
-Cc: Christian Borntraeger <borntraeger@de.ibm.com>, linux-kernel@vger.kernel.org, arnd@arndb.de, linux-arch@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, Vasily Gorbik <gor@linux.ibm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>
+To: David Hildenbrand <david@redhat.com>
+Cc: Oscar Salvador <osalvador@suse.com>, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, Vasily Gorbik <gor@linux.ibm.com>, linux-sh@vger.kernel.org, Heiko Carstens <heiko.carstens@de.ibm.com>, linux-kernel@vger.kernel.org, Wei Yang <richard.weiyang@gmail.com>, linux-mm@kvack.org, Mike Rapoport <rppt@linux.vnet.ibm.com>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Igor Mammedov <imammedo@redhat.com>, akpm@linux-foundation.org, linuxppc-dev@lists.ozlabs.org, Dan Williams <dan.j.williams@intel.com>, linux-arm-kernel@lists.infradead.org
 
-On Fri, Jul 19, 2019 at 09:13:16PM +1000, Michael Ellerman wrote:
-> Christian Brauner <christian@brauner.io> writes:
-> > On Fri, Jul 19, 2019 at 08:18:02PM +1000, Michael Ellerman wrote:
-> >> Christian Brauner <christian@brauner.io> writes:
-> >> > On Mon, Jul 15, 2019 at 03:56:04PM +0200, Christian Borntraeger wrote:
-> >> >> I think Vasily already has a clone3 patch for s390x with 435. 
-> >> >
-> >> > A quick follow-up on this. Helge and Michael have asked whether there
-> >> > are any tests for clone3. Yes, there will be and I try to have them
-> >> > ready by the end of the this or next week for review. In the meantime I
-> >> > hope the following minimalistic test program that just verifies very
-> >> > very basic functionality (It's not pretty.) will help you test:
-> >> 
-> >> Hi Christian,
-> >> 
-> >> Thanks for the test.
-> >> 
-> >> This actually oopses on powerpc, it hits the BUG_ON in CHECK_FULL_REGS
-> >> in process.c around line 1633:
-> >> 
-> >> 	} else {
-> >> 		/* user thread */
-> >> 		struct pt_regs *regs = current_pt_regs();
-> >> 		CHECK_FULL_REGS(regs);
-> >> 		*childregs = *regs;
-> >> 		if (usp)
-> >> 
-> >> 
-> >> So I'll have to dig into how we fix that before we wire up clone3.
-> >> 
-> >> Turns out testing is good! :)
-> >
-> > Indeed. I have a test-suite for clone3 in mind and I hope to have it
-> > ready by the end of next week. It's just always the finding the time
-> > part that is annoying. :)
-> 
-> I know the feeling!
-> 
-> > Thanks for digging into this, Michael!
-> 
-> No worries, happy to help where I can.
-> 
-> In the intervening five minutes I remembered how we handle this, we just
-> need a little wrapper to save the non-volatile regs:
-> 
-> _GLOBAL(ppc_clone3)
-> 	bl	save_nvgprs
-> 	bl	sys_clone3
-> 	b	.Lsyscall_exit
+On Mon 27-05-19 13:11:44, David Hildenbrand wrote:
+> Will come in handy when wanting to handle errors after
+> arch_add_memory().
 
-Sounds good.
+I do not understand this. Why do you add a code for something that is
+not possible on this HW (based on the comment - is it still valid btw?)
 
+> Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
+> Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
+> Cc: Andrew Morton <akpm@linux-foundation.org>
+> Cc: Michal Hocko <mhocko@suse.com>
+> Cc: Mike Rapoport <rppt@linux.vnet.ibm.com>
+> Cc: David Hildenbrand <david@redhat.com>
+> Cc: Vasily Gorbik <gor@linux.ibm.com>
+> Cc: Oscar Salvador <osalvador@suse.com>
+> Signed-off-by: David Hildenbrand <david@redhat.com>
+> ---
+>  arch/s390/mm/init.c | 13 +++++++------
+>  1 file changed, 7 insertions(+), 6 deletions(-)
 > 
+> diff --git a/arch/s390/mm/init.c b/arch/s390/mm/init.c
+> index d552e330fbcc..14955e0a9fcf 100644
+> --- a/arch/s390/mm/init.c
+> +++ b/arch/s390/mm/init.c
+> @@ -243,12 +243,13 @@ int arch_add_memory(int nid, u64 start, u64 size,
+>  void arch_remove_memory(int nid, u64 start, u64 size,
+>  			struct vmem_altmap *altmap)
+>  {
+> -	/*
+> -	 * There is no hardware or firmware interface which could trigger a
+> -	 * hot memory remove on s390. So there is nothing that needs to be
+> -	 * implemented.
+> -	 */
+> -	BUG();
+> +	unsigned long start_pfn = start >> PAGE_SHIFT;
+> +	unsigned long nr_pages = size >> PAGE_SHIFT;
+> +	struct zone *zone;
+> +
+> +	zone = page_zone(pfn_to_page(start_pfn));
+> +	__remove_pages(zone, start_pfn, nr_pages, altmap);
+> +	vmem_remove_mapping(start, size);
+>  }
+>  #endif
+>  #endif /* CONFIG_MEMORY_HOTPLUG */
+> -- 
+> 2.20.1
 > 
-> A while back I meant to make it generate those automatically based on a
-> flag in the syscall.tbl but of course haven't got around to it :)
-> 
-> So with the above it seems all good:
-> 
-> $ ./clone3 ; echo $?
-> Parent process received child's pid 4204 as return value
-> Parent process received child's pidfd 3
-> Parent process received child's pid 4204 as return argument
-> Child process with pid 4204
-> 0
-> 
-> I'll send a patch to wire it up on Monday.
 
-Excellent! Thank you!
-Christian
+-- 
+Michal Hocko
+SUSE Labs
