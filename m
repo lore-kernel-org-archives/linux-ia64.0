@@ -1,67 +1,77 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Date: Thu, 20 Jun 2019 17:57:32 +0000
-Subject: [PATCH 4.14 30/45] ia64: fix build errors by exporting paddr_to_nid()
-Message-Id: <20190620174339.158785210@linuxfoundation.org>
+From: Michal Hocko <mhocko@kernel.org>
+Date: Mon, 01 Jul 2019 08:52:31 +0000
+Subject: Re: [PATCH v3 11/11] mm/memory_hotplug: Remove "zone" parameter from sparse_remove_one_section
+Message-Id: <20190701085231.GK6376@dhcp22.suse.cz>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190620174328.608036501@linuxfoundation.org>
-In-Reply-To: <20190620174328.608036501@linuxfoundation.org>
+References: <20190527111152.16324-1-david@redhat.com>
+ <20190527111152.16324-12-david@redhat.com>
+In-Reply-To: <20190527111152.16324-12-david@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>, stable@vger.kernel.org, kbuild test robot <lkp@intel.com>, Randy Dunlap <rdunlap@infradead.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>, Sasha Levin <sashal@kernel.org>
+To: David Hildenbrand <david@redhat.com>
+Cc: linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org, Wei Yang <richard.weiyang@gmail.com>, linux-mm@kvack.org, Igor Mammedov <imammedo@redhat.com>, akpm@linux-foundation.org, linuxppc-dev@lists.ozlabs.org, Dan Williams <dan.j.williams@intel.com>, linux-arm-kernel@lists.infradead.org
 
-[ Upstream commit 9a626c4a6326da4433a0d4d4a8a7d1571caf1ed3 ]
+On Mon 27-05-19 13:11:52, David Hildenbrand wrote:
+> The parameter is unused, so let's drop it. Memory removal paths should
+> never care about zones. This is the job of memory offlining and will
+> require more refactorings.
+> 
+> Reviewed-by: Dan Williams <dan.j.williams@intel.com>
+> Signed-off-by: David Hildenbrand <david@redhat.com>
 
-Fix build errors on ia64 when DISCONTIGMEM=y and NUMA=y by
-exporting paddr_to_nid().
+Acked-by: Michal Hocko <mhocko@suse.com>
 
-Fixes these build errors:
+> ---
+>  include/linux/memory_hotplug.h | 2 +-
+>  mm/memory_hotplug.c            | 2 +-
+>  mm/sparse.c                    | 4 ++--
+>  3 files changed, 4 insertions(+), 4 deletions(-)
+> 
+> diff --git a/include/linux/memory_hotplug.h b/include/linux/memory_hotplug.h
+> index 2f1f87e13baa..1a4257c5f74c 100644
+> --- a/include/linux/memory_hotplug.h
+> +++ b/include/linux/memory_hotplug.h
+> @@ -346,7 +346,7 @@ extern void move_pfn_range_to_zone(struct zone *zone, unsigned long start_pfn,
+>  extern bool is_memblock_offlined(struct memory_block *mem);
+>  extern int sparse_add_one_section(int nid, unsigned long start_pfn,
+>  				  struct vmem_altmap *altmap);
+> -extern void sparse_remove_one_section(struct zone *zone, struct mem_section *ms,
+> +extern void sparse_remove_one_section(struct mem_section *ms,
+>  		unsigned long map_offset, struct vmem_altmap *altmap);
+>  extern struct page *sparse_decode_mem_map(unsigned long coded_mem_map,
+>  					  unsigned long pnum);
+> diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+> index 82136c5b4c5f..e48ec7b9dee2 100644
+> --- a/mm/memory_hotplug.c
+> +++ b/mm/memory_hotplug.c
+> @@ -524,7 +524,7 @@ static void __remove_section(struct zone *zone, struct mem_section *ms,
+>  	start_pfn = section_nr_to_pfn((unsigned long)scn_nr);
+>  	__remove_zone(zone, start_pfn);
+>  
+> -	sparse_remove_one_section(zone, ms, map_offset, altmap);
+> +	sparse_remove_one_section(ms, map_offset, altmap);
+>  }
+>  
+>  /**
+> diff --git a/mm/sparse.c b/mm/sparse.c
+> index d1d5e05f5b8d..1552c855d62a 100644
+> --- a/mm/sparse.c
+> +++ b/mm/sparse.c
+> @@ -800,8 +800,8 @@ static void free_section_usemap(struct page *memmap, unsigned long *usemap,
+>  		free_map_bootmem(memmap);
+>  }
+>  
+> -void sparse_remove_one_section(struct zone *zone, struct mem_section *ms,
+> -		unsigned long map_offset, struct vmem_altmap *altmap)
+> +void sparse_remove_one_section(struct mem_section *ms, unsigned long map_offset,
+> +			       struct vmem_altmap *altmap)
+>  {
+>  	struct page *memmap = NULL;
+>  	unsigned long *usemap = NULL;
+> -- 
+> 2.20.1
 
-ERROR: "paddr_to_nid" [sound/core/snd-pcm.ko] undefined!
-ERROR: "paddr_to_nid" [net/sunrpc/sunrpc.ko] undefined!
-ERROR: "paddr_to_nid" [fs/cifs/cifs.ko] undefined!
-ERROR: "paddr_to_nid" [drivers/video/fbdev/core/fb.ko] undefined!
-ERROR: "paddr_to_nid" [drivers/usb/mon/usbmon.ko] undefined!
-ERROR: "paddr_to_nid" [drivers/usb/core/usbcore.ko] undefined!
-ERROR: "paddr_to_nid" [drivers/md/raid1.ko] undefined!
-ERROR: "paddr_to_nid" [drivers/md/dm-mod.ko] undefined!
-ERROR: "paddr_to_nid" [drivers/md/dm-crypt.ko] undefined!
-ERROR: "paddr_to_nid" [drivers/md/dm-bufio.ko] undefined!
-ERROR: "paddr_to_nid" [drivers/ide/ide-core.ko] undefined!
-ERROR: "paddr_to_nid" [drivers/ide/ide-cd_mod.ko] undefined!
-ERROR: "paddr_to_nid" [drivers/gpu/drm/drm.ko] undefined!
-ERROR: "paddr_to_nid" [drivers/char/agp/agpgart.ko] undefined!
-ERROR: "paddr_to_nid" [drivers/block/nbd.ko] undefined!
-ERROR: "paddr_to_nid" [drivers/block/loop.ko] undefined!
-ERROR: "paddr_to_nid" [drivers/block/brd.ko] undefined!
-ERROR: "paddr_to_nid" [crypto/ccm.ko] undefined!
-
-Reported-by: kbuild test robot <lkp@intel.com>
-Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org
-Signed-off-by: Tony Luck <tony.luck@intel.com>
-Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
-Signed-off-by: Sasha Levin <sashal@kernel.org>
----
- arch/ia64/mm/numa.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/arch/ia64/mm/numa.c b/arch/ia64/mm/numa.c
-index aa19b7ac8222..476c7b4be378 100644
---- a/arch/ia64/mm/numa.c
-+++ b/arch/ia64/mm/numa.c
-@@ -49,6 +49,7 @@ paddr_to_nid(unsigned long paddr)
- 
- 	return (i < num_node_memblks) ? node_memblk[i].nid : (num_node_memblks ? -1 : 0);
- }
-+EXPORT_SYMBOL(paddr_to_nid);
- 
- #if defined(CONFIG_SPARSEMEM) && defined(CONFIG_NUMA)
- /*
 -- 
-2.20.1
-
-
+Michal Hocko
+SUSE Labs
