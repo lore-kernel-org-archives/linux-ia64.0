@@ -1,86 +1,129 @@
 From: Michal Hocko <mhocko@kernel.org>
-Date: Mon, 01 Jul 2019 07:56:15 +0000
-Subject: Re: [PATCH v3 05/11] drivers/base/memory: Pass a block_id to init_memory_block()
-Message-Id: <20190701075615.GE6376@dhcp22.suse.cz>
+Date: Mon, 01 Jul 2019 08:51:44 +0000
+Subject: Re: [PATCH v3 10/11] mm/memory_hotplug: Make unregister_memory_block_under_nodes() never fail
+Message-Id: <20190701085144.GJ6376@dhcp22.suse.cz>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20190527111152.16324-1-david@redhat.com>
- <20190527111152.16324-6-david@redhat.com>
-In-Reply-To: <20190527111152.16324-6-david@redhat.com>
+ <20190527111152.16324-11-david@redhat.com>
+In-Reply-To: <20190527111152.16324-11-david@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: David Hildenbrand <david@redhat.com>
-Cc: linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, "Rafael J. Wysocki" <rafael@kernel.org>, linux-kernel@vger.kernel.org, Wei Yang <richard.weiyang@gmail.com>, linux-mm@kvack.org, Igor Mammedov <imammedo@redhat.com>, akpm@linux-foundation.org, linuxppc-dev@lists.ozlabs.org, Dan Williams <dan.j.williams@intel.com>, linux-arm-kernel@lists.infradead.org
+Cc: linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Mark Brown <broonie@kernel.org>, "Rafael J. Wysocki" <rafael@kernel.org>, linux-kernel@vger.kernel.org, Wei Yang <richard.weiyang@gmail.com>, linux-mm@kvack.org, "David S. Miller" <davem@davemloft.net>, Jonathan Cameron <Jonathan.Cameron@huawei.com>, Alex Deucher <alexander.deucher@amd.com>, Igor Mammedov <imammedo@redhat.com>, akpm@linux-foundation.org, Chris Wilson <chris@chris-wilson.co.uk>, linuxppc-dev@lists.ozlabs.org, Dan Williams <dan.j.williams@intel.com>, linux-arm-kernel@lists.infradead.org, Oscar Salvador <osalvador@suse.de>
 
-On Mon 27-05-19 13:11:46, David Hildenbrand wrote:
-> We'll rework hotplug_memory_register() shortly, so it no longer consumes
-> pass a section.
+On Mon 27-05-19 13:11:51, David Hildenbrand wrote:
+> We really don't want anything during memory hotunplug to fail.
+> We always pass a valid memory block device, that check can go. Avoid
+> allocating memory and eventually failing. As we are always called under
+> lock, we can use a static piece of memory. This avoids having to put
+> the structure onto the stack, having to guess about the stack size
+> of callers.
 > 
+> Patch inspired by a patch from Oscar Salvador.
+> 
+> In the future, there might be no need to iterate over nodes at all.
+> mem->nid should tell us exactly what to remove. Memory block devices
+> with mixed nodes (added during boot) should properly fenced off and never
+> removed.
+
+Yeah, we do not allow to offline multi zone (node) ranges so the current
+code seems to be over engineered.
+
+Anyway, I am wondering why do we have to strictly check for already
+removed nodes links. Is the sysfs code going to complain we we try to
+remove again?
+ 
 > Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 > Cc: "Rafael J. Wysocki" <rafael@kernel.org>
+> Cc: Alex Deucher <alexander.deucher@amd.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Mark Brown <broonie@kernel.org>
+> Cc: Chris Wilson <chris@chris-wilson.co.uk>
+> Cc: David Hildenbrand <david@redhat.com>
+> Cc: Oscar Salvador <osalvador@suse.de>
+> Cc: Andrew Morton <akpm@linux-foundation.org>
+> Cc: Jonathan Cameron <Jonathan.Cameron@huawei.com>
 > Signed-off-by: David Hildenbrand <david@redhat.com>
 
+Anyway
 Acked-by: Michal Hocko <mhocko@suse.com>
 
 > ---
->  drivers/base/memory.c | 15 +++++++--------
->  1 file changed, 7 insertions(+), 8 deletions(-)
+>  drivers/base/node.c  | 18 +++++-------------
+>  include/linux/node.h |  5 ++---
+>  2 files changed, 7 insertions(+), 16 deletions(-)
 > 
-> diff --git a/drivers/base/memory.c b/drivers/base/memory.c
-> index f180427e48f4..f914fa6fe350 100644
-> --- a/drivers/base/memory.c
-> +++ b/drivers/base/memory.c
-> @@ -651,21 +651,18 @@ int register_memory(struct memory_block *memory)
->  	return ret;
+> diff --git a/drivers/base/node.c b/drivers/base/node.c
+> index 04fdfa99b8bc..9be88fd05147 100644
+> --- a/drivers/base/node.c
+> +++ b/drivers/base/node.c
+> @@ -803,20 +803,14 @@ int register_mem_sect_under_node(struct memory_block *mem_blk, void *arg)
+>  
+>  /*
+>   * Unregister memory block device under all nodes that it spans.
+> + * Has to be called with mem_sysfs_mutex held (due to unlinked_nodes).
+>   */
+> -int unregister_memory_block_under_nodes(struct memory_block *mem_blk)
+> +void unregister_memory_block_under_nodes(struct memory_block *mem_blk)
+>  {
+> -	NODEMASK_ALLOC(nodemask_t, unlinked_nodes, GFP_KERNEL);
+>  	unsigned long pfn, sect_start_pfn, sect_end_pfn;
+> +	static nodemask_t unlinked_nodes;
+>  
+> -	if (!mem_blk) {
+> -		NODEMASK_FREE(unlinked_nodes);
+> -		return -EFAULT;
+> -	}
+> -	if (!unlinked_nodes)
+> -		return -ENOMEM;
+> -	nodes_clear(*unlinked_nodes);
+> -
+> +	nodes_clear(unlinked_nodes);
+>  	sect_start_pfn = section_nr_to_pfn(mem_blk->start_section_nr);
+>  	sect_end_pfn = section_nr_to_pfn(mem_blk->end_section_nr);
+>  	for (pfn = sect_start_pfn; pfn <= sect_end_pfn; pfn++) {
+> @@ -827,15 +821,13 @@ int unregister_memory_block_under_nodes(struct memory_block *mem_blk)
+>  			continue;
+>  		if (!node_online(nid))
+>  			continue;
+> -		if (node_test_and_set(nid, *unlinked_nodes))
+> +		if (node_test_and_set(nid, unlinked_nodes))
+>  			continue;
+>  		sysfs_remove_link(&node_devices[nid]->dev.kobj,
+>  			 kobject_name(&mem_blk->dev.kobj));
+>  		sysfs_remove_link(&mem_blk->dev.kobj,
+>  			 kobject_name(&node_devices[nid]->dev.kobj));
+>  	}
+> -	NODEMASK_FREE(unlinked_nodes);
+> -	return 0;
 >  }
 >  
-> -static int init_memory_block(struct memory_block **memory,
-> -			     struct mem_section *section, unsigned long state)
-> +static int init_memory_block(struct memory_block **memory, int block_id,
-> +			     unsigned long state)
+>  int link_mem_sections(int nid, unsigned long start_pfn, unsigned long end_pfn)
+> diff --git a/include/linux/node.h b/include/linux/node.h
+> index 02a29e71b175..548c226966a2 100644
+> --- a/include/linux/node.h
+> +++ b/include/linux/node.h
+> @@ -139,7 +139,7 @@ extern int register_cpu_under_node(unsigned int cpu, unsigned int nid);
+>  extern int unregister_cpu_under_node(unsigned int cpu, unsigned int nid);
+>  extern int register_mem_sect_under_node(struct memory_block *mem_blk,
+>  						void *arg);
+> -extern int unregister_memory_block_under_nodes(struct memory_block *mem_blk);
+> +extern void unregister_memory_block_under_nodes(struct memory_block *mem_blk);
+>  
+>  extern int register_memory_node_under_compute_node(unsigned int mem_nid,
+>  						   unsigned int cpu_nid,
+> @@ -175,9 +175,8 @@ static inline int register_mem_sect_under_node(struct memory_block *mem_blk,
 >  {
->  	struct memory_block *mem;
->  	unsigned long start_pfn;
-> -	int scn_nr;
->  	int ret = 0;
->  
->  	mem = kzalloc(sizeof(*mem), GFP_KERNEL);
->  	if (!mem)
->  		return -ENOMEM;
->  
-> -	scn_nr = __section_nr(section);
-> -	mem->start_section_nr > -			base_memory_block_id(scn_nr) * sections_per_block;
-> +	mem->start_section_nr = block_id * sections_per_block;
->  	mem->end_section_nr = mem->start_section_nr + sections_per_block - 1;
->  	mem->state = state;
->  	start_pfn = section_nr_to_pfn(mem->start_section_nr);
-> @@ -694,7 +691,8 @@ static int add_memory_block(int base_section_nr)
->  
->  	if (section_count = 0)
->  		return 0;
-> -	ret = init_memory_block(&mem, __nr_to_section(section_nr), MEM_ONLINE);
-> +	ret = init_memory_block(&mem, base_memory_block_id(base_section_nr),
-> +				MEM_ONLINE);
->  	if (ret)
->  		return ret;
->  	mem->section_count = section_count;
-> @@ -707,6 +705,7 @@ static int add_memory_block(int base_section_nr)
->   */
->  int hotplug_memory_register(int nid, struct mem_section *section)
+>  	return 0;
+>  }
+> -static inline int unregister_memory_block_under_nodes(struct memory_block *mem_blk)
+> +static inline void unregister_memory_block_under_nodes(struct memory_block *mem_blk)
 >  {
-> +	int block_id = base_memory_block_id(__section_nr(section));
->  	int ret = 0;
->  	struct memory_block *mem;
+> -	return 0;
+>  }
 >  
-> @@ -717,7 +716,7 @@ int hotplug_memory_register(int nid, struct mem_section *section)
->  		mem->section_count++;
->  		put_device(&mem->dev);
->  	} else {
-> -		ret = init_memory_block(&mem, section, MEM_OFFLINE);
-> +		ret = init_memory_block(&mem, block_id, MEM_OFFLINE);
->  		if (ret)
->  			goto out;
->  		mem->section_count++;
+>  static inline void register_hugetlbfs_with_node(node_registration_func_t reg,
 > -- 
 > 2.20.1
 
