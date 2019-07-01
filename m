@@ -1,122 +1,89 @@
-From: Aleksa Sarai <cyphar@cyphar.com>
-Date: Sun, 14 Jul 2019 07:11:02 +0000
-Subject: Re: [PATCH v9 01/10] namei: obey trailing magic-link DAC permissions
-Message-Id: <20190714071102.gsc3kqpakz7chqt6@yavin>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="gghwwblfl4frle37"
+From: Michal Hocko <mhocko@kernel.org>
+Date: Mon, 01 Jul 2019 07:56:15 +0000
+Subject: Re: [PATCH v3 05/11] drivers/base/memory: Pass a block_id to init_memory_block()
+Message-Id: <20190701075615.GE6376@dhcp22.suse.cz>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190706145737.5299-1-cyphar@cyphar.com>
- <20190706145737.5299-2-cyphar@cyphar.com>
- <20190712041454.GG17978@ZenIV.linux.org.uk>
- <20190712122017.xkowq2cjreylpotm@yavin>
- <20190712131005.GM17978@ZenIV.linux.org.uk>
-In-Reply-To: <20190712131005.GM17978@ZenIV.linux.org.uk>
-To: Al Viro <viro@zeniv.linux.org.uk>
-Cc: Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Andy Lutomirski <luto@kernel.org>, Christian Brauner <christian@brauner.io>, Eric Biederman <ebiederm@xmission.com>, Andrew Morton <akpm@linux-foundation.org>, Alexei Starovoitov <ast@kernel.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, David Drysdale <drysdale@google.com>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Aleksa Sarai <asarai@suse.de>, Linus Torvalds <torvalds@linux-foundation.org>, containers@lists.linux-foundation.org, linux-alpha@vger.kernel.org
+References: <20190527111152.16324-1-david@redhat.com>
+ <20190527111152.16324-6-david@redhat.com>
+In-Reply-To: <20190527111152.16324-6-david@redhat.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: David Hildenbrand <david@redhat.com>
+Cc: linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, "Rafael J. Wysocki" <rafael@kernel.org>, linux-kernel@vger.kernel.org, Wei Yang <richard.weiyang@gmail.com>, linux-mm@kvack.org, Igor Mammedov <imammedo@redhat.com>, akpm@linux-foundation.org, linuxppc-dev@lists.ozlabs.org, Dan Williams <dan.j.williams@intel.com>, linux-arm-kernel@lists.infradead.org
 
+On Mon 27-05-19 13:11:46, David Hildenbrand wrote:
+> We'll rework hotplug_memory_register() shortly, so it no longer consumes
+> pass a section.
+> 
+> Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+> Cc: "Rafael J. Wysocki" <rafael@kernel.org>
+> Signed-off-by: David Hildenbrand <david@redhat.com>
 
---gghwwblfl4frle37
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Acked-by: Michal Hocko <mhocko@suse.com>
 
-On 2019-07-12, Al Viro <viro@zeniv.linux.org.uk> wrote:
-> On Fri, Jul 12, 2019 at 10:20:17PM +1000, Aleksa Sarai wrote:
-> > On 2019-07-12, Al Viro <viro@zeniv.linux.org.uk> wrote:
-> > > On Sun, Jul 07, 2019 at 12:57:28AM +1000, Aleksa Sarai wrote:
-> > > > @@ -514,7 +516,14 @@ static void set_nameidata(struct nameidata *p,=
- int dfd, struct filename *name)
-> > > >  	p->stack =3D p->internal;
-> > > >  	p->dfd =3D dfd;
-> > > >  	p->name =3D name;
-> > > > -	p->total_link_count =3D old ? old->total_link_count : 0;
-> > > > +	p->total_link_count =3D 0;
-> > > > +	p->acc_mode =3D 0;
-> > > > +	p->opath_mask =3D FMODE_PATH_READ | FMODE_PATH_WRITE;
-> > > > +	if (old) {
-> > > > +		p->total_link_count =3D old->total_link_count;
-> > > > +		p->acc_mode =3D old->acc_mode;
-> > > > +		p->opath_mask =3D old->opath_mask;
-> > > > +	}
-> > >=20
-> > > Huh?  Could somebody explain why traversals of NFS4 referrals should =
-inherit
-> > > ->acc_mode and ->opath_mask?
-> >=20
-> > I'll be honest -- I don't understand what set_nameidata() did so I just
-> > did what I thought would be an obvious change (to just copy the
-> > contents). I thought it was related to some aspect of the symlink stack
-> > handling.
->=20
-> No.  It's handling of (very rare) nested pathwalk.  The only case I can t=
-hink
-> of is handling of NFS4 referrals - they are triggered by ->d_automount()
-> and include NFS4 mount.  Which does internal pathwalk of its own, to get
-> to the root of subtree being automounted.
->=20
-> NFS has its own recursion protection on that path (no deeper nesting than
-> one level of referral traversals), but there some nesting is inevitable;
-> we do get another nameidata instance on stack.  And for nd_jump_link() we
-> need to keep track of the innermost one.
->=20
-> For symlinks nothing of that sort happens - they are dealt with on the sa=
-me
-> struct nameidata.  ->total_link_count copying is there for one reason onl=
-y -
-> we want the total amount of symlinks traversed during the pathwalk (inclu=
-ding
-> the referral processing, etc.) to count towards MAXSYMLINKS check.  It co=
-uld've
-> been moved from nameidata to task_struct, but it's cheaper to handle it t=
-hat
-> way.
->=20
-> Again, nesting is *rare*.
+> ---
+>  drivers/base/memory.c | 15 +++++++--------
+>  1 file changed, 7 insertions(+), 8 deletions(-)
+> 
+> diff --git a/drivers/base/memory.c b/drivers/base/memory.c
+> index f180427e48f4..f914fa6fe350 100644
+> --- a/drivers/base/memory.c
+> +++ b/drivers/base/memory.c
+> @@ -651,21 +651,18 @@ int register_memory(struct memory_block *memory)
+>  	return ret;
+>  }
+>  
+> -static int init_memory_block(struct memory_block **memory,
+> -			     struct mem_section *section, unsigned long state)
+> +static int init_memory_block(struct memory_block **memory, int block_id,
+> +			     unsigned long state)
+>  {
+>  	struct memory_block *mem;
+>  	unsigned long start_pfn;
+> -	int scn_nr;
+>  	int ret = 0;
+>  
+>  	mem = kzalloc(sizeof(*mem), GFP_KERNEL);
+>  	if (!mem)
+>  		return -ENOMEM;
+>  
+> -	scn_nr = __section_nr(section);
+> -	mem->start_section_nr > -			base_memory_block_id(scn_nr) * sections_per_block;
+> +	mem->start_section_nr = block_id * sections_per_block;
+>  	mem->end_section_nr = mem->start_section_nr + sections_per_block - 1;
+>  	mem->state = state;
+>  	start_pfn = section_nr_to_pfn(mem->start_section_nr);
+> @@ -694,7 +691,8 @@ static int add_memory_block(int base_section_nr)
+>  
+>  	if (section_count = 0)
+>  		return 0;
+> -	ret = init_memory_block(&mem, __nr_to_section(section_nr), MEM_ONLINE);
+> +	ret = init_memory_block(&mem, base_memory_block_id(base_section_nr),
+> +				MEM_ONLINE);
+>  	if (ret)
+>  		return ret;
+>  	mem->section_count = section_count;
+> @@ -707,6 +705,7 @@ static int add_memory_block(int base_section_nr)
+>   */
+>  int hotplug_memory_register(int nid, struct mem_section *section)
+>  {
+> +	int block_id = base_memory_block_id(__section_nr(section));
+>  	int ret = 0;
+>  	struct memory_block *mem;
+>  
+> @@ -717,7 +716,7 @@ int hotplug_memory_register(int nid, struct mem_section *section)
+>  		mem->section_count++;
+>  		put_device(&mem->dev);
+>  	} else {
+> -		ret = init_memory_block(&mem, section, MEM_OFFLINE);
+> +		ret = init_memory_block(&mem, block_id, MEM_OFFLINE);
+>  		if (ret)
+>  			goto out;
+>  		mem->section_count++;
+> -- 
+> 2.20.1
 
-Thanks for the explanation, much appreciated. I will drop the old->...
-copying hunk.
-
-> > In that case, should they both be set to 0 on set_nameidata()? This will
-> > mean that fd re-opening (or magic-link opening) through a
-> > set_nameidata() would always fail.
->=20
-> Huh?  set_nameidata() is done for *all* instances - it's pretty much the
-> constructor of that object (and restore_nameidata() - a destructor).
-> Everything goes through it.
-
-Sorry, I meant to drop the copy-from-old logic -- not set it to zero
-explicitly in set_nameidata().
-
-> And again, I'm not sure we want these fields in nameidata - IMO they belo=
-ng
-> in open_flags.  Things like e.g. stat() don't need them at all.
-
-Yup, I'll work up a version that does the consolidation you mentioned
-in your other mail.
-
-> Incidentally, O_PATH opening of symlinks combined with subsequent procfs
-> symlink traversals is worth testing - that's where the things get subtle
-> and that's where it's easy to get in trouble on modifications.
-
-I have some self-tests of a symlink-to-a-magic-link in the last patch of
-the series. Did you mean something even more chained like a symlink to a
-/proc/self/fd/$n of an O_NOFOLLOW|O_PATH of a symlink?
-
---=20
-Aleksa Sarai
-Senior Software Engineer (Containers)
-SUSE Linux GmbH
-<https://www.cyphar.com/>
-
---gghwwblfl4frle37
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iHUEABYIAB0WIQSxZm6dtfE8gxLLfYqdlLljIbnQEgUCXSrVgAAKCRCdlLljIbnQ
-EupPAQDpi9m99/xBGy4or9AS/LoRkr4tSLDlWlOsdCn0tZ52WAEAqoZwgZWyT46F
-mjKoRQeNjgtDk5jRNWbrwkJAMPXy2AE=
-=GnH+
------END PGP SIGNATURE-----
-
---gghwwblfl4frle37--
+-- 
+Michal Hocko
+SUSE Labs
