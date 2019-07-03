@@ -1,68 +1,66 @@
-From: Alex Shi <alex.shi@linux.alibaba.com>
-Date: Fri, 12 Jul 2019 02:20:15 +0000
-Subject: [PATCH 09/12] Dcumentation/sh: repointer docs to Documentation/arch/
-Message-Id: <20190712022018.27989-9-alex.shi@linux.alibaba.com>
+From: Fuqian Huang <huangfq.daxian@gmail.com>
+Date: Wed, 03 Jul 2019 16:26:16 +0000
+Subject: [PATCH v2 01/35] ia64/sn: Use kmemdup rather than duplicating its implementation
+Message-Id: <20190703162616.31905-1-huangfq.daxian@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190712022018.27989-1-alex.shi@linux.alibaba.com>
-In-Reply-To: <20190712022018.27989-1-alex.shi@linux.alibaba.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-doc@vger.kernel.org, Jonathan Corbet <corbet@lwn.net>
-Cc: Alex Shi <alex.shi@linux.alibaba.com>, linux-kernel@vger.kernel.org, linux-stm32@st-md-mailman.stormreply.com, linux-arm-kernel@lists.infradead.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-omap@vger.kernel.org, linux-fbdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-scsi@vger.kernel.org, linux-s390@vger.kernel.org, kvm@vger.kernel.org, linux-sh@vger.kernel.org
+To: 
+Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Fuqian Huang <huangfq.daxian@gmail.com>
 
-Since we move Documentation/sh docs to Documentation/arch/sh
-dir, redirect the doc pointer to them.
+kmemdup is introduced to duplicate a region of memory in a neat way.
+Rather than kmalloc/kzalloc + memcpy, which the programmer needs to
+write the size twice (sometimes lead to mistakes), kmemdup improves
+readability, leads to smaller code and also reduce the chances of mistakes.
+Suggestion to use kmemdup rather than using kmalloc/kzalloc + memcpy.
 
-Signed-off-by: Alex Shi <alex.shi@linux.alibaba.com>
-Cc: Jonathan Corbet <corbet@lwn.net>
-Cc: linux-doc@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Cc: linux-sh@vger.kernel.org
+Signed-off-by: Fuqian Huang <huangfq.daxian@gmail.com>
 ---
- Documentation/conf.py | 2 +-
- MAINTAINERS           | 2 +-
- arch/sh/Kconfig.cpu   | 2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
+Changes in v2:
+  - Fix a typo in commit message (memset -> memcpy)
 
-diff --git a/Documentation/conf.py b/Documentation/conf.py
-index 3b2397bcb565..8bbe421c1d97 100644
---- a/Documentation/conf.py
-+++ b/Documentation/conf.py
-@@ -402,7 +402,7 @@ latex_documents = [
-      'The kernel development community', 'manual'),
-     ('security/index', 'security.tex', 'The kernel security subsystem manual',
-      'The kernel development community', 'manual'),
--    ('sh/index', 'sh.tex', 'SuperH architecture implementation manual',
-+    ('arch/sh/index', 'sh.tex', 'SuperH architecture implementation manual',
-      'The kernel development community', 'manual'),
-     ('sound/index', 'sound.tex', 'Linux Sound Subsystem Documentation',
-      'The kernel development community', 'manual'),
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 7a245d3f02fd..84448d5838b7 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -15169,7 +15169,7 @@ M:	Rich Felker <dalias@libc.org>
- L:	linux-sh@vger.kernel.org
- Q:	http://patchwork.kernel.org/project/linux-sh/list/
- S:	Maintained
--F:	Documentation/sh/
-+F:	Documentation/arch/sh/
- F:	arch/sh/
- F:	drivers/sh/
+ arch/ia64/sn/kernel/io_acpi_init.c | 8 +++-----
+ arch/ia64/sn/pci/tioce_provider.c  | 3 +--
+ 2 files changed, 4 insertions(+), 7 deletions(-)
+
+diff --git a/arch/ia64/sn/kernel/io_acpi_init.c b/arch/ia64/sn/kernel/io_acpi_init.c
+index c31fe637b0b4..7f305a468b69 100644
+--- a/arch/ia64/sn/kernel/io_acpi_init.c
++++ b/arch/ia64/sn/kernel/io_acpi_init.c
+@@ -210,13 +210,11 @@ sn_extract_device_info(acpi_handle handle, struct pcidev_info **pcidev_info,
+ 		goto exit;
+ 	}
  
-diff --git a/arch/sh/Kconfig.cpu b/arch/sh/Kconfig.cpu
-index 4a4edc7e03d4..fdc8b565241b 100644
---- a/arch/sh/Kconfig.cpu
-+++ b/arch/sh/Kconfig.cpu
-@@ -94,7 +94,7 @@ config CPU_HAS_SR_RB
- 	  that are lacking this bit must have another method in place for
- 	  accomplishing what is taken care of by the banked registers.
+-	pcidev_ptr = kzalloc(sizeof(struct pcidev_info), GFP_KERNEL);
+-	if (!pcidev_ptr)
+-		panic("%s: Unable to alloc memory for pcidev_info", __func__);
+-
+ 	memcpy(&addr, vendor->byte_data, sizeof(struct pcidev_info *));
+ 	pcidev_prom_ptr = __va(addr);
+-	memcpy(pcidev_ptr, pcidev_prom_ptr, sizeof(struct pcidev_info));
++	pcidev_ptr = kmemdup(pcidev_prom_ptr, sizeof(struct pcidev_info), GFP_KERNEL);
++	if (!pcidev_ptr)
++		panic("%s: Unable to alloc memory for pcidev_info", __func__);
  
--	  See <file:Documentation/sh/register-banks.txt> for further
-+	  See <file:Documentation/arch/sh/register-banks.txt> for further
- 	  information on SR.RB and register banking in the kernel in general.
+ 	/* Get the IRQ info */
+ 	irq_info = kzalloc(sizeof(struct sn_irq_info), GFP_KERNEL);
+diff --git a/arch/ia64/sn/pci/tioce_provider.c b/arch/ia64/sn/pci/tioce_provider.c
+index 3bd9abc35485..20360a52ab4d 100644
+--- a/arch/ia64/sn/pci/tioce_provider.c
++++ b/arch/ia64/sn/pci/tioce_provider.c
+@@ -1000,11 +1000,10 @@ tioce_bus_fixup(struct pcibus_bussoft *prom_bussoft, struct pci_controller *cont
+ 	 * Allocate kernel bus soft and copy from prom.
+ 	 */
  
- config CPU_HAS_PTEAEX
+-	tioce_common = kzalloc(sizeof(struct tioce_common), GFP_KERNEL);
++	tioce_common = kmemdup(prom_bussoft, sizeof(struct tioce_common), GFP_KERNEL);
+ 	if (!tioce_common)
+ 		return NULL;
+ 
+-	memcpy(tioce_common, prom_bussoft, sizeof(struct tioce_common));
+ 	tioce_common->ce_pcibus.bs_base = (unsigned long)
+ 		ioremap(REGION_OFFSET(tioce_common->ce_pcibus.bs_base),
+ 			sizeof(struct tioce_common));
 -- 
-2.19.1.856.g8858448bb
+2.11.0
