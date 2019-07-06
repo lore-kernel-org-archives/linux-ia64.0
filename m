@@ -1,97 +1,132 @@
-From: Michal Hocko <mhocko@kernel.org>
-Date: Mon, 01 Jul 2019 08:15:08 +0000
-Subject: Re: [PATCH v3 08/11] mm/memory_hotplug: Drop MHP_MEMBLOCK_API
-Message-Id: <20190701081508.GH6376@dhcp22.suse.cz>
+From: Aleksa Sarai <cyphar@cyphar.com>
+Date: Sat, 06 Jul 2019 14:57:36 +0000
+Subject: [PATCH v9 09/10] kselftest: save-and-restore errno to allow for %m formatting
+Message-Id: <20190706145737.5299-10-cyphar@cyphar.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190527111152.16324-1-david@redhat.com>
- <20190527111152.16324-9-david@redhat.com>
-In-Reply-To: <20190527111152.16324-9-david@redhat.com>
+References: <20190706145737.5299-1-cyphar@cyphar.com>
+In-Reply-To: <20190706145737.5299-1-cyphar@cyphar.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Hildenbrand <david@redhat.com>
-Cc: Oscar Salvador <osalvador@suse.com>, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, Pavel Tatashin <pasha.tatashin@soleen.com>, linux-sh@vger.kernel.org, Mathieu Malaterre <malat@debian.org>, Joonsoo Kim <iamjoonsoo.kim@lge.com>, linux-kernel@vger.kernel.org, Wei Yang <richard.weiyang@gmail.com>, linux-mm@kvack.org, Arun KS <arunks@codeaurora.org>, Qian Cai <cai@lca.pw>, Igor Mammedov <imammedo@redhat.com>, akpm@linux-foundation.org, linuxppc-dev@lists.ozlabs.org, Dan Williams <dan.j.williams@intel.com>, linux-arm-kernel@lists.infradead.org
+To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>
+Cc: Aleksa Sarai <cyphar@cyphar.com>, Eric Biederman <ebiederm@xmission.com>, Andy Lutomirski <luto@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Alexei Starovoitov <ast@kernel.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Christian Brauner <christian@brauner.io>, Tycho Andersen <tycho@tycho.ws>, David Drysdale <drysdale@google.com>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Aleksa Sarai <asarai@suse.de>, Linus Torvalds <torvalds@linux-foundation.org>, containers@lists.linux-foundation.org, linux-alpha@vger.kernel.org, linux-api@vger.kernel.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Mon 27-05-19 13:11:49, David Hildenbrand wrote:
-> No longer needed, the callers of arch_add_memory() can handle this
-> manually.
-> 
-> Cc: Andrew Morton <akpm@linux-foundation.org>
-> Cc: David Hildenbrand <david@redhat.com>
-> Cc: Michal Hocko <mhocko@suse.com>
-> Cc: Oscar Salvador <osalvador@suse.com>
-> Cc: Pavel Tatashin <pasha.tatashin@soleen.com>
-> Cc: Wei Yang <richard.weiyang@gmail.com>
-> Cc: Joonsoo Kim <iamjoonsoo.kim@lge.com>
-> Cc: Qian Cai <cai@lca.pw>
-> Cc: Arun KS <arunks@codeaurora.org>
-> Cc: Mathieu Malaterre <malat@debian.org>
-> Signed-off-by: David Hildenbrand <david@redhat.com>
+Previously, using "%m" in a ksft_* format string can result in strange
+output because the errno value wasn't saved before calling other libc
+functions. The solution is to simply save and restore the errno before
+we format the user-supplied format string.
 
-Acked-by: Michal Hocko <mhocko@suse.com>
+Signed-off-by: Aleksa Sarai <cyphar@cyphar.com>
+---
+ tools/testing/selftests/kselftest.h | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
 
-> ---
->  include/linux/memory_hotplug.h | 8 --------
->  mm/memory_hotplug.c            | 9 +++------
->  2 files changed, 3 insertions(+), 14 deletions(-)
-> 
-> diff --git a/include/linux/memory_hotplug.h b/include/linux/memory_hotplug.h
-> index 2d4de313926d..2f1f87e13baa 100644
-> --- a/include/linux/memory_hotplug.h
-> +++ b/include/linux/memory_hotplug.h
-> @@ -128,14 +128,6 @@ extern void arch_remove_memory(int nid, u64 start, u64 size,
->  extern void __remove_pages(struct zone *zone, unsigned long start_pfn,
->  			   unsigned long nr_pages, struct vmem_altmap *altmap);
->  
-> -/*
-> - * Do we want sysfs memblock files created. This will allow userspace to online
-> - * and offline memory explicitly. Lack of this bit means that the caller has to
-> - * call move_pfn_range_to_zone to finish the initialization.
-> - */
-> -
-> -#define MHP_MEMBLOCK_API               (1<<0)
-> -
->  /* reasonably generic interface to expand the physical pages */
->  extern int __add_pages(int nid, unsigned long start_pfn, unsigned long nr_pages,
->  		       struct mhp_restrictions *restrictions);
-> diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
-> index b1fde90bbf19..9a92549ef23b 100644
-> --- a/mm/memory_hotplug.c
-> +++ b/mm/memory_hotplug.c
-> @@ -251,7 +251,7 @@ void __init register_page_bootmem_info_node(struct pglist_data *pgdat)
->  #endif /* CONFIG_HAVE_BOOTMEM_INFO_NODE */
->  
->  static int __meminit __add_section(int nid, unsigned long phys_start_pfn,
-> -		struct vmem_altmap *altmap, bool want_memblock)
-> +				   struct vmem_altmap *altmap)
->  {
->  	int ret;
->  
-> @@ -294,8 +294,7 @@ int __ref __add_pages(int nid, unsigned long phys_start_pfn,
->  	}
->  
->  	for (i = start_sec; i <= end_sec; i++) {
-> -		err = __add_section(nid, section_nr_to_pfn(i), altmap,
-> -				restrictions->flags & MHP_MEMBLOCK_API);
-> +		err = __add_section(nid, section_nr_to_pfn(i), altmap);
->  
->  		/*
->  		 * EEXIST is finally dealt with by ioresource collision
-> @@ -1067,9 +1066,7 @@ static int online_memory_block(struct memory_block *mem, void *arg)
->   */
->  int __ref add_memory_resource(int nid, struct resource *res)
->  {
-> -	struct mhp_restrictions restrictions = {
-> -		.flags = MHP_MEMBLOCK_API,
-> -	};
-> +	struct mhp_restrictions restrictions = {};
->  	u64 start, size;
->  	bool new_node = false;
->  	int ret;
-> -- 
-> 2.20.1
-> 
-
+diff --git a/tools/testing/selftests/kselftest.h b/tools/testing/selftests/kselftest.h
+index ec15c4f6af55..0ac49d91a260 100644
+--- a/tools/testing/selftests/kselftest.h
++++ b/tools/testing/selftests/kselftest.h
+@@ -10,6 +10,7 @@
+ #ifndef __KSELFTEST_H
+ #define __KSELFTEST_H
+ 
++#include <errno.h>
+ #include <stdlib.h>
+ #include <unistd.h>
+ #include <stdarg.h>
+@@ -81,58 +82,68 @@ static inline void ksft_print_cnts(void)
+ 
+ static inline void ksft_print_msg(const char *msg, ...)
+ {
++	int saved_errno = errno;
+ 	va_list args;
+ 
+ 	va_start(args, msg);
+ 	printf("# ");
++	errno = saved_errno;
+ 	vprintf(msg, args);
+ 	va_end(args);
+ }
+ 
+ static inline void ksft_test_result_pass(const char *msg, ...)
+ {
++	int saved_errno = errno;
+ 	va_list args;
+ 
+ 	ksft_cnt.ksft_pass++;
+ 
+ 	va_start(args, msg);
+ 	printf("ok %d ", ksft_test_num());
++	errno = saved_errno;
+ 	vprintf(msg, args);
+ 	va_end(args);
+ }
+ 
+ static inline void ksft_test_result_fail(const char *msg, ...)
+ {
++	int saved_errno = errno;
+ 	va_list args;
+ 
+ 	ksft_cnt.ksft_fail++;
+ 
+ 	va_start(args, msg);
+ 	printf("not ok %d ", ksft_test_num());
++	errno = saved_errno;
+ 	vprintf(msg, args);
+ 	va_end(args);
+ }
+ 
+ static inline void ksft_test_result_skip(const char *msg, ...)
+ {
++	int saved_errno = errno;
+ 	va_list args;
+ 
+ 	ksft_cnt.ksft_xskip++;
+ 
+ 	va_start(args, msg);
+ 	printf("not ok %d # SKIP ", ksft_test_num());
++	errno = saved_errno;
+ 	vprintf(msg, args);
+ 	va_end(args);
+ }
+ 
+ static inline void ksft_test_result_error(const char *msg, ...)
+ {
++	int saved_errno = errno;
+ 	va_list args;
+ 
+ 	ksft_cnt.ksft_error++;
+ 
+ 	va_start(args, msg);
+ 	printf("not ok %d # error ", ksft_test_num());
++	errno = saved_errno;
+ 	vprintf(msg, args);
+ 	va_end(args);
+ }
+@@ -152,10 +163,12 @@ static inline int ksft_exit_fail(void)
+ 
+ static inline int ksft_exit_fail_msg(const char *msg, ...)
+ {
++	int saved_errno = errno;
+ 	va_list args;
+ 
+ 	va_start(args, msg);
+ 	printf("Bail out! ");
++	errno = saved_errno;
+ 	vprintf(msg, args);
+ 	va_end(args);
+ 
+@@ -178,10 +191,12 @@ static inline int ksft_exit_xpass(void)
+ static inline int ksft_exit_skip(const char *msg, ...)
+ {
+ 	if (msg) {
++		int saved_errno = errno;
+ 		va_list args;
+ 
+ 		va_start(args, msg);
+ 		printf("not ok %d # SKIP ", 1 + ksft_test_num());
++		errno = saved_errno;
+ 		vprintf(msg, args);
+ 		va_end(args);
+ 	} else {
 -- 
-Michal Hocko
-SUSE Labs
+2.22.0
