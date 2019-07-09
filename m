@@ -1,178 +1,296 @@
-From: Aleksa Sarai <cyphar@cyphar.com>
-Date: Sat, 06 Jul 2019 14:57:34 +0000
-Subject: [PATCH v9 07/10] namei: aggressively check for nd->root escape on ".." resolution
-Message-Id: <20190706145737.5299-8-cyphar@cyphar.com>
+From: Rob Herring <robh@kernel.org>
+Date: Tue, 09 Jul 2019 17:02:45 +0000
+Subject: Re: [PATCH v1 01/22] docs: Documentation/*.txt: rename all ReST files to *.rst
+Message-Id: <20190709170245.GA7073@bogus>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190706145737.5299-1-cyphar@cyphar.com>
-In-Reply-To: <20190706145737.5299-1-cyphar@cyphar.com>
+References: <cover.1560891322.git.mchehab+samsung@kernel.org>
+ <6b6b6db8d6de9b66223dd6d4b43eb60ead4c71d7.1560891322.git.mchehab+samsung@kernel.org>
+In-Reply-To: <6b6b6db8d6de9b66223dd6d4b43eb60ead4c71d7.1560891322.git.mchehab+samsung@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>
-Cc: Aleksa Sarai <cyphar@cyphar.com>, Jann Horn <jannh@google.com>, Kees Cook <keescook@chromium.org>, Eric Biederman <ebiederm@xmission.com>, Andy Lutomirski <luto@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Alexei Starovoitov <ast@kernel.org>, Christian Brauner <christian@brauner.io>, Tycho Andersen <tycho@tycho.ws>, David Drysdale <drysdale@google.com>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Aleksa Sarai <asarai@suse.de>, Linus Torvalds <torvalds@linux-foundation.org>, containers@lists.linux-foundation.org, linux-alpha@vger.kernel.org, linux-api@vger.kernel.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.orglinux-
+To: Mauro Carvalho Chehab <mchehab+samsung@kernel.org>
+Cc: linux-wireless@vger.kernel.org, linux-fbdev@vger.kernel.org, linux-ia64@vger.kernel.org, kvm@vger.kernel.org, linux-sh@vger.kernel.org, linux-pci@vger.kernel.org, dri-devel@lists.freedesktop.org, platform-driver-x86@vger.kernel.org, linux-mm@kvack.org, kernel-hardening@lists.openwall.com, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, Jonathan Corbet <corbet@lwn.net>, x86@kernel.org, iommu@lists.linux-foundation.org, devicetree@vger.kernel.org, linux-watchdog@vger.kernel.org, Mauro Carvalho Chehab <mchehab@infradead.org>, linux-block@vger.kernel.org, linux-gpio@vger.kernel.org, openipmi-developer@lists.sourceforge.net, linux-arm-kernel@lists.infradead.org, linaro-mm-sig@lists.linaro.org, linux-parisc@vger.kernel.org, netdev@vger.kernel.org, Linux Doc Mailing List <linux-doc@vger.kernel.org>, linux-kernel@vger.kernel.org, linux-securit
 
-This patch allows for LOOKUP_BENEATH and LOOKUP_IN_ROOT to safely permit
-".." resolution (in the case of LOOKUP_BENEATH the resolution will still
-fail if ".." resolution would resolve a path outside of the root --
-while LOOKUP_IN_ROOT will chroot(2)-style scope it). magic-link jumps
-are still disallowed entirely because now they could result in
-inconsistent behaviour if resolution encounters a subsequent "..".
+On Tue, Jun 18, 2019 at 06:05:25PM -0300, Mauro Carvalho Chehab wrote:
+> Those files are actually at ReST format. Ok, currently, they
+> don't belong to any place yet at the organized book series,
+> but we don't want patches to break them as ReST files. So,
+> rename them and add a :orphan: in order to shut up warning
+> messages like those:
+> 
+> ...
+>     Documentation/svga.rst: WARNING: document isn't included in any toctree
+>     Documentation/switchtec.rst: WARNING: document isn't included in any toctree
+> ...
+> 
+> Later patches will move them to a better place and remove the
+> :orphan: markup.
+> 
+> Signed-off-by: Mauro Carvalho Chehab <mchehab+samsung@kernel.org>
+> ---
+> 
+> I had to remove the long list of maintainers got by
+> getpatch.pl, as it was too long. I opted to keep only the
+> mailing lists.
+> 
+>  Documentation/ABI/removed/sysfs-class-rfkill  |  2 +-
+>  Documentation/ABI/stable/sysfs-class-rfkill   |  2 +-
+>  Documentation/ABI/stable/sysfs-devices-node   |  2 +-
+>  Documentation/ABI/testing/procfs-diskstats    |  2 +-
+>  Documentation/ABI/testing/sysfs-block         |  2 +-
+>  .../ABI/testing/sysfs-class-switchtec         |  2 +-
+>  .../ABI/testing/sysfs-devices-system-cpu      |  4 +-
+>  .../{DMA-API-HOWTO.txt => DMA-API-HOWTO.rst}  |  2 +
+>  Documentation/{DMA-API.txt => DMA-API.rst}    |  8 ++-
+>  .../{DMA-ISA-LPC.txt => DMA-ISA-LPC.rst}      |  4 +-
+>  ...{DMA-attributes.txt => DMA-attributes.rst} |  2 +
+>  Documentation/{IPMI.txt => IPMI.rst}          |  2 +
+>  .../{IRQ-affinity.txt => IRQ-affinity.rst}    |  2 +
+>  .../{IRQ-domain.txt => IRQ-domain.rst}        |  2 +
+>  Documentation/{IRQ.txt => IRQ.rst}            |  2 +
+>  .../{Intel-IOMMU.txt => Intel-IOMMU.rst}      |  2 +
+>  Documentation/PCI/pci.rst                     |  8 +--
+>  Documentation/{SAK.txt => SAK.rst}            |  3 +-
+>  Documentation/{SM501.txt => SM501.rst}        |  2 +
+>  Documentation/admin-guide/hw-vuln/l1tf.rst    |  2 +-
+>  .../admin-guide/kernel-parameters.txt         |  4 +-
+>  .../{atomic_bitops.txt => atomic_bitops.rst}  |  3 +-
+>  Documentation/block/biodoc.txt                |  2 +-
+>  .../{bt8xxgpio.txt => bt8xxgpio.rst}          |  3 +-
+>  Documentation/{btmrvl.txt => btmrvl.rst}      |  2 +
+>  ...-mapping.txt => bus-virt-phys-mapping.rst} | 54 +++++++++---------
+>  ...g-warn-once.txt => clearing-warn-once.rst} |  2 +
+>  Documentation/{cpu-load.txt => cpu-load.rst}  |  2 +
+>  .../{cputopology.txt => cputopology.rst}      |  2 +
+>  Documentation/{crc32.txt => crc32.rst}        |  2 +
+>  Documentation/{dcdbas.txt => dcdbas.rst}      |  2 +
+>  ...ging-modules.txt => debugging-modules.rst} |  2 +
+>  ...hci1394.txt => debugging-via-ohci1394.rst} |  2 +
+>  Documentation/{dell_rbu.txt => dell_rbu.rst}  |  3 +-
+>  Documentation/device-mapper/statistics.rst    |  4 +-
+>  .../devicetree/bindings/phy/phy-bindings.txt  |  2 +-
 
-The need for this patch is explained by observing there is a fairly
-easy-to-exploit race condition with chroot(2) (and thus by extension
-LOOKUP_IN_ROOT and LOOKUP_BENEATH if ".." is allowed) where a rename(2)
-of a path can be used to "skip over" nd->root and thus escape to the
-filesystem above nd->root.
+Acked-by: Rob Herring <robh@kernel.org>
 
-  thread1 [attacker]:
-    for (;;)
-      renameat2(AT_FDCWD, "/a/b/c", AT_FDCWD, "/a/d", RENAME_EXCHANGE);
-  thread2 [victim]:
-    for (;;)
-      resolveat(dirb, "b/c/../../etc/shadow", RESOLVE_IN_ROOT);
-
-With fairly significant regularity, thread2 will resolve to
-"/etc/shadow" rather than "/a/b/etc/shadow". There is also a similar
-(though somewhat more privileged) attack using MS_MOVE.
-
-With this patch, such cases will be detected *during* ".." resolution
-(which is the weak point of chroot(2) -- since walking *into* a
-subdirectory tautologically cannot result in you walking *outside*
-nd->root -- except through a bind-mount or magic-link). By detecting
-this at ".." resolution (rather than checking only at the end of the
-entire resolution) we can both correct escapes by jumping back to the
-root (in the case of LOOKUP_IN_ROOT), as well as avoid revealing to
-attackers the structure of the filesystem outside of the root (through
-timing attacks for instance).
-
-In order to avoid a quadratic lookup with each ".." entry, we only
-activate the slow path if a write through &rename_lock or &mount_lock
-has occurred during path resolution (&rename_lock and &mount_lock are
-re-taken to further optimise the lookup). Since the primary attack being
-protected against is MS_MOVE or rename(2), not doing additional checks
-unless a mount or rename have occurred avoids making the common case
-slow.
-
-The use of path_is_under() here might seem suspect, but on further
-inspection of the most important race (a path was *inside* the root but
-is now *outside*), there appears to be no attack potential:
-
-  * If path_is_under() occurs before the rename, then the path will be
-    resolved -- however the path was originally inside the root and thus
-    there is no escape (and to userspace it'd look like the rename
-    occurred after the path was resolved). If path_is_under() occurs
-    afterwards, the resolution is blocked.
-
-  * Subsequent ".." jumps are guaranteed to check path_is_under() -- by
-    construction, &rename_lock or &mount_lock must have been taken by
-    the attacker after path_is_under() returned in the victim. Thus ".."
-    will not be able to escape from the previously-inside-root path.
-
-  * Walking down in the moved path is still safe since the entire
-    subtree was moved (either by rename(2) or MS_MOVE) and because (as
-    discussed above) walking down is safe.
-
-I have run a variant of the above attack in a loop on several machines
-with this patch, and no instances of a breakout were detected. While
-this is not concrete proof that this is safe, when combined with the
-above argument it should lend some trustworthiness to this construction.
-
-Cc: Al Viro <viro@zeniv.linux.org.uk>
-Cc: Jann Horn <jannh@google.com>
-Cc: Kees Cook <keescook@chromium.org>
-Signed-off-by: Aleksa Sarai <cyphar@cyphar.com>
----
- fs/namei.c | 48 +++++++++++++++++++++++++++++++++---------------
- 1 file changed, 33 insertions(+), 15 deletions(-)
-
-diff --git a/fs/namei.c b/fs/namei.c
-index ff016b9e9082..a3f527494791 100644
---- a/fs/namei.c
-+++ b/fs/namei.c
-@@ -491,7 +491,7 @@ struct nameidata {
- 	struct path	root;
- 	struct inode	*inode; /* path.dentry.d_inode */
- 	unsigned int	flags;
--	unsigned	seq, m_seq;
-+	unsigned	seq, m_seq, r_seq;
- 	int		last_type;
- 	unsigned	depth;
- 	int		total_link_count;
-@@ -1828,19 +1828,35 @@ static inline int may_lookup(struct nameidata *nd)
- static inline int handle_dots(struct nameidata *nd, int type)
- {
- 	if (type = LAST_DOTDOT) {
--		/*
--		 * LOOKUP_BENEATH resolving ".." is not currently safe -- races can
--		 * cause our parent to have moved outside of the root and us to skip
--		 * over it.
--		 */
--		if (unlikely(nd->flags & (LOOKUP_BENEATH | LOOKUP_IN_ROOT)))
--			return -EXDEV;
-+		int error = 0;
-+
- 		if (!nd->root.mnt)
- 			set_root(nd);
--		if (nd->flags & LOOKUP_RCU) {
--			return follow_dotdot_rcu(nd);
--		} else
--			return follow_dotdot(nd);
-+		if (nd->flags & LOOKUP_RCU)
-+			error = follow_dotdot_rcu(nd);
-+		else
-+			error = follow_dotdot(nd);
-+		if (error)
-+			return error;
-+
-+		if (unlikely(nd->flags & (LOOKUP_BENEATH | LOOKUP_IN_ROOT))) {
-+			bool m_retry = read_seqretry(&mount_lock, nd->m_seq);
-+			bool r_retry = read_seqretry(&rename_lock, nd->r_seq);
-+
-+			/*
-+			 * Don't bother checking unless there's a racing
-+			 * rename(2) or MS_MOVE.
-+			 */
-+			if (likely(!m_retry && !r_retry))
-+				return 0;
-+
-+			if (m_retry && !(nd->flags & LOOKUP_RCU))
-+				nd->m_seq = read_seqbegin(&mount_lock);
-+			if (r_retry)
-+				nd->r_seq = read_seqbegin(&rename_lock);
-+			if (!path_is_under(&nd->path, &nd->root))
-+				return -EXDEV;
-+		}
- 	}
- 	return 0;
- }
-@@ -2361,6 +2377,11 @@ static const char *path_init(struct nameidata *nd, unsigned flags)
- 	nd->last_type = LAST_ROOT; /* if there are only slashes... */
- 	nd->flags = flags | LOOKUP_JUMPED | LOOKUP_PARENT;
- 	nd->depth = 0;
-+
-+	nd->m_seq = read_seqbegin(&mount_lock);
-+	if (unlikely(flags & (LOOKUP_BENEATH | LOOKUP_IN_ROOT)))
-+		nd->r_seq = read_seqbegin(&rename_lock);
-+
- 	if (flags & LOOKUP_ROOT) {
- 		struct dentry *root = nd->root.dentry;
- 		struct inode *inode = root->d_inode;
-@@ -2371,7 +2392,6 @@ static const char *path_init(struct nameidata *nd, unsigned flags)
- 		if (flags & LOOKUP_RCU) {
- 			nd->seq = __read_seqcount_begin(&nd->path.dentry->d_seq);
- 			nd->root_seq = nd->seq;
--			nd->m_seq = read_seqbegin(&mount_lock);
- 		} else {
- 			path_get(&nd->path);
- 		}
-@@ -2382,8 +2402,6 @@ static const char *path_init(struct nameidata *nd, unsigned flags)
- 	nd->path.mnt = NULL;
- 	nd->path.dentry = NULL;
- 
--	nd->m_seq = read_seqbegin(&mount_lock);
--
- 	if (unlikely(nd->flags & (LOOKUP_BENEATH | LOOKUP_IN_ROOT))) {
- 		error = dirfd_path_init(nd);
- 		if (unlikely(error))
--- 
-2.22.0
+>  Documentation/{digsig.txt => digsig.rst}      |  2 +
+>  Documentation/driver-api/usb/dma.rst          |  6 +-
+>  Documentation/driver-model/device.rst         |  2 +-
+>  Documentation/{efi-stub.txt => efi-stub.rst}  |  2 +
+>  Documentation/{eisa.txt => eisa.rst}          |  2 +
+>  Documentation/fb/vesafb.rst                   |  2 +-
+>  Documentation/filesystems/sysfs.txt           |  2 +-
+>  ...ex-requeue-pi.txt => futex-requeue-pi.rst} |  2 +
+>  .../{gcc-plugins.txt => gcc-plugins.rst}      |  2 +
+>  Documentation/gpu/drm-mm.rst                  |  2 +-
+>  Documentation/{highuid.txt => highuid.rst}    |  4 +-
+>  .../{hw_random.txt => hw_random.rst}          |  2 +
+>  .../{hwspinlock.txt => hwspinlock.rst}        |  2 +
+>  Documentation/ia64/irq-redir.rst              |  2 +-
+>  .../{intel_txt.txt => intel_txt.rst}          |  2 +
+>  .../{io-mapping.txt => io-mapping.rst}        |  2 +
+>  .../{io_ordering.txt => io_ordering.rst}      |  2 +
+>  Documentation/{iostats.txt => iostats.rst}    |  2 +
+>  ...flags-tracing.txt => irqflags-tracing.rst} |  3 +-
+>  Documentation/{isa.txt => isa.rst}            |  2 +
+>  Documentation/{isapnp.txt => isapnp.rst}      |  2 +
+>  ...hreads.txt => kernel-per-CPU-kthreads.rst} |  4 +-
+>  Documentation/{kobject.txt => kobject.rst}    |  6 +-
+>  Documentation/{kprobes.txt => kprobes.rst}    |  3 +-
+>  Documentation/{kref.txt => kref.rst}          |  2 +
+>  Documentation/laptops/thinkpad-acpi.rst       |  6 +-
+>  Documentation/{ldm.txt => ldm.rst}            |  5 +-
+>  Documentation/locking/rt-mutex.rst            |  2 +-
+>  ...kup-watchdogs.txt => lockup-watchdogs.rst} |  2 +
+>  Documentation/{lsm.txt => lsm.rst}            |  2 +
+>  Documentation/{lzo.txt => lzo.rst}            |  2 +
+>  Documentation/{mailbox.txt => mailbox.rst}    |  2 +
+>  Documentation/memory-barriers.txt             |  6 +-
+>  ...hameleon-bus.txt => men-chameleon-bus.rst} |  2 +
+>  Documentation/networking/scaling.rst          |  4 +-
+>  .../{nommu-mmap.txt => nommu-mmap.rst}        |  2 +
+>  Documentation/{ntb.txt => ntb.rst}            |  2 +
+>  Documentation/{numastat.txt => numastat.rst}  |  3 +-
+>  Documentation/{padata.txt => padata.rst}      |  2 +
+>  ...port-lowlevel.txt => parport-lowlevel.rst} |  2 +
+>  ...-semaphore.txt => percpu-rw-semaphore.rst} |  2 +
+>  Documentation/{phy.txt => phy.rst}            |  2 +
+>  Documentation/{pi-futex.txt => pi-futex.rst}  |  2 +
+>  Documentation/{pnp.txt => pnp.rst}            | 13 +++--
+>  ...reempt-locking.txt => preempt-locking.rst} |  4 +-
+>  Documentation/{pwm.txt => pwm.rst}            |  2 +
+>  Documentation/{rbtree.txt => rbtree.rst}      | 54 +++++++++---------
+>  .../{remoteproc.txt => remoteproc.rst}        |  4 +-
+>  Documentation/{rfkill.txt => rfkill.rst}      |  2 +
+>  ...ust-futex-ABI.txt => robust-futex-ABI.rst} |  2 +
+>  ...{robust-futexes.txt => robust-futexes.rst} |  2 +
+>  Documentation/{rpmsg.txt => rpmsg.rst}        |  2 +
+>  Documentation/{rtc.txt => rtc.rst}            |  8 ++-
+>  Documentation/s390/vfio-ccw.rst               |  6 +-
+>  Documentation/{sgi-ioc4.txt => sgi-ioc4.rst}  |  2 +
+>  Documentation/{siphash.txt => siphash.rst}    |  2 +
+>  .../{smsc_ece1099.txt => smsc_ece1099.rst}    |  2 +
+>  .../{speculation.txt => speculation.rst}      |  2 +
+>  .../{static-keys.txt => static-keys.rst}      |  2 +
+>  Documentation/{svga.txt => svga.rst}          |  2 +
+>  .../{switchtec.txt => switchtec.rst}          |  4 +-
+>  .../{sync_file.txt => sync_file.rst}          |  2 +
+>  Documentation/sysctl/kernel.txt               |  4 +-
+>  Documentation/sysctl/vm.txt                   |  2 +-
+>  Documentation/{tee.txt => tee.rst}            |  2 +
+>  .../{this_cpu_ops.txt => this_cpu_ops.rst}    |  2 +
+>  Documentation/trace/kprobetrace.rst           |  2 +-
+>  .../translations/ko_KR/memory-barriers.txt    |  6 +-
+>  Documentation/translations/zh_CN/IRQ.txt      |  4 +-
+>  .../translations/zh_CN/filesystems/sysfs.txt  |  2 +-
+>  .../translations/zh_CN/io_ordering.txt        |  4 +-
+>  ...access.txt => unaligned-memory-access.rst} |  2 +
+>  ...ed-device.txt => vfio-mediated-device.rst} |  4 +-
+>  Documentation/{vfio.txt => vfio.rst}          |  2 +
+>  .../{video-output.txt => video-output.rst}    |  3 +-
+>  Documentation/watchdog/hpwdt.rst              |  2 +-
+>  Documentation/x86/topology.rst                |  2 +-
+>  Documentation/{xillybus.txt => xillybus.rst}  |  2 +
+>  Documentation/{xz.txt => xz.rst}              |  2 +
+>  Documentation/{zorro.txt => zorro.rst}        |  7 ++-
+>  MAINTAINERS                                   | 56 +++++++++----------
+>  arch/Kconfig                                  |  4 +-
+>  arch/arm/Kconfig                              |  2 +-
+>  arch/ia64/hp/common/sba_iommu.c               | 12 ++--
+>  arch/ia64/sn/pci/pci_dma.c                    |  4 +-
+>  arch/parisc/Kconfig                           |  2 +-
+>  arch/parisc/kernel/pci-dma.c                  |  2 +-
+>  arch/sh/Kconfig                               |  2 +-
+>  arch/sparc/Kconfig                            |  2 +-
+>  arch/unicore32/include/asm/io.h               |  2 +-
+>  arch/x86/Kconfig                              |  4 +-
+>  arch/x86/include/asm/dma-mapping.h            |  4 +-
+>  arch/x86/kernel/amd_gart_64.c                 |  2 +-
+>  block/partitions/Kconfig                      |  2 +-
+>  drivers/base/core.c                           |  2 +-
+>  drivers/char/Kconfig                          |  4 +-
+>  drivers/char/hw_random/core.c                 |  2 +-
+>  drivers/char/ipmi/Kconfig                     |  2 +-
+>  drivers/char/ipmi/ipmi_si_hotmod.c            |  2 +-
+>  drivers/char/ipmi/ipmi_si_intf.c              |  2 +-
+>  drivers/dma-buf/Kconfig                       |  2 +-
+>  drivers/gpio/Kconfig                          |  2 +-
+>  drivers/parisc/sba_iommu.c                    | 16 +++---
+>  drivers/pci/switch/Kconfig                    |  2 +-
+>  drivers/platform/x86/Kconfig                  |  4 +-
+>  drivers/platform/x86/dcdbas.c                 |  2 +-
+>  drivers/platform/x86/dell_rbu.c               |  2 +-
+>  drivers/pnp/isapnp/Kconfig                    |  2 +-
+>  drivers/vfio/Kconfig                          |  2 +-
+>  drivers/vfio/mdev/Kconfig                     |  2 +-
+>  include/asm-generic/bitops/atomic.h           |  2 +-
+>  include/linux/dma-mapping.h                   |  2 +-
+>  include/linux/hw_random.h                     |  2 +-
+>  include/linux/io-mapping.h                    |  2 +-
+>  include/linux/jump_label.h                    |  2 +-
+>  include/linux/kobject.h                       |  2 +-
+>  include/linux/kobject_ns.h                    |  2 +-
+>  include/linux/rbtree.h                        |  2 +-
+>  include/linux/rbtree_augmented.h              |  2 +-
+>  include/media/videobuf-dma-sg.h               |  2 +-
+>  init/Kconfig                                  |  2 +-
+>  kernel/dma/debug.c                            |  2 +-
+>  kernel/padata.c                               |  2 +-
+>  lib/Kconfig                                   |  2 +-
+>  lib/Kconfig.debug                             |  2 +-
+>  lib/crc32.c                                   |  2 +-
+>  lib/kobject.c                                 |  4 +-
+>  lib/lzo/lzo1x_decompress_safe.c               |  2 +-
+>  lib/xz/Kconfig                                |  2 +-
+>  mm/Kconfig                                    |  2 +-
+>  mm/nommu.c                                    |  2 +-
+>  samples/kprobes/kprobe_example.c              |  2 +-
+>  samples/kprobes/kretprobe_example.c           |  2 +-
+>  scripts/gcc-plugins/Kconfig                   |  2 +-
+>  security/Kconfig                              |  2 +-
+>  tools/include/linux/rbtree.h                  |  2 +-
+>  tools/include/linux/rbtree_augmented.h        |  2 +-
+>  173 files changed, 397 insertions(+), 242 deletions(-)
+>  rename Documentation/{DMA-API-HOWTO.txt => DMA-API-HOWTO.rst} (99%)
+>  rename Documentation/{DMA-API.txt => DMA-API.rst} (99%)
+>  rename Documentation/{DMA-ISA-LPC.txt => DMA-ISA-LPC.rst} (98%)
+>  rename Documentation/{DMA-attributes.txt => DMA-attributes.rst} (99%)
+>  rename Documentation/{IPMI.txt => IPMI.rst} (99%)
+>  rename Documentation/{IRQ-affinity.txt => IRQ-affinity.rst} (99%)
+>  rename Documentation/{IRQ-domain.txt => IRQ-domain.rst} (99%)
+>  rename Documentation/{IRQ.txt => IRQ.rst} (99%)
+>  rename Documentation/{Intel-IOMMU.txt => Intel-IOMMU.rst} (99%)
+>  rename Documentation/{SAK.txt => SAK.rst} (99%)
+>  rename Documentation/{SM501.txt => SM501.rst} (99%)
+>  rename Documentation/{atomic_bitops.txt => atomic_bitops.rst} (99%)
+>  rename Documentation/{bt8xxgpio.txt => bt8xxgpio.rst} (99%)
+>  rename Documentation/{btmrvl.txt => btmrvl.rst} (99%)
+>  rename Documentation/{bus-virt-phys-mapping.txt => bus-virt-phys-mapping.rst} (93%)
+>  rename Documentation/{clearing-warn-once.txt => clearing-warn-once.rst} (96%)
+>  rename Documentation/{cpu-load.txt => cpu-load.rst} (99%)
+>  rename Documentation/{cputopology.txt => cputopology.rst} (99%)
+>  rename Documentation/{crc32.txt => crc32.rst} (99%)
+>  rename Documentation/{dcdbas.txt => dcdbas.rst} (99%)
+>  rename Documentation/{debugging-modules.txt => debugging-modules.rst} (98%)
+>  rename Documentation/{debugging-via-ohci1394.txt => debugging-via-ohci1394.rst} (99%)
+>  rename Documentation/{dell_rbu.txt => dell_rbu.rst} (99%)
+>  rename Documentation/{digsig.txt => digsig.rst} (99%)
+>  rename Documentation/{efi-stub.txt => efi-stub.rst} (99%)
+>  rename Documentation/{eisa.txt => eisa.rst} (99%)
+>  rename Documentation/{futex-requeue-pi.txt => futex-requeue-pi.rst} (99%)
+>  rename Documentation/{gcc-plugins.txt => gcc-plugins.rst} (99%)
+>  rename Documentation/{highuid.txt => highuid.rst} (99%)
+>  rename Documentation/{hw_random.txt => hw_random.rst} (99%)
+>  rename Documentation/{hwspinlock.txt => hwspinlock.rst} (99%)
+>  rename Documentation/{intel_txt.txt => intel_txt.rst} (99%)
+>  rename Documentation/{io-mapping.txt => io-mapping.rst} (99%)
+>  rename Documentation/{io_ordering.txt => io_ordering.rst} (99%)
+>  rename Documentation/{iostats.txt => iostats.rst} (99%)
+>  rename Documentation/{irqflags-tracing.txt => irqflags-tracing.rst} (99%)
+>  rename Documentation/{isa.txt => isa.rst} (99%)
+>  rename Documentation/{isapnp.txt => isapnp.rst} (98%)
+>  rename Documentation/{kernel-per-CPU-kthreads.txt => kernel-per-CPU-kthreads.rst} (99%)
+>  rename Documentation/{kobject.txt => kobject.rst} (99%)
+>  rename Documentation/{kprobes.txt => kprobes.rst} (99%)
+>  rename Documentation/{kref.txt => kref.rst} (99%)
+>  rename Documentation/{ldm.txt => ldm.rst} (98%)
+>  rename Documentation/{lockup-watchdogs.txt => lockup-watchdogs.rst} (99%)
+>  rename Documentation/{lsm.txt => lsm.rst} (99%)
+>  rename Documentation/{lzo.txt => lzo.rst} (99%)
+>  rename Documentation/{mailbox.txt => mailbox.rst} (99%)
+>  rename Documentation/{men-chameleon-bus.txt => men-chameleon-bus.rst} (99%)
+>  rename Documentation/{nommu-mmap.txt => nommu-mmap.rst} (99%)
+>  rename Documentation/{ntb.txt => ntb.rst} (99%)
+>  rename Documentation/{numastat.txt => numastat.rst} (99%)
+>  rename Documentation/{padata.txt => padata.rst} (99%)
+>  rename Documentation/{parport-lowlevel.txt => parport-lowlevel.rst} (99%)
+>  rename Documentation/{percpu-rw-semaphore.txt => percpu-rw-semaphore.rst} (99%)
+>  rename Documentation/{phy.txt => phy.rst} (99%)
+>  rename Documentation/{pi-futex.txt => pi-futex.rst} (99%)
+>  rename Documentation/{pnp.txt => pnp.rst} (98%)
+>  rename Documentation/{preempt-locking.txt => preempt-locking.rst} (99%)
+>  rename Documentation/{pwm.txt => pwm.rst} (99%)
+>  rename Documentation/{rbtree.txt => rbtree.rst} (94%)
+>  rename Documentation/{remoteproc.txt => remoteproc.rst} (99%)
+>  rename Documentation/{rfkill.txt => rfkill.rst} (99%)
+>  rename Documentation/{robust-futex-ABI.txt => robust-futex-ABI.rst} (99%)
+>  rename Documentation/{robust-futexes.txt => robust-futexes.rst} (99%)
+>  rename Documentation/{rpmsg.txt => rpmsg.rst} (99%)
+>  rename Documentation/{rtc.txt => rtc.rst} (99%)
+>  rename Documentation/{sgi-ioc4.txt => sgi-ioc4.rst} (99%)
+>  rename Documentation/{siphash.txt => siphash.rst} (99%)
+>  rename Documentation/{smsc_ece1099.txt => smsc_ece1099.rst} (99%)
+>  rename Documentation/{speculation.txt => speculation.rst} (99%)
+>  rename Documentation/{static-keys.txt => static-keys.rst} (99%)
+>  rename Documentation/{svga.txt => svga.rst} (99%)
+>  rename Documentation/{switchtec.txt => switchtec.rst} (98%)
+>  rename Documentation/{sync_file.txt => sync_file.rst} (99%)
+>  rename Documentation/{tee.txt => tee.rst} (99%)
+>  rename Documentation/{this_cpu_ops.txt => this_cpu_ops.rst} (99%)
+>  rename Documentation/{unaligned-memory-access.txt => unaligned-memory-access.rst} (99%)
+>  rename Documentation/{vfio-mediated-device.txt => vfio-mediated-device.rst} (99%)
+>  rename Documentation/{vfio.txt => vfio.rst} (99%)
+>  rename Documentation/{video-output.txt => video-output.rst} (99%)
+>  rename Documentation/{xillybus.txt => xillybus.rst} (99%)
+>  rename Documentation/{xz.txt => xz.rst} (99%)
+>  rename Documentation/{zorro.txt => zorro.rst} (99%)
