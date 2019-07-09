@@ -1,83 +1,30 @@
-From: Aleksa Sarai <cyphar@cyphar.com>
-Date: Thu, 18 Jul 2019 03:17:29 +0000
-Subject: Re: [PATCH v9 05/10] namei: O_BENEATH-style path resolution flags
-Message-Id: <20190718031729.scehpjydhuxgxqjy@yavin>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="z4aw3kgjubxi6rqg"
+From: "Dial Direct Loans" <dialdirect@info.org>
+Date: Tue, 09 Jul 2019 07:12:36 +0000
+Subject: LOANS !!!
+Message-Id: <1183c3c3678da75d6b7310e84949551a.squirrel@mail.vodokanal.poltava.ua>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190706145737.5299-6-cyphar@cyphar.com>
- <20190712043341.GI17978@ZenIV.linux.org.uk>
- <20190712105745.nruaftgeat6irhzr@yavin>
- <20190712123924.GK17978@ZenIV.linux.org.uk>
- <20190712125552.GL17978@ZenIV.linux.org.uk>
- <20190712132553.GN17978@ZenIV.linux.org.uk>
- <20190712150026.GO17978@ZenIV.linux.org.uk>
- <20190713024153.GA3817@ZenIV.linux.org.uk>
- <20190714070029.m53etvm3y4etidxt@yavin>
- <20190714143623.GR17978@ZenIV.linux.org.uk>
-In-Reply-To: <20190714143623.GR17978@ZenIV.linux.org.uk>
-To: Al Viro <viro@zeniv.linux.org.uk>
-Cc: Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Christian Brauner <christian@brauner.io>, David Drysdale <drysdale@google.com>, Andy Lutomirski <luto@kernel.org>, Linus Torvalds <torvalds@linux-foundation.org>, Eric Biederman <ebiederm@xmission.com>, Andrew Morton <akpm@linux-foundation.org>, Alexei Starovoitov <ast@kernel.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Aleksa Sarai <asarai@suse.de>, containers@lists.linux-foundation.org, linux-alpha@vger.kernel.org
+References: <86675f682c024e22f23fdc774efdfcf4.squirrel@mail.vodokanal.poltava.ua>
+In-Reply-To: <86675f682c024e22f23fdc774efdfcf4.squirrel@mail.vodokanal.poltava.ua>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-ia64@vger.kernel.org
 
 
---z4aw3kgjubxi6rqg
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Dial Direct Loan SA
 
-On 2019-07-14, Al Viro <viro@zeniv.linux.org.uk> wrote:
-> On Sun, Jul 14, 2019 at 05:00:29PM +1000, Aleksa Sarai wrote:
-> > The basic property being guaranteed by LOOKUP_IN_ROOT is that it will
-> > not result in resolution of a path component which was not inside the
-> > root of the dirfd tree at some point during resolution (and that all
-> > absolute symlink and ".." resolution will be done relative to the
-> > dirfd). This may smell slightly of chroot(2), because unfortunately it
-> > is a similar concept -- the reason for this is to allow for a more
-> > efficient way to safely resolve paths inside a rootfs than spawning a
-> > separate process to then pass back the fd to the caller.
->=20
-> IDGI...  If attacker can modify your subtree, you have already lost -
-> after all, they can make anything appear inside that tree just before
-> your syscall is made and bring it back out immediately afterwards.
-> And if they can't, what is the race you are trying to protect against?
-> Confused...
 
-I'll be honest, this code mostly exists because Jann Horn said that it
-was necessary in order for this interface to be safe against those kinds
-of attacks. Though, it's also entirely possible I just am
-mis-remembering the attack scenario he described when I posted v1 of
-this series last year.
+Consolidate your debts with Dial Direct Loan SA for your peace of
+mind at a fixed interest rate of 4.75%,personal and business loans
+are also welcome.For details  file in your applications by sending an email
+to:infodialdirectloans@mail2consultant.com.
 
-The use-case I need this functionality for (as do other container
-runtimes) is one where you are trying to safely interact with a
-directory tree that is a (malicious) container's root filesystem -- so
-the container won't be able to move the directory tree root, nor can
-they move things outside the rootfs into it (or the reverse). Users
-dealing with FTP, web, or file servers probably have similar
-requirements.
 
-There is an obvious race condition if you allow the attacker to move the
-root (I give an example and test-case of it in the last patch in the
-series), and given that it is fairly trivial to defend against I don't
-see the downside in including it? But it's obviously your call -- and
-maybe Jann Horn can explain the reasoning behind this much better than I
-can.
 
---=20
-Aleksa Sarai
-Senior Software Engineer (Containers)
-SUSE Linux GmbH
-<https://www.cyphar.com/>
+Yours in Service,
+Susan Muller (Mrs.),
+Senior Consultant,
+Loan Application Team
+Dial Direct Loan SA
+Tel No: +27717231058
 
---z4aw3kgjubxi6rqg
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iHUEABYIAB0WIQSxZm6dtfE8gxLLfYqdlLljIbnQEgUCXS/kxgAKCRCdlLljIbnQ
-Eo0/AQD7a5jDbww9O+NZeirpVja2r3Y2CFcg1rTXSOeRjy321gEAoJhiO3HmSR50
-nG/Ogapy7jTKDSyCcC7BfUZDZSz67go=
-=wzlY
------END PGP SIGNATURE-----
-
---z4aw3kgjubxi6rqg--
