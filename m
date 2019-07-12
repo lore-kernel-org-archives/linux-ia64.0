@@ -1,92 +1,42 @@
-From: Aleksa Sarai <cyphar@cyphar.com>
-Date: Fri, 19 Jul 2019 16:42:18 +0000
-Subject: [PATCH v10 2/9] procfs: switch magic-link modes to be more sane
-Message-Id: <20190719164225.27083-3-cyphar@cyphar.com>
+From: Alex Shi <alex.shi@linux.alibaba.com>
+Date: Fri, 12 Jul 2019 02:20:18 +0000
+Subject: [PATCH 12/12] Documentation/xtensa: repointer docs to Documentation/arch/
+Message-Id: <20190712022018.27989-12-alex.shi@linux.alibaba.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190719164225.27083-1-cyphar@cyphar.com>
-In-Reply-To: <20190719164225.27083-1-cyphar@cyphar.com>
+References: <20190712022018.27989-1-alex.shi@linux.alibaba.com>
+In-Reply-To: <20190712022018.27989-1-alex.shi@linux.alibaba.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>
-Cc: Aleksa Sarai <cyphar@cyphar.com>, Eric Biederman <ebiederm@xmission.com>, Andy Lutomirski <luto@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Alexei Starovoitov <ast@kernel.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Christian Brauner <christian@brauner.io>, Tycho Andersen <tycho@tycho.ws>, David Drysdale <drysdale@google.com>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Aleksa Sarai <asarai@suse.de>, Linus Torvalds <torvalds@linux-foundation.org>, containers@lists.linux-foundation.org, linux-alpha@vger.kernel.org, linux-api@vger.kernel.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-doc@vger.kernel.org, Jonathan Corbet <corbet@lwn.net>
+Cc: Alex Shi <alex.shi@linux.alibaba.com>, linux-kernel@vger.kernel.org, linux-stm32@st-md-mailman.stormreply.com, linux-arm-kernel@lists.infradead.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-omap@vger.kernel.org, linux-fbdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-scsi@vger.kernel.org, linux-s390@vger.kernel.org, kvm@vger.kernel.org, linux-sh@vger.kernel.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org
 
-Now that magic-link modes are obeyed for file re-opening purposes, some
-of the pre-existing magic-link modes need to be adjusted to be more
-semantically correct.
+Since we move Documentation/xtensa docs to Documentation/arch/xtensa
+dir, redirect the doc pointer to them.
 
-The most blatant example of this is /proc/self/exe, which had a mode of
-a+rwx even though tautologically the file could never be opened for
-writing (because it is the current->mm of a live process).
-
-With the new O_PATH restrictions, changing the default mode of these
-magic-links allows us to avoid delayed-access attacks such as we saw in
-CVE-2019-5736.
-
-Signed-off-by: Aleksa Sarai <cyphar@cyphar.com>
+Signed-off-by: Alex Shi <alex.shi@linux.alibaba.com>
+Cc: Jonathan Corbet <corbet@lwn.net>
+Cc: linux-doc@vger.kernel.org
+Cc: Chris Zankel <chris@zankel.net>
+Cc: Max Filippov <jcmvbkbc@gmail.com>
+Cc: linux-xtensa@linux-xtensa.org
+Cc: linux-kernel@vger.kernel.org
 ---
- fs/proc/base.c       | 20 ++++++++++----------
- fs/proc/namespaces.c |  2 +-
- 2 files changed, 11 insertions(+), 11 deletions(-)
+ arch/xtensa/include/asm/initialize_mmu.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/fs/proc/base.c b/fs/proc/base.c
-index 255f6754c70d..82c06c21e69d 100644
---- a/fs/proc/base.c
-+++ b/fs/proc/base.c
-@@ -133,9 +133,9 @@ struct pid_entry {
- 
- #define DIR(NAME, MODE, iops, fops)	\
- 	NOD(NAME, (S_IFDIR|(MODE)), &iops, &fops, {} )
--#define LNK(NAME, get_link)					\
--	NOD(NAME, (S_IFLNK|S_IRWXUGO),				\
--		&proc_pid_link_inode_operations, NULL,		\
-+#define LNK(NAME, MODE, get_link)			\
-+	NOD(NAME, (S_IFLNK|(MODE)),			\
-+		&proc_pid_link_inode_operations, NULL,	\
- 		{ .proc_get_link = get_link } )
- #define REG(NAME, MODE, fops)				\
- 	NOD(NAME, (S_IFREG|(MODE)), NULL, &fops, {})
-@@ -2995,9 +2995,9 @@ static const struct pid_entry tgid_base_stuff[] = {
- 	REG("numa_maps",  S_IRUGO, proc_pid_numa_maps_operations),
- #endif
- 	REG("mem",        S_IRUSR|S_IWUSR, proc_mem_operations),
--	LNK("cwd",        proc_cwd_link),
--	LNK("root",       proc_root_link),
--	LNK("exe",        proc_exe_link),
-+	LNK("cwd",        S_IRWXUGO, proc_cwd_link),
-+	LNK("root",       S_IRWXUGO, proc_root_link),
-+	LNK("exe",        S_IRUGO|S_IXUGO, proc_exe_link),
- 	REG("mounts",     S_IRUGO, proc_mounts_operations),
- 	REG("mountinfo",  S_IRUGO, proc_mountinfo_operations),
- 	REG("mountstats", S_IRUSR, proc_mountstats_operations),
-@@ -3393,11 +3393,11 @@ static const struct pid_entry tid_base_stuff[] = {
- 	REG("numa_maps", S_IRUGO, proc_pid_numa_maps_operations),
- #endif
- 	REG("mem",       S_IRUSR|S_IWUSR, proc_mem_operations),
--	LNK("cwd",       proc_cwd_link),
--	LNK("root",      proc_root_link),
--	LNK("exe",       proc_exe_link),
-+	LNK("cwd",       S_IRWXUGO, proc_cwd_link),
-+	LNK("root",      S_IRWXUGO, proc_root_link),
-+	LNK("exe",       S_IRUGO|S_IXUGO, proc_exe_link),
- 	REG("mounts",    S_IRUGO, proc_mounts_operations),
--	REG("mountinfo",  S_IRUGO, proc_mountinfo_operations),
-+	REG("mountinfo", S_IRUGO, proc_mountinfo_operations),
- #ifdef CONFIG_PROC_PAGE_MONITOR
- 	REG("clear_refs", S_IWUSR, proc_clear_refs_operations),
- 	REG("smaps",     S_IRUGO, proc_pid_smaps_operations),
-diff --git a/fs/proc/namespaces.c b/fs/proc/namespaces.c
-index dd2b35f78b09..cd1e130913f7 100644
---- a/fs/proc/namespaces.c
-+++ b/fs/proc/namespaces.c
-@@ -94,7 +94,7 @@ static struct dentry *proc_ns_instantiate(struct dentry *dentry,
- 	struct inode *inode;
- 	struct proc_inode *ei;
- 
--	inode = proc_pid_make_inode(dentry->d_sb, task, S_IFLNK | S_IRWXUGO);
-+	inode = proc_pid_make_inode(dentry->d_sb, task, S_IFLNK | S_IRUGO);
- 	if (!inode)
- 		return ERR_PTR(-ENOENT);
- 
+diff --git a/arch/xtensa/include/asm/initialize_mmu.h b/arch/xtensa/include/asm/initialize_mmu.h
+index 323d05789159..499fe4847490 100644
+--- a/arch/xtensa/include/asm/initialize_mmu.h
++++ b/arch/xtensa/include/asm/initialize_mmu.h
+@@ -42,7 +42,7 @@
+ #if XCHAL_HAVE_S32C1I && (XCHAL_HW_MIN_VERSION >= XTENSA_HWVERSION_RC_2009_0)
+ /*
+  * We Have Atomic Operation Control (ATOMCTL) Register; Initialize it.
+- * For details see Documentation/xtensa/atomctl.txt
++ * For details see Documentation/arch/xtensa/atomctl.txt
+  */
+ #if XCHAL_DCACHE_IS_COHERENT
+ 	movi	a3, 0x25	/* For SMP/MX -- internal for writeback,
 -- 
-2.22.0
+2.19.1.856.g8858448bb
