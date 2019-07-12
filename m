@@ -1,7 +1,7 @@
 From: Alex Shi <alex.shi@linux.alibaba.com>
-Date: Fri, 12 Jul 2019 02:20:18 +0000
-Subject: [PATCH 12/12] Documentation/xtensa: repointer docs to Documentation/arch/
-Message-Id: <20190712022018.27989-12-alex.shi@linux.alibaba.com>
+Date: Fri, 12 Jul 2019 02:20:15 +0000
+Subject: [PATCH 09/12] Dcumentation/sh: repointer docs to Documentation/arch/
+Message-Id: <20190712022018.27989-9-alex.shi@linux.alibaba.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20190712022018.27989-1-alex.shi@linux.alibaba.com>
 In-Reply-To: <20190712022018.27989-1-alex.shi@linux.alibaba.com>
@@ -9,34 +9,60 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-doc@vger.kernel.org, Jonathan Corbet <corbet@lwn.net>
-Cc: Alex Shi <alex.shi@linux.alibaba.com>, linux-kernel@vger.kernel.org, linux-stm32@st-md-mailman.stormreply.com, linux-arm-kernel@lists.infradead.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-omap@vger.kernel.org, linux-fbdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-scsi@vger.kernel.org, linux-s390@vger.kernel.org, kvm@vger.kernel.org, linux-sh@vger.kernel.org, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-xtensa@linux-xtensa.org
+Cc: Alex Shi <alex.shi@linux.alibaba.com>, linux-kernel@vger.kernel.org, linux-stm32@st-md-mailman.stormreply.com, linux-arm-kernel@lists.infradead.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-omap@vger.kernel.org, linux-fbdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-scsi@vger.kernel.org, linux-s390@vger.kernel.org, kvm@vger.kernel.org, linux-sh@vger.kernel.org
 
-Since we move Documentation/xtensa docs to Documentation/arch/xtensa
+Since we move Documentation/sh docs to Documentation/arch/sh
 dir, redirect the doc pointer to them.
 
 Signed-off-by: Alex Shi <alex.shi@linux.alibaba.com>
 Cc: Jonathan Corbet <corbet@lwn.net>
 Cc: linux-doc@vger.kernel.org
-Cc: Chris Zankel <chris@zankel.net>
-Cc: Max Filippov <jcmvbkbc@gmail.com>
-Cc: linux-xtensa@linux-xtensa.org
 Cc: linux-kernel@vger.kernel.org
+Cc: linux-sh@vger.kernel.org
 ---
- arch/xtensa/include/asm/initialize_mmu.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ Documentation/conf.py | 2 +-
+ MAINTAINERS           | 2 +-
+ arch/sh/Kconfig.cpu   | 2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/arch/xtensa/include/asm/initialize_mmu.h b/arch/xtensa/include/asm/initialize_mmu.h
-index 323d05789159..499fe4847490 100644
---- a/arch/xtensa/include/asm/initialize_mmu.h
-+++ b/arch/xtensa/include/asm/initialize_mmu.h
-@@ -42,7 +42,7 @@
- #if XCHAL_HAVE_S32C1I && (XCHAL_HW_MIN_VERSION >= XTENSA_HWVERSION_RC_2009_0)
- /*
-  * We Have Atomic Operation Control (ATOMCTL) Register; Initialize it.
-- * For details see Documentation/xtensa/atomctl.txt
-+ * For details see Documentation/arch/xtensa/atomctl.txt
-  */
- #if XCHAL_DCACHE_IS_COHERENT
- 	movi	a3, 0x25	/* For SMP/MX -- internal for writeback,
+diff --git a/Documentation/conf.py b/Documentation/conf.py
+index 3b2397bcb565..8bbe421c1d97 100644
+--- a/Documentation/conf.py
++++ b/Documentation/conf.py
+@@ -402,7 +402,7 @@ latex_documents = [
+      'The kernel development community', 'manual'),
+     ('security/index', 'security.tex', 'The kernel security subsystem manual',
+      'The kernel development community', 'manual'),
+-    ('sh/index', 'sh.tex', 'SuperH architecture implementation manual',
++    ('arch/sh/index', 'sh.tex', 'SuperH architecture implementation manual',
+      'The kernel development community', 'manual'),
+     ('sound/index', 'sound.tex', 'Linux Sound Subsystem Documentation',
+      'The kernel development community', 'manual'),
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 7a245d3f02fd..84448d5838b7 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -15169,7 +15169,7 @@ M:	Rich Felker <dalias@libc.org>
+ L:	linux-sh@vger.kernel.org
+ Q:	http://patchwork.kernel.org/project/linux-sh/list/
+ S:	Maintained
+-F:	Documentation/sh/
++F:	Documentation/arch/sh/
+ F:	arch/sh/
+ F:	drivers/sh/
+ 
+diff --git a/arch/sh/Kconfig.cpu b/arch/sh/Kconfig.cpu
+index 4a4edc7e03d4..fdc8b565241b 100644
+--- a/arch/sh/Kconfig.cpu
++++ b/arch/sh/Kconfig.cpu
+@@ -94,7 +94,7 @@ config CPU_HAS_SR_RB
+ 	  that are lacking this bit must have another method in place for
+ 	  accomplishing what is taken care of by the banked registers.
+ 
+-	  See <file:Documentation/sh/register-banks.txt> for further
++	  See <file:Documentation/arch/sh/register-banks.txt> for further
+ 	  information on SR.RB and register banking in the kernel in general.
+ 
+ config CPU_HAS_PTEAEX
 -- 
 2.19.1.856.g8858448bb
