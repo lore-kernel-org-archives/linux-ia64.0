@@ -1,180 +1,574 @@
-From: Aleksa Sarai <cyphar@cyphar.com>
-Date: Sun, 28 Jul 2019 01:02:05 +0000
-Subject: [PATCH v11 6/8] namei: aggressively check for nd->root escape on ".." resolution
-Message-Id: <20190728010207.9781-7-cyphar@cyphar.com>
+From: Alex Shi <alex.shi@linux.alibaba.com>
+Date: Fri, 12 Jul 2019 02:20:17 +0000
+Subject: [PATCH 11/12] Documentation/x86: repointer docs to Documentation/arch/
+Message-Id: <20190712022018.27989-11-alex.shi@linux.alibaba.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190728010207.9781-1-cyphar@cyphar.com>
-In-Reply-To: <20190728010207.9781-1-cyphar@cyphar.com>
+References: <20190712022018.27989-1-alex.shi@linux.alibaba.com>
+In-Reply-To: <20190712022018.27989-1-alex.shi@linux.alibaba.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>
-Cc: Aleksa Sarai <cyphar@cyphar.com>, Jann Horn <jannh@google.com>, Kees Cook <keescook@chromium.org>, Eric Biederman <ebiederm@xmission.com>, Andy Lutomirski <luto@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Alexei Starovoitov <ast@kernel.org>, Christian Brauner <christian@brauner.io>, Tycho Andersen <tycho@tycho.ws>, David Drysdale <drysdale@google.com>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Aleksa Sarai <asarai@suse.de>, Linus Torvalds <torvalds@linux-foundation.org>, containers@lists.linux-foundation.org, linux-alpha@vger.kernel.org, linux-api@vger.kernel.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.orglinux-
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: linux-doc@vger.kernel.org, Jonathan Corbet <corbet@lwn.net>
+Cc: Alex Shi <alex.shi@linux.alibaba.com>, linux-kernel@vger.kernel.org, linux-stm32@st-md-mailman.stormreply.com, linux-arm-kernel@lists.infradead.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-omap@vger.kernel.org, linux-fbdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-scsi@vger.kernel.org, linux-s390@vger.kernel.org, kvm@vger.kernel.org, linux-sh@vger.kernel.org, Tony Luck <tony.luck@intel.com>, "H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org, Peter Zijlstra <peterz@infradead.org>, Changbin Du <changbin.du@intel.com>, xen-devel@lists.xenproject.org, platform-driver-x86@vger.kernel.org, virtualization@lists.linux-foundation.org, netdev@vger.kernel.org, linux-security-module@vger.kernel.org
 
-This patch allows for LOOKUP_BENEATH and LOOKUP_IN_ROOT to safely permit
-".." resolution (in the case of LOOKUP_BENEATH the resolution will still
-fail if ".." resolution would resolve a path outside of the root --
-while LOOKUP_IN_ROOT will chroot(2)-style scope it). Magic-link jumps
-are still disallowed entirely because now they could result in
-inconsistent behaviour if resolution encounters a subsequent ".."[*].
+Since we move Documentation/x86 docs to Documentation/arch/x86
+dir, redirect the doc pointer to them.
 
-The need for this patch is explained by observing there is a fairly
-easy-to-exploit race condition with chroot(2) (and thus by extension
-LOOKUP_IN_ROOT and LOOKUP_BENEATH if ".." is allowed) where a rename(2)
-of a path can be used to "skip over" nd->root and thus escape to the
-filesystem above nd->root.
-
-  thread1 [attacker]:
-    for (;;)
-      renameat2(AT_FDCWD, "/a/b/c", AT_FDCWD, "/a/d", RENAME_EXCHANGE);
-  thread2 [victim]:
-    for (;;)
-      openat2(dirb, "b/c/../../etc/shadow",
-              { .flags = O_PATH, .resolve = RESOLVE_IN_ROOT } );
-
-With fairly significant regularity, thread2 will resolve to
-"/etc/shadow" rather than "/a/b/etc/shadow". There is also a similar
-(though somewhat more privileged) attack using MS_MOVE.
-
-With this patch, such cases will be detected *during* ".." resolution
-(which is the weak point of chroot(2) -- since walking *into* a
-subdirectory tautologically cannot result in you walking *outside*
-nd->root -- except through a bind-mount or magic-link). By detecting
-this at ".." resolution (rather than checking only at the end of the
-entire resolution) we can both correct escapes by jumping back to the
-root (in the case of LOOKUP_IN_ROOT), as well as avoid revealing to
-attackers the structure of the filesystem outside of the root (through
-timing attacks for instance).
-
-In order to avoid a quadratic lookup with each ".." entry, we only
-activate the slow path if a write through &rename_lock or &mount_lock
-has occurred during path resolution (&rename_lock and &mount_lock are
-re-taken to further optimise the lookup). Since the primary attack being
-protected against is MS_MOVE or rename(2), not doing additional checks
-unless a mount or rename have occurred avoids making the common case
-slow.
-
-The use of path_is_under() here might seem suspect, but on further
-inspection of the most important race (a path was *inside* the root but
-is now *outside*), there appears to be no attack potential:
-
-  * If path_is_under() occurs before the rename, then the path will be
-    resolved -- however the path was originally inside the root and thus
-    there is no escape (and to userspace it'd look like the rename
-    occurred after the path was resolved). If path_is_under() occurs
-    afterwards, the resolution is blocked.
-
-  * Subsequent ".." jumps are guaranteed to check path_is_under() -- by
-    construction, &rename_lock or &mount_lock must have been taken by
-    the attacker after path_is_under() returned in the victim. Thus ".."
-    will not be able to escape from the previously-inside-root path.
-
-  * Walking down in the moved path is still safe since the entire
-    subtree was moved (either by rename(2) or MS_MOVE) and because (as
-    discussed above) walking down is safe.
-
-A variant of the above attack is included in the selftests for
-openat2(2) later in this patch series. I've run this test on several
-machines for several days and no instances of a breakout were detected.
-While this is not concrete proof that this is safe, when combined with
-the above argument it should lend some trustworthiness to this
-construction.
-
-[*] It may be acceptable in the future to do a path_is_under() check
-    after resolving a magic-link and permit resolution if the
-    nd_jump_link() result is still within the dirfd. However this seems
-    unlikely to be a feature that people *really* need* -- it can be
-    added later if it turns out a lot of people want it.
-
-Cc: Al Viro <viro@zeniv.linux.org.uk>
-Cc: Jann Horn <jannh@google.com>
-Cc: Kees Cook <keescook@chromium.org>
-Signed-off-by: Aleksa Sarai <cyphar@cyphar.com>
+Signed-off-by: Alex Shi <alex.shi@linux.alibaba.com>
+Cc: Jonathan Corbet <corbet@lwn.net>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: "H. Peter Anvin" <hpa@zytor.com>
+Cc: x86@kernel.org
+Cc: Peter Zijlstra <peterz@infradead.org>
+Cc: Changbin Du <changbin.du@intel.com>
+Cc: linux-doc@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Cc: xen-devel@lists.xenproject.org
+Cc: platform-driver-x86@vger.kernel.org
+Cc: kvm@vger.kernel.org
+Cc: virtualization@lists.linux-foundation.org
+Cc: netdev@vger.kernel.org
+Cc: linux-security-module@vger.kernel.org
 ---
- fs/namei.c | 45 +++++++++++++++++++++++++++++++--------------
- 1 file changed, 31 insertions(+), 14 deletions(-)
+ Documentation/admin-guide/hw-vuln/mds.rst            |  2 +-
+ Documentation/admin-guide/kernel-parameters.rst      |  6 +++---
+ Documentation/admin-guide/kernel-parameters.txt      |  8 ++++----
+ Documentation/admin-guide/ras.rst                    |  2 +-
+ Documentation/arch/x86/x86_64/5level-paging.rst      |  2 +-
+ Documentation/arch/x86/x86_64/boot-options.rst       |  4 ++--
+ .../arch/x86/x86_64/fake-numa-for-cpusets.rst        |  2 +-
+ Documentation/devicetree/booting-without-of.txt      |  2 +-
+ Documentation/sysctl/kernel.txt                      |  4 ++--
+ MAINTAINERS                                          |  4 ++--
+ arch/arm/Kconfig                                     |  2 +-
+ arch/x86/Kconfig                                     | 12 ++++++------
+ arch/x86/Kconfig.debug                               |  2 +-
+ arch/x86/boot/header.S                               |  2 +-
+ arch/x86/entry/entry_64.S                            |  2 +-
+ arch/x86/include/asm/bootparam_utils.h               |  2 +-
+ arch/x86/include/asm/page_64_types.h                 |  2 +-
+ arch/x86/include/asm/pgtable_64_types.h              |  2 +-
+ arch/x86/kernel/cpu/microcode/amd.c                  |  2 +-
+ arch/x86/kernel/kexec-bzimage64.c                    |  2 +-
+ arch/x86/kernel/pci-dma.c                            |  2 +-
+ arch/x86/mm/tlb.c                                    |  2 +-
+ arch/x86/platform/pvh/enlighten.c                    |  2 +-
+ drivers/vhost/vhost.c                                |  2 +-
+ security/Kconfig                                     |  2 +-
+ tools/include/linux/err.h                            |  2 +-
+ tools/objtool/Documentation/stack-validation.txt     |  4 ++--
+ 27 files changed, 41 insertions(+), 41 deletions(-)
 
-diff --git a/fs/namei.c b/fs/namei.c
-index 0352d275bd13..fd1eb5ce8baa 100644
---- a/fs/namei.c
-+++ b/fs/namei.c
-@@ -491,7 +491,7 @@ struct nameidata {
- 	struct path	root;
- 	struct inode	*inode; /* path.dentry.d_inode */
- 	unsigned int	flags;
--	unsigned	seq, m_seq;
-+	unsigned	seq, m_seq, r_seq;
- 	int		last_type;
- 	unsigned	depth;
- 	int		total_link_count;
-@@ -1758,22 +1758,36 @@ static inline int handle_dots(struct nameidata *nd, int type)
- 	if (type = LAST_DOTDOT) {
- 		int error = 0;
- 
--		/*
--		 * LOOKUP_BENEATH resolving ".." is not currently safe -- races
--		 * can cause our parent to have moved outside of the root and
--		 * us to skip over it.
--		 */
--		if (unlikely(nd->flags & (LOOKUP_BENEATH | LOOKUP_IN_ROOT)))
--			return -EXDEV;
- 		if (!nd->root.mnt) {
- 			error = set_root(nd);
- 			if (error)
- 				return error;
- 		}
--		if (nd->flags & LOOKUP_RCU) {
--			return follow_dotdot_rcu(nd);
--		} else
--			return follow_dotdot(nd);
-+		if (nd->flags & LOOKUP_RCU)
-+			error = follow_dotdot_rcu(nd);
-+		else
-+			error = follow_dotdot(nd);
-+		if (error)
-+			return error;
-+
-+		if (unlikely(nd->flags & (LOOKUP_BENEATH | LOOKUP_IN_ROOT))) {
-+			bool m_retry = read_seqretry(&mount_lock, nd->m_seq);
-+			bool r_retry = read_seqretry(&rename_lock, nd->r_seq);
-+
-+			/*
-+			 * Don't bother checking unless there's a racing
-+			 * rename(2) or MS_MOVE.
-+			 */
-+			if (likely(!m_retry && !r_retry))
-+				return 0;
-+
-+			if (m_retry && !(nd->flags & LOOKUP_RCU))
-+				nd->m_seq = read_seqbegin(&mount_lock);
-+			if (r_retry)
-+				nd->r_seq = read_seqbegin(&rename_lock);
-+			if (!path_is_under(&nd->path, &nd->root))
-+				return -EXDEV;
-+		}
- 	}
- 	return 0;
+diff --git a/Documentation/admin-guide/hw-vuln/mds.rst b/Documentation/admi=
+n-guide/hw-vuln/mds.rst
+index e3a796c0d3a2..303228380fdc 100644
+--- a/Documentation/admin-guide/hw-vuln/mds.rst
++++ b/Documentation/admin-guide/hw-vuln/mds.rst
+@@ -58,7 +58,7 @@ Because the buffers are potentially shared between Hyper-=
+Threads cross
+ Hyper-Thread attacks are possible.
+=20
+ Deeper technical information is available in the MDS specific x86
+-architecture section: :ref:`Documentation/x86/mds.rst <mds>`.
++architecture section: :ref:`Documentation/arch/x86/mds.rst <mds>`.
+=20
+=20
+ Attack scenarios
+diff --git a/Documentation/admin-guide/kernel-parameters.rst b/Documentatio=
+n/admin-guide/kernel-parameters.rst
+index dc283dcffae8..7c32484811c8 100644
+--- a/Documentation/admin-guide/kernel-parameters.rst
++++ b/Documentation/admin-guide/kernel-parameters.rst
+@@ -167,7 +167,7 @@ parameter is applicable::
+ 	X86-32	X86-32, aka i386 architecture is enabled.
+ 	X86-64	X86-64 architecture is enabled.
+ 			More X86-64 boot options can be found in
+-			Documentation/x86/x86_64/boot-options.rst.
++			Documentation/arch/x86/x86_64/boot-options.rst.
+ 	X86	Either 32-bit or 64-bit x86 (same as X86-32+X86-64)
+ 	X86_UV	SGI UV support is enabled.
+ 	XEN	Xen support is enabled
+@@ -181,10 +181,10 @@ In addition, the following text indicates that the op=
+tion::
+ Parameters denoted with BOOT are actually interpreted by the boot
+ loader, and have no meaning to the kernel directly.
+ Do not modify the syntax of boot loader parameters without extreme
+-need or coordination with <Documentation/x86/boot.rst>.
++need or coordination with <Documentation/arch/x86/boot.rst>.
+=20
+ There are also arch-specific kernel-parameters not documented here.
+-See for example <Documentation/x86/x86_64/boot-options.rst>.
++See for example <Documentation/arch/x86/x86_64/boot-options.rst>.
+=20
+ Note that ALL kernel parameters listed below are CASE SENSITIVE, and that
+ a trailing =3D on the name of any parameter states that that parameter will
+diff --git a/Documentation/admin-guide/kernel-parameters.txt b/Documentatio=
+n/admin-guide/kernel-parameters.txt
+index 4ceb4691245b..d9eb5895ea9e 100644
+--- a/Documentation/admin-guide/kernel-parameters.txt
++++ b/Documentation/admin-guide/kernel-parameters.txt
+@@ -963,7 +963,7 @@
+ 			for details.
+=20
+ 	nompx		[X86] Disables Intel Memory Protection Extensions.
+-			See Documentation/x86/intel_mpx.rst for more
++			See Documentation/arch/x86/intel_mpx.rst for more
+ 			information about the feature.
+=20
+ 	nopku		[X86] Disable Memory Protection Keys CPU feature found
+@@ -2380,7 +2380,7 @@
+=20
+ 	mce		[X86-32] Machine Check Exception
+=20
+-	mce=3Doption	[X86-64] See Documentation/x86/x86_64/boot-options.rst
++	mce=3Doption	[X86-64] See Documentation/arch/x86/x86_64/boot-options.rst
+=20
+ 	md=3D		[HW] RAID subsystems devices and level
+ 			See Documentation/admin-guide/md.rst.
+@@ -3526,7 +3526,7 @@
+ 			See Documentation/blockdev/paride.txt.
+=20
+ 	pirq=3D		[SMP,APIC] Manual mp-table setup
+-			See Documentation/x86/i386/IO-APIC.rst.
++			See Documentation/arch/x86/i386/IO-APIC.rst.
+=20
+ 	plip=3D		[PPT,NET] Parallel port network link
+ 			Format: { parport<nr> | timid | 0 }
+@@ -5058,7 +5058,7 @@
+ 			Can be used multiple times for multiple devices.
+=20
+ 	vga=3D		[BOOT,X86-32] Select a particular video mode
+-			See Documentation/x86/boot.rst and
++			See Documentation/arch/x86/boot.rst and
+ 			Documentation/svga.txt.
+ 			Use vga=3Dask for menu.
+ 			This is actually a boot loader parameter; the value is
+diff --git a/Documentation/admin-guide/ras.rst b/Documentation/admin-guide/=
+ras.rst
+index 2b20f5f7380d..2d86862458aa 100644
+--- a/Documentation/admin-guide/ras.rst
++++ b/Documentation/admin-guide/ras.rst
+@@ -199,7 +199,7 @@ Architecture (MCA)\ [#f3]_.
+   mode).
+=20
+ .. [#f3] For more details about the Machine Check Architecture (MCA),
+-  please read Documentation/x86/x86_64/machinecheck.rst at the Kernel tree.
++  please read Documentation/arch/x86/x86_64/machinecheck.rst at the Kernel=
+ tree.
+=20
+ EDAC - Error Detection And Correction
+ *************************************
+diff --git a/Documentation/arch/x86/x86_64/5level-paging.rst b/Documentatio=
+n/arch/x86/x86_64/5level-paging.rst
+index 44856417e6a5..000809878403 100644
+--- a/Documentation/arch/x86/x86_64/5level-paging.rst
++++ b/Documentation/arch/x86/x86_64/5level-paging.rst
+@@ -20,7 +20,7 @@ physical address space. This "ought to be enough for anyb=
+ody" =C2=A9.
+ QEMU 2.9 and later support 5-level paging.
+=20
+ Virtual memory layout for 5-level paging is described in
+-Documentation/x86/x86_64/mm.rst
++Documentation/arch/x86/x86_64/mm.rst
+=20
+=20
+ Enabling 5-level paging
+diff --git a/Documentation/arch/x86/x86_64/boot-options.rst b/Documentation=
+/arch/x86/x86_64/boot-options.rst
+index 6a4285a3c7a4..2a093128b28f 100644
+--- a/Documentation/arch/x86/x86_64/boot-options.rst
++++ b/Documentation/arch/x86/x86_64/boot-options.rst
+@@ -9,7 +9,7 @@ only the AMD64 specific ones are listed here.
+=20
+ Machine check
+ =3D=3D=3D=3D=3D=3D-Please see Documentation/x86/x86_64/machinecheck.rst fo=
+r sysfs runtime tunables.
++Please see Documentation/arch/x86/x86_64/machinecheck.rst for sysfs runtim=
+e tunables.
+=20
+    mce=3Doff
+ 		Disable machine check
+@@ -89,7 +89,7 @@ APICs
+      Don't use the local APIC (alias for i386 compatibility)
+=20
+    pirq=3D...
+-	See Documentation/x86/i386/IO-APIC.rst
++	See Documentation/arch/x86/i386/IO-APIC.rst
+=20
+    noapictimer
+ 	Don't set up the APIC timer
+diff --git a/Documentation/arch/x86/x86_64/fake-numa-for-cpusets.rst b/Docu=
+mentation/arch/x86/x86_64/fake-numa-for-cpusets.rst
+index 30108684ae87..d960f5cac258 100644
+--- a/Documentation/arch/x86/x86_64/fake-numa-for-cpusets.rst
++++ b/Documentation/arch/x86/x86_64/fake-numa-for-cpusets.rst
+@@ -18,7 +18,7 @@ For more information on the features of cpusets, see
+ Documentation/cgroup-v1/cpusets.rst.
+ There are a number of different configurations you can use for your needs.=
+  For
+ more information on the numa=FAke command line option and its various ways=
+ of
+-configuring fake nodes, see Documentation/x86/x86_64/boot-options.rst.
++configuring fake nodes, see Documentation/arch/x86/x86_64/boot-options.rst.
+=20
+ For the purposes of this introduction, we'll assume a very primitive NUMA
+ emulation setup of "numa=FAke=3D4*512,".  This will split our system memor=
+y into
+diff --git a/Documentation/devicetree/booting-without-of.txt b/Documentatio=
+n/devicetree/booting-without-of.txt
+index 58d606fca7eb..066778cbbdcb 100644
+--- a/Documentation/devicetree/booting-without-of.txt
++++ b/Documentation/devicetree/booting-without-of.txt
+@@ -277,7 +277,7 @@ it with special cases.
+   the decompressor (the real mode entry point goes to the same  32bit
+   entry point once it switched into protected mode). That entry point
+   supports one calling convention which is documented in
+-  Documentation/x86/boot.rst
++  Documentation/arch/x86/boot.rst
+   The physical pointer to the device-tree block (defined in chapter II)
+   is passed via setup_data which requires at least boot protocol 2.09.
+   The type filed is defined as
+diff --git a/Documentation/sysctl/kernel.txt b/Documentation/sysctl/kernel.=
+txt
+index 1b2fe17cd2fa..b3e3c56bdab8 100644
+--- a/Documentation/sysctl/kernel.txt
++++ b/Documentation/sysctl/kernel.txt
+@@ -154,7 +154,7 @@ is 0x15 and the full version number is 0x234, this file=
+ will contain
+ the value 340 =3D 0x154.
+=20
+ See the type_of_loader and ext_loader_type fields in
+-Documentation/x86/boot.rst for additional information.
++Documentation/arch/x86/boot.rst for additional information.
+=20
+ =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+=20
+@@ -166,7 +166,7 @@ The complete bootloader version number.  In the example=
+ above, this
+ file will contain the value 564 =3D 0x234.
+=20
+ See the type_of_loader and ext_loader_ver fields in
+-Documentation/x86/boot.rst for additional information.
++Documentation/arch/x86/boot.rst for additional information.
+=20
+ =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D
+=20
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 84448d5838b7..e1aa61c72cb1 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -13351,7 +13351,7 @@ L:	linux-kernel@vger.kernel.org
+ S:	Supported
+ F:	arch/x86/kernel/cpu/resctrl/
+ F:	arch/x86/include/asm/resctrl_sched.h
+-F:	Documentation/x86/resctrl*
++F:	Documentation/arch/x86/resctrl*
+=20
+ READ-COPY UPDATE (RCU)
+ M:	"Paul E. McKenney" <paulmck@linux.ibm.com>
+@@ -17258,7 +17258,7 @@ L:	linux-kernel@vger.kernel.org
+ T:	git git://git.kernel.org/pub/scm/linux/kernel/git/tip/tip.git x86/core
+ S:	Maintained
+ F:	Documentation/devicetree/bindings/x86/
+-F:	Documentation/x86/
++F:	Documentation/arch/x86/
+ F:	arch/x86/
+=20
+ X86 ENTRY CODE
+diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
+index 1b276dda837d..b2b8d3c15285 100644
+--- a/arch/arm/Kconfig
++++ b/arch/arm/Kconfig
+@@ -1293,7 +1293,7 @@ config SMP
+ 	  uniprocessor machines. On a uniprocessor machine, the kernel
+ 	  will run faster if you say N here.
+=20
+-	  See also <file:Documentation/x86/i386/IO-APIC.rst>,
++	  See also <file:Documentation/arch/x86/i386/IO-APIC.rst>,
+ 	  <file:Documentation/lockup-watchdogs.txt> and the SMP-HOWTO available at
+ 	  <http://tldp.org/HOWTO/SMP-HOWTO.html>.
+=20
+diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
+index dce10b18f4bc..5489f42e005e 100644
+--- a/arch/x86/Kconfig
++++ b/arch/x86/Kconfig
+@@ -399,7 +399,7 @@ config SMP
+ 	  Y to "Enhanced Real Time Clock Support", below. The "Advanced Power
+ 	  Management" code will be disabled if you say Y here.
+=20
+-	  See also <file:Documentation/x86/i386/IO-APIC.rst>,
++	  See also <file:Documentation/arch/x86/i386/IO-APIC.rst>,
+ 	  <file:Documentation/lockup-watchdogs.txt> and the SMP-HOWTO available at
+ 	  <http://www.tldp.org/docs.html#howto>.
+=20
+@@ -1308,7 +1308,7 @@ config MICROCODE
+ 	  the Linux kernel.
+=20
+ 	  The preferred method to load microcode from a detached initrd is descri=
+bed
+-	  in Documentation/x86/microcode.rst. For that you need to enable
++	  in Documentation/arch/x86/microcode.rst. For that you need to enable
+ 	  CONFIG_BLK_DEV_INITRD in order for the loader to be able to scan the
+ 	  initrd for microcode blobs.
+=20
+@@ -1347,7 +1347,7 @@ config MICROCODE_OLD_INTERFACE
+ 	  It is inadequate because it runs too late to be able to properly
+ 	  load microcode on a machine and it needs special tools. Instead, you
+ 	  should've switched to the early loading method with the initrd or
+-	  builtin microcode by now: Documentation/x86/microcode.rst
++	  builtin microcode by now: Documentation/arch/x86/microcode.rst
+=20
+ config X86_MSR
+ 	tristate "/dev/cpu/*/msr - Model-specific register support"
+@@ -1496,7 +1496,7 @@ config X86_5LEVEL
+ 	  A kernel with the option enabled can be booted on machines that
+ 	  support 4- or 5-level paging.
+=20
+-	  See Documentation/x86/x86_64/5level-paging.rst for more
++	  See Documentation/arch/x86/x86_64/5level-paging.rst for more
+ 	  information.
+=20
+ 	  Say N if unsure.
+@@ -1801,7 +1801,7 @@ config MTRR
+ 	  You can safely say Y even if your machine doesn't have MTRRs, you'll
+ 	  just add about 9 KB to your kernel.
+=20
+-	  See <file:Documentation/x86/mtrr.rst> for more information.
++	  See <file:Documentation/arch/x86/mtrr.rst> for more information.
+=20
+ config MTRR_SANITIZER
+ 	def_bool y
+@@ -1913,7 +1913,7 @@ config X86_INTEL_MPX
+ 	  process and adds some branches to paths used during
+ 	  exec() and munmap().
+=20
+-	  For details, see Documentation/x86/intel_mpx.rst
++	  For details, see Documentation/arch/x86/intel_mpx.rst
+=20
+ 	  If unsure, say N.
+=20
+diff --git a/arch/x86/Kconfig.debug b/arch/x86/Kconfig.debug
+index 71c92db47c41..814353667075 100644
+--- a/arch/x86/Kconfig.debug
++++ b/arch/x86/Kconfig.debug
+@@ -156,7 +156,7 @@ config IOMMU_DEBUG
+ 	  code. When you use it make sure you have a big enough
+ 	  IOMMU/AGP aperture.  Most of the options enabled by this can
+ 	  be set more finegrained using the iommu=3D command line
+-	  options. See Documentation/x86/x86_64/boot-options.rst for more
++	  options. See Documentation/arch/x86/x86_64/boot-options.rst for more
+ 	  details.
+=20
+ config IOMMU_LEAK
+diff --git a/arch/x86/boot/header.S b/arch/x86/boot/header.S
+index 2c11c0f45d49..5ec825c863a6 100644
+--- a/arch/x86/boot/header.S
++++ b/arch/x86/boot/header.S
+@@ -313,7 +313,7 @@ start_sys_seg:	.word	SYSSEG		# obsolete and meaningless=
+, but just
+=20
+ type_of_loader:	.byte	0		# 0 means ancient bootloader, newer
+ 					# bootloaders know to change this.
+-					# See Documentation/x86/boot.rst for
++					# See Documentation/arch/x86/boot.rst for
+ 					# assigned ids
+=20
+ # flags, unused bits must be zero (RFU) bit within loadflags
+diff --git a/arch/x86/entry/entry_64.S b/arch/x86/entry/entry_64.S
+index 0ea4831a72a4..981951124d53 100644
+--- a/arch/x86/entry/entry_64.S
++++ b/arch/x86/entry/entry_64.S
+@@ -8,7 +8,7 @@
+  *
+  * entry.S contains the system-call and fault low-level handling routines.
+  *
+- * Some of this is documented in Documentation/x86/entry_64.rst
++ * Some of this is documented in Documentation/arch/x86/entry_64.rst
+  *
+  * A note on terminology:
+  * - iret frame:	Architecture defined interrupt frame from SS to RIP
+diff --git a/arch/x86/include/asm/bootparam_utils.h b/arch/x86/include/asm/=
+bootparam_utils.h
+index 101eb944f13c..585daca7682b 100644
+--- a/arch/x86/include/asm/bootparam_utils.h
++++ b/arch/x86/include/asm/bootparam_utils.h
+@@ -24,7 +24,7 @@ static void sanitize_boot_params(struct boot_params *boot=
+_params)
+ 	 * IMPORTANT NOTE TO BOOTLOADER AUTHORS: do not simply clear
+ 	 * this field.  The purpose of this field is to guarantee
+ 	 * compliance with the x86 boot spec located in
+-	 * Documentation/x86/boot.rst .  That spec says that the
++	 * Documentation/arch/x86/boot.rst .  That spec says that the
+ 	 * *whole* structure should be cleared, after which only the
+ 	 * portion defined by struct setup_header (boot_params->hdr)
+ 	 * should be copied in.
+diff --git a/arch/x86/include/asm/page_64_types.h b/arch/x86/include/asm/pa=
+ge_64_types.h
+index 288b065955b7..70d71bdd77da 100644
+--- a/arch/x86/include/asm/page_64_types.h
++++ b/arch/x86/include/asm/page_64_types.h
+@@ -48,7 +48,7 @@
+=20
+ #define __START_KERNEL_map	_AC(0xffffffff80000000, UL)
+=20
+-/* See Documentation/x86/x86_64/mm.rst for a description of the memory map=
+. */
++/* See Documentation/arch/x86/x86_64/mm.rst for a description of the memor=
+y map. */
+=20
+ #define __PHYSICAL_MASK_SHIFT	52
+=20
+diff --git a/arch/x86/include/asm/pgtable_64_types.h b/arch/x86/include/asm=
+/pgtable_64_types.h
+index 52e5f5f2240d..ec3fe348bbd4 100644
+--- a/arch/x86/include/asm/pgtable_64_types.h
++++ b/arch/x86/include/asm/pgtable_64_types.h
+@@ -103,7 +103,7 @@ extern unsigned int ptrs_per_p4d;
+ #define PGDIR_MASK	(~(PGDIR_SIZE - 1))
+=20
+ /*
+- * See Documentation/x86/x86_64/mm.rst for a description of the memory map.
++ * See Documentation/arch/x86/x86_64/mm.rst for a description of the memor=
+y map.
+  *
+  * Be very careful vs. KASLR when changing anything here. The KASLR address
+  * range must not overlap with anything except the KASAN shadow area, which
+diff --git a/arch/x86/kernel/cpu/microcode/amd.c b/arch/x86/kernel/cpu/micr=
+ocode/amd.c
+index a0e52bd00ecc..146374651036 100644
+--- a/arch/x86/kernel/cpu/microcode/amd.c
++++ b/arch/x86/kernel/cpu/microcode/amd.c
+@@ -59,7 +59,7 @@ static u8 amd_ucode_patch[PATCH_MAX_SIZE];
+=20
+ /*
+  * Microcode patch container file is prepended to the initrd in cpio
+- * format. See Documentation/x86/microcode.rst
++ * format. See Documentation/arch/x86/microcode.rst
+  */
+ static const char
+ ucode_path[] __maybe_unused =3D "kernel/x86/microcode/AuthenticAMD.bin";
+diff --git a/arch/x86/kernel/kexec-bzimage64.c b/arch/x86/kernel/kexec-bzim=
+age64.c
+index 5ebcd02cbca7..108d72bcfa28 100644
+--- a/arch/x86/kernel/kexec-bzimage64.c
++++ b/arch/x86/kernel/kexec-bzimage64.c
+@@ -419,7 +419,7 @@ static void *bzImage64_load(struct kimage *image, char =
+*kernel,
+ 	efi_map_offset =3D params_cmdline_sz;
+ 	efi_setup_data_offset =3D efi_map_offset + ALIGN(efi_map_sz, 16);
+=20
+-	/* Copy setup header onto bootparams. Documentation/x86/boot.rst */
++	/* Copy setup header onto bootparams. Documentation/arch/x86/boot.rst */
+ 	setup_header_size =3D 0x0202 + kernel[0x0201] - setup_hdr_offset;
+=20
+ 	/* Is there a limit on setup header size? */
+diff --git a/arch/x86/kernel/pci-dma.c b/arch/x86/kernel/pci-dma.c
+index f62b498b18fb..a34c72e924ec 100644
+--- a/arch/x86/kernel/pci-dma.c
++++ b/arch/x86/kernel/pci-dma.c
+@@ -70,7 +70,7 @@ void __init pci_iommu_alloc(void)
  }
-@@ -2245,6 +2259,11 @@ static const char *path_init(struct nameidata *nd, unsigned flags)
- 	nd->last_type = LAST_ROOT; /* if there are only slashes... */
- 	nd->flags = flags | LOOKUP_JUMPED | LOOKUP_PARENT;
- 	nd->depth = 0;
-+
-+	nd->m_seq = read_seqbegin(&mount_lock);
-+	if (flags & (LOOKUP_BENEATH | LOOKUP_IN_ROOT))
-+		nd->r_seq = read_seqbegin(&rename_lock);
-+
- 	if (flags & LOOKUP_ROOT) {
- 		struct dentry *root = nd->root.dentry;
- 		struct inode *inode = root->d_inode;
-@@ -2266,8 +2285,6 @@ static const char *path_init(struct nameidata *nd, unsigned flags)
- 	nd->path.mnt = NULL;
- 	nd->path.dentry = NULL;
- 
--	nd->m_seq = read_seqbegin(&mount_lock);
--
- 	/* LOOKUP_IN_ROOT treats absolute paths as being relative-to-dirfd. */
- 	if (flags & LOOKUP_IN_ROOT)
- 		while (*s = '/')
--- 
-2.22.0
+=20
+ /*
+- * See <Documentation/x86/x86_64/boot-options.rst> for the iommu kernel
++ * See <Documentation/arch/x86/x86_64/boot-options.rst> for the iommu kern=
+el
+  * parameter documentation.
+  */
+ static __init int iommu_setup(char *p)
+diff --git a/arch/x86/mm/tlb.c b/arch/x86/mm/tlb.c
+index 4de9704c4aaf..855498ab4453 100644
+--- a/arch/x86/mm/tlb.c
++++ b/arch/x86/mm/tlb.c
+@@ -712,7 +712,7 @@ void native_flush_tlb_others(const struct cpumask *cpum=
+ask,
+ }
+=20
+ /*
+- * See Documentation/x86/tlb.rst for details.  We choose 33
++ * See Documentation/arch/x86/tlb.rst for details.  We choose 33
+  * because it is large enough to cover the vast majority (at
+  * least 95%) of allocations, and is small enough that we are
+  * confident it will not cause too much overhead.  Each single
+diff --git a/arch/x86/platform/pvh/enlighten.c b/arch/x86/platform/pvh/enli=
+ghten.c
+index c0a502f7e3a7..15a74dbc9b00 100644
+--- a/arch/x86/platform/pvh/enlighten.c
++++ b/arch/x86/platform/pvh/enlighten.c
+@@ -86,7 +86,7 @@ static void __init init_pvh_bootparams(bool xen_guest)
+ 	}
+=20
+ 	/*
+-	 * See Documentation/x86/boot.rst.
++	 * See Documentation/arch/x86/boot.rst.
+ 	 *
+ 	 * Version 2.12 supports Xen entry point but we will use default x86/PC
+ 	 * environment (i.e. hardware_subarch 0).
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index ff8892c38666..f5c1868d5d5f 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -1711,7 +1711,7 @@ EXPORT_SYMBOL_GPL(vhost_dev_ioctl);
+=20
+ /* TODO: This is really inefficient.  We need something like get_user()
+  * (instruction directly accesses the data, with an exception table entry
+- * returning -EFAULT). See Documentation/x86/exception-tables.rst.
++ * returning -EFAULT). See Documentation/arch/x86/exception-tables.rst.
+  */
+ static int set_bit_to_user(int nr, void __user *addr)
+ {
+diff --git a/security/Kconfig b/security/Kconfig
+index 06a30851511a..d26d9f205441 100644
+--- a/security/Kconfig
++++ b/security/Kconfig
+@@ -63,7 +63,7 @@ config PAGE_TABLE_ISOLATION
+ 	  ensuring that the majority of kernel addresses are not mapped
+ 	  into userspace.
+=20
+-	  See Documentation/x86/pti.rst for more details.
++	  See Documentation/arch/x86/pti.rst for more details.
+=20
+ config SECURITY_INFINIBAND
+ 	bool "Infiniband Security Hooks"
+diff --git a/tools/include/linux/err.h b/tools/include/linux/err.h
+index 25f2bb3a991d..332b983ead1e 100644
+--- a/tools/include/linux/err.h
++++ b/tools/include/linux/err.h
+@@ -20,7 +20,7 @@
+  * Userspace note:
+  * The same principle works for userspace, because 'error' pointers
+  * fall down to the unused hole far from user space, as described
+- * in Documentation/x86/x86_64/mm.rst for x86_64 arch:
++ * in Documentation/arch/x86/x86_64/mm.rst for x86_64 arch:
+  *
+  * 0000000000000000 - 00007fffffffffff (G bits) user space, different per =
+mm hole caused by [48:63] sign extension
+  * ffffffffffe00000 - ffffffffffffffff (=3D2 MB) unused hole
+diff --git a/tools/objtool/Documentation/stack-validation.txt b/tools/objto=
+ol/Documentation/stack-validation.txt
+index de094670050b..87b6b4d1175a 100644
+--- a/tools/objtool/Documentation/stack-validation.txt
++++ b/tools/objtool/Documentation/stack-validation.txt
+@@ -21,7 +21,7 @@ instructions).  Similarly, it knows how to follow switch =
+statements, for
+ which gcc sometimes uses jump tables.
+=20
+ (Objtool also has an 'orc generate' subcommand which generates debuginfo
+-for the ORC unwinder.  See Documentation/x86/orc-unwinder.rst in the
++for the ORC unwinder.  See Documentation/arch/x86/orc-unwinder.rst in the
+ kernel tree for more details.)
+=20
+=20
+@@ -101,7 +101,7 @@ b) ORC (Oops Rewind Capability) unwind table generation
+    band.  So it doesn't affect runtime performance and it can be
+    reliable even when interrupts or exceptions are involved.
+=20
+-   For more details, see Documentation/x86/orc-unwinder.rst.
++   For more details, see Documentation/arch/x86/orc-unwinder.rst.
+=20
+ c) Higher live patching compatibility rate
+=20
+--=20
+2.19.1.856.g8858448bb
