@@ -1,183 +1,97 @@
-From: Aleksa Sarai <cyphar@cyphar.com>
-Date: Fri, 19 Jul 2019 16:42:21 +0000
-Subject: [PATCH v10 5/9] namei: LOOKUP_IN_ROOT: chroot-like path resolution
-Message-Id: <20190719164225.27083-6-cyphar@cyphar.com>
+From: Alex Shi <alex.shi@linux.alibaba.com>
+Date: Fri, 12 Jul 2019 02:20:09 +0000
+Subject: [PATCH 03/12] Documentation/ia64: repointer docs to Documentation/arch/ia64
+Message-Id: <20190712022018.27989-3-alex.shi@linux.alibaba.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190719164225.27083-1-cyphar@cyphar.com>
-In-Reply-To: <20190719164225.27083-1-cyphar@cyphar.com>
+References: <20190712022018.27989-1-alex.shi@linux.alibaba.com>
+In-Reply-To: <20190712022018.27989-1-alex.shi@linux.alibaba.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>
-Cc: Aleksa Sarai <cyphar@cyphar.com>, Christian Brauner <christian@brauner.io>, Eric Biederman <ebiederm@xmission.com>, Andy Lutomirski <luto@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Alexei Starovoitov <ast@kernel.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, David Drysdale <drysdale@google.com>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Aleksa Sarai <asarai@suse.de>, Linus Torvalds <torvalds@linux-foundation.org>, containers@lists.linux-foundation.org, linux-alpha@vger.kernel.org, linux-api@vger.kernel.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.orglinux-
+To: linux-doc@vger.kernel.org, Jonathan Corbet <corbet@lwn.net>
+Cc: Alex Shi <alex.shi@linux.alibaba.com>, linux-kernel@vger.kernel.org, linux-stm32@st-md-mailman.stormreply.com, linux-arm-kernel@lists.infradead.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-omap@vger.kernel.org, linux-fbdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-scsi@vger.kernel.org, linux-s390@vger.kernel.org, kvm@vger.kernel.org, linux-sh@vger.kernel.org, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
 
-The primary motivation for the need for this flag is container runtimes
-which have to interact with malicious root filesystems in the host
-namespaces. One of the first requirements for a container runtime to be
-secure against a malicious rootfs is that they correctly scope symlinks
-(that is, they should be scoped as though they are chroot(2)ed into the
-container's rootfs) and ".."-style paths[*]. The already-existing
-LOOKUP_NO_XDEV and LOOKUP_NO_MAGICLINKS help defend against other
-potential attacks in a malicious rootfs scenario.
+Since we move 'ia64' docs to Documentation/arch/ia64 dir,
+redirect the doc pointer to them.
 
-Currently most container runtimes try to do this resolution in
-userspace[1], causing many potential race conditions. In addition, the
-"obvious" alternative (actually performing a {ch,pivot_}root(2))
-requires a fork+exec (for some runtimes) which is *very* costly if
-necessary for every filesystem operation involving a container.
-
-[*] At the moment, ".." and magic-link jumping are disallowed for the
-    same reason it is disabled for LOOKUP_BENEATH -- currently it is not
-    safe to allow it. Future patches may enable it unconditionally once
-    we have resolved the possible races (for "..") and semantics (for
-    magic-link jumping).
-
-The most significant *at(2) semantic change with LOOKUP_IN_ROOT is that
-absolute pathnames no longer cause the dirfd to be ignored completely.
-
-The rationale is that LOOKUP_IN_ROOT must necessarily chroot-scope
-symlinks with absolute paths to dirfd, and so doing it for the base path
-seems to be the most consistent behaviour (and also avoids foot-gunning
-users who want to scope paths that are absolute).
-
-[1]: https://github.com/cyphar/filepath-securejoin
-
-Co-developed-by: Christian Brauner <christian@brauner.io>
-Signed-off-by: Aleksa Sarai <cyphar@cyphar.com>
+Signed-off-by: Alex Shi <alex.shi@linux.alibaba.com>
+Cc: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-kernel@vger.kernel.org
+Cc: linux-ia64@vger.kernel.org
 ---
- fs/namei.c            | 41 +++++++++++++++++++++++++++++++----------
- include/linux/namei.h |  1 +
- 2 files changed, 32 insertions(+), 10 deletions(-)
+ MAINTAINERS             | 2 +-
+ arch/ia64/kernel/efi.c  | 2 +-
+ arch/ia64/kernel/fsys.S | 2 +-
+ arch/ia64/mm/ioremap.c  | 2 +-
+ arch/ia64/pci/pci.c     | 2 +-
+ 5 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/fs/namei.c b/fs/namei.c
-index 9df4aa35aedc..617fc7d55977 100644
---- a/fs/namei.c
-+++ b/fs/namei.c
-@@ -676,7 +676,7 @@ static int unlazy_walk(struct nameidata *nd)
- 		goto out1;
- 	if (!nd->root.mnt) {
- 		/* Restart from path_init() if nd->root was cleared. */
--		if (nd->flags & LOOKUP_BENEATH)
-+		if (nd->flags & (LOOKUP_BENEATH | LOOKUP_IN_ROOT))
- 			goto out;
- 	} else if (!(nd->flags & LOOKUP_ROOT)) {
- 		if (unlikely(!legitimize_path(nd, &nd->root, nd->root_seq)))
-@@ -809,10 +809,18 @@ static int complete_walk(struct nameidata *nd)
- 	return status;
- }
+diff --git a/MAINTAINERS b/MAINTAINERS
+index c21d5464c86f..583c35cba7bc 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -14286,7 +14286,7 @@ SGI SN-IA64 (Altix) SERIAL CONSOLE DRIVER
+ M:	Pat Gefre <pfg@sgi.com>
+ L:	linux-ia64@vger.kernel.org
+ S:	Supported
+-F:	Documentation/ia64/serial.txt
++F:	Documentation/arch/ia64/serial.txt
+ F:	drivers/tty/serial/ioc?_serial.c
+ F:	include/linux/ioc?.h
  
--static void set_root(struct nameidata *nd)
-+static int set_root(struct nameidata *nd)
- {
- 	struct fs_struct *fs = current->fs;
+diff --git a/arch/ia64/kernel/efi.c b/arch/ia64/kernel/efi.c
+index 8f106638913c..02cdc38d15e8 100644
+--- a/arch/ia64/kernel/efi.c
++++ b/arch/ia64/kernel/efi.c
+@@ -852,7 +852,7 @@ valid_phys_addr_range (phys_addr_t phys_addr, unsigned long size)
+ 	 * /dev/mem reads and writes use copy_to_user(), which implicitly
+ 	 * uses a granule-sized kernel identity mapping.  It's really
+ 	 * only safe to do this for regions in kern_memmap.  For more
+-	 * details, see Documentation/ia64/aliasing.txt.
++	 * details, see Documentation/arch/ia64/aliasing.txt.
+ 	 */
+ 	attr = kern_mem_attribute(phys_addr, size);
+ 	if (attr & EFI_MEMORY_WB || attr & EFI_MEMORY_UC)
+diff --git a/arch/ia64/kernel/fsys.S b/arch/ia64/kernel/fsys.S
+index d80c99a5f55d..b493ca74890a 100644
+--- a/arch/ia64/kernel/fsys.S
++++ b/arch/ia64/kernel/fsys.S
+@@ -28,7 +28,7 @@
+ #include <asm/native/inst.h>
  
-+	/*
-+	 * Jumping to the real root as part of LOOKUP_IN_ROOT is a BUG in namei,
-+	 * but we still have to ensure it doesn't happen because it will cause a
-+	 * breakout from the dirfd.
-+	 */
-+	if (WARN_ON(nd->flags & LOOKUP_IN_ROOT))
-+		return -ENOTRECOVERABLE;
-+
- 	if (nd->flags & LOOKUP_RCU) {
- 		unsigned seq;
+ /*
+- * See Documentation/ia64/fsys.txt for details on fsyscalls.
++ * See Documentation/arch/ia64/fsys.txt for details on fsyscalls.
+  *
+  * On entry to an fsyscall handler:
+  *   r10	= 0 (i.e., defaults to "successful syscall return")
+diff --git a/arch/ia64/mm/ioremap.c b/arch/ia64/mm/ioremap.c
+index 5e3e7b1fdac5..989cc4df9087 100644
+--- a/arch/ia64/mm/ioremap.c
++++ b/arch/ia64/mm/ioremap.c
+@@ -42,7 +42,7 @@ ioremap (unsigned long phys_addr, unsigned long size)
+ 	/*
+ 	 * For things in kern_memmap, we must use the same attribute
+ 	 * as the rest of the kernel.  For more details, see
+-	 * Documentation/ia64/aliasing.txt.
++	 * Documentation/arch/ia64/aliasing.txt.
+ 	 */
+ 	attr = kern_mem_attribute(phys_addr, size);
+ 	if (attr & EFI_MEMORY_WB)
+diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
+index e308196c2229..6ba87b70e30c 100644
+--- a/arch/ia64/pci/pci.c
++++ b/arch/ia64/pci/pci.c
+@@ -450,7 +450,7 @@ pci_mmap_legacy_page_range(struct pci_bus *bus, struct vm_area_struct *vma,
+ 		return -ENOSYS;
  
-@@ -824,6 +832,7 @@ static void set_root(struct nameidata *nd)
- 	} else {
- 		get_fs_root(fs, &nd->root);
- 	}
-+	return 0;
- }
- 
- static void path_put_conditional(struct path *path, struct nameidata *nd)
-@@ -854,6 +863,11 @@ static int nd_jump_root(struct nameidata *nd)
- 		if (nd->path.mnt != NULL && nd->path.mnt != nd->root.mnt)
- 			return -EXDEV;
- 	}
-+	if (!nd->root.mnt) {
-+		int error = set_root(nd);
-+		if (error)
-+			return error;
-+	}
- 	if (nd->flags & LOOKUP_RCU) {
- 		struct dentry *d;
- 		nd->path = nd->root;
-@@ -1100,15 +1114,13 @@ const char *get_link(struct nameidata *nd)
- 			if (unlikely(nd->flags & LOOKUP_NO_MAGICLINKS))
- 				return ERR_PTR(-ELOOP);
- 			/* Not currently safe. */
--			if (unlikely(nd->flags & LOOKUP_BENEATH))
-+			if (unlikely(nd->flags & (LOOKUP_BENEATH | LOOKUP_IN_ROOT)))
- 				return ERR_PTR(-EXDEV);
- 		}
- 		if (IS_ERR_OR_NULL(res))
- 			return res;
- 	}
- 	if (*res = '/') {
--		if (!nd->root.mnt)
--			set_root(nd);
- 		error = nd_jump_root(nd);
- 		if (unlikely(error))
- 			return ERR_PTR(error);
-@@ -1744,15 +1756,20 @@ static inline int may_lookup(struct nameidata *nd)
- static inline int handle_dots(struct nameidata *nd, int type)
- {
- 	if (type = LAST_DOTDOT) {
-+		int error = 0;
-+
- 		/*
- 		 * LOOKUP_BENEATH resolving ".." is not currently safe -- races can
- 		 * cause our parent to have moved outside of the root and us to skip
- 		 * over it.
- 		 */
--		if (unlikely(nd->flags & LOOKUP_BENEATH))
-+		if (unlikely(nd->flags & (LOOKUP_BENEATH | LOOKUP_IN_ROOT)))
- 			return -EXDEV;
--		if (!nd->root.mnt)
--			set_root(nd);
-+		if (!nd->root.mnt) {
-+			error = set_root(nd);
-+			if (error)
-+				return error;
-+		}
- 		if (nd->flags & LOOKUP_RCU) {
- 			return follow_dotdot_rcu(nd);
- 		} else
-@@ -2251,9 +2268,13 @@ static const char *path_init(struct nameidata *nd, unsigned flags)
- 
- 	nd->m_seq = read_seqbegin(&mount_lock);
- 
-+	/* LOOKUP_IN_ROOT treats absolute paths as being relative-to-dirfd. */
-+	if (flags & LOOKUP_IN_ROOT)
-+		while (*s = '/')
-+			s++;
-+
- 	/* Figure out the starting path and root (if needed). */
- 	if (*s = '/') {
--		set_root(nd);
- 		error = nd_jump_root(nd);
- 		if (unlikely(error))
- 			return ERR_PTR(error);
-@@ -2298,7 +2319,7 @@ static const char *path_init(struct nameidata *nd, unsigned flags)
- 		fdput(f);
- 	}
- 	/* For scoped-lookups we need to set the root to the dirfd as well. */
--	if (flags & LOOKUP_BENEATH) {
-+	if (flags & (LOOKUP_BENEATH | LOOKUP_IN_ROOT)) {
- 		nd->root = nd->path;
- 		if (flags & LOOKUP_RCU)
- 			nd->root_seq = nd->seq;
-diff --git a/include/linux/namei.h b/include/linux/namei.h
-index be407415c28a..ec2c6c588ea7 100644
---- a/include/linux/namei.h
-+++ b/include/linux/namei.h
-@@ -57,6 +57,7 @@ enum {LAST_NORM, LAST_ROOT, LAST_DOT, LAST_DOTDOT, LAST_BIND};
- #define LOOKUP_NO_MAGICLINKS	0x080000 /* No /proc/$pid/fd/ "symlink" crossing. */
- #define LOOKUP_NO_SYMLINKS	0x100000 /* No symlink crossing *at all*.
- 					    Implies LOOKUP_NO_MAGICLINKS. */
-+#define LOOKUP_IN_ROOT		0x200000 /* Treat dirfd as %current->fs->root. */
- 
- extern int path_pts(struct path *path);
- 
+ 	/*
+-	 * Avoid attribute aliasing.  See Documentation/ia64/aliasing.txt
++	 * Avoid attribute aliasing.  See Documentation/arch/ia64/aliasing.txt
+ 	 * for more details.
+ 	 */
+ 	if (!valid_mmap_phys_addr_range(vma->vm_pgoff, size))
 -- 
-2.22.0
+2.19.1.856.g8858448bb
