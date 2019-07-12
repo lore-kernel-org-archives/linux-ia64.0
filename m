@@ -1,183 +1,155 @@
-From: Aleksa Sarai <cyphar@cyphar.com>
-Date: Sun, 28 Jul 2019 01:02:04 +0000
-Subject: [PATCH v11 5/8] namei: LOOKUP_IN_ROOT: chroot-like path resolution
-Message-Id: <20190728010207.9781-6-cyphar@cyphar.com>
+From: Alex Shi <alex.shi@linux.alibaba.com>
+Date: Fri, 12 Jul 2019 02:20:14 +0000
+Subject: [PATCH 08/12] Dcumentation/powerpc: repointer docs to Documentation/arch/
+Message-Id: <20190712022018.27989-8-alex.shi@linux.alibaba.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190728010207.9781-1-cyphar@cyphar.com>
-In-Reply-To: <20190728010207.9781-1-cyphar@cyphar.com>
+References: <20190712022018.27989-1-alex.shi@linux.alibaba.com>
+In-Reply-To: <20190712022018.27989-1-alex.shi@linux.alibaba.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>
-Cc: Aleksa Sarai <cyphar@cyphar.com>, Christian Brauner <christian@brauner.io>, Eric Biederman <ebiederm@xmission.com>, Andy Lutomirski <luto@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Alexei Starovoitov <ast@kernel.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, David Drysdale <drysdale@google.com>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Aleksa Sarai <asarai@suse.de>, Linus Torvalds <torvalds@linux-foundation.org>, containers@lists.linux-foundation.org, linux-alpha@vger.kernel.org, linux-api@vger.kernel.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.orglinux-
+To: linux-doc@vger.kernel.org, Jonathan Corbet <corbet@lwn.net>
+Cc: Alex Shi <alex.shi@linux.alibaba.com>, linux-kernel@vger.kernel.org, linux-stm32@st-md-mailman.stormreply.com, linux-arm-kernel@lists.infradead.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-omap@vger.kernel.org, linux-fbdev@vger.kernel.org, linux-samsung-soc@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-scsi@vger.kernel.org, linux-s390@vger.kernel.org, kvm@vger.kernel.org, linux-sh@vger.kernel.org, Sam Bobroff <sbobroff@linux.ibm.com>, "Manoj N. Kumar" <manoj@linux.ibm.com>, "Matthew R. Ochs" <mrochs@linux.ibm.com>, Uma Krishnan <ukrishn@linux.ibm.com>
 
-The primary motivation for the need for this flag is container runtimes
-which have to interact with malicious root filesystems in the host
-namespaces. One of the first requirements for a container runtime to be
-secure against a malicious rootfs is that they correctly scope symlinks
-(that is, they should be scoped as though they are chroot(2)ed into the
-container's rootfs) and ".."-style paths[*]. The already-existing
-LOOKUP_NO_XDEV and LOOKUP_NO_MAGICLINKS help defend against other
-potential attacks in a malicious rootfs scenario.
+Since we move Documentation/powerpc docs to Documentation/arch/powerpc
+dir, redirect the doc pointer to them.
 
-Currently most container runtimes try to do this resolution in
-userspace[1], causing many potential race conditions. In addition, the
-"obvious" alternative (actually performing a {ch,pivot_}root(2))
-requires a fork+exec (for some runtimes) which is *very* costly if
-necessary for every filesystem operation involving a container.
-
-[*] At the moment, ".." and magic-link jumping are disallowed for the
-    same reason it is disabled for LOOKUP_BENEATH -- currently it is not
-    safe to allow it. Future patches may enable it unconditionally once
-    we have resolved the possible races (for "..") and semantics (for
-    magic-link jumping).
-
-The most significant *at(2) semantic change with LOOKUP_IN_ROOT is that
-absolute pathnames no longer cause the dirfd to be ignored completely.
-
-The rationale is that LOOKUP_IN_ROOT must necessarily chroot-scope
-symlinks with absolute paths to dirfd, and so doing it for the base path
-seems to be the most consistent behaviour (and also avoids foot-gunning
-users who want to scope paths that are absolute).
-
-[1]: https://github.com/cyphar/filepath-securejoin
-
-Suggested-by: Christian Brauner <christian@brauner.io>
-Signed-off-by: Aleksa Sarai <cyphar@cyphar.com>
+Signed-off-by: Alex Shi <alex.shi@linux.alibaba.com>
+Cc: Sam Bobroff <sbobroff@linux.ibm.com>
+Cc: Jonathan Corbet <corbet@lwn.net>
+Cc: "Manoj N. Kumar" <manoj@linux.ibm.com>
+Cc: "Matthew R. Ochs" <mrochs@linux.ibm.com>
+Cc: Uma Krishnan <ukrishn@linux.ibm.com>
+Cc: linuxppc-dev@lists.ozlabs.org
+Cc: linux-doc@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
 ---
- fs/namei.c            | 41 +++++++++++++++++++++++++++++++----------
- include/linux/namei.h |  1 +
- 2 files changed, 32 insertions(+), 10 deletions(-)
+ Documentation/PCI/pci-error-recovery.txt | 2 +-
+ Documentation/arch/powerpc/cxlflash.txt  | 2 +-
+ MAINTAINERS                              | 8 ++++----
+ arch/powerpc/kernel/exceptions-64s.S     | 2 +-
+ drivers/soc/fsl/qe/qe.c                  | 2 +-
+ drivers/tty/hvc/hvcs.c                   | 2 +-
+ include/soc/fsl/qe/qe.h                  | 2 +-
+ 7 files changed, 10 insertions(+), 10 deletions(-)
 
-diff --git a/fs/namei.c b/fs/namei.c
-index 2e18ce5a313e..0352d275bd13 100644
---- a/fs/namei.c
-+++ b/fs/namei.c
-@@ -676,7 +676,7 @@ static int unlazy_walk(struct nameidata *nd)
- 		goto out1;
- 	if (!nd->root.mnt) {
- 		/* Restart from path_init() if nd->root was cleared. */
--		if (nd->flags & LOOKUP_BENEATH)
-+		if (nd->flags & (LOOKUP_BENEATH | LOOKUP_IN_ROOT))
- 			goto out;
- 	} else if (!(nd->flags & LOOKUP_ROOT)) {
- 		if (unlikely(!legitimize_path(nd, &nd->root, nd->root_seq)))
-@@ -809,10 +809,18 @@ static int complete_walk(struct nameidata *nd)
- 	return status;
- }
+diff --git a/Documentation/PCI/pci-error-recovery.txt b/Documentation/PCI/pci-error-recovery.txt
+index 0b6bb3ef449e..339e7394ef1d 100644
+--- a/Documentation/PCI/pci-error-recovery.txt
++++ b/Documentation/PCI/pci-error-recovery.txt
+@@ -389,7 +389,7 @@ platforms aren't supposed to share interrupts between many devices
+ anyway :)
  
--static void set_root(struct nameidata *nd)
-+static int set_root(struct nameidata *nd)
- {
- 	struct fs_struct *fs = current->fs;
+ >>> Implementation details for the powerpc platform are discussed in
+->>> the file Documentation/powerpc/eeh-pci-error-recovery.txt
++>>> the file Documentation/arch/powerpc/eeh-pci-error-recovery.txt
  
-+	/*
-+	 * Jumping to the real root as part of LOOKUP_IN_ROOT is a BUG in namei,
-+	 * but we still have to ensure it doesn't happen because it will cause a
-+	 * breakout from the dirfd.
-+	 */
-+	if (WARN_ON(nd->flags & LOOKUP_IN_ROOT))
-+		return -ENOTRECOVERABLE;
-+
- 	if (nd->flags & LOOKUP_RCU) {
- 		unsigned seq;
+ >>> As of this writing, there is a growing list of device drivers with
+ >>> patches implementing error recovery. Not all of these patches are in
+diff --git a/Documentation/arch/powerpc/cxlflash.txt b/Documentation/arch/powerpc/cxlflash.txt
+index a64bdaa0a1cf..479cdb9a44f4 100644
+--- a/Documentation/arch/powerpc/cxlflash.txt
++++ b/Documentation/arch/powerpc/cxlflash.txt
+@@ -28,7 +28,7 @@ Introduction
+     responsible for the initialization of the adapter, setting up the
+     special path for user space access, and performing error recovery. It
+     communicates directly the Flash Accelerator Functional Unit (AFU)
+-    as described in Documentation/powerpc/cxl.txt.
++    as described in Documentation/arch/powerpc/cxl.txt.
  
-@@ -824,6 +832,7 @@ static void set_root(struct nameidata *nd)
- 	} else {
- 		get_fs_root(fs, &nd->root);
- 	}
-+	return 0;
- }
+     The cxlflash driver supports two, mutually exclusive, modes of
+     operation at the device (LUN) level:
+diff --git a/MAINTAINERS b/MAINTAINERS
+index e1aad1b8224c..7a245d3f02fd 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -4420,7 +4420,7 @@ F:	arch/powerpc/platforms/powernv/pci-cxl.c
+ F:	drivers/misc/cxl/
+ F:	include/misc/cxl*
+ F:	include/uapi/misc/cxl.h
+-F:	Documentation/powerpc/cxl.txt
++F:	Documentation/arch/powerpc/cxl.txt
+ F:	Documentation/ABI/testing/sysfs-class-cxl
  
- static void path_put_conditional(struct path *path, struct nameidata *nd)
-@@ -854,6 +863,11 @@ static int nd_jump_root(struct nameidata *nd)
- 		if (nd->path.mnt != NULL && nd->path.mnt != nd->root.mnt)
- 			return -EXDEV;
- 	}
-+	if (!nd->root.mnt) {
-+		int error = set_root(nd);
-+		if (error)
-+			return error;
-+	}
- 	if (nd->flags & LOOKUP_RCU) {
- 		struct dentry *d;
- 		nd->path = nd->root;
-@@ -1100,15 +1114,13 @@ const char *get_link(struct nameidata *nd)
- 			if (unlikely(nd->flags & LOOKUP_NO_MAGICLINKS))
- 				return ERR_PTR(-ELOOP);
- 			/* Not currently safe. */
--			if (unlikely(nd->flags & LOOKUP_BENEATH))
-+			if (unlikely(nd->flags & (LOOKUP_BENEATH | LOOKUP_IN_ROOT)))
- 				return ERR_PTR(-EXDEV);
- 		}
- 		if (IS_ERR_OR_NULL(res))
- 			return res;
- 	}
- 	if (*res = '/') {
--		if (!nd->root.mnt)
--			set_root(nd);
- 		error = nd_jump_root(nd);
- 		if (unlikely(error))
- 			return ERR_PTR(error);
-@@ -1744,15 +1756,20 @@ static inline int may_lookup(struct nameidata *nd)
- static inline int handle_dots(struct nameidata *nd, int type)
- {
- 	if (type = LAST_DOTDOT) {
-+		int error = 0;
-+
- 		/*
- 		 * LOOKUP_BENEATH resolving ".." is not currently safe -- races
- 		 * can cause our parent to have moved outside of the root and
- 		 * us to skip over it.
- 		 */
--		if (unlikely(nd->flags & LOOKUP_BENEATH))
-+		if (unlikely(nd->flags & (LOOKUP_BENEATH | LOOKUP_IN_ROOT)))
- 			return -EXDEV;
--		if (!nd->root.mnt)
--			set_root(nd);
-+		if (!nd->root.mnt) {
-+			error = set_root(nd);
-+			if (error)
-+				return error;
-+		}
- 		if (nd->flags & LOOKUP_RCU) {
- 			return follow_dotdot_rcu(nd);
- 		} else
-@@ -2251,9 +2268,13 @@ static const char *path_init(struct nameidata *nd, unsigned flags)
+ CXLFLASH (IBM Coherent Accelerator Processor Interface CAPI Flash) SCSI DRIVER
+@@ -4431,7 +4431,7 @@ L:	linux-scsi@vger.kernel.org
+ S:	Supported
+ F:	drivers/scsi/cxlflash/
+ F:	include/uapi/scsi/cxlflash_ioctl.h
+-F:	Documentation/powerpc/cxlflash.txt
++F:	Documentation/arch/powerpc/cxlflash.txt
  
- 	nd->m_seq = read_seqbegin(&mount_lock);
+ CYBERPRO FB DRIVER
+ M:	Russell King <linux@armlinux.org.uk>
+@@ -9101,7 +9101,7 @@ F:	Documentation/ABI/stable/sysfs-firmware-opal-*
+ F:	Documentation/devicetree/bindings/powerpc/
+ F:	Documentation/devicetree/bindings/rtc/rtc-opal.txt
+ F:	Documentation/devicetree/bindings/i2c/i2c-opal.txt
+-F:	Documentation/powerpc/
++F:	Documentation/arch/powerpc/
+ F:	arch/powerpc/
+ F:	drivers/char/tpm/tpm_ibmvtpm*
+ F:	drivers/crypto/nx/
+@@ -12235,7 +12235,7 @@ F:	Documentation/PCI/pci-error-recovery.txt
+ F:	drivers/pci/pcie/aer.c
+ F:	drivers/pci/pcie/dpc.c
+ F:	drivers/pci/pcie/err.c
+-F:	Documentation/powerpc/eeh-pci-error-recovery.txt
++F:	Documentation/arch/powerpc/eeh-pci-error-recovery.txt
+ F:	arch/powerpc/kernel/eeh*.c
+ F:	arch/powerpc/platforms/*/eeh*.c
+ F:	arch/powerpc/include/*/eeh*.h
+diff --git a/arch/powerpc/kernel/exceptions-64s.S b/arch/powerpc/kernel/exceptions-64s.S
+index 73ba246ca11d..5fa2a348a28e 100644
+--- a/arch/powerpc/kernel/exceptions-64s.S
++++ b/arch/powerpc/kernel/exceptions-64s.S
+@@ -910,7 +910,7 @@ EXC_COMMON(trap_0b_common, 0xb00, unknown_exception)
+  *
+  * Call convention:
+  *
+- * syscall register convention is in Documentation/powerpc/syscall64-abi.txt
++ * syscall register convention is in Documentation/arch/powerpc/syscall64-abi.txt
+  *
+  * For hypercalls, the register convention is as follows:
+  * r0 volatile
+diff --git a/drivers/soc/fsl/qe/qe.c b/drivers/soc/fsl/qe/qe.c
+index 62c6ba17991a..c83467942b70 100644
+--- a/drivers/soc/fsl/qe/qe.c
++++ b/drivers/soc/fsl/qe/qe.c
+@@ -419,7 +419,7 @@ static void qe_upload_microcode(const void *base,
+ /*
+  * Upload a microcode to the I-RAM at a specific address.
+  *
+- * See Documentation/powerpc/qe_firmware.txt for information on QE microcode
++ * See Documentation/arch/powerpc/qe_firmware.txt for information on QE microcode
+  * uploading.
+  *
+  * Currently, only version 1 is supported, so the 'version' field must be
+diff --git a/drivers/tty/hvc/hvcs.c b/drivers/tty/hvc/hvcs.c
+index cb4db1b3ca3c..5a1c76055117 100644
+--- a/drivers/tty/hvc/hvcs.c
++++ b/drivers/tty/hvc/hvcs.c
+@@ -47,7 +47,7 @@
+  * using the 2.6 Linux kernel kref construct.
+  *
+  * For direction on installation and usage of this driver please reference
+- * Documentation/powerpc/hvcs.txt.
++ * Documentation/arch/powerpc/hvcs.txt.
+  */
  
-+	/* LOOKUP_IN_ROOT treats absolute paths as being relative-to-dirfd. */
-+	if (flags & LOOKUP_IN_ROOT)
-+		while (*s = '/')
-+			s++;
-+
- 	/* Figure out the starting path and root (if needed). */
- 	if (*s = '/') {
--		set_root(nd);
- 		error = nd_jump_root(nd);
- 		if (unlikely(error))
- 			return ERR_PTR(error);
-@@ -2298,7 +2319,7 @@ static const char *path_init(struct nameidata *nd, unsigned flags)
- 		fdput(f);
- 	}
- 	/* For scoped-lookups we need to set the root to the dirfd as well. */
--	if (flags & LOOKUP_BENEATH) {
-+	if (flags & (LOOKUP_BENEATH | LOOKUP_IN_ROOT)) {
- 		nd->root = nd->path;
- 		if (flags & LOOKUP_RCU)
- 			nd->root_seq = nd->seq;
-diff --git a/include/linux/namei.h b/include/linux/namei.h
-index be407415c28a..ec2c6c588ea7 100644
---- a/include/linux/namei.h
-+++ b/include/linux/namei.h
-@@ -57,6 +57,7 @@ enum {LAST_NORM, LAST_ROOT, LAST_DOT, LAST_DOTDOT, LAST_BIND};
- #define LOOKUP_NO_MAGICLINKS	0x080000 /* No /proc/$pid/fd/ "symlink" crossing. */
- #define LOOKUP_NO_SYMLINKS	0x100000 /* No symlink crossing *at all*.
- 					    Implies LOOKUP_NO_MAGICLINKS. */
-+#define LOOKUP_IN_ROOT		0x200000 /* Treat dirfd as %current->fs->root. */
+ #include <linux/device.h>
+diff --git a/include/soc/fsl/qe/qe.h b/include/soc/fsl/qe/qe.h
+index 3f9d6b6a5691..c07872582b30 100644
+--- a/include/soc/fsl/qe/qe.h
++++ b/include/soc/fsl/qe/qe.h
+@@ -259,7 +259,7 @@ static inline int qe_alive_during_sleep(void)
  
- extern int path_pts(struct path *path);
- 
+ /* Structure that defines QE firmware binary files.
+  *
+- * See Documentation/powerpc/qe_firmware.txt for a description of these
++ * See Documentation/arch/powerpc/qe_firmware.txt for a description of these
+  * fields.
+  */
+ struct qe_firmware {
 -- 
-2.22.0
+2.19.1.856.g8858448bb
