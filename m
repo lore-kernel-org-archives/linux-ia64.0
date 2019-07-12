@@ -1,101 +1,44 @@
-From: Aleksa Sarai <cyphar@cyphar.com>
-Date: Fri, 12 Jul 2019 10:57:45 +0000
+From: Al Viro <viro@zeniv.linux.org.uk>
+Date: Fri, 12 Jul 2019 12:39:24 +0000
 Subject: Re: [PATCH v9 05/10] namei: O_BENEATH-style path resolution flags
-Message-Id: <20190712105745.nruaftgeat6irhzr@yavin>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="f3oogwkmh2sysq6o"
+Message-Id: <20190712123924.GK17978@ZenIV.linux.org.uk>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20190706145737.5299-1-cyphar@cyphar.com>
  <20190706145737.5299-6-cyphar@cyphar.com>
  <20190712043341.GI17978@ZenIV.linux.org.uk>
-In-Reply-To: <20190712043341.GI17978@ZenIV.linux.org.uk>
-To: Al Viro <viro@zeniv.linux.org.uk>
-Cc: Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Christian Brauner <christian@brauner.io>, David Drysdale <drysdale@google.com>, Andy Lutomirski <luto@kernel.org>, Linus Torvalds <torvalds@linux-foundation.org>, Eric Biederman <ebiederm@xmission.com>, Andrew Morton <akpm@linux-foundation.org>, Alexei Starovoitov <ast@kernel.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Aleksa Sarai <asarai@suse.de>, containers@lists.linux-foundation.org, linux-alpha@vger.kernel.org
+ <20190712105745.nruaftgeat6irhzr@yavin>
+In-Reply-To: <20190712105745.nruaftgeat6irhzr@yavin>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Aleksa Sarai <cyphar@cyphar.com>
+Cc: linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>, linux-kernel@vger.kernel.org, David Howells <dhowells@redhat.com>, linux-kselftest@vger.kernel.org, sparclinux@vger.kernel.org, Shuah Khan <shuah@kernel.org>, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, Tycho Andersen <tycho@tycho.ws>, Aleksa Sarai <asarai@suse.de>, linux-arm-kernel@lists.infradead.org, linux-mips@vger.kernel.org, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Arnd Bergmann <arnd@arndb.de>, Jann Horn <jannh@google.com>, linuxppc-dev@lists.ozlabs.org, linux-m68k@lists.linux-m68k.org, Andy Lutomirski <luto@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, David Drysdale <drysdale@google.com>, Christian Brauner <christian@brauner.io>, "J. Bruce Fields" <bfields@fieldses.org>, linux-parisc@vger.kernel.org, linux-api@vger.kernel.orgCh
 
+On Fri, Jul 12, 2019 at 08:57:45PM +1000, Aleksa Sarai wrote:
 
---f3oogwkmh2sysq6o
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> > > @@ -2350,9 +2400,11 @@ static const char *path_init(struct nameidata *nd, unsigned flags)
+> > >  			s = ERR_PTR(error);
+> > >  		return s;
+> > >  	}
+> > > -	error = dirfd_path_init(nd);
+> > > -	if (unlikely(error))
+> > > -		return ERR_PTR(error);
+> > > +	if (likely(!nd->path.mnt)) {
+> > 
+> > Is that a weird way of saying "if we hadn't already called dirfd_path_init()"?
+> 
+> Yes. I did it to be more consistent with the other "have we got the
+> root" checks elsewhere. Is there another way you'd prefer I do it?
 
-On 2019-07-12, Al Viro <viro@zeniv.linux.org.uk> wrote:
-> On Sun, Jul 07, 2019 at 12:57:32AM +1000, Aleksa Sarai wrote:
-> > @@ -1442,8 +1464,11 @@ static int follow_dotdot_rcu(struct nameidata *n=
-d)
-> >  	struct inode *inode =3D nd->inode;
-> > =20
-> >  	while (1) {
-> > -		if (path_equal(&nd->path, &nd->root))
-> > +		if (path_equal(&nd->path, &nd->root)) {
-> > +			if (unlikely(nd->flags & LOOKUP_BENEATH))
-> > +				return -EXDEV;
->=20
-> > @@ -1468,6 +1493,8 @@ static int follow_dotdot_rcu(struct nameidata *nd)
-> >  				return -ECHILD;
-> >  			if (&mparent->mnt =3D=3D nd->path.mnt)
-> >  				break;
-> > +			if (unlikely(nd->flags & LOOKUP_XDEV))
-> > +				return -EXDEV;
-> >  			/* we know that mountpoint was pinned */
-> >  			nd->path.dentry =3D mountpoint;
-> >  			nd->path.mnt =3D &mparent->mnt;
-> > @@ -1482,6 +1509,8 @@ static int follow_dotdot_rcu(struct nameidata *nd)
-> >  			return -ECHILD;
-> >  		if (!mounted)
-> >  			break;
-> > +		if (unlikely(nd->flags & LOOKUP_XDEV))
-> > +			return -EXDEV;
->=20
-> Are you sure these failure exits in follow_dotdot_rcu() won't give
-> suprious hard errors?
+"Have we got the root" checks are inevitable evil; here you are making the
+control flow in a single function hard to follow.
 
-I could switch to -ECHILD for the *_rcu() checks if you'd prefer that.
-Though, I'd have (probably naively) thought that you'd have already
-gotten -ECHILD from the seqlock checks if there was a race during ".."
-handling.
-
-> > +	if (unlikely(nd->flags & LOOKUP_BENEATH)) {
-> > +		error =3D dirfd_path_init(nd);
-> > +		if (unlikely(error))
-> > +			return ERR_PTR(error);
-> > +		nd->root =3D nd->path;
-> > +		if (!(nd->flags & LOOKUP_RCU))
-> > +			path_get(&nd->root);
-> > +	}
-> >  	if (*s =3D=3D '/') {
-> >  		if (likely(!nd->root.mnt))
-> >  			set_root(nd);
-> > @@ -2350,9 +2400,11 @@ static const char *path_init(struct nameidata *n=
-d, unsigned flags)
-> >  			s =3D ERR_PTR(error);
-> >  		return s;
-> >  	}
-> > -	error =3D dirfd_path_init(nd);
-> > -	if (unlikely(error))
-> > -		return ERR_PTR(error);
-> > +	if (likely(!nd->path.mnt)) {
->=20
-> Is that a weird way of saying "if we hadn't already called dirfd_path_ini=
-t()"?
-
-Yes. I did it to be more consistent with the other "have we got the
-root" checks elsewhere. Is there another way you'd prefer I do it?
-
---=20
-Aleksa Sarai
-Senior Software Engineer (Containers)
-SUSE Linux GmbH
-<https://www.cyphar.com/>
-
---f3oogwkmh2sysq6o
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iHUEABYIAB0WIQSxZm6dtfE8gxLLfYqdlLljIbnQEgUCXShnpgAKCRCdlLljIbnQ
-EgLTAP4nuVmi0292tyCAkB4Di0UUtazb2EsZPgKq9s2vRoyuFAD/UKONDBSK3VN9
-06Id1xrmV0JIYJSqOIdF2oJIncJ8ZwI=
-=5hbR
------END PGP SIGNATURE-----
-
---f3oogwkmh2sysq6o--
+I *think* what you are doing is
+	absolute pathname, no LOOKUP_BENEATH:
+		set_root
+		error = nd_jump_root(nd)
+	else
+		error = dirfd_path_init(nd)
+	return unlikely(error) ? ERR_PTR(error) : s;
+which should be a lot easier to follow (not to mention shorter), but I might
+be missing something in all of that.
