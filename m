@@ -1,9 +1,9 @@
 From: Aleksa Sarai <cyphar@cyphar.com>
-Date: Sun, 14 Jul 2019 07:00:29 +0000
+Date: Sun, 14 Jul 2019 10:31:04 +0000
 Subject: Re: [PATCH v9 05/10] namei: O_BENEATH-style path resolution flags
-Message-Id: <20190714070029.m53etvm3y4etidxt@yavin>
+Message-Id: <20190714100825.umyql5op6cxhmpqa@yavin>
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="33fhorotybcq4qkp"
+Content-Type: multipart/mixed; boundary="kaevdj3q3yxfna5u"
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20190706145737.5299-1-cyphar@cyphar.com>
  <20190706145737.5299-6-cyphar@cyphar.com>
@@ -12,89 +12,94 @@ References: <20190706145737.5299-1-cyphar@cyphar.com>
  <20190712123924.GK17978@ZenIV.linux.org.uk>
  <20190712125552.GL17978@ZenIV.linux.org.uk>
  <20190712132553.GN17978@ZenIV.linux.org.uk>
- <20190712150026.GO17978@ZenIV.linux.org.uk>
- <20190713024153.GA3817@ZenIV.linux.org.uk>
-In-Reply-To: <20190713024153.GA3817@ZenIV.linux.org.uk>
+In-Reply-To: <20190712132553.GN17978@ZenIV.linux.org.uk>
 To: Al Viro <viro@zeniv.linux.org.uk>
 Cc: Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Christian Brauner <christian@brauner.io>, David Drysdale <drysdale@google.com>, Andy Lutomirski <luto@kernel.org>, Linus Torvalds <torvalds@linux-foundation.org>, Eric Biederman <ebiederm@xmission.com>, Andrew Morton <akpm@linux-foundation.org>, Alexei Starovoitov <ast@kernel.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Aleksa Sarai <asarai@suse.de>, containers@lists.linux-foundation.org, linux-alpha@vger.kernel.org
 
 
---33fhorotybcq4qkp
+--kaevdj3q3yxfna5u
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-On 2019-07-13, Al Viro <viro@zeniv.linux.org.uk> wrote:
-> On Fri, Jul 12, 2019 at 04:00:26PM +0100, Al Viro wrote:
-> > On Fri, Jul 12, 2019 at 02:25:53PM +0100, Al Viro wrote:
+On 2019-07-12, Al Viro <viro@zeniv.linux.org.uk> wrote:
+> On Fri, Jul 12, 2019 at 01:55:52PM +0100, Al Viro wrote:
+> > On Fri, Jul 12, 2019 at 01:39:24PM +0100, Al Viro wrote:
+> > > On Fri, Jul 12, 2019 at 08:57:45PM +1000, Aleksa Sarai wrote:
+> > >=20
+> > > > > > @@ -2350,9 +2400,11 @@ static const char *path_init(struct name=
+idata *nd, unsigned flags)
+> > > > > >  			s =3D ERR_PTR(error);
+> > > > > >  		return s;
+> > > > > >  	}
+> > > > > > -	error =3D dirfd_path_init(nd);
+> > > > > > -	if (unlikely(error))
+> > > > > > -		return ERR_PTR(error);
+> > > > > > +	if (likely(!nd->path.mnt)) {
+> > > > >=20
+> > > > > Is that a weird way of saying "if we hadn't already called dirfd_=
+path_init()"?
+> > > >=20
+> > > > Yes. I did it to be more consistent with the other "have we got the
+> > > > root" checks elsewhere. Is there another way you'd prefer I do it?
+> > >=20
+> > > "Have we got the root" checks are inevitable evil; here you are makin=
+g the
+> > > control flow in a single function hard to follow.
+> > >=20
+> > > I *think* what you are doing is
+> > > 	absolute pathname, no LOOKUP_BENEATH:
+> > > 		set_root
+> > > 		error =3D nd_jump_root(nd)
+> > > 	else
+> > > 		error =3D dirfd_path_init(nd)
+> > > 	return unlikely(error) ? ERR_PTR(error) : s;
+> > > which should be a lot easier to follow (not to mention shorter), but =
+I might
+> > > be missing something in all of that.
 > >=20
-> > > 	if (flags & LOOKUP_BENEATH) {
-> > > 		nd->root =3D nd->path;
-> > > 		if (!(flags & LOOKUP_RCU))
-> > > 			path_get(&nd->root);
-> > > 		else
-> > > 			nd->root_seq =3D nd->seq;
-> >=20
-> > BTW, this assignment is needed for LOOKUP_RCU case.  Without it
-> > you are pretty much guaranteed that lazy pathwalk will fail,
-> > when it comes to complete_walk().
-> >=20
-> > Speaking of which, what would happen if LOOKUP_ROOT/LOOKUP_BENEATH
-> > combination would someday get passed?
+> > PS: if that's what's going on, I would be tempted to turn the entire
+> > path_init() part into this:
+> > 	if (flags & LOOKUP_BENEATH)
+> > 		while (*s =3D=3D '/')
+> > 			s++;
+> > in the very beginning (plus the handling of nd_jump_root() prototype
+> > change, but that belongs with nd_jump_root() change itself, obviously).
+> > Again, I might be missing something here...
 >=20
-> I don't understand what's going on with ->r_seq in there - your
-> call of path_is_under() is after having (re-)sampled rename_lock,
-> but if that was the only .. in there, who's going to recheck
-> the value?  For that matter, what's to guarantee that the thing
-> won't get moved just as you are returning from handle_dots()?
->=20
-> IOW, what does LOOKUP_IN_ROOT guarantee for caller (openat2())?
+> Argh... I am, at that - you have setting path->root (and grabbing it)
+> in LOOKUP_BENEATH cases and you do it after dirfd_path_init().  So
+> how about
+> 	if (flags & LOOKUP_BENEATH)
+> 		while (*s =3D=3D '/')
+> 			s++;
 
-I tried to explain this in the commit message for "namei: aggressively
-check for nd->root escape on ".." resolution", but I probably could've
-explained it better.
+I can do this for LOOKUP_IN_ROOT, but currently the semantics for
+LOOKUP_BENEATH is that absolute paths will return -EXDEV
+indiscriminately (nd_jump_root() errors out with LOOKUP_BENEATH). To be
+honest, the check could actually just be:
 
-The basic property being guaranteed by LOOKUP_IN_ROOT is that it will
-not result in resolution of a path component which was not inside the
-root of the dirfd tree at some point during resolution (and that all
-absolute symlink and ".." resolution will be done relative to the
-dirfd). This may smell slightly of chroot(2), because unfortunately it
-is a similar concept -- the reason for this is to allow for a more
-efficient way to safely resolve paths inside a rootfs than spawning a
-separate process to then pass back the fd to the caller.
+  if (flags & LOOKUP_BENEATH)
+    if (*s =3D=3D '/')
+	  return ERR_PTR(-EXDEV);
 
-We don't want to do a path_is_under() check for every ".." (otherwise
-lookups have a quadratic slowdown when doing many ".."s), so I instead
-only do a check after a rename or a mount (which are the only operations
-which could change what ".." points to). And since we do the
-path_is_under() check if m_seq or r_seq need a retry, we can re-take
-them[+].
+(Though we'd still need -EXDEV in nd_jump_root() for obvious reasons.)
 
-The main reason why I don't re-check path_is_under() after handle_dots()
-is that there is no way to be sure that a racing rename didn't happen
-after your last path_is_under() check. The rename could happen after the
-syscall returns, after all.
+The logic being that an absolute path means that the resolution starts
+out without being "beneath" the starting point -- thus violating the
+contract of LOOKUP_BENEATH. And since the "handle absolute paths like
+they're scoped to the root" is only implemented for LOOKUP_IN_ROOT, I'd
+think it's a bit odd to have LOOKUP_BENEATH do it too for absolute
+paths.
 
-So, the main purpose of the check is to make sure that a ".."s after a
-rename doesn't result in an escape. If the rename happens after we've
-traversed through a ".." that means that the ".." was inside the root in
-the first place (a root ".." is handled by follow_dotdot). If the rename
-happens after we've gone through handle_dots() and there is no
-subsequent ".." then to userspace it looks identical to the rename
-occurring after the syscall has returned. If there is a subsequent ".."
-after a racing rename then we may have moved into a path that wasn't
-path_is_under() and so we have to check it.
+I'll be honest, this patchset is more confusing to both of us because of
+LOOKUP_BENEATH -- I've only kept it since it was part of the original
+patchset (O_BENEATH). Personally I think more people will be far more
+interested in LOOKUP_IN_ROOT. Does anyone mind if I drop the
+LOOKUP_BENEATH parts of this series, and only keep LOOKUP_NO_* and
+LOOKUP_IN_ROOT?
 
-The only way I could see you could solve the race completely is if you
-had a way for userspace to lock things from being able to be renamed (or
-MS_MOVE'd). And that feels like a really bad idea to me.
-
-[+]: You asked why don't I re-take m_seq. The reason is that I don't
-	 fully understand all the other m_seq checks being done during
-	 resolution, and we aren't definitely doing them all in
-	 handle_dots(). So I assumed re-taking it could result in me
-	 breaking RCU-walk which obviously would be bad. Since I am the only
-	 thing using nd->r_seq, I can re-take it without issue.
+I make a change as you outlined for LOOKUP_IN_ROOT, though.
 
 --=20
 Aleksa Sarai
@@ -102,15 +107,15 @@ Senior Software Engineer (Containers)
 SUSE Linux GmbH
 <https://www.cyphar.com/>
 
---33fhorotybcq4qkp
+--kaevdj3q3yxfna5u
 Content-Type: application/pgp-signature; name="signature.asc"
 
 -----BEGIN PGP SIGNATURE-----
 
-iHUEABYIAB0WIQSxZm6dtfE8gxLLfYqdlLljIbnQEgUCXSrTCAAKCRCdlLljIbnQ
-EpwpAQD9KgKhzC1YZRQyynlFOIyKp8VXEUfhiNokL0RBBx4G5AD7BovFdb8KzxSf
-QrrP/0Vq6p6AFs4sMQbjc9M6I/5gzQ8=
-=fUib
+iHUEABYIAB0WIQSxZm6dtfE8gxLLfYqdlLljIbnQEgUCXSsEZQAKCRCdlLljIbnQ
+EnUcAP0UIrWhoFUdmcGKVnbHflUGk+2uDxtG83hk6KmhY14aGgD/bIuyNZSByUo2
+62tn/pqpuWfU42XocRvuCvKllOoWpgc=
+=3x3j
 -----END PGP SIGNATURE-----
 
---33fhorotybcq4qkp--
+--kaevdj3q3yxfna5u--
