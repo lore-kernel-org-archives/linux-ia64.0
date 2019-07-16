@@ -1,7 +1,7 @@
 From: David Hildenbrand <david@redhat.com>
-Date: Tue, 16 Jul 2019 11:08:56 +0000
+Date: Tue, 16 Jul 2019 11:09:06 +0000
 Subject: Re: [PATCH v3 10/11] mm/memory_hotplug: Make unregister_memory_block_under_nodes() never fail
-Message-Id: <d9e63646-f81d-c349-a54c-e17cdccb0760@redhat.com>
+Message-Id: <eb51f770-b0a3-f50c-daa4-babe6e8d3fc4@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20190527111152.16324-1-david@redhat.com>
  <20190527111152.16324-11-david@redhat.com>
@@ -60,7 +60,7 @@ On 16.07.19 10:46, Oscar Salvador wrote:
 As far as I can tell we
 
 a) don't allow offlining of memory that belongs to multiple nodes
-already (as pointed out by Michael recently)
+already (as pointed out by Michal recently)
 
 b) users cannot add memory blocks that belong to multiple nodes via
 add_memory()
