@@ -1,45 +1,37 @@
-From: Krzysztof Kozlowski <krzk@kernel.org>
-Date: Tue, 16 Jul 2019 14:51:05 +0000
-Subject: Re: [PATCH 02/12] Documentation/arm: repointer docs to Documentation/arch/arm
-Message-Id: <CAJKOXPcnMM=h9-MW4qg4OTxaY5eBQ=4tH=Gbd3tSuckFvSOPcw@mail.gmail.com>
+From: Palmer Dabbelt <palmer@sifive.com>
+Date: Wed, 17 Jul 2019 01:27:16 +0000
+Subject: [PATCH v2 1/4] Non-functional cleanup of a "__user * filename"
+Message-Id: <20190717012719.5524-2-palmer@sifive.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190712022018.27989-1-alex.shi@linux.alibaba.com> <20190712022018.27989-2-alex.shi@linux.alibaba.com>
-In-Reply-To: <20190712022018.27989-2-alex.shi@linux.alibaba.com>
+References: <20190717012719.5524-1-palmer@sifive.com>
+In-Reply-To: <20190717012719.5524-1-palmer@sifive.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Alex Shi <alex.shi@linux.alibaba.com>
-Cc: linux-doc@vger.kernel.org, Jonathan Corbet <corbet@lwn.net>, linux-kernel@vger.kernel.org, linux-stm32@st-md-mailman.stormreply.com, linux-arm-kernel@lists.infradead.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-omap@vger.kernel.org, linux-fbdev@vger.kernel.org, "linux-samsung-soc@vger.kernel.org" <linux-samsung-soc@vger.kernel.org>, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-scsi@vger.kernel.org, linux-s390@vger.kernel.org, kvm@vger.kernel.org, linux-sh@vger.kernel.org, Kukjin Kim <kgene@kernel.org>, linux-crypto@vger.kernel.org, linux-input@vger.kernel.org, linux-serial@vger.kernel.org
+To: viro@zeniv.linux.org.uk, linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org, linux-api@vger.kernel.org
+Cc: rth@twiddle.net, ink@jurassic.park.msu.ru, mattst88@gmail.com, linux@armlinux.org.uk, catalin.marinas@arm.com, will@kernel.org, tony.luck@intel.com, fenghua.yu@intel.com, geert@linux-m68k.org, monstr@monstr.eu, ralf@linux-mips.org, paul.burton@mips.com, jhogan@kernel.org, James.Bottomley@HansenPartnership.com, deller@gmx.de, benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au, heiko.carstens@de.ibm.com, gor@linux.ibm.com, borntraeger@de.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, luto@kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, hpa@zytor.com, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, peterz@infradead.org, acme@kernel.org, alexander.shishkin@linux.intel.com, jolsa@redhat.com, namhyung@kernel.org, Palmer Dabbelt <palm>
 
-On Fri, 12 Jul 2019 at 04:20, Alex Shi <alex.shi@linux.alibaba.com> wrote:
->
-> Since we move 'arm/arm64' docs to Documentation/arch/{arm,arm64} dir,
-> redirect the doc pointer to them.
->
-> Signed-off-by: Alex Shi <alex.shi@linux.alibaba.com>
-> Cc: Jonathan Corbet <corbet@lwn.net>
-> Cc: Kukjin Kim <kgene@kernel.org>
-> Cc: Krzysztof Kozlowski <krzk@kernel.org>
-> Cc: linux-doc@vger.kernel.org
-> Cc: linux-kernel@vger.kernel.org
-> Cc: linux-arm-kernel@lists.infradead.org
-> Cc: linux-samsung-soc@vger.kernel.org
-> Cc: linux-crypto@vger.kernel.org
-> Cc: linux-input@vger.kernel.org
-> Cc: linux-serial@vger.kernel.org
-> ---
->  Documentation/arch/arm/Samsung-S3C24XX/GPIO.txt    |  2 +-
->  .../arch/arm/Samsung-S3C24XX/Overview.txt          |  6 +++---
->  Documentation/arch/arm/Samsung/GPIO.txt            |  2 +-
->  Documentation/arch/arm/Samsung/Overview.txt        |  4 ++--
->  Documentation/devicetree/bindings/arm/xen.txt      |  2 +-
->  Documentation/devicetree/booting-without-of.txt    |  4 ++--
->  Documentation/translations/zh_CN/arm/Booting       |  4 ++--
->  .../translations/zh_CN/arm/kernel_user_helpers.txt |  4 ++--
->  MAINTAINERS                                        |  6 +++---
+The next patch defines a very similar interface, which I copied from
+this definition.  Since I'm touching it anyway I don't see any reason
+not to just go fix this one up.
 
-I assume it will go through doc tree, so for Samsung:
-Acked-by: Krzysztof Kozlowski <krzk@kernel.org>
+Signed-off-by: Palmer Dabbelt <palmer@sifive.com>
+---
+ include/linux/syscalls.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Best regards,
-Krzysztof
+diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
+index 2bcef4c70183..e1c20f1d0525 100644
+--- a/include/linux/syscalls.h
++++ b/include/linux/syscalls.h
+@@ -431,7 +431,7 @@ asmlinkage long sys_chdir(const char __user *filename);
+ asmlinkage long sys_fchdir(unsigned int fd);
+ asmlinkage long sys_chroot(const char __user *filename);
+ asmlinkage long sys_fchmod(unsigned int fd, umode_t mode);
+-asmlinkage long sys_fchmodat(int dfd, const char __user * filename,
++asmlinkage long sys_fchmodat(int dfd, const char __user *filename,
+ 			     umode_t mode);
+ asmlinkage long sys_fchownat(int dfd, const char __user *filename, uid_t user,
+ 			     gid_t group, int flag);
+-- 
+2.21.0
