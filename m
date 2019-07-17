@@ -1,70 +1,54 @@
-From: Aleksa Sarai <cyphar@cyphar.com>
-Date: Fri, 12 Jul 2019 12:12:01 +0000
-Subject: Re: [PATCH v9 04/10] namei: split out nd->dfd handling to dirfd_path_init
-Message-Id: <20190712121201.ouhwqgeszfq44t33@yavin>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="37fzaqczvbcmjfqh"
+From: Palmer Dabbelt <palmer@sifive.com>
+Date: Wed, 17 Jul 2019 01:27:19 +0000
+Subject: [PATCH v2 4/4] tools: Add fchmodat4
+Message-Id: <20190717012719.5524-5-palmer@sifive.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190706145737.5299-1-cyphar@cyphar.com>
- <20190706145737.5299-5-cyphar@cyphar.com>
- <20190712042050.GH17978@ZenIV.linux.org.uk>
- <20190712120743.mka3vl5t4zndc5wj@yavin>
-In-Reply-To: <20190712120743.mka3vl5t4zndc5wj@yavin>
-To: Al Viro <viro@zeniv.linux.org.uk>
-Cc: linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>, linux-kernel@vger.kernel.org, David Howells <dhowells@redhat.com>, linux-kselftest@vger.kernel.org, sparclinux@vger.kernel.org, Shuah Khan <shuah@kernel.org>, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, Tycho Andersen <tycho@tycho.ws>, Aleksa Sarai <asarai@suse.de>, linux-arm-kernel@lists.infradead.org, linux-mips@vger.kernel.org, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Arnd Bergmann <arnd@arndb.de>, Jann Horn <jannh@google.com>, linuxppc-dev@lists.ozlabs.org, linux-m68k@lists.linux-m68k.org, Andy Lutomirski <luto@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, David Drysdale <drysdale@google.com>, Christian Brauner <christian@brauner.io>, "J. Bruce Fields" <bfields@fieldses.org>, linux-parisc@vger.kernel.org, linux-api@vger.kernel.orgCh
+References: <20190717012719.5524-1-palmer@sifive.com>
+In-Reply-To: <20190717012719.5524-1-palmer@sifive.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: viro@zeniv.linux.org.uk, linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org, linux-api@vger.kernel.org
+Cc: rth@twiddle.net, ink@jurassic.park.msu.ru, mattst88@gmail.com, linux@armlinux.org.uk, catalin.marinas@arm.com, will@kernel.org, tony.luck@intel.com, fenghua.yu@intel.com, geert@linux-m68k.org, monstr@monstr.eu, ralf@linux-mips.org, paul.burton@mips.com, jhogan@kernel.org, James.Bottomley@HansenPartnership.com, deller@gmx.de, benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au, heiko.carstens@de.ibm.com, gor@linux.ibm.com, borntraeger@de.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, luto@kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, hpa@zytor.com, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, peterz@infradead.org, acme@kernel.org, alexander.shishkin@linux.intel.com, jolsa@redhat.com, namhyung@kernel.org, Palmer Dabbelt <palm>
 
+I'm not sure why it's necessary to add this explicitly to tools/ as well
+as arch/, but there were a few instances of fspick in here so I blindly
+added fchmodat4 in the same fashion.
 
---37fzaqczvbcmjfqh
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Palmer Dabbelt <palmer@sifive.com>
+---
+ tools/include/uapi/asm-generic/unistd.h           | 4 +++-
+ tools/perf/arch/x86/entry/syscalls/syscall_64.tbl | 1 +
+ 2 files changed, 4 insertions(+), 1 deletion(-)
 
-On 2019-07-12, Aleksa Sarai <cyphar@cyphar.com> wrote:
-> On 2019-07-12, Al Viro <viro@zeniv.linux.org.uk> wrote:
-> > On Sun, Jul 07, 2019 at 12:57:31AM +1000, Aleksa Sarai wrote:
-> > > Previously, path_init's handling of *at(dfd, ...) was only done once,
-> > > but with LOOKUP_BENEATH (and LOOKUP_IN_ROOT) we have to parse the
-> > > initial nd->path at different times (before or after absolute path
-> > > handling) depending on whether we have been asked to scope resolution
-> > > within a root.
-> >=20
-> > >  	if (*s =3D=3D '/') {
-> > > -		set_root(nd);
-> > > -		if (likely(!nd_jump_root(nd)))
-> > > -			return s;
-> > > -		return ERR_PTR(-ECHILD);
-> >=20
-> > > +		if (likely(!nd->root.mnt))
-> > > +			set_root(nd);
-> >=20
-> > How can we get there with non-NULL nd->root.mnt, when LOOKUP_ROOT case
-> > has been already handled by that point?
->=20
-> Yup, you're completely right. I will remove the
->   if (!nd->root.mnt)
-> in the next version.
-
-Ah sorry, there is a reason for it -- later in the series the
-LOOKUP_BENEATH case means that you might end up with a non-NULL
-nd->root.mnt. If you want, I can move the addition of the conditional to
-later in the series (it was easier to split the patch by-hunk back when
-you originally asked me to split out dirfd_path_init()).
-
---=20
-Aleksa Sarai
-Senior Software Engineer (Containers)
-SUSE Linux GmbH
-<https://www.cyphar.com/>
-
---37fzaqczvbcmjfqh
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iHUEABYIAB0WIQSxZm6dtfE8gxLLfYqdlLljIbnQEgUCXSh5DgAKCRCdlLljIbnQ
-EktsAQC+xy1gwgzkK07JhvJgn8Q1pT79AOQ14p3p2Zp9thYafQD9FEgBMo7bE+TU
-IjLN9tnpuJF+ybsPFaA/VNK4FHH0igw=
-=ZC2p
------END PGP SIGNATURE-----
-
---37fzaqczvbcmjfqh--
+diff --git a/tools/include/uapi/asm-generic/unistd.h b/tools/include/uapi/asm-generic/unistd.h
+index a87904daf103..36232ea94956 100644
+--- a/tools/include/uapi/asm-generic/unistd.h
++++ b/tools/include/uapi/asm-generic/unistd.h
+@@ -844,9 +844,11 @@ __SYSCALL(__NR_fsconfig, sys_fsconfig)
+ __SYSCALL(__NR_fsmount, sys_fsmount)
+ #define __NR_fspick 433
+ __SYSCALL(__NR_fspick, sys_fspick)
++#define __NR_fchmodat4 434
++__SYSCALL(__NR_fchmodat4, sys_fchmodat4)
+ 
+ #undef __NR_syscalls
+-#define __NR_syscalls 434
++#define __NR_syscalls 435
+ 
+ /*
+  * 32 bit systems traditionally used different
+diff --git a/tools/perf/arch/x86/entry/syscalls/syscall_64.tbl b/tools/perf/arch/x86/entry/syscalls/syscall_64.tbl
+index b4e6f9e6204a..b92d5b195e66 100644
+--- a/tools/perf/arch/x86/entry/syscalls/syscall_64.tbl
++++ b/tools/perf/arch/x86/entry/syscalls/syscall_64.tbl
+@@ -355,6 +355,7 @@
+ 431	common	fsconfig		__x64_sys_fsconfig
+ 432	common	fsmount			__x64_sys_fsmount
+ 433	common	fspick			__x64_sys_fspick
++434	common	fchmodat4		__x64_sys_fchmodat4
+ 
+ #
+ # x32-specific system call numbers start at 512 to avoid cache impact
+-- 
+2.21.0
