@@ -1,208 +1,183 @@
-From: Palmer Dabbelt <palmer@sifive.com>
-Date: Wed, 17 Jul 2019 01:27:18 +0000
-Subject: [PATCH v2 3/4] arch: Register fchmodat4, usually as syscall 434
-Message-Id: <20190717012719.5524-4-palmer@sifive.com>
+From: Aleksa Sarai <cyphar@cyphar.com>
+Date: Fri, 19 Jul 2019 16:42:21 +0000
+Subject: [PATCH v10 5/9] namei: LOOKUP_IN_ROOT: chroot-like path resolution
+Message-Id: <20190719164225.27083-6-cyphar@cyphar.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190717012719.5524-1-palmer@sifive.com>
-In-Reply-To: <20190717012719.5524-1-palmer@sifive.com>
+References: <20190719164225.27083-1-cyphar@cyphar.com>
+In-Reply-To: <20190719164225.27083-1-cyphar@cyphar.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: viro@zeniv.linux.org.uk, linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org, linux-api@vger.kernel.org
-Cc: rth@twiddle.net, ink@jurassic.park.msu.ru, mattst88@gmail.com, linux@armlinux.org.uk, catalin.marinas@arm.com, will@kernel.org, tony.luck@intel.com, fenghua.yu@intel.com, geert@linux-m68k.org, monstr@monstr.eu, ralf@linux-mips.org, paul.burton@mips.com, jhogan@kernel.org, James.Bottomley@HansenPartnership.com, deller@gmx.de, benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au, heiko.carstens@de.ibm.com, gor@linux.ibm.com, borntraeger@de.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, luto@kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, hpa@zytor.com, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, peterz@infradead.org, acme@kernel.org, alexander.shishkin@linux.intel.com, jolsa@redhat.com, namhyung@kernel.org, Palmer Dabbelt <palm>
+To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>
+Cc: Aleksa Sarai <cyphar@cyphar.com>, Christian Brauner <christian@brauner.io>, Eric Biederman <ebiederm@xmission.com>, Andy Lutomirski <luto@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Alexei Starovoitov <ast@kernel.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, David Drysdale <drysdale@google.com>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Aleksa Sarai <asarai@suse.de>, Linus Torvalds <torvalds@linux-foundation.org>, containers@lists.linux-foundation.org, linux-alpha@vger.kernel.org, linux-api@vger.kernel.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.orglinux-
 
-This registers the new fchmodat4 syscall in most places as nuber 434,
-with alpha being the exception where it's 544.  I found all these sites
-by grepping for fspick, which I assume has found me everything.
+The primary motivation for the need for this flag is container runtimes
+which have to interact with malicious root filesystems in the host
+namespaces. One of the first requirements for a container runtime to be
+secure against a malicious rootfs is that they correctly scope symlinks
+(that is, they should be scoped as though they are chroot(2)ed into the
+container's rootfs) and ".."-style paths[*]. The already-existing
+LOOKUP_NO_XDEV and LOOKUP_NO_MAGICLINKS help defend against other
+potential attacks in a malicious rootfs scenario.
 
-Signed-off-by: Palmer Dabbelt <palmer@sifive.com>
+Currently most container runtimes try to do this resolution in
+userspace[1], causing many potential race conditions. In addition, the
+"obvious" alternative (actually performing a {ch,pivot_}root(2))
+requires a fork+exec (for some runtimes) which is *very* costly if
+necessary for every filesystem operation involving a container.
+
+[*] At the moment, ".." and magic-link jumping are disallowed for the
+    same reason it is disabled for LOOKUP_BENEATH -- currently it is not
+    safe to allow it. Future patches may enable it unconditionally once
+    we have resolved the possible races (for "..") and semantics (for
+    magic-link jumping).
+
+The most significant *at(2) semantic change with LOOKUP_IN_ROOT is that
+absolute pathnames no longer cause the dirfd to be ignored completely.
+
+The rationale is that LOOKUP_IN_ROOT must necessarily chroot-scope
+symlinks with absolute paths to dirfd, and so doing it for the base path
+seems to be the most consistent behaviour (and also avoids foot-gunning
+users who want to scope paths that are absolute).
+
+[1]: https://github.com/cyphar/filepath-securejoin
+
+Co-developed-by: Christian Brauner <christian@brauner.io>
+Signed-off-by: Aleksa Sarai <cyphar@cyphar.com>
 ---
- arch/alpha/kernel/syscalls/syscall.tbl      | 1 +
- arch/arm/tools/syscall.tbl                  | 1 +
- arch/arm64/include/asm/unistd32.h           | 2 ++
- arch/ia64/kernel/syscalls/syscall.tbl       | 1 +
- arch/m68k/kernel/syscalls/syscall.tbl       | 1 +
- arch/microblaze/kernel/syscalls/syscall.tbl | 1 +
- arch/mips/kernel/syscalls/syscall_n32.tbl   | 1 +
- arch/mips/kernel/syscalls/syscall_n64.tbl   | 1 +
- arch/mips/kernel/syscalls/syscall_o32.tbl   | 1 +
- arch/parisc/kernel/syscalls/syscall.tbl     | 1 +
- arch/powerpc/kernel/syscalls/syscall.tbl    | 1 +
- arch/s390/kernel/syscalls/syscall.tbl       | 1 +
- arch/sh/kernel/syscalls/syscall.tbl         | 1 +
- arch/sparc/kernel/syscalls/syscall.tbl      | 1 +
- arch/x86/entry/syscalls/syscall_32.tbl      | 1 +
- arch/x86/entry/syscalls/syscall_64.tbl      | 1 +
- include/uapi/asm-generic/unistd.h           | 5 ++++-
- 17 files changed, 21 insertions(+), 1 deletion(-)
+ fs/namei.c            | 41 +++++++++++++++++++++++++++++++----------
+ include/linux/namei.h |  1 +
+ 2 files changed, 32 insertions(+), 10 deletions(-)
 
-diff --git a/arch/alpha/kernel/syscalls/syscall.tbl b/arch/alpha/kernel/syscalls/syscall.tbl
-index 9e7704e44f6d..6c4ef43c8b52 100644
---- a/arch/alpha/kernel/syscalls/syscall.tbl
-+++ b/arch/alpha/kernel/syscalls/syscall.tbl
-@@ -473,3 +473,4 @@
- 541	common	fsconfig			sys_fsconfig
- 542	common	fsmount				sys_fsmount
- 543	common	fspick				sys_fspick
-+544	common	fcmodat4			sys_fchmodat4
-diff --git a/arch/arm/tools/syscall.tbl b/arch/arm/tools/syscall.tbl
-index aaf479a9e92d..c008b76fbf92 100644
---- a/arch/arm/tools/syscall.tbl
-+++ b/arch/arm/tools/syscall.tbl
-@@ -447,3 +447,4 @@
- 431	common	fsconfig			sys_fsconfig
- 432	common	fsmount				sys_fsmount
- 433	common	fspick				sys_fspick
-+434	common	fchmodat4			sys_fchmodat4
-diff --git a/arch/arm64/include/asm/unistd32.h b/arch/arm64/include/asm/unistd32.h
-index aa995920bd34..049471b468c1 100644
---- a/arch/arm64/include/asm/unistd32.h
-+++ b/arch/arm64/include/asm/unistd32.h
-@@ -875,6 +875,8 @@ __SYSCALL(__NR_fsconfig, sys_fsconfig)
- __SYSCALL(__NR_fsmount, sys_fsmount)
- #define __NR_fspick 433
- __SYSCALL(__NR_fspick, sys_fspick)
-+#define __NR_fchmodat4 434
-+__SYSCALL(__NR_fchmodat4, sys_fchmodat4)
+diff --git a/fs/namei.c b/fs/namei.c
+index 9df4aa35aedc..617fc7d55977 100644
+--- a/fs/namei.c
++++ b/fs/namei.c
+@@ -676,7 +676,7 @@ static int unlazy_walk(struct nameidata *nd)
+ 		goto out1;
+ 	if (!nd->root.mnt) {
+ 		/* Restart from path_init() if nd->root was cleared. */
+-		if (nd->flags & LOOKUP_BENEATH)
++		if (nd->flags & (LOOKUP_BENEATH | LOOKUP_IN_ROOT))
+ 			goto out;
+ 	} else if (!(nd->flags & LOOKUP_ROOT)) {
+ 		if (unlikely(!legitimize_path(nd, &nd->root, nd->root_seq)))
+@@ -809,10 +809,18 @@ static int complete_walk(struct nameidata *nd)
+ 	return status;
+ }
  
- /*
-  * Please add new compat syscalls above this comment and update
-diff --git a/arch/ia64/kernel/syscalls/syscall.tbl b/arch/ia64/kernel/syscalls/syscall.tbl
-index e01df3f2f80d..d16e9801fe82 100644
---- a/arch/ia64/kernel/syscalls/syscall.tbl
-+++ b/arch/ia64/kernel/syscalls/syscall.tbl
-@@ -354,3 +354,4 @@
- 431	common	fsconfig			sys_fsconfig
- 432	common	fsmount				sys_fsmount
- 433	common	fspick				sys_fspick
-+434	common	fchmodat4			sys_fchmodat4
-diff --git a/arch/m68k/kernel/syscalls/syscall.tbl b/arch/m68k/kernel/syscalls/syscall.tbl
-index 7e3d0734b2f3..1bbff1a9153c 100644
---- a/arch/m68k/kernel/syscalls/syscall.tbl
-+++ b/arch/m68k/kernel/syscalls/syscall.tbl
-@@ -433,3 +433,4 @@
- 431	common	fsconfig			sys_fsconfig
- 432	common	fsmount				sys_fsmount
- 433	common	fspick				sys_fspick
-+434	common	fchmodat4			sys_fchmodat4
-diff --git a/arch/microblaze/kernel/syscalls/syscall.tbl b/arch/microblaze/kernel/syscalls/syscall.tbl
-index 26339e417695..3ed878cb10a3 100644
---- a/arch/microblaze/kernel/syscalls/syscall.tbl
-+++ b/arch/microblaze/kernel/syscalls/syscall.tbl
-@@ -439,3 +439,4 @@
- 431	common	fsconfig			sys_fsconfig
- 432	common	fsmount				sys_fsmount
- 433	common	fspick				sys_fspick
-+434	common	fchmodat4			sys_fchmodat4
-diff --git a/arch/mips/kernel/syscalls/syscall_n32.tbl b/arch/mips/kernel/syscalls/syscall_n32.tbl
-index 0e2dd68ade57..916cdb808e62 100644
---- a/arch/mips/kernel/syscalls/syscall_n32.tbl
-+++ b/arch/mips/kernel/syscalls/syscall_n32.tbl
-@@ -372,3 +372,4 @@
- 431	n32	fsconfig			sys_fsconfig
- 432	n32	fsmount				sys_fsmount
- 433	n32	fspick				sys_fspick
-+434	n32	fchmodat4			sys_fchmodat4
-diff --git a/arch/mips/kernel/syscalls/syscall_n64.tbl b/arch/mips/kernel/syscalls/syscall_n64.tbl
-index 5eebfa0d155c..48b4badb1914 100644
---- a/arch/mips/kernel/syscalls/syscall_n64.tbl
-+++ b/arch/mips/kernel/syscalls/syscall_n64.tbl
-@@ -348,3 +348,4 @@
- 431	n64	fsconfig			sys_fsconfig
- 432	n64	fsmount				sys_fsmount
- 433	n64	fspick				sys_fspick
-+434	n64	fchmodat4			sys_fchmodat4
-diff --git a/arch/mips/kernel/syscalls/syscall_o32.tbl b/arch/mips/kernel/syscalls/syscall_o32.tbl
-index 3cc1374e02d0..0a2ec339882a 100644
---- a/arch/mips/kernel/syscalls/syscall_o32.tbl
-+++ b/arch/mips/kernel/syscalls/syscall_o32.tbl
-@@ -421,3 +421,4 @@
- 431	o32	fsconfig			sys_fsconfig
- 432	o32	fsmount				sys_fsmount
- 433	o32	fspick				sys_fspick
-+434	o32	fchmodat4			sys_fchmodat4
-diff --git a/arch/parisc/kernel/syscalls/syscall.tbl b/arch/parisc/kernel/syscalls/syscall.tbl
-index c9e377d59232..07d38477f8f7 100644
---- a/arch/parisc/kernel/syscalls/syscall.tbl
-+++ b/arch/parisc/kernel/syscalls/syscall.tbl
-@@ -430,3 +430,4 @@
- 431	common	fsconfig			sys_fsconfig
- 432	common	fsmount				sys_fsmount
- 433	common	fspick				sys_fspick
-+434	common	fchmodat4			sys_fchmodat4
-diff --git a/arch/powerpc/kernel/syscalls/syscall.tbl b/arch/powerpc/kernel/syscalls/syscall.tbl
-index 103655d84b4b..3542b33d1bf3 100644
---- a/arch/powerpc/kernel/syscalls/syscall.tbl
-+++ b/arch/powerpc/kernel/syscalls/syscall.tbl
-@@ -515,3 +515,4 @@
- 431	common	fsconfig			sys_fsconfig
- 432	common	fsmount				sys_fsmount
- 433	common	fspick				sys_fspick
-+434	common	fchmodat4			sys_fchmodat4
-diff --git a/arch/s390/kernel/syscalls/syscall.tbl b/arch/s390/kernel/syscalls/syscall.tbl
-index e822b2964a83..cf7b3086ffaa 100644
---- a/arch/s390/kernel/syscalls/syscall.tbl
-+++ b/arch/s390/kernel/syscalls/syscall.tbl
-@@ -436,3 +436,4 @@
- 431  common	fsconfig		sys_fsconfig			sys_fsconfig
- 432  common	fsmount			sys_fsmount			sys_fsmount
- 433  common	fspick			sys_fspick			sys_fspick
-+434  common	fchmodat4		sys_fchmodat4			sys_fchmodat4
-diff --git a/arch/sh/kernel/syscalls/syscall.tbl b/arch/sh/kernel/syscalls/syscall.tbl
-index 016a727d4357..5afa9fb9b4d3 100644
---- a/arch/sh/kernel/syscalls/syscall.tbl
-+++ b/arch/sh/kernel/syscalls/syscall.tbl
-@@ -436,3 +436,4 @@
- 431	common	fsconfig			sys_fsconfig
- 432	common	fsmount				sys_fsmount
- 433	common	fspick				sys_fspick
-+434	common	fchmodat4			sys_fchmodat4
-diff --git a/arch/sparc/kernel/syscalls/syscall.tbl b/arch/sparc/kernel/syscalls/syscall.tbl
-index e047480b1605..ff19eb8185f3 100644
---- a/arch/sparc/kernel/syscalls/syscall.tbl
-+++ b/arch/sparc/kernel/syscalls/syscall.tbl
-@@ -479,3 +479,4 @@
- 431	common	fsconfig			sys_fsconfig
- 432	common	fsmount				sys_fsmount
- 433	common	fspick				sys_fspick
-+434	common	fchmodat4			sys_fchmodat4
-diff --git a/arch/x86/entry/syscalls/syscall_32.tbl b/arch/x86/entry/syscalls/syscall_32.tbl
-index ad968b7bac72..39609fa3536d 100644
---- a/arch/x86/entry/syscalls/syscall_32.tbl
-+++ b/arch/x86/entry/syscalls/syscall_32.tbl
-@@ -438,3 +438,4 @@
- 431	i386	fsconfig		sys_fsconfig			__ia32_sys_fsconfig
- 432	i386	fsmount			sys_fsmount			__ia32_sys_fsmount
- 433	i386	fspick			sys_fspick			__ia32_sys_fspick
-+434	i386	fchmodat4		sys_fchmodat4			__ia32_sys_fchmodat4
-diff --git a/arch/x86/entry/syscalls/syscall_64.tbl b/arch/x86/entry/syscalls/syscall_64.tbl
-index b4e6f9e6204a..b92d5b195e66 100644
---- a/arch/x86/entry/syscalls/syscall_64.tbl
-+++ b/arch/x86/entry/syscalls/syscall_64.tbl
-@@ -355,6 +355,7 @@
- 431	common	fsconfig		__x64_sys_fsconfig
- 432	common	fsmount			__x64_sys_fsmount
- 433	common	fspick			__x64_sys_fspick
-+434	common	fchmodat4		__x64_sys_fchmodat4
+-static void set_root(struct nameidata *nd)
++static int set_root(struct nameidata *nd)
+ {
+ 	struct fs_struct *fs = current->fs;
  
- #
- # x32-specific system call numbers start at 512 to avoid cache impact
-diff --git a/include/uapi/asm-generic/unistd.h b/include/uapi/asm-generic/unistd.h
-index a87904daf103..6a7ba1e69e42 100644
---- a/include/uapi/asm-generic/unistd.h
-+++ b/include/uapi/asm-generic/unistd.h
-@@ -845,8 +845,11 @@ __SYSCALL(__NR_fsmount, sys_fsmount)
- #define __NR_fspick 433
- __SYSCALL(__NR_fspick, sys_fspick)
- 
-+#define __NR_fchmodat4 434
-+__SYSCALL(__NR_fchmodat4, sys_fchmodat4)
++	/*
++	 * Jumping to the real root as part of LOOKUP_IN_ROOT is a BUG in namei,
++	 * but we still have to ensure it doesn't happen because it will cause a
++	 * breakout from the dirfd.
++	 */
++	if (WARN_ON(nd->flags & LOOKUP_IN_ROOT))
++		return -ENOTRECOVERABLE;
 +
- #undef __NR_syscalls
--#define __NR_syscalls 434
-+#define __NR_syscalls 435
+ 	if (nd->flags & LOOKUP_RCU) {
+ 		unsigned seq;
  
- /*
-  * 32 bit systems traditionally used different
+@@ -824,6 +832,7 @@ static void set_root(struct nameidata *nd)
+ 	} else {
+ 		get_fs_root(fs, &nd->root);
+ 	}
++	return 0;
+ }
+ 
+ static void path_put_conditional(struct path *path, struct nameidata *nd)
+@@ -854,6 +863,11 @@ static int nd_jump_root(struct nameidata *nd)
+ 		if (nd->path.mnt != NULL && nd->path.mnt != nd->root.mnt)
+ 			return -EXDEV;
+ 	}
++	if (!nd->root.mnt) {
++		int error = set_root(nd);
++		if (error)
++			return error;
++	}
+ 	if (nd->flags & LOOKUP_RCU) {
+ 		struct dentry *d;
+ 		nd->path = nd->root;
+@@ -1100,15 +1114,13 @@ const char *get_link(struct nameidata *nd)
+ 			if (unlikely(nd->flags & LOOKUP_NO_MAGICLINKS))
+ 				return ERR_PTR(-ELOOP);
+ 			/* Not currently safe. */
+-			if (unlikely(nd->flags & LOOKUP_BENEATH))
++			if (unlikely(nd->flags & (LOOKUP_BENEATH | LOOKUP_IN_ROOT)))
+ 				return ERR_PTR(-EXDEV);
+ 		}
+ 		if (IS_ERR_OR_NULL(res))
+ 			return res;
+ 	}
+ 	if (*res = '/') {
+-		if (!nd->root.mnt)
+-			set_root(nd);
+ 		error = nd_jump_root(nd);
+ 		if (unlikely(error))
+ 			return ERR_PTR(error);
+@@ -1744,15 +1756,20 @@ static inline int may_lookup(struct nameidata *nd)
+ static inline int handle_dots(struct nameidata *nd, int type)
+ {
+ 	if (type = LAST_DOTDOT) {
++		int error = 0;
++
+ 		/*
+ 		 * LOOKUP_BENEATH resolving ".." is not currently safe -- races can
+ 		 * cause our parent to have moved outside of the root and us to skip
+ 		 * over it.
+ 		 */
+-		if (unlikely(nd->flags & LOOKUP_BENEATH))
++		if (unlikely(nd->flags & (LOOKUP_BENEATH | LOOKUP_IN_ROOT)))
+ 			return -EXDEV;
+-		if (!nd->root.mnt)
+-			set_root(nd);
++		if (!nd->root.mnt) {
++			error = set_root(nd);
++			if (error)
++				return error;
++		}
+ 		if (nd->flags & LOOKUP_RCU) {
+ 			return follow_dotdot_rcu(nd);
+ 		} else
+@@ -2251,9 +2268,13 @@ static const char *path_init(struct nameidata *nd, unsigned flags)
+ 
+ 	nd->m_seq = read_seqbegin(&mount_lock);
+ 
++	/* LOOKUP_IN_ROOT treats absolute paths as being relative-to-dirfd. */
++	if (flags & LOOKUP_IN_ROOT)
++		while (*s = '/')
++			s++;
++
+ 	/* Figure out the starting path and root (if needed). */
+ 	if (*s = '/') {
+-		set_root(nd);
+ 		error = nd_jump_root(nd);
+ 		if (unlikely(error))
+ 			return ERR_PTR(error);
+@@ -2298,7 +2319,7 @@ static const char *path_init(struct nameidata *nd, unsigned flags)
+ 		fdput(f);
+ 	}
+ 	/* For scoped-lookups we need to set the root to the dirfd as well. */
+-	if (flags & LOOKUP_BENEATH) {
++	if (flags & (LOOKUP_BENEATH | LOOKUP_IN_ROOT)) {
+ 		nd->root = nd->path;
+ 		if (flags & LOOKUP_RCU)
+ 			nd->root_seq = nd->seq;
+diff --git a/include/linux/namei.h b/include/linux/namei.h
+index be407415c28a..ec2c6c588ea7 100644
+--- a/include/linux/namei.h
++++ b/include/linux/namei.h
+@@ -57,6 +57,7 @@ enum {LAST_NORM, LAST_ROOT, LAST_DOT, LAST_DOTDOT, LAST_BIND};
+ #define LOOKUP_NO_MAGICLINKS	0x080000 /* No /proc/$pid/fd/ "symlink" crossing. */
+ #define LOOKUP_NO_SYMLINKS	0x100000 /* No symlink crossing *at all*.
+ 					    Implies LOOKUP_NO_MAGICLINKS. */
++#define LOOKUP_IN_ROOT		0x200000 /* Treat dirfd as %current->fs->root. */
+ 
+ extern int path_pts(struct path *path);
+ 
 -- 
-2.21.0
+2.22.0
