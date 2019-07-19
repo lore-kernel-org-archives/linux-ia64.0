@@ -1,80 +1,66 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Thu, 18 Jul 2019 21:29:50 +0000
+From: "Dmitry V. Levin" <ldv@altlinux.org>
+Date: Fri, 19 Jul 2019 01:59:34 +0000
 Subject: Re: [PATCH v9 08/10] open: openat2(2) syscall
-Message-Id: <CAK8P3a3MiYK4bJiA3G_m5H-TpfN5__--b+=szsJBhG7_it+NQg@mail.gmail.com>
+Message-Id: <20190719015933.GA18022@altlinux.org>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="huq684BweRXVnRxX"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190706145737.5299-1-cyphar@cyphar.com> <20190706145737.5299-9-cyphar@cyphar.com>
- <CAK8P3a33rGhPDFfRBAQyLTMG_WoEgX_toDgWR2O7rSwxKsZG+w@mail.gmail.com> <20190718161231.xcno272nvqpln3wj@yavin>
-In-Reply-To: <20190718161231.xcno272nvqpln3wj@yavin>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+References: <20190706145737.5299-1-cyphar@cyphar.com>
+ <20190706145737.5299-9-cyphar@cyphar.com>
+In-Reply-To: <20190706145737.5299-9-cyphar@cyphar.com>
 To: Aleksa Sarai <cyphar@cyphar.com>
-Cc: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Christian Brauner <christian@brauner.io>, Eric Biederman <ebiederm@xmission.com>, Andy Lutomirski <luto@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Alexei Starovoitov <ast@kernel.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, David Drysdale <drysdale@google.com>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Aleksa Sarai <asarai@suse.de>, Linus Torvalds <torvalds@linux-foundation.org>, containers@lists.linux-foundation.org, alpha <linux-alp>
+Cc: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Christian Brauner <christian@brauner.io>, Eric Biederman <ebiederm@xmission.com>, Andy Lutomirski <luto@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Alexei Starovoitov <ast@kernel.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, David Drysdale <drysdale@google.com>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Aleksa Sarai <asarai@suse.de>, Linus Torvalds <torvalds@linux-foundation.org>, containers@lists.linux-f
 
-On Thu, Jul 18, 2019 at 6:12 PM Aleksa Sarai <cyphar@cyphar.com> wrote:
-> On 2019-07-18, Arnd Bergmann <arnd@arndb.de> wrote:
-> > On Sat, Jul 6, 2019 at 5:00 PM Aleksa Sarai <cyphar@cyphar.com> wrote:
-> >
-> > In fact, that seems similar enough to the existing openat() that I think
-> > you could also just add the fifth argument to the existing call when
-> > a newly defined flag is set, similarly to how we only use the 'mode'
-> > argument when O_CREAT or O_TMPFILE are set.
->
-> I considered doing this (and even had a preliminary version of it), but
-> I discovered that I was not in favour of this idea -- once I started to
-> write tests using it -- for a few reasons:
->
->   1. It doesn't really allow for clean extension for a future 6th
->          argument (because you are using up O_* flags to signify "use the
->          next argument", and O_* flags don't give -EINVAL if they're
->          unknown). Now, yes you can do the on-start runtime check that
->          everyone does -- but I've never really liked having to do it.
->
->          Having reserved padding for later extensions (that is actually
->          checked and gives -EINVAL) matches more modern syscall designs.
->
->   2. I really was hoping that the variadic openat(2) could be done away
->      using this union setup (Linus said he didn't like it, and suggested
->          using something like 'struct stat' as an argument for openat(2) --
->          though personally I am not sure I would personally like to use an
->          interface like that).
->
->   3. In order to avoid wasting a syscall argument for mode/mask you need
->          to either have something like your suggested mode_mask (which makes
->          the syscall arguments less consistent) or have some sort of
->          mode-like argument that is treated specially (which is really awful
->          on multiple levels -- this one I also tried and even wrote my
->          original tests using). And in both cases, the shims for
->          open{,at}(2) are somewhat less clean.
 
-These are all good reasons, thanks for providing the background.
+--huq684BweRXVnRxX
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> All of that being said, I'd be happy to switch to whatever you think
-> makes the most sense. As long as it's possible to get an O_PATH with
-> RESOLVE_IN_ROOT set, I'm happy.
+On Sun, Jul 07, 2019 at 12:57:35AM +1000, Aleksa Sarai wrote:
+[...]
+> +/**
+> + * Arguments for how openat2(2) should open the target path. If @extra i=
+s zero,
+> + * then openat2(2) is identical to openat(2).
+> + *
+> + * @flags: O_* flags (unknown flags ignored).
 
-I don't feel I should be in charge of making the decision. I'd still
-prefer avoiding the indirect argument structure because
+What was the rationale for implementing this semantics?
+Ignoring unknown flags makes potential extension of this new interface
+problematic.  This has bitten us many times already, so ...
 
-4. it's inconsistent with most other syscalls
+> + * @mode: O_CREAT file mode (ignored otherwise).
+> + * @upgrade_mask: restrict how the O_PATH may be re-opened (ignored othe=
+rwise).
+> + * @resolve: RESOLVE_* flags (-EINVAL on unknown flags).
 
-5. you get the same problem with seccomp and strace that
-   clone3() has -- these and others only track the register
-   arguments by default.
+=2E.. could you consider implementing this (-EINVAL on unknown flags) seman=
+tics
+for @flags as well, please?
 
-6. copying the structure adds a small overhead compared to
-   passing registers
 
-7. the calling conventions may be inconvenient for  a user space
-   library, so you end up with different prototypes for the low-level
-   syscall and the libc abstraction.
+--=20
+ldv
 
-I don't see any of the above seven points as a showstopper
-either way, so I hope someone else has a strong opinion
-and can make the decision easier for you.
+--huq684BweRXVnRxX
+Content-Type: application/pgp-signature; name="signature.asc"
 
-In the meantime just keep what you have, so you don't have
-to change it multiple times.
+-----BEGIN PGP SIGNATURE-----
 
-       Arnd
+iQIcBAEBCAAGBQJdMSQFAAoJEAVFT+BVnCUIuaAP/3pgUoQA466F6S8jYN6F/icf
+oiQHExdeO3ruxRdNl1gi7af0RxQCiprfNIoD7KQyWSnyUyUm0Cdd7PzpEKXuumQi
+pN6ZTEO2bQeSs7AjCNpLrTgKcuOo/pZbNN7InAHKLB7k2xKKeBbdaVypgGiAEDjT
+JK+4s+8JcJoSg+d69G428QP2qpoHyIZJ5437gYv5rJbL9BRihwwvWF2OQ4TXrd6I
+YnyxPFRRZnfiN3HNbNlJjtMgt5g0AisLuahpJaDMq0NaXnBOosDm9jBAhVOX0CSB
+LUNByCygXeBKv9VuyrO4KnLXS3ORGfK38SDGqz3kFYy1quNRAGKgOXPnGXfb2xbZ
+bRCqyuxkSUOIfLKA6q9jnqO9RoUeOtLglFUT/5JpixTaoxSFN3Y6GlJFcnw+cVm+
+oWH4A/IoST68FCfbOMff976O36pakuWbsVGVsdv384OEHfWaf7c10P9EQc3fhgF3
+JoeY5ht9R1k8HWNOlCuCeHfTwSyLG3T/TROuZYtz65RdPemuuPSPERr+GzOtO9Fn
++wQmK99JlE3nhoyv5CmtqCmMQWhYZedqjbjs5wIq7tjalerg6TakNMmhzTGz5l8T
+i+3EfyMHhEtwq+2YNhdaPEmjfdBzyI3stxtEkURya0BnCgbYsP2mTIP8UbLGDqsY
+EJZiRtPRFfVoePwqT8Ux
+=zLLc
+-----END PGP SIGNATURE-----
+
+--huq684BweRXVnRxX--
