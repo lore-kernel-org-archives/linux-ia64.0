@@ -1,10 +1,10 @@
 From: Aleksa Sarai <cyphar@cyphar.com>
-Date: Sat, 06 Jul 2019 14:57:29 +0000
-Subject: [PATCH v9 02/10] procfs: switch magic-link modes to be more sane
-Message-Id: <20190706145737.5299-3-cyphar@cyphar.com>
+Date: Fri, 19 Jul 2019 16:42:18 +0000
+Subject: [PATCH v10 2/9] procfs: switch magic-link modes to be more sane
+Message-Id: <20190719164225.27083-3-cyphar@cyphar.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190706145737.5299-1-cyphar@cyphar.com>
-In-Reply-To: <20190706145737.5299-1-cyphar@cyphar.com>
+References: <20190719164225.27083-1-cyphar@cyphar.com>
+In-Reply-To: <20190719164225.27083-1-cyphar@cyphar.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
