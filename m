@@ -1,7 +1,7 @@
 From: "Enrico Weigelt, metux IT consult" <lkml@metux.net>
-Date: Mon, 22 Jul 2019 06:56:14 +0000
+Date: Mon, 22 Jul 2019 06:56:28 +0000
 Subject: Re: [PATCH] ia64: perfmon: Fix a typo
-Message-Id: <a08f8eff-5043-dcf5-b4e1-22c0512bd8d3@metux.net>
+Message-Id: <6bc78765-fc54-8af9-18ad-7ed268a27439@metux.net>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20190721165144.3152-1-christophe.jaillet@wanadoo.fr>
 In-Reply-To: <20190721165144.3152-1-christophe.jaillet@wanadoo.fr>
@@ -37,8 +37,8 @@ On 21.07.19 18:51, Christophe JAILLET wrote:
 >   #define PFM_CMD(name, flags, arg_count, arg_type, getsz) { name, #name, flags, arg_count, sizeof(arg_type), getsz }
 >   #define PFM_CMD_S(name, flags) { name, #name, flags, 0, 0, NULL }
 > 
-
 Reviewed-By: Enrico Weigelt <info@metux.net>
+
 -- 
 Enrico Weigelt, metux IT consult
 Free software and Linux embedded engineering
