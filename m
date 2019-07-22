@@ -1,7 +1,7 @@
 From: "Enrico Weigelt, metux IT consult" <lkml@metux.net>
-Date: Mon, 22 Jul 2019 06:58:05 +0000
+Date: Mon, 22 Jul 2019 06:58:24 +0000
 Subject: Re: [PATCH] ia64: tioca: fix spelling mistake in macros CA_APERATURE_{BASE|SIZE}
-Message-Id: <c62e488f-38b9-304d-f9d6-5502c25b84b7@metux.net>
+Message-Id: <0c45cb73-f869-a1ae-e2b9-f2297a6db8e1@metux.net>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20190721205921.9960-1-colin.king@canonical.com>
 In-Reply-To: <20190721205921.9960-1-colin.king@canonical.com>
@@ -90,8 +90,8 @@ On 21.07.19 22:59, Colin King wrote:
 >   	tioca_kern->ca_gfxap_size = CA_AGP_MAPPED_SIZE;
 >   	tioca_kern->ca_gfxgart_start = offset / tioca_kern->ca_ap_pagesize;
 > 
-Reviewed-By: Enrico Weigelt <info@metux.net>
 
+Reviewed-By: Enrico Weigelt <info@metux.net>
 -- 
 Enrico Weigelt, metux IT consult
 Free software and Linux embedded engineering
