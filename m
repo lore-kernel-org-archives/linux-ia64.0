@@ -1,275 +1,328 @@
-From: Christian Brauner <christian@brauner.io>
-Date: Wed, 24 Jul 2019 14:46:49 +0000
-Subject: [PATCH 3/5] arch: wire-up pidfd_wait()
-Message-Id: <20190724144651.28272-4-christian@brauner.io>
+From: Aleksa Sarai <cyphar@cyphar.com>
+Date: Sun, 28 Jul 2019 01:02:03 +0000
+Subject: [PATCH v11 4/8] namei: O_BENEATH-style path resolution flags
+Message-Id: <20190728010207.9781-5-cyphar@cyphar.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190724144651.28272-1-christian@brauner.io>
-In-Reply-To: <20190724144651.28272-1-christian@brauner.io>
+References: <20190728010207.9781-1-cyphar@cyphar.com>
+In-Reply-To: <20190728010207.9781-1-cyphar@cyphar.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, oleg@redhat.com
-Cc: arnd@arndb.de, ebiederm@xmission.com, keescook@chromium.org, joel@joelfernandes.org, tglx@linutronix.de, tj@kernel.org, dhowells@redhat.com, jannh@google.com, luto@kernel.org, akpm@linux-foundation.org, cyphar@cyphar.com, torvalds@linux-foundation.org, viro@zeniv.linux.org.uk, kernel-team@android.com, Christian Brauner <christian@brauner.io>, linux-api@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org, x86@kernel.org
+To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>
+Cc: Aleksa Sarai <cyphar@cyphar.com>, Christian Brauner <christian@brauner.io>, David Drysdale <drysdale@google.com>, Andy Lutomirski <luto@kernel.org>, Linus Torvalds <torvalds@linux-foundation.org>, Eric Biederman <ebiederm@xmission.com>, Andrew Morton <akpm@linux-foundation.org>, Alexei Starovoitov <ast@kernel.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Aleksa Sarai <asarai@suse.de>, containers@lists.linux-foundation.org, linux-alpha@vger.kernel.org, linux-api@vger.kernel.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.orglinux-
 
-This wires up the pidfd_wait() syscall into all arches at once.
+Add the following flags to allow various restrictions on path resolution
+(these affect the *entire* resolution, rather than just the final path
+component -- as is the case with LOOKUP_FOLLOW).
 
-Signed-off-by: Christian Brauner <christian@brauner.io>
-Cc: Arnd Bergmann <arnd@arndb.de>
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>
-Cc: Kees Cook <keescook@chromium.org>
-Cc: Joel Fernandes (Google) <joel@joelfernandes.org>
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: Jann Horn <jannh@google.com>
-Cc: David Howells <dhowells@redhat.com>
-Cc: Andy Lutomirsky <luto@kernel.org>
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: Oleg Nesterov <oleg@redhat.com>
-Cc: Aleksa Sarai <cyphar@cyphar.com>
-Cc: Linus Torvalds <torvalds@linux-foundation.org>
-Cc: Al Viro <viro@zeniv.linux.org.uk>
-Cc: linux-api@vger.kernel.org
-Cc: linux-alpha@vger.kernel.org
-Cc: linux-arm-kernel@lists.infradead.org
-Cc: linux-ia64@vger.kernel.org
-Cc: linux-m68k@lists.linux-m68k.org
-Cc: linux-mips@vger.kernel.org
-Cc: linux-parisc@vger.kernel.org
-Cc: linuxppc-dev@lists.ozlabs.org
-Cc: linux-s390@vger.kernel.org
-Cc: linux-sh@vger.kernel.org
-Cc: sparclinux@vger.kernel.org
-Cc: linux-xtensa@linux-xtensa.org
-Cc: linux-arch@vger.kernel.org
-Cc: x86@kernel.org
+The primary justification for these flags is to allow for programs to be
+far more strict about how they want path resolution to handle symlinks,
+mountpoint crossings, and paths that escape the dirfd (through an
+absolute path or ".." shenanigans).
+
+This is of particular concern to container runtimes that want to be very
+careful about malicious root filesystems that a container's init might
+have screwed around with (and there is no real way to protect against
+this in userspace if you consider potential races against a malicious
+container's init). More classical applications (which have their own
+potentially buggy userspace path sanitisation code) include web servers,
+archive extraction tools, network file servers, and so on.
+
+These flags are exposed to userspace through openat2(2) in a later
+patchset.
+
+* LOOKUP_NO_XDEV: Disallow mount-point crossing (both *down* into one,
+  or *up* from one). Both bind-mounts and cross-filesystem mounts are
+  blocked by this flag. The naming is based on "find -xdev" as well as
+  -EXDEV (though find(1) doesn't walk upwards, the semantics seem
+  obvious).
+
+* LOOKUP_NO_MAGICLINKS: Disallows ->get_link "symlink" (or rather,
+  magic-link) jumping. This is a very specific restriction, and it
+  exists because /proc/$pid/fd/... "symlinks" allow for access outside
+  nd->root and pose risk to container runtimes that don't want to be
+  tricked into accessing a host path (but do want to allow
+  no-funny-business symlink resolution).
+
+* LOOKUP_NO_SYMLINKS: Disallows resolution through symlinks of any kind
+  (including magic-links).
+
+* LOOKUP_BENEATH: Disallow "escapes" from the starting point of the
+  filesystem tree during resolution (you must stay "beneath" the
+  starting point at all times). Currently this is done by disallowing
+  ".." and absolute paths (either in the given path or found during
+  symlink resolution) entirely, as well as all magic-link jumping.
+
+  The wholesale banning of ".." is because it is currently not safe to
+  allow ".." resolution (races can cause the path to be moved outside of
+  the root -- this is conceptually similar to historical chroot(2)
+  escape attacks). Future patches in this series will address this, and
+  will re-enable ".." resolution once it is safe. With those patches,
+  ".." resolution will only be allowed if it remains in the root
+  throughout resolution (such as "a/../b" not "a/../../outside/b").
+
+  The banning of magic-link jumping is done because it is not clear
+  whether semantically they should be allowed -- while some magic-links
+  are safe there are many that can cause escapes (and once a
+  resolution is outside of the root, O_BENEATH will no longer detect
+  it). Future patches may re-enable magic-link jumping when such jumps
+  would remain inside the root.
+
+The LOOKUP_NO_*LINK flags return -ELOOP if path resolution would
+violates their requirement, while the others all return -EXDEV.
+
+This is a refresh of Al's AT_NO_JUMPS patchset[1] (which was a variation
+on David Drysdale's O_BENEATH patchset[2], which in turn was based on
+the Capsicum project[3]). Input from Linus and Andy in the AT_NO_JUMPS
+thread[4] determined most of the API changes made in this refresh.
+
+[1]: https://lwn.net/Articles/721443/
+[2]: https://lwn.net/Articles/619151/
+[3]: https://lwn.net/Articles/603929/
+[4]: https://lwn.net/Articles/723057/
+
+Cc: Christian Brauner <christian@brauner.io>
+Suggested-by: David Drysdale <drysdale@google.com>
+Suggested-by: Al Viro <viro@zeniv.linux.org.uk>
+Suggested-by: Andy Lutomirski <luto@kernel.org>
+Suggested-by: Linus Torvalds <torvalds@linux-foundation.org>
+Signed-off-by: Aleksa Sarai <cyphar@cyphar.com>
 ---
- arch/alpha/kernel/syscalls/syscall.tbl      | 1 +
- arch/arm/tools/syscall.tbl                  | 1 +
- arch/arm64/include/asm/unistd.h             | 2 +-
- arch/arm64/include/asm/unistd32.h           | 4 +++-
- arch/ia64/kernel/syscalls/syscall.tbl       | 1 +
- arch/m68k/kernel/syscalls/syscall.tbl       | 1 +
- arch/microblaze/kernel/syscalls/syscall.tbl | 1 +
- arch/mips/kernel/syscalls/syscall_n32.tbl   | 1 +
- arch/mips/kernel/syscalls/syscall_n64.tbl   | 1 +
- arch/mips/kernel/syscalls/syscall_o32.tbl   | 1 +
- arch/parisc/kernel/syscalls/syscall.tbl     | 1 +
- arch/powerpc/kernel/syscalls/syscall.tbl    | 1 +
- arch/s390/kernel/syscalls/syscall.tbl       | 1 +
- arch/sh/kernel/syscalls/syscall.tbl         | 1 +
- arch/sparc/kernel/syscalls/syscall.tbl      | 1 +
- arch/x86/entry/syscalls/syscall_32.tbl      | 1 +
- arch/x86/entry/syscalls/syscall_64.tbl      | 1 +
- arch/xtensa/kernel/syscalls/syscall.tbl     | 1 +
- include/linux/syscalls.h                    | 4 ++++
- include/uapi/asm-generic/unistd.h           | 4 +++-
- 20 files changed, 27 insertions(+), 3 deletions(-)
+ fs/namei.c            | 85 ++++++++++++++++++++++++++++++++++++-------
+ include/linux/namei.h |  7 ++++
+ 2 files changed, 78 insertions(+), 14 deletions(-)
 
-diff --git a/arch/alpha/kernel/syscalls/syscall.tbl b/arch/alpha/kernel/syscalls/syscall.tbl
-index 728fe028c02c..ca3e593f0c7a 100644
---- a/arch/alpha/kernel/syscalls/syscall.tbl
-+++ b/arch/alpha/kernel/syscalls/syscall.tbl
-@@ -475,3 +475,4 @@
- 543	common	fspick				sys_fspick
- 544	common	pidfd_open			sys_pidfd_open
- # 545 reserved for clone3
-+548	common	pidfd_wait			sys_pidfd_wait
-diff --git a/arch/arm/tools/syscall.tbl b/arch/arm/tools/syscall.tbl
-index 6da7dc4d79cc..5e448d915b2f 100644
---- a/arch/arm/tools/syscall.tbl
-+++ b/arch/arm/tools/syscall.tbl
-@@ -449,3 +449,4 @@
- 433	common	fspick				sys_fspick
- 434	common	pidfd_open			sys_pidfd_open
- 435	common	clone3				sys_clone3
-+438	common	pidfd_wait			sys_pidfd_wait
-diff --git a/arch/arm64/include/asm/unistd.h b/arch/arm64/include/asm/unistd.h
-index 2629a68b8724..b722e47377a5 100644
---- a/arch/arm64/include/asm/unistd.h
-+++ b/arch/arm64/include/asm/unistd.h
-@@ -38,7 +38,7 @@
- #define __ARM_NR_compat_set_tls		(__ARM_NR_COMPAT_BASE + 5)
- #define __ARM_NR_COMPAT_END		(__ARM_NR_COMPAT_BASE + 0x800)
+diff --git a/fs/namei.c b/fs/namei.c
+index e39b573fcc4d..2e18ce5a313e 100644
+--- a/fs/namei.c
++++ b/fs/namei.c
+@@ -674,7 +674,11 @@ static int unlazy_walk(struct nameidata *nd)
+ 		goto out2;
+ 	if (unlikely(!legitimize_path(nd, &nd->path, nd->seq)))
+ 		goto out1;
+-	if (nd->root.mnt && !(nd->flags & LOOKUP_ROOT)) {
++	if (!nd->root.mnt) {
++		/* Restart from path_init() if nd->root was cleared. */
++		if (nd->flags & LOOKUP_BENEATH)
++			goto out;
++	} else if (!(nd->flags & LOOKUP_ROOT)) {
+ 		if (unlikely(!legitimize_path(nd, &nd->root, nd->root_seq)))
+ 			goto out;
+ 	}
+@@ -843,6 +847,13 @@ static inline void path_to_nameidata(const struct path *path,
  
--#define __NR_compat_syscalls		436
-+#define __NR_compat_syscalls		439
- #endif
+ static int nd_jump_root(struct nameidata *nd)
+ {
++	if (unlikely(nd->flags & LOOKUP_BENEATH))
++		return -EXDEV;
++	if (unlikely(nd->flags & LOOKUP_NO_XDEV)) {
++		/* Absolute path arguments to path_init() are allowed. */
++		if (nd->path.mnt != NULL && nd->path.mnt != nd->root.mnt)
++			return -EXDEV;
++	}
+ 	if (nd->flags & LOOKUP_RCU) {
+ 		struct dentry *d;
+ 		nd->path = nd->root;
+@@ -1051,6 +1062,9 @@ const char *get_link(struct nameidata *nd)
+ 	int error;
+ 	const char *res;
  
- #define __ARCH_WANT_SYS_CLONE
-diff --git a/arch/arm64/include/asm/unistd32.h b/arch/arm64/include/asm/unistd32.h
-index 94ab29cf4f00..ca77c9d4f7a1 100644
---- a/arch/arm64/include/asm/unistd32.h
-+++ b/arch/arm64/include/asm/unistd32.h
-@@ -877,7 +877,9 @@ __SYSCALL(__NR_fsmount, sys_fsmount)
- __SYSCALL(__NR_fspick, sys_fspick)
- #define __NR_pidfd_open 434
- __SYSCALL(__NR_pidfd_open, sys_pidfd_open)
--#define __NR_clone3 435
-+#define __NR_pidfd_wait 438
-+__SYSCALL(__NR_pidfd_wait, sys_pidfd_wait)
-+#define __NR_clone3 439
- __SYSCALL(__NR_clone3, sys_clone3)
++	if (unlikely(nd->flags & LOOKUP_NO_SYMLINKS))
++		return ERR_PTR(-ELOOP);
++
+ 	if (!(nd->flags & LOOKUP_RCU)) {
+ 		touch_atime(&last->link);
+ 		cond_resched();
+@@ -1082,14 +1096,22 @@ const char *get_link(struct nameidata *nd)
+ 		} else {
+ 			res = get(dentry, inode, &last->done);
+ 		}
++		if (nd->flags & LOOKUP_MAGICLINK_JUMPED) {
++			if (unlikely(nd->flags & LOOKUP_NO_MAGICLINKS))
++				return ERR_PTR(-ELOOP);
++			/* Not currently safe. */
++			if (unlikely(nd->flags & LOOKUP_BENEATH))
++				return ERR_PTR(-EXDEV);
++		}
+ 		if (IS_ERR_OR_NULL(res))
+ 			return res;
+ 	}
+ 	if (*res = '/') {
+ 		if (!nd->root.mnt)
+ 			set_root(nd);
+-		if (unlikely(nd_jump_root(nd)))
+-			return ERR_PTR(-ECHILD);
++		error = nd_jump_root(nd);
++		if (unlikely(error))
++			return ERR_PTR(error);
+ 		while (unlikely(*++res = '/'))
+ 			;
+ 	}
+@@ -1270,12 +1292,16 @@ static int follow_managed(struct path *path, struct nameidata *nd)
+ 		break;
+ 	}
  
- /*
-diff --git a/arch/ia64/kernel/syscalls/syscall.tbl b/arch/ia64/kernel/syscalls/syscall.tbl
-index 36d5faf4c86c..f038afaced9b 100644
---- a/arch/ia64/kernel/syscalls/syscall.tbl
-+++ b/arch/ia64/kernel/syscalls/syscall.tbl
-@@ -356,3 +356,4 @@
- 433	common	fspick				sys_fspick
- 434	common	pidfd_open			sys_pidfd_open
- # 435 reserved for clone3
-+438	common	pidfd_wait			sys_pidfd_wait
-diff --git a/arch/m68k/kernel/syscalls/syscall.tbl b/arch/m68k/kernel/syscalls/syscall.tbl
-index a88a285a0e5f..51f86f7b4cec 100644
---- a/arch/m68k/kernel/syscalls/syscall.tbl
-+++ b/arch/m68k/kernel/syscalls/syscall.tbl
-@@ -435,3 +435,4 @@
- 433	common	fspick				sys_fspick
- 434	common	pidfd_open			sys_pidfd_open
- # 435 reserved for clone3
-+438	common	pidfd_wait			sys_pidfd_wait
-diff --git a/arch/microblaze/kernel/syscalls/syscall.tbl b/arch/microblaze/kernel/syscalls/syscall.tbl
-index 09b0cd7dab0a..24f912ac5dfa 100644
---- a/arch/microblaze/kernel/syscalls/syscall.tbl
-+++ b/arch/microblaze/kernel/syscalls/syscall.tbl
-@@ -441,3 +441,4 @@
- 433	common	fspick				sys_fspick
- 434	common	pidfd_open			sys_pidfd_open
- 435	common	clone3				sys_clone3
-+438	common	pidfd_wait			sys_pidfd_wait
-diff --git a/arch/mips/kernel/syscalls/syscall_n32.tbl b/arch/mips/kernel/syscalls/syscall_n32.tbl
-index c9c879ec9b6d..edc144c4040c 100644
---- a/arch/mips/kernel/syscalls/syscall_n32.tbl
-+++ b/arch/mips/kernel/syscalls/syscall_n32.tbl
-@@ -374,3 +374,4 @@
- 433	n32	fspick				sys_fspick
- 434	n32	pidfd_open			sys_pidfd_open
- # 435 reserved for clone3
-+438	n32	pidfd_wait			sys_pidfd_wait
-diff --git a/arch/mips/kernel/syscalls/syscall_n64.tbl b/arch/mips/kernel/syscalls/syscall_n64.tbl
-index bbce9159caa1..da4486ea0f4f 100644
---- a/arch/mips/kernel/syscalls/syscall_n64.tbl
-+++ b/arch/mips/kernel/syscalls/syscall_n64.tbl
-@@ -350,3 +350,4 @@
- 433	n64	fspick				sys_fspick
- 434	n64	pidfd_open			sys_pidfd_open
- # 435 reserved for clone3
-+438	n64	pidfd_wait			sys_pidfd_wait
-diff --git a/arch/mips/kernel/syscalls/syscall_o32.tbl b/arch/mips/kernel/syscalls/syscall_o32.tbl
-index 9653591428ec..d738688e50d8 100644
---- a/arch/mips/kernel/syscalls/syscall_o32.tbl
-+++ b/arch/mips/kernel/syscalls/syscall_o32.tbl
-@@ -423,3 +423,4 @@
- 433	o32	fspick				sys_fspick
- 434	o32	pidfd_open			sys_pidfd_open
- # 435 reserved for clone3
-+438	o32	pidfd_wait			sys_pidfd_wait
-diff --git a/arch/parisc/kernel/syscalls/syscall.tbl b/arch/parisc/kernel/syscalls/syscall.tbl
-index 670d1371aca1..d60f44d8145c 100644
---- a/arch/parisc/kernel/syscalls/syscall.tbl
-+++ b/arch/parisc/kernel/syscalls/syscall.tbl
-@@ -432,3 +432,4 @@
- 433	common	fspick				sys_fspick
- 434	common	pidfd_open			sys_pidfd_open
- 435	common	clone3				sys_clone3_wrapper
-+438	common	pidfd_wait			sys_pidfd_wait
-diff --git a/arch/powerpc/kernel/syscalls/syscall.tbl b/arch/powerpc/kernel/syscalls/syscall.tbl
-index 3331749aab20..3309bf5f5370 100644
---- a/arch/powerpc/kernel/syscalls/syscall.tbl
-+++ b/arch/powerpc/kernel/syscalls/syscall.tbl
-@@ -517,3 +517,4 @@
- 433	common	fspick				sys_fspick
- 434	common	pidfd_open			sys_pidfd_open
- # 435 reserved for clone3
-+438	common	pidfd_wait			sys_pidfd_wait
-diff --git a/arch/s390/kernel/syscalls/syscall.tbl b/arch/s390/kernel/syscalls/syscall.tbl
-index a90d3e945445..ef8ba9a9c3bb 100644
---- a/arch/s390/kernel/syscalls/syscall.tbl
-+++ b/arch/s390/kernel/syscalls/syscall.tbl
-@@ -438,3 +438,4 @@
- 433  common	fspick			sys_fspick			sys_fspick
- 434  common	pidfd_open		sys_pidfd_open			sys_pidfd_open
- # 435 reserved for clone3
-+438  common	pidfd_wait		sys_pidfd_wait			sys_pidfd_wait
-diff --git a/arch/sh/kernel/syscalls/syscall.tbl b/arch/sh/kernel/syscalls/syscall.tbl
-index b5ed26c4c005..9e786a198bfd 100644
---- a/arch/sh/kernel/syscalls/syscall.tbl
-+++ b/arch/sh/kernel/syscalls/syscall.tbl
-@@ -438,3 +438,4 @@
- 433	common	fspick				sys_fspick
- 434	common	pidfd_open			sys_pidfd_open
- # 435 reserved for clone3
-+438	common	pidfd_wait			sys_pidfd_wait
-diff --git a/arch/sparc/kernel/syscalls/syscall.tbl b/arch/sparc/kernel/syscalls/syscall.tbl
-index 8c8cc7537fb2..ef4f13907894 100644
---- a/arch/sparc/kernel/syscalls/syscall.tbl
-+++ b/arch/sparc/kernel/syscalls/syscall.tbl
-@@ -481,3 +481,4 @@
- 433	common	fspick				sys_fspick
- 434	common	pidfd_open			sys_pidfd_open
- # 435 reserved for clone3
-+438	common	pidfd_wait			sys_pidfd_wait
-diff --git a/arch/x86/entry/syscalls/syscall_32.tbl b/arch/x86/entry/syscalls/syscall_32.tbl
-index c00019abd076..76ec8c905745 100644
---- a/arch/x86/entry/syscalls/syscall_32.tbl
-+++ b/arch/x86/entry/syscalls/syscall_32.tbl
-@@ -440,3 +440,4 @@
- 433	i386	fspick			sys_fspick			__ia32_sys_fspick
- 434	i386	pidfd_open		sys_pidfd_open			__ia32_sys_pidfd_open
- 435	i386	clone3			sys_clone3			__ia32_sys_clone3
-+438	i386	pidfd_wait		sys_pidfd_wait			__ia32_sys_pidfd_wait
-diff --git a/arch/x86/entry/syscalls/syscall_64.tbl b/arch/x86/entry/syscalls/syscall_64.tbl
-index c29976eca4a8..733c206130f8 100644
---- a/arch/x86/entry/syscalls/syscall_64.tbl
-+++ b/arch/x86/entry/syscalls/syscall_64.tbl
-@@ -357,6 +357,7 @@
- 433	common	fspick			__x64_sys_fspick
- 434	common	pidfd_open		__x64_sys_pidfd_open
- 435	common	clone3			__x64_sys_clone3/ptregs
-+438	common	pidfd_wait		__x64_sys_pidfd_wait
+-	if (need_mntput && path->mnt = mnt)
+-		mntput(path->mnt);
++	if (need_mntput) {
++		if (path->mnt = mnt)
++			mntput(path->mnt);
++		if (unlikely(nd->flags & LOOKUP_NO_XDEV))
++			ret = -EXDEV;
++		else
++			nd->flags |= LOOKUP_JUMPED;
++	}
+ 	if (ret = -EISDIR || !ret)
+ 		ret = 1;
+-	if (need_mntput)
+-		nd->flags |= LOOKUP_JUMPED;
+ 	if (unlikely(ret < 0))
+ 		path_put_conditional(path, nd);
+ 	return ret;
+@@ -1332,6 +1358,8 @@ static bool __follow_mount_rcu(struct nameidata *nd, struct path *path,
+ 		mounted = __lookup_mnt(path->mnt, path->dentry);
+ 		if (!mounted)
+ 			break;
++		if (unlikely(nd->flags & LOOKUP_NO_XDEV))
++			return false;
+ 		path->mnt = &mounted->mnt;
+ 		path->dentry = mounted->mnt.mnt_root;
+ 		nd->flags |= LOOKUP_JUMPED;
+@@ -1352,8 +1380,11 @@ static int follow_dotdot_rcu(struct nameidata *nd)
+ 	struct inode *inode = nd->inode;
  
- #
- # x32-specific system call numbers start at 512 to avoid cache impact
-diff --git a/arch/xtensa/kernel/syscalls/syscall.tbl b/arch/xtensa/kernel/syscalls/syscall.tbl
-index 25f4de729a6d..417203971292 100644
---- a/arch/xtensa/kernel/syscalls/syscall.tbl
-+++ b/arch/xtensa/kernel/syscalls/syscall.tbl
-@@ -406,3 +406,4 @@
- 433	common	fspick				sys_fspick
- 434	common	pidfd_open			sys_pidfd_open
- 435	common	clone3				sys_clone3
-+438	common	pidfd_wait			sys_pidfd_wait
-diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
-index 88145da7d140..760e8eacb93c 100644
---- a/include/linux/syscalls.h
-+++ b/include/linux/syscalls.h
-@@ -932,6 +932,10 @@ asmlinkage long sys_clock_adjtime32(clockid_t which_clock,
- asmlinkage long sys_syncfs(int fd);
- asmlinkage long sys_setns(int fd, int nstype);
- asmlinkage long sys_pidfd_open(pid_t pid, unsigned int flags);
-+asmlinkage long sys_pidfd_wait(int pidfd, int __user *stat_addr,
-+			       struct siginfo __user *info,
-+			       struct rusage __user *ru, unsigned int states,
-+			       unsigned int flags);
- asmlinkage long sys_sendmmsg(int fd, struct mmsghdr __user *msg,
- 			     unsigned int vlen, unsigned flags);
- asmlinkage long sys_process_vm_readv(pid_t pid,
-diff --git a/include/uapi/asm-generic/unistd.h b/include/uapi/asm-generic/unistd.h
-index 1be0e798e362..0dd5b9d4dba0 100644
---- a/include/uapi/asm-generic/unistd.h
-+++ b/include/uapi/asm-generic/unistd.h
-@@ -850,9 +850,11 @@ __SYSCALL(__NR_pidfd_open, sys_pidfd_open)
- #define __NR_clone3 435
- __SYSCALL(__NR_clone3, sys_clone3)
- #endif
-+#define __NR_pidfd_wait 438
-+__SYSCALL(__NR_pidfd_wait, sys_pidfd_wait)
+ 	while (1) {
+-		if (path_equal(&nd->path, &nd->root))
++		if (path_equal(&nd->path, &nd->root)) {
++			if (unlikely(nd->flags & LOOKUP_BENEATH))
++				return -EXDEV;
+ 			break;
++		}
+ 		if (nd->path.dentry != nd->path.mnt->mnt_root) {
+ 			struct dentry *old = nd->path.dentry;
+ 			struct dentry *parent = old->d_parent;
+@@ -1378,6 +1409,8 @@ static int follow_dotdot_rcu(struct nameidata *nd)
+ 				return -ECHILD;
+ 			if (&mparent->mnt = nd->path.mnt)
+ 				break;
++			if (unlikely(nd->flags & LOOKUP_NO_XDEV))
++				return -EXDEV;
+ 			/* we know that mountpoint was pinned */
+ 			nd->path.dentry = mountpoint;
+ 			nd->path.mnt = &mparent->mnt;
+@@ -1392,6 +1425,8 @@ static int follow_dotdot_rcu(struct nameidata *nd)
+ 			return -ECHILD;
+ 		if (!mounted)
+ 			break;
++		if (unlikely(nd->flags & LOOKUP_NO_XDEV))
++			return -EXDEV;
+ 		nd->path.mnt = &mounted->mnt;
+ 		nd->path.dentry = mounted->mnt.mnt_root;
+ 		inode = nd->path.dentry->d_inode;
+@@ -1480,8 +1515,11 @@ static int path_parent_directory(struct path *path)
+ static int follow_dotdot(struct nameidata *nd)
+ {
+ 	while(1) {
+-		if (path_equal(&nd->path, &nd->root))
++		if (path_equal(&nd->path, &nd->root)) {
++			if (unlikely(nd->flags & LOOKUP_BENEATH))
++				return -EXDEV;
+ 			break;
++		}
+ 		if (nd->path.dentry != nd->path.mnt->mnt_root) {
+ 			int ret = path_parent_directory(&nd->path);
+ 			if (ret)
+@@ -1490,6 +1528,8 @@ static int follow_dotdot(struct nameidata *nd)
+ 		}
+ 		if (!follow_up(&nd->path))
+ 			break;
++		if (unlikely(nd->flags & LOOKUP_NO_XDEV))
++			return -EXDEV;
+ 	}
+ 	follow_mount(&nd->path);
+ 	nd->inode = nd->path.dentry->d_inode;
+@@ -1704,6 +1744,13 @@ static inline int may_lookup(struct nameidata *nd)
+ static inline int handle_dots(struct nameidata *nd, int type)
+ {
+ 	if (type = LAST_DOTDOT) {
++		/*
++		 * LOOKUP_BENEATH resolving ".." is not currently safe -- races
++		 * can cause our parent to have moved outside of the root and
++		 * us to skip over it.
++		 */
++		if (unlikely(nd->flags & LOOKUP_BENEATH))
++			return -EXDEV;
+ 		if (!nd->root.mnt)
+ 			set_root(nd);
+ 		if (nd->flags & LOOKUP_RCU) {
+@@ -2170,6 +2217,7 @@ static int link_path_walk(const char *name, struct nameidata *nd)
+ /* must be paired with terminate_walk() */
+ static const char *path_init(struct nameidata *nd, unsigned flags)
+ {
++	int error;
+ 	const char *s = nd->name->name;
  
- #undef __NR_syscalls
--#define __NR_syscalls 436
-+#define __NR_syscalls 439
+ 	if (!*s)
+@@ -2202,11 +2250,13 @@ static const char *path_init(struct nameidata *nd, unsigned flags)
+ 	nd->path.dentry = NULL;
  
- /*
-  * 32 bit systems traditionally used different
+ 	nd->m_seq = read_seqbegin(&mount_lock);
++
++	/* Figure out the starting path and root (if needed). */
+ 	if (*s = '/') {
+ 		set_root(nd);
+-		if (likely(!nd_jump_root(nd)))
+-			return s;
+-		return ERR_PTR(-ECHILD);
++		error = nd_jump_root(nd);
++		if (unlikely(error))
++			return ERR_PTR(error);
+ 	} else if (nd->dfd = AT_FDCWD) {
+ 		if (flags & LOOKUP_RCU) {
+ 			struct fs_struct *fs = current->fs;
+@@ -2222,7 +2272,6 @@ static const char *path_init(struct nameidata *nd, unsigned flags)
+ 			get_fs_pwd(current->fs, &nd->path);
+ 			nd->inode = nd->path.dentry->d_inode;
+ 		}
+-		return s;
+ 	} else {
+ 		/* Caller must check execute permissions on the starting path component */
+ 		struct fd f = fdget_raw(nd->dfd);
+@@ -2247,8 +2296,16 @@ static const char *path_init(struct nameidata *nd, unsigned flags)
+ 			nd->inode = nd->path.dentry->d_inode;
+ 		}
+ 		fdput(f);
+-		return s;
+ 	}
++	/* For scoped-lookups we need to set the root to the dirfd as well. */
++	if (flags & LOOKUP_BENEATH) {
++		nd->root = nd->path;
++		if (flags & LOOKUP_RCU)
++			nd->root_seq = nd->seq;
++		else
++			path_get(&nd->root);
++	}
++	return s;
+ }
+ 
+ static const char *trailing_symlink(struct nameidata *nd)
+diff --git a/include/linux/namei.h b/include/linux/namei.h
+index bd6d3eb7764d..be407415c28a 100644
+--- a/include/linux/namei.h
++++ b/include/linux/namei.h
+@@ -51,6 +51,13 @@ enum {LAST_NORM, LAST_ROOT, LAST_DOT, LAST_DOTDOT, LAST_BIND};
+ #define LOOKUP_DOWN		0x8000
+ #define LOOKUP_MAGICLINK_JUMPED	0x10000
+ 
++/* Scoping flags for lookup. */
++#define LOOKUP_BENEATH		0x020000 /* No escaping from starting point. */
++#define LOOKUP_NO_XDEV		0x040000 /* No mountpoint crossing. */
++#define LOOKUP_NO_MAGICLINKS	0x080000 /* No /proc/$pid/fd/ "symlink" crossing. */
++#define LOOKUP_NO_SYMLINKS	0x100000 /* No symlink crossing *at all*.
++					    Implies LOOKUP_NO_MAGICLINKS. */
++
+ extern int path_pts(struct path *path);
+ 
+ extern int user_path_at_empty(int, const char __user *, unsigned, struct path *, int *empty);
 -- 
 2.22.0
