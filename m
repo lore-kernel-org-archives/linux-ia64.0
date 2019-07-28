@@ -1,125 +1,230 @@
-From: Palmer Dabbelt <palmer@sifive.com>
-Date: Wed, 17 Jul 2019 01:27:15 +0000
-Subject: Add a new fchmodat4() syscall, v2
-Message-Id: <20190717012719.5524-1-palmer@sifive.com>
+From: Aleksa Sarai <cyphar@cyphar.com>
+Date: Sun, 28 Jul 2019 01:02:02 +0000
+Subject: [PATCH v11 3/8] open: O_EMPTYPATH: procfs-less file descriptor re-opening
+Message-Id: <20190728010207.9781-4-cyphar@cyphar.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20190728010207.9781-1-cyphar@cyphar.com>
+In-Reply-To: <20190728010207.9781-1-cyphar@cyphar.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: viro@zeniv.linux.org.uk, linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org, linux-api@vger.kernel.org
-Cc: rth@twiddle.net, ink@jurassic.park.msu.ru, mattst88@gmail.com, linux@armlinux.org.uk, catalin.marinas@arm.com, will@kernel.org, tony.luck@intel.com, fenghua.yu@intel.com, geert@linux-m68k.org, monstr@monstr.eu, ralf@linux-mips.org, paul.burton@mips.com, jhogan@kernel.org, James.Bottomley@HansenPartnership.com, deller@gmx.de, benh@kernel.crashing.org, paulus@samba.org, mpe@ellerman.id.au, heiko.carstens@de.ibm.com, gor@linux.ibm.com, borntraeger@de.ibm.com, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, luto@kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, hpa@zytor.com, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, peterz@infradead.org, acme@kernel.org, alexander.shishkin@linux.intel.com, jolsa@redhat.com, namhyung@kernel.org, Palmer Dabbelt <palm>
+To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>
+Cc: linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>, Oleg Nesterov <oleg@redhat.com>, linux-kselftest@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, Tycho Andersen <tycho@tycho.ws>, Aleksa Sarai <asarai@suse.de>, linux-arm-kernel@lists.infradead.org, linux-mips@vger.kernel.org, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linuxppc-dev@lists.ozlabs.org, Aleksa Sarai <cyphar@cyphar.com>, Andy Lutomirski <luto@kernel.org>, David Drysdale <drysdale@google.com>, Christian Brauner <christian@brauner.io>, linux-parisc@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-api@vger.kernel.org, Chanho Min <chanho.min@lge.com>, linux-kernel@vger.kernel.org, Eric Biederman <ebiederm@xmission.com>, linux-alpha@vger.kernel.org
 
-This patch set adds fchmodat4(), a new syscall. The actual
-implementation is super simple: essentially it's just the same as
-fchmodat(), but LOOKUP_FOLLOW is conditionally set based on the flags.
-I've attempted to make this match "man 2 fchmodat" as closely as
-possible, which says EINVAL is returned for invalid flags (as opposed to
-ENOTSUPP, which is currently returned by glibc for AT_SYMLINK_NOFOLLOW).
-I have a sketch of a glibc patch that I haven't even compiled yet, but
-seems fairly straight-forward:
+Userspace has made use of /proc/self/fd very liberally to allow for
+descriptors to be re-opened. There are a wide variety of uses for this
+feature, but it has always required constructing a pathname and could
+not be done without procfs mounted. The obvious solution for this is to
+extend openat(2) to have an AT_EMPTY_PATH-equivalent -- O_EMPTYPATH.
 
-    diff --git a/sysdeps/unix/sysv/linux/fchmodat.c b/sysdeps/unix/sysv/linux/fchmodat.c
-    index 6d9cbc1ce9e0..b1beab76d56c 100644
-    --- a/sysdeps/unix/sysv/linux/fchmodat.c
-    +++ b/sysdeps/unix/sysv/linux/fchmodat.c
-    @@ -29,12 +29,36 @@
-     int
-     fchmodat (int fd, const char *file, mode_t mode, int flag)
-     {
-    -  if (flag & ~AT_SYMLINK_NOFOLLOW)
-    -    return INLINE_SYSCALL_ERROR_RETURN_VALUE (EINVAL);
-    -#ifndef __NR_lchmod		/* Linux so far has no lchmod syscall.  */
-    +  /* There are four paths through this code:
-    +      - The flags are zero.  In this case it's fine to call fchmodat.
-    +      - The flags are non-zero and glibc doesn't have access to
-    +	__NR_fchmodat4.  In this case all we can do is emulate the error codes
-    +	defined by the glibc interface from userspace.
-    +      - The flags are non-zero, glibc has __NR_fchmodat4, and the kernel has
-    +	fchmodat4.  This is the simplest case, as the fchmodat4 syscall exactly
-    +	matches glibc's library interface so it can be called directly.
-    +      - The flags are non-zero, glibc has __NR_fchmodat4, but the kernel does
-    +	not.  In this case we must respect the error codes defined by the glibc
-    +	interface instead of returning ENOSYS.
-    +    The intent here is to ensure that the kernel is called at most once per
-    +    library call, and that the error types defined by glibc are always
-    +    respected.  */
-    +
-    +#ifdef __NR_fchmodat4
-    +  long result;
-    +#endif
-    +
-    +  if (flag = 0)
-    +    return INLINE_SYSCALL (fchmodat, 3, fd, file, mode);
-    +
-    +#ifdef __NR_fchmodat4
-    +  result = INLINE_SYSCALL (fchmodat4, 4, fd, file, mode, flag);
-    +  if (result = 0 || errno != ENOSYS)
-    +    return result;
-    +#endif
-    +
-       if (flag & AT_SYMLINK_NOFOLLOW)
-         return INLINE_SYSCALL_ERROR_RETURN_VALUE (ENOTSUP);
-    -#endif
+Now that descriptor re-opening has been made safe through the new
+magic-link resolution restrictions, we can replicate these restrictions
+for O_EMPTYPATH. In particular, we only allow "upgrading" the file
+descriptor if the corresponding FMODE_PATH_* bit is set (or the
+FMODE_{READ,WRITE} cases for non-O_PATH file descriptors).
 
-    -  return INLINE_SYSCALL (fchmodat, 3, fd, file, mode);
-    +  return INLINE_SYSCALL_ERROR_RETURN_VALUE (EINVAL);
-     }
+When doing openat(O_EMPTYPATH|O_PATH), O_PATH takes precedence and
+O_EMPTYPATH is ignored. Very few users ever have a need to O_PATH
+re-open an existing file descriptor, and so accommodating them at the
+expense of further complicating O_PATH makes little sense. Ultimately,
+if users ask for this we can always add RESOLVE_EMPTY_PATH to
+resolveat(2) in the future.
 
-I've never added a new syscall before so I'm not really sure what the
-proper procedure to follow is.  Based on the feedback from my v1 patch
-set it seems this is somewhat uncontroversial.  At this point I don't
-think there's anything I'm missing, though note that I haven't gotten
-around to testing it this time because the diff from v1 is trivial for
-any platform I could reasonably test on.  The v1 patches suggest a
-simple test case, but I didn't re-run it because I don't want to reboot
-my laptop.
+Signed-off-by: Aleksa Sarai <cyphar@cyphar.com>
+---
+ arch/alpha/include/uapi/asm/fcntl.h  |  1 +
+ arch/parisc/include/uapi/asm/fcntl.h | 39 ++++++++++++++--------------
+ arch/sparc/include/uapi/asm/fcntl.h  |  1 +
+ fs/fcntl.c                           |  2 +-
+ fs/namei.c                           | 20 ++++++++++++++
+ fs/open.c                            |  7 ++++-
+ include/linux/fcntl.h                |  2 +-
+ include/uapi/asm-generic/fcntl.h     |  4 +++
+ 8 files changed, 54 insertions(+), 22 deletions(-)
 
-    $ touch test-file
-    $ ln -s test-file test-link
-    $ cat > test.c
-    #include <fcntl.h>
-    #include <stdio.h>
-    #include <unistd.h>
-
-    int main(int argc, char **argv)
-    {
-            long out;
-
-            out = syscall(434, AT_FDCWD, "test-file", 0x888, AT_SYMLINK_NOFOLLOW);
-            printf("fchmodat4(AT_FDCWD, \"test-file\", 0x888, AT_SYMLINK_NOFOLLOW): %ld\n", out);
-
-            out = syscall(434, AT_FDCWD, "test-file", 0x888, 0);
-            printf("fchmodat4(AT_FDCWD, \"test-file\", 0x888, 0): %ld\n", out);
-
-            out = syscall(268, AT_FDCWD, "test-file", 0x888);
-            printf("fchmodat(AT_FDCWD, \"test-file\", 0x888): %ld\n", out);
-
-            out = syscall(434, AT_FDCWD, "test-link", 0x888, AT_SYMLINK_NOFOLLOW);
-            printf("fchmodat4(AT_FDCWD, \"test-link\", 0x888, AT_SYMLINK_NOFOLLOW): %ld\n", out);
-
-            out = syscall(434, AT_FDCWD, "test-link", 0x888, 0);
-            printf("fchmodat4(AT_FDCWD, \"test-link\", 0x888, 0): %ld\n", out);
-
-            out = syscall(268, AT_FDCWD, "test-link", 0x888);
-            printf("fchmodat(AT_FDCWD, \"test-link\", 0x888): %ld\n", out);
-
-            return 0;
-    }
-    $ gcc test.c -o test
-    $ ./test
-    fchmodat4(AT_FDCWD, "test-file", 0x888, AT_SYMLINK_NOFOLLOW): 0
-    fchmodat4(AT_FDCWD, "test-file", 0x888, 0): 0
-    fchmodat(AT_FDCWD, "test-file", 0x888): 0
-    fchmodat4(AT_FDCWD, "test-link", 0x888, AT_SYMLINK_NOFOLLOW): -1
-    fchmodat4(AT_FDCWD, "test-link", 0x888, 0): 0
-    fchmodat(AT_FDCWD, "test-link", 0x888): 0
-
-I've only built this on 64-bit x86.
-
-Changes since v1 [20190531191204.4044-1-palmer@sifive.com]:
-
-* All architectures are now supported, which support squashed into a
-  single patch.
-* The do_fchmodat() helper function has been removed, in favor of directly
-  calling do_fchmodat4().
-* The patches are based on 5.2 instead of 5.1.
+diff --git a/arch/alpha/include/uapi/asm/fcntl.h b/arch/alpha/include/uapi/asm/fcntl.h
+index 50bdc8e8a271..1f879bade68b 100644
+--- a/arch/alpha/include/uapi/asm/fcntl.h
++++ b/arch/alpha/include/uapi/asm/fcntl.h
+@@ -34,6 +34,7 @@
+ 
+ #define O_PATH		040000000
+ #define __O_TMPFILE	0100000000
++#define O_EMPTYPATH	0200000000
+ 
+ #define F_GETLK		7
+ #define F_SETLK		8
+diff --git a/arch/parisc/include/uapi/asm/fcntl.h b/arch/parisc/include/uapi/asm/fcntl.h
+index 03ce20e5ad7d..5d709058a76f 100644
+--- a/arch/parisc/include/uapi/asm/fcntl.h
++++ b/arch/parisc/include/uapi/asm/fcntl.h
+@@ -2,26 +2,27 @@
+ #ifndef _PARISC_FCNTL_H
+ #define _PARISC_FCNTL_H
+ 
+-#define O_APPEND	000000010
+-#define O_BLKSEEK	000000100 /* HPUX only */
+-#define O_CREAT		000000400 /* not fcntl */
+-#define O_EXCL		000002000 /* not fcntl */
+-#define O_LARGEFILE	000004000
+-#define __O_SYNC	000100000
++#define O_APPEND	0000000010
++#define O_BLKSEEK	0000000100 /* HPUX only */
++#define O_CREAT		0000000400 /* not fcntl */
++#define O_EXCL		0000002000 /* not fcntl */
++#define O_LARGEFILE	0000004000
++#define __O_SYNC	0000100000
+ #define O_SYNC		(__O_SYNC|O_DSYNC)
+-#define O_NONBLOCK	000200004 /* HPUX has separate NDELAY & NONBLOCK */
+-#define O_NOCTTY	000400000 /* not fcntl */
+-#define O_DSYNC		001000000 /* HPUX only */
+-#define O_RSYNC		002000000 /* HPUX only */
+-#define O_NOATIME	004000000
+-#define O_CLOEXEC	010000000 /* set close_on_exec */
+-
+-#define O_DIRECTORY	000010000 /* must be a directory */
+-#define O_NOFOLLOW	000000200 /* don't follow links */
+-#define O_INVISIBLE	004000000 /* invisible I/O, for DMAPI/XDSM */
+-
+-#define O_PATH		020000000
+-#define __O_TMPFILE	040000000
++#define O_NONBLOCK	0000200004 /* HPUX has separate NDELAY & NONBLOCK */
++#define O_NOCTTY	0000400000 /* not fcntl */
++#define O_DSYNC		0001000000 /* HPUX only */
++#define O_RSYNC		0002000000 /* HPUX only */
++#define O_NOATIME	0004000000
++#define O_CLOEXEC	0010000000 /* set close_on_exec */
++
++#define O_DIRECTORY	0000010000 /* must be a directory */
++#define O_NOFOLLOW	0000000200 /* don't follow links */
++#define O_INVISIBLE	0004000000 /* invisible I/O, for DMAPI/XDSM */
++
++#define O_PATH		0020000000
++#define __O_TMPFILE	0040000000
++#define O_EMPTYPATH	0100000000
+ 
+ #define F_GETLK64	8
+ #define F_SETLK64	9
+diff --git a/arch/sparc/include/uapi/asm/fcntl.h b/arch/sparc/include/uapi/asm/fcntl.h
+index 67dae75e5274..dc86c9eaf950 100644
+--- a/arch/sparc/include/uapi/asm/fcntl.h
++++ b/arch/sparc/include/uapi/asm/fcntl.h
+@@ -37,6 +37,7 @@
+ 
+ #define O_PATH		0x1000000
+ #define __O_TMPFILE	0x2000000
++#define O_EMPTYPATH	0x4000000
+ 
+ #define F_GETOWN	5	/*  for sockets. */
+ #define F_SETOWN	6	/*  for sockets. */
+diff --git a/fs/fcntl.c b/fs/fcntl.c
+index 3d40771e8e7c..4cf05a2fd162 100644
+--- a/fs/fcntl.c
++++ b/fs/fcntl.c
+@@ -1031,7 +1031,7 @@ static int __init fcntl_init(void)
+ 	 * Exceptions: O_NONBLOCK is a two bit define on parisc; O_NDELAY
+ 	 * is defined as O_NONBLOCK on some platforms and not on others.
+ 	 */
+-	BUILD_BUG_ON(21 - 1 /* for O_RDONLY being 0 */ !+	BUILD_BUG_ON(22 - 1 /* for O_RDONLY being 0 */ ! 		HWEIGHT32(
+ 			(VALID_OPEN_FLAGS & ~(O_NONBLOCK | O_NDELAY)) |
+ 			__FMODE_EXEC | __FMODE_NONOTIFY));
+diff --git a/fs/namei.c b/fs/namei.c
+index 54d57dad0f91..e39b573fcc4d 100644
+--- a/fs/namei.c
++++ b/fs/namei.c
+@@ -3571,6 +3571,24 @@ static int trailing_magiclink(struct nameidata *nd, int acc_mode,
+ 	return may_open_magiclink(upgrade_mask, acc_mode);
+ }
+ 
++static int do_emptypath(struct nameidata *nd, const struct open_flags *op,
++			struct file *file)
++{
++	int error;
++	/* We don't support AT_FDCWD (since O_PATH is disallowed here). */
++	struct fd f = fdget_raw(nd->dfd);
++
++	if (!f.file)
++		return -EBADF;
++
++	/* Apply trailing_magiclink()-like restrictions. */
++	error = may_open_magiclink(f.file->f_mode, op->acc_mode);
++	if (!error)
++		error = vfs_open(&f.file->f_path, file);
++	fdput(f);
++	return error;
++}
++
+ static struct file *path_openat(struct nameidata *nd,
+ 			const struct open_flags *op, unsigned flags)
+ {
+@@ -3583,6 +3601,8 @@ static struct file *path_openat(struct nameidata *nd,
+ 
+ 	if (unlikely(file->f_flags & __O_TMPFILE)) {
+ 		error = do_tmpfile(nd, flags, op, file);
++	} else if (unlikely(file->f_flags & O_EMPTYPATH)) {
++		error = do_emptypath(nd, op, file);
+ 	} else if (unlikely(file->f_flags & O_PATH)) {
+ 		/* Inlined path_lookupat() with a trailing_magiclink() check. */
+ 		fmode_t opath_mask = op->opath_mask;
+diff --git a/fs/open.c b/fs/open.c
+index ab20eae39df7..bdca45528524 100644
+--- a/fs/open.c
++++ b/fs/open.c
+@@ -996,6 +996,8 @@ static inline int build_open_flags(int flags, umode_t mode, struct open_flags *o
+ 		lookup_flags |= LOOKUP_DIRECTORY;
+ 	if (!(flags & O_NOFOLLOW))
+ 		lookup_flags |= LOOKUP_FOLLOW;
++	if (flags & O_EMPTYPATH)
++		lookup_flags |= LOOKUP_EMPTY;
+ 	op->lookup_flags = lookup_flags;
+ 	return 0;
+ }
+@@ -1057,14 +1059,17 @@ long do_sys_open(int dfd, const char __user *filename, int flags, umode_t mode)
+ {
+ 	struct open_flags op;
+ 	int fd = build_open_flags(flags, mode, &op);
++	int empty = 0;
+ 	struct filename *tmp;
+ 
+ 	if (fd)
+ 		return fd;
+ 
+-	tmp = getname(filename);
++	tmp = getname_flags(filename, op.lookup_flags, &empty);
+ 	if (IS_ERR(tmp))
+ 		return PTR_ERR(tmp);
++	if (!empty)
++		op.open_flag &= ~O_EMPTYPATH;
+ 
+ 	fd = get_unused_fd_flags(flags);
+ 	if (fd >= 0) {
+diff --git a/include/linux/fcntl.h b/include/linux/fcntl.h
+index d019df946cb2..2868ae6c8fc1 100644
+--- a/include/linux/fcntl.h
++++ b/include/linux/fcntl.h
+@@ -9,7 +9,7 @@
+ 	(O_RDONLY | O_WRONLY | O_RDWR | O_CREAT | O_EXCL | O_NOCTTY | O_TRUNC | \
+ 	 O_APPEND | O_NDELAY | O_NONBLOCK | O_NDELAY | __O_SYNC | O_DSYNC | \
+ 	 FASYNC	| O_DIRECT | O_LARGEFILE | O_DIRECTORY | O_NOFOLLOW | \
+-	 O_NOATIME | O_CLOEXEC | O_PATH | __O_TMPFILE)
++	 O_NOATIME | O_CLOEXEC | O_PATH | __O_TMPFILE | O_EMPTYPATH)
+ 
+ #ifndef force_o_largefile
+ #define force_o_largefile() (!IS_ENABLED(CONFIG_ARCH_32BIT_OFF_T))
+diff --git a/include/uapi/asm-generic/fcntl.h b/include/uapi/asm-generic/fcntl.h
+index 9dc0bf0c5a6e..ae6862f69cc2 100644
+--- a/include/uapi/asm-generic/fcntl.h
++++ b/include/uapi/asm-generic/fcntl.h
+@@ -89,6 +89,10 @@
+ #define __O_TMPFILE	020000000
+ #endif
+ 
++#ifndef O_EMPTYPATH
++#define O_EMPTYPATH 040000000
++#endif
++
+ /* a horrid kludge trying to make sure that this will fail on old kernels */
+ #define O_TMPFILE (__O_TMPFILE | O_DIRECTORY)
+ #define O_TMPFILE_MASK (__O_TMPFILE | O_DIRECTORY | O_CREAT)      
+-- 
+2.22.0
