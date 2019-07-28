@@ -1,179 +1,345 @@
 From: Aleksa Sarai <cyphar@cyphar.com>
-Date: Fri, 19 Jul 2019 16:42:22 +0000
-Subject: [PATCH v10 6/9] namei: aggressively check for nd->root escape on ".." resolution
-Message-Id: <20190719164225.27083-7-cyphar@cyphar.com>
+Date: Sun, 28 Jul 2019 01:02:00 +0000
+Subject: [PATCH v11 1/8] namei: obey trailing magic-link DAC permissions
+Message-Id: <20190728010207.9781-2-cyphar@cyphar.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190719164225.27083-1-cyphar@cyphar.com>
-In-Reply-To: <20190719164225.27083-1-cyphar@cyphar.com>
+References: <20190728010207.9781-1-cyphar@cyphar.com>
+In-Reply-To: <20190728010207.9781-1-cyphar@cyphar.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>
-Cc: Aleksa Sarai <cyphar@cyphar.com>, Jann Horn <jannh@google.com>, Kees Cook <keescook@chromium.org>, Eric Biederman <ebiederm@xmission.com>, Andy Lutomirski <luto@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Alexei Starovoitov <ast@kernel.org>, Christian Brauner <christian@brauner.io>, Tycho Andersen <tycho@tycho.ws>, David Drysdale <drysdale@google.com>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Aleksa Sarai <asarai@suse.de>, Linus Torvalds <torvalds@linux-foundation.org>, containers@lists.linux-foundation.org, linux-alpha@vger.kernel.org, linux-api@vger.kernel.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.orglinux-
+Cc: linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>, Oleg Nesterov <oleg@redhat.com>, linux-kselftest@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, Tycho Andersen <tycho@tycho.ws>, Aleksa Sarai <asarai@suse.de>, linux-arm-kernel@lists.infradead.org, linux-mips@vger.kernel.org, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linuxppc-dev@lists.ozlabs.org, Aleksa Sarai <cyphar@cyphar.com>, Andy Lutomirski <luto@kernel.org>, David Drysdale <drysdale@google.com>, Christian Brauner <christian@brauner.io>, linux-parisc@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-api@vger.kernel.org, Chanho Min <chanho.min@lge.com>, linux-kernel@vger.kernel.org, Eric Biederman <ebiederm@xmission.com>, linux-alpha@vger.kernel.org
 
-This patch allows for LOOKUP_BENEATH and LOOKUP_IN_ROOT to safely permit
-".." resolution (in the case of LOOKUP_BENEATH the resolution will still
-fail if ".." resolution would resolve a path outside of the root --
-while LOOKUP_IN_ROOT will chroot(2)-style scope it). Magic-link jumps
-are still disallowed entirely because now they could result in
-inconsistent behaviour if resolution encounters a subsequent ".."[*].
+The ability for userspace to "re-open" file descriptors through
+/proc/self/fd has been a very useful tool for all sorts of usecases
+(container runtimes are one common example). However, the current
+interface for doing this has resulted in some pretty subtle security
+holes. Userspace can re-open a file descriptor with more permissions
+than the original, which can result in cases such as /proc/$pid/exe
+being re-opened O_RDWR at a later date even though (by definition)
+/proc/$pid/exe cannot be opened for writing. When combined with O_PATH
+the results can get even more confusing.
 
-The need for this patch is explained by observing there is a fairly
-easy-to-exploit race condition with chroot(2) (and thus by extension
-LOOKUP_IN_ROOT and LOOKUP_BENEATH if ".." is allowed) where a rename(2)
-of a path can be used to "skip over" nd->root and thus escape to the
-filesystem above nd->root.
+We cannot block this outright. Aside from userspace already depending on
+it, it's a useful feature which can actually increase the security of
+userspace. For instance, LXC keeps an O_PATH of the container's
+/dev/pts/ptmx that gets re-opened to create new ptys and then uses
+TIOCGPTPEER to get the slave end. This allows for pty allocation without
+resolving paths inside an (untrusted) container's rootfs. There isn't a
+trivial way of doing this that is as straight-forward and safe as O_PATH
+re-opening.
 
-  thread1 [attacker]:
-    for (;;)
-      renameat2(AT_FDCWD, "/a/b/c", AT_FDCWD, "/a/d", RENAME_EXCHANGE);
-  thread2 [victim]:
-    for (;;)
-      resolveat(dirb, "b/c/../../etc/shadow", RESOLVE_IN_ROOT);
+Instead we have to restrict it in such a way that it doesn't break
+(good) users but does block potential attackers. The solution applied in
+this patch is to restrict *re-opening* (not resolution through)
+magic-links by requiring that mode of the link be obeyed. Normal
+symlinks have modes of a+rwx but magic-links have other modes. These
+magic-link modes were historically ignored during path resolution, but
+they've now been re-purposed for more useful ends.
 
-With fairly significant regularity, thread2 will resolve to
-"/etc/shadow" rather than "/a/b/etc/shadow". There is also a similar
-(though somewhat more privileged) attack using MS_MOVE.
+It is also necessary to define semantics for the mode of an O_PATH
+descriptor, since re-opening a magic-link through an O_PATH needs to be
+just as restricted as the corresponding magic-link -- otherwise the
+above protection can be bypassed. There are two distinct cases:
 
-With this patch, such cases will be detected *during* ".." resolution
-(which is the weak point of chroot(2) -- since walking *into* a
-subdirectory tautologically cannot result in you walking *outside*
-nd->root -- except through a bind-mount or magic-link). By detecting
-this at ".." resolution (rather than checking only at the end of the
-entire resolution) we can both correct escapes by jumping back to the
-root (in the case of LOOKUP_IN_ROOT), as well as avoid revealing to
-attackers the structure of the filesystem outside of the root (through
-timing attacks for instance).
+ 1. The target is a regular file (not a magic-link). Userspace depends
+    on being able to re-open the O_PATH of a regular file, so we must
+    define the mode to be a+rwx.
 
-In order to avoid a quadratic lookup with each ".." entry, we only
-activate the slow path if a write through &rename_lock or &mount_lock
-has occurred during path resolution (&rename_lock and &mount_lock are
-re-taken to further optimise the lookup). Since the primary attack being
-protected against is MS_MOVE or rename(2), not doing additional checks
-unless a mount or rename have occurred avoids making the common case
-slow.
+ 2. The target is a magic-link. In this case, we simply copy the mode of
+    the magic-link. This results in an O_PATH of a magic-link
+    effectively acting as a no-op in terms of how much re-opening
+    privileges a process has.
 
-The use of path_is_under() here might seem suspect, but on further
-inspection of the most important race (a path was *inside* the root but
-is now *outside*), there appears to be no attack potential:
+CAP_DAC_OVERRIDE can be used to override all of these restrictions, but
+we only permit &init_userns's capabilities to affect these semantics.
+The reason for this is that there isn't a clear way to track what
+user_ns is the original owner of a given O_PATH chain -- thus an
+unprivileged user could create a new userns and O_PATH the file
+descriptor, owning it. All signs would indicate that the user really
+does have CAP_DAC_OVERRIDE over the new descriptor and the protection
+would be bypassed. We thus opt for the more conservative approach.
 
-  * If path_is_under() occurs before the rename, then the path will be
-    resolved -- however the path was originally inside the root and thus
-    there is no escape (and to userspace it'd look like the rename
-    occurred after the path was resolved). If path_is_under() occurs
-    afterwards, the resolution is blocked.
+I have run this patch on several machines for several days. So far, the
+only processes which have hit this case ("loadkeys" and "kbd_mode" from
+the kbd package[1]) gracefully handle the permission error and do not
+cause any user-visible problems. In order to give users a heads-up, a
+warning is output to dmesg whenever may_open_magiclink() refuses access.
 
-  * Subsequent ".." jumps are guaranteed to check path_is_under() -- by
-    construction, &rename_lock or &mount_lock must have been taken by
-    the attacker after path_is_under() returned in the victim. Thus ".."
-    will not be able to escape from the previously-inside-root path.
+[1]: http://git.altlinux.org/people/legion/packages/kbd.git
 
-  * Walking down in the moved path is still safe since the entire
-    subtree was moved (either by rename(2) or MS_MOVE) and because (as
-    discussed above) walking down is safe.
-
-A variant of the above attack is included in the selftests for
-openat2(2) later in this patch series. I've run this test on several
-machines for several days and no instances of a breakout were detected.
-While this is not concrete proof that this is safe, when combined with
-the above argument it should lend some trustworthiness to this
-construction.
-
-[*] It may be acceptable in the future to do a path_is_under() check
-    after resolving a magic-link and permit resolution if the
-    nd_jump_link() result is still within the dirfd. However this seems
-    unlikely to be a feature that people *really* need* -- it can be
-    added later if it turns out a lot of people want it.
-
-Cc: Al Viro <viro@zeniv.linux.org.uk>
-Cc: Jann Horn <jannh@google.com>
-Cc: Kees Cook <keescook@chromium.org>
+Suggested-by: Andy Lutomirski <luto@kernel.org>
+Suggested-by: Christian Brauner <christian@brauner.io>
 Signed-off-by: Aleksa Sarai <cyphar@cyphar.com>
 ---
- fs/namei.c | 45 +++++++++++++++++++++++++++++++--------------
- 1 file changed, 31 insertions(+), 14 deletions(-)
+ Documentation/filesystems/path-lookup.rst |  12 +--
+ fs/internal.h                             |   1 +
+ fs/namei.c                                | 105 +++++++++++++++++++---
+ fs/open.c                                 |   3 +-
+ fs/proc/fd.c                              |  23 ++++-
+ include/linux/fs.h                        |   4 +
+ include/linux/namei.h                     |   1 +
+ 7 files changed, 130 insertions(+), 19 deletions(-)
 
+diff --git a/Documentation/filesystems/path-lookup.rst b/Documentation/filesystems/path-lookup.rst
+index 434a07b0002b..a57d78ec8bee 100644
+--- a/Documentation/filesystems/path-lookup.rst
++++ b/Documentation/filesystems/path-lookup.rst
+@@ -1310,12 +1310,14 @@ longer needed.
+ ``LOOKUP_JUMPED`` means that the current dentry was chosen not because
+ it had the right name but for some other reason.  This happens when
+ following "``..``", following a symlink to ``/``, crossing a mount point
+-or accessing a "``/proc/$PID/fd/$FD``" symlink.  In this case the
+-filesystem has not been asked to revalidate the name (with
+-``d_revalidate()``).  In such cases the inode may still need to be
+-revalidated, so ``d_op->d_weak_revalidate()`` is called if
++or accessing a "``/proc/$PID/fd/$FD``" symlink (also known as a "magic
++link"). In this case the filesystem has not been asked to revalidate the
++name (with ``d_revalidate()``).  In such cases the inode may still need
++to be revalidated, so ``d_op->d_weak_revalidate()`` is called if
+ ``LOOKUP_JUMPED`` is set when the look completes - which may be at the
+-final component or, when creating, unlinking, or renaming, at the penultimate component.
++final component or, when creating, unlinking, or renaming, at the
++penultimate component. ``LOOKUP_MAGICLINK_JUMPED`` is set alongside
++``LOOKUP_JUMPED`` if a magic-link was traversed.
+ 
+ Final-component flags
+ ~~~~~~~~~~~~~~~~~~~~~
+diff --git a/fs/internal.h b/fs/internal.h
+index 315fcd8d237c..f48449a43626 100644
+--- a/fs/internal.h
++++ b/fs/internal.h
+@@ -119,6 +119,7 @@ struct open_flags {
+ 	int acc_mode;
+ 	int intent;
+ 	int lookup_flags;
++	fmode_t opath_mask;
+ };
+ extern struct file *do_filp_open(int dfd, struct filename *pathname,
+ 		const struct open_flags *op);
 diff --git a/fs/namei.c b/fs/namei.c
-index 617fc7d55977..b3abf5754ddd 100644
+index 209c51a5226c..54d57dad0f91 100644
 --- a/fs/namei.c
 +++ b/fs/namei.c
-@@ -491,7 +491,7 @@ struct nameidata {
- 	struct path	root;
- 	struct inode	*inode; /* path.dentry.d_inode */
- 	unsigned int	flags;
--	unsigned	seq, m_seq;
-+	unsigned	seq, m_seq, r_seq;
- 	int		last_type;
- 	unsigned	depth;
- 	int		total_link_count;
-@@ -1758,22 +1758,36 @@ static inline int handle_dots(struct nameidata *nd, int type)
- 	if (type = LAST_DOTDOT) {
- 		int error = 0;
+@@ -872,7 +872,7 @@ void nd_jump_link(struct path *path)
  
--		/*
--		 * LOOKUP_BENEATH resolving ".." is not currently safe -- races can
--		 * cause our parent to have moved outside of the root and us to skip
--		 * over it.
--		 */
--		if (unlikely(nd->flags & (LOOKUP_BENEATH | LOOKUP_IN_ROOT)))
--			return -EXDEV;
- 		if (!nd->root.mnt) {
- 			error = set_root(nd);
- 			if (error)
- 				return error;
- 		}
--		if (nd->flags & LOOKUP_RCU) {
--			return follow_dotdot_rcu(nd);
--		} else
--			return follow_dotdot(nd);
-+		if (nd->flags & LOOKUP_RCU)
-+			error = follow_dotdot_rcu(nd);
-+		else
-+			error = follow_dotdot(nd);
-+		if (error)
-+			return error;
-+
-+		if (unlikely(nd->flags & (LOOKUP_BENEATH | LOOKUP_IN_ROOT))) {
-+			bool m_retry = read_seqretry(&mount_lock, nd->m_seq);
-+			bool r_retry = read_seqretry(&rename_lock, nd->r_seq);
-+
-+			/*
-+			 * Don't bother checking unless there's a racing
-+			 * rename(2) or MS_MOVE.
-+			 */
-+			if (likely(!m_retry && !r_retry))
-+				return 0;
-+
-+			if (m_retry && !(nd->flags & LOOKUP_RCU))
-+				nd->m_seq = read_seqbegin(&mount_lock);
-+			if (r_retry)
-+				nd->r_seq = read_seqbegin(&rename_lock);
-+			if (!path_is_under(&nd->path, &nd->root))
-+				return -EXDEV;
-+		}
- 	}
- 	return 0;
+ 	nd->path = *path;
+ 	nd->inode = nd->path.dentry->d_inode;
+-	nd->flags |= LOOKUP_JUMPED;
++	nd->flags |= LOOKUP_JUMPED | LOOKUP_MAGICLINK_JUMPED;
  }
-@@ -2245,6 +2259,11 @@ static const char *path_init(struct nameidata *nd, unsigned flags)
- 	nd->last_type = LAST_ROOT; /* if there are only slashes... */
- 	nd->flags = flags | LOOKUP_JUMPED | LOOKUP_PARENT;
- 	nd->depth = 0;
-+
-+	nd->m_seq = read_seqbegin(&mount_lock);
-+	if (flags & (LOOKUP_BENEATH | LOOKUP_IN_ROOT))
-+		nd->r_seq = read_seqbegin(&rename_lock);
-+
- 	if (flags & LOOKUP_ROOT) {
- 		struct dentry *root = nd->root.dentry;
- 		struct inode *inode = root->d_inode;
-@@ -2266,8 +2285,6 @@ static const char *path_init(struct nameidata *nd, unsigned flags)
- 	nd->path.mnt = NULL;
- 	nd->path.dentry = NULL;
  
--	nd->m_seq = read_seqbegin(&mount_lock);
+ static inline void put_link(struct nameidata *nd)
+@@ -1066,6 +1066,7 @@ const char *get_link(struct nameidata *nd)
+ 		return ERR_PTR(error);
+ 
+ 	nd->last_type = LAST_BIND;
++	nd->flags &= ~LOOKUP_MAGICLINK_JUMPED;
+ 	res = READ_ONCE(inode->i_link);
+ 	if (!res) {
+ 		const char * (*get)(struct dentry *, struct inode *,
+@@ -3501,16 +3502,73 @@ static int do_tmpfile(struct nameidata *nd, unsigned flags,
+ 	return error;
+ }
+ 
+-static int do_o_path(struct nameidata *nd, unsigned flags, struct file *file)
++/**
++ * may_reopen_magiclink - Check permissions for opening a trailing magic-link
++ * @upgrade_mask: the upgrade-mask of the magic-link
++ * @acc_mode: ACC_MODE which the user is attempting
++ *
++ * We block magic-link re-opening if the @upgrade_mask is more strict than the
++ * @acc_mode being requested, unless the user is capable(CAP_DAC_OVERRIDE).
++ *
++ * Returns 0 if successful, -EACCES on error.
++ */
++static int may_open_magiclink(fmode_t upgrade_mask, int acc_mode)
+ {
+-	struct path path;
+-	int error = path_lookupat(nd, flags, &path);
+-	if (!error) {
+-		audit_inode(nd->name, path.dentry, 0);
+-		error = vfs_open(&path, file);
+-		path_put(&path);
+-	}
+-	return error;
++	/*
++	 * We only allow for init_userns to be able to override magic-links.
++	 * This is done to avoid cases where an unprivileged userns could take
++	 * an O_PATH of the fd, resulting in it being very unclear whether
++	 * CAP_DAC_OVERRIDE should work on the new O_PATH fd (given that it
++	 * pipes through to the underlying file).
++	 */
++	if (capable(CAP_DAC_OVERRIDE))
++		return 0;
++
++	if ((acc_mode & MAY_READ) &&
++	    !(upgrade_mask & (FMODE_READ | FMODE_PATH_READ)))
++		goto err;
++	if ((acc_mode & MAY_WRITE) &&
++	    !(upgrade_mask & (FMODE_WRITE | FMODE_PATH_WRITE)))
++		goto err;
++
++	return 0;
++
++err:
++	pr_warn_ratelimited("%s[%d]: magic-link re-open blocked ('%s%s%s' requested with an upgrade-mask of '%s%s%s%s')",
++		current->comm, task_pid_nr(current),
++		(acc_mode & MAY_READ) ? "r" : "",
++		(acc_mode & MAY_WRITE) ? "w" : "",
++		(acc_mode & MAY_EXEC) ? "x" : "",
++		(upgrade_mask & FMODE_READ) ? "r" : "",
++		(upgrade_mask & FMODE_PATH_READ) ? "R" : "",
++		(upgrade_mask & FMODE_WRITE) ? "w" : "",
++		(upgrade_mask & FMODE_PATH_WRITE) ? "W" : "");
++	return -EACCES;
++}
++
++static int trailing_magiclink(struct nameidata *nd, int acc_mode,
++			      fmode_t *opath_mask)
++{
++	struct inode *inode = nd->link_inode;
++	fmode_t upgrade_mask = 0;
++
++	/* Was the trailing_symlink() a magic-link? */
++	if (!(nd->flags & LOOKUP_MAGICLINK_JUMPED))
++		return 0;
++
++	/*
++	 * Figure out the upgrade-mask of the link_inode. Since these aren't
++	 * strictly POSIX semantics we don't do an acl_permission_check() here,
++	 * so we only care that at least one bit is set for each upgrade-mode.
++	 */
++	if (inode->i_mode & S_IRUGO)
++		upgrade_mask |= FMODE_PATH_READ;
++	if (inode->i_mode & S_IWUGO)
++		upgrade_mask |= FMODE_PATH_WRITE;
++	/* Restrict the O_PATH upgrade-mask of the caller. */
++	if (opath_mask)
++		*opath_mask &= upgrade_mask;
++	return may_open_magiclink(upgrade_mask, acc_mode);
+ }
+ 
+ static struct file *path_openat(struct nameidata *nd,
+@@ -3526,13 +3584,38 @@ static struct file *path_openat(struct nameidata *nd,
+ 	if (unlikely(file->f_flags & __O_TMPFILE)) {
+ 		error = do_tmpfile(nd, flags, op, file);
+ 	} else if (unlikely(file->f_flags & O_PATH)) {
+-		error = do_o_path(nd, flags, file);
++		/* Inlined path_lookupat() with a trailing_magiclink() check. */
++		fmode_t opath_mask = op->opath_mask;
++		const char *s = path_init(nd, flags);
++
++		while (!(error = link_path_walk(s, nd))
++			&& ((error = lookup_last(nd)) > 0)) {
++			s = trailing_symlink(nd);
++			error = trailing_magiclink(nd, op->acc_mode, &opath_mask);
++			if (error)
++				s = ERR_PTR(error);
++		}
++		if (!error)
++			error = complete_walk(nd);
++
++		if (!error && nd->flags & LOOKUP_DIRECTORY)
++			if (!d_can_lookup(nd->path.dentry))
++				error = -ENOTDIR;
++		if (!error) {
++			audit_inode(nd->name, nd->path.dentry, 0);
++			error = vfs_open(&nd->path, file);
++			file->f_mode |= opath_mask;
++		}
++		terminate_walk(nd);
+ 	} else {
+ 		const char *s = path_init(nd, flags);
+ 		while (!(error = link_path_walk(s, nd)) &&
+ 			(error = do_last(nd, file, op)) > 0) {
+ 			nd->flags &= ~(LOOKUP_OPEN|LOOKUP_CREATE|LOOKUP_EXCL);
+ 			s = trailing_symlink(nd);
++			error = trailing_magiclink(nd, op->acc_mode, NULL);
++			if (error)
++				s = ERR_PTR(error);
+ 		}
+ 		terminate_walk(nd);
+ 	}
+diff --git a/fs/open.c b/fs/open.c
+index b5b80469b93d..ab20eae39df7 100644
+--- a/fs/open.c
++++ b/fs/open.c
+@@ -982,8 +982,9 @@ static inline int build_open_flags(int flags, umode_t mode, struct open_flags *o
+ 		acc_mode |= MAY_APPEND;
+ 
+ 	op->acc_mode = acc_mode;
 -
- 	/* LOOKUP_IN_ROOT treats absolute paths as being relative-to-dirfd. */
- 	if (flags & LOOKUP_IN_ROOT)
- 		while (*s = '/')
+ 	op->intent = flags & O_PATH ? 0 : LOOKUP_OPEN;
++	/* For O_PATH backwards-compatibility we default to an all-set mask. */
++	op->opath_mask = FMODE_PATH_READ | FMODE_PATH_WRITE;
+ 
+ 	if (flags & O_CREAT) {
+ 		op->intent |= LOOKUP_CREATE;
+diff --git a/fs/proc/fd.c b/fs/proc/fd.c
+index 81882a13212d..9b7d8becb002 100644
+--- a/fs/proc/fd.c
++++ b/fs/proc/fd.c
+@@ -104,11 +104,30 @@ static void tid_fd_update_inode(struct task_struct *task, struct inode *inode,
+ 	task_dump_owner(task, 0, &inode->i_uid, &inode->i_gid);
+ 
+ 	if (S_ISLNK(inode->i_mode)) {
++		/*
++		 * Always set +x (depending on the fmode type), since there
++		 * currently aren't FMODE_PATH_EXEC restrictions and there is
++		 * no O_MAYEXEC yet. This might change in the future, in which
++		 * case we will restrict +x.
++		 */
+ 		unsigned i_mode = S_IFLNK;
++		if (f_mode & FMODE_PATH)
++			i_mode |= S_IXGRP;
++		else
++			i_mode |= S_IXUSR;
++		/*
++		 * Construct the mode bits based on the open-mode. The u+rwx
++		 * bits are for "ordinary" open modes while g+rwx are for
++		 * O_PATH modes.
++		 */
+ 		if (f_mode & FMODE_READ)
+-			i_mode |= S_IRUSR | S_IXUSR;
++			i_mode |= S_IRUSR;
+ 		if (f_mode & FMODE_WRITE)
+-			i_mode |= S_IWUSR | S_IXUSR;
++			i_mode |= S_IWUSR;
++		if (f_mode & FMODE_PATH_READ)
++			i_mode |= S_IRGRP;
++		if (f_mode & FMODE_PATH_WRITE)
++			i_mode |= S_IWGRP;
+ 		inode->i_mode = i_mode;
+ 	}
+ 	security_task_to_inode(task, inode);
+diff --git a/include/linux/fs.h b/include/linux/fs.h
+index 56b8e358af5c..dc0f5660af43 100644
+--- a/include/linux/fs.h
++++ b/include/linux/fs.h
+@@ -173,6 +173,10 @@ typedef int (dio_iodone_t)(struct kiocb *iocb, loff_t offset,
+ /* File does not contribute to nr_files count */
+ #define FMODE_NOACCOUNT		((__force fmode_t)0x20000000)
+ 
++/* File is an O_PATH descriptor which can be upgraded to (read, write). */
++#define FMODE_PATH_READ		((__force fmode_t)0x40000000)
++#define FMODE_PATH_WRITE	((__force fmode_t)0x80000000)
++
+ /*
+  * Flag for rw_copy_check_uvector and compat_rw_copy_check_uvector
+  * that indicates that they should check the contents of the iovec are
+diff --git a/include/linux/namei.h b/include/linux/namei.h
+index 9138b4471dbf..bd6d3eb7764d 100644
+--- a/include/linux/namei.h
++++ b/include/linux/namei.h
+@@ -49,6 +49,7 @@ enum {LAST_NORM, LAST_ROOT, LAST_DOT, LAST_DOTDOT, LAST_BIND};
+ #define LOOKUP_ROOT		0x2000
+ #define LOOKUP_EMPTY		0x4000
+ #define LOOKUP_DOWN		0x8000
++#define LOOKUP_MAGICLINK_JUMPED	0x10000
+ 
+ extern int path_pts(struct path *path);
+ 
 -- 
 2.22.0
