@@ -1,71 +1,52 @@
-From: Joerg Roedel <joro@8bytes.org>
-Date: Mon, 19 Aug 2019 13:22:53 +0000
-Subject: [PATCH 08/11] iommu: Print default domain type on boot
-Message-Id: <20190819132256.14436-9-joro@8bytes.org>
+From: Chuhong Yuan <hslester96@gmail.com>
+Date: Mon, 05 Aug 2019 07:26:59 +0000
+Subject: [PATCH 1/2] ia64: hp-sim: Replace strncmp with str_has_prefix
+Message-Id: <20190805072659.32745-1-hslester96@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190819132256.14436-1-joro@8bytes.org>
-In-Reply-To: <20190819132256.14436-1-joro@8bytes.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Joerg Roedel <joro@8bytes.org>
-Cc: corbet@lwn.net, tony.luck@intel.com, fenghua.yu@intel.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, hpa@zytor.com, x86@kernel.org, linux-doc@vger.kernel.org, linux-ia64@vger.kernel.org, iommu@lists.linux-foundation.org, linux-kernel@vger.kernel.org, Thomas.Lendacky@amd.com, Suravee.Suthikulpanit@amd.com, Joerg Roedel <jroedel@suse.de>
+To: 
+Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Chuhong Yuan <hslester96@gmail.com>
 
-From: Joerg Roedel <jroedel@suse.de>
+strncmp(str, const, len) is error-prone since the len is
+easy to be wrong because of counting error or sizeof(const)
+without - 1.
 
-Introduce a subsys_initcall for IOMMU code and use it to
-print the default domain type at boot.
+Use the newly introduced str_has_prefix() to substitute
+it to make code better.
 
-Signed-off-by: Joerg Roedel <jroedel@suse.de>
+Signed-off-by: Chuhong Yuan <hslester96@gmail.com>
 ---
- drivers/iommu/iommu.c | 30 +++++++++++++++++++++++++++++-
- 1 file changed, 29 insertions(+), 1 deletion(-)
+ arch/ia64/hp/sim/boot/bootloader.c | 2 +-
+ arch/ia64/hp/sim/simeth.c          | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/iommu/iommu.c b/drivers/iommu/iommu.c
-index 3ee50bb22ca2..0ddd0bd1ff75 100644
---- a/drivers/iommu/iommu.c
-+++ b/drivers/iommu/iommu.c
-@@ -93,12 +93,40 @@ struct iommu_group_attribute iommu_group_attr_##_name =		\
- static LIST_HEAD(iommu_device_list);
- static DEFINE_SPINLOCK(iommu_device_lock);
+diff --git a/arch/ia64/hp/sim/boot/bootloader.c b/arch/ia64/hp/sim/boot/bootloader.c
+index 6d804608dc81..bcb7af27466c 100644
+--- a/arch/ia64/hp/sim/boot/bootloader.c
++++ b/arch/ia64/hp/sim/boot/bootloader.c
+@@ -112,7 +112,7 @@ start_bootloader (void)
+ 	ssc((long) &stat, 0, 0, 0, SSC_WAIT_COMPLETION);
  
-+/*
-+ * Use a function instead of an array here because the domain-type is a
-+ * bit-field, so an array would waste memory.
-+ */
-+static const char *iommu_domain_type_str(unsigned int t)
-+{
-+	switch (t) {
-+	case IOMMU_DOMAIN_BLOCKED:
-+		return "Blocked";
-+	case IOMMU_DOMAIN_IDENTITY:
-+		return "Passthrough";
-+	case IOMMU_DOMAIN_UNMANAGED:
-+		return "Unmanaged";
-+	case IOMMU_DOMAIN_DMA:
-+		return "Translated";
-+	default:
-+		return "Unknown";
-+	}
-+}
-+
-+static int __init iommu_subsys_init(void)
-+{
-+	pr_info("Default domain type: %s\n",
-+		iommu_domain_type_str(iommu_def_domain_type));
-+
-+	return 0;
-+}
-+subsys_initcall(iommu_subsys_init);
-+
- int iommu_device_register(struct iommu_device *iommu)
+ 	elf = (struct elfhdr *) mem;
+-	if (elf->e_ident[0] = 0x7f && strncmp(elf->e_ident + 1, "ELF", 3) != 0) {
++	if (elf->e_ident[0] = 0x7f && !str_has_prefix(elf->e_ident + 1, "ELF", 3)) {
+ 		cons_write("not an ELF file\n");
+ 		return;
+ 	}
+diff --git a/arch/ia64/hp/sim/simeth.c b/arch/ia64/hp/sim/simeth.c
+index f39ef2b4ed72..9ad812cd8d0e 100644
+--- a/arch/ia64/hp/sim/simeth.c
++++ b/arch/ia64/hp/sim/simeth.c
+@@ -248,7 +248,7 @@ simeth_open(struct net_device *dev)
+ /* copied from lapbether.c */
+ static __inline__ int dev_is_ethdev(struct net_device *dev)
  {
- 	spin_lock(&iommu_device_lock);
- 	list_add_tail(&iommu->list, &iommu_device_list);
- 	spin_unlock(&iommu_device_lock);
--
- 	return 0;
+-       return ( dev->type = ARPHRD_ETHER && strncmp(dev->name, "dummy", 5));
++       return (dev->type = ARPHRD_ETHER && !str_has_prefix(dev->name, "dummy"));
  }
  
+ 
 -- 
-2.16.4
+2.20.1
