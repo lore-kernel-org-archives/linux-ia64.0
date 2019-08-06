@@ -1,38 +1,55 @@
-From: Joerg Roedel <joro@8bytes.org>
-Date: Fri, 23 Aug 2019 08:12:37 +0000
-Subject: Re: [PATCH 00/11 v3] Cleanup IOMMU passthrough setting (and disable IOMMU Passthrough when SME is ac
-Message-Id: <20190823081236.GE30332@8bytes.org>
+From: chenzefeng <chenzefeng2@huawei.com>
+Date: Tue, 06 Aug 2019 07:46:33 +0000
+Subject: [PATCH] ia64:unwind: fix double free for mod->arch.init_unw_table
+Message-Id: <1565077593-72480-1-git-send-email-chenzefeng2@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190819132256.14436-1-joro@8bytes.org>
-In-Reply-To: <20190819132256.14436-1-joro@8bytes.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: corbet@lwn.net, tony.luck@intel.com, fenghua.yu@intel.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, hpa@zytor.com, x86@kernel.org, linux-doc@vger.kernel.org, linux-ia64@vger.kernel.org, iommu@lists.linux-foundation.org, linux-kernel@vger.kernel.org, Thomas.Lendacky@amd.com, Suravee.Suthikulpanit@amd.com, Joerg Roedel <jroedel@suse.de>
+To: tony.luck@intel.com, fenghua.yu@intel.com, chenzefeng2@huawei.com
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, stable@vger.kernel.org
 
-On Mon, Aug 19, 2019 at 03:22:45PM +0200, Joerg Roedel wrote:
-> Joerg Roedel (11):
->   iommu: Remember when default domain type was set on kernel command line
->   iommu: Add helpers to set/get default domain type
->   iommu: Use Functions to set default domain type in iommu_set_def_domain_type()
->   iommu/amd: Request passthrough mode from IOMMU core
->   iommu/vt-d: Request passthrough mode from IOMMU core
->   x86/dma: Get rid of iommu_pass_through
->   ia64: Get rid of iommu_pass_through
->   iommu: Print default domain type on boot
->   iommu: Set default domain type at runtime
->   iommu: Disable passthrough mode when SME is active
->   Documentation: Update Documentation for iommu.passthrough
-> 
->  Documentation/admin-guide/kernel-parameters.txt |  2 +-
->  arch/ia64/include/asm/iommu.h                   |  2 -
->  arch/ia64/kernel/pci-dma.c                      |  2 -
->  arch/x86/include/asm/iommu.h                    |  1 -
->  arch/x86/kernel/pci-dma.c                       | 20 +-----
->  drivers/iommu/amd_iommu.c                       |  6 +-
->  drivers/iommu/intel-iommu.c                     |  2 +-
->  drivers/iommu/iommu.c                           | 93 +++++++++++++++++++++++--
->  include/linux/iommu.h                           | 16 +++++
->  9 files changed, 110 insertions(+), 34 deletions(-)
+The function free_module in file kernel/module.c as follow:
 
-Applied.
+void free_module(struct module *mod) {
+	......
+	module_arch_cleanup(mod);
+	......
+	module_arch_freeing_init(mod);
+	......
+}
+
+Both module_arch_cleanup and module_arch_freeing_init function
+would free the mod->arch.init_unw_table, which cause double free.
+
+Here, set mod->arch.init_unw_table = NULL after remove the unwind
+table to avoid double free.
+
+Signed-off-by: chenzefeng <chenzefeng2@huawei.com>
+---
+ arch/ia64/kernel/module.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/arch/ia64/kernel/module.c b/arch/ia64/kernel/module.c
+index 326448f..1a42ba8 100644
+--- a/arch/ia64/kernel/module.c
++++ b/arch/ia64/kernel/module.c
+@@ -914,10 +914,14 @@ struct plt_entry {
+ void
+ module_arch_cleanup (struct module *mod)
+ {
+-	if (mod->arch.init_unw_table)
++	if (mod->arch.init_unw_table) {
+ 		unw_remove_unwind_table(mod->arch.init_unw_table);
+-	if (mod->arch.core_unw_table)
++		mod->arch.init_unw_table = NULL;
++	}
++	if (mod->arch.core_unw_table) {
+ 		unw_remove_unwind_table(mod->arch.core_unw_table);
++		mod->arch.core_unw_table = NULL;
++	}
+ }
+ 
+ void *dereference_module_function_descriptor(struct module *mod, void *ptr)
+-- 
+1.8.5.6
