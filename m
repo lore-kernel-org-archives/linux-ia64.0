@@ -1,180 +1,484 @@
-From: Aleksa Sarai <cyphar@cyphar.com>
-Date: Tue, 20 Aug 2019 03:34:04 +0000
-Subject: [PATCH RESEND v11 6/8] namei: aggressively check for nd->root escape on ".." resolution
-Message-Id: <20190820033406.29796-7-cyphar@cyphar.com>
+From: Christoph Hellwig <hch@lst.de>
+Date: Wed, 07 Aug 2019 13:30:43 +0000
+Subject: [PATCH 23/29] ia64: rework iommu probing
+Message-Id: <20190807133049.20893-24-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190820033406.29796-1-cyphar@cyphar.com>
-In-Reply-To: <20190820033406.29796-1-cyphar@cyphar.com>
+References: <20190807133049.20893-1-hch@lst.de>
+In-Reply-To: <20190807133049.20893-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>
-Cc: Aleksa Sarai <cyphar@cyphar.com>, Jann Horn <jannh@google.com>, Kees Cook <keescook@chromium.org>, Eric Biederman <ebiederm@xmission.com>, Andy Lutomirski <luto@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Alexei Starovoitov <ast@kernel.org>, Christian Brauner <christian@brauner.io>, Tycho Andersen <tycho@tycho.ws>, David Drysdale <drysdale@google.com>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Aleksa Sarai <asarai@suse.de>, Linus Torvalds <torvalds@linux-foundation.org>, containers@lists.linux-foundation.org, linux-alpha@vger.kernel.org, linux-api@vger.kernel.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.orglinux-
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-This patch allows for LOOKUP_BENEATH and LOOKUP_IN_ROOT to safely permit
-".." resolution (in the case of LOOKUP_BENEATH the resolution will still
-fail if ".." resolution would resolve a path outside of the root --
-while LOOKUP_IN_ROOT will chroot(2)-style scope it). Magic-link jumps
-are still disallowed entirely because now they could result in
-inconsistent behaviour if resolution encounters a subsequent ".."[*].
+ia64 currently organizes the iommu probing along machves, which isn't
+very helpful.  Instead just try to probe for Intel IOMMUs in mem_init
+as they are properly described in ACPI and if none was found initialize
+the swiotlb buffer.  The HP SBA handling is then only done delayed when
+the actual hardware is probed. Only in the case that we actually found
+usable IOMMUs we then set up the DMA ops and free the not needed
+swiotlb buffer.  This scheme gets rid of the need for the dma_init
+machvec operation, and the dig_vtd machvec.
 
-The need for this patch is explained by observing there is a fairly
-easy-to-exploit race condition with chroot(2) (and thus by extension
-LOOKUP_IN_ROOT and LOOKUP_BENEATH if ".." is allowed) where a rename(2)
-of a path can be used to "skip over" nd->root and thus escape to the
-filesystem above nd->root.
-
-  thread1 [attacker]:
-    for (;;)
-      renameat2(AT_FDCWD, "/a/b/c", AT_FDCWD, "/a/d", RENAME_EXCHANGE);
-  thread2 [victim]:
-    for (;;)
-      openat2(dirb, "b/c/../../etc/shadow",
-              { .flags = O_PATH, .resolve = RESOLVE_IN_ROOT } );
-
-With fairly significant regularity, thread2 will resolve to
-"/etc/shadow" rather than "/a/b/etc/shadow". There is also a similar
-(though somewhat more privileged) attack using MS_MOVE.
-
-With this patch, such cases will be detected *during* ".." resolution
-(which is the weak point of chroot(2) -- since walking *into* a
-subdirectory tautologically cannot result in you walking *outside*
-nd->root -- except through a bind-mount or magic-link). By detecting
-this at ".." resolution (rather than checking only at the end of the
-entire resolution) we can both correct escapes by jumping back to the
-root (in the case of LOOKUP_IN_ROOT), as well as avoid revealing to
-attackers the structure of the filesystem outside of the root (through
-timing attacks for instance).
-
-In order to avoid a quadratic lookup with each ".." entry, we only
-activate the slow path if a write through &rename_lock or &mount_lock
-has occurred during path resolution (&rename_lock and &mount_lock are
-re-taken to further optimise the lookup). Since the primary attack being
-protected against is MS_MOVE or rename(2), not doing additional checks
-unless a mount or rename have occurred avoids making the common case
-slow.
-
-The use of path_is_under() here might seem suspect, but on further
-inspection of the most important race (a path was *inside* the root but
-is now *outside*), there appears to be no attack potential:
-
-  * If path_is_under() occurs before the rename, then the path will be
-    resolved -- however the path was originally inside the root and thus
-    there is no escape (and to userspace it'd look like the rename
-    occurred after the path was resolved). If path_is_under() occurs
-    afterwards, the resolution is blocked.
-
-  * Subsequent ".." jumps are guaranteed to check path_is_under() -- by
-    construction, &rename_lock or &mount_lock must have been taken by
-    the attacker after path_is_under() returned in the victim. Thus ".."
-    will not be able to escape from the previously-inside-root path.
-
-  * Walking down in the moved path is still safe since the entire
-    subtree was moved (either by rename(2) or MS_MOVE) and because (as
-    discussed above) walking down is safe.
-
-A variant of the above attack is included in the selftests for
-openat2(2) later in this patch series. I've run this test on several
-machines for several days and no instances of a breakout were detected.
-While this is not concrete proof that this is safe, when combined with
-the above argument it should lend some trustworthiness to this
-construction.
-
-[*] It may be acceptable in the future to do a path_is_under() check
-    after resolving a magic-link and permit resolution if the
-    nd_jump_link() result is still within the dirfd. However this seems
-    unlikely to be a feature that people *really* need* -- it can be
-    added later if it turns out a lot of people want it.
-
-Cc: Al Viro <viro@zeniv.linux.org.uk>
-Cc: Jann Horn <jannh@google.com>
-Cc: Kees Cook <keescook@chromium.org>
-Signed-off-by: Aleksa Sarai <cyphar@cyphar.com>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- fs/namei.c | 45 +++++++++++++++++++++++++++++++--------------
- 1 file changed, 31 insertions(+), 14 deletions(-)
+ arch/ia64/Kconfig                       |  5 --
+ arch/ia64/Makefile                      |  1 -
+ arch/ia64/dig/Makefile                  |  5 --
+ arch/ia64/dig/machvec_vtd.c             |  3 -
+ arch/ia64/hp/common/sba_iommu.c         | 82 +++++++++----------------
+ arch/ia64/include/asm/acpi.h            |  2 -
+ arch/ia64/include/asm/machvec.h         | 11 ----
+ arch/ia64/include/asm/machvec_dig_vtd.h | 19 ------
+ arch/ia64/include/asm/machvec_hpzx1.h   |  2 -
+ arch/ia64/include/asm/pci.h             |  3 -
+ arch/ia64/kernel/acpi.c                 | 15 -----
+ arch/ia64/kernel/dma-mapping.c          |  6 --
+ arch/ia64/kernel/pci-dma.c              | 21 -------
+ arch/ia64/mm/init.c                     | 13 ++--
+ 14 files changed, 37 insertions(+), 151 deletions(-)
+ delete mode 100644 arch/ia64/dig/machvec_vtd.c
+ delete mode 100644 arch/ia64/include/asm/machvec_dig_vtd.h
 
-diff --git a/fs/namei.c b/fs/namei.c
-index 0352d275bd13..fd1eb5ce8baa 100644
---- a/fs/namei.c
-+++ b/fs/namei.c
-@@ -491,7 +491,7 @@ struct nameidata {
- 	struct path	root;
- 	struct inode	*inode; /* path.dentry.d_inode */
- 	unsigned int	flags;
--	unsigned	seq, m_seq;
-+	unsigned	seq, m_seq, r_seq;
- 	int		last_type;
- 	unsigned	depth;
- 	int		total_link_count;
-@@ -1758,22 +1758,36 @@ static inline int handle_dots(struct nameidata *nd, int type)
- 	if (type = LAST_DOTDOT) {
- 		int error = 0;
+diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+index a42ab41ee8ab..9a8c7ec60cfc 100644
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -146,11 +146,6 @@ config IA64_DIG
+ 	bool "DIG-compliant"
+ 	select SWIOTLB
  
--		/*
--		 * LOOKUP_BENEATH resolving ".." is not currently safe -- races
--		 * can cause our parent to have moved outside of the root and
--		 * us to skip over it.
--		 */
--		if (unlikely(nd->flags & (LOOKUP_BENEATH | LOOKUP_IN_ROOT)))
--			return -EXDEV;
- 		if (!nd->root.mnt) {
- 			error = set_root(nd);
- 			if (error)
- 				return error;
- 		}
--		if (nd->flags & LOOKUP_RCU) {
--			return follow_dotdot_rcu(nd);
--		} else
--			return follow_dotdot(nd);
-+		if (nd->flags & LOOKUP_RCU)
-+			error = follow_dotdot_rcu(nd);
-+		else
-+			error = follow_dotdot(nd);
-+		if (error)
-+			return error;
-+
-+		if (unlikely(nd->flags & (LOOKUP_BENEATH | LOOKUP_IN_ROOT))) {
-+			bool m_retry = read_seqretry(&mount_lock, nd->m_seq);
-+			bool r_retry = read_seqretry(&rename_lock, nd->r_seq);
-+
-+			/*
-+			 * Don't bother checking unless there's a racing
-+			 * rename(2) or MS_MOVE.
-+			 */
-+			if (likely(!m_retry && !r_retry))
-+				return 0;
-+
-+			if (m_retry && !(nd->flags & LOOKUP_RCU))
-+				nd->m_seq = read_seqbegin(&mount_lock);
-+			if (r_retry)
-+				nd->r_seq = read_seqbegin(&rename_lock);
-+			if (!path_is_under(&nd->path, &nd->root))
-+				return -EXDEV;
-+		}
- 	}
- 	return 0;
- }
-@@ -2245,6 +2259,11 @@ static const char *path_init(struct nameidata *nd, unsigned flags)
- 	nd->last_type = LAST_ROOT; /* if there are only slashes... */
- 	nd->flags = flags | LOOKUP_JUMPED | LOOKUP_PARENT;
- 	nd->depth = 0;
-+
-+	nd->m_seq = read_seqbegin(&mount_lock);
-+	if (flags & (LOOKUP_BENEATH | LOOKUP_IN_ROOT))
-+		nd->r_seq = read_seqbegin(&rename_lock);
-+
- 	if (flags & LOOKUP_ROOT) {
- 		struct dentry *root = nd->root.dentry;
- 		struct inode *inode = root->d_inode;
-@@ -2266,8 +2285,6 @@ static const char *path_init(struct nameidata *nd, unsigned flags)
- 	nd->path.mnt = NULL;
- 	nd->path.dentry = NULL;
- 
--	nd->m_seq = read_seqbegin(&mount_lock);
+-config IA64_DIG_VTD
+-	bool "DIG+Intel+IOMMU"
+-	select INTEL_IOMMU
+-	select PCI_MSI
 -
- 	/* LOOKUP_IN_ROOT treats absolute paths as being relative-to-dirfd. */
- 	if (flags & LOOKUP_IN_ROOT)
- 		while (*s = '/')
+ config IA64_HP_ZX1
+ 	bool "HP-zx1/sx1000"
+ 	help
+diff --git a/arch/ia64/Makefile b/arch/ia64/Makefile
+index d87e49a39171..172dd884b4d7 100644
+--- a/arch/ia64/Makefile
++++ b/arch/ia64/Makefile
+@@ -45,7 +45,6 @@ head-y := arch/ia64/kernel/head.o
+ libs-y				+= arch/ia64/lib/
+ core-y				+= arch/ia64/kernel/ arch/ia64/mm/
+ core-$(CONFIG_IA64_DIG) 	+= arch/ia64/dig/
+-core-$(CONFIG_IA64_DIG_VTD) 	+= arch/ia64/dig/
+ core-$(CONFIG_IA64_GENERIC) 	+= arch/ia64/dig/
+ core-$(CONFIG_IA64_HP_ZX1)	+= arch/ia64/dig/
+ core-$(CONFIG_IA64_SGI_UV)	+= arch/ia64/uv/
+diff --git a/arch/ia64/dig/Makefile b/arch/ia64/dig/Makefile
+index e7f830825470..5c2f638c31f4 100644
+--- a/arch/ia64/dig/Makefile
++++ b/arch/ia64/dig/Makefile
+@@ -7,9 +7,4 @@
+ #
+ 
+ obj-y := setup.o
+-ifeq ($(CONFIG_INTEL_IOMMU), y)
+-obj-$(CONFIG_IA64_GENERIC) += machvec.o machvec_vtd.o
+-else
+ obj-$(CONFIG_IA64_GENERIC) += machvec.o
+-endif
+-
+diff --git a/arch/ia64/dig/machvec_vtd.c b/arch/ia64/dig/machvec_vtd.c
+deleted file mode 100644
+index 7cd3eb471cad..000000000000
+--- a/arch/ia64/dig/machvec_vtd.c
++++ /dev/null
+@@ -1,3 +0,0 @@
+-#define MACHVEC_PLATFORM_NAME		dig_vtd
+-#define MACHVEC_PLATFORM_HEADER		<asm/machvec_dig_vtd.h>
+-#include <asm/machvec_init.h>
+diff --git a/arch/ia64/hp/common/sba_iommu.c b/arch/ia64/hp/common/sba_iommu.c
+index 215fa688b729..a7eff5e6d260 100644
+--- a/arch/ia64/hp/common/sba_iommu.c
++++ b/arch/ia64/hp/common/sba_iommu.c
+@@ -35,6 +35,7 @@
+ #include <linux/iommu-helper.h>
+ #include <linux/dma-mapping.h>
+ #include <linux/prefetch.h>
++#include <linux/swiotlb.h>
+ 
+ #include <asm/delay.h>		/* ia64_get_itc() */
+ #include <asm/io.h>
+@@ -43,8 +44,6 @@
+ 
+ #include <asm/acpi-ext.h>
+ 
+-extern int swiotlb_late_init_with_default_size (size_t size);
+-
+ #define PFX "IOC: "
+ 
+ /*
+@@ -2056,27 +2055,33 @@ static int __init acpi_sba_ioc_init_acpi(void)
+ /* This has to run before acpi_scan_init(). */
+ arch_initcall(acpi_sba_ioc_init_acpi);
+ 
++static int sba_dma_supported (struct device *dev, u64 mask)
++{
++	/* make sure it's at least 32bit capable */
++	return ((mask & 0xFFFFFFFFUL) = 0xFFFFFFFFUL);
++}
++
++static const struct dma_map_ops sba_dma_ops = {
++	.alloc			= sba_alloc_coherent,
++	.free			= sba_free_coherent,
++	.map_page		= sba_map_page,
++	.unmap_page		= sba_unmap_page,
++	.map_sg			= sba_map_sg_attrs,
++	.unmap_sg		= sba_unmap_sg_attrs,
++	.dma_supported		= sba_dma_supported,
++};
++
+ static int __init
+ sba_init(void)
+ {
+-	if (!ia64_platform_is("hpzx1"))
+-		return 0;
+-
+-#if defined(CONFIG_IA64_GENERIC)
+-	/* If we are booting a kdump kernel, the sba_iommu will
+-	 * cause devices that were not shutdown properly to MCA
+-	 * as soon as they are turned back on.  Our only option for
+-	 * a successful kdump kernel boot is to use the swiotlb.
++	/*
++	 * If we are booting a kdump kernel, the sba_iommu will cause devices
++	 * that were not shutdown properly to MCA as soon as they are turned
++	 * back on.  Our only option for a successful kdump kernel boot is to
++	 * use swiotlb.
+ 	 */
+-	if (is_kdump_kernel()) {
+-		dma_ops = NULL;
+-		if (swiotlb_late_init_with_default_size(64 * (1<<20)) != 0)
+-			panic("Unable to initialize software I/O TLB:"
+-				  " Try machvec=dig boot option");
+-		machvec_init("dig");
++	if (is_kdump_kernel())
+ 		return 0;
+-	}
+-#endif
+ 
+ 	/*
+ 	 * ioc_found should be populated by the acpi_sba_ioc_handler's .attach()
+@@ -2085,22 +2090,8 @@ sba_init(void)
+ 	while (ioc_found)
+ 		acpi_sba_ioc_add(ioc_found);
+ 
+-	if (!ioc_list) {
+-#ifdef CONFIG_IA64_GENERIC
+-		/*
+-		 * If we didn't find something sba_iommu can claim, we
+-		 * need to setup the swiotlb and switch to the dig machvec.
+-		 */
+-		dma_ops = NULL;
+-		if (swiotlb_late_init_with_default_size(64 * (1<<20)) != 0)
+-			panic("Unable to find SBA IOMMU or initialize "
+-			      "software I/O TLB: Try machvec=dig boot option");
+-		machvec_init("dig");
+-#else
+-		panic("Unable to find SBA IOMMU: Try a generic or DIG kernel");
+-#endif
++	if (!ioc_list)
+ 		return 0;
+-	}
+ 
+ 	{
+ 		struct pci_bus *b = NULL;
+@@ -2108,6 +2099,10 @@ sba_init(void)
+ 			sba_connect_bus(b);
+ 	}
+ 
++	/* no need for swiotlb with the iommu */
++	swiotlb_exit();
++	dma_ops = &sba_dma_ops;
++
+ #ifdef CONFIG_PROC_FS
+ 	ioc_proc_init();
+ #endif
+@@ -2123,12 +2118,6 @@ nosbagart(char *str)
+ 	return 1;
+ }
+ 
+-static int sba_dma_supported (struct device *dev, u64 mask)
+-{
+-	/* make sure it's at least 32bit capable */
+-	return ((mask & 0xFFFFFFFFUL) = 0xFFFFFFFFUL);
+-}
+-
+ __setup("nosbagart", nosbagart);
+ 
+ static int __init
+@@ -2153,18 +2142,3 @@ sba_page_override(char *str)
+ }
+ 
+ __setup("sbapagesize=",sba_page_override);
+-
+-const struct dma_map_ops sba_dma_ops = {
+-	.alloc			= sba_alloc_coherent,
+-	.free			= sba_free_coherent,
+-	.map_page		= sba_map_page,
+-	.unmap_page		= sba_unmap_page,
+-	.map_sg			= sba_map_sg_attrs,
+-	.unmap_sg		= sba_unmap_sg_attrs,
+-	.dma_supported		= sba_dma_supported,
+-};
+-
+-void sba_dma_init(void)
+-{
+-	dma_ops = &sba_dma_ops;
+-}
+diff --git a/arch/ia64/include/asm/acpi.h b/arch/ia64/include/asm/acpi.h
+index 9e563df73038..be6bf3e499a6 100644
+--- a/arch/ia64/include/asm/acpi.h
++++ b/arch/ia64/include/asm/acpi.h
+@@ -43,8 +43,6 @@ static inline const char *acpi_get_sysname (void)
+ 	return "uv";
+ # elif defined (CONFIG_IA64_DIG)
+ 	return "dig";
+-# elif defined(CONFIG_IA64_DIG_VTD)
+-	return "dig_vtd";
+ # else
+ #	error Unknown platform.  Fix acpi.c.
+ # endif
+diff --git a/arch/ia64/include/asm/machvec.h b/arch/ia64/include/asm/machvec.h
+index fa867e980d87..b22d0499b58c 100644
+--- a/arch/ia64/include/asm/machvec.h
++++ b/arch/ia64/include/asm/machvec.h
+@@ -16,14 +16,11 @@
+ struct device;
+ 
+ typedef void ia64_mv_setup_t (char **);
+-typedef void ia64_mv_dma_init (void);
+ 
+ extern void machvec_setup (char **);
+ 
+ # if defined (CONFIG_IA64_DIG)
+ #  include <asm/machvec_dig.h>
+-# elif defined(CONFIG_IA64_DIG_VTD)
+-#  include <asm/machvec_dig_vtd.h>
+ # elif defined (CONFIG_IA64_HP_ZX1)
+ #  include <asm/machvec_hpzx1.h>
+ # elif defined (CONFIG_IA64_SGI_UV)
+@@ -35,7 +32,6 @@ extern void machvec_setup (char **);
+ # else
+ #  define ia64_platform_name	ia64_mv.name
+ #  define platform_setup	ia64_mv.setup
+-#  define platform_dma_init		ia64_mv.dma_init
+ # endif
+ 
+ /* __attribute__((__aligned__(16))) is required to make size of the
+@@ -46,14 +42,12 @@ extern void machvec_setup (char **);
+ struct ia64_machine_vector {
+ 	const char *name;
+ 	ia64_mv_setup_t *setup;
+-	ia64_mv_dma_init *dma_init;
+ } __attribute__((__aligned__(16))); /* align attrib? see above comment */
+ 
+ #define MACHVEC_INIT(name)			\
+ {						\
+ 	#name,					\
+ 	platform_setup,				\
+-	platform_dma_init,			\
+ }
+ 
+ extern struct ia64_machine_vector ia64_mv;
+@@ -64,8 +58,6 @@ extern void machvec_init_from_cmdline(const char *cmdline);
+ #  error Unknown configuration.  Update arch/ia64/include/asm/machvec.h.
+ # endif /* CONFIG_IA64_GENERIC */
+ 
+-extern void swiotlb_dma_init(void);
+-
+ /*
+  * Define default versions so we can extend machvec for new platforms without having
+  * to update the machvec files for all existing platforms.
+@@ -73,8 +65,5 @@ extern void swiotlb_dma_init(void);
+ #ifndef platform_setup
+ # define platform_setup			machvec_setup
+ #endif
+-#ifndef platform_dma_init
+-# define platform_dma_init		swiotlb_dma_init
+-#endif
+ 
+ #endif /* _ASM_IA64_MACHVEC_H */
+diff --git a/arch/ia64/include/asm/machvec_dig_vtd.h b/arch/ia64/include/asm/machvec_dig_vtd.h
+deleted file mode 100644
+index bb44eb9039dd..000000000000
+--- a/arch/ia64/include/asm/machvec_dig_vtd.h
++++ /dev/null
+@@ -1,19 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0 */
+-#ifndef _ASM_IA64_MACHVEC_DIG_VTD_h
+-#define _ASM_IA64_MACHVEC_DIG_VTD_h
+-
+-extern ia64_mv_setup_t			dig_setup;
+-extern ia64_mv_dma_init			pci_iommu_alloc;
+-
+-/*
+- * This stuff has dual use!
+- *
+- * For a generic kernel, the macros are used to initialize the
+- * platform's machvec structure.  When compiling a non-generic kernel,
+- * the macros are used directly.
+- */
+-#define ia64_platform_name			"dig_vtd"
+-#define platform_setup				dig_setup
+-#define platform_dma_init			pci_iommu_alloc
+-
+-#endif /* _ASM_IA64_MACHVEC_DIG_VTD_h */
+diff --git a/arch/ia64/include/asm/machvec_hpzx1.h b/arch/ia64/include/asm/machvec_hpzx1.h
+index 5299ac38bfb6..7d37998ffdbf 100644
+--- a/arch/ia64/include/asm/machvec_hpzx1.h
++++ b/arch/ia64/include/asm/machvec_hpzx1.h
+@@ -3,7 +3,6 @@
+ #define _ASM_IA64_MACHVEC_HPZX1_h
+ 
+ extern ia64_mv_setup_t			dig_setup;
+-extern ia64_mv_dma_init			sba_dma_init;
+ 
+ /*
+  * This stuff has dual use!
+@@ -14,6 +13,5 @@ extern ia64_mv_dma_init			sba_dma_init;
+  */
+ #define ia64_platform_name			"hpzx1"
+ #define platform_setup				dig_setup
+-#define platform_dma_init			sba_dma_init
+ 
+ #endif /* _ASM_IA64_MACHVEC_HPZX1_h */
+diff --git a/arch/ia64/include/asm/pci.h b/arch/ia64/include/asm/pci.h
+index ef91b780a3f2..8c163d1d0189 100644
+--- a/arch/ia64/include/asm/pci.h
++++ b/arch/ia64/include/asm/pci.h
+@@ -69,7 +69,4 @@ static inline int pci_get_legacy_ide_irq(struct pci_dev *dev, int channel)
+ 	return channel ? isa_irq_to_vector(15) : isa_irq_to_vector(14);
+ }
+ 
+-#ifdef CONFIG_INTEL_IOMMU
+-extern void pci_iommu_alloc(void);
+-#endif
+ #endif /* _ASM_IA64_PCI_H */
+diff --git a/arch/ia64/kernel/acpi.c b/arch/ia64/kernel/acpi.c
+index a63e472f5317..644f34e4342e 100644
+--- a/arch/ia64/kernel/acpi.c
++++ b/arch/ia64/kernel/acpi.c
+@@ -65,9 +65,6 @@ acpi_get_sysname(void)
+ 	struct acpi_table_rsdp *rsdp;
+ 	struct acpi_table_xsdt *xsdt;
+ 	struct acpi_table_header *hdr;
+-#ifdef CONFIG_INTEL_IOMMU
+-	u64 i, nentries;
+-#endif
+ 
+ 	rsdp_phys = acpi_find_rsdp();
+ 	if (!rsdp_phys) {
+@@ -98,18 +95,6 @@ acpi_get_sysname(void)
+ 			return "uv";
+ 	}
+ 
+-#ifdef CONFIG_INTEL_IOMMU
+-	/* Look for Intel IOMMU */
+-	nentries = (hdr->length - sizeof(*hdr)) /
+-			 sizeof(xsdt->table_offset_entry[0]);
+-	for (i = 0; i < nentries; i++) {
+-		hdr = __va(xsdt->table_offset_entry[i]);
+-		if (strncmp(hdr->signature, ACPI_SIG_DMAR,
+-			sizeof(ACPI_SIG_DMAR) - 1) = 0)
+-			return "dig_vtd";
+-	}
+-#endif
+-
+ 	return "dig";
+ }
+ #endif /* CONFIG_IA64_GENERIC */
+diff --git a/arch/ia64/kernel/dma-mapping.c b/arch/ia64/kernel/dma-mapping.c
+index 4be5ee04ccfa..53aaa8597920 100644
+--- a/arch/ia64/kernel/dma-mapping.c
++++ b/arch/ia64/kernel/dma-mapping.c
+@@ -1,6 +1,5 @@
+ // SPDX-License-Identifier: GPL-2.0
+ #include <linux/dma-direct.h>
+-#include <linux/swiotlb.h>
+ #include <linux/export.h>
+ 
+ /* Set this to 1 if there is a HW IOMMU in the system */
+@@ -27,9 +26,4 @@ long arch_dma_coherent_to_pfn(struct device *dev, void *cpu_addr,
+ {
+ 	return page_to_pfn(virt_to_page(cpu_addr));
+ }
+-
+-void __init swiotlb_dma_init(void)
+-{
+-	swiotlb_init(1);
+-}
+ #endif
+diff --git a/arch/ia64/kernel/pci-dma.c b/arch/ia64/kernel/pci-dma.c
+index fe988c49f01c..c5a8df9e77d0 100644
+--- a/arch/ia64/kernel/pci-dma.c
++++ b/arch/ia64/kernel/pci-dma.c
+@@ -34,24 +34,3 @@ static int __init pci_iommu_init(void)
+ 
+ /* Must execute after PCI subsystem */
+ fs_initcall(pci_iommu_init);
+-
+-void __init pci_iommu_alloc(void)
+-{
+-	/*
+-	 * The order of these functions is important for
+-	 * fall-back/fail-over reasons
+-	 */
+-	detect_intel_iommu();
+-
+-#ifdef CONFIG_SWIOTLB
+-	if (!iommu_detected) {
+-#ifdef CONFIG_IA64_GENERIC
+-		printk(KERN_INFO "PCI-DMA: Re-initialize machine vector.\n");
+-		machvec_init("dig");
+-		swiotlb_dma_init();
+-#else
+-		panic("Unable to find Intel IOMMU");
+-#endif /* CONFIG_IA64_GENERIC */
+-	}
+-#endif /* CONFIG_SWIOTLB */
+-}
+diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
+index 9a4a16439900..bc4d05064c25 100644
+--- a/arch/ia64/mm/init.c
++++ b/arch/ia64/mm/init.c
+@@ -9,6 +9,7 @@
+ #include <linux/init.h>
+ 
+ #include <linux/dma-noncoherent.h>
++#include <linux/dmar.h>
+ #include <linux/efi.h>
+ #include <linux/elf.h>
+ #include <linux/memblock.h>
+@@ -23,6 +24,7 @@
+ #include <linux/proc_fs.h>
+ #include <linux/bitops.h>
+ #include <linux/kexec.h>
++#include <linux/swiotlb.h>
+ 
+ #include <asm/dma.h>
+ #include <asm/io.h>
+@@ -633,11 +635,14 @@ mem_init (void)
+ 	BUG_ON(PTRS_PER_PTE * sizeof(pte_t) != PAGE_SIZE);
+ 
+ 	/*
+-	 * This needs to be called _after_ the command line has been parsed but _before_
+-	 * any drivers that may need the PCI DMA interface are initialized or bootmem has
+-	 * been freed.
++	 * This needs to be called _after_ the command line has been parsed but
++	 * _before_ any drivers that may need the PCI DMA interface are
++	 * initialized or bootmem has been freed.
+ 	 */
+-	platform_dma_init();
++	if (IS_ENABLED(CONFIG_INTEL_IOMMU))
++		detect_intel_iommu();
++	if (!iommu_detected)
++		swiotlb_init(1);
+ 
+ #ifdef CONFIG_FLATMEM
+ 	BUG_ON(!mem_map);
 -- 
-2.22.0
+2.20.1
