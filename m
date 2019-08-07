@@ -1,33 +1,21 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Tue, 13 Aug 2019 07:24:46 +0000
-Subject: RFC: remove sn2, hpsim and ia64 machvecs v2
-Message-Id: <20190813072514.23299-1-hch@lst.de>
+From: " Marie" <nail@shortcreed.icu>
+Date: Wed, 07 Aug 2019 19:24:29 +0000
+Subject: Why is this WiFi booster so popular across the World?
+Message-Id: <ozrDi3MHemSBakPa6bAKHYjwcDwelxI2pSEQH8vVAI4.wTQeDEuLkRi9rtb2F29JFJSOfG9MFeZ-dS5X1w2YQvw@shortcreed.icu>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190807133049.20893-1-hch@lst.de>
-In-Reply-To: <20190807133049.20893-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Mike Travis <mike.travis@hpe.com>, Dimitri Sivanich <sivanich@hpe.com>
-Cc: Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-ia64@vger.kernel.org, linux-ide@vger.kernel.org, linux-scsi@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-[adding some ex-SGI folks to comment as well]
+Internet providers make big money by overcharging you for faster internet lines. Could this little device really be the one solution that we've all been waiting for?
 
-Hi Tony,
+Frequency: 2.4Ghz
+Wireless Rate: 300Mbps
+Interface: 1 10/100Mbps WAN/LAN RJ45 Ports
 
-let me know what you think of this series.  This drops the pretty much
-dead sn2 and hpsim support, which then allows us to build a single ia64
-kernel image that supports all remaining systems without extra indirections
-in the fast path.
+Amazing new technology find out here! http://bit.ly/asdf411gt
 
-A git tree is also available at:
-
-    git://git.infradead.org/users/hch/misc.git ia64-remove-machvecs
-
-Gitweb:
-
-    http://git.infradead.org/users/hch/misc.git/shortlog/refs/heads/ia64-remove-machvecs
-
-Changes since v1:
- - restore !NUMA support
- - fix compile for configs
+------------------------
+If you'd prefer not to receive future emails, Unsubscribe Here http://bit.ly/itr4fgy
+11041 Santa Monica Blvd. #301 Los Angeles, CA 90025
