@@ -1,1039 +1,731 @@
-From: Mike Rapoport <rppt@linux.ibm.com>
-Date: Thu, 08 Aug 2019 07:52:06 +0000
-Subject: [PATCH 1/3] mm: remove quicklist page table caches
-Message-Id: <1565250728-21721-2-git-send-email-rppt@linux.ibm.com>
+From: Christoph Hellwig <hch@lst.de>
+Date: Wed, 07 Aug 2019 13:30:24 +0000
+Subject: [PATCH 04/29] ide: remove the sgiioc4 driver
+Message-Id: <20190807133049.20893-5-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1565250728-21721-1-git-send-email-rppt@linux.ibm.com>
-In-Reply-To: <1565250728-21721-1-git-send-email-rppt@linux.ibm.com>
+References: <20190807133049.20893-1-hch@lst.de>
+In-Reply-To: <20190807133049.20893-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>
-Cc: Nicholas Piggin <npiggin@gmail.com>, Tony Luck <tony.luck@intel.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, linux-arch@vger.kernel.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, Mike Rapoport <rppt@linux.ibm.com>
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-From: Nicholas Piggin <npiggin@gmail.com>
+The SGI SN2 support is about to be removed.  Remove this driver that
+depends on the SN2 support.
 
-Remove page table allocator "quicklists". These have been around for a
-long time, but have not got much traction in the last decade and are
-only used on ia64 and sh architectures.
-
-The numbers in the initial commit look interesting but probably don't
-apply anymore. If anybody wants to resurrect this it's in the git
-history, but it's unhelpful to have this code and divergent allocator
-behaviour for minor archs.
-
-Also it might be better to instead make more general improvements to
-page allocator if this is still so slow.
-
-Signed-off-by: Nicholas Piggin <npiggin@gmail.com>
-Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- arch/alpha/include/asm/pgalloc.h      |   2 -
- arch/arc/include/asm/pgalloc.h        |   1 -
- arch/arm/include/asm/pgalloc.h        |   2 -
- arch/arm64/include/asm/pgalloc.h      |   2 -
- arch/csky/include/asm/pgalloc.h       |   2 -
- arch/hexagon/include/asm/pgalloc.h    |   2 -
- arch/ia64/Kconfig                     |   4 --
- arch/ia64/include/asm/pgalloc.h       |  32 ++++-------
- arch/m68k/include/asm/pgtable_mm.h    |   2 -
- arch/m68k/include/asm/pgtable_no.h    |   2 -
- arch/microblaze/include/asm/pgalloc.h |  89 +++--------------------------
- arch/microblaze/mm/pgtable.c          |   4 --
- arch/mips/include/asm/pgalloc.h       |   2 -
- arch/nds32/include/asm/pgalloc.h      |   2 -
- arch/nios2/include/asm/pgalloc.h      |   2 -
- arch/openrisc/include/asm/pgalloc.h   |   2 -
- arch/parisc/include/asm/pgalloc.h     |   2 -
- arch/powerpc/include/asm/pgalloc.h    |   2 -
- arch/riscv/include/asm/pgalloc.h      |   4 --
- arch/s390/include/asm/pgtable.h       |   1 -
- arch/sh/include/asm/pgalloc.h         |  22 ++------
- arch/sh/mm/Kconfig                    |   3 -
- arch/sparc/include/asm/pgalloc_32.h   |   2 -
- arch/sparc/include/asm/pgalloc_64.h   |   2 -
- arch/sparc/mm/init_32.c               |   1 -
- arch/um/include/asm/pgalloc.h         |   2 -
- arch/unicore32/include/asm/pgalloc.h  |   2 -
- arch/x86/include/asm/pgtable_32.h     |   1 -
- arch/x86/include/asm/pgtable_64.h     |   1 -
- arch/xtensa/include/asm/tlbflush.h    |   3 -
- fs/proc/meminfo.c                     |   4 --
- include/asm-generic/pgalloc.h         |   5 --
- include/linux/quicklist.h             |  94 -------------------------------
- kernel/sched/idle.c                   |   1 -
- lib/show_mem.c                        |   5 --
- mm/Kconfig                            |   5 --
- mm/Makefile                           |   1 -
- mm/mmu_gather.c                       |   2 -
- mm/quicklist.c                        | 103 ----------------------------------
- 39 files changed, 25 insertions(+), 395 deletions(-)
- delete mode 100644 include/linux/quicklist.h
- delete mode 100644 mm/quicklist.c
+ arch/ia64/configs/generic_defconfig   |   1 -
+ arch/ia64/configs/gensparse_defconfig |   1 -
+ drivers/Kconfig                       |   2 -
+ drivers/ide/Kconfig                   |   9 -
+ drivers/ide/Makefile                  |   1 -
+ drivers/ide/sgiioc4.c                 | 630 --------------------------
+ 6 files changed, 644 deletions(-)
+ delete mode 100644 drivers/ide/sgiioc4.c
 
-diff --git a/arch/alpha/include/asm/pgalloc.h b/arch/alpha/include/asm/pgalloc.h
-index 71ded3b..eb91f1e 100644
---- a/arch/alpha/include/asm/pgalloc.h
-+++ b/arch/alpha/include/asm/pgalloc.h
-@@ -53,6 +53,4 @@ pmd_free(struct mm_struct *mm, pmd_t *pmd)
- 	free_page((unsigned long)pmd);
- }
+diff --git a/arch/ia64/configs/generic_defconfig b/arch/ia64/configs/generic_defconfig
+index 79b88384c885..a41afb3ef209 100644
+--- a/arch/ia64/configs/generic_defconfig
++++ b/arch/ia64/configs/generic_defconfig
+@@ -51,7 +51,6 @@ CONFIG_BLK_DEV_IDECD=y
+ CONFIG_BLK_DEV_GENERIC=y
+ CONFIG_BLK_DEV_CMD64X=y
+ CONFIG_BLK_DEV_PIIX=y
+-CONFIG_BLK_DEV_SGIIOC4=y
+ CONFIG_BLK_DEV_SD=y
+ CONFIG_CHR_DEV_ST=m
+ CONFIG_BLK_DEV_SR=m
+diff --git a/arch/ia64/configs/gensparse_defconfig b/arch/ia64/configs/gensparse_defconfig
+index f1490580ed69..07484aa6f16f 100644
+--- a/arch/ia64/configs/gensparse_defconfig
++++ b/arch/ia64/configs/gensparse_defconfig
+@@ -44,7 +44,6 @@ CONFIG_IDE_GENERIC=y
+ CONFIG_BLK_DEV_GENERIC=y
+ CONFIG_BLK_DEV_CMD64X=y
+ CONFIG_BLK_DEV_PIIX=y
+-CONFIG_BLK_DEV_SGIIOC4=y
+ CONFIG_SCSI=y
+ CONFIG_BLK_DEV_SD=y
+ CONFIG_CHR_DEV_ST=m
+diff --git a/drivers/Kconfig b/drivers/Kconfig
+index 61cf4ea2c229..477d63d0364d 100644
+--- a/drivers/Kconfig
++++ b/drivers/Kconfig
+@@ -30,8 +30,6 @@ source "drivers/block/Kconfig"
  
--#define check_pgt_cache()	do { } while (0)
+ source "drivers/nvme/Kconfig"
+ 
+-# misc before ide - BLK_DEV_SGIIOC4 depends on SGI_IOC4
 -
- #endif /* _ALPHA_PGALLOC_H */
-diff --git a/arch/arc/include/asm/pgalloc.h b/arch/arc/include/asm/pgalloc.h
-index 9bdb8ed..4751f22 100644
---- a/arch/arc/include/asm/pgalloc.h
-+++ b/arch/arc/include/asm/pgalloc.h
-@@ -129,7 +129,6 @@ static inline void pte_free(struct mm_struct *mm, pgtable_t ptep)
+ source "drivers/misc/Kconfig"
  
- #define __pte_free_tlb(tlb, pte, addr)  pte_free((tlb)->mm, pte)
+ source "drivers/ide/Kconfig"
+diff --git a/drivers/ide/Kconfig b/drivers/ide/Kconfig
+index 9eada392df15..1c227ea8ecd3 100644
+--- a/drivers/ide/Kconfig
++++ b/drivers/ide/Kconfig
+@@ -567,15 +567,6 @@ config BLK_DEV_SVWKS
+ 	  This driver adds PIO/(U)DMA support for the ServerWorks OSB4/CSB5
+ 	  chipsets.
  
--#define check_pgt_cache()   do { } while (0)
- #define pmd_pgtable(pmd)	((pgtable_t) pmd_page_vaddr(pmd))
- 
- #endif /* _ASM_ARC_PGALLOC_H */
-diff --git a/arch/arm/include/asm/pgalloc.h b/arch/arm/include/asm/pgalloc.h
-index a2a68b7..069da39 100644
---- a/arch/arm/include/asm/pgalloc.h
-+++ b/arch/arm/include/asm/pgalloc.h
-@@ -15,8 +15,6 @@
- #include <asm/cacheflush.h>
- #include <asm/tlbflush.h>
- 
--#define check_pgt_cache()		do { } while (0)
+-config BLK_DEV_SGIIOC4
+-	tristate "Silicon Graphics IOC4 chipset ATA/ATAPI support"
+-	depends on (IA64_SGI_SN2 || IA64_GENERIC) && SGI_IOC4
+-	select BLK_DEV_IDEDMA_PCI
+-	help
+-	  This driver adds PIO & MultiMode DMA-2 support for the SGI IOC4
+-	  chipset, which has one channel and can support two devices.
+-	  Please say Y here if you have an Altix System from SGI.
 -
- #ifdef CONFIG_MMU
- 
- #define _PAGE_USER_TABLE	(PMD_TYPE_TABLE | PMD_BIT4 | PMD_DOMAIN(DOMAIN_USER))
-diff --git a/arch/arm64/include/asm/pgalloc.h b/arch/arm64/include/asm/pgalloc.h
-index 14d0bc4..172d76f 100644
---- a/arch/arm64/include/asm/pgalloc.h
-+++ b/arch/arm64/include/asm/pgalloc.h
-@@ -15,8 +15,6 @@
- 
- #include <asm-generic/pgalloc.h>	/* for pte_{alloc,free}_one */
- 
--#define check_pgt_cache()		do { } while (0)
--
- #define PGD_SIZE	(PTRS_PER_PGD * sizeof(pgd_t))
- 
- #if CONFIG_PGTABLE_LEVELS > 2
-diff --git a/arch/csky/include/asm/pgalloc.h b/arch/csky/include/asm/pgalloc.h
-index 98c571670..d089113 100644
---- a/arch/csky/include/asm/pgalloc.h
-+++ b/arch/csky/include/asm/pgalloc.h
-@@ -75,8 +75,6 @@ do {							\
- 	tlb_remove_page(tlb, pte);			\
- } while (0)
- 
--#define check_pgt_cache()	do {} while (0)
--
- extern void pagetable_init(void);
- extern void pre_mmu_init(void);
- extern void pre_trap_init(void);
-diff --git a/arch/hexagon/include/asm/pgalloc.h b/arch/hexagon/include/asm/pgalloc.h
-index d6544dc..5a6e79e 100644
---- a/arch/hexagon/include/asm/pgalloc.h
-+++ b/arch/hexagon/include/asm/pgalloc.h
-@@ -13,8 +13,6 @@
- 
- #include <asm-generic/pgalloc.h>	/* for pte_{alloc,free}_one */
- 
--#define check_pgt_cache() do {} while (0)
--
- extern unsigned long long kmap_generation;
- 
- /*
-diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-index 7468d8e..69bb405 100644
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -68,10 +68,6 @@ config ZONE_DMA32
- 	def_bool y
- 	depends on !IA64_SGI_SN2
- 
--config QUICKLIST
--	bool
--	default y
--
- config MMU
- 	bool
- 	default y
-diff --git a/arch/ia64/include/asm/pgalloc.h b/arch/ia64/include/asm/pgalloc.h
-index c9e4810..b03d993 100644
---- a/arch/ia64/include/asm/pgalloc.h
-+++ b/arch/ia64/include/asm/pgalloc.h
-@@ -19,18 +19,17 @@
- #include <linux/mm.h>
- #include <linux/page-flags.h>
- #include <linux/threads.h>
--#include <linux/quicklist.h>
- 
- #include <asm/mmu_context.h>
- 
- static inline pgd_t *pgd_alloc(struct mm_struct *mm)
- {
--	return quicklist_alloc(0, GFP_KERNEL, NULL);
-+	return (pgd_t *)__get_free_page(GFP_KERNEL | __GFP_ZERO);
- }
- 
- static inline void pgd_free(struct mm_struct *mm, pgd_t *pgd)
- {
--	quicklist_free(0, NULL, pgd);
-+	free_page((unsigned long)pgd);
- }
- 
- #if CONFIG_PGTABLE_LEVELS = 4
-@@ -42,12 +41,12 @@ pgd_populate(struct mm_struct *mm, pgd_t * pgd_entry, pud_t * pud)
- 
- static inline pud_t *pud_alloc_one(struct mm_struct *mm, unsigned long addr)
- {
--	return quicklist_alloc(0, GFP_KERNEL, NULL);
-+	return (pud_t *)__get_free_page(GFP_KERNEL | __GFP_ZERO);
- }
- 
- static inline void pud_free(struct mm_struct *mm, pud_t *pud)
- {
--	quicklist_free(0, NULL, pud);
-+	free_page((unsigned long)pud);
- }
- #define __pud_free_tlb(tlb, pud, address)	pud_free((tlb)->mm, pud)
- #endif /* CONFIG_PGTABLE_LEVELS = 4 */
-@@ -60,12 +59,12 @@ pud_populate(struct mm_struct *mm, pud_t * pud_entry, pmd_t * pmd)
- 
- static inline pmd_t *pmd_alloc_one(struct mm_struct *mm, unsigned long addr)
- {
--	return quicklist_alloc(0, GFP_KERNEL, NULL);
-+	return (pmd_t *)__get_free_page(GFP_KERNEL | __GFP_ZERO);
- }
- 
- static inline void pmd_free(struct mm_struct *mm, pmd_t *pmd)
- {
--	quicklist_free(0, NULL, pmd);
-+	free_page((unsigned long)pmd);
- }
- 
- #define __pmd_free_tlb(tlb, pmd, address)	pmd_free((tlb)->mm, pmd)
-@@ -86,14 +85,12 @@ pmd_populate_kernel(struct mm_struct *mm, pmd_t * pmd_entry, pte_t * pte)
- static inline pgtable_t pte_alloc_one(struct mm_struct *mm)
- {
- 	struct page *page;
--	void *pg;
- 
--	pg = quicklist_alloc(0, GFP_KERNEL, NULL);
--	if (!pg)
-+	page = alloc_page(GFP_KERNEL | __GFP_ZERO);
-+	if (!page)
- 		return NULL;
--	page = virt_to_page(pg);
- 	if (!pgtable_page_ctor(page)) {
--		quicklist_free(0, NULL, pg);
-+		__free_page(page);
- 		return NULL;
- 	}
- 	return page;
-@@ -101,23 +98,18 @@ static inline pgtable_t pte_alloc_one(struct mm_struct *mm)
- 
- static inline pte_t *pte_alloc_one_kernel(struct mm_struct *mm)
- {
--	return quicklist_alloc(0, GFP_KERNEL, NULL);
-+	return (pte_t *)__get_free_page(GFP_KERNEL | __GFP_ZERO);
- }
- 
- static inline void pte_free(struct mm_struct *mm, pgtable_t pte)
- {
- 	pgtable_page_dtor(pte);
--	quicklist_free_page(0, NULL, pte);
-+	__free_page(pte);
- }
- 
- static inline void pte_free_kernel(struct mm_struct *mm, pte_t *pte)
- {
--	quicklist_free(0, NULL, pte);
--}
--
--static inline void check_pgt_cache(void)
--{
--	quicklist_trim(0, NULL, 25, 16);
-+	free_page((unsigned long)pte);
- }
- 
- #define __pte_free_tlb(tlb, pte, address)	pte_free((tlb)->mm, pte)
-diff --git a/arch/m68k/include/asm/pgtable_mm.h b/arch/m68k/include/asm/pgtable_mm.h
-index fe3ddd7..b5269f1 100644
---- a/arch/m68k/include/asm/pgtable_mm.h
-+++ b/arch/m68k/include/asm/pgtable_mm.h
-@@ -178,6 +178,4 @@ static inline void update_mmu_cache(struct vm_area_struct *vma,
-  */
- #define pgtable_cache_init()	do { } while (0)
- 
--#define check_pgt_cache()	do { } while (0)
--
- #endif /* _M68K_PGTABLE_H */
-diff --git a/arch/m68k/include/asm/pgtable_no.h b/arch/m68k/include/asm/pgtable_no.h
-index fc3a96c..69e2711 100644
---- a/arch/m68k/include/asm/pgtable_no.h
-+++ b/arch/m68k/include/asm/pgtable_no.h
-@@ -60,6 +60,4 @@ extern void paging_init(void);
- 
- #include <asm-generic/pgtable.h>
- 
--#define check_pgt_cache()	do { } while (0)
--
- #endif /* _M68KNOMMU_PGTABLE_H */
-diff --git a/arch/microblaze/include/asm/pgalloc.h b/arch/microblaze/include/asm/pgalloc.h
-index f4cc9ff..ac07318 100644
---- a/arch/microblaze/include/asm/pgalloc.h
-+++ b/arch/microblaze/include/asm/pgalloc.h
-@@ -21,83 +21,20 @@
- #include <asm/cache.h>
- #include <asm/pgtable.h>
- 
--#define PGDIR_ORDER	0
--
--/*
-- * This is handled very differently on MicroBlaze since out page tables
-- * are all 0's and I want to be able to use these zero'd pages elsewhere
-- * as well - it gives us quite a speedup.
-- * -- Cort
-- */
--extern struct pgtable_cache_struct {
--	unsigned long *pgd_cache;
--	unsigned long *pte_cache;
--	unsigned long pgtable_cache_sz;
--} quicklists;
--
--#define pgd_quicklist		(quicklists.pgd_cache)
--#define pmd_quicklist		((unsigned long *)0)
--#define pte_quicklist		(quicklists.pte_cache)
--#define pgtable_cache_size	(quicklists.pgtable_cache_sz)
--
--extern unsigned long *zero_cache; /* head linked list of pre-zero'd pages */
--extern atomic_t zero_sz; /* # currently pre-zero'd pages */
--extern atomic_t zeropage_hits; /* # zero'd pages request that we've done */
--extern atomic_t zeropage_calls; /* # zero'd pages request that've been made */
--extern atomic_t zerototal; /* # pages zero'd over time */
--
--#define zero_quicklist		(zero_cache)
--#define zero_cache_sz	 	(zero_sz)
--#define zero_cache_calls	(zeropage_calls)
--#define zero_cache_hits		(zeropage_hits)
--#define zero_cache_total	(zerototal)
--
--/*
-- * return a pre-zero'd page from the list,
-- * return NULL if none available -- Cort
-- */
--extern unsigned long get_zero_page_fast(void);
--
- extern void __bad_pte(pmd_t *pmd);
- 
--static inline pgd_t *get_pgd_slow(void)
-+static inline pgd_t *get_pgd(void)
- {
--	pgd_t *ret;
--
--	ret = (pgd_t *)__get_free_pages(GFP_KERNEL, PGDIR_ORDER);
--	if (ret != NULL)
--		clear_page(ret);
--	return ret;
-+	return (pgd_t *)__get_free_pages(GFP_KERNEL|__GFP_ZERO, 0);
- }
- 
--static inline pgd_t *get_pgd_fast(void)
--{
--	unsigned long *ret;
--
--	ret = pgd_quicklist;
--	if (ret != NULL) {
--		pgd_quicklist = (unsigned long *)(*ret);
--		ret[0] = 0;
--		pgtable_cache_size--;
--	} else
--		ret = (unsigned long *)get_pgd_slow();
--	return (pgd_t *)ret;
--}
--
--static inline void free_pgd_fast(pgd_t *pgd)
--{
--	*(unsigned long **)pgd = pgd_quicklist;
--	pgd_quicklist = (unsigned long *) pgd;
--	pgtable_cache_size++;
--}
--
--static inline void free_pgd_slow(pgd_t *pgd)
-+static inline void free_pgd(pgd_t *pgd)
- {
- 	free_page((unsigned long)pgd);
- }
- 
--#define pgd_free(mm, pgd)        free_pgd_fast(pgd)
--#define pgd_alloc(mm)		get_pgd_fast()
-+#define pgd_free(mm, pgd)	free_pgd(pgd)
-+#define pgd_alloc(mm)		get_pgd()
- 
- #define pmd_pgtable(pmd)	pmd_page(pmd)
- 
-@@ -115,15 +52,14 @@ static inline struct page *pte_alloc_one(struct mm_struct *mm)
- 	struct page *ptepage;
- 
- #ifdef CONFIG_HIGHPTE
--	int flags = GFP_KERNEL | __GFP_HIGHMEM;
-+	int flags = GFP_KERNEL | __GFP_ZERO | __GFP_HIGHMEM;
- #else
--	int flags = GFP_KERNEL;
-+	int flags = GFP_KERNEL | __GFP_ZERO;
- #endif
- 
- 	ptepage = alloc_pages(flags, 0);
- 	if (!ptepage)
- 		return NULL;
--	clear_highpage(ptepage);
- 	if (!pgtable_page_ctor(ptepage)) {
- 		__free_page(ptepage);
- 		return NULL;
-@@ -131,13 +67,6 @@ static inline struct page *pte_alloc_one(struct mm_struct *mm)
- 	return ptepage;
- }
- 
--static inline void pte_free_fast(pte_t *pte)
--{
--	*(unsigned long **)pte = pte_quicklist;
--	pte_quicklist = (unsigned long *) pte;
--	pgtable_cache_size++;
--}
--
- static inline void pte_free_kernel(struct mm_struct *mm, pte_t *pte)
- {
- 	free_page((unsigned long)pte);
-@@ -171,10 +100,6 @@ static inline void pte_free(struct mm_struct *mm, struct page *ptepage)
- #define __pmd_free_tlb(tlb, x, addr)	pmd_free((tlb)->mm, x)
- #define pgd_populate(mm, pmd, pte)	BUG()
- 
--extern int do_check_pgt_cache(int, int);
--
- #endif /* CONFIG_MMU */
- 
--#define check_pgt_cache()		do { } while (0)
--
- #endif /* _ASM_MICROBLAZE_PGALLOC_H */
-diff --git a/arch/microblaze/mm/pgtable.c b/arch/microblaze/mm/pgtable.c
-index 8fe54fd..010bb9c 100644
---- a/arch/microblaze/mm/pgtable.c
-+++ b/arch/microblaze/mm/pgtable.c
-@@ -44,10 +44,6 @@ unsigned long ioremap_base;
- unsigned long ioremap_bot;
- EXPORT_SYMBOL(ioremap_bot);
- 
--#ifndef CONFIG_SMP
--struct pgtable_cache_struct quicklists;
--#endif
--
- static void __iomem *__ioremap(phys_addr_t addr, unsigned long size,
- 		unsigned long flags)
- {
-diff --git a/arch/mips/include/asm/pgalloc.h b/arch/mips/include/asm/pgalloc.h
-index aa16b85..aa73cb1 100644
---- a/arch/mips/include/asm/pgalloc.h
-+++ b/arch/mips/include/asm/pgalloc.h
-@@ -105,8 +105,6 @@ static inline void pgd_populate(struct mm_struct *mm, pgd_t *pgd, pud_t *pud)
- 
- #endif /* __PAGETABLE_PUD_FOLDED */
- 
--#define check_pgt_cache()	do { } while (0)
--
- extern void pagetable_init(void);
- 
- #endif /* _ASM_PGALLOC_H */
-diff --git a/arch/nds32/include/asm/pgalloc.h b/arch/nds32/include/asm/pgalloc.h
-index e78b43d..37125e6 100644
---- a/arch/nds32/include/asm/pgalloc.h
-+++ b/arch/nds32/include/asm/pgalloc.h
-@@ -23,8 +23,6 @@
- extern pgd_t *pgd_alloc(struct mm_struct *mm);
- extern void pgd_free(struct mm_struct *mm, pgd_t * pgd);
- 
--#define check_pgt_cache()		do { } while (0)
--
- static inline pgtable_t pte_alloc_one(struct mm_struct *mm)
- {
- 	pgtable_t pte;
-diff --git a/arch/nios2/include/asm/pgalloc.h b/arch/nios2/include/asm/pgalloc.h
-index 4bc8cf7..750d18d 100644
---- a/arch/nios2/include/asm/pgalloc.h
-+++ b/arch/nios2/include/asm/pgalloc.h
-@@ -45,6 +45,4 @@ static inline void pgd_free(struct mm_struct *mm, pgd_t *pgd)
- 		tlb_remove_page((tlb), (pte));			\
- 	} while (0)
- 
--#define check_pgt_cache()	do { } while (0)
--
- #endif /* _ASM_NIOS2_PGALLOC_H */
-diff --git a/arch/openrisc/include/asm/pgalloc.h b/arch/openrisc/include/asm/pgalloc.h
-index 3d4b397c..787c1b9 100644
---- a/arch/openrisc/include/asm/pgalloc.h
-+++ b/arch/openrisc/include/asm/pgalloc.h
-@@ -101,6 +101,4 @@ do {					\
- 
- #define pmd_pgtable(pmd) pmd_page(pmd)
- 
--#define check_pgt_cache()          do { } while (0)
--
- #endif
-diff --git a/arch/parisc/include/asm/pgalloc.h b/arch/parisc/include/asm/pgalloc.h
-index 4f2059a..d98647c 100644
---- a/arch/parisc/include/asm/pgalloc.h
-+++ b/arch/parisc/include/asm/pgalloc.h
-@@ -124,6 +124,4 @@ pmd_populate_kernel(struct mm_struct *mm, pmd_t *pmd, pte_t *pte)
- 	pmd_populate_kernel(mm, pmd, page_address(pte_page))
- #define pmd_pgtable(pmd) pmd_page(pmd)
- 
--#define check_pgt_cache()	do { } while (0)
--
- #endif
-diff --git a/arch/powerpc/include/asm/pgalloc.h b/arch/powerpc/include/asm/pgalloc.h
-index 2b2c60a..6dd78a2 100644
---- a/arch/powerpc/include/asm/pgalloc.h
-+++ b/arch/powerpc/include/asm/pgalloc.h
-@@ -64,8 +64,6 @@ static inline void pte_free(struct mm_struct *mm, pgtable_t ptepage)
- extern struct kmem_cache *pgtable_cache[];
- #define PGT_CACHE(shift) pgtable_cache[shift]
- 
--static inline void check_pgt_cache(void) { }
--
- #ifdef CONFIG_PPC_BOOK3S
- #include <asm/book3s/pgalloc.h>
- #else
-diff --git a/arch/riscv/include/asm/pgalloc.h b/arch/riscv/include/asm/pgalloc.h
-index 56a67d6..f66a00d 100644
---- a/arch/riscv/include/asm/pgalloc.h
-+++ b/arch/riscv/include/asm/pgalloc.h
-@@ -82,8 +82,4 @@ do {                                    \
- 	tlb_remove_page((tlb), pte);    \
- } while (0)
- 
--static inline void check_pgt_cache(void)
--{
--}
--
- #endif /* _ASM_RISCV_PGALLOC_H */
-diff --git a/arch/s390/include/asm/pgtable.h b/arch/s390/include/asm/pgtable.h
-index 9b274fc..c3309ef 100644
---- a/arch/s390/include/asm/pgtable.h
-+++ b/arch/s390/include/asm/pgtable.h
-@@ -1685,7 +1685,6 @@ extern void s390_reset_cmma(struct mm_struct *mm);
-  * No page table caches to initialise
-  */
- static inline void pgtable_cache_init(void) { }
--static inline void check_pgt_cache(void) { }
- 
- #include <asm-generic/pgtable.h>
- 
-diff --git a/arch/sh/include/asm/pgalloc.h b/arch/sh/include/asm/pgalloc.h
-index b56f908..9e15054 100644
---- a/arch/sh/include/asm/pgalloc.h
-+++ b/arch/sh/include/asm/pgalloc.h
-@@ -2,11 +2,8 @@
- #ifndef __ASM_SH_PGALLOC_H
- #define __ASM_SH_PGALLOC_H
- 
--#include <linux/quicklist.h>
- #include <asm/page.h>
- 
--#define QUICK_PT 0	/* Other page table pages that are zero on free */
--
- extern pgd_t *pgd_alloc(struct mm_struct *);
- extern void pgd_free(struct mm_struct *mm, pgd_t *pgd);
- 
-@@ -34,20 +31,18 @@ static inline void pmd_populate(struct mm_struct *mm, pmd_t *pmd,
-  */
- static inline pte_t *pte_alloc_one_kernel(struct mm_struct *mm)
- {
--	return quicklist_alloc(QUICK_PT, GFP_KERNEL, NULL);
-+	return (pte_t *)__get_free_page(GFP_KERNEL | __GFP_ZERO);
- }
- 
- static inline pgtable_t pte_alloc_one(struct mm_struct *mm)
- {
- 	struct page *page;
--	void *pg;
- 
--	pg = quicklist_alloc(QUICK_PT, GFP_KERNEL, NULL);
--	if (!pg)
-+	page = alloc_page(GFP_KERNEL | __GFP_ZERO);
-+	if (!page)
- 		return NULL;
--	page = virt_to_page(pg);
- 	if (!pgtable_page_ctor(page)) {
--		quicklist_free(QUICK_PT, NULL, pg);
-+		__free_page(page);
- 		return NULL;
- 	}
- 	return page;
-@@ -55,13 +50,13 @@ static inline pgtable_t pte_alloc_one(struct mm_struct *mm)
- 
- static inline void pte_free_kernel(struct mm_struct *mm, pte_t *pte)
- {
--	quicklist_free(QUICK_PT, NULL, pte);
-+	free_page((unsigned long)pte);
- }
- 
- static inline void pte_free(struct mm_struct *mm, pgtable_t pte)
- {
- 	pgtable_page_dtor(pte);
--	quicklist_free_page(QUICK_PT, NULL, pte);
-+	__free_page(pte);
- }
- 
- #define __pte_free_tlb(tlb,pte,addr)			\
-@@ -79,9 +74,4 @@ do {							\
- } while (0);
- #endif
- 
--static inline void check_pgt_cache(void)
--{
--	quicklist_trim(QUICK_PT, NULL, 25, 16);
--}
--
- #endif /* __ASM_SH_PGALLOC_H */
-diff --git a/arch/sh/mm/Kconfig b/arch/sh/mm/Kconfig
-index 02ed2df..5c8a2eb 100644
---- a/arch/sh/mm/Kconfig
-+++ b/arch/sh/mm/Kconfig
-@@ -1,9 +1,6 @@
- # SPDX-License-Identifier: GPL-2.0
- menu "Memory management options"
- 
--config QUICKLIST
--	def_bool y
--
- config MMU
-         bool "Support for memory management hardware"
- 	depends on !CPU_SH2
-diff --git a/arch/sparc/include/asm/pgalloc_32.h b/arch/sparc/include/asm/pgalloc_32.h
-index 282be50..10538a4 100644
---- a/arch/sparc/include/asm/pgalloc_32.h
-+++ b/arch/sparc/include/asm/pgalloc_32.h
-@@ -17,8 +17,6 @@ void srmmu_free_nocache(void *addr, int size);
- 
- extern struct resource sparc_iomap;
- 
--#define check_pgt_cache()	do { } while (0)
--
- pgd_t *get_pgd_fast(void);
- static inline void free_pgd_fast(pgd_t *pgd)
- {
-diff --git a/arch/sparc/include/asm/pgalloc_64.h b/arch/sparc/include/asm/pgalloc_64.h
-index 48abccb..9d3e5cc 100644
---- a/arch/sparc/include/asm/pgalloc_64.h
-+++ b/arch/sparc/include/asm/pgalloc_64.h
-@@ -69,8 +69,6 @@ void pte_free(struct mm_struct *mm, pgtable_t ptepage);
- #define pmd_populate(MM, PMD, PTE)		pmd_set(MM, PMD, PTE)
- #define pmd_pgtable(PMD)			((pte_t *)__pmd_page(PMD))
- 
--#define check_pgt_cache()	do { } while (0)
--
- void pgtable_free(void *table, bool is_page);
- 
- #ifdef CONFIG_SMP
-diff --git a/arch/sparc/mm/init_32.c b/arch/sparc/mm/init_32.c
-index 046ab11..906eda11 100644
---- a/arch/sparc/mm/init_32.c
-+++ b/arch/sparc/mm/init_32.c
-@@ -31,7 +31,6 @@
- #include <asm/page.h>
- #include <asm/pgtable.h>
- #include <asm/vaddrs.h>
--#include <asm/pgalloc.h>	/* bug in asm-generic/tlb.h: check_pgt_cache */
- #include <asm/setup.h>
- #include <asm/tlb.h>
- #include <asm/prom.h>
-diff --git a/arch/um/include/asm/pgalloc.h b/arch/um/include/asm/pgalloc.h
-index d7b282e..7104b05 100644
---- a/arch/um/include/asm/pgalloc.h
-+++ b/arch/um/include/asm/pgalloc.h
-@@ -43,7 +43,5 @@ static inline void pmd_free(struct mm_struct *mm, pmd_t *pmd)
- #define __pmd_free_tlb(tlb,x, address)   tlb_remove_page((tlb),virt_to_page(x))
- #endif
- 
--#define check_pgt_cache()	do { } while (0)
--
- #endif
- 
-diff --git a/arch/unicore32/include/asm/pgalloc.h b/arch/unicore32/include/asm/pgalloc.h
-index 3f0903b..ba1c9a7 100644
---- a/arch/unicore32/include/asm/pgalloc.h
-+++ b/arch/unicore32/include/asm/pgalloc.h
-@@ -18,8 +18,6 @@
- #define __HAVE_ARCH_PTE_ALLOC_ONE
- #include <asm-generic/pgalloc.h>
- 
--#define check_pgt_cache()		do { } while (0)
--
- #define _PAGE_USER_TABLE	(PMD_TYPE_TABLE | PMD_PRESENT)
- #define _PAGE_KERNEL_TABLE	(PMD_TYPE_TABLE | PMD_PRESENT)
- 
-diff --git a/arch/x86/include/asm/pgtable_32.h b/arch/x86/include/asm/pgtable_32.h
-index c78da8e..b9b9f8a 100644
---- a/arch/x86/include/asm/pgtable_32.h
-+++ b/arch/x86/include/asm/pgtable_32.h
-@@ -30,7 +30,6 @@ extern pgd_t initial_page_table[1024];
- extern pmd_t initial_pg_pmd[];
- 
- static inline void pgtable_cache_init(void) { }
--static inline void check_pgt_cache(void) { }
- void paging_init(void);
- void sync_initial_page_table(void);
- 
-diff --git a/arch/x86/include/asm/pgtable_64.h b/arch/x86/include/asm/pgtable_64.h
-index 4990d26..a26d2d5 100644
---- a/arch/x86/include/asm/pgtable_64.h
-+++ b/arch/x86/include/asm/pgtable_64.h
-@@ -242,7 +242,6 @@ extern void cleanup_highmap(void);
- #define HAVE_ARCH_UNMAPPED_AREA_TOPDOWN
- 
- #define pgtable_cache_init()   do { } while (0)
--#define check_pgt_cache()      do { } while (0)
- 
- #define PAGE_AGP    PAGE_KERNEL_NOCACHE
- #define HAVE_PAGE_AGP 1
-diff --git a/arch/xtensa/include/asm/tlbflush.h b/arch/xtensa/include/asm/tlbflush.h
-index 06875feb..856e2da 100644
---- a/arch/xtensa/include/asm/tlbflush.h
-+++ b/arch/xtensa/include/asm/tlbflush.h
-@@ -160,9 +160,6 @@ static inline void invalidate_dtlb_mapping (unsigned address)
- 		invalidate_dtlb_entry(tlb_entry);
- }
- 
--#define check_pgt_cache()	do { } while (0)
--
--
- /*
-  * DO NOT USE THESE FUNCTIONS.  These instructions aren't part of the Xtensa
-  * ISA and exist only for test purposes..
-diff --git a/fs/proc/meminfo.c b/fs/proc/meminfo.c
-index 465ea01..4bd80e6 100644
---- a/fs/proc/meminfo.c
-+++ b/fs/proc/meminfo.c
-@@ -8,7 +8,6 @@
- #include <linux/mmzone.h>
- #include <linux/proc_fs.h>
- #include <linux/percpu.h>
--#include <linux/quicklist.h>
- #include <linux/seq_file.h>
- #include <linux/swap.h>
- #include <linux/vmstat.h>
-@@ -106,9 +105,6 @@ static int meminfo_proc_show(struct seq_file *m, void *v)
- 		   global_zone_page_state(NR_KERNEL_STACK_KB));
- 	show_val_kb(m, "PageTables:     ",
- 		    global_zone_page_state(NR_PAGETABLE));
--#ifdef CONFIG_QUICKLIST
--	show_val_kb(m, "Quicklists:     ", quicklist_total_size());
--#endif
- 
- 	show_val_kb(m, "NFS_Unstable:   ",
- 		    global_node_page_state(NR_UNSTABLE_NFS));
-diff --git a/include/asm-generic/pgalloc.h b/include/asm-generic/pgalloc.h
-index 8476175..6f8cc06 100644
---- a/include/asm-generic/pgalloc.h
-+++ b/include/asm-generic/pgalloc.h
-@@ -102,11 +102,6 @@ static inline void pte_free(struct mm_struct *mm, struct page *pte_page)
- 	__free_page(pte_page);
- }
- 
--#else /* CONFIG_MMU */
--
--/* This is enough for a nommu architecture */
--#define check_pgt_cache()          do { } while (0)
--
- #endif /* CONFIG_MMU */
- 
- #endif /* __ASM_GENERIC_PGALLOC_H */
-diff --git a/include/linux/quicklist.h b/include/linux/quicklist.h
+ config BLK_DEV_SIIMAGE
+ 	tristate "Silicon Image chipset support"
+ 	select BLK_DEV_IDEDMA_PCI
+diff --git a/drivers/ide/Makefile b/drivers/ide/Makefile
+index 9f617a77970f..cac02db4098d 100644
+--- a/drivers/ide/Makefile
++++ b/drivers/ide/Makefile
+@@ -59,7 +59,6 @@ obj-$(CONFIG_BLK_DEV_PDC202XX_NEW)	+= pdc202xx_new.o
+ obj-$(CONFIG_BLK_DEV_PIIX)		+= piix.o
+ obj-$(CONFIG_BLK_DEV_RZ1000)		+= rz1000.o
+ obj-$(CONFIG_BLK_DEV_SVWKS)		+= serverworks.o
+-obj-$(CONFIG_BLK_DEV_SGIIOC4)		+= sgiioc4.o
+ obj-$(CONFIG_BLK_DEV_SIIMAGE)		+= siimage.o
+ obj-$(CONFIG_BLK_DEV_SIS5513)		+= sis5513.o
+ obj-$(CONFIG_BLK_DEV_SL82C105)		+= sl82c105.o
+diff --git a/drivers/ide/sgiioc4.c b/drivers/ide/sgiioc4.c
 deleted file mode 100644
-index 034982c..0000000
---- a/include/linux/quicklist.h
+index 2d35e9f7516f..000000000000
+--- a/drivers/ide/sgiioc4.c
 +++ /dev/null
-@@ -1,94 +0,0 @@
--/* SPDX-License-Identifier: GPL-2.0 */
--#ifndef LINUX_QUICKLIST_H
--#define LINUX_QUICKLIST_H
+@@ -1,630 +0,0 @@
 -/*
-- * Fast allocations and disposal of pages. Pages must be in the condition
-- * as needed after allocation when they are freed. Per cpu lists of pages
-- * are kept that only contain node local pages.
+- * Copyright (c) 2003-2006 Silicon Graphics, Inc.  All Rights Reserved.
+- * Copyright (C) 2008-2009 MontaVista Software, Inc.
 - *
-- * (C) 2007, SGI. Christoph Lameter <cl@linux.com>
+- * This program is free software; you can redistribute it and/or modify it
+- * under the terms of version 2 of the GNU General Public License
+- * as published by the Free Software Foundation.
+- *
+- * This program is distributed in the hope that it would be useful, but
+- * WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+- *
+- * You should have received a copy of the GNU General Public
+- * License along with this program; if not, write the Free Software
+- * Foundation, Inc., 59 Temple Place - Suite 330, Boston MA 02111-1307, USA.
+- *
+- * For further information regarding this notice, see:
+- *
+- * http://oss.sgi.com/projects/GenInfo/NoticeExplan
 - */
+-
+-#include <linux/module.h>
+-#include <linux/types.h>
+-#include <linux/pci.h>
+-#include <linux/delay.h>
+-#include <linux/init.h>
 -#include <linux/kernel.h>
--#include <linux/gfp.h>
--#include <linux/percpu.h>
+-#include <linux/ioport.h>
+-#include <linux/blkdev.h>
+-#include <linux/scatterlist.h>
+-#include <linux/ioc4.h>
+-#include <linux/io.h>
+-#include <linux/ide.h>
 -
--#ifdef CONFIG_QUICKLIST
+-#define DRV_NAME "SGIIOC4"
 -
--struct quicklist {
--	void *page;
--	int nr_pages;
+-/* IOC4 Specific Definitions */
+-#define IOC4_CMD_OFFSET		0x100
+-#define IOC4_CTRL_OFFSET	0x120
+-#define IOC4_DMA_OFFSET		0x140
+-#define IOC4_INTR_OFFSET	0x0
+-
+-#define IOC4_TIMING		0x00
+-#define IOC4_DMA_PTR_L		0x01
+-#define IOC4_DMA_PTR_H		0x02
+-#define IOC4_DMA_ADDR_L		0x03
+-#define IOC4_DMA_ADDR_H		0x04
+-#define IOC4_BC_DEV		0x05
+-#define IOC4_BC_MEM		0x06
+-#define	IOC4_DMA_CTRL		0x07
+-#define	IOC4_DMA_END_ADDR	0x08
+-
+-/* Bits in the IOC4 Control/Status Register */
+-#define	IOC4_S_DMA_START	0x01
+-#define	IOC4_S_DMA_STOP		0x02
+-#define	IOC4_S_DMA_DIR		0x04
+-#define	IOC4_S_DMA_ACTIVE	0x08
+-#define	IOC4_S_DMA_ERROR	0x10
+-#define	IOC4_ATA_MEMERR		0x02
+-
+-/* Read/Write Directions */
+-#define	IOC4_DMA_WRITE		0x04
+-#define	IOC4_DMA_READ		0x00
+-
+-/* Interrupt Register Offsets */
+-#define IOC4_INTR_REG		0x03
+-#define	IOC4_INTR_SET		0x05
+-#define	IOC4_INTR_CLEAR		0x07
+-
+-#define IOC4_IDE_CACHELINE_SIZE	128
+-#define IOC4_CMD_CTL_BLK_SIZE	0x20
+-#define IOC4_SUPPORTED_FIRMWARE_REV 46
+-
+-struct ioc4_dma_regs {
+-	u32 timing_reg0;
+-	u32 timing_reg1;
+-	u32 low_mem_ptr;
+-	u32 high_mem_ptr;
+-	u32 low_mem_addr;
+-	u32 high_mem_addr;
+-	u32 dev_byte_count;
+-	u32 mem_byte_count;
+-	u32 status;
 -};
 -
--DECLARE_PER_CPU(struct quicklist, quicklist)[CONFIG_NR_QUICK];
+-/* Each Physical Region Descriptor Entry size is 16 bytes (2 * 64 bits) */
+-/* IOC4 has only 1 IDE channel */
+-#define IOC4_PRD_BYTES		16
+-#define IOC4_PRD_ENTRIES	(PAGE_SIZE / (4 * IOC4_PRD_BYTES))
 -
--/*
-- * The two key functions quicklist_alloc and quicklist_free are inline so
-- * that they may be custom compiled for the platform.
-- * Specifying a NULL ctor can remove constructor support. Specifying
-- * a constant quicklist allows the determination of the exact address
-- * in the per cpu area.
-- *
-- * The fast patch in quicklist_alloc touched only a per cpu cacheline and
-- * the first cacheline of the page itself. There is minmal overhead involved.
-- */
--static inline void *quicklist_alloc(int nr, gfp_t flags, void (*ctor)(void *))
+-
+-static void sgiioc4_init_hwif_ports(struct ide_hw *hw,
+-				    unsigned long data_port,
+-				    unsigned long ctrl_port,
+-				    unsigned long irq_port)
 -{
--	struct quicklist *q;
--	void **p = NULL;
+-	unsigned long reg = data_port;
+-	int i;
 -
--	q =&get_cpu_var(quicklist)[nr];
--	p = q->page;
--	if (likely(p)) {
--		q->page = p[0];
--		p[0] = NULL;
--		q->nr_pages--;
--	}
--	put_cpu_var(quicklist);
--	if (likely(p))
--		return p;
+-	/* Registers are word (32 bit) aligned */
+-	for (i = 0; i <= 7; i++)
+-		hw->io_ports_array[i] = reg + i * 4;
 -
--	p = (void *)__get_free_page(flags | __GFP_ZERO);
--	if (ctor && p)
--		ctor(p);
--	return p;
+-	hw->io_ports.ctl_addr = ctrl_port;
+-	hw->io_ports.irq_addr = irq_port;
 -}
 -
--static inline void __quicklist_free(int nr, void (*dtor)(void *), void *p,
--	struct page *page)
+-static int sgiioc4_checkirq(ide_hwif_t *hwif)
 -{
--	struct quicklist *q;
+-	unsigned long intr_addr = hwif->io_ports.irq_addr + IOC4_INTR_REG * 4;
 -
--	q = &get_cpu_var(quicklist)[nr];
--	*(void **)p = q->page;
--	q->page = p;
--	q->nr_pages++;
--	put_cpu_var(quicklist);
--}
+-	if (readl((void __iomem *)intr_addr) & 0x03)
+-		return 1;
 -
--static inline void quicklist_free(int nr, void (*dtor)(void *), void *pp)
--{
--	__quicklist_free(nr, dtor, pp, virt_to_page(pp));
--}
--
--static inline void quicklist_free_page(int nr, void (*dtor)(void *),
--							struct page *page)
--{
--	__quicklist_free(nr, dtor, page_address(page), page);
--}
--
--void quicklist_trim(int nr, void (*dtor)(void *),
--	unsigned long min_pages, unsigned long max_free);
--
--unsigned long quicklist_total_size(void);
--
--#else
--
--static inline unsigned long quicklist_total_size(void)
--{
 -	return 0;
 -}
 -
--#endif
+-static u8 sgiioc4_read_status(ide_hwif_t *);
 -
--#endif /* LINUX_QUICKLIST_H */
--
-diff --git a/kernel/sched/idle.c b/kernel/sched/idle.c
-index 8094093..aa796cb 100644
---- a/kernel/sched/idle.c
-+++ b/kernel/sched/idle.c
-@@ -238,7 +238,6 @@ static void do_idle(void)
- 	tick_nohz_idle_enter();
- 
- 	while (!need_resched()) {
--		check_pgt_cache();
- 		rmb();
- 
- 		if (cpu_is_offline(cpu)) {
-diff --git a/lib/show_mem.c b/lib/show_mem.c
-index 5c86ef4..1c26c14 100644
---- a/lib/show_mem.c
-+++ b/lib/show_mem.c
-@@ -6,7 +6,6 @@
-  */
- 
- #include <linux/mm.h>
--#include <linux/quicklist.h>
- #include <linux/cma.h>
- 
- void show_mem(unsigned int filter, nodemask_t *nodemask)
-@@ -39,10 +38,6 @@ void show_mem(unsigned int filter, nodemask_t *nodemask)
- #ifdef CONFIG_CMA
- 	printk("%lu pages cma reserved\n", totalcma_pages);
- #endif
--#ifdef CONFIG_QUICKLIST
--	printk("%lu pages in pagetable cache\n",
--		quicklist_total_size());
--#endif
- #ifdef CONFIG_MEMORY_FAILURE
- 	printk("%lu pages hwpoisoned\n", atomic_long_read(&num_poisoned_pages));
- #endif
-diff --git a/mm/Kconfig b/mm/Kconfig
-index 56cec63..a8519e7 100644
---- a/mm/Kconfig
-+++ b/mm/Kconfig
-@@ -273,11 +273,6 @@ config BOUNCE
- 	  by default when ZONE_DMA or HIGHMEM is selected, but you
- 	  may say n to override this.
- 
--config NR_QUICK
--	int
--	depends on QUICKLIST
--	default "1"
--
- config VIRT_TO_BUS
- 	bool
- 	help
-diff --git a/mm/Makefile b/mm/Makefile
-index d0b295c..d11de59 100644
---- a/mm/Makefile
-+++ b/mm/Makefile
-@@ -72,7 +72,6 @@ obj-$(CONFIG_FAILSLAB) += failslab.o
- obj-$(CONFIG_MEMORY_HOTPLUG) += memory_hotplug.o
- obj-$(CONFIG_MEMTEST)		+= memtest.o
- obj-$(CONFIG_MIGRATION) += migrate.o
--obj-$(CONFIG_QUICKLIST) += quicklist.o
- obj-$(CONFIG_TRANSPARENT_HUGEPAGE) += huge_memory.o khugepaged.o
- obj-$(CONFIG_PAGE_COUNTER) += page_counter.o
- obj-$(CONFIG_MEMCG) += memcontrol.o vmpressure.o
-diff --git a/mm/mmu_gather.c b/mm/mmu_gather.c
-index 8c943a6..7d70e5c 100644
---- a/mm/mmu_gather.c
-+++ b/mm/mmu_gather.c
-@@ -271,8 +271,6 @@ void tlb_finish_mmu(struct mmu_gather *tlb,
- 
- 	tlb_flush_mmu(tlb);
- 
--	/* keep the page table cache within bounds */
--	check_pgt_cache();
- #ifndef CONFIG_HAVE_MMU_GATHER_NO_GATHER
- 	tlb_batch_list_free(tlb);
- #endif
-diff --git a/mm/quicklist.c b/mm/quicklist.c
-deleted file mode 100644
-index 5e98ac7..0000000
---- a/mm/quicklist.c
-+++ /dev/null
-@@ -1,103 +0,0 @@
--// SPDX-License-Identifier: GPL-2.0
--/*
-- * Quicklist support.
-- *
-- * Quicklists are light weight lists of pages that have a defined state
-- * on alloc and free. Pages must be in the quicklist specific defined state
-- * (zero by default) when the page is freed. It seems that the initial idea
-- * for such lists first came from Dave Miller and then various other people
-- * improved on it.
-- *
-- * Copyright (C) 2007 SGI,
-- * 	Christoph Lameter <cl@linux.com>
-- * 		Generalized, added support for multiple lists and
-- * 		constructors / destructors.
-- */
--#include <linux/kernel.h>
--
--#include <linux/gfp.h>
--#include <linux/mm.h>
--#include <linux/mmzone.h>
--#include <linux/quicklist.h>
--
--DEFINE_PER_CPU(struct quicklist [CONFIG_NR_QUICK], quicklist);
--
--#define FRACTION_OF_NODE_MEM	16
--
--static unsigned long max_pages(unsigned long min_pages)
+-static int sgiioc4_clearirq(ide_drive_t *drive)
 -{
--	unsigned long node_free_pages, max;
--	int node = numa_node_id();
--	struct zone *zones = NODE_DATA(node)->node_zones;
--	int num_cpus_on_node;
+-	u32 intr_reg;
+-	ide_hwif_t *hwif = drive->hwif;
+-	struct ide_io_ports *io_ports = &hwif->io_ports;
+-	unsigned long other_ir = io_ports->irq_addr + (IOC4_INTR_REG << 2);
 -
--	node_free_pages -#ifdef CONFIG_ZONE_DMA
--		zone_page_state(&zones[ZONE_DMA], NR_FREE_PAGES) +
--#endif
--#ifdef CONFIG_ZONE_DMA32
--		zone_page_state(&zones[ZONE_DMA32], NR_FREE_PAGES) +
--#endif
--		zone_page_state(&zones[ZONE_NORMAL], NR_FREE_PAGES);
+-	/* Code to check for PCI error conditions */
+-	intr_reg = readl((void __iomem *)other_ir);
+-	if (intr_reg & 0x03) { /* Valid IOC4-IDE interrupt */
+-		/*
+-		 * Using sgiioc4_read_status to read the Status register has a
+-		 * side effect of clearing the interrupt.  The first read should
+-		 * clear it if it is set.  The second read should return
+-		 * a "clear" status if it got cleared.  If not, then spin
+-		 * for a bit trying to clear it.
+-		 */
+-		u8 stat = sgiioc4_read_status(hwif);
+-		int count = 0;
 -
--	max = node_free_pages / FRACTION_OF_NODE_MEM;
+-		stat = sgiioc4_read_status(hwif);
+-		while ((stat & ATA_BUSY) && (count++ < 100)) {
+-			udelay(1);
+-			stat = sgiioc4_read_status(hwif);
+-		}
 -
--	num_cpus_on_node = cpumask_weight(cpumask_of_node(node));
--	max /= num_cpus_on_node;
+-		if (intr_reg & 0x02) {
+-			struct pci_dev *dev = to_pci_dev(hwif->dev);
+-			/* Error when transferring DMA data on PCI bus */
+-			u32 pci_err_addr_low, pci_err_addr_high,
+-			    pci_stat_cmd_reg;
 -
--	return max(max, min_pages);
+-			pci_err_addr_low -				readl((void __iomem *)io_ports->irq_addr);
+-			pci_err_addr_high -				readl((void __iomem *)(io_ports->irq_addr + 4));
+-			pci_read_config_dword(dev, PCI_COMMAND,
+-					      &pci_stat_cmd_reg);
+-			printk(KERN_ERR "%s(%s): PCI Bus Error when doing DMA: "
+-			       "status-cmd reg is 0x%x\n",
+-			       __func__, drive->name, pci_stat_cmd_reg);
+-			printk(KERN_ERR "%s(%s): PCI Error Address is 0x%x%x\n",
+-			       __func__, drive->name,
+-			       pci_err_addr_high, pci_err_addr_low);
+-			/* Clear the PCI Error indicator */
+-			pci_write_config_dword(dev, PCI_COMMAND, 0x00000146);
+-		}
+-
+-		/* Clear the Interrupt, Error bits on the IOC4 */
+-		writel(0x03, (void __iomem *)other_ir);
+-
+-		intr_reg = readl((void __iomem *)other_ir);
+-	}
+-
+-	return intr_reg & 3;
 -}
 -
--static long min_pages_to_free(struct quicklist *q,
--	unsigned long min_pages, long max_free)
+-static void sgiioc4_dma_start(ide_drive_t *drive)
 -{
--	long pages_to_free;
+-	ide_hwif_t *hwif = drive->hwif;
+-	unsigned long ioc4_dma_addr = hwif->dma_base + IOC4_DMA_CTRL * 4;
+-	unsigned int reg = readl((void __iomem *)ioc4_dma_addr);
+-	unsigned int temp_reg = reg | IOC4_S_DMA_START;
 -
--	pages_to_free = q->nr_pages - max_pages(min_pages);
--
--	return min(pages_to_free, max_free);
+-	writel(temp_reg, (void __iomem *)ioc4_dma_addr);
 -}
 -
--/*
-- * Trim down the number of pages in the quicklist
-- */
--void quicklist_trim(int nr, void (*dtor)(void *),
--	unsigned long min_pages, unsigned long max_free)
+-static u32 sgiioc4_ide_dma_stop(ide_hwif_t *hwif, u64 dma_base)
 -{
--	long pages_to_free;
--	struct quicklist *q;
+-	unsigned long ioc4_dma_addr = dma_base + IOC4_DMA_CTRL * 4;
+-	u32	ioc4_dma;
+-	int	count;
 -
--	q = &get_cpu_var(quicklist)[nr];
--	if (q->nr_pages > min_pages) {
--		pages_to_free = min_pages_to_free(q, min_pages, max_free);
+-	count = 0;
+-	ioc4_dma = readl((void __iomem *)ioc4_dma_addr);
+-	while ((ioc4_dma & IOC4_S_DMA_STOP) && (count++ < 200)) {
+-		udelay(1);
+-		ioc4_dma = readl((void __iomem *)ioc4_dma_addr);
+-	}
+-	return ioc4_dma;
+-}
 -
--		while (pages_to_free > 0) {
--			/*
--			 * We pass a gfp_t of 0 to quicklist_alloc here
--			 * because we will never call into the page allocator.
--			 */
--			void *p = quicklist_alloc(nr, 0, NULL);
+-/* Stops the IOC4 DMA Engine */
+-static int sgiioc4_dma_end(ide_drive_t *drive)
+-{
+-	u32 ioc4_dma, bc_dev, bc_mem, num, valid = 0, cnt = 0;
+-	ide_hwif_t *hwif = drive->hwif;
+-	unsigned long dma_base = hwif->dma_base;
+-	int dma_stat = 0;
+-	unsigned long *ending_dma = ide_get_hwifdata(hwif);
 -
--			if (dtor)
--				dtor(p);
--			free_page((unsigned long)p);
--			pages_to_free--;
+-	writel(IOC4_S_DMA_STOP, (void __iomem *)(dma_base + IOC4_DMA_CTRL * 4));
+-
+-	ioc4_dma = sgiioc4_ide_dma_stop(hwif, dma_base);
+-
+-	if (ioc4_dma & IOC4_S_DMA_STOP) {
+-		printk(KERN_ERR
+-		       "%s(%s): IOC4 DMA STOP bit is still 1 :"
+-		       "ioc4_dma_reg 0x%x\n",
+-		       __func__, drive->name, ioc4_dma);
+-		dma_stat = 1;
+-	}
+-
+-	/*
+-	 * The IOC4 will DMA 1's to the ending DMA area to indicate that
+-	 * previous data DMA is complete.  This is necessary because of relaxed
+-	 * ordering between register reads and DMA writes on the Altix.
+-	 */
+-	while ((cnt++ < 200) && (!valid)) {
+-		for (num = 0; num < 16; num++) {
+-			if (ending_dma[num]) {
+-				valid = 1;
+-				break;
+-			}
+-		}
+-		udelay(1);
+-	}
+-	if (!valid) {
+-		printk(KERN_ERR "%s(%s) : DMA incomplete\n", __func__,
+-		       drive->name);
+-		dma_stat = 1;
+-	}
+-
+-	bc_dev = readl((void __iomem *)(dma_base + IOC4_BC_DEV * 4));
+-	bc_mem = readl((void __iomem *)(dma_base + IOC4_BC_MEM * 4));
+-
+-	if ((bc_dev & 0x01FF) || (bc_mem & 0x1FF)) {
+-		if (bc_dev > bc_mem + 8) {
+-			printk(KERN_ERR
+-			       "%s(%s): WARNING!! byte_count_dev %d "
+-			       "!= byte_count_mem %d\n",
+-			       __func__, drive->name, bc_dev, bc_mem);
 -		}
 -	}
--	put_cpu_var(quicklist);
+-
+-	return dma_stat;
 -}
 -
--unsigned long quicklist_total_size(void)
+-static void sgiioc4_set_dma_mode(ide_hwif_t *hwif, ide_drive_t *drive)
 -{
--	unsigned long count = 0;
--	int cpu;
--	struct quicklist *ql, *q;
--
--	for_each_online_cpu(cpu) {
--		ql = per_cpu(quicklist, cpu);
--		for (q = ql; q < ql + CONFIG_NR_QUICK; q++)
--			count += q->nr_pages;
--	}
--	return count;
 -}
 -
+-/* Returns 1 if DMA IRQ issued, 0 otherwise */
+-static int sgiioc4_dma_test_irq(ide_drive_t *drive)
+-{
+-	return sgiioc4_checkirq(drive->hwif);
+-}
+-
+-static void sgiioc4_dma_host_set(ide_drive_t *drive, int on)
+-{
+-	if (!on)
+-		sgiioc4_clearirq(drive);
+-}
+-
+-static void sgiioc4_resetproc(ide_drive_t *drive)
+-{
+-	struct ide_cmd *cmd = &drive->hwif->cmd;
+-
+-	sgiioc4_dma_end(drive);
+-	ide_dma_unmap_sg(drive, cmd);
+-	sgiioc4_clearirq(drive);
+-}
+-
+-static void sgiioc4_dma_lost_irq(ide_drive_t *drive)
+-{
+-	sgiioc4_resetproc(drive);
+-
+-	ide_dma_lost_irq(drive);
+-}
+-
+-static u8 sgiioc4_read_status(ide_hwif_t *hwif)
+-{
+-	unsigned long port = hwif->io_ports.status_addr;
+-	u8 reg = (u8) readb((void __iomem *) port);
+-
+-	if (!(reg & ATA_BUSY)) {	/* Not busy... check for interrupt */
+-		unsigned long other_ir = port - 0x110;
+-		unsigned int intr_reg = (u32) readl((void __iomem *) other_ir);
+-
+-		/* Clear the Interrupt, Error bits on the IOC4 */
+-		if (intr_reg & 0x03) {
+-			writel(0x03, (void __iomem *) other_ir);
+-			intr_reg = (u32) readl((void __iomem *) other_ir);
+-		}
+-	}
+-
+-	return reg;
+-}
+-
+-/* Creates a DMA map for the scatter-gather list entries */
+-static int ide_dma_sgiioc4(ide_hwif_t *hwif, const struct ide_port_info *d)
+-{
+-	struct pci_dev *dev = to_pci_dev(hwif->dev);
+-	unsigned long dma_base = pci_resource_start(dev, 0) + IOC4_DMA_OFFSET;
+-	int num_ports = sizeof(struct ioc4_dma_regs);
+-	void *pad;
+-
+-	printk(KERN_INFO "    %s: MMIO-DMA\n", hwif->name);
+-
+-	if (request_mem_region(dma_base, num_ports, hwif->name) = NULL) {
+-		printk(KERN_ERR "%s(%s) -- ERROR: addresses 0x%08lx to 0x%08lx "
+-		       "already in use\n", __func__, hwif->name,
+-		       dma_base, dma_base + num_ports - 1);
+-		return -1;
+-	}
+-
+-	hwif->dma_base = (unsigned long)hwif->io_ports.irq_addr +
+-			 IOC4_DMA_OFFSET;
+-
+-	hwif->sg_max_nents = IOC4_PRD_ENTRIES;
+-
+-	hwif->prd_max_nents = IOC4_PRD_ENTRIES;
+-	hwif->prd_ent_size = IOC4_PRD_BYTES;
+-
+-	if (ide_allocate_dma_engine(hwif))
+-		goto dma_pci_alloc_failure;
+-
+-	pad = dma_alloc_coherent(&dev->dev, IOC4_IDE_CACHELINE_SIZE,
+-				   (dma_addr_t *)&hwif->extra_base, GFP_KERNEL);
+-	if (pad) {
+-		ide_set_hwifdata(hwif, pad);
+-		return 0;
+-	}
+-
+-	ide_release_dma_engine(hwif);
+-
+-	printk(KERN_ERR "%s(%s) -- ERROR: Unable to allocate DMA maps\n",
+-	       __func__, hwif->name);
+-	printk(KERN_INFO "%s: changing from DMA to PIO mode", hwif->name);
+-
+-dma_pci_alloc_failure:
+-	release_mem_region(dma_base, num_ports);
+-
+-	return -1;
+-}
+-
+-/* Initializes the IOC4 DMA Engine */
+-static void sgiioc4_configure_for_dma(int dma_direction, ide_drive_t *drive)
+-{
+-	u32 ioc4_dma;
+-	ide_hwif_t *hwif = drive->hwif;
+-	unsigned long dma_base = hwif->dma_base;
+-	unsigned long ioc4_dma_addr = dma_base + IOC4_DMA_CTRL * 4;
+-	u32 dma_addr, ending_dma_addr;
+-
+-	ioc4_dma = readl((void __iomem *)ioc4_dma_addr);
+-
+-	if (ioc4_dma & IOC4_S_DMA_ACTIVE) {
+-		printk(KERN_WARNING "%s(%s): Warning!! DMA from previous "
+-		       "transfer was still active\n", __func__, drive->name);
+-		writel(IOC4_S_DMA_STOP, (void __iomem *)ioc4_dma_addr);
+-		ioc4_dma = sgiioc4_ide_dma_stop(hwif, dma_base);
+-
+-		if (ioc4_dma & IOC4_S_DMA_STOP)
+-			printk(KERN_ERR "%s(%s): IOC4 DMA STOP bit is "
+-			       "still 1\n", __func__, drive->name);
+-	}
+-
+-	ioc4_dma = readl((void __iomem *)ioc4_dma_addr);
+-	if (ioc4_dma & IOC4_S_DMA_ERROR) {
+-		printk(KERN_WARNING "%s(%s): Warning!! DMA Error during "
+-		       "previous transfer, status 0x%x\n",
+-		       __func__, drive->name, ioc4_dma);
+-		writel(IOC4_S_DMA_STOP, (void __iomem *)ioc4_dma_addr);
+-		ioc4_dma = sgiioc4_ide_dma_stop(hwif, dma_base);
+-
+-		if (ioc4_dma & IOC4_S_DMA_STOP)
+-			printk(KERN_ERR "%s(%s): IOC4 DMA STOP bit is "
+-			       "still 1\n", __func__, drive->name);
+-	}
+-
+-	/* Address of the Scatter Gather List */
+-	dma_addr = cpu_to_le32(hwif->dmatable_dma);
+-	writel(dma_addr, (void __iomem *)(dma_base + IOC4_DMA_PTR_L * 4));
+-
+-	/* Address of the Ending DMA */
+-	memset(ide_get_hwifdata(hwif), 0, IOC4_IDE_CACHELINE_SIZE);
+-	ending_dma_addr = cpu_to_le32(hwif->extra_base);
+-	writel(ending_dma_addr, (void __iomem *)(dma_base +
+-						 IOC4_DMA_END_ADDR * 4));
+-
+-	writel(dma_direction, (void __iomem *)ioc4_dma_addr);
+-}
+-
+-/* IOC4 Scatter Gather list Format					 */
+-/* 128 Bit entries to support 64 bit addresses in the future		 */
+-/* The Scatter Gather list Entry should be in the BIG-ENDIAN Format	 */
+-/* --------------------------------------------------------------------- */
+-/* | Upper 32 bits - Zero	    |		Lower 32 bits- address | */
+-/* --------------------------------------------------------------------- */
+-/* | Upper 32 bits - Zero	    |EOL| 15 unused     | 16 Bit Length| */
+-/* --------------------------------------------------------------------- */
+-/* Creates the scatter gather list, DMA Table				 */
+-
+-static int sgiioc4_build_dmatable(ide_drive_t *drive, struct ide_cmd *cmd)
+-{
+-	ide_hwif_t *hwif = drive->hwif;
+-	unsigned int *table = hwif->dmatable_cpu;
+-	unsigned int count = 0, i = cmd->sg_nents;
+-	struct scatterlist *sg = hwif->sg_table;
+-
+-	while (i && sg_dma_len(sg)) {
+-		dma_addr_t cur_addr;
+-		int cur_len;
+-		cur_addr = sg_dma_address(sg);
+-		cur_len = sg_dma_len(sg);
+-
+-		while (cur_len) {
+-			if (count++ >= IOC4_PRD_ENTRIES) {
+-				printk(KERN_WARNING
+-				       "%s: DMA table too small\n",
+-				       drive->name);
+-				return 0;
+-			} else {
+-				u32 bcount -				    0x10000 - (cur_addr & 0xffff);
+-
+-				if (bcount > cur_len)
+-					bcount = cur_len;
+-
+-				/*
+-				 * Put the address, length in
+-				 * the IOC4 dma-table format
+-				 */
+-				*table = 0x0;
+-				table++;
+-				*table = cpu_to_be32(cur_addr);
+-				table++;
+-				*table = 0x0;
+-				table++;
+-
+-				*table = cpu_to_be32(bcount);
+-				table++;
+-
+-				cur_addr += bcount;
+-				cur_len -= bcount;
+-			}
+-		}
+-
+-		sg = sg_next(sg);
+-		i--;
+-	}
+-
+-	if (count) {
+-		table--;
+-		*table |= cpu_to_be32(0x80000000);
+-		return count;
+-	}
+-
+-	return 0;		/* revert to PIO for this request */
+-}
+-
+-static int sgiioc4_dma_setup(ide_drive_t *drive, struct ide_cmd *cmd)
+-{
+-	int ddir;
+-	u8 write = !!(cmd->tf_flags & IDE_TFLAG_WRITE);
+-
+-	if (sgiioc4_build_dmatable(drive, cmd) = 0)
+-		/* try PIO instead of DMA */
+-		return 1;
+-
+-	if (write)
+-		/* Writes TO the IOC4 FROM Main Memory */
+-		ddir = IOC4_DMA_READ;
+-	else
+-		/* Writes FROM the IOC4 TO Main Memory */
+-		ddir = IOC4_DMA_WRITE;
+-
+-	sgiioc4_configure_for_dma(ddir, drive);
+-
+-	return 0;
+-}
+-
+-static const struct ide_tp_ops sgiioc4_tp_ops = {
+-	.exec_command		= ide_exec_command,
+-	.read_status		= sgiioc4_read_status,
+-	.read_altstatus		= ide_read_altstatus,
+-	.write_devctl		= ide_write_devctl,
+-
+-	.dev_select		= ide_dev_select,
+-	.tf_load		= ide_tf_load,
+-	.tf_read		= ide_tf_read,
+-
+-	.input_data		= ide_input_data,
+-	.output_data		= ide_output_data,
+-};
+-
+-static const struct ide_port_ops sgiioc4_port_ops = {
+-	.set_dma_mode		= sgiioc4_set_dma_mode,
+-	/* reset DMA engine, clear IRQs */
+-	.resetproc		= sgiioc4_resetproc,
+-};
+-
+-static const struct ide_dma_ops sgiioc4_dma_ops = {
+-	.dma_host_set		= sgiioc4_dma_host_set,
+-	.dma_setup		= sgiioc4_dma_setup,
+-	.dma_start		= sgiioc4_dma_start,
+-	.dma_end		= sgiioc4_dma_end,
+-	.dma_test_irq		= sgiioc4_dma_test_irq,
+-	.dma_lost_irq		= sgiioc4_dma_lost_irq,
+-};
+-
+-static const struct ide_port_info sgiioc4_port_info = {
+-	.name			= DRV_NAME,
+-	.chipset		= ide_pci,
+-	.init_dma		= ide_dma_sgiioc4,
+-	.tp_ops			= &sgiioc4_tp_ops,
+-	.port_ops		= &sgiioc4_port_ops,
+-	.dma_ops		= &sgiioc4_dma_ops,
+-	.host_flags		= IDE_HFLAG_MMIO,
+-	.irq_flags		= IRQF_SHARED,
+-	.mwdma_mask		= ATA_MWDMA2_ONLY,
+-};
+-
+-static int sgiioc4_ide_setup_pci_device(struct pci_dev *dev)
+-{
+-	unsigned long cmd_base, irqport;
+-	unsigned long bar0, cmd_phys_base, ctl;
+-	void __iomem *virt_base;
+-	struct ide_hw hw, *hws[] = { &hw };
+-	int rc;
+-
+-	/* Get the CmdBlk and CtrlBlk base registers */
+-	bar0 = pci_resource_start(dev, 0);
+-	virt_base = pci_ioremap_bar(dev, 0);
+-	if (virt_base = NULL) {
+-		printk(KERN_ERR "%s: Unable to remap BAR 0 address: 0x%lx\n",
+-				DRV_NAME, bar0);
+-		return -ENOMEM;
+-	}
+-	cmd_base = (unsigned long)virt_base + IOC4_CMD_OFFSET;
+-	ctl = (unsigned long)virt_base + IOC4_CTRL_OFFSET;
+-	irqport = (unsigned long)virt_base + IOC4_INTR_OFFSET;
+-
+-	cmd_phys_base = bar0 + IOC4_CMD_OFFSET;
+-	if (request_mem_region(cmd_phys_base, IOC4_CMD_CTL_BLK_SIZE,
+-			       DRV_NAME) = NULL) {
+-		printk(KERN_ERR "%s %s -- ERROR: addresses 0x%08lx to 0x%08lx "
+-		       "already in use\n", DRV_NAME, pci_name(dev),
+-		       cmd_phys_base, cmd_phys_base + IOC4_CMD_CTL_BLK_SIZE);
+-		rc = -EBUSY;
+-		goto req_mem_rgn_err;
+-	}
+-
+-	/* Initialize the IO registers */
+-	memset(&hw, 0, sizeof(hw));
+-	sgiioc4_init_hwif_ports(&hw, cmd_base, ctl, irqport);
+-	hw.irq = dev->irq;
+-	hw.dev = &dev->dev;
+-
+-	/* Initialize chipset IRQ registers */
+-	writel(0x03, (void __iomem *)(irqport + IOC4_INTR_SET * 4));
+-
+-	rc = ide_host_add(&sgiioc4_port_info, hws, 1, NULL);
+-	if (!rc)
+-		return 0;
+-
+-	release_mem_region(cmd_phys_base, IOC4_CMD_CTL_BLK_SIZE);
+-req_mem_rgn_err:
+-	iounmap(virt_base);
+-	return rc;
+-}
+-
+-static unsigned int pci_init_sgiioc4(struct pci_dev *dev)
+-{
+-	int ret;
+-
+-	printk(KERN_INFO "%s: IDE controller at PCI slot %s, revision %d\n",
+-			 DRV_NAME, pci_name(dev), dev->revision);
+-
+-	if (dev->revision < IOC4_SUPPORTED_FIRMWARE_REV) {
+-		printk(KERN_ERR "Skipping %s IDE controller in slot %s: "
+-				"firmware is obsolete - please upgrade to "
+-				"revision46 or higher\n",
+-				DRV_NAME, pci_name(dev));
+-		ret = -EAGAIN;
+-		goto out;
+-	}
+-	ret = sgiioc4_ide_setup_pci_device(dev);
+-out:
+-	return ret;
+-}
+-
+-static int ioc4_ide_attach_one(struct ioc4_driver_data *idd)
+-{
+-	/*
+-	 * PCI-RT does not bring out IDE connection.
+-	 * Do not attach to this particular IOC4.
+-	 */
+-	if (idd->idd_variant = IOC4_VARIANT_PCI_RT)
+-		return 0;
+-
+-	return pci_init_sgiioc4(idd->idd_pdev);
+-}
+-
+-static struct ioc4_submodule ioc4_ide_submodule = {
+-	.is_name = "IOC4_ide",
+-	.is_owner = THIS_MODULE,
+-	.is_probe = ioc4_ide_attach_one,
+-};
+-
+-static int __init ioc4_ide_init(void)
+-{
+-	return ioc4_register_submodule(&ioc4_ide_submodule);
+-}
+-
+-late_initcall(ioc4_ide_init); /* Call only after IDE init is done */
+-
+-MODULE_AUTHOR("Aniket Malatpure/Jeremy Higdon");
+-MODULE_DESCRIPTION("IDE PCI driver module for SGI IOC4 Base-IO Card");
+-MODULE_LICENSE("GPL");
 -- 
-2.7.4
+2.20.1
