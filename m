@@ -1,89 +1,117 @@
-From: Joerg Roedel <joro@8bytes.org>
-Date: Wed, 14 Aug 2019 13:38:32 +0000
-Subject: [PATCH 01/10] iommu: Add helpers to set/get default domain type
-Message-Id: <20190814133841.7095-2-joro@8bytes.org>
+From: Christoph Hellwig <hch@lst.de>
+Date: Wed, 07 Aug 2019 13:30:31 +0000
+Subject: [PATCH 11/29] qla1280: remove SGI SN2 support
+Message-Id: <20190807133049.20893-12-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190814133841.7095-1-joro@8bytes.org>
-In-Reply-To: <20190814133841.7095-1-joro@8bytes.org>
+References: <20190807133049.20893-1-hch@lst.de>
+In-Reply-To: <20190807133049.20893-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Joerg Roedel <joro@8bytes.org>
-Cc: corbet@lwn.net, tony.luck@intel.com, fenghua.yu@intel.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, hpa@zytor.com, x86@kernel.org, linux-doc@vger.kernel.org, linux-ia64@vger.kernel.org, iommu@lists.linux-foundation.org, linux-kernel@vger.kernel.org, Thomas.Lendacky@amd.com, Suravee.Suthikulpanit@amd.com, Joerg Roedel <jroedel@suse.de>
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-From: Joerg Roedel <jroedel@suse.de>
+The SGI SN2 support is about to be removed, so drops the bits
+specific to it from this driver.
 
-Add a couple of functions to allow changing the default
-domain type from architecture code and a function for iommu
-drivers to request whether the default domain is
-passthrough.
-
-Signed-off-by: Joerg Roedel <jroedel@suse.de>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- drivers/iommu/iommu.c | 16 ++++++++++++++++
- include/linux/iommu.h | 16 ++++++++++++++++
- 2 files changed, 32 insertions(+)
+ drivers/scsi/qla1280.c | 37 -------------------------------------
+ drivers/scsi/qla1280.h |  3 ---
+ 2 files changed, 40 deletions(-)
 
-diff --git a/drivers/iommu/iommu.c b/drivers/iommu/iommu.c
-index 0c674d80c37f..f187e85a074b 100644
---- a/drivers/iommu/iommu.c
-+++ b/drivers/iommu/iommu.c
-@@ -2196,6 +2196,22 @@ int iommu_request_dma_domain_for_dev(struct device *dev)
- 	return request_default_domain_for_dev(dev, IOMMU_DOMAIN_DMA);
- }
+diff --git a/drivers/scsi/qla1280.c b/drivers/scsi/qla1280.c
+index e5760c4a27f0..832af4213046 100644
+--- a/drivers/scsi/qla1280.c
++++ b/drivers/scsi/qla1280.c
+@@ -357,10 +357,6 @@
+ #include <scsi/scsi_host.h>
+ #include <scsi/scsi_tcq.h>
  
-+void iommu_set_default_passthrough(void)
-+{
-+	iommu_def_domain_type = IOMMU_DOMAIN_IDENTITY;
-+}
-+
-+void iommu_set_default_translated(void)
-+{
-+	iommu_def_domain_type = IOMMU_DOMAIN_DMA;
-+}
-+
-+bool iommu_default_passthrough(void)
-+{
-+	return iommu_def_domain_type = IOMMU_DOMAIN_IDENTITY;
-+}
-+EXPORT_SYMBOL_GPL(iommu_default_passthrough);
-+
- const struct iommu_ops *iommu_ops_from_fwnode(struct fwnode_handle *fwnode)
- {
- 	const struct iommu_ops *ops = NULL;
-diff --git a/include/linux/iommu.h b/include/linux/iommu.h
-index fdc355ccc570..58c3e3e5f157 100644
---- a/include/linux/iommu.h
-+++ b/include/linux/iommu.h
-@@ -413,6 +413,9 @@ extern void iommu_get_resv_regions(struct device *dev, struct list_head *list);
- extern void iommu_put_resv_regions(struct device *dev, struct list_head *list);
- extern int iommu_request_dm_for_dev(struct device *dev);
- extern int iommu_request_dma_domain_for_dev(struct device *dev);
-+extern void iommu_set_default_passthrough(void);
-+extern void iommu_set_default_translated(void);
-+extern bool iommu_default_passthrough(void);
- extern struct iommu_resv_region *
- iommu_alloc_resv_region(phys_addr_t start, size_t length, int prot,
- 			enum iommu_resv_type type);
-@@ -694,6 +697,19 @@ static inline int iommu_request_dma_domain_for_dev(struct device *dev)
- 	return -ENODEV;
- }
+-#if defined(CONFIG_IA64_GENERIC) || defined(CONFIG_IA64_SGI_SN2)
+-#include <asm/sn/io.h>
+-#endif
+-
  
-+static inline void iommu_set_default_passthrough(void)
-+{
-+}
-+
-+static inline void iommu_set_default_translated(void)
-+{
-+}
-+
-+static inline bool iommu_default_passthrough(void)
-+{
-+	return true;
-+}
-+
- static inline int iommu_attach_group(struct iommu_domain *domain,
- 				     struct iommu_group *group)
- {
+ /*
+  * Compile time Options:
+@@ -380,11 +376,6 @@
+ 
+ #define NVRAM_DELAY()			udelay(500)	/* 2 microseconds */
+ 
+-#if defined(__ia64__) && !defined(ia64_platform_is)
+-#define ia64_platform_is(foo)		(!strcmp(x, platform_name))
+-#endif
+-
+-
+ #define IS_ISP1040(ha) (ha->pdev->device = PCI_DEVICE_ID_QLOGIC_ISP1020)
+ #define IS_ISP1x40(ha) (ha->pdev->device = PCI_DEVICE_ID_QLOGIC_ISP1020 || \
+ 			ha->pdev->device = PCI_DEVICE_ID_QLOGIC_ISP1240)
+@@ -1427,15 +1418,6 @@ qla1280_initialize_adapter(struct scsi_qla_host *ha)
+ 	ha->flags.reset_active = 0;
+ 	ha->flags.abort_isp_active = 0;
+ 
+-#if defined(CONFIG_IA64_GENERIC) || defined(CONFIG_IA64_SGI_SN2)
+-	if (ia64_platform_is("sn2")) {
+-		printk(KERN_INFO "scsi(%li): Enabling SN2 PCI DMA "
+-		       "dual channel lockup workaround\n", ha->host_no);
+-		ha->flags.use_pci_vchannel = 1;
+-		driver_setup.no_nvram = 1;
+-	}
+-#endif
+-
+ 	/* TODO: implement support for the 1040 nvram format */
+ 	if (IS_ISP1040(ha))
+ 		driver_setup.no_nvram = 1;
+@@ -2251,13 +2233,6 @@ qla1280_nvram_config(struct scsi_qla_host *ha)
+ 	mb[1] = nv->firmware_feature.f.enable_fast_posting;
+ 	mb[1] |= nv->firmware_feature.f.report_lvd_bus_transition << 1;
+ 	mb[1] |= nv->firmware_feature.f.disable_synchronous_backoff << 5;
+-#if defined(CONFIG_IA64_GENERIC) || defined (CONFIG_IA64_SGI_SN2)
+-	if (ia64_platform_is("sn2")) {
+-		printk(KERN_INFO "scsi(%li): Enabling SN2 PCI DMA "
+-		       "workaround\n", ha->host_no);
+-		mb[1] |= nv->firmware_feature.f.unused_9 << 9; /* XXX */
+-	}
+-#endif
+ 	status |= qla1280_mailbox_command(ha, BIT_1 | BIT_0, mb);
+ 
+ 	/* Retry count and delay. */
+@@ -2888,12 +2863,6 @@ qla1280_64bit_start_scsi(struct scsi_qla_host *ha, struct srb * sp)
+ 				break;
+ 
+ 			dma_handle = sg_dma_address(s);
+-#if defined(CONFIG_IA64_GENERIC) || defined(CONFIG_IA64_SGI_SN2)
+-			if (ha->flags.use_pci_vchannel)
+-				sn_pci_set_vchan(ha->pdev,
+-						 (unsigned long *)&dma_handle,
+-						 SCSI_BUS_32(cmd));
+-#endif
+ 			*dword_ptr++  				cpu_to_le32(lower_32_bits(dma_handle));
+ 			*dword_ptr++ @@ -2950,12 +2919,6 @@ qla1280_64bit_start_scsi(struct scsi_qla_host *ha, struct srb * sp)
+ 				if (cnt = 5)
+ 					break;
+ 				dma_handle = sg_dma_address(s);
+-#if defined(CONFIG_IA64_GENERIC) || defined(CONFIG_IA64_SGI_SN2)
+-				if (ha->flags.use_pci_vchannel)
+-					sn_pci_set_vchan(ha->pdev,
+-							 (unsigned long *)&dma_handle,
+-							 SCSI_BUS_32(cmd));
+-#endif
+ 				*dword_ptr++  					cpu_to_le32(lower_32_bits(dma_handle));
+ 				*dword_ptr++ diff --git a/drivers/scsi/qla1280.h b/drivers/scsi/qla1280.h
+index b496206362a9..a1a8aefc7cc3 100644
+--- a/drivers/scsi/qla1280.h
++++ b/drivers/scsi/qla1280.h
+@@ -1055,9 +1055,6 @@ struct scsi_qla_host {
+ 		uint32_t reset_active:1;		/* 3 */
+ 		uint32_t abort_isp_active:1;		/* 4 */
+ 		uint32_t disable_risc_code_load:1;	/* 5 */
+-#ifdef __ia64__
+-		uint32_t use_pci_vchannel:1;
+-#endif
+ 	} flags;
+ 
+ 	struct nvram nvram;
 -- 
-2.17.1
+2.20.1
