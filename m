@@ -1,166 +1,78 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Sat, 17 Aug 2019 07:32:53 +0000
-Subject: [PATCH 26/26] nds32: use generic ioremap
-Message-Id: <20190817073253.27819-27-hch@lst.de>
+From: Mike Rapoport <rppt@linux.ibm.com>
+Date: Thu, 08 Aug 2019 07:52:08 +0000
+Subject: [PATCH 3/3] sh: switch to generic version of pte allocation
+Message-Id: <1565250728-21721-4-git-send-email-rppt@linux.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190817073253.27819-1-hch@lst.de>
-In-Reply-To: <20190817073253.27819-1-hch@lst.de>
+References: <1565250728-21721-1-git-send-email-rppt@linux.ibm.com>
+In-Reply-To: <1565250728-21721-1-git-send-email-rppt@linux.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Arnd Bergmann <arnd@arndb.de>, Guo Ren <guoren@kernel.org>, Michal Simek <monstr@monstr.eu>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, x86@kernel.org
-Cc: linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, nios2-dev@lists.rocketboards.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-mtd@lists.infradead.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Nicholas Piggin <npiggin@gmail.com>, Tony Luck <tony.luck@intel.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, linux-arch@vger.kernel.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org, Mike Rapoport <rppt@linux.ibm.com>
 
-Use the generic ioremap_prot and iounmap helpers.
+The sh implementation pte_alloc_one(), pte_alloc_one_kernel(),
+pte_free_kernel() and pte_free() is identical to the generic except of lack
+of __GFP_ACCOUNT for the user PTEs allocation.
 
-Note that the io.h include in pgtable.h had to be removed to not create
-an include loop.  As far as I can tell there was no need for it to
-start with.
+Switch sh to use generic version of these functions.
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
 ---
- arch/nds32/Kconfig               |  1 +
- arch/nds32/include/asm/io.h      |  3 +-
- arch/nds32/include/asm/pgtable.h |  4 ++-
- arch/nds32/mm/Makefile           |  3 +-
- arch/nds32/mm/ioremap.c          | 62 --------------------------------
- 5 files changed, 6 insertions(+), 67 deletions(-)
- delete mode 100644 arch/nds32/mm/ioremap.c
+ arch/sh/include/asm/pgalloc.h | 34 +---------------------------------
+ 1 file changed, 1 insertion(+), 33 deletions(-)
 
-diff --git a/arch/nds32/Kconfig b/arch/nds32/Kconfig
-index fbd68329737f..12c06a833b7c 100644
---- a/arch/nds32/Kconfig
-+++ b/arch/nds32/Kconfig
-@@ -20,6 +20,7 @@ config NDS32
- 	select GENERIC_CLOCKEVENTS
- 	select GENERIC_IRQ_CHIP
- 	select GENERIC_IRQ_SHOW
-+	select GENERIC_IOREMAP
- 	select GENERIC_LIB_ASHLDI3
- 	select GENERIC_LIB_ASHRDI3
- 	select GENERIC_LIB_CMPDI2
-diff --git a/arch/nds32/include/asm/io.h b/arch/nds32/include/asm/io.h
-index fb0e8a24c7af..e57378d04006 100644
---- a/arch/nds32/include/asm/io.h
-+++ b/arch/nds32/include/asm/io.h
-@@ -6,8 +6,6 @@
+diff --git a/arch/sh/include/asm/pgalloc.h b/arch/sh/include/asm/pgalloc.h
+index 9e15054..8c6341a 100644
+--- a/arch/sh/include/asm/pgalloc.h
++++ b/arch/sh/include/asm/pgalloc.h
+@@ -3,6 +3,7 @@
+ #define __ASM_SH_PGALLOC_H
  
- #include <linux/types.h>
+ #include <asm/page.h>
++#include <asm-generic/pgalloc.h>
  
--void __iomem *ioremap(phys_addr_t phys_addr, size_t size);
--extern void iounmap(volatile void __iomem *addr);
- #define __raw_writeb __raw_writeb
- static inline void __raw_writeb(u8 val, volatile void __iomem *addr)
- {
-@@ -80,6 +78,7 @@ static inline u32 __raw_readl(const volatile void __iomem *addr)
- #define writeb(v,c)	({ __iowmb(); writeb_relaxed((v),(c)); })
- #define writew(v,c)	({ __iowmb(); writew_relaxed((v),(c)); })
- #define writel(v,c)	({ __iowmb(); writel_relaxed((v),(c)); })
-+
- #include <asm-generic/io.h>
+ extern pgd_t *pgd_alloc(struct mm_struct *);
+ extern void pgd_free(struct mm_struct *mm, pgd_t *pgd);
+@@ -26,39 +27,6 @@ static inline void pmd_populate(struct mm_struct *mm, pmd_t *pmd,
+ }
+ #define pmd_pgtable(pmd) pmd_page(pmd)
  
- #endif /* __ASM_NDS32_IO_H */
-diff --git a/arch/nds32/include/asm/pgtable.h b/arch/nds32/include/asm/pgtable.h
-index c70cc56bec09..9c5efa4f1f96 100644
---- a/arch/nds32/include/asm/pgtable.h
-+++ b/arch/nds32/include/asm/pgtable.h
-@@ -12,7 +12,6 @@
- #include <asm/nds32.h>
- #ifndef __ASSEMBLY__
- #include <asm/fixmap.h>
--#include <asm/io.h>
- #include <nds32_intrinsic.h>
- #endif
- 
-@@ -130,6 +129,9 @@ extern void __pgd_error(const char *file, int line, unsigned long val);
- #define _PAGE_CACHE		_PAGE_C_MEM_WB
- #endif
- 
-+#define _PAGE_IOREMAP \
-+	(_PAGE_V | _PAGE_M_KRW | _PAGE_D | _PAGE_G | _PAGE_C_DEV)
-+
- /*
-  * + Level 1 descriptor (PMD)
-  */
-diff --git a/arch/nds32/mm/Makefile b/arch/nds32/mm/Makefile
-index bd360e4583b5..897ecaf5cf54 100644
---- a/arch/nds32/mm/Makefile
-+++ b/arch/nds32/mm/Makefile
-@@ -1,6 +1,5 @@
- # SPDX-License-Identifier: GPL-2.0-only
--obj-y				:= extable.o tlb.o \
--				   fault.o init.o ioremap.o mmap.o \
-+obj-y				:= extable.o tlb.o fault.o init.o mmap.o \
-                                    mm-nds32.o cacheflush.o proc.o
- 
- obj-$(CONFIG_ALIGNMENT_TRAP)	+= alignment.o
-diff --git a/arch/nds32/mm/ioremap.c b/arch/nds32/mm/ioremap.c
-deleted file mode 100644
-index 690140bb23a2..000000000000
---- a/arch/nds32/mm/ioremap.c
-+++ /dev/null
-@@ -1,62 +0,0 @@
--// SPDX-License-Identifier: GPL-2.0
--// Copyright (C) 2005-2017 Andes Technology Corporation
--
--#include <linux/vmalloc.h>
--#include <linux/io.h>
--#include <linux/mm.h>
--#include <asm/pgtable.h>
--
--void __iomem *ioremap(phys_addr_t phys_addr, size_t size);
--
--static void __iomem *__ioremap_caller(phys_addr_t phys_addr, size_t size,
--				      void *caller)
+-/*
+- * Allocate and free page tables.
+- */
+-static inline pte_t *pte_alloc_one_kernel(struct mm_struct *mm)
 -{
--	struct vm_struct *area;
--	unsigned long addr, offset, last_addr;
--	pgprot_t prot;
+-	return (pte_t *)__get_free_page(GFP_KERNEL | __GFP_ZERO);
+-}
 -
--	/* Don't allow wraparound or zero size */
--	last_addr = phys_addr + size - 1;
--	if (!size || last_addr < phys_addr)
+-static inline pgtable_t pte_alloc_one(struct mm_struct *mm)
+-{
+-	struct page *page;
+-
+-	page = alloc_page(GFP_KERNEL | __GFP_ZERO);
+-	if (!page)
 -		return NULL;
--
--	/*
--	 * Mappings have to be page-aligned
--	 */
--	offset = phys_addr & ~PAGE_MASK;
--	phys_addr &= PAGE_MASK;
--	size = PAGE_ALIGN(last_addr + 1) - phys_addr;
--
--	/*
--	 * Ok, go for it..
--	 */
--	area = get_vm_area_caller(size, VM_IOREMAP, caller);
--	if (!area)
--		return NULL;
--
--	area->phys_addr = phys_addr;
--	addr = (unsigned long)area->addr;
--	prot = __pgprot(_PAGE_V | _PAGE_M_KRW | _PAGE_D |
--			_PAGE_G | _PAGE_C_DEV);
--	if (ioremap_page_range(addr, addr + size, phys_addr, prot)) {
--		vunmap((void *)addr);
+-	if (!pgtable_page_ctor(page)) {
+-		__free_page(page);
 -		return NULL;
 -	}
--	return (__force void __iomem *)(offset + (char *)addr);
--
+-	return page;
 -}
 -
--void __iomem *ioremap(phys_addr_t phys_addr, size_t size)
+-static inline void pte_free_kernel(struct mm_struct *mm, pte_t *pte)
 -{
--	return __ioremap_caller(phys_addr, size,
--				__builtin_return_address(0));
+-	free_page((unsigned long)pte);
 -}
 -
--EXPORT_SYMBOL(ioremap);
--
--void iounmap(volatile void __iomem * addr)
+-static inline void pte_free(struct mm_struct *mm, pgtable_t pte)
 -{
--	vunmap((void *)(PAGE_MASK & (unsigned long)addr));
+-	pgtable_page_dtor(pte);
+-	__free_page(pte);
 -}
 -
--EXPORT_SYMBOL(iounmap);
+ #define __pte_free_tlb(tlb,pte,addr)			\
+ do {							\
+ 	pgtable_page_dtor(pte);				\
 -- 
-2.20.1
+2.7.4
