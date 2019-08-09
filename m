@@ -1,129 +1,25 @@
-From: Aleksa Sarai <cyphar@cyphar.com>
-Date: Thu, 29 Aug 2019 13:19:04 +0000
-Subject: Re: [PATCH RESEND v11 7/8] open: openat2(2) syscall
-Message-Id: <20190829131904.bkbalbtqt6j3gwcp@yavin>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="itirvnprc6jjrbl3"
+From: " Henry Stewart" <representative@sailoreven.icu>
+Date: Fri, 09 Aug 2019 10:02:38 +0000
+Subject: Slow internet? Don't miss out on this WiFi booster
+Message-Id: <b97lPHr8BiKXQcVu53PwPmZvcTcRaVi_cFcPdML_Bfg.l3RC_QhyuQGJ2A4TiDrxHSjA3yEpUQ-ayO7aaB2IM60@sailoreven.icu>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190820033406.29796-1-cyphar@cyphar.com>
- <20190820033406.29796-8-cyphar@cyphar.com>
- <CAKOZuesfxRBJe314rkTKXtjXdz6ki3uAUBYVbu5Q2rd3=ADphQ@mail.gmail.com>
- <20190829121527.u2uvdyeatme5cgkb@yavin>
- <899401fa-ff0a-2ce9-8826-09904efab2d2@rasmusvillemoes.dk>
-In-Reply-To: <899401fa-ff0a-2ce9-8826-09904efab2d2@rasmusvillemoes.dk>
-To: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-Cc: Daniel Colascione <dancol@google.com>, Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Christian Brauner <christian@brauner.io>, Eric Biederman <ebiederm@xmission.com>, Andy Lutomirski <luto@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Alexei Starovoitov <ast@kernel.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, David Drysdale <drysdale@google.com>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Aleksa Sarai <asarai@suse.de>, Linus Torvalds <torvalds@linux-fo>
+References: <07Cg0UkoI0jyOWH6Fmu88qS3W2GDh_ixL_u-9zFx-zg.ck80eeq-qGXIG7KuxRKq31gjl0tr57O50tFOZK6VzFc@blankgrace.icu>
+In-Reply-To: <07Cg0UkoI0jyOWH6Fmu88qS3W2GDh_ixL_u-9zFx-zg.ck80eeq-qGXIG7KuxRKq31gjl0tr57O50tFOZK6VzFc@blankgrace.icu>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-ia64@vger.kernel.org
 
+Internet providers make big money by overcharging you for faster internet lines. Could this little device really be the one solution that we've all been waiting for?
 
---itirvnprc6jjrbl3
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Frequency: 2.4Ghz
+Wireless Rate: 300Mbps
+Interface: 1 10/100Mbps WAN/LAN RJ45 Ports
 
-On 2019-08-29, Rasmus Villemoes <linux@rasmusvillemoes.dk> wrote:
-> On 29/08/2019 14.15, Aleksa Sarai wrote:
-> > On 2019-08-24, Daniel Colascione <dancol@google.com> wrote:
->=20
-> >> Why pad the structure when new functionality (perhaps accommodated via
-> >> a larger structure) could be signaled by passing a new flag? Adding
-> >> reserved fields to a structure with a size embedded in the ABI makes a
-> >> lot of sense --- e.g., pthread_mutex_t can't grow. But this structure
-> >> can grow, so the reservation seems needless to me.
-> >=20
-> > Quite a few folks have said that ->reserved is either unnecessary or
-> > too big. I will be changing this, though I am not clear what the best
-> > way of extending the structure is. If anyone has a strong opinion on
-> > this (or an alternative to the ones listed below), please chime in. I
-> > don't have any really strong attachment to this aspect of the API.
-> >=20
-> > There appear to be a few ways we can do it (that all have precedence
-> > with other syscalls):
-> >=20
-> >  1. Use O_* flags to indicate extensions.
-> >  2. A separate "version" field that is incremented when we change.
-> >  3. Add a size_t argument to openat2(2).
-> >  4. Reserve space (as in this patchset).
-> >=20
-> > (My personal preference would be (3), followed closely by (2).)
->=20
-> 3, definitely, and instead of having to invent a new scheme for every
-> new syscall, make that the default pattern by providing a helper
+Amazing new technology find out here!
+http://www.sailoreven.icu/kjbwa/hebhwtts33241yulzamit/MVb27eq6xlpAGSWV1aw47naMP4B8lUSBNCZWiTnpRD8/StCcX3RF8SopVY4PGBvBcAr91z41zi7aRYySPWYpCzeAXFP0IfN4hXLvHq_qEqjlVd35K400c3Fgu37GhG4VPGm5tGfY2JIhS3BcGUmRJlSR3cRnsYuA3gbPAnAbQvlOYB7m2_s__L2YjOfiQAfK7Q
 
-Sure (though hopefully I don't need to immediately go and refactor all
-the existing size_t syscalls). I will be presenting about this patchset
-at the containers microconference at LPC (in a few weeks), so I'll hold
-of on any API-related rewrites until after that.
-
-> int __copy_abi_struct(void *kernel, size_t ksize, const void __user
-> *user, size_t usize)
-> {
-> 	size_t copy =3D min(ksize, usize);
->=20
-> 	if (copy_from_user(kernel, user, copy))
-> 		return -EFAULT;
->=20
-> 	if (usize > ksize) {
-> 		/* maybe a separate "return user_is_zero(user + ksize, usize -
-> ksize);" helper */
-> 		char c;
-> 		user +=3D ksize;
-> 		usize -=3D ksize;
-> 		while (usize--) {
-> 			if (get_user(c, user++))
-> 				return -EFAULT;
-> 			if (c)
-> 				return -EINVAL;
-
-This part would probably be better done with memchr_inv() and
-copy_from_user() (and probably should put an upper limit on usize), but
-I get what you mean.
-
-> 		}
-> 	} else if (ksize > usize) {
-> 		memset(kernel + usize, 0, ksize - usize);
-> 	}
-> 	return 0;
-> }
-> #define copy_abi_struct(kernel, user, usize)	\
-> 	__copy_abi_struct(kernel, sizeof(*kernel), user, usize)
->
-> > Both (1) and (2) have the problem that the "struct version" is inside
-> > the struct so we'd need to copy_from_user() twice. This isn't the end of
-> > the world, it just feels a bit less clean than is ideal. (3) fixes that
-> > problem, at the cost of making the API slightly more cumbersome to use
-> > directly (though again glibc could wrap that away).
->=20
-> I don't see how 3 is cumbersome to use directly. Userspace code does
-> struct openat_of_the_day args =3D {.field1 =3D x, .field3 =3D y} and pass=
-es
-> &args, sizeof(args). What does glibc need to do beyond its usual munging
-> of the userspace ABI registers to the syscall ABI registers?
-
-I'd argue that
-
-    ret =3D openat2(AT_FDCWD, "foo", &how, sizeof(how)); // (3)
-
-is slightly less pretty than
-
-    ret =3D openat2(AT_FDCWD, "foo", &how); // (1), (2), (4)
-
-But it's not really that bad. Forget I said anything.
-
---=20
-Aleksa Sarai
-Senior Software Engineer (Containers)
-SUSE Linux GmbH
-<https://www.cyphar.com/>
-
---itirvnprc6jjrbl3
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iHUEABYIAB0WIQSxZm6dtfE8gxLLfYqdlLljIbnQEgUCXWfQxQAKCRCdlLljIbnQ
-EoMSAP9J0uy3xcD3flC3cANph5LKQ2g0JWnMb61ew5LWDORVogD/UGWciY+tdPiy
-YNHs2UcBt9SEH1MNpEIgf2GN6RoyaQI=
-=ne2z
------END PGP SIGNATURE-----
-
---itirvnprc6jjrbl3--
+------------------------
+If you'd prefer not to receive future emails, Unsubscribe Here 
+http://www.sailoreven.icu/smwmrida/Q7KfAQifOjY2L__s_2m7BYOlvQbAnAPbg3AuYsnRc3RSlJRmUGcB3ShIJ2YfGt5mGPV4GhG73ugF3c004K53dVljqEq_qHvLXh4NfI0PFXAezCpYWPSyYRa7iz14z19rAcBvBGP4YVpoS8FR3XcCtS.8DRpnTiWZCNBSUl8B4PMan74wa1VWSGAplx6qe72bVM
+538 Cherry Rd. Schaumburg, IL 60193
