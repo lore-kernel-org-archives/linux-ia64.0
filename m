@@ -1,258 +1,162 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Tue, 13 Aug 2019 07:25:05 +0000
-Subject: [PATCH 19/28] ia64: remove CONFIG_ACPI ifdefs
-Message-Id: <20190813072514.23299-20-hch@lst.de>
+From: "Vaden, Tom (HPE Server OS Architecture)" <tom.vaden@hpe.com>
+Date: Tue, 13 Aug 2019 21:07:31 +0000
+Subject: Re: [PATCH 19/28] ia64: remove CONFIG_ACPI ifdefs
+Message-Id: <562c8803-1ba1-fbfd-99ef-3976e28f7e98@hpe.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20190813072514.23299-1-hch@lst.de>
-In-Reply-To: <20190813072514.23299-1-hch@lst.de>
+ <20190813072514.23299-20-hch@lst.de>
+In-Reply-To: <20190813072514.23299-20-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Mike Travis <mike.travis@hpe.com>, Dimitri Sivanich <sivanich@hpe.com>
-Cc: Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-ia64@vger.kernel.org, linux-ide@vger.kernel.org, linux-scsi@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Christoph Hellwig <hch@lst.de>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "Travis, Mike" <mike.travis@hpe.com>, "Sivanich, Dimitri" <dimitri.sivanich@hpe.com>
+Cc: Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-ide@vger.kernel.org" <linux-ide@vger.kernel.org>, "linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 
-Now that hpsim support is gone, CONFIG_ACPI is forced on for ia64, and
-we can remove a few ifdefs for it.
-
-Signed-off-by: Christoph Hellwig <hch@lst.de>
----
- arch/ia64/include/asm/acpi.h |  4 ++--
- arch/ia64/kernel/Makefile    |  4 ++--
- arch/ia64/kernel/iosapic.c   |  2 --
- arch/ia64/kernel/irq_ia64.c  |  2 --
- arch/ia64/kernel/mca.c       | 18 ------------------
- arch/ia64/kernel/setup.c     | 10 ++++------
- arch/ia64/kernel/topology.c  |  4 ----
- 7 files changed, 8 insertions(+), 36 deletions(-)
-
-diff --git a/arch/ia64/include/asm/acpi.h b/arch/ia64/include/asm/acpi.h
-index 0afb3bc4b4a1..01c1c269aa13 100644
---- a/arch/ia64/include/asm/acpi.h
-+++ b/arch/ia64/include/asm/acpi.h
-@@ -17,7 +17,7 @@
- #include <linux/numa.h>
- #include <asm/numa.h>
- 
--#ifdef	CONFIG_ACPI
-+
- extern int acpi_lapic;
- #define acpi_disabled 0	/* ACPI always enabled on IA64 */
- #define acpi_noirq 0	/* ACPI always enabled on IA64 */
-@@ -28,7 +28,7 @@ static inline bool acpi_has_cpu_in_madt(void)
- {
- 	return !!acpi_lapic;
- }
--#endif
-+
- #define acpi_processor_cstate_check(x) (x) /* no idle limits on IA64 :) */
- static inline void disable_acpi(void) { }
- 
-diff --git a/arch/ia64/kernel/Makefile b/arch/ia64/kernel/Makefile
-index 3ada440ff893..dbde36702cf2 100644
---- a/arch/ia64/kernel/Makefile
-+++ b/arch/ia64/kernel/Makefile
-@@ -12,9 +12,9 @@ extra-y	:= head.o vmlinux.lds
- obj-y := entry.o efi.o efi_stub.o gate-data.o fsys.o ia64_ksyms.o irq.o irq_ia64.o	\
- 	 irq_lsapic.o ivt.o machvec.o pal.o patch.o process.o perfmon.o ptrace.o sal.o		\
- 	 salinfo.o setup.o signal.o sys_ia64.o time.o traps.o unaligned.o \
--	 unwind.o mca.o mca_asm.o topology.o dma-mapping.o iosapic.o
-+	 unwind.o mca.o mca_asm.o topology.o dma-mapping.o iosapic.o acpi.o \
-+	 acpi-ext.o
- 
--obj-$(CONFIG_ACPI)		+= acpi.o acpi-ext.o
- obj-$(CONFIG_IA64_BRL_EMU)	+= brl_emu.o
- 
- obj-$(CONFIG_IA64_PALINFO)	+= palinfo.o
-diff --git a/arch/ia64/kernel/iosapic.c b/arch/ia64/kernel/iosapic.c
-index 9e49fd006859..2d25958a7ed7 100644
---- a/arch/ia64/kernel/iosapic.c
-+++ b/arch/ia64/kernel/iosapic.c
-@@ -643,10 +643,8 @@ get_target_cpu (unsigned int gsi, int irq)
- 	if (!cpu_online(smp_processor_id()))
- 		return cpu_physical_id(smp_processor_id());
- 
--#ifdef CONFIG_ACPI
- 	if (cpe_vector > 0 && irq_to_vector(irq) = IA64_CPEP_VECTOR)
- 		return get_cpei_target_cpu();
--#endif
- 
- #ifdef CONFIG_NUMA
- 	{
-diff --git a/arch/ia64/kernel/irq_ia64.c b/arch/ia64/kernel/irq_ia64.c
-index e3874734b149..b989731bbeac 100644
---- a/arch/ia64/kernel/irq_ia64.c
-+++ b/arch/ia64/kernel/irq_ia64.c
-@@ -633,9 +633,7 @@ ia64_native_register_ipi(void)
- void __init
- init_IRQ (void)
- {
--#ifdef CONFIG_ACPI
- 	acpi_boot_init();
--#endif
- 	ia64_register_ipi();
- 	register_percpu_irq(IA64_SPURIOUS_INT_VECTOR, NULL);
- #ifdef CONFIG_SMP
-diff --git a/arch/ia64/kernel/mca.c b/arch/ia64/kernel/mca.c
-index f72b05fe918b..a7f05883935b 100644
---- a/arch/ia64/kernel/mca.c
-+++ b/arch/ia64/kernel/mca.c
-@@ -149,9 +149,7 @@ static ia64_mc_info_t		ia64_mc_info;
- #define CPE_HISTORY_LENGTH    5
- #define CMC_HISTORY_LENGTH    5
- 
--#ifdef CONFIG_ACPI
- static struct timer_list cpe_poll_timer;
--#endif
- static struct timer_list cmc_poll_timer;
- /*
-  * This variable tells whether we are currently in polling mode.
-@@ -532,8 +530,6 @@ int mca_recover_range(unsigned long addr)
- }
- EXPORT_SYMBOL_GPL(mca_recover_range);
- 
--#ifdef CONFIG_ACPI
--
- int cpe_vector = -1;
- int ia64_cpe_irq = -1;
- 
-@@ -595,9 +591,6 @@ ia64_mca_cpe_int_handler (int cpe_irq, void *arg)
- 	return IRQ_HANDLED;
- }
- 
--#endif /* CONFIG_ACPI */
--
--#ifdef CONFIG_ACPI
- /*
-  * ia64_mca_register_cpev
-  *
-@@ -625,7 +618,6 @@ ia64_mca_register_cpev (int cpev)
- 	IA64_MCA_DEBUG("%s: corrected platform error "
- 		       "vector %#x registered\n", __func__, cpev);
- }
--#endif /* CONFIG_ACPI */
- 
- /*
-  * ia64_mca_cmc_vector_setup
-@@ -1540,8 +1532,6 @@ ia64_mca_cmc_poll (struct timer_list *unused)
-  * Outputs
-  * 	handled
-  */
--#ifdef CONFIG_ACPI
--
- static irqreturn_t
- ia64_mca_cpe_int_caller(int cpe_irq, void *arg)
- {
-@@ -1604,8 +1594,6 @@ ia64_mca_cpe_poll (struct timer_list *unused)
- 							IA64_IPI_DM_INT, 0);
- }
- 
--#endif /* CONFIG_ACPI */
--
- static int
- default_monarch_init_process(struct notifier_block *self, unsigned long val, void *data)
- {
-@@ -1799,7 +1787,6 @@ static struct irqaction mca_wkup_irqaction = {
- 	.name =		"mca_wkup"
- };
- 
--#ifdef CONFIG_ACPI
- static struct irqaction mca_cpe_irqaction = {
- 	.handler =	ia64_mca_cpe_int_handler,
- 	.name =		"cpe_hndlr"
-@@ -1809,7 +1796,6 @@ static struct irqaction mca_cpep_irqaction = {
- 	.handler =	ia64_mca_cpe_int_caller,
- 	.name =		"cpe_poll"
- };
--#endif /* CONFIG_ACPI */
- 
- /* Minimal format of the MCA/INIT stacks.  The pseudo processes that run on
-  * these stacks can never sleep, they cannot return from the kernel to user
-@@ -2081,10 +2067,8 @@ void __init ia64_mca_irq_init(void)
- 	/* Setup the MCA wakeup interrupt vector */
- 	register_percpu_irq(IA64_MCA_WAKEUP_VECTOR, &mca_wkup_irqaction);
- 
--#ifdef CONFIG_ACPI
- 	/* Setup the CPEI/P handler */
- 	register_percpu_irq(IA64_CPEP_VECTOR, &mca_cpep_irqaction);
--#endif
- }
- 
- /*
-@@ -2112,7 +2096,6 @@ ia64_mca_late_init(void)
- 			  ia64_mca_cpu_online, NULL);
- 	IA64_MCA_DEBUG("%s: CMCI/P setup and enabled.\n", __func__);
- 
--#ifdef CONFIG_ACPI
- 	/* Setup the CPEI/P vector and handler */
- 	cpe_vector = acpi_request_vector(ACPI_INTERRUPT_CPEI);
- 	timer_setup(&cpe_poll_timer, ia64_mca_cpe_poll, 0);
-@@ -2143,7 +2126,6 @@ ia64_mca_late_init(void)
- 			IA64_MCA_DEBUG("%s: CPEP setup and enabled.\n", __func__);
- 		}
- 	}
--#endif
- 
- 	return 0;
- }
-diff --git a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
-index 42ef03ce2fd4..8d47836d932c 100644
---- a/arch/ia64/kernel/setup.c
-+++ b/arch/ia64/kernel/setup.c
-@@ -537,21 +537,19 @@ setup_arch (char **cmdline_p)
- 	if (early_console_setup(*cmdline_p) = 0)
- 		mark_bsp_online();
- 
--#ifdef CONFIG_ACPI
- 	/* Initialize the ACPI boot-time table parser */
- 	acpi_table_init();
- 	early_acpi_boot_init();
--# ifdef CONFIG_ACPI_NUMA
-+#ifdef CONFIG_ACPI_NUMA
- 	acpi_numa_init();
- 	acpi_numa_fixup();
--#  ifdef CONFIG_ACPI_HOTPLUG_CPU
-+#ifdef CONFIG_ACPI_HOTPLUG_CPU
- 	prefill_possible_map();
--#  endif
-+#endif
- 	per_cpu_scan_finalize((cpumask_weight(&early_cpu_possible_map) = 0 ?
- 		32 : cpumask_weight(&early_cpu_possible_map)),
- 		additional_cpus > 0 ? additional_cpus : 0);
--# endif
--#endif /* CONFIG_APCI_BOOT */
-+#endif /* CONFIG_ACPI_NUMA */
- 
- #ifdef CONFIG_SMP
- 	smp_build_cpu_map();
-diff --git a/arch/ia64/kernel/topology.c b/arch/ia64/kernel/topology.c
-index e311ee13e61d..09fc385c2acd 100644
---- a/arch/ia64/kernel/topology.c
-+++ b/arch/ia64/kernel/topology.c
-@@ -42,7 +42,6 @@ EXPORT_SYMBOL_GPL(arch_fix_phys_package_id);
- #ifdef CONFIG_HOTPLUG_CPU
- int __ref arch_register_cpu(int num)
- {
--#ifdef CONFIG_ACPI
- 	/*
- 	 * If CPEI can be re-targeted or if this is not
- 	 * CPEI target, then it is hotpluggable
-@@ -50,7 +49,6 @@ int __ref arch_register_cpu(int num)
- 	if (can_cpei_retarget() || !is_cpu_cpei_target(num))
- 		sysfs_cpus[num].cpu.hotpluggable = 1;
- 	map_cpu_to_node(num, node_cpuid[num].nid);
--#endif
- 	return register_cpu(&sysfs_cpus[num].cpu, num);
- }
- EXPORT_SYMBOL(arch_register_cpu);
-@@ -58,9 +56,7 @@ EXPORT_SYMBOL(arch_register_cpu);
- void __ref arch_unregister_cpu(int num)
- {
- 	unregister_cpu(&sysfs_cpus[num].cpu);
--#ifdef CONFIG_ACPI
- 	unmap_cpu_from_node(num, cpu_to_node(num));
--#endif
- }
- EXPORT_SYMBOL(arch_unregister_cpu);
- #else
--- 
-2.20.1
+DQoNCk9uIDgvMTMvMTkgMzoyNSBBTSwgQ2hyaXN0b3BoIEhlbGx3aWcgd3JvdGU6DQo+IE5vdyB0
+aGF0IGhwc2ltIHN1cHBvcnQgaXMgZ29uZSwgQ09ORklHX0FDUEkgaXMgZm9yY2VkIG9uIGZvciBp
+YTY0LCBhbmQNCj4gd2UgY2FuIHJlbW92ZSBhIGZldyBpZmRlZnMgZm9yIGl0Lg0KPiANCj4gU2ln
+bmVkLW9mZi1ieTogQ2hyaXN0b3BoIEhlbGx3aWcgPGhjaEBsc3QuZGU+DQoNCk9rYXkgdG8gcmVt
+b3ZlIGhwc2ltIHN1cHBvcnQNCkFja2VkLWJ5OiBUb20gVmFkZW4gPHRvbS52YWRlbkBocGUuY29t
+Pg0KDQo+IC0tLQ0KPiAgIGFyY2gvaWE2NC9pbmNsdWRlL2FzbS9hY3BpLmggfCAgNCArKy0tDQo+
+ICAgYXJjaC9pYTY0L2tlcm5lbC9NYWtlZmlsZSAgICB8ICA0ICsrLS0NCj4gICBhcmNoL2lhNjQv
+a2VybmVsL2lvc2FwaWMuYyAgIHwgIDIgLS0NCj4gICBhcmNoL2lhNjQva2VybmVsL2lycV9pYTY0
+LmMgIHwgIDIgLS0NCj4gICBhcmNoL2lhNjQva2VybmVsL21jYS5jICAgICAgIHwgMTggLS0tLS0t
+LS0tLS0tLS0tLS0tDQo+ICAgYXJjaC9pYTY0L2tlcm5lbC9zZXR1cC5jICAgICB8IDEwICsrKyst
+LS0tLS0NCj4gICBhcmNoL2lhNjQva2VybmVsL3RvcG9sb2d5LmMgIHwgIDQgLS0tLQ0KPiAgIDcg
+ZmlsZXMgY2hhbmdlZCwgOCBpbnNlcnRpb25zKCspLCAzNiBkZWxldGlvbnMoLSkNCj4gDQo+IGRp
+ZmYgLS1naXQgYS9hcmNoL2lhNjQvaW5jbHVkZS9hc20vYWNwaS5oIGIvYXJjaC9pYTY0L2luY2x1
+ZGUvYXNtL2FjcGkuaA0KPiBpbmRleCAwYWZiM2JjNGI0YTEuLjAxYzFjMjY5YWExMyAxMDA2NDQN
+Cj4gLS0tIGEvYXJjaC9pYTY0L2luY2x1ZGUvYXNtL2FjcGkuaA0KPiArKysgYi9hcmNoL2lhNjQv
+aW5jbHVkZS9hc20vYWNwaS5oDQo+IEBAIC0xNyw3ICsxNyw3IEBADQo+ICAgI2luY2x1ZGUgPGxp
+bnV4L251bWEuaD4NCj4gICAjaW5jbHVkZSA8YXNtL251bWEuaD4NCj4gICANCj4gLSNpZmRlZglD
+T05GSUdfQUNQSQ0KPiArDQo+ICAgZXh0ZXJuIGludCBhY3BpX2xhcGljOw0KPiAgICNkZWZpbmUg
+YWNwaV9kaXNhYmxlZCAwCS8qIEFDUEkgYWx3YXlzIGVuYWJsZWQgb24gSUE2NCAqLw0KPiAgICNk
+ZWZpbmUgYWNwaV9ub2lycSAwCS8qIEFDUEkgYWx3YXlzIGVuYWJsZWQgb24gSUE2NCAqLw0KPiBA
+QCAtMjgsNyArMjgsNyBAQCBzdGF0aWMgaW5saW5lIGJvb2wgYWNwaV9oYXNfY3B1X2luX21hZHQo
+dm9pZCkNCj4gICB7DQo+ICAgCXJldHVybiAhIWFjcGlfbGFwaWM7DQo+ICAgfQ0KPiAtI2VuZGlm
+DQo+ICsNCj4gICAjZGVmaW5lIGFjcGlfcHJvY2Vzc29yX2NzdGF0ZV9jaGVjayh4KSAoeCkgLyog
+bm8gaWRsZSBsaW1pdHMgb24gSUE2NCA6KSAqLw0KPiAgIHN0YXRpYyBpbmxpbmUgdm9pZCBkaXNh
+YmxlX2FjcGkodm9pZCkgeyB9DQo+ICAgDQo+IGRpZmYgLS1naXQgYS9hcmNoL2lhNjQva2VybmVs
+L01ha2VmaWxlIGIvYXJjaC9pYTY0L2tlcm5lbC9NYWtlZmlsZQ0KPiBpbmRleCAzYWRhNDQwZmY4
+OTMuLmRiZGUzNjcwMmNmMiAxMDA2NDQNCj4gLS0tIGEvYXJjaC9pYTY0L2tlcm5lbC9NYWtlZmls
+ZQ0KPiArKysgYi9hcmNoL2lhNjQva2VybmVsL01ha2VmaWxlDQo+IEBAIC0xMiw5ICsxMiw5IEBA
+IGV4dHJhLXkJOj0gaGVhZC5vIHZtbGludXgubGRzDQo+ICAgb2JqLXkgOj0gZW50cnkubyBlZmku
+byBlZmlfc3R1Yi5vIGdhdGUtZGF0YS5vIGZzeXMubyBpYTY0X2tzeW1zLm8gaXJxLm8gaXJxX2lh
+NjQubwlcDQo+ICAgCSBpcnFfbHNhcGljLm8gaXZ0Lm8gbWFjaHZlYy5vIHBhbC5vIHBhdGNoLm8g
+cHJvY2Vzcy5vIHBlcmZtb24ubyBwdHJhY2UubyBzYWwubwkJXA0KPiAgIAkgc2FsaW5mby5vIHNl
+dHVwLm8gc2lnbmFsLm8gc3lzX2lhNjQubyB0aW1lLm8gdHJhcHMubyB1bmFsaWduZWQubyBcDQo+
+IC0JIHVud2luZC5vIG1jYS5vIG1jYV9hc20ubyB0b3BvbG9neS5vIGRtYS1tYXBwaW5nLm8gaW9z
+YXBpYy5vDQo+ICsJIHVud2luZC5vIG1jYS5vIG1jYV9hc20ubyB0b3BvbG9neS5vIGRtYS1tYXBw
+aW5nLm8gaW9zYXBpYy5vIGFjcGkubyBcDQo+ICsJIGFjcGktZXh0Lm8NCj4gICANCj4gLW9iai0k
+KENPTkZJR19BQ1BJKQkJKz0gYWNwaS5vIGFjcGktZXh0Lm8NCj4gICBvYmotJChDT05GSUdfSUE2
+NF9CUkxfRU1VKQkrPSBicmxfZW11Lm8NCj4gICANCj4gICBvYmotJChDT05GSUdfSUE2NF9QQUxJ
+TkZPKQkrPSBwYWxpbmZvLm8NCj4gZGlmZiAtLWdpdCBhL2FyY2gvaWE2NC9rZXJuZWwvaW9zYXBp
+Yy5jIGIvYXJjaC9pYTY0L2tlcm5lbC9pb3NhcGljLmMNCj4gaW5kZXggOWU0OWZkMDA2ODU5Li4y
+ZDI1OTU4YTdlZDcgMTAwNjQ0DQo+IC0tLSBhL2FyY2gvaWE2NC9rZXJuZWwvaW9zYXBpYy5jDQo+
+ICsrKyBiL2FyY2gvaWE2NC9rZXJuZWwvaW9zYXBpYy5jDQo+IEBAIC02NDMsMTAgKzY0Myw4IEBA
+IGdldF90YXJnZXRfY3B1ICh1bnNpZ25lZCBpbnQgZ3NpLCBpbnQgaXJxKQ0KPiAgIAlpZiAoIWNw
+dV9vbmxpbmUoc21wX3Byb2Nlc3Nvcl9pZCgpKSkNCj4gICAJCXJldHVybiBjcHVfcGh5c2ljYWxf
+aWQoc21wX3Byb2Nlc3Nvcl9pZCgpKTsNCj4gICANCj4gLSNpZmRlZiBDT05GSUdfQUNQSQ0KPiAg
+IAlpZiAoY3BlX3ZlY3RvciA+IDAgJiYgaXJxX3RvX3ZlY3RvcihpcnEpID09IElBNjRfQ1BFUF9W
+RUNUT1IpDQo+ICAgCQlyZXR1cm4gZ2V0X2NwZWlfdGFyZ2V0X2NwdSgpOw0KPiAtI2VuZGlmDQo+
+ICAgDQo+ICAgI2lmZGVmIENPTkZJR19OVU1BDQo+ICAgCXsNCj4gZGlmZiAtLWdpdCBhL2FyY2gv
+aWE2NC9rZXJuZWwvaXJxX2lhNjQuYyBiL2FyY2gvaWE2NC9rZXJuZWwvaXJxX2lhNjQuYw0KPiBp
+bmRleCBlMzg3NDczNGIxNDkuLmI5ODk3MzFiYmVhYyAxMDA2NDQNCj4gLS0tIGEvYXJjaC9pYTY0
+L2tlcm5lbC9pcnFfaWE2NC5jDQo+ICsrKyBiL2FyY2gvaWE2NC9rZXJuZWwvaXJxX2lhNjQuYw0K
+PiBAQCAtNjMzLDkgKzYzMyw3IEBAIGlhNjRfbmF0aXZlX3JlZ2lzdGVyX2lwaSh2b2lkKQ0KPiAg
+IHZvaWQgX19pbml0DQo+ICAgaW5pdF9JUlEgKHZvaWQpDQo+ICAgew0KPiAtI2lmZGVmIENPTkZJ
+R19BQ1BJDQo+ICAgCWFjcGlfYm9vdF9pbml0KCk7DQo+IC0jZW5kaWYNCj4gICAJaWE2NF9yZWdp
+c3Rlcl9pcGkoKTsNCj4gICAJcmVnaXN0ZXJfcGVyY3B1X2lycShJQTY0X1NQVVJJT1VTX0lOVF9W
+RUNUT1IsIE5VTEwpOw0KPiAgICNpZmRlZiBDT05GSUdfU01QDQo+IGRpZmYgLS1naXQgYS9hcmNo
+L2lhNjQva2VybmVsL21jYS5jIGIvYXJjaC9pYTY0L2tlcm5lbC9tY2EuYw0KPiBpbmRleCBmNzJi
+MDVmZTkxOGIuLmE3ZjA1ODgzOTM1YiAxMDA2NDQNCj4gLS0tIGEvYXJjaC9pYTY0L2tlcm5lbC9t
+Y2EuYw0KPiArKysgYi9hcmNoL2lhNjQva2VybmVsL21jYS5jDQo+IEBAIC0xNDksOSArMTQ5LDcg
+QEAgc3RhdGljIGlhNjRfbWNfaW5mb190CQlpYTY0X21jX2luZm87DQo+ICAgI2RlZmluZSBDUEVf
+SElTVE9SWV9MRU5HVEggICAgNQ0KPiAgICNkZWZpbmUgQ01DX0hJU1RPUllfTEVOR1RIICAgIDUN
+Cj4gICANCj4gLSNpZmRlZiBDT05GSUdfQUNQSQ0KPiAgIHN0YXRpYyBzdHJ1Y3QgdGltZXJfbGlz
+dCBjcGVfcG9sbF90aW1lcjsNCj4gLSNlbmRpZg0KPiAgIHN0YXRpYyBzdHJ1Y3QgdGltZXJfbGlz
+dCBjbWNfcG9sbF90aW1lcjsNCj4gICAvKg0KPiAgICAqIFRoaXMgdmFyaWFibGUgdGVsbHMgd2hl
+dGhlciB3ZSBhcmUgY3VycmVudGx5IGluIHBvbGxpbmcgbW9kZS4NCj4gQEAgLTUzMiw4ICs1MzAs
+NiBAQCBpbnQgbWNhX3JlY292ZXJfcmFuZ2UodW5zaWduZWQgbG9uZyBhZGRyKQ0KPiAgIH0NCj4g
+ICBFWFBPUlRfU1lNQk9MX0dQTChtY2FfcmVjb3Zlcl9yYW5nZSk7DQo+ICAgDQo+IC0jaWZkZWYg
+Q09ORklHX0FDUEkNCj4gLQ0KPiAgIGludCBjcGVfdmVjdG9yID0gLTE7DQo+ICAgaW50IGlhNjRf
+Y3BlX2lycSA9IC0xOw0KPiAgIA0KPiBAQCAtNTk1LDkgKzU5MSw2IEBAIGlhNjRfbWNhX2NwZV9p
+bnRfaGFuZGxlciAoaW50IGNwZV9pcnEsIHZvaWQgKmFyZykNCj4gICAJcmV0dXJuIElSUV9IQU5E
+TEVEOw0KPiAgIH0NCj4gICANCj4gLSNlbmRpZiAvKiBDT05GSUdfQUNQSSAqLw0KPiAtDQo+IC0j
+aWZkZWYgQ09ORklHX0FDUEkNCj4gICAvKg0KPiAgICAqIGlhNjRfbWNhX3JlZ2lzdGVyX2NwZXYN
+Cj4gICAgKg0KPiBAQCAtNjI1LDcgKzYxOCw2IEBAIGlhNjRfbWNhX3JlZ2lzdGVyX2NwZXYgKGlu
+dCBjcGV2KQ0KPiAgIAlJQTY0X01DQV9ERUJVRygiJXM6IGNvcnJlY3RlZCBwbGF0Zm9ybSBlcnJv
+ciAiDQo+ICAgCQkgICAgICAgInZlY3RvciAlI3ggcmVnaXN0ZXJlZFxuIiwgX19mdW5jX18sIGNw
+ZXYpOw0KPiAgIH0NCj4gLSNlbmRpZiAvKiBDT05GSUdfQUNQSSAqLw0KPiAgIA0KPiAgIC8qDQo+
+ICAgICogaWE2NF9tY2FfY21jX3ZlY3Rvcl9zZXR1cA0KPiBAQCAtMTU0MCw4ICsxNTMyLDYgQEAg
+aWE2NF9tY2FfY21jX3BvbGwgKHN0cnVjdCB0aW1lcl9saXN0ICp1bnVzZWQpDQo+ICAgICogT3V0
+cHV0cw0KPiAgICAqIAloYW5kbGVkDQo+ICAgICovDQo+IC0jaWZkZWYgQ09ORklHX0FDUEkNCj4g
+LQ0KPiAgIHN0YXRpYyBpcnFyZXR1cm5fdA0KPiAgIGlhNjRfbWNhX2NwZV9pbnRfY2FsbGVyKGlu
+dCBjcGVfaXJxLCB2b2lkICphcmcpDQo+ICAgew0KPiBAQCAtMTYwNCw4ICsxNTk0LDYgQEAgaWE2
+NF9tY2FfY3BlX3BvbGwgKHN0cnVjdCB0aW1lcl9saXN0ICp1bnVzZWQpDQo+ICAgCQkJCQkJCUlB
+NjRfSVBJX0RNX0lOVCwgMCk7DQo+ICAgfQ0KPiAgIA0KPiAtI2VuZGlmIC8qIENPTkZJR19BQ1BJ
+ICovDQo+IC0NCj4gICBzdGF0aWMgaW50DQo+ICAgZGVmYXVsdF9tb25hcmNoX2luaXRfcHJvY2Vz
+cyhzdHJ1Y3Qgbm90aWZpZXJfYmxvY2sgKnNlbGYsIHVuc2lnbmVkIGxvbmcgdmFsLCB2b2lkICpk
+YXRhKQ0KPiAgIHsNCj4gQEAgLTE3OTksNyArMTc4Nyw2IEBAIHN0YXRpYyBzdHJ1Y3QgaXJxYWN0
+aW9uIG1jYV93a3VwX2lycWFjdGlvbiA9IHsNCj4gICAJLm5hbWUgPQkJIm1jYV93a3VwIg0KPiAg
+IH07DQo+ICAgDQo+IC0jaWZkZWYgQ09ORklHX0FDUEkNCj4gICBzdGF0aWMgc3RydWN0IGlycWFj
+dGlvbiBtY2FfY3BlX2lycWFjdGlvbiA9IHsNCj4gICAJLmhhbmRsZXIgPQlpYTY0X21jYV9jcGVf
+aW50X2hhbmRsZXIsDQo+ICAgCS5uYW1lID0JCSJjcGVfaG5kbHIiDQo+IEBAIC0xODA5LDcgKzE3
+OTYsNiBAQCBzdGF0aWMgc3RydWN0IGlycWFjdGlvbiBtY2FfY3BlcF9pcnFhY3Rpb24gPSB7DQo+
+ICAgCS5oYW5kbGVyID0JaWE2NF9tY2FfY3BlX2ludF9jYWxsZXIsDQo+ICAgCS5uYW1lID0JCSJj
+cGVfcG9sbCINCj4gICB9Ow0KPiAtI2VuZGlmIC8qIENPTkZJR19BQ1BJICovDQo+ICAgDQo+ICAg
+LyogTWluaW1hbCBmb3JtYXQgb2YgdGhlIE1DQS9JTklUIHN0YWNrcy4gIFRoZSBwc2V1ZG8gcHJv
+Y2Vzc2VzIHRoYXQgcnVuIG9uDQo+ICAgICogdGhlc2Ugc3RhY2tzIGNhbiBuZXZlciBzbGVlcCwg
+dGhleSBjYW5ub3QgcmV0dXJuIGZyb20gdGhlIGtlcm5lbCB0byB1c2VyDQo+IEBAIC0yMDgxLDEw
+ICsyMDY3LDggQEAgdm9pZCBfX2luaXQgaWE2NF9tY2FfaXJxX2luaXQodm9pZCkNCj4gICAJLyog
+U2V0dXAgdGhlIE1DQSB3YWtldXAgaW50ZXJydXB0IHZlY3RvciAqLw0KPiAgIAlyZWdpc3Rlcl9w
+ZXJjcHVfaXJxKElBNjRfTUNBX1dBS0VVUF9WRUNUT1IsICZtY2Ffd2t1cF9pcnFhY3Rpb24pOw0K
+PiAgIA0KPiAtI2lmZGVmIENPTkZJR19BQ1BJDQo+ICAgCS8qIFNldHVwIHRoZSBDUEVJL1AgaGFu
+ZGxlciAqLw0KPiAgIAlyZWdpc3Rlcl9wZXJjcHVfaXJxKElBNjRfQ1BFUF9WRUNUT1IsICZtY2Ff
+Y3BlcF9pcnFhY3Rpb24pOw0KPiAtI2VuZGlmDQo+ICAgfQ0KPiAgIA0KPiAgIC8qDQo+IEBAIC0y
+MTEyLDcgKzIwOTYsNiBAQCBpYTY0X21jYV9sYXRlX2luaXQodm9pZCkNCj4gICAJCQkgIGlhNjRf
+bWNhX2NwdV9vbmxpbmUsIE5VTEwpOw0KPiAgIAlJQTY0X01DQV9ERUJVRygiJXM6IENNQ0kvUCBz
+ZXR1cCBhbmQgZW5hYmxlZC5cbiIsIF9fZnVuY19fKTsNCj4gICANCj4gLSNpZmRlZiBDT05GSUdf
+QUNQSQ0KPiAgIAkvKiBTZXR1cCB0aGUgQ1BFSS9QIHZlY3RvciBhbmQgaGFuZGxlciAqLw0KPiAg
+IAljcGVfdmVjdG9yID0gYWNwaV9yZXF1ZXN0X3ZlY3RvcihBQ1BJX0lOVEVSUlVQVF9DUEVJKTsN
+Cj4gICAJdGltZXJfc2V0dXAoJmNwZV9wb2xsX3RpbWVyLCBpYTY0X21jYV9jcGVfcG9sbCwgMCk7
+DQo+IEBAIC0yMTQzLDcgKzIxMjYsNiBAQCBpYTY0X21jYV9sYXRlX2luaXQodm9pZCkNCj4gICAJ
+CQlJQTY0X01DQV9ERUJVRygiJXM6IENQRVAgc2V0dXAgYW5kIGVuYWJsZWQuXG4iLCBfX2Z1bmNf
+Xyk7DQo+ICAgCQl9DQo+ICAgCX0NCj4gLSNlbmRpZg0KPiAgIA0KPiAgIAlyZXR1cm4gMDsNCj4g
+ICB9DQo+IGRpZmYgLS1naXQgYS9hcmNoL2lhNjQva2VybmVsL3NldHVwLmMgYi9hcmNoL2lhNjQv
+a2VybmVsL3NldHVwLmMNCj4gaW5kZXggNDJlZjAzY2UyZmQ0Li44ZDQ3ODM2ZDkzMmMgMTAwNjQ0
+DQo+IC0tLSBhL2FyY2gvaWE2NC9rZXJuZWwvc2V0dXAuYw0KPiArKysgYi9hcmNoL2lhNjQva2Vy
+bmVsL3NldHVwLmMNCj4gQEAgLTUzNywyMSArNTM3LDE5IEBAIHNldHVwX2FyY2ggKGNoYXIgKipj
+bWRsaW5lX3ApDQo+ICAgCWlmIChlYXJseV9jb25zb2xlX3NldHVwKCpjbWRsaW5lX3ApID09IDAp
+DQo+ICAgCQltYXJrX2JzcF9vbmxpbmUoKTsNCj4gICANCj4gLSNpZmRlZiBDT05GSUdfQUNQSQ0K
+PiAgIAkvKiBJbml0aWFsaXplIHRoZSBBQ1BJIGJvb3QtdGltZSB0YWJsZSBwYXJzZXIgKi8NCj4g
+ICAJYWNwaV90YWJsZV9pbml0KCk7DQo+ICAgCWVhcmx5X2FjcGlfYm9vdF9pbml0KCk7DQo+IC0j
+IGlmZGVmIENPTkZJR19BQ1BJX05VTUENCj4gKyNpZmRlZiBDT05GSUdfQUNQSV9OVU1BDQo+ICAg
+CWFjcGlfbnVtYV9pbml0KCk7DQo+ICAgCWFjcGlfbnVtYV9maXh1cCgpOw0KPiAtIyAgaWZkZWYg
+Q09ORklHX0FDUElfSE9UUExVR19DUFUNCj4gKyNpZmRlZiBDT05GSUdfQUNQSV9IT1RQTFVHX0NQ
+VQ0KPiAgIAlwcmVmaWxsX3Bvc3NpYmxlX21hcCgpOw0KPiAtIyAgZW5kaWYNCj4gKyNlbmRpZg0K
+PiAgIAlwZXJfY3B1X3NjYW5fZmluYWxpemUoKGNwdW1hc2tfd2VpZ2h0KCZlYXJseV9jcHVfcG9z
+c2libGVfbWFwKSA9PSAwID8NCj4gICAJCTMyIDogY3B1bWFza193ZWlnaHQoJmVhcmx5X2NwdV9w
+b3NzaWJsZV9tYXApKSwNCj4gICAJCWFkZGl0aW9uYWxfY3B1cyA+IDAgPyBhZGRpdGlvbmFsX2Nw
+dXMgOiAwKTsNCj4gLSMgZW5kaWYNCj4gLSNlbmRpZiAvKiBDT05GSUdfQVBDSV9CT09UICovDQo+
+ICsjZW5kaWYgLyogQ09ORklHX0FDUElfTlVNQSAqLw0KPiAgIA0KPiAgICNpZmRlZiBDT05GSUdf
+U01QDQo+ICAgCXNtcF9idWlsZF9jcHVfbWFwKCk7DQo+IGRpZmYgLS1naXQgYS9hcmNoL2lhNjQv
+a2VybmVsL3RvcG9sb2d5LmMgYi9hcmNoL2lhNjQva2VybmVsL3RvcG9sb2d5LmMNCj4gaW5kZXgg
+ZTMxMWVlMTNlNjFkLi4wOWZjMzg1YzJhY2QgMTAwNjQ0DQo+IC0tLSBhL2FyY2gvaWE2NC9rZXJu
+ZWwvdG9wb2xvZ3kuYw0KPiArKysgYi9hcmNoL2lhNjQva2VybmVsL3RvcG9sb2d5LmMNCj4gQEAg
+LTQyLDcgKzQyLDYgQEAgRVhQT1JUX1NZTUJPTF9HUEwoYXJjaF9maXhfcGh5c19wYWNrYWdlX2lk
+KTsNCj4gICAjaWZkZWYgQ09ORklHX0hPVFBMVUdfQ1BVDQo+ICAgaW50IF9fcmVmIGFyY2hfcmVn
+aXN0ZXJfY3B1KGludCBudW0pDQo+ICAgew0KPiAtI2lmZGVmIENPTkZJR19BQ1BJDQo+ICAgCS8q
+DQo+ICAgCSAqIElmIENQRUkgY2FuIGJlIHJlLXRhcmdldGVkIG9yIGlmIHRoaXMgaXMgbm90DQo+
+ICAgCSAqIENQRUkgdGFyZ2V0LCB0aGVuIGl0IGlzIGhvdHBsdWdnYWJsZQ0KPiBAQCAtNTAsNyAr
+NDksNiBAQCBpbnQgX19yZWYgYXJjaF9yZWdpc3Rlcl9jcHUoaW50IG51bSkNCj4gICAJaWYgKGNh
+bl9jcGVpX3JldGFyZ2V0KCkgfHwgIWlzX2NwdV9jcGVpX3RhcmdldChudW0pKQ0KPiAgIAkJc3lz
+ZnNfY3B1c1tudW1dLmNwdS5ob3RwbHVnZ2FibGUgPSAxOw0KPiAgIAltYXBfY3B1X3RvX25vZGUo
+bnVtLCBub2RlX2NwdWlkW251bV0ubmlkKTsNCj4gLSNlbmRpZg0KPiAgIAlyZXR1cm4gcmVnaXN0
+ZXJfY3B1KCZzeXNmc19jcHVzW251bV0uY3B1LCBudW0pOw0KPiAgIH0NCj4gICBFWFBPUlRfU1lN
+Qk9MKGFyY2hfcmVnaXN0ZXJfY3B1KTsNCj4gQEAgLTU4LDkgKzU2LDcgQEAgRVhQT1JUX1NZTUJP
+TChhcmNoX3JlZ2lzdGVyX2NwdSk7DQo+ICAgdm9pZCBfX3JlZiBhcmNoX3VucmVnaXN0ZXJfY3B1
+KGludCBudW0pDQo+ICAgew0KPiAgIAl1bnJlZ2lzdGVyX2NwdSgmc3lzZnNfY3B1c1tudW1dLmNw
+dSk7DQo+IC0jaWZkZWYgQ09ORklHX0FDUEkNCj4gICAJdW5tYXBfY3B1X2Zyb21fbm9kZShudW0s
+IGNwdV90b19ub2RlKG51bSkpOw0KPiAtI2VuZGlmDQo+ICAgfQ0KPiAgIEVYUE9SVF9TWU1CT0wo
+YXJjaF91bnJlZ2lzdGVyX2NwdSk7DQo+ICAgI2Vsc2UNCj4gDQo
