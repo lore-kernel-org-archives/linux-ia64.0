@@ -1,144 +1,92 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Tue, 13 Aug 2019 07:25:04 +0000
-Subject: [PATCH 18/28] ia64: remove CONFIG_PCI ifdefs
-Message-Id: <20190813072514.23299-19-hch@lst.de>
+From: "Vaden, Tom (HPE Server OS Architecture)" <tom.vaden@hpe.com>
+Date: Tue, 13 Aug 2019 21:07:12 +0000
+Subject: Re: [PATCH 18/28] ia64: remove CONFIG_PCI ifdefs
+Message-Id: <69070d1b-9353-0ae7-e16f-d3feb84bd2a6@hpe.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20190813072514.23299-1-hch@lst.de>
-In-Reply-To: <20190813072514.23299-1-hch@lst.de>
+ <20190813072514.23299-19-hch@lst.de>
+In-Reply-To: <20190813072514.23299-19-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Mike Travis <mike.travis@hpe.com>, Dimitri Sivanich <sivanich@hpe.com>
-Cc: Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-ia64@vger.kernel.org, linux-ide@vger.kernel.org, linux-scsi@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Christoph Hellwig <hch@lst.de>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "Travis, Mike" <mike.travis@hpe.com>, "Sivanich, Dimitri" <dimitri.sivanich@hpe.com>
+Cc: Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-ide@vger.kernel.org" <linux-ide@vger.kernel.org>, "linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 
-Now that hpsim support is gone, CONFIG_PCI is forced on for ia64, and
-we can remove a few ifdefs for it.
-
-Signed-off-by: Christoph Hellwig <hch@lst.de>
----
- arch/ia64/Makefile              |  2 +-
- arch/ia64/hp/common/sba_iommu.c | 10 +---------
- arch/ia64/include/asm/dma.h     |  6 +-----
- arch/ia64/kernel/sys_ia64.c     | 18 ------------------
- arch/ia64/mm/init.c             |  2 --
- 5 files changed, 3 insertions(+), 35 deletions(-)
-
-diff --git a/arch/ia64/Makefile b/arch/ia64/Makefile
-index 8b866fc1f9cb..c06802799659 100644
---- a/arch/ia64/Makefile
-+++ b/arch/ia64/Makefile
-@@ -57,7 +57,7 @@ core-$(CONFIG_IA64_HP_ZX1)	+= arch/ia64/dig/
- core-$(CONFIG_IA64_HP_ZX1_SWIOTLB) += arch/ia64/dig/
- core-$(CONFIG_IA64_SGI_UV)	+= arch/ia64/uv/
- 
--drivers-$(CONFIG_PCI)		+= arch/ia64/pci/
-+drivers-y			+= arch/ia64/pci/
- drivers-$(CONFIG_IA64_HP_ZX1)	+= arch/ia64/hp/common/ arch/ia64/hp/zx1/
- drivers-$(CONFIG_IA64_HP_ZX1_SWIOTLB) += arch/ia64/hp/common/ arch/ia64/hp/zx1/
- drivers-$(CONFIG_IA64_GENERIC)	+= arch/ia64/hp/common/ arch/ia64/hp/zx1/ arch/ia64/uv/
-diff --git a/arch/ia64/hp/common/sba_iommu.c b/arch/ia64/hp/common/sba_iommu.c
-index 3d24cc43385b..18321ce8bfa0 100644
---- a/arch/ia64/hp/common/sba_iommu.c
-+++ b/arch/ia64/hp/common/sba_iommu.c
-@@ -251,12 +251,8 @@ static SBA_INLINE void sba_free_range(struct ioc *, dma_addr_t, size_t);
- static u64 prefetch_spill_page;
- #endif
- 
--#ifdef CONFIG_PCI
--# define GET_IOC(dev)	((dev_is_pci(dev))						\
-+#define GET_IOC(dev)	((dev_is_pci(dev))						\
- 			 ? ((struct ioc *) PCI_CONTROLLER(to_pci_dev(dev))->iommu) : NULL)
--#else
--# define GET_IOC(dev)	NULL
--#endif
- 
- /*
- ** DMA_CHUNK_SIZE is used by the SCSI mid-layer to break up
-@@ -1741,9 +1737,7 @@ ioc_sac_init(struct ioc *ioc)
- 	controller->iommu = ioc;
- 	sac->sysdata = controller;
- 	sac->dma_mask = 0xFFFFFFFFUL;
--#ifdef CONFIG_PCI
- 	sac->dev.bus = &pci_bus_type;
--#endif
- 	ioc->sac_only_dev = sac;
- }
- 
-@@ -2121,13 +2115,11 @@ sba_init(void)
- 	}
- #endif
- 
--#ifdef CONFIG_PCI
- 	{
- 		struct pci_bus *b = NULL;
- 		while ((b = pci_find_next_bus(b)) != NULL)
- 			sba_connect_bus(b);
- 	}
--#endif
- 
- #ifdef CONFIG_PROC_FS
- 	ioc_proc_init();
-diff --git a/arch/ia64/include/asm/dma.h b/arch/ia64/include/asm/dma.h
-index 23604d6a2cb2..59625e9c1f9c 100644
---- a/arch/ia64/include/asm/dma.h
-+++ b/arch/ia64/include/asm/dma.h
-@@ -12,11 +12,7 @@
- 
- extern unsigned long MAX_DMA_ADDRESS;
- 
--#ifdef CONFIG_PCI
--  extern int isa_dma_bridge_buggy;
--#else
--# define isa_dma_bridge_buggy 	(0)
--#endif
-+extern int isa_dma_bridge_buggy;
- 
- #define free_dma(x)
- 
-diff --git a/arch/ia64/kernel/sys_ia64.c b/arch/ia64/kernel/sys_ia64.c
-index 9ebe1d633abc..e14db25146c2 100644
---- a/arch/ia64/kernel/sys_ia64.c
-+++ b/arch/ia64/kernel/sys_ia64.c
-@@ -166,21 +166,3 @@ ia64_mremap (unsigned long addr, unsigned long old_len, unsigned long new_len, u
- 		force_successful_syscall_return();
- 	return addr;
- }
--
--#ifndef CONFIG_PCI
--
--asmlinkage long
--sys_pciconfig_read (unsigned long bus, unsigned long dfn, unsigned long off, unsigned long len,
--		    void *buf)
--{
--	return -ENOSYS;
--}
--
--asmlinkage long
--sys_pciconfig_write (unsigned long bus, unsigned long dfn, unsigned long off, unsigned long len,
--		     void *buf)
--{
--	return -ENOSYS;
--}
--
--#endif /* CONFIG_PCI */
-diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
-index aae75fd7b810..9a4a16439900 100644
---- a/arch/ia64/mm/init.c
-+++ b/arch/ia64/mm/init.c
-@@ -632,14 +632,12 @@ mem_init (void)
- 	BUG_ON(PTRS_PER_PMD * sizeof(pmd_t) != PAGE_SIZE);
- 	BUG_ON(PTRS_PER_PTE * sizeof(pte_t) != PAGE_SIZE);
- 
--#ifdef CONFIG_PCI
- 	/*
- 	 * This needs to be called _after_ the command line has been parsed but _before_
- 	 * any drivers that may need the PCI DMA interface are initialized or bootmem has
- 	 * been freed.
- 	 */
- 	platform_dma_init();
--#endif
- 
- #ifdef CONFIG_FLATMEM
- 	BUG_ON(!mem_map);
--- 
-2.20.1
+DQoNCk9uIDgvMTMvMTkgMzoyNSBBTSwgQ2hyaXN0b3BoIEhlbGx3aWcgd3JvdGU6DQo+IE5vdyB0
+aGF0IGhwc2ltIHN1cHBvcnQgaXMgZ29uZSwgQ09ORklHX1BDSSBpcyBmb3JjZWQgb24gZm9yIGlh
+NjQsIGFuZA0KPiB3ZSBjYW4gcmVtb3ZlIGEgZmV3IGlmZGVmcyBmb3IgaXQuDQo+IA0KPiBTaWdu
+ZWQtb2ZmLWJ5OiBDaHJpc3RvcGggSGVsbHdpZyA8aGNoQGxzdC5kZT4NCg0KT2theSB0byByZW1v
+dmUgaHBzaW0gc3VwcG9ydA0KQWNrZWQtYnk6IFRvbSBWYWRlbiA8dG9tLnZhZGVuQGhwZS5jb20+
+DQoNCj4gLS0tDQo+ICAgYXJjaC9pYTY0L01ha2VmaWxlICAgICAgICAgICAgICB8ICAyICstDQo+
+ICAgYXJjaC9pYTY0L2hwL2NvbW1vbi9zYmFfaW9tbXUuYyB8IDEwICstLS0tLS0tLS0NCj4gICBh
+cmNoL2lhNjQvaW5jbHVkZS9hc20vZG1hLmggICAgIHwgIDYgKy0tLS0tDQo+ICAgYXJjaC9pYTY0
+L2tlcm5lbC9zeXNfaWE2NC5jICAgICB8IDE4IC0tLS0tLS0tLS0tLS0tLS0tLQ0KPiAgIGFyY2gv
+aWE2NC9tbS9pbml0LmMgICAgICAgICAgICAgfCAgMiAtLQ0KPiAgIDUgZmlsZXMgY2hhbmdlZCwg
+MyBpbnNlcnRpb25zKCspLCAzNSBkZWxldGlvbnMoLSkNCj4gDQo+IGRpZmYgLS1naXQgYS9hcmNo
+L2lhNjQvTWFrZWZpbGUgYi9hcmNoL2lhNjQvTWFrZWZpbGUNCj4gaW5kZXggOGI4NjZmYzFmOWNi
+Li5jMDY4MDI3OTk2NTkgMTAwNjQ0DQo+IC0tLSBhL2FyY2gvaWE2NC9NYWtlZmlsZQ0KPiArKysg
+Yi9hcmNoL2lhNjQvTWFrZWZpbGUNCj4gQEAgLTU3LDcgKzU3LDcgQEAgY29yZS0kKENPTkZJR19J
+QTY0X0hQX1pYMSkJKz0gYXJjaC9pYTY0L2RpZy8NCj4gICBjb3JlLSQoQ09ORklHX0lBNjRfSFBf
+WlgxX1NXSU9UTEIpICs9IGFyY2gvaWE2NC9kaWcvDQo+ICAgY29yZS0kKENPTkZJR19JQTY0X1NH
+SV9VVikJKz0gYXJjaC9pYTY0L3V2Lw0KPiAgIA0KPiAtZHJpdmVycy0kKENPTkZJR19QQ0kpCQkr
+PSBhcmNoL2lhNjQvcGNpLw0KPiArZHJpdmVycy15CQkJKz0gYXJjaC9pYTY0L3BjaS8NCj4gICBk
+cml2ZXJzLSQoQ09ORklHX0lBNjRfSFBfWlgxKQkrPSBhcmNoL2lhNjQvaHAvY29tbW9uLyBhcmNo
+L2lhNjQvaHAvengxLw0KPiAgIGRyaXZlcnMtJChDT05GSUdfSUE2NF9IUF9aWDFfU1dJT1RMQikg
+Kz0gYXJjaC9pYTY0L2hwL2NvbW1vbi8gYXJjaC9pYTY0L2hwL3p4MS8NCj4gICBkcml2ZXJzLSQo
+Q09ORklHX0lBNjRfR0VORVJJQykJKz0gYXJjaC9pYTY0L2hwL2NvbW1vbi8gYXJjaC9pYTY0L2hw
+L3p4MS8gYXJjaC9pYTY0L3V2Lw0KPiBkaWZmIC0tZ2l0IGEvYXJjaC9pYTY0L2hwL2NvbW1vbi9z
+YmFfaW9tbXUuYyBiL2FyY2gvaWE2NC9ocC9jb21tb24vc2JhX2lvbW11LmMNCj4gaW5kZXggM2Qy
+NGNjNDMzODViLi4xODMyMWNlOGJmYTAgMTAwNjQ0DQo+IC0tLSBhL2FyY2gvaWE2NC9ocC9jb21t
+b24vc2JhX2lvbW11LmMNCj4gKysrIGIvYXJjaC9pYTY0L2hwL2NvbW1vbi9zYmFfaW9tbXUuYw0K
+PiBAQCAtMjUxLDEyICsyNTEsOCBAQCBzdGF0aWMgU0JBX0lOTElORSB2b2lkIHNiYV9mcmVlX3Jh
+bmdlKHN0cnVjdCBpb2MgKiwgZG1hX2FkZHJfdCwgc2l6ZV90KTsNCj4gICBzdGF0aWMgdTY0IHBy
+ZWZldGNoX3NwaWxsX3BhZ2U7DQo+ICAgI2VuZGlmDQo+ICAgDQo+IC0jaWZkZWYgQ09ORklHX1BD
+SQ0KPiAtIyBkZWZpbmUgR0VUX0lPQyhkZXYpCSgoZGV2X2lzX3BjaShkZXYpKQkJCQkJCVwNCj4g
+KyNkZWZpbmUgR0VUX0lPQyhkZXYpCSgoZGV2X2lzX3BjaShkZXYpKQkJCQkJCVwNCj4gICAJCQkg
+PyAoKHN0cnVjdCBpb2MgKikgUENJX0NPTlRST0xMRVIodG9fcGNpX2RldihkZXYpKS0+aW9tbXUp
+IDogTlVMTCkNCj4gLSNlbHNlDQo+IC0jIGRlZmluZSBHRVRfSU9DKGRldikJTlVMTA0KPiAtI2Vu
+ZGlmDQo+ICAgDQo+ICAgLyoNCj4gICAqKiBETUFfQ0hVTktfU0laRSBpcyB1c2VkIGJ5IHRoZSBT
+Q1NJIG1pZC1sYXllciB0byBicmVhayB1cA0KPiBAQCAtMTc0MSw5ICsxNzM3LDcgQEAgaW9jX3Nh
+Y19pbml0KHN0cnVjdCBpb2MgKmlvYykNCj4gICAJY29udHJvbGxlci0+aW9tbXUgPSBpb2M7DQo+
+ICAgCXNhYy0+c3lzZGF0YSA9IGNvbnRyb2xsZXI7DQo+ICAgCXNhYy0+ZG1hX21hc2sgPSAweEZG
+RkZGRkZGVUw7DQo+IC0jaWZkZWYgQ09ORklHX1BDSQ0KPiAgIAlzYWMtPmRldi5idXMgPSAmcGNp
+X2J1c190eXBlOw0KPiAtI2VuZGlmDQo+ICAgCWlvYy0+c2FjX29ubHlfZGV2ID0gc2FjOw0KPiAg
+IH0NCj4gICANCj4gQEAgLTIxMjEsMTMgKzIxMTUsMTEgQEAgc2JhX2luaXQodm9pZCkNCj4gICAJ
+fQ0KPiAgICNlbmRpZg0KPiAgIA0KPiAtI2lmZGVmIENPTkZJR19QQ0kNCj4gICAJew0KPiAgIAkJ
+c3RydWN0IHBjaV9idXMgKmIgPSBOVUxMOw0KPiAgIAkJd2hpbGUgKChiID0gcGNpX2ZpbmRfbmV4
+dF9idXMoYikpICE9IE5VTEwpDQo+ICAgCQkJc2JhX2Nvbm5lY3RfYnVzKGIpOw0KPiAgIAl9DQo+
+IC0jZW5kaWYNCj4gICANCj4gICAjaWZkZWYgQ09ORklHX1BST0NfRlMNCj4gICAJaW9jX3Byb2Nf
+aW5pdCgpOw0KPiBkaWZmIC0tZ2l0IGEvYXJjaC9pYTY0L2luY2x1ZGUvYXNtL2RtYS5oIGIvYXJj
+aC9pYTY0L2luY2x1ZGUvYXNtL2RtYS5oDQo+IGluZGV4IDIzNjA0ZDZhMmNiMi4uNTk2MjVlOWMx
+ZjljIDEwMDY0NA0KPiAtLS0gYS9hcmNoL2lhNjQvaW5jbHVkZS9hc20vZG1hLmgNCj4gKysrIGIv
+YXJjaC9pYTY0L2luY2x1ZGUvYXNtL2RtYS5oDQo+IEBAIC0xMiwxMSArMTIsNyBAQA0KPiAgIA0K
+PiAgIGV4dGVybiB1bnNpZ25lZCBsb25nIE1BWF9ETUFfQUREUkVTUzsNCj4gICANCj4gLSNpZmRl
+ZiBDT05GSUdfUENJDQo+IC0gIGV4dGVybiBpbnQgaXNhX2RtYV9icmlkZ2VfYnVnZ3k7DQo+IC0j
+ZWxzZQ0KPiAtIyBkZWZpbmUgaXNhX2RtYV9icmlkZ2VfYnVnZ3kgCSgwKQ0KPiAtI2VuZGlmDQo+
+ICtleHRlcm4gaW50IGlzYV9kbWFfYnJpZGdlX2J1Z2d5Ow0KPiAgIA0KPiAgICNkZWZpbmUgZnJl
+ZV9kbWEoeCkNCj4gICANCj4gZGlmZiAtLWdpdCBhL2FyY2gvaWE2NC9rZXJuZWwvc3lzX2lhNjQu
+YyBiL2FyY2gvaWE2NC9rZXJuZWwvc3lzX2lhNjQuYw0KPiBpbmRleCA5ZWJlMWQ2MzNhYmMuLmUx
+NGRiMjUxNDZjMiAxMDA2NDQNCj4gLS0tIGEvYXJjaC9pYTY0L2tlcm5lbC9zeXNfaWE2NC5jDQo+
+ICsrKyBiL2FyY2gvaWE2NC9rZXJuZWwvc3lzX2lhNjQuYw0KPiBAQCAtMTY2LDIxICsxNjYsMyBA
+QCBpYTY0X21yZW1hcCAodW5zaWduZWQgbG9uZyBhZGRyLCB1bnNpZ25lZCBsb25nIG9sZF9sZW4s
+IHVuc2lnbmVkIGxvbmcgbmV3X2xlbiwgdQ0KPiAgIAkJZm9yY2Vfc3VjY2Vzc2Z1bF9zeXNjYWxs
+X3JldHVybigpOw0KPiAgIAlyZXR1cm4gYWRkcjsNCj4gICB9DQo+IC0NCj4gLSNpZm5kZWYgQ09O
+RklHX1BDSQ0KPiAtDQo+IC1hc21saW5rYWdlIGxvbmcNCj4gLXN5c19wY2ljb25maWdfcmVhZCAo
+dW5zaWduZWQgbG9uZyBidXMsIHVuc2lnbmVkIGxvbmcgZGZuLCB1bnNpZ25lZCBsb25nIG9mZiwg
+dW5zaWduZWQgbG9uZyBsZW4sDQo+IC0JCSAgICB2b2lkICpidWYpDQo+IC17DQo+IC0JcmV0dXJu
+IC1FTk9TWVM7DQo+IC19DQo+IC0NCj4gLWFzbWxpbmthZ2UgbG9uZw0KPiAtc3lzX3BjaWNvbmZp
+Z193cml0ZSAodW5zaWduZWQgbG9uZyBidXMsIHVuc2lnbmVkIGxvbmcgZGZuLCB1bnNpZ25lZCBs
+b25nIG9mZiwgdW5zaWduZWQgbG9uZyBsZW4sDQo+IC0JCSAgICAgdm9pZCAqYnVmKQ0KPiAtew0K
+PiAtCXJldHVybiAtRU5PU1lTOw0KPiAtfQ0KPiAtDQo+IC0jZW5kaWYgLyogQ09ORklHX1BDSSAq
+Lw0KPiBkaWZmIC0tZ2l0IGEvYXJjaC9pYTY0L21tL2luaXQuYyBiL2FyY2gvaWE2NC9tbS9pbml0
+LmMNCj4gaW5kZXggYWFlNzVmZDdiODEwLi45YTRhMTY0Mzk5MDAgMTAwNjQ0DQo+IC0tLSBhL2Fy
+Y2gvaWE2NC9tbS9pbml0LmMNCj4gKysrIGIvYXJjaC9pYTY0L21tL2luaXQuYw0KPiBAQCAtNjMy
+LDE0ICs2MzIsMTIgQEAgbWVtX2luaXQgKHZvaWQpDQo+ICAgCUJVR19PTihQVFJTX1BFUl9QTUQg
+KiBzaXplb2YocG1kX3QpICE9IFBBR0VfU0laRSk7DQo+ICAgCUJVR19PTihQVFJTX1BFUl9QVEUg
+KiBzaXplb2YocHRlX3QpICE9IFBBR0VfU0laRSk7DQo+ICAgDQo+IC0jaWZkZWYgQ09ORklHX1BD
+SQ0KPiAgIAkvKg0KPiAgIAkgKiBUaGlzIG5lZWRzIHRvIGJlIGNhbGxlZCBfYWZ0ZXJfIHRoZSBj
+b21tYW5kIGxpbmUgaGFzIGJlZW4gcGFyc2VkIGJ1dCBfYmVmb3JlXw0KPiAgIAkgKiBhbnkgZHJp
+dmVycyB0aGF0IG1heSBuZWVkIHRoZSBQQ0kgRE1BIGludGVyZmFjZSBhcmUgaW5pdGlhbGl6ZWQg
+b3IgYm9vdG1lbSBoYXMNCj4gICAJICogYmVlbiBmcmVlZC4NCj4gICAJICovDQo+ICAgCXBsYXRm
+b3JtX2RtYV9pbml0KCk7DQo+IC0jZW5kaWYNCj4gICANCj4gICAjaWZkZWYgQ09ORklHX0ZMQVRN
+RU0NCj4gICAJQlVHX09OKCFtZW1fbWFwKTsNCj4gDQo
