@@ -1,76 +1,90 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Sat, 17 Aug 2019 07:32:49 +0000
-Subject: [PATCH 22/26] sh: remove __iounmap
-Message-Id: <20190817073253.27819-23-hch@lst.de>
+Date: Tue, 13 Aug 2019 07:25:10 +0000
+Subject: [PATCH 24/28] ia64: move the ROOT_DEV setup to common code
+Message-Id: <20190813072514.23299-25-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190817073253.27819-1-hch@lst.de>
-In-Reply-To: <20190817073253.27819-1-hch@lst.de>
+References: <20190813072514.23299-1-hch@lst.de>
+In-Reply-To: <20190813072514.23299-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Arnd Bergmann <arnd@arndb.de>, Guo Ren <guoren@kernel.org>, Michal Simek <monstr@monstr.eu>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, x86@kernel.org
-Cc: linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, nios2-dev@lists.rocketboards.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-mtd@lists.infradead.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Mike Travis <mike.travis@hpe.com>, Dimitri Sivanich <sivanich@hpe.com>
+Cc: Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-ia64@vger.kernel.org, linux-ide@vger.kernel.org, linux-scsi@vger.kernel.org, linux-kernel@vger.kernel.org
 
-No need to indirect iounmap for sh.
+I'm not sure how useful a platform default ROOT_DEV is these days,
+but it pretty sure isn't machvec dependent.
 
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- arch/sh/include/asm/io.h | 9 ++-------
- arch/sh/mm/ioremap.c     | 4 ++--
- 2 files changed, 4 insertions(+), 9 deletions(-)
+ arch/ia64/dig/setup.c    | 9 ---------
+ arch/ia64/kernel/setup.c | 9 +++++++++
+ 2 files changed, 9 insertions(+), 9 deletions(-)
 
-diff --git a/arch/sh/include/asm/io.h b/arch/sh/include/asm/io.h
-index ac0561960c52..1495489225ac 100644
---- a/arch/sh/include/asm/io.h
-+++ b/arch/sh/include/asm/io.h
-@@ -267,7 +267,7 @@ unsigned long long poke_real_address_q(unsigned long long addr,
- #ifdef CONFIG_MMU
- void __iomem *__ioremap_caller(phys_addr_t offset, unsigned long size,
- 			       pgprot_t prot, void *caller);
--void __iounmap(void __iomem *addr);
-+void iounmap(void __iomem *addr);
+diff --git a/arch/ia64/dig/setup.c b/arch/ia64/dig/setup.c
+index cc14fdce6db6..0b1866d2462a 100644
+--- a/arch/ia64/dig/setup.c
++++ b/arch/ia64/dig/setup.c
+@@ -13,13 +13,11 @@
+ #include <linux/init.h>
+ #include <linux/delay.h>
+ #include <linux/kernel.h>
+-#include <linux/kdev_t.h>
+ #include <linux/string.h>
+ #include <linux/screen_info.h>
+ #include <linux/console.h>
+ #include <linux/timex.h>
+ #include <linux/sched.h>
+-#include <linux/root_dev.h>
  
- static inline void __iomem *
- __ioremap(phys_addr_t offset, unsigned long size, pgprot_t prot)
-@@ -328,7 +328,7 @@ __ioremap_mode(phys_addr_t offset, unsigned long size, pgprot_t prot)
- #else
- #define __ioremap(offset, size, prot)		((void __iomem *)(offset))
- #define __ioremap_mode(offset, size, prot)	((void __iomem *)(offset))
--#define __iounmap(addr)				do { } while (0)
-+#define iounmap(addr)				do { } while (0)
- #endif /* CONFIG_MMU */
- 
- static inline void __iomem *ioremap(phys_addr_t offset, unsigned long size)
-@@ -370,11 +370,6 @@ static inline int iounmap_fixed(void __iomem *addr) { return -EINVAL; }
- #define ioremap_nocache	ioremap
- #define ioremap_uc	ioremap
- 
--static inline void iounmap(void __iomem *addr)
--{
--	__iounmap(addr);
--}
--
- /*
-  * Convert a physical pointer to a virtual kernel pointer for /dev/mem
-  * access
-diff --git a/arch/sh/mm/ioremap.c b/arch/sh/mm/ioremap.c
-index d09ddfe58fd8..f6d02246d665 100644
---- a/arch/sh/mm/ioremap.c
-+++ b/arch/sh/mm/ioremap.c
-@@ -103,7 +103,7 @@ static inline int iomapping_nontranslatable(unsigned long offset)
- 	return 0;
- }
- 
--void __iounmap(void __iomem *addr)
-+void iounmap(void __iomem *addr)
+ #include <asm/io.h>
+ #include <asm/machvec.h>
+@@ -30,13 +28,6 @@ dig_setup (char **cmdline_p)
  {
- 	unsigned long vaddr = (unsigned long __force)addr;
- 	struct vm_struct *p;
-@@ -134,4 +134,4 @@ void __iounmap(void __iomem *addr)
+ 	unsigned int orig_x, orig_y, num_cols, num_rows, font_height;
  
- 	kfree(p);
- }
--EXPORT_SYMBOL(__iounmap);
-+EXPORT_SYMBOL(iounmap);
+-	/*
+-	 * Default to /dev/sda2.  This assumes that the EFI partition
+-	 * is physical disk 1 partition 1 and the Linux root disk is
+-	 * physical disk 1 partition 2.
+-	 */
+-	ROOT_DEV = Root_SDA2;		/* default to second partition on first drive */
+-
+ #ifdef CONFIG_SMP
+ 	init_smp_config();
+ #endif
+diff --git a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
+index 8d47836d932c..560f9833c665 100644
+--- a/arch/ia64/kernel/setup.c
++++ b/arch/ia64/kernel/setup.c
+@@ -30,6 +30,7 @@
+ #include <linux/console.h>
+ #include <linux/delay.h>
+ #include <linux/cpu.h>
++#include <linux/kdev_t.h>
+ #include <linux/kernel.h>
+ #include <linux/memblock.h>
+ #include <linux/reboot.h>
+@@ -41,6 +42,7 @@
+ #include <linux/threads.h>
+ #include <linux/screen_info.h>
+ #include <linux/dmi.h>
++#include <linux/root_dev.h>
+ #include <linux/serial.h>
+ #include <linux/serial_core.h>
+ #include <linux/efi.h>
+@@ -599,6 +601,13 @@ setup_arch (char **cmdline_p)
+ 	if (!nomca)
+ 		ia64_mca_init();
+ 
++	/*
++	 * Default to /dev/sda2.  This assumes that the EFI partition
++	 * is physical disk 1 partition 1 and the Linux root disk is
++	 * physical disk 1 partition 2.
++	 */
++	ROOT_DEV = Root_SDA2;		/* default to second partition on first drive */
++
+ 	platform_setup(cmdline_p);
+ 	paging_init();
+ 
 -- 
 2.20.1
