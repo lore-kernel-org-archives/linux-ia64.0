@@ -1,69 +1,48 @@
-From: Joerg Roedel <joro@8bytes.org>
-Date: Mon, 19 Aug 2019 13:22:46 +0000
-Subject: [PATCH 01/11] iommu: Remember when default domain type was set on kernel command line
-Message-Id: <20190819132256.14436-2-joro@8bytes.org>
+From: Christoph Hellwig <hch@lst.de>
+Date: Tue, 13 Aug 2019 07:24:58 +0000
+Subject: [PATCH 12/28] qla2xxx: remove SGI SN2 support
+Message-Id: <20190813072514.23299-13-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190819132256.14436-1-joro@8bytes.org>
-In-Reply-To: <20190819132256.14436-1-joro@8bytes.org>
+References: <20190813072514.23299-1-hch@lst.de>
+In-Reply-To: <20190813072514.23299-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Joerg Roedel <joro@8bytes.org>
-Cc: corbet@lwn.net, tony.luck@intel.com, fenghua.yu@intel.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, hpa@zytor.com, x86@kernel.org, linux-doc@vger.kernel.org, linux-ia64@vger.kernel.org, iommu@lists.linux-foundation.org, linux-kernel@vger.kernel.org, Thomas.Lendacky@amd.com, Suravee.Suthikulpanit@amd.com, Joerg Roedel <jroedel@suse.de>
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Mike Travis <mike.travis@hpe.com>, Dimitri Sivanich <sivanich@hpe.com>
+Cc: Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-ia64@vger.kernel.org, linux-ide@vger.kernel.org, linux-scsi@vger.kernel.org, linux-kernel@vger.kernel.org
 
-From: Joerg Roedel <jroedel@suse.de>
+The SGI SN2 support is about to be removed, so drop the bits specific to
+it from this driver.
 
-Introduce an extensible concept to remember when certain
-configuration settings for the IOMMU code have been set on
-the kernel command line.
-
-This will be used later to prevent overwriting these
-settings with other defaults.
-
-Signed-off-by: Joerg Roedel <jroedel@suse.de>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- drivers/iommu/iommu.c | 15 +++++++++++++++
- 1 file changed, 15 insertions(+)
+ drivers/scsi/qla2xxx/qla_init.c | 14 --------------
+ 1 file changed, 14 deletions(-)
 
-diff --git a/drivers/iommu/iommu.c b/drivers/iommu/iommu.c
-index 0c674d80c37f..3361ca5ef769 100644
---- a/drivers/iommu/iommu.c
-+++ b/drivers/iommu/iommu.c
-@@ -32,6 +32,7 @@ static unsigned int iommu_def_domain_type = IOMMU_DOMAIN_IDENTITY;
- static unsigned int iommu_def_domain_type = IOMMU_DOMAIN_DMA;
- #endif
- static bool iommu_dma_strict __read_mostly = true;
-+static u32 iommu_cmd_line __read_mostly;
+diff --git a/drivers/scsi/qla2xxx/qla_init.c b/drivers/scsi/qla2xxx/qla_init.c
+index da83034d4759..d4c3baec9172 100644
+--- a/drivers/scsi/qla2xxx/qla_init.c
++++ b/drivers/scsi/qla2xxx/qla_init.c
+@@ -4575,20 +4575,6 @@ qla2x00_nvram_config(scsi_qla_host_t *vha)
+ 		rval = 1;
+ 	}
  
- struct iommu_group {
- 	struct kobject kobj;
-@@ -68,6 +69,18 @@ static const char * const iommu_group_resv_type_string[] = {
- 	[IOMMU_RESV_SW_MSI]			= "msi",
- };
+-#if defined(CONFIG_IA64_GENERIC) || defined(CONFIG_IA64_SGI_SN2)
+-	/*
+-	 * The SN2 does not provide BIOS emulation which means you can't change
+-	 * potentially bogus BIOS settings. Force the use of default settings
+-	 * for link rate and frame size.  Hope that the rest of the settings
+-	 * are valid.
+-	 */
+-	if (ia64_platform_is("sn2")) {
+-		nv->frame_payload_size = 2048;
+-		if (IS_QLA23XX(ha))
+-			nv->special_options[1] = BIT_7;
+-	}
+-#endif
+-
+ 	/* Reset Initialization control block */
+ 	memset(icb, 0, ha->init_cb_size);
  
-+#define IOMMU_CMD_LINE_DMA_API		BIT(0)
-+
-+static void iommu_set_cmd_line_dma_api(void)
-+{
-+	iommu_cmd_line |= IOMMU_CMD_LINE_DMA_API;
-+}
-+
-+static bool __maybe_unused iommu_cmd_line_dma_api(void)
-+{
-+	return !!(iommu_cmd_line & IOMMU_CMD_LINE_DMA_API);
-+}
-+
- #define IOMMU_GROUP_ATTR(_name, _mode, _show, _store)		\
- struct iommu_group_attribute iommu_group_attr_##_name =		\
- 	__ATTR(_name, _mode, _show, _store)
-@@ -165,6 +178,8 @@ static int __init iommu_set_def_domain_type(char *str)
- 	if (ret)
- 		return ret;
- 
-+	iommu_set_cmd_line_dma_api();
-+
- 	iommu_def_domain_type = pt ? IOMMU_DOMAIN_IDENTITY : IOMMU_DOMAIN_DMA;
- 	return 0;
- }
 -- 
-2.16.4
+2.20.1
