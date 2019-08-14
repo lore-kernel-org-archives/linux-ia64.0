@@ -1,72 +1,51 @@
 From: Joerg Roedel <joro@8bytes.org>
-Date: Wed, 14 Aug 2019 13:38:31 +0000
-Subject: [PATCH 00/10 v2] Cleanup IOMMU passthrough setting (and disable IOMMU Passthrough when SME is active
-Message-Id: <20190814133841.7095-1-joro@8bytes.org>
+Date: Wed, 14 Aug 2019 13:38:40 +0000
+Subject: [PATCH 09/10] iommu: Disable passthrough mode when SME is active
+Message-Id: <20190814133841.7095-10-joro@8bytes.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20190814133841.7095-1-joro@8bytes.org>
+In-Reply-To: <20190814133841.7095-1-joro@8bytes.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Joerg Roedel <joro@8bytes.org>
-Cc: corbet@lwn.net, tony.luck@intel.com, fenghua.yu@intel.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, hpa@zytor.com, x86@kernel.org, linux-doc@vger.kernel.org, linux-ia64@vger.kernel.org, iommu@lists.linux-foundation.org, linux-kernel@vger.kernel.org, Thomas.Lendacky@amd.com, Suravee.Suthikulpanit@amd.com
+Cc: corbet@lwn.net, tony.luck@intel.com, fenghua.yu@intel.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, hpa@zytor.com, x86@kernel.org, linux-doc@vger.kernel.org, linux-ia64@vger.kernel.org, iommu@lists.linux-foundation.org, linux-kernel@vger.kernel.org, Thomas.Lendacky@amd.com, Suravee.Suthikulpanit@amd.com, Joerg Roedel <jroedel@suse.de>
 
-Hi,
+From: Joerg Roedel <jroedel@suse.de>
 
-This patch-set started out small to overwrite the default passthrough
-setting (through CONFIG_IOMMU_DEFAULT_PASSTHROUGH=y) when SME is active.
+Using Passthrough mode when SME is active causes certain
+devices to use the SWIOTLB bounce buffer. The bounce buffer
+code has an upper limit of 256kb for the size of DMA
+allocations, which is too small for certain devices and
+causes them to fail.
 
-But on the way to that Tom reminded me that the current ways to
-configure passthrough/no-passthrough modes for IOMMU on x86 is a mess.
-So I added a few more patches to clean that up a bit, getting rid of the
-iommu_pass_through variable on the way.This information is now kept only
-in iommu code, with helpers to change that setting from architecture
-code.
+With this patch we enable IOMMU by default when SME is
+active in the system, making the default configuration work
+for more systems than it does now.
 
-And of course this patch-set still disables IOMMU Passthrough mode when
-SME is active even when CONFIG_IOMMU_DEFAULT_PASSTHROUGH=y is set.
+Users that don't want IOMMUs to be enabled still can disable
+them with kernel parameters.
 
-The reason for that change is that SME with passthrough mode turned out
-to be fragile with devices requiring SWIOTLB, mainly because SWIOTLB has
-a maximum allocation size of 256kb and a limit overall size of the
-bounce buffer.
+Signed-off-by: Joerg Roedel <jroedel@suse.de>
+---
+ drivers/iommu/iommu.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-Therefore having IOMMU in translation mode by default is better when SME
-is active on a system.
-
-Please review.
-
-Thanks,
-
-	Joerg
-
-Changes since v1:
-
-	- Cleaned up the kernel command line parameters to
-	  configure passthrough/translated mode, getting rid
-	  of the global iommu_pass_through variable
-
-Joerg Roedel (10):
-  iommu: Add helpers to set/get default domain type
-  iommu/amd: Request passthrough mode from IOMMU core
-  iommu/vt-d: Request passthrough mode from IOMMU core
-  x86/dma: Get rid of iommu_pass_through
-  ia64: Get rid of iommu_pass_through
-  iommu: Remember when default domain type was set on kernel command
-    line
-  iommu: Print default domain type on boot
-  iommu: Set default domain type at runtime
-  iommu: Disable passthrough mode when SME is active
-  Documentation: Update Documentation for iommu.passthrough
-
- .../admin-guide/kernel-parameters.txt         |  2 +-
- arch/ia64/include/asm/iommu.h                 |  2 -
- arch/ia64/kernel/pci-dma.c                    |  2 -
- arch/x86/include/asm/iommu.h                  |  1 -
- arch/x86/kernel/pci-dma.c                     | 11 +--
- drivers/iommu/amd_iommu.c                     |  6 +-
- drivers/iommu/intel-iommu.c                   |  2 +-
- drivers/iommu/iommu.c                         | 83 +++++++++++++++++--
- include/linux/iommu.h                         | 16 ++++
- 9 files changed, 101 insertions(+), 24 deletions(-)
-
+diff --git a/drivers/iommu/iommu.c b/drivers/iommu/iommu.c
+index 96cc7cc8ab21..4bc9025a9975 100644
+--- a/drivers/iommu/iommu.c
++++ b/drivers/iommu/iommu.c
+@@ -119,6 +119,11 @@ static int __init iommu_subsys_init(void)
+ 			iommu_set_default_passthrough();
+ 		else
+ 			iommu_set_default_translated();
++
++		if (iommu_default_passthrough() && sme_active()) {
++			pr_info("SME detected - Disabling default IOMMU Passthrough\n");
++			iommu_set_default_translated();
++		}
+ 	}
+ 
+ 	pr_info("Default domain type: %s %s\n",
 -- 
 2.17.1
