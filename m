@@ -1,75 +1,72 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Sat, 17 Aug 2019 07:32:47 +0000
-Subject: [PATCH 20/26] hexagon: remove __iounmap
-Message-Id: <20190817073253.27819-21-hch@lst.de>
+From: Joerg Roedel <joro@8bytes.org>
+Date: Wed, 14 Aug 2019 13:38:31 +0000
+Subject: [PATCH 00/10 v2] Cleanup IOMMU passthrough setting (and disable IOMMU Passthrough when SME is active
+Message-Id: <20190814133841.7095-1-joro@8bytes.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190817073253.27819-1-hch@lst.de>
-In-Reply-To: <20190817073253.27819-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Arnd Bergmann <arnd@arndb.de>, Guo Ren <guoren@kernel.org>, Michal Simek <monstr@monstr.eu>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, x86@kernel.org
-Cc: linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, nios2-dev@lists.rocketboards.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-mtd@lists.infradead.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Joerg Roedel <joro@8bytes.org>
+Cc: corbet@lwn.net, tony.luck@intel.com, fenghua.yu@intel.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, hpa@zytor.com, x86@kernel.org, linux-doc@vger.kernel.org, linux-ia64@vger.kernel.org, iommu@lists.linux-foundation.org, linux-kernel@vger.kernel.org, Thomas.Lendacky@amd.com, Suravee.Suthikulpanit@amd.com
 
-No need to indirect iounmap for hexagon.
+Hi,
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
----
- arch/hexagon/include/asm/io.h       | 7 +------
- arch/hexagon/kernel/hexagon_ksyms.c | 2 +-
- arch/hexagon/mm/ioremap.c           | 2 +-
- 3 files changed, 3 insertions(+), 8 deletions(-)
+This patch-set started out small to overwrite the default passthrough
+setting (through CONFIG_IOMMU_DEFAULT_PASSTHROUGH=y) when SME is active.
 
-diff --git a/arch/hexagon/include/asm/io.h b/arch/hexagon/include/asm/io.h
-index 89537dc1cf97..539e3efcf39c 100644
---- a/arch/hexagon/include/asm/io.h
-+++ b/arch/hexagon/include/asm/io.h
-@@ -27,7 +27,7 @@
- extern int remap_area_pages(unsigned long start, unsigned long phys_addr,
- 				unsigned long end, unsigned long flags);
- 
--extern void __iounmap(const volatile void __iomem *addr);
-+extern void iounmap(const volatile void __iomem *addr);
- 
- /* Defined in lib/io.c, needed for smc91x driver. */
- extern void __raw_readsw(const void __iomem *addr, void *data, int wordlen);
-@@ -175,11 +175,6 @@ void __iomem *ioremap(unsigned long phys_addr, unsigned long size);
- #define ioremap_nocache ioremap
- 
- 
--static inline void iounmap(volatile void __iomem *addr)
--{
--	__iounmap(addr);
--}
--
- #define __raw_writel writel
- 
- static inline void memcpy_fromio(void *dst, const volatile void __iomem *src,
-diff --git a/arch/hexagon/kernel/hexagon_ksyms.c b/arch/hexagon/kernel/hexagon_ksyms.c
-index b3dbb472572e..6fb1aaab1c29 100644
---- a/arch/hexagon/kernel/hexagon_ksyms.c
-+++ b/arch/hexagon/kernel/hexagon_ksyms.c
-@@ -14,7 +14,7 @@
- EXPORT_SYMBOL(__clear_user_hexagon);
- EXPORT_SYMBOL(raw_copy_from_user);
- EXPORT_SYMBOL(raw_copy_to_user);
--EXPORT_SYMBOL(__iounmap);
-+EXPORT_SYMBOL(iounmap);
- EXPORT_SYMBOL(__strnlen_user);
- EXPORT_SYMBOL(__vmgetie);
- EXPORT_SYMBOL(__vmsetie);
-diff --git a/arch/hexagon/mm/ioremap.c b/arch/hexagon/mm/ioremap.c
-index b103d83b5fbb..255c5b1ee1a7 100644
---- a/arch/hexagon/mm/ioremap.c
-+++ b/arch/hexagon/mm/ioremap.c
-@@ -38,7 +38,7 @@ void __iomem *ioremap(unsigned long phys_addr, unsigned long size)
- 	return (void __iomem *) (offset + addr);
- }
- 
--void __iounmap(const volatile void __iomem *addr)
-+void iounmap(const volatile void __iomem *addr)
- {
- 	vunmap((void *) ((unsigned long) addr & PAGE_MASK));
- }
+But on the way to that Tom reminded me that the current ways to
+configure passthrough/no-passthrough modes for IOMMU on x86 is a mess.
+So I added a few more patches to clean that up a bit, getting rid of the
+iommu_pass_through variable on the way.This information is now kept only
+in iommu code, with helpers to change that setting from architecture
+code.
+
+And of course this patch-set still disables IOMMU Passthrough mode when
+SME is active even when CONFIG_IOMMU_DEFAULT_PASSTHROUGH=y is set.
+
+The reason for that change is that SME with passthrough mode turned out
+to be fragile with devices requiring SWIOTLB, mainly because SWIOTLB has
+a maximum allocation size of 256kb and a limit overall size of the
+bounce buffer.
+
+Therefore having IOMMU in translation mode by default is better when SME
+is active on a system.
+
+Please review.
+
+Thanks,
+
+	Joerg
+
+Changes since v1:
+
+	- Cleaned up the kernel command line parameters to
+	  configure passthrough/translated mode, getting rid
+	  of the global iommu_pass_through variable
+
+Joerg Roedel (10):
+  iommu: Add helpers to set/get default domain type
+  iommu/amd: Request passthrough mode from IOMMU core
+  iommu/vt-d: Request passthrough mode from IOMMU core
+  x86/dma: Get rid of iommu_pass_through
+  ia64: Get rid of iommu_pass_through
+  iommu: Remember when default domain type was set on kernel command
+    line
+  iommu: Print default domain type on boot
+  iommu: Set default domain type at runtime
+  iommu: Disable passthrough mode when SME is active
+  Documentation: Update Documentation for iommu.passthrough
+
+ .../admin-guide/kernel-parameters.txt         |  2 +-
+ arch/ia64/include/asm/iommu.h                 |  2 -
+ arch/ia64/kernel/pci-dma.c                    |  2 -
+ arch/x86/include/asm/iommu.h                  |  1 -
+ arch/x86/kernel/pci-dma.c                     | 11 +--
+ drivers/iommu/amd_iommu.c                     |  6 +-
+ drivers/iommu/intel-iommu.c                   |  2 +-
+ drivers/iommu/iommu.c                         | 83 +++++++++++++++++--
+ include/linux/iommu.h                         | 16 ++++
+ 9 files changed, 101 insertions(+), 24 deletions(-)
+
 -- 
-2.20.1
+2.17.1
