@@ -1,94 +1,89 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Sat, 17 Aug 2019 07:32:38 +0000
-Subject: [PATCH 11/26] parisc: remove __ioremap
-Message-Id: <20190817073253.27819-12-hch@lst.de>
+From: Joerg Roedel <joro@8bytes.org>
+Date: Wed, 14 Aug 2019 13:38:32 +0000
+Subject: [PATCH 01/10] iommu: Add helpers to set/get default domain type
+Message-Id: <20190814133841.7095-2-joro@8bytes.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190817073253.27819-1-hch@lst.de>
-In-Reply-To: <20190817073253.27819-1-hch@lst.de>
+References: <20190814133841.7095-1-joro@8bytes.org>
+In-Reply-To: <20190814133841.7095-1-joro@8bytes.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Arnd Bergmann <arnd@arndb.de>, Guo Ren <guoren@kernel.org>, Michal Simek <monstr@monstr.eu>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, x86@kernel.org
-Cc: linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, nios2-dev@lists.rocketboards.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-mtd@lists.infradead.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Joerg Roedel <joro@8bytes.org>
+Cc: corbet@lwn.net, tony.luck@intel.com, fenghua.yu@intel.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, hpa@zytor.com, x86@kernel.org, linux-doc@vger.kernel.org, linux-ia64@vger.kernel.org, iommu@lists.linux-foundation.org, linux-kernel@vger.kernel.org, Thomas.Lendacky@amd.com, Suravee.Suthikulpanit@amd.com, Joerg Roedel <jroedel@suse.de>
 
-__ioremap is always called with the _PAGE_NO_CACHE, so fold the whole
-thing and rename it to ioremap.  This allows allows to remove the
-special EISA quirk to force _PAGE_NO_CACHE.
+From: Joerg Roedel <jroedel@suse.de>
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+Add a couple of functions to allow changing the default
+domain type from architecture code and a function for iommu
+drivers to request whether the default domain is
+passthrough.
+
+Signed-off-by: Joerg Roedel <jroedel@suse.de>
 ---
- arch/parisc/include/asm/io.h | 11 +----------
- arch/parisc/mm/ioremap.c     | 16 +++-------------
- 2 files changed, 4 insertions(+), 23 deletions(-)
+ drivers/iommu/iommu.c | 16 ++++++++++++++++
+ include/linux/iommu.h | 16 ++++++++++++++++
+ 2 files changed, 32 insertions(+)
 
-diff --git a/arch/parisc/include/asm/io.h b/arch/parisc/include/asm/io.h
-index 93d37010b375..46212b52c23e 100644
---- a/arch/parisc/include/asm/io.h
-+++ b/arch/parisc/include/asm/io.h
-@@ -127,16 +127,7 @@ static inline void gsc_writeq(unsigned long long val, unsigned long addr)
- /*
-  * The standard PCI ioremap interfaces
-  */
--
--extern void __iomem * __ioremap(unsigned long offset, unsigned long size, unsigned long flags);
--
--/* Most machines react poorly to I/O-space being cacheable... Instead let's
-- * define ioremap() in terms of ioremap_nocache().
-- */
--static inline void __iomem * ioremap(unsigned long offset, unsigned long size)
--{
--	return __ioremap(offset, size, _PAGE_NO_CACHE);
--}
-+void __iomem *ioremap(unsigned long offset, unsigned long size);
- #define ioremap_nocache(off, sz)	ioremap((off), (sz))
- #define ioremap_wc			ioremap_nocache
- #define ioremap_uc			ioremap_nocache
-diff --git a/arch/parisc/mm/ioremap.c b/arch/parisc/mm/ioremap.c
-index 92a9b5f12f98..fe65e27f882b 100644
---- a/arch/parisc/mm/ioremap.c
-+++ b/arch/parisc/mm/ioremap.c
-@@ -25,23 +25,13 @@
-  * have to convert them into an offset in a page-aligned mapping, but the
-  * caller shouldn't need to know that small detail.
-  */
--void __iomem * __ioremap(unsigned long phys_addr, unsigned long size, unsigned long flags)
-+void __iomem *ioremap(unsigned long phys_addr, unsigned long size)
- {
- 	void __iomem *addr;
- 	struct vm_struct *area;
- 	unsigned long offset, last_addr;
- 	pgprot_t pgprot;
- 
--#ifdef CONFIG_EISA
--	unsigned long end = phys_addr + size - 1;
--	/* Support EISA addresses */
--	if ((phys_addr >= 0x00080000 && end < 0x000fffff) ||
--	    (phys_addr >= 0x00500000 && end < 0x03bfffff)) {
--		phys_addr |= F_EXTEND(0xfc000000);
--		flags |= _PAGE_NO_CACHE;
--	}
--#endif
--
- 	/* Don't allow wraparound or zero size */
- 	last_addr = phys_addr + size - 1;
- 	if (!size || last_addr < phys_addr)
-@@ -65,7 +55,7 @@ void __iomem * __ioremap(unsigned long phys_addr, unsigned long size, unsigned l
- 	}
- 
- 	pgprot = __pgprot(_PAGE_PRESENT | _PAGE_RW | _PAGE_DIRTY |
--			  _PAGE_ACCESSED | flags);
-+			  _PAGE_ACCESSED | _PAGE_NO_CACHE);
- 
- 	/*
- 	 * Mappings have to be page-aligned
-@@ -90,7 +80,7 @@ void __iomem * __ioremap(unsigned long phys_addr, unsigned long size, unsigned l
- 
- 	return (void __iomem *) (offset + (char __iomem *)addr);
+diff --git a/drivers/iommu/iommu.c b/drivers/iommu/iommu.c
+index 0c674d80c37f..f187e85a074b 100644
+--- a/drivers/iommu/iommu.c
++++ b/drivers/iommu/iommu.c
+@@ -2196,6 +2196,22 @@ int iommu_request_dma_domain_for_dev(struct device *dev)
+ 	return request_default_domain_for_dev(dev, IOMMU_DOMAIN_DMA);
  }
--EXPORT_SYMBOL(__ioremap);
-+EXPORT_SYMBOL(ioremap);
  
- void iounmap(const volatile void __iomem *addr)
++void iommu_set_default_passthrough(void)
++{
++	iommu_def_domain_type = IOMMU_DOMAIN_IDENTITY;
++}
++
++void iommu_set_default_translated(void)
++{
++	iommu_def_domain_type = IOMMU_DOMAIN_DMA;
++}
++
++bool iommu_default_passthrough(void)
++{
++	return iommu_def_domain_type = IOMMU_DOMAIN_IDENTITY;
++}
++EXPORT_SYMBOL_GPL(iommu_default_passthrough);
++
+ const struct iommu_ops *iommu_ops_from_fwnode(struct fwnode_handle *fwnode)
+ {
+ 	const struct iommu_ops *ops = NULL;
+diff --git a/include/linux/iommu.h b/include/linux/iommu.h
+index fdc355ccc570..58c3e3e5f157 100644
+--- a/include/linux/iommu.h
++++ b/include/linux/iommu.h
+@@ -413,6 +413,9 @@ extern void iommu_get_resv_regions(struct device *dev, struct list_head *list);
+ extern void iommu_put_resv_regions(struct device *dev, struct list_head *list);
+ extern int iommu_request_dm_for_dev(struct device *dev);
+ extern int iommu_request_dma_domain_for_dev(struct device *dev);
++extern void iommu_set_default_passthrough(void);
++extern void iommu_set_default_translated(void);
++extern bool iommu_default_passthrough(void);
+ extern struct iommu_resv_region *
+ iommu_alloc_resv_region(phys_addr_t start, size_t length, int prot,
+ 			enum iommu_resv_type type);
+@@ -694,6 +697,19 @@ static inline int iommu_request_dma_domain_for_dev(struct device *dev)
+ 	return -ENODEV;
+ }
+ 
++static inline void iommu_set_default_passthrough(void)
++{
++}
++
++static inline void iommu_set_default_translated(void)
++{
++}
++
++static inline bool iommu_default_passthrough(void)
++{
++	return true;
++}
++
+ static inline int iommu_attach_group(struct iommu_domain *domain,
+ 				     struct iommu_group *group)
  {
 -- 
-2.20.1
+2.17.1
