@@ -1,62 +1,53 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Tue, 13 Aug 2019 07:25:14 +0000
-Subject: [PATCH 28/28] genirq: remove the is_affinity_mask_valid hook
-Message-Id: <20190813072514.23299-29-hch@lst.de>
+From: Joerg Roedel <joro@8bytes.org>
+Date: Wed, 14 Aug 2019 13:38:36 +0000
+Subject: [PATCH 05/10] ia64: Get rid of iommu_pass_through
+Message-Id: <20190814133841.7095-6-joro@8bytes.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190813072514.23299-1-hch@lst.de>
-In-Reply-To: <20190813072514.23299-1-hch@lst.de>
+References: <20190814133841.7095-1-joro@8bytes.org>
+In-Reply-To: <20190814133841.7095-1-joro@8bytes.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Mike Travis <mike.travis@hpe.com>, Dimitri Sivanich <sivanich@hpe.com>
-Cc: Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-ia64@vger.kernel.org, linux-ide@vger.kernel.org, linux-scsi@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Joerg Roedel <joro@8bytes.org>
+Cc: corbet@lwn.net, tony.luck@intel.com, fenghua.yu@intel.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, hpa@zytor.com, x86@kernel.org, linux-doc@vger.kernel.org, linux-ia64@vger.kernel.org, iommu@lists.linux-foundation.org, linux-kernel@vger.kernel.org, Thomas.Lendacky@amd.com, Suravee.Suthikulpanit@amd.com, Joerg Roedel <jroedel@suse.de>
 
-This override was only used by the ia64 SGI SN2 platform, which is
-gone now.
+From: Joerg Roedel <jroedel@suse.de>
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+This variable has no users anymore so it can be removed.
+
+Signed-off-by: Joerg Roedel <jroedel@suse.de>
 ---
- kernel/irq/proc.c | 14 --------------
- 1 file changed, 14 deletions(-)
+ arch/ia64/include/asm/iommu.h | 2 --
+ arch/ia64/kernel/pci-dma.c    | 2 --
+ 2 files changed, 4 deletions(-)
 
-diff --git a/kernel/irq/proc.c b/kernel/irq/proc.c
-index da9addb8d655..cfc4f088a0e7 100644
---- a/kernel/irq/proc.c
-+++ b/kernel/irq/proc.c
-@@ -100,10 +100,6 @@ static int irq_affinity_hint_proc_show(struct seq_file *m, void *v)
- 	return 0;
- }
+diff --git a/arch/ia64/include/asm/iommu.h b/arch/ia64/include/asm/iommu.h
+index 7429a72f3f92..92aceef63710 100644
+--- a/arch/ia64/include/asm/iommu.h
++++ b/arch/ia64/include/asm/iommu.h
+@@ -8,10 +8,8 @@
+ extern void no_iommu_init(void);
+ #ifdef	CONFIG_INTEL_IOMMU
+ extern int force_iommu, no_iommu;
+-extern int iommu_pass_through;
+ extern int iommu_detected;
+ #else
+-#define iommu_pass_through	(0)
+ #define no_iommu		(1)
+ #define iommu_detected		(0)
+ #endif
+diff --git a/arch/ia64/kernel/pci-dma.c b/arch/ia64/kernel/pci-dma.c
+index fe988c49f01c..f5d49cd3fbb0 100644
+--- a/arch/ia64/kernel/pci-dma.c
++++ b/arch/ia64/kernel/pci-dma.c
+@@ -22,8 +22,6 @@ int force_iommu __read_mostly = 1;
+ int force_iommu __read_mostly;
+ #endif
  
--#ifndef is_affinity_mask_valid
--#define is_affinity_mask_valid(val) 1
--#endif
+-int iommu_pass_through;
 -
- int no_irq_affinity;
- static int irq_affinity_proc_show(struct seq_file *m, void *v)
+ static int __init pci_iommu_init(void)
  {
-@@ -136,11 +132,6 @@ static ssize_t write_irq_affinity(int type, struct file *file,
- 	if (err)
- 		goto free_cpumask;
- 
--	if (!is_affinity_mask_valid(new_value)) {
--		err = -EINVAL;
--		goto free_cpumask;
--	}
--
- 	/*
- 	 * Do not allow disabling IRQs completely - it's a too easy
- 	 * way to make the system unusable accidentally :-) At least
-@@ -232,11 +223,6 @@ static ssize_t default_affinity_write(struct file *file,
- 	if (err)
- 		goto out;
- 
--	if (!is_affinity_mask_valid(new_value)) {
--		err = -EINVAL;
--		goto out;
--	}
--
- 	/*
- 	 * Do not allow disabling IRQs completely - it's a too easy
- 	 * way to make the system unusable accidentally :-) At least
+ 	if (iommu_detected)
 -- 
-2.20.1
+2.17.1
