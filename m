@@ -1,42 +1,71 @@
-From: Will Deacon <will@kernel.org>
-Date: Sat, 31 Aug 2019 16:29:38 +0000
-Subject: Re: [PATCH 19/26] arm64: remove __iounmap
-Message-Id: <20190831162937.5ybulvaa4eq7mybs@willie-the-truck>
+From: Joerg Roedel <joro@8bytes.org>
+Date: Wed, 14 Aug 2019 13:38:38 +0000
+Subject: [PATCH 07/10] iommu: Print default domain type on boot
+Message-Id: <20190814133841.7095-8-joro@8bytes.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190817073253.27819-1-hch@lst.de>
- <20190817073253.27819-20-hch@lst.de>
- <20190819073601.4yxjvmyjtpi7tk56@willie-the-truck>
- <20190830160515.GC26887@lst.de>
-In-Reply-To: <20190830160515.GC26887@lst.de>
+References: <20190814133841.7095-1-joro@8bytes.org>
+In-Reply-To: <20190814133841.7095-1-joro@8bytes.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch@lst.de>
-Cc: Arnd Bergmann <arnd@arndb.de>, Guo Ren <guoren@kernel.org>, Michal Simek <monstr@monstr.eu>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, nios2-dev@lists.rocketboards.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-mtd@lists.infradead.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Joerg Roedel <joro@8bytes.org>
+Cc: corbet@lwn.net, tony.luck@intel.com, fenghua.yu@intel.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, hpa@zytor.com, x86@kernel.org, linux-doc@vger.kernel.org, linux-ia64@vger.kernel.org, iommu@lists.linux-foundation.org, linux-kernel@vger.kernel.org, Thomas.Lendacky@amd.com, Suravee.Suthikulpanit@amd.com, Joerg Roedel <jroedel@suse.de>
 
-Hi Christoph,
+From: Joerg Roedel <jroedel@suse.de>
 
-On Fri, Aug 30, 2019 at 06:05:15PM +0200, Christoph Hellwig wrote:
-> On Mon, Aug 19, 2019 at 08:36:02AM +0100, Will Deacon wrote:
-> > On Sat, Aug 17, 2019 at 09:32:46AM +0200, Christoph Hellwig wrote:
-> > > No need to indirect iounmap for arm64.
-> > > 
-> > > Signed-off-by: Christoph Hellwig <hch@lst.de>
-> > > ---
-> > >  arch/arm64/include/asm/io.h | 3 +--
-> > >  arch/arm64/mm/ioremap.c     | 4 ++--
-> > >  2 files changed, 3 insertions(+), 4 deletions(-)
-> > 
-> > Not sure why we did it like this...
-> > 
-> > Acked-by: Will Deacon <will@kernel.org>
-> 
-> Can you just pick this one up through the arm64 tree for 5.4?
+Introduce a subsys_initcall for IOMMU code and use it to
+print the default domain type at boot.
 
-Unfortunately, it doesn't apply because the tree you've based it on has
-removed ioremap_wt(). If you send a version based on mainline, I can
-queue it.
+Signed-off-by: Joerg Roedel <jroedel@suse.de>
+---
+ drivers/iommu/iommu.c | 30 +++++++++++++++++++++++++++++-
+ 1 file changed, 29 insertions(+), 1 deletion(-)
 
-Cheers,
-
-Will
+diff --git a/drivers/iommu/iommu.c b/drivers/iommu/iommu.c
+index e1feb4061b8b..233bc22b487e 100644
+--- a/drivers/iommu/iommu.c
++++ b/drivers/iommu/iommu.c
+@@ -93,12 +93,40 @@ struct iommu_group_attribute iommu_group_attr_##_name =		\
+ static LIST_HEAD(iommu_device_list);
+ static DEFINE_SPINLOCK(iommu_device_lock);
+ 
++/*
++ * Use a function instead of an array here because the domain-type is a
++ * bit-field, so an array would waste memory.
++ */
++static const char *iommu_domain_type_str(unsigned int t)
++{
++	switch (t) {
++		case IOMMU_DOMAIN_BLOCKED:
++			return "Blocked";
++		case IOMMU_DOMAIN_IDENTITY:
++			return "Passthrough";
++		case IOMMU_DOMAIN_UNMANAGED:
++			return "Unmanaged";
++		case IOMMU_DOMAIN_DMA:
++			return "Translated";
++		default:
++			return "Unknown";
++	}
++}
++
++static int __init iommu_subsys_init(void)
++{
++	pr_info("Default domain type: %s\n",
++		iommu_domain_type_str(iommu_def_domain_type));
++
++	return 0;
++}
++subsys_initcall(iommu_subsys_init);
++
+ int iommu_device_register(struct iommu_device *iommu)
+ {
+ 	spin_lock(&iommu_device_lock);
+ 	list_add_tail(&iommu->list, &iommu_device_list);
+ 	spin_unlock(&iommu_device_lock);
+-
+ 	return 0;
+ }
+ 
+-- 
+2.17.1
