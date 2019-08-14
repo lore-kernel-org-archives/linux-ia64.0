@@ -1,10 +1,10 @@
 From: Joerg Roedel <joro@8bytes.org>
-Date: Mon, 19 Aug 2019 13:22:56 +0000
-Subject: [PATCH 11/11] Documentation: Update Documentation for iommu.passthrough
-Message-Id: <20190819132256.14436-12-joro@8bytes.org>
+Date: Wed, 14 Aug 2019 13:38:41 +0000
+Subject: [PATCH 10/10] Documentation: Update Documentation for iommu.passthrough
+Message-Id: <20190814133841.7095-11-joro@8bytes.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190819132256.14436-1-joro@8bytes.org>
-In-Reply-To: <20190819132256.14436-1-joro@8bytes.org>
+References: <20190814133841.7095-1-joro@8bytes.org>
+In-Reply-To: <20190814133841.7095-1-joro@8bytes.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -33,4 +33,4 @@ index 47d981a86e2f..2d5dfa46e88a 100644
  			0 - Use IOMMU translation for DMA.
  			1 - Bypass the IOMMU for DMA.
 -- 
-2.16.4
+2.17.1
