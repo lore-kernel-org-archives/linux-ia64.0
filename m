@@ -1,59 +1,75 @@
-From: Paul Walmsley <paul.walmsley@sifive.com>
-Date: Sat, 17 Aug 2019 21:07:29 +0000
-Subject: Re: [PATCH 15/26] asm-generic: ioremap_uc should behave the same with and without MMU
-Message-Id: <alpine.DEB.2.21.9999.1908171403330.4130@viisi.sifive.com>
+From: Joerg Roedel <joro@8bytes.org>
+Date: Wed, 14 Aug 2019 13:38:35 +0000
+Subject: [PATCH 04/10] x86/dma: Get rid of iommu_pass_through
+Message-Id: <20190814133841.7095-5-joro@8bytes.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190817073253.27819-1-hch@lst.de> <20190817073253.27819-16-hch@lst.de>
-In-Reply-To: <20190817073253.27819-16-hch@lst.de>
+References: <20190814133841.7095-1-joro@8bytes.org>
+In-Reply-To: <20190814133841.7095-1-joro@8bytes.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch@lst.de>
-Cc: Arnd Bergmann <arnd@arndb.de>, Guo Ren <guoren@kernel.org>, Michal Simek <monstr@monstr.eu>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, x86@kernel.org, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-sh@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-mips@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, openrisc@lists.librecores.org, linux-mtd@lists.infradead.org, linux-alpha@vger.kernel.org, sparclinux@vger.kernel.org, nios2-dev@lists.rocketboards.org, linux-riscv@lists.infradead.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org
+To: Joerg Roedel <joro@8bytes.org>
+Cc: corbet@lwn.net, tony.luck@intel.com, fenghua.yu@intel.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, hpa@zytor.com, x86@kernel.org, linux-doc@vger.kernel.org, linux-ia64@vger.kernel.org, iommu@lists.linux-foundation.org, linux-kernel@vger.kernel.org, Thomas.Lendacky@amd.com, Suravee.Suthikulpanit@amd.com, Joerg Roedel <jroedel@suse.de>
 
-On Sat, 17 Aug 2019, Christoph Hellwig wrote:
+From: Joerg Roedel <jroedel@suse.de>
 
-> Whatever reason there is for the existence of ioremap_uc, and the fact 
-> that it returns NULL by default on architectures with an MMU applies 
-> equally to nommu architectures, so don't provide different defaults.
-> 
-> In practice the difference is meaningless as the only portable driver
-> that uses ioremap_uc is atyfb which probably doesn't show up on nommu
-> devices.
-> 
-> Signed-off-by: Christoph Hellwig <hch@lst.de>
+This variable has no users anymore. Remove it and tell the
+IOMMU code via its new functions about requested DMA modes.
 
-[ ... ]
+Signed-off-by: Joerg Roedel <jroedel@suse.de>
+---
+ arch/x86/include/asm/iommu.h |  1 -
+ arch/x86/kernel/pci-dma.c    | 11 +++--------
+ 2 files changed, 3 insertions(+), 9 deletions(-)
 
-> diff --git a/include/asm-generic/io.h b/include/asm-generic/io.h
-> index d02806513670..a98ed6325727 100644
-> --- a/include/asm-generic/io.h
-> +++ b/include/asm-generic/io.h
-
-[ ... ]
-
-> @@ -1004,6 +985,21 @@ static inline void __iomem *ioremap_wt(phys_addr_t offset, size_t size)
->  }
->  #endif
->  
-> +/*
-> + * ioremap_uc is special in that we do require an explicit architecture
-> + * implementation.  In general you do now want to use this function in a
-                                         ^^^ not
-
-> + * driver and use plain ioremap, which is uncached by default.  Similarly
-                ^ instead 
-
-> + * architectures should not implement it unless they have a very good
-> + * reason.
-> + */
-
-Looks like this mess is only needed on x86 with certain graphics drivers 
-and conflicts between MTRR and page table-based MMU attributes.
-
-
-Reviewed-by: Paul Walmsley <paul.walmsley@sifive.com>
-Tested-by: Paul Walmsley <paul.walmsley@sifive.com> # rv32, rv64 boot
-
-
-- Paul
+diff --git a/arch/x86/include/asm/iommu.h b/arch/x86/include/asm/iommu.h
+index baedab8ac538..b91623d521d9 100644
+--- a/arch/x86/include/asm/iommu.h
++++ b/arch/x86/include/asm/iommu.h
+@@ -4,7 +4,6 @@
+ 
+ extern int force_iommu, no_iommu;
+ extern int iommu_detected;
+-extern int iommu_pass_through;
+ 
+ /* 10 seconds */
+ #define DMAR_OPERATION_TIMEOUT ((cycles_t) tsc_khz*10*1000)
+diff --git a/arch/x86/kernel/pci-dma.c b/arch/x86/kernel/pci-dma.c
+index f62b498b18fb..a6fd479d4a71 100644
+--- a/arch/x86/kernel/pci-dma.c
++++ b/arch/x86/kernel/pci-dma.c
+@@ -1,6 +1,7 @@
+ // SPDX-License-Identifier: GPL-2.0
+ #include <linux/dma-direct.h>
+ #include <linux/dma-debug.h>
++#include <linux/iommu.h>
+ #include <linux/dmar.h>
+ #include <linux/export.h>
+ #include <linux/memblock.h>
+@@ -43,12 +44,6 @@ int iommu_detected __read_mostly = 0;
+  * It is also possible to disable by default in kernel config, and enable with
+  * iommu=nopt at boot time.
+  */
+-#ifdef CONFIG_IOMMU_DEFAULT_PASSTHROUGH
+-int iommu_pass_through __read_mostly = 1;
+-#else
+-int iommu_pass_through __read_mostly;
+-#endif
+-
+ extern struct iommu_table_entry __iommu_table[], __iommu_table_end[];
+ 
+ void __init pci_iommu_alloc(void)
+@@ -120,9 +115,9 @@ static __init int iommu_setup(char *p)
+ 			swiotlb = 1;
+ #endif
+ 		if (!strncmp(p, "pt", 2))
+-			iommu_pass_through = 1;
++			iommu_set_default_passthrough();
+ 		if (!strncmp(p, "nopt", 4))
+-			iommu_pass_through = 0;
++			iommu_set_default_translated();
+ 
+ 		gart_parse_options(p);
+ 
+-- 
+2.17.1
