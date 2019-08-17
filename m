@@ -1,51 +1,36 @@
-From: Joerg Roedel <joro@8bytes.org>
-Date: Wed, 14 Aug 2019 13:38:40 +0000
-Subject: [PATCH 09/10] iommu: Disable passthrough mode when SME is active
-Message-Id: <20190814133841.7095-10-joro@8bytes.org>
+From: Christoph Hellwig <hch@lst.de>
+Date: Sat, 17 Aug 2019 07:32:28 +0000
+Subject: [PATCH 01/26] mtd/maps/pxa2xx: use ioremap_cache insted of ioremap_cached
+Message-Id: <20190817073253.27819-2-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190814133841.7095-1-joro@8bytes.org>
-In-Reply-To: <20190814133841.7095-1-joro@8bytes.org>
+References: <20190817073253.27819-1-hch@lst.de>
+In-Reply-To: <20190817073253.27819-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Joerg Roedel <joro@8bytes.org>
-Cc: corbet@lwn.net, tony.luck@intel.com, fenghua.yu@intel.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, hpa@zytor.com, x86@kernel.org, linux-doc@vger.kernel.org, linux-ia64@vger.kernel.org, iommu@lists.linux-foundation.org, linux-kernel@vger.kernel.org, Thomas.Lendacky@amd.com, Suravee.Suthikulpanit@amd.com, Joerg Roedel <jroedel@suse.de>
+To: Arnd Bergmann <arnd@arndb.de>, Guo Ren <guoren@kernel.org>, Michal Simek <monstr@monstr.eu>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, x86@kernel.org
+Cc: linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-sh@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-mips@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, openrisc@lists.librecores.org, linux-mtd@lists.infradead.org, linux-alpha@vger.kernel.org, sparclinux@vger.kernel.org, nios2-dev@lists.rocketboards.org, linux-riscv@lists.infradead.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org
 
-From: Joerg Roedel <jroedel@suse.de>
+pxa2xx-flash is the only user of ioremap_cached, which is an alias
+for ioremap_cache anyway.
 
-Using Passthrough mode when SME is active causes certain
-devices to use the SWIOTLB bounce buffer. The bounce buffer
-code has an upper limit of 256kb for the size of DMA
-allocations, which is too small for certain devices and
-causes them to fail.
-
-With this patch we enable IOMMU by default when SME is
-active in the system, making the default configuration work
-for more systems than it does now.
-
-Users that don't want IOMMUs to be enabled still can disable
-them with kernel parameters.
-
-Signed-off-by: Joerg Roedel <jroedel@suse.de>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- drivers/iommu/iommu.c | 5 +++++
- 1 file changed, 5 insertions(+)
+ drivers/mtd/maps/pxa2xx-flash.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/drivers/iommu/iommu.c b/drivers/iommu/iommu.c
-index 96cc7cc8ab21..4bc9025a9975 100644
---- a/drivers/iommu/iommu.c
-+++ b/drivers/iommu/iommu.c
-@@ -119,6 +119,11 @@ static int __init iommu_subsys_init(void)
- 			iommu_set_default_passthrough();
- 		else
- 			iommu_set_default_translated();
-+
-+		if (iommu_default_passthrough() && sme_active()) {
-+			pr_info("SME detected - Disabling default IOMMU Passthrough\n");
-+			iommu_set_default_translated();
-+		}
+diff --git a/drivers/mtd/maps/pxa2xx-flash.c b/drivers/mtd/maps/pxa2xx-flash.c
+index cebb346877a9..7d96758a8f04 100644
+--- a/drivers/mtd/maps/pxa2xx-flash.c
++++ b/drivers/mtd/maps/pxa2xx-flash.c
+@@ -68,8 +68,7 @@ static int pxa2xx_flash_probe(struct platform_device *pdev)
+ 		       info->map.name);
+ 		return -ENOMEM;
  	}
- 
- 	pr_info("Default domain type: %s %s\n",
+-	info->map.cached -		ioremap_cached(info->map.phys, info->map.size);
++	info->map.cached = ioremap_cache(info->map.phys, info->map.size);
+ 	if (!info->map.cached)
+ 		printk(KERN_WARNING "Failed to ioremap cached %s\n",
+ 		       info->map.name);
 -- 
-2.17.1
+2.20.1
