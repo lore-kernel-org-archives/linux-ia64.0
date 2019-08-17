@@ -1,25 +1,116 @@
-From: " Henry Stewart" <representative@sailoreven.icu>
-Date: Fri, 09 Aug 2019 10:02:38 +0000
-Subject: Slow internet? Don't miss out on this WiFi booster
-Message-Id: <b97lPHr8BiKXQcVu53PwPmZvcTcRaVi_cFcPdML_Bfg.l3RC_QhyuQGJ2A4TiDrxHSjA3yEpUQ-ayO7aaB2IM60@sailoreven.icu>
+From: Christoph Hellwig <hch@lst.de>
+Date: Sat, 17 Aug 2019 07:32:43 +0000
+Subject: [PATCH 16/26] asm-generic: don't provide ioremap for CONFIG_MMU
+Message-Id: <20190817073253.27819-17-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <07Cg0UkoI0jyOWH6Fmu88qS3W2GDh_ixL_u-9zFx-zg.ck80eeq-qGXIG7KuxRKq31gjl0tr57O50tFOZK6VzFc@blankgrace.icu>
-In-Reply-To: <07Cg0UkoI0jyOWH6Fmu88qS3W2GDh_ixL_u-9zFx-zg.ck80eeq-qGXIG7KuxRKq31gjl0tr57O50tFOZK6VzFc@blankgrace.icu>
+References: <20190817073253.27819-1-hch@lst.de>
+In-Reply-To: <20190817073253.27819-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>, Guo Ren <guoren@kernel.org>, Michal Simek <monstr@monstr.eu>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, x86@kernel.org
+Cc: linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, nios2-dev@lists.rocketboards.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-mtd@lists.infradead.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Internet providers make big money by overcharging you for faster internet lines. Could this little device really be the one solution that we've all been waiting for?
+All MMU-enabled ports have a non-trivial ioremap and should thus provide
+the prototype for their implementation instead of providing a generic
+one unless a different symbol is not defined.  Note that this only
+affects sparc32 nds32 as all others do provide their own version.
 
-Frequency: 2.4Ghz
-Wireless Rate: 300Mbps
-Interface: 1 10/100Mbps WAN/LAN RJ45 Ports
+Also update the kerneldoc comments in asm-generic/io.h to explain the
+situation around the default ioremap* implementations correctly.
 
-Amazing new technology find out here!
-http://www.sailoreven.icu/kjbwa/hebhwtts33241yulzamit/MVb27eq6xlpAGSWV1aw47naMP4B8lUSBNCZWiTnpRD8/StCcX3RF8SopVY4PGBvBcAr91z41zi7aRYySPWYpCzeAXFP0IfN4hXLvHq_qEqjlVd35K400c3Fgu37GhG4VPGm5tGfY2JIhS3BcGUmRJlSR3cRnsYuA3gbPAnAbQvlOYB7m2_s__L2YjOfiQAfK7Q
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ arch/nds32/include/asm/io.h    |  2 ++
+ arch/sparc/include/asm/io_32.h |  1 +
+ include/asm-generic/io.h       | 29 ++++++++---------------------
+ 3 files changed, 11 insertions(+), 21 deletions(-)
 
-------------------------
-If you'd prefer not to receive future emails, Unsubscribe Here 
-http://www.sailoreven.icu/smwmrida/Q7KfAQifOjY2L__s_2m7BYOlvQbAnAPbg3AuYsnRc3RSlJRmUGcB3ShIJ2YfGt5mGPV4GhG73ugF3c004K53dVljqEq_qHvLXh4NfI0PFXAezCpYWPSyYRa7iz14z19rAcBvBGP4YVpoS8FR3XcCtS.8DRpnTiWZCNBSUl8B4PMan74wa1VWSGAplx6qe72bVM
-538 Cherry Rd. Schaumburg, IL 60193
+diff --git a/arch/nds32/include/asm/io.h b/arch/nds32/include/asm/io.h
+index 16f262322b8f..fb0e8a24c7af 100644
+--- a/arch/nds32/include/asm/io.h
++++ b/arch/nds32/include/asm/io.h
+@@ -6,6 +6,7 @@
+ 
+ #include <linux/types.h>
+ 
++void __iomem *ioremap(phys_addr_t phys_addr, size_t size);
+ extern void iounmap(volatile void __iomem *addr);
+ #define __raw_writeb __raw_writeb
+ static inline void __raw_writeb(u8 val, volatile void __iomem *addr)
+@@ -80,4 +81,5 @@ static inline u32 __raw_readl(const volatile void __iomem *addr)
+ #define writew(v,c)	({ __iowmb(); writew_relaxed((v),(c)); })
+ #define writel(v,c)	({ __iowmb(); writel_relaxed((v),(c)); })
+ #include <asm-generic/io.h>
++
+ #endif /* __ASM_NDS32_IO_H */
+diff --git a/arch/sparc/include/asm/io_32.h b/arch/sparc/include/asm/io_32.h
+index df2dc1784673..9a52d9506f80 100644
+--- a/arch/sparc/include/asm/io_32.h
++++ b/arch/sparc/include/asm/io_32.h
+@@ -127,6 +127,7 @@ static inline void sbus_memcpy_toio(volatile void __iomem *dst,
+  * Bus number may be embedded in the higher bits of the physical address.
+  * This is why we have no bus number argument to ioremap().
+  */
++void __iomem *ioremap(phys_addr_t offset, size_t size);
+ void iounmap(volatile void __iomem *addr);
+ /* Create a virtual mapping cookie for an IO port range */
+ void __iomem *ioport_map(unsigned long port, unsigned int nr);
+diff --git a/include/asm-generic/io.h b/include/asm-generic/io.h
+index a98ed6325727..6a5edc23afe2 100644
+--- a/include/asm-generic/io.h
++++ b/include/asm-generic/io.h
+@@ -922,28 +922,16 @@ static inline void *phys_to_virt(unsigned long address)
+ /**
+  * DOC: ioremap() and ioremap_*() variants
+  *
+- * If you have an IOMMU your architecture is expected to have both ioremap()
+- * and iounmap() implemented otherwise the asm-generic helpers will provide a
+- * direct mapping.
++ * Architectures with an MMU are expected to provide ioremap() and iounmap()
++ * themselves.  For NOMMU architectures we provide a default nop-op
++ * implementation that expect that the physical address used for MMIO are
++ * already marked as uncached, and can be used as kernel virtual addresses.
+  *
+- * There are ioremap_*() call variants, if you have no IOMMU we naturally will
+- * default to direct mapping for all of them, you can override these defaults.
+- * If you have an IOMMU you are highly encouraged to provide your own
+- * ioremap variant implementation as there currently is no safe architecture
+- * agnostic default. To avoid possible improper behaviour default asm-generic
+- * ioremap_*() variants all return NULL when an IOMMU is available. If you've
+- * defined your own ioremap_*() variant you must then declare your own
+- * ioremap_*() variant as defined to itself to avoid the default NULL return.
++ * ioremap_wc() and ioremap_wt() can provide more relaxed caching attributes
++ * for specific drivers if the architecture choses to implement them.  If they
++ * are not implemented we fall back to plain ioremap.
+  */
+ #ifndef CONFIG_MMU
+-
+-/*
+- * Change "struct page" to physical address.
+- *
+- * This implementation is for the no-MMU case only... if you have an MMU
+- * you'll need to provide your own definitions.
+- */
+-
+ #ifndef ioremap
+ #define ioremap ioremap
+ static inline void __iomem *ioremap(phys_addr_t offset, size_t size)
+@@ -954,14 +942,13 @@ static inline void __iomem *ioremap(phys_addr_t offset, size_t size)
+ 
+ #ifndef iounmap
+ #define iounmap iounmap
+-
+ static inline void iounmap(void __iomem *addr)
+ {
+ }
+ #endif
+ #endif /* CONFIG_MMU */
++
+ #ifndef ioremap_nocache
+-void __iomem *ioremap(phys_addr_t phys_addr, size_t size);
+ #define ioremap_nocache ioremap_nocache
+ static inline void __iomem *ioremap_nocache(phys_addr_t offset, size_t size)
+ {
+-- 
+2.20.1
