@@ -1,158 +1,75 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Wed, 07 Aug 2019 13:30:41 +0000
-Subject: [PATCH 21/29] ia64: remove the SGI UV simulator support
-Message-Id: <20190807133049.20893-22-hch@lst.de>
+Date: Sat, 17 Aug 2019 07:32:47 +0000
+Subject: [PATCH 20/26] hexagon: remove __iounmap
+Message-Id: <20190817073253.27819-21-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190807133049.20893-1-hch@lst.de>
-In-Reply-To: <20190807133049.20893-1-hch@lst.de>
+References: <20190817073253.27819-1-hch@lst.de>
+In-Reply-To: <20190817073253.27819-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
-Cc: Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>, Guo Ren <guoren@kernel.org>, Michal Simek <monstr@monstr.eu>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, x86@kernel.org
+Cc: linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, nios2-dev@lists.rocketboards.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-mtd@lists.infradead.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
 
-The simulator support was marked as temporary since the initial commit,
-so drop it more than 10 years later.
+No need to indirect iounmap for hexagon.
 
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- arch/ia64/include/asm/sn/simulator.h | 25 ----------------------
- arch/ia64/include/asm/sn/sn_sal.h    | 10 ---------
- arch/ia64/include/asm/uv/uv.h        |  4 +---
- arch/ia64/uv/kernel/setup.c          | 31 +++++-----------------------
- 4 files changed, 6 insertions(+), 64 deletions(-)
- delete mode 100644 arch/ia64/include/asm/sn/simulator.h
+ arch/hexagon/include/asm/io.h       | 7 +------
+ arch/hexagon/kernel/hexagon_ksyms.c | 2 +-
+ arch/hexagon/mm/ioremap.c           | 2 +-
+ 3 files changed, 3 insertions(+), 8 deletions(-)
 
-diff --git a/arch/ia64/include/asm/sn/simulator.h b/arch/ia64/include/asm/sn/simulator.h
-deleted file mode 100644
-index 3e4557df3b7c..000000000000
---- a/arch/ia64/include/asm/sn/simulator.h
-+++ /dev/null
-@@ -1,25 +0,0 @@
--/*
-- * This file is subject to the terms and conditions of the GNU General Public
-- * License.  See the file "COPYING" in the main directory of this archive
-- * for more details.
-- * Copyright (C) 2000-2004 Silicon Graphics, Inc. All rights reserved.
-- */
--
--#ifndef _ASM_IA64_SN_SIMULATOR_H
--#define _ASM_IA64_SN_SIMULATOR_H
--
--#if defined(CONFIG_IA64_GENERIC) || defined(CONFIG_IA64_SGI_UV)
--#define SNMAGIC 0xaeeeeeee8badbeefL
--#define IS_MEDUSA()			({long sn; asm("mov %0=cpuid[%1]" : "=r"(sn) : "r"(2)); sn = SNMAGIC;})
--
--#define SIMULATOR_SLEEP()		asm("nop.i 0x8beef")
--#define IS_RUNNING_ON_SIMULATOR()	(sn_prom_type)
--#define IS_RUNNING_ON_FAKE_PROM()	(sn_prom_type = 2)
--extern int sn_prom_type;		/* 0=hardware, 1=medusa/realprom, 2=medusa/fakeprom */
--#else
--#define IS_MEDUSA()			0
--#define SIMULATOR_SLEEP()
--#define IS_RUNNING_ON_SIMULATOR()	0
--#endif
--
--#endif /* _ASM_IA64_SN_SIMULATOR_H */
-diff --git a/arch/ia64/include/asm/sn/sn_sal.h b/arch/ia64/include/asm/sn/sn_sal.h
-index 48b88d0807db..d437aa43343b 100644
---- a/arch/ia64/include/asm/sn/sn_sal.h
-+++ b/arch/ia64/include/asm/sn/sn_sal.h
-@@ -30,8 +30,6 @@
- #define SALRET_INVALID_ARG	(-2)
- #define SALRET_ERROR		(-3)
+diff --git a/arch/hexagon/include/asm/io.h b/arch/hexagon/include/asm/io.h
+index 89537dc1cf97..539e3efcf39c 100644
+--- a/arch/hexagon/include/asm/io.h
++++ b/arch/hexagon/include/asm/io.h
+@@ -27,7 +27,7 @@
+ extern int remap_area_pages(unsigned long start, unsigned long phys_addr,
+ 				unsigned long end, unsigned long flags);
  
--#define SN_SAL_FAKE_PROM			   0x02009999
--
- /*
-  * Returns the physical address of the partition's reserved page through
-  * an iterative number of calls.
-@@ -81,14 +79,6 @@ sn_change_memprotect(u64 paddr, u64 len, u64 perms, u64 *nasid_array)
- #define SN_MEMPROT_ACCESS_CLASS_6		0x084080
- #define SN_MEMPROT_ACCESS_CLASS_7		0x021080
+-extern void __iounmap(const volatile void __iomem *addr);
++extern void iounmap(const volatile void __iomem *addr);
  
--static inline int
--ia64_sn_is_fake_prom(void)
+ /* Defined in lib/io.c, needed for smc91x driver. */
+ extern void __raw_readsw(const void __iomem *addr, void *data, int wordlen);
+@@ -175,11 +175,6 @@ void __iomem *ioremap(unsigned long phys_addr, unsigned long size);
+ #define ioremap_nocache ioremap
+ 
+ 
+-static inline void iounmap(volatile void __iomem *addr)
 -{
--	struct ia64_sal_retval rv;
--	SAL_CALL_NOLOCK(rv, SN_SAL_FAKE_PROM, 0, 0, 0, 0, 0, 0, 0);
--	return (rv.status = 0);
+-	__iounmap(addr);
 -}
 -
- union sn_watchlist_u {
- 	u64     val;
- 	struct {
-diff --git a/arch/ia64/include/asm/uv/uv.h b/arch/ia64/include/asm/uv/uv.h
-index 71df93ee3bc0..502cf1c56369 100644
---- a/arch/ia64/include/asm/uv/uv.h
-+++ b/arch/ia64/include/asm/uv/uv.h
-@@ -2,12 +2,10 @@
- #ifndef _ASM_IA64_UV_UV_H
- #define _ASM_IA64_UV_UV_H
+ #define __raw_writel writel
  
--#include <asm/sn/simulator.h>
--
- static inline int is_uv_system(void)
- {
- 	/* temporary support for running on hardware simulator */
--	return IS_MEDUSA() || ia64_platform_is("uv");
-+	return ia64_platform_is("uv");
+ static inline void memcpy_fromio(void *dst, const volatile void __iomem *src,
+diff --git a/arch/hexagon/kernel/hexagon_ksyms.c b/arch/hexagon/kernel/hexagon_ksyms.c
+index b3dbb472572e..6fb1aaab1c29 100644
+--- a/arch/hexagon/kernel/hexagon_ksyms.c
++++ b/arch/hexagon/kernel/hexagon_ksyms.c
+@@ -14,7 +14,7 @@
+ EXPORT_SYMBOL(__clear_user_hexagon);
+ EXPORT_SYMBOL(raw_copy_from_user);
+ EXPORT_SYMBOL(raw_copy_to_user);
+-EXPORT_SYMBOL(__iounmap);
++EXPORT_SYMBOL(iounmap);
+ EXPORT_SYMBOL(__strnlen_user);
+ EXPORT_SYMBOL(__vmgetie);
+ EXPORT_SYMBOL(__vmsetie);
+diff --git a/arch/hexagon/mm/ioremap.c b/arch/hexagon/mm/ioremap.c
+index b103d83b5fbb..255c5b1ee1a7 100644
+--- a/arch/hexagon/mm/ioremap.c
++++ b/arch/hexagon/mm/ioremap.c
+@@ -38,7 +38,7 @@ void __iomem *ioremap(unsigned long phys_addr, unsigned long size)
+ 	return (void __iomem *) (offset + addr);
  }
  
- #endif	/* _ASM_IA64_UV_UV_H */
-diff --git a/arch/ia64/uv/kernel/setup.c b/arch/ia64/uv/kernel/setup.c
-index 11478d2d863d..6ac4bd314d92 100644
---- a/arch/ia64/uv/kernel/setup.c
-+++ b/arch/ia64/uv/kernel/setup.c
-@@ -10,14 +10,12 @@
- 
- #include <linux/module.h>
- #include <linux/percpu.h>
--#include <asm/sn/simulator.h>
- #include <asm/uv/uv_mmrs.h>
- #include <asm/uv/uv_hub.h>
- 
- DEFINE_PER_CPU(struct uv_hub_info_s, __uv_hub_info);
- EXPORT_PER_CPU_SYMBOL_GPL(__uv_hub_info);
- 
--int sn_prom_type;
- long sn_coherency_id;
- EXPORT_SYMBOL_GPL(sn_coherency_id);
- 
-@@ -60,30 +58,11 @@ void __init uv_setup(char **cmdline_p)
- 	int nid, cpu, m_val, n_val;
- 	unsigned long mmr_base, lowmem_redir_base, lowmem_redir_size;
- 
--	if (IS_MEDUSA()) {
--		lowmem_redir_base = 0;
--		lowmem_redir_size = 0;
--		node_id.v = 0;
--		m_n_config.s.m_skt = 37;
--		m_n_config.s.n_skt = 0;
--		mmr_base = 0;
--#if 0
--		/* Need BIOS calls - TDB */
--		if (!ia64_sn_is_fake_prom())
--			sn_prom_type = 1;
--		else
--#endif
--			sn_prom_type = 2;
--		printk(KERN_INFO "Running on medusa with %s PROM\n",
--					(sn_prom_type = 1) ? "real" : "fake");
--	} else {
--		get_lowmem_redirect(&lowmem_redir_base, &lowmem_redir_size);
--		node_id.v = uv_read_local_mmr(UVH_NODE_ID);
--		m_n_config.v = uv_read_local_mmr(UVH_SI_ADDR_MAP_CONFIG);
--		mmr_base -			uv_read_local_mmr(UVH_RH_GAM_MMR_OVERLAY_CONFIG_MMR) &
--				~UV_MMR_ENABLE;
--	}
-+	get_lowmem_redirect(&lowmem_redir_base, &lowmem_redir_size);
-+	node_id.v = uv_read_local_mmr(UVH_NODE_ID);
-+	m_n_config.v = uv_read_local_mmr(UVH_SI_ADDR_MAP_CONFIG);
-+	mmr_base = uv_read_local_mmr(UVH_RH_GAM_MMR_OVERLAY_CONFIG_MMR) &
-+			~UV_MMR_ENABLE;
- 
- 	m_val = m_n_config.s.m_skt;
- 	n_val = m_n_config.s.n_skt;
+-void __iounmap(const volatile void __iomem *addr)
++void iounmap(const volatile void __iomem *addr)
+ {
+ 	vunmap((void *) ((unsigned long) addr & PAGE_MASK));
+ }
 -- 
 2.20.1
