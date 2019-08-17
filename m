@@ -1,92 +1,63 @@
-From: "Vaden, Tom (HPE Server OS Architecture)" <tom.vaden@hpe.com>
-Date: Tue, 13 Aug 2019 21:07:12 +0000
-Subject: Re: [PATCH 18/28] ia64: remove CONFIG_PCI ifdefs
-Message-Id: <69070d1b-9353-0ae7-e16f-d3feb84bd2a6@hpe.com>
+From: Christoph Hellwig <hch@lst.de>
+Date: Sat, 17 Aug 2019 07:32:46 +0000
+Subject: [PATCH 19/26] arm64: remove __iounmap
+Message-Id: <20190817073253.27819-20-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190813072514.23299-1-hch@lst.de>
- <20190813072514.23299-19-hch@lst.de>
-In-Reply-To: <20190813072514.23299-19-hch@lst.de>
+References: <20190817073253.27819-1-hch@lst.de>
+In-Reply-To: <20190817073253.27819-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch@lst.de>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "Travis, Mike" <mike.travis@hpe.com>, "Sivanich, Dimitri" <dimitri.sivanich@hpe.com>
-Cc: Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-ide@vger.kernel.org" <linux-ide@vger.kernel.org>, "linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>, Guo Ren <guoren@kernel.org>, Michal Simek <monstr@monstr.eu>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, x86@kernel.org
+Cc: linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, nios2-dev@lists.rocketboards.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-mtd@lists.infradead.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
 
-DQoNCk9uIDgvMTMvMTkgMzoyNSBBTSwgQ2hyaXN0b3BoIEhlbGx3aWcgd3JvdGU6DQo+IE5vdyB0
-aGF0IGhwc2ltIHN1cHBvcnQgaXMgZ29uZSwgQ09ORklHX1BDSSBpcyBmb3JjZWQgb24gZm9yIGlh
-NjQsIGFuZA0KPiB3ZSBjYW4gcmVtb3ZlIGEgZmV3IGlmZGVmcyBmb3IgaXQuDQo+IA0KPiBTaWdu
-ZWQtb2ZmLWJ5OiBDaHJpc3RvcGggSGVsbHdpZyA8aGNoQGxzdC5kZT4NCg0KT2theSB0byByZW1v
-dmUgaHBzaW0gc3VwcG9ydA0KQWNrZWQtYnk6IFRvbSBWYWRlbiA8dG9tLnZhZGVuQGhwZS5jb20+
-DQoNCj4gLS0tDQo+ICAgYXJjaC9pYTY0L01ha2VmaWxlICAgICAgICAgICAgICB8ICAyICstDQo+
-ICAgYXJjaC9pYTY0L2hwL2NvbW1vbi9zYmFfaW9tbXUuYyB8IDEwICstLS0tLS0tLS0NCj4gICBh
-cmNoL2lhNjQvaW5jbHVkZS9hc20vZG1hLmggICAgIHwgIDYgKy0tLS0tDQo+ICAgYXJjaC9pYTY0
-L2tlcm5lbC9zeXNfaWE2NC5jICAgICB8IDE4IC0tLS0tLS0tLS0tLS0tLS0tLQ0KPiAgIGFyY2gv
-aWE2NC9tbS9pbml0LmMgICAgICAgICAgICAgfCAgMiAtLQ0KPiAgIDUgZmlsZXMgY2hhbmdlZCwg
-MyBpbnNlcnRpb25zKCspLCAzNSBkZWxldGlvbnMoLSkNCj4gDQo+IGRpZmYgLS1naXQgYS9hcmNo
-L2lhNjQvTWFrZWZpbGUgYi9hcmNoL2lhNjQvTWFrZWZpbGUNCj4gaW5kZXggOGI4NjZmYzFmOWNi
-Li5jMDY4MDI3OTk2NTkgMTAwNjQ0DQo+IC0tLSBhL2FyY2gvaWE2NC9NYWtlZmlsZQ0KPiArKysg
-Yi9hcmNoL2lhNjQvTWFrZWZpbGUNCj4gQEAgLTU3LDcgKzU3LDcgQEAgY29yZS0kKENPTkZJR19J
-QTY0X0hQX1pYMSkJKz0gYXJjaC9pYTY0L2RpZy8NCj4gICBjb3JlLSQoQ09ORklHX0lBNjRfSFBf
-WlgxX1NXSU9UTEIpICs9IGFyY2gvaWE2NC9kaWcvDQo+ICAgY29yZS0kKENPTkZJR19JQTY0X1NH
-SV9VVikJKz0gYXJjaC9pYTY0L3V2Lw0KPiAgIA0KPiAtZHJpdmVycy0kKENPTkZJR19QQ0kpCQkr
-PSBhcmNoL2lhNjQvcGNpLw0KPiArZHJpdmVycy15CQkJKz0gYXJjaC9pYTY0L3BjaS8NCj4gICBk
-cml2ZXJzLSQoQ09ORklHX0lBNjRfSFBfWlgxKQkrPSBhcmNoL2lhNjQvaHAvY29tbW9uLyBhcmNo
-L2lhNjQvaHAvengxLw0KPiAgIGRyaXZlcnMtJChDT05GSUdfSUE2NF9IUF9aWDFfU1dJT1RMQikg
-Kz0gYXJjaC9pYTY0L2hwL2NvbW1vbi8gYXJjaC9pYTY0L2hwL3p4MS8NCj4gICBkcml2ZXJzLSQo
-Q09ORklHX0lBNjRfR0VORVJJQykJKz0gYXJjaC9pYTY0L2hwL2NvbW1vbi8gYXJjaC9pYTY0L2hw
-L3p4MS8gYXJjaC9pYTY0L3V2Lw0KPiBkaWZmIC0tZ2l0IGEvYXJjaC9pYTY0L2hwL2NvbW1vbi9z
-YmFfaW9tbXUuYyBiL2FyY2gvaWE2NC9ocC9jb21tb24vc2JhX2lvbW11LmMNCj4gaW5kZXggM2Qy
-NGNjNDMzODViLi4xODMyMWNlOGJmYTAgMTAwNjQ0DQo+IC0tLSBhL2FyY2gvaWE2NC9ocC9jb21t
-b24vc2JhX2lvbW11LmMNCj4gKysrIGIvYXJjaC9pYTY0L2hwL2NvbW1vbi9zYmFfaW9tbXUuYw0K
-PiBAQCAtMjUxLDEyICsyNTEsOCBAQCBzdGF0aWMgU0JBX0lOTElORSB2b2lkIHNiYV9mcmVlX3Jh
-bmdlKHN0cnVjdCBpb2MgKiwgZG1hX2FkZHJfdCwgc2l6ZV90KTsNCj4gICBzdGF0aWMgdTY0IHBy
-ZWZldGNoX3NwaWxsX3BhZ2U7DQo+ICAgI2VuZGlmDQo+ICAgDQo+IC0jaWZkZWYgQ09ORklHX1BD
-SQ0KPiAtIyBkZWZpbmUgR0VUX0lPQyhkZXYpCSgoZGV2X2lzX3BjaShkZXYpKQkJCQkJCVwNCj4g
-KyNkZWZpbmUgR0VUX0lPQyhkZXYpCSgoZGV2X2lzX3BjaShkZXYpKQkJCQkJCVwNCj4gICAJCQkg
-PyAoKHN0cnVjdCBpb2MgKikgUENJX0NPTlRST0xMRVIodG9fcGNpX2RldihkZXYpKS0+aW9tbXUp
-IDogTlVMTCkNCj4gLSNlbHNlDQo+IC0jIGRlZmluZSBHRVRfSU9DKGRldikJTlVMTA0KPiAtI2Vu
-ZGlmDQo+ICAgDQo+ICAgLyoNCj4gICAqKiBETUFfQ0hVTktfU0laRSBpcyB1c2VkIGJ5IHRoZSBT
-Q1NJIG1pZC1sYXllciB0byBicmVhayB1cA0KPiBAQCAtMTc0MSw5ICsxNzM3LDcgQEAgaW9jX3Nh
-Y19pbml0KHN0cnVjdCBpb2MgKmlvYykNCj4gICAJY29udHJvbGxlci0+aW9tbXUgPSBpb2M7DQo+
-ICAgCXNhYy0+c3lzZGF0YSA9IGNvbnRyb2xsZXI7DQo+ICAgCXNhYy0+ZG1hX21hc2sgPSAweEZG
-RkZGRkZGVUw7DQo+IC0jaWZkZWYgQ09ORklHX1BDSQ0KPiAgIAlzYWMtPmRldi5idXMgPSAmcGNp
-X2J1c190eXBlOw0KPiAtI2VuZGlmDQo+ICAgCWlvYy0+c2FjX29ubHlfZGV2ID0gc2FjOw0KPiAg
-IH0NCj4gICANCj4gQEAgLTIxMjEsMTMgKzIxMTUsMTEgQEAgc2JhX2luaXQodm9pZCkNCj4gICAJ
-fQ0KPiAgICNlbmRpZg0KPiAgIA0KPiAtI2lmZGVmIENPTkZJR19QQ0kNCj4gICAJew0KPiAgIAkJ
-c3RydWN0IHBjaV9idXMgKmIgPSBOVUxMOw0KPiAgIAkJd2hpbGUgKChiID0gcGNpX2ZpbmRfbmV4
-dF9idXMoYikpICE9IE5VTEwpDQo+ICAgCQkJc2JhX2Nvbm5lY3RfYnVzKGIpOw0KPiAgIAl9DQo+
-IC0jZW5kaWYNCj4gICANCj4gICAjaWZkZWYgQ09ORklHX1BST0NfRlMNCj4gICAJaW9jX3Byb2Nf
-aW5pdCgpOw0KPiBkaWZmIC0tZ2l0IGEvYXJjaC9pYTY0L2luY2x1ZGUvYXNtL2RtYS5oIGIvYXJj
-aC9pYTY0L2luY2x1ZGUvYXNtL2RtYS5oDQo+IGluZGV4IDIzNjA0ZDZhMmNiMi4uNTk2MjVlOWMx
-ZjljIDEwMDY0NA0KPiAtLS0gYS9hcmNoL2lhNjQvaW5jbHVkZS9hc20vZG1hLmgNCj4gKysrIGIv
-YXJjaC9pYTY0L2luY2x1ZGUvYXNtL2RtYS5oDQo+IEBAIC0xMiwxMSArMTIsNyBAQA0KPiAgIA0K
-PiAgIGV4dGVybiB1bnNpZ25lZCBsb25nIE1BWF9ETUFfQUREUkVTUzsNCj4gICANCj4gLSNpZmRl
-ZiBDT05GSUdfUENJDQo+IC0gIGV4dGVybiBpbnQgaXNhX2RtYV9icmlkZ2VfYnVnZ3k7DQo+IC0j
-ZWxzZQ0KPiAtIyBkZWZpbmUgaXNhX2RtYV9icmlkZ2VfYnVnZ3kgCSgwKQ0KPiAtI2VuZGlmDQo+
-ICtleHRlcm4gaW50IGlzYV9kbWFfYnJpZGdlX2J1Z2d5Ow0KPiAgIA0KPiAgICNkZWZpbmUgZnJl
-ZV9kbWEoeCkNCj4gICANCj4gZGlmZiAtLWdpdCBhL2FyY2gvaWE2NC9rZXJuZWwvc3lzX2lhNjQu
-YyBiL2FyY2gvaWE2NC9rZXJuZWwvc3lzX2lhNjQuYw0KPiBpbmRleCA5ZWJlMWQ2MzNhYmMuLmUx
-NGRiMjUxNDZjMiAxMDA2NDQNCj4gLS0tIGEvYXJjaC9pYTY0L2tlcm5lbC9zeXNfaWE2NC5jDQo+
-ICsrKyBiL2FyY2gvaWE2NC9rZXJuZWwvc3lzX2lhNjQuYw0KPiBAQCAtMTY2LDIxICsxNjYsMyBA
-QCBpYTY0X21yZW1hcCAodW5zaWduZWQgbG9uZyBhZGRyLCB1bnNpZ25lZCBsb25nIG9sZF9sZW4s
-IHVuc2lnbmVkIGxvbmcgbmV3X2xlbiwgdQ0KPiAgIAkJZm9yY2Vfc3VjY2Vzc2Z1bF9zeXNjYWxs
-X3JldHVybigpOw0KPiAgIAlyZXR1cm4gYWRkcjsNCj4gICB9DQo+IC0NCj4gLSNpZm5kZWYgQ09O
-RklHX1BDSQ0KPiAtDQo+IC1hc21saW5rYWdlIGxvbmcNCj4gLXN5c19wY2ljb25maWdfcmVhZCAo
-dW5zaWduZWQgbG9uZyBidXMsIHVuc2lnbmVkIGxvbmcgZGZuLCB1bnNpZ25lZCBsb25nIG9mZiwg
-dW5zaWduZWQgbG9uZyBsZW4sDQo+IC0JCSAgICB2b2lkICpidWYpDQo+IC17DQo+IC0JcmV0dXJu
-IC1FTk9TWVM7DQo+IC19DQo+IC0NCj4gLWFzbWxpbmthZ2UgbG9uZw0KPiAtc3lzX3BjaWNvbmZp
-Z193cml0ZSAodW5zaWduZWQgbG9uZyBidXMsIHVuc2lnbmVkIGxvbmcgZGZuLCB1bnNpZ25lZCBs
-b25nIG9mZiwgdW5zaWduZWQgbG9uZyBsZW4sDQo+IC0JCSAgICAgdm9pZCAqYnVmKQ0KPiAtew0K
-PiAtCXJldHVybiAtRU5PU1lTOw0KPiAtfQ0KPiAtDQo+IC0jZW5kaWYgLyogQ09ORklHX1BDSSAq
-Lw0KPiBkaWZmIC0tZ2l0IGEvYXJjaC9pYTY0L21tL2luaXQuYyBiL2FyY2gvaWE2NC9tbS9pbml0
-LmMNCj4gaW5kZXggYWFlNzVmZDdiODEwLi45YTRhMTY0Mzk5MDAgMTAwNjQ0DQo+IC0tLSBhL2Fy
-Y2gvaWE2NC9tbS9pbml0LmMNCj4gKysrIGIvYXJjaC9pYTY0L21tL2luaXQuYw0KPiBAQCAtNjMy
-LDE0ICs2MzIsMTIgQEAgbWVtX2luaXQgKHZvaWQpDQo+ICAgCUJVR19PTihQVFJTX1BFUl9QTUQg
-KiBzaXplb2YocG1kX3QpICE9IFBBR0VfU0laRSk7DQo+ICAgCUJVR19PTihQVFJTX1BFUl9QVEUg
-KiBzaXplb2YocHRlX3QpICE9IFBBR0VfU0laRSk7DQo+ICAgDQo+IC0jaWZkZWYgQ09ORklHX1BD
-SQ0KPiAgIAkvKg0KPiAgIAkgKiBUaGlzIG5lZWRzIHRvIGJlIGNhbGxlZCBfYWZ0ZXJfIHRoZSBj
-b21tYW5kIGxpbmUgaGFzIGJlZW4gcGFyc2VkIGJ1dCBfYmVmb3JlXw0KPiAgIAkgKiBhbnkgZHJp
-dmVycyB0aGF0IG1heSBuZWVkIHRoZSBQQ0kgRE1BIGludGVyZmFjZSBhcmUgaW5pdGlhbGl6ZWQg
-b3IgYm9vdG1lbSBoYXMNCj4gICAJICogYmVlbiBmcmVlZC4NCj4gICAJICovDQo+ICAgCXBsYXRm
-b3JtX2RtYV9pbml0KCk7DQo+IC0jZW5kaWYNCj4gICANCj4gICAjaWZkZWYgQ09ORklHX0ZMQVRN
-RU0NCj4gICAJQlVHX09OKCFtZW1fbWFwKTsNCj4gDQo
+No need to indirect iounmap for arm64.
+
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ arch/arm64/include/asm/io.h | 3 +--
+ arch/arm64/mm/ioremap.c     | 4 ++--
+ 2 files changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/arch/arm64/include/asm/io.h b/arch/arm64/include/asm/io.h
+index a61b1469f7d9..1bf5631671c3 100644
+--- a/arch/arm64/include/asm/io.h
++++ b/arch/arm64/include/asm/io.h
+@@ -165,12 +165,11 @@ extern void __memset_io(volatile void __iomem *, int, size_t);
+  * I/O memory mapping functions.
+  */
+ extern void __iomem *__ioremap(phys_addr_t phys_addr, size_t size, pgprot_t prot);
+-extern void __iounmap(volatile void __iomem *addr);
++extern void iounmap(volatile void __iomem *addr);
+ extern void __iomem *ioremap_cache(phys_addr_t phys_addr, size_t size);
+ 
+ #define ioremap(addr, size)		__ioremap((addr), (size), __pgprot(PROT_DEVICE_nGnRE))
+ #define ioremap_wc(addr, size)		__ioremap((addr), (size), __pgprot(PROT_NORMAL_NC))
+-#define iounmap				__iounmap
+ 
+ /*
+  * PCI configuration space mapping function.
+diff --git a/arch/arm64/mm/ioremap.c b/arch/arm64/mm/ioremap.c
+index fdb595a5d65f..9be71bee902c 100644
+--- a/arch/arm64/mm/ioremap.c
++++ b/arch/arm64/mm/ioremap.c
+@@ -69,7 +69,7 @@ void __iomem *__ioremap(phys_addr_t phys_addr, size_t size, pgprot_t prot)
+ }
+ EXPORT_SYMBOL(__ioremap);
+ 
+-void __iounmap(volatile void __iomem *io_addr)
++void iounmap(volatile void __iomem *io_addr)
+ {
+ 	unsigned long addr = (unsigned long)io_addr & PAGE_MASK;
+ 
+@@ -80,7 +80,7 @@ void __iounmap(volatile void __iomem *io_addr)
+ 	if (is_vmalloc_addr((void *)addr))
+ 		vunmap((void *)addr);
+ }
+-EXPORT_SYMBOL(__iounmap);
++EXPORT_SYMBOL(iounmap);
+ 
+ void __iomem *ioremap_cache(phys_addr_t phys_addr, size_t size)
+ {
+-- 
+2.20.1
