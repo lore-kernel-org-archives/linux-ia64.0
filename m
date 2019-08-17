@@ -1,108 +1,140 @@
-From: Chuhong Yuan <hslester96@gmail.com>
-Date: Mon, 05 Aug 2019 07:27:09 +0000
-Subject: [PATCH 2/2] ia64: Replace strncmp with str_has_prefix
-Message-Id: <20190805072709.345-1-hslester96@gmail.com>
+From: Christoph Hellwig <hch@lst.de>
+Date: Sat, 17 Aug 2019 07:32:29 +0000
+Subject: [PATCH 02/26] arm, unicore32: remove ioremap_cached
+Message-Id: <20190817073253.27819-3-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20190817073253.27819-1-hch@lst.de>
+In-Reply-To: <20190817073253.27819-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: 
-Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-efi@vger.kernel.org, Chuhong Yuan <hslester96@gmail.com>
+To: Arnd Bergmann <arnd@arndb.de>, Guo Ren <guoren@kernel.org>, Michal Simek <monstr@monstr.eu>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, x86@kernel.org
+Cc: linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-sh@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-mips@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, openrisc@lists.librecores.org, linux-mtd@lists.infradead.org, linux-alpha@vger.kernel.org, sparclinux@vger.kernel.org, nios2-dev@lists.rocketboards.org, linux-riscv@lists.infradead.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org
 
-strncmp(str, const, len) is error-prone since the len is
-easy to be wrong because of counting error or sizeof(const)
-without - 1.
+No users of ioremap_cached are left, remove it.
 
-Use the newly introduced str_has_prefix() to substitute
-it to make code better.
-
-Signed-off-by: Chuhong Yuan <hslester96@gmail.com>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- arch/ia64/kernel/acpi.c | 9 ++++-----
- arch/ia64/kernel/efi.c  | 2 +-
- arch/ia64/kernel/esi.c  | 2 +-
- arch/ia64/kernel/sal.c  | 2 +-
- 4 files changed, 7 insertions(+), 8 deletions(-)
+ arch/arm/include/asm/io.h       | 6 ------
+ arch/arm/mm/ioremap.c           | 4 ----
+ arch/arm/mm/mmu.c               | 2 +-
+ arch/arm/mm/nommu.c             | 4 ----
+ arch/unicore32/include/asm/io.h | 4 +---
+ arch/unicore32/mm/ioremap.c     | 8 --------
+ 6 files changed, 2 insertions(+), 26 deletions(-)
 
-diff --git a/arch/ia64/kernel/acpi.c b/arch/ia64/kernel/acpi.c
-index c597ab5275b8..f01e6fb2f962 100644
---- a/arch/ia64/kernel/acpi.c
-+++ b/arch/ia64/kernel/acpi.c
-@@ -77,7 +77,7 @@ acpi_get_sysname(void)
- 	}
+diff --git a/arch/arm/include/asm/io.h b/arch/arm/include/asm/io.h
+index 7a0596fcb2e7..924f9dd502ed 100644
+--- a/arch/arm/include/asm/io.h
++++ b/arch/arm/include/asm/io.h
+@@ -400,12 +400,6 @@ void __iomem *ioremap(resource_size_t res_cookie, size_t size);
+ void __iomem *ioremap_cache(resource_size_t res_cookie, size_t size);
+ #define ioremap_cache ioremap_cache
  
- 	rsdp = (struct acpi_table_rsdp *)__va(rsdp_phys);
--	if (strncmp(rsdp->signature, ACPI_SIG_RSDP, sizeof(ACPI_SIG_RSDP) - 1)) {
-+	if (!str_has_prefix(rsdp->signature, ACPI_SIG_RSDP)) {
- 		printk(KERN_ERR
- 		       "ACPI 2.0 RSDP signature incorrect, default to \"dig\"\n");
- 		return "dig";
-@@ -85,7 +85,7 @@ acpi_get_sysname(void)
+-/*
+- * Do not use ioremap_cached in new code. Provided for the benefit of
+- * the pxa2xx-flash MTD driver only.
+- */
+-void __iomem *ioremap_cached(resource_size_t res_cookie, size_t size);
+-
+ void __iomem *ioremap_wc(resource_size_t res_cookie, size_t size);
+ #define ioremap_wc ioremap_wc
+ #define ioremap_wt ioremap_wc
+diff --git a/arch/arm/mm/ioremap.c b/arch/arm/mm/ioremap.c
+index d42b93316183..72286f9a4d30 100644
+--- a/arch/arm/mm/ioremap.c
++++ b/arch/arm/mm/ioremap.c
+@@ -382,15 +382,11 @@ void __iomem *ioremap(resource_size_t res_cookie, size_t size)
+ EXPORT_SYMBOL(ioremap);
  
- 	xsdt = (struct acpi_table_xsdt *)__va(rsdp->xsdt_physical_address);
- 	hdr = &xsdt->header;
--	if (strncmp(hdr->signature, ACPI_SIG_XSDT, sizeof(ACPI_SIG_XSDT) - 1)) {
-+	if (!str_has_prefix(hdr->signature, ACPI_SIG_XSDT)) {
- 		printk(KERN_ERR
- 		       "ACPI 2.0 XSDT signature incorrect, default to \"dig\"\n");
- 		return "dig";
-@@ -106,8 +106,7 @@ acpi_get_sysname(void)
- 			 sizeof(xsdt->table_offset_entry[0]);
- 	for (i = 0; i < nentries; i++) {
- 		hdr = __va(xsdt->table_offset_entry[i]);
--		if (strncmp(hdr->signature, ACPI_SIG_DMAR,
--			sizeof(ACPI_SIG_DMAR) - 1) = 0)
-+		if (str_has_prefix(hdr->signature, ACPI_SIG_DMAR))
- 			return "dig_vtd";
- 	}
- #endif
-@@ -348,7 +347,7 @@ acpi_parse_nmi_src(union acpi_subtable_headers * header, const unsigned long end
- 
- static void __init acpi_madt_oem_check(char *oem_id, char *oem_table_id)
+ void __iomem *ioremap_cache(resource_size_t res_cookie, size_t size)
+-	__alias(ioremap_cached);
+-
+-void __iomem *ioremap_cached(resource_size_t res_cookie, size_t size)
  {
--	if (!strncmp(oem_id, "IBM", 3) && (!strncmp(oem_table_id, "SERMOW", 6))) {
-+	if (str_has_prefix(oem_id, "IBM") && (str_has_prefix(oem_table_id, "SERMOW"))) {
+ 	return arch_ioremap_caller(res_cookie, size, MT_DEVICE_CACHED,
+ 				   __builtin_return_address(0));
+ }
+ EXPORT_SYMBOL(ioremap_cache);
+-EXPORT_SYMBOL(ioremap_cached);
  
- 		/*
- 		 * Unfortunately ITC_DRIFT is not yet part of the
-diff --git a/arch/ia64/kernel/efi.c b/arch/ia64/kernel/efi.c
-index 3795d18276c4..615e73bd88fd 100644
---- a/arch/ia64/kernel/efi.c
-+++ b/arch/ia64/kernel/efi.c
-@@ -434,7 +434,7 @@ static void __init handle_palo(unsigned long phys_addr)
- 	struct palo_table *palo = __va(phys_addr);
- 	u8  checksum;
+ void __iomem *ioremap_wc(resource_size_t res_cookie, size_t size)
+ {
+diff --git a/arch/arm/mm/mmu.c b/arch/arm/mm/mmu.c
+index d9a0038774a6..ed08afc3f5e5 100644
+--- a/arch/arm/mm/mmu.c
++++ b/arch/arm/mm/mmu.c
+@@ -259,7 +259,7 @@ static struct mem_type mem_types[] __ro_after_init = {
+ 		.prot_sect	= PROT_SECT_DEVICE,
+ 		.domain		= DOMAIN_IO,
+ 	},
+-	[MT_DEVICE_CACHED] = {	  /* ioremap_cached */
++	[MT_DEVICE_CACHED] = {	  /* ioremap_cache */
+ 		.prot_pte	= PROT_PTE_DEVICE | L_PTE_MT_DEV_CACHED,
+ 		.prot_l1	= PMD_TYPE_TABLE,
+ 		.prot_sect	= PROT_SECT_DEVICE | PMD_SECT_WB,
+diff --git a/arch/arm/mm/nommu.c b/arch/arm/mm/nommu.c
+index 24ecf8d30a1e..8b3d7191e2b8 100644
+--- a/arch/arm/mm/nommu.c
++++ b/arch/arm/mm/nommu.c
+@@ -206,15 +206,11 @@ void __iomem *ioremap(resource_size_t res_cookie, size_t size)
+ EXPORT_SYMBOL(ioremap);
  
--	if (strncmp(palo->signature, PALO_SIG, sizeof(PALO_SIG) - 1)) {
-+	if (!str_has_prefix(palo->signature, PALO_SIG)) {
- 		printk(KERN_INFO "PALO signature incorrect.\n");
- 		return;
- 	}
-diff --git a/arch/ia64/kernel/esi.c b/arch/ia64/kernel/esi.c
-index cb514126ef7f..d929689a99e4 100644
---- a/arch/ia64/kernel/esi.c
-+++ b/arch/ia64/kernel/esi.c
-@@ -70,7 +70,7 @@ static int __init esi_init (void)
+ void __iomem *ioremap_cache(resource_size_t res_cookie, size_t size)
+-	__alias(ioremap_cached);
+-
+-void __iomem *ioremap_cached(resource_size_t res_cookie, size_t size)
+ {
+ 	return __arm_ioremap_caller(res_cookie, size, MT_DEVICE_CACHED,
+ 				    __builtin_return_address(0));
+ }
+ EXPORT_SYMBOL(ioremap_cache);
+-EXPORT_SYMBOL(ioremap_cached);
  
- 	systab = __va(esi);
+ void __iomem *ioremap_wc(resource_size_t res_cookie, size_t size)
+ {
+diff --git a/arch/unicore32/include/asm/io.h b/arch/unicore32/include/asm/io.h
+index c71aa4b95996..4b460e01acfa 100644
+--- a/arch/unicore32/include/asm/io.h
++++ b/arch/unicore32/include/asm/io.h
+@@ -18,10 +18,9 @@
+ #include <asm-generic/io.h>
  
--	if (strncmp(systab->signature, "ESIT", 4) != 0) {
-+	if (!str_has_prefix(systab->signature, "ESIT")) {
- 		printk(KERN_ERR "bad signature in ESI system table!");
- 		return -ENODEV;
- 	}
-diff --git a/arch/ia64/kernel/sal.c b/arch/ia64/kernel/sal.c
-index 9b2331ac10ce..9f02e3ec28e5 100644
---- a/arch/ia64/kernel/sal.c
-+++ b/arch/ia64/kernel/sal.c
-@@ -315,7 +315,7 @@ ia64_sal_init (struct ia64_sal_systab *systab)
- 		return;
- 	}
+ /*
+- * __uc32_ioremap and __uc32_ioremap_cached takes CPU physical address.
++ * __uc32_ioremap takes CPU physical address.
+  */
+ extern void __iomem *__uc32_ioremap(unsigned long, size_t);
+-extern void __iomem *__uc32_ioremap_cached(unsigned long, size_t);
+ extern void __uc32_iounmap(volatile void __iomem *addr);
  
--	if (strncmp(systab->signature, "SST_", 4) != 0)
-+	if (!str_has_prefix(systab->signature, "SST_"))
- 		printk(KERN_ERR "bad signature in system table!");
+ /*
+@@ -32,7 +31,6 @@ extern void __uc32_iounmap(volatile void __iomem *addr);
+  *
+  */
+ #define ioremap(cookie, size)		__uc32_ioremap(cookie, size)
+-#define ioremap_cached(cookie, size)	__uc32_ioremap_cached(cookie, size)
+ #define ioremap_nocache(cookie, size)	__uc32_ioremap(cookie, size)
+ #define iounmap(cookie)			__uc32_iounmap(cookie)
  
- 	check_versions(systab);
+diff --git a/arch/unicore32/mm/ioremap.c b/arch/unicore32/mm/ioremap.c
+index cf6d656f240c..46a64bd6156a 100644
+--- a/arch/unicore32/mm/ioremap.c
++++ b/arch/unicore32/mm/ioremap.c
+@@ -220,14 +220,6 @@ __uc32_ioremap(unsigned long phys_addr, size_t size)
+ }
+ EXPORT_SYMBOL(__uc32_ioremap);
+ 
+-void __iomem *
+-__uc32_ioremap_cached(unsigned long phys_addr, size_t size)
+-{
+-	return __uc32_ioremap_caller(phys_addr, size, MT_DEVICE_CACHED,
+-			__builtin_return_address(0));
+-}
+-EXPORT_SYMBOL(__uc32_ioremap_cached);
+-
+ void __uc32_iounmap(volatile void __iomem *io_addr)
+ {
+ 	void *addr = (void *)(PAGE_MASK & (unsigned long)io_addr);
 -- 
 2.20.1
