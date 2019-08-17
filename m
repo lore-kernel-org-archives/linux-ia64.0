@@ -1,39 +1,89 @@
-From: Joerg Roedel <joro@8bytes.org>
-Date: Thu, 15 Aug 2019 07:19:54 +0000
-Subject: Re: [PATCH 06/10] iommu: Remember when default domain type was set on kernel command line
-Message-Id: <20190815071954.GD22669@8bytes.org>
+From: Christoph Hellwig <hch@lst.de>
+Date: Sat, 17 Aug 2019 07:32:42 +0000
+Subject: [PATCH 15/26] asm-generic: ioremap_uc should behave the same with and without MMU
+Message-Id: <20190817073253.27819-16-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190814133841.7095-1-joro@8bytes.org>
- <20190814133841.7095-7-joro@8bytes.org>
- <754a526e-a6d4-8a3f-0b35-9dd3def5d24b@linux.intel.com>
-In-Reply-To: <754a526e-a6d4-8a3f-0b35-9dd3def5d24b@linux.intel.com>
+References: <20190817073253.27819-1-hch@lst.de>
+In-Reply-To: <20190817073253.27819-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Lu Baolu <baolu.lu@linux.intel.com>
-Cc: corbet@lwn.net, tony.luck@intel.com, fenghua.yu@intel.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, hpa@zytor.com, x86@kernel.org, linux-doc@vger.kernel.org, linux-ia64@vger.kernel.org, iommu@lists.linux-foundation.org, linux-kernel@vger.kernel.org, Thomas.Lendacky@amd.com, Suravee.Suthikulpanit@amd.com, Joerg Roedel <jroedel@suse.de>
+To: Arnd Bergmann <arnd@arndb.de>, Guo Ren <guoren@kernel.org>, Michal Simek <monstr@monstr.eu>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, x86@kernel.org
+Cc: linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, nios2-dev@lists.rocketboards.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-mtd@lists.infradead.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Hey Lu Baolu,
+Whatever reason there is for the existence of ioremap_uc, and the fact
+that it returns NULL by default on architectures with an MMU applies
+equally to nommu architectures, so don't provide different defaults.
 
-thanks for your review!
+In practice the difference is meaningless as the only portable driver
+that uses ioremap_uc is atyfb which probably doesn't show up on nommu
+devices.
 
-On Thu, Aug 15, 2019 at 01:01:57PM +0800, Lu Baolu wrote:
-> > +#define IOMMU_CMD_LINE_DMA_API		(1 << 0)
-> 
-> Prefer BIT() micro?
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ include/asm-generic/io.h | 36 ++++++++++++++++--------------------
+ 1 file changed, 16 insertions(+), 20 deletions(-)
 
-Yes, I'll change that.
-
-> > +	iommu_set_cmd_line_dma_api();
-> 
-> IOMMU command line is also set in other places, for example,
-> iommu_setup() (arch/x86/kernel/pci-dma.c). Need to call this there as
-> well?
-
-You are right, I'll better add a 'bool cmd_line' parameter to the
-iommu_set_default_*() functions and tell the IOMMU core this way. That
-will also fix iommu=pt/nopt.
-
-Thanks,
-
-	Joerg
+diff --git a/include/asm-generic/io.h b/include/asm-generic/io.h
+index d02806513670..a98ed6325727 100644
+--- a/include/asm-generic/io.h
++++ b/include/asm-generic/io.h
+@@ -935,18 +935,7 @@ static inline void *phys_to_virt(unsigned long address)
+  * defined your own ioremap_*() variant you must then declare your own
+  * ioremap_*() variant as defined to itself to avoid the default NULL return.
+  */
+-
+-#ifdef CONFIG_MMU
+-
+-#ifndef ioremap_uc
+-#define ioremap_uc ioremap_uc
+-static inline void __iomem *ioremap_uc(phys_addr_t offset, size_t size)
+-{
+-	return NULL;
+-}
+-#endif
+-
+-#else /* !CONFIG_MMU */
++#ifndef CONFIG_MMU
+ 
+ /*
+  * Change "struct page" to physical address.
+@@ -980,14 +969,6 @@ static inline void __iomem *ioremap_nocache(phys_addr_t offset, size_t size)
+ }
+ #endif
+ 
+-#ifndef ioremap_uc
+-#define ioremap_uc ioremap_uc
+-static inline void __iomem *ioremap_uc(phys_addr_t offset, size_t size)
+-{
+-	return ioremap_nocache(offset, size);
+-}
+-#endif
+-
+ #ifndef ioremap_wc
+ #define ioremap_wc ioremap_wc
+ static inline void __iomem *ioremap_wc(phys_addr_t offset, size_t size)
+@@ -1004,6 +985,21 @@ static inline void __iomem *ioremap_wt(phys_addr_t offset, size_t size)
+ }
+ #endif
+ 
++/*
++ * ioremap_uc is special in that we do require an explicit architecture
++ * implementation.  In general you do now want to use this function in a
++ * driver and use plain ioremap, which is uncached by default.  Similarly
++ * architectures should not implement it unless they have a very good
++ * reason.
++ */
++#ifndef ioremap_uc
++#define ioremap_uc ioremap_uc
++static inline void __iomem *ioremap_uc(phys_addr_t offset, size_t size)
++{
++	return NULL;
++}
++#endif
++
+ #ifdef CONFIG_HAS_IOPORT_MAP
+ #ifndef CONFIG_GENERIC_IOMAP
+ #ifndef ioport_map
+-- 
+2.20.1
