@@ -1,35 +1,84 @@
-From: Paul Walmsley <paul.walmsley@sifive.com>
-Date: Sat, 17 Aug 2019 21:22:15 +0000
-Subject: Re: [PATCH 24/26] riscv: use the generic ioremap code
-Message-Id: <alpine.DEB.2.21.9999.1908171421560.4130@viisi.sifive.com>
+From: Joerg Roedel <joro@8bytes.org>
+Date: Mon, 19 Aug 2019 13:22:51 +0000
+Subject: [PATCH 06/11] x86/dma: Get rid of iommu_pass_through
+Message-Id: <20190819132256.14436-7-joro@8bytes.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190817073253.27819-1-hch@lst.de> <20190817073253.27819-25-hch@lst.de>
-In-Reply-To: <20190817073253.27819-25-hch@lst.de>
+References: <20190819132256.14436-1-joro@8bytes.org>
+In-Reply-To: <20190819132256.14436-1-joro@8bytes.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch@lst.de>
-Cc: Arnd Bergmann <arnd@arndb.de>, Guo Ren <guoren@kernel.org>, Michal Simek <monstr@monstr.eu>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, x86@kernel.org, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-sh@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-mips@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, openrisc@lists.librecores.org, linux-mtd@lists.infradead.org, linux-alpha@vger.kernel.org, sparclinux@vger.kernel.org, nios2-dev@lists.rocketboards.org, linux-riscv@lists.infradead.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org
+To: Joerg Roedel <joro@8bytes.org>
+Cc: corbet@lwn.net, tony.luck@intel.com, fenghua.yu@intel.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, hpa@zytor.com, x86@kernel.org, linux-doc@vger.kernel.org, linux-ia64@vger.kernel.org, iommu@lists.linux-foundation.org, linux-kernel@vger.kernel.org, Thomas.Lendacky@amd.com, Suravee.Suthikulpanit@amd.com, Joerg Roedel <jroedel@suse.de>
 
-On Sat, 17 Aug 2019, Christoph Hellwig wrote:
+From: Joerg Roedel <jroedel@suse.de>
 
-> Use the generic ioremap code instead of providing a local version.
-> Note that this relies on the asm-generic no-op definition of
-> pgprot_noncached.
-> 
-> Signed-off-by: Christoph Hellwig <hch@lst.de>
-> ---
->  arch/riscv/Kconfig               |  1 +
->  arch/riscv/include/asm/io.h      |  3 --
->  arch/riscv/include/asm/pgtable.h |  6 +++
->  arch/riscv/mm/Makefile           |  1 -
->  arch/riscv/mm/ioremap.c          | 84 --------------------------------
->  5 files changed, 7 insertions(+), 88 deletions(-)
->  delete mode 100644 arch/riscv/mm/ioremap.c
+This variable has no users anymore. Remove it and tell the
+IOMMU code via its new functions about requested DMA modes.
 
-Reviewed-by: Paul Walmsley <paul.walmsley@sifive.com>
-Tested-by: Paul Walmsley <paul.walmsley@sifive.com> # rv32, rv64 boot
-Acked-by: Paul Walmsley <paul.walmsley@sifive.com> # arch/riscv
+Signed-off-by: Joerg Roedel <jroedel@suse.de>
+---
+ arch/x86/include/asm/iommu.h |  1 -
+ arch/x86/kernel/pci-dma.c    | 20 +++-----------------
+ 2 files changed, 3 insertions(+), 18 deletions(-)
 
-
-- Paul
+diff --git a/arch/x86/include/asm/iommu.h b/arch/x86/include/asm/iommu.h
+index baedab8ac538..b91623d521d9 100644
+--- a/arch/x86/include/asm/iommu.h
++++ b/arch/x86/include/asm/iommu.h
+@@ -4,7 +4,6 @@
+ 
+ extern int force_iommu, no_iommu;
+ extern int iommu_detected;
+-extern int iommu_pass_through;
+ 
+ /* 10 seconds */
+ #define DMAR_OPERATION_TIMEOUT ((cycles_t) tsc_khz*10*1000)
+diff --git a/arch/x86/kernel/pci-dma.c b/arch/x86/kernel/pci-dma.c
+index f62b498b18fb..fa4352dce491 100644
+--- a/arch/x86/kernel/pci-dma.c
++++ b/arch/x86/kernel/pci-dma.c
+@@ -1,6 +1,7 @@
+ // SPDX-License-Identifier: GPL-2.0
+ #include <linux/dma-direct.h>
+ #include <linux/dma-debug.h>
++#include <linux/iommu.h>
+ #include <linux/dmar.h>
+ #include <linux/export.h>
+ #include <linux/memblock.h>
+@@ -34,21 +35,6 @@ int no_iommu __read_mostly;
+ /* Set this to 1 if there is a HW IOMMU in the system */
+ int iommu_detected __read_mostly = 0;
+ 
+-/*
+- * This variable becomes 1 if iommu=pt is passed on the kernel command line.
+- * If this variable is 1, IOMMU implementations do no DMA translation for
+- * devices and allow every device to access to whole physical memory. This is
+- * useful if a user wants to use an IOMMU only for KVM device assignment to
+- * guests and not for driver dma translation.
+- * It is also possible to disable by default in kernel config, and enable with
+- * iommu=nopt at boot time.
+- */
+-#ifdef CONFIG_IOMMU_DEFAULT_PASSTHROUGH
+-int iommu_pass_through __read_mostly = 1;
+-#else
+-int iommu_pass_through __read_mostly;
+-#endif
+-
+ extern struct iommu_table_entry __iommu_table[], __iommu_table_end[];
+ 
+ void __init pci_iommu_alloc(void)
+@@ -120,9 +106,9 @@ static __init int iommu_setup(char *p)
+ 			swiotlb = 1;
+ #endif
+ 		if (!strncmp(p, "pt", 2))
+-			iommu_pass_through = 1;
++			iommu_set_default_passthrough(true);
+ 		if (!strncmp(p, "nopt", 4))
+-			iommu_pass_through = 0;
++			iommu_set_default_translated(true);
+ 
+ 		gart_parse_options(p);
+ 
+-- 
+2.16.4
