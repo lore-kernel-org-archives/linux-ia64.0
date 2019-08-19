@@ -1,64 +1,80 @@
-From: Paul Walmsley <paul.walmsley@sifive.com>
-Date: Sat, 17 Aug 2019 21:15:06 +0000
-Subject: Re: [PATCH 16/26] asm-generic: don't provide ioremap for CONFIG_MMU
-Message-Id: <alpine.DEB.2.21.9999.1908171414260.4130@viisi.sifive.com>
+From: Joerg Roedel <joro@8bytes.org>
+Date: Mon, 19 Aug 2019 13:22:45 +0000
+Subject: [PATCH 00/11 v3] Cleanup IOMMU passthrough setting (and disable IOMMU Passthrough when SME is active
+Message-Id: <20190819132256.14436-1-joro@8bytes.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190817073253.27819-1-hch@lst.de> <20190817073253.27819-17-hch@lst.de>
-In-Reply-To: <20190817073253.27819-17-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch@lst.de>
-Cc: Arnd Bergmann <arnd@arndb.de>, Guo Ren <guoren@kernel.org>, Michal Simek <monstr@monstr.eu>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, x86@kernel.org, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-sh@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-mips@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, openrisc@lists.librecores.org, linux-mtd@lists.infradead.org, linux-alpha@vger.kernel.org, sparclinux@vger.kernel.org, nios2-dev@lists.rocketboards.org, linux-riscv@lists.infradead.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org
+To: Joerg Roedel <joro@8bytes.org>
+Cc: corbet@lwn.net, tony.luck@intel.com, fenghua.yu@intel.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, hpa@zytor.com, x86@kernel.org, linux-doc@vger.kernel.org, linux-ia64@vger.kernel.org, iommu@lists.linux-foundation.org, linux-kernel@vger.kernel.org, Thomas.Lendacky@amd.com, Suravee.Suthikulpanit@amd.com, Joerg Roedel <jroedel@suse.de>
 
-On Sat, 17 Aug 2019, Christoph Hellwig wrote:
+From: Joerg Roedel <jroedel@suse.de>
 
-> All MMU-enabled ports have a non-trivial ioremap and should thus provide
-> the prototype for their implementation instead of providing a generic
-> one unless a different symbol is not defined.  Note that this only
-> affects sparc32 nds32 as all others do provide their own version.
-> 
-> Also update the kerneldoc comments in asm-generic/io.h to explain the
-> situation around the default ioremap* implementations correctly.
-> 
-> Signed-off-by: Christoph Hellwig <hch@lst.de>
-> ---
->  arch/nds32/include/asm/io.h    |  2 ++
->  arch/sparc/include/asm/io_32.h |  1 +
->  include/asm-generic/io.h       | 29 ++++++++---------------------
->  3 files changed, 11 insertions(+), 21 deletions(-)
-> 
+Hi,
 
-[ ... ]
+This patch-set started out small to overwrite the default passthrough
+setting (through CONFIG_IOMMU_DEFAULT_PASSTHROUGH=y) when SME is active.
 
-> diff --git a/include/asm-generic/io.h b/include/asm-generic/io.h
-> index a98ed6325727..6a5edc23afe2 100644
-> --- a/include/asm-generic/io.h
-> +++ b/include/asm-generic/io.h
-> @@ -922,28 +922,16 @@ static inline void *phys_to_virt(unsigned long address)
->  /**
->   * DOC: ioremap() and ioremap_*() variants
->   *
-> - * If you have an IOMMU your architecture is expected to have both ioremap()
-> - * and iounmap() implemented otherwise the asm-generic helpers will provide a
-> - * direct mapping.
-> + * Architectures with an MMU are expected to provide ioremap() and iounmap()
-> + * themselves.  For NOMMU architectures we provide a default nop-op
-> + * implementation that expect that the physical address used for MMIO are
-> + * already marked as uncached, and can be used as kernel virtual addresses.
->   *
-> - * There are ioremap_*() call variants, if you have no IOMMU we naturally will
-> - * default to direct mapping for all of them, you can override these defaults.
-> - * If you have an IOMMU you are highly encouraged to provide your own
-> - * ioremap variant implementation as there currently is no safe architecture
-> - * agnostic default. To avoid possible improper behaviour default asm-generic
-> - * ioremap_*() variants all return NULL when an IOMMU is available. If you've
-> - * defined your own ioremap_*() variant you must then declare your own
-> - * ioremap_*() variant as defined to itself to avoid the default NULL return.
-> + * ioremap_wc() and ioremap_wt() can provide more relaxed caching attributes
-> + * for specific drivers if the architecture choses to implement them.  If they
-                                               ^^^ chooses
+But on the way to that Tom reminded me that the current ways to
+configure passthrough/no-passthrough modes for IOMMU on x86 is a mess.
+So I added a few more patches to clean that up a bit, getting rid of the
+iommu_pass_through variable on the way.This information is now kept only
+in iommu code, with helpers to change that setting from architecture
+code.
 
+And of course this patch-set still disables IOMMU Passthrough mode when
+SME is active even when CONFIG_IOMMU_DEFAULT_PASSTHROUGH=y is set.
 
+The reason for that change is that SME with passthrough mode turned out
+to be fragile with devices requiring SWIOTLB, mainly because SWIOTLB has
+a maximum allocation size of 256kb and a limit overall size of the
+bounce buffer.
 
-- Paul
+Therefore having IOMMU in translation mode by default is better when SME
+is active on a system.
+
+Please review.
+
+Thanks,
+
+	Joerg
+
+Changes since v2:
+
+	- Added 'bool cmd_line' parameter to iommu_set_default_*()
+	  functions, so that we correctly recognize iommu=pt/nopt
+	  command line parameters
+
+Changes since v1:
+
+	- Cleaned up the kernel command line parameters to
+	  configure passthrough/translated mode, getting rid
+	  of the global iommu_pass_through variable
+
+Joerg Roedel (11):
+  iommu: Remember when default domain type was set on kernel command line
+  iommu: Add helpers to set/get default domain type
+  iommu: Use Functions to set default domain type in iommu_set_def_domain_type()
+  iommu/amd: Request passthrough mode from IOMMU core
+  iommu/vt-d: Request passthrough mode from IOMMU core
+  x86/dma: Get rid of iommu_pass_through
+  ia64: Get rid of iommu_pass_through
+  iommu: Print default domain type on boot
+  iommu: Set default domain type at runtime
+  iommu: Disable passthrough mode when SME is active
+  Documentation: Update Documentation for iommu.passthrough
+
+ Documentation/admin-guide/kernel-parameters.txt |  2 +-
+ arch/ia64/include/asm/iommu.h                   |  2 -
+ arch/ia64/kernel/pci-dma.c                      |  2 -
+ arch/x86/include/asm/iommu.h                    |  1 -
+ arch/x86/kernel/pci-dma.c                       | 20 +-----
+ drivers/iommu/amd_iommu.c                       |  6 +-
+ drivers/iommu/intel-iommu.c                     |  2 +-
+ drivers/iommu/iommu.c                           | 93 +++++++++++++++++++++++--
+ include/linux/iommu.h                           | 16 +++++
+ 9 files changed, 110 insertions(+), 34 deletions(-)
+
+-- 
+2.16.4
