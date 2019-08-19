@@ -1,144 +1,69 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Wed, 07 Aug 2019 13:30:38 +0000
-Subject: [PATCH 18/29] ia64: remove CONFIG_PCI ifdefs
-Message-Id: <20190807133049.20893-19-hch@lst.de>
+From: Joerg Roedel <joro@8bytes.org>
+Date: Mon, 19 Aug 2019 13:22:46 +0000
+Subject: [PATCH 01/11] iommu: Remember when default domain type was set on kernel command line
+Message-Id: <20190819132256.14436-2-joro@8bytes.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190807133049.20893-1-hch@lst.de>
-In-Reply-To: <20190807133049.20893-1-hch@lst.de>
+References: <20190819132256.14436-1-joro@8bytes.org>
+In-Reply-To: <20190819132256.14436-1-joro@8bytes.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
-Cc: Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Joerg Roedel <joro@8bytes.org>
+Cc: corbet@lwn.net, tony.luck@intel.com, fenghua.yu@intel.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, hpa@zytor.com, x86@kernel.org, linux-doc@vger.kernel.org, linux-ia64@vger.kernel.org, iommu@lists.linux-foundation.org, linux-kernel@vger.kernel.org, Thomas.Lendacky@amd.com, Suravee.Suthikulpanit@amd.com, Joerg Roedel <jroedel@suse.de>
 
-Now that hpsim support is gone, CONFIG_PCI is forced on for ia64, and
-we can remove a few ifdefs for it.
+From: Joerg Roedel <jroedel@suse.de>
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+Introduce an extensible concept to remember when certain
+configuration settings for the IOMMU code have been set on
+the kernel command line.
+
+This will be used later to prevent overwriting these
+settings with other defaults.
+
+Signed-off-by: Joerg Roedel <jroedel@suse.de>
 ---
- arch/ia64/Makefile              |  2 +-
- arch/ia64/hp/common/sba_iommu.c | 10 +---------
- arch/ia64/include/asm/dma.h     |  6 +-----
- arch/ia64/kernel/sys_ia64.c     | 18 ------------------
- arch/ia64/mm/init.c             |  2 --
- 5 files changed, 3 insertions(+), 35 deletions(-)
+ drivers/iommu/iommu.c | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
 
-diff --git a/arch/ia64/Makefile b/arch/ia64/Makefile
-index 8f650541d4eb..54424415851c 100644
---- a/arch/ia64/Makefile
-+++ b/arch/ia64/Makefile
-@@ -51,7 +51,7 @@ core-$(CONFIG_IA64_HP_ZX1)	+= arch/ia64/dig/
- core-$(CONFIG_IA64_HP_ZX1_SWIOTLB) += arch/ia64/dig/
- core-$(CONFIG_IA64_SGI_UV)	+= arch/ia64/uv/
- 
--drivers-$(CONFIG_PCI)		+= arch/ia64/pci/
-+drivers-y			+= arch/ia64/pci/
- drivers-$(CONFIG_IA64_HP_ZX1)	+= arch/ia64/hp/common/ arch/ia64/hp/zx1/
- drivers-$(CONFIG_IA64_HP_ZX1_SWIOTLB) += arch/ia64/hp/common/ arch/ia64/hp/zx1/
- drivers-$(CONFIG_IA64_GENERIC)	+= arch/ia64/hp/common/ arch/ia64/hp/zx1/ arch/ia64/uv/
-diff --git a/arch/ia64/hp/common/sba_iommu.c b/arch/ia64/hp/common/sba_iommu.c
-index 3d24cc43385b..18321ce8bfa0 100644
---- a/arch/ia64/hp/common/sba_iommu.c
-+++ b/arch/ia64/hp/common/sba_iommu.c
-@@ -251,12 +251,8 @@ static SBA_INLINE void sba_free_range(struct ioc *, dma_addr_t, size_t);
- static u64 prefetch_spill_page;
+diff --git a/drivers/iommu/iommu.c b/drivers/iommu/iommu.c
+index 0c674d80c37f..3361ca5ef769 100644
+--- a/drivers/iommu/iommu.c
++++ b/drivers/iommu/iommu.c
+@@ -32,6 +32,7 @@ static unsigned int iommu_def_domain_type = IOMMU_DOMAIN_IDENTITY;
+ static unsigned int iommu_def_domain_type = IOMMU_DOMAIN_DMA;
  #endif
+ static bool iommu_dma_strict __read_mostly = true;
++static u32 iommu_cmd_line __read_mostly;
  
--#ifdef CONFIG_PCI
--# define GET_IOC(dev)	((dev_is_pci(dev))						\
-+#define GET_IOC(dev)	((dev_is_pci(dev))						\
- 			 ? ((struct ioc *) PCI_CONTROLLER(to_pci_dev(dev))->iommu) : NULL)
--#else
--# define GET_IOC(dev)	NULL
--#endif
+ struct iommu_group {
+ 	struct kobject kobj;
+@@ -68,6 +69,18 @@ static const char * const iommu_group_resv_type_string[] = {
+ 	[IOMMU_RESV_SW_MSI]			= "msi",
+ };
  
- /*
- ** DMA_CHUNK_SIZE is used by the SCSI mid-layer to break up
-@@ -1741,9 +1737,7 @@ ioc_sac_init(struct ioc *ioc)
- 	controller->iommu = ioc;
- 	sac->sysdata = controller;
- 	sac->dma_mask = 0xFFFFFFFFUL;
--#ifdef CONFIG_PCI
- 	sac->dev.bus = &pci_bus_type;
--#endif
- 	ioc->sac_only_dev = sac;
++#define IOMMU_CMD_LINE_DMA_API		BIT(0)
++
++static void iommu_set_cmd_line_dma_api(void)
++{
++	iommu_cmd_line |= IOMMU_CMD_LINE_DMA_API;
++}
++
++static bool __maybe_unused iommu_cmd_line_dma_api(void)
++{
++	return !!(iommu_cmd_line & IOMMU_CMD_LINE_DMA_API);
++}
++
+ #define IOMMU_GROUP_ATTR(_name, _mode, _show, _store)		\
+ struct iommu_group_attribute iommu_group_attr_##_name =		\
+ 	__ATTR(_name, _mode, _show, _store)
+@@ -165,6 +178,8 @@ static int __init iommu_set_def_domain_type(char *str)
+ 	if (ret)
+ 		return ret;
+ 
++	iommu_set_cmd_line_dma_api();
++
+ 	iommu_def_domain_type = pt ? IOMMU_DOMAIN_IDENTITY : IOMMU_DOMAIN_DMA;
+ 	return 0;
  }
- 
-@@ -2121,13 +2115,11 @@ sba_init(void)
- 	}
- #endif
- 
--#ifdef CONFIG_PCI
- 	{
- 		struct pci_bus *b = NULL;
- 		while ((b = pci_find_next_bus(b)) != NULL)
- 			sba_connect_bus(b);
- 	}
--#endif
- 
- #ifdef CONFIG_PROC_FS
- 	ioc_proc_init();
-diff --git a/arch/ia64/include/asm/dma.h b/arch/ia64/include/asm/dma.h
-index 23604d6a2cb2..59625e9c1f9c 100644
---- a/arch/ia64/include/asm/dma.h
-+++ b/arch/ia64/include/asm/dma.h
-@@ -12,11 +12,7 @@
- 
- extern unsigned long MAX_DMA_ADDRESS;
- 
--#ifdef CONFIG_PCI
--  extern int isa_dma_bridge_buggy;
--#else
--# define isa_dma_bridge_buggy 	(0)
--#endif
-+extern int isa_dma_bridge_buggy;
- 
- #define free_dma(x)
- 
-diff --git a/arch/ia64/kernel/sys_ia64.c b/arch/ia64/kernel/sys_ia64.c
-index 9ebe1d633abc..e14db25146c2 100644
---- a/arch/ia64/kernel/sys_ia64.c
-+++ b/arch/ia64/kernel/sys_ia64.c
-@@ -166,21 +166,3 @@ ia64_mremap (unsigned long addr, unsigned long old_len, unsigned long new_len, u
- 		force_successful_syscall_return();
- 	return addr;
- }
--
--#ifndef CONFIG_PCI
--
--asmlinkage long
--sys_pciconfig_read (unsigned long bus, unsigned long dfn, unsigned long off, unsigned long len,
--		    void *buf)
--{
--	return -ENOSYS;
--}
--
--asmlinkage long
--sys_pciconfig_write (unsigned long bus, unsigned long dfn, unsigned long off, unsigned long len,
--		     void *buf)
--{
--	return -ENOSYS;
--}
--
--#endif /* CONFIG_PCI */
-diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
-index aae75fd7b810..9a4a16439900 100644
---- a/arch/ia64/mm/init.c
-+++ b/arch/ia64/mm/init.c
-@@ -632,14 +632,12 @@ mem_init (void)
- 	BUG_ON(PTRS_PER_PMD * sizeof(pmd_t) != PAGE_SIZE);
- 	BUG_ON(PTRS_PER_PTE * sizeof(pte_t) != PAGE_SIZE);
- 
--#ifdef CONFIG_PCI
- 	/*
- 	 * This needs to be called _after_ the command line has been parsed but _before_
- 	 * any drivers that may need the PCI DMA interface are initialized or bootmem has
- 	 * been freed.
- 	 */
- 	platform_dma_init();
--#endif
- 
- #ifdef CONFIG_FLATMEM
- 	BUG_ON(!mem_map);
 -- 
-2.20.1
+2.16.4
