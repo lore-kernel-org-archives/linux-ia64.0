@@ -1,27 +1,51 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Mon, 12 Aug 2019 21:52:07 +0000
-Subject: Re: fix misc compiler warnings in the ia64 build
-Message-Id: <20190812215207.GA21391@lst.de>
+From: Joerg Roedel <joro@8bytes.org>
+Date: Mon, 19 Aug 2019 13:22:55 +0000
+Subject: [PATCH 10/11] iommu: Disable passthrough mode when SME is active
+Message-Id: <20190819132256.14436-11-joro@8bytes.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190812065524.19959-1-hch@lst.de> <3908561D78D1C84285E8C5FCA982C28F7F41C3D7@ORSMSX115.amr.corp.intel.com>
-In-Reply-To: <3908561D78D1C84285E8C5FCA982C28F7F41C3D7@ORSMSX115.amr.corp.intel.com>
+References: <20190819132256.14436-1-joro@8bytes.org>
+In-Reply-To: <20190819132256.14436-1-joro@8bytes.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>
-Cc: Christoph Hellwig <hch@lst.de>, "Yu, Fenghua" <fenghua.yu@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Joerg Roedel <joro@8bytes.org>
+Cc: corbet@lwn.net, tony.luck@intel.com, fenghua.yu@intel.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, hpa@zytor.com, x86@kernel.org, linux-doc@vger.kernel.org, linux-ia64@vger.kernel.org, iommu@lists.linux-foundation.org, linux-kernel@vger.kernel.org, Thomas.Lendacky@amd.com, Suravee.Suthikulpanit@amd.com, Joerg Roedel <jroedel@suse.de>
 
-On Mon, Aug 12, 2019 at 09:47:40PM +0000, Luck, Tony wrote:
-> > this little series fixes various warnings I see in ia64 builds.
-> 
-> Applied. Thanks.
-> 
-> [I assume you are using some up-to-date version of gcc that generates these
->  warnings ... I'm not seeing them, but I'm still using a compiler from the stone
->  age]
+From: Joerg Roedel <jroedel@suse.de>
 
-This is with the gcc 8.1 x86 to ia64 binary from
+Using Passthrough mode when SME is active causes certain
+devices to use the SWIOTLB bounce buffer. The bounce buffer
+code has an upper limit of 256kb for the size of DMA
+allocations, which is too small for certain devices and
+causes them to fail.
 
-http://kernel.mirror.ac.za/tools/crosstool/ that I found recently.  But
-at least the fork.c and kprobes.c ones should probably show up with any
-supported compiler, the switch ones are fairly new.
+With this patch we enable IOMMU by default when SME is
+active in the system, making the default configuration work
+for more systems than it does now.
+
+Users that don't want IOMMUs to be enabled still can disable
+them with kernel parameters.
+
+Signed-off-by: Joerg Roedel <jroedel@suse.de>
+---
+ drivers/iommu/iommu.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/drivers/iommu/iommu.c b/drivers/iommu/iommu.c
+index 01759d4ac70b..ec18c9630e93 100644
+--- a/drivers/iommu/iommu.c
++++ b/drivers/iommu/iommu.c
+@@ -119,6 +119,11 @@ static int __init iommu_subsys_init(void)
+ 			iommu_set_default_passthrough(false);
+ 		else
+ 			iommu_set_default_translated(false);
++
++		if (iommu_default_passthrough() && sme_active()) {
++			pr_info("SME detected - Disabling default IOMMU Passthrough\n");
++			iommu_set_default_translated(false);
++		}
+ 	}
+ 
+ 	pr_info("Default domain type: %s %s\n",
+-- 
+2.16.4
