@@ -1,165 +1,206 @@
-From: Masahiro Yamada <yamada.masahiro@socionext.com>
-Date: Wed, 14 Aug 2019 16:06:22 +0000
-Subject: [PATCH 2/3] kbuild: rebuild modules when module linker scripts are updated
-Message-Id: <20190814160623.24802-2-yamada.masahiro@socionext.com>
+From: Aleksa Sarai <cyphar@cyphar.com>
+Date: Tue, 20 Aug 2019 03:33:58 +0000
+Subject: [PATCH RESEND v11 0/8] openat2(2)
+Message-Id: <20190820033406.29796-1-cyphar@cyphar.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190814160623.24802-1-yamada.masahiro@socionext.com>
-In-Reply-To: <20190814160623.24802-1-yamada.masahiro@socionext.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kbuild@vger.kernel.org
-Cc: Masahiro Yamada <yamada.masahiro@socionext.com>, Albert Ou <aou@eecs.berkeley.edu>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Catalin Marinas <catalin.marinas@arm.com>, Fenghua Yu <fenghua.yu@intel.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Helge Deller <deller@gmx.de>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Jonathan Corbet <corbet@lwn.net>, Michael Ellerman <mpe@ellerman.id.au>, Michal Marek <michal.lkml@markovi.net>, Palmer Dabbelt <palmer@sifive.com>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Russell King <linux@armlinux.org.uk>, Tony Luck <tony.luck@intel.com>, Will Deacon <will@kernel.org>, linux-arm-kernel@lists.infradead.org, linux-doc@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linuxppc-dev@lists.ozlabs.org
+To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>
+Cc: linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Alexei Starovoitov <ast@kernel.org>, Oleg Nesterov <oleg@redhat.com>, linux-kselftest@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, Tycho Andersen <tycho@tycho.ws>, Aleksa Sarai <asarai@suse.de>, linux-arm-kernel@lists.infradead.org, linux-mips@vger.kernel.org, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linuxppc-dev@lists.ozlabs.org, Aleksa Sarai <cyphar@cyphar.com>, Andy Lutomirski <luto@kernel.org>, David Drysdale <drysdale@google.com>, Christian Brauner <christian@brauner.io>, linux-parisc@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-api@vger.kernel.org, containers@lists.linux-foundation.org, linux-kernel@vger.kernel.org, Eric Biederman <ebiederm@xmission.com>, linux-alpha@vger.kernel.org, linux-fs
 
-Currently, the timestamp of module linker scripts are not checked.
-Add them to the dependency of modules so they are correctly rebuilt.
+This patchset is being developed here:
+    <https://github.com/cyphar/linux/tree/resolveat/master>
 
-Signed-off-by: Masahiro Yamada <yamada.masahiro@socionext.com>
----
+Patch changelog:
+ v11: [RESEND: <https://lore.kernel.org/lkml/20190728010207.9781-1-cyphar@cyphar.com/>]
+    * Fix checkpatch.pl errors and warnings where reasonable.
+    * Minor cleanup to pr_warn logging for may_open_magiclink().
+    * Drop kselftests patch to handle %m formatting correctly, and send
+      it through the kselftests tree directly. [Shuah Khan]
+ v10: <https://lore.kernel.org/lkml/20190719164225.27083-1-cyphar@cyphar.com/>
+ v09: <https://lore.kernel.org/lkml/20190706145737.5299-1-cyphar@cyphar.com/>
+ v08: <https://lore.kernel.org/lkml/20190520133305.11925-1-cyphar@cyphar.com/>
+ v07: <https://lore.kernel.org/lkml/20190507164317.13562-1-cyphar@cyphar.com/>
+ v06: <https://lore.kernel.org/lkml/20190506165439.9155-1-cyphar@cyphar.com/>
+ v05: <https://lore.kernel.org/lkml/20190320143717.2523-1-cyphar@cyphar.com/>
+ v04: <https://lore.kernel.org/lkml/20181112142654.341-1-cyphar@cyphar.com/>
+ v03: <https://lore.kernel.org/lkml/20181009070230.12884-1-cyphar@cyphar.com/>
+ v02: <https://lore.kernel.org/lkml/20181009065300.11053-1-cyphar@cyphar.com/>
+ v01: <https://lore.kernel.org/lkml/20180929103453.12025-1-cyphar@cyphar.com/>
 
- Documentation/kbuild/makefiles.rst | 5 +++++
- Makefile                           | 3 ++-
- arch/arm/Makefile                  | 2 +-
- arch/arm64/Makefile                | 2 +-
- arch/ia64/Makefile                 | 2 +-
- arch/m68k/Makefile                 | 2 +-
- arch/parisc/Makefile               | 2 +-
- arch/powerpc/Makefile              | 2 +-
- arch/riscv/Makefile                | 2 +-
- scripts/Makefile.modpost           | 5 +++--
- 10 files changed, 17 insertions(+), 10 deletions(-)
+The need for some sort of control over VFS's path resolution (to avoid
+malicious paths resulting in inadvertent breakouts) has been a very
+long-standing desire of many userspace applications. This patchset is a
+revival of Al Viro's old AT_NO_JUMPS[1,2] patchset (which was a variant
+of David Drysdale's O_BENEATH patchset[3] which was a spin-off of the
+Capsicum project[4]) with a few additions and changes made based on the
+previous discussion within [5] as well as others I felt were useful.
 
-diff --git a/Documentation/kbuild/makefiles.rst b/Documentation/kbuild/makefiles.rst
-index d3448d2c8017..36ba92e199d2 100644
---- a/Documentation/kbuild/makefiles.rst
-+++ b/Documentation/kbuild/makefiles.rst
-@@ -999,6 +999,11 @@ When kbuild executes, the following steps are followed (roughly):
- 
- 	The linker script with full path. Assigned by the top-level Makefile.
- 
-+    KBUILD_LDS_MODULE
-+
-+	The module linker script with full path. Assigned by the top-level
-+	Makefile and additionally by the arch Makefile.
-+
-     KBUILD_VMLINUX_OBJS
- 
- 	All object files for vmlinux. They are linked to vmlinux in the same
-diff --git a/Makefile b/Makefile
-index 164ca615e2f6..af808837a1f2 100644
---- a/Makefile
-+++ b/Makefile
-@@ -485,7 +485,8 @@ KBUILD_AFLAGS_KERNEL : KBUILD_CFLAGS_KERNEL : KBUILD_AFLAGS_MODULE  := -DMODULE
- KBUILD_CFLAGS_MODULE  := -DMODULE
--KBUILD_LDFLAGS_MODULE := -T $(srctree)/scripts/module-common.lds
-+KBUILD_LDFLAGS_MODULE :+export KBUILD_LDS_MODULE := $(srctree)/scripts/module-common.lds
- KBUILD_LDFLAGS : GCC_PLUGINS_CFLAGS : CLANG_FLAGS :diff --git a/arch/arm/Makefile b/arch/arm/Makefile
-index c3624ca6c0bc..fbe50eec8f34 100644
---- a/arch/arm/Makefile
-+++ b/arch/arm/Makefile
-@@ -17,7 +17,7 @@ KBUILD_LDFLAGS_MODULE	+= --be8
- endif
- 
- ifeq ($(CONFIG_ARM_MODULE_PLTS),y)
--KBUILD_LDFLAGS_MODULE	+= -T $(srctree)/arch/arm/kernel/module.lds
-+KBUILD_LDS_MODULE	+= $(srctree)/arch/arm/kernel/module.lds
- endif
- 
- GZFLAGS		:=-9
-diff --git a/arch/arm64/Makefile b/arch/arm64/Makefile
-index 61de992bbea3..d4ed1869e536 100644
---- a/arch/arm64/Makefile
-+++ b/arch/arm64/Makefile
-@@ -101,7 +101,7 @@ endif
- CHECKFLAGS	+= -D__aarch64__
- 
- ifeq ($(CONFIG_ARM64_MODULE_PLTS),y)
--KBUILD_LDFLAGS_MODULE	+= -T $(srctree)/arch/arm64/kernel/module.lds
-+KBUILD_LDS_MODULE	+= $(srctree)/arch/arm64/kernel/module.lds
- endif
- 
- # Default value
-diff --git a/arch/ia64/Makefile b/arch/ia64/Makefile
-index 171290f9f1de..5c3bcaee5980 100644
---- a/arch/ia64/Makefile
-+++ b/arch/ia64/Makefile
-@@ -20,7 +20,7 @@ CHECKFLAGS	+= -D__ia64=1 -D__ia64__=1 -D_LP64 -D__LP64__
- 
- OBJCOPYFLAGS	:= --strip-all
- LDFLAGS_vmlinux	:= -static
--KBUILD_LDFLAGS_MODULE += -T $(srctree)/arch/ia64/module.lds
-+KBUILD_LDS_MODULE += $(srctree)/arch/ia64/module.lds
- KBUILD_AFLAGS_KERNEL := -mconstant-gp
- EXTRA		: 
-diff --git a/arch/m68k/Makefile b/arch/m68k/Makefile
-index 482513b9af2c..5d9288384096 100644
---- a/arch/m68k/Makefile
-+++ b/arch/m68k/Makefile
-@@ -73,7 +73,7 @@ KBUILD_AFLAGS += -D__uClinux__
- endif
- 
- KBUILD_LDFLAGS := -m m68kelf
--KBUILD_LDFLAGS_MODULE += -T $(srctree)/arch/m68k/kernel/module.lds
-+KBUILD_LDS_MODULE += $(srctree)/arch/m68k/kernel/module.lds
- 
- ifdef CONFIG_SUN3
- LDFLAGS_vmlinux = -N
-diff --git a/arch/parisc/Makefile b/arch/parisc/Makefile
-index 3b77d729057f..36b834f1c933 100644
---- a/arch/parisc/Makefile
-+++ b/arch/parisc/Makefile
-@@ -60,7 +60,7 @@ KBUILD_CFLAGS += -DCC_USING_PATCHABLE_FUNCTION_ENTRY=1 \
- 		 -DFTRACE_PATCHABLE_FUNCTION_SIZE=$(NOP_COUNT)
- 
- CC_FLAGS_FTRACE := -fpatchable-function-entry=$(NOP_COUNT),$(shell echo $$(($(NOP_COUNT)-1)))
--KBUILD_LDFLAGS_MODULE += -T $(srctree)/arch/parisc/kernel/module.lds
-+KBUILD_LDS_MODULE += $(srctree)/arch/parisc/kernel/module.lds
- endif
- 
- OBJCOPY_FLAGS =-O binary -R .note -R .comment -S
-diff --git a/arch/powerpc/Makefile b/arch/powerpc/Makefile
-index c345b79414a9..b2227855de20 100644
---- a/arch/powerpc/Makefile
-+++ b/arch/powerpc/Makefile
-@@ -67,7 +67,7 @@ UTS_MACHINE := $(subst $(space),,$(machine-y))
- ifdef CONFIG_PPC32
- KBUILD_LDFLAGS_MODULE += arch/powerpc/lib/crtsavres.o
- else
--KBUILD_LDFLAGS_MODULE += -T $(srctree)/arch/powerpc/kernel/module.lds
-+KBUILD_LDS_MODULE += $(srctree)/arch/powerpc/kernel/module.lds
- ifeq ($(call ld-ifversion, -ge, 225000000, y),y)
- # Have the linker provide sfpr if possible.
- # There is a corresponding test in arch/powerpc/lib/Makefile
-diff --git a/arch/riscv/Makefile b/arch/riscv/Makefile
-index 7a117be8297c..426d989125a8 100644
---- a/arch/riscv/Makefile
-+++ b/arch/riscv/Makefile
-@@ -52,7 +52,7 @@ ifeq ($(CONFIG_CMODEL_MEDANY),y)
- 	KBUILD_CFLAGS += -mcmodel=medany
- endif
- ifeq ($(CONFIG_MODULE_SECTIONS),y)
--	KBUILD_LDFLAGS_MODULE += -T $(srctree)/arch/riscv/kernel/module.lds
-+	KBUILD_LDS_MODULE += $(srctree)/arch/riscv/kernel/module.lds
- endif
- 
- KBUILD_CFLAGS_MODULE += $(call cc-option,-mno-relax)
-diff --git a/scripts/Makefile.modpost b/scripts/Makefile.modpost
-index bf15818f6947..905db30d6622 100644
---- a/scripts/Makefile.modpost
-+++ b/scripts/Makefile.modpost
-@@ -126,10 +126,11 @@ quiet_cmd_ld_ko_o = LD [M]  $@
-       cmd_ld_ko_o =                                                     \
- 	$(LD) -r $(KBUILD_LDFLAGS)                                      \
-                  $(KBUILD_LDFLAGS_MODULE) $(LDFLAGS_MODULE)             \
--                 -o $@ $(real-prereqs) ;                                \
-+                 $(addprefix -T , $(KBUILD_LDS_MODULE))                 \
-+                 -o $@ $(filter %.o, $^);                               \
- 	$(if $(ARCH_POSTLINK), $(MAKE) -f $(ARCH_POSTLINK) $@, true)
- 
--$(modules): %.ko :%.o %.mod.o FORCE
-+$(modules): %.ko :%.o %.mod.o $(KBUILD_LDS_MODULE) FORCE
- 	+$(call if_changed,ld_ko_o)
- 
- targets += $(modules)
+In line with the conclusions of the original discussion of AT_NO_JUMPS,
+the flag has been split up into separate flags. However, instead of
+being an openat(2) flag it is provided through a new syscall openat2(2)
+which provides several other improvements to the openat(2) interface (see the
+patch description for more details). The following new LOOKUP_* flags are
+added:
+
+  * LOOKUP_NO_XDEV blocks all mountpoint crossings (upwards, downwards,
+    or through absolute links). Absolute pathnames alone in openat(2) do
+    not trigger this.
+
+  * LOOKUP_NO_MAGICLINKS blocks resolution through /proc/$pid/fd-style
+    links. This is done by blocking the usage of nd_jump_link() during
+    resolution in a filesystem. The term "magic-links" is used to match
+    with the only reference to these links in Documentation/, but I'm
+    happy to change the name.
+
+    It should be noted that this is different to the scope of
+    ~LOOKUP_FOLLOW in that it applies to all path components. However,
+    you can do openat2(NO_FOLLOW|NO_MAGICLINKS) on a magic-link and it
+    will *not* fail (assuming that no parent component was a
+    magic-link), and you will have an fd for the magic-link.
+
+  * LOOKUP_BENEATH disallows escapes to outside the starting dirfd's
+    tree, using techniques such as ".." or absolute links. Absolute
+    paths in openat(2) are also disallowed. Conceptually this flag is to
+    ensure you "stay below" a certain point in the filesystem tree --
+    but this requires some additional to protect against various races
+    that would allow escape using "..".
+
+    Currently LOOKUP_BENEATH implies LOOKUP_NO_MAGICLINKS, because it
+    can trivially beam you around the filesystem (breaking the
+    protection). In future, there might be similar safety checks done as
+    in LOOKUP_IN_ROOT, but that requires more discussion.
+
+In addition, two new flags are added that expand on the above ideas:
+
+  * LOOKUP_NO_SYMLINKS does what it says on the tin. No symlink
+    resolution is allowed at all, including magic-links. Just as with
+    LOOKUP_NO_MAGICLINKS this can still be used with NOFOLLOW to open an
+    fd for the symlink as long as no parent path had a symlink
+    component.
+
+  * LOOKUP_IN_ROOT is an extension of LOOKUP_BENEATH that, rather than
+    blocking attempts to move past the root, forces all such movements
+    to be scoped to the starting point. This provides chroot(2)-like
+    protection but without the cost of a chroot(2) for each filesystem
+    operation, as well as being safe against race attacks that chroot(2)
+    is not.
+
+    If a race is detected (as with LOOKUP_BENEATH) then an error is
+    generated, and similar to LOOKUP_BENEATH it is not permitted to cross
+    magic-links with LOOKUP_IN_ROOT.
+
+    The primary need for this is from container runtimes, which
+    currently need to do symlink scoping in userspace[6] when opening
+    paths in a potentially malicious container. There is a long list of
+    CVEs that could have bene mitigated by having RESOLVE_THIS_ROOT
+    (such as CVE-2017-1002101, CVE-2017-1002102, CVE-2018-15664, and
+    CVE-2019-5736, just to name a few).
+
+And further, several semantics of file descriptor "re-opening" are now
+changed to prevent attacks like CVE-2019-5736 by restricting how
+magic-links can be resolved (based on their mode). This required some
+other changes to the semantics of the modes of O_PATH file descriptor's
+associated /proc/self/fd magic-links. openat2(2) has the ability to
+further restrict re-opening of its own O_PATH fds, so that users can
+make even better use of this feature.
+
+Finally, O_EMPTYPATH was added so that users can do /proc/self/fd-style
+re-opening without depending on procfs. The new restricted semantics for
+magic-links are applied here too.
+
+In order to make all of the above more usable, I'm working on
+libpathrs[7] which is a C-friendly library for safe path resolution. It
+features a userspace-emulated backend if the kernel doesn't support
+openat2(2). Hopefully we can get userspace to switch to using it, and
+thus get openat2(2) support for free once it's ready.
+
+Cc: Al Viro <viro@zeniv.linux.org.uk>
+Cc: Eric Biederman <ebiederm@xmission.com>
+Cc: Andy Lutomirski <luto@kernel.org>
+Cc: David Howells <dhowells@redhat.com>
+Cc: Jann Horn <jannh@google.com>
+Cc: Christian Brauner <christian@brauner.io>
+Cc: David Drysdale <drysdale@google.com>
+Cc: Tycho Andersen <tycho@tycho.ws>
+Cc: Kees Cook <keescook@chromium.org>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: <containers@lists.linux-foundation.org>
+Cc: <linux-fsdevel@vger.kernel.org>
+Cc: <linux-api@vger.kernel.org>
+
+[1]: https://lwn.net/Articles/721443/
+[2]: https://lore.kernel.org/patchwork/patch/784221/
+[3]: https://lwn.net/Articles/619151/
+[4]: https://lwn.net/Articles/603929/
+[5]: https://lwn.net/Articles/723057/
+[6]: https://github.com/cyphar/filepath-securejoin
+[7]: https://github.com/openSUSE/libpathrs
+
+Aleksa Sarai (8):
+  namei: obey trailing magic-link DAC permissions
+  procfs: switch magic-link modes to be more sane
+  open: O_EMPTYPATH: procfs-less file descriptor re-opening
+  namei: O_BENEATH-style path resolution flags
+  namei: LOOKUP_IN_ROOT: chroot-like path resolution
+  namei: aggressively check for nd->root escape on ".." resolution
+  open: openat2(2) syscall
+  selftests: add openat2(2) selftests
+
+ Documentation/filesystems/path-lookup.rst     |  12 +-
+ arch/alpha/include/uapi/asm/fcntl.h           |   1 +
+ arch/alpha/kernel/syscalls/syscall.tbl        |   1 +
+ arch/arm/tools/syscall.tbl                    |   1 +
+ arch/arm64/include/asm/unistd.h               |   2 +-
+ arch/arm64/include/asm/unistd32.h             |   2 +
+ arch/ia64/kernel/syscalls/syscall.tbl         |   1 +
+ arch/m68k/kernel/syscalls/syscall.tbl         |   1 +
+ arch/microblaze/kernel/syscalls/syscall.tbl   |   1 +
+ arch/mips/kernel/syscalls/syscall_n32.tbl     |   1 +
+ arch/mips/kernel/syscalls/syscall_n64.tbl     |   1 +
+ arch/mips/kernel/syscalls/syscall_o32.tbl     |   1 +
+ arch/parisc/include/uapi/asm/fcntl.h          |  39 +-
+ arch/parisc/kernel/syscalls/syscall.tbl       |   1 +
+ arch/powerpc/kernel/syscalls/syscall.tbl      |   1 +
+ arch/s390/kernel/syscalls/syscall.tbl         |   1 +
+ arch/sh/kernel/syscalls/syscall.tbl           |   1 +
+ arch/sparc/include/uapi/asm/fcntl.h           |   1 +
+ arch/sparc/kernel/syscalls/syscall.tbl        |   1 +
+ arch/x86/entry/syscalls/syscall_32.tbl        |   1 +
+ arch/x86/entry/syscalls/syscall_64.tbl        |   1 +
+ arch/xtensa/kernel/syscalls/syscall.tbl       |   1 +
+ fs/fcntl.c                                    |   2 +-
+ fs/internal.h                                 |   1 +
+ fs/namei.c                                    | 270 ++++++++++--
+ fs/open.c                                     | 112 ++++-
+ fs/proc/base.c                                |  20 +-
+ fs/proc/fd.c                                  |  23 +-
+ fs/proc/namespaces.c                          |   2 +-
+ include/linux/fcntl.h                         |  17 +-
+ include/linux/fs.h                            |   8 +-
+ include/linux/namei.h                         |   9 +
+ include/linux/syscalls.h                      |  17 +-
+ include/uapi/asm-generic/fcntl.h              |   4 +
+ include/uapi/asm-generic/unistd.h             |   5 +-
+ include/uapi/linux/fcntl.h                    |  42 ++
+ tools/testing/selftests/Makefile              |   1 +
+ tools/testing/selftests/memfd/memfd_test.c    |   7 +-
+ tools/testing/selftests/openat2/.gitignore    |   1 +
+ tools/testing/selftests/openat2/Makefile      |   8 +
+ tools/testing/selftests/openat2/helpers.c     | 162 +++++++
+ tools/testing/selftests/openat2/helpers.h     | 116 +++++
+ .../testing/selftests/openat2/linkmode_test.c | 333 +++++++++++++++
+ .../selftests/openat2/rename_attack_test.c    | 127 ++++++
+ .../testing/selftests/openat2/resolve_test.c  | 402 ++++++++++++++++++
+ 45 files changed, 1655 insertions(+), 107 deletions(-)
+ create mode 100644 tools/testing/selftests/openat2/.gitignore
+ create mode 100644 tools/testing/selftests/openat2/Makefile
+ create mode 100644 tools/testing/selftests/openat2/helpers.c
+ create mode 100644 tools/testing/selftests/openat2/helpers.h
+ create mode 100644 tools/testing/selftests/openat2/linkmode_test.c
+ create mode 100644 tools/testing/selftests/openat2/rename_attack_test.c
+ create mode 100644 tools/testing/selftests/openat2/resolve_test.c
+
 -- 
-2.17.1
+2.22.0
