@@ -1,7 +1,7 @@
 From: "DIAL DIRECT LOANS SA" <dialdirect@info.org>
-Date: Thu, 01 Aug 2019 10:28:10 +0000
+Date: Wed, 21 Aug 2019 05:43:59 +0000
 Subject: LOANS !!!
-Message-Id: <d6281b85415e143396a1b1573a3242ae.squirrel@mail.vodokanal.poltava.ua>
+Message-Id: <2e5f25310f16453004a6bf5c851161eb.squirrel@mail.vodokanal.poltava.ua>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <86675f682c024e22f23fdc774efdfcf4.squirrel@mail.vodokanal.poltava.ua>
 In-Reply-To: <86675f682c024e22f23fdc774efdfcf4.squirrel@mail.vodokanal.poltava.ua>
@@ -9,6 +9,8 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+
 
 
 Dial Direct Loan SA
@@ -27,4 +29,3 @@ Senior Consultant,
 Loan Application Team
 Dial Direct Loan SA
 Tel No: +27717231058
-
