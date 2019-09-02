@@ -1,147 +1,118 @@
-From: Aleksa Sarai <cyphar@cyphar.com>
-Date: Mon, 30 Sep 2019 23:09:14 +0000
-Subject: Re: [PATCH v13 3/9] open: O_EMPTYPATH: procfs-less file descriptor re-opening
-Message-Id: <20190930230914.qu3lg2rhlesf5myt@yavin.dot.cyphar.com>
+From: Michal Simek <monstr@monstr.eu>
+Date: Mon, 02 Sep 2019 14:16:52 +0000
+Subject: Re: [PATCH 03/26] m68k, microblaze: remove ioremap_fullcache
+Message-Id: <9a11ddb0-0799-c64a-f5aa-0504c564998f@monstr.eu>
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="snekp2kducyfirik"
+Content-Type: multipart/mixed; boundary="sxrD5DzuLHXmSTexCf4xoEovzaJstmsXm"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190930183316.10190-4-cyphar@cyphar.com>
- <201910010638.xzk5h4Bt%lkp@intel.com>
-In-Reply-To: <201910010638.xzk5h4Bt%lkp@intel.com>
-To: kbuild test robot <lkp@intel.com>
-Cc: linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Alexei Starovoitov <ast@kernel.org>, linux-mips@vger.kernel.org, David Howells <dhowells@redhat.com>, linux-kselftest@vger.kernel.org, sparclinux@vger.kernel.org, Jiri Olsa <jolsa@redhat.com>, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, Tycho Andersen <tycho@tycho.ws>, Aleksa Sarai <asarai@suse.de>, Shuah Khan <shuah@kernel.org>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Ingo Molnar <mingo@redhat.com>, Christian Brauner <christian@brauner.io>, Eric Biederman <ebiederm@xmission.com>, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Arnd Bergmann <arnd@arndb.de>, Jann Horn <jannh@google.com>, Oleg Nesterov <oleg@redhat.com>, linux-m68k@lists.linux-m68k.org, Al Viro <viro@zeniv.linux.org.uk>
+References: <20190817073253.27819-1-hch@lst.de>
+ <20190817073253.27819-4-hch@lst.de>
+In-Reply-To: <20190817073253.27819-4-hch@lst.de>
+To: Christoph Hellwig <hch@lst.de>, Arnd Bergmann <arnd@arndb.de>, Guo Ren <guoren@kernel.org>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, x86@kernel.org
+Cc: linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-sh@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-mips@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, openrisc@lists.librecores.org, linux-mtd@lists.infradead.org, linux-alpha@vger.kernel.org, sparclinux@vger.kernel.org, nios2-dev@lists.rocketboards.org, linux-riscv@lists.infradead.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org
 
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--sxrD5DzuLHXmSTexCf4xoEovzaJstmsXm
+Content-Type: multipart/mixed; boundary="Gv98DqTDPDXpgdAS8uye8pnF1A8XQfxBm";
+ protected-headers="v1"
+From: Michal Simek <monstr@monstr.eu>
+Reply-To: monstr@monstr.eu
+To: Christoph Hellwig <hch@lst.de>, Arnd Bergmann <arnd@arndb.de>,
+ Guo Ren <guoren@kernel.org>, Greentime Hu <green.hu@gmail.com>,
+ Vincent Chen <deanbo422@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>,
+ x86@kernel.org
+Cc: linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org,
+ linux-arm-kernel@lists.infradead.org, linux-hexagon@vger.kernel.org,
+ linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org,
+ linux-mips@vger.kernel.org, nios2-dev@lists.rocketboards.org,
+ openrisc@lists.librecores.org, linux-parisc@vger.kernel.org,
+ linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org,
+ linux-sh@vger.kernel.org, sparclinux@vger.kernel.org,
+ linux-xtensa@linux-xtensa.org, linux-mtd@lists.infradead.org,
+ linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
+Message-ID: <9a11ddb0-0799-c64a-f5aa-0504c564998f@monstr.eu>
+Subject: Re: [PATCH 03/26] m68k, microblaze: remove ioremap_fullcache
+References: <20190817073253.27819-1-hch@lst.de>
+ <20190817073253.27819-4-hch@lst.de>
+In-Reply-To: <20190817073253.27819-4-hch@lst.de>
 
---snekp2kducyfirik
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+--Gv98DqTDPDXpgdAS8uye8pnF1A8XQfxBm
+Content-Type: text/plain; charset=utf-8
+Content-Language: en-US
 Content-Transfer-Encoding: quoted-printable
 
-On 2019-10-01, kbuild test robot <lkp@intel.com> wrote:
-> Hi Aleksa,
+On 17. 08. 19 9:32, Christoph Hellwig wrote:
+> No callers of this function.
 >=20
-> Thank you for the patch! Yet something to improve:
->=20
-> [auto build test ERROR on linus/master]
-> [cannot apply to v5.4-rc1 next-20190930]
-> [if your patch is applied to the wrong git tree, please drop us a note to=
- help
-> improve the system. BTW, we also suggest to use '--base' option to specif=
-y the
-> base tree in git format-patch, please see https://stackoverflow.com/a/374=
-06982]
->=20
-> url:    https://github.com/0day-ci/linux/commits/Aleksa-Sarai/namei-opena=
-t2-2-path-resolution-restrictions/20191001-025628
-> config: sparc-allyesconfig (attached as .config)
-> compiler: sparc64-linux-gcc (GCC) 7.4.0
-> reproduce:
->         wget https://raw.githubusercontent.com/intel/lkp-tests/master/sbi=
-n/make.cross -O ~/bin/make.cross
->         chmod +x ~/bin/make.cross
->         # save the attached .config to linux build tree
->         GCC_VERSION=3D7.4.0 make.cross ARCH=3Dsparc=20
->=20
-> If you fix the issue, kindly add following tag
-> Reported-by: kbuild test robot <lkp@intel.com>
->=20
-> All error/warnings (new ones prefixed by >>):
->=20
->    In file included from include/linux/kernel.h:11:0,
->                     from include/linux/list.h:9,
->                     from include/linux/wait.h:7,
->                     from include/linux/wait_bit.h:8,
->                     from include/linux/fs.h:6,
->                     from include/uapi/linux/aio_abi.h:31,
->                     from include/linux/syscalls.h:74,
->                     from fs/fcntl.c:8:
->    fs/fcntl.c: In function 'fcntl_init':
-> >> include/linux/compiler.h:350:38: error: call to '__compiletime_assert_=
-1037' declared with attribute error: BUILD_BUG_ON failed: 22 - 1 !=3D HWEIG=
-HT32( (VALID_OPEN_FLAGS & ~(O_NONBLOCK | O_NDELAY)) | __FMODE_EXEC | __FMOD=
-E_NONOTIFY)
->      _compiletime_assert(condition, msg, __compiletime_assert_, __LINE__)
->                                          ^
->    include/linux/compiler.h:331:4: note: in definition of macro '__compil=
-etime_assert'
->        prefix ## suffix();    \
->        ^~~~~~
->    include/linux/compiler.h:350:2: note: in expansion of macro '_compilet=
-ime_assert'
->      _compiletime_assert(condition, msg, __compiletime_assert_, __LINE__)
->      ^~~~~~~~~~~~~~~~~~~
->    include/linux/build_bug.h:39:37: note: in expansion of macro 'compilet=
-ime_assert'
->     #define BUILD_BUG_ON_MSG(cond, msg) compiletime_assert(!(cond), msg)
->                                         ^~~~~~~~~~~~~~~~~~
->    include/linux/build_bug.h:50:2: note: in expansion of macro 'BUILD_BUG=
-_ON_MSG'
->      BUILD_BUG_ON_MSG(condition, "BUILD_BUG_ON failed: " #condition)
->      ^~~~~~~~~~~~~~~~
-> >> fs/fcntl.c:1034:2: note: in expansion of macro 'BUILD_BUG_ON'
->      BUILD_BUG_ON(22 - 1 /* for O_RDONLY being 0 */ !=3D
->      ^~~~~~~~~~~~
-
-This is because 0x4000000 is used by FMODE_NONOTIFY. The fix is simple,
-and I'll include it in the next version.
-
-> vim +/__compiletime_assert_1037 +350 include/linux/compiler.h
->=20
-> 9a8ab1c39970a4 Daniel Santos 2013-02-21  336 =20
-> 9a8ab1c39970a4 Daniel Santos 2013-02-21  337  #define _compiletime_assert=
-(condition, msg, prefix, suffix) \
-> 9a8ab1c39970a4 Daniel Santos 2013-02-21  338  	__compiletime_assert(condi=
-tion, msg, prefix, suffix)
-> 9a8ab1c39970a4 Daniel Santos 2013-02-21  339 =20
-> 9a8ab1c39970a4 Daniel Santos 2013-02-21  340  /**
-> 9a8ab1c39970a4 Daniel Santos 2013-02-21  341   * compiletime_assert - bre=
-ak build and emit msg if condition is false
-> 9a8ab1c39970a4 Daniel Santos 2013-02-21  342   * @condition: a compile-ti=
-me constant condition to check
-> 9a8ab1c39970a4 Daniel Santos 2013-02-21  343   * @msg:       a message to=
- emit if condition is false
-> 9a8ab1c39970a4 Daniel Santos 2013-02-21  344   *
-> 9a8ab1c39970a4 Daniel Santos 2013-02-21  345   * In tradition of POSIX as=
-sert, this macro will break the build if the
-> 9a8ab1c39970a4 Daniel Santos 2013-02-21  346   * supplied condition is *f=
-alse*, emitting the supplied error message if the
-> 9a8ab1c39970a4 Daniel Santos 2013-02-21  347   * compiler has support to =
-do so.
-> 9a8ab1c39970a4 Daniel Santos 2013-02-21  348   */
-> 9a8ab1c39970a4 Daniel Santos 2013-02-21  349  #define compiletime_assert(=
-condition, msg) \
-> 9a8ab1c39970a4 Daniel Santos 2013-02-21 @350  	_compiletime_assert(condit=
-ion, msg, __compiletime_assert_, __LINE__)
-> 9a8ab1c39970a4 Daniel Santos 2013-02-21  351 =20
->=20
-> :::::: The code at line 350 was first introduced by commit
-> :::::: 9a8ab1c39970a4938a72d94e6fd13be88a797590 bug.h, compiler.h: introd=
-uce compiletime_assert & BUILD_BUG_ON_MSG
->=20
-> :::::: TO: Daniel Santos <daniel.santos@pobox.com>
-> :::::: CC: Linus Torvalds <torvalds@linux-foundation.org>
->=20
+> Signed-off-by: Christoph Hellwig <hch@lst.de>
 > ---
-> 0-DAY kernel test infrastructure                Open Source Technology Ce=
-nter
-> https://lists.01.org/pipermail/kbuild-all                   Intel Corpora=
-tion
+>  arch/m68k/include/asm/kmap.h     | 7 -------
+>  arch/microblaze/include/asm/io.h | 1 -
+>  2 files changed, 8 deletions(-)
+>=20
+> diff --git a/arch/m68k/include/asm/kmap.h b/arch/m68k/include/asm/kmap.=
+h
+> index aac7f045f7f0..03d904fe6087 100644
+> --- a/arch/m68k/include/asm/kmap.h
+> +++ b/arch/m68k/include/asm/kmap.h
+> @@ -43,13 +43,6 @@ static inline void __iomem *ioremap_wt(unsigned long=
+ physaddr,
+>  	return __ioremap(physaddr, size, IOMAP_WRITETHROUGH);
+>  }
+> =20
+> -#define ioremap_fullcache ioremap_fullcache
+> -static inline void __iomem *ioremap_fullcache(unsigned long physaddr,
+> -					      unsigned long size)
+> -{
+> -	return __ioremap(physaddr, size, IOMAP_FULL_CACHING);
+> -}
+> -
+>  #define memset_io memset_io
+>  static inline void memset_io(volatile void __iomem *addr, unsigned cha=
+r val,
+>  			     int count)
+> diff --git a/arch/microblaze/include/asm/io.h b/arch/microblaze/include=
+/asm/io.h
+> index c7968139486f..86c95b2a1ce1 100644
+> --- a/arch/microblaze/include/asm/io.h
+> +++ b/arch/microblaze/include/asm/io.h
+> @@ -40,7 +40,6 @@ extern void iounmap(volatile void __iomem *addr);
+> =20
+>  extern void __iomem *ioremap(phys_addr_t address, unsigned long size);=
+
+>  #define ioremap_nocache(addr, size)		ioremap((addr), (size))
+> -#define ioremap_fullcache(addr, size)		ioremap((addr), (size))
+>  #define ioremap_wc(addr, size)			ioremap((addr), (size))
+>  #define ioremap_wt(addr, size)			ioremap((addr), (size))
+> =20
+>=20
+
+Acked-by: Michal Simek <monstr@monstr.eu> (for Microblaze)
+
+Thanks,
+Michal
 
 --=20
-Aleksa Sarai
-Senior Software Engineer (Containers)
-SUSE Linux GmbH
-<https://www.cyphar.com/>
+Michal Simek, Ing. (M.Eng), OpenPGP -> KeyID: FE3D1F91
+w: www.monstr.eu p: +42-0-721842854
+Maintainer of Linux kernel - Xilinx Microblaze
+Maintainer of Linux kernel - Xilinx Zynq ARM and ZynqMP ARM64 SoCs
+U-Boot custodian - Xilinx Microblaze/Zynq/ZynqMP/Versal SoCs
 
---snekp2kducyfirik
+
+
+--Gv98DqTDPDXpgdAS8uye8pnF1A8XQfxBm--
+
+--sxrD5DzuLHXmSTexCf4xoEovzaJstmsXm
 Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
 -----BEGIN PGP SIGNATURE-----
 
-iHUEABYIAB0WIQSxZm6dtfE8gxLLfYqdlLljIbnQEgUCXZKLFwAKCRCdlLljIbnQ
-EiFeAP47RjOd95gOdKvsH6iKIsB52GsvABLqpjPMoDsJYICxvQEAqOPS7WukWlsO
-68N9mURzwjixbUVZ+5gtkgEiuWzwXA0=
-=RuGe
+iF0EARECAB0WIQQbPNTMvXmYlBPRwx7KSWXLKUoMIQUCXW0kVQAKCRDKSWXLKUoM
+IUCIAJ0dq35U3Gq44M2ocYgcj4SW3Em/1wCfajAs22UIYAGzwTZZyZTvB5OFi1I=
+=essT
 -----END PGP SIGNATURE-----
 
---snekp2kducyfirik--
+--sxrD5DzuLHXmSTexCf4xoEovzaJstmsXm--
