@@ -1,29 +1,41 @@
-From: Anshuman Khandual <anshuman.khandual@arm.com>
-Date: Fri, 13 Sep 2019 06:36:43 +0000
-Subject: Re: [PATCH V2 0/2] mm/debug: Add tests for architecture exported page table helpers
-Message-Id: <1b467d7a-0324-eb2c-876a-f04a99b9c596@arm.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Date: Mon, 02 Sep 2019 07:53:01 +0000
+Subject: Re: [PATCH 08/26] m68k: simplify ioremap_nocache
+Message-Id: <CAMuHMdXB=DWyu=Y25gih5poeanVnhLEP2MXoozvxdEY6op32FA@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1568268173-31302-1-git-send-email-anshuman.khandual@arm.com>
- <527edfce-c986-de4c-e286-34a70f6a2790@c-s.fr>
-In-Reply-To: <527edfce-c986-de4c-e286-34a70f6a2790@c-s.fr>
+References: <20190817073253.27819-1-hch@lst.de> <20190817073253.27819-9-hch@lst.de>
+ <CAMuHMdWyXGjokWi7tn9JHCTz9YMb_vHn6XKeE7KzH5n-54Sy0A@mail.gmail.com> <20190830160620.GD26887@lst.de>
+In-Reply-To: <20190830160620.GD26887@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christophe Leroy <christophe.leroy@c-s.fr>, linux-mm@kvack.org
-Cc: Mark Rutland <mark.rutland@arm.com>, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, James Hogan <jhogan@kernel.org>, Heiko Carstens <heiko.carstens@de.ibm.com>, Michal Hocko <mhocko@kernel.org>, Dave Hansen <dave.hansen@intel.com>, Paul Mackerras <paulus@samba.org>, sparclinux@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, linux-s390@vger.kernel.org, Jason Gunthorpe <jgg@ziepe.ca>, Michael Ellerman <mpe@ellerman.id.au>, x86@kernel.org, Russell King - ARM Linux <linux@armlinux.org.uk>, Matthew Wilcox <willy@infradead.org>, Steven Price <Steven.Price@arm.com>, Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>, Gerald Schaefer <gerald.schaefer@de.ibm.com>, linux-snps-arc@lists.infradead.org, Kees Cook <keescook@chromium.org>, Masahiro Yamada <yamada.masahiro@socionext.com>, Mark Brown <broonie@kernel.org>, "Kirill A . Shutemov" <kirill@shutemov.name>, Dan Williams <dan.j.williams@intel.com>, Vlastimil Babka <vbabka@suse.cz>, linux-arm-kernel@lists.infradead.org, Sri Krishna chowdary <schowdary@nvidia.com>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-mips@vger.kernel.org, Ralf Baechle <ralf@linux-mips.org>, linux-kernel@vger.kernel.org, Paul Burton <paul.burton@mips.com>, Mike Rapoport <rppt@linux.vnet.ibm.com>, Vineet Gupta <vgupta@synopsys.com>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, "David S. Miller" <davem@davemloft.net>, Mike Kravetz <mike.kravetz@oracle.com>
+To: Christoph Hellwig <hch@lst.de>
+Cc: Arnd Bergmann <arnd@arndb.de>, Guo Ren <guoren@kernel.org>, Michal Simek <monstr@monstr.eu>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, the arch/x86 maintainers <x86@kernel.org>, alpha <linux-alpha@vger.kernel.org>, arcml <linux-snps-arc@lists.infradead.org>, Linux ARM <linux-arm-kernel@lists.infradead.org>, "open list:QUALCOMM HEXAGON..." <linux-hexagon@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, linux-m68k <linux-m68k@lists.linux-m68k.org>, linux-mips@vger.kernel.org, nios2-dev@lists.rocketboards.org, Openrisc <openrisc@lists.librecores.org>, Parisc List <linux-parisc@vger.kernel.org>, linux-riscv@lists.infradead.org, linux-s390 <linux-s390@vger.kernel.org>
 
+Hi Christoph,
 
+On Fri, Aug 30, 2019 at 6:06 PM Christoph Hellwig <hch@lst.de> wrote:
+> On Mon, Aug 19, 2019 at 10:56:02AM +0200, Geert Uytterhoeven wrote:
+> > On Sat, Aug 17, 2019 at 9:48 AM Christoph Hellwig <hch@lst.de> wrote:
+> > > Just define ioremap_nocache to ioremap instead of duplicating the
+> > > inline.  Also defined ioremap_uc in terms of ioremap instead of
+> > > the using a double indirection.
+> > >
+> > > Signed-off-by: Christoph Hellwig <hch@lst.de>
+> >
+> > Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
+>
+> Do you mind picking this up through the m68k tree?
 
-On 09/12/2019 08:12 PM, Christophe Leroy wrote:
-> Hi,
-> 
-> I didn't get patch 1 of this series, and it is not on linuxppc-dev patchwork either. Can you resend ?
+Sure. Applied and queued for v5.4.
 
-Its there on linux-mm patchwork and copied on linux-kernel@vger.kernel.org
-as well. The CC list for the first patch was different than the second one.
+Gr{oetje,eeting}s,
 
-https://patchwork.kernel.org/patch/11142317/
+                        Geert
 
-Let me know if you can not find it either on MM or LKML list.
+-- 
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
 
-- Anshuman
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
