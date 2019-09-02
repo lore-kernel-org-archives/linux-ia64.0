@@ -1,77 +1,87 @@
-From: Kees Cook <keescook@chromium.org>
-Date: Thu, 26 Sep 2019 17:56:01 +0000
-Subject: [PATCH 28/29] x86/mm: Report actual image regions in /proc/iomem
-Message-Id: <20190926175602.33098-29-keescook@chromium.org>
+From: Michal Simek <monstr@monstr.eu>
+Date: Mon, 02 Sep 2019 14:19:08 +0000
+Subject: Re: [PATCH 2/3] microblaze: remove ioremap_fullcache
+Message-Id: <1e5e6ca9-3b09-df10-12e8-828d13590660@monstr.eu>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="mfBAq2Hw8KEYFIQ59QLhb5U3IQWVJJCJo"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190926175602.33098-1-keescook@chromium.org>
-In-Reply-To: <20190926175602.33098-1-keescook@chromium.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Thomas Gleixner <tglx@linutronix.de>
-Cc: Kees Cook <keescook@chromium.org>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, "H. Peter Anvin" <hpa@zytor.com>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Michal Simek <monstr@monstr.eu>, linux-parisc@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org, linux-kernel@vger.kernel.org
+References: <20190830161237.23033-1-hch@lst.de>
+ <20190830161237.23033-3-hch@lst.de>
+In-Reply-To: <20190830161237.23033-3-hch@lst.de>
+To: Christoph Hellwig <hch@lst.de>, Tony Luck <tony.luck@intel.com>, Geert Uytterhoeven <geert@linux-m68k.org>
+Cc: linux-m68k@lists.linux-m68k.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-The resource reservations in made for the kernel image did not reflect
-the gaps between text, rodata, and data. This adds the rodata resource
-and updates the start/end calculations to match the respective calls to
-free_kernel_image_pages().
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--mfBAq2Hw8KEYFIQ59QLhb5U3IQWVJJCJo
+Content-Type: multipart/mixed; boundary="TsTbQ6Zq4dCF3p6vuwBULinZWnl3VOqZ2";
+ protected-headers="v1"
+From: Michal Simek <monstr@monstr.eu>
+Reply-To: monstr@monstr.eu
+To: Christoph Hellwig <hch@lst.de>, Tony Luck <tony.luck@intel.com>,
+ Geert Uytterhoeven <geert@linux-m68k.org>
+Cc: linux-m68k@lists.linux-m68k.org, linux-ia64@vger.kernel.org,
+ linux-kernel@vger.kernel.org
+Message-ID: <1e5e6ca9-3b09-df10-12e8-828d13590660@monstr.eu>
+Subject: Re: [PATCH 2/3] microblaze: remove ioremap_fullcache
+References: <20190830161237.23033-1-hch@lst.de>
+ <20190830161237.23033-3-hch@lst.de>
+In-Reply-To: <20190830161237.23033-3-hch@lst.de>
 
-Before (booted with "nokaslr" for easier comparison):
+--TsTbQ6Zq4dCF3p6vuwBULinZWnl3VOqZ2
+Content-Type: text/plain; charset=utf-8
+Content-Language: en-US
+Content-Transfer-Encoding: quoted-printable
 
-00100000-bffd9fff : System RAM
-  01000000-01e011d0 : Kernel code
-  01e011d1-025619bf : Kernel data
-  02a95000-035fffff : Kernel bss
+On 30. 08. 19 18:12, Christoph Hellwig wrote:
+> No callers of this function.
+>=20
+> Signed-off-by: Christoph Hellwig <hch@lst.de>
+> ---
+>  arch/microblaze/include/asm/io.h | 1 -
+>  1 file changed, 1 deletion(-)
+>=20
+> diff --git a/arch/microblaze/include/asm/io.h b/arch/microblaze/include=
+/asm/io.h
+> index c7968139486f..86c95b2a1ce1 100644
+> --- a/arch/microblaze/include/asm/io.h
+> +++ b/arch/microblaze/include/asm/io.h
+> @@ -40,7 +40,6 @@ extern void iounmap(volatile void __iomem *addr);
+> =20
+>  extern void __iomem *ioremap(phys_addr_t address, unsigned long size);=
 
-After:
+>  #define ioremap_nocache(addr, size)		ioremap((addr), (size))
+> -#define ioremap_fullcache(addr, size)		ioremap((addr), (size))
+>  #define ioremap_wc(addr, size)			ioremap((addr), (size))
+>  #define ioremap_wt(addr, size)			ioremap((addr), (size))
+> =20
+>=20
 
-00100000-bffd9fff : System RAM
-  01000000-01e011d0 : Kernel code
-  02000000-023d4fff : Kernel rodata
-  02400000-025619ff : Kernel data
-  02a95000-035fffff : Kernel bss
+This single patch applied for v5.4 via microblaze tree.
 
-Signed-off-by: Kees Cook <keescook@chromium.org>
----
- arch/x86/kernel/setup.c | 12 +++++++++++-
- 1 file changed, 11 insertions(+), 1 deletion(-)
+Thanks,
+Michal
 
-diff --git a/arch/x86/kernel/setup.c b/arch/x86/kernel/setup.c
-index bbe35bf879f5..0bc71ee3a9c3 100644
---- a/arch/x86/kernel/setup.c
-+++ b/arch/x86/kernel/setup.c
-@@ -143,6 +143,13 @@ struct boot_params boot_params;
- /*
-  * Machine setup..
-  */
-+static struct resource rodata_resource = {
-+	.name	= "Kernel rodata",
-+	.start	= 0,
-+	.end	= 0,
-+	.flags	= IORESOURCE_BUSY | IORESOURCE_SYSTEM_RAM
-+};
-+
- static struct resource data_resource = {
- 	.name	= "Kernel data",
- 	.start	= 0,
-@@ -951,7 +958,9 @@ void __init setup_arch(char **cmdline_p)
- 
- 	code_resource.start = __pa_symbol(_text);
- 	code_resource.end = __pa_symbol(_etext)-1;
--	data_resource.start = __pa_symbol(_etext);
-+	rodata_resource.start = __pa_symbol(__start_rodata);
-+	rodata_resource.end = __pa_symbol(__end_rodata)-1;
-+	data_resource.start = __pa_symbol(_sdata);
- 	data_resource.end = __pa_symbol(_edata)-1;
- 	bss_resource.start = __pa_symbol(__bss_start);
- 	bss_resource.end = __pa_symbol(__bss_stop)-1;
-@@ -1040,6 +1049,7 @@ void __init setup_arch(char **cmdline_p)
- 
- 	/* after parse_early_param, so could debug it */
- 	insert_resource(&iomem_resource, &code_resource);
-+	insert_resource(&iomem_resource, &rodata_resource);
- 	insert_resource(&iomem_resource, &data_resource);
- 	insert_resource(&iomem_resource, &bss_resource);
- 
--- 
-2.17.1
+--=20
+Michal Simek, Ing. (M.Eng), OpenPGP -> KeyID: FE3D1F91
+w: www.monstr.eu p: +42-0-721842854
+Maintainer of Linux kernel - Xilinx Microblaze
+Maintainer of Linux kernel - Xilinx Zynq ARM and ZynqMP ARM64 SoCs
+U-Boot custodian - Xilinx Microblaze/Zynq/ZynqMP/Versal SoCs
+
+
+
+--TsTbQ6Zq4dCF3p6vuwBULinZWnl3VOqZ2--
+
+--mfBAq2Hw8KEYFIQ59QLhb5U3IQWVJJCJo
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iF0EARECAB0WIQQbPNTMvXmYlBPRwx7KSWXLKUoMIQUCXW0k3AAKCRDKSWXLKUoM
+Ic+tAJ4vGoKGabf+eZaw4Gche0V48YIrBACePFT26bcMWKEmEmc8Z6Bv5WH6EW0=
+=rtJ9
+-----END PGP SIGNATURE-----
+
+--mfBAq2Hw8KEYFIQ59QLhb5U3IQWVJJCJo--
