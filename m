@@ -1,164 +1,126 @@
-From: Aleksa Sarai <cyphar@cyphar.com>
-Date: Wed, 04 Sep 2019 20:19:24 +0000
-Subject: [PATCH v12 03/12] sched_setattr: switch to copy_struct_{to,from}_user()
-Message-Id: <20190904201933.10736-4-cyphar@cyphar.com>
+From: Anshuman Khandual <anshuman.khandual@arm.com>
+Date: Tue, 03 Sep 2019 08:13:45 +0000
+Subject: [PATCH 0/1] mm/debug: Add tests for architecture exported page table helpers
+Message-Id: <1567497706-8649-1-git-send-email-anshuman.khandual@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190904201933.10736-1-cyphar@cyphar.com>
-In-Reply-To: <20190904201933.10736-1-cyphar@cyphar.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Christian Brauner <christian@brauner.io>
-Cc: Aleksa Sarai <cyphar@cyphar.com>, Eric Biederman <ebiederm@xmission.com>, Andy Lutomirski <luto@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Alexei Starovoitov <ast@kernel.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, David Drysdale <drysdale@google.com>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, Aleksa Sarai <asarai@suse.de>, Linus Torvalds <torvalds@linux-foundation.org>, containers@lists.linux-foundation.org, linux-alpha@vger.kernel.org, linux-api@vger.kernel.org, linux-arch@vger.kernel.org
+To: linux-mm@kvack.org
+Cc: Mark Rutland <mark.rutland@arm.com>, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, James Hogan <jhogan@kernel.org>, Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>, Heiko Carstens <heiko.carstens@de.ibm.com>, Michal Hocko <mhocko@kernel.org>, Dave Hansen <dave.hansen@intel.com>, Paul Mackerras <paulus@samba.org>, sparclinux@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, linux-s390@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>, x86@kernel.org, Russell King - ARM Linux <linux@armlinux.org.uk>, Matthew Wilcox <willy@infradead.org>, Steven Price <Steven.Price@arm.com>, Jason Gunthorpe <jgg@ziepe.ca>, linux-arm-kernel@lists.infradead.org, linux-snps-arc@lists.infradead.org, Kees Cook <keescook@chromium.org>, Anshuman Khandual <anshuman.khandual@arm.com>, Masahiro Yamada <yamada.masahiro@socionext.com>, Mark Brown <broonie@kernel.org>, Dan Williams <dan.j.williams@intel.com>, Vlastimil Babka <vbabka@suse.cz>, Sri Krishna chowdary <schowdary@nvidia.com>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-mips@vger.kernel.org, Ralf Baechle <ralf@linux-mips.org>, linux-kernel@vger.kernel.org, Paul Burton <paul.burton@mips.com>, Mike Rapoport <rppt@linux.vnet.ibm.com>, Vineet Gupta <vgupta@synopsys.com>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, "David S. Miller" <davem@davemloft.net>
 
-The change is very straightforward, and takes advantage of the (very
-minor) efficiency improvements in copy_struct_{to,from}_user() -- that
-the memchr_inv() check is done on a buffer instead of one-at-at-time
-with get_user() or put_user().
+This series adds a test validation for architecture exported page table
+helpers. Patch in the series adds basic transformation tests at various
+levels of the page table.
 
-Signed-off-by: Aleksa Sarai <cyphar@cyphar.com>
----
- kernel/sched/core.c | 85 ++++++---------------------------------------
- 1 file changed, 10 insertions(+), 75 deletions(-)
+This test was originally suggested by Catalin during arm64 THP migration
+RFC discussion earlier. Going forward it can include more specific tests
+with respect to various generic MM functions like THP, HugeTLB etc and
+platform specific tests.
 
-diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index 010d578118d6..2f58b07d3468 100644
---- a/kernel/sched/core.c
-+++ b/kernel/sched/core.c
-@@ -4900,9 +4900,6 @@ static int sched_copy_attr(struct sched_attr __user *uattr, struct sched_attr *a
- 	u32 size;
- 	int ret;
- 
--	if (!access_ok(uattr, SCHED_ATTR_SIZE_VER0))
--		return -EFAULT;
--
- 	/* Zero the full structure, so that a short copy will be nice: */
- 	memset(attr, 0, sizeof(*attr));
- 
-@@ -4910,45 +4907,19 @@ static int sched_copy_attr(struct sched_attr __user *uattr, struct sched_attr *a
- 	if (ret)
- 		return ret;
- 
--	/* Bail out on silly large: */
--	if (size > PAGE_SIZE)
--		goto err_size;
--
- 	/* ABI compatibility quirk: */
- 	if (!size)
- 		size = SCHED_ATTR_SIZE_VER0;
--
- 	if (size < SCHED_ATTR_SIZE_VER0)
- 		goto err_size;
- 
--	/*
--	 * If we're handed a bigger struct than we know of,
--	 * ensure all the unknown bits are 0 - i.e. new
--	 * user-space does not rely on any kernel feature
--	 * extensions we dont know about yet.
--	 */
--	if (size > sizeof(*attr)) {
--		unsigned char __user *addr;
--		unsigned char __user *end;
--		unsigned char val;
--
--		addr = (void __user *)uattr + sizeof(*attr);
--		end  = (void __user *)uattr + size;
--
--		for (; addr < end; addr++) {
--			ret = get_user(val, addr);
--			if (ret)
--				return ret;
--			if (val)
--				goto err_size;
--		}
--		size = sizeof(*attr);
-+	ret = copy_struct_from_user(attr, sizeof(*attr), uattr, size);
-+	if (ret) {
-+		if (ret = -E2BIG)
-+			goto err_size;
-+		return ret;
- 	}
- 
--	ret = copy_from_user(attr, uattr, size);
--	if (ret)
--		return -EFAULT;
--
- 	if ((attr->sched_flags & SCHED_FLAG_UTIL_CLAMP) &&
- 	    size < SCHED_ATTR_SIZE_VER1)
- 		return -EINVAL;
-@@ -5105,51 +5076,15 @@ SYSCALL_DEFINE2(sched_getparam, pid_t, pid, struct sched_param __user *, param)
- 	return retval;
- }
- 
--static int sched_read_attr(struct sched_attr __user *uattr,
--			   struct sched_attr *attr,
--			   unsigned int usize)
--{
--	int ret;
--
--	if (!access_ok(uattr, usize))
--		return -EFAULT;
--
--	/*
--	 * If we're handed a smaller struct than we know of,
--	 * ensure all the unknown bits are 0 - i.e. old
--	 * user-space does not get uncomplete information.
--	 */
--	if (usize < sizeof(*attr)) {
--		unsigned char *addr;
--		unsigned char *end;
--
--		addr = (void *)attr + usize;
--		end  = (void *)attr + sizeof(*attr);
--
--		for (; addr < end; addr++) {
--			if (*addr)
--				return -EFBIG;
--		}
--
--		attr->size = usize;
--	}
--
--	ret = copy_to_user(uattr, attr, attr->size);
--	if (ret)
--		return -EFAULT;
--
--	return 0;
--}
--
- /**
-  * sys_sched_getattr - similar to sched_getparam, but with sched_attr
-  * @pid: the pid in question.
-  * @uattr: structure containing the extended parameters.
-- * @size: sizeof(attr) for fwd/bwd comp.
-+ * @usize: sizeof(attr) for fwd/bwd comp.
-  * @flags: for future extension.
-  */
- SYSCALL_DEFINE4(sched_getattr, pid_t, pid, struct sched_attr __user *, uattr,
--		unsigned int, size, unsigned int, flags)
-+		unsigned int, usize, unsigned int, flags)
- {
- 	struct sched_attr attr = {
- 		.size = sizeof(struct sched_attr),
-@@ -5157,8 +5092,8 @@ SYSCALL_DEFINE4(sched_getattr, pid_t, pid, struct sched_attr __user *, uattr,
- 	struct task_struct *p;
- 	int retval;
- 
--	if (!uattr || pid < 0 || size > PAGE_SIZE ||
--	    size < SCHED_ATTR_SIZE_VER0 || flags)
-+	if (!uattr || pid < 0 || usize > PAGE_SIZE ||
-+	    usize < SCHED_ATTR_SIZE_VER0 || flags)
- 		return -EINVAL;
- 
- 	rcu_read_lock();
-@@ -5188,7 +5123,7 @@ SYSCALL_DEFINE4(sched_getattr, pid_t, pid, struct sched_attr __user *, uattr,
- 
- 	rcu_read_unlock();
- 
--	retval = sched_read_attr(uattr, &attr, size);
-+	retval = copy_struct_to_user(uattr, usize, &attr, sizeof(attr));
- 	return retval;
- 
- out_unlock:
+https://lore.kernel.org/linux-mm/20190628102003.GA56463@arrakis.emea.arm.com/
+
+Questions:
+
+Should alloc_gigantic_page() be made available as an interface for general
+use in the kernel. The test module here uses very similar implementation from
+HugeTLB to allocate a PUD aligned memory block. Similar for mm_alloc() which
+needs to be exported through a header.
+
+Matthew Wilcox had expressed concerns regarding memory allocation for mapped
+page table entries at various level. He also suggested using synethetic pfns
+which can be derived from virtual address of a known kernel text symbol like
+kernel_init(). But as discussed previously, it seems like allocated memory
+might still outweigh synthetic pfns. This proposal goes with allocated memory
+but if there is a broader agreement with respect to synthetic pfns, will be
+happy to rework the test.
+
+Testing:
+
+Build and boot tested on arm64 and x86 platforms. While arm64 clears all
+these tests, following errors were reported on x86.
+
+1. WARN_ON(pud_bad(pud)) in pud_populate_tests()
+2. WARN_ON(p4d_bad(p4d)) in p4d_populate_tests()
+
+I would really appreciate if folks can help validate this test on other
+platforms and report back problems if any. Suggestions, comments and
+inputs welcome. Thank you.
+
+Changes in V3:
+
+- Added fallback mechanism for PMD aligned memory allocation failure
+
+Changes in V2:
+
+https://lore.kernel.org/linux-mm/1565335998-22553-1-git-send-email-anshuman.khandual@arm.com/T/#u
+
+- Moved test module and it's config from lib/ to mm/
+- Renamed config TEST_ARCH_PGTABLE as DEBUG_ARCH_PGTABLE_TEST
+- Renamed file from test_arch_pgtable.c to arch_pgtable_test.c
+- Added relevant MODULE_DESCRIPTION() and MODULE_AUTHOR() details
+- Dropped loadable module config option
+- Basic tests now use memory blocks with required size and alignment
+- PUD aligned memory block gets allocated with alloc_contig_range()
+- If PUD aligned memory could not be allocated it falls back on PMD aligned
+  memory block from page allocator and pud_* tests are skipped
+- Clear and populate tests now operate on real in memory page table entries
+- Dummy mm_struct gets allocated with mm_alloc()
+- Dummy page table entries get allocated with [pud|pmd|pte]_alloc_[map]()
+- Simplified [p4d|pgd]_basic_tests(), now has random values in the entries
+
+RFC V1:
+
+https://lore.kernel.org/linux-mm/1564037723-26676-1-git-send-email-anshuman.khandual@arm.com/
+
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Vlastimil Babka <vbabka@suse.cz>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Mike Rapoport <rppt@linux.vnet.ibm.com>
+Cc: Jason Gunthorpe <jgg@ziepe.ca>
+Cc: Dan Williams <dan.j.williams@intel.com>
+Cc: Peter Zijlstra <peterz@infradead.org>
+Cc: Michal Hocko <mhocko@kernel.org>
+Cc: Mark Rutland <mark.rutland@arm.com>
+Cc: Mark Brown <broonie@kernel.org>
+Cc: Steven Price <Steven.Price@arm.com>
+Cc: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Cc: Masahiro Yamada <yamada.masahiro@socionext.com>
+Cc: Kees Cook <keescook@chromium.org>
+Cc: Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>
+Cc: Matthew Wilcox <willy@infradead.org>
+Cc: Sri Krishna chowdary <schowdary@nvidia.com>
+Cc: Dave Hansen <dave.hansen@intel.com>
+Cc: Russell King - ARM Linux <linux@armlinux.org.uk>
+Cc: Michael Ellerman <mpe@ellerman.id.au>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
+Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Vineet Gupta <vgupta@synopsys.com>
+Cc: James Hogan <jhogan@kernel.org>
+Cc: Paul Burton <paul.burton@mips.com>
+Cc: Ralf Baechle <ralf@linux-mips.org>
+Cc: linux-snps-arc@lists.infradead.org
+Cc: linux-mips@vger.kernel.org
+Cc: linux-arm-kernel@lists.infradead.org
+Cc: linux-ia64@vger.kernel.org
+Cc: linuxppc-dev@lists.ozlabs.org
+Cc: linux-s390@vger.kernel.org
+Cc: linux-sh@vger.kernel.org
+Cc: sparclinux@vger.kernel.org
+Cc: x86@kernel.org
+Cc: linux-kernel@vger.kernel.org
+
+Anshuman Khandual (1):
+  mm/pgtable/debug: Add test validating architecture page table helpers
+
+ mm/Kconfig.debug       |  14 ++
+ mm/Makefile            |   1 +
+ mm/arch_pgtable_test.c | 425 +++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 440 insertions(+)
+ create mode 100644 mm/arch_pgtable_test.c
+
 -- 
-2.23.0
+2.20.1
