@@ -1,7 +1,7 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Wed, 04 Sep 2019 22:38:20 +0000
+From: Al Viro <viro@zeniv.linux.org.uk>
+Date: Wed, 04 Sep 2019 23:29:11 +0000
 Subject: Re: [PATCH v12 10/12] namei: aggressively check for nd->root escape on ".." resolution
-Message-Id: <CAHk-=wg7Wq1kj8kZ+SSpfU_o991woW60NWca9yBA2ccs2eNx8Q@mail.gmail.com>
+Message-Id: <20190904232911.GN1131@ZenIV.linux.org.uk>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20190904201933.10736-1-cyphar@cyphar.com>
  <20190904201933.10736-11-cyphar@cyphar.com>
@@ -9,25 +9,29 @@ References: <20190904201933.10736-1-cyphar@cyphar.com>
  <20190904214856.vnvom7h5xontvngq@yavin.dot.cyphar.com>
  <CAHk-=wgcJq21Hydh7Tx5-o8empoPp7ULDBw0Am-du_Pa+fcftQ@mail.gmail.com>
  <20592.1567636276@warthog.procyon.org.uk>
-In-Reply-To: <20592.1567636276@warthog.procyon.org.uk>
+ <CAHk-=wg7Wq1kj8kZ+SSpfU_o991woW60NWca9yBA2ccs2eNx8Q@mail.gmail.com>
+In-Reply-To: <CAHk-=wg7Wq1kj8kZ+SSpfU_o991woW60NWca9yBA2ccs2eNx8Q@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Howells <dhowells@redhat.com>
-Cc: linux-ia64@vger.kernel.org, Linux-sh list <linux-sh@vger.kernel.org>, Peter Zijlstra <peterz@infradead.org>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Alexei Starovoitov <ast@kernel.org>, Linux List Kernel Mailing <linux-kernel@vger.kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, "open list:KERNEL SELFTEST FRAMEWORK" <linux-kselftest@vger.kernel.org>, sparclinux@vger.kernel.org, Shuah Khan <shuah@kernel.org>, linux-arch <linux-arch@vger.kernel.org>, linux-s390 <linux-s390@vger.kernel.org>, Tycho Andersen <tycho@tycho.ws>, Aleksa Sarai <asarai@suse.de>, Jiri Olsa <jolsa@redhat.com>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Ingo Molnar <mingo@redhat.com>, Linux ARM <linux-arm-kernel@lists.infradead.org>, linux-mips@vger.kernel.org, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Arnd Bergmann <arnd@arndb.de>, Jann Horn <jannh@g>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: David Howells <dhowells@redhat.com>, Aleksa Sarai <cyphar@cyphar.com>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Christian Brauner <christian@brauner.io>, Jann Horn <jannh@google.com>, Kees Cook <keescook@chromium.org>, Eric Biederman <ebiederm@xmission.com>, Andy Lutomirski <luto@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Alexei Starovoitov <ast@kernel.org>, Tycho Andersen <tycho@tycho.ws>, David Drysdale <drysdale@google.com>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Rasmus Villemoes <linux@r>
 
-On Wed, Sep 4, 2019 at 3:31 PM David Howells <dhowells@redhat.com> wrote:
->
-> It ought to be reasonably easy to make them per-sb at least, I think.  We
-> don't allow cross-super rename, right?
+On Wed, Sep 04, 2019 at 03:38:20PM -0700, Linus Torvalds wrote:
+> On Wed, Sep 4, 2019 at 3:31 PM David Howells <dhowells@redhat.com> wrote:
+> >
+> > It ought to be reasonably easy to make them per-sb at least, I think.  We
+> > don't allow cross-super rename, right?
+> 
+> Right now the sequence count handling very much depends on it being a
+> global entity on the reader side, at least.
+> 
+> And while the rename sequence count could (and probably should) be
+> per-sb, the same is very much not true of the mount one.
 
-Right now the sequence count handling very much depends on it being a
-global entity on the reader side, at least.
-
-And while the rename sequence count could (and probably should) be
-per-sb, the same is very much not true of the mount one.
-
-So the rename seqcount is likely easier to fix than the mount one, but
-neither of them are entirely trivial, afaik.
-
-               Linus
+Huh?  That will cost us having to have a per-superblock dentry
+hash table; recall that lockless lockup can give false negatives
+if something gets moved from chain to chain, and rename_lock is
+first and foremost used to catch those and retry.  If we split
+it on per-superblock basis, we can't have dentries from different
+superblocks in the same chain anymore...
