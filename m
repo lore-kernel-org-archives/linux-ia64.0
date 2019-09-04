@@ -1,385 +1,223 @@
-From: Kees Cook <keescook@chromium.org>
-Date: Thu, 26 Sep 2019 17:55:43 +0000
-Subject: [PATCH 10/29] vmlinux.lds.h: Move NOTES into RO_DATA
-Message-Id: <20190926175602.33098-11-keescook@chromium.org>
+From: Aleksa Sarai <cyphar@cyphar.com>
+Date: Wed, 04 Sep 2019 20:19:21 +0000
+Subject: [PATCH v12 00/12] namei: openat2(2) path resolution restrictions
+Message-Id: <20190904201933.10736-1-cyphar@cyphar.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190926175602.33098-1-keescook@chromium.org>
-In-Reply-To: <20190926175602.33098-1-keescook@chromium.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thomas Gleixner <tglx@linutronix.de>
-Cc: Kees Cook <keescook@chromium.org>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, "H. Peter Anvin" <hpa@zytor.com>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Michal Simek <monstr@monstr.eu>, linux-parisc@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org, linux-kernel@vger.kernel.org
+To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Christian Brauner <christian@brauner.io>
+Cc: Aleksa Sarai <cyphar@cyphar.com>, Eric Biederman <ebiederm@xmission.com>, Andy Lutomirski <luto@kernel.org>, Jann Horn <jannh@google.com>, David Drysdale <drysdale@google.com>, Tycho Andersen <tycho@tycho.ws>, Kees Cook <keescook@chromium.org>, Linus Torvalds <torvalds@linux-foundation.org>, Andrew Morton <akpm@linux-foundation.org>, Alexei Starovoitov <ast@kernel.org>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, Aleksa Sarai <asarai@suse.de>, containers@lists.linux-foundation.org, linux-alpha@vger.kernel.org, linux-api@vger.kernel.org, linux-arch@vger.ker
 
-The .notes section should be non-executable read-only data. As such, it
-can live in the RO_DATA macro instead of being per-architecture defined.
+This patchset is being developed here:
+    <https://github.com/cyphar/linux/tree/resolveat/master>
 
-Signed-off-by: Kees Cook <keescook@chromium.org>
----
- arch/alpha/kernel/vmlinux.lds.S      | 2 --
- arch/arc/kernel/vmlinux.lds.S        | 2 --
- arch/arm/kernel/vmlinux-xip.lds.S    | 2 --
- arch/arm/kernel/vmlinux.lds.S        | 2 --
- arch/arm64/kernel/vmlinux.lds.S      | 1 -
- arch/c6x/kernel/vmlinux.lds.S        | 1 -
- arch/csky/kernel/vmlinux.lds.S       | 1 -
- arch/h8300/kernel/vmlinux.lds.S      | 1 -
- arch/hexagon/kernel/vmlinux.lds.S    | 1 -
- arch/ia64/kernel/vmlinux.lds.S       | 2 --
- arch/microblaze/kernel/vmlinux.lds.S | 1 -
- arch/mips/kernel/vmlinux.lds.S       | 2 --
- arch/nds32/kernel/vmlinux.lds.S      | 1 -
- arch/nios2/kernel/vmlinux.lds.S      | 1 -
- arch/openrisc/kernel/vmlinux.lds.S   | 1 -
- arch/parisc/kernel/vmlinux.lds.S     | 1 -
- arch/powerpc/kernel/vmlinux.lds.S    | 2 --
- arch/riscv/kernel/vmlinux.lds.S      | 1 -
- arch/s390/kernel/vmlinux.lds.S       | 2 --
- arch/sh/kernel/vmlinux.lds.S         | 1 -
- arch/sparc/kernel/vmlinux.lds.S      | 1 -
- arch/um/include/asm/common.lds.S     | 1 -
- arch/unicore32/kernel/vmlinux.lds.S  | 1 -
- arch/x86/kernel/vmlinux.lds.S        | 2 --
- arch/xtensa/kernel/vmlinux.lds.S     | 1 -
- include/asm-generic/vmlinux.lds.h    | 9 +++++----
- 26 files changed, 5 insertions(+), 38 deletions(-)
+Patch changelog:
+ v12:
+  * Remove @how->reserved field from openat2(2), and instead use the
+    (struct, size) design for syscall extensions.
+  * Implement copy_struct_{to,from}_user() to unify (struct, size)
+    syscall extension designs (as well as make them slightly more
+    efficient by using memchr_inv() as well as using buffers and
+    avoiding repeated access_ok() checks for trailing byte operations).
+    * Port sched_setattr(), perf_event_attr(), and clone3() to use the
+      new helpers.
+ v11: <https://lore.kernel.org/lkml/20190820033406.29796-1-cyphar@cyphar.com/>
+      <https://lore.kernel.org/lkml/20190728010207.9781-1-cyphar@cyphar.com/>
+ v10: <https://lore.kernel.org/lkml/20190719164225.27083-1-cyphar@cyphar.com/>
+ v09: <https://lore.kernel.org/lkml/20190706145737.5299-1-cyphar@cyphar.com/>
+ v08: <https://lore.kernel.org/lkml/20190520133305.11925-1-cyphar@cyphar.com/>
+ v07: <https://lore.kernel.org/lkml/20190507164317.13562-1-cyphar@cyphar.com/>
+ v06: <https://lore.kernel.org/lkml/20190506165439.9155-1-cyphar@cyphar.com/>
+ v05: <https://lore.kernel.org/lkml/20190320143717.2523-1-cyphar@cyphar.com/>
+ v04: <https://lore.kernel.org/lkml/20181112142654.341-1-cyphar@cyphar.com/>
+ v03: <https://lore.kernel.org/lkml/20181009070230.12884-1-cyphar@cyphar.com/>
+ v02: <https://lore.kernel.org/lkml/20181009065300.11053-1-cyphar@cyphar.com/>
+ v01: <https://lore.kernel.org/lkml/20180929103453.12025-1-cyphar@cyphar.com/>
 
-diff --git a/arch/alpha/kernel/vmlinux.lds.S b/arch/alpha/kernel/vmlinux.lds.S
-index cdfdc91ce64c..bf28043485f6 100644
---- a/arch/alpha/kernel/vmlinux.lds.S
-+++ b/arch/alpha/kernel/vmlinux.lds.S
-@@ -34,8 +34,6 @@ SECTIONS
- 	swapper_pg_dir = SWAPPER_PGD;
- 	_etext = .;	/* End of text section */
- 
--	NOTES
--
- 	RODATA
- 	EXCEPTION_TABLE(16)
- 
-diff --git a/arch/arc/kernel/vmlinux.lds.S b/arch/arc/kernel/vmlinux.lds.S
-index 6c693a9d29b6..1d6eef4b6976 100644
---- a/arch/arc/kernel/vmlinux.lds.S
-+++ b/arch/arc/kernel/vmlinux.lds.S
-@@ -118,8 +118,6 @@ SECTIONS
- 	/DISCARD/ : {	*(.eh_frame) }
- #endif
- 
--	NOTES
--
- 	. = ALIGN(PAGE_SIZE);
- 	_end = . ;
- 
-diff --git a/arch/arm/kernel/vmlinux-xip.lds.S b/arch/arm/kernel/vmlinux-xip.lds.S
-index 8c74037ade22..d2a9651c24ad 100644
---- a/arch/arm/kernel/vmlinux-xip.lds.S
-+++ b/arch/arm/kernel/vmlinux-xip.lds.S
-@@ -70,8 +70,6 @@ SECTIONS
- 	ARM_UNWIND_SECTIONS
- #endif
- 
--	NOTES
--
- 	_etext = .;			/* End of text and rodata section */
- 
- 	ARM_VECTORS
-diff --git a/arch/arm/kernel/vmlinux.lds.S b/arch/arm/kernel/vmlinux.lds.S
-index 23150c0f0f4d..068db6860867 100644
---- a/arch/arm/kernel/vmlinux.lds.S
-+++ b/arch/arm/kernel/vmlinux.lds.S
-@@ -81,8 +81,6 @@ SECTIONS
- 	ARM_UNWIND_SECTIONS
- #endif
- 
--	NOTES
--
- #ifdef CONFIG_STRICT_KERNEL_RWX
- 	. = ALIGN(1<<SECTION_SHIFT);
- #else
-diff --git a/arch/arm64/kernel/vmlinux.lds.S b/arch/arm64/kernel/vmlinux.lds.S
-index 7fa008374907..5cf9424485d5 100644
---- a/arch/arm64/kernel/vmlinux.lds.S
-+++ b/arch/arm64/kernel/vmlinux.lds.S
-@@ -137,7 +137,6 @@ SECTIONS
- 
- 	RO_DATA(PAGE_SIZE)		/* everything from this point to     */
- 	EXCEPTION_TABLE(8)		/* __init_begin will be marked RO NX */
--	NOTES
- 
- 	. = ALIGN(PAGE_SIZE);
- 	idmap_pg_dir = .;
-diff --git a/arch/c6x/kernel/vmlinux.lds.S b/arch/c6x/kernel/vmlinux.lds.S
-index 584bab2bace6..d6e3802536b3 100644
---- a/arch/c6x/kernel/vmlinux.lds.S
-+++ b/arch/c6x/kernel/vmlinux.lds.S
-@@ -81,7 +81,6 @@ SECTIONS
- 	}
- 
- 	EXCEPTION_TABLE(16)
--	NOTES
- 
- 	RO_DATA_SECTION(PAGE_SIZE)
- 	.const :
-diff --git a/arch/csky/kernel/vmlinux.lds.S b/arch/csky/kernel/vmlinux.lds.S
-index ae7961b973f2..75dd31412242 100644
---- a/arch/csky/kernel/vmlinux.lds.S
-+++ b/arch/csky/kernel/vmlinux.lds.S
-@@ -53,7 +53,6 @@ SECTIONS
- 	RW_DATA_SECTION(L1_CACHE_BYTES, PAGE_SIZE, THREAD_SIZE)
- 	_edata = .;
- 
--	NOTES
- 	EXCEPTION_TABLE(L1_CACHE_BYTES)
- 	BSS_SECTION(L1_CACHE_BYTES, PAGE_SIZE, L1_CACHE_BYTES)
- 	VBR_BASE
-diff --git a/arch/h8300/kernel/vmlinux.lds.S b/arch/h8300/kernel/vmlinux.lds.S
-index 49f716c0a1df..88776e785245 100644
---- a/arch/h8300/kernel/vmlinux.lds.S
-+++ b/arch/h8300/kernel/vmlinux.lds.S
-@@ -38,7 +38,6 @@ SECTIONS
- 	_etext = . ;
- 	}
- 	EXCEPTION_TABLE(16)
--	NOTES
- 	RO_DATA_SECTION(4)
- 	ROMEND = .;
- #if defined(CONFIG_ROMKERNEL)
-diff --git a/arch/hexagon/kernel/vmlinux.lds.S b/arch/hexagon/kernel/vmlinux.lds.S
-index 78f2418e97c8..6a6e8fc422ee 100644
---- a/arch/hexagon/kernel/vmlinux.lds.S
-+++ b/arch/hexagon/kernel/vmlinux.lds.S
-@@ -54,7 +54,6 @@ SECTIONS
- 	_edata = .;
- 
- 	EXCEPTION_TABLE(16)
--	NOTES
- 
- 	BSS_SECTION(_PAGE_SIZE, _PAGE_SIZE, _PAGE_SIZE)
- 
-diff --git a/arch/ia64/kernel/vmlinux.lds.S b/arch/ia64/kernel/vmlinux.lds.S
-index fdcc992ab360..ad3578924589 100644
---- a/arch/ia64/kernel/vmlinux.lds.S
-+++ b/arch/ia64/kernel/vmlinux.lds.S
-@@ -70,8 +70,6 @@ SECTIONS {
- 	/*
- 	 * Read-only data
- 	 */
--	NOTES
--
- 	EXCEPTION_TABLE(16)
- 
- 	/* MCA table */
-diff --git a/arch/microblaze/kernel/vmlinux.lds.S b/arch/microblaze/kernel/vmlinux.lds.S
-index e1f3e8741292..d008e50bb212 100644
---- a/arch/microblaze/kernel/vmlinux.lds.S
-+++ b/arch/microblaze/kernel/vmlinux.lds.S
-@@ -53,7 +53,6 @@ SECTIONS {
- 	. = ALIGN(16);
- 	RODATA
- 	EXCEPTION_TABLE(16)
--	NOTES
- 
- 	/*
- 	 * sdata2 section can go anywhere, but must be word aligned
-diff --git a/arch/mips/kernel/vmlinux.lds.S b/arch/mips/kernel/vmlinux.lds.S
-index 6a22f531d815..91e566defc16 100644
---- a/arch/mips/kernel/vmlinux.lds.S
-+++ b/arch/mips/kernel/vmlinux.lds.S
-@@ -81,8 +81,6 @@ SECTIONS
- 		__stop___dbe_table = .;
- 	}
- 
--	NOTES
--
- 	_sdata = .;			/* Start of data section */
- 	RODATA
- 
-diff --git a/arch/nds32/kernel/vmlinux.lds.S b/arch/nds32/kernel/vmlinux.lds.S
-index 9e90f30a181d..c4f1c5a604c3 100644
---- a/arch/nds32/kernel/vmlinux.lds.S
-+++ b/arch/nds32/kernel/vmlinux.lds.S
-@@ -58,7 +58,6 @@ SECTIONS
- 	_edata  =  .;
- 
- 	EXCEPTION_TABLE(16)
--	NOTES
- 	BSS_SECTION(4, 4, 4)
- 	_end = .;
- 
-diff --git a/arch/nios2/kernel/vmlinux.lds.S b/arch/nios2/kernel/vmlinux.lds.S
-index 6ad64f14617d..20e4078b3477 100644
---- a/arch/nios2/kernel/vmlinux.lds.S
-+++ b/arch/nios2/kernel/vmlinux.lds.S
-@@ -58,7 +58,6 @@ SECTIONS
- 
- 	STABS_DEBUG
- 	DWARF_DEBUG
--	NOTES
- 
- 	DISCARDS
- }
-diff --git a/arch/openrisc/kernel/vmlinux.lds.S b/arch/openrisc/kernel/vmlinux.lds.S
-index 2e2c72c157f3..142c51c994f5 100644
---- a/arch/openrisc/kernel/vmlinux.lds.S
-+++ b/arch/openrisc/kernel/vmlinux.lds.S
-@@ -79,7 +79,6 @@ SECTIONS
-         _edata  =  .;
- 
- 	EXCEPTION_TABLE(4)
--	NOTES
- 
- 	/* Init code and data */
- 	. = ALIGN(PAGE_SIZE);
-diff --git a/arch/parisc/kernel/vmlinux.lds.S b/arch/parisc/kernel/vmlinux.lds.S
-index 99cd24f2ea01..168d12b2ebb8 100644
---- a/arch/parisc/kernel/vmlinux.lds.S
-+++ b/arch/parisc/kernel/vmlinux.lds.S
-@@ -131,7 +131,6 @@ SECTIONS
- 
- 	/* RO because of BUILDTIME_EXTABLE_SORT */
- 	EXCEPTION_TABLE(8)
--	NOTES
- 
- 	/* unwind info */
- 	.PARISC.unwind : {
-diff --git a/arch/powerpc/kernel/vmlinux.lds.S b/arch/powerpc/kernel/vmlinux.lds.S
-index 4f19d814d592..4e7cec088c8b 100644
---- a/arch/powerpc/kernel/vmlinux.lds.S
-+++ b/arch/powerpc/kernel/vmlinux.lds.S
-@@ -164,8 +164,6 @@ SECTIONS
- #endif
- 	EXCEPTION_TABLE(0)
- 
--	NOTES
--
- /*
-  * Init sections discarded at runtime
-  */
-diff --git a/arch/riscv/kernel/vmlinux.lds.S b/arch/riscv/kernel/vmlinux.lds.S
-index 23cd1a9e52a1..df5229c4034d 100644
---- a/arch/riscv/kernel/vmlinux.lds.S
-+++ b/arch/riscv/kernel/vmlinux.lds.S
-@@ -69,7 +69,6 @@ SECTIONS
- 	BSS_SECTION(PAGE_SIZE, PAGE_SIZE, 0)
- 
- 	EXCEPTION_TABLE(0x10)
--	NOTES
- 
- 	.rel.dyn : {
- 		*(.rel.dyn*)
-diff --git a/arch/s390/kernel/vmlinux.lds.S b/arch/s390/kernel/vmlinux.lds.S
-index f88eedeb915a..beb4df053e20 100644
---- a/arch/s390/kernel/vmlinux.lds.S
-+++ b/arch/s390/kernel/vmlinux.lds.S
-@@ -52,8 +52,6 @@ SECTIONS
- 		_etext = .;		/* End of text section */
- 	} :text = 0x0700
- 
--	NOTES
--
- 	RO_DATA_SECTION(PAGE_SIZE)
- 
- 	. = ALIGN(PAGE_SIZE);
-diff --git a/arch/sh/kernel/vmlinux.lds.S b/arch/sh/kernel/vmlinux.lds.S
-index 77a59d8c6b4d..fef39054cc70 100644
---- a/arch/sh/kernel/vmlinux.lds.S
-+++ b/arch/sh/kernel/vmlinux.lds.S
-@@ -48,7 +48,6 @@ SECTIONS
- 	} = 0x0009
- 
- 	EXCEPTION_TABLE(16)
--	NOTES
- 
- 	_sdata = .;
- 	RO_DATA(PAGE_SIZE)
-diff --git a/arch/sparc/kernel/vmlinux.lds.S b/arch/sparc/kernel/vmlinux.lds.S
-index 61afd787bd0c..8929fbc35a80 100644
---- a/arch/sparc/kernel/vmlinux.lds.S
-+++ b/arch/sparc/kernel/vmlinux.lds.S
-@@ -78,7 +78,6 @@ SECTIONS
- 		__stop___fixup = .;
- 	}
- 	EXCEPTION_TABLE(16)
--	NOTES
- 
- 	. = ALIGN(PAGE_SIZE);
- 	__init_begin = ALIGN(PAGE_SIZE);
-diff --git a/arch/um/include/asm/common.lds.S b/arch/um/include/asm/common.lds.S
-index 4049f2c46387..a24b284f5135 100644
---- a/arch/um/include/asm/common.lds.S
-+++ b/arch/um/include/asm/common.lds.S
-@@ -16,7 +16,6 @@
-   PROVIDE (_unprotected_end = .);
- 
-   . = ALIGN(4096);
--  NOTES
-   EXCEPTION_TABLE(0)
- 
-   BUG_TABLE
-diff --git a/arch/unicore32/kernel/vmlinux.lds.S b/arch/unicore32/kernel/vmlinux.lds.S
-index 7abf90537cd5..78c4c56057b0 100644
---- a/arch/unicore32/kernel/vmlinux.lds.S
-+++ b/arch/unicore32/kernel/vmlinux.lds.S
-@@ -48,7 +48,6 @@ SECTIONS
- 	_edata = .;
- 
- 	EXCEPTION_TABLE(L1_CACHE_BYTES)
--	NOTES
- 
- 	BSS_SECTION(0, 0, 0)
- 	_end = .;
-diff --git a/arch/x86/kernel/vmlinux.lds.S b/arch/x86/kernel/vmlinux.lds.S
-index 8be25b09c2b7..41362e90142d 100644
---- a/arch/x86/kernel/vmlinux.lds.S
-+++ b/arch/x86/kernel/vmlinux.lds.S
-@@ -148,8 +148,6 @@ SECTIONS
- 		_etext = .;
- 	} :text = 0x9090
- 
--	NOTES
--
- 	EXCEPTION_TABLE(16)
- 
- 	/* .text should occupy whole number of pages */
-diff --git a/arch/xtensa/kernel/vmlinux.lds.S b/arch/xtensa/kernel/vmlinux.lds.S
-index 943f10639a93..a0a843745695 100644
---- a/arch/xtensa/kernel/vmlinux.lds.S
-+++ b/arch/xtensa/kernel/vmlinux.lds.S
-@@ -131,7 +131,6 @@ SECTIONS
-   .fixup   : { *(.fixup) }
- 
-   EXCEPTION_TABLE(16)
--  NOTES
-   /* Data section */
- 
-   _sdata = .;
-diff --git a/include/asm-generic/vmlinux.lds.h b/include/asm-generic/vmlinux.lds.h
-index 6a0a657dfdb4..3a4c1cb971da 100644
---- a/include/asm-generic/vmlinux.lds.h
-+++ b/include/asm-generic/vmlinux.lds.h
-@@ -28,7 +28,6 @@
-  *	_edata = .;
-  *
-  *	EXCEPTION_TABLE(...)
-- *	NOTES
-  *
-  *	BSS_SECTION(0, 0, 0)
-  *	_end = .;
-@@ -507,10 +506,12 @@
- 		__start___modver = .;					\
- 		KEEP(*(__modver))					\
- 		__stop___modver = .;					\
--		. = ALIGN((align));					\
--		__end_rodata = .;					\
- 	}								\
--	. = ALIGN((align));
-+									\
-+	NOTES								\
-+									\
-+	. = ALIGN((align));						\
-+	__end_rodata = .;
- 
- /* RODATA & RO_DATA provided for backward compatibility.
-  * All archs are supposed to use RO_DATA() */
+The need for some sort of control over VFS's path resolution (to avoid
+malicious paths resulting in inadvertent breakouts) has been a very
+long-standing desire of many userspace applications. This patchset is a
+revival of Al Viro's old AT_NO_JUMPS[1,2] patchset (which was a variant
+of David Drysdale's O_BENEATH patchset[3] which was a spin-off of the
+Capsicum project[4]) with a few additions and changes made based on the
+previous discussion within [5] as well as others I felt were useful.
+
+In line with the conclusions of the original discussion of AT_NO_JUMPS,
+the flag has been split up into separate flags. However, instead of
+being an openat(2) flag it is provided through a new syscall openat2(2)
+which provides several other improvements to the openat(2) interface (see the
+patch description for more details). The following new LOOKUP_* flags are
+added:
+
+  * LOOKUP_NO_XDEV blocks all mountpoint crossings (upwards, downwards,
+    or through absolute links). Absolute pathnames alone in openat(2) do
+    not trigger this.
+
+  * LOOKUP_NO_MAGICLINKS blocks resolution through /proc/$pid/fd-style
+    links. This is done by blocking the usage of nd_jump_link() during
+    resolution in a filesystem. The term "magic-links" is used to match
+    with the only reference to these links in Documentation/, but I'm
+    happy to change the name.
+
+    It should be noted that this is different to the scope of
+    ~LOOKUP_FOLLOW in that it applies to all path components. However,
+    you can do openat2(NO_FOLLOW|NO_MAGICLINKS) on a magic-link and it
+    will *not* fail (assuming that no parent component was a
+    magic-link), and you will have an fd for the magic-link.
+
+  * LOOKUP_BENEATH disallows escapes to outside the starting dirfd's
+    tree, using techniques such as ".." or absolute links. Absolute
+    paths in openat(2) are also disallowed. Conceptually this flag is to
+    ensure you "stay below" a certain point in the filesystem tree --
+    but this requires some additional to protect against various races
+    that would allow escape using "..".
+
+    Currently LOOKUP_BENEATH implies LOOKUP_NO_MAGICLINKS, because it
+    can trivially beam you around the filesystem (breaking the
+    protection). In future, there might be similar safety checks done as
+    in LOOKUP_IN_ROOT, but that requires more discussion.
+
+In addition, two new flags are added that expand on the above ideas:
+
+  * LOOKUP_NO_SYMLINKS does what it says on the tin. No symlink
+    resolution is allowed at all, including magic-links. Just as with
+    LOOKUP_NO_MAGICLINKS this can still be used with NOFOLLOW to open an
+    fd for the symlink as long as no parent path had a symlink
+    component.
+
+  * LOOKUP_IN_ROOT is an extension of LOOKUP_BENEATH that, rather than
+    blocking attempts to move past the root, forces all such movements
+    to be scoped to the starting point. This provides chroot(2)-like
+    protection but without the cost of a chroot(2) for each filesystem
+    operation, as well as being safe against race attacks that chroot(2)
+    is not.
+
+    If a race is detected (as with LOOKUP_BENEATH) then an error is
+    generated, and similar to LOOKUP_BENEATH it is not permitted to cross
+    magic-links with LOOKUP_IN_ROOT.
+
+    The primary need for this is from container runtimes, which
+    currently need to do symlink scoping in userspace[6] when opening
+    paths in a potentially malicious container. There is a long list of
+    CVEs that could have bene mitigated by having RESOLVE_THIS_ROOT
+    (such as CVE-2017-1002101, CVE-2017-1002102, CVE-2018-15664, and
+    CVE-2019-5736, just to name a few).
+
+And further, several semantics of file descriptor "re-opening" are now
+changed to prevent attacks like CVE-2019-5736 by restricting how
+magic-links can be resolved (based on their mode). This required some
+other changes to the semantics of the modes of O_PATH file descriptor's
+associated /proc/self/fd magic-links. openat2(2) has the ability to
+further restrict re-opening of its own O_PATH fds, so that users can
+make even better use of this feature.
+
+Finally, O_EMPTYPATH was added so that users can do /proc/self/fd-style
+re-opening without depending on procfs. The new restricted semantics for
+magic-links are applied here too.
+
+In order to make all of the above more usable, I'm working on
+libpathrs[7] which is a C-friendly library for safe path resolution. It
+features a userspace-emulated backend if the kernel doesn't support
+openat2(2). Hopefully we can get userspace to switch to using it, and
+thus get openat2(2) support for free once it's ready.
+
+Cc: Al Viro <viro@zeniv.linux.org.uk>
+Cc: Eric Biederman <ebiederm@xmission.com>
+Cc: Andy Lutomirski <luto@kernel.org>
+Cc: David Howells <dhowells@redhat.com>
+Cc: Jann Horn <jannh@google.com>
+Cc: Christian Brauner <christian@brauner.io>
+Cc: David Drysdale <drysdale@google.com>
+Cc: Tycho Andersen <tycho@tycho.ws>
+Cc: Kees Cook <keescook@chromium.org>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>
+
+[1]: https://lwn.net/Articles/721443/
+[2]: https://lore.kernel.org/patchwork/patch/784221/
+[3]: https://lwn.net/Articles/619151/
+[4]: https://lwn.net/Articles/603929/
+[5]: https://lwn.net/Articles/723057/
+[6]: https://github.com/cyphar/filepath-securejoin
+[7]: https://github.com/openSUSE/libpathrs
+
+Aleksa Sarai (12):
+  lib: introduce copy_struct_{to,from}_user helpers
+  clone3: switch to copy_struct_from_user()
+  sched_setattr: switch to copy_struct_{to,from}_user()
+  perf_event_open: switch to copy_struct_from_user()
+  namei: obey trailing magic-link DAC permissions
+  procfs: switch magic-link modes to be more sane
+  open: O_EMPTYPATH: procfs-less file descriptor re-opening
+  namei: O_BENEATH-style path resolution flags
+  namei: LOOKUP_IN_ROOT: chroot-like path resolution
+  namei: aggressively check for nd->root escape on ".." resolution
+  open: openat2(2) syscall
+  selftests: add openat2(2) selftests
+
+ Documentation/filesystems/path-lookup.rst     |  12 +-
+ arch/alpha/include/uapi/asm/fcntl.h           |   1 +
+ arch/alpha/kernel/syscalls/syscall.tbl        |   1 +
+ arch/arm/tools/syscall.tbl                    |   1 +
+ arch/arm64/include/asm/unistd.h               |   2 +-
+ arch/arm64/include/asm/unistd32.h             |   2 +
+ arch/ia64/kernel/syscalls/syscall.tbl         |   1 +
+ arch/m68k/kernel/syscalls/syscall.tbl         |   1 +
+ arch/microblaze/kernel/syscalls/syscall.tbl   |   1 +
+ arch/mips/kernel/syscalls/syscall_n32.tbl     |   1 +
+ arch/mips/kernel/syscalls/syscall_n64.tbl     |   1 +
+ arch/mips/kernel/syscalls/syscall_o32.tbl     |   1 +
+ arch/parisc/include/uapi/asm/fcntl.h          |  39 +-
+ arch/parisc/kernel/syscalls/syscall.tbl       |   1 +
+ arch/powerpc/kernel/syscalls/syscall.tbl      |   1 +
+ arch/s390/kernel/syscalls/syscall.tbl         |   1 +
+ arch/sh/kernel/syscalls/syscall.tbl           |   1 +
+ arch/sparc/include/uapi/asm/fcntl.h           |   1 +
+ arch/sparc/kernel/syscalls/syscall.tbl        |   1 +
+ arch/x86/entry/syscalls/syscall_32.tbl        |   1 +
+ arch/x86/entry/syscalls/syscall_64.tbl        |   1 +
+ arch/xtensa/kernel/syscalls/syscall.tbl       |   1 +
+ fs/fcntl.c                                    |   2 +-
+ fs/internal.h                                 |   1 +
+ fs/namei.c                                    | 270 ++++++++++--
+ fs/open.c                                     | 100 ++++-
+ fs/proc/base.c                                |  20 +-
+ fs/proc/fd.c                                  |  23 +-
+ fs/proc/namespaces.c                          |   2 +-
+ include/linux/fcntl.h                         |  21 +-
+ include/linux/fs.h                            |   8 +-
+ include/linux/namei.h                         |   9 +
+ include/linux/syscalls.h                      |  14 +-
+ include/linux/uaccess.h                       |   5 +
+ include/uapi/asm-generic/fcntl.h              |   4 +
+ include/uapi/asm-generic/unistd.h             |   5 +-
+ include/uapi/linux/fcntl.h                    |  42 ++
+ include/uapi/linux/sched.h                    |   2 +
+ kernel/events/core.c                          |  45 +-
+ kernel/fork.c                                 |  34 +-
+ kernel/sched/core.c                           |  85 +---
+ lib/Makefile                                  |   2 +-
+ lib/struct_user.c                             | 182 ++++++++
+ tools/testing/selftests/Makefile              |   1 +
+ tools/testing/selftests/memfd/memfd_test.c    |   7 +-
+ tools/testing/selftests/openat2/.gitignore    |   1 +
+ tools/testing/selftests/openat2/Makefile      |   8 +
+ tools/testing/selftests/openat2/helpers.c     | 167 ++++++++
+ tools/testing/selftests/openat2/helpers.h     | 118 +++++
+ .../testing/selftests/openat2/linkmode_test.c | 333 +++++++++++++++
+ .../testing/selftests/openat2/openat2_test.c  | 106 +++++
+ .../selftests/openat2/rename_attack_test.c    | 127 ++++++
+ .../testing/selftests/openat2/resolve_test.c  | 402 ++++++++++++++++++
+ 53 files changed, 1971 insertions(+), 248 deletions(-)
+ create mode 100644 lib/struct_user.c
+ create mode 100644 tools/testing/selftests/openat2/.gitignore
+ create mode 100644 tools/testing/selftests/openat2/Makefile
+ create mode 100644 tools/testing/selftests/openat2/helpers.c
+ create mode 100644 tools/testing/selftests/openat2/helpers.h
+ create mode 100644 tools/testing/selftests/openat2/linkmode_test.c
+ create mode 100644 tools/testing/selftests/openat2/openat2_test.c
+ create mode 100644 tools/testing/selftests/openat2/rename_attack_test.c
+ create mode 100644 tools/testing/selftests/openat2/resolve_test.c
+
 -- 
-2.17.1
+2.23.0
