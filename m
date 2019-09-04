@@ -1,45 +1,93 @@
-From: Kees Cook <keescook@chromium.org>
-Date: Thu, 26 Sep 2019 17:55:52 +0000
-Subject: [PATCH 19/29] c6x: Move EXCEPTION_TABLE to RO_DATA segment
-Message-Id: <20190926175602.33098-20-keescook@chromium.org>
+From: Aleksa Sarai <cyphar@cyphar.com>
+Date: Wed, 04 Sep 2019 20:19:25 +0000
+Subject: [PATCH v12 04/12] perf_event_open: switch to copy_struct_from_user()
+Message-Id: <20190904201933.10736-5-cyphar@cyphar.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190926175602.33098-1-keescook@chromium.org>
-In-Reply-To: <20190926175602.33098-1-keescook@chromium.org>
+References: <20190904201933.10736-1-cyphar@cyphar.com>
+In-Reply-To: <20190904201933.10736-1-cyphar@cyphar.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thomas Gleixner <tglx@linutronix.de>
-Cc: Kees Cook <keescook@chromium.org>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, "H. Peter Anvin" <hpa@zytor.com>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Michal Simek <monstr@monstr.eu>, linux-parisc@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org, linux-kernel@vger.kernel.org
+To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Christian Brauner <christian@brauner.io>
+Cc: Aleksa Sarai <cyphar@cyphar.com>, Eric Biederman <ebiederm@xmission.com>, Andy Lutomirski <luto@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Alexei Starovoitov <ast@kernel.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, David Drysdale <drysdale@google.com>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, Aleksa Sarai <asarai@suse.de>, Linus Torvalds <torvalds@linux-foundation.org>, containers@lists.linux-foundation.org, linux-alpha@vger.kernel.org, linux-api@vger.kernel.org, linux-arch@vger.kernel.org
 
-The EXCEPTION_TABLE is read-only, so collapse it into RO_DATA.
+The change is very straightforward, and takes advantage of the (very
+minor) efficiency improvements in copy_struct_from_user() -- that the
+memchr_inv() check is done on a buffer instead of one-at-at-time with
+get_user().
 
-Signed-off-by: Kees Cook <keescook@chromium.org>
+Signed-off-by: Aleksa Sarai <cyphar@cyphar.com>
 ---
- arch/c6x/kernel/vmlinux.lds.S | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ kernel/events/core.c | 45 ++++++++------------------------------------
+ 1 file changed, 8 insertions(+), 37 deletions(-)
 
-diff --git a/arch/c6x/kernel/vmlinux.lds.S b/arch/c6x/kernel/vmlinux.lds.S
-index a3547f9d415b..9a09aab63ab3 100644
---- a/arch/c6x/kernel/vmlinux.lds.S
-+++ b/arch/c6x/kernel/vmlinux.lds.S
-@@ -5,6 +5,9 @@
-  *  Copyright (C) 2010, 2011 Texas Instruments Incorporated
-  *  Mark Salter <msalter@redhat.com>
-  */
-+
-+#define RO_DATA_EXCEPTION_TABLE_ALIGN	16
-+
- #include <asm-generic/vmlinux.lds.h>
- #include <asm/thread_info.h>
- #include <asm/page.h>
-@@ -80,8 +83,6 @@ SECTIONS
- 		*(.gnu.warning)
+diff --git a/kernel/events/core.c b/kernel/events/core.c
+index 0463c1151bae..fe5f58443ba6 100644
+--- a/kernel/events/core.c
++++ b/kernel/events/core.c
+@@ -10498,55 +10498,26 @@ static int perf_copy_attr(struct perf_event_attr __user *uattr,
+ 	u32 size;
+ 	int ret;
+ 
+-	if (!access_ok(uattr, PERF_ATTR_SIZE_VER0))
+-		return -EFAULT;
+-
+-	/*
+-	 * zero the full structure, so that a short copy will be nice.
+-	 */
++	/* Zero the full structure, so that a short copy will be nice. */
+ 	memset(attr, 0, sizeof(*attr));
+ 
+ 	ret = get_user(size, &uattr->size);
+ 	if (ret)
+ 		return ret;
+ 
+-	if (size > PAGE_SIZE)	/* silly large */
+-		goto err_size;
+-
+-	if (!size)		/* abi compat */
++	/* ABI compatibility quirk: */
++	if (!size)
+ 		size = PERF_ATTR_SIZE_VER0;
+-
+ 	if (size < PERF_ATTR_SIZE_VER0)
+ 		goto err_size;
+ 
+-	/*
+-	 * If we're handed a bigger struct than we know of,
+-	 * ensure all the unknown bits are 0 - i.e. new
+-	 * user-space does not rely on any kernel feature
+-	 * extensions we dont know about yet.
+-	 */
+-	if (size > sizeof(*attr)) {
+-		unsigned char __user *addr;
+-		unsigned char __user *end;
+-		unsigned char val;
+-
+-		addr = (void __user *)uattr + sizeof(*attr);
+-		end  = (void __user *)uattr + size;
+-
+-		for (; addr < end; addr++) {
+-			ret = get_user(val, addr);
+-			if (ret)
+-				return ret;
+-			if (val)
+-				goto err_size;
+-		}
+-		size = sizeof(*attr);
++	ret = copy_struct_from_user(attr, sizeof(*attr), uattr, size);
++	if (ret) {
++		if (ret = -E2BIG)
++			goto err_size;
++		return ret;
  	}
  
--	EXCEPTION_TABLE(16)
+-	ret = copy_from_user(attr, uattr, size);
+-	if (ret)
+-		return -EFAULT;
 -
- 	RO_DATA(PAGE_SIZE)
- 	.const :
- 	{
+ 	attr->size = size;
+ 
+ 	if (attr->__reserved_1)
 -- 
-2.17.1
+2.23.0
