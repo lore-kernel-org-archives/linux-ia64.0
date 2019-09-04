@@ -1,67 +1,164 @@
-From: Kees Cook <keescook@chromium.org>
-Date: Thu, 26 Sep 2019 17:56:02 +0000
-Subject: [PATCH 29/29] x86: Use INT3 instead of NOP for linker fill bytes
-Message-Id: <20190926175602.33098-30-keescook@chromium.org>
+From: Aleksa Sarai <cyphar@cyphar.com>
+Date: Wed, 04 Sep 2019 20:19:24 +0000
+Subject: [PATCH v12 03/12] sched_setattr: switch to copy_struct_{to,from}_user()
+Message-Id: <20190904201933.10736-4-cyphar@cyphar.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190926175602.33098-1-keescook@chromium.org>
-In-Reply-To: <20190926175602.33098-1-keescook@chromium.org>
+References: <20190904201933.10736-1-cyphar@cyphar.com>
+In-Reply-To: <20190904201933.10736-1-cyphar@cyphar.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thomas Gleixner <tglx@linutronix.de>
-Cc: Kees Cook <keescook@chromium.org>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, "H. Peter Anvin" <hpa@zytor.com>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Michal Simek <monstr@monstr.eu>, linux-parisc@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org, linux-kernel@vger.kernel.org
+To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Christian Brauner <christian@brauner.io>
+Cc: Aleksa Sarai <cyphar@cyphar.com>, Eric Biederman <ebiederm@xmission.com>, Andy Lutomirski <luto@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Alexei Starovoitov <ast@kernel.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, David Drysdale <drysdale@google.com>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, Aleksa Sarai <asarai@suse.de>, Linus Torvalds <torvalds@linux-foundation.org>, containers@lists.linux-foundation.org, linux-alpha@vger.kernel.org, linux-api@vger.kernel.org, linux-arch@vger.kernel.org
 
-Instead of using 0x90 (NOP) to fill bytes between functions, which makes
-it easier to sloppily target functions in function pointer overwrite
-attacks, fill with 0xCC (INT3) to force a trap. Also drops the space
-between "=" and the value to better match the binutils documentation
-https://sourceware.org/binutils/docs/ld/Output-Section-Fill.html#Output-Section-Fill
+The change is very straightforward, and takes advantage of the (very
+minor) efficiency improvements in copy_struct_{to,from}_user() -- that
+the memchr_inv() check is done on a buffer instead of one-at-at-time
+with get_user() or put_user().
 
-Example "objdump -d" before:
-
-...
-ffffffff810001e0 <start_cpu0>:
-ffffffff810001e0:       48 8b 25 e1 b1 51 01    mov 0x151b1e1(%rip),%rsp        # ffffffff8251b3c8 <initial_stack>
-ffffffff810001e7:       e9 d5 fe ff ff          jmpq   ffffffff810000c1 <secondary_startup_64+0x91>
-ffffffff810001ec:       90                      nop
-ffffffff810001ed:       90                      nop
-ffffffff810001ee:       90                      nop
-ffffffff810001ef:       90                      nop
-
-ffffffff810001f0 <__startup_64>:
-...
-
-After:
-
-...
-ffffffff810001e0 <start_cpu0>:
-ffffffff810001e0:       48 8b 25 41 79 53 01    mov 0x1537941(%rip),%rsp        # ffffffff82537b28 <initial_stack>
-ffffffff810001e7:       e9 d5 fe ff ff          jmpq   ffffffff810000c1 <secondary_startup_64+0x91>
-ffffffff810001ec:       cc                      int3
-ffffffff810001ed:       cc                      int3
-ffffffff810001ee:       cc                      int3
-ffffffff810001ef:       cc                      int3
-
-ffffffff810001f0 <__startup_64>:
-...
-
-Signed-off-by: Kees Cook <keescook@chromium.org>
+Signed-off-by: Aleksa Sarai <cyphar@cyphar.com>
 ---
- arch/x86/kernel/vmlinux.lds.S | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ kernel/sched/core.c | 85 ++++++---------------------------------------
+ 1 file changed, 10 insertions(+), 75 deletions(-)
 
-diff --git a/arch/x86/kernel/vmlinux.lds.S b/arch/x86/kernel/vmlinux.lds.S
-index a5c8571e4967..a37817fafb22 100644
---- a/arch/x86/kernel/vmlinux.lds.S
-+++ b/arch/x86/kernel/vmlinux.lds.S
-@@ -144,7 +144,7 @@ SECTIONS
- 		*(.text.__x86.indirect_thunk)
- 		__indirect_thunk_end = .;
- #endif
--	} :text = 0x9090
-+	} :text =0xcccc
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index 010d578118d6..2f58b07d3468 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -4900,9 +4900,6 @@ static int sched_copy_attr(struct sched_attr __user *uattr, struct sched_attr *a
+ 	u32 size;
+ 	int ret;
  
- 	/* End of text section, which should occupy whole number of pages */
- 	_etext = .;
+-	if (!access_ok(uattr, SCHED_ATTR_SIZE_VER0))
+-		return -EFAULT;
+-
+ 	/* Zero the full structure, so that a short copy will be nice: */
+ 	memset(attr, 0, sizeof(*attr));
+ 
+@@ -4910,45 +4907,19 @@ static int sched_copy_attr(struct sched_attr __user *uattr, struct sched_attr *a
+ 	if (ret)
+ 		return ret;
+ 
+-	/* Bail out on silly large: */
+-	if (size > PAGE_SIZE)
+-		goto err_size;
+-
+ 	/* ABI compatibility quirk: */
+ 	if (!size)
+ 		size = SCHED_ATTR_SIZE_VER0;
+-
+ 	if (size < SCHED_ATTR_SIZE_VER0)
+ 		goto err_size;
+ 
+-	/*
+-	 * If we're handed a bigger struct than we know of,
+-	 * ensure all the unknown bits are 0 - i.e. new
+-	 * user-space does not rely on any kernel feature
+-	 * extensions we dont know about yet.
+-	 */
+-	if (size > sizeof(*attr)) {
+-		unsigned char __user *addr;
+-		unsigned char __user *end;
+-		unsigned char val;
+-
+-		addr = (void __user *)uattr + sizeof(*attr);
+-		end  = (void __user *)uattr + size;
+-
+-		for (; addr < end; addr++) {
+-			ret = get_user(val, addr);
+-			if (ret)
+-				return ret;
+-			if (val)
+-				goto err_size;
+-		}
+-		size = sizeof(*attr);
++	ret = copy_struct_from_user(attr, sizeof(*attr), uattr, size);
++	if (ret) {
++		if (ret = -E2BIG)
++			goto err_size;
++		return ret;
+ 	}
+ 
+-	ret = copy_from_user(attr, uattr, size);
+-	if (ret)
+-		return -EFAULT;
+-
+ 	if ((attr->sched_flags & SCHED_FLAG_UTIL_CLAMP) &&
+ 	    size < SCHED_ATTR_SIZE_VER1)
+ 		return -EINVAL;
+@@ -5105,51 +5076,15 @@ SYSCALL_DEFINE2(sched_getparam, pid_t, pid, struct sched_param __user *, param)
+ 	return retval;
+ }
+ 
+-static int sched_read_attr(struct sched_attr __user *uattr,
+-			   struct sched_attr *attr,
+-			   unsigned int usize)
+-{
+-	int ret;
+-
+-	if (!access_ok(uattr, usize))
+-		return -EFAULT;
+-
+-	/*
+-	 * If we're handed a smaller struct than we know of,
+-	 * ensure all the unknown bits are 0 - i.e. old
+-	 * user-space does not get uncomplete information.
+-	 */
+-	if (usize < sizeof(*attr)) {
+-		unsigned char *addr;
+-		unsigned char *end;
+-
+-		addr = (void *)attr + usize;
+-		end  = (void *)attr + sizeof(*attr);
+-
+-		for (; addr < end; addr++) {
+-			if (*addr)
+-				return -EFBIG;
+-		}
+-
+-		attr->size = usize;
+-	}
+-
+-	ret = copy_to_user(uattr, attr, attr->size);
+-	if (ret)
+-		return -EFAULT;
+-
+-	return 0;
+-}
+-
+ /**
+  * sys_sched_getattr - similar to sched_getparam, but with sched_attr
+  * @pid: the pid in question.
+  * @uattr: structure containing the extended parameters.
+- * @size: sizeof(attr) for fwd/bwd comp.
++ * @usize: sizeof(attr) for fwd/bwd comp.
+  * @flags: for future extension.
+  */
+ SYSCALL_DEFINE4(sched_getattr, pid_t, pid, struct sched_attr __user *, uattr,
+-		unsigned int, size, unsigned int, flags)
++		unsigned int, usize, unsigned int, flags)
+ {
+ 	struct sched_attr attr = {
+ 		.size = sizeof(struct sched_attr),
+@@ -5157,8 +5092,8 @@ SYSCALL_DEFINE4(sched_getattr, pid_t, pid, struct sched_attr __user *, uattr,
+ 	struct task_struct *p;
+ 	int retval;
+ 
+-	if (!uattr || pid < 0 || size > PAGE_SIZE ||
+-	    size < SCHED_ATTR_SIZE_VER0 || flags)
++	if (!uattr || pid < 0 || usize > PAGE_SIZE ||
++	    usize < SCHED_ATTR_SIZE_VER0 || flags)
+ 		return -EINVAL;
+ 
+ 	rcu_read_lock();
+@@ -5188,7 +5123,7 @@ SYSCALL_DEFINE4(sched_getattr, pid_t, pid, struct sched_attr __user *, uattr,
+ 
+ 	rcu_read_unlock();
+ 
+-	retval = sched_read_attr(uattr, &attr, size);
++	retval = copy_struct_to_user(uattr, usize, &attr, sizeof(attr));
+ 	return retval;
+ 
+ out_unlock:
 -- 
-2.17.1
+2.23.0
