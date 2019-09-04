@@ -1,157 +1,230 @@
 From: Aleksa Sarai <cyphar@cyphar.com>
-Date: Mon, 30 Sep 2019 18:33:13 +0000
-Subject: [PATCH v13 6/9] namei: permit ".." resolution with LOOKUP_{IN_ROOT,BENEATH}
-Message-Id: <20190930183316.10190-7-cyphar@cyphar.com>
+Date: Wed, 04 Sep 2019 20:19:28 +0000
+Subject: [PATCH v12 07/12] open: O_EMPTYPATH: procfs-less file descriptor re-opening
+Message-Id: <20190904201933.10736-8-cyphar@cyphar.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190930183316.10190-1-cyphar@cyphar.com>
-In-Reply-To: <20190930183316.10190-1-cyphar@cyphar.com>
+References: <20190904201933.10736-1-cyphar@cyphar.com>
+In-Reply-To: <20190904201933.10736-1-cyphar@cyphar.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>
-Cc: linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Alexei Starovoitov <ast@kernel.org>, linux-kernel@vger.kernel.org, linux-kselftest@vger.kernel.org, sparclinux@vger.kernel.org, Jiri Olsa <jolsa@redhat.com>, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, Tycho Andersen <tycho@tycho.ws>, Aleksa Sarai <asarai@suse.de>, linux-arm-kernel@lists.infradead.org, linux-mips@vger.kernel.org, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linuxppc-dev@lists.ozlabs.org, Aleksa Sarai <cyphar@cyphar.com>, Andy Lutomirski <luto@kernel.org>, Namhyung Kim <namhyung@kernel.org>, David Drysdale <drysdale@google.com>, Christian Brauner <christian@brauner.io>, libc-alpha@sourceware.org, linux-parisc@vger.kernel.org, linux-m68k@li
+To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Christian Brauner <christian@brauner.io>
+Cc: Aleksa Sarai <cyphar@cyphar.com>, Eric Biederman <ebiederm@xmission.com>, Andy Lutomirski <luto@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Alexei Starovoitov <ast@kernel.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, David Drysdale <drysdale@google.com>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, Aleksa Sarai <asarai@suse.de>, Linus Torvalds <torvalds@linux-foundation.org>, containers@lists.linux-foundation.org, linux-alpha@vger.kernel.org, linux-api@vger.kernel.org, linux-arch@vger.kernel.org
 
-This patch allows for LOOKUP_BENEATH and LOOKUP_IN_ROOT to safely permit
-".." resolution (in the case of LOOKUP_BENEATH the resolution will still
-fail if ".." resolution would resolve a path outside of the root --
-while LOOKUP_IN_ROOT will chroot(2)-style scope it). Magic-link jumps
-are still disallowed entirely[*].
+Userspace has made use of /proc/self/fd very liberally to allow for
+descriptors to be re-opened. There are a wide variety of uses for this
+feature, but it has always required constructing a pathname and could
+not be done without procfs mounted. The obvious solution for this is to
+extend openat(2) to have an AT_EMPTY_PATH-equivalent -- O_EMPTYPATH.
 
-The need for this patch (and the original no-".." restriction) is
-explained by observing there is a fairly easy-to-exploit race condition
-with chroot(2) (and thus by extension LOOKUP_IN_ROOT and LOOKUP_BENEATH
-if ".." is allowed) where a rename(2) of a path can be used to "skip
-over" nd->root and thus escape to the filesystem above nd->root.
+Now that descriptor re-opening has been made safe through the new
+magic-link resolution restrictions, we can replicate these restrictions
+for O_EMPTYPATH. In particular, we only allow "upgrading" the file
+descriptor if the corresponding FMODE_PATH_* bit is set (or the
+FMODE_{READ,WRITE} cases for non-O_PATH file descriptors).
 
-  thread1 [attacker]:
-    for (;;)
-      renameat2(AT_FDCWD, "/a/b/c", AT_FDCWD, "/a/d", RENAME_EXCHANGE);
-  thread2 [victim]:
-    for (;;)
-      openat2(dirb, "b/c/../../etc/shadow",
-              { .flags = O_PATH, .resolve = RESOLVE_IN_ROOT } );
-
-With fairly significant regularity, thread2 will resolve to
-"/etc/shadow" rather than "/a/b/etc/shadow". There is also a similar
-(though somewhat more privileged) attack using MS_MOVE.
-
-With this patch, such cases will be detected *during* ".." resolution
-and will return -EAGAIN for userspace to decide to either retry or abort
-the lookup. It should be noted that ".." is the weak point of chroot(2)
--- walking *into* a subdirectory tautologically cannot result in you
-walking *outside* nd->root (except through a bind-mount or magic-link).
-There is also no other way for a directory's parent to change (which is
-the primary worry with ".." resolution here) other than a rename or
-MS_MOVE.
-
-This is a first-pass implementation, where -EAGAIN will be returned if
-any rename or mount occurs anywhere on the host (in any namespace). This
-will result in spurious errors, but there isn't a satisfactory
-alternative (other than denying ".." altogether).
-
-One other possible alternative (which previous versions of this patch
-used) would be to check with path_is_under() if there was a racing
-rename or mount (after re-taking the relevant seqlocks). While this does
-work, it results in possible O(n*m) behaviour if there are many renames
-or mounts occuring *anywhere on the system*.
-
-A variant of the above attack is included in the selftests for
-openat2(2) later in this patch series. I've run this test on several
-machines for several days and no instances of a breakout were detected.
-While this is not concrete proof that this is safe, when combined with
-the above argument it should lend some trustworthiness to this
-construction.
-
-[*] It may be acceptable in the future to do a path_is_under() check (as
-    with the alternative solution for "..") for magic-links after they
-    are resolved. However this seems unlikely to be a feature that
-    people *really* need -- it can be added later if it turns out a lot
-    of people want it.
+When doing openat(O_EMPTYPATH|O_PATH), O_PATH takes precedence and
+O_EMPTYPATH is ignored. Very few users ever have a need to O_PATH
+re-open an existing file descriptor, and so accommodating them at the
+expense of further complicating O_PATH makes little sense. Ultimately,
+if users ask for this we can always add RESOLVE_EMPTY_PATH to
+resolveat(2) in the future.
 
 Signed-off-by: Aleksa Sarai <cyphar@cyphar.com>
 ---
- fs/namei.c | 43 +++++++++++++++++++++++++++++--------------
- 1 file changed, 29 insertions(+), 14 deletions(-)
+ arch/alpha/include/uapi/asm/fcntl.h  |  1 +
+ arch/parisc/include/uapi/asm/fcntl.h | 39 ++++++++++++++--------------
+ arch/sparc/include/uapi/asm/fcntl.h  |  1 +
+ fs/fcntl.c                           |  2 +-
+ fs/namei.c                           | 20 ++++++++++++++
+ fs/open.c                            |  7 ++++-
+ include/linux/fcntl.h                |  2 +-
+ include/uapi/asm-generic/fcntl.h     |  4 +++
+ 8 files changed, 54 insertions(+), 22 deletions(-)
 
+diff --git a/arch/alpha/include/uapi/asm/fcntl.h b/arch/alpha/include/uapi/asm/fcntl.h
+index 50bdc8e8a271..1f879bade68b 100644
+--- a/arch/alpha/include/uapi/asm/fcntl.h
++++ b/arch/alpha/include/uapi/asm/fcntl.h
+@@ -34,6 +34,7 @@
+ 
+ #define O_PATH		040000000
+ #define __O_TMPFILE	0100000000
++#define O_EMPTYPATH	0200000000
+ 
+ #define F_GETLK		7
+ #define F_SETLK		8
+diff --git a/arch/parisc/include/uapi/asm/fcntl.h b/arch/parisc/include/uapi/asm/fcntl.h
+index 03ce20e5ad7d..5d709058a76f 100644
+--- a/arch/parisc/include/uapi/asm/fcntl.h
++++ b/arch/parisc/include/uapi/asm/fcntl.h
+@@ -2,26 +2,27 @@
+ #ifndef _PARISC_FCNTL_H
+ #define _PARISC_FCNTL_H
+ 
+-#define O_APPEND	000000010
+-#define O_BLKSEEK	000000100 /* HPUX only */
+-#define O_CREAT		000000400 /* not fcntl */
+-#define O_EXCL		000002000 /* not fcntl */
+-#define O_LARGEFILE	000004000
+-#define __O_SYNC	000100000
++#define O_APPEND	0000000010
++#define O_BLKSEEK	0000000100 /* HPUX only */
++#define O_CREAT		0000000400 /* not fcntl */
++#define O_EXCL		0000002000 /* not fcntl */
++#define O_LARGEFILE	0000004000
++#define __O_SYNC	0000100000
+ #define O_SYNC		(__O_SYNC|O_DSYNC)
+-#define O_NONBLOCK	000200004 /* HPUX has separate NDELAY & NONBLOCK */
+-#define O_NOCTTY	000400000 /* not fcntl */
+-#define O_DSYNC		001000000 /* HPUX only */
+-#define O_RSYNC		002000000 /* HPUX only */
+-#define O_NOATIME	004000000
+-#define O_CLOEXEC	010000000 /* set close_on_exec */
+-
+-#define O_DIRECTORY	000010000 /* must be a directory */
+-#define O_NOFOLLOW	000000200 /* don't follow links */
+-#define O_INVISIBLE	004000000 /* invisible I/O, for DMAPI/XDSM */
+-
+-#define O_PATH		020000000
+-#define __O_TMPFILE	040000000
++#define O_NONBLOCK	0000200004 /* HPUX has separate NDELAY & NONBLOCK */
++#define O_NOCTTY	0000400000 /* not fcntl */
++#define O_DSYNC		0001000000 /* HPUX only */
++#define O_RSYNC		0002000000 /* HPUX only */
++#define O_NOATIME	0004000000
++#define O_CLOEXEC	0010000000 /* set close_on_exec */
++
++#define O_DIRECTORY	0000010000 /* must be a directory */
++#define O_NOFOLLOW	0000000200 /* don't follow links */
++#define O_INVISIBLE	0004000000 /* invisible I/O, for DMAPI/XDSM */
++
++#define O_PATH		0020000000
++#define __O_TMPFILE	0040000000
++#define O_EMPTYPATH	0100000000
+ 
+ #define F_GETLK64	8
+ #define F_SETLK64	9
+diff --git a/arch/sparc/include/uapi/asm/fcntl.h b/arch/sparc/include/uapi/asm/fcntl.h
+index 67dae75e5274..dc86c9eaf950 100644
+--- a/arch/sparc/include/uapi/asm/fcntl.h
++++ b/arch/sparc/include/uapi/asm/fcntl.h
+@@ -37,6 +37,7 @@
+ 
+ #define O_PATH		0x1000000
+ #define __O_TMPFILE	0x2000000
++#define O_EMPTYPATH	0x4000000
+ 
+ #define F_GETOWN	5	/*  for sockets. */
+ #define F_SETOWN	6	/*  for sockets. */
+diff --git a/fs/fcntl.c b/fs/fcntl.c
+index 3d40771e8e7c..4cf05a2fd162 100644
+--- a/fs/fcntl.c
++++ b/fs/fcntl.c
+@@ -1031,7 +1031,7 @@ static int __init fcntl_init(void)
+ 	 * Exceptions: O_NONBLOCK is a two bit define on parisc; O_NDELAY
+ 	 * is defined as O_NONBLOCK on some platforms and not on others.
+ 	 */
+-	BUILD_BUG_ON(21 - 1 /* for O_RDONLY being 0 */ !+	BUILD_BUG_ON(22 - 1 /* for O_RDONLY being 0 */ ! 		HWEIGHT32(
+ 			(VALID_OPEN_FLAGS & ~(O_NONBLOCK | O_NDELAY)) |
+ 			__FMODE_EXEC | __FMODE_NONOTIFY));
 diff --git a/fs/namei.c b/fs/namei.c
-index efed62c6136e..9c35768fcf4f 100644
+index 54d57dad0f91..e39b573fcc4d 100644
 --- a/fs/namei.c
 +++ b/fs/namei.c
-@@ -491,7 +491,7 @@ struct nameidata {
- 	struct path	root;
- 	struct inode	*inode; /* path.dentry.d_inode */
- 	unsigned int	flags;
--	unsigned	seq, m_seq;
-+	unsigned	seq, m_seq, r_seq;
- 	int		last_type;
- 	unsigned	depth;
- 	int		total_link_count;
-@@ -1766,22 +1766,35 @@ static inline int handle_dots(struct nameidata *nd, int type)
- 	if (type = LAST_DOTDOT) {
- 		int error = 0;
+@@ -3571,6 +3571,24 @@ static int trailing_magiclink(struct nameidata *nd, int acc_mode,
+ 	return may_open_magiclink(upgrade_mask, acc_mode);
+ }
  
--		/*
--		 * Scoped-lookup flags resolving ".." is not currently safe --
--		 * races can cause our parent to have moved outside of the root
--		 * and us to skip over it.
--		 */
--		if (unlikely(nd->flags & LOOKUP_DIRFD_SCOPE_FLAGS))
--			return -EXDEV;
- 		if (!nd->root.mnt) {
- 			error = set_root(nd);
- 			if (error)
- 				return error;
- 		}
--		if (nd->flags & LOOKUP_RCU) {
--			return follow_dotdot_rcu(nd);
--		} else
--			return follow_dotdot(nd);
-+		if (nd->flags & LOOKUP_RCU)
-+			error = follow_dotdot_rcu(nd);
-+		else
-+			error = follow_dotdot(nd);
-+		if (error)
-+			return error;
++static int do_emptypath(struct nameidata *nd, const struct open_flags *op,
++			struct file *file)
++{
++	int error;
++	/* We don't support AT_FDCWD (since O_PATH is disallowed here). */
++	struct fd f = fdget_raw(nd->dfd);
 +
-+		if (unlikely(nd->flags & LOOKUP_DIRFD_SCOPE_FLAGS)) {
-+			bool m_retry = read_seqretry(&mount_lock, nd->m_seq);
-+			bool r_retry = read_seqretry(&rename_lock, nd->r_seq);
++	if (!f.file)
++		return -EBADF;
 +
-+			/*
-+			 * If there was a racing rename or mount along our
-+			 * path, then we can't be sure that ".." hasn't jumped
-+			 * above nd->root (and so userspace should retry or use
-+			 * some fallback).
-+			 *
-+			 * In future we could do a path_is_under() check here
-+			 * instead, but there are O(n*m) performance
-+			 * considerations with such a setup.
-+			 */
-+			if (unlikely(m_retry || r_retry))
-+				return -EAGAIN;
-+		}
- 	}
++	/* Apply trailing_magiclink()-like restrictions. */
++	error = may_open_magiclink(f.file->f_mode, op->acc_mode);
++	if (!error)
++		error = vfs_open(&f.file->f_path, file);
++	fdput(f);
++	return error;
++}
++
+ static struct file *path_openat(struct nameidata *nd,
+ 			const struct open_flags *op, unsigned flags)
+ {
+@@ -3583,6 +3601,8 @@ static struct file *path_openat(struct nameidata *nd,
+ 
+ 	if (unlikely(file->f_flags & __O_TMPFILE)) {
+ 		error = do_tmpfile(nd, flags, op, file);
++	} else if (unlikely(file->f_flags & O_EMPTYPATH)) {
++		error = do_emptypath(nd, op, file);
+ 	} else if (unlikely(file->f_flags & O_PATH)) {
+ 		/* Inlined path_lookupat() with a trailing_magiclink() check. */
+ 		fmode_t opath_mask = op->opath_mask;
+diff --git a/fs/open.c b/fs/open.c
+index 806a75d685e1..310b896eecf0 100644
+--- a/fs/open.c
++++ b/fs/open.c
+@@ -1015,6 +1015,8 @@ static inline int build_open_flags(int flags, umode_t mode, struct open_flags *o
+ 		lookup_flags |= LOOKUP_DIRECTORY;
+ 	if (!(flags & O_NOFOLLOW))
+ 		lookup_flags |= LOOKUP_FOLLOW;
++	if (flags & O_EMPTYPATH)
++		lookup_flags |= LOOKUP_EMPTY;
+ 	op->lookup_flags = lookup_flags;
  	return 0;
  }
-@@ -2251,6 +2264,10 @@ static const char *path_init(struct nameidata *nd, unsigned flags)
- 	nd->last_type = LAST_ROOT; /* if there are only slashes... */
- 	nd->flags = flags | LOOKUP_JUMPED | LOOKUP_PARENT;
- 	nd->depth = 0;
-+
-+	nd->m_seq = read_seqbegin(&mount_lock);
-+	nd->r_seq = read_seqbegin(&rename_lock);
-+
- 	if (flags & LOOKUP_ROOT) {
- 		struct dentry *root = nd->root.dentry;
- 		struct inode *inode = root->d_inode;
-@@ -2272,8 +2289,6 @@ static const char *path_init(struct nameidata *nd, unsigned flags)
- 	nd->path.mnt = NULL;
- 	nd->path.dentry = NULL;
+@@ -1076,14 +1078,17 @@ long do_sys_open(int dfd, const char __user *filename, int flags, umode_t mode)
+ {
+ 	struct open_flags op;
+ 	int fd = build_open_flags(flags, mode, &op);
++	int empty = 0;
+ 	struct filename *tmp;
  
--	nd->m_seq = read_seqbegin(&mount_lock);
--
- 	/* LOOKUP_IN_ROOT treats absolute paths as being relative-to-dirfd. */
- 	if (flags & LOOKUP_IN_ROOT)
- 		while (*s = '/')
+ 	if (fd)
+ 		return fd;
+ 
+-	tmp = getname(filename);
++	tmp = getname_flags(filename, op.lookup_flags, &empty);
+ 	if (IS_ERR(tmp))
+ 		return PTR_ERR(tmp);
++	if (!empty)
++		op.open_flag &= ~O_EMPTYPATH;
+ 
+ 	fd = get_unused_fd_flags(flags);
+ 	if (fd >= 0) {
+diff --git a/include/linux/fcntl.h b/include/linux/fcntl.h
+index d019df946cb2..2868ae6c8fc1 100644
+--- a/include/linux/fcntl.h
++++ b/include/linux/fcntl.h
+@@ -9,7 +9,7 @@
+ 	(O_RDONLY | O_WRONLY | O_RDWR | O_CREAT | O_EXCL | O_NOCTTY | O_TRUNC | \
+ 	 O_APPEND | O_NDELAY | O_NONBLOCK | O_NDELAY | __O_SYNC | O_DSYNC | \
+ 	 FASYNC	| O_DIRECT | O_LARGEFILE | O_DIRECTORY | O_NOFOLLOW | \
+-	 O_NOATIME | O_CLOEXEC | O_PATH | __O_TMPFILE)
++	 O_NOATIME | O_CLOEXEC | O_PATH | __O_TMPFILE | O_EMPTYPATH)
+ 
+ #ifndef force_o_largefile
+ #define force_o_largefile() (!IS_ENABLED(CONFIG_ARCH_32BIT_OFF_T))
+diff --git a/include/uapi/asm-generic/fcntl.h b/include/uapi/asm-generic/fcntl.h
+index 9dc0bf0c5a6e..ae6862f69cc2 100644
+--- a/include/uapi/asm-generic/fcntl.h
++++ b/include/uapi/asm-generic/fcntl.h
+@@ -89,6 +89,10 @@
+ #define __O_TMPFILE	020000000
+ #endif
+ 
++#ifndef O_EMPTYPATH
++#define O_EMPTYPATH 040000000
++#endif
++
+ /* a horrid kludge trying to make sure that this will fail on old kernels */
+ #define O_TMPFILE (__O_TMPFILE | O_DIRECTORY)
+ #define O_TMPFILE_MASK (__O_TMPFILE | O_DIRECTORY | O_CREAT)      
 -- 
 2.23.0
