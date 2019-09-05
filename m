@@ -1,136 +1,67 @@
-From: Anshuman Khandual <anshuman.khandual@arm.com>
-Date: Thu, 05 Sep 2019 09:30:14 +0000
+From: Gerald Schaefer <gerald.schaefer@de.ibm.com>
+Date: Thu, 05 Sep 2019 17:06:29 +0000
 Subject: Re: [PATCH 1/1] mm/pgtable/debug: Add test validating architecture page table helpers
-Message-Id: <20e3044d-2af5-b27b-7653-cec53bdec941@arm.com>
+Message-Id: <20190905190629.523bdb87@thinkpad>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1567497706-8649-1-git-send-email-anshuman.khandual@arm.com>
  <1567497706-8649-2-git-send-email-anshuman.khandual@arm.com>
  <20190904221618.1b624a98@thinkpad>
-In-Reply-To: <20190904221618.1b624a98@thinkpad>
+ <20e3044d-2af5-b27b-7653-cec53bdec941@arm.com>
+In-Reply-To: <20e3044d-2af5-b27b-7653-cec53bdec941@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Gerald Schaefer <gerald.schaefer@de.ibm.com>
+To: Anshuman Khandual <anshuman.khandual@arm.com>
 Cc: Mark Rutland <mark.rutland@arm.com>, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, James Hogan <jhogan@kernel.org>, Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>, Heiko Carstens <heiko.carstens@de.ibm.com>, Michal Hocko <mhocko@kernel.org>, linux-mm@kvack.org, Dave Hansen <dave.hansen@intel.com>, Paul Mackerras <paulus@samba.org>, sparclinux@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, linux-s390@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>, x86@kernel.org, Russell King - ARM Linux <linux@armlinux.org.uk>, Matthew Wilcox <willy@infradead.org>, Steven Price <Steven.Price@arm.com>, Jason Gunthorpe <jgg@ziepe.ca>, linux-arm-kernel@lists.infradead.org, linux-snps-arc@lists.infradead.org, Kees Cook <keescook@chromium.org>, Masahiro Yamada <yamada.masahiro@socionext.com>, Mark Brown <broonie@kernel.org>, Dan Williams <dan.j.williams@intel.com>, Vlastimil Babka <vbabka@suse.cz>, Sri Krishna chowdary <schowdary@nvidia.com>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-mips@vger.kernel.org, Ralf Baechle <ralf@linux-mips.org>, linux-kernel@vger.kernel.org, Paul Burton <paul.burton@mips.com>, Mike Rapoport <rppt@linux.vnet.ibm.com>, Vineet Gupta <vgupta@synopsys.com>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, "David S. Miller" <davem@davemloft.net>
 
+On Thu, 5 Sep 2019 14:48:14 +0530
+Anshuman Khandual <anshuman.khandual@arm.com> wrote:
 
-On 09/05/2019 01:46 AM, Gerald Schaefer wrote:
-> On Tue,  3 Sep 2019 13:31:46 +0530
-> Anshuman Khandual <anshuman.khandual@arm.com> wrote:
+> > [...]  
+> >> +
+> >> +#if !defined(__PAGETABLE_PMD_FOLDED) && !defined(__ARCH_HAS_4LEVEL_HACK)
+> >> +static void pud_clear_tests(pud_t *pudp)
+> >> +{
+> >> +	memset(pudp, RANDOM_NZVALUE, sizeof(pud_t));
+> >> +	pud_clear(pudp);
+> >> +	WARN_ON(!pud_none(READ_ONCE(*pudp)));
+> >> +}  
+> > 
+> > For pgd/p4d/pud_clear(), we only clear if the page table level is present
+> > and not folded. The memset() here overwrites the table type bits, so
+> > pud_clear() will not clear anything on s390 and the pud_none() check will
+> > fail.
+> > Would it be possible to OR a (larger) random value into the table, so that
+> > the lower 12 bits would be preserved?  
 > 
->> This adds a test module which will validate architecture page table helpers
->> and accessors regarding compliance with generic MM semantics expectations.
->> This will help various architectures in validating changes to the existing
->> page table helpers or addition of new ones.
->>
->> Test page table and memory pages creating it's entries at various level are
->> all allocated from system memory with required alignments. If memory pages
->> with required size and alignment could not be allocated, then all depending
->> individual tests are skipped.
-> 
-> This looks very useful, thanks. Of course, s390 is quite special and does
-> not work nicely with this patch (yet), mostly because of our dynamic page
-> table levels/folding. Still need to figure out what can be fixed in the arch
+> So the suggestion is instead of doing memset() on entry with RANDOM_NZVALUE,
+> it should OR a large random value preserving lower 12 bits. Hmm, this should
+> still do the trick for other platforms, they just need non zero value. So on
+> s390, the lower 12 bits on the page table entry already has valid value while
+> entering this function which would make sure that pud_clear() really does
+> clear the entry ?
 
-Hmm.
+Yes, in theory the table entry on s390 would have the type set in the last
+4 bits, so preserving those would be enough. If it does not conflict with
+others, I would still suggest preserving all 12 bits since those would contain
+arch-specific flags in general, just to be sure. For s390, the pte/pmd tests
+would also work with the memset, but for consistency I think the same logic
+should be used in all pxd_clear_tests.
 
-> code and what would need to be changed in the test module. See below for some
-> generic comments/questions.
+However, there is another issue on s390 which will make this only work
+for pud_clear_tests(), and not for the p4d/pgd_tests. The problem is that
+mm_alloc() will only give you a 3-level page table initially on s390.
+This means that pudp = p4dp = pgdp, and so the p4d/pgd_tests will
+both see the pud level (of course this also affects other tests).
 
-Sure.
+Not sure yet how to fix this, i.e. how to initialize/update the page table
+to 5 levels. We can handle 5 level page tables, and it would be good if
+all levels could be tested, but using mm_alloc() to establish the page
+tables might not work on s390. One option could be to provide an arch-hook
+or weak function to allocate/initialize the mm.
 
-> 
-> At least one real bug in the s390 code was already revealed by this, which
-> is very nice. In pmd/pud_bad(), we also check large pmds/puds for sanity,
-> instead of reporting them as bad, which is apparently not how it is expected.
+IIUC, the (dummy) mm is really only needed to provide an mm->pgd as starting
+point, right?
 
-Hmm, so it has already started being useful :)
-
-> 
-> [...]
->> +/*
->> + * Basic operations
->> + *
->> + * mkold(entry)			= An old and not a young entry
->> + * mkyoung(entry)		= A young and not an old entry
->> + * mkdirty(entry)		= A dirty and not a clean entry
->> + * mkclean(entry)		= A clean and not a dirty entry
->> + * mkwrite(entry)		= A write and not a write protected entry
->> + * wrprotect(entry)		= A write protected and not a write entry
->> + * pxx_bad(entry)		= A mapped and non-table entry
->> + * pxx_same(entry1, entry2)	= Both entries hold the exact same value
->> + */
->> +#define VADDR_TEST	(PGDIR_SIZE + PUD_SIZE + PMD_SIZE + PAGE_SIZE)
-> 
-> Why is P4D_SIZE missing in the VADDR_TEST calculation?
-
-This was a random possible virtual address to generate a representative
-page table structure for the test. As there is a default (PGDIR_SIZE) for
-P4D_SIZE on platforms which really do not have P4D level, it should be okay
-to add P4D_SIZE in the above calculation.
-
-> 
-> [...]
->> +
->> +#if !defined(__PAGETABLE_PMD_FOLDED) && !defined(__ARCH_HAS_4LEVEL_HACK)
->> +static void pud_clear_tests(pud_t *pudp)
->> +{
->> +	memset(pudp, RANDOM_NZVALUE, sizeof(pud_t));
->> +	pud_clear(pudp);
->> +	WARN_ON(!pud_none(READ_ONCE(*pudp)));
->> +}
-> 
-> For pgd/p4d/pud_clear(), we only clear if the page table level is present
-> and not folded. The memset() here overwrites the table type bits, so
-> pud_clear() will not clear anything on s390 and the pud_none() check will
-> fail.
-> Would it be possible to OR a (larger) random value into the table, so that
-> the lower 12 bits would be preserved?
-
-So the suggestion is instead of doing memset() on entry with RANDOM_NZVALUE,
-it should OR a large random value preserving lower 12 bits. Hmm, this should
-still do the trick for other platforms, they just need non zero value. So on
-s390, the lower 12 bits on the page table entry already has valid value while
-entering this function which would make sure that pud_clear() really does
-clear the entry ?
-
-> 
->> +
->> +static void pud_populate_tests(struct mm_struct *mm, pud_t *pudp, pmd_t *pmdp)
->> +{
->> +	/*
->> +	 * This entry points to next level page table page.
->> +	 * Hence this must not qualify as pud_bad().
->> +	 */
->> +	pmd_clear(pmdp);
->> +	pud_clear(pudp);
->> +	pud_populate(mm, pudp, pmdp);
->> +	WARN_ON(pud_bad(READ_ONCE(*pudp)));
->> +}
-> 
-> This will populate the pud with a pmd pointer that does not point to the
-> beginning of the pmd table, but to the second entry (because of how
-> VADDR_TEST is constructed). This will result in failing pud_bad() check
-> on s390. Not sure why/how it works on other archs, but would it be possible
-> to align pmdp down to the beginning of the pmd table (and similar for the
-> other pxd_populate_tests)?
-
-Right, that was a problem. Will fix it by using the saved entries used for
-freeing the page table pages at the end, which always point to the beginning
-of a page table page.
-
-> 
-> [...]
->> +
->> +	p4d_free(mm, saved_p4dp);
->> +	pud_free(mm, saved_pudp);
->> +	pmd_free(mm, saved_pmdp);
->> +	pte_free(mm, (pgtable_t) virt_to_page(saved_ptep));
-> 
-> pgtable_t is arch-specific, and on s390 it is not a struct page pointer,
-> but a pte pointer. So this will go wrong, also on all other archs (if any)
-> where pgtable_t is not struct page.
-> Would it be possible to use pte_free_kernel() instead, and just pass
-> saved_ptep directly?
-
-It makes sense, will change.
+Regards,
+Gerald
