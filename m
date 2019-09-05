@@ -1,7 +1,7 @@
-From: Randy Dunlap <rdunlap@infradead.org>
-Date: Wed, 04 Sep 2019 21:00:11 +0000
+From: Peter Zijlstra <peterz@infradead.org>
+Date: Thu, 05 Sep 2019 07:32:05 +0000
 Subject: Re: [PATCH v12 01/12] lib: introduce copy_struct_{to,from}_user helpers
-Message-Id: <949531fe-76d0-a8c2-77d7-5bf2444e8eb6@infradead.org>
+Message-Id: <20190905073205.GY2332@hirez.programming.kicks-ass.net>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20190904201933.10736-1-cyphar@cyphar.com>
  <20190904201933.10736-2-cyphar@cyphar.com>
@@ -9,43 +9,12 @@ In-Reply-To: <20190904201933.10736-2-cyphar@cyphar.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Aleksa Sarai <cyphar@cyphar.com>, Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Christian Brauner <christian@brauner.io>
-Cc: Rasmus Villemoes <linux@rasmusvillemoes.dk>, Eric Biederman <ebiederm@xmission.com>, Andy Lutomirski <luto@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Alexei Starovoitov <ast@kernel.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, David Drysdale <drysdale@google.com>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, Aleksa Sarai <asarai@suse.de>, Linus Torvalds <torvalds@linux-foundation.org>, containers@lists.linux-foundation.org, linux-alpha@vger.kernel.org, linux-api@vger.kernel.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.
+To: Aleksa Sarai <cyphar@cyphar.com>
+Cc: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Christian Brauner <christian@brauner.io>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Eric Biederman <ebiederm@xmission.com>, Andy Lutomirski <luto@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Alexei Starovoitov <ast@kernel.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, David Drysdale <drysdale@google.com>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Alexander
 
-Hi,
-just kernel-doc fixes:
-
-On 9/4/19 1:19 PM, Aleksa Sarai wrote:
-> 
-> diff --git a/lib/struct_user.c b/lib/struct_user.c
-> new file mode 100644
-> index 000000000000..7301ab1bbe98
-> --- /dev/null
-> +++ b/lib/struct_user.c
-> @@ -0,0 +1,182 @@
-> +// SPDX-License-Identifier: GPL-2.0-or-later
-> +/*
-> + * Copyright (C) 2019 SUSE LLC
-> + * Copyright (C) 2019 Aleksa Sarai <cyphar@cyphar.com>
-> + */
-> +
-> +#include <linux/types.h>
-> +#include <linux/export.h>
-> +#include <linux/uaccess.h>
-> +#include <linux/kernel.h>
-> +#include <linux/string.h>
-> +
-> +#define BUFFER_SIZE 64
-> +
-
-> +
+On Thu, Sep 05, 2019 at 06:19:22AM +1000, Aleksa Sarai wrote:
 > +/**
 > + * copy_struct_to_user: copy a struct to user space
-
-use correct format:
-
-    * copy_struct_to_user - copy a struct to user space
-
 > + * @dst:   Destination address, in user space.
 > + * @usize: Size of @dst struct.
 > + * @src:   Source address, in kernel space.
@@ -79,7 +48,14 @@ use correct format:
 > + *  * If @usize < @ksize, then kernel space is "returning" a newer struct to an
 > + *    older user space. In order to avoid user space getting incomplete
 > + *    information (new fields might be important), all trailing bytes in @src
-> + *    (@ksize - @usize) must be zerored, otherwise -EFBIG is returned.
+> + *    (@ksize - @usize) must be zerored
+
+s/zerored/zero/, right?
+
+>                                          , otherwise -EFBIG is returned.
+
+'Funny' that, copy_struct_from_user() below seems to use E2BIG.
+
 > + *  * If @usize > @ksize, then the kernel is "returning" an older struct to a
 > + *    newer user space. The trailing bytes in @dst (@usize - @ksize) will be
 > + *    zero-filled.
@@ -96,6 +72,10 @@ use correct format:
 > +
 > +	if (unlikely(usize > PAGE_SIZE))
 > +		return -EFAULT;
+
+Not documented above. Implementation consistent with *from*, but see
+below.
+
 > +	if (unlikely(!access_ok(dst, usize)))
 > +		return -EFAULT;
 > +
@@ -115,13 +95,7 @@ use correct format:
 > +EXPORT_SYMBOL(copy_struct_to_user);
 > +
 > +/**
-
-same here:
-
 > + * copy_struct_from_user: copy a struct from user space
-
-    * copy_struct_from_user - copy a struct from user space
-
 > + * @dst:   Destination address, in kernel space. This buffer must be @ksize
 > + *         bytes long.
 > + * @ksize: Size of @dst struct.
@@ -171,6 +145,9 @@ same here:
 > +
 > +	if (unlikely(usize > PAGE_SIZE))
 > +		return -EFAULT;
+
+Documented above as returning -E2BIG.
+
 > +	if (unlikely(!access_ok(src, usize)))
 > +		return -EFAULT;
 > +
@@ -180,6 +157,9 @@ same here:
 > +	else if (usize > ksize) {
 > +		const void __user *addr = src + size;
 > +		char buffer[BUFFER_SIZE] = {};
+
+Isn't that too big for on-stack?
+
 > +
 > +		while (rest > 0) {
 > +			size_t bufsize = min(rest, sizeof(buffer));
@@ -192,6 +172,10 @@ same here:
 > +			addr += bufsize;
 > +			rest -= bufsize;
 > +		}
+
+The perf implementation uses get_user(); but if that is too slow, surely
+we can do something with uaccess_try() here?
+
 > +	}
 > +	/* Copy the interoperable parts of the struct. */
 > +	if (__copy_from_user(dst, src, size))
@@ -199,8 +183,5 @@ same here:
 > +	return 0;
 > +}
 > +EXPORT_SYMBOL(copy_struct_from_user);
-> 
 
-thanks.
--- 
-~Randy
+And personally I'm not a big fan of EXPORT_SYMBOL().
