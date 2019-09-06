@@ -1,108 +1,149 @@
 From: Anshuman Khandual <anshuman.khandual@arm.com>
-Date: Fri, 06 Sep 2019 06:40:59 +0000
+Date: Fri, 06 Sep 2019 07:15:14 +0000
 Subject: Re: [PATCH 1/1] mm/pgtable/debug: Add test validating architecture page table helpers
-Message-Id: <3c609e33-afbb-ffaf-481a-6d225a06d1d0@arm.com>
+Message-Id: <9c226f84-fe8f-8438-b378-b6659cccfcd1@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1567497706-8649-1-git-send-email-anshuman.khandual@arm.com>
  <1567497706-8649-2-git-send-email-anshuman.khandual@arm.com>
- <20190904221618.1b624a98@thinkpad>
- <20e3044d-2af5-b27b-7653-cec53bdec941@arm.com>
- <20190905190629.523bdb87@thinkpad>
-In-Reply-To: <20190905190629.523bdb87@thinkpad>
+ <20190904141950.ykoe3h7b4hcvnysu@box>
+ <6d4b989d-8eaa-d26e-6068-4b0e4d7a52f9@arm.com>
+ <20190905085910.i6dppgnqi4ple22w@box.shutemov.name>
+In-Reply-To: <20190905085910.i6dppgnqi4ple22w@box.shutemov.name>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Gerald Schaefer <gerald.schaefer@de.ibm.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: "Kirill A. Shutemov" <kirill@shutemov.name>
 Cc: Mark Rutland <mark.rutland@arm.com>, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, James Hogan <jhogan@kernel.org>, Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>, Heiko Carstens <heiko.carstens@de.ibm.com>, Michal Hocko <mhocko@kernel.org>, linux-mm@kvack.org, Dave Hansen <dave.hansen@intel.com>, Paul Mackerras <paulus@samba.org>, sparclinux@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, linux-s390@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>, x86@kernel.org, Russell King - ARM Linux <linux@armlinux.org.uk>, Matthew Wilcox <willy@infradead.org>, Steven Price <Steven.Price@arm.com>, Jason Gunthorpe <jgg@ziepe.ca>, linux-arm-kernel@lists.infradead.org, linux-snps-arc@lists.infradead.org, Kees Cook <keescook@chromium.org>, Masahiro Yamada <yamada.masahiro@socionext.com>, Mark Brown <broonie@kernel.org>, Dan Williams <dan.j.williams@intel.com>, Vlastimil Babka <vbabka@suse.cz>, Sri Krishna chowdary <schowdary@nvidia.com>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-mips@vger.kernel.org, Ralf Baechle <ralf@linux-mips.org>, linux-kernel@vger.kernel.org, Paul Burton <paul.burton@mips.com>, Mike Rapoport <rppt@linux.vnet.ibm.com>, Vineet Gupta <vgupta@synopsys.com>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, "David S. Miller" <davem@davemloft.net>
 
-On 09/05/2019 10:36 PM, Gerald Schaefer wrote:
-> On Thu, 5 Sep 2019 14:48:14 +0530
-> Anshuman Khandual <anshuman.khandual@arm.com> wrote:
-> 
->>> [...]  
->>>> +
->>>> +#if !defined(__PAGETABLE_PMD_FOLDED) && !defined(__ARCH_HAS_4LEVEL_HACK)
->>>> +static void pud_clear_tests(pud_t *pudp)
->>>> +{
->>>> +	memset(pudp, RANDOM_NZVALUE, sizeof(pud_t));
->>>> +	pud_clear(pudp);
->>>> +	WARN_ON(!pud_none(READ_ONCE(*pudp)));
->>>> +}  
+
+
+On 09/05/2019 02:29 PM, Kirill A. Shutemov wrote:
+> On Thu, Sep 05, 2019 at 01:48:27PM +0530, Anshuman Khandual wrote:
+>>>> +#define VADDR_TEST	(PGDIR_SIZE + PUD_SIZE + PMD_SIZE + PAGE_SIZE)
 >>>
->>> For pgd/p4d/pud_clear(), we only clear if the page table level is present
->>> and not folded. The memset() here overwrites the table type bits, so
->>> pud_clear() will not clear anything on s390 and the pud_none() check will
->>> fail.
->>> Would it be possible to OR a (larger) random value into the table, so that
->>> the lower 12 bits would be preserved?  
+>>> What is special about this address? How do you know if it is not occupied
+>>> yet?
 >>
->> So the suggestion is instead of doing memset() on entry with RANDOM_NZVALUE,
->> it should OR a large random value preserving lower 12 bits. Hmm, this should
->> still do the trick for other platforms, they just need non zero value. So on
->> s390, the lower 12 bits on the page table entry already has valid value while
->> entering this function which would make sure that pud_clear() really does
->> clear the entry ?
+>> We are creating the page table from scratch after allocating an mm_struct
+>> for a given random virtual address 'VADDR_TEST'. Hence nothing is occupied
+>> just yet. There is nothing special about this address, just that it tries
+>> to ensure the page table entries are being created with some offset from
+>> beginning of respective page table page at all levels ? The idea is to
+>> have a more representative form of page table structure for test.
 > 
-> Yes, in theory the table entry on s390 would have the type set in the last
-> 4 bits, so preserving those would be enough. If it does not conflict with
-> others, I would still suggest preserving all 12 bits since those would contain
-> arch-specific flags in general, just to be sure. For s390, the pte/pmd tests
-> would also work with the memset, but for consistency I think the same logic
-> should be used in all pxd_clear_tests.
+> Why P4D_SIZE is missing?
 
-Makes sense but..
-
-There is a small challenge with this. Modifying individual bits on a given
-page table entry from generic code like this test case is bit tricky. That
-is because there are not enough helpers to create entries with an absolute
-value. This would have been easier if all the platforms provided functions
-like __pxx() which is not the case now. Otherwise something like this should
-have worked.
-
-
-pud_t pud = READ_ONCE(*pudp);
-pud = __pud(pud_val(pud) | RANDOM_VALUE (keeping lower 12 bits 0))
-WRITE_ONCE(*pudp, pud);
-
-But __pud() will fail to build in many platforms.
-
-The other alternative will be to make sure memset() happens on all other
-bits except the lower 12 bits which will depend on endianness. If s390
-has a fixed endianness, we can still use either of them which will hold
-good for others as well.
-
-memset(pudp, RANDOM_NZVALUE, sizeof(pud_t) - 3);
-
-OR
-
-memset(pudp + 3, RANDOM_NZVALUE, sizeof(pud_t) - 3);
+That was an omission even though I was wondering whether it will be
+applicable or even make sense on platforms which dont have real P4D.
 
 > 
-> However, there is another issue on s390 which will make this only work
-> for pud_clear_tests(), and not for the p4d/pgd_tests. The problem is that
-> mm_alloc() will only give you a 3-level page table initially on s390.
-> This means that pudp = p4dp = pgdp, and so the p4d/pgd_tests will
-> both see the pud level (of course this also affects other tests).
+> Are you sure it will not land into kernel address space on any arch?
 
-Got it.
+Can it even cross user virtual address range with just a single span
+at each page table level ? TBH I did not think about that possibility.
 
 > 
-> Not sure yet how to fix this, i.e. how to initialize/update the page table
-> to 5 levels. We can handle 5 level page tables, and it would be good if
-> all levels could be tested, but using mm_alloc() to establish the page
-> tables might not work on s390. One option could be to provide an arch-hook
-> or weak function to allocate/initialize the mm.
+> I think more robust way to deal with this would be using
+> get_unmapped_area() instead of fixed address.
 
-Sure, got it. Though I plan to do add some arch specific tests or init sequence
-like the above later on but for now the idea is to get the smallest possible set
-of test cases which builds and runs on all platforms without requiring any arch
-specific hooks or special casing (#ifdef) to be agreed upon broadly and accepted.
-
-Do you think this is absolutely necessary on s390 for the very first set of test
-cases or we can add this later on as an improvement ?
+Makes sense and probably its better to get a virtual address which
+is known to have been checked against all boundary conditions. Will
+explore around get_unmapped_area() in this regard.
 
 > 
-> IIUC, the (dummy) mm is really only needed to provide an mm->pgd as starting
-> point, right?
+>> This makes sense for runtime cases but there is a problem here.
+>>
+>> On arm64, pgd_populate() which takes (pud_t *) as last argument instead of
+>> (p4d_t *) will fail to build when not wrapped in !__PAGETABLE_P4D_FOLDED
+>> on certain configurations.
+>>
+>> ./arch/arm64/include/asm/pgalloc.h:81:75: note:
+>> expected ‘pud_t *’ {aka ‘struct <anonymous> *’}
+>> but argument is of type ‘pgd_t *’ {aka ‘struct <anonymous> *’}
+>> static inline void pgd_populate(struct mm_struct *mm, pgd_t *pgdp, pud_t *pudp)
+>>                                                                    ~~~~~~~^~~~
+>> Wondering if this is something to be fixed on arm64 or its more general
+>> problem. Will look into this further.
+> 
+> I think you need wrap this into #ifndef __ARCH_HAS_5LEVEL_HACK.
 
-Right.
+Okay.
+
+> 
+>>>> +	pmd_populate_tests(mm, pmdp, (pgtable_t) page);
+>>>
+>>> This is not correct for architectures that defines pgtable_t as pte_t
+>>> pointer, not struct page pointer.
+>>
+>> Right, a grep on the source confirms that.
+>>
+>> These platforms define pgtable_t as struct page *
+>>
+>> arch/alpha/include/asm/page.h:typedef struct page *pgtable_t;
+>> arch/arm/include/asm/page.h:typedef struct page *pgtable_t;
+>> arch/arm64/include/asm/page.h:typedef struct page *pgtable_t;
+>> arch/csky/include/asm/page.h:typedef struct page *pgtable_t;
+>> arch/hexagon/include/asm/page.h:typedef struct page *pgtable_t;
+>> arch/ia64/include/asm/page.h:  typedef struct page *pgtable_t;
+>> arch/ia64/include/asm/page.h:    typedef struct page *pgtable_t;
+>> arch/m68k/include/asm/page.h:typedef struct page *pgtable_t;
+>> arch/microblaze/include/asm/page.h:typedef struct page *pgtable_t;
+>> arch/mips/include/asm/page.h:typedef struct page *pgtable_t;
+>> arch/nds32/include/asm/page.h:typedef struct page *pgtable_t;
+>> arch/nios2/include/asm/page.h:typedef struct page *pgtable_t;
+>> arch/openrisc/include/asm/page.h:typedef struct page *pgtable_t;
+>> arch/parisc/include/asm/page.h:typedef struct page *pgtable_t;
+>> arch/riscv/include/asm/page.h:typedef struct page *pgtable_t;
+>> arch/sh/include/asm/page.h:typedef struct page *pgtable_t;
+>> arch/sparc/include/asm/page_32.h:typedef struct page *pgtable_t;
+>> arch/um/include/asm/page.h:typedef struct page *pgtable_t;
+>> arch/unicore32/include/asm/page.h:typedef struct page *pgtable_t;
+>> arch/x86/include/asm/pgtable_types.h:typedef struct page *pgtable_t;
+>> arch/xtensa/include/asm/page.h:typedef struct page *pgtable_t;
+>>
+>> These platforms define pgtable_t as pte_t *
+>>
+>> arch/arc/include/asm/page.h:typedef pte_t * pgtable_t;
+>> arch/powerpc/include/asm/mmu.h:typedef pte_t *pgtable_t;
+>> arch/s390/include/asm/page.h:typedef pte_t *pgtable_t;
+>> arch/sparc/include/asm/page_64.h:typedef pte_t *pgtable_t;
+>>
+>> Should we need have two pmd_populate_tests() definitions with
+>> different arguments (struct page pointer or pte_t pointer) and then
+>> call either one after detecting the given platform ?
+> 
+> Use pte_alloc_one() instead of alloc_mapped_page() to allocate the page
+> table.
+
+Right, the PTE page table page should come from pte_alloc_one() instead
+directly from a struct page. The functions pte_alloc_one() and pte_free()
+operate on (struct page or pte_t) pointers depending applicable pgtable_t
+definition (in cases where platform defines otherwise). Will fix it.
+
+> 
+>>>> +	pud_populate_tests(mm, pudp, pmdp);
+>>>> +	p4d_populate_tests(mm, p4dp, pudp);
+>>>> +	pgd_populate_tests(mm, pgdp, p4dp);
+>>>
+>>> This is wrong. All p?dp points to the second entry in page table entry.
+>>> This is not valid pointer for page table and triggers p?d_bad() on x86.
+>>
+>> Yeah these are second entries because of the way we create the page table.
+>> But I guess its applicable only to the second argument in all these above
+>> cases because the first argument can be any valid entry on previous page
+>> table level.
+> 
+> Yes:
+> 
+> @@ -397,9 +396,9 @@ static int __init arch_pgtable_tests_init(void)
+>  	pgd_clear_tests(pgdp);
+>  
+>  	pmd_populate_tests(mm, pmdp, (pgtable_t) page);
+> -	pud_populate_tests(mm, pudp, pmdp);
+> -	p4d_populate_tests(mm, p4dp, pudp);
+> -	pgd_populate_tests(mm, pgdp, p4dp);
+> +	pud_populate_tests(mm, pudp, saved_pmdp);
+> +	p4d_populate_tests(mm, p4dp, saved_pudp);
+> +	pgd_populate_tests(mm, pgdp, saved_p4dp);
+
+Sure.
