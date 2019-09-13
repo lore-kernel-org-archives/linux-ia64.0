@@ -1,139 +1,44 @@
-From: Aleksa Sarai <cyphar@cyphar.com>
-Date: Wed, 11 Sep 2019 10:37:30 +0000
-Subject: Re: [PATCH v12 01/12] lib: introduce copy_struct_{to,from}_user helpers
-Message-Id: <20190911103730.72unmfp7lsvvafxo@yavin>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="xpghzs3x7rsccuuz"
+From: Christophe Leroy <christophe.leroy@c-s.fr>
+Date: Fri, 13 Sep 2019 06:23:49 +0000
+Subject: [PATCH] mm/pgtable/debug: Fix test validating architecture page table helpers
+Message-Id: <1892b37d1fd9a4ed39e76c4b999b6556077201c0.1568355752.git.christophe.leroy@c-s.fr>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190904201933.10736-1-cyphar@cyphar.com>
- <20190904201933.10736-2-cyphar@cyphar.com>
- <20190905073205.GY2332@hirez.programming.kicks-ass.net>
- <20190905092622.tlb6nn3uisssdfbu@yavin.dot.cyphar.com>
- <20190905094305.GJ2349@hirez.programming.kicks-ass.net>
- <20190905105749.GW2386@hirez.programming.kicks-ass.net>
-In-Reply-To: <20190905105749.GW2386@hirez.programming.kicks-ass.net>
-To: Peter Zijlstra <peterz@infradead.org>
-Cc: linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Alexei Starovoitov <ast@kernel.org>, linux-kernel@vger.kernel.org, David Howells <dhowells@redhat.com>, linux-kselftest@vger.kernel.org, sparclinux@vger.kernel.org, Jiri Olsa <jolsa@redhat.com>, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, Tycho Andersen <tycho@tycho.ws>, Aleksa Sarai <asarai@suse.de>, Shuah Khan <shuah@kernel.org>, Ingo Molnar <mingo@redhat.com>, linux-arm-kernel@lists.infradead.org, linux-mips@vger.kernel.org, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Arnd Bergmann <arnd@arndb.de>, Jann Horn <jannh@google.com>, linuxppc-dev@lists.ozlabs.org, linux-m68k@lists.linux-m68k.org, Al Viro <viro@zeniv.linux.org.uk>, Andy Lutomirski <luto@kernel.org>, Shuah Khan <skhan@lin>
+In-Reply-To: <ab0ca38b-1e4f-b636-f8b4-007a15903984@c-s.fr>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Anshuman Khandual <anshuman.khandual@arm.com>, linux-mm@kvack.org
+Cc: Mark Rutland <mark.rutland@arm.com>, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, James Hogan <jhogan@kernel.org>, Heiko Carstens <heiko.carstens@de.ibm.com>, Michal Hocko <mhocko@kernel.org>, Dave Hansen <dave.hansen@intel.com>, Paul Mackerras <paulus@samba.org>, sparclinux@vger.kernel.org, Dan Williams <dan.j.williams@intel.com>, linux-s390@vger.kernel.org, Jason Gunthorpe <jgg@ziepe.ca>, x86@kernel.org, Russell King - ARM Linux <linux@armlinux.org.uk>, Matthew Wilcox <willy@infradead.org>, Steven Price <Steven.Price@arm.com>, Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>, Vlastimil Babka <vbabka@suse.cz>, linux-snps-arc@lists.infradead.org, Kees Cook <keescook@chromium.org>, Mark Brown <broonie@kernel.org>, "Kirill A . Shutemov" <kirill@shutemov.name>, Thomas Gleixner <tglx@linutronix.de>, Gerald Schaefer <gerald.schaefer@de.ibm.com>, linux-arm-kernel@lists.infradead.org, Sri Krishna chowdary <schowdary@nvidia.com>, Masahiro Yamada <yamada.masahiro@socionext.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, linux-mips@vger.kernel.org, Ralf Baechle <ralf@linux-mips.org>, linux-kernel@vger.kernel.org, Paul Burton <paul.burton@mips.com>, Mike Rapoport <rppt@linux.vnet.ibm.com>, Vineet Gupta <vgupta@synopsys.com>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, "David S. Miller" <davem@davemloft.net>
 
+Fix build failure on powerpc.
 
---xpghzs3x7rsccuuz
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Fix preemption imbalance.
 
-On 2019-09-05, Peter Zijlstra <peterz@infradead.org> wrote:
-> On Thu, Sep 05, 2019 at 11:43:05AM +0200, Peter Zijlstra wrote:
-> > On Thu, Sep 05, 2019 at 07:26:22PM +1000, Aleksa Sarai wrote:
-> > > On 2019-09-05, Peter Zijlstra <peterz@infradead.org> wrote:
-> > > > On Thu, Sep 05, 2019 at 06:19:22AM +1000, Aleksa Sarai wrote:
-> > > > > +/**
-> > > > > + * copy_struct_to_user: copy a struct to user space
-> > > > > + * @dst:   Destination address, in user space.
-> > > > > + * @usize: Size of @dst struct.
-> > > > > + * @src:   Source address, in kernel space.
-> > > > > + * @ksize: Size of @src struct.
-> > > > > + *
-> > > > > + * Copies a struct from kernel space to user space, in a way tha=
-t guarantees
-> > > > > + * backwards-compatibility for struct syscall arguments (as long=
- as future
-> > > > > + * struct extensions are made such that all new fields are *appe=
-nded* to the
-> > > > > + * old struct, and zeroed-out new fields have the same meaning a=
-s the old
-> > > > > + * struct).
-> > > > > + *
-> > > > > + * @ksize is just sizeof(*dst), and @usize should've been passed=
- by user space.
-> > > > > + * The recommended usage is something like the following:
-> > > > > + *
-> > > > > + *   SYSCALL_DEFINE2(foobar, struct foo __user *, uarg, size_t, =
-usize)
-> > > > > + *   {
-> > > > > + *      int err;
-> > > > > + *      struct foo karg =3D {};
-> > > > > + *
-> > > > > + *      // do something with karg
-> > > > > + *
-> > > > > + *      err =3D copy_struct_to_user(uarg, usize, &karg, sizeof(k=
-arg));
-> > > > > + *      if (err)
-> > > > > + *        return err;
-> > > > > + *
-> > > > > + *      // ...
-> > > > > + *   }
-> > > > > + *
-> > > > > + * There are three cases to consider:
-> > > > > + *  * If @usize =3D=3D @ksize, then it's copied verbatim.
-> > > > > + *  * If @usize < @ksize, then kernel space is "returning" a new=
-er struct to an
-> > > > > + *    older user space. In order to avoid user space getting inc=
-omplete
-> > > > > + *    information (new fields might be important), all trailing =
-bytes in @src
-> > > > > + *    (@ksize - @usize) must be zerored
-> > > >=20
-> > > > s/zerored/zero/, right?
-> > >=20
-> > > It should've been "zeroed".
-> >=20
-> > That reads wrong to me; that way it reads like this function must take
-> > that action and zero out the 'rest'; which is just wrong.
-> >=20
-> > This function must verify those bytes are zero, not make them zero.
-> >=20
-> > > > >                                          , otherwise -EFBIG is re=
-turned.
-> > > >=20
-> > > > 'Funny' that, copy_struct_from_user() below seems to use E2BIG.
-> > >=20
-> > > This is a copy of the semantics that sched_[sg]etattr(2) uses -- E2BI=
-G for
-> > > a "too big" struct passed to the kernel, and EFBIG for a "too big"
-> > > struct passed to user-space. I would personally have preferred EMSGSI=
-ZE
-> > > instead of EFBIG, but felt using the existing error codes would be le=
-ss
-> > > confusing.
-> >=20
-> > Sadly a recent commit:
-> >=20
-> >   1251201c0d34 ("sched/core: Fix uclamp ABI bug, clean up and robustify=
- sched_read_attr() ABI logic and code")
-> >=20
-> > Made the situation even 'worse'.
->=20
-> And thinking more about things; I'm not convinced the above patch is
-> actually right.
->=20
-> Do we really want to simply truncate all the attributes of the task?
->=20
-> And should we not at least set sched_flags when there are non-default
-> clamp values applied?
->=20
-> See; that is I think the primary bug that had chrt failing; we tried to
-> publish the default clamp values as !0.
+Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
+---
+ mm/arch_pgtable_test.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-I just saw this patch in -rc8 -- should I even attempt to port
-sched_getattr(2) to copy_struct_to_user()? I agree that publishing a
-default non-zero value is a mistake -- once you do that, old user space
-will either get confused or lose information.
-
---=20
-Aleksa Sarai
-Senior Software Engineer (Containers)
-SUSE Linux GmbH
-<https://www.cyphar.com/>
-
---xpghzs3x7rsccuuz
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iHUEABYIAB0WIQSxZm6dtfE8gxLLfYqdlLljIbnQEgUCXXjOZwAKCRCdlLljIbnQ
-EgeZAP9UC+Kf1AuY3XgSz6a5avhF1Eskr6DzrSR4wx0T62dnoQD9GcCXU0oVrERB
-0xz5K9MrU1nBr6ERqmBwygo/DVsTwAk=
-=oep8
------END PGP SIGNATURE-----
-
---xpghzs3x7rsccuuz--
+diff --git a/mm/arch_pgtable_test.c b/mm/arch_pgtable_test.c
+index 8b4a92756ad8..f2b3c9ec35fa 100644
+--- a/mm/arch_pgtable_test.c
++++ b/mm/arch_pgtable_test.c
+@@ -24,6 +24,7 @@
+ #include <linux/swap.h>
+ #include <linux/swapops.h>
+ #include <linux/sched/mm.h>
++#include <linux/highmem.h>
+ #include <asm/pgalloc.h>
+ #include <asm/pgtable.h>
+ 
+@@ -400,6 +401,8 @@ static int __init arch_pgtable_tests_init(void)
+ 	p4d_clear_tests(p4dp);
+ 	pgd_clear_tests(mm, pgdp);
+ 
++	pte_unmap(ptep);
++
+ 	pmd_populate_tests(mm, pmdp, saved_ptep);
+ 	pud_populate_tests(mm, pudp, saved_pmdp);
+ 	p4d_populate_tests(mm, p4dp, saved_pudp);
+-- 
+2.13.3
