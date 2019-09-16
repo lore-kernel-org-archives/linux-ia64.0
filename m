@@ -1,7 +1,7 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Mon, 16 Sep 2019 22:37:38 +0000
-Subject: Re: [GIT PULL] ia64 changes for v5.4
-Message-Id: <CAHk-=wj9uPRcTPVDh4O73n6xX0KdYTTO=FrQC4iWsrF4WWeFQw@mail.gmail.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Mon, 16 Sep 2019 23:11:49 +0000
+Subject: RE: [GIT PULL] ia64 changes for v5.4
+Message-Id: <3908561D78D1C84285E8C5FCA982C28F7F46544E@ORSMSX115.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20190916154903.GA18169@agluck-desk2.amr.corp.intel.com>
 In-Reply-To: <20190916154903.GA18169@agluck-desk2.amr.corp.intel.com>
@@ -10,13 +10,11 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, Sep 16, 2019 at 8:49 AM Luck, Tony <tony.luck@intel.com> wrote:
->
-> big change here is removal of support for SGI Altix
->
->  231 files changed, 349 insertions(+), 40676 deletions(-)
-
-.. and the remaining ia64 code now doesn't need the odd IO coherency
-contortions, right? That was all SN?
-
-              Linus
+PiAuLiBhbmQgdGhlIHJlbWFpbmluZyBpYTY0IGNvZGUgbm93IGRvZXNuJ3QgbmVlZCB0aGUgb2Rk
+IElPIGNvaGVyZW5jeQ0KPiBjb250b3J0aW9ucywgcmlnaHQ/IFRoYXQgd2FzIGFsbCBTTj8NCg0K
+SUlSQyB5ZXMgLi4uIFNOIGhhZCB0aGUgd2VpcmQgc3R1ZmYgd2hlcmUgeW91IGhhZCB0byB0d2lz
+dCBpbnRvIGEgcHJldHplbA0KdG8gZ3VhcmFudGVlIG9yZGVyaW5nIG9mIG9wZXJhdGlvbnMgYmV0
+d2VlbiBkaWZmZXJlbnQgIm5vZGVzIi4NCg0KLVRvbnkNCg0KQlRXIC0gSSBmb3Jnb3QgdG8gbWVu
+dGlvbiBpbiB0aGUgcHVsbCByZXF1ZXN0IHRoYXQgaW50ZWwtbmV4dCBoYWQgYSBmZXcgc21hbGwN
+Cm1lcmdlIGlzc3VlcyB3aXRoIG90aGVyIHRyZWVzIGJlY2F1c2Ugb2Ygc3R1ZmYgZGVsZXRlZCwg
+b3IgdHdlYWtzIHRvIHRoZQ0KaWE2NCBLY29uZmlnIGZpbGUuDQo
