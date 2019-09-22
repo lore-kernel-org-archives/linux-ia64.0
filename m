@@ -1,10 +1,10 @@
 From: Sasha Levin <sashal@kernel.org>
-Date: Sun, 22 Sep 2019 18:52:37 +0000
-Subject: [PATCH AUTOSEL 4.19 027/128] ia64:unwind: fix double free for mod->arch.init_unw_table
-Message-Id: <20190922185418.2158-27-sashal@kernel.org>
+Date: Sun, 22 Sep 2019 18:58:51 +0000
+Subject: [PATCH AUTOSEL 4.9 18/60] ia64:unwind: fix double free for mod->arch.init_unw_table
+Message-Id: <20190922185934.4305-18-sashal@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190922185418.2158-1-sashal@kernel.org>
-In-Reply-To: <20190922185418.2158-1-sashal@kernel.org>
+References: <20190922185934.4305-1-sashal@kernel.org>
+In-Reply-To: <20190922185934.4305-1-sashal@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -39,10 +39,10 @@ Signed-off-by: Sasha Levin <sashal@kernel.org>
  1 file changed, 6 insertions(+), 2 deletions(-)
 
 diff --git a/arch/ia64/kernel/module.c b/arch/ia64/kernel/module.c
-index 326448f9df160..1a42ba885188a 100644
+index d1d945c6bd05f..9fe114620b9d6 100644
 --- a/arch/ia64/kernel/module.c
 +++ b/arch/ia64/kernel/module.c
-@@ -914,10 +914,14 @@ module_finalize (const Elf_Ehdr *hdr, const Elf_Shdr *sechdrs, struct module *mo
+@@ -912,8 +912,12 @@ module_finalize (const Elf_Ehdr *hdr, const Elf_Shdr *sechdrs, struct module *mo
  void
  module_arch_cleanup (struct module *mod)
  {
@@ -57,7 +57,5 @@ index 326448f9df160..1a42ba885188a 100644
 +		mod->arch.core_unw_table = NULL;
 +	}
  }
- 
- void *dereference_module_function_descriptor(struct module *mod, void *ptr)
 -- 
 2.20.1
