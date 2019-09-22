@@ -1,40 +1,61 @@
-From: Kees Cook <keescook@chromium.org>
-Date: Thu, 26 Sep 2019 17:55:59 +0000
-Subject: [PATCH 26/29] x86/mm: Remove redundant &s on addresses
-Message-Id: <20190926175602.33098-27-keescook@chromium.org>
+From: Sasha Levin <sashal@kernel.org>
+Date: Sun, 22 Sep 2019 19:00:34 +0000
+Subject: [PATCH AUTOSEL 4.4 16/44] ia64:unwind: fix double free for mod->arch.init_unw_table
+Message-Id: <20190922190103.4906-16-sashal@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190926175602.33098-1-keescook@chromium.org>
-In-Reply-To: <20190926175602.33098-1-keescook@chromium.org>
+References: <20190922190103.4906-1-sashal@kernel.org>
+In-Reply-To: <20190922190103.4906-1-sashal@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thomas Gleixner <tglx@linutronix.de>
-Cc: Kees Cook <keescook@chromium.org>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, "H. Peter Anvin" <hpa@zytor.com>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Michal Simek <monstr@monstr.eu>, linux-parisc@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org, linux-kernel@vger.kernel.org
+To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
+Cc: chenzefeng <chenzefeng2@huawei.com>, Tony Luck <tony.luck@intel.com>, Sasha Levin <sashal@kernel.org>, linux-ia64@vger.kernel.org
 
-The &s on addresses are redundant and are better removed to match all
-the other similar functions.
+From: chenzefeng <chenzefeng2@huawei.com>
 
-Signed-off-by: Kees Cook <keescook@chromium.org>
+[ Upstream commit c5e5c48c16422521d363c33cfb0dcf58f88c119b ]
+
+The function free_module in file kernel/module.c as follow:
+
+void free_module(struct module *mod) {
+	......
+	module_arch_cleanup(mod);
+	......
+	module_arch_freeing_init(mod);
+	......
+}
+
+Both module_arch_cleanup and module_arch_freeing_init function
+would free the mod->arch.init_unw_table, which cause double free.
+
+Here, set mod->arch.init_unw_table = NULL after remove the unwind
+table to avoid double free.
+
+Signed-off-by: chenzefeng <chenzefeng2@huawei.com>
+Signed-off-by: Tony Luck <tony.luck@intel.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
 ---
- arch/x86/mm/init_64.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ arch/ia64/kernel/module.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
 
-diff --git a/arch/x86/mm/init_64.c b/arch/x86/mm/init_64.c
-index 26299e9ce6da..e67ddca8b7a8 100644
---- a/arch/x86/mm/init_64.c
-+++ b/arch/x86/mm/init_64.c
-@@ -1300,9 +1300,9 @@ void mark_rodata_ro(void)
+diff --git a/arch/ia64/kernel/module.c b/arch/ia64/kernel/module.c
+index 36b2c94a8eb5d..14c7184daaf64 100644
+--- a/arch/ia64/kernel/module.c
++++ b/arch/ia64/kernel/module.c
+@@ -912,8 +912,12 @@ module_finalize (const Elf_Ehdr *hdr, const Elf_Shdr *sechdrs, struct module *mo
+ void
+ module_arch_cleanup (struct module *mod)
  {
- 	unsigned long start = PFN_ALIGN(_text);
- 	unsigned long rodata_start = PFN_ALIGN(__start_rodata);
--	unsigned long end = (unsigned long) &__end_rodata_hpage_align;
--	unsigned long text_end = PFN_ALIGN(&_etext);
--	unsigned long rodata_end = PFN_ALIGN(&__end_rodata);
-+	unsigned long end = (unsigned long)__end_rodata_hpage_align;
-+	unsigned long text_end = PFN_ALIGN(_etext);
-+	unsigned long rodata_end = PFN_ALIGN(__end_rodata);
- 	unsigned long all_end;
- 
- 	printk(KERN_INFO "Write protecting the kernel read-only data: %luk\n",
+-	if (mod->arch.init_unw_table)
++	if (mod->arch.init_unw_table) {
+ 		unw_remove_unwind_table(mod->arch.init_unw_table);
+-	if (mod->arch.core_unw_table)
++		mod->arch.init_unw_table = NULL;
++	}
++	if (mod->arch.core_unw_table) {
+ 		unw_remove_unwind_table(mod->arch.core_unw_table);
++		mod->arch.core_unw_table = NULL;
++	}
+ }
 -- 
-2.17.1
+2.20.1
