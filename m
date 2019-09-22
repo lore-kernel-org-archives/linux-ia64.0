@@ -1,10 +1,10 @@
 From: Sasha Levin <sashal@kernel.org>
-Date: Sun, 22 Sep 2019 18:41:12 +0000
-Subject: [PATCH AUTOSEL 5.3 046/203] ia64:unwind: fix double free for mod->arch.init_unw_table
-Message-Id: <20190922184350.30563-46-sashal@kernel.org>
+Date: Sun, 22 Sep 2019 18:46:56 +0000
+Subject: [PATCH AUTOSEL 5.2 038/185] ia64:unwind: fix double free for mod->arch.init_unw_table
+Message-Id: <20190922184924.32534-38-sashal@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190922184350.30563-1-sashal@kernel.org>
-In-Reply-To: <20190922184350.30563-1-sashal@kernel.org>
+References: <20190922184924.32534-1-sashal@kernel.org>
+In-Reply-To: <20190922184924.32534-1-sashal@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
