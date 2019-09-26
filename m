@@ -1,7 +1,7 @@
 From: Kees Cook <keescook@chromium.org>
-Date: Thu, 26 Sep 2019 17:55:50 +0000
-Subject: [PATCH 17/29] alpha: Move EXCEPTION_TABLE to RO_DATA segment
-Message-Id: <20190926175602.33098-18-keescook@chromium.org>
+Date: Thu, 26 Sep 2019 17:55:37 +0000
+Subject: [PATCH 04/29] alpha: Rename PT_LOAD identifier "kernel" to "text"
+Message-Id: <20190926175602.33098-5-keescook@chromium.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20190926175602.33098-1-keescook@chromium.org>
 In-Reply-To: <20190926175602.33098-1-keescook@chromium.org>
@@ -11,32 +11,45 @@ Content-Transfer-Encoding: 7bit
 To: Thomas Gleixner <tglx@linutronix.de>
 Cc: Kees Cook <keescook@chromium.org>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, "H. Peter Anvin" <hpa@zytor.com>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Michal Simek <monstr@monstr.eu>, linux-parisc@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org, linux-kernel@vger.kernel.org
 
-The EXCEPTION_TABLE is read-only, so collapse it into RO_DATA.
+In preparation for moving NOTES into RO_DATA, this renames the linker
+script internal identifier for the PT_LOAD Program Header from "kernel"
+to "text" to match other architectures.
 
 Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- arch/alpha/kernel/vmlinux.lds.S | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ arch/alpha/kernel/vmlinux.lds.S | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/arch/alpha/kernel/vmlinux.lds.S b/arch/alpha/kernel/vmlinux.lds.S
-index edc45f45523b..72303827bcb4 100644
+index c4b5ceceab52..781090cacc96 100644
 --- a/arch/alpha/kernel/vmlinux.lds.S
 +++ b/arch/alpha/kernel/vmlinux.lds.S
-@@ -1,6 +1,7 @@
- /* SPDX-License-Identifier: GPL-2.0 */
- 
- #define EMITS_PT_NOTE
-+#define RO_DATA_EXCEPTION_TABLE_ALIGN	16
- 
- #include <asm-generic/vmlinux.lds.h>
- #include <asm/thread_info.h>
-@@ -35,7 +36,6 @@ SECTIONS
+@@ -8,7 +8,7 @@
+ OUTPUT_FORMAT("elf64-alpha")
+ OUTPUT_ARCH(alpha)
+ ENTRY(__start)
+-PHDRS { kernel PT_LOAD; note PT_NOTE; }
++PHDRS { text PT_LOAD; note PT_NOTE; }
+ jiffies = jiffies_64;
+ SECTIONS
+ {
+@@ -27,14 +27,14 @@ SECTIONS
+ 		LOCK_TEXT
+ 		*(.fixup)
+ 		*(.gnu.warning)
+-	} :kernel
++	} :text
+ 	swapper_pg_dir = SWAPPER_PGD;
  	_etext = .;	/* End of text section */
  
- 	RO_DATA(4096)
--	EXCEPTION_TABLE(16)
+-	NOTES :kernel :note
++	NOTES :text :note
+ 	.dummy : {
+ 		*(.dummy)
+-	} :kernel
++	} :text
  
- 	/* Will be freed after init */
- 	__init_begin = ALIGN(PAGE_SIZE);
+ 	RODATA
+ 	EXCEPTION_TABLE(16)
 -- 
 2.17.1
