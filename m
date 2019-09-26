@@ -1,61 +1,42 @@
-From: Sasha Levin <sashal@kernel.org>
-Date: Sun, 22 Sep 2019 19:00:34 +0000
-Subject: [PATCH AUTOSEL 4.4 16/44] ia64:unwind: fix double free for mod->arch.init_unw_table
-Message-Id: <20190922190103.4906-16-sashal@kernel.org>
+From: Kees Cook <keescook@chromium.org>
+Date: Thu, 26 Sep 2019 17:55:57 +0000
+Subject: [PATCH 24/29] powerpc: Move EXCEPTION_TABLE to RO_DATA segment
+Message-Id: <20190926175602.33098-25-keescook@chromium.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190922190103.4906-1-sashal@kernel.org>
-In-Reply-To: <20190922190103.4906-1-sashal@kernel.org>
+References: <20190926175602.33098-1-keescook@chromium.org>
+In-Reply-To: <20190926175602.33098-1-keescook@chromium.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
-Cc: chenzefeng <chenzefeng2@huawei.com>, Tony Luck <tony.luck@intel.com>, Sasha Levin <sashal@kernel.org>, linux-ia64@vger.kernel.org
+To: Thomas Gleixner <tglx@linutronix.de>
+Cc: Kees Cook <keescook@chromium.org>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, "H. Peter Anvin" <hpa@zytor.com>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Michal Simek <monstr@monstr.eu>, linux-parisc@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org, linux-kernel@vger.kernel.org
 
-From: chenzefeng <chenzefeng2@huawei.com>
+The EXCEPTION_TABLE is read-only, so collapse it into RO_DATA.
 
-[ Upstream commit c5e5c48c16422521d363c33cfb0dcf58f88c119b ]
-
-The function free_module in file kernel/module.c as follow:
-
-void free_module(struct module *mod) {
-	......
-	module_arch_cleanup(mod);
-	......
-	module_arch_freeing_init(mod);
-	......
-}
-
-Both module_arch_cleanup and module_arch_freeing_init function
-would free the mod->arch.init_unw_table, which cause double free.
-
-Here, set mod->arch.init_unw_table = NULL after remove the unwind
-table to avoid double free.
-
-Signed-off-by: chenzefeng <chenzefeng2@huawei.com>
-Signed-off-by: Tony Luck <tony.luck@intel.com>
-Signed-off-by: Sasha Levin <sashal@kernel.org>
+Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- arch/ia64/kernel/module.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+ arch/powerpc/kernel/vmlinux.lds.S | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/ia64/kernel/module.c b/arch/ia64/kernel/module.c
-index 36b2c94a8eb5d..14c7184daaf64 100644
---- a/arch/ia64/kernel/module.c
-+++ b/arch/ia64/kernel/module.c
-@@ -912,8 +912,12 @@ module_finalize (const Elf_Ehdr *hdr, const Elf_Shdr *sechdrs, struct module *mo
- void
- module_arch_cleanup (struct module *mod)
- {
--	if (mod->arch.init_unw_table)
-+	if (mod->arch.init_unw_table) {
- 		unw_remove_unwind_table(mod->arch.init_unw_table);
--	if (mod->arch.core_unw_table)
-+		mod->arch.init_unw_table = NULL;
-+	}
-+	if (mod->arch.core_unw_table) {
- 		unw_remove_unwind_table(mod->arch.core_unw_table);
-+		mod->arch.core_unw_table = NULL;
-+	}
- }
+diff --git a/arch/powerpc/kernel/vmlinux.lds.S b/arch/powerpc/kernel/vmlinux.lds.S
+index 4e7cec088c8b..2ed44e5824d5 100644
+--- a/arch/powerpc/kernel/vmlinux.lds.S
++++ b/arch/powerpc/kernel/vmlinux.lds.S
+@@ -7,6 +7,7 @@
+ 
+ #define BSS_FIRST_SECTIONS *(.bss.prominit)
+ #define EMITS_PT_NOTE
++#define RO_DATA_EXCEPTION_TABLE_ALIGN	0
+ 
+ #include <asm/page.h>
+ #include <asm-generic/vmlinux.lds.h>
+@@ -162,7 +163,6 @@ SECTIONS
+ 		__stop__btb_flush_fixup = .;
+ 	}
+ #endif
+-	EXCEPTION_TABLE(0)
+ 
+ /*
+  * Init sections discarded at runtime
 -- 
-2.20.1
+2.17.1
