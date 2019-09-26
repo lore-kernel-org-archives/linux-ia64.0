@@ -1,55 +1,40 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Wed, 04 Sep 2019 23:44:54 +0000
-Subject: Re: [PATCH v12 10/12] namei: aggressively check for nd->root escape on ".." resolution
-Message-Id: <CAHk-=wjx3y1Y7iE6T0yiERc8G5iT1sTABWbX_nFxw9NVHCFCPA@mail.gmail.com>
+From: Kees Cook <keescook@chromium.org>
+Date: Thu, 26 Sep 2019 17:55:40 +0000
+Subject: [PATCH 07/29] x86: Restore "text" Program Header with dummy section
+Message-Id: <20190926175602.33098-8-keescook@chromium.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190904201933.10736-1-cyphar@cyphar.com>
- <20190904201933.10736-11-cyphar@cyphar.com>
- <CAHk-=wiod1rQMU+6Zew=cLE8uX4tUdf42bM5eKngMnNVS2My7g@mail.gmail.com>
- <20190904214856.vnvom7h5xontvngq@yavin.dot.cyphar.com>
- <CAHk-=wgcJq21Hydh7Tx5-o8empoPp7ULDBw0Am-du_Pa+fcftQ@mail.gmail.com>
- <20592.1567636276@warthog.procyon.org.uk>
- <CAHk-=wg7Wq1kj8kZ+SSpfU_o991woW60NWca9yBA2ccs2eNx8Q@mail.gmail.com>
- <20190904232911.GN1131@ZenIV.linux.org.uk>
-In-Reply-To: <20190904232911.GN1131@ZenIV.linux.org.uk>
+References: <20190926175602.33098-1-keescook@chromium.org>
+In-Reply-To: <20190926175602.33098-1-keescook@chromium.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Al Viro <viro@zeniv.linux.org.uk>
-Cc: linux-ia64@vger.kernel.org, Linux-sh list <linux-sh@vger.kernel.org>, Peter Zijlstra <peterz@infradead.org>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Alexei Starovoitov <ast@kernel.org>, Linux List Kernel Mailing <linux-kernel@vger.kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, "open list:KERNEL SELFTEST FRAMEWORK" <linux-kselftest@vger.kernel.org>, sparclinux@vger.kernel.org, Shuah Khan <shuah@kernel.org>, linux-arch <linux-arch@vger.kernel.org>, linux-s390 <linux-s390@vger.kernel.org>, Tycho Andersen <tycho@tycho.ws>, Aleksa Sarai <asarai@suse.de>, Jiri Olsa <jolsa@redhat.com>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Ingo Molnar <mingo@redhat.com>, Linux ARM <linux-arm-kernel@lists.infradead.org>, linux-mips@vger.kernel.org, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Arnd Bergmann <arnd@arndb.de>, Jann Horn <jannh@g>
+To: Thomas Gleixner <tglx@linutronix.de>
+Cc: Kees Cook <keescook@chromium.org>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, "H. Peter Anvin" <hpa@zytor.com>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Michal Simek <monstr@monstr.eu>, linux-parisc@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org, linux-kernel@vger.kernel.org
 
-On Wed, Sep 4, 2019 at 4:29 PM Al Viro <viro@zeniv.linux.org.uk> wrote:
->
-> On Wed, Sep 04, 2019 at 03:38:20PM -0700, Linus Torvalds wrote:
-> > On Wed, Sep 4, 2019 at 3:31 PM David Howells <dhowells@redhat.com> wrote:
-> > >
-> > > It ought to be reasonably easy to make them per-sb at least, I think.  We
-> > > don't allow cross-super rename, right?
-> >
-> > Right now the sequence count handling very much depends on it being a
-> > global entity on the reader side, at least.
-> >
-> > And while the rename sequence count could (and probably should) be
-> > per-sb, the same is very much not true of the mount one.
->
-> Huh?  That will cost us having to have a per-superblock dentry
-> hash table; recall that lockless lockup can give false negatives
-> if something gets moved from chain to chain, and rename_lock is
-> first and foremost used to catch those and retry.  If we split
-> it on per-superblock basis, we can't have dentries from different
-> superblocks in the same chain anymore...
+Instead of depending on markings in the section following NOTES to
+restore the associated Program Header, use a dummy section, as done
+in other architectures. This is preparation for moving NOTES into the
+RO_DATA macro.
 
-That's exactly the "very much depends on it being a global entity on
-the reader side" thing.
+Signed-off-by: Kees Cook <keescook@chromium.org>
+---
+ arch/x86/kernel/vmlinux.lds.S | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-I'm not convinced that's the _only_ way to handle things. Maybe a
-combination of (wild handwaving) per-hashqueue sequence count and some
-clever scheme for pathname handling could work.
-
-I've not personally seen a load where the global rename lock has been
-a problem (very few things really do a lot of renames), but
-system-wide locks do make me nervous.
-
-We have other (and worse) ones. tasklist_lock comes to mind.
-
-             Linus
+diff --git a/arch/x86/kernel/vmlinux.lds.S b/arch/x86/kernel/vmlinux.lds.S
+index e2feacf921a0..788e78978030 100644
+--- a/arch/x86/kernel/vmlinux.lds.S
++++ b/arch/x86/kernel/vmlinux.lds.S
+@@ -147,8 +147,9 @@ SECTIONS
+ 	} :text = 0x9090
+ 
+ 	NOTES :text :note
++	.dummy : { *(.dummy) } :text
+ 
+-	EXCEPTION_TABLE(16) :text = 0x9090
++	EXCEPTION_TABLE(16)
+ 
+ 	/* .text should occupy whole number of pages */
+ 	. = ALIGN(PAGE_SIZE);
+-- 
+2.17.1
