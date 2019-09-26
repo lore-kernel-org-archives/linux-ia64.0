@@ -1,7 +1,7 @@
 From: Kees Cook <keescook@chromium.org>
-Date: Thu, 26 Sep 2019 17:55:34 +0000
-Subject: [PATCH 01/29] powerpc: Rename "notes" PT_NOTE to "note"
-Message-Id: <20190926175602.33098-2-keescook@chromium.org>
+Date: Thu, 26 Sep 2019 17:55:54 +0000
+Subject: [PATCH 21/29] ia64: Move EXCEPTION_TABLE to RO_DATA segment
+Message-Id: <20190926175602.33098-22-keescook@chromium.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20190926175602.33098-1-keescook@chromium.org>
 In-Reply-To: <20190926175602.33098-1-keescook@chromium.org>
@@ -11,37 +11,32 @@ Content-Transfer-Encoding: 7bit
 To: Thomas Gleixner <tglx@linutronix.de>
 Cc: Kees Cook <keescook@chromium.org>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, "H. Peter Anvin" <hpa@zytor.com>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Michal Simek <monstr@monstr.eu>, linux-parisc@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org, linux-kernel@vger.kernel.org
 
-The Program Header identifiers are internal to the linker scripts. In
-preparation for moving the NOTES segment declaration into RO_DATA,
-standardize the identifier for the PT_NOTE entry to "note" as used by
-all other architectures that emit PT_NOTE.
+The EXCEPTION_TABLE is read-only, so collapse it into RO_DATA.
 
 Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- arch/powerpc/kernel/vmlinux.lds.S | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ arch/ia64/kernel/vmlinux.lds.S | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/powerpc/kernel/vmlinux.lds.S b/arch/powerpc/kernel/vmlinux.lds.S
-index 060a1acd7c6d..81e672654789 100644
---- a/arch/powerpc/kernel/vmlinux.lds.S
-+++ b/arch/powerpc/kernel/vmlinux.lds.S
-@@ -19,7 +19,7 @@ ENTRY(_stext)
+diff --git a/arch/ia64/kernel/vmlinux.lds.S b/arch/ia64/kernel/vmlinux.lds.S
+index 0d86fc8e88d5..18a732597112 100644
+--- a/arch/ia64/kernel/vmlinux.lds.S
++++ b/arch/ia64/kernel/vmlinux.lds.S
+@@ -6,6 +6,7 @@
+ #include <asm/thread_info.h>
  
- PHDRS {
- 	kernel PT_LOAD FLAGS(7); /* RWX */
--	notes PT_NOTE FLAGS(0);
-+	note PT_NOTE FLAGS(0);
- 	dummy PT_NOTE FLAGS(0);
+ #define EMITS_PT_NOTE
++#define RO_DATA_EXCEPTION_TABLE_ALIGN	16
  
- 	/* binutils < 2.18 has a bug that makes it misbehave when taking an
-@@ -177,7 +177,7 @@ SECTIONS
- #endif
- 	EXCEPTION_TABLE(0)
+ #include <asm-generic/vmlinux.lds.h>
  
--	NOTES :kernel :notes
-+	NOTES :kernel :note
+@@ -70,7 +71,6 @@ SECTIONS {
+ 	/*
+ 	 * Read-only data
+ 	 */
+-	EXCEPTION_TABLE(16)
  
- 	/* The dummy segment contents for the bug workaround mentioned above
- 	   near PHDRS.  */
+ 	/* MCA table */
+ 	. = ALIGN(16);
 -- 
 2.17.1
