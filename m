@@ -1,182 +1,76 @@
-From: Aleksa Sarai <cyphar@cyphar.com>
-Date: Wed, 04 Sep 2019 20:19:30 +0000
-Subject: [PATCH v12 09/12] namei: LOOKUP_IN_ROOT: chroot-like path resolution
-Message-Id: <20190904201933.10736-10-cyphar@cyphar.com>
+From: Kees Cook <keescook@chromium.org>
+Date: Thu, 26 Sep 2019 17:55:36 +0000
+Subject: [PATCH 03/29] powerpc: Rename PT_LOAD identifier "kernel" to "text"
+Message-Id: <20190926175602.33098-4-keescook@chromium.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190904201933.10736-1-cyphar@cyphar.com>
-In-Reply-To: <20190904201933.10736-1-cyphar@cyphar.com>
+References: <20190926175602.33098-1-keescook@chromium.org>
+In-Reply-To: <20190926175602.33098-1-keescook@chromium.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Christian Brauner <christian@brauner.io>
-Cc: Aleksa Sarai <cyphar@cyphar.com>, Eric Biederman <ebiederm@xmission.com>, Andy Lutomirski <luto@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Alexei Starovoitov <ast@kernel.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, David Drysdale <drysdale@google.com>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, Aleksa Sarai <asarai@suse.de>, Linus Torvalds <torvalds@linux-foundation.org>, containers@lists.linux-foundation.org, linux-alpha@vger.kernel.org, linux-api@vger.kernel.org, linux-arch@vger.kernel.org
+To: Thomas Gleixner <tglx@linutronix.de>
+Cc: Kees Cook <keescook@chromium.org>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, "H. Peter Anvin" <hpa@zytor.com>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Michal Simek <monstr@monstr.eu>, linux-parisc@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org, linux-kernel@vger.kernel.org
 
-The primary motivation for the need for this flag is container runtimes
-which have to interact with malicious root filesystems in the host
-namespaces. One of the first requirements for a container runtime to be
-secure against a malicious rootfs is that they correctly scope symlinks
-(that is, they should be scoped as though they are chroot(2)ed into the
-container's rootfs) and ".."-style paths[*]. The already-existing
-LOOKUP_NO_XDEV and LOOKUP_NO_MAGICLINKS help defend against other
-potential attacks in a malicious rootfs scenario.
+In preparation for moving NOTES into RO_DATA, this renames the linker
+script internal identifier for the PT_LOAD Program Header from "kernel"
+to "text" to match other architectures.
 
-Currently most container runtimes try to do this resolution in
-userspace[1], causing many potential race conditions. In addition, the
-"obvious" alternative (actually performing a {ch,pivot_}root(2))
-requires a fork+exec (for some runtimes) which is *very* costly if
-necessary for every filesystem operation involving a container.
-
-[*] At the moment, ".." and magic-link jumping are disallowed for the
-    same reason it is disabled for LOOKUP_BENEATH -- currently it is not
-    safe to allow it. Future patches may enable it unconditionally once
-    we have resolved the possible races (for "..") and semantics (for
-    magic-link jumping).
-
-The most significant *at(2) semantic change with LOOKUP_IN_ROOT is that
-absolute pathnames no longer cause the dirfd to be ignored completely.
-
-The rationale is that LOOKUP_IN_ROOT must necessarily chroot-scope
-symlinks with absolute paths to dirfd, and so doing it for the base path
-seems to be the most consistent behaviour (and also avoids foot-gunning
-users who want to scope paths that are absolute).
-
-[1]: https://github.com/cyphar/filepath-securejoin
-
-Signed-off-by: Aleksa Sarai <cyphar@cyphar.com>
+Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- fs/namei.c            | 41 +++++++++++++++++++++++++++++++----------
- include/linux/namei.h |  1 +
- 2 files changed, 32 insertions(+), 10 deletions(-)
+ arch/powerpc/kernel/vmlinux.lds.S | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/fs/namei.c b/fs/namei.c
-index 2e18ce5a313e..0352d275bd13 100644
---- a/fs/namei.c
-+++ b/fs/namei.c
-@@ -676,7 +676,7 @@ static int unlazy_walk(struct nameidata *nd)
- 		goto out1;
- 	if (!nd->root.mnt) {
- 		/* Restart from path_init() if nd->root was cleared. */
--		if (nd->flags & LOOKUP_BENEATH)
-+		if (nd->flags & (LOOKUP_BENEATH | LOOKUP_IN_ROOT))
- 			goto out;
- 	} else if (!(nd->flags & LOOKUP_ROOT)) {
- 		if (unlikely(!legitimize_path(nd, &nd->root, nd->root_seq)))
-@@ -809,10 +809,18 @@ static int complete_walk(struct nameidata *nd)
- 	return status;
+diff --git a/arch/powerpc/kernel/vmlinux.lds.S b/arch/powerpc/kernel/vmlinux.lds.S
+index a3c8492b2b19..e184a63aa5b0 100644
+--- a/arch/powerpc/kernel/vmlinux.lds.S
++++ b/arch/powerpc/kernel/vmlinux.lds.S
+@@ -18,7 +18,7 @@
+ ENTRY(_stext)
+ 
+ PHDRS {
+-	kernel PT_LOAD FLAGS(7); /* RWX */
++	text PT_LOAD FLAGS(7); /* RWX */
+ 	note PT_NOTE FLAGS(0);
  }
  
--static void set_root(struct nameidata *nd)
-+static int set_root(struct nameidata *nd)
- {
- 	struct fs_struct *fs = current->fs;
+@@ -63,7 +63,7 @@ SECTIONS
+ #else /* !CONFIG_PPC64 */
+ 		HEAD_TEXT
+ #endif
+-	} :kernel
++	} :text
  
-+	/*
-+	 * Jumping to the real root as part of LOOKUP_IN_ROOT is a BUG in namei,
-+	 * but we still have to ensure it doesn't happen because it will cause a
-+	 * breakout from the dirfd.
-+	 */
-+	if (WARN_ON(nd->flags & LOOKUP_IN_ROOT))
-+		return -ENOTRECOVERABLE;
-+
- 	if (nd->flags & LOOKUP_RCU) {
- 		unsigned seq;
+ 	__head_end = .;
  
-@@ -824,6 +832,7 @@ static void set_root(struct nameidata *nd)
- 	} else {
- 		get_fs_root(fs, &nd->root);
- 	}
-+	return 0;
- }
+@@ -112,7 +112,7 @@ SECTIONS
+ 		__got2_end = .;
+ #endif /* CONFIG_PPC32 */
  
- static void path_put_conditional(struct path *path, struct nameidata *nd)
-@@ -854,6 +863,11 @@ static int nd_jump_root(struct nameidata *nd)
- 		if (nd->path.mnt != NULL && nd->path.mnt != nd->root.mnt)
- 			return -EXDEV;
- 	}
-+	if (!nd->root.mnt) {
-+		int error = set_root(nd);
-+		if (error)
-+			return error;
-+	}
- 	if (nd->flags & LOOKUP_RCU) {
- 		struct dentry *d;
- 		nd->path = nd->root;
-@@ -1100,15 +1114,13 @@ const char *get_link(struct nameidata *nd)
- 			if (unlikely(nd->flags & LOOKUP_NO_MAGICLINKS))
- 				return ERR_PTR(-ELOOP);
- 			/* Not currently safe. */
--			if (unlikely(nd->flags & LOOKUP_BENEATH))
-+			if (unlikely(nd->flags & (LOOKUP_BENEATH | LOOKUP_IN_ROOT)))
- 				return ERR_PTR(-EXDEV);
- 		}
- 		if (IS_ERR_OR_NULL(res))
- 			return res;
- 	}
- 	if (*res = '/') {
--		if (!nd->root.mnt)
--			set_root(nd);
- 		error = nd_jump_root(nd);
- 		if (unlikely(error))
- 			return ERR_PTR(error);
-@@ -1744,15 +1756,20 @@ static inline int may_lookup(struct nameidata *nd)
- static inline int handle_dots(struct nameidata *nd, int type)
- {
- 	if (type = LAST_DOTDOT) {
-+		int error = 0;
-+
- 		/*
- 		 * LOOKUP_BENEATH resolving ".." is not currently safe -- races
- 		 * can cause our parent to have moved outside of the root and
- 		 * us to skip over it.
- 		 */
--		if (unlikely(nd->flags & LOOKUP_BENEATH))
-+		if (unlikely(nd->flags & (LOOKUP_BENEATH | LOOKUP_IN_ROOT)))
- 			return -EXDEV;
--		if (!nd->root.mnt)
--			set_root(nd);
-+		if (!nd->root.mnt) {
-+			error = set_root(nd);
-+			if (error)
-+				return error;
-+		}
- 		if (nd->flags & LOOKUP_RCU) {
- 			return follow_dotdot_rcu(nd);
- 		} else
-@@ -2251,9 +2268,13 @@ static const char *path_init(struct nameidata *nd, unsigned flags)
+-	} :kernel
++	} :text
  
- 	nd->m_seq = read_seqbegin(&mount_lock);
+ 	. = ALIGN(ETEXT_ALIGN_SIZE);
+ 	_etext = .;
+@@ -163,9 +163,9 @@ SECTIONS
+ #endif
+ 	EXCEPTION_TABLE(0)
  
-+	/* LOOKUP_IN_ROOT treats absolute paths as being relative-to-dirfd. */
-+	if (flags & LOOKUP_IN_ROOT)
-+		while (*s = '/')
-+			s++;
-+
- 	/* Figure out the starting path and root (if needed). */
- 	if (*s = '/') {
--		set_root(nd);
- 		error = nd_jump_root(nd);
- 		if (unlikely(error))
- 			return ERR_PTR(error);
-@@ -2298,7 +2319,7 @@ static const char *path_init(struct nameidata *nd, unsigned flags)
- 		fdput(f);
- 	}
- 	/* For scoped-lookups we need to set the root to the dirfd as well. */
--	if (flags & LOOKUP_BENEATH) {
-+	if (flags & (LOOKUP_BENEATH | LOOKUP_IN_ROOT)) {
- 		nd->root = nd->path;
- 		if (flags & LOOKUP_RCU)
- 			nd->root_seq = nd->seq;
-diff --git a/include/linux/namei.h b/include/linux/namei.h
-index be407415c28a..ec2c6c588ea7 100644
---- a/include/linux/namei.h
-+++ b/include/linux/namei.h
-@@ -57,6 +57,7 @@ enum {LAST_NORM, LAST_ROOT, LAST_DOT, LAST_DOTDOT, LAST_BIND};
- #define LOOKUP_NO_MAGICLINKS	0x080000 /* No /proc/$pid/fd/ "symlink" crossing. */
- #define LOOKUP_NO_SYMLINKS	0x100000 /* No symlink crossing *at all*.
- 					    Implies LOOKUP_NO_MAGICLINKS. */
-+#define LOOKUP_IN_ROOT		0x200000 /* Treat dirfd as %current->fs->root. */
+-	NOTES :kernel :note
++	NOTES :text :note
+ 	/* Restore program header away from PT_NOTE. */
+-	.dummy : { *(.dummy) } :kernel
++	.dummy : { *(.dummy) } :text
  
- extern int path_pts(struct path *path);
+ /*
+  * Init sections discarded at runtime
+@@ -180,7 +180,7 @@ SECTIONS
+ #ifdef CONFIG_PPC64
+ 		*(.tramp.ftrace.init);
+ #endif
+-	} :kernel
++	} :text
  
+ 	/* .exit.text is discarded at runtime, not link time,
+ 	 * to deal with references from __bug_table
 -- 
-2.23.0
+2.17.1
