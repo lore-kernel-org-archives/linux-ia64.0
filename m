@@ -1,7 +1,7 @@
 From: Kees Cook <keescook@chromium.org>
-Date: Thu, 26 Sep 2019 17:55:42 +0000
-Subject: [PATCH 09/29] vmlinux.lds.h: Move Program Header restoration into NOTES macro
-Message-Id: <20190926175602.33098-10-keescook@chromium.org>
+Date: Thu, 26 Sep 2019 17:55:35 +0000
+Subject: [PATCH 02/29] powerpc: Remove PT_NOTE workaround
+Message-Id: <20190926175602.33098-3-keescook@chromium.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20190926175602.33098-1-keescook@chromium.org>
 In-Reply-To: <20190926175602.33098-1-keescook@chromium.org>
@@ -11,142 +11,55 @@ Content-Transfer-Encoding: 7bit
 To: Thomas Gleixner <tglx@linutronix.de>
 Cc: Kees Cook <keescook@chromium.org>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, "H. Peter Anvin" <hpa@zytor.com>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Michal Simek <monstr@monstr.eu>, linux-parisc@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org, linux-kernel@vger.kernel.org
 
-In preparation for moving NOTES into RO_DATA, the Program Header
-assignment restoration needs to be part of the NOTES macro itself.
+The kernel requires gcc 4.6 now, so this PT_NOTE workaround can be
+removed in preparation for moving NOTES into RO_DATA.
 
 Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- arch/alpha/kernel/vmlinux.lds.S   |  5 +----
- arch/ia64/kernel/vmlinux.lds.S    |  4 +---
- arch/mips/kernel/vmlinux.lds.S    |  3 +--
- arch/powerpc/kernel/vmlinux.lds.S |  4 +---
- arch/s390/kernel/vmlinux.lds.S    |  4 +---
- arch/x86/kernel/vmlinux.lds.S     |  3 +--
- include/asm-generic/vmlinux.lds.h | 13 +++++++++++--
- 7 files changed, 17 insertions(+), 19 deletions(-)
+ arch/powerpc/kernel/vmlinux.lds.S | 24 ++----------------------
+ 1 file changed, 2 insertions(+), 22 deletions(-)
 
-diff --git a/arch/alpha/kernel/vmlinux.lds.S b/arch/alpha/kernel/vmlinux.lds.S
-index 363a60ba7c31..cdfdc91ce64c 100644
---- a/arch/alpha/kernel/vmlinux.lds.S
-+++ b/arch/alpha/kernel/vmlinux.lds.S
-@@ -34,10 +34,7 @@ SECTIONS
- 	swapper_pg_dir = SWAPPER_PGD;
- 	_etext = .;	/* End of text section */
- 
--	NOTES :text :note
--	.dummy : {
--		*(.dummy)
--	} :text
-+	NOTES
- 
- 	RODATA
- 	EXCEPTION_TABLE(16)
-diff --git a/arch/ia64/kernel/vmlinux.lds.S b/arch/ia64/kernel/vmlinux.lds.S
-index e034a6a4a444..fdcc992ab360 100644
---- a/arch/ia64/kernel/vmlinux.lds.S
-+++ b/arch/ia64/kernel/vmlinux.lds.S
-@@ -70,9 +70,7 @@ SECTIONS {
- 	/*
- 	 * Read-only data
- 	 */
--	NOTES :text :note       /* put .notes in text and mark in PT_NOTE  */
--	code_continues : {
--	} :text                /* switch back to regular program...  */
-+	NOTES
- 
- 	EXCEPTION_TABLE(16)
- 
-diff --git a/arch/mips/kernel/vmlinux.lds.S b/arch/mips/kernel/vmlinux.lds.S
-index 1c95612eb800..6a22f531d815 100644
---- a/arch/mips/kernel/vmlinux.lds.S
-+++ b/arch/mips/kernel/vmlinux.lds.S
-@@ -81,8 +81,7 @@ SECTIONS
- 		__stop___dbe_table = .;
- 	}
- 
--	NOTES NOTES_HEADERS
--	.dummy : { *(.dummy) } :text
-+	NOTES
- 
- 	_sdata = .;			/* Start of data section */
- 	RODATA
 diff --git a/arch/powerpc/kernel/vmlinux.lds.S b/arch/powerpc/kernel/vmlinux.lds.S
-index 7e26e20c8324..4f19d814d592 100644
+index 81e672654789..a3c8492b2b19 100644
 --- a/arch/powerpc/kernel/vmlinux.lds.S
 +++ b/arch/powerpc/kernel/vmlinux.lds.S
-@@ -164,9 +164,7 @@ SECTIONS
- #endif
+@@ -20,20 +20,6 @@ ENTRY(_stext)
+ PHDRS {
+ 	kernel PT_LOAD FLAGS(7); /* RWX */
+ 	note PT_NOTE FLAGS(0);
+-	dummy PT_NOTE FLAGS(0);
+-
+-	/* binutils < 2.18 has a bug that makes it misbehave when taking an
+-	   ELF file with all segments at load address 0 as input.  This
+-	   happens when running "strip" on vmlinux, because of the AT() magic
+-	   in this linker script.  People using GCC >= 4.2 won't run into
+-	   this problem, because the "build-id" support will put some data
+-	   into the "notes" segment (at a non-zero load address).
+-
+-	   To work around this, we force some data into both the "dummy"
+-	   segment and the kernel segment, so the dummy segment will get a
+-	   non-zero load address.  It's not enough to always create the
+-	   "notes" segment, since if nothing gets assigned to it, its load
+-	   address will be zero.  */
+ }
+ 
+ #ifdef CONFIG_PPC64
+@@ -178,14 +164,8 @@ SECTIONS
  	EXCEPTION_TABLE(0)
  
--	NOTES :text :note
--	/* Restore program header away from PT_NOTE. */
--	.dummy : { *(.dummy) } :text
-+	NOTES
+ 	NOTES :kernel :note
+-
+-	/* The dummy segment contents for the bug workaround mentioned above
+-	   near PHDRS.  */
+-	.dummy : AT(ADDR(.dummy) - LOAD_OFFSET) {
+-		LONG(0)
+-		LONG(0)
+-		LONG(0)
+-	} :kernel :dummy
++	/* Restore program header away from PT_NOTE. */
++	.dummy : { *(.dummy) } :kernel
  
  /*
   * Init sections discarded at runtime
-diff --git a/arch/s390/kernel/vmlinux.lds.S b/arch/s390/kernel/vmlinux.lds.S
-index 646d939346df..f88eedeb915a 100644
---- a/arch/s390/kernel/vmlinux.lds.S
-+++ b/arch/s390/kernel/vmlinux.lds.S
-@@ -52,9 +52,7 @@ SECTIONS
- 		_etext = .;		/* End of text section */
- 	} :text = 0x0700
- 
--	NOTES :text :note
--
--	.dummy : { *(.dummy) } :text
-+	NOTES
- 
- 	RO_DATA_SECTION(PAGE_SIZE)
- 
-diff --git a/arch/x86/kernel/vmlinux.lds.S b/arch/x86/kernel/vmlinux.lds.S
-index 2e18bf5c1aed..8be25b09c2b7 100644
---- a/arch/x86/kernel/vmlinux.lds.S
-+++ b/arch/x86/kernel/vmlinux.lds.S
-@@ -148,8 +148,7 @@ SECTIONS
- 		_etext = .;
- 	} :text = 0x9090
- 
--	NOTES :text :note
--	.dummy : { *(.dummy) } :text
-+	NOTES
- 
- 	EXCEPTION_TABLE(16)
- 
-diff --git a/include/asm-generic/vmlinux.lds.h b/include/asm-generic/vmlinux.lds.h
-index 2cc3ff9ac8c7..6a0a657dfdb4 100644
---- a/include/asm-generic/vmlinux.lds.h
-+++ b/include/asm-generic/vmlinux.lds.h
-@@ -56,10 +56,18 @@
- 
- /*
-  * Only some architectures want to have the .notes segment visible in
-- * a separate PT_NOTE ELF Program Header.
-+ * a separate PT_NOTE ELF Program Header. When this happens, it needs
-+ * to be visible in both the kernel text's PT_LOAD and the PT_NOTE
-+ * Program Headers. In this case, though, the PT_LOAD needs to be made
-+ * the default again so that all the following sections don't also end
-+ * up in the PT_NOTE Program Header.
-  */
- #ifdef EMITS_PT_NOTE
- #define NOTES_HEADERS		:text :note
-+#define NOTES_HEADERS_RESTORE	__restore_ph : { *(.__restore_ph) } :text
-+#else
-+#define NOTES_HEADERS
-+#define NOTES_HEADERS_RESTORE
- #endif
- 
- /* Align . to a 8 byte boundary equals to maximum function alignment. */
-@@ -792,7 +800,8 @@
- 		__start_notes = .;					\
- 		KEEP(*(.note.*))					\
- 		__stop_notes = .;					\
--	}
-+	} NOTES_HEADERS							\
-+	NOTES_HEADERS_RESTORE
- 
- #define INIT_SETUP(initsetup_align)					\
- 		. = ALIGN(initsetup_align);				\
 -- 
 2.17.1
