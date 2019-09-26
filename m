@@ -1,185 +1,249 @@
-From: Denis Efremov <efremov@linux.com>
-Date: Fri, 27 Sep 2019 23:43:08 +0000
-Subject: [PATCH RESEND v3 01/26] PCI: Add define for the number of standard PCI BARs
-Message-Id: <20190927234308.23935-1-efremov@linux.com>
+From: Kees Cook <keescook@chromium.org>
+Date: Thu, 26 Sep 2019 17:55:45 +0000
+Subject: [PATCH 12/29] vmlinux.lds.h: Replace RO_DATA_SECTION with RO_DATA
+Message-Id: <20190926175602.33098-13-keescook@chromium.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190916204158.6889-3-efremov@linux.com>
-In-Reply-To: <20190916204158.6889-3-efremov@linux.com>
+References: <20190926175602.33098-1-keescook@chromium.org>
+In-Reply-To: <20190926175602.33098-1-keescook@chromium.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bhelgaas@google.com>
-Cc: Denis Efremov <efremov@linux.com>, linux-kernel@vger.kernel.org, linux-pci@vger.kernel.org, linux-hyperv@vger.kernel.org, x86@kernel.org, linux-s390@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: Thomas Gleixner <tglx@linutronix.de>
+Cc: Kees Cook <keescook@chromium.org>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, "H. Peter Anvin" <hpa@zytor.com>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Michal Simek <monstr@monstr.eu>, linux-parisc@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org, linux-kernel@vger.kernel.org
 
-Code that iterates over all standard PCI BARs typically uses
-PCI_STD_RESOURCE_END. However, it requires the "unusual" loop condition
-"i <= PCI_STD_RESOURCE_END" rather than something more standard like
-"i < PCI_STD_NUM_BARS".
+This finishes renaming RO_DATA_SECTION to RO_DATA. (Calling this a
+"section" is a lie, since it's multiple sections and section flags cannot
+be applied to the macro.)
 
-This patch adds the definition PCI_STD_NUM_BARS which is equivalent to
-"PCI_STD_RESOURCE_END + 1". To iterate through all possible BARs, loop
-conditions changed to the *number* of BARs "i < PCI_STD_NUM_BARS",
-instead of the index of the last valid BAR "i <= PCI_STD_RESOURCE_END"
-or PCI_ROM_RESOURCE. The magic constant (6) is also replaced with new
-define PCI_STD_NUM_BARS.
-
-Signed-off-by: Denis Efremov <efremov@linux.com>
+Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- drivers/pci/pci-sysfs.c       |  4 ++--
- drivers/pci/pci.c             | 13 +++++++------
- drivers/pci/proc.c            |  4 ++--
- drivers/pci/quirks.c          |  4 ++--
- include/linux/pci.h           |  2 +-
- include/uapi/linux/pci_regs.h |  1 +
- 6 files changed, 15 insertions(+), 13 deletions(-)
+ arch/arc/kernel/vmlinux.lds.S       | 2 +-
+ arch/c6x/kernel/vmlinux.lds.S       | 2 +-
+ arch/csky/kernel/vmlinux.lds.S      | 2 +-
+ arch/h8300/kernel/vmlinux.lds.S     | 2 +-
+ arch/hexagon/kernel/vmlinux.lds.S   | 2 +-
+ arch/m68k/kernel/vmlinux-nommu.lds  | 2 +-
+ arch/nds32/kernel/vmlinux.lds.S     | 2 +-
+ arch/nios2/kernel/vmlinux.lds.S     | 2 +-
+ arch/openrisc/kernel/vmlinux.lds.S  | 4 ++--
+ arch/parisc/kernel/vmlinux.lds.S    | 4 ++--
+ arch/riscv/kernel/vmlinux.lds.S     | 2 +-
+ arch/s390/kernel/vmlinux.lds.S      | 2 +-
+ arch/unicore32/kernel/vmlinux.lds.S | 2 +-
+ include/asm-generic/vmlinux.lds.h   | 7 ++-----
+ 14 files changed, 17 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/pci/pci-sysfs.c b/drivers/pci/pci-sysfs.c
-index 965c72104150..3e26b8e03bd5 100644
---- a/drivers/pci/pci-sysfs.c
-+++ b/drivers/pci/pci-sysfs.c
-@@ -1257,7 +1257,7 @@ static void pci_remove_resource_files(struct pci_dev *pdev)
- {
- 	int i;
+diff --git a/arch/arc/kernel/vmlinux.lds.S b/arch/arc/kernel/vmlinux.lds.S
+index 1d6eef4b6976..7d1d27066deb 100644
+--- a/arch/arc/kernel/vmlinux.lds.S
++++ b/arch/arc/kernel/vmlinux.lds.S
+@@ -95,7 +95,7 @@ SECTIONS
+ 	_etext = .;
  
--	for (i = 0; i < PCI_ROM_RESOURCE; i++) {
-+	for (i = 0; i < PCI_STD_NUM_BARS; i++) {
- 		struct bin_attribute *res_attr;
+ 	_sdata = .;
+-	RO_DATA_SECTION(PAGE_SIZE)
++	RO_DATA(PAGE_SIZE)
  
- 		res_attr = pdev->res_attr[i];
-@@ -1328,7 +1328,7 @@ static int pci_create_resource_files(struct pci_dev *pdev)
- 	int retval;
+ 	/*
+ 	 * 1. this is .data essentially
+diff --git a/arch/c6x/kernel/vmlinux.lds.S b/arch/c6x/kernel/vmlinux.lds.S
+index d6e3802536b3..a3547f9d415b 100644
+--- a/arch/c6x/kernel/vmlinux.lds.S
++++ b/arch/c6x/kernel/vmlinux.lds.S
+@@ -82,7 +82,7 @@ SECTIONS
  
- 	/* Expose the PCI resources from this device as files */
--	for (i = 0; i < PCI_ROM_RESOURCE; i++) {
-+	for (i = 0; i < PCI_STD_NUM_BARS; i++) {
+ 	EXCEPTION_TABLE(16)
  
- 		/* skip empty resources */
- 		if (!pci_resource_len(pdev, i))
-diff --git a/drivers/pci/pci.c b/drivers/pci/pci.c
-index 1b27b5af3d55..7d543986026b 100644
---- a/drivers/pci/pci.c
-+++ b/drivers/pci/pci.c
-@@ -674,7 +674,7 @@ struct resource *pci_find_resource(struct pci_dev *dev, struct resource *res)
- {
- 	int i;
+-	RO_DATA_SECTION(PAGE_SIZE)
++	RO_DATA(PAGE_SIZE)
+ 	.const :
+ 	{
+ 		*(.const .const.* .gnu.linkonce.r.*)
+diff --git a/arch/csky/kernel/vmlinux.lds.S b/arch/csky/kernel/vmlinux.lds.S
+index 75dd31412242..8598bd7a7bcd 100644
+--- a/arch/csky/kernel/vmlinux.lds.S
++++ b/arch/csky/kernel/vmlinux.lds.S
+@@ -49,7 +49,7 @@ SECTIONS
  
--	for (i = 0; i < PCI_ROM_RESOURCE; i++) {
-+	for (i = 0; i < PCI_STD_NUM_BARS; i++) {
- 		struct resource *r = &dev->resource[i];
  
- 		if (r->start && resource_contains(r, res))
-@@ -3768,7 +3768,7 @@ void pci_release_selected_regions(struct pci_dev *pdev, int bars)
- {
- 	int i;
+ 	_sdata = .;
+-	RO_DATA_SECTION(PAGE_SIZE)
++	RO_DATA(PAGE_SIZE)
+ 	RW_DATA_SECTION(L1_CACHE_BYTES, PAGE_SIZE, THREAD_SIZE)
+ 	_edata = .;
  
--	for (i = 0; i < 6; i++)
-+	for (i = 0; i < PCI_STD_NUM_BARS; i++)
- 		if (bars & (1 << i))
- 			pci_release_region(pdev, i);
- }
-@@ -3779,7 +3779,7 @@ static int __pci_request_selected_regions(struct pci_dev *pdev, int bars,
- {
- 	int i;
- 
--	for (i = 0; i < 6; i++)
-+	for (i = 0; i < PCI_STD_NUM_BARS; i++)
- 		if (bars & (1 << i))
- 			if (__pci_request_region(pdev, i, res_name, excl))
- 				goto err_out;
-@@ -3827,7 +3827,7 @@ EXPORT_SYMBOL(pci_request_selected_regions_exclusive);
- 
- void pci_release_regions(struct pci_dev *pdev)
- {
--	pci_release_selected_regions(pdev, (1 << 6) - 1);
-+	pci_release_selected_regions(pdev, (1 << PCI_STD_NUM_BARS) - 1);
- }
- EXPORT_SYMBOL(pci_release_regions);
- 
-@@ -3846,7 +3846,8 @@ EXPORT_SYMBOL(pci_release_regions);
-  */
- int pci_request_regions(struct pci_dev *pdev, const char *res_name)
- {
--	return pci_request_selected_regions(pdev, ((1 << 6) - 1), res_name);
-+	return pci_request_selected_regions(pdev,
-+			((1 << PCI_STD_NUM_BARS) - 1), res_name);
- }
- EXPORT_SYMBOL(pci_request_regions);
- 
-@@ -3868,7 +3869,7 @@ EXPORT_SYMBOL(pci_request_regions);
- int pci_request_regions_exclusive(struct pci_dev *pdev, const char *res_name)
- {
- 	return pci_request_selected_regions_exclusive(pdev,
--					((1 << 6) - 1), res_name);
-+				((1 << PCI_STD_NUM_BARS) - 1), res_name);
- }
- EXPORT_SYMBOL(pci_request_regions_exclusive);
- 
-diff --git a/drivers/pci/proc.c b/drivers/pci/proc.c
-index fe7fe678965b..cb61ec2c24e8 100644
---- a/drivers/pci/proc.c
-+++ b/drivers/pci/proc.c
-@@ -248,13 +248,13 @@ static int proc_bus_pci_mmap(struct file *file, struct vm_area_struct *vma)
+diff --git a/arch/h8300/kernel/vmlinux.lds.S b/arch/h8300/kernel/vmlinux.lds.S
+index 88776e785245..d3247d33b115 100644
+--- a/arch/h8300/kernel/vmlinux.lds.S
++++ b/arch/h8300/kernel/vmlinux.lds.S
+@@ -38,7 +38,7 @@ SECTIONS
+ 	_etext = . ;
  	}
+ 	EXCEPTION_TABLE(16)
+-	RO_DATA_SECTION(4)
++	RO_DATA(4)
+ 	ROMEND = .;
+ #if defined(CONFIG_ROMKERNEL)
+ 	. = RAMTOP;
+diff --git a/arch/hexagon/kernel/vmlinux.lds.S b/arch/hexagon/kernel/vmlinux.lds.S
+index 6a6e8fc422ee..0145251fa317 100644
+--- a/arch/hexagon/kernel/vmlinux.lds.S
++++ b/arch/hexagon/kernel/vmlinux.lds.S
+@@ -50,7 +50,7 @@ SECTIONS
  
- 	/* Make sure the caller is mapping a real resource for this device */
--	for (i = 0; i < PCI_ROM_RESOURCE; i++) {
-+	for (i = 0; i < PCI_STD_NUM_BARS; i++) {
- 		if (dev->resource[i].flags & res_bit &&
- 		    pci_mmap_fits(dev, i, vma,  PCI_MMAP_PROCFS))
- 			break;
+ 	_sdata = .;
+ 		RW_DATA_SECTION(32,PAGE_SIZE,_THREAD_SIZE)
+-		RO_DATA_SECTION(PAGE_SIZE)
++		RO_DATA(PAGE_SIZE)
+ 	_edata = .;
+ 
+ 	EXCEPTION_TABLE(16)
+diff --git a/arch/m68k/kernel/vmlinux-nommu.lds b/arch/m68k/kernel/vmlinux-nommu.lds
+index cf6edda38971..de80f8b8ae78 100644
+--- a/arch/m68k/kernel/vmlinux-nommu.lds
++++ b/arch/m68k/kernel/vmlinux-nommu.lds
+@@ -60,7 +60,7 @@ SECTIONS {
+ #endif
+ 
+ 	_sdata = .;
+-	RO_DATA_SECTION(PAGE_SIZE)
++	RO_DATA(PAGE_SIZE)
+ 	RW_DATA_SECTION(16, PAGE_SIZE, THREAD_SIZE)
+ 	_edata = .;
+ 
+diff --git a/arch/nds32/kernel/vmlinux.lds.S b/arch/nds32/kernel/vmlinux.lds.S
+index c4f1c5a604c3..10ff570ba95b 100644
+--- a/arch/nds32/kernel/vmlinux.lds.S
++++ b/arch/nds32/kernel/vmlinux.lds.S
+@@ -53,7 +53,7 @@ SECTIONS
+ 	_etext = .;			/* End of text and rodata section */
+ 
+ 	_sdata = .;
+-	RO_DATA_SECTION(PAGE_SIZE)
++	RO_DATA(PAGE_SIZE)
+ 	RW_DATA_SECTION(L1_CACHE_BYTES, PAGE_SIZE, THREAD_SIZE)
+ 	_edata  =  .;
+ 
+diff --git a/arch/nios2/kernel/vmlinux.lds.S b/arch/nios2/kernel/vmlinux.lds.S
+index 20e4078b3477..318804a2c7a1 100644
+--- a/arch/nios2/kernel/vmlinux.lds.S
++++ b/arch/nios2/kernel/vmlinux.lds.S
+@@ -49,7 +49,7 @@ SECTIONS
+ 	__init_end = .;
+ 
+ 	_sdata = .;
+-	RO_DATA_SECTION(PAGE_SIZE)
++	RO_DATA(PAGE_SIZE)
+ 	RW_DATA_SECTION(L1_CACHE_BYTES, PAGE_SIZE, THREAD_SIZE)
+ 	_edata = .;
+ 
+diff --git a/arch/openrisc/kernel/vmlinux.lds.S b/arch/openrisc/kernel/vmlinux.lds.S
+index 142c51c994f5..f73e0d3ea09f 100644
+--- a/arch/openrisc/kernel/vmlinux.lds.S
++++ b/arch/openrisc/kernel/vmlinux.lds.S
+@@ -67,8 +67,8 @@ SECTIONS
+ 
+ 	_sdata = .;
+ 
+-	/* Page alignment required for RO_DATA_SECTION */
+-	RO_DATA_SECTION(PAGE_SIZE)
++	/* Page alignment required for RO_DATA */
++	RO_DATA(PAGE_SIZE)
+ 	_e_kernel_ro = .;
+ 
+ 	/* Whatever comes after _e_kernel_ro had better be page-aligend, too */
+diff --git a/arch/parisc/kernel/vmlinux.lds.S b/arch/parisc/kernel/vmlinux.lds.S
+index 168d12b2ebb8..e1c563c7dca1 100644
+--- a/arch/parisc/kernel/vmlinux.lds.S
++++ b/arch/parisc/kernel/vmlinux.lds.S
+@@ -109,7 +109,7 @@ SECTIONS
+ 	_sdata = .;
+ 
+ 	/* Architecturally we need to keep __gp below 0x1000000 and thus
+-	 * in front of RO_DATA_SECTION() which stores lots of tracepoint
++	 * in front of RO_DATA() which stores lots of tracepoint
+ 	 * and ftrace symbols. */
+ #ifdef CONFIG_64BIT
+ 	. = ALIGN(16);
+@@ -127,7 +127,7 @@ SECTIONS
  	}
+ #endif
  
--	if (i >= PCI_ROM_RESOURCE)
-+	if (i >= PCI_STD_NUM_BARS)
- 		return -ENODEV;
+-	RO_DATA_SECTION(8)
++	RO_DATA(8)
  
- 	if (fpriv->mmap_state = pci_mmap_mem &&
-diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
-index 44c4ae1abd00..998454b0ae8d 100644
---- a/drivers/pci/quirks.c
-+++ b/drivers/pci/quirks.c
-@@ -475,7 +475,7 @@ static void quirk_extend_bar_to_page(struct pci_dev *dev)
- {
- 	int i;
+ 	/* RO because of BUILDTIME_EXTABLE_SORT */
+ 	EXCEPTION_TABLE(8)
+diff --git a/arch/riscv/kernel/vmlinux.lds.S b/arch/riscv/kernel/vmlinux.lds.S
+index df5229c4034d..66dc17d24dd9 100644
+--- a/arch/riscv/kernel/vmlinux.lds.S
++++ b/arch/riscv/kernel/vmlinux.lds.S
+@@ -52,7 +52,7 @@ SECTIONS
  
--	for (i = 0; i <= PCI_STD_RESOURCE_END; i++) {
-+	for (i = 0; i < PCI_STD_NUM_BARS; i++) {
- 		struct resource *r = &dev->resource[i];
+ 	/* Start of data section */
+ 	_sdata = .;
+-	RO_DATA_SECTION(L1_CACHE_BYTES)
++	RO_DATA(L1_CACHE_BYTES)
+ 	.srodata : {
+ 		*(.srodata*)
+ 	}
+diff --git a/arch/s390/kernel/vmlinux.lds.S b/arch/s390/kernel/vmlinux.lds.S
+index beb4df053e20..b33c4823f8b5 100644
+--- a/arch/s390/kernel/vmlinux.lds.S
++++ b/arch/s390/kernel/vmlinux.lds.S
+@@ -52,7 +52,7 @@ SECTIONS
+ 		_etext = .;		/* End of text section */
+ 	} :text = 0x0700
  
- 		if (r->flags & IORESOURCE_MEM && resource_size(r) < PAGE_SIZE) {
-@@ -1810,7 +1810,7 @@ static void quirk_alder_ioapic(struct pci_dev *pdev)
- 	 * The next five BARs all seem to be rubbish, so just clean
- 	 * them out.
- 	 */
--	for (i = 1; i < 6; i++)
-+	for (i = 1; i < PCI_STD_NUM_BARS; i++)
- 		memset(&pdev->resource[i], 0, sizeof(pdev->resource[i]));
- }
- DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL,	PCI_DEVICE_ID_INTEL_EESSC,	quirk_alder_ioapic);
-diff --git a/include/linux/pci.h b/include/linux/pci.h
-index 82e4cd1b7ac3..cf7d16305243 100644
---- a/include/linux/pci.h
-+++ b/include/linux/pci.h
-@@ -76,7 +76,7 @@ enum pci_mmap_state {
- enum {
- 	/* #0-5: standard PCI resources */
- 	PCI_STD_RESOURCES,
--	PCI_STD_RESOURCE_END = 5,
-+	PCI_STD_RESOURCE_END = PCI_STD_RESOURCES + PCI_STD_NUM_BARS - 1,
+-	RO_DATA_SECTION(PAGE_SIZE)
++	RO_DATA(PAGE_SIZE)
  
- 	/* #6: expansion ROM resource */
- 	PCI_ROM_RESOURCE,
-diff --git a/include/uapi/linux/pci_regs.h b/include/uapi/linux/pci_regs.h
-index f28e562d7ca8..68b571d491eb 100644
---- a/include/uapi/linux/pci_regs.h
-+++ b/include/uapi/linux/pci_regs.h
-@@ -34,6 +34,7 @@
-  * of which the first 64 bytes are standardized as follows:
+ 	. = ALIGN(PAGE_SIZE);
+ 	_sdata = .;		/* Start of data section */
+diff --git a/arch/unicore32/kernel/vmlinux.lds.S b/arch/unicore32/kernel/vmlinux.lds.S
+index 78c4c56057b0..367c80313bec 100644
+--- a/arch/unicore32/kernel/vmlinux.lds.S
++++ b/arch/unicore32/kernel/vmlinux.lds.S
+@@ -43,7 +43,7 @@ SECTIONS
+ 	_etext = .;
+ 
+ 	_sdata = .;
+-	RO_DATA_SECTION(PAGE_SIZE)
++	RO_DATA(PAGE_SIZE)
+ 	RW_DATA_SECTION(L1_CACHE_BYTES, PAGE_SIZE, THREAD_SIZE)
+ 	_edata = .;
+ 
+diff --git a/include/asm-generic/vmlinux.lds.h b/include/asm-generic/vmlinux.lds.h
+index 9520dede6c7a..cdff8ba42d4d 100644
+--- a/include/asm-generic/vmlinux.lds.h
++++ b/include/asm-generic/vmlinux.lds.h
+@@ -23,7 +23,7 @@
+  *	_etext = .;
+  *
+  *      _sdata = .;
+- *	RO_DATA_SECTION(PAGE_SIZE)
++ *	RO_DATA(PAGE_SIZE)
+  *	RW_DATA_SECTION(...)
+  *	_edata = .;
+  *
+@@ -358,7 +358,7 @@
+ /*
+  * Read only Data
   */
- #define PCI_STD_HEADER_SIZEOF	64
-+#define PCI_STD_NUM_BARS	6	/* Number of standard BARs */
- #define PCI_VENDOR_ID		0x00	/* 16 bits */
- #define PCI_DEVICE_ID		0x02	/* 16 bits */
- #define PCI_COMMAND		0x04	/* 16 bits */
+-#define RO_DATA_SECTION(align)						\
++#define RO_DATA(align)							\
+ 	. = ALIGN((align));						\
+ 	.rodata           : AT(ADDR(.rodata) - LOAD_OFFSET) {		\
+ 		__start_rodata = .;					\
+@@ -513,9 +513,6 @@
+ 	. = ALIGN((align));						\
+ 	__end_rodata = .;
+ 
+-/* All archs are supposed to use RO_DATA() */
+-#define RO_DATA(align)  RO_DATA_SECTION(align)
+-
+ /*
+  * .text section. Map to function alignment to avoid address changes
+  * during second ld run in second ld pass when generating System.map
 -- 
-2.21.0
+2.17.1
