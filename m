@@ -1,141 +1,220 @@
-From: Kees Cook <keescook@chromium.org>
-Date: Thu, 26 Sep 2019 17:55:41 +0000
-Subject: [PATCH 08/29] vmlinux.lds.h: Provide EMIT_PT_NOTE to indicate export of .notes
-Message-Id: <20190926175602.33098-9-keescook@chromium.org>
+From: Aleksa Sarai <cyphar@cyphar.com>
+Date: Mon, 30 Sep 2019 18:33:07 +0000
+Subject: [PATCH v13 0/9] namei: openat2(2) path resolution restrictions
+Message-Id: <20190930183316.10190-1-cyphar@cyphar.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190926175602.33098-1-keescook@chromium.org>
-In-Reply-To: <20190926175602.33098-1-keescook@chromium.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thomas Gleixner <tglx@linutronix.de>
-Cc: Kees Cook <keescook@chromium.org>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, "H. Peter Anvin" <hpa@zytor.com>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Michal Simek <monstr@monstr.eu>, linux-parisc@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org, linux-kernel@vger.kernel.org
+To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>
+Cc: linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Alexei Starovoitov <ast@kernel.org>, linux-kernel@vger.kernel.org, linux-kselftest@vger.kernel.org, sparclinux@vger.kernel.org, Jiri Olsa <jolsa@redhat.com>, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, Tycho Andersen <tycho@tycho.ws>, Aleksa Sarai <asarai@suse.de>, linux-arm-kernel@lists.infradead.org, linux-mips@vger.kernel.org, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, linuxppc-dev@lists.ozlabs.org, Aleksa Sarai <cyphar@cyphar.com>, Andy Lutomirski <luto@kernel.org>, Namhyung Kim <namhyung@kernel.org>, David Drysdale <drysdale@google.com>, Christian Brauner <christian@brauner.io>, libc-alpha@sourceware.org, linux-parisc@vger.kernel.org, linux-m68k@li
 
-In preparation for moving NOTES into RO_DATA, this provides a mechanism
-for architectures that want to emit a PT_NOTE Program Header to do so.
+This patchset is being developed here:
+  <https://github.com/cyphar/linux/tree/resolveat/master>
 
-Signed-off-by: Kees Cook <keescook@chromium.org>
----
- arch/alpha/kernel/vmlinux.lds.S   |  3 +++
- arch/ia64/kernel/vmlinux.lds.S    |  2 ++
- arch/mips/kernel/vmlinux.lds.S    | 12 ++++++------
- arch/powerpc/kernel/vmlinux.lds.S |  1 +
- arch/s390/kernel/vmlinux.lds.S    |  2 ++
- arch/x86/kernel/vmlinux.lds.S     |  2 ++
- include/asm-generic/vmlinux.lds.h |  8 ++++++++
- 7 files changed, 24 insertions(+), 6 deletions(-)
+It depends on the copy_struct_from_user() helpers being developed here:
+  <https://github.com/cyphar/linux/tree/copy_struct_from_user/master>
+and posted here:
+  <https://lore.kernel.org/lkml/20190930182810.6090-1-cyphar@cyphar.com/>
 
-diff --git a/arch/alpha/kernel/vmlinux.lds.S b/arch/alpha/kernel/vmlinux.lds.S
-index 781090cacc96..363a60ba7c31 100644
---- a/arch/alpha/kernel/vmlinux.lds.S
-+++ b/arch/alpha/kernel/vmlinux.lds.S
-@@ -1,4 +1,7 @@
- /* SPDX-License-Identifier: GPL-2.0 */
-+
-+#define EMITS_PT_NOTE
-+
- #include <asm-generic/vmlinux.lds.h>
- #include <asm/thread_info.h>
- #include <asm/cache.h>
-diff --git a/arch/ia64/kernel/vmlinux.lds.S b/arch/ia64/kernel/vmlinux.lds.S
-index c1067992fcd1..e034a6a4a444 100644
---- a/arch/ia64/kernel/vmlinux.lds.S
-+++ b/arch/ia64/kernel/vmlinux.lds.S
-@@ -5,6 +5,8 @@
- #include <asm/pgtable.h>
- #include <asm/thread_info.h>
- 
-+#define EMITS_PT_NOTE
-+
- #include <asm-generic/vmlinux.lds.h>
- 
- OUTPUT_FORMAT("elf64-ia64-little")
-diff --git a/arch/mips/kernel/vmlinux.lds.S b/arch/mips/kernel/vmlinux.lds.S
-index 33ee0d18fb0a..1c95612eb800 100644
---- a/arch/mips/kernel/vmlinux.lds.S
-+++ b/arch/mips/kernel/vmlinux.lds.S
-@@ -10,6 +10,11 @@
-  */
- #define BSS_FIRST_SECTIONS *(.bss..swapper_pg_dir)
- 
-+/* Cavium Octeon should not have a separate PT_NOTE Program Header. */
-+#ifndef CONFIG_CAVIUM_OCTEON_SOC
-+#define EMITS_PT_NOTE
-+#endif
-+
- #include <asm-generic/vmlinux.lds.h>
- 
- #undef mips
-@@ -76,12 +81,7 @@ SECTIONS
- 		__stop___dbe_table = .;
- 	}
- 
--#ifdef CONFIG_CAVIUM_OCTEON_SOC
--#define NOTES_HEADER
--#else /* CONFIG_CAVIUM_OCTEON_SOC */
--#define NOTES_HEADER :note
--#endif /* CONFIG_CAVIUM_OCTEON_SOC */
--	NOTES :text NOTES_HEADER
-+	NOTES NOTES_HEADERS
- 	.dummy : { *(.dummy) } :text
- 
- 	_sdata = .;			/* Start of data section */
-diff --git a/arch/powerpc/kernel/vmlinux.lds.S b/arch/powerpc/kernel/vmlinux.lds.S
-index e184a63aa5b0..7e26e20c8324 100644
---- a/arch/powerpc/kernel/vmlinux.lds.S
-+++ b/arch/powerpc/kernel/vmlinux.lds.S
-@@ -6,6 +6,7 @@
- #endif
- 
- #define BSS_FIRST_SECTIONS *(.bss.prominit)
-+#define EMITS_PT_NOTE
- 
- #include <asm/page.h>
- #include <asm-generic/vmlinux.lds.h>
-diff --git a/arch/s390/kernel/vmlinux.lds.S b/arch/s390/kernel/vmlinux.lds.S
-index 13294fef473e..646d939346df 100644
---- a/arch/s390/kernel/vmlinux.lds.S
-+++ b/arch/s390/kernel/vmlinux.lds.S
-@@ -15,6 +15,8 @@
- /* Handle ro_after_init data on our own. */
- #define RO_AFTER_INIT_DATA
- 
-+#define EMITS_PT_NOTE
-+
- #include <asm-generic/vmlinux.lds.h>
- #include <asm/vmlinux.lds.h>
- 
-diff --git a/arch/x86/kernel/vmlinux.lds.S b/arch/x86/kernel/vmlinux.lds.S
-index 788e78978030..2e18bf5c1aed 100644
---- a/arch/x86/kernel/vmlinux.lds.S
-+++ b/arch/x86/kernel/vmlinux.lds.S
-@@ -21,6 +21,8 @@
- #define LOAD_OFFSET __START_KERNEL_map
- #endif
- 
-+#define EMITS_PT_NOTE
-+
- #include <asm-generic/vmlinux.lds.h>
- #include <asm/asm-offsets.h>
- #include <asm/thread_info.h>
-diff --git a/include/asm-generic/vmlinux.lds.h b/include/asm-generic/vmlinux.lds.h
-index cd28f63bfbc7..2cc3ff9ac8c7 100644
---- a/include/asm-generic/vmlinux.lds.h
-+++ b/include/asm-generic/vmlinux.lds.h
-@@ -54,6 +54,14 @@
- #define LOAD_OFFSET 0
- #endif
- 
-+/*
-+ * Only some architectures want to have the .notes segment visible in
-+ * a separate PT_NOTE ELF Program Header.
-+ */
-+#ifdef EMITS_PT_NOTE
-+#define NOTES_HEADERS		:text :note
-+#endif
-+
- /* Align . to a 8 byte boundary equals to maximum function alignment. */
- #define ALIGN_FUNCTION()  . = ALIGN(8)
- 
+Patch changelog:
+ v13:
+  * Fix race with the magic-link mode semantics by recomputing the mode during
+    ->get_link() and storing it with nd_jump_link(). A selftest was added for
+    this attack scenario as well. [Jann Horn]
+  * Fix gap in RESOLVE_NO_XDEV with magic-links -- now magic-link resolution is
+    only permitted if the link doesn't jump vfsmounts.
+  * Remove path_is_under() checks for ".." resolution (due to the possibility
+    of O(m*n) lookup behaviour). Instead, return -EAGAIN if a racing rename or
+    mount occurs. Userspace is then encouraged to retry or have another
+    fallback (if after several tries, it still fails it's likely that there is
+    an attack going on -- though failures will occur spuriously because
+    &{rename,mount}_lock are both global). [Linus Torvalds]
+  * Move copy_struct_from_user() to a separate series so it can be merged
+    separately. [Christian Brauner]
+  * Small test improvements (mainly making the TAP output more readable and
+    adding a few new minor test cases). Now the openat2(2) self-tests have ~271
+    overall test cases.
+  * Expand on changes to path-lookup in the kernel docs.
+  * Kernel-doc fixes. [Randy Dunlap]
+ v12: <https://lore.kernel.org/lkml/20190904201933.10736-1-cyphar@cyphar.com/>
+ v11: <https://lore.kernel.org/lkml/20190820033406.29796-1-cyphar@cyphar.com/>
+      <https://lore.kernel.org/lkml/20190728010207.9781-1-cyphar@cyphar.com/>
+ v10: <https://lore.kernel.org/lkml/20190719164225.27083-1-cyphar@cyphar.com/>
+ v09: <https://lore.kernel.org/lkml/20190706145737.5299-1-cyphar@cyphar.com/>
+ v08: <https://lore.kernel.org/lkml/20190520133305.11925-1-cyphar@cyphar.com/>
+ v07: <https://lore.kernel.org/lkml/20190507164317.13562-1-cyphar@cyphar.com/>
+ v06: <https://lore.kernel.org/lkml/20190506165439.9155-1-cyphar@cyphar.com/>
+ v05: <https://lore.kernel.org/lkml/20190320143717.2523-1-cyphar@cyphar.com/>
+ v04: <https://lore.kernel.org/lkml/20181112142654.341-1-cyphar@cyphar.com/>
+ v03: <https://lore.kernel.org/lkml/20181009070230.12884-1-cyphar@cyphar.com/>
+ v02: <https://lore.kernel.org/lkml/20181009065300.11053-1-cyphar@cyphar.com/>
+ v01: <https://lore.kernel.org/lkml/20180929103453.12025-1-cyphar@cyphar.com/>
+
+The need for some sort of control over VFS's path resolution (to avoid
+malicious paths resulting in inadvertent breakouts) has been a very
+long-standing desire of many userspace applications. This patchset is a
+revival of Al Viro's old AT_NO_JUMPS[1,2] patchset (which was a variant
+of David Drysdale's O_BENEATH patchset[3] which was a spin-off of the
+Capsicum project[4]) with a few additions and changes made based on the
+previous discussion within [5] as well as others I felt were useful.
+
+In line with the conclusions of the original discussion of AT_NO_JUMPS,
+the flag has been split up into separate flags. However, instead of
+being an openat(2) flag it is provided through a new syscall openat2(2)
+which provides several other improvements to the openat(2) interface (see the
+patch description for more details). The following new LOOKUP_* flags are
+added:
+
+  * LOOKUP_NO_XDEV blocks all mountpoint crossings (upwards, downwards,
+    or through absolute links). Absolute pathnames alone in openat(2) do not
+    trigger this. Magic-link traversal which implies a vfsmount jump is also
+    blocked (though magic-link jumps on the same vfsmount are permitted).
+
+  * LOOKUP_NO_MAGICLINKS blocks resolution through /proc/$pid/fd-style
+    links. This is done by blocking the usage of nd_jump_link() during
+    resolution in a filesystem. The term "magic-links" is used to match
+    with the only reference to these links in Documentation/, but I'm
+    happy to change the name.
+
+    It should be noted that this is different to the scope of
+    ~LOOKUP_FOLLOW in that it applies to all path components. However,
+    you can do openat2(NO_FOLLOW|NO_MAGICLINKS) on a magic-link and it
+    will *not* fail (assuming that no parent component was a
+    magic-link), and you will have an fd for the magic-link.
+
+  * LOOKUP_BENEATH disallows escapes to outside the starting dirfd's
+    tree, using techniques such as ".." or absolute links. Absolute
+    paths in openat(2) are also disallowed. Conceptually this flag is to
+    ensure you "stay below" a certain point in the filesystem tree --
+    but this requires some additional to protect against various races
+    that would allow escape using "..".
+
+    Currently LOOKUP_BENEATH implies LOOKUP_NO_MAGICLINKS, because it
+    can trivially beam you around the filesystem (breaking the
+    protection). In future, there might be similar safety checks done as
+    in LOOKUP_IN_ROOT, but that requires more discussion.
+
+In addition, two new flags are added that expand on the above ideas:
+
+  * LOOKUP_NO_SYMLINKS does what it says on the tin. No symlink
+    resolution is allowed at all, including magic-links. Just as with
+    LOOKUP_NO_MAGICLINKS this can still be used with NOFOLLOW to open an
+    fd for the symlink as long as no parent path had a symlink
+    component.
+
+  * LOOKUP_IN_ROOT is an extension of LOOKUP_BENEATH that, rather than
+    blocking attempts to move past the root, forces all such movements
+    to be scoped to the starting point. This provides chroot(2)-like
+    protection but without the cost of a chroot(2) for each filesystem
+    operation, as well as being safe against race attacks that chroot(2)
+    is not.
+
+    If a race is detected (as with LOOKUP_BENEATH) then an error is
+    generated, and similar to LOOKUP_BENEATH it is not permitted to cross
+    magic-links with LOOKUP_IN_ROOT.
+
+    The primary need for this is from container runtimes, which
+    currently need to do symlink scoping in userspace[6] when opening
+    paths in a potentially malicious container. There is a long list of
+    CVEs that could have bene mitigated by having RESOLVE_THIS_ROOT
+    (such as CVE-2017-1002101, CVE-2017-1002102, CVE-2018-15664, and
+    CVE-2019-5736, just to name a few).
+
+And further, several semantics of file descriptor "re-opening" are now
+changed to prevent attacks like CVE-2019-5736 by restricting how
+magic-links can be resolved (based on their mode). This required some
+other changes to the semantics of the modes of O_PATH file descriptor's
+associated /proc/self/fd magic-links. openat2(2) has the ability to
+further restrict re-opening of its own O_PATH fds, so that users can
+make even better use of this feature.
+
+Finally, O_EMPTYPATH was added so that users can do /proc/self/fd-style
+re-opening without depending on procfs. The new restricted semantics for
+magic-links are applied here too.
+
+In order to make all of the above more usable, I'm working on
+libpathrs[7] which is a C-friendly library for safe path resolution. It
+features a userspace-emulated backend if the kernel doesn't support
+openat2(2). Hopefully we can get userspace to switch to using it, and
+thus get openat2(2) support for free once it's ready.
+
+[1]: https://lwn.net/Articles/721443/
+[2]: https://lore.kernel.org/patchwork/patch/784221/
+[3]: https://lwn.net/Articles/619151/
+[4]: https://lwn.net/Articles/603929/
+[5]: https://lwn.net/Articles/723057/
+[6]: https://github.com/cyphar/filepath-securejoin
+[7]: https://github.com/openSUSE/libpathrs
+
+Aleksa Sarai (9):
+  namei: obey trailing magic-link DAC permissions
+  procfs: switch magic-link modes to be more sane
+  open: O_EMPTYPATH: procfs-less file descriptor re-opening
+  namei: O_BENEATH-style path resolution flags
+  namei: LOOKUP_IN_ROOT: chroot-like path resolution
+  namei: permit ".." resolution with LOOKUP_{IN_ROOT,BENEATH}
+  open: openat2(2) syscall
+  selftests: add openat2(2) selftests
+  Documentation: update path-lookup to mention trailing magic-links
+
+ Documentation/filesystems/path-lookup.rst     |  80 ++-
+ arch/alpha/include/uapi/asm/fcntl.h           |   1 +
+ arch/alpha/kernel/syscalls/syscall.tbl        |   1 +
+ arch/arm/tools/syscall.tbl                    |   1 +
+ arch/arm64/include/asm/unistd.h               |   2 +-
+ arch/arm64/include/asm/unistd32.h             |   2 +
+ arch/ia64/kernel/syscalls/syscall.tbl         |   1 +
+ arch/m68k/kernel/syscalls/syscall.tbl         |   1 +
+ arch/microblaze/kernel/syscalls/syscall.tbl   |   1 +
+ arch/mips/kernel/syscalls/syscall_n32.tbl     |   1 +
+ arch/mips/kernel/syscalls/syscall_n64.tbl     |   1 +
+ arch/mips/kernel/syscalls/syscall_o32.tbl     |   1 +
+ arch/parisc/include/uapi/asm/fcntl.h          |  39 +-
+ arch/parisc/kernel/syscalls/syscall.tbl       |   1 +
+ arch/powerpc/kernel/syscalls/syscall.tbl      |   1 +
+ arch/s390/kernel/syscalls/syscall.tbl         |   1 +
+ arch/sh/kernel/syscalls/syscall.tbl           |   1 +
+ arch/sparc/include/uapi/asm/fcntl.h           |   1 +
+ arch/sparc/kernel/syscalls/syscall.tbl        |   1 +
+ arch/x86/entry/syscalls/syscall_32.tbl        |   1 +
+ arch/x86/entry/syscalls/syscall_64.tbl        |   1 +
+ arch/xtensa/kernel/syscalls/syscall.tbl       |   1 +
+ fs/fcntl.c                                    |   2 +-
+ fs/internal.h                                 |   1 +
+ fs/namei.c                                    | 286 +++++++--
+ fs/open.c                                     | 100 ++-
+ fs/proc/base.c                                |  69 +-
+ fs/proc/fd.c                                  |  45 +-
+ fs/proc/internal.h                            |   2 +-
+ fs/proc/namespaces.c                          |   4 +-
+ include/linux/fcntl.h                         |  21 +-
+ include/linux/fs.h                            |   8 +-
+ include/linux/namei.h                         |  15 +-
+ include/linux/syscalls.h                      |  14 +-
+ include/uapi/asm-generic/fcntl.h              |   4 +
+ include/uapi/asm-generic/unistd.h             |   5 +-
+ include/uapi/linux/fcntl.h                    |  42 ++
+ security/apparmor/apparmorfs.c                |   2 +-
+ tools/testing/selftests/Makefile              |   1 +
+ tools/testing/selftests/memfd/memfd_test.c    |   7 +-
+ tools/testing/selftests/openat2/.gitignore    |   1 +
+ tools/testing/selftests/openat2/Makefile      |   8 +
+ tools/testing/selftests/openat2/helpers.c     |  98 +++
+ tools/testing/selftests/openat2/helpers.h     | 114 ++++
+ .../testing/selftests/openat2/linkmode_test.c | 590 ++++++++++++++++++
+ .../testing/selftests/openat2/openat2_test.c  | 152 +++++
+ .../selftests/openat2/rename_attack_test.c    | 149 +++++
+ .../testing/selftests/openat2/resolve_test.c  | 522 ++++++++++++++++
+ 48 files changed, 2258 insertions(+), 145 deletions(-)
+ create mode 100644 tools/testing/selftests/openat2/.gitignore
+ create mode 100644 tools/testing/selftests/openat2/Makefile
+ create mode 100644 tools/testing/selftests/openat2/helpers.c
+ create mode 100644 tools/testing/selftests/openat2/helpers.h
+ create mode 100644 tools/testing/selftests/openat2/linkmode_test.c
+ create mode 100644 tools/testing/selftests/openat2/openat2_test.c
+ create mode 100644 tools/testing/selftests/openat2/rename_attack_test.c
+ create mode 100644 tools/testing/selftests/openat2/resolve_test.c
+
 -- 
-2.17.1
+2.23.0
