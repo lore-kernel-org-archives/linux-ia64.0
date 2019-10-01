@@ -1,46 +1,52 @@
-From: Kees Cook <keescook@chromium.org>
-Date: Tue, 29 Oct 2019 21:13:29 +0000
-Subject: [PATCH v3 07/29] x86: Restore "text" Program Header with dummy section
-Message-Id: <20191029211351.13243-8-keescook@chromium.org>
+From: David Hildenbrand <david@redhat.com>
+Date: Tue, 01 Oct 2019 14:40:08 +0000
+Subject: [PATCH v5 07/10] mm/memory_hotplug: We always have a zone in find_(smallest|biggest)_section_pfn
+Message-Id: <20191001144011.3801-8-david@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191029211351.13243-1-keescook@chromium.org>
-In-Reply-To: <20191029211351.13243-1-keescook@chromium.org>
+References: <20191001144011.3801-1-david@redhat.com>
+In-Reply-To: <20191001144011.3801-1-david@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Borislav Petkov <bp@alien8.de>
-Cc: Kees Cook <keescook@chromium.org>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Segher Boessenkool <segher@kernel.crashing.org>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Michael Ellerman <mpe@ellerman.id.au>, Heiko Carstens <heiko.carstens@de.ibm.com>, Will Deacon <will@kernel.org>, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linuxppc-dev@lists.ozlabs.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Michal Simek <monstr@monstr.eu>
+To: linux-kernel@vger.kernel.org
+Cc: linux-s390@vger.kernel.org, Michal Hocko <mhocko@suse.com>, linux-ia64@vger.kernel.org, Pavel Tatashin <pasha.tatashin@soleen.com>, linux-sh@vger.kernel.org, David Hildenbrand <david@redhat.com>, linux-mm@kvack.org, Wei Yang <richardw.yang@linux.intel.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, Dan Williams <dan.j.williams@intel.com>, linux-arm-kernel@lists.infradead.org, Oscar Salvador <osalvador@suse.de>
 
-In a linker script, if once places a section in one or more segments using
-":PHDR", then the linker will place all subsequent allocatable sections,
-which do not specify ":PHDR", into the same segments. In order to have
-the NOTES section in both PT_LOAD (":text") and PT_NOTE (":note"), both
-segments are marked, and the only way to to undo this to keep subsequent
-sections out of PT_NOTE is to mark the following section with just the
-single desired PT_LOAD (":text").
+With shrink_pgdat_span() out of the way, we now always have a valid
+zone.
 
-In preparation for having a common NOTES macro, perform the segment
-assignment use a dummy section (as done by other architectures).
-
-Signed-off-by: Kees Cook <keescook@chromium.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Oscar Salvador <osalvador@suse.de>
+Cc: David Hildenbrand <david@redhat.com>
+Cc: Michal Hocko <mhocko@suse.com>
+Cc: Pavel Tatashin <pasha.tatashin@soleen.com>
+Cc: Dan Williams <dan.j.williams@intel.com>
+Cc: Wei Yang <richardw.yang@linux.intel.com>
+Signed-off-by: David Hildenbrand <david@redhat.com>
 ---
- arch/x86/kernel/vmlinux.lds.S | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ mm/memory_hotplug.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/arch/x86/kernel/vmlinux.lds.S b/arch/x86/kernel/vmlinux.lds.S
-index e2feacf921a0..788e78978030 100644
---- a/arch/x86/kernel/vmlinux.lds.S
-+++ b/arch/x86/kernel/vmlinux.lds.S
-@@ -147,8 +147,9 @@ SECTIONS
- 	} :text = 0x9090
+diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+index 640309236a58..273833612774 100644
+--- a/mm/memory_hotplug.c
++++ b/mm/memory_hotplug.c
+@@ -337,7 +337,7 @@ static unsigned long find_smallest_section_pfn(int nid, struct zone *zone,
+ 		if (unlikely(pfn_to_nid(start_pfn) != nid))
+ 			continue;
  
- 	NOTES :text :note
-+	.dummy : { *(.dummy) } :text
+-		if (zone && zone != page_zone(pfn_to_page(start_pfn)))
++		if (zone != page_zone(pfn_to_page(start_pfn)))
+ 			continue;
  
--	EXCEPTION_TABLE(16) :text = 0x9090
-+	EXCEPTION_TABLE(16)
+ 		return start_pfn;
+@@ -362,7 +362,7 @@ static unsigned long find_biggest_section_pfn(int nid, struct zone *zone,
+ 		if (unlikely(pfn_to_nid(pfn) != nid))
+ 			continue;
  
- 	/* .text should occupy whole number of pages */
- 	. = ALIGN(PAGE_SIZE);
+-		if (zone && zone != page_zone(pfn_to_page(pfn)))
++		if (zone != page_zone(pfn_to_page(pfn)))
+ 			continue;
+ 
+ 		return pfn;
 -- 
-2.17.1
+2.21.0
