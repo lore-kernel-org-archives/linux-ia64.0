@@ -1,95 +1,95 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Tue, 29 Oct 2019 06:48:14 +0000
-Subject: [PATCH 01/21] arm: remove ioremap_cached
-Message-Id: <20191029064834.23438-2-hch@lst.de>
+From: David Hildenbrand <david@redhat.com>
+Date: Tue, 01 Oct 2019 14:40:05 +0000
+Subject: [PATCH v5 04/10] mm/memory_hotplug: Don't access uninitialized memmaps in shrink_zone_span()
+Message-Id: <20191001144011.3801-5-david@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191029064834.23438-1-hch@lst.de>
-In-Reply-To: <20191029064834.23438-1-hch@lst.de>
+References: <20191001144011.3801-1-david@redhat.com>
+In-Reply-To: <20191001144011.3801-1-david@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Arnd Bergmann <arnd@arndb.de>, Guo Ren <guoren@kernel.org>, Michal Simek <monstr@monstr.eu>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, x86@kernel.org
-Cc: linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-sh@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-mips@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, openrisc@lists.librecores.org, linux-mtd@lists.infradead.org, linux-alpha@vger.kernel.org, sparclinux@vger.kernel.org, nios2-dev@lists.rocketboards.org, linux-riscv@lists.infradead.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org
+To: linux-kernel@vger.kernel.org
+Cc: linux-s390@vger.kernel.org, Michal Hocko <mhocko@suse.com>, linux-ia64@vger.kernel.org, Pavel Tatashin <pasha.tatashin@soleen.com>, linux-sh@vger.kernel.org, "Aneesh Kumar K . V" <aneesh.kumar@linux.ibm.com>, David Hildenbrand <david@redhat.com>, linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, Dan Williams <dan.j.williams@intel.com>, linux-arm-kernel@lists.infradead.org, Oscar Salvador <osalvador@suse.de>
 
-No users of ioremap_cached are left, remove it.
+Let's limit shrinking to !ZONE_DEVICE so we can fix the current code. We
+should never try to touch the memmap of offline sections where we could
+have uninitialized memmaps and could trigger BUGs when calling
+page_to_nid() on poisoned pages.
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+There is no reliable way to distinguish an uninitialized memmap from an
+initialized memmap that belongs to ZONE_DEVICE, as we don't have
+anything like SECTION_IS_ONLINE we can use similar to
+pfn_to_online_section() for !ZONE_DEVICE memory. E.g.,
+set_zone_contiguous() similarly relies on pfn_to_online_section() and
+will therefore never set a ZONE_DEVICE zone consecutive. Stopping to
+shrink the ZONE_DEVICE therefore results in no observable changes,
+besides /proc/zoneinfo indicating different boundaries - something we
+can totally live with.
+
+Before commit d0dc12e86b31 ("mm/memory_hotplug: optimize memory
+hotplug"), the memmap was initialized with 0 and the node with the
+right value. So the zone might be wrong but not garbage. After that
+commit, both the zone and the node will be garbage when touching
+uninitialized memmaps.
+
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Oscar Salvador <osalvador@suse.de>
+Cc: David Hildenbrand <david@redhat.com>
+Cc: Michal Hocko <mhocko@suse.com>
+Cc: Pavel Tatashin <pasha.tatashin@soleen.com>
+Cc: Dan Williams <dan.j.williams@intel.com>
+Fixes: d0dc12e86b31 ("mm/memory_hotplug: optimize memory hotplug")
+Reported-by: Aneesh Kumar K.V <aneesh.kumar@linux.ibm.com>
+Signed-off-by: David Hildenbrand <david@redhat.com>
 ---
- arch/arm/include/asm/io.h | 6 ------
- arch/arm/mm/ioremap.c     | 4 ----
- arch/arm/mm/mmu.c         | 2 +-
- arch/arm/mm/nommu.c       | 4 ----
- 4 files changed, 1 insertion(+), 15 deletions(-)
+ mm/memory_hotplug.c | 14 +++++++++++---
+ 1 file changed, 11 insertions(+), 3 deletions(-)
 
-diff --git a/arch/arm/include/asm/io.h b/arch/arm/include/asm/io.h
-index 7a0596fcb2e7..924f9dd502ed 100644
---- a/arch/arm/include/asm/io.h
-+++ b/arch/arm/include/asm/io.h
-@@ -400,12 +400,6 @@ void __iomem *ioremap(resource_size_t res_cookie, size_t size);
- void __iomem *ioremap_cache(resource_size_t res_cookie, size_t size);
- #define ioremap_cache ioremap_cache
- 
--/*
-- * Do not use ioremap_cached in new code. Provided for the benefit of
-- * the pxa2xx-flash MTD driver only.
-- */
--void __iomem *ioremap_cached(resource_size_t res_cookie, size_t size);
--
- void __iomem *ioremap_wc(resource_size_t res_cookie, size_t size);
- #define ioremap_wc ioremap_wc
- #define ioremap_wt ioremap_wc
-diff --git a/arch/arm/mm/ioremap.c b/arch/arm/mm/ioremap.c
-index d42b93316183..72286f9a4d30 100644
---- a/arch/arm/mm/ioremap.c
-+++ b/arch/arm/mm/ioremap.c
-@@ -382,15 +382,11 @@ void __iomem *ioremap(resource_size_t res_cookie, size_t size)
- EXPORT_SYMBOL(ioremap);
- 
- void __iomem *ioremap_cache(resource_size_t res_cookie, size_t size)
--	__alias(ioremap_cached);
--
--void __iomem *ioremap_cached(resource_size_t res_cookie, size_t size)
+diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+index 86b4dc18e831..afed8331332b 100644
+--- a/mm/memory_hotplug.c
++++ b/mm/memory_hotplug.c
+@@ -331,7 +331,7 @@ static unsigned long find_smallest_section_pfn(int nid, struct zone *zone,
+ 				     unsigned long end_pfn)
  {
- 	return arch_ioremap_caller(res_cookie, size, MT_DEVICE_CACHED,
- 				   __builtin_return_address(0));
- }
- EXPORT_SYMBOL(ioremap_cache);
--EXPORT_SYMBOL(ioremap_cached);
+ 	for (; start_pfn < end_pfn; start_pfn += PAGES_PER_SUBSECTION) {
+-		if (unlikely(!pfn_valid(start_pfn)))
++		if (unlikely(!pfn_to_online_page(start_pfn)))
+ 			continue;
  
- void __iomem *ioremap_wc(resource_size_t res_cookie, size_t size)
- {
-diff --git a/arch/arm/mm/mmu.c b/arch/arm/mm/mmu.c
-index 48c2888297dd..5d0d0f86e790 100644
---- a/arch/arm/mm/mmu.c
-+++ b/arch/arm/mm/mmu.c
-@@ -259,7 +259,7 @@ static struct mem_type mem_types[] __ro_after_init = {
- 		.prot_sect	= PROT_SECT_DEVICE,
- 		.domain		= DOMAIN_IO,
- 	},
--	[MT_DEVICE_CACHED] = {	  /* ioremap_cached */
-+	[MT_DEVICE_CACHED] = {	  /* ioremap_cache */
- 		.prot_pte	= PROT_PTE_DEVICE | L_PTE_MT_DEV_CACHED,
- 		.prot_l1	= PMD_TYPE_TABLE,
- 		.prot_sect	= PROT_SECT_DEVICE | PMD_SECT_WB,
-diff --git a/arch/arm/mm/nommu.c b/arch/arm/mm/nommu.c
-index 24ecf8d30a1e..8b3d7191e2b8 100644
---- a/arch/arm/mm/nommu.c
-+++ b/arch/arm/mm/nommu.c
-@@ -206,15 +206,11 @@ void __iomem *ioremap(resource_size_t res_cookie, size_t size)
- EXPORT_SYMBOL(ioremap);
+ 		if (unlikely(pfn_to_nid(start_pfn) != nid))
+@@ -356,7 +356,7 @@ static unsigned long find_biggest_section_pfn(int nid, struct zone *zone,
+ 	/* pfn is the end pfn of a memory section. */
+ 	pfn = end_pfn - 1;
+ 	for (; pfn >= start_pfn; pfn -= PAGES_PER_SUBSECTION) {
+-		if (unlikely(!pfn_valid(pfn)))
++		if (unlikely(!pfn_to_online_page(pfn)))
+ 			continue;
  
- void __iomem *ioremap_cache(resource_size_t res_cookie, size_t size)
--	__alias(ioremap_cached);
--
--void __iomem *ioremap_cached(resource_size_t res_cookie, size_t size)
- {
- 	return __arm_ioremap_caller(res_cookie, size, MT_DEVICE_CACHED,
- 				    __builtin_return_address(0));
- }
- EXPORT_SYMBOL(ioremap_cache);
--EXPORT_SYMBOL(ioremap_cached);
+ 		if (unlikely(pfn_to_nid(pfn) != nid))
+@@ -415,7 +415,7 @@ static void shrink_zone_span(struct zone *zone, unsigned long start_pfn,
+ 	 */
+ 	pfn = zone_start_pfn;
+ 	for (; pfn < zone_end_pfn; pfn += PAGES_PER_SUBSECTION) {
+-		if (unlikely(!pfn_valid(pfn)))
++		if (unlikely(!pfn_to_online_page(pfn)))
+ 			continue;
  
- void __iomem *ioremap_wc(resource_size_t res_cookie, size_t size)
- {
+ 		if (page_zone(pfn_to_page(pfn)) != zone)
+@@ -463,6 +463,14 @@ static void __remove_zone(struct zone *zone, unsigned long start_pfn,
+ 	struct pglist_data *pgdat = zone->zone_pgdat;
+ 	unsigned long flags;
+ 
++	/*
++	 * Zone shrinking code cannot properly deal with ZONE_DEVICE. So
++	 * we will not try to shrink the zones - which is okay as
++	 * set_zone_contiguous() cannot deal with ZONE_DEVICE either way.
++	 */
++	if (zone_idx(zone) = ZONE_DEVICE)
++		return;
++
+ 	pgdat_resize_lock(zone->zone_pgdat, &flags);
+ 	shrink_zone_span(zone, start_pfn, start_pfn + nr_pages);
+ 	update_pgdat_span(pgdat);
 -- 
-2.20.1
+2.21.0
