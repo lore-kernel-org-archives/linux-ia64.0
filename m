@@ -1,27 +1,62 @@
-From: Max Filippov <jcmvbkbc@gmail.com>
-Date: Mon, 14 Oct 2019 07:41:06 +0000
-Subject: Re: [PATCH v2 25/29] xtensa: Move EXCEPTION_TABLE to RO_DATA segment
-Message-Id: <CAMo8BfKexMmMusB3XOeaMOZHdU4ccz+PMGA=Jy+KQhgD8H_8UQ@mail.gmail.com>
+From: Will Deacon <will@kernel.org>
+Date: Tue, 01 Oct 2019 09:05:50 +0000
+Subject: Re: [PATCH 14/29] vmlinux.lds.h: Allow EXCEPTION_TABLE to live in RO_DATA
+Message-Id: <20191001090549.xxbqarn36unvowrm@willie-the-truck>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191011000609.29728-1-keescook@chromium.org> <20191011000609.29728-26-keescook@chromium.org>
-In-Reply-To: <20191011000609.29728-26-keescook@chromium.org>
+References: <20190926175602.33098-1-keescook@chromium.org>
+ <20190926175602.33098-15-keescook@chromium.org>
+In-Reply-To: <20190926175602.33098-15-keescook@chromium.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Kees Cook <keescook@chromium.org>
-Cc: Borislav Petkov <bp@alien8.de>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Michael Ellerman <mpe@ellerman.id.au>, Heiko Carstens <heiko.carstens@de.ibm.com>, Will Deacon <will@kernel.org>, Linux-Arch <linux-arch@vger.kernel.org>, linux-arm-kernel@lists.infradead.org, linuxppc-dev@lists.ozlabs.org, "open list:ALPHA PORT" <linux-alpha@vger.kernel.org>, "open list:IA64 (Itanium) PL..." <linux-ia64@vger.kernel.org>, linux-s390 <linux-s390@vger.kernel.org>, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Michal Simek <monstr@monstr.eu>, "open list:PARISC ARCHITECTURE" <linux-parisc@vger.kernel.org>, "open list:TENSILICA XTENSA PORT (xtensa)" <linux-xtensa@linux-xtensa.org>, "maintainer:X86 ARCHITECTURE..." <x86@kernel.org>, LKML <linux-kernel@vger.kernel.org>
+Cc: Thomas Gleixner <tglx@linutronix.de>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, "H. Peter Anvin" <hpa@zytor.com>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Michal Simek <monstr@monstr.eu>, linux-parisc@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org, linux-kernel@vger.kernel.org
 
-On Thu, Oct 10, 2019 at 5:16 PM Kees Cook <keescook@chromium.org> wrote:
->
-> Since the EXCEPTION_TABLE is read-only, collapse it into RO_DATA.
->
+On Thu, Sep 26, 2019 at 10:55:47AM -0700, Kees Cook wrote:
+> Many architectures have an EXCEPTION_TABLE that needs only to be
+> read-only. As such, it should live in RO_DATA. This creates a macro to
+> identify this case for the architectures that can move EXCEPTION_TABLE
+> into RO_DATA.
+> 
 > Signed-off-by: Kees Cook <keescook@chromium.org>
 > ---
->  arch/xtensa/kernel/vmlinux.lds.S | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
+>  include/asm-generic/vmlinux.lds.h | 12 ++++++++++++
+>  1 file changed, 12 insertions(+)
+> 
+> diff --git a/include/asm-generic/vmlinux.lds.h b/include/asm-generic/vmlinux.lds.h
+> index d57a28786bb8..35a6cba39d9f 100644
+> --- a/include/asm-generic/vmlinux.lds.h
+> +++ b/include/asm-generic/vmlinux.lds.h
+> @@ -69,6 +69,17 @@
+>  #define NOTES_HEADERS_RESTORE
+>  #endif
+>  
+> +/*
+> + * Some architectures have non-executable read-only exception tables.
+> + * They can be added to the RO_DATA segment by specifying their desired
+> + * alignment.
+> + */
+> +#ifdef RO_DATA_EXCEPTION_TABLE_ALIGN
+> +#define RO_DATA_EXCEPTION_TABLE	EXCEPTION_TABLE(RO_DATA_EXCEPTION_TABLE_ALIGN)
+> +#else
+> +#define RO_DATA_EXCEPTION_TABLE
+> +#endif
+> +
+>  /* Align . to a 8 byte boundary equals to maximum function alignment. */
+>  #define ALIGN_FUNCTION()  . = ALIGN(8)
+>  
+> @@ -508,6 +519,7 @@
+>  		__stop___modver = .;					\
+>  	}								\
+>  									\
+> +	RO_DATA_EXCEPTION_TABLE						\
+>  	NOTES								\
+>  									\
+>  	. = ALIGN((align));						\
 
-Acked-by: Max Filippov <jcmvbkbc@gmail.com>
+I had to read this one to understand the later arm64 change. It looks
+fine to me, so:
 
--- 
-Thanks.
--- Max
+Acked-by: Will Deacon <will@kernel.org>
+
+Will
