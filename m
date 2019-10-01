@@ -1,69 +1,80 @@
-From: Aleksa Sarai <cyphar@cyphar.com>
-Date: Sat, 26 Oct 2019 18:57:00 +0000
-Subject: [PATCH RESEND v14 6/6] Documentation: path-lookup: mention LOOKUP_MAGICLINK_JUMPED
-Message-Id: <20191026185700.10708-7-cyphar@cyphar.com>
+From: David Hildenbrand <david@redhat.com>
+Date: Tue, 01 Oct 2019 14:40:10 +0000
+Subject: [PATCH v5 09/10] mm/memory_hotplug: Drop local variables in shrink_zone_span()
+Message-Id: <20191001144011.3801-10-david@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191026185700.10708-1-cyphar@cyphar.com>
-In-Reply-To: <20191026185700.10708-1-cyphar@cyphar.com>
+References: <20191001144011.3801-1-david@redhat.com>
+In-Reply-To: <20191001144011.3801-1-david@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>
-Cc: Aleksa Sarai <cyphar@cyphar.com>, Eric Biederman <ebiederm@xmission.com>, Andy Lutomirski <luto@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Alexei Starovoitov <ast@kernel.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, David Drysdale <drysdale@google.com>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, Christian Brauner <christian@brauner.io>, Aleksa Sarai <asarai@suse.de>, Linus Torvalds <torvalds@linux-foundation.org>, containers@lists.linux-foundation.org, linux-alpha@vger.kernel.orglinu
+To: linux-kernel@vger.kernel.org
+Cc: linux-s390@vger.kernel.org, Michal Hocko <mhocko@suse.com>, linux-ia64@vger.kernel.org, Pavel Tatashin <pasha.tatashin@soleen.com>, linux-sh@vger.kernel.org, David Hildenbrand <david@redhat.com>, linux-mm@kvack.org, Wei Yang <richardw.yang@linux.intel.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, Dan Williams <dan.j.williams@intel.com>, linux-arm-kernel@lists.infradead.org, Oscar Salvador <osalvador@suse.de>
 
-Now that we have a special flag to signify magic-link jumps, mention it
-within the path-lookup docs. And now that "magic link" is the correct
-term for nd_jump_link()-style symlinks, clean up references to this type
-of "symlink".
+Get rid of the unnecessary local variables.
 
-Signed-off-by: Aleksa Sarai <cyphar@cyphar.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Oscar Salvador <osalvador@suse.de>
+Cc: David Hildenbrand <david@redhat.com>
+Cc: Michal Hocko <mhocko@suse.com>
+Cc: Pavel Tatashin <pasha.tatashin@soleen.com>
+Cc: Dan Williams <dan.j.williams@intel.com>
+Cc: Wei Yang <richardw.yang@linux.intel.com>
+Signed-off-by: David Hildenbrand <david@redhat.com>
 ---
- Documentation/filesystems/path-lookup.rst | 18 ++++++++++++------
- 1 file changed, 12 insertions(+), 6 deletions(-)
+ mm/memory_hotplug.c | 15 ++++++---------
+ 1 file changed, 6 insertions(+), 9 deletions(-)
 
-diff --git a/Documentation/filesystems/path-lookup.rst b/Documentation/filesystems/path-lookup.rst
-index 434a07b0002b..2c32795389bd 100644
---- a/Documentation/filesystems/path-lookup.rst
-+++ b/Documentation/filesystems/path-lookup.rst
-@@ -405,6 +405,10 @@ is requested.  Keeping a reference in the ``nameidata`` ensures that
- only one root is in effect for the entire path walk, even if it races
- with a ``chroot()`` system call.
+diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+index 22b3623768c8..ffb514e3b090 100644
+--- a/mm/memory_hotplug.c
++++ b/mm/memory_hotplug.c
+@@ -374,14 +374,11 @@ static unsigned long find_biggest_section_pfn(int nid, struct zone *zone,
+ static void shrink_zone_span(struct zone *zone, unsigned long start_pfn,
+ 			     unsigned long end_pfn)
+ {
+-	unsigned long zone_start_pfn = zone->zone_start_pfn;
+-	unsigned long z = zone_end_pfn(zone); /* zone_end_pfn namespace clash */
+-	unsigned long zone_end_pfn = z;
+ 	unsigned long pfn;
+ 	int nid = zone_to_nid(zone);
  
-+It should be noted that in the case of ``LOOKUP_IN_ROOT`` or
-+``LOOKUP_BENEATH``, the effective root becomes the directory file descriptor
-+passed to ``openat2()`` (which exposes these ``LOOKUP_`` flags).
-+
- The root is needed when either of two conditions holds: (1) either the
- pathname or a symbolic link starts with a "'/'", or (2) a "``..``"
- component is being handled, since "``..``" from the root must always stay
-@@ -1149,7 +1153,7 @@ so ``NULL`` is returned to indicate that the symlink can be released and
- the stack frame discarded.
- 
- The other case involves things in ``/proc`` that look like symlinks but
--aren't really::
-+aren't really (and are therefore commonly referred to as "magic-links")::
- 
-      $ ls -l /proc/self/fd/1
-      lrwx------ 1 neilb neilb 64 Jun 13 10:19 /proc/self/fd/1 -> /dev/pts/4
-@@ -1310,12 +1314,14 @@ longer needed.
- ``LOOKUP_JUMPED`` means that the current dentry was chosen not because
- it had the right name but for some other reason.  This happens when
- following "``..``", following a symlink to ``/``, crossing a mount point
--or accessing a "``/proc/$PID/fd/$FD``" symlink.  In this case the
--filesystem has not been asked to revalidate the name (with
--``d_revalidate()``).  In such cases the inode may still need to be
--revalidated, so ``d_op->d_weak_revalidate()`` is called if
-+or accessing a "``/proc/$PID/fd/$FD``" symlink (also known as a "magic
-+link"). In this case the filesystem has not been asked to revalidate the
-+name (with ``d_revalidate()``).  In such cases the inode may still need
-+to be revalidated, so ``d_op->d_weak_revalidate()`` is called if
- ``LOOKUP_JUMPED`` is set when the look completes - which may be at the
--final component or, when creating, unlinking, or renaming, at the penultimate component.
-+final component or, when creating, unlinking, or renaming, at the
-+penultimate component. ``LOOKUP_MAGICLINK_JUMPED`` is set alongside
-+``LOOKUP_JUMPED`` if a magic-link was traversed.
- 
- Final-component flags
- ~~~~~~~~~~~~~~~~~~~~~
+ 	zone_span_writelock(zone);
+-	if (zone_start_pfn = start_pfn) {
++	if (zone->zone_start_pfn = start_pfn) {
+ 		/*
+ 		 * If the section is smallest section in the zone, it need
+ 		 * shrink zone->zone_start_pfn and zone->zone_spanned_pages.
+@@ -389,25 +386,25 @@ static void shrink_zone_span(struct zone *zone, unsigned long start_pfn,
+ 		 * for shrinking zone.
+ 		 */
+ 		pfn = find_smallest_section_pfn(nid, zone, end_pfn,
+-						zone_end_pfn);
++						zone_end_pfn(zone));
+ 		if (pfn) {
++			zone->spanned_pages = zone_end_pfn(zone) - pfn;
+ 			zone->zone_start_pfn = pfn;
+-			zone->spanned_pages = zone_end_pfn - pfn;
+ 		} else {
+ 			zone->zone_start_pfn = 0;
+ 			zone->spanned_pages = 0;
+ 		}
+-	} else if (zone_end_pfn = end_pfn) {
++	} else if (zone_end_pfn(zone) = end_pfn) {
+ 		/*
+ 		 * If the section is biggest section in the zone, it need
+ 		 * shrink zone->spanned_pages.
+ 		 * In this case, we find second biggest valid mem_section for
+ 		 * shrinking zone.
+ 		 */
+-		pfn = find_biggest_section_pfn(nid, zone, zone_start_pfn,
++		pfn = find_biggest_section_pfn(nid, zone, zone->zone_start_pfn,
+ 					       start_pfn);
+ 		if (pfn)
+-			zone->spanned_pages = pfn - zone_start_pfn + 1;
++			zone->spanned_pages = pfn - zone->zone_start_pfn + 1;
+ 		else {
+ 			zone->zone_start_pfn = 0;
+ 			zone->spanned_pages = 0;
 -- 
-2.23.0
+2.21.0
