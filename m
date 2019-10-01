@@ -1,25 +1,67 @@
-From: Borislav Petkov <bp@alien8.de>
-Date: Thu, 10 Oct 2019 10:40:29 +0000
-Subject: Re: [PATCH 08/29] vmlinux.lds.h: Provide EMIT_PT_NOTE to indicate export of .notes
-Message-Id: <20191010104029.GE7658@zn.tnic>
+From: David Hildenbrand <david@redhat.com>
+Date: Tue, 01 Oct 2019 14:40:11 +0000
+Subject: [PATCH v5 10/10] mm/memory_hotplug: Cleanup __remove_pages()
+Message-Id: <20191001144011.3801-11-david@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190926175602.33098-1-keescook@chromium.org>
- <20190926175602.33098-9-keescook@chromium.org>
-In-Reply-To: <20190926175602.33098-9-keescook@chromium.org>
+References: <20191001144011.3801-1-david@redhat.com>
+In-Reply-To: <20191001144011.3801-1-david@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Kees Cook <keescook@chromium.org>
-Cc: Thomas Gleixner <tglx@linutronix.de>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Michal Simek <monstr@monstr.eu>, linux-parisc@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org, linux-kernel@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: linux-s390@vger.kernel.org, Michal Hocko <mhocko@suse.com>, linux-ia64@vger.kernel.org, Pavel Tatashin <pasha.tatashin@soleen.com>, linux-sh@vger.kernel.org, David Hildenbrand <david@redhat.com>, linux-mm@kvack.org, Wei Yang <richardw.yang@linux.intel.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, Dan Williams <dan.j.williams@intel.com>, linux-arm-kernel@lists.infradead.org, Oscar Salvador <osalvador@suse.de>
 
-On Thu, Sep 26, 2019 at 10:55:41AM -0700, Kees Cook wrote:
-> In preparation for moving NOTES into RO_DATA, this provides a mechanism
+Let's drop the basically unused section stuff and simplify.
 
-s/this provides/provide/ - imperative tone. Check all your commit
-messages pls.
+Also, let's use a shorter variant to calculate the number of pages to
+the next section boundary.
 
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Oscar Salvador <osalvador@suse.de>
+Cc: Michal Hocko <mhocko@suse.com>
+Cc: Pavel Tatashin <pasha.tatashin@soleen.com>
+Cc: Dan Williams <dan.j.williams@intel.com>
+Cc: Wei Yang <richardw.yang@linux.intel.com>
+Signed-off-by: David Hildenbrand <david@redhat.com>
+---
+ mm/memory_hotplug.c | 17 ++++++-----------
+ 1 file changed, 6 insertions(+), 11 deletions(-)
+
+diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+index ffb514e3b090..0fa99e5a657e 100644
+--- a/mm/memory_hotplug.c
++++ b/mm/memory_hotplug.c
+@@ -488,25 +488,20 @@ static void __remove_section(unsigned long pfn, unsigned long nr_pages,
+ void __remove_pages(unsigned long pfn, unsigned long nr_pages,
+ 		    struct vmem_altmap *altmap)
+ {
++	const unsigned long end_pfn = pfn + nr_pages;
++	unsigned long cur_nr_pages;
+ 	unsigned long map_offset = 0;
+-	unsigned long nr, start_sec, end_sec;
+ 
+ 	map_offset = vmem_altmap_offset(altmap);
+ 
+ 	if (check_pfn_span(pfn, nr_pages, "remove"))
+ 		return;
+ 
+-	start_sec = pfn_to_section_nr(pfn);
+-	end_sec = pfn_to_section_nr(pfn + nr_pages - 1);
+-	for (nr = start_sec; nr <= end_sec; nr++) {
+-		unsigned long pfns;
+-
++	for (; pfn < end_pfn; pfn += cur_nr_pages) {
+ 		cond_resched();
+-		pfns = min(nr_pages, PAGES_PER_SECTION
+-				- (pfn & ~PAGE_SECTION_MASK));
+-		__remove_section(pfn, pfns, map_offset, altmap);
+-		pfn += pfns;
+-		nr_pages -= pfns;
++		/* Select all remaining pages up to the next section boundary */
++		cur_nr_pages = min(end_pfn - pfn, -(pfn | PAGE_SECTION_MASK));
++		__remove_section(pfn, cur_nr_pages, map_offset, altmap);
+ 		map_offset = 0;
+ 	}
+ }
 -- 
-Regards/Gruss,
-    Boris.
-
-https://people.kernel.org/tglx/notes-about-netiquette
+2.21.0
