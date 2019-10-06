@@ -1,43 +1,80 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Tue, 29 Oct 2019 06:48:13 +0000
-Subject: generic ioremap (and lots of cleanups) v3
-Message-Id: <20191029064834.23438-1-hch@lst.de>
+From: David Hildenbrand <david@redhat.com>
+Date: Sun, 06 Oct 2019 08:56:45 +0000
+Subject: [PATCH v6 09/10] mm/memory_hotplug: Drop local variables in shrink_zone_span()
+Message-Id: <20191006085646.5768-10-david@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191017174554.29840-1-hch@lst.de>
-In-Reply-To: <20191017174554.29840-1-hch@lst.de>
+References: <20191006085646.5768-1-david@redhat.com>
+In-Reply-To: <20191006085646.5768-1-david@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Arnd Bergmann <arnd@arndb.de>, Guo Ren <guoren@kernel.org>, Michal Simek <monstr@monstr.eu>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, x86@kernel.org
-Cc: linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-sh@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-mips@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, openrisc@lists.librecores.org, linux-mtd@lists.infradead.org, linux-alpha@vger.kernel.org, sparclinux@vger.kernel.org, nios2-dev@lists.rocketboards.org, linux-riscv@lists.infradead.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org
+To: linux-kernel@vger.kernel.org
+Cc: linux-s390@vger.kernel.org, Michal Hocko <mhocko@suse.com>, linux-ia64@vger.kernel.org, Pavel Tatashin <pasha.tatashin@soleen.com>, linux-sh@vger.kernel.org, x86@kernel.org, David Hildenbrand <david@redhat.com>, linux-mm@kvack.org, Wei Yang <richardw.yang@linux.intel.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, Dan Williams <dan.j.williams@intel.com>, linux-arm-kernel@lists.infradead.org, Oscar Salvador <osalvador@suse.de>
 
-Hi all,
+Get rid of the unnecessary local variables.
 
-the last patches in this series add a generic ioremap implementation,
-and switch our 3 most recent and thus most tidy architeture ports over
-to use it.  With a little work and an additional arch hook or two the
-implementation should be able to eventually cover more than half of
-our ports.
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Oscar Salvador <osalvador@suse.de>
+Cc: David Hildenbrand <david@redhat.com>
+Cc: Michal Hocko <mhocko@suse.com>
+Cc: Pavel Tatashin <pasha.tatashin@soleen.com>
+Cc: Dan Williams <dan.j.williams@intel.com>
+Cc: Wei Yang <richardw.yang@linux.intel.com>
+Signed-off-by: David Hildenbrand <david@redhat.com>
+---
+ mm/memory_hotplug.c | 15 ++++++---------
+ 1 file changed, 6 insertions(+), 9 deletions(-)
 
-The patches before that clean up various lose ends in the ioremap
-and iounmap implementations.
-
-Note that there is no good tree this would fit, which means I'd set up
-a tree to it to Linus unless someone has a better idea.
-
-A git tree is also available here:
-
-    git://git.infradead.org/users/hch/misc.git generic-ioremap
-
-Gitweb:
-
-    http://git.infradead.org/users/hch/misc.git/shortlog/refs/heads/generic-ioremap
-
-Changes since v2:
- - fix various typos
- - move the m68k __free_io_area around instead of introducing a forward
-   declaration
-
-Changes since v1:
- - dropped various patches already merged
- - keep the parts of the parisc EISA hack that are still needed
+diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+index 8dafa1ba8d9f..843481bd507d 100644
+--- a/mm/memory_hotplug.c
++++ b/mm/memory_hotplug.c
+@@ -374,14 +374,11 @@ static unsigned long find_biggest_section_pfn(int nid, struct zone *zone,
+ static void shrink_zone_span(struct zone *zone, unsigned long start_pfn,
+ 			     unsigned long end_pfn)
+ {
+-	unsigned long zone_start_pfn = zone->zone_start_pfn;
+-	unsigned long z = zone_end_pfn(zone); /* zone_end_pfn namespace clash */
+-	unsigned long zone_end_pfn = z;
+ 	unsigned long pfn;
+ 	int nid = zone_to_nid(zone);
+ 
+ 	zone_span_writelock(zone);
+-	if (zone_start_pfn = start_pfn) {
++	if (zone->zone_start_pfn = start_pfn) {
+ 		/*
+ 		 * If the section is smallest section in the zone, it need
+ 		 * shrink zone->zone_start_pfn and zone->zone_spanned_pages.
+@@ -389,25 +386,25 @@ static void shrink_zone_span(struct zone *zone, unsigned long start_pfn,
+ 		 * for shrinking zone.
+ 		 */
+ 		pfn = find_smallest_section_pfn(nid, zone, end_pfn,
+-						zone_end_pfn);
++						zone_end_pfn(zone));
+ 		if (pfn) {
++			zone->spanned_pages = zone_end_pfn(zone) - pfn;
+ 			zone->zone_start_pfn = pfn;
+-			zone->spanned_pages = zone_end_pfn - pfn;
+ 		} else {
+ 			zone->zone_start_pfn = 0;
+ 			zone->spanned_pages = 0;
+ 		}
+-	} else if (zone_end_pfn = end_pfn) {
++	} else if (zone_end_pfn(zone) = end_pfn) {
+ 		/*
+ 		 * If the section is biggest section in the zone, it need
+ 		 * shrink zone->spanned_pages.
+ 		 * In this case, we find second biggest valid mem_section for
+ 		 * shrinking zone.
+ 		 */
+-		pfn = find_biggest_section_pfn(nid, zone, zone_start_pfn,
++		pfn = find_biggest_section_pfn(nid, zone, zone->zone_start_pfn,
+ 					       start_pfn);
+ 		if (pfn)
+-			zone->spanned_pages = pfn - zone_start_pfn + 1;
++			zone->spanned_pages = pfn - zone->zone_start_pfn + 1;
+ 		else {
+ 			zone->zone_start_pfn = 0;
+ 			zone->spanned_pages = 0;
+-- 
+2.21.0
