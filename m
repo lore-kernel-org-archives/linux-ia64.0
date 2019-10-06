@@ -1,66 +1,87 @@
-From: hpa@zytor.com
-Date: Fri, 11 Oct 2019 01:38:03 +0000
-Subject: Re: [PATCH 00/29] vmlinux.lds.h: Refactor EXCEPTION_TABLE and NOTES
-Message-Id: <A020A6D1-C7DB-480B-826E-AE18308CD3E5@zytor.com>
+From: David Hildenbrand <david@redhat.com>
+Date: Sun, 06 Oct 2019 08:56:37 +0000
+Subject: [PATCH v6 01/10] mm/memunmap: Don't access uninitialized memmap in memunmap_pages()
+Message-Id: <20191006085646.5768-2-david@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190926175602.33098-1-keescook@chromium.org> <20191010180331.GI7658@zn.tnic> <201910101657.234CB71E53@keescook>
-In-Reply-To: <201910101657.234CB71E53@keescook>
+References: <20191006085646.5768-1-david@redhat.com>
+In-Reply-To: <20191006085646.5768-1-david@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Kees Cook <keescook@chromium.org>, Borislav Petkov <bp@alien8.de>
-Cc: Thomas Gleixner <tglx@linutronix.de>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Ingo Molnar <mingo@redhat.com>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Michal Simek <monstr@monstr.eu>, linux-parisc@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org, linux-kernel@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: linux-s390@vger.kernel.org, linux-ia64@vger.kernel.org, Ira Weiny <ira.weiny@intel.com>, linux-sh@vger.kernel.org, Jason Gunthorpe <jgg@ziepe.ca>, "Aneesh Kumar K.V" <aneesh.kumar@linux.ibm.com>, x86@kernel.org, David Hildenbrand <david@redhat.com>, linux-mm@kvack.org, Logan Gunthorpe <logang@deltatee.com>, Dan Williams <dan.j.williams@intel.com>, linuxppc-dev@lists.ozlabs.org, Andrew Morton <akpm@linux-foundation.org>, linux-arm-kernel@lists.infradead.org
 
-On October 10, 2019 4:57:36 PM PDT, Kees Cook <keescook@chromium.org> wrote:
->On Thu, Oct 10, 2019 at 08:03:31PM +0200, Borislav Petkov wrote:
->> On Thu, Sep 26, 2019 at 10:55:33AM -0700, Kees Cook wrote:
->> > This series works to move the linker sections for NOTES and
->> > EXCEPTION_TABLE into the RO_DATA area, where they belong on most
->> > (all?) architectures. The problem being addressed was the discovery
->> > by Rick Edgecombe that the exception table was accidentally marked
->> > executable while he was developing his execute-only-memory series.
->When
->> > permissions were flipped from readable-and-executable to
->only-executable,
->> > the exception table became unreadable, causing things to explode
->rather
->> > badly. :)
->> > 
->> > Roughly speaking, the steps are:
->> > 
->> > - regularize the linker names for PT_NOTE and PT_LOAD program
->headers
->> >   (to "note" and "text" respectively)
->> > - regularize restoration of linker section to program header
->assignment
->> >   (when PT_NOTE exists)
->> > - move NOTES into RO_DATA
->> > - finish macro naming conversions for RO_DATA and RW_DATA
->> > - move EXCEPTION_TABLE into RO_DATA on architectures where this is
->clear
->> > - clean up some x86-specific reporting of kernel memory resources
->> > - switch x86 linker fill byte from x90 (NOP) to 0xcc (INT3), just
->because
->> >   I finally realized what that trailing ": 0x9090" meant -- and we
->should
->> >   trap, not slide, if execution lands in section padding
->> 
->> Yap, nice patchset overall.
->
->Thanks!
->
->> > Since these changes are treewide, I'd love to get
->architecture-maintainer
->> > Acks and either have this live in x86 -tip or in my own tree,
->however
->> > people think it should go.
->> 
->> Sure, I don't mind taking v2 through tip once I get ACKs from the
->> respective arch maintainers.
->
->Okay, excellent. I've only had acks from arm64, but I'll call it out
->again in v2. Thanks for the review!
+From: "Aneesh Kumar K.V" <aneesh.kumar@linux.ibm.com>
 
-I would like to once again advocate for the generalized link table mechanism. It is nuts that each individual table should need vmlinux.lds hacking across architectures.
+With an altmap, the memmap falling into the reserved altmap space are
+not initialized and, therefore, contain a garbage NID and a garbage
+zone. Make sure to read the NID/zone from a memmap that was initialzed.
+
+This fixes a kernel crash that is observed when destroying a namespace:
+
+[   81.356173] kernel BUG at include/linux/mm.h:1107!
+cpu 0x1: Vector: 700 (Program Check) at [c000000274087890]
+    pc: c0000000004b9728: memunmap_pages+0x238/0x340
+    lr: c0000000004b9724: memunmap_pages+0x234/0x340
+...
+    pid   = 3669, comm = ndctl
+kernel BUG at include/linux/mm.h:1107!
+[c000000274087ba0] c0000000009e3500 devm_action_release+0x30/0x50
+[c000000274087bc0] c0000000009e4758 release_nodes+0x268/0x2d0
+[c000000274087c30] c0000000009dd144 device_release_driver_internal+0x174/0x240
+[c000000274087c70] c0000000009d9dfc unbind_store+0x13c/0x190
+[c000000274087cb0] c0000000009d8a24 drv_attr_store+0x44/0x60
+[c000000274087cd0] c0000000005a7470 sysfs_kf_write+0x70/0xa0
+[c000000274087d10] c0000000005a5cac kernfs_fop_write+0x1ac/0x290
+[c000000274087d60] c0000000004be45c __vfs_write+0x3c/0x70
+[c000000274087d80] c0000000004c26e4 vfs_write+0xe4/0x200
+[c000000274087dd0] c0000000004c2a6c ksys_write+0x7c/0x140
+[c000000274087e20] c00000000000bbd0 system_call+0x5c/0x68
+
+Cc: Dan Williams <dan.j.williams@intel.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Jason Gunthorpe <jgg@ziepe.ca>
+Cc: Logan Gunthorpe <logang@deltatee.com>
+Cc: Ira Weiny <ira.weiny@intel.com>
+Signed-off-by: Aneesh Kumar K.V <aneesh.kumar@linux.ibm.com>
+[ minimze code changes, rephrase description ]
+Signed-off-by: David Hildenbrand <david@redhat.com>
+---
+ mm/memremap.c | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/mm/memremap.c b/mm/memremap.c
+index 557e53c6fb46..8c2fb44c3b4d 100644
+--- a/mm/memremap.c
++++ b/mm/memremap.c
+@@ -123,6 +123,7 @@ static void dev_pagemap_cleanup(struct dev_pagemap *pgmap)
+ void memunmap_pages(struct dev_pagemap *pgmap)
+ {
+ 	struct resource *res = &pgmap->res;
++	struct page *first_page;
+ 	unsigned long pfn;
+ 	int nid;
+ 
+@@ -131,14 +132,16 @@ void memunmap_pages(struct dev_pagemap *pgmap)
+ 		put_page(pfn_to_page(pfn));
+ 	dev_pagemap_cleanup(pgmap);
+ 
++	/* make sure to access a memmap that was actually initialized */
++	first_page = pfn_to_page(pfn_first(pgmap));
++
+ 	/* pages are dead and unused, undo the arch mapping */
+-	nid = page_to_nid(pfn_to_page(PHYS_PFN(res->start)));
++	nid = page_to_nid(first_page);
+ 
+ 	mem_hotplug_begin();
+ 	if (pgmap->type = MEMORY_DEVICE_PRIVATE) {
+-		pfn = PHYS_PFN(res->start);
+-		__remove_pages(page_zone(pfn_to_page(pfn)), pfn,
+-				 PHYS_PFN(resource_size(res)), NULL);
++		__remove_pages(page_zone(first_page), PHYS_PFN(res->start),
++			       PHYS_PFN(resource_size(res)), NULL);
+ 	} else {
+ 		arch_remove_memory(nid, res->start, resource_size(res),
+ 				pgmap_altmap(pgmap));
 -- 
-Sent from my Android device with K-9 Mail. Please excuse my brevity.
+2.21.0
