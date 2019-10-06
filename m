@@ -1,61 +1,52 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Tue, 29 Oct 2019 06:48:33 +0000
-Subject: [PATCH 20/21] csky: remove ioremap_cache
-Message-Id: <20191029064834.23438-21-hch@lst.de>
+From: David Hildenbrand <david@redhat.com>
+Date: Sun, 06 Oct 2019 08:56:43 +0000
+Subject: [PATCH v6 07/10] mm/memory_hotplug: We always have a zone in find_(smallest|biggest)_section_pfn
+Message-Id: <20191006085646.5768-8-david@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191029064834.23438-1-hch@lst.de>
-In-Reply-To: <20191029064834.23438-1-hch@lst.de>
+References: <20191006085646.5768-1-david@redhat.com>
+In-Reply-To: <20191006085646.5768-1-david@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Arnd Bergmann <arnd@arndb.de>, Guo Ren <guoren@kernel.org>, Michal Simek <monstr@monstr.eu>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, x86@kernel.org
-Cc: linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, nios2-dev@lists.rocketboards.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-mtd@lists.infradead.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: linux-s390@vger.kernel.org, Michal Hocko <mhocko@suse.com>, linux-ia64@vger.kernel.org, Pavel Tatashin <pasha.tatashin@soleen.com>, linux-sh@vger.kernel.org, x86@kernel.org, David Hildenbrand <david@redhat.com>, linux-mm@kvack.org, Wei Yang <richardw.yang@linux.intel.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, Dan Williams <dan.j.williams@intel.com>, linux-arm-kernel@lists.infradead.org, Oscar Salvador <osalvador@suse.de>
 
-No driver that can be used on csky uses ioremap_cache, and this
-interface has been deprecated in favor of memremap.
+With shrink_pgdat_span() out of the way, we now always have a valid
+zone.
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
-Acked-by: Guo Ren <guoren@kernel.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Oscar Salvador <osalvador@suse.de>
+Cc: David Hildenbrand <david@redhat.com>
+Cc: Michal Hocko <mhocko@suse.com>
+Cc: Pavel Tatashin <pasha.tatashin@soleen.com>
+Cc: Dan Williams <dan.j.williams@intel.com>
+Cc: Wei Yang <richardw.yang@linux.intel.com>
+Signed-off-by: David Hildenbrand <david@redhat.com>
 ---
- arch/csky/include/asm/io.h | 2 --
- arch/csky/mm/ioremap.c     | 7 -------
- 2 files changed, 9 deletions(-)
+ mm/memory_hotplug.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/arch/csky/include/asm/io.h b/arch/csky/include/asm/io.h
-index a4b9fb616faa..f572605d5ad5 100644
---- a/arch/csky/include/asm/io.h
-+++ b/arch/csky/include/asm/io.h
-@@ -36,13 +36,11 @@
- /*
-  * I/O memory mapping functions.
-  */
--extern void __iomem *ioremap_cache(phys_addr_t addr, size_t size);
- extern void __iomem *__ioremap(phys_addr_t addr, size_t size, pgprot_t prot);
- extern void iounmap(void *addr);
+diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+index bf5173e7913d..f294918f7211 100644
+--- a/mm/memory_hotplug.c
++++ b/mm/memory_hotplug.c
+@@ -337,7 +337,7 @@ static unsigned long find_smallest_section_pfn(int nid, struct zone *zone,
+ 		if (unlikely(pfn_to_nid(start_pfn) != nid))
+ 			continue;
  
- #define ioremap(addr, size)		__ioremap((addr), (size), pgprot_noncached(PAGE_KERNEL))
- #define ioremap_wc(addr, size)		__ioremap((addr), (size), pgprot_writecombine(PAGE_KERNEL))
--#define ioremap_cache			ioremap_cache
+-		if (zone && zone != page_zone(pfn_to_page(start_pfn)))
++		if (zone != page_zone(pfn_to_page(start_pfn)))
+ 			continue;
  
- #include <asm-generic/io.h>
+ 		return start_pfn;
+@@ -362,7 +362,7 @@ static unsigned long find_biggest_section_pfn(int nid, struct zone *zone,
+ 		if (unlikely(pfn_to_nid(pfn) != nid))
+ 			continue;
  
-diff --git a/arch/csky/mm/ioremap.c b/arch/csky/mm/ioremap.c
-index e13cd3497628..ae78256a56fd 100644
---- a/arch/csky/mm/ioremap.c
-+++ b/arch/csky/mm/ioremap.c
-@@ -44,13 +44,6 @@ void __iomem *__ioremap(phys_addr_t phys_addr, size_t size, pgprot_t prot)
- }
- EXPORT_SYMBOL(__ioremap);
+-		if (zone && zone != page_zone(pfn_to_page(pfn)))
++		if (zone != page_zone(pfn_to_page(pfn)))
+ 			continue;
  
--void __iomem *ioremap_cache(phys_addr_t phys_addr, size_t size)
--{
--	return __ioremap_caller(phys_addr, size, PAGE_KERNEL,
--				__builtin_return_address(0));
--}
--EXPORT_SYMBOL(ioremap_cache);
--
- void iounmap(void __iomem *addr)
- {
- 	vunmap((void *)((unsigned long)addr & PAGE_MASK));
+ 		return pfn;
 -- 
-2.20.1
+2.21.0
