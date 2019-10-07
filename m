@@ -1,157 +1,140 @@
-From: Aleksa Sarai <cyphar@cyphar.com>
-Date: Thu, 10 Oct 2019 05:41:37 +0000
-Subject: [PATCH v14 3/6] namei: permit ".." resolution with LOOKUP_{IN_ROOT,BENEATH}
-Message-Id: <20191010054140.8483-4-cyphar@cyphar.com>
+From: Anshuman Khandual <anshuman.khandual@arm.com>
+Date: Mon, 07 Oct 2019 05:57:22 +0000
+Subject: [PATCH V4 0/2] mm/debug: Add tests for architecture exported page table helpers
+Message-Id: <1570427124-21887-1-git-send-email-anshuman.khandual@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191010054140.8483-1-cyphar@cyphar.com>
-In-Reply-To: <20191010054140.8483-1-cyphar@cyphar.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>
-Cc: Aleksa Sarai <cyphar@cyphar.com>, Eric Biederman <ebiederm@xmission.com>, Andy Lutomirski <luto@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Alexei Starovoitov <ast@kernel.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, David Drysdale <drysdale@google.com>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, Christian Brauner <christian@brauner.io>, Aleksa Sarai <asarai@suse.de>, Linus Torvalds <torvalds@linux-foundation.org>, containers@lists.linux-foundation.org, linux-alpha@vger.kernel.orglinu
+To: linux-mm@kvack.org
+Cc: Mark Rutland <mark.rutland@arm.com>, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, James Hogan <jhogan@kernel.org>, Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>, Heiko Carstens <heiko.carstens@de.ibm.com>, Michal Hocko <mhocko@kernel.org>, Dave Hansen <dave.hansen@intel.com>, Paul Mackerras <paulus@samba.org>, sparclinux@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, linux-s390@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>, x86@kernel.org, Russell King - ARM Linux <linux@armlinux.org.uk>, Matthew Wilcox <willy@infradead.org>, Steven Price <Steven.Price@arm.com>, Jason Gunthorpe <jgg@ziepe.ca>, Gerald Schaefer <gerald.schaefer@de.ibm.com>, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, Kees Cook <keescook@chromium.org>, Anshuman Khandual <anshuman.khandual@arm.com>, Masahiro Yamada <yamada.masahiro@socionext.com>, Mark Brown <broonie@kernel.org>, "Kirill A . Shutemov" <kirill@shutemov.name>, Dan Williams <dan.j.williams@intel.com>, Vlastimil Babka <vbabka@suse.cz>, Christophe Leroy <christophe.leroy@c-s.fr>, Sri Krishna chowdary <schowdary@nvidia.com>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-mips@vger.kernel.org, Ralf Baechle <ralf@linux-mips.org>, linux-kernel@vger.kernel.org, Paul Burton <paul.burton@mips.com>, Mike Rapoport <rppt@linux.vnet.ibm.com>, Vineet Gupta <vgupta@synopsys.com>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, "David S. Miller" <davem@davemloft.net>, Mike Kravetz <mike.kravetz@oracle.com>
 
-This patch allows for LOOKUP_BENEATH and LOOKUP_IN_ROOT to safely permit
-".." resolution (in the case of LOOKUP_BENEATH the resolution will still
-fail if ".." resolution would resolve a path outside of the root --
-while LOOKUP_IN_ROOT will chroot(2)-style scope it). Magic-link jumps
-are still disallowed entirely[*].
+This series adds a test validation for architecture exported page table
+helpers. Patch in the series adds basic transformation tests at various
+levels of the page table. Before that it exports gigantic page allocation
+function from HugeTLB.
 
-The need for this patch (and the original no-".." restriction) is
-explained by observing there is a fairly easy-to-exploit race condition
-with chroot(2) (and thus by extension LOOKUP_IN_ROOT and LOOKUP_BENEATH
-if ".." is allowed) where a rename(2) of a path can be used to "skip
-over" nd->root and thus escape to the filesystem above nd->root.
+This test was originally suggested by Catalin during arm64 THP migration
+RFC discussion earlier. Going forward it can include more specific tests
+with respect to various generic MM functions like THP, HugeTLB etc and
+platform specific tests.
 
-  thread1 [attacker]:
-    for (;;)
-      renameat2(AT_FDCWD, "/a/b/c", AT_FDCWD, "/a/d", RENAME_EXCHANGE);
-  thread2 [victim]:
-    for (;;)
-      openat2(dirb, "b/c/../../etc/shadow",
-              { .flags = O_PATH, .resolve = RESOLVE_IN_ROOT } );
+https://lore.kernel.org/linux-mm/20190628102003.GA56463@arrakis.emea.arm.com/
 
-With fairly significant regularity, thread2 will resolve to
-"/etc/shadow" rather than "/a/b/etc/shadow". There is also a similar
-(though somewhat more privileged) attack using MS_MOVE.
+Changes in V4:
 
-With this patch, such cases will be detected *during* ".." resolution
-and will return -EAGAIN for userspace to decide to either retry or abort
-the lookup. It should be noted that ".." is the weak point of chroot(2)
--- walking *into* a subdirectory tautologically cannot result in you
-walking *outside* nd->root (except through a bind-mount or magic-link).
-There is also no other way for a directory's parent to change (which is
-the primary worry with ".." resolution here) other than a rename or
-MS_MOVE.
+- Disable DEBUG_ARCH_PGTABLE_TEST for ARM and IA64 platforms
 
-This is a first-pass implementation, where -EAGAIN will be returned if
-any rename or mount occurs anywhere on the host (in any namespace). This
-will result in spurious errors, but there isn't a satisfactory
-alternative (other than denying ".." altogether).
+Changes in V3: (https://lore.kernel.org/patchwork/project/lkml/list/?seriesA1216)
 
-One other possible alternative (which previous versions of this patch
-used) would be to check with path_is_under() if there was a racing
-rename or mount (after re-taking the relevant seqlocks). While this does
-work, it results in possible O(n*m) behaviour if there are many renames
-or mounts occuring *anywhere on the system*.
+- Changed test trigger from module format into late_initcall()
+- Marked all functions with __init to be freed after completion
+- Changed all __PGTABLE_PXX_FOLDED checks as mm_pxx_folded()
+- Folded in PPC32 fixes from Christophe
 
-A variant of the above attack is included in the selftests for
-openat2(2) later in this patch series. I've run this test on several
-machines for several days and no instances of a breakout were detected.
-While this is not concrete proof that this is safe, when combined with
-the above argument it should lend some trustworthiness to this
-construction.
+Changes in V2:
 
-[*] It may be acceptable in the future to do a path_is_under() check (as
-    with the alternative solution for "..") for magic-links after they
-    are resolved. However this seems unlikely to be a feature that
-    people *really* need -- it can be added later if it turns out a lot
-    of people want it.
+https://lore.kernel.org/linux-mm/1568268173-31302-1-git-send-email-anshuman.khandual@arm.com/T/#t
 
-Signed-off-by: Aleksa Sarai <cyphar@cyphar.com>
----
- fs/namei.c | 43 +++++++++++++++++++++++++++++--------------
- 1 file changed, 29 insertions(+), 14 deletions(-)
+- Fixed small typo error in MODULE_DESCRIPTION()
+- Fixed m64k build problems for lvalue concerns in pmd_xxx_tests()
+- Fixed dynamic page table level folding problems on x86 as per Kirril
+- Fixed second pointers during pxx_populate_tests() per Kirill and Gerald
+- Allocate and free pte table with pte_alloc_one/pte_free per Kirill
+- Modified pxx_clear_tests() to accommodate s390 lower 12 bits situation
+- Changed RANDOM_NZVALUE value from 0xbe to 0xff
+- Changed allocation, usage, free sequence for saved_ptep
+- Renamed VMA_FLAGS as VMFLAGS
+- Implemented a new method for random vaddr generation
+- Implemented some other cleanups
+- Dropped extern reference to mm_alloc()
+- Created and exported new alloc_gigantic_page_order()
+- Dropped the custom allocator and used new alloc_gigantic_page_order()
 
-diff --git a/fs/namei.c b/fs/namei.c
-index 9d00b138f54c..0d6857ac4e5b 100644
---- a/fs/namei.c
-+++ b/fs/namei.c
-@@ -491,7 +491,7 @@ struct nameidata {
- 	struct path	root;
- 	struct inode	*inode; /* path.dentry.d_inode */
- 	unsigned int	flags;
--	unsigned	seq, m_seq;
-+	unsigned	seq, m_seq, r_seq;
- 	int		last_type;
- 	unsigned	depth;
- 	int		total_link_count;
-@@ -1769,22 +1769,35 @@ static inline int handle_dots(struct nameidata *nd, int type)
- 	if (type = LAST_DOTDOT) {
- 		int error = 0;
- 
--		/*
--		 * Scoped-lookup flags resolving ".." is not currently safe --
--		 * races can cause our parent to have moved outside of the root
--		 * and us to skip over it.
--		 */
--		if (unlikely(nd->flags & LOOKUP_IS_SCOPED))
--			return -EXDEV;
- 		if (!nd->root.mnt) {
- 			error = set_root(nd);
- 			if (error)
- 				return error;
- 		}
--		if (nd->flags & LOOKUP_RCU) {
--			return follow_dotdot_rcu(nd);
--		} else
--			return follow_dotdot(nd);
-+		if (nd->flags & LOOKUP_RCU)
-+			error = follow_dotdot_rcu(nd);
-+		else
-+			error = follow_dotdot(nd);
-+		if (error)
-+			return error;
-+
-+		if (unlikely(nd->flags & LOOKUP_IS_SCOPED)) {
-+			bool m_retry = read_seqretry(&mount_lock, nd->m_seq);
-+			bool r_retry = read_seqretry(&rename_lock, nd->r_seq);
-+
-+			/*
-+			 * If there was a racing rename or mount along our
-+			 * path, then we can't be sure that ".." hasn't jumped
-+			 * above nd->root (and so userspace should retry or use
-+			 * some fallback).
-+			 *
-+			 * In future we could do a path_is_under() check here
-+			 * instead, but there are O(n*m) performance
-+			 * considerations with such a setup.
-+			 */
-+			if (unlikely(m_retry || r_retry))
-+				return -EAGAIN;
-+		}
- 	}
- 	return 0;
- }
-@@ -2254,6 +2267,10 @@ static const char *path_init(struct nameidata *nd, unsigned flags)
- 	nd->last_type = LAST_ROOT; /* if there are only slashes... */
- 	nd->flags = flags | LOOKUP_JUMPED | LOOKUP_PARENT;
- 	nd->depth = 0;
-+
-+	nd->m_seq = read_seqbegin(&mount_lock);
-+	nd->r_seq = read_seqbegin(&rename_lock);
-+
- 	if (flags & LOOKUP_ROOT) {
- 		struct dentry *root = nd->root.dentry;
- 		struct inode *inode = root->d_inode;
-@@ -2275,8 +2292,6 @@ static const char *path_init(struct nameidata *nd, unsigned flags)
- 	nd->path.mnt = NULL;
- 	nd->path.dentry = NULL;
- 
--	nd->m_seq = read_seqbegin(&mount_lock);
--
- 	/* LOOKUP_IN_ROOT treats absolute paths as being relative-to-dirfd. */
- 	if (flags & LOOKUP_IN_ROOT)
- 		while (*s = '/')
+Changes in V1:
+
+https://lore.kernel.org/linux-mm/1567497706-8649-1-git-send-email-anshuman.khandual@arm.com/
+
+- Added fallback mechanism for PMD aligned memory allocation failure
+
+Changes in RFC V2:
+
+https://lore.kernel.org/linux-mm/1565335998-22553-1-git-send-email-anshuman.khandual@arm.com/T/#u
+
+- Moved test module and it's config from lib/ to mm/
+- Renamed config TEST_ARCH_PGTABLE as DEBUG_ARCH_PGTABLE_TEST
+- Renamed file from test_arch_pgtable.c to arch_pgtable_test.c
+- Added relevant MODULE_DESCRIPTION() and MODULE_AUTHOR() details
+- Dropped loadable module config option
+- Basic tests now use memory blocks with required size and alignment
+- PUD aligned memory block gets allocated with alloc_contig_range()
+- If PUD aligned memory could not be allocated it falls back on PMD aligned
+  memory block from page allocator and pud_* tests are skipped
+- Clear and populate tests now operate on real in memory page table entries
+- Dummy mm_struct gets allocated with mm_alloc()
+- Dummy page table entries get allocated with [pud|pmd|pte]_alloc_[map]()
+- Simplified [p4d|pgd]_basic_tests(), now has random values in the entries
+
+Original RFC V1:
+
+https://lore.kernel.org/linux-mm/1564037723-26676-1-git-send-email-anshuman.khandual@arm.com/
+
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Vlastimil Babka <vbabka@suse.cz>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Mike Rapoport <rppt@linux.vnet.ibm.com>
+Cc: Jason Gunthorpe <jgg@ziepe.ca>
+Cc: Dan Williams <dan.j.williams@intel.com>
+Cc: Peter Zijlstra <peterz@infradead.org>
+Cc: Michal Hocko <mhocko@kernel.org>
+Cc: Mark Rutland <mark.rutland@arm.com>
+Cc: Mark Brown <broonie@kernel.org>
+Cc: Steven Price <Steven.Price@arm.com>
+Cc: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Cc: Masahiro Yamada <yamada.masahiro@socionext.com>
+Cc: Kees Cook <keescook@chromium.org>
+Cc: Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>
+Cc: Matthew Wilcox <willy@infradead.org>
+Cc: Sri Krishna chowdary <schowdary@nvidia.com>
+Cc: Dave Hansen <dave.hansen@intel.com>
+Cc: Russell King - ARM Linux <linux@armlinux.org.uk>
+Cc: Michael Ellerman <mpe@ellerman.id.au>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
+Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Vineet Gupta <vgupta@synopsys.com>
+Cc: James Hogan <jhogan@kernel.org>
+Cc: Paul Burton <paul.burton@mips.com>
+Cc: Ralf Baechle <ralf@linux-mips.org>
+Cc: Kirill A. Shutemov <kirill@shutemov.name>
+Cc: Gerald Schaefer <gerald.schaefer@de.ibm.com>
+Cc: Christophe Leroy <christophe.leroy@c-s.fr>
+Cc: Mike Kravetz <mike.kravetz@oracle.com>
+Cc: linux-snps-arc@lists.infradead.org
+Cc: linux-mips@vger.kernel.org
+Cc: linux-arm-kernel@lists.infradead.org
+Cc: linux-ia64@vger.kernel.org
+Cc: linuxppc-dev@lists.ozlabs.org
+Cc: linux-s390@vger.kernel.org
+Cc: linux-sh@vger.kernel.org
+Cc: sparclinux@vger.kernel.org
+Cc: x86@kernel.org
+Cc: linux-kernel@vger.kernel.org
+
+Anshuman Khandual (2):
+  mm/hugetlb: Make alloc_gigantic_page() available for general use
+  mm/pgtable/debug: Add test validating architecture page table helpers
+
+ arch/x86/include/asm/pgtable_64_types.h |   2 +
+ include/linux/hugetlb.h                 |   9 +
+ mm/Kconfig.debug                        |  15 +
+ mm/Makefile                             |   1 +
+ mm/arch_pgtable_test.c                  | 440 ++++++++++++++++++++++++
+ mm/hugetlb.c                            |  24 +-
+ 6 files changed, 489 insertions(+), 2 deletions(-)
+ create mode 100644 mm/arch_pgtable_test.c
+
 -- 
-2.23.0
+2.20.1
