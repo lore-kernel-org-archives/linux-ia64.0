@@ -1,38 +1,157 @@
-From: Borislav Petkov <bp@alien8.de>
-Date: Thu, 10 Oct 2019 18:00:08 +0000
-Subject: Re: [PATCH 28/29] x86/mm: Report actual image regions in /proc/iomem
-Message-Id: <20191010180008.GH7658@zn.tnic>
+From: Anshuman Khandual <anshuman.khandual@arm.com>
+Date: Mon, 07 Oct 2019 05:57:23 +0000
+Subject: [PATCH V4 1/2] mm/hugetlb: Make alloc_gigantic_page() available for general use
+Message-Id: <1570427124-21887-2-git-send-email-anshuman.khandual@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190926175602.33098-1-keescook@chromium.org>
- <20190926175602.33098-29-keescook@chromium.org>
-In-Reply-To: <20190926175602.33098-29-keescook@chromium.org>
+References: <1570427124-21887-1-git-send-email-anshuman.khandual@arm.com>
+In-Reply-To: <1570427124-21887-1-git-send-email-anshuman.khandual@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Kees Cook <keescook@chromium.org>
-Cc: Thomas Gleixner <tglx@linutronix.de>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Michal Simek <monstr@monstr.eu>, linux-parisc@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org, linux-kernel@vger.kernel.org
+To: linux-mm@kvack.org
+Cc: Mark Rutland <mark.rutland@arm.com>, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, James Hogan <jhogan@kernel.org>, Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>, Heiko Carstens <heiko.carstens@de.ibm.com>, Michal Hocko <mhocko@kernel.org>, Dave Hansen <dave.hansen@intel.com>, Paul Mackerras <paulus@samba.org>, sparclinux@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, linux-s390@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>, x86@kernel.org, Russell King - ARM Linux <linux@armlinux.org.uk>, Matthew Wilcox <willy@infradead.org>, Steven Price <Steven.Price@arm.com>, Jason Gunthorpe <jgg@ziepe.ca>, Gerald Schaefer <gerald.schaefer@de.ibm.com>, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, Kees Cook <keescook@chromium.org>, Anshuman Khandual <anshuman.khandual@arm.com>, Masahiro Yamada <yamada.masahiro@socionext.com>, Mark Brown <broonie@kernel.org>, "Kirill A . Shutemov" <kirill@shutemov.name>, Dan Williams <dan.j.williams@intel.com>, Vlastimil Babka <vbabka@suse.cz>, Christophe Leroy <christophe.leroy@c-s.fr>, Sri Krishna chowdary <schowdary@nvidia.com>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-mips@vger.kernel.org, Ralf Baechle <ralf@linux-mips.org>, linux-kernel@vger.kernel.org, Paul Burton <paul.burton@mips.com>, Mike Rapoport <rppt@linux.vnet.ibm.com>, Vineet Gupta <vgupta@synopsys.com>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, "David S. Miller" <davem@davemloft.net>, Mike Kravetz <mike.kravetz@oracle.com>
 
-On Thu, Sep 26, 2019 at 10:56:01AM -0700, Kees Cook wrote:
-> The resource reservations in made for the kernel image did not reflect
-			      ^
-			      /proc/iomem
+alloc_gigantic_page() implements an allocation method where it scans over
+various zones looking for a large contiguous memory block which could not
+have been allocated through the buddy allocator. A subsequent patch which
+tests arch page table helpers needs such a method to allocate PUD_SIZE
+sized memory block. In the future such methods might have other use cases
+as well. So alloc_gigantic_page() has been split carving out actual memory
+allocation method and made available via new alloc_gigantic_page_order().
 
-> the gaps between text, rodata, and data. This adds the rodata resource
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Vlastimil Babka <vbabka@suse.cz>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Mike Rapoport <rppt@linux.vnet.ibm.com>
+Cc: Mike Kravetz <mike.kravetz@oracle.com>
+Cc: Jason Gunthorpe <jgg@ziepe.ca>
+Cc: Dan Williams <dan.j.williams@intel.com>
+Cc: Peter Zijlstra <peterz@infradead.org>
+Cc: Michal Hocko <mhocko@kernel.org>
+Cc: Mark Rutland <mark.rutland@arm.com>
+Cc: Mark Brown <broonie@kernel.org>
+Cc: Steven Price <Steven.Price@arm.com>
+Cc: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Cc: Masahiro Yamada <yamada.masahiro@socionext.com>
+Cc: Kees Cook <keescook@chromium.org>
+Cc: Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>
+Cc: Matthew Wilcox <willy@infradead.org>
+Cc: Sri Krishna chowdary <schowdary@nvidia.com>
+Cc: Dave Hansen <dave.hansen@intel.com>
+Cc: Russell King - ARM Linux <linux@armlinux.org.uk>
+Cc: Michael Ellerman <mpe@ellerman.id.au>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
+Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Vineet Gupta <vgupta@synopsys.com>
+Cc: James Hogan <jhogan@kernel.org>
+Cc: Paul Burton <paul.burton@mips.com>
+Cc: Ralf Baechle <ralf@linux-mips.org>
+Cc: Kirill A. Shutemov <kirill@shutemov.name>
+Cc: Gerald Schaefer <gerald.schaefer@de.ibm.com>
+Cc: Christophe Leroy <christophe.leroy@c-s.fr>
+Cc: linux-snps-arc@lists.infradead.org
+Cc: linux-mips@vger.kernel.org
+Cc: linux-arm-kernel@lists.infradead.org
+Cc: linux-ia64@vger.kernel.org
+Cc: linuxppc-dev@lists.ozlabs.org
+Cc: linux-s390@vger.kernel.org
+Cc: linux-sh@vger.kernel.org
+Cc: sparclinux@vger.kernel.org
+Cc: x86@kernel.org
+Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
+---
+ include/linux/hugetlb.h |  9 +++++++++
+ mm/hugetlb.c            | 24 ++++++++++++++++++++++--
+ 2 files changed, 31 insertions(+), 2 deletions(-)
 
-s/This adds/Add/
-
-> and updates the start/end calculations to match the respective calls to
-
-s/updates/update/
-
-> free_kernel_image_pages().
-> 
-> Before (booted with "nokaslr" for easier comparison):
-
-...
-
+diff --git a/include/linux/hugetlb.h b/include/linux/hugetlb.h
+index 53fc34f930d0..cc50d5ad4885 100644
+--- a/include/linux/hugetlb.h
++++ b/include/linux/hugetlb.h
+@@ -299,6 +299,9 @@ static inline bool is_file_hugepages(struct file *file)
+ }
+ 
+ 
++struct page *
++alloc_gigantic_page_order(unsigned int order, gfp_t gfp_mask,
++			  int nid, nodemask_t *nodemask);
+ #else /* !CONFIG_HUGETLBFS */
+ 
+ #define is_file_hugepages(file)			false
+@@ -310,6 +313,12 @@ hugetlb_file_setup(const char *name, size_t size, vm_flags_t acctflag,
+ 	return ERR_PTR(-ENOSYS);
+ }
+ 
++static inline struct page *
++alloc_gigantic_page_order(unsigned int order, gfp_t gfp_mask,
++			  int nid, nodemask_t *nodemask)
++{
++	return NULL;
++}
+ #endif /* !CONFIG_HUGETLBFS */
+ 
+ #ifdef HAVE_ARCH_HUGETLB_UNMAPPED_AREA
+diff --git a/mm/hugetlb.c b/mm/hugetlb.c
+index ef37c85423a5..3fb81252f52b 100644
+--- a/mm/hugetlb.c
++++ b/mm/hugetlb.c
+@@ -1112,10 +1112,9 @@ static bool zone_spans_last_pfn(const struct zone *zone,
+ 	return zone_spans_pfn(zone, last_pfn);
+ }
+ 
+-static struct page *alloc_gigantic_page(struct hstate *h, gfp_t gfp_mask,
++struct page *alloc_gigantic_page_order(unsigned int order, gfp_t gfp_mask,
+ 		int nid, nodemask_t *nodemask)
+ {
+-	unsigned int order = huge_page_order(h);
+ 	unsigned long nr_pages = 1 << order;
+ 	unsigned long ret, pfn, flags;
+ 	struct zonelist *zonelist;
+@@ -1151,6 +1150,14 @@ static struct page *alloc_gigantic_page(struct hstate *h, gfp_t gfp_mask,
+ 	return NULL;
+ }
+ 
++static struct page *alloc_gigantic_page(struct hstate *h, gfp_t gfp_mask,
++					int nid, nodemask_t *nodemask)
++{
++	unsigned int order = huge_page_order(h);
++
++	return alloc_gigantic_page_order(order, gfp_mask, nid, nodemask);
++}
++
+ static void prep_new_huge_page(struct hstate *h, struct page *page, int nid);
+ static void prep_compound_gigantic_page(struct page *page, unsigned int order);
+ #else /* !CONFIG_CONTIG_ALLOC */
+@@ -1159,6 +1166,12 @@ static struct page *alloc_gigantic_page(struct hstate *h, gfp_t gfp_mask,
+ {
+ 	return NULL;
+ }
++
++struct page *alloc_gigantic_page_order(unsigned int order, gfp_t gfp_mask,
++				       int nid, nodemask_t *nodemask)
++{
++	return NULL;
++}
+ #endif /* CONFIG_CONTIG_ALLOC */
+ 
+ #else /* !CONFIG_ARCH_HAS_GIGANTIC_PAGE */
+@@ -1167,6 +1180,13 @@ static struct page *alloc_gigantic_page(struct hstate *h, gfp_t gfp_mask,
+ {
+ 	return NULL;
+ }
++
++struct page *alloc_gigantic_page_order(unsigned int order, gfp_t gfp_mask,
++				       int nid, nodemask_t *nodemask)
++{
++	return NULL;
++}
++
+ static inline void free_gigantic_page(struct page *page, unsigned int order) { }
+ static inline void destroy_compound_gigantic_page(struct page *page,
+ 						unsigned int order) { }
 -- 
-Regards/Gruss,
-    Boris.
-
-https://people.kernel.org/tglx/notes-about-netiquette
+2.20.1
