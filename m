@@ -1,92 +1,79 @@
-From: Aleksa Sarai <cyphar@cyphar.com>
-Date: Thu, 10 Oct 2019 05:41:36 +0000
-Subject: [PATCH v14 2/6] namei: LOOKUP_IN_ROOT: chroot-like path resolution
-Message-Id: <20191010054140.8483-3-cyphar@cyphar.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Thu, 10 Oct 2019 17:07:32 +0000
+Subject: Re: [PATCH v14 2/6] namei: LOOKUP_IN_ROOT: chroot-like path resolution
+Message-Id: <CAHk-=wh8L50f31vW8BwRUXhLiq3eoCQ3tg8ER4Yp2dzuU1w5rQ@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20191010054140.8483-1-cyphar@cyphar.com>
-In-Reply-To: <20191010054140.8483-1-cyphar@cyphar.com>
+ <20191010054140.8483-3-cyphar@cyphar.com>
+In-Reply-To: <20191010054140.8483-3-cyphar@cyphar.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>
-Cc: Aleksa Sarai <cyphar@cyphar.com>, Eric Biederman <ebiederm@xmission.com>, Andy Lutomirski <luto@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Alexei Starovoitov <ast@kernel.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, David Drysdale <drysdale@google.com>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, Christian Brauner <christian@brauner.io>, Aleksa Sarai <asarai@suse.de>, Linus Torvalds <torvalds@linux-foundation.org>, containers@lists.linux-foundation.org, linux-alpha@vger.kernel.org, linux-api@vger.kernel.org, libc-alpha@sourceware.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.orglinu
+To: Aleksa Sarai <cyphar@cyphar.com>
+Cc: linux-ia64@vger.kernel.org, Linux-sh list <linux-sh@vger.kernel.org>, Peter Zijlstra <peterz@infradead.org>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Alexei Starovoitov <ast@kernel.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, David Howells <dhowells@redhat.com>, "open list:KERNEL SELFTEST FRAMEWORK" <linux-kselftest@vger.kernel.org>, sparclinux@vger.kernel.org, Jiri Olsa <jolsa@redhat.com>, linux-arch <linux-arch@vger.kernel.org>, linux-s390 <linux-s390@vger.kernel.org>, Tycho Andersen <tycho@tycho.ws>, Aleksa Sarai <asarai@suse.de>, Shuah Khan <shuah@kernel.org>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Ingo Molnar <mingo@redhat.com>, Linux ARM <linux-arm-kernel@lists.infradead.org>, linux-mips@vger.kernel.org, linux-xtensa@linux-xtensa.org, Kees Cook <keescook@chromium.org>, Arnd Bergmann <arnd@arndb.de>, Jann Horn <jannh@google>
 
-/* Background. */
-Container runtimes or other administrative management processes will
-often interact with root filesystems while in the host mount namespace,
-because the cost of doing a chroot(2) on every operation is too
-prohibitive (especially in Go, which cannot safely use vfork). However,
-a malicious program can trick the management process into doing
-operations on files outside of the root filesystem through careful
-crafting of symlinks.
+On Wed, Oct 9, 2019 at 10:42 PM Aleksa Sarai <cyphar@cyphar.com> wrote:
+>
+> --- a/fs/namei.c
+> +++ b/fs/namei.c
+> @@ -2277,6 +2277,11 @@ static const char *path_init(struct nameidata *nd, unsigned flags)
+>
+>         nd->m_seq = read_seqbegin(&mount_lock);
+>
+> +       /* LOOKUP_IN_ROOT treats absolute paths as being relative-to-dirfd. */
+> +       if (flags & LOOKUP_IN_ROOT)
+> +               while (*s = '/')
+> +                       s++;
+> +
+>         /* Figure out the starting path and root (if needed). */
+>         if (*s = '/') {
+>                 error = nd_jump_root(nd);
 
-Most programs that need this feature have attempted to make this process
-safe, by doing all of the path resolution in userspace (with symlinks
-being scoped to the root of the malicious root filesystem).
-Unfortunately, this method is prone to foot-guns and usually such
-implementations have subtle security bugs.
+Hmm. Wouldn't this make more sense all inside the if (*s =- '/') test?
+That way if would be where we check for "should we start at the root",
+which seems to make more sense conceptually.
 
-Thus, what userspace needs is a way to resolve a path as though it were
-in a chroot(2) -- with all absolute symlinks being resolved relative to
-the dirfd root (and ".." components being stuck under the dirfd root[1])
-It is much simpler and more straight-forward to provide this
-functionality in-kernel (because it can be done far more cheaply and
-correctly).
+That test for '/' currently has a "} else if (..)", but that's
+pointless since it ends with a "return" anyway. So the "else" logic is
+just noise.
 
-More classical applications that also have this problem (which have
-their own potentially buggy userspace path sanitisation code) include
-web servers, archive extraction tools, network file servers, and so on.
+And if you get rid of the unnecessary else, moving the LOOKUP_IN_ROOT
+inside the if-statement works fine.
 
-[1]: At the moment, ".." and magic-link jumping are disallowed for the
-     same reason it is disabled for LOOKUP_BENEATH -- currently it is
-     not safe to allow it. Future patches may enable it unconditionally
-     once we have resolved the possible races (for "..") and semantics
-     (for magic-link jumping).
+So this could be something like
 
-/* Userspace API. */
-LOOKUP_IN_ROOT will be exposed to userspace through openat2(2).
+    --- a/fs/namei.c
+    +++ b/fs/namei.c
+    @@ -2194,11 +2196,19 @@ static const char *path_init(struct
+nameidata *nd, unsigned flags)
 
-There is a slight change in behaviour regarding pathnames -- if the
-pathname is absolute then the dirfd is still used as the root of
-resolution of LOOKUP_IN_ROOT is specified (this is to avoid obvious
-foot-guns, at the cost of a minor API inconsistency).
+        nd->m_seq = read_seqbegin(&mount_lock);
+        if (*s = '/') {
+    -           set_root(nd);
+    -           if (likely(!nd_jump_root(nd)))
+    -                   return s;
+    -           return ERR_PTR(-ECHILD);
+    -   } else if (nd->dfd = AT_FDCWD) {
+    +           /* LOOKUP_IN_ROOT treats absolute paths as being
+relative-to-dirfd. */
+    +           if (!(flags & LOOKUP_IN_ROOT)) {
+    +                   set_root(nd);
+    +                   if (likely(!nd_jump_root(nd)))
+    +                           return s;
+    +                   return ERR_PTR(-ECHILD);
+    +           }
+    +
+    +           /* Skip initial '/' for LOOKUP_IN_ROOT */
+    +           do { s++; } while (*s = '/');
+    +   }
+    +
+    +   if (nd->dfd = AT_FDCWD) {
+                if (flags & LOOKUP_RCU) {
+                        struct fs_struct *fs = current->fs;
+                        unsigned seq;
 
-Signed-off-by: Aleksa Sarai <cyphar@cyphar.com>
----
- fs/namei.c            | 5 +++++
- include/linux/namei.h | 3 ++-
- 2 files changed, 7 insertions(+), 1 deletion(-)
+instead. The patch ends up slightly bigger (due to the re-indentation)
+but now it handles all the "start at root" in the same place. Doesn't
+that make sense?
 
-diff --git a/fs/namei.c b/fs/namei.c
-index 54fdbdfbeb94..9d00b138f54c 100644
---- a/fs/namei.c
-+++ b/fs/namei.c
-@@ -2277,6 +2277,11 @@ static const char *path_init(struct nameidata *nd, unsigned flags)
- 
- 	nd->m_seq = read_seqbegin(&mount_lock);
- 
-+	/* LOOKUP_IN_ROOT treats absolute paths as being relative-to-dirfd. */
-+	if (flags & LOOKUP_IN_ROOT)
-+		while (*s = '/')
-+			s++;
-+
- 	/* Figure out the starting path and root (if needed). */
- 	if (*s = '/') {
- 		error = nd_jump_root(nd);
-diff --git a/include/linux/namei.h b/include/linux/namei.h
-index 35a1bf074ff1..c7a010570d05 100644
---- a/include/linux/namei.h
-+++ b/include/linux/namei.h
-@@ -47,8 +47,9 @@ enum {LAST_NORM, LAST_ROOT, LAST_DOT, LAST_DOTDOT, LAST_BIND};
- #define LOOKUP_NO_MAGICLINKS	0x080000 /* No /proc/$pid/fd/ "symlink" crossing. */
- #define LOOKUP_NO_SYMLINKS	0x100000 /* No symlink crossing *at all*.
- 					    Implies LOOKUP_NO_MAGICLINKS. */
-+#define LOOKUP_IN_ROOT		0x200000 /* Treat dirfd as %current->fs->root. */
- /* LOOKUP_* flags which do scope-related checks based on the dirfd. */
--#define LOOKUP_IS_SCOPED LOOKUP_BENEATH
-+#define LOOKUP_IS_SCOPED (LOOKUP_BENEATH | LOOKUP_IN_ROOT)
- 
- extern int path_pts(struct path *path);
- 
--- 
-2.23.0
+             Linus
