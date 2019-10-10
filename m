@@ -1,7 +1,7 @@
-From: Will Deacon <will@kernel.org>
-Date: Tue, 01 Oct 2019 09:05:50 +0000
+From: Borislav Petkov <bp@alien8.de>
+Date: Thu, 10 Oct 2019 15:25:16 +0000
 Subject: Re: [PATCH 14/29] vmlinux.lds.h: Allow EXCEPTION_TABLE to live in RO_DATA
-Message-Id: <20191001090549.xxbqarn36unvowrm@willie-the-truck>
+Message-Id: <20191010152516.GG7658@zn.tnic>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20190926175602.33098-1-keescook@chromium.org>
  <20190926175602.33098-15-keescook@chromium.org>
@@ -10,7 +10,7 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Kees Cook <keescook@chromium.org>
-Cc: Thomas Gleixner <tglx@linutronix.de>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, "H. Peter Anvin" <hpa@zytor.com>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Michal Simek <monstr@monstr.eu>, linux-parisc@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org, linux-kernel@vger.kernel.org
+Cc: Thomas Gleixner <tglx@linutronix.de>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Michal Simek <monstr@monstr.eu>, linux-parisc@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org, linux-kernel@vger.kernel.org
 
 On Thu, Sep 26, 2019 at 10:55:47AM -0700, Kees Cook wrote:
 > Many architectures have an EXCEPTION_TABLE that needs only to be
@@ -53,10 +53,18 @@ On Thu, Sep 26, 2019 at 10:55:47AM -0700, Kees Cook wrote:
 >  	NOTES								\
 >  									\
 >  	. = ALIGN((align));						\
+> -- 
 
-I had to read this one to understand the later arm64 change. It looks
-fine to me, so:
+I think you can drop the "DATA" from the names as it is kinda clear
+where the exception table lands:
 
-Acked-by: Will Deacon <will@kernel.org>
+RO_EXCEPTION_TABLE_ALIGN
+RO_EXCEPTION_TABLE
 
-Will
+The "read-only" part is the important one.
+
+-- 
+Regards/Gruss,
+    Boris.
+
+https://people.kernel.org/tglx/notes-about-netiquette
