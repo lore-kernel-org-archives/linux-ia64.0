@@ -1,15 +1,15 @@
 From: Aleksa Sarai <cyphar@cyphar.com>
-Date: Sat, 26 Oct 2019 18:56:58 +0000
-Subject: [PATCH RESEND v14 4/6] open: introduce openat2(2) syscall
-Message-Id: <20191026185700.10708-5-cyphar@cyphar.com>
+Date: Thu, 10 Oct 2019 05:41:38 +0000
+Subject: [PATCH v14 4/6] open: introduce openat2(2) syscall
+Message-Id: <20191010054140.8483-5-cyphar@cyphar.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191026185700.10708-1-cyphar@cyphar.com>
-In-Reply-To: <20191026185700.10708-1-cyphar@cyphar.com>
+References: <20191010054140.8483-1-cyphar@cyphar.com>
+In-Reply-To: <20191010054140.8483-1-cyphar@cyphar.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>
-Cc: Aleksa Sarai <cyphar@cyphar.com>, Christian Brauner <christian@brauner.io>, Eric Biederman <ebiederm@xmission.com>, Andy Lutomirski <luto@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Alexei Starovoitov <ast@kernel.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, David Drysdale <drysdale@google.com>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, Aleksa Sarai <asarai@suse.de>, Linus Torvalds <torvalds@linux-foundation.org>, containers@lists.linux-foundation.org, linux-alpha@vger.kernel.orglinu
+Cc: Aleksa Sarai <cyphar@cyphar.com>, Christian Brauner <christian@brauner.io>, Eric Biederman <ebiederm@xmission.com>, Andy Lutomirski <luto@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Alexei Starovoitov <ast@kernel.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, David Drysdale <drysdale@google.com>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, Aleksa Sarai <asarai@suse.de>, Linus Torvalds <torvalds@linux-foundation.org>, containers@lists.linux-foundation.org, linux-alpha@vger.kernel.org, linux-api@vger.kernel.org, libc-alpha@sourceware.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.orglinu
 
 /* Background. */
 For a very long time, extending openat(2) with new features has been
@@ -145,10 +145,10 @@ Signed-off-by: Aleksa Sarai <cyphar@cyphar.com>
  24 files changed, 201 insertions(+), 38 deletions(-)
 
 diff --git a/CREDITS b/CREDITS
-index 031605d46b4d..a048e001d726 100644
+index 8b67a85844b5..8d7990b1217e 100644
 --- a/CREDITS
 +++ b/CREDITS
-@@ -3301,7 +3301,9 @@ S: France
+@@ -3297,7 +3297,9 @@ S: France
  N: Aleksa Sarai
  E: cyphar@cyphar.com
  W: https://www.cyphar.com/
