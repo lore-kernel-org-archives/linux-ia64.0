@@ -1,7 +1,7 @@
 From: Kees Cook <keescook@chromium.org>
-Date: Fri, 11 Oct 2019 00:05:59 +0000
-Subject: [PATCH v2 19/29] c6x: Move EXCEPTION_TABLE to RO_DATA segment
-Message-Id: <20191011000609.29728-20-keescook@chromium.org>
+Date: Fri, 11 Oct 2019 00:05:57 +0000
+Subject: [PATCH v2 17/29] alpha: Move EXCEPTION_TABLE to RO_DATA segment
+Message-Id: <20191011000609.29728-18-keescook@chromium.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20191011000609.29728-1-keescook@chromium.org>
 In-Reply-To: <20191011000609.29728-1-keescook@chromium.org>
@@ -15,31 +15,28 @@ Since the EXCEPTION_TABLE is read-only, collapse it into RO_DATA.
 
 Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- arch/c6x/kernel/vmlinux.lds.S | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ arch/alpha/kernel/vmlinux.lds.S | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/c6x/kernel/vmlinux.lds.S b/arch/c6x/kernel/vmlinux.lds.S
-index a3547f9d415b..ac99ba0864bf 100644
---- a/arch/c6x/kernel/vmlinux.lds.S
-+++ b/arch/c6x/kernel/vmlinux.lds.S
-@@ -5,6 +5,9 @@
-  *  Copyright (C) 2010, 2011 Texas Instruments Incorporated
-  *  Mark Salter <msalter@redhat.com>
-  */
-+
+diff --git a/arch/alpha/kernel/vmlinux.lds.S b/arch/alpha/kernel/vmlinux.lds.S
+index edc45f45523b..bc6f727278fd 100644
+--- a/arch/alpha/kernel/vmlinux.lds.S
++++ b/arch/alpha/kernel/vmlinux.lds.S
+@@ -1,6 +1,7 @@
+ /* SPDX-License-Identifier: GPL-2.0 */
+ 
+ #define EMITS_PT_NOTE
 +#define RO_EXCEPTION_TABLE_ALIGN	16
-+
+ 
  #include <asm-generic/vmlinux.lds.h>
  #include <asm/thread_info.h>
- #include <asm/page.h>
-@@ -80,8 +83,6 @@ SECTIONS
- 		*(.gnu.warning)
- 	}
+@@ -35,7 +36,6 @@ SECTIONS
+ 	_etext = .;	/* End of text section */
  
+ 	RO_DATA(4096)
 -	EXCEPTION_TABLE(16)
--
- 	RO_DATA(PAGE_SIZE)
- 	.const :
- 	{
+ 
+ 	/* Will be freed after init */
+ 	__init_begin = ALIGN(PAGE_SIZE);
 -- 
 2.17.1
