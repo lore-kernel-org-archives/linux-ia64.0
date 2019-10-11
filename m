@@ -1,7 +1,7 @@
 From: Kees Cook <keescook@chromium.org>
-Date: Fri, 11 Oct 2019 00:05:57 +0000
-Subject: [PATCH v2 17/29] alpha: Move EXCEPTION_TABLE to RO_DATA segment
-Message-Id: <20191011000609.29728-18-keescook@chromium.org>
+Date: Fri, 11 Oct 2019 00:06:01 +0000
+Subject: [PATCH v2 21/29] ia64: Move EXCEPTION_TABLE to RO_DATA segment
+Message-Id: <20191011000609.29728-22-keescook@chromium.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20191011000609.29728-1-keescook@chromium.org>
 In-Reply-To: <20191011000609.29728-1-keescook@chromium.org>
@@ -15,28 +15,28 @@ Since the EXCEPTION_TABLE is read-only, collapse it into RO_DATA.
 
 Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- arch/alpha/kernel/vmlinux.lds.S | 2 +-
+ arch/ia64/kernel/vmlinux.lds.S | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/alpha/kernel/vmlinux.lds.S b/arch/alpha/kernel/vmlinux.lds.S
-index edc45f45523b..bc6f727278fd 100644
---- a/arch/alpha/kernel/vmlinux.lds.S
-+++ b/arch/alpha/kernel/vmlinux.lds.S
-@@ -1,6 +1,7 @@
- /* SPDX-License-Identifier: GPL-2.0 */
+diff --git a/arch/ia64/kernel/vmlinux.lds.S b/arch/ia64/kernel/vmlinux.lds.S
+index 11d5115bc44d..1ec6b703c5b4 100644
+--- a/arch/ia64/kernel/vmlinux.lds.S
++++ b/arch/ia64/kernel/vmlinux.lds.S
+@@ -6,6 +6,7 @@
+ #include <asm/thread_info.h>
  
  #define EMITS_PT_NOTE
 +#define RO_EXCEPTION_TABLE_ALIGN	16
  
  #include <asm-generic/vmlinux.lds.h>
- #include <asm/thread_info.h>
-@@ -35,7 +36,6 @@ SECTIONS
- 	_etext = .;	/* End of text section */
  
- 	RO_DATA(4096)
+@@ -70,7 +71,6 @@ SECTIONS {
+ 	/*
+ 	 * Read-only data
+ 	 */
 -	EXCEPTION_TABLE(16)
  
- 	/* Will be freed after init */
- 	__init_begin = ALIGN(PAGE_SIZE);
+ 	/* MCA table */
+ 	. = ALIGN(16);
 -- 
 2.17.1
