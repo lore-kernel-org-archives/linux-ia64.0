@@ -1,98 +1,46 @@
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Date: Tue, 15 Oct 2019 19:17:56 +0000
-Subject: [PATCH 09/34] ia64: Use CONFIG_PREEMPTION
-Message-Id: <20191015191821.11479-10-bigeasy@linutronix.de>
+From: Kees Cook <keescook@chromium.org>
+Date: Fri, 11 Oct 2019 00:05:56 +0000
+Subject: [PATCH v2 16/29] x86: Move EXCEPTION_TABLE to RO_DATA segment
+Message-Id: <20191011000609.29728-17-keescook@chromium.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191015191821.11479-1-bigeasy@linutronix.de>
-In-Reply-To: <20191015191821.11479-1-bigeasy@linutronix.de>
+References: <20191011000609.29728-1-keescook@chromium.org>
+In-Reply-To: <20191011000609.29728-1-keescook@chromium.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: tglx@linutronix.de, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+To: Borislav Petkov <bp@alien8.de>
+Cc: Kees Cook <keescook@chromium.org>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Michael Ellerman <mpe@ellerman.id.au>, Heiko Carstens <heiko.carstens@de.ibm.com>, Will Deacon <will@kernel.org>, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linuxppc-dev@lists.ozlabs.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Michal Simek <monstr@monstr.eu>, linux-parisc@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org, linux-kernel@vger.kernel.org
 
-From: Thomas Gleixner <tglx@linutronix.de>
+The exception table was needlessly marked executable. In preparation
+for execute-only memory, move the table into the RO_DATA segment via
+the new macro that can be used by any architectures that want to make
+a similar consolidation.
 
-CONFIG_PREEMPTION is selected by CONFIG_PREEMPT and by CONFIG_PREEMPT_RT.
-Both PREEMPT and PREEMPT_RT require the same functionality which today
-depends on CONFIG_PREEMPT.
-
-Switch the entry code and kprobes over to use CONFIG_PREEMPTION.
-
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org
-Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
-Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- arch/ia64/kernel/entry.S   | 12 ++++++------
- arch/ia64/kernel/kprobes.c |  2 +-
- 2 files changed, 7 insertions(+), 7 deletions(-)
+ arch/x86/kernel/vmlinux.lds.S | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/arch/ia64/kernel/entry.S b/arch/ia64/kernel/entry.S
-index a9992be5718b8..2ac9263315000 100644
---- a/arch/ia64/kernel/entry.S
-+++ b/arch/ia64/kernel/entry.S
-@@ -670,12 +670,12 @@ GLOBAL_ENTRY(ia64_leave_syscall)
- 	 *
- 	 * p6 controls whether current_thread_info()->flags needs to be check for
- 	 * extra work.  We always check for extra work when returning to user-level.
--	 * With CONFIG_PREEMPT, we also check for extra work when the preempt_count
-+	 * With CONFIG_PREEMPTION, we also check for extra work when the preempt_count
- 	 * is 0.  After extra work processing has been completed, execution
- 	 * resumes at ia64_work_processed_syscall with p6 set to 1 if the extra-work-check
- 	 * needs to be redone.
- 	 */
--#ifdef CONFIG_PREEMPT
-+#ifdef CONFIG_PREEMPTION
- 	RSM_PSR_I(p0, r2, r18)			// disable interrupts
- 	cmp.eq pLvSys,p0=r0,r0			// pLvSys=1: leave from syscall
- (pKStk) adds r20=TI_PRE_COUNT+IA64_TASK_SIZE,r13
-@@ -685,7 +685,7 @@ GLOBAL_ENTRY(ia64_leave_syscall)
- (pUStk)	mov r21=0			// r21 <- 0
- 	;;
- 	cmp.eq p6,p0=r21,r0		// p6 <- pUStk || (preempt_count == 0)
--#else /* !CONFIG_PREEMPT */
-+#else /* !CONFIG_PREEMPTION */
- 	RSM_PSR_I(pUStk, r2, r18)
- 	cmp.eq pLvSys,p0=r0,r0		// pLvSys=1: leave from syscall
- (pUStk)	cmp.eq.unc p6,p0=r0,r0		// p6 <- pUStk
-@@ -814,12 +814,12 @@ GLOBAL_ENTRY(ia64_leave_kernel)
- 	 *
- 	 * p6 controls whether current_thread_info()->flags needs to be check for
- 	 * extra work.  We always check for extra work when returning to user-level.
--	 * With CONFIG_PREEMPT, we also check for extra work when the preempt_count
-+	 * With CONFIG_PREEMPTION, we also check for extra work when the preempt_count
- 	 * is 0.  After extra work processing has been completed, execution
- 	 * resumes at .work_processed_syscall with p6 set to 1 if the extra-work-check
- 	 * needs to be redone.
- 	 */
--#ifdef CONFIG_PREEMPT
-+#ifdef CONFIG_PREEMPTION
- 	RSM_PSR_I(p0, r17, r31)			// disable interrupts
- 	cmp.eq p0,pLvSys=r0,r0			// pLvSys=0: leave from kernel
- (pKStk)	adds r20=TI_PRE_COUNT+IA64_TASK_SIZE,r13
-@@ -1120,7 +1120,7 @@ GLOBAL_ENTRY(ia64_leave_kernel)
+diff --git a/arch/x86/kernel/vmlinux.lds.S b/arch/x86/kernel/vmlinux.lds.S
+index a1a758e25b2b..b06d6e1188de 100644
+--- a/arch/x86/kernel/vmlinux.lds.S
++++ b/arch/x86/kernel/vmlinux.lds.S
+@@ -22,6 +22,7 @@
+ #endif
  
- 	/*
- 	 * On entry:
--	 *	r20 = &current->thread_info->pre_count (if CONFIG_PREEMPT)
-+	 *	r20 = &current->thread_info->pre_count (if CONFIG_PREEMPTION)
- 	 *	r31 = current->thread_info->flags
- 	 * On exit:
- 	 *	p6 = TRUE if work-pending-check needs to be redone
-diff --git a/arch/ia64/kernel/kprobes.c b/arch/ia64/kernel/kprobes.c
-index b8356edbde659..a6d6a0556f089 100644
---- a/arch/ia64/kernel/kprobes.c
-+++ b/arch/ia64/kernel/kprobes.c
-@@ -841,7 +841,7 @@ static int __kprobes pre_kprobes_handler(struct die_args *args)
- 		return 1;
- 	}
+ #define EMITS_PT_NOTE
++#define RO_EXCEPTION_TABLE_ALIGN	16
  
--#if !defined(CONFIG_PREEMPT)
-+#if !defined(CONFIG_PREEMPTION)
- 	if (p->ainsn.inst_flag == INST_FLAG_BOOSTABLE && !p->post_handler) {
- 		/* Boost up -- we can execute copied instructions directly */
- 		ia64_psr(regs)->ri = p->ainsn.slot;
+ #include <asm-generic/vmlinux.lds.h>
+ #include <asm/asm-offsets.h>
+@@ -145,8 +146,6 @@ SECTIONS
+ #endif
+ 	} :text = 0x9090
+ 
+-	EXCEPTION_TABLE(16)
+-
+ 	/* End of text section, which should occupy whole number of pages */
+ 	_etext = .;
+ 	. = ALIGN(PAGE_SIZE);
 -- 
-2.23.0
+2.17.1
