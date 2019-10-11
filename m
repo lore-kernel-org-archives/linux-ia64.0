@@ -1,7 +1,7 @@
 From: Kees Cook <keescook@chromium.org>
-Date: Fri, 11 Oct 2019 00:05:58 +0000
-Subject: [PATCH v2 18/29] arm64: Move EXCEPTION_TABLE to RO_DATA segment
-Message-Id: <20191011000609.29728-19-keescook@chromium.org>
+Date: Fri, 11 Oct 2019 00:05:45 +0000
+Subject: [PATCH v2 05/29] ia64: Rename PT_LOAD identifier "code" to "text"
+Message-Id: <20191011000609.29728-6-keescook@chromium.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20191011000609.29728-1-keescook@chromium.org>
 In-Reply-To: <20191011000609.29728-1-keescook@chromium.org>
@@ -11,41 +11,69 @@ Content-Transfer-Encoding: 7bit
 To: Borislav Petkov <bp@alien8.de>
 Cc: Kees Cook <keescook@chromium.org>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Michael Ellerman <mpe@ellerman.id.au>, Heiko Carstens <heiko.carstens@de.ibm.com>, Will Deacon <will@kernel.org>, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linuxppc-dev@lists.ozlabs.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Michal Simek <monstr@monstr.eu>, linux-parisc@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org, linux-kernel@vger.kernel.org
 
-Since the EXCEPTION_TABLE is read-only, collapse it into RO_DATA. Also
-removes the redundant ALIGN, which is already present at the end of the
-RO_DATA macro.
+In preparation for moving NOTES into RO_DATA, rename the linker script
+internal identifier for the PT_LOAD Program Header from "code" to "text"
+to match other architectures.
 
 Signed-off-by: Kees Cook <keescook@chromium.org>
-Acked-by: Will Deacon <will@kernel.org>
 ---
- arch/arm64/kernel/vmlinux.lds.S | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+ arch/ia64/kernel/vmlinux.lds.S | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/arch/arm64/kernel/vmlinux.lds.S b/arch/arm64/kernel/vmlinux.lds.S
-index a4b3e6c0680c..9128a26eb45b 100644
---- a/arch/arm64/kernel/vmlinux.lds.S
-+++ b/arch/arm64/kernel/vmlinux.lds.S
-@@ -5,6 +5,8 @@
-  * Written by Martin Mares <mj@atrey.karlin.mff.cuni.cz>
-  */
+diff --git a/arch/ia64/kernel/vmlinux.lds.S b/arch/ia64/kernel/vmlinux.lds.S
+index d9d4e21107cd..2c4f23c390ad 100644
+--- a/arch/ia64/kernel/vmlinux.lds.S
++++ b/arch/ia64/kernel/vmlinux.lds.S
+@@ -13,7 +13,7 @@ ENTRY(phys_start)
+ jiffies = jiffies_64;
  
-+#define RO_EXCEPTION_TABLE_ALIGN	8
-+
- #include <asm-generic/vmlinux.lds.h>
- #include <asm/cache.h>
- #include <asm/kernel-pgtable.h>
-@@ -135,10 +137,9 @@ SECTIONS
- 	. = ALIGN(SEGMENT_ALIGN);
- 	_etext = .;			/* End of text section */
+ PHDRS {
+-	code   PT_LOAD;
++	text   PT_LOAD;
+ 	percpu PT_LOAD;
+ 	data   PT_LOAD;
+ 	note   PT_NOTE;
+@@ -36,7 +36,7 @@ SECTIONS {
+ 	phys_start = _start - LOAD_OFFSET;
  
--	RO_DATA(PAGE_SIZE)		/* everything from this point to     */
--	EXCEPTION_TABLE(8)		/* __init_begin will be marked RO NX */
-+	/* everything from this point to __init_begin will be marked RO NX */
-+	RO_DATA(PAGE_SIZE)
+ 	code : {
+-	} :code
++	} :text
+ 	. = KERNEL_START;
  
--	. = ALIGN(PAGE_SIZE);
- 	idmap_pg_dir = .;
- 	. += IDMAP_DIR_SIZE;
+ 	_text = .;
+@@ -68,9 +68,9 @@ SECTIONS {
+ 	/*
+ 	 * Read-only data
+ 	 */
+-	NOTES :code :note       /* put .notes in text and mark in PT_NOTE  */
++	NOTES :text :note       /* put .notes in text and mark in PT_NOTE  */
+ 	code_continues : {
+-	} : code               /* switch back to regular program...  */
++	} :text                /* switch back to regular program...  */
  
+ 	EXCEPTION_TABLE(16)
+ 
+@@ -102,9 +102,9 @@ SECTIONS {
+ 		__start_unwind = .;
+ 		*(.IA_64.unwind*)
+ 		__end_unwind = .;
+-	} :code :unwind
++	} :text :unwind
+ 	code_continues2 : {
+-	} : code
++	} :text
+ 
+ 	RODATA
+ 
+@@ -214,7 +214,7 @@ SECTIONS {
+ 	_end = .;
+ 
+ 	code : {
+-	} :code
++	} :text
+ 
+ 	STABS_DEBUG
+ 	DWARF_DEBUG
 -- 
 2.17.1
