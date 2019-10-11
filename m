@@ -1,75 +1,47 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Tue, 29 Oct 2019 06:48:27 +0000
-Subject: [PATCH 14/21] hexagon: remove __iounmap
-Message-Id: <20191029064834.23438-15-hch@lst.de>
+From: Kees Cook <keescook@chromium.org>
+Date: Fri, 11 Oct 2019 00:05:41 +0000
+Subject: [PATCH v2 01/29] powerpc: Rename "notes" PT_NOTE to "note"
+Message-Id: <20191011000609.29728-2-keescook@chromium.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191029064834.23438-1-hch@lst.de>
-In-Reply-To: <20191029064834.23438-1-hch@lst.de>
+References: <20191011000609.29728-1-keescook@chromium.org>
+In-Reply-To: <20191011000609.29728-1-keescook@chromium.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Arnd Bergmann <arnd@arndb.de>, Guo Ren <guoren@kernel.org>, Michal Simek <monstr@monstr.eu>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, x86@kernel.org
-Cc: linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, nios2-dev@lists.rocketboards.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-mtd@lists.infradead.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Borislav Petkov <bp@alien8.de>
+Cc: Kees Cook <keescook@chromium.org>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Michael Ellerman <mpe@ellerman.id.au>, Heiko Carstens <heiko.carstens@de.ibm.com>, Will Deacon <will@kernel.org>, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linuxppc-dev@lists.ozlabs.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Michal Simek <monstr@monstr.eu>, linux-parisc@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org, linux-kernel@vger.kernel.org
 
-No need to indirect iounmap for hexagon.
+The Program Header identifiers are internal to the linker scripts. In
+preparation for moving the NOTES segment declaration into RO_DATA,
+standardize the identifier for the PT_NOTE entry to "note" as used by
+all other architectures that emit PT_NOTE.
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- arch/hexagon/include/asm/io.h       | 7 +------
- arch/hexagon/kernel/hexagon_ksyms.c | 2 +-
- arch/hexagon/mm/ioremap.c           | 2 +-
- 3 files changed, 3 insertions(+), 8 deletions(-)
+ arch/powerpc/kernel/vmlinux.lds.S | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/arch/hexagon/include/asm/io.h b/arch/hexagon/include/asm/io.h
-index 89537dc1cf97..539e3efcf39c 100644
---- a/arch/hexagon/include/asm/io.h
-+++ b/arch/hexagon/include/asm/io.h
-@@ -27,7 +27,7 @@
- extern int remap_area_pages(unsigned long start, unsigned long phys_addr,
- 				unsigned long end, unsigned long flags);
+diff --git a/arch/powerpc/kernel/vmlinux.lds.S b/arch/powerpc/kernel/vmlinux.lds.S
+index 060a1acd7c6d..81e672654789 100644
+--- a/arch/powerpc/kernel/vmlinux.lds.S
++++ b/arch/powerpc/kernel/vmlinux.lds.S
+@@ -19,7 +19,7 @@ ENTRY(_stext)
  
--extern void __iounmap(const volatile void __iomem *addr);
-+extern void iounmap(const volatile void __iomem *addr);
+ PHDRS {
+ 	kernel PT_LOAD FLAGS(7); /* RWX */
+-	notes PT_NOTE FLAGS(0);
++	note PT_NOTE FLAGS(0);
+ 	dummy PT_NOTE FLAGS(0);
  
- /* Defined in lib/io.c, needed for smc91x driver. */
- extern void __raw_readsw(const void __iomem *addr, void *data, int wordlen);
-@@ -175,11 +175,6 @@ void __iomem *ioremap(unsigned long phys_addr, unsigned long size);
- #define ioremap_nocache ioremap
+ 	/* binutils < 2.18 has a bug that makes it misbehave when taking an
+@@ -177,7 +177,7 @@ SECTIONS
+ #endif
+ 	EXCEPTION_TABLE(0)
  
+-	NOTES :kernel :notes
++	NOTES :kernel :note
  
--static inline void iounmap(volatile void __iomem *addr)
--{
--	__iounmap(addr);
--}
--
- #define __raw_writel writel
- 
- static inline void memcpy_fromio(void *dst, const volatile void __iomem *src,
-diff --git a/arch/hexagon/kernel/hexagon_ksyms.c b/arch/hexagon/kernel/hexagon_ksyms.c
-index b3dbb472572e..6fb1aaab1c29 100644
---- a/arch/hexagon/kernel/hexagon_ksyms.c
-+++ b/arch/hexagon/kernel/hexagon_ksyms.c
-@@ -14,7 +14,7 @@
- EXPORT_SYMBOL(__clear_user_hexagon);
- EXPORT_SYMBOL(raw_copy_from_user);
- EXPORT_SYMBOL(raw_copy_to_user);
--EXPORT_SYMBOL(__iounmap);
-+EXPORT_SYMBOL(iounmap);
- EXPORT_SYMBOL(__strnlen_user);
- EXPORT_SYMBOL(__vmgetie);
- EXPORT_SYMBOL(__vmsetie);
-diff --git a/arch/hexagon/mm/ioremap.c b/arch/hexagon/mm/ioremap.c
-index b103d83b5fbb..255c5b1ee1a7 100644
---- a/arch/hexagon/mm/ioremap.c
-+++ b/arch/hexagon/mm/ioremap.c
-@@ -38,7 +38,7 @@ void __iomem *ioremap(unsigned long phys_addr, unsigned long size)
- 	return (void __iomem *) (offset + addr);
- }
- 
--void __iounmap(const volatile void __iomem *addr)
-+void iounmap(const volatile void __iomem *addr)
- {
- 	vunmap((void *) ((unsigned long) addr & PAGE_MASK));
- }
+ 	/* The dummy segment contents for the bug workaround mentioned above
+ 	   near PHDRS.  */
 -- 
-2.20.1
+2.17.1
