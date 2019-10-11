@@ -1,120 +1,159 @@
-From: Kees Cook <keescook@chromium.org>
-Date: Tue, 29 Oct 2019 21:13:22 +0000
-Subject: [PATCH v3 00/29] vmlinux.lds.h: Refactor EXCEPTION_TABLE and NOTES
-Message-Id: <20191029211351.13243-1-keescook@chromium.org>
+From: Anshuman Khandual <anshuman.khandual@arm.com>
+Date: Fri, 11 Oct 2019 06:37:40 +0000
+Subject: [PATCH V5 0/2] mm/debug: Add tests validating architecture page table helpers
+Message-Id: <1570775142-31425-1-git-send-email-anshuman.khandual@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Borislav Petkov <bp@alien8.de>
-Cc: Kees Cook <keescook@chromium.org>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Segher Boessenkool <segher@kernel.crashing.org>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Michael Ellerman <mpe@ellerman.id.au>, Heiko Carstens <heiko.carstens@de.ibm.com>, Will Deacon <will@kernel.org>, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linuxppc-dev@lists.ozlabs.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Michal Simek <monstr@monstr.eu>
+To: linux-mm@kvack.org
+Cc: Mark Rutland <mark.rutland@arm.com>, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, James Hogan <jhogan@kernel.org>, Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>, Heiko Carstens <heiko.carstens@de.ibm.com>, Michal Hocko <mhocko@kernel.org>, Dave Hansen <dave.hansen@intel.com>, Paul Mackerras <paulus@samba.org>, sparclinux@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, linux-s390@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>, x86@kernel.org, Russell King - ARM Linux <linux@armlinux.org.uk>, Matthew Wilcox <willy@infradead.org>, Steven Price <Steven.Price@arm.com>, Jason Gunthorpe <jgg@ziepe.ca>, Gerald Schaefer <gerald.schaefer@de.ibm.com>, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, Kees Cook <keescook@chromium.org>, Anshuman Khandual <anshuman.khandual@arm.com>, Masahiro Yamada <yamada.masahiro@socionext.com>, Mark Brown <broonie@kernel.org>, "Kirill A . Shutemov" <kirill@shutemov.name>, Dan Williams <dan.j.williams@intel.com>, Vlastimil Babka <vbabka@suse.cz>, Christophe Leroy <christophe.leroy@c-s.fr>, Sri Krishna chowdary <schowdary@nvidia.com>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-mips@vger.kernel.org, Ralf Baechle <ralf@linux-mips.org>, linux-kernel@vger.kernel.org, Paul Burton <paul.burton@mips.com>, Mike Rapoport <rppt@linux.vnet.ibm.com>, Vineet Gupta <vgupta@synopsys.com>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, "David S. Miller" <davem@davemloft.net>, Mike Kravetz <mike.kravetz@oracle.com>
 
-Arch maintainers: please send Acks (if you haven't already) for your
-respective linker script changes; the intention is for this series to land
-via -tip. See patch #1 for an extended rationale for the "note" vs "notes"
-naming. If "notes" is strongly desired, we can perform that change on
-top of this series. For now, I prefer to leave things as they were in v2.
+This series adds a test validation for architecture exported page table
+helpers. Patch in the series adds basic transformation tests at various
+levels of the page table. Before that it exports gigantic page allocation
+function from HugeTLB.
 
-v3: Add new Acks, clarify "note" vs "notes" renaming
-v2: https://lore.kernel.org/lkml/20191011000609.29728-1-keescook@chromium.org
-v1: https://lore.kernel.org/lkml/20190926175602.33098-1-keescook@chromium.org
+This test was originally suggested by Catalin during arm64 THP migration
+RFC discussion earlier. Going forward it can include more specific tests
+with respect to various generic MM functions like THP, HugeTLB etc and
+platform specific tests.
 
+https://lore.kernel.org/linux-mm/20190628102003.GA56463@arrakis.emea.arm.com/
 
-This series works to move the linker sections for NOTES and
-EXCEPTION_TABLE into the RO_DATA area, where they belong on most
-(all?) architectures. The problem being addressed was the discovery
-by Rick Edgecombe that the exception table was accidentally marked
-executable while he was developing his execute-only-memory series. When
-permissions were flipped from readable-and-executable to only-executable,
-the exception table became unreadable, causing things to explode rather
-badly. :)
+Changes in V5:
 
-Roughly speaking, the steps are:
+- Redefined and moved X86 mm_p4d_folded() into a different header per Kirill/Ingo
+- Updated the config option comment per Ingo and dropped 'kernel module' reference
+- Updated the commit message and dropped 'kernel module' reference
+- Changed DEBUG_ARCH_PGTABLE_TEST into DEBUG_VM_PGTABLE per Ingo
+- Moved config option from mm/Kconfig.debug into lib/Kconfig.debug
+- Renamed core test function arch_pgtable_tests() as debug_vm_pgtable()
+- Renamed mm/arch_pgtable_test.c as mm/debug_vm_pgtable.c
+- debug_vm_pgtable() gets called from kernel_init_freeable() after init_mm_internals()
+- Added an entry in Documentation/features/debug/ per Ingo
+- Enabled the test on arm64 and x86 platforms for now
 
-- regularize the linker names for PT_NOTE and PT_LOAD program headers
-  (to "note" and "text" respectively)
-- regularize restoration of linker section to program header assignment
-  (when PT_NOTE exists)
-- move NOTES into RO_DATA
-- finish macro naming conversions for RO_DATA and RW_DATA
-- move EXCEPTION_TABLE into RO_DATA on architectures where this is clear
-- clean up some x86-specific reporting of kernel memory resources
-- switch x86 linker fill byte from x90 (NOP) to 0xcc (INT3), just because
-  I finally realized what that trailing ": 0x9090" meant -- and we should
-  trap, not slide, if execution lands in section padding
+Changes in V4: (https://patchwork.kernel.org/project/linux-mm/list/?series3465)
 
-Thanks!
+- Disable DEBUG_ARCH_PGTABLE_TEST for ARM and IA64 platforms
 
--Kees
+Changes in V3: (https://lore.kernel.org/patchwork/project/lkml/list/?seriesA1216)
 
+- Changed test trigger from module format into late_initcall()
+- Marked all functions with __init to be freed after completion
+- Changed all __PGTABLE_PXX_FOLDED checks as mm_pxx_folded()
+- Folded in PPC32 fixes from Christophe
 
-Kees Cook (29):
-  powerpc: Rename "notes" PT_NOTE to "note"
-  powerpc: Remove PT_NOTE workaround
-  powerpc: Rename PT_LOAD identifier "kernel" to "text"
-  alpha: Rename PT_LOAD identifier "kernel" to "text"
-  ia64: Rename PT_LOAD identifier "code" to "text"
-  s390: Move RO_DATA into "text" PT_LOAD Program Header
-  x86: Restore "text" Program Header with dummy section
-  vmlinux.lds.h: Provide EMIT_PT_NOTE to indicate export of .notes
-  vmlinux.lds.h: Move Program Header restoration into NOTES macro
-  vmlinux.lds.h: Move NOTES into RO_DATA
-  vmlinux.lds.h: Replace RODATA with RO_DATA
-  vmlinux.lds.h: Replace RO_DATA_SECTION with RO_DATA
-  vmlinux.lds.h: Replace RW_DATA_SECTION with RW_DATA
-  vmlinux.lds.h: Allow EXCEPTION_TABLE to live in RO_DATA
-  x86: Actually use _etext for end of text segment
-  x86: Move EXCEPTION_TABLE to RO_DATA segment
-  alpha: Move EXCEPTION_TABLE to RO_DATA segment
-  arm64: Move EXCEPTION_TABLE to RO_DATA segment
-  c6x: Move EXCEPTION_TABLE to RO_DATA segment
-  h8300: Move EXCEPTION_TABLE to RO_DATA segment
-  ia64: Move EXCEPTION_TABLE to RO_DATA segment
-  microblaze: Move EXCEPTION_TABLE to RO_DATA segment
-  parisc: Move EXCEPTION_TABLE to RO_DATA segment
-  powerpc: Move EXCEPTION_TABLE to RO_DATA segment
-  xtensa: Move EXCEPTION_TABLE to RO_DATA segment
-  x86/mm: Remove redundant &s on addresses
-  x86/mm: Report which part of kernel image is freed
-  x86/mm: Report actual image regions in /proc/iomem
-  x86: Use INT3 instead of NOP for linker fill bytes
+Changes in V2:
 
- arch/alpha/kernel/vmlinux.lds.S      | 18 +++++-----
- arch/arc/kernel/vmlinux.lds.S        |  6 ++--
- arch/arm/kernel/vmlinux-xip.lds.S    |  4 +--
- arch/arm/kernel/vmlinux.lds.S        |  4 +--
- arch/arm64/kernel/vmlinux.lds.S      | 10 +++---
- arch/c6x/kernel/vmlinux.lds.S        |  8 ++---
- arch/csky/kernel/vmlinux.lds.S       |  5 ++-
- arch/h8300/kernel/vmlinux.lds.S      |  9 ++---
- arch/hexagon/kernel/vmlinux.lds.S    |  5 ++-
- arch/ia64/kernel/vmlinux.lds.S       | 20 +++++------
- arch/m68k/kernel/vmlinux-nommu.lds   |  4 +--
- arch/m68k/kernel/vmlinux-std.lds     |  2 +-
- arch/m68k/kernel/vmlinux-sun3.lds    |  2 +-
- arch/microblaze/kernel/vmlinux.lds.S |  8 ++---
- arch/mips/kernel/vmlinux.lds.S       | 15 ++++----
- arch/nds32/kernel/vmlinux.lds.S      |  5 ++-
- arch/nios2/kernel/vmlinux.lds.S      |  5 ++-
- arch/openrisc/kernel/vmlinux.lds.S   |  7 ++--
- arch/parisc/kernel/vmlinux.lds.S     | 11 +++---
- arch/powerpc/kernel/vmlinux.lds.S    | 37 ++++---------------
- arch/riscv/kernel/vmlinux.lds.S      |  5 ++-
- arch/s390/kernel/vmlinux.lds.S       | 12 +++----
- arch/sh/kernel/vmlinux.lds.S         |  3 +-
- arch/sparc/kernel/vmlinux.lds.S      |  3 +-
- arch/um/include/asm/common.lds.S     |  3 +-
- arch/unicore32/kernel/vmlinux.lds.S  |  5 ++-
- arch/x86/include/asm/processor.h     |  2 +-
- arch/x86/include/asm/sections.h      |  1 -
- arch/x86/kernel/setup.c              | 12 ++++++-
- arch/x86/kernel/vmlinux.lds.S        | 16 ++++-----
- arch/x86/mm/init.c                   |  8 ++---
- arch/x86/mm/init_64.c                | 16 +++++----
- arch/x86/mm/pti.c                    |  2 +-
- arch/xtensa/kernel/vmlinux.lds.S     |  8 ++---
- include/asm-generic/vmlinux.lds.h    | 53 ++++++++++++++++++++--------
- 35 files changed, 159 insertions(+), 175 deletions(-)
+https://lore.kernel.org/linux-mm/1568268173-31302-1-git-send-email-anshuman.khandual@arm.com/T/#t
+
+- Fixed small typo error in MODULE_DESCRIPTION()
+- Fixed m64k build problems for lvalue concerns in pmd_xxx_tests()
+- Fixed dynamic page table level folding problems on x86 as per Kirril
+- Fixed second pointers during pxx_populate_tests() per Kirill and Gerald
+- Allocate and free pte table with pte_alloc_one/pte_free per Kirill
+- Modified pxx_clear_tests() to accommodate s390 lower 12 bits situation
+- Changed RANDOM_NZVALUE value from 0xbe to 0xff
+- Changed allocation, usage, free sequence for saved_ptep
+- Renamed VMA_FLAGS as VMFLAGS
+- Implemented a new method for random vaddr generation
+- Implemented some other cleanups
+- Dropped extern reference to mm_alloc()
+- Created and exported new alloc_gigantic_page_order()
+- Dropped the custom allocator and used new alloc_gigantic_page_order()
+
+Changes in V1:
+
+https://lore.kernel.org/linux-mm/1567497706-8649-1-git-send-email-anshuman.khandual@arm.com/
+
+- Added fallback mechanism for PMD aligned memory allocation failure
+
+Changes in RFC V2:
+
+https://lore.kernel.org/linux-mm/1565335998-22553-1-git-send-email-anshuman.khandual@arm.com/T/#u
+
+- Moved test module and it's config from lib/ to mm/
+- Renamed config TEST_ARCH_PGTABLE as DEBUG_ARCH_PGTABLE_TEST
+- Renamed file from test_arch_pgtable.c to arch_pgtable_test.c
+- Added relevant MODULE_DESCRIPTION() and MODULE_AUTHOR() details
+- Dropped loadable module config option
+- Basic tests now use memory blocks with required size and alignment
+- PUD aligned memory block gets allocated with alloc_contig_range()
+- If PUD aligned memory could not be allocated it falls back on PMD aligned
+  memory block from page allocator and pud_* tests are skipped
+- Clear and populate tests now operate on real in memory page table entries
+- Dummy mm_struct gets allocated with mm_alloc()
+- Dummy page table entries get allocated with [pud|pmd|pte]_alloc_[map]()
+- Simplified [p4d|pgd]_basic_tests(), now has random values in the entries
+
+Original RFC V1:
+
+https://lore.kernel.org/linux-mm/1564037723-26676-1-git-send-email-anshuman.khandual@arm.com/
+
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Vlastimil Babka <vbabka@suse.cz>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Mike Rapoport <rppt@linux.vnet.ibm.com>
+Cc: Jason Gunthorpe <jgg@ziepe.ca>
+Cc: Dan Williams <dan.j.williams@intel.com>
+Cc: Peter Zijlstra <peterz@infradead.org>
+Cc: Michal Hocko <mhocko@kernel.org>
+Cc: Mark Rutland <mark.rutland@arm.com>
+Cc: Mark Brown <broonie@kernel.org>
+Cc: Steven Price <Steven.Price@arm.com>
+Cc: Ard Biesheuvel <ard.biesheuvel@linaro.org>
+Cc: Masahiro Yamada <yamada.masahiro@socionext.com>
+Cc: Kees Cook <keescook@chromium.org>
+Cc: Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>
+Cc: Matthew Wilcox <willy@infradead.org>
+Cc: Sri Krishna chowdary <schowdary@nvidia.com>
+Cc: Dave Hansen <dave.hansen@intel.com>
+Cc: Russell King - ARM Linux <linux@armlinux.org.uk>
+Cc: Michael Ellerman <mpe@ellerman.id.au>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
+Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Vineet Gupta <vgupta@synopsys.com>
+Cc: James Hogan <jhogan@kernel.org>
+Cc: Paul Burton <paul.burton@mips.com>
+Cc: Ralf Baechle <ralf@linux-mips.org>
+Cc: Kirill A. Shutemov <kirill@shutemov.name>
+Cc: Gerald Schaefer <gerald.schaefer@de.ibm.com>
+Cc: Christophe Leroy <christophe.leroy@c-s.fr>
+Cc: Mike Kravetz <mike.kravetz@oracle.com>
+Cc: linux-snps-arc@lists.infradead.org
+Cc: linux-mips@vger.kernel.org
+Cc: linux-arm-kernel@lists.infradead.org
+Cc: linux-ia64@vger.kernel.org
+Cc: linuxppc-dev@lists.ozlabs.org
+Cc: linux-s390@vger.kernel.org
+Cc: linux-sh@vger.kernel.org
+Cc: sparclinux@vger.kernel.org
+Cc: x86@kernel.org
+Cc: linux-kernel@vger.kernel.org
+
+Anshuman Khandual (2):
+  mm/hugetlb: Make alloc_gigantic_page() available for general use
+  mm/debug: Add tests validating architecture page table helpers
+
+ .../debug/debug-vm-pgtable/arch-support.txt        |  34 ++
+ arch/arm64/Kconfig                                 |   1 +
+ arch/x86/Kconfig                                   |   1 +
+ arch/x86/include/asm/pgtable_64.h                  |   6 +
+ include/asm-generic/pgtable.h                      |   6 +
+ include/linux/hugetlb.h                            |   9 +
+ init/main.c                                        |   1 +
+ lib/Kconfig.debug                                  |  21 +
+ mm/Makefile                                        |   1 +
+ mm/debug_vm_pgtable.c                              | 438 +++++++++++++++++++++
+ mm/hugetlb.c                                       |  24 +-
+ 11 files changed, 540 insertions(+), 2 deletions(-)
+ create mode 100644 Documentation/features/debug/debug-vm-pgtable/arch-support.txt
+ create mode 100644 mm/debug_vm_pgtable.c
 
 -- 
-2.17.1
+2.7.4
