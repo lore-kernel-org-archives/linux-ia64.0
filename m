@@ -1,67 +1,43 @@
-From: David Hildenbrand <david@redhat.com>
-Date: Tue, 01 Oct 2019 14:40:11 +0000
-Subject: [PATCH v5 10/10] mm/memory_hotplug: Cleanup __remove_pages()
-Message-Id: <20191001144011.3801-11-david@redhat.com>
+From: Kees Cook <keescook@chromium.org>
+Date: Fri, 11 Oct 2019 00:06:02 +0000
+Subject: [PATCH v2 22/29] microblaze: Move EXCEPTION_TABLE to RO_DATA segment
+Message-Id: <20191011000609.29728-23-keescook@chromium.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191001144011.3801-1-david@redhat.com>
-In-Reply-To: <20191001144011.3801-1-david@redhat.com>
+References: <20191011000609.29728-1-keescook@chromium.org>
+In-Reply-To: <20191011000609.29728-1-keescook@chromium.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: linux-s390@vger.kernel.org, Michal Hocko <mhocko@suse.com>, linux-ia64@vger.kernel.org, Pavel Tatashin <pasha.tatashin@soleen.com>, linux-sh@vger.kernel.org, David Hildenbrand <david@redhat.com>, linux-mm@kvack.org, Wei Yang <richardw.yang@linux.intel.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, Dan Williams <dan.j.williams@intel.com>, linux-arm-kernel@lists.infradead.org, Oscar Salvador <osalvador@suse.de>
+To: Borislav Petkov <bp@alien8.de>
+Cc: Kees Cook <keescook@chromium.org>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Michael Ellerman <mpe@ellerman.id.au>, Heiko Carstens <heiko.carstens@de.ibm.com>, Will Deacon <will@kernel.org>, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linuxppc-dev@lists.ozlabs.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Michal Simek <monstr@monstr.eu>, linux-parisc@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org, linux-kernel@vger.kernel.org
 
-Let's drop the basically unused section stuff and simplify.
+Since the EXCEPTION_TABLE is read-only, collapse it into RO_DATA.
 
-Also, let's use a shorter variant to calculate the number of pages to
-the next section boundary.
-
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: Oscar Salvador <osalvador@suse.de>
-Cc: Michal Hocko <mhocko@suse.com>
-Cc: Pavel Tatashin <pasha.tatashin@soleen.com>
-Cc: Dan Williams <dan.j.williams@intel.com>
-Cc: Wei Yang <richardw.yang@linux.intel.com>
-Signed-off-by: David Hildenbrand <david@redhat.com>
+Signed-off-by: Kees Cook <keescook@chromium.org>
 ---
- mm/memory_hotplug.c | 17 ++++++-----------
- 1 file changed, 6 insertions(+), 11 deletions(-)
+ arch/microblaze/kernel/vmlinux.lds.S | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
-index ffb514e3b090..0fa99e5a657e 100644
---- a/mm/memory_hotplug.c
-+++ b/mm/memory_hotplug.c
-@@ -488,25 +488,20 @@ static void __remove_section(unsigned long pfn, unsigned long nr_pages,
- void __remove_pages(unsigned long pfn, unsigned long nr_pages,
- 		    struct vmem_altmap *altmap)
- {
-+	const unsigned long end_pfn = pfn + nr_pages;
-+	unsigned long cur_nr_pages;
- 	unsigned long map_offset = 0;
--	unsigned long nr, start_sec, end_sec;
+diff --git a/arch/microblaze/kernel/vmlinux.lds.S b/arch/microblaze/kernel/vmlinux.lds.S
+index b8efb08204a1..760cac41cbfe 100644
+--- a/arch/microblaze/kernel/vmlinux.lds.S
++++ b/arch/microblaze/kernel/vmlinux.lds.S
+@@ -11,6 +11,8 @@
+ OUTPUT_ARCH(microblaze)
+ ENTRY(microblaze_start)
  
- 	map_offset = vmem_altmap_offset(altmap);
++#define RO_EXCEPTION_TABLE_ALIGN	16
++
+ #include <asm/page.h>
+ #include <asm-generic/vmlinux.lds.h>
+ #include <asm/thread_info.h>
+@@ -52,7 +54,6 @@ SECTIONS {
  
- 	if (check_pfn_span(pfn, nr_pages, "remove"))
- 		return;
+ 	. = ALIGN(16);
+ 	RO_DATA(4096)
+-	EXCEPTION_TABLE(16)
  
--	start_sec = pfn_to_section_nr(pfn);
--	end_sec = pfn_to_section_nr(pfn + nr_pages - 1);
--	for (nr = start_sec; nr <= end_sec; nr++) {
--		unsigned long pfns;
--
-+	for (; pfn < end_pfn; pfn += cur_nr_pages) {
- 		cond_resched();
--		pfns = min(nr_pages, PAGES_PER_SECTION
--				- (pfn & ~PAGE_SECTION_MASK));
--		__remove_section(pfn, pfns, map_offset, altmap);
--		pfn += pfns;
--		nr_pages -= pfns;
-+		/* Select all remaining pages up to the next section boundary */
-+		cur_nr_pages = min(end_pfn - pfn, -(pfn | PAGE_SECTION_MASK));
-+		__remove_section(pfn, cur_nr_pages, map_offset, altmap);
- 		map_offset = 0;
- 	}
- }
+ 	/*
+ 	 * sdata2 section can go anywhere, but must be word aligned
 -- 
-2.21.0
+2.17.1
