@@ -1,42 +1,119 @@
-From: Kees Cook <keescook@chromium.org>
-Date: Tue, 29 Oct 2019 21:13:43 +0000
-Subject: [PATCH v3 21/29] ia64: Move EXCEPTION_TABLE to RO_DATA segment
-Message-Id: <20191029211351.13243-22-keescook@chromium.org>
+From: Yian Chen <yian.chen@intel.com>
+Date: Thu, 17 Oct 2019 11:39:19 +0000
+Subject: [PATCH v2] iommu/vt-d: Check VT-d RMRR region in BIOS is reported as reserved
+Message-Id: <20191017113919.25424-1-yian.chen@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191029211351.13243-1-keescook@chromium.org>
-In-Reply-To: <20191029211351.13243-1-keescook@chromium.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Borislav Petkov <bp@alien8.de>
-Cc: Kees Cook <keescook@chromium.org>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Segher Boessenkool <segher@kernel.crashing.org>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Michael Ellerman <mpe@ellerman.id.au>, Heiko Carstens <heiko.carstens@de.ibm.com>, Will Deacon <will@kernel.org>, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linuxppc-dev@lists.ozlabs.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Michal Simek <monstr@monstr.eu>
+To: iommu@lists.linux-foundation.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, David Woodhouse <dwmw2@infradead.org>, Joerg Roedel <joro@8bytes.org>, Ashok Raj <ashok.raj@intel.com>, Sohil Mehta <sohil.mehta@intel.com>, Tony Luck <tony.luck@intel.com>, Lu Baolu <baolu.lu@linux.intel.com>, Ravi Shankar <ravi.v.shankar@intel.com>
+Cc: Yian Chen <yian.chen@intel.com>
 
-Since the EXCEPTION_TABLE is read-only, collapse it into RO_DATA.
+VT-d RMRR (Reserved Memory Region Reporting) regions are reserved
+for device use only and should not be part of allocable memory pool of OS.
 
-Signed-off-by: Kees Cook <keescook@chromium.org>
+BIOS e820_table reports complete memory map to OS, including OS usable
+memory ranges and BIOS reserved memory ranges etc.
+
+x86 BIOS may not be trusted to include RMRR regions as reserved type
+of memory in its e820 memory map, hence validate every RMRR entry
+with the e820 memory map to make sure the RMRR regions will not be
+used by OS for any other purposes.
+
+ia64 EFI is working fine so implement RMRR validation as a dummy function
+
+Reviewed-by: Lu Baolu <baolu.lu@linux.intel.com>
+Reviewed-by: Sohil Mehta <sohil.mehta@intel.com>
+Signed-off-by: Yian Chen <yian.chen@intel.com>
 ---
- arch/ia64/kernel/vmlinux.lds.S | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+v2:
+- return -EINVAL instead of -EFAULT when there is an error
+---
+ arch/ia64/include/asm/iommu.h |  5 +++++
+ arch/x86/include/asm/iommu.h  | 18 ++++++++++++++++++
+ drivers/iommu/intel-iommu.c   |  8 +++++++-
+ 3 files changed, 30 insertions(+), 1 deletion(-)
 
-diff --git a/arch/ia64/kernel/vmlinux.lds.S b/arch/ia64/kernel/vmlinux.lds.S
-index 11d5115bc44d..1ec6b703c5b4 100644
---- a/arch/ia64/kernel/vmlinux.lds.S
-+++ b/arch/ia64/kernel/vmlinux.lds.S
-@@ -6,6 +6,7 @@
- #include <asm/thread_info.h>
+diff --git a/arch/ia64/include/asm/iommu.h b/arch/ia64/include/asm/iommu.h
+index 7904f591a79b..eb0db20c9d4c 100644
+--- a/arch/ia64/include/asm/iommu.h
++++ b/arch/ia64/include/asm/iommu.h
+@@ -2,6 +2,8 @@
+ #ifndef _ASM_IA64_IOMMU_H
+ #define _ASM_IA64_IOMMU_H 1
  
- #define EMITS_PT_NOTE
-+#define RO_EXCEPTION_TABLE_ALIGN	16
++#include <linux/acpi.h>
++
+ /* 10 seconds */
+ #define DMAR_OPERATION_TIMEOUT (((cycles_t) local_cpu_data->itc_freq)*10)
  
- #include <asm-generic/vmlinux.lds.h>
+@@ -9,6 +11,9 @@ extern void no_iommu_init(void);
+ #ifdef	CONFIG_INTEL_IOMMU
+ extern int force_iommu, no_iommu;
+ extern int iommu_detected;
++
++static inline int __init
++arch_rmrr_sanity_check(struct acpi_dmar_reserved_memory *rmrr) { return 0; }
+ #else
+ #define no_iommu		(1)
+ #define iommu_detected		(0)
+diff --git a/arch/x86/include/asm/iommu.h b/arch/x86/include/asm/iommu.h
+index b91623d521d9..bf1ed2ddc74b 100644
+--- a/arch/x86/include/asm/iommu.h
++++ b/arch/x86/include/asm/iommu.h
+@@ -2,10 +2,28 @@
+ #ifndef _ASM_X86_IOMMU_H
+ #define _ASM_X86_IOMMU_H
  
-@@ -70,7 +71,6 @@ SECTIONS {
- 	/*
- 	 * Read-only data
- 	 */
--	EXCEPTION_TABLE(16)
++#include <linux/acpi.h>
++
++#include <asm/e820/api.h>
++
+ extern int force_iommu, no_iommu;
+ extern int iommu_detected;
  
- 	/* MCA table */
- 	. = ALIGN(16);
+ /* 10 seconds */
+ #define DMAR_OPERATION_TIMEOUT ((cycles_t) tsc_khz*10*1000)
+ 
++static inline int __init
++arch_rmrr_sanity_check(struct acpi_dmar_reserved_memory *rmrr)
++{
++	u64 start = rmrr->base_address;
++	u64 end = rmrr->end_address + 1;
++
++	if (e820__mapped_all(start, end, E820_TYPE_RESERVED))
++		return 0;
++
++	pr_err(FW_BUG "No firmware reserved region can cover this RMRR [%#018Lx-%#018Lx], contact BIOS vendor for fixes\n",
++	       start, end - 1);
++	return -EINVAL;
++}
++
+ #endif /* _ASM_X86_IOMMU_H */
+diff --git a/drivers/iommu/intel-iommu.c b/drivers/iommu/intel-iommu.c
+index 3f974919d3bd..722290014143 100644
+--- a/drivers/iommu/intel-iommu.c
++++ b/drivers/iommu/intel-iommu.c
+@@ -4306,13 +4306,19 @@ int __init dmar_parse_one_rmrr(struct acpi_dmar_header *header, void *arg)
+ {
+ 	struct acpi_dmar_reserved_memory *rmrr;
+ 	struct dmar_rmrr_unit *rmrru;
++	int ret;
++
++	rmrr = (struct acpi_dmar_reserved_memory *)header;
++	ret = arch_rmrr_sanity_check(rmrr);
++	if (ret)
++		return ret;
+ 
+ 	rmrru = kzalloc(sizeof(*rmrru), GFP_KERNEL);
+ 	if (!rmrru)
+ 		goto out;
+ 
+ 	rmrru->hdr = header;
+-	rmrr = (struct acpi_dmar_reserved_memory *)header;
++
+ 	rmrru->base_address = rmrr->base_address;
+ 	rmrru->end_address = rmrr->end_address;
+ 
 -- 
 2.17.1
