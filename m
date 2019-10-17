@@ -1,28 +1,39 @@
-From: David Hildenbrand <david@redhat.com>
-Date: Wed, 16 Oct 2019 14:01:44 +0000
-Subject: Re: [PATCH v6 06/10] mm/memory_hotplug: Poison memmap in remove_pfn_range_from_zone()
-Message-Id: <f5159e91-cef3-de65-af59-7c81e7c84d6d@redhat.com>
+From: Christoph Hellwig <hch@lst.de>
+Date: Thu, 17 Oct 2019 17:45:38 +0000
+Subject: [PATCH 05/21] alpha: remove the unused __ioremap wrapper
+Message-Id: <20191017174554.29840-6-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191006085646.5768-1-david@redhat.com>
- <20191006085646.5768-7-david@redhat.com>
-In-Reply-To: <20191006085646.5768-7-david@redhat.com>
+References: <20191017174554.29840-1-hch@lst.de>
+In-Reply-To: <20191017174554.29840-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: linux-s390@vger.kernel.org, Michal Hocko <mhocko@suse.com>, linux-ia64@vger.kernel.org, Pavel Tatashin <pasha.tatashin@soleen.com>, linux-sh@vger.kernel.org, x86@kernel.org, linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, Dan Williams <dan.j.williams@intel.com>, linux-arm-kernel@lists.infradead.org, Oscar Salvador <osalvador@suse.de>
+To: Arnd Bergmann <arnd@arndb.de>, Guo Ren <guoren@kernel.org>, Michal Simek <monstr@monstr.eu>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, x86@kernel.org
+Cc: linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, nios2-dev@lists.rocketboards.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-mtd@lists.infradead.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On 06.10.19 10:56, David Hildenbrand wrote:
-> Let's poison the pages similar to when adding new memory in
-> sparse_add_section(). Also call remove_pfn_range_from_zone() from
-> memunmap_pages(), so we can poison the memmap from there as well.
-> 
-> While at it, calculate the pfn in memunmap_pages() only once.
+No need for the additional namespace pollution.
 
-FWIW, this comment is stale and could be dropped :)
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ arch/alpha/include/asm/io.h | 6 ------
+ 1 file changed, 6 deletions(-)
 
+diff --git a/arch/alpha/include/asm/io.h b/arch/alpha/include/asm/io.h
+index af2c0063dc75..1989b946a28d 100644
+--- a/arch/alpha/include/asm/io.h
++++ b/arch/alpha/include/asm/io.h
+@@ -283,12 +283,6 @@ static inline void __iomem *ioremap(unsigned long port, unsigned long size)
+ 	return IO_CONCAT(__IO_PREFIX,ioremap) (port, size);
+ }
+ 
+-static inline void __iomem *__ioremap(unsigned long port, unsigned long size,
+-				      unsigned long flags)
+-{
+-	return ioremap(port, size);
+-}
+-
+ static inline void __iomem * ioremap_nocache(unsigned long offset,
+ 					     unsigned long size)
+ {
 -- 
-
-Thanks,
-
-David / dhildenb
+2.20.1
