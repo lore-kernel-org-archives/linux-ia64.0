@@ -1,52 +1,65 @@
-From: Kees Cook <keescook@chromium.org>
-Date: Fri, 11 Oct 2019 16:09:22 +0000
-Subject: Re: [PATCH v2 02/29] powerpc: Remove PT_NOTE workaround
-Message-Id: <201910110908.040009F27@keescook>
+From: Christoph Hellwig <hch@lst.de>
+Date: Thu, 17 Oct 2019 17:45:48 +0000
+Subject: [PATCH 15/21] nios2: remove __iounmap
+Message-Id: <20191017174554.29840-16-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191011000609.29728-1-keescook@chromium.org>
- <20191011000609.29728-3-keescook@chromium.org>
- <878sprx1br.fsf@mpe.ellerman.id.au>
-In-Reply-To: <878sprx1br.fsf@mpe.ellerman.id.au>
+References: <20191017174554.29840-1-hch@lst.de>
+In-Reply-To: <20191017174554.29840-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Michael Ellerman <mpe@ellerman.id.au>
-Cc: Borislav Petkov <bp@alien8.de>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Heiko Carstens <heiko.carstens@de.ibm.com>, Will Deacon <will@kernel.org>, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linuxppc-dev@lists.ozlabs.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Michal Simek <monstr@monstr.eu>, linux-parisc@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org, linux-kernel@vger.kernel.org, Joel Stanley <joel@jms.id.au>, Segher Boessenkool <segher@kernel.crashing.org>
+To: Arnd Bergmann <arnd@arndb.de>, Guo Ren <guoren@kernel.org>, Michal Simek <monstr@monstr.eu>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, x86@kernel.org
+Cc: linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, nios2-dev@lists.rocketboards.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-mtd@lists.infradead.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Fri, Oct 11, 2019 at 05:07:04PM +1100, Michael Ellerman wrote:
-> Kees Cook <keescook@chromium.org> writes:
-> > In preparation for moving NOTES into RO_DATA, remove the PT_NOTE
-> > workaround since the kernel requires at least gcc 4.6 now.
-> >
-> > Signed-off-by: Kees Cook <keescook@chromium.org>
-> > ---
-> >  arch/powerpc/kernel/vmlinux.lds.S | 24 ++----------------------
-> >  1 file changed, 2 insertions(+), 22 deletions(-)
-> 
-> Acked-by: Michael Ellerman <mpe@ellerman.id.au>
+No need to indirect iounmap for nios2.
 
-Thanks!
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ arch/nios2/include/asm/io.h | 7 +------
+ arch/nios2/mm/ioremap.c     | 6 +++---
+ 2 files changed, 4 insertions(+), 9 deletions(-)
 
-> For the archives, Joel tried a similar patch a while back which caused
-> some problems, see:
-> 
->   https://lore.kernel.org/linuxppc-dev/20190321003253.22100-1-joel@jms.id.au/
-> 
-> and a v2:
-> 
->   https://lore.kernel.org/linuxppc-dev/20190329064453.12761-1-joel@jms.id.au/
-> 
-> This is similar to his v2. The only outstanding comment on his v2 was
-> from Segher:
->   (And I do not know if there are any tools that expect the notes in a phdr,
->   or even specifically the second phdr).
-> 
-> But this patch solves that by not changing the note.
-
-Ah yes. Agreed: I'm retaining the note and dropping the workarounds.
-FWIW, this builds happily for me in my tests.
-
--Kees
-
+diff --git a/arch/nios2/include/asm/io.h b/arch/nios2/include/asm/io.h
+index d108937c321e..746853ac7d8d 100644
+--- a/arch/nios2/include/asm/io.h
++++ b/arch/nios2/include/asm/io.h
+@@ -26,12 +26,7 @@
+ #define writel_relaxed(x, addr)	writel(x, addr)
+ 
+ void __iomem *ioremap(unsigned long physaddr, unsigned long size);
+-extern void __iounmap(void __iomem *addr);
+-
+-static inline void iounmap(void __iomem *addr)
+-{
+-	__iounmap(addr);
+-}
++void iounmap(void __iomem *addr);
+ 
+ /* Pages to physical address... */
+ #define page_to_phys(page)	virt_to_phys(page_to_virt(page))
+diff --git a/arch/nios2/mm/ioremap.c b/arch/nios2/mm/ioremap.c
+index 7a1a27f3daa3..b56af759dcdf 100644
+--- a/arch/nios2/mm/ioremap.c
++++ b/arch/nios2/mm/ioremap.c
+@@ -157,11 +157,11 @@ void __iomem *ioremap(unsigned long phys_addr, unsigned long size)
+ EXPORT_SYMBOL(ioremap);
+ 
+ /*
+- * __iounmap unmaps nearly everything, so be careful
++ * iounmap unmaps nearly everything, so be careful
+  * it doesn't free currently pointer/page tables anymore but it
+  * wasn't used anyway and might be added later.
+  */
+-void __iounmap(void __iomem *addr)
++void iounmap(void __iomem *addr)
+ {
+ 	struct vm_struct *p;
+ 
+@@ -173,4 +173,4 @@ void __iounmap(void __iomem *addr)
+ 		pr_err("iounmap: bad address %p\n", addr);
+ 	kfree(p);
+ }
+-EXPORT_SYMBOL(__iounmap);
++EXPORT_SYMBOL(iounmap);
 -- 
-Kees Cook
+2.20.1
