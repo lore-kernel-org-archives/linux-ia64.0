@@ -1,75 +1,89 @@
-From: Kees Cook <keescook@chromium.org>
-Date: Tue, 01 Oct 2019 15:48:11 +0000
-Subject: Re: [PATCH 18/29] arm64: Move EXCEPTION_TABLE to RO_DATA segment
-Message-Id: <201910010846.D0712C1@keescook>
+From: Christoph Hellwig <hch@lst.de>
+Date: Thu, 17 Oct 2019 17:45:43 +0000
+Subject: [PATCH 10/21] asm-generic: ioremap_uc should behave the same with and without MMU
+Message-Id: <20191017174554.29840-11-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20190926175602.33098-1-keescook@chromium.org>
- <20190926175602.33098-19-keescook@chromium.org>
- <20191001090355.blnaqlf4rfzucpb2@willie-the-truck>
-In-Reply-To: <20191001090355.blnaqlf4rfzucpb2@willie-the-truck>
+References: <20191017174554.29840-1-hch@lst.de>
+In-Reply-To: <20191017174554.29840-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Will Deacon <will@kernel.org>
-Cc: Thomas Gleixner <tglx@linutronix.de>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, "H. Peter Anvin" <hpa@zytor.com>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Michal Simek <monstr@monstr.eu>, linux-parisc@vger.kernel.org, linux-xtensa@linux-xtensa.org, x86@kernel.org, linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>, Guo Ren <guoren@kernel.org>, Michal Simek <monstr@monstr.eu>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, x86@kernel.org
+Cc: linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, nios2-dev@lists.rocketboards.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-mtd@lists.infradead.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Tue, Oct 01, 2019 at 10:03:56AM +0100, Will Deacon wrote:
-> Hi Kees,
-> 
-> On Thu, Sep 26, 2019 at 10:55:51AM -0700, Kees Cook wrote:
-> > The EXCEPTION_TABLE is read-only, so collapse it into RO_DATA.
-> > 
-> > Signed-off-by: Kees Cook <keescook@chromium.org>
-> > ---
-> >  arch/arm64/kernel/vmlinux.lds.S | 6 ++++--
-> >  1 file changed, 4 insertions(+), 2 deletions(-)
-> > 
-> > diff --git a/arch/arm64/kernel/vmlinux.lds.S b/arch/arm64/kernel/vmlinux.lds.S
-> > index 81d94e371c95..c6ba2eee0ee8 100644
-> > --- a/arch/arm64/kernel/vmlinux.lds.S
-> > +++ b/arch/arm64/kernel/vmlinux.lds.S
-> > @@ -5,6 +5,8 @@
-> >   * Written by Martin Mares <mj@atrey.karlin.mff.cuni.cz>
-> >   */
-> >  
-> > +#define RO_DATA_EXCEPTION_TABLE_ALIGN	8
-> > +
-> >  #include <asm-generic/vmlinux.lds.h>
-> >  #include <asm/cache.h>
-> >  #include <asm/kernel-pgtable.h>
-> > @@ -135,8 +137,8 @@ SECTIONS
-> >  	. = ALIGN(SEGMENT_ALIGN);
-> >  	_etext = .;			/* End of text section */
-> >  
-> > -	RO_DATA(PAGE_SIZE)		/* everything from this point to     */
-> > -	EXCEPTION_TABLE(8)		/* __init_begin will be marked RO NX */
-> > +	/* everything from this point to __init_begin will be marked RO NX */
-> > +	RO_DATA(PAGE_SIZE)
-> >  
-> >  	. = ALIGN(PAGE_SIZE);
-> 
-> Do you reckon it would be worth merging this last ALIGN directive into the
-> RO_DATA definition too? Given that we want to map the thing read-only, it
-> really has to be aligned either side.
+Whatever reason there is for the existence of ioremap_uc, and the fact
+that it returns NULL by default on architectures with an MMU applies
+equally to nommu architectures, so don't provide different defaults.
 
-Actually, taking a closer look, this appears to be redundant: RO_DATA()
-ends with:
+In practice the difference is meaningless as the only portable driver
+that uses ioremap_uc is atyfb which probably doesn't show up on nommu
+devices.
 
-	. = ALIGN(align)
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ include/asm-generic/io.h | 36 ++++++++++++++++--------------------
+ 1 file changed, 16 insertions(+), 20 deletions(-)
 
-(where "align" is the "PAGE_SIZE" argument to RO_DATA())
-
-> Anyway, that's only a nit, so:
-> 
-> Acked-by: Will Deacon <will@kernel.org>
-
-Thanks!
-
-> P.S. Please CC the arm64 maintainers on arm64 patches -- I nearly missed
-> this one!
-
-Okay, I can re-expand my list. I originally had done this but it was
-getting to be a rather large set of people. :)
-
+diff --git a/include/asm-generic/io.h b/include/asm-generic/io.h
+index d02806513670..a98ed6325727 100644
+--- a/include/asm-generic/io.h
++++ b/include/asm-generic/io.h
+@@ -935,18 +935,7 @@ static inline void *phys_to_virt(unsigned long address)
+  * defined your own ioremap_*() variant you must then declare your own
+  * ioremap_*() variant as defined to itself to avoid the default NULL return.
+  */
+-
+-#ifdef CONFIG_MMU
+-
+-#ifndef ioremap_uc
+-#define ioremap_uc ioremap_uc
+-static inline void __iomem *ioremap_uc(phys_addr_t offset, size_t size)
+-{
+-	return NULL;
+-}
+-#endif
+-
+-#else /* !CONFIG_MMU */
++#ifndef CONFIG_MMU
+ 
+ /*
+  * Change "struct page" to physical address.
+@@ -980,14 +969,6 @@ static inline void __iomem *ioremap_nocache(phys_addr_t offset, size_t size)
+ }
+ #endif
+ 
+-#ifndef ioremap_uc
+-#define ioremap_uc ioremap_uc
+-static inline void __iomem *ioremap_uc(phys_addr_t offset, size_t size)
+-{
+-	return ioremap_nocache(offset, size);
+-}
+-#endif
+-
+ #ifndef ioremap_wc
+ #define ioremap_wc ioremap_wc
+ static inline void __iomem *ioremap_wc(phys_addr_t offset, size_t size)
+@@ -1004,6 +985,21 @@ static inline void __iomem *ioremap_wt(phys_addr_t offset, size_t size)
+ }
+ #endif
+ 
++/*
++ * ioremap_uc is special in that we do require an explicit architecture
++ * implementation.  In general you do now want to use this function in a
++ * driver and use plain ioremap, which is uncached by default.  Similarly
++ * architectures should not implement it unless they have a very good
++ * reason.
++ */
++#ifndef ioremap_uc
++#define ioremap_uc ioremap_uc
++static inline void __iomem *ioremap_uc(phys_addr_t offset, size_t size)
++{
++	return NULL;
++}
++#endif
++
+ #ifdef CONFIG_HAS_IOPORT_MAP
+ #ifndef CONFIG_GENERIC_IOMAP
+ #ifndef ioport_map
 -- 
-Kees Cook
+2.20.1
