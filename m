@@ -1,356 +1,271 @@
-From: Kees Cook <keescook@chromium.org>
-Date: Tue, 29 Oct 2019 21:13:35 +0000
-Subject: [PATCH v3 13/29] vmlinux.lds.h: Replace RW_DATA_SECTION with RW_DATA
-Message-Id: <20191029211351.13243-14-keescook@chromium.org>
+From: Christian Brauner <christian.brauner@ubuntu.com>
+Date: Fri, 25 Oct 2019 12:28:50 +0000
+Subject: [REVIEW PATCH v5 2/3] arch: wire-up close_range()
+Message-Id: <20191025122851.30182-3-christian.brauner@ubuntu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191029211351.13243-1-keescook@chromium.org>
-In-Reply-To: <20191029211351.13243-1-keescook@chromium.org>
+References: <20191025122851.30182-1-christian.brauner@ubuntu.com>
+In-Reply-To: <20191025122851.30182-1-christian.brauner@ubuntu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Borislav Petkov <bp@alien8.de>
-Cc: Kees Cook <keescook@chromium.org>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Segher Boessenkool <segher@kernel.crashing.org>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Michael Ellerman <mpe@ellerman.id.au>, Heiko Carstens <heiko.carstens@de.ibm.com>, Will Deacon <will@kernel.org>, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linuxppc-dev@lists.ozlabs.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Michal Simek <monstr@monstr.eu>
+To: viro@zeniv.linux.org.uk, linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org, torvalds@linux-foundation.org, fweimer@redhat.com
+Cc: jannh@google.com, oleg@redhat.com, tglx@linutronix.de, arnd@arndb.de, shuah@kernel.org, dhowells@redhat.com, tkjos@android.com, ldv@altlinux.org, miklos@szeredi.hu, Christian Brauner <christian.brauner@ubuntu.com>, Michael Ellerman <mpe@ellerman.id.au>, linux-api@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org, x86@kernel.org
 
-Rename RW_DATA_SECTION to RW_DATA. (Calling this a "section" is a lie,
-since it's multiple sections and section flags cannot be applied to
-the macro.)
+This wires up the close_range() syscall into all arches at once.
 
-Signed-off-by: Kees Cook <keescook@chromium.org>
-Acked-by: Heiko Carstens <heiko.carstens@de.ibm.com> # s390
-Acked-by: Geert Uytterhoeven <geert@linux-m68k.org> # m68k
+Suggested-by: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: Christian Brauner <christian.brauner@ubuntu.com>
+Reviewed-by: Oleg Nesterov <oleg@redhat.com>
+Acked-by: Arnd Bergmann <arnd@arndb.de>
+Acked-by: Michael Ellerman <mpe@ellerman.id.au> (powerpc)
+Cc: Jann Horn <jannh@google.com>
+Cc: David Howells <dhowells@redhat.com>
+Cc: Dmitry V. Levin <ldv@altlinux.org>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: Al Viro <viro@zeniv.linux.org.uk>
+Cc: Florian Weimer <fweimer@redhat.com>
+Cc: linux-api@vger.kernel.org
+Cc: linux-alpha@vger.kernel.org
+Cc: linux-arm-kernel@lists.infradead.org
+Cc: linux-ia64@vger.kernel.org
+Cc: linux-m68k@lists.linux-m68k.org
+Cc: linux-mips@vger.kernel.org
+Cc: linux-parisc@vger.kernel.org
+Cc: linuxppc-dev@lists.ozlabs.org
+Cc: linux-s390@vger.kernel.org
+Cc: linux-sh@vger.kernel.org
+Cc: sparclinux@vger.kernel.org
+Cc: linux-xtensa@linux-xtensa.org
+Cc: linux-arch@vger.kernel.org
+Cc: x86@kernel.org
 ---
- arch/alpha/kernel/vmlinux.lds.S      | 2 +-
- arch/arc/kernel/vmlinux.lds.S        | 2 +-
- arch/arm/kernel/vmlinux-xip.lds.S    | 2 +-
- arch/arm/kernel/vmlinux.lds.S        | 2 +-
- arch/arm64/kernel/vmlinux.lds.S      | 2 +-
- arch/csky/kernel/vmlinux.lds.S       | 2 +-
- arch/h8300/kernel/vmlinux.lds.S      | 2 +-
- arch/hexagon/kernel/vmlinux.lds.S    | 2 +-
- arch/m68k/kernel/vmlinux-nommu.lds   | 2 +-
- arch/m68k/kernel/vmlinux-std.lds     | 2 +-
- arch/m68k/kernel/vmlinux-sun3.lds    | 2 +-
- arch/microblaze/kernel/vmlinux.lds.S | 2 +-
- arch/nds32/kernel/vmlinux.lds.S      | 2 +-
- arch/nios2/kernel/vmlinux.lds.S      | 2 +-
- arch/openrisc/kernel/vmlinux.lds.S   | 2 +-
- arch/parisc/kernel/vmlinux.lds.S     | 2 +-
- arch/riscv/kernel/vmlinux.lds.S      | 2 +-
- arch/s390/kernel/vmlinux.lds.S       | 2 +-
- arch/sh/kernel/vmlinux.lds.S         | 2 +-
- arch/sparc/kernel/vmlinux.lds.S      | 2 +-
- arch/unicore32/kernel/vmlinux.lds.S  | 2 +-
- arch/xtensa/kernel/vmlinux.lds.S     | 2 +-
- include/asm-generic/vmlinux.lds.h    | 4 ++--
- 23 files changed, 24 insertions(+), 24 deletions(-)
+/* v2 */
+not present
 
-diff --git a/arch/alpha/kernel/vmlinux.lds.S b/arch/alpha/kernel/vmlinux.lds.S
-index af411817dd7d..edc45f45523b 100644
---- a/arch/alpha/kernel/vmlinux.lds.S
-+++ b/arch/alpha/kernel/vmlinux.lds.S
-@@ -50,7 +50,7 @@ SECTIONS
+/* v3 */
+not present
+
+/* v4 */
+introduced
+- Arnd Bergmann <arnd@arndb.de>:
+  - split into two patches:
+    1. add close_range()
+    2. add syscall to all arches at once
+  - bump __NR_compat_syscalls in arch/arm64/include/asm/unistd.h
+
+/* v5 */
+- Christian Brauner <christian.brauner@ubuntu.com>:
+---
+ arch/alpha/kernel/syscalls/syscall.tbl      | 1 +
+ arch/arm/tools/syscall.tbl                  | 1 +
+ arch/arm64/include/asm/unistd.h             | 2 +-
+ arch/arm64/include/asm/unistd32.h           | 2 ++
+ arch/ia64/kernel/syscalls/syscall.tbl       | 1 +
+ arch/m68k/kernel/syscalls/syscall.tbl       | 1 +
+ arch/microblaze/kernel/syscalls/syscall.tbl | 1 +
+ arch/mips/kernel/syscalls/syscall_n32.tbl   | 1 +
+ arch/mips/kernel/syscalls/syscall_n64.tbl   | 1 +
+ arch/mips/kernel/syscalls/syscall_o32.tbl   | 1 +
+ arch/parisc/kernel/syscalls/syscall.tbl     | 1 +
+ arch/powerpc/kernel/syscalls/syscall.tbl    | 1 +
+ arch/s390/kernel/syscalls/syscall.tbl       | 1 +
+ arch/sh/kernel/syscalls/syscall.tbl         | 1 +
+ arch/sparc/kernel/syscalls/syscall.tbl      | 1 +
+ arch/x86/entry/syscalls/syscall_32.tbl      | 1 +
+ arch/x86/entry/syscalls/syscall_64.tbl      | 1 +
+ arch/xtensa/kernel/syscalls/syscall.tbl     | 1 +
+ include/uapi/asm-generic/unistd.h           | 4 +++-
+ 19 files changed, 22 insertions(+), 2 deletions(-)
+
+diff --git a/arch/alpha/kernel/syscalls/syscall.tbl b/arch/alpha/kernel/syscalls/syscall.tbl
+index 728fe028c02c..f08906efa5ff 100644
+--- a/arch/alpha/kernel/syscalls/syscall.tbl
++++ b/arch/alpha/kernel/syscalls/syscall.tbl
+@@ -475,3 +475,4 @@
+ 543	common	fspick				sys_fspick
+ 544	common	pidfd_open			sys_pidfd_open
+ # 545 reserved for clone3
++546	common	close_range			sys_close_range
+diff --git a/arch/arm/tools/syscall.tbl b/arch/arm/tools/syscall.tbl
+index 6da7dc4d79cc..f25716576d13 100644
+--- a/arch/arm/tools/syscall.tbl
++++ b/arch/arm/tools/syscall.tbl
+@@ -449,3 +449,4 @@
+ 433	common	fspick				sys_fspick
+ 434	common	pidfd_open			sys_pidfd_open
+ 435	common	clone3				sys_clone3
++436	common	close_range			sys_close_range
+diff --git a/arch/arm64/include/asm/unistd.h b/arch/arm64/include/asm/unistd.h
+index 2629a68b8724..368761302768 100644
+--- a/arch/arm64/include/asm/unistd.h
++++ b/arch/arm64/include/asm/unistd.h
+@@ -38,7 +38,7 @@
+ #define __ARM_NR_compat_set_tls		(__ARM_NR_COMPAT_BASE + 5)
+ #define __ARM_NR_COMPAT_END		(__ARM_NR_COMPAT_BASE + 0x800)
  
- 	_sdata = .;	/* Start of rw data section */
- 	_data = .;
--	RW_DATA_SECTION(L1_CACHE_BYTES, PAGE_SIZE, THREAD_SIZE)
-+	RW_DATA(L1_CACHE_BYTES, PAGE_SIZE, THREAD_SIZE)
- 
- 	.got : {
- 		*(.got)
-diff --git a/arch/arc/kernel/vmlinux.lds.S b/arch/arc/kernel/vmlinux.lds.S
-index 7d1d27066deb..54139a6f469b 100644
---- a/arch/arc/kernel/vmlinux.lds.S
-+++ b/arch/arc/kernel/vmlinux.lds.S
-@@ -101,7 +101,7 @@ SECTIONS
- 	 * 1. this is .data essentially
- 	 * 2. THREAD_SIZE for init.task, must be kernel-stk sz aligned
- 	 */
--	RW_DATA_SECTION(L1_CACHE_BYTES, PAGE_SIZE, THREAD_SIZE)
-+	RW_DATA(L1_CACHE_BYTES, PAGE_SIZE, THREAD_SIZE)
- 
- 	_edata = .;
- 
-diff --git a/arch/arm/kernel/vmlinux-xip.lds.S b/arch/arm/kernel/vmlinux-xip.lds.S
-index d2a9651c24ad..21b8b271c80d 100644
---- a/arch/arm/kernel/vmlinux-xip.lds.S
-+++ b/arch/arm/kernel/vmlinux-xip.lds.S
-@@ -112,7 +112,7 @@ SECTIONS
- 
- 	. = ALIGN(THREAD_SIZE);
- 	_sdata = .;
--	RW_DATA_SECTION(L1_CACHE_BYTES, PAGE_SIZE, THREAD_SIZE)
-+	RW_DATA(L1_CACHE_BYTES, PAGE_SIZE, THREAD_SIZE)
- 	.data.ro_after_init : AT(ADDR(.data.ro_after_init) - LOAD_OFFSET) {
- 		*(.data..ro_after_init)
- 	}
-diff --git a/arch/arm/kernel/vmlinux.lds.S b/arch/arm/kernel/vmlinux.lds.S
-index 068db6860867..319ccb10846a 100644
---- a/arch/arm/kernel/vmlinux.lds.S
-+++ b/arch/arm/kernel/vmlinux.lds.S
-@@ -141,7 +141,7 @@ SECTIONS
- 	__init_end = .;
- 
- 	_sdata = .;
--	RW_DATA_SECTION(L1_CACHE_BYTES, PAGE_SIZE, THREAD_SIZE)
-+	RW_DATA(L1_CACHE_BYTES, PAGE_SIZE, THREAD_SIZE)
- 	_edata = .;
- 
- 	BSS_SECTION(0, 0, 0)
-diff --git a/arch/arm64/kernel/vmlinux.lds.S b/arch/arm64/kernel/vmlinux.lds.S
-index e7dafc29b1fa..a4b3e6c0680c 100644
---- a/arch/arm64/kernel/vmlinux.lds.S
-+++ b/arch/arm64/kernel/vmlinux.lds.S
-@@ -214,7 +214,7 @@ SECTIONS
- 
- 	_data = .;
- 	_sdata = .;
--	RW_DATA_SECTION(L1_CACHE_BYTES, PAGE_SIZE, THREAD_ALIGN)
-+	RW_DATA(L1_CACHE_BYTES, PAGE_SIZE, THREAD_ALIGN)
- 
- 	/*
- 	 * Data written with the MMU off but read with the MMU on requires
-diff --git a/arch/csky/kernel/vmlinux.lds.S b/arch/csky/kernel/vmlinux.lds.S
-index 8598bd7a7bcd..2ff37beaf2bf 100644
---- a/arch/csky/kernel/vmlinux.lds.S
-+++ b/arch/csky/kernel/vmlinux.lds.S
-@@ -50,7 +50,7 @@ SECTIONS
- 
- 	_sdata = .;
- 	RO_DATA(PAGE_SIZE)
--	RW_DATA_SECTION(L1_CACHE_BYTES, PAGE_SIZE, THREAD_SIZE)
-+	RW_DATA(L1_CACHE_BYTES, PAGE_SIZE, THREAD_SIZE)
- 	_edata = .;
- 
- 	EXCEPTION_TABLE(L1_CACHE_BYTES)
-diff --git a/arch/h8300/kernel/vmlinux.lds.S b/arch/h8300/kernel/vmlinux.lds.S
-index d3247d33b115..2ac7bdcd2fe0 100644
---- a/arch/h8300/kernel/vmlinux.lds.S
-+++ b/arch/h8300/kernel/vmlinux.lds.S
-@@ -47,7 +47,7 @@ SECTIONS
+-#define __NR_compat_syscalls		436
++#define __NR_compat_syscalls		437
  #endif
- 	_sdata = . ;
- 	__data_start = . ;
--	RW_DATA_SECTION(0, PAGE_SIZE, THREAD_SIZE)
-+	RW_DATA(0, PAGE_SIZE, THREAD_SIZE)
- #if defined(CONFIG_ROMKERNEL)
- #undef ADDR
+ 
+ #define __ARCH_WANT_SYS_CLONE
+diff --git a/arch/arm64/include/asm/unistd32.h b/arch/arm64/include/asm/unistd32.h
+index 94ab29cf4f00..c1309f52c8ac 100644
+--- a/arch/arm64/include/asm/unistd32.h
++++ b/arch/arm64/include/asm/unistd32.h
+@@ -879,6 +879,8 @@ __SYSCALL(__NR_fspick, sys_fspick)
+ __SYSCALL(__NR_pidfd_open, sys_pidfd_open)
+ #define __NR_clone3 435
+ __SYSCALL(__NR_clone3, sys_clone3)
++#define __NR_close_range 436
++__SYSCALL(__NR_close_range, sys_close_range)
+ 
+ /*
+  * Please add new compat syscalls above this comment and update
+diff --git a/arch/ia64/kernel/syscalls/syscall.tbl b/arch/ia64/kernel/syscalls/syscall.tbl
+index 36d5faf4c86c..151f4fd234be 100644
+--- a/arch/ia64/kernel/syscalls/syscall.tbl
++++ b/arch/ia64/kernel/syscalls/syscall.tbl
+@@ -356,3 +356,4 @@
+ 433	common	fspick				sys_fspick
+ 434	common	pidfd_open			sys_pidfd_open
+ # 435 reserved for clone3
++436	common	close_range			sys_close_range
+diff --git a/arch/m68k/kernel/syscalls/syscall.tbl b/arch/m68k/kernel/syscalls/syscall.tbl
+index a88a285a0e5f..adff06c08d2f 100644
+--- a/arch/m68k/kernel/syscalls/syscall.tbl
++++ b/arch/m68k/kernel/syscalls/syscall.tbl
+@@ -435,3 +435,4 @@
+ 433	common	fspick				sys_fspick
+ 434	common	pidfd_open			sys_pidfd_open
+ # 435 reserved for clone3
++436	common	close_range			sys_close_range
+diff --git a/arch/microblaze/kernel/syscalls/syscall.tbl b/arch/microblaze/kernel/syscalls/syscall.tbl
+index 09b0cd7dab0a..84aa70453704 100644
+--- a/arch/microblaze/kernel/syscalls/syscall.tbl
++++ b/arch/microblaze/kernel/syscalls/syscall.tbl
+@@ -441,3 +441,4 @@
+ 433	common	fspick				sys_fspick
+ 434	common	pidfd_open			sys_pidfd_open
+ 435	common	clone3				sys_clone3
++436	common	close_range			sys_close_range
+diff --git a/arch/mips/kernel/syscalls/syscall_n32.tbl b/arch/mips/kernel/syscalls/syscall_n32.tbl
+index e7c5ab38e403..0c1fdfc01ebb 100644
+--- a/arch/mips/kernel/syscalls/syscall_n32.tbl
++++ b/arch/mips/kernel/syscalls/syscall_n32.tbl
+@@ -374,3 +374,4 @@
+ 433	n32	fspick				sys_fspick
+ 434	n32	pidfd_open			sys_pidfd_open
+ 435	n32	clone3				__sys_clone3
++436	n32	close_range			sys_close_range
+diff --git a/arch/mips/kernel/syscalls/syscall_n64.tbl b/arch/mips/kernel/syscalls/syscall_n64.tbl
+index 13cd66581f3b..d1284f1ce329 100644
+--- a/arch/mips/kernel/syscalls/syscall_n64.tbl
++++ b/arch/mips/kernel/syscalls/syscall_n64.tbl
+@@ -350,3 +350,4 @@
+ 433	n64	fspick				sys_fspick
+ 434	n64	pidfd_open			sys_pidfd_open
+ 435	n64	clone3				__sys_clone3
++436	n64	close_range			sys_close_range
+diff --git a/arch/mips/kernel/syscalls/syscall_o32.tbl b/arch/mips/kernel/syscalls/syscall_o32.tbl
+index 353539ea4140..7e4118d8d2ca 100644
+--- a/arch/mips/kernel/syscalls/syscall_o32.tbl
++++ b/arch/mips/kernel/syscalls/syscall_o32.tbl
+@@ -423,3 +423,4 @@
+ 433	o32	fspick				sys_fspick
+ 434	o32	pidfd_open			sys_pidfd_open
+ 435	o32	clone3				__sys_clone3
++436	o32	close_range			sys_close_range
+diff --git a/arch/parisc/kernel/syscalls/syscall.tbl b/arch/parisc/kernel/syscalls/syscall.tbl
+index 285ff516150c..d07f75996382 100644
+--- a/arch/parisc/kernel/syscalls/syscall.tbl
++++ b/arch/parisc/kernel/syscalls/syscall.tbl
+@@ -433,3 +433,4 @@
+ 433	common	fspick				sys_fspick
+ 434	common	pidfd_open			sys_pidfd_open
+ 435	common	clone3				sys_clone3_wrapper
++436	common	close_range			sys_close_range
+diff --git a/arch/powerpc/kernel/syscalls/syscall.tbl b/arch/powerpc/kernel/syscalls/syscall.tbl
+index 43f736ed47f2..093d91114ea8 100644
+--- a/arch/powerpc/kernel/syscalls/syscall.tbl
++++ b/arch/powerpc/kernel/syscalls/syscall.tbl
+@@ -517,3 +517,4 @@
+ 433	common	fspick				sys_fspick
+ 434	common	pidfd_open			sys_pidfd_open
+ 435	nospu	clone3				ppc_clone3
++436	common	close_range			sys_close_range
+diff --git a/arch/s390/kernel/syscalls/syscall.tbl b/arch/s390/kernel/syscalls/syscall.tbl
+index 3054e9c035a3..74565cf327ce 100644
+--- a/arch/s390/kernel/syscalls/syscall.tbl
++++ b/arch/s390/kernel/syscalls/syscall.tbl
+@@ -438,3 +438,4 @@
+ 433  common	fspick			sys_fspick			sys_fspick
+ 434  common	pidfd_open		sys_pidfd_open			sys_pidfd_open
+ 435  common	clone3			sys_clone3			sys_clone3
++436  common	close_range		sys_close_range			sys_close_range
+diff --git a/arch/sh/kernel/syscalls/syscall.tbl b/arch/sh/kernel/syscalls/syscall.tbl
+index b5ed26c4c005..11c9e5626fdd 100644
+--- a/arch/sh/kernel/syscalls/syscall.tbl
++++ b/arch/sh/kernel/syscalls/syscall.tbl
+@@ -438,3 +438,4 @@
+ 433	common	fspick				sys_fspick
+ 434	common	pidfd_open			sys_pidfd_open
+ # 435 reserved for clone3
++436	common	close_range			sys_close_range
+diff --git a/arch/sparc/kernel/syscalls/syscall.tbl b/arch/sparc/kernel/syscalls/syscall.tbl
+index 8c8cc7537fb2..7928240b3966 100644
+--- a/arch/sparc/kernel/syscalls/syscall.tbl
++++ b/arch/sparc/kernel/syscalls/syscall.tbl
+@@ -481,3 +481,4 @@
+ 433	common	fspick				sys_fspick
+ 434	common	pidfd_open			sys_pidfd_open
+ # 435 reserved for clone3
++436	common	close_range			sys_close_range
+diff --git a/arch/x86/entry/syscalls/syscall_32.tbl b/arch/x86/entry/syscalls/syscall_32.tbl
+index 3fe02546aed3..cb56003ccf2d 100644
+--- a/arch/x86/entry/syscalls/syscall_32.tbl
++++ b/arch/x86/entry/syscalls/syscall_32.tbl
+@@ -440,3 +440,4 @@
+ 433	i386	fspick			sys_fspick			__ia32_sys_fspick
+ 434	i386	pidfd_open		sys_pidfd_open			__ia32_sys_pidfd_open
+ 435	i386	clone3			sys_clone3			__ia32_sys_clone3
++436	i386	close_range		sys_close_range			__ia32_sys_close_range
+diff --git a/arch/x86/entry/syscalls/syscall_64.tbl b/arch/x86/entry/syscalls/syscall_64.tbl
+index c29976eca4a8..0c8be7197ca2 100644
+--- a/arch/x86/entry/syscalls/syscall_64.tbl
++++ b/arch/x86/entry/syscalls/syscall_64.tbl
+@@ -357,6 +357,7 @@
+ 433	common	fspick			__x64_sys_fspick
+ 434	common	pidfd_open		__x64_sys_pidfd_open
+ 435	common	clone3			__x64_sys_clone3/ptregs
++436	common	close_range		__x64_sys_close_range
+ 
+ #
+ # x32-specific system call numbers start at 512 to avoid cache impact
+diff --git a/arch/xtensa/kernel/syscalls/syscall.tbl b/arch/xtensa/kernel/syscalls/syscall.tbl
+index 25f4de729a6d..2526f37a6cac 100644
+--- a/arch/xtensa/kernel/syscalls/syscall.tbl
++++ b/arch/xtensa/kernel/syscalls/syscall.tbl
+@@ -406,3 +406,4 @@
+ 433	common	fspick				sys_fspick
+ 434	common	pidfd_open			sys_pidfd_open
+ 435	common	clone3				sys_clone3
++436	common	close_range			sys_close_range
+diff --git a/include/uapi/asm-generic/unistd.h b/include/uapi/asm-generic/unistd.h
+index 1fc8faa6e973..53c57ffb3bd6 100644
+--- a/include/uapi/asm-generic/unistd.h
++++ b/include/uapi/asm-generic/unistd.h
+@@ -850,9 +850,11 @@ __SYSCALL(__NR_pidfd_open, sys_pidfd_open)
+ #define __NR_clone3 435
+ __SYSCALL(__NR_clone3, sys_clone3)
  #endif
-diff --git a/arch/hexagon/kernel/vmlinux.lds.S b/arch/hexagon/kernel/vmlinux.lds.S
-index 0145251fa317..0ca2471ddb9f 100644
---- a/arch/hexagon/kernel/vmlinux.lds.S
-+++ b/arch/hexagon/kernel/vmlinux.lds.S
-@@ -49,7 +49,7 @@ SECTIONS
- 	INIT_DATA_SECTION(PAGE_SIZE)
++#define __NR_close_range 436
++__SYSCALL(__NR_close_range, sys_close_range)
  
- 	_sdata = .;
--		RW_DATA_SECTION(32,PAGE_SIZE,_THREAD_SIZE)
-+		RW_DATA(32,PAGE_SIZE,_THREAD_SIZE)
- 		RO_DATA(PAGE_SIZE)
- 	_edata = .;
+ #undef __NR_syscalls
+-#define __NR_syscalls 436
++#define __NR_syscalls 437
  
-diff --git a/arch/m68k/kernel/vmlinux-nommu.lds b/arch/m68k/kernel/vmlinux-nommu.lds
-index de80f8b8ae78..7b975420c3d9 100644
---- a/arch/m68k/kernel/vmlinux-nommu.lds
-+++ b/arch/m68k/kernel/vmlinux-nommu.lds
-@@ -61,7 +61,7 @@ SECTIONS {
- 
- 	_sdata = .;
- 	RO_DATA(PAGE_SIZE)
--	RW_DATA_SECTION(16, PAGE_SIZE, THREAD_SIZE)
-+	RW_DATA(16, PAGE_SIZE, THREAD_SIZE)
- 	_edata = .;
- 
- 	EXCEPTION_TABLE(16)
-diff --git a/arch/m68k/kernel/vmlinux-std.lds b/arch/m68k/kernel/vmlinux-std.lds
-index 625a5785804f..6e7eb49ed985 100644
---- a/arch/m68k/kernel/vmlinux-std.lds
-+++ b/arch/m68k/kernel/vmlinux-std.lds
-@@ -33,7 +33,7 @@ SECTIONS
- 
-   RODATA
- 
--  RW_DATA_SECTION(16, PAGE_SIZE, THREAD_SIZE)
-+  RW_DATA(16, PAGE_SIZE, THREAD_SIZE)
- 
-   BSS_SECTION(0, 0, 0)
- 
-diff --git a/arch/m68k/kernel/vmlinux-sun3.lds b/arch/m68k/kernel/vmlinux-sun3.lds
-index 9868270b0984..1a0ad6b6dd8c 100644
---- a/arch/m68k/kernel/vmlinux-sun3.lds
-+++ b/arch/m68k/kernel/vmlinux-sun3.lds
-@@ -30,7 +30,7 @@ SECTIONS
- 
-   EXCEPTION_TABLE(16) :data
-   _sdata = .;			/* Start of rw data section */
--  RW_DATA_SECTION(16, PAGE_SIZE, THREAD_SIZE) :data
-+  RW_DATA(16, PAGE_SIZE, THREAD_SIZE) :data
-   /* End of data goes *here* so that freeing init code works properly. */
-   _edata = .;
-   NOTES
-diff --git a/arch/microblaze/kernel/vmlinux.lds.S b/arch/microblaze/kernel/vmlinux.lds.S
-index 2299694748ea..b8efb08204a1 100644
---- a/arch/microblaze/kernel/vmlinux.lds.S
-+++ b/arch/microblaze/kernel/vmlinux.lds.S
-@@ -69,7 +69,7 @@ SECTIONS {
- 	}
- 
- 	_sdata = . ;
--	RW_DATA_SECTION(32, PAGE_SIZE, THREAD_SIZE)
-+	RW_DATA(32, PAGE_SIZE, THREAD_SIZE)
- 	_edata = . ;
- 
- 	/* Under the microblaze ABI, .sdata and .sbss must be contiguous */
-diff --git a/arch/nds32/kernel/vmlinux.lds.S b/arch/nds32/kernel/vmlinux.lds.S
-index 10ff570ba95b..f679d3397436 100644
---- a/arch/nds32/kernel/vmlinux.lds.S
-+++ b/arch/nds32/kernel/vmlinux.lds.S
-@@ -54,7 +54,7 @@ SECTIONS
- 
- 	_sdata = .;
- 	RO_DATA(PAGE_SIZE)
--	RW_DATA_SECTION(L1_CACHE_BYTES, PAGE_SIZE, THREAD_SIZE)
-+	RW_DATA(L1_CACHE_BYTES, PAGE_SIZE, THREAD_SIZE)
- 	_edata  =  .;
- 
- 	EXCEPTION_TABLE(16)
-diff --git a/arch/nios2/kernel/vmlinux.lds.S b/arch/nios2/kernel/vmlinux.lds.S
-index 318804a2c7a1..c55a7cfa1075 100644
---- a/arch/nios2/kernel/vmlinux.lds.S
-+++ b/arch/nios2/kernel/vmlinux.lds.S
-@@ -50,7 +50,7 @@ SECTIONS
- 
- 	_sdata = .;
- 	RO_DATA(PAGE_SIZE)
--	RW_DATA_SECTION(L1_CACHE_BYTES, PAGE_SIZE, THREAD_SIZE)
-+	RW_DATA(L1_CACHE_BYTES, PAGE_SIZE, THREAD_SIZE)
- 	_edata = .;
- 
- 	BSS_SECTION(0, 0, 0)
-diff --git a/arch/openrisc/kernel/vmlinux.lds.S b/arch/openrisc/kernel/vmlinux.lds.S
-index f73e0d3ea09f..60449fd7f16f 100644
---- a/arch/openrisc/kernel/vmlinux.lds.S
-+++ b/arch/openrisc/kernel/vmlinux.lds.S
-@@ -74,7 +74,7 @@ SECTIONS
- 	/* Whatever comes after _e_kernel_ro had better be page-aligend, too */
- 
- 	/* 32 here is cacheline size... recheck this */
--	RW_DATA_SECTION(32, PAGE_SIZE, PAGE_SIZE)
-+	RW_DATA(32, PAGE_SIZE, PAGE_SIZE)
- 
-         _edata  =  .;
- 
-diff --git a/arch/parisc/kernel/vmlinux.lds.S b/arch/parisc/kernel/vmlinux.lds.S
-index e1c563c7dca1..12b3d7d5e9e4 100644
---- a/arch/parisc/kernel/vmlinux.lds.S
-+++ b/arch/parisc/kernel/vmlinux.lds.S
-@@ -148,7 +148,7 @@ SECTIONS
- 	data_start = .;
- 
- 	/* Data */
--	RW_DATA_SECTION(L1_CACHE_BYTES, PAGE_SIZE, PAGE_SIZE)
-+	RW_DATA(L1_CACHE_BYTES, PAGE_SIZE, PAGE_SIZE)
- 
- 	/* PA-RISC locks requires 16-byte alignment */
- 	. = ALIGN(16);
-diff --git a/arch/riscv/kernel/vmlinux.lds.S b/arch/riscv/kernel/vmlinux.lds.S
-index 66dc17d24dd9..12f42f96d46e 100644
---- a/arch/riscv/kernel/vmlinux.lds.S
-+++ b/arch/riscv/kernel/vmlinux.lds.S
-@@ -57,7 +57,7 @@ SECTIONS
- 		*(.srodata*)
- 	}
- 
--	RW_DATA_SECTION(L1_CACHE_BYTES, PAGE_SIZE, THREAD_SIZE)
-+	RW_DATA(L1_CACHE_BYTES, PAGE_SIZE, THREAD_SIZE)
- 	.sdata : {
- 		__global_pointer$ = . + 0x800;
- 		*(.sdata*)
-diff --git a/arch/s390/kernel/vmlinux.lds.S b/arch/s390/kernel/vmlinux.lds.S
-index b33c4823f8b5..37695499717d 100644
---- a/arch/s390/kernel/vmlinux.lds.S
-+++ b/arch/s390/kernel/vmlinux.lds.S
-@@ -67,7 +67,7 @@ SECTIONS
- 	. = ALIGN(PAGE_SIZE);
- 	__end_ro_after_init = .;
- 
--	RW_DATA_SECTION(0x100, PAGE_SIZE, THREAD_SIZE)
-+	RW_DATA(0x100, PAGE_SIZE, THREAD_SIZE)
- 	BOOT_DATA_PRESERVED
- 
- 	_edata = .;		/* End of data section */
-diff --git a/arch/sh/kernel/vmlinux.lds.S b/arch/sh/kernel/vmlinux.lds.S
-index fef39054cc70..c60b19958c35 100644
---- a/arch/sh/kernel/vmlinux.lds.S
-+++ b/arch/sh/kernel/vmlinux.lds.S
-@@ -51,7 +51,7 @@ SECTIONS
- 
- 	_sdata = .;
- 	RO_DATA(PAGE_SIZE)
--	RW_DATA_SECTION(L1_CACHE_BYTES, PAGE_SIZE, THREAD_SIZE)
-+	RW_DATA(L1_CACHE_BYTES, PAGE_SIZE, THREAD_SIZE)
- 	_edata = .;
- 
- 	DWARF_EH_FRAME
-diff --git a/arch/sparc/kernel/vmlinux.lds.S b/arch/sparc/kernel/vmlinux.lds.S
-index 8929fbc35a80..7ec79918b566 100644
---- a/arch/sparc/kernel/vmlinux.lds.S
-+++ b/arch/sparc/kernel/vmlinux.lds.S
-@@ -67,7 +67,7 @@ SECTIONS
- 	.data1 : {
- 		*(.data1)
- 	}
--	RW_DATA_SECTION(SMP_CACHE_BYTES, 0, THREAD_SIZE)
-+	RW_DATA(SMP_CACHE_BYTES, 0, THREAD_SIZE)
- 
- 	/* End of data section */
- 	_edata = .;
-diff --git a/arch/unicore32/kernel/vmlinux.lds.S b/arch/unicore32/kernel/vmlinux.lds.S
-index 367c80313bec..6fb320b337ef 100644
---- a/arch/unicore32/kernel/vmlinux.lds.S
-+++ b/arch/unicore32/kernel/vmlinux.lds.S
-@@ -44,7 +44,7 @@ SECTIONS
- 
- 	_sdata = .;
- 	RO_DATA(PAGE_SIZE)
--	RW_DATA_SECTION(L1_CACHE_BYTES, PAGE_SIZE, THREAD_SIZE)
-+	RW_DATA(L1_CACHE_BYTES, PAGE_SIZE, THREAD_SIZE)
- 	_edata = .;
- 
- 	EXCEPTION_TABLE(L1_CACHE_BYTES)
-diff --git a/arch/xtensa/kernel/vmlinux.lds.S b/arch/xtensa/kernel/vmlinux.lds.S
-index b97e5798b9cf..bdbd7c4056c1 100644
---- a/arch/xtensa/kernel/vmlinux.lds.S
-+++ b/arch/xtensa/kernel/vmlinux.lds.S
-@@ -134,7 +134,7 @@ SECTIONS
-   /* Data section */
- 
-   _sdata = .;
--  RW_DATA_SECTION(XCHAL_ICACHE_LINESIZE, PAGE_SIZE, THREAD_SIZE)
-+  RW_DATA(XCHAL_ICACHE_LINESIZE, PAGE_SIZE, THREAD_SIZE)
-   _edata = .;
- 
-   /* Initialization code and data: */
-diff --git a/include/asm-generic/vmlinux.lds.h b/include/asm-generic/vmlinux.lds.h
-index 061e57c609f6..356078e50a5c 100644
---- a/include/asm-generic/vmlinux.lds.h
-+++ b/include/asm-generic/vmlinux.lds.h
-@@ -24,7 +24,7 @@
-  *
-  *      _sdata = .;
-  *	RO_DATA(PAGE_SIZE)
-- *	RW_DATA_SECTION(...)
-+ *	RW_DATA(...)
-  *	_edata = .;
-  *
-  *	EXCEPTION_TABLE(...)
-@@ -975,7 +975,7 @@
-  * matches the requirement of PAGE_ALIGNED_DATA.
-  *
-  * use 0 as page_align if page_aligned data is not used */
--#define RW_DATA_SECTION(cacheline, pagealigned, inittask)		\
-+#define RW_DATA(cacheline, pagealigned, inittask)			\
- 	. = ALIGN(PAGE_SIZE);						\
- 	.data : AT(ADDR(.data) - LOAD_OFFSET) {				\
- 		INIT_TASK_DATA(inittask)				\
+ /*
+  * 32 bit systems traditionally used different
 -- 
-2.17.1
+2.23.0
