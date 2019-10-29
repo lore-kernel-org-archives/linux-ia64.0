@@ -1,7 +1,7 @@
 From: Kees Cook <keescook@chromium.org>
-Date: Tue, 29 Oct 2019 21:13:24 +0000
-Subject: [PATCH v3 02/29] powerpc: Remove PT_NOTE workaround
-Message-Id: <20191029211351.13243-3-keescook@chromium.org>
+Date: Tue, 29 Oct 2019 21:13:49 +0000
+Subject: [PATCH v3 27/29] x86/mm: Report which part of kernel image is freed
+Message-Id: <20191029211351.13243-28-keescook@chromium.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20191029211351.13243-1-keescook@chromium.org>
 In-Reply-To: <20191029211351.13243-1-keescook@chromium.org>
@@ -11,56 +11,91 @@ Content-Transfer-Encoding: 7bit
 To: Borislav Petkov <bp@alien8.de>
 Cc: Kees Cook <keescook@chromium.org>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Segher Boessenkool <segher@kernel.crashing.org>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Michael Ellerman <mpe@ellerman.id.au>, Heiko Carstens <heiko.carstens@de.ibm.com>, Will Deacon <will@kernel.org>, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linuxppc-dev@lists.ozlabs.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Michal Simek <monstr@monstr.eu>
 
-In preparation for moving NOTES into RO_DATA, remove the PT_NOTE
-workaround since the kernel requires at least gcc 4.6 now.
+The memory freeing report wasn't very useful for figuring out which
+parts of the kernel image were being freed. Add the details for clearer
+reporting in dmesg.
+
+Before:
+
+[    2.150450] Freeing unused kernel image memory: 1348K
+[    2.154574] Write protecting the kernel read-only data: 20480k
+[    2.157641] Freeing unused kernel image memory: 2040K
+[    2.158827] Freeing unused kernel image memory: 172K
+
+After:
+
+[    2.329678] Freeing unused kernel image (initmem) memory: 1348K
+[    2.331953] Write protecting the kernel read-only data: 20480k
+[    2.335361] Freeing unused kernel image (text/rodata gap) memory: 2040K
+[    2.336927] Freeing unused kernel image (rodata/data gap) memory: 172K
 
 Signed-off-by: Kees Cook <keescook@chromium.org>
-Acked-by: Michael Ellerman <mpe@ellerman.id.au>
 ---
- arch/powerpc/kernel/vmlinux.lds.S | 24 ++----------------------
- 1 file changed, 2 insertions(+), 22 deletions(-)
+ arch/x86/include/asm/processor.h | 2 +-
+ arch/x86/mm/init.c               | 8 ++++----
+ arch/x86/mm/init_64.c            | 6 ++++--
+ 3 files changed, 9 insertions(+), 7 deletions(-)
 
-diff --git a/arch/powerpc/kernel/vmlinux.lds.S b/arch/powerpc/kernel/vmlinux.lds.S
-index 81e672654789..a3c8492b2b19 100644
---- a/arch/powerpc/kernel/vmlinux.lds.S
-+++ b/arch/powerpc/kernel/vmlinux.lds.S
-@@ -20,20 +20,6 @@ ENTRY(_stext)
- PHDRS {
- 	kernel PT_LOAD FLAGS(7); /* RWX */
- 	note PT_NOTE FLAGS(0);
--	dummy PT_NOTE FLAGS(0);
+diff --git a/arch/x86/include/asm/processor.h b/arch/x86/include/asm/processor.h
+index 6e0a3b43d027..790f250d39a8 100644
+--- a/arch/x86/include/asm/processor.h
++++ b/arch/x86/include/asm/processor.h
+@@ -958,7 +958,7 @@ static inline uint32_t hypervisor_cpuid_base(const char *sig, uint32_t leaves)
+ 
+ extern unsigned long arch_align_stack(unsigned long sp);
+ void free_init_pages(const char *what, unsigned long begin, unsigned long end);
+-extern void free_kernel_image_pages(void *begin, void *end);
++extern void free_kernel_image_pages(const char *what, void *begin, void *end);
+ 
+ void default_idle(void);
+ #ifdef	CONFIG_XEN
+diff --git a/arch/x86/mm/init.c b/arch/x86/mm/init.c
+index fd10d91a6115..e7bb483557c9 100644
+--- a/arch/x86/mm/init.c
++++ b/arch/x86/mm/init.c
+@@ -829,14 +829,13 @@ void free_init_pages(const char *what, unsigned long begin, unsigned long end)
+  * used for the kernel image only.  free_init_pages() will do the
+  * right thing for either kind of address.
+  */
+-void free_kernel_image_pages(void *begin, void *end)
++void free_kernel_image_pages(const char *what, void *begin, void *end)
+ {
+ 	unsigned long begin_ul = (unsigned long)begin;
+ 	unsigned long end_ul = (unsigned long)end;
+ 	unsigned long len_pages = (end_ul - begin_ul) >> PAGE_SHIFT;
+ 
 -
--	/* binutils < 2.18 has a bug that makes it misbehave when taking an
--	   ELF file with all segments at load address 0 as input.  This
--	   happens when running "strip" on vmlinux, because of the AT() magic
--	   in this linker script.  People using GCC >= 4.2 won't run into
--	   this problem, because the "build-id" support will put some data
--	   into the "notes" segment (at a non-zero load address).
--
--	   To work around this, we force some data into both the "dummy"
--	   segment and the kernel segment, so the dummy segment will get a
--	   non-zero load address.  It's not enough to always create the
--	   "notes" segment, since if nothing gets assigned to it, its load
--	   address will be zero.  */
+-	free_init_pages("unused kernel image", begin_ul, end_ul);
++	free_init_pages(what, begin_ul, end_ul);
+ 
+ 	/*
+ 	 * PTI maps some of the kernel into userspace.  For performance,
+@@ -865,7 +864,8 @@ void __ref free_initmem(void)
+ 
+ 	mem_encrypt_free_decrypted_mem();
+ 
+-	free_kernel_image_pages(&__init_begin, &__init_end);
++	free_kernel_image_pages("unused kernel image (initmem)",
++				&__init_begin, &__init_end);
  }
  
- #ifdef CONFIG_PPC64
-@@ -178,14 +164,8 @@ SECTIONS
- 	EXCEPTION_TABLE(0)
+ #ifdef CONFIG_BLK_DEV_INITRD
+diff --git a/arch/x86/mm/init_64.c b/arch/x86/mm/init_64.c
+index e67ddca8b7a8..dcb9bc961b39 100644
+--- a/arch/x86/mm/init_64.c
++++ b/arch/x86/mm/init_64.c
+@@ -1334,8 +1334,10 @@ void mark_rodata_ro(void)
+ 	set_memory_ro(start, (end-start) >> PAGE_SHIFT);
+ #endif
  
- 	NOTES :kernel :note
--
--	/* The dummy segment contents for the bug workaround mentioned above
--	   near PHDRS.  */
--	.dummy : AT(ADDR(.dummy) - LOAD_OFFSET) {
--		LONG(0)
--		LONG(0)
--		LONG(0)
--	} :kernel :dummy
-+	/* Restore program header away from PT_NOTE. */
-+	.dummy : { *(.dummy) } :kernel
+-	free_kernel_image_pages((void *)text_end, (void *)rodata_start);
+-	free_kernel_image_pages((void *)rodata_end, (void *)_sdata);
++	free_kernel_image_pages("unused kernel image (text/rodata gap)",
++				(void *)text_end, (void *)rodata_start);
++	free_kernel_image_pages("unused kernel image (rodata/data gap)",
++				(void *)rodata_end, (void *)_sdata);
  
- /*
-  * Init sections discarded at runtime
+ 	debug_checkwx();
+ }
 -- 
 2.17.1
