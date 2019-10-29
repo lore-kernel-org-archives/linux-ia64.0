@@ -1,80 +1,251 @@
-From: David Hildenbrand <david@redhat.com>
-Date: Tue, 01 Oct 2019 14:40:10 +0000
-Subject: [PATCH v5 09/10] mm/memory_hotplug: Drop local variables in shrink_zone_span()
-Message-Id: <20191001144011.3801-10-david@redhat.com>
+From: Kees Cook <keescook@chromium.org>
+Date: Tue, 29 Oct 2019 21:13:34 +0000
+Subject: [PATCH v3 12/29] vmlinux.lds.h: Replace RO_DATA_SECTION with RO_DATA
+Message-Id: <20191029211351.13243-13-keescook@chromium.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191001144011.3801-1-david@redhat.com>
-In-Reply-To: <20191001144011.3801-1-david@redhat.com>
+References: <20191029211351.13243-1-keescook@chromium.org>
+In-Reply-To: <20191029211351.13243-1-keescook@chromium.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: linux-s390@vger.kernel.org, Michal Hocko <mhocko@suse.com>, linux-ia64@vger.kernel.org, Pavel Tatashin <pasha.tatashin@soleen.com>, linux-sh@vger.kernel.org, David Hildenbrand <david@redhat.com>, linux-mm@kvack.org, Wei Yang <richardw.yang@linux.intel.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, Dan Williams <dan.j.williams@intel.com>, linux-arm-kernel@lists.infradead.org, Oscar Salvador <osalvador@suse.de>
+To: Borislav Petkov <bp@alien8.de>
+Cc: Kees Cook <keescook@chromium.org>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Segher Boessenkool <segher@kernel.crashing.org>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Michael Ellerman <mpe@ellerman.id.au>, Heiko Carstens <heiko.carstens@de.ibm.com>, Will Deacon <will@kernel.org>, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linuxppc-dev@lists.ozlabs.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Michal Simek <monstr@monstr.eu>
 
-Get rid of the unnecessary local variables.
+Finish renaming RO_DATA_SECTION to RO_DATA. (Calling this a "section"
+is a lie, since it's multiple sections and section flags cannot be
+applied to the macro.)
 
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: Oscar Salvador <osalvador@suse.de>
-Cc: David Hildenbrand <david@redhat.com>
-Cc: Michal Hocko <mhocko@suse.com>
-Cc: Pavel Tatashin <pasha.tatashin@soleen.com>
-Cc: Dan Williams <dan.j.williams@intel.com>
-Cc: Wei Yang <richardw.yang@linux.intel.com>
-Signed-off-by: David Hildenbrand <david@redhat.com>
+Signed-off-by: Kees Cook <keescook@chromium.org>
+Acked-by: Heiko Carstens <heiko.carstens@de.ibm.com> # s390
+Acked-by: Geert Uytterhoeven <geert@linux-m68k.org> # m68k
 ---
- mm/memory_hotplug.c | 15 ++++++---------
- 1 file changed, 6 insertions(+), 9 deletions(-)
+ arch/arc/kernel/vmlinux.lds.S       | 2 +-
+ arch/c6x/kernel/vmlinux.lds.S       | 2 +-
+ arch/csky/kernel/vmlinux.lds.S      | 2 +-
+ arch/h8300/kernel/vmlinux.lds.S     | 2 +-
+ arch/hexagon/kernel/vmlinux.lds.S   | 2 +-
+ arch/m68k/kernel/vmlinux-nommu.lds  | 2 +-
+ arch/nds32/kernel/vmlinux.lds.S     | 2 +-
+ arch/nios2/kernel/vmlinux.lds.S     | 2 +-
+ arch/openrisc/kernel/vmlinux.lds.S  | 4 ++--
+ arch/parisc/kernel/vmlinux.lds.S    | 4 ++--
+ arch/riscv/kernel/vmlinux.lds.S     | 2 +-
+ arch/s390/kernel/vmlinux.lds.S      | 2 +-
+ arch/unicore32/kernel/vmlinux.lds.S | 2 +-
+ include/asm-generic/vmlinux.lds.h   | 7 ++-----
+ 14 files changed, 17 insertions(+), 20 deletions(-)
 
-diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
-index 22b3623768c8..ffb514e3b090 100644
---- a/mm/memory_hotplug.c
-+++ b/mm/memory_hotplug.c
-@@ -374,14 +374,11 @@ static unsigned long find_biggest_section_pfn(int nid, struct zone *zone,
- static void shrink_zone_span(struct zone *zone, unsigned long start_pfn,
- 			     unsigned long end_pfn)
- {
--	unsigned long zone_start_pfn = zone->zone_start_pfn;
--	unsigned long z = zone_end_pfn(zone); /* zone_end_pfn namespace clash */
--	unsigned long zone_end_pfn = z;
- 	unsigned long pfn;
- 	int nid = zone_to_nid(zone);
+diff --git a/arch/arc/kernel/vmlinux.lds.S b/arch/arc/kernel/vmlinux.lds.S
+index 1d6eef4b6976..7d1d27066deb 100644
+--- a/arch/arc/kernel/vmlinux.lds.S
++++ b/arch/arc/kernel/vmlinux.lds.S
+@@ -95,7 +95,7 @@ SECTIONS
+ 	_etext = .;
  
- 	zone_span_writelock(zone);
--	if (zone_start_pfn = start_pfn) {
-+	if (zone->zone_start_pfn = start_pfn) {
- 		/*
- 		 * If the section is smallest section in the zone, it need
- 		 * shrink zone->zone_start_pfn and zone->zone_spanned_pages.
-@@ -389,25 +386,25 @@ static void shrink_zone_span(struct zone *zone, unsigned long start_pfn,
- 		 * for shrinking zone.
- 		 */
- 		pfn = find_smallest_section_pfn(nid, zone, end_pfn,
--						zone_end_pfn);
-+						zone_end_pfn(zone));
- 		if (pfn) {
-+			zone->spanned_pages = zone_end_pfn(zone) - pfn;
- 			zone->zone_start_pfn = pfn;
--			zone->spanned_pages = zone_end_pfn - pfn;
- 		} else {
- 			zone->zone_start_pfn = 0;
- 			zone->spanned_pages = 0;
- 		}
--	} else if (zone_end_pfn = end_pfn) {
-+	} else if (zone_end_pfn(zone) = end_pfn) {
- 		/*
- 		 * If the section is biggest section in the zone, it need
- 		 * shrink zone->spanned_pages.
- 		 * In this case, we find second biggest valid mem_section for
- 		 * shrinking zone.
- 		 */
--		pfn = find_biggest_section_pfn(nid, zone, zone_start_pfn,
-+		pfn = find_biggest_section_pfn(nid, zone, zone->zone_start_pfn,
- 					       start_pfn);
- 		if (pfn)
--			zone->spanned_pages = pfn - zone_start_pfn + 1;
-+			zone->spanned_pages = pfn - zone->zone_start_pfn + 1;
- 		else {
- 			zone->zone_start_pfn = 0;
- 			zone->spanned_pages = 0;
+ 	_sdata = .;
+-	RO_DATA_SECTION(PAGE_SIZE)
++	RO_DATA(PAGE_SIZE)
+ 
+ 	/*
+ 	 * 1. this is .data essentially
+diff --git a/arch/c6x/kernel/vmlinux.lds.S b/arch/c6x/kernel/vmlinux.lds.S
+index d6e3802536b3..a3547f9d415b 100644
+--- a/arch/c6x/kernel/vmlinux.lds.S
++++ b/arch/c6x/kernel/vmlinux.lds.S
+@@ -82,7 +82,7 @@ SECTIONS
+ 
+ 	EXCEPTION_TABLE(16)
+ 
+-	RO_DATA_SECTION(PAGE_SIZE)
++	RO_DATA(PAGE_SIZE)
+ 	.const :
+ 	{
+ 		*(.const .const.* .gnu.linkonce.r.*)
+diff --git a/arch/csky/kernel/vmlinux.lds.S b/arch/csky/kernel/vmlinux.lds.S
+index 75dd31412242..8598bd7a7bcd 100644
+--- a/arch/csky/kernel/vmlinux.lds.S
++++ b/arch/csky/kernel/vmlinux.lds.S
+@@ -49,7 +49,7 @@ SECTIONS
+ 
+ 
+ 	_sdata = .;
+-	RO_DATA_SECTION(PAGE_SIZE)
++	RO_DATA(PAGE_SIZE)
+ 	RW_DATA_SECTION(L1_CACHE_BYTES, PAGE_SIZE, THREAD_SIZE)
+ 	_edata = .;
+ 
+diff --git a/arch/h8300/kernel/vmlinux.lds.S b/arch/h8300/kernel/vmlinux.lds.S
+index 88776e785245..d3247d33b115 100644
+--- a/arch/h8300/kernel/vmlinux.lds.S
++++ b/arch/h8300/kernel/vmlinux.lds.S
+@@ -38,7 +38,7 @@ SECTIONS
+ 	_etext = . ;
+ 	}
+ 	EXCEPTION_TABLE(16)
+-	RO_DATA_SECTION(4)
++	RO_DATA(4)
+ 	ROMEND = .;
+ #if defined(CONFIG_ROMKERNEL)
+ 	. = RAMTOP;
+diff --git a/arch/hexagon/kernel/vmlinux.lds.S b/arch/hexagon/kernel/vmlinux.lds.S
+index 6a6e8fc422ee..0145251fa317 100644
+--- a/arch/hexagon/kernel/vmlinux.lds.S
++++ b/arch/hexagon/kernel/vmlinux.lds.S
+@@ -50,7 +50,7 @@ SECTIONS
+ 
+ 	_sdata = .;
+ 		RW_DATA_SECTION(32,PAGE_SIZE,_THREAD_SIZE)
+-		RO_DATA_SECTION(PAGE_SIZE)
++		RO_DATA(PAGE_SIZE)
+ 	_edata = .;
+ 
+ 	EXCEPTION_TABLE(16)
+diff --git a/arch/m68k/kernel/vmlinux-nommu.lds b/arch/m68k/kernel/vmlinux-nommu.lds
+index cf6edda38971..de80f8b8ae78 100644
+--- a/arch/m68k/kernel/vmlinux-nommu.lds
++++ b/arch/m68k/kernel/vmlinux-nommu.lds
+@@ -60,7 +60,7 @@ SECTIONS {
+ #endif
+ 
+ 	_sdata = .;
+-	RO_DATA_SECTION(PAGE_SIZE)
++	RO_DATA(PAGE_SIZE)
+ 	RW_DATA_SECTION(16, PAGE_SIZE, THREAD_SIZE)
+ 	_edata = .;
+ 
+diff --git a/arch/nds32/kernel/vmlinux.lds.S b/arch/nds32/kernel/vmlinux.lds.S
+index c4f1c5a604c3..10ff570ba95b 100644
+--- a/arch/nds32/kernel/vmlinux.lds.S
++++ b/arch/nds32/kernel/vmlinux.lds.S
+@@ -53,7 +53,7 @@ SECTIONS
+ 	_etext = .;			/* End of text and rodata section */
+ 
+ 	_sdata = .;
+-	RO_DATA_SECTION(PAGE_SIZE)
++	RO_DATA(PAGE_SIZE)
+ 	RW_DATA_SECTION(L1_CACHE_BYTES, PAGE_SIZE, THREAD_SIZE)
+ 	_edata  =  .;
+ 
+diff --git a/arch/nios2/kernel/vmlinux.lds.S b/arch/nios2/kernel/vmlinux.lds.S
+index 20e4078b3477..318804a2c7a1 100644
+--- a/arch/nios2/kernel/vmlinux.lds.S
++++ b/arch/nios2/kernel/vmlinux.lds.S
+@@ -49,7 +49,7 @@ SECTIONS
+ 	__init_end = .;
+ 
+ 	_sdata = .;
+-	RO_DATA_SECTION(PAGE_SIZE)
++	RO_DATA(PAGE_SIZE)
+ 	RW_DATA_SECTION(L1_CACHE_BYTES, PAGE_SIZE, THREAD_SIZE)
+ 	_edata = .;
+ 
+diff --git a/arch/openrisc/kernel/vmlinux.lds.S b/arch/openrisc/kernel/vmlinux.lds.S
+index 142c51c994f5..f73e0d3ea09f 100644
+--- a/arch/openrisc/kernel/vmlinux.lds.S
++++ b/arch/openrisc/kernel/vmlinux.lds.S
+@@ -67,8 +67,8 @@ SECTIONS
+ 
+ 	_sdata = .;
+ 
+-	/* Page alignment required for RO_DATA_SECTION */
+-	RO_DATA_SECTION(PAGE_SIZE)
++	/* Page alignment required for RO_DATA */
++	RO_DATA(PAGE_SIZE)
+ 	_e_kernel_ro = .;
+ 
+ 	/* Whatever comes after _e_kernel_ro had better be page-aligend, too */
+diff --git a/arch/parisc/kernel/vmlinux.lds.S b/arch/parisc/kernel/vmlinux.lds.S
+index 168d12b2ebb8..e1c563c7dca1 100644
+--- a/arch/parisc/kernel/vmlinux.lds.S
++++ b/arch/parisc/kernel/vmlinux.lds.S
+@@ -109,7 +109,7 @@ SECTIONS
+ 	_sdata = .;
+ 
+ 	/* Architecturally we need to keep __gp below 0x1000000 and thus
+-	 * in front of RO_DATA_SECTION() which stores lots of tracepoint
++	 * in front of RO_DATA() which stores lots of tracepoint
+ 	 * and ftrace symbols. */
+ #ifdef CONFIG_64BIT
+ 	. = ALIGN(16);
+@@ -127,7 +127,7 @@ SECTIONS
+ 	}
+ #endif
+ 
+-	RO_DATA_SECTION(8)
++	RO_DATA(8)
+ 
+ 	/* RO because of BUILDTIME_EXTABLE_SORT */
+ 	EXCEPTION_TABLE(8)
+diff --git a/arch/riscv/kernel/vmlinux.lds.S b/arch/riscv/kernel/vmlinux.lds.S
+index df5229c4034d..66dc17d24dd9 100644
+--- a/arch/riscv/kernel/vmlinux.lds.S
++++ b/arch/riscv/kernel/vmlinux.lds.S
+@@ -52,7 +52,7 @@ SECTIONS
+ 
+ 	/* Start of data section */
+ 	_sdata = .;
+-	RO_DATA_SECTION(L1_CACHE_BYTES)
++	RO_DATA(L1_CACHE_BYTES)
+ 	.srodata : {
+ 		*(.srodata*)
+ 	}
+diff --git a/arch/s390/kernel/vmlinux.lds.S b/arch/s390/kernel/vmlinux.lds.S
+index beb4df053e20..b33c4823f8b5 100644
+--- a/arch/s390/kernel/vmlinux.lds.S
++++ b/arch/s390/kernel/vmlinux.lds.S
+@@ -52,7 +52,7 @@ SECTIONS
+ 		_etext = .;		/* End of text section */
+ 	} :text = 0x0700
+ 
+-	RO_DATA_SECTION(PAGE_SIZE)
++	RO_DATA(PAGE_SIZE)
+ 
+ 	. = ALIGN(PAGE_SIZE);
+ 	_sdata = .;		/* Start of data section */
+diff --git a/arch/unicore32/kernel/vmlinux.lds.S b/arch/unicore32/kernel/vmlinux.lds.S
+index 78c4c56057b0..367c80313bec 100644
+--- a/arch/unicore32/kernel/vmlinux.lds.S
++++ b/arch/unicore32/kernel/vmlinux.lds.S
+@@ -43,7 +43,7 @@ SECTIONS
+ 	_etext = .;
+ 
+ 	_sdata = .;
+-	RO_DATA_SECTION(PAGE_SIZE)
++	RO_DATA(PAGE_SIZE)
+ 	RW_DATA_SECTION(L1_CACHE_BYTES, PAGE_SIZE, THREAD_SIZE)
+ 	_edata = .;
+ 
+diff --git a/include/asm-generic/vmlinux.lds.h b/include/asm-generic/vmlinux.lds.h
+index a0a989fbe411..061e57c609f6 100644
+--- a/include/asm-generic/vmlinux.lds.h
++++ b/include/asm-generic/vmlinux.lds.h
+@@ -23,7 +23,7 @@
+  *	_etext = .;
+  *
+  *      _sdata = .;
+- *	RO_DATA_SECTION(PAGE_SIZE)
++ *	RO_DATA(PAGE_SIZE)
+  *	RW_DATA_SECTION(...)
+  *	_edata = .;
+  *
+@@ -363,7 +363,7 @@
+ /*
+  * Read only Data
+  */
+-#define RO_DATA_SECTION(align)						\
++#define RO_DATA(align)							\
+ 	. = ALIGN((align));						\
+ 	.rodata           : AT(ADDR(.rodata) - LOAD_OFFSET) {		\
+ 		__start_rodata = .;					\
+@@ -518,9 +518,6 @@
+ 	. = ALIGN((align));						\
+ 	__end_rodata = .;
+ 
+-/* All archs are supposed to use RO_DATA() */
+-#define RO_DATA(align)  RO_DATA_SECTION(align)
+-
+ /*
+  * .text section. Map to function alignment to avoid address changes
+  * during second ld run in second ld pass when generating System.map
 -- 
-2.21.0
+2.17.1
