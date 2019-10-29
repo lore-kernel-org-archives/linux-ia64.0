@@ -1,10 +1,10 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Thu, 17 Oct 2019 17:45:39 +0000
+Date: Tue, 29 Oct 2019 06:48:19 +0000
 Subject: [PATCH 06/21] nios2: remove __ioremap
-Message-Id: <20191017174554.29840-7-hch@lst.de>
+Message-Id: <20191029064834.23438-7-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191017174554.29840-1-hch@lst.de>
-In-Reply-To: <20191017174554.29840-1-hch@lst.de>
+References: <20191029064834.23438-1-hch@lst.de>
+In-Reply-To: <20191029064834.23438-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
