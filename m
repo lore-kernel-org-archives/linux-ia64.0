@@ -1,96 +1,142 @@
-From: David Hildenbrand <david@redhat.com>
-Date: Wed, 02 Oct 2019 07:05:47 +0000
-Subject: Re: [PATCH v5 04/10] mm/memory_hotplug: Don't access uninitialized memmaps in shrink_zone_span()
-Message-Id: <1b6a5056-7f2a-1e83-fae0-5289435f4270@redhat.com>
+From: Kees Cook <keescook@chromium.org>
+Date: Tue, 29 Oct 2019 21:13:30 +0000
+Subject: [PATCH v3 08/29] vmlinux.lds.h: Provide EMIT_PT_NOTE to indicate export of .notes
+Message-Id: <20191029211351.13243-9-keescook@chromium.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191001144011.3801-5-david@redhat.com>
- <201910020852.w9neG45x%lkp@intel.com>
-In-Reply-To: <201910020852.w9neG45x%lkp@intel.com>
+References: <20191029211351.13243-1-keescook@chromium.org>
+In-Reply-To: <20191029211351.13243-1-keescook@chromium.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: kbuild test robot <lkp@intel.com>
-Cc: linux-s390@vger.kernel.org, Michal Hocko <mhocko@suse.com>, linux-ia64@vger.kernel.org, Pavel Tatashin <pasha.tatashin@soleen.com>, linux-sh@vger.kernel.org, "Aneesh Kumar K . V" <aneesh.kumar@linux.ibm.com>, linux-kernel@vger.kernel.org, linux-mm@kvack.org, kbuild-all@01.org, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, Dan Williams <dan.j.williams@intel.com>, linux-arm-kernel@lists.infradead.org, Oscar Salvador <osalvador@suse.de>
+To: Borislav Petkov <bp@alien8.de>
+Cc: Kees Cook <keescook@chromium.org>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Segher Boessenkool <segher@kernel.crashing.org>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Michael Ellerman <mpe@ellerman.id.au>, Heiko Carstens <heiko.carstens@de.ibm.com>, Will Deacon <will@kernel.org>, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linuxppc-dev@lists.ozlabs.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Michal Simek <monstr@monstr.eu>
 
-On 02.10.19 02:06, kbuild test robot wrote:
-> Hi David,
-> 
-> I love your patch! Perhaps something to improve:
-> 
-> [auto build test WARNING on mmotm/master]
-> 
-> url:    https://github.com/0day-ci/linux/commits/David-Hildenbrand/mm-memory_hotplug-Shrink-zones-before-removing-memory/20191002-054310
-> base:   git://git.cmpxchg.org/linux-mmotm.git master
-> config: x86_64-randconfig-b002-201939 (attached as .config)
-> compiler: gcc-7 (Debian 7.4.0-13) 7.4.0
-> reproduce:
->         # save the attached .config to linux build tree
->         make ARCH=x86_64 
-> 
-> If you fix the issue, kindly add following tag
-> Reported-by: kbuild test robot <lkp@intel.com>
-> 
-> All warnings (new ones prefixed by >>):
-> 
->    In file included from include/asm-generic/bug.h:5:0,
->                     from arch/x86/include/asm/bug.h:83,
->                     from include/linux/bug.h:5,
->                     from include/linux/mmdebug.h:5,
->                     from include/linux/mm.h:9,
->                     from mm/memory_hotplug.c:9:
->    mm/memory_hotplug.c: In function '__remove_zone':
->    mm/memory_hotplug.c:471:24: error: 'ZONE_DEVICE' undeclared (first use in this function); did you mean 'ZONE_MOVABLE'?
->      if (zone_idx(zone) = ZONE_DEVICE)
->                            ^
->    include/linux/compiler.h:58:52: note: in definition of macro '__trace_if_var'
->     #define __trace_if_var(cond) (__builtin_constant_p(cond) ? (cond) : __trace_if_value(cond))
->                                                        ^~~~
->>> mm/memory_hotplug.c:471:2: note: in expansion of macro 'if'
->      if (zone_idx(zone) = ZONE_DEVICE)
->      ^~
->    mm/memory_hotplug.c:471:24: note: each undeclared identifier is reported only once for each function it appears in
->      if (zone_idx(zone) = ZONE_DEVICE)
->                            ^
->    include/linux/compiler.h:58:52: note: in definition of macro '__trace_if_var'
->     #define __trace_if_var(cond) (__builtin_constant_p(cond) ? (cond) : __trace_if_value(cond))
->                                                        ^~~~
->>> mm/memory_hotplug.c:471:2: note: in expansion of macro 'if'
->      if (zone_idx(zone) = ZONE_DEVICE)
->      ^~
-> 
-> vim +/if +471 mm/memory_hotplug.c
-> 
->    459	
->    460	static void __remove_zone(struct zone *zone, unsigned long start_pfn,
->    461			unsigned long nr_pages)
->    462	{
->    463		struct pglist_data *pgdat = zone->zone_pgdat;
->    464		unsigned long flags;
->    465	
->    466		/*
->    467		 * Zone shrinking code cannot properly deal with ZONE_DEVICE. So
->    468		 * we will not try to shrink the zones - which is okay as
->    469		 * set_zone_contiguous() cannot deal with ZONE_DEVICE either way.
->    470		 */
->  > 471		if (zone_idx(zone) = ZONE_DEVICE)
->    472			return;
->    473	
->    474		pgdat_resize_lock(zone->zone_pgdat, &flags);
->    475		shrink_zone_span(zone, start_pfn, start_pfn + nr_pages);
->    476		update_pgdat_span(pgdat);
->    477		pgdat_resize_unlock(zone->zone_pgdat, &flags);
->    478	}
->    479	
-> 
-> ---
-> 0-DAY kernel test infrastructure                Open Source Technology Center
-> https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
-> 
+In preparation for moving NOTES into RO_DATA, provide a mechanism for
+architectures that want to emit a PT_NOTE Program Header to do so.
 
-That should be easy to fix with some ifdef-ery :)
+Signed-off-by: Kees Cook <keescook@chromium.org>
+Acked-by: Heiko Carstens <heiko.carstens@de.ibm.com> # s390
+---
+ arch/alpha/kernel/vmlinux.lds.S   |  3 +++
+ arch/ia64/kernel/vmlinux.lds.S    |  2 ++
+ arch/mips/kernel/vmlinux.lds.S    | 12 ++++++------
+ arch/powerpc/kernel/vmlinux.lds.S |  1 +
+ arch/s390/kernel/vmlinux.lds.S    |  2 ++
+ arch/x86/kernel/vmlinux.lds.S     |  2 ++
+ include/asm-generic/vmlinux.lds.h |  8 ++++++++
+ 7 files changed, 24 insertions(+), 6 deletions(-)
 
+diff --git a/arch/alpha/kernel/vmlinux.lds.S b/arch/alpha/kernel/vmlinux.lds.S
+index 781090cacc96..363a60ba7c31 100644
+--- a/arch/alpha/kernel/vmlinux.lds.S
++++ b/arch/alpha/kernel/vmlinux.lds.S
+@@ -1,4 +1,7 @@
+ /* SPDX-License-Identifier: GPL-2.0 */
++
++#define EMITS_PT_NOTE
++
+ #include <asm-generic/vmlinux.lds.h>
+ #include <asm/thread_info.h>
+ #include <asm/cache.h>
+diff --git a/arch/ia64/kernel/vmlinux.lds.S b/arch/ia64/kernel/vmlinux.lds.S
+index 2c4f23c390ad..7cf4958b732d 100644
+--- a/arch/ia64/kernel/vmlinux.lds.S
++++ b/arch/ia64/kernel/vmlinux.lds.S
+@@ -5,6 +5,8 @@
+ #include <asm/pgtable.h>
+ #include <asm/thread_info.h>
+ 
++#define EMITS_PT_NOTE
++
+ #include <asm-generic/vmlinux.lds.h>
+ 
+ OUTPUT_FORMAT("elf64-ia64-little")
+diff --git a/arch/mips/kernel/vmlinux.lds.S b/arch/mips/kernel/vmlinux.lds.S
+index 33ee0d18fb0a..1c95612eb800 100644
+--- a/arch/mips/kernel/vmlinux.lds.S
++++ b/arch/mips/kernel/vmlinux.lds.S
+@@ -10,6 +10,11 @@
+  */
+ #define BSS_FIRST_SECTIONS *(.bss..swapper_pg_dir)
+ 
++/* Cavium Octeon should not have a separate PT_NOTE Program Header. */
++#ifndef CONFIG_CAVIUM_OCTEON_SOC
++#define EMITS_PT_NOTE
++#endif
++
+ #include <asm-generic/vmlinux.lds.h>
+ 
+ #undef mips
+@@ -76,12 +81,7 @@ SECTIONS
+ 		__stop___dbe_table = .;
+ 	}
+ 
+-#ifdef CONFIG_CAVIUM_OCTEON_SOC
+-#define NOTES_HEADER
+-#else /* CONFIG_CAVIUM_OCTEON_SOC */
+-#define NOTES_HEADER :note
+-#endif /* CONFIG_CAVIUM_OCTEON_SOC */
+-	NOTES :text NOTES_HEADER
++	NOTES NOTES_HEADERS
+ 	.dummy : { *(.dummy) } :text
+ 
+ 	_sdata = .;			/* Start of data section */
+diff --git a/arch/powerpc/kernel/vmlinux.lds.S b/arch/powerpc/kernel/vmlinux.lds.S
+index e184a63aa5b0..7e26e20c8324 100644
+--- a/arch/powerpc/kernel/vmlinux.lds.S
++++ b/arch/powerpc/kernel/vmlinux.lds.S
+@@ -6,6 +6,7 @@
+ #endif
+ 
+ #define BSS_FIRST_SECTIONS *(.bss.prominit)
++#define EMITS_PT_NOTE
+ 
+ #include <asm/page.h>
+ #include <asm-generic/vmlinux.lds.h>
+diff --git a/arch/s390/kernel/vmlinux.lds.S b/arch/s390/kernel/vmlinux.lds.S
+index 13294fef473e..646d939346df 100644
+--- a/arch/s390/kernel/vmlinux.lds.S
++++ b/arch/s390/kernel/vmlinux.lds.S
+@@ -15,6 +15,8 @@
+ /* Handle ro_after_init data on our own. */
+ #define RO_AFTER_INIT_DATA
+ 
++#define EMITS_PT_NOTE
++
+ #include <asm-generic/vmlinux.lds.h>
+ #include <asm/vmlinux.lds.h>
+ 
+diff --git a/arch/x86/kernel/vmlinux.lds.S b/arch/x86/kernel/vmlinux.lds.S
+index 788e78978030..2e18bf5c1aed 100644
+--- a/arch/x86/kernel/vmlinux.lds.S
++++ b/arch/x86/kernel/vmlinux.lds.S
+@@ -21,6 +21,8 @@
+ #define LOAD_OFFSET __START_KERNEL_map
+ #endif
+ 
++#define EMITS_PT_NOTE
++
+ #include <asm-generic/vmlinux.lds.h>
+ #include <asm/asm-offsets.h>
+ #include <asm/thread_info.h>
+diff --git a/include/asm-generic/vmlinux.lds.h b/include/asm-generic/vmlinux.lds.h
+index dae64600ccbf..f5dd45ce73f1 100644
+--- a/include/asm-generic/vmlinux.lds.h
++++ b/include/asm-generic/vmlinux.lds.h
+@@ -54,6 +54,14 @@
+ #define LOAD_OFFSET 0
+ #endif
+ 
++/*
++ * Only some architectures want to have the .notes segment visible in
++ * a separate PT_NOTE ELF Program Header.
++ */
++#ifdef EMITS_PT_NOTE
++#define NOTES_HEADERS		:text :note
++#endif
++
+ /* Align . to a 8 byte boundary equals to maximum function alignment. */
+ #define ALIGN_FUNCTION()  . = ALIGN(8)
+ 
 -- 
-
-Thanks,
-
-David / dhildenb
+2.17.1
