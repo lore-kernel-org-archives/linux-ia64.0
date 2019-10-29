@@ -1,10 +1,10 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Thu, 17 Oct 2019 17:45:38 +0000
+Date: Tue, 29 Oct 2019 06:48:18 +0000
 Subject: [PATCH 05/21] alpha: remove the unused __ioremap wrapper
-Message-Id: <20191017174554.29840-6-hch@lst.de>
+Message-Id: <20191029064834.23438-6-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191017174554.29840-1-hch@lst.de>
-In-Reply-To: <20191017174554.29840-1-hch@lst.de>
+References: <20191029064834.23438-1-hch@lst.de>
+In-Reply-To: <20191029064834.23438-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
