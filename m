@@ -1,7 +1,7 @@
 From: Kees Cook <keescook@chromium.org>
-Date: Tue, 15 Oct 2019 17:36:21 +0000
+Date: Tue, 29 Oct 2019 21:15:39 +0000
 Subject: Re: [PATCH v2 01/29] powerpc: Rename "notes" PT_NOTE to "note"
-Message-Id: <201910151034.A21FDCA32@keescook>
+Message-Id: <201910291414.F29F738B7@keescook>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20191011000609.29728-1-keescook@chromium.org>
  <20191011000609.29728-2-keescook@chromium.org>
@@ -26,9 +26,9 @@ On Tue, Oct 15, 2019 at 06:54:13PM +0200, Borislav Petkov wrote:
 > of this one. And I believe Kees wouldn't mind doing it ontop since he's
 > gotten his hands dirty already. :-P
 
-Yeah, I'm fine with that. I would prefer to do it as a separate step,
-just to minimize the logical steps each patch takes. Shall I spin a v3
-with the Acks added and a final rename for this?
+I've added more rationale to patch #1 in the just-sent v3 of this
+series. If I still can't convince you Segher, I'm happy to send "patch
+30/29" to do a bulk rename to "notes". Let me know. :)
 
 -- 
 Kees Cook
