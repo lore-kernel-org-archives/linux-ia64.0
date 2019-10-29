@@ -1,8 +1,10 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Thu, 17 Oct 2019 17:45:33 +0000
-Subject: generic ioremap (and lots of cleanups) v2
-Message-Id: <20191017174554.29840-1-hch@lst.de>
+Date: Tue, 29 Oct 2019 06:48:13 +0000
+Subject: generic ioremap (and lots of cleanups) v3
+Message-Id: <20191029064834.23438-1-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20191017174554.29840-1-hch@lst.de>
+In-Reply-To: <20191017174554.29840-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -20,6 +22,9 @@ our ports.
 The patches before that clean up various lose ends in the ioremap
 and iounmap implementations.
 
+Note that there is no good tree this would fit, which means I'd set up
+a tree to it to Linus unless someone has a better idea.
+
 A git tree is also available here:
 
     git://git.infradead.org/users/hch/misc.git generic-ioremap
@@ -27,6 +32,11 @@ A git tree is also available here:
 Gitweb:
 
     http://git.infradead.org/users/hch/misc.git/shortlog/refs/heads/generic-ioremap
+
+Changes since v2:
+ - fix various typos
+ - move the m68k __free_io_area around instead of introducing a forward
+   declaration
 
 Changes since v1:
  - dropped various patches already merged
