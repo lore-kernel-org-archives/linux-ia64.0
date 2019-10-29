@@ -1,67 +1,111 @@
-From: David Hildenbrand <david@redhat.com>
-Date: Sun, 06 Oct 2019 08:56:46 +0000
-Subject: [PATCH v6 10/10] mm/memory_hotplug: Cleanup __remove_pages()
-Message-Id: <20191006085646.5768-11-david@redhat.com>
+From: Christoph Hellwig <hch@lst.de>
+Date: Tue, 29 Oct 2019 06:48:21 +0000
+Subject: [PATCH 08/21] x86: Clean up ioremap()
+Message-Id: <20191029064834.23438-9-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191006085646.5768-1-david@redhat.com>
-In-Reply-To: <20191006085646.5768-1-david@redhat.com>
+References: <20191029064834.23438-1-hch@lst.de>
+In-Reply-To: <20191029064834.23438-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: linux-s390@vger.kernel.org, Michal Hocko <mhocko@suse.com>, linux-ia64@vger.kernel.org, Pavel Tatashin <pasha.tatashin@soleen.com>, linux-sh@vger.kernel.org, x86@kernel.org, David Hildenbrand <david@redhat.com>, linux-mm@kvack.org, Wei Yang <richardw.yang@linux.intel.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, Dan Williams <dan.j.williams@intel.com>, linux-arm-kernel@lists.infradead.org, Oscar Salvador <osalvador@suse.de>
+To: Arnd Bergmann <arnd@arndb.de>, Guo Ren <guoren@kernel.org>, Michal Simek <monstr@monstr.eu>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, x86@kernel.org
+Cc: linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, nios2-dev@lists.rocketboards.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-mtd@lists.infradead.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Let's drop the basically unused section stuff and simplify.
+Use ioremap() as the main implemented function, and defines
+ioremap_nocache() as a deprecated alias of ioremap() in
+preparation of removing ioremap_nocache() entirely.
 
-Also, let's use a shorter variant to calculate the number of pages to
-the next section boundary.
-
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: Oscar Salvador <osalvador@suse.de>
-Cc: Michal Hocko <mhocko@suse.com>
-Cc: Pavel Tatashin <pasha.tatashin@soleen.com>
-Cc: Dan Williams <dan.j.williams@intel.com>
-Cc: Wei Yang <richardw.yang@linux.intel.com>
-Signed-off-by: David Hildenbrand <david@redhat.com>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- mm/memory_hotplug.c | 17 ++++++-----------
- 1 file changed, 6 insertions(+), 11 deletions(-)
+ arch/x86/include/asm/io.h | 8 ++------
+ arch/x86/mm/ioremap.c     | 8 ++++----
+ arch/x86/mm/pageattr.c    | 4 ++--
+ 3 files changed, 8 insertions(+), 12 deletions(-)
 
-diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
-index 843481bd507d..2275240cfa10 100644
---- a/mm/memory_hotplug.c
-+++ b/mm/memory_hotplug.c
-@@ -490,25 +490,20 @@ static void __remove_section(unsigned long pfn, unsigned long nr_pages,
- void __remove_pages(unsigned long pfn, unsigned long nr_pages,
- 		    struct vmem_altmap *altmap)
- {
-+	const unsigned long end_pfn = pfn + nr_pages;
-+	unsigned long cur_nr_pages;
- 	unsigned long map_offset = 0;
--	unsigned long nr, start_sec, end_sec;
+diff --git a/arch/x86/include/asm/io.h b/arch/x86/include/asm/io.h
+index 6bed97ff6db2..6b5cc41319a7 100644
+--- a/arch/x86/include/asm/io.h
++++ b/arch/x86/include/asm/io.h
+@@ -180,8 +180,6 @@ static inline unsigned int isa_virt_to_bus(volatile void *address)
+  * The default ioremap() behavior is non-cached; if you need something
+  * else, you probably want one of the following.
+  */
+-extern void __iomem *ioremap_nocache(resource_size_t offset, unsigned long size);
+-#define ioremap_nocache ioremap_nocache
+ extern void __iomem *ioremap_uc(resource_size_t offset, unsigned long size);
+ #define ioremap_uc ioremap_uc
+ extern void __iomem *ioremap_cache(resource_size_t offset, unsigned long size);
+@@ -205,11 +203,9 @@ extern void __iomem *ioremap_encrypted(resource_size_t phys_addr, unsigned long
+  * If the area you are trying to map is a PCI BAR you should have a
+  * look at pci_iomap().
+  */
+-static inline void __iomem *ioremap(resource_size_t offset, unsigned long size)
+-{
+-	return ioremap_nocache(offset, size);
+-}
++void __iomem *ioremap(resource_size_t offset, unsigned long size);
+ #define ioremap ioremap
++#define ioremap_nocache ioremap
  
- 	map_offset = vmem_altmap_offset(altmap);
- 
- 	if (check_pfn_span(pfn, nr_pages, "remove"))
- 		return;
- 
--	start_sec = pfn_to_section_nr(pfn);
--	end_sec = pfn_to_section_nr(pfn + nr_pages - 1);
--	for (nr = start_sec; nr <= end_sec; nr++) {
--		unsigned long pfns;
--
-+	for (; pfn < end_pfn; pfn += cur_nr_pages) {
- 		cond_resched();
--		pfns = min(nr_pages, PAGES_PER_SECTION
--				- (pfn & ~PAGE_SECTION_MASK));
--		__remove_section(pfn, pfns, map_offset, altmap);
--		pfn += pfns;
--		nr_pages -= pfns;
-+		/* Select all remaining pages up to the next section boundary */
-+		cur_nr_pages = min(end_pfn - pfn, -(pfn | PAGE_SECTION_MASK));
-+		__remove_section(pfn, cur_nr_pages, map_offset, altmap);
- 		map_offset = 0;
- 	}
+ extern void iounmap(volatile void __iomem *addr);
+ #define iounmap iounmap
+diff --git a/arch/x86/mm/ioremap.c b/arch/x86/mm/ioremap.c
+index a39dcdb5ae34..7985233dfb8d 100644
+--- a/arch/x86/mm/ioremap.c
++++ b/arch/x86/mm/ioremap.c
+@@ -280,11 +280,11 @@ __ioremap_caller(resource_size_t phys_addr, unsigned long size,
  }
+ 
+ /**
+- * ioremap_nocache     -   map bus memory into CPU space
++ * ioremap     -   map bus memory into CPU space
+  * @phys_addr:    bus address of the memory
+  * @size:      size of the resource to map
+  *
+- * ioremap_nocache performs a platform specific sequence of operations to
++ * ioremap performs a platform specific sequence of operations to
+  * make bus memory CPU accessible via the readb/readw/readl/writeb/
+  * writew/writel functions and the other mmio helpers. The returned
+  * address is not guaranteed to be usable directly as a virtual
+@@ -300,7 +300,7 @@ __ioremap_caller(resource_size_t phys_addr, unsigned long size,
+  *
+  * Must be freed with iounmap.
+  */
+-void __iomem *ioremap_nocache(resource_size_t phys_addr, unsigned long size)
++void __iomem *ioremap(resource_size_t phys_addr, unsigned long size)
+ {
+ 	/*
+ 	 * Ideally, this should be:
+@@ -315,7 +315,7 @@ void __iomem *ioremap_nocache(resource_size_t phys_addr, unsigned long size)
+ 	return __ioremap_caller(phys_addr, size, pcm,
+ 				__builtin_return_address(0), false);
+ }
+-EXPORT_SYMBOL(ioremap_nocache);
++EXPORT_SYMBOL(ioremap);
+ 
+ /**
+  * ioremap_uc     -   map bus memory into CPU space as strongly uncachable
+diff --git a/arch/x86/mm/pageattr.c b/arch/x86/mm/pageattr.c
+index 0d09cc5aad61..1b99ad05b117 100644
+--- a/arch/x86/mm/pageattr.c
++++ b/arch/x86/mm/pageattr.c
+@@ -1784,7 +1784,7 @@ static inline int cpa_clear_pages_array(struct page **pages, int numpages,
+ int _set_memory_uc(unsigned long addr, int numpages)
+ {
+ 	/*
+-	 * for now UC MINUS. see comments in ioremap_nocache()
++	 * for now UC MINUS. see comments in ioremap()
+ 	 * If you really need strong UC use ioremap_uc(), but note
+ 	 * that you cannot override IO areas with set_memory_*() as
+ 	 * these helpers cannot work with IO memory.
+@@ -1799,7 +1799,7 @@ int set_memory_uc(unsigned long addr, int numpages)
+ 	int ret;
+ 
+ 	/*
+-	 * for now UC MINUS. see comments in ioremap_nocache()
++	 * for now UC MINUS. see comments in ioremap()
+ 	 */
+ 	ret = reserve_memtype(__pa(addr), __pa(addr) + numpages * PAGE_SIZE,
+ 			      _PAGE_CACHE_MODE_UC_MINUS, NULL);
 -- 
-2.21.0
+2.20.1
