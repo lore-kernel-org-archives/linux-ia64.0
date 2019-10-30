@@ -1,89 +1,49 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Tue, 29 Oct 2019 06:48:23 +0000
-Subject: [PATCH 10/21] asm-generic: ioremap_uc should behave the same with and without MMU
-Message-Id: <20191029064834.23438-11-hch@lst.de>
+From: Qais Yousef <qais.yousef@arm.com>
+Date: Wed, 30 Oct 2019 15:38:29 +0000
+Subject: [PATCH 04/12] ia64: Replace cpu_down with freeze_secondary_cpus
+Message-Id: <20191030153837.18107-5-qais.yousef@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191029064834.23438-1-hch@lst.de>
-In-Reply-To: <20191029064834.23438-1-hch@lst.de>
+References: <20191030153837.18107-1-qais.yousef@arm.com>
+In-Reply-To: <20191030153837.18107-1-qais.yousef@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Arnd Bergmann <arnd@arndb.de>, Guo Ren <guoren@kernel.org>, Michal Simek <monstr@monstr.eu>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, x86@kernel.org
-Cc: linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, nios2-dev@lists.rocketboards.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-mtd@lists.infradead.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Thomas Gleixner <tglx@linutronix.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: Qais Yousef <qais.yousef@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Whatever reason there is for the existence of ioremap_uc, and the fact
-that it returns NULL by default on architectures with an MMU applies
-equally to nommu architectures, so don't provide different defaults.
+Use freeze_secondary_cpus() instead of open coding using cpu_down()
+directly.
 
-In practice the difference is meaningless as the only portable driver
-that uses ioremap_uc is atyfb which probably doesn't show up on nommu
-devices.
+This also prepares to make cpu_up/down a private interface for anything
+but the cpu subsystem.
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+Signed-off-by: Qais Yousef <qais.yousef@arm.com>
+CC: Tony Luck <tony.luck@intel.com>
+CC: Fenghua Yu <fenghua.yu@intel.com>
+CC: linux-ia64@vger.kernel.org
+CC: linux-kernel@vger.kernel.org
 ---
- include/asm-generic/io.h | 36 ++++++++++++++++--------------------
- 1 file changed, 16 insertions(+), 20 deletions(-)
+ arch/ia64/kernel/process.c | 8 ++------
+ 1 file changed, 2 insertions(+), 6 deletions(-)
 
-diff --git a/include/asm-generic/io.h b/include/asm-generic/io.h
-index d02806513670..a98ed6325727 100644
---- a/include/asm-generic/io.h
-+++ b/include/asm-generic/io.h
-@@ -935,18 +935,7 @@ static inline void *phys_to_virt(unsigned long address)
-  * defined your own ioremap_*() variant you must then declare your own
-  * ioremap_*() variant as defined to itself to avoid the default NULL return.
-  */
+diff --git a/arch/ia64/kernel/process.c b/arch/ia64/kernel/process.c
+index 968b5f33e725..70b433eafa5c 100644
+--- a/arch/ia64/kernel/process.c
++++ b/arch/ia64/kernel/process.c
+@@ -647,12 +647,8 @@ cpu_halt (void)
+ void machine_shutdown(void)
+ {
+ #ifdef CONFIG_HOTPLUG_CPU
+-	int cpu;
 -
--#ifdef CONFIG_MMU
--
--#ifndef ioremap_uc
--#define ioremap_uc ioremap_uc
--static inline void __iomem *ioremap_uc(phys_addr_t offset, size_t size)
--{
--	return NULL;
--}
--#endif
--
--#else /* !CONFIG_MMU */
-+#ifndef CONFIG_MMU
- 
- /*
-  * Change "struct page" to physical address.
-@@ -980,14 +969,6 @@ static inline void __iomem *ioremap_nocache(phys_addr_t offset, size_t size)
- }
+-	for_each_online_cpu(cpu) {
+-		if (cpu != smp_processor_id())
+-			cpu_down(cpu);
+-	}
++	/* TODO: Can we use disable_nonboot_cpus()? */
++	freeze_secondary_cpus(smp_processor_id());
  #endif
- 
--#ifndef ioremap_uc
--#define ioremap_uc ioremap_uc
--static inline void __iomem *ioremap_uc(phys_addr_t offset, size_t size)
--{
--	return ioremap_nocache(offset, size);
--}
--#endif
--
- #ifndef ioremap_wc
- #define ioremap_wc ioremap_wc
- static inline void __iomem *ioremap_wc(phys_addr_t offset, size_t size)
-@@ -1004,6 +985,21 @@ static inline void __iomem *ioremap_wt(phys_addr_t offset, size_t size)
- }
- #endif
- 
-+/*
-+ * ioremap_uc is special in that we do require an explicit architecture
-+ * implementation.  In general you do now want to use this function in a
-+ * driver and use plain ioremap, which is uncached by default.  Similarly
-+ * architectures should not implement it unless they have a very good
-+ * reason.
-+ */
-+#ifndef ioremap_uc
-+#define ioremap_uc ioremap_uc
-+static inline void __iomem *ioremap_uc(phys_addr_t offset, size_t size)
-+{
-+	return NULL;
-+}
-+#endif
-+
- #ifdef CONFIG_HAS_IOPORT_MAP
- #ifndef CONFIG_GENERIC_IOMAP
- #ifndef ioport_map
+ #ifdef CONFIG_KEXEC
+ 	kexec_disable_iosapic();
 -- 
-2.20.1
+2.17.1
