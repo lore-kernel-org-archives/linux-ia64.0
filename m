@@ -1,155 +1,80 @@
-From: Aleksa Sarai <cyphar@cyphar.com>
-Date: Wed, 20 Nov 2019 05:06:28 +0000
-Subject: [PATCH RESEND v17 10/13] namei: LOOKUP_{IN_ROOT,BENEATH}: permit limited ".." resolution
-Message-Id: <20191120050631.12816-11-cyphar@cyphar.com>
+From: "tip-bot2 for Kees Cook" <tip-bot2@linutronix.de>
+Date: Tue, 05 Nov 2019 09:27:30 +0000
+Subject: [tip: x86/build] x86/vmlinux: Move EXCEPTION_TABLE to RO_DATA segment
+Message-Id: <157294605067.29376.15944354524301929135.tip-bot2@tip-bot2>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191120050631.12816-1-cyphar@cyphar.com>
-In-Reply-To: <20191120050631.12816-1-cyphar@cyphar.com>
+References: <20191029211351.13243-17-keescook@chromium.org>
+In-Reply-To: <20191029211351.13243-17-keescook@chromium.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Alexei Starovoitov <ast@kernel.org>, Daniel Borkmann <daniel@iogearbox.net>, Martin KaFai Lau <kafai@fb.com>, Song Liu <songliubraving@fb.com>, Yonghong Song <yhs@fb.com>, Andrii Nakryiko <andriin@fb.com>, Jonathan Corbet <corbet@lwn.net>
-Cc: Aleksa Sarai <cyphar@cyphar.com>, Christian Brauner <christian.brauner@ubuntu.com>, Jann Horn <jannh@google.com>, Linus Torvalds <torvalds@linux-foundation.org>, Eric Biederman <ebiederm@xmission.com>, Andy Lutomirski <luto@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Kees Cook <keescook@chromium.org>, Tycho Andersen <tycho@tycho.ws>, David Drysdale <drysdale@google.com>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, Christian Brauner <christian@brauner.io>, Aleksa Sarai <asarai@suse.de>, dev@opencontainers.org, containers@lists.linux-foundation.org, bpf@vger.kernel.org, netdev@vger.kernel.org, linux-alpha@vger.kernel.org, linux-api@vger.kernel.org, libc-alpha@sourceware.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-doc@vger.kernel.org, linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-kselftest@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, sparclinux@vger.kernel.org
+To: linux-tip-commits@vger.kernel.org
+Cc: Kees Cook <keescook@chromium.org>, Borislav Petkov <bp@suse.de>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Dave Hansen <dave.hansen@linux.intel.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, "H. Peter Anvin" <hpa@zytor.com>, Ingo Molnar <mingo@redhat.com>, linux-alpha@vger.kernel.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>, Michal Simek <monstr@monstr.eu>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Ross Zwisler <zwisler@chromium.org>, Segher Boessenkool <segher@kernel.crashing.org>, Thomas Gleixner <tglx@linutronix.de>, Thomas Lendacky <Thomas.Lendacky@amd.com>, Will Deacon <will@kernel.org>, x86-ml <x86@kernel.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Ingo Molnar <mingo@kernel.org>, Borislav Petkov <bp@alien8.de>, linux-kernel@vger.kernel.org
 
-Allow LOOKUP_BENEATH and LOOKUP_IN_ROOT to safely permit ".." resolution
-(in the case of LOOKUP_BENEATH the resolution will still fail if ".."
-resolution would resolve a path outside of the root -- while
-LOOKUP_IN_ROOT will chroot(2)-style scope it). Magic-link jumps are
-still disallowed entirely[*].
+The following commit has been merged into the x86/build branch of tip:
 
-As Jann explains[1,2], the need for this patch (and the original no-".."
-restriction) is explained by observing there is a fairly easy-to-exploit
-race condition with chroot(2) (and thus by extension LOOKUP_IN_ROOT and
-LOOKUP_BENEATH if ".." is allowed) where a rename(2) of a path can be
-used to "skip over" nd->root and thus escape to the filesystem above
-nd->root.
+Commit-ID:     f0d7ee17d57c7a8510518a1e60366d053e2f3ff5
+Gitweb:        https://git.kernel.org/tip/f0d7ee17d57c7a8510518a1e60366d053e2f3ff5
+Author:        Kees Cook <keescook@chromium.org>
+AuthorDate:    Tue, 29 Oct 2019 14:13:38 -07:00
+Committer:     Borislav Petkov <bp@suse.de>
+CommitterDate: Mon, 04 Nov 2019 17:55:02 +01:00
 
-  thread1 [attacker]:
-    for (;;)
-      renameat2(AT_FDCWD, "/a/b/c", AT_FDCWD, "/a/d", RENAME_EXCHANGE);
-  thread2 [victim]:
-    for (;;)
-      openat2(dirb, "b/c/../../etc/shadow",
-              { .flags = O_PATH, .resolve = RESOLVE_IN_ROOT } );
+x86/vmlinux: Move EXCEPTION_TABLE to RO_DATA segment
 
-With fairly significant regularity, thread2 will resolve to
-"/etc/shadow" rather than "/a/b/etc/shadow". There is also a similar
-(though somewhat more privileged) attack using MS_MOVE.
+The exception table was needlessly marked executable. In preparation
+for execute-only memory, move the table into the RO_DATA segment via
+the new macro that can be used by any architectures that want to make
+a similar consolidation.
 
-With this patch, such cases will be detected *during* ".." resolution
-and will return -EAGAIN for userspace to decide to either retry or abort
-the lookup. It should be noted that ".." is the weak point of chroot(2)
--- walking *into* a subdirectory tautologically cannot result in you
-walking *outside* nd->root (except through a bind-mount or magic-link).
-There is also no other way for a directory's parent to change (which is
-the primary worry with ".." resolution here) other than a rename or
-MS_MOVE.
-
-The primary reason for deferring to userspace with -EAGAIN is that an
-in-kernel retry loop (or doing a path_is_under() check after re-taking
-the relevant seqlocks) can become unreasonably expensive on machines
-with lots of VFS activity (nfsd can cause lots of rename_lock updates).
-Thus it should be up to userspace how many times they wish to retry the
-lookup -- the selftests for this attack indicate that there is a ~35%
-chance of the lookup succeeding on the first try even with an attacker
-thrashing rename_lock.
-
-A variant of the above attack is included in the selftests for
-openat2(2) later in this patch series. I've run this test on several
-machines for several days and no instances of a breakout were detected.
-While this is not concrete proof that this is safe, when combined with
-the above argument it should lend some trustworthiness to this
-construction.
-
-[*] It may be acceptable in the future to do a path_is_under() check for
-    magic-links after they are resolved. However this seems unlikely to
-    be a feature that people *really* need -- it can be added later if
-    it turns out a lot of people want it.
-
-[1]: https://lore.kernel.org/lkml/CAG48ez1jzNvxB+bfOBnERFGp=oMM0vHWuLD6EULmne3R6xa53w@mail.gmail.com/
-[2]: https://lore.kernel.org/lkml/CAG48ez30WJhbsro2HOc_DR7V91M+hNFzBP5ogRMZaxbAORvqzg@mail.gmail.com/
-
-Cc: Christian Brauner <christian.brauner@ubuntu.com>
-Suggested-by: Jann Horn <jannh@google.com>
-Suggested-by: Linus Torvalds <torvalds@linux-foundation.org>
-Signed-off-by: Aleksa Sarai <cyphar@cyphar.com>
+Signed-off-by: Kees Cook <keescook@chromium.org>
+Signed-off-by: Borislav Petkov <bp@suse.de>
+Cc: Andy Lutomirski <luto@kernel.org>
+Cc: Arnd Bergmann <arnd@arndb.de>
+Cc: Dave Hansen <dave.hansen@linux.intel.com>
+Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
+Cc: "H. Peter Anvin" <hpa@zytor.com>
+Cc: Ingo Molnar <mingo@redhat.com>
+Cc: linux-alpha@vger.kernel.org
+Cc: linux-arch@vger.kernel.org
+Cc: linux-arm-kernel@lists.infradead.org
+Cc: linux-c6x-dev@linux-c6x.org
+Cc: linux-ia64@vger.kernel.org
+Cc: linuxppc-dev@lists.ozlabs.org
+Cc: linux-s390@vger.kernel.org
+Cc: Michael Ellerman <mpe@ellerman.id.au>
+Cc: Michal Simek <monstr@monstr.eu>
+Cc: Rick Edgecombe <rick.p.edgecombe@intel.com>
+Cc: Ross Zwisler <zwisler@chromium.org>
+Cc: Segher Boessenkool <segher@kernel.crashing.org>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Thomas Lendacky <Thomas.Lendacky@amd.com>
+Cc: Will Deacon <will@kernel.org>
+Cc: x86-ml <x86@kernel.org>
+Cc: Yoshinori Sato <ysato@users.sourceforge.jp>
+Link: https://lkml.kernel.org/r/20191029211351.13243-17-keescook@chromium.org
 ---
- fs/namei.c | 37 ++++++++++++++++++++++++-------------
- 1 file changed, 24 insertions(+), 13 deletions(-)
+ arch/x86/kernel/vmlinux.lds.S | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/fs/namei.c b/fs/namei.c
-index a6196786db13..88c706e459f6 100644
---- a/fs/namei.c
-+++ b/fs/namei.c
-@@ -491,7 +491,7 @@ struct nameidata {
- 	struct path	root;
- 	struct inode	*inode; /* path.dentry.d_inode */
- 	unsigned int	flags;
--	unsigned	seq, m_seq;
-+	unsigned	seq, m_seq, r_seq;
- 	int		last_type;
- 	unsigned	depth;
- 	int		total_link_count;
-@@ -1781,22 +1781,30 @@ static inline int handle_dots(struct nameidata *nd, int type)
- 	if (type = LAST_DOTDOT) {
- 		int error = 0;
+diff --git a/arch/x86/kernel/vmlinux.lds.S b/arch/x86/kernel/vmlinux.lds.S
+index a1a758e..b06d6e1 100644
+--- a/arch/x86/kernel/vmlinux.lds.S
++++ b/arch/x86/kernel/vmlinux.lds.S
+@@ -22,6 +22,7 @@
+ #endif
  
--		/*
--		 * Scoped-lookup flags resolving ".." is not currently safe --
--		 * races can cause our parent to have moved outside of the root
--		 * and us to skip over it.
--		 */
--		if (unlikely(nd->flags & LOOKUP_IS_SCOPED))
--			return -EXDEV;
- 		if (!nd->root.mnt) {
- 			error = set_root(nd);
- 			if (error)
- 				return error;
- 		}
--		if (nd->flags & LOOKUP_RCU) {
--			return follow_dotdot_rcu(nd);
--		} else
--			return follow_dotdot(nd);
-+		if (nd->flags & LOOKUP_RCU)
-+			error = follow_dotdot_rcu(nd);
-+		else
-+			error = follow_dotdot(nd);
-+		if (error)
-+			return error;
-+
-+		if (unlikely(nd->flags & LOOKUP_IS_SCOPED)) {
-+			/*
-+			 * If there was a racing rename or mount along our
-+			 * path, then we can't be sure that ".." hasn't jumped
-+			 * above nd->root (and so userspace should retry or use
-+			 * some fallback).
-+			 */
-+			if (unlikely(read_seqretry(&mount_lock, nd->m_seq)))
-+				return -EAGAIN;
-+			if (unlikely(read_seqretry(&rename_lock, nd->r_seq)))
-+				return -EAGAIN;
-+		}
- 	}
- 	return 0;
- }
-@@ -2266,6 +2274,10 @@ static const char *path_init(struct nameidata *nd, unsigned flags)
- 	nd->last_type = LAST_ROOT; /* if there are only slashes... */
- 	nd->flags = flags | LOOKUP_JUMPED | LOOKUP_PARENT;
- 	nd->depth = 0;
-+
-+	nd->m_seq = read_seqbegin(&mount_lock);
-+	nd->r_seq = read_seqbegin(&rename_lock);
-+
- 	if (flags & LOOKUP_ROOT) {
- 		struct dentry *root = nd->root.dentry;
- 		struct inode *inode = root->d_inode;
-@@ -2287,7 +2299,6 @@ static const char *path_init(struct nameidata *nd, unsigned flags)
- 	nd->path.mnt = NULL;
- 	nd->path.dentry = NULL;
+ #define EMITS_PT_NOTE
++#define RO_EXCEPTION_TABLE_ALIGN	16
  
--	nd->m_seq = read_seqbegin(&mount_lock);
+ #include <asm-generic/vmlinux.lds.h>
+ #include <asm/asm-offsets.h>
+@@ -145,8 +146,6 @@ SECTIONS
+ #endif
+ 	} :text = 0x9090
  
- 	/* Absolute pathname -- fetch the root (LOOKUP_IN_ROOT uses nd->dfd). */
- 	if (*s = '/' && !(flags & LOOKUP_IN_ROOT)) {
--- 
-2.24.0
+-	EXCEPTION_TABLE(16)
+-
+ 	/* End of text section, which should occupy whole number of pages */
+ 	_etext = .;
+ 	. = ALIGN(PAGE_SIZE);
