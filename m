@@ -1,17 +1,19 @@
-From: Anshuman Khandual <anshuman.khandual@arm.com>
-Date: Tue, 05 Nov 2019 00:42:31 +0000
+From: Gerald Schaefer <gerald.schaefer@de.ibm.com>
+Date: Tue, 05 Nov 2019 19:36:38 +0000
 Subject: Re: [PATCH V8] mm/debug: Add tests validating architecture page table helpers
-Message-Id: <18cdce9e-2107-04b3-f58f-b1e932265965@arm.com>
+Message-Id: <20191105203638.6889a994@thinkpad>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1572240562-23630-1-git-send-email-anshuman.khandual@arm.com>
 In-Reply-To: <1572240562-23630-1-git-send-email-anshuman.khandual@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org
-Cc: Mark Rutland <mark.rutland@arm.com>, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, James Hogan <jhogan@kernel.org>, Heiko Carstens <heiko.carstens@de.ibm.com>, Michal Hocko <mhocko@kernel.org>, Dave Hansen <dave.hansen@intel.com>, Paul Mackerras <paulus@samba.org>, sparclinux@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, linux-s390@vger.kernel.org, Jason Gunthorpe <jgg@ziepe.ca>, Michael Ellerman <mpe@ellerman.id.au>, x86@kernel.org, Russell King - ARM Linux <linux@armlinux.org.uk>, Matthew Wilcox <willy@infradead.org>, Steven Price <Steven.Price@arm.com>, Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>, Gerald Schaefer <gerald.schaefer@de.ibm.com>, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, Ingo Molnar <mingo@kernel.org>, Kees Cook <keescook@chromium.org>, Masahiro Yamada <yamada.masahiro@socionext.com>, Mark Brown <broonie@kernel.org>, "Kirill A . Shutemov" <kirill@shutemov.name>, Dan Williams <dan.j.williams@intel.com>, Vlastimil Babka <vbabka@suse.cz>, Christophe Leroy <christophe.leroy@c-s.fr>, Sri Krishna chowdary <schowdary@nvidia.com>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-mips@vger.kernel.org, Ralf Baechle <ralf@linux-mips.org>, linux-kernel@vger.kernel.org, Paul Burton <paul.burton@mips.com>, Mike Rapoport <rppt@linux.vnet.ibm.com>, Vineet Gupta <vgupta@synopsys.com>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, "David S. Miller" <davem@davemloft.net>
+To: Anshuman Khandual <anshuman.khandual@arm.com>
+Cc: Mark Rutland <mark.rutland@arm.com>, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, James Hogan <jhogan@kernel.org>, Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>, Heiko Carstens <heiko.carstens@de.ibm.com>, Michal Hocko <mhocko@kernel.org>, linux-mm@kvack.org, Dave Hansen <dave.hansen@intel.com>, Paul Mackerras <paulus@samba.org>, sparclinux@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, linux-s390@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>, x86@kernel.org, Russell King - ARM Linux <linux@armlinux.org.uk>, Matthew Wilcox <willy@infradead.org>, Steven Price <Steven.Price@arm.com>, Jason Gunthorpe <jgg@ziepe.ca>, linux-arm-kernel@lists.infradead.org, linux-snps-arc@lists.infradead.org, Ingo Molnar <mingo@kernel.org>, Kees Cook <keescook@chromium.org>, Masahiro Yamada <yamada.masahiro@socionext.com>, Mark Brown <broonie@kernel.org>, "Kirill A . Shutemov" <kirill@shutemov.name>, Dan Williams <dan.j.williams@intel.com>, Vlastimil Babka <vbabka@suse.cz>, Christophe Leroy <christophe.leroy@c-s.fr>, Sri Krishna chowdary <schowdary@nvidia.com>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-mips@vger.kernel.org, Ralf Baechle <ralf@linux-mips.org>, linux-kernel@vger.kernel.org, Paul Burton <paul.burton@mips.com>, Mike Rapoport <rppt@linux.vnet.ibm.com>, Vineet Gupta <vgupta@synopsys.com>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, "David S. Miller" <davem@davemloft.net>
 
-On 10/28/2019 10:59 AM, Anshuman Khandual wrote:
+On Mon, 28 Oct 2019 10:59:22 +0530
+Anshuman Khandual <anshuman.khandual@arm.com> wrote:
+
 > This adds tests which will validate architecture page table helpers and
 > other accessors in their compliance with expected generic MM semantics.
 > This will help various architectures in validating changes to existing
@@ -32,90 +34,19 @@ On 10/28/2019 10:59 AM, Anshuman Khandual wrote:
 > select CONFIG_ARCH_HAS_DEBUG_VM_PGTABLE which for now is limited to x86 and
 > arm64. Going forward, other architectures too can enable this after fixing
 > build or runtime problems (if any) with their page table helpers.
-> 
-> Folks interested in making sure that a given platform's page table helpers
-> conform to expected generic MM semantics should enable the above config
-> which will just trigger this test during boot. Any non conformity here will
-> be reported as an warning which would need to be fixed. This test will help
-> catch any changes to the agreed upon semantics expected from generic MM and
-> enable platforms to accommodate it thereafter.
-> 
-> Cc: Andrew Morton <akpm@linux-foundation.org>
-> Cc: Vlastimil Babka <vbabka@suse.cz>
-> Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-> Cc: Thomas Gleixner <tglx@linutronix.de>
-> Cc: Mike Rapoport <rppt@linux.vnet.ibm.com>
-> Cc: Jason Gunthorpe <jgg@ziepe.ca>
-> Cc: Dan Williams <dan.j.williams@intel.com>
-> Cc: Peter Zijlstra <peterz@infradead.org>
-> Cc: Michal Hocko <mhocko@kernel.org>
-> Cc: Mark Rutland <mark.rutland@arm.com>
-> Cc: Mark Brown <broonie@kernel.org>
-> Cc: Steven Price <Steven.Price@arm.com>
-> Cc: Ard Biesheuvel <ard.biesheuvel@linaro.org>
-> Cc: Masahiro Yamada <yamada.masahiro@socionext.com>
-> Cc: Kees Cook <keescook@chromium.org>
-> Cc: Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>
-> Cc: Matthew Wilcox <willy@infradead.org>
-> Cc: Sri Krishna chowdary <schowdary@nvidia.com>
-> Cc: Dave Hansen <dave.hansen@intel.com>
-> Cc: Russell King - ARM Linux <linux@armlinux.org.uk>
-> Cc: Michael Ellerman <mpe@ellerman.id.au>
-> Cc: Paul Mackerras <paulus@samba.org>
-> Cc: Martin Schwidefsky <schwidefsky@de.ibm.com>
-> Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Vineet Gupta <vgupta@synopsys.com>
-> Cc: James Hogan <jhogan@kernel.org>
-> Cc: Paul Burton <paul.burton@mips.com>
-> Cc: Ralf Baechle <ralf@linux-mips.org>
-> Cc: Kirill A. Shutemov <kirill@shutemov.name>
-> Cc: Gerald Schaefer <gerald.schaefer@de.ibm.com>
-> Cc: Christophe Leroy <christophe.leroy@c-s.fr>
-> Cc: Ingo Molnar <mingo@kernel.org>
-> Cc: linux-snps-arc@lists.infradead.org
-> Cc: linux-mips@vger.kernel.org
-> Cc: linux-arm-kernel@lists.infradead.org
-> Cc: linux-ia64@vger.kernel.org
-> Cc: linuxppc-dev@lists.ozlabs.org
-> Cc: linux-s390@vger.kernel.org
-> Cc: linux-sh@vger.kernel.org
-> Cc: sparclinux@vger.kernel.org
-> Cc: x86@kernel.org
-> Cc: linux-kernel@vger.kernel.org
-> 
-> Tested-by: Christophe Leroy <christophe.leroy@c-s.fr>		#PPC32
-> Suggested-by: Catalin Marinas <catalin.marinas@arm.com>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-> Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
-> Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
-> ---
-> 
-> This adds a test validation for architecture exported page table helpers.
-> Patch adds basic transformation tests at various levels of the page table.
-> 
-> This test was originally suggested by Catalin during arm64 THP migration
-> RFC discussion earlier. Going forward it can include more specific tests
-> with respect to various generic MM functions like THP, HugeTLB etc and
-> platform specific tests.
-> 
-> https://lore.kernel.org/linux-mm/20190628102003.GA56463@arrakis.emea.arm.com/
-> 
-> Needs to be applied on linux-next (next-20191025).
-> 
-> Changes in V8:
-> 
-> - Enabled ARCH_HAS_DEBUG_VM_PGTABLE on PPC32 platform per Christophe
-> - Updated feature documentation as DEBUG_VM_PGTABLE is now enabled on PPC32 platform
-> - Moved ARCH_HAS_DEBUG_VM_PGTABLE earlier to indent it with DEBUG_VM per Christophe
-> - Added an information message in debug_vm_pgtable() per Christophe
-> - Dropped random_vaddr boundary condition checks per Christophe and Qian
-> - Replaced virt_addr_valid() check with pfn_valid() check in debug_vm_pgtable()
-> - Slightly changed pr_fmt(fmt) information
-Hello Andrew,
 
-Just wondering if this version looks okay or is there anything else which still
-needs to be accommodated here first, before this test can be considered for merging ?
-Thank you.
+I've prepared a couple of commits to our arch code to make this work on s390,
+they will go upstream in the next merge window. After that, we can add s390
+to the supported architectures.
 
-- Anshuman
+We had some issues, e.g. because we do not report large entries as bad in
+pxd_bad(), do not check for folded page tables in pxd_free(), or assume
+that primitives like pmd_mkdirty() will only be called after pmd_mkhuge().
+None of those should have any impact on current code, but your test module
+revealed that we do not behave like other architectures in some aspects,
+and it's good to find and fix such things to prevent possible future issues.
+
+Thanks a lot for the effort!
+
+Regards,
+Gerald
