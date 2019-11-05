@@ -1,80 +1,85 @@
 From: "tip-bot2 for Kees Cook" <tip-bot2@linutronix.de>
-Date: Tue, 05 Nov 2019 09:27:30 +0000
-Subject: [tip: x86/build] x86/vmlinux: Move EXCEPTION_TABLE to RO_DATA segment
-Message-Id: <157294605067.29376.15944354524301929135.tip-bot2@tip-bot2>
+Date: Tue, 05 Nov 2019 09:27:36 +0000
+Subject: [tip: x86/build] powerpc: Rename "notes" PT_NOTE to "note"
+Message-Id: <157294605645.29376.12542710971074801429.tip-bot2@tip-bot2>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191029211351.13243-17-keescook@chromium.org>
-In-Reply-To: <20191029211351.13243-17-keescook@chromium.org>
+References: <20191029211351.13243-2-keescook@chromium.org>
+In-Reply-To: <20191029211351.13243-2-keescook@chromium.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-tip-commits@vger.kernel.org
-Cc: Kees Cook <keescook@chromium.org>, Borislav Petkov <bp@suse.de>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Dave Hansen <dave.hansen@linux.intel.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, "H. Peter Anvin" <hpa@zytor.com>, Ingo Molnar <mingo@redhat.com>, linux-alpha@vger.kernel.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>, Michal Simek <monstr@monstr.eu>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Ross Zwisler <zwisler@chromium.org>, Segher Boessenkool <segher@kernel.crashing.org>, Thomas Gleixner <tglx@linutronix.de>, Thomas Lendacky <Thomas.Lendacky@amd.com>, Will Deacon <will@kernel.org>, x86-ml <x86@kernel.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Ingo Molnar <mingo@kernel.org>, Borislav Petkov <bp@alien8.de>, linux-kernel@vger.kernel.org
+Cc: Kees Cook <keescook@chromium.org>, Borislav Petkov <bp@suse.de>, Michael Ellerman <mpe@ellerman.id.au>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Dave Hansen <dave.hansen@linux.intel.com>, linux-alpha@vger.kernel.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, Michal Simek <monstr@monstr.eu>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Segher Boessenkool <segher@kernel.crashing.org>, Will Deacon <will@kernel.org>, x86-ml <x86@kernel.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Ingo Molnar <mingo@kernel.org>, Borislav Petkov <bp@alien8.de>, linux-kernel@vger.kernel.org
 
 The following commit has been merged into the x86/build branch of tip:
 
-Commit-ID:     f0d7ee17d57c7a8510518a1e60366d053e2f3ff5
-Gitweb:        https://git.kernel.org/tip/f0d7ee17d57c7a8510518a1e60366d053e2f3ff5
+Commit-ID:     ec556271bbb33809b73cdb238f8cb357345908e8
+Gitweb:        https://git.kernel.org/tip/ec556271bbb33809b73cdb238f8cb357345908e8
 Author:        Kees Cook <keescook@chromium.org>
-AuthorDate:    Tue, 29 Oct 2019 14:13:38 -07:00
+AuthorDate:    Tue, 29 Oct 2019 14:13:23 -07:00
 Committer:     Borislav Petkov <bp@suse.de>
-CommitterDate: Mon, 04 Nov 2019 17:55:02 +01:00
+CommitterDate: Mon, 04 Nov 2019 15:33:28 +01:00
 
-x86/vmlinux: Move EXCEPTION_TABLE to RO_DATA segment
+powerpc: Rename "notes" PT_NOTE to "note"
 
-The exception table was needlessly marked executable. In preparation
-for execute-only memory, move the table into the RO_DATA segment via
-the new macro that can be used by any architectures that want to make
-a similar consolidation.
+The Program Header identifiers are internal to the linker scripts. In
+preparation for moving the NOTES segment declaration into RO_DATA,
+standardize the identifier for the PT_NOTE entry to "note" as used by
+all other architectures that emit PT_NOTE.
+
+Note that there was discussion about changing all architectures to use
+"notes" instead, but I prefer to avoid that at this time. Changing only
+powerpc is the smallest change to standardize the entire kernel. And
+while this standardization does use singular "note" for a section that
+has more than one note in it, this is just an internal identifier. It
+matches the ELF "PT_NOTE", and is 4 characters (like "text", and "data")
+for pretty alignment. The more exposed macro, "NOTES", use the more
+sensible plural wording.
 
 Signed-off-by: Kees Cook <keescook@chromium.org>
 Signed-off-by: Borislav Petkov <bp@suse.de>
+Acked-by: Michael Ellerman <mpe@ellerman.id.au>
 Cc: Andy Lutomirski <luto@kernel.org>
 Cc: Arnd Bergmann <arnd@arndb.de>
 Cc: Dave Hansen <dave.hansen@linux.intel.com>
-Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
-Cc: "H. Peter Anvin" <hpa@zytor.com>
-Cc: Ingo Molnar <mingo@redhat.com>
 Cc: linux-alpha@vger.kernel.org
 Cc: linux-arch@vger.kernel.org
 Cc: linux-arm-kernel@lists.infradead.org
 Cc: linux-c6x-dev@linux-c6x.org
 Cc: linux-ia64@vger.kernel.org
-Cc: linuxppc-dev@lists.ozlabs.org
 Cc: linux-s390@vger.kernel.org
+Cc: linuxppc-dev@lists.ozlabs.org
 Cc: Michael Ellerman <mpe@ellerman.id.au>
 Cc: Michal Simek <monstr@monstr.eu>
 Cc: Rick Edgecombe <rick.p.edgecombe@intel.com>
-Cc: Ross Zwisler <zwisler@chromium.org>
 Cc: Segher Boessenkool <segher@kernel.crashing.org>
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: Thomas Lendacky <Thomas.Lendacky@amd.com>
 Cc: Will Deacon <will@kernel.org>
 Cc: x86-ml <x86@kernel.org>
 Cc: Yoshinori Sato <ysato@users.sourceforge.jp>
-Link: https://lkml.kernel.org/r/20191029211351.13243-17-keescook@chromium.org
+Link: https://lkml.kernel.org/r/20191029211351.13243-2-keescook@chromium.org
 ---
- arch/x86/kernel/vmlinux.lds.S | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ arch/powerpc/kernel/vmlinux.lds.S | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/arch/x86/kernel/vmlinux.lds.S b/arch/x86/kernel/vmlinux.lds.S
-index a1a758e..b06d6e1 100644
---- a/arch/x86/kernel/vmlinux.lds.S
-+++ b/arch/x86/kernel/vmlinux.lds.S
-@@ -22,6 +22,7 @@
+diff --git a/arch/powerpc/kernel/vmlinux.lds.S b/arch/powerpc/kernel/vmlinux.lds.S
+index 060a1ac..81e6726 100644
+--- a/arch/powerpc/kernel/vmlinux.lds.S
++++ b/arch/powerpc/kernel/vmlinux.lds.S
+@@ -19,7 +19,7 @@ ENTRY(_stext)
+ 
+ PHDRS {
+ 	kernel PT_LOAD FLAGS(7); /* RWX */
+-	notes PT_NOTE FLAGS(0);
++	note PT_NOTE FLAGS(0);
+ 	dummy PT_NOTE FLAGS(0);
+ 
+ 	/* binutils < 2.18 has a bug that makes it misbehave when taking an
+@@ -177,7 +177,7 @@ SECTIONS
  #endif
+ 	EXCEPTION_TABLE(0)
  
- #define EMITS_PT_NOTE
-+#define RO_EXCEPTION_TABLE_ALIGN	16
+-	NOTES :kernel :notes
++	NOTES :kernel :note
  
- #include <asm-generic/vmlinux.lds.h>
- #include <asm/asm-offsets.h>
-@@ -145,8 +146,6 @@ SECTIONS
- #endif
- 	} :text = 0x9090
- 
--	EXCEPTION_TABLE(16)
--
- 	/* End of text section, which should occupy whole number of pages */
- 	_etext = .;
- 	. = ALIGN(PAGE_SIZE);
+ 	/* The dummy segment contents for the bug workaround mentioned above
+ 	   near PHDRS.  */
