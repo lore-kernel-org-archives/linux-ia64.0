@@ -1,57 +1,117 @@
 From: Aleksa Sarai <cyphar@cyphar.com>
-Date: Wed, 13 Nov 2019 07:52:27 +0000
-Subject: Re: [PATCH v15 6/9] namei: LOOKUP_{IN_ROOT,BENEATH}: permit limited ".." resolution
-Message-Id: <20191113075227.lu5b5uvc2nuk76uk@yavin.dot.cyphar.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="qprdfpbfkuvffdu5"
+Date: Tue, 05 Nov 2019 09:05:46 +0000
+Subject: [PATCH v15 2/9] namei: LOOKUP_NO_MAGICLINKS: block magic-link resolution
+Message-Id: <20191105090553.6350-3-cyphar@cyphar.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20191105090553.6350-1-cyphar@cyphar.com>
- <20191105090553.6350-7-cyphar@cyphar.com>
- <20191113020917.GC26530@ZenIV.linux.org.uk>
-In-Reply-To: <20191113020917.GC26530@ZenIV.linux.org.uk>
-To: Al Viro <viro@zeniv.linux.org.uk>
-Cc: Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Christian Brauner <christian.brauner@ubuntu.com>, Jann Horn <jannh@google.com>, Linus Torvalds <torvalds@linux-foundation.org>, Eric Biederman <ebiederm@xmission.com>, Andy Lutomirski <luto@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Alexei Starovoitov <ast@kernel.org>, Kees Cook <keescook@chromium.org>, Tycho Andersen <tycho@tycho.ws>, David Drysdale <drysdale@google.com>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>
+In-Reply-To: <20191105090553.6350-1-cyphar@cyphar.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>
+Cc: Aleksa Sarai <cyphar@cyphar.com>, Christian Brauner <christian.brauner@ubuntu.com>, David Drysdale <drysdale@google.com>, Andy Lutomirski <luto@kernel.org>, Linus Torvalds <torvalds@linux-foundation.org>, Eric Biederman <ebiederm@xmission.com>, Andrew Morton <akpm@linux-foundation.org>, Alexei Starovoitov <ast@kernel.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, Christian Brauner <christian@brauner.io>, Aleksa Sarai <asarai@suse.de>, containers@lists.linux
 
+/* Background. */
+There has always been a special class of symlink-like objects in procfs
+(and a few other pseudo-filesystems) which allow for non-lexical
+resolution of paths using nd_jump_link(). These "magic-links" do not
+follow traditional mount namespace boundaries, and have been used
+consistently in container escape attacks because they can be used to
+trick unsuspecting privileged processes into resolving unexpected paths.
 
---qprdfpbfkuvffdu5
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+It is also non-trivial for userspace to unambiguously avoid resolving
+magic-links, because they do not have a reliable indication that they
+are a magic-link (in order to verify them you'd have to manually open
+the path given by readlink(2) and then verify that the two file
+descriptors reference the same underlying file, which is plagued with
+possible race conditions or supplementary attack scenarios).
 
-On 2019-11-13, Al Viro <viro@zeniv.linux.org.uk> wrote:
-> On Tue, Nov 05, 2019 at 08:05:50PM +1100, Aleksa Sarai wrote:
->=20
-> > One other possible alternative (which previous versions of this patch
-> > used) would be to check with path_is_under() if there was a racing
-> > rename or mount (after re-taking the relevant seqlocks). While this does
-> > work, it results in possible O(n*m) behaviour if there are many renames
-> > or mounts occuring *anywhere on the system*.
->=20
-> BTW, do you realize that open-by-fhandle (or working nfsd, for that matte=
-r)
-> will trigger arseloads of write_seqlock(&rename_lock) simply on d_splice_=
-alias()
-> bringing disconnected subtrees in contact with parent?
+It would therefore be very helpful for userspace to be able to avoid
+these symlinks easily, thus hopefully removing a tool from attackers'
+toolboxes.
 
-I wasn't aware of that -- that makes path_is_under() even less viable.
-I'll reword it to be clearer that path_is_under() isn't a good idea and
-why we went with -EAGAIN over an in-kernel retry.
+This is part of a refresh of Al's AT_NO_JUMPS patchset[1] (which was a
+variation on David Drysdale's O_BENEATH patchset[2], which in turn was
+based on the Capsicum project[3]).
 
---=20
-Aleksa Sarai
-Senior Software Engineer (Containers)
-SUSE Linux GmbH
-<https://www.cyphar.com/>
+/* Userspace API. */
+LOOKUP_NO_MAGICLINKS will be exposed to userspace through openat2(2).
 
---qprdfpbfkuvffdu5
-Content-Type: application/pgp-signature; name="signature.asc"
+/* Semantics. */
+Unlike most other LOOKUP flags (most notably LOOKUP_FOLLOW),
+LOOKUP_NO_MAGICLINKS applies to all components of the path.
 
------BEGIN PGP SIGNATURE-----
+With LOOKUP_NO_MAGICLINKS, any magic-link path component encountered
+during path resolution will yield -ELOOP. The handling of ~LOOKUP_FOLLOW
+for a trailing magic-link is identical to LOOKUP_NO_SYMLINKS.
 
-iHUEABYIAB0WIQSxZm6dtfE8gxLLfYqdlLljIbnQEgUCXcu2OAAKCRCdlLljIbnQ
-EtqZAQCjNdiANKBF7WCOTHUeD48U+o/7WczR7I/1WTsCcSBp9gEA6HgEdHKRHmol
-+5Fvn3Eg1Tya83fWQgWoVLu8i6CUUwE=
-=voMa
------END PGP SIGNATURE-----
+LOOKUP_NO_SYMLINKS implies LOOKUP_NO_MAGICLINKS.
 
---qprdfpbfkuvffdu5--
+/* Testing. */
+LOOKUP_NO_MAGICLINKS is tested as part of the openat2(2) selftests.
+
+[1]: https://lore.kernel.org/lkml/20170429220414.GT29622@ZenIV.linux.org.uk/
+[2]: https://lore.kernel.org/lkml/1415094884-18349-1-git-send-email-drysdale@google.com/
+[3]: https://lore.kernel.org/lkml/1404124096-21445-1-git-send-email-drysdale@google.com/
+
+Cc: Christian Brauner <christian.brauner@ubuntu.com>
+Suggested-by: David Drysdale <drysdale@google.com>
+Suggested-by: Al Viro <viro@zeniv.linux.org.uk>
+Suggested-by: Andy Lutomirski <luto@kernel.org>
+Suggested-by: Linus Torvalds <torvalds@linux-foundation.org>
+Signed-off-by: Aleksa Sarai <cyphar@cyphar.com>
+---
+ fs/namei.c            | 7 ++++++-
+ include/linux/namei.h | 2 ++
+ 2 files changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/fs/namei.c b/fs/namei.c
+index 4e85d6fa4048..1f0d871199e5 100644
+--- a/fs/namei.c
++++ b/fs/namei.c
+@@ -866,7 +866,7 @@ void nd_jump_link(struct path *path)
+ 
+ 	nd->path = *path;
+ 	nd->inode = nd->path.dentry->d_inode;
+-	nd->flags |= LOOKUP_JUMPED;
++	nd->flags |= LOOKUP_JUMPED | LOOKUP_MAGICLINK_JUMPED;
+ }
+ 
+ static inline void put_link(struct nameidata *nd)
+@@ -1063,6 +1063,7 @@ const char *get_link(struct nameidata *nd)
+ 		return ERR_PTR(error);
+ 
+ 	nd->last_type = LAST_BIND;
++	nd->flags &= ~LOOKUP_MAGICLINK_JUMPED;
+ 	res = READ_ONCE(inode->i_link);
+ 	if (!res) {
+ 		const char * (*get)(struct dentry *, struct inode *,
+@@ -1078,6 +1079,10 @@ const char *get_link(struct nameidata *nd)
+ 		} else {
+ 			res = get(dentry, inode, &last->done);
+ 		}
++		if (nd->flags & LOOKUP_MAGICLINK_JUMPED) {
++			if (unlikely(nd->flags & LOOKUP_NO_MAGICLINKS))
++				return ERR_PTR(-ELOOP);
++		}
+ 		if (IS_ERR_OR_NULL(res))
+ 			return res;
+ 	}
+diff --git a/include/linux/namei.h b/include/linux/namei.h
+index ee2e35af387f..a8b3f93338da 100644
+--- a/include/linux/namei.h
++++ b/include/linux/namei.h
+@@ -38,9 +38,11 @@ enum {LAST_NORM, LAST_ROOT, LAST_DOT, LAST_DOTDOT, LAST_BIND};
+ #define LOOKUP_JUMPED		0x1000
+ #define LOOKUP_ROOT		0x2000
+ #define LOOKUP_ROOT_GRABBED	0x0008
++#define LOOKUP_MAGICLINK_JUMPED	0x10000
+ 
+ /* Scoping flags for lookup. */
+ #define LOOKUP_NO_SYMLINKS	0x020000 /* No symlink crossing. */
++#define LOOKUP_NO_MAGICLINKS	0x040000 /* No /proc/$pid/fd/ "symlink" crossing. */
+ 
+ extern int path_pts(struct path *path);
+ 
+-- 
+2.23.0
