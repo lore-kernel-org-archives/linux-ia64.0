@@ -1,46 +1,104 @@
-From: Aleksa Sarai <cyphar@cyphar.com>
-Date: Wed, 20 Nov 2019 05:06:19 +0000
-Subject: [PATCH RESEND v17 01/13] namei: only return -ECHILD from follow_dotdot_rcu()
-Message-Id: <20191120050631.12816-2-cyphar@cyphar.com>
+From: Dmitry Safonov <dima@arista.com>
+Date: Wed, 06 Nov 2019 03:05:06 +0000
+Subject: [PATCH 15/50] ia64: Pass log level as arg into ia64_do_show_stack()
+Message-Id: <20191106030542.868541-16-dima@arista.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191120050631.12816-1-cyphar@cyphar.com>
-In-Reply-To: <20191120050631.12816-1-cyphar@cyphar.com>
+References: <20191106030542.868541-1-dima@arista.com>
+In-Reply-To: <20191106030542.868541-1-dima@arista.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Alexei Starovoitov <ast@kernel.org>, Daniel Borkmann <daniel@iogearbox.net>, Martin KaFai Lau <kafai@fb.com>, Song Liu <songliubraving@fb.com>, Yonghong Song <yhs@fb.com>, Andrii Nakryiko <andriin@fb.com>, Jonathan Corbet <corbet@lwn.net>
-Cc: Aleksa Sarai <cyphar@cyphar.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Andy Lutomirski <luto@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, David Drysdale <drysdale@google.com>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, Christian Brauner <christian@brauner.io>, Aleksa Sarai <asarai@suse.de>, Linus Torvalds <torvalds@linux-foundation.org>, dev@opencontainers.org, containers@lists.linux-foundation.org, bpf@vger.kernel.org, netdev@vger.kernel.org, linux-alpha@vger.kernel.org, linux-api@vger.kernel.org, libc-alpha@sourceware.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-doc@vger.kernel.org, linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-kselftest@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, sparclinux@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: Dmitry Safonov <0x7f454c46@gmail.com>, Dmitry Safonov <dima@arista.com>, Andrew Morton <akpm@linux-foundation.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Ingo Molnar <mingo@kernel.org>, Jiri Slaby <jslaby@suse.com>, Petr Mladek <pmladek@suse.com>, Sergey Senozhatsky <sergey.senozhatsky@gmail.com>, Steven Rostedt <rostedt@goodmis.org>, Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>, Fenghua Yu <fenghua.yu@intel.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org
 
-It's over-zealous to return hard errors under RCU-walk here, given that
-a REF-walk will be triggered for all other cases handling ".." under
-RCU.
+Currently, the log-level of show_stack() depends on a platform
+realization. It creates situations where the headers are printed with
+lower log level or higher than the stacktrace (depending on
+a platform or user).
 
-The original purpose of this check was to ensure that if a rename occurs
-such that a directory is moved outside of the bind-mount which the
-resolution started in, it would be detected and blocked to avoid being
-able to mess with paths outside of the bind-mount. However, triggering a
-new REF-walk is just as effective a solution.
+Furthermore, it forces the logic decision from user to an architecture
+side. In result, some users as sysrq/kdb/etc are doing tricks with
+temporary rising console_loglevel while printing their messages.
+And in result it not only may print unwanted messages from other CPUs,
+but also omit printing at all in the unlucky case where the printk()
+was deferred.
 
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>
-Fixes: 397d425dc26d ("vfs: Test for and handle paths that are unreachable from their mnt_root")
-Suggested-by: Al Viro <viro@zeniv.linux.org.uk>
-Signed-off-by: Aleksa Sarai <cyphar@cyphar.com>
+Introducing log-level parameter and KERN_UNSUPPRESSED [1] seems
+an easier approach than introducing more printk buffers.
+Also, it will consolidate printings with headers.
+
+Add log level argument to ia64_do_show_stack() as a preparation to
+introduce show_stack_loglvl().
+Also, make ia64_do_show_stack() static as it's not used outside.
+
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: linux-ia64@vger.kernel.org
+[1]: https://lore.kernel.org/lkml/20190528002412.1625-1-dima@arista.com/T/#u
+Signed-off-by: Dmitry Safonov <dima@arista.com>
 ---
- fs/namei.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ arch/ia64/include/asm/ptrace.h |  1 -
+ arch/ia64/kernel/process.c     | 13 +++++++------
+ 2 files changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/fs/namei.c b/fs/namei.c
-index 671c3c1a3425..5a47d9c09581 100644
---- a/fs/namei.c
-+++ b/fs/namei.c
-@@ -1359,7 +1359,7 @@ static int follow_dotdot_rcu(struct nameidata *nd)
- 			nd->path.dentry = parent;
- 			nd->seq = seq;
- 			if (unlikely(!path_connected(&nd->path)))
--				return -ENOENT;
-+				return -ECHILD;
- 			break;
- 		} else {
- 			struct mount *mnt = real_mount(nd->path.mnt);
+diff --git a/arch/ia64/include/asm/ptrace.h b/arch/ia64/include/asm/ptrace.h
+index 7ff574d56429..b3aa46090101 100644
+--- a/arch/ia64/include/asm/ptrace.h
++++ b/arch/ia64/include/asm/ptrace.h
+@@ -114,7 +114,6 @@ static inline long regs_return_value(struct pt_regs *regs)
+   struct task_struct;			/* forward decl */
+   struct unw_frame_info;		/* forward decl */
+ 
+-  extern void ia64_do_show_stack (struct unw_frame_info *, void *);
+   extern unsigned long ia64_get_user_rbs_end (struct task_struct *, struct pt_regs *,
+ 					      unsigned long *);
+   extern long ia64_peek (struct task_struct *, struct switch_stack *, unsigned long,
+diff --git a/arch/ia64/kernel/process.c b/arch/ia64/kernel/process.c
+index 968b5f33e725..0526cc51ff0b 100644
+--- a/arch/ia64/kernel/process.c
++++ b/arch/ia64/kernel/process.c
+@@ -64,12 +64,13 @@ EXPORT_SYMBOL(boot_option_idle_override);
+ void (*pm_power_off) (void);
+ EXPORT_SYMBOL(pm_power_off);
+ 
+-void
++static void
+ ia64_do_show_stack (struct unw_frame_info *info, void *arg)
+ {
+ 	unsigned long ip, sp, bsp;
++	const char *loglvl = arg;
+ 
+-	printk("\nCall Trace:\n");
++	printk("%s\nCall Trace:\n", loglvl);
+ 	do {
+ 		unw_get_ip(info, &ip);
+ 		if (ip = 0)
+@@ -77,9 +78,9 @@ ia64_do_show_stack (struct unw_frame_info *info, void *arg)
+ 
+ 		unw_get_sp(info, &sp);
+ 		unw_get_bsp(info, &bsp);
+-		printk(" [<%016lx>] %pS\n"
++		printk("%s [<%016lx>] %pS\n"
+ 			 "                                sp=%016lx bsp=%016lx\n",
+-			 ip, (void *)ip, sp, bsp);
++			 loglvl, ip, (void *)ip, sp, bsp);
+ 	} while (unw_unwind(info) >= 0);
+ }
+ 
+@@ -87,12 +88,12 @@ void
+ show_stack (struct task_struct *task, unsigned long *sp)
+ {
+ 	if (!task)
+-		unw_init_running(ia64_do_show_stack, NULL);
++		unw_init_running(ia64_do_show_stack, (void *)KERN_DEFAULT);
+ 	else {
+ 		struct unw_frame_info info;
+ 
+ 		unw_init_from_blocked_task(&info, task);
+-		ia64_do_show_stack(&info, NULL);
++		ia64_do_show_stack(&info, (void *)KERN_DEFAULT);
+ 	}
+ }
+ 
 -- 
-2.24.0
+2.23.0
