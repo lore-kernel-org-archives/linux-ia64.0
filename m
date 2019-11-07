@@ -1,53 +1,129 @@
-From: Anshuman Khandual <anshuman.khandual@arm.com>
-Date: Tue, 12 Nov 2019 06:52:52 +0000
-Subject: Re: [PATCH V9] mm/debug: Add tests validating architecture page table helpers
-Message-Id: <fe6b8140-1017-d081-570c-62213fe39624@arm.com>
+From: Palmer Dabbelt <palmer@dabbelt.com>
+Date: Thu, 07 Nov 2019 15:29:10 +0000
+Subject: Re: [PATCH 17/21] lib: provide a simple generic ioremap implementation
+Message-Id: <mhng-e96b8613-e384-4e94-90f8-d1cf78c5627a@palmer-si-x1c4>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1573532326-24084-1-git-send-email-anshuman.khandual@arm.com>
- <20191112062951.GA100264@gmail.com>
-In-Reply-To: <20191112062951.GA100264@gmail.com>
+References: <20191029064834.23438-18-hch@lst.de>
+In-Reply-To: <20191029064834.23438-18-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ingo Molnar <mingo@kernel.org>
-Cc: Mark Rutland <mark.rutland@arm.com>, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, James Hogan <jhogan@kernel.org>, Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>, Heiko Carstens <heiko.carstens@de.ibm.com>, Michal Hocko <mhocko@kernel.org>, linux-mm@kvack.org, Dave Hansen <dave.hansen@intel.com>, Paul Mackerras <paulus@samba.org>, sparclinux@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, linux-s390@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>, x86@kernel.org, Russell King - ARM Linux <linux@armlinux.org.uk>, Matthew Wilcox <willy@infradead.org>, Steven Price <Steven.Price@arm.com>, Jason Gunthorpe <jgg@ziepe.ca>, Gerald Schaefer <gerald.schaefer@de.ibm.com>, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, Kees Cook <keescook@chromium.org>, Masahiro Yamada <yamada.masahiro@socionext.com>, Mark Brown <broonie@kernel.org>, "Kirill A . Shutemov" <kirill@shutemov.name>, Dan Williams <dan.j.williams@intel.com>, Vlastimil Babka <vbabka@suse.cz>, Christophe Leroy <christophe.leroy@c-s.fr>, Sri Krishna chowdary <schowdary@nvidia.com>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-mips@vger.kernel.org, Ralf Baechle <ralf@linux-mips.org>, linux-kernel@vger.kernel.org, Paul Burton <paul.burton@mips.com>, Mike Rapoport <rppt@linux.vnet.ibm.com>, Vineet Gupta <vgupta@synopsys.com>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, "David S. Miller" <davem@davemloft.net>
+To: Christoph Hellwig <hch@lst.de>
+Cc: Arnd Bergmann <arnd@arndb.de>, guoren@kernel.org, monstr@monstr.eu, green.hu@gmail.com, deanbo422@gmail.com, gxt@pku.edu.cn, x86@kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, nios2-dev@lists.rocketboards.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-mtd@lists.infradead.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
 
+On Mon, 28 Oct 2019 23:48:30 PDT (-0700), Christoph Hellwig wrote:
+> A lot of architectures reuse the same simple ioremap implementation, so
+> start lifting the most simple variant to lib/ioremap.c.  It provides
+> ioremap_prot and iounmap, plus a default ioremap that uses prot_noncached,
+> although that can be overridden by asm/io.h.
+>
+> Signed-off-by: Christoph Hellwig <hch@lst.de>
+> ---
+>  include/asm-generic/io.h | 20 ++++++++++++++++----
+>  lib/Kconfig              |  3 +++
+>  lib/ioremap.c            | 39 +++++++++++++++++++++++++++++++++++++++
+>  3 files changed, 58 insertions(+), 4 deletions(-)
+>
+> diff --git a/include/asm-generic/io.h b/include/asm-generic/io.h
+> index 4e45e1cb6560..4a661fdd1937 100644
+> --- a/include/asm-generic/io.h
+> +++ b/include/asm-generic/io.h
+> @@ -923,9 +923,10 @@ static inline void *phys_to_virt(unsigned long address)
+>   * DOC: ioremap() and ioremap_*() variants
+>   *
+>   * Architectures with an MMU are expected to provide ioremap() and iounmap()
+> - * themselves.  For NOMMU architectures we provide a default nop-op
+> - * implementation that expect that the physical address used for MMIO are
+> - * already marked as uncached, and can be used as kernel virtual addresses.
+> + * themselves or rely on GENERIC_IOREMAP.  For NOMMU architectures we provide
+> + * a default nop-op implementation that expect that the physical address used
+> + * for MMIO are already marked as uncached, and can be used as kernel virtual
+> + * addresses.
+>   *
+>   * ioremap_wc() and ioremap_wt() can provide more relaxed caching attributes
+>   * for specific drivers if the architecture choses to implement them.  If they
+> @@ -946,7 +947,18 @@ static inline void iounmap(void __iomem *addr)
+>  {
+>  }
+>  #endif
+> -#endif /* CONFIG_MMU */
+> +#elif defined(CONFIG_GENERIC_IOREMAP)
+> +#include <asm/pgtable.h>
+> +
+> +void __iomem *ioremap_prot(phys_addr_t addr, size_t size, unsigned long prot);
+> +void iounmap(volatile void __iomem *addr);
+> +
+> +static inline void __iomem *ioremap(phys_addr_t addr, size_t size)
+> +{
+> +	/* _PAGE_IOREMAP needs to be supplied by the architecture */
+> +	return ioremap_prot(addr, size, _PAGE_IOREMAP);
+> +}
+> +#endif /* !CONFIG_MMU || CONFIG_GENERIC_IOREMAP */
+>
+>  #ifndef ioremap_nocache
+>  #define ioremap_nocache ioremap
+> diff --git a/lib/Kconfig b/lib/Kconfig
+> index 183f92a297ca..afc78aaf2b25 100644
+> --- a/lib/Kconfig
+> +++ b/lib/Kconfig
+> @@ -638,6 +638,9 @@ config STRING_SELFTEST
+>
+>  endmenu
+>
+> +config GENERIC_IOREMAP
+> +	bool
+> +
+>  config GENERIC_LIB_ASHLDI3
+>  	bool
+>
+> diff --git a/lib/ioremap.c b/lib/ioremap.c
+> index 0a2ffadc6d71..3f0e18543de8 100644
+> --- a/lib/ioremap.c
+> +++ b/lib/ioremap.c
+> @@ -231,3 +231,42 @@ int ioremap_page_range(unsigned long addr,
+>
+>  	return err;
+>  }
+> +
+> +#ifdef CONFIG_GENERIC_IOREMAP
+> +void __iomem *ioremap_prot(phys_addr_t addr, size_t size, unsigned long prot)
+> +{
+> +	unsigned long offset, vaddr;
+> +	phys_addr_t last_addr;
+> +	struct vm_struct *area;
+> +
+> +	/* Disallow wrap-around or zero size */
+> +	last_addr = addr + size - 1;
+> +	if (!size || last_addr < addr)
+> +		return NULL;
+> +
+> +	/* Page-align mappings */
+> +	offset = addr & (~PAGE_MASK);
+> +	addr -= offset;
+> +	size = PAGE_ALIGN(size + offset);
+> +
+> +	area = get_vm_area_caller(size, VM_IOREMAP,
+> +			__builtin_return_address(0));
+> +	if (!area)
+> +		return NULL;
+> +	vaddr = (unsigned long)area->addr;
+> +
+> +	if (ioremap_page_range(vaddr, vaddr + size, addr, __pgprot(prot))) {
+> +		free_vm_area(area);
+> +		return NULL;
+> +	}
+> +
+> +	return (void __iomem *)(vaddr + offset);
+> +}
+> +EXPORT_SYMBOL(ioremap_prot);
+> +
+> +void iounmap(volatile void __iomem *addr)
+> +{
+> +	vunmap((void *)((unsigned long)addr & PAGE_MASK));
+> +}
+> +EXPORT_SYMBOL(iounmap);
+> +#endif /* CONFIG_GENERIC_IOREMAP */
 
+Reviewed-by: Palmer Dabbelt <palmer@dabbelt.com>
 
-On 11/12/2019 11:59 AM, Ingo Molnar wrote:
-> 
-> * Anshuman Khandual <anshuman.khandual@arm.com> wrote:
-> 
->> +config DEBUG_VM_PGTABLE
->> +	bool "Debug arch page table for semantics compliance"
->> +	depends on MMU
->> +	depends on DEBUG_VM
->> +	depends on ARCH_HAS_DEBUG_VM_PGTABLE
->> +	help
->> +	  This option provides a debug method which can be used to test
->> +	  architecture page table helper functions on various platforms in
->> +	  verifying if they comply with expected generic MM semantics. This
->> +	  will help architecture code in making sure that any changes or
->> +	  new additions of these helpers still conform to expected
->> +	  semantics of the generic MM.
->> +
->> +	  If unsure, say N.
-> 
-> Since CONFIG_DEBUG_VM is generally disabled in distro kernel packages, 
-> why not make this 'default y' to maximize testing coverage? The code size 
-> increase should be minimal, and DEBUG_VM increases size anyway.
-
-Sure, will do.
-
-> 
-> Other than that this looks good to me:
-> 
->   Reviewed-by: Ingo Molnar <mingo@kernel.org>
-
-Thank you.
-
-> 
-> Thanks,
-> 
-> 	Ingo
-> 
+Thanks!  This should let us get rid of arch/riscv/mm/ioremap.c.
