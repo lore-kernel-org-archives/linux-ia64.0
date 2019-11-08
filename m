@@ -1,279 +1,185 @@
-From: "tip-bot2 for Kees Cook" <tip-bot2@linutronix.de>
-Date: Tue, 05 Nov 2019 09:27:32 +0000
-Subject: [tip: x86/build] vmlinux.lds.h: Replace RO_DATA_SECTION with RO_DATA
-Message-Id: <157294605224.29376.12345489124896449797.tip-bot2@tip-bot2>
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Fri, 08 Nov 2019 21:02:21 +0000
+Subject: [PATCH 00/23] y2038 cleanups
+Message-Id: <20191108210236.1296047-1-arnd@arndb.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191029211351.13243-13-keescook@chromium.org>
-In-Reply-To: <20191029211351.13243-13-keescook@chromium.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-tip-commits@vger.kernel.org
-Cc: Kees Cook <keescook@chromium.org>, Borislav Petkov <bp@suse.de>, Heiko Carstens <heiko.carstens@de.ibm.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Dave Hansen <dave.hansen@linux.intel.com>, linux-alpha@vger.kernel.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, Michael Ellerman <mpe@ellerman.id.au>, Michal Simek <monstr@monstr.eu>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Segher Boessenkool <segher@kernel.crashing.org>, Will Deacon <will@kernel.org>, x86-ml <x86@kernel.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Ingo Molnar <mingo@kernel.org>, Borislav Petkov <bp@alien8.de>, linux-kernel@vger.kernel.org
+To: y2038@lists.linaro.org
+Cc: linux-kernel@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>, rth@twiddle.net, tony.luck@intel.com, paul.burton@mips.com, green.hu@gmail.com, deller@gmx.de, mpe@ellerman.id.au, davem@davemloft.net, tglx@linutronix.de, x86@kernel.org, jdike@addtoit.com, richard@nod.at, viro@zeniv.linux.org.uk, bcrl@kvack.org, john.stultz@linaro.org, sboyd@kernel.org, rostedt@goodmis.org, vincenzo.frascino@arm.com, paul@paul-moore.com, sds@tycho.nsa.gov, eparis@parisplace.org, peterz@infradead.org, will@kernel.org, deepa.kernel@gmail.com, christian@brauner.io, heiko.carstens@de.ibm.com, christophe.leroy@c-s.fr, ebiederm@xmission.com, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-fsdevel@vger.kernel.org, linux-aio@kvack.org, linux-api@vger.kernel.org, linux-arch@vger.kernel.org, netdev@vger.kernel.org, selinux@vger.kernel.org
 
-The following commit has been merged into the x86/build branch of tip:
+This is a series of cleanups for the y2038 work, mostly intended
+for namespace cleaning: the kernel defines the traditional
+time_t, timeval and timespec types that often lead to y2038-unsafe
+code. Even though the unsafe usage is mostly gone from the kernel,
+having the types and associated functions around means that we
+can still grow new users, and that we may be missing conversions
+to safe types that actually matter.
 
-Commit-ID:     93240b327929ff03c1878ea8badc5c6bd86f053f
-Gitweb:        https://git.kernel.org/tip/93240b327929ff03c1878ea8badc5c6bd86f053f
-Author:        Kees Cook <keescook@chromium.org>
-AuthorDate:    Tue, 29 Oct 2019 14:13:34 -07:00
-Committer:     Borislav Petkov <bp@suse.de>
-CommitterDate: Mon, 04 Nov 2019 15:56:16 +01:00
+As there is no rush on any of these patches, I would either
+queue them up in linux-next through my y2038 branch, or
+Thomas could add them to the tip tree if he wants.
 
-vmlinux.lds.h: Replace RO_DATA_SECTION with RO_DATA
+As mentioned in another series, this is part of a larger
+effort to fix all the remaining bits and pieces that are
+not completed yet from the y2038 conversion, and the full
+set can be found at:
 
-Finish renaming RO_DATA_SECTION to RO_DATA. (Calling this a "section"
-is a lie, since it's multiple sections and section flags cannot be
-applied to the macro.)
+https://git.kernel.org/pub/scm/linux/kernel/git/arnd/playground.git/log/?h=y2038-endgame
 
-Signed-off-by: Kees Cook <keescook@chromium.org>
-Signed-off-by: Borislav Petkov <bp@suse.de>
-Acked-by: Heiko Carstens <heiko.carstens@de.ibm.com> # s390
-Acked-by: Geert Uytterhoeven <geert@linux-m68k.org> # m68k
-Cc: Andy Lutomirski <luto@kernel.org>
-Cc: Arnd Bergmann <arnd@arndb.de>
-Cc: Dave Hansen <dave.hansen@linux.intel.com>
-Cc: linux-alpha@vger.kernel.org
-Cc: linux-arch@vger.kernel.org
-Cc: linux-arm-kernel@lists.infradead.org
-Cc: linux-c6x-dev@linux-c6x.org
-Cc: linux-ia64@vger.kernel.org
-Cc: linux-s390@vger.kernel.org
-Cc: linuxppc-dev@lists.ozlabs.org
-Cc: Michael Ellerman <mpe@ellerman.id.au>
-Cc: Michal Simek <monstr@monstr.eu>
-Cc: Rick Edgecombe <rick.p.edgecombe@intel.com>
-Cc: Segher Boessenkool <segher@kernel.crashing.org>
-Cc: Will Deacon <will@kernel.org>
-Cc: x86-ml <x86@kernel.org>
-Cc: Yoshinori Sato <ysato@users.sourceforge.jp>
-Link: https://lkml.kernel.org/r/20191029211351.13243-13-keescook@chromium.org
----
- arch/arc/kernel/vmlinux.lds.S       | 2 +-
- arch/c6x/kernel/vmlinux.lds.S       | 2 +-
- arch/csky/kernel/vmlinux.lds.S      | 2 +-
- arch/h8300/kernel/vmlinux.lds.S     | 2 +-
- arch/hexagon/kernel/vmlinux.lds.S   | 2 +-
- arch/m68k/kernel/vmlinux-nommu.lds  | 2 +-
- arch/nds32/kernel/vmlinux.lds.S     | 2 +-
- arch/nios2/kernel/vmlinux.lds.S     | 2 +-
- arch/openrisc/kernel/vmlinux.lds.S  | 4 ++--
- arch/parisc/kernel/vmlinux.lds.S    | 4 ++--
- arch/riscv/kernel/vmlinux.lds.S     | 2 +-
- arch/s390/kernel/vmlinux.lds.S      | 2 +-
- arch/unicore32/kernel/vmlinux.lds.S | 2 +-
- include/asm-generic/vmlinux.lds.h   | 7 ++-----
- 14 files changed, 17 insertions(+), 20 deletions(-)
+Maintainers, please review and provide Acks.
 
-diff --git a/arch/arc/kernel/vmlinux.lds.S b/arch/arc/kernel/vmlinux.lds.S
-index 1d6eef4..7d1d270 100644
---- a/arch/arc/kernel/vmlinux.lds.S
-+++ b/arch/arc/kernel/vmlinux.lds.S
-@@ -95,7 +95,7 @@ SECTIONS
- 	_etext = .;
- 
- 	_sdata = .;
--	RO_DATA_SECTION(PAGE_SIZE)
-+	RO_DATA(PAGE_SIZE)
- 
- 	/*
- 	 * 1. this is .data essentially
-diff --git a/arch/c6x/kernel/vmlinux.lds.S b/arch/c6x/kernel/vmlinux.lds.S
-index d6e3802..a3547f9 100644
---- a/arch/c6x/kernel/vmlinux.lds.S
-+++ b/arch/c6x/kernel/vmlinux.lds.S
-@@ -82,7 +82,7 @@ SECTIONS
- 
- 	EXCEPTION_TABLE(16)
- 
--	RO_DATA_SECTION(PAGE_SIZE)
-+	RO_DATA(PAGE_SIZE)
- 	.const :
- 	{
- 		*(.const .const.* .gnu.linkonce.r.*)
-diff --git a/arch/csky/kernel/vmlinux.lds.S b/arch/csky/kernel/vmlinux.lds.S
-index 75dd314..8598bd7 100644
---- a/arch/csky/kernel/vmlinux.lds.S
-+++ b/arch/csky/kernel/vmlinux.lds.S
-@@ -49,7 +49,7 @@ SECTIONS
- 
- 
- 	_sdata = .;
--	RO_DATA_SECTION(PAGE_SIZE)
-+	RO_DATA(PAGE_SIZE)
- 	RW_DATA_SECTION(L1_CACHE_BYTES, PAGE_SIZE, THREAD_SIZE)
- 	_edata = .;
- 
-diff --git a/arch/h8300/kernel/vmlinux.lds.S b/arch/h8300/kernel/vmlinux.lds.S
-index 88776e7..d3247d3 100644
---- a/arch/h8300/kernel/vmlinux.lds.S
-+++ b/arch/h8300/kernel/vmlinux.lds.S
-@@ -38,7 +38,7 @@ SECTIONS
- 	_etext = . ;
- 	}
- 	EXCEPTION_TABLE(16)
--	RO_DATA_SECTION(4)
-+	RO_DATA(4)
- 	ROMEND = .;
- #if defined(CONFIG_ROMKERNEL)
- 	. = RAMTOP;
-diff --git a/arch/hexagon/kernel/vmlinux.lds.S b/arch/hexagon/kernel/vmlinux.lds.S
-index 6a6e8fc..0145251 100644
---- a/arch/hexagon/kernel/vmlinux.lds.S
-+++ b/arch/hexagon/kernel/vmlinux.lds.S
-@@ -50,7 +50,7 @@ SECTIONS
- 
- 	_sdata = .;
- 		RW_DATA_SECTION(32,PAGE_SIZE,_THREAD_SIZE)
--		RO_DATA_SECTION(PAGE_SIZE)
-+		RO_DATA(PAGE_SIZE)
- 	_edata = .;
- 
- 	EXCEPTION_TABLE(16)
-diff --git a/arch/m68k/kernel/vmlinux-nommu.lds b/arch/m68k/kernel/vmlinux-nommu.lds
-index cf6edda..de80f8b 100644
---- a/arch/m68k/kernel/vmlinux-nommu.lds
-+++ b/arch/m68k/kernel/vmlinux-nommu.lds
-@@ -60,7 +60,7 @@ SECTIONS {
- #endif
- 
- 	_sdata = .;
--	RO_DATA_SECTION(PAGE_SIZE)
-+	RO_DATA(PAGE_SIZE)
- 	RW_DATA_SECTION(16, PAGE_SIZE, THREAD_SIZE)
- 	_edata = .;
- 
-diff --git a/arch/nds32/kernel/vmlinux.lds.S b/arch/nds32/kernel/vmlinux.lds.S
-index c4f1c5a..10ff570 100644
---- a/arch/nds32/kernel/vmlinux.lds.S
-+++ b/arch/nds32/kernel/vmlinux.lds.S
-@@ -53,7 +53,7 @@ SECTIONS
- 	_etext = .;			/* End of text and rodata section */
- 
- 	_sdata = .;
--	RO_DATA_SECTION(PAGE_SIZE)
-+	RO_DATA(PAGE_SIZE)
- 	RW_DATA_SECTION(L1_CACHE_BYTES, PAGE_SIZE, THREAD_SIZE)
- 	_edata  =  .;
- 
-diff --git a/arch/nios2/kernel/vmlinux.lds.S b/arch/nios2/kernel/vmlinux.lds.S
-index 20e4078..318804a 100644
---- a/arch/nios2/kernel/vmlinux.lds.S
-+++ b/arch/nios2/kernel/vmlinux.lds.S
-@@ -49,7 +49,7 @@ SECTIONS
- 	__init_end = .;
- 
- 	_sdata = .;
--	RO_DATA_SECTION(PAGE_SIZE)
-+	RO_DATA(PAGE_SIZE)
- 	RW_DATA_SECTION(L1_CACHE_BYTES, PAGE_SIZE, THREAD_SIZE)
- 	_edata = .;
- 
-diff --git a/arch/openrisc/kernel/vmlinux.lds.S b/arch/openrisc/kernel/vmlinux.lds.S
-index 142c51c..f73e0d3 100644
---- a/arch/openrisc/kernel/vmlinux.lds.S
-+++ b/arch/openrisc/kernel/vmlinux.lds.S
-@@ -67,8 +67,8 @@ SECTIONS
- 
- 	_sdata = .;
- 
--	/* Page alignment required for RO_DATA_SECTION */
--	RO_DATA_SECTION(PAGE_SIZE)
-+	/* Page alignment required for RO_DATA */
-+	RO_DATA(PAGE_SIZE)
- 	_e_kernel_ro = .;
- 
- 	/* Whatever comes after _e_kernel_ro had better be page-aligend, too */
-diff --git a/arch/parisc/kernel/vmlinux.lds.S b/arch/parisc/kernel/vmlinux.lds.S
-index 168d12b..e1c563c 100644
---- a/arch/parisc/kernel/vmlinux.lds.S
-+++ b/arch/parisc/kernel/vmlinux.lds.S
-@@ -109,7 +109,7 @@ SECTIONS
- 	_sdata = .;
- 
- 	/* Architecturally we need to keep __gp below 0x1000000 and thus
--	 * in front of RO_DATA_SECTION() which stores lots of tracepoint
-+	 * in front of RO_DATA() which stores lots of tracepoint
- 	 * and ftrace symbols. */
- #ifdef CONFIG_64BIT
- 	. = ALIGN(16);
-@@ -127,7 +127,7 @@ SECTIONS
- 	}
- #endif
- 
--	RO_DATA_SECTION(8)
-+	RO_DATA(8)
- 
- 	/* RO because of BUILDTIME_EXTABLE_SORT */
- 	EXCEPTION_TABLE(8)
-diff --git a/arch/riscv/kernel/vmlinux.lds.S b/arch/riscv/kernel/vmlinux.lds.S
-index df5229c..66dc17d 100644
---- a/arch/riscv/kernel/vmlinux.lds.S
-+++ b/arch/riscv/kernel/vmlinux.lds.S
-@@ -52,7 +52,7 @@ SECTIONS
- 
- 	/* Start of data section */
- 	_sdata = .;
--	RO_DATA_SECTION(L1_CACHE_BYTES)
-+	RO_DATA(L1_CACHE_BYTES)
- 	.srodata : {
- 		*(.srodata*)
- 	}
-diff --git a/arch/s390/kernel/vmlinux.lds.S b/arch/s390/kernel/vmlinux.lds.S
-index beb4df0..b33c482 100644
---- a/arch/s390/kernel/vmlinux.lds.S
-+++ b/arch/s390/kernel/vmlinux.lds.S
-@@ -52,7 +52,7 @@ SECTIONS
- 		_etext = .;		/* End of text section */
- 	} :text = 0x0700
- 
--	RO_DATA_SECTION(PAGE_SIZE)
-+	RO_DATA(PAGE_SIZE)
- 
- 	. = ALIGN(PAGE_SIZE);
- 	_sdata = .;		/* Start of data section */
-diff --git a/arch/unicore32/kernel/vmlinux.lds.S b/arch/unicore32/kernel/vmlinux.lds.S
-index 78c4c56..367c803 100644
---- a/arch/unicore32/kernel/vmlinux.lds.S
-+++ b/arch/unicore32/kernel/vmlinux.lds.S
-@@ -43,7 +43,7 @@ SECTIONS
- 	_etext = .;
- 
- 	_sdata = .;
--	RO_DATA_SECTION(PAGE_SIZE)
-+	RO_DATA(PAGE_SIZE)
- 	RW_DATA_SECTION(L1_CACHE_BYTES, PAGE_SIZE, THREAD_SIZE)
- 	_edata = .;
- 
-diff --git a/include/asm-generic/vmlinux.lds.h b/include/asm-generic/vmlinux.lds.h
-index a0a989f..061e57c 100644
---- a/include/asm-generic/vmlinux.lds.h
-+++ b/include/asm-generic/vmlinux.lds.h
-@@ -23,7 +23,7 @@
-  *	_etext = .;
-  *
-  *      _sdata = .;
-- *	RO_DATA_SECTION(PAGE_SIZE)
-+ *	RO_DATA(PAGE_SIZE)
-  *	RW_DATA_SECTION(...)
-  *	_edata = .;
-  *
-@@ -363,7 +363,7 @@
- /*
-  * Read only Data
-  */
--#define RO_DATA_SECTION(align)						\
-+#define RO_DATA(align)							\
- 	. = ALIGN((align));						\
- 	.rodata           : AT(ADDR(.rodata) - LOAD_OFFSET) {		\
- 		__start_rodata = .;					\
-@@ -518,9 +518,6 @@
- 	. = ALIGN((align));						\
- 	__end_rodata = .;
- 
--/* All archs are supposed to use RO_DATA() */
--#define RO_DATA(align)  RO_DATA_SECTION(align)
--
- /*
-  * .text section. Map to function alignment to avoid address changes
-  * during second ld run in second ld pass when generating System.map
+Let me know if you have any opinion on whether we should do
+the include last two patches of this series or not.
+
+     Arnd
+
+Arnd Bergmann (23):
+  y2038: remove CONFIG_64BIT_TIME
+  y2038: add __kernel_old_timespec and __kernel_old_time_t
+  y2038: vdso: change timeval to __kernel_old_timeval
+  y2038: vdso: change timespec to __kernel_old_timespec
+  y2038: vdso: change time_t to __kernel_old_time_t
+  y2038: vdso: nds32: open-code timespec_add_ns()
+  y2038: vdso: powerpc: avoid timespec references
+  y2038: ipc: remove __kernel_time_t reference from headers
+  y2038: stat: avoid 'time_t' in 'struct stat'
+  y2038: uapi: change __kernel_time_t to __kernel_old_time_t
+  y2038: rusage: use __kernel_old_timeval
+  y2038: syscalls: change remaining timeval to __kernel_old_timeval
+  y2038: socket: remove timespec reference in timestamping
+  y2038: make ns_to_compat_timeval use __kernel_old_timeval
+  y2038: elfcore: Use __kernel_old_timeval for process times
+  y2038: timerfd: Use timespec64 internally
+  y2038: time: avoid timespec usage in settimeofday()
+  y2038: itimer: compat handling to itimer.c
+  y2038: use compat_{get,set}_itimer on alpha
+  y2038: move itimer reset into itimer.c
+  y2038: itimer: change implementation to timespec64
+  [RFC] y2038: itimer: use ktime_t internally
+  y2038: allow disabling time32 system calls
+
+ arch/Kconfig                              |  11 +-
+ arch/alpha/kernel/osf_sys.c               |  67 +-----
+ arch/alpha/kernel/syscalls/syscall.tbl    |   4 +-
+ arch/ia64/kernel/asm-offsets.c            |   2 +-
+ arch/mips/include/uapi/asm/msgbuf.h       |   6 +-
+ arch/mips/include/uapi/asm/sembuf.h       |   4 +-
+ arch/mips/include/uapi/asm/shmbuf.h       |   6 +-
+ arch/mips/include/uapi/asm/stat.h         |  16 +-
+ arch/mips/kernel/binfmt_elfn32.c          |   4 +-
+ arch/mips/kernel/binfmt_elfo32.c          |   4 +-
+ arch/nds32/kernel/vdso/gettimeofday.c     |  61 +++--
+ arch/parisc/include/uapi/asm/msgbuf.h     |   6 +-
+ arch/parisc/include/uapi/asm/sembuf.h     |   4 +-
+ arch/parisc/include/uapi/asm/shmbuf.h     |   6 +-
+ arch/powerpc/include/asm/asm-prototypes.h |   3 +-
+ arch/powerpc/include/asm/vdso_datapage.h  |   6 +-
+ arch/powerpc/include/uapi/asm/msgbuf.h    |   6 +-
+ arch/powerpc/include/uapi/asm/sembuf.h    |   4 +-
+ arch/powerpc/include/uapi/asm/shmbuf.h    |   6 +-
+ arch/powerpc/include/uapi/asm/stat.h      |   2 +-
+ arch/powerpc/kernel/asm-offsets.c         |  18 +-
+ arch/powerpc/kernel/syscalls.c            |   4 +-
+ arch/powerpc/kernel/time.c                |   5 +-
+ arch/powerpc/kernel/vdso32/gettimeofday.S |   6 +-
+ arch/powerpc/kernel/vdso64/gettimeofday.S |   8 +-
+ arch/sparc/include/uapi/asm/msgbuf.h      |   6 +-
+ arch/sparc/include/uapi/asm/sembuf.h      |   4 +-
+ arch/sparc/include/uapi/asm/shmbuf.h      |   6 +-
+ arch/sparc/include/uapi/asm/stat.h        |  24 +-
+ arch/sparc/vdso/vclock_gettime.c          |  36 +--
+ arch/x86/entry/vdso/vclock_gettime.c      |   6 +-
+ arch/x86/entry/vsyscall/vsyscall_64.c     |   4 +-
+ arch/x86/include/uapi/asm/msgbuf.h        |   6 +-
+ arch/x86/include/uapi/asm/sembuf.h        |   4 +-
+ arch/x86/include/uapi/asm/shmbuf.h        |   6 +-
+ arch/x86/um/vdso/um_vdso.c                |  12 +-
+ fs/aio.c                                  |   2 +-
+ fs/binfmt_elf.c                           |  12 +-
+ fs/binfmt_elf_fdpic.c                     |  12 +-
+ fs/compat_binfmt_elf.c                    |   4 +-
+ fs/select.c                               |  10 +-
+ fs/timerfd.c                              |  14 +-
+ fs/utimes.c                               |   8 +-
+ include/linux/compat.h                    |  19 +-
+ include/linux/syscalls.h                  |  16 +-
+ include/linux/time.h                      |   9 +-
+ include/linux/time32.h                    |   2 +-
+ include/linux/types.h                     |   2 +-
+ include/trace/events/timer.h              |  29 +--
+ include/uapi/asm-generic/msgbuf.h         |  12 +-
+ include/uapi/asm-generic/posix_types.h    |   1 +
+ include/uapi/asm-generic/sembuf.h         |   7 +-
+ include/uapi/asm-generic/shmbuf.h         |  12 +-
+ include/uapi/linux/cyclades.h             |   6 +-
+ include/uapi/linux/elfcore.h              |   8 +-
+ include/uapi/linux/errqueue.h             |   7 +
+ include/uapi/linux/msg.h                  |   6 +-
+ include/uapi/linux/ppp_defs.h             |   4 +-
+ include/uapi/linux/resource.h             |   4 +-
+ include/uapi/linux/sem.h                  |   4 +-
+ include/uapi/linux/shm.h                  |   6 +-
+ include/uapi/linux/time.h                 |   6 +-
+ include/uapi/linux/time_types.h           |   5 +
+ include/uapi/linux/utime.h                |   4 +-
+ ipc/syscall.c                             |   2 +-
+ kernel/compat.c                           |  24 --
+ kernel/power/power.h                      |   2 +-
+ kernel/sys.c                              |   4 +-
+ kernel/sys_ni.c                           |  23 ++
+ kernel/time/hrtimer.c                     |   2 +-
+ kernel/time/itimer.c                      | 280 ++++++++++++++--------
+ kernel/time/time.c                        |  32 ++-
+ lib/vdso/gettimeofday.c                   |   4 +-
+ net/core/scm.c                            |   6 +-
+ net/socket.c                              |   2 +-
+ security/selinux/hooks.c                  |  10 +-
+ 76 files changed, 501 insertions(+), 504 deletions(-)
+
+-- 
+2.20.0
+
+Cc: rth@twiddle.net
+Cc: tony.luck@intel.com
+Cc: paul.burton@mips.com
+Cc: green.hu@gmail.com
+Cc: deller@gmx.de
+Cc: mpe@ellerman.id.au
+Cc: davem@davemloft.net
+Cc: tglx@linutronix.de
+Cc: x86@kernel.org
+Cc: jdike@addtoit.com
+Cc: richard@nod.at
+Cc: viro@zeniv.linux.org.uk
+Cc: bcrl@kvack.org
+Cc: john.stultz@linaro.org
+Cc: sboyd@kernel.org
+Cc: rostedt@goodmis.org
+Cc: arnd@arndb.de
+Cc: vincenzo.frascino@arm.com
+Cc: paul@paul-moore.com
+Cc: sds@tycho.nsa.gov
+Cc: eparis@parisplace.org
+Cc: peterz@infradead.org
+Cc: will@kernel.org
+Cc: deepa.kernel@gmail.com
+Cc: christian@brauner.io
+Cc: heiko.carstens@de.ibm.com
+Cc: christophe.leroy@c-s.fr
+Cc: ebiederm@xmission.com
+Cc: linux-kernel@vger.kernel.org
+Cc: linux-alpha@vger.kernel.org>
+Cc: linux-ia64@vger.kernel.org>
+Cc: linux-mips@vger.kernel.org>
+Cc: linux-parisc@vger.kernel.org>
+Cc: linuxppc-dev@lists.ozlabs.org>
+Cc: sparclinux@vger.kernel.org>
+Cc: linux-um@lists.infradead.org>
+Cc: linux-fsdevel@vger.kernel.org>
+Cc: linux-aio@kvack.org>
+Cc: linux-api@vger.kernel.org>
+Cc: linux-arch@vger.kernel.org>
+Cc: netdev@vger.kernel.org>
+Cc: selinux@vger.kernel.org>
