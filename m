@@ -1,53 +1,30 @@
-From: Pavel Machek <pavel@denx.de>
-Date: Wed, 27 Nov 2019 21:30:37 +0000
-Subject: Re: [PATCH v2 11/12] ACPI/sleep: Convert acpi_wakeup_address into a function
-Message-Id: <20191127213037.GB20612@amd>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="ZfOjI3PrQbgiZnxM"
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Mon, 11 Nov 2019 10:36:22 +0000
+Subject: Re: [PATCH 03/21] ia64: rename ioremap_nocache to ioremap_uc
+Message-Id: <CAK8P3a3k2KRyhCy4OWJkToNBiw_mw0e_A=Ta6UANMMF3EXnhmA@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191126165417.22423-1-sean.j.christopherson@intel.com>
- <20191126165417.22423-12-sean.j.christopherson@intel.com>
-In-Reply-To: <20191126165417.22423-12-sean.j.christopherson@intel.com>
-To: Sean Christopherson <sean.j.christopherson@intel.com>
-Cc: Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, x86@kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <len.brown@intel.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Peter Zijlstra <peterz@infradead.org>, Arnaldo Carvalho de Melo <acme@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, "H. Peter Anvin" <hpa@zytor.com>, Steven Rostedt <rostedt@goodmis.org>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Darren Hart <dvhart@infradead.org>, Andy Shevchenko <andy@infradead.org>, Nadav Amit <nadav.amit@gmail.com>, "VMware, Inc." <pv-drivers@vmware.com>, Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Hans de Goede <hdegoede@redhat.com>, Cezary Rojewski <cezary.rojewski@intel.com>, Pierre-Louis Bossart <pierre-louis.bossart@linux.intel.com>, Liam Girdwood <liam.r.girdwood@linux.intel.com>, Jie Yang <yang.jie@linux.intel.com>, Mark Brown <broonie@kernel.org>, Jaroslav Kysela <perex@perex.cz>, Takashi Iwai <tiwai@suse.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-pm@vger.kernel.org, linux-efi@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-acpi@vger.kernel.org, alsa-devel@alsa-project.org
+References: <20191029064834.23438-1-hch@lst.de> <20191029064834.23438-4-hch@lst.de>
+In-Reply-To: <20191029064834.23438-4-hch@lst.de>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Christoph Hellwig <hch@lst.de>
+Cc: Guo Ren <guoren@kernel.org>, Michal Simek <monstr@monstr.eu>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, the arch/x86 maintainers <x86@kernel.org>, alpha <linux-alpha@vger.kernel.org>, "open list:SYNOPSYS ARC ARCHITECTURE" <linux-snps-arc@lists.infradead.org>, Linux ARM <linux-arm-kernel@lists.infradead.org>, "open list:QUALCOMM HEXAGON..." <linux-hexagon@vger.kernel.org>, linux-ia64@vger.kernel.org, linux-m68k <linux-m68k@lists.linux-m68k.org>, linux-mips@vger.kernel.org, "moderated list:NIOS2 ARCHITECTURE" <nios2-dev@lists.rocketboards.org>, openrisc@lists.librecores.org, Parisc List <linux-parisc@vger.kernel.org>, linux-riscv@lists.infradead.org, linux-s390 <linux-s390@vger.kernel.org>
 
+On Tue, Oct 29, 2019 at 7:48 AM Christoph Hellwig <hch@lst.de> wrote:
+>
+> On ia64 ioremap_nocache fails if attributes don't match.  Not other
+> architectures does this, and we plan to get rid of ioremap_nocache.
+> So get rid of the special semantics and define ioremap_nocache in
+> terms of ioremap as no portable driver could rely on the behavior
+> anyway.
+>
+> However x86 implements ioremap_uc in a similar way as the ia64
+> version of ioremap_nocache, in that it ignores the firmware tables.
+> Switch ia64 to override ioremap_uc instead.
+>
+> Signed-off-by: Christoph Hellwig <hch@lst.de>
 
---ZfOjI3PrQbgiZnxM
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Good idea,
 
-On Tue 2019-11-26 08:54:16, Sean Christopherson wrote:
-> Convert acpi_wakeup_address from a raw variable into a function so that
-> x86 can wrap its dereference of the real mode boot header in a function
-> instead of broadcasting it to the world via a #define.  This sets the
-> stage for a future patch to move x86's definition of the new function,
-> acpi_get_wakeup_address(), out of asm/acpi.h and thus break acpi.h's
-> dependency on asm/realmode.h.
->=20
-> No functional change intended.
->=20
-> Signed-off-by: Sean Christopherson <sean.j.christopherson@intel.com>
-
-Thanks!
-
-Acked-by: Pavel Machek <pavel@ucw.cz>
-
---=20
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blo=
-g.html
-
---ZfOjI3PrQbgiZnxM
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iEYEARECAAYFAl3e6v0ACgkQMOfwapXb+vIvKgCgj+csmgRVJU3LjSgRtQ9xs4OL
-1n8An0cFCD4JerAugYVERVISU8Tw+N8s
-=cvdZ
------END PGP SIGNATURE-----
-
---ZfOjI3PrQbgiZnxM--
+Reviewed-by: Arnd Bergmann <arnd@arndb.de>
