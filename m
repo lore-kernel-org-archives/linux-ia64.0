@@ -1,97 +1,171 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Tue, 19 Nov 2019 20:44:05 +0000
-Subject: Re: [PATCH v6 04/10] mm/memory_hotplug: Don't access uninitialized memmaps in shrink_zone_span()
-Message-Id: <20191119124405.60a1f92f8e1cffed1afa0442@linux-foundation.org>
+From: Greentime Hu <green.hu@gmail.com>
+Date: Tue, 12 Nov 2019 08:51:29 +0000
+Subject: Re: [PATCH 19/21] nds32: use generic ioremap
+Message-Id: <CAEbi=3c58Pb=Q3BqeTLhEK8OsdTpbD5tAe6VcGOC7JBWbTjetQ@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191006085646.5768-1-david@redhat.com>
- <20191006085646.5768-5-david@redhat.com>
- <5a4573de-bd8a-6cd3-55d0-86d503a236fd@redhat.com>
- <20191014121719.cb9b9efe51a7e9e985b38075@linux-foundation.org>
- <8bbbd4f1-e2c9-b654-ab73-aa4314135f21@redhat.com>
-In-Reply-To: <8bbbd4f1-e2c9-b654-ab73-aa4314135f21@redhat.com>
+References: <20191029064834.23438-1-hch@lst.de> <20191029064834.23438-20-hch@lst.de>
+In-Reply-To: <20191029064834.23438-20-hch@lst.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: David Hildenbrand <david@redhat.com>
-Cc: linux-s390@vger.kernel.org, Michal Hocko <mhocko@suse.com>, linux-ia64@vger.kernel.org, Pavel Tatashin <pasha.tatashin@soleen.com>, linux-sh@vger.kernel.org, "Aneesh Kumar K . V" <aneesh.kumar@linux.ibm.com>, x86@kernel.org, linux-kernel@vger.kernel.org, Alexander Duyck <alexander.duyck@gmail.com>, linux-mm@kvack.org, Dan Williams <dan.j.williams@intel.com>, linuxppc-dev@lists.ozlabs.org, Toshiki Fukasawa <t-fukasawa@vx.jp.nec.com>, linux-arm-kernel@lists.infradead.org, Oscar Salvador <osalvador@suse.de>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: Christoph Hellwig <hch@lst.de>, Nickhu <nickhu@andestech.com>, alankao@andestech.com
+Cc: Arnd Bergmann <arnd@arndb.de>, Guo Ren <guoren@kernel.org>, Michal Simek <monstr@monstr.eu>, Vincent Chen <deanbo422@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, nios2-dev@lists.rocketboards.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390 <linux-s390@vger.kernel.org>, linux-sh@vger.kernel.org, sparclinux <sparclinux@vger.kernel.org>, linux-xtensa@linux-xtensa.org, linux-mtd@lists.infradead.org, linux-arch <linux-arch@vger.kernel.org>, Linux Kernel Mailing List <linux-kernel@vger.ke>
 
-On Tue, 19 Nov 2019 15:16:22 +0100 David Hildenbrand <david@redhat.com> wrote:
+Hi,
 
-> On 14.10.19 21:17, Andrew Morton wrote:
-> > On Mon, 14 Oct 2019 11:32:13 +0200 David Hildenbrand <david@redhat.com> wrote:
-> > 
-> >>> Fixes: d0dc12e86b31 ("mm/memory_hotplug: optimize memory hotplug")
-> >>
-> >> @Andrew, can you convert that to
-> >>
-> >> Fixes: f1dd2cd13c4b ("mm, memory_hotplug: do not associate hotadded
-> >> memory to zones until online") # visible after d0dc12e86b319
-> >>
-> >> and add
-> >>
-> >> Cc: stable@vger.kernel.org # v4.13+
-> > 
-> > Done, thanks.
-> > 
-> 
-> Just a note that Toshiki reported a BUG (race between delayed
-> initialization of ZONE_DEVICE memmaps without holding the memory
-> hotplug lock and concurrent zone shrinking).
-> 
-> https://lkml.org/lkml/2019/11/14/1040
-> 
-> "Iteration of create and destroy namespace causes the panic as below:
-> 
-> [   41.207694] kernel BUG at mm/page_alloc.c:535!
-> [   41.208109] invalid opcode: 0000 [#1] SMP PTI
-> [   41.208508] CPU: 7 PID: 2766 Comm: ndctl Not tainted 5.4.0-rc4 #6
-> [   41.209064] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.11.0-0-g63451fca13-prebuilt.qemu-project.org 04/01/2014
-> [   41.210175] RIP: 0010:set_pfnblock_flags_mask+0x95/0xf0
-> [   41.210643] Code: 04 41 83 e2 3c 48 8d 04 a8 48 c1 e0 07 48 03 04 dd e0 59 55 bb 48 8b 58 68 48 39 da 73 0e 48 c7 c6 70 ac 11 bb e8 1b b2 fd ff <0f> 0b 48 03 58 78 48 39 da 73 e9 49 01 ca b9 3f 00 00 00 4f 8d 0c
-> [   41.212354] RSP: 0018:ffffac0d41557c80 EFLAGS: 00010246
-> [   41.212821] RAX: 000000000000004a RBX: 0000000000244a00 RCX: 0000000000000000
-> [   41.213459] RDX: 0000000000000000 RSI: 0000000000000000 RDI: ffffffffbb1197dc
-> [   41.214100] RBP: 000000000000000c R08: 0000000000000439 R09: 0000000000000059
-> [   41.214736] R10: 0000000000000000 R11: ffffac0d41557b08 R12: ffff8be475ea72b0
-> [   41.215376] R13: 000000000000fa00 R14: 0000000000250000 R15: 00000000fffc0bb5
-> [   41.216008] FS:  00007f30862ab600(0000) GS:ffff8be57bc40000(0000) knlGS:0000000000000000
-> [   41.216771] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-> [   41.217299] CR2: 000055e824d0d508 CR3: 0000000231dac000 CR4: 00000000000006e0
-> [   41.217934] Call Trace:
-> [   41.218225]  memmap_init_zone_device+0x165/0x17c
-> [   41.218642]  memremap_pages+0x4c1/0x540
-> [   41.218989]  devm_memremap_pages+0x1d/0x60
-> [   41.219367]  pmem_attach_disk+0x16b/0x600 [nd_pmem]
-> [   41.219804]  ? devm_nsio_enable+0xb8/0xe0
-> [   41.220172]  nvdimm_bus_probe+0x69/0x1c0
-> [   41.220526]  really_probe+0x1c2/0x3e0
-> [   41.220856]  driver_probe_device+0xb4/0x100
-> [   41.221238]  device_driver_attach+0x4f/0x60
-> [   41.221611]  bind_store+0xc9/0x110
-> [   41.221919]  kernfs_fop_write+0x116/0x190
-> [   41.222326]  vfs_write+0xa5/0x1a0
-> [   41.222626]  ksys_write+0x59/0xd0
-> [   41.222927]  do_syscall_64+0x5b/0x180
-> [   41.223264]  entry_SYSCALL_64_after_hwframe+0x44/0xa9
-> [   41.223714] RIP: 0033:0x7f30865d0ed8
-> [   41.224037] Code: 89 02 48 c7 c0 ff ff ff ff eb b3 0f 1f 80 00 00 00 00 f3 0f 1e fa 48 8d 05 45 78 0d 00 8b 00 85 c0 75 17 b8 01 00 00 00 0f 05 <48> 3d 00 f0 ff ff 77 58 c3 0f 1f 80 00 00 00 00 41 54 49 89 d4 55
-> [   41.225920] RSP: 002b:00007fffe5d30a78 EFLAGS: 00000246 ORIG_RAX: 0000000000000001
-> [   41.226608] RAX: ffffffffffffffda RBX: 000055e824d07f40 RCX: 00007f30865d0ed8
-> [   41.227242] RDX: 0000000000000007 RSI: 000055e824d07f40 RDI: 0000000000000004
-> [   41.227870] RBP: 0000000000000007 R08: 0000000000000007 R09: 0000000000000006
-> [   41.228753] R10: 0000000000000000 R11: 0000000000000246 R12: 0000000000000004
-> [   41.229419] R13: 00007f30862ab528 R14: 0000000000000001 R15: 000055e824d07f40
-> 
-> While creating a namespace and initializing memmap, if you destroy the namespace
-> and shrink the zone, it will initialize the memmap outside the zone and
-> trigger VM_BUG_ON_PAGE(!zone_spans_pfn(page_zone(page), pfn), page) in
-> set_pfnblock_flags_mask()."
-> 
-> 
-> This BUG is also mitigated by this commit, where we for now stop to
-> shrink the ZONE_DEVICE zone until we can do it in a safe and clean
-> way.
-> 
+Christoph Hellwig <hch@lst.de> 於 2019年10月29日 週二 下午2:49寫道：
+>
+> Use the generic ioremap_prot and iounmap helpers.
+>
+> Note that the io.h include in pgtable.h had to be removed to not create
+> an include loop.  As far as I can tell there was no need for it to
+> start with.
+>
+> Signed-off-by: Christoph Hellwig <hch@lst.de>
+> ---
+>  arch/nds32/Kconfig               |  1 +
+>  arch/nds32/include/asm/io.h      |  3 +-
+>  arch/nds32/include/asm/pgtable.h |  4 ++-
+>  arch/nds32/mm/Makefile           |  3 +-
+>  arch/nds32/mm/ioremap.c          | 62 --------------------------------
+>  5 files changed, 6 insertions(+), 67 deletions(-)
+>  delete mode 100644 arch/nds32/mm/ioremap.c
+>
+> diff --git a/arch/nds32/Kconfig b/arch/nds32/Kconfig
+> index fbd68329737f..12c06a833b7c 100644
+> --- a/arch/nds32/Kconfig
+> +++ b/arch/nds32/Kconfig
+> @@ -20,6 +20,7 @@ config NDS32
+>         select GENERIC_CLOCKEVENTS
+>         select GENERIC_IRQ_CHIP
+>         select GENERIC_IRQ_SHOW
+> +       select GENERIC_IOREMAP
+>         select GENERIC_LIB_ASHLDI3
+>         select GENERIC_LIB_ASHRDI3
+>         select GENERIC_LIB_CMPDI2
+> diff --git a/arch/nds32/include/asm/io.h b/arch/nds32/include/asm/io.h
+> index fb0e8a24c7af..e57378d04006 100644
+> --- a/arch/nds32/include/asm/io.h
+> +++ b/arch/nds32/include/asm/io.h
+> @@ -6,8 +6,6 @@
+>
+>  #include <linux/types.h>
+>
+> -void __iomem *ioremap(phys_addr_t phys_addr, size_t size);
+> -extern void iounmap(volatile void __iomem *addr);
+>  #define __raw_writeb __raw_writeb
+>  static inline void __raw_writeb(u8 val, volatile void __iomem *addr)
+>  {
+> @@ -80,6 +78,7 @@ static inline u32 __raw_readl(const volatile void __iomem *addr)
+>  #define writeb(v,c)    ({ __iowmb(); writeb_relaxed((v),(c)); })
+>  #define writew(v,c)    ({ __iowmb(); writew_relaxed((v),(c)); })
+>  #define writel(v,c)    ({ __iowmb(); writel_relaxed((v),(c)); })
+> +
+>  #include <asm-generic/io.h>
+>
+>  #endif /* __ASM_NDS32_IO_H */
+> diff --git a/arch/nds32/include/asm/pgtable.h b/arch/nds32/include/asm/pgtable.h
+> index 0588ec99725c..6fbf251cfc26 100644
+> --- a/arch/nds32/include/asm/pgtable.h
+> +++ b/arch/nds32/include/asm/pgtable.h
+> @@ -12,7 +12,6 @@
+>  #include <asm/nds32.h>
+>  #ifndef __ASSEMBLY__
+>  #include <asm/fixmap.h>
+> -#include <asm/io.h>
+>  #include <nds32_intrinsic.h>
+>  #endif
+>
+> @@ -130,6 +129,9 @@ extern void __pgd_error(const char *file, int line, unsigned long val);
+>  #define _PAGE_CACHE            _PAGE_C_MEM_WB
+>  #endif
+>
+> +#define _PAGE_IOREMAP \
+> +       (_PAGE_V | _PAGE_M_KRW | _PAGE_D | _PAGE_G | _PAGE_C_DEV)
+> +
+>  /*
+>   * + Level 1 descriptor (PMD)
+>   */
+> diff --git a/arch/nds32/mm/Makefile b/arch/nds32/mm/Makefile
+> index bd360e4583b5..897ecaf5cf54 100644
+> --- a/arch/nds32/mm/Makefile
+> +++ b/arch/nds32/mm/Makefile
+> @@ -1,6 +1,5 @@
+>  # SPDX-License-Identifier: GPL-2.0-only
+> -obj-y                          := extable.o tlb.o \
+> -                                  fault.o init.o ioremap.o mmap.o \
+> +obj-y                          := extable.o tlb.o fault.o init.o mmap.o \
+>                                     mm-nds32.o cacheflush.o proc.o
+>
+>  obj-$(CONFIG_ALIGNMENT_TRAP)   += alignment.o
+> diff --git a/arch/nds32/mm/ioremap.c b/arch/nds32/mm/ioremap.c
+> deleted file mode 100644
+> index 690140bb23a2..000000000000
+> --- a/arch/nds32/mm/ioremap.c
+> +++ /dev/null
+> @@ -1,62 +0,0 @@
+> -// SPDX-License-Identifier: GPL-2.0
+> -// Copyright (C) 2005-2017 Andes Technology Corporation
+> -
+> -#include <linux/vmalloc.h>
+> -#include <linux/io.h>
+> -#include <linux/mm.h>
+> -#include <asm/pgtable.h>
+> -
+> -void __iomem *ioremap(phys_addr_t phys_addr, size_t size);
+> -
+> -static void __iomem *__ioremap_caller(phys_addr_t phys_addr, size_t size,
+> -                                     void *caller)
+> -{
+> -       struct vm_struct *area;
+> -       unsigned long addr, offset, last_addr;
+> -       pgprot_t prot;
+> -
+> -       /* Don't allow wraparound or zero size */
+> -       last_addr = phys_addr + size - 1;
+> -       if (!size || last_addr < phys_addr)
+> -               return NULL;
+> -
+> -       /*
+> -        * Mappings have to be page-aligned
+> -        */
+> -       offset = phys_addr & ~PAGE_MASK;
+> -       phys_addr &= PAGE_MASK;
+> -       size = PAGE_ALIGN(last_addr + 1) - phys_addr;
+> -
+> -       /*
+> -        * Ok, go for it..
+> -        */
+> -       area = get_vm_area_caller(size, VM_IOREMAP, caller);
+> -       if (!area)
+> -               return NULL;
+> -
+> -       area->phys_addr = phys_addr;
+> -       addr = (unsigned long)area->addr;
+> -       prot = __pgprot(_PAGE_V | _PAGE_M_KRW | _PAGE_D |
+> -                       _PAGE_G | _PAGE_C_DEV);
+> -       if (ioremap_page_range(addr, addr + size, phys_addr, prot)) {
+> -               vunmap((void *)addr);
+> -               return NULL;
+> -       }
+> -       return (__force void __iomem *)(offset + (char *)addr);
+> -
+> -}
+> -
+> -void __iomem *ioremap(phys_addr_t phys_addr, size_t size)
+> -{
+> -       return __ioremap_caller(phys_addr, size,
+> -                               __builtin_return_address(0));
+> -}
+> -
+> -EXPORT_SYMBOL(ioremap);
+> -
+> -void iounmap(volatile void __iomem * addr)
+> -{
+> -       vunmap((void *)(PAGE_MASK & (unsigned long)addr));
+> -}
+> -
+> -EXPORT_SYMBOL(iounmap);
 
-OK, thanks.  I updated the changelog, added Reported-by:Toshiki and
-shall squeeze this fix into 5.4.
+Acked-by: Greentime Hu <green.hu@gmail.com>
+Looks good to me.
