@@ -1,172 +1,206 @@
-From: Aleksa Sarai <cyphar@cyphar.com>
-Date: Tue, 05 Nov 2019 09:05:47 +0000
-Subject: [PATCH v15 3/9] namei: LOOKUP_NO_XDEV: block mountpoint crossing
-Message-Id: <20191105090553.6350-4-cyphar@cyphar.com>
+From: Al Viro <viro@zeniv.linux.org.uk>
+Date: Wed, 13 Nov 2019 01:36:30 +0000
+Subject: Re: [PATCH v15 3/9] namei: LOOKUP_NO_XDEV: block mountpoint crossing
+Message-Id: <20191113013630.GZ26530@ZenIV.linux.org.uk>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20191105090553.6350-1-cyphar@cyphar.com>
-In-Reply-To: <20191105090553.6350-1-cyphar@cyphar.com>
+ <20191105090553.6350-4-cyphar@cyphar.com>
+In-Reply-To: <20191105090553.6350-4-cyphar@cyphar.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>
-Cc: Aleksa Sarai <cyphar@cyphar.com>, Christian Brauner <christian.brauner@ubuntu.com>, David Drysdale <drysdale@google.com>, Andy Lutomirski <luto@kernel.org>, Linus Torvalds <torvalds@linux-foundation.org>, Eric Biederman <ebiederm@xmission.com>, Andrew Morton <akpm@linux-foundation.org>, Alexei Starovoitov <ast@kernel.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, Christian Brauner <christian@brauner.io>, Aleksa Sarai <asarai@suse.de>, containers@lists.linux
+To: Aleksa Sarai <cyphar@cyphar.com>
+Cc: Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Christian Brauner <christian.brauner@ubuntu.com>, David Drysdale <drysdale@google.com>, Andy Lutomirski <luto@kernel.org>, Linus Torvalds <torvalds@linux-foundation.org>, Eric Biederman <ebiederm@xmission.com>, Andrew Morton <akpm@linux-foundation.org>, Alexei Starovoitov <ast@kernel.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Ras
 
-/* Background. */
-The need to contain path operations within a mountpoint has been a
-long-standing usecase that userspace has historically implemented
-manually with liberal usage of stat(). find, rsync, tar and
-many other programs implement these semantics -- but it'd be much
-simpler to have a fool-proof way of refusing to open a path if it
-crosses a mountpoint.
+On Tue, Nov 05, 2019 at 08:05:47PM +1100, Aleksa Sarai wrote:
 
-This is part of a refresh of Al's AT_NO_JUMPS patchset[1] (which was a
-variation on David Drysdale's O_BENEATH patchset[2], which in turn was
-based on the Capsicum project[3]).
+> @@ -862,6 +870,8 @@ static int nd_jump_root(struct nameidata *nd)
+>  void nd_jump_link(struct path *path)
+>  {
+>  	struct nameidata *nd = current->nameidata;
+> +
+> +	nd->last_magiclink.same_mnt = (nd->path.mnt = path->mnt);
+>  	path_put(&nd->path);
+>  
+>  	nd->path = *path;
+> @@ -1082,6 +1092,10 @@ const char *get_link(struct nameidata *nd)
+>  		if (nd->flags & LOOKUP_MAGICLINK_JUMPED) {
+>  			if (unlikely(nd->flags & LOOKUP_NO_MAGICLINKS))
+>  				return ERR_PTR(-ELOOP);
+> +			if (unlikely(nd->flags & LOOKUP_NO_XDEV)) {
+> +				if (!nd->last_magiclink.same_mnt)
+> +					return ERR_PTR(-EXDEV);
+> +			}
+>  		}
 
-/* Userspace API. */
-LOOKUP_NO_XDEV will be exposed to userspace through openat2(2).
+Ugh...  Wouldn't it be better to take that logics (some equivalent thereof)
+into nd_jump_link()?  Or just have nd_jump_link() return an error...
 
-/* Semantics. */
-Unlike most other LOOKUP flags (most notably LOOKUP_FOLLOW),
-LOOKUP_NO_XDEV applies to all components of the path.
+I mean, look at the callers of nd_jump_link().
+static const char *policy_get_link(struct dentry *dentry,
+                                   struct inode *inode,
+                                   struct delayed_call *done)
+{
+        struct aa_ns *ns;
+        struct path path;  
 
-With LOOKUP_NO_XDEV, any path component which crosses a mount-point
-during path resolution (including "..") will yield an -EXDEV. Absolute
-paths, absolute symlinks, and magic-links will only yield an -EXDEV if
-the jump involved changing mount-points.
+        if (!dentry)   
+                return ERR_PTR(-ECHILD);
+        ns = aa_get_current_ns();
+        path.mnt = mntget(aafs_mnt);
+        path.dentry = dget(ns_dir(ns));
+        nd_jump_link(&path); 
+        aa_put_ns(ns);
 
-/* Testing. */
-LOOKUP_NO_XDEV is tested as part of the openat2(2) selftests.
+        return NULL;
+}
+- very close to the end of ->get_link() instance.
 
-[1]: https://lore.kernel.org/lkml/20170429220414.GT29622@ZenIV.linux.org.uk/
-[2]: https://lore.kernel.org/lkml/1415094884-18349-1-git-send-email-drysdale@google.com/
-[3]: https://lore.kernel.org/lkml/1404124096-21445-1-git-send-email-drysdale@google.com/
+static const char *proc_pid_get_link(struct dentry *dentry,
+                                     struct inode *inode,
+                                     struct delayed_call *done)
+{ 
+        struct path path;
+        int error = -EACCES;
 
-Cc: Christian Brauner <christian.brauner@ubuntu.com>
-Suggested-by: David Drysdale <drysdale@google.com>
-Suggested-by: Al Viro <viro@zeniv.linux.org.uk>
-Suggested-by: Andy Lutomirski <luto@kernel.org>
-Suggested-by: Linus Torvalds <torvalds@linux-foundation.org>
-Signed-off-by: Aleksa Sarai <cyphar@cyphar.com>
----
- fs/namei.c            | 34 ++++++++++++++++++++++++++++++----
- include/linux/namei.h |  1 +
- 2 files changed, 31 insertions(+), 4 deletions(-)
+        if (!dentry)
+                return ERR_PTR(-ECHILD);
+
+        /* Are we allowed to snoop on the tasks file descriptors? */
+        if (!proc_fd_access_allowed(inode))
+                goto out;
+
+        error = PROC_I(inode)->op.proc_get_link(dentry, &path);
+        if (error)
+                goto out;
+
+        nd_jump_link(&path);
+        return NULL;
+out:   
+        return ERR_PTR(error);
+}
+Ditto.
+
+static const char *proc_ns_get_link(struct dentry *dentry,
+                                    struct inode *inode,
+                                    struct delayed_call *done)
+{
+        const struct proc_ns_operations *ns_ops = PROC_I(inode)->ns_ops;
+        struct task_struct *task;
+        struct path ns_path;
+        void *error = ERR_PTR(-EACCES);
+
+        if (!dentry)
+                return ERR_PTR(-ECHILD);
+
+        task = get_proc_task(inode);
+        if (!task)
+                return error;
+
+        if (ptrace_may_access(task, PTRACE_MODE_READ_FSCREDS)) {
+                error = ns_get_path(&ns_path, task, ns_ops);
+                if (!error)
+                        nd_jump_link(&ns_path);
+        }
+        put_task_struct(task);
+        return error;
+}
+
+The same.  And that's it - there's no more of them.  So how about
+this in the beginning of the series, then having your magiclink
+error handling done in nd_jump_link()?
 
 diff --git a/fs/namei.c b/fs/namei.c
-index 1f0d871199e5..b73ee1601bd4 100644
+index 671c3c1a3425..8ec924813c30 100644
 --- a/fs/namei.c
 +++ b/fs/namei.c
-@@ -504,6 +504,9 @@ struct nameidata {
- 	struct filename	*name;
- 	struct nameidata *saved;
- 	struct inode	*link_inode;
-+	struct {
-+		bool same_mnt;
-+	} last_magiclink;
- 	unsigned	root_seq;
- 	int		dfd;
- } __randomize_layout;
-@@ -837,6 +840,11 @@ static inline void path_to_nameidata(const struct path *path,
- 
- static int nd_jump_root(struct nameidata *nd)
- {
-+	if (unlikely(nd->flags & LOOKUP_NO_XDEV)) {
-+		/* Absolute path arguments to path_init() are allowed. */
-+		if (nd->path.mnt != NULL && nd->path.mnt != nd->root.mnt)
-+			return -EXDEV;
-+	}
- 	if (nd->flags & LOOKUP_RCU) {
- 		struct dentry *d;
- 		nd->path = nd->root;
-@@ -862,6 +870,8 @@ static int nd_jump_root(struct nameidata *nd)
- void nd_jump_link(struct path *path)
+@@ -859,7 +859,7 @@ static int nd_jump_root(struct nameidata *nd)
+  * Helper to directly jump to a known parsed path from ->get_link,
+  * caller must have taken a reference to path beforehand.
+  */
+-void nd_jump_link(struct path *path)
++const char *nd_jump_link(struct path *path)
  {
  	struct nameidata *nd = current->nameidata;
-+
-+	nd->last_magiclink.same_mnt = (nd->path.mnt = path->mnt);
  	path_put(&nd->path);
- 
+@@ -867,6 +867,7 @@ void nd_jump_link(struct path *path)
  	nd->path = *path;
-@@ -1082,6 +1092,10 @@ const char *get_link(struct nameidata *nd)
- 		if (nd->flags & LOOKUP_MAGICLINK_JUMPED) {
- 			if (unlikely(nd->flags & LOOKUP_NO_MAGICLINKS))
- 				return ERR_PTR(-ELOOP);
-+			if (unlikely(nd->flags & LOOKUP_NO_XDEV)) {
-+				if (!nd->last_magiclink.same_mnt)
-+					return ERR_PTR(-EXDEV);
-+			}
- 		}
- 		if (IS_ERR_OR_NULL(res))
- 			return res;
-@@ -1271,12 +1285,16 @@ static int follow_managed(struct path *path, struct nameidata *nd)
- 		break;
- 	}
- 
--	if (need_mntput && path->mnt = mnt)
--		mntput(path->mnt);
-+	if (need_mntput) {
-+		if (path->mnt = mnt)
-+			mntput(path->mnt);
-+		if (unlikely(nd->flags & LOOKUP_NO_XDEV))
-+			ret = -EXDEV;
-+		else
-+			nd->flags |= LOOKUP_JUMPED;
-+	}
- 	if (ret = -EISDIR || !ret)
- 		ret = 1;
--	if (need_mntput)
--		nd->flags |= LOOKUP_JUMPED;
- 	if (unlikely(ret < 0))
- 		path_put_conditional(path, nd);
- 	return ret;
-@@ -1333,6 +1351,8 @@ static bool __follow_mount_rcu(struct nameidata *nd, struct path *path,
- 		mounted = __lookup_mnt(path->mnt, path->dentry);
- 		if (!mounted)
- 			break;
-+		if (unlikely(nd->flags & LOOKUP_NO_XDEV))
-+			return false;
- 		path->mnt = &mounted->mnt;
- 		path->dentry = mounted->mnt.mnt_root;
- 		nd->flags |= LOOKUP_JUMPED;
-@@ -1379,6 +1399,8 @@ static int follow_dotdot_rcu(struct nameidata *nd)
- 				return -ECHILD;
- 			if (&mparent->mnt = nd->path.mnt)
- 				break;
-+			if (unlikely(nd->flags & LOOKUP_NO_XDEV))
-+				return -EXDEV;
- 			/* we know that mountpoint was pinned */
- 			nd->path.dentry = mountpoint;
- 			nd->path.mnt = &mparent->mnt;
-@@ -1393,6 +1415,8 @@ static int follow_dotdot_rcu(struct nameidata *nd)
- 			return -ECHILD;
- 		if (!mounted)
- 			break;
-+		if (unlikely(nd->flags & LOOKUP_NO_XDEV))
-+			return -EXDEV;
- 		nd->path.mnt = &mounted->mnt;
- 		nd->path.dentry = mounted->mnt.mnt_root;
- 		inode = nd->path.dentry->d_inode;
-@@ -1491,6 +1515,8 @@ static int follow_dotdot(struct nameidata *nd)
- 		}
- 		if (!follow_up(&nd->path))
- 			break;
-+		if (unlikely(nd->flags & LOOKUP_NO_XDEV))
-+			return -EXDEV;
- 	}
- 	follow_mount(&nd->path);
  	nd->inode = nd->path.dentry->d_inode;
+ 	nd->flags |= LOOKUP_JUMPED;
++	return NULL;
+ }
+ 
+ static inline void put_link(struct nameidata *nd)
+diff --git a/fs/proc/base.c b/fs/proc/base.c
+index ebea9501afb8..ac4e57a3dfa5 100644
+--- a/fs/proc/base.c
++++ b/fs/proc/base.c
+@@ -1626,8 +1626,7 @@ static const char *proc_pid_get_link(struct dentry *dentry,
+ 	if (error)
+ 		goto out;
+ 
+-	nd_jump_link(&path);
+-	return NULL;
++	return nd_jump_link(&path);
+ out:
+ 	return ERR_PTR(error);
+ }
+diff --git a/fs/proc/namespaces.c b/fs/proc/namespaces.c
+index dd2b35f78b09..dde0c501b2f3 100644
+--- a/fs/proc/namespaces.c
++++ b/fs/proc/namespaces.c
+@@ -54,7 +54,7 @@ static const char *proc_ns_get_link(struct dentry *dentry,
+ 	if (ptrace_may_access(task, PTRACE_MODE_READ_FSCREDS)) {
+ 		error = ns_get_path(&ns_path, task, ns_ops);
+ 		if (!error)
+-			nd_jump_link(&ns_path);
++			error = nd_jump_link(&ns_path);
+ 	}
+ 	put_task_struct(task);
+ 	return error;
 diff --git a/include/linux/namei.h b/include/linux/namei.h
-index a8b3f93338da..6105c8a59fc8 100644
+index 397a08ade6a2..f3e8438e5631 100644
 --- a/include/linux/namei.h
 +++ b/include/linux/namei.h
-@@ -43,6 +43,7 @@ enum {LAST_NORM, LAST_ROOT, LAST_DOT, LAST_DOTDOT, LAST_BIND};
- /* Scoping flags for lookup. */
- #define LOOKUP_NO_SYMLINKS	0x020000 /* No symlink crossing. */
- #define LOOKUP_NO_MAGICLINKS	0x040000 /* No /proc/$pid/fd/ "symlink" crossing. */
-+#define LOOKUP_NO_XDEV		0x080000 /* No mountpoint crossing. */
+@@ -68,7 +68,7 @@ extern int follow_up(struct path *);
+ extern struct dentry *lock_rename(struct dentry *, struct dentry *);
+ extern void unlock_rename(struct dentry *, struct dentry *);
  
- extern int path_pts(struct path *path);
+-extern void nd_jump_link(struct path *path);
++extern const char *nd_jump_link(struct path *path);
  
--- 
-2.23.0
+ static inline void nd_terminate_link(void *name, size_t len, size_t maxlen)
+ {
+diff --git a/security/apparmor/apparmorfs.c b/security/apparmor/apparmorfs.c
+index 45d13b6462aa..98aef94b4777 100644
+--- a/security/apparmor/apparmorfs.c
++++ b/security/apparmor/apparmorfs.c
+@@ -2453,18 +2453,16 @@ static const char *policy_get_link(struct dentry *dentry,
+ 				   struct inode *inode,
+ 				   struct delayed_call *done)
+ {
+-	struct aa_ns *ns;
+-	struct path path;
+-
+-	if (!dentry)
+-		return ERR_PTR(-ECHILD);
+-	ns = aa_get_current_ns();
+-	path.mnt = mntget(aafs_mnt);
+-	path.dentry = dget(ns_dir(ns));
+-	nd_jump_link(&path);
+-	aa_put_ns(ns);
+-
+-	return NULL;
++	const char *err = ERR_PTR(-ECHILD);
++
++	if (dentry) {
++		struct aa_ns *ns = aa_get_current_ns();
++		struct path path = {.mnt = mntget(aafs_mnt),
++				    .dentry = ns_dir(ns)};
++		err = nd_jump_link(&path);
++		aa_put_ns(ns);
++	}
++	return err;
+ }
+ 
+ static int policy_readlink(struct dentry *dentry, char __user *buffer,
