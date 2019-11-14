@@ -1,206 +1,80 @@
-From: Al Viro <viro@zeniv.linux.org.uk>
-Date: Wed, 13 Nov 2019 01:36:30 +0000
+From: Aleksa Sarai <cyphar@cyphar.com>
+Date: Thu, 14 Nov 2019 04:49:45 +0000
 Subject: Re: [PATCH v15 3/9] namei: LOOKUP_NO_XDEV: block mountpoint crossing
-Message-Id: <20191113013630.GZ26530@ZenIV.linux.org.uk>
+Message-Id: <20191114044945.ldedzjrb4s7i7irr@yavin.dot.cyphar.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="rwq4fftbhkszxm4g"
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20191105090553.6350-1-cyphar@cyphar.com>
  <20191105090553.6350-4-cyphar@cyphar.com>
-In-Reply-To: <20191105090553.6350-4-cyphar@cyphar.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Aleksa Sarai <cyphar@cyphar.com>
+ <20191113013630.GZ26530@ZenIV.linux.org.uk>
+In-Reply-To: <20191113013630.GZ26530@ZenIV.linux.org.uk>
+To: Al Viro <viro@zeniv.linux.org.uk>
 Cc: Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Christian Brauner <christian.brauner@ubuntu.com>, David Drysdale <drysdale@google.com>, Andy Lutomirski <luto@kernel.org>, Linus Torvalds <torvalds@linux-foundation.org>, Eric Biederman <ebiederm@xmission.com>, Andrew Morton <akpm@linux-foundation.org>, Alexei Starovoitov <ast@kernel.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Ras
 
-On Tue, Nov 05, 2019 at 08:05:47PM +1100, Aleksa Sarai wrote:
 
-> @@ -862,6 +870,8 @@ static int nd_jump_root(struct nameidata *nd)
->  void nd_jump_link(struct path *path)
->  {
->  	struct nameidata *nd = current->nameidata;
-> +
-> +	nd->last_magiclink.same_mnt = (nd->path.mnt = path->mnt);
->  	path_put(&nd->path);
->  
->  	nd->path = *path;
-> @@ -1082,6 +1092,10 @@ const char *get_link(struct nameidata *nd)
->  		if (nd->flags & LOOKUP_MAGICLINK_JUMPED) {
->  			if (unlikely(nd->flags & LOOKUP_NO_MAGICLINKS))
->  				return ERR_PTR(-ELOOP);
-> +			if (unlikely(nd->flags & LOOKUP_NO_XDEV)) {
-> +				if (!nd->last_magiclink.same_mnt)
-> +					return ERR_PTR(-EXDEV);
-> +			}
->  		}
+--rwq4fftbhkszxm4g
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Ugh...  Wouldn't it be better to take that logics (some equivalent thereof)
-into nd_jump_link()?  Or just have nd_jump_link() return an error...
+On 2019-11-13, Al Viro <viro@zeniv.linux.org.uk> wrote:
+> On Tue, Nov 05, 2019 at 08:05:47PM +1100, Aleksa Sarai wrote:
+>=20
+> > @@ -862,6 +870,8 @@ static int nd_jump_root(struct nameidata *nd)
+> >  void nd_jump_link(struct path *path)
+> >  {
+> >  	struct nameidata *nd =3D current->nameidata;
+> > +
+> > +	nd->last_magiclink.same_mnt =3D (nd->path.mnt =3D=3D path->mnt);
+> >  	path_put(&nd->path);
+> > =20
+> >  	nd->path =3D *path;
+> > @@ -1082,6 +1092,10 @@ const char *get_link(struct nameidata *nd)
+> >  		if (nd->flags & LOOKUP_MAGICLINK_JUMPED) {
+> >  			if (unlikely(nd->flags & LOOKUP_NO_MAGICLINKS))
+> >  				return ERR_PTR(-ELOOP);
+> > +			if (unlikely(nd->flags & LOOKUP_NO_XDEV)) {
+> > +				if (!nd->last_magiclink.same_mnt)
+> > +					return ERR_PTR(-EXDEV);
+> > +			}
+> >  		}
+>=20
+> Ugh...  Wouldn't it be better to take that logics (some equivalent thereo=
+f)
+> into nd_jump_link()?  Or just have nd_jump_link() return an error...
 
-I mean, look at the callers of nd_jump_link().
-static const char *policy_get_link(struct dentry *dentry,
-                                   struct inode *inode,
-                                   struct delayed_call *done)
-{
-        struct aa_ns *ns;
-        struct path path;  
+This could be done, but the reason for stashing it away in
+last_magiclink is because of the future magic-link re-opening patches
+which can't be implemented like that without putting the open_flags
+inside nameidata (which was decided to be too ugly a while ago).
 
-        if (!dentry)   
-                return ERR_PTR(-ECHILD);
-        ns = aa_get_current_ns();
-        path.mnt = mntget(aafs_mnt);
-        path.dentry = dget(ns_dir(ns));
-        nd_jump_link(&path); 
-        aa_put_ns(ns);
+My point being that I could implement it this way for this series, but
+I'd have to implement something like last_magiclink when I end up
+re-posting the magic-link stuff in a few weeks.
 
-        return NULL;
-}
-- very close to the end of ->get_link() instance.
+Looking at all the nd_jump_link() users, the other option is to just
+disallow magic-link crossings entirely for LOOKUP_NO_XDEV. The only
+thing allowing them permits is to resolve file descriptors that are
+pointing to the same procfs mount -- and it's unclear to me how useful
+that really is (apparmorfs and nsfs will always give -EXDEV because
+aafs_mnt and nsfs_mnt are internal kernel vfsmounts).
 
-static const char *proc_pid_get_link(struct dentry *dentry,
-                                     struct inode *inode,
-                                     struct delayed_call *done)
-{ 
-        struct path path;
-        int error = -EACCES;
+--=20
+Aleksa Sarai
+Senior Software Engineer (Containers)
+SUSE Linux GmbH
+<https://www.cyphar.com/>
 
-        if (!dentry)
-                return ERR_PTR(-ECHILD);
+--rwq4fftbhkszxm4g
+Content-Type: application/pgp-signature; name="signature.asc"
 
-        /* Are we allowed to snoop on the tasks file descriptors? */
-        if (!proc_fd_access_allowed(inode))
-                goto out;
+-----BEGIN PGP SIGNATURE-----
 
-        error = PROC_I(inode)->op.proc_get_link(dentry, &path);
-        if (error)
-                goto out;
+iHUEABYIAB0WIQSxZm6dtfE8gxLLfYqdlLljIbnQEgUCXczc5gAKCRCdlLljIbnQ
+EspyAQDQkDnU2/CfvkXyKRLh2e7ycT5D4iHdCmBXbx8LlO8DlwD/S5O/FNHgyDdy
+RVaJ7aj0OZAzg7DMx3VZRiI+He4MXw0=
+=71Jv
+-----END PGP SIGNATURE-----
 
-        nd_jump_link(&path);
-        return NULL;
-out:   
-        return ERR_PTR(error);
-}
-Ditto.
-
-static const char *proc_ns_get_link(struct dentry *dentry,
-                                    struct inode *inode,
-                                    struct delayed_call *done)
-{
-        const struct proc_ns_operations *ns_ops = PROC_I(inode)->ns_ops;
-        struct task_struct *task;
-        struct path ns_path;
-        void *error = ERR_PTR(-EACCES);
-
-        if (!dentry)
-                return ERR_PTR(-ECHILD);
-
-        task = get_proc_task(inode);
-        if (!task)
-                return error;
-
-        if (ptrace_may_access(task, PTRACE_MODE_READ_FSCREDS)) {
-                error = ns_get_path(&ns_path, task, ns_ops);
-                if (!error)
-                        nd_jump_link(&ns_path);
-        }
-        put_task_struct(task);
-        return error;
-}
-
-The same.  And that's it - there's no more of them.  So how about
-this in the beginning of the series, then having your magiclink
-error handling done in nd_jump_link()?
-
-diff --git a/fs/namei.c b/fs/namei.c
-index 671c3c1a3425..8ec924813c30 100644
---- a/fs/namei.c
-+++ b/fs/namei.c
-@@ -859,7 +859,7 @@ static int nd_jump_root(struct nameidata *nd)
-  * Helper to directly jump to a known parsed path from ->get_link,
-  * caller must have taken a reference to path beforehand.
-  */
--void nd_jump_link(struct path *path)
-+const char *nd_jump_link(struct path *path)
- {
- 	struct nameidata *nd = current->nameidata;
- 	path_put(&nd->path);
-@@ -867,6 +867,7 @@ void nd_jump_link(struct path *path)
- 	nd->path = *path;
- 	nd->inode = nd->path.dentry->d_inode;
- 	nd->flags |= LOOKUP_JUMPED;
-+	return NULL;
- }
- 
- static inline void put_link(struct nameidata *nd)
-diff --git a/fs/proc/base.c b/fs/proc/base.c
-index ebea9501afb8..ac4e57a3dfa5 100644
---- a/fs/proc/base.c
-+++ b/fs/proc/base.c
-@@ -1626,8 +1626,7 @@ static const char *proc_pid_get_link(struct dentry *dentry,
- 	if (error)
- 		goto out;
- 
--	nd_jump_link(&path);
--	return NULL;
-+	return nd_jump_link(&path);
- out:
- 	return ERR_PTR(error);
- }
-diff --git a/fs/proc/namespaces.c b/fs/proc/namespaces.c
-index dd2b35f78b09..dde0c501b2f3 100644
---- a/fs/proc/namespaces.c
-+++ b/fs/proc/namespaces.c
-@@ -54,7 +54,7 @@ static const char *proc_ns_get_link(struct dentry *dentry,
- 	if (ptrace_may_access(task, PTRACE_MODE_READ_FSCREDS)) {
- 		error = ns_get_path(&ns_path, task, ns_ops);
- 		if (!error)
--			nd_jump_link(&ns_path);
-+			error = nd_jump_link(&ns_path);
- 	}
- 	put_task_struct(task);
- 	return error;
-diff --git a/include/linux/namei.h b/include/linux/namei.h
-index 397a08ade6a2..f3e8438e5631 100644
---- a/include/linux/namei.h
-+++ b/include/linux/namei.h
-@@ -68,7 +68,7 @@ extern int follow_up(struct path *);
- extern struct dentry *lock_rename(struct dentry *, struct dentry *);
- extern void unlock_rename(struct dentry *, struct dentry *);
- 
--extern void nd_jump_link(struct path *path);
-+extern const char *nd_jump_link(struct path *path);
- 
- static inline void nd_terminate_link(void *name, size_t len, size_t maxlen)
- {
-diff --git a/security/apparmor/apparmorfs.c b/security/apparmor/apparmorfs.c
-index 45d13b6462aa..98aef94b4777 100644
---- a/security/apparmor/apparmorfs.c
-+++ b/security/apparmor/apparmorfs.c
-@@ -2453,18 +2453,16 @@ static const char *policy_get_link(struct dentry *dentry,
- 				   struct inode *inode,
- 				   struct delayed_call *done)
- {
--	struct aa_ns *ns;
--	struct path path;
--
--	if (!dentry)
--		return ERR_PTR(-ECHILD);
--	ns = aa_get_current_ns();
--	path.mnt = mntget(aafs_mnt);
--	path.dentry = dget(ns_dir(ns));
--	nd_jump_link(&path);
--	aa_put_ns(ns);
--
--	return NULL;
-+	const char *err = ERR_PTR(-ECHILD);
-+
-+	if (dentry) {
-+		struct aa_ns *ns = aa_get_current_ns();
-+		struct path path = {.mnt = mntget(aafs_mnt),
-+				    .dentry = ns_dir(ns)};
-+		err = nd_jump_link(&path);
-+		aa_put_ns(ns);
-+	}
-+	return err;
- }
- 
- static int policy_readlink(struct dentry *dentry, char __user *buffer,
+--rwq4fftbhkszxm4g--
