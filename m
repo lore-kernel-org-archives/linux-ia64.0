@@ -1,104 +1,153 @@
-From: Dmitry Safonov <dima@arista.com>
-Date: Wed, 06 Nov 2019 03:05:06 +0000
-Subject: [PATCH 15/50] ia64: Pass log level as arg into ia64_do_show_stack()
-Message-Id: <20191106030542.868541-16-dima@arista.com>
+From: Aleksa Sarai <cyphar@cyphar.com>
+Date: Sat, 16 Nov 2019 00:27:56 +0000
+Subject: [PATCH v16 06/12] namei: LOOKUP_NO_XDEV: block mountpoint crossing
+Message-Id: <20191116002802.6663-7-cyphar@cyphar.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191106030542.868541-1-dima@arista.com>
-In-Reply-To: <20191106030542.868541-1-dima@arista.com>
+References: <20191116002802.6663-1-cyphar@cyphar.com>
+In-Reply-To: <20191116002802.6663-1-cyphar@cyphar.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Dmitry Safonov <0x7f454c46@gmail.com>, Dmitry Safonov <dima@arista.com>, Andrew Morton <akpm@linux-foundation.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Ingo Molnar <mingo@kernel.org>, Jiri Slaby <jslaby@suse.com>, Petr Mladek <pmladek@suse.com>, Sergey Senozhatsky <sergey.senozhatsky@gmail.com>, Steven Rostedt <rostedt@goodmis.org>, Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>, Fenghua Yu <fenghua.yu@intel.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org
+To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Alexei Starovoitov <ast@kernel.org>, Daniel Borkmann <daniel@iogearbox.net>, Martin KaFai Lau <kafai@fb.com>, Song Liu <songliubraving@fb.com>, Yonghong Song <yhs@fb.com>, Andrii Nakryiko <andriin@fb.com>
+Cc: Aleksa Sarai <cyphar@cyphar.com>, Christian Brauner <christian.brauner@ubuntu.com>, David Drysdale <drysdale@google.com>, Andy Lutomirski <luto@kernel.org>, Linus Torvalds <torvalds@linux-foundation.org>, Eric Biederman <ebiederm@xmission.com>, Andrew Morton <akpm@linux-foundation.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, Christian Brauner <christian@brauner.io>, Aleksa Sarai <asarai@suse.de>, dev@opencontainers.org, containers@lists.linux-foundation.org, bpf@vger.kernel.org, netdev@vger.kernel.org, linux-alpha@vger.kernel.org, linux-api@vger.kernel.org, libc-alpha@sourceware.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-kselftest@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, sparclinux@vger.kernel.org
 
-Currently, the log-level of show_stack() depends on a platform
-realization. It creates situations where the headers are printed with
-lower log level or higher than the stacktrace (depending on
-a platform or user).
+/* Background. */
+The need to contain path operations within a mountpoint has been a
+long-standing usecase that userspace has historically implemented
+manually with liberal usage of stat(). find, rsync, tar and
+many other programs implement these semantics -- but it'd be much
+simpler to have a fool-proof way of refusing to open a path if it
+crosses a mountpoint.
 
-Furthermore, it forces the logic decision from user to an architecture
-side. In result, some users as sysrq/kdb/etc are doing tricks with
-temporary rising console_loglevel while printing their messages.
-And in result it not only may print unwanted messages from other CPUs,
-but also omit printing at all in the unlucky case where the printk()
-was deferred.
+This is part of a refresh of Al's AT_NO_JUMPS patchset[1] (which was a
+variation on David Drysdale's O_BENEATH patchset[2], which in turn was
+based on the Capsicum project[3]).
 
-Introducing log-level parameter and KERN_UNSUPPRESSED [1] seems
-an easier approach than introducing more printk buffers.
-Also, it will consolidate printings with headers.
+/* Userspace API. */
+LOOKUP_NO_XDEV will be exposed to userspace through openat2(2).
 
-Add log level argument to ia64_do_show_stack() as a preparation to
-introduce show_stack_loglvl().
-Also, make ia64_do_show_stack() static as it's not used outside.
+/* Semantics. */
+Unlike most other LOOKUP flags (most notably LOOKUP_FOLLOW),
+LOOKUP_NO_XDEV applies to all components of the path.
 
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: linux-ia64@vger.kernel.org
-[1]: https://lore.kernel.org/lkml/20190528002412.1625-1-dima@arista.com/T/#u
-Signed-off-by: Dmitry Safonov <dima@arista.com>
+With LOOKUP_NO_XDEV, any path component which crosses a mount-point
+during path resolution (including "..") will yield an -EXDEV. Absolute
+paths, absolute symlinks, and magic-links will only yield an -EXDEV if
+the jump involved changing mount-points.
+
+/* Testing. */
+LOOKUP_NO_XDEV is tested as part of the openat2(2) selftests.
+
+[1]: https://lore.kernel.org/lkml/20170429220414.GT29622@ZenIV.linux.org.uk/
+[2]: https://lore.kernel.org/lkml/1415094884-18349-1-git-send-email-drysdale@google.com/
+[3]: https://lore.kernel.org/lkml/1404124096-21445-1-git-send-email-drysdale@google.com/
+
+Cc: Christian Brauner <christian.brauner@ubuntu.com>
+Suggested-by: David Drysdale <drysdale@google.com>
+Suggested-by: Al Viro <viro@zeniv.linux.org.uk>
+Suggested-by: Andy Lutomirski <luto@kernel.org>
+Suggested-by: Linus Torvalds <torvalds@linux-foundation.org>
+Signed-off-by: Aleksa Sarai <cyphar@cyphar.com>
 ---
- arch/ia64/include/asm/ptrace.h |  1 -
- arch/ia64/kernel/process.c     | 13 +++++++------
- 2 files changed, 7 insertions(+), 7 deletions(-)
+ fs/namei.c            | 29 +++++++++++++++++++++++++----
+ include/linux/namei.h |  1 +
+ 2 files changed, 26 insertions(+), 4 deletions(-)
 
-diff --git a/arch/ia64/include/asm/ptrace.h b/arch/ia64/include/asm/ptrace.h
-index 7ff574d56429..b3aa46090101 100644
---- a/arch/ia64/include/asm/ptrace.h
-+++ b/arch/ia64/include/asm/ptrace.h
-@@ -114,7 +114,6 @@ static inline long regs_return_value(struct pt_regs *regs)
-   struct task_struct;			/* forward decl */
-   struct unw_frame_info;		/* forward decl */
+diff --git a/fs/namei.c b/fs/namei.c
+index a97facc232af..854a1cbbe7b0 100644
+--- a/fs/namei.c
++++ b/fs/namei.c
+@@ -838,6 +838,11 @@ static inline void path_to_nameidata(const struct path *path,
  
--  extern void ia64_do_show_stack (struct unw_frame_info *, void *);
-   extern unsigned long ia64_get_user_rbs_end (struct task_struct *, struct pt_regs *,
- 					      unsigned long *);
-   extern long ia64_peek (struct task_struct *, struct switch_stack *, unsigned long,
-diff --git a/arch/ia64/kernel/process.c b/arch/ia64/kernel/process.c
-index 968b5f33e725..0526cc51ff0b 100644
---- a/arch/ia64/kernel/process.c
-+++ b/arch/ia64/kernel/process.c
-@@ -64,12 +64,13 @@ EXPORT_SYMBOL(boot_option_idle_override);
- void (*pm_power_off) (void);
- EXPORT_SYMBOL(pm_power_off);
- 
--void
-+static void
- ia64_do_show_stack (struct unw_frame_info *info, void *arg)
+ static int nd_jump_root(struct nameidata *nd)
  {
- 	unsigned long ip, sp, bsp;
-+	const char *loglvl = arg;
++	if (unlikely(nd->flags & LOOKUP_NO_XDEV)) {
++		/* Absolute path arguments to path_init() are allowed. */
++		if (nd->path.mnt != NULL && nd->path.mnt != nd->root.mnt)
++			return -EXDEV;
++	}
+ 	if (!nd->root.mnt) {
+ 		int error = set_root(nd);
+ 		if (error)
+@@ -871,6 +876,10 @@ int nd_jump_link(struct path *path)
  
--	printk("\nCall Trace:\n");
-+	printk("%s\nCall Trace:\n", loglvl);
- 	do {
- 		unw_get_ip(info, &ip);
- 		if (ip = 0)
-@@ -77,9 +78,9 @@ ia64_do_show_stack (struct unw_frame_info *info, void *arg)
+ 	if (unlikely(nd->flags & LOOKUP_NO_MAGICLINKS))
+ 		return -ELOOP;
++	if (unlikely(nd->flags & LOOKUP_NO_XDEV)) {
++		if (nd->path.mnt != path->mnt)
++			return -EXDEV;
++	}
  
- 		unw_get_sp(info, &sp);
- 		unw_get_bsp(info, &bsp);
--		printk(" [<%016lx>] %pS\n"
-+		printk("%s [<%016lx>] %pS\n"
- 			 "                                sp=%016lx bsp=%016lx\n",
--			 ip, (void *)ip, sp, bsp);
-+			 loglvl, ip, (void *)ip, sp, bsp);
- 	} while (unw_unwind(info) >= 0);
- }
- 
-@@ -87,12 +88,12 @@ void
- show_stack (struct task_struct *task, unsigned long *sp)
- {
- 	if (!task)
--		unw_init_running(ia64_do_show_stack, NULL);
-+		unw_init_running(ia64_do_show_stack, (void *)KERN_DEFAULT);
- 	else {
- 		struct unw_frame_info info;
- 
- 		unw_init_from_blocked_task(&info, task);
--		ia64_do_show_stack(&info, NULL);
-+		ia64_do_show_stack(&info, (void *)KERN_DEFAULT);
+ 	path_put(&nd->path);
+ 	nd->path = *path;
+@@ -1275,12 +1284,16 @@ static int follow_managed(struct path *path, struct nameidata *nd)
+ 		break;
  	}
- }
+ 
+-	if (need_mntput && path->mnt = mnt)
+-		mntput(path->mnt);
++	if (need_mntput) {
++		if (path->mnt = mnt)
++			mntput(path->mnt);
++		if (unlikely(nd->flags & LOOKUP_NO_XDEV))
++			ret = -EXDEV;
++		else
++			nd->flags |= LOOKUP_JUMPED;
++	}
+ 	if (ret = -EISDIR || !ret)
+ 		ret = 1;
+-	if (need_mntput)
+-		nd->flags |= LOOKUP_JUMPED;
+ 	if (unlikely(ret < 0))
+ 		path_put_conditional(path, nd);
+ 	return ret;
+@@ -1337,6 +1350,8 @@ static bool __follow_mount_rcu(struct nameidata *nd, struct path *path,
+ 		mounted = __lookup_mnt(path->mnt, path->dentry);
+ 		if (!mounted)
+ 			break;
++		if (unlikely(nd->flags & LOOKUP_NO_XDEV))
++			return false;
+ 		path->mnt = &mounted->mnt;
+ 		path->dentry = mounted->mnt.mnt_root;
+ 		nd->flags |= LOOKUP_JUMPED;
+@@ -1383,6 +1398,8 @@ static int follow_dotdot_rcu(struct nameidata *nd)
+ 				return -ECHILD;
+ 			if (&mparent->mnt = nd->path.mnt)
+ 				break;
++			if (unlikely(nd->flags & LOOKUP_NO_XDEV))
++				return -EXDEV;
+ 			/* we know that mountpoint was pinned */
+ 			nd->path.dentry = mountpoint;
+ 			nd->path.mnt = &mparent->mnt;
+@@ -1397,6 +1414,8 @@ static int follow_dotdot_rcu(struct nameidata *nd)
+ 			return -ECHILD;
+ 		if (!mounted)
+ 			break;
++		if (unlikely(nd->flags & LOOKUP_NO_XDEV))
++			return -EXDEV;
+ 		nd->path.mnt = &mounted->mnt;
+ 		nd->path.dentry = mounted->mnt.mnt_root;
+ 		inode = nd->path.dentry->d_inode;
+@@ -1495,6 +1514,8 @@ static int follow_dotdot(struct nameidata *nd)
+ 		}
+ 		if (!follow_up(&nd->path))
+ 			break;
++		if (unlikely(nd->flags & LOOKUP_NO_XDEV))
++			return -EXDEV;
+ 	}
+ 	follow_mount(&nd->path);
+ 	nd->inode = nd->path.dentry->d_inode;
+diff --git a/include/linux/namei.h b/include/linux/namei.h
+index 1573b8493d98..25ee88c4acb1 100644
+--- a/include/linux/namei.h
++++ b/include/linux/namei.h
+@@ -42,6 +42,7 @@ enum {LAST_NORM, LAST_ROOT, LAST_DOT, LAST_DOTDOT, LAST_BIND};
+ /* Scoping flags for lookup. */
+ #define LOOKUP_NO_SYMLINKS	0x010000 /* No symlink crossing. */
+ #define LOOKUP_NO_MAGICLINKS	0x020000 /* No nd_jump_link() crossing. */
++#define LOOKUP_NO_XDEV		0x040000 /* No mountpoint crossing. */
+ 
+ extern int path_pts(struct path *path);
  
 -- 
-2.23.0
+2.24.0
