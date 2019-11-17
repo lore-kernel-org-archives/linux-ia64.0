@@ -1,10 +1,10 @@
 From: Aleksa Sarai <cyphar@cyphar.com>
-Date: Wed, 20 Nov 2019 05:06:20 +0000
-Subject: [PATCH RESEND v17 02/13] nsfs: clean-up ns_get_path() signature to return int
-Message-Id: <20191120050631.12816-3-cyphar@cyphar.com>
+Date: Sun, 17 Nov 2019 01:17:02 +0000
+Subject: [PATCH v17 02/13] nsfs: clean-up ns_get_path() signature to return int
+Message-Id: <20191117011713.13032-3-cyphar@cyphar.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191120050631.12816-1-cyphar@cyphar.com>
-In-Reply-To: <20191120050631.12816-1-cyphar@cyphar.com>
+References: <20191117011713.13032-1-cyphar@cyphar.com>
+In-Reply-To: <20191117011713.13032-1-cyphar@cyphar.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -212,7 +212,7 @@ index ba635209ae9a..a2253a044f90 100644
  
  	ns_inode = ns_path.dentry->d_inode;
 diff --git a/kernel/events/core.c b/kernel/events/core.c
-index 00a014670ed0..3772a04ca802 100644
+index aec8dba2bea4..39c5711e868a 100644
 --- a/kernel/events/core.c
 +++ b/kernel/events/core.c
 @@ -7258,7 +7258,7 @@ static void perf_fill_ns_link_info(struct perf_ns_link_info *ns_link_info,
