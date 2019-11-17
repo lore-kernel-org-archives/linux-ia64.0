@@ -1,40 +1,46 @@
-From: Joerg Roedel <joro@8bytes.org>
-Date: Mon, 11 Nov 2019 15:06:31 +0000
-Subject: Re: [PATCH v2] iommu/vt-d: Check VT-d RMRR region in BIOS is reported as reserved
-Message-Id: <20191111150630.GF18333@8bytes.org>
+From: Aleksa Sarai <cyphar@cyphar.com>
+Date: Sun, 17 Nov 2019 01:17:01 +0000
+Subject: [PATCH v17 01/13] namei: only return -ECHILD from follow_dotdot_rcu()
+Message-Id: <20191117011713.13032-2-cyphar@cyphar.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191017113919.25424-1-yian.chen@intel.com>
-In-Reply-To: <20191017113919.25424-1-yian.chen@intel.com>
+References: <20191117011713.13032-1-cyphar@cyphar.com>
+In-Reply-To: <20191117011713.13032-1-cyphar@cyphar.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Yian Chen <yian.chen@intel.com>
-Cc: iommu@lists.linux-foundation.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, David Woodhouse <dwmw2@infradead.org>, Ashok Raj <ashok.raj@intel.com>, Sohil Mehta <sohil.mehta@intel.com>, Tony Luck <tony.luck@intel.com>, Lu Baolu <baolu.lu@linux.intel.com>, Ravi Shankar <ravi.v.shankar@intel.com>
+To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Alexei Starovoitov <ast@kernel.org>, Daniel Borkmann <daniel@iogearbox.net>, Martin KaFai Lau <kafai@fb.com>, Song Liu <songliubraving@fb.com>, Yonghong Song <yhs@fb.com>, Andrii Nakryiko <andriin@fb.com>, Jonathan Corbet <corbet@lwn.net>
+Cc: Aleksa Sarai <cyphar@cyphar.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Andy Lutomirski <luto@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, David Drysdale <drysdale@google.com>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, Christian Brauner <christian@brauner.io>, Aleksa Sarai <asarai@suse.de>, Linus Torvalds <torvalds@linux-foundation.org>, dev@opencontainers.org, containers@lists.linux-foundation.org, bpf@vger.kernel.org, netdev@vger.kernel.org, linux-alpha@vger.kernel.org, linux-api@vger.kernel.org, libc-alpha@sourceware.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-doc@vger.kernel.org, linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-kselftest@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, sparclinux@vger.kernel.org
 
-On Thu, Oct 17, 2019 at 04:39:19AM -0700, Yian Chen wrote:
-> VT-d RMRR (Reserved Memory Region Reporting) regions are reserved
-> for device use only and should not be part of allocable memory pool of OS.
-> 
-> BIOS e820_table reports complete memory map to OS, including OS usable
-> memory ranges and BIOS reserved memory ranges etc.
-> 
-> x86 BIOS may not be trusted to include RMRR regions as reserved type
-> of memory in its e820 memory map, hence validate every RMRR entry
-> with the e820 memory map to make sure the RMRR regions will not be
-> used by OS for any other purposes.
-> 
-> ia64 EFI is working fine so implement RMRR validation as a dummy function
-> 
-> Reviewed-by: Lu Baolu <baolu.lu@linux.intel.com>
-> Reviewed-by: Sohil Mehta <sohil.mehta@intel.com>
-> Signed-off-by: Yian Chen <yian.chen@intel.com>
-> ---
-> v2:
-> - return -EINVAL instead of -EFAULT when there is an error
-> ---
->  arch/ia64/include/asm/iommu.h |  5 +++++
->  arch/x86/include/asm/iommu.h  | 18 ++++++++++++++++++
->  drivers/iommu/intel-iommu.c   |  8 +++++++-
->  3 files changed, 30 insertions(+), 1 deletion(-)
+It's over-zealous to return hard errors under RCU-walk here, given that
+a REF-walk will be triggered for all other cases handling ".." under
+RCU.
 
-Applied, thanks.
+The original purpose of this check was to ensure that if a rename occurs
+such that a directory is moved outside of the bind-mount which the
+resolution started in, it would be detected and blocked to avoid being
+able to mess with paths outside of the bind-mount. However, triggering a
+new REF-walk is just as effective a solution.
+
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>
+Fixes: 397d425dc26d ("vfs: Test for and handle paths that are unreachable from their mnt_root")
+Suggested-by: Al Viro <viro@zeniv.linux.org.uk>
+Signed-off-by: Aleksa Sarai <cyphar@cyphar.com>
+---
+ fs/namei.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/fs/namei.c b/fs/namei.c
+index 671c3c1a3425..5a47d9c09581 100644
+--- a/fs/namei.c
++++ b/fs/namei.c
+@@ -1359,7 +1359,7 @@ static int follow_dotdot_rcu(struct nameidata *nd)
+ 			nd->path.dentry = parent;
+ 			nd->seq = seq;
+ 			if (unlikely(!path_connected(&nd->path)))
+-				return -ENOENT;
++				return -ECHILD;
+ 			break;
+ 		} else {
+ 			struct mount *mnt = real_mount(nd->path.mnt);
+-- 
+2.24.0
