@@ -1,86 +1,155 @@
 From: Aleksa Sarai <cyphar@cyphar.com>
-Date: Sat, 16 Nov 2019 00:27:54 +0000
-Subject: [PATCH v16 04/12] namei: LOOKUP_NO_SYMLINKS: block symlink resolution
-Message-Id: <20191116002802.6663-5-cyphar@cyphar.com>
+Date: Sun, 17 Nov 2019 01:17:07 +0000
+Subject: [PATCH v17 07/13] namei: LOOKUP_NO_XDEV: block mountpoint crossing
+Message-Id: <20191117011713.13032-8-cyphar@cyphar.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191116002802.6663-1-cyphar@cyphar.com>
-In-Reply-To: <20191116002802.6663-1-cyphar@cyphar.com>
+References: <20191117011713.13032-1-cyphar@cyphar.com>
+In-Reply-To: <20191117011713.13032-1-cyphar@cyphar.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Alexei Starovoitov <ast@kernel.org>, Daniel Borkmann <daniel@iogearbox.net>, Martin KaFai Lau <kafai@fb.com>, Song Liu <songliubraving@fb.com>, Yonghong Song <yhs@fb.com>, Andrii Nakryiko <andriin@fb.com>
-Cc: Aleksa Sarai <cyphar@cyphar.com>, Christian Brauner <christian.brauner@ubuntu.com>, Linus Torvalds <torvalds@linux-foundation.org>, Eric Biederman <ebiederm@xmission.com>, Andy Lutomirski <luto@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, David Drysdale <drysdale@google.com>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, Christian Brauner <christian@brauner.io>, Aleksa Sarai <asarai@suse.de>, dev@opencontainers.org, containers@lists.linux-foundation.org, bpf@vger.kernel.org, netdev@vger.kernel.org, linux-alpha@vger.kernel.org, linux-api@vger.kernel.org, libc-alpha@sourceware.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-kselftest@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, sparclinux@vger.kernel.org
+To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Alexei Starovoitov <ast@kernel.org>, Daniel Borkmann <daniel@iogearbox.net>, Martin KaFai Lau <kafai@fb.com>, Song Liu <songliubraving@fb.com>, Yonghong Song <yhs@fb.com>, Andrii Nakryiko <andriin@fb.com>, Jonathan Corbet <corbet@lwn.net>
+Cc: Aleksa Sarai <cyphar@cyphar.com>, Christian Brauner <christian.brauner@ubuntu.com>, David Drysdale <drysdale@google.com>, Andy Lutomirski <luto@kernel.org>, Linus Torvalds <torvalds@linux-foundation.org>, Eric Biederman <ebiederm@xmission.com>, Andrew Morton <akpm@linux-foundation.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, Christian Brauner <christian@brauner.io>, Aleksa Sarai <asarai@suse.de>, dev@opencontainers.org, containers@lists.linux-foundation.org, bpf@vger.kernel.org, netdev@vger.kernel.org, linux-alpha@vger.kernel.org, linux-api@vger.kernel.org, libc-alpha@sourceware.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-doc@vger.kernel.org, linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-kselftest@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, sparclinux@vger.kernel.org
 
 /* Background. */
-Userspace cannot easily resolve a path without resolving symlinks, and
-would have to manually resolve each path component with O_PATH and
-O_NOFOLLOW. This is clearly inefficient, and can be fairly easy to screw
-up (resulting in possible security bugs). Linus has mentioned that Git
-has a particular need for this kind of flag[1]. It also resolves a
-fairly long-standing perceived deficiency in O_NOFOLLOw -- that it only
-blocks the opening of trailing symlinks.
+The need to contain path operations within a mountpoint has been a
+long-standing usecase that userspace has historically implemented
+manually with liberal usage of stat(). find, rsync, tar and
+many other programs implement these semantics -- but it'd be much
+simpler to have a fool-proof way of refusing to open a path if it
+crosses a mountpoint.
 
-This is part of a refresh of Al's AT_NO_JUMPS patchset[2] (which was a
-variation on David Drysdale's O_BENEATH patchset[3], which in turn was
-based on the Capsicum project[4]).
+This is part of a refresh of Al's AT_NO_JUMPS patchset[1] (which was a
+variation on David Drysdale's O_BENEATH patchset[2], which in turn was
+based on the Capsicum project[3]).
 
 /* Userspace API. */
-LOOKUP_NO_SYMLINKS will be exposed to userspace through openat2(2).
+LOOKUP_NO_XDEV will be exposed to userspace through openat2(2).
 
 /* Semantics. */
 Unlike most other LOOKUP flags (most notably LOOKUP_FOLLOW),
-LOOKUP_NO_SYMLINKS applies to all components of the path.
+LOOKUP_NO_XDEV applies to all components of the path.
 
-With LOOKUP_NO_SYMLINKS, any symlink path component encountered during
-path resolution will yield -ELOOP. If the trailing component is a
-symlink (and no other components were symlinks), then O_PATH|O_NOFOLLOW
-will not error out and will instead provide a handle to the trailing
-symlink -- without resolving it.
+With LOOKUP_NO_XDEV, any path component which crosses a mount-point
+during path resolution (including "..") will yield an -EXDEV. Absolute
+paths, absolute symlinks, and magic-links will only yield an -EXDEV if
+the jump involved changing mount-points.
 
 /* Testing. */
-LOOKUP_NO_SYMLINKS is tested as part of the openat2(2) selftests.
+LOOKUP_NO_XDEV is tested as part of the openat2(2) selftests.
 
-[1]: https://lore.kernel.org/lkml/CA+55aFyOKM7DW7+0sdDFKdZFXgptb5r1id9=Wvhd8AgSP7qjwQ@mail.gmail.com/
-[2]: https://lore.kernel.org/lkml/20170429220414.GT29622@ZenIV.linux.org.uk/
-[3]: https://lore.kernel.org/lkml/1415094884-18349-1-git-send-email-drysdale@google.com/
-[4]: https://lore.kernel.org/lkml/1404124096-21445-1-git-send-email-drysdale@google.com/
+[1]: https://lore.kernel.org/lkml/20170429220414.GT29622@ZenIV.linux.org.uk/
+[2]: https://lore.kernel.org/lkml/1415094884-18349-1-git-send-email-drysdale@google.com/
+[3]: https://lore.kernel.org/lkml/1404124096-21445-1-git-send-email-drysdale@google.com/
 
 Cc: Christian Brauner <christian.brauner@ubuntu.com>
+Suggested-by: David Drysdale <drysdale@google.com>
 Suggested-by: Al Viro <viro@zeniv.linux.org.uk>
+Suggested-by: Andy Lutomirski <luto@kernel.org>
 Suggested-by: Linus Torvalds <torvalds@linux-foundation.org>
 Signed-off-by: Aleksa Sarai <cyphar@cyphar.com>
 ---
- fs/namei.c            | 3 +++
- include/linux/namei.h | 3 +++
- 2 files changed, 6 insertions(+)
+ fs/namei.c            | 31 +++++++++++++++++++++++++++----
+ include/linux/namei.h |  1 +
+ 2 files changed, 28 insertions(+), 4 deletions(-)
 
 diff --git a/fs/namei.c b/fs/namei.c
-index 259652667881..14d6d3afb9d3 100644
+index 415a897729c8..321c8ad5d6b3 100644
 --- a/fs/namei.c
 +++ b/fs/namei.c
-@@ -1052,6 +1052,9 @@ const char *get_link(struct nameidata *nd)
- 	int error;
- 	const char *res;
+@@ -838,6 +838,11 @@ static inline void path_to_nameidata(const struct path *path,
  
-+	if (unlikely(nd->flags & LOOKUP_NO_SYMLINKS))
-+		return ERR_PTR(-ELOOP);
+ static int nd_jump_root(struct nameidata *nd)
+ {
++	if (unlikely(nd->flags & LOOKUP_NO_XDEV)) {
++		/* Absolute path arguments to path_init() are allowed. */
++		if (nd->path.mnt != NULL && nd->path.mnt != nd->root.mnt)
++			return -EXDEV;
++	}
+ 	if (!nd->root.mnt) {
+ 		int error = set_root(nd);
+ 		if (error)
+@@ -873,6 +878,12 @@ int nd_jump_link(struct path *path)
+ 	if (unlikely(nd->flags & LOOKUP_NO_MAGICLINKS))
+ 		goto err;
+ 
++	error = -EXDEV;
++	if (unlikely(nd->flags & LOOKUP_NO_XDEV)) {
++		if (nd->path.mnt != path->mnt)
++			goto err;
++	}
 +
- 	if (!(nd->flags & LOOKUP_RCU)) {
- 		touch_atime(&last->link);
- 		cond_resched();
+ 	path_put(&nd->path);
+ 	nd->path = *path;
+ 	nd->inode = nd->path.dentry->d_inode;
+@@ -1280,12 +1291,16 @@ static int follow_managed(struct path *path, struct nameidata *nd)
+ 		break;
+ 	}
+ 
+-	if (need_mntput && path->mnt = mnt)
+-		mntput(path->mnt);
++	if (need_mntput) {
++		if (path->mnt = mnt)
++			mntput(path->mnt);
++		if (unlikely(nd->flags & LOOKUP_NO_XDEV))
++			ret = -EXDEV;
++		else
++			nd->flags |= LOOKUP_JUMPED;
++	}
+ 	if (ret = -EISDIR || !ret)
+ 		ret = 1;
+-	if (need_mntput)
+-		nd->flags |= LOOKUP_JUMPED;
+ 	if (unlikely(ret < 0))
+ 		path_put_conditional(path, nd);
+ 	return ret;
+@@ -1342,6 +1357,8 @@ static bool __follow_mount_rcu(struct nameidata *nd, struct path *path,
+ 		mounted = __lookup_mnt(path->mnt, path->dentry);
+ 		if (!mounted)
+ 			break;
++		if (unlikely(nd->flags & LOOKUP_NO_XDEV))
++			return false;
+ 		path->mnt = &mounted->mnt;
+ 		path->dentry = mounted->mnt.mnt_root;
+ 		nd->flags |= LOOKUP_JUMPED;
+@@ -1388,6 +1405,8 @@ static int follow_dotdot_rcu(struct nameidata *nd)
+ 				return -ECHILD;
+ 			if (&mparent->mnt = nd->path.mnt)
+ 				break;
++			if (unlikely(nd->flags & LOOKUP_NO_XDEV))
++				return -ECHILD;
+ 			/* we know that mountpoint was pinned */
+ 			nd->path.dentry = mountpoint;
+ 			nd->path.mnt = &mparent->mnt;
+@@ -1402,6 +1421,8 @@ static int follow_dotdot_rcu(struct nameidata *nd)
+ 			return -ECHILD;
+ 		if (!mounted)
+ 			break;
++		if (unlikely(nd->flags & LOOKUP_NO_XDEV))
++			return -ECHILD;
+ 		nd->path.mnt = &mounted->mnt;
+ 		nd->path.dentry = mounted->mnt.mnt_root;
+ 		inode = nd->path.dentry->d_inode;
+@@ -1500,6 +1521,8 @@ static int follow_dotdot(struct nameidata *nd)
+ 		}
+ 		if (!follow_up(&nd->path))
+ 			break;
++		if (unlikely(nd->flags & LOOKUP_NO_XDEV))
++			return -EXDEV;
+ 	}
+ 	follow_mount(&nd->path);
+ 	nd->inode = nd->path.dentry->d_inode;
 diff --git a/include/linux/namei.h b/include/linux/namei.h
-index 758e9b47db6f..0d86e75c04a7 100644
+index 1573b8493d98..25ee88c4acb1 100644
 --- a/include/linux/namei.h
 +++ b/include/linux/namei.h
-@@ -39,6 +39,9 @@ enum {LAST_NORM, LAST_ROOT, LAST_DOT, LAST_DOTDOT, LAST_BIND};
- #define LOOKUP_ROOT		0x2000
- #define LOOKUP_ROOT_GRABBED	0x0008
+@@ -42,6 +42,7 @@ enum {LAST_NORM, LAST_ROOT, LAST_DOT, LAST_DOTDOT, LAST_BIND};
+ /* Scoping flags for lookup. */
+ #define LOOKUP_NO_SYMLINKS	0x010000 /* No symlink crossing. */
+ #define LOOKUP_NO_MAGICLINKS	0x020000 /* No nd_jump_link() crossing. */
++#define LOOKUP_NO_XDEV		0x040000 /* No mountpoint crossing. */
  
-+/* Scoping flags for lookup. */
-+#define LOOKUP_NO_SYMLINKS	0x010000 /* No symlink crossing. */
-+
  extern int path_pts(struct path *path);
  
- extern int user_path_at_empty(int, const char __user *, unsigned, struct path *, int *empty);
 -- 
 2.24.0
