@@ -1,39 +1,114 @@
-From: Sean Christopherson <sean.j.christopherson@intel.com>
-Date: Tue, 26 Nov 2019 16:54:15 +0000
-Subject: [PATCH v2 10/12] x86/ACPI/sleep: Remove an unnecessary include of asm/realmode.h
-Message-Id: <20191126165417.22423-11-sean.j.christopherson@intel.com>
+From: Aleksa Sarai <cyphar@cyphar.com>
+Date: Sun, 17 Nov 2019 01:17:04 +0000
+Subject: [PATCH v17 04/13] namei: allow set_root() to produce errors
+Message-Id: <20191117011713.13032-5-cyphar@cyphar.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191126165417.22423-1-sean.j.christopherson@intel.com>
-In-Reply-To: <20191126165417.22423-1-sean.j.christopherson@intel.com>
+References: <20191117011713.13032-1-cyphar@cyphar.com>
+In-Reply-To: <20191117011713.13032-1-cyphar@cyphar.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, x86@kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <len.brown@intel.com>, Pavel Machek <pavel@ucw.cz>
-Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Peter Zijlstra <peterz@infradead.org>, Arnaldo Carvalho de Melo <acme@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, "H. Peter Anvin" <hpa@zytor.com>, Steven Rostedt <rostedt@goodmis.org>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Darren Hart <dvhart@infradead.org>, Andy Shevchenko <andy@infradead.org>, Nadav Amit <nadav.amit@gmail.com>, "VMware, Inc." <pv-drivers@vmware.com>, Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Hans de Goede <hdegoede@redhat.com>, Cezary Rojewski <cezary.rojewski@intel.com>, Pierre-Louis Bossart <pierre-louis.bossart@linux.intel.com>, Liam Girdwood <liam.r.girdwood@linux.intel.com>, Jie Yang <yang.jie@linux.intel.com>, Mark Brown <broonie@kernel.org>, Jaroslav Kysela <perex@perex.cz>, Takashi Iwai <tiwai@suse.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-pm@vger.kernel.org, linux-efi@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-acpi@vger.kernel.org, alsa-devel@alsa-project.org
+To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Alexei Starovoitov <ast@kernel.org>, Daniel Borkmann <daniel@iogearbox.net>, Martin KaFai Lau <kafai@fb.com>, Song Liu <songliubraving@fb.com>, Yonghong Song <yhs@fb.com>, Andrii Nakryiko <andriin@fb.com>, Jonathan Corbet <corbet@lwn.net>
+Cc: Aleksa Sarai <cyphar@cyphar.com>, Eric Biederman <ebiederm@xmission.com>, Andy Lutomirski <luto@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, David Drysdale <drysdale@google.com>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, Christian Brauner <christian@brauner.io>, Aleksa Sarai <asarai@suse.de>, Linus Torvalds <torvalds@linux-foundation.org>, dev@opencontainers.org, containers@lists.linux-foundation.org, bpf@vger.kernel.org, netdev@vger.kernel.org, linux-alpha@vger.kernel.org, linux-api@vger.kernel.org, libc-alpha@sourceware.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-doc@vger.kernel.org, linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-kselftest@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, sparclinux@vger.kernel.org
 
-None of the declarations in x86's acpi/sleep.h are in any way dependent
-on the real mode boot code.  Remove sleep.h's include of asm/realmode.h
-to limit the dependencies on realmode.h to code that actually interacts
-with the boot code.
+For LOOKUP_BENEATH and LOOKUP_IN_ROOT it is necessary to ensure that
+set_root() is never called, and thus (for hardening purposes) it should
+return an error rather than permit a breakout from the root. In
+addition, move all of the repetitive set_root() calls to nd_jump_root().
 
-Acked-by: Rafael J. Wysocki <rafael.j.wysocki@intel.com>
-Signed-off-by: Sean Christopherson <sean.j.christopherson@intel.com>
+Signed-off-by: Aleksa Sarai <cyphar@cyphar.com>
 ---
- arch/x86/kernel/acpi/sleep.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ fs/namei.c | 35 ++++++++++++++++++++++++-----------
+ 1 file changed, 24 insertions(+), 11 deletions(-)
 
-diff --git a/arch/x86/kernel/acpi/sleep.h b/arch/x86/kernel/acpi/sleep.h
-index fbb60ca4255c..d06c2079b6c1 100644
---- a/arch/x86/kernel/acpi/sleep.h
-+++ b/arch/x86/kernel/acpi/sleep.h
-@@ -3,7 +3,7 @@
-  *	Variables and functions used by the code in sleep.c
-  */
+diff --git a/fs/namei.c b/fs/namei.c
+index 1024a641f075..74574a69a614 100644
+--- a/fs/namei.c
++++ b/fs/namei.c
+@@ -798,7 +798,7 @@ static int complete_walk(struct nameidata *nd)
+ 	return status;
+ }
  
--#include <asm/realmode.h>
-+#include <linux/linkage.h>
+-static void set_root(struct nameidata *nd)
++static int set_root(struct nameidata *nd)
+ {
+ 	struct fs_struct *fs = current->fs;
  
- extern unsigned long saved_video_mode;
- extern long saved_magic;
+@@ -814,6 +814,7 @@ static void set_root(struct nameidata *nd)
+ 		get_fs_root(fs, &nd->root);
+ 		nd->flags |= LOOKUP_ROOT_GRABBED;
+ 	}
++	return 0;
+ }
+ 
+ static void path_put_conditional(struct path *path, struct nameidata *nd)
+@@ -837,6 +838,11 @@ static inline void path_to_nameidata(const struct path *path,
+ 
+ static int nd_jump_root(struct nameidata *nd)
+ {
++	if (!nd->root.mnt) {
++		int error = set_root(nd);
++		if (error)
++			return error;
++	}
+ 	if (nd->flags & LOOKUP_RCU) {
+ 		struct dentry *d;
+ 		nd->path = nd->root;
+@@ -1080,10 +1086,9 @@ const char *get_link(struct nameidata *nd)
+ 			return res;
+ 	}
+ 	if (*res = '/') {
+-		if (!nd->root.mnt)
+-			set_root(nd);
+-		if (unlikely(nd_jump_root(nd)))
+-			return ERR_PTR(-ECHILD);
++		error = nd_jump_root(nd);
++		if (unlikely(error))
++			return ERR_PTR(error);
+ 		while (unlikely(*++res = '/'))
+ 			;
+ 	}
+@@ -1698,8 +1703,13 @@ static inline int may_lookup(struct nameidata *nd)
+ static inline int handle_dots(struct nameidata *nd, int type)
+ {
+ 	if (type = LAST_DOTDOT) {
+-		if (!nd->root.mnt)
+-			set_root(nd);
++		int error = 0;
++
++		if (!nd->root.mnt) {
++			error = set_root(nd);
++			if (error)
++				return error;
++		}
+ 		if (nd->flags & LOOKUP_RCU) {
+ 			return follow_dotdot_rcu(nd);
+ 		} else
+@@ -2162,6 +2172,7 @@ static int link_path_walk(const char *name, struct nameidata *nd)
+ /* must be paired with terminate_walk() */
+ static const char *path_init(struct nameidata *nd, unsigned flags)
+ {
++	int error;
+ 	const char *s = nd->name->name;
+ 
+ 	if (!*s)
+@@ -2194,11 +2205,13 @@ static const char *path_init(struct nameidata *nd, unsigned flags)
+ 	nd->path.dentry = NULL;
+ 
+ 	nd->m_seq = read_seqbegin(&mount_lock);
++
++	/* Figure out the starting path and root (if needed). */
+ 	if (*s = '/') {
+-		set_root(nd);
+-		if (likely(!nd_jump_root(nd)))
+-			return s;
+-		return ERR_PTR(-ECHILD);
++		error = nd_jump_root(nd);
++		if (unlikely(error))
++			return ERR_PTR(error);
++		return s;
+ 	} else if (nd->dfd = AT_FDCWD) {
+ 		if (flags & LOOKUP_RCU) {
+ 			struct fs_struct *fs = current->fs;
 -- 
 2.24.0
