@@ -1,148 +1,245 @@
 From: Aleksa Sarai <cyphar@cyphar.com>
-Date: Sat, 16 Nov 2019 00:28:02 +0000
-Subject: [PATCH v16 12/12] Documentation: path-lookup: include new LOOKUP flags
-Message-Id: <20191116002802.6663-13-cyphar@cyphar.com>
+Date: Sun, 17 Nov 2019 01:17:08 +0000
+Subject: [PATCH v17 08/13] namei: LOOKUP_BENEATH: O_BENEATH-like scoped resolution
+Message-Id: <20191117011713.13032-9-cyphar@cyphar.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191116002802.6663-1-cyphar@cyphar.com>
-In-Reply-To: <20191116002802.6663-1-cyphar@cyphar.com>
+References: <20191117011713.13032-1-cyphar@cyphar.com>
+In-Reply-To: <20191117011713.13032-1-cyphar@cyphar.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Alexei Starovoitov <ast@kernel.org>, Daniel Borkmann <daniel@iogearbox.net>, Martin KaFai Lau <kafai@fb.com>, Song Liu <songliubraving@fb.com>, Yonghong Song <yhs@fb.com>, Andrii Nakryiko <andriin@fb.com>
-Cc: Aleksa Sarai <cyphar@cyphar.com>, Eric Biederman <ebiederm@xmission.com>, Andy Lutomirski <luto@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, David Drysdale <drysdale@google.com>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, Christian Brauner <christian@brauner.io>, Aleksa Sarai <asarai@suse.de>, Linus Torvalds <torvalds@linux-foundation.org>, dev@opencontainers.org, containers@lists.linux-foundation.org, bpf@vger.kernel.org, netdev@vger.kernel.org, linux-alpha@vger.kernel.org, linux-api@vger.kernel.org, libc-alpha@sourceware.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-kselftest@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, sparclinux@vger.kernel.org
+To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Alexei Starovoitov <ast@kernel.org>, Daniel Borkmann <daniel@iogearbox.net>, Martin KaFai Lau <kafai@fb.com>, Song Liu <songliubraving@fb.com>, Yonghong Song <yhs@fb.com>, Andrii Nakryiko <andriin@fb.com>, Jonathan Corbet <corbet@lwn.net>
+Cc: Aleksa Sarai <cyphar@cyphar.com>, Christian Brauner <christian.brauner@ubuntu.com>, David Drysdale <drysdale@google.com>, Andy Lutomirski <luto@kernel.org>, Linus Torvalds <torvalds@linux-foundation.org>, Eric Biederman <ebiederm@xmission.com>, Andrew Morton <akpm@linux-foundation.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, Christian Brauner <christian@brauner.io>, Aleksa Sarai <asarai@suse.de>, dev@opencontainers.org, containers@lists.linux-foundation.org, bpf@vger.kernel.org, netdev@vger.kernel.org, linux-alpha@vger.kernel.org, linux-api@vger.kernel.org, libc-alpha@sourceware.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-doc@vger.kernel.org, linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-kselftest@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, sparclinux@vger.kernel.org
 
-Now that we have new LOOKUP flags, we should document them in the
-relevant path-walking documentation. And now that we've settled on a
-common name for nd_jump_link() style symlinks ("magic links"), use that
-term where magic-link semantics are described.
+/* Background. */
+There are many circumstances when userspace wants to resolve a path and
+ensure that it doesn't go outside of a particular root directory during
+resolution. Obvious examples include archive extraction tools, as well as
+other security-conscious userspace programs. FreeBSD spun out O_BENEATH
+from their Capsicum project[1,2], so it also seems reasonable to
+implement similar functionality for Linux.
 
+This is part of a refresh of Al's AT_NO_JUMPS patchset[3] (which was a
+variation on David Drysdale's O_BENEATH patchset[4], which in turn was
+based on the Capsicum project[5]).
+
+/* Userspace API. */
+LOOKUP_BENEATH will be exposed to userspace through openat2(2).
+
+/* Semantics. */
+Unlike most other LOOKUP flags (most notably LOOKUP_FOLLOW),
+LOOKUP_BENEATH applies to all components of the path.
+
+With LOOKUP_BENEATH, any path component which attempts to "escape" the
+starting point of the filesystem lookup (the dirfd passed to openat)
+will yield -EXDEV. Thus, all absolute paths and symlinks are disallowed.
+
+Due to a security concern brought up by Jann[6], any ".." path
+components are also blocked. This restriction will be lifted in a future
+patch, but requires more work to ensure that permitting ".." is done
+safely.
+
+Magic-link jumps are also blocked, because they can beam the path lookup
+across the starting point. It would be possible to detect and block
+only the "bad" crossings with path_is_under() checks, but it's unclear
+whether it makes sense to permit magic-links at all. However, userspace
+is recommended to pass LOOKUP_NO_MAGICLINKS if they want to ensure that
+magic-link crossing is entirely disabled.
+
+/* Testing. */
+LOOKUP_BENEATH is tested as part of the openat2(2) selftests.
+
+[1]: https://reviews.freebsd.org/D2808
+[2]: https://reviews.freebsd.org/D17547
+[3]: https://lore.kernel.org/lkml/20170429220414.GT29622@ZenIV.linux.org.uk/
+[4]: https://lore.kernel.org/lkml/1415094884-18349-1-git-send-email-drysdale@google.com/
+[5]: https://lore.kernel.org/lkml/1404124096-21445-1-git-send-email-drysdale@google.com/
+[6]: https://lore.kernel.org/lkml/CAG48ez1jzNvxB+bfOBnERFGp=oMM0vHWuLD6EULmne3R6xa53w@mail.gmail.com/
+
+Cc: Christian Brauner <christian.brauner@ubuntu.com>
+Suggested-by: David Drysdale <drysdale@google.com>
+Suggested-by: Al Viro <viro@zeniv.linux.org.uk>
+Suggested-by: Andy Lutomirski <luto@kernel.org>
+Suggested-by: Linus Torvalds <torvalds@linux-foundation.org>
 Signed-off-by: Aleksa Sarai <cyphar@cyphar.com>
 ---
- Documentation/filesystems/path-lookup.rst | 68 +++++++++++++++++++++--
- 1 file changed, 62 insertions(+), 6 deletions(-)
+ fs/namei.c            | 70 +++++++++++++++++++++++++++++++++++++++----
+ include/linux/namei.h |  4 +++
+ 2 files changed, 68 insertions(+), 6 deletions(-)
 
-diff --git a/Documentation/filesystems/path-lookup.rst b/Documentation/filesystems/path-lookup.rst
-index 434a07b0002b..a3216979298b 100644
---- a/Documentation/filesystems/path-lookup.rst
-+++ b/Documentation/filesystems/path-lookup.rst
-@@ -13,6 +13,7 @@ It has subsequently been updated to reflect changes in the kernel
- including:
+diff --git a/fs/namei.c b/fs/namei.c
+index 321c8ad5d6b3..3f7bb22c375d 100644
+--- a/fs/namei.c
++++ b/fs/namei.c
+@@ -641,6 +641,14 @@ static bool legitimize_links(struct nameidata *nd)
  
- - per-directory parallel name lookup.
-+- ``openat2()`` resolution restriction flags.
+ static bool legitimize_root(struct nameidata *nd)
+ {
++	/*
++	 * For scoped-lookups (where nd->root has been zeroed), we need to
++	 * restart the whole lookup from scratch -- because set_root() is wrong
++	 * for these lookups (nd->dfd is the root, not the filesystem root).
++	 */
++	if (!nd->root.mnt && (nd->flags & LOOKUP_IS_SCOPED))
++		return false;
++	/* Nothing to do if nd->root is zero or is managed by the VFS user. */
+ 	if (!nd->root.mnt || (nd->flags & LOOKUP_ROOT))
+ 		return true;
+ 	nd->flags |= LOOKUP_ROOT_GRABBED;
+@@ -776,12 +784,27 @@ static int complete_walk(struct nameidata *nd)
+ 	int status;
  
- Introduction to pathname lookup
- ===============@@ -235,6 +236,13 @@ renamed.  If ``d_lookup`` finds that a rename happened while it
- unsuccessfully scanned a chain in the hash table, it simply tries
- again.
+ 	if (nd->flags & LOOKUP_RCU) {
+-		if (!(nd->flags & LOOKUP_ROOT))
++		/*
++		 * We don't want to zero nd->root for scoped-lookups or
++		 * externally-managed nd->root.
++		 */
++		if (!(nd->flags & (LOOKUP_ROOT | LOOKUP_IS_SCOPED)))
+ 			nd->root.mnt = NULL;
+ 		if (unlikely(unlazy_walk(nd)))
+ 			return -ECHILD;
+ 	}
  
-+``rename_lock`` is also used to detect and defend against potential attacks
-+against ``LOOKUP_BENEATH`` and ``LOOKUP_IN_ROOT`` when resolving ".." (where
-+the parent directory is moved outside the root, bypassing the ``path_equal()``
-+check). If ``rename_lock`` is updated during the lookup and the path encounters
-+a "..", a potential attack occurred and ``handle_dots()`` will bail out with
-+``-EAGAIN``.
++	if (unlikely(nd->flags & LOOKUP_IS_SCOPED)) {
++		/*
++		 * Do a final check to ensure that the path didn't escape. Note
++		 * that this should already be guaranteed by all of the other
++		 * LOOKUP_IS_SCOPED checks (and delaying this check this late
++		 * does open the door to some possible timing-based attacks).
++		 */
++		if (WARN_ON(!path_is_under(&nd->path, &nd->root)))
++			return -EXDEV;
++	}
 +
- inode->i_rwsem
- ~~~~~~~~~~~~~~
+ 	if (likely(!(nd->flags & LOOKUP_JUMPED)))
+ 		return 0;
  
-@@ -348,6 +356,13 @@ any changes to any mount points while stepping up.  This locking is
- needed to stabilize the link to the mounted-on dentry, which the
- refcount on the mount itself doesn't ensure.
+@@ -802,6 +825,14 @@ static int set_root(struct nameidata *nd)
+ {
+ 	struct fs_struct *fs = current->fs;
  
-+``mount_lock`` is also used to detect and defend against potential attacks
-+against ``LOOKUP_BENEATH`` and ``LOOKUP_IN_ROOT`` when resolving ".." (where
-+the parent directory is moved outside the root, bypassing the ``path_equal()``
-+check). If ``mount_lock`` is updated during the lookup and the path encounters
-+a "..", a potential attack occurred and ``handle_dots()`` will bail out with
-+``-EAGAIN``.
++	/*
++	 * Jumping to the real root in a scoped-lookup is a BUG in namei, but we
++	 * still have to ensure it doesn't happen because it will cause a breakout
++	 * from the dirfd.
++	 */
++	if (WARN_ON(nd->flags & LOOKUP_IS_SCOPED))
++		return -ENOTRECOVERABLE;
 +
- RCU
- ~~~
+ 	if (nd->flags & LOOKUP_RCU) {
+ 		unsigned seq;
  
-@@ -405,6 +420,10 @@ is requested.  Keeping a reference in the ``nameidata`` ensures that
- only one root is in effect for the entire path walk, even if it races
- with a ``chroot()`` system call.
+@@ -838,6 +869,8 @@ static inline void path_to_nameidata(const struct path *path,
  
-+It should be noted that in the case of ``LOOKUP_IN_ROOT`` or
-+``LOOKUP_BENEATH``, the effective root becomes the directory file descriptor
-+passed to ``openat2()`` (which exposes these ``LOOKUP_`` flags).
-+
- The root is needed when either of two conditions holds: (1) either the
- pathname or a symbolic link starts with a "'/'", or (2) a "``..``"
- component is being handled, since "``..``" from the root must always stay
-@@ -1149,7 +1168,7 @@ so ``NULL`` is returned to indicate that the symlink can be released and
- the stack frame discarded.
+ static int nd_jump_root(struct nameidata *nd)
+ {
++	if (unlikely(nd->flags & LOOKUP_BENEATH))
++		return -EXDEV;
+ 	if (unlikely(nd->flags & LOOKUP_NO_XDEV)) {
+ 		/* Absolute path arguments to path_init() are allowed. */
+ 		if (nd->path.mnt != NULL && nd->path.mnt != nd->root.mnt)
+@@ -883,6 +916,9 @@ int nd_jump_link(struct path *path)
+ 		if (nd->path.mnt != path->mnt)
+ 			goto err;
+ 	}
++	/* Not currently safe for scoped-lookups. */
++	if (unlikely(nd->flags & LOOKUP_IS_SCOPED))
++		goto err;
  
- The other case involves things in ``/proc`` that look like symlinks but
--aren't really::
-+aren't really (and are therefore commonly referred to as "magic-links")::
+ 	path_put(&nd->path);
+ 	nd->path = *path;
+@@ -1379,8 +1415,11 @@ static int follow_dotdot_rcu(struct nameidata *nd)
+ 	struct inode *inode = nd->inode;
  
-      $ ls -l /proc/self/fd/1
-      lrwx------ 1 neilb neilb 64 Jun 13 10:19 /proc/self/fd/1 -> /dev/pts/4
-@@ -1286,7 +1305,9 @@ A few flags
- A suitable way to wrap up this tour of pathname walking is to list
- the various flags that can be stored in the ``nameidata`` to guide the
- lookup process.  Many of these are only meaningful on the final
--component, others reflect the current state of the pathname lookup.
-+component, others reflect the current state of the pathname lookup, and some
-+apply restrictions to all path components encountered in the path lookup.
-+
- And then there is ``LOOKUP_EMPTY``, which doesn't fit conceptually with
- the others.  If this is not set, an empty pathname causes an error
- very early on.  If it is set, empty pathnames are not considered to be
-@@ -1310,13 +1331,48 @@ longer needed.
- ``LOOKUP_JUMPED`` means that the current dentry was chosen not because
- it had the right name but for some other reason.  This happens when
- following "``..``", following a symlink to ``/``, crossing a mount point
--or accessing a "``/proc/$PID/fd/$FD``" symlink.  In this case the
--filesystem has not been asked to revalidate the name (with
--``d_revalidate()``).  In such cases the inode may still need to be
--revalidated, so ``d_op->d_weak_revalidate()`` is called if
-+or accessing a "``/proc/$PID/fd/$FD``" symlink (also known as a "magic
-+link"). In this case the filesystem has not been asked to revalidate the
-+name (with ``d_revalidate()``).  In such cases the inode may still need
-+to be revalidated, so ``d_op->d_weak_revalidate()`` is called if
- ``LOOKUP_JUMPED`` is set when the look completes - which may be at the
- final component or, when creating, unlinking, or renaming, at the penultimate component.
+ 	while (1) {
+-		if (path_equal(&nd->path, &nd->root))
++		if (path_equal(&nd->path, &nd->root)) {
++			if (unlikely(nd->flags & LOOKUP_BENEATH))
++				return -ECHILD;
+ 			break;
++		}
+ 		if (nd->path.dentry != nd->path.mnt->mnt_root) {
+ 			struct dentry *old = nd->path.dentry;
+ 			struct dentry *parent = old->d_parent;
+@@ -1510,9 +1549,12 @@ static int path_parent_directory(struct path *path)
  
-+Resolution-restriction flags
-+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-+
-+In order to allow userspace to protect itself against certain race conditions
-+and attack scenarios involving changing path components, a series of flags are
-+available which apply restrictions to all path components encountered during
-+path lookup. These flags are exposed through ``openat2()``'s ``resolve`` field.
-+
-+``LOOKUP_NO_SYMLINKS`` blocks all symlink traversals (including magic-links).
-+This is distinctly different from ``LOOKUP_FOLLOW``, because the latter only
-+relates to restricting the following of trailing symlinks.
-+
-+``LOOKUP_NO_MAGICLINKS`` blocks all magic-link traversals. Filesystems must
-+ensure that they return errors from ``nd_jump_link()``, because that is how
-+``LOOKUP_NO_MAGICLINKS`` and other magic-link restrictions are implemented.
-+
-+``LOOKUP_NO_XDEV`` blocks all ``vfsmount`` traversals (this includes both
-+bind-mounts and ordinary mounts). Note that the ``vfsmount`` which contains the
-+lookup is determined by the first mountpoint the path lookup reaches --
-+absolute paths start with the ``vfsmount`` of ``/``, and relative paths start
-+with the ``dfd``'s ``vfsmount``. Magic-links are only permitted if the
-+``vfsmount`` of the path is unchanged.
-+
-+``LOOKUP_BENEATH`` blocks any path components which resolve outside the
-+starting point of the resolution. This is done by blocking ``nd_jump_root()``
-+as well as blocking ".." if it would jump outside the starting point.
-+``rename_lock`` and ``mount_lock`` are used to detect attacks against the
-+resolution of "..". Magic-links are also blocked.
-+
-+``LOOKUP_IN_ROOT`` resolves all path components as though the starting point
-+were the filesystem root. ``nd_jump_root()`` brings the resolution back to to
-+the starting point, and ".." at the starting point will act as a no-op. As with
-+``LOOKUP_BENEATH``, ``rename_lock`` and ``mount_lock`` are used to detect
-+attacks against ".." resolution. Magic-links are also blocked.
-+
- Final-component flags
- ~~~~~~~~~~~~~~~~~~~~~
+ static int follow_dotdot(struct nameidata *nd)
+ {
+-	while(1) {
+-		if (path_equal(&nd->path, &nd->root))
++	while (1) {
++		if (path_equal(&nd->path, &nd->root)) {
++			if (unlikely(nd->flags & LOOKUP_BENEATH))
++				return -EXDEV;
+ 			break;
++		}
+ 		if (nd->path.dentry != nd->path.mnt->mnt_root) {
+ 			int ret = path_parent_directory(&nd->path);
+ 			if (ret)
+@@ -1739,6 +1781,13 @@ static inline int handle_dots(struct nameidata *nd, int type)
+ 	if (type = LAST_DOTDOT) {
+ 		int error = 0;
+ 
++		/*
++		 * Scoped-lookup flags resolving ".." is not currently safe --
++		 * races can cause our parent to have moved outside of the root
++		 * and us to skip over it.
++		 */
++		if (unlikely(nd->flags & LOOKUP_IS_SCOPED))
++			return -EXDEV;
+ 		if (!nd->root.mnt) {
+ 			error = set_root(nd);
+ 			if (error)
+@@ -2261,7 +2310,6 @@ static const char *path_init(struct nameidata *nd, unsigned flags)
+ 			get_fs_pwd(current->fs, &nd->path);
+ 			nd->inode = nd->path.dentry->d_inode;
+ 		}
+-		return s;
+ 	} else {
+ 		/* Caller must check execute permissions on the starting path component */
+ 		struct fd f = fdget_raw(nd->dfd);
+@@ -2286,8 +2334,18 @@ static const char *path_init(struct nameidata *nd, unsigned flags)
+ 			nd->inode = nd->path.dentry->d_inode;
+ 		}
+ 		fdput(f);
+-		return s;
+ 	}
++	/* For scoped-lookups we need to set the root to the dirfd as well. */
++	if (flags & LOOKUP_IS_SCOPED) {
++		nd->root = nd->path;
++		if (flags & LOOKUP_RCU) {
++			nd->root_seq = nd->seq;
++		} else {
++			path_get(&nd->root);
++			nd->flags |= LOOKUP_ROOT_GRABBED;
++		}
++	}
++	return s;
+ }
+ 
+ static const char *trailing_symlink(struct nameidata *nd)
+diff --git a/include/linux/namei.h b/include/linux/namei.h
+index 25ee88c4acb1..93dad378f1e8 100644
+--- a/include/linux/namei.h
++++ b/include/linux/namei.h
+@@ -2,6 +2,7 @@
+ #ifndef _LINUX_NAMEI_H
+ #define _LINUX_NAMEI_H
+ 
++#include <linux/fs.h>
+ #include <linux/kernel.h>
+ #include <linux/path.h>
+ #include <linux/fcntl.h>
+@@ -43,6 +44,9 @@ enum {LAST_NORM, LAST_ROOT, LAST_DOT, LAST_DOTDOT, LAST_BIND};
+ #define LOOKUP_NO_SYMLINKS	0x010000 /* No symlink crossing. */
+ #define LOOKUP_NO_MAGICLINKS	0x020000 /* No nd_jump_link() crossing. */
+ #define LOOKUP_NO_XDEV		0x040000 /* No mountpoint crossing. */
++#define LOOKUP_BENEATH		0x080000 /* No escaping from starting point. */
++/* LOOKUP_* flags which do scope-related checks based on the dirfd. */
++#define LOOKUP_IS_SCOPED LOOKUP_BENEATH
+ 
+ extern int path_pts(struct path *path);
  
 -- 
 2.24.0
