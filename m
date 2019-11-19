@@ -1,56 +1,39 @@
-From: Corentin Labbe <clabbe@baylibre.com>
-Date: Thu, 21 Nov 2019 08:14:44 +0000
-Subject: [PATCH v2 4/5] agp: Add bridge parameter documentation
-Message-Id: <1574324085-4338-5-git-send-email-clabbe@baylibre.com>
+From: Sean Christopherson <sean.j.christopherson@intel.com>
+Date: Tue, 19 Nov 2019 00:21:17 +0000
+Subject: [PATCH 08/12] vmw_balloon: Explicitly include linux/io.h for virt_to_phys()
+Message-Id: <20191119002121.4107-9-sean.j.christopherson@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1574324085-4338-1-git-send-email-clabbe@baylibre.com>
-In-Reply-To: <1574324085-4338-1-git-send-email-clabbe@baylibre.com>
+References: <20191119002121.4107-1-sean.j.christopherson@intel.com>
+In-Reply-To: <20191119002121.4107-1-sean.j.christopherson@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: airlied@redhat.com, airlied@linux.ie, arnd@arndb.de, fenghua.yu@intel.com, gregkh@linuxfoundation.org, tony.luck@intel.com
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Corentin Labbe <clabbe@baylibre.com>
+To: Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, x86@kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <len.brown@intel.com>, Pavel Machek <pavel@ucw.cz>
+Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Peter Zijlstra <peterz@infradead.org>, Arnaldo Carvalho de Melo <acme@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, "H. Peter Anvin" <hpa@zytor.com>, Steven Rostedt <rostedt@goodmis.org>, Ard Biesheuvel <ardb@kernel.org>, Darren Hart <dvhart@infradead.org>, Andy Shevchenko <andy@infradead.org>, Nadav Amit <namit@vmware.com>, "VMware, Inc." <pv-drivers@vmware.com>, Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Hans de Goede <hdegoede@redhat.com>, Cezary Rojewski <cezary.rojewski@intel.com>, Pierre-Louis Bossart <pierre-louis.bossart@linux.intel.com>, Liam Girdwood <liam.r.girdwood@linux.intel.com>, Jie Yang <yang.jie@linux.intel.com>, Mark Brown <broonie@kernel.org>, Jaroslav Kysela <perex@perex.cz>, Takashi Iwai <tiwai@suse.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-pm@vger.kernel.org, linux-efi@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-acpi@vger.kernel.org, alsa-devel@alsa-project.org
 
-This patch add documentation about the bridge parameter in several
-function.
+iThrough a labyrinthian sequence of includes, usage of virt_to_phys() is
+dependent on the include of asm/io.h in x86's asm/realmode.h, which is
+included in x86's asm/acpi.h and thus by linux/acpi.h.  Explicitly
+include linux/io.h to break the dependency on realmode.h so that a
+future patch can remove the realmode.h include from acpi.h without
+breaking the build.
 
-This will fix the following build warning:
-drivers/char/agp/generic.c:220: warning: No description found for parameter 'bridge'
-drivers/char/agp/generic.c:364: warning: No description found for parameter 'bridge'
-drivers/char/agp/generic.c:1283: warning: No description found for parameter 'bridge'
-
-Signed-off-by: Corentin Labbe <clabbe@baylibre.com>
+Signed-off-by: Sean Christopherson <sean.j.christopherson@intel.com>
 ---
- drivers/char/agp/generic.c | 3 +++
- 1 file changed, 3 insertions(+)
+ drivers/misc/vmw_balloon.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/char/agp/generic.c b/drivers/char/agp/generic.c
-index 4d2eb0800b2a..ab154a75acf0 100644
---- a/drivers/char/agp/generic.c
-+++ b/drivers/char/agp/generic.c
-@@ -207,6 +207,7 @@ EXPORT_SYMBOL(agp_free_memory);
- /**
-  *	agp_allocate_memory  -  allocate a group of pages of a certain type.
-  *
-+ *	@bridge: an agp_bridge_data struct allocated for the AGP host bridge.
-  *	@page_count:	size_t argument of the number of pages
-  *	@type:	u32 argument of the type of memory to be allocated.
-  *
-@@ -355,6 +356,7 @@ EXPORT_SYMBOL_GPL(agp_num_entries);
- /**
-  *	agp_copy_info  -  copy bridge state information
-  *
-+ *	@bridge: an agp_bridge_data struct allocated for the AGP host bridge.
-  *	@info:		agp_kern_info pointer.  The caller should insure that this pointer is valid.
-  *
-  *	This function copies information about the agp bridge device and the state of
-@@ -1277,6 +1279,7 @@ EXPORT_SYMBOL(agp_generic_destroy_page);
- /**
-  * agp_enable  -  initialise the agp point-to-point connection.
-  *
-+ * @bridge: an agp_bridge_data struct allocated for the AGP host bridge.
-  * @mode:	agp mode register value to configure with.
-  */
- void agp_enable(struct agp_bridge_data *bridge, u32 mode)
+diff --git a/drivers/misc/vmw_balloon.c b/drivers/misc/vmw_balloon.c
+index 5e6be1527571..b837e7eba5f7 100644
+--- a/drivers/misc/vmw_balloon.c
++++ b/drivers/misc/vmw_balloon.c
+@@ -17,6 +17,7 @@
+ #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+ 
+ #include <linux/types.h>
++#include <linux/io.h>
+ #include <linux/kernel.h>
+ #include <linux/mm.h>
+ #include <linux/vmalloc.h>
 -- 
-2.23.0
+2.24.0
