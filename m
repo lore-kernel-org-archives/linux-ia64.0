@@ -1,54 +1,39 @@
-From: Kees Cook <keescook@chromium.org>
-Date: Tue, 12 Nov 2019 20:55:09 +0000
-Subject: Re: [PATCH v2 11/29] vmlinux.lds.h: Replace RODATA with RO_DATA
-Message-Id: <201911121252.25720DC6@keescook>
+From: Sean Christopherson <sean.j.christopherson@intel.com>
+Date: Tue, 19 Nov 2019 00:21:19 +0000
+Subject: [PATCH 10/12] x86/ACPI/sleep: Remove an unnecessary include of asm/realmode.h
+Message-Id: <20191119002121.4107-11-sean.j.christopherson@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191011000609.29728-1-keescook@chromium.org>
- <20191011000609.29728-12-keescook@chromium.org>
- <CAMuHMdXfPyti1wFBb0hhf3CeDSQ=zVv7cV-taeYCmDswMQkXPQ@mail.gmail.com>
- <201911110922.17A2112B0@keescook>
- <CAMuHMdUJ8QPvqf51nVmOg1Zm20SNT7pXR72z=qmco=ecwawZ7A@mail.gmail.com>
-In-Reply-To: <CAMuHMdUJ8QPvqf51nVmOg1Zm20SNT7pXR72z=qmco=ecwawZ7A@mail.gmail.com>
+References: <20191119002121.4107-1-sean.j.christopherson@intel.com>
+In-Reply-To: <20191119002121.4107-1-sean.j.christopherson@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Cc: Borislav Petkov <bp@alien8.de>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Michael Ellerman <mpe@ellerman.id.au>, Heiko Carstens <heiko.carstens@de.ibm.com>, Will Deacon <will@kernel.org>, Linux-Arch <linux-arch@vger.kernel.org>, Linux ARM <linux-arm-kernel@lists.infradead.org>, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, alpha <linux-alpha@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, linux-s390 <linux-s390@vger.kernel.org>, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Michal Simek <monstr@monstr.eu>, Parisc List <linux-parisc@vger.kernel.org>, linux-xtensa@linux-xtensa.org, the arch/x86 maintainers <x86@kernel.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, x86@kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <len.brown@intel.com>, Pavel Machek <pavel@ucw.cz>
+Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Peter Zijlstra <peterz@infradead.org>, Arnaldo Carvalho de Melo <acme@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, "H. Peter Anvin" <hpa@zytor.com>, Steven Rostedt <rostedt@goodmis.org>, Ard Biesheuvel <ardb@kernel.org>, Darren Hart <dvhart@infradead.org>, Andy Shevchenko <andy@infradead.org>, Nadav Amit <namit@vmware.com>, "VMware, Inc." <pv-drivers@vmware.com>, Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Hans de Goede <hdegoede@redhat.com>, Cezary Rojewski <cezary.rojewski@intel.com>, Pierre-Louis Bossart <pierre-louis.bossart@linux.intel.com>, Liam Girdwood <liam.r.girdwood@linux.intel.com>, Jie Yang <yang.jie@linux.intel.com>, Mark Brown <broonie@kernel.org>, Jaroslav Kysela <perex@perex.cz>, Takashi Iwai <tiwai@suse.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-pm@vger.kernel.org, linux-efi@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-acpi@vger.kernel.org, alsa-devel@alsa-project.org
 
-On Mon, Nov 11, 2019 at 07:08:51PM +0100, Geert Uytterhoeven wrote:
-> Hi Kees,
-> 
-> On Mon, Nov 11, 2019 at 6:23 PM Kees Cook <keescook@chromium.org> wrote:
-> > On Mon, Nov 11, 2019 at 05:58:06PM +0100, Geert Uytterhoeven wrote:
-> > > On Fri, Oct 11, 2019 at 2:07 AM Kees Cook <keescook@chromium.org> wrote:
-> > > > There's no reason to keep the RODATA macro: replace the callers with
-> > > > the expected RO_DATA macro.
-> > > >
-> > > > Signed-off-by: Kees Cook <keescook@chromium.org>
-> > > > ---
-> > > >  arch/alpha/kernel/vmlinux.lds.S      | 2 +-
-> > > >  arch/ia64/kernel/vmlinux.lds.S       | 2 +-
-> > > >  arch/microblaze/kernel/vmlinux.lds.S | 2 +-
-> > > >  arch/mips/kernel/vmlinux.lds.S       | 2 +-
-> > > >  arch/um/include/asm/common.lds.S     | 2 +-
-> > > >  arch/xtensa/kernel/vmlinux.lds.S     | 2 +-
-> > > >  include/asm-generic/vmlinux.lds.h    | 4 +---
-> > > >  7 files changed, 7 insertions(+), 9 deletions(-)
-> > >
-> > > Somehow you missed:
-> > >
-> > >     arch/m68k/kernel/vmlinux-std.lds:  RODATA
-> > >     arch/m68k/kernel/vmlinux-sun3.lds:      RODATA
-> >
-> > Argh. I've sent a patch; sorry and thanks for catching this. For my own
-> > cross-build testing, which defconfig targets will hit these two linker
-> > scripts?
-> 
-> vmlinux-sun3.lds: sun3_defconfig
-> vmlinux-std.lds: All other classic 680x0 targets with an MMU, e.g. plain
->                  defconfig aka multi_defconfig.
+None of the declarations in x86's acpi/sleep.h are in any way dependent
+on the real mode boot code.  Remove sleep.h's include of asm/realmode.h
+to limit the dependencies on realmode.h to code that actually interacts
+with the boot code.
 
-Excellent, thank you; I've updated my multi-arch build list. :)
+Fixes: c9b77ccb52a5c ("x86, realmode: Move ACPI wakeup to unified realmode code")
+Signed-off-by: Sean Christopherson <sean.j.christopherson@intel.com>
+---
+ arch/x86/kernel/acpi/sleep.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
+diff --git a/arch/x86/kernel/acpi/sleep.h b/arch/x86/kernel/acpi/sleep.h
+index fbb60ca4255c..d06c2079b6c1 100644
+--- a/arch/x86/kernel/acpi/sleep.h
++++ b/arch/x86/kernel/acpi/sleep.h
+@@ -3,7 +3,7 @@
+  *	Variables and functions used by the code in sleep.c
+  */
+ 
+-#include <asm/realmode.h>
++#include <linux/linkage.h>
+ 
+ extern unsigned long saved_video_mode;
+ extern long saved_magic;
 -- 
-Kees Cook
+2.24.0
