@@ -1,75 +1,80 @@
-From: Aleksa Sarai <cyphar@cyphar.com>
-Date: Wed, 13 Nov 2019 00:46:34 +0000
-Subject: Re: [PATCH v15 0/9] open: introduce openat2(2) syscall
-Message-Id: <20191113004634.tz7geloshltkafwj@yavin.dot.cyphar.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="7ndczamgwxls6q65"
+From: Sean Christopherson <sean.j.christopherson@intel.com>
+Date: Tue, 19 Nov 2019 00:21:09 +0000
+Subject: [PATCH 00/12] treewide: break dependencies on x86's RM header
+Message-Id: <20191119002121.4107-1-sean.j.christopherson@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191105090553.6350-1-cyphar@cyphar.com>
- <20191111132404.y523iqicbn6fivx5@yavin.dot.cyphar.com>
- <201911121457.7D02692@keescook>
-In-Reply-To: <201911121457.7D02692@keescook>
-To: Kees Cook <keescook@chromium.org>
-Cc: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Eric Biederman <ebiederm@xmission.com>, Andy Lutomirski <luto@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Alexei Starovoitov <ast@kernel.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, David Drysdale <drysdale@google.com>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Alexander Shishkin <alexander.shishkin@linux.intel.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, x86@kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <len.brown@intel.com>, Pavel Machek <pavel@ucw.cz>
+Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Peter Zijlstra <peterz@infradead.org>, Arnaldo Carvalho de Melo <acme@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, "H. Peter Anvin" <hpa@zytor.com>, Steven Rostedt <rostedt@goodmis.org>, Ard Biesheuvel <ardb@kernel.org>, Darren Hart <dvhart@infradead.org>, Andy Shevchenko <andy@infradead.org>, Nadav Amit <namit@vmware.com>, "VMware, Inc." <pv-drivers@vmware.com>, Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Hans de Goede <hdegoede@redhat.com>, Cezary Rojewski <cezary.rojewski@intel.com>, Pierre-Louis Bossart <pierre-louis.bossart@linux.intel.com>, Liam Girdwood <liam.r.girdwood@linux.intel.com>, Jie Yang <yang.jie@linux.intel.com>, Mark Brown <broonie@kernel.org>, Jaroslav Kysela <perex@perex.cz>, Takashi Iwai <tiwai@suse.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-pm@vger.kernel.org, linux-efi@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-acpi@vger.kernel.org, alsa-devel@alsa-project.org
+
+x86's asm/realmode.h, which defines low level structures, variables and
+helpers used to bring up APs during SMP boot, ends up getting included in
+practically every nook and cranny of the kernel because the address used
+by ACPI for resuming from S3 also happens to be stored in the real mode
+header, and ACPI bleeds the dependency into its widely included headers.
+
+As a result, modifying realmode.h for even the most trivial change to the
+boot code triggers a full kernel rebuild, which is frustrating to say the
+least as it some of the most difficult code to get exactly right *and* is
+also some of the most functionally isolated code in the kernel.
+
+To break the kernel's widespread dependency on realmode.h, add a wrapper
+in the aforementioned ACPI S3 code to access the real mode header instead
+of derefencing the header directly in asm/acpi.h and thereby exposing it
+to the world via linux/acpi.h.
+
+Build tested on x86 with allyesconfig and allmodconfig, so hopefully there
+aren't more build issues lurking, but at this point it wouldn't surprise
+me in the least if this somehow manages to break the build.
+
+Based on tip/master, commit ceceaf1f12ba ("Merge branch 'WIP.x86/cleanups'").
+
+Patch Synopsis:
+  - Patches 01-09 fix a variety of build errors that arise when patch 12
+    drops realmode.h from asm/acpi.h.  Most of the errors are quite absurb
+    as they have no relation whatsoever to x86's RM boot code, but occur
+    because realmode.h happens to include asm/io.h.
+
+  - Patch 10 removes a spurious include of realmode.h from an ACPI header.
+
+  - Patches 11 and 12 implement the wrapper and move it out of acpi.h.
 
 
---7ndczamgwxls6q65
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Sean Christopherson (12):
+  x86/efi: Explicitly include realmode.h to handle RM trampoline quirk
+  x86/boot: Explicitly include realmode.h to handle RM reservations
+  x86/ftrace: Explicitly include vmalloc.h for
+    set_vm_flush_reset_perms()
+  x86/kprobes: Explicitly include vmalloc.h for
+    set_vm_flush_reset_perms()
+  perf/x86/intel: Explicitly include asm/io.h to use virt_to_phys()
+  efi/capsule-loader: Explicitly include linux/io.h for page_to_phys()
+  virt: vbox: Explicitly include linux/io.h to pick up various defs
+  vmw_balloon: Explicitly include linux/io.h for virt_to_phys()
+  ASoC: Intel: Skylake: Explicitly include linux/io.h for virt_to_phys()
+  x86/ACPI/sleep: Remove an unnecessary include of asm/realmode.h
+  ACPI/sleep: Convert acpi_wakeup_address into a function
+  x86/ACPI/sleep: Move acpi_wakeup_address() definition into sleep.c
 
-On 2019-11-12, Kees Cook <keescook@chromium.org> wrote:
-> On Tue, Nov 12, 2019 at 12:24:04AM +1100, Aleksa Sarai wrote:
-> > On 2019-11-05, Aleksa Sarai <cyphar@cyphar.com> wrote:
-> > > This patchset is being developed here:
-> > >   <https://github.com/cyphar/linux/tree/openat2/master>
-> > >=20
-> > > Patch changelog:
-> > >  v15:
-> > >   * Fix code style for LOOKUP_IN_ROOT handling in path_init(). [Linus=
- Torvalds]
-> > >   * Split out patches for each individual LOOKUP flag.
-> > >   * Reword commit messages to give more background information about =
-the
-> > >     series, as well as mention the semantics of each flag in more det=
-ail.
-> > > [...]
-> >=20
-> > Ping -- this patch hasn't been touched for a week. Thanks.
->=20
-> If I've been following correctly, everyone is happy with this series.
-> (i.e. Linus's comment appear to have been addressed.)
->=20
-> Perhaps the next question is should this go via a pull request by you to
-> Linus directly during the v5.5 merge window, via akpm, via akpm, via
-> Christian, or some other path? Besides Linus, it's not been clear who
-> should "claim" this series. :)
+ arch/ia64/include/asm/acpi.h             |  5 ++++-
+ arch/ia64/kernel/acpi.c                  |  2 --
+ arch/x86/events/intel/ds.c               |  1 +
+ arch/x86/include/asm/acpi.h              |  3 +--
+ arch/x86/kernel/acpi/sleep.c             | 11 +++++++++++
+ arch/x86/kernel/acpi/sleep.h             |  2 +-
+ arch/x86/kernel/ftrace.c                 |  1 +
+ arch/x86/kernel/kprobes/core.c           |  1 +
+ arch/x86/kernel/setup.c                  |  1 +
+ arch/x86/platform/efi/quirks.c           |  1 +
+ drivers/acpi/sleep.c                     |  4 ++--
+ drivers/firmware/efi/capsule-loader.c    |  1 +
+ drivers/misc/vmw_balloon.c               |  1 +
+ drivers/virt/vboxguest/vboxguest_core.c  |  1 +
+ drivers/virt/vboxguest/vboxguest_utils.c |  1 +
+ sound/soc/intel/skylake/skl-sst-cldma.c  |  1 +
+ 16 files changed, 29 insertions(+), 8 deletions(-)
 
-Given the namei changes, I wanted to avoid stepping on Al's toes. Though
-he did review the series a few versions ago, the discussion didn't focus
-on the openat2(2) semantics (which have also changed since then). I'm
-not sure whether to interpret the silence to mean he's satisfied with
-things as they are, or if he hasn't had more time to look at the series.
-
-As for which tree it should be routed to, I don't mind -- Christian is
-the most straight-forward choice (but if Al wants to route it, that's
-fine with me too).
-
---=20
-Aleksa Sarai
-Senior Software Engineer (Containers)
-SUSE Linux GmbH
-<https://www.cyphar.com/>
-
---7ndczamgwxls6q65
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iHUEABYIAB0WIQSxZm6dtfE8gxLLfYqdlLljIbnQEgUCXctSZgAKCRCdlLljIbnQ
-Ej+PAP0UBMczq8p/OLMeyIryF0EfQ+noWktKHkfgvrRf7bKN7AEAiW1OItA5gtV4
-HiJnADyDHQw1h7livSSrD2X7HKS2BAA=
-=yOzJ
------END PGP SIGNATURE-----
-
---7ndczamgwxls6q65--
+-- 
+2.24.0
