@@ -1,36 +1,74 @@
-From: Borislav Petkov <bp@alien8.de>
-Date: Mon, 04 Nov 2019 08:59:18 +0000
-Subject: Re: [PATCH v2 01/29] powerpc: Rename "notes" PT_NOTE to "note"
-Message-Id: <20191104085918.GA7862@zn.tnic>
+From: Sean Christopherson <sean.j.christopherson@intel.com>
+Date: Tue, 19 Nov 2019 00:21:21 +0000
+Subject: [PATCH 12/12] x86/ACPI/sleep: Move acpi_wakeup_address() definition into sleep.c
+Message-Id: <20191119002121.4107-13-sean.j.christopherson@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191011000609.29728-1-keescook@chromium.org>
- <20191011000609.29728-2-keescook@chromium.org>
- <20191011082519.GI9749@gate.crashing.org>
- <201910110910.48270FC97@keescook>
- <20191011162552.GK9749@gate.crashing.org>
- <20191015165412.GD596@zn.tnic>
- <201910291414.F29F738B7@keescook>
- <20191030010117.GJ28442@gate.crashing.org>
-In-Reply-To: <20191030010117.GJ28442@gate.crashing.org>
+References: <20191119002121.4107-1-sean.j.christopherson@intel.com>
+In-Reply-To: <20191119002121.4107-1-sean.j.christopherson@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Segher Boessenkool <segher@kernel.crashing.org>
-Cc: Kees Cook <keescook@chromium.org>, linux-arch@vger.kernel.org, linux-s390@vger.kernel.org, Michal Simek <monstr@monstr.eu>, x86@kernel.org, linux-ia64@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>, linux-xtensa@linux-xtensa.org, Dave Hansen <dave.hansen@linux.intel.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, linuxppc-dev@lists.ozlabs.org, Yoshinori Sato <ysato@users.sourceforge.jp>, linux-parisc@vger.kernel.org, Andy Lutomirski <luto@kernel.org>, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, Rick Edgecombe <rick.p.edgecombe@intel.com>, Will Deacon <will@kernel.org>, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org
+To: Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, x86@kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <len.brown@intel.com>, Pavel Machek <pavel@ucw.cz>
+Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Peter Zijlstra <peterz@infradead.org>, Arnaldo Carvalho de Melo <acme@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, "H. Peter Anvin" <hpa@zytor.com>, Steven Rostedt <rostedt@goodmis.org>, Ard Biesheuvel <ardb@kernel.org>, Darren Hart <dvhart@infradead.org>, Andy Shevchenko <andy@infradead.org>, Nadav Amit <namit@vmware.com>, "VMware, Inc." <pv-drivers@vmware.com>, Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Hans de Goede <hdegoede@redhat.com>, Cezary Rojewski <cezary.rojewski@intel.com>, Pierre-Louis Bossart <pierre-louis.bossart@linux.intel.com>, Liam Girdwood <liam.r.girdwood@linux.intel.com>, Jie Yang <yang.jie@linux.intel.com>, Mark Brown <broonie@kernel.org>, Jaroslav Kysela <perex@perex.cz>, Takashi Iwai <tiwai@suse.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-pm@vger.kernel.org, linux-efi@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-acpi@vger.kernel.org, alsa-devel@alsa-project.org
 
-On Tue, Oct 29, 2019 at 08:01:17PM -0500, Segher Boessenkool wrote:
-> I am still not convinced the worse name is a better name, no :-)  But if
-> you don't want to do the work, and instead prefer the much smaller change,
-> that is of course a fine decision.  Thank you!
->
-> (I would be happy with such a 30/29 as well, of course.)
+Move the definition of acpi_wakeup_address() into sleep.c to break
+linux/acpi.h's dependency (by way of asm/acpi.h) on asm/realmode.h.
+Everyone and their mother includes linux/acpi.h, i.e. modifying
+realmode.h results in a full kernel rebuild, which makes the already
+inscrutable real mode boot code even more difficult to understand and is
+positively rage inducing when trying to make changes to x86's boot flow.
 
-Ok, thanks.
+Signed-off-by: Sean Christopherson <sean.j.christopherson@intel.com>
+---
+ arch/x86/include/asm/acpi.h  |  6 +-----
+ arch/x86/kernel/acpi/sleep.c | 11 +++++++++++
+ 2 files changed, 12 insertions(+), 5 deletions(-)
 
-I'll start picking up the pile and the renaming patch can then go ontop.
-
+diff --git a/arch/x86/include/asm/acpi.h b/arch/x86/include/asm/acpi.h
+index 57788ec6fa82..0cae3f773d44 100644
+--- a/arch/x86/include/asm/acpi.h
++++ b/arch/x86/include/asm/acpi.h
+@@ -13,7 +13,6 @@
+ #include <asm/processor.h>
+ #include <asm/mmu.h>
+ #include <asm/mpspec.h>
+-#include <asm/realmode.h>
+ #include <asm/x86_init.h>
+ 
+ #ifdef CONFIG_ACPI_APEI
+@@ -62,10 +61,7 @@ static inline void acpi_disable_pci(void)
+ extern int (*acpi_suspend_lowlevel)(void);
+ 
+ /* Physical address to resume after wakeup */
+-static inline unsigned long acpi_wakeup_address(void)
+-{
+-	return ((unsigned long)(real_mode_header->wakeup_start));
+-}
++unsigned long acpi_wakeup_address(void);
+ 
+ /*
+  * Check if the CPU can handle C2 and deeper
+diff --git a/arch/x86/kernel/acpi/sleep.c b/arch/x86/kernel/acpi/sleep.c
+index ca13851f0570..44d3fb1a1de3 100644
+--- a/arch/x86/kernel/acpi/sleep.c
++++ b/arch/x86/kernel/acpi/sleep.c
+@@ -26,6 +26,17 @@ unsigned long acpi_realmode_flags;
+ static char temp_stack[4096];
+ #endif
+ 
++/**
++ * acpi_wakeup_address - provide physical address for S3 wakeup
++ *
++ * Returns the physical address where the kernel should be resumed after the
++ * system awakes from S3, e.g. for programming into the firmware waking vector.
++ */
++unsigned long acpi_wakeup_address(void)
++{
++	return ((unsigned long)(real_mode_header->wakeup_start));
++}
++
+ /**
+  * x86_acpi_enter_sleep_state - enter sleep state
+  * @state: Sleep state to enter.
 -- 
-Regards/Gruss,
-    Boris.
-
-https://people.kernel.org/tglx/notes-about-netiquette
+2.24.0
