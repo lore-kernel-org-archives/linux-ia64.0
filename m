@@ -1,128 +1,96 @@
-From: Anshuman Khandual <anshuman.khandual@arm.com>
-Date: Thu, 07 Nov 2019 13:34:34 +0000
-Subject: Re: [PATCH V8] mm/debug: Add tests validating architecture page table helpers
-Message-Id: <83f14c65-035c-8387-3216-5dee8a287cfb@arm.com>
+From: David Hildenbrand <david@redhat.com>
+Date: Tue, 19 Nov 2019 14:16:22 +0000
+Subject: Re: [PATCH v6 04/10] mm/memory_hotplug: Don't access uninitialized memmaps in shrink_zone_span()
+Message-Id: <8bbbd4f1-e2c9-b654-ab73-aa4314135f21@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1572240562-23630-1-git-send-email-anshuman.khandual@arm.com>
- <3229d68d-0b9d-0719-3370-c6e1df0ea032@arm.com>
- <42160baa-0e9d-73d0-bf72-58bdbacf10ff@c-s.fr>
- <0e0c2ce9-636d-1153-2451-baf7317ed45f@arm.com>
- <87tv7f4zkf.fsf@mpe.ellerman.id.au>
-In-Reply-To: <87tv7f4zkf.fsf@mpe.ellerman.id.au>
+References: <20191006085646.5768-1-david@redhat.com>
+ <20191006085646.5768-5-david@redhat.com>
+ <5a4573de-bd8a-6cd3-55d0-86d503a236fd@redhat.com>
+ <20191014121719.cb9b9efe51a7e9e985b38075@linux-foundation.org>
+In-Reply-To: <20191014121719.cb9b9efe51a7e9e985b38075@linux-foundation.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: Michael Ellerman <mpe@ellerman.id.au>, Christophe Leroy <christophe.leroy@c-s.fr>, linux-mm@kvack.org
-Cc: Mark Rutland <mark.rutland@arm.com>, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, James Hogan <jhogan@kernel.org>, Heiko Carstens <heiko.carstens@de.ibm.com>, Michal Hocko <mhocko@kernel.org>, Dave Hansen <dave.hansen@intel.com>, Paul Mackerras <paulus@samba.org>, sparclinux@vger.kernel.org, Thomas Gleixner <tglx@linutronix.de>, linux-s390@vger.kernel.org, Jason Gunthorpe <jgg@ziepe.ca>, x86@kernel.org, Russell King - ARM Linux <linux@armlinux.org.uk>, Matthew Wilcox <willy@infradead.org>, Steven Price <Steven.Price@arm.com>, Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>, Gerald Schaefer <gerald.schaefer@de.ibm.com>, linux-snps-arc@lists.infradead.org, Ingo Molnar <mingo@kernel.org>, Kees Cook <keescook@chromium.org>, Masahiro Yamada <yamada.masahiro@socionext.com>, Mark Brown <broonie@kernel.org>, "Kirill A . Shutemov" <kirill@shutemov.name>, Dan Williams <dan.j.williams@intel.com>, Vlastimil Babka <vbabka@suse.cz>, linux-arm-kernel@lists.infradead.org, Sri Krishna chowdary <schowdary@nvidia.com>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-mips@vger.kernel.org, Ralf Baechle <ralf@linux-mips.org>, linux-kernel@vger.kernel.org, Paul Burton <paul.burton@mips.com>, Mike Rapoport <rppt@linux.vnet.ibm.com>, Vineet Gupta <vgupta@synopsys.com>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: linux-s390@vger.kernel.org, Michal Hocko <mhocko@suse.com>, linux-ia64@vger.kernel.org, Pavel Tatashin <pasha.tatashin@soleen.com>, linux-sh@vger.kernel.org, "Aneesh Kumar K . V" <aneesh.kumar@linux.ibm.com>, x86@kernel.org, linux-kernel@vger.kernel.org, Alexander Duyck <alexander.duyck@gmail.com>, linux-mm@kvack.org, Dan Williams <dan.j.williams@intel.com>, linuxppc-dev@lists.ozlabs.org, Toshiki Fukasawa <t-fukasawa@vx.jp.nec.com>, linux-arm-kernel@lists.infradead.org, Oscar Salvador <osalvador@suse.de>
 
-
-
-On 11/07/2019 06:24 PM, Michael Ellerman wrote:
-> Anshuman Khandual <anshuman.khandual@arm.com> writes:
->> On 11/06/2019 12:11 PM, Christophe Leroy wrote:
->>> Le 06/11/2019 à 04:22, Anshuman Khandual a écrit :
->>>> On 10/28/2019 10:59 AM, Anshuman Khandual wrote:
->>>>> +    -----------------------
->>>>> +    |         arch |status|
->>>>> +    -----------------------
->>>>> +    |       alpha: | TODO |
->>>>> +    |         arc: | TODO |
->>>>> +    |         arm: | TODO |
->>>>> +    |       arm64: |  ok  |
->>>>> +    |         c6x: | TODO |
->>>>> +    |        csky: | TODO |
->>>>> +    |       h8300: | TODO |
->>>>> +    |     hexagon: | TODO |
->>>>> +    |        ia64: | TODO |
->>>>> +    |        m68k: | TODO |
->>>>> +    |  microblaze: | TODO |
->>>>> +    |        mips: | TODO |
->>>>> +    |       nds32: | TODO |
->>>>> +    |       nios2: | TODO |
->>>>> +    |    openrisc: | TODO |
->>>>> +    |      parisc: | TODO |
->>>>> +    |     powerpc: | TODO |
->>>>> +    |       ppc32: |  ok  |
->>>
->>> Note that ppc32 is a part of powerpc, not a standalone arch.
+On 14.10.19 21:17, Andrew Morton wrote:
+> On Mon, 14 Oct 2019 11:32:13 +0200 David Hildenbrand <david@redhat.com> wrote:
+> 
+>>> Fixes: d0dc12e86b31 ("mm/memory_hotplug: optimize memory hotplug")
 >>
->> Right, I understand. But we are yet to hear about how this test
->> came about on powerpc server platforms. Will update 'powerpc'
->> arch listing above once we get some confirmation. May be once
->> this works on all relevant powerpc platforms, we can just merge
->> 'powerpc' and 'ppc32' entries here as just 'powerpc'.
+>> @Andrew, can you convert that to
+>>
+>> Fixes: f1dd2cd13c4b ("mm, memory_hotplug: do not associate hotadded
+>> memory to zones until online") # visible after d0dc12e86b319
+>>
+>> and add
+>>
+>> Cc: stable@vger.kernel.org # v4.13+
 > 
-> On pseries:
+> Done, thanks.
 > 
->   watchdog: BUG: soft lockup - CPU#0 stuck for 23s! [swapper/0:1]
->   Modules linked in:
->   CPU: 0 PID: 1 Comm: swapper/0 Not tainted 5.4.0-rc6-gcc-8.2.0-next-20191107-00001-g250339d6747b-dirty #152
->   NIP:  c0000000010435a0 LR: c0000000010434b4 CTR: 0000000000000000
->   REGS: c00000003a403980 TRAP: 0901   Not tainted  (5.4.0-rc6-gcc-8.2.0-next-20191107-00001-g250339d6747b-dirty)
->   MSR:  8000000002009033 <SF,VEC,EE,ME,IR,DR,RI,LE>  CR: 44000222  XER: 00000000
->   CFAR: c0000000010435a8 IRQMASK: 0 
->   GPR00: c0000000010434b4 c00000003a403c10 c000000001295000 05210001000000c0 
->   GPR04: 8000000000000105 0000000000400dc0 000000003eb00000 0000000000000001 
->   GPR08: 0000000000000000 ffffffffffffffff 0000000000000001 0000000000000100 
->   GPR12: 0000000000000000 c0000000018f0000 
->   NIP [c0000000010435a0] debug_vm_pgtable+0x43c/0x82c
->   LR [c0000000010434b4] debug_vm_pgtable+0x350/0x82c
->   Call Trace:
->   [c00000003a403c10] [c00000000104346c] debug_vm_pgtable+0x308/0x82c (unreliable)
->   [c00000003a403ce0] [c000000001004310] kernel_init_freeable+0x1d0/0x39c
->   [c00000003a403db0] [c000000000010da0] kernel_init+0x24/0x174
->   [c00000003a403e20] [c00000000000bdc4] ret_from_kernel_thread+0x5c/0x78
->   Instruction dump:
->   7d075078 7ce74b78 7ce0f9ad 40c2fff0 38800000 7f83e378 4b02eee1 60000000 
->   48000080 3920ffff 39400001 39000000 <7ea0f8a8> 7ea75039 40c2fff8 7ea74878 
-> 
-> Looking at the asm I think it's stuck in hash__pte_update() waiting for
-> H_PAGE_BUSY to clear, but not sure why.
-> 
-> That's just using qemu TCG, instructions here if anyone wants to test it
-> themselves :)
-> 
->   https://github.com/linuxppc/wiki/wiki/Booting-with-Qemu
-> 
-> 
-> If I boot with -cpu power9 (using Radix MMU), I get a plain old BUG:
-> 
->   debug_vm_pgtable: debug_vm_pgtable: Validating architecture page table helpers
->   ------------[ cut here ]------------
->   kernel BUG at arch/powerpc/mm/pgtable.c:274!
->   Oops: Exception in kernel mode, sig: 5 [#1]
->   LE PAGE_SIZEdK MMU=Radix SMP NR_CPUS2 NUMA pSeries
->   Modules linked in:
->   CPU: 0 PID: 1 Comm: swapper/0 Not tainted 5.4.0-rc6-gcc-8.2.0-next-20191107-00001-g250339d6747b-dirty #152
->   NIP:  c0000000000724e8 LR: c00000000104358c CTR: 0000000000000000
->   REGS: c00000003a483980 TRAP: 0700   Not tainted  (5.4.0-rc6-gcc-8.2.0-next-20191107-00001-g250339d6747b-dirty)
->   MSR:  8000000002029033 <SF,VEC,EE,ME,IR,DR,RI,LE>  CR: 24000224  XER: 20000000
->   CFAR: c000000001043588 IRQMASK: 0 
->   GPR00: c00000000104358c c00000003a483c10 c000000001295000 0000000000000009 
->   GPR04: 0000000000000000 0000000000000005 0000000000000000 0000000000000009 
->   GPR08: 0000000000000001 000000000000000e 0000000000000001 c00000003a5f0000 
->   GPR12: 0000000000000000 c0000000018f0000 c000000000010d84 0000000000000000 
->   GPR16: 0000000000000000 0000000000000000 c00000003a5f0000 8000000000000105 
->   GPR20: c000000001003ab8 0000000000000015 0500613a00000080 0900603a00000080 
->   GPR24: 09202e3a00000080 c00000000133bd90 c00000000133bd98 c00000000133bda0 
->   GPR28: c00000003a5e0000 c00000003a600af8 c00000003a2e2d48 c00000003a6100a0 
->   NIP [c0000000000724e8] assert_pte_locked+0x88/0x190
->   LR [c00000000104358c] debug_vm_pgtable+0x428/0x82c
->   Call Trace:
->   [c00000003a483c10] [c00000000104346c] debug_vm_pgtable+0x308/0x82c (unreliable)
->   [c00000003a483ce0] [c000000001004310] kernel_init_freeable+0x1d0/0x39c
->   [c00000003a483db0] [c000000000010da0] kernel_init+0x24/0x174
->   [c00000003a483e20] [c00000000000bdc4] ret_from_kernel_thread+0x5c/0x78
->   Instruction dump:
->   7d251a14 39070010 7d463030 7d084a14 38c6ffff 7c884436 7cc607b4 7d083038 
->   79081f24 7ccb402a 7cc80074 7908d182 <0b080000> 78cb0022 54c8c03e 7d473830 
->   ---[ end trace a694f1bc56529c0e ]---
 
-Oops. Does not seem like a quick problem to fix :) Though assert_pte_locked()
-gets checked only when DEBUG_VM is enabled. Probably will have to keep this
-test disabled on powerpc for now.
+Just a note that Toshiki reported a BUG (race between delayed
+initialization of ZONE_DEVICE memmaps without holding the memory
+hotplug lock and concurrent zone shrinking).
 
-> 
-> 
-> cheers
-> 
+https://lkml.org/lkml/2019/11/14/1040
+
+"Iteration of create and destroy namespace causes the panic as below:
+
+[   41.207694] kernel BUG at mm/page_alloc.c:535!
+[   41.208109] invalid opcode: 0000 [#1] SMP PTI
+[   41.208508] CPU: 7 PID: 2766 Comm: ndctl Not tainted 5.4.0-rc4 #6
+[   41.209064] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS rel-1.11.0-0-g63451fca13-prebuilt.qemu-project.org 04/01/2014
+[   41.210175] RIP: 0010:set_pfnblock_flags_mask+0x95/0xf0
+[   41.210643] Code: 04 41 83 e2 3c 48 8d 04 a8 48 c1 e0 07 48 03 04 dd e0 59 55 bb 48 8b 58 68 48 39 da 73 0e 48 c7 c6 70 ac 11 bb e8 1b b2 fd ff <0f> 0b 48 03 58 78 48 39 da 73 e9 49 01 ca b9 3f 00 00 00 4f 8d 0c
+[   41.212354] RSP: 0018:ffffac0d41557c80 EFLAGS: 00010246
+[   41.212821] RAX: 000000000000004a RBX: 0000000000244a00 RCX: 0000000000000000
+[   41.213459] RDX: 0000000000000000 RSI: 0000000000000000 RDI: ffffffffbb1197dc
+[   41.214100] RBP: 000000000000000c R08: 0000000000000439 R09: 0000000000000059
+[   41.214736] R10: 0000000000000000 R11: ffffac0d41557b08 R12: ffff8be475ea72b0
+[   41.215376] R13: 000000000000fa00 R14: 0000000000250000 R15: 00000000fffc0bb5
+[   41.216008] FS:  00007f30862ab600(0000) GS:ffff8be57bc40000(0000) knlGS:0000000000000000
+[   41.216771] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[   41.217299] CR2: 000055e824d0d508 CR3: 0000000231dac000 CR4: 00000000000006e0
+[   41.217934] Call Trace:
+[   41.218225]  memmap_init_zone_device+0x165/0x17c
+[   41.218642]  memremap_pages+0x4c1/0x540
+[   41.218989]  devm_memremap_pages+0x1d/0x60
+[   41.219367]  pmem_attach_disk+0x16b/0x600 [nd_pmem]
+[   41.219804]  ? devm_nsio_enable+0xb8/0xe0
+[   41.220172]  nvdimm_bus_probe+0x69/0x1c0
+[   41.220526]  really_probe+0x1c2/0x3e0
+[   41.220856]  driver_probe_device+0xb4/0x100
+[   41.221238]  device_driver_attach+0x4f/0x60
+[   41.221611]  bind_store+0xc9/0x110
+[   41.221919]  kernfs_fop_write+0x116/0x190
+[   41.222326]  vfs_write+0xa5/0x1a0
+[   41.222626]  ksys_write+0x59/0xd0
+[   41.222927]  do_syscall_64+0x5b/0x180
+[   41.223264]  entry_SYSCALL_64_after_hwframe+0x44/0xa9
+[   41.223714] RIP: 0033:0x7f30865d0ed8
+[   41.224037] Code: 89 02 48 c7 c0 ff ff ff ff eb b3 0f 1f 80 00 00 00 00 f3 0f 1e fa 48 8d 05 45 78 0d 00 8b 00 85 c0 75 17 b8 01 00 00 00 0f 05 <48> 3d 00 f0 ff ff 77 58 c3 0f 1f 80 00 00 00 00 41 54 49 89 d4 55
+[   41.225920] RSP: 002b:00007fffe5d30a78 EFLAGS: 00000246 ORIG_RAX: 0000000000000001
+[   41.226608] RAX: ffffffffffffffda RBX: 000055e824d07f40 RCX: 00007f30865d0ed8
+[   41.227242] RDX: 0000000000000007 RSI: 000055e824d07f40 RDI: 0000000000000004
+[   41.227870] RBP: 0000000000000007 R08: 0000000000000007 R09: 0000000000000006
+[   41.228753] R10: 0000000000000000 R11: 0000000000000246 R12: 0000000000000004
+[   41.229419] R13: 00007f30862ab528 R14: 0000000000000001 R15: 000055e824d07f40
+
+While creating a namespace and initializing memmap, if you destroy the namespace
+and shrink the zone, it will initialize the memmap outside the zone and
+trigger VM_BUG_ON_PAGE(!zone_spans_pfn(page_zone(page), pfn), page) in
+set_pfnblock_flags_mask()."
+
+
+This BUG is also mitigated by this commit, where we for now stop to
+shrink the ZONE_DEVICE zone until we can do it in a safe and clean
+way.
+
+-- 
+
+Thanks,
+
+David / dhildenb
