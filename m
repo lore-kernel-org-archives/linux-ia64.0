@@ -1,143 +1,228 @@
-From: "tip-bot2 for Kees Cook" <tip-bot2@linutronix.de>
-Date: Tue, 05 Nov 2019 09:27:31 +0000
-Subject: [tip: x86/build] x86/vmlinux: Actually use _etext for the end of the text segment
-Message-Id: <157294605107.29376.5449553975525420938.tip-bot2@tip-bot2>
+From: Aleksa Sarai <cyphar@cyphar.com>
+Date: Wed, 20 Nov 2019 05:06:20 +0000
+Subject: [PATCH RESEND v17 02/13] nsfs: clean-up ns_get_path() signature to return int
+Message-Id: <20191120050631.12816-3-cyphar@cyphar.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191029211351.13243-16-keescook@chromium.org>
-In-Reply-To: <20191029211351.13243-16-keescook@chromium.org>
+References: <20191120050631.12816-1-cyphar@cyphar.com>
+In-Reply-To: <20191120050631.12816-1-cyphar@cyphar.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-tip-commits@vger.kernel.org
-Cc: Kees Cook <keescook@chromium.org>, Borislav Petkov <bp@suse.de>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Dave Hansen <dave.hansen@linux.intel.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, "H. Peter Anvin" <hpa@zytor.com>, Ingo Molnar <mingo@redhat.com>, linux-alpha@vger.kernel.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>, Michal Simek <monstr@monstr.eu>, Nick Desaulniers <ndesaulniers@google.com>, Peter Zijlstra <peterz@infradead.org>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Ross Zwisler <zwisler@chromium.org>, Segher Boessenkool <segher@kernel.crashing.org>, Thomas Gleixner <tglx@linutronix.de>, Thomas Lendacky <Thomas.Lendacky@amd.com>, Will Deacon <will@kernel.org>, x86-ml <x86@kernel.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Ingo Molnar <mingo@kernel.org>, Borislav Petkov <bp@alien8.de>, linux-kernel@vger.kernel.org
+To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Alexei Starovoitov <ast@kernel.org>, Daniel Borkmann <daniel@iogearbox.net>, Martin KaFai Lau <kafai@fb.com>, Song Liu <songliubraving@fb.com>, Yonghong Song <yhs@fb.com>, Andrii Nakryiko <andriin@fb.com>, Jonathan Corbet <corbet@lwn.net>
+Cc: Aleksa Sarai <cyphar@cyphar.com>, Eric Biederman <ebiederm@xmission.com>, Andy Lutomirski <luto@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, David Drysdale <drysdale@google.com>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, Christian Brauner <christian@brauner.io>, Aleksa Sarai <asarai@suse.de>, Linus Torvalds <torvalds@linux-foundation.org>, dev@opencontainers.org, containers@lists.linux-foundation.org, bpf@vger.kernel.org, netdev@vger.kernel.org, linux-alpha@vger.kernel.org, linux-api@vger.kernel.org, libc-alpha@sourceware.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-doc@vger.kernel.org, linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-kselftest@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, sparclinux@vger.kernel.org
 
-The following commit has been merged into the x86/build branch of tip:
+ns_get_path() and ns_get_path_cb() only ever return either NULL or an
+ERR_PTR. It is far more idiomatic to simply return an integer, and it
+makes all of the callers of ns_get_path() more straightforward to read.
 
-Commit-ID:     b907693883fdcff5b492cf0cd02a0e264623055e
-Gitweb:        https://git.kernel.org/tip/b907693883fdcff5b492cf0cd02a0e264623055e
-Author:        Kees Cook <keescook@chromium.org>
-AuthorDate:    Tue, 29 Oct 2019 14:13:37 -07:00
-Committer:     Borislav Petkov <bp@suse.de>
-CommitterDate: Mon, 04 Nov 2019 17:54:16 +01:00
-
-x86/vmlinux: Actually use _etext for the end of the text segment
-
-Various calculations are using the end of the exception table (which
-does not need to be executable) as the end of the text segment. Instead,
-in preparation for moving the exception table into RO_DATA, move _etext
-after the exception table and update the calculations.
-
-Signed-off-by: Kees Cook <keescook@chromium.org>
-Signed-off-by: Borislav Petkov <bp@suse.de>
-Cc: Andy Lutomirski <luto@kernel.org>
-Cc: Arnd Bergmann <arnd@arndb.de>
-Cc: Dave Hansen <dave.hansen@linux.intel.com>
-Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
-Cc: "H. Peter Anvin" <hpa@zytor.com>
-Cc: Ingo Molnar <mingo@redhat.com>
-Cc: linux-alpha@vger.kernel.org
-Cc: linux-arch@vger.kernel.org
-Cc: linux-arm-kernel@lists.infradead.org
-Cc: linux-c6x-dev@linux-c6x.org
-Cc: linux-ia64@vger.kernel.org
-Cc: linuxppc-dev@lists.ozlabs.org
-Cc: linux-s390@vger.kernel.org
-Cc: Michael Ellerman <mpe@ellerman.id.au>
-Cc: Michal Simek <monstr@monstr.eu>
-Cc: Nick Desaulniers <ndesaulniers@google.com>
-Cc: Peter Zijlstra <peterz@infradead.org>
-Cc: Rick Edgecombe <rick.p.edgecombe@intel.com>
-Cc: Ross Zwisler <zwisler@chromium.org>
-Cc: Segher Boessenkool <segher@kernel.crashing.org>
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: Thomas Lendacky <Thomas.Lendacky@amd.com>
-Cc: Will Deacon <will@kernel.org>
-Cc: x86-ml <x86@kernel.org>
-Cc: Yoshinori Sato <ysato@users.sourceforge.jp>
-Link: https://lkml.kernel.org/r/20191029211351.13243-16-keescook@chromium.org
+Fixes: e149ed2b805f ("take the targets of /proc/*/ns/* symlinks to separate fs")
+Signed-off-by: Aleksa Sarai <cyphar@cyphar.com>
 ---
- arch/x86/include/asm/sections.h | 1 -
- arch/x86/kernel/vmlinux.lds.S   | 7 +++----
- arch/x86/mm/init_64.c           | 6 +++---
- arch/x86/mm/pti.c               | 2 +-
- 4 files changed, 7 insertions(+), 9 deletions(-)
+ fs/nsfs.c               | 29 ++++++++++++++---------------
+ fs/proc/namespaces.c    |  6 +++---
+ include/linux/proc_ns.h |  4 ++--
+ kernel/bpf/offload.c    | 12 ++++++------
+ kernel/events/core.c    |  2 +-
+ 5 files changed, 26 insertions(+), 27 deletions(-)
 
-diff --git a/arch/x86/include/asm/sections.h b/arch/x86/include/asm/sections.h
-index 71b32f2..036c360 100644
---- a/arch/x86/include/asm/sections.h
-+++ b/arch/x86/include/asm/sections.h
-@@ -6,7 +6,6 @@
- #include <asm/extable.h>
+diff --git a/fs/nsfs.c b/fs/nsfs.c
+index a0431642c6b5..f3d2833c5781 100644
+--- a/fs/nsfs.c
++++ b/fs/nsfs.c
+@@ -52,7 +52,7 @@ static void nsfs_evict(struct inode *inode)
+ 	ns->ops->put(ns);
+ }
  
- extern char __brk_base[], __brk_limit[];
--extern struct exception_table_entry __stop___ex_table[];
- extern char __end_rodata_aligned[];
+-static void *__ns_get_path(struct path *path, struct ns_common *ns)
++static int __ns_get_path(struct path *path, struct ns_common *ns)
+ {
+ 	struct vfsmount *mnt = nsfs_mnt;
+ 	struct dentry *dentry;
+@@ -71,13 +71,13 @@ static void *__ns_get_path(struct path *path, struct ns_common *ns)
+ got_it:
+ 	path->mnt = mntget(mnt);
+ 	path->dentry = dentry;
+-	return NULL;
++	return 0;
+ slow:
+ 	rcu_read_unlock();
+ 	inode = new_inode_pseudo(mnt->mnt_sb);
+ 	if (!inode) {
+ 		ns->ops->put(ns);
+-		return ERR_PTR(-ENOMEM);
++		return -ENOMEM;
+ 	}
+ 	inode->i_ino = ns->inum;
+ 	inode->i_mtime = inode->i_atime = inode->i_ctime = current_time(inode);
+@@ -89,7 +89,7 @@ static void *__ns_get_path(struct path *path, struct ns_common *ns)
+ 	dentry = d_alloc_anon(mnt->mnt_sb);
+ 	if (!dentry) {
+ 		iput(inode);
+-		return ERR_PTR(-ENOMEM);
++		return -ENOMEM;
+ 	}
+ 	d_instantiate(dentry, inode);
+ 	dentry->d_fsdata = (void *)ns->ops;
+@@ -98,23 +98,22 @@ static void *__ns_get_path(struct path *path, struct ns_common *ns)
+ 		d_delete(dentry);	/* make sure ->d_prune() does nothing */
+ 		dput(dentry);
+ 		cpu_relax();
+-		return ERR_PTR(-EAGAIN);
++		return -EAGAIN;
+ 	}
+ 	goto got_it;
+ }
  
- #if defined(CONFIG_X86_64)
-diff --git a/arch/x86/kernel/vmlinux.lds.S b/arch/x86/kernel/vmlinux.lds.S
-index 41362e9..a1a758e 100644
---- a/arch/x86/kernel/vmlinux.lds.S
-+++ b/arch/x86/kernel/vmlinux.lds.S
-@@ -143,15 +143,14 @@ SECTIONS
- 		*(.text.__x86.indirect_thunk)
- 		__indirect_thunk_end = .;
- #endif
+-void *ns_get_path_cb(struct path *path, ns_get_path_helper_t *ns_get_cb,
++int ns_get_path_cb(struct path *path, ns_get_path_helper_t *ns_get_cb,
+ 		     void *private_data)
+ {
+-	void *ret;
++	int ret;
+ 
+ 	do {
+ 		struct ns_common *ns = ns_get_cb(private_data);
+ 		if (!ns)
+-			return ERR_PTR(-ENOENT);
 -
--		/* End of text section */
--		_etext = .;
- 	} :text = 0x9090
++			return -ENOENT;
+ 		ret = __ns_get_path(path, ns);
+-	} while (ret = ERR_PTR(-EAGAIN));
++	} while (ret = -EAGAIN);
  
- 	EXCEPTION_TABLE(16)
+ 	return ret;
+ }
+@@ -131,7 +130,7 @@ static struct ns_common *ns_get_path_task(void *private_data)
+ 	return args->ns_ops->get(args->task);
+ }
  
--	/* .text should occupy whole number of pages */
-+	/* End of text section, which should occupy whole number of pages */
-+	_etext = .;
- 	. = ALIGN(PAGE_SIZE);
-+
- 	X86_ALIGN_RODATA_BEGIN
- 	RO_DATA(PAGE_SIZE)
- 	X86_ALIGN_RODATA_END
-diff --git a/arch/x86/mm/init_64.c b/arch/x86/mm/init_64.c
-index a6b5c65..26299e9 100644
---- a/arch/x86/mm/init_64.c
-+++ b/arch/x86/mm/init_64.c
-@@ -1263,7 +1263,7 @@ int kernel_set_to_readonly;
- void set_kernel_text_rw(void)
+-void *ns_get_path(struct path *path, struct task_struct *task,
++int ns_get_path(struct path *path, struct task_struct *task,
+ 		  const struct proc_ns_operations *ns_ops)
  {
- 	unsigned long start = PFN_ALIGN(_text);
--	unsigned long end = PFN_ALIGN(__stop___ex_table);
-+	unsigned long end = PFN_ALIGN(_etext);
- 
- 	if (!kernel_set_to_readonly)
- 		return;
-@@ -1282,7 +1282,7 @@ void set_kernel_text_rw(void)
- void set_kernel_text_ro(void)
+ 	struct ns_get_path_task_args args = {
+@@ -147,7 +146,7 @@ int open_related_ns(struct ns_common *ns,
  {
- 	unsigned long start = PFN_ALIGN(_text);
--	unsigned long end = PFN_ALIGN(__stop___ex_table);
-+	unsigned long end = PFN_ALIGN(_etext);
+ 	struct path path = {};
+ 	struct file *f;
+-	void *err;
++	int err;
+ 	int fd;
  
- 	if (!kernel_set_to_readonly)
- 		return;
-@@ -1301,7 +1301,7 @@ void mark_rodata_ro(void)
- 	unsigned long start = PFN_ALIGN(_text);
- 	unsigned long rodata_start = PFN_ALIGN(__start_rodata);
- 	unsigned long end = (unsigned long) &__end_rodata_hpage_align;
--	unsigned long text_end = PFN_ALIGN(&__stop___ex_table);
-+	unsigned long text_end = PFN_ALIGN(&_etext);
- 	unsigned long rodata_end = PFN_ALIGN(&__end_rodata);
- 	unsigned long all_end;
+ 	fd = get_unused_fd_flags(O_CLOEXEC);
+@@ -164,11 +163,11 @@ int open_related_ns(struct ns_common *ns,
+ 		}
  
-diff --git a/arch/x86/mm/pti.c b/arch/x86/mm/pti.c
-index 7f21404..44a9f06 100644
---- a/arch/x86/mm/pti.c
-+++ b/arch/x86/mm/pti.c
-@@ -574,7 +574,7 @@ static void pti_clone_kernel_text(void)
- 	 */
- 	unsigned long start = PFN_ALIGN(_text);
- 	unsigned long end_clone  = (unsigned long)__end_rodata_aligned;
--	unsigned long end_global = PFN_ALIGN((unsigned long)__stop___ex_table);
-+	unsigned long end_global = PFN_ALIGN((unsigned long)_etext);
+ 		err = __ns_get_path(&path, relative);
+-	} while (err = ERR_PTR(-EAGAIN));
++	} while (err = -EAGAIN);
  
- 	if (!pti_kernel_image_global_ok())
- 		return;
+-	if (IS_ERR(err)) {
++	if (err) {
+ 		put_unused_fd(fd);
+-		return PTR_ERR(err);
++		return err;
+ 	}
+ 
+ 	f = dentry_open(&path, O_RDONLY, current_cred());
+diff --git a/fs/proc/namespaces.c b/fs/proc/namespaces.c
+index dd2b35f78b09..08dd94df1a66 100644
+--- a/fs/proc/namespaces.c
++++ b/fs/proc/namespaces.c
+@@ -42,14 +42,14 @@ static const char *proc_ns_get_link(struct dentry *dentry,
+ 	const struct proc_ns_operations *ns_ops = PROC_I(inode)->ns_ops;
+ 	struct task_struct *task;
+ 	struct path ns_path;
+-	void *error = ERR_PTR(-EACCES);
++	int error = -EACCES;
+ 
+ 	if (!dentry)
+ 		return ERR_PTR(-ECHILD);
+ 
+ 	task = get_proc_task(inode);
+ 	if (!task)
+-		return error;
++		return ERR_PTR(-EACCES);
+ 
+ 	if (ptrace_may_access(task, PTRACE_MODE_READ_FSCREDS)) {
+ 		error = ns_get_path(&ns_path, task, ns_ops);
+@@ -57,7 +57,7 @@ static const char *proc_ns_get_link(struct dentry *dentry,
+ 			nd_jump_link(&ns_path);
+ 	}
+ 	put_task_struct(task);
+-	return error;
++	return ERR_PTR(error);
+ }
+ 
+ static int proc_ns_readlink(struct dentry *dentry, char __user *buffer, int buflen)
+diff --git a/include/linux/proc_ns.h b/include/linux/proc_ns.h
+index d31cb6215905..aed366b4795c 100644
+--- a/include/linux/proc_ns.h
++++ b/include/linux/proc_ns.h
+@@ -76,10 +76,10 @@ static inline int ns_alloc_inum(struct ns_common *ns)
+ 
+ extern struct file *proc_ns_fget(int fd);
+ #define get_proc_ns(inode) ((struct ns_common *)(inode)->i_private)
+-extern void *ns_get_path(struct path *path, struct task_struct *task,
++extern int ns_get_path(struct path *path, struct task_struct *task,
+ 			const struct proc_ns_operations *ns_ops);
+ typedef struct ns_common *ns_get_path_helper_t(void *);
+-extern void *ns_get_path_cb(struct path *path, ns_get_path_helper_t ns_get_cb,
++extern int ns_get_path_cb(struct path *path, ns_get_path_helper_t ns_get_cb,
+ 			    void *private_data);
+ 
+ extern int ns_get_name(char *buf, size_t size, struct task_struct *task,
+diff --git a/kernel/bpf/offload.c b/kernel/bpf/offload.c
+index ba635209ae9a..a2253a044f90 100644
+--- a/kernel/bpf/offload.c
++++ b/kernel/bpf/offload.c
+@@ -302,14 +302,14 @@ int bpf_prog_offload_info_fill(struct bpf_prog_info *info,
+ 	struct inode *ns_inode;
+ 	struct path ns_path;
+ 	char __user *uinsns;
+-	void *res;
++	int res;
+ 	u32 ulen;
+ 
+ 	res = ns_get_path_cb(&ns_path, bpf_prog_offload_info_fill_ns, &args);
+-	if (IS_ERR(res)) {
++	if (res) {
+ 		if (!info->ifindex)
+ 			return -ENODEV;
+-		return PTR_ERR(res);
++		return res;
+ 	}
+ 
+ 	down_read(&bpf_devs_lock);
+@@ -526,13 +526,13 @@ int bpf_map_offload_info_fill(struct bpf_map_info *info, struct bpf_map *map)
+ 	};
+ 	struct inode *ns_inode;
+ 	struct path ns_path;
+-	void *res;
++	int res;
+ 
+ 	res = ns_get_path_cb(&ns_path, bpf_map_offload_info_fill_ns, &args);
+-	if (IS_ERR(res)) {
++	if (res) {
+ 		if (!info->ifindex)
+ 			return -ENODEV;
+-		return PTR_ERR(res);
++		return res;
+ 	}
+ 
+ 	ns_inode = ns_path.dentry->d_inode;
+diff --git a/kernel/events/core.c b/kernel/events/core.c
+index 00a014670ed0..3772a04ca802 100644
+--- a/kernel/events/core.c
++++ b/kernel/events/core.c
+@@ -7258,7 +7258,7 @@ static void perf_fill_ns_link_info(struct perf_ns_link_info *ns_link_info,
+ {
+ 	struct path ns_path;
+ 	struct inode *ns_inode;
+-	void *error;
++	int error;
+ 
+ 	error = ns_get_path(&ns_path, task, ns_ops);
+ 	if (!error) {
+-- 
+2.24.0
