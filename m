@@ -1,134 +1,108 @@
-From: "tip-bot2 for Kees Cook" <tip-bot2@linutronix.de>
-Date: Tue, 05 Nov 2019 09:27:26 +0000
-Subject: [tip: x86/build] x86/mm: Report which part of kernel image is freed
-Message-Id: <157294604642.29376.15246989052906644663.tip-bot2@tip-bot2>
+From: Aleksa Sarai <cyphar@cyphar.com>
+Date: Wed, 20 Nov 2019 05:06:24 +0000
+Subject: [PATCH RESEND v17 06/13] namei: LOOKUP_NO_MAGICLINKS: block magic-link resolution
+Message-Id: <20191120050631.12816-7-cyphar@cyphar.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191029211351.13243-28-keescook@chromium.org>
-In-Reply-To: <20191029211351.13243-28-keescook@chromium.org>
+References: <20191120050631.12816-1-cyphar@cyphar.com>
+In-Reply-To: <20191120050631.12816-1-cyphar@cyphar.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-tip-commits@vger.kernel.org
-Cc: Kees Cook <keescook@chromium.org>, Borislav Petkov <bp@suse.de>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Dave Hansen <dave.hansen@linux.intel.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, "H. Peter Anvin" <hpa@zytor.com>, Ingo Molnar <mingo@redhat.com>, linux-alpha@vger.kernel.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>, Michal Simek <monstr@monstr.eu>, Peter Zijlstra <peterz@infradead.org>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Segher Boessenkool <segher@kernel.crashing.org>, Thomas Gleixner <tglx@linutronix.de>, Will Deacon <will@kernel.org>, x86-ml <x86@kernel.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Ingo Molnar <mingo@kernel.org>, Borislav Petkov <bp@alien8.de>, linux-kernel@vger.kernel.org
+To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Alexei Starovoitov <ast@kernel.org>, Daniel Borkmann <daniel@iogearbox.net>, Martin KaFai Lau <kafai@fb.com>, Song Liu <songliubraving@fb.com>, Yonghong Song <yhs@fb.com>, Andrii Nakryiko <andriin@fb.com>, Jonathan Corbet <corbet@lwn.net>
+Cc: Aleksa Sarai <cyphar@cyphar.com>, Christian Brauner <christian.brauner@ubuntu.com>, David Drysdale <drysdale@google.com>, Andy Lutomirski <luto@kernel.org>, Linus Torvalds <torvalds@linux-foundation.org>, Eric Biederman <ebiederm@xmission.com>, Andrew Morton <akpm@linux-foundation.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, Christian Brauner <christian@brauner.io>, Aleksa Sarai <asarai@suse.de>, dev@opencontainers.org, containers@lists.linux-foundation.org, bpf@vger.kernel.org, netdev@vger.kernel.org, linux-alpha@vger.kernel.org, linux-api@vger.kernel.org, libc-alpha@sourceware.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-doc@vger.kernel.org, linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-kselftest@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, sparclinux@vger.kernel.org
 
-The following commit has been merged into the x86/build branch of tip:
+/* Background. */
+There has always been a special class of symlink-like objects in procfs
+(and a few other pseudo-filesystems) which allow for non-lexical
+resolution of paths using nd_jump_link(). These "magic-links" do not
+follow traditional mount namespace boundaries, and have been used
+consistently in container escape attacks because they can be used to
+trick unsuspecting privileged processes into resolving unexpected paths.
 
-Commit-ID:     5494c3a6a0b965906ffdcb620d94079ea4cb69ea
-Gitweb:        https://git.kernel.org/tip/5494c3a6a0b965906ffdcb620d94079ea4cb69ea
-Author:        Kees Cook <keescook@chromium.org>
-AuthorDate:    Tue, 29 Oct 2019 14:13:49 -07:00
-Committer:     Borislav Petkov <bp@suse.de>
-CommitterDate: Mon, 04 Nov 2019 18:50:33 +01:00
+It is also non-trivial for userspace to unambiguously avoid resolving
+magic-links, because they do not have a reliable indication that they
+are a magic-link (in order to verify them you'd have to manually open
+the path given by readlink(2) and then verify that the two file
+descriptors reference the same underlying file, which is plagued with
+possible race conditions or supplementary attack scenarios).
 
-x86/mm: Report which part of kernel image is freed
+It would therefore be very helpful for userspace to be able to avoid
+these symlinks easily, thus hopefully removing a tool from attackers'
+toolboxes.
 
-The memory freeing report wasn't very useful for figuring out which
-parts of the kernel image were being freed. Add the details for clearer
-reporting in dmesg.
+This is part of a refresh of Al's AT_NO_JUMPS patchset[1] (which was a
+variation on David Drysdale's O_BENEATH patchset[2], which in turn was
+based on the Capsicum project[3]).
 
-Before:
+/* Userspace API. */
+LOOKUP_NO_MAGICLINKS will be exposed to userspace through openat2(2).
 
-  Freeing unused kernel image memory: 1348K
-  Write protecting the kernel read-only data: 20480k
-  Freeing unused kernel image memory: 2040K
-  Freeing unused kernel image memory: 172K
+/* Semantics. */
+Unlike most other LOOKUP flags (most notably LOOKUP_FOLLOW),
+LOOKUP_NO_MAGICLINKS applies to all components of the path.
 
-After:
+With LOOKUP_NO_MAGICLINKS, any magic-link path component encountered
+during path resolution will yield -ELOOP. The handling of ~LOOKUP_FOLLOW
+for a trailing magic-link is identical to LOOKUP_NO_SYMLINKS.
 
-  Freeing unused kernel image (initmem) memory: 1348K
-  Write protecting the kernel read-only data: 20480k
-  Freeing unused kernel image (text/rodata gap) memory: 2040K
-  Freeing unused kernel image (rodata/data gap) memory: 172K
+LOOKUP_NO_SYMLINKS implies LOOKUP_NO_MAGICLINKS.
 
-Signed-off-by: Kees Cook <keescook@chromium.org>
-Signed-off-by: Borislav Petkov <bp@suse.de>
-Cc: Andy Lutomirski <luto@kernel.org>
-Cc: Arnd Bergmann <arnd@arndb.de>
-Cc: Dave Hansen <dave.hansen@linux.intel.com>
-Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
-Cc: "H. Peter Anvin" <hpa@zytor.com>
-Cc: Ingo Molnar <mingo@redhat.com>
-Cc: linux-alpha@vger.kernel.org
-Cc: linux-arch@vger.kernel.org
-Cc: linux-arm-kernel@lists.infradead.org
-Cc: linux-c6x-dev@linux-c6x.org
-Cc: linux-ia64@vger.kernel.org
-Cc: linuxppc-dev@lists.ozlabs.org
-Cc: linux-s390@vger.kernel.org
-Cc: Michael Ellerman <mpe@ellerman.id.au>
-Cc: Michal Simek <monstr@monstr.eu>
-Cc: Peter Zijlstra <peterz@infradead.org>
-Cc: Rick Edgecombe <rick.p.edgecombe@intel.com>
-Cc: Segher Boessenkool <segher@kernel.crashing.org>
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: Will Deacon <will@kernel.org>
-Cc: x86-ml <x86@kernel.org>
-Cc: Yoshinori Sato <ysato@users.sourceforge.jp>
-Link: https://lkml.kernel.org/r/20191029211351.13243-28-keescook@chromium.org
+/* Testing. */
+LOOKUP_NO_MAGICLINKS is tested as part of the openat2(2) selftests.
+
+[1]: https://lore.kernel.org/lkml/20170429220414.GT29622@ZenIV.linux.org.uk/
+[2]: https://lore.kernel.org/lkml/1415094884-18349-1-git-send-email-drysdale@google.com/
+[3]: https://lore.kernel.org/lkml/1404124096-21445-1-git-send-email-drysdale@google.com/
+
+Cc: Christian Brauner <christian.brauner@ubuntu.com>
+Suggested-by: David Drysdale <drysdale@google.com>
+Suggested-by: Al Viro <viro@zeniv.linux.org.uk>
+Suggested-by: Andy Lutomirski <luto@kernel.org>
+Suggested-by: Linus Torvalds <torvalds@linux-foundation.org>
+Signed-off-by: Aleksa Sarai <cyphar@cyphar.com>
 ---
- arch/x86/include/asm/processor.h | 2 +-
- arch/x86/mm/init.c               | 8 ++++----
- arch/x86/mm/init_64.c            | 6 ++++--
- 3 files changed, 9 insertions(+), 7 deletions(-)
+ fs/namei.c            | 10 +++++++++-
+ include/linux/namei.h |  1 +
+ 2 files changed, 10 insertions(+), 1 deletion(-)
 
-diff --git a/arch/x86/include/asm/processor.h b/arch/x86/include/asm/processor.h
-index 6e0a3b4..790f250 100644
---- a/arch/x86/include/asm/processor.h
-+++ b/arch/x86/include/asm/processor.h
-@@ -958,7 +958,7 @@ static inline uint32_t hypervisor_cpuid_base(const char *sig, uint32_t leaves)
- 
- extern unsigned long arch_align_stack(unsigned long sp);
- void free_init_pages(const char *what, unsigned long begin, unsigned long end);
--extern void free_kernel_image_pages(void *begin, void *end);
-+extern void free_kernel_image_pages(const char *what, void *begin, void *end);
- 
- void default_idle(void);
- #ifdef	CONFIG_XEN
-diff --git a/arch/x86/mm/init.c b/arch/x86/mm/init.c
-index fd10d91..e7bb483 100644
---- a/arch/x86/mm/init.c
-+++ b/arch/x86/mm/init.c
-@@ -829,14 +829,13 @@ void free_init_pages(const char *what, unsigned long begin, unsigned long end)
-  * used for the kernel image only.  free_init_pages() will do the
-  * right thing for either kind of address.
+diff --git a/fs/namei.c b/fs/namei.c
+index 303731935eb2..415a897729c8 100644
+--- a/fs/namei.c
++++ b/fs/namei.c
+@@ -867,13 +867,21 @@ static int nd_jump_root(struct nameidata *nd)
   */
--void free_kernel_image_pages(void *begin, void *end)
-+void free_kernel_image_pages(const char *what, void *begin, void *end)
+ int nd_jump_link(struct path *path)
  {
- 	unsigned long begin_ul = (unsigned long)begin;
- 	unsigned long end_ul = (unsigned long)end;
- 	unsigned long len_pages = (end_ul - begin_ul) >> PAGE_SHIFT;
++	int error = -ELOOP;
+ 	struct nameidata *nd = current->nameidata;
+-	path_put(&nd->path);
  
--
--	free_init_pages("unused kernel image", begin_ul, end_ul);
-+	free_init_pages(what, begin_ul, end_ul);
- 
- 	/*
- 	 * PTI maps some of the kernel into userspace.  For performance,
-@@ -865,7 +864,8 @@ void __ref free_initmem(void)
- 
- 	mem_encrypt_free_decrypted_mem();
- 
--	free_kernel_image_pages(&__init_begin, &__init_end);
-+	free_kernel_image_pages("unused kernel image (initmem)",
-+				&__init_begin, &__init_end);
++	if (unlikely(nd->flags & LOOKUP_NO_MAGICLINKS))
++		goto err;
++
++	path_put(&nd->path);
+ 	nd->path = *path;
+ 	nd->inode = nd->path.dentry->d_inode;
+ 	nd->flags |= LOOKUP_JUMPED;
+ 	return 0;
++
++err:
++	path_put(path);
++	return error;
  }
  
- #ifdef CONFIG_BLK_DEV_INITRD
-diff --git a/arch/x86/mm/init_64.c b/arch/x86/mm/init_64.c
-index e67ddca..dcb9bc9 100644
---- a/arch/x86/mm/init_64.c
-+++ b/arch/x86/mm/init_64.c
-@@ -1334,8 +1334,10 @@ void mark_rodata_ro(void)
- 	set_memory_ro(start, (end-start) >> PAGE_SHIFT);
- #endif
+ static inline void put_link(struct nameidata *nd)
+diff --git a/include/linux/namei.h b/include/linux/namei.h
+index 0d86e75c04a7..1573b8493d98 100644
+--- a/include/linux/namei.h
++++ b/include/linux/namei.h
+@@ -41,6 +41,7 @@ enum {LAST_NORM, LAST_ROOT, LAST_DOT, LAST_DOTDOT, LAST_BIND};
  
--	free_kernel_image_pages((void *)text_end, (void *)rodata_start);
--	free_kernel_image_pages((void *)rodata_end, (void *)_sdata);
-+	free_kernel_image_pages("unused kernel image (text/rodata gap)",
-+				(void *)text_end, (void *)rodata_start);
-+	free_kernel_image_pages("unused kernel image (rodata/data gap)",
-+				(void *)rodata_end, (void *)_sdata);
+ /* Scoping flags for lookup. */
+ #define LOOKUP_NO_SYMLINKS	0x010000 /* No symlink crossing. */
++#define LOOKUP_NO_MAGICLINKS	0x020000 /* No nd_jump_link() crossing. */
  
- 	debug_checkwx();
- }
+ extern int path_pts(struct path *path);
+ 
+-- 
+2.24.0
