@@ -1,85 +1,43 @@
-From: "tip-bot2 for Kees Cook" <tip-bot2@linutronix.de>
-Date: Tue, 05 Nov 2019 09:27:36 +0000
-Subject: [tip: x86/build] powerpc: Rename "notes" PT_NOTE to "note"
-Message-Id: <157294605645.29376.12542710971074801429.tip-bot2@tip-bot2>
+From: Corentin Labbe <clabbe@baylibre.com>
+Date: Thu, 21 Nov 2019 08:14:43 +0000
+Subject: [PATCH v2 3/5] agp: remove unused variable num_segments
+Message-Id: <1574324085-4338-4-git-send-email-clabbe@baylibre.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191029211351.13243-2-keescook@chromium.org>
-In-Reply-To: <20191029211351.13243-2-keescook@chromium.org>
+References: <1574324085-4338-1-git-send-email-clabbe@baylibre.com>
+In-Reply-To: <1574324085-4338-1-git-send-email-clabbe@baylibre.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-tip-commits@vger.kernel.org
-Cc: Kees Cook <keescook@chromium.org>, Borislav Petkov <bp@suse.de>, Michael Ellerman <mpe@ellerman.id.au>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Dave Hansen <dave.hansen@linux.intel.com>, linux-alpha@vger.kernel.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, Michal Simek <monstr@monstr.eu>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Segher Boessenkool <segher@kernel.crashing.org>, Will Deacon <will@kernel.org>, x86-ml <x86@kernel.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Ingo Molnar <mingo@kernel.org>, Borislav Petkov <bp@alien8.de>, linux-kernel@vger.kernel.org
+To: airlied@redhat.com, airlied@linux.ie, arnd@arndb.de, fenghua.yu@intel.com, gregkh@linuxfoundation.org, tony.luck@intel.com
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Corentin Labbe <clabbe@baylibre.com>
 
-The following commit has been merged into the x86/build branch of tip:
+This patch fix the following build warning:
+warning: variable 'num_segments' set but not used [-Wunused-but-set-variable]
 
-Commit-ID:     ec556271bbb33809b73cdb238f8cb357345908e8
-Gitweb:        https://git.kernel.org/tip/ec556271bbb33809b73cdb238f8cb357345908e8
-Author:        Kees Cook <keescook@chromium.org>
-AuthorDate:    Tue, 29 Oct 2019 14:13:23 -07:00
-Committer:     Borislav Petkov <bp@suse.de>
-CommitterDate: Mon, 04 Nov 2019 15:33:28 +01:00
-
-powerpc: Rename "notes" PT_NOTE to "note"
-
-The Program Header identifiers are internal to the linker scripts. In
-preparation for moving the NOTES segment declaration into RO_DATA,
-standardize the identifier for the PT_NOTE entry to "note" as used by
-all other architectures that emit PT_NOTE.
-
-Note that there was discussion about changing all architectures to use
-"notes" instead, but I prefer to avoid that at this time. Changing only
-powerpc is the smallest change to standardize the entire kernel. And
-while this standardization does use singular "note" for a section that
-has more than one note in it, this is just an internal identifier. It
-matches the ELF "PT_NOTE", and is 4 characters (like "text", and "data")
-for pretty alignment. The more exposed macro, "NOTES", use the more
-sensible plural wording.
-
-Signed-off-by: Kees Cook <keescook@chromium.org>
-Signed-off-by: Borislav Petkov <bp@suse.de>
-Acked-by: Michael Ellerman <mpe@ellerman.id.au>
-Cc: Andy Lutomirski <luto@kernel.org>
-Cc: Arnd Bergmann <arnd@arndb.de>
-Cc: Dave Hansen <dave.hansen@linux.intel.com>
-Cc: linux-alpha@vger.kernel.org
-Cc: linux-arch@vger.kernel.org
-Cc: linux-arm-kernel@lists.infradead.org
-Cc: linux-c6x-dev@linux-c6x.org
-Cc: linux-ia64@vger.kernel.org
-Cc: linux-s390@vger.kernel.org
-Cc: linuxppc-dev@lists.ozlabs.org
-Cc: Michael Ellerman <mpe@ellerman.id.au>
-Cc: Michal Simek <monstr@monstr.eu>
-Cc: Rick Edgecombe <rick.p.edgecombe@intel.com>
-Cc: Segher Boessenkool <segher@kernel.crashing.org>
-Cc: Will Deacon <will@kernel.org>
-Cc: x86-ml <x86@kernel.org>
-Cc: Yoshinori Sato <ysato@users.sourceforge.jp>
-Link: https://lkml.kernel.org/r/20191029211351.13243-2-keescook@chromium.org
+Signed-off-by: Corentin Labbe <clabbe@baylibre.com>
 ---
- arch/powerpc/kernel/vmlinux.lds.S | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/char/agp/frontend.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/arch/powerpc/kernel/vmlinux.lds.S b/arch/powerpc/kernel/vmlinux.lds.S
-index 060a1ac..81e6726 100644
---- a/arch/powerpc/kernel/vmlinux.lds.S
-+++ b/arch/powerpc/kernel/vmlinux.lds.S
-@@ -19,7 +19,7 @@ ENTRY(_stext)
+diff --git a/drivers/char/agp/frontend.c b/drivers/char/agp/frontend.c
+index f6955888e676..47098648502d 100644
+--- a/drivers/char/agp/frontend.c
++++ b/drivers/char/agp/frontend.c
+@@ -102,14 +102,13 @@ agp_segment_priv *agp_find_seg_in_client(const struct agp_client *client,
+ 					    int size, pgprot_t page_prot)
+ {
+ 	struct agp_segment_priv *seg;
+-	int num_segments, i;
++	int i;
+ 	off_t pg_start;
+ 	size_t pg_count;
  
- PHDRS {
- 	kernel PT_LOAD FLAGS(7); /* RWX */
--	notes PT_NOTE FLAGS(0);
-+	note PT_NOTE FLAGS(0);
- 	dummy PT_NOTE FLAGS(0);
+ 	pg_start = offset / 4096;
+ 	pg_count = size / 4096;
+ 	seg = *(client->segments);
+-	num_segments = client->num_segments;
  
- 	/* binutils < 2.18 has a bug that makes it misbehave when taking an
-@@ -177,7 +177,7 @@ SECTIONS
- #endif
- 	EXCEPTION_TABLE(0)
- 
--	NOTES :kernel :notes
-+	NOTES :kernel :note
- 
- 	/* The dummy segment contents for the bug workaround mentioned above
- 	   near PHDRS.  */
+ 	for (i = 0; i < client->num_segments; i++) {
+ 		if ((seg[i].pg_start = pg_start) &&
+-- 
+2.23.0
