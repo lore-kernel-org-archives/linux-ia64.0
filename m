@@ -1,76 +1,56 @@
-From: "tip-bot2 for Kees Cook" <tip-bot2@linutronix.de>
-Date: Tue, 05 Nov 2019 09:27:27 +0000
-Subject: [tip: x86/build] xtensa: Move EXCEPTION_TABLE to RO_DATA segment
-Message-Id: <157294604726.29376.12527593781479789931.tip-bot2@tip-bot2>
+From: Corentin Labbe <clabbe@baylibre.com>
+Date: Thu, 21 Nov 2019 08:14:44 +0000
+Subject: [PATCH v2 4/5] agp: Add bridge parameter documentation
+Message-Id: <1574324085-4338-5-git-send-email-clabbe@baylibre.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191029211351.13243-26-keescook@chromium.org>
-In-Reply-To: <20191029211351.13243-26-keescook@chromium.org>
+References: <1574324085-4338-1-git-send-email-clabbe@baylibre.com>
+In-Reply-To: <1574324085-4338-1-git-send-email-clabbe@baylibre.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-tip-commits@vger.kernel.org
-Cc: Kees Cook <keescook@chromium.org>, Borislav Petkov <bp@suse.de>, Max Filippov <jcmvbkbc@gmail.com>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Chris Zankel <chris@zankel.net>, Dave Hansen <dave.hansen@linux.intel.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Heiko Carstens <heiko.carstens@de.ibm.com>, linux-alpha@vger.kernel.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-xtensa@linux-xtensa.org, Michael Ellerman <mpe@ellerman.id.au>, Michal Simek <monstr@monstr.eu>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Segher Boessenkool <segher@kernel.crashing.org>, Will Deacon <will@kernel.org>, x86-ml <x86@kernel.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Ingo Molnar <mingo@kernel.org>, Borislav Petkov <bp@alien8.de>, linux-kernel@vger.kernel.org
+To: airlied@redhat.com, airlied@linux.ie, arnd@arndb.de, fenghua.yu@intel.com, gregkh@linuxfoundation.org, tony.luck@intel.com
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Corentin Labbe <clabbe@baylibre.com>
 
-The following commit has been merged into the x86/build branch of tip:
+This patch add documentation about the bridge parameter in several
+function.
 
-Commit-ID:     94174c9b71c62a0e1a4364c2594e1422ba8fffcd
-Gitweb:        https://git.kernel.org/tip/94174c9b71c62a0e1a4364c2594e1422ba8fffcd
-Author:        Kees Cook <keescook@chromium.org>
-AuthorDate:    Tue, 29 Oct 2019 14:13:47 -07:00
-Committer:     Borislav Petkov <bp@suse.de>
-CommitterDate: Mon, 04 Nov 2019 18:42:27 +01:00
+This will fix the following build warning:
+drivers/char/agp/generic.c:220: warning: No description found for parameter 'bridge'
+drivers/char/agp/generic.c:364: warning: No description found for parameter 'bridge'
+drivers/char/agp/generic.c:1283: warning: No description found for parameter 'bridge'
 
-xtensa: Move EXCEPTION_TABLE to RO_DATA segment
-
-Since the EXCEPTION_TABLE is read-only, collapse it into RO_DATA.
-
-Signed-off-by: Kees Cook <keescook@chromium.org>
-Signed-off-by: Borislav Petkov <bp@suse.de>
-Acked-by: Max Filippov <jcmvbkbc@gmail.com>
-Cc: Andy Lutomirski <luto@kernel.org>
-Cc: Arnd Bergmann <arnd@arndb.de>
-Cc: Chris Zankel <chris@zankel.net>
-Cc: Dave Hansen <dave.hansen@linux.intel.com>
-Cc: Geert Uytterhoeven <geert@linux-m68k.org>
-Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
-Cc: linux-alpha@vger.kernel.org
-Cc: linux-arch@vger.kernel.org
-Cc: linux-arm-kernel@lists.infradead.org
-Cc: linux-c6x-dev@linux-c6x.org
-Cc: linux-ia64@vger.kernel.org
-Cc: linuxppc-dev@lists.ozlabs.org
-Cc: linux-s390@vger.kernel.org
-Cc: linux-xtensa@linux-xtensa.org
-Cc: Michael Ellerman <mpe@ellerman.id.au>
-Cc: Michal Simek <monstr@monstr.eu>
-Cc: Rick Edgecombe <rick.p.edgecombe@intel.com>
-Cc: Segher Boessenkool <segher@kernel.crashing.org>
-Cc: Will Deacon <will@kernel.org>
-Cc: x86-ml <x86@kernel.org>
-Cc: Yoshinori Sato <ysato@users.sourceforge.jp>
-Link: https://lkml.kernel.org/r/20191029211351.13243-26-keescook@chromium.org
+Signed-off-by: Corentin Labbe <clabbe@baylibre.com>
 ---
- arch/xtensa/kernel/vmlinux.lds.S | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/char/agp/generic.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/arch/xtensa/kernel/vmlinux.lds.S b/arch/xtensa/kernel/vmlinux.lds.S
-index bdbd7c4..0043d58 100644
---- a/arch/xtensa/kernel/vmlinux.lds.S
-+++ b/arch/xtensa/kernel/vmlinux.lds.S
-@@ -14,6 +14,8 @@
-  * Joe Taylor <joe@tensilica.com, joetylr@yahoo.com>
+diff --git a/drivers/char/agp/generic.c b/drivers/char/agp/generic.c
+index 4d2eb0800b2a..ab154a75acf0 100644
+--- a/drivers/char/agp/generic.c
++++ b/drivers/char/agp/generic.c
+@@ -207,6 +207,7 @@ EXPORT_SYMBOL(agp_free_memory);
+ /**
+  *	agp_allocate_memory  -  allocate a group of pages of a certain type.
+  *
++ *	@bridge: an agp_bridge_data struct allocated for the AGP host bridge.
+  *	@page_count:	size_t argument of the number of pages
+  *	@type:	u32 argument of the type of memory to be allocated.
+  *
+@@ -355,6 +356,7 @@ EXPORT_SYMBOL_GPL(agp_num_entries);
+ /**
+  *	agp_copy_info  -  copy bridge state information
+  *
++ *	@bridge: an agp_bridge_data struct allocated for the AGP host bridge.
+  *	@info:		agp_kern_info pointer.  The caller should insure that this pointer is valid.
+  *
+  *	This function copies information about the agp bridge device and the state of
+@@ -1277,6 +1279,7 @@ EXPORT_SYMBOL(agp_generic_destroy_page);
+ /**
+  * agp_enable  -  initialise the agp point-to-point connection.
+  *
++ * @bridge: an agp_bridge_data struct allocated for the AGP host bridge.
+  * @mode:	agp mode register value to configure with.
   */
- 
-+#define RO_EXCEPTION_TABLE_ALIGN	16
-+
- #include <asm-generic/vmlinux.lds.h>
- #include <asm/page.h>
- #include <asm/thread_info.h>
-@@ -130,7 +132,6 @@ SECTIONS
- 
-   .fixup   : { *(.fixup) }
- 
--  EXCEPTION_TABLE(16)
-   /* Data section */
- 
-   _sdata = .;
+ void agp_enable(struct agp_bridge_data *bridge, u32 mode)
+-- 
+2.23.0
