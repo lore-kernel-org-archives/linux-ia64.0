@@ -1,76 +1,50 @@
-From: Dmitry Safonov <dima@arista.com>
-Date: Wed, 06 Nov 2019 03:05:07 +0000
-Subject: [PATCH 16/50] ia64: Add show_stack_loglvl()
-Message-Id: <20191106030542.868541-17-dima@arista.com>
+From: Qais Yousef <qais.yousef@arm.com>
+Date: Mon, 25 Nov 2019 11:27:42 +0000
+Subject: [PATCH v2 02/14] ia64: Replace cpu_down with smp_shutdown_nonboot_cpus()
+Message-Id: <20191125112754.25223-3-qais.yousef@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191106030542.868541-1-dima@arista.com>
-In-Reply-To: <20191106030542.868541-1-dima@arista.com>
+References: <20191125112754.25223-1-qais.yousef@arm.com>
+In-Reply-To: <20191125112754.25223-1-qais.yousef@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Dmitry Safonov <0x7f454c46@gmail.com>, Dmitry Safonov <dima@arista.com>, Andrew Morton <akpm@linux-foundation.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Ingo Molnar <mingo@kernel.org>, Jiri Slaby <jslaby@suse.com>, Petr Mladek <pmladek@suse.com>, Sergey Senozhatsky <sergey.senozhatsky@gmail.com>, Steven Rostedt <rostedt@goodmis.org>, Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>, Fenghua Yu <fenghua.yu@intel.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org
+To: Thomas Gleixner <tglx@linutronix.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: Qais Yousef <qais.yousef@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Currently, the log-level of show_stack() depends on a platform
-realization. It creates situations where the headers are printed with
-lower log level or higher than the stacktrace (depending on
-a platform or user).
+Use the new smp_shutdown_nonboot_cpus() instead of open coding using
+cpu_down() directly.
 
-Furthermore, it forces the logic decision from user to an architecture
-side. In result, some users as sysrq/kdb/etc are doing tricks with
-temporary rising console_loglevel while printing their messages.
-And in result it not only may print unwanted messages from other CPUs,
-but also omit printing at all in the unlucky case where the printk()
-was deferred.
+This also prepares to make cpu_up/down a private interface for anything
+but the cpu subsystem.
 
-Introducing log-level parameter and KERN_UNSUPPRESSED [1] seems
-an easier approach than introducing more printk buffers.
-Also, it will consolidate printings with headers.
-
-Introduce show_stack_loglvl(), that eventually will substitute
-show_stack().
-
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: linux-ia64@vger.kernel.org
-[1]: https://lore.kernel.org/lkml/20190528002412.1625-1-dima@arista.com/T/#u
-Signed-off-by: Dmitry Safonov <dima@arista.com>
+Signed-off-by: Qais Yousef <qais.yousef@arm.com>
+CC: Tony Luck <tony.luck@intel.com>
+CC: Fenghua Yu <fenghua.yu@intel.com>
+CC: linux-ia64@vger.kernel.org
+CC: linux-kernel@vger.kernel.org
 ---
- arch/ia64/kernel/process.c | 13 ++++++++++---
- 1 file changed, 10 insertions(+), 3 deletions(-)
+ arch/ia64/kernel/process.c | 8 +-------
+ 1 file changed, 1 insertion(+), 7 deletions(-)
 
 diff --git a/arch/ia64/kernel/process.c b/arch/ia64/kernel/process.c
-index 0526cc51ff0b..b0eeb19bdd8d 100644
+index 968b5f33e725..cc894d4900be 100644
 --- a/arch/ia64/kernel/process.c
 +++ b/arch/ia64/kernel/process.c
-@@ -85,18 +85,25 @@ ia64_do_show_stack (struct unw_frame_info *info, void *arg)
- }
+@@ -646,14 +646,8 @@ cpu_halt (void)
  
- void
--show_stack (struct task_struct *task, unsigned long *sp)
-+show_stack_loglvl (struct task_struct *task, unsigned long *sp,
-+		   const char *loglvl)
+ void machine_shutdown(void)
  {
- 	if (!task)
--		unw_init_running(ia64_do_show_stack, (void *)KERN_DEFAULT);
-+		unw_init_running(ia64_do_show_stack, (void *)loglvl);
- 	else {
- 		struct unw_frame_info info;
+-#ifdef CONFIG_HOTPLUG_CPU
+-	int cpu;
++	smp_shutdown_nonboot_cpus(0);
  
- 		unw_init_from_blocked_task(&info, task);
--		ia64_do_show_stack(&info, (void *)KERN_DEFAULT);
-+		ia64_do_show_stack(&info, (void *)loglvl);
- 	}
- }
- 
-+void
-+show_stack (struct task_struct *task, unsigned long *sp)
-+{
-+	show_stack_loglvl(task, sp, KERN_DEFAULT);
-+}
-+
- void
- show_regs (struct pt_regs *regs)
- {
+-	for_each_online_cpu(cpu) {
+-		if (cpu != smp_processor_id())
+-			cpu_down(cpu);
+-	}
+-#endif
+ #ifdef CONFIG_KEXEC
+ 	kexec_disable_iosapic();
+ #endif
 -- 
-2.23.0
+2.17.1
