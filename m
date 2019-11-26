@@ -1,55 +1,40 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Date: Mon, 11 Nov 2019 16:58:06 +0000
-Subject: Re: [PATCH v2 11/29] vmlinux.lds.h: Replace RODATA with RO_DATA
-Message-Id: <CAMuHMdXfPyti1wFBb0hhf3CeDSQ=zVv7cV-taeYCmDswMQkXPQ@mail.gmail.com>
+From: Sean Christopherson <sean.j.christopherson@intel.com>
+Date: Tue, 26 Nov 2019 16:54:14 +0000
+Subject: [PATCH v2 09/12] ASoC: Intel: Skylake: Explicitly include linux/io.h for virt_to_phys()
+Message-Id: <20191126165417.22423-10-sean.j.christopherson@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191011000609.29728-1-keescook@chromium.org> <20191011000609.29728-12-keescook@chromium.org>
-In-Reply-To: <20191011000609.29728-12-keescook@chromium.org>
+References: <20191126165417.22423-1-sean.j.christopherson@intel.com>
+In-Reply-To: <20191126165417.22423-1-sean.j.christopherson@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Kees Cook <keescook@chromium.org>
-Cc: Borislav Petkov <bp@alien8.de>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Michael Ellerman <mpe@ellerman.id.au>, Heiko Carstens <heiko.carstens@de.ibm.com>, Will Deacon <will@kernel.org>, Linux-Arch <linux-arch@vger.kernel.org>, Linux ARM <linux-arm-kernel@lists.infradead.org>, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, alpha <linux-alpha@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, linux-s390 <linux-s390@vger.kernel.org>, linux-c6x-dev@linux-c6x.org, Yoshinori Sato <ysato@users.sourceforge.jp>, Michal Simek <monstr@monstr.eu>, Parisc List <linux-parisc@vger.kernel.org>, linux-xtensa@linux-xtensa.org, the arch/x86 maintainers <x86@kernel.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, x86@kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <len.brown@intel.com>, Pavel Machek <pavel@ucw.cz>
+Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Peter Zijlstra <peterz@infradead.org>, Arnaldo Carvalho de Melo <acme@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, "H. Peter Anvin" <hpa@zytor.com>, Steven Rostedt <rostedt@goodmis.org>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Darren Hart <dvhart@infradead.org>, Andy Shevchenko <andy@infradead.org>, Nadav Amit <nadav.amit@gmail.com>, "VMware, Inc." <pv-drivers@vmware.com>, Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Hans de Goede <hdegoede@redhat.com>, Cezary Rojewski <cezary.rojewski@intel.com>, Pierre-Louis Bossart <pierre-louis.bossart@linux.intel.com>, Liam Girdwood <liam.r.girdwood@linux.intel.com>, Jie Yang <yang.jie@linux.intel.com>, Mark Brown <broonie@kernel.org>, Jaroslav Kysela <perex@perex.cz>, Takashi Iwai <tiwai@suse.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-pm@vger.kernel.org, linux-efi@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-acpi@vger.kernel.org, alsa-devel@alsa-project.org
 
-Hi Kees,
+Through a labyrinthian sequence of includes, usage of virt_to_phys() is
+dependent on the include of asm/io.h in x86's asm/realmode.h, which is
+included in x86's asm/acpi.h and thus by linux/acpi.h.  Explicitly
+include linux/io.h to break the dependency on realmode.h so that a
+future patch can remove the realmode.h include from acpi.h without
+breaking the build.
 
-On Fri, Oct 11, 2019 at 2:07 AM Kees Cook <keescook@chromium.org> wrote:
-> There's no reason to keep the RODATA macro: replace the callers with
-> the expected RO_DATA macro.
->
-> Signed-off-by: Kees Cook <keescook@chromium.org>
-> ---
->  arch/alpha/kernel/vmlinux.lds.S      | 2 +-
->  arch/ia64/kernel/vmlinux.lds.S       | 2 +-
->  arch/microblaze/kernel/vmlinux.lds.S | 2 +-
->  arch/mips/kernel/vmlinux.lds.S       | 2 +-
->  arch/um/include/asm/common.lds.S     | 2 +-
->  arch/xtensa/kernel/vmlinux.lds.S     | 2 +-
->  include/asm-generic/vmlinux.lds.h    | 4 +---
->  7 files changed, 7 insertions(+), 9 deletions(-)
+Acked-by: Mark Brown <broonie@kernel.org>
+Signed-off-by: Sean Christopherson <sean.j.christopherson@intel.com>
+---
+ sound/soc/intel/skylake/skl-sst-cldma.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-Somehow you missed:
-
-    arch/m68k/kernel/vmlinux-std.lds:  RODATA
-    arch/m68k/kernel/vmlinux-sun3.lds:      RODATA
-
-Leading to build failures in next-20191111:
-
-    /opt/cross/kisskb/gcc-4.6.3-nolibc/m68k-linux/bin/m68k-linux-ld:./arch/m68k/kernel/vmlinux.lds:29:
-syntax error
-    make[1]: *** [/kisskb/src/Makefile:1075: vmlinux] Error 1
-
-Reported-by: noreply@ellerman.id.au
-http://kisskb.ellerman.id.au/kisskb/buildresult/14022846/
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+diff --git a/sound/soc/intel/skylake/skl-sst-cldma.c b/sound/soc/intel/skylake/skl-sst-cldma.c
+index 5a2c35f58fda..36f697c61074 100644
+--- a/sound/soc/intel/skylake/skl-sst-cldma.c
++++ b/sound/soc/intel/skylake/skl-sst-cldma.c
+@@ -8,6 +8,7 @@
+  */
+ 
+ #include <linux/device.h>
++#include <linux/io.h>
+ #include <linux/mm.h>
+ #include <linux/delay.h>
+ #include "../common/sst-dsp.h"
+-- 
+2.24.0
