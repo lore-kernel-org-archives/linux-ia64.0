@@ -1,75 +1,38 @@
-From: "tip-bot2 for Kees Cook" <tip-bot2@linutronix.de>
-Date: Tue, 05 Nov 2019 09:27:34 +0000
-Subject: [tip: x86/build] s390: Move RO_DATA into "text" PT_LOAD Program Header
-Message-Id: <157294605469.29376.1927649765059969154.tip-bot2@tip-bot2>
+From: Sean Christopherson <sean.j.christopherson@intel.com>
+Date: Tue, 26 Nov 2019 16:54:10 +0000
+Subject: [PATCH v2 05/12] perf/x86/intel: Explicitly include asm/io.h to use virt_to_phys()
+Message-Id: <20191126165417.22423-6-sean.j.christopherson@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191029211351.13243-7-keescook@chromium.org>
-In-Reply-To: <20191029211351.13243-7-keescook@chromium.org>
+References: <20191126165417.22423-1-sean.j.christopherson@intel.com>
+In-Reply-To: <20191126165417.22423-1-sean.j.christopherson@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-tip-commits@vger.kernel.org
-Cc: Kees Cook <keescook@chromium.org>, Borislav Petkov <bp@suse.de>, Heiko Carstens <heiko.carstens@de.ibm.com>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Dave Hansen <dave.hansen@linux.intel.com>, linux-alpha@vger.kernel.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, Michael Ellerman <mpe@ellerman.id.au>, Michal Simek <monstr@monstr.eu>, Rick Edgecombe <rick.p.edgecombe@intel.com>, Segher Boessenkool <segher@kernel.crashing.org>, Will Deacon <will@kernel.org>, x86-ml <x86@kernel.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Ingo Molnar <mingo@kernel.org>, Borislav Petkov <bp@alien8.de>, linux-kernel@vger.kernel.org
+To: Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, x86@kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <len.brown@intel.com>, Pavel Machek <pavel@ucw.cz>
+Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Peter Zijlstra <peterz@infradead.org>, Arnaldo Carvalho de Melo <acme@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, "H. Peter Anvin" <hpa@zytor.com>, Steven Rostedt <rostedt@goodmis.org>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Darren Hart <dvhart@infradead.org>, Andy Shevchenko <andy@infradead.org>, Nadav Amit <nadav.amit@gmail.com>, "VMware, Inc." <pv-drivers@vmware.com>, Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Hans de Goede <hdegoede@redhat.com>, Cezary Rojewski <cezary.rojewski@intel.com>, Pierre-Louis Bossart <pierre-louis.bossart@linux.intel.com>, Liam Girdwood <liam.r.girdwood@linux.intel.com>, Jie Yang <yang.jie@linux.intel.com>, Mark Brown <broonie@kernel.org>, Jaroslav Kysela <perex@perex.cz>, Takashi Iwai <tiwai@suse.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-pm@vger.kernel.org, linux-efi@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-acpi@vger.kernel.org, alsa-devel@alsa-project.org
 
-The following commit has been merged into the x86/build branch of tip:
+Through a labyrinthian sequence of includes, usage of virt_to_phys() is
+dependent on the include of asm/io.h in asm/realmode.h via asm/acpi.h.
+Explicitly include asm/io.h to break the dependency on realmode.h so
+that a future patch can remove the realmode.h include from acpi.h
+without breaking the build.
 
-Commit-ID:     6434efbd9aefa3786b446c8e4745d1f49d2983b4
-Gitweb:        https://git.kernel.org/tip/6434efbd9aefa3786b446c8e4745d1f49d2983b4
-Author:        Kees Cook <keescook@chromium.org>
-AuthorDate:    Tue, 29 Oct 2019 14:13:28 -07:00
-Committer:     Borislav Petkov <bp@suse.de>
-CommitterDate: Mon, 04 Nov 2019 15:34:32 +01:00
-
-s390: Move RO_DATA into "text" PT_LOAD Program Header
-
-In preparation for moving NOTES into RO_DATA, move RO_DATA back into the
-"text" PT_LOAD Program Header, as done with other architectures. The
-"data" PT_LOAD now starts with the writable data section.
-
-Signed-off-by: Kees Cook <keescook@chromium.org>
-Signed-off-by: Borislav Petkov <bp@suse.de>
-Acked-by: Heiko Carstens <heiko.carstens@de.ibm.com>
-Cc: Andy Lutomirski <luto@kernel.org>
-Cc: Arnd Bergmann <arnd@arndb.de>
-Cc: Dave Hansen <dave.hansen@linux.intel.com>
-Cc: linux-alpha@vger.kernel.org
-Cc: linux-arch@vger.kernel.org
-Cc: linux-arm-kernel@lists.infradead.org
-Cc: linux-c6x-dev@linux-c6x.org
-Cc: linux-ia64@vger.kernel.org
-Cc: linux-s390@vger.kernel.org
-Cc: linuxppc-dev@lists.ozlabs.org
-Cc: Michael Ellerman <mpe@ellerman.id.au>
-Cc: Michal Simek <monstr@monstr.eu>
-Cc: Rick Edgecombe <rick.p.edgecombe@intel.com>
-Cc: Segher Boessenkool <segher@kernel.crashing.org>
-Cc: Will Deacon <will@kernel.org>
-Cc: x86-ml <x86@kernel.org>
-Cc: Yoshinori Sato <ysato@users.sourceforge.jp>
-Link: https://lkml.kernel.org/r/20191029211351.13243-7-keescook@chromium.org
+Signed-off-by: Sean Christopherson <sean.j.christopherson@intel.com>
 ---
- arch/s390/kernel/vmlinux.lds.S | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ arch/x86/events/intel/ds.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/arch/s390/kernel/vmlinux.lds.S b/arch/s390/kernel/vmlinux.lds.S
-index 7e0eb40..13294fe 100644
---- a/arch/s390/kernel/vmlinux.lds.S
-+++ b/arch/s390/kernel/vmlinux.lds.S
-@@ -52,7 +52,7 @@ SECTIONS
+diff --git a/arch/x86/events/intel/ds.c b/arch/x86/events/intel/ds.c
+index ce83950036c5..4b94ae4ae369 100644
+--- a/arch/x86/events/intel/ds.c
++++ b/arch/x86/events/intel/ds.c
+@@ -7,6 +7,7 @@
+ #include <asm/perf_event.h>
+ #include <asm/tlbflush.h>
+ #include <asm/insn.h>
++#include <asm/io.h>
  
- 	NOTES :text :note
+ #include "../perf_event.h"
  
--	.dummy : { *(.dummy) } :data
-+	.dummy : { *(.dummy) } :text
- 
- 	RO_DATA_SECTION(PAGE_SIZE)
- 
-@@ -64,7 +64,7 @@ SECTIONS
- 	.data..ro_after_init : {
- 		 *(.data..ro_after_init)
- 		JUMP_TABLE_DATA
--	}
-+	} :data
- 	EXCEPTION_TABLE(16)
- 	. = ALIGN(PAGE_SIZE);
- 	__end_ro_after_init = .;
+-- 
+2.24.0
