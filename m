@@ -1,25 +1,93 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Thu, 21 Nov 2019 09:05:10 +0000
-Subject: Re: [PATCH v2 0/5] agp: minor fixes
-Message-Id: <CAK8P3a2a6PWRUsxNWfXWaeiU-JMA=wCZ9tZLkj8EpTijQ4eR0w@mail.gmail.com>
+From: Sean Christopherson <sean.j.christopherson@intel.com>
+Date: Tue, 26 Nov 2019 16:54:16 +0000
+Subject: [PATCH v2 11/12] ACPI/sleep: Convert acpi_wakeup_address into a function
+Message-Id: <20191126165417.22423-12-sean.j.christopherson@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1574324085-4338-1-git-send-email-clabbe@baylibre.com>
-In-Reply-To: <1574324085-4338-1-git-send-email-clabbe@baylibre.com>
+References: <20191126165417.22423-1-sean.j.christopherson@intel.com>
+In-Reply-To: <20191126165417.22423-1-sean.j.christopherson@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Corentin Labbe <clabbe@baylibre.com>
-Cc: Dave Airlie <airlied@redhat.com>, David Airlie <airlied@linux.ie>, Fenghua Yu <fenghua.yu@intel.com>, gregkh <gregkh@linuxfoundation.org>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, x86@kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <len.brown@intel.com>, Pavel Machek <pavel@ucw.cz>
+Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Peter Zijlstra <peterz@infradead.org>, Arnaldo Carvalho de Melo <acme@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, "H. Peter Anvin" <hpa@zytor.com>, Steven Rostedt <rostedt@goodmis.org>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Darren Hart <dvhart@infradead.org>, Andy Shevchenko <andy@infradead.org>, Nadav Amit <nadav.amit@gmail.com>, "VMware, Inc." <pv-drivers@vmware.com>, Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Hans de Goede <hdegoede@redhat.com>, Cezary Rojewski <cezary.rojewski@intel.com>, Pierre-Louis Bossart <pierre-louis.bossart@linux.intel.com>, Liam Girdwood <liam.r.girdwood@linux.intel.com>, Jie Yang <yang.jie@linux.intel.com>, Mark Brown <broonie@kernel.org>, Jaroslav Kysela <perex@perex.cz>, Takashi Iwai <tiwai@suse.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-pm@vger.kernel.org, linux-efi@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-acpi@vger.kernel.org, alsa-devel@alsa-project.org
 
-On Thu, Nov 21, 2019 at 9:15 AM Corentin Labbe <clabbe@baylibre.com> wrote:
->
-> Hello
->
-> This patch serie fixes some minor problem found in the agp subsystem
-> There are no change since v1 (posted two years ago)
-> This is simply a repost for trying to get an answer (gentle ping 6 month
-> ago got no answer also).
+Convert acpi_wakeup_address from a raw variable into a function so that
+x86 can wrap its dereference of the real mode boot header in a function
+instead of broadcasting it to the world via a #define.  This sets the
+stage for a future patch to move x86's definition of the new function,
+acpi_get_wakeup_address(), out of asm/acpi.h and thus break acpi.h's
+dependency on asm/realmode.h.
 
-Looks all good to me,
+No functional change intended.
 
-Acked-by: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: Sean Christopherson <sean.j.christopherson@intel.com>
+---
+ arch/ia64/include/asm/acpi.h | 5 ++++-
+ arch/ia64/kernel/acpi.c      | 2 --
+ arch/x86/include/asm/acpi.h  | 5 ++++-
+ drivers/acpi/sleep.c         | 3 +++
+ 4 files changed, 11 insertions(+), 4 deletions(-)
+
+diff --git a/arch/ia64/include/asm/acpi.h b/arch/ia64/include/asm/acpi.h
+index f886d4dc9d55..b66ba907019c 100644
+--- a/arch/ia64/include/asm/acpi.h
++++ b/arch/ia64/include/asm/acpi.h
+@@ -38,7 +38,10 @@ int acpi_gsi_to_irq (u32 gsi, unsigned int *irq);
+ /* Low-level suspend routine. */
+ extern int acpi_suspend_lowlevel(void);
+ 
+-extern unsigned long acpi_wakeup_address;
++static inline unsigned long acpi_get_wakeup_address(void)
++{
++	return 0;
++}
+ 
+ /*
+  * Record the cpei override flag and current logical cpu. This is
+diff --git a/arch/ia64/kernel/acpi.c b/arch/ia64/kernel/acpi.c
+index 70d1587ddcd4..a5636524af76 100644
+--- a/arch/ia64/kernel/acpi.c
++++ b/arch/ia64/kernel/acpi.c
+@@ -42,8 +42,6 @@ int acpi_lapic;
+ unsigned int acpi_cpei_override;
+ unsigned int acpi_cpei_phys_cpuid;
+ 
+-unsigned long acpi_wakeup_address = 0;
+-
+ #define ACPI_MAX_PLATFORM_INTERRUPTS	256
+ 
+ /* Array to record platform interrupt vectors for generic interrupt routing. */
+diff --git a/arch/x86/include/asm/acpi.h b/arch/x86/include/asm/acpi.h
+index bc9693c9107e..23ffafd927a1 100644
+--- a/arch/x86/include/asm/acpi.h
++++ b/arch/x86/include/asm/acpi.h
+@@ -62,7 +62,10 @@ static inline void acpi_disable_pci(void)
+ extern int (*acpi_suspend_lowlevel)(void);
+ 
+ /* Physical address to resume after wakeup */
+-#define acpi_wakeup_address ((unsigned long)(real_mode_header->wakeup_start))
++static inline unsigned long acpi_get_wakeup_address(void)
++{
++	return ((unsigned long)(real_mode_header->wakeup_start));
++}
+ 
+ /*
+  * Check if the CPU can handle C2 and deeper
+diff --git a/drivers/acpi/sleep.c b/drivers/acpi/sleep.c
+index 9fa77d72ef27..2e87ccf17ff6 100644
+--- a/drivers/acpi/sleep.c
++++ b/drivers/acpi/sleep.c
+@@ -61,8 +61,11 @@ static struct notifier_block tts_notifier = {
+ static int acpi_sleep_prepare(u32 acpi_state)
+ {
+ #ifdef CONFIG_ACPI_SLEEP
++	unsigned long acpi_wakeup_address;
++
+ 	/* do we have a wakeup address for S2 and S3? */
+ 	if (acpi_state = ACPI_STATE_S3) {
++		acpi_wakeup_address = acpi_get_wakeup_address();
+ 		if (!acpi_wakeup_address)
+ 			return -EFAULT;
+ 		acpi_set_waking_vector(acpi_wakeup_address);
+-- 
+2.24.0
