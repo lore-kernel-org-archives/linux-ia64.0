@@ -1,98 +1,39 @@
-From: Aleksa Sarai <cyphar@cyphar.com>
-Date: Sat, 16 Nov 2019 00:27:55 +0000
-Subject: [PATCH v16 05/12] namei: LOOKUP_NO_MAGICLINKS: block magic-link resolution
-Message-Id: <20191116002802.6663-6-cyphar@cyphar.com>
+From: Sean Christopherson <sean.j.christopherson@intel.com>
+Date: Tue, 26 Nov 2019 16:54:11 +0000
+Subject: [PATCH v2 06/12] efi/capsule-loader: Explicitly include linux/io.h for page_to_phys()
+Message-Id: <20191126165417.22423-7-sean.j.christopherson@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191116002802.6663-1-cyphar@cyphar.com>
-In-Reply-To: <20191116002802.6663-1-cyphar@cyphar.com>
+References: <20191126165417.22423-1-sean.j.christopherson@intel.com>
+In-Reply-To: <20191126165417.22423-1-sean.j.christopherson@intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Alexei Starovoitov <ast@kernel.org>, Daniel Borkmann <daniel@iogearbox.net>, Martin KaFai Lau <kafai@fb.com>, Song Liu <songliubraving@fb.com>, Yonghong Song <yhs@fb.com>, Andrii Nakryiko <andriin@fb.com>
-Cc: Aleksa Sarai <cyphar@cyphar.com>, Christian Brauner <christian.brauner@ubuntu.com>, David Drysdale <drysdale@google.com>, Andy Lutomirski <luto@kernel.org>, Linus Torvalds <torvalds@linux-foundation.org>, Eric Biederman <ebiederm@xmission.com>, Andrew Morton <akpm@linux-foundation.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, Christian Brauner <christian@brauner.io>, Aleksa Sarai <asarai@suse.de>, dev@opencontainers.org, containers@lists.linux-foundation.org, bpf@vger.kernel.org, netdev@vger.kernel.org, linux-alpha@vger.kernel.org, linux-api@vger.kernel.org, libc-alpha@sourceware.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-kselftest@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, sparclinux@vger.kernel.org
+To: Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, x86@kernel.org, "Rafael J. Wysocki" <rjw@rjwysocki.net>, Len Brown <len.brown@intel.com>, Pavel Machek <pavel@ucw.cz>
+Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Peter Zijlstra <peterz@infradead.org>, Arnaldo Carvalho de Melo <acme@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, "H. Peter Anvin" <hpa@zytor.com>, Steven Rostedt <rostedt@goodmis.org>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, Darren Hart <dvhart@infradead.org>, Andy Shevchenko <andy@infradead.org>, Nadav Amit <nadav.amit@gmail.com>, "VMware, Inc." <pv-drivers@vmware.com>, Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Hans de Goede <hdegoede@redhat.com>, Cezary Rojewski <cezary.rojewski@intel.com>, Pierre-Louis Bossart <pierre-louis.bossart@linux.intel.com>, Liam Girdwood <liam.r.girdwood@linux.intel.com>, Jie Yang <yang.jie@linux.intel.com>, Mark Brown <broonie@kernel.org>, Jaroslav Kysela <perex@perex.cz>, Takashi Iwai <tiwai@suse.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-pm@vger.kernel.org, linux-efi@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-acpi@vger.kernel.org, alsa-devel@alsa-project.org
 
-/* Background. */
-There has always been a special class of symlink-like objects in procfs
-(and a few other pseudo-filesystems) which allow for non-lexical
-resolution of paths using nd_jump_link(). These "magic-links" do not
-follow traditional mount namespace boundaries, and have been used
-consistently in container escape attacks because they can be used to
-trick unsuspecting privileged processes into resolving unexpected paths.
+Through a labyrinthian sequence of includes, usage of page_to_phys() is
+dependent on the include of asm/io.h in x86's asm/realmode.h, which is
+included in x86's asm/acpi.h and thus by linux/acpi.h.  Explicitly
+include linux/io.h to break the dependency on realmode.h so that a
+future patch can remove the realmode.h include from acpi.h without
+breaking the build.
 
-It is also non-trivial for userspace to unambiguously avoid resolving
-magic-links, because they do not have a reliable indication that they
-are a magic-link (in order to verify them you'd have to manually open
-the path given by readlink(2) and then verify that the two file
-descriptors reference the same underlying file, which is plagued with
-possible race conditions or supplementary attack scenarios).
-
-It would therefore be very helpful for userspace to be able to avoid
-these symlinks easily, thus hopefully removing a tool from attackers'
-toolboxes.
-
-This is part of a refresh of Al's AT_NO_JUMPS patchset[1] (which was a
-variation on David Drysdale's O_BENEATH patchset[2], which in turn was
-based on the Capsicum project[3]).
-
-/* Userspace API. */
-LOOKUP_NO_MAGICLINKS will be exposed to userspace through openat2(2).
-
-/* Semantics. */
-Unlike most other LOOKUP flags (most notably LOOKUP_FOLLOW),
-LOOKUP_NO_MAGICLINKS applies to all components of the path.
-
-With LOOKUP_NO_MAGICLINKS, any magic-link path component encountered
-during path resolution will yield -ELOOP. The handling of ~LOOKUP_FOLLOW
-for a trailing magic-link is identical to LOOKUP_NO_SYMLINKS.
-
-LOOKUP_NO_SYMLINKS implies LOOKUP_NO_MAGICLINKS.
-
-/* Testing. */
-LOOKUP_NO_MAGICLINKS is tested as part of the openat2(2) selftests.
-
-[1]: https://lore.kernel.org/lkml/20170429220414.GT29622@ZenIV.linux.org.uk/
-[2]: https://lore.kernel.org/lkml/1415094884-18349-1-git-send-email-drysdale@google.com/
-[3]: https://lore.kernel.org/lkml/1404124096-21445-1-git-send-email-drysdale@google.com/
-
-Cc: Christian Brauner <christian.brauner@ubuntu.com>
-Suggested-by: David Drysdale <drysdale@google.com>
-Suggested-by: Al Viro <viro@zeniv.linux.org.uk>
-Suggested-by: Andy Lutomirski <luto@kernel.org>
-Suggested-by: Linus Torvalds <torvalds@linux-foundation.org>
-Signed-off-by: Aleksa Sarai <cyphar@cyphar.com>
+Signed-off-by: Sean Christopherson <sean.j.christopherson@intel.com>
 ---
- fs/namei.c            | 5 ++++-
- include/linux/namei.h | 1 +
- 2 files changed, 5 insertions(+), 1 deletion(-)
+ drivers/firmware/efi/capsule-loader.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/fs/namei.c b/fs/namei.c
-index 14d6d3afb9d3..a97facc232af 100644
---- a/fs/namei.c
-+++ b/fs/namei.c
-@@ -868,8 +868,11 @@ static int nd_jump_root(struct nameidata *nd)
- int nd_jump_link(struct path *path)
- {
- 	struct nameidata *nd = current->nameidata;
--	path_put(&nd->path);
- 
-+	if (unlikely(nd->flags & LOOKUP_NO_MAGICLINKS))
-+		return -ELOOP;
-+
-+	path_put(&nd->path);
- 	nd->path = *path;
- 	nd->inode = nd->path.dentry->d_inode;
- 	nd->flags |= LOOKUP_JUMPED;
-diff --git a/include/linux/namei.h b/include/linux/namei.h
-index 0d86e75c04a7..1573b8493d98 100644
---- a/include/linux/namei.h
-+++ b/include/linux/namei.h
-@@ -41,6 +41,7 @@ enum {LAST_NORM, LAST_ROOT, LAST_DOT, LAST_DOTDOT, LAST_BIND};
- 
- /* Scoping flags for lookup. */
- #define LOOKUP_NO_SYMLINKS	0x010000 /* No symlink crossing. */
-+#define LOOKUP_NO_MAGICLINKS	0x020000 /* No nd_jump_link() crossing. */
- 
- extern int path_pts(struct path *path);
- 
+diff --git a/drivers/firmware/efi/capsule-loader.c b/drivers/firmware/efi/capsule-loader.c
+index b1395133389e..d3067cbd5114 100644
+--- a/drivers/firmware/efi/capsule-loader.c
++++ b/drivers/firmware/efi/capsule-loader.c
+@@ -11,6 +11,7 @@
+ #include <linux/module.h>
+ #include <linux/miscdevice.h>
+ #include <linux/highmem.h>
++#include <linux/io.h>
+ #include <linux/slab.h>
+ #include <linux/mutex.h>
+ #include <linux/efi.h>
 -- 
 2.24.0
