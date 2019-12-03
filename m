@@ -1,86 +1,57 @@
-From: Aleksa Sarai <cyphar@cyphar.com>
-Date: Fri, 06 Dec 2019 14:13:30 +0000
-Subject: [PATCH v18 05/13] namei: LOOKUP_NO_SYMLINKS: block symlink resolution
-Message-Id: <20191206141338.23338-6-cyphar@cyphar.com>
+From: David Hildenbrand <david@redhat.com>
+Date: Tue, 03 Dec 2019 15:27:12 +0000
+Subject: Re: [PATCH v6 05/10] mm/memory_hotplug: Shrink zones when offlining memory
+Message-Id: <9789e892-dd15-c37d-7c0a-0ccb4db1a987@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191206141338.23338-1-cyphar@cyphar.com>
-In-Reply-To: <20191206141338.23338-1-cyphar@cyphar.com>
+References: <20191006085646.5768-1-david@redhat.com>
+ <20191006085646.5768-6-david@redhat.com> <20191203151030.GB2600@linux>
+In-Reply-To: <20191203151030.GB2600@linux>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Alexei Starovoitov <ast@kernel.org>, Daniel Borkmann <daniel@iogearbox.net>, Martin KaFai Lau <kafai@fb.com>, Song Liu <songliubraving@fb.com>, Yonghong Song <yhs@fb.com>, Andrii Nakryiko <andriin@fb.com>, Jonathan Corbet <corbet@lwn.net>
-Cc: Aleksa Sarai <cyphar@cyphar.com>, Christian Brauner <christian.brauner@ubuntu.com>, Linus Torvalds <torvalds@linux-foundation.org>, Eric Biederman <ebiederm@xmission.com>, Andy Lutomirski <luto@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, David Drysdale <drysdale@google.com>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, Christian Brauner <christian@brauner.io>, Aleksa Sarai <asarai@suse.de>, dev@opencontainers.org, containers@lists.linux-foundation.org, bpf@vger.kernel.org, netdev@vger.kernel.org, linux-alpha@vger.kernel.org, linux-api@vger.kernel.org, libc-alpha@sourceware.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-doc@vger.kernel.org, linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-kselftest@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, sparclinux@vger.kernel.org
+To: Oscar Salvador <osalvador@suse.de>
+Cc: linux-s390@vger.kernel.org, Michal Hocko <mhocko@suse.com>, linux-ia64@vger.kernel.org, Pavel Tatashin <pasha.tatashin@soleen.com>, linux-sh@vger.kernel.org, "Aneesh Kumar K.V" <aneesh.kumar@linux.ibm.com>, x86@kernel.org, linux-kernel@vger.kernel.org, "Matthew Wilcox (Oracle)" <willy@infradead.org>, linux-mm@kvack.org, Logan Gunthorpe <logang@deltatee.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, Dan Williams <dan.j.williams@intel.com>, linux-arm-kernel@lists.infradead.org
 
-/* Background. */
-Userspace cannot easily resolve a path without resolving symlinks, and
-would have to manually resolve each path component with O_PATH and
-O_NOFOLLOW. This is clearly inefficient, and can be fairly easy to screw
-up (resulting in possible security bugs). Linus has mentioned that Git
-has a particular need for this kind of flag[1]. It also resolves a
-fairly long-standing perceived deficiency in O_NOFOLLOw -- that it only
-blocks the opening of trailing symlinks.
+On 03.12.19 16:10, Oscar Salvador wrote:
+> On Sun, Oct 06, 2019 at 10:56:41AM +0200, David Hildenbrand wrote:
+>> Fixes: d0dc12e86b31 ("mm/memory_hotplug: optimize memory hotplug")
+>> Signed-off-by: David Hildenbrand <david@redhat.com>
+> 
+> I did not see anything wrong with the taken approach, and makes sense to me.
+> The only thing that puzzles me is we seem to not balance spanned_pages
+> for ZONE_DEVICE anymore.
+> memremap_pages() increments them via move_pfn_range_to_zone, but we skip
+> ZONE_DEVICE in remove_pfn_range_from_zone.
 
-This is part of a refresh of Al's AT_NO_JUMPS patchset[2] (which was a
-variation on David Drysdale's O_BENEATH patchset[3], which in turn was
-based on the Capsicum project[4]).
+Yes, documented e.g., in
 
-/* Userspace API. */
-LOOKUP_NO_SYMLINKS will be exposed to userspace through openat2(2).
+commit 7ce700bf11b5e2cb84e4352bbdf2123a7a239c84
+Author: David Hildenbrand <david@redhat.com>
+Date:   Thu Nov 21 17:53:56 2019 -0800
 
-/* Semantics. */
-Unlike most other LOOKUP flags (most notably LOOKUP_FOLLOW),
-LOOKUP_NO_SYMLINKS applies to all components of the path.
+    mm/memory_hotplug: don't access uninitialized memmaps in
+shrink_zone_span()
 
-With LOOKUP_NO_SYMLINKS, any symlink path component encountered during
-path resolution will yield -ELOOP. If the trailing component is a
-symlink (and no other components were symlinks), then O_PATH|O_NOFOLLOW
-will not error out and will instead provide a handle to the trailing
-symlink -- without resolving it.
+Needs some more thought - but is definitely not urgent (well, now it's
+at least no longer completely broken).
 
-/* Testing. */
-LOOKUP_NO_SYMLINKS is tested as part of the openat2(2) selftests.
+> 
+> That is not really related to this patch, so I might be missing something,
+> but it caught my eye while reviewing this.
+> 
+> Anyway, for this one:
+> 
+> Reviewed-by: Oscar Salvador <osalvador@suse.de>
+> 
 
-[1]: https://lore.kernel.org/lkml/CA+55aFyOKM7DW7+0sdDFKdZFXgptb5r1id9=Wvhd8AgSP7qjwQ@mail.gmail.com/
-[2]: https://lore.kernel.org/lkml/20170429220414.GT29622@ZenIV.linux.org.uk/
-[3]: https://lore.kernel.org/lkml/1415094884-18349-1-git-send-email-drysdale@google.com/
-[4]: https://lore.kernel.org/lkml/1404124096-21445-1-git-send-email-drysdale@google.com/
+Thanks!
 
-Cc: Christian Brauner <christian.brauner@ubuntu.com>
-Suggested-by: Al Viro <viro@zeniv.linux.org.uk>
-Suggested-by: Linus Torvalds <torvalds@linux-foundation.org>
-Signed-off-by: Aleksa Sarai <cyphar@cyphar.com>
----
- fs/namei.c            | 3 +++
- include/linux/namei.h | 3 +++
- 2 files changed, 6 insertions(+)
+> 
+> off-topic: I __think__ we really need to trim the CC list.
 
-diff --git a/fs/namei.c b/fs/namei.c
-index 74574a69a614..303731935eb2 100644
---- a/fs/namei.c
-+++ b/fs/namei.c
-@@ -1052,6 +1052,9 @@ const char *get_link(struct nameidata *nd)
- 	int error;
- 	const char *res;
- 
-+	if (unlikely(nd->flags & LOOKUP_NO_SYMLINKS))
-+		return ERR_PTR(-ELOOP);
-+
- 	if (!(nd->flags & LOOKUP_RCU)) {
- 		touch_atime(&last->link);
- 		cond_resched();
-diff --git a/include/linux/namei.h b/include/linux/namei.h
-index 758e9b47db6f..0d86e75c04a7 100644
---- a/include/linux/namei.h
-+++ b/include/linux/namei.h
-@@ -39,6 +39,9 @@ enum {LAST_NORM, LAST_ROOT, LAST_DOT, LAST_DOTDOT, LAST_BIND};
- #define LOOKUP_ROOT		0x2000
- #define LOOKUP_ROOT_GRABBED	0x0008
- 
-+/* Scoping flags for lookup. */
-+#define LOOKUP_NO_SYMLINKS	0x010000 /* No symlink crossing. */
-+
- extern int path_pts(struct path *path);
- 
- extern int user_path_at_empty(int, const char __user *, unsigned, struct path *, int *empty);
+Yes we should :) - done.
+
 -- 
-2.24.0
+Thanks,
+
+David / dhildenb
