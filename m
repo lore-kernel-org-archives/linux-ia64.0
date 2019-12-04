@@ -1,35 +1,25 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Wed, 04 Dec 2019 18:23:27 +0000
-Subject: [GIT PULL] ia64 changes for v5.5
-Message-Id: <20191204182327.GA17103@agluck-desk2.amr.corp.intel.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Wed, 04 Dec 2019 19:28:38 +0000
+Subject: Re: [GIT PULL] ia64 changes for v5.5
+Message-Id: <CAHk-=wgxtj=azB6odLFG-oaKm6aKjM26iPhNLdkKpvUvqWiaWw@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20191204182327.GA17103@agluck-desk2.amr.corp.intel.com>
+In-Reply-To: <20191204182327.GA17103@agluck-desk2.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+On Wed, Dec 4, 2019 at 10:23 AM Luck, Tony <tony.luck@intel.com> wrote:
+>
+>   git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git tags/please-pull-misc-5.5
 
-The following changes since commit 219d54332a09e8d8741c1e1982f5eae56099de85:
+I note that you didn't get a pr-tracker-bot reply because this was
+only sent to me and the ia64 list. And apparently the ia64 list isn't
+being tracked by the pr-bot (maybe it's not in lore? Should it be?).
 
-  Linux 5.4 (2019-11-24 16:32:01 -0800)
+So here's a random manual pull request ack - and a reminder to make
+sure you cc lkml or ask for ia64 to be tracked on lore to actually get
+the reliable automated ones.
 
-are available in the Git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git tags/please-pull-misc-5.5
-
-for you to fetch changes up to 240b62d381fe5b66c496a6fd55edff3976a9be51:
-
-  ia64: remove stale paravirt leftovers (2019-12-02 14:18:12 -0800)
-
-----------------------------------------------------------------
-Cleanup some leftover para-virtualization pieces
-
-----------------------------------------------------------------
-Juergen Gross (1):
-      ia64: remove stale paravirt leftovers
-
- arch/ia64/include/asm/irqflags.h          |  4 ---
- arch/ia64/include/uapi/asm/gcc_intrin.h   | 24 +++++++--------
- arch/ia64/include/uapi/asm/intel_intrin.h | 32 +++++++++----------
- arch/ia64/include/uapi/asm/intrinsics.h   | 51 ++++---------------------------
- 4 files changed, 34 insertions(+), 77 deletions(-)
+                Linus
