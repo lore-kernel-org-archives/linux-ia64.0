@@ -1,50 +1,94 @@
-From: Michal Hocko <mhocko@kernel.org>
-Date: Wed, 11 Dec 2019 08:37:45 +0000
-Subject: Re: [PATCH 5/6] mm, memory_hotplug: Provide argument for the pgprot_t in arch_add_memory()
-Message-Id: <20191211083745.GA14655@dhcp22.suse.cz>
+From: Nick Desaulniers <ndesaulniers@google.com>
+Date: Wed, 04 Dec 2019 23:18:05 +0000
+Subject: Re: [PATCH] x86/boot: kbuild: allow readelf executable to be specified
+Message-Id: <CAKwvOdm-bhuJMRRN3tyNdb88+_TFd4m3b-7gX0-91VG4djzp+Q@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191209191346.5197-1-logang@deltatee.com>
- <20191209191346.5197-6-logang@deltatee.com>
- <ce50d9da-c60e-05a1-a86b-3bb3629de502@redhat.com>
- <f34a4c52-cc95-15ed-8a72-c05ab4fd6d33@deltatee.com>
- <CAPcyv4hpXCZxV5p7WaeGgE7ceujBBa5NOz9Z8fepDHOt6zHO2A@mail.gmail.com>
- <20191210100432.GC10404@dhcp22.suse.cz>
- <6da2b279-6a6d-d89c-a34c-962ed021d91d@redhat.com>
- <20191210103452.GF10404@dhcp22.suse.cz>
- <a9d6cfe8-39fb-accf-acdc-7cce5578bf2f@redhat.com>
- <297b7cc0-c5bc-a4c6-83eb-afc008395234@deltatee.com>
-In-Reply-To: <297b7cc0-c5bc-a4c6-83eb-afc008395234@deltatee.com>
+References: <20191204225446.202981-1-dima@golovin.in>
+In-Reply-To: <20191204225446.202981-1-dima@golovin.in>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Logan Gunthorpe <logang@deltatee.com>
-Cc: linux-s390 <linux-s390@vger.kernel.org>, Dave Hansen <dave.hansen@linux.intel.com>, linux-ia64@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, Will Deacon <will@kernel.org>, David Hildenbrand <david@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Catalin Marinas <catalin.marinas@arm.com>, Linux-sh <linux-sh@vger.kernel.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, platform-driver-x86@vger.kernel.org, Linux MM <linux-mm@kvack.org>, Ingo Molnar <mingo@redhat.com>, Thomas Gleixner <tglx@linutronix.de>, Andy Lutomirski <luto@kernel.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Borislav Petkov <bp@alien8.de>, Dan Williams <dan.j.williams@intel.com>, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, Christoph Hellwig <hch@lst.de>, Linux ARM <linux-arm-kernel@lists.infradead.org>
+To: Dmitry Golovin <dima@golovin.in>
+Cc: Masahiro Yamada <masahiroy@kernel.org>, Michal Marek <michal.lkml@markovi.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, "H. Peter Anvin" <hpa@zytor.com>, "maintainer:X86 ARCHITECTURE (32-BIT AND 64-BIT)" <x86@kernel.org>, Bruce Ashfield <bruce.ashfield@gmail.com>, Ross Philipson <ross.philipson@oracle.com>, Ross Burton <ross.burton@intel.com>, Chao Fan <fanc.fnst@cn.fujitsu.com>, Daniel Kiper <daniel.kiper@oracle.com>, Linux Kbuild mailing list <linux-kbuild@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>, clang-built-linux <clang-built-linux@googlegroups.com>, tony.luck@intel.com, fenghua.yu@intel.com, linux-ia64@vger.kernel.org
 
-On Tue 10-12-19 16:52:31, Logan Gunthorpe wrote:
-[...]
-> In my opinion, having a coder and reviewer see PAGE_KERNEL and ask if
-> that makes sense is a benefit. Having it hidden because we don't want
-> people to think about it is worse, harder to understand and results in
-> bugs that are more difficult to spot.
+On Wed, Dec 4, 2019 at 2:55 PM Dmitry Golovin <dima@golovin.in> wrote:
+>
+> Introduce a new READELF variable to top-level Makefile, so the name of
+> readelf binary can be specified.
 
-My experience would disagree here. We have several examples in the MM
-where an overly complex and versatile APIs led to suble bugs, a lot of
-copy&pasting and cargo cult programing (just look at the page allocator
-as a shiny example - e.g. gfp_flags). So I am always trying to be
-carefull here.
+Thanks for the patch!
 
-> Though, we may be overthinking this: arch_add_memory() is a low level
-> non-exported API that's currently used in exactly two places.
+This is a general cleanup that should improve cross compilation
+(readelf should be treated as ever binary in the list like
+objcopy/objdump/etc), and allow us to use binutils substitutes for
+readelf that aren't called `readelf` (ie. `llvm-readelf`).
 
-This is a fair argument. Most users are and should be using
-add_memory().
+>
+> Before this change the name of the binary was hardcoded to
+> "$(CROSS_COMPILE)readelf" which might not be present for every
+> toolchain.
+>
+> This allows to build with LLVM Object Reader by using make parameter
+> READELF=llvm-readelf.
+>
+> Link: https://github.com/ClangBuiltLinux/linux/issues/771
+> Signed-off-by: Dmitry Golovin <dima@golovin.in>
+> Cc: Nick Desaulniers <ndesaulniers@google.com>
 
-> I don't
-> think there's going to be many, if any, valid new use cases coming up
-> for it in the future. That's more what memremap_pages() is for.
+No need to explicitly CC me; I monitor our list like a hawk.
 
-OK, fair enough. If this is indeed the simplest way forward then I will
-not stand in the way.
+> ---
+>  Makefile                          | 3 ++-
+>  arch/x86/boot/compressed/Makefile | 2 +-
+>  2 files changed, 3 insertions(+), 2 deletions(-)
+>
+> diff --git a/Makefile b/Makefile
+> index 999a197d67d2..612a55d25442 100644
+> --- a/Makefile
+> +++ b/Makefile
+> @@ -414,6 +414,7 @@ STRIP               = $(CROSS_COMPILE)strip
+>  OBJCOPY                = $(CROSS_COMPILE)objcopy
+>  OBJDUMP                = $(CROSS_COMPILE)objdump
+>  OBJSIZE                = $(CROSS_COMPILE)size
+> +READELF                = $(CROSS_COMPILE)readelf
+>  PAHOLE         = pahole
+>  LEX            = flex
+>  YACC           = bison
+> @@ -472,7 +473,7 @@ GCC_PLUGINS_CFLAGS :>  CLANG_FLAGS :>
+>  export ARCH SRCARCH CONFIG_SHELL BASH HOSTCC KBUILD_HOSTCFLAGS CROSS_COMPILE AS LD CC
+> -export CPP AR NM STRIP OBJCOPY OBJDUMP OBJSIZE PAHOLE LEX YACC AWK INSTALLKERNEL
+> +export CPP AR NM STRIP OBJCOPY OBJDUMP OBJSIZE READELF PAHOLE LEX YACC AWK INSTALLKERNEL
+>  export PERL PYTHON PYTHON2 PYTHON3 CHECK CHECKFLAGS MAKE UTS_MACHINE HOSTCXX
+>  export KBUILD_HOSTCXXFLAGS KBUILD_HOSTLDFLAGS KBUILD_HOSTLDLIBS LDFLAGS_MODULE
+>
+> diff --git a/arch/x86/boot/compressed/Makefile b/arch/x86/boot/compressed/Makefile
+> index aa976adb7094..1dac210f7d44 100644
+> --- a/arch/x86/boot/compressed/Makefile
+> +++ b/arch/x86/boot/compressed/Makefile
+> @@ -103,7 +103,7 @@ vmlinux-objs-$(CONFIG_EFI_MIXED) += $(obj)/efi_thunk_$(BITS).o
+>  quiet_cmd_check_data_rel = DATAREL $@
+>  define cmd_check_data_rel
+>         for obj in $(filter %.o,$^); do \
+> -               ${CROSS_COMPILE}readelf -S $$obj | grep -qF .rel.local && { \
+> +               $(READELF) -S $$obj | grep -qF .rel.local && { \
+
+Grepping the kernel sources for `READELF`, it looks like
+arch/ia64/Makefile makes the same mistake. Would you mind fixing both
+cases in the same patch (v2)?  I'm also curious about it's use in
+arch/ia64/scripts/unwcheck.py, and scripts/faddr2line. +ia64
+maintainers and list.
+
+I think if you simply remove the assignment on line 17 of
+arch/ia64/Makefile you should be fine.
+
+>                         echo "error: $$obj has data relocations!" >&2; \
+>                         exit 1; \
+>                 } || true; \
+> --
+> 2.23.0
+>
+
+
 -- 
-Michal Hocko
-SUSE Labs
+Thanks,
+~Nick Desaulniers
