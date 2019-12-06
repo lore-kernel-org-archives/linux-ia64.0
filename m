@@ -1,7 +1,7 @@
 From: Aleksa Sarai <cyphar@cyphar.com>
-Date: Fri, 06 Dec 2019 14:13:28 +0000
-Subject: [PATCH v18 03/13] namei: allow nd_jump_link() to produce errors
-Message-Id: <20191206141338.23338-4-cyphar@cyphar.com>
+Date: Fri, 06 Dec 2019 14:13:34 +0000
+Subject: [PATCH v18 09/13] namei: LOOKUP_IN_ROOT: chroot-like scoped resolution
+Message-Id: <20191206141338.23338-10-cyphar@cyphar.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20191206141338.23338-1-cyphar@cyphar.com>
 In-Reply-To: <20191206141338.23338-1-cyphar@cyphar.com>
@@ -9,119 +9,121 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Alexei Starovoitov <ast@kernel.org>, Daniel Borkmann <daniel@iogearbox.net>, Martin KaFai Lau <kafai@fb.com>, Song Liu <songliubraving@fb.com>, Yonghong Song <yhs@fb.com>, Andrii Nakryiko <andriin@fb.com>, Jonathan Corbet <corbet@lwn.net>
-Cc: Aleksa Sarai <cyphar@cyphar.com>, Eric Biederman <ebiederm@xmission.com>, Andy Lutomirski <luto@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, David Drysdale <drysdale@google.com>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, Christian Brauner <christian@brauner.io>, Aleksa Sarai <asarai@suse.de>, Linus Torvalds <torvalds@linux-foundation.org>, dev@opencontainers.org, containers@lists.linux-foundation.org, bpf@vger.kernel.org, netdev@vger.kernel.org, linux-alpha@vger.kernel.org, linux-api@vger.kernel.org, libc-alpha@sourceware.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-doc@vger.kernel.org, linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-kselftest@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, sparclinux@vger.kernel.org
+Cc: Aleksa Sarai <cyphar@cyphar.com>, Christian Brauner <christian.brauner@ubuntu.com>, Eric Biederman <ebiederm@xmission.com>, Andy Lutomirski <luto@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, David Drysdale <drysdale@google.com>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, Christian Brauner <christian@brauner.io>, Aleksa Sarai <asarai@suse.de>, Linus Torvalds <torvalds@linux-foundation.org>, dev@opencontainers.org, containers@lists.linux-foundation.org, bpf@vger.kernel.org, netdev@vger.kernel.org, linux-alpha@vger.kernel.org, linux-api@vger.kernel.org, libc-alpha@sourceware.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-doc@vger.kernel.org, linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-kselftest@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, sparclinux@vger.kernel.org
 
-In preparation for LOOKUP_NO_MAGICLINKS, it's necessary to add the
-ability for nd_jump_link() to return an error which the corresponding
-get_link() caller must propogate back up to the VFS.
+/* Background. */
+Container runtimes or other administrative management processes will
+often interact with root filesystems while in the host mount namespace,
+because the cost of doing a chroot(2) on every operation is too
+prohibitive (especially in Go, which cannot safely use vfork). However,
+a malicious program can trick the management process into doing
+operations on files outside of the root filesystem through careful
+crafting of symlinks.
 
-Suggested-by: Al Viro <viro@zeniv.linux.org.uk>
+Most programs that need this feature have attempted to make this process
+safe, by doing all of the path resolution in userspace (with symlinks
+being scoped to the root of the malicious root filesystem).
+Unfortunately, this method is prone to foot-guns and usually such
+implementations have subtle security bugs.
+
+Thus, what userspace needs is a way to resolve a path as though it were
+in a chroot(2) -- with all absolute symlinks being resolved relative to
+the dirfd root (and ".." components being stuck under the dirfd root).
+It is much simpler and more straight-forward to provide this
+functionality in-kernel (because it can be done far more cheaply and
+correctly).
+
+More classical applications that also have this problem (which have
+their own potentially buggy userspace path sanitisation code) include
+web servers, archive extraction tools, network file servers, and so on.
+
+/* Userspace API. */
+LOOKUP_IN_ROOT will be exposed to userspace through openat2(2).
+
+/* Semantics. */
+Unlike most other LOOKUP flags (most notably LOOKUP_FOLLOW),
+LOOKUP_IN_ROOT applies to all components of the path.
+
+With LOOKUP_IN_ROOT, any path component which attempts to cross the
+starting point of the pathname lookup (the dirfd passed to openat) will
+remain at the starting point. Thus, all absolute paths and symlinks will
+be scoped within the starting point.
+
+There is a slight change in behaviour regarding pathnames -- if the
+pathname is absolute then the dirfd is still used as the root of
+resolution of LOOKUP_IN_ROOT is specified (this is to avoid obvious
+foot-guns, at the cost of a minor API inconsistency).
+
+As with LOOKUP_BENEATH, Jann's security concern about ".."[1] applies to
+LOOKUP_IN_ROOT -- therefore ".." resolution is blocked. This restriction
+will be lifted in a future patch, but requires more work to ensure that
+permitting ".." is done safely.
+
+Magic-link jumps are also blocked, because they can beam the path lookup
+across the starting point. It would be possible to detect and block
+only the "bad" crossings with path_is_under() checks, but it's unclear
+whether it makes sense to permit magic-links at all. However, userspace
+is recommended to pass LOOKUP_NO_MAGICLINKS if they want to ensure that
+magic-link crossing is entirely disabled.
+
+/* Testing. */
+LOOKUP_IN_ROOT is tested as part of the openat2(2) selftests.
+
+[1]: https://lore.kernel.org/lkml/CAG48ez1jzNvxB+bfOBnERFGp=oMM0vHWuLD6EULmne3R6xa53w@mail.gmail.com/
+
+Cc: Christian Brauner <christian.brauner@ubuntu.com>
 Signed-off-by: Aleksa Sarai <cyphar@cyphar.com>
 ---
- fs/namei.c                     |  3 ++-
- fs/proc/base.c                 |  3 +--
- fs/proc/namespaces.c           | 14 +++++++++-----
- include/linux/namei.h          |  2 +-
- security/apparmor/apparmorfs.c |  6 ++++--
- 5 files changed, 17 insertions(+), 11 deletions(-)
+ fs/namei.c            | 10 +++++++---
+ include/linux/namei.h |  3 ++-
+ 2 files changed, 9 insertions(+), 4 deletions(-)
 
 diff --git a/fs/namei.c b/fs/namei.c
-index 5a47d9c09581..1024a641f075 100644
+index f0c15d2ace54..69cd0b296e8e 100644
 --- a/fs/namei.c
 +++ b/fs/namei.c
-@@ -859,7 +859,7 @@ static int nd_jump_root(struct nameidata *nd)
-  * Helper to directly jump to a known parsed path from ->get_link,
-  * caller must have taken a reference to path beforehand.
-  */
--void nd_jump_link(struct path *path)
-+int nd_jump_link(struct path *path)
- {
- 	struct nameidata *nd = current->nameidata;
- 	path_put(&nd->path);
-@@ -867,6 +867,7 @@ void nd_jump_link(struct path *path)
- 	nd->path = *path;
- 	nd->inode = nd->path.dentry->d_inode;
- 	nd->flags |= LOOKUP_JUMPED;
-+	return 0;
- }
+@@ -2299,13 +2299,16 @@ static const char *path_init(struct nameidata *nd, unsigned flags)
  
- static inline void put_link(struct nameidata *nd)
-diff --git a/fs/proc/base.c b/fs/proc/base.c
-index ebea9501afb8..ee97dd322f3e 100644
---- a/fs/proc/base.c
-+++ b/fs/proc/base.c
-@@ -1626,8 +1626,7 @@ static const char *proc_pid_get_link(struct dentry *dentry,
- 	if (error)
- 		goto out;
+ 	nd->m_seq = read_seqbegin(&mount_lock);
  
--	nd_jump_link(&path);
--	return NULL;
-+	error = nd_jump_link(&path);
- out:
- 	return ERR_PTR(error);
- }
-diff --git a/fs/proc/namespaces.c b/fs/proc/namespaces.c
-index 08dd94df1a66..a8cca516f1a9 100644
---- a/fs/proc/namespaces.c
-+++ b/fs/proc/namespaces.c
-@@ -51,11 +51,15 @@ static const char *proc_ns_get_link(struct dentry *dentry,
- 	if (!task)
- 		return ERR_PTR(-EACCES);
- 
--	if (ptrace_may_access(task, PTRACE_MODE_READ_FSCREDS)) {
--		error = ns_get_path(&ns_path, task, ns_ops);
--		if (!error)
--			nd_jump_link(&ns_path);
--	}
-+	if (!ptrace_may_access(task, PTRACE_MODE_READ_FSCREDS))
-+		goto out;
+-	/* Figure out the starting path and root (if needed). */
+-	if (*s = '/') {
++	/* Absolute pathname -- fetch the root (LOOKUP_IN_ROOT uses nd->dfd). */
++	if (*s = '/' && !(flags & LOOKUP_IN_ROOT)) {
+ 		error = nd_jump_root(nd);
+ 		if (unlikely(error))
+ 			return ERR_PTR(error);
+ 		return s;
+-	} else if (nd->dfd = AT_FDCWD) {
++	}
 +
-+	error = ns_get_path(&ns_path, task, ns_ops);
-+	if (error)
-+		goto out;
++	/* Relative pathname -- get the starting-point it is relative to. */
++	if (nd->dfd = AT_FDCWD) {
+ 		if (flags & LOOKUP_RCU) {
+ 			struct fs_struct *fs = current->fs;
+ 			unsigned seq;
+@@ -2345,6 +2348,7 @@ static const char *path_init(struct nameidata *nd, unsigned flags)
+ 		}
+ 		fdput(f);
+ 	}
 +
-+	error = nd_jump_link(&ns_path);
-+out:
- 	put_task_struct(task);
- 	return ERR_PTR(error);
- }
+ 	/* For scoped-lookups we need to set the root to the dirfd as well. */
+ 	if (flags & LOOKUP_IS_SCOPED) {
+ 		nd->root = nd->path;
 diff --git a/include/linux/namei.h b/include/linux/namei.h
-index 397a08ade6a2..758e9b47db6f 100644
+index 93dad378f1e8..93151e47ec47 100644
 --- a/include/linux/namei.h
 +++ b/include/linux/namei.h
-@@ -68,7 +68,7 @@ extern int follow_up(struct path *);
- extern struct dentry *lock_rename(struct dentry *, struct dentry *);
- extern void unlock_rename(struct dentry *, struct dentry *);
+@@ -45,8 +45,9 @@ enum {LAST_NORM, LAST_ROOT, LAST_DOT, LAST_DOTDOT, LAST_BIND};
+ #define LOOKUP_NO_MAGICLINKS	0x020000 /* No nd_jump_link() crossing. */
+ #define LOOKUP_NO_XDEV		0x040000 /* No mountpoint crossing. */
+ #define LOOKUP_BENEATH		0x080000 /* No escaping from starting point. */
++#define LOOKUP_IN_ROOT		0x100000 /* Treat dirfd as fs root. */
+ /* LOOKUP_* flags which do scope-related checks based on the dirfd. */
+-#define LOOKUP_IS_SCOPED LOOKUP_BENEATH
++#define LOOKUP_IS_SCOPED (LOOKUP_BENEATH | LOOKUP_IN_ROOT)
  
--extern void nd_jump_link(struct path *path);
-+extern int __must_check nd_jump_link(struct path *path);
+ extern int path_pts(struct path *path);
  
- static inline void nd_terminate_link(void *name, size_t len, size_t maxlen)
- {
-diff --git a/security/apparmor/apparmorfs.c b/security/apparmor/apparmorfs.c
-index 45d13b6462aa..0b7d6dce6291 100644
---- a/security/apparmor/apparmorfs.c
-+++ b/security/apparmor/apparmorfs.c
-@@ -2455,16 +2455,18 @@ static const char *policy_get_link(struct dentry *dentry,
- {
- 	struct aa_ns *ns;
- 	struct path path;
-+	int error;
- 
- 	if (!dentry)
- 		return ERR_PTR(-ECHILD);
-+
- 	ns = aa_get_current_ns();
- 	path.mnt = mntget(aafs_mnt);
- 	path.dentry = dget(ns_dir(ns));
--	nd_jump_link(&path);
-+	error = nd_jump_link(&path);
- 	aa_put_ns(ns);
- 
--	return NULL;
-+	return ERR_PTR(error);
- }
- 
- static int policy_readlink(struct dentry *dentry, char __user *buffer,
 -- 
 2.24.0
