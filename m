@@ -1,155 +1,291 @@
-From: Aleksa Sarai <cyphar@cyphar.com>
-Date: Fri, 06 Dec 2019 14:13:32 +0000
-Subject: [PATCH v18 07/13] namei: LOOKUP_NO_XDEV: block mountpoint crossing
-Message-Id: <20191206141338.23338-8-cyphar@cyphar.com>
+From: Logan Gunthorpe <logang@deltatee.com>
+Date: Mon, 09 Dec 2019 19:13:41 +0000
+Subject: [PATCH 1/6] x86/mm: Thread pgprot_t through init_memory_mapping()
+Message-Id: <20191209191346.5197-2-logang@deltatee.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191206141338.23338-1-cyphar@cyphar.com>
-In-Reply-To: <20191206141338.23338-1-cyphar@cyphar.com>
+References: <20191209191346.5197-1-logang@deltatee.com>
+In-Reply-To: <20191209191346.5197-1-logang@deltatee.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Alexei Starovoitov <ast@kernel.org>, Daniel Borkmann <daniel@iogearbox.net>, Martin KaFai Lau <kafai@fb.com>, Song Liu <songliubraving@fb.com>, Yonghong Song <yhs@fb.com>, Andrii Nakryiko <andriin@fb.com>, Jonathan Corbet <corbet@lwn.net>
-Cc: Aleksa Sarai <cyphar@cyphar.com>, Christian Brauner <christian.brauner@ubuntu.com>, David Drysdale <drysdale@google.com>, Andy Lutomirski <luto@kernel.org>, Linus Torvalds <torvalds@linux-foundation.org>, Eric Biederman <ebiederm@xmission.com>, Andrew Morton <akpm@linux-foundation.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, Christian Brauner <christian@brauner.io>, Aleksa Sarai <asarai@suse.de>, dev@opencontainers.org, containers@lists.linux-foundation.org, bpf@vger.kernel.org, netdev@vger.kernel.org, linux-alpha@vger.kernel.org, linux-api@vger.kernel.org, libc-alpha@sourceware.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-doc@vger.kernel.org, linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-kselftest@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, sparclinux@vger.kernel.org
+To: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-mm@kvack.org, Christoph Hellwig <hch@lst.de>, Dan Williams <dan.j.williams@intel.com>, Andrew Morton <akpm@linux-foundation.org>
+Cc: x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Peter Zijlstra <peterz@infradead.org>, Catalin Marinas <catalin.marinas@arm.com>, Dave Hansen <dave.hansen@linux.intel.com>, Logan Gunthorpe <logang@deltatee.com>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Andy Lutomirski <luto@kernel.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Thomas Gleixner <tglx@linutronix.de>, Will Deacon <will@kernel.org>
 
-/* Background. */
-The need to contain path operations within a mountpoint has been a
-long-standing usecase that userspace has historically implemented
-manually with liberal usage of stat(). find, rsync, tar and
-many other programs implement these semantics -- but it'd be much
-simpler to have a fool-proof way of refusing to open a path if it
-crosses a mountpoint.
+In prepartion to support a pgprot_t argument for arch_add_memory().
 
-This is part of a refresh of Al's AT_NO_JUMPS patchset[1] (which was a
-variation on David Drysdale's O_BENEATH patchset[2], which in turn was
-based on the Capsicum project[3]).
+It's required to move the prototype of init_memory_mapping() seeing
+the original location came before the definition of pgprot_t.
 
-/* Userspace API. */
-LOOKUP_NO_XDEV will be exposed to userspace through openat2(2).
-
-/* Semantics. */
-Unlike most other LOOKUP flags (most notably LOOKUP_FOLLOW),
-LOOKUP_NO_XDEV applies to all components of the path.
-
-With LOOKUP_NO_XDEV, any path component which crosses a mount-point
-during path resolution (including "..") will yield an -EXDEV. Absolute
-paths, absolute symlinks, and magic-links will only yield an -EXDEV if
-the jump involved changing mount-points.
-
-/* Testing. */
-LOOKUP_NO_XDEV is tested as part of the openat2(2) selftests.
-
-[1]: https://lore.kernel.org/lkml/20170429220414.GT29622@ZenIV.linux.org.uk/
-[2]: https://lore.kernel.org/lkml/1415094884-18349-1-git-send-email-drysdale@google.com/
-[3]: https://lore.kernel.org/lkml/1404124096-21445-1-git-send-email-drysdale@google.com/
-
-Cc: Christian Brauner <christian.brauner@ubuntu.com>
-Suggested-by: David Drysdale <drysdale@google.com>
-Suggested-by: Al Viro <viro@zeniv.linux.org.uk>
-Suggested-by: Andy Lutomirski <luto@kernel.org>
-Suggested-by: Linus Torvalds <torvalds@linux-foundation.org>
-Signed-off-by: Aleksa Sarai <cyphar@cyphar.com>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Ingo Molnar <mingo@redhat.com>
+Cc: Borislav Petkov <bp@alien8.de>
+Cc: "H. Peter Anvin" <hpa@zytor.com>
+Cc: x86@kernel.org
+Cc: Dave Hansen <dave.hansen@linux.intel.com>
+Cc: Andy Lutomirski <luto@kernel.org>
+Cc: Peter Zijlstra <peterz@infradead.org>
+Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
 ---
- fs/namei.c            | 31 +++++++++++++++++++++++++++----
- include/linux/namei.h |  1 +
- 2 files changed, 28 insertions(+), 4 deletions(-)
+ arch/x86/include/asm/page_types.h |  3 ---
+ arch/x86/include/asm/pgtable.h    |  3 +++
+ arch/x86/kernel/amd_gart_64.c     |  3 ++-
+ arch/x86/mm/init.c                |  9 +++++----
+ arch/x86/mm/init_32.c             |  3 ++-
+ arch/x86/mm/init_64.c             | 32 +++++++++++++++++--------------
+ arch/x86/mm/mm_internal.h         |  3 ++-
+ arch/x86/platform/efi/efi_64.c    |  3 ++-
+ 8 files changed, 34 insertions(+), 25 deletions(-)
 
-diff --git a/fs/namei.c b/fs/namei.c
-index 415a897729c8..321c8ad5d6b3 100644
---- a/fs/namei.c
-+++ b/fs/namei.c
-@@ -838,6 +838,11 @@ static inline void path_to_nameidata(const struct path *path,
+diff --git a/arch/x86/include/asm/page_types.h b/arch/x86/include/asm/page_types.h
+index c85e15010f48..bf7aa2e290ef 100644
+--- a/arch/x86/include/asm/page_types.h
++++ b/arch/x86/include/asm/page_types.h
+@@ -73,9 +73,6 @@ static inline phys_addr_t get_max_mapped(void)
  
- static int nd_jump_root(struct nameidata *nd)
- {
-+	if (unlikely(nd->flags & LOOKUP_NO_XDEV)) {
-+		/* Absolute path arguments to path_init() are allowed. */
-+		if (nd->path.mnt != NULL && nd->path.mnt != nd->root.mnt)
-+			return -EXDEV;
-+	}
- 	if (!nd->root.mnt) {
- 		int error = set_root(nd);
- 		if (error)
-@@ -873,6 +878,12 @@ int nd_jump_link(struct path *path)
- 	if (unlikely(nd->flags & LOOKUP_NO_MAGICLINKS))
- 		goto err;
+ bool pfn_range_is_mapped(unsigned long start_pfn, unsigned long end_pfn);
  
-+	error = -EXDEV;
-+	if (unlikely(nd->flags & LOOKUP_NO_XDEV)) {
-+		if (nd->path.mnt != path->mnt)
-+			goto err;
-+	}
+-extern unsigned long init_memory_mapping(unsigned long start,
+-					 unsigned long end);
+-
+ extern void initmem_init(void);
+ 
+ #endif	/* !__ASSEMBLY__ */
+diff --git a/arch/x86/include/asm/pgtable.h b/arch/x86/include/asm/pgtable.h
+index 0bc530c4eb13..f1c3a3840edf 100644
+--- a/arch/x86/include/asm/pgtable.h
++++ b/arch/x86/include/asm/pgtable.h
+@@ -1041,6 +1041,9 @@ static inline void __meminit init_trampoline_default(void)
+ 
+ void __init poking_init(void);
+ 
++unsigned long init_memory_mapping(unsigned long start,
++				  unsigned long end, pgprot_t prot);
 +
- 	path_put(&nd->path);
- 	nd->path = *path;
- 	nd->inode = nd->path.dentry->d_inode;
-@@ -1280,12 +1291,16 @@ static int follow_managed(struct path *path, struct nameidata *nd)
- 		break;
- 	}
+ # ifdef CONFIG_RANDOMIZE_MEMORY
+ void __meminit init_trampoline(void);
+ # else
+diff --git a/arch/x86/kernel/amd_gart_64.c b/arch/x86/kernel/amd_gart_64.c
+index a6ac3712db8b..1decce1d9030 100644
+--- a/arch/x86/kernel/amd_gart_64.c
++++ b/arch/x86/kernel/amd_gart_64.c
+@@ -746,7 +746,8 @@ int __init gart_iommu_init(void)
  
--	if (need_mntput && path->mnt = mnt)
--		mntput(path->mnt);
-+	if (need_mntput) {
-+		if (path->mnt = mnt)
-+			mntput(path->mnt);
-+		if (unlikely(nd->flags & LOOKUP_NO_XDEV))
-+			ret = -EXDEV;
-+		else
-+			nd->flags |= LOOKUP_JUMPED;
-+	}
- 	if (ret = -EISDIR || !ret)
- 		ret = 1;
--	if (need_mntput)
--		nd->flags |= LOOKUP_JUMPED;
- 	if (unlikely(ret < 0))
- 		path_put_conditional(path, nd);
- 	return ret;
-@@ -1342,6 +1357,8 @@ static bool __follow_mount_rcu(struct nameidata *nd, struct path *path,
- 		mounted = __lookup_mnt(path->mnt, path->dentry);
- 		if (!mounted)
- 			break;
-+		if (unlikely(nd->flags & LOOKUP_NO_XDEV))
-+			return false;
- 		path->mnt = &mounted->mnt;
- 		path->dentry = mounted->mnt.mnt_root;
- 		nd->flags |= LOOKUP_JUMPED;
-@@ -1388,6 +1405,8 @@ static int follow_dotdot_rcu(struct nameidata *nd)
- 				return -ECHILD;
- 			if (&mparent->mnt = nd->path.mnt)
- 				break;
-+			if (unlikely(nd->flags & LOOKUP_NO_XDEV))
-+				return -ECHILD;
- 			/* we know that mountpoint was pinned */
- 			nd->path.dentry = mountpoint;
- 			nd->path.mnt = &mparent->mnt;
-@@ -1402,6 +1421,8 @@ static int follow_dotdot_rcu(struct nameidata *nd)
- 			return -ECHILD;
- 		if (!mounted)
- 			break;
-+		if (unlikely(nd->flags & LOOKUP_NO_XDEV))
-+			return -ECHILD;
- 		nd->path.mnt = &mounted->mnt;
- 		nd->path.dentry = mounted->mnt.mnt_root;
- 		inode = nd->path.dentry->d_inode;
-@@ -1500,6 +1521,8 @@ static int follow_dotdot(struct nameidata *nd)
+ 	start_pfn = PFN_DOWN(aper_base);
+ 	if (!pfn_range_is_mapped(start_pfn, end_pfn))
+-		init_memory_mapping(start_pfn<<PAGE_SHIFT, end_pfn<<PAGE_SHIFT);
++		init_memory_mapping(start_pfn<<PAGE_SHIFT, end_pfn<<PAGE_SHIFT,
++				    PAGE_KERNEL);
+ 
+ 	pr_info("PCI-DMA: using GART IOMMU.\n");
+ 	iommu_size = check_iommu_size(info.aper_base, aper_size);
+diff --git a/arch/x86/mm/init.c b/arch/x86/mm/init.c
+index fd10d91a6115..efa4517f9e3d 100644
+--- a/arch/x86/mm/init.c
++++ b/arch/x86/mm/init.c
+@@ -467,7 +467,7 @@ bool pfn_range_is_mapped(unsigned long start_pfn, unsigned long end_pfn)
+  * the physical memory. To access them they are temporarily mapped.
+  */
+ unsigned long __ref init_memory_mapping(unsigned long start,
+-					       unsigned long end)
++					unsigned long end, pgprot_t prot)
+ {
+ 	struct map_range mr[NR_RANGE_MR];
+ 	unsigned long ret = 0;
+@@ -481,7 +481,8 @@ unsigned long __ref init_memory_mapping(unsigned long start,
+ 
+ 	for (i = 0; i < nr_range; i++)
+ 		ret = kernel_physical_mapping_init(mr[i].start, mr[i].end,
+-						   mr[i].page_size_mask);
++						   mr[i].page_size_mask,
++						   prot);
+ 
+ 	add_pfn_range_mapped(start >> PAGE_SHIFT, ret >> PAGE_SHIFT);
+ 
+@@ -521,7 +522,7 @@ static unsigned long __init init_range_memory_mapping(
+ 		 */
+ 		can_use_brk_pgt = max(start, (u64)pgt_buf_end<<PAGE_SHIFT) > 				    min(end, (u64)pgt_buf_top<<PAGE_SHIFT);
+-		init_memory_mapping(start, end);
++		init_memory_mapping(start, end, PAGE_KERNEL);
+ 		mapped_ram_size += end - start;
+ 		can_use_brk_pgt = true;
+ 	}
+@@ -661,7 +662,7 @@ void __init init_mem_mapping(void)
+ #endif
+ 
+ 	/* the ISA range is always mapped regardless of memory holes */
+-	init_memory_mapping(0, ISA_END_ADDRESS);
++	init_memory_mapping(0, ISA_END_ADDRESS, PAGE_KERNEL);
+ 
+ 	/* Init the trampoline, possibly with KASLR memory offset */
+ 	init_trampoline();
+diff --git a/arch/x86/mm/init_32.c b/arch/x86/mm/init_32.c
+index 930edeb41ec3..d3cdd9137f42 100644
+--- a/arch/x86/mm/init_32.c
++++ b/arch/x86/mm/init_32.c
+@@ -252,7 +252,8 @@ static inline int is_kernel_text(unsigned long addr)
+ unsigned long __init
+ kernel_physical_mapping_init(unsigned long start,
+ 			     unsigned long end,
+-			     unsigned long page_size_mask)
++			     unsigned long page_size_mask,
++			     pgprot_t prot)
+ {
+ 	int use_pse = page_size_mask = (1<<PG_LEVEL_2M);
+ 	unsigned long last_map_addr = end;
+diff --git a/arch/x86/mm/init_64.c b/arch/x86/mm/init_64.c
+index a6b5c653727b..65a5093ec97b 100644
+--- a/arch/x86/mm/init_64.c
++++ b/arch/x86/mm/init_64.c
+@@ -585,7 +585,7 @@ phys_pmd_init(pmd_t *pmd_page, unsigned long paddr, unsigned long paddr_end,
+  */
+ static unsigned long __meminit
+ phys_pud_init(pud_t *pud_page, unsigned long paddr, unsigned long paddr_end,
+-	      unsigned long page_size_mask, bool init)
++	      unsigned long page_size_mask, pgprot_t _prot, bool init)
+ {
+ 	unsigned long pages = 0, paddr_next;
+ 	unsigned long paddr_last = paddr_end;
+@@ -595,7 +595,7 @@ phys_pud_init(pud_t *pud_page, unsigned long paddr, unsigned long paddr_end,
+ 	for (; i < PTRS_PER_PUD; i++, paddr = paddr_next) {
+ 		pud_t *pud;
+ 		pmd_t *pmd;
+-		pgprot_t prot = PAGE_KERNEL;
++		pgprot_t prot = _prot;
+ 
+ 		vaddr = (unsigned long)__va(paddr);
+ 		pud = pud_page + pud_index(vaddr);
+@@ -644,9 +644,12 @@ phys_pud_init(pud_t *pud_page, unsigned long paddr, unsigned long paddr_end,
+ 		if (page_size_mask & (1<<PG_LEVEL_1G)) {
+ 			pages++;
+ 			spin_lock(&init_mm.page_table_lock);
++
++			prot = __pgprot(pgprot_val(prot) | __PAGE_KERNEL_LARGE);
++
+ 			set_pte_init((pte_t *)pud,
+ 				     pfn_pte((paddr & PUD_MASK) >> PAGE_SHIFT,
+-					     PAGE_KERNEL_LARGE),
++					     prot),
+ 				     init);
+ 			spin_unlock(&init_mm.page_table_lock);
+ 			paddr_last = paddr_next;
+@@ -669,7 +672,7 @@ phys_pud_init(pud_t *pud_page, unsigned long paddr, unsigned long paddr_end,
+ 
+ static unsigned long __meminit
+ phys_p4d_init(p4d_t *p4d_page, unsigned long paddr, unsigned long paddr_end,
+-	      unsigned long page_size_mask, bool init)
++	      unsigned long page_size_mask, pgprot_t prot, bool init)
+ {
+ 	unsigned long vaddr, vaddr_end, vaddr_next, paddr_next, paddr_last;
+ 
+@@ -679,7 +682,7 @@ phys_p4d_init(p4d_t *p4d_page, unsigned long paddr, unsigned long paddr_end,
+ 
+ 	if (!pgtable_l5_enabled())
+ 		return phys_pud_init((pud_t *) p4d_page, paddr, paddr_end,
+-				     page_size_mask, init);
++				     page_size_mask, prot, init);
+ 
+ 	for (; vaddr < vaddr_end; vaddr = vaddr_next) {
+ 		p4d_t *p4d = p4d_page + p4d_index(vaddr);
+@@ -702,13 +705,13 @@ phys_p4d_init(p4d_t *p4d_page, unsigned long paddr, unsigned long paddr_end,
+ 		if (!p4d_none(*p4d)) {
+ 			pud = pud_offset(p4d, 0);
+ 			paddr_last = phys_pud_init(pud, paddr, __pa(vaddr_end),
+-					page_size_mask, init);
++					page_size_mask, prot, init);
+ 			continue;
  		}
- 		if (!follow_up(&nd->path))
- 			break;
-+		if (unlikely(nd->flags & LOOKUP_NO_XDEV))
-+			return -EXDEV;
- 	}
- 	follow_mount(&nd->path);
- 	nd->inode = nd->path.dentry->d_inode;
-diff --git a/include/linux/namei.h b/include/linux/namei.h
-index 1573b8493d98..25ee88c4acb1 100644
---- a/include/linux/namei.h
-+++ b/include/linux/namei.h
-@@ -42,6 +42,7 @@ enum {LAST_NORM, LAST_ROOT, LAST_DOT, LAST_DOTDOT, LAST_BIND};
- /* Scoping flags for lookup. */
- #define LOOKUP_NO_SYMLINKS	0x010000 /* No symlink crossing. */
- #define LOOKUP_NO_MAGICLINKS	0x020000 /* No nd_jump_link() crossing. */
-+#define LOOKUP_NO_XDEV		0x040000 /* No mountpoint crossing. */
  
- extern int path_pts(struct path *path);
+ 		pud = alloc_low_page();
+ 		paddr_last = phys_pud_init(pud, paddr, __pa(vaddr_end),
+-					   page_size_mask, init);
++					   page_size_mask, prot, init);
  
+ 		spin_lock(&init_mm.page_table_lock);
+ 		p4d_populate_init(&init_mm, p4d, pud, init);
+@@ -722,7 +725,7 @@ static unsigned long __meminit
+ __kernel_physical_mapping_init(unsigned long paddr_start,
+ 			       unsigned long paddr_end,
+ 			       unsigned long page_size_mask,
+-			       bool init)
++			       pgprot_t prot, bool init)
+ {
+ 	bool pgd_changed = false;
+ 	unsigned long vaddr, vaddr_start, vaddr_end, vaddr_next, paddr_last;
+@@ -743,13 +746,13 @@ __kernel_physical_mapping_init(unsigned long paddr_start,
+ 			paddr_last = phys_p4d_init(p4d, __pa(vaddr),
+ 						   __pa(vaddr_end),
+ 						   page_size_mask,
+-						   init);
++						   prot, init);
+ 			continue;
+ 		}
+ 
+ 		p4d = alloc_low_page();
+ 		paddr_last = phys_p4d_init(p4d, __pa(vaddr), __pa(vaddr_end),
+-					   page_size_mask, init);
++					   page_size_mask, prot, init);
+ 
+ 		spin_lock(&init_mm.page_table_lock);
+ 		if (pgtable_l5_enabled())
+@@ -778,10 +781,10 @@ __kernel_physical_mapping_init(unsigned long paddr_start,
+ unsigned long __meminit
+ kernel_physical_mapping_init(unsigned long paddr_start,
+ 			     unsigned long paddr_end,
+-			     unsigned long page_size_mask)
++			     unsigned long page_size_mask, pgprot_t prot)
+ {
+ 	return __kernel_physical_mapping_init(paddr_start, paddr_end,
+-					      page_size_mask, true);
++					      page_size_mask, prot, true);
+ }
+ 
+ /*
+@@ -796,7 +799,8 @@ kernel_physical_mapping_change(unsigned long paddr_start,
+ 			       unsigned long page_size_mask)
+ {
+ 	return __kernel_physical_mapping_init(paddr_start, paddr_end,
+-					      page_size_mask, false);
++					      page_size_mask, PAGE_KERNEL,
++					      false);
+ }
+ 
+ #ifndef CONFIG_NUMA
+@@ -864,7 +868,7 @@ int arch_add_memory(int nid, u64 start, u64 size,
+ 	unsigned long start_pfn = start >> PAGE_SHIFT;
+ 	unsigned long nr_pages = size >> PAGE_SHIFT;
+ 
+-	init_memory_mapping(start, start + size);
++	init_memory_mapping(start, start + size, PAGE_KERNEL);
+ 
+ 	return add_pages(nid, start_pfn, nr_pages, restrictions);
+ }
+diff --git a/arch/x86/mm/mm_internal.h b/arch/x86/mm/mm_internal.h
+index eeae142062ed..3f37b5c80bb3 100644
+--- a/arch/x86/mm/mm_internal.h
++++ b/arch/x86/mm/mm_internal.h
+@@ -12,7 +12,8 @@ void early_ioremap_page_table_range_init(void);
+ 
+ unsigned long kernel_physical_mapping_init(unsigned long start,
+ 					     unsigned long end,
+-					     unsigned long page_size_mask);
++					     unsigned long page_size_mask,
++					     pgprot_t prot);
+ unsigned long kernel_physical_mapping_change(unsigned long start,
+ 					     unsigned long end,
+ 					     unsigned long page_size_mask);
+diff --git a/arch/x86/platform/efi/efi_64.c b/arch/x86/platform/efi/efi_64.c
+index 08ce8177c3af..3d0acfdb58c3 100644
+--- a/arch/x86/platform/efi/efi_64.c
++++ b/arch/x86/platform/efi/efi_64.c
+@@ -499,7 +499,8 @@ void __iomem *__init efi_ioremap(unsigned long phys_addr, unsigned long size,
+ 	if (type = EFI_MEMORY_MAPPED_IO)
+ 		return ioremap(phys_addr, size);
+ 
+-	last_map_pfn = init_memory_mapping(phys_addr, phys_addr + size);
++	last_map_pfn = init_memory_mapping(phys_addr, phys_addr + size,
++					   PAGE_KERNEL);
+ 	if ((last_map_pfn << PAGE_SHIFT) < phys_addr + size) {
+ 		unsigned long top = last_map_pfn << PAGE_SHIFT;
+ 		efi_ioremap(top, size - (top - phys_addr), type, attribute);
 -- 
-2.24.0
+2.20.1
