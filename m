@@ -1,110 +1,118 @@
-From: "tip-bot2 for Thomas Gleixner" <tip-bot2@linutronix.de>
-Date: Sun, 08 Dec 2019 14:58:33 +0000
-Subject: [tip: sched/urgent] sched/rt, ia64: Use CONFIG_PREEMPTION
-Message-Id: <157581711385.21853.17716722558979268134.tip-bot2@tip-bot2>
+From: Logan Gunthorpe <logang@deltatee.com>
+Date: Mon, 09 Dec 2019 19:13:44 +0000
+Subject: [PATCH 4/6] s390/mm: Thread pgprot_t through vmem_add_mapping()
+Message-Id: <20191209191346.5197-5-logang@deltatee.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191015191821.11479-10-bigeasy@linutronix.de>
-In-Reply-To: <20191015191821.11479-10-bigeasy@linutronix.de>
+References: <20191209191346.5197-1-logang@deltatee.com>
+In-Reply-To: <20191209191346.5197-1-logang@deltatee.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-tip-commits@vger.kernel.org
-Cc: Thomas Gleixner <tglx@linutronix.de>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>, Fenghua Yu <fenghua.yu@intel.com>, Linus Torvalds <torvalds@linux-foundation.org>, Peter Zijlstra <peterz@infradead.org>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Ingo Molnar <mingo@kernel.org>, x86 <x86@kernel.org>, LKML <linux-kernel@vger.kernel.org>
+To: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-mm@kvack.org, Christoph Hellwig <hch@lst.de>, Dan Williams <dan.j.williams@intel.com>, Andrew Morton <akpm@linux-foundation.org>
+Cc: Vasily Gorbik <gor@linux.ibm.com>, Peter Zijlstra <peterz@infradead.org>, Catalin Marinas <catalin.marinas@arm.com>, Dave Hansen <dave.hansen@linux.intel.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, Christian Borntraeger <borntraeger@de.ibm.com>, Logan Gunthorpe <logang@deltatee.com>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Andy Lutomirski <luto@kernel.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Thomas Gleixner <tglx@linutronix.de>, Will Deacon <will@kernel.org>
 
-The following commit has been merged into the sched/urgent branch of tip:
+In prepartion to support a pgprot_t argument for arch_add_memory().
 
-Commit-ID:     b9b75e53b2fb040bc74a750fb27bbfa80059b3fe
-Gitweb:        https://git.kernel.org/tip/b9b75e53b2fb040bc74a750fb27bbfa80059b3fe
-Author:        Thomas Gleixner <tglx@linutronix.de>
-AuthorDate:    Tue, 15 Oct 2019 21:17:56 +02:00
-Committer:     Ingo Molnar <mingo@kernel.org>
-CommitterDate: Sun, 08 Dec 2019 14:37:33 +01:00
-
-sched/rt, ia64: Use CONFIG_PREEMPTION
-
-CONFIG_PREEMPTION is selected by CONFIG_PREEMPT and by CONFIG_PREEMPT_RT.
-Both PREEMPT and PREEMPT_RT require the same functionality which today
-depends on CONFIG_PREEMPT.
-
-Switch the entry code and kprobes over to use CONFIG_PREEMPTION.
-
-Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
-Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: Linus Torvalds <torvalds@linux-foundation.org>
-Cc: Peter Zijlstra <peterz@infradead.org>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: linux-ia64@vger.kernel.org
-Link: https://lore.kernel.org/r/20191015191821.11479-10-bigeasy@linutronix.de
-Signed-off-by: Ingo Molnar <mingo@kernel.org>
+Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
+Cc: Vasily Gorbik <gor@linux.ibm.com>
+Cc: Christian Borntraeger <borntraeger@de.ibm.com>
+Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
 ---
- arch/ia64/kernel/entry.S   | 12 ++++++------
- arch/ia64/kernel/kprobes.c |  2 +-
- 2 files changed, 7 insertions(+), 7 deletions(-)
+ arch/s390/include/asm/pgtable.h |  3 ++-
+ arch/s390/mm/extmem.c           |  3 ++-
+ arch/s390/mm/init.c             |  2 +-
+ arch/s390/mm/vmem.c             | 10 +++++-----
+ 4 files changed, 10 insertions(+), 8 deletions(-)
 
-diff --git a/arch/ia64/kernel/entry.S b/arch/ia64/kernel/entry.S
-index a9992be..2ac9263 100644
---- a/arch/ia64/kernel/entry.S
-+++ b/arch/ia64/kernel/entry.S
-@@ -670,12 +670,12 @@ GLOBAL_ENTRY(ia64_leave_syscall)
- 	 *
- 	 * p6 controls whether current_thread_info()->flags needs to be check for
- 	 * extra work.  We always check for extra work when returning to user-level.
--	 * With CONFIG_PREEMPT, we also check for extra work when the preempt_count
-+	 * With CONFIG_PREEMPTION, we also check for extra work when the preempt_count
- 	 * is 0.  After extra work processing has been completed, execution
- 	 * resumes at ia64_work_processed_syscall with p6 set to 1 if the extra-work-check
- 	 * needs to be redone.
- 	 */
--#ifdef CONFIG_PREEMPT
-+#ifdef CONFIG_PREEMPTION
- 	RSM_PSR_I(p0, r2, r18)			// disable interrupts
- 	cmp.eq pLvSys,p0=r0,r0			// pLvSys=1: leave from syscall
- (pKStk) adds r20=TI_PRE_COUNT+IA64_TASK_SIZE,r13
-@@ -685,7 +685,7 @@ GLOBAL_ENTRY(ia64_leave_syscall)
- (pUStk)	mov r21=0			// r21 <- 0
- 	;;
- 	cmp.eq p6,p0=r21,r0		// p6 <- pUStk || (preempt_count = 0)
--#else /* !CONFIG_PREEMPT */
-+#else /* !CONFIG_PREEMPTION */
- 	RSM_PSR_I(pUStk, r2, r18)
- 	cmp.eq pLvSys,p0=r0,r0		// pLvSys=1: leave from syscall
- (pUStk)	cmp.eq.unc p6,p0=r0,r0		// p6 <- pUStk
-@@ -814,12 +814,12 @@ GLOBAL_ENTRY(ia64_leave_kernel)
- 	 *
- 	 * p6 controls whether current_thread_info()->flags needs to be check for
- 	 * extra work.  We always check for extra work when returning to user-level.
--	 * With CONFIG_PREEMPT, we also check for extra work when the preempt_count
-+	 * With CONFIG_PREEMPTION, we also check for extra work when the preempt_count
- 	 * is 0.  After extra work processing has been completed, execution
- 	 * resumes at .work_processed_syscall with p6 set to 1 if the extra-work-check
- 	 * needs to be redone.
- 	 */
--#ifdef CONFIG_PREEMPT
-+#ifdef CONFIG_PREEMPTION
- 	RSM_PSR_I(p0, r17, r31)			// disable interrupts
- 	cmp.eq p0,pLvSys=r0,r0			// pLvSys=0: leave from kernel
- (pKStk)	adds r20=TI_PRE_COUNT+IA64_TASK_SIZE,r13
-@@ -1120,7 +1120,7 @@ skip_rbs_switch:
+diff --git a/arch/s390/include/asm/pgtable.h b/arch/s390/include/asm/pgtable.h
+index 5ff98d76a66c..e0d5ed38282b 100644
+--- a/arch/s390/include/asm/pgtable.h
++++ b/arch/s390/include/asm/pgtable.h
+@@ -1673,7 +1673,8 @@ static inline swp_entry_t __swp_entry(unsigned long type, unsigned long offset)
  
- 	/*
- 	 * On entry:
--	 *	r20 = &current->thread_info->pre_count (if CONFIG_PREEMPT)
-+	 *	r20 = &current->thread_info->pre_count (if CONFIG_PREEMPTION)
- 	 *	r31 = current->thread_info->flags
- 	 * On exit:
- 	 *	p6 = TRUE if work-pending-check needs to be redone
-diff --git a/arch/ia64/kernel/kprobes.c b/arch/ia64/kernel/kprobes.c
-index b8356ed..a6d6a05 100644
---- a/arch/ia64/kernel/kprobes.c
-+++ b/arch/ia64/kernel/kprobes.c
-@@ -841,7 +841,7 @@ static int __kprobes pre_kprobes_handler(struct die_args *args)
- 		return 1;
+ #define kern_addr_valid(addr)   (1)
+ 
+-extern int vmem_add_mapping(unsigned long start, unsigned long size);
++extern int vmem_add_mapping(unsigned long start, unsigned long size,
++			    pgprot_t prot);
+ extern int vmem_remove_mapping(unsigned long start, unsigned long size);
+ extern int s390_enable_sie(void);
+ extern int s390_enable_skey(void);
+diff --git a/arch/s390/mm/extmem.c b/arch/s390/mm/extmem.c
+index fd0dae9d10f4..6cf7029a7b35 100644
+--- a/arch/s390/mm/extmem.c
++++ b/arch/s390/mm/extmem.c
+@@ -313,7 +313,8 @@ __segment_load (char *name, int do_nonshared, unsigned long *addr, unsigned long
+ 		goto out_free;
  	}
  
--#if !defined(CONFIG_PREEMPT)
-+#if !defined(CONFIG_PREEMPTION)
- 	if (p->ainsn.inst_flag = INST_FLAG_BOOSTABLE && !p->post_handler) {
- 		/* Boost up -- we can execute copied instructions directly */
- 		ia64_psr(regs)->ri = p->ainsn.slot;
+-	rc = vmem_add_mapping(seg->start_addr, seg->end - seg->start_addr + 1);
++	rc = vmem_add_mapping(seg->start_addr, seg->end - seg->start_addr + 1,
++			      PAGE_KERNEL);
+ 
+ 	if (rc)
+ 		goto out_free;
+diff --git a/arch/s390/mm/init.c b/arch/s390/mm/init.c
+index a124f19f7b3c..263ebb074cdd 100644
+--- a/arch/s390/mm/init.c
++++ b/arch/s390/mm/init.c
+@@ -276,7 +276,7 @@ int arch_add_memory(int nid, u64 start, u64 size,
+ 	if (WARN_ON_ONCE(restrictions->altmap))
+ 		return -EINVAL;
+ 
+-	rc = vmem_add_mapping(start, size);
++	rc = vmem_add_mapping(start, size, PAGE_KERNEL);
+ 	if (rc)
+ 		return rc;
+ 
+diff --git a/arch/s390/mm/vmem.c b/arch/s390/mm/vmem.c
+index b403fa14847d..8a5e95f184a2 100644
+--- a/arch/s390/mm/vmem.c
++++ b/arch/s390/mm/vmem.c
+@@ -66,7 +66,7 @@ pte_t __ref *vmem_pte_alloc(void)
+ /*
+  * Add a physical memory range to the 1:1 mapping.
+  */
+-static int vmem_add_mem(unsigned long start, unsigned long size)
++static int vmem_add_mem(unsigned long start, unsigned long size, pgprot_t prot)
+ {
+ 	unsigned long pgt_prot, sgt_prot, r3_prot;
+ 	unsigned long pages4k, pages1m, pages2g;
+@@ -79,7 +79,7 @@ static int vmem_add_mem(unsigned long start, unsigned long size)
+ 	pte_t *pt_dir;
+ 	int ret = -ENOMEM;
+ 
+-	pgt_prot = pgprot_val(PAGE_KERNEL);
++	pgt_prot = pgprot_val(prot);
+ 	sgt_prot = pgprot_val(SEGMENT_KERNEL);
+ 	r3_prot = pgprot_val(REGION3_KERNEL);
+ 	if (!MACHINE_HAS_NX) {
+@@ -362,7 +362,7 @@ int vmem_remove_mapping(unsigned long start, unsigned long size)
+ 	return ret;
+ }
+ 
+-int vmem_add_mapping(unsigned long start, unsigned long size)
++int vmem_add_mapping(unsigned long start, unsigned long size, pgprot_t prot)
+ {
+ 	struct memory_segment *seg;
+ 	int ret;
+@@ -379,7 +379,7 @@ int vmem_add_mapping(unsigned long start, unsigned long size)
+ 	if (ret)
+ 		goto out_free;
+ 
+-	ret = vmem_add_mem(start, size);
++	ret = vmem_add_mem(start, size, prot);
+ 	if (ret)
+ 		goto out_remove;
+ 	goto out;
+@@ -403,7 +403,7 @@ void __init vmem_map_init(void)
+ 	struct memblock_region *reg;
+ 
+ 	for_each_memblock(memory, reg)
+-		vmem_add_mem(reg->base, reg->size);
++		vmem_add_mem(reg->base, reg->size, PAGE_KERNEL);
+ 	__set_memory((unsigned long)_stext,
+ 		     (unsigned long)(_etext - _stext) >> PAGE_SHIFT,
+ 		     SET_MEMORY_RO | SET_MEMORY_X);
+-- 
+2.20.1
