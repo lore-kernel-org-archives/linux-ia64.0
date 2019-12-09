@@ -1,259 +1,244 @@
-From: Mike Rapoport <rppt@linux.ibm.com>
-Date: Wed, 18 Dec 2019 14:21:40 +0000
-Subject: Re: [PATCH] ia64: add support for folded p4d page tables
-Message-Id: <20191218142139.GA1454@linux.ibm.com>
+From: Logan Gunthorpe <logang@deltatee.com>
+Date: Mon, 09 Dec 2019 19:13:45 +0000
+Subject: [PATCH 5/6] mm, memory_hotplug: Provide argument for the pgprot_t in arch_add_memory()
+Message-Id: <20191209191346.5197-6-logang@deltatee.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191218093820.17967-1-rppt@kernel.org>
- <20191218135939.GD28111@dhcp22.suse.cz>
-In-Reply-To: <20191218135939.GD28111@dhcp22.suse.cz>
+References: <20191209191346.5197-1-logang@deltatee.com>
+In-Reply-To: <20191209191346.5197-1-logang@deltatee.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Michal Hocko <mhocko@kernel.org>
-Cc: Mike Rapoport <rppt@kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org
+To: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-mm@kvack.org, Christoph Hellwig <hch@lst.de>, Dan Williams <dan.j.williams@intel.com>, Andrew Morton <akpm@linux-foundation.org>
+Cc: Michal Hocko <mhocko@suse.com>, David Hildenbrand <david@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Catalin Marinas <catalin.marinas@arm.com>, Dave Hansen <dave.hansen@linux.intel.com>, Logan Gunthorpe <logang@deltatee.com>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Andy Lutomirski <luto@kernel.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Thomas Gleixner <tglx@linutronix.de>, Will Deacon <will@kernel.org>
 
-On Wed, Dec 18, 2019 at 02:59:39PM +0100, Michal Hocko wrote:
-> On Wed 18-12-19 11:38:20, Mike Rapoport wrote:
-> > From: Mike Rapoport <rppt@linux.ibm.com>
-> > 
-> > Implement primitives necessary for the 4th level folding, add walks of p4d
-> > level where appropriate, remove usage of __ARCH_USE_5LEVEL_HACK and replace
-> > 5level-fixup.h with pgtable-nop4d.h
-> 
-> Why do we need that? I thought that IA64 is essentially a dead
-> architecture. Is this fixing something?
+devm_memremap_pages() is currently used by the PCI P2PDMA code to create
+struct page mappings for IO memory. At present, these mappings are created
+with PAGE_KERNEL which implies setting the PAT bits to be WB. However, on
+x86, an mtrr register will typically override this and force the cache
+type to be UC-. In the case firmware doesn't set this register it is
+effectively WB and will typically result in a machine check exception
+when it's accessed.
 
-This is a part of a generic cleanup of page table manipulations. The goal
-is to remove __ARCH_USE_5LEVEL_HACK, asm-generic/5level-fixup.h,
-asm-generic/pgtable-nop4d-hack.h and the related code from the kernel.
+Other arches are not currently likely to function correctly seeing they
+don't have any MTRR registers to fall back on.
+
+To solve this, add an argument to arch_add_memory() to explicitly
+set the pgprot value to a specific value.
+
+Of the arches that support MEMORY_HOTPLUG: x86_64, s390 and arm64 is a
+simple change to pass the pgprot_t down to their respective functions
+which set up the page tables. For x86_32, set the page tables explicitly
+using _set_memory_prot() (seeing they are already mapped). For sh, reject
+anything but PAGE_KERNEL settings -- this should be fine, for now, seeing
+sh doesn't support ZONE_DEVICE anyway.
+
+Cc: Dan Williams <dan.j.williams@intel.com>
+Cc: David Hildenbrand <david@redhat.com>
+Cc: Michal Hocko <mhocko@suse.com>
+Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
+---
+ arch/arm64/mm/mmu.c            | 4 ++--
+ arch/ia64/mm/init.c            | 5 ++++-
+ arch/powerpc/mm/mem.c          | 4 ++--
+ arch/s390/mm/init.c            | 4 ++--
+ arch/sh/mm/init.c              | 5 ++++-
+ arch/x86/mm/init_32.c          | 7 ++++++-
+ arch/x86/mm/init_64.c          | 4 ++--
+ include/linux/memory_hotplug.h | 2 +-
+ mm/memory_hotplug.c            | 2 +-
+ mm/memremap.c                  | 2 +-
+ 10 files changed, 25 insertions(+), 14 deletions(-)
+
+diff --git a/arch/arm64/mm/mmu.c b/arch/arm64/mm/mmu.c
+index 60c929f3683b..48b65272df15 100644
+--- a/arch/arm64/mm/mmu.c
++++ b/arch/arm64/mm/mmu.c
+@@ -1050,7 +1050,7 @@ int p4d_free_pud_page(p4d_t *p4d, unsigned long addr)
+ }
  
-> > Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
-> > ---
-> >  arch/ia64/include/asm/pgalloc.h |  4 ++--
-> >  arch/ia64/include/asm/pgtable.h | 17 ++++++++---------
-> >  arch/ia64/mm/fault.c            |  7 ++++++-
-> >  arch/ia64/mm/hugetlbpage.c      | 18 ++++++++++++------
-> >  arch/ia64/mm/init.c             | 28 ++++++++++++++++++++++++----
-> >  5 files changed, 52 insertions(+), 22 deletions(-)
-> > 
-> > diff --git a/arch/ia64/include/asm/pgalloc.h b/arch/ia64/include/asm/pgalloc.h
-> > index f4c491044882..2a3050345099 100644
-> > --- a/arch/ia64/include/asm/pgalloc.h
-> > +++ b/arch/ia64/include/asm/pgalloc.h
-> > @@ -36,9 +36,9 @@ static inline void pgd_free(struct mm_struct *mm, pgd_t *pgd)
-> >  
-> >  #if CONFIG_PGTABLE_LEVELS = 4
-> >  static inline void
-> > -pgd_populate(struct mm_struct *mm, pgd_t * pgd_entry, pud_t * pud)
-> > +p4d_populate(struct mm_struct *mm, p4d_t * p4d_entry, pud_t * pud)
-> >  {
-> > -	pgd_val(*pgd_entry) = __pa(pud);
-> > +	p4d_val(*p4d_entry) = __pa(pud);
-> >  }
-> >  
-> >  static inline pud_t *pud_alloc_one(struct mm_struct *mm, unsigned long addr)
-> > diff --git a/arch/ia64/include/asm/pgtable.h b/arch/ia64/include/asm/pgtable.h
-> > index d602e7c622db..c87f789bc914 100644
-> > --- a/arch/ia64/include/asm/pgtable.h
-> > +++ b/arch/ia64/include/asm/pgtable.h
-> > @@ -283,12 +283,12 @@ extern unsigned long VMALLOC_END;
-> >  #define pud_page(pud)			virt_to_page((pud_val(pud) + PAGE_OFFSET))
-> >  
-> >  #if CONFIG_PGTABLE_LEVELS = 4
-> > -#define pgd_none(pgd)			(!pgd_val(pgd))
-> > -#define pgd_bad(pgd)			(!ia64_phys_addr_valid(pgd_val(pgd)))
-> > -#define pgd_present(pgd)		(pgd_val(pgd) != 0UL)
-> > -#define pgd_clear(pgdp)			(pgd_val(*(pgdp)) = 0UL)
-> > -#define pgd_page_vaddr(pgd)		((unsigned long) __va(pgd_val(pgd) & _PFN_MASK))
-> > -#define pgd_page(pgd)			virt_to_page((pgd_val(pgd) + PAGE_OFFSET))
-> > +#define p4d_none(p4d)			(!p4d_val(p4d))
-> > +#define p4d_bad(p4d)			(!ia64_phys_addr_valid(p4d_val(p4d)))
-> > +#define p4d_present(p4d)		(p4d_val(p4d) != 0UL)
-> > +#define p4d_clear(p4dp)			(p4d_val(*(p4dp)) = 0UL)
-> > +#define p4d_page_vaddr(p4d)		((unsigned long) __va(p4d_val(p4d) & _PFN_MASK))
-> > +#define p4d_page(p4d)			virt_to_page((p4d_val(p4d) + PAGE_OFFSET))
-> >  #endif
-> >  
-> >  /*
-> > @@ -388,7 +388,7 @@ pgd_offset (const struct mm_struct *mm, unsigned long address)
-> >  #if CONFIG_PGTABLE_LEVELS = 4
-> >  /* Find an entry in the second-level page table.. */
-> >  #define pud_offset(dir,addr) \
-> > -	((pud_t *) pgd_page_vaddr(*(dir)) + (((addr) >> PUD_SHIFT) & (PTRS_PER_PUD - 1)))
-> > +	((pud_t *) p4d_page_vaddr(*(dir)) + (((addr) >> PUD_SHIFT) & (PTRS_PER_PUD - 1)))
-> >  #endif
-> >  
-> >  /* Find an entry in the third-level page table.. */
-> > @@ -582,10 +582,9 @@ extern struct page *zero_page_memmap_ptr;
-> >  
-> >  
-> >  #if CONFIG_PGTABLE_LEVELS = 3
-> > -#define __ARCH_USE_5LEVEL_HACK
-> >  #include <asm-generic/pgtable-nopud.h>
-> >  #endif
-> > -#include <asm-generic/5level-fixup.h>
-> > +#include <asm-generic/pgtable-nop4d.h>
-> >  #include <asm-generic/pgtable.h>
-> >  
-> >  #endif /* _ASM_IA64_PGTABLE_H */
-> > diff --git a/arch/ia64/mm/fault.c b/arch/ia64/mm/fault.c
-> > index c2f299fe9e04..ec994135cb74 100644
-> > --- a/arch/ia64/mm/fault.c
-> > +++ b/arch/ia64/mm/fault.c
-> > @@ -29,6 +29,7 @@ static int
-> >  mapped_kernel_page_is_present (unsigned long address)
-> >  {
-> >  	pgd_t *pgd;
-> > +	p4d_t *p4d;
-> >  	pud_t *pud;
-> >  	pmd_t *pmd;
-> >  	pte_t *ptep, pte;
-> > @@ -37,7 +38,11 @@ mapped_kernel_page_is_present (unsigned long address)
-> >  	if (pgd_none(*pgd) || pgd_bad(*pgd))
-> >  		return 0;
-> >  
-> > -	pud = pud_offset(pgd, address);
-> > +	p4d = p4d_offset(pgd, address);
-> > +	if (p4d_none(*p4d) || p4d_bad(*p4d))
-> > +		return 0;
-> > +
-> > +	pud = pud_offset(p4d, address);
-> >  	if (pud_none(*pud) || pud_bad(*pud))
-> >  		return 0;
-> >  
-> > diff --git a/arch/ia64/mm/hugetlbpage.c b/arch/ia64/mm/hugetlbpage.c
-> > index d16e419fd712..32352a73df0c 100644
-> > --- a/arch/ia64/mm/hugetlbpage.c
-> > +++ b/arch/ia64/mm/hugetlbpage.c
-> > @@ -30,12 +30,14 @@ huge_pte_alloc(struct mm_struct *mm, unsigned long addr, unsigned long sz)
-> >  {
-> >  	unsigned long taddr = htlbpage_to_page(addr);
-> >  	pgd_t *pgd;
-> > +	p4d_t *p4d;
-> >  	pud_t *pud;
-> >  	pmd_t *pmd;
-> >  	pte_t *pte = NULL;
-> >  
-> >  	pgd = pgd_offset(mm, taddr);
-> > -	pud = pud_alloc(mm, pgd, taddr);
-> > +	p4d = p4d_offset(pgd, taddr);
-> > +	pud = pud_alloc(mm, p4d, taddr);
-> >  	if (pud) {
-> >  		pmd = pmd_alloc(mm, pud, taddr);
-> >  		if (pmd)
-> > @@ -49,17 +51,21 @@ huge_pte_offset (struct mm_struct *mm, unsigned long addr, unsigned long sz)
-> >  {
-> >  	unsigned long taddr = htlbpage_to_page(addr);
-> >  	pgd_t *pgd;
-> > +	p4d_t *p4d;
-> >  	pud_t *pud;
-> >  	pmd_t *pmd;
-> >  	pte_t *pte = NULL;
-> >  
-> >  	pgd = pgd_offset(mm, taddr);
-> >  	if (pgd_present(*pgd)) {
-> > -		pud = pud_offset(pgd, taddr);
-> > -		if (pud_present(*pud)) {
-> > -			pmd = pmd_offset(pud, taddr);
-> > -			if (pmd_present(*pmd))
-> > -				pte = pte_offset_map(pmd, taddr);
-> > +		p4d = p4d_offset(pgd, addr);
-> > +		if (p4d_present(*p4d)) {
-> > +			pud = pud_offset(p4d, taddr);
-> > +			if (pud_present(*pud)) {
-> > +				pmd = pmd_offset(pud, taddr);
-> > +				if (pmd_present(*pmd))
-> > +					pte = pte_offset_map(pmd, taddr);
-> > +			}
-> >  		}
-> >  	}
-> >  
-> > diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
-> > index 58fd67068bac..bcdc78e97e6e 100644
-> > --- a/arch/ia64/mm/init.c
-> > +++ b/arch/ia64/mm/init.c
-> > @@ -208,6 +208,7 @@ static struct page * __init
-> >  put_kernel_page (struct page *page, unsigned long address, pgprot_t pgprot)
-> >  {
-> >  	pgd_t *pgd;
-> > +	p4d_t *p4d;
-> >  	pud_t *pud;
-> >  	pmd_t *pmd;
-> >  	pte_t *pte;
-> > @@ -215,7 +216,10 @@ put_kernel_page (struct page *page, unsigned long address, pgprot_t pgprot)
-> >  	pgd = pgd_offset_k(address);		/* note: this is NOT pgd_offset()! */
-> >  
-> >  	{
-> > -		pud = pud_alloc(&init_mm, pgd, address);
-> > +		p4d = p4d_alloc(&init_mm, pgd, address);
-> > +		if (!p4d)
-> > +			goto out;
-> > +		pud = pud_alloc(&init_mm, p4d, address);
-> >  		if (!pud)
-> >  			goto out;
-> >  		pmd = pmd_alloc(&init_mm, pud, address);
-> > @@ -382,6 +386,7 @@ int vmemmap_find_next_valid_pfn(int node, int i)
-> >  
-> >  	do {
-> >  		pgd_t *pgd;
-> > +		p4d_t *p4d;
-> >  		pud_t *pud;
-> >  		pmd_t *pmd;
-> >  		pte_t *pte;
-> > @@ -392,7 +397,13 @@ int vmemmap_find_next_valid_pfn(int node, int i)
-> >  			continue;
-> >  		}
-> >  
-> > -		pud = pud_offset(pgd, end_address);
-> > +		p4d = p4d_offset(pgd, end_address);
-> > +		if (p4d_none(*p4d)) {
-> > +			end_address += P4D_SIZE;
-> > +			continue;
-> > +		}
-> > +
-> > +		pud = pud_offset(p4d, end_address);
-> >  		if (pud_none(*pud)) {
-> >  			end_address += PUD_SIZE;
-> >  			continue;
-> > @@ -430,6 +441,7 @@ int __init create_mem_map_page_table(u64 start, u64 end, void *arg)
-> >  	struct page *map_start, *map_end;
-> >  	int node;
-> >  	pgd_t *pgd;
-> > +	p4d_t *p4d;
-> >  	pud_t *pud;
-> >  	pmd_t *pmd;
-> >  	pte_t *pte;
-> > @@ -444,12 +456,20 @@ int __init create_mem_map_page_table(u64 start, u64 end, void *arg)
-> >  	for (address = start_page; address < end_page; address += PAGE_SIZE) {
-> >  		pgd = pgd_offset_k(address);
-> >  		if (pgd_none(*pgd)) {
-> > +			p4d = memblock_alloc_node(PAGE_SIZE, PAGE_SIZE, node);
-> > +			if (!p4d)
-> > +				goto err_alloc;
-> > +			pgd_populate(&init_mm, pgd, p4d);
-> > +		}
-> > +		p4d = p4d_offset(pgd, address);
-> > +
-> > +		if (p4d_none(*p4d)) {
-> >  			pud = memblock_alloc_node(PAGE_SIZE, PAGE_SIZE, node);
-> >  			if (!pud)
-> >  				goto err_alloc;
-> > -			pgd_populate(&init_mm, pgd, pud);
-> > +			p4d_populate(&init_mm, p4d, pud);
-> >  		}
-> > -		pud = pud_offset(pgd, address);
-> > +		pud = pud_offset(p4d, address);
-> >  
-> >  		if (pud_none(*pud)) {
-> >  			pmd = memblock_alloc_node(PAGE_SIZE, PAGE_SIZE, node);
-> > -- 
-> > 2.24.0
-> > 
-> 
-> -- 
-> Michal Hocko
-> SUSE Labs
-
+ #ifdef CONFIG_MEMORY_HOTPLUG
+-int arch_add_memory(int nid, u64 start, u64 size,
++int arch_add_memory(int nid, u64 start, u64 size, pgprot_t prot,
+ 			struct mhp_restrictions *restrictions)
+ {
+ 	int flags = 0;
+@@ -1059,7 +1059,7 @@ int arch_add_memory(int nid, u64 start, u64 size,
+ 		flags = NO_BLOCK_MAPPINGS | NO_CONT_MAPPINGS;
+ 
+ 	__create_pgd_mapping(swapper_pg_dir, start, __phys_to_virt(start),
+-			     size, PAGE_KERNEL, __pgd_pgtable_alloc, flags);
++			     size, prot, __pgd_pgtable_alloc, flags);
+ 
+ 	return __add_pages(nid, start >> PAGE_SHIFT, size >> PAGE_SHIFT,
+ 			   restrictions);
+diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
+index bf9df2625bc8..15a1efcecd83 100644
+--- a/arch/ia64/mm/init.c
++++ b/arch/ia64/mm/init.c
+@@ -669,13 +669,16 @@ mem_init (void)
+ }
+ 
+ #ifdef CONFIG_MEMORY_HOTPLUG
+-int arch_add_memory(int nid, u64 start, u64 size,
++int arch_add_memory(int nid, u64 start, u64 size, pgprot_t prot,
+ 			struct mhp_restrictions *restrictions)
+ {
+ 	unsigned long start_pfn = start >> PAGE_SHIFT;
+ 	unsigned long nr_pages = size >> PAGE_SHIFT;
+ 	int ret;
+ 
++	if (prot != PAGE_KERNEL)
++		return -EINVAL;
++
+ 	ret = __add_pages(nid, start_pfn, nr_pages, restrictions);
+ 	if (ret)
+ 		printk("%s: Problem encountered in __add_pages() as ret=%d\n",
+diff --git a/arch/powerpc/mm/mem.c b/arch/powerpc/mm/mem.c
+index 22525d8935ce..a901c2b65801 100644
+--- a/arch/powerpc/mm/mem.c
++++ b/arch/powerpc/mm/mem.c
+@@ -105,7 +105,7 @@ int __weak remove_section_mapping(unsigned long start, unsigned long end)
+ 	return -ENODEV;
+ }
+ 
+-int __ref arch_add_memory(int nid, u64 start, u64 size,
++int __ref arch_add_memory(int nid, u64 start, u64 size, pgprot_t prot,
+ 			struct mhp_restrictions *restrictions)
+ {
+ 	unsigned long start_pfn = start >> PAGE_SHIFT;
+@@ -115,7 +115,7 @@ int __ref arch_add_memory(int nid, u64 start, u64 size,
+ 	resize_hpt_for_hotplug(memblock_phys_mem_size());
+ 
+ 	start = (unsigned long)__va(start);
+-	rc = create_section_mapping(start, start + size, nid, PAGE_KERNEL);
++	rc = create_section_mapping(start, start + size, nid, prot);
+ 	if (rc) {
+ 		pr_warn("Unable to create mapping for hot added memory 0x%llx..0x%llx: %d\n",
+ 			start, start + size, rc);
+diff --git a/arch/s390/mm/init.c b/arch/s390/mm/init.c
+index 263ebb074cdd..d3a67d8a1317 100644
+--- a/arch/s390/mm/init.c
++++ b/arch/s390/mm/init.c
+@@ -266,7 +266,7 @@ device_initcall(s390_cma_mem_init);
+ 
+ #endif /* CONFIG_CMA */
+ 
+-int arch_add_memory(int nid, u64 start, u64 size,
++int arch_add_memory(int nid, u64 start, u64 size, pgprot_t prot,
+ 		struct mhp_restrictions *restrictions)
+ {
+ 	unsigned long start_pfn = PFN_DOWN(start);
+@@ -276,7 +276,7 @@ int arch_add_memory(int nid, u64 start, u64 size,
+ 	if (WARN_ON_ONCE(restrictions->altmap))
+ 		return -EINVAL;
+ 
+-	rc = vmem_add_mapping(start, size, PAGE_KERNEL);
++	rc = vmem_add_mapping(start, size, prot);
+ 	if (rc)
+ 		return rc;
+ 
+diff --git a/arch/sh/mm/init.c b/arch/sh/mm/init.c
+index dfdbaa50946e..cf9f788115ff 100644
+--- a/arch/sh/mm/init.c
++++ b/arch/sh/mm/init.c
+@@ -405,13 +405,16 @@ void __init mem_init(void)
+ }
+ 
+ #ifdef CONFIG_MEMORY_HOTPLUG
+-int arch_add_memory(int nid, u64 start, u64 size,
++int arch_add_memory(int nid, u64 start, u64 size, pgprot_t prot,
+ 			struct mhp_restrictions *restrictions)
+ {
+ 	unsigned long start_pfn = PFN_DOWN(start);
+ 	unsigned long nr_pages = size >> PAGE_SHIFT;
+ 	int ret;
+ 
++	if (prot != PAGE_KERNEL)
++		return -EINVAL;
++
+ 	/* We only have ZONE_NORMAL, so this is easy.. */
+ 	ret = __add_pages(nid, start_pfn, nr_pages, restrictions);
+ 	if (unlikely(ret))
+diff --git a/arch/x86/mm/init_32.c b/arch/x86/mm/init_32.c
+index d3cdd9137f42..c0fe624eb304 100644
+--- a/arch/x86/mm/init_32.c
++++ b/arch/x86/mm/init_32.c
+@@ -852,11 +852,16 @@ void __init mem_init(void)
+ }
+ 
+ #ifdef CONFIG_MEMORY_HOTPLUG
+-int arch_add_memory(int nid, u64 start, u64 size,
++int arch_add_memory(int nid, u64 start, u64 size, pgprot_t prot,
+ 			struct mhp_restrictions *restrictions)
+ {
+ 	unsigned long start_pfn = start >> PAGE_SHIFT;
+ 	unsigned long nr_pages = size >> PAGE_SHIFT;
++	int ret;
++
++	ret = _set_memory_prot(start, nr_pages, prot);
++	if (ret)
++		return ret;
+ 
+ 	return __add_pages(nid, start_pfn, nr_pages, restrictions);
+ }
+diff --git a/arch/x86/mm/init_64.c b/arch/x86/mm/init_64.c
+index 65a5093ec97b..c7d170d67b57 100644
+--- a/arch/x86/mm/init_64.c
++++ b/arch/x86/mm/init_64.c
+@@ -862,13 +862,13 @@ int add_pages(int nid, unsigned long start_pfn, unsigned long nr_pages,
+ 	return ret;
+ }
+ 
+-int arch_add_memory(int nid, u64 start, u64 size,
++int arch_add_memory(int nid, u64 start, u64 size, pgprot_t prot,
+ 			struct mhp_restrictions *restrictions)
+ {
+ 	unsigned long start_pfn = start >> PAGE_SHIFT;
+ 	unsigned long nr_pages = size >> PAGE_SHIFT;
+ 
+-	init_memory_mapping(start, start + size, PAGE_KERNEL);
++	init_memory_mapping(start, start + size, prot);
+ 
+ 	return add_pages(nid, start_pfn, nr_pages, restrictions);
+ }
+diff --git a/include/linux/memory_hotplug.h b/include/linux/memory_hotplug.h
+index f46ea71b4ffd..82e8b3fcebab 100644
+--- a/include/linux/memory_hotplug.h
++++ b/include/linux/memory_hotplug.h
+@@ -111,7 +111,7 @@ extern void __online_page_free(struct page *page);
+ 
+ extern int try_online_node(int nid);
+ 
+-extern int arch_add_memory(int nid, u64 start, u64 size,
++extern int arch_add_memory(int nid, u64 start, u64 size, pgprot_t prot,
+ 			struct mhp_restrictions *restrictions);
+ extern u64 max_mem_size;
+ 
+diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+index df570e5c71cc..0a581a344a00 100644
+--- a/mm/memory_hotplug.c
++++ b/mm/memory_hotplug.c
+@@ -1035,7 +1035,7 @@ int __ref add_memory_resource(int nid, struct resource *res)
+ 	new_node = ret;
+ 
+ 	/* call arch's memory hotadd */
+-	ret = arch_add_memory(nid, start, size, &restrictions);
++	ret = arch_add_memory(nid, start, size, PAGE_KERNEL, &restrictions);
+ 	if (ret < 0)
+ 		goto error;
+ 
+diff --git a/mm/memremap.c b/mm/memremap.c
+index 03ccbdfeb697..4edcca074e15 100644
+--- a/mm/memremap.c
++++ b/mm/memremap.c
+@@ -281,7 +281,7 @@ void *memremap_pages(struct dev_pagemap *pgmap, int nid)
+ 		}
+ 
+ 		error = arch_add_memory(nid, res->start, resource_size(res),
+-					&restrictions);
++					pgprot, &restrictions);
+ 	}
+ 
+ 	if (!error) {
 -- 
-Sincerely yours,
-Mike.
+2.20.1
