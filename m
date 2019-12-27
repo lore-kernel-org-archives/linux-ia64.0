@@ -1,129 +1,42 @@
-From: Aleksa Sarai <cyphar@cyphar.com>
-Date: Fri, 06 Dec 2019 14:13:34 +0000
-Subject: [PATCH v18 09/13] namei: LOOKUP_IN_ROOT: chroot-like scoped resolution
-Message-Id: <20191206141338.23338-10-cyphar@cyphar.com>
+From: Kar Hin Ong <kar.hin.ong@ni.com>
+Date: Fri, 27 Dec 2019 07:51:07 +0000
+Subject: "oneshot" interrupt causes another interrupt to be fired erroneously in Intel Haswell system
+Message-Id: <MN2PR04MB6255567B0B0060B0A8954605C32A0@MN2PR04MB6255.namprd04.prod.outlook.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191206141338.23338-1-cyphar@cyphar.com>
-In-Reply-To: <20191206141338.23338-1-cyphar@cyphar.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Al Viro <viro@zeniv.linux.org.uk>, Jeff Layton <jlayton@kernel.org>, "J. Bruce Fields" <bfields@fieldses.org>, Arnd Bergmann <arnd@arndb.de>, David Howells <dhowells@redhat.com>, Shuah Khan <shuah@kernel.org>, Shuah Khan <skhan@linuxfoundation.org>, Ingo Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Alexei Starovoitov <ast@kernel.org>, Daniel Borkmann <daniel@iogearbox.net>, Martin KaFai Lau <kafai@fb.com>, Song Liu <songliubraving@fb.com>, Yonghong Song <yhs@fb.com>, Andrii Nakryiko <andriin@fb.com>, Jonathan Corbet <corbet@lwn.net>
-Cc: Aleksa Sarai <cyphar@cyphar.com>, Christian Brauner <christian.brauner@ubuntu.com>, Eric Biederman <ebiederm@xmission.com>, Andy Lutomirski <luto@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Kees Cook <keescook@chromium.org>, Jann Horn <jannh@google.com>, Tycho Andersen <tycho@tycho.ws>, David Drysdale <drysdale@google.com>, Chanho Min <chanho.min@lge.com>, Oleg Nesterov <oleg@redhat.com>, Rasmus Villemoes <linux@rasmusvillemoes.dk>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, Christian Brauner <christian@brauner.io>, Aleksa Sarai <asarai@suse.de>, Linus Torvalds <torvalds@linux-foundation.org>, dev@opencontainers.org, containers@lists.linux-foundation.org, bpf@vger.kernel.org, netdev@vger.kernel.org, linux-alpha@vger.kernel.org, linux-api@vger.kernel.org, libc-alpha@sourceware.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-doc@vger.kernel.org, linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-kselftest@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, sparclinux@vger.kernel.org
+To: linux-rt-users <linux-rt-users@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-x86_64@vger.kernel.org" <linux-x86_64@vger.kernel.org>, "platform-driver-x86@vger.kernel.org" <platform-driver-x86@vger.kernel.org>, Thomas Gleixner <tglx@linutronix.de>, Dave Hansen <dave.hansen@linux.intel.com>
+Cc: Gratian Crisan <gratian.crisan@ni.com>
 
-/* Background. */
-Container runtimes or other administrative management processes will
-often interact with root filesystems while in the host mount namespace,
-because the cost of doing a chroot(2) on every operation is too
-prohibitive (especially in Go, which cannot safely use vfork). However,
-a malicious program can trick the management process into doing
-operations on files outside of the root filesystem through careful
-crafting of symlinks.
+Hi,
 
-Most programs that need this feature have attempted to make this process
-safe, by doing all of the path resolution in userspace (with symlinks
-being scoped to the root of the malicious root filesystem).
-Unfortunately, this method is prone to foot-guns and usually such
-implementations have subtle security bugs.
+I've an Intel Haswell system running Linux kernel v4.14 with preempt_rt patch. The system contain 2 IOAPICs: IOAPIC 1 is on the PCH where IOAPIC 2 is on the CPU.
 
-Thus, what userspace needs is a way to resolve a path as though it were
-in a chroot(2) -- with all absolute symlinks being resolved relative to
-the dirfd root (and ".." components being stuck under the dirfd root).
-It is much simpler and more straight-forward to provide this
-functionality in-kernel (because it can be done far more cheaply and
-correctly).
+I observed that whenever a PCI device is firing interrupt (INTx) to Pin 20 of IOAPIC 2 (GSI 44); the kernel will receives 2 interrupts: 
+   1. Interrupt from Pin 20 of IOAPIC 2  -> Expected
+   2. Interrupt from Pin 19 of IOAPIC 1  -> UNEXPECTED, erroneously triggered
 
-More classical applications that also have this problem (which have
-their own potentially buggy userspace path sanitisation code) include
-web servers, archive extraction tools, network file servers, and so on.
+The unexpected interrupt is unhandled eventually. When this scenario happen more than 99,000 times, kernel disables the interrupt line (Pin 19 of IOAPIC 1) and causing device that has requested it become malfunction.
+I managed to also reproduced this issue on RHEL 8 and Ubuntu 19.04, 19.10 (without preempt_rt patch) after added "threadirqs" to the kernel command line.
 
-/* Userspace API. */
-LOOKUP_IN_ROOT will be exposed to userspace through openat2(2).
+After digging further, I noticed that the said issue is happened whenever an interrupt pin on IOAPIC 2 is masked:
+ - Masking Pin 20 of IOAPIC 2 triggers Pin 19 of IOAPIC 1  
+ - Masking Pin 22 of IOAPIC 2 triggers Pin 18 of IOAPIC 1  
 
-/* Semantics. */
-Unlike most other LOOKUP flags (most notably LOOKUP_FOLLOW),
-LOOKUP_IN_ROOT applies to all components of the path.
+I learnt that kernel will explicitly mask a specific interrupt pin before execute its handler, if the interrupt is configured as "oneshot" (i.e. threaded). Source: https://elixir.bootlin.com/linux/v4.14/source/kernel/irq/chip.c#L695  
+This explained why it only happened on RTOS and Desktop Linux with "threadirqs" flag, because these configurations forces the interrupt handler to be threaded.
 
-With LOOKUP_IN_ROOT, any path component which attempts to cross the
-starting point of the pathname lookup (the dirfd passed to openat) will
-remain at the starting point. Thus, all absolute paths and symlinks will
-be scoped within the starting point.
+From Intel Xeon Processor E5/E7 v3 Product Family External Design Specification (EDS), Volume One: Architecture, section 13.1 (Legacy PCI Interrupt Handling), it mention:
+"If the I/OxAPIC entry is masked (via the 'mask' bit in the corresponding Redirection Table Entry), then the corresponding PCI Express interrupt(s) is forwarded to the legacy PCH"
 
-There is a slight change in behaviour regarding pathnames -- if the
-pathname is absolute then the dirfd is still used as the root of
-resolution of LOOKUP_IN_ROOT is specified (this is to avoid obvious
-foot-guns, at the cost of a minor API inconsistency).
+My interpretation is: when kernel receive a "oneshot" interrupt, it mask the line before start handling it. 
+At this moment, if the interrupt line is still asserting, then the interrupt signal will be routed to the IOAPIC in PCH, and hence causing another interrupt to be fired erroneously and unhandled.  
 
-As with LOOKUP_BENEATH, Jann's security concern about ".."[1] applies to
-LOOKUP_IN_ROOT -- therefore ".." resolution is blocked. This restriction
-will be lifted in a future patch, but requires more work to ensure that
-permitting ".." is done safely.
+Since the "route_to_pci" behaviour is documented in Intel spec, I presume it's a feature rather than a bug.
+If this is a feature for intel processors, should the kernel irq handling routine be patched to handle it? 
 
-Magic-link jumps are also blocked, because they can beam the path lookup
-across the starting point. It would be possible to detect and block
-only the "bad" crossings with path_is_under() checks, but it's unclear
-whether it makes sense to permit magic-links at all. However, userspace
-is recommended to pass LOOKUP_NO_MAGICLINKS if they want to ensure that
-magic-link crossing is entirely disabled.
+Thanks.
+Kar Hin Ong
 
-/* Testing. */
-LOOKUP_IN_ROOT is tested as part of the openat2(2) selftests.
 
-[1]: https://lore.kernel.org/lkml/CAG48ez1jzNvxB+bfOBnERFGp=oMM0vHWuLD6EULmne3R6xa53w@mail.gmail.com/
-
-Cc: Christian Brauner <christian.brauner@ubuntu.com>
-Signed-off-by: Aleksa Sarai <cyphar@cyphar.com>
----
- fs/namei.c            | 10 +++++++---
- include/linux/namei.h |  3 ++-
- 2 files changed, 9 insertions(+), 4 deletions(-)
-
-diff --git a/fs/namei.c b/fs/namei.c
-index f0c15d2ace54..69cd0b296e8e 100644
---- a/fs/namei.c
-+++ b/fs/namei.c
-@@ -2299,13 +2299,16 @@ static const char *path_init(struct nameidata *nd, unsigned flags)
- 
- 	nd->m_seq = read_seqbegin(&mount_lock);
- 
--	/* Figure out the starting path and root (if needed). */
--	if (*s = '/') {
-+	/* Absolute pathname -- fetch the root (LOOKUP_IN_ROOT uses nd->dfd). */
-+	if (*s = '/' && !(flags & LOOKUP_IN_ROOT)) {
- 		error = nd_jump_root(nd);
- 		if (unlikely(error))
- 			return ERR_PTR(error);
- 		return s;
--	} else if (nd->dfd = AT_FDCWD) {
-+	}
-+
-+	/* Relative pathname -- get the starting-point it is relative to. */
-+	if (nd->dfd = AT_FDCWD) {
- 		if (flags & LOOKUP_RCU) {
- 			struct fs_struct *fs = current->fs;
- 			unsigned seq;
-@@ -2345,6 +2348,7 @@ static const char *path_init(struct nameidata *nd, unsigned flags)
- 		}
- 		fdput(f);
- 	}
-+
- 	/* For scoped-lookups we need to set the root to the dirfd as well. */
- 	if (flags & LOOKUP_IS_SCOPED) {
- 		nd->root = nd->path;
-diff --git a/include/linux/namei.h b/include/linux/namei.h
-index 93dad378f1e8..93151e47ec47 100644
---- a/include/linux/namei.h
-+++ b/include/linux/namei.h
-@@ -45,8 +45,9 @@ enum {LAST_NORM, LAST_ROOT, LAST_DOT, LAST_DOTDOT, LAST_BIND};
- #define LOOKUP_NO_MAGICLINKS	0x020000 /* No nd_jump_link() crossing. */
- #define LOOKUP_NO_XDEV		0x040000 /* No mountpoint crossing. */
- #define LOOKUP_BENEATH		0x080000 /* No escaping from starting point. */
-+#define LOOKUP_IN_ROOT		0x100000 /* Treat dirfd as fs root. */
- /* LOOKUP_* flags which do scope-related checks based on the dirfd. */
--#define LOOKUP_IS_SCOPED LOOKUP_BENEATH
-+#define LOOKUP_IS_SCOPED (LOOKUP_BENEATH | LOOKUP_IN_ROOT)
- 
- extern int path_pts(struct path *path);
- 
--- 
-2.24.0
