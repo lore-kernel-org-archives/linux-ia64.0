@@ -1,71 +1,51 @@
-From: Anshuman Khandual <anshuman.khandual@arm.com>
-Date: Thu, 23 Jan 2020 05:55:27 +0000
-Subject: [PATCH 0/2] arm64: Enable vmemmap mapping from device memory
-Message-Id: <1579758988-18520-1-git-send-email-anshuman.khandual@arm.com>
+From: Logan Gunthorpe <logang@deltatee.com>
+Date: Tue, 07 Jan 2020 20:59:59 +0000
+Subject: [PATCH v2 8/8] mm/memremap: Set caching mode for PCI P2PDMA memory to WC
+Message-Id: <20200107205959.7575-9-logang@deltatee.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20200107205959.7575-1-logang@deltatee.com>
+In-Reply-To: <20200107205959.7575-1-logang@deltatee.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org
-Cc: Anshuman Khandual <anshuman.khandual@arm.com>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Peter Zijlstra <peterz@infradead.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, David Hildenbrand <david@redhat.com>, Mike Rapoport <rppt@linux.ibm.com>, Michal Hocko <mhocko@suse.com>, "Matthew Wilcox (Oracle)" <willy@infradead.org>, "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>, Andrew Morton <akpm@linux-foundation.org>, Dan Williams <dan.j.williams@intel.com>, Pavel Tatashin <pasha.tatashin@soleen.com>, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-riscv@lists.infradead.org, x86@kernel.org, linux-kernel@vger.kernel.org
+To: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-mm@kvack.org, Dan Williams <dan.j.williams@intel.com>, Michal Hocko <mhocko@kernel.org>, David Hildenbrand <david@redhat.com>, Andrew Morton <akpm@linux-foundation.org>
+Cc: Eric Badger <ebadger@gigaio.com>, Peter Zijlstra <peterz@infradead.org>, Catalin Marinas <catalin.marinas@arm.com>, Dave Hansen <dave.hansen@linux.intel.com>, Jason Gunthorpe <jgg@ziepe.ca>, Logan Gunthorpe <logang@deltatee.com>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Andy Lutomirski <luto@kernel.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Thomas Gleixner <tglx@linutronix.de>, Will Deacon <will@kernel.org>, Christoph Hellwig <hch@lst.de>
 
-This series enables vmemmap backing memory allocation from device memory
-ranges on arm64. But before that, it enables vmemmap_populate_basepages()
-to accommodate struct vmem_altmap based requests.
+PCI BAR IO memory should never be mapped as WB, however prior to this
+the PAT bits were set WB and it was typically overridden by MTRR
+registers set by the firmware.
 
-This series applies after latest (v12) arm64 memory hot remove series
-(https://lkml.org/lkml/2020/1/16/46) on Linux 5.5-rc7.
+Set PCI P2PDMA memory to be WC (writecombining) as the only current
+user (the NVMe CMB) was originally mapped WC before the P2PDMA code
+replaced the mapping with devm_memremap_pages().
 
-Changes in V1:
+Future use-cases may need to generalize this by adding flags to
+select the caching type, as some P2PDMA cases will not want WC.
+However, those use-cases are not upstream yet and this can be changed
+when they arrive.
 
-- Added an WARN_ON() in unmap_hotplug_range() when altmap is
-  provided without the page table backing memory being freed
-
-Changes in RFC V2: (https://lkml.org/lkml/2019/10/21/11)
-
-- Changed the commit message on 1/2 patch per Will
-- Changed the commit message on 2/2 patch as well
-- Rebased on arm64 memory hot remove series (v10)
-
-RFC V1: (https://lkml.org/lkml/2019/6/28/32)
-
-Cc: Catalin Marinas <catalin.marinas@arm.com>
-Cc: Will Deacon <will@kernel.org>
-Cc: Mark Rutland <mark.rutland@arm.com>
-Cc: Paul Walmsley <paul.walmsley@sifive.com>
-Cc: Palmer Dabbelt <palmer@dabbelt.com>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: Dave Hansen <dave.hansen@linux.intel.com>
-Cc: Andy Lutomirski <luto@kernel.org>
-Cc: Peter Zijlstra <peterz@infradead.org>
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: Ingo Molnar <mingo@redhat.com>
-Cc: David Hildenbrand <david@redhat.com>
-Cc: Mike Rapoport <rppt@linux.ibm.com>
-Cc: Michal Hocko <mhocko@suse.com>
-Cc: "Matthew Wilcox (Oracle)" <willy@infradead.org>
-Cc: "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>
-Cc: Andrew Morton <akpm@linux-foundation.org>
 Cc: Dan Williams <dan.j.williams@intel.com>
-Cc: Pavel Tatashin <pasha.tatashin@soleen.com>
-Cc: linux-arm-kernel@lists.infradead.org
-Cc: linux-ia64@vger.kernel.org
-Cc: linux-riscv@lists.infradead.org
-Cc: x86@kernel.org
-Cc: linux-kernel@vger.kernel.org
+Cc: Christoph Hellwig <hch@lst.de>
+Cc: Jason Gunthorpe <jgg@ziepe.ca>
+Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
+---
+ mm/memremap.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-Anshuman Khandual (2):
-  mm/sparsemem: Enable vmem_altmap support in vmemmap_populate_basepages()
-  arm64/mm: Enable vmem_altmap support for vmemmap mappings
-
- arch/arm64/mm/mmu.c      | 65 +++++++++++++++++++++++++++++-----------
- arch/ia64/mm/discontig.c |  2 +-
- arch/riscv/mm/init.c     |  2 +-
- arch/x86/mm/init_64.c    |  6 ++--
- include/linux/mm.h       |  5 ++--
- mm/sparse-vmemmap.c      | 16 ++++++----
- 6 files changed, 66 insertions(+), 30 deletions(-)
-
+diff --git a/mm/memremap.c b/mm/memremap.c
+index 45ab4ef0643d..d36ff688b768 100644
+--- a/mm/memremap.c
++++ b/mm/memremap.c
+@@ -187,7 +187,10 @@ void *memremap_pages(struct dev_pagemap *pgmap, int nid)
+ 		}
+ 		break;
+ 	case MEMORY_DEVICE_DEVDAX:
++		need_devmap_managed = false;
++		break;
+ 	case MEMORY_DEVICE_PCI_P2PDMA:
++		modifiers.pgprot = pgprot_writecombine(modifiers.pgprot);
+ 		need_devmap_managed = false;
+ 		break;
+ 	default:
 -- 
 2.20.1
