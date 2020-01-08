@@ -1,22 +1,22 @@
 From: Logan Gunthorpe <logang@deltatee.com>
-Date: Wed, 08 Jan 2020 17:17:10 +0000
+Date: Wed, 08 Jan 2020 17:18:51 +0000
 Subject: Re: [PATCH v2 7/8] mm/memory_hotplug: Add pgprot_t to mhp_modifiers
-Message-Id: <f08ae374-365e-4291-9cf2-d807a45579bb@deltatee.com>
+Message-Id: <17c6017f-c53c-2066-4b07-24528402fa7f@deltatee.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20200107205959.7575-1-logang@deltatee.com>
  <20200107205959.7575-8-logang@deltatee.com>
- <f4c11a37-91dd-a366-7683-4e4cd4bd7e99@redhat.com>
-In-Reply-To: <f4c11a37-91dd-a366-7683-4e4cd4bd7e99@redhat.com>
+ <20200108124238.GS32178@dhcp22.suse.cz>
+In-Reply-To: <20200108124238.GS32178@dhcp22.suse.cz>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Hildenbrand <david@redhat.com>, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-mm@kvack.org, Dan Williams <dan.j.williams@intel.com>, Michal Hocko <mhocko@kernel.org>, Andrew Morton <akpm@linux-foundation.org>
-Cc: Eric Badger <ebadger@gigaio.com>, Peter Zijlstra <peterz@infradead.org>, Catalin Marinas <catalin.marinas@arm.com>, Dave Hansen <dave.hansen@linux.intel.com>, Michal Hocko <mhocko@suse.com>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Andy Lutomirski <luto@kernel.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Thomas Gleixner <tglx@linutronix.de>, Will Deacon <will@kernel.org>, Christoph Hellwig <hch@lst.de>
+To: Michal Hocko <mhocko@kernel.org>
+Cc: linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Catalin Marinas <catalin.marinas@arm.com>, Dave Hansen <dave.hansen@linux.intel.com>, platform-driver-x86@vger.kernel.org, linux-mm@kvack.org, Will Deacon <will@kernel.org>, Christoph Hellwig <hch@lst.de>, linux-s390@vger.kernel.org, David Hildenbrand <david@redhat.com>, Ingo Molnar <mingo@redhat.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Dan Williams <dan.j.williams@intel.com>, Borislav Petkov <bp@alien8.de>, Andy Lutomirski <luto@kernel.org>, Thomas Gleixner <tglx@linutronix.de>, linux-arm-kernel@lists.infradead.org, Eric Badger <ebadger@gigaio.com>, linux-kernel@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org
 
 
 
-On 2020-01-08 5:39 a.m., David Hildenbrand wrote:
-> On 07.01.20 21:59, Logan Gunthorpe wrote:
+On 2020-01-08 5:42 a.m., Michal Hocko wrote:
+> On Tue 07-01-20 13:59:58, Logan Gunthorpe wrote:
 >> devm_memremap_pages() is currently used by the PCI P2PDMA code to create
 >> struct page mappings for IO memory. At present, these mappings are created
 >> with PAGE_KERNEL which implies setting the PAT bits to be WB. However, on
@@ -30,21 +30,10 @@ On 2020-01-08 5:39 a.m., David Hildenbrand wrote:
 >>
 >> To solve this, add an argument to arch_add_memory() to explicitly
 >> set the pgprot value to a specific value.
-> 
-> You're adding a parameter indirectly by adding it to the structure.
-> Maybe "provide a way to specify the pgprot value explicitly to
-> arch_add_memory()"
-> 
 >>
 >> Of the arches that support MEMORY_HOTPLUG: x86_64, s390 and arm64 is a
-> 
-> s/is/need/
-> 
 >> simple change to pass the pgprot_t down to their respective functions
 >> which set up the page tables. For x86_32, set the page tables explicitly
-> 
-> "page table protection" ?
-> 
 >> using _set_memory_prot() (seeing they are already mapped). For sh, reject
 >> anything but PAGE_KERNEL settings -- this should be fine, for now, seeing
 >> sh doesn't support ZONE_DEVICE anyway.
@@ -53,6 +42,18 @@ On 2020-01-08 5:39 a.m., David Hildenbrand wrote:
 >> Cc: David Hildenbrand <david@redhat.com>
 >> Cc: Michal Hocko <mhocko@suse.com>
 >> Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
+> 
+> OK, this is less code churn than I expected. Having pgprot as an implcit
+> parameter de-facto is a bit fragile though. Should we add a WARN_ON_ONCE
+> (e.g. into the add_pages to catch all arches) for value 0?
+
+Sure, I can add that for v3.
+
+Logan
+
+> Other than that
+> Acked-by: Michal Hocko <mhocko@suse.com>
+> 
 >> ---
 >>  arch/arm64/mm/mmu.c            | 3 ++-
 >>  arch/ia64/mm/init.c            | 4 ++++
@@ -90,10 +91,83 @@ On 2020-01-08 5:39 a.m., David Hildenbrand wrote:
 >>  	ret = __add_pages(nid, start_pfn, nr_pages, modifiers);
 >> +	if (modifiers->pgprot != PAGE_KERNEL)
 >> +		return -EINVAL;
-> 
-> ... maybe better "if (WARN_ON_ONCE(...))"
-> [...]
-> 
+>> +
+>> +	ret = __add_pages(nid, start_pfn, nr_pages, restrictions);
+>>  	if (ret)
+>>  		printk("%s: Problem encountered in __add_pages() as ret=%d\n",
+>>  		       __func__,  ret);
+>> diff --git a/arch/powerpc/mm/mem.c b/arch/powerpc/mm/mem.c
+>> index 631ee684721f..fddeaee53198 100644
+>> --- a/arch/powerpc/mm/mem.c
+>> +++ b/arch/powerpc/mm/mem.c
+>> @@ -137,7 +137,8 @@ int __ref arch_add_memory(int nid, u64 start, u64 size,
+>>  	resize_hpt_for_hotplug(memblock_phys_mem_size());
+>>  
+>>  	start = (unsigned long)__va(start);
+>> -	rc = create_section_mapping(start, start + size, nid, PAGE_KERNEL);
+>> +	rc = create_section_mapping(start, start + size, nid,
+>> +				    modifiers->pgprot);
+>>  	if (rc) {
+>>  		pr_warn("Unable to create mapping for hot added memory 0x%llx..0x%llx: %d\n",
+>>  			start, start + size, rc);
+>> diff --git a/arch/s390/mm/init.c b/arch/s390/mm/init.c
+>> index ef19522ddad2..c65fb33f6a89 100644
+>> --- a/arch/s390/mm/init.c
+>> +++ b/arch/s390/mm/init.c
+>> @@ -277,7 +277,7 @@ int arch_add_memory(int nid, u64 start, u64 size,
+>>  	if (WARN_ON_ONCE(modifiers->altmap))
+>>  		return -EINVAL;
+>>  
+>> -	rc = vmem_add_mapping(start, size, PAGE_KERNEL);
+>> +	rc = vmem_add_mapping(start, size, modifiers->pgprot);
+>>  	if (rc)
+>>  		return rc;
+>>  
+>> diff --git a/arch/sh/mm/init.c b/arch/sh/mm/init.c
+>> index 7e64f42fb570..7071dc5bd2e4 100644
+>> --- a/arch/sh/mm/init.c
+>> +++ b/arch/sh/mm/init.c
+>> @@ -412,6 +412,9 @@ int arch_add_memory(int nid, u64 start, u64 size,
+>>  	unsigned long nr_pages = size >> PAGE_SHIFT;
+>>  	int ret;
+>>  
+>> +	if (modifiers->pgprot != PAGE_KERNEL)
+>> +		return -EINVAL;
+>> +
+>>  	/* We only have ZONE_NORMAL, so this is easy.. */
+>>  	ret = __add_pages(nid, start_pfn, nr_pages, modifiers);
+>>  	if (unlikely(ret))
+>> diff --git a/arch/x86/mm/init_32.c b/arch/x86/mm/init_32.c
+>> index 630d8a36fcd7..737da0dbc0d5 100644
+>> --- a/arch/x86/mm/init_32.c
+>> +++ b/arch/x86/mm/init_32.c
+>> @@ -857,6 +857,11 @@ int arch_add_memory(int nid, u64 start, u64 size,
+>>  {
+>>  	unsigned long start_pfn = start >> PAGE_SHIFT;
+>>  	unsigned long nr_pages = size >> PAGE_SHIFT;
+>> +	int ret;
+>> +
+>> +	ret = _set_memory_prot(start, nr_pages, modifiers->pgprot);
+>> +	if (ret)
+>> +		return ret;
+>>  
+>>  	return __add_pages(nid, start_pfn, nr_pages, modifiers);
+>>  }
+>> diff --git a/arch/x86/mm/init_64.c b/arch/x86/mm/init_64.c
+>> index 17ea0bfc0b83..cc9eb45ad120 100644
+>> --- a/arch/x86/mm/init_64.c
+>> +++ b/arch/x86/mm/init_64.c
+>> @@ -868,7 +868,7 @@ int arch_add_memory(int nid, u64 start, u64 size,
+>>  	unsigned long start_pfn = start >> PAGE_SHIFT;
+>>  	unsigned long nr_pages = size >> PAGE_SHIFT;
+>>  
+>> -	init_memory_mapping(start, start + size, PAGE_KERNEL);
+>> +	init_memory_mapping(start, start + size, modifiers->pgprot);
+>>  
+>>  	return add_pages(nid, start_pfn, nr_pages, modifiers);
+>>  }
+>> diff --git a/include/linux/memory_hotplug.h b/include/linux/memory_hotplug.h
+>> index 2152efae2f4b..00dfb2016737 100644
 >> --- a/include/linux/memory_hotplug.h
 >> +++ b/include/linux/memory_hotplug.h
 >> @@ -56,9 +56,11 @@ enum {
@@ -118,16 +192,6 @@ On 2020-01-08 5:39 a.m., David Hildenbrand wrote:
 >>  {
 >> -	struct mhp_modifiers modifiers = {};
 >> +	struct mhp_modifiers modifiers = {.pgprot = PAGE_KERNEL};
-> 
-> I think we usually use spaces like
-> 
-> = { .pgprot = PAGE_KERNEL };
-> 
-> t480s: ~/git/linux virtio-mem-v1 $ git grep "= {\." | wc -l
-> 978
-> t480s: ~/git/linux virtio-mem-v1 $ git grep "= { " | wc -l
-> 35447
-> 
 >>  	u64 start, size;
 >>  	bool new_node = false;
 >>  	int ret;
@@ -156,13 +220,7 @@ On 2020-01-08 5:39 a.m., David Hildenbrand wrote:
 >>  	if (error)
 >>  		goto err_pfn_remap;
 >>  
+>> -- 
+>> 2.20.1
 >>
 > 
-> The !arch code looks good to me (besides I would prefer "params" instead
-> of "modifiers").
-> 
-> Acked-by: David Hildenbrand <david@redhat.com>
-
-Thanks, I'll make the changes above for v3.
-
-Logan
