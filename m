@@ -1,62 +1,129 @@
-From: Logan Gunthorpe <logang@deltatee.com>
-Date: Tue, 07 Jan 2020 20:59:55 +0000
-Subject: [PATCH v2 4/8] x86/mm: Introduce _set_memory_prot()
-Message-Id: <20200107205959.7575-5-logang@deltatee.com>
+From: Sasha Levin <sashal@kernel.org>
+Date: Thu, 16 Jan 2020 16:44:06 +0000
+Subject: [PATCH AUTOSEL 4.19 015/671] signal/ia64: Use the generic force_sigsegv in setup_frame
+Message-Id: <20200116165502.8838-15-sashal@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200107205959.7575-1-logang@deltatee.com>
-In-Reply-To: <20200107205959.7575-1-logang@deltatee.com>
+References: <20200116165502.8838-1-sashal@kernel.org>
+In-Reply-To: <20200116165502.8838-1-sashal@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-mm@kvack.org, Dan Williams <dan.j.williams@intel.com>, Michal Hocko <mhocko@kernel.org>, David Hildenbrand <david@redhat.com>, Andrew Morton <akpm@linux-foundation.org>
-Cc: Eric Badger <ebadger@gigaio.com>, "H. Peter Anvin" <hpa@zytor.com>, Peter Zijlstra <peterz@infradead.org>, Catalin Marinas <catalin.marinas@arm.com>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, Logan Gunthorpe <logang@deltatee.com>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Andy Lutomirski <luto@kernel.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Thomas Gleixner <tglx@linutronix.de>, Will Deacon <will@kernel.org>, Christoph Hellwig <hch@lst.de>
+To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, Sasha Levin <sashal@kernel.org>
 
-For use in the 32bit arch_add_memory() to set the pgprot type of the
-memory to add.
+From: "Eric W. Biederman" <ebiederm@xmission.com>
 
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: Ingo Molnar <mingo@redhat.com>
-Cc: Borislav Petkov <bp@alien8.de>
-Cc: "H. Peter Anvin" <hpa@zytor.com>
-Cc: x86@kernel.org
-Cc: Dave Hansen <dave.hansen@linux.intel.com>
-Cc: Andy Lutomirski <luto@kernel.org>
-Cc: Peter Zijlstra <peterz@infradead.org>
-Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
+[ Upstream commit 8b9c6b28312cc51a87055e292b11c5aa28f0c935 ]
+
+The ia64 handling of failure to setup a signal frame has been trying
+to set overlapping fields in struct siginfo since 2.3.43.  The si_pid
+and si_uid fields are stomped when the si_addr field is set.  The
+si_code of SI_KERNEL indicates that si_pid and si_uid should be valid,
+and that si_addr does not exist.
+
+Being at odds with the definition of SI_KERNEL and with nothing to
+indicate that this was a signal frame setup failure there is no way
+for userspace to know that si_addr was filled out instead.
+
+In practice failure to setup a signal frame is rare, and si_pid and
+si_uid are always set to 0 when si_code is SI_KERNEL so I expect no
+one has looked closely enough before to see this weirdness.  Further
+the only difference between force_sigsegv_info and the generic
+force_sigsegv other than the return code is that force_sigsegv_info
+stomps the si_uid and si_pid fields.
+
+Remove the bug and simplify the code by using force_sigsegv in this
+case just like other architectures.
+
+Fixes: 2.3.43
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
+Acked-by: Tony Luck <tony.luck@intel.com>
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
 ---
- arch/x86/include/asm/set_memory.h | 1 +
- arch/x86/mm/pageattr.c            | 7 +++++++
- 2 files changed, 8 insertions(+)
+ arch/ia64/kernel/signal.c | 50 ++++++++++-----------------------------
+ 1 file changed, 12 insertions(+), 38 deletions(-)
 
-diff --git a/arch/x86/include/asm/set_memory.h b/arch/x86/include/asm/set_memory.h
-index 2ee8e469dcf5..d728c2f3ad96 100644
---- a/arch/x86/include/asm/set_memory.h
-+++ b/arch/x86/include/asm/set_memory.h
-@@ -34,6 +34,7 @@
-  * The caller is required to take care of these.
-  */
- 
-+int _set_memory_prot(unsigned long addr, int numpages, pgprot_t prot);
- int _set_memory_uc(unsigned long addr, int numpages);
- int _set_memory_wc(unsigned long addr, int numpages);
- int _set_memory_wt(unsigned long addr, int numpages);
-diff --git a/arch/x86/mm/pageattr.c b/arch/x86/mm/pageattr.c
-index 1b99ad05b117..2f1934d7b8d9 100644
---- a/arch/x86/mm/pageattr.c
-+++ b/arch/x86/mm/pageattr.c
-@@ -1781,6 +1781,13 @@ static inline int cpa_clear_pages_array(struct page **pages, int numpages,
- 		CPA_PAGES_ARRAY, pages);
+diff --git a/arch/ia64/kernel/signal.c b/arch/ia64/kernel/signal.c
+index d1234a5ba4c5..01fc133b2e4c 100644
+--- a/arch/ia64/kernel/signal.c
++++ b/arch/ia64/kernel/signal.c
+@@ -231,37 +231,6 @@ rbs_on_sig_stack (unsigned long bsp)
+ 	return (bsp - current->sas_ss_sp < current->sas_ss_size);
  }
  
-+int _set_memory_prot(unsigned long addr, int numpages, pgprot_t prot)
-+{
-+	return change_page_attr_set_clr(&addr, numpages, prot,
-+					__pgprot(~pgprot_val(prot)), 0, 0,
-+					NULL);
-+}
-+
- int _set_memory_uc(unsigned long addr, int numpages)
+-static long
+-force_sigsegv_info (int sig, void __user *addr)
+-{
+-	unsigned long flags;
+-	struct siginfo si;
+-
+-	clear_siginfo(&si);
+-	if (sig = SIGSEGV) {
+-		/*
+-		 * Acquiring siglock around the sa_handler-update is almost
+-		 * certainly overkill, but this isn't a
+-		 * performance-critical path and I'd rather play it safe
+-		 * here than having to debug a nasty race if and when
+-		 * something changes in kernel/signal.c that would make it
+-		 * no longer safe to modify sa_handler without holding the
+-		 * lock.
+-		 */
+-		spin_lock_irqsave(&current->sighand->siglock, flags);
+-		current->sighand->action[sig - 1].sa.sa_handler = SIG_DFL;
+-		spin_unlock_irqrestore(&current->sighand->siglock, flags);
+-	}
+-	si.si_signo = SIGSEGV;
+-	si.si_errno = 0;
+-	si.si_code = SI_KERNEL;
+-	si.si_pid = task_pid_vnr(current);
+-	si.si_uid = from_kuid_munged(current_user_ns(), current_uid());
+-	si.si_addr = addr;
+-	force_sig_info(SIGSEGV, &si, current);
+-	return 1;
+-}
+-
+ static long
+ setup_frame(struct ksignal *ksig, sigset_t *set, struct sigscratch *scr)
  {
- 	/*
+@@ -295,15 +264,18 @@ setup_frame(struct ksignal *ksig, sigset_t *set, struct sigscratch *scr)
+ 			 * instead so we will die with SIGSEGV.
+ 			 */
+ 			check_sp = (new_sp - sizeof(*frame)) & -STACK_ALIGN;
+-			if (!likely(on_sig_stack(check_sp)))
+-				return force_sigsegv_info(ksig->sig, (void __user *)
+-							  check_sp);
++			if (!likely(on_sig_stack(check_sp))) {
++				force_sigsegv(ksig->sig, current);
++				return 1;
++			}
+ 		}
+ 	}
+ 	frame = (void __user *) ((new_sp - sizeof(*frame)) & -STACK_ALIGN);
+ 
+-	if (!access_ok(VERIFY_WRITE, frame, sizeof(*frame)))
+-		return force_sigsegv_info(ksig->sig, frame);
++	if (!access_ok(VERIFY_WRITE, frame, sizeof(*frame))) {
++		force_sigsegv(ksig->sig, current);
++		return 1;
++	}
+ 
+ 	err  = __put_user(ksig->sig, &frame->arg0);
+ 	err |= __put_user(&frame->info, &frame->arg1);
+@@ -317,8 +289,10 @@ setup_frame(struct ksignal *ksig, sigset_t *set, struct sigscratch *scr)
+ 	err |= __save_altstack(&frame->sc.sc_stack, scr->pt.r12);
+ 	err |= setup_sigcontext(&frame->sc, set, scr);
+ 
+-	if (unlikely(err))
+-		return force_sigsegv_info(ksig->sig, frame);
++	if (unlikely(err)) {
++		force_sigsegv(ksig->sig, current);
++		return 1;
++	}
+ 
+ 	scr->pt.r12 = (unsigned long) frame - 16;	/* new stack pointer */
+ 	scr->pt.ar_fpsr = FPSR_DEFAULT;			/* reset fpsr for signal handler */
 -- 
 2.20.1
