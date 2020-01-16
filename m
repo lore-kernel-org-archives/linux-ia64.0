@@ -1,17 +1,17 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Date: Fri, 24 Jan 2020 09:23:23 +0000
-Subject: [PATCH 4.19 033/639] signal/ia64: Use the force_sig(SIGSEGV,...) in ia64_rt_sigreturn
-Message-Id: <20200124093051.581418128@linuxfoundation.org>
+From: Sasha Levin <sashal@kernel.org>
+Date: Thu, 16 Jan 2020 16:44:07 +0000
+Subject: [PATCH AUTOSEL 4.19 016/671] signal/ia64: Use the force_sig(SIGSEGV,...) in ia64_rt_sigreturn
+Message-Id: <20200116165502.8838-16-sashal@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200124093047.008739095@linuxfoundation.org>
-In-Reply-To: <20200124093047.008739095@linuxfoundation.org>
+References: <20200116165502.8838-1-sashal@kernel.org>
+In-Reply-To: <20200116165502.8838-1-sashal@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>, stable@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>, Sasha Levin <sashal@kernel.org>
+To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, Sasha Levin <sashal@kernel.org>
 
-From: Eric W. Biederman <ebiederm@xmission.com>
+From: "Eric W. Biederman" <ebiederm@xmission.com>
 
 [ Upstream commit b92adb74adde62d9a9780ff2977d63dcb21aeaa6 ]
 
@@ -40,7 +40,7 @@ Signed-off-by: Sasha Levin <sashal@kernel.org>
  1 file changed, 1 insertion(+), 9 deletions(-)
 
 diff --git a/arch/ia64/kernel/signal.c b/arch/ia64/kernel/signal.c
-index 01fc133b2e4c8..9a960829a01d9 100644
+index 01fc133b2e4c..9a960829a01d 100644
 --- a/arch/ia64/kernel/signal.c
 +++ b/arch/ia64/kernel/signal.c
 @@ -110,7 +110,6 @@ ia64_rt_sigreturn (struct sigscratch *scr)
@@ -69,5 +69,3 @@ index 01fc133b2e4c8..9a960829a01d9 100644
  
 -- 
 2.20.1
-
-
