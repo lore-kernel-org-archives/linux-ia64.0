@@ -1,74 +1,88 @@
-From: Qais Yousef <qais.yousef@arm.com>
-Date: Tue, 21 Jan 2020 17:47:52 +0000
+From: Russell King - ARM Linux admin <linux@armlinux.org.uk>
+Date: Tue, 21 Jan 2020 18:09:30 +0000
 Subject: Re: [PATCH v2 01/14] smp: Create a new function to shutdown nonboot cpus
-Message-Id: <20200121174751.5opyyjwxfnwdgcev@e107158-lin.cambridge.arm.com>
+Message-Id: <20200121180930.GJ25745@shell.armlinux.org.uk>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20191125112754.25223-1-qais.yousef@arm.com>
  <20191125112754.25223-2-qais.yousef@arm.com>
  <20200121170350.GC18808@shell.armlinux.org.uk>
-In-Reply-To: <20200121170350.GC18808@shell.armlinux.org.uk>
+ <20200121174751.5opyyjwxfnwdgcev@e107158-lin.cambridge.arm.com>
+In-Reply-To: <20200121174751.5opyyjwxfnwdgcev@e107158-lin.cambridge.arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Russell King - ARM Linux admin <linux@armlinux.org.uk>
+To: Qais Yousef <qais.yousef@arm.com>
 Cc: Thomas Gleixner <tglx@linutronix.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Josh Poimboeuf <jpoimboe@redhat.com>, "Peter Zijlstra (Intel)" <peterz@infradead.org>, Jiri Kosina <jkosina@suse.cz>, Nicholas Piggin <npiggin@gmail.com>, Daniel Lezcano <daniel.lezcano@linaro.org>, Ingo Molnar <mingo@kernel.org>, Eiichi Tsukata <devel@etsukata.com>, Zhenzhong Duan <zhenzhong.duan@oracle.com>, Nadav Amit <namit@vmware.com>, "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On 01/21/20 17:03, Russell King - ARM Linux admin wrote:
-> On Mon, Nov 25, 2019 at 11:27:41AM +0000, Qais Yousef wrote:
-> > +void smp_shutdown_nonboot_cpus(unsigned int primary_cpu)
-> > +{
-> > +	unsigned int cpu;
-> > +
-> > +	if (!cpu_online(primary_cpu)) {
-> > +		pr_info("Attempting to shutdodwn nonboot cpus while boot cpu is offline!\n");
-> > +		cpu_online(primary_cpu);
-
-Eh, that should be cpu_up(primary_cpu)!
-
-Which I have to say I'm not if is the right thing to do.
-migrate_to_reboot_cpu() picks the first online cpu if reboot_cpu (assumed 0) is
-offline
-
-migrate_to_reboot_cpu():
- 225         /* Make certain the cpu I'm about to reboot on is online */
- 226         if (!cpu_online(cpu))
- 227                 cpu = cpumask_first(cpu_online_mask);
-
-> > +	}
-> > +
-> > +	for_each_present_cpu(cpu) {
-> > +		if (cpu = primary_cpu)
-> > +			continue;
-> > +		if (cpu_online(cpu))
-> > +			cpu_down(cpu);
-> > +	}
+On Tue, Jan 21, 2020 at 05:47:52PM +0000, Qais Yousef wrote:
+> On 01/21/20 17:03, Russell King - ARM Linux admin wrote:
+> > On Mon, Nov 25, 2019 at 11:27:41AM +0000, Qais Yousef wrote:
+> > > +void smp_shutdown_nonboot_cpus(unsigned int primary_cpu)
+> > > +{
+> > > +	unsigned int cpu;
+> > > +
+> > > +	if (!cpu_online(primary_cpu)) {
+> > > +		pr_info("Attempting to shutdodwn nonboot cpus while boot cpu is offline!\n");
+> > > +		cpu_online(primary_cpu);
 > 
-> How does this avoid racing with userspace attempting to restart CPUs
-> that have already been taken down by this function?
+> Eh, that should be cpu_up(primary_cpu)!
+> 
+> Which I have to say I'm not if is the right thing to do.
+> migrate_to_reboot_cpu() picks the first online cpu if reboot_cpu (assumed 0) is
+> offline
+> 
+> migrate_to_reboot_cpu():
+>  225         /* Make certain the cpu I'm about to reboot on is online */
+>  226         if (!cpu_online(cpu))
+>  227                 cpu = cpumask_first(cpu_online_mask);
+> 
+> > > +	}
+> > > +
+> > > +	for_each_present_cpu(cpu) {
+> > > +		if (cpu = primary_cpu)
+> > > +			continue;
+> > > +		if (cpu_online(cpu))
+> > > +			cpu_down(cpu);
+> > > +	}
+> > 
+> > How does this avoid racing with userspace attempting to restart CPUs
+> > that have already been taken down by this function?
+> 
+> This is meant to be called from machine_shutdown() only.
+> 
+> But you've got a point.
+> 
+> The previous logic that used disable_nonboot_cpus(), which in turn called
+> freeze_secondary_cpus() didn't hold hotplug lock. So I assumed the higher level
+> logic of machine_shutdown() ensures that hotplug lock is held to synchronize
+> with potential other hotplug operations.
 
-This is meant to be called from machine_shutdown() only.
+freeze_secondary_cpus() takes the CPU maps lock while it takes CPUs
+down, and then disables cpu hotplug by incrementing
+cpu_hotplug_disabled.  Incrementing that prevents cpu_up() and
+cpu_down() being used, thereby preventing userspace from changing the
+online state of any CPU in the system.
 
-But you've got a point.
+> But I can see now that it doesn't.
+> 
+> With this series that migrates users to use device_{online,offline}, holding
+> the lock_device_hotplug() should protect against such races.
+> 
+> Worth noting that this an existing problem in the code and not something
+> I introduced, of course it makes sense to fix it properly as part of this
+> series.
+> 
+> I'm not sure how the other archs deal with this TBH.
+> 
+> Thanks for having a look!
+> 
+> Cheers
+> 
+> --
+> Qais Yousef
+> 
 
-The previous logic that used disable_nonboot_cpus(), which in turn called
-freeze_secondary_cpus() didn't hold hotplug lock. So I assumed the higher level
-logic of machine_shutdown() ensures that hotplug lock is held to synchronize
-with potential other hotplug operations.
-
-But I can see now that it doesn't.
-
-With this series that migrates users to use device_{online,offline}, holding
-the lock_device_hotplug() should protect against such races.
-
-Worth noting that this an existing problem in the code and not something
-I introduced, of course it makes sense to fix it properly as part of this
-series.
-
-I'm not sure how the other archs deal with this TBH.
-
-Thanks for having a look!
-
-Cheers
-
---
-Qais Yousef
+-- 
+RMK's Patch system: https://www.armlinux.org.uk/developer/patches/
+FTTC broadband for 0.8mile line in suburbia: sync at 12.1Mbps down 622kbps up
+According to speedtest.net: 11.9Mbps down 500kbps up
