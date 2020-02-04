@@ -1,38 +1,96 @@
-From: afzal mohammed <afzal.mohd.ma@gmail.com>
-Date: Thu, 27 Feb 2020 11:19:13 +0000
-Subject: Re: [PATCH 00/18] genirq: Remove setup_irq()
-Message-Id: <20200227110713.GA5708@afzalpc>
+From: Oscar Salvador <osalvador@suse.de>
+Date: Tue, 04 Feb 2020 09:26:23 +0000
+Subject: Re: [PATCH v6 09/10] mm/memory_hotplug: Drop local variables in shrink_zone_span()
+Message-Id: <20200204092623.GD6494@linux>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1581478323.git.afzal.mohd.ma@gmail.com>
- <87y2somido.fsf@nanos.tec.linutronix.de>
-In-Reply-To: <87y2somido.fsf@nanos.tec.linutronix.de>
+References: <20191006085646.5768-1-david@redhat.com>
+ <20191006085646.5768-10-david@redhat.com>
+In-Reply-To: <20191006085646.5768-10-david@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thomas Gleixner <tglx@linutronix.de>
-Cc: linux-s390@vger.kernel.org, linux-samsung-soc@vger.kernel.org, linux-ia64@vger.kernel.org, linux-c6x-dev@linux-c6x.org, linux-parisc@vger.kernel.org, linux-sh@vger.kernel.org, linux-hexagon@vger.kernel.org, x86@kernel.org, Nicolas Palix <nicolas.palix@imag.fr>, linux-kernel@vger.kernel.org, linux-mips@vger.kernel.org, Julia Lawall <Julia.Lawall@lip6.fr>, linux-m68k@lists.linux-m68k.org, Michal Marek <michal.lkml@markovi.net>, linux-rpi-kernel@lists.infradead.org, linux-alpha@vger.kernel.org, Gilles Muller <Gilles.Muller@lip6.fr>, linux-omap@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-arm-kernel@lists.infradead.org
+To: David Hildenbrand <david@redhat.com>
+Cc: linux-s390@vger.kernel.org, Michal Hocko <mhocko@suse.com>, linux-ia64@vger.kernel.org, Pavel Tatashin <pasha.tatashin@soleen.com>, linux-sh@vger.kernel.org, x86@kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org, Wei Yang <richardw.yang@linux.intel.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, Dan Williams <dan.j.williams@intel.com>, linux-arm-kernel@lists.infradead.org
 
-Hi Thomas,
-
-On Thu, Feb 27, 2020 at 11:31:15AM +0100, Thomas Gleixner wrote:
-
-> Vs. merging this series, I suggest the following approach:
+On Sun, Oct 06, 2019 at 10:56:45AM +0200, David Hildenbrand wrote:
+> Get rid of the unnecessary local variables.
 > 
->    - Resubmit the individual changes as single patches or small series
->      to the relevant maintainers and subsystem mailing lists. They have
->      no dependency on a core change and can be applied where they belong
->      to.
+> Cc: Andrew Morton <akpm@linux-foundation.org>
+> Cc: Oscar Salvador <osalvador@suse.de>
+> Cc: David Hildenbrand <david@redhat.com>
+> Cc: Michal Hocko <mhocko@suse.com>
+> Cc: Pavel Tatashin <pasha.tatashin@soleen.com>
+> Cc: Dan Williams <dan.j.williams@intel.com>
+> Cc: Wei Yang <richardw.yang@linux.intel.com>
+> Signed-off-by: David Hildenbrand <david@redhat.com>
+> ---
+>  mm/memory_hotplug.c | 15 ++++++---------
+>  1 file changed, 6 insertions(+), 9 deletions(-)
 > 
->    - After 5.6-rc6, verify which parts have made their way into
->      linux-next and resubmit the ignored ones as a series to me along
->      with the removal of the core parts.
+> diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+> index 8dafa1ba8d9f..843481bd507d 100644
+> --- a/mm/memory_hotplug.c
+> +++ b/mm/memory_hotplug.c
+> @@ -374,14 +374,11 @@ static unsigned long find_biggest_section_pfn(int nid, struct zone *zone,
+>  static void shrink_zone_span(struct zone *zone, unsigned long start_pfn,
+>  			     unsigned long end_pfn)
+>  {
+> -	unsigned long zone_start_pfn = zone->zone_start_pfn;
+> -	unsigned long z = zone_end_pfn(zone); /* zone_end_pfn namespace clash */
+> -	unsigned long zone_end_pfn = z;
+>  	unsigned long pfn;
+>  	int nid = zone_to_nid(zone);
+
+We could also remove the nid, right?
+AFAICS, the nid is only used in find_{smallest/biggest}_section_pfn so we could
+place there as well.
+
+Anyway, nothing to nit-pick about:
+
+Reviewed-by: Oscar Salvador <osalvador@suse.de>
+
+>  
+>  	zone_span_writelock(zone);
+> -	if (zone_start_pfn = start_pfn) {
+> +	if (zone->zone_start_pfn = start_pfn) {
+>  		/*
+>  		 * If the section is smallest section in the zone, it need
+>  		 * shrink zone->zone_start_pfn and zone->zone_spanned_pages.
+> @@ -389,25 +386,25 @@ static void shrink_zone_span(struct zone *zone, unsigned long start_pfn,
+>  		 * for shrinking zone.
+>  		 */
+>  		pfn = find_smallest_section_pfn(nid, zone, end_pfn,
+> -						zone_end_pfn);
+> +						zone_end_pfn(zone));
+>  		if (pfn) {
+> +			zone->spanned_pages = zone_end_pfn(zone) - pfn;
+>  			zone->zone_start_pfn = pfn;
+> -			zone->spanned_pages = zone_end_pfn - pfn;
+>  		} else {
+>  			zone->zone_start_pfn = 0;
+>  			zone->spanned_pages = 0;
+>  		}
+> -	} else if (zone_end_pfn = end_pfn) {
+> +	} else if (zone_end_pfn(zone) = end_pfn) {
+>  		/*
+>  		 * If the section is biggest section in the zone, it need
+>  		 * shrink zone->spanned_pages.
+>  		 * In this case, we find second biggest valid mem_section for
+>  		 * shrinking zone.
+>  		 */
+> -		pfn = find_biggest_section_pfn(nid, zone, zone_start_pfn,
+> +		pfn = find_biggest_section_pfn(nid, zone, zone->zone_start_pfn,
+>  					       start_pfn);
+>  		if (pfn)
+> -			zone->spanned_pages = pfn - zone_start_pfn + 1;
+> +			zone->spanned_pages = pfn - zone->zone_start_pfn + 1;
+>  		else {
+>  			zone->zone_start_pfn = 0;
+>  			zone->spanned_pages = 0;
+> -- 
+> 2.21.0
 > 
-> That way we can avoid conflicting changes between subsystems and the tip
-> irq/core branch as much as possible.
 
-Okay, i will do accordingly.
-
-[ your mail crossed my v3 (only one patch) posting ]
-
-Regards
-afzal
+-- 
+Oscar Salvador
+SUSE L3
