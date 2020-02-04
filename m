@@ -1,59 +1,81 @@
-From: Anshuman Khandual <anshuman.khandual@arm.com>
-Date: Thu, 13 Feb 2020 02:27:55 +0000
-Subject: Re: [PATCH V12] mm/debug: Add tests validating architecture page table helpers
-Message-Id: <085cdec7-1759-82c6-7a65-9b7d28c1c458@arm.com>
+From: Oscar Salvador <osalvador@suse.de>
+Date: Tue, 04 Feb 2020 09:46:53 +0000
+Subject: Re: [PATCH v6 10/10] mm/memory_hotplug: Cleanup __remove_pages()
+Message-Id: <20200204094652.GE6494@linux>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1580174873-18117-1-git-send-email-anshuman.khandual@arm.com>
- <20200210153716.GB9283@E121110.arm.com>
- <b169ff9d-7b87-91f4-b3d0-e97f86680d0c@arm.com>
- <20200212185548.3274ec2e@thinkpad>
-In-Reply-To: <20200212185548.3274ec2e@thinkpad>
+References: <20191006085646.5768-1-david@redhat.com>
+ <20191006085646.5768-11-david@redhat.com>
+In-Reply-To: <20191006085646.5768-11-david@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Gerald Schaefer <gerald.schaefer@de.ibm.com>
-Cc: Mark Rutland <mark.rutland@arm.com>, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Catalin Marinas <catalin.marinas@arm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, Michal Hocko <mhocko@kernel.org>, linux-mm@kvack.org, Paul Mackerras <paulus@samba.org>, sparclinux@vger.kernel.org, Ingo Molnar <mingo@kernel.org>, linux-s390@vger.kernel.org, Jason Gunthorpe <jgg@ziepe.ca>, Michael Ellerman <mpe@ellerman.id.au>, x86@kernel.org, Russell King - ARM Linux <linux@armlinux.org.uk>, Matthew Wilcox <willy@infradead.org>, Steven Price <Steven.Price@arm.com>, Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>, Vlastimil Babka <vbabka@suse.cz>, James Hogan <jhogan@kernel.org>, linux-snps-arc@lists.infradead.org, Kees Cook <keescook@chromium.org>, Masahiro Yamada <yamada.masahiro@socionext.com>, Dan Williams <dan.j.williams@intel.com>, Mark Brown <broonie@kernel.org>, "Kirill A . Shutemov" <kirill@shutemov.name>, Thomas Gleixner <tglx@linutronix.de>, linux-arm-kernel@lists.infradead.org, Christophe Leroy <christophe.leroy@c-s.fr>, Sri Krishna chowdary <schowdary@nvidia.com>, Dave Hansen <dave.hansen@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Ard Biesheuvel <ard.biesheuvel@linaro.org>, linux-mips@vger.kernel.org, Ralf Baechle <ralf@linux-mips.org>, linux-kernel@vger.kernel.org, Paul Burton <paul.burton@mips.com>, Mike Rapoport <rppt@linux.vnet.ibm.com>, Vineet Gupta <vgupta@synopsys.com>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, "David S. Miller" <davem@davemloft.net>
+To: David Hildenbrand <david@redhat.com>
+Cc: linux-s390@vger.kernel.org, Michal Hocko <mhocko@suse.com>, linux-ia64@vger.kernel.org, Pavel Tatashin <pasha.tatashin@soleen.com>, linux-sh@vger.kernel.org, x86@kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org, Wei Yang <richardw.yang@linux.intel.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, Dan Williams <dan.j.williams@intel.com>, linux-arm-kernel@lists.infradead.org
 
+On Sun, Oct 06, 2019 at 10:56:46AM +0200, David Hildenbrand wrote:
+> Let's drop the basically unused section stuff and simplify.
+> 
+> Also, let's use a shorter variant to calculate the number of pages to
+> the next section boundary.
+> 
+> Cc: Andrew Morton <akpm@linux-foundation.org>
+> Cc: Oscar Salvador <osalvador@suse.de>
+> Cc: Michal Hocko <mhocko@suse.com>
+> Cc: Pavel Tatashin <pasha.tatashin@soleen.com>
+> Cc: Dan Williams <dan.j.williams@intel.com>
+> Cc: Wei Yang <richardw.yang@linux.intel.com>
+> Signed-off-by: David Hildenbrand <david@redhat.com>
 
+I have to confess that it took me while to wrap around my head
+with the new min() change, but looks ok:
 
-On 02/12/2020 11:25 PM, Gerald Schaefer wrote:
-> On Wed, 12 Feb 2020 15:12:54 +0530
-> Anshuman Khandual <anshuman.khandual@arm.com> wrote:
-> 
->>>> +/*
->>>> + * On s390 platform, the lower 12 bits are used to identify given page table
->>>> + * entry type and for other arch specific requirements. But these bits might
->>>> + * affect the ability to clear entries with pxx_clear(). So while loading up
->>>> + * the entries skip all lower 12 bits in order to accommodate s390 platform.
->>>> + * It does not have affect any other platform.
->>>> + */
->>>> +#define RANDOM_ORVALUE	(0xfffffffffffff000UL)  
->>>
->>> I'd suggest you generate this mask with something like
->>> GENMASK(BITS_PER_LONG, PAGE_SHIFT).  
->>
->> IIRC the lower 12 bits constrains on s390 platform might not be really related
->> to it's PAGE_SHIFT which can be a variable, but instead just a constant number.
->> But can definitely use GENMASK or it's variants here.
->>
->> https://lkml.org/lkml/2019/9/5/862
-> 
-> PAGE_SHIFT would be fine, it is 12 on s390. However, in order to be
-> more precise, we do not really need all 12 bits, only the last 4 bits.
-> So, something like this would work:
-> 
-> #define RANDOM_ORVALUE GENMASK(BITS_PER_LONG - 1, 4)
-> 
-> The text in the comment could then also be changed from 12 to 4, and
-> be a bit more specific on the fact that the impact on pxx_clear()
-> results from the dynamic page table folding logic on s390:
-> 
-> /*
->  * On s390 platform, the lower 4 bits are used to identify given page table
->  * entry type. But these bits might affect the ability to clear entries with
->  * pxx_clear() because of how dynamic page table folding works on s390. So
->  * while loading up the entries do not change the lower 4 bits.
->  * It does not have affect any other platform.
->  */
+Reviewed-by: Oscar Salvador <osalvador@suse.de>
 
-Sure, will update accordingly.
+> ---
+>  mm/memory_hotplug.c | 17 ++++++-----------
+>  1 file changed, 6 insertions(+), 11 deletions(-)
+> 
+> diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+> index 843481bd507d..2275240cfa10 100644
+> --- a/mm/memory_hotplug.c
+> +++ b/mm/memory_hotplug.c
+> @@ -490,25 +490,20 @@ static void __remove_section(unsigned long pfn, unsigned long nr_pages,
+>  void __remove_pages(unsigned long pfn, unsigned long nr_pages,
+>  		    struct vmem_altmap *altmap)
+>  {
+> +	const unsigned long end_pfn = pfn + nr_pages;
+> +	unsigned long cur_nr_pages;
+>  	unsigned long map_offset = 0;
+> -	unsigned long nr, start_sec, end_sec;
+>  
+>  	map_offset = vmem_altmap_offset(altmap);
+>  
+>  	if (check_pfn_span(pfn, nr_pages, "remove"))
+>  		return;
+>  
+> -	start_sec = pfn_to_section_nr(pfn);
+> -	end_sec = pfn_to_section_nr(pfn + nr_pages - 1);
+> -	for (nr = start_sec; nr <= end_sec; nr++) {
+> -		unsigned long pfns;
+> -
+> +	for (; pfn < end_pfn; pfn += cur_nr_pages) {
+>  		cond_resched();
+> -		pfns = min(nr_pages, PAGES_PER_SECTION
+> -				- (pfn & ~PAGE_SECTION_MASK));
+> -		__remove_section(pfn, pfns, map_offset, altmap);
+> -		pfn += pfns;
+> -		nr_pages -= pfns;
+> +		/* Select all remaining pages up to the next section boundary */
+> +		cur_nr_pages = min(end_pfn - pfn, -(pfn | PAGE_SECTION_MASK));
+> +		__remove_section(pfn, cur_nr_pages, map_offset, altmap);
+>  		map_offset = 0;
+>  	}
+>  }
+> -- 
+> 2.21.0
+> 
+> 
+
+-- 
+Oscar Salvador
+SUSE L3
