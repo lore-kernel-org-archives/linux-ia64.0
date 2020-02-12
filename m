@@ -1,96 +1,146 @@
-From: Mike Rapoport <rppt@kernel.org>
-Date: Thu, 27 Feb 2020 08:45:59 +0000
-Subject: [PATCH v3 05/14] nios2: add support for folded p4d page tables
-Message-Id: <20200227084608.18223-6-rppt@kernel.org>
+From: Michal Simek <michal.simek@xilinx.com>
+Date: Wed, 12 Feb 2020 10:53:29 +0000
+Subject: [PATCH v3] asm-generic: Fix unistd_32.h generation format
+Message-Id: <4d32ab4e1fb2edb691d2e1687e8fb303c09fd023.1581504803.git.michal.simek@xilinx.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200227084608.18223-1-rppt@kernel.org>
-In-Reply-To: <20200227084608.18223-1-rppt@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Rich Felker <dalias@libc.org>, linux-ia64@vger.kernel.org, Geert Uytterhoeven <geert+renesas@glider.be>, linux-sh@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linux-mm@kvack.org, Paul Mackerras <paulus@samba.org>, linux-hexagon@vger.kernel.org, Will Deacon <will@kernel.org>, kvmarm@lists.cs.columbia.edu, Jonas Bonn <jonas@southpole.se>, linux-arch@vger.kernel.org, Brian Cain <bcain@codeaurora.org>, Marc Zyngier <maz@kernel.org>, Russell King <linux@armlinux.org.uk>, Ley Foon Tan <ley.foon.tan@intel.com>, Mike Rapoport <rppt@linux.ibm.com>, Catalin Marinas <catalin.marinas@arm.com>, uclinux-h8-devel@lists.sourceforge.jp, Fenghua Yu <fenghua.yu@intel.com>, Arnd Bergmann <arnd@arndb.de>, kvm-ppc@vger.kernel.org, Stefan Kristiansson <stefan.kristiansson@saunalahti.fi>, openrisc@lists.librecores.org, Stafford Horne <shorne@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, linux-arm-kernel@lists.infradead.org, Christophe Leroy <christophe.leroy@c-s.fr>, Tony Luck <tony.luck@intel.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Michael Ellerman <mpe@ellerman.id.au>, nios2-dev@lists.rocketboards.org, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, Mike Rapoport <rppt@kernel.org>
+To: linux-kernel@vger.kernel.org, monstr@monstr.eu, michal.simek@xilinx.com, git@xilinx.com, arnd@arndb.de, akpm@linux-foundation.org
+Cc: Stefan Asserhall <stefan.asserhall@xilinx.com>, Max Filippov <jcmvbkbc@gmail.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Chris Zankel <chris@zankel.net>, "David S. Miller" <davem@davemloft.net>, Fenghua Yu <fenghua.yu@intel.com>, Helge Deller <deller@gmx.de>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Matt Turner <mattst88@gmail.com>, Michael Ellerman <mpe@ellerman.id.au>, Paul Burton <paulburton@kernel.org>, Paul Mackerras <paulus@samba.org>, Ralf Baechle <ralf@linux-mips.org>, Rich Felker <dalias@libc.org>, Richard Henderson <rth@twiddle.net>, Tony Luck <tony.luck@intel.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org
 
-From: Mike Rapoport <rppt@linux.ibm.com>
+Generated files are also checked by sparse that's why add newline
+to remove sparse (C=1) warning.
 
-Implement primitives necessary for the 4th level folding, add walks of p4d
-level where appropriate and remove usage of __ARCH_USE_5LEVEL_HACK.
+The issue was found on Microblaze and reported like this:
+./arch/microblaze/include/generated/uapi/asm/unistd_32.h:438:45:
+warning: no newline at end of file
 
-Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
+Mips and PowerPC have it already but let's align with style used by m68k.
+
+Signed-off-by: Michal Simek <michal.simek@xilinx.com>
+Reviewed-by: Stefan Asserhall <stefan.asserhall@xilinx.com>
+Acked-by: Max Filippov <jcmvbkbc@gmail.com> (xtensa)
 ---
- arch/nios2/include/asm/pgtable.h | 3 +--
- arch/nios2/mm/fault.c            | 9 +++++++--
- arch/nios2/mm/ioremap.c          | 6 +++++-
- 3 files changed, 13 insertions(+), 5 deletions(-)
 
-diff --git a/arch/nios2/include/asm/pgtable.h b/arch/nios2/include/asm/pgtable.h
-index 99985d8b7166..54305aa09b74 100644
---- a/arch/nios2/include/asm/pgtable.h
-+++ b/arch/nios2/include/asm/pgtable.h
-@@ -22,7 +22,6 @@
- #include <asm/tlbflush.h>
- 
- #include <asm/pgtable-bits.h>
--#define __ARCH_USE_5LEVEL_HACK
- #include <asm-generic/pgtable-nopmd.h>
- 
- #define FIRST_USER_ADDRESS	0UL
-@@ -100,7 +99,7 @@ extern pte_t invalid_pte_table[PAGE_SIZE/sizeof(pte_t)];
-  */
- static inline void set_pmd(pmd_t *pmdptr, pmd_t pmdval)
- {
--	pmdptr->pud.pgd.pgd = pmdval.pud.pgd.pgd;
-+	*pmdptr = pmdval;
- }
- 
- /* to find an entry in a page-table-directory */
-diff --git a/arch/nios2/mm/fault.c b/arch/nios2/mm/fault.c
-index 6a2e716b959f..d3da995665c3 100644
---- a/arch/nios2/mm/fault.c
-+++ b/arch/nios2/mm/fault.c
-@@ -245,6 +245,7 @@ asmlinkage void do_page_fault(struct pt_regs *regs, unsigned long cause,
- 		 */
- 		int offset = pgd_index(address);
- 		pgd_t *pgd, *pgd_k;
-+		p4d_t *p4d, *p4d_k;
- 		pud_t *pud, *pud_k;
- 		pmd_t *pmd, *pmd_k;
- 		pte_t *pte_k;
-@@ -256,8 +257,12 @@ asmlinkage void do_page_fault(struct pt_regs *regs, unsigned long cause,
- 			goto no_context;
- 		set_pgd(pgd, *pgd_k);
- 
--		pud = pud_offset(pgd, address);
--		pud_k = pud_offset(pgd_k, address);
-+		p4d = p4d_offset(pgd, address);
-+		p4d_k = p4d_offset(pgd_k, address);
-+		if (!p4d_present(*p4d_k))
-+			goto no_context;
-+		pud = pud_offset(p4d, address);
-+		pud_k = pud_offset(p4d_k, address);
- 		if (!pud_present(*pud_k))
- 			goto no_context;
- 		pmd = pmd_offset(pud, address);
-diff --git a/arch/nios2/mm/ioremap.c b/arch/nios2/mm/ioremap.c
-index 819bdfcc2e71..fe821efb9a99 100644
---- a/arch/nios2/mm/ioremap.c
-+++ b/arch/nios2/mm/ioremap.c
-@@ -86,11 +86,15 @@ static int remap_area_pages(unsigned long address, unsigned long phys_addr,
- 	if (address >= end)
- 		BUG();
- 	do {
-+		p4d_t *p4d;
- 		pud_t *pud;
- 		pmd_t *pmd;
- 
- 		error = -ENOMEM;
--		pud = pud_alloc(&init_mm, dir, address);
-+		p4d = p4d_alloc(&init_mm, dir, address);
-+		if (!p4d)
-+			break;
-+		pud = pud_alloc(&init_mm, p4d, address);
- 		if (!pud)
- 			break;
- 		pmd = pmd_alloc(&init_mm, pud, address);
+Changes in v3:
+- Add notes about mips/ppc and m68 - Max/Geert
+
+Changes in v2:
+- Update also others archs not just microblaze - Arnd
+- Align subject and description to match multiarch change
+
+ arch/alpha/kernel/syscalls/syscallhdr.sh      | 2 +-
+ arch/ia64/kernel/syscalls/syscallhdr.sh       | 2 +-
+ arch/microblaze/kernel/syscalls/syscallhdr.sh | 2 +-
+ arch/mips/kernel/syscalls/syscallhdr.sh       | 3 +--
+ arch/parisc/kernel/syscalls/syscallhdr.sh     | 2 +-
+ arch/powerpc/kernel/syscalls/syscallhdr.sh    | 3 +--
+ arch/sh/kernel/syscalls/syscallhdr.sh         | 2 +-
+ arch/sparc/kernel/syscalls/syscallhdr.sh      | 2 +-
+ arch/xtensa/kernel/syscalls/syscallhdr.sh     | 2 +-
+ 9 files changed, 9 insertions(+), 11 deletions(-)
+
+diff --git a/arch/alpha/kernel/syscalls/syscallhdr.sh b/arch/alpha/kernel/syscalls/syscallhdr.sh
+index e5b99bd2e5e7..1780e861492a 100644
+--- a/arch/alpha/kernel/syscalls/syscallhdr.sh
++++ b/arch/alpha/kernel/syscalls/syscallhdr.sh
+@@ -32,5 +32,5 @@ grep -E "^[0-9A-Fa-fXx]+[[:space:]]+${my_abis}" "$in" | sort -n | (
+ 	printf "#define __NR_syscalls\t%s\n" "${nxt}"
+ 	printf "#endif\n"
+ 	printf "\n"
+-	printf "#endif /* %s */" "${fileguard}"
++	printf "#endif /* %s */\n" "${fileguard}"
+ ) > "$out"
+diff --git a/arch/ia64/kernel/syscalls/syscallhdr.sh b/arch/ia64/kernel/syscalls/syscallhdr.sh
+index 0c2d2c748565..f407b6e53283 100644
+--- a/arch/ia64/kernel/syscalls/syscallhdr.sh
++++ b/arch/ia64/kernel/syscalls/syscallhdr.sh
+@@ -32,5 +32,5 @@ grep -E "^[0-9A-Fa-fXx]+[[:space:]]+${my_abis}" "$in" | sort -n | (
+ 	printf "#define __NR_syscalls\t%s\n" "${nxt}"
+ 	printf "#endif\n"
+ 	printf "\n"
+-	printf "#endif /* %s */" "${fileguard}"
++	printf "#endif /* %s */\n" "${fileguard}"
+ ) > "$out"
+diff --git a/arch/microblaze/kernel/syscalls/syscallhdr.sh b/arch/microblaze/kernel/syscalls/syscallhdr.sh
+index 2e9062a926a3..a914854f8d9f 100644
+--- a/arch/microblaze/kernel/syscalls/syscallhdr.sh
++++ b/arch/microblaze/kernel/syscalls/syscallhdr.sh
+@@ -32,5 +32,5 @@ grep -E "^[0-9A-Fa-fXx]+[[:space:]]+${my_abis}" "$in" | sort -n | (
+ 	printf "#define __NR_syscalls\t%s\n" "${nxt}"
+ 	printf "#endif\n"
+ 	printf "\n"
+-	printf "#endif /* %s */" "${fileguard}"
++	printf "#endif /* %s */\n" "${fileguard}"
+ ) > "$out"
+diff --git a/arch/mips/kernel/syscalls/syscallhdr.sh b/arch/mips/kernel/syscalls/syscallhdr.sh
+index d2bcfa8f4d1a..2e241e713a7d 100644
+--- a/arch/mips/kernel/syscalls/syscallhdr.sh
++++ b/arch/mips/kernel/syscalls/syscallhdr.sh
+@@ -32,6 +32,5 @@ grep -E "^[0-9A-Fa-fXx]+[[:space:]]+${my_abis}" "$in" | sort -n | (
+ 	printf "#define __NR_syscalls\t%s\n" "${nxt}"
+ 	printf "#endif\n"
+ 	printf "\n"
+-	printf "#endif /* %s */" "${fileguard}"
+-	printf "\n"
++	printf "#endif /* %s */\n" "${fileguard}"
+ ) > "$out"
+diff --git a/arch/parisc/kernel/syscalls/syscallhdr.sh b/arch/parisc/kernel/syscalls/syscallhdr.sh
+index 50242b747d7c..730db288fe54 100644
+--- a/arch/parisc/kernel/syscalls/syscallhdr.sh
++++ b/arch/parisc/kernel/syscalls/syscallhdr.sh
+@@ -32,5 +32,5 @@ grep -E "^[0-9A-Fa-fXx]+[[:space:]]+${my_abis}" "$in" | sort -n | (
+ 	printf "#define __NR_syscalls\t%s\n" "${nxt}"
+ 	printf "#endif\n"
+ 	printf "\n"
+-	printf "#endif /* %s */" "${fileguard}"
++	printf "#endif /* %s */\n" "${fileguard}"
+ ) > "$out"
+diff --git a/arch/powerpc/kernel/syscalls/syscallhdr.sh b/arch/powerpc/kernel/syscalls/syscallhdr.sh
+index c0a9a32937f1..02d6751f3be3 100644
+--- a/arch/powerpc/kernel/syscalls/syscallhdr.sh
++++ b/arch/powerpc/kernel/syscalls/syscallhdr.sh
+@@ -32,6 +32,5 @@ grep -E "^[0-9A-Fa-fXx]+[[:space:]]+${my_abis}" "$in" | sort -n | (
+ 	printf "#define __NR_syscalls\t%s\n" "${nxt}"
+ 	printf "#endif\n"
+ 	printf "\n"
+-	printf "#endif /* %s */" "${fileguard}"
+-	printf "\n"
++	printf "#endif /* %s */\n" "${fileguard}"
+ ) > "$out"
+diff --git a/arch/sh/kernel/syscalls/syscallhdr.sh b/arch/sh/kernel/syscalls/syscallhdr.sh
+index 1de0334e577f..4c0519861e97 100644
+--- a/arch/sh/kernel/syscalls/syscallhdr.sh
++++ b/arch/sh/kernel/syscalls/syscallhdr.sh
+@@ -32,5 +32,5 @@ grep -E "^[0-9A-Fa-fXx]+[[:space:]]+${my_abis}" "$in" | sort -n | (
+ 	printf "#define __NR_syscalls\t%s\n" "${nxt}"
+ 	printf "#endif\n"
+ 	printf "\n"
+-	printf "#endif /* %s */" "${fileguard}"
++	printf "#endif /* %s */\n" "${fileguard}"
+ ) > "$out"
+diff --git a/arch/sparc/kernel/syscalls/syscallhdr.sh b/arch/sparc/kernel/syscalls/syscallhdr.sh
+index 626b5740a9f1..cf50a75cc0bb 100644
+--- a/arch/sparc/kernel/syscalls/syscallhdr.sh
++++ b/arch/sparc/kernel/syscalls/syscallhdr.sh
+@@ -32,5 +32,5 @@ grep -E "^[0-9A-Fa-fXx]+[[:space:]]+${my_abis}" "$in" | sort -n | (
+ 	printf "#define __NR_syscalls\t%s\n" "${nxt}"
+ 	printf "#endif\n"
+ 	printf "\n"
+-	printf "#endif /* %s */" "${fileguard}"
++	printf "#endif /* %s */\n" "${fileguard}"
+ ) > "$out"
+diff --git a/arch/xtensa/kernel/syscalls/syscallhdr.sh b/arch/xtensa/kernel/syscalls/syscallhdr.sh
+index d37db641ca31..eebfb8a8ace6 100644
+--- a/arch/xtensa/kernel/syscalls/syscallhdr.sh
++++ b/arch/xtensa/kernel/syscalls/syscallhdr.sh
+@@ -32,5 +32,5 @@ grep -E "^[0-9A-Fa-fXx]+[[:space:]]+${my_abis}" "$in" | sort -n | (
+ 	printf "#define __NR_syscalls\t%s\n" "${nxt}"
+ 	printf "#endif\n"
+ 	printf "\n"
+-	printf "#endif /* %s */" "${fileguard}"
++	printf "#endif /* %s */\n" "${fileguard}"
+ ) > "$out"
 -- 
-2.24.0
+2.25.0
