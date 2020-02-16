@@ -1,7 +1,7 @@
 From: Mike Rapoport <rppt@kernel.org>
-Date: Sun, 16 Feb 2020 08:18:41 +0000
-Subject: [PATCH v2 11/13] unicore32: remove __ARCH_USE_5LEVEL_HACK
-Message-Id: <20200216081843.28670-12-rppt@kernel.org>
+Date: Sun, 16 Feb 2020 08:18:35 +0000
+Subject: [PATCH v2 05/13] nios2: add support for folded p4d page tables
+Message-Id: <20200216081843.28670-6-rppt@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20200216081843.28670-1-rppt@kernel.org>
 In-Reply-To: <20200216081843.28670-1-rppt@kernel.org>
@@ -13,47 +13,84 @@ Cc: Rich Felker <dalias@libc.org>, linux-ia64@vger.kernel.org, Geert Uytterhoeve
 
 From: Mike Rapoport <rppt@linux.ibm.com>
 
-The unicore32 architecture has 2 level page tables and
-asm-generic/pgtable-nopmd.h and explicit casts from pud_t to pgd_t for page
-table folding.
-
-Add p4d walk in the only place that actually unfolds the pud level and
-remove __ARCH_USE_5LEVEL_HACK.
+Implement primitives necessary for the 4th level folding, add walks of p4d
+level where appropriate and remove usage of __ARCH_USE_5LEVEL_HACK.
 
 Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
 ---
- arch/unicore32/include/asm/pgtable.h | 1 -
- arch/unicore32/kernel/hibernate.c    | 4 +++-
- 2 files changed, 3 insertions(+), 2 deletions(-)
+ arch/nios2/include/asm/pgtable.h | 3 +--
+ arch/nios2/mm/fault.c            | 9 +++++++--
+ arch/nios2/mm/ioremap.c          | 6 +++++-
+ 3 files changed, 13 insertions(+), 5 deletions(-)
 
-diff --git a/arch/unicore32/include/asm/pgtable.h b/arch/unicore32/include/asm/pgtable.h
-index c8f7ba12f309..82030c32fc05 100644
---- a/arch/unicore32/include/asm/pgtable.h
-+++ b/arch/unicore32/include/asm/pgtable.h
-@@ -9,7 +9,6 @@
- #ifndef __UNICORE_PGTABLE_H__
- #define __UNICORE_PGTABLE_H__
+diff --git a/arch/nios2/include/asm/pgtable.h b/arch/nios2/include/asm/pgtable.h
+index 99985d8b7166..54305aa09b74 100644
+--- a/arch/nios2/include/asm/pgtable.h
++++ b/arch/nios2/include/asm/pgtable.h
+@@ -22,7 +22,6 @@
+ #include <asm/tlbflush.h>
  
+ #include <asm/pgtable-bits.h>
 -#define __ARCH_USE_5LEVEL_HACK
  #include <asm-generic/pgtable-nopmd.h>
- #include <asm/cpu-single.h>
  
-diff --git a/arch/unicore32/kernel/hibernate.c b/arch/unicore32/kernel/hibernate.c
-index f3812245cc00..ccad051a79b6 100644
---- a/arch/unicore32/kernel/hibernate.c
-+++ b/arch/unicore32/kernel/hibernate.c
-@@ -33,9 +33,11 @@ struct swsusp_arch_regs swsusp_arch_regs_cpu0;
- static pmd_t *resume_one_md_table_init(pgd_t *pgd)
+ #define FIRST_USER_ADDRESS	0UL
+@@ -100,7 +99,7 @@ extern pte_t invalid_pte_table[PAGE_SIZE/sizeof(pte_t)];
+  */
+ static inline void set_pmd(pmd_t *pmdptr, pmd_t pmdval)
  {
- 	pud_t *pud;
-+	p4d_t *p4d;
- 	pmd_t *pmd_table;
+-	pmdptr->pud.pgd.pgd = pmdval.pud.pgd.pgd;
++	*pmdptr = pmdval;
+ }
  
--	pud = pud_offset(pgd, 0);
-+	p4d = p4d_offset(pgd, 0);
-+	pud = pud_offset(p4d, 0);
- 	pmd_table = pmd_offset(pud, 0);
+ /* to find an entry in a page-table-directory */
+diff --git a/arch/nios2/mm/fault.c b/arch/nios2/mm/fault.c
+index 6a2e716b959f..d3da995665c3 100644
+--- a/arch/nios2/mm/fault.c
++++ b/arch/nios2/mm/fault.c
+@@ -245,6 +245,7 @@ asmlinkage void do_page_fault(struct pt_regs *regs, unsigned long cause,
+ 		 */
+ 		int offset = pgd_index(address);
+ 		pgd_t *pgd, *pgd_k;
++		p4d_t *p4d, *p4d_k;
+ 		pud_t *pud, *pud_k;
+ 		pmd_t *pmd, *pmd_k;
+ 		pte_t *pte_k;
+@@ -256,8 +257,12 @@ asmlinkage void do_page_fault(struct pt_regs *regs, unsigned long cause,
+ 			goto no_context;
+ 		set_pgd(pgd, *pgd_k);
  
- 	return pmd_table;
+-		pud = pud_offset(pgd, address);
+-		pud_k = pud_offset(pgd_k, address);
++		p4d = p4d_offset(pgd, address);
++		p4d_k = p4d_offset(pgd_k, address);
++		if (!p4d_present(*p4d_k))
++			goto no_context;
++		pud = pud_offset(p4d, address);
++		pud_k = pud_offset(p4d_k, address);
+ 		if (!pud_present(*pud_k))
+ 			goto no_context;
+ 		pmd = pmd_offset(pud, address);
+diff --git a/arch/nios2/mm/ioremap.c b/arch/nios2/mm/ioremap.c
+index 819bdfcc2e71..fe821efb9a99 100644
+--- a/arch/nios2/mm/ioremap.c
++++ b/arch/nios2/mm/ioremap.c
+@@ -86,11 +86,15 @@ static int remap_area_pages(unsigned long address, unsigned long phys_addr,
+ 	if (address >= end)
+ 		BUG();
+ 	do {
++		p4d_t *p4d;
+ 		pud_t *pud;
+ 		pmd_t *pmd;
+ 
+ 		error = -ENOMEM;
+-		pud = pud_alloc(&init_mm, dir, address);
++		p4d = p4d_alloc(&init_mm, dir, address);
++		if (!p4d)
++			break;
++		pud = pud_alloc(&init_mm, p4d, address);
+ 		if (!pud)
+ 			break;
+ 		pmd = pmd_alloc(&init_mm, pud, address);
 -- 
 2.24.0
