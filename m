@@ -1,7 +1,7 @@
 From: Mike Rapoport <rppt@kernel.org>
-Date: Sun, 16 Feb 2020 08:18:34 +0000
-Subject: [PATCH v2 04/13] ia64: add support for folded p4d page tables
-Message-Id: <20200216081843.28670-5-rppt@kernel.org>
+Date: Sun, 16 Feb 2020 08:18:36 +0000
+Subject: [PATCH v2 06/13] openrisc: add support for folded p4d page tables
+Message-Id: <20200216081843.28670-7-rppt@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20200216081843.28670-1-rppt@kernel.org>
 In-Reply-To: <20200216081843.28670-1-rppt@kernel.org>
@@ -14,227 +14,76 @@ Cc: Rich Felker <dalias@libc.org>, linux-ia64@vger.kernel.org, Geert Uytterhoeve
 From: Mike Rapoport <rppt@linux.ibm.com>
 
 Implement primitives necessary for the 4th level folding, add walks of p4d
-level where appropriate, remove usage of __ARCH_USE_5LEVEL_HACK and replace
-5level-fixup.h with pgtable-nop4d.h
+level where appropriate and remove usage of __ARCH_USE_5LEVEL_HACK.
 
 Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
 ---
- arch/ia64/include/asm/pgalloc.h |  4 ++--
- arch/ia64/include/asm/pgtable.h | 17 ++++++++---------
- arch/ia64/mm/fault.c            |  7 ++++++-
- arch/ia64/mm/hugetlbpage.c      | 18 ++++++++++++------
- arch/ia64/mm/init.c             | 28 ++++++++++++++++++++++++----
- 5 files changed, 52 insertions(+), 22 deletions(-)
+ arch/openrisc/include/asm/pgtable.h |  1 -
+ arch/openrisc/mm/fault.c            | 10 ++++++++--
+ arch/openrisc/mm/init.c             |  4 +++-
+ 3 files changed, 11 insertions(+), 4 deletions(-)
 
-diff --git a/arch/ia64/include/asm/pgalloc.h b/arch/ia64/include/asm/pgalloc.h
-index f4c491044882..2a3050345099 100644
---- a/arch/ia64/include/asm/pgalloc.h
-+++ b/arch/ia64/include/asm/pgalloc.h
-@@ -36,9 +36,9 @@ static inline void pgd_free(struct mm_struct *mm, pgd_t *pgd)
+diff --git a/arch/openrisc/include/asm/pgtable.h b/arch/openrisc/include/asm/pgtable.h
+index 248d22d8faa7..c072943fc721 100644
+--- a/arch/openrisc/include/asm/pgtable.h
++++ b/arch/openrisc/include/asm/pgtable.h
+@@ -21,7 +21,6 @@
+ #ifndef __ASM_OPENRISC_PGTABLE_H
+ #define __ASM_OPENRISC_PGTABLE_H
  
- #if CONFIG_PGTABLE_LEVELS = 4
- static inline void
--pgd_populate(struct mm_struct *mm, pgd_t * pgd_entry, pud_t * pud)
-+p4d_populate(struct mm_struct *mm, p4d_t * p4d_entry, pud_t * pud)
- {
--	pgd_val(*pgd_entry) = __pa(pud);
-+	p4d_val(*p4d_entry) = __pa(pud);
- }
- 
- static inline pud_t *pud_alloc_one(struct mm_struct *mm, unsigned long addr)
-diff --git a/arch/ia64/include/asm/pgtable.h b/arch/ia64/include/asm/pgtable.h
-index d602e7c622db..c87f789bc914 100644
---- a/arch/ia64/include/asm/pgtable.h
-+++ b/arch/ia64/include/asm/pgtable.h
-@@ -283,12 +283,12 @@ extern unsigned long VMALLOC_END;
- #define pud_page(pud)			virt_to_page((pud_val(pud) + PAGE_OFFSET))
- 
- #if CONFIG_PGTABLE_LEVELS = 4
--#define pgd_none(pgd)			(!pgd_val(pgd))
--#define pgd_bad(pgd)			(!ia64_phys_addr_valid(pgd_val(pgd)))
--#define pgd_present(pgd)		(pgd_val(pgd) != 0UL)
--#define pgd_clear(pgdp)			(pgd_val(*(pgdp)) = 0UL)
--#define pgd_page_vaddr(pgd)		((unsigned long) __va(pgd_val(pgd) & _PFN_MASK))
--#define pgd_page(pgd)			virt_to_page((pgd_val(pgd) + PAGE_OFFSET))
-+#define p4d_none(p4d)			(!p4d_val(p4d))
-+#define p4d_bad(p4d)			(!ia64_phys_addr_valid(p4d_val(p4d)))
-+#define p4d_present(p4d)		(p4d_val(p4d) != 0UL)
-+#define p4d_clear(p4dp)			(p4d_val(*(p4dp)) = 0UL)
-+#define p4d_page_vaddr(p4d)		((unsigned long) __va(p4d_val(p4d) & _PFN_MASK))
-+#define p4d_page(p4d)			virt_to_page((p4d_val(p4d) + PAGE_OFFSET))
- #endif
- 
- /*
-@@ -388,7 +388,7 @@ pgd_offset (const struct mm_struct *mm, unsigned long address)
- #if CONFIG_PGTABLE_LEVELS = 4
- /* Find an entry in the second-level page table.. */
- #define pud_offset(dir,addr) \
--	((pud_t *) pgd_page_vaddr(*(dir)) + (((addr) >> PUD_SHIFT) & (PTRS_PER_PUD - 1)))
-+	((pud_t *) p4d_page_vaddr(*(dir)) + (((addr) >> PUD_SHIFT) & (PTRS_PER_PUD - 1)))
- #endif
- 
- /* Find an entry in the third-level page table.. */
-@@ -582,10 +582,9 @@ extern struct page *zero_page_memmap_ptr;
- 
- 
- #if CONFIG_PGTABLE_LEVELS = 3
 -#define __ARCH_USE_5LEVEL_HACK
- #include <asm-generic/pgtable-nopud.h>
- #endif
--#include <asm-generic/5level-fixup.h>
-+#include <asm-generic/pgtable-nop4d.h>
- #include <asm-generic/pgtable.h>
+ #include <asm-generic/pgtable-nopmd.h>
  
- #endif /* _ASM_IA64_PGTABLE_H */
-diff --git a/arch/ia64/mm/fault.c b/arch/ia64/mm/fault.c
-index c2f299fe9e04..ec994135cb74 100644
---- a/arch/ia64/mm/fault.c
-+++ b/arch/ia64/mm/fault.c
-@@ -29,6 +29,7 @@ static int
- mapped_kernel_page_is_present (unsigned long address)
- {
- 	pgd_t *pgd;
-+	p4d_t *p4d;
- 	pud_t *pud;
- 	pmd_t *pmd;
- 	pte_t *ptep, pte;
-@@ -37,7 +38,11 @@ mapped_kernel_page_is_present (unsigned long address)
- 	if (pgd_none(*pgd) || pgd_bad(*pgd))
- 		return 0;
+ #ifndef __ASSEMBLY__
+diff --git a/arch/openrisc/mm/fault.c b/arch/openrisc/mm/fault.c
+index 5d4d3a9691d0..44aa04545de3 100644
+--- a/arch/openrisc/mm/fault.c
++++ b/arch/openrisc/mm/fault.c
+@@ -296,6 +296,7 @@ asmlinkage void do_page_fault(struct pt_regs *regs, unsigned long address,
  
--	pud = pud_offset(pgd, address);
-+	p4d = p4d_offset(pgd, address);
-+	if (p4d_none(*p4d) || p4d_bad(*p4d))
-+		return 0;
-+
-+	pud = pud_offset(p4d, address);
- 	if (pud_none(*pud) || pud_bad(*pud))
- 		return 0;
+ 		int offset = pgd_index(address);
+ 		pgd_t *pgd, *pgd_k;
++		p4d_t *p4d, *p4d_k;
+ 		pud_t *pud, *pud_k;
+ 		pmd_t *pmd, *pmd_k;
+ 		pte_t *pte_k;
+@@ -322,8 +323,13 @@ asmlinkage void do_page_fault(struct pt_regs *regs, unsigned long address,
+ 		 * it exists.
+ 		 */
  
-diff --git a/arch/ia64/mm/hugetlbpage.c b/arch/ia64/mm/hugetlbpage.c
-index d16e419fd712..32352a73df0c 100644
---- a/arch/ia64/mm/hugetlbpage.c
-+++ b/arch/ia64/mm/hugetlbpage.c
-@@ -30,12 +30,14 @@ huge_pte_alloc(struct mm_struct *mm, unsigned long addr, unsigned long sz)
- {
- 	unsigned long taddr = htlbpage_to_page(addr);
- 	pgd_t *pgd;
-+	p4d_t *p4d;
- 	pud_t *pud;
- 	pmd_t *pmd;
- 	pte_t *pte = NULL;
- 
- 	pgd = pgd_offset(mm, taddr);
--	pud = pud_alloc(mm, pgd, taddr);
-+	p4d = p4d_offset(pgd, taddr);
-+	pud = pud_alloc(mm, p4d, taddr);
- 	if (pud) {
- 		pmd = pmd_alloc(mm, pud, taddr);
- 		if (pmd)
-@@ -49,17 +51,21 @@ huge_pte_offset (struct mm_struct *mm, unsigned long addr, unsigned long sz)
- {
- 	unsigned long taddr = htlbpage_to_page(addr);
- 	pgd_t *pgd;
-+	p4d_t *p4d;
- 	pud_t *pud;
- 	pmd_t *pmd;
- 	pte_t *pte = NULL;
- 
- 	pgd = pgd_offset(mm, taddr);
- 	if (pgd_present(*pgd)) {
--		pud = pud_offset(pgd, taddr);
--		if (pud_present(*pud)) {
--			pmd = pmd_offset(pud, taddr);
--			if (pmd_present(*pmd))
--				pte = pte_offset_map(pmd, taddr);
-+		p4d = p4d_offset(pgd, addr);
-+		if (p4d_present(*p4d)) {
-+			pud = pud_offset(p4d, taddr);
-+			if (pud_present(*pud)) {
-+				pmd = pmd_offset(pud, taddr);
-+				if (pmd_present(*pmd))
-+					pte = pte_offset_map(pmd, taddr);
-+			}
- 		}
- 	}
- 
-diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
-index b01d68a2d5d9..4808f58220ac 100644
---- a/arch/ia64/mm/init.c
-+++ b/arch/ia64/mm/init.c
-@@ -208,6 +208,7 @@ static struct page * __init
- put_kernel_page (struct page *page, unsigned long address, pgprot_t pgprot)
- {
- 	pgd_t *pgd;
-+	p4d_t *p4d;
- 	pud_t *pud;
- 	pmd_t *pmd;
- 	pte_t *pte;
-@@ -215,7 +216,10 @@ put_kernel_page (struct page *page, unsigned long address, pgprot_t pgprot)
- 	pgd = pgd_offset_k(address);		/* note: this is NOT pgd_offset()! */
- 
- 	{
--		pud = pud_alloc(&init_mm, pgd, address);
-+		p4d = p4d_alloc(&init_mm, pgd, address);
-+		if (!p4d)
-+			goto out;
-+		pud = pud_alloc(&init_mm, p4d, address);
- 		if (!pud)
- 			goto out;
- 		pmd = pmd_alloc(&init_mm, pud, address);
-@@ -382,6 +386,7 @@ int vmemmap_find_next_valid_pfn(int node, int i)
- 
- 	do {
- 		pgd_t *pgd;
-+		p4d_t *p4d;
- 		pud_t *pud;
- 		pmd_t *pmd;
- 		pte_t *pte;
-@@ -392,7 +397,13 @@ int vmemmap_find_next_valid_pfn(int node, int i)
- 			continue;
- 		}
- 
--		pud = pud_offset(pgd, end_address);
-+		p4d = p4d_offset(pgd, end_address);
-+		if (p4d_none(*p4d)) {
-+			end_address += P4D_SIZE;
-+			continue;
-+		}
-+
-+		pud = pud_offset(p4d, end_address);
- 		if (pud_none(*pud)) {
- 			end_address += PUD_SIZE;
- 			continue;
-@@ -430,6 +441,7 @@ int __init create_mem_map_page_table(u64 start, u64 end, void *arg)
- 	struct page *map_start, *map_end;
- 	int node;
- 	pgd_t *pgd;
-+	p4d_t *p4d;
- 	pud_t *pud;
- 	pmd_t *pmd;
- 	pte_t *pte;
-@@ -444,12 +456,20 @@ int __init create_mem_map_page_table(u64 start, u64 end, void *arg)
- 	for (address = start_page; address < end_page; address += PAGE_SIZE) {
- 		pgd = pgd_offset_k(address);
- 		if (pgd_none(*pgd)) {
-+			p4d = memblock_alloc_node(PAGE_SIZE, PAGE_SIZE, node);
-+			if (!p4d)
-+				goto err_alloc;
-+			pgd_populate(&init_mm, pgd, p4d);
-+		}
-+		p4d = p4d_offset(pgd, address);
-+
-+		if (p4d_none(*p4d)) {
- 			pud = memblock_alloc_node(PAGE_SIZE, PAGE_SIZE, node);
- 			if (!pud)
- 				goto err_alloc;
--			pgd_populate(&init_mm, pgd, pud);
-+			p4d_populate(&init_mm, p4d, pud);
- 		}
 -		pud = pud_offset(pgd, address);
+-		pud_k = pud_offset(pgd_k, address);
++		p4d = p4d_offset(pgd, address);
++		p4d_k = p4d_offset(pgd_k, address);
++		if (!p4d_present(*p4d_k))
++			goto no_context;
++
 +		pud = pud_offset(p4d, address);
++		pud_k = pud_offset(p4d_k, address);
+ 		if (!pud_present(*pud_k))
+ 			goto no_context;
  
- 		if (pud_none(*pud)) {
- 			pmd = memblock_alloc_node(PAGE_SIZE, PAGE_SIZE, node);
+diff --git a/arch/openrisc/mm/init.c b/arch/openrisc/mm/init.c
+index 1f87b524db78..2536aeae0975 100644
+--- a/arch/openrisc/mm/init.c
++++ b/arch/openrisc/mm/init.c
+@@ -71,6 +71,7 @@ static void __init map_ram(void)
+ 	unsigned long v, p, e;
+ 	pgprot_t prot;
+ 	pgd_t *pge;
++	p4d_t *p4e;
+ 	pud_t *pue;
+ 	pmd_t *pme;
+ 	pte_t *pte;
+@@ -90,7 +91,8 @@ static void __init map_ram(void)
+ 
+ 		while (p < e) {
+ 			int j;
+-			pue = pud_offset(pge, v);
++			p4e = p4d_offset(pge, v);
++			pue = pud_offset(p4e, v);
+ 			pme = pmd_offset(pue, v);
+ 
+ 			if ((u32) pue != (u32) pge || (u32) pme != (u32) pge) {
 -- 
 2.24.0
