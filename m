@@ -1,52 +1,55 @@
-From: Qais Yousef <qais.yousef@arm.com>
-Date: Sun, 23 Feb 2020 19:29:30 +0000
-Subject: [PATCH v3 03/15] ia64: Replace cpu_down with smp_shutdown_nonboot_cpus()
-Message-Id: <20200223192942.18420-4-qais.yousef@arm.com>
+From: Mike Rapoport <rppt@kernel.org>
+Date: Sun, 16 Feb 2020 08:18:33 +0000
+Subject: [PATCH v2 03/13] hexagon: remove __ARCH_USE_5LEVEL_HACK
+Message-Id: <20200216081843.28670-4-rppt@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200223192942.18420-1-qais.yousef@arm.com>
-In-Reply-To: <20200223192942.18420-1-qais.yousef@arm.com>
+References: <20200216081843.28670-1-rppt@kernel.org>
+In-Reply-To: <20200216081843.28670-1-rppt@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thomas Gleixner <tglx@linutronix.de>
-Cc: "Paul E . McKenney" <paulmck@kernel.org>, Qais Yousef <qais.yousef@arm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: Rich Felker <dalias@libc.org>, linux-ia64@vger.kernel.org, Geert Uytterhoeven <geert+renesas@glider.be>, linux-sh@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linux-mm@kvack.org, Paul Mackerras <paulus@samba.org>, linux-hexagon@vger.kernel.org, Will Deacon <will@kernel.org>, kvmarm@lists.cs.columbia.edu, Jonas Bonn <jonas@southpole.se>, linux-arch@vger.kernel.org, Brian Cain <bcain@codeaurora.org>, Marc Zyngier <maz@kernel.org>, Russell King <linux@armlinux.org.uk>, Ley Foon Tan <ley.foon.tan@intel.com>, Mike Rapoport <rppt@linux.ibm.com>, Catalin Marinas <catalin.marinas@arm.com>, uclinux-h8-devel@lists.sourceforge.jp, Fenghua Yu <fenghua.yu@intel.com>, Arnd Bergmann <arnd@arndb.de>, kvm-ppc@vger.kernel.org, Stefan Kristiansson <stefan.kristiansson@saunalahti.fi>, openrisc@lists.librecores.org, Stafford Horne <shorne@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, linux-arm-kernel@lists.infradead.org, Christophe Leroy <christophe.leroy@c-s.fr>, Tony Luck <tony.luck@intel.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Michael Ellerman <mpe@ellerman.id.au>, nios2-dev@lists.rocketboards.org, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, Mike Rapoport <rppt@kernel.org>
 
-Use the new smp_shutdown_nonboot_cpus() instead of open coding using
-cpu_down() directly.
+From: Mike Rapoport <rppt@linux.ibm.com>
 
-Use reboot_cpu instead of hardcoding the boot CPU to 0.
+The hexagon architecture has 2 level page tables and as such most of the
+page table folding is already implemented in asm-generic/pgtable-nopmd.h.
 
-This also prepares to make cpu_up/down a private interface for anything
-but the cpu subsystem.
+Fixup the only place in arch/hexagon to unfold the p4d level and remove
+__ARCH_USE_5LEVEL_HACK.
 
-Signed-off-by: Qais Yousef <qais.yousef@arm.com>
-CC: Tony Luck <tony.luck@intel.com>
-CC: Fenghua Yu <fenghua.yu@intel.com>
-CC: linux-ia64@vger.kernel.org
-CC: linux-kernel@vger.kernel.org
+Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
 ---
- arch/ia64/kernel/process.c | 8 +-------
- 1 file changed, 1 insertion(+), 7 deletions(-)
+ arch/hexagon/include/asm/fixmap.h  | 4 ++--
+ arch/hexagon/include/asm/pgtable.h | 1 -
+ 2 files changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/arch/ia64/kernel/process.c b/arch/ia64/kernel/process.c
-index 968b5f33e725..bf4c0cdb7a25 100644
---- a/arch/ia64/kernel/process.c
-+++ b/arch/ia64/kernel/process.c
-@@ -646,14 +646,8 @@ cpu_halt (void)
+diff --git a/arch/hexagon/include/asm/fixmap.h b/arch/hexagon/include/asm/fixmap.h
+index 933dac167504..97b1b062e750 100644
+--- a/arch/hexagon/include/asm/fixmap.h
++++ b/arch/hexagon/include/asm/fixmap.h
+@@ -16,7 +16,7 @@
+ #include <asm-generic/fixmap.h>
  
- void machine_shutdown(void)
- {
--#ifdef CONFIG_HOTPLUG_CPU
--	int cpu;
-+	smp_shutdown_nonboot_cpus(reboot_cpu);
+ #define kmap_get_fixmap_pte(vaddr) \
+-	pte_offset_kernel(pmd_offset(pud_offset(pgd_offset_k(vaddr), \
+-				(vaddr)), (vaddr)), (vaddr))
++	pte_offset_kernel(pmd_offset(pud_offset(p4d_offset(pgd_offset_k(vaddr), \
++				(vaddr)), (vaddr)), (vaddr)), (vaddr))
  
--	for_each_online_cpu(cpu) {
--		if (cpu != smp_processor_id())
--			cpu_down(cpu);
--	}
--#endif
- #ifdef CONFIG_KEXEC
- 	kexec_disable_iosapic();
  #endif
+diff --git a/arch/hexagon/include/asm/pgtable.h b/arch/hexagon/include/asm/pgtable.h
+index 2fec20ad939e..83b544936eed 100644
+--- a/arch/hexagon/include/asm/pgtable.h
++++ b/arch/hexagon/include/asm/pgtable.h
+@@ -12,7 +12,6 @@
+  * Page table definitions for Qualcomm Hexagon processor.
+  */
+ #include <asm/page.h>
+-#define __ARCH_USE_5LEVEL_HACK
+ #include <asm-generic/pgtable-nopmd.h>
+ 
+ /* A handy thing to have if one has the RAM. Declared in head.S */
 -- 
-2.17.1
+2.24.0
