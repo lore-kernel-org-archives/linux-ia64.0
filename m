@@ -1,131 +1,164 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Date: Fri, 24 Jan 2020 09:23:22 +0000
-Subject: [PATCH 4.19 032/639] signal/ia64: Use the generic force_sigsegv in setup_frame
-Message-Id: <20200124093051.460492282@linuxfoundation.org>
+From: Lukas Bulwahn <lukas.bulwahn@gmail.com>
+Date: Mon, 17 Feb 2020 13:44:05 +0000
+Subject: [PATCH v2] tty/serial: cleanup after ioc*_serial driver removal
+Message-Id: <20200217134405.19154-1-lukas.bulwahn@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200124093047.008739095@linuxfoundation.org>
-In-Reply-To: <20200124093047.008739095@linuxfoundation.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>, stable@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, "Eric W. Biederman" <ebiederm@xmission.com>, Sasha Levin <sashal@kernel.org>
+To: Pat Gefre <pfg@sgi.com>, Christoph Hellwig <hch@lst.de>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Anatoly Pugachev <matorola@gmail.com>
+Cc: linux-ia64@vger.kernel.org, linux-doc@vger.kernel.org, Joe Perches <joe@perches.com>, kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org, Lukas Bulwahn <lukas.bulwahn@gmail.com>
 
-From: Eric W. Biederman <ebiederm@xmission.com>
+Commit 9c860e4cf708 ("tty/serial: remove the ioc3_serial driver") and
+commit a017ef17cfd8 ("tty/serial: remove the ioc4_serial driver") removed
+the ioc{3,4}_serial driver, but missed some files.
 
-[ Upstream commit 8b9c6b28312cc51a87055e292b11c5aa28f0c935 ]
+Fortunately, ./scripts/get_maintainer.pl --self-test complains:
 
-The ia64 handling of failure to setup a signal frame has been trying
-to set overlapping fields in struct siginfo since 2.3.43.  The si_pid
-and si_uid fields are stomped when the si_addr field is set.  The
-si_code of SI_KERNEL indicates that si_pid and si_uid should be valid,
-and that si_addr does not exist.
+  warning: no file matches F: drivers/tty/serial/ioc?_serial.c
 
-Being at odds with the definition of SI_KERNEL and with nothing to
-indicate that this was a signal frame setup failure there is no way
-for userspace to know that si_addr was filled out instead.
+The driver is gone, so remove the header and maintainer
+entry as well.
 
-In practice failure to setup a signal frame is rare, and si_pid and
-si_uid are always set to 0 when si_code is SI_KERNEL so I expect no
-one has looked closely enough before to see this weirdness.  Further
-the only difference between force_sigsegv_info and the generic
-force_sigsegv other than the return code is that force_sigsegv_info
-stomps the si_uid and si_pid fields.
+The serial.rst Documentation might be useful, so we keep it and update
+the maintainer entry to the document's actual maintainers.
 
-Remove the bug and simplify the code by using force_sigsegv in this
-case just like other architectures.
-
-Fixes: 2.3.43
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org
-Acked-by: Tony Luck <tony.luck@intel.com>
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
-Signed-off-by: Sasha Levin <sashal@kernel.org>
+Signed-off-by: Lukas Bulwahn <lukas.bulwahn@gmail.com>
 ---
- arch/ia64/kernel/signal.c | 50 ++++++++++-----------------------------
- 1 file changed, 12 insertions(+), 38 deletions(-)
+Christoph, please ack. Tony, please pick this patch.
+applies cleanly on 5.6-rc2 and next-20200217
+only sanity-grep for filenames, no compile testing
 
-diff --git a/arch/ia64/kernel/signal.c b/arch/ia64/kernel/signal.c
-index d1234a5ba4c55..01fc133b2e4c8 100644
---- a/arch/ia64/kernel/signal.c
-+++ b/arch/ia64/kernel/signal.c
-@@ -231,37 +231,6 @@ rbs_on_sig_stack (unsigned long bsp)
- 	return (bsp - current->sas_ss_sp < current->sas_ss_size);
- }
+ MAINTAINERS          |  9 +----
+ include/linux/ioc3.h | 93 --------------------------------------------
+ 2 files changed, 1 insertion(+), 101 deletions(-)
+ delete mode 100644 include/linux/ioc3.h
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index a0d86490c2c6..ffd51bb3ba7f 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -7945,6 +7945,7 @@ L:	linux-ia64@vger.kernel.org
+ T:	git git://git.kernel.org/pub/scm/linux/kernel/git/aegl/linux.git
+ S:	Maintained
+ F:	arch/ia64/
++F:	Documentation/ia64/
  
--static long
--force_sigsegv_info (int sig, void __user *addr)
--{
--	unsigned long flags;
--	struct siginfo si;
+ IBM Power 842 compression accelerator
+ M:	Haren Myneni <haren@us.ibm.com>
+@@ -15043,14 +15044,6 @@ M:	Dimitri Sivanich <sivanich@sgi.com>
+ S:	Maintained
+ F:	drivers/misc/sgi-gru/
+ 
+-SGI SN-IA64 (Altix) SERIAL CONSOLE DRIVER
+-M:	Pat Gefre <pfg@sgi.com>
+-L:	linux-ia64@vger.kernel.org
+-S:	Supported
+-F:	Documentation/ia64/serial.rst
+-F:	drivers/tty/serial/ioc?_serial.c
+-F:	include/linux/ioc?.h
 -
--	clear_siginfo(&si);
--	if (sig = SIGSEGV) {
--		/*
--		 * Acquiring siglock around the sa_handler-update is almost
--		 * certainly overkill, but this isn't a
--		 * performance-critical path and I'd rather play it safe
--		 * here than having to debug a nasty race if and when
--		 * something changes in kernel/signal.c that would make it
--		 * no longer safe to modify sa_handler without holding the
--		 * lock.
--		 */
--		spin_lock_irqsave(&current->sighand->siglock, flags);
--		current->sighand->action[sig - 1].sa.sa_handler = SIG_DFL;
--		spin_unlock_irqrestore(&current->sighand->siglock, flags);
--	}
--	si.si_signo = SIGSEGV;
--	si.si_errno = 0;
--	si.si_code = SI_KERNEL;
--	si.si_pid = task_pid_vnr(current);
--	si.si_uid = from_kuid_munged(current_user_ns(), current_uid());
--	si.si_addr = addr;
--	force_sig_info(SIGSEGV, &si, current);
--	return 1;
--}
+ SGI XP/XPC/XPNET DRIVER
+ M:	Cliff Whickman <cpw@sgi.com>
+ M:	Robin Holt <robinmholt@gmail.com>
+diff --git a/include/linux/ioc3.h b/include/linux/ioc3.h
+deleted file mode 100644
+index 38b286e9a46c..000000000000
+--- a/include/linux/ioc3.h
++++ /dev/null
+@@ -1,93 +0,0 @@
+-/*
+- * This file is subject to the terms and conditions of the GNU General Public
+- * License.  See the file "COPYING" in the main directory of this archive
+- * for more details.
+- *
+- * Copyright (c) 2005 Stanislaw Skowronek <skylark@linux-mips.org>
+- */
 -
- static long
- setup_frame(struct ksignal *ksig, sigset_t *set, struct sigscratch *scr)
- {
-@@ -295,15 +264,18 @@ setup_frame(struct ksignal *ksig, sigset_t *set, struct sigscratch *scr)
- 			 * instead so we will die with SIGSEGV.
- 			 */
- 			check_sp = (new_sp - sizeof(*frame)) & -STACK_ALIGN;
--			if (!likely(on_sig_stack(check_sp)))
--				return force_sigsegv_info(ksig->sig, (void __user *)
--							  check_sp);
-+			if (!likely(on_sig_stack(check_sp))) {
-+				force_sigsegv(ksig->sig, current);
-+				return 1;
-+			}
- 		}
- 	}
- 	frame = (void __user *) ((new_sp - sizeof(*frame)) & -STACK_ALIGN);
- 
--	if (!access_ok(VERIFY_WRITE, frame, sizeof(*frame)))
--		return force_sigsegv_info(ksig->sig, frame);
-+	if (!access_ok(VERIFY_WRITE, frame, sizeof(*frame))) {
-+		force_sigsegv(ksig->sig, current);
-+		return 1;
-+	}
- 
- 	err  = __put_user(ksig->sig, &frame->arg0);
- 	err |= __put_user(&frame->info, &frame->arg1);
-@@ -317,8 +289,10 @@ setup_frame(struct ksignal *ksig, sigset_t *set, struct sigscratch *scr)
- 	err |= __save_altstack(&frame->sc.sc_stack, scr->pt.r12);
- 	err |= setup_sigcontext(&frame->sc, set, scr);
- 
--	if (unlikely(err))
--		return force_sigsegv_info(ksig->sig, frame);
-+	if (unlikely(err)) {
-+		force_sigsegv(ksig->sig, current);
-+		return 1;
-+	}
- 
- 	scr->pt.r12 = (unsigned long) frame - 16;	/* new stack pointer */
- 	scr->pt.ar_fpsr = FPSR_DEFAULT;			/* reset fpsr for signal handler */
+-#ifndef _LINUX_IOC3_H
+-#define _LINUX_IOC3_H
+-
+-#include <asm/sn/ioc3.h>
+-
+-#define IOC3_MAX_SUBMODULES	32
+-
+-#define IOC3_CLASS_NONE		0
+-#define IOC3_CLASS_BASE_IP27	1
+-#define IOC3_CLASS_BASE_IP30	2
+-#define IOC3_CLASS_MENET_123	3
+-#define IOC3_CLASS_MENET_4	4
+-#define IOC3_CLASS_CADDUO	5
+-#define IOC3_CLASS_SERIAL	6
+-
+-/* One of these per IOC3 */
+-struct ioc3_driver_data {
+-	struct list_head list;
+-	int id;				/* IOC3 sequence number */
+-	/* PCI mapping */
+-	unsigned long pma;		/* physical address */
+-	struct ioc3 __iomem *vma;	/* pointer to registers */
+-	struct pci_dev *pdev;		/* PCI device */
+-	/* IRQ stuff */
+-	int dual_irq;			/* set if separate IRQs are used */
+-	int irq_io, irq_eth;		/* IRQ numbers */
+-	/* GPIO magic */
+-	spinlock_t gpio_lock;
+-	unsigned int gpdr_shadow;
+-	/* NIC identifiers */
+-	char nic_part[32];
+-	char nic_serial[16];
+-	char nic_mac[6];
+-	/* submodule set */
+-	int class;
+-	void *data[IOC3_MAX_SUBMODULES];	/* for submodule use */
+-	int active[IOC3_MAX_SUBMODULES];	/* set if probe succeeds */
+-	/* is_ir_lock must be held while
+-	 * modifying sio_ie values, so
+-	 * we can be sure that sio_ie is
+-	 * not changing when we read it
+-	 * along with sio_ir.
+-	 */
+-	spinlock_t ir_lock;	/* SIO_IE[SC] mod lock */
+-};
+-
+-/* One per submodule */
+-struct ioc3_submodule {
+-	char *name;		/* descriptive submodule name */
+-	struct module *owner;	/* owning kernel module */
+-	int ethernet;		/* set for ethernet drivers */
+-	int (*probe) (struct ioc3_submodule *, struct ioc3_driver_data *);
+-	int (*remove) (struct ioc3_submodule *, struct ioc3_driver_data *);
+-	int id;			/* assigned by IOC3, index for the "data" array */
+-	/* IRQ stuff */
+-	unsigned int irq_mask;	/* IOC3 IRQ mask, leave clear for Ethernet */
+-	int reset_mask;		/* non-zero if you want the ioc3.c module to reset interrupts */
+-	int (*intr) (struct ioc3_submodule *, struct ioc3_driver_data *, unsigned int);
+-	/* private submodule data */
+-	void *data;		/* assigned by submodule */
+-};
+-
+-/**********************************
+- * Functions needed by submodules *
+- **********************************/
+-
+-#define IOC3_W_IES		0
+-#define IOC3_W_IEC		1
+-
+-/* registers a submodule for all existing and future IOC3 chips */
+-extern int ioc3_register_submodule(struct ioc3_submodule *);
+-/* unregisters a submodule */
+-extern void ioc3_unregister_submodule(struct ioc3_submodule *);
+-/* enables IRQs indicated by irq_mask for a specified IOC3 chip */
+-extern void ioc3_enable(struct ioc3_submodule *, struct ioc3_driver_data *, unsigned int);
+-/* ackowledges specified IRQs */
+-extern void ioc3_ack(struct ioc3_submodule *, struct ioc3_driver_data *, unsigned int);
+-/* disables IRQs indicated by irq_mask for a specified IOC3 chip */
+-extern void ioc3_disable(struct ioc3_submodule *, struct ioc3_driver_data *, unsigned int);
+-/* atomically sets GPCR bits */
+-extern void ioc3_gpcr_set(struct ioc3_driver_data *, unsigned int);
+-/* general ireg writer */
+-extern void ioc3_write_ireg(struct ioc3_driver_data *idd, uint32_t value, int reg);
+-
+-#endif
 -- 
-2.20.1
-
-
+2.17.1
