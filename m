@@ -1,501 +1,306 @@
-From: Christophe Leroy <christophe.leroy@c-s.fr>
-Date: Sun, 16 Feb 2020 10:41:07 +0000
+From: Mike Rapoport <rppt@kernel.org>
+Date: Tue, 18 Feb 2020 10:54:40 +0000
 Subject: Re: [PATCH v2 07/13] powerpc: add support for folded p4d page tables
-Message-Id: <c79b363c-a111-389a-5752-51cf85fa8c44@c-s.fr>
+Message-Id: <20200218105440.GA1698@hump>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20200216081843.28670-1-rppt@kernel.org>
  <20200216081843.28670-8-rppt@kernel.org>
-In-Reply-To: <20200216081843.28670-8-rppt@kernel.org>
+ <c79b363c-a111-389a-5752-51cf85fa8c44@c-s.fr>
+In-Reply-To: <c79b363c-a111-389a-5752-51cf85fa8c44@c-s.fr>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: Mike Rapoport <rppt@kernel.org>, linux-kernel@vger.kernel.org
-Cc: Rich Felker <dalias@libc.org>, linux-ia64@vger.kernel.org, Geert Uytterhoeven <geert+renesas@glider.be>, linux-sh@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linux-mm@kvack.org, Paul Mackerras <paulus@samba.org>, linux-hexagon@vger.kernel.org, Will Deacon <will@kernel.org>, kvmarm@lists.cs.columbia.edu, Jonas Bonn <jonas@southpole.se>, linux-arch@vger.kernel.org, Brian Cain <bcain@codeaurora.org>, Marc Zyngier <maz@kernel.org>, Russell King <linux@armlinux.org.uk>, Ley Foon Tan <ley.foon.tan@intel.com>, Mike Rapoport <rppt@linux.ibm.com>, Catalin Marinas <catalin.marinas@arm.com>, uclinux-h8-devel@lists.sourceforge.jp, Fenghua Yu <fenghua.yu@intel.com>, Arnd Bergmann <arnd@arndb.de>, kvm-ppc@vger.kernel.org, Stefan Kristiansson <stefan.kristiansson@saunalahti.fi>, openrisc@lists.librecores.org, Stafford Horne <shorne@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, linux-arm-kernel@lists.infradead.org, Tony Luck <tony.luck@intel.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Michael Ellerman <mpe@ellerman.id.au>, nios2-dev@lists.rocketboards.org, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: Christophe Leroy <christophe.leroy@c-s.fr>
+Cc: Rich Felker <dalias@libc.org>, linux-ia64@vger.kernel.org, Geert Uytterhoeven <geert+renesas@glider.be>, linux-sh@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linux-mm@kvack.org, Paul Mackerras <paulus@samba.org>, linux-hexagon@vger.kernel.org, Will Deacon <will@kernel.org>, kvmarm@lists.cs.columbia.edu, Jonas Bonn <jonas@southpole.se>, linux-arch@vger.kernel.org, Brian Cain <bcain@codeaurora.org>, Marc Zyngier <maz@kernel.org>, Russell King <linux@armlinux.org.uk>, Ley Foon Tan <ley.foon.tan@intel.com>, Mike Rapoport <rppt@linux.ibm.com>, Catalin Marinas <catalin.marinas@arm.com>, uclinux-h8-devel@lists.sourceforge.jp, Fenghua Yu <fenghua.yu@intel.com>, Arnd Bergmann <arnd@arndb.de>, kvm-ppc@vger.kernel.org, Stefan Kristiansson <stefan.kristiansson@saunalahti.fi>, openrisc@lists.librecores.org, Stafford Horne <shorne@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, linux-arm-kernel@lists.infradead.org, Tony Luck <tony.luck@intel.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, linux-kernel@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>, nios2-dev@lists.rocketboards.org, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org
 
+On Sun, Feb 16, 2020 at 11:41:07AM +0100, Christophe Leroy wrote:
+>=20
+>=20
+> Le 16/02/2020 =E0 09:18, Mike Rapoport a =E9crit=A0:
+> > From: Mike Rapoport <rppt@linux.ibm.com>
+> >=20
+> > Implement primitives necessary for the 4th level folding, add walks of =
+p4d
+> > level where appropriate and replace 5level-fixup.h with pgtable-nop4d.h.
+>=20
+> I don't think it is worth adding all this additionnals walks of p4d, this
+> patch could be limited to changes like:
+>=20
+> -		pud =3D pud_offset(pgd, gpa);
+> +		pud =3D pud_offset(p4d_offset(pgd, gpa), gpa);
+>=20
+> The additionnal walks should be added through another patch the day power=
+pc
+> need them.
 
+Ok, I'll update the patch to reduce walking the p4d.
+=20
+> See below for more comments.
+>=20
+> >=20
+> > Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
+> > Tested-by: Christophe Leroy <christophe.leroy@c-s.fr> # 8xx and 83xx
+> > ---
 
-Le 16/02/2020 à 09:18, Mike Rapoport a écrit :
-> From: Mike Rapoport <rppt@linux.ibm.com>
-> 
-> Implement primitives necessary for the 4th level folding, add walks of p4d
-> level where appropriate and replace 5level-fixup.h with pgtable-nop4d.h.
+...
 
-I don't think it is worth adding all this additionnals walks of p4d, 
-this patch could be limited to changes like:
+> > diff --git a/arch/powerpc/include/asm/book3s/64/pgtable.h b/arch/powerp=
+c/include/asm/book3s/64/pgtable.h
+> > index 201a69e6a355..ddddbafff0ab 100644
+> > --- a/arch/powerpc/include/asm/book3s/64/pgtable.h
+> > +++ b/arch/powerpc/include/asm/book3s/64/pgtable.h
+> > @@ -2,7 +2,7 @@
+> >   #ifndef _ASM_POWERPC_BOOK3S_64_PGTABLE_H_
+> >   #define _ASM_POWERPC_BOOK3S_64_PGTABLE_H_
+> > -#include <asm-generic/5level-fixup.h>
+> > +#include <asm-generic/pgtable-nop4d.h>
+> >   #ifndef __ASSEMBLY__
+> >   #include <linux/mmdebug.h>
+> > @@ -251,7 +251,7 @@ extern unsigned long __pmd_frag_size_shift;
+> >   /* Bits to mask out from a PUD to get to the PMD page */
+> >   #define PUD_MASKED_BITS		0xc0000000000000ffUL
+> >   /* Bits to mask out from a PGD to get to the PUD page */
+> > -#define PGD_MASKED_BITS		0xc0000000000000ffUL
+> > +#define P4D_MASKED_BITS		0xc0000000000000ffUL
+> >   /*
+> >    * Used as an indicator for rcu callback functions
+> > @@ -949,54 +949,60 @@ static inline bool pud_access_permitted(pud_t pud=
+, bool write)
+> >   	return pte_access_permitted(pud_pte(pud), write);
+> >   }
+> > -#define pgd_write(pgd)		pte_write(pgd_pte(pgd))
+> > +#define __p4d_raw(x)	((p4d_t) { __pgd_raw(x) })
+> > +static inline __be64 p4d_raw(p4d_t x)
+> > +{
+> > +	return pgd_raw(x.pgd);
+> > +}
+> > +
+>=20
+> Shouldn't this be defined in asm/pgtable-be-types.h, just like other
+> __pxx_raw() ?
 
--		pud = pud_offset(pgd, gpa);
-+		pud = pud_offset(p4d_offset(pgd, gpa), gpa);
+Ideally yes, but this creates weird header file dependencies and untangling
+them would generate way too much churn.
+=20
+> > +#define p4d_write(p4d)		pte_write(p4d_pte(p4d))
+> > -static inline void pgd_clear(pgd_t *pgdp)
+> > +static inline void p4d_clear(p4d_t *p4dp)
+> >   {
+> > -	*pgdp =3D __pgd(0);
+> > +	*p4dp =3D __p4d(0);
+> >   }
 
-The additionnal walks should be added through another patch the day 
-powerpc need them.
+...
 
-See below for more comments.
+> > @@ -573,9 +596,15 @@ int kvmppc_create_pte(struct kvm *kvm, pgd_t *pgta=
+ble, pte_t pte,
+> >   	/* Traverse the guest's 2nd-level tree, allocate new levels needed */
+> >   	pgd =3D pgtable + pgd_index(gpa);
+> > -	pud =3D NULL;
+> > +	p4d =3D NULL;
+> >   	if (pgd_present(*pgd))
+> > -		pud =3D pud_offset(pgd, gpa);
+> > +		p4d =3D p4d_offset(pgd, gpa);
+> > +	else
+> > +		new_p4d =3D p4d_alloc_one(kvm->mm, gpa);
+> > +
+> > +	pud =3D NULL;
+> > +	if (p4d_present(*p4d))
+> > +		pud =3D pud_offset(p4d, gpa);
+>=20
+> Is it worth adding all this new code ?
+>=20
+> My understanding is that the series objective is to get rid of
+> __ARCH_HAS_5LEVEL_HACK, to to add support for 5 levels to an architecture
+> that not need it (at least for now).
+> If we want to add support for 5 levels, it can be done later in another
+> patch.
+>=20
+> Here I think your change could be limited to:
+>=20
+> -		pud =3D pud_offset(pgd, gpa);
+> +		pud =3D pud_offset(p4d_offset(pgd, gpa), gpa);
 
-> 
-> Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
-> Tested-by: Christophe Leroy <christophe.leroy@c-s.fr> # 8xx and 83xx
-> ---
->   arch/powerpc/include/asm/book3s/32/pgtable.h  |  1 -
->   arch/powerpc/include/asm/book3s/64/hash.h     |  4 +-
->   arch/powerpc/include/asm/book3s/64/pgalloc.h  |  4 +-
->   arch/powerpc/include/asm/book3s/64/pgtable.h  | 58 ++++++++++--------
->   arch/powerpc/include/asm/book3s/64/radix.h    |  6 +-
->   arch/powerpc/include/asm/nohash/32/pgtable.h  |  1 -
->   arch/powerpc/include/asm/nohash/64/pgalloc.h  |  2 +-
->   .../include/asm/nohash/64/pgtable-4k.h        | 32 +++++-----
->   arch/powerpc/include/asm/nohash/64/pgtable.h  |  6 +-
->   arch/powerpc/include/asm/pgtable.h            |  8 +++
->   arch/powerpc/kvm/book3s_64_mmu_radix.c        | 59 ++++++++++++++++---
->   arch/powerpc/lib/code-patching.c              |  7 ++-
->   arch/powerpc/mm/book3s32/mmu.c                |  2 +-
->   arch/powerpc/mm/book3s32/tlb.c                |  4 +-
->   arch/powerpc/mm/book3s64/hash_pgtable.c       |  4 +-
->   arch/powerpc/mm/book3s64/radix_pgtable.c      | 19 ++++--
->   arch/powerpc/mm/book3s64/subpage_prot.c       |  6 +-
->   arch/powerpc/mm/hugetlbpage.c                 | 28 +++++----
->   arch/powerpc/mm/kasan/kasan_init_32.c         |  8 +--
->   arch/powerpc/mm/mem.c                         |  4 +-
->   arch/powerpc/mm/nohash/40x.c                  |  4 +-
->   arch/powerpc/mm/nohash/book3e_pgtable.c       | 15 +++--
->   arch/powerpc/mm/pgtable.c                     | 25 +++++++-
->   arch/powerpc/mm/pgtable_32.c                  | 28 +++++----
->   arch/powerpc/mm/pgtable_64.c                  | 10 ++--
->   arch/powerpc/mm/ptdump/hashpagetable.c        | 20 ++++++-
->   arch/powerpc/mm/ptdump/ptdump.c               | 22 ++++++-
->   arch/powerpc/xmon/xmon.c                      | 17 +++++-
->   28 files changed, 284 insertions(+), 120 deletions(-)
-> 
-> diff --git a/arch/powerpc/include/asm/book3s/32/pgtable.h b/arch/powerpc/include/asm/book3s/32/pgtable.h
-> index 5b39c11e884a..39ec11371be0 100644
-> --- a/arch/powerpc/include/asm/book3s/32/pgtable.h
-> +++ b/arch/powerpc/include/asm/book3s/32/pgtable.h
-> @@ -2,7 +2,6 @@
->   #ifndef _ASM_POWERPC_BOOK3S_32_PGTABLE_H
->   #define _ASM_POWERPC_BOOK3S_32_PGTABLE_H
->   
-> -#define __ARCH_USE_5LEVEL_HACK
->   #include <asm-generic/pgtable-nopmd.h>
->   
->   #include <asm/book3s/32/hash.h>
-> diff --git a/arch/powerpc/include/asm/book3s/64/hash.h b/arch/powerpc/include/asm/book3s/64/hash.h
-> index 2781ebf6add4..876d1528c2cf 100644
-> --- a/arch/powerpc/include/asm/book3s/64/hash.h
-> +++ b/arch/powerpc/include/asm/book3s/64/hash.h
-> @@ -134,9 +134,9 @@ static inline int get_region_id(unsigned long ea)
->   
->   #define	hash__pmd_bad(pmd)		(pmd_val(pmd) & H_PMD_BAD_BITS)
->   #define	hash__pud_bad(pud)		(pud_val(pud) & H_PUD_BAD_BITS)
-> -static inline int hash__pgd_bad(pgd_t pgd)
-> +static inline int hash__p4d_bad(p4d_t p4d)
->   {
-> -	return (pgd_val(pgd) = 0);
-> +	return (p4d_val(p4d) = 0);
->   }
->   #ifdef CONFIG_STRICT_KERNEL_RWX
->   extern void hash__mark_rodata_ro(void);
-> diff --git a/arch/powerpc/include/asm/book3s/64/pgalloc.h b/arch/powerpc/include/asm/book3s/64/pgalloc.h
-> index a41e91bd0580..69c5b051734f 100644
-> --- a/arch/powerpc/include/asm/book3s/64/pgalloc.h
-> +++ b/arch/powerpc/include/asm/book3s/64/pgalloc.h
-> @@ -85,9 +85,9 @@ static inline void pgd_free(struct mm_struct *mm, pgd_t *pgd)
->   	kmem_cache_free(PGT_CACHE(PGD_INDEX_SIZE), pgd);
->   }
->   
-> -static inline void pgd_populate(struct mm_struct *mm, pgd_t *pgd, pud_t *pud)
-> +static inline void p4d_populate(struct mm_struct *mm, p4d_t *pgd, pud_t *pud)
->   {
-> -	*pgd =  __pgd(__pgtable_ptr_val(pud) | PGD_VAL_BITS);
-> +	*pgd =  __p4d(__pgtable_ptr_val(pud) | PGD_VAL_BITS);
->   }
->   
->   static inline pud_t *pud_alloc_one(struct mm_struct *mm, unsigned long addr)
-> diff --git a/arch/powerpc/include/asm/book3s/64/pgtable.h b/arch/powerpc/include/asm/book3s/64/pgtable.h
-> index 201a69e6a355..ddddbafff0ab 100644
-> --- a/arch/powerpc/include/asm/book3s/64/pgtable.h
-> +++ b/arch/powerpc/include/asm/book3s/64/pgtable.h
-> @@ -2,7 +2,7 @@
->   #ifndef _ASM_POWERPC_BOOK3S_64_PGTABLE_H_
->   #define _ASM_POWERPC_BOOK3S_64_PGTABLE_H_
->   
-> -#include <asm-generic/5level-fixup.h>
-> +#include <asm-generic/pgtable-nop4d.h>
->   
->   #ifndef __ASSEMBLY__
->   #include <linux/mmdebug.h>
-> @@ -251,7 +251,7 @@ extern unsigned long __pmd_frag_size_shift;
->   /* Bits to mask out from a PUD to get to the PMD page */
->   #define PUD_MASKED_BITS		0xc0000000000000ffUL
->   /* Bits to mask out from a PGD to get to the PUD page */
-> -#define PGD_MASKED_BITS		0xc0000000000000ffUL
-> +#define P4D_MASKED_BITS		0xc0000000000000ffUL
->   
->   /*
->    * Used as an indicator for rcu callback functions
-> @@ -949,54 +949,60 @@ static inline bool pud_access_permitted(pud_t pud, bool write)
->   	return pte_access_permitted(pud_pte(pud), write);
->   }
->   
-> -#define pgd_write(pgd)		pte_write(pgd_pte(pgd))
-> +#define __p4d_raw(x)	((p4d_t) { __pgd_raw(x) })
-> +static inline __be64 p4d_raw(p4d_t x)
-> +{
-> +	return pgd_raw(x.pgd);
-> +}
-> +
+This won't work. Without __ARCH_USE_5LEVEL_HACK defined pgd_present() is
+hardwired to 1 and the actual check for the top level is performed with
+p4d_present(). The 'else' clause that allocates p4d will never be taken and
+it could be removed, but I prefer to keep it for consistency.
+=20
+> >   	else
+> >   		new_pud =3D pud_alloc_one(kvm->mm, gpa);
+> > @@ -597,12 +626,18 @@ int kvmppc_create_pte(struct kvm *kvm, pgd_t *pgt=
+able, pte_t pte,
+> >   	/* Now traverse again under the lock and change the tree */
+> >   	ret =3D -ENOMEM;
+> >   	if (pgd_none(*pgd)) {
+> > +		if (!new_p4d)
+> > +			goto out_unlock;
+> > +		pgd_populate(kvm->mm, pgd, new_p4d);
+> > +		new_p4d =3D NULL;
+> > +	}
+> > +	if (p4d_none(*p4d)) {
+> >   		if (!new_pud)
+> >   			goto out_unlock;
+> > -		pgd_populate(kvm->mm, pgd, new_pud);
+> > +		p4d_populate(kvm->mm, p4d, new_pud);
+> >   		new_pud =3D NULL;
+> >   	}
+> > -	pud =3D pud_offset(pgd, gpa);
+> > +	pud =3D pud_offset(p4d, gpa);
+> >   	if (pud_is_leaf(*pud)) {
+> >   		unsigned long hgpa =3D gpa & PUD_MASK;
+> > @@ -1220,6 +1255,7 @@ static ssize_t debugfs_radix_read(struct file *fi=
+le, char __user *buf,
+> >   	pgd_t *pgt;
+> >   	struct kvm_nested_guest *nested;
+> >   	pgd_t pgd, *pgdp;
+> > +	p4d_t p4d, *p4dp;
+> >   	pud_t pud, *pudp;
+> >   	pmd_t pmd, *pmdp;
+> >   	pte_t *ptep;
+> > @@ -1298,7 +1334,14 @@ static ssize_t debugfs_radix_read(struct file *f=
+ile, char __user *buf,
+> >   			continue;
+> >   		}
+> > -		pudp =3D pud_offset(&pgd, gpa);
+> > +		p4dp =3D p4d_offset(&pgd, gpa);
+> > +		p4d =3D READ_ONCE(*p4dp);
+> > +		if (!(p4d_val(p4d) & _PAGE_PRESENT)) {
+> > +			gpa =3D (gpa & P4D_MASK) + P4D_SIZE;
+> > +			continue;
+> > +		}
+> > +
+> > +		pudp =3D pud_offset(&p4d, gpa);
+>=20
+> Same, here you are forcing a useless read with READ_ONCE().
+>=20
+> Your change could be limited to
+>=20
+> -		pudp =3D pud_offset(&pgd, gpa);
+> +		pudp =3D pud_offset(p4d_offset(&pgd, gpa), gpa);
 
-Shouldn't this be defined in asm/pgtable-be-types.h, just like other 
-__pxx_raw() ?
+Here again the actual check must be done against p4d rather than pgd. We
+could skip READ_ONCE() for pgd, but since it is a debugfs method I don't
+think it is more important than code consistency.
+=20
+> This comment applies to many other places.
 
-> +#define p4d_write(p4d)		pte_write(p4d_pte(p4d))
->   
-> -static inline void pgd_clear(pgd_t *pgdp)
-> +static inline void p4d_clear(p4d_t *p4dp)
->   {
-> -	*pgdp = __pgd(0);
-> +	*p4dp = __p4d(0);
->   }
->   
-> -static inline int pgd_none(pgd_t pgd)
-> +static inline int p4d_none(p4d_t p4d)
->   {
-> -	return !pgd_raw(pgd);
-> +	return !p4d_raw(p4d);
->   }
->   
-> -static inline int pgd_present(pgd_t pgd)
-> +static inline int p4d_present(p4d_t p4d)
->   {
-> -	return !!(pgd_raw(pgd) & cpu_to_be64(_PAGE_PRESENT));
-> +	return !!(p4d_raw(p4d) & cpu_to_be64(_PAGE_PRESENT));
->   }
->   
-> -static inline pte_t pgd_pte(pgd_t pgd)
-> +static inline pte_t p4d_pte(p4d_t p4d)
->   {
-> -	return __pte_raw(pgd_raw(pgd));
-> +	return __pte_raw(p4d_raw(p4d));
->   }
->   
-> -static inline pgd_t pte_pgd(pte_t pte)
-> +static inline p4d_t pte_p4d(pte_t pte)
->   {
-> -	return __pgd_raw(pte_raw(pte));
-> +	return __p4d_raw(pte_raw(pte));
->   }
->   
-> -static inline int pgd_bad(pgd_t pgd)
-> +static inline int p4d_bad(p4d_t p4d)
->   {
->   	if (radix_enabled())
-> -		return radix__pgd_bad(pgd);
-> -	return hash__pgd_bad(pgd);
-> +		return radix__p4d_bad(p4d);
-> +	return hash__p4d_bad(p4d);
->   }
->   
-> -#define pgd_access_permitted pgd_access_permitted
-> -static inline bool pgd_access_permitted(pgd_t pgd, bool write)
-> +#define p4d_access_permitted p4d_access_permitted
-> +static inline bool p4d_access_permitted(p4d_t p4d, bool write)
->   {
-> -	return pte_access_permitted(pgd_pte(pgd), write);
-> +	return pte_access_permitted(p4d_pte(p4d), write);
->   }
->   
-> -extern struct page *pgd_page(pgd_t pgd);
-> +extern struct page *p4d_page(p4d_t p4d);
->   
->   /* Pointers in the page table tree are physical addresses */
->   #define __pgtable_ptr_val(ptr)	__pa(ptr)
->   
->   #define pmd_page_vaddr(pmd)	__va(pmd_val(pmd) & ~PMD_MASKED_BITS)
->   #define pud_page_vaddr(pud)	__va(pud_val(pud) & ~PUD_MASKED_BITS)
-> -#define pgd_page_vaddr(pgd)	__va(pgd_val(pgd) & ~PGD_MASKED_BITS)
-> +#define p4d_page_vaddr(p4d)	__va(p4d_val(p4d) & ~P4D_MASKED_BITS)
->   
->   #define pgd_index(address) (((address) >> (PGDIR_SHIFT)) & (PTRS_PER_PGD - 1))
->   #define pud_index(address) (((address) >> (PUD_SHIFT)) & (PTRS_PER_PUD - 1))
-> @@ -1010,8 +1016,8 @@ extern struct page *pgd_page(pgd_t pgd);
->   
->   #define pgd_offset(mm, address)	 ((mm)->pgd + pgd_index(address))
->   
-> -#define pud_offset(pgdp, addr)	\
-> -	(((pud_t *) pgd_page_vaddr(*(pgdp))) + pud_index(addr))
-> +#define pud_offset(p4dp, addr)	\
-> +	(((pud_t *) p4d_page_vaddr(*(p4dp))) + pud_index(addr))
->   #define pmd_offset(pudp,addr) \
->   	(((pmd_t *) pud_page_vaddr(*(pudp))) + pmd_index(addr))
->   #define pte_offset_kernel(dir,addr) \
-> @@ -1368,6 +1374,12 @@ static inline bool pud_is_leaf(pud_t pud)
->   	return !!(pud_raw(pud) & cpu_to_be64(_PAGE_PTE));
->   }
->   
-> +#define p4d_is_leaf p4d_is_leaf
-> +static inline bool p4d_is_leaf(p4d_t p4d)
-> +{
-> +	return !!(p4d_raw(p4d) & cpu_to_be64(_PAGE_PTE));
-> +}
-> +
->   #define pgd_is_leaf pgd_is_leaf
->   #define pgd_leaf pgd_is_leaf
->   static inline bool pgd_is_leaf(pgd_t pgd)
+I'll make another pass to see where we can take the shortcut and use=20
 
-[...]
+	pudp =3D pud_offset(p4d_offset(...))
+=20
+> >   		pud =3D READ_ONCE(*pudp);
+> >   		if (!(pud_val(pud) & _PAGE_PRESENT)) {
+> >   			gpa =3D (gpa & PUD_MASK) + PUD_SIZE;
+> > diff --git a/arch/powerpc/lib/code-patching.c b/arch/powerpc/lib/code-p=
+atching.c
+> > index 3345f039a876..7a59f6863cec 100644
+> > --- a/arch/powerpc/lib/code-patching.c
+> > +++ b/arch/powerpc/lib/code-patching.c
+> > @@ -107,13 +107,18 @@ static inline int unmap_patch_area(unsigned long =
+addr)
+> >   	pte_t *ptep;
+> >   	pmd_t *pmdp;
+> >   	pud_t *pudp;
+> > +	p4d_t *p4dp;
+> >   	pgd_t *pgdp;
+> >   	pgdp =3D pgd_offset_k(addr);
+> >   	if (unlikely(!pgdp))
+> >   		return -EINVAL;
+> > -	pudp =3D pud_offset(pgdp, addr);
+> > +	p4dp =3D p4d_offset(pgdp, addr);
+> > +	if (unlikely(!p4dp))
+> > +		return -EINVAL;
+> > +
+> > +	pudp =3D pud_offset(p4dp, addr);
+> >   	if (unlikely(!pudp))
+> >   		return -EINVAL;
+> > diff --git a/arch/powerpc/mm/book3s32/mmu.c b/arch/powerpc/mm/book3s32/=
+mmu.c
+> > index 0a1c65a2c565..b2fc3e71165c 100644
+> > --- a/arch/powerpc/mm/book3s32/mmu.c
+> > +++ b/arch/powerpc/mm/book3s32/mmu.c
+> > @@ -312,7 +312,7 @@ void hash_preload(struct mm_struct *mm, unsigned lo=
+ng ea)
+> >   	if (!Hash)
+> >   		return;
+> > -	pmd =3D pmd_offset(pud_offset(pgd_offset(mm, ea), ea), ea);
+> > +	pmd =3D pmd_offset(pud_offset(p4d_offset(pgd_offset(mm, ea), ea), ea)=
+, ea);
+>=20
+> If we continue like this, in ten years this like is going to be many
+> kilometers long.
+>=20
+> I think the above would be worth a generic helper.
 
-> diff --git a/arch/powerpc/include/asm/pgtable.h b/arch/powerpc/include/asm/pgtable.h
-> index 8cc543ed114c..0a05fddd7881 100644
-> --- a/arch/powerpc/include/asm/pgtable.h
-> +++ b/arch/powerpc/include/asm/pgtable.h
-> @@ -139,6 +139,14 @@ static inline bool pud_is_leaf(pud_t pud)
->   }
->   #endif
->   
-> +#ifndef p4d_is_leaf
-> +#define p4d_is_leaf p4d_is_leaf
-> +static inline bool p4d_is_leaf(p4d_t p4d)
-> +{
-> +	return false;
-> +}
-> +#endif
-> +
->   #ifndef pgd_is_leaf
->   #define pgd_is_leaf pgd_is_leaf
->   static inline bool pgd_is_leaf(pgd_t pgd)
-> diff --git a/arch/powerpc/kvm/book3s_64_mmu_radix.c b/arch/powerpc/kvm/book3s_64_mmu_radix.c
-> index 803940d79b73..5aacfa0b27ef 100644
-> --- a/arch/powerpc/kvm/book3s_64_mmu_radix.c
-> +++ b/arch/powerpc/kvm/book3s_64_mmu_radix.c
-> @@ -494,17 +494,39 @@ static void kvmppc_unmap_free_pud(struct kvm *kvm, pud_t *pud,
->   	pud_free(kvm->mm, pud);
->   }
->   
-> +static void kvmppc_unmap_free_p4d(struct kvm *kvm, p4d_t *p4d,
-> +				  unsigned int lpid)
-> +{
-> +	unsigned long iu;
-> +	p4d_t *p = p4d;
-> +
-> +	for (iu = 0; iu < PTRS_PER_P4D; ++iu, ++p) {
-> +		if (!p4d_present(*p))
-> +			continue;
-> +		if (p4d_is_leaf(*p)) {
-> +			p4d_clear(p);
-> +		} else {
-> +			pud_t *pud;
-> +
-> +			pud = pud_offset(p, 0);
-> +			kvmppc_unmap_free_pud(kvm, pud, lpid);
-> +			p4d_clear(p);
-> +		}
-> +	}
-> +	p4d_free(kvm->mm, p4d);
-> +}
-> +
->   void kvmppc_free_pgtable_radix(struct kvm *kvm, pgd_t *pgd, unsigned int lpid)
->   {
->   	unsigned long ig;
->   
->   	for (ig = 0; ig < PTRS_PER_PGD; ++ig, ++pgd) {
-> -		pud_t *pud;
-> +		p4d_t *p4d;
->   
->   		if (!pgd_present(*pgd))
->   			continue;
-> -		pud = pud_offset(pgd, 0);
-> -		kvmppc_unmap_free_pud(kvm, pud, lpid);
-> +		p4d = p4d_offset(pgd, 0);
-> +		kvmppc_unmap_free_p4d(kvm, p4d, lpid);
->   		pgd_clear(pgd);
->   	}
->   }
-> @@ -566,6 +588,7 @@ int kvmppc_create_pte(struct kvm *kvm, pgd_t *pgtable, pte_t pte,
->   		      unsigned long *rmapp, struct rmap_nested **n_rmap)
->   {
->   	pgd_t *pgd;
-> +	p4d_t *p4d, *new_p4d = NULL;
->   	pud_t *pud, *new_pud = NULL;
->   	pmd_t *pmd, *new_pmd = NULL;
->   	pte_t *ptep, *new_ptep = NULL;
-> @@ -573,9 +596,15 @@ int kvmppc_create_pte(struct kvm *kvm, pgd_t *pgtable, pte_t pte,
->   
->   	/* Traverse the guest's 2nd-level tree, allocate new levels needed */
->   	pgd = pgtable + pgd_index(gpa);
-> -	pud = NULL;
-> +	p4d = NULL;
->   	if (pgd_present(*pgd))
-> -		pud = pud_offset(pgd, gpa);
-> +		p4d = p4d_offset(pgd, gpa);
-> +	else
-> +		new_p4d = p4d_alloc_one(kvm->mm, gpa);
-> +
-> +	pud = NULL;
-> +	if (p4d_present(*p4d))
-> +		pud = pud_offset(p4d, gpa);
+Agree. My plan was to first unify all the architectures and then start
+introducing the generic helpers, like e.g. pmd_offset_mm().
+=20
+> >   	if (!pmd_none(*pmd))
+> >   		add_hash_page(mm->context.id, ea, pmd_val(*pmd));
+> >   }
+> > diff --git a/arch/powerpc/mm/book3s32/tlb.c b/arch/powerpc/mm/book3s32/=
+tlb.c
+> > index 2fcd321040ff..175bc33b41b7 100644
+> > --- a/arch/powerpc/mm/book3s32/tlb.c
+> > +++ b/arch/powerpc/mm/book3s32/tlb.c
+> > @@ -87,7 +87,7 @@ static void flush_range(struct mm_struct *mm, unsigne=
+d long start,
+> >   	if (start >=3D end)
+> >   		return;
+> >   	end =3D (end - 1) | ~PAGE_MASK;
+> > -	pmd =3D pmd_offset(pud_offset(pgd_offset(mm, start), start), start);
+> > +	pmd =3D pmd_offset(pud_offset(p4d_offset(pgd_offset(mm, start), start=
+), start), start);
+> >   	for (;;) {
+> >   		pmd_end =3D ((start + PGDIR_SIZE) & PGDIR_MASK) - 1;
+> >   		if (pmd_end > end)
+> > @@ -145,7 +145,7 @@ void flush_tlb_page(struct vm_area_struct *vma, uns=
+igned long vmaddr)
+> >   		return;
+> >   	}
+> >   	mm =3D (vmaddr < TASK_SIZE)? vma->vm_mm: &init_mm;
+> > -	pmd =3D pmd_offset(pud_offset(pgd_offset(mm, vmaddr), vmaddr), vmaddr=
+);
+> > +	pmd =3D pmd_offset(pud_offset(p4d_offset(pgd_offset(mm, vmaddr), vmad=
+dr), vmaddr), vmaddr);
+> >   	if (!pmd_none(*pmd))
+> >   		flush_hash_pages(mm->context.id, vmaddr, pmd_val(*pmd), 1);
+> >   }
+> > diff --git a/arch/powerpc/mm/book3s64/hash_pgtable.c b/arch/powerpc/mm/=
+book3s64/hash_pgtable.c
+> > index 64733b9cb20a..9cd15937e88a 100644
+> > --- a/arch/powerpc/mm/book3s64/hash_pgtable.c
+> > +++ b/arch/powerpc/mm/book3s64/hash_pgtable.c
+> > @@ -148,6 +148,7 @@ void hash__vmemmap_remove_mapping(unsigned long sta=
+rt,
+> >   int hash__map_kernel_page(unsigned long ea, unsigned long pa, pgprot_=
+t prot)
+> >   {
+> >   	pgd_t *pgdp;
+> > +	p4d_t *p4dp;
+> >   	pud_t *pudp;
+> >   	pmd_t *pmdp;
+> >   	pte_t *ptep;
+> > @@ -155,7 +156,8 @@ int hash__map_kernel_page(unsigned long ea, unsigne=
+d long pa, pgprot_t prot)
+> >   	BUILD_BUG_ON(TASK_SIZE_USER64 > H_PGTABLE_RANGE);
+> >   	if (slab_is_available()) {
+> >   		pgdp =3D pgd_offset_k(ea);
+> > -		pudp =3D pud_alloc(&init_mm, pgdp, ea);
+> > +		p4dp =3D p4d_offset(pgdp, ea);
+> > +		pudp =3D pud_alloc(&init_mm, p4dp, ea);
+>=20
+> Could be a single line, without a new var.
+>=20
+> -		pudp =3D pud_alloc(&init_mm, pgdp, ea);
+> +		pudp =3D pud_alloc(&init_mm, p4d_offset(pgdp, ea), ea);
+>=20
+>=20
+> Same kind of comments as already done apply to the rest.
+>=20
+> Christophe
 
-Is it worth adding all this new code ?
-
-My understanding is that the series objective is to get rid of 
-__ARCH_HAS_5LEVEL_HACK, to to add support for 5 levels to an 
-architecture that not need it (at least for now).
-If we want to add support for 5 levels, it can be done later in another 
-patch.
-
-Here I think your change could be limited to:
-
--		pud = pud_offset(pgd, gpa);
-+		pud = pud_offset(p4d_offset(pgd, gpa), gpa);
-
-
->   	else
->   		new_pud = pud_alloc_one(kvm->mm, gpa);
->   
-> @@ -597,12 +626,18 @@ int kvmppc_create_pte(struct kvm *kvm, pgd_t *pgtable, pte_t pte,
->   	/* Now traverse again under the lock and change the tree */
->   	ret = -ENOMEM;
->   	if (pgd_none(*pgd)) {
-> +		if (!new_p4d)
-> +			goto out_unlock;
-> +		pgd_populate(kvm->mm, pgd, new_p4d);
-> +		new_p4d = NULL;
-> +	}
-> +	if (p4d_none(*p4d)) {
->   		if (!new_pud)
->   			goto out_unlock;
-> -		pgd_populate(kvm->mm, pgd, new_pud);
-> +		p4d_populate(kvm->mm, p4d, new_pud);
->   		new_pud = NULL;
->   	}
-> -	pud = pud_offset(pgd, gpa);
-> +	pud = pud_offset(p4d, gpa);
->   	if (pud_is_leaf(*pud)) {
->   		unsigned long hgpa = gpa & PUD_MASK;
->   
-> @@ -1220,6 +1255,7 @@ static ssize_t debugfs_radix_read(struct file *file, char __user *buf,
->   	pgd_t *pgt;
->   	struct kvm_nested_guest *nested;
->   	pgd_t pgd, *pgdp;
-> +	p4d_t p4d, *p4dp;
->   	pud_t pud, *pudp;
->   	pmd_t pmd, *pmdp;
->   	pte_t *ptep;
-> @@ -1298,7 +1334,14 @@ static ssize_t debugfs_radix_read(struct file *file, char __user *buf,
->   			continue;
->   		}
->   
-> -		pudp = pud_offset(&pgd, gpa);
-> +		p4dp = p4d_offset(&pgd, gpa);
-> +		p4d = READ_ONCE(*p4dp);
-> +		if (!(p4d_val(p4d) & _PAGE_PRESENT)) {
-> +			gpa = (gpa & P4D_MASK) + P4D_SIZE;
-> +			continue;
-> +		}
-> +
-> +		pudp = pud_offset(&p4d, gpa);
-
-Same, here you are forcing a useless read with READ_ONCE().
-
-Your change could be limited to
-
--		pudp = pud_offset(&pgd, gpa);
-+		pudp = pud_offset(p4d_offset(&pgd, gpa), gpa);
-
-This comment applies to many other places.
-
-
->   		pud = READ_ONCE(*pudp);
->   		if (!(pud_val(pud) & _PAGE_PRESENT)) {
->   			gpa = (gpa & PUD_MASK) + PUD_SIZE;
-> diff --git a/arch/powerpc/lib/code-patching.c b/arch/powerpc/lib/code-patching.c
-> index 3345f039a876..7a59f6863cec 100644
-> --- a/arch/powerpc/lib/code-patching.c
-> +++ b/arch/powerpc/lib/code-patching.c
-> @@ -107,13 +107,18 @@ static inline int unmap_patch_area(unsigned long addr)
->   	pte_t *ptep;
->   	pmd_t *pmdp;
->   	pud_t *pudp;
-> +	p4d_t *p4dp;
->   	pgd_t *pgdp;
->   
->   	pgdp = pgd_offset_k(addr);
->   	if (unlikely(!pgdp))
->   		return -EINVAL;
->   
-> -	pudp = pud_offset(pgdp, addr);
-> +	p4dp = p4d_offset(pgdp, addr);
-> +	if (unlikely(!p4dp))
-> +		return -EINVAL;
-> +
-> +	pudp = pud_offset(p4dp, addr);
->   	if (unlikely(!pudp))
->   		return -EINVAL;
->   
-> diff --git a/arch/powerpc/mm/book3s32/mmu.c b/arch/powerpc/mm/book3s32/mmu.c
-> index 0a1c65a2c565..b2fc3e71165c 100644
-> --- a/arch/powerpc/mm/book3s32/mmu.c
-> +++ b/arch/powerpc/mm/book3s32/mmu.c
-> @@ -312,7 +312,7 @@ void hash_preload(struct mm_struct *mm, unsigned long ea)
->   
->   	if (!Hash)
->   		return;
-> -	pmd = pmd_offset(pud_offset(pgd_offset(mm, ea), ea), ea);
-> +	pmd = pmd_offset(pud_offset(p4d_offset(pgd_offset(mm, ea), ea), ea), ea);
-
-If we continue like this, in ten years this like is going to be many 
-kilometers long.
-
-I think the above would be worth a generic helper.
-
->   	if (!pmd_none(*pmd))
->   		add_hash_page(mm->context.id, ea, pmd_val(*pmd));
->   }
-> diff --git a/arch/powerpc/mm/book3s32/tlb.c b/arch/powerpc/mm/book3s32/tlb.c
-> index 2fcd321040ff..175bc33b41b7 100644
-> --- a/arch/powerpc/mm/book3s32/tlb.c
-> +++ b/arch/powerpc/mm/book3s32/tlb.c
-> @@ -87,7 +87,7 @@ static void flush_range(struct mm_struct *mm, unsigned long start,
->   	if (start >= end)
->   		return;
->   	end = (end - 1) | ~PAGE_MASK;
-> -	pmd = pmd_offset(pud_offset(pgd_offset(mm, start), start), start);
-> +	pmd = pmd_offset(pud_offset(p4d_offset(pgd_offset(mm, start), start), start), start);
->   	for (;;) {
->   		pmd_end = ((start + PGDIR_SIZE) & PGDIR_MASK) - 1;
->   		if (pmd_end > end)
-> @@ -145,7 +145,7 @@ void flush_tlb_page(struct vm_area_struct *vma, unsigned long vmaddr)
->   		return;
->   	}
->   	mm = (vmaddr < TASK_SIZE)? vma->vm_mm: &init_mm;
-> -	pmd = pmd_offset(pud_offset(pgd_offset(mm, vmaddr), vmaddr), vmaddr);
-> +	pmd = pmd_offset(pud_offset(p4d_offset(pgd_offset(mm, vmaddr), vmaddr), vmaddr), vmaddr);
->   	if (!pmd_none(*pmd))
->   		flush_hash_pages(mm->context.id, vmaddr, pmd_val(*pmd), 1);
->   }
-> diff --git a/arch/powerpc/mm/book3s64/hash_pgtable.c b/arch/powerpc/mm/book3s64/hash_pgtable.c
-> index 64733b9cb20a..9cd15937e88a 100644
-> --- a/arch/powerpc/mm/book3s64/hash_pgtable.c
-> +++ b/arch/powerpc/mm/book3s64/hash_pgtable.c
-> @@ -148,6 +148,7 @@ void hash__vmemmap_remove_mapping(unsigned long start,
->   int hash__map_kernel_page(unsigned long ea, unsigned long pa, pgprot_t prot)
->   {
->   	pgd_t *pgdp;
-> +	p4d_t *p4dp;
->   	pud_t *pudp;
->   	pmd_t *pmdp;
->   	pte_t *ptep;
-> @@ -155,7 +156,8 @@ int hash__map_kernel_page(unsigned long ea, unsigned long pa, pgprot_t prot)
->   	BUILD_BUG_ON(TASK_SIZE_USER64 > H_PGTABLE_RANGE);
->   	if (slab_is_available()) {
->   		pgdp = pgd_offset_k(ea);
-> -		pudp = pud_alloc(&init_mm, pgdp, ea);
-> +		p4dp = p4d_offset(pgdp, ea);
-> +		pudp = pud_alloc(&init_mm, p4dp, ea);
-
-Could be a single line, without a new var.
-
--		pudp = pud_alloc(&init_mm, pgdp, ea);
-+		pudp = pud_alloc(&init_mm, p4d_offset(pgdp, ea), ea);
-
-
-Same kind of comments as already done apply to the rest.
-
-Christophe
+--=20
+Sincerely yours,
+Mike.
