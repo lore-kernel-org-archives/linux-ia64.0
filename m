@@ -1,212 +1,203 @@
-From: afzal mohammed <afzal.mohd.ma@gmail.com>
-Date: Wed, 12 Feb 2020 08:15:19 +0000
-Subject: [PATCH 05/18] ia64: replace setup_irq() by request_irq()
-Message-Id: <14bfa52a434351ea6612d514b033e9dbb73a9727.1581478324.git.afzal.mohd.ma@gmail.com>
+From: Logan Gunthorpe <logang@deltatee.com>
+Date: Fri, 21 Feb 2020 18:25:01 +0000
+Subject: [PATCH v3 5/7] powerpc/mm: Thread pgprot_t through create_section_mapping()
+Message-Id: <20200221182503.28317-6-logang@deltatee.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1581478323.git.afzal.mohd.ma@gmail.com>
-In-Reply-To: <cover.1581478323.git.afzal.mohd.ma@gmail.com>
+References: <20200221182503.28317-1-logang@deltatee.com>
+In-Reply-To: <20200221182503.28317-1-logang@deltatee.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
-Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Tom Vaden <tom.vaden@hpe.com>, Mike Rapoport <rppt@linux.ibm.com>, Andrew Morton <akpm@linux-foundation.org>, Thomas Gleixner <tglx@linutronix.de>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+To: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-mm@kvack.org, Dan Williams <dan.j.williams@intel.com>, Michal Hocko <mhocko@kernel.org>, David Hildenbrand <david@redhat.com>, Andrew Morton <akpm@linux-foundation.org>
+Cc: Eric Badger <ebadger@gigaio.com>, Peter Zijlstra <peterz@infradead.org>, Catalin Marinas <catalin.marinas@arm.com>, Dave Hansen <dave.hansen@linux.intel.com>, Logan Gunthorpe <logang@deltatee.com>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Michael Ellerman <mpe@ellerman.id.au>, Andy Lutomirski <luto@kernel.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Thomas Gleixner <tglx@linutronix.de>, Will Deacon <will@kernel.org>, Christoph Hellwig <hch@lst.de>
 
-request_irq() is preferred over setup_irq(). Existing callers of
-setup_irq() reached mostly via 'init_IRQ()' & 'time_init()', while
-memory allocators are ready by 'mm_init()'.
+In prepartion to support a pgprot_t argument for arch_add_memory().
 
-Per tglx[1], setup_irq() existed in olden days when allocators were not
-ready by the time early interrupts were initialized.
-
-Hence replace setup_irq() by request_irq().
-
-Seldom remove_irq() usage has been observed coupled with setup_irq(),
-wherever that has been found, it too has been replaced by free_irq().
-
-[1] https://lkml.kernel.org/r/alpine.DEB.2.20.1710191609480.1971@nanos
-
-Signed-off-by: afzal mohammed <afzal.mohd.ma@gmail.com>
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Michael Ellerman <mpe@ellerman.id.au>
+Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
 ---
+ arch/powerpc/include/asm/book3s/64/hash.h  |  3 ++-
+ arch/powerpc/include/asm/book3s/64/radix.h |  3 ++-
+ arch/powerpc/include/asm/sparsemem.h       |  3 ++-
+ arch/powerpc/mm/book3s64/hash_utils.c      |  5 +++--
+ arch/powerpc/mm/book3s64/pgtable.c         |  7 ++++---
+ arch/powerpc/mm/book3s64/radix_pgtable.c   | 18 +++++++++++-------
+ arch/powerpc/mm/mem.c                      |  5 +++--
+ 7 files changed, 27 insertions(+), 17 deletions(-)
 
-Since cc'ing cover letter to all maintainers/reviewers would be too
-many, refer for cover letter,
- https://lkml.kernel.org/r/cover.1581478323.git.afzal.mohd.ma@gmail.com
-
- arch/ia64/kernel/irq_ia64.c | 42 ++++++++++--------------------
- arch/ia64/kernel/mca.c      | 51 +++++++++++--------------------------
- 2 files changed, 29 insertions(+), 64 deletions(-)
-
-diff --git a/arch/ia64/kernel/irq_ia64.c b/arch/ia64/kernel/irq_ia64.c
-index 8e91c86e8072..166a38dae663 100644
---- a/arch/ia64/kernel/irq_ia64.c
-+++ b/arch/ia64/kernel/irq_ia64.c
-@@ -351,11 +351,6 @@ static irqreturn_t smp_irq_move_cleanup_interrupt(int irq, void *dev_id)
- 	return IRQ_HANDLED;
+diff --git a/arch/powerpc/include/asm/book3s/64/hash.h b/arch/powerpc/include/asm/book3s/64/hash.h
+index 2781ebf6add4..6fc4520092c7 100644
+--- a/arch/powerpc/include/asm/book3s/64/hash.h
++++ b/arch/powerpc/include/asm/book3s/64/hash.h
+@@ -251,7 +251,8 @@ extern int __meminit hash__vmemmap_create_mapping(unsigned long start,
+ extern void hash__vmemmap_remove_mapping(unsigned long start,
+ 				     unsigned long page_size);
+ 
+-int hash__create_section_mapping(unsigned long start, unsigned long end, int nid);
++int hash__create_section_mapping(unsigned long start, unsigned long end,
++				 int nid, pgprot_t prot);
+ int hash__remove_section_mapping(unsigned long start, unsigned long end);
+ 
+ #endif /* !__ASSEMBLY__ */
+diff --git a/arch/powerpc/include/asm/book3s/64/radix.h b/arch/powerpc/include/asm/book3s/64/radix.h
+index d97db3ad9aae..46799f3c3d1d 100644
+--- a/arch/powerpc/include/asm/book3s/64/radix.h
++++ b/arch/powerpc/include/asm/book3s/64/radix.h
+@@ -289,7 +289,8 @@ static inline unsigned long radix__get_tree_size(void)
  }
  
--static struct irqaction irq_move_irqaction = {
--	.handler =	smp_irq_move_cleanup_interrupt,
--	.name =		"irq_move"
--};
--
- static int __init parse_vector_domain(char *arg)
+ #ifdef CONFIG_MEMORY_HOTPLUG
+-int radix__create_section_mapping(unsigned long start, unsigned long end, int nid);
++int radix__create_section_mapping(unsigned long start, unsigned long end,
++				  int nid, pgprot_t prot);
+ int radix__remove_section_mapping(unsigned long start, unsigned long end);
+ #endif /* CONFIG_MEMORY_HOTPLUG */
+ #endif /* __ASSEMBLY__ */
+diff --git a/arch/powerpc/include/asm/sparsemem.h b/arch/powerpc/include/asm/sparsemem.h
+index 3192d454a733..c89b32443cff 100644
+--- a/arch/powerpc/include/asm/sparsemem.h
++++ b/arch/powerpc/include/asm/sparsemem.h
+@@ -13,7 +13,8 @@
+ #endif /* CONFIG_SPARSEMEM */
+ 
+ #ifdef CONFIG_MEMORY_HOTPLUG
+-extern int create_section_mapping(unsigned long start, unsigned long end, int nid);
++extern int create_section_mapping(unsigned long start, unsigned long end,
++				  int nid, pgprot_t prot);
+ extern int remove_section_mapping(unsigned long start, unsigned long end);
+ 
+ #ifdef CONFIG_PPC_BOOK3S_64
+diff --git a/arch/powerpc/mm/book3s64/hash_utils.c b/arch/powerpc/mm/book3s64/hash_utils.c
+index 523d4d39d11e..201738e07a1d 100644
+--- a/arch/powerpc/mm/book3s64/hash_utils.c
++++ b/arch/powerpc/mm/book3s64/hash_utils.c
+@@ -809,7 +809,8 @@ int resize_hpt_for_hotplug(unsigned long new_mem_size)
+ 	return 0;
+ }
+ 
+-int hash__create_section_mapping(unsigned long start, unsigned long end, int nid)
++int hash__create_section_mapping(unsigned long start, unsigned long end,
++				 int nid, pgprot_t prot)
  {
- 	if (!arg)
-@@ -586,28 +581,15 @@ static irqreturn_t dummy_handler (int irq, void *dev_id)
- 	return IRQ_NONE;
+ 	int rc;
+ 
+@@ -819,7 +820,7 @@ int hash__create_section_mapping(unsigned long start, unsigned long end, int nid
+ 	}
+ 
+ 	rc = htab_bolt_mapping(start, end, __pa(start),
+-			       pgprot_val(PAGE_KERNEL), mmu_linear_psize,
++			       pgprot_val(prot), mmu_linear_psize,
+ 			       mmu_kernel_ssize);
+ 
+ 	if (rc < 0) {
+diff --git a/arch/powerpc/mm/book3s64/pgtable.c b/arch/powerpc/mm/book3s64/pgtable.c
+index 2bf7e1b4fd82..e0bb69c616e4 100644
+--- a/arch/powerpc/mm/book3s64/pgtable.c
++++ b/arch/powerpc/mm/book3s64/pgtable.c
+@@ -171,12 +171,13 @@ void mmu_cleanup_all(void)
  }
  
--static struct irqaction ipi_irqaction = {
--	.handler =	handle_IPI,
--	.name =		"IPI"
--};
--
- /*
-  * KVM uses this interrupt to force a cpu out of guest mode
-  */
--static struct irqaction resched_irqaction = {
--	.handler =	dummy_handler,
--	.name =		"resched"
--};
--
--static struct irqaction tlb_irqaction = {
--	.handler =	dummy_handler,
--	.name =		"tlb_flush"
--};
+ #ifdef CONFIG_MEMORY_HOTPLUG
+-int __meminit create_section_mapping(unsigned long start, unsigned long end, int nid)
++int __meminit create_section_mapping(unsigned long start, unsigned long end,
++				     int nid, pgprot_t prot)
+ {
+ 	if (radix_enabled())
+-		return radix__create_section_mapping(start, end, nid);
++		return radix__create_section_mapping(start, end, nid, prot);
  
+-	return hash__create_section_mapping(start, end, nid);
++	return hash__create_section_mapping(start, end, nid, prot);
+ }
+ 
+ int __meminit remove_section_mapping(unsigned long start, unsigned long end)
+diff --git a/arch/powerpc/mm/book3s64/radix_pgtable.c b/arch/powerpc/mm/book3s64/radix_pgtable.c
+index dd1bea45325c..0ef10b5c26ba 100644
+--- a/arch/powerpc/mm/book3s64/radix_pgtable.c
++++ b/arch/powerpc/mm/book3s64/radix_pgtable.c
+@@ -253,7 +253,7 @@ static unsigned long next_boundary(unsigned long addr, unsigned long end)
+ 
+ static int __meminit create_physical_mapping(unsigned long start,
+ 					     unsigned long end,
+-					     int nid)
++					     int nid, pgprot_t _prot)
+ {
+ 	unsigned long vaddr, addr, mapping_size = 0;
+ 	bool prev_exec, exec = false;
+@@ -289,7 +289,7 @@ static int __meminit create_physical_mapping(unsigned long start,
+ 			prot = PAGE_KERNEL_X;
+ 			exec = true;
+ 		} else {
+-			prot = PAGE_KERNEL;
++			prot = _prot;
+ 			exec = false;
+ 		}
+ 
+@@ -333,7 +333,7 @@ static void __init radix_init_pgtable(void)
+ 
+ 		WARN_ON(create_physical_mapping(reg->base,
+ 						reg->base + reg->size,
+-						-1));
++						-1, PAGE_KERNEL));
+ 	}
+ 
+ 	/* Find out how many PID bits are supported */
+@@ -712,8 +712,10 @@ static int __meminit stop_machine_change_mapping(void *data)
+ 
+ 	spin_unlock(&init_mm.page_table_lock);
+ 	pte_clear(&init_mm, params->aligned_start, params->pte);
+-	create_physical_mapping(__pa(params->aligned_start), __pa(params->start), -1);
+-	create_physical_mapping(__pa(params->end), __pa(params->aligned_end), -1);
++	create_physical_mapping(__pa(params->aligned_start),
++				__pa(params->start), -1, PAGE_KERNEL);
++	create_physical_mapping(__pa(params->end), __pa(params->aligned_end),
++				-1, PAGE_KERNEL);
+ 	spin_lock(&init_mm.page_table_lock);
+ 	return 0;
+ }
+@@ -870,14 +872,16 @@ static void __meminit remove_pagetable(unsigned long start, unsigned long end)
+ 	radix__flush_tlb_kernel_range(start, end);
+ }
+ 
+-int __meminit radix__create_section_mapping(unsigned long start, unsigned long end, int nid)
++int __meminit radix__create_section_mapping(unsigned long start,
++					    unsigned long end, int nid,
++					    pgprot_t prot)
+ {
+ 	if (end >= RADIX_VMALLOC_START) {
+ 		pr_warn("Outside the supported range\n");
+ 		return -1;
+ 	}
+ 
+-	return create_physical_mapping(__pa(start), __pa(end), nid);
++	return create_physical_mapping(__pa(start), __pa(end), nid, prot);
+ }
+ 
+ int __meminit radix__remove_section_mapping(unsigned long start, unsigned long end)
+diff --git a/arch/powerpc/mm/mem.c b/arch/powerpc/mm/mem.c
+index b4bece53bec0..19b1da5d7eca 100644
+--- a/arch/powerpc/mm/mem.c
++++ b/arch/powerpc/mm/mem.c
+@@ -96,7 +96,8 @@ int memory_add_physaddr_to_nid(u64 start)
+ }
  #endif
  
- void
--ia64_native_register_percpu_irq (ia64_vector vec, struct irqaction *action)
-+ia64_native_register_percpu_irq(ia64_vector vec, const char *name,
-+				irq_handler_t handler)
+-int __weak create_section_mapping(unsigned long start, unsigned long end, int nid)
++int __weak create_section_mapping(unsigned long start, unsigned long end,
++				  int nid, pgprot_t prot)
  {
- 	unsigned int irq;
- 
-@@ -615,8 +597,9 @@ ia64_native_register_percpu_irq (ia64_vector vec, struct irqaction *action)
- 	BUG_ON(bind_irq_vector(irq, vec, CPU_MASK_ALL));
- 	irq_set_status_flags(irq, IRQ_PER_CPU);
- 	irq_set_chip(irq, &irq_type_ia64_lsapic);
--	if (action)
--		setup_irq(irq, action);
-+	if (handler)
-+		if (request_irq(irq, handler, 0, name, NULL))
-+			pr_err("request_irq() for %s failed", name);
- 	irq_set_handler(irq, handle_percpu_irq);
+ 	return -ENODEV;
  }
+@@ -137,7 +138,7 @@ int __ref arch_add_memory(int nid, u64 start, u64 size,
+ 	resize_hpt_for_hotplug(memblock_phys_mem_size());
  
-@@ -624,9 +607,10 @@ void __init
- ia64_native_register_ipi(void)
- {
- #ifdef CONFIG_SMP
--	register_percpu_irq(IA64_IPI_VECTOR, &ipi_irqaction);
--	register_percpu_irq(IA64_IPI_RESCHEDULE, &resched_irqaction);
--	register_percpu_irq(IA64_IPI_LOCAL_TLB_FLUSH, &tlb_irqaction);
-+	register_percpu_irq(IA64_IPI_VECTOR, "IPI", handle_IPI);
-+	register_percpu_irq(IA64_IPI_RESCHEDULE, "resched", dummy_handler);
-+	register_percpu_irq(IA64_IPI_LOCAL_TLB_FLUSH, "tlb_flush",
-+			    dummy_handler);
- #endif
- }
- 
-@@ -635,10 +619,12 @@ init_IRQ (void)
- {
- 	acpi_boot_init();
- 	ia64_register_ipi();
--	register_percpu_irq(IA64_SPURIOUS_INT_VECTOR, NULL);
-+	register_percpu_irq(IA64_SPURIOUS_INT_VECTOR, NULL, NULL);
- #ifdef CONFIG_SMP
--	if (vector_domain_type != VECTOR_DOMAIN_NONE)
--		register_percpu_irq(IA64_IRQ_MOVE_VECTOR, &irq_move_irqaction);
-+	if (vector_domain_type != VECTOR_DOMAIN_NONE) {
-+		register_percpu_irq(IA64_IRQ_MOVE_VECTOR, "irq_move",
-+				    smp_irq_move_cleanup_interrupt);
-+	}
- #endif
- #ifdef CONFIG_PERFMON
- 	pfm_init_percpu();
-diff --git a/arch/ia64/kernel/mca.c b/arch/ia64/kernel/mca.c
-index bf2cb9294795..f4be4ad7bf0d 100644
---- a/arch/ia64/kernel/mca.c
-+++ b/arch/ia64/kernel/mca.c
-@@ -1766,36 +1766,6 @@ ia64_mca_disable_cpe_polling(char *str)
- 
- __setup("disable_cpe_poll", ia64_mca_disable_cpe_polling);
- 
--static struct irqaction cmci_irqaction = {
--	.handler =	ia64_mca_cmc_int_handler,
--	.name =		"cmc_hndlr"
--};
--
--static struct irqaction cmcp_irqaction = {
--	.handler =	ia64_mca_cmc_int_caller,
--	.name =		"cmc_poll"
--};
--
--static struct irqaction mca_rdzv_irqaction = {
--	.handler =	ia64_mca_rendez_int_handler,
--	.name =		"mca_rdzv"
--};
--
--static struct irqaction mca_wkup_irqaction = {
--	.handler =	ia64_mca_wakeup_int_handler,
--	.name =		"mca_wkup"
--};
--
--static struct irqaction mca_cpe_irqaction = {
--	.handler =	ia64_mca_cpe_int_handler,
--	.name =		"cpe_hndlr"
--};
--
--static struct irqaction mca_cpep_irqaction = {
--	.handler =	ia64_mca_cpe_int_caller,
--	.name =		"cpe_poll"
--};
--
- /* Minimal format of the MCA/INIT stacks.  The pseudo processes that run on
-  * these stacks can never sleep, they cannot return from the kernel to user
-  * space, they do not appear in a normal ps listing.  So there is no need to
-@@ -2056,18 +2026,23 @@ void __init ia64_mca_irq_init(void)
- 	 *  Configure the CMCI/P vector and handler. Interrupts for CMC are
- 	 *  per-processor, so AP CMC interrupts are setup in smp_callin() (smpboot.c).
- 	 */
--	register_percpu_irq(IA64_CMC_VECTOR, &cmci_irqaction);
--	register_percpu_irq(IA64_CMCP_VECTOR, &cmcp_irqaction);
-+	register_percpu_irq(IA64_CMC_VECTOR, "cmc_hndlr",
-+			    ia64_mca_cmc_int_handler);
-+	register_percpu_irq(IA64_CMCP_VECTOR, "cmc_poll",
-+			    ia64_mca_cmc_int_caller);
- 	ia64_mca_cmc_vector_setup();       /* Setup vector on BSP */
- 
- 	/* Setup the MCA rendezvous interrupt vector */
--	register_percpu_irq(IA64_MCA_RENDEZ_VECTOR, &mca_rdzv_irqaction);
-+	register_percpu_irq(IA64_MCA_RENDEZ_VECTOR, "mca_rdzv",
-+			    ia64_mca_rendez_int_handler);
- 
- 	/* Setup the MCA wakeup interrupt vector */
--	register_percpu_irq(IA64_MCA_WAKEUP_VECTOR, &mca_wkup_irqaction);
-+	register_percpu_irq(IA64_MCA_WAKEUP_VECTOR, "mca_wkup",
-+			    ia64_mca_wakeup_int_handler);
- 
- 	/* Setup the CPEI/P handler */
--	register_percpu_irq(IA64_CPEP_VECTOR, &mca_cpep_irqaction);
-+	register_percpu_irq(IA64_CPEP_VECTOR, "cpe_poll",
-+			    ia64_mca_cpe_int_caller);
- }
- 
- /*
-@@ -2108,7 +2083,11 @@ ia64_mca_late_init(void)
- 			if (irq > 0) {
- 				cpe_poll_enabled = 0;
- 				irq_set_status_flags(irq, IRQ_PER_CPU);
--				setup_irq(irq, &mca_cpe_irqaction);
-+				if (request_irq(irq, ia64_mca_cpe_int_handler,
-+						0, "cpe_hndlr", NULL)) {
-+					pr_err("request_irq() on %s failed\n",
-+					       "cpe_hndlr");
-+				}
- 				ia64_cpe_irq = irq;
- 				ia64_mca_register_cpev(cpe_vector);
- 				IA64_MCA_DEBUG("%s: CPEI/P setup and enabled.\n",
+ 	start = (unsigned long)__va(start);
+-	rc = create_section_mapping(start, start + size, nid);
++	rc = create_section_mapping(start, start + size, nid, PAGE_KERNEL);
+ 	if (rc) {
+ 		pr_warn("Unable to create mapping for hot added memory 0x%llx..0x%llx: %d\n",
+ 			start, start + size, rc);
 -- 
-2.24.1
+2.20.1
