@@ -1,86 +1,40 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Date: Wed, 12 Feb 2020 09:57:39 +0000
-Subject: Re: [PATCH v2] asm-generic: Fix unistd_32.h generation format
-Message-Id: <CAMuHMdXQqEYsL4KfDb4EkS+P+6qW=E4m3wunx_LXZddXVZMd4g@mail.gmail.com>
+From: Logan Gunthorpe <logang@deltatee.com>
+Date: Fri, 21 Feb 2020 18:24:57 +0000
+Subject: [PATCH v3 1/7] mm/memory_hotplug: Drop the flags field from struct mhp_restrictions
+Message-Id: <20200221182503.28317-2-logang@deltatee.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <dcdd615f77dacf8a98e18950b66fb5a675277f38.1581498987.git.michal.simek@xilinx.com>
- <CAMo8BfLYM-_SbqmMUCVjwqL7MpA2W7toTg_F6HTY4Sg5QxGzfw@mail.gmail.com>
- <CAMuHMdUZ_e9JsF0fuLxBwdoy7YVLarH6E98z5nKUZ2CccSkV-Q@mail.gmail.com>
- <6128aa3a-a99c-2ab0-82d1-d5c419e4f5b9@xilinx.com> <CAMuHMdX3O6aL_yGSfqrbdfPf-HHqqdkMwPHS=Y0WxMRTYOtJ4w@mail.gmail.com>
- <1d006656-bd48-0b8e-b893-cddaa5f8f8bc@xilinx.com> <CAMuHMdXaOD5kL+Cg0L=YeX_DqdVgUJXEA8LF-NiHbmkMuXKTaA@mail.gmail.com>
- <d93646fa-c844-693c-07a7-7075d0fcf2c9@xilinx.com>
-In-Reply-To: <d93646fa-c844-693c-07a7-7075d0fcf2c9@xilinx.com>
+References: <20200221182503.28317-1-logang@deltatee.com>
+In-Reply-To: <20200221182503.28317-1-logang@deltatee.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Michal Simek <michal.simek@xilinx.com>
-Cc: Max Filippov <jcmvbkbc@gmail.com>, LKML <linux-kernel@vger.kernel.org>, Michal Simek <monstr@monstr.eu>, git@xilinx.com, Arnd Bergmann <arnd@arndb.de>, Andrew Morton <akpm@linux-foundation.org>, Stefan Asserhall <stefan.asserhall@xilinx.com>, Chris Zankel <chris@zankel.net>, "David S. Miller" <davem@davemloft.net>, Fenghua Yu <fenghua.yu@intel.com>, Helge Deller <deller@gmx.de>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Matt Turner <mattst88@gmail.com>, Rich Felker <dalias@libc.org>, Richard Henderson <rth@twiddle.net>, Tony Luck <tony.luck@intel.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, "open list:ALPHA PORT" <linux-alpha@vger.kernel.org>, "open list:IA64 (Itanium) PL..." <linux-ia64@vger.kernel.org>, "open list:M68K ARCHITECTURE" <linux-m68k@lists.linux-m68k.org>, "open list:PARISC ARCHITECTURE" <linux-parisc@vger.kernel.org>, "open list:SUPERH" <linux-sh@vger.kernel.org>, "open list:TENSILICA XTENSA PORT (xtensa)" <linux-xtensa@linux-xtensa.org>, "open list:SPARC + UltraSPAR..." <sparclinux@vger.kernel.org>
+To: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-mm@kvack.org, Dan Williams <dan.j.williams@intel.com>, Michal Hocko <mhocko@kernel.org>, David Hildenbrand <david@redhat.com>, Andrew Morton <akpm@linux-foundation.org>
+Cc: Eric Badger <ebadger@gigaio.com>, Peter Zijlstra <peterz@infradead.org>, Catalin Marinas <catalin.marinas@arm.com>, Dave Hansen <dave.hansen@linux.intel.com>, Logan Gunthorpe <logang@deltatee.com>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Andy Lutomirski <luto@kernel.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Thomas Gleixner <tglx@linutronix.de>, Will Deacon <will@kernel.org>, Christoph Hellwig <hch@lst.de>
 
-Hi Michal,
+This variable is not used anywhere and should therefore be removed
+from the structure.
 
-On Wed, Feb 12, 2020 at 10:42 AM Michal Simek <michal.simek@xilinx.com> wrote:
-> On 12. 02. 20 10:40, Geert Uytterhoeven wrote:
-> > On Wed, Feb 12, 2020 at 10:38 AM Michal Simek <michal.simek@xilinx.com> wrote:
-> >> On 12. 02. 20 10:32, Geert Uytterhoeven wrote:
-> >>> On Wed, Feb 12, 2020 at 10:27 AM Michal Simek <michal.simek@xilinx.com> wrote:
-> >>>> On 12. 02. 20 10:25, Geert Uytterhoeven wrote:
-> >>>>> On Wed, Feb 12, 2020 at 10:23 AM Max Filippov <jcmvbkbc@gmail.com> wrote:
-> >>>>>> On Wed, Feb 12, 2020 at 1:16 AM Michal Simek <michal.simek@xilinx.com> wrote:
-> >>>>>>>
-> >>>>>>> Generated files are also checked by sparse that's why add newline
-> >>>>>>> to remove sparse (C=1) warning.
-> >>>>>>>
-> >>>>>>> The issue was found on Microblaze and reported like this:
-> >>>>>>> ./arch/microblaze/include/generated/uapi/asm/unistd_32.h:438:45:
-> >>>>>>> warning: no newline at end of file
-> >>>>>>>
-> >>>>>>> Signed-off-by: Michal Simek <michal.simek@xilinx.com>
-> >>>>>>> Reviewed-by: Stefan Asserhall <stefan.asserhall@xilinx.com>
-> >>>>>
-> >>>>>>> --- a/arch/m68k/kernel/syscalls/syscallhdr.sh
-> >>>>>>> +++ b/arch/m68k/kernel/syscalls/syscallhdr.sh
-> >>>>>>> @@ -33,4 +33,5 @@ grep -E "^[0-9A-Fa-fXx]+[[:space:]]+${my_abis}" "$in" | sort -n | (
-> >>>>>>>         printf "#endif\n"
-> >>>>>>>         printf "\n"
-> >>>>>>>         printf "#endif /* %s */\n" "${fileguard}"
-> >>>>>>
-> >>>>>> Here there's already \n at the end, so no need for another one?
-> >>>>>
-> >>>>> Thanks! I completely missed that.
-> >>>>> So I did fix the original while applying ;-)
-> >>>>
-> >>>> I can drop m68k or align with with others. I would prefer to have the
-> >>>> same solution in all these scripts.
-> >>>
-> >>> Yeah, it makes sense to align as much as possible.
-> >>> IIRC, the original plan was to consolidate more later.
-> >>>
-> >>> Note that all other lines are terminated with a "\n" at the end.
-> >>> The separate 'printf "\n"' is an extra blank line, not the terminator for the
-> >>> previous line.
-> >>
-> >> Should we also get rid of 'printf "\n"' lines or just keep them as they
-> >> are today?
-> >
-> > Usually there is a blank line above the include guard terminator, so IMHO
-> > it makes sense to have that in generated files, too.
->
-> I meant more not to get rid of \n just include them in current prints.
-> It means like this 'printf "\n#endif /* %s */\n" "${fileguard}"'
+Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
+Reviewed-by: David Hildenbrand <david@redhat.com>
+---
+ include/linux/memory_hotplug.h | 2 --
+ 1 file changed, 2 deletions(-)
 
-I think having a "\n" at the start of a string makes the code harder to read.
-
-You could move it to the end of the previous string, but that is not always
-possible (e.g. after the loop), so I'd keep the separate prints for blank
-lines.
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
+diff --git a/include/linux/memory_hotplug.h b/include/linux/memory_hotplug.h
+index f4d59155f3d4..69ff3037528d 100644
+--- a/include/linux/memory_hotplug.h
++++ b/include/linux/memory_hotplug.h
+@@ -55,11 +55,9 @@ enum {
+ 
+ /*
+  * Restrictions for the memory hotplug:
+- * flags:  MHP_ flags
+  * altmap: alternative allocator for memmap array
+  */
+ struct mhp_restrictions {
+-	unsigned long flags;
+ 	struct vmem_altmap *altmap;
+ };
+ 
 -- 
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+2.20.1
