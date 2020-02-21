@@ -1,98 +1,51 @@
-From: Mike Rapoport <rppt@kernel.org>
-Date: Thu, 27 Feb 2020 08:46:01 +0000
-Subject: [PATCH v3 07/14] powerpc/32: drop get_pteptr()
-Message-Id: <20200227084608.18223-8-rppt@kernel.org>
+From: Logan Gunthorpe <logang@deltatee.com>
+Date: Fri, 21 Feb 2020 18:25:03 +0000
+Subject: [PATCH v3 7/7] mm/memremap: Set caching mode for PCI P2PDMA memory to WC
+Message-Id: <20200221182503.28317-8-logang@deltatee.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200227084608.18223-1-rppt@kernel.org>
-In-Reply-To: <20200227084608.18223-1-rppt@kernel.org>
+References: <20200221182503.28317-1-logang@deltatee.com>
+In-Reply-To: <20200221182503.28317-1-logang@deltatee.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Rich Felker <dalias@libc.org>, linux-ia64@vger.kernel.org, Geert Uytterhoeven <geert+renesas@glider.be>, linux-sh@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linux-mm@kvack.org, Paul Mackerras <paulus@samba.org>, linux-hexagon@vger.kernel.org, Will Deacon <will@kernel.org>, kvmarm@lists.cs.columbia.edu, Jonas Bonn <jonas@southpole.se>, linux-arch@vger.kernel.org, Brian Cain <bcain@codeaurora.org>, Marc Zyngier <maz@kernel.org>, Russell King <linux@armlinux.org.uk>, Ley Foon Tan <ley.foon.tan@intel.com>, Mike Rapoport <rppt@linux.ibm.com>, Catalin Marinas <catalin.marinas@arm.com>, uclinux-h8-devel@lists.sourceforge.jp, Fenghua Yu <fenghua.yu@intel.com>, Arnd Bergmann <arnd@arndb.de>, kvm-ppc@vger.kernel.org, Stefan Kristiansson <stefan.kristiansson@saunalahti.fi>, openrisc@lists.librecores.org, Stafford Horne <shorne@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, linux-arm-kernel@lists.infradead.org, Christophe Leroy <christophe.leroy@c-s.fr>, Tony Luck <tony.luck@intel.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Michael Ellerman <mpe@ellerman.id.au>, nios2-dev@lists.rocketboards.org, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, Mike Rapoport <rppt@kernel.org>
+To: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-mm@kvack.org, Dan Williams <dan.j.williams@intel.com>, Michal Hocko <mhocko@kernel.org>, David Hildenbrand <david@redhat.com>, Andrew Morton <akpm@linux-foundation.org>
+Cc: Eric Badger <ebadger@gigaio.com>, Peter Zijlstra <peterz@infradead.org>, Catalin Marinas <catalin.marinas@arm.com>, Dave Hansen <dave.hansen@linux.intel.com>, Jason Gunthorpe <jgg@ziepe.ca>, Logan Gunthorpe <logang@deltatee.com>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Andy Lutomirski <luto@kernel.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Thomas Gleixner <tglx@linutronix.de>, Will Deacon <will@kernel.org>, Christoph Hellwig <hch@lst.de>
 
-From: Christophe Leroy <christophe.leroy@c-s.fr>
+PCI BAR IO memory should never be mapped as WB, however prior to this
+the PAT bits were set WB and it was typically overridden by MTRR
+registers set by the firmware.
 
-Commit 8d30c14cab30 ("powerpc/mm: Rework I$/D$ coherency (v3)") and
-commit 90ac19a8b21b ("[POWERPC] Abolish iopa(), mm_ptov(),
-io_block_mapping() from arch/powerpc") removed the use of get_pteptr()
-outside of mm/pgtable_32.c
+Set PCI P2PDMA memory to be WC (writecombining) as the only current
+user (the NVMe CMB) was originally mapped WC before the P2PDMA code
+replaced the mapping with devm_memremap_pages().
 
-In mm/pgtable_32.c, the only user of get_pteptr() is __change_page_attr()
-which operates on kernel context and on lowmem pages only.
+Future use-cases may need to generalize this by adding flags to
+select the caching type, as some P2PDMA cases will not want WC.
+However, those use-cases are not upstream yet and this can be changed
+when they arrive.
 
-Move page table traversal to __change_page_attr() and drop get_pteptr().
-
-Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
-Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
+Cc: Dan Williams <dan.j.williams@intel.com>
+Cc: Christoph Hellwig <hch@lst.de>
+Cc: Jason Gunthorpe <jgg@ziepe.ca>
+Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
 ---
- arch/powerpc/mm/pgtable_32.c | 43 ++++++------------------------------
- 1 file changed, 7 insertions(+), 36 deletions(-)
+ mm/memremap.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/arch/powerpc/mm/pgtable_32.c b/arch/powerpc/mm/pgtable_32.c
-index 5fb90edd865e..4894555622d7 100644
---- a/arch/powerpc/mm/pgtable_32.c
-+++ b/arch/powerpc/mm/pgtable_32.c
-@@ -121,53 +121,24 @@ void __init mapin_ram(void)
- 	}
- }
- 
--/* Scan the real Linux page tables and return a PTE pointer for
-- * a virtual address in a context.
-- * Returns true (1) if PTE was found, zero otherwise.  The pointer to
-- * the PTE pointer is unmodified if PTE is not found.
-- */
--static int
--get_pteptr(struct mm_struct *mm, unsigned long addr, pte_t **ptep, pmd_t **pmdp)
--{
--        pgd_t	*pgd;
--	pud_t	*pud;
--        pmd_t	*pmd;
--        pte_t	*pte;
--        int     retval = 0;
--
--        pgd = pgd_offset(mm, addr & PAGE_MASK);
--        if (pgd) {
--		pud = pud_offset(pgd, addr & PAGE_MASK);
--		if (pud && pud_present(*pud)) {
--			pmd = pmd_offset(pud, addr & PAGE_MASK);
--			if (pmd_present(*pmd)) {
--				pte = pte_offset_map(pmd, addr & PAGE_MASK);
--				if (pte) {
--					retval = 1;
--					*ptep = pte;
--					if (pmdp)
--						*pmdp = pmd;
--					/* XXX caller needs to do pte_unmap, yuck */
--				}
--			}
--		}
--        }
--        return(retval);
--}
--
- static int __change_page_attr_noflush(struct page *page, pgprot_t prot)
- {
- 	pte_t *kpte;
- 	pmd_t *kpmd;
--	unsigned long address;
-+	unsigned long address, va;
- 
- 	BUG_ON(PageHighMem(page));
- 	address = (unsigned long)page_address(page);
-+	va = address & PAGE_MASK;
- 
- 	if (v_block_mapped(address))
- 		return 0;
--	if (!get_pteptr(&init_mm, address, &kpte, &kpmd))
-+
-+	kpmd = pmd_offset(pud_offset(pgd_offset_k(va), va), va);
-+	if (!pmd_present(*kpmd))
- 		return -EINVAL;
-+
-+	kpte = pte_offset_map(kpmd, va);
- 	__set_pte_at(&init_mm, address, kpte, mk_pte(page, prot), 0);
- 	pte_unmap(kpte);
- 
+diff --git a/mm/memremap.c b/mm/memremap.c
+index 06742372a203..8d141c3e3364 100644
+--- a/mm/memremap.c
++++ b/mm/memremap.c
+@@ -190,7 +190,10 @@ void *memremap_pages(struct dev_pagemap *pgmap, int nid)
+ 		}
+ 		break;
+ 	case MEMORY_DEVICE_DEVDAX:
++		need_devmap_managed = false;
++		break;
+ 	case MEMORY_DEVICE_PCI_P2PDMA:
++		params.pgprot = pgprot_writecombine(params.pgprot);
+ 		need_devmap_managed = false;
+ 		break;
+ 	default:
 -- 
-2.24.0
+2.20.1
