@@ -1,35 +1,62 @@
-From: Lukas Bulwahn <lukas.bulwahn@gmail.com>
-Date: Tue, 18 Feb 2020 20:14:53 +0000
-Subject: RE: [PATCH] tty/serial: cleanup after ioc*_serial driver removal
-Message-Id: <alpine.DEB.2.21.2002182112520.3368@felia>
+From: Logan Gunthorpe <logang@deltatee.com>
+Date: Fri, 21 Feb 2020 18:25:00 +0000
+Subject: [PATCH v3 4/7] x86/mm: Introduce _set_memory_prot()
+Message-Id: <20200221182503.28317-5-logang@deltatee.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200217081558.10266-1-lukas.bulwahn@gmail.com> <CADxRZqwGBi=4A224mG0cPgONdNitnvi3LFD_KQckxdYSXzgBGg@mail.gmail.com> <alpine.DEB.2.21.2002170950390.11007@felia> <3908561D78D1C84285E8C5FCA982C28F7F57B7D6@ORSMSX115.amr.corp.intel.com>
-In-Reply-To: <3908561D78D1C84285E8C5FCA982C28F7F57B7D6@ORSMSX115.amr.corp.intel.com>
+References: <20200221182503.28317-1-logang@deltatee.com>
+In-Reply-To: <20200221182503.28317-1-logang@deltatee.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>
-Cc: Lukas Bulwahn <lukas.bulwahn@gmail.com>, Anatoly Pugachev <matorola@gmail.com>, Pat Gefre <pfg@sgi.com>, Christoph Hellwig <hch@lst.de>, "Yu, Fenghua" <fenghua.yu@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>, Joe Perches <joe@perches.com>, "kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>, Linux Kernel list <linux-kernel@vger.kernel.org>
+To: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-mm@kvack.org, Dan Williams <dan.j.williams@intel.com>, Michal Hocko <mhocko@kernel.org>, David Hildenbrand <david@redhat.com>, Andrew Morton <akpm@linux-foundation.org>
+Cc: Eric Badger <ebadger@gigaio.com>, "H. Peter Anvin" <hpa@zytor.com>, Peter Zijlstra <peterz@infradead.org>, Catalin Marinas <catalin.marinas@arm.com>, Dave Hansen <dave.hansen@linux.intel.com>, x86@kernel.org, Logan Gunthorpe <logang@deltatee.com>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Andy Lutomirski <luto@kernel.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Thomas Gleixner <tglx@linutronix.de>, Will Deacon <will@kernel.org>, Christoph Hellwig <hch@lst.de>
 
+For use in the 32bit arch_add_memory() to set the pgprot type of the
+memory to add.
 
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Ingo Molnar <mingo@redhat.com>
+Cc: Borislav Petkov <bp@alien8.de>
+Cc: "H. Peter Anvin" <hpa@zytor.com>
+Cc: x86@kernel.org
+Cc: Dave Hansen <dave.hansen@linux.intel.com>
+Cc: Andy Lutomirski <luto@kernel.org>
+Cc: Peter Zijlstra <peterz@infradead.org>
+Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
+---
+ arch/x86/include/asm/set_memory.h | 1 +
+ arch/x86/mm/pat/set_memory.c      | 7 +++++++
+ 2 files changed, 8 insertions(+)
 
-On Tue, 18 Feb 2020, Luck, Tony wrote:
-
-> > I do not know if there are more ia64 serial drivers, but the MAINTAINERS 
-> > entry and commit message suggested there is not another serial driver.
-> 
-> Lukas,
-> 
-> There aren't any other ia64 specific serial drivers. But ia64 does use generic
-> serial drivers (e.g. my test machine has a couple of serial ports attached to 16550A
-> devices)
-> 
-> I think some notes in that documentation file still apply. Please don't delete.
-> 
-
-I provided a PATCH v2 that does not delete the documentation, which 
-already was reviewed by Christoph Hellwig.
-
-Please pick and apply that PATCH v2.
-
-Lukas 
+diff --git a/arch/x86/include/asm/set_memory.h b/arch/x86/include/asm/set_memory.h
+index 64c3dce374e5..0aca959cf9a4 100644
+--- a/arch/x86/include/asm/set_memory.h
++++ b/arch/x86/include/asm/set_memory.h
+@@ -34,6 +34,7 @@
+  * The caller is required to take care of these.
+  */
+ 
++int _set_memory_prot(unsigned long addr, int numpages, pgprot_t prot);
+ int _set_memory_uc(unsigned long addr, int numpages);
+ int _set_memory_wc(unsigned long addr, int numpages);
+ int _set_memory_wt(unsigned long addr, int numpages);
+diff --git a/arch/x86/mm/pat/set_memory.c b/arch/x86/mm/pat/set_memory.c
+index c4aedd00c1ba..2ba83d53d835 100644
+--- a/arch/x86/mm/pat/set_memory.c
++++ b/arch/x86/mm/pat/set_memory.c
+@@ -1792,6 +1792,13 @@ static inline int cpa_clear_pages_array(struct page **pages, int numpages,
+ 		CPA_PAGES_ARRAY, pages);
+ }
+ 
++int _set_memory_prot(unsigned long addr, int numpages, pgprot_t prot)
++{
++	return change_page_attr_set_clr(&addr, numpages, prot,
++					__pgprot(~pgprot_val(prot)), 0, 0,
++					NULL);
++}
++
+ int _set_memory_uc(unsigned long addr, int numpages)
+ {
+ 	/*
+-- 
+2.20.1
