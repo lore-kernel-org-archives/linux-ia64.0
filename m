@@ -1,119 +1,121 @@
-From: Mike Rapoport <rppt@kernel.org>
-Date: Thu, 27 Feb 2020 08:46:07 +0000
-Subject: [PATCH v3 13/14] asm-generic: remove pgtable-nop4d-hack.h
-Message-Id: <20200227084608.18223-14-rppt@kernel.org>
+From: Qais Yousef <qais.yousef@arm.com>
+Date: Sun, 23 Feb 2020 19:29:29 +0000
+Subject: [PATCH v3 02/15] smp: Create a new function to shutdown nonboot cpus
+Message-Id: <20200223192942.18420-3-qais.yousef@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200227084608.18223-1-rppt@kernel.org>
-In-Reply-To: <20200227084608.18223-1-rppt@kernel.org>
+References: <20200223192942.18420-1-qais.yousef@arm.com>
+In-Reply-To: <20200223192942.18420-1-qais.yousef@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Rich Felker <dalias@libc.org>, linux-ia64@vger.kernel.org, Geert Uytterhoeven <geert+renesas@glider.be>, linux-sh@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linux-mm@kvack.org, Paul Mackerras <paulus@samba.org>, linux-hexagon@vger.kernel.org, Will Deacon <will@kernel.org>, kvmarm@lists.cs.columbia.edu, Jonas Bonn <jonas@southpole.se>, linux-arch@vger.kernel.org, Brian Cain <bcain@codeaurora.org>, Marc Zyngier <maz@kernel.org>, Russell King <linux@armlinux.org.uk>, Ley Foon Tan <ley.foon.tan@intel.com>, Mike Rapoport <rppt@linux.ibm.com>, Catalin Marinas <catalin.marinas@arm.com>, uclinux-h8-devel@lists.sourceforge.jp, Fenghua Yu <fenghua.yu@intel.com>, Arnd Bergmann <arnd@arndb.de>, kvm-ppc@vger.kernel.org, Stefan Kristiansson <stefan.kristiansson@saunalahti.fi>, openrisc@lists.librecores.org, Stafford Horne <shorne@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, linux-arm-kernel@lists.infradead.org, Christophe Leroy <christophe.leroy@c-s.fr>, Tony Luck <tony.luck@intel.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Michael Ellerman <mpe@ellerman.id.au>, nios2-dev@lists.rocketboards.org, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, Mike Rapoport <rppt@kernel.org>
+To: Thomas Gleixner <tglx@linutronix.de>
+Cc: "Paul E . McKenney" <paulmck@kernel.org>, Qais Yousef <qais.yousef@arm.com>, Josh Poimboeuf <jpoimboe@redhat.com>, "Peter Zijlstra (Intel)" <peterz@infradead.org>, Jiri Kosina <jkosina@suse.cz>, Nicholas Piggin <npiggin@gmail.com>, Daniel Lezcano <daniel.lezcano@linaro.org>, Ingo Molnar <mingo@kernel.org>, Eiichi Tsukata <devel@etsukata.com>, Zhenzhong Duan <zhenzhong.duan@oracle.com>, Nadav Amit <namit@vmware.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-From: Mike Rapoport <rppt@linux.ibm.com>
+This function will be used later in machine_shutdown() for some archs.
 
-No architecture defines __ARCH_USE_5LEVEL_HACK and therefore
-pgtable-nop4d-hack.h will be never actually included.
+disable_nonboot_cpus() is not safe to use when doing machine_down(),
+because it relies on freeze_secondary_cpus() which in turn is
+a suspend/resume related freeze and could abort if the logic detects any
+pending activities that can prevent finishing the offlining process.
 
-Remove it.
-
-Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
+Signed-off-by: Qais Yousef <qais.yousef@arm.com>
+CC: Thomas Gleixner <tglx@linutronix.de>
+CC: Josh Poimboeuf <jpoimboe@redhat.com>
+CC: "Peter Zijlstra (Intel)" <peterz@infradead.org>
+CC: Jiri Kosina <jkosina@suse.cz>
+CC: Nicholas Piggin <npiggin@gmail.com>
+CC: Daniel Lezcano <daniel.lezcano@linaro.org>
+CC: Ingo Molnar <mingo@kernel.org>
+CC: Eiichi Tsukata <devel@etsukata.com>
+CC: Zhenzhong Duan <zhenzhong.duan@oracle.com>
+CC: Nadav Amit <namit@vmware.com>
+CC: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+CC: "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>
+CC: Tony Luck <tony.luck@intel.com>
+CC: Fenghua Yu <fenghua.yu@intel.com>
+CC: Russell King <linux@armlinux.org.uk>
+CC: Catalin Marinas <catalin.marinas@arm.com>
+CC: Will Deacon <will@kernel.org>
+CC: linux-arm-kernel@lists.infradead.org
+CC: linux-ia64@vger.kernel.org
+CC: linux-kernel@vger.kernel.org
 ---
- include/asm-generic/pgtable-nop4d-hack.h | 64 ------------------------
- include/asm-generic/pgtable-nopud.h      |  4 --
- 2 files changed, 68 deletions(-)
- delete mode 100644 include/asm-generic/pgtable-nop4d-hack.h
+ include/linux/cpu.h |  2 ++
+ kernel/cpu.c        | 42 ++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 44 insertions(+)
 
-diff --git a/include/asm-generic/pgtable-nop4d-hack.h b/include/asm-generic/pgtable-nop4d-hack.h
-deleted file mode 100644
-index 829bdb0d6327..000000000000
---- a/include/asm-generic/pgtable-nop4d-hack.h
-+++ /dev/null
-@@ -1,64 +0,0 @@
--/* SPDX-License-Identifier: GPL-2.0 */
--#ifndef _PGTABLE_NOP4D_HACK_H
--#define _PGTABLE_NOP4D_HACK_H
--
--#ifndef __ASSEMBLY__
--#include <asm-generic/5level-fixup.h>
--
--#define __PAGETABLE_PUD_FOLDED 1
--
--/*
-- * Having the pud type consist of a pgd gets the size right, and allows
-- * us to conceptually access the pgd entry that this pud is folded into
-- * without casting.
-- */
--typedef struct { pgd_t pgd; } pud_t;
--
--#define PUD_SHIFT	PGDIR_SHIFT
--#define PTRS_PER_PUD	1
--#define PUD_SIZE	(1UL << PUD_SHIFT)
--#define PUD_MASK	(~(PUD_SIZE-1))
--
--/*
-- * The "pgd_xxx()" functions here are trivial for a folded two-level
-- * setup: the pud is never bad, and a pud always exists (as it's folded
-- * into the pgd entry)
-- */
--static inline int pgd_none(pgd_t pgd)		{ return 0; }
--static inline int pgd_bad(pgd_t pgd)		{ return 0; }
--static inline int pgd_present(pgd_t pgd)	{ return 1; }
--static inline void pgd_clear(pgd_t *pgd)	{ }
--#define pud_ERROR(pud)				(pgd_ERROR((pud).pgd))
--
--#define pgd_populate(mm, pgd, pud)		do { } while (0)
--#define pgd_populate_safe(mm, pgd, pud)		do { } while (0)
--/*
-- * (puds are folded into pgds so this doesn't get actually called,
-- * but the define is needed for a generic inline function.)
-- */
--#define set_pgd(pgdptr, pgdval)	set_pud((pud_t *)(pgdptr), (pud_t) { pgdval })
--
--static inline pud_t *pud_offset(pgd_t *pgd, unsigned long address)
--{
--	return (pud_t *)pgd;
--}
--
--#define pud_val(x)				(pgd_val((x).pgd))
--#define __pud(x)				((pud_t) { __pgd(x) })
--
--#define pgd_page(pgd)				(pud_page((pud_t){ pgd }))
--#define pgd_page_vaddr(pgd)			(pud_page_vaddr((pud_t){ pgd }))
--
--/*
-- * allocating and freeing a pud is trivial: the 1-entry pud is
-- * inside the pgd, so has no extra memory associated with it.
-- */
--#define pud_alloc_one(mm, address)		NULL
--#define pud_free(mm, x)				do { } while (0)
--#define __pud_free_tlb(tlb, x, a)		do { } while (0)
--
--#undef  pud_addr_end
--#define pud_addr_end(addr, end)			(end)
--
--#endif /* __ASSEMBLY__ */
--#endif /* _PGTABLE_NOP4D_HACK_H */
-diff --git a/include/asm-generic/pgtable-nopud.h b/include/asm-generic/pgtable-nopud.h
-index d3776cb494c0..ad05c1684bfc 100644
---- a/include/asm-generic/pgtable-nopud.h
-+++ b/include/asm-generic/pgtable-nopud.h
-@@ -4,9 +4,6 @@
+diff --git a/include/linux/cpu.h b/include/linux/cpu.h
+index cf8cf38dca43..64a246e9c8db 100644
+--- a/include/linux/cpu.h
++++ b/include/linux/cpu.h
+@@ -120,6 +120,7 @@ extern void cpu_hotplug_enable(void);
+ void clear_tasks_mm_cpumask(int cpu);
+ int cpu_down(unsigned int cpu);
+ int remove_cpu(unsigned int cpu);
++extern void smp_shutdown_nonboot_cpus(unsigned int primary_cpu);
  
- #ifndef __ASSEMBLY__
+ #else /* CONFIG_HOTPLUG_CPU */
  
--#ifdef __ARCH_USE_5LEVEL_HACK
--#include <asm-generic/pgtable-nop4d-hack.h>
--#else
- #include <asm-generic/pgtable-nop4d.h>
+@@ -131,6 +132,7 @@ static inline int  cpus_read_trylock(void) { return true; }
+ static inline void lockdep_assert_cpus_held(void) { }
+ static inline void cpu_hotplug_disable(void) { }
+ static inline void cpu_hotplug_enable(void) { }
++static inline void smp_shutdown_nonboot_cpus(unsigned int primary_cpu) { }
+ #endif	/* !CONFIG_HOTPLUG_CPU */
  
- #define __PAGETABLE_PUD_FOLDED 1
-@@ -65,5 +62,4 @@ static inline pud_t *pud_offset(p4d_t *p4d, unsigned long address)
- #define pud_addr_end(addr, end)			(end)
+ /* Wrappers which go away once all code is converted */
+diff --git a/kernel/cpu.c b/kernel/cpu.c
+index 069802f7010f..03c727195b65 100644
+--- a/kernel/cpu.c
++++ b/kernel/cpu.c
+@@ -1069,6 +1069,48 @@ int remove_cpu(unsigned int cpu)
+ }
+ EXPORT_SYMBOL_GPL(remove_cpu);
  
- #endif /* __ASSEMBLY__ */
--#endif /* !__ARCH_USE_5LEVEL_HACK */
- #endif /* _PGTABLE_NOPUD_H */
++void smp_shutdown_nonboot_cpus(unsigned int primary_cpu)
++{
++	unsigned int cpu;
++	int error;
++
++	cpu_maps_update_begin();
++
++	/*
++	 * Make certain the cpu I'm about to reboot on is online.
++	 *
++	 * This is inline to what migrate_to_reboot_cpu() already do.
++	 */
++	if (!cpu_online(primary_cpu))
++		primary_cpu = cpumask_first(cpu_online_mask);
++
++	for_each_online_cpu(cpu) {
++		if (cpu = primary_cpu)
++			continue;
++
++		error = cpu_down_maps_locked(cpu, CPUHP_OFFLINE);
++		if (error) {
++			pr_err("Failed to offline CPU%d - error=%d",
++				cpu, error);
++			break;
++		}
++	}
++
++	/*
++	 * Ensure all but the reboot CPU are offline.
++	 */
++	BUG_ON(num_online_cpus() > 1);
++
++	/*
++	 * Make sure the CPUs won't be enabled by someone else after this
++	 * point. Kexec will reboot to a new kernel shortly resetting
++	 * everything along the way.
++	 */
++	cpu_hotplug_disabled++;
++
++	cpu_maps_update_done();
++}
++
+ #else
+ #define takedown_cpu		NULL
+ #endif /*CONFIG_HOTPLUG_CPU*/
 -- 
-2.24.0
+2.17.1
