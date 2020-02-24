@@ -1,167 +1,213 @@
-From: Mike Rapoport <rppt@kernel.org>
-Date: Sun, 16 Feb 2020 08:18:43 +0000
-Subject: [PATCH v2 13/13] mm: remove __ARCH_HAS_5LEVEL_HACK and include/asm-generic/5level-fixup.h
-Message-Id: <20200216081843.28670-14-rppt@kernel.org>
+From: afzal mohammed <afzal.mohd.ma@gmail.com>
+Date: Mon, 24 Feb 2020 00:59:11 +0000
+Subject: [PATCH v2 00/18] genirq: Remove setup_irq()
+Message-Id: <cover.1582471508.git.afzal.mohd.ma@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200216081843.28670-1-rppt@kernel.org>
-In-Reply-To: <20200216081843.28670-1-rppt@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Rich Felker <dalias@libc.org>, linux-ia64@vger.kernel.org, Geert Uytterhoeven <geert+renesas@glider.be>, linux-sh@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linux-mm@kvack.org, Paul Mackerras <paulus@samba.org>, linux-hexagon@vger.kernel.org, Will Deacon <will@kernel.org>, kvmarm@lists.cs.columbia.edu, Jonas Bonn <jonas@southpole.se>, linux-arch@vger.kernel.org, Brian Cain <bcain@codeaurora.org>, Marc Zyngier <maz@kernel.org>, Russell King <linux@armlinux.org.uk>, Ley Foon Tan <ley.foon.tan@intel.com>, Mike Rapoport <rppt@linux.ibm.com>, Catalin Marinas <catalin.marinas@arm.com>, uclinux-h8-devel@lists.sourceforge.jp, Fenghua Yu <fenghua.yu@intel.com>, Arnd Bergmann <arnd@arndb.de>, kvm-ppc@vger.kernel.org, Stefan Kristiansson <stefan.kristiansson@saunalahti.fi>, openrisc@lists.librecores.org, Stafford Horne <shorne@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, linux-arm-kernel@lists.infradead.org, Christophe Leroy <christophe.leroy@c-s.fr>, Tony Luck <tony.luck@intel.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Michael Ellerman <mpe@ellerman.id.au>, nios2-dev@lists.rocketboards.org, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, Mike Rapoport <rppt@kernel.org>
+To: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-samsung-soc@vger.kernel.org, x86@kernel.org, linux-sh@vger.kernel.org, linux-s390@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-parisc@vger.kernel.org, linux-mips@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-ia64@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-c6x-dev@linux-c6x.org, linux-omap@vger.kernel.org, linux-alpha@vger.kernel.org
+Cc: Thomas Gleixner <tglx@linutronix.de>
 
-From: Mike Rapoport <rppt@linux.ibm.com>
+While trying to understand internals of irq handling, came across a
+thread [1] in which tglx was referring to avoid usage of setup_irq().
+The early boot setup_irq() invocations happen either via 'init_IRQ()'
+or 'time_init()', while memory allocators are ready by 'mm_init()'.
 
-There are no architectures that use include/asm-generic/5level-fixup.h
-therefore it can be removed along with __ARCH_HAS_5LEVEL_HACK define and
-the code it surrounds
+Hence instances of setup_irq() are replaced by request_irq() &
+setup_irq() [along with remove_irq()] definition deleted in the last
+patch.
 
-Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
----
- include/asm-generic/5level-fixup.h | 58 ------------------------------
- include/linux/mm.h                 |  6 ----
- mm/kasan/init.c                    | 11 ------
- mm/memory.c                        |  8 -----
- 4 files changed, 83 deletions(-)
- delete mode 100644 include/asm-generic/5level-fixup.h
+Seldom remove_irq() usage has been observed coupled with setup_irq(),
+wherever that has been found, it too has been replaced by free_irq().
 
-diff --git a/include/asm-generic/5level-fixup.h b/include/asm-generic/5level-fixup.h
-deleted file mode 100644
-index 4c74b1c1d13b..000000000000
---- a/include/asm-generic/5level-fixup.h
-+++ /dev/null
-@@ -1,58 +0,0 @@
--/* SPDX-License-Identifier: GPL-2.0 */
--#ifndef _5LEVEL_FIXUP_H
--#define _5LEVEL_FIXUP_H
--
--#define __ARCH_HAS_5LEVEL_HACK
--#define __PAGETABLE_P4D_FOLDED 1
--
--#define P4D_SHIFT			PGDIR_SHIFT
--#define P4D_SIZE			PGDIR_SIZE
--#define P4D_MASK			PGDIR_MASK
--#define MAX_PTRS_PER_P4D		1
--#define PTRS_PER_P4D			1
--
--#define p4d_t				pgd_t
--
--#define pud_alloc(mm, p4d, address) \
--	((unlikely(pgd_none(*(p4d))) && __pud_alloc(mm, p4d, address)) ? \
--		NULL : pud_offset(p4d, address))
--
--#define p4d_alloc(mm, pgd, address)	(pgd)
--#define p4d_offset(pgd, start)		(pgd)
--
--#ifndef __ASSEMBLY__
--static inline int p4d_none(p4d_t p4d)
--{
--	return 0;
--}
--
--static inline int p4d_bad(p4d_t p4d)
--{
--	return 0;
--}
--
--static inline int p4d_present(p4d_t p4d)
--{
--	return 1;
--}
--#endif
--
--#define p4d_ERROR(p4d)			do { } while (0)
--#define p4d_clear(p4d)			pgd_clear(p4d)
--#define p4d_val(p4d)			pgd_val(p4d)
--#define p4d_populate(mm, p4d, pud)	pgd_populate(mm, p4d, pud)
--#define p4d_populate_safe(mm, p4d, pud)	pgd_populate(mm, p4d, pud)
--#define p4d_page(p4d)			pgd_page(p4d)
--#define p4d_page_vaddr(p4d)		pgd_page_vaddr(p4d)
--
--#define __p4d(x)			__pgd(x)
--#define set_p4d(p4dp, p4d)		set_pgd(p4dp, p4d)
--
--#undef p4d_free_tlb
--#define p4d_free_tlb(tlb, x, addr)	do { } while (0)
--#define p4d_free(mm, x)			do { } while (0)
--
--#undef  p4d_addr_end
--#define p4d_addr_end(addr, end)		(end)
--
--#endif
-diff --git a/include/linux/mm.h b/include/linux/mm.h
-index 52269e56c514..69fb46e1d91b 100644
---- a/include/linux/mm.h
-+++ b/include/linux/mm.h
-@@ -1841,11 +1841,6 @@ int __pte_alloc_kernel(pmd_t *pmd);
- 
- #if defined(CONFIG_MMU)
- 
--/*
-- * The following ifdef needed to get the 5level-fixup.h header to work.
-- * Remove it when 5level-fixup.h has been removed.
-- */
--#ifndef __ARCH_HAS_5LEVEL_HACK
- static inline p4d_t *p4d_alloc(struct mm_struct *mm, pgd_t *pgd,
- 		unsigned long address)
- {
-@@ -1859,7 +1854,6 @@ static inline pud_t *pud_alloc(struct mm_struct *mm, p4d_t *p4d,
- 	return (unlikely(p4d_none(*p4d)) && __pud_alloc(mm, p4d, address)) ?
- 		NULL : pud_offset(p4d, address);
- }
--#endif /* !__ARCH_HAS_5LEVEL_HACK */
- 
- static inline pmd_t *pmd_alloc(struct mm_struct *mm, pud_t *pud, unsigned long address)
- {
-diff --git a/mm/kasan/init.c b/mm/kasan/init.c
-index ce45c491ebcd..fe6be0be1f76 100644
---- a/mm/kasan/init.c
-+++ b/mm/kasan/init.c
-@@ -250,20 +250,9 @@ int __ref kasan_populate_early_shadow(const void *shadow_start,
- 			 * 3,2 - level page tables where we don't have
- 			 * puds,pmds, so pgd_populate(), pud_populate()
- 			 * is noops.
--			 *
--			 * The ifndef is required to avoid build breakage.
--			 *
--			 * With 5level-fixup.h, pgd_populate() is not nop and
--			 * we reference kasan_early_shadow_p4d. It's not defined
--			 * unless 5-level paging enabled.
--			 *
--			 * The ifndef can be dropped once all KASAN-enabled
--			 * architectures will switch to pgtable-nop4d.h.
- 			 */
--#ifndef __ARCH_HAS_5LEVEL_HACK
- 			pgd_populate(&init_mm, pgd,
- 					lm_alias(kasan_early_shadow_p4d));
--#endif
- 			p4d = p4d_offset(pgd, addr);
- 			p4d_populate(&init_mm, p4d,
- 					lm_alias(kasan_early_shadow_pud));
-diff --git a/mm/memory.c b/mm/memory.c
-index 0bccc622e482..10cc147db1b8 100644
---- a/mm/memory.c
-+++ b/mm/memory.c
-@@ -4252,19 +4252,11 @@ int __pud_alloc(struct mm_struct *mm, p4d_t *p4d, unsigned long address)
- 	smp_wmb(); /* See comment in __pte_alloc */
- 
- 	spin_lock(&mm->page_table_lock);
--#ifndef __ARCH_HAS_5LEVEL_HACK
- 	if (!p4d_present(*p4d)) {
- 		mm_inc_nr_puds(mm);
- 		p4d_populate(mm, p4d, new);
- 	} else	/* Another has populated it */
- 		pud_free(mm, new);
--#else
--	if (!pgd_present(*p4d)) {
--		mm_inc_nr_puds(mm);
--		pgd_populate(mm, p4d, new);
--	} else	/* Another has populated it */
--		pud_free(mm, new);
--#endif /* __ARCH_HAS_5LEVEL_HACK */
- 	spin_unlock(&mm->page_table_lock);
- 	return 0;
- }
+Build & boot tested on ARM & x86_64 platforms (ensured that on the
+machines used for testing, modifications made in this series is being
+exercised at runtime)
+
+Much of the changes were created using Coccinelle with an intention
+to learn it. But not everything could be automated.
+
+Searching with 'git grep -n '\Wsetup_irq('' & avoiding the irrelevant
+ones, 153 invocation's of setup_irq() were found. 112 could be replaced
+w/ cocci, of which in a few files some desired hunks were missing or
+not as expected, these were fixed up manually. Also the remaining 41
+had to be done manually.
+
+Although cocci could replace 112, because of line continue not
+happening at paranthesis for request_irq(), around 80 had to be
+manually aligned in the request_irq() statement.
+
+So though many changes could be automated, there are a considerable
+amount of manual changes, please review carefully especially mips &
+alpha.
+
+Usage of setup_percpu_irq() is untouched w/ this series.
+
+There are 2 checkpatch warning about usage of BUG(), they were already
+present w/ setup_irq(), status quo maintained.
+
+[1] https://lkml.kernel.org/r/alpine.DEB.2.20.1710191609480.1971@nanos
+
+Since changes from v1 are trivial as below, tags received has been
+applied to the relevant patches, if any objections, please shout.
+
+v2:
+ * Replace pr_err("request_irq() on %s failed" by
+           pr_err("%s: request_irq() failed"
+ * m68k: remove now irrelevant comment separation comment lines
+ * Commit message massage
+
+
+afzal mohammed (18):
+  alpha: replace setup_irq() by request_irq()
+  ARM: replace setup_irq() by request_irq()
+  c6x: replace setup_irq() by request_irq()
+  hexagon: replace setup_irq() by request_irq()
+  ia64: replace setup_irq() by request_irq()
+  m68k: Replace setup_irq() by request_irq()
+  microblaze: Replace setup_irq() by request_irq()
+  MIPS: Replace setup_irq() by request_irq()
+  parisc: Replace setup_irq() by request_irq()
+  powerpc: Replace setup_irq() by request_irq()
+  s390: replace setup_irq() by request_irq()
+  sh: replace setup_irq() by request_irq()
+  unicore32: replace setup_irq() by request_irq()
+  x86: Replace setup_irq() by request_irq()
+  xtensa: replace setup_irq() by request_irq()
+  clocksource: Replace setup_irq() by request_irq()
+  irqchip: Replace setup_irq() by request_irq()
+  genirq: Remove setup_irq() and remove_irq()
+
+ arch/alpha/kernel/irq_alpha.c                 | 29 ++-------
+ arch/alpha/kernel/irq_i8259.c                 |  8 +--
+ arch/alpha/kernel/irq_impl.h                  |  7 +--
+ arch/alpha/kernel/irq_pyxis.c                 |  3 +-
+ arch/alpha/kernel/sys_alcor.c                 |  3 +-
+ arch/alpha/kernel/sys_cabriolet.c             |  3 +-
+ arch/alpha/kernel/sys_eb64p.c                 |  3 +-
+ arch/alpha/kernel/sys_marvel.c                |  2 +-
+ arch/alpha/kernel/sys_miata.c                 |  6 +-
+ arch/alpha/kernel/sys_ruffian.c               |  3 +-
+ arch/alpha/kernel/sys_rx164.c                 |  3 +-
+ arch/alpha/kernel/sys_sx164.c                 |  3 +-
+ arch/alpha/kernel/sys_wildfire.c              |  7 +--
+ arch/alpha/kernel/time.c                      |  6 +-
+ arch/arm/mach-cns3xxx/core.c                  | 10 +---
+ arch/arm/mach-ebsa110/core.c                  | 10 +---
+ arch/arm/mach-ep93xx/timer-ep93xx.c           | 12 ++--
+ arch/arm/mach-footbridge/dc21285-timer.c      | 11 +---
+ arch/arm/mach-footbridge/isa-irq.c            |  8 +--
+ arch/arm/mach-footbridge/isa-timer.c          | 11 +---
+ arch/arm/mach-iop32x/time.c                   | 12 ++--
+ arch/arm/mach-mmp/time.c                      | 11 +---
+ arch/arm/mach-omap1/pm.c                      | 22 ++++---
+ arch/arm/mach-omap1/time.c                    | 10 +---
+ arch/arm/mach-omap1/timer32k.c                | 10 +---
+ arch/arm/mach-omap2/timer.c                   | 11 +---
+ arch/arm/mach-rpc/time.c                      |  8 +--
+ arch/arm/mach-spear/time.c                    |  9 +--
+ arch/arm/plat-orion/time.c                    | 10 +---
+ arch/c6x/platforms/timer64.c                  | 11 +---
+ arch/hexagon/kernel/smp.c                     | 17 +++---
+ arch/hexagon/kernel/time.c                    | 11 +---
+ arch/ia64/kernel/irq_ia64.c                   | 42 +++++--------
+ arch/ia64/kernel/mca.c                        | 51 +++++-----------
+ arch/m68k/68000/timers.c                      | 11 +---
+ arch/m68k/coldfire/pit.c                      | 11 +---
+ arch/m68k/coldfire/sltimers.c                 | 19 ++----
+ arch/m68k/coldfire/timers.c                   | 21 ++-----
+ arch/microblaze/kernel/timer.c                | 10 +---
+ arch/mips/alchemy/common/time.c               | 11 +---
+ arch/mips/ar7/irq.c                           | 18 +++---
+ arch/mips/ath25/ar2315.c                      |  9 +--
+ arch/mips/ath25/ar5312.c                      |  9 +--
+ arch/mips/bcm63xx/irq.c                       | 38 +++++-------
+ arch/mips/cobalt/irq.c                        | 14 ++---
+ arch/mips/dec/setup.c                         | 59 ++++++++-----------
+ arch/mips/emma/markeins/irq.c                 | 20 +++----
+ arch/mips/include/asm/sni.h                   |  2 +-
+ arch/mips/jazz/irq.c                          | 12 +---
+ arch/mips/kernel/cevt-bcm1480.c               | 11 +---
+ arch/mips/kernel/cevt-ds1287.c                |  9 +--
+ arch/mips/kernel/cevt-gt641xx.c               |  9 +--
+ arch/mips/kernel/cevt-r4k.c                   |  4 +-
+ arch/mips/kernel/cevt-sb1250.c                | 11 +---
+ arch/mips/kernel/cevt-txx9.c                  | 11 +---
+ arch/mips/kernel/i8253.c                      | 10 +---
+ arch/mips/kernel/rtlx-mt.c                    |  8 +--
+ arch/mips/kernel/smp.c                        | 33 ++++-------
+ arch/mips/lasat/interrupt.c                   | 10 +---
+ arch/mips/loongson2ef/common/bonito-irq.c     |  9 +--
+ .../loongson2ef/common/cs5536/cs5536_mfgpt.c  | 10 +---
+ arch/mips/loongson2ef/fuloong-2e/irq.c        | 14 ++---
+ arch/mips/loongson2ef/lemote-2f/irq.c         | 20 ++-----
+ arch/mips/loongson32/common/irq.c             | 21 ++++---
+ arch/mips/loongson32/common/time.c            | 12 ++--
+ arch/mips/loongson64/hpet.c                   | 10 +---
+ arch/mips/mti-malta/malta-int.c               | 10 +---
+ arch/mips/netlogic/xlr/fmn.c                  |  9 +--
+ arch/mips/pmcs-msp71xx/msp_irq.c              | 28 ++++-----
+ arch/mips/pmcs-msp71xx/msp_smp.c              | 22 ++-----
+ arch/mips/pmcs-msp71xx/msp_time.c             |  7 ++-
+ arch/mips/ralink/cevt-rt3352.c                | 17 +++---
+ arch/mips/sgi-ip22/ip22-eisa.c                |  8 +--
+ arch/mips/sgi-ip22/ip22-int.c                 | 49 +++++----------
+ arch/mips/sgi-ip32/ip32-irq.c                 | 18 ++----
+ arch/mips/sni/a20r.c                          |  4 +-
+ arch/mips/sni/irq.c                           |  8 +--
+ arch/mips/sni/pcit.c                          |  8 ++-
+ arch/mips/sni/rm200.c                         | 23 +++-----
+ arch/mips/sni/time.c                          | 10 +---
+ arch/mips/vr41xx/common/irq.c                 |  9 +--
+ arch/parisc/kernel/irq.c                      | 21 ++-----
+ arch/powerpc/platforms/85xx/mpc85xx_cds.c     | 10 +---
+ arch/powerpc/platforms/8xx/cpm1.c             |  9 +--
+ arch/powerpc/platforms/8xx/m8xx_setup.c       |  9 +--
+ arch/powerpc/platforms/chrp/setup.c           | 14 ++---
+ arch/powerpc/platforms/powermac/pic.c         | 31 ++++------
+ arch/powerpc/platforms/powermac/smp.c         |  9 +--
+ arch/s390/kernel/irq.c                        |  8 +--
+ arch/sh/boards/mach-cayman/irq.c              | 18 ++----
+ arch/sh/drivers/dma/dma-pvr2.c                |  9 +--
+ arch/unicore32/kernel/time.c                  | 11 +---
+ arch/x86/kernel/irqinit.c                     | 18 +++---
+ arch/x86/kernel/time.c                        | 10 +---
+ arch/xtensa/kernel/smp.c                      |  8 +--
+ arch/xtensa/kernel/time.c                     | 10 +---
+ drivers/clocksource/bcm2835_timer.c           |  8 +--
+ drivers/clocksource/bcm_kona_timer.c          | 10 +---
+ drivers/clocksource/dw_apb_timer.c            | 11 +---
+ drivers/clocksource/exynos_mct.c              | 12 ++--
+ drivers/clocksource/mxs_timer.c               | 10 +---
+ drivers/clocksource/nomadik-mtu.c             | 11 +---
+ drivers/clocksource/samsung_pwm_timer.c       | 12 ++--
+ drivers/clocksource/timer-atlas7.c            | 50 ++++++++--------
+ drivers/clocksource/timer-cs5535.c            | 10 +---
+ drivers/clocksource/timer-efm32.c             | 10 +---
+ drivers/clocksource/timer-fsl-ftm.c           | 10 +---
+ drivers/clocksource/timer-imx-gpt.c           | 10 +---
+ drivers/clocksource/timer-integrator-ap.c     | 11 +---
+ drivers/clocksource/timer-meson6.c            | 11 +---
+ drivers/clocksource/timer-orion.c             |  9 +--
+ drivers/clocksource/timer-prima2.c            | 11 +---
+ drivers/clocksource/timer-pxa.c               | 10 +---
+ drivers/clocksource/timer-sp804.c             | 11 +---
+ drivers/clocksource/timer-u300.c              |  9 +--
+ drivers/clocksource/timer-vf-pit.c            | 10 +---
+ drivers/clocksource/timer-vt8500.c            | 11 +---
+ drivers/clocksource/timer-zevio.c             | 13 ++--
+ drivers/irqchip/irq-i8259.c                   |  9 +--
+ drivers/irqchip/irq-ingenic.c                 | 11 ++--
+ drivers/parisc/eisa.c                         |  8 +--
+ drivers/s390/cio/airq.c                       |  8 +--
+ drivers/s390/cio/cio.c                        |  8 +--
+ include/linux/dw_apb_timer.h                  |  1 -
+ include/linux/irq.h                           |  2 -
+ kernel/irq/manage.c                           | 44 --------------
+ 126 files changed, 528 insertions(+), 1117 deletions(-)
+
+
+base-commit: v5.6-rc1
 -- 
-2.24.0
+2.25.1
