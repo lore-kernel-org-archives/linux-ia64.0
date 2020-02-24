@@ -1,89 +1,213 @@
-From: Mike Rapoport <rppt@kernel.org>
-Date: Sun, 16 Feb 2020 08:18:36 +0000
-Subject: [PATCH v2 06/13] openrisc: add support for folded p4d page tables
-Message-Id: <20200216081843.28670-7-rppt@kernel.org>
+From: afzal mohammed <afzal.mohd.ma@gmail.com>
+Date: Mon, 24 Feb 2020 00:49:58 +0000
+Subject: [PATCH v2 05/18] ia64: replace setup_irq() by request_irq()
+Message-Id: <336789c09434b468a2443f5cb2063e2530ca4a1e.1582471508.git.afzal.mohd.ma@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200216081843.28670-1-rppt@kernel.org>
-In-Reply-To: <20200216081843.28670-1-rppt@kernel.org>
+References: <cover.1582471508.git.afzal.mohd.ma@gmail.com>
+In-Reply-To: <cover.1582471508.git.afzal.mohd.ma@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Rich Felker <dalias@libc.org>, linux-ia64@vger.kernel.org, Geert Uytterhoeven <geert+renesas@glider.be>, linux-sh@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linux-mm@kvack.org, Paul Mackerras <paulus@samba.org>, linux-hexagon@vger.kernel.org, Will Deacon <will@kernel.org>, kvmarm@lists.cs.columbia.edu, Jonas Bonn <jonas@southpole.se>, linux-arch@vger.kernel.org, Brian Cain <bcain@codeaurora.org>, Marc Zyngier <maz@kernel.org>, Russell King <linux@armlinux.org.uk>, Ley Foon Tan <ley.foon.tan@intel.com>, Mike Rapoport <rppt@linux.ibm.com>, Catalin Marinas <catalin.marinas@arm.com>, uclinux-h8-devel@lists.sourceforge.jp, Fenghua Yu <fenghua.yu@intel.com>, Arnd Bergmann <arnd@arndb.de>, kvm-ppc@vger.kernel.org, Stefan Kristiansson <stefan.kristiansson@saunalahti.fi>, openrisc@lists.librecores.org, Stafford Horne <shorne@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, linux-arm-kernel@lists.infradead.org, Christophe Leroy <christophe.leroy@c-s.fr>, Tony Luck <tony.luck@intel.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Michael Ellerman <mpe@ellerman.id.au>, nios2-dev@lists.rocketboards.org, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, Mike Rapoport <rppt@kernel.org>
+To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Tom Vaden <tom.vaden@hpe.com>, Mike Rapoport <rppt@linux.ibm.com>, Andrew Morton <akpm@linux-foundation.org>, Thomas Gleixner <tglx@linutronix.de>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
-From: Mike Rapoport <rppt@linux.ibm.com>
+request_irq() is preferred over setup_irq(). The early boot setup_irq()
+invocations happen either via 'init_IRQ()' or 'time_init()', while
+memory allocators are ready by 'mm_init()'.
 
-Implement primitives necessary for the 4th level folding, add walks of p4d
-level where appropriate and remove usage of __ARCH_USE_5LEVEL_HACK.
+Per tglx[1], setup_irq() existed in olden days when allocators were not
+ready by the time early interrupts were initialized.
 
-Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
+Hence replace setup_irq() by request_irq().
+
+Seldom remove_irq() usage has been observed coupled with setup_irq(),
+wherever that has been found, it too has been replaced by free_irq().
+
+[1] https://lkml.kernel.org/r/alpine.DEB.2.20.1710191609480.1971@nanos
+
+Signed-off-by: afzal mohammed <afzal.mohd.ma@gmail.com>
 ---
- arch/openrisc/include/asm/pgtable.h |  1 -
- arch/openrisc/mm/fault.c            | 10 ++++++++--
- arch/openrisc/mm/init.c             |  4 +++-
- 3 files changed, 11 insertions(+), 4 deletions(-)
 
-diff --git a/arch/openrisc/include/asm/pgtable.h b/arch/openrisc/include/asm/pgtable.h
-index 248d22d8faa7..c072943fc721 100644
---- a/arch/openrisc/include/asm/pgtable.h
-+++ b/arch/openrisc/include/asm/pgtable.h
-@@ -21,7 +21,6 @@
- #ifndef __ASM_OPENRISC_PGTABLE_H
- #define __ASM_OPENRISC_PGTABLE_H
+v2:
+ * Replace pr_err("request_irq() on %s failed" by
+           pr_err("%s: request_irq() failed"
+ * Commit message massage
+
+ arch/ia64/kernel/irq_ia64.c | 42 ++++++++++--------------------
+ arch/ia64/kernel/mca.c      | 51 +++++++++++--------------------------
+ 2 files changed, 29 insertions(+), 64 deletions(-)
+
+diff --git a/arch/ia64/kernel/irq_ia64.c b/arch/ia64/kernel/irq_ia64.c
+index 8e91c86e8072..166a38dae663 100644
+--- a/arch/ia64/kernel/irq_ia64.c
++++ b/arch/ia64/kernel/irq_ia64.c
+@@ -351,11 +351,6 @@ static irqreturn_t smp_irq_move_cleanup_interrupt(int irq, void *dev_id)
+ 	return IRQ_HANDLED;
+ }
  
--#define __ARCH_USE_5LEVEL_HACK
- #include <asm-generic/pgtable-nopmd.h>
+-static struct irqaction irq_move_irqaction = {
+-	.handler =	smp_irq_move_cleanup_interrupt,
+-	.name =		"irq_move"
+-};
+-
+ static int __init parse_vector_domain(char *arg)
+ {
+ 	if (!arg)
+@@ -586,28 +581,15 @@ static irqreturn_t dummy_handler (int irq, void *dev_id)
+ 	return IRQ_NONE;
+ }
  
- #ifndef __ASSEMBLY__
-diff --git a/arch/openrisc/mm/fault.c b/arch/openrisc/mm/fault.c
-index 5d4d3a9691d0..44aa04545de3 100644
---- a/arch/openrisc/mm/fault.c
-+++ b/arch/openrisc/mm/fault.c
-@@ -296,6 +296,7 @@ asmlinkage void do_page_fault(struct pt_regs *regs, unsigned long address,
+-static struct irqaction ipi_irqaction = {
+-	.handler =	handle_IPI,
+-	.name =		"IPI"
+-};
+-
+ /*
+  * KVM uses this interrupt to force a cpu out of guest mode
+  */
+-static struct irqaction resched_irqaction = {
+-	.handler =	dummy_handler,
+-	.name =		"resched"
+-};
+-
+-static struct irqaction tlb_irqaction = {
+-	.handler =	dummy_handler,
+-	.name =		"tlb_flush"
+-};
  
- 		int offset = pgd_index(address);
- 		pgd_t *pgd, *pgd_k;
-+		p4d_t *p4d, *p4d_k;
- 		pud_t *pud, *pud_k;
- 		pmd_t *pmd, *pmd_k;
- 		pte_t *pte_k;
-@@ -322,8 +323,13 @@ asmlinkage void do_page_fault(struct pt_regs *regs, unsigned long address,
- 		 * it exists.
- 		 */
+ #endif
  
--		pud = pud_offset(pgd, address);
--		pud_k = pud_offset(pgd_k, address);
-+		p4d = p4d_offset(pgd, address);
-+		p4d_k = p4d_offset(pgd_k, address);
-+		if (!p4d_present(*p4d_k))
-+			goto no_context;
-+
-+		pud = pud_offset(p4d, address);
-+		pud_k = pud_offset(p4d_k, address);
- 		if (!pud_present(*pud_k))
- 			goto no_context;
+ void
+-ia64_native_register_percpu_irq (ia64_vector vec, struct irqaction *action)
++ia64_native_register_percpu_irq(ia64_vector vec, const char *name,
++				irq_handler_t handler)
+ {
+ 	unsigned int irq;
  
-diff --git a/arch/openrisc/mm/init.c b/arch/openrisc/mm/init.c
-index 1f87b524db78..2536aeae0975 100644
---- a/arch/openrisc/mm/init.c
-+++ b/arch/openrisc/mm/init.c
-@@ -71,6 +71,7 @@ static void __init map_ram(void)
- 	unsigned long v, p, e;
- 	pgprot_t prot;
- 	pgd_t *pge;
-+	p4d_t *p4e;
- 	pud_t *pue;
- 	pmd_t *pme;
- 	pte_t *pte;
-@@ -90,7 +91,8 @@ static void __init map_ram(void)
+@@ -615,8 +597,9 @@ ia64_native_register_percpu_irq (ia64_vector vec, struct irqaction *action)
+ 	BUG_ON(bind_irq_vector(irq, vec, CPU_MASK_ALL));
+ 	irq_set_status_flags(irq, IRQ_PER_CPU);
+ 	irq_set_chip(irq, &irq_type_ia64_lsapic);
+-	if (action)
+-		setup_irq(irq, action);
++	if (handler)
++		if (request_irq(irq, handler, 0, name, NULL))
++			pr_err("request_irq() for %s failed", name);
+ 	irq_set_handler(irq, handle_percpu_irq);
+ }
  
- 		while (p < e) {
- 			int j;
--			pue = pud_offset(pge, v);
-+			p4e = p4d_offset(pge, v);
-+			pue = pud_offset(p4e, v);
- 			pme = pmd_offset(pue, v);
+@@ -624,9 +607,10 @@ void __init
+ ia64_native_register_ipi(void)
+ {
+ #ifdef CONFIG_SMP
+-	register_percpu_irq(IA64_IPI_VECTOR, &ipi_irqaction);
+-	register_percpu_irq(IA64_IPI_RESCHEDULE, &resched_irqaction);
+-	register_percpu_irq(IA64_IPI_LOCAL_TLB_FLUSH, &tlb_irqaction);
++	register_percpu_irq(IA64_IPI_VECTOR, "IPI", handle_IPI);
++	register_percpu_irq(IA64_IPI_RESCHEDULE, "resched", dummy_handler);
++	register_percpu_irq(IA64_IPI_LOCAL_TLB_FLUSH, "tlb_flush",
++			    dummy_handler);
+ #endif
+ }
  
- 			if ((u32) pue != (u32) pge || (u32) pme != (u32) pge) {
+@@ -635,10 +619,12 @@ init_IRQ (void)
+ {
+ 	acpi_boot_init();
+ 	ia64_register_ipi();
+-	register_percpu_irq(IA64_SPURIOUS_INT_VECTOR, NULL);
++	register_percpu_irq(IA64_SPURIOUS_INT_VECTOR, NULL, NULL);
+ #ifdef CONFIG_SMP
+-	if (vector_domain_type != VECTOR_DOMAIN_NONE)
+-		register_percpu_irq(IA64_IRQ_MOVE_VECTOR, &irq_move_irqaction);
++	if (vector_domain_type != VECTOR_DOMAIN_NONE) {
++		register_percpu_irq(IA64_IRQ_MOVE_VECTOR, "irq_move",
++				    smp_irq_move_cleanup_interrupt);
++	}
+ #endif
+ #ifdef CONFIG_PERFMON
+ 	pfm_init_percpu();
+diff --git a/arch/ia64/kernel/mca.c b/arch/ia64/kernel/mca.c
+index bf2cb9294795..e3d12b376f92 100644
+--- a/arch/ia64/kernel/mca.c
++++ b/arch/ia64/kernel/mca.c
+@@ -1766,36 +1766,6 @@ ia64_mca_disable_cpe_polling(char *str)
+ 
+ __setup("disable_cpe_poll", ia64_mca_disable_cpe_polling);
+ 
+-static struct irqaction cmci_irqaction = {
+-	.handler =	ia64_mca_cmc_int_handler,
+-	.name =		"cmc_hndlr"
+-};
+-
+-static struct irqaction cmcp_irqaction = {
+-	.handler =	ia64_mca_cmc_int_caller,
+-	.name =		"cmc_poll"
+-};
+-
+-static struct irqaction mca_rdzv_irqaction = {
+-	.handler =	ia64_mca_rendez_int_handler,
+-	.name =		"mca_rdzv"
+-};
+-
+-static struct irqaction mca_wkup_irqaction = {
+-	.handler =	ia64_mca_wakeup_int_handler,
+-	.name =		"mca_wkup"
+-};
+-
+-static struct irqaction mca_cpe_irqaction = {
+-	.handler =	ia64_mca_cpe_int_handler,
+-	.name =		"cpe_hndlr"
+-};
+-
+-static struct irqaction mca_cpep_irqaction = {
+-	.handler =	ia64_mca_cpe_int_caller,
+-	.name =		"cpe_poll"
+-};
+-
+ /* Minimal format of the MCA/INIT stacks.  The pseudo processes that run on
+  * these stacks can never sleep, they cannot return from the kernel to user
+  * space, they do not appear in a normal ps listing.  So there is no need to
+@@ -2056,18 +2026,23 @@ void __init ia64_mca_irq_init(void)
+ 	 *  Configure the CMCI/P vector and handler. Interrupts for CMC are
+ 	 *  per-processor, so AP CMC interrupts are setup in smp_callin() (smpboot.c).
+ 	 */
+-	register_percpu_irq(IA64_CMC_VECTOR, &cmci_irqaction);
+-	register_percpu_irq(IA64_CMCP_VECTOR, &cmcp_irqaction);
++	register_percpu_irq(IA64_CMC_VECTOR, "cmc_hndlr",
++			    ia64_mca_cmc_int_handler);
++	register_percpu_irq(IA64_CMCP_VECTOR, "cmc_poll",
++			    ia64_mca_cmc_int_caller);
+ 	ia64_mca_cmc_vector_setup();       /* Setup vector on BSP */
+ 
+ 	/* Setup the MCA rendezvous interrupt vector */
+-	register_percpu_irq(IA64_MCA_RENDEZ_VECTOR, &mca_rdzv_irqaction);
++	register_percpu_irq(IA64_MCA_RENDEZ_VECTOR, "mca_rdzv",
++			    ia64_mca_rendez_int_handler);
+ 
+ 	/* Setup the MCA wakeup interrupt vector */
+-	register_percpu_irq(IA64_MCA_WAKEUP_VECTOR, &mca_wkup_irqaction);
++	register_percpu_irq(IA64_MCA_WAKEUP_VECTOR, "mca_wkup",
++			    ia64_mca_wakeup_int_handler);
+ 
+ 	/* Setup the CPEI/P handler */
+-	register_percpu_irq(IA64_CPEP_VECTOR, &mca_cpep_irqaction);
++	register_percpu_irq(IA64_CPEP_VECTOR, "cpe_poll",
++			    ia64_mca_cpe_int_caller);
+ }
+ 
+ /*
+@@ -2108,7 +2083,11 @@ ia64_mca_late_init(void)
+ 			if (irq > 0) {
+ 				cpe_poll_enabled = 0;
+ 				irq_set_status_flags(irq, IRQ_PER_CPU);
+-				setup_irq(irq, &mca_cpe_irqaction);
++				if (request_irq(irq, ia64_mca_cpe_int_handler,
++						0, "cpe_hndlr", NULL)) {
++					pr_err("%s: request_irq() failed\n",
++					       "cpe_hndlr");
++				}
+ 				ia64_cpe_irq = irq;
+ 				ia64_mca_register_cpev(cpe_vector);
+ 				IA64_MCA_DEBUG("%s: CPEI/P setup and enabled.\n",
 -- 
-2.24.0
+2.25.1
