@@ -1,10 +1,10 @@
 From: Mike Rapoport <rppt@kernel.org>
-Date: Sun, 16 Feb 2020 08:18:39 +0000
-Subject: [PATCH v2 09/13] sh: drop __pXd_offset() macros that duplicate pXd_index() ones
-Message-Id: <20200216081843.28670-10-rppt@kernel.org>
+Date: Thu, 27 Feb 2020 08:46:04 +0000
+Subject: [PATCH v3 10/14] sh: drop __pXd_offset() macros that duplicate pXd_index() ones
+Message-Id: <20200227084608.18223-11-rppt@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200216081843.28670-1-rppt@kernel.org>
-In-Reply-To: <20200216081843.28670-1-rppt@kernel.org>
+References: <20200227084608.18223-1-rppt@kernel.org>
+In-Reply-To: <20200227084608.18223-1-rppt@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
