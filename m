@@ -1,62 +1,41 @@
-From: Oscar Salvador <osalvador@suse.de>
-Date: Tue, 04 Feb 2020 09:06:22 +0000
-Subject: Re: [PATCH v6 07/10] mm/memory_hotplug: We always have a zone in find_(smallest|biggest)_section_pfn
-Message-Id: <20200204090622.GB6494@linux>
+From: Mike Rapoport <rppt@kernel.org>
+Date: Thu, 27 Feb 2020 08:45:56 +0000
+Subject: [PATCH v3 02/14] h8300: remove usage of __ARCH_USE_5LEVEL_HACK
+Message-Id: <20200227084608.18223-3-rppt@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20191006085646.5768-1-david@redhat.com>
- <20191006085646.5768-8-david@redhat.com>
-In-Reply-To: <20191006085646.5768-8-david@redhat.com>
+References: <20200227084608.18223-1-rppt@kernel.org>
+In-Reply-To: <20200227084608.18223-1-rppt@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Hildenbrand <david@redhat.com>
-Cc: linux-s390@vger.kernel.org, Michal Hocko <mhocko@suse.com>, linux-ia64@vger.kernel.org, Pavel Tatashin <pasha.tatashin@soleen.com>, linux-sh@vger.kernel.org, x86@kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org, Wei Yang <richardw.yang@linux.intel.com>, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, Dan Williams <dan.j.williams@intel.com>, linux-arm-kernel@lists.infradead.org
+To: linux-kernel@vger.kernel.org
+Cc: Rich Felker <dalias@libc.org>, linux-ia64@vger.kernel.org, Geert Uytterhoeven <geert+renesas@glider.be>, linux-sh@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linux-mm@kvack.org, Paul Mackerras <paulus@samba.org>, linux-hexagon@vger.kernel.org, Will Deacon <will@kernel.org>, kvmarm@lists.cs.columbia.edu, Jonas Bonn <jonas@southpole.se>, linux-arch@vger.kernel.org, Brian Cain <bcain@codeaurora.org>, Marc Zyngier <maz@kernel.org>, Russell King <linux@armlinux.org.uk>, Ley Foon Tan <ley.foon.tan@intel.com>, Mike Rapoport <rppt@linux.ibm.com>, Catalin Marinas <catalin.marinas@arm.com>, uclinux-h8-devel@lists.sourceforge.jp, Fenghua Yu <fenghua.yu@intel.com>, Arnd Bergmann <arnd@arndb.de>, kvm-ppc@vger.kernel.org, Stefan Kristiansson <stefan.kristiansson@saunalahti.fi>, openrisc@lists.librecores.org, Stafford Horne <shorne@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, linux-arm-kernel@lists.infradead.org, Christophe Leroy <christophe.leroy@c-s.fr>, Tony Luck <tony.luck@intel.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Michael Ellerman <mpe@ellerman.id.au>, nios2-dev@lists.rocketboards.org, Andrew Morton <akpm@linux-foundation.org>, linuxppc-dev@lists.ozlabs.org, Mike Rapoport <rppt@kernel.org>
 
-On Sun, Oct 06, 2019 at 10:56:43AM +0200, David Hildenbrand wrote:
-> With shrink_pgdat_span() out of the way, we now always have a valid
-> zone.
-> 
-> Cc: Andrew Morton <akpm@linux-foundation.org>
-> Cc: Oscar Salvador <osalvador@suse.de>
-> Cc: David Hildenbrand <david@redhat.com>
-> Cc: Michal Hocko <mhocko@suse.com>
-> Cc: Pavel Tatashin <pasha.tatashin@soleen.com>
-> Cc: Dan Williams <dan.j.williams@intel.com>
-> Cc: Wei Yang <richardw.yang@linux.intel.com>
-> Signed-off-by: David Hildenbrand <david@redhat.com>
+From: Mike Rapoport <rppt@linux.ibm.com>
 
-Reviewed-by: Oscar Salvador <osalvador@suse.de>
+h8300 is a nommu architecture and does not require fixup for upper layers
+of the page tables because it is already handled by the generic nommu
+implementation.
 
-> ---
->  mm/memory_hotplug.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
-> index bf5173e7913d..f294918f7211 100644
-> --- a/mm/memory_hotplug.c
-> +++ b/mm/memory_hotplug.c
-> @@ -337,7 +337,7 @@ static unsigned long find_smallest_section_pfn(int nid, struct zone *zone,
->  		if (unlikely(pfn_to_nid(start_pfn) != nid))
->  			continue;
->  
-> -		if (zone && zone != page_zone(pfn_to_page(start_pfn)))
-> +		if (zone != page_zone(pfn_to_page(start_pfn)))
->  			continue;
->  
->  		return start_pfn;
-> @@ -362,7 +362,7 @@ static unsigned long find_biggest_section_pfn(int nid, struct zone *zone,
->  		if (unlikely(pfn_to_nid(pfn) != nid))
->  			continue;
->  
-> -		if (zone && zone != page_zone(pfn_to_page(pfn)))
-> +		if (zone != page_zone(pfn_to_page(pfn)))
->  			continue;
->  
->  		return pfn;
-> -- 
-> 2.21.0
-> 
+Remove definition of __ARCH_USE_5LEVEL_HACK in
+arch/h8300/include/asm/pgtable.h
 
+Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
+---
+ arch/h8300/include/asm/pgtable.h | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/arch/h8300/include/asm/pgtable.h b/arch/h8300/include/asm/pgtable.h
+index 4d00152fab58..f00828720dc4 100644
+--- a/arch/h8300/include/asm/pgtable.h
++++ b/arch/h8300/include/asm/pgtable.h
+@@ -1,7 +1,6 @@
+ /* SPDX-License-Identifier: GPL-2.0 */
+ #ifndef _H8300_PGTABLE_H
+ #define _H8300_PGTABLE_H
+-#define __ARCH_USE_5LEVEL_HACK
+ #include <asm-generic/pgtable-nopud.h>
+ #include <asm-generic/pgtable.h>
+ extern void paging_init(void);
 -- 
-Oscar Salvador
-SUSE L3
+2.24.0
