@@ -1,107 +1,75 @@
 From: Anshuman Khandual <anshuman.khandual@arm.com>
-Date: Thu, 05 Mar 2020 06:50:38 +0000
-Subject: [PATCH 0/2]  mm/vma: some new flags
-Message-Id: <1583391014-8170-1-git-send-email-anshuman.khandual@arm.com>
+Date: Wed, 04 Mar 2020 14:22:28 +0000
+Subject: [PATCH V2 0/2] arm64: Enable vmemmap mapping from device memory
+Message-Id: <1583331030-7335-1-git-send-email-anshuman.khandual@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-mm@kvack.org
-Cc: linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, linux-mips@vger.kernel.org, sparclinux@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-c6x-dev@linux-c6x.org, linux-hexagon@vger.kernel.org, hughd@google.com, vbabka@suse.cz, linux-snps-arc@lists.infradead.org, uclinux-h8-devel@lists.sourceforge.jp, linux-xtensa@linux-xtensa.org, Anshuman Khandual <anshuman.khandual@arm.com>, linux-um@lists.infradead.org, linux-m68k@lists.linux-m68k.org, openrisc@lists.librecores.org, linux-arm-kernel@lists.infradead.org, linux-parisc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, nios2-dev@lists.rocketboards.org, linuxppc-dev@lists.ozlabs.org
+Cc: Anshuman Khandual <anshuman.khandual@arm.com>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Peter Zijlstra <peterz@infradead.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, David Hildenbrand <david@redhat.com>, Mike Rapoport <rppt@linux.ibm.com>, Michal Hocko <mhocko@suse.com>, "Matthew Wilcox (Oracle)" <willy@infradead.org>, "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>, Andrew Morton <akpm@linux-foundation.org>, Dan Williams <dan.j.williams@intel.com>, Pavel Tatashin <pasha.tatashin@soleen.com>, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-riscv@lists.infradead.org, x86@kernel.org, linux-kernel@vger.kernel.org
 
-The motivation here is to consolidate VMA flag combinations commonly used
-across platforms and reduce code duplication while making it uncluttered
-in general.
+This series enables vmemmap backing memory allocation from device memory
+ranges on arm64. But before that, it enables vmemmap_populate_basepages()
+to accommodate struct vmem_altmap based requests.
 
-This first introduces a default VM_DATA_DEFAULT_FLAGS which platforms can
-easily fall back on without requiring to define any similar data flag
-combinations as they currently do. This also adds some more common data
-flag combinations which are generally used when the platforms decide to
-override the default.
+This series applies after latest (v14) arm64 memory hot remove series
+(https://lkml.org/lkml/2020/3/3/1746) on Linux 5.6-rc4.
 
-The second patch consolidates VM_READ, VM_WRITE, VM_EXEC as VM_ACCESS_FLAGS
-extending the existing VMA accessibility concept via vma_is_accessibility().
-VM_ACCESS_FLAGS replaces many other instances which used check all three
-VMA access flags simultaneously.
+Changes in V2:
 
-This series is based on v5.6-rc4 after applying these.
+- Rebased on latest hot-remove series (v14) adding P4D page table support
 
-1. https://patchwork.kernel.org/cover/11399319/
-2. https://patchwork.kernel.org/patch/11399379/
+Changes in V1: (https://lkml.org/lkml/2020/1/23/12)
 
-Changes in V1:
+- Added an WARN_ON() in unmap_hotplug_range() when altmap is
+  provided without the page table backing memory being freed
 
-- Dropped the [PATCH 3/3] which was adding more vma_is_* wrappers
-- Used VM_DATA_FLAGS_EXEC for VM_DATA_DEFAULT_FLAGS instead per Vlastimil
-- Dropped init use cases for VM_ACCESS_FLAGS as suggested by Vlastimil
+Changes in RFC V2: (https://lkml.org/lkml/2019/10/21/11)
 
-Changes in RFC: (https://patchwork.kernel.org/project/linux-mm/list/?series$9733)
+- Changed the commit message on 1/2 patch per Will
+- Changed the commit message on 2/2 patch as well
+- Rebased on arm64 memory hot remove series (v10)
 
-Cc: linux-alpha@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Cc: linux-snps-arc@lists.infradead.org
+RFC V1: (https://lkml.org/lkml/2019/6/28/32)
+
+Cc: Catalin Marinas <catalin.marinas@arm.com>
+Cc: Will Deacon <will@kernel.org>
+Cc: Mark Rutland <mark.rutland@arm.com>
+Cc: Paul Walmsley <paul.walmsley@sifive.com>
+Cc: Palmer Dabbelt <palmer@dabbelt.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: Dave Hansen <dave.hansen@linux.intel.com>
+Cc: Andy Lutomirski <luto@kernel.org>
+Cc: Peter Zijlstra <peterz@infradead.org>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Ingo Molnar <mingo@redhat.com>
+Cc: David Hildenbrand <david@redhat.com>
+Cc: Mike Rapoport <rppt@linux.ibm.com>
+Cc: Michal Hocko <mhocko@suse.com>
+Cc: "Matthew Wilcox (Oracle)" <willy@infradead.org>
+Cc: "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Dan Williams <dan.j.williams@intel.com>
+Cc: Pavel Tatashin <pasha.tatashin@soleen.com>
 Cc: linux-arm-kernel@lists.infradead.org
-Cc: linux-c6x-dev@linux-c6x.org
-Cc: uclinux-h8-devel@lists.sourceforge.jp
-Cc: linux-hexagon@vger.kernel.org
 Cc: linux-ia64@vger.kernel.org
-Cc: linux-m68k@lists.linux-m68k.org
-Cc: linux-mips@vger.kernel.org
-Cc: nios2-dev@lists.rocketboards.org
-Cc: openrisc@lists.librecores.org
-Cc: linux-parisc@vger.kernel.org
-Cc: linuxppc-dev@lists.ozlabs.org
 Cc: linux-riscv@lists.infradead.org
-Cc: linux-s390@vger.kernel.org
-Cc: linux-sh@vger.kernel.org
-Cc: sparclinux@vger.kernel.org
-Cc: linux-um@lists.infradead.org
-Cc: linux-xtensa@linux-xtensa.org
-Cc: linux-mm@kvack.org
+Cc: x86@kernel.org
+Cc: linux-kernel@vger.kernel.org
 
 Anshuman Khandual (2):
-  mm/vma: Define a default value for VM_DATA_DEFAULT_FLAGS
-  mm/vma: Introduce VM_ACCESS_FLAGS
+  mm/sparsemem: Enable vmem_altmap support in vmemmap_populate_basepages()
+  arm64/mm: Enable vmem_altmap support for vmemmap mappings
 
- arch/alpha/include/asm/page.h        |  3 ---
- arch/arc/include/asm/page.h          |  2 +-
- arch/arm/include/asm/page.h          |  4 +---
- arch/arm/mm/fault.c                  |  2 +-
- arch/arm64/include/asm/page.h        |  4 +---
- arch/arm64/mm/fault.c                |  2 +-
- arch/c6x/include/asm/page.h          |  5 +----
- arch/csky/include/asm/page.h         |  3 ---
- arch/h8300/include/asm/page.h        |  2 --
- arch/hexagon/include/asm/page.h      |  3 +--
- arch/ia64/include/asm/page.h         |  5 +----
- arch/m68k/include/asm/page.h         |  3 ---
- arch/microblaze/include/asm/page.h   |  2 --
- arch/mips/include/asm/page.h         |  5 +----
- arch/nds32/include/asm/page.h        |  3 ---
- arch/nds32/mm/fault.c                |  2 +-
- arch/nios2/include/asm/page.h        |  3 +--
- arch/openrisc/include/asm/page.h     |  5 -----
- arch/parisc/include/asm/page.h       |  3 ---
- arch/powerpc/include/asm/page.h      |  9 ++-------
- arch/powerpc/include/asm/page_64.h   |  7 ++-----
- arch/powerpc/mm/book3s64/pkeys.c     |  2 +-
- arch/riscv/include/asm/page.h        |  3 +--
- arch/s390/include/asm/page.h         |  3 +--
- arch/s390/mm/fault.c                 |  2 +-
- arch/sh/include/asm/page.h           |  3 ---
- arch/sparc/include/asm/page_32.h     |  3 ---
- arch/sparc/include/asm/page_64.h     |  3 ---
- arch/unicore32/include/asm/page.h    |  3 ---
- arch/unicore32/mm/fault.c            |  2 +-
- arch/x86/include/asm/page_types.h    |  4 +---
- arch/x86/mm/pkeys.c                  |  2 +-
- arch/x86/um/asm/vm-flags.h           | 10 ++--------
- arch/xtensa/include/asm/page.h       |  3 ---
- drivers/staging/gasket/gasket_core.c |  2 +-
- include/linux/mm.h                   | 20 +++++++++++++++++++-
- mm/mmap.c                            |  2 +-
- mm/mprotect.c                        |  4 ++--
- 38 files changed, 47 insertions(+), 101 deletions(-)
+ arch/arm64/mm/mmu.c      | 71 +++++++++++++++++++++++++++++-----------
+ arch/ia64/mm/discontig.c |  2 +-
+ arch/riscv/mm/init.c     |  2 +-
+ arch/x86/mm/init_64.c    |  6 ++--
+ include/linux/mm.h       |  5 +--
+ mm/sparse-vmemmap.c      | 16 ++++++---
+ 6 files changed, 70 insertions(+), 32 deletions(-)
 
 -- 
 2.20.1
