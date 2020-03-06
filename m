@@ -1,128 +1,227 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Date: Sat, 21 Mar 2020 11:25:46 +0000
-Subject: [patch V3 02/20] pci/switchtec: Replace completion wait queue usage for poll
-Message-Id: <20200321113240.936097534@linutronix.de>
+From: Logan Gunthorpe <logang@deltatee.com>
+Date: Fri, 06 Mar 2020 17:08:45 +0000
+Subject: [PATCH v4 6/7] mm/memory_hotplug: Add pgprot_t to mhp_params
+Message-Id: <20200306170846.9333-7-logang@deltatee.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200321112544.878032781@linutronix.de>
+References: <20200306170846.9333-1-logang@deltatee.com>
+In-Reply-To: <20200306170846.9333-1-logang@deltatee.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: LKML <linux-kernel@vger.kernel.org>
-Cc: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@kernel.org>, Sebastian Siewior <bigeasy@linutronix.de>, Linus Torvalds <torvalds@linux-foundation.org>, Joel Fernandes <joel@joelfernandes.org>, Oleg Nesterov <oleg@redhat.com>, Davidlohr Bueso <dave@stgolabs.net>, Logan Gunthorpe <logang@deltatee.com>, Bjorn Helgaas <bhelgaas@google.com>, Kurt Schwemmer <kurt.schwemmer@microsemi.com>, linux-pci@vger.kernel.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Felipe Balbi <balbi@kernel.org>, linux-usb@vger.kernel.org, Kalle Valo <kvalo@codeaurora.org>, "David S. Miller" <davem@davemloft.net>, linux-wireless@vger.kernel.org, netdev@vger.kernel.org, Darren Hart <dvhart@infradead.org>, Andy Shevchenko <andy@infradead.org>, platform-driver-x86@vger.kernel.org, Zhang Rui <rui.zhang@intel.com>, "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>, linux-pm@vger.kernel.org, Len Brown <lenb@kernel.org>, linux-acpi@vger.kernel.org, kbuild test robot <lkp@intel.com>, Nick Hu <nickhu@andestech.com>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, Guo Ren <guoren@kernel.org>, linux-csky@vger.kernel.org, Brian Cain <bcain@codeaurora.org>, linux-hexagon@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, Michal Simek <monstr@monstr.eu>, Michael Ellerman <mpe@ellerman.id.au>, Arnd Bergmann <arnd@arndb.de>, Geoff Levand <geoff@infradead.org>, linuxppc-dev@lists.ozlabs.org, "Paul E . McKenney" <paulmck@kernel.org>, Jonathan Corbet <corbet@lwn.net>, Randy Dunlap <rdunlap@infradead.org>, Davidlohr Bueso <dbueso@suse.de>
+To: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-mm@kvack.org, Dan Williams <dan.j.williams@intel.com>, Michal Hocko <mhocko@kernel.org>, David Hildenbrand <david@redhat.com>, Andrew Morton <akpm@linux-foundation.org>
+Cc: Eric Badger <ebadger@gigaio.com>, Peter Zijlstra <peterz@infradead.org>, Catalin Marinas <catalin.marinas@arm.com>, Dave Hansen <dave.hansen@linux.intel.com>, Michal Hocko <mhocko@suse.com>, Logan Gunthorpe <logang@deltatee.com>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Andy Lutomirski <luto@kernel.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Thomas Gleixner <tglx@linutronix.de>, Will Deacon <will@kernel.org>, Christoph Hellwig <hch@lst.de>
 
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+devm_memremap_pages() is currently used by the PCI P2PDMA code to create
+struct page mappings for IO memory. At present, these mappings are created
+with PAGE_KERNEL which implies setting the PAT bits to be WB. However, on
+x86, an mtrr register will typically override this and force the cache
+type to be UC-. In the case firmware doesn't set this register it is
+effectively WB and will typically result in a machine check exception
+when it's accessed.
 
-The poll callback is using the completion wait queue and sticks it into
-poll_wait() to wake up pollers after a command has completed.
+Other arches are not currently likely to function correctly seeing they
+don't have any MTRR registers to fall back on.
 
-This works to some extent, but cannot provide EPOLLEXCLUSIVE support
-because the waker side uses complete_all() which unconditionally wakes up
-all waiters. complete_all() is required because completions internally use
-exclusive wait and complete() only wakes up one waiter by default.
+To solve this, provide a way to specify the pgprot value explicitly to
+arch_add_memory().
 
-This mixes conceptually different mechanisms and relies on internal
-implementation details of completions, which in turn puts contraints on
-changing the internal implementation of completions.
+Of the arches that support MEMORY_HOTPLUG: x86_64, and arm64 need a simple
+change to pass the pgprot_t down to their respective functions which set
+up the page tables. For x86_32, set the page tables explicitly using
+_set_memory_prot() (seeing they are already mapped). For ia64, s390 and
+sh, reject anything but PAGE_KERNEL settings -- this should be fine,
+for now, seeing these architectures don't support ZONE_DEVICE.
 
-Replace it with a regular wait queue and store the state in struct
-switchtec_user.
+A check in __add_pages() is also added to ensure the pgprot parameter was
+set for all arches.
 
-Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
-Reviewed-by: Logan Gunthorpe <logang@deltatee.com>
-Acked-by: Peter Zijlstra (Intel) <peterz@infradead.org>
-Acked-by: Bjorn Helgaas <bhelgaas@google.com>
-Cc: Kurt Schwemmer <kurt.schwemmer@microsemi.com>
-Cc: linux-pci@vger.kernel.org
+Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
+Acked-by: David Hildenbrand <david@redhat.com>
+Acked-by: Michal Hocko <mhocko@suse.com>
+Acked-by: Dan Williams <dan.j.williams@intel.com>
 ---
-V2: Reworded changelog.
----
- drivers/pci/switch/switchtec.c |   22 +++++++++++++---------
- 1 file changed, 13 insertions(+), 9 deletions(-)
+ arch/arm64/mm/mmu.c            |  3 ++-
+ arch/ia64/mm/init.c            |  3 +++
+ arch/powerpc/mm/mem.c          |  3 ++-
+ arch/s390/mm/init.c            |  3 +++
+ arch/sh/mm/init.c              |  3 +++
+ arch/x86/mm/init_32.c          | 12 ++++++++++++
+ arch/x86/mm/init_64.c          |  2 +-
+ include/linux/memory_hotplug.h |  3 +++
+ mm/memory_hotplug.c            |  5 ++++-
+ mm/memremap.c                  |  6 +++---
+ 10 files changed, 36 insertions(+), 7 deletions(-)
 
---- a/drivers/pci/switch/switchtec.c
-+++ b/drivers/pci/switch/switchtec.c
-@@ -52,10 +52,11 @@ struct switchtec_user {
+diff --git a/arch/arm64/mm/mmu.c b/arch/arm64/mm/mmu.c
+index ee37bca8aba8..ea3fa844a8a2 100644
+--- a/arch/arm64/mm/mmu.c
++++ b/arch/arm64/mm/mmu.c
+@@ -1058,7 +1058,8 @@ int arch_add_memory(int nid, u64 start, u64 size,
+ 		flags = NO_BLOCK_MAPPINGS | NO_CONT_MAPPINGS;
  
- 	enum mrpc_state state;
+ 	__create_pgd_mapping(swapper_pg_dir, start, __phys_to_virt(start),
+-			     size, PAGE_KERNEL, __pgd_pgtable_alloc, flags);
++			     size, params->pgprot, __pgd_pgtable_alloc,
++			     flags);
  
--	struct completion comp;
-+	wait_queue_head_t cmd_comp;
- 	struct kref kref;
- 	struct list_head list;
+ 	memblock_clear_nomap(start, size);
  
-+	bool cmd_done;
- 	u32 cmd;
- 	u32 status;
- 	u32 return_code;
-@@ -77,7 +78,7 @@ static struct switchtec_user *stuser_cre
- 	stuser->stdev = stdev;
- 	kref_init(&stuser->kref);
- 	INIT_LIST_HEAD(&stuser->list);
--	init_completion(&stuser->comp);
-+	init_waitqueue_head(&stuser->cmd_comp);
- 	stuser->event_cnt = atomic_read(&stdev->event_cnt);
+diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
+index 97bbc23ea1e3..d637b4ea3147 100644
+--- a/arch/ia64/mm/init.c
++++ b/arch/ia64/mm/init.c
+@@ -676,6 +676,9 @@ int arch_add_memory(int nid, u64 start, u64 size,
+ 	unsigned long nr_pages = size >> PAGE_SHIFT;
+ 	int ret;
  
- 	dev_dbg(&stdev->dev, "%s: %p\n", __func__, stuser);
-@@ -175,7 +176,7 @@ static int mrpc_queue_cmd(struct switcht
- 	kref_get(&stuser->kref);
- 	stuser->read_len = sizeof(stuser->data);
- 	stuser_set_state(stuser, MRPC_QUEUED);
--	reinit_completion(&stuser->comp);
-+	stuser->cmd_done = false;
- 	list_add_tail(&stuser->list, &stdev->mrpc_queue);
++	if (WARN_ON_ONCE(params->pgprot.pgprot != PAGE_KERNEL.pgprot))
++		return -EINVAL;
++
+ 	ret = __add_pages(nid, start_pfn, nr_pages, params);
+ 	if (ret)
+ 		printk("%s: Problem encountered in __add_pages() as ret=%d\n",
+diff --git a/arch/powerpc/mm/mem.c b/arch/powerpc/mm/mem.c
+index 19b1da5d7eca..832412bc7fad 100644
+--- a/arch/powerpc/mm/mem.c
++++ b/arch/powerpc/mm/mem.c
+@@ -138,7 +138,8 @@ int __ref arch_add_memory(int nid, u64 start, u64 size,
+ 	resize_hpt_for_hotplug(memblock_phys_mem_size());
  
- 	mrpc_cmd_submit(stdev);
-@@ -222,7 +223,8 @@ static void mrpc_complete_cmd(struct swi
- 		memcpy_fromio(stuser->data, &stdev->mmio_mrpc->output_data,
- 			      stuser->read_len);
- out:
--	complete_all(&stuser->comp);
-+	stuser->cmd_done = true;
-+	wake_up_interruptible(&stuser->cmd_comp);
- 	list_del_init(&stuser->list);
- 	stuser_put(stuser);
- 	stdev->mrpc_busy = 0;
-@@ -529,10 +531,11 @@ static ssize_t switchtec_dev_read(struct
- 	mutex_unlock(&stdev->mrpc_mutex);
+ 	start = (unsigned long)__va(start);
+-	rc = create_section_mapping(start, start + size, nid, PAGE_KERNEL);
++	rc = create_section_mapping(start, start + size, nid,
++				    params->pgprot);
+ 	if (rc) {
+ 		pr_warn("Unable to create mapping for hot added memory 0x%llx..0x%llx: %d\n",
+ 			start, start + size, rc);
+diff --git a/arch/s390/mm/init.c b/arch/s390/mm/init.c
+index e9e4a7abd0cc..87b2d024e75a 100644
+--- a/arch/s390/mm/init.c
++++ b/arch/s390/mm/init.c
+@@ -277,6 +277,9 @@ int arch_add_memory(int nid, u64 start, u64 size,
+ 	if (WARN_ON_ONCE(params->altmap))
+ 		return -EINVAL;
  
- 	if (filp->f_flags & O_NONBLOCK) {
--		if (!try_wait_for_completion(&stuser->comp))
-+		if (!stuser->cmd_done)
- 			return -EAGAIN;
- 	} else {
--		rc = wait_for_completion_interruptible(&stuser->comp);
-+		rc = wait_event_interruptible(stuser->cmd_comp,
-+					      stuser->cmd_done);
- 		if (rc < 0)
- 			return rc;
- 	}
-@@ -580,7 +583,7 @@ static __poll_t switchtec_dev_poll(struc
- 	struct switchtec_dev *stdev = stuser->stdev;
- 	__poll_t ret = 0;
++	if (WARN_ON_ONCE(params->pgprot.pgprot != PAGE_KERNEL.pgprot))
++		return -EINVAL;
++
+ 	rc = vmem_add_mapping(start, size);
+ 	if (rc)
+ 		return rc;
+diff --git a/arch/sh/mm/init.c b/arch/sh/mm/init.c
+index e5114c053364..b9de2d4fa57e 100644
+--- a/arch/sh/mm/init.c
++++ b/arch/sh/mm/init.c
+@@ -412,6 +412,9 @@ int arch_add_memory(int nid, u64 start, u64 size,
+ 	unsigned long nr_pages = size >> PAGE_SHIFT;
+ 	int ret;
  
--	poll_wait(filp, &stuser->comp.wait, wait);
-+	poll_wait(filp, &stuser->cmd_comp, wait);
- 	poll_wait(filp, &stdev->event_wq, wait);
++	if (WARN_ON_ONCE(params->pgprot.pgprot != PAGE_KERNEL.pgprot)
++		return -EINVAL;
++
+ 	/* We only have ZONE_NORMAL, so this is easy.. */
+ 	ret = __add_pages(nid, start_pfn, nr_pages, params);
+ 	if (unlikely(ret))
+diff --git a/arch/x86/mm/init_32.c b/arch/x86/mm/init_32.c
+index e25a4218e6ff..69128f1a22ac 100644
+--- a/arch/x86/mm/init_32.c
++++ b/arch/x86/mm/init_32.c
+@@ -858,6 +858,18 @@ int arch_add_memory(int nid, u64 start, u64 size,
+ {
+ 	unsigned long start_pfn = start >> PAGE_SHIFT;
+ 	unsigned long nr_pages = size >> PAGE_SHIFT;
++	int ret;
++
++	/*
++	 * The page tables were already mapped at boot so if the caller
++	 * requests a different mapping type then we must change all the
++	 * pages with __set_memory_prot().
++	 */
++	if (params->pgprot.pgprot != PAGE_KERNEL.pgprot) {
++		ret = __set_memory_prot(start, nr_pages, params->pgprot);
++		if (ret)
++			return ret;
++	}
  
- 	if (lock_mutex_and_test_alive(stdev))
-@@ -588,7 +591,7 @@ static __poll_t switchtec_dev_poll(struc
+ 	return __add_pages(nid, start_pfn, nr_pages, params);
+ }
+diff --git a/arch/x86/mm/init_64.c b/arch/x86/mm/init_64.c
+index 9e7692080dda..230240af38b4 100644
+--- a/arch/x86/mm/init_64.c
++++ b/arch/x86/mm/init_64.c
+@@ -868,7 +868,7 @@ int arch_add_memory(int nid, u64 start, u64 size,
+ 	unsigned long start_pfn = start >> PAGE_SHIFT;
+ 	unsigned long nr_pages = size >> PAGE_SHIFT;
  
- 	mutex_unlock(&stdev->mrpc_mutex);
+-	init_memory_mapping(start, start + size, PAGE_KERNEL);
++	init_memory_mapping(start, start + size, params->pgprot);
  
--	if (try_wait_for_completion(&stuser->comp))
-+	if (stuser->cmd_done)
- 		ret |= EPOLLIN | EPOLLRDNORM;
+ 	return add_pages(nid, start_pfn, nr_pages, params);
+ }
+diff --git a/include/linux/memory_hotplug.h b/include/linux/memory_hotplug.h
+index c5df1b3dada0..3195d11876ea 100644
+--- a/include/linux/memory_hotplug.h
++++ b/include/linux/memory_hotplug.h
+@@ -56,9 +56,12 @@ enum {
+ /*
+  * Extended parameters for memory hotplug:
+  * altmap: alternative allocator for memmap array (optional)
++ * pgprot: page protection flags to apply to newly created page tables
++ *	(required)
+  */
+ struct mhp_params {
+ 	struct vmem_altmap *altmap;
++	pgprot_t pgprot;
+ };
  
- 	if (stuser->event_cnt != atomic_read(&stdev->event_cnt))
-@@ -1272,7 +1275,8 @@ static void stdev_kill(struct switchtec_
+ /*
+diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+index c69469e1b40e..d7d4806ad81b 100644
+--- a/mm/memory_hotplug.c
++++ b/mm/memory_hotplug.c
+@@ -305,6 +305,9 @@ int __ref __add_pages(int nid, unsigned long pfn, unsigned long nr_pages,
+ 	unsigned long nr, start_sec, end_sec;
+ 	struct vmem_altmap *altmap = params->altmap;
  
- 	/* Wake up and kill any users waiting on an MRPC request */
- 	list_for_each_entry_safe(stuser, tmpuser, &stdev->mrpc_queue, list) {
--		complete_all(&stuser->comp);
-+		stuser->cmd_done = true;
-+		wake_up_interruptible(&stuser->cmd_comp);
- 		list_del_init(&stuser->list);
- 		stuser_put(stuser);
- 	}
-
++	if (WARN_ON_ONCE(!params->pgprot.pgprot))
++		return -EINVAL;
++
+ 	err = check_hotplug_memory_addressable(pfn, nr_pages);
+ 	if (err)
+ 		return err;
+@@ -993,7 +996,7 @@ static int online_memory_block(struct memory_block *mem, void *arg)
+  */
+ int __ref add_memory_resource(int nid, struct resource *res)
+ {
+-	struct mhp_params params = {};
++	struct mhp_params params = { .pgprot = PAGE_KERNEL };
+ 	u64 start, size;
+ 	bool new_node = false;
+ 	int ret;
+diff --git a/mm/memremap.c b/mm/memremap.c
+index 6891a503a078..06742372a203 100644
+--- a/mm/memremap.c
++++ b/mm/memremap.c
+@@ -166,8 +166,8 @@ void *memremap_pages(struct dev_pagemap *pgmap, int nid)
+ 		 * We do not want any optional features only our own memmap
+ 		 */
+ 		.altmap = pgmap_altmap(pgmap),
++		.pgprot = PAGE_KERNEL,
+ 	};
+-	pgprot_t pgprot = PAGE_KERNEL;
+ 	int error, is_ram;
+ 	bool need_devmap_managed = true;
+ 
+@@ -255,8 +255,8 @@ void *memremap_pages(struct dev_pagemap *pgmap, int nid)
+ 	if (nid < 0)
+ 		nid = numa_mem_id();
+ 
+-	error = track_pfn_remap(NULL, &pgprot, PHYS_PFN(res->start), 0,
+-			resource_size(res));
++	error = track_pfn_remap(NULL, &params.pgprot, PHYS_PFN(res->start),
++				0, resource_size(res));
+ 	if (error)
+ 		goto err_pfn_remap;
+ 
+-- 
+2.20.1
