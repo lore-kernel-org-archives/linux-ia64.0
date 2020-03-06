@@ -1,104 +1,203 @@
-From: Dmitry Safonov <dima@arista.com>
-Date: Mon, 16 Mar 2020 14:38:41 +0000
-Subject: [PATCHv2 15/50] ia64: Pass log level as arg into ia64_do_show_stack()
-Message-Id: <20200316143916.195608-16-dima@arista.com>
+From: Logan Gunthorpe <logang@deltatee.com>
+Date: Fri, 06 Mar 2020 17:08:44 +0000
+Subject: [PATCH v4 5/7] powerpc/mm: Thread pgprot_t through create_section_mapping()
+Message-Id: <20200306170846.9333-6-logang@deltatee.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200316143916.195608-1-dima@arista.com>
-In-Reply-To: <20200316143916.195608-1-dima@arista.com>
+References: <20200306170846.9333-1-logang@deltatee.com>
+In-Reply-To: <20200306170846.9333-1-logang@deltatee.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Dmitry Safonov <0x7f454c46@gmail.com>, Dmitry Safonov <dima@arista.com>, Andrew Morton <akpm@linux-foundation.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Ingo Molnar <mingo@kernel.org>, Jiri Slaby <jslaby@suse.com>, Petr Mladek <pmladek@suse.com>, Sergey Senozhatsky <sergey.senozhatsky@gmail.com>, Steven Rostedt <rostedt@goodmis.org>, Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>, Fenghua Yu <fenghua.yu@intel.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-mm@kvack.org, Dan Williams <dan.j.williams@intel.com>, Michal Hocko <mhocko@kernel.org>, David Hildenbrand <david@redhat.com>, Andrew Morton <akpm@linux-foundation.org>
+Cc: Eric Badger <ebadger@gigaio.com>, Peter Zijlstra <peterz@infradead.org>, Catalin Marinas <catalin.marinas@arm.com>, Dave Hansen <dave.hansen@linux.intel.com>, Logan Gunthorpe <logang@deltatee.com>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Michael Ellerman <mpe@ellerman.id.au>, Andy Lutomirski <luto@kernel.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Thomas Gleixner <tglx@linutronix.de>, Will Deacon <will@kernel.org>, Christoph Hellwig <hch@lst.de>
 
-Currently, the log-level of show_stack() depends on a platform
-realization. It creates situations where the headers are printed with
-lower log level or higher than the stacktrace (depending on
-a platform or user).
+In prepartion to support a pgprot_t argument for arch_add_memory().
 
-Furthermore, it forces the logic decision from user to an architecture
-side. In result, some users as sysrq/kdb/etc are doing tricks with
-temporary rising console_loglevel while printing their messages.
-And in result it not only may print unwanted messages from other CPUs,
-but also omit printing at all in the unlucky case where the printk()
-was deferred.
-
-Introducing log-level parameter and KERN_UNSUPPRESSED [1] seems
-an easier approach than introducing more printk buffers.
-Also, it will consolidate printings with headers.
-
-Add log level argument to ia64_do_show_stack() as a preparation to
-introduce show_stack_loglvl().
-Also, make ia64_do_show_stack() static as it's not used outside.
-
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: linux-ia64@vger.kernel.org
-[1]: https://lore.kernel.org/lkml/20190528002412.1625-1-dima@arista.com/T/#u
-Signed-off-by: Dmitry Safonov <dima@arista.com>
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Michael Ellerman <mpe@ellerman.id.au>
+Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
 ---
- arch/ia64/include/asm/ptrace.h |  1 -
- arch/ia64/kernel/process.c     | 13 +++++++------
- 2 files changed, 7 insertions(+), 7 deletions(-)
+ arch/powerpc/include/asm/book3s/64/hash.h  |  3 ++-
+ arch/powerpc/include/asm/book3s/64/radix.h |  3 ++-
+ arch/powerpc/include/asm/sparsemem.h       |  3 ++-
+ arch/powerpc/mm/book3s64/hash_utils.c      |  5 +++--
+ arch/powerpc/mm/book3s64/pgtable.c         |  7 ++++---
+ arch/powerpc/mm/book3s64/radix_pgtable.c   | 18 +++++++++++-------
+ arch/powerpc/mm/mem.c                      |  5 +++--
+ 7 files changed, 27 insertions(+), 17 deletions(-)
 
-diff --git a/arch/ia64/include/asm/ptrace.h b/arch/ia64/include/asm/ptrace.h
-index 7ff574d56429..b3aa46090101 100644
---- a/arch/ia64/include/asm/ptrace.h
-+++ b/arch/ia64/include/asm/ptrace.h
-@@ -114,7 +114,6 @@ static inline long regs_return_value(struct pt_regs *regs)
-   struct task_struct;			/* forward decl */
-   struct unw_frame_info;		/* forward decl */
+diff --git a/arch/powerpc/include/asm/book3s/64/hash.h b/arch/powerpc/include/asm/book3s/64/hash.h
+index 2781ebf6add4..6fc4520092c7 100644
+--- a/arch/powerpc/include/asm/book3s/64/hash.h
++++ b/arch/powerpc/include/asm/book3s/64/hash.h
+@@ -251,7 +251,8 @@ extern int __meminit hash__vmemmap_create_mapping(unsigned long start,
+ extern void hash__vmemmap_remove_mapping(unsigned long start,
+ 				     unsigned long page_size);
  
--  extern void ia64_do_show_stack (struct unw_frame_info *, void *);
-   extern unsigned long ia64_get_user_rbs_end (struct task_struct *, struct pt_regs *,
- 					      unsigned long *);
-   extern long ia64_peek (struct task_struct *, struct switch_stack *, unsigned long,
-diff --git a/arch/ia64/kernel/process.c b/arch/ia64/kernel/process.c
-index 968b5f33e725..0526cc51ff0b 100644
---- a/arch/ia64/kernel/process.c
-+++ b/arch/ia64/kernel/process.c
-@@ -64,12 +64,13 @@ EXPORT_SYMBOL(boot_option_idle_override);
- void (*pm_power_off) (void);
- EXPORT_SYMBOL(pm_power_off);
+-int hash__create_section_mapping(unsigned long start, unsigned long end, int nid);
++int hash__create_section_mapping(unsigned long start, unsigned long end,
++				 int nid, pgprot_t prot);
+ int hash__remove_section_mapping(unsigned long start, unsigned long end);
  
--void
-+static void
- ia64_do_show_stack (struct unw_frame_info *info, void *arg)
- {
- 	unsigned long ip, sp, bsp;
-+	const char *loglvl = arg;
- 
--	printk("\nCall Trace:\n");
-+	printk("%s\nCall Trace:\n", loglvl);
- 	do {
- 		unw_get_ip(info, &ip);
- 		if (ip = 0)
-@@ -77,9 +78,9 @@ ia64_do_show_stack (struct unw_frame_info *info, void *arg)
- 
- 		unw_get_sp(info, &sp);
- 		unw_get_bsp(info, &bsp);
--		printk(" [<%016lx>] %pS\n"
-+		printk("%s [<%016lx>] %pS\n"
- 			 "                                sp=%016lx bsp=%016lx\n",
--			 ip, (void *)ip, sp, bsp);
-+			 loglvl, ip, (void *)ip, sp, bsp);
- 	} while (unw_unwind(info) >= 0);
+ #endif /* !__ASSEMBLY__ */
+diff --git a/arch/powerpc/include/asm/book3s/64/radix.h b/arch/powerpc/include/asm/book3s/64/radix.h
+index d97db3ad9aae..46799f3c3d1d 100644
+--- a/arch/powerpc/include/asm/book3s/64/radix.h
++++ b/arch/powerpc/include/asm/book3s/64/radix.h
+@@ -289,7 +289,8 @@ static inline unsigned long radix__get_tree_size(void)
  }
  
-@@ -87,12 +88,12 @@ void
- show_stack (struct task_struct *task, unsigned long *sp)
- {
- 	if (!task)
--		unw_init_running(ia64_do_show_stack, NULL);
-+		unw_init_running(ia64_do_show_stack, (void *)KERN_DEFAULT);
- 	else {
- 		struct unw_frame_info info;
+ #ifdef CONFIG_MEMORY_HOTPLUG
+-int radix__create_section_mapping(unsigned long start, unsigned long end, int nid);
++int radix__create_section_mapping(unsigned long start, unsigned long end,
++				  int nid, pgprot_t prot);
+ int radix__remove_section_mapping(unsigned long start, unsigned long end);
+ #endif /* CONFIG_MEMORY_HOTPLUG */
+ #endif /* __ASSEMBLY__ */
+diff --git a/arch/powerpc/include/asm/sparsemem.h b/arch/powerpc/include/asm/sparsemem.h
+index 3192d454a733..c89b32443cff 100644
+--- a/arch/powerpc/include/asm/sparsemem.h
++++ b/arch/powerpc/include/asm/sparsemem.h
+@@ -13,7 +13,8 @@
+ #endif /* CONFIG_SPARSEMEM */
  
- 		unw_init_from_blocked_task(&info, task);
--		ia64_do_show_stack(&info, NULL);
-+		ia64_do_show_stack(&info, (void *)KERN_DEFAULT);
+ #ifdef CONFIG_MEMORY_HOTPLUG
+-extern int create_section_mapping(unsigned long start, unsigned long end, int nid);
++extern int create_section_mapping(unsigned long start, unsigned long end,
++				  int nid, pgprot_t prot);
+ extern int remove_section_mapping(unsigned long start, unsigned long end);
+ 
+ #ifdef CONFIG_PPC_BOOK3S_64
+diff --git a/arch/powerpc/mm/book3s64/hash_utils.c b/arch/powerpc/mm/book3s64/hash_utils.c
+index 523d4d39d11e..201738e07a1d 100644
+--- a/arch/powerpc/mm/book3s64/hash_utils.c
++++ b/arch/powerpc/mm/book3s64/hash_utils.c
+@@ -809,7 +809,8 @@ int resize_hpt_for_hotplug(unsigned long new_mem_size)
+ 	return 0;
+ }
+ 
+-int hash__create_section_mapping(unsigned long start, unsigned long end, int nid)
++int hash__create_section_mapping(unsigned long start, unsigned long end,
++				 int nid, pgprot_t prot)
+ {
+ 	int rc;
+ 
+@@ -819,7 +820,7 @@ int hash__create_section_mapping(unsigned long start, unsigned long end, int nid
  	}
+ 
+ 	rc = htab_bolt_mapping(start, end, __pa(start),
+-			       pgprot_val(PAGE_KERNEL), mmu_linear_psize,
++			       pgprot_val(prot), mmu_linear_psize,
+ 			       mmu_kernel_ssize);
+ 
+ 	if (rc < 0) {
+diff --git a/arch/powerpc/mm/book3s64/pgtable.c b/arch/powerpc/mm/book3s64/pgtable.c
+index 2bf7e1b4fd82..e0bb69c616e4 100644
+--- a/arch/powerpc/mm/book3s64/pgtable.c
++++ b/arch/powerpc/mm/book3s64/pgtable.c
+@@ -171,12 +171,13 @@ void mmu_cleanup_all(void)
  }
  
+ #ifdef CONFIG_MEMORY_HOTPLUG
+-int __meminit create_section_mapping(unsigned long start, unsigned long end, int nid)
++int __meminit create_section_mapping(unsigned long start, unsigned long end,
++				     int nid, pgprot_t prot)
+ {
+ 	if (radix_enabled())
+-		return radix__create_section_mapping(start, end, nid);
++		return radix__create_section_mapping(start, end, nid, prot);
+ 
+-	return hash__create_section_mapping(start, end, nid);
++	return hash__create_section_mapping(start, end, nid, prot);
+ }
+ 
+ int __meminit remove_section_mapping(unsigned long start, unsigned long end)
+diff --git a/arch/powerpc/mm/book3s64/radix_pgtable.c b/arch/powerpc/mm/book3s64/radix_pgtable.c
+index dd1bea45325c..0ef10b5c26ba 100644
+--- a/arch/powerpc/mm/book3s64/radix_pgtable.c
++++ b/arch/powerpc/mm/book3s64/radix_pgtable.c
+@@ -253,7 +253,7 @@ static unsigned long next_boundary(unsigned long addr, unsigned long end)
+ 
+ static int __meminit create_physical_mapping(unsigned long start,
+ 					     unsigned long end,
+-					     int nid)
++					     int nid, pgprot_t _prot)
+ {
+ 	unsigned long vaddr, addr, mapping_size = 0;
+ 	bool prev_exec, exec = false;
+@@ -289,7 +289,7 @@ static int __meminit create_physical_mapping(unsigned long start,
+ 			prot = PAGE_KERNEL_X;
+ 			exec = true;
+ 		} else {
+-			prot = PAGE_KERNEL;
++			prot = _prot;
+ 			exec = false;
+ 		}
+ 
+@@ -333,7 +333,7 @@ static void __init radix_init_pgtable(void)
+ 
+ 		WARN_ON(create_physical_mapping(reg->base,
+ 						reg->base + reg->size,
+-						-1));
++						-1, PAGE_KERNEL));
+ 	}
+ 
+ 	/* Find out how many PID bits are supported */
+@@ -712,8 +712,10 @@ static int __meminit stop_machine_change_mapping(void *data)
+ 
+ 	spin_unlock(&init_mm.page_table_lock);
+ 	pte_clear(&init_mm, params->aligned_start, params->pte);
+-	create_physical_mapping(__pa(params->aligned_start), __pa(params->start), -1);
+-	create_physical_mapping(__pa(params->end), __pa(params->aligned_end), -1);
++	create_physical_mapping(__pa(params->aligned_start),
++				__pa(params->start), -1, PAGE_KERNEL);
++	create_physical_mapping(__pa(params->end), __pa(params->aligned_end),
++				-1, PAGE_KERNEL);
+ 	spin_lock(&init_mm.page_table_lock);
+ 	return 0;
+ }
+@@ -870,14 +872,16 @@ static void __meminit remove_pagetable(unsigned long start, unsigned long end)
+ 	radix__flush_tlb_kernel_range(start, end);
+ }
+ 
+-int __meminit radix__create_section_mapping(unsigned long start, unsigned long end, int nid)
++int __meminit radix__create_section_mapping(unsigned long start,
++					    unsigned long end, int nid,
++					    pgprot_t prot)
+ {
+ 	if (end >= RADIX_VMALLOC_START) {
+ 		pr_warn("Outside the supported range\n");
+ 		return -1;
+ 	}
+ 
+-	return create_physical_mapping(__pa(start), __pa(end), nid);
++	return create_physical_mapping(__pa(start), __pa(end), nid, prot);
+ }
+ 
+ int __meminit radix__remove_section_mapping(unsigned long start, unsigned long end)
+diff --git a/arch/powerpc/mm/mem.c b/arch/powerpc/mm/mem.c
+index b4bece53bec0..19b1da5d7eca 100644
+--- a/arch/powerpc/mm/mem.c
++++ b/arch/powerpc/mm/mem.c
+@@ -96,7 +96,8 @@ int memory_add_physaddr_to_nid(u64 start)
+ }
+ #endif
+ 
+-int __weak create_section_mapping(unsigned long start, unsigned long end, int nid)
++int __weak create_section_mapping(unsigned long start, unsigned long end,
++				  int nid, pgprot_t prot)
+ {
+ 	return -ENODEV;
+ }
+@@ -137,7 +138,7 @@ int __ref arch_add_memory(int nid, u64 start, u64 size,
+ 	resize_hpt_for_hotplug(memblock_phys_mem_size());
+ 
+ 	start = (unsigned long)__va(start);
+-	rc = create_section_mapping(start, start + size, nid);
++	rc = create_section_mapping(start, start + size, nid, PAGE_KERNEL);
+ 	if (rc) {
+ 		pr_warn("Unable to create mapping for hot added memory 0x%llx..0x%llx: %d\n",
+ 			start, start + size, rc);
 -- 
-2.25.1
+2.20.1
