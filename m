@@ -1,55 +1,35 @@
-From: Anshuman Khandual <anshuman.khandual@arm.com>
-Date: Tue, 10 Mar 2020 13:58:42 +0000
-Subject: Re: [PATCH V2] mm/special: Create generic fallbacks for pte_special() and pte_mkspecial()
-Message-Id: <a8341dde-aa59-b425-ac23-b6005e0a67ec@arm.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Sat, 07 Mar 2020 04:00:16 +0000
+Subject: Re: [PATCH v3 07/14] powerpc/32: drop get_pteptr()
+Message-Id: <20200306200016.6f3865ada0daa68b645fe5d7@linux-foundation.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1583802551-15406-1-git-send-email-anshuman.khandual@arm.com>
- <20200310132747.GA12601@alpha.franken.de>
-In-Reply-To: <20200310132747.GA12601@alpha.franken.de>
+References: <20200227084608.18223-1-rppt@kernel.org>
+ <20200227084608.18223-8-rppt@kernel.org>
+In-Reply-To: <20200227084608.18223-8-rppt@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
-Cc: linux-mm@kvack.org, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Russell King <linux@armlinux.org.uk>, Guo Ren <guoren@kernel.org>, Brian Cain <bcain@codeaurora.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Sam Creasey <sammy@sammy.net>, Michal Simek <monstr@monstr.eu>, Ralf Baechle <ralf@linux-mips.org>, Paul Burton <paulburton@kernel.org>, Nick Hu <nickhu@andestech.com>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, Ley Foon Tan <ley.foon.tan@intel.com>, Jonas Bonn <jonas@southpole.se>, Stefan Kristiansson <stefan.kristiansson@saunalahti.fi>, Stafford Horne <shorne@gmail.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, "David S. Miller" <davem@davemloft.net>, Jeff Dike <jdike@addtoit.com>, Richard Weinberger <richard@nod.at>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Guan Xuetao <gxt@pku.edu.cn>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, Andrew Morton <akpm@linux-foundation.org>, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, nios2-dev@lists.rocketboards.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Mike Rapoport <rppt@kernel.org>
+Cc: Rich Felker <dalias@libc.org>, linux-ia64@vger.kernel.org, Geert Uytterhoeven <geert+renesas@glider.be>, linux-sh@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linux-mm@kvack.org, Paul Mackerras <paulus@samba.org>, linux-hexagon@vger.kernel.org, Will Deacon <will@kernel.org>, kvmarm@lists.cs.columbia.edu, Jonas Bonn <jonas@southpole.se>, linux-arch@vger.kernel.org, Brian Cain <bcain@codeaurora.org>, Marc Zyngier <maz@kernel.org>, Russell King <linux@armlinux.org.uk>, Ley Foon Tan <ley.foon.tan@intel.com>, Mike Rapoport <rppt@linux.ibm.com>, Catalin Marinas <catalin.marinas@arm.com>, uclinux-h8-devel@lists.sourceforge.jp, Fenghua Yu <fenghua.yu@intel.com>, Arnd Bergmann <arnd@arndb.de>, kvm-ppc@vger.kernel.org, Stefan Kristiansson <stefan.kristiansson@saunalahti.fi>, openrisc@lists.librecores.org, Stafford Horne <shorne@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, linux-arm-kernel@lists.infradead.org, Christophe Leroy <christophe.leroy@c-s.fr>, Tony Luck <tony.luck@intel.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, linux-kernel@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>, nios2-dev@lists.rocketboards.org, linuxppc-dev@lists.ozlabs.org
 
+On Thu, 27 Feb 2020 10:46:01 +0200 Mike Rapoport <rppt@kernel.org> wrote:
 
+> Commit 8d30c14cab30 ("powerpc/mm: Rework I$/D$ coherency (v3)") and
+> commit 90ac19a8b21b ("[POWERPC] Abolish iopa(), mm_ptov(),
+> io_block_mapping() from arch/powerpc") removed the use of get_pteptr()
+> outside of mm/pgtable_32.c
+> 
+> In mm/pgtable_32.c, the only user of get_pteptr() is __change_page_attr()
+> which operates on kernel context and on lowmem pages only.
+> 
+> Move page table traversal to __change_page_attr() and drop get_pteptr().
 
-On 03/10/2020 06:57 PM, Thomas Bogendoerfer wrote:
-> On Tue, Mar 10, 2020 at 06:39:11AM +0530, Anshuman Khandual wrote:
->> diff --git a/arch/mips/include/asm/pgtable.h b/arch/mips/include/asm/pgtable.h
->> index aef5378f909c..8e4e4be1ca00 100644
->> --- a/arch/mips/include/asm/pgtable.h
->> +++ b/arch/mips/include/asm/pgtable.h
->> @@ -269,6 +269,36 @@ static inline void set_pte_at(struct mm_struct *mm, unsigned long addr,
->>   */
->>  extern pgd_t swapper_pg_dir[];
->>  
->> +/*
->> + * Platform specific pte_special() and pte_mkspecial() definitions
->> + * are required only when ARCH_HAS_PTE_SPECIAL is enabled.
->> + */
->> +#if !defined(CONFIG_32BIT) && !defined(CONFIG_CPU_HAS_RIXI)
-> 
-> this looks wrong.
-> 
-> current Kconfig statement is
-> 
-> select ARCH_HAS_PTE_SPECIAL if !(32BIT && CPU_HAS_RIXI)
-> 
-> so we can't use PTE_SPECIAL on 32bit _and_ CPUs with RIXI support.
+People have been changing things in linux-next and the powerpc patches
+are hurting.
 
-I already had asked for clarification on this.
+I'll disable this patch series for now.  Can you please redo
+powerpc-32-drop-get_pteptr.patch and
+powerpc-add-support-for-folded-p4d-page-tables.patch (and
+powerpc-add-support-for-folded-p4d-page-tables-fix.patch)?
 
-> 
-> Why can't we use
-> 
-> #if defined(CONFIG_ARCH_HAS_PTE_SPECIAL)
-> 
-> here as the comment already suggests ?
-
-Yes, that will be easier and will automatically adjust in case
-ARCH_HAS_PTE_SPECIAL scope changes later. Will respin the patch.
-
-> 
-> Thomas.
-> 
+Thanks.
