@@ -1,70 +1,76 @@
-From: Sebastian Siewior <bigeasy@linutronix.de>
-Date: Mon, 23 Mar 2020 15:20:19 +0000
-Subject: [PATCH] completion: Use lockdep_assert_RT_in_threaded_ctx() in complete_all()
-Message-Id: <20200323152019.4qjwluldohuh3by5@linutronix.de>
+From: Dmitry Safonov <dima@arista.com>
+Date: Mon, 16 Mar 2020 14:38:42 +0000
+Subject: [PATCHv2 16/50] ia64: Add show_stack_loglvl()
+Message-Id: <20200316143916.195608-17-dima@arista.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200321112544.878032781@linutronix.de>
- <20200321113242.317954042@linutronix.de>
-In-Reply-To: <20200321113242.317954042@linutronix.de>
+References: <20200316143916.195608-1-dima@arista.com>
+In-Reply-To: <20200316143916.195608-1-dima@arista.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thomas Gleixner <tglx@linutronix.de>
-Cc: LKML <linux-kernel@vger.kernel.org>, Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@kernel.org>, Linus Torvalds <torvalds@linux-foundation.org>, Joel Fernandes <joel@joelfernandes.org>, Oleg Nesterov <oleg@redhat.com>, Davidlohr Bueso <dave@stgolabs.net>, Davidlohr Bueso <dbueso@suse.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Logan Gunthorpe <logang@deltatee.com>, Bjorn Helgaas <bhelgaas@google.com>, Kurt Schwemmer <kurt.schwemmer@microsemi.com>, linux-pci@vger.kernel.org, Felipe Balbi <balbi@kernel.org>, linux-usb@vger.kernel.org, Kalle Valo <kvalo@codeaurora.org>, "David S. Miller" <davem@davemloft.net>, linux-wireless@vger.kernel.org, netdev@vger.kernel.org, Darren Hart <dvhart@infradead.org>, Andy Shevchenko <andy@infradead.org>, platform-driver-x86@vger.kernel.org, Zhang Rui <rui.zhang@intel.com>, "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>, linux-pm@vger.kernel.org, Len Brown <lenb@kernel.org>, linux-acpi@vger.kernel.org, kbuild test robot <lkp@intel.com>, Nick Hu <nickhu@andestech.com>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, Guo Ren <guoren@kernel.org>, linux-csky@vger.kernel.org, Brian Cain <bcain@codeaurora.org>, linux-hexagon@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, Michal Simek <monstr@monstr.eu>, Michael Ellerman <mpe@ellerman.id.au>, Arnd Bergmann <arnd@arndb.de>, Geoff Levand <geoff@infradead.org>, linuxppc-dev@lists.ozlabs.org, "Paul E . McKenney" <paulmck@kernel.org>, Jonathan Corbet <corbet@lwn.net>, Randy Dunlap <rdunlap@infradead.org>
+To: linux-kernel@vger.kernel.org
+Cc: Dmitry Safonov <0x7f454c46@gmail.com>, Dmitry Safonov <dima@arista.com>, Andrew Morton <akpm@linux-foundation.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Ingo Molnar <mingo@kernel.org>, Jiri Slaby <jslaby@suse.com>, Petr Mladek <pmladek@suse.com>, Sergey Senozhatsky <sergey.senozhatsky@gmail.com>, Steven Rostedt <rostedt@goodmis.org>, Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>, Fenghua Yu <fenghua.yu@intel.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org
 
-The warning was intended to spot complete_all() users from hardirq
-context on PREEMPT_RT. The warning as-is will also trigger in interrupt
-handlers, which are threaded on PREEMPT_RT, which was not intended.
+Currently, the log-level of show_stack() depends on a platform
+realization. It creates situations where the headers are printed with
+lower log level or higher than the stacktrace (depending on
+a platform or user).
 
-Use lockdep_assert_RT_in_threaded_ctx() which triggers in non-preemptive
-context on PREEMPT_RT.
+Furthermore, it forces the logic decision from user to an architecture
+side. In result, some users as sysrq/kdb/etc are doing tricks with
+temporary rising console_loglevel while printing their messages.
+And in result it not only may print unwanted messages from other CPUs,
+but also omit printing at all in the unlucky case where the printk()
+was deferred.
 
-Suggested-by: Peter Zijlstra <peterz@infradead.org>
-Reported-by: kernel test robot <rong.a.chen@intel.com>
-Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Introducing log-level parameter and KERN_UNSUPPRESSED [1] seems
+an easier approach than introducing more printk buffers.
+Also, it will consolidate printings with headers.
+
+Introduce show_stack_loglvl(), that eventually will substitute
+show_stack().
+
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: linux-ia64@vger.kernel.org
+[1]: https://lore.kernel.org/lkml/20190528002412.1625-1-dima@arista.com/T/#u
+Signed-off-by: Dmitry Safonov <dima@arista.com>
 ---
- include/linux/lockdep.h   | 15 +++++++++++++++
- kernel/sched/completion.c |  2 +-
- 2 files changed, 16 insertions(+), 1 deletion(-)
+ arch/ia64/kernel/process.c | 13 ++++++++++---
+ 1 file changed, 10 insertions(+), 3 deletions(-)
 
-diff --git a/include/linux/lockdep.h b/include/linux/lockdep.h
-index 425b4ceb7cd07..206774ac69460 100644
---- a/include/linux/lockdep.h
-+++ b/include/linux/lockdep.h
-@@ -711,6 +711,21 @@ do {									\
- # define lockdep_assert_in_irq() do { } while (0)
- #endif
+diff --git a/arch/ia64/kernel/process.c b/arch/ia64/kernel/process.c
+index 0526cc51ff0b..b0eeb19bdd8d 100644
+--- a/arch/ia64/kernel/process.c
++++ b/arch/ia64/kernel/process.c
+@@ -85,18 +85,25 @@ ia64_do_show_stack (struct unw_frame_info *info, void *arg)
+ }
  
-+#ifdef CONFIG_PROVE_RAW_LOCK_NESTING
-+
-+# define lockdep_assert_RT_in_threaded_ctx() do {			\
-+		WARN_ONCE(debug_locks && !current->lockdep_recursion &&	\
-+			  current->hardirq_context &&			\
-+			  !(current->hardirq_threaded || current->irq_config),	\
-+			  "Not in threaded context on PREEMPT_RT as expected\n");	\
-+} while (0)
-+
-+#else
-+
-+# define lockdep_assert_RT_in_threaded_ctx() do { } while (0)
-+
-+#endif
-+
- #ifdef CONFIG_LOCKDEP
- void lockdep_rcu_suspicious(const char *file, const int line, const char *s);
- #else
-diff --git a/kernel/sched/completion.c b/kernel/sched/completion.c
-index f15e96164ff1e..a778554f9dad7 100644
---- a/kernel/sched/completion.c
-+++ b/kernel/sched/completion.c
-@@ -58,7 +58,7 @@ void complete_all(struct completion *x)
+ void
+-show_stack (struct task_struct *task, unsigned long *sp)
++show_stack_loglvl (struct task_struct *task, unsigned long *sp,
++		   const char *loglvl)
  {
- 	unsigned long flags;
+ 	if (!task)
+-		unw_init_running(ia64_do_show_stack, (void *)KERN_DEFAULT);
++		unw_init_running(ia64_do_show_stack, (void *)loglvl);
+ 	else {
+ 		struct unw_frame_info info;
  
--	WARN_ON(irqs_disabled());
-+	lockdep_assert_RT_in_threaded_ctx();
+ 		unw_init_from_blocked_task(&info, task);
+-		ia64_do_show_stack(&info, (void *)KERN_DEFAULT);
++		ia64_do_show_stack(&info, (void *)loglvl);
+ 	}
+ }
  
- 	raw_spin_lock_irqsave(&x->wait.lock, flags);
- 	x->done = UINT_MAX;
++void
++show_stack (struct task_struct *task, unsigned long *sp)
++{
++	show_stack_loglvl(task, sp, KERN_DEFAULT);
++}
++
+ void
+ show_regs (struct pt_regs *regs)
+ {
 -- 
-2.26.0.rc2
+2.25.1
