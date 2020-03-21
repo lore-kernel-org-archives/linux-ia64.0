@@ -1,45 +1,29 @@
-From: afzal mohammed <afzal.mohd.ma@gmail.com>
-Date: Sat, 21 Mar 2020 17:55:03 +0000
-Subject: Re: [PATCH 00/18] genirq: Remove setup_irq()
-Message-Id: <20200321174303.GA7930@afzalpc>
+From: Thomas Gleixner <tglx@linutronix.de>
+Date: Sat, 21 Mar 2020 11:25:44 +0000
+Subject: [patch V3 00/20] Lock ordering documentation and annotation for lockdep
+Message-Id: <20200321112544.878032781@linutronix.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1581478323.git.afzal.mohd.ma@gmail.com>
- <87y2somido.fsf@nanos.tec.linutronix.de>
- <20200227110713.GA5708@afzalpc>
-In-Reply-To: <20200227110713.GA5708@afzalpc>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Thomas Gleixner <tglx@linutronix.de>
-Cc: linux-s390@vger.kernel.org, linux-samsung-soc@vger.kernel.org, linux-ia64@vger.kernel.org, linux-c6x-dev@linux-c6x.org, linux-parisc@vger.kernel.org, linux-sh@vger.kernel.org, linux-hexagon@vger.kernel.org, x86@kernel.org, Nicolas Palix <nicolas.palix@imag.fr>, linux-kernel@vger.kernel.org, linux-mips@vger.kernel.org, Julia Lawall <Julia.Lawall@lip6.fr>, linux-m68k@lists.linux-m68k.org, Michal Marek <michal.lkml@markovi.net>, linux-rpi-kernel@lists.infradead.org, linux-alpha@vger.kernel.org, Gilles Muller <Gilles.Muller@lip6.fr>, linux-omap@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-arm-kernel@lists.infradead.org
+To: LKML <linux-kernel@vger.kernel.org>
+Cc: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@kernel.org>, Sebastian Siewior <bigeasy@linutronix.de>, Linus Torvalds <torvalds@linux-foundation.org>, Joel Fernandes <joel@joelfernandes.org>, Oleg Nesterov <oleg@redhat.com>, Davidlohr Bueso <dave@stgolabs.net>, Logan Gunthorpe <logang@deltatee.com>, Bjorn Helgaas <bhelgaas@google.com>, Kurt Schwemmer <kurt.schwemmer@microsemi.com>, linux-pci@vger.kernel.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Felipe Balbi <balbi@kernel.org>, linux-usb@vger.kernel.org, Kalle Valo <kvalo@codeaurora.org>, "David S. Miller" <davem@davemloft.net>, linux-wireless@vger.kernel.org, netdev@vger.kernel.org, Darren Hart <dvhart@infradead.org>, Andy Shevchenko <andy@infradead.org>, platform-driver-x86@vger.kernel.org, Zhang Rui <rui.zhang@intel.com>, "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>, linux-pm@vger.kernel.org, Len Brown <lenb@kernel.org>, linux-acpi@vger.kernel.org, kbuild test robot <lkp@intel.com>, Nick Hu <nickhu@andestech.com>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, Guo Ren <guoren@kernel.org>, linux-csky@vger.kernel.org, Brian Cain <bcain@codeaurora.org>, linux-hexagon@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, Michal Simek <monstr@monstr.eu>, Michael Ellerman <mpe@ellerman.id.au>, Arnd Bergmann <arnd@arndb.de>, Geoff Levand <geoff@infradead.org>, linuxppc-dev@lists.ozlabs.org, "Paul E . McKenney" <paulmck@kernel.org>, Jonathan Corbet <corbet@lwn.net>, Randy Dunlap <rdunlap@infradead.org>, Davidlohr Bueso <dbueso@suse.de>
 
-Hi Thomas,
+This is the third and hopefully final version of this work. The second one
+can be found here:
 
-On Thu, Feb 27, 2020 at 04:37:13PM +0530, afzal mohammed wrote:
-> On Thu, Feb 27, 2020 at 11:31:15AM +0100, Thomas Gleixner wrote:
+   https://lore.kernel.org/r/20200318204302.693307984@linutronix.de
 
-> > Vs. merging this series, I suggest the following approach:
-> > 
-> >    - Resubmit the individual changes as single patches or small series
-> >      to the relevant maintainers and subsystem mailing lists. They have
-> >      no dependency on a core change and can be applied where they belong
-> >      to.
-> > 
-> >    - After 5.6-rc6, verify which parts have made their way into
-> >      linux-next and resubmit the ignored ones as a series to me along
-> >      with the removal of the core parts.
-> > 
-> > That way we can avoid conflicting changes between subsystems and the tip
-> > irq/core branch as much as possible.
-> 
-> Okay, i will do accordingly.
+Changes since V2:
 
-i am on it, is delayed due to the reason as mentioned at,
+  - Included the arch/XXX fixups for the rcuwait changes (Sebastian)
 
-https://lkml.kernel.org/r/20200321172626.GA6323@afzalpc
+  - Folded the init fix for the PS3 change (Sebastian)
 
-[ not repeating contents here since other mail was sent just now,
-  cc'ing you ]
+  - Addressed feedback on documentation (Paul, Davidlohr, Jonathan)
 
-Regards
-afzal
+  - Picked up acks and reviewed tags
+
+Thanks,
+
+	tglx
