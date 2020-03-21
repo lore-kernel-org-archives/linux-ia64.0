@@ -1,220 +1,83 @@
 From: Thomas Gleixner <tglx@linutronix.de>
-Date: Sat, 21 Mar 2020 11:26:00 +0000
-Subject: [patch V3 16/20] completion: Use simple wait queues
-Message-Id: <20200321113242.317954042@linutronix.de>
+Date: Sat, 21 Mar 2020 11:25:53 +0000
+Subject: [patch V3 09/20] ia64: Remove mm.h from asm/uaccess.h
+Message-Id: <20200321113241.624070289@linutronix.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20200321112544.878032781@linutronix.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: LKML <linux-kernel@vger.kernel.org>
-Cc: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@kernel.org>, Sebastian Siewior <bigeasy@linutronix.de>, Linus Torvalds <torvalds@linux-foundation.org>, Joel Fernandes <joel@joelfernandes.org>, Oleg Nesterov <oleg@redhat.com>, Davidlohr Bueso <dave@stgolabs.net>, Davidlohr Bueso <dbueso@suse.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Logan Gunthorpe <logang@deltatee.com>, Bjorn Helgaas <bhelgaas@google.com>, Kurt Schwemmer <kurt.schwemmer@microsemi.com>, linux-pci@vger.kernel.org, Felipe Balbi <balbi@kernel.org>, linux-usb@vger.kernel.org, Kalle Valo <kvalo@codeaurora.org>, "David S. Miller" <davem@davemloft.net>, linux-wireless@vger.kernel.org, netdev@vger.kernel.org, Darren Hart <dvhart@infradead.org>, Andy Shevchenko <andy@infradead.org>, platform-driver-x86@vger.kernel.org, Zhang Rui <rui.zhang@intel.com>, "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>, linux-pm@vger.kernel.org, Len Brown <lenb@kernel.org>, linux-acpi@vger.kernel.org, kbuild test robot <lkp@intel.com>, Nick Hu <nickhu@andestech.com>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, Guo Ren <guoren@kernel.org>, linux-csky@vger.kernel.org, Brian Cain <bcain@codeaurora.org>, linux-hexagon@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, Michal Simek <monstr@monstr.eu>, Michael Ellerman <mpe@ellerman.id.au>, Arnd Bergmann <arnd@arndb.de>, Geoff Levand <geoff@infradead.org>, linuxppc-dev@lists.ozlabs.org, "Paul E . McKenney" <paulmck@kernel.org>, Jonathan Corbet <corbet@lwn.net>, Randy Dunlap <rdunlap@infradead.org>
+Cc: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@kernel.org>, Sebastian Siewior <bigeasy@linutronix.de>, Linus Torvalds <torvalds@linux-foundation.org>, Joel Fernandes <joel@joelfernandes.org>, Oleg Nesterov <oleg@redhat.com>, Davidlohr Bueso <dave@stgolabs.net>, kbuild test robot <lkp@intel.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, Logan Gunthorpe <logang@deltatee.com>, Bjorn Helgaas <bhelgaas@google.com>, Kurt Schwemmer <kurt.schwemmer@microsemi.com>, linux-pci@vger.kernel.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Felipe Balbi <balbi@kernel.org>, linux-usb@vger.kernel.org, Kalle Valo <kvalo@codeaurora.org>, "David S. Miller" <davem@davemloft.net>, linux-wireless@vger.kernel.org, netdev@vger.kernel.org, Darren Hart <dvhart@infradead.org>, Andy Shevchenko <andy@infradead.org>, platform-driver-x86@vger.kernel.org, Zhang Rui <rui.zhang@intel.com>, "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>, linux-pm@vger.kernel.org, Len Brown <lenb@kernel.org>, linux-acpi@vger.kernel.org, Nick Hu <nickhu@andestech.com>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, Guo Ren <guoren@kernel.org>, linux-csky@vger.kernel.org, Brian Cain <bcain@codeaurora.org>, linux-hexagon@vger.kernel.org, Michal Simek <monstr@monstr.eu>, Michael Ellerman <mpe@ellerman.id.au>, Arnd Bergmann <arnd@arndb.de>, Geoff Levand <geoff@infradead.org>, linuxppc-dev@lists.ozlabs.org, "Paul E . McKenney" <paulmck@kernel.org>, Jonathan Corbet <corbet@lwn.net>, Randy Dunlap <rdunlap@infradead.org>, Davidlohr Bueso <dbueso@suse.de>
 
-From: Thomas Gleixner <tglx@linutronix.de>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
-completion uses a wait_queue_head_t to enqueue waiters.
+The defconfig compiles without linux/mm.h. With mm.h included the
+include chain leands to:
+|   CC      kernel/locking/percpu-rwsem.o
+| In file included from include/linux/huge_mm.h:8,
+|                  from include/linux/mm.h:567,
+|                  from arch/ia64/include/asm/uaccess.h:,
+|                  from include/linux/uaccess.h:11,
+|                  from include/linux/sched/task.h:11,
+|                  from include/linux/sched/signal.h:9,
+|                  from include/linux/rcuwait.h:6,
+|                  from include/linux/percpu-rwsem.h:8,
+|                  from kernel/locking/percpu-rwsem.c:6:
+| include/linux/fs.h:1422:29: error: array type has incomplete element type 'struct percpu_rw_semaphore'
+|  1422 |  struct percpu_rw_semaphore rw_sem[SB_FREEZE_LEVELS];
 
-wait_queue_head_t contains a spinlock_t to protect the list of waiters
-which excludes it from being used in truly atomic context on a PREEMPT_RT
-enabled kernel.
+once rcuwait.h includes linux/sched/signal.h.
 
-The spinlock in the wait queue head cannot be replaced by a raw_spinlock
-because:
+Remove the linux/mm.h include.
 
-  - wait queues can have custom wakeup callbacks, which acquire other
-    spinlock_t locks and have potentially long execution times
-
-  - wake_up() walks an unbounded number of list entries during the wake up
-    and may wake an unbounded number of waiters.
-
-For simplicity and performance reasons complete() should be usable on
-PREEMPT_RT enabled kernels.
-
-completions do not use custom wakeup callbacks and are usually single
-waiter, except for a few corner cases.
-
-Replace the wait queue in the completion with a simple wait queue (swait),
-which uses a raw_spinlock_t for protecting the waiter list and therefore is
-safe to use inside truly atomic regions on PREEMPT_RT.
-
-There is no semantical or functional change:
-
-  - completions use the exclusive wait mode which is what swait provides
-
-  - complete() wakes one exclusive waiter
-
-  - complete_all() wakes all waiters while holding the lock which protects
-    the wait queue against newly incoming waiters. The conversion to swait
-    preserves this behaviour.
-
-complete_all() might cause unbound latencies with a large number of waiters
-being woken at once, but most complete_all() usage sites are either in
-testing or initialization code or have only a really small number of
-concurrent waiters which for now does not cause a latency problem. Keep it
-simple for now.
-
-The fixup of the warning check in the USB gadget driver is just a straight
-forward conversion of the lockless waiter check from one waitqueue type to
-the other.
-
+Reported-by: kbuild test robot <lkp@intel.com>
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
-Reviewed-by: Joel Fernandes (Google) <joel@joelfernandes.org>
-Reviewed-by: Davidlohr Bueso <dbueso@suse.de>
-Reviewed-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Acked-by: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
 ---
-V2: Split out the orinoco and usb gadget parts and amended change log
+V3: New patch
 ---
- drivers/usb/gadget/function/f_fs.c |    2 +-
- include/linux/completion.h         |    8 ++++----
- kernel/sched/completion.c          |   36 +++++++++++++++++++-----------------
- 3 files changed, 24 insertions(+), 22 deletions(-)
+ arch/ia64/include/asm/uaccess.h | 1 -
+ arch/ia64/kernel/process.c      | 1 +
+ arch/ia64/mm/ioremap.c          | 1 +
+ 3 files changed, 2 insertions(+), 1 deletion(-)
 
---- a/drivers/usb/gadget/function/f_fs.c
-+++ b/drivers/usb/gadget/function/f_fs.c
-@@ -1703,7 +1703,7 @@ static void ffs_data_put(struct ffs_data
- 		pr_info("%s(): freeing\n", __func__);
- 		ffs_data_clear(ffs);
- 		BUG_ON(waitqueue_active(&ffs->ev.waitq) ||
--		       waitqueue_active(&ffs->ep0req_completion.wait) ||
-+		       swait_active(&ffs->ep0req_completion.wait) ||
- 		       waitqueue_active(&ffs->wait));
- 		destroy_workqueue(ffs->io_completion_wq);
- 		kfree(ffs->dev_name);
---- a/include/linux/completion.h
-+++ b/include/linux/completion.h
-@@ -9,7 +9,7 @@
-  * See kernel/sched/completion.c for details.
-  */
+diff --git a/arch/ia64/include/asm/uaccess.h b/arch/ia64/include/asm/uaccess.h
+index 89782ad3fb887..5c7e79eccaeed 100644
+--- a/arch/ia64/include/asm/uaccess.h
++++ b/arch/ia64/include/asm/uaccess.h
+@@ -35,7 +35,6 @@
  
--#include <linux/wait.h>
-+#include <linux/swait.h>
+ #include <linux/compiler.h>
+ #include <linux/page-flags.h>
+-#include <linux/mm.h>
  
- /*
-  * struct completion - structure used to maintain state for a "completion"
-@@ -25,7 +25,7 @@
-  */
- struct completion {
- 	unsigned int done;
--	wait_queue_head_t wait;
-+	struct swait_queue_head wait;
- };
- 
- #define init_completion_map(x, m) __init_completion(x)
-@@ -34,7 +34,7 @@ static inline void complete_acquire(stru
- static inline void complete_release(struct completion *x) {}
- 
- #define COMPLETION_INITIALIZER(work) \
--	{ 0, __WAIT_QUEUE_HEAD_INITIALIZER((work).wait) }
-+	{ 0, __SWAIT_QUEUE_HEAD_INITIALIZER((work).wait) }
- 
- #define COMPLETION_INITIALIZER_ONSTACK_MAP(work, map) \
- 	(*({ init_completion_map(&(work), &(map)); &(work); }))
-@@ -85,7 +85,7 @@ static inline void complete_release(stru
- static inline void __init_completion(struct completion *x)
- {
- 	x->done = 0;
--	init_waitqueue_head(&x->wait);
-+	init_swait_queue_head(&x->wait);
+ #include <asm/intrinsics.h>
+ #include <asm/pgtable.h>
+diff --git a/arch/ia64/kernel/process.c b/arch/ia64/kernel/process.c
+index 968b5f33e725e..743aaf5283278 100644
+--- a/arch/ia64/kernel/process.c
++++ b/arch/ia64/kernel/process.c
+@@ -681,3 +681,4 @@ machine_power_off (void)
+ 	machine_halt();
  }
  
- /**
---- a/kernel/sched/completion.c
-+++ b/kernel/sched/completion.c
-@@ -29,12 +29,12 @@ void complete(struct completion *x)
- {
- 	unsigned long flags;
- 
--	spin_lock_irqsave(&x->wait.lock, flags);
-+	raw_spin_lock_irqsave(&x->wait.lock, flags);
- 
- 	if (x->done != UINT_MAX)
- 		x->done++;
--	__wake_up_locked(&x->wait, TASK_NORMAL, 1);
--	spin_unlock_irqrestore(&x->wait.lock, flags);
-+	swake_up_locked(&x->wait);
-+	raw_spin_unlock_irqrestore(&x->wait.lock, flags);
- }
- EXPORT_SYMBOL(complete);
- 
-@@ -58,10 +58,12 @@ void complete_all(struct completion *x)
- {
- 	unsigned long flags;
- 
--	spin_lock_irqsave(&x->wait.lock, flags);
-+	WARN_ON(irqs_disabled());
-+
-+	raw_spin_lock_irqsave(&x->wait.lock, flags);
- 	x->done = UINT_MAX;
--	__wake_up_locked(&x->wait, TASK_NORMAL, 0);
--	spin_unlock_irqrestore(&x->wait.lock, flags);
-+	swake_up_all_locked(&x->wait);
-+	raw_spin_unlock_irqrestore(&x->wait.lock, flags);
- }
- EXPORT_SYMBOL(complete_all);
- 
-@@ -70,20 +72,20 @@ do_wait_for_common(struct completion *x,
- 		   long (*action)(long), long timeout, int state)
- {
- 	if (!x->done) {
--		DECLARE_WAITQUEUE(wait, current);
-+		DECLARE_SWAITQUEUE(wait);
- 
--		__add_wait_queue_entry_tail_exclusive(&x->wait, &wait);
- 		do {
- 			if (signal_pending_state(state, current)) {
- 				timeout = -ERESTARTSYS;
- 				break;
- 			}
-+			__prepare_to_swait(&x->wait, &wait);
- 			__set_current_state(state);
--			spin_unlock_irq(&x->wait.lock);
-+			raw_spin_unlock_irq(&x->wait.lock);
- 			timeout = action(timeout);
--			spin_lock_irq(&x->wait.lock);
-+			raw_spin_lock_irq(&x->wait.lock);
- 		} while (!x->done && timeout);
--		__remove_wait_queue(&x->wait, &wait);
-+		__finish_swait(&x->wait, &wait);
- 		if (!x->done)
- 			return timeout;
- 	}
-@@ -100,9 +102,9 @@ static inline long __sched
- 
- 	complete_acquire(x);
- 
--	spin_lock_irq(&x->wait.lock);
-+	raw_spin_lock_irq(&x->wait.lock);
- 	timeout = do_wait_for_common(x, action, timeout, state);
--	spin_unlock_irq(&x->wait.lock);
-+	raw_spin_unlock_irq(&x->wait.lock);
- 
- 	complete_release(x);
- 
-@@ -291,12 +293,12 @@ bool try_wait_for_completion(struct comp
- 	if (!READ_ONCE(x->done))
- 		return false;
- 
--	spin_lock_irqsave(&x->wait.lock, flags);
-+	raw_spin_lock_irqsave(&x->wait.lock, flags);
- 	if (!x->done)
- 		ret = false;
- 	else if (x->done != UINT_MAX)
- 		x->done--;
--	spin_unlock_irqrestore(&x->wait.lock, flags);
-+	raw_spin_unlock_irqrestore(&x->wait.lock, flags);
- 	return ret;
- }
- EXPORT_SYMBOL(try_wait_for_completion);
-@@ -322,8 +324,8 @@ bool completion_done(struct completion *
- 	 * otherwise we can end up freeing the completion before complete()
- 	 * is done referencing it.
- 	 */
--	spin_lock_irqsave(&x->wait.lock, flags);
--	spin_unlock_irqrestore(&x->wait.lock, flags);
-+	raw_spin_lock_irqsave(&x->wait.lock, flags);
-+	raw_spin_unlock_irqrestore(&x->wait.lock, flags);
- 	return true;
- }
- EXPORT_SYMBOL(completion_done);
++EXPORT_SYMBOL(ia64_delay_loop);
+diff --git a/arch/ia64/mm/ioremap.c b/arch/ia64/mm/ioremap.c
+index a09cfa0645369..55fd3eb753ff9 100644
+--- a/arch/ia64/mm/ioremap.c
++++ b/arch/ia64/mm/ioremap.c
+@@ -8,6 +8,7 @@
+ #include <linux/module.h>
+ #include <linux/efi.h>
+ #include <linux/io.h>
++#include <linux/mm.h>
+ #include <linux/vmalloc.h>
+ #include <asm/io.h>
+ #include <asm/meminit.h>
+-- 
+2.26.0.rc2
 
