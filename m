@@ -1,223 +1,128 @@
-From: afzal mohammed <afzal.mohd.ma@gmail.com>
-Date: Wed, 04 Mar 2020 00:50:10 +0000
-Subject: [PATCH v3] ia64: replace setup_irq() by request_irq()
-Message-Id: <20200304004936.4955-1-afzal.mohd.ma@gmail.com>
+From: Thomas Gleixner <tglx@linutronix.de>
+Date: Sat, 21 Mar 2020 11:25:46 +0000
+Subject: [patch V3 02/20] pci/switchtec: Replace completion wait queue usage for poll
+Message-Id: <20200321113240.936097534@linutronix.de>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20200321112544.878032781@linutronix.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
-Cc: afzal mohammed <afzal.mohd.ma@gmail.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+To: LKML <linux-kernel@vger.kernel.org>
+Cc: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@kernel.org>, Sebastian Siewior <bigeasy@linutronix.de>, Linus Torvalds <torvalds@linux-foundation.org>, Joel Fernandes <joel@joelfernandes.org>, Oleg Nesterov <oleg@redhat.com>, Davidlohr Bueso <dave@stgolabs.net>, Logan Gunthorpe <logang@deltatee.com>, Bjorn Helgaas <bhelgaas@google.com>, Kurt Schwemmer <kurt.schwemmer@microsemi.com>, linux-pci@vger.kernel.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Felipe Balbi <balbi@kernel.org>, linux-usb@vger.kernel.org, Kalle Valo <kvalo@codeaurora.org>, "David S. Miller" <davem@davemloft.net>, linux-wireless@vger.kernel.org, netdev@vger.kernel.org, Darren Hart <dvhart@infradead.org>, Andy Shevchenko <andy@infradead.org>, platform-driver-x86@vger.kernel.org, Zhang Rui <rui.zhang@intel.com>, "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>, linux-pm@vger.kernel.org, Len Brown <lenb@kernel.org>, linux-acpi@vger.kernel.org, kbuild test robot <lkp@intel.com>, Nick Hu <nickhu@andestech.com>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, Guo Ren <guoren@kernel.org>, linux-csky@vger.kernel.org, Brian Cain <bcain@codeaurora.org>, linux-hexagon@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, Michal Simek <monstr@monstr.eu>, Michael Ellerman <mpe@ellerman.id.au>, Arnd Bergmann <arnd@arndb.de>, Geoff Levand <geoff@infradead.org>, linuxppc-dev@lists.ozlabs.org, "Paul E . McKenney" <paulmck@kernel.org>, Jonathan Corbet <corbet@lwn.net>, Randy Dunlap <rdunlap@infradead.org>, Davidlohr Bueso <dbueso@suse.de>
 
-request_irq() is preferred over setup_irq(). Invocations of setup_irq()
-occur after memory allocators are ready.
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
-Per tglx[1], setup_irq() existed in olden days when allocators were not
-ready by the time early interrupts were initialized.
+The poll callback is using the completion wait queue and sticks it into
+poll_wait() to wake up pollers after a command has completed.
 
-Hence replace setup_irq() by request_irq().
+This works to some extent, but cannot provide EPOLLEXCLUSIVE support
+because the waker side uses complete_all() which unconditionally wakes up
+all waiters. complete_all() is required because completions internally use
+exclusive wait and complete() only wakes up one waiter by default.
 
-[1] https://lkml.kernel.org/r/alpine.DEB.2.20.1710191609480.1971@nanos
+This mixes conceptually different mechanisms and relies on internal
+implementation details of completions, which in turn puts contraints on
+changing the internal implementation of completions.
 
-Signed-off-by: afzal mohammed <afzal.mohd.ma@gmail.com>
+Replace it with a regular wait queue and store the state in struct
+switchtec_user.
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Reviewed-by: Logan Gunthorpe <logang@deltatee.com>
+Acked-by: Peter Zijlstra (Intel) <peterz@infradead.org>
+Acked-by: Bjorn Helgaas <bhelgaas@google.com>
+Cc: Kurt Schwemmer <kurt.schwemmer@microsemi.com>
+Cc: linux-pci@vger.kernel.org
 ---
-Hi ia64 maintainers,
+V2: Reworded changelog.
+---
+ drivers/pci/switch/switchtec.c |   22 +++++++++++++---------
+ 1 file changed, 13 insertions(+), 9 deletions(-)
 
-if okay w/ this change, please consider taking it thr' your tree, else please
-let me know.
+--- a/drivers/pci/switch/switchtec.c
++++ b/drivers/pci/switch/switchtec.c
+@@ -52,10 +52,11 @@ struct switchtec_user {
+ 
+ 	enum mrpc_state state;
+ 
+-	struct completion comp;
++	wait_queue_head_t cmd_comp;
+ 	struct kref kref;
+ 	struct list_head list;
+ 
++	bool cmd_done;
+ 	u32 cmd;
+ 	u32 status;
+ 	u32 return_code;
+@@ -77,7 +78,7 @@ static struct switchtec_user *stuser_cre
+ 	stuser->stdev = stdev;
+ 	kref_init(&stuser->kref);
+ 	INIT_LIST_HEAD(&stuser->list);
+-	init_completion(&stuser->comp);
++	init_waitqueue_head(&stuser->cmd_comp);
+ 	stuser->event_cnt = atomic_read(&stdev->event_cnt);
+ 
+ 	dev_dbg(&stdev->dev, "%s: %p\n", __func__, stuser);
+@@ -175,7 +176,7 @@ static int mrpc_queue_cmd(struct switcht
+ 	kref_get(&stuser->kref);
+ 	stuser->read_len = sizeof(stuser->data);
+ 	stuser_set_state(stuser, MRPC_QUEUED);
+-	reinit_completion(&stuser->comp);
++	stuser->cmd_done = false;
+ 	list_add_tail(&stuser->list, &stdev->mrpc_queue);
+ 
+ 	mrpc_cmd_submit(stdev);
+@@ -222,7 +223,8 @@ static void mrpc_complete_cmd(struct swi
+ 		memcpy_fromio(stuser->data, &stdev->mmio_mrpc->output_data,
+ 			      stuser->read_len);
+ out:
+-	complete_all(&stuser->comp);
++	stuser->cmd_done = true;
++	wake_up_interruptible(&stuser->cmd_comp);
+ 	list_del_init(&stuser->list);
+ 	stuser_put(stuser);
+ 	stdev->mrpc_busy = 0;
+@@ -529,10 +531,11 @@ static ssize_t switchtec_dev_read(struct
+ 	mutex_unlock(&stdev->mrpc_mutex);
+ 
+ 	if (filp->f_flags & O_NONBLOCK) {
+-		if (!try_wait_for_completion(&stuser->comp))
++		if (!stuser->cmd_done)
+ 			return -EAGAIN;
+ 	} else {
+-		rc = wait_for_completion_interruptible(&stuser->comp);
++		rc = wait_event_interruptible(stuser->cmd_comp,
++					      stuser->cmd_done);
+ 		if (rc < 0)
+ 			return rc;
+ 	}
+@@ -580,7 +583,7 @@ static __poll_t switchtec_dev_poll(struc
+ 	struct switchtec_dev *stdev = stuser->stdev;
+ 	__poll_t ret = 0;
+ 
+-	poll_wait(filp, &stuser->comp.wait, wait);
++	poll_wait(filp, &stuser->cmd_comp, wait);
+ 	poll_wait(filp, &stdev->event_wq, wait);
+ 
+ 	if (lock_mutex_and_test_alive(stdev))
+@@ -588,7 +591,7 @@ static __poll_t switchtec_dev_poll(struc
+ 
+ 	mutex_unlock(&stdev->mrpc_mutex);
+ 
+-	if (try_wait_for_completion(&stuser->comp))
++	if (stuser->cmd_done)
+ 		ret |= EPOLLIN | EPOLLRDNORM;
+ 
+ 	if (stuser->event_cnt != atomic_read(&stdev->event_cnt))
+@@ -1272,7 +1275,8 @@ static void stdev_kill(struct switchtec_
+ 
+ 	/* Wake up and kill any users waiting on an MRPC request */
+ 	list_for_each_entry_safe(stuser, tmpuser, &stdev->mrpc_queue, list) {
+-		complete_all(&stuser->comp);
++		stuser->cmd_done = true;
++		wake_up_interruptible(&stuser->cmd_comp);
+ 		list_del_init(&stuser->list);
+ 		stuser_put(stuser);
+ 	}
 
-Regards
-afzal
-
-Link to v2 & v1,
-[v2] https://lkml.kernel.org/r/cover.1582471508.git.afzal.mohd.ma@gmail.com
-[v1] https://lkml.kernel.org/r/cover.1581478323.git.afzal.mohd.ma@gmail.com
-
-v3:
- * Split out from tree wide series, as Thomas suggested to get it thr'
-	respective maintainers
- * Modify pr_err displayed in case of error
- * Re-arrange code & choose pr_err args as required to improve readability
- * Remove irrelevant parts from commit message & improve
- 
-v2:
- * Replace pr_err("request_irq() on %s failed" by
-           pr_err("%s: request_irq() failed"
- * Commit message massage
-
- arch/ia64/kernel/irq_ia64.c | 42 +++++++++++--------------------
- arch/ia64/kernel/mca.c      | 49 ++++++++++---------------------------
- 2 files changed, 27 insertions(+), 64 deletions(-)
-
-diff --git a/arch/ia64/kernel/irq_ia64.c b/arch/ia64/kernel/irq_ia64.c
-index 8e91c86e8072..8bde6e350acb 100644
---- a/arch/ia64/kernel/irq_ia64.c
-+++ b/arch/ia64/kernel/irq_ia64.c
-@@ -351,11 +351,6 @@ static irqreturn_t smp_irq_move_cleanup_interrupt(int irq, void *dev_id)
- 	return IRQ_HANDLED;
- }
- 
--static struct irqaction irq_move_irqaction = {
--	.handler =	smp_irq_move_cleanup_interrupt,
--	.name =		"irq_move"
--};
--
- static int __init parse_vector_domain(char *arg)
- {
- 	if (!arg)
-@@ -586,28 +581,15 @@ static irqreturn_t dummy_handler (int irq, void *dev_id)
- 	return IRQ_NONE;
- }
- 
--static struct irqaction ipi_irqaction = {
--	.handler =	handle_IPI,
--	.name =		"IPI"
--};
--
- /*
-  * KVM uses this interrupt to force a cpu out of guest mode
-  */
--static struct irqaction resched_irqaction = {
--	.handler =	dummy_handler,
--	.name =		"resched"
--};
--
--static struct irqaction tlb_irqaction = {
--	.handler =	dummy_handler,
--	.name =		"tlb_flush"
--};
- 
- #endif
- 
- void
--ia64_native_register_percpu_irq (ia64_vector vec, struct irqaction *action)
-+ia64_native_register_percpu_irq(ia64_vector vec, const char *name,
-+				irq_handler_t handler)
- {
- 	unsigned int irq;
- 
-@@ -615,8 +597,9 @@ ia64_native_register_percpu_irq (ia64_vector vec, struct irqaction *action)
- 	BUG_ON(bind_irq_vector(irq, vec, CPU_MASK_ALL));
- 	irq_set_status_flags(irq, IRQ_PER_CPU);
- 	irq_set_chip(irq, &irq_type_ia64_lsapic);
--	if (action)
--		setup_irq(irq, action);
-+	if (handler)
-+		if (request_irq(irq, handler, 0, name, NULL))
-+			pr_err("Failed to request irq %u (%s)\n", irq, name);
- 	irq_set_handler(irq, handle_percpu_irq);
- }
- 
-@@ -624,9 +607,10 @@ void __init
- ia64_native_register_ipi(void)
- {
- #ifdef CONFIG_SMP
--	register_percpu_irq(IA64_IPI_VECTOR, &ipi_irqaction);
--	register_percpu_irq(IA64_IPI_RESCHEDULE, &resched_irqaction);
--	register_percpu_irq(IA64_IPI_LOCAL_TLB_FLUSH, &tlb_irqaction);
-+	register_percpu_irq(IA64_IPI_VECTOR, "IPI", handle_IPI);
-+	register_percpu_irq(IA64_IPI_RESCHEDULE, "resched", dummy_handler);
-+	register_percpu_irq(IA64_IPI_LOCAL_TLB_FLUSH, "tlb_flush",
-+			    dummy_handler);
- #endif
- }
- 
-@@ -635,10 +619,12 @@ init_IRQ (void)
- {
- 	acpi_boot_init();
- 	ia64_register_ipi();
--	register_percpu_irq(IA64_SPURIOUS_INT_VECTOR, NULL);
-+	register_percpu_irq(IA64_SPURIOUS_INT_VECTOR, NULL, NULL);
- #ifdef CONFIG_SMP
--	if (vector_domain_type != VECTOR_DOMAIN_NONE)
--		register_percpu_irq(IA64_IRQ_MOVE_VECTOR, &irq_move_irqaction);
-+	if (vector_domain_type != VECTOR_DOMAIN_NONE) {
-+		register_percpu_irq(IA64_IRQ_MOVE_VECTOR, "irq_move",
-+				    smp_irq_move_cleanup_interrupt);
-+	}
- #endif
- #ifdef CONFIG_PERFMON
- 	pfm_init_percpu();
-diff --git a/arch/ia64/kernel/mca.c b/arch/ia64/kernel/mca.c
-index bf2cb9294795..fc74b0251570 100644
---- a/arch/ia64/kernel/mca.c
-+++ b/arch/ia64/kernel/mca.c
-@@ -1766,36 +1766,6 @@ ia64_mca_disable_cpe_polling(char *str)
- 
- __setup("disable_cpe_poll", ia64_mca_disable_cpe_polling);
- 
--static struct irqaction cmci_irqaction = {
--	.handler =	ia64_mca_cmc_int_handler,
--	.name =		"cmc_hndlr"
--};
--
--static struct irqaction cmcp_irqaction = {
--	.handler =	ia64_mca_cmc_int_caller,
--	.name =		"cmc_poll"
--};
--
--static struct irqaction mca_rdzv_irqaction = {
--	.handler =	ia64_mca_rendez_int_handler,
--	.name =		"mca_rdzv"
--};
--
--static struct irqaction mca_wkup_irqaction = {
--	.handler =	ia64_mca_wakeup_int_handler,
--	.name =		"mca_wkup"
--};
--
--static struct irqaction mca_cpe_irqaction = {
--	.handler =	ia64_mca_cpe_int_handler,
--	.name =		"cpe_hndlr"
--};
--
--static struct irqaction mca_cpep_irqaction = {
--	.handler =	ia64_mca_cpe_int_caller,
--	.name =		"cpe_poll"
--};
--
- /* Minimal format of the MCA/INIT stacks.  The pseudo processes that run on
-  * these stacks can never sleep, they cannot return from the kernel to user
-  * space, they do not appear in a normal ps listing.  So there is no need to
-@@ -2056,18 +2026,23 @@ void __init ia64_mca_irq_init(void)
- 	 *  Configure the CMCI/P vector and handler. Interrupts for CMC are
- 	 *  per-processor, so AP CMC interrupts are setup in smp_callin() (smpboot.c).
- 	 */
--	register_percpu_irq(IA64_CMC_VECTOR, &cmci_irqaction);
--	register_percpu_irq(IA64_CMCP_VECTOR, &cmcp_irqaction);
-+	register_percpu_irq(IA64_CMC_VECTOR, "cmc_hndlr",
-+			    ia64_mca_cmc_int_handler);
-+	register_percpu_irq(IA64_CMCP_VECTOR, "cmc_poll",
-+			    ia64_mca_cmc_int_caller);
- 	ia64_mca_cmc_vector_setup();       /* Setup vector on BSP */
- 
- 	/* Setup the MCA rendezvous interrupt vector */
--	register_percpu_irq(IA64_MCA_RENDEZ_VECTOR, &mca_rdzv_irqaction);
-+	register_percpu_irq(IA64_MCA_RENDEZ_VECTOR, "mca_rdzv",
-+			    ia64_mca_rendez_int_handler);
- 
- 	/* Setup the MCA wakeup interrupt vector */
--	register_percpu_irq(IA64_MCA_WAKEUP_VECTOR, &mca_wkup_irqaction);
-+	register_percpu_irq(IA64_MCA_WAKEUP_VECTOR, "mca_wkup",
-+			    ia64_mca_wakeup_int_handler);
- 
- 	/* Setup the CPEI/P handler */
--	register_percpu_irq(IA64_CPEP_VECTOR, &mca_cpep_irqaction);
-+	register_percpu_irq(IA64_CPEP_VECTOR, "cpe_poll",
-+			    ia64_mca_cpe_int_caller);
- }
- 
- /*
-@@ -2108,7 +2083,9 @@ ia64_mca_late_init(void)
- 			if (irq > 0) {
- 				cpe_poll_enabled = 0;
- 				irq_set_status_flags(irq, IRQ_PER_CPU);
--				setup_irq(irq, &mca_cpe_irqaction);
-+				if (request_irq(irq, ia64_mca_cpe_int_handler,
-+						0, "cpe_hndlr", NULL))
-+					pr_err("Failed to register cpe_hndlr interrupt\n");
- 				ia64_cpe_irq = irq;
- 				ia64_mca_register_cpev(cpe_vector);
- 				IA64_MCA_DEBUG("%s: CPEI/P setup and enabled.\n",
--- 
-2.25.1
