@@ -1,78 +1,104 @@
 From: Thomas Gleixner <tglx@linutronix.de>
-Date: Sat, 21 Mar 2020 11:25:49 +0000
-Subject: [patch V3 05/20] acpi: Remove header dependency
-Message-Id: <20200321113241.246190285@linutronix.de>
+Date: Sat, 21 Mar 2020 11:26:03 +0000
+Subject: [patch V3 19/20] lockdep: Annotate irq_work
+Message-Id: <20200321113242.643576700@linutronix.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20200321112544.878032781@linutronix.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: LKML <linux-kernel@vger.kernel.org>
-Cc: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@kernel.org>, Sebastian Siewior <bigeasy@linutronix.de>, Linus Torvalds <torvalds@linux-foundation.org>, Joel Fernandes <joel@joelfernandes.org>, Oleg Nesterov <oleg@redhat.com>, Davidlohr Bueso <dave@stgolabs.net>, Darren Hart <dvhart@infradead.org>, Andy Shevchenko <andy@infradead.org>, platform-driver-x86@vger.kernel.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Zhang Rui <rui.zhang@intel.com>, "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>, linux-pm@vger.kernel.org, Len Brown <lenb@kernel.org>, linux-acpi@vger.kernel.org, Logan Gunthorpe <logang@deltatee.com>, Bjorn Helgaas <bhelgaas@google.com>, Kurt Schwemmer <kurt.schwemmer@microsemi.com>, linux-pci@vger.kernel.org, Felipe Balbi <balbi@kernel.org>, linux-usb@vger.kernel.org, Kalle Valo <kvalo@codeaurora.org>, "David S. Miller" <davem@davemloft.net>, linux-wireless@vger.kernel.org, netdev@vger.kernel.org, kbuild test robot <lkp@intel.com>, Nick Hu <nickhu@andestech.com>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, Guo Ren <guoren@kernel.org>, linux-csky@vger.kernel.org, Brian Cain <bcain@codeaurora.org>, linux-hexagon@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, Michal Simek <monstr@monstr.eu>, Michael Ellerman <mpe@ellerman.id.au>, Arnd Bergmann <arnd@arndb.de>, Geoff Levand <geoff@infradead.org>, linuxppc-dev@lists.ozlabs.org, "Paul E . McKenney" <paulmck@kernel.org>, Jonathan Corbet <corbet@lwn.net>, Randy Dunlap <rdunlap@infradead.org>, Davidlohr Bueso <dbueso@suse.de>
+Cc: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@kernel.org>, Sebastian Siewior <bigeasy@linutronix.de>, Linus Torvalds <torvalds@linux-foundation.org>, Joel Fernandes <joel@joelfernandes.org>, Oleg Nesterov <oleg@redhat.com>, Davidlohr Bueso <dave@stgolabs.net>, Logan Gunthorpe <logang@deltatee.com>, Bjorn Helgaas <bhelgaas@google.com>, Kurt Schwemmer <kurt.schwemmer@microsemi.com>, linux-pci@vger.kernel.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Felipe Balbi <balbi@kernel.org>, linux-usb@vger.kernel.org, Kalle Valo <kvalo@codeaurora.org>, "David S. Miller" <davem@davemloft.net>, linux-wireless@vger.kernel.org, netdev@vger.kernel.org, Darren Hart <dvhart@infradead.org>, Andy Shevchenko <andy@infradead.org>, platform-driver-x86@vger.kernel.org, Zhang Rui <rui.zhang@intel.com>, "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>, linux-pm@vger.kernel.org, Len Brown <lenb@kernel.org>, linux-acpi@vger.kernel.org, kbuild test robot <lkp@intel.com>, Nick Hu <nickhu@andestech.com>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, Guo Ren <guoren@kernel.org>, linux-csky@vger.kernel.org, Brian Cain <bcain@codeaurora.org>, linux-hexagon@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, Michal Simek <monstr@monstr.eu>, Michael Ellerman <mpe@ellerman.id.au>, Arnd Bergmann <arnd@arndb.de>, Geoff Levand <geoff@infradead.org>, linuxppc-dev@lists.ozlabs.org, "Paul E . McKenney" <paulmck@kernel.org>, Jonathan Corbet <corbet@lwn.net>, Randy Dunlap <rdunlap@infradead.org>, Davidlohr Bueso <dbueso@suse.de>
 
-From: Peter Zijlstra <peterz@infradead.org>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
-In order to avoid future header hell, remove the inclusion of
-proc_fs.h from acpi_bus.h. All it needs is a forward declaration of a
-struct.
+Mark irq_work items with IRQ_WORK_HARD_IRQ which should be invoked in
+hardirq context even on PREEMPT_RT. IRQ_WORK without this flag will be
+invoked in softirq context on PREEMPT_RT.
 
-Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
+Set ->irq_config to 1 for the IRQ_WORK items which are invoked in softirq
+context so lockdep knows that these can safely acquire a spinlock_t.
+
+Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
-Cc: Darren Hart <dvhart@infradead.org>
-Cc: Andy Shevchenko <andy@infradead.org>
-Cc: platform-driver-x86@vger.kernel.org
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: Zhang Rui <rui.zhang@intel.com>
-Cc: "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>
-Cc: linux-pm@vger.kernel.org
-Cc: Len Brown <lenb@kernel.org>
-Cc: linux-acpi@vger.kernel.org
 ---
- drivers/platform/x86/dell-smo8800.c                      |    1 +
- drivers/platform/x86/wmi.c                               |    1 +
- drivers/thermal/intel/int340x_thermal/acpi_thermal_rel.c |    1 +
- include/acpi/acpi_bus.h                                  |    2 +-
- 4 files changed, 4 insertions(+), 1 deletion(-)
+ include/linux/irq_work.h |    2 ++
+ include/linux/irqflags.h |   13 +++++++++++++
+ kernel/irq_work.c        |    2 ++
+ kernel/rcu/tree.c        |    1 +
+ kernel/time/tick-sched.c |    1 +
+ 5 files changed, 19 insertions(+)
 
---- a/drivers/platform/x86/dell-smo8800.c
-+++ b/drivers/platform/x86/dell-smo8800.c
-@@ -16,6 +16,7 @@
- #include <linux/interrupt.h>
- #include <linux/miscdevice.h>
- #include <linux/uaccess.h>
-+#include <linux/fs.h>
+--- a/include/linux/irq_work.h
++++ b/include/linux/irq_work.h
+@@ -18,6 +18,8 @@
  
- struct smo8800_device {
- 	u32 irq;                     /* acpi device irq */
---- a/drivers/platform/x86/wmi.c
-+++ b/drivers/platform/x86/wmi.c
-@@ -29,6 +29,7 @@
- #include <linux/uaccess.h>
- #include <linux/uuid.h>
- #include <linux/wmi.h>
-+#include <linux/fs.h>
- #include <uapi/linux/wmi.h>
+ /* Doesn't want IPI, wait for tick: */
+ #define IRQ_WORK_LAZY		BIT(2)
++/* Run hard IRQ context, even on RT */
++#define IRQ_WORK_HARD_IRQ	BIT(3)
  
- ACPI_MODULE_NAME("wmi");
---- a/drivers/thermal/intel/int340x_thermal/acpi_thermal_rel.c
-+++ b/drivers/thermal/intel/int340x_thermal/acpi_thermal_rel.c
-@@ -19,6 +19,7 @@
- #include <linux/acpi.h>
- #include <linux/uaccess.h>
- #include <linux/miscdevice.h>
-+#include <linux/fs.h>
- #include "acpi_thermal_rel.h"
+ #define IRQ_WORK_CLAIMED	(IRQ_WORK_PENDING | IRQ_WORK_BUSY)
  
- static acpi_handle acpi_thermal_rel_handle;
---- a/include/acpi/acpi_bus.h
-+++ b/include/acpi/acpi_bus.h
-@@ -80,7 +80,7 @@ bool acpi_dev_present(const char *hid, c
+--- a/include/linux/irqflags.h
++++ b/include/linux/irqflags.h
+@@ -69,6 +69,17 @@ do {						\
+ 			current->irq_config = 0;	\
+ 	  } while (0)
  
- #ifdef CONFIG_ACPI
++# define lockdep_irq_work_enter(__work)					\
++	  do {								\
++		  if (!(atomic_read(&__work->flags) & IRQ_WORK_HARD_IRQ))\
++			current->irq_config = 1;			\
++	  } while (0)
++# define lockdep_irq_work_exit(__work)					\
++	  do {								\
++		  if (!(atomic_read(&__work->flags) & IRQ_WORK_HARD_IRQ))\
++			current->irq_config = 0;			\
++	  } while (0)
++
+ #else
+ # define trace_hardirqs_on()		do { } while (0)
+ # define trace_hardirqs_off()		do { } while (0)
+@@ -83,6 +94,8 @@ do {						\
+ # define lockdep_softirq_exit()		do { } while (0)
+ # define lockdep_hrtimer_enter(__hrtimer)		do { } while (0)
+ # define lockdep_hrtimer_exit(__hrtimer)		do { } while (0)
++# define lockdep_irq_work_enter(__work)		do { } while (0)
++# define lockdep_irq_work_exit(__work)		do { } while (0)
+ #endif
  
--#include <linux/proc_fs.h>
-+struct proc_dir_entry;
+ #if defined(CONFIG_IRQSOFF_TRACER) || \
+--- a/kernel/irq_work.c
++++ b/kernel/irq_work.c
+@@ -153,7 +153,9 @@ static void irq_work_run_list(struct lli
+ 		 */
+ 		flags = atomic_fetch_andnot(IRQ_WORK_PENDING, &work->flags);
  
- #define ACPI_BUS_FILE_ROOT	"acpi"
- extern struct proc_dir_entry *acpi_root_dir;
++		lockdep_irq_work_enter(work);
+ 		work->func(work);
++		lockdep_irq_work_exit(work);
+ 		/*
+ 		 * Clear the BUSY bit and return to the free state if
+ 		 * no-one else claimed it meanwhile.
+--- a/kernel/rcu/tree.c
++++ b/kernel/rcu/tree.c
+@@ -1113,6 +1113,7 @@ static int rcu_implicit_dynticks_qs(stru
+ 		    !rdp->rcu_iw_pending && rdp->rcu_iw_gp_seq != rnp->gp_seq &&
+ 		    (rnp->ffmask & rdp->grpmask)) {
+ 			init_irq_work(&rdp->rcu_iw, rcu_iw_handler);
++			atomic_set(&rdp->rcu_iw.flags, IRQ_WORK_HARD_IRQ);
+ 			rdp->rcu_iw_pending = true;
+ 			rdp->rcu_iw_gp_seq = rnp->gp_seq;
+ 			irq_work_queue_on(&rdp->rcu_iw, rdp->cpu);
+--- a/kernel/time/tick-sched.c
++++ b/kernel/time/tick-sched.c
+@@ -245,6 +245,7 @@ static void nohz_full_kick_func(struct i
+ 
+ static DEFINE_PER_CPU(struct irq_work, nohz_full_kick_work) = {
+ 	.func = nohz_full_kick_func,
++	.flags = ATOMIC_INIT(IRQ_WORK_HARD_IRQ),
+ };
+ 
+ /*
 
