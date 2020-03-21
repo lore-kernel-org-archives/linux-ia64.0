@@ -1,227 +1,179 @@
-From: Logan Gunthorpe <logang@deltatee.com>
-Date: Fri, 06 Mar 2020 17:08:45 +0000
-Subject: [PATCH v4 6/7] mm/memory_hotplug: Add pgprot_t to mhp_params
-Message-Id: <20200306170846.9333-7-logang@deltatee.com>
+From: Thomas Gleixner <tglx@linutronix.de>
+Date: Sat, 21 Mar 2020 11:25:58 +0000
+Subject: [patch V3 14/20] timekeeping: Split jiffies seqlock
+Message-Id: <20200321113242.120587764@linutronix.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200306170846.9333-1-logang@deltatee.com>
-In-Reply-To: <20200306170846.9333-1-logang@deltatee.com>
+References: <20200321112544.878032781@linutronix.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, platform-driver-x86@vger.kernel.org, linux-mm@kvack.org, Dan Williams <dan.j.williams@intel.com>, Michal Hocko <mhocko@kernel.org>, David Hildenbrand <david@redhat.com>, Andrew Morton <akpm@linux-foundation.org>
-Cc: Eric Badger <ebadger@gigaio.com>, Peter Zijlstra <peterz@infradead.org>, Catalin Marinas <catalin.marinas@arm.com>, Dave Hansen <dave.hansen@linux.intel.com>, Michal Hocko <mhocko@suse.com>, Logan Gunthorpe <logang@deltatee.com>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Andy Lutomirski <luto@kernel.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Thomas Gleixner <tglx@linutronix.de>, Will Deacon <will@kernel.org>, Christoph Hellwig <hch@lst.de>
+To: LKML <linux-kernel@vger.kernel.org>
+Cc: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@kernel.org>, Sebastian Siewior <bigeasy@linutronix.de>, Linus Torvalds <torvalds@linux-foundation.org>, Joel Fernandes <joel@joelfernandes.org>, Oleg Nesterov <oleg@redhat.com>, Davidlohr Bueso <dave@stgolabs.net>, Logan Gunthorpe <logang@deltatee.com>, Bjorn Helgaas <bhelgaas@google.com>, Kurt Schwemmer <kurt.schwemmer@microsemi.com>, linux-pci@vger.kernel.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Felipe Balbi <balbi@kernel.org>, linux-usb@vger.kernel.org, Kalle Valo <kvalo@codeaurora.org>, "David S. Miller" <davem@davemloft.net>, linux-wireless@vger.kernel.org, netdev@vger.kernel.org, Darren Hart <dvhart@infradead.org>, Andy Shevchenko <andy@infradead.org>, platform-driver-x86@vger.kernel.org, Zhang Rui <rui.zhang@intel.com>, "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>, linux-pm@vger.kernel.org, Len Brown <lenb@kernel.org>, linux-acpi@vger.kernel.org, kbuild test robot <lkp@intel.com>, Nick Hu <nickhu@andestech.com>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, Guo Ren <guoren@kernel.org>, linux-csky@vger.kernel.org, Brian Cain <bcain@codeaurora.org>, linux-hexagon@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, Michal Simek <monstr@monstr.eu>, Michael Ellerman <mpe@ellerman.id.au>, Arnd Bergmann <arnd@arndb.de>, Geoff Levand <geoff@infradead.org>, linuxppc-dev@lists.ozlabs.org, "Paul E . McKenney" <paulmck@kernel.org>, Jonathan Corbet <corbet@lwn.net>, Randy Dunlap <rdunlap@infradead.org>, Davidlohr Bueso <dbueso@suse.de>
 
-devm_memremap_pages() is currently used by the PCI P2PDMA code to create
-struct page mappings for IO memory. At present, these mappings are created
-with PAGE_KERNEL which implies setting the PAT bits to be WB. However, on
-x86, an mtrr register will typically override this and force the cache
-type to be UC-. In the case firmware doesn't set this register it is
-effectively WB and will typically result in a machine check exception
-when it's accessed.
+From: Thomas Gleixner <tglx@linutronix.de>
 
-Other arches are not currently likely to function correctly seeing they
-don't have any MTRR registers to fall back on.
+seqlock consists of a sequence counter and a spinlock_t which is used to
+serialize the writers. spinlock_t is substituted by a "sleeping" spinlock
+on PREEMPT_RT enabled kernels which breaks the usage in the timekeeping
+code as the writers are executed in hard interrupt and therefore
+non-preemptible context even on PREEMPT_RT.
 
-To solve this, provide a way to specify the pgprot value explicitly to
-arch_add_memory().
+The spinlock in seqlock cannot be unconditionally replaced by a
+raw_spinlock_t as many seqlock users have nesting spinlock sections or
+other code which is not suitable to run in truly atomic context on RT.
 
-Of the arches that support MEMORY_HOTPLUG: x86_64, and arm64 need a simple
-change to pass the pgprot_t down to their respective functions which set
-up the page tables. For x86_32, set the page tables explicitly using
-_set_memory_prot() (seeing they are already mapped). For ia64, s390 and
-sh, reject anything but PAGE_KERNEL settings -- this should be fine,
-for now, seeing these architectures don't support ZONE_DEVICE.
+Instead of providing a raw_seqlock API for a single use case, open code the
+seqlock for the jiffies use case and implement it with a raw_spinlock_t and
+a sequence counter.
 
-A check in __add_pages() is also added to ensure the pgprot parameter was
-set for all arches.
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
 
-Signed-off-by: Logan Gunthorpe <logang@deltatee.com>
-Acked-by: David Hildenbrand <david@redhat.com>
-Acked-by: Michal Hocko <mhocko@suse.com>
-Acked-by: Dan Williams <dan.j.williams@intel.com>
 ---
- arch/arm64/mm/mmu.c            |  3 ++-
- arch/ia64/mm/init.c            |  3 +++
- arch/powerpc/mm/mem.c          |  3 ++-
- arch/s390/mm/init.c            |  3 +++
- arch/sh/mm/init.c              |  3 +++
- arch/x86/mm/init_32.c          | 12 ++++++++++++
- arch/x86/mm/init_64.c          |  2 +-
- include/linux/memory_hotplug.h |  3 +++
- mm/memory_hotplug.c            |  5 ++++-
- mm/memremap.c                  |  6 +++---
- 10 files changed, 36 insertions(+), 7 deletions(-)
+ kernel/time/jiffies.c     |    7 ++++---
+ kernel/time/tick-common.c |   10 ++++++----
+ kernel/time/tick-sched.c  |   19 ++++++++++++-------
+ kernel/time/timekeeping.c |    6 ++++--
+ kernel/time/timekeeping.h |    3 ++-
+ 5 files changed, 28 insertions(+), 17 deletions(-)
 
-diff --git a/arch/arm64/mm/mmu.c b/arch/arm64/mm/mmu.c
-index ee37bca8aba8..ea3fa844a8a2 100644
---- a/arch/arm64/mm/mmu.c
-+++ b/arch/arm64/mm/mmu.c
-@@ -1058,7 +1058,8 @@ int arch_add_memory(int nid, u64 start, u64 size,
- 		flags = NO_BLOCK_MAPPINGS | NO_CONT_MAPPINGS;
- 
- 	__create_pgd_mapping(swapper_pg_dir, start, __phys_to_virt(start),
--			     size, PAGE_KERNEL, __pgd_pgtable_alloc, flags);
-+			     size, params->pgprot, __pgd_pgtable_alloc,
-+			     flags);
- 
- 	memblock_clear_nomap(start, size);
- 
-diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
-index 97bbc23ea1e3..d637b4ea3147 100644
---- a/arch/ia64/mm/init.c
-+++ b/arch/ia64/mm/init.c
-@@ -676,6 +676,9 @@ int arch_add_memory(int nid, u64 start, u64 size,
- 	unsigned long nr_pages = size >> PAGE_SHIFT;
- 	int ret;
- 
-+	if (WARN_ON_ONCE(params->pgprot.pgprot != PAGE_KERNEL.pgprot))
-+		return -EINVAL;
-+
- 	ret = __add_pages(nid, start_pfn, nr_pages, params);
- 	if (ret)
- 		printk("%s: Problem encountered in __add_pages() as ret=%d\n",
-diff --git a/arch/powerpc/mm/mem.c b/arch/powerpc/mm/mem.c
-index 19b1da5d7eca..832412bc7fad 100644
---- a/arch/powerpc/mm/mem.c
-+++ b/arch/powerpc/mm/mem.c
-@@ -138,7 +138,8 @@ int __ref arch_add_memory(int nid, u64 start, u64 size,
- 	resize_hpt_for_hotplug(memblock_phys_mem_size());
- 
- 	start = (unsigned long)__va(start);
--	rc = create_section_mapping(start, start + size, nid, PAGE_KERNEL);
-+	rc = create_section_mapping(start, start + size, nid,
-+				    params->pgprot);
- 	if (rc) {
- 		pr_warn("Unable to create mapping for hot added memory 0x%llx..0x%llx: %d\n",
- 			start, start + size, rc);
-diff --git a/arch/s390/mm/init.c b/arch/s390/mm/init.c
-index e9e4a7abd0cc..87b2d024e75a 100644
---- a/arch/s390/mm/init.c
-+++ b/arch/s390/mm/init.c
-@@ -277,6 +277,9 @@ int arch_add_memory(int nid, u64 start, u64 size,
- 	if (WARN_ON_ONCE(params->altmap))
- 		return -EINVAL;
- 
-+	if (WARN_ON_ONCE(params->pgprot.pgprot != PAGE_KERNEL.pgprot))
-+		return -EINVAL;
-+
- 	rc = vmem_add_mapping(start, size);
- 	if (rc)
- 		return rc;
-diff --git a/arch/sh/mm/init.c b/arch/sh/mm/init.c
-index e5114c053364..b9de2d4fa57e 100644
---- a/arch/sh/mm/init.c
-+++ b/arch/sh/mm/init.c
-@@ -412,6 +412,9 @@ int arch_add_memory(int nid, u64 start, u64 size,
- 	unsigned long nr_pages = size >> PAGE_SHIFT;
- 	int ret;
- 
-+	if (WARN_ON_ONCE(params->pgprot.pgprot != PAGE_KERNEL.pgprot)
-+		return -EINVAL;
-+
- 	/* We only have ZONE_NORMAL, so this is easy.. */
- 	ret = __add_pages(nid, start_pfn, nr_pages, params);
- 	if (unlikely(ret))
-diff --git a/arch/x86/mm/init_32.c b/arch/x86/mm/init_32.c
-index e25a4218e6ff..69128f1a22ac 100644
---- a/arch/x86/mm/init_32.c
-+++ b/arch/x86/mm/init_32.c
-@@ -858,6 +858,18 @@ int arch_add_memory(int nid, u64 start, u64 size,
- {
- 	unsigned long start_pfn = start >> PAGE_SHIFT;
- 	unsigned long nr_pages = size >> PAGE_SHIFT;
-+	int ret;
-+
-+	/*
-+	 * The page tables were already mapped at boot so if the caller
-+	 * requests a different mapping type then we must change all the
-+	 * pages with __set_memory_prot().
-+	 */
-+	if (params->pgprot.pgprot != PAGE_KERNEL.pgprot) {
-+		ret = __set_memory_prot(start, nr_pages, params->pgprot);
-+		if (ret)
-+			return ret;
-+	}
- 
- 	return __add_pages(nid, start_pfn, nr_pages, params);
- }
-diff --git a/arch/x86/mm/init_64.c b/arch/x86/mm/init_64.c
-index 9e7692080dda..230240af38b4 100644
---- a/arch/x86/mm/init_64.c
-+++ b/arch/x86/mm/init_64.c
-@@ -868,7 +868,7 @@ int arch_add_memory(int nid, u64 start, u64 size,
- 	unsigned long start_pfn = start >> PAGE_SHIFT;
- 	unsigned long nr_pages = size >> PAGE_SHIFT;
- 
--	init_memory_mapping(start, start + size, PAGE_KERNEL);
-+	init_memory_mapping(start, start + size, params->pgprot);
- 
- 	return add_pages(nid, start_pfn, nr_pages, params);
- }
-diff --git a/include/linux/memory_hotplug.h b/include/linux/memory_hotplug.h
-index c5df1b3dada0..3195d11876ea 100644
---- a/include/linux/memory_hotplug.h
-+++ b/include/linux/memory_hotplug.h
-@@ -56,9 +56,12 @@ enum {
- /*
-  * Extended parameters for memory hotplug:
-  * altmap: alternative allocator for memmap array (optional)
-+ * pgprot: page protection flags to apply to newly created page tables
-+ *	(required)
-  */
- struct mhp_params {
- 	struct vmem_altmap *altmap;
-+	pgprot_t pgprot;
+--- a/kernel/time/jiffies.c
++++ b/kernel/time/jiffies.c
+@@ -58,7 +58,8 @@ static struct clocksource clocksource_ji
+ 	.max_cycles	= 10,
  };
  
- /*
-diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
-index c69469e1b40e..d7d4806ad81b 100644
---- a/mm/memory_hotplug.c
-+++ b/mm/memory_hotplug.c
-@@ -305,6 +305,9 @@ int __ref __add_pages(int nid, unsigned long pfn, unsigned long nr_pages,
- 	unsigned long nr, start_sec, end_sec;
- 	struct vmem_altmap *altmap = params->altmap;
+-__cacheline_aligned_in_smp DEFINE_SEQLOCK(jiffies_lock);
++__cacheline_aligned_in_smp DEFINE_RAW_SPINLOCK(jiffies_lock);
++__cacheline_aligned_in_smp seqcount_t jiffies_seq;
  
-+	if (WARN_ON_ONCE(!params->pgprot.pgprot))
-+		return -EINVAL;
-+
- 	err = check_hotplug_memory_addressable(pfn, nr_pages);
- 	if (err)
- 		return err;
-@@ -993,7 +996,7 @@ static int online_memory_block(struct memory_block *mem, void *arg)
-  */
- int __ref add_memory_resource(int nid, struct resource *res)
+ #if (BITS_PER_LONG < 64)
+ u64 get_jiffies_64(void)
+@@ -67,9 +68,9 @@ u64 get_jiffies_64(void)
+ 	u64 ret;
+ 
+ 	do {
+-		seq = read_seqbegin(&jiffies_lock);
++		seq = read_seqcount_begin(&jiffies_seq);
+ 		ret = jiffies_64;
+-	} while (read_seqretry(&jiffies_lock, seq));
++	} while (read_seqcount_retry(&jiffies_seq, seq));
+ 	return ret;
+ }
+ EXPORT_SYMBOL(get_jiffies_64);
+--- a/kernel/time/tick-common.c
++++ b/kernel/time/tick-common.c
+@@ -84,13 +84,15 @@ int tick_is_oneshot_available(void)
+ static void tick_periodic(int cpu)
  {
--	struct mhp_params params = {};
-+	struct mhp_params params = { .pgprot = PAGE_KERNEL };
- 	u64 start, size;
- 	bool new_node = false;
- 	int ret;
-diff --git a/mm/memremap.c b/mm/memremap.c
-index 6891a503a078..06742372a203 100644
---- a/mm/memremap.c
-+++ b/mm/memremap.c
-@@ -166,8 +166,8 @@ void *memremap_pages(struct dev_pagemap *pgmap, int nid)
- 		 * We do not want any optional features only our own memmap
- 		 */
- 		.altmap = pgmap_altmap(pgmap),
-+		.pgprot = PAGE_KERNEL,
- 	};
--	pgprot_t pgprot = PAGE_KERNEL;
- 	int error, is_ram;
- 	bool need_devmap_managed = true;
+ 	if (tick_do_timer_cpu = cpu) {
+-		write_seqlock(&jiffies_lock);
++		raw_spin_lock(&jiffies_lock);
++		write_seqcount_begin(&jiffies_seq);
  
-@@ -255,8 +255,8 @@ void *memremap_pages(struct dev_pagemap *pgmap, int nid)
- 	if (nid < 0)
- 		nid = numa_mem_id();
+ 		/* Keep track of the next tick event */
+ 		tick_next_period = ktime_add(tick_next_period, tick_period);
  
--	error = track_pfn_remap(NULL, &pgprot, PHYS_PFN(res->start), 0,
--			resource_size(res));
-+	error = track_pfn_remap(NULL, &params.pgprot, PHYS_PFN(res->start),
-+				0, resource_size(res));
- 	if (error)
- 		goto err_pfn_remap;
+ 		do_timer(1);
+-		write_sequnlock(&jiffies_lock);
++		write_seqcount_end(&jiffies_seq);
++		raw_spin_unlock(&jiffies_lock);
+ 		update_wall_time();
+ 	}
  
--- 
-2.20.1
+@@ -162,9 +164,9 @@ void tick_setup_periodic(struct clock_ev
+ 		ktime_t next;
+ 
+ 		do {
+-			seq = read_seqbegin(&jiffies_lock);
++			seq = read_seqcount_begin(&jiffies_seq);
+ 			next = tick_next_period;
+-		} while (read_seqretry(&jiffies_lock, seq));
++		} while (read_seqcount_retry(&jiffies_seq, seq));
+ 
+ 		clockevents_switch_state(dev, CLOCK_EVT_STATE_ONESHOT);
+ 
+--- a/kernel/time/tick-sched.c
++++ b/kernel/time/tick-sched.c
+@@ -65,7 +65,8 @@ static void tick_do_update_jiffies64(kti
+ 		return;
+ 
+ 	/* Reevaluate with jiffies_lock held */
+-	write_seqlock(&jiffies_lock);
++	raw_spin_lock(&jiffies_lock);
++	write_seqcount_begin(&jiffies_seq);
+ 
+ 	delta = ktime_sub(now, last_jiffies_update);
+ 	if (delta >= tick_period) {
+@@ -91,10 +92,12 @@ static void tick_do_update_jiffies64(kti
+ 		/* Keep the tick_next_period variable up to date */
+ 		tick_next_period = ktime_add(last_jiffies_update, tick_period);
+ 	} else {
+-		write_sequnlock(&jiffies_lock);
++		write_seqcount_end(&jiffies_seq);
++		raw_spin_unlock(&jiffies_lock);
+ 		return;
+ 	}
+-	write_sequnlock(&jiffies_lock);
++	write_seqcount_end(&jiffies_seq);
++	raw_spin_unlock(&jiffies_lock);
+ 	update_wall_time();
+ }
+ 
+@@ -105,12 +108,14 @@ static ktime_t tick_init_jiffy_update(vo
+ {
+ 	ktime_t period;
+ 
+-	write_seqlock(&jiffies_lock);
++	raw_spin_lock(&jiffies_lock);
++	write_seqcount_begin(&jiffies_seq);
+ 	/* Did we start the jiffies update yet ? */
+ 	if (last_jiffies_update = 0)
+ 		last_jiffies_update = tick_next_period;
+ 	period = last_jiffies_update;
+-	write_sequnlock(&jiffies_lock);
++	write_seqcount_end(&jiffies_seq);
++	raw_spin_unlock(&jiffies_lock);
+ 	return period;
+ }
+ 
+@@ -676,10 +681,10 @@ static ktime_t tick_nohz_next_event(stru
+ 
+ 	/* Read jiffies and the time when jiffies were updated last */
+ 	do {
+-		seq = read_seqbegin(&jiffies_lock);
++		seq = read_seqcount_begin(&jiffies_seq);
+ 		basemono = last_jiffies_update;
+ 		basejiff = jiffies;
+-	} while (read_seqretry(&jiffies_lock, seq));
++	} while (read_seqcount_retry(&jiffies_seq, seq));
+ 	ts->last_jiffies = basejiff;
+ 	ts->timer_expires_base = basemono;
+ 
+--- a/kernel/time/timekeeping.c
++++ b/kernel/time/timekeeping.c
+@@ -2397,8 +2397,10 @@ EXPORT_SYMBOL(hardpps);
+  */
+ void xtime_update(unsigned long ticks)
+ {
+-	write_seqlock(&jiffies_lock);
++	raw_spin_lock(&jiffies_lock);
++	write_seqcount_begin(&jiffies_seq);
+ 	do_timer(ticks);
+-	write_sequnlock(&jiffies_lock);
++	write_seqcount_end(&jiffies_seq);
++	raw_spin_unlock(&jiffies_lock);
+ 	update_wall_time();
+ }
+--- a/kernel/time/timekeeping.h
++++ b/kernel/time/timekeeping.h
+@@ -25,7 +25,8 @@ static inline void sched_clock_resume(vo
+ extern void do_timer(unsigned long ticks);
+ extern void update_wall_time(void);
+ 
+-extern seqlock_t jiffies_lock;
++extern raw_spinlock_t jiffies_lock;
++extern seqcount_t jiffies_seq;
+ 
+ #define CS_NAME_LEN	32
+ 
+
