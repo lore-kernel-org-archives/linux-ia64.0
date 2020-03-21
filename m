@@ -1,79 +1,78 @@
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Date: Fri, 20 Mar 2020 09:48:55 +0000
-Subject: [PATCH 4/5] ia64: Remove mm.h from asm/uaccess.h
-Message-Id: <20200320094856.3453859-5-bigeasy@linutronix.de>
+From: Thomas Gleixner <tglx@linutronix.de>
+Date: Sat, 21 Mar 2020 11:25:49 +0000
+Subject: [patch V3 05/20] acpi: Remove header dependency
+Message-Id: <20200321113241.246190285@linutronix.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200318204408.010461877@linutronix.de>
- <20200320094856.3453859-1-bigeasy@linutronix.de>
-In-Reply-To: <20200320094856.3453859-1-bigeasy@linutronix.de>
+References: <20200321112544.878032781@linutronix.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: tglx@linutronix.de
-Cc: arnd@arndb.de, balbi@kernel.org, bhelgaas@google.com, bigeasy@linutronix.de, dave@stgolabs.net, davem@davemloft.net, gregkh@linuxfoundation.org, joel@joelfernandes.org, kurt.schwemmer@microsemi.com, kvalo@codeaurora.org, linux-kernel@vger.kernel.org, linux-pci@vger.kernel.org, linux-usb@vger.kernel.org, linux-wireless@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, logang@deltatee.com, mingo@kernel.org, mpe@ellerman.id.au, netdev@vger.kernel.org, oleg@redhat.com, paulmck@kernel.org, peterz@infradead.org, rdunlap@infradead.org, rostedt@goodmis.org, torvalds@linux-foundation.org, will@kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, kbuild test robot <lkp@intel.com>
+To: LKML <linux-kernel@vger.kernel.org>
+Cc: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@kernel.org>, Sebastian Siewior <bigeasy@linutronix.de>, Linus Torvalds <torvalds@linux-foundation.org>, Joel Fernandes <joel@joelfernandes.org>, Oleg Nesterov <oleg@redhat.com>, Davidlohr Bueso <dave@stgolabs.net>, Darren Hart <dvhart@infradead.org>, Andy Shevchenko <andy@infradead.org>, platform-driver-x86@vger.kernel.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Zhang Rui <rui.zhang@intel.com>, "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>, linux-pm@vger.kernel.org, Len Brown <lenb@kernel.org>, linux-acpi@vger.kernel.org, Logan Gunthorpe <logang@deltatee.com>, Bjorn Helgaas <bhelgaas@google.com>, Kurt Schwemmer <kurt.schwemmer@microsemi.com>, linux-pci@vger.kernel.org, Felipe Balbi <balbi@kernel.org>, linux-usb@vger.kernel.org, Kalle Valo <kvalo@codeaurora.org>, "David S. Miller" <davem@davemloft.net>, linux-wireless@vger.kernel.org, netdev@vger.kernel.org, kbuild test robot <lkp@intel.com>, Nick Hu <nickhu@andestech.com>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, Guo Ren <guoren@kernel.org>, linux-csky@vger.kernel.org, Brian Cain <bcain@codeaurora.org>, linux-hexagon@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, Michal Simek <monstr@monstr.eu>, Michael Ellerman <mpe@ellerman.id.au>, Arnd Bergmann <arnd@arndb.de>, Geoff Levand <geoff@infradead.org>, linuxppc-dev@lists.ozlabs.org, "Paul E . McKenney" <paulmck@kernel.org>, Jonathan Corbet <corbet@lwn.net>, Randy Dunlap <rdunlap@infradead.org>, Davidlohr Bueso <dbueso@suse.de>
 
-The defconfig compiles without linux/mm.h. With mm.h included the
-include chain leands to:
-|   CC      kernel/locking/percpu-rwsem.o
-| In file included from include/linux/huge_mm.h:8,
-|                  from include/linux/mm.h:567,
-|                  from arch/ia64/include/asm/uaccess.h:,
-|                  from include/linux/uaccess.h:11,
-|                  from include/linux/sched/task.h:11,
-|                  from include/linux/sched/signal.h:9,
-|                  from include/linux/rcuwait.h:6,
-|                  from include/linux/percpu-rwsem.h:8,
-|                  from kernel/locking/percpu-rwsem.c:6:
-| include/linux/fs.h:1422:29: error: array type has incomplete element type 'struct percpu_rw_semaphore'
-|  1422 |  struct percpu_rw_semaphore rw_sem[SB_FREEZE_LEVELS];
+From: Peter Zijlstra <peterz@infradead.org>
 
-once rcuwait.h includes linux/sched/signal.h.
+In order to avoid future header hell, remove the inclusion of
+proc_fs.h from acpi_bus.h. All it needs is a forward declaration of a
+struct.
 
-Remove the linux/mm.h include.
-
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org
-Reported-by: kbuild test robot <lkp@intel.com>
-Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Signed-off-by: Peter Zijlstra (Intel) <peterz@infradead.org>
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Cc: Darren Hart <dvhart@infradead.org>
+Cc: Andy Shevchenko <andy@infradead.org>
+Cc: platform-driver-x86@vger.kernel.org
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: Zhang Rui <rui.zhang@intel.com>
+Cc: "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>
+Cc: linux-pm@vger.kernel.org
+Cc: Len Brown <lenb@kernel.org>
+Cc: linux-acpi@vger.kernel.org
 ---
- arch/ia64/include/asm/uaccess.h | 1 -
- arch/ia64/kernel/process.c      | 1 +
- arch/ia64/mm/ioremap.c          | 1 +
- 3 files changed, 2 insertions(+), 1 deletion(-)
+ drivers/platform/x86/dell-smo8800.c                      |    1 +
+ drivers/platform/x86/wmi.c                               |    1 +
+ drivers/thermal/intel/int340x_thermal/acpi_thermal_rel.c |    1 +
+ include/acpi/acpi_bus.h                                  |    2 +-
+ 4 files changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/arch/ia64/include/asm/uaccess.h b/arch/ia64/include/asm/uaccess.h
-index 89782ad3fb887..5c7e79eccaeed 100644
---- a/arch/ia64/include/asm/uaccess.h
-+++ b/arch/ia64/include/asm/uaccess.h
-@@ -35,7 +35,6 @@
+--- a/drivers/platform/x86/dell-smo8800.c
++++ b/drivers/platform/x86/dell-smo8800.c
+@@ -16,6 +16,7 @@
+ #include <linux/interrupt.h>
+ #include <linux/miscdevice.h>
+ #include <linux/uaccess.h>
++#include <linux/fs.h>
  
- #include <linux/compiler.h>
- #include <linux/page-flags.h>
--#include <linux/mm.h>
+ struct smo8800_device {
+ 	u32 irq;                     /* acpi device irq */
+--- a/drivers/platform/x86/wmi.c
++++ b/drivers/platform/x86/wmi.c
+@@ -29,6 +29,7 @@
+ #include <linux/uaccess.h>
+ #include <linux/uuid.h>
+ #include <linux/wmi.h>
++#include <linux/fs.h>
+ #include <uapi/linux/wmi.h>
  
- #include <asm/intrinsics.h>
- #include <asm/pgtable.h>
-diff --git a/arch/ia64/kernel/process.c b/arch/ia64/kernel/process.c
-index 968b5f33e725e..743aaf5283278 100644
---- a/arch/ia64/kernel/process.c
-+++ b/arch/ia64/kernel/process.c
-@@ -681,3 +681,4 @@ machine_power_off (void)
- 	machine_halt();
- }
+ ACPI_MODULE_NAME("wmi");
+--- a/drivers/thermal/intel/int340x_thermal/acpi_thermal_rel.c
++++ b/drivers/thermal/intel/int340x_thermal/acpi_thermal_rel.c
+@@ -19,6 +19,7 @@
+ #include <linux/acpi.h>
+ #include <linux/uaccess.h>
+ #include <linux/miscdevice.h>
++#include <linux/fs.h>
+ #include "acpi_thermal_rel.h"
  
-+EXPORT_SYMBOL(ia64_delay_loop);
-diff --git a/arch/ia64/mm/ioremap.c b/arch/ia64/mm/ioremap.c
-index a09cfa0645369..55fd3eb753ff9 100644
---- a/arch/ia64/mm/ioremap.c
-+++ b/arch/ia64/mm/ioremap.c
-@@ -8,6 +8,7 @@
- #include <linux/module.h>
- #include <linux/efi.h>
- #include <linux/io.h>
-+#include <linux/mm.h>
- #include <linux/vmalloc.h>
- #include <asm/io.h>
- #include <asm/meminit.h>
--- 
-2.26.0.rc2
+ static acpi_handle acpi_thermal_rel_handle;
+--- a/include/acpi/acpi_bus.h
++++ b/include/acpi/acpi_bus.h
+@@ -80,7 +80,7 @@ bool acpi_dev_present(const char *hid, c
+ 
+ #ifdef CONFIG_ACPI
+ 
+-#include <linux/proc_fs.h>
++struct proc_dir_entry;
+ 
+ #define ACPI_BUS_FILE_ROOT	"acpi"
+ extern struct proc_dir_entry *acpi_root_dir;
+
