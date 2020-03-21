@@ -1,7 +1,7 @@
 From: Thomas Gleixner <tglx@linutronix.de>
-Date: Sat, 21 Mar 2020 11:26:04 +0000
-Subject: [patch V3 20/20] lockdep: Add posixtimer context tracing bits
-Message-Id: <20200321113242.751182723@linutronix.de>
+Date: Sat, 21 Mar 2020 11:25:59 +0000
+Subject: [patch V3 15/20] sched/swait: Prepare usage in completions
+Message-Id: <20200321113242.228481202@linutronix.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20200321112544.878032781@linutronix.de>
 MIME-Version: 1.0
@@ -10,76 +10,63 @@ Content-Transfer-Encoding: 7bit
 To: LKML <linux-kernel@vger.kernel.org>
 Cc: Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@kernel.org>, Sebastian Siewior <bigeasy@linutronix.de>, Linus Torvalds <torvalds@linux-foundation.org>, Joel Fernandes <joel@joelfernandes.org>, Oleg Nesterov <oleg@redhat.com>, Davidlohr Bueso <dave@stgolabs.net>, Logan Gunthorpe <logang@deltatee.com>, Bjorn Helgaas <bhelgaas@google.com>, Kurt Schwemmer <kurt.schwemmer@microsemi.com>, linux-pci@vger.kernel.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Felipe Balbi <balbi@kernel.org>, linux-usb@vger.kernel.org, Kalle Valo <kvalo@codeaurora.org>, "David S. Miller" <davem@davemloft.net>, linux-wireless@vger.kernel.org, netdev@vger.kernel.org, Darren Hart <dvhart@infradead.org>, Andy Shevchenko <andy@infradead.org>, platform-driver-x86@vger.kernel.org, Zhang Rui <rui.zhang@intel.com>, "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>, linux-pm@vger.kernel.org, Len Brown <lenb@kernel.org>, linux-acpi@vger.kernel.org, kbuild test robot <lkp@intel.com>, Nick Hu <nickhu@andestech.com>, Greentime Hu <green.hu@gmail.com>, Vincent Chen <deanbo422@gmail.com>, Guo Ren <guoren@kernel.org>, linux-csky@vger.kernel.org, Brian Cain <bcain@codeaurora.org>, linux-hexagon@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, Michal Simek <monstr@monstr.eu>, Michael Ellerman <mpe@ellerman.id.au>, Arnd Bergmann <arnd@arndb.de>, Geoff Levand <geoff@infradead.org>, linuxppc-dev@lists.ozlabs.org, "Paul E . McKenney" <paulmck@kernel.org>, Jonathan Corbet <corbet@lwn.net>, Randy Dunlap <rdunlap@infradead.org>, Davidlohr Bueso <dbueso@suse.de>
 
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+From: Thomas Gleixner <tglx@linutronix.de>
 
-Splitting run_posix_cpu_timers() into two parts is work in progress which
-is stuck on other entry code related problems. The heavy lifting which
-involves locking of sighand lock will be moved into task context so the
-necessary execution time is burdened on the task and not on interrupt
-context.
+As a preparation to use simple wait queues for completions:
 
-Until this work completes lockdep with the spinlock nesting rules enabled
-would emit warnings for this known context.
+  - Provide swake_up_all_locked() to support complete_all()
+  - Make __prepare_to_swait() public available
 
-Prevent it by setting "->irq_config = 1" for the invocation of
-run_posix_cpu_timers() so lockdep does not complain when sighand lock is
-acquried. This will be removed once the split is completed.
+This is done to enable the usage of complete() within truly atomic contexts
+on a PREEMPT_RT enabled kernel.
 
-Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>
 ---
- include/linux/irqflags.h       |   12 ++++++++++++
- kernel/time/posix-cpu-timers.c |    6 +++++-
+V2: Add comment to swake_up_all_locked()
+---
+ kernel/sched/sched.h |    3 +++
+ kernel/sched/swait.c |   15 ++++++++++++++-
  2 files changed, 17 insertions(+), 1 deletion(-)
 
---- a/include/linux/irqflags.h
-+++ b/include/linux/irqflags.h
-@@ -69,6 +69,16 @@ do {						\
- 			current->irq_config = 0;	\
- 	  } while (0)
- 
-+# define lockdep_posixtimer_enter()				\
-+	  do {							\
-+		  current->irq_config = 1;			\
-+	  } while (0)
-+
-+# define lockdep_posixtimer_exit()				\
-+	  do {							\
-+		  current->irq_config = 0;			\
-+	  } while (0)
-+
- # define lockdep_irq_work_enter(__work)					\
- 	  do {								\
- 		  if (!(atomic_read(&__work->flags) & IRQ_WORK_HARD_IRQ))\
-@@ -94,6 +104,8 @@ do {						\
- # define lockdep_softirq_exit()		do { } while (0)
- # define lockdep_hrtimer_enter(__hrtimer)		do { } while (0)
- # define lockdep_hrtimer_exit(__hrtimer)		do { } while (0)
-+# define lockdep_posixtimer_enter()		do { } while (0)
-+# define lockdep_posixtimer_exit()		do { } while (0)
- # define lockdep_irq_work_enter(__work)		do { } while (0)
- # define lockdep_irq_work_exit(__work)		do { } while (0)
- #endif
---- a/kernel/time/posix-cpu-timers.c
-+++ b/kernel/time/posix-cpu-timers.c
-@@ -1126,8 +1126,11 @@ void run_posix_cpu_timers(void)
- 	if (!fastpath_timer_check(tsk))
- 		return;
- 
--	if (!lock_task_sighand(tsk, &flags))
-+	lockdep_posixtimer_enter();
-+	if (!lock_task_sighand(tsk, &flags)) {
-+		lockdep_posixtimer_exit();
- 		return;
-+	}
- 	/*
- 	 * Here we take off tsk->signal->cpu_timers[N] and
- 	 * tsk->cpu_timers[N] all the timers that are firing, and
-@@ -1169,6 +1172,7 @@ void run_posix_cpu_timers(void)
- 			cpu_timer_fire(timer);
- 		spin_unlock(&timer->it_lock);
- 	}
-+	lockdep_posixtimer_exit();
+--- a/kernel/sched/sched.h
++++ b/kernel/sched/sched.h
+@@ -2492,3 +2492,6 @@ static inline bool is_per_cpu_kthread(st
+ 	return true;
  }
+ #endif
++
++void swake_up_all_locked(struct swait_queue_head *q);
++void __prepare_to_swait(struct swait_queue_head *q, struct swait_queue *wait);
+--- a/kernel/sched/swait.c
++++ b/kernel/sched/swait.c
+@@ -32,6 +32,19 @@ void swake_up_locked(struct swait_queue_
+ }
+ EXPORT_SYMBOL(swake_up_locked);
  
- /*
++/*
++ * Wake up all waiters. This is an interface which is solely exposed for
++ * completions and not for general usage.
++ *
++ * It is intentionally different from swake_up_all() to allow usage from
++ * hard interrupt context and interrupt disabled regions.
++ */
++void swake_up_all_locked(struct swait_queue_head *q)
++{
++	while (!list_empty(&q->task_list))
++		swake_up_locked(q);
++}
++
+ void swake_up_one(struct swait_queue_head *q)
+ {
+ 	unsigned long flags;
+@@ -69,7 +82,7 @@ void swake_up_all(struct swait_queue_hea
+ }
+ EXPORT_SYMBOL(swake_up_all);
+ 
+-static void __prepare_to_swait(struct swait_queue_head *q, struct swait_queue *wait)
++void __prepare_to_swait(struct swait_queue_head *q, struct swait_queue *wait)
+ {
+ 	wait->task = current;
+ 	if (list_empty(&wait->task_list))
+
