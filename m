@@ -1,7 +1,7 @@
 From: Mike Rapoport <rppt@kernel.org>
-Date: Tue, 14 Apr 2020 15:34:48 +0000
-Subject: [PATCH v4 07/14] openrisc: add support for folded p4d page tables
-Message-Id: <20200414153455.21744-8-rppt@kernel.org>
+Date: Tue, 14 Apr 2020 15:34:42 +0000
+Subject: [PATCH v4 01/14] h8300: remove usage of __ARCH_USE_5LEVEL_HACK
+Message-Id: <20200414153455.21744-2-rppt@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20200414153455.21744-1-rppt@kernel.org>
 In-Reply-To: <20200414153455.21744-1-rppt@kernel.org>
@@ -13,77 +13,29 @@ Cc: Rich Felker <dalias@libc.org>, linux-ia64@vger.kernel.org, Geert Uytterhoeve
 
 From: Mike Rapoport <rppt@linux.ibm.com>
 
-Implement primitives necessary for the 4th level folding, add walks of p4d
-level where appropriate and remove usage of __ARCH_USE_5LEVEL_HACK.
+h8300 is a nommu architecture and does not require fixup for upper layers
+of the page tables because it is already handled by the generic nommu
+implementation.
+
+Remove definition of __ARCH_USE_5LEVEL_HACK in
+arch/h8300/include/asm/pgtable.h
 
 Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
 ---
- arch/openrisc/include/asm/pgtable.h |  1 -
- arch/openrisc/mm/fault.c            | 10 ++++++++--
- arch/openrisc/mm/init.c             |  4 +++-
- 3 files changed, 11 insertions(+), 4 deletions(-)
+ arch/h8300/include/asm/pgtable.h | 1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/arch/openrisc/include/asm/pgtable.h b/arch/openrisc/include/asm/pgtable.h
-index 7f3fb9ceb083..219979e57790 100644
---- a/arch/openrisc/include/asm/pgtable.h
-+++ b/arch/openrisc/include/asm/pgtable.h
-@@ -21,7 +21,6 @@
- #ifndef __ASM_OPENRISC_PGTABLE_H
- #define __ASM_OPENRISC_PGTABLE_H
- 
+diff --git a/arch/h8300/include/asm/pgtable.h b/arch/h8300/include/asm/pgtable.h
+index 4d00152fab58..f00828720dc4 100644
+--- a/arch/h8300/include/asm/pgtable.h
++++ b/arch/h8300/include/asm/pgtable.h
+@@ -1,7 +1,6 @@
+ /* SPDX-License-Identifier: GPL-2.0 */
+ #ifndef _H8300_PGTABLE_H
+ #define _H8300_PGTABLE_H
 -#define __ARCH_USE_5LEVEL_HACK
- #include <asm-generic/pgtable-nopmd.h>
- 
- #ifndef __ASSEMBLY__
-diff --git a/arch/openrisc/mm/fault.c b/arch/openrisc/mm/fault.c
-index 8af1cc78c4fb..6e0a11ac4c00 100644
---- a/arch/openrisc/mm/fault.c
-+++ b/arch/openrisc/mm/fault.c
-@@ -295,6 +295,7 @@ asmlinkage void do_page_fault(struct pt_regs *regs, unsigned long address,
- 
- 		int offset = pgd_index(address);
- 		pgd_t *pgd, *pgd_k;
-+		p4d_t *p4d, *p4d_k;
- 		pud_t *pud, *pud_k;
- 		pmd_t *pmd, *pmd_k;
- 		pte_t *pte_k;
-@@ -321,8 +322,13 @@ asmlinkage void do_page_fault(struct pt_regs *regs, unsigned long address,
- 		 * it exists.
- 		 */
- 
--		pud = pud_offset(pgd, address);
--		pud_k = pud_offset(pgd_k, address);
-+		p4d = p4d_offset(pgd, address);
-+		p4d_k = p4d_offset(pgd_k, address);
-+		if (!p4d_present(*p4d_k))
-+			goto no_context;
-+
-+		pud = pud_offset(p4d, address);
-+		pud_k = pud_offset(p4d_k, address);
- 		if (!pud_present(*pud_k))
- 			goto no_context;
- 
-diff --git a/arch/openrisc/mm/init.c b/arch/openrisc/mm/init.c
-index 1f87b524db78..2536aeae0975 100644
---- a/arch/openrisc/mm/init.c
-+++ b/arch/openrisc/mm/init.c
-@@ -71,6 +71,7 @@ static void __init map_ram(void)
- 	unsigned long v, p, e;
- 	pgprot_t prot;
- 	pgd_t *pge;
-+	p4d_t *p4e;
- 	pud_t *pue;
- 	pmd_t *pme;
- 	pte_t *pte;
-@@ -90,7 +91,8 @@ static void __init map_ram(void)
- 
- 		while (p < e) {
- 			int j;
--			pue = pud_offset(pge, v);
-+			p4e = p4d_offset(pge, v);
-+			pue = pud_offset(p4e, v);
- 			pme = pmd_offset(pue, v);
- 
- 			if ((u32) pue != (u32) pge || (u32) pme != (u32) pge) {
+ #include <asm-generic/pgtable-nopud.h>
+ #include <asm-generic/pgtable.h>
+ extern void paging_init(void);
 -- 
 2.25.1
