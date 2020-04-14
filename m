@@ -1,7 +1,7 @@
 From: Mike Rapoport <rppt@kernel.org>
-Date: Tue, 14 Apr 2020 15:34:52 +0000
-Subject: [PATCH v4 11/14] sh: add support for folded p4d page tables
-Message-Id: <20200414153455.21744-12-rppt@kernel.org>
+Date: Tue, 14 Apr 2020 15:34:55 +0000
+Subject: [PATCH v4 14/14] mm: remove __ARCH_HAS_5LEVEL_HACK and include/asm-generic/5level-fixup.h
+Message-Id: <20200414153455.21744-15-rppt@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20200414153455.21744-1-rppt@kernel.org>
 In-Reply-To: <20200414153455.21744-1-rppt@kernel.org>
@@ -13,324 +13,155 @@ Cc: Rich Felker <dalias@libc.org>, linux-ia64@vger.kernel.org, Geert Uytterhoeve
 
 From: Mike Rapoport <rppt@linux.ibm.com>
 
-Implement primitives necessary for the 4th level folding, add walks of p4d
-level where appropriate and remove usage of __ARCH_USE_5LEVEL_HACK.
+There are no architectures that use include/asm-generic/5level-fixup.h
+therefore it can be removed along with __ARCH_HAS_5LEVEL_HACK define and
+the code it surrounds
 
 Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
 ---
- arch/sh/include/asm/pgtable-2level.h |  1 -
- arch/sh/include/asm/pgtable-3level.h |  1 -
- arch/sh/kernel/io_trapped.c          |  7 ++++++-
- arch/sh/mm/cache-sh4.c               |  4 +++-
- arch/sh/mm/cache-sh5.c               |  7 ++++++-
- arch/sh/mm/fault.c                   | 26 +++++++++++++++++++++++---
- arch/sh/mm/hugetlbpage.c             | 28 ++++++++++++++++++----------
- arch/sh/mm/init.c                    |  9 ++++++++-
- arch/sh/mm/kmap.c                    |  2 +-
- arch/sh/mm/tlbex_32.c                |  6 +++++-
- arch/sh/mm/tlbex_64.c                |  7 ++++++-
- 11 files changed, 76 insertions(+), 22 deletions(-)
+ include/asm-generic/5level-fixup.h | 58 ------------------------------
+ include/linux/mm.h                 |  6 ----
+ mm/kasan/init.c                    | 11 ------
+ mm/memory.c                        |  8 -----
+ 4 files changed, 83 deletions(-)
+ delete mode 100644 include/asm-generic/5level-fixup.h
 
-diff --git a/arch/sh/include/asm/pgtable-2level.h b/arch/sh/include/asm/pgtable-2level.h
-index bf1eb51c3ee5..08bff93927ff 100644
---- a/arch/sh/include/asm/pgtable-2level.h
-+++ b/arch/sh/include/asm/pgtable-2level.h
-@@ -2,7 +2,6 @@
- #ifndef __ASM_SH_PGTABLE_2LEVEL_H
- #define __ASM_SH_PGTABLE_2LEVEL_H
+diff --git a/include/asm-generic/5level-fixup.h b/include/asm-generic/5level-fixup.h
+deleted file mode 100644
+index 4c74b1c1d13b..000000000000
+--- a/include/asm-generic/5level-fixup.h
++++ /dev/null
+@@ -1,58 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0 */
+-#ifndef _5LEVEL_FIXUP_H
+-#define _5LEVEL_FIXUP_H
+-
+-#define __ARCH_HAS_5LEVEL_HACK
+-#define __PAGETABLE_P4D_FOLDED 1
+-
+-#define P4D_SHIFT			PGDIR_SHIFT
+-#define P4D_SIZE			PGDIR_SIZE
+-#define P4D_MASK			PGDIR_MASK
+-#define MAX_PTRS_PER_P4D		1
+-#define PTRS_PER_P4D			1
+-
+-#define p4d_t				pgd_t
+-
+-#define pud_alloc(mm, p4d, address) \
+-	((unlikely(pgd_none(*(p4d))) && __pud_alloc(mm, p4d, address)) ? \
+-		NULL : pud_offset(p4d, address))
+-
+-#define p4d_alloc(mm, pgd, address)	(pgd)
+-#define p4d_offset(pgd, start)		(pgd)
+-
+-#ifndef __ASSEMBLY__
+-static inline int p4d_none(p4d_t p4d)
+-{
+-	return 0;
+-}
+-
+-static inline int p4d_bad(p4d_t p4d)
+-{
+-	return 0;
+-}
+-
+-static inline int p4d_present(p4d_t p4d)
+-{
+-	return 1;
+-}
+-#endif
+-
+-#define p4d_ERROR(p4d)			do { } while (0)
+-#define p4d_clear(p4d)			pgd_clear(p4d)
+-#define p4d_val(p4d)			pgd_val(p4d)
+-#define p4d_populate(mm, p4d, pud)	pgd_populate(mm, p4d, pud)
+-#define p4d_populate_safe(mm, p4d, pud)	pgd_populate(mm, p4d, pud)
+-#define p4d_page(p4d)			pgd_page(p4d)
+-#define p4d_page_vaddr(p4d)		pgd_page_vaddr(p4d)
+-
+-#define __p4d(x)			__pgd(x)
+-#define set_p4d(p4dp, p4d)		set_pgd(p4dp, p4d)
+-
+-#undef p4d_free_tlb
+-#define p4d_free_tlb(tlb, x, addr)	do { } while (0)
+-#define p4d_free(mm, x)			do { } while (0)
+-
+-#undef  p4d_addr_end
+-#define p4d_addr_end(addr, end)		(end)
+-
+-#endif
+diff --git a/include/linux/mm.h b/include/linux/mm.h
+index 5a323422d783..f794b77df1ca 100644
+--- a/include/linux/mm.h
++++ b/include/linux/mm.h
+@@ -2060,11 +2060,6 @@ int __pte_alloc_kernel(pmd_t *pmd);
  
--#define __ARCH_USE_5LEVEL_HACK
- #include <asm-generic/pgtable-nopmd.h>
+ #if defined(CONFIG_MMU)
  
- /*
-diff --git a/arch/sh/include/asm/pgtable-3level.h b/arch/sh/include/asm/pgtable-3level.h
-index 779260b721ca..0f80097e5c9c 100644
---- a/arch/sh/include/asm/pgtable-3level.h
-+++ b/arch/sh/include/asm/pgtable-3level.h
-@@ -2,7 +2,6 @@
- #ifndef __ASM_SH_PGTABLE_3LEVEL_H
- #define __ASM_SH_PGTABLE_3LEVEL_H
- 
--#define __ARCH_USE_5LEVEL_HACK
- #include <asm-generic/pgtable-nopud.h>
- 
- /*
-diff --git a/arch/sh/kernel/io_trapped.c b/arch/sh/kernel/io_trapped.c
-index 60c828a2b8a2..037aab2708b7 100644
---- a/arch/sh/kernel/io_trapped.c
-+++ b/arch/sh/kernel/io_trapped.c
-@@ -136,6 +136,7 @@ EXPORT_SYMBOL_GPL(match_trapped_io_handler);
- static struct trapped_io *lookup_tiop(unsigned long address)
+-/*
+- * The following ifdef needed to get the 5level-fixup.h header to work.
+- * Remove it when 5level-fixup.h has been removed.
+- */
+-#ifndef __ARCH_HAS_5LEVEL_HACK
+ static inline p4d_t *p4d_alloc(struct mm_struct *mm, pgd_t *pgd,
+ 		unsigned long address)
  {
- 	pgd_t *pgd_k;
-+	p4d_t *p4d_k;
- 	pud_t *pud_k;
- 	pmd_t *pmd_k;
- 	pte_t *pte_k;
-@@ -145,7 +146,11 @@ static struct trapped_io *lookup_tiop(unsigned long address)
- 	if (!pgd_present(*pgd_k))
- 		return NULL;
+@@ -2078,7 +2073,6 @@ static inline pud_t *pud_alloc(struct mm_struct *mm, p4d_t *p4d,
+ 	return (unlikely(p4d_none(*p4d)) && __pud_alloc(mm, p4d, address)) ?
+ 		NULL : pud_offset(p4d, address);
+ }
+-#endif /* !__ARCH_HAS_5LEVEL_HACK */
  
--	pud_k = pud_offset(pgd_k, address);
-+	p4d_k = p4d_offset(pgd_k, address);
-+	if (!p4d_present(*p4d_k))
-+		return NULL;
-+
-+	pud_k = pud_offset(p4d_k, address);
- 	if (!pud_present(*pud_k))
- 		return NULL;
- 
-diff --git a/arch/sh/mm/cache-sh4.c b/arch/sh/mm/cache-sh4.c
-index eee911422cf9..45943bcb7042 100644
---- a/arch/sh/mm/cache-sh4.c
-+++ b/arch/sh/mm/cache-sh4.c
-@@ -209,6 +209,7 @@ static void sh4_flush_cache_page(void *args)
- 	unsigned long address, pfn, phys;
- 	int map_coherent = 0;
- 	pgd_t *pgd;
-+	p4d_t *p4d;
- 	pud_t *pud;
- 	pmd_t *pmd;
- 	pte_t *pte;
-@@ -224,7 +225,8 @@ static void sh4_flush_cache_page(void *args)
- 		return;
- 
- 	pgd = pgd_offset(vma->vm_mm, address);
--	pud = pud_offset(pgd, address);
-+	p4d = p4d_offset(pgd, address);
-+	pud = pud_offset(p4d, address);
- 	pmd = pmd_offset(pud, address);
- 	pte = pte_offset_kernel(pmd, address);
- 
-diff --git a/arch/sh/mm/cache-sh5.c b/arch/sh/mm/cache-sh5.c
-index 445b5e69b73c..442a77cc2957 100644
---- a/arch/sh/mm/cache-sh5.c
-+++ b/arch/sh/mm/cache-sh5.c
-@@ -383,6 +383,7 @@ static void sh64_dcache_purge_user_pages(struct mm_struct *mm,
- 				unsigned long addr, unsigned long end)
+ static inline pmd_t *pmd_alloc(struct mm_struct *mm, pud_t *pud, unsigned long address)
  {
- 	pgd_t *pgd;
-+	p4d_t *p4d;
- 	pud_t *pud;
- 	pmd_t *pmd;
- 	pte_t *pte;
-@@ -397,7 +398,11 @@ static void sh64_dcache_purge_user_pages(struct mm_struct *mm,
- 	if (pgd_bad(*pgd))
- 		return;
+diff --git a/mm/kasan/init.c b/mm/kasan/init.c
+index ce45c491ebcd..fe6be0be1f76 100644
+--- a/mm/kasan/init.c
++++ b/mm/kasan/init.c
+@@ -250,20 +250,9 @@ int __ref kasan_populate_early_shadow(const void *shadow_start,
+ 			 * 3,2 - level page tables where we don't have
+ 			 * puds,pmds, so pgd_populate(), pud_populate()
+ 			 * is noops.
+-			 *
+-			 * The ifndef is required to avoid build breakage.
+-			 *
+-			 * With 5level-fixup.h, pgd_populate() is not nop and
+-			 * we reference kasan_early_shadow_p4d. It's not defined
+-			 * unless 5-level paging enabled.
+-			 *
+-			 * The ifndef can be dropped once all KASAN-enabled
+-			 * architectures will switch to pgtable-nop4d.h.
+ 			 */
+-#ifndef __ARCH_HAS_5LEVEL_HACK
+ 			pgd_populate(&init_mm, pgd,
+ 					lm_alias(kasan_early_shadow_p4d));
+-#endif
+ 			p4d = p4d_offset(pgd, addr);
+ 			p4d_populate(&init_mm, p4d,
+ 					lm_alias(kasan_early_shadow_pud));
+diff --git a/mm/memory.c b/mm/memory.c
+index f703fe8c8346..379277c631b4 100644
+--- a/mm/memory.c
++++ b/mm/memory.c
+@@ -4434,19 +4434,11 @@ int __pud_alloc(struct mm_struct *mm, p4d_t *p4d, unsigned long address)
+ 	smp_wmb(); /* See comment in __pte_alloc */
  
--	pud = pud_offset(pgd, addr);
-+	p4d = p4d_offset(pgd, addr);
-+	if (p4d_none(*p4d) || p4d_bad(*p4d))
-+		return;
-+
-+	pud = pud_offset(p4d, addr);
- 	if (pud_none(*pud) || pud_bad(*pud))
- 		return;
- 
-diff --git a/arch/sh/mm/fault.c b/arch/sh/mm/fault.c
-index 7b74e18b71d7..8b3ab65c81c4 100644
---- a/arch/sh/mm/fault.c
-+++ b/arch/sh/mm/fault.c
-@@ -53,6 +53,7 @@ static void show_pte(struct mm_struct *mm, unsigned long addr)
- 		 (u64)pgd_val(*pgd));
- 
- 	do {
-+		p4d_t *p4d;
- 		pud_t *pud;
- 		pmd_t *pmd;
- 		pte_t *pte;
-@@ -65,7 +66,20 @@ static void show_pte(struct mm_struct *mm, unsigned long addr)
- 			break;
- 		}
- 
--		pud = pud_offset(pgd, addr);
-+		p4d = p4d_offset(pgd, addr);
-+		if (PTRS_PER_P4D != 1)
-+			pr_cont(", *p4d=%0*Lx", (u32)(sizeof(*p4d) * 2),
-+			        (u64)p4d_val(*p4d));
-+
-+		if (p4d_none(*p4d))
-+			break;
-+
-+		if (p4d_bad(*p4d)) {
-+			pr_cont("(bad)");
-+			break;
-+		}
-+
-+		pud = pud_offset(p4d, addr);
- 		if (PTRS_PER_PUD != 1)
- 			pr_cont(", *pud=%0*llx", (u32)(sizeof(*pud) * 2),
- 				(u64)pud_val(*pud));
-@@ -107,6 +121,7 @@ static inline pmd_t *vmalloc_sync_one(pgd_t *pgd, unsigned long address)
- {
- 	unsigned index = pgd_index(address);
- 	pgd_t *pgd_k;
-+	p4d_t *p4d, *p4d_k;
- 	pud_t *pud, *pud_k;
- 	pmd_t *pmd, *pmd_k;
- 
-@@ -116,8 +131,13 @@ static inline pmd_t *vmalloc_sync_one(pgd_t *pgd, unsigned long address)
- 	if (!pgd_present(*pgd_k))
- 		return NULL;
- 
--	pud = pud_offset(pgd, address);
--	pud_k = pud_offset(pgd_k, address);
-+	p4d = p4d_offset(pgd, address);
-+	p4d_k = p4d_offset(pgd_k, address);
-+	if (!p4d_present(*p4d_k))
-+		return NULL;
-+
-+	pud = pud_offset(p4d, address);
-+	pud_k = pud_offset(p4d_k, address);
- 	if (!pud_present(*pud_k))
- 		return NULL;
- 
-diff --git a/arch/sh/mm/hugetlbpage.c b/arch/sh/mm/hugetlbpage.c
-index 960deb1f24a1..acd5652a0de3 100644
---- a/arch/sh/mm/hugetlbpage.c
-+++ b/arch/sh/mm/hugetlbpage.c
-@@ -26,17 +26,21 @@ pte_t *huge_pte_alloc(struct mm_struct *mm,
- 			unsigned long addr, unsigned long sz)
- {
- 	pgd_t *pgd;
-+	p4d_t *p4d;
- 	pud_t *pud;
- 	pmd_t *pmd;
- 	pte_t *pte = NULL;
- 
- 	pgd = pgd_offset(mm, addr);
- 	if (pgd) {
--		pud = pud_alloc(mm, pgd, addr);
--		if (pud) {
--			pmd = pmd_alloc(mm, pud, addr);
--			if (pmd)
--				pte = pte_alloc_map(mm, pmd, addr);
-+		p4d = p4d_alloc(mm, pgd, addr);
-+		if (p4d) {
-+			pud = pud_alloc(mm, p4d, addr);
-+			if (pud) {
-+				pmd = pmd_alloc(mm, pud, addr);
-+				if (pmd)
-+					pte = pte_alloc_map(mm, pmd, addr);
-+			}
- 		}
- 	}
- 
-@@ -47,17 +51,21 @@ pte_t *huge_pte_offset(struct mm_struct *mm,
- 		       unsigned long addr, unsigned long sz)
- {
- 	pgd_t *pgd;
-+	p4d_t *p4d;
- 	pud_t *pud;
- 	pmd_t *pmd;
- 	pte_t *pte = NULL;
- 
- 	pgd = pgd_offset(mm, addr);
- 	if (pgd) {
--		pud = pud_offset(pgd, addr);
--		if (pud) {
--			pmd = pmd_offset(pud, addr);
--			if (pmd)
--				pte = pte_offset_map(pmd, addr);
-+		p4d = p4d_offset(pgd, addr);
-+		if (p4d) {
-+			pud = pud_offset(p4d, addr);
-+			if (pud) {
-+				pmd = pmd_offset(pud, addr);
-+				if (pmd)
-+					pte = pte_offset_map(pmd, addr);
-+			}
- 		}
- 	}
- 
-diff --git a/arch/sh/mm/init.c b/arch/sh/mm/init.c
-index f445ba630790..60c33cf7acd1 100644
---- a/arch/sh/mm/init.c
-+++ b/arch/sh/mm/init.c
-@@ -45,6 +45,7 @@ void __init __weak plat_mem_setup(void)
- static pte_t *__get_pte_phys(unsigned long addr)
- {
- 	pgd_t *pgd;
-+	p4d_t *p4d;
- 	pud_t *pud;
- 	pmd_t *pmd;
- 
-@@ -54,7 +55,13 @@ static pte_t *__get_pte_phys(unsigned long addr)
- 		return NULL;
- 	}
- 
--	pud = pud_alloc(NULL, pgd, addr);
-+	p4d = p4d_alloc(NULL, pgd, addr);
-+	if (unlikely(!p4d)) {
-+		p4d_ERROR(*p4d);
-+		return NULL;
-+	}
-+
-+	pud = pud_alloc(NULL, p4d, addr);
- 	if (unlikely(!pud)) {
- 		pud_ERROR(*pud);
- 		return NULL;
-diff --git a/arch/sh/mm/kmap.c b/arch/sh/mm/kmap.c
-index 9e6b38b03cf7..0e7039137f5a 100644
---- a/arch/sh/mm/kmap.c
-+++ b/arch/sh/mm/kmap.c
-@@ -15,7 +15,7 @@
- #include <asm/cacheflush.h>
- 
- #define kmap_get_fixmap_pte(vaddr)                                     \
--	pte_offset_kernel(pmd_offset(pud_offset(pgd_offset_k(vaddr), (vaddr)), (vaddr)), (vaddr))
-+	pte_offset_kernel(pmd_offset(pud_offset(p4d_offset(pgd_offset_k(vaddr), (vaddr)), (vaddr)), (vaddr)), vaddr)
- 
- static pte_t *kmap_coherent_pte;
- 
-diff --git a/arch/sh/mm/tlbex_32.c b/arch/sh/mm/tlbex_32.c
-index 382262dc0c4b..1c53868632ee 100644
---- a/arch/sh/mm/tlbex_32.c
-+++ b/arch/sh/mm/tlbex_32.c
-@@ -23,6 +23,7 @@ handle_tlbmiss(struct pt_regs *regs, unsigned long error_code,
- 	       unsigned long address)
- {
- 	pgd_t *pgd;
-+	p4d_t *p4d;
- 	pud_t *pud;
- 	pmd_t *pmd;
- 	pte_t *pte;
-@@ -42,7 +43,10 @@ handle_tlbmiss(struct pt_regs *regs, unsigned long error_code,
- 		pgd = pgd_offset(current->mm, address);
- 	}
- 
--	pud = pud_offset(pgd, address);
-+	p4d = p4d_offset(pgd, address);
-+	if (p4d_none_or_clear_bad(p4d))
-+		return 1;
-+	pud = pud_offset(p4d, address);
- 	if (pud_none_or_clear_bad(pud))
- 		return 1;
- 	pmd = pmd_offset(pud, address);
-diff --git a/arch/sh/mm/tlbex_64.c b/arch/sh/mm/tlbex_64.c
-index 8ff966dd0c74..0d015f7556fa 100644
---- a/arch/sh/mm/tlbex_64.c
-+++ b/arch/sh/mm/tlbex_64.c
-@@ -44,6 +44,7 @@ static int handle_tlbmiss(unsigned long long protection_flags,
- 			  unsigned long address)
- {
- 	pgd_t *pgd;
-+	p4d_t *p4d;
- 	pud_t *pud;
- 	pmd_t *pmd;
- 	pte_t *pte;
-@@ -58,7 +59,11 @@ static int handle_tlbmiss(unsigned long long protection_flags,
- 		pgd = pgd_offset(current->mm, address);
- 	}
- 
--	pud = pud_offset(pgd, address);
-+	p4d = p4d_offset(pgd, address);
-+	if (p4d_none(*p4d) || !p4d_present(*p4d))
-+		return 1;
-+
-+	pud = pud_offset(p4d, address);
- 	if (pud_none(*pud) || !pud_present(*pud))
- 		return 1;
- 
+ 	spin_lock(&mm->page_table_lock);
+-#ifndef __ARCH_HAS_5LEVEL_HACK
+ 	if (!p4d_present(*p4d)) {
+ 		mm_inc_nr_puds(mm);
+ 		p4d_populate(mm, p4d, new);
+ 	} else	/* Another has populated it */
+ 		pud_free(mm, new);
+-#else
+-	if (!pgd_present(*p4d)) {
+-		mm_inc_nr_puds(mm);
+-		pgd_populate(mm, p4d, new);
+-	} else	/* Another has populated it */
+-		pud_free(mm, new);
+-#endif /* __ARCH_HAS_5LEVEL_HACK */
+ 	spin_unlock(&mm->page_table_lock);
+ 	return 0;
+ }
 -- 
 2.25.1
