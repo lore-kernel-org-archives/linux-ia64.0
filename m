@@ -1,35 +1,104 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Date: Mon, 11 May 2020 07:36:05 +0000
-Subject: Re: [PATCH 21/31] mm: rename flush_icache_user_range to flush_icache_user_page
-Message-Id: <CAMuHMdXS-ygT01KfhS0y9WcYbi9HKdQL7Q1HXgUZdayzQb_qSA@mail.gmail.com>
+From: Vineet Gupta <Vineet.Gupta1@synopsys.com>
+Date: Tue, 05 May 2020 06:23:37 +0000
+Subject: Re: [PATCH v2 17/20] mm: free_area_init: allow defining max_zone_pfn in descending order
+Message-Id: <a0b20e15-fddb-aa9c-fd67-f1c8e735b4a4@synopsys.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200510075510.987823-1-hch@lst.de> <20200510075510.987823-22-hch@lst.de>
-In-Reply-To: <20200510075510.987823-22-hch@lst.de>
+References: <20200429121126.17989-1-rppt@kernel.org>
+ <20200429121126.17989-18-rppt@kernel.org>
+ <20200503174138.GA114085@roeck-us.net> <20200503184300.GA154219@roeck-us.net>
+ <20200504153901.GM14260@kernel.org>
+In-Reply-To: <20200504153901.GM14260@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch@lst.de>
-Cc: Andrew Morton <akpm@linux-foundation.org>, Arnd Bergmann <arnd@arndb.de>, Roman Zippel <zippel@linux-m68k.org>, Jessica Yu <jeyu@kernel.org>, Michal Simek <monstr@monstr.eu>, the arch/x86 maintainers <x86@kernel.org>, alpha <linux-alpha@vger.kernel.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Linux ARM <linux-arm-kernel@lists.infradead.org>, linux-c6x-dev@linux-c6x.org, "open list:QUALCOMM HEXAGON..." <linux-hexagon@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, linux-m68k <linux-m68k@lists.linux-m68k.org>, "open list:BROADCOM NVRAM DRIVER" <linux-mips@vger.kernel.org>, Openrisc <openrisc@lists.librecores.org>, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, linux-riscv@lists.infradead.orgLinux-shlistlinu
+To: Mike Rapoport <rppt@kernel.org>, Guenter Roeck <linux@roeck-us.net>
+Cc: Rich Felker <dalias@libc.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>, Catalin Marinas <catalin.marinas@arm.com>, Heiko Carstens <heiko.carstens@de.ibm.com>, "x86@kernel.org" <x86@kernel.org>, Michal Hocko <mhocko@kernel.org>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Max Filippov <jcmvbkbc@gmail.com>, Guo Ren <guoren@kernel.org>, Ley Foon Tan <ley.foon.tan@intel.com>, "sparclinux@vger.kernel.org" <sparclinux@vger.kernel.org>, "linux-riscv@lists.infradead.org" <linux-riscv@lists.infradead.org>, Greg Ungerer <gerg@linux-m68k.org>, "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>, "linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>, linux-c6x-dev@linux-c
 
-On Sun, May 10, 2020 at 9:57 AM Christoph Hellwig <hch@lst.de> wrote:
-> The function currently known as flush_icache_user_range only operates
-> on a single page.  Rename it to flush_icache_user_page as we'll need
-> the name flush_icache_user_range for something else soon.
->
-> Signed-off-by: Christoph Hellwig <hch@lst.de>
-
->  arch/m68k/include/asm/cacheflush_mm.h  |  4 ++--
->  arch/m68k/mm/cache.c                   |  2 +-
-
-Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
--- 
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+SGkgTWlrZSwNCg0KT24gNS80LzIwIDg6MzkgQU0sIE1pa2UgUmFwb3BvcnQgd3JvdGU6DQo+IE9u
+IFN1biwgTWF5IDAzLCAyMDIwIGF0IDExOjQzOjAwQU0gLTA3MDAsIEd1ZW50ZXIgUm9lY2sgd3Jv
+dGU6DQo+PiBPbiBTdW4sIE1heSAwMywgMjAyMCBhdCAxMDo0MTozOEFNIC0wNzAwLCBHdWVudGVy
+IFJvZWNrIHdyb3RlOg0KPj4+IEhpLA0KPj4+DQo+Pj4gT24gV2VkLCBBcHIgMjksIDIwMjAgYXQg
+MDM6MTE6MjNQTSArMDMwMCwgTWlrZSBSYXBvcG9ydCB3cm90ZToNCj4+Pj4gRnJvbTogTWlrZSBS
+YXBvcG9ydCA8cnBwdEBsaW51eC5pYm0uY29tPg0KPj4+Pg0KPj4+PiBTb21lIGFyY2hpdGVjdHVy
+ZXMgKGUuZy4gQVJDKSBoYXZlIHRoZSBaT05FX0hJR0hNRU0gem9uZSBiZWxvdyB0aGUNCj4+Pj4g
+Wk9ORV9OT1JNQUwuIEFsbG93aW5nIGZyZWVfYXJlYV9pbml0KCkgcGFyc2UgbWF4X3pvbmVfcGZu
+IGFycmF5IGV2ZW4gaXQgaXMNCj4+Pj4gc29ydGVkIGluIGRlc2NlbmRpbmcgb3JkZXIgYWxsb3dz
+IHVzaW5nIGZyZWVfYXJlYV9pbml0KCkgb24gc3VjaA0KPj4+PiBhcmNoaXRlY3R1cmVzLg0KPj4+
+Pg0KPj4+PiBBZGQgdG9wIC0+IGRvd24gdHJhdmVyc2FsIG9mIG1heF96b25lX3BmbiBhcnJheSBp
+biBmcmVlX2FyZWFfaW5pdCgpIGFuZCB1c2UNCj4+Pj4gdGhlIGxhdHRlciBpbiBBUkMgbm9kZS96
+b25lIGluaXRpYWxpemF0aW9uLg0KPj4+Pg0KPj4+PiBTaWduZWQtb2ZmLWJ5OiBNaWtlIFJhcG9w
+b3J0IDxycHB0QGxpbnV4LmlibS5jb20+DQo+Pj4NCj4+PiBUaGlzIHBhdGNoIGNhdXNlcyBteSBt
+aWNyb2JsYXplZWwgcWVtdSBib290IHRlc3QgaW4gbGludXgtbmV4dCB0byBmYWlsLg0KPj4+IFJl
+dmVydGluZyBpdCBmaXhlcyB0aGUgcHJvYmxlbS4NCj4+Pg0KPj4gVGhlIHNhbWUgcHJvYmxlbSBp
+cyBzZWVuIHdpdGggczM5MCBlbXVsYXRpb25zLg0KPiANCj4gWWVhaCwgdGhpcyBwYXRjaCBicmVh
+a3Mgc29tZSBvdGhlcnMgYXMgd2VsbCA6KA0KPiANCj4gTXkgYXNzdW1wdGlvbiB0aGF0IG1heF96
+b25lX3BmbiBkZWZpbmVzIGFyY2hpdGVjdHVyYWwgbGltaXQgZm9yIG1heGltYWwNCj4gUEZOIHRo
+YXQgY2FuIGJlbG9uZyB0byBhIHpvbmUgd2FzIG92ZXItb3B0aW1pc3RpYy4gU2V2ZXJhbCBhcmNo
+ZXMNCj4gYWN0dWFsbHkgZG8gdGhhdCwgYnV0IG90aGVycyBkbw0KPiANCj4gCW1heF96b25lX3Bm
+bltaT05FX0RNQV0gPSBNQVhfRE1BX1BGTjsNCj4gCW1heF96b25lX3BmbltaT05FX05PUk1BTF0g
+PSBtYXhfcGZuOw0KPiANCj4gd2hlcmUgTUFYX0RNQV9QRk4gaXMgYnVpbGQtdGltZSBjb25zdHJh
+aW4gYW5kIG1heF9wZm4gaXMgcnVuIHRpbWUgbGltaXQNCj4gZm9yIHRoZSBjdXJyZW50IHN5c3Rl
+bS4NCj4gDQo+IFNvLCB3aGVuIG1heF9wZm4gaXMgbG93ZXIgdGhhbiBNQVhfRE1BX1BGTiwgdGhl
+IGZyZWVfaW5pdF9hcmVhKCkgd2lsbA0KPiBjb25zaWRlciBtYXhfem9uZV9wZm4gYXMgZGVzY2Vu
+ZGluZyBhbmQgd2lsbCB3cm9uZ2x5IGNhbGN1bGF0ZSB6b25lDQo+IGV4dGVudHMuDQo+IA0KPiBU
+aGF0IHNhaWQsIGluc3RlYWQgb2YgdHJ5aW5nIHRvIGNyZWF0ZSBhIGdlbmVyaWMgd2F5IHRvIHNw
+ZWNpYWwgY2FzZQ0KPiBBUkMsIEkgc3VnZ2VzdCB0byBzaW1wbHkgdXNlIHRoZSBiZWxvdyBwYXRj
+aCBpbnN0ZWFkLg0KDQpFdmVuIGZvciBBUkMgaXQgd2lsbCBiZSBhIGJpdCBtb3JlIGNvbXBsaWNh
+dGVkLiBIaWdobWVtIG9uIEFSQyBjYW4gYmUgc2V0dXAgaW4gMg0Kd2F5cyBzdWNoIHRoYXQgaXQg
+aXMgZGVzY2VuZGluZyBpbiBvbmUgY2FzZSwgYW5kIGFzY2VuZGluZyBpbiBvdGhlciAody5yLnQN
+CiJub3JtYWwiIG1lbSkgOi0oDQoNCkZpcnN0IHNvbWUgYmFzaWMgaW5mbyBhYm91dCBhbiBBUkMg
+TU1VIGJhc2VkIHN5c3RlbQ0KDQpBUkMgbG9naWNhbCBhZGRyZXNzIHNwYWNlICh2YXJpb3VzIGFk
+ZHJlc3NlcyBlbWJlZGRlZCBpbiBiaW5hcmllcykNCiAtIHRyYW5zbGF0ZWQgKDAgdG8gMHg2RkZG
+X0ZGRkYpICAtIGZvciB1c2Vyc3BhY2UNCiAtIHVudHJhbnNsYXRlZCAoMHg4MDAwXzAwMDAgdG8g
+MHhGRkZGX0ZGRkYpIC0ga2VybmVsDQoNCkFSQyBQaHlzaWNhbCBhZGRyZXNzIHNwYWNlIGlzIHR5
+cGljYWxseSBmcm9tIDB4ODAwMF8wMDAwIHRvIDB4RjAwMF8wMDAwLg0KQWJvdmUgdHJhbnNsYXRl
+ZCBzcGFjZSBtYXBzIGhlcmUgdmlhIE1NVS4gVW50cmFuc2xhdGVkIGlzIGltcGxpY2l0bHkgbWFw
+cGVkIChubw0KTU1VIGludm9sdmVkKS4NCg0KVGhlIHBoeXNpY2FsIGFkZHJlc3MgaW4gdHVybiBt
+YXBzIHRvIGEgQnVzIGFkZHJlc3MgLyBtZW1vcnkgKGRvbmUgYXQgdGhlDQppbnRlci1jb25uZWN0
+L05vQykuIFR5cGljYWxseSBQaHlzaWNhbCAweDgwMDBfMDAwMCBtYXAgdG8gRERSIDANCg0KTm93
+LA0KLSBISUdITUVNIHcvbyBQQUU0MCBhZGRzIFBoeXNpY2FsIGFkZHJlc3Mgc3BhY2UgMCB0byAw
+eDdGRkZfRkZGRi4NCi0gSElHSE1FTSB3aXRoIFBBRTQwIHVzZXMgcGh5c2ljYWwgYWRkcmVzcyBz
+cGFjZSBmcm9tIDB4MV8wMDAwXzAwMDAgdXB3YXJkcy4NCg0KQnV0IHRoZW4geW91IGNvdWxkIGFs
+c28gaGF2ZSBhIHN5c3RlbSB3aGljaCBoYXMgYm90aCBvZiBhYm92ZSBzbyB0aGUgYmltb2RhbCB1
+cC9kbg0Kd29uJ3Qgd29yay4NCg0KV2hpbGUgSSBhcHByZWNpYXRlIHRoZSBlZmZvcnQgdG8gcmVk
+dWNlIGNvbXBsZXhpdHksIGl0IHNlZW1zIHRoZSBjdXJyZW50IHdheSBvZg0Kc2V0dGluZyB0aGlu
+Z3MgdXAgYWxsb3dzIGZvciBtb3JlIGZsZXhpYmlsaXR5IGluIHNwZWNpZnlpbmcgdGhlIHN5c3Rl
+bSBtZW1vcnkgbWFwLg0KDQpQUzogSSBoYXZlbid0IGxvb2tlZCBhdCB5b3VyIHNlcmllcyB0b28g
+Y2FyZWZ1bGx5LCB0aGUgbWVudGlvbiBvZiBBUkMgY2F1Z2h0IG15DQphdHRlbnRpb24gOi0pIEkg
+Z3Vlc3MgSSBuZWVkIHRvIHJlYWQgaXQgbW9yZSBjYXJlZnVsbHkgdG8gdW5kZXJzdGFuZC4NCg0K
+DQo+IA0KPiBkaWZmIC0tZ2l0IGEvYXJjaC9hcmMvbW0vaW5pdC5jIGIvYXJjaC9hcmMvbW0vaW5p
+dC5jDQo+IGluZGV4IDQxZWI5YmUxNjUzYy4uMzg2OTU5YmFjM2QyIDEwMDY0NA0KPiAtLS0gYS9h
+cmNoL2FyYy9tbS9pbml0LmMNCj4gKysrIGIvYXJjaC9hcmMvbW0vaW5pdC5jDQo+IEBAIC03Nyw2
+ICs3NywxMSBAQCB2b2lkIF9faW5pdCBlYXJseV9pbml0X2R0X2FkZF9tZW1vcnlfYXJjaCh1NjQg
+YmFzZSwgdTY0IHNpemUpDQo+ICAJCWJhc2UsIFRPX01CKHNpemUpLCAhaW5fdXNlID8gIk5vdCB1
+c2VkIjoiIik7DQo+ICB9DQo+ICANCj4gK2Jvb2wgYXJjaF9oYXNfZGVzY2VuZGluZ19tYXhfem9u
+ZV9wZm5zKHZvaWQpDQo+ICt7DQo+ICsJcmV0dXJuIHRydWU7DQo+ICt9DQo+ICsNCj4gIC8qDQo+
+ICAgKiBGaXJzdCBtZW1vcnkgc2V0dXAgcm91dGluZSBjYWxsZWQgZnJvbSBzZXR1cF9hcmNoKCkN
+Cj4gICAqIDEuIHNldHVwIHN3YXBwZXIncyBtbSBAaW5pdF9tbQ0KPiBkaWZmIC0tZ2l0IGEvbW0v
+cGFnZV9hbGxvYy5jIGIvbW0vcGFnZV9hbGxvYy5jDQo+IGluZGV4IGI5OTBlOTczNDQ3NC4uMTE0
+ZjBlMDI3MTQ0IDEwMDY0NA0KPiAtLS0gYS9tbS9wYWdlX2FsbG9jLmMNCj4gKysrIGIvbW0vcGFn
+ZV9hbGxvYy5jDQo+IEBAIC03MzA3LDYgKzczMDcsMTUgQEAgc3RhdGljIHZvaWQgY2hlY2tfZm9y
+X21lbW9yeShwZ19kYXRhX3QgKnBnZGF0LCBpbnQgbmlkKQ0KPiAgCX0NCj4gIH0NCj4gIA0KPiAr
+LyoNCj4gKyAqIFNvbWUgYXJjaGl0ZWN0dXJzLCBlLmcuIEFSQyBtYXkgaGF2ZSBaT05FX0hJR0hN
+RU0gYmVsb3cgWk9ORV9OT1JNQUwuIEZvcg0KPiArICogc3VjaCBjYXNlcyB3ZSBhbGxvdyBtYXhf
+em9uZV9wZm4gc29ydGVkIGluIHRoZSBkZXNjZW5kaW5nIG9yZGVyDQo+ICsgKi8NCj4gK2Jvb2wg
+X193ZWFrIGFyY2hfaGFzX2Rlc2NlbmRpbmdfbWF4X3pvbmVfcGZucyh2b2lkKQ0KPiArew0KPiAr
+CXJldHVybiBmYWxzZTsNCj4gK30NCj4gKw0KPiAgLyoqDQo+ICAgKiBmcmVlX2FyZWFfaW5pdCAt
+IEluaXRpYWxpc2UgYWxsIHBnX2RhdGFfdCBhbmQgem9uZSBkYXRhDQo+ICAgKiBAbWF4X3pvbmVf
+cGZuOiBhbiBhcnJheSBvZiBtYXggUEZOcyBmb3IgZWFjaCB6b25lDQo+IEBAIC03MzI0LDcgKzcz
+MzMsNyBAQCB2b2lkIF9faW5pdCBmcmVlX2FyZWFfaW5pdCh1bnNpZ25lZCBsb25nICptYXhfem9u
+ZV9wZm4pDQo+ICB7DQo+ICAJdW5zaWduZWQgbG9uZyBzdGFydF9wZm4sIGVuZF9wZm47DQo+ICAJ
+aW50IGksIG5pZCwgem9uZTsNCj4gLQlib29sIGRlc2NlbmRpbmcgPSBmYWxzZTsNCj4gKwlib29s
+IGRlc2NlbmRpbmc7DQo+ICANCj4gIAkvKiBSZWNvcmQgd2hlcmUgdGhlIHpvbmUgYm91bmRhcmll
+cyBhcmUgKi8NCj4gIAltZW1zZXQoYXJjaF96b25lX2xvd2VzdF9wb3NzaWJsZV9wZm4sIDAsDQo+
+IEBAIC03MzMzLDE0ICs3MzQyLDcgQEAgdm9pZCBfX2luaXQgZnJlZV9hcmVhX2luaXQodW5zaWdu
+ZWQgbG9uZyAqbWF4X3pvbmVfcGZuKQ0KPiAgCQkJCXNpemVvZihhcmNoX3pvbmVfaGlnaGVzdF9w
+b3NzaWJsZV9wZm4pKTsNCj4gIA0KPiAgCXN0YXJ0X3BmbiA9IGZpbmRfbWluX3Bmbl93aXRoX2Fj
+dGl2ZV9yZWdpb25zKCk7DQo+IC0NCj4gLQkvKg0KPiAtCSAqIFNvbWUgYXJjaGl0ZWN0dXJzLCBl
+LmcuIEFSQyBtYXkgaGF2ZSBaT05FX0hJR0hNRU0gYmVsb3cNCj4gLQkgKiBaT05FX05PUk1BTC4g
+Rm9yIHN1Y2ggY2FzZXMgd2UgYWxsb3cgbWF4X3pvbmVfcGZuIHNvcnRlZCBpbiB0aGUNCj4gLQkg
+KiBkZXNjZW5kaW5nIG9yZGVyDQo+IC0JICovDQo+IC0JaWYgKE1BWF9OUl9aT05FUyA+IDEgJiYg
+bWF4X3pvbmVfcGZuWzBdID4gbWF4X3pvbmVfcGZuWzFdKQ0KPiAtCQlkZXNjZW5kaW5nID0gdHJ1
+ZTsNCj4gKwlkZXNjZW5kaW5nID0gYXJjaF9oYXNfZGVzY2VuZGluZ19tYXhfem9uZV9wZm5zKCk7
+DQo+ICANCj4gIAlmb3IgKGkgPSAwOyBpIDwgTUFYX05SX1pPTkVTOyBpKyspIHsNCj4gIAkJaWYg
+KGRlc2NlbmRpbmcpDQo+IA0K
