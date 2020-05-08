@@ -1,7 +1,7 @@
 From: Anshuman Khandual <anshuman.khandual@arm.com>
-Date: Wed, 06 May 2020 06:24:11 +0000
-Subject: [PATCH V2 0/3] mm/hugetlb: Add some new generic fallbacks
-Message-Id: <1588745534-24418-1-git-send-email-anshuman.khandual@arm.com>
+Date: Fri, 08 May 2020 03:19:48 +0000
+Subject: [PATCH V3 0/3] mm/hugetlb: Add some new generic fallbacks
+Message-Id: <1588907271-11920-1-git-send-email-anshuman.khandual@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -20,7 +20,11 @@ some more platforms including the changed ones here. This series applies
 on v5.7-rc4. After this arm (32 bit) remains the sole platform defining
 it's own huge_ptep_get() via __HAVE_ARCH_HUGE_PTEP_GET.
 
-Changes in V2:
+Changes in V3:
+
+- Added READ_ONCE() in generic huge_ptep_get() per Will
+
+Changes in V2: (https://patchwork.kernel.org/project/linux-mm/list/?series(2947)
 
 - Adopted "#ifndef func" method (adding a single symbol to namespace) per Andrew
 - Updated the commit messages in [PATCH 2/3] and [PATCH 3/3] as required
@@ -82,8 +86,9 @@ Anshuman Khandual (3):
  arch/sh/include/asm/hugetlb.h      |  7 +------
  arch/sparc/include/asm/hugetlb.h   | 10 ----------
  arch/x86/include/asm/hugetlb.h     | 10 ----------
+ include/asm-generic/hugetlb.h      |  2 +-
  include/linux/hugetlb.h            | 14 ++++++++++++++
- 12 files changed, 20 insertions(+), 90 deletions(-)
+ 13 files changed, 21 insertions(+), 91 deletions(-)
 
 -- 
 2.20.1
