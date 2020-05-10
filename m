@@ -1,55 +1,74 @@
-From: Borislav Petkov <bp@alien8.de>
-Date: Wed, 27 May 2020 14:30:46 +0000
-Subject: Re: [PATCH 2/2] x86: Hide the archdata.iommu field behind generic IOMMU_API
-Message-Id: <20200527143046.GB1721@zn.tnic>
+From: Christoph Hellwig <hch@lst.de>
+Date: Sun, 10 May 2020 07:54:49 +0000
+Subject: [PATCH 10/31] alpha: use asm-generic/cacheflush.h
+Message-Id: <20200510075510.987823-11-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200518120855.27822-1-krzk@kernel.org>
- <20200518120855.27822-2-krzk@kernel.org>
-In-Reply-To: <20200518120855.27822-2-krzk@kernel.org>
+References: <20200510075510.987823-1-hch@lst.de>
+In-Reply-To: <20200510075510.987823-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Krzysztof Kozlowski <krzk@kernel.org>
-Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Joerg Roedel <joro@8bytes.org>, iommu@lists.linux-foundation.org
+To: Andrew Morton <akpm@linux-foundation.org>, Arnd Bergmann <arnd@arndb.de>, Roman Zippel <zippel@linux-m68k.org>
+Cc: Jessica Yu <jeyu@kernel.org>, Michal Simek <monstr@monstr.eu>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, linux-fsdevel@vger.kernel.org
 
-On Mon, May 18, 2020 at 02:08:55PM +0200, Krzysztof Kozlowski wrote:
-> There is a generic, kernel wide configuration symbol for enabling the
-> IOMMU specific bits: CONFIG_IOMMU_API.  Implementations (including
-> INTEL_IOMMU and AMD_IOMMU driver) select it so use it here as well.
-> 
-> This makes the conditional archdata.iommu field consistent with other
-> platforms and also fixes any compile test builds of other IOMMU drivers,
-> when INTEL_IOMMU or AMD_IOMMU are not selected).
-> 
-> For the case when INTEL_IOMMU/AMD_IOMMU and COMPILE_TEST are not
-> selected, this should create functionally equivalent code/choice.  With
-> COMPILE_TEST this field could appear if other IOMMU drivers are chosen
-> but neither INTEL_IOMMU nor AMD_IOMMU are not.
-> 
-> Reported-by: kbuild test robot <lkp@intel.com>
-> Signed-off-by: Krzysztof Kozlowski <krzk@kernel.org>
-> ---
->  arch/x86/include/asm/device.h | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/arch/x86/include/asm/device.h b/arch/x86/include/asm/device.h
-> index 7e31f7f1bb06..49bd6cf3eec9 100644
-> --- a/arch/x86/include/asm/device.h
-> +++ b/arch/x86/include/asm/device.h
-> @@ -3,7 +3,7 @@
->  #define _ASM_X86_DEVICE_H
->  
->  struct dev_archdata {
-> -#if defined(CONFIG_INTEL_IOMMU) || defined(CONFIG_AMD_IOMMU)
-> +#ifdef CONFIG_IOMMU_API
->  	void *iommu; /* hook for IOMMU specific extension */
->  #endif
->  };
+Alpha needs almost no cache flushing routines of its own.  Rely on
+asm-generic/cacheflush.h for the defaults.
 
-Acked-by: Borislav Petkov <bp@suse.de>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ arch/alpha/include/asm/cacheflush.h | 28 ++++++----------------------
+ 1 file changed, 6 insertions(+), 22 deletions(-)
 
+diff --git a/arch/alpha/include/asm/cacheflush.h b/arch/alpha/include/asm/cacheflush.h
+index 89128489cb598..636d7ca0d05f6 100644
+--- a/arch/alpha/include/asm/cacheflush.h
++++ b/arch/alpha/include/asm/cacheflush.h
+@@ -4,19 +4,6 @@
+ 
+ #include <linux/mm.h>
+ 
+-/* Caches aren't brain-dead on the Alpha. */
+-#define flush_cache_all()			do { } while (0)
+-#define flush_cache_mm(mm)			do { } while (0)
+-#define flush_cache_dup_mm(mm)			do { } while (0)
+-#define flush_cache_range(vma, start, end)	do { } while (0)
+-#define flush_cache_page(vma, vmaddr, pfn)	do { } while (0)
+-#define ARCH_IMPLEMENTS_FLUSH_DCACHE_PAGE 0
+-#define flush_dcache_page(page)			do { } while (0)
+-#define flush_dcache_mmap_lock(mapping)		do { } while (0)
+-#define flush_dcache_mmap_unlock(mapping)	do { } while (0)
+-#define flush_cache_vmap(start, end)		do { } while (0)
+-#define flush_cache_vunmap(start, end)		do { } while (0)
+-
+ /* Note that the following two definitions are _highly_ dependent
+    on the contexts in which they are used in the kernel.  I personally
+    think it is criminal how loosely defined these macros are.  */
+@@ -59,20 +46,17 @@ flush_icache_user_range(struct vm_area_struct *vma, struct page *page,
+ 			mm->context[smp_processor_id()] = 0;
+ 	}
+ }
+-#else
++#define flush_icache_user_range flush_icache_user_range
++#else /* CONFIG_SMP */
+ extern void flush_icache_user_range(struct vm_area_struct *vma,
+ 		struct page *page, unsigned long addr, int len);
+-#endif
++#define flush_icache_user_range flush_icache_user_range
++#endif /* CONFIG_SMP */
+ 
+ /* This is used only in __do_fault and do_swap_page.  */
+ #define flush_icache_page(vma, page) \
+-  flush_icache_user_range((vma), (page), 0, 0)
++	flush_icache_user_range((vma), (page), 0, 0)
+ 
+-#define copy_to_user_page(vma, page, vaddr, dst, src, len) \
+-do { memcpy(dst, src, len); \
+-     flush_icache_user_range(vma, page, vaddr, len); \
+-} while (0)
+-#define copy_from_user_page(vma, page, vaddr, dst, src, len) \
+-	memcpy(dst, src, len)
++#include <asm-generic/cacheflush.h>
+ 
+ #endif /* _ALPHA_CACHEFLUSH_H */
 -- 
-Regards/Gruss,
-    Boris.
-
-https://people.kernel.org/tglx/notes-about-netiquette
+2.26.2
