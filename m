@@ -1,30 +1,34 @@
-From: Jonathan Corbet <corbet@lwn.net>
-Date: Fri, 15 May 2020 18:01:07 +0000
-Subject: Re: [PATCH 07/14] docs: add IRQ documentation at the core-api book
-Message-Id: <20200515120107.459b63e8@lwn.net>
+From: Christoph Hellwig <hch@lst.de>
+Date: Sun, 10 May 2020 07:54:41 +0000
+Subject: [PATCH 02/31] arm64: fix the flush_icache_range arguments in machine_kexec
+Message-Id: <20200510075510.987823-3-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1588345503.git.mchehab+huawei@kernel.org>
-        <2da7485c3718e1442e6b4c2dd66857b776e8899b.1588345503.git.mchehab+huawei@kernel.org>
-In-Reply-To: <2da7485c3718e1442e6b4c2dd66857b776e8899b.1588345503.git.mchehab+huawei@kernel.org>
+References: <20200510075510.987823-1-hch@lst.de>
+In-Reply-To: <20200510075510.987823-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Mauro Carvalho Chehab <mchehab+huawei@kernel.org>
-Cc: Linux Doc Mailing List <linux-doc@vger.kernel.org>, linux-kernel@vger.kernel.org, Marc Zyngier <maz@kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "David S. Miller" <davem@davemloft.net>, Jakub Kicinski <kuba@kernel.org>, Harry Wei <harryxiyou@gmail.com>, Alex Shi <alex.shi@linux.alibaba.com>, Tejun Heo <tj@kernel.org>, Alexandre Belloni <alexandre.belloni@bootlin.com>, Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>, Guenter Roeck <linux@roeck-us.net>, Marcos Paulo de Souza <marcos.souza.org@gmail.com>, Zenghui Yu <yuzenghui@huawei.com>, Daniel Jordan <daniel.m.jordan@oracle.com>, Mike Rapoport <rppt@linux.ibm.com>, Masahiro Yamada <yamada.masahiro@socionext.com>, Rob Herring <robh@kernel.org>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-ia64@vger.kernel.org, netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>, Arnd Bergmann <arnd@arndb.de>, Roman Zippel <zippel@linux-m68k.org>
+Cc: Jessica Yu <jeyu@kernel.org>, Michal Simek <monstr@monstr.eu>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, linux-fsdevel@vger.kernel.org
 
-On Fri,  1 May 2020 17:37:51 +0200
-Mauro Carvalho Chehab <mchehab+huawei@kernel.org> wrote:
+The second argument is the end "pointer", not the length.
 
-> There are 4 IRQ documentation files under Documentation/*.txt.
-> 
-> Move them into a new directory (core-api/irq) and add a new
-> index file for it.
-> 
-> While here, use a title markup for the Debugging section of the
-> irq-domain.rst file.
-> 
-> Signed-off-by: Mauro Carvalho Chehab <mchehab+huawei@kernel.org>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ arch/arm64/kernel/machine_kexec.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-Applied, thanks.
-
-jon
+diff --git a/arch/arm64/kernel/machine_kexec.c b/arch/arm64/kernel/machine_kexec.c
+index 8e9c924423b4e..a0b144cfaea71 100644
+--- a/arch/arm64/kernel/machine_kexec.c
++++ b/arch/arm64/kernel/machine_kexec.c
+@@ -177,6 +177,7 @@ void machine_kexec(struct kimage *kimage)
+ 	 * the offline CPUs. Therefore, we must use the __* variant here.
+ 	 */
+ 	__flush_icache_range((uintptr_t)reboot_code_buffer,
++			     (uintptr_t)reboot_code_buffer +
+ 			     arm64_relocate_new_kernel_size);
+ 
+ 	/* Flush the kimage list and its buffers. */
+-- 
+2.26.2
