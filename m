@@ -1,55 +1,43 @@
-From: Mike Rapoport <rppt@kernel.org>
-Date: Tue, 14 Apr 2020 15:34:45 +0000
-Subject: [PATCH v4 04/14] hexagon: remove __ARCH_USE_5LEVEL_HACK
-Message-Id: <20200414153455.21744-5-rppt@kernel.org>
+From: Christoph Hellwig <hch@lst.de>
+Date: Sun, 10 May 2020 07:54:39 +0000
+Subject: sort out the flush_icache_range mess
+Message-Id: <20200510075510.987823-1-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200414153455.21744-1-rppt@kernel.org>
-In-Reply-To: <20200414153455.21744-1-rppt@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>
-Cc: Rich Felker <dalias@libc.org>, linux-ia64@vger.kernel.org, Geert Uytterhoeven <geert+renesas@glider.be>, linux-sh@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linux-mm@kvack.org, Paul Mackerras <paulus@samba.org>, linux-hexagon@vger.kernel.org, Will Deacon <will@kernel.org>, kvmarm@lists.cs.columbia.edu, Jonas Bonn <jonas@southpole.se>, linux-arch@vger.kernel.org, Brian Cain <bcain@codeaurora.org>, Marc Zyngier <maz@kernel.org>, Russell King <linux@armlinux.org.uk>, Ley Foon Tan <ley.foon.tan@intel.com>, Mike Rapoport <rppt@linux.ibm.com>, Catalin Marinas <catalin.marinas@arm.com>, uclinux-h8-devel@lists.sourceforge.jp, Fenghua Yu <fenghua.yu@intel.com>, Arnd Bergmann <arnd@arndb.de>, kvm-ppc@vger.kernel.org, Stefan Kristiansson <stefan.kristiansson@saunalahti.fi>, openrisc@lists.librecores.org, Stafford Horne <shorne@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, linux-arm-kernel@lists.infradead.org, Christophe Leroy <christophe.leroy@c-s.fr>, Tony Luck <tony.luck@intel.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, linux-kernel@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>, nios2-dev@lists.rocketboards.org, linuxppc-dev@lists.ozlabs.org, Mike Rapoport <rppt@kernel.org>
+To: Andrew Morton <akpm@linux-foundation.org>, Arnd Bergmann <arnd@arndb.de>, Roman Zippel <zippel@linux-m68k.org>
+Cc: linux-arch@vger.kernel.org, linux-xtensa@linux-xtensa.org, Michal Simek <monstr@monstr.eu>, Jessica Yu <jeyu@kernel.org>, linux-ia64@vger.kernel.org, linux-c6x-dev@linux-c6x.org, linux-sh@vger.kernel.org, linux-hexagon@vger.kernel.org, x86@kernel.org, linux-um@lists.infradead.org, linux-kernel@vger.kernel.org, linux-mips@vger.kernel.org, linux-mm@kvack.org, linux-m68k@lists.linux-m68k.org, openrisc@lists.librecores.org, linux-alpha@vger.kernel.org, sparclinux@vger.kernel.org, linux-fsdevel@vger.kernel.org, linux-riscv@lists.infradead.org, linuxppc-dev@lists.ozlabs.org, linux-arm-kernel@lists.infradead.org
 
-From: Mike Rapoport <rppt@linux.ibm.com>
+Hi all,
 
-The hexagon architecture has 2 level page tables and as such most of the
-page table folding is already implemented in asm-generic/pgtable-nopmd.h.
+flush_icache_range is mostly used for kernel address, except for the following
+cases:
 
-Fixup the only place in arch/hexagon to unfold the p4d level and remove
-__ARCH_USE_5LEVEL_HACK.
+ - the nommu brk and mmap implementations,
+ - the read_code helper that is only used for binfmt_flat, binfmt_elf_fdpic,
+   and binfmt_aout including the broken ia32 compat version
+ - binfmt_flat itself,
 
-Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
----
- arch/hexagon/include/asm/fixmap.h  | 4 ++--
- arch/hexagon/include/asm/pgtable.h | 1 -
- 2 files changed, 2 insertions(+), 3 deletions(-)
+none of which really are used by a typical MMU enabled kernel, as a.out can
+only be build for alpha and m68k to start with.
 
-diff --git a/arch/hexagon/include/asm/fixmap.h b/arch/hexagon/include/asm/fixmap.h
-index 933dac167504..97b1b062e750 100644
---- a/arch/hexagon/include/asm/fixmap.h
-+++ b/arch/hexagon/include/asm/fixmap.h
-@@ -16,7 +16,7 @@
- #include <asm-generic/fixmap.h>
- 
- #define kmap_get_fixmap_pte(vaddr) \
--	pte_offset_kernel(pmd_offset(pud_offset(pgd_offset_k(vaddr), \
--				(vaddr)), (vaddr)), (vaddr))
-+	pte_offset_kernel(pmd_offset(pud_offset(p4d_offset(pgd_offset_k(vaddr), \
-+				(vaddr)), (vaddr)), (vaddr)), (vaddr))
- 
- #endif
-diff --git a/arch/hexagon/include/asm/pgtable.h b/arch/hexagon/include/asm/pgtable.h
-index d383e8bea5b2..2a17d4eb2fa4 100644
---- a/arch/hexagon/include/asm/pgtable.h
-+++ b/arch/hexagon/include/asm/pgtable.h
-@@ -12,7 +12,6 @@
-  * Page table definitions for Qualcomm Hexagon processor.
-  */
- #include <asm/page.h>
--#define __ARCH_USE_5LEVEL_HACK
- #include <asm-generic/pgtable-nopmd.h>
- 
- /* A handy thing to have if one has the RAM. Declared in head.S */
--- 
-2.25.1
+But strangely enough commit ae92ef8a4424 ("PATCH] flush icache in correct
+context") added a "set_fs(KERNEL_DS)" around the flush_icache_range call
+in the module loader, because apparently m68k assumed user pointers.
+
+This series first cleans up the cacheflush implementations, largely by
+switching as much as possible to the asm-generic version after a few
+preparations, then moves the misnamed current flush_icache_user_range to
+a new name, to finally introduce a real flush_icache_user_range to be used
+for the above use cases to flush the instruction cache for a userspace
+address range.  The last patch then drops the set_fs in the module code
+and moves it into the m68k implementation.
+
+A git tree is available here:
+
+    git://git.infradead.org/users/hch/misc.git flush_icache_range
+
+Gitweb:
+
+    http://git.infradead.org/users/hch/misc.git/shortlog/refs/heads/flush_icache_range
