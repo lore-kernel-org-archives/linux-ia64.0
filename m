@@ -1,43 +1,33 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Sun, 10 May 2020 07:54:39 +0000
-Subject: sort out the flush_icache_range mess
-Message-Id: <20200510075510.987823-1-hch@lst.de>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Date: Mon, 11 May 2020 07:46:17 +0000
+Subject: Re: sort out the flush_icache_range mess
+Message-Id: <CAMuHMdXazsBw0mjJd0uFHQud7qbb5-Uw-PTDB3+-M=huRWOfgQ@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20200510075510.987823-1-hch@lst.de>
+In-Reply-To: <20200510075510.987823-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>, Arnd Bergmann <arnd@arndb.de>, Roman Zippel <zippel@linux-m68k.org>
-Cc: linux-arch@vger.kernel.org, linux-xtensa@linux-xtensa.org, Michal Simek <monstr@monstr.eu>, Jessica Yu <jeyu@kernel.org>, linux-ia64@vger.kernel.org, linux-c6x-dev@linux-c6x.org, linux-sh@vger.kernel.org, linux-hexagon@vger.kernel.org, x86@kernel.org, linux-um@lists.infradead.org, linux-kernel@vger.kernel.org, linux-mips@vger.kernel.org, linux-mm@kvack.org, linux-m68k@lists.linux-m68k.org, openrisc@lists.librecores.org, linux-alpha@vger.kernel.org, sparclinux@vger.kernel.org, linux-fsdevel@vger.kernel.org, linux-riscv@lists.infradead.org, linuxppc-dev@lists.ozlabs.org, linux-arm-kernel@lists.infradead.org
+To: Christoph Hellwig <hch@lst.de>
+Cc: Andrew Morton <akpm@linux-foundation.org>, Arnd Bergmann <arnd@arndb.de>, Roman Zippel <zippel@linux-m68k.org>, Linux-Arch <linux-arch@vger.kernel.org>, "open list:TENSILICA XTENSA PORT (xtensa)" <linux-xtensa@linux-xtensa.org>, Michal Simek <monstr@monstr.eu>, Jessica Yu <jeyu@kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, linux-c6x-dev@linux-c6x.org, Linux-sh list <linux-sh@vger.kernel.org>, "open list:QUALCOMM HEXAGON..." <linux-hexagon@vger.kernel.org>, the arch/x86 maintainers <x86@kernel.org>, linux-um <linux-um@lists.infradead.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, "open list:BROADCOM NVRAM DRIVER" <linux-mips@vger.kernel.org>, Linux MM <linux-mm@kvack.org>, linux-m68k <linux-m68k@lists.linux-m68k.o>
 
-Hi all,
+Hi Christoph,
 
-flush_icache_range is mostly used for kernel address, except for the following
-cases:
+On Sun, May 10, 2020 at 9:55 AM Christoph Hellwig <hch@lst.de> wrote:
+> none of which really are used by a typical MMU enabled kernel, as a.out can
+> only be build for alpha and m68k to start with.
 
- - the nommu brk and mmap implementations,
- - the read_code helper that is only used for binfmt_flat, binfmt_elf_fdpic,
-   and binfmt_aout including the broken ia32 compat version
- - binfmt_flat itself,
+Quoting myself:
+"I think it's safe to assume no one still runs a.out binaries on m68k."
+http://lore.kernel.org/r/CAMuHMdW+m0Q+j3rsQdMXnrEPm+XB5Y2AQrxW5sD1mZAKgmEqoA@mail.gmail.com
 
-none of which really are used by a typical MMU enabled kernel, as a.out can
-only be build for alpha and m68k to start with.
+Gr{oetje,eeting}s,
 
-But strangely enough commit ae92ef8a4424 ("PATCH] flush icache in correct
-context") added a "set_fs(KERNEL_DS)" around the flush_icache_range call
-in the module loader, because apparently m68k assumed user pointers.
+                        Geert
 
-This series first cleans up the cacheflush implementations, largely by
-switching as much as possible to the asm-generic version after a few
-preparations, then moves the misnamed current flush_icache_user_range to
-a new name, to finally introduce a real flush_icache_user_range to be used
-for the above use cases to flush the instruction cache for a userspace
-address range.  The last patch then drops the set_fs in the module code
-and moves it into the m68k implementation.
+-- 
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
 
-A git tree is available here:
-
-    git://git.infradead.org/users/hch/misc.git flush_icache_range
-
-Gitweb:
-
-    http://git.infradead.org/users/hch/misc.git/shortlog/refs/heads/flush_icache_range
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
