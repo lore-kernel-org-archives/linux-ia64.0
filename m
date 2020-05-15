@@ -1,21 +1,69 @@
-From: Catalin Marinas <catalin.marinas@arm.com>
-Date: Fri, 22 May 2020 15:54:27 +0000
-Subject: Re: [PATCH 09/29] arm64: use asm-generic/cacheflush.h
-Message-Id: <20200522155426.GI26492@gaia>
+From: Christoph Hellwig <hch@lst.de>
+Date: Fri, 15 May 2020 14:36:46 +0000
+Subject: [PATCH 29/29] module: move the set_fs hack for flush_icache_range to m68k
+Message-Id: <20200515143646.3857579-30-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20200515143646.3857579-1-hch@lst.de>
- <20200515143646.3857579-10-hch@lst.de>
-In-Reply-To: <20200515143646.3857579-10-hch@lst.de>
+In-Reply-To: <20200515143646.3857579-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch@lst.de>
-Cc: Andrew Morton <akpm@linux-foundation.org>, Arnd Bergmann <arnd@arndb.de>, Roman Zippel <zippel@linux-m68k.org>, Jessica Yu <jeyu@kernel.org>, Michal Simek <monstr@monstr.eu>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, linux-fsdevel@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>, Arnd Bergmann <arnd@arndb.de>, Roman Zippel <zippel@linux-m68k.org>
+Cc: Jessica Yu <jeyu@kernel.org>, Michal Simek <monstr@monstr.eu>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, linux-fsdevel@vger.kernel.org, Geert Uytterhoeven <geert@linux-m68k.org>
 
-On Fri, May 15, 2020 at 04:36:26PM +0200, Christoph Hellwig wrote:
-> ARM64 needs almost no cache flushing routines of its own.  Rely on
-> asm-generic/cacheflush.h for the defaults.
-> 
-> Signed-off-by: Christoph Hellwig <hch@lst.de>
+flush_icache_range generally operates on kernel addresses, but for some
+reason m68k needed a set_fs override.  Move that into the m68k code
+insted of keeping it in the module loader.
 
-Acked-by: Catalin Marinas <catalin.marinas@arm.com>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+Reviewed-by: Geert Uytterhoeven <geert@linux-m68k.org>
+Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
+---
+ arch/m68k/mm/cache.c | 4 ++++
+ kernel/module.c      | 8 --------
+ 2 files changed, 4 insertions(+), 8 deletions(-)
+
+diff --git a/arch/m68k/mm/cache.c b/arch/m68k/mm/cache.c
+index 7915be3a09712..5ecb3310e8745 100644
+--- a/arch/m68k/mm/cache.c
++++ b/arch/m68k/mm/cache.c
+@@ -107,7 +107,11 @@ void flush_icache_user_range(unsigned long address, unsigned long endaddr)
+ 
+ void flush_icache_range(unsigned long address, unsigned long endaddr)
+ {
++	mm_segment_t old_fs = get_fs();
++
++	set_fs(KERNEL_DS);
+ 	flush_icache_user_range(address, endaddr);
++	set_fs(old_fs);
+ }
+ EXPORT_SYMBOL(flush_icache_range);
+ 
+diff --git a/kernel/module.c b/kernel/module.c
+index 646f1e2330d2b..b1673ed49594f 100644
+--- a/kernel/module.c
++++ b/kernel/module.c
+@@ -3312,12 +3312,6 @@ static int check_module_license_and_versions(struct module *mod)
+ 
+ static void flush_module_icache(const struct module *mod)
+ {
+-	mm_segment_t old_fs;
+-
+-	/* flush the icache in correct context */
+-	old_fs = get_fs();
+-	set_fs(KERNEL_DS);
+-
+ 	/*
+ 	 * Flush the instruction cache, since we've played with text.
+ 	 * Do it before processing of module parameters, so the module
+@@ -3329,8 +3323,6 @@ static void flush_module_icache(const struct module *mod)
+ 				   + mod->init_layout.size);
+ 	flush_icache_range((unsigned long)mod->core_layout.base,
+ 			   (unsigned long)mod->core_layout.base + mod->core_layout.size);
+-
+-	set_fs(old_fs);
+ }
+ 
+ int __weak module_frob_arch_sections(Elf_Ehdr *hdr,
+-- 
+2.26.2
