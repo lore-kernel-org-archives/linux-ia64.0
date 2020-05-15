@@ -1,41 +1,74 @@
-From: Krzysztof Kozlowski <krzk@kernel.org>
-Date: Wed, 27 May 2020 18:51:37 +0000
-Subject: [RESEND PATCH] ia64: configs: Remove useless UEVENT_HELPER_PATH
-Message-Id: <20200527185137.13335-1-krzk@kernel.org>
+From: Christoph Hellwig <hch@lst.de>
+Date: Fri, 15 May 2020 14:36:25 +0000
+Subject: [PATCH 08/29] alpha: use asm-generic/cacheflush.h
+Message-Id: <20200515143646.3857579-9-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20200515143646.3857579-1-hch@lst.de>
+In-Reply-To: <20200515143646.3857579-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
-Cc: Krzysztof Kozlowski <krzk@kernel.org>
+To: Andrew Morton <akpm@linux-foundation.org>, Arnd Bergmann <arnd@arndb.de>, Roman Zippel <zippel@linux-m68k.org>
+Cc: Jessica Yu <jeyu@kernel.org>, Michal Simek <monstr@monstr.eu>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, linux-fsdevel@vger.kernel.org
 
-Remove the CONFIG_UEVENT_HELPER_PATH because:
-1. It is disabled since commit 1be01d4a5714 ("driver: base: Disable
-   CONFIG_UEVENT_HELPER by default") as its dependency (UEVENT_HELPER) was
-   made default to 'n',
-2. It is not recommended (help message: "This should not be used today
-   [...] creates a high system load") and was kept only for ancient
-   userland,
-3. Certain userland specifically requests it to be disabled (systemd
-   README: "Legacy hotplug slows down the system and confuses udev").
+Alpha needs almost no cache flushing routines of its own.  Rely on
+asm-generic/cacheflush.h for the defaults.
 
-Signed-off-by: Krzysztof Kozlowski <krzk@kernel.org>
-Acked-by: Geert Uytterhoeven <geert+renesas@glider.be>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- arch/ia64/configs/generic_defconfig | 1 -
- 1 file changed, 1 deletion(-)
+ arch/alpha/include/asm/cacheflush.h | 28 ++++++----------------------
+ 1 file changed, 6 insertions(+), 22 deletions(-)
 
-diff --git a/arch/ia64/configs/generic_defconfig b/arch/ia64/configs/generic_defconfig
-index cb267a07c57f..f1c5aad6725e 100644
---- a/arch/ia64/configs/generic_defconfig
-+++ b/arch/ia64/configs/generic_defconfig
-@@ -37,7 +37,6 @@ CONFIG_INET=y
- CONFIG_IP_MULTICAST=y
- CONFIG_SYN_COOKIES=y
- # CONFIG_IPV6 is not set
--CONFIG_UEVENT_HELPER_PATH="/sbin/hotplug"
- CONFIG_CONNECTOR=y
- # CONFIG_PNP_DEBUG_MESSAGES is not set
- CONFIG_BLK_DEV_LOOP=m
+diff --git a/arch/alpha/include/asm/cacheflush.h b/arch/alpha/include/asm/cacheflush.h
+index 89128489cb598..636d7ca0d05f6 100644
+--- a/arch/alpha/include/asm/cacheflush.h
++++ b/arch/alpha/include/asm/cacheflush.h
+@@ -4,19 +4,6 @@
+ 
+ #include <linux/mm.h>
+ 
+-/* Caches aren't brain-dead on the Alpha. */
+-#define flush_cache_all()			do { } while (0)
+-#define flush_cache_mm(mm)			do { } while (0)
+-#define flush_cache_dup_mm(mm)			do { } while (0)
+-#define flush_cache_range(vma, start, end)	do { } while (0)
+-#define flush_cache_page(vma, vmaddr, pfn)	do { } while (0)
+-#define ARCH_IMPLEMENTS_FLUSH_DCACHE_PAGE 0
+-#define flush_dcache_page(page)			do { } while (0)
+-#define flush_dcache_mmap_lock(mapping)		do { } while (0)
+-#define flush_dcache_mmap_unlock(mapping)	do { } while (0)
+-#define flush_cache_vmap(start, end)		do { } while (0)
+-#define flush_cache_vunmap(start, end)		do { } while (0)
+-
+ /* Note that the following two definitions are _highly_ dependent
+    on the contexts in which they are used in the kernel.  I personally
+    think it is criminal how loosely defined these macros are.  */
+@@ -59,20 +46,17 @@ flush_icache_user_range(struct vm_area_struct *vma, struct page *page,
+ 			mm->context[smp_processor_id()] = 0;
+ 	}
+ }
+-#else
++#define flush_icache_user_range flush_icache_user_range
++#else /* CONFIG_SMP */
+ extern void flush_icache_user_range(struct vm_area_struct *vma,
+ 		struct page *page, unsigned long addr, int len);
+-#endif
++#define flush_icache_user_range flush_icache_user_range
++#endif /* CONFIG_SMP */
+ 
+ /* This is used only in __do_fault and do_swap_page.  */
+ #define flush_icache_page(vma, page) \
+-  flush_icache_user_range((vma), (page), 0, 0)
++	flush_icache_user_range((vma), (page), 0, 0)
+ 
+-#define copy_to_user_page(vma, page, vaddr, dst, src, len) \
+-do { memcpy(dst, src, len); \
+-     flush_icache_user_range(vma, page, vaddr, len); \
+-} while (0)
+-#define copy_from_user_page(vma, page, vaddr, dst, src, len) \
+-	memcpy(dst, src, len)
++#include <asm-generic/cacheflush.h>
+ 
+ #endif /* _ALPHA_CACHEFLUSH_H */
 -- 
-2.17.1
+2.26.2
