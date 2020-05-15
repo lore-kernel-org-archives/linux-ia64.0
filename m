@@ -1,80 +1,88 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Sun, 10 May 2020 07:54:59 +0000
-Subject: [PATCH 20/31] arm,sparc,unicore32: remove flush_icache_user_range
-Message-Id: <20200510075510.987823-21-hch@lst.de>
+Date: Fri, 15 May 2020 14:36:23 +0000
+Subject: [PATCH 06/29] asm-generic: don't include <linux/mm.h> in cacheflush.h
+Message-Id: <20200515143646.3857579-7-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200510075510.987823-1-hch@lst.de>
-In-Reply-To: <20200510075510.987823-1-hch@lst.de>
+References: <20200515143646.3857579-1-hch@lst.de>
+In-Reply-To: <20200515143646.3857579-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Andrew Morton <akpm@linux-foundation.org>, Arnd Bergmann <arnd@arndb.de>, Roman Zippel <zippel@linux-m68k.org>
 Cc: Jessica Yu <jeyu@kernel.org>, Michal Simek <monstr@monstr.eu>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, linux-fsdevel@vger.kernel.org
 
-flush_icache_user_range is only used by <asm-generic/cacheflush.h>, so
-remove it from the architectures that implement it, but don't use
-<asm-generic/cacheflush.h>.
+This seems to lead to some crazy include loops when using
+asm-generic/cacheflush.h on more architectures, so leave it
+to the arch header for now.
 
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- arch/arm/include/asm/cacheflush.h       | 3 ---
- arch/sparc/include/asm/cacheflush_32.h  | 2 --
- arch/sparc/include/asm/cacheflush_64.h  | 1 -
- arch/unicore32/include/asm/cacheflush.h | 3 ---
- 4 files changed, 9 deletions(-)
+ arch/um/include/asm/tlb.h         | 2 ++
+ arch/x86/include/asm/cacheflush.h | 2 ++
+ drivers/nvdimm/pmem.c             | 3 ++-
+ include/asm-generic/cacheflush.h  | 3 ---
+ 4 files changed, 6 insertions(+), 4 deletions(-)
 
-diff --git a/arch/arm/include/asm/cacheflush.h b/arch/arm/include/asm/cacheflush.h
-index 7114b9aa46b87..c78e14fcfb5df 100644
---- a/arch/arm/include/asm/cacheflush.h
-+++ b/arch/arm/include/asm/cacheflush.h
-@@ -318,9 +318,6 @@ extern void flush_kernel_dcache_page(struct page *);
- #define flush_dcache_mmap_lock(mapping)		xa_lock_irq(&mapping->i_pages)
- #define flush_dcache_mmap_unlock(mapping)	xa_unlock_irq(&mapping->i_pages)
+diff --git a/arch/um/include/asm/tlb.h b/arch/um/include/asm/tlb.h
+index 70ee603839006..ff9c62828962c 100644
+--- a/arch/um/include/asm/tlb.h
++++ b/arch/um/include/asm/tlb.h
+@@ -2,6 +2,8 @@
+ #ifndef __UM_TLB_H
+ #define __UM_TLB_H
  
--#define flush_icache_user_range(vma,page,addr,len) \
--	flush_dcache_page(page)
++#include <linux/mm.h>
++
+ #include <asm/tlbflush.h>
+ #include <asm-generic/cacheflush.h>
+ #include <asm-generic/tlb.h>
+diff --git a/arch/x86/include/asm/cacheflush.h b/arch/x86/include/asm/cacheflush.h
+index 63feaf2a5f93d..b192d917a6d0b 100644
+--- a/arch/x86/include/asm/cacheflush.h
++++ b/arch/x86/include/asm/cacheflush.h
+@@ -2,6 +2,8 @@
+ #ifndef _ASM_X86_CACHEFLUSH_H
+ #define _ASM_X86_CACHEFLUSH_H
+ 
++#include <linux/mm.h>
++
+ /* Caches aren't brain-dead on the intel. */
+ #include <asm-generic/cacheflush.h>
+ #include <asm/special_insns.h>
+diff --git a/drivers/nvdimm/pmem.c b/drivers/nvdimm/pmem.c
+index 2df6994acf836..55282a6217407 100644
+--- a/drivers/nvdimm/pmem.c
++++ b/drivers/nvdimm/pmem.c
+@@ -7,7 +7,6 @@
+  * Copyright (c) 2015, Boaz Harrosh <boaz@plexistor.com>.
+  */
+ 
+-#include <asm/cacheflush.h>
+ #include <linux/blkdev.h>
+ #include <linux/hdreg.h>
+ #include <linux/init.h>
+@@ -25,6 +24,8 @@
+ #include <linux/dax.h>
+ #include <linux/nd.h>
+ #include <linux/backing-dev.h>
++#include <linux/mm.h>
++#include <asm/cacheflush.h>
+ #include "pmem.h"
+ #include "pfn.h"
+ #include "nd.h"
+diff --git a/include/asm-generic/cacheflush.h b/include/asm-generic/cacheflush.h
+index 906277492ec59..bf9bb83e9fc8d 100644
+--- a/include/asm-generic/cacheflush.h
++++ b/include/asm-generic/cacheflush.h
+@@ -2,9 +2,6 @@
+ #ifndef _ASM_GENERIC_CACHEFLUSH_H
+ #define _ASM_GENERIC_CACHEFLUSH_H
+ 
+-/* Keep includes the same across arches.  */
+-#include <linux/mm.h>
 -
+ #define ARCH_IMPLEMENTS_FLUSH_DCACHE_PAGE 0
+ 
  /*
-  * We don't appear to need to do anything here.  In fact, if we did, we'd
-  * duplicate cache flushing elsewhere performed by flush_dcache_page().
-diff --git a/arch/sparc/include/asm/cacheflush_32.h b/arch/sparc/include/asm/cacheflush_32.h
-index fb66094a2c30c..41c6d734a4741 100644
---- a/arch/sparc/include/asm/cacheflush_32.h
-+++ b/arch/sparc/include/asm/cacheflush_32.h
-@@ -17,8 +17,6 @@
- #define flush_icache_range(start, end)		do { } while (0)
- #define flush_icache_page(vma, pg)		do { } while (0)
- 
--#define flush_icache_user_range(vma,pg,adr,len)	do { } while (0)
--
- #define copy_to_user_page(vma, page, vaddr, dst, src, len) \
- 	do {							\
- 		flush_cache_page(vma, vaddr, page_to_pfn(page));\
-diff --git a/arch/sparc/include/asm/cacheflush_64.h b/arch/sparc/include/asm/cacheflush_64.h
-index e7517434d1fa6..b9341836597ec 100644
---- a/arch/sparc/include/asm/cacheflush_64.h
-+++ b/arch/sparc/include/asm/cacheflush_64.h
-@@ -49,7 +49,6 @@ void __flush_dcache_range(unsigned long start, unsigned long end);
- void flush_dcache_page(struct page *page);
- 
- #define flush_icache_page(vma, pg)	do { } while(0)
--#define flush_icache_user_range(vma,pg,adr,len)	do { } while (0)
- 
- void flush_ptrace_access(struct vm_area_struct *, struct page *,
- 			 unsigned long uaddr, void *kaddr,
-diff --git a/arch/unicore32/include/asm/cacheflush.h b/arch/unicore32/include/asm/cacheflush.h
-index 9393ca4047e93..ff0be92ebc320 100644
---- a/arch/unicore32/include/asm/cacheflush.h
-+++ b/arch/unicore32/include/asm/cacheflush.h
-@@ -162,9 +162,6 @@ extern void flush_dcache_page(struct page *);
- #define flush_dcache_mmap_lock(mapping)		do { } while (0)
- #define flush_dcache_mmap_unlock(mapping)	do { } while (0)
- 
--#define flush_icache_user_range(vma, page, addr, len)	\
--	flush_dcache_page(page)
--
- /*
-  * We don't appear to need to do anything here.  In fact, if we did, we'd
-  * duplicate cache flushing elsewhere performed by flush_dcache_page().
 -- 
 2.26.2
