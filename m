@@ -1,44 +1,41 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Fri, 15 May 2020 14:36:45 +0000
-Subject: [PATCH 28/29] nommu: use flush_icache_user_range in brk and mmap
-Message-Id: <20200515143646.3857579-29-hch@lst.de>
+From: Krzysztof Kozlowski <krzk@kernel.org>
+Date: Wed, 27 May 2020 18:51:37 +0000
+Subject: [RESEND PATCH] ia64: configs: Remove useless UEVENT_HELPER_PATH
+Message-Id: <20200527185137.13335-1-krzk@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200515143646.3857579-1-hch@lst.de>
-In-Reply-To: <20200515143646.3857579-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>, Arnd Bergmann <arnd@arndb.de>, Roman Zippel <zippel@linux-m68k.org>
-Cc: Jessica Yu <jeyu@kernel.org>, Michal Simek <monstr@monstr.eu>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-arch@vger.kernel.org, linux-mm@kvack.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, linux-fsdevel@vger.kernel.org
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: Krzysztof Kozlowski <krzk@kernel.org>
 
-These obviously operate on user addresses.
+Remove the CONFIG_UEVENT_HELPER_PATH because:
+1. It is disabled since commit 1be01d4a5714 ("driver: base: Disable
+   CONFIG_UEVENT_HELPER by default") as its dependency (UEVENT_HELPER) was
+   made default to 'n',
+2. It is not recommended (help message: "This should not be used today
+   [...] creates a high system load") and was kept only for ancient
+   userland,
+3. Certain userland specifically requests it to be disabled (systemd
+   README: "Legacy hotplug slows down the system and confuses udev").
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+Signed-off-by: Krzysztof Kozlowski <krzk@kernel.org>
+Acked-by: Geert Uytterhoeven <geert+renesas@glider.be>
 ---
- mm/nommu.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ arch/ia64/configs/generic_defconfig | 1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/mm/nommu.c b/mm/nommu.c
-index 318df4e236c99..aed7acaed2383 100644
---- a/mm/nommu.c
-+++ b/mm/nommu.c
-@@ -443,7 +443,7 @@ SYSCALL_DEFINE1(brk, unsigned long, brk)
- 	/*
- 	 * Ok, looks good - let it rip.
- 	 */
--	flush_icache_range(mm->brk, brk);
-+	flush_icache_user_range(mm->brk, brk);
- 	return mm->brk = brk;
- }
- 
-@@ -1287,7 +1287,7 @@ unsigned long do_mmap(struct file *file,
- 	/* we flush the region from the icache only when the first executable
- 	 * mapping of it is made  */
- 	if (vma->vm_flags & VM_EXEC && !region->vm_icache_flushed) {
--		flush_icache_range(region->vm_start, region->vm_end);
-+		flush_icache_user_range(region->vm_start, region->vm_end);
- 		region->vm_icache_flushed = true;
- 	}
- 
+diff --git a/arch/ia64/configs/generic_defconfig b/arch/ia64/configs/generic_defconfig
+index cb267a07c57f..f1c5aad6725e 100644
+--- a/arch/ia64/configs/generic_defconfig
++++ b/arch/ia64/configs/generic_defconfig
+@@ -37,7 +37,6 @@ CONFIG_INET=y
+ CONFIG_IP_MULTICAST=y
+ CONFIG_SYN_COOKIES=y
+ # CONFIG_IPV6 is not set
+-CONFIG_UEVENT_HELPER_PATH="/sbin/hotplug"
+ CONFIG_CONNECTOR=y
+ # CONFIG_PNP_DEBUG_MESSAGES is not set
+ CONFIG_BLK_DEV_LOOP=m
 -- 
-2.26.2
+2.17.1
