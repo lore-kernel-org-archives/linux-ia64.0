@@ -1,110 +1,54 @@
-From: Mike Rapoport <rppt@kernel.org>
-Date: Sat, 27 Jun 2020 14:34:48 +0000
-Subject: [PATCH 3/8] xtensa: switch to generic version of pte allocation
-Message-Id: <20200627143453.31835-4-rppt@kernel.org>
+From: Krzysztof Kozlowski <krzk@kernel.org>
+Date: Thu, 04 Jun 2020 20:18:42 +0000
+Subject: [RFT PATCH] ia64: Fix build error with !COREDUMP
+Message-Id: <20200604201842.29482-1-krzk@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200627143453.31835-1-rppt@kernel.org>
-In-Reply-To: <20200627143453.31835-1-rppt@kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Abdul Haleem <abdhalee@linux.vnet.ibm.com>, Andrew Morton <akpm@linux-foundation.org>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Christophe Leroy <christophe.leroy@csgroup.eu>, Joerg Roedel <joro@8bytes.org>, Max Filippov <jcmvbkbc@gmail.com>, Mike Rapoport <rppt@kernel.org>, Mike Rapoport <rppt@linux.ibm.com>, Peter Zijlstra <peterz@infradead.org>, Satheesh Rajendran <sathnaga@linux.vnet.ibm.com>, Stafford Horne <shorne@gmail.com>, Stephen Rothwell <sfr@canb.auug.org.au>, Steven Rostedt <rostedt@goodmis.org>, linux-alpha@vger.kernel.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.orglinux
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Tom Vaden <tom.vaden@hpe.com>, Krzysztof Kozlowski <krzk@kernel.org>, Daisuke HATAYAMA <d.hatayama@jp.fujitsu.com>, Andrew Morton <akpm@linux-foundation.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: kbuild-all@lists.01.org, Joerg Roedel <jroedel@suse.de>, stable@vger.kernel.org
 
-From: Mike Rapoport <rppt@linux.ibm.com>
+Fix linkage error when CONFIG_BINFMT_ELF is selected but CONFIG_COREDUMP
+is not:
 
-xtensa clears PTEs during allocation of the page tables and pte_clear()
-sets the PTE to a non-zero value. Splitting ptes_clear() helper out of
-pte_alloc_one() and pte_alloc_one_kernel() allows reuse of base generic
-allocation methods (__pte_alloc_one() and __pte_alloc_one_kernel()) and the
-common GFP mask for page table allocations.
+    ia64-linux-ld: arch/ia64/kernel/elfcore.o: in function `elf_core_write_=
+extra_phdrs':
+    elfcore.c:(.text+0x172): undefined reference to `dump_emit'
+    ia64-linux-ld: arch/ia64/kernel/elfcore.o: in function `elf_core_write_=
+extra_data':
+    elfcore.c:(.text+0x2b2): undefined reference to `dump_emit'
 
-The pte_free() and pte_free_kernel() implementations on xtensa are
-identical to the generic ones and can be dropped.
+Cc: <stable@vger.kernel.org>
+Fixes: 1fcccbac89f5 ("elf coredump: replace ELF_CORE_EXTRA_* macros by func=
+tions")
+Reported-by: kernel test robot <lkp@intel.com>
+Signed-off-by: Krzysztof Kozlowski <krzk@kernel.org>
 
-Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
 ---
- arch/xtensa/include/asm/pgalloc.h | 41 ++++++++++++++-----------------
- 1 file changed, 19 insertions(+), 22 deletions(-)
 
-diff --git a/arch/xtensa/include/asm/pgalloc.h b/arch/xtensa/include/asm/pgalloc.h
-index 1d38f0e755ba..60ee94b42850 100644
---- a/arch/xtensa/include/asm/pgalloc.h
-+++ b/arch/xtensa/include/asm/pgalloc.h
-@@ -8,9 +8,14 @@
- #ifndef _XTENSA_PGALLOC_H
- #define _XTENSA_PGALLOC_H
- 
-+#ifdef CONFIG_MMU
- #include <linux/highmem.h>
- #include <linux/slab.h>
- 
-+#define __HAVE_ARCH_PTE_ALLOC_ONE_KERNEL
-+#define __HAVE_ARCH_PTE_ALLOC_ONE
-+#include <asm-generic/pgalloc.h>
-+
- /*
-  * Allocating and freeing a pmd is trivial: the 1-entry pmd is
-  * inside the pgd, so has no extra memory associated with it.
-@@ -33,45 +38,37 @@ static inline void pgd_free(struct mm_struct *mm, pgd_t *pgd)
- 	free_page((unsigned long)pgd);
- }
- 
-+static inline void ptes_clear(pte_t *ptep)
-+{
-+	int i;
-+
-+	for (i = 0; i < PTRS_PER_PTE; i++)
-+		pte_clear(NULL, 0, ptep + i);
-+}
-+
- static inline pte_t *pte_alloc_one_kernel(struct mm_struct *mm)
- {
- 	pte_t *ptep;
--	int i;
- 
--	ptep = (pte_t *)__get_free_page(GFP_KERNEL);
-+	ptep = (pte_t *)__pte_alloc_one_kernel(mm);
- 	if (!ptep)
- 		return NULL;
--	for (i = 0; i < 1024; i++)
--		pte_clear(NULL, 0, ptep + i);
-+	ptes_clear(ptep);
- 	return ptep;
- }
- 
- static inline pgtable_t pte_alloc_one(struct mm_struct *mm)
- {
--	pte_t *pte;
- 	struct page *page;
- 
--	pte = pte_alloc_one_kernel(mm);
--	if (!pte)
--		return NULL;
--	page = virt_to_page(pte);
--	if (!pgtable_pte_page_ctor(page)) {
--		__free_page(page);
-+	page = __pte_alloc_one(mm, GFP_PGTABLE_USER);
-+	if (!page)
- 		return NULL;
--	}
-+	ptes_clear(page_address(page));
- 	return page;
- }
- 
--static inline void pte_free_kernel(struct mm_struct *mm, pte_t *pte)
--{
--	free_page((unsigned long)pte);
--}
--
--static inline void pte_free(struct mm_struct *mm, pgtable_t pte)
--{
--	pgtable_pte_page_dtor(pte);
--	__free_page(pte);
--}
- #define pmd_pgtable(pmd) pmd_page(pmd)
-+#endif CONFIG_MMU
- 
- #endif /* _XTENSA_PGALLOC_H */
--- 
-2.26.2
+Please let kbuild test it for a while before applying. I built it only
+on few configurations.
+
+This is similar fix to commit 42d91f612c87 ("um: Fix build error and
+kconfig for i386") although I put different fixes tag - the commit which
+introduced this part of code.
+---
+ arch/ia64/kernel/Makefile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/ia64/kernel/Makefile b/arch/ia64/kernel/Makefile
+index 1a8df6669eee..18d6008b151f 100644
+--- a/arch/ia64/kernel/Makefile
++++ b/arch/ia64/kernel/Makefile
+@@ -41,7 +41,7 @@ obj-y				+=3D esi_stub.o	# must be in kernel proper
+ endif
+ obj-$(CONFIG_INTEL_IOMMU)	+=3D pci-dma.o
+=20
+-obj-$(CONFIG_BINFMT_ELF)	+=3D elfcore.o
++obj-$(CONFIG_ELF_CORE)		+=3D elfcore.o
+=20
+ # fp_emulate() expects f2-f5,f16-f31 to contain the user-level state.
+ CFLAGS_traps.o  +=3D -mfixed-range=F2-f5,f16-f31
+--=20
+2.17.1
