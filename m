@@ -1,92 +1,25 @@
-From: Joerg Roedel <joro@8bytes.org>
-Date: Thu, 25 Jun 2020 13:08:29 +0000
-Subject: [PATCH 06/13] iommu/tegra: Use dev_iommu_priv_get/set()
-Message-Id: <20200625130836.1916-7-joro@8bytes.org>
+From: Qian Cai <cai@lca.pw>
+Date: Thu, 04 Jun 2020 09:50:23 +0000
+Subject: Re: [PATCH v4 08/14] powerpc: add support for folded p4d page tables
+Message-Id: <F85B8F19-D717-411A-AFA8-466A02159F27@lca.pw>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200625130836.1916-1-joro@8bytes.org>
-In-Reply-To: <20200625130836.1916-1-joro@8bytes.org>
+References: <20200603120522.7646d56a23088416a7d3fc1a@linux-foundation.org>
+In-Reply-To: <20200603120522.7646d56a23088416a7d3fc1a@linux-foundation.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: iommu@lists.linux-foundation.org
-Cc: Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, x86@kernel.org, Jani Nikula <jani.nikula@linux.intel.com>, Joonas Lahtinen <joonas.lahtinen@linux.intel.com>, Rodrigo Vivi <rodrigo.vivi@intel.com>, David Airlie <airlied@linux.ie>, Daniel Vetter <daniel@ffwll.ch>, Marek Szyprowski <m.szyprowski@samsung.com>, Joerg Roedel <joro@8bytes.org>, David Woodhouse <dwmw2@infradead.org>, Lu Baolu <baolu.lu@linux.intel.com>, Matthias Brugger <matthias.bgg@gmail.com>, Heiko Stuebner <heiko@sntech.de>, Thierry Reding <thierry.reding@gmail.com>, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, intel-gfx@lists.freedesktop.org, Joerg Roedel <jroedel@suse.de>
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Rich Felker <dalias@libc.org>, linux-ia64@vger.kernel.org, Geert Uytterhoeven <geert+renesas@glider.be>, linux-sh@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linux-mm@kvack.org, Paul Mackerras <paulus@samba.org>, linux-hexagon@vger.kernel.org, Will Deacon <will@kernel.org>, kvmarm@lists.cs.columbia.edu, Jonas Bonn <jonas@southpole.se>, linux-arch@vger.kernel.org, Brian Cain <bcain@codeaurora.org>, Marc Zyngier <maz@kernel.org>, Russell King <linux@armlinux.org.uk>, Ley Foon Tan <ley.foon.tan@intel.com>, Mike Rapoport <rppt@linux.ibm.com>, Catalin Marinas <catalin.marinas@arm.com>, uclinux-h8-devel@lists.sourceforge.jp, Fenghua Yu <fenghua.yu@intel.com>, Arnd Bergmann <arnd@arndb.de>, kvm-ppc@vger.kernel.org, Stefan Kristiansson <stefan.kristiansson@saunalahti.fi>, openrisc@lists.librecores.org, Stafford Horne <shorne@gmail.com>, Guan Xuetao <gxt@pku.edu.cn>, linux-arm-kernel@lists.infradead.org, Christophe Leroy <christophe.leroy@c-s.fr>, Tony Luck <tony.luck@intel.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, linux-kernel@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>, nios2-dev@lists.rocketboards.org, linuxppc-dev@lists.ozlabs.org, Mike Rapoport <rppt@kernel.org>
 
-From: Joerg Roedel <jroedel@suse.de>
 
-Remove the use of dev->archdata.iommu and use the private per-device
-pointer provided by IOMMU core code instead.
 
-Signed-off-by: Joerg Roedel <jroedel@suse.de>
----
- drivers/iommu/tegra-gart.c | 8 ++++----
- drivers/iommu/tegra-smmu.c | 8 ++++----
- 2 files changed, 8 insertions(+), 8 deletions(-)
+> On Jun 3, 2020, at 3:05 PM, Andrew Morton <akpm@linux-foundation.org> wrote:
+> 
+> A bunch of new material just landed in linux-next/powerpc.
+> 
+> The timing is awkward!  I trust this will be going into mainline during
+> this merge window?  If not, please drop it and repull after -rc1.
 
-diff --git a/drivers/iommu/tegra-gart.c b/drivers/iommu/tegra-gart.c
-index 5fbdff6ff41a..fac720273889 100644
---- a/drivers/iommu/tegra-gart.c
-+++ b/drivers/iommu/tegra-gart.c
-@@ -113,8 +113,8 @@ static int gart_iommu_attach_dev(struct iommu_domain *domain,
- 
- 	if (gart->active_domain && gart->active_domain != domain) {
- 		ret = -EBUSY;
--	} else if (dev->archdata.iommu != domain) {
--		dev->archdata.iommu = domain;
-+	} else if (dev_iommu_priv_get(dev) != domain) {
-+		dev_iommu_priv_set(dev, domain);
- 		gart->active_domain = domain;
- 		gart->active_devices++;
- 	}
-@@ -131,8 +131,8 @@ static void gart_iommu_detach_dev(struct iommu_domain *domain,
- 
- 	spin_lock(&gart->dom_lock);
- 
--	if (dev->archdata.iommu = domain) {
--		dev->archdata.iommu = NULL;
-+	if (dev_iommu_priv_get(dev) = domain) {
-+		dev_iommu_priv_set(dev, NULL);
- 
- 		if (--gart->active_devices = 0)
- 			gart->active_domain = NULL;
-diff --git a/drivers/iommu/tegra-smmu.c b/drivers/iommu/tegra-smmu.c
-index 7426b7666e2b..124c8848ab7e 100644
---- a/drivers/iommu/tegra-smmu.c
-+++ b/drivers/iommu/tegra-smmu.c
-@@ -465,7 +465,7 @@ static void tegra_smmu_as_unprepare(struct tegra_smmu *smmu,
- static int tegra_smmu_attach_dev(struct iommu_domain *domain,
- 				 struct device *dev)
- {
--	struct tegra_smmu *smmu = dev->archdata.iommu;
-+	struct tegra_smmu *smmu = dev_iommu_priv_get(dev);
- 	struct tegra_smmu_as *as = to_smmu_as(domain);
- 	struct device_node *np = dev->of_node;
- 	struct of_phandle_args args;
-@@ -780,7 +780,7 @@ static struct iommu_device *tegra_smmu_probe_device(struct device *dev)
- 			 * supported by the Linux kernel, so abort after the
- 			 * first match.
- 			 */
--			dev->archdata.iommu = smmu;
-+			dev_iommu_priv_set(dev, smmu);
- 
- 			break;
- 		}
-@@ -797,7 +797,7 @@ static struct iommu_device *tegra_smmu_probe_device(struct device *dev)
- 
- static void tegra_smmu_release_device(struct device *dev)
- {
--	dev->archdata.iommu = NULL;
-+	dev_iommu_priv_set(dev, NULL);
- }
- 
- static const struct tegra_smmu_group_soc *
-@@ -856,7 +856,7 @@ static struct iommu_group *tegra_smmu_group_get(struct tegra_smmu *smmu,
- static struct iommu_group *tegra_smmu_device_group(struct device *dev)
- {
- 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
--	struct tegra_smmu *smmu = dev->archdata.iommu;
-+	struct tegra_smmu *smmu = dev_iommu_priv_get(dev);
- 	struct iommu_group *group;
- 
- 	group = tegra_smmu_group_get(smmu, fwspec->ids[0]);
--- 
-2.27.0
+I have noticed the same pattern over and over again, i.e., many powerpc new material has only shown up in linux-next for only a few days before sending for a pull request to Linus.
+
+There are absolutely no safe net for this kind of practice. The main problem is that Linus seems totally fine with it.
