@@ -1,49 +1,35 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Date: Mon, 29 Jun 2020 15:41:43 +0000
-Subject: Re: [PATCH 1/8] mm: remove unneeded includes of <asm/pgalloc.h>
-Message-Id: <CAMuHMdUOrrrtKuhtWJvzKNNLXY1fx+Ym1oXGN2J_CZ7RqByGHQ@mail.gmail.com>
+From: Gerald Schaefer <gerald.schaefer@de.ibm.com>
+Date: Wed, 10 Jun 2020 15:48:11 +0000
+Subject: Possible duplicate page fault accounting on some archs after commit 4064b9827063
+Message-Id: <20200610174811.44b94525@thinkpad>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200627143453.31835-1-rppt@kernel.org>
- <20200627143453.31835-2-rppt@kernel.org>
-In-Reply-To: <20200627143453.31835-2-rppt@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Mike Rapoport <rppt@kernel.org>
-Cc: "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Linux-sh list <linux-sh@vger.kernel.org>, Peter Zijlstra <peterz@infradead.org>, "open list:BROADCOM NVRAM DRIVER" <linux-mips@vger.kernel.org>, Max Filippov <jcmvbkbc@gmail.com>, Satheesh Rajendran <sathnaga@linux.vnet.ibm.com>, linux-csky@vger.kernel.org, sparclinux <sparclinux@vger.kernel.org>, linux-riscv <linux-riscv@lists.infradead.org>, Linux-Arch <linux-arch@vger.kernel.org>, Stephen Rothwell <sfr@canb.auug.org.au>, "open list:QUALCOMM HEXAGON..." <linux-hexagon@vger.kernel.org>, Joerg Roedel <joro@8bytes.org>, Mike Rapoport <rppt@linux.ibm.com>, Abdul Haleem <abdhalee@linux.vnet.ibm.com>, arcml <linux-snps-arc@lists.infradead.org>, "open list:TENSILICA XTENSA PORT (xtensa)" <linux-xtensa@linux-xtensa.org>, Arnd Bergmann <arnd@arndb.de>, linux-s390 <linux-s390@vger.kernel.org>, linux-um <linux-um@lis>
+To: Peter Xu <peterx@redhat.com>, linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, Michal Simek <monstr@monstr.eu>, linux-mips@vger.kernel.org, Nick Hu <nickhu@andestech.com>, Ley Foon Tan <ley.foon.tan@intel.com>, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-um@lists.infradead.org, Guan Xuetao <gxt@pku.edu.cn>, linux-xtensa@linux-xtensa.org, Heiko Carstens <heiko.carstens@de.ibm.com>, Linus Torvalds <torvalds@linux-foundation.org>, Andrea Arcangeli <aarcange@redhat.com>
 
-On Sat, Jun 27, 2020 at 4:35 PM Mike Rapoport <rppt@kernel.org> wrote:
-> From: Mike Rapoport <rppt@linux.ibm.com>
->
-> In the most cases <asm/pgalloc.h> header is required only for allocations
-> of page table memory. Most of the .c files that include that header do not
-> use symbols declared in <asm/pgalloc.h> and do not require that header.
->
-> As for the other header files that used to include <asm/pgalloc.h>, it is
-> possible to move that include into the .c file that actually uses symbols
-> from <asm/pgalloc.h> and drop the include from the header file.
->
-> The process was somewhat automated using
->
->         sed -i -E '/[<"]asm\/pgalloc\.h/d' \
->                 $(grep -L -w -f /tmp/xx \
->                         $(git grep -E -l '[<"]asm/pgalloc\.h'))
->
-> where /tmp/xx contains all the symbols defined in
-> arch/*/include/asm/pgalloc.h.
->
-> Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
+Hi,
 
-For the m68k part:
-Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
+Some architectures have their page fault accounting code inside the fault
+retry loop, and rely on only going through that code once. Before commit
+4064b9827063 ("mm: allow VM_FAULT_RETRY for multiple times"), that was
+ensured by testing for and clearing FAULT_FLAG_ALLOW_RETRY.
 
-Gr{oetje,eeting}s,
+That commit had to remove the clearing of FAULT_FLAG_ALLOW_RETRY for all
+architectures, and introduced a subtle change to page fault accounting
+logic in the affected archs. It is now possible to go through the retry
+loop multiple times, and the affected archs would then account multiple
+page faults instead of just one.
 
-                        Geert
+This was found by coincidence in s390 code, and a quick check showed that
+there are quite a lot of other architectures that seem to be affected in a
+similar way. I'm preparing a fix for s390, by moving the accounting behind
+the retry loop, similar to x86. It is not completely straight-forward, so
+I leave the fix for other archs to the respective maintainers.
 
--- 
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+Added the lists for possibly affected archs on cc, but no guarantee for
+completeness.
 
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+Regards,
+Gerald
