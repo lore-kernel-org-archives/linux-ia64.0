@@ -1,147 +1,154 @@
-From: Greg Ungerer <gerg@linux-m68k.org>
-Date: Mon, 15 Jun 2020 03:53:42 +0000
+From: Mike Rapoport <rppt@kernel.org>
+Date: Mon, 15 Jun 2020 06:22:34 +0000
 Subject: Re: [PATCH 04/21] mm: free_area_init: use maximal zone PFNs rather than zone sizes
-Message-Id: <f53e68db-ed81-6ef6-5087-c7246d010ea2@linux-m68k.org>
+Message-Id: <20200615062234.GA7882@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20200412194859.12663-5-rppt@kernel.org>
-In-Reply-To: <20200412194859.12663-5-rppt@kernel.org>
+ <f53e68db-ed81-6ef6-5087-c7246d010ea2@linux-m68k.org>
+In-Reply-To: <f53e68db-ed81-6ef6-5087-c7246d010ea2@linux-m68k.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: rppt@kernel.org
-Cc: Hoan@os.amperecomputing.com, James.Bottomley@HansenPartnership.com, akpm@linux-foundation.org, bcain@codeaurora.org, bhe@redhat.com, catalin.marinas@arm.com, corbet@lwn.net, dalias@libc.org, davem@davemloft.net, deller@gmx.de, geert@linux-m68k.org, green.hu@gmail.com, guoren@kernel.org, gxt@pku.edu.cn, heiko.carstens@de.ibm.com, jcmvbkbc@gmail.com, ley.foon.tan@intel.com, linux-alpha@vger.kernel.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org, linux-csky@vger.kernel.org, linux-doc@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-mm@kvack.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.orglinux
+To: Greg Ungerer <gerg@linux-m68k.org>
+Cc: Hoan@os.amperecomputing.com, James.Bottomley@hansenpartnership.com, akpm@linux-foundation.org, bcain@codeaurora.org, bhe@redhat.com, catalin.marinas@arm.com, corbet@lwn.net, dalias@libc.org, davem@davemloft.net, deller@gmx.de, geert@linux-m68k.org, green.hu@gmail.com, guoren@kernel.org, gxt@pku.edu.cn, heiko.carstens@de.ibm.com, jcmvbkbc@gmail.com, ley.foon.tan@intel.com, linux-alpha@vger.kernel.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-c6x-dev@linux-c6x.org, linux-csky@vger.kernel.org, linux-doc@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-mm@kvack.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.orglinux
 
-Hi Mike,
+Hi Greg,
 
-From: Mike Rapoport <rppt@linux.ibm.com>
-> Currently, architectures that use free_area_init() to initialize memory map
-> and node and zone structures need to calculate zone and hole sizes. We can
-> use free_area_init_nodes() instead and let it detect the zone boundaries
-> while the architectures will only have to supply the possible limits for
-> the zones.
+On Mon, Jun 15, 2020 at 01:53:42PM +1000, Greg Ungerer wrote:
+> Hi Mike,
 > 
-> Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
+> From: Mike Rapoport <rppt@linux.ibm.com>
+> > Currently, architectures that use free_area_init() to initialize memory map
+> > and node and zone structures need to calculate zone and hole sizes. We can
+> > use free_area_init_nodes() instead and let it detect the zone boundaries
+> > while the architectures will only have to supply the possible limits for
+> > the zones.
+> > 
+> > Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
+> 
+> This is causing some new warnings for me on boot on at least one non-MMU m68k target:
 
-This is causing some new warnings for me on boot on at least one non-MMU m68k target:
+There were a couple of changes that cause this. The free_area_init()
+now relies on memblock data and architectural limits for zone sizes
+rather than on explisit pfns calculated by the arch code. I've update
+motorola variant and missed coldfire. Angelo sent a fix for mcfmmu.c
+[1] and I've updated it to include nommu as well
+
+[1] https://lore.kernel.org/linux-m68k/20200614225119.777702-1-angelo.dureghello@timesys.com
+
+From 55b8523df2a5c4565b132c0691990f0821040fec Mon Sep 17 00:00:00 2001
+From: Angelo Dureghello <angelo.dureghello@timesys.com>
+Date: Mon, 15 Jun 2020 00:51:19 +0200
+Subject: [PATCH] m68k: fix registration of memory regions with memblock
+
+Commit 3f08a302f533 ("mm: remove CONFIG_HAVE_MEMBLOCK_NODE_MAP option")
+introduced assumption that UMA systems have their memory at node 0 and
+updated most of them, but it forgot nommu and coldfire variants of m68k.
+
+The later change in free area initialization in commit fa3354e4ea39 ("mm:
+free_area_init: use maximal zone PFNs rather than zone sizes") exposed that
+and caused a lot of "BUG: Bad page state in process swapper" reports.
+
+Using memblock_add_node() with nid = 0 to register memory banks solves the
+problem.
+
+Fixes: 3f08a302f533 ("mm: remove CONFIG_HAVE_MEMBLOCK_NODE_MAP option")
+Fixes: fa3354e4ea39 ("mm: free_area_init: use maximal zone PFNs rather than zone sizes")
+Signed-off-by: Angelo Dureghello <angelo.dureghello@timesys.com>
+Co-developed-by: Mike Rapoport <rppt@linux.ibm.com>
+Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
+---
+ arch/m68k/kernel/setup_no.c | 2 +-
+ arch/m68k/mm/mcfmmu.c       | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/arch/m68k/kernel/setup_no.c b/arch/m68k/kernel/setup_no.c
+index e779b19e0193..0c4589a39ba9 100644
+--- a/arch/m68k/kernel/setup_no.c
++++ b/arch/m68k/kernel/setup_no.c
+@@ -138,7 +138,7 @@ void __init setup_arch(char **cmdline_p)
+ 	pr_debug("MEMORY -> ROMFS=0x%p-0x%06lx MEM=0x%06lx-0x%06lx\n ",
+ 		 __bss_stop, memory_start, memory_start, memory_end);
+ 
+-	memblock_add(memory_start, memory_end - memory_start);
++	memblock_add_node(memory_start, memory_end - memory_start, 0);
+ 
+ 	/* Keep a copy of command line */
+ 	*cmdline_p = &command_line[0];
+diff --git a/arch/m68k/mm/mcfmmu.c b/arch/m68k/mm/mcfmmu.c
+index 29f47923aa46..7d04210d34f0 100644
+--- a/arch/m68k/mm/mcfmmu.c
++++ b/arch/m68k/mm/mcfmmu.c
+@@ -174,7 +174,7 @@ void __init cf_bootmem_alloc(void)
+ 	m68k_memory[0].addr = _rambase;
+ 	m68k_memory[0].size = _ramend - _rambase;
+ 
+-	memblock_add(m68k_memory[0].addr, m68k_memory[0].size);
++	memblock_add_node(m68k_memory[0].addr, m68k_memory[0].size, 0);
+ 
+ 	/* compute total pages in system */
+ 	num_pages = PFN_DOWN(_ramend - _rambase);
+-- 
+2.26.2
+
+
+> ...
+> NET: Registered protocol family 17
+> BUG: Bad page state in process swapper  pfn:20165
+> page:41fe0ca0 refcount:0 mapcount:1 mapping:00000000 index:0x0
+> flags: 0x0()
+> raw: 00000000 00000100 00000122 00000000 00000000 00000000 00000000 00000000
+> page dumped because: nonzero mapcount
+> CPU: 0 PID: 1 Comm: swapper Not tainted 5.8.0-rc1-00001-g3a38f8a60c65-dirty #1
+> Stack from 404c9ebc:
+>         404c9ebc 4029ab28 4029ab28 40088470 41fe0ca0 40299e21 40299df1 404ba2a4
+>         00020165 00000000 41fd2c10 402c7ba0 41fd2c04 40088504 41fe0ca0 40299e21
+>         00000000 40088a12 41fe0ca0 41fe0ca4 0000020a 00000000 00000001 402ca000
+>         00000000 41fe0ca0 41fd2c10 41fd2c10 00000000 00000000 402b2388 00000001
 
 ...
-NET: Registered protocol family 17
-BUG: Bad page state in process swapper  pfn:20165
-page:41fe0ca0 refcount:0 mapcount:1 mapping:00000000 index:0x0
-flags: 0x0()
-raw: 00000000 00000100 00000122 00000000 00000000 00000000 00000000 00000000
-page dumped because: nonzero mapcount
-CPU: 0 PID: 1 Comm: swapper Not tainted 5.8.0-rc1-00001-g3a38f8a60c65-dirty #1
-Stack from 404c9ebc:
-         404c9ebc 4029ab28 4029ab28 40088470 41fe0ca0 40299e21 40299df1 404ba2a4
-         00020165 00000000 41fd2c10 402c7ba0 41fd2c04 40088504 41fe0ca0 40299e21
-         00000000 40088a12 41fe0ca0 41fe0ca4 0000020a 00000000 00000001 402ca000
-         00000000 41fe0ca0 41fd2c10 41fd2c10 00000000 00000000 402b2388 00000001
-         400a0934 40091056 404c9f44 404c9f44 40088db4 402c7ba0 00000001 41fd2c04
-         41fe0ca0 41fd2000 41fe0ca0 40089e02 4026ecf4 40089e4e 41fe0ca0 ffffffff
-Call Trace:
-         [<40088470>] 0x40088470
-  [<40088504>] 0x40088504
-  [<40088a12>] 0x40088a12
-  [<402ca000>] 0x402ca000
-  [<400a0934>] 0x400a0934
 
-         [<40091056>] 0x40091056
-  [<40088db4>] 0x40088db4
-  [<40089e02>] 0x40089e02
-  [<4026ecf4>] 0x4026ecf4
-  [<40089e4e>] 0x40089e4e
+> 
+> System boots pretty much as normal through user space after this.
+> Seems to be fully operational despite all those BUGONs.
+> 
+> Specifically this is a M5208EVB target (arch/m68k/configs/m5208evb).
+> 
+> 
+> [snip]
+> > diff --git a/arch/m68k/mm/init.c b/arch/m68k/mm/init.c
+> > index b88d510d4fe3..6d3147662ff2 100644
+> > --- a/arch/m68k/mm/init.c
+> > +++ b/arch/m68k/mm/init.c
+> > @@ -84,7 +84,7 @@ void __init paging_init(void)
+> >  	 * page_alloc get different views of the world.
+> >  	 */
+> >  	unsigned long end_mem = memory_end & PAGE_MASK;
+> > -	unsigned long zones_size[MAX_NR_ZONES] = { 0, };
+> > +	unsigned long max_zone_pfn[MAX_NR_ZONES] = { 0, };
+> >  	high_memory = (void *) end_mem;
+> > @@ -98,8 +98,8 @@ void __init paging_init(void)
+> >  	 */
+> >  	set_fs (USER_DS);
+> > -	zones_size[ZONE_DMA] = (end_mem - PAGE_OFFSET) >> PAGE_SHIFT;
+> > -	free_area_init(zones_size);
+> > +	max_zone_pfn[ZONE_DMA] = end_mem >> PAGE_SHIFT;
+> > +	free_area_init(max_zone_pfn);
+> 
+> This worries me a little. On this target PAGE_OFFSET will be non-0.
+> Thoughts?
 
-         [<4008ca26>] 0x4008ca26
-  [<4004adf8>] 0x4004adf8
-  [<402701ec>] 0x402701ec
-  [<4008f25e>] 0x4008f25e
-  [<400516f4>] 0x400516f4
+The initialization in free_area_init() takes into account the actual
+physical memory sizing from memblock and max_zone_pfn as the
+architectural limit for possible zone extents. This (and the patch
+above) is enough to properly setup node and zones. 
 
-         [<4026eec0>] 0x4026eec0
-  [<400224f0>] 0x400224f0
-  [<402ca000>] 0x402ca000
-  [<4026eeda>] 0x4026eeda
-  [<40020b00>] 0x40020b00
-...
+> Regards
+> Greg
+> 
+> 
+> 
 
-Lots more of them.
-
-...
-BUG: Bad page state in process swapper  pfn:201a0
-page:41fe1400 refcount:0 mapcount:1 mapping:00000000 index:0x0
-flags: 0x0()
-raw: 00000000 00000100 00000122 00000000 00000000 00000000 00000000 00000000
-page dumped because: nonzero mapcount
-CPU: 0 PID: 1 Comm: swapper Tainted: G    B             5.8.0-rc1-00001-g3a38f8a60c65-dirty #1
-Stack from 404c9ebc:
-         404c9ebc 4029ab28 4029ab28 40088470 41fe1400 40299e21 40299df1 404ba2a4
-         000201a0 00000000 41fd2c10 402c7ba0 41fd2c04 40088504 41fe1400 40299e21
-         00000000 40088a12 41fe1400 41fe1404 0000020a 0000003b 00000001 40340000
-         00000000 41fe1400 41fd2c10 41fd2c10 00000000 00000000 41fe13e0 40022826
-         00000044 404c9f44 404c9f44 404c9f44 40088db4 402c7ba0 00000001 41fd2c04
-         41fe1400 41fd2000 41fe1400 40089e02 4026ecf4 40089e4e 41fe1400 ffffffff
-Call Trace:
-         [<40088470>] 0x40088470
-  [<40088504>] 0x40088504
-  [<40088a12>] 0x40088a12
-  [<40022826>] 0x40022826
-  [<40088db4>] 0x40088db4
-
-         [<40089e02>] 0x40089e02
-  [<4026ecf4>] 0x4026ecf4
-  [<40089e4e>] 0x40089e4e
-  [<4008ca26>] 0x4008ca26
-  [<4004adf8>] 0x4004adf8
-
-         [<402701ec>] 0x402701ec
-  [<4008f25e>] 0x4008f25e
-  [<400516f4>] 0x400516f4
-  [<4026eec0>] 0x4026eec0
-  [<400224f0>] 0x400224f0
-
-         [<402ca000>] 0x402ca000
-  [<4026eeda>] 0x4026eeda
-  [<40020b00>] 0x40020b00
-Freeing unused kernel memory: 648K
-This architecture does not have kernel memory protection.
-Run /init as init process
-...
-
-System boots pretty much as normal through user space after this.
-Seems to be fully operational despite all those BUGONs.
-
-Specifically this is a M5208EVB target (arch/m68k/configs/m5208evb).
-
-
-[snip]
-> diff --git a/arch/m68k/mm/init.c b/arch/m68k/mm/init.c
-> index b88d510d4fe3..6d3147662ff2 100644
-> --- a/arch/m68k/mm/init.c
-> +++ b/arch/m68k/mm/init.c
-> @@ -84,7 +84,7 @@ void __init paging_init(void)
->  	 * page_alloc get different views of the world.
->  	 */
->  	unsigned long end_mem = memory_end & PAGE_MASK;
-> -	unsigned long zones_size[MAX_NR_ZONES] = { 0, };
-> +	unsigned long max_zone_pfn[MAX_NR_ZONES] = { 0, };
->  
->  	high_memory = (void *) end_mem;
->  
-> @@ -98,8 +98,8 @@ void __init paging_init(void)
->  	 */
->  	set_fs (USER_DS);
->  
-> -	zones_size[ZONE_DMA] = (end_mem - PAGE_OFFSET) >> PAGE_SHIFT;
-> -	free_area_init(zones_size);
-> +	max_zone_pfn[ZONE_DMA] = end_mem >> PAGE_SHIFT;
-> +	free_area_init(max_zone_pfn);
-
-This worries me a little. On this target PAGE_OFFSET will be non-0.
-
-Thoughts?
-
-Regards
-Greg
-
-
+-- 
+Sincerely yours,
+Mike.
