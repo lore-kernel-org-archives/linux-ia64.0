@@ -1,26 +1,46 @@
-From: Pekka Enberg <penberg@gmail.com>
-Date: Mon, 29 Jun 2020 14:01:14 +0000
-Subject: Re: [PATCH 0/8] mm: cleanup usage of <asm/pgalloc.h>
-Message-Id: <CAOJsxLE47WP9aMY3nh=E7C1a_esHt=sBFWCnsVA2umZ7TZ6TTA@mail.gmail.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Thu, 18 Jun 2020 19:48:22 +0000
+Subject: Re: rename probe_kernel_* and probe_user_*
+Message-Id: <CAHk-=wjpnu=882iD9ck9Ywt6R1LYX_Hv-oS7dBMsWZwDRGZ5jA@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200627143453.31835-1-rppt@kernel.org>
-In-Reply-To: <20200627143453.31835-1-rppt@kernel.org>
+References: <20200617073755.8068-1-hch@lst.de>
+In-Reply-To: <20200617073755.8068-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Mike Rapoport <rppt@kernel.org>
-Cc: LKML <linux-kernel@vger.kernel.org>, Abdul Haleem <abdhalee@linux.vnet.ibm.com>, Andrew Morton <akpm@linux-foundation.org>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Christophe Leroy <christophe.leroy@csgroup.eu>, Joerg Roedel <joro@8bytes.org>, Max Filippov <jcmvbkbc@gmail.com>, Mike Rapoport <rppt@linux.ibm.com>, Peter Zijlstra <peterz@infradead.org>, Satheesh Rajendran <sathnaga@linux.vnet.ibm.com>, Stafford Horne <shorne@gmail.com>, Stephen Rothwell <sfr@canb.auug.org.au>, Steven Rostedt <rostedt@goodmis.org>, linux-alpha@vger.kernel.org, "list@ebiederm.org:DOCUMENTATION <linux-doc@vger.kernel.org>,
-        list@ebiederm.org:MEMORY MANAGEMENT <linux-mm@kvack.org>," <linux-arch@vger.kernel.org>, linux-arm-kernel <linux-arm>
+To: Christoph Hellwig <hch@lst.de>, Russell King <linux@armlinux.org.uk>, Tony Luck <tony.luck@intel.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>
+Cc: Andrew Morton <akpm@linux-foundation.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-arch <linux-arch@vger.kernel.org>, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, the arch/x86 maintainers <x86@kernel.org>
 
-On Sat, Jun 27, 2020 at 5:35 PM Mike Rapoport <rppt@kernel.org> wrote:
-> Most architectures have very similar versions of pXd_alloc_one() and
-> pXd_free_one() for intermediate levels of page table.
-> These patches add generic versions of these functions in
-> <asm-generic/pgalloc.h> and enable use of the generic functions where
-> appropriate.
+[ Explicitly added architecture lists and developers to the cc to make
+this more visible ]
 
-Very nice cleanup series to the page table code!
+On Wed, Jun 17, 2020 at 12:38 AM Christoph Hellwig <hch@lst.de> wrote:
+>
+> Andrew and I decided to drop the patches implementing your suggested
+> rename of the probe_kernel_* and probe_user_* helpers from -mm as there
+> were way to many conflicts.  After -rc1 might be a good time for this as
+> all the conflicts are resolved now.
 
-FWIW:
+So I've merged this renaming now, together with my changes to make
+'get_kernel_nofault()' look and act a lot more like 'get_user()'.
 
-Reviewed-by: Pekka Enberg <penberg@kernel.org>
+It just felt wrong (and potentially dangerous) to me to have a
+'get_kernel_nofault()' naming that implied semantics that we're all
+familiar with from 'get_user()', but acting very differently.
+
+But part of the fixups I made for the type checking are for
+architectures where I didn't even compile-test the end result. I
+looked at every case individually, and the patch looks sane, but I
+could have screwed something up.
+
+Basically, 'get_kernel_nofault()' doesn't do the same automagic type
+munging from the pointer to the target that 'get_user()' does, but at
+least now it checks that the types are superficially compatible.
+There should be build failures if they aren't, but I hopefully fixed
+everything up properly for all architectures.
+
+This email is partly to ask people to double-check, but partly just as
+a heads-up so that _if_ I screwed something up, you'll have the
+background and it won't take you by surprise.
+
+               Linus
