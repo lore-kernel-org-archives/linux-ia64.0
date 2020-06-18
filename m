@@ -1,165 +1,211 @@
-From: Mike Rapoport <rppt@kernel.org>
-Date: Sat, 27 Jun 2020 14:34:50 +0000
-Subject: [PATCH 5/8] asm-generic: pgalloc: provide generic pud_alloc_one() and pud_free_one()
-Message-Id: <20200627143453.31835-6-rppt@kernel.org>
+From: Anshuman Khandual <anshuman.khandual@arm.com>
+Date: Thu, 18 Jun 2020 01:27:28 +0000
+Subject: [PATCH V3 (RESEND) 1/3] mm/sparsemem: Enable vmem_altmap support in vmemmap_populate_basepages()
+Message-Id: <1592442930-9380-2-git-send-email-anshuman.khandual@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200627143453.31835-1-rppt@kernel.org>
-In-Reply-To: <20200627143453.31835-1-rppt@kernel.org>
+References: <1592442930-9380-1-git-send-email-anshuman.khandual@arm.com>
+In-Reply-To: <1592442930-9380-1-git-send-email-anshuman.khandual@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Abdul Haleem <abdhalee@linux.vnet.ibm.com>, Andrew Morton <akpm@linux-foundation.org>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Christophe Leroy <christophe.leroy@csgroup.eu>, Joerg Roedel <joro@8bytes.org>, Max Filippov <jcmvbkbc@gmail.com>, Mike Rapoport <rppt@kernel.org>, Mike Rapoport <rppt@linux.ibm.com>, Peter Zijlstra <peterz@infradead.org>, Satheesh Rajendran <sathnaga@linux.vnet.ibm.com>, Stafford Horne <shorne@gmail.com>, Stephen Rothwell <sfr@canb.auug.org.au>, Steven Rostedt <rostedt@goodmis.org>, linux-alpha@vger.kernel.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.orglinux
+To: linux-mm@kvack.org
+Cc: Anshuman Khandual <anshuman.khandual@arm.com>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Peter Zijlstra <peterz@infradead.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, David Hildenbrand <david@redhat.com>, Mike Rapoport <rppt@linux.ibm.com>, Michal Hocko <mhocko@suse.com>, "Matthew Wilcox (Oracle)" <willy@infradead.org>, "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>, Andrew Morton <akpm@linux-foundation.org>, Dan Williams <dan.j.williams@intel.com>, Pavel Tatashin <pasha.tatashin@soleen.com>, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-riscv@lists.infradead.org, x86@kernel.org, linux-kernel@vger.kernel.org
 
-From: Mike Rapoport <rppt@linux.ibm.com>
+vmemmap_populate_basepages() is used across platforms to allocate backing
+memory for vmemmap mapping. This is used as a standard default choice or
+as a fallback when intended huge pages allocation fails. This just creates
+entire vmemmap mapping with base pages (PAGE_SIZE).
 
-Several architectures define pud_alloc_one() as a wrapper for
-__get_free_page() and pud_free() as a wrapper for free_page().
+On arm64 platforms, vmemmap_populate_basepages() is called instead of the
+platform specific vmemmap_populate() when ARM64_SWAPPER_USES_SECTION_MAPS
+is not enabled as in case for ARM64_16K_PAGES and ARM64_64K_PAGES configs.
 
-Provide a generic implementation in asm-generic/pgalloc.h and use it where
-appropriate.
+At present vmemmap_populate_basepages() does not support allocating from
+driver defined struct vmem_altmap while trying to create vmemmap mapping
+for a device memory range. It prevents ARM64_16K_PAGES and ARM64_64K_PAGES
+configs on arm64 from supporting device memory with vmemap_altmap request.
 
-Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
+This enables vmem_altmap support in vmemmap_populate_basepages() unlocking
+device memory allocation for vmemap mapping on arm64 platforms with 16K or
+64K base page configs.
+
+Each architecture should evaluate and decide on subscribing device memory
+based base page allocation through vmemmap_populate_basepages(). Hence lets
+keep it disabled on all archs in order to preserve the existing semantics.
+A subsequent patch enables it on arm64.
+
+Cc: Catalin Marinas <catalin.marinas@arm.com>
+Cc: Will Deacon <will@kernel.org>
+Cc: Mark Rutland <mark.rutland@arm.com>
+Cc: Paul Walmsley <paul.walmsley@sifive.com>
+Cc: Palmer Dabbelt <palmer@dabbelt.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: Dave Hansen <dave.hansen@linux.intel.com>
+Cc: Andy Lutomirski <luto@kernel.org>
+Cc: Peter Zijlstra <peterz@infradead.org>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Ingo Molnar <mingo@redhat.com>
+Cc: David Hildenbrand <david@redhat.com>
+Cc: Mike Rapoport <rppt@linux.ibm.com>
+Cc: Michal Hocko <mhocko@suse.com>
+Cc: "Matthew Wilcox (Oracle)" <willy@infradead.org>
+Cc: "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Dan Williams <dan.j.williams@intel.com>
+Cc: Pavel Tatashin <pasha.tatashin@soleen.com>
+Cc: linux-arm-kernel@lists.infradead.org
+Cc: linux-ia64@vger.kernel.org
+Cc: linux-riscv@lists.infradead.org
+Cc: x86@kernel.org
+Cc: linux-kernel@vger.kernel.org
+Tested-by: Jia He <justin.he@arm.com>
+Acked-by: Will Deacon <will@kernel.org>
+Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
 ---
- arch/arm64/include/asm/pgalloc.h | 11 -----------
- arch/ia64/include/asm/pgalloc.h  |  9 ---------
- arch/mips/include/asm/pgalloc.h  |  6 +-----
- arch/x86/include/asm/pgalloc.h   | 15 ---------------
- include/asm-generic/pgalloc.h    | 30 ++++++++++++++++++++++++++++++
- 5 files changed, 31 insertions(+), 40 deletions(-)
+ arch/arm64/mm/mmu.c      |  2 +-
+ arch/ia64/mm/discontig.c |  2 +-
+ arch/riscv/mm/init.c     |  2 +-
+ arch/x86/mm/init_64.c    |  6 +++---
+ include/linux/mm.h       |  5 +++--
+ mm/sparse-vmemmap.c      | 16 +++++++++++-----
+ 6 files changed, 20 insertions(+), 13 deletions(-)
 
-diff --git a/arch/arm64/include/asm/pgalloc.h b/arch/arm64/include/asm/pgalloc.h
-index 7246d0a662e1..0965945b595d 100644
---- a/arch/arm64/include/asm/pgalloc.h
-+++ b/arch/arm64/include/asm/pgalloc.h
-@@ -37,17 +37,6 @@ static inline void __pud_populate(pud_t *pudp, phys_addr_t pmdp, pudval_t prot)
- 
- #if CONFIG_PGTABLE_LEVELS > 3
- 
--static inline pud_t *pud_alloc_one(struct mm_struct *mm, unsigned long addr)
--{
--	return (pud_t *)__get_free_page(GFP_PGTABLE_USER);
--}
--
--static inline void pud_free(struct mm_struct *mm, pud_t *pudp)
--{
--	BUG_ON((unsigned long)pudp & (PAGE_SIZE-1));
--	free_page((unsigned long)pudp);
--}
--
- static inline void __p4d_populate(p4d_t *p4dp, phys_addr_t pudp, p4dval_t prot)
+diff --git a/arch/arm64/mm/mmu.c b/arch/arm64/mm/mmu.c
+index 990929c8837e..0adad8859393 100644
+--- a/arch/arm64/mm/mmu.c
++++ b/arch/arm64/mm/mmu.c
+@@ -1068,7 +1068,7 @@ static void free_empty_tables(unsigned long addr, unsigned long end,
+ int __meminit vmemmap_populate(unsigned long start, unsigned long end, int node,
+ 		struct vmem_altmap *altmap)
  {
- 	set_p4d(p4dp, __p4d(__phys_to_p4d_val(pudp) | prot));
-diff --git a/arch/ia64/include/asm/pgalloc.h b/arch/ia64/include/asm/pgalloc.h
-index 5da1fc76477b..06f80358e20f 100644
---- a/arch/ia64/include/asm/pgalloc.h
-+++ b/arch/ia64/include/asm/pgalloc.h
-@@ -41,15 +41,6 @@ p4d_populate(struct mm_struct *mm, p4d_t * p4d_entry, pud_t * pud)
- 	p4d_val(*p4d_entry) = __pa(pud);
+-	return vmemmap_populate_basepages(start, end, node);
++	return vmemmap_populate_basepages(start, end, node, NULL);
  }
- 
--static inline pud_t *pud_alloc_one(struct mm_struct *mm, unsigned long addr)
--{
--	return (pud_t *)__get_free_page(GFP_KERNEL | __GFP_ZERO);
--}
--
--static inline void pud_free(struct mm_struct *mm, pud_t *pud)
--{
--	free_page((unsigned long)pud);
--}
- #define __pud_free_tlb(tlb, pud, address)	pud_free((tlb)->mm, pud)
- #endif /* CONFIG_PGTABLE_LEVELS = 4 */
- 
-diff --git a/arch/mips/include/asm/pgalloc.h b/arch/mips/include/asm/pgalloc.h
-index eed1b3e8c642..e5a840910ce0 100644
---- a/arch/mips/include/asm/pgalloc.h
-+++ b/arch/mips/include/asm/pgalloc.h
-@@ -14,6 +14,7 @@
- #include <linux/sched.h>
- 
- #define __HAVE_ARCH_PMD_ALLOC_ONE
-+#define __HAVE_ARCH_PUD_ALLOC_ONE
- #include <asm-generic/pgalloc.h>
- 
- static inline void pmd_populate_kernel(struct mm_struct *mm, pmd_t *pmd,
-@@ -87,11 +88,6 @@ static inline pud_t *pud_alloc_one(struct mm_struct *mm, unsigned long address)
- 	return pud;
- }
- 
--static inline void pud_free(struct mm_struct *mm, pud_t *pud)
--{
--	free_pages((unsigned long)pud, PUD_ORDER);
--}
--
- static inline void p4d_populate(struct mm_struct *mm, p4d_t *p4d, pud_t *pud)
+ #else	/* !ARM64_SWAPPER_USES_SECTION_MAPS */
+ int __meminit vmemmap_populate(unsigned long start, unsigned long end, int node,
+diff --git a/arch/ia64/mm/discontig.c b/arch/ia64/mm/discontig.c
+index dd8284bcbf16..4d23c81f96d8 100644
+--- a/arch/ia64/mm/discontig.c
++++ b/arch/ia64/mm/discontig.c
+@@ -656,7 +656,7 @@ void arch_refresh_nodedata(int update_node, pg_data_t *update_pgdat)
+ int __meminit vmemmap_populate(unsigned long start, unsigned long end, int node,
+ 		struct vmem_altmap *altmap)
  {
- 	set_p4d(p4d, __p4d((unsigned long)pud));
-diff --git a/arch/x86/include/asm/pgalloc.h b/arch/x86/include/asm/pgalloc.h
-index 25feaa117c40..3d1085a14347 100644
---- a/arch/x86/include/asm/pgalloc.h
-+++ b/arch/x86/include/asm/pgalloc.h
-@@ -123,21 +123,6 @@ static inline void p4d_populate_safe(struct mm_struct *mm, p4d_t *p4d, pud_t *pu
- 	set_p4d_safe(p4d, __p4d(_PAGE_TABLE | __pa(pud)));
+-	return vmemmap_populate_basepages(start, end, node);
++	return vmemmap_populate_basepages(start, end, node, NULL);
  }
  
--static inline pud_t *pud_alloc_one(struct mm_struct *mm, unsigned long addr)
--{
--	gfp_t gfp = GFP_KERNEL_ACCOUNT;
--
--	if (mm = &init_mm)
--		gfp &= ~__GFP_ACCOUNT;
--	return (pud_t *)get_zeroed_page(gfp);
--}
--
--static inline void pud_free(struct mm_struct *mm, pud_t *pud)
--{
--	BUG_ON((unsigned long)pud & (PAGE_SIZE-1));
--	free_page((unsigned long)pud);
--}
--
- extern void ___pud_free_tlb(struct mmu_gather *tlb, pud_t *pud);
+ void vmemmap_free(unsigned long start, unsigned long end,
+diff --git a/arch/riscv/mm/init.c b/arch/riscv/mm/init.c
+index f4adb3684f3d..8101170f54ac 100644
+--- a/arch/riscv/mm/init.c
++++ b/arch/riscv/mm/init.c
+@@ -530,6 +530,6 @@ void __init paging_init(void)
+ int __meminit vmemmap_populate(unsigned long start, unsigned long end, int node,
+ 			       struct vmem_altmap *altmap)
+ {
+-	return vmemmap_populate_basepages(start, end, node);
++	return vmemmap_populate_basepages(start, end, node, NULL);
+ }
+ #endif
+diff --git a/arch/x86/mm/init_64.c b/arch/x86/mm/init_64.c
+index dbae185511cd..19c0ed3271a3 100644
+--- a/arch/x86/mm/init_64.c
++++ b/arch/x86/mm/init_64.c
+@@ -1493,7 +1493,7 @@ static int __meminit vmemmap_populate_hugepages(unsigned long start,
+ 			vmemmap_verify((pte_t *)pmd, node, addr, next);
+ 			continue;
+ 		}
+-		if (vmemmap_populate_basepages(addr, next, node))
++		if (vmemmap_populate_basepages(addr, next, node, NULL))
+ 			return -ENOMEM;
+ 	}
+ 	return 0;
+@@ -1505,7 +1505,7 @@ int __meminit vmemmap_populate(unsigned long start, unsigned long end, int node,
+ 	int err;
  
- static inline void __pud_free_tlb(struct mmu_gather *tlb, pud_t *pud,
-diff --git a/include/asm-generic/pgalloc.h b/include/asm-generic/pgalloc.h
-index 1bc027891a00..d361574aaadf 100644
---- a/include/asm-generic/pgalloc.h
-+++ b/include/asm-generic/pgalloc.h
-@@ -145,6 +145,36 @@ static inline void pmd_free(struct mm_struct *mm, pmd_t *pmd)
+ 	if (end - start < PAGES_PER_SECTION * sizeof(struct page))
+-		err = vmemmap_populate_basepages(start, end, node);
++		err = vmemmap_populate_basepages(start, end, node, NULL);
+ 	else if (boot_cpu_has(X86_FEATURE_PSE))
+ 		err = vmemmap_populate_hugepages(start, end, node, altmap);
+ 	else if (altmap) {
+@@ -1513,7 +1513,7 @@ int __meminit vmemmap_populate(unsigned long start, unsigned long end, int node,
+ 				__func__);
+ 		err = -ENOMEM;
+ 	} else
+-		err = vmemmap_populate_basepages(start, end, node);
++		err = vmemmap_populate_basepages(start, end, node, NULL);
+ 	if (!err)
+ 		sync_global_pgds(start, end - 1);
+ 	return err;
+diff --git a/include/linux/mm.h b/include/linux/mm.h
+index dc7b87310c10..e40ac543d248 100644
+--- a/include/linux/mm.h
++++ b/include/linux/mm.h
+@@ -3011,14 +3011,15 @@ pgd_t *vmemmap_pgd_populate(unsigned long addr, int node);
+ p4d_t *vmemmap_p4d_populate(pgd_t *pgd, unsigned long addr, int node);
+ pud_t *vmemmap_pud_populate(p4d_t *p4d, unsigned long addr, int node);
+ pmd_t *vmemmap_pmd_populate(pud_t *pud, unsigned long addr, int node);
+-pte_t *vmemmap_pte_populate(pmd_t *pmd, unsigned long addr, int node);
++pte_t *vmemmap_pte_populate(pmd_t *pmd, unsigned long addr, int node,
++			    struct vmem_altmap *altmap);
+ void *vmemmap_alloc_block(unsigned long size, int node);
+ struct vmem_altmap;
+ void *vmemmap_alloc_block_buf(unsigned long size, int node);
+ void *altmap_alloc_block_buf(unsigned long size, struct vmem_altmap *altmap);
+ void vmemmap_verify(pte_t *, int, unsigned long, unsigned long);
+ int vmemmap_populate_basepages(unsigned long start, unsigned long end,
+-			       int node);
++			       int node, struct vmem_altmap *altmap);
+ int vmemmap_populate(unsigned long start, unsigned long end, int node,
+ 		struct vmem_altmap *altmap);
+ void vmemmap_populate_print_last(void);
+diff --git a/mm/sparse-vmemmap.c b/mm/sparse-vmemmap.c
+index 0db7738d76e9..ceed10dec31e 100644
+--- a/mm/sparse-vmemmap.c
++++ b/mm/sparse-vmemmap.c
+@@ -139,12 +139,18 @@ void __meminit vmemmap_verify(pte_t *pte, int node,
+ 			start, end - 1);
+ }
  
- #endif /* CONFIG_PGTABLE_LEVELS > 2 */
+-pte_t * __meminit vmemmap_pte_populate(pmd_t *pmd, unsigned long addr, int node)
++pte_t * __meminit vmemmap_pte_populate(pmd_t *pmd, unsigned long addr, int node,
++				       struct vmem_altmap *altmap)
+ {
+ 	pte_t *pte = pte_offset_kernel(pmd, addr);
+ 	if (pte_none(*pte)) {
+ 		pte_t entry;
+-		void *p = vmemmap_alloc_block_buf(PAGE_SIZE, node);
++		void *p;
++
++		if (altmap)
++			p = altmap_alloc_block_buf(PAGE_SIZE, altmap);
++		else
++			p = vmemmap_alloc_block_buf(PAGE_SIZE, node);
+ 		if (!p)
+ 			return NULL;
+ 		entry = pfn_pte(__pa(p) >> PAGE_SHIFT, PAGE_KERNEL);
+@@ -212,8 +218,8 @@ pgd_t * __meminit vmemmap_pgd_populate(unsigned long addr, int node)
+ 	return pgd;
+ }
  
-+#if CONFIG_PGTABLE_LEVELS > 3
-+
-+#ifndef __HAVE_ARCH_PUD_FREE
-+/**
-+ * pud_alloc_one - allocate a page for PUD-level page table
-+ * @mm: the mm_struct of the current context
-+ *
-+ * Allocates a page using %GFP_PGTABLE_USER for user context and
-+ * %GFP_PGTABLE_KERNEL for kernel context.
-+ *
-+ * Return: pointer to the allocated memory or %NULL on error
-+ */
-+static inline pud_t *pud_alloc_one(struct mm_struct *mm, unsigned long addr)
-+{
-+	gfp_t gfp = GFP_PGTABLE_USER;
-+
-+	if (mm = &init_mm)
-+		gfp = GFP_PGTABLE_KERNEL;
-+	return (pud_t *)get_zeroed_page(gfp);
-+}
-+#endif
-+
-+static inline void pud_free(struct mm_struct *mm, pud_t *pud)
-+{
-+	BUG_ON((unsigned long)pud & (PAGE_SIZE-1));
-+	free_page((unsigned long)pud);
-+}
-+
-+#endif /* CONFIG_PGTABLE_LEVELS > 3 */
-+
- #endif /* CONFIG_MMU */
- 
- #endif /* __ASM_GENERIC_PGALLOC_H */
+-int __meminit vmemmap_populate_basepages(unsigned long start,
+-					 unsigned long end, int node)
++int __meminit vmemmap_populate_basepages(unsigned long start, unsigned long end,
++					 int node, struct vmem_altmap *altmap)
+ {
+ 	unsigned long addr = start;
+ 	pgd_t *pgd;
+@@ -235,7 +241,7 @@ int __meminit vmemmap_populate_basepages(unsigned long start,
+ 		pmd = vmemmap_pmd_populate(pud, addr, node);
+ 		if (!pmd)
+ 			return -ENOMEM;
+-		pte = vmemmap_pte_populate(pmd, addr, node);
++		pte = vmemmap_pte_populate(pmd, addr, node, altmap);
+ 		if (!pte)
+ 			return -ENOMEM;
+ 		vmemmap_verify(pte, node, addr, addr + PAGE_SIZE);
 -- 
-2.26.2
+2.20.1
