@@ -1,18 +1,17 @@
-From: Helge Deller <deller@gmx.de>
-Date: Thu, 18 Jun 2020 20:51:37 +0000
+From: Michael Ellerman <mpe@ellerman.id.au>
+Date: Fri, 19 Jun 2020 06:21:18 +0000
 Subject: Re: rename probe_kernel_* and probe_user_*
-Message-Id: <7b3da127-6101-045e-9a8a-4d46198c1190@gmx.de>
+Message-Id: <87lfkjd19d.fsf@mpe.ellerman.id.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200617073755.8068-1-hch@lst.de>
- <CAHk-=wjpnu=882iD9ck9Ywt6R1LYX_Hv-oS7dBMsWZwDRGZ5jA@mail.gmail.com>
+References: <20200617073755.8068-1-hch@lst.de> <CAHk-=wjpnu=882iD9ck9Ywt6R1LYX_Hv-oS7dBMsWZwDRGZ5jA@mail.gmail.com>
 In-Reply-To: <CAHk-=wjpnu=882iD9ck9Ywt6R1LYX_Hv-oS7dBMsWZwDRGZ5jA@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linus Torvalds <torvalds@linux-foundation.org>, Christoph Hellwig <hch@lst.de>, Russell King <linux@armlinux.org.uk>, Tony Luck <tony.luck@intel.com>, Michael Ellerman <mpe@ellerman.id.au>
+To: Linus Torvalds <torvalds@linux-foundation.org>, Christoph Hellwig <hch@lst.de>, Russell King <linux@armlinux.org.uk>, Tony Luck <tony.luck@intel.com>, Helge Deller <deller@gmx.de>
 Cc: Andrew Morton <akpm@linux-foundation.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-arch <linux-arch@vger.kernel.org>, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, the arch/x86 maintainers <x86@kernel.org>
 
-On 18.06.20 21:48, Linus Torvalds wrote:
+Linus Torvalds <torvalds@linux-foundation.org> writes:
 > [ Explicitly added architecture lists and developers to the cc to make
 > this more visible ]
 >
@@ -45,7 +44,7 @@ On 18.06.20 21:48, Linus Torvalds wrote:
 > a heads-up so that _if_ I screwed something up, you'll have the
 > background and it won't take you by surprise.
 
-Linus. thanks for the heads-up!
-With your change it compiles cleanly on 32- and 64-bit parisc.
+The powerpc changes look right, compile cleanly and seem to work
+correctly.
 
-Helge
+cheers
