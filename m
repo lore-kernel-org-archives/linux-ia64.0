@@ -1,46 +1,38 @@
-From: Mike Rapoport <rppt@kernel.org>
-Date: Mon, 29 Jun 2020 15:59:20 +0000
-Subject: Re: [PATCH 4/8] asm-generic: pgalloc: provide generic pmd_alloc_one() and pmd_free_one()
-Message-Id: <20200629155920.GD1492837@kernel.org>
+From: Joerg Roedel <joro@8bytes.org>
+Date: Thu, 25 Jun 2020 13:08:36 +0000
+Subject: [PATCH 13/13] powerpc/dma: Remove dev->archdata.iommu_domain
+Message-Id: <20200625130836.1916-14-joro@8bytes.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200627143453.31835-1-rppt@kernel.org>
- <20200627143453.31835-5-rppt@kernel.org>
- <20200627190304.GG25039@casper.infradead.org>
-In-Reply-To: <20200627190304.GG25039@casper.infradead.org>
+References: <20200625130836.1916-1-joro@8bytes.org>
+In-Reply-To: <20200625130836.1916-1-joro@8bytes.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Matthew Wilcox <willy@infradead.org>
-Cc: linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, linux-mips@vger.kernel.org, Max Filippov <jcmvbkbc@gmail.com>, Satheesh Rajendran <sathnaga@linux.vnet.ibm.com>, linux-csky@vger.kernel.org, sparclinux@vger.kernel.org, linux-riscv@lists.infradead.org, linux-arch@vger.kernel.org, Stephen Rothwell <sfr@canb.auug.org.au>, linux-hexagon@vger.kernel.org, Joerg Roedel <joro@8bytes.org>, Mike Rapoport <rppt@linux.ibm.com>, Abdul Haleem <abdhalee@linux.vnet.ibm.com>, linux-snps-arc@lists.infradead.org, linux-xtensa@linux-xtensa.org, Arnd Bergmann <arnd@arndb.de>, linux-s390@vger.kernel.org, linux-um@lists.infradead.org, Steven Rostedt <rostedt@goodmis.org>, linux-m68k@lists.linux-m68k.org, openrisc@lists.librecores.org, Andy Lutomirski <luto@kernel.org>, Stafford Horne <shorne@gmail.com>, linux-arm-kernel@lists.infradead.org, linux-pari
+To: iommu@lists.linux-foundation.org
+Cc: Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, x86@kernel.org, Jani Nikula <jani.nikula@linux.intel.com>, Joonas Lahtinen <joonas.lahtinen@linux.intel.com>, Rodrigo Vivi <rodrigo.vivi@intel.com>, David Airlie <airlied@linux.ie>, Daniel Vetter <daniel@ffwll.ch>, Marek Szyprowski <m.szyprowski@samsung.com>, Joerg Roedel <joro@8bytes.org>, David Woodhouse <dwmw2@infradead.org>, Lu Baolu <baolu.lu@linux.intel.com>, Matthias Brugger <matthias.bgg@gmail.com>, Heiko Stuebner <heiko@sntech.de>, Thierry Reding <thierry.reding@gmail.com>, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, intel-gfx@lists.freedesktop.org, Joerg Roedel <jroedel@suse.de>
 
-On Sat, Jun 27, 2020 at 08:03:04PM +0100, Matthew Wilcox wrote:
-> On Sat, Jun 27, 2020 at 05:34:49PM +0300, Mike Rapoport wrote:
-> > More elaborate versions on arm64 and x86 account memory for the user page
-> > tables and call to pgtable_pmd_page_ctor() as the part of PMD page
-> > initialization.
-> > 
-> > Move the arm64 version to include/asm-generic/pgalloc.h and use the generic
-> > version on several architectures.
-> > 
-> > The pgtable_pmd_page_ctor() is a NOP when ARCH_ENABLE_SPLIT_PMD_PTLOCK is
-> > not enabled, so there is no functional change for most architectures except
-> > of the addition of __GFP_ACCOUNT for allocation of user page tables.
-> 
-> Thanks for including this line; it reminded me that we're not setting
-> the PageTable flag on the page, nor accounting it to the zone page stats.
-> Hope you don't mind me tagging a patch to do that on as 9/8.
+From: Joerg Roedel <jroedel@suse.de>
 
-We also never set PageTable flag for early page tables and for the page
-tables allocated directly with get_free_page(), e.g PTI, KASAN.
+There are no users left, so remove the pointer and save some memory.
 
-> We could also do with a pud_page_[cd]tor and maybe even p4d/pgd versions.
-> But that brings me to the next question -- could/should some of this
-> be moved over to asm-generic/pgalloc.h?  The ctor/dtor aren't called
-> from anywhere else, and there's value to reducing the total amount of
-> code in mm.h, but then there's also value to keeping all the ifdef
-> ARCH_ENABLE_SPLIT_PMD_PTLOCK code together too.  So I'm a bit torn.
-> What do you think?
+Signed-off-by: Joerg Roedel <jroedel@suse.de>
+---
+ arch/powerpc/include/asm/device.h | 3 ---
+ 1 file changed, 3 deletions(-)
 
+diff --git a/arch/powerpc/include/asm/device.h b/arch/powerpc/include/asm/device.h
+index 266542769e4b..1bc595213338 100644
+--- a/arch/powerpc/include/asm/device.h
++++ b/arch/powerpc/include/asm/device.h
+@@ -34,9 +34,6 @@ struct dev_archdata {
+ 	struct iommu_table	*iommu_table_base;
+ #endif
+ 
+-#ifdef CONFIG_IOMMU_API
+-	void			*iommu_domain;
+-#endif
+ #ifdef CONFIG_PPC64
+ 	struct pci_dn		*pci_data;
+ #endif
 -- 
-Sincerely yours,
-Mike.
+2.27.0
