@@ -1,61 +1,46 @@
-From: Mike Rapoport <rppt@kernel.org>
-Date: Sat, 27 Jun 2020 14:34:52 +0000
-Subject: [PATCH 7/8] mm: move lib/ioremap.c to mm/
-Message-Id: <20200627143453.31835-8-rppt@kernel.org>
+From: Joerg Roedel <joro@8bytes.org>
+Date: Thu, 25 Jun 2020 13:08:26 +0000
+Subject: [PATCH 03/13] iommu/msm: Use dev_iommu_priv_get/set()
+Message-Id: <20200625130836.1916-4-joro@8bytes.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200627143453.31835-1-rppt@kernel.org>
-In-Reply-To: <20200627143453.31835-1-rppt@kernel.org>
+References: <20200625130836.1916-1-joro@8bytes.org>
+In-Reply-To: <20200625130836.1916-1-joro@8bytes.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Abdul Haleem <abdhalee@linux.vnet.ibm.com>, Andrew Morton <akpm@linux-foundation.org>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Christophe Leroy <christophe.leroy@csgroup.eu>, Joerg Roedel <joro@8bytes.org>, Max Filippov <jcmvbkbc@gmail.com>, Mike Rapoport <rppt@kernel.org>, Mike Rapoport <rppt@linux.ibm.com>, Peter Zijlstra <peterz@infradead.org>, Satheesh Rajendran <sathnaga@linux.vnet.ibm.com>, Stafford Horne <shorne@gmail.com>, Stephen Rothwell <sfr@canb.auug.org.au>, Steven Rostedt <rostedt@goodmis.org>, linux-alpha@vger.kernel.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.orglinux
+To: iommu@lists.linux-foundation.org
+Cc: Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, x86@kernel.org, Jani Nikula <jani.nikula@linux.intel.com>, Joonas Lahtinen <joonas.lahtinen@linux.intel.com>, Rodrigo Vivi <rodrigo.vivi@intel.com>, David Airlie <airlied@linux.ie>, Daniel Vetter <daniel@ffwll.ch>, Marek Szyprowski <m.szyprowski@samsung.com>, Joerg Roedel <joro@8bytes.org>, David Woodhouse <dwmw2@infradead.org>, Lu Baolu <baolu.lu@linux.intel.com>, Matthias Brugger <matthias.bgg@gmail.com>, Heiko Stuebner <heiko@sntech.de>, Thierry Reding <thierry.reding@gmail.com>, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, intel-gfx@lists.freedesktop.org, Joerg Roedel <jroedel@suse.de>
 
-From: Mike Rapoport <rppt@linux.ibm.com>
+From: Joerg Roedel <jroedel@suse.de>
 
-The functionality in lib/ioremap.c deals with pagetables, vmalloc and
-caches, so it naturally belongs to mm/
-Moving it there will also allow declaring p?d_alloc_track functions in an
-header file inside mm/ rather than having those declarations in
-include/linux/mm.h
+Remove the use of dev->archdata.iommu and use the private per-device
+pointer provided by IOMMU core code instead.
 
-Suggested-by: Andrew Morton <akpm@linux-foundation.org>
-Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
+Signed-off-by: Joerg Roedel <jroedel@suse.de>
 ---
- lib/Makefile          | 1 -
- mm/Makefile           | 2 +-
- {lib => mm}/ioremap.c | 0
- 3 files changed, 1 insertion(+), 2 deletions(-)
- rename {lib => mm}/ioremap.c (100%)
+ drivers/iommu/msm_iommu.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/lib/Makefile b/lib/Makefile
-index b1c42c10073b..5f9384adde9c 100644
---- a/lib/Makefile
-+++ b/lib/Makefile
-@@ -37,7 +37,6 @@ lib-y := ctype.o string.o vsprintf.o cmdline.o \
- 	 nmi_backtrace.o nodemask.o win_minmax.o memcat_p.o
+diff --git a/drivers/iommu/msm_iommu.c b/drivers/iommu/msm_iommu.c
+index 3d8a63555c25..f773cc85f311 100644
+--- a/drivers/iommu/msm_iommu.c
++++ b/drivers/iommu/msm_iommu.c
+@@ -593,14 +593,14 @@ static void insert_iommu_master(struct device *dev,
+ 				struct msm_iommu_dev **iommu,
+ 				struct of_phandle_args *spec)
+ {
+-	struct msm_iommu_ctx_dev *master = dev->archdata.iommu;
++	struct msm_iommu_ctx_dev *master = dev_iommu_priv_get(dev);
+ 	int sid;
  
- lib-$(CONFIG_PRINTK) += dump_stack.o
--lib-$(CONFIG_MMU) += ioremap.o
- lib-$(CONFIG_SMP) += cpumask.o
+ 	if (list_empty(&(*iommu)->ctx_list)) {
+ 		master = kzalloc(sizeof(*master), GFP_ATOMIC);
+ 		master->of_node = dev->of_node;
+ 		list_add(&master->list, &(*iommu)->ctx_list);
+-		dev->archdata.iommu = master;
++		dev_iommu_priv_set(dev, master);
+ 	}
  
- lib-y	+= kobject.o klist.o
-diff --git a/mm/Makefile b/mm/Makefile
-index 6e9d46b2efc9..d5649f1c12c0 100644
---- a/mm/Makefile
-+++ b/mm/Makefile
-@@ -38,7 +38,7 @@ mmu-y			:= nommu.o
- mmu-$(CONFIG_MMU)	:= highmem.o memory.o mincore.o \
- 			   mlock.o mmap.o mmu_gather.o mprotect.o mremap.o \
- 			   msync.o page_vma_mapped.o pagewalk.o \
--			   pgtable-generic.o rmap.o vmalloc.o
-+			   pgtable-generic.o rmap.o vmalloc.o ioremap.o
- 
- 
- ifdef CONFIG_CROSS_MEMORY_ATTACH
-diff --git a/lib/ioremap.c b/mm/ioremap.c
-similarity index 100%
-rename from lib/ioremap.c
-rename to mm/ioremap.c
+ 	for (sid = 0; sid < master->num_mids; sid++)
 -- 
-2.26.2
+2.27.0
