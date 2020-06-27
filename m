@@ -1,58 +1,61 @@
-From: Joerg Roedel <joro@8bytes.org>
-Date: Thu, 25 Jun 2020 13:08:30 +0000
-Subject: [PATCH 07/13] iommu/pamu: Use dev_iommu_priv_get/set()
-Message-Id: <20200625130836.1916-8-joro@8bytes.org>
+From: Mike Rapoport <rppt@kernel.org>
+Date: Sat, 27 Jun 2020 14:34:52 +0000
+Subject: [PATCH 7/8] mm: move lib/ioremap.c to mm/
+Message-Id: <20200627143453.31835-8-rppt@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200625130836.1916-1-joro@8bytes.org>
-In-Reply-To: <20200625130836.1916-1-joro@8bytes.org>
+References: <20200627143453.31835-1-rppt@kernel.org>
+In-Reply-To: <20200627143453.31835-1-rppt@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: iommu@lists.linux-foundation.org
-Cc: Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, x86@kernel.org, Jani Nikula <jani.nikula@linux.intel.com>, Joonas Lahtinen <joonas.lahtinen@linux.intel.com>, Rodrigo Vivi <rodrigo.vivi@intel.com>, David Airlie <airlied@linux.ie>, Daniel Vetter <daniel@ffwll.ch>, Marek Szyprowski <m.szyprowski@samsung.com>, Joerg Roedel <joro@8bytes.org>, David Woodhouse <dwmw2@infradead.org>, Lu Baolu <baolu.lu@linux.intel.com>, Matthias Brugger <matthias.bgg@gmail.com>, Heiko Stuebner <heiko@sntech.de>, Thierry Reding <thierry.reding@gmail.com>, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, intel-gfx@lists.freedesktop.org, Joerg Roedel <jroedel@suse.de>
+To: linux-kernel@vger.kernel.org
+Cc: Abdul Haleem <abdhalee@linux.vnet.ibm.com>, Andrew Morton <akpm@linux-foundation.org>, Andy Lutomirski <luto@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Christophe Leroy <christophe.leroy@csgroup.eu>, Joerg Roedel <joro@8bytes.org>, Max Filippov <jcmvbkbc@gmail.com>, Mike Rapoport <rppt@kernel.org>, Mike Rapoport <rppt@linux.ibm.com>, Peter Zijlstra <peterz@infradead.org>, Satheesh Rajendran <sathnaga@linux.vnet.ibm.com>, Stafford Horne <shorne@gmail.com>, Stephen Rothwell <sfr@canb.auug.org.au>, Steven Rostedt <rostedt@goodmis.org>, linux-alpha@vger.kernel.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.orglinux
 
-From: Joerg Roedel <jroedel@suse.de>
+From: Mike Rapoport <rppt@linux.ibm.com>
 
-Remove the use of dev->archdata.iommu_domain and use the private
-per-device pointer provided by IOMMU core code instead.
+The functionality in lib/ioremap.c deals with pagetables, vmalloc and
+caches, so it naturally belongs to mm/
+Moving it there will also allow declaring p?d_alloc_track functions in an
+header file inside mm/ rather than having those declarations in
+include/linux/mm.h
 
-Signed-off-by: Joerg Roedel <jroedel@suse.de>
+Suggested-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
 ---
- drivers/iommu/fsl_pamu_domain.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ lib/Makefile          | 1 -
+ mm/Makefile           | 2 +-
+ {lib => mm}/ioremap.c | 0
+ 3 files changed, 1 insertion(+), 2 deletions(-)
+ rename {lib => mm}/ioremap.c (100%)
 
-diff --git a/drivers/iommu/fsl_pamu_domain.c b/drivers/iommu/fsl_pamu_domain.c
-index 928d37771ece..b2110767caf4 100644
---- a/drivers/iommu/fsl_pamu_domain.c
-+++ b/drivers/iommu/fsl_pamu_domain.c
-@@ -323,7 +323,7 @@ static void remove_device_ref(struct device_domain_info *info, u32 win_cnt)
- 	pamu_disable_liodn(info->liodn);
- 	spin_unlock_irqrestore(&iommu_lock, flags);
- 	spin_lock_irqsave(&device_domain_lock, flags);
--	info->dev->archdata.iommu_domain = NULL;
-+	dev_iommu_priv_set(info->dev, NULL);
- 	kmem_cache_free(iommu_devinfo_cache, info);
- 	spin_unlock_irqrestore(&device_domain_lock, flags);
- }
-@@ -352,7 +352,7 @@ static void attach_device(struct fsl_dma_domain *dma_domain, int liodn, struct d
- 	 * Check here if the device is already attached to domain or not.
- 	 * If the device is already attached to a domain detach it.
- 	 */
--	old_domain_info = dev->archdata.iommu_domain;
-+	old_domain_info = dev_iommu_priv_get(dev);
- 	if (old_domain_info && old_domain_info->domain != dma_domain) {
- 		spin_unlock_irqrestore(&device_domain_lock, flags);
- 		detach_device(dev, old_domain_info->domain);
-@@ -371,8 +371,8 @@ static void attach_device(struct fsl_dma_domain *dma_domain, int liodn, struct d
- 	 * the info for the first LIODN as all
- 	 * LIODNs share the same domain
- 	 */
--	if (!dev->archdata.iommu_domain)
--		dev->archdata.iommu_domain = info;
-+	if (!dev_iommu_priv_get(dev))
-+		dev_iommu_priv_set(dev, info);
- 	spin_unlock_irqrestore(&device_domain_lock, flags);
- }
+diff --git a/lib/Makefile b/lib/Makefile
+index b1c42c10073b..5f9384adde9c 100644
+--- a/lib/Makefile
++++ b/lib/Makefile
+@@ -37,7 +37,6 @@ lib-y := ctype.o string.o vsprintf.o cmdline.o \
+ 	 nmi_backtrace.o nodemask.o win_minmax.o memcat_p.o
  
+ lib-$(CONFIG_PRINTK) += dump_stack.o
+-lib-$(CONFIG_MMU) += ioremap.o
+ lib-$(CONFIG_SMP) += cpumask.o
+ 
+ lib-y	+= kobject.o klist.o
+diff --git a/mm/Makefile b/mm/Makefile
+index 6e9d46b2efc9..d5649f1c12c0 100644
+--- a/mm/Makefile
++++ b/mm/Makefile
+@@ -38,7 +38,7 @@ mmu-y			:= nommu.o
+ mmu-$(CONFIG_MMU)	:= highmem.o memory.o mincore.o \
+ 			   mlock.o mmap.o mmu_gather.o mprotect.o mremap.o \
+ 			   msync.o page_vma_mapped.o pagewalk.o \
+-			   pgtable-generic.o rmap.o vmalloc.o
++			   pgtable-generic.o rmap.o vmalloc.o ioremap.o
+ 
+ 
+ ifdef CONFIG_CROSS_MEMORY_ATTACH
+diff --git a/lib/ioremap.c b/mm/ioremap.c
+similarity index 100%
+rename from lib/ioremap.c
+rename to mm/ioremap.c
 -- 
-2.27.0
+2.26.2
