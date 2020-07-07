@@ -1,37 +1,40 @@
-From: Anshuman Khandual <anshuman.khandual@arm.com>
-Date: Thu, 09 Jul 2020 03:42:17 +0000
-Subject: Re: [PATCH V4 0/3] arm64: Enable vmemmap mapping from device memory
-Message-Id: <a9157943-d033-f9a8-87fc-dce78540df78@arm.com>
+From: Krzysztof Kozlowski <krzk@kernel.org>
+Date: Tue, 07 Jul 2020 20:50:30 +0000
+Subject: [PATCH RESENT] ia64: configs: Remove useless UEVENT_HELPER_PATH
+Message-Id: <20200707205030.32394-1-krzk@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1594004178-8861-1-git-send-email-anshuman.khandual@arm.com>
-In-Reply-To: <1594004178-8861-1-git-send-email-anshuman.khandual@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>
-Cc: justin.he@arm.com, catalin.marinas@arm.com, akpm@linux-foundation.org, Will Deacon <will@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Peter Zijlstra <peterz@infradead.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, David Hildenbrand <david@redhat.com>, Mike Rapoport <rppt@linux.ibm.com>, Michal Hocko <mhocko@suse.com>, "Matthew Wilcox (Oracle)" <willy@infradead.org>, "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>, Dan Williams <dan.j.williams@intel.com>, Pavel Tatashin <pasha.tatashin@soleen.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-riscv@lists.infradead.org, x86@kernel.org, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Arnd Bergmann <arnd@arndb.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Krzysztof Kozlowski <krzk@kernel.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
+Remove the CONFIG_UEVENT_HELPER_PATH because:
+1. It is disabled since commit 1be01d4a5714 ("driver: base: Disable
+   CONFIG_UEVENT_HELPER by default") as its dependency (UEVENT_HELPER) was
+   made default to 'n',
+2. It is not recommended (help message: "This should not be used today
+   [...] creates a high system load") and was kept only for ancient
+   userland,
+3. Certain userland specifically requests it to be disabled (systemd
+   README: "Legacy hotplug slows down the system and confuses udev").
 
+Signed-off-by: Krzysztof Kozlowski <krzk@kernel.org>
+Acked-by: Geert Uytterhoeven <geert+renesas@glider.be>
+---
+ arch/ia64/configs/generic_defconfig | 1 -
+ 1 file changed, 1 deletion(-)
 
-On 07/06/2020 08:26 AM, Anshuman Khandual wrote:
-> This series enables vmemmap backing memory allocation from device memory
-> ranges on arm64. But before that, it enables vmemmap_populate_basepages()
-> and vmemmap_alloc_block_buf() to accommodate struct vmem_altmap based
-> alocation requests.
-> 
-> This series applies on 5.8-rc4.
-> 
-> Changes in V4:
-> 
-> - Dropped 'fallback' from vmemmap_alloc_block_buf() per Catalin
-
-Hello Andrew,
-
-This series has been a long running one :) Now that all the three patches
-here have been reviewed, could you please consider this series for merging
-towards 5.9-rc1. Catalin had suggested earlier [1] that it should go via
-the MM tree instead, as it touches multiple architecture. Thank you.
-
-[1] https://patchwork.kernel.org/patch/11611103/
-
-- Anshuman
+diff --git a/arch/ia64/configs/generic_defconfig b/arch/ia64/configs/generic_defconfig
+index cb267a07c57f..f1c5aad6725e 100644
+--- a/arch/ia64/configs/generic_defconfig
++++ b/arch/ia64/configs/generic_defconfig
+@@ -37,7 +37,6 @@ CONFIG_INET=y
+ CONFIG_IP_MULTICAST=y
+ CONFIG_SYN_COOKIES=y
+ # CONFIG_IPV6 is not set
+-CONFIG_UEVENT_HELPER_PATH="/sbin/hotplug"
+ CONFIG_CONNECTOR=y
+ # CONFIG_PNP_DEBUG_MESSAGES is not set
+ CONFIG_BLK_DEV_LOOP=m
+-- 
+2.17.1
