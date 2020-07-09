@@ -1,39 +1,53 @@
-From: Jonathan Corbet <corbet@lwn.net>
-Date: Thu, 23 Jul 2020 20:47:25 +0000
-Subject: Re: [PATCH v2] ia64: Replace HTTP links with HTTPS ones
-Message-Id: <20200723144725.17e369e0@lwn.net>
+From: Jia He <justin.he@arm.com>
+Date: Thu, 09 Jul 2020 02:06:23 +0000
+Subject: [PATCH v3 0/6] Fix and enable pmem as RAM device on arm64
+Message-Id: <20200709020629.91671-1-justin.he@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200713083408.38154746@lwn.net>
-        <20200713215506.44327-1-grandmaster@al2klimov.de>
-In-Reply-To: <20200713215506.44327-1-grandmaster@al2klimov.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Alexander A. Klimov" <grandmaster@al2klimov.de>
-Cc: tony.luck@intel.com, fenghua.yu@intel.com, linux-ia64@vger.kernel.org, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Peter Zijlstra <peterz@infradead.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, David Hildenbrand <david@redhat.com>
+Cc: x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Andrew Morton <akpm@linux-foundation.org>, Baoquan He <bhe@redhat.com>, Chuhong Yuan <hslester96@gmail.com>, Mike Rapoport <rppt@linux.ibm.com>, Masahiro Yamada <masahiroy@kernel.org>, Michal Hocko <mhocko@suse.com>, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, linux-nvdimm@lists.01.org, linux-mm@kvack.org, Jonathan Cameron <Jonathan.Cameron@Huawei.com>, Kaly Xin <Kaly.Xin@arm.com>, Jia He <justin.he@arm.com>
 
-On Mon, 13 Jul 2020 23:55:06 +0200
-"Alexander A. Klimov" <grandmaster@al2klimov.de> wrote:
+This fixies a few issues when I tried to enable pmem as RAM device on arm64.
 
->  Documentation/ia64/xen.rst | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/Documentation/ia64/xen.rst b/Documentation/ia64/xen.rst
-> index 831339c74441..9da6abb02a2c 100644
-> --- a/Documentation/ia64/xen.rst
-> +++ b/Documentation/ia64/xen.rst
-> @@ -28,7 +28,7 @@ Getting and Building Xen and Dom0
->  
->  	# hg clone http://xenbits.xensource.com/ext/ia64/xen-unstable.hg
->  	# cd xen-unstable.hg
-> -	# hg clone http://xenbits.xensource.com/ext/ia64/linux-2.6.18-xen.hg
-> +	# hg clone https://xenbits.xensource.com/ext/ia64/linux-2.6.18-xen.hg
->  
->   2. # make world
+To use memory_add_physaddr_to_nid as a fallback nid, it would be better
+implement a general version (__weak) in mm/memory_hotplug. After that, arm64/
+sh/s390 can simply use the general version, and PowerPC/ia64/x86 will use
+arch specific version.
 
-So ... this is a sequence of operations that clearly cannot work at all
-since the repo link you didn't change is broken.  And if it were to
-somehow work, we'd get ... a 2.6.18 version of ia64 xen?  I think that the
-proper solution here is to simply delete this document...
+Tested on ThunderX2 host/qemu "-M virt" guest with a nvdimm device. The 
+memblocks from the dax pmem device can be either hot-added or hot-removed
+on arm64 guest. Also passed the compilation test on x86.
 
-jon
+Changes:
+v3: - introduce general version memory_add_physaddr_to_nid, refine the arch
+      specific one
+    - fix an uninitialization bug in v2 device-dax patch
+v2: https://lkml.org/lkml/2020/7/7/71
+    - Drop unnecessary patch to harden try_offline_node
+    - Use new solution(by David) to fix dev->target_node=-1 during probing
+    - Refine the mem_hotplug_begin/done patch
+
+v1: https://lkml.org/lkml/2020/7/5/381
+
+
+Jia He (6):
+  mm/memory_hotplug: introduce default dummy
+    memory_add_physaddr_to_nid()
+  arm64/mm: use default dummy memory_add_physaddr_to_nid()
+  sh/mm: use default dummy memory_add_physaddr_to_nid()
+  mm: don't export memory_add_physaddr_to_nid in arch specific directory
+  device-dax: use fallback nid when numa_node is invalid
+  mm/memory_hotplug: fix unpaired mem_hotplug_begin/done
+
+ arch/arm64/mm/numa.c | 10 ----------
+ arch/ia64/mm/numa.c  |  2 --
+ arch/sh/mm/init.c    |  9 ---------
+ arch/x86/mm/numa.c   |  1 -
+ drivers/dax/kmem.c   | 21 +++++++++++++--------
+ mm/memory_hotplug.c  | 15 ++++++++++++---
+ 6 files changed, 25 insertions(+), 33 deletions(-)
+
+-- 
+2.17.1
