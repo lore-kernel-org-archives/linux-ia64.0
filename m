@@ -1,148 +1,65 @@
-From: "Song Bao Hua (Barry Song)" <song.bao.hua@hisilicon.com>
-Date: Sat, 18 Jul 2020 05:14:46 +0000
-Subject: RE: [PATCH v2 2/6] ACPI: Do not create new NUMA domains from ACPI static tables that are not SRAT
-Message-Id: <B926444035E5E2439431908E3842AFD2593D4E@DGGEMI525-MBS.china.huawei.com>
+From: Jia He <justin.he@arm.com>
+Date: Thu, 09 Jul 2020 02:06:28 +0000
+Subject: [PATCH v3 5/6] device-dax: use fallback nid when numa_node is invalid
+Message-Id: <20200709020629.91671-6-justin.he@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200717175959.899775-1-Jonathan.Cameron@huawei.com>
- <20200717175959.899775-3-Jonathan.Cameron@huawei.com>
-In-Reply-To: <20200717175959.899775-3-Jonathan.Cameron@huawei.com>
+References: <20200709020629.91671-1-justin.he@arm.com>
+In-Reply-To: <20200709020629.91671-1-justin.he@arm.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Jonathan Cameron <jonathan.cameron@huawei.com>, "linux-mm@kvack.org" <linux-mm@kvack.org>, "linux-acpi@vger.kernel.org" <linux-acpi@vger.kernel.org>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, "x86@kernel.org" <x86@kernel.org>
-Cc: Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>, Bjorn Helgaas <bhelgaas@google.com>, "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>, "martin@geanix.com" <martin@geanix.com>, Ingo Molnar <mingo@redhat.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, Linuxarm <linuxarm@huawei.com>, Dan Williams <dan.j.williams@intel.com>
+Content-Type: text/plain; charset="macroman"
+Content-Transfer-Encoding: base64
+To: Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Peter Zijlstra <peterz@infradead.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, David Hildenbrand <david@redhat.com>
+Cc: x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Andrew Morton <akpm@linux-foundation.org>, Baoquan He <bhe@redhat.com>, Chuhong Yuan <hslester96@gmail.com>, Mike Rapoport <rppt@linux.ibm.com>, Masahiro Yamada <masahiroy@kernel.org>, Michal Hocko <mhocko@suse.com>, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, linux-nvdimm@lists.01.org, linux-mm@kvack.org, Jonathan Cameron <Jonathan.Cameron@Huawei.com>, Kaly Xin <Kaly.Xin@arm.com>, Jia He <justin.he@arm.com>
 
-
-
-> -----Original Message-----
-> From: Jonathan Cameron
-> Sent: Saturday, July 18, 2020 6:00 AM
-> To: linux-mm@kvack.org; linux-acpi@vger.kernel.org;
-> linux-arm-kernel@lists.infradead.org; x86@kernel.org
-> Cc: Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>; Bjorn Helgaas
-> <bhelgaas@google.com>; linux-pci@vger.kernel.org; martin@geanix.com; Ingo
-> Molnar <mingo@redhat.com>; linux-ia64@vger.kernel.org; Tony Luck
-> <tony.luck@intel.com>; Fenghua Yu <fenghua.yu@intel.com>; Thomas
-> Gleixner <tglx@linutronix.de>; Linuxarm <linuxarm@huawei.com>; Dan
-> Williams <dan.j.williams@intel.com>; Song Bao Hua (Barry Song)
-> <song.bao.hua@hisilicon.com>; Jonathan Cameron
-> <jonathan.cameron@huawei.com>
-> Subject: [PATCH v2 2/6] ACPI: Do not create new NUMA domains from ACPI
-> static tables that are not SRAT
-> 
-> Several ACPI static tables contain references to proximity domains.
-> ACPI 6.3 has clarified that only entries in SRAT may define a new domain
-> (sec 5.2.16).
-> 
-> Those tables described in the ACPI spec have additional clarifying text.
-> 
-> NFIT: Table 5-132,
-> 
-> "Integer that represents the proximity domain to which the memory belongs.
->  This number must match with corresponding entry in the SRAT table."
-> 
-> HMAT: Table 5-145,
-> 
-> "... This number must match with the corresponding entry in the SRAT
->  table's processor affinity structure ... if the initiator is a processor,
->  or the Generic Initiator Affinity Structure if the initiator is a generic
->  initiator".
-> 
-> IORT and DMAR are defined by external specifications.
-> 
-> Intel Virtualization Technology for Directed I/O Rev 3.1 does not make any
-> explicit statements, but the general SRAT statement above will still apply.
-> https://software.intel.com/sites/default/files/managed/c5/15/vt-directed-io-s
-> pec.pdf
-> 
-> IO Remapping Table, Platform Design Document rev D, also makes not explicit
-> statement, but refers to ACPI SRAT table for more information and again the
-> generic SRAT statement above applies.
-> https://developer.arm.com/documentation/den0049/d/
-> 
-> In conclusion, any proximity domain specified in these tables, should be a
-> reference to a proximity domain also found in SRAT, and they should not be
-> able
-> to instantiate a new domain.  Hence we switch to pxm_to_node() which will
-> only
-> return existing nodes.
-> 
-> Signed-off-by: Jonathan Cameron <Jonathan.Cameron@huawei.com>
-
-Much better than v1 which was using a bool parameter "false" to stop acpi_map_pxm_to_node()
-from creating node.
-
-And pxm_to_node() has been used by some other places as an API which is
-serving the transition from pxm to node.
-
-Reviewed-by: Barry Song <song.bao.hua@hisilicon.com>
-
-> ---
->  drivers/acpi/arm64/iort.c  | 2 +-
->  drivers/acpi/nfit/core.c   | 3 +--
->  drivers/acpi/numa/hmat.c   | 2 +-
->  drivers/iommu/intel/dmar.c | 2 +-
->  4 files changed, 4 insertions(+), 5 deletions(-)
-> 
-> diff --git a/drivers/acpi/arm64/iort.c b/drivers/acpi/arm64/iort.c
-> index 28a6b387e80e..eb0f158612c8 100644
-> --- a/drivers/acpi/arm64/iort.c
-> +++ b/drivers/acpi/arm64/iort.c
-> @@ -1293,7 +1293,7 @@ static int  __init
-> arm_smmu_v3_set_proximity(struct device *dev,
-> 
->  	smmu = (struct acpi_iort_smmu_v3 *)node->node_data;
->  	if (smmu->flags & ACPI_IORT_SMMU_V3_PXM_VALID) {
-> -		int dev_node = acpi_map_pxm_to_node(smmu->pxm);
-> +		int dev_node = pxm_to_node(smmu->pxm);
-> 
->  		if (dev_node != NUMA_NO_NODE && !node_online(dev_node))
->  			return -EINVAL;
-> diff --git a/drivers/acpi/nfit/core.c b/drivers/acpi/nfit/core.c
-> index 7c138a4edc03..d933a4636d00 100644
-> --- a/drivers/acpi/nfit/core.c
-> +++ b/drivers/acpi/nfit/core.c
-> @@ -2947,8 +2947,7 @@ static int acpi_nfit_register_region(struct
-> acpi_nfit_desc *acpi_desc,
->  	if (spa->flags & ACPI_NFIT_PROXIMITY_VALID) {
->  		ndr_desc->numa_node = acpi_map_pxm_to_online_node(
->  						spa->proximity_domain);
-> -		ndr_desc->target_node = acpi_map_pxm_to_node(
-> -				spa->proximity_domain);
-> +		ndr_desc->target_node = pxm_to_node(spa->proximity_domain);
->  	} else {
->  		ndr_desc->numa_node = NUMA_NO_NODE;
->  		ndr_desc->target_node = NUMA_NO_NODE;
-> diff --git a/drivers/acpi/numa/hmat.c b/drivers/acpi/numa/hmat.c
-> index 2c32cfb72370..cf6df2df26cd 100644
-> --- a/drivers/acpi/numa/hmat.c
-> +++ b/drivers/acpi/numa/hmat.c
-> @@ -666,7 +666,7 @@ static void hmat_register_target_device(struct
-> memory_target *target,
-> 
->  	pdev->dev.numa_node > acpi_map_pxm_to_online_node(target->memory_pxm);
->  	info = (struct memregion_info) {
-> -		.target_node = acpi_map_pxm_to_node(target->memory_pxm),
-> +		.target_node = pxm_to_node(target->memory_pxm),
->  	};
->  	rc = platform_device_add_data(pdev, &info, sizeof(info));
->  	if (rc < 0) {
-> diff --git a/drivers/iommu/intel/dmar.c b/drivers/iommu/intel/dmar.c
-> index 683b812c5c47..b1acdaead059 100644
-> --- a/drivers/iommu/intel/dmar.c
-> +++ b/drivers/iommu/intel/dmar.c
-> @@ -473,7 +473,7 @@ static int dmar_parse_one_rhsa(struct
-> acpi_dmar_header *header, void *arg)
->  	rhsa = (struct acpi_dmar_rhsa *)header;
->  	for_each_drhd_unit(drhd) {
->  		if (drhd->reg_base_addr = rhsa->base_address) {
-> -			int node = acpi_map_pxm_to_node(rhsa->proximity_domain);
-> +			int node = pxm_to_node(rhsa->proximity_domain);
-> 
->  			if (!node_online(node))
->  				node = NUMA_NO_NODE;
-> --
-> 2.19.1
-
-Thanks
-Barry
+bnVtYV9vZmYgaXMgc2V0IHVuY29uZGl0aW9uYWxseSBhdCB0aGUgZW5kIG9mIGR1bW15X251bWFf
+aW5pdCgpLApldmVuIHdpdGggYSBmYWtlIG51bWEgbm9kZS4gQUNQSSBkZXRlY3RzIG5vZGUgaWQg
+YXMgTlVNQV9OT19OT0RFKC0xKSBpbgphY3BpX21hcF9weG1fdG9fbm9kZSgpIGJlY2F1c2UgaXQg
+cmVnYXJkcyBudW1hX29mZiBhcyB0dXJuaW5nIG9mZiB0aGUgbnVtYQpub2RlLiBIZW5jZSBkZXZf
+ZGF4LT50YXJnZXRfbm9kZSBpcyBOVU1BX05PX05PREUgb24gYXJtNjQgd2l0aCBmYWtlIG51bWEu
+CgpXaXRob3V0IHRoaXMgcGF0Y2gsIHBtZW0gY2FuJ3QgYmUgcHJvYmVkIGFzIGEgUkFNIGRldmlj
+ZSBvbiBhcm02NCBpZiBTUkFUIHRhYmxlCmlzbid0IHByZXNlbnQ6CiRuZGN0bCBjcmVhdGUtbmFt
+ZXNwYWNlIC1mZSBuYW1lc3BhY2UwLjAgLS1tb2Rl3nZkYXggLS1tYXDediAtcyAxZyAtYSA2NEsK
+a21lbSBkYXgwLjA6IHJlamVjdGluZyBEQVggcmVnaW9uIFttZW0gMHgyNDA0MDAwMDAtMHgyYmZm
+ZmZmZmZdIHdpdGggaW52YWxpZCBub2RlOiAtMQprbWVtOiBwcm9iZSBvZiBkYXgwLjAgZmFpbGVk
+IHdpdGggZXJyb3IgLTIyCgpUaGlzIGZpeGVzIGl0IGJ5IHVzaW5nIGZhbGxiYWNrIG1lbW9yeV9h
+ZGRfcGh5c2FkZHJfdG9fbmlkKCkgYXMgbmlkLgoKU3VnZ2VzdGVkLWJ5OiBEYXZpZCBIaWxkZW5i
+cmFuZCA8ZGF2aWRAcmVkaGF0LmNvbT4KU2lnbmVkLW9mZi1ieTogSmlhIEhlIDxqdXN0aW4uaGVA
+YXJtLmNvbT4KLS0tCiBkcml2ZXJzL2RheC9rbWVtLmMgfCAyMSArKysrKysrKysrKysrLS0tLS0t
+LS0KIDEgZmlsZSBjaGFuZ2VkLCAxMyBpbnNlcnRpb25zKCspLCA4IGRlbGV0aW9ucygtKQoKZGlm
+ZiAtLWdpdCBhL2RyaXZlcnMvZGF4L2ttZW0uYyBiL2RyaXZlcnMvZGF4L2ttZW0uYwppbmRleCAy
+NzVhYTVmODczOTkuLjIxOGY2NjA1Nzk5NCAxMDA2NDQKLS0tIGEvZHJpdmVycy9kYXgva21lbS5j
+CisrKyBiL2RyaXZlcnMvZGF4L2ttZW0uYwpAQCAtMzEsMjIgKzMxLDIzIEBAIGludCBkZXZfZGF4
+X2ttZW1fcHJvYmUoc3RydWN0IGRldmljZSAqZGV2KQogCWludCBudW1hX25vZGU7CiAJaW50IHJj
+OwogCisJLyogSG90cGx1ZyBzdGFydGluZyBhdCB0aGUgYmVnaW5uaW5nIG9mIHRoZSBuZXh0IGJs
+b2NrOiAqLworCWttZW1fc3RhcnQgPSBBTElHTihyZXMtPnN0YXJ0LCBtZW1vcnlfYmxvY2tfc2l6
+ZV9ieXRlcygpKTsKKwogCS8qCiAJICogRW5zdXJlIGdvb2QgTlVNQSBpbmZvcm1hdGlvbiBmb3Ig
+dGhlIHBlcnNpc3RlbnQgbWVtb3J5LgogCSAqIFdpdGhvdXQgdGhpcyBjaGVjaywgdGhlcmUgaXMg
+YSByaXNrIHRoYXQgc2xvdyBtZW1vcnkKIAkgKiBjb3VsZCBiZSBtaXhlZCBpbiBhIG5vZGUgd2l0
+aCBmYXN0ZXIgbWVtb3J5LCBjYXVzaW5nCi0JICogdW5hdm9pZGFibGUgcGVyZm9ybWFuY2UgaXNz
+dWVzLgorCSAqIHVuYXZvaWRhYmxlIHBlcmZvcm1hbmNlIGlzc3Vlcy4gRnVydGhlcm1vcmUsIGZh
+bGxiYWNrIG5vZGUKKwkgKiBpZCBjYW4gYmUgdXNlZCB3aGVuIG51bWFfbm9kZSBpcyBpbnZhbGlk
+LgogCSAqLwogCW51bWFfbm9kZSA9IGRldl9kYXgtPnRhcmdldF9ub2RlOwogCWlmIChudW1hX25v
+ZGUgPCAwKSB7Ci0JCWRldl93YXJuKGRldiwgInJlamVjdGluZyBEQVggcmVnaW9uICVwUiB3aXRo
+IGludmFsaWQgbm9kZTogJWRcbiIsCi0JCQkgcmVzLCBudW1hX25vZGUpOwotCQlyZXR1cm4gLUVJ
+TlZBTDsKKwkJbnVtYV9ub2RlID0gbWVtb3J5X2FkZF9waHlzYWRkcl90b19uaWQoa21lbV9zdGFy
+dCk7CisJCWRldl9pbmZvKGRldiwgInVzaW5nIG5pZCAlZCBmb3IgREFYIHJlZ2lvbiB3aXRoIHVu
+ZGVmaW5lZCBuaWQgJXBSXG4iLAorCQkJbnVtYV9ub2RlLCByZXMpOwogCX0KIAotCS8qIEhvdHBs
+dWcgc3RhcnRpbmcgYXQgdGhlIGJlZ2lubmluZyBvZiB0aGUgbmV4dCBibG9jazogKi8KLQlrbWVt
+X3N0YXJ0ID0gQUxJR04ocmVzLT5zdGFydCwgbWVtb3J5X2Jsb2NrX3NpemVfYnl0ZXMoKSk7Ci0K
+IAlrbWVtX3NpemUgPSByZXNvdXJjZV9zaXplKHJlcyk7CiAJLyogQWRqdXN0IHRoZSBzaXplIGRv
+d24gdG8gY29tcGVuc2F0ZSBmb3IgbW92aW5nIHVwIGttZW1fc3RhcnQ6ICovCiAJa21lbV9zaXpl
+IC09IGttZW1fc3RhcnQgLSByZXMtPnN0YXJ0OwpAQCAtMTAwLDE1ICsxMDEsMTkgQEAgc3RhdGlj
+IGludCBkZXZfZGF4X2ttZW1fcmVtb3ZlKHN0cnVjdCBkZXZpY2UgKmRldikKIAlyZXNvdXJjZV9z
+aXplX3Qga21lbV9zdGFydCA9IHJlcy0+c3RhcnQ7CiAJcmVzb3VyY2Vfc2l6ZV90IGttZW1fc2l6
+ZSA9IHJlc291cmNlX3NpemUocmVzKTsKIAljb25zdCBjaGFyICpyZXNfbmFtZSA9IHJlcy0+bmFt
+ZTsKKwlpbnQgbnVtYV9ub2RlID0gZGV2X2RheC0+dGFyZ2V0X25vZGU7CiAJaW50IHJjOwogCisJ
+aWYgKG51bWFfbm9kZSA8IDApCisJCW51bWFfbm9kZSA9IG1lbW9yeV9hZGRfcGh5c2FkZHJfdG9f
+bmlkKGttZW1fc3RhcnQpOworCiAJLyoKIAkgKiBXZSBoYXZlIG9uZSBzaG90IGZvciByZW1vdmlu
+ZyBtZW1vcnksIGlmIHNvbWUgbWVtb3J5IGJsb2NrcyB3ZXJlIG5vdAogCSAqIG9mZmxpbmUgcHJp
+b3IgdG8gY2FsbGluZyB0aGlzIGZ1bmN0aW9uIHJlbW92ZV9tZW1vcnkoKSB3aWxsIGZhaWwsIGFu
+ZAogCSAqIHRoZXJlIGlzIG5vIHdheSB0byBob3RyZW1vdmUgdGhpcyBtZW1vcnkgdW50aWwgcmVi
+b290IGJlY2F1c2UgZGV2aWNlCiAJICogdW5iaW5kIHdpbGwgc3VjY2VlZCBldmVuIGlmIHdlIHJl
+dHVybiBmYWlsdXJlLgogCSAqLwotCXJjID0gcmVtb3ZlX21lbW9yeShkZXZfZGF4LT50YXJnZXRf
+bm9kZSwga21lbV9zdGFydCwga21lbV9zaXplKTsKKwlyYyA9IHJlbW92ZV9tZW1vcnkobnVtYV9u
+b2RlLCBrbWVtX3N0YXJ0LCBrbWVtX3NpemUpOwogCWlmIChyYykgewogCQlhbnlfaG90cmVtb3Zl
+X2ZhaWxlZCA9IHRydWU7CiAJCWRldl9lcnIoZGV2LAotLSAKMi4xNy4xCg==
