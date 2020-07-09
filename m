@@ -1,109 +1,52 @@
-From: Jonathan Cameron <Jonathan.Cameron@Huawei.com>
-Date: Tue, 28 Jul 2020 16:20:52 +0000
-Subject: Re: [PATCH v2 0/6] ACPI: Only create NUMA nodes from entries in SRAT or SRAT emulation.
-Message-Id: <20200728172052.00007848@Huawei.com>
+From: Jia He <justin.he@arm.com>
+Date: Thu, 09 Jul 2020 02:06:27 +0000
+Subject: [PATCH v3 4/6] mm: don't export memory_add_physaddr_to_nid in arch specific directory
+Message-Id: <20200709020629.91671-5-justin.he@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200717175959.899775-1-Jonathan.Cameron@huawei.com>
-In-Reply-To: <20200717175959.899775-1-Jonathan.Cameron@huawei.com>
+References: <20200709020629.91671-1-justin.he@arm.com>
+In-Reply-To: <20200709020629.91671-1-justin.he@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org, linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org, x86@kernel.org
-Cc: Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>, Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org, martin@geanix.com, Ingo Molnar <mingo@redhat.com>, linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, linuxarm@huawei.com, Dan Williams <dan.j.williams@intel.com>, Song Bao Hua <song.bao.hua@hisilicon.com>
+To: Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Peter Zijlstra <peterz@infradead.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, David Hildenbrand <david@redhat.com>
+Cc: x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Andrew Morton <akpm@linux-foundation.org>, Baoquan He <bhe@redhat.com>, Chuhong Yuan <hslester96@gmail.com>, Mike Rapoport <rppt@linux.ibm.com>, Masahiro Yamada <masahiroy@kernel.org>, Michal Hocko <mhocko@suse.com>, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, linux-nvdimm@lists.01.org, linux-mm@kvack.org, Jonathan Cameron <Jonathan.Cameron@Huawei.com>, Kaly Xin <Kaly.Xin@arm.com>, Jia He <justin.he@arm.com>
 
-On Sat, 18 Jul 2020 01:59:53 +0800
-Jonathan Cameron <Jonathan.Cameron@huawei.com> wrote:
+After a general version of __weak memory_add_physaddr_to_nid implemented
+and exported , it is no use exporting twice in arch directory even if
+e,g, ia64/x86 have their specific version.
 
-> Here, I will use the term Proximity Domains for the ACPI description and
-> NUMA Nodes for the in kernel representation.
-> 
-> ACPI 6.3 included a clarification that only Static Resource Allocation
-> Structures in SRAT may define the existence of proximity domains
-> (sec 5.2.16). This clarification closed a possible interpretation that
-> other parts of ACPI (e.g. DSDT _PXM, NFIT etc) could define new proximity
-> domains that were not also mentioned in SRAT structures.
-> 
-> In practice the kernel has never allowed this alternative interpretation as
-> such nodes are only partially initialized. This is architecture specific
-> but to take an example, on x86 alloc_node_data has not been called.
-> Any use of them for node specific allocation, will result in a crash as the
-> infrastructure to fallback to a node with memory is not setup.
-> 
-> We ran into a problem when enabling _PXM handling for PCI devices and found
-> there were boards out there advertising devices in proximity domains that
-> didn't exist [2].
-> 
-> The fix suggested in this series is to replace instances that should not
-> 'create' new nodes with pxm_to_node.  This function needs a some additional
-> hardening against invalid inputs to make sure it is safe for use in these
-> new callers.
-> 
-> Patch 1 Hardens pxm_to_node() against numa_off, and pxm entry being too large.
-> 
-> Patch 2-4 change the various callers not related to SRAT entries so that they
-> set this parameter to false, so do not attempt to initialize a new NUMA node
-> if the relevant one does not already exist.
-> 
-> Patch 5 is a function rename to reflect change in functionality of
-> acpi_map_pxm_to_online_node() as it no longer creates a new map, but just does a
-> lookup of existing maps.
-> 
-> Patch 6 covers the one place we do not allow the full flexibility defined
-> in the ACPI spec.  For SRAT GIC Interrupt Translation Service (ITS) Affinity
-> Structures, on ARM64, the driver currently makes an additional pass of SRAT
-> later in the boot than the one used to identify NUMA domains.
-> Note, this currently means that an ITS placed in a proximity domain that is
-> not defined by another SRAT structure will result in the a crash.
-> 
-> To avoid this crash with minimal changes we do not create new NUMA nodes based
-> on this particular entry type.  Any current platform trying to do this will not
-> boot, so this is an improvement, if perhaps not a perfect solution.
-> 
-> [1] Note in ACPI Specification 6.3 5.2.16 System Resource Affinity Table (SRAT)
-> [2] https://patchwork.kernel.org/patch/10597777/
-> 
-> Thanks to Bjorn Helgaas for review of v1 and Barry Song for internal reviews that
-> lead to a slightly different approach for this v2.
+This is to suppress the modpost warning:
+WARNING: modpost: vmlinux: 'memory_add_physaddr_to_nid' exported twice.
+Previous export was in vmlinux
 
-Thanks Barry / Hanjun,
+Suggested-by: David Hildenbrand <david@redhat.com>
+Signed-off-by: Jia He <justin.he@arm.com>
+---
+ arch/ia64/mm/numa.c | 2 --
+ arch/x86/mm/numa.c  | 1 -
+ 2 files changed, 3 deletions(-)
 
-Anyone else have time to take a look?
-
-I'm happy to bring it back after the merge window closes, but would like to know
-if people are happy with the general approach.  I'm keen to finally be able to
-resolve that issue with _PXM and PCI. 
-
-Thanks,
-
-Jonathan
-
-> 
-> Changes since v1.
-> * Use pxm_to_node for what was previously the path using acpi_map_pxm_to_node
->   with create=false. (Barry)
-> * Broke patch up into an initial noop stage followed by patches (Bjorn)
->   to update each type of case in which partial creation of NUMA nodes is prevented.
-> * Added patch 5 to rename function to reflect change of functionality.
-> * Updated descriptions (now mostly in individual patches) inline with Bjorn's comments.
-> 
-> Jonathan Cameron (6):
->   ACPI: Add out of bounds and numa_off protections to pxm_to_node
->   ACPI: Do not create new NUMA domains from ACPI static tables that are
->     not SRAT
->   ACPI: Remove side effect of partly creating a node in
->     acpi_map_pxm_to_online_node
->   ACPI: rename acpi_map_pxm_to_online_node to pxm_to_online_node
->   ACPI: Remove side effect of partly creating a node in acpi_get_node
->   irq-chip/gic-v3-its: Fix crash if ITS is in a proximity domain without
->     processor or memory
-> 
->  drivers/acpi/arm64/iort.c        |  2 +-
->  drivers/acpi/nfit/core.c         |  6 ++----
->  drivers/acpi/numa/hmat.c         |  4 ++--
->  drivers/acpi/numa/srat.c         |  4 ++--
->  drivers/iommu/intel/dmar.c       |  2 +-
->  drivers/irqchip/irq-gic-v3-its.c |  7 ++++++-
->  include/linux/acpi.h             | 15 +++++++--------
->  7 files changed, 21 insertions(+), 19 deletions(-)
-> 
-
+diff --git a/arch/ia64/mm/numa.c b/arch/ia64/mm/numa.c
+index 5e1015eb6d0d..f34964271101 100644
+--- a/arch/ia64/mm/numa.c
++++ b/arch/ia64/mm/numa.c
+@@ -106,7 +106,5 @@ int memory_add_physaddr_to_nid(u64 addr)
+ 		return 0;
+ 	return nid;
+ }
+-
+-EXPORT_SYMBOL_GPL(memory_add_physaddr_to_nid);
+ #endif
+ #endif
+diff --git a/arch/x86/mm/numa.c b/arch/x86/mm/numa.c
+index 8ee952038c80..2a6e62af4636 100644
+--- a/arch/x86/mm/numa.c
++++ b/arch/x86/mm/numa.c
+@@ -929,5 +929,4 @@ int memory_add_physaddr_to_nid(u64 start)
+ 		nid = numa_meminfo.blk[0].nid;
+ 	return nid;
+ }
+-EXPORT_SYMBOL_GPL(memory_add_physaddr_to_nid);
+ #endif
+-- 
+2.17.1
