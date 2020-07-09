@@ -1,38 +1,41 @@
-From: Jonathan Corbet <corbet@lwn.net>
-Date: Fri, 31 Jul 2020 17:09:33 +0000
-Subject: Re: [PATCH] docs: ia64: correct typo
-Message-Id: <20200731110933.4edfc99c@lwn.net>
+From: Jia He <justin.he@arm.com>
+Date: Thu, 09 Jul 2020 02:06:25 +0000
+Subject: [PATCH v3 2/6] arm64/mm: use default dummy memory_add_physaddr_to_nid()
+Message-Id: <20200709020629.91671-3-justin.he@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1596104250-32673-1-git-send-email-Julia.Lawall@inria.fr>
-In-Reply-To: <1596104250-32673-1-git-send-email-Julia.Lawall@inria.fr>
+References: <20200709020629.91671-1-justin.he@arm.com>
+In-Reply-To: <20200709020629.91671-1-justin.he@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Julia Lawall <Julia.Lawall@inria.fr>
-Cc: Tony Luck <tony.luck@intel.com>, kernel-janitors@vger.kernel.org, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Peter Zijlstra <peterz@infradead.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, David Hildenbrand <david@redhat.com>
+Cc: x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Andrew Morton <akpm@linux-foundation.org>, Baoquan He <bhe@redhat.com>, Chuhong Yuan <hslester96@gmail.com>, Mike Rapoport <rppt@linux.ibm.com>, Masahiro Yamada <masahiroy@kernel.org>, Michal Hocko <mhocko@suse.com>, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, linux-nvdimm@lists.01.org, linux-mm@kvack.org, Jonathan Cameron <Jonathan.Cameron@Huawei.com>, Kaly Xin <Kaly.Xin@arm.com>, Jia He <justin.he@arm.com>
 
-On Thu, 30 Jul 2020 12:17:30 +0200
-Julia Lawall <Julia.Lawall@inria.fr> wrote:
+After making default memory_add_physaddr_to_nid() in mm/memory_hotplug,
+it is no use defining a similar one in arch specific directory.
 
-> Replace RTC_WKLAM_RD with RTC_WKALM_RD.
-> 
-> Signed-off-by: Julia Lawall <Julia.Lawall@inria.fr>
-> 
-> ---
->  Documentation/ia64/efirtc.rst |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/Documentation/ia64/efirtc.rst b/Documentation/ia64/efirtc.rst
-> index 2f7ff50..fd83284 100644
-> --- a/Documentation/ia64/efirtc.rst
-> +++ b/Documentation/ia64/efirtc.rst
-> @@ -113,7 +113,7 @@ We have added 2 new ioctl()s that are specific to the EFI driver:
->  
->  	Read the current state of the alarm::
->  
-> -		ioctl(d, RTC_WKLAM_RD, &wkt)
-> +		ioctl(d, RTC_WKALM_RD, &wkt)
+Signed-off-by: Jia He <justin.he@arm.com>
+---
+ arch/arm64/mm/numa.c | 10 ----------
+ 1 file changed, 10 deletions(-)
 
-Applied to the docs tree, thanks.
-
-jon
+diff --git a/arch/arm64/mm/numa.c b/arch/arm64/mm/numa.c
+index aafcee3e3f7e..73f8b49d485c 100644
+--- a/arch/arm64/mm/numa.c
++++ b/arch/arm64/mm/numa.c
+@@ -461,13 +461,3 @@ void __init arm64_numa_init(void)
+ 
+ 	numa_init(dummy_numa_init);
+ }
+-
+-/*
+- * We hope that we will be hotplugging memory on nodes we already know about,
+- * such that acpi_get_node() succeeds and we never fall back to this...
+- */
+-int memory_add_physaddr_to_nid(u64 addr)
+-{
+-	pr_warn("Unknown node for memory at 0x%llx, assuming node 0\n", addr);
+-	return 0;
+-}
+-- 
+2.17.1
