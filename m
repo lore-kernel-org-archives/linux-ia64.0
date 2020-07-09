@@ -1,65 +1,69 @@
-From: Jia He <justin.he@arm.com>
-Date: Thu, 09 Jul 2020 02:06:28 +0000
-Subject: [PATCH v3 5/6] device-dax: use fallback nid when numa_node is invalid
-Message-Id: <20200709020629.91671-6-justin.he@arm.com>
+From: Dan Williams <dan.j.williams@intel.com>
+Date: Thu, 09 Jul 2020 03:38:30 +0000
+Subject: Re: [PATCH v3 5/6] device-dax: use fallback nid when numa_node is invalid
+Message-Id: <CAPcyv4gfVhHyo-c=9bXd=z3=9Xqy7ato30D8p2aNsKBUONosug@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200709020629.91671-1-justin.he@arm.com>
-In-Reply-To: <20200709020629.91671-1-justin.he@arm.com>
+References: <20200709020629.91671-1-justin.he@arm.com> <20200709020629.91671-6-justin.he@arm.com>
+In-Reply-To: <20200709020629.91671-6-justin.he@arm.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="macroman"
-Content-Transfer-Encoding: base64
-To: Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Peter Zijlstra <peterz@infradead.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, David Hildenbrand <david@redhat.com>
-Cc: x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Andrew Morton <akpm@linux-foundation.org>, Baoquan He <bhe@redhat.com>, Chuhong Yuan <hslester96@gmail.com>, Mike Rapoport <rppt@linux.ibm.com>, Masahiro Yamada <masahiroy@kernel.org>, Michal Hocko <mhocko@suse.com>, linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-sh@vger.kernel.org, linux-nvdimm@lists.01.org, linux-mm@kvack.org, Jonathan Cameron <Jonathan.Cameron@Huawei.com>, Kaly Xin <Kaly.Xin@arm.com>, Jia He <justin.he@arm.com>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: Jia He <justin.he@arm.com>
+Cc: Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Peter Zijlstra <peterz@infradead.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, David Hildenbrand <david@redhat.com>, X86 ML <x86@kernel.org>, "H. Peter Anvin" <hpa@zytor.com>, Andrew Morton <akpm@linux-foundation.org>, Baoquan He <bhe@redhat.com>, Chuhong Yuan <hslester96@gmail.com>, Mike Rapoport <rppt@linux.ibm.com>, Masahiro Yamada <masahiroy@kernel.org>, Michal Hocko <mhocko@suse.com>, Linux ARM <linux-arm-kernel@lists.infradead.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, Linux-sh <linux-sh@vger.kernel.org>, linux-nvdimm <linux-nvdimm@lists.01.org>, Linux MM <linux-mm@kvack.org>, , Jonathan Cameron <Jonathan.Cameron@huawei.com>, Kaly Xin <Kaly.Xin@arm.com>
 
-bnVtYV9vZmYgaXMgc2V0IHVuY29uZGl0aW9uYWxseSBhdCB0aGUgZW5kIG9mIGR1bW15X251bWFf
-aW5pdCgpLApldmVuIHdpdGggYSBmYWtlIG51bWEgbm9kZS4gQUNQSSBkZXRlY3RzIG5vZGUgaWQg
-YXMgTlVNQV9OT19OT0RFKC0xKSBpbgphY3BpX21hcF9weG1fdG9fbm9kZSgpIGJlY2F1c2UgaXQg
-cmVnYXJkcyBudW1hX29mZiBhcyB0dXJuaW5nIG9mZiB0aGUgbnVtYQpub2RlLiBIZW5jZSBkZXZf
-ZGF4LT50YXJnZXRfbm9kZSBpcyBOVU1BX05PX05PREUgb24gYXJtNjQgd2l0aCBmYWtlIG51bWEu
-CgpXaXRob3V0IHRoaXMgcGF0Y2gsIHBtZW0gY2FuJ3QgYmUgcHJvYmVkIGFzIGEgUkFNIGRldmlj
-ZSBvbiBhcm02NCBpZiBTUkFUIHRhYmxlCmlzbid0IHByZXNlbnQ6CiRuZGN0bCBjcmVhdGUtbmFt
-ZXNwYWNlIC1mZSBuYW1lc3BhY2UwLjAgLS1tb2Rl3nZkYXggLS1tYXDediAtcyAxZyAtYSA2NEsK
-a21lbSBkYXgwLjA6IHJlamVjdGluZyBEQVggcmVnaW9uIFttZW0gMHgyNDA0MDAwMDAtMHgyYmZm
-ZmZmZmZdIHdpdGggaW52YWxpZCBub2RlOiAtMQprbWVtOiBwcm9iZSBvZiBkYXgwLjAgZmFpbGVk
-IHdpdGggZXJyb3IgLTIyCgpUaGlzIGZpeGVzIGl0IGJ5IHVzaW5nIGZhbGxiYWNrIG1lbW9yeV9h
-ZGRfcGh5c2FkZHJfdG9fbmlkKCkgYXMgbmlkLgoKU3VnZ2VzdGVkLWJ5OiBEYXZpZCBIaWxkZW5i
-cmFuZCA8ZGF2aWRAcmVkaGF0LmNvbT4KU2lnbmVkLW9mZi1ieTogSmlhIEhlIDxqdXN0aW4uaGVA
-YXJtLmNvbT4KLS0tCiBkcml2ZXJzL2RheC9rbWVtLmMgfCAyMSArKysrKysrKysrKysrLS0tLS0t
-LS0KIDEgZmlsZSBjaGFuZ2VkLCAxMyBpbnNlcnRpb25zKCspLCA4IGRlbGV0aW9ucygtKQoKZGlm
-ZiAtLWdpdCBhL2RyaXZlcnMvZGF4L2ttZW0uYyBiL2RyaXZlcnMvZGF4L2ttZW0uYwppbmRleCAy
-NzVhYTVmODczOTkuLjIxOGY2NjA1Nzk5NCAxMDA2NDQKLS0tIGEvZHJpdmVycy9kYXgva21lbS5j
-CisrKyBiL2RyaXZlcnMvZGF4L2ttZW0uYwpAQCAtMzEsMjIgKzMxLDIzIEBAIGludCBkZXZfZGF4
-X2ttZW1fcHJvYmUoc3RydWN0IGRldmljZSAqZGV2KQogCWludCBudW1hX25vZGU7CiAJaW50IHJj
-OwogCisJLyogSG90cGx1ZyBzdGFydGluZyBhdCB0aGUgYmVnaW5uaW5nIG9mIHRoZSBuZXh0IGJs
-b2NrOiAqLworCWttZW1fc3RhcnQgPSBBTElHTihyZXMtPnN0YXJ0LCBtZW1vcnlfYmxvY2tfc2l6
-ZV9ieXRlcygpKTsKKwogCS8qCiAJICogRW5zdXJlIGdvb2QgTlVNQSBpbmZvcm1hdGlvbiBmb3Ig
-dGhlIHBlcnNpc3RlbnQgbWVtb3J5LgogCSAqIFdpdGhvdXQgdGhpcyBjaGVjaywgdGhlcmUgaXMg
-YSByaXNrIHRoYXQgc2xvdyBtZW1vcnkKIAkgKiBjb3VsZCBiZSBtaXhlZCBpbiBhIG5vZGUgd2l0
-aCBmYXN0ZXIgbWVtb3J5LCBjYXVzaW5nCi0JICogdW5hdm9pZGFibGUgcGVyZm9ybWFuY2UgaXNz
-dWVzLgorCSAqIHVuYXZvaWRhYmxlIHBlcmZvcm1hbmNlIGlzc3Vlcy4gRnVydGhlcm1vcmUsIGZh
-bGxiYWNrIG5vZGUKKwkgKiBpZCBjYW4gYmUgdXNlZCB3aGVuIG51bWFfbm9kZSBpcyBpbnZhbGlk
-LgogCSAqLwogCW51bWFfbm9kZSA9IGRldl9kYXgtPnRhcmdldF9ub2RlOwogCWlmIChudW1hX25v
-ZGUgPCAwKSB7Ci0JCWRldl93YXJuKGRldiwgInJlamVjdGluZyBEQVggcmVnaW9uICVwUiB3aXRo
-IGludmFsaWQgbm9kZTogJWRcbiIsCi0JCQkgcmVzLCBudW1hX25vZGUpOwotCQlyZXR1cm4gLUVJ
-TlZBTDsKKwkJbnVtYV9ub2RlID0gbWVtb3J5X2FkZF9waHlzYWRkcl90b19uaWQoa21lbV9zdGFy
-dCk7CisJCWRldl9pbmZvKGRldiwgInVzaW5nIG5pZCAlZCBmb3IgREFYIHJlZ2lvbiB3aXRoIHVu
-ZGVmaW5lZCBuaWQgJXBSXG4iLAorCQkJbnVtYV9ub2RlLCByZXMpOwogCX0KIAotCS8qIEhvdHBs
-dWcgc3RhcnRpbmcgYXQgdGhlIGJlZ2lubmluZyBvZiB0aGUgbmV4dCBibG9jazogKi8KLQlrbWVt
-X3N0YXJ0ID0gQUxJR04ocmVzLT5zdGFydCwgbWVtb3J5X2Jsb2NrX3NpemVfYnl0ZXMoKSk7Ci0K
-IAlrbWVtX3NpemUgPSByZXNvdXJjZV9zaXplKHJlcyk7CiAJLyogQWRqdXN0IHRoZSBzaXplIGRv
-d24gdG8gY29tcGVuc2F0ZSBmb3IgbW92aW5nIHVwIGttZW1fc3RhcnQ6ICovCiAJa21lbV9zaXpl
-IC09IGttZW1fc3RhcnQgLSByZXMtPnN0YXJ0OwpAQCAtMTAwLDE1ICsxMDEsMTkgQEAgc3RhdGlj
-IGludCBkZXZfZGF4X2ttZW1fcmVtb3ZlKHN0cnVjdCBkZXZpY2UgKmRldikKIAlyZXNvdXJjZV9z
-aXplX3Qga21lbV9zdGFydCA9IHJlcy0+c3RhcnQ7CiAJcmVzb3VyY2Vfc2l6ZV90IGttZW1fc2l6
-ZSA9IHJlc291cmNlX3NpemUocmVzKTsKIAljb25zdCBjaGFyICpyZXNfbmFtZSA9IHJlcy0+bmFt
-ZTsKKwlpbnQgbnVtYV9ub2RlID0gZGV2X2RheC0+dGFyZ2V0X25vZGU7CiAJaW50IHJjOwogCisJ
-aWYgKG51bWFfbm9kZSA8IDApCisJCW51bWFfbm9kZSA9IG1lbW9yeV9hZGRfcGh5c2FkZHJfdG9f
-bmlkKGttZW1fc3RhcnQpOworCiAJLyoKIAkgKiBXZSBoYXZlIG9uZSBzaG90IGZvciByZW1vdmlu
-ZyBtZW1vcnksIGlmIHNvbWUgbWVtb3J5IGJsb2NrcyB3ZXJlIG5vdAogCSAqIG9mZmxpbmUgcHJp
-b3IgdG8gY2FsbGluZyB0aGlzIGZ1bmN0aW9uIHJlbW92ZV9tZW1vcnkoKSB3aWxsIGZhaWwsIGFu
-ZAogCSAqIHRoZXJlIGlzIG5vIHdheSB0byBob3RyZW1vdmUgdGhpcyBtZW1vcnkgdW50aWwgcmVi
-b290IGJlY2F1c2UgZGV2aWNlCiAJICogdW5iaW5kIHdpbGwgc3VjY2VlZCBldmVuIGlmIHdlIHJl
-dHVybiBmYWlsdXJlLgogCSAqLwotCXJjID0gcmVtb3ZlX21lbW9yeShkZXZfZGF4LT50YXJnZXRf
-bm9kZSwga21lbV9zdGFydCwga21lbV9zaXplKTsKKwlyYyA9IHJlbW92ZV9tZW1vcnkobnVtYV9u
-b2RlLCBrbWVtX3N0YXJ0LCBrbWVtX3NpemUpOwogCWlmIChyYykgewogCQlhbnlfaG90cmVtb3Zl
-X2ZhaWxlZCA9IHRydWU7CiAJCWRldl9lcnIoZGV2LAotLSAKMi4xNy4xCg==
+On Wed, Jul 8, 2020 at 7:07 PM Jia He <justin.he@arm.com> wrote:
+>
+> numa_off is set unconditionally at the end of dummy_numa_init(),
+> even with a fake numa node. ACPI detects node id as NUMA_NO_NODE(-1) in
+> acpi_map_pxm_to_node() because it regards numa_off as turning off the numa
+> node. Hence dev_dax->target_node is NUMA_NO_NODE on arm64 with fake numa.
+>
+> Without this patch, pmem can't be probed as a RAM device on arm64 if SRAT=
+ table
+> isn't present:
+> $ndctl create-namespace -fe namespace0.0 --mode=DEvdax --map=DEv -s 1g -a=
+ 64K
+> kmem dax0.0: rejecting DAX region [mem 0x240400000-0x2bfffffff] with inva=
+lid node: -1
+> kmem: probe of dax0.0 failed with error -22
+>
+> This fixes it by using fallback memory_add_physaddr_to_nid() as nid.
+>
+> Suggested-by: David Hildenbrand <david@redhat.com>
+> Signed-off-by: Jia He <justin.he@arm.com>
+> ---
+>  drivers/dax/kmem.c | 21 +++++++++++++--------
+>  1 file changed, 13 insertions(+), 8 deletions(-)
+>
+> diff --git a/drivers/dax/kmem.c b/drivers/dax/kmem.c
+> index 275aa5f87399..218f66057994 100644
+> --- a/drivers/dax/kmem.c
+> +++ b/drivers/dax/kmem.c
+> @@ -31,22 +31,23 @@ int dev_dax_kmem_probe(struct device *dev)
+>         int numa_node;
+>         int rc;
+>
+> +       /* Hotplug starting at the beginning of the next block: */
+> +       kmem_start =3D ALIGN(res->start, memory_block_size_bytes());
+> +
+>         /*
+>          * Ensure good NUMA information for the persistent memory.
+>          * Without this check, there is a risk that slow memory
+>          * could be mixed in a node with faster memory, causing
+> -        * unavoidable performance issues.
+> +        * unavoidable performance issues. Furthermore, fallback node
+> +        * id can be used when numa_node is invalid.
+>          */
+>         numa_node =3D dev_dax->target_node;
+>         if (numa_node < 0) {
+> -               dev_warn(dev, "rejecting DAX region %pR with invalid node=
+: %d\n",
+> -                        res, numa_node);
+> -               return -EINVAL;
+> +               numa_node =3D memory_add_physaddr_to_nid(kmem_start);
+
+I think this fixup belongs to the core to set a fallback value for
+dev_dax->target_node.
+
+I'm close to having patches to provide a functional
+phys_addr_to_target_node() for arm64.
