@@ -1,21 +1,41 @@
-From: Dan Williams <dan.j.williams@intel.com>
-Date: Fri, 31 Jul 2020 15:28:58 +0000
-Subject: Re: [PATCH v3 0/6] Fix and enable pmem as RAM device on arm64
-Message-Id: <CAPcyv4iqkuzyU_u+VW1nsaK7tiy+HJtUxLtgAxtfX0aXXcKhfA@mail.gmail.com>
+From: Jonathan Cameron <Jonathan.Cameron@huawei.com>
+Date: Fri, 17 Jul 2020 17:59:54 +0000
+Subject: [PATCH v2 1/6] ACPI: Add out of bounds and numa_off protections to pxm_to_node
+Message-Id: <20200717175959.899775-2-Jonathan.Cameron@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200709020629.91671-1-justin.he@arm.com>
-In-Reply-To: <20200709020629.91671-1-justin.he@arm.com>
+References: <20200717175959.899775-1-Jonathan.Cameron@huawei.com>
+In-Reply-To: <20200717175959.899775-1-Jonathan.Cameron@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jia He <justin.he@arm.com>
-Cc: Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Peter Zijlstra <peterz@infradead.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, David Hildenbrand <david@redhat.com>, X86 ML <x86@kernel.org>, "H. Peter Anvin" <hpa@zytor.com>, Andrew Morton <akpm@linux-foundation.org>, Baoquan He <bhe@redhat.com>, Chuhong Yuan <hslester96@gmail.com>, Mike Rapoport <rppt@linux.ibm.com>, Masahiro Yamada <masahiroy@kernel.org>, Michal Hocko <mhocko@suse.com>, Linux ARM <linux-arm-kernel@lists.infradead.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, Linux-sh <linux-sh@vger.kernel.org>, linux-nvdimm <linux-nvdimm@lists.01.org>, Linux MM <linux-mm@kvack.org>, , Jonathan Cameron <Jonathan.Cameron@huawei.com>, Kaly Xin <Kaly.Xin@arm.com>
+To: linux-mm@kvack.org, linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org, x86@kernel.org
+Cc: Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>, Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org, martin@geanix.com, Ingo Molnar <mingo@redhat.com>, linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, linuxarm@huawei.com, Dan Williams <dan.j.williams@intel.com>, Song Bao Hua <song.bao.hua@hisilicon.com>, Jonathan Cameron <Jonathan.Cameron@huawei.com>
 
-On Wed, Jul 8, 2020 at 7:06 PM Jia He <justin.he@arm.com> wrote:
->
-> This fixies a few issues when I tried to enable pmem as RAM device on arm64.
+The function should check the validity of the pxm value before using
+it to index the pxm_to_node_map array.
 
-What NVDIMM bus driver is being used in this case? The ACPI NFIT
-driver? I'm just looking to see if currently deployed
-phys_to_target_node() is sufficient, or if this is coming in a new
-driver?
+Whilst hardening this code may be good in general, the main intent
+here is to enable following patches that use this function to replace
+acpi_map_pxm_to_node for non SRAT usecases which should return
+NO_NUMA_NODE for PXM entries not matching with those in SRAT.
+
+Signed-off-by: Jonathan Cameron <Jonathan.Cameron@huawei.com>
+---
+ drivers/acpi/numa/srat.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/acpi/numa/srat.c b/drivers/acpi/numa/srat.c
+index 5be5a977da1b..8ef44ee0d76b 100644
+--- a/drivers/acpi/numa/srat.c
++++ b/drivers/acpi/numa/srat.c
+@@ -31,7 +31,7 @@ int acpi_numa __initdata;
+ 
+ int pxm_to_node(int pxm)
+ {
+-	if (pxm < 0)
++	if (pxm < 0 || pxm >= MAX_PXM_DOMAINS || numa_off)
+ 		return NUMA_NO_NODE;
+ 	return pxm_to_node_map[pxm];
+ }
+-- 
+2.19.1
