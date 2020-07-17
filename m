@@ -1,70 +1,59 @@
-From: Catalin Marinas <catalin.marinas@arm.com>
-Date: Thu, 02 Jul 2020 14:03:55 +0000
-Subject: Re: [PATCH V3 (RESEND) 1/3] mm/sparsemem: Enable vmem_altmap support in vmemmap_populate_basepages()
-Message-Id: <20200702140355.GE22241@gaia>
+From: Jonathan Cameron <Jonathan.Cameron@huawei.com>
+Date: Fri, 17 Jul 2020 17:59:56 +0000
+Subject: [PATCH v2 3/6] ACPI: Remove side effect of partly creating a node in acpi_map_pxm_to_online_node
+Message-Id: <20200717175959.899775-4-Jonathan.Cameron@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1592442930-9380-1-git-send-email-anshuman.khandual@arm.com>
- <1592442930-9380-2-git-send-email-anshuman.khandual@arm.com>
-In-Reply-To: <1592442930-9380-2-git-send-email-anshuman.khandual@arm.com>
+References: <20200717175959.899775-1-Jonathan.Cameron@huawei.com>
+In-Reply-To: <20200717175959.899775-1-Jonathan.Cameron@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Anshuman Khandual <anshuman.khandual@arm.com>
-Cc: linux-mm@kvack.org, Will Deacon <will@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Peter Zijlstra <peterz@infradead.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, David Hildenbrand <david@redhat.com>, Mike Rapoport <rppt@linux.ibm.com>, Michal Hocko <mhocko@suse.com>, "Matthew Wilcox (Oracle)" <willy@infradead.org>, "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>, Andrew Morton <akpm@linux-foundation.org>, Dan Williams <dan.j.williams@intel.com>, Pavel Tatashin <pasha.tatashin@soleen.com>, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-riscv@lists.infradead.org, x86@kernel.org, linux-kernel@vger.kernel.org
+To: linux-mm@kvack.org, linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org, x86@kernel.org
+Cc: Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>, Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org, martin@geanix.com, Ingo Molnar <mingo@redhat.com>, linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, linuxarm@huawei.com, Dan Williams <dan.j.williams@intel.com>, Song Bao Hua <song.bao.hua@hisilicon.com>, Jonathan Cameron <Jonathan.Cameron@huawei.com>
 
-On Thu, Jun 18, 2020 at 06:45:28AM +0530, Anshuman Khandual wrote:
-> vmemmap_populate_basepages() is used across platforms to allocate backing
-> memory for vmemmap mapping. This is used as a standard default choice or
-> as a fallback when intended huge pages allocation fails. This just creates
-> entire vmemmap mapping with base pages (PAGE_SIZE).
-> 
-> On arm64 platforms, vmemmap_populate_basepages() is called instead of the
-> platform specific vmemmap_populate() when ARM64_SWAPPER_USES_SECTION_MAPS
-> is not enabled as in case for ARM64_16K_PAGES and ARM64_64K_PAGES configs.
-> 
-> At present vmemmap_populate_basepages() does not support allocating from
-> driver defined struct vmem_altmap while trying to create vmemmap mapping
-> for a device memory range. It prevents ARM64_16K_PAGES and ARM64_64K_PAGES
-> configs on arm64 from supporting device memory with vmemap_altmap request.
-> 
-> This enables vmem_altmap support in vmemmap_populate_basepages() unlocking
-> device memory allocation for vmemap mapping on arm64 platforms with 16K or
-> 64K base page configs.
-> 
-> Each architecture should evaluate and decide on subscribing device memory
-> based base page allocation through vmemmap_populate_basepages(). Hence lets
-> keep it disabled on all archs in order to preserve the existing semantics.
-> A subsequent patch enables it on arm64.
-> 
-> Cc: Catalin Marinas <catalin.marinas@arm.com>
-> Cc: Will Deacon <will@kernel.org>
-> Cc: Mark Rutland <mark.rutland@arm.com>
-> Cc: Paul Walmsley <paul.walmsley@sifive.com>
-> Cc: Palmer Dabbelt <palmer@dabbelt.com>
-> Cc: Tony Luck <tony.luck@intel.com>
-> Cc: Fenghua Yu <fenghua.yu@intel.com>
-> Cc: Dave Hansen <dave.hansen@linux.intel.com>
-> Cc: Andy Lutomirski <luto@kernel.org>
-> Cc: Peter Zijlstra <peterz@infradead.org>
-> Cc: Thomas Gleixner <tglx@linutronix.de>
-> Cc: Ingo Molnar <mingo@redhat.com>
-> Cc: David Hildenbrand <david@redhat.com>
-> Cc: Mike Rapoport <rppt@linux.ibm.com>
-> Cc: Michal Hocko <mhocko@suse.com>
-> Cc: "Matthew Wilcox (Oracle)" <willy@infradead.org>
-> Cc: "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>
-> Cc: Andrew Morton <akpm@linux-foundation.org>
-> Cc: Dan Williams <dan.j.williams@intel.com>
-> Cc: Pavel Tatashin <pasha.tatashin@soleen.com>
-> Cc: linux-arm-kernel@lists.infradead.org
-> Cc: linux-ia64@vger.kernel.org
-> Cc: linux-riscv@lists.infradead.org
-> Cc: x86@kernel.org
-> Cc: linux-kernel@vger.kernel.org
-> Tested-by: Jia He <justin.he@arm.com>
-> Acked-by: Will Deacon <will@kernel.org>
-> Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
+Whilst this function will only return an online node, it can have the side
+effect of partially creating a new node.  The existing comments suggest this
+is intentional, but the usecases of this function are related to NFIT and
+HMAT parsing, neither of which should be able to define new nodes.
 
-For arm64:
+One route by which the existing behaviour would cause a crash is to have a
+_PXM entry in ACPI DSDT attempt to place a device within this partly
+created proximity domain. A subsequent call to devm_kzalloc or similar
+would result in an attempt to allocate memory on a node for which zone
+lists have not been set up and a null pointer dereference.
 
-Acked-by: Catalin Marinas <catalin.marinas@arm.com>
+We prevent such cases by switching to pxm_to_node() within
+acpi_map_pxm_to_online_node which cannot cause a new node to be partly
+created. If one would previously have been created we now return
+NO_NUMA_NODE.  Documentation updated to reflect this change.
+We may want to think about renaming acpi_map_pxm_to_online_node to
+pxm_to_online_node to reflect this change.
+
+Signed-off-by: Jonathan Cameron <Jonathan.Cameron@huawei.com>
+---
+ include/linux/acpi.h | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/include/linux/acpi.h b/include/linux/acpi.h
+index d661cd0ee64d..b541a0b444fd 100644
+--- a/include/linux/acpi.h
++++ b/include/linux/acpi.h
+@@ -430,13 +430,12 @@ int acpi_get_node(acpi_handle handle);
+  * ACPI device drivers, which are called after the NUMA initialization has
+  * completed in the kernel, can call this interface to obtain their device
+  * NUMA topology from ACPI tables.  Such drivers do not have to deal with
+- * offline nodes.  A node may be offline when a device proximity ID is
+- * unique, SRAT memory entry does not exist, or NUMA is disabled, ex.
+- * "numa=off" on x86.
++ * offline nodes.  A node may be offline when SRAT memory entry does not exist,
++ * or NUMA is disabled, ex. "numa=off" on x86.
+  */
+ static inline int acpi_map_pxm_to_online_node(int pxm)
+ {
+-	int node = acpi_map_pxm_to_node(pxm);
++	int node = pxm_to_node(pxm);
+ 
+ 	return numa_map_to_online_node(node);
+ }
+-- 
+2.19.1
