@@ -1,70 +1,45 @@
-From: David Hildenbrand <david@redhat.com>
-Date: Tue, 07 Jul 2020 07:26:43 +0000
-Subject: Re: [PATCH V4 1/3] mm/sparsemem: Enable vmem_altmap support in vmemmap_populate_basepages()
-Message-Id: <d9801165-025f-f226-9f9b-623a2bab58ff@redhat.com>
+From: Jonathan Cameron <Jonathan.Cameron@huawei.com>
+Date: Fri, 17 Jul 2020 17:59:58 +0000
+Subject: [PATCH v2 5/6] ACPI: Remove side effect of partly creating a node in acpi_get_node
+Message-Id: <20200717175959.899775-6-Jonathan.Cameron@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1594004178-8861-1-git-send-email-anshuman.khandual@arm.com>
- <1594004178-8861-2-git-send-email-anshuman.khandual@arm.com>
- <eeeb44f9-bc0a-2c3d-8e8f-7e3d9e066c7e@redhat.com>
- <7ac5ff78-378c-37e2-444f-9f72844b8697@arm.com>
-In-Reply-To: <7ac5ff78-378c-37e2-444f-9f72844b8697@arm.com>
+References: <20200717175959.899775-1-Jonathan.Cameron@huawei.com>
+In-Reply-To: <20200717175959.899775-1-Jonathan.Cameron@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Anshuman Khandual <anshuman.khandual@arm.com>, linux-mm@kvack.org
-Cc: justin.he@arm.com, catalin.marinas@arm.com, akpm@linux-foundation.org, Will Deacon <will@kernel.org>, Mark Rutland <mark.rutland@arm.com>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Dave Hansen <dave.hansen@linux.intel.com>, Andy Lutomirski <luto@kernel.org>, Peter Zijlstra <peterz@infradead.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Mike Rapoport <rppt@linux.ibm.com>, Michal Hocko <mhocko@suse.com>, "Matthew Wilcox (Oracle)" <willy@infradead.org>, "Kirill A. Shutemov" <kirill.shutemov@linux.intel.com>, Dan Williams <dan.j.williams@intel.com>, Pavel Tatashin <pasha.tatashin@soleen.com>, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-riscv@lists.infradead.org, x86@kernel.org, linux-kernel@vger.kernel.org
+To: linux-mm@kvack.org, linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org, x86@kernel.org
+Cc: Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>, Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org, martin@geanix.com, Ingo Molnar <mingo@redhat.com>, linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, linuxarm@huawei.com, Dan Williams <dan.j.williams@intel.com>, Song Bao Hua <song.bao.hua@hisilicon.com>, Jonathan Cameron <Jonathan.Cameron@huawei.com>
 
-> Hmm, I assume these are some decisions that x86 platform will have to
-> make going forward in a subsequent patch as the third patch does for
-> the arm64 platform. But it is clearly beyond the scope of this patch
-> which never intended to change existing behavior on a given platform.
-> 
+acpi_get_node calls acpi_get_pxm to evaluate the _PXM AML method for
+entries found in DSDT/SSDT. ACPI 6.3 sec 6.2.14 states
+"_PXM evaluates to an integer that identifies a device as belonging to
+ a Proximity Domain defined in the System Resource Affinity Table (SRAT)."
 
-Yeah, I would be curious if my assumption is correct.
+Hence a _PXM method should not result in creation of a new NUMA node.
+Before this patch, _PXM could result in partial instantiation of
+NUMA node, missing elements such as zone lists.  A call to devm_kzalloc
+for example results in a null pointer dereference.
 
->>
->> [...]
->>
->>>  
->>> -pte_t * __meminit vmemmap_pte_populate(pmd_t *pmd, unsigned long addr, int node)
->>> +pte_t * __meminit vmemmap_pte_populate(pmd_t *pmd, unsigned long addr, int node,
->>> +				       struct vmem_altmap *altmap)
->>>  {
->>>  	pte_t *pte = pte_offset_kernel(pmd, addr);
->>>  	if (pte_none(*pte)) {
->>>  		pte_t entry;
->>> -		void *p = vmemmap_alloc_block_buf(PAGE_SIZE, node);
->>> +		void *p;
->>> +
->>> +		if (altmap)
->>> +			p = altmap_alloc_block_buf(PAGE_SIZE, altmap);
->>> +		else
->>> +			p = vmemmap_alloc_block_buf(PAGE_SIZE, node);
->>>  		if (!p)
->>>  			return NULL;
->>
->> I was wondering if
->>
->> if (altmap)
->> 	p = altmap_alloc_block_buf(PAGE_SIZE, altmap);
->> if (!p)
->> 	p = vmemmap_alloc_block_buf(PAGE_SIZE, node);
->> if (!p)
->> 	return NULL
->>
->> Would make sense. But I guess this isn't really relevant in practice,
->> because the altmap is usually sized properly.
->>
->> In general, LGTM.
-> 
-> Okay, I assume that no further changes are required here.
-> 
+This patch therefore replaces the acpi_map_pxm_to_node with a call
+to pxm_to_node.
 
-Jep,
+Signed-off-by: Jonathan Cameron <Jonathan.Cameron@huawei.com>
+---
+ drivers/acpi/numa/srat.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Reviewed-by: David Hildenbrand <david@redhat.com>
-
+diff --git a/drivers/acpi/numa/srat.c b/drivers/acpi/numa/srat.c
+index 8ef44ee0d76b..697a5c9e2eb5 100644
+--- a/drivers/acpi/numa/srat.c
++++ b/drivers/acpi/numa/srat.c
+@@ -444,6 +444,6 @@ int acpi_get_node(acpi_handle handle)
+ 
+ 	pxm = acpi_get_pxm(handle);
+ 
+-	return acpi_map_pxm_to_node(pxm);
++	return pxm_to_node(pxm);
+ }
+ EXPORT_SYMBOL(acpi_get_node);
 -- 
-Thanks,
-
-David / dhildenb
+2.19.1
