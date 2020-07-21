@@ -1,14 +1,16 @@
 From: "MOORE GATES LTD" <TEXT@TEXT.COM>
-Date: Sun, 19 Jul 2020 13:04:48 +0000
+Date: Tue, 21 Jul 2020 02:00:30 +0000
 Subject: FROM MR. MOORE
-Message-Id: <us-td6-zm$2$-k8-4-o1ag8-7wm@9n9.nbr69rz>
+Message-Id: <p$j$$juj73lb2-kt@3ud.erf.a.16r>
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="04.7C__..E4"
+Content-Type: multipart/mixed; boundary="D9F2D5A2__"
 List-Id: <linux-ia64.vger.kernel.org>
+References: <us-td6-zm$2$-k8-4-o1ag8-7wm@9n9.nbr69rz>
+In-Reply-To: <us-td6-zm$2$-k8-4-o1ag8-7wm@9n9.nbr69rz>
 To: linux-ia64@vger.kernel.org
 
 
---04.7C__..E4
+--D9F2D5A2__
 Content-Type: text/plain;
 Content-Transfer-Encoding: quoted-printable
 
@@ -25,4 +27,4 @@ Email: (moorefitzpatrick@gmail.com)
 Yours Sincerely,
 Fitzpatrick Moore
 
---04.7C__..E4--
+--D9F2D5A2__--
