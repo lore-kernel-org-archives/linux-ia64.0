@@ -1,17 +1,19 @@
-From: Hanjun Guo <guohanjun@huawei.com>
-Date: Mon, 20 Jul 2020 02:02:42 +0000
+From: Jonathan Cameron <Jonathan.Cameron@Huawei.com>
+Date: Tue, 28 Jul 2020 16:20:52 +0000
 Subject: Re: [PATCH v2 0/6] ACPI: Only create NUMA nodes from entries in SRAT or SRAT emulation.
-Message-Id: <9b679614-083b-cec4-e0de-34e1a66b103a@huawei.com>
+Message-Id: <20200728172052.00007848@Huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20200717175959.899775-1-Jonathan.Cameron@huawei.com>
 In-Reply-To: <20200717175959.899775-1-Jonathan.Cameron@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jonathan Cameron <Jonathan.Cameron@huawei.com>, linux-mm@kvack.org, linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org, x86@kernel.org
+To: linux-mm@kvack.org, linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org, x86@kernel.org
 Cc: Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>, Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org, martin@geanix.com, Ingo Molnar <mingo@redhat.com>, linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, linuxarm@huawei.com, Dan Williams <dan.j.williams@intel.com>, Song Bao Hua <song.bao.hua@hisilicon.com>
 
-On 2020/7/18 1:59, Jonathan Cameron wrote:
+On Sat, 18 Jul 2020 01:59:53 +0800
+Jonathan Cameron <Jonathan.Cameron@huawei.com> wrote:
+
 > Here, I will use the term Proximity Domains for the ACPI description and
 > NUMA Nodes for the in kernel representation.
 > 
@@ -56,7 +58,52 @@ On 2020/7/18 1:59, Jonathan Cameron wrote:
 > To avoid this crash with minimal changes we do not create new NUMA nodes based
 > on this particular entry type.  Any current platform trying to do this will not
 > boot, so this is an improvement, if perhaps not a perfect solution.
+> 
+> [1] Note in ACPI Specification 6.3 5.2.16 System Resource Affinity Table (SRAT)
+> [2] https://patchwork.kernel.org/patch/10597777/
+> 
+> Thanks to Bjorn Helgaas for review of v1 and Barry Song for internal reviews that
+> lead to a slightly different approach for this v2.
 
-Make sense to me,
+Thanks Barry / Hanjun,
 
-Reviewed-by: Hanjun Guo <guohanjun@huawei.com>
+Anyone else have time to take a look?
+
+I'm happy to bring it back after the merge window closes, but would like to know
+if people are happy with the general approach.  I'm keen to finally be able to
+resolve that issue with _PXM and PCI. 
+
+Thanks,
+
+Jonathan
+
+> 
+> Changes since v1.
+> * Use pxm_to_node for what was previously the path using acpi_map_pxm_to_node
+>   with create=false. (Barry)
+> * Broke patch up into an initial noop stage followed by patches (Bjorn)
+>   to update each type of case in which partial creation of NUMA nodes is prevented.
+> * Added patch 5 to rename function to reflect change of functionality.
+> * Updated descriptions (now mostly in individual patches) inline with Bjorn's comments.
+> 
+> Jonathan Cameron (6):
+>   ACPI: Add out of bounds and numa_off protections to pxm_to_node
+>   ACPI: Do not create new NUMA domains from ACPI static tables that are
+>     not SRAT
+>   ACPI: Remove side effect of partly creating a node in
+>     acpi_map_pxm_to_online_node
+>   ACPI: rename acpi_map_pxm_to_online_node to pxm_to_online_node
+>   ACPI: Remove side effect of partly creating a node in acpi_get_node
+>   irq-chip/gic-v3-its: Fix crash if ITS is in a proximity domain without
+>     processor or memory
+> 
+>  drivers/acpi/arm64/iort.c        |  2 +-
+>  drivers/acpi/nfit/core.c         |  6 ++----
+>  drivers/acpi/numa/hmat.c         |  4 ++--
+>  drivers/acpi/numa/srat.c         |  4 ++--
+>  drivers/iommu/intel/dmar.c       |  2 +-
+>  drivers/irqchip/irq-gic-v3-its.c |  7 ++++++-
+>  include/linux/acpi.h             | 15 +++++++--------
+>  7 files changed, 21 insertions(+), 19 deletions(-)
+> 
+
