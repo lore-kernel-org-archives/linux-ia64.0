@@ -1,99 +1,81 @@
-From: Jonathan Cameron <Jonathan.Cameron@huawei.com>
-Date: Fri, 17 Jul 2020 17:59:59 +0000
-Subject: [PATCH v2 6/6] irq-chip/gic-v3-its: Fix crash if ITS is in a proximity domain without processor or m
-Message-Id: <20200717175959.899775-7-Jonathan.Cameron@huawei.com>
+From: Nicholas Piggin <npiggin@gmail.com>
+Date: Tue, 28 Jul 2020 03:33:49 +0000
+Subject: [PATCH 08/24] ia64: use asm-generic/mmu_context.h for no-op implementations
+Message-Id: <20200728033405.78469-9-npiggin@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200717175959.899775-1-Jonathan.Cameron@huawei.com>
-In-Reply-To: <20200717175959.899775-1-Jonathan.Cameron@huawei.com>
+References: <20200728033405.78469-1-npiggin@gmail.com>
+In-Reply-To: <20200728033405.78469-1-npiggin@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org, linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org, x86@kernel.org
-Cc: Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>, Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org, martin@geanix.com, Ingo Molnar <mingo@redhat.com>, linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, linuxarm@huawei.com, Dan Williams <dan.j.williams@intel.com>, Song Bao Hua <song.bao.hua@hisilicon.com>, Jonathan Cameron <Jonathan.Cameron@huawei.com>
+To: linux-arch@vger.kernel.org
+Cc: Nicholas Piggin <npiggin@gmail.com>, linux-kernel@vger.kernel.org, linux-mm@kvack.org, Arnd Bergmann <arnd@arndb.de>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-Note this crash is present before any of the patches in this series, but
-as explained below it is highly unlikely anyone is shipping a firmware that
-causes it. Tests were done using an overriden SRAT.
-
-On ARM64, the gic-v3 driver directly parses SRAT to locate GIC Interrupt
-Translation Service (ITS) Affinity Structures. This is done much later
-in the boot than the parses of SRAT which identify proximity domains.
-
-As a result, an ITS placed in a proximity domain that is not defined by
-another SRAT structure will result in a NUMA node that is not completely
-configured and a crash.
-
-ITS [mem 0x202100000-0x20211ffff]
-ITS@0x0000000202100000: Using ITS number 0
-Unable to handle kernel paging request at virtual address 0000000000001a08
-...
-
-Call trace:
-  __alloc_pages_nodemask+0xe8/0x338
-  alloc_pages_node.constprop.0+0x34/0x40
-  its_probe_one+0x2f8/0xb18
-  gic_acpi_parse_madt_its+0x108/0x150
-  acpi_table_parse_entries_array+0x17c/0x264
-  acpi_table_parse_entries+0x48/0x6c
-  acpi_table_parse_madt+0x30/0x3c
-  its_init+0x1c4/0x644
-  gic_init_bases+0x4b8/0x4ec
-  gic_acpi_init+0x134/0x264
-  acpi_match_madt+0x4c/0x84
-  acpi_table_parse_entries_array+0x17c/0x264
-  acpi_table_parse_entries+0x48/0x6c
-  acpi_table_parse_madt+0x30/0x3c
-  __acpi_probe_device_table+0x8c/0xe8
-  irqchip_init+0x3c/0x48
-  init_IRQ+0xcc/0x100
-  start_kernel+0x33c/0x548
-
-ACPI 6.3 allows any set of Affinity Structures in SRAT to define a proximity
-domain.  However, as we do not see this crash, we can conclude that no
-firmware is currently placing an ITS in a node that is separate from
-those containing memory and / or processors.
-
-We could modify the SRAT parsing behavior to identify the existence
-of Proximity Domains unique to the ITS structures, and handle them as
-a special case of a generic initiator (once support for those merges).
-
-This patch avoids the complexity that would be needed to handle this corner
-case, by not allowing the ITS entry parsing code to instantiate new NUMA
-Nodes.  If one is encountered that does not already exist, then NO_NUMA_NODE
-is assigned and a warning printed just as if the value had been greater than
-allowed NUMA Nodes.
-
-"SRAT: Invalid NUMA node -1 in ITS affinity"
-
-Whilst this does not provide the full flexibility allowed by ACPI,
-it does fix the problem.  We can revisit a more sophisticated solution if
-needed by future platforms.
-
-Change is simply to replace acpi_map_pxm_to_node with pxm_to_node reflecting
-the fact a new mapping is not created.
-
-Signed-off-by: Jonathan Cameron <Jonathan.Cameron@huawei.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
+Signed-off-by: Nicholas Piggin <npiggin@gmail.com>
 ---
- drivers/irqchip/irq-gic-v3-its.c | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
+ arch/ia64/include/asm/mmu_context.h | 17 ++++-------------
+ 1 file changed, 4 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/irqchip/irq-gic-v3-its.c b/drivers/irqchip/irq-gic-v3-its.c
-index 6a5a87fc4601..c26862a074da 100644
---- a/drivers/irqchip/irq-gic-v3-its.c
-+++ b/drivers/irqchip/irq-gic-v3-its.c
-@@ -5248,7 +5248,12 @@ static int __init gic_acpi_parse_srat_its(union acpi_subtable_headers *header,
- 		return -EINVAL;
- 	}
+diff --git a/arch/ia64/include/asm/mmu_context.h b/arch/ia64/include/asm/mmu_context.h
+index 2da0e2eb036b..87a0d5bc11ef 100644
+--- a/arch/ia64/include/asm/mmu_context.h
++++ b/arch/ia64/include/asm/mmu_context.h
+@@ -49,11 +49,6 @@ DECLARE_PER_CPU(u8, ia64_need_tlb_flush);
+ extern void mmu_context_init (void);
+ extern void wrap_mmu_context (struct mm_struct *mm);
  
--	node = acpi_map_pxm_to_node(its_affinity->proximity_domain);
-+	/*
-+	 * Note that in theory a new proximity node could be created by this
-+	 * entry as it is an SRAT resource allocation structure.
-+	 * We do not currently support doing so.
-+	 */
-+	node = pxm_to_node(its_affinity->proximity_domain);
+-static inline void
+-enter_lazy_tlb (struct mm_struct *mm, struct task_struct *tsk)
+-{
+-}
+-
+ /*
+  * When the context counter wraps around all TLBs need to be flushed because
+  * an old context number might have been reused. This is signalled by the
+@@ -116,6 +111,7 @@ get_mmu_context (struct mm_struct *mm)
+  * Initialize context number to some sane value.  MM is guaranteed to be a
+  * brand-new address-space, so no TLB flushing is needed, ever.
+  */
++#define init_new_context init_new_context
+ static inline int
+ init_new_context (struct task_struct *p, struct mm_struct *mm)
+ {
+@@ -123,12 +119,6 @@ init_new_context (struct task_struct *p, struct mm_struct *mm)
+ 	return 0;
+ }
  
- 	if (node = NUMA_NO_NODE || node >= MAX_NUMNODES) {
- 		pr_err("SRAT: Invalid NUMA node %d in ITS affinity\n", node);
+-static inline void
+-destroy_context (struct mm_struct *mm)
+-{
+-	/* Nothing to do.  */
+-}
+-
+ static inline void
+ reload_context (nv_mm_context_t context)
+ {
+@@ -178,11 +168,10 @@ activate_context (struct mm_struct *mm)
+ 	} while (unlikely(context != mm->context));
+ }
+ 
+-#define deactivate_mm(tsk,mm)	do { } while (0)
+-
+ /*
+  * Switch from address space PREV to address space NEXT.
+  */
++#define activate_mm activate_mm
+ static inline void
+ activate_mm (struct mm_struct *prev, struct mm_struct *next)
+ {
+@@ -196,5 +185,7 @@ activate_mm (struct mm_struct *prev, struct mm_struct *next)
+ 
+ #define switch_mm(prev_mm,next_mm,next_task)	activate_mm(prev_mm, next_mm)
+ 
++#include <asm-generic/mmu_context.h>
++
+ # endif /* ! __ASSEMBLY__ */
+ #endif /* _ASM_IA64_MMU_CONTEXT_H */
 -- 
-2.19.1
+2.23.0
