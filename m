@@ -1,98 +1,109 @@
-From: Jonathan Cameron <Jonathan.Cameron@huawei.com>
-Date: Tue, 18 Aug 2020 14:24:24 +0000
-Subject: [PATCH v3 0/6]  ACPI: Only create NUMA nodes from entries in SRAT or SRAT emulation.
-Message-Id: <20200818142430.1156547-1-Jonathan.Cameron@huawei.com>
+From: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
+Date: Tue, 11 Aug 2020 16:35:11 +0000
+Subject: "mm: consolidate pte_index() and pte_offset_*() definitions" broke ia64
+Message-Id: <fa71f38e-b191-597a-6359-502cba197050@physik.fu-berlin.de>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org, linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org, x86@kernel.org
-Cc: Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>, Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org, martin@geanix.com, Ingo Molnar <mingo@redhat.com>, linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, linuxarm@huawei.com, Dan Williams <dan.j.williams@intel.com>, Song Bao Hua <song.bao.hua@hisilicon.com>, Jonathan Cameron <Jonathan.Cameron@huawei.com>
+To: Mike Rapoport <rppt@linux.ibm.com>
+Cc: Tony Luck <tony.luck@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Anatoly Pugachev <matorola@gmail.com>, Sergei Trofimovich <slyfox@gentoo.org>, jrtc27@jrtc27.com, Linux MM <linux-mm@kvack.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Frank Scheiner <frank.scheiner@web.de>
 
-This is a trivial rebase and resend of V2 now the merge window has closed.
+Hi Mike!
 
-Here, I will use the term Proximity Domains for the ACPI description and
-NUMA Nodes for the in kernel representation.
+I just bisected a kernel issue on ia64 which leads to the kernel hanging very early
+when booting on an HP RX2600 server (also verified to hang on other ia64 machines):
 
-ACPI 6.3 included a clarification that only Static Resource Allocation
-Structures in SRAT may define the existence of proximity domains
-(sec 5.2.16). This clarification closed a possible interpretation that
-other parts of ACPI (e.g. DSDT _PXM, NFIT etc) could define new proximity
-domains that were not also mentioned in SRAT structures.
+Loading Linux 5.8.0-12299-g00e4db51259a ...
+Loading initial ramdisk ...
+[    0.000000] Linux version 5.8.0-12299-g00e4db51259a (root@glendronach) (gcc (Debian 10.2.0-3) 10.2.0, GNU ld (GNU Binutils for Debian) 2.35) #5 SMP Tue Aug 11 15:33:11 CEST 2020
+[    0.000000] efi: EFI v2.00 by HP
+[    0.000000] efi: SALsystab=0x3ee7a000 ACPI 2.0=0x3fde4000 ESI=0x3ee7b000 SMBIOS=0x3ee7c000 HCDP=0x3fde2000 
+[    0.000000] PCDP: v3 at 0x3fde2000
+[    0.000000] earlycon: uart8250 at MMIO 0x0000000088033000 (options '115200n8')
+[    0.000000] printk: bootconsole [uart8250] enabled
+[    0.000000] ACPI: Early table checksum verification disabled
+[    0.000000] ACPI: RSDP 0x000000003FDE4000 000028 (v02 HP    )
+[    0.000000] ACPI: XSDT 0x000000003FDE402C 0000A4 (v01 HP     rx2660   00000000 HP   00000000)
+[    0.000000] ACPI: FACP 0x000000003FDF6A08 0000F4 (v03 HP     rx2660   00000000 HP   00000000)
+[    0.000000] ACPI: DSDT 0x000000003FDE41C8 00E566 (v01 HP     rx2660   00000007 INTL 20050309)
+[    0.000000] ACPI: FACS 0x000000003FDF6B00 000040
+[    0.000000] ACPI: SPCR 0x000000003FDF6B40 000050 (v01 HP              00000000 HP   00000000)
+[    0.000000] ACPI: DBGP 0x000000003FDF6B90 000034 (v01 HP     rx2660   00000000 HP   00000000)
+[    0.000000] ACPI: APIC 0x000000003FDF6FB0 0000C8 (v01 HP     rx2660   00000000 HP   00000000)
+[    0.000000] ACPI: SPMI 0x000000003FDF6BC8 000050 (v04 HP     rx2660   00000000 HP   00000000)
+[    0.000000] ACPI: CPEP 0x000000003FDF6E80 000034 (v01 HP     rx2660   00000000 HP   00000000)
+[    0.000000] ACPI: SSDT 0x000000003FDF2738 0004B3 (v01 HP     rx2660   00000006 INTL 20050309)
+[    0.000000] ACPI: SSDT 0x000000003FDF2BF8 000456 (v01 HP     rx2660   00000006 INTL 20050309)
+[    0.000000] ACPI: SSDT 0x000000003FDF3058 000EB8 (v01 HP     rx2660   00000006 INTL 20050309)
+[    0.000000] ACPI: SSDT 0x000000003FDF3F18 000EB8 (v01 HP     rx2660   00000006 INTL 20050309)
+[    0.000000] ACPI: SSDT 0x000000003FDF4DD8 000866 (v01 HP     rx2660   00000006 INTL 20050309)
+[    0.000000] ACPI: SSDT 0x000000003FDF5648 000EB8 (v01 HP     rx2660   00000006 INTL 20050309)
+[    0.000000] ACPI: SSDT 0x000000003FDF6508 000138 (v01 HP     rx2660   00000006 INTL 20050309)
+[    0.000000] ACPI: SSDT 0x000000003FDF6648 00013C (v01 HP     rx2660   00000006 INTL 20050309)
+[    0.000000] ACPI: SSDT 0x000000003FDF6788 00013C (v01 HP     rx2660   00000006 INTL 20050309)
+[    0.000000] ACPI: SSDT 0x000000003FDF68C8 00013C (v01 HP     rx2660   00000006 INTL 20050309)
+[    0.000000] ACPI: Local APIC address (____ptrval____)
+[    0.000000] 4 CPUs available, 4 CPUs total
+[    0.000000] SMP: Allowing 4 CPUs, 0 hotplug CPUs
+[    0.000000] Initial ramdisk at: 0xe00000002e368000 (9818100 bytes)
+[    0.000000] SAL 3.20: HP version 4.4
+[    0.000000] SAL Platform features:
+[    0.000000]  None
+[    0.000000] SAL: AP wakeup using external interrupt vector 0xff
+[    0.000000] MCA related initialization done                                                                                                                
+[    0.000000] Virtual mem_map starts at 0x(____ptrval____)                                                                                                   
+[    0.000000] Zone ranges:                                                                                                                                   
+[    0.000000]   DMA32    [mem 0x0000000001000000-0x00000000ffffffff]                                                                                         
+[    0.000000]   Normal   [mem 0x0000000100000000-0x000001007fffffff]                                                                                         
+[    0.000000] Movable zone start for each node                                                                                                               
+[    0.000000] Early memory node ranges                                                                                                                       
+[    0.000000]   node   0: [mem 0x0000000001000000-0x000000003e67ffff]                                                                                        
+[    0.000000]   node   0: [mem 0x000000003eaec000-0x000000003ee77fff]                                                                                        
+[    0.000000]   node   0: [mem 0x000000003fc00000-0x000000003fd77fff]                                                                                        
+[    0.000000]   node   0: [mem 0x000000003fddc000-0x000000003fddffff]                                                                                        
+[    0.000000]   node   0: [mem 0x0000010040000000-0x000001007f1fbfff]                                                                                        
+[    0.000000]   node   0: [mem 0x000001007f200000-0x000001007fffffff]                                                                                        
+[    0.000000] Initmem setup node 0 [mem 0x0000000001000000-0x000001007fffffff]
 
-In practice the kernel has never allowed this alternative interpretation as
-such nodes are only partially initialized. This is architecture specific
-but to take an example, on x86 alloc_node_data has not been called.
-Any use of them for node specific allocation, will result in a crash as the
-infrastructure to fallback to a node with memory is not setup.
+Bisecting the problem lead to your change as mentioned in the topic:
 
-We ran into a problem when enabling _PXM handling for PCI devices and found
-there were boards out there advertising devices in proximity domains that
-didn't exist [2].
+974b9b2c68f3d35a65e80af9657fe378d2439b60 is the first bad commit
+commit 974b9b2c68f3d35a65e80af9657fe378d2439b60
+Author: Mike Rapoport <rppt@linux.ibm.com>
+Date:   Mon Jun 8 21:33:10 2020 -0700
 
-The fix suggested in this series is to replace instances that should not
-'create' new nodes with pxm_to_node.  This function needs a some additional
-hardening against invalid inputs to make sure it is safe for use in these
-new callers.
+    mm: consolidate pte_index() and pte_offset_*() definitions
+    
+    All architectures define pte_index() as
+    
+            (address >> PAGE_SHIFT) & (PTRS_PER_PTE - 1)
+    
+    and all architectures define pte_offset_kernel() as an entry in the array
+    of PTEs indexed by the pte_index().
+    
+    For the most architectures the pte_offset_kernel() implementation relies
+    on the availability of pmd_page_vaddr() that converts a PMD entry value to
+    the virtual address of the page containing PTEs array.
+    
+    Let's move x86 definitions of the PTE accessors to the generic place in
+    <linux/pgtable.h> and then simply drop the respective definitions from the
+    other architectures.
+    
+    The architectures that didn't provide pmd_page_vaddr() are updated to have
+    that defined.
+    
+    The generic implementation of pte_offset_kernel() can be overridden by an
+    architecture and alpha makes use of this because it has special ordering
+    requirements for its version of pte_offset_kernel().
 
-Patch 1 Hardens pxm_to_node() against numa_off, and pxm entry being too large.
+Any suggestions what could be the problem?
 
-Patch 2-4 change the various callers not related to SRAT entries so that they
-set this parameter to false, so do not attempt to initialize a new NUMA node
-if the relevant one does not already exist.
-
-Patch 5 is a function rename to reflect change in functionality of
-acpi_map_pxm_to_online_node() as it no longer creates a new map, but just does a
-lookup of existing maps.
-
-Patch 6 covers the one place we do not allow the full flexibility defined
-in the ACPI spec.  For SRAT GIC Interrupt Translation Service (ITS) Affinity
-Structures, on ARM64, the driver currently makes an additional pass of SRAT
-later in the boot than the one used to identify NUMA domains.
-Note, this currently means that an ITS placed in a proximity domain that is
-not defined by another SRAT structure will result in the a crash.
-
-To avoid this crash with minimal changes we do not create new NUMA nodes based
-on this particular entry type.  Any current platform trying to do this will not
-boot, so this is an improvement, if perhaps not a perfect solution.
-
-[1] Note in ACPI Specification 6.3 5.2.16 System Resource Affinity Table (SRAT)
-[2] https://patchwork.kernel.org/patch/10597777/
-
-Thanks to Bjorn Helgaas for review of v1 and Barry Song for internal reviews that
-lead to a slightly different approach for this v2.
-
-Changes since v2.
-* Trivial rebase to v5.9-rc1
-* Collect up tags.
-
-Changes since v1.
-* Use pxm_to_node for what was previously the path using acpi_map_pxm_to_node
-  with create=false. (Barry)
-* Broke patch up into an initial noop stage followed by patches (Bjorn)
-  to update each type of case in which partial creation of NUMA nodes is prevented.
-* Added patch 5 to rename function to reflect change of functionality.
-* Updated descriptions (now mostly in individual patches) inline with Bjorn's comments.
-
-Jonathan Cameron (6):
-  ACPI: Add out of bounds and numa_off protections to pxm_to_node
-  ACPI: Do not create new NUMA domains from ACPI static tables that are
-    not SRAT
-  ACPI: Remove side effect of partly creating a node in
-    acpi_map_pxm_to_online_node
-  ACPI: Rename acpi_map_pxm_to_online_node to pxm_to_online_node
-  ACPI: Remove side effect of partly creating a node in acpi_get_node
-  irq-chip/gic-v3-its: Fix crash if ITS is in a proximity domain without
-    processor or memory
-
- drivers/acpi/arm64/iort.c        |  2 +-
- drivers/acpi/nfit/core.c         |  6 ++----
- drivers/acpi/numa/hmat.c         |  4 ++--
- drivers/acpi/numa/srat.c         |  4 ++--
- drivers/iommu/intel/dmar.c       |  2 +-
- drivers/irqchip/irq-gic-v3-its.c |  7 ++++++-
- include/linux/acpi.h             | 15 +++++++--------
- 7 files changed, 21 insertions(+), 19 deletions(-)
+Thanks,
+Adrian
 
 -- 
-2.19.1
+ .''`.  John Paul Adrian Glaubitz
+: :' :  Debian Developer - glaubitz@debian.org
+`. `'   Freie Universitaet Berlin - glaubitz@physik.fu-berlin.de
+  `-    GPG: 62FF 8A75 84E0 2956 9546  0006 7426 3B37 F5B5 F913
