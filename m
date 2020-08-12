@@ -1,113 +1,38 @@
-From: Jessica Clarke <jrtc27@jrtc27.com>
-Date: Thu, 13 Aug 2020 19:12:25 +0000
-Subject: Re: [PATCH v3] arch/ia64: Restore arch-specific pgd_offset_k implementation
-Message-Id: <13B46F16-1E82-4E15-8F6B-E8C24D6800AA@jrtc27.com>
+From: "Edgecombe, Rick P" <rick.p.edgecombe@intel.com>
+Date: Wed, 12 Aug 2020 04:50:17 +0000
+Subject: Re: "mm/vmalloc: Add flag for freeing of special permsissions" broke udev on ia64
+Message-Id: <8ae8c65f4c66dbb4469939963741801c24ce22ce.camel@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200813190546.4788-1-rppt@kernel.org>
-In-Reply-To: <20200813190546.4788-1-rppt@kernel.org>
+References: <460f2393-8603-cbda-9bab-4bd24d0c41ed@physik.fu-berlin.de>
+In-Reply-To: <460f2393-8603-cbda-9bab-4bd24d0c41ed@physik.fu-berlin.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Mike Rapoport <rppt@kernel.org>
-Cc: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Anatoly Pugachev <matorola@gmail.com>, Sergei Trofimovich <slyfox@gentoo.org>, linux-mm@kvack.org, Frank Scheiner <frank.scheiner@web.de>, Mike Rapoport <rppt@linux.ibm.com>
+To: "glaubitz@physik.fu-berlin.de" <glaubitz@physik.fu-berlin.de>
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linux-mm@kvack.org" <linux-mm@kvack.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "Luck, Tony" <tony.luck@intel.com>, "frank.scheiner@web.de" <frank.scheiner@web.de>, "jrtc27@jrtc27.com" <jrtc27@jrtc27.com>, "slyfox@gentoo.org" <slyfox@gentoo.org>, "matorola@gmail.com" <matorola@gmail.com>
 
-On 13 Aug 2020, at 20:05, Mike Rapoport <rppt@kernel.org> wrote:
-> 
-> From: Jessica Clarke <jrtc27@jrtc27.com>
-
-Given this commit is being attributed to me please apply these grammatical
-fixes (and tweaks) to your wording, as well as a technical correction.
-
-(I have not re-wrapped, for easier diffing, and due to my laziness)
-
-> IA-64 is special and treats pgd_offset_k() differently from pgd_offset() by
-> using different formulas to calculate index into kernel and user PGD
-> tables. The index into user PGDs takes into account the region number
-> and the index into the kernel (init_mm) PGD always presumes predefined
-> kernel region number. Commit 974b9b2c68 ("mm: consolidate pte_index()
-> and pte_offset_*() definitions") made IA-64 to use generic
-> pgd_offset_k() which wrongly used pgd_index() for user page tables. As
-> the result, the index into kernel PGD was going out of bounds and the
-> kernel hang during early boot.
-> 
-> Allow overrides of pgd_offset_k() and use an override on IA-64 with the
-> old implementation that will correctly index kernel PGD.
-
-IA-64 is special and treats pgd_offset_k() differently to pgd_offset(),
-using different formulae to calculate the indices into the kernel and user PGDs.
-The index into the user PGDs takes into account the region number,
-but the index into the kernel (init_mm) PGD always assumes a predefined
-kernel region number. Commit 974b9b2c68 ("mm: consolidate pte_index()
-and pte_offset_*() definitions") made IA-64 use a generic
-pgd_offset_k() which incorrectly used pgd_index() for kernel page tables. As
-a result, the index into the kernel PGD was going out of bounds and the
-kernel hung during early boot.
-
-Allow overrides of pgd_offset_k() and override it on IA-64 with the
-old implementation that will correctly index the kernel PGD.
-
-> Fixes: 974b9b2c68 ("mm: consolidate pte_index() and pte_offset_*() definitions")
-> Reported-by: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
-> Signed-off-by: Jessica Clarke <jrtc27@jrtc27.com>
-> Tested-by: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
-> Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
-> ---
-> Changes since v2:
-> * Rephrase commit message and comment about pgd_offset_k()
-> 
-> Changes since v1:
-> * Fixed typo in commit message
-> * Slightly reworded commit message to sound less weird
-> * Included Adrian's Tested-by
-> 
-> arch/ia64/include/asm/pgtable.h | 9 +++++++++
-> include/linux/pgtable.h         | 2 ++
-> 2 files changed, 11 insertions(+)
-> 
-> diff --git a/arch/ia64/include/asm/pgtable.h b/arch/ia64/include/asm/pgtable.h
-> index 10850897a91c..6ef501cd0166 100644
-> --- a/arch/ia64/include/asm/pgtable.h
-> +++ b/arch/ia64/include/asm/pgtable.h
-> @@ -366,6 +366,15 @@ pgd_index (unsigned long address)
-> }
-> #define pgd_index pgd_index
-> 
-> +/*
-> + * In the kernel's mapped region we know everything is in region number 5, so
-> + * as an optimisation its PGD already points to the area for that region.
-> + * However, this also means that we cannot use pgd_index() and we never
-> + * should add the region here.
-> + */
-
-/*
- * In the kernel's mapped region we know everything is in region number 5, so
- * as an optimisation its PGD already points to the area for that region.
- * However, this also means that we cannot use pgd_index() and we must
- * never add the region here.
- */
-
-Jess
-
-> +#define pgd_offset_k(addr) \
-> +	(init_mm.pgd + (((addr) >> PGDIR_SHIFT) & (PTRS_PER_PGD - 1)))
-> +
-> /* Look up a pgd entry in the gate area.  On IA-64, the gate-area
->    resides in the kernel-mapped segment, hence we use pgd_offset_k()
->    here.  */
-> diff --git a/include/linux/pgtable.h b/include/linux/pgtable.h
-> index a124c21e3204..e8cbc2e795d5 100644
-> --- a/include/linux/pgtable.h
-> +++ b/include/linux/pgtable.h
-> @@ -117,7 +117,9 @@ static inline pgd_t *pgd_offset_pgd(pgd_t *pgd, unsigned long address)
->  * a shortcut which implies the use of the kernel's pgd, instead
->  * of a process's
->  */
-> +#ifndef pgd_offset_k
-> #define pgd_offset_k(address)		pgd_offset(&init_mm, (address))
-> +#endif
-> 
-> /*
->  * In many cases it is known that a virtual address is mapped at PMD or PTE
-> -- 
-> 2.26.2
-> 
+T24gVHVlLCAyMDIwLTA4LTExIGF0IDIzOjU0ICswMjAwLCBKb2huIFBhdWwgQWRyaWFuIEdsYXVi
+aXR6IHdyb3RlOg0KPiBIaSBSaWNrIQ0KPiANCj4gSSBoYXZlIGJlZW4gYmlzZWN0aW5nIHNvbWUg
+cmVncmVzc2lvbnMgb24gaWE2NCBhbmQgb25lIHByb2JsZW0gSSByYW4NCj4gaW50byBpcyB0aGF0
+DQo+IHVkZXYgaXMgY2F1c2luZyB0aGUga2VybmVsIHRvIGNyYXNoIGFmdGVyIHRoZSBmb2xsb3dp
+bmcgY2hhbmdlIGZyb20NCj4gMjAxOToNCj4gDQo+IGNvbW1pdCA4NjhiMTA0ZDczNzllMjgwMTNl
+OWQ0OGJkZDJkYjI1ZTBiZGNmNzUxDQo+IEF1dGhvcjogUmljayBFZGdlY29tYmUgPHJpY2sucC5l
+ZGdlY29tYmVAaW50ZWwuY29tPg0KPiBEYXRlOiAgIFRodSBBcHIgMjUgMTc6MTE6MzYgMjAxOSAt
+MDcwMA0KPiANCj4gICAgIG1tL3ZtYWxsb2M6IEFkZCBmbGFnIGZvciBmcmVlaW5nIG9mIHNwZWNp
+YWwgcGVybXNpc3Npb25zDQo+IA0KPiBXaXRoIHlvdXIgcGF0Y2ggYXBwbGllZCwgdWRldiBjcmFz
+aGVzIG9uIGlhNjQgd2hlbiB0cnlpbmcgdG8gbG9hZA0KPiBtb2R1bGVzLCBJJ20gcGFzdGluZw0K
+PiB0aGUgd2hvbGUgYm9vdCBtZXNzYWdlIHNlcXVlbmNlIGJlbG93Lg0KPiANCj4gQW55IGlkZWEg
+d2hhdCBjb3VsZCBjYXVzZSB0aGlzIHByb2JsZW0gb24gaWE2ND8NCj4gDQo+IFRoYW5rcywNCj4g
+QWRyaWFuDQo+IA0KDQpIaSwNCg0KT24gbm9uLXg4NiwgdGhpcyBwYXRjaHNldCBzaG91bGRuJ3Qg
+aGF2ZSBjaGFuZ2VkIG11Y2gsIGp1c3QgYWx3YXlzDQpmbHVzaCB0aGUgVExCIGFuZCBwdXJnZSB0
+aGUgdm1hbGxvYyBhcmVhIGluIGNhc2VzIHdoZXJlIHByZXZpb3VzbHkgdGhpcw0Kd291bGQgb25s
+eSBoYXBwZW4gaW50ZXJtaXR0ZW50bHkuIERlc3BpdGUgdGhpcywgaXQgYWxzbyBjYXVzZWQgYQ0K
+cHJvYmxlbSBvbiBzcGFyYy4gSW4gdGhlIGVuZCB0aGUgc3BhcmMgaXNzdWUgdHVybmVkIG91dCB0
+byBiZSBhbiBpc3N1ZQ0Kd2l0aCBzcGFyYydzIGtlcm5lbCByYW5nZSBUTEIgZmx1c2ggaW1wbGVt
+ZW50YXRpb24gdGhhdCB3YXMganVzdCBub3cNCmJlaW5nIGhpdCBlYXJsaWVyIGR1cmluZyBib290
+IGluc3RlYWQgb2YgYWZ0ZXIgdGhlIHN5c3RlbSBoYWQgYmVlbiB1cA0KZm9yIHNvbWUgdGltZS4g
+U28gSSdtIGF0IGZpcnN0IHdvbmRlcmluZyBpZiB0aGVyZSBtaWdodCBiZSBzb21ldGhpbmcNCmxp
+a2UgdGhhdCB1bmNvdmVyZWQgaGVyZS4NCg0KVW5mb3J0dW5hdGVseSwgaXQncyB1bmxpa2VseSB0
+aGF0IEkgY2FuIGdldCBhY2Nlc3MgdG8gaWE2NCBoYXJkd2FyZSBpbg0KdGhlIG5lYXIgdGVybSB0
+byBkZWJ1Zy4gV291bGQgeW91IGJlIGFibGUgdG8gdGVzdCBzb21lIGRlYnVnIHBhdGNoZXM/DQpB
+bHNvLCBjYW4geW91IHBvc3QgeW91ciBjb25maWc/DQoNClRoYW5rcywNCg0KUmljaw0K
