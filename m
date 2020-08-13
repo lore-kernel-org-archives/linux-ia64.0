@@ -1,54 +1,32 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Wed, 19 Aug 2020 06:55:51 +0000
-Subject: [PATCH 24/28] 53c700: convert from dma_cache_sync to dma_sync_single_for_device
-Message-Id: <20200819065555.1802761-25-hch@lst.de>
+From: syzbot <syzbot+61acc40a49a3e46e25ea@syzkaller.appspotmail.com>
+Date: Thu, 13 Aug 2020 03:57:04 +0000
+Subject: Re: INFO: task hung in pipe_release (2)
+Message-Id: <0000000000001d3cbb05acba4cc2@google.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200819065555.1802761-1-hch@lst.de>
-In-Reply-To: <20200819065555.1802761-1-hch@lst.de>
+In-Reply-To: <00000000000084b59f05abe928ee@google.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Mauro Carvalho Chehab <mchehab@kernel.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Joonyoung Shim <jy0922.shim@samsung.com>, Seung-Woo Kim <sw0312.kim@samsung.com>, Kyungmin Park <kyungmin.park@samsung.com>, Ben Skeggs <bskeggs@redhat.com>, Pawel Osciak <pawel@osciak.com>, Marek Szyprowski <m.szyprowski@samsung.com>, Matt Porter <mporter@kernel.crashing.org>, iommu@lists.linux-foundation.org
-Cc: Tom Lendacky <thomas.lendacky@amd.com>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-media@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-samsung-soc@vger.kernel.org, nouveau@lists.freedesktop.org, netdev@vger.kernel.org, linux-nvme@lists.infradead.org, linux-scsi@vger.kernel.org, linux-mm@kvack.org, alsa-devel@alsa-project.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: quoted-printable
+To: James.Bottomley@HansenPartnership.com, amanieu@gmail.com, arnd@arndb.de, benh@kernel.crashing.org, bfields@fieldses.org, borntraeger@de.ibm.com, bp@alien8.de, catalin.marinas@arm.com, chris@zankel.net, christian@brauner.io, corbet@lwn.net, cyphar@cyphar.com, dalias@libc.org, davem@davemloft.net, deller@gmx.de, dvyukov@google.com, fenghua.yu@intel.com, geert@linux-m68k.org, gor@linux.ibm.com, heiko.carstens@de.ibm.com, hpa@zytor.com, ink@jurassic.park.msu.ru, jcmvbkbc@gmail.com, jhogan@kernel.org, jlayton@kernel.org, kvalo@codeaurora.org, linux-alpha@vger.kernel.org, linux-api@vger.kernel.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux@armlinux.org.uk, linux@dominikbrodowski.net, linuxppc-dev@lists.ozlabs.org, luis.f.correia@gmail.com, luto@kernel.org, martink@posteo.de, mattst88@gmail.com, ming.lei@canonical.com, ming.lei@redhat.com, mingo@redhat.com, monstr@monstr.eu
 
-Use the proper modern API to transfer cache ownership for incoherent DMA.
+syzbot has bisected this issue to:
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
----
- drivers/scsi/53c700.c | 11 +++++++++--
- 1 file changed, 9 insertions(+), 2 deletions(-)
+commit fddb5d430ad9fa91b49b1d34d0202ffe2fa0e179
+Author: Aleksa Sarai <cyphar@cyphar.com>
+Date:   Sat Jan 18 12:07:59 2020 +0000
 
-diff --git a/drivers/scsi/53c700.c b/drivers/scsi/53c700.c
-index 521950d0731e4a..57a08c42d00325 100644
---- a/drivers/scsi/53c700.c
-+++ b/drivers/scsi/53c700.c
-@@ -269,18 +269,25 @@ NCR_700_get_SXFER(struct scsi_device *SDp)
- 					      spi_period(SDp->sdev_target));
- }
- 
-+static inline dma_addr_t virt_to_dma(struct NCR_700_Host_Parameters *h, void *p)
-+{
-+	return h->pScript + ((uintptr_t)p - (uintptr_t)h->script);
-+}
-+
- static inline void dma_sync_to_dev(struct NCR_700_Host_Parameters *h,
- 		void *addr, size_t size)
- {
- 	if (h->noncoherent)
--		dma_cache_sync(h->dev, addr, size, DMA_TO_DEVICE);
-+		dma_sync_single_for_device(h->dev, virt_to_dma(h, addr),
-+					   size, DMA_BIDIRECTIONAL);
- }
- 
- static inline void dma_sync_from_dev(struct NCR_700_Host_Parameters *h,
- 		void *addr, size_t size)
- {
- 	if (h->noncoherent)
--		dma_cache_sync(h->dev, addr, size, DMA_FROM_DEVICE);
-+		dma_sync_single_for_device(h->dev, virt_to_dma(h, addr), size,
-+					   DMA_BIDIRECTIONAL);
- }
- 
- struct Scsi_Host *
--- 
-2.28.0
+    open: introduce openat2(2) syscall
+
+bisection log:  https://syzkaller.appspot.com/x/bisect.txt?x=164e716a900000
+start commit:   6ba1b005 Merge tag 'asm-generic-fixes-5.8' of git://git.ke..
+git tree:       upstream
+final oops:     https://syzkaller.appspot.com/x/report.txt?x=154e716a900000
+console output: https://syzkaller.appspot.com/x/log.txt?x=114e716a900000
+kernel config:  https://syzkaller.appspot.com/x/.config?x=84f076779e989e69
+dashboard link: https://syzkaller.appspot.com/bug?extidaacc40a49a3e46e25ea
+syz repro:      https://syzkaller.appspot.com/x/repro.syz?x=142ae224900000
+
+Reported-by: syzbot+61acc40a49a3e46e25ea@syzkaller.appspotmail.com
+Fixes: fddb5d430ad9 ("open: introduce openat2(2) syscall")
+
+For information about bisection process see: https://goo.gl/tpsmEJ#bisection
