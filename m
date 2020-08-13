@@ -1,46 +1,85 @@
-From: Randy Dunlap <rdunlap@infradead.org>
-Date: Sun, 26 Jul 2020 00:40:13 +0000
-Subject: [PATCH 5/5] ia64: kernel: perfmon_m*.h: delete duplicated words
-Message-Id: <20200726004013.20534-6-rdunlap@infradead.org>
+From: Mike Rapoport <rppt@kernel.org>
+Date: Thu, 13 Aug 2020 19:51:30 +0000
+Subject: [PATCH v4] arch/ia64: Restore arch-specific pgd_offset_k implementation
+Message-Id: <20200813195129.5099-1-rppt@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200726004013.20534-1-rdunlap@infradead.org>
-In-Reply-To: <20200726004013.20534-1-rdunlap@infradead.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Randy Dunlap <rdunlap@infradead.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+To: Jessica Clarke <jrtc27@jrtc27.com>
+Cc: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, Anatoly Pugachev <matorola@gmail.com>, Sergei Trofimovich <slyfox@gentoo.org>, linux-mm@kvack.org, Frank Scheiner <frank.scheiner@web.de>, Mike Rapoport <rppt@kernel.org>, Mike Rapoport <rppt@linux.ibm.com>
 
-Delete the repeated word "the" in two places.
+From: Jessica Clarke <jrtc27@jrtc27.com>
 
-Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org
+IA-64 is special and treats pgd_offset_k() differently to pgd_offset(),
+using different formulae to calculate the indices into the kernel and user
+PGDs.  The index into the user PGDs takes into account the region number,
+but the index into the kernel (init_mm) PGD always assumes a predefined
+kernel region number. Commit 974b9b2c68 ("mm: consolidate pte_index() and
+pte_offset_*() definitions") made IA-64 use a generic pgd_offset_k() which
+incorrectly used pgd_index() for kernel page tables.  As a result, the
+index into the kernel PGD was going out of bounds and the kernel hung
+during early boot.
+
+Allow overrides of pgd_offset_k() and override it on IA-64 with the old
+implementation that will correctly index the kernel PGD.
+
+Fixes: 974b9b2c68 ("mm: consolidate pte_index() and pte_offset_*() definitions")
+Reported-by: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
+Signed-off-by: Jessica Clarke <jrtc27@jrtc27.com>
+Tested-by: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
+Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
 ---
- arch/ia64/kernel/perfmon_mckinley.h  |    2 +-
- arch/ia64/kernel/perfmon_montecito.h |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
 
---- linux-next-20200720.orig/arch/ia64/kernel/perfmon_mckinley.h
-+++ linux-next-20200720/arch/ia64/kernel/perfmon_mckinley.h
-@@ -92,7 +92,7 @@ pfm_mck_pmc_check(struct task_struct *ta
- 	/*
- 	 * we must clear the debug registers if pmc13 has a value which enable
- 	 * memory pipeline event constraints. In this case we need to clear the
--	 * the debug registers if they have not yet been accessed. This is required
-+	 * debug registers if they have not yet been accessed. This is required
- 	 * to avoid picking stale state.
- 	 * PMC13 is "active" if:
- 	 * 	one of the pmc13.cfg_dbrpXX field is different from 0x3
---- linux-next-20200720.orig/arch/ia64/kernel/perfmon_montecito.h
-+++ linux-next-20200720/arch/ia64/kernel/perfmon_montecito.h
-@@ -174,7 +174,7 @@ pfm_mont_pmc_check(struct task_struct *t
- 	/*
- 	 * we must clear the debug registers if pmc41 has a value which enable
- 	 * memory pipeline event constraints. In this case we need to clear the
--	 * the debug registers if they have not yet been accessed. This is required
-+	 * debug registers if they have not yet been accessed. This is required
- 	 * to avoid picking stale state.
- 	 * PMC41 is "active" if:
- 	 * 	one of the pmc41.cfg_dtagXX field is different from 0x3
+Changes since v3:
+* Correct commit message as Jessica suggested
+
+Changes since v2:
+* Rephrase commit message and comment about pgd_offset_k()
+
+Changes since v1:
+ * Fixed typo in commit message
+ * Slightly reworded commit message to sound less weird
+ * Included Adrian's Tested-by
+
+
+ arch/ia64/include/asm/pgtable.h | 9 +++++++++
+ include/linux/pgtable.h         | 2 ++
+ 2 files changed, 11 insertions(+)
+
+diff --git a/arch/ia64/include/asm/pgtable.h b/arch/ia64/include/asm/pgtable.h
+index 10850897a91c..6ef501cd0166 100644
+--- a/arch/ia64/include/asm/pgtable.h
++++ b/arch/ia64/include/asm/pgtable.h
+@@ -366,6 +366,15 @@ pgd_index (unsigned long address)
+ }
+ #define pgd_index pgd_index
+ 
++/*
++ * In the kernel's mapped region we know everything is in region number 5, so
++ * as an optimisation its PGD already points to the area for that region.
++ * However, this also means that we cannot use pgd_index() and we never
++ * should add the region here.
++ */
++#define pgd_offset_k(addr) \
++	(init_mm.pgd + (((addr) >> PGDIR_SHIFT) & (PTRS_PER_PGD - 1)))
++
+ /* Look up a pgd entry in the gate area.  On IA-64, the gate-area
+    resides in the kernel-mapped segment, hence we use pgd_offset_k()
+    here.  */
+diff --git a/include/linux/pgtable.h b/include/linux/pgtable.h
+index a124c21e3204..e8cbc2e795d5 100644
+--- a/include/linux/pgtable.h
++++ b/include/linux/pgtable.h
+@@ -117,7 +117,9 @@ static inline pgd_t *pgd_offset_pgd(pgd_t *pgd, unsigned long address)
+  * a shortcut which implies the use of the kernel's pgd, instead
+  * of a process's
+  */
++#ifndef pgd_offset_k
+ #define pgd_offset_k(address)		pgd_offset(&init_mm, (address))
++#endif
+ 
+ /*
+  * In many cases it is known that a virtual address is mapped at PMD or PTE
+-- 
+2.26.2
