@@ -1,37 +1,43 @@
-From: Christian Brauner <christian.brauner@ubuntu.com>
-Date: Tue, 18 Aug 2020 17:34:02 +0000
-Subject: [PATCH 02/11] h8300: switch to kernel_clone()
-Message-Id: <20200818173411.404104-3-christian.brauner@ubuntu.com>
+From: Jonathan Cameron <Jonathan.Cameron@huawei.com>
+Date: Tue, 18 Aug 2020 14:24:25 +0000
+Subject: [PATCH v3 1/6] ACPI: Add out of bounds and numa_off protections to pxm_to_node
+Message-Id: <20200818142430.1156547-2-Jonathan.Cameron@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200818173411.404104-1-christian.brauner@ubuntu.com>
-In-Reply-To: <20200818173411.404104-1-christian.brauner@ubuntu.com>
+References: <20200818142430.1156547-1-Jonathan.Cameron@huawei.com>
+In-Reply-To: <20200818142430.1156547-1-Jonathan.Cameron@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Hewllig <hch@infradead.org>, linux-kernel@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>, linux-arch@vger.kernel.org
-Cc: Jonathan Corbet <corbet@lwn.net>, Yoshinori Sato <ysato@users.sourceforge.jp>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Ley Foon Tan <ley.foon.tan@intel.com>, "David S. Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Steven Rostedt <rostedt@goodmis.org>, Stafford Horne <shorne@gmail.com>, Peter Zijlstra <peterz@infradead.org>, Kars de Jong <jongk@linux-m68k.org>, Kees Cook <keescook@chromium.org>, Greentime Hu <green.hu@gmail.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Mauro Carvalho Chehab <mchehab+huawei@kernel.org>, Alexandre Chartre <alexandre.chartre@oracle.com>, Masami Hiramatsu <mhiramat@kernel.org>, Tom Zanussi <zanussi@kernel.org>, Xiao Yang <yangx.jy@cn.fujitsu.com>, linux-doc@vger.kernel.org, uclinux-h8-devel@lists.sourceforge.jp, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, kgdb-bugreport@lists.sourceforge.net, linux-kselftest@vger.kernel.org, Christian Brauner <christian.brauner@ubuntu.com>
+To: linux-mm@kvack.org, linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org, x86@kernel.org
+Cc: Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>, Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org, martin@geanix.com, Ingo Molnar <mingo@redhat.com>, linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, linuxarm@huawei.com, Dan Williams <dan.j.williams@intel.com>, Song Bao Hua <song.bao.hua@hisilicon.com>, Jonathan Cameron <Jonathan.Cameron@huawei.com>
 
-The old _do_fork() helper is removed in favor of the new kernel_clone() helper.
-The latter adheres to naming conventions for kernel internal syscall helpers.
+The function should check the validity of the pxm value before using
+it to index the pxm_to_node_map array.
 
-Cc: Greentime Hu <green.hu@gmail.com>
-Cc: Yoshinori Sato <ysato@users.sourceforge.jp>
-Cc: uclinux-h8-devel@lists.sourceforge.jp
-Signed-off-by: Christian Brauner <christian.brauner@ubuntu.com>
+Whilst hardening this code may be good in general, the main intent
+here is to enable following patches that use this function to replace
+acpi_map_pxm_to_node for non SRAT usecases which should return
+NO_NUMA_NODE for PXM entries not matching with those in SRAT.
+
+Signed-off-by: Jonathan Cameron <Jonathan.Cameron@huawei.com>
+Reviewed-by: Barry Song <song.bao.hua@hisilicon.com>
+Reviewed-by: Hanjun Guo <guohanjun@huawei.com>
 ---
- arch/h8300/kernel/process.c | 2 +-
+ drivers/acpi/numa/srat.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/h8300/kernel/process.c b/arch/h8300/kernel/process.c
-index 83ce3caf7313..aea0a40b77a9 100644
---- a/arch/h8300/kernel/process.c
-+++ b/arch/h8300/kernel/process.c
-@@ -172,5 +172,5 @@ asmlinkage int sys_clone(unsigned long __user *args)
- 	kargs.exit_signal	= (lower_32_bits(clone_flags) & CSIGNAL);
- 	kargs.stack		= newsp;
+diff --git a/drivers/acpi/numa/srat.c b/drivers/acpi/numa/srat.c
+index 15bbaab8500b..1fb486f46ee2 100644
+--- a/drivers/acpi/numa/srat.c
++++ b/drivers/acpi/numa/srat.c
+@@ -31,7 +31,7 @@ int acpi_numa __initdata;
  
--	return _do_fork(&kargs);
-+	return kernel_clone(&kargs);
+ int pxm_to_node(int pxm)
+ {
+-	if (pxm < 0)
++	if (pxm < 0 || pxm >= MAX_PXM_DOMAINS || numa_off)
+ 		return NUMA_NO_NODE;
+ 	return pxm_to_node_map[pxm];
  }
 -- 
-2.28.0
+2.19.1
