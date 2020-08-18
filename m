@@ -1,153 +1,56 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Wed, 19 Aug 2020 06:55:48 +0000
-Subject: [PATCH 21/28] hal2: convert from dma_cache_sync to dma_sync_single_for_device
-Message-Id: <20200819065555.1802761-22-hch@lst.de>
+From: Christian Brauner <christian.brauner@ubuntu.com>
+Date: Tue, 18 Aug 2020 17:34:08 +0000
+Subject: [PATCH 08/11] kprobes: switch to kernel_clone()
+Message-Id: <20200818173411.404104-9-christian.brauner@ubuntu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200819065555.1802761-1-hch@lst.de>
-In-Reply-To: <20200819065555.1802761-1-hch@lst.de>
+References: <20200818173411.404104-1-christian.brauner@ubuntu.com>
+In-Reply-To: <20200818173411.404104-1-christian.brauner@ubuntu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Mauro Carvalho Chehab <mchehab@kernel.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Joonyoung Shim <jy0922.shim@samsung.com>, Seung-Woo Kim <sw0312.kim@samsung.com>, Kyungmin Park <kyungmin.park@samsung.com>, Ben Skeggs <bskeggs@redhat.com>, Pawel Osciak <pawel@osciak.com>, Marek Szyprowski <m.szyprowski@samsung.com>, Matt Porter <mporter@kernel.crashing.org>, iommu@lists.linux-foundation.org
-Cc: Tom Lendacky <thomas.lendacky@amd.com>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-media@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-samsung-soc@vger.kernel.org, nouveau@lists.freedesktop.org, netdev@vger.kernel.org, linux-nvme@lists.infradead.org, linux-scsi@vger.kernel.org, linux-mm@kvack.org, alsa-devel@alsa-project.org
+To: Christoph Hewllig <hch@infradead.org>, linux-kernel@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>, linux-arch@vger.kernel.org
+Cc: Jonathan Corbet <corbet@lwn.net>, Yoshinori Sato <ysato@users.sourceforge.jp>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Ley Foon Tan <ley.foon.tan@intel.com>, "David S. Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Steven Rostedt <rostedt@goodmis.org>, Stafford Horne <shorne@gmail.com>, Peter Zijlstra <peterz@infradead.org>, Kars de Jong <jongk@linux-m68k.org>, Kees Cook <keescook@chromium.org>, Greentime Hu <green.hu@gmail.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Mauro Carvalho Chehab <mchehab+huawei@kernel.org>, Alexandre Chartre <alexandre.chartre@oracle.com>, Masami Hiramatsu <mhiramat@kernel.org>, Tom Zanussi <zanussi@kernel.org>, Xiao Yang <yangx.jy@cn.fujitsu.com>, linux-doc@vger.kernel.org, uclinux-h8-devel@lists.sourceforge.jp, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, kgdb-bugreport@lists.sourceforge.net, linux-kselftest@vger.kernel.org, Christian Brauner <christian.brauner@ubuntu.com>
 
-Use the proper modern API to transfer cache ownership for incoherent DMA.
-This also means we can allocate the buffer memory with the proper
-direction instead of bidirectional.
+The old _do_fork() helper is removed in favor of the new kernel_clone() helper.
+The latter adheres to naming conventions for kernel internal syscall helpers.
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+Cc: Mauro Carvalho Chehab <mchehab+huawei@kernel.org>
+Cc: Alexandre Chartre <alexandre.chartre@oracle.com>
+Cc: Jonathan Corbet <corbet@lwn.net>
+Cc: Masami Hiramatsu <mhiramat@kernel.org>
+Signed-off-by: Christian Brauner <christian.brauner@ubuntu.com>
 ---
- sound/mips/hal2.c | 44 ++++++++++++++++++++------------------------
- 1 file changed, 20 insertions(+), 24 deletions(-)
+ samples/kprobes/kprobe_example.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/sound/mips/hal2.c b/sound/mips/hal2.c
-index 746c410bd9bf11..c8e429a5f48f85 100644
---- a/sound/mips/hal2.c
-+++ b/sound/mips/hal2.c
-@@ -441,7 +441,8 @@ static inline void hal2_stop_adc(struct snd_hal2 *hal2)
- 	hal2->adc.pbus.pbus->pbdma_ctrl = HPC3_PDMACTRL_LD;
- }
+diff --git a/samples/kprobes/kprobe_example.c b/samples/kprobes/kprobe_example.c
+index 240f2435ce6f..a02f53836ee1 100644
+--- a/samples/kprobes/kprobe_example.c
++++ b/samples/kprobes/kprobe_example.c
+@@ -2,13 +2,13 @@
+ /*
+  * NOTE: This example is works on x86 and powerpc.
+  * Here's a sample kernel module showing the use of kprobes to dump a
+- * stack trace and selected registers when _do_fork() is called.
++ * stack trace and selected registers when kernel_clone() is called.
+  *
+  * For more information on theory of operation of kprobes, see
+  * Documentation/staging/kprobes.rst
+  *
+  * You will see the trace data in /var/log/messages and on the console
+- * whenever _do_fork() is invoked to create a new process.
++ * whenever kernel_clone() is invoked to create a new process.
+  */
  
--static int hal2_alloc_dmabuf(struct snd_hal2 *hal2, struct hal2_codec *codec)
-+static int hal2_alloc_dmabuf(struct snd_hal2 *hal2, struct hal2_codec *codec,
-+		enum dma_data_direction buffer_dir)
- {
- 	struct device *dev = hal2->card->dev;
- 	struct hal2_desc *desc;
-@@ -450,14 +451,14 @@ static int hal2_alloc_dmabuf(struct snd_hal2 *hal2, struct hal2_codec *codec)
- 	int i;
+ #include <linux/kernel.h>
+@@ -16,7 +16,7 @@
+ #include <linux/kprobes.h>
  
- 	codec->buffer = dma_alloc_pages(dev, H2_BUF_SIZE, &buffer_dma,
--					DMA_BIDIRECTIONAL, GFP_KERNEL);
-+					buffer_dir, GFP_KERNEL);
- 	if (!codec->buffer)
- 		return -ENOMEM;
- 	desc = dma_alloc_pages(dev, count * sizeof(struct hal2_desc), &desc_dma,
- 			       DMA_BIDIRECTIONAL, GFP_KERNEL);
- 	if (!desc) {
- 		dma_free_pages(dev, H2_BUF_SIZE, codec->buffer, buffer_dma,
--				DMA_BIDIRECTIONAL);
-+				buffer_dir);
- 		return -ENOMEM;
- 	}
- 	codec->buffer_dma = buffer_dma;
-@@ -470,20 +471,22 @@ static int hal2_alloc_dmabuf(struct snd_hal2 *hal2, struct hal2_codec *codec)
- 		      desc_dma : desc_dma + (i + 1) * sizeof(struct hal2_desc);
- 		desc++;
- 	}
--	dma_cache_sync(dev, codec->desc, count * sizeof(struct hal2_desc),
--		       DMA_TO_DEVICE);
-+	dma_sync_single_for_device(dev, codec->desc_dma,
-+				   count * sizeof(struct hal2_desc),
-+				   DMA_BIDIRECTIONAL);
- 	codec->desc_count = count;
- 	return 0;
- }
+ #define MAX_SYMBOL_LEN	64
+-static char symbol[MAX_SYMBOL_LEN] = "_do_fork";
++static char symbol[MAX_SYMBOL_LEN] = "kernel_clone";
+ module_param_string(symbol, symbol, sizeof(symbol), 0644);
  
--static void hal2_free_dmabuf(struct snd_hal2 *hal2, struct hal2_codec *codec)
-+static void hal2_free_dmabuf(struct snd_hal2 *hal2, struct hal2_codec *codec,
-+		enum dma_data_direction buffer_dir)
- {
- 	struct device *dev = hal2->card->dev;
- 
- 	dma_free_pages(dev, codec->desc_count * sizeof(struct hal2_desc),
- 		       codec->desc, codec->desc_dma, DMA_BIDIRECTIONAL);
- 	dma_free_pages(dev, H2_BUF_SIZE, codec->buffer, codec->buffer_dma,
--			DMA_BIDIRECTIONAL);
-+			buffer_dir);
- }
- 
- static const struct snd_pcm_hardware hal2_pcm_hw = {
-@@ -509,21 +512,16 @@ static int hal2_playback_open(struct snd_pcm_substream *substream)
- {
- 	struct snd_pcm_runtime *runtime = substream->runtime;
- 	struct snd_hal2 *hal2 = snd_pcm_substream_chip(substream);
--	int err;
- 
- 	runtime->hw = hal2_pcm_hw;
--
--	err = hal2_alloc_dmabuf(hal2, &hal2->dac);
--	if (err)
--		return err;
--	return 0;
-+	return hal2_alloc_dmabuf(hal2, &hal2->dac, DMA_TO_DEVICE);
- }
- 
- static int hal2_playback_close(struct snd_pcm_substream *substream)
- {
- 	struct snd_hal2 *hal2 = snd_pcm_substream_chip(substream);
- 
--	hal2_free_dmabuf(hal2, &hal2->dac);
-+	hal2_free_dmabuf(hal2, &hal2->dac, DMA_TO_DEVICE);
- 	return 0;
- }
- 
-@@ -579,7 +577,9 @@ static void hal2_playback_transfer(struct snd_pcm_substream *substream,
- 	unsigned char *buf = hal2->dac.buffer + rec->hw_data;
- 
- 	memcpy(buf, substream->runtime->dma_area + rec->sw_data, bytes);
--	dma_cache_sync(hal2->card->dev, buf, bytes, DMA_TO_DEVICE);
-+	dma_sync_single_for_device(hal2->card->dev,
-+			hal2->dac.buffer_dma + rec->hw_data, bytes,
-+			DMA_TO_DEVICE);
- 
- }
- 
-@@ -597,22 +597,16 @@ static int hal2_capture_open(struct snd_pcm_substream *substream)
- {
- 	struct snd_pcm_runtime *runtime = substream->runtime;
- 	struct snd_hal2 *hal2 = snd_pcm_substream_chip(substream);
--	struct hal2_codec *adc = &hal2->adc;
--	int err;
- 
- 	runtime->hw = hal2_pcm_hw;
--
--	err = hal2_alloc_dmabuf(hal2, adc);
--	if (err)
--		return err;
--	return 0;
-+	return hal2_alloc_dmabuf(hal2, &hal2->adc, DMA_FROM_DEVICE);
- }
- 
- static int hal2_capture_close(struct snd_pcm_substream *substream)
- {
- 	struct snd_hal2 *hal2 = snd_pcm_substream_chip(substream);
- 
--	hal2_free_dmabuf(hal2, &hal2->adc);
-+	hal2_free_dmabuf(hal2, &hal2->adc, DMA_FROM_DEVICE);
- 	return 0;
- }
- 
-@@ -667,7 +661,9 @@ static void hal2_capture_transfer(struct snd_pcm_substream *substream,
- 	struct snd_hal2 *hal2 = snd_pcm_substream_chip(substream);
- 	unsigned char *buf = hal2->adc.buffer + rec->hw_data;
- 
--	dma_cache_sync(hal2->card->dev, buf, bytes, DMA_FROM_DEVICE);
-+	dma_sync_single_for_cpu(hal2->card->dev,
-+			hal2->adc.buffer_dma + rec->hw_data, bytes,
-+			DMA_FROM_DEVICE);
- 	memcpy(substream->runtime->dma_area + rec->sw_data, buf, bytes);
- }
- 
+ /* For each probe you need to allocate a kprobe structure */
 -- 
 2.28.0
