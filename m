@@ -1,65 +1,38 @@
-From: Nicolin Chen <nicoleotsuka@gmail.com>
-Date: Mon, 31 Aug 2020 20:38:06 +0000
-Subject: [RESEND][PATCH 2/7] alpha: Avoid overflow at boundary_size
-Message-Id: <20200831203811.8494-3-nicoleotsuka@gmail.com>
+From: Christian Brauner <christian.brauner@ubuntu.com>
+Date: Tue, 18 Aug 2020 17:34:11 +0000
+Subject: [PATCH 11/11] sched: remove _do_fork()
+Message-Id: <20200818173411.404104-12-christian.brauner@ubuntu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200831203811.8494-1-nicoleotsuka@gmail.com>
-In-Reply-To: <20200831203811.8494-1-nicoleotsuka@gmail.com>
+References: <20200818173411.404104-1-christian.brauner@ubuntu.com>
+In-Reply-To: <20200818173411.404104-1-christian.brauner@ubuntu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, rth@twiddle.net, ink@jurassic.park.msu.ru, mattst88@gmail.com, tony.luck@intel.com, fenghua.yu@intel.com, schnelle@linux.ibm.com, gerald.schaefer@linux.ibm.com, hca@linux.ibm.com, gor@linux.ibm.com, borntraeger@de.ibm.com, davem@davemloft.net, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, x86@kernel.org, hpa@zytor.com, James.Bottomley@HansenPartnership.com, deller@gmx.de
-Cc: sfr@canb.auug.org.au, hch@lst.de, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-parisc@vger.kernel.org
+To: Christoph Hewllig <hch@infradead.org>, linux-kernel@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>, linux-arch@vger.kernel.org
+Cc: Jonathan Corbet <corbet@lwn.net>, Yoshinori Sato <ysato@users.sourceforge.jp>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Ley Foon Tan <ley.foon.tan@intel.com>, "David S. Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Steven Rostedt <rostedt@goodmis.org>, Stafford Horne <shorne@gmail.com>, Peter Zijlstra <peterz@infradead.org>, Kars de Jong <jongk@linux-m68k.org>, Kees Cook <keescook@chromium.org>, Greentime Hu <green.hu@gmail.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Mauro Carvalho Chehab <mchehab+huawei@kernel.org>, Alexandre Chartre <alexandre.chartre@oracle.com>, Masami Hiramatsu <mhiramat@kernel.org>, Tom Zanussi <zanussi@kernel.org>, Xiao Yang <yangx.jy@cn.fujitsu.com>, linux-doc@vger.kernel.org, uclinux-h8-devel@lists.sourceforge.jp, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, kgdb-bugreport@lists.sourceforge.net, linux-kselftest@vger.kernel.org, Christian Brauner <christian.brauner@ubuntu.com>
 
-The boundary_size might be as large as ULONG_MAX, which means
-that a device has no specific boundary limit. So "+ 1" would
-potentially overflow.
+Now that all callers of _do_fork() have been switched to kernel_clone() remove
+the _do_fork() helper.
 
-Also, by following other places in the kernel, boundary_size
-should align with the PAGE_SIZE before right shifting by the
-PAGE_SHIFT. However, passing it to ALIGN() would potentially
-overflow too.
-
-According to kernel defines:
-    #define ALIGN_MASK(x, mask) (((x) + (mask)) & ~(mask))
-    #define ALIGN(x, a)	ALIGN_MASK(x, (typeof(x))(a) - 1)
-
-We can simplify the logic here:
-  ALIGN(boundary + 1, 1 << shift) >> shift
-= ALIGN_MASK(b + 1, (1 << s) - 1) >> s
-= {[b + 1 + (1 << s) - 1] & ~[(1 << s) - 1]} >> s
-= [b + 1 + (1 << s) - 1] >> s
-= [b + (1 << s)] >> s
-= (b >> s) + 1
-
-So fixing a potential overflow with the safer shortcut.
-
-Signed-off-by: Nicolin Chen <nicoleotsuka@gmail.com>
-Cc: Christoph Hellwig <hch@lst.de>
+Signed-off-by: Christian Brauner <christian.brauner@ubuntu.com>
 ---
- arch/alpha/kernel/pci_iommu.c | 10 ++++------
- 1 file changed, 4 insertions(+), 6 deletions(-)
+ include/linux/sched/task.h | 4 ----
+ 1 file changed, 4 deletions(-)
 
-diff --git a/arch/alpha/kernel/pci_iommu.c b/arch/alpha/kernel/pci_iommu.c
-index 81037907268d..1ef2c647bd3e 100644
---- a/arch/alpha/kernel/pci_iommu.c
-+++ b/arch/alpha/kernel/pci_iommu.c
-@@ -141,12 +141,10 @@ iommu_arena_find_pages(struct device *dev, struct pci_iommu_arena *arena,
- 	unsigned long boundary_size;
+diff --git a/include/linux/sched/task.h b/include/linux/sched/task.h
+index d9ef07359c96..44a798bf21b4 100644
+--- a/include/linux/sched/task.h
++++ b/include/linux/sched/task.h
+@@ -84,10 +84,6 @@ extern void exit_files(struct task_struct *);
+ extern void exit_itimers(struct signal_struct *);
  
- 	base = arena->dma_base >> PAGE_SHIFT;
--	if (dev) {
--		boundary_size = dma_get_seg_boundary(dev) + 1;
--		boundary_size >>= PAGE_SHIFT;
--	} else {
--		boundary_size = 1UL << (32 - PAGE_SHIFT);
--	}
-+
-+	boundary_size = dev ? dma_get_seg_boundary(dev) : U32_MAX;
-+	/* Overflow-free shortcut for: ALIGN(b + 1, 1 << s) >> s */
-+	boundary_size = (boundary_size >> PAGE_SHIFT) + 1;
- 
- 	/* Search forward for the first mask-aligned sequence of N free ptes */
- 	ptes = arena->ptes;
+ extern int kernel_clone(struct kernel_clone_args *kargs);
+-static inline long _do_fork(struct kernel_clone_args *kargs)
+-{
+-	return kernel_clone(kargs);
+-}
+ struct task_struct *fork_idle(int);
+ struct mm_struct *copy_init_mm(void);
+ extern pid_t kernel_thread(int (*fn)(void *), void *arg, unsigned long flags);
 -- 
-2.17.1
+2.28.0
