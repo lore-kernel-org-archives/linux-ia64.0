@@ -1,93 +1,112 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Wed, 19 Aug 2020 06:55:37 +0000
-Subject: [PATCH 10/28] MIPS/jazzdma: decouple from dma-direct
-Message-Id: <20200819065555.1802761-11-hch@lst.de>
+From: Jonathan Cameron <Jonathan.Cameron@huawei.com>
+Date: Tue, 18 Aug 2020 14:24:26 +0000
+Subject: [PATCH v3 2/6] ACPI: Do not create new NUMA domains from ACPI static tables that are not SRAT
+Message-Id: <20200818142430.1156547-3-Jonathan.Cameron@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200819065555.1802761-1-hch@lst.de>
-In-Reply-To: <20200819065555.1802761-1-hch@lst.de>
+References: <20200818142430.1156547-1-Jonathan.Cameron@huawei.com>
+In-Reply-To: <20200818142430.1156547-1-Jonathan.Cameron@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Mauro Carvalho Chehab <mchehab@kernel.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Joonyoung Shim <jy0922.shim@samsung.com>, Seung-Woo Kim <sw0312.kim@samsung.com>, Kyungmin Park <kyungmin.park@samsung.com>, Ben Skeggs <bskeggs@redhat.com>, Pawel Osciak <pawel@osciak.com>, Marek Szyprowski <m.szyprowski@samsung.com>, Matt Porter <mporter@kernel.crashing.org>, iommu@lists.linux-foundation.org
-Cc: Tom Lendacky <thomas.lendacky@amd.com>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-media@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-samsung-soc@vger.kernel.org, nouveau@lists.freedesktop.org, netdev@vger.kernel.org, linux-nvme@lists.infradead.org, linux-scsi@vger.kernel.org, linux-mm@kvack.org, alsa-devel@alsa-project.org
+To: linux-mm@kvack.org, linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org, x86@kernel.org
+Cc: Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>, Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org, martin@geanix.com, Ingo Molnar <mingo@redhat.com>, linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, linuxarm@huawei.com, Dan Williams <dan.j.williams@intel.com>, Song Bao Hua <song.bao.hua@hisilicon.com>, Jonathan Cameron <Jonathan.Cameron@huawei.com>
 
-The jazzdma ops implement support for a very basic IOMMU.  Thus we really
-should not use the dma-direct code that takes physical address limits
-into account.  This survived through the great MIPS DMA ops cleanup mostly
-because I was lazy, but now it is time to fully split the implementations.
+Several ACPI static tables contain references to proximity domains.
+ACPI 6.3 has clarified that only entries in SRAT may define a new domain
+(sec 5.2.16).
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+Those tables described in the ACPI spec have additional clarifying text.
+
+NFIT: Table 5-132,
+
+"Integer that represents the proximity domain to which the memory belongs.
+ This number must match with corresponding entry in the SRAT table."
+
+HMAT: Table 5-145,
+
+"... This number must match with the corresponding entry in the SRAT
+ table's processor affinity structure ... if the initiator is a processor,
+ or the Generic Initiator Affinity Structure if the initiator is a generic
+ initiator".
+
+IORT and DMAR are defined by external specifications.
+
+Intel Virtualization Technology for Directed I/O Rev 3.1 does not make any
+explicit statements, but the general SRAT statement above will still apply.
+https://software.intel.com/sites/default/files/managed/c5/15/vt-directed-io-spec.pdf
+
+IO Remapping Table, Platform Design Document rev D, also makes not explicit
+statement, but refers to ACPI SRAT table for more information and again the
+generic SRAT statement above applies.
+https://developer.arm.com/documentation/den0049/d/
+
+In conclusion, any proximity domain specified in these tables, should be a
+reference to a proximity domain also found in SRAT, and they should not be able
+to instantiate a new domain.  Hence we switch to pxm_to_node() which will only
+return existing nodes.
+
+Signed-off-by: Jonathan Cameron <Jonathan.Cameron@huawei.com>
+Reviewed-by: Barry Song <song.bao.hua@hisilicon.com>
+Reviewed-by: Hanjun Guo <guohanjun@huawei.com>
 ---
- arch/mips/jazz/jazzdma.c | 32 +++++++++++++++++++++-----------
- 1 file changed, 21 insertions(+), 11 deletions(-)
+ drivers/acpi/arm64/iort.c  | 2 +-
+ drivers/acpi/nfit/core.c   | 3 +--
+ drivers/acpi/numa/hmat.c   | 2 +-
+ drivers/iommu/intel/dmar.c | 2 +-
+ 4 files changed, 4 insertions(+), 5 deletions(-)
 
-diff --git a/arch/mips/jazz/jazzdma.c b/arch/mips/jazz/jazzdma.c
-index fe40dbed04c1d6..d0b5a2ba2b1a8a 100644
---- a/arch/mips/jazz/jazzdma.c
-+++ b/arch/mips/jazz/jazzdma.c
-@@ -16,7 +16,6 @@
- #include <linux/memblock.h>
- #include <linux/spinlock.h>
- #include <linux/gfp.h>
--#include <linux/dma-direct.h>
- #include <linux/dma-noncoherent.h>
- #include <asm/mipsregs.h>
- #include <asm/jazz.h>
-@@ -492,26 +491,38 @@ int vdma_get_enable(int channel)
- static void *jazz_dma_alloc(struct device *dev, size_t size,
- 		dma_addr_t *dma_handle, gfp_t gfp, unsigned long attrs)
- {
-+	struct page *page;
- 	void *ret;
+diff --git a/drivers/acpi/arm64/iort.c b/drivers/acpi/arm64/iort.c
+index ec782e4a0fe4..26005a15cb8b 100644
+--- a/drivers/acpi/arm64/iort.c
++++ b/drivers/acpi/arm64/iort.c
+@@ -1335,7 +1335,7 @@ static int  __init arm_smmu_v3_set_proximity(struct device *dev,
  
--	ret = dma_direct_alloc_pages(dev, size, dma_handle, gfp, attrs);
--	if (!ret)
--		return NULL;
-+	if (attrs & DMA_ATTR_NO_WARN)
-+		gfp |= __GFP_NOWARN;
+ 	smmu = (struct acpi_iort_smmu_v3 *)node->node_data;
+ 	if (smmu->flags & ACPI_IORT_SMMU_V3_PXM_VALID) {
+-		int dev_node = acpi_map_pxm_to_node(smmu->pxm);
++		int dev_node = pxm_to_node(smmu->pxm);
  
--	*dma_handle = vdma_alloc(virt_to_phys(ret), size);
--	if (*dma_handle = DMA_MAPPING_ERROR) {
--		dma_direct_free_pages(dev, size, ret, *dma_handle, attrs);
-+	size = PAGE_ALIGN(size);
-+	page = alloc_pages(gfp, get_order(size));
-+	if (!page)
- 		return NULL;
--	}
-+	ret = page_address(page);
-+	*dma_handle = vdma_alloc(virt_to_phys(ret), size);
-+	if (*dma_handle = DMA_MAPPING_ERROR)
-+		goto out_free_pages;
-+
-+	if (attrs & DMA_ATTR_NON_CONSISTENT)
-+		return ret;
-+	arch_dma_prep_coherent(page, size);
-+	return (void *)(UNCAC_BASE + __pa(ret));
+ 		if (dev_node != NUMA_NO_NODE && !node_online(dev_node))
+ 			return -EINVAL;
+diff --git a/drivers/acpi/nfit/core.c b/drivers/acpi/nfit/core.c
+index 26dd208a0d63..ea0557cb54f7 100644
+--- a/drivers/acpi/nfit/core.c
++++ b/drivers/acpi/nfit/core.c
+@@ -3008,8 +3008,7 @@ static int acpi_nfit_register_region(struct acpi_nfit_desc *acpi_desc,
+ 	if (spa->flags & ACPI_NFIT_PROXIMITY_VALID) {
+ 		ndr_desc->numa_node = acpi_map_pxm_to_online_node(
+ 						spa->proximity_domain);
+-		ndr_desc->target_node = acpi_map_pxm_to_node(
+-				spa->proximity_domain);
++		ndr_desc->target_node = pxm_to_node(spa->proximity_domain);
+ 	} else {
+ 		ndr_desc->numa_node = NUMA_NO_NODE;
+ 		ndr_desc->target_node = NUMA_NO_NODE;
+diff --git a/drivers/acpi/numa/hmat.c b/drivers/acpi/numa/hmat.c
+index 2c32cfb72370..cf6df2df26cd 100644
+--- a/drivers/acpi/numa/hmat.c
++++ b/drivers/acpi/numa/hmat.c
+@@ -666,7 +666,7 @@ static void hmat_register_target_device(struct memory_target *target,
  
--	return ret;
-+out_free_pages:
-+	__free_pages(page, get_order(size));
-+	return NULL;
- }
+ 	pdev->dev.numa_node = acpi_map_pxm_to_online_node(target->memory_pxm);
+ 	info = (struct memregion_info) {
+-		.target_node = acpi_map_pxm_to_node(target->memory_pxm),
++		.target_node = pxm_to_node(target->memory_pxm),
+ 	};
+ 	rc = platform_device_add_data(pdev, &info, sizeof(info));
+ 	if (rc < 0) {
+diff --git a/drivers/iommu/intel/dmar.c b/drivers/iommu/intel/dmar.c
+index 93e6345f3414..2f3badd41e1b 100644
+--- a/drivers/iommu/intel/dmar.c
++++ b/drivers/iommu/intel/dmar.c
+@@ -473,7 +473,7 @@ static int dmar_parse_one_rhsa(struct acpi_dmar_header *header, void *arg)
+ 	rhsa = (struct acpi_dmar_rhsa *)header;
+ 	for_each_drhd_unit(drhd) {
+ 		if (drhd->reg_base_addr = rhsa->base_address) {
+-			int node = acpi_map_pxm_to_node(rhsa->proximity_domain);
++			int node = pxm_to_node(rhsa->proximity_domain);
  
- static void jazz_dma_free(struct device *dev, size_t size, void *vaddr,
- 		dma_addr_t dma_handle, unsigned long attrs)
- {
- 	vdma_free(dma_handle);
--	dma_direct_free_pages(dev, size, vaddr, dma_handle, attrs);
-+	if (!(attrs & DMA_ATTR_NON_CONSISTENT))
-+		vaddr = __va(vaddr - UNCAC_BASE);
-+	__free_pages(virt_to_page(vaddr), get_order(size));
- }
- 
- static dma_addr_t jazz_dma_map_page(struct device *dev, struct page *page,
-@@ -608,7 +619,6 @@ const struct dma_map_ops jazz_dma_ops = {
- 	.sync_single_for_device	= jazz_dma_sync_single_for_device,
- 	.sync_sg_for_cpu	= jazz_dma_sync_sg_for_cpu,
- 	.sync_sg_for_device	= jazz_dma_sync_sg_for_device,
--	.dma_supported		= dma_direct_supported,
- 	.cache_sync		= arch_dma_cache_sync,
- 	.mmap			= dma_common_mmap,
- 	.get_sgtable		= dma_common_get_sgtable,
+ 			if (!node_online(node))
+ 				node = NUMA_NO_NODE;
 -- 
-2.28.0
+2.19.1
