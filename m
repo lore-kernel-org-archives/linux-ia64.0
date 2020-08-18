@@ -1,57 +1,98 @@
-From: info@furshetcrimea.ru
-Date: Fri, 07 Aug 2020 16:09:12 +0000
-Subject: Bei Interesse antworten.
-Message-Id: <auto-000011168859@furshetcrimea.ru>
+From: Jonathan Cameron <Jonathan.Cameron@huawei.com>
+Date: Tue, 18 Aug 2020 14:24:24 +0000
+Subject: [PATCH v3 0/6]  ACPI: Only create NUMA nodes from entries in SRAT or SRAT emulation.
+Message-Id: <20200818142430.1156547-1-Jonathan.Cameron@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <auto-000011097432@furshetcrimea.ru>
-In-Reply-To: <auto-000011097432@furshetcrimea.ru>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-mm@kvack.org, linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org, x86@kernel.org
+Cc: Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>, Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org, martin@geanix.com, Ingo Molnar <mingo@redhat.com>, linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, linuxarm@huawei.com, Dan Williams <dan.j.williams@intel.com>, Song Bao Hua <song.bao.hua@hisilicon.com>, Jonathan Cameron <Jonathan.Cameron@huawei.com>
 
-Sch=F6ne Gr=FC=DFe,
+This is a trivial rebase and resend of V2 now the merge window has closed.
 
-Mein Name ist MATTIAS SJOBORG, ich bin Schweizer Staatsb=FCrger und (Vorsit=
-zender des Verg=FCtungs- und Nominierungsausschusses) von Tethys Petroleum,=
- einem multinationalen =D6lkonzern mit Sitz in London-England, Gro=DFbritan=
-nien. Ich bitte Sie um Ihre Hilfe, um die Summe von vierzig Millionen Dolla=
-r abzurufen, die aus zwei Sendungsboxen besteht.
+Here, I will use the term Proximity Domains for the ACPI description and
+NUMA Nodes for the in kernel representation.
 
-Dieses Geld wurde von der Firma erworben und von einem Diplomaten begleitet=
- und korrekt in einer Sicherheitsfirma in Amerika hinterlegt. Mein Grund da=
-f=FCr ist, dass ich von der Firma zu lange um meine Anspr=FCche betrogen wu=
-rde, nur weil ich kein bin Britisch. Die Kontaktdaten des Diplomaten erhalt=
-en Sie, wenn Sie Ihr Interesse bekunden, mir zu helfen.
+ACPI 6.3 included a clarification that only Static Resource Allocation
+Structures in SRAT may define the existence of proximity domains
+(sec 5.2.16). This clarification closed a possible interpretation that
+other parts of ACPI (e.g. DSDT _PXM, NFIT etc) could define new proximity
+domains that were not also mentioned in SRAT structures.
 
-Jede der Schachteln enth=E4lt 20 Mio. USD. F=FCr Ihre Hilfe bin ich bereit,=
- 40% an Sie freizugeben. Aus Sicherheitsgr=FCnden wurde die Sendung als VER=
-TRAULICHE DIPLOMATISCHE DOKUMENTE registriert, und ich kann erkl=E4ren, war=
-um dies so erkl=E4rt wurde. Denken Sie daran, dass der Diplomat den Inhalt =
-der Sendung nicht kennt. Er ist seit einem Monat dort, w=E4hrend ich nach e=
-inem zuverl=E4ssigen Partner suchen m=F6chte. Ich werde das Land verlassen,=
- sobald die Sendung f=FCr Sie an Sie geliefert wird Private Investitionen u=
-nd ich haben geschworen, niemals nach London zur=FCckzukehren. Bitte, ich b=
-rauche Ihre dringende Antwort, bevor meine Pl=E4ne, das Unternehmen zu verl=
-assen, entdeckt werden.
+In practice the kernel has never allowed this alternative interpretation as
+such nodes are only partially initialized. This is architecture specific
+but to take an example, on x86 alloc_node_data has not been called.
+Any use of them for node specific allocation, will result in a crash as the
+infrastructure to fallback to a node with memory is not setup.
 
-www.tethyspetroleum.com/tethys/static/EN_US/au_seniormanagement.html
+We ran into a problem when enabling _PXM handling for PCI devices and found
+there were boards out there advertising devices in proximity domains that
+didn't exist [2].
 
-Im Moment ist die sicherste Form der Korrespondenz meine eigene E-Mail-Adre=
-sse. Bitte antworten Sie im Interesse der Vertraulichkeit nur =FCber meine =
-direkte E-Mail-Adresse. Antworten Sie zusammen mit Ihrer direkten Telefon- =
-und Faxnummer, unter der ich Sie alternativ erreichen kann.
+The fix suggested in this series is to replace instances that should not
+'create' new nodes with pxm_to_node.  This function needs a some additional
+hardening against invalid inputs to make sure it is safe for use in these
+new callers.
 
-Bitte, wenn Sie nicht bereit und interessiert sind, mir zu helfen, l=F6sche=
-n Sie bitte diese E-Mail aus Ihrer E-Mail und tun Sie so, als h=E4tten Sie =
-sie nie erhalten.
+Patch 1 Hardens pxm_to_node() against numa_off, and pxm entry being too large.
 
-Freundliche Gr=FC=DFe,
-Mr.Mattias Sjoborg
-(Vorsitzender des Verg=FCtungs- und Nominierungsausschusses)
-Tethys Petroleum.
-London, England
+Patch 2-4 change the various callers not related to SRAT entries so that they
+set this parameter to false, so do not attempt to initialize a new NUMA node
+if the relevant one does not already exist.
 
---=20
-This email has been checked for viruses by Avast antivirus software.
-https://www.avast.com/antivirus
+Patch 5 is a function rename to reflect change in functionality of
+acpi_map_pxm_to_online_node() as it no longer creates a new map, but just does a
+lookup of existing maps.
+
+Patch 6 covers the one place we do not allow the full flexibility defined
+in the ACPI spec.  For SRAT GIC Interrupt Translation Service (ITS) Affinity
+Structures, on ARM64, the driver currently makes an additional pass of SRAT
+later in the boot than the one used to identify NUMA domains.
+Note, this currently means that an ITS placed in a proximity domain that is
+not defined by another SRAT structure will result in the a crash.
+
+To avoid this crash with minimal changes we do not create new NUMA nodes based
+on this particular entry type.  Any current platform trying to do this will not
+boot, so this is an improvement, if perhaps not a perfect solution.
+
+[1] Note in ACPI Specification 6.3 5.2.16 System Resource Affinity Table (SRAT)
+[2] https://patchwork.kernel.org/patch/10597777/
+
+Thanks to Bjorn Helgaas for review of v1 and Barry Song for internal reviews that
+lead to a slightly different approach for this v2.
+
+Changes since v2.
+* Trivial rebase to v5.9-rc1
+* Collect up tags.
+
+Changes since v1.
+* Use pxm_to_node for what was previously the path using acpi_map_pxm_to_node
+  with create=false. (Barry)
+* Broke patch up into an initial noop stage followed by patches (Bjorn)
+  to update each type of case in which partial creation of NUMA nodes is prevented.
+* Added patch 5 to rename function to reflect change of functionality.
+* Updated descriptions (now mostly in individual patches) inline with Bjorn's comments.
+
+Jonathan Cameron (6):
+  ACPI: Add out of bounds and numa_off protections to pxm_to_node
+  ACPI: Do not create new NUMA domains from ACPI static tables that are
+    not SRAT
+  ACPI: Remove side effect of partly creating a node in
+    acpi_map_pxm_to_online_node
+  ACPI: Rename acpi_map_pxm_to_online_node to pxm_to_online_node
+  ACPI: Remove side effect of partly creating a node in acpi_get_node
+  irq-chip/gic-v3-its: Fix crash if ITS is in a proximity domain without
+    processor or memory
+
+ drivers/acpi/arm64/iort.c        |  2 +-
+ drivers/acpi/nfit/core.c         |  6 ++----
+ drivers/acpi/numa/hmat.c         |  4 ++--
+ drivers/acpi/numa/srat.c         |  4 ++--
+ drivers/iommu/intel/dmar.c       |  2 +-
+ drivers/irqchip/irq-gic-v3-its.c |  7 ++++++-
+ include/linux/acpi.h             | 15 +++++++--------
+ 7 files changed, 21 insertions(+), 19 deletions(-)
+
+-- 
+2.19.1
