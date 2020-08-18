@@ -1,70 +1,56 @@
-From: Nicolin Chen <nicoleotsuka@gmail.com>
-Date: Mon, 31 Aug 2020 20:38:11 +0000
-Subject: [RESEND][PATCH 7/7] parisc: Avoid overflow at boundary_size
-Message-Id: <20200831203811.8494-8-nicoleotsuka@gmail.com>
+From: Christian Brauner <christian.brauner@ubuntu.com>
+Date: Tue, 18 Aug 2020 17:34:06 +0000
+Subject: [PATCH 06/11] sparc: switch to kernel_clone()
+Message-Id: <20200818173411.404104-7-christian.brauner@ubuntu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200831203811.8494-1-nicoleotsuka@gmail.com>
-In-Reply-To: <20200831203811.8494-1-nicoleotsuka@gmail.com>
+References: <20200818173411.404104-1-christian.brauner@ubuntu.com>
+In-Reply-To: <20200818173411.404104-1-christian.brauner@ubuntu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, rth@twiddle.net, ink@jurassic.park.msu.ru, mattst88@gmail.com, tony.luck@intel.com, fenghua.yu@intel.com, schnelle@linux.ibm.com, gerald.schaefer@linux.ibm.com, hca@linux.ibm.com, gor@linux.ibm.com, borntraeger@de.ibm.com, davem@davemloft.net, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, x86@kernel.org, hpa@zytor.com, James.Bottomley@HansenPartnership.com, deller@gmx.de
-Cc: sfr@canb.auug.org.au, hch@lst.de, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-parisc@vger.kernel.org
+To: Christoph Hewllig <hch@infradead.org>, linux-kernel@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>, linux-arch@vger.kernel.org
+Cc: Jonathan Corbet <corbet@lwn.net>, Yoshinori Sato <ysato@users.sourceforge.jp>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Ley Foon Tan <ley.foon.tan@intel.com>, "David S. Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Steven Rostedt <rostedt@goodmis.org>, Stafford Horne <shorne@gmail.com>, Peter Zijlstra <peterz@infradead.org>, Kars de Jong <jongk@linux-m68k.org>, Kees Cook <keescook@chromium.org>, Greentime Hu <green.hu@gmail.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Mauro Carvalho Chehab <mchehab+huawei@kernel.org>, Alexandre Chartre <alexandre.chartre@oracle.com>, Masami Hiramatsu <mhiramat@kernel.org>, Tom Zanussi <zanussi@kernel.org>, Xiao Yang <yangx.jy@cn.fujitsu.com>, linux-doc@vger.kernel.org, uclinux-h8-devel@lists.sourceforge.jp, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, kgdb-bugreport@lists.sourceforge.net, linux-kselftest@vger.kernel.org, Christian Brauner <christian.brauner@ubuntu.com>
 
-The boundary_size might be as large as ULONG_MAX, which means
-that a device has no specific boundary limit. So either "+ 1"
-or passing it to ALIGN() would potentially overflow.
+The old _do_fork() helper is removed in favor of the new kernel_clone() helper.
+The latter adheres to naming conventions for kernel internal syscall helpers.
 
-According to kernel defines:
-    #define ALIGN_MASK(x, mask) (((x) + (mask)) & ~(mask))
-    #define ALIGN(x, a)	ALIGN_MASK(x, (typeof(x))(a) - 1)
-
-We can simplify the logic here:
-  ALIGN(boundary + 1, 1 << shift) >> shift
-= ALIGN_MASK(b + 1, (1 << s) - 1) >> s
-= {[b + 1 + (1 << s) - 1] & ~[(1 << s) - 1]} >> s
-= [b + 1 + (1 << s) - 1] >> s
-= [b + (1 << s)] >> s
-= (b >> s) + 1
-
-So fixing a potential overflow with the safer shortcut.
-
-Signed-off-by: Nicolin Chen <nicoleotsuka@gmail.com>
-Cc: Christoph Hellwig <hch@lst.de>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: sparclinux@vger.kernel.org
+Signed-off-by: Christian Brauner <christian.brauner@ubuntu.com>
 ---
- drivers/parisc/ccio-dma.c  | 4 ++--
- drivers/parisc/sba_iommu.c | 4 ++--
- 2 files changed, 4 insertions(+), 4 deletions(-)
+ arch/sparc/kernel/process.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/parisc/ccio-dma.c b/drivers/parisc/ccio-dma.c
-index a5507f75b524..c667d6aba764 100644
---- a/drivers/parisc/ccio-dma.c
-+++ b/drivers/parisc/ccio-dma.c
-@@ -356,8 +356,8 @@ ccio_alloc_range(struct ioc *ioc, struct device *dev, size_t size)
- 	** ggg sacrifices another 710 to the computer gods.
- 	*/
+diff --git a/arch/sparc/kernel/process.c b/arch/sparc/kernel/process.c
+index 5234b5ccc0b9..0442ab00518d 100644
+--- a/arch/sparc/kernel/process.c
++++ b/arch/sparc/kernel/process.c
+@@ -25,7 +25,7 @@ asmlinkage long sparc_fork(struct pt_regs *regs)
+ 		.stack		= regs->u_regs[UREG_FP],
+ 	};
  
--	boundary_size = ALIGN((unsigned long long)dma_get_seg_boundary(dev) + 1,
--			      1ULL << IOVP_SHIFT) >> IOVP_SHIFT;
-+	/* Overflow-free shortcut for: ALIGN(b + 1, 1 << s) >> s */
-+	boundary_size = (dma_get_seg_boundary(dev) >> IOVP_SHIFT) + 1;
+-	ret = _do_fork(&args);
++	ret = kernel_clone(&args);
  
- 	if (pages_needed <= 8) {
- 		/*
-diff --git a/drivers/parisc/sba_iommu.c b/drivers/parisc/sba_iommu.c
-index d4314fba0269..96bc2c617cbd 100644
---- a/drivers/parisc/sba_iommu.c
-+++ b/drivers/parisc/sba_iommu.c
-@@ -342,8 +342,8 @@ sba_search_bitmap(struct ioc *ioc, struct device *dev,
- 	unsigned long shift;
- 	int ret;
+ 	/* If we get an error and potentially restart the system
+ 	 * call, we're screwed because copy_thread() clobbered
+@@ -50,7 +50,7 @@ asmlinkage long sparc_vfork(struct pt_regs *regs)
+ 		.stack		= regs->u_regs[UREG_FP],
+ 	};
  
--	boundary_size = ALIGN((unsigned long long)dma_get_seg_boundary(dev) + 1,
--			      1ULL << IOVP_SHIFT) >> IOVP_SHIFT;
-+	/* Overflow-free shortcut for: ALIGN(b + 1, 1 << s) >> s */
-+	boundary_size = (dma_get_seg_boundary(dev) >> IOVP_SHIFT) + 1;
+-	ret = _do_fork(&args);
++	ret = kernel_clone(&args);
  
- #if defined(ZX1_SUPPORT)
- 	BUG_ON(ioc->ibase & ~IOVP_MASK);
+ 	/* If we get an error and potentially restart the system
+ 	 * call, we're screwed because copy_thread() clobbered
+@@ -96,7 +96,7 @@ asmlinkage long sparc_clone(struct pt_regs *regs)
+ 	else
+ 		args.stack = regs->u_regs[UREG_FP];
+ 
+-	ret = _do_fork(&args);
++	ret = kernel_clone(&args);
+ 
+ 	/* If we get an error and potentially restart the system
+ 	 * call, we're screwed because copy_thread() clobbered
 -- 
-2.17.1
+2.28.0
