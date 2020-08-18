@@ -1,415 +1,399 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Wed, 19 Aug 2020 06:55:50 +0000
-Subject: [PATCH 23/28] lib82596: convert from dma_cache_sync to dma_sync_single_for_device
-Message-Id: <20200819065555.1802761-24-hch@lst.de>
+From: Christian Brauner <christian.brauner@ubuntu.com>
+Date: Tue, 18 Aug 2020 17:34:10 +0000
+Subject: [PATCH 10/11] tracing: switch to kernel_clone()
+Message-Id: <20200818173411.404104-11-christian.brauner@ubuntu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200819065555.1802761-1-hch@lst.de>
-In-Reply-To: <20200819065555.1802761-1-hch@lst.de>
+References: <20200818173411.404104-1-christian.brauner@ubuntu.com>
+In-Reply-To: <20200818173411.404104-1-christian.brauner@ubuntu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Mauro Carvalho Chehab <mchehab@kernel.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Joonyoung Shim <jy0922.shim@samsung.com>, Seung-Woo Kim <sw0312.kim@samsung.com>, Kyungmin Park <kyungmin.park@samsung.com>, Ben Skeggs <bskeggs@redhat.com>, Pawel Osciak <pawel@osciak.com>, Marek Szyprowski <m.szyprowski@samsung.com>, Matt Porter <mporter@kernel.crashing.org>, iommu@lists.linux-foundation.org
-Cc: Tom Lendacky <thomas.lendacky@amd.com>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-media@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-samsung-soc@vger.kernel.org, nouveau@lists.freedesktop.org, netdev@vger.kernel.org, linux-nvme@lists.infradead.org, linux-scsi@vger.kernel.org, linux-mm@kvack.org, alsa-devel@alsa-project.org
+To: Christoph Hewllig <hch@infradead.org>, linux-kernel@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>, linux-arch@vger.kernel.org
+Cc: Jonathan Corbet <corbet@lwn.net>, Yoshinori Sato <ysato@users.sourceforge.jp>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Ley Foon Tan <ley.foon.tan@intel.com>, "David S. Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Steven Rostedt <rostedt@goodmis.org>, Stafford Horne <shorne@gmail.com>, Peter Zijlstra <peterz@infradead.org>, Kars de Jong <jongk@linux-m68k.org>, Kees Cook <keescook@chromium.org>, Greentime Hu <green.hu@gmail.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Mauro Carvalho Chehab <mchehab+huawei@kernel.org>, Alexandre Chartre <alexandre.chartre@oracle.com>, Masami Hiramatsu <mhiramat@kernel.org>, Tom Zanussi <zanussi@kernel.org>, Xiao Yang <yangx.jy@cn.fujitsu.com>, linux-doc@vger.kernel.org, uclinux-h8-devel@lists.sourceforge.jp, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, kgdb-bugreport@lists.sourceforge.net, linux-kselftest@vger.kernel.org, Christian Brauner <christian.brauner@ubuntu.com>, Shuah Khan <shuah@kernel.org>
 
-Use the proper modern API to transfer cache ownership for incoherent DMA.
-Note that this moves the DMA helpers to the main lib82596.c file, so
-that they can use virt_to_dma.
+The old _do_fork() helper is removed in favor of the new kernel_clone() helper.
+The latter adheres to naming conventions for kernel internal syscall helpers.
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+Cc: Mauro Carvalho Chehab <mchehab+huawei@kernel.org>
+Cc: Alexandre Chartre <alexandre.chartre@oracle.com>
+Cc: Jonathan Corbet <corbet@lwn.net>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Masami Hiramatsu <mhiramat@kernel.org>
+Cc: Shuah Khan <shuah@kernel.org>
+Cc: Ingo Molnar <mingo@redhat.com>
+Cc: Steven Rostedt <rostedt@goodmis.org>
+Cc: Xiao Yang <yangx.jy@cn.fujitsu.com>
+Cc: Tom Zanussi <zanussi@kernel.org>
+Cc: linux-doc@vger.kernel.org
+Cc: linux-kselftest@vger.kernel.org
+Signed-off-by: Christian Brauner <christian.brauner@ubuntu.com>
 ---
- drivers/net/ethernet/i825xx/lasi_82596.c |  11 +--
- drivers/net/ethernet/i825xx/lib82596.c   | 114 ++++++++++++++---------
- drivers/net/ethernet/i825xx/sni_82596.c  |   4 -
- 3 files changed, 73 insertions(+), 56 deletions(-)
+ Documentation/trace/histogram.rst                  |  4 ++--
+ samples/kprobes/kretprobe_example.c                |  4 ++--
+ .../ftrace/test.d/dynevent/add_remove_kprobe.tc    |  2 +-
+ .../ftrace/test.d/dynevent/clear_select_events.tc  |  2 +-
+ .../ftrace/test.d/dynevent/generic_clear_event.tc  |  2 +-
+ .../ftrace/test.d/ftrace/func-filter-stacktrace.tc |  4 ++--
+ .../ftrace/test.d/kprobe/add_and_remove.tc         |  2 +-
+ .../selftests/ftrace/test.d/kprobe/busy_check.tc   |  2 +-
+ .../selftests/ftrace/test.d/kprobe/kprobe_args.tc  |  4 ++--
+ .../ftrace/test.d/kprobe/kprobe_args_comm.tc       |  2 +-
+ .../ftrace/test.d/kprobe/kprobe_args_string.tc     |  4 ++--
+ .../ftrace/test.d/kprobe/kprobe_args_symbol.tc     | 10 +++++-----
+ .../ftrace/test.d/kprobe/kprobe_args_type.tc       |  2 +-
+ .../ftrace/test.d/kprobe/kprobe_ftrace.tc          | 14 +++++++-------
+ .../ftrace/test.d/kprobe/kprobe_multiprobe.tc      |  2 +-
+ .../ftrace/test.d/kprobe/kprobe_syntax_errors.tc   | 12 ++++++------
+ .../ftrace/test.d/kprobe/kretprobe_args.tc         |  4 ++--
+ .../selftests/ftrace/test.d/kprobe/profile.tc      |  2 +-
+ 18 files changed, 39 insertions(+), 39 deletions(-)
 
-diff --git a/drivers/net/ethernet/i825xx/lasi_82596.c b/drivers/net/ethernet/i825xx/lasi_82596.c
-index 0c493b7237a910..d13b610935bcf3 100644
---- a/drivers/net/ethernet/i825xx/lasi_82596.c
-+++ b/drivers/net/ethernet/i825xx/lasi_82596.c
-@@ -96,21 +96,14 @@
+diff --git a/Documentation/trace/histogram.rst b/Documentation/trace/histogram.rst
+index 8408670d0328..f93333524a44 100644
+--- a/Documentation/trace/histogram.rst
++++ b/Documentation/trace/histogram.rst
+@@ -1495,7 +1495,7 @@ Extended error information
+     #
  
- #define OPT_SWAP_PORT	0x0001	/* Need to wordswp on the MPU port */
+     { stacktrace:
+-             _do_fork+0x18e/0x330
++             kernel_clone+0x18e/0x330
+              kernel_thread+0x29/0x30
+              kthreadd+0x154/0x1b0
+              ret_from_fork+0x3f/0x70
+@@ -1588,7 +1588,7 @@ Extended error information
+              SYSC_sendto+0xef/0x170
+     } hitcount:         88
+     { stacktrace:
+-             _do_fork+0x18e/0x330
++             kernel_clone+0x18e/0x330
+              SyS_clone+0x19/0x20
+              entry_SYSCALL_64_fastpath+0x12/0x6a
+     } hitcount:        244
+diff --git a/samples/kprobes/kretprobe_example.c b/samples/kprobes/kretprobe_example.c
+index 78a2da6fb3cd..0c40f7236989 100644
+--- a/samples/kprobes/kretprobe_example.c
++++ b/samples/kprobes/kretprobe_example.c
+@@ -8,7 +8,7 @@
+  *
+  * usage: insmod kretprobe_example.ko func=<func_name>
+  *
+- * If no func_name is specified, _do_fork is instrumented
++ * If no func_name is specified, kernel_clone is instrumented
+  *
+  * For more information on theory of operation of kretprobes, see
+  * Documentation/staging/kprobes.rst
+@@ -26,7 +26,7 @@
+ #include <linux/limits.h>
+ #include <linux/sched.h>
  
--#define DMA_WBACK(ndev, addr, len) \
--	do { dma_cache_sync((ndev)->dev.parent, (void *)addr, len, DMA_TO_DEVICE); } while (0)
--
--#define DMA_INV(ndev, addr, len) \
--	do { dma_cache_sync((ndev)->dev.parent, (void *)addr, len, DMA_FROM_DEVICE); } while (0)
--
--#define DMA_WBACK_INV(ndev, addr, len) \
--	do { dma_cache_sync((ndev)->dev.parent, (void *)addr, len, DMA_BIDIRECTIONAL); } while (0)
--
- #define SYSBUS      0x0000006c
+-static char func_name[NAME_MAX] = "_do_fork";
++static char func_name[NAME_MAX] = "kernel_clone";
+ module_param_string(func, func_name, NAME_MAX, S_IRUGO);
+ MODULE_PARM_DESC(func, "Function to kretprobe; this module will report the"
+ 			" function's execution time");
+diff --git a/tools/testing/selftests/ftrace/test.d/dynevent/add_remove_kprobe.tc b/tools/testing/selftests/ftrace/test.d/dynevent/add_remove_kprobe.tc
+index 68550f97d3c3..3bcd4c3624ee 100644
+--- a/tools/testing/selftests/ftrace/test.d/dynevent/add_remove_kprobe.tc
++++ b/tools/testing/selftests/ftrace/test.d/dynevent/add_remove_kprobe.tc
+@@ -6,7 +6,7 @@
+ echo 0 > events/enable
+ echo > dynamic_events
  
- /* big endian CPU, 82596 "big" endian mode */
- #define SWAP32(x)   (((u32)(x)<<16) | ((((u32)(x)))>>16))
- #define SWAP16(x)   (x)
+-PLACE=_do_fork
++PLACE=kernel_clone
  
-+#define NONCOHERENT_DMA 1
-+
- #include "lib82596.c"
+ echo "p:myevent1 $PLACE" >> dynamic_events
+ echo "r:myevent2 $PLACE" >> dynamic_events
+diff --git a/tools/testing/selftests/ftrace/test.d/dynevent/clear_select_events.tc b/tools/testing/selftests/ftrace/test.d/dynevent/clear_select_events.tc
+index c969be9eb7de..438961971b7e 100644
+--- a/tools/testing/selftests/ftrace/test.d/dynevent/clear_select_events.tc
++++ b/tools/testing/selftests/ftrace/test.d/dynevent/clear_select_events.tc
+@@ -6,7 +6,7 @@
+ echo 0 > events/enable
+ echo > dynamic_events
  
- MODULE_AUTHOR("Richard Hirst");
-diff --git a/drivers/net/ethernet/i825xx/lib82596.c b/drivers/net/ethernet/i825xx/lib82596.c
-index b4e4b3eb5758b5..ca2fb303fcc6f6 100644
---- a/drivers/net/ethernet/i825xx/lib82596.c
-+++ b/drivers/net/ethernet/i825xx/lib82596.c
-@@ -365,13 +365,44 @@ static int max_cmd_backlog = TX_RING_SIZE-1;
- static void i596_poll_controller(struct net_device *dev);
- #endif
+-PLACE=_do_fork
++PLACE=kernel_clone
  
-+static inline dma_addr_t virt_to_dma(struct i596_private *lp, volatile void *v)
-+{
-+	return lp->dma_addr + ((unsigned long)v - (unsigned long)lp->dma);
-+}
-+
-+#ifdef NONCOHERENT_DMA
-+static inline void dma_sync_dev(struct net_device *ndev, volatile void *addr,
-+		size_t len)
-+{
-+	dma_sync_single_for_device(ndev->dev.parent,
-+			virt_to_dma(netdev_priv(ndev), addr), len,
-+			DMA_BIDIRECTIONAL);
-+}
-+
-+static inline void dma_sync_cpu(struct net_device *ndev, volatile void *addr,
-+		size_t len)
-+{
-+	dma_sync_single_for_cpu(ndev->dev.parent,
-+			virt_to_dma(netdev_priv(ndev), addr), len,
-+			DMA_BIDIRECTIONAL);
-+}
-+#else
-+static inline void dma_sync_dev(struct net_device *ndev, volatile void *addr,
-+		size_t len)
-+{
-+}
-+static inline void dma_sync_cpu(struct net_device *ndev, volatile void *addr,
-+		size_t len)
-+{
-+}
-+#endif /* NONCOHERENT_DMA */
+ setup_events() {
+ echo "p:myevent1 $PLACE" >> dynamic_events
+diff --git a/tools/testing/selftests/ftrace/test.d/dynevent/generic_clear_event.tc b/tools/testing/selftests/ftrace/test.d/dynevent/generic_clear_event.tc
+index 16d543eaac88..a8603bd23e0d 100644
+--- a/tools/testing/selftests/ftrace/test.d/dynevent/generic_clear_event.tc
++++ b/tools/testing/selftests/ftrace/test.d/dynevent/generic_clear_event.tc
+@@ -6,7 +6,7 @@
+ echo 0 > events/enable
+ echo > dynamic_events
  
- static inline int wait_istat(struct net_device *dev, struct i596_dma *dma, int delcnt, char *str)
- {
--	DMA_INV(dev, &(dma->iscp), sizeof(struct i596_iscp));
-+	dma_sync_cpu(dev, &(dma->iscp), sizeof(struct i596_iscp));
- 	while (--delcnt && dma->iscp.stat) {
- 		udelay(10);
--		DMA_INV(dev, &(dma->iscp), sizeof(struct i596_iscp));
-+		dma_sync_cpu(dev, &(dma->iscp), sizeof(struct i596_iscp));
- 	}
- 	if (!delcnt) {
- 		printk(KERN_ERR "%s: %s, iscp.stat %04x, didn't clear\n",
-@@ -384,10 +415,10 @@ static inline int wait_istat(struct net_device *dev, struct i596_dma *dma, int d
+-PLACE=_do_fork
++PLACE=kernel_clone
  
- static inline int wait_cmd(struct net_device *dev, struct i596_dma *dma, int delcnt, char *str)
- {
--	DMA_INV(dev, &(dma->scb), sizeof(struct i596_scb));
-+	dma_sync_cpu(dev, &(dma->scb), sizeof(struct i596_scb));
- 	while (--delcnt && dma->scb.command) {
- 		udelay(10);
--		DMA_INV(dev, &(dma->scb), sizeof(struct i596_scb));
-+		dma_sync_cpu(dev, &(dma->scb), sizeof(struct i596_scb));
- 	}
- 	if (!delcnt) {
- 		printk(KERN_ERR "%s: %s, status %4.4x, cmd %4.4x.\n",
-@@ -451,12 +482,9 @@ static void i596_display_data(struct net_device *dev)
- 		       SWAP32(rbd->b_data), SWAP16(rbd->size));
- 		rbd = rbd->v_next;
- 	} while (rbd != lp->rbd_head);
--	DMA_INV(dev, dma, sizeof(struct i596_dma));
-+	dma_sync_cpu(dev, dma, sizeof(struct i596_dma));
+ setup_events() {
+ echo "p:myevent1 $PLACE" >> dynamic_events
+diff --git a/tools/testing/selftests/ftrace/test.d/ftrace/func-filter-stacktrace.tc b/tools/testing/selftests/ftrace/test.d/ftrace/func-filter-stacktrace.tc
+index 0f41e441c203..98305d76bd04 100644
+--- a/tools/testing/selftests/ftrace/test.d/ftrace/func-filter-stacktrace.tc
++++ b/tools/testing/selftests/ftrace/test.d/ftrace/func-filter-stacktrace.tc
+@@ -4,9 +4,9 @@
+ # requires: set_ftrace_filter
+ # flags: instance
+ 
+-echo _do_fork:stacktrace >> set_ftrace_filter
++echo kernel_clone:stacktrace >> set_ftrace_filter
+ 
+-grep -q "_do_fork:stacktrace:unlimited" set_ftrace_filter
++grep -q "kernel_clone:stacktrace:unlimited" set_ftrace_filter
+ 
+ (echo "forked"; sleep 1)
+ 
+diff --git a/tools/testing/selftests/ftrace/test.d/kprobe/add_and_remove.tc b/tools/testing/selftests/ftrace/test.d/kprobe/add_and_remove.tc
+index eba858c21815..9737cd0578a7 100644
+--- a/tools/testing/selftests/ftrace/test.d/kprobe/add_and_remove.tc
++++ b/tools/testing/selftests/ftrace/test.d/kprobe/add_and_remove.tc
+@@ -3,7 +3,7 @@
+ # description: Kprobe dynamic event - adding and removing
+ # requires: kprobe_events
+ 
+-echo p:myevent _do_fork > kprobe_events
++echo p:myevent kernel_clone > kprobe_events
+ grep myevent kprobe_events
+ test -d events/kprobes/myevent
+ echo > kprobe_events
+diff --git a/tools/testing/selftests/ftrace/test.d/kprobe/busy_check.tc b/tools/testing/selftests/ftrace/test.d/kprobe/busy_check.tc
+index d10bf4f05bc8..f9a40af76888 100644
+--- a/tools/testing/selftests/ftrace/test.d/kprobe/busy_check.tc
++++ b/tools/testing/selftests/ftrace/test.d/kprobe/busy_check.tc
+@@ -3,7 +3,7 @@
+ # description: Kprobe dynamic event - busy event check
+ # requires: kprobe_events
+ 
+-echo p:myevent _do_fork > kprobe_events
++echo p:myevent kernel_clone > kprobe_events
+ test -d events/kprobes/myevent
+ echo 1 > events/kprobes/myevent/enable
+ echo > kprobe_events && exit_fail # this must fail
+diff --git a/tools/testing/selftests/ftrace/test.d/kprobe/kprobe_args.tc b/tools/testing/selftests/ftrace/test.d/kprobe/kprobe_args.tc
+index 61f2ac441aec..eb543d3cfe5f 100644
+--- a/tools/testing/selftests/ftrace/test.d/kprobe/kprobe_args.tc
++++ b/tools/testing/selftests/ftrace/test.d/kprobe/kprobe_args.tc
+@@ -3,13 +3,13 @@
+ # description: Kprobe dynamic event with arguments
+ # requires: kprobe_events
+ 
+-echo 'p:testprobe _do_fork $stack $stack0 +0($stack)' > kprobe_events
++echo 'p:testprobe kernel_clone $stack $stack0 +0($stack)' > kprobe_events
+ grep testprobe kprobe_events | grep -q 'arg1=\$stack arg2=\$stack0 arg3=+0(\$stack)'
+ test -d events/kprobes/testprobe
+ 
+ echo 1 > events/kprobes/testprobe/enable
+ ( echo "forked")
+-grep testprobe trace | grep '_do_fork' | \
++grep testprobe trace | grep 'kernel_clone' | \
+   grep -q 'arg1=0x[[:xdigit:]]* arg2=0x[[:xdigit:]]* arg3=0x[[:xdigit:]]*$'
+ 
+ echo 0 > events/kprobes/testprobe/enable
+diff --git a/tools/testing/selftests/ftrace/test.d/kprobe/kprobe_args_comm.tc b/tools/testing/selftests/ftrace/test.d/kprobe/kprobe_args_comm.tc
+index 05aaeed6987f..4e5b63be51c9 100644
+--- a/tools/testing/selftests/ftrace/test.d/kprobe/kprobe_args_comm.tc
++++ b/tools/testing/selftests/ftrace/test.d/kprobe/kprobe_args_comm.tc
+@@ -5,7 +5,7 @@
+ 
+ grep -A1 "fetcharg:" README | grep -q "\$comm" || exit_unsupported # this is too old
+ 
+-echo 'p:testprobe _do_fork comm=$comm ' > kprobe_events
++echo 'p:testprobe kernel_clone comm=$comm ' > kprobe_events
+ grep testprobe kprobe_events | grep -q 'comm=$comm'
+ test -d events/kprobes/testprobe
+ 
+diff --git a/tools/testing/selftests/ftrace/test.d/kprobe/kprobe_args_string.tc b/tools/testing/selftests/ftrace/test.d/kprobe/kprobe_args_string.tc
+index b5fa05443b39..a1d70588ab21 100644
+--- a/tools/testing/selftests/ftrace/test.d/kprobe/kprobe_args_string.tc
++++ b/tools/testing/selftests/ftrace/test.d/kprobe/kprobe_args_string.tc
+@@ -30,13 +30,13 @@ esac
+ : "Test get argument (1)"
+ echo "p:testprobe tracefs_create_dir arg1=+0(${ARG1}):string" > kprobe_events
+ echo 1 > events/kprobes/testprobe/enable
+-echo "p:test _do_fork" >> kprobe_events
++echo "p:test kernel_clone" >> kprobe_events
+ grep -qe "testprobe.* arg1=\"test\"" trace
+ 
+ echo 0 > events/kprobes/testprobe/enable
+ : "Test get argument (2)"
+ echo "p:testprobe tracefs_create_dir arg1=+0(${ARG1}):string arg2=+0(${ARG1}):string" > kprobe_events
+ echo 1 > events/kprobes/testprobe/enable
+-echo "p:test _do_fork" >> kprobe_events
++echo "p:test kernel_clone" >> kprobe_events
+ grep -qe "testprobe.* arg1=\"test\" arg2=\"test\"" trace
+ 
+diff --git a/tools/testing/selftests/ftrace/test.d/kprobe/kprobe_args_symbol.tc b/tools/testing/selftests/ftrace/test.d/kprobe/kprobe_args_symbol.tc
+index b8c75a3d003c..bd25dd0ba0d0 100644
+--- a/tools/testing/selftests/ftrace/test.d/kprobe/kprobe_args_symbol.tc
++++ b/tools/testing/selftests/ftrace/test.d/kprobe/kprobe_args_symbol.tc
+@@ -14,12 +14,12 @@ elif ! grep "$SYMBOL\$" /proc/kallsyms; then
+ fi
+ 
+ : "Test get basic types symbol argument"
+-echo "p:testprobe_u _do_fork arg1=@linux_proc_banner:u64 arg2=@linux_proc_banner:u32 arg3=@linux_proc_banner:u16 arg4=@linux_proc_banner:u8" > kprobe_events
+-echo "p:testprobe_s _do_fork arg1=@linux_proc_banner:s64 arg2=@linux_proc_banner:s32 arg3=@linux_proc_banner:s16 arg4=@linux_proc_banner:s8" >> kprobe_events
++echo "p:testprobe_u kernel_clone arg1=@linux_proc_banner:u64 arg2=@linux_proc_banner:u32 arg3=@linux_proc_banner:u16 arg4=@linux_proc_banner:u8" > kprobe_events
++echo "p:testprobe_s kernel_clone arg1=@linux_proc_banner:s64 arg2=@linux_proc_banner:s32 arg3=@linux_proc_banner:s16 arg4=@linux_proc_banner:s8" >> kprobe_events
+ if grep -q "x8/16/32/64" README; then
+-  echo "p:testprobe_x _do_fork arg1=@linux_proc_banner:x64 arg2=@linux_proc_banner:x32 arg3=@linux_proc_banner:x16 arg4=@linux_proc_banner:x8" >> kprobe_events
++  echo "p:testprobe_x kernel_clone arg1=@linux_proc_banner:x64 arg2=@linux_proc_banner:x32 arg3=@linux_proc_banner:x16 arg4=@linux_proc_banner:x8" >> kprobe_events
+ fi
+-echo "p:testprobe_bf _do_fork arg1=@linux_proc_banner:b8@4/32" >> kprobe_events
++echo "p:testprobe_bf kernel_clone arg1=@linux_proc_banner:b8@4/32" >> kprobe_events
+ echo 1 > events/kprobes/enable
+ (echo "forked")
+ echo 0 > events/kprobes/enable
+@@ -27,7 +27,7 @@ grep "testprobe_[usx]:.* arg1=.* arg2=.* arg3=.* arg4=.*" trace
+ grep "testprobe_bf:.* arg1=.*" trace
+ 
+ : "Test get string symbol argument"
+-echo "p:testprobe_str _do_fork arg1=@linux_proc_banner:string" > kprobe_events
++echo "p:testprobe_str kernel_clone arg1=@linux_proc_banner:string" > kprobe_events
+ echo 1 > events/kprobes/enable
+ (echo "forked")
+ echo 0 > events/kprobes/enable
+diff --git a/tools/testing/selftests/ftrace/test.d/kprobe/kprobe_args_type.tc b/tools/testing/selftests/ftrace/test.d/kprobe/kprobe_args_type.tc
+index 0610e0b5587c..91fcce1c241c 100644
+--- a/tools/testing/selftests/ftrace/test.d/kprobe/kprobe_args_type.tc
++++ b/tools/testing/selftests/ftrace/test.d/kprobe/kprobe_args_type.tc
+@@ -4,7 +4,7 @@
+ # requires: kprobe_events "x8/16/32/64":README
+ 
+ gen_event() { # Bitsize
+-  echo "p:testprobe _do_fork \$stack0:s$1 \$stack0:u$1 \$stack0:x$1 \$stack0:b4@4/$1"
++  echo "p:testprobe kernel_clone \$stack0:s$1 \$stack0:u$1 \$stack0:x$1 \$stack0:b4@4/$1"
  }
  
--
--#define virt_to_dma(lp, v) ((lp)->dma_addr + (dma_addr_t)((unsigned long)(v)-(unsigned long)((lp)->dma)))
--
- static inline int init_rx_bufs(struct net_device *dev)
- {
- 	struct i596_private *lp = netdev_priv(dev);
-@@ -508,7 +536,7 @@ static inline int init_rx_bufs(struct net_device *dev)
- 	rfd->b_next = SWAP32(virt_to_dma(lp, dma->rfds));
- 	rfd->cmd = SWAP16(CMD_EOL|CMD_FLEX);
+ check_types() { # s-type u-type x-type bf-type width
+diff --git a/tools/testing/selftests/ftrace/test.d/kprobe/kprobe_ftrace.tc b/tools/testing/selftests/ftrace/test.d/kprobe/kprobe_ftrace.tc
+index 81d8b58c03bc..0d179094191f 100644
+--- a/tools/testing/selftests/ftrace/test.d/kprobe/kprobe_ftrace.tc
++++ b/tools/testing/selftests/ftrace/test.d/kprobe/kprobe_ftrace.tc
+@@ -5,29 +5,29 @@
  
--	DMA_WBACK_INV(dev, dma, sizeof(struct i596_dma));
-+	dma_sync_dev(dev, dma, sizeof(struct i596_dma));
- 	return 0;
- }
+ # prepare
+ echo nop > current_tracer
+-echo _do_fork > set_ftrace_filter
+-echo 'p:testprobe _do_fork' > kprobe_events
++echo kernel_clone > set_ftrace_filter
++echo 'p:testprobe kernel_clone' > kprobe_events
  
-@@ -547,7 +575,7 @@ static void rebuild_rx_bufs(struct net_device *dev)
- 	lp->rbd_head = dma->rbds;
- 	dma->rfds[0].rbd = SWAP32(virt_to_dma(lp, dma->rbds));
+ # kprobe on / ftrace off
+ echo 1 > events/kprobes/testprobe/enable
+ echo > trace
+ ( echo "forked")
+ grep testprobe trace
+-! grep '_do_fork <-' trace
++! grep 'kernel_clone <-' trace
  
--	DMA_WBACK_INV(dev, dma, sizeof(struct i596_dma));
-+	dma_sync_dev(dev, dma, sizeof(struct i596_dma));
- }
+ # kprobe on / ftrace on
+ echo function > current_tracer
+ echo > trace
+ ( echo "forked")
+ grep testprobe trace
+-grep '_do_fork <-' trace
++grep 'kernel_clone <-' trace
  
+ # kprobe off / ftrace on
+ echo 0 > events/kprobes/testprobe/enable
+ echo > trace
+ ( echo "forked")
+ ! grep testprobe trace
+-grep '_do_fork <-' trace
++grep 'kernel_clone <-' trace
  
-@@ -575,9 +603,9 @@ static int init_i596_mem(struct net_device *dev)
+ # kprobe on / ftrace on
+ echo 1 > events/kprobes/testprobe/enable
+@@ -35,11 +35,11 @@ echo function > current_tracer
+ echo > trace
+ ( echo "forked")
+ grep testprobe trace
+-grep '_do_fork <-' trace
++grep 'kernel_clone <-' trace
  
- 	DEB(DEB_INIT, printk(KERN_DEBUG "%s: starting i82596.\n", dev->name));
+ # kprobe on / ftrace off
+ echo nop > current_tracer
+ echo > trace
+ ( echo "forked")
+ grep testprobe trace
+-! grep '_do_fork <-' trace
++! grep 'kernel_clone <-' trace
+diff --git a/tools/testing/selftests/ftrace/test.d/kprobe/kprobe_multiprobe.tc b/tools/testing/selftests/ftrace/test.d/kprobe/kprobe_multiprobe.tc
+index 366b7e1b6718..45d90b6c763d 100644
+--- a/tools/testing/selftests/ftrace/test.d/kprobe/kprobe_multiprobe.tc
++++ b/tools/testing/selftests/ftrace/test.d/kprobe/kprobe_multiprobe.tc
+@@ -4,7 +4,7 @@
+ # requires: kprobe_events "Create/append/":README
  
--	DMA_WBACK(dev, &(dma->scp), sizeof(struct i596_scp));
--	DMA_WBACK(dev, &(dma->iscp), sizeof(struct i596_iscp));
--	DMA_WBACK(dev, &(dma->scb), sizeof(struct i596_scb));
-+	dma_sync_dev(dev, &(dma->scp), sizeof(struct i596_scp));
-+	dma_sync_dev(dev, &(dma->iscp), sizeof(struct i596_iscp));
-+	dma_sync_dev(dev, &(dma->scb), sizeof(struct i596_scb));
+ # Choose 2 symbols for target
+-SYM1=_do_fork
++SYM1=kernel_clone
+ SYM2=do_exit
+ EVENT_NAME=kprobes/testevent
  
- 	mpu_port(dev, PORT_ALTSCP, virt_to_dma(lp, &dma->scp));
- 	ca(dev);
-@@ -596,24 +624,24 @@ static int init_i596_mem(struct net_device *dev)
- 	rebuild_rx_bufs(dev);
+diff --git a/tools/testing/selftests/ftrace/test.d/kprobe/kprobe_syntax_errors.tc b/tools/testing/selftests/ftrace/test.d/kprobe/kprobe_syntax_errors.tc
+index b4d834675e59..c02ea50d63ea 100644
+--- a/tools/testing/selftests/ftrace/test.d/kprobe/kprobe_syntax_errors.tc
++++ b/tools/testing/selftests/ftrace/test.d/kprobe/kprobe_syntax_errors.tc
+@@ -86,15 +86,15 @@ esac
  
- 	dma->scb.command = 0;
--	DMA_WBACK(dev, &(dma->scb), sizeof(struct i596_scb));
-+	dma_sync_dev(dev, &(dma->scb), sizeof(struct i596_scb));
+ # multiprobe errors
+ if grep -q "Create/append/" README && grep -q "imm-value" README; then
+-echo 'p:kprobes/testevent _do_fork' > kprobe_events
++echo 'p:kprobes/testevent kernel_clone' > kprobe_events
+ check_error '^r:kprobes/testevent do_exit'	# DIFF_PROBE_TYPE
  
- 	DEB(DEB_INIT, printk(KERN_DEBUG
- 			     "%s: queuing CmdConfigure\n", dev->name));
- 	memcpy(dma->cf_cmd.i596_config, init_setup, 14);
- 	dma->cf_cmd.cmd.command = SWAP16(CmdConfigure);
--	DMA_WBACK(dev, &(dma->cf_cmd), sizeof(struct cf_cmd));
-+	dma_sync_dev(dev, &(dma->cf_cmd), sizeof(struct cf_cmd));
- 	i596_add_cmd(dev, &dma->cf_cmd.cmd);
+ # Explicitly use printf "%s" to not interpret \1
+-printf "%s" 'p:kprobes/testevent _do_fork abcd=\1' > kprobe_events
+-check_error 'p:kprobes/testevent _do_fork ^bcd=\1'	# DIFF_ARG_TYPE
+-check_error 'p:kprobes/testevent _do_fork ^abcd=\1:u8'	# DIFF_ARG_TYPE
+-check_error 'p:kprobes/testevent _do_fork ^abcd=\"foo"'	# DIFF_ARG_TYPE
+-check_error '^p:kprobes/testevent _do_fork abcd=\1'	# SAME_PROBE
++printf "%s" 'p:kprobes/testevent kernel_clone abcd=\1' > kprobe_events
++check_error 'p:kprobes/testevent kernel_clone ^bcd=\1'	# DIFF_ARG_TYPE
++check_error 'p:kprobes/testevent kernel_clone ^abcd=\1:u8'	# DIFF_ARG_TYPE
++check_error 'p:kprobes/testevent kernel_clone ^abcd=\"foo"'	# DIFF_ARG_TYPE
++check_error '^p:kprobes/testevent kernel_clone abcd=\1'	# SAME_PROBE
+ fi
  
- 	DEB(DEB_INIT, printk(KERN_DEBUG "%s: queuing CmdSASetup\n", dev->name));
- 	memcpy(dma->sa_cmd.eth_addr, dev->dev_addr, ETH_ALEN);
- 	dma->sa_cmd.cmd.command = SWAP16(CmdSASetup);
--	DMA_WBACK(dev, &(dma->sa_cmd), sizeof(struct sa_cmd));
-+	dma_sync_dev(dev, &(dma->sa_cmd), sizeof(struct sa_cmd));
- 	i596_add_cmd(dev, &dma->sa_cmd.cmd);
+ exit 0
+diff --git a/tools/testing/selftests/ftrace/test.d/kprobe/kretprobe_args.tc b/tools/testing/selftests/ftrace/test.d/kprobe/kretprobe_args.tc
+index 523fde6d1aa5..7ae492c204a4 100644
+--- a/tools/testing/selftests/ftrace/test.d/kprobe/kretprobe_args.tc
++++ b/tools/testing/selftests/ftrace/test.d/kprobe/kretprobe_args.tc
+@@ -4,14 +4,14 @@
+ # requires: kprobe_events
  
- 	DEB(DEB_INIT, printk(KERN_DEBUG "%s: queuing CmdTDR\n", dev->name));
- 	dma->tdr_cmd.cmd.command = SWAP16(CmdTDR);
--	DMA_WBACK(dev, &(dma->tdr_cmd), sizeof(struct tdr_cmd));
-+	dma_sync_dev(dev, &(dma->tdr_cmd), sizeof(struct tdr_cmd));
- 	i596_add_cmd(dev, &dma->tdr_cmd.cmd);
+ # Add new kretprobe event
+-echo 'r:testprobe2 _do_fork $retval' > kprobe_events
++echo 'r:testprobe2 kernel_clone $retval' > kprobe_events
+ grep testprobe2 kprobe_events | grep -q 'arg1=\$retval'
+ test -d events/kprobes/testprobe2
  
- 	spin_lock_irqsave (&lp->lock, flags);
-@@ -625,7 +653,7 @@ static int init_i596_mem(struct net_device *dev)
- 	DEB(DEB_INIT, printk(KERN_DEBUG "%s: Issuing RX_START\n", dev->name));
- 	dma->scb.command = SWAP16(RX_START);
- 	dma->scb.rfd = SWAP32(virt_to_dma(lp, dma->rfds));
--	DMA_WBACK(dev, &(dma->scb), sizeof(struct i596_scb));
-+	dma_sync_dev(dev, &(dma->scb), sizeof(struct i596_scb));
+ echo 1 > events/kprobes/testprobe2/enable
+ ( echo "forked")
  
- 	ca(dev);
+-cat trace | grep testprobe2 | grep -q '<- _do_fork'
++cat trace | grep testprobe2 | grep -q '<- kernel_clone'
  
-@@ -659,13 +687,13 @@ static inline int i596_rx(struct net_device *dev)
+ echo 0 > events/kprobes/testprobe2/enable
+ echo '-:testprobe2' >> kprobe_events
+diff --git a/tools/testing/selftests/ftrace/test.d/kprobe/profile.tc b/tools/testing/selftests/ftrace/test.d/kprobe/profile.tc
+index ff6c44adc8a0..c4093fc1a773 100644
+--- a/tools/testing/selftests/ftrace/test.d/kprobe/profile.tc
++++ b/tools/testing/selftests/ftrace/test.d/kprobe/profile.tc
+@@ -4,7 +4,7 @@
+ # requires: kprobe_events
  
- 	rfd = lp->rfd_head;		/* Ref next frame to check */
- 
--	DMA_INV(dev, rfd, sizeof(struct i596_rfd));
-+	dma_sync_cpu(dev, rfd, sizeof(struct i596_rfd));
- 	while (rfd->stat & SWAP16(STAT_C)) {	/* Loop while complete frames */
- 		if (rfd->rbd = I596_NULL)
- 			rbd = NULL;
- 		else if (rfd->rbd = lp->rbd_head->b_addr) {
- 			rbd = lp->rbd_head;
--			DMA_INV(dev, rbd, sizeof(struct i596_rbd));
-+			dma_sync_cpu(dev, rbd, sizeof(struct i596_rbd));
- 		} else {
- 			printk(KERN_ERR "%s: rbd chain broken!\n", dev->name);
- 			/* XXX Now what? */
-@@ -713,7 +741,7 @@ static inline int i596_rx(struct net_device *dev)
- 							  DMA_FROM_DEVICE);
- 				rbd->v_data = newskb->data;
- 				rbd->b_data = SWAP32(dma_addr);
--				DMA_WBACK_INV(dev, rbd, sizeof(struct i596_rbd));
-+				dma_sync_dev(dev, rbd, sizeof(struct i596_rbd));
- 			} else {
- 				skb = netdev_alloc_skb_ip_align(dev, pkt_len);
- 			}
-@@ -765,7 +793,7 @@ static inline int i596_rx(struct net_device *dev)
- 		if (rbd != NULL && (rbd->count & SWAP16(0x4000))) {
- 			rbd->count = 0;
- 			lp->rbd_head = rbd->v_next;
--			DMA_WBACK_INV(dev, rbd, sizeof(struct i596_rbd));
-+			dma_sync_dev(dev, rbd, sizeof(struct i596_rbd));
- 		}
- 
- 		/* Tidy the frame descriptor, marking it as end of list */
-@@ -779,14 +807,14 @@ static inline int i596_rx(struct net_device *dev)
- 
- 		lp->dma->scb.rfd = rfd->b_next;
- 		lp->rfd_head = rfd->v_next;
--		DMA_WBACK_INV(dev, rfd, sizeof(struct i596_rfd));
-+		dma_sync_dev(dev, rfd, sizeof(struct i596_rfd));
- 
- 		/* Remove end-of-list from old end descriptor */
- 
- 		rfd->v_prev->cmd = SWAP16(CMD_FLEX);
--		DMA_WBACK_INV(dev, rfd->v_prev, sizeof(struct i596_rfd));
-+		dma_sync_dev(dev, rfd->v_prev, sizeof(struct i596_rfd));
- 		rfd = lp->rfd_head;
--		DMA_INV(dev, rfd, sizeof(struct i596_rfd));
-+		dma_sync_cpu(dev, rfd, sizeof(struct i596_rfd));
- 	}
- 
- 	DEB(DEB_RXFRAME, printk(KERN_DEBUG "frames %d\n", frames));
-@@ -827,12 +855,12 @@ static inline void i596_cleanup_cmd(struct net_device *dev, struct i596_private
- 			ptr->v_next = NULL;
- 			ptr->b_next = I596_NULL;
- 		}
--		DMA_WBACK_INV(dev, ptr, sizeof(struct i596_cmd));
-+		dma_sync_dev(dev, ptr, sizeof(struct i596_cmd));
- 	}
- 
- 	wait_cmd(dev, lp->dma, 100, "i596_cleanup_cmd timed out");
- 	lp->dma->scb.cmd = I596_NULL;
--	DMA_WBACK(dev, &(lp->dma->scb), sizeof(struct i596_scb));
-+	dma_sync_dev(dev, &(lp->dma->scb), sizeof(struct i596_scb));
- }
- 
- 
-@@ -850,7 +878,7 @@ static inline void i596_reset(struct net_device *dev, struct i596_private *lp)
- 
- 	/* FIXME: this command might cause an lpmc */
- 	lp->dma->scb.command = SWAP16(CUC_ABORT | RX_ABORT);
--	DMA_WBACK(dev, &(lp->dma->scb), sizeof(struct i596_scb));
-+	dma_sync_dev(dev, &(lp->dma->scb), sizeof(struct i596_scb));
- 	ca(dev);
- 
- 	/* wait for shutdown */
-@@ -878,20 +906,20 @@ static void i596_add_cmd(struct net_device *dev, struct i596_cmd *cmd)
- 	cmd->command |= SWAP16(CMD_EOL | CMD_INTR);
- 	cmd->v_next = NULL;
- 	cmd->b_next = I596_NULL;
--	DMA_WBACK(dev, cmd, sizeof(struct i596_cmd));
-+	dma_sync_dev(dev, cmd, sizeof(struct i596_cmd));
- 
- 	spin_lock_irqsave (&lp->lock, flags);
- 
- 	if (lp->cmd_head != NULL) {
- 		lp->cmd_tail->v_next = cmd;
- 		lp->cmd_tail->b_next = SWAP32(virt_to_dma(lp, &cmd->status));
--		DMA_WBACK(dev, lp->cmd_tail, sizeof(struct i596_cmd));
-+		dma_sync_dev(dev, lp->cmd_tail, sizeof(struct i596_cmd));
- 	} else {
- 		lp->cmd_head = cmd;
- 		wait_cmd(dev, dma, 100, "i596_add_cmd timed out");
- 		dma->scb.cmd = SWAP32(virt_to_dma(lp, &cmd->status));
- 		dma->scb.command = SWAP16(CUC_START);
--		DMA_WBACK(dev, &(dma->scb), sizeof(struct i596_scb));
-+		dma_sync_dev(dev, &(dma->scb), sizeof(struct i596_scb));
- 		ca(dev);
- 	}
- 	lp->cmd_tail = cmd;
-@@ -956,7 +984,7 @@ static void i596_tx_timeout (struct net_device *dev, unsigned int txqueue)
- 		/* Issue a channel attention signal */
- 		DEB(DEB_ERRORS, printk(KERN_DEBUG "Kicking board.\n"));
- 		lp->dma->scb.command = SWAP16(CUC_START | RX_START);
--		DMA_WBACK_INV(dev, &(lp->dma->scb), sizeof(struct i596_scb));
-+		dma_sync_dev(dev, &(lp->dma->scb), sizeof(struct i596_scb));
- 		ca (dev);
- 		lp->last_restart = dev->stats.tx_packets;
- 	}
-@@ -1014,8 +1042,8 @@ static netdev_tx_t i596_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		tbd->data = SWAP32(tx_cmd->dma_addr);
- 
- 		DEB(DEB_TXADDR, print_eth(skb->data, "tx-queued"));
--		DMA_WBACK_INV(dev, tx_cmd, sizeof(struct tx_cmd));
--		DMA_WBACK_INV(dev, tbd, sizeof(struct i596_tbd));
-+		dma_sync_dev(dev, tx_cmd, sizeof(struct tx_cmd));
-+		dma_sync_dev(dev, tbd, sizeof(struct i596_tbd));
- 		i596_add_cmd(dev, &tx_cmd->cmd);
- 
- 		dev->stats.tx_packets++;
-@@ -1071,7 +1099,7 @@ static int i82596_probe(struct net_device *dev)
- 	lp->dma->scb.rfd = I596_NULL;
- 	spin_lock_init(&lp->lock);
- 
--	DMA_WBACK_INV(dev, lp->dma, sizeof(struct i596_dma));
-+	dma_sync_dev(dev, lp->dma, sizeof(struct i596_dma));
- 
- 	ret = register_netdev(dev);
- 	if (ret)
-@@ -1141,7 +1169,7 @@ static irqreturn_t i596_interrupt(int irq, void *dev_id)
- 				   dev->name, status & 0x0700));
- 
- 		while (lp->cmd_head != NULL) {
--			DMA_INV(dev, lp->cmd_head, sizeof(struct i596_cmd));
-+			dma_sync_cpu(dev, lp->cmd_head, sizeof(struct i596_cmd));
- 			if (!(lp->cmd_head->status & SWAP16(STAT_C)))
- 				break;
- 
-@@ -1223,7 +1251,7 @@ static irqreturn_t i596_interrupt(int irq, void *dev_id)
- 			}
- 			ptr->v_next = NULL;
- 			ptr->b_next = I596_NULL;
--			DMA_WBACK(dev, ptr, sizeof(struct i596_cmd));
-+			dma_sync_dev(dev, ptr, sizeof(struct i596_cmd));
- 			lp->last_cmd = jiffies;
- 		}
- 
-@@ -1237,13 +1265,13 @@ static irqreturn_t i596_interrupt(int irq, void *dev_id)
- 
- 			ptr->command &= SWAP16(0x1fff);
- 			ptr = ptr->v_next;
--			DMA_WBACK_INV(dev, prev, sizeof(struct i596_cmd));
-+			dma_sync_dev(dev, prev, sizeof(struct i596_cmd));
- 		}
- 
- 		if (lp->cmd_head != NULL)
- 			ack_cmd |= CUC_START;
- 		dma->scb.cmd = SWAP32(virt_to_dma(lp, &lp->cmd_head->status));
--		DMA_WBACK_INV(dev, &dma->scb, sizeof(struct i596_scb));
-+		dma_sync_dev(dev, &dma->scb, sizeof(struct i596_scb));
- 	}
- 	if ((status & 0x1000) || (status & 0x4000)) {
- 		if ((status & 0x4000))
-@@ -1268,7 +1296,7 @@ static irqreturn_t i596_interrupt(int irq, void *dev_id)
- 	}
- 	wait_cmd(dev, dma, 100, "i596 interrupt, timeout");
- 	dma->scb.command = SWAP16(ack_cmd);
--	DMA_WBACK(dev, &dma->scb, sizeof(struct i596_scb));
-+	dma_sync_dev(dev, &dma->scb, sizeof(struct i596_scb));
- 
- 	/* DANGER: I suspect that some kind of interrupt
- 	 acknowledgement aside from acking the 82596 might be needed
-@@ -1299,7 +1327,7 @@ static int i596_close(struct net_device *dev)
- 
- 	wait_cmd(dev, lp->dma, 100, "close1 timed out");
- 	lp->dma->scb.command = SWAP16(CUC_ABORT | RX_ABORT);
--	DMA_WBACK(dev, &lp->dma->scb, sizeof(struct i596_scb));
-+	dma_sync_dev(dev, &lp->dma->scb, sizeof(struct i596_scb));
- 
- 	ca(dev);
- 
-@@ -1358,7 +1386,7 @@ static void set_multicast_list(struct net_device *dev)
- 			       dev->name);
- 		else {
- 			dma->cf_cmd.cmd.command = SWAP16(CmdConfigure);
--			DMA_WBACK_INV(dev, &dma->cf_cmd, sizeof(struct cf_cmd));
-+			dma_sync_dev(dev, &dma->cf_cmd, sizeof(struct cf_cmd));
- 			i596_add_cmd(dev, &dma->cf_cmd.cmd);
- 		}
- 	}
-@@ -1390,7 +1418,7 @@ static void set_multicast_list(struct net_device *dev)
- 					   dev->name, cp));
- 			cp += ETH_ALEN;
- 		}
--		DMA_WBACK_INV(dev, &dma->mc_cmd, sizeof(struct mc_cmd));
-+		dma_sync_dev(dev, &dma->mc_cmd, sizeof(struct mc_cmd));
- 		i596_add_cmd(dev, &cmd->cmd);
- 	}
- }
-diff --git a/drivers/net/ethernet/i825xx/sni_82596.c b/drivers/net/ethernet/i825xx/sni_82596.c
-index e80e790ffbd4d4..507d60cd6f9b33 100644
---- a/drivers/net/ethernet/i825xx/sni_82596.c
-+++ b/drivers/net/ethernet/i825xx/sni_82596.c
-@@ -24,10 +24,6 @@
- 
- static const char sni_82596_string[] = "snirm_82596";
- 
--#define DMA_WBACK(priv, addr, len)     do { } while (0)
--#define DMA_INV(priv, addr, len)       do { } while (0)
--#define DMA_WBACK_INV(priv, addr, len) do { } while (0)
--
- #define SYSBUS      0x00004400
- 
- /* big endian CPU, 82596 little endian */
+ ! grep -q 'myevent' kprobe_profile
+-echo p:myevent _do_fork > kprobe_events
++echo p:myevent kernel_clone > kprobe_events
+ grep -q 'myevent[[:space:]]*0[[:space:]]*0$' kprobe_profile
+ echo 1 > events/kprobes/myevent/enable
+ ( echo "forked" )
 -- 
 2.28.0
