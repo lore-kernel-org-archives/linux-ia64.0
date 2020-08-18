@@ -1,48 +1,90 @@
-From: Christian Brauner <christian.brauner@ubuntu.com>
-Date: Tue, 18 Aug 2020 17:34:03 +0000
-Subject: [PATCH 03/11] ia64: switch to kernel_clone()
-Message-Id: <20200818173411.404104-4-christian.brauner@ubuntu.com>
+From: Jonathan Cameron <Jonathan.Cameron@huawei.com>
+Date: Tue, 18 Aug 2020 14:24:28 +0000
+Subject: [PATCH v3 4/6] ACPI: Rename acpi_map_pxm_to_online_node to pxm_to_online_node
+Message-Id: <20200818142430.1156547-5-Jonathan.Cameron@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200818173411.404104-1-christian.brauner@ubuntu.com>
-In-Reply-To: <20200818173411.404104-1-christian.brauner@ubuntu.com>
+References: <20200818142430.1156547-1-Jonathan.Cameron@huawei.com>
+In-Reply-To: <20200818142430.1156547-1-Jonathan.Cameron@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Hewllig <hch@infradead.org>, linux-kernel@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>, linux-arch@vger.kernel.org
-Cc: Jonathan Corbet <corbet@lwn.net>, Yoshinori Sato <ysato@users.sourceforge.jp>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Ley Foon Tan <ley.foon.tan@intel.com>, "David S. Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Steven Rostedt <rostedt@goodmis.org>, Stafford Horne <shorne@gmail.com>, Peter Zijlstra <peterz@infradead.org>, Kars de Jong <jongk@linux-m68k.org>, Kees Cook <keescook@chromium.org>, Greentime Hu <green.hu@gmail.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Mauro Carvalho Chehab <mchehab+huawei@kernel.org>, Alexandre Chartre <alexandre.chartre@oracle.com>, Masami Hiramatsu <mhiramat@kernel.org>, Tom Zanussi <zanussi@kernel.org>, Xiao Yang <yangx.jy@cn.fujitsu.com>, linux-doc@vger.kernel.org, uclinux-h8-devel@lists.sourceforge.jp, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, kgdb-bugreport@lists.sourceforge.net, linux-kselftest@vger.kernel.org, Christian Brauner <christian.brauner@ubuntu.com>
+To: linux-mm@kvack.org, linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org, x86@kernel.org
+Cc: Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>, Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org, martin@geanix.com, Ingo Molnar <mingo@redhat.com>, linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, linuxarm@huawei.com, Dan Williams <dan.j.williams@intel.com>, Song Bao Hua <song.bao.hua@hisilicon.com>, Jonathan Cameron <Jonathan.Cameron@huawei.com>
 
-The old _do_fork() helper is removed in favor of the new kernel_clone() helper.
-The latter adheres to naming conventions for kernel internal syscall helpers.
+As this function is no longer allowed to create new mappings
+let us rename it to reflect this.
 
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org
-Signed-off-by: Christian Brauner <christian.brauner@ubuntu.com>
+Note all nodes should already exist before any of the users
+of this function are called.
+
+Signed-off-by: Jonathan Cameron <Jonathan.Cameron@huawei.com>
+Reviewed-by: Hanjun Guo <guohanjun@huawei.com>
 ---
- arch/ia64/kernel/process.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/acpi/nfit/core.c | 3 +--
+ drivers/acpi/numa/hmat.c | 2 +-
+ include/linux/acpi.h     | 8 ++++----
+ 3 files changed, 6 insertions(+), 7 deletions(-)
 
-diff --git a/arch/ia64/kernel/process.c b/arch/ia64/kernel/process.c
-index f19cb97c0098..126f72490ec7 100644
---- a/arch/ia64/kernel/process.c
-+++ b/arch/ia64/kernel/process.c
-@@ -310,7 +310,7 @@ ia64_load_extra (struct task_struct *task)
-  *
-  *	<clone syscall>	        <some kernel call frames>
-  *	sys_clone		   :
-- *	_do_fork		_do_fork
-+ *	kernel_clone		kernel_clone
-  *	copy_thread		copy_thread
-  *
-  * This means that the stack layout is as follows:
-@@ -455,7 +455,7 @@ asmlinkage long ia64_clone(unsigned long clone_flags, unsigned long stack_start,
- 		.tls		= tls,
+diff --git a/drivers/acpi/nfit/core.c b/drivers/acpi/nfit/core.c
+index ea0557cb54f7..8df2f16d1fdf 100644
+--- a/drivers/acpi/nfit/core.c
++++ b/drivers/acpi/nfit/core.c
+@@ -3006,8 +3006,7 @@ static int acpi_nfit_register_region(struct acpi_nfit_desc *acpi_desc,
+ 	ndr_desc->provider_data = nfit_spa;
+ 	ndr_desc->attr_groups = acpi_nfit_region_attribute_groups;
+ 	if (spa->flags & ACPI_NFIT_PROXIMITY_VALID) {
+-		ndr_desc->numa_node = acpi_map_pxm_to_online_node(
+-						spa->proximity_domain);
++		ndr_desc->numa_node = pxm_to_online_node(spa->proximity_domain);
+ 		ndr_desc->target_node = pxm_to_node(spa->proximity_domain);
+ 	} else {
+ 		ndr_desc->numa_node = NUMA_NO_NODE;
+diff --git a/drivers/acpi/numa/hmat.c b/drivers/acpi/numa/hmat.c
+index cf6df2df26cd..e7add2609c03 100644
+--- a/drivers/acpi/numa/hmat.c
++++ b/drivers/acpi/numa/hmat.c
+@@ -664,7 +664,7 @@ static void hmat_register_target_device(struct memory_target *target,
+ 		goto out_pdev;
+ 	}
+ 
+-	pdev->dev.numa_node = acpi_map_pxm_to_online_node(target->memory_pxm);
++	pdev->dev.numa_node = pxm_to_online_node(target->memory_pxm);
+ 	info = (struct memregion_info) {
+ 		.target_node = pxm_to_node(target->memory_pxm),
  	};
+diff --git a/include/linux/acpi.h b/include/linux/acpi.h
+index a9fd122ae878..e9f6cd67943e 100644
+--- a/include/linux/acpi.h
++++ b/include/linux/acpi.h
+@@ -420,10 +420,10 @@ int acpi_map_pxm_to_node(int pxm);
+ int acpi_get_node(acpi_handle handle);
  
--	return _do_fork(&args);
-+	return kernel_clone(&args);
+ /**
+- * acpi_map_pxm_to_online_node - Map proximity ID to online node
++ * pxm_to_online_node - Map proximity ID to online node
+  * @pxm: ACPI proximity ID
+  *
+- * This is similar to acpi_map_pxm_to_node(), but always returns an online
++ * This is similar to pxm_to_node(), but always returns an online
+  * node.  When the mapped node from a given proximity ID is offline, it
+  * looks up the node distance table and returns the nearest online node.
+  *
+@@ -433,14 +433,14 @@ int acpi_get_node(acpi_handle handle);
+  * offline nodes.  A node may be offline when SRAT memory entry does not exist,
+  * or NUMA is disabled, ex. "numa=off" on x86.
+  */
+-static inline int acpi_map_pxm_to_online_node(int pxm)
++static inline int pxm_to_online_node(int pxm)
+ {
+ 	int node = pxm_to_node(pxm);
+ 
+ 	return numa_map_to_online_node(node);
  }
- 
- static void
+ #else
+-static inline int acpi_map_pxm_to_online_node(int pxm)
++static inline int pxm_to_online_node(int pxm)
+ {
+ 	return 0;
+ }
 -- 
-2.28.0
+2.19.1
