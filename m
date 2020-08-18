@@ -1,7 +1,7 @@
 From: Christian Brauner <christian.brauner@ubuntu.com>
-Date: Tue, 18 Aug 2020 17:34:07 +0000
-Subject: [PATCH 07/11] x86: switch to kernel_clone()
-Message-Id: <20200818173411.404104-8-christian.brauner@ubuntu.com>
+Date: Tue, 18 Aug 2020 17:34:02 +0000
+Subject: [PATCH 02/11] h8300: switch to kernel_clone()
+Message-Id: <20200818173411.404104-3-christian.brauner@ubuntu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20200818173411.404104-1-christian.brauner@ubuntu.com>
 In-Reply-To: <20200818173411.404104-1-christian.brauner@ubuntu.com>
@@ -14,26 +14,24 @@ Cc: Jonathan Corbet <corbet@lwn.net>, Yoshinori Sato <ysato@users.sourceforge.jp
 The old _do_fork() helper is removed in favor of the new kernel_clone() helper.
 The latter adheres to naming conventions for kernel internal syscall helpers.
 
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: Ingo Molnar <mingo@redhat.com>
-Cc: Borislav Petkov <bp@alien8.de>
-Cc: x86@kernel.org
+Cc: Greentime Hu <green.hu@gmail.com>
+Cc: Yoshinori Sato <ysato@users.sourceforge.jp>
+Cc: uclinux-h8-devel@lists.sourceforge.jp
 Signed-off-by: Christian Brauner <christian.brauner@ubuntu.com>
 ---
- arch/x86/kernel/sys_ia32.c | 2 +-
+ arch/h8300/kernel/process.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/x86/kernel/sys_ia32.c b/arch/x86/kernel/sys_ia32.c
-index 720cde885042..6cf65397d225 100644
---- a/arch/x86/kernel/sys_ia32.c
-+++ b/arch/x86/kernel/sys_ia32.c
-@@ -251,6 +251,6 @@ COMPAT_SYSCALL_DEFINE5(ia32_clone, unsigned long, clone_flags,
- 		.tls		= tls_val,
- 	};
+diff --git a/arch/h8300/kernel/process.c b/arch/h8300/kernel/process.c
+index 83ce3caf7313..aea0a40b77a9 100644
+--- a/arch/h8300/kernel/process.c
++++ b/arch/h8300/kernel/process.c
+@@ -172,5 +172,5 @@ asmlinkage int sys_clone(unsigned long __user *args)
+ 	kargs.exit_signal	= (lower_32_bits(clone_flags) & CSIGNAL);
+ 	kargs.stack		= newsp;
  
--	return _do_fork(&args);
-+	return kernel_clone(&args);
+-	return _do_fork(&kargs);
++	return kernel_clone(&kargs);
  }
- #endif /* CONFIG_IA32_EMULATION */
 -- 
 2.28.0
