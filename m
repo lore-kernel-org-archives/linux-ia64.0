@@ -1,82 +1,23 @@
-From: Christian Brauner <christian.brauner@ubuntu.com>
-Date: Tue, 18 Aug 2020 17:34:00 +0000
-Subject: [PATCH 00/11] Introduce kernel_clone(), kill _do_fork()
-Message-Id: <20200818173411.404104-1-christian.brauner@ubuntu.com>
+From: Matthew Wilcox <willy@infradead.org>
+Date: Tue, 18 Aug 2020 17:44:47 +0000
+Subject: Re: [PATCH 00/11] Introduce kernel_clone(), kill _do_fork()
+Message-Id: <20200818174447.GV17456@casper.infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20200818173411.404104-1-christian.brauner@ubuntu.com>
+In-Reply-To: <20200818173411.404104-1-christian.brauner@ubuntu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Hewllig <hch@infradead.org>, linux-kernel@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>, linux-arch@vger.kernel.org
-Cc: Jonathan Corbet <corbet@lwn.net>, Yoshinori Sato <ysato@users.sourceforge.jp>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Ley Foon Tan <ley.foon.tan@intel.com>, "David S. Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Steven Rostedt <rostedt@goodmis.org>, Stafford Horne <shorne@gmail.com>, Peter Zijlstra <peterz@infradead.org>, Kars de Jong <jongk@linux-m68k.org>, Kees Cook <keescook@chromium.org>, Greentime Hu <green.hu@gmail.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Mauro Carvalho Chehab <mchehab+huawei@kernel.org>, Alexandre Chartre <alexandre.chartre@oracle.com>, Masami Hiramatsu <mhiramat@kernel.org>, Tom Zanussi <zanussi@kernel.org>, Xiao Yang <yangx.jy@cn.fujitsu.com>, linux-doc@vger.kernel.org, uclinux-h8-devel@lists.sourceforge.jp, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, kgdb-bugreport@lists.sourceforge.net, linux-kselftest@vger.kernel.org, Christian Brauner <christian.brauner@ubuntu.com>
+To: Christian Brauner <christian.brauner@ubuntu.com>
+Cc: Christoph Hewllig <hch@infradead.org>, linux-kernel@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>, linux-arch@vger.kernel.org, Jonathan Corbet <corbet@lwn.net>, Yoshinori Sato <ysato@users.sourceforge.jp>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Ley Foon Tan <ley.foon.tan@intel.com>, "David S. Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Steven Rostedt <rostedt@goodmis.org>, Stafford Horne <shorne@gmail.com>, Peter Zijlstra <peterz@infradead.org>, Kars de Jong <jongk@linux-m68k.org>, Kees Cook <keescook@chromium.org>, Greentime Hu <green.hu@gmail.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Mauro Carvalho Chehab <mchehab+huawei@kernel.org>, Alexandre Chartre <alexandre.chartre@oracle.com>, Masami Hiramatsu <mhiramat@kernel.org>, Tom Zanussi <zanussi@kernel.org>, Xiao Yang <yangx.jy@cn.fujitsu.com>, linux-doc@vger.kernel.org, uclinux-h8-devel@lists.sourceforge.jp, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, kgdb-bugreport@lists.sourceforge.net, linux-kselftest@vger.kernel.org
 
-Hey everyone,
+On Tue, Aug 18, 2020 at 07:34:00PM +0200, Christian Brauner wrote:
+> The only remaining function callable outside of kernel/fork.c is
+> _do_fork(). It doesn't really follow the naming of kernel-internal
+> syscall helpers as Christoph righly pointed out. Switch all callers and
+> references to kernel_clone() and remove _do_fork() once and for all.
 
-This is a follow-up to the do_fork() cleanup from last cycle based on a
-short discussion this was merged.
-Last cycle we removed copy_thread_tls() and the associated Kconfig
-option for each architecture. Now we are only left with copy_thread().
-Part of this work was removing the old do_fork() legacy clone()-style
-calling convention in favor of the new struct kernel_clone args calling
-convention.
-The only remaining function callable outside of kernel/fork.c is
-_do_fork(). It doesn't really follow the naming of kernel-internal
-syscall helpers as Christoph righly pointed out. Switch all callers and
-references to kernel_clone() and remove _do_fork() once and for all.
-
-For all architectures I have done a full git rebase v5.9-rc1 -x "make
--j31". There were no built failures and the changes were fairly
-mechanical.
-
-The only helpers we have left now are kernel_thread() and kernel_clone()
-where kernel_thread() just calls kernel_clone().
-
-Thanks!
-Christian
-
-Christian Brauner (11):
-  fork: introduce kernel_clone()
-  h8300: switch to kernel_clone()
-  ia64: switch to kernel_clone()
-  m68k: switch to kernel_clone()
-  nios2: switch to kernel_clone()
-  sparc: switch to kernel_clone()
-  x86: switch to kernel_clone()
-  kprobes: switch to kernel_clone()
-  kgdbts: switch to kernel_clone()
-  tracing: switch to kernel_clone()
-  sched: remove _do_fork()
-
- Documentation/trace/histogram.rst             |  4 +-
- arch/h8300/kernel/process.c                   |  2 +-
- arch/ia64/kernel/process.c                    |  4 +-
- arch/m68k/kernel/process.c                    | 10 ++--
- arch/nios2/kernel/process.c                   |  2 +-
- arch/sparc/kernel/process.c                   |  6 +--
- arch/x86/kernel/sys_ia32.c                    |  2 +-
- drivers/misc/kgdbts.c                         | 48 +++++++++----------
- include/linux/sched/task.h                    |  2 +-
- kernel/fork.c                                 | 14 +++---
- samples/kprobes/kprobe_example.c              |  6 +--
- samples/kprobes/kretprobe_example.c           |  4 +-
- .../test.d/dynevent/add_remove_kprobe.tc      |  2 +-
- .../test.d/dynevent/clear_select_events.tc    |  2 +-
- .../test.d/dynevent/generic_clear_event.tc    |  2 +-
- .../test.d/ftrace/func-filter-stacktrace.tc   |  4 +-
- .../ftrace/test.d/kprobe/add_and_remove.tc    |  2 +-
- .../ftrace/test.d/kprobe/busy_check.tc        |  2 +-
- .../ftrace/test.d/kprobe/kprobe_args.tc       |  4 +-
- .../ftrace/test.d/kprobe/kprobe_args_comm.tc  |  2 +-
- .../test.d/kprobe/kprobe_args_string.tc       |  4 +-
- .../test.d/kprobe/kprobe_args_symbol.tc       | 10 ++--
- .../ftrace/test.d/kprobe/kprobe_args_type.tc  |  2 +-
- .../ftrace/test.d/kprobe/kprobe_ftrace.tc     | 14 +++---
- .../ftrace/test.d/kprobe/kprobe_multiprobe.tc |  2 +-
- .../test.d/kprobe/kprobe_syntax_errors.tc     | 12 ++---
- .../ftrace/test.d/kprobe/kretprobe_args.tc    |  4 +-
- .../selftests/ftrace/test.d/kprobe/profile.tc |  2 +-
- 28 files changed, 87 insertions(+), 87 deletions(-)
-
-
-base-commit: 9123e3a74ec7b934a4a099e98af6a61c2f80bbf5
--- 
-2.28.0
+My only concern is around return type.  long, int, pid_t ... can we
+choose one and stick to it?  pid_t is probably the right return type
+within the kernel, despite the return type of clone3().  It'll save us
+some work if we ever go through the hassle of growing pid_t beyond 31-bit.
