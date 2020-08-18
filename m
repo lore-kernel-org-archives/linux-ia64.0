@@ -1,54 +1,48 @@
-From: Nicolin Chen <nicoleotsuka@gmail.com>
-Date: Mon, 31 Aug 2020 20:38:10 +0000
-Subject: [RESEND][PATCH 6/7] x86/amd_gart: Avoid overflow at boundary_size
-Message-Id: <20200831203811.8494-7-nicoleotsuka@gmail.com>
+From: Christian Brauner <christian.brauner@ubuntu.com>
+Date: Tue, 18 Aug 2020 17:34:03 +0000
+Subject: [PATCH 03/11] ia64: switch to kernel_clone()
+Message-Id: <20200818173411.404104-4-christian.brauner@ubuntu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200831203811.8494-1-nicoleotsuka@gmail.com>
-In-Reply-To: <20200831203811.8494-1-nicoleotsuka@gmail.com>
+References: <20200818173411.404104-1-christian.brauner@ubuntu.com>
+In-Reply-To: <20200818173411.404104-1-christian.brauner@ubuntu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, rth@twiddle.net, ink@jurassic.park.msu.ru, mattst88@gmail.com, tony.luck@intel.com, fenghua.yu@intel.com, schnelle@linux.ibm.com, gerald.schaefer@linux.ibm.com, hca@linux.ibm.com, gor@linux.ibm.com, borntraeger@de.ibm.com, davem@davemloft.net, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, x86@kernel.org, hpa@zytor.com, James.Bottomley@HansenPartnership.com, deller@gmx.de
-Cc: sfr@canb.auug.org.au, hch@lst.de, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-parisc@vger.kernel.org
+To: Christoph Hewllig <hch@infradead.org>, linux-kernel@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>, linux-arch@vger.kernel.org
+Cc: Jonathan Corbet <corbet@lwn.net>, Yoshinori Sato <ysato@users.sourceforge.jp>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Ley Foon Tan <ley.foon.tan@intel.com>, "David S. Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Steven Rostedt <rostedt@goodmis.org>, Stafford Horne <shorne@gmail.com>, Peter Zijlstra <peterz@infradead.org>, Kars de Jong <jongk@linux-m68k.org>, Kees Cook <keescook@chromium.org>, Greentime Hu <green.hu@gmail.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Mauro Carvalho Chehab <mchehab+huawei@kernel.org>, Alexandre Chartre <alexandre.chartre@oracle.com>, Masami Hiramatsu <mhiramat@kernel.org>, Tom Zanussi <zanussi@kernel.org>, Xiao Yang <yangx.jy@cn.fujitsu.com>, linux-doc@vger.kernel.org, uclinux-h8-devel@lists.sourceforge.jp, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, kgdb-bugreport@lists.sourceforge.net, linux-kselftest@vger.kernel.org, Christian Brauner <christian.brauner@ubuntu.com>
 
-The boundary_size might be as large as ULONG_MAX, which means
-that a device has no specific boundary limit. So either "+ 1"
-or passing it to ALIGN() would potentially overflow.
+The old _do_fork() helper is removed in favor of the new kernel_clone() helper.
+The latter adheres to naming conventions for kernel internal syscall helpers.
 
-According to kernel defines:
-    #define ALIGN_MASK(x, mask) (((x) + (mask)) & ~(mask))
-    #define ALIGN(x, a)	ALIGN_MASK(x, (typeof(x))(a) - 1)
-
-We can simplify the logic here:
-  ALIGN(boundary + 1, 1 << shift) >> shift
-= ALIGN_MASK(b + 1, (1 << s) - 1) >> s
-= {[b + 1 + (1 << s) - 1] & ~[(1 << s) - 1]} >> s
-= [b + 1 + (1 << s) - 1] >> s
-= [b + (1 << s)] >> s
-= (b >> s) + 1
-
-So fixing a potential overflow with the safer shortcut.
-
-Signed-off-by: Nicolin Chen <nicoleotsuka@gmail.com>
-Cc: Christoph Hellwig <hch@lst.de>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
+Signed-off-by: Christian Brauner <christian.brauner@ubuntu.com>
 ---
- arch/x86/kernel/amd_gart_64.c | 4 ++--
+ arch/ia64/kernel/process.c | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/arch/x86/kernel/amd_gart_64.c b/arch/x86/kernel/amd_gart_64.c
-index e89031e9c847..7fa0bb490065 100644
---- a/arch/x86/kernel/amd_gart_64.c
-+++ b/arch/x86/kernel/amd_gart_64.c
-@@ -96,8 +96,8 @@ static unsigned long alloc_iommu(struct device *dev, int size,
+diff --git a/arch/ia64/kernel/process.c b/arch/ia64/kernel/process.c
+index f19cb97c0098..126f72490ec7 100644
+--- a/arch/ia64/kernel/process.c
++++ b/arch/ia64/kernel/process.c
+@@ -310,7 +310,7 @@ ia64_load_extra (struct task_struct *task)
+  *
+  *	<clone syscall>	        <some kernel call frames>
+  *	sys_clone		   :
+- *	_do_fork		_do_fork
++ *	kernel_clone		kernel_clone
+  *	copy_thread		copy_thread
+  *
+  * This means that the stack layout is as follows:
+@@ -455,7 +455,7 @@ asmlinkage long ia64_clone(unsigned long clone_flags, unsigned long stack_start,
+ 		.tls		= tls,
+ 	};
  
- 	base_index = ALIGN(iommu_bus_base & dma_get_seg_boundary(dev),
- 			   PAGE_SIZE) >> PAGE_SHIFT;
--	boundary_size = ALIGN((u64)dma_get_seg_boundary(dev) + 1,
--			      PAGE_SIZE) >> PAGE_SHIFT;
-+	/* Overflow-free shortcut for: ALIGN(b + 1, 1 << s) >> s */
-+	boundary_size = (dma_get_seg_boundary(dev) >> PAGE_SHIFT) + 1;
+-	return _do_fork(&args);
++	return kernel_clone(&args);
+ }
  
- 	spin_lock_irqsave(&iommu_bitmap_lock, flags);
- 	offset = iommu_area_alloc(iommu_gart_bitmap, iommu_pages, next_bit,
+ static void
 -- 
-2.17.1
+2.28.0
