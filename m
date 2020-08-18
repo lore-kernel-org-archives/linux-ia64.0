@@ -1,25 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Date: Wed, 19 Aug 2020 20:02:22 +0000
-Subject: Re: [PATCH v2 06/11] sparc: switch to kernel_clone()
-Message-Id: <20200819.130222.1915954815957844234.davem@davemloft.net>
+From: Mike Rapoport <rppt@kernel.org>
+Date: Tue, 18 Aug 2020 10:15:49 +0000
+Subject: [GIT PULL] Fix regression in IA-64 caused by page table allocation refactoring
+Message-Id: <20200818101549.GN752365@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200819104655.436656-1-christian.brauner@ubuntu.com>
-        <20200819104655.436656-7-christian.brauner@ubuntu.com>
-In-Reply-To: <20200819104655.436656-7-christian.brauner@ubuntu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: christian.brauner@ubuntu.com
-Cc: linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org, corbet@lwn.net, ysato@users.sourceforge.jp, tony.luck@intel.com, fenghua.yu@intel.com, geert@linux-m68k.org, ley.foon.tan@intel.com, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, x86@kernel.org, arnd@arndb.de, rostedt@goodmis.org, shorne@gmail.com, peterz@infradead.org, jongk@linux-m68k.org, keescook@chromium.org, green.hu@gmail.com, ebiederm@xmission.com, mchehab+huawei@kernel.org, alexandre.chartre@oracle.com, mhiramat@kernel.org, zanussi@kernel.org, yangx.jy@cn.fujitsu.com, linux-doc@vger.kernel.org, uclinux-h8-devel@lists.sourceforge.jp, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, kgdb-bugreport@lists.sourceforge.net, linux-kselftest@vger.kernel.org, torvalds@linux-foundation.org, hch@infradead.org, willy@infradead.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: Jessica Clarke <jrtc27@jrtc27.com>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-From: Christian Brauner <christian.brauner@ubuntu.com>
-Date: Wed, 19 Aug 2020 12:46:50 +0200
+Hi Linus,
 
-> The old _do_fork() helper is removed in favor of the new kernel_clone() helper.
-> The latter adheres to naming conventions for kernel internal syscall helpers.
-> 
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: sparclinux@vger.kernel.org
-> Signed-off-by: Christian Brauner <christian.brauner@ubuntu.com>
+The following changes since commit 9123e3a74ec7b934a4a099e98af6a61c2f80bbf5:
 
-Acked-by: David S. Miller <davem@davemloft.net>
+  Linux 5.9-rc1 (2020-08-16 13:04:57 -0700)
+
+are available in the Git repository at:
+
+  https://git.kernel.org/pub/scm/linux/kernel/git/rppt/memblock.git tags/fixes-2020-08-18
+
+for you to fetch changes up to bd05220c7be3356046861c317d9c287ca50445ba:
+
+  arch/ia64: Restore arch-specific pgd_offset_k implementation (2020-08-17 21:50:54 +0300)
+
+----------------------------------------------------------------
+Fix regression in IA-64 caused by page table allocation refactoring
+
+The refactoring and consolidation of <asm/pgalloc.h> caused regression
+on parisc and ia64. The fix for parisc made it into v5.9-rc1 while the
+fix ia64 got delayed a bit and here it is.
+
+----------------------------------------------------------------
+Jessica Clarke (1):
+      arch/ia64: Restore arch-specific pgd_offset_k implementation
+
+ arch/ia64/include/asm/pgtable.h | 9 +++++++++
+ include/linux/pgtable.h         | 2 ++
+ 2 files changed, 11 insertions(+)
+
+-- 
+Sincerely yours,
+Mike.
