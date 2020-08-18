@@ -1,37 +1,47 @@
-From: Anant Thazhemadam <anant.thazhemadam@gmail.com>
-Date: Mon, 31 Aug 2020 09:29:46 +0000
-Subject: [PATCH] arch: ia64 - Update put_filp to fput
-Message-Id: <20200831091747.9305-1-anant.thazhemadam@gmail.com>
+From: Jonathan Cameron <Jonathan.Cameron@huawei.com>
+Date: Tue, 18 Aug 2020 14:24:29 +0000
+Subject: [PATCH v3 5/6] ACPI: Remove side effect of partly creating a node in acpi_get_node
+Message-Id: <20200818142430.1156547-6-Jonathan.Cameron@huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20200818142430.1156547-1-Jonathan.Cameron@huawei.com>
+In-Reply-To: <20200818142430.1156547-1-Jonathan.Cameron@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: 
-Cc: anant.thazhemadam@gmail.com, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, "Gustavo A. R. Silva" <gustavoars@kernel.org>, Vlastimil Babka <vbabka@suse.cz>, Daniel Jordan <daniel.m.jordan@oracle.com>, afzal mohammed <afzal.mohd.ma@gmail.com>, Michel Lespinasse <walken@google.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-mm@kvack.org, linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org, x86@kernel.org
+Cc: Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>, Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org, martin@geanix.com, Ingo Molnar <mingo@redhat.com>, linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, linuxarm@huawei.com, Dan Williams <dan.j.williams@intel.com>, Song Bao Hua <song.bao.hua@hisilicon.com>, Jonathan Cameron <Jonathan.Cameron@huawei.com>
 
-The function `put_filp`, (along with almost all references of it) seems to
-have been deprecated and exist no more, and neither the prototype nor
-the function definition seem to be a part of the main kernel tree anymore. 
-It has been recommended that `fput` be used instead, so it felt like it 
-was about time this was updated too
+acpi_get_node calls acpi_get_pxm to evaluate the _PXM AML method for
+entries found in DSDT/SSDT. ACPI 6.3 sec 6.2.14 states
+"_PXM evaluates to an integer that identifies a device as belonging to
+ a Proximity Domain defined in the System Resource Affinity Table (SRAT)."
 
-Signed-off-by: Anant Thazhemadam <anant.thazhemadam@gmail.com>
+Hence a _PXM method should not result in creation of a new NUMA node.
+Before this patch, _PXM could result in partial instantiation of
+NUMA node, missing elements such as zone lists.  A call to devm_kzalloc
+for example results in a null pointer dereference.
+
+This patch therefore replaces the acpi_map_pxm_to_node with a call
+to pxm_to_node.
+
+Signed-off-by: Jonathan Cameron <Jonathan.Cameron@huawei.com>
+Reviewed-by: Hanjun Guo <guohanjun@huawei.com>
+Reviewed-by: Barry Song <song.bao.hua@hisilicon.com>
 ---
- arch/ia64/kernel/perfmon.c | 2 +-
+ drivers/acpi/numa/srat.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
-index 0dc3611e7971..91349e38b9be 100644
---- a/arch/ia64/kernel/perfmon.c
-+++ b/arch/ia64/kernel/perfmon.c
-@@ -2644,7 +2644,7 @@ pfm_context_create(pfm_context_t *ctx, void *arg, int count, struct pt_regs *reg
+diff --git a/drivers/acpi/numa/srat.c b/drivers/acpi/numa/srat.c
+index 1fb486f46ee2..2c9a66c203ff 100644
+--- a/drivers/acpi/numa/srat.c
++++ b/drivers/acpi/numa/srat.c
+@@ -436,6 +436,6 @@ int acpi_get_node(acpi_handle handle)
  
- buffer_error:
- 	path = filp->f_path;
--	put_filp(filp);
-+	fput(filp);
- 	path_put(&path);
+ 	pxm = acpi_get_pxm(handle);
  
- 	if (ctx->ctx_buf_fmt) {
+-	return acpi_map_pxm_to_node(pxm);
++	return pxm_to_node(pxm);
+ }
+ EXPORT_SYMBOL(acpi_get_node);
 -- 
-2.25.1
+2.19.1
