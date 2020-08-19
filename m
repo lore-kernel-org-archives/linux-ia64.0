@@ -1,47 +1,51 @@
-From: Jonathan Cameron <Jonathan.Cameron@huawei.com>
-Date: Tue, 18 Aug 2020 14:24:29 +0000
-Subject: [PATCH v3 5/6] ACPI: Remove side effect of partly creating a node in acpi_get_node
-Message-Id: <20200818142430.1156547-6-Jonathan.Cameron@huawei.com>
+From: Christian Brauner <christian.brauner@ubuntu.com>
+Date: Wed, 19 Aug 2020 10:46:47 +0000
+Subject: [PATCH v2 03/11] ia64: switch to kernel_clone()
+Message-Id: <20200819104655.436656-4-christian.brauner@ubuntu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200818142430.1156547-1-Jonathan.Cameron@huawei.com>
-In-Reply-To: <20200818142430.1156547-1-Jonathan.Cameron@huawei.com>
+References: <20200819104655.436656-1-christian.brauner@ubuntu.com>
+In-Reply-To: <20200819104655.436656-1-christian.brauner@ubuntu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org, linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org, x86@kernel.org
-Cc: Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>, Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org, martin@geanix.com, Ingo Molnar <mingo@redhat.com>, linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, linuxarm@huawei.com, Dan Williams <dan.j.williams@intel.com>, Song Bao Hua <song.bao.hua@hisilicon.com>, Jonathan Cameron <Jonathan.Cameron@huawei.com>
+To: linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: Jonathan Corbet <corbet@lwn.net>, Yoshinori Sato <ysato@users.sourceforge.jp>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Ley Foon Tan <ley.foon.tan@intel.com>, "David S. Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Steven Rostedt <rostedt@goodmis.org>, Stafford Horne <shorne@gmail.com>, Peter Zijlstra <peterz@infradead.org>, Kars de Jong <jongk@linux-m68k.org>, Kees Cook <keescook@chromium.org>, Greentime Hu <green.hu@gmail.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Mauro Carvalho Chehab <mchehab+huawei@kernel.org>, Alexandre Chartre <alexandre.chartre@oracle.com>, Masami Hiramatsu <mhiramat@kernel.org>, Tom Zanussi <zanussi@kernel.org>, Xiao Yang <yangx.jy@cn.fujitsu.com>, linux-doc@vger.kernel.org, uclinux-h8-devel@lists.sourceforge.jp, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, kgdb-bugreport@lists.sourceforge.net, linux-kselftest@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>, Christoph Hewllig <hch@infradead.org>, Matthew Wilcox <willy@infradead.org>, Christian Brauner <christian.brauner@ubuntu.com>
 
-acpi_get_node calls acpi_get_pxm to evaluate the _PXM AML method for
-entries found in DSDT/SSDT. ACPI 6.3 sec 6.2.14 states
-"_PXM evaluates to an integer that identifies a device as belonging to
- a Proximity Domain defined in the System Resource Affinity Table (SRAT)."
+The old _do_fork() helper is removed in favor of the new kernel_clone() helper.
+The latter adheres to naming conventions for kernel internal syscall helpers.
 
-Hence a _PXM method should not result in creation of a new NUMA node.
-Before this patch, _PXM could result in partial instantiation of
-NUMA node, missing elements such as zone lists.  A call to devm_kzalloc
-for example results in a null pointer dereference.
-
-This patch therefore replaces the acpi_map_pxm_to_node with a call
-to pxm_to_node.
-
-Signed-off-by: Jonathan Cameron <Jonathan.Cameron@huawei.com>
-Reviewed-by: Hanjun Guo <guohanjun@huawei.com>
-Reviewed-by: Barry Song <song.bao.hua@hisilicon.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
+Signed-off-by: Christian Brauner <christian.brauner@ubuntu.com>
 ---
- drivers/acpi/numa/srat.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+/* v2 */
+unchanged
+---
+ arch/ia64/kernel/process.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/acpi/numa/srat.c b/drivers/acpi/numa/srat.c
-index 1fb486f46ee2..2c9a66c203ff 100644
---- a/drivers/acpi/numa/srat.c
-+++ b/drivers/acpi/numa/srat.c
-@@ -436,6 +436,6 @@ int acpi_get_node(acpi_handle handle)
+diff --git a/arch/ia64/kernel/process.c b/arch/ia64/kernel/process.c
+index f19cb97c0098..126f72490ec7 100644
+--- a/arch/ia64/kernel/process.c
++++ b/arch/ia64/kernel/process.c
+@@ -310,7 +310,7 @@ ia64_load_extra (struct task_struct *task)
+  *
+  *	<clone syscall>	        <some kernel call frames>
+  *	sys_clone		   :
+- *	_do_fork		_do_fork
++ *	kernel_clone		kernel_clone
+  *	copy_thread		copy_thread
+  *
+  * This means that the stack layout is as follows:
+@@ -455,7 +455,7 @@ asmlinkage long ia64_clone(unsigned long clone_flags, unsigned long stack_start,
+ 		.tls		= tls,
+ 	};
  
- 	pxm = acpi_get_pxm(handle);
- 
--	return acpi_map_pxm_to_node(pxm);
-+	return pxm_to_node(pxm);
+-	return _do_fork(&args);
++	return kernel_clone(&args);
  }
- EXPORT_SYMBOL(acpi_get_node);
+ 
+ static void
 -- 
-2.19.1
+2.28.0
