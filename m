@@ -1,54 +1,64 @@
-From: Nicolin Chen <nicoleotsuka@gmail.com>
-Date: Mon, 31 Aug 2020 20:38:08 +0000
-Subject: [RESEND][PATCH 4/7] s390/pci_dma: Avoid overflow at boundary_size
-Message-Id: <20200831203811.8494-5-nicoleotsuka@gmail.com>
+From: Christoph Hellwig <hch@lst.de>
+Date: Wed, 19 Aug 2020 06:55:47 +0000
+Subject: [PATCH 20/28] sgiwd93: convert from dma_cache_sync to dma_sync_single_for_device
+Message-Id: <20200819065555.1802761-21-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200831203811.8494-1-nicoleotsuka@gmail.com>
-In-Reply-To: <20200831203811.8494-1-nicoleotsuka@gmail.com>
+References: <20200819065555.1802761-1-hch@lst.de>
+In-Reply-To: <20200819065555.1802761-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, rth@twiddle.net, ink@jurassic.park.msu.ru, mattst88@gmail.com, tony.luck@intel.com, fenghua.yu@intel.com, schnelle@linux.ibm.com, gerald.schaefer@linux.ibm.com, hca@linux.ibm.com, gor@linux.ibm.com, borntraeger@de.ibm.com, davem@davemloft.net, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, x86@kernel.org, hpa@zytor.com, James.Bottomley@HansenPartnership.com, deller@gmx.de
-Cc: sfr@canb.auug.org.au, hch@lst.de, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-parisc@vger.kernel.org
+To: Mauro Carvalho Chehab <mchehab@kernel.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Joonyoung Shim <jy0922.shim@samsung.com>, Seung-Woo Kim <sw0312.kim@samsung.com>, Kyungmin Park <kyungmin.park@samsung.com>, Ben Skeggs <bskeggs@redhat.com>, Pawel Osciak <pawel@osciak.com>, Marek Szyprowski <m.szyprowski@samsung.com>, Matt Porter <mporter@kernel.crashing.org>, iommu@lists.linux-foundation.org
+Cc: Tom Lendacky <thomas.lendacky@amd.com>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-media@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-samsung-soc@vger.kernel.org, nouveau@lists.freedesktop.org, netdev@vger.kernel.org, linux-nvme@lists.infradead.org, linux-scsi@vger.kernel.org, linux-mm@kvack.org, alsa-devel@alsa-project.org
 
-The boundary_size might be as large as ULONG_MAX, which means
-that a device has no specific boundary limit. So either "+ 1"
-or passing it to ALIGN() would potentially overflow.
+Use the proper modern API to transfer cache ownership for incoherent DMA.
+This also means we can allocate the memory as DMA_TO_DEVICE instead
+of bidirectional.
 
-According to kernel defines:
-    #define ALIGN_MASK(x, mask) (((x) + (mask)) & ~(mask))
-    #define ALIGN(x, a)	ALIGN_MASK(x, (typeof(x))(a) - 1)
-
-We can simplify the logic here:
-  ALIGN(boundary + 1, 1 << shift) >> shift
-= ALIGN_MASK(b + 1, (1 << s) - 1) >> s
-= {[b + 1 + (1 << s) - 1] & ~[(1 << s) - 1]} >> s
-= [b + 1 + (1 << s) - 1] >> s
-= [b + (1 << s)] >> s
-= (b >> s) + 1
-
-So fixing a potential overflow with the safer shortcut.
-
-Signed-off-by: Nicolin Chen <nicoleotsuka@gmail.com>
-Cc: Christoph Hellwig <hch@lst.de>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- arch/s390/pci/pci_dma.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/scsi/sgiwd93.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/arch/s390/pci/pci_dma.c b/arch/s390/pci/pci_dma.c
-index 64b1399a73f0..ecb067acc6d5 100644
---- a/arch/s390/pci/pci_dma.c
-+++ b/arch/s390/pci/pci_dma.c
-@@ -263,8 +263,8 @@ static unsigned long __dma_alloc_iommu(struct device *dev,
- 	struct zpci_dev *zdev = to_zpci(to_pci_dev(dev));
- 	unsigned long boundary_size;
- 
--	boundary_size = ALIGN(dma_get_seg_boundary(dev) + 1,
--			      PAGE_SIZE) >> PAGE_SHIFT;
-+	/* Overflow-free shortcut for: ALIGN(b + 1, 1 << s) >> s */
-+	boundary_size = (dma_get_seg_boundary(dev) >> PAGE_SHIFT) + 1;
- 	return iommu_area_alloc(zdev->iommu_bitmap, zdev->iommu_pages,
- 				start, size, zdev->start_dma >> PAGE_SHIFT,
- 				boundary_size, 0);
+diff --git a/drivers/scsi/sgiwd93.c b/drivers/scsi/sgiwd93.c
+index 133adcf99e9340..1538f65307f22f 100644
+--- a/drivers/scsi/sgiwd93.c
++++ b/drivers/scsi/sgiwd93.c
+@@ -95,7 +95,7 @@ void fill_hpc_entries(struct ip22_hostdata *hd, struct scsi_cmnd *cmd, int din)
+ 	 */
+ 	hcp->desc.pbuf = 0;
+ 	hcp->desc.cntinfo = HPCDMA_EOX;
+-	dma_cache_sync(hd->dev, hd->cpu,
++	dma_sync_single_for_device(hd->dev, hd->dma,
+ 		       (unsigned long)(hcp + 1) - (unsigned long)hd->cpu,
+ 		       DMA_TO_DEVICE);
+ }
+@@ -235,7 +235,7 @@ static int sgiwd93_probe(struct platform_device *pdev)
+ 	hdata = host_to_hostdata(host);
+ 	hdata->dev = &pdev->dev;
+ 	hdata->cpu = dma_alloc_pages(&pdev->dev, HPC_DMA_SIZE, &hdata->dma,
+-				     DMA_BIDIRECTIONAL, GFP_KERNEL);
++				     DMA_TO_DEVICE, GFP_KERNEL);
+ 	if (!hdata->cpu) {
+ 		printk(KERN_WARNING "sgiwd93: Could not allocate memory for "
+ 		       "host %d buffer.\n", unit);
+@@ -275,7 +275,7 @@ static int sgiwd93_probe(struct platform_device *pdev)
+ 	free_irq(irq, host);
+ out_free:
+ 	dma_free_pages(&pdev->dev, HPC_DMA_SIZE, hdata->cpu, hdata->dma,
+-			DMA_BIDIRECTIONAL);
++			DMA_TO_DEVICE);
+ out_put:
+ 	scsi_host_put(host);
+ out:
+@@ -292,7 +292,7 @@ static int sgiwd93_remove(struct platform_device *pdev)
+ 	scsi_remove_host(host);
+ 	free_irq(pd->irq, host);
+ 	dma_free_pages(&pdev->dev, HPC_DMA_SIZE, hdata->cpu, hdata->dma,
+-			DMA_BIDIRECTIONAL);
++			DMA_TO_DEVICE);
+ 	scsi_host_put(host);
+ 	return 0;
+ }
 -- 
-2.17.1
+2.28.0
