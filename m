@@ -1,7 +1,7 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Wed, 19 Aug 2020 06:55:39 +0000
-Subject: [PATCH 12/28] dma-direct: remove dma_direct_{alloc,free}_pages
-Message-Id: <20200819065555.1802761-13-hch@lst.de>
+Date: Wed, 19 Aug 2020 06:55:44 +0000
+Subject: [PATCH 17/28] dma-mapping: move dma_common_{mmap,get_sgtable} out of mapping.c
+Message-Id: <20200819065555.1802761-18-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20200819065555.1802761-1-hch@lst.de>
 In-Reply-To: <20200819065555.1802761-1-hch@lst.de>
@@ -11,148 +11,157 @@ Content-Transfer-Encoding: 7bit
 To: Mauro Carvalho Chehab <mchehab@kernel.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Joonyoung Shim <jy0922.shim@samsung.com>, Seung-Woo Kim <sw0312.kim@samsung.com>, Kyungmin Park <kyungmin.park@samsung.com>, Ben Skeggs <bskeggs@redhat.com>, Pawel Osciak <pawel@osciak.com>, Marek Szyprowski <m.szyprowski@samsung.com>, Matt Porter <mporter@kernel.crashing.org>, iommu@lists.linux-foundation.org
 Cc: Tom Lendacky <thomas.lendacky@amd.com>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-media@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-samsung-soc@vger.kernel.org, nouveau@lists.freedesktop.org, netdev@vger.kernel.org, linux-nvme@lists.infradead.org, linux-scsi@vger.kernel.org, linux-mm@kvack.org, alsa-devel@alsa-project.org
 
-Just merge these helpers into the main dma_direct_{alloc,free} routines,
-as the additional checks are always false for the two callers.
+Add a new file that contains helpera for misc DMA ops, which is only
+built when CONFIG_DMA_OPS is set.
 
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- arch/x86/kernel/amd_gart_64.c |  6 +++---
- include/linux/dma-direct.h    |  4 ----
- kernel/dma/direct.c           | 39 ++++++++++++++---------------------
- kernel/dma/pool.c             |  2 +-
- 4 files changed, 19 insertions(+), 32 deletions(-)
+ kernel/dma/Makefile      |  1 +
+ kernel/dma/mapping.c     | 47 +-----------------------------------
+ kernel/dma/ops_helpers.c | 51 ++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 53 insertions(+), 46 deletions(-)
+ create mode 100644 kernel/dma/ops_helpers.c
 
-diff --git a/arch/x86/kernel/amd_gart_64.c b/arch/x86/kernel/amd_gart_64.c
-index e89031e9c84761..adbf616d35d15d 100644
---- a/arch/x86/kernel/amd_gart_64.c
-+++ b/arch/x86/kernel/amd_gart_64.c
-@@ -468,7 +468,7 @@ gart_alloc_coherent(struct device *dev, size_t size, dma_addr_t *dma_addr,
- {
- 	void *vaddr;
+diff --git a/kernel/dma/Makefile b/kernel/dma/Makefile
+index 32c7c1942bbd6c..dc755ab68aabf9 100644
+--- a/kernel/dma/Makefile
++++ b/kernel/dma/Makefile
+@@ -1,6 +1,7 @@
+ # SPDX-License-Identifier: GPL-2.0
  
--	vaddr = dma_direct_alloc_pages(dev, size, dma_addr, flag, attrs);
-+	vaddr = dma_direct_alloc(dev, size, dma_addr, flag, attrs);
- 	if (!vaddr ||
- 	    !force_iommu || dev->coherent_dma_mask <= DMA_BIT_MASK(24))
- 		return vaddr;
-@@ -480,7 +480,7 @@ gart_alloc_coherent(struct device *dev, size_t size, dma_addr_t *dma_addr,
- 		goto out_free;
- 	return vaddr;
- out_free:
--	dma_direct_free_pages(dev, size, vaddr, *dma_addr, attrs);
-+	dma_direct_free(dev, size, vaddr, *dma_addr, attrs);
- 	return NULL;
+ obj-$(CONFIG_HAS_DMA)			+= mapping.o direct.o
++obj-$(CONFIG_DMA_OPS)			+= ops_helpers.o
+ obj-$(CONFIG_DMA_OPS)			+= dummy.o
+ obj-$(CONFIG_DMA_CMA)			+= contiguous.o
+ obj-$(CONFIG_DMA_DECLARE_COHERENT)	+= coherent.o
+diff --git a/kernel/dma/mapping.c b/kernel/dma/mapping.c
+index 0d129421e75fc8..848c95c27d79ff 100644
+--- a/kernel/dma/mapping.c
++++ b/kernel/dma/mapping.c
+@@ -8,7 +8,7 @@
+ #include <linux/memblock.h> /* for max_pfn */
+ #include <linux/acpi.h>
+ #include <linux/dma-direct.h>
+-#include <linux/dma-noncoherent.h>
++#include <linux/dma-mapping.h>
+ #include <linux/export.h>
+ #include <linux/gfp.h>
+ #include <linux/of_device.h>
+@@ -295,22 +295,6 @@ void dma_sync_sg_for_device(struct device *dev, struct scatterlist *sg,
  }
+ EXPORT_SYMBOL(dma_sync_sg_for_device);
  
-@@ -490,7 +490,7 @@ gart_free_coherent(struct device *dev, size_t size, void *vaddr,
- 		   dma_addr_t dma_addr, unsigned long attrs)
- {
- 	gart_unmap_page(dev, dma_addr, size, DMA_BIDIRECTIONAL, 0);
--	dma_direct_free_pages(dev, size, vaddr, dma_addr, attrs);
-+	dma_direct_free(dev, size, vaddr, dma_addr, attrs);
- }
- 
- static int no_agp;
-diff --git a/include/linux/dma-direct.h b/include/linux/dma-direct.h
-index 738485b3578062..6a96a8ecac7cbc 100644
---- a/include/linux/dma-direct.h
-+++ b/include/linux/dma-direct.h
-@@ -80,10 +80,6 @@ void *dma_direct_alloc(struct device *dev, size_t size, dma_addr_t *dma_handle,
- 		gfp_t gfp, unsigned long attrs);
- void dma_direct_free(struct device *dev, size_t size, void *cpu_addr,
- 		dma_addr_t dma_addr, unsigned long attrs);
--void *dma_direct_alloc_pages(struct device *dev, size_t size,
--		dma_addr_t *dma_handle, gfp_t gfp, unsigned long attrs);
--void dma_direct_free_pages(struct device *dev, size_t size, void *cpu_addr,
--		dma_addr_t dma_addr, unsigned long attrs);
- int dma_direct_get_sgtable(struct device *dev, struct sg_table *sgt,
- 		void *cpu_addr, dma_addr_t dma_addr, size_t size,
- 		unsigned long attrs);
-diff --git a/kernel/dma/direct.c b/kernel/dma/direct.c
-index 1123e767f4315f..8da9a62dd9a72c 100644
---- a/kernel/dma/direct.c
-+++ b/kernel/dma/direct.c
-@@ -151,13 +151,18 @@ static struct page *__dma_direct_alloc_pages(struct device *dev, size_t size,
- 	return page;
- }
- 
--void *dma_direct_alloc_pages(struct device *dev, size_t size,
-+void *dma_direct_alloc(struct device *dev, size_t size,
- 		dma_addr_t *dma_handle, gfp_t gfp, unsigned long attrs)
- {
- 	struct page *page;
- 	void *ret;
- 	int err;
- 
-+	if (!IS_ENABLED(CONFIG_ARCH_HAS_DMA_SET_UNCACHED) &&
-+	    !IS_ENABLED(CONFIG_DMA_DIRECT_REMAP) &&
-+	    dma_alloc_need_uncached(dev, attrs))
-+		return arch_dma_alloc(dev, size, dma_handle, gfp, attrs);
-+
- 	size = PAGE_ALIGN(size);
- 
- 	if (dma_should_alloc_from_pool(dev, gfp, attrs)) {
-@@ -251,11 +256,18 @@ void *dma_direct_alloc_pages(struct device *dev, size_t size,
- 	return NULL;
- }
- 
--void dma_direct_free_pages(struct device *dev, size_t size, void *cpu_addr,
--		dma_addr_t dma_addr, unsigned long attrs)
-+void dma_direct_free(struct device *dev, size_t size,
-+		void *cpu_addr, dma_addr_t dma_addr, unsigned long attrs)
- {
- 	unsigned int page_order = get_order(size);
- 
-+	if (!IS_ENABLED(CONFIG_ARCH_HAS_DMA_SET_UNCACHED) &&
-+	    !IS_ENABLED(CONFIG_DMA_DIRECT_REMAP) &&
-+	    dma_alloc_need_uncached(dev, attrs)) {
-+		arch_dma_free(dev, size, cpu_addr, dma_addr, attrs);
-+		return;
-+	}
-+
- 	/* If cpu_addr is not from an atomic pool, dma_free_from_pool() fails */
- 	if (dma_should_free_from_pool(dev, attrs) &&
- 	    dma_free_from_pool(dev, cpu_addr, PAGE_ALIGN(size)))
-@@ -279,27 +291,6 @@ void dma_direct_free_pages(struct device *dev, size_t size, void *cpu_addr,
- 	dma_free_contiguous(dev, dma_direct_to_page(dev, dma_addr), size);
- }
- 
--void *dma_direct_alloc(struct device *dev, size_t size,
--		dma_addr_t *dma_handle, gfp_t gfp, unsigned long attrs)
+-/*
+- * Create scatter-list for the already allocated DMA buffer.
+- */
+-int dma_common_get_sgtable(struct device *dev, struct sg_table *sgt,
+-		 void *cpu_addr, dma_addr_t dma_addr, size_t size,
+-		 unsigned long attrs)
 -{
--	if (!IS_ENABLED(CONFIG_ARCH_HAS_DMA_SET_UNCACHED) &&
--	    !IS_ENABLED(CONFIG_DMA_DIRECT_REMAP) &&
--	    dma_alloc_need_uncached(dev, attrs))
--		return arch_dma_alloc(dev, size, dma_handle, gfp, attrs);
--	return dma_direct_alloc_pages(dev, size, dma_handle, gfp, attrs);
+-	struct page *page = virt_to_page(cpu_addr);
+-	int ret;
+-
+-	ret = sg_alloc_table(sgt, 1, GFP_KERNEL);
+-	if (!ret)
+-		sg_set_page(sgt->sgl, page, PAGE_ALIGN(size), 0);
+-	return ret;
 -}
 -
--void dma_direct_free(struct device *dev, size_t size,
--		void *cpu_addr, dma_addr_t dma_addr, unsigned long attrs)
+ /*
+  * The whole dma_get_sgtable() idea is fundamentally unsafe - it seems
+  * that the intention is to allow exporting memory allocated via the
+@@ -358,35 +342,6 @@ pgprot_t dma_pgprot(struct device *dev, pgprot_t prot, unsigned long attrs)
+ }
+ #endif /* CONFIG_MMU */
+ 
+-/*
+- * Create userspace mapping for the DMA-coherent memory.
+- */
+-int dma_common_mmap(struct device *dev, struct vm_area_struct *vma,
+-		void *cpu_addr, dma_addr_t dma_addr, size_t size,
+-		unsigned long attrs)
 -{
--	if (!IS_ENABLED(CONFIG_ARCH_HAS_DMA_SET_UNCACHED) &&
--	    !IS_ENABLED(CONFIG_DMA_DIRECT_REMAP) &&
--	    dma_alloc_need_uncached(dev, attrs))
--		arch_dma_free(dev, size, cpu_addr, dma_addr, attrs);
--	else
--		dma_direct_free_pages(dev, size, cpu_addr, dma_addr, attrs);
+-#ifdef CONFIG_MMU
+-	unsigned long user_count = vma_pages(vma);
+-	unsigned long count = PAGE_ALIGN(size) >> PAGE_SHIFT;
+-	unsigned long off = vma->vm_pgoff;
+-	int ret = -ENXIO;
+-
+-	vma->vm_page_prot = dma_pgprot(dev, vma->vm_page_prot, attrs);
+-
+-	if (dma_mmap_from_dev_coherent(dev, vma, cpu_addr, size, &ret))
+-		return ret;
+-
+-	if (off >= count || user_count > count - off)
+-		return -ENXIO;
+-
+-	return remap_pfn_range(vma, vma->vm_start,
+-			page_to_pfn(virt_to_page(cpu_addr)) + vma->vm_pgoff,
+-			user_count << PAGE_SHIFT, vma->vm_page_prot);
+-#else
+-	return -ENXIO;
+-#endif /* CONFIG_MMU */
 -}
 -
- #if defined(CONFIG_ARCH_HAS_SYNC_DMA_FOR_DEVICE) || \
-     defined(CONFIG_SWIOTLB)
- void dma_direct_sync_sg_for_device(struct device *dev,
-diff --git a/kernel/dma/pool.c b/kernel/dma/pool.c
-index 6bc74a2d51273e..222cebf1f10548 100644
---- a/kernel/dma/pool.c
-+++ b/kernel/dma/pool.c
-@@ -86,7 +86,7 @@ static int atomic_pool_expand(struct gen_pool *pool, size_t pool_size,
- #endif
- 	/*
- 	 * Memory in the atomic DMA pools must be unencrypted, the pools do not
--	 * shrink so no re-encryption occurs in dma_direct_free_pages().
-+	 * shrink so no re-encryption occurs in dma_direct_free().
- 	 */
- 	ret = set_memory_decrypted((unsigned long)page_to_virt(page),
- 				   1 << order);
+ /**
+  * dma_can_mmap - check if a given device supports dma_mmap_*
+  * @dev: device to check
+diff --git a/kernel/dma/ops_helpers.c b/kernel/dma/ops_helpers.c
+new file mode 100644
+index 00000000000000..e443c69be4299f
+--- /dev/null
++++ b/kernel/dma/ops_helpers.c
+@@ -0,0 +1,51 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Helpers for DMA ops implementations.  These generally rely on the fact that
++ * the allocated memory contains normal pages in the direct kernel mapping.
++ */
++#include <linux/dma-noncoherent.h>
++
++/*
++ * Create scatter-list for the already allocated DMA buffer.
++ */
++int dma_common_get_sgtable(struct device *dev, struct sg_table *sgt,
++		 void *cpu_addr, dma_addr_t dma_addr, size_t size,
++		 unsigned long attrs)
++{
++	struct page *page = virt_to_page(cpu_addr);
++	int ret;
++
++	ret = sg_alloc_table(sgt, 1, GFP_KERNEL);
++	if (!ret)
++		sg_set_page(sgt->sgl, page, PAGE_ALIGN(size), 0);
++	return ret;
++}
++
++/*
++ * Create userspace mapping for the DMA-coherent memory.
++ */
++int dma_common_mmap(struct device *dev, struct vm_area_struct *vma,
++		void *cpu_addr, dma_addr_t dma_addr, size_t size,
++		unsigned long attrs)
++{
++#ifdef CONFIG_MMU
++	unsigned long user_count = vma_pages(vma);
++	unsigned long count = PAGE_ALIGN(size) >> PAGE_SHIFT;
++	unsigned long off = vma->vm_pgoff;
++	int ret = -ENXIO;
++
++	vma->vm_page_prot = dma_pgprot(dev, vma->vm_page_prot, attrs);
++
++	if (dma_mmap_from_dev_coherent(dev, vma, cpu_addr, size, &ret))
++		return ret;
++
++	if (off >= count || user_count > count - off)
++		return -ENXIO;
++
++	return remap_pfn_range(vma, vma->vm_start,
++			page_to_pfn(virt_to_page(cpu_addr)) + vma->vm_pgoff,
++			user_count << PAGE_SHIFT, vma->vm_page_prot);
++#else
++	return -ENXIO;
++#endif /* CONFIG_MMU */
++}
 -- 
 2.28.0
