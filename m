@@ -1,54 +1,93 @@
-From: Nicolin Chen <nicoleotsuka@gmail.com>
-Date: Mon, 31 Aug 2020 20:38:07 +0000
-Subject: [RESEND][PATCH 3/7] ia64/sba_iommu: Avoid overflow at boundary_size
-Message-Id: <20200831203811.8494-4-nicoleotsuka@gmail.com>
+From: Christoph Hellwig <hch@lst.de>
+Date: Wed, 19 Aug 2020 06:55:37 +0000
+Subject: [PATCH 10/28] MIPS/jazzdma: decouple from dma-direct
+Message-Id: <20200819065555.1802761-11-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200831203811.8494-1-nicoleotsuka@gmail.com>
-In-Reply-To: <20200831203811.8494-1-nicoleotsuka@gmail.com>
+References: <20200819065555.1802761-1-hch@lst.de>
+In-Reply-To: <20200819065555.1802761-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, rth@twiddle.net, ink@jurassic.park.msu.ru, mattst88@gmail.com, tony.luck@intel.com, fenghua.yu@intel.com, schnelle@linux.ibm.com, gerald.schaefer@linux.ibm.com, hca@linux.ibm.com, gor@linux.ibm.com, borntraeger@de.ibm.com, davem@davemloft.net, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, x86@kernel.org, hpa@zytor.com, James.Bottomley@HansenPartnership.com, deller@gmx.de
-Cc: sfr@canb.auug.org.au, hch@lst.de, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-parisc@vger.kernel.org
+To: Mauro Carvalho Chehab <mchehab@kernel.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Joonyoung Shim <jy0922.shim@samsung.com>, Seung-Woo Kim <sw0312.kim@samsung.com>, Kyungmin Park <kyungmin.park@samsung.com>, Ben Skeggs <bskeggs@redhat.com>, Pawel Osciak <pawel@osciak.com>, Marek Szyprowski <m.szyprowski@samsung.com>, Matt Porter <mporter@kernel.crashing.org>, iommu@lists.linux-foundation.org
+Cc: Tom Lendacky <thomas.lendacky@amd.com>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-media@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-samsung-soc@vger.kernel.org, nouveau@lists.freedesktop.org, netdev@vger.kernel.org, linux-nvme@lists.infradead.org, linux-scsi@vger.kernel.org, linux-mm@kvack.org, alsa-devel@alsa-project.org
 
-The boundary_size might be as large as ULONG_MAX, which means
-that a device has no specific boundary limit. So either "+ 1"
-or passing it to ALIGN() would potentially overflow.
+The jazzdma ops implement support for a very basic IOMMU.  Thus we really
+should not use the dma-direct code that takes physical address limits
+into account.  This survived through the great MIPS DMA ops cleanup mostly
+because I was lazy, but now it is time to fully split the implementations.
 
-According to kernel defines:
-    #define ALIGN_MASK(x, mask) (((x) + (mask)) & ~(mask))
-    #define ALIGN(x, a)	ALIGN_MASK(x, (typeof(x))(a) - 1)
-
-We can simplify the logic here:
-  ALIGN(boundary + 1, 1 << shift) >> shift
-= ALIGN_MASK(b + 1, (1 << s) - 1) >> s
-= {[b + 1 + (1 << s) - 1] & ~[(1 << s) - 1]} >> s
-= [b + 1 + (1 << s) - 1] >> s
-= [b + (1 << s)] >> s
-= (b >> s) + 1
-
-So fixing a potential overflow with the safer shortcut.
-
-Signed-off-by: Nicolin Chen <nicoleotsuka@gmail.com>
-Cc: Christoph Hellwig <hch@lst.de>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- arch/ia64/hp/common/sba_iommu.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ arch/mips/jazz/jazzdma.c | 32 +++++++++++++++++++++-----------
+ 1 file changed, 21 insertions(+), 11 deletions(-)
 
-diff --git a/arch/ia64/hp/common/sba_iommu.c b/arch/ia64/hp/common/sba_iommu.c
-index 656a4888c300..945954903bb0 100644
---- a/arch/ia64/hp/common/sba_iommu.c
-+++ b/arch/ia64/hp/common/sba_iommu.c
-@@ -485,8 +485,8 @@ sba_search_bitmap(struct ioc *ioc, struct device *dev,
- 	ASSERT(((unsigned long) ioc->res_hint & (sizeof(unsigned long) - 1UL)) = 0);
- 	ASSERT(res_ptr < res_end);
+diff --git a/arch/mips/jazz/jazzdma.c b/arch/mips/jazz/jazzdma.c
+index fe40dbed04c1d6..d0b5a2ba2b1a8a 100644
+--- a/arch/mips/jazz/jazzdma.c
++++ b/arch/mips/jazz/jazzdma.c
+@@ -16,7 +16,6 @@
+ #include <linux/memblock.h>
+ #include <linux/spinlock.h>
+ #include <linux/gfp.h>
+-#include <linux/dma-direct.h>
+ #include <linux/dma-noncoherent.h>
+ #include <asm/mipsregs.h>
+ #include <asm/jazz.h>
+@@ -492,26 +491,38 @@ int vdma_get_enable(int channel)
+ static void *jazz_dma_alloc(struct device *dev, size_t size,
+ 		dma_addr_t *dma_handle, gfp_t gfp, unsigned long attrs)
+ {
++	struct page *page;
+ 	void *ret;
  
--	boundary_size = (unsigned long long)dma_get_seg_boundary(dev) + 1;
--	boundary_size = ALIGN(boundary_size, 1ULL << iovp_shift) >> iovp_shift;
-+	/* Overflow-free shortcut for: ALIGN(b + 1, 1 << s) >> s */
-+	boundary_size = (dma_get_seg_boundary(dev) >> iovp_shift) + 1;
+-	ret = dma_direct_alloc_pages(dev, size, dma_handle, gfp, attrs);
+-	if (!ret)
+-		return NULL;
++	if (attrs & DMA_ATTR_NO_WARN)
++		gfp |= __GFP_NOWARN;
  
- 	BUG_ON(ioc->ibase & ~iovp_mask);
- 	shift = ioc->ibase >> iovp_shift;
+-	*dma_handle = vdma_alloc(virt_to_phys(ret), size);
+-	if (*dma_handle = DMA_MAPPING_ERROR) {
+-		dma_direct_free_pages(dev, size, ret, *dma_handle, attrs);
++	size = PAGE_ALIGN(size);
++	page = alloc_pages(gfp, get_order(size));
++	if (!page)
+ 		return NULL;
+-	}
++	ret = page_address(page);
++	*dma_handle = vdma_alloc(virt_to_phys(ret), size);
++	if (*dma_handle = DMA_MAPPING_ERROR)
++		goto out_free_pages;
++
++	if (attrs & DMA_ATTR_NON_CONSISTENT)
++		return ret;
++	arch_dma_prep_coherent(page, size);
++	return (void *)(UNCAC_BASE + __pa(ret));
+ 
+-	return ret;
++out_free_pages:
++	__free_pages(page, get_order(size));
++	return NULL;
+ }
+ 
+ static void jazz_dma_free(struct device *dev, size_t size, void *vaddr,
+ 		dma_addr_t dma_handle, unsigned long attrs)
+ {
+ 	vdma_free(dma_handle);
+-	dma_direct_free_pages(dev, size, vaddr, dma_handle, attrs);
++	if (!(attrs & DMA_ATTR_NON_CONSISTENT))
++		vaddr = __va(vaddr - UNCAC_BASE);
++	__free_pages(virt_to_page(vaddr), get_order(size));
+ }
+ 
+ static dma_addr_t jazz_dma_map_page(struct device *dev, struct page *page,
+@@ -608,7 +619,6 @@ const struct dma_map_ops jazz_dma_ops = {
+ 	.sync_single_for_device	= jazz_dma_sync_single_for_device,
+ 	.sync_sg_for_cpu	= jazz_dma_sync_sg_for_cpu,
+ 	.sync_sg_for_device	= jazz_dma_sync_sg_for_device,
+-	.dma_supported		= dma_direct_supported,
+ 	.cache_sync		= arch_dma_cache_sync,
+ 	.mmap			= dma_common_mmap,
+ 	.get_sgtable		= dma_common_get_sgtable,
 -- 
-2.17.1
+2.28.0
