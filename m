@@ -1,60 +1,37 @@
-From: Jonathan Cameron <Jonathan.Cameron@huawei.com>
-Date: Tue, 18 Aug 2020 14:24:27 +0000
-Subject: [PATCH v3 3/6] ACPI: Remove side effect of partly creating a node in acpi_map_pxm_to_online_node
-Message-Id: <20200818142430.1156547-4-Jonathan.Cameron@huawei.com>
+From: Christoph Hellwig <hch@lst.de>
+Date: Wed, 19 Aug 2020 06:55:30 +0000
+Subject: [PATCH 03/28] drm/nouveau/gk20a: stop setting DMA_ATTR_NON_CONSISTENT
+Message-Id: <20200819065555.1802761-4-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200818142430.1156547-1-Jonathan.Cameron@huawei.com>
-In-Reply-To: <20200818142430.1156547-1-Jonathan.Cameron@huawei.com>
+References: <20200819065555.1802761-1-hch@lst.de>
+In-Reply-To: <20200819065555.1802761-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org, linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org, x86@kernel.org
-Cc: Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>, Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org, martin@geanix.com, Ingo Molnar <mingo@redhat.com>, linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, linuxarm@huawei.com, Dan Williams <dan.j.williams@intel.com>, Song Bao Hua <song.bao.hua@hisilicon.com>, Jonathan Cameron <Jonathan.Cameron@huawei.com>
+To: Mauro Carvalho Chehab <mchehab@kernel.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Joonyoung Shim <jy0922.shim@samsung.com>, Seung-Woo Kim <sw0312.kim@samsung.com>, Kyungmin Park <kyungmin.park@samsung.com>, Ben Skeggs <bskeggs@redhat.com>, Pawel Osciak <pawel@osciak.com>, Marek Szyprowski <m.szyprowski@samsung.com>, Matt Porter <mporter@kernel.crashing.org>, iommu@lists.linux-foundation.org
+Cc: Tom Lendacky <thomas.lendacky@amd.com>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-media@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-samsung-soc@vger.kernel.org, nouveau@lists.freedesktop.org, netdev@vger.kernel.org, linux-nvme@lists.infradead.org, linux-scsi@vger.kernel.org, linux-mm@kvack.org, alsa-devel@alsa-project.org
 
-Whilst this function will only return an online node, it can have the side
-effect of partially creating a new node.  The existing comments suggest this
-is intentional, but the usecases of this function are related to NFIT and
-HMAT parsing, neither of which should be able to define new nodes.
+DMA_ATTR_NON_CONSISTENT is a no-op except on PARISC and some mips
+configs, so don't set it in this ARM specific driver part.
 
-One route by which the existing behaviour would cause a crash is to have a
-_PXM entry in ACPI DSDT attempt to place a device within this partly
-created proximity domain. A subsequent call to devm_kzalloc or similar
-would result in an attempt to allocate memory on a node for which zone
-lists have not been set up and a null pointer dereference.
-
-We prevent such cases by switching to pxm_to_node() within
-acpi_map_pxm_to_online_node which cannot cause a new node to be partly
-created. If one would previously have been created we now return
-NO_NUMA_NODE.  Documentation updated to reflect this change.
-We may want to think about renaming acpi_map_pxm_to_online_node to
-pxm_to_online_node to reflect this change.
-
-Signed-off-by: Jonathan Cameron <Jonathan.Cameron@huawei.com>
-Reviewed-by: Hanjun Guo <guohanjun@huawei.com>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- include/linux/acpi.h | 7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
+ drivers/gpu/drm/nouveau/nvkm/subdev/instmem/gk20a.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/include/linux/acpi.h b/include/linux/acpi.h
-index 1e4cdc6c7ae2..a9fd122ae878 100644
---- a/include/linux/acpi.h
-+++ b/include/linux/acpi.h
-@@ -430,13 +430,12 @@ int acpi_get_node(acpi_handle handle);
-  * ACPI device drivers, which are called after the NUMA initialization has
-  * completed in the kernel, can call this interface to obtain their device
-  * NUMA topology from ACPI tables.  Such drivers do not have to deal with
-- * offline nodes.  A node may be offline when a device proximity ID is
-- * unique, SRAT memory entry does not exist, or NUMA is disabled, ex.
-- * "numa=off" on x86.
-+ * offline nodes.  A node may be offline when SRAT memory entry does not exist,
-+ * or NUMA is disabled, ex. "numa=off" on x86.
-  */
- static inline int acpi_map_pxm_to_online_node(int pxm)
- {
--	int node = acpi_map_pxm_to_node(pxm);
-+	int node = pxm_to_node(pxm);
+diff --git a/drivers/gpu/drm/nouveau/nvkm/subdev/instmem/gk20a.c b/drivers/gpu/drm/nouveau/nvkm/subdev/instmem/gk20a.c
+index 985f2990ab0dda..13d4d7ac0697b4 100644
+--- a/drivers/gpu/drm/nouveau/nvkm/subdev/instmem/gk20a.c
++++ b/drivers/gpu/drm/nouveau/nvkm/subdev/instmem/gk20a.c
+@@ -594,8 +594,7 @@ gk20a_instmem_new(struct nvkm_device *device, int index,
  
- 	return numa_map_to_online_node(node);
- }
+ 		nvkm_info(&imem->base.subdev, "using IOMMU\n");
+ 	} else {
+-		imem->attrs = DMA_ATTR_NON_CONSISTENT |
+-			      DMA_ATTR_WEAK_ORDERING |
++		imem->attrs = DMA_ATTR_WEAK_ORDERING |
+ 			      DMA_ATTR_WRITE_COMBINE;
+ 
+ 		nvkm_info(&imem->base.subdev, "using DMA API\n");
 -- 
-2.19.1
+2.28.0
