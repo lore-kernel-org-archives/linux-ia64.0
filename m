@@ -1,7 +1,7 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Wed, 19 Aug 2020 06:55:35 +0000
-Subject: [PATCH 08/28] MIPS: make dma_sync_*_for_cpu a little less overzealous
-Message-Id: <20200819065555.1802761-9-hch@lst.de>
+Date: Wed, 19 Aug 2020 06:55:54 +0000
+Subject: [PATCH 27/28] nvme-pci: fix PRP pool size
+Message-Id: <20200819065555.1802761-28-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20200819065555.1802761-1-hch@lst.de>
 In-Reply-To: <20200819065555.1802761-1-hch@lst.de>
@@ -11,124 +11,28 @@ Content-Transfer-Encoding: 7bit
 To: Mauro Carvalho Chehab <mchehab@kernel.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Joonyoung Shim <jy0922.shim@samsung.com>, Seung-Woo Kim <sw0312.kim@samsung.com>, Kyungmin Park <kyungmin.park@samsung.com>, Ben Skeggs <bskeggs@redhat.com>, Pawel Osciak <pawel@osciak.com>, Marek Szyprowski <m.szyprowski@samsung.com>, Matt Porter <mporter@kernel.crashing.org>, iommu@lists.linux-foundation.org
 Cc: Tom Lendacky <thomas.lendacky@amd.com>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-media@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-samsung-soc@vger.kernel.org, nouveau@lists.freedesktop.org, netdev@vger.kernel.org, linux-nvme@lists.infradead.org, linux-scsi@vger.kernel.org, linux-mm@kvack.org, alsa-devel@alsa-project.org
 
-When transferring DMA ownership back to the CPU there should never
-be any writeback from the cache, as the buffer was owned by the
-device until now.  Instead it should just be invalidated for the
-mapping directions where the device could have written data.
-Note that the changes rely on the fact that kmap_atomic is stubbed
-out for the !HIGHMEM case to simplify the code a bit.
+All operations are based on the controller, not the host page size.
+Switch the dma pool to use the controller page size as well to avoid
+massive overallocations on large page size systems.
 
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- arch/mips/mm/dma-noncoherent.c | 44 +++++++++++++++++++++-------------
- 1 file changed, 28 insertions(+), 16 deletions(-)
+ drivers/nvme/host/pci.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/arch/mips/mm/dma-noncoherent.c b/arch/mips/mm/dma-noncoherent.c
-index 563c2c0d0c8193..97a14adbafc99c 100644
---- a/arch/mips/mm/dma-noncoherent.c
-+++ b/arch/mips/mm/dma-noncoherent.c
-@@ -55,22 +55,34 @@ void *arch_dma_set_uncached(void *addr, size_t size)
- 	return (void *)(__pa(addr) + UNCAC_BASE);
- }
- 
--static inline void dma_sync_virt(void *addr, size_t size,
-+static inline void dma_sync_virt_for_device(void *addr, size_t size,
- 		enum dma_data_direction dir)
+diff --git a/drivers/nvme/host/pci.c b/drivers/nvme/host/pci.c
+index ba725ae47305ef..a33adab62acbaf 100644
+--- a/drivers/nvme/host/pci.c
++++ b/drivers/nvme/host/pci.c
+@@ -2460,7 +2460,8 @@ static int nvme_disable_prepare_reset(struct nvme_dev *dev, bool shutdown)
+ static int nvme_setup_prp_pools(struct nvme_dev *dev)
  {
- 	switch (dir) {
- 	case DMA_TO_DEVICE:
- 		dma_cache_wback((unsigned long)addr, size);
- 		break;
--
- 	case DMA_FROM_DEVICE:
- 		dma_cache_inv((unsigned long)addr, size);
- 		break;
--
- 	case DMA_BIDIRECTIONAL:
- 		dma_cache_wback_inv((unsigned long)addr, size);
- 		break;
-+	default:
-+		BUG();
-+	}
-+}
+ 	dev->prp_page_pool = dma_pool_create("prp list page", dev->dev,
+-						PAGE_SIZE, PAGE_SIZE, 0);
++						NVME_CTRL_PAGE_SIZE,
++						NVME_CTRL_PAGE_SIZE, 0);
+ 	if (!dev->prp_page_pool)
+ 		return -ENOMEM;
  
-+static inline void dma_sync_virt_for_cpu(void *addr, size_t size,
-+		enum dma_data_direction dir)
-+{
-+	switch (dir) {
-+	case DMA_TO_DEVICE:
-+		break;
-+	case DMA_FROM_DEVICE:
-+	case DMA_BIDIRECTIONAL:
-+		dma_cache_inv((unsigned long)addr, size);
-+		break;
- 	default:
- 		BUG();
- 	}
-@@ -82,7 +94,7 @@ static inline void dma_sync_virt(void *addr, size_t size,
-  * configured then the bulk of this loop gets optimized out.
-  */
- static inline void dma_sync_phys(phys_addr_t paddr, size_t size,
--		enum dma_data_direction dir)
-+		enum dma_data_direction dir, bool for_device)
- {
- 	struct page *page = pfn_to_page(paddr >> PAGE_SHIFT);
- 	unsigned long offset = paddr & ~PAGE_MASK;
-@@ -90,18 +102,20 @@ static inline void dma_sync_phys(phys_addr_t paddr, size_t size,
- 
- 	do {
- 		size_t len = left;
-+		void *addr;
- 
- 		if (PageHighMem(page)) {
--			void *addr;
--
- 			if (offset + len > PAGE_SIZE)
- 				len = PAGE_SIZE - offset;
-+		}
-+
-+		addr = kmap_atomic(page);
-+		if (for_device)
-+			dma_sync_virt_for_device(addr + offset, len, dir);
-+		else
-+			dma_sync_virt_for_cpu(addr + offset, len, dir);
-+		kunmap_atomic(addr);
- 
--			addr = kmap_atomic(page);
--			dma_sync_virt(addr + offset, len, dir);
--			kunmap_atomic(addr);
--		} else
--			dma_sync_virt(page_address(page) + offset, size, dir);
- 		offset = 0;
- 		page++;
- 		left -= len;
-@@ -111,7 +125,7 @@ static inline void dma_sync_phys(phys_addr_t paddr, size_t size,
- void arch_sync_dma_for_device(phys_addr_t paddr, size_t size,
- 		enum dma_data_direction dir)
- {
--	dma_sync_phys(paddr, size, dir);
-+	dma_sync_phys(paddr, size, dir, true);
- }
- 
- #ifdef CONFIG_ARCH_HAS_SYNC_DMA_FOR_CPU
-@@ -119,16 +133,14 @@ void arch_sync_dma_for_cpu(phys_addr_t paddr, size_t size,
- 		enum dma_data_direction dir)
- {
- 	if (cpu_needs_post_dma_flush())
--		dma_sync_phys(paddr, size, dir);
-+		dma_sync_phys(paddr, size, dir, false);
- }
- #endif
- 
- void arch_dma_cache_sync(struct device *dev, void *vaddr, size_t size,
- 		enum dma_data_direction direction)
- {
--	BUG_ON(direction = DMA_NONE);
--
--	dma_sync_virt(vaddr, size, direction);
-+	dma_sync_virt_for_device(vaddr, size, direction);
- }
- 
- #ifdef CONFIG_DMA_PERDEV_COHERENT
 -- 
 2.28.0
