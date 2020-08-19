@@ -1,7 +1,7 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Wed, 19 Aug 2020 06:55:47 +0000
-Subject: [PATCH 20/28] sgiwd93: convert from dma_cache_sync to dma_sync_single_for_device
-Message-Id: <20200819065555.1802761-21-hch@lst.de>
+Date: Wed, 19 Aug 2020 06:55:51 +0000
+Subject: [PATCH 24/28] 53c700: convert from dma_cache_sync to dma_sync_single_for_device
+Message-Id: <20200819065555.1802761-25-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20200819065555.1802761-1-hch@lst.de>
 In-Reply-To: <20200819065555.1802761-1-hch@lst.de>
@@ -12,53 +12,43 @@ To: Mauro Carvalho Chehab <mchehab@kernel.org>, Thomas Bogendoerfer <tsbogend@al
 Cc: Tom Lendacky <thomas.lendacky@amd.com>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-media@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-samsung-soc@vger.kernel.org, nouveau@lists.freedesktop.org, netdev@vger.kernel.org, linux-nvme@lists.infradead.org, linux-scsi@vger.kernel.org, linux-mm@kvack.org, alsa-devel@alsa-project.org
 
 Use the proper modern API to transfer cache ownership for incoherent DMA.
-This also means we can allocate the memory as DMA_TO_DEVICE instead
-of bidirectional.
 
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- drivers/scsi/sgiwd93.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/scsi/53c700.c | 11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/scsi/sgiwd93.c b/drivers/scsi/sgiwd93.c
-index 133adcf99e9340..1538f65307f22f 100644
---- a/drivers/scsi/sgiwd93.c
-+++ b/drivers/scsi/sgiwd93.c
-@@ -95,7 +95,7 @@ void fill_hpc_entries(struct ip22_hostdata *hd, struct scsi_cmnd *cmd, int din)
- 	 */
- 	hcp->desc.pbuf = 0;
- 	hcp->desc.cntinfo = HPCDMA_EOX;
--	dma_cache_sync(hd->dev, hd->cpu,
-+	dma_sync_single_for_device(hd->dev, hd->dma,
- 		       (unsigned long)(hcp + 1) - (unsigned long)hd->cpu,
- 		       DMA_TO_DEVICE);
+diff --git a/drivers/scsi/53c700.c b/drivers/scsi/53c700.c
+index 521950d0731e4a..57a08c42d00325 100644
+--- a/drivers/scsi/53c700.c
++++ b/drivers/scsi/53c700.c
+@@ -269,18 +269,25 @@ NCR_700_get_SXFER(struct scsi_device *SDp)
+ 					      spi_period(SDp->sdev_target));
  }
-@@ -235,7 +235,7 @@ static int sgiwd93_probe(struct platform_device *pdev)
- 	hdata = host_to_hostdata(host);
- 	hdata->dev = &pdev->dev;
- 	hdata->cpu = dma_alloc_pages(&pdev->dev, HPC_DMA_SIZE, &hdata->dma,
--				     DMA_BIDIRECTIONAL, GFP_KERNEL);
-+				     DMA_TO_DEVICE, GFP_KERNEL);
- 	if (!hdata->cpu) {
- 		printk(KERN_WARNING "sgiwd93: Could not allocate memory for "
- 		       "host %d buffer.\n", unit);
-@@ -275,7 +275,7 @@ static int sgiwd93_probe(struct platform_device *pdev)
- 	free_irq(irq, host);
- out_free:
- 	dma_free_pages(&pdev->dev, HPC_DMA_SIZE, hdata->cpu, hdata->dma,
--			DMA_BIDIRECTIONAL);
-+			DMA_TO_DEVICE);
- out_put:
- 	scsi_host_put(host);
- out:
-@@ -292,7 +292,7 @@ static int sgiwd93_remove(struct platform_device *pdev)
- 	scsi_remove_host(host);
- 	free_irq(pd->irq, host);
- 	dma_free_pages(&pdev->dev, HPC_DMA_SIZE, hdata->cpu, hdata->dma,
--			DMA_BIDIRECTIONAL);
-+			DMA_TO_DEVICE);
- 	scsi_host_put(host);
- 	return 0;
+ 
++static inline dma_addr_t virt_to_dma(struct NCR_700_Host_Parameters *h, void *p)
++{
++	return h->pScript + ((uintptr_t)p - (uintptr_t)h->script);
++}
++
+ static inline void dma_sync_to_dev(struct NCR_700_Host_Parameters *h,
+ 		void *addr, size_t size)
+ {
+ 	if (h->noncoherent)
+-		dma_cache_sync(h->dev, addr, size, DMA_TO_DEVICE);
++		dma_sync_single_for_device(h->dev, virt_to_dma(h, addr),
++					   size, DMA_BIDIRECTIONAL);
  }
+ 
+ static inline void dma_sync_from_dev(struct NCR_700_Host_Parameters *h,
+ 		void *addr, size_t size)
+ {
+ 	if (h->noncoherent)
+-		dma_cache_sync(h->dev, addr, size, DMA_FROM_DEVICE);
++		dma_sync_single_for_device(h->dev, virt_to_dma(h, addr), size,
++					   DMA_BIDIRECTIONAL);
+ }
+ 
+ struct Scsi_Host *
 -- 
 2.28.0
