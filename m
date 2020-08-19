@@ -1,84 +1,49 @@
-From: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
-Date: Tue, 11 Aug 2020 18:16:57 +0000
-Subject: Re: "mm: consolidate pte_index() and pte_offset_*() definitions" broke ia64
-Message-Id: <fe587e09-2835-87b9-ceed-89cdb81f327c@physik.fu-berlin.de>
+From: Christoph Hellwig <hch@lst.de>
+Date: Wed, 19 Aug 2020 06:55:49 +0000
+Subject: [PATCH 22/28] sgiseeq: convert from dma_cache_sync to dma_sync_single_for_device
+Message-Id: <20200819065555.1802761-23-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <fa71f38e-b191-597a-6359-502cba197050@physik.fu-berlin.de>
- <AA5E212C-56ED-4DB9-9CC1-EB13745DD5AF@jrtc27.com>
-In-Reply-To: <AA5E212C-56ED-4DB9-9CC1-EB13745DD5AF@jrtc27.com>
+References: <20200819065555.1802761-1-hch@lst.de>
+In-Reply-To: <20200819065555.1802761-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jessica Clarke <jrtc27@jrtc27.com>
-Cc: Mike Rapoport <rppt@linux.ibm.com>, Tony Luck <tony.luck@intel.com>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Anatoly Pugachev <matorola@gmail.com>, Sergei Trofimovich <slyfox@gentoo.org>, Linux MM <linux-mm@kvack.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Frank Scheiner <frank.scheiner@web.de>
+To: Mauro Carvalho Chehab <mchehab@kernel.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Joonyoung Shim <jy0922.shim@samsung.com>, Seung-Woo Kim <sw0312.kim@samsung.com>, Kyungmin Park <kyungmin.park@samsung.com>, Ben Skeggs <bskeggs@redhat.com>, Pawel Osciak <pawel@osciak.com>, Marek Szyprowski <m.szyprowski@samsung.com>, Matt Porter <mporter@kernel.crashing.org>, iommu@lists.linux-foundation.org
+Cc: Tom Lendacky <thomas.lendacky@amd.com>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-media@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-samsung-soc@vger.kernel.org, nouveau@lists.freedesktop.org, netdev@vger.kernel.org, linux-nvme@lists.infradead.org, linux-scsi@vger.kernel.org, linux-mm@kvack.org, alsa-devel@alsa-project.org
 
-On 8/11/20 7:20 PM, Jessica Clarke wrote:
-> From 6c13e42cb95025e5f7ea3ac1a1262817bf3fcfec Mon Sep 17 00:00:00 2001
-> From: Jessica Clarke <jrtc27@jrtc27.com>
-> Date: Tue, 11 Aug 2020 19:18:28 +0200
-> Subject: [PATCH] arch/ia64: Restore arch-specific pgd_offset_k implementation
-> 
-> IA-64 is special and treats pgd_offset_k differently from pgd_offset by
-> not including the region number, and init_mm's PGD is such that it only
-> points to the kernel's region's PGD. This was broken in 974b9b2c68 which
-> unified the two and therfore included the region number, causing it to
-> index way out of bounds of the kernel's PGD and cause the kernel to hang
-> during early boot. Thus, permit pgd_offset_k to be overridden like the
-> other macros and override it on IA-64 with the old implementation. Also
-> update the comment to clarify that this is not just an optimisation but
-> a required implementation detail.
-> 
-> Fixes: 974b9b2c68 ("mm: consolidate pte_index() and pte_offset_*() definitions")
-> Reported-by: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
-> Signed-off-by: Jessica Clarke <jrtc27@jrtc27.com>
-> ---
->  arch/ia64/include/asm/pgtable.h | 8 ++++++++
->  include/linux/pgtable.h         | 2 ++
->  2 files changed, 10 insertions(+)
-> 
-> diff --git a/arch/ia64/include/asm/pgtable.h b/arch/ia64/include/asm/pgtable.h
-> index 10850897a91c..2ac2199d99ce 100644
-> --- a/arch/ia64/include/asm/pgtable.h
-> +++ b/arch/ia64/include/asm/pgtable.h
-> @@ -366,6 +366,14 @@ pgd_index (unsigned long address)
->  }
->  #define pgd_index pgd_index
->  
-> +/*
-> + * In the kernel's mapped region we know everything is in region number 5, so
-> + * as an optimisation its PGD already points to the area for that region, but
-> + * that means not adding the region here is required, not just an optimisation.
-> + */
-> +#define pgd_offset_k(addr) \
-> +	(init_mm.pgd + (((addr) >> PGDIR_SHIFT) & (PTRS_PER_PGD - 1)))
-> +
->  /* Look up a pgd entry in the gate area.  On IA-64, the gate-area
->     resides in the kernel-mapped segment, hence we use pgd_offset_k()
->     here.  */
-> diff --git a/include/linux/pgtable.h b/include/linux/pgtable.h
-> index 53e97da1e8e2..73c64fe098ba 100644
-> --- a/include/linux/pgtable.h
-> +++ b/include/linux/pgtable.h
-> @@ -117,7 +117,9 @@ static inline pgd_t *pgd_offset_pgd(pgd_t *pgd, unsigned long address)
->   * a shortcut which implies the use of the kernel's pgd, instead
->   * of a process's
->   */
-> +#ifndef pgd_offset_k
->  #define pgd_offset_k(address)		pgd_offset(&init_mm, (address))
-> +#endif
->  
->  /*
->   * In many cases it is known that a virtual address is mapped at PMD or PTE
-> 
+Use the proper modern API to transfer cache ownership for incoherent DMA.
 
-Yes, this fixes it for me. The kernel boots fine again. Also, no build issues.
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ drivers/net/ethernet/seeq/sgiseeq.c | 12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
 
-Tested-by: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
-
-Adrian
-
+diff --git a/drivers/net/ethernet/seeq/sgiseeq.c b/drivers/net/ethernet/seeq/sgiseeq.c
+index 39599bbb5d45b6..f91dae16d69a19 100644
+--- a/drivers/net/ethernet/seeq/sgiseeq.c
++++ b/drivers/net/ethernet/seeq/sgiseeq.c
+@@ -112,14 +112,18 @@ struct sgiseeq_private {
+ 
+ static inline void dma_sync_desc_cpu(struct net_device *dev, void *addr)
+ {
+-	dma_cache_sync(dev->dev.parent, addr, sizeof(struct sgiseeq_rx_desc),
+-		       DMA_FROM_DEVICE);
++	struct sgiseeq_private *sp = netdev_priv(dev);
++
++	dma_sync_single_for_cpu(dev->dev.parent, VIRT_TO_DMA(sp, addr),
++			sizeof(struct sgiseeq_rx_desc), DMA_BIDIRECTIONAL);
+ }
+ 
+ static inline void dma_sync_desc_dev(struct net_device *dev, void *addr)
+ {
+-	dma_cache_sync(dev->dev.parent, addr, sizeof(struct sgiseeq_rx_desc),
+-		       DMA_TO_DEVICE);
++	struct sgiseeq_private *sp = netdev_priv(dev);
++
++	dma_sync_single_for_device(dev->dev.parent, VIRT_TO_DMA(sp, addr),
++			sizeof(struct sgiseeq_rx_desc), DMA_BIDIRECTIONAL);
+ }
+ 
+ static inline void hpc3_eth_reset(struct hpc3_ethregs *hregs)
 -- 
- .''`.  John Paul Adrian Glaubitz
-: :' :  Debian Developer - glaubitz@debian.org
-`. `'   Freie Universitaet Berlin - glaubitz@physik.fu-berlin.de
-  `-    GPG: 62FF 8A75 84E0 2956 9546  0006 7426 3B37 F5B5 F913
+2.28.0
