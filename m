@@ -1,64 +1,59 @@
-From: Randy Dunlap <rdunlap@infradead.org>
-Date: Sat, 29 Aug 2020 18:22:01 +0000
-Subject: Re: [PATCH 3/3] ia64: remove generated/nr-irqs.h generation to fix build warning
-Message-Id: <d98592ec-d74b-27c6-f7d2-9d304b1d9eda@infradead.org>
+From: Christian Brauner <christian.brauner@ubuntu.com>
+Date: Wed, 19 Aug 2020 10:46:50 +0000
+Subject: [PATCH v2 06/11] sparc: switch to kernel_clone()
+Message-Id: <20200819104655.436656-7-christian.brauner@ubuntu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200829051524.706585-1-masahiroy@kernel.org>
- <20200829051524.706585-4-masahiroy@kernel.org>
-In-Reply-To: <20200829051524.706585-4-masahiroy@kernel.org>
+References: <20200819104655.436656-1-christian.brauner@ubuntu.com>
+In-Reply-To: <20200819104655.436656-1-christian.brauner@ubuntu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Masahiro Yamada <masahiroy@kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
-Cc: linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: Jonathan Corbet <corbet@lwn.net>, Yoshinori Sato <ysato@users.sourceforge.jp>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Ley Foon Tan <ley.foon.tan@intel.com>, "David S. Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Steven Rostedt <rostedt@goodmis.org>, Stafford Horne <shorne@gmail.com>, Peter Zijlstra <peterz@infradead.org>, Kars de Jong <jongk@linux-m68k.org>, Kees Cook <keescook@chromium.org>, Greentime Hu <green.hu@gmail.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Mauro Carvalho Chehab <mchehab+huawei@kernel.org>, Alexandre Chartre <alexandre.chartre@oracle.com>, Masami Hiramatsu <mhiramat@kernel.org>, Tom Zanussi <zanussi@kernel.org>, Xiao Yang <yangx.jy@cn.fujitsu.com>, linux-doc@vger.kernel.org, uclinux-h8-devel@lists.sourceforge.jp, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, kgdb-bugreport@lists.sourceforge.net, linux-kselftest@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>, Christoph Hewllig <hch@infradead.org>, Matthew Wilcox <willy@infradead.org>, Christian Brauner <christian.brauner@ubuntu.com>
 
-On 8/28/20 10:15 PM, Masahiro Yamada wrote:
-> Randy reports the following warning when building ARCH=ia64 with
-> CONFIG_IA64_PALINFO=m:
-> 
-> ../scripts/Makefile.build:68: 'arch/ia64/kernel/palinfo.ko' will not be built even though obj-m is specified.
-> ../scripts/Makefile.build:69: You cannot use subdir-y/m to visit a module Makefile. Use obj-y/m instead.
-> 
-> This message is actually false-positive, and you can get palinfo.ko
-> correctly built. It is emitted in the archprepare stage, where Kbuild
-> descends into arch/ia64/kernel to generate include/generated/nr-irqs.h
-> instead of any kind of kernel objects.
-> 
-> arch/ia64/kernel/nr-irqs.c was introduced by commit 213060a4d699
-> ("[IA64] pvops: paravirtualize NR_IRQS") to pre-calculate:
-> 
->    NR_IRQS = max(IA64_NATIVE_NR_IRQS, XEN_NR_IRQS, FOO_NR_IRQS...)
-> 
-> Since commit d52eefb47d4e ("ia64/xen: Remove Xen support for ia64"), this
-> union contains just one field, making NR_IRQS and IA64_NATIVE_NR_IRQS
-> always match.
-> 
-> So, the following hard-coding now works:
-> 
->   #define NR_IRQS                IA64_NATIVE_NR_IRQS
-> 
-> If you need to re-introduce NR_IRQS = max(...) gimmick in the future,
-> please try to implement it in asm-offsets.c instead of a separate file.
-> It will be possible because the header inclusion has been consolidated
-> to make asm-offsets.c independent of <asm/irqs.h>.
-> 
-> Reported-by: Randy Dunlap <rdunlap@infradead.org>
-> Signed-off-by: Masahiro Yamada <masahiroy@kernel.org>
+The old _do_fork() helper is removed in favor of the new kernel_clone() helper.
+The latter adheres to naming conventions for kernel internal syscall helpers.
 
-Reviewed-by: Randy Dunlap <rdunlap@infradead.org>
-Tested-by: Randy Dunlap <rdunlap@infradead.org>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: sparclinux@vger.kernel.org
+Signed-off-by: Christian Brauner <christian.brauner@ubuntu.com>
+---
+/* v2 */
+unchanged
+---
+ arch/sparc/kernel/process.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-> ---
-> 
->  arch/ia64/Makefile          |  6 ------
->  arch/ia64/include/asm/irq.h |  4 +++-
->  arch/ia64/kernel/Makefile   |  5 -----
->  arch/ia64/kernel/nr-irqs.c  | 22 ----------------------
->  4 files changed, 3 insertions(+), 34 deletions(-)
->  delete mode 100644 arch/ia64/kernel/nr-irqs.c
-> 
-
-
-thanks.
+diff --git a/arch/sparc/kernel/process.c b/arch/sparc/kernel/process.c
+index 5234b5ccc0b9..0442ab00518d 100644
+--- a/arch/sparc/kernel/process.c
++++ b/arch/sparc/kernel/process.c
+@@ -25,7 +25,7 @@ asmlinkage long sparc_fork(struct pt_regs *regs)
+ 		.stack		= regs->u_regs[UREG_FP],
+ 	};
+ 
+-	ret = _do_fork(&args);
++	ret = kernel_clone(&args);
+ 
+ 	/* If we get an error and potentially restart the system
+ 	 * call, we're screwed because copy_thread() clobbered
+@@ -50,7 +50,7 @@ asmlinkage long sparc_vfork(struct pt_regs *regs)
+ 		.stack		= regs->u_regs[UREG_FP],
+ 	};
+ 
+-	ret = _do_fork(&args);
++	ret = kernel_clone(&args);
+ 
+ 	/* If we get an error and potentially restart the system
+ 	 * call, we're screwed because copy_thread() clobbered
+@@ -96,7 +96,7 @@ asmlinkage long sparc_clone(struct pt_regs *regs)
+ 	else
+ 		args.stack = regs->u_regs[UREG_FP];
+ 
+-	ret = _do_fork(&args);
++	ret = kernel_clone(&args);
+ 
+ 	/* If we get an error and potentially restart the system
+ 	 * call, we're screwed because copy_thread() clobbered
 -- 
-~Randy
+2.28.0
