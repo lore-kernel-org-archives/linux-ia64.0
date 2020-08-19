@@ -1,100 +1,156 @@
-From: Jonathan Cameron <Jonathan.Cameron@huawei.com>
-Date: Tue, 18 Aug 2020 14:24:30 +0000
-Subject: [PATCH v3 6/6] irq-chip/gic-v3-its: Fix crash if ITS is in a proximity domain without processor or m
-Message-Id: <20200818142430.1156547-7-Jonathan.Cameron@huawei.com>
+From: Christoph Hellwig <hch@lst.de>
+Date: Wed, 19 Aug 2020 06:55:38 +0000
+Subject: [PATCH 11/28] dma-mapping: add (back) arch_dma_mark_clean for ia64
+Message-Id: <20200819065555.1802761-12-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200818142430.1156547-1-Jonathan.Cameron@huawei.com>
-In-Reply-To: <20200818142430.1156547-1-Jonathan.Cameron@huawei.com>
+References: <20200819065555.1802761-1-hch@lst.de>
+In-Reply-To: <20200819065555.1802761-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org, linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org, x86@kernel.org
-Cc: Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>, Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org, martin@geanix.com, Ingo Molnar <mingo@redhat.com>, linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, linuxarm@huawei.com, Dan Williams <dan.j.williams@intel.com>, Song Bao Hua <song.bao.hua@hisilicon.com>, Jonathan Cameron <Jonathan.Cameron@huawei.com>
+To: Mauro Carvalho Chehab <mchehab@kernel.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Joonyoung Shim <jy0922.shim@samsung.com>, Seung-Woo Kim <sw0312.kim@samsung.com>, Kyungmin Park <kyungmin.park@samsung.com>, Ben Skeggs <bskeggs@redhat.com>, Pawel Osciak <pawel@osciak.com>, Marek Szyprowski <m.szyprowski@samsung.com>, Matt Porter <mporter@kernel.crashing.org>, iommu@lists.linux-foundation.org
+Cc: Tom Lendacky <thomas.lendacky@amd.com>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-media@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-samsung-soc@vger.kernel.org, nouveau@lists.freedesktop.org, netdev@vger.kernel.org, linux-nvme@lists.infradead.org, linux-scsi@vger.kernel.org, linux-mm@kvack.org, alsa-devel@alsa-project.org
 
-Note this crash is present before any of the patches in this series, but
-as explained below it is highly unlikely anyone is shipping a firmware that
-causes it. Tests were done using an overriden SRAT.
+Add back a hook to optimize dcache flushing after reading executable
+code using DMA.  This gets ia64 out of the business of pretending to
+be dma incoherent just for this optimization.
 
-On ARM64, the gic-v3 driver directly parses SRAT to locate GIC Interrupt
-Translation Service (ITS) Affinity Structures. This is done much later
-in the boot than the parses of SRAT which identify proximity domains.
-
-As a result, an ITS placed in a proximity domain that is not defined by
-another SRAT structure will result in a NUMA node that is not completely
-configured and a crash.
-
-ITS [mem 0x202100000-0x20211ffff]
-ITS@0x0000000202100000: Using ITS number 0
-Unable to handle kernel paging request at virtual address 0000000000001a08
-...
-
-Call trace:
-  __alloc_pages_nodemask+0xe8/0x338
-  alloc_pages_node.constprop.0+0x34/0x40
-  its_probe_one+0x2f8/0xb18
-  gic_acpi_parse_madt_its+0x108/0x150
-  acpi_table_parse_entries_array+0x17c/0x264
-  acpi_table_parse_entries+0x48/0x6c
-  acpi_table_parse_madt+0x30/0x3c
-  its_init+0x1c4/0x644
-  gic_init_bases+0x4b8/0x4ec
-  gic_acpi_init+0x134/0x264
-  acpi_match_madt+0x4c/0x84
-  acpi_table_parse_entries_array+0x17c/0x264
-  acpi_table_parse_entries+0x48/0x6c
-  acpi_table_parse_madt+0x30/0x3c
-  __acpi_probe_device_table+0x8c/0xe8
-  irqchip_init+0x3c/0x48
-  init_IRQ+0xcc/0x100
-  start_kernel+0x33c/0x548
-
-ACPI 6.3 allows any set of Affinity Structures in SRAT to define a proximity
-domain.  However, as we do not see this crash, we can conclude that no
-firmware is currently placing an ITS in a node that is separate from
-those containing memory and / or processors.
-
-We could modify the SRAT parsing behavior to identify the existence
-of Proximity Domains unique to the ITS structures, and handle them as
-a special case of a generic initiator (once support for those merges).
-
-This patch avoids the complexity that would be needed to handle this corner
-case, by not allowing the ITS entry parsing code to instantiate new NUMA
-Nodes.  If one is encountered that does not already exist, then NO_NUMA_NODE
-is assigned and a warning printed just as if the value had been greater than
-allowed NUMA Nodes.
-
-"SRAT: Invalid NUMA node -1 in ITS affinity"
-
-Whilst this does not provide the full flexibility allowed by ACPI,
-it does fix the problem.  We can revisit a more sophisticated solution if
-needed by future platforms.
-
-Change is simply to replace acpi_map_pxm_to_node with pxm_to_node reflecting
-the fact a new mapping is not created.
-
-Signed-off-by: Jonathan Cameron <Jonathan.Cameron@huawei.com>
-Reviewed-by: Hanjun Guo <guohanjun@huawei.com>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- drivers/irqchip/irq-gic-v3-its.c | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
+ arch/ia64/Kconfig               |  3 +--
+ arch/ia64/kernel/dma-mapping.c  | 14 +-------------
+ arch/ia64/mm/init.c             |  3 +--
+ include/linux/dma-direct.h      |  3 +++
+ include/linux/dma-noncoherent.h |  8 ++++++++
+ kernel/dma/Kconfig              |  6 ++++++
+ kernel/dma/direct.c             |  3 +++
+ 7 files changed, 23 insertions(+), 17 deletions(-)
 
-diff --git a/drivers/irqchip/irq-gic-v3-its.c b/drivers/irqchip/irq-gic-v3-its.c
-index 95f097448f97..b59b63ee3fa6 100644
---- a/drivers/irqchip/irq-gic-v3-its.c
-+++ b/drivers/irqchip/irq-gic-v3-its.c
-@@ -5263,7 +5263,12 @@ static int __init gic_acpi_parse_srat_its(union acpi_subtable_headers *header,
- 		return -EINVAL;
+diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+index 5b4ec80bf5863a..513ba0c5d33610 100644
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -8,6 +8,7 @@ menu "Processor type and features"
+ 
+ config IA64
+ 	bool
++	select ARCH_HAS_DMA_MARK_CLEAN
+ 	select ARCH_MIGHT_HAVE_PC_PARPORT
+ 	select ARCH_MIGHT_HAVE_PC_SERIO
+ 	select ACPI
+@@ -32,8 +33,6 @@ config IA64
+ 	select TTY
+ 	select HAVE_ARCH_TRACEHOOK
+ 	select HAVE_VIRT_CPU_ACCOUNTING
+-	select DMA_NONCOHERENT_MMAP
+-	select ARCH_HAS_SYNC_DMA_FOR_CPU
+ 	select VIRT_TO_BUS
+ 	select GENERIC_IRQ_PROBE
+ 	select GENERIC_PENDING_IRQ if SMP
+diff --git a/arch/ia64/kernel/dma-mapping.c b/arch/ia64/kernel/dma-mapping.c
+index 09ef9ce9988d1f..f640ed6fe1d576 100644
+--- a/arch/ia64/kernel/dma-mapping.c
++++ b/arch/ia64/kernel/dma-mapping.c
+@@ -1,5 +1,5 @@
+ // SPDX-License-Identifier: GPL-2.0
+-#include <linux/dma-direct.h>
++#include <linux/dma-mapping.h>
+ #include <linux/export.h>
+ 
+ /* Set this to 1 if there is a HW IOMMU in the system */
+@@ -7,15 +7,3 @@ int iommu_detected __read_mostly;
+ 
+ const struct dma_map_ops *dma_ops;
+ EXPORT_SYMBOL(dma_ops);
+-
+-void *arch_dma_alloc(struct device *dev, size_t size,
+-		dma_addr_t *dma_handle, gfp_t gfp, unsigned long attrs)
+-{
+-	return dma_direct_alloc_pages(dev, size, dma_handle, gfp, attrs);
+-}
+-
+-void arch_dma_free(struct device *dev, size_t size, void *cpu_addr,
+-		dma_addr_t dma_addr, unsigned long attrs)
+-{
+-	dma_direct_free_pages(dev, size, cpu_addr, dma_addr, attrs);
+-}
+diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
+index 0b3fb4c7af2920..02e5aa08294ee0 100644
+--- a/arch/ia64/mm/init.c
++++ b/arch/ia64/mm/init.c
+@@ -73,8 +73,7 @@ __ia64_sync_icache_dcache (pte_t pte)
+  * DMA can be marked as "clean" so that lazy_mmu_prot_update() doesn't have to
+  * flush them when they get mapped into an executable vm-area.
+  */
+-void arch_sync_dma_for_cpu(phys_addr_t paddr, size_t size,
+-		enum dma_data_direction dir)
++void arch_dma_mark_clean(phys_addr_t paddr, size_t size)
+ {
+ 	unsigned long pfn = PHYS_PFN(paddr);
+ 
+diff --git a/include/linux/dma-direct.h b/include/linux/dma-direct.h
+index 5a3ce2a2479437..738485b3578062 100644
+--- a/include/linux/dma-direct.h
++++ b/include/linux/dma-direct.h
+@@ -153,6 +153,9 @@ static inline void dma_direct_sync_single_for_cpu(struct device *dev,
+ 
+ 	if (unlikely(is_swiotlb_buffer(paddr)))
+ 		swiotlb_tbl_sync_single(dev, paddr, size, dir, SYNC_FOR_CPU);
++
++	if (dir = DMA_FROM_DEVICE)
++		arch_dma_mark_clean(paddr, size);
+ }
+ 
+ static inline dma_addr_t dma_direct_map_page(struct device *dev,
+diff --git a/include/linux/dma-noncoherent.h b/include/linux/dma-noncoherent.h
+index ca09a4e07d2d3d..b9bc6c557ea46f 100644
+--- a/include/linux/dma-noncoherent.h
++++ b/include/linux/dma-noncoherent.h
+@@ -108,6 +108,14 @@ static inline void arch_dma_prep_coherent(struct page *page, size_t size)
+ }
+ #endif /* CONFIG_ARCH_HAS_DMA_PREP_COHERENT */
+ 
++#ifdef CONFIG_ARCH_HAS_DMA_MARK_CLEAN
++void arch_dma_mark_clean(phys_addr_t paddr, size_t size);
++#else
++static inline void arch_dma_mark_clean(phys_addr_t paddr, size_t size)
++{
++}
++#endif /* ARCH_HAS_DMA_MARK_CLEAN */
++
+ void *arch_dma_set_uncached(void *addr, size_t size);
+ void arch_dma_clear_uncached(void *addr, size_t size);
+ 
+diff --git a/kernel/dma/Kconfig b/kernel/dma/Kconfig
+index 847a9d1fa6343d..6cf7f7947ae797 100644
+--- a/kernel/dma/Kconfig
++++ b/kernel/dma/Kconfig
+@@ -43,6 +43,12 @@ config ARCH_HAS_DMA_SET_MASK
+ config ARCH_HAS_DMA_WRITE_COMBINE
+ 	bool
+ 
++#
++# Select if the architectures provides the arch_dma_mark_clean hook
++#
++config ARCH_HAS_DMA_MARK_CLEAN
++	bool
++
+ config DMA_DECLARE_COHERENT
+ 	bool
+ 
+diff --git a/kernel/dma/direct.c b/kernel/dma/direct.c
+index bb0041e9965975..1123e767f4315f 100644
+--- a/kernel/dma/direct.c
++++ b/kernel/dma/direct.c
+@@ -340,6 +340,9 @@ void dma_direct_sync_sg_for_cpu(struct device *dev,
+ 		if (unlikely(is_swiotlb_buffer(paddr)))
+ 			swiotlb_tbl_sync_single(dev, paddr, sg->length, dir,
+ 					SYNC_FOR_CPU);
++
++		if (dir = DMA_FROM_DEVICE)
++			arch_dma_mark_clean(paddr, sg->length);
  	}
  
--	node = acpi_map_pxm_to_node(its_affinity->proximity_domain);
-+	/*
-+	 * Note that in theory a new proximity node could be created by this
-+	 * entry as it is an SRAT resource allocation structure.
-+	 * We do not currently support doing so.
-+	 */
-+	node = pxm_to_node(its_affinity->proximity_domain);
- 
- 	if (node = NUMA_NO_NODE || node >= MAX_NUMNODES) {
- 		pr_err("SRAT: Invalid NUMA node %d in ITS affinity\n", node);
+ 	if (!dev_is_dma_coherent(dev))
 -- 
-2.19.1
+2.28.0
