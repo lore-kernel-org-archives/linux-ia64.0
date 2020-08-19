@@ -1,112 +1,67 @@
-From: Jonathan Cameron <Jonathan.Cameron@huawei.com>
-Date: Tue, 18 Aug 2020 14:24:26 +0000
-Subject: [PATCH v3 2/6] ACPI: Do not create new NUMA domains from ACPI static tables that are not SRAT
-Message-Id: <20200818142430.1156547-3-Jonathan.Cameron@huawei.com>
+From: Christoph Hellwig <hch@lst.de>
+Date: Wed, 19 Aug 2020 06:55:40 +0000
+Subject: [PATCH 13/28] dma-direct: lift gfp_t manipulation out of__dma_direct_alloc_pages
+Message-Id: <20200819065555.1802761-14-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200818142430.1156547-1-Jonathan.Cameron@huawei.com>
-In-Reply-To: <20200818142430.1156547-1-Jonathan.Cameron@huawei.com>
+References: <20200819065555.1802761-1-hch@lst.de>
+In-Reply-To: <20200819065555.1802761-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org, linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org, x86@kernel.org
-Cc: Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>, Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org, martin@geanix.com, Ingo Molnar <mingo@redhat.com>, linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, linuxarm@huawei.com, Dan Williams <dan.j.williams@intel.com>, Song Bao Hua <song.bao.hua@hisilicon.com>, Jonathan Cameron <Jonathan.Cameron@huawei.com>
+To: Mauro Carvalho Chehab <mchehab@kernel.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Joonyoung Shim <jy0922.shim@samsung.com>, Seung-Woo Kim <sw0312.kim@samsung.com>, Kyungmin Park <kyungmin.park@samsung.com>, Ben Skeggs <bskeggs@redhat.com>, Pawel Osciak <pawel@osciak.com>, Marek Szyprowski <m.szyprowski@samsung.com>, Matt Porter <mporter@kernel.crashing.org>, iommu@lists.linux-foundation.org
+Cc: Tom Lendacky <thomas.lendacky@amd.com>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-media@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-samsung-soc@vger.kernel.org, nouveau@lists.freedesktop.org, netdev@vger.kernel.org, linux-nvme@lists.infradead.org, linux-scsi@vger.kernel.org, linux-mm@kvack.org, alsa-devel@alsa-project.org
 
-Several ACPI static tables contain references to proximity domains.
-ACPI 6.3 has clarified that only entries in SRAT may define a new domain
-(sec 5.2.16).
+Move the detailed gfp_t setup from __dma_direct_alloc_pages into the
+caller to clean things up a little.
 
-Those tables described in the ACPI spec have additional clarifying text.
-
-NFIT: Table 5-132,
-
-"Integer that represents the proximity domain to which the memory belongs.
- This number must match with corresponding entry in the SRAT table."
-
-HMAT: Table 5-145,
-
-"... This number must match with the corresponding entry in the SRAT
- table's processor affinity structure ... if the initiator is a processor,
- or the Generic Initiator Affinity Structure if the initiator is a generic
- initiator".
-
-IORT and DMAR are defined by external specifications.
-
-Intel Virtualization Technology for Directed I/O Rev 3.1 does not make any
-explicit statements, but the general SRAT statement above will still apply.
-https://software.intel.com/sites/default/files/managed/c5/15/vt-directed-io-spec.pdf
-
-IO Remapping Table, Platform Design Document rev D, also makes not explicit
-statement, but refers to ACPI SRAT table for more information and again the
-generic SRAT statement above applies.
-https://developer.arm.com/documentation/den0049/d/
-
-In conclusion, any proximity domain specified in these tables, should be a
-reference to a proximity domain also found in SRAT, and they should not be able
-to instantiate a new domain.  Hence we switch to pxm_to_node() which will only
-return existing nodes.
-
-Signed-off-by: Jonathan Cameron <Jonathan.Cameron@huawei.com>
-Reviewed-by: Barry Song <song.bao.hua@hisilicon.com>
-Reviewed-by: Hanjun Guo <guohanjun@huawei.com>
+Signed-off-by: Christoph Hellwig <hch@lst.de>
 ---
- drivers/acpi/arm64/iort.c  | 2 +-
- drivers/acpi/nfit/core.c   | 3 +--
- drivers/acpi/numa/hmat.c   | 2 +-
- drivers/iommu/intel/dmar.c | 2 +-
- 4 files changed, 4 insertions(+), 5 deletions(-)
+ kernel/dma/direct.c | 12 +++++-------
+ 1 file changed, 5 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/acpi/arm64/iort.c b/drivers/acpi/arm64/iort.c
-index ec782e4a0fe4..26005a15cb8b 100644
---- a/drivers/acpi/arm64/iort.c
-+++ b/drivers/acpi/arm64/iort.c
-@@ -1335,7 +1335,7 @@ static int  __init arm_smmu_v3_set_proximity(struct device *dev,
+diff --git a/kernel/dma/direct.c b/kernel/dma/direct.c
+index 8da9a62dd9a72c..01120510968fa1 100644
+--- a/kernel/dma/direct.c
++++ b/kernel/dma/direct.c
+@@ -108,7 +108,7 @@ static inline bool dma_should_free_from_pool(struct device *dev,
+ }
  
- 	smmu = (struct acpi_iort_smmu_v3 *)node->node_data;
- 	if (smmu->flags & ACPI_IORT_SMMU_V3_PXM_VALID) {
--		int dev_node = acpi_map_pxm_to_node(smmu->pxm);
-+		int dev_node = pxm_to_node(smmu->pxm);
+ static struct page *__dma_direct_alloc_pages(struct device *dev, size_t size,
+-		gfp_t gfp, unsigned long attrs)
++		gfp_t gfp)
+ {
+ 	int node = dev_to_node(dev);
+ 	struct page *page = NULL;
+@@ -116,11 +116,6 @@ static struct page *__dma_direct_alloc_pages(struct device *dev, size_t size,
  
- 		if (dev_node != NUMA_NO_NODE && !node_online(dev_node))
- 			return -EINVAL;
-diff --git a/drivers/acpi/nfit/core.c b/drivers/acpi/nfit/core.c
-index 26dd208a0d63..ea0557cb54f7 100644
---- a/drivers/acpi/nfit/core.c
-+++ b/drivers/acpi/nfit/core.c
-@@ -3008,8 +3008,7 @@ static int acpi_nfit_register_region(struct acpi_nfit_desc *acpi_desc,
- 	if (spa->flags & ACPI_NFIT_PROXIMITY_VALID) {
- 		ndr_desc->numa_node = acpi_map_pxm_to_online_node(
- 						spa->proximity_domain);
--		ndr_desc->target_node = acpi_map_pxm_to_node(
--				spa->proximity_domain);
-+		ndr_desc->target_node = pxm_to_node(spa->proximity_domain);
- 	} else {
- 		ndr_desc->numa_node = NUMA_NO_NODE;
- 		ndr_desc->target_node = NUMA_NO_NODE;
-diff --git a/drivers/acpi/numa/hmat.c b/drivers/acpi/numa/hmat.c
-index 2c32cfb72370..cf6df2df26cd 100644
---- a/drivers/acpi/numa/hmat.c
-+++ b/drivers/acpi/numa/hmat.c
-@@ -666,7 +666,7 @@ static void hmat_register_target_device(struct memory_target *target,
+ 	WARN_ON_ONCE(!PAGE_ALIGNED(size));
  
- 	pdev->dev.numa_node = acpi_map_pxm_to_online_node(target->memory_pxm);
- 	info = (struct memregion_info) {
--		.target_node = acpi_map_pxm_to_node(target->memory_pxm),
-+		.target_node = pxm_to_node(target->memory_pxm),
- 	};
- 	rc = platform_device_add_data(pdev, &info, sizeof(info));
- 	if (rc < 0) {
-diff --git a/drivers/iommu/intel/dmar.c b/drivers/iommu/intel/dmar.c
-index 93e6345f3414..2f3badd41e1b 100644
---- a/drivers/iommu/intel/dmar.c
-+++ b/drivers/iommu/intel/dmar.c
-@@ -473,7 +473,7 @@ static int dmar_parse_one_rhsa(struct acpi_dmar_header *header, void *arg)
- 	rhsa = (struct acpi_dmar_rhsa *)header;
- 	for_each_drhd_unit(drhd) {
- 		if (drhd->reg_base_addr = rhsa->base_address) {
--			int node = acpi_map_pxm_to_node(rhsa->proximity_domain);
-+			int node = pxm_to_node(rhsa->proximity_domain);
+-	if (attrs & DMA_ATTR_NO_WARN)
+-		gfp |= __GFP_NOWARN;
+-
+-	/* we always manually zero the memory once we are done: */
+-	gfp &= ~__GFP_ZERO;
+ 	gfp |= dma_direct_optimal_gfp_mask(dev, dev->coherent_dma_mask,
+ 					   &phys_limit);
+ 	page = dma_alloc_contiguous(dev, size, gfp);
+@@ -164,6 +159,8 @@ void *dma_direct_alloc(struct device *dev, size_t size,
+ 		return arch_dma_alloc(dev, size, dma_handle, gfp, attrs);
  
- 			if (!node_online(node))
- 				node = NUMA_NO_NODE;
+ 	size = PAGE_ALIGN(size);
++	if (attrs & DMA_ATTR_NO_WARN)
++		gfp |= __GFP_NOWARN;
+ 
+ 	if (dma_should_alloc_from_pool(dev, gfp, attrs)) {
+ 		ret = dma_alloc_from_pool(dev, size, &page, gfp);
+@@ -172,7 +169,8 @@ void *dma_direct_alloc(struct device *dev, size_t size,
+ 		goto done;
+ 	}
+ 
+-	page = __dma_direct_alloc_pages(dev, size, gfp, attrs);
++	/* we always manually zero the memory once we are done */
++	page = __dma_direct_alloc_pages(dev, size, gfp & ~__GFP_ZERO);
+ 	if (!page)
+ 		return NULL;
+ 
 -- 
-2.19.1
+2.28.0
