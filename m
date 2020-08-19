@@ -1,75 +1,298 @@
-From: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
-Date: Tue, 11 Aug 2020 13:57:57 +0000
-Subject: ia64 kernel not booting on HEAD, stopping at "Initmem setup"
-Message-Id: <c9702a41-d7d6-669a-bcdf-ef69f3569650@physik.fu-berlin.de>
+From: Christoph Hellwig <hch@lst.de>
+Date: Wed, 19 Aug 2020 06:55:43 +0000
+Subject: [PATCH 16/28] dma-direct: rename and cleanup __phys_to_dma
+Message-Id: <20200819065555.1802761-17-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20200819065555.1802761-1-hch@lst.de>
+In-Reply-To: <20200819065555.1802761-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Mauro Carvalho Chehab <mchehab@kernel.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Joonyoung Shim <jy0922.shim@samsung.com>, Seung-Woo Kim <sw0312.kim@samsung.com>, Kyungmin Park <kyungmin.park@samsung.com>, Ben Skeggs <bskeggs@redhat.com>, Pawel Osciak <pawel@osciak.com>, Marek Szyprowski <m.szyprowski@samsung.com>, Matt Porter <mporter@kernel.crashing.org>, iommu@lists.linux-foundation.org
+Cc: Tom Lendacky <thomas.lendacky@amd.com>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-media@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-samsung-soc@vger.kernel.org, nouveau@lists.freedesktop.org, netdev@vger.kernel.org, linux-nvme@lists.infradead.org, linux-scsi@vger.kernel.org, linux-mm@kvack.org, alsa-devel@alsa-project.org
 
-Hi!
+The __phys_to_dma vs phys_to_dma distinction isn't exactly obvious.  Try
+to improve the situation by renaming __phys_to_dma to
+phys_to_dma_unencryped, and not forcing architectures that want to
+override phys_to_dma to actually provide __phys_to_dma.
 
-I just compiled and booted a current kernel from Linus' tree and it doesn't boot
-beyond what's below. It looks like some changes to memory initialization broke
-the kernel on ia64:
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ arch/arm/include/asm/dma-direct.h      |  2 +-
+ arch/mips/bmips/dma.c                  |  2 +-
+ arch/mips/cavium-octeon/dma-octeon.c   |  2 +-
+ arch/mips/include/asm/dma-direct.h     |  2 +-
+ arch/mips/loongson2ef/fuloong-2e/dma.c |  2 +-
+ arch/mips/loongson2ef/lemote-2f/dma.c  |  2 +-
+ arch/mips/loongson64/dma.c             |  2 +-
+ arch/mips/pci/pci-ar2315.c             |  2 +-
+ arch/mips/pci/pci-xtalk-bridge.c       |  2 +-
+ arch/mips/sgi-ip32/ip32-dma.c          |  2 +-
+ arch/powerpc/include/asm/dma-direct.h  |  2 +-
+ drivers/iommu/intel/iommu.c            |  2 +-
+ include/linux/dma-direct.h             | 28 +++++++++++++++-----------
+ kernel/dma/direct.c                    |  8 ++++----
+ kernel/dma/swiotlb.c                   |  4 ++--
+ 15 files changed, 34 insertions(+), 30 deletions(-)
 
-Loading Linux 5.8.0-12299-g00e4db51259a ...
-Loading initial ramdisk ...
-[    0.000000] Linux version 5.8.0-12299-g00e4db51259a (root@glendronach) (gcc (Debian 10.2.0-3) 10.2.0, GNU ld (GNU Binutils for Debian) 2.35) #5 SMP Tue Aug 11 15:33:11 CEST 2020
-[    0.000000] efi: EFI v2.00 by HP
-[    0.000000] efi: SALsystab=0x3ee7a000 ACPI 2.0=0x3fde4000 ESI=0x3ee7b000 SMBIOS=0x3ee7c000 HCDP=0x3fde2000 
-[    0.000000] PCDP: v3 at 0x3fde2000
-[    0.000000] earlycon: uart8250 at MMIO 0x0000000088033000 (options '115200n8')
-[    0.000000] printk: bootconsole [uart8250] enabled
-[    0.000000] ACPI: Early table checksum verification disabled
-[    0.000000] ACPI: RSDP 0x000000003FDE4000 000028 (v02 HP    )
-[    0.000000] ACPI: XSDT 0x000000003FDE402C 0000A4 (v01 HP     rx2660   00000000 HP   00000000)
-[    0.000000] ACPI: FACP 0x000000003FDF6A08 0000F4 (v03 HP     rx2660   00000000 HP   00000000)
-[    0.000000] ACPI: DSDT 0x000000003FDE41C8 00E566 (v01 HP     rx2660   00000007 INTL 20050309)
-[    0.000000] ACPI: FACS 0x000000003FDF6B00 000040
-[    0.000000] ACPI: SPCR 0x000000003FDF6B40 000050 (v01 HP              00000000 HP   00000000)
-[    0.000000] ACPI: DBGP 0x000000003FDF6B90 000034 (v01 HP     rx2660   00000000 HP   00000000)
-[    0.000000] ACPI: APIC 0x000000003FDF6FB0 0000C8 (v01 HP     rx2660   00000000 HP   00000000)
-[    0.000000] ACPI: SPMI 0x000000003FDF6BC8 000050 (v04 HP     rx2660   00000000 HP   00000000)
-[    0.000000] ACPI: CPEP 0x000000003FDF6E80 000034 (v01 HP     rx2660   00000000 HP   00000000)
-[    0.000000] ACPI: SSDT 0x000000003FDF2738 0004B3 (v01 HP     rx2660   00000006 INTL 20050309)
-[    0.000000] ACPI: SSDT 0x000000003FDF2BF8 000456 (v01 HP     rx2660   00000006 INTL 20050309)
-[    0.000000] ACPI: SSDT 0x000000003FDF3058 000EB8 (v01 HP     rx2660   00000006 INTL 20050309)
-[    0.000000] ACPI: SSDT 0x000000003FDF3F18 000EB8 (v01 HP     rx2660   00000006 INTL 20050309)
-[    0.000000] ACPI: SSDT 0x000000003FDF4DD8 000866 (v01 HP     rx2660   00000006 INTL 20050309)
-[    0.000000] ACPI: SSDT 0x000000003FDF5648 000EB8 (v01 HP     rx2660   00000006 INTL 20050309)
-[    0.000000] ACPI: SSDT 0x000000003FDF6508 000138 (v01 HP     rx2660   00000006 INTL 20050309)
-[    0.000000] ACPI: SSDT 0x000000003FDF6648 00013C (v01 HP     rx2660   00000006 INTL 20050309)
-[    0.000000] ACPI: SSDT 0x000000003FDF6788 00013C (v01 HP     rx2660   00000006 INTL 20050309)
-[    0.000000] ACPI: SSDT 0x000000003FDF68C8 00013C (v01 HP     rx2660   00000006 INTL 20050309)
-[    0.000000] ACPI: Local APIC address (____ptrval____)
-[    0.000000] 4 CPUs available, 4 CPUs total
-[    0.000000] SMP: Allowing 4 CPUs, 0 hotplug CPUs
-[    0.000000] Initial ramdisk at: 0xe00000002e368000 (9818100 bytes)
-[    0.000000] SAL 3.20: HP version 4.4
-[    0.000000] SAL Platform features:
-[    0.000000]  None
-[    0.000000] SAL: AP wakeup using external interrupt vector 0xff
-[    0.000000] MCA related initialization done                                                                                                                
-[    0.000000] Virtual mem_map starts at 0x(____ptrval____)                                                                                                   
-[    0.000000] Zone ranges:                                                                                                                                   
-[    0.000000]   DMA32    [mem 0x0000000001000000-0x00000000ffffffff]                                                                                         
-[    0.000000]   Normal   [mem 0x0000000100000000-0x000001007fffffff]                                                                                         
-[    0.000000] Movable zone start for each node                                                                                                               
-[    0.000000] Early memory node ranges                                                                                                                       
-[    0.000000]   node   0: [mem 0x0000000001000000-0x000000003e67ffff]                                                                                        
-[    0.000000]   node   0: [mem 0x000000003eaec000-0x000000003ee77fff]                                                                                        
-[    0.000000]   node   0: [mem 0x000000003fc00000-0x000000003fd77fff]                                                                                        
-[    0.000000]   node   0: [mem 0x000000003fddc000-0x000000003fddffff]                                                                                        
-[    0.000000]   node   0: [mem 0x0000010040000000-0x000001007f1fbfff]                                                                                        
-[    0.000000]   node   0: [mem 0x000001007f200000-0x000001007fffffff]                                                                                        
-[    0.000000] Initmem setup node 0 [mem 0x0000000001000000-0x000001007fffffff]
-
-Adrian
-
+diff --git a/arch/arm/include/asm/dma-direct.h b/arch/arm/include/asm/dma-direct.h
+index a8cee87a93e8ab..bca0de56753439 100644
+--- a/arch/arm/include/asm/dma-direct.h
++++ b/arch/arm/include/asm/dma-direct.h
+@@ -2,7 +2,7 @@
+ #ifndef ASM_ARM_DMA_DIRECT_H
+ #define ASM_ARM_DMA_DIRECT_H 1
+ 
+-static inline dma_addr_t __phys_to_dma(struct device *dev, phys_addr_t paddr)
++static inline dma_addr_t phys_to_dma(struct device *dev, phys_addr_t paddr)
+ {
+ 	unsigned int offset = paddr & ~PAGE_MASK;
+ 	return pfn_to_dma(dev, __phys_to_pfn(paddr)) + offset;
+diff --git a/arch/mips/bmips/dma.c b/arch/mips/bmips/dma.c
+index ba2a5d33dfd3fa..49061b870680b9 100644
+--- a/arch/mips/bmips/dma.c
++++ b/arch/mips/bmips/dma.c
+@@ -40,7 +40,7 @@ static struct bmips_dma_range *bmips_dma_ranges;
+ 
+ #define FLUSH_RAC		0x100
+ 
+-dma_addr_t __phys_to_dma(struct device *dev, phys_addr_t pa)
++dma_addr_t phys_to_dma(struct device *dev, phys_addr_t pa)
+ {
+ 	struct bmips_dma_range *r;
+ 
+diff --git a/arch/mips/cavium-octeon/dma-octeon.c b/arch/mips/cavium-octeon/dma-octeon.c
+index 388b13ba2558c2..232fa1017b1ec9 100644
+--- a/arch/mips/cavium-octeon/dma-octeon.c
++++ b/arch/mips/cavium-octeon/dma-octeon.c
+@@ -168,7 +168,7 @@ void __init octeon_pci_dma_init(void)
+ }
+ #endif /* CONFIG_PCI */
+ 
+-dma_addr_t __phys_to_dma(struct device *dev, phys_addr_t paddr)
++dma_addr_t phys_to_dma(struct device *dev, phys_addr_t paddr)
+ {
+ #ifdef CONFIG_PCI
+ 	if (dev && dev_is_pci(dev))
+diff --git a/arch/mips/include/asm/dma-direct.h b/arch/mips/include/asm/dma-direct.h
+index 8e178651c638c2..9a640118316c9d 100644
+--- a/arch/mips/include/asm/dma-direct.h
++++ b/arch/mips/include/asm/dma-direct.h
+@@ -2,7 +2,7 @@
+ #ifndef _MIPS_DMA_DIRECT_H
+ #define _MIPS_DMA_DIRECT_H 1
+ 
+-dma_addr_t __phys_to_dma(struct device *dev, phys_addr_t paddr);
++dma_addr_t phys_to_dma(struct device *dev, phys_addr_t paddr);
+ phys_addr_t dma_to_phys(struct device *dev, dma_addr_t daddr);
+ 
+ #endif /* _MIPS_DMA_DIRECT_H */
+diff --git a/arch/mips/loongson2ef/fuloong-2e/dma.c b/arch/mips/loongson2ef/fuloong-2e/dma.c
+index 83fadeb3fd7d56..cea167d8aba8db 100644
+--- a/arch/mips/loongson2ef/fuloong-2e/dma.c
++++ b/arch/mips/loongson2ef/fuloong-2e/dma.c
+@@ -1,7 +1,7 @@
+ // SPDX-License-Identifier: GPL-2.0
+ #include <linux/dma-direct.h>
+ 
+-dma_addr_t __phys_to_dma(struct device *dev, phys_addr_t paddr)
++dma_addr_t phys_to_dma(struct device *dev, phys_addr_t paddr)
+ {
+ 	return paddr | 0x80000000;
+ }
+diff --git a/arch/mips/loongson2ef/lemote-2f/dma.c b/arch/mips/loongson2ef/lemote-2f/dma.c
+index 302b43a14eee74..3c9e994563578c 100644
+--- a/arch/mips/loongson2ef/lemote-2f/dma.c
++++ b/arch/mips/loongson2ef/lemote-2f/dma.c
+@@ -1,7 +1,7 @@
+ // SPDX-License-Identifier: GPL-2.0
+ #include <linux/dma-direct.h>
+ 
+-dma_addr_t __phys_to_dma(struct device *dev, phys_addr_t paddr)
++dma_addr_t phys_to_dma(struct device *dev, phys_addr_t paddr)
+ {
+ 	return paddr | 0x80000000;
+ }
+diff --git a/arch/mips/loongson64/dma.c b/arch/mips/loongson64/dma.c
+index b3dc5d0bd2b113..364f2f27c8723f 100644
+--- a/arch/mips/loongson64/dma.c
++++ b/arch/mips/loongson64/dma.c
+@@ -4,7 +4,7 @@
+ #include <linux/swiotlb.h>
+ #include <boot_param.h>
+ 
+-dma_addr_t __phys_to_dma(struct device *dev, phys_addr_t paddr)
++dma_addr_t phys_to_dma(struct device *dev, phys_addr_t paddr)
+ {
+ 	/* We extract 2bit node id (bit 44~47, only bit 44~45 used now) from
+ 	 * Loongson-3's 48bit address space and embed it into 40bit */
+diff --git a/arch/mips/pci/pci-ar2315.c b/arch/mips/pci/pci-ar2315.c
+index d88395684f487d..cef4a47ab06311 100644
+--- a/arch/mips/pci/pci-ar2315.c
++++ b/arch/mips/pci/pci-ar2315.c
+@@ -170,7 +170,7 @@ static inline dma_addr_t ar2315_dev_offset(struct device *dev)
+ 	return 0;
+ }
+ 
+-dma_addr_t __phys_to_dma(struct device *dev, phys_addr_t paddr)
++dma_addr_t phys_to_dma(struct device *dev, phys_addr_t paddr)
+ {
+ 	return paddr + ar2315_dev_offset(dev);
+ }
+diff --git a/arch/mips/pci/pci-xtalk-bridge.c b/arch/mips/pci/pci-xtalk-bridge.c
+index f1b37f32b55395..50f7d42cca5a78 100644
+--- a/arch/mips/pci/pci-xtalk-bridge.c
++++ b/arch/mips/pci/pci-xtalk-bridge.c
+@@ -25,7 +25,7 @@
+ /*
+  * Common phys<->dma mapping for platforms using pci xtalk bridge
+  */
+-dma_addr_t __phys_to_dma(struct device *dev, phys_addr_t paddr)
++dma_addr_t phys_to_dma(struct device *dev, phys_addr_t paddr)
+ {
+ 	struct pci_dev *pdev = to_pci_dev(dev);
+ 	struct bridge_controller *bc = BRIDGE_CONTROLLER(pdev->bus);
+diff --git a/arch/mips/sgi-ip32/ip32-dma.c b/arch/mips/sgi-ip32/ip32-dma.c
+index 160317294d97a9..20c6da9d76bc5e 100644
+--- a/arch/mips/sgi-ip32/ip32-dma.c
++++ b/arch/mips/sgi-ip32/ip32-dma.c
+@@ -18,7 +18,7 @@
+ 
+ #define RAM_OFFSET_MASK 0x3fffffffUL
+ 
+-dma_addr_t __phys_to_dma(struct device *dev, phys_addr_t paddr)
++dma_addr_t phys_to_dma(struct device *dev, phys_addr_t paddr)
+ {
+ 	dma_addr_t dma_addr = paddr & RAM_OFFSET_MASK;
+ 
+diff --git a/arch/powerpc/include/asm/dma-direct.h b/arch/powerpc/include/asm/dma-direct.h
+index 95b09313d2a4cf..128304cbee1d87 100644
+--- a/arch/powerpc/include/asm/dma-direct.h
++++ b/arch/powerpc/include/asm/dma-direct.h
+@@ -2,7 +2,7 @@
+ #ifndef ASM_POWERPC_DMA_DIRECT_H
+ #define ASM_POWERPC_DMA_DIRECT_H 1
+ 
+-static inline dma_addr_t __phys_to_dma(struct device *dev, phys_addr_t paddr)
++static inline dma_addr_t phys_to_dma(struct device *dev, phys_addr_t paddr)
+ {
+ 	return paddr + dev->archdata.dma_offset;
+ }
+diff --git a/drivers/iommu/intel/iommu.c b/drivers/iommu/intel/iommu.c
+index e9864e52b0e96a..99aa80456b7145 100644
+--- a/drivers/iommu/intel/iommu.c
++++ b/drivers/iommu/intel/iommu.c
+@@ -3736,7 +3736,7 @@ bounce_map_single(struct device *dev, phys_addr_t paddr, size_t size,
+ 	 */
+ 	if (!IS_ALIGNED(paddr | size, VTD_PAGE_SIZE)) {
+ 		tlb_addr = swiotlb_tbl_map_single(dev,
+-				__phys_to_dma(dev, io_tlb_start),
++				phys_to_dma_unencrypted(dev, io_tlb_start),
+ 				paddr, size, aligned_size, dir, attrs);
+ 		if (tlb_addr = DMA_MAPPING_ERROR) {
+ 			goto swiotlb_error;
+diff --git a/include/linux/dma-direct.h b/include/linux/dma-direct.h
+index 811582a39e291f..3797ecccc15466 100644
+--- a/include/linux/dma-direct.h
++++ b/include/linux/dma-direct.h
+@@ -16,14 +16,29 @@ extern unsigned int zone_dma_bits;
+ 
+ #ifdef CONFIG_ARCH_HAS_PHYS_TO_DMA
+ #include <asm/dma-direct.h>
++#ifndef phys_to_dma_unencrypted
++#define phys_to_dma_unencrypted		phys_to_dma
++#endif
+ #else
+-static inline dma_addr_t __phys_to_dma(struct device *dev, phys_addr_t paddr)
++static inline dma_addr_t phys_to_dma_unencrypted(struct device *dev,
++		phys_addr_t paddr)
+ {
+ 	dma_addr_t dev_addr = (dma_addr_t)paddr;
+ 
+ 	return dev_addr - ((dma_addr_t)dev->dma_pfn_offset << PAGE_SHIFT);
+ }
+ 
++/*
++ * If memory encryption is supported, phys_to_dma will set the memory encryption
++ * bit in the DMA address, and dma_to_phys will clear it.
++ * phys_to_dma_unencrypted is for use on special unencrypted memory like swiotlb
++ * buffers.
++ */
++static inline dma_addr_t phys_to_dma(struct device *dev, phys_addr_t paddr)
++{
++	return __sme_set(phys_to_dma_unencrypted(dev, paddr));
++}
++
+ static inline phys_addr_t dma_to_phys(struct device *dev, dma_addr_t dev_addr)
+ {
+ 	phys_addr_t paddr = (phys_addr_t)dev_addr +
+@@ -47,17 +62,6 @@ static inline bool force_dma_unencrypted(struct device *dev)
+ }
+ #endif /* CONFIG_ARCH_HAS_FORCE_DMA_UNENCRYPTED */
+ 
+-/*
+- * If memory encryption is supported, phys_to_dma will set the memory encryption
+- * bit in the DMA address, and dma_to_phys will clear it.  The raw __phys_to_dma
+- * version should only be used on non-encrypted memory for
+- * special occasions like DMA coherent buffers.
+- */
+-static inline dma_addr_t phys_to_dma(struct device *dev, phys_addr_t paddr)
+-{
+-	return __sme_set(__phys_to_dma(dev, paddr));
+-}
+-
+ static inline bool dma_capable(struct device *dev, dma_addr_t addr, size_t size,
+ 		bool is_ram)
+ {
+diff --git a/kernel/dma/direct.c b/kernel/dma/direct.c
+index a97835983a34f7..e7963e51660792 100644
+--- a/kernel/dma/direct.c
++++ b/kernel/dma/direct.c
+@@ -25,7 +25,7 @@ static inline dma_addr_t phys_to_dma_direct(struct device *dev,
+ 		phys_addr_t phys)
+ {
+ 	if (force_dma_unencrypted(dev))
+-		return __phys_to_dma(dev, phys);
++		return phys_to_dma_unencrypted(dev, phys);
+ 	return phys_to_dma(dev, phys);
+ }
+ 
+@@ -433,13 +433,13 @@ int dma_direct_supported(struct device *dev, u64 mask)
+ 		return 1;
+ 
+ 	/*
+-	 * This check needs to be against the actual bit mask value, so
+-	 * use __phys_to_dma() here so that the SME encryption mask isn't
++	 * This check needs to be against the actual bit mask value, so use
++	 * phys_to_dma_unencrypted() here so that the SME encryption mask isn't
+ 	 * part of the check.
+ 	 */
+ 	if (IS_ENABLED(CONFIG_ZONE_DMA))
+ 		min_mask = min_t(u64, min_mask, DMA_BIT_MASK(zone_dma_bits));
+-	return mask >= __phys_to_dma(dev, min_mask);
++	return mask >= phys_to_dma_unencrypted(dev, min_mask);
+ }
+ 
+ size_t dma_direct_max_mapping_size(struct device *dev)
+diff --git a/kernel/dma/swiotlb.c b/kernel/dma/swiotlb.c
+index c19379fabd200e..4ea72d145cd27d 100644
+--- a/kernel/dma/swiotlb.c
++++ b/kernel/dma/swiotlb.c
+@@ -670,13 +670,13 @@ dma_addr_t swiotlb_map(struct device *dev, phys_addr_t paddr, size_t size,
+ 			      swiotlb_force);
+ 
+ 	swiotlb_addr = swiotlb_tbl_map_single(dev,
+-			__phys_to_dma(dev, io_tlb_start),
++			phys_to_dma_unencrypted(dev, io_tlb_start),
+ 			paddr, size, size, dir, attrs);
+ 	if (swiotlb_addr = (phys_addr_t)DMA_MAPPING_ERROR)
+ 		return DMA_MAPPING_ERROR;
+ 
+ 	/* Ensure that the address returned is DMA'ble */
+-	dma_addr = __phys_to_dma(dev, swiotlb_addr);
++	dma_addr = phys_to_dma_unencrypted(dev, swiotlb_addr);
+ 	if (unlikely(!dma_capable(dev, dma_addr, size, true))) {
+ 		swiotlb_tbl_unmap_single(dev, swiotlb_addr, size, size, dir,
+ 			attrs | DMA_ATTR_SKIP_CPU_SYNC);
 -- 
- .''`.  John Paul Adrian Glaubitz
-: :' :  Debian Developer - glaubitz@debian.org
-`. `'   Freie Universitaet Berlin - glaubitz@physik.fu-berlin.de
-  `-    GPG: 62FF 8A75 84E0 2956 9546  0006 7426 3B37 F5B5 F913
+2.28.0
