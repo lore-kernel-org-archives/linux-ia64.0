@@ -1,67 +1,57 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Wed, 19 Aug 2020 06:55:40 +0000
-Subject: [PATCH 13/28] dma-direct: lift gfp_t manipulation out of__dma_direct_alloc_pages
-Message-Id: <20200819065555.1802761-14-hch@lst.de>
+From: Christian Brauner <christian.brauner@ubuntu.com>
+Date: Wed, 19 Aug 2020 10:46:48 +0000
+Subject: [PATCH v2 04/11] m68k: switch to kernel_clone()
+Message-Id: <20200819104655.436656-5-christian.brauner@ubuntu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200819065555.1802761-1-hch@lst.de>
-In-Reply-To: <20200819065555.1802761-1-hch@lst.de>
+References: <20200819104655.436656-1-christian.brauner@ubuntu.com>
+In-Reply-To: <20200819104655.436656-1-christian.brauner@ubuntu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Mauro Carvalho Chehab <mchehab@kernel.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Joonyoung Shim <jy0922.shim@samsung.com>, Seung-Woo Kim <sw0312.kim@samsung.com>, Kyungmin Park <kyungmin.park@samsung.com>, Ben Skeggs <bskeggs@redhat.com>, Pawel Osciak <pawel@osciak.com>, Marek Szyprowski <m.szyprowski@samsung.com>, Matt Porter <mporter@kernel.crashing.org>, iommu@lists.linux-foundation.org
-Cc: Tom Lendacky <thomas.lendacky@amd.com>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-media@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-samsung-soc@vger.kernel.org, nouveau@lists.freedesktop.org, netdev@vger.kernel.org, linux-nvme@lists.infradead.org, linux-scsi@vger.kernel.org, linux-mm@kvack.org, alsa-devel@alsa-project.org
+To: linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: Jonathan Corbet <corbet@lwn.net>, Yoshinori Sato <ysato@users.sourceforge.jp>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Ley Foon Tan <ley.foon.tan@intel.com>, "David S. Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Steven Rostedt <rostedt@goodmis.org>, Stafford Horne <shorne@gmail.com>, Peter Zijlstra <peterz@infradead.org>, Kars de Jong <jongk@linux-m68k.org>, Kees Cook <keescook@chromium.org>, Greentime Hu <green.hu@gmail.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Mauro Carvalho Chehab <mchehab+huawei@kernel.org>, Alexandre Chartre <alexandre.chartre@oracle.com>, Masami Hiramatsu <mhiramat@kernel.org>, Tom Zanussi <zanussi@kernel.org>, Xiao Yang <yangx.jy@cn.fujitsu.com>, linux-doc@vger.kernel.org, uclinux-h8-devel@lists.sourceforge.jp, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, kgdb-bugreport@lists.sourceforge.net, linux-kselftest@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>, Christoph Hewllig <hch@infradead.org>, Matthew Wilcox <willy@infradead.org>, Christian Brauner <christian.brauner@ubuntu.com>
 
-Move the detailed gfp_t setup from __dma_direct_alloc_pages into the
-caller to clean things up a little.
+The old _do_fork() helper is removed in favor of the new kernel_clone() helper.
+The latter adheres to naming conventions for kernel internal syscall helpers.
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
+Cc: Kars de Jong <jongk@linux-m68k.org>
+Cc: linux-m68k@lists.linux-m68k.org
+Signed-off-by: Christian Brauner <christian.brauner@ubuntu.com>
 ---
- kernel/dma/direct.c | 12 +++++-------
- 1 file changed, 5 insertions(+), 7 deletions(-)
+/* v2 */
+unchanged
+---
+ arch/m68k/kernel/process.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/kernel/dma/direct.c b/kernel/dma/direct.c
-index 8da9a62dd9a72c..01120510968fa1 100644
---- a/kernel/dma/direct.c
-+++ b/kernel/dma/direct.c
-@@ -108,7 +108,7 @@ static inline bool dma_should_free_from_pool(struct device *dev,
+diff --git a/arch/m68k/kernel/process.c b/arch/m68k/kernel/process.c
+index 6492a2c54dbc..08359a6e058f 100644
+--- a/arch/m68k/kernel/process.c
++++ b/arch/m68k/kernel/process.c
+@@ -107,10 +107,10 @@ void flush_thread(void)
+  * on top of pt_regs, which means that sys_clone() arguments would be
+  * buried.  We could, of course, copy them, but it's too costly for no
+  * good reason - generic clone() would have to copy them *again* for
+- * _do_fork() anyway.  So in this case it's actually better to pass pt_regs *
+- * and extract arguments for _do_fork() from there.  Eventually we might
+- * go for calling _do_fork() directly from the wrapper, but only after we
+- * are finished with _do_fork() prototype conversion.
++ * kernel_clone() anyway.  So in this case it's actually better to pass pt_regs *
++ * and extract arguments for kernel_clone() from there.  Eventually we might
++ * go for calling kernel_clone() directly from the wrapper, but only after we
++ * are finished with kernel_clone() prototype conversion.
+  */
+ asmlinkage int m68k_clone(struct pt_regs *regs)
+ {
+@@ -125,7 +125,7 @@ asmlinkage int m68k_clone(struct pt_regs *regs)
+ 		.tls		= regs->d5,
+ 	};
+ 
+-	return _do_fork(&args);
++	return kernel_clone(&args);
  }
  
- static struct page *__dma_direct_alloc_pages(struct device *dev, size_t size,
--		gfp_t gfp, unsigned long attrs)
-+		gfp_t gfp)
- {
- 	int node = dev_to_node(dev);
- 	struct page *page = NULL;
-@@ -116,11 +116,6 @@ static struct page *__dma_direct_alloc_pages(struct device *dev, size_t size,
- 
- 	WARN_ON_ONCE(!PAGE_ALIGNED(size));
- 
--	if (attrs & DMA_ATTR_NO_WARN)
--		gfp |= __GFP_NOWARN;
--
--	/* we always manually zero the memory once we are done: */
--	gfp &= ~__GFP_ZERO;
- 	gfp |= dma_direct_optimal_gfp_mask(dev, dev->coherent_dma_mask,
- 					   &phys_limit);
- 	page = dma_alloc_contiguous(dev, size, gfp);
-@@ -164,6 +159,8 @@ void *dma_direct_alloc(struct device *dev, size_t size,
- 		return arch_dma_alloc(dev, size, dma_handle, gfp, attrs);
- 
- 	size = PAGE_ALIGN(size);
-+	if (attrs & DMA_ATTR_NO_WARN)
-+		gfp |= __GFP_NOWARN;
- 
- 	if (dma_should_alloc_from_pool(dev, gfp, attrs)) {
- 		ret = dma_alloc_from_pool(dev, size, &page, gfp);
-@@ -172,7 +169,8 @@ void *dma_direct_alloc(struct device *dev, size_t size,
- 		goto done;
- 	}
- 
--	page = __dma_direct_alloc_pages(dev, size, gfp, attrs);
-+	/* we always manually zero the memory once we are done */
-+	page = __dma_direct_alloc_pages(dev, size, gfp & ~__GFP_ZERO);
- 	if (!page)
- 		return NULL;
- 
+ /*
 -- 
 2.28.0
