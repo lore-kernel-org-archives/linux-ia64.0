@@ -1,90 +1,42 @@
-From: Jonathan Cameron <Jonathan.Cameron@huawei.com>
-Date: Tue, 18 Aug 2020 14:24:28 +0000
-Subject: [PATCH v3 4/6] ACPI: Rename acpi_map_pxm_to_online_node to pxm_to_online_node
-Message-Id: <20200818142430.1156547-5-Jonathan.Cameron@huawei.com>
+From: Christian Brauner <christian.brauner@ubuntu.com>
+Date: Wed, 19 Aug 2020 10:46:51 +0000
+Subject: [PATCH v2 07/11] x86: switch to kernel_clone()
+Message-Id: <20200819104655.436656-8-christian.brauner@ubuntu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200818142430.1156547-1-Jonathan.Cameron@huawei.com>
-In-Reply-To: <20200818142430.1156547-1-Jonathan.Cameron@huawei.com>
+References: <20200819104655.436656-1-christian.brauner@ubuntu.com>
+In-Reply-To: <20200819104655.436656-1-christian.brauner@ubuntu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org, linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org, x86@kernel.org
-Cc: Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>, Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org, martin@geanix.com, Ingo Molnar <mingo@redhat.com>, linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, linuxarm@huawei.com, Dan Williams <dan.j.williams@intel.com>, Song Bao Hua <song.bao.hua@hisilicon.com>, Jonathan Cameron <Jonathan.Cameron@huawei.com>
+To: linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: Jonathan Corbet <corbet@lwn.net>, Yoshinori Sato <ysato@users.sourceforge.jp>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Ley Foon Tan <ley.foon.tan@intel.com>, "David S. Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Steven Rostedt <rostedt@goodmis.org>, Stafford Horne <shorne@gmail.com>, Peter Zijlstra <peterz@infradead.org>, Kars de Jong <jongk@linux-m68k.org>, Kees Cook <keescook@chromium.org>, Greentime Hu <green.hu@gmail.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Mauro Carvalho Chehab <mchehab+huawei@kernel.org>, Alexandre Chartre <alexandre.chartre@oracle.com>, Masami Hiramatsu <mhiramat@kernel.org>, Tom Zanussi <zanussi@kernel.org>, Xiao Yang <yangx.jy@cn.fujitsu.com>, linux-doc@vger.kernel.org, uclinux-h8-devel@lists.sourceforge.jp, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, kgdb-bugreport@lists.sourceforge.net, linux-kselftest@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>, Christoph Hewllig <hch@infradead.org>, Matthew Wilcox <willy@infradead.org>, Christian Brauner <christian.brauner@ubuntu.com>
 
-As this function is no longer allowed to create new mappings
-let us rename it to reflect this.
+The old _do_fork() helper is removed in favor of the new kernel_clone() helper.
+The latter adheres to naming conventions for kernel internal syscall helpers.
 
-Note all nodes should already exist before any of the users
-of this function are called.
-
-Signed-off-by: Jonathan Cameron <Jonathan.Cameron@huawei.com>
-Reviewed-by: Hanjun Guo <guohanjun@huawei.com>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Ingo Molnar <mingo@redhat.com>
+Cc: Borislav Petkov <bp@alien8.de>
+Cc: x86@kernel.org
+Signed-off-by: Christian Brauner <christian.brauner@ubuntu.com>
 ---
- drivers/acpi/nfit/core.c | 3 +--
- drivers/acpi/numa/hmat.c | 2 +-
- include/linux/acpi.h     | 8 ++++----
- 3 files changed, 6 insertions(+), 7 deletions(-)
+/* v2 */
+unchanged
+---
+ arch/x86/kernel/sys_ia32.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/acpi/nfit/core.c b/drivers/acpi/nfit/core.c
-index ea0557cb54f7..8df2f16d1fdf 100644
---- a/drivers/acpi/nfit/core.c
-+++ b/drivers/acpi/nfit/core.c
-@@ -3006,8 +3006,7 @@ static int acpi_nfit_register_region(struct acpi_nfit_desc *acpi_desc,
- 	ndr_desc->provider_data = nfit_spa;
- 	ndr_desc->attr_groups = acpi_nfit_region_attribute_groups;
- 	if (spa->flags & ACPI_NFIT_PROXIMITY_VALID) {
--		ndr_desc->numa_node = acpi_map_pxm_to_online_node(
--						spa->proximity_domain);
-+		ndr_desc->numa_node = pxm_to_online_node(spa->proximity_domain);
- 		ndr_desc->target_node = pxm_to_node(spa->proximity_domain);
- 	} else {
- 		ndr_desc->numa_node = NUMA_NO_NODE;
-diff --git a/drivers/acpi/numa/hmat.c b/drivers/acpi/numa/hmat.c
-index cf6df2df26cd..e7add2609c03 100644
---- a/drivers/acpi/numa/hmat.c
-+++ b/drivers/acpi/numa/hmat.c
-@@ -664,7 +664,7 @@ static void hmat_register_target_device(struct memory_target *target,
- 		goto out_pdev;
- 	}
- 
--	pdev->dev.numa_node = acpi_map_pxm_to_online_node(target->memory_pxm);
-+	pdev->dev.numa_node = pxm_to_online_node(target->memory_pxm);
- 	info = (struct memregion_info) {
- 		.target_node = pxm_to_node(target->memory_pxm),
+diff --git a/arch/x86/kernel/sys_ia32.c b/arch/x86/kernel/sys_ia32.c
+index 720cde885042..6cf65397d225 100644
+--- a/arch/x86/kernel/sys_ia32.c
++++ b/arch/x86/kernel/sys_ia32.c
+@@ -251,6 +251,6 @@ COMPAT_SYSCALL_DEFINE5(ia32_clone, unsigned long, clone_flags,
+ 		.tls		= tls_val,
  	};
-diff --git a/include/linux/acpi.h b/include/linux/acpi.h
-index a9fd122ae878..e9f6cd67943e 100644
---- a/include/linux/acpi.h
-+++ b/include/linux/acpi.h
-@@ -420,10 +420,10 @@ int acpi_map_pxm_to_node(int pxm);
- int acpi_get_node(acpi_handle handle);
  
- /**
-- * acpi_map_pxm_to_online_node - Map proximity ID to online node
-+ * pxm_to_online_node - Map proximity ID to online node
-  * @pxm: ACPI proximity ID
-  *
-- * This is similar to acpi_map_pxm_to_node(), but always returns an online
-+ * This is similar to pxm_to_node(), but always returns an online
-  * node.  When the mapped node from a given proximity ID is offline, it
-  * looks up the node distance table and returns the nearest online node.
-  *
-@@ -433,14 +433,14 @@ int acpi_get_node(acpi_handle handle);
-  * offline nodes.  A node may be offline when SRAT memory entry does not exist,
-  * or NUMA is disabled, ex. "numa=off" on x86.
-  */
--static inline int acpi_map_pxm_to_online_node(int pxm)
-+static inline int pxm_to_online_node(int pxm)
- {
- 	int node = pxm_to_node(pxm);
- 
- 	return numa_map_to_online_node(node);
+-	return _do_fork(&args);
++	return kernel_clone(&args);
  }
- #else
--static inline int acpi_map_pxm_to_online_node(int pxm)
-+static inline int pxm_to_online_node(int pxm)
- {
- 	return 0;
- }
+ #endif /* CONFIG_IA32_EMULATION */
 -- 
-2.19.1
+2.28.0
