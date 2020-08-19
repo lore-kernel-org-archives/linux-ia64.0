@@ -1,70 +1,121 @@
-From: Nicolin Chen <nicoleotsuka@gmail.com>
-Date: Tue, 25 Aug 2020 23:19:00 +0000
-Subject: Re: [RFT][PATCH 0/7] Avoid overflow at boundary_size
-Message-Id: <20200825231900.GA4726@Asurada-Nvidia>
+From: Christoph Hellwig <hch@lst.de>
+Date: Wed, 19 Aug 2020 06:55:27 +0000
+Subject: a saner API for allocating DMA addressable pages
+Message-Id: <20200819065555.1802761-1-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200820231923.23678-1-nicoleotsuka@gmail.com>
- <4321af30-9554-6897-5281-05afd88f2631@linux.ibm.com>
-In-Reply-To: <4321af30-9554-6897-5281-05afd88f2631@linux.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Niklas Schnelle <schnelle@linux.ibm.com>
-Cc: mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, rth@twiddle.net, ink@jurassic.park.msu.ru, mattst88@gmail.com, tony.luck@intel.com, fenghua.yu@intel.com, gerald.schaefer@linux.ibm.com, hca@linux.ibm.com, gor@linux.ibm.com, borntraeger@de.ibm.com, davem@davemloft.net, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, x86@kernel.org, hpa@zytor.com, James.Bottomley@HansenPartnership.com, deller@gmx.de, sfr@canb.auug.org.au, hch@lst.de, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-parisc@vger.kernel.org
+To: Mauro Carvalho Chehab <mchehab@kernel.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Joonyoung Shim <jy0922.shim@samsung.com>, Seung-Woo Kim <sw0312.kim@samsung.com>, Kyungmin Park <kyungmin.park@samsung.com>, Ben Skeggs <bskeggs@redhat.com>, Pawel Osciak <pawel@osciak.com>, Marek Szyprowski <m.szyprowski@samsung.com>, Matt Porter <mporter@kernel.crashing.org>, iommu@lists.linux-foundation.org
+Cc: Tom Lendacky <thomas.lendacky@amd.com>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-media@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-samsung-soc@vger.kernel.org, nouveau@lists.freedesktop.org, netdev@vger.kernel.org, linux-nvme@lists.infradead.org, linux-scsi@vger.kernel.org, linux-mm@kvack.org, alsa-devel@alsa-project.org
 
-Hi Niklas,
+Hi all,
 
-On Tue, Aug 25, 2020 at 12:16:27PM +0200, Niklas Schnelle wrote:
-> On 8/21/20 1:19 AM, Nicolin Chen wrote:
-> > We are expending the default DMA segmentation boundary to its
-> > possible maximum value (ULONG_MAX) to indicate that a device
-> > doesn't specify a boundary limit. So all dma_get_seg_boundary
-> > callers should take a precaution with the return values since
-> > it would easily get overflowed.
-> > 
-> > I scanned the entire kernel tree for all the existing callers
-> > and found that most of callers may get overflowed in two ways:
-> > either "+ 1" or passing it to ALIGN() that does "+ mask".
-> > 
-> > According to kernel defines:
-> >     #define ALIGN_MASK(x, mask) (((x) + (mask)) & ~(mask))
-> >     #define ALIGN(x, a)	ALIGN_MASK(x, (typeof(x))(a) - 1)
-> > 
-> > We can simplify the logic here:
-> >   ALIGN(boundary + 1, 1 << shift) >> shift
-> > = ALIGN_MASK(b + 1, (1 << s) - 1) >> s
-> > = {[b + 1 + (1 << s) - 1] & ~[(1 << s) - 1]} >> s
-> > = [b + 1 + (1 << s) - 1] >> s
-> > = [b + (1 << s)] >> s
-> > = (b >> s) + 1
-> > 
-> > So this series of patches fix the potential overflow with this
-> > overflow-free shortcut.
- 
-> haven't seen any other feedback from other maintainers,
+this series replaced the DMA_ATTR_NON_CONSISTENT flag to dma_alloc_attrs
+with a separate new dma_alloc_pages API, which is available on all
+platforms.  In addition to cleaning up the convoluted code path, this
+ensures that other drivers that have asked for better support for
+non-coherent DMA to pages with incurring bounce buffering over can finally
+be properly supported.
 
-I am wondering this too...whether I sent correctly or not.
+I'm still a little unsure about the API naming, as alloc_pages sort of
+implies a struct page return value, but we return a kernel virtual
+address.  The other alternative would be to name the API
+dma_alloc_noncoherent, but the whole non-coherent naming seems to put
+people off.  As a follow up I plan to move the implementation of the
+DMA_ATTR_NO_KERNEL_MAPPING flag over to this framework as well, given
+that is also is a fundamentally non coherent allocation.  The replacement
+for that flag would then return a struct page, as it is allowed to
+actually return pages without a kernel mapping as the name suggested
+(although most of the time they will actually have a kernel mapping..)
 
-> so I guess you will resend this?
+In addition to the conversions of the existing non-coherent DMA users
+the last three patches also convert the DMA coherent allocations in
+the NVMe driver to use this new framework through a dmapool addition.
+This was both to give me a good testing vehicle, but also because it
+should speed up the NVMe driver on platforms with non-coherent DMA
+nicely, without a downside on platforms with cache coherent DMA.
 
-Do I need to? Though I won't mind doing so if it's necessary..
 
-> On first glance it seems to make sense.
-> I'm a little confused why it is only a "potential overflow"
-> while this part
-> 
-> "We are expending the default DMA segmentation boundary to its
->  possible maximum value (ULONG_MAX) to indicate that a device
->  doesn't specify a boundary limit"
-> 
-> sounds to me like ULONG_MAX is actually used, does that
-> mean there are currently no devices which do not specify a
-> boundary limit?
+A git tree is available here:
 
-Sorry for the confusion. We actually applied ULONG_MAX change
-last week but reverted it right after, due to a bug report at
-one of these "potential" overflows. So at this moment the top
-of the tree doesn't set default boundary to ULONG_MAX yet.
+    git://git.infradead.org/users/hch/misc.git dma_alloc_pages
 
-Thanks
-Nic
+Gitweb:
+
+    http://git.infradead.org/users/hch/misc.git/shortlog/refs/heads/dma_alloc_pages
+
+
+Diffstat:
+ Documentation/core-api/dma-api.rst                       |   92 ++----
+ Documentation/core-api/dma-attributes.rst                |    8 
+ Documentation/userspace-api/media/v4l/buffer.rst         |   17 -
+ Documentation/userspace-api/media/v4l/vidioc-reqbufs.rst |    1 
+ arch/alpha/kernel/pci_iommu.c                            |    2 
+ arch/arm/include/asm/dma-direct.h                        |    4 
+ arch/arm/mm/dma-mapping-nommu.c                          |    2 
+ arch/arm/mm/dma-mapping.c                                |    4 
+ arch/ia64/Kconfig                                        |    3 
+ arch/ia64/hp/common/sba_iommu.c                          |    2 
+ arch/ia64/kernel/dma-mapping.c                           |   14 
+ arch/ia64/mm/init.c                                      |    3 
+ arch/mips/Kconfig                                        |    1 
+ arch/mips/bmips/dma.c                                    |    4 
+ arch/mips/cavium-octeon/dma-octeon.c                     |    4 
+ arch/mips/include/asm/dma-direct.h                       |    4 
+ arch/mips/include/asm/jazzdma.h                          |    2 
+ arch/mips/jazz/jazzdma.c                                 |  102 +------
+ arch/mips/loongson2ef/fuloong-2e/dma.c                   |    4 
+ arch/mips/loongson2ef/lemote-2f/dma.c                    |    4 
+ arch/mips/loongson64/dma.c                               |    4 
+ arch/mips/mm/dma-noncoherent.c                           |   48 +--
+ arch/mips/pci/pci-ar2315.c                               |    4 
+ arch/mips/pci/pci-xtalk-bridge.c                         |    4 
+ arch/mips/sgi-ip32/ip32-dma.c                            |    4 
+ arch/parisc/Kconfig                                      |    1 
+ arch/parisc/kernel/pci-dma.c                             |    6 
+ arch/powerpc/include/asm/dma-direct.h                    |    4 
+ arch/powerpc/kernel/dma-iommu.c                          |    2 
+ arch/powerpc/platforms/ps3/system-bus.c                  |    4 
+ arch/powerpc/platforms/pseries/vio.c                     |    2 
+ arch/s390/pci/pci_dma.c                                  |    2 
+ arch/x86/kernel/amd_gart_64.c                            |    8 
+ drivers/gpu/drm/exynos/exynos_drm_gem.c                  |    2 
+ drivers/gpu/drm/nouveau/nvkm/subdev/instmem/gk20a.c      |    3 
+ drivers/iommu/dma-iommu.c                                |    2 
+ drivers/iommu/intel/iommu.c                              |    6 
+ drivers/media/common/videobuf2/videobuf2-core.c          |   36 --
+ drivers/media/common/videobuf2/videobuf2-dma-contig.c    |   19 -
+ drivers/media/common/videobuf2/videobuf2-dma-sg.c        |    3 
+ drivers/media/common/videobuf2/videobuf2-v4l2.c          |   12 
+ drivers/net/ethernet/amd/au1000_eth.c                    |   15 -
+ drivers/net/ethernet/i825xx/lasi_82596.c                 |   36 +-
+ drivers/net/ethernet/i825xx/lib82596.c                   |  148 +++++-----
+ drivers/net/ethernet/i825xx/sni_82596.c                  |   23 -
+ drivers/net/ethernet/seeq/sgiseeq.c                      |   24 -
+ drivers/nvme/host/pci.c                                  |   79 ++---
+ drivers/parisc/ccio-dma.c                                |    2 
+ drivers/parisc/sba_iommu.c                               |    2 
+ drivers/scsi/53c700.c                                    |  120 ++++----
+ drivers/scsi/53c700.h                                    |    9 
+ drivers/scsi/sgiwd93.c                                   |   14 
+ drivers/xen/swiotlb-xen.c                                |    2 
+ include/linux/dma-direct.h                               |   55 ++-
+ include/linux/dma-mapping.h                              |   32 +-
+ include/linux/dma-noncoherent.h                          |   21 -
+ include/linux/dmapool.h                                  |   23 +
+ include/linux/gfp.h                                      |    6 
+ include/media/videobuf2-core.h                           |    3 
+ include/uapi/linux/videodev2.h                           |    2 
+ kernel/dma/Kconfig                                       |    9 
+ kernel/dma/Makefile                                      |    1 
+ kernel/dma/coherent.c                                    |   17 +
+ kernel/dma/direct.c                                      |  112 +++++--
+ kernel/dma/mapping.c                                     |  104 ++-----
+ kernel/dma/ops_helpers.c                                 |   86 ++++++
+ kernel/dma/pool.c                                        |    2 
+ kernel/dma/swiotlb.c                                     |    4 
+ kernel/dma/virt.c                                        |    2 
+ mm/dmapool.c                                             |  211 +++++++++------
+ sound/mips/hal2.c                                        |   58 +---
+ 71 files changed, 872 insertions(+), 803 deletions(-)
