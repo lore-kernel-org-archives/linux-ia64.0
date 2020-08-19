@@ -1,51 +1,85 @@
 From: Christian Brauner <christian.brauner@ubuntu.com>
-Date: Wed, 19 Aug 2020 10:46:47 +0000
-Subject: [PATCH v2 03/11] ia64: switch to kernel_clone()
-Message-Id: <20200819104655.436656-4-christian.brauner@ubuntu.com>
+Date: Wed, 19 Aug 2020 10:46:44 +0000
+Subject: [PATCH v2 00/11] Introduce kernel_clone(), kill _do_fork()
+Message-Id: <20200819104655.436656-1-christian.brauner@ubuntu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200819104655.436656-1-christian.brauner@ubuntu.com>
-In-Reply-To: <20200819104655.436656-1-christian.brauner@ubuntu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
 Cc: Jonathan Corbet <corbet@lwn.net>, Yoshinori Sato <ysato@users.sourceforge.jp>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Ley Foon Tan <ley.foon.tan@intel.com>, "David S. Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Steven Rostedt <rostedt@goodmis.org>, Stafford Horne <shorne@gmail.com>, Peter Zijlstra <peterz@infradead.org>, Kars de Jong <jongk@linux-m68k.org>, Kees Cook <keescook@chromium.org>, Greentime Hu <green.hu@gmail.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Mauro Carvalho Chehab <mchehab+huawei@kernel.org>, Alexandre Chartre <alexandre.chartre@oracle.com>, Masami Hiramatsu <mhiramat@kernel.org>, Tom Zanussi <zanussi@kernel.org>, Xiao Yang <yangx.jy@cn.fujitsu.com>, linux-doc@vger.kernel.org, uclinux-h8-devel@lists.sourceforge.jp, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, kgdb-bugreport@lists.sourceforge.net, linux-kselftest@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>, Christoph Hewllig <hch@infradead.org>, Matthew Wilcox <willy@infradead.org>, Christian Brauner <christian.brauner@ubuntu.com>
 
-The old _do_fork() helper is removed in favor of the new kernel_clone() helper.
-The latter adheres to naming conventions for kernel internal syscall helpers.
+Hey everyone,
 
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org
-Signed-off-by: Christian Brauner <christian.brauner@ubuntu.com>
----
-/* v2 */
-unchanged
----
- arch/ia64/kernel/process.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+This is a follow-up to the fork-related cleanup. It's based on a brief
+discussion after the initial series was merged.
+Last cycle we removed copy_thread_tls() and the associated Kconfig
+option for each architecture. Now we are only left with copy_thread().
+Part of this work was removing the old do_fork() legacy clone()-style
+calling convention in favor of the new struct kernel_clone args calling
+convention.
+The only remaining function callable outside of kernel/fork.c is
+_do_fork(). It doesn't really follow the naming of kernel-internal
+syscall helpers as Christoph righly pointed out. Switch all callers and
+references to kernel_clone() and remove _do_fork() once and for all also
+switching the return value for kernel_clone() from long to pid_t since
+that's what we use in all other places where we're dealing with process
+identifiers.
 
-diff --git a/arch/ia64/kernel/process.c b/arch/ia64/kernel/process.c
-index f19cb97c0098..126f72490ec7 100644
---- a/arch/ia64/kernel/process.c
-+++ b/arch/ia64/kernel/process.c
-@@ -310,7 +310,7 @@ ia64_load_extra (struct task_struct *task)
-  *
-  *	<clone syscall>	        <some kernel call frames>
-  *	sys_clone		   :
-- *	_do_fork		_do_fork
-+ *	kernel_clone		kernel_clone
-  *	copy_thread		copy_thread
-  *
-  * This means that the stack layout is as follows:
-@@ -455,7 +455,7 @@ asmlinkage long ia64_clone(unsigned long clone_flags, unsigned long stack_start,
- 		.tls		= tls,
- 	};
- 
--	return _do_fork(&args);
-+	return kernel_clone(&args);
- }
- 
- static void
+For all architectures I have done a full git rebase v5.9-rc1 -x "make
+-j31". There were no built failures and the changes were fairly
+mechanical.
+
+The only helpers we have left now are kernel_thread() and kernel_clone()
+where kernel_thread() just calls kernel_clone().
+
+Thanks!
+Christian
+
+Christian Brauner (11):
+  fork: introduce kernel_clone()
+  h8300: switch to kernel_clone()
+  ia64: switch to kernel_clone()
+  m68k: switch to kernel_clone()
+  nios2: switch to kernel_clone()
+  sparc: switch to kernel_clone()
+  x86: switch to kernel_clone()
+  kprobes: switch to kernel_clone()
+  kgdbts: switch to kernel_clone()
+  tracing: switch to kernel_clone()
+  sched: remove _do_fork()
+
+ Documentation/trace/histogram.rst             |  4 +-
+ arch/h8300/kernel/process.c                   |  2 +-
+ arch/ia64/kernel/process.c                    |  4 +-
+ arch/m68k/kernel/process.c                    | 10 ++--
+ arch/nios2/kernel/process.c                   |  2 +-
+ arch/sparc/kernel/process.c                   |  6 +--
+ arch/x86/kernel/sys_ia32.c                    |  2 +-
+ drivers/misc/kgdbts.c                         | 48 +++++++++----------
+ include/linux/sched/task.h                    |  2 +-
+ kernel/fork.c                                 | 16 +++----
+ samples/kprobes/kprobe_example.c              |  6 +--
+ samples/kprobes/kretprobe_example.c           |  4 +-
+ .../test.d/dynevent/add_remove_kprobe.tc      |  2 +-
+ .../test.d/dynevent/clear_select_events.tc    |  2 +-
+ .../test.d/dynevent/generic_clear_event.tc    |  2 +-
+ .../test.d/ftrace/func-filter-stacktrace.tc   |  4 +-
+ .../ftrace/test.d/kprobe/add_and_remove.tc    |  2 +-
+ .../ftrace/test.d/kprobe/busy_check.tc        |  2 +-
+ .../ftrace/test.d/kprobe/kprobe_args.tc       |  4 +-
+ .../ftrace/test.d/kprobe/kprobe_args_comm.tc  |  2 +-
+ .../test.d/kprobe/kprobe_args_string.tc       |  4 +-
+ .../test.d/kprobe/kprobe_args_symbol.tc       | 10 ++--
+ .../ftrace/test.d/kprobe/kprobe_args_type.tc  |  2 +-
+ .../ftrace/test.d/kprobe/kprobe_ftrace.tc     | 14 +++---
+ .../ftrace/test.d/kprobe/kprobe_multiprobe.tc |  2 +-
+ .../test.d/kprobe/kprobe_syntax_errors.tc     | 12 ++---
+ .../ftrace/test.d/kprobe/kretprobe_args.tc    |  4 +-
+ .../selftests/ftrace/test.d/kprobe/profile.tc |  2 +-
+ 28 files changed, 88 insertions(+), 88 deletions(-)
+
+
+base-commit: 9123e3a74ec7b934a4a099e98af6a61c2f80bbf5
 -- 
 2.28.0
