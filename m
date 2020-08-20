@@ -1,59 +1,37 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Thu, 20 Aug 2020 05:02:14 +0000
+Date: Thu, 20 Aug 2020 05:20:04 +0000
 Subject: Re: [PATCH 05/28] media/v4l2: remove V4L2-FLAG-MEMORY-NON-CONSISTENT
-Message-Id: <20200820050214.GA4815@lst.de>
+Message-Id: <20200820052004.GA5305@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200819065555.1802761-1-hch@lst.de> <20200819065555.1802761-6-hch@lst.de> <CAAFQd5COLxjydDYrfx47ht8tj-aNPiaVnC+WyQA7nvpW4gs=ww@mail.gmail.com> <62e4f4fc-c8a5-3ee8-c576-fe7178cb4356@arm.com> <CAAFQd5AcCTDguB2C9KyDiutXWoEvBL8tL7+a==Uo8vj_8CLOJw@mail.gmail.com> <2b32f1d8-16f7-3352-40a5-420993d52fb5@arm.com>
-In-Reply-To: <2b32f1d8-16f7-3352-40a5-420993d52fb5@arm.com>
+References: <20200819065555.1802761-1-hch@lst.de> <20200819065555.1802761-6-hch@lst.de> <CAAFQd5COLxjydDYrfx47ht8tj-aNPiaVnC+WyQA7nvpW4gs=ww@mail.gmail.com> <20200819135454.GA17098@lst.de> <CAAFQd5BuXP7t3d-Rwft85j=KTyXq7y4s24mQxLr=VoY9krEGZw@mail.gmail.com> <20200820044347.GA4533@lst.de>
+In-Reply-To: <20200820044347.GA4533@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Robin Murphy <robin.murphy@arm.com>
-Cc: Tomasz Figa <tfiga@chromium.org>, Christoph Hellwig <hch@lst.de>, alsa-devel@alsa-project.org, linux-ia64@vger.kernel.org, Linux Doc Mailing List <linux-doc@vger.kernel.org>, nouveau@lists.freedesktop.org, linux-nvme@lists.infradead.org, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, linux-mm@kvack.org, Marek Szyprowski <m.szyprowski@samsung.com>, linux-samsung-soc <linux-samsung-soc@vger.kernel.org>, Joonyoung Shim <jy0922.shim@samsung.com>, linux-scsi@vger.kernel.org, Kyungmin Park <kyungmin.park@samsung.com>, Ben Skeggs <bskeggs@redhat.com>, Matt Porter <mporter@kernel.crashing.org>, Linux Media Mailing List <linux-media@vger.kernel.org>, Tom Lendacky <thomas.lendacky@amd.com>, Pawel Osciak <pawel@osciak.com>, Mauro Carvalho Chehab <mchehab@kernel.org>, "list@263.net:IOMMU DRIVERS" <iommu@lists.linux-foundation.org>, Joerg Roedel <joro@8bytes.org>, linux-arm-kernel@lists.infradead.org, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, linux-parisc@vger.kernel.org, netdev@vger.kernel.org, Seung-Woo Kim <sw0312.kim@samsung.com>, linux-mips@vger.kernel.org
+To: Tomasz Figa <tfiga@chromium.org>
+Cc: alsa-devel@alsa-project.org, linux-ia64@vger.kernel.org, Linux Doc Mailing List <linux-doc@vger.kernel.org>, nouveau@lists.freedesktop.org, linux-nvme@lists.infradead.org, linux-mips@vger.kernel.org, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, linux-mm@kvack.org, Christoph Hellwig <hch@lst.de>, linux-samsung-soc <linux-samsung-soc@vger.kernel.org>, Joonyoung Shim <jy0922.shim@samsung.com>, linux-scsi@vger.kernel.org, Kyungmin Park <kyungmin.park@samsung.com>, Ben Skeggs <bskeggs@redhat.com>, Matt Porter <mporter@kernel.crashing.org>, Linux Media Mailing List <linux-media@vger.kernel.org>, Tom Lendacky <thomas.lendacky@amd.com>, Pawel Osciak <pawel@osciak.com>, Mauro Carvalho Chehab <mchehab@kernel.org>, "list@263.net:IOMMU DRIVERS <iommu@lists.linux-foundation.org>, Joerg
+        Roedel <joro@8bytes.org>, " <linux-arm-kernel@lists.infradead.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, linux-parisc@vger.kernel.org, netdev@vger.kernel.org, Seung-Woo Kim <sw0312.kim@samsung.com>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, "list@263.net:IOMMU DRIVERS <iommu@lists.linux-foundation.org>, Joerg
+        Roedel <joro@8bytes.org>, " <iommu@lists.linux-foundation.org>
 
-On Wed, Aug 19, 2020 at 03:07:04PM +0100, Robin Murphy wrote:
->> FWIW, I asked back in time what the plan is for non-coherent
->> allocations and it seemed like DMA_ATTR_NON_CONSISTENT and
->> dma_sync_*() was supposed to be the right thing to go with. [2] The
->> same thread also explains why dma_alloc_pages() isn't suitable for the
->> users of dma_alloc_attrs() and DMA_ATTR_NON_CONSISTENT.
->
-> AFAICS even back then Christoph was implying getting rid of NON_CONSISTENT 
-> and *replacing* it with something streaming-API-based - i.e. this series - 
-> not encouraging mixing the existing APIs. It doesn't seem impossible to 
-> implement a remapping version of this new dma_alloc_pages() for 
-> IOMMU-backed ops if it's really warranted (although at that point it seems 
-> like "non-coherent" vb2-dc starts to have significant conceptual overlap 
-> with vb2-sg).
+On Thu, Aug 20, 2020 at 06:43:47AM +0200, Christoph Hellwig wrote:
+> On Wed, Aug 19, 2020 at 03:57:53PM +0200, Tomasz Figa wrote:
+> > > > Could you explain what makes you think it's unused? It's a feature of
+> > > > the UAPI generally supported by the videobuf2 framework and relied on
+> > > > by Chromium OS to get any kind of reasonable performance when
+> > > > accessing V4L2 buffers in the userspace.
+> > >
+> > > Because it doesn't do anything except on PARISC and non-coherent MIPS,
+> > > so by definition it isn't used by any of these media drivers.
+> > 
+> > It's still an UAPI feature, so we can't simply remove the flag, it
+> > must stay there as a no-op, until the problem is resolved.
+> 
+> Ok, I'll switch to just ignoring it for the next version.
 
-You can alway vmap the returned pages from dma_alloc_pages, but it will
-make cache invalidation hell - you'll need to use
-invalidate_kernel_vmap_range and flush_kernel_vmap_range to properly
-handle virtually indexed caches.
-
-Or with remapping you mean using the iommu do de-scatter/gather?
-
-You can implement that trivially implement it yourself for the iommu
-case:
-
-{
-	merge_boundary = dma_get_merge_boundary(dev);
-	if (!merge_boundary || merge_boundary > chunk_size - 1) {
-		/* can't coalesce */
-		return -EINVAL;
-	}
-
-	
-	nents = DIV_ROUND_UP(total_size, chunk_size);
-	sg = sgl_alloc();
-	for_each_sgl() {
-		sg->page = __alloc_pages(get_order(chunk_size))
-		sg->len = chunk_size;
-	}
-	dma_map_sg(sg, DMA_ATTR_SKIP_CPU_SYNC);
-	// you are guaranteed to get a single dma_addr out
-}
-
-Of course this still uses the scatterlist structure with its annoying
-mix of input and output parametes, so I'd rather not expose it as
-an official API at the DMA layer.
+So I took a deeper look.  I don't really think it qualifies as a UAPI
+in our traditional sense.  For one it only appeared in 5.9-rc1, so we
+can trivially expedite the patch into 5.9-rc and not actually make it
+show up in any released kernel version.  And even as of the current
+Linus' tree the only user is a test driver.  So I really think the best
+way to go ahead is to just revert it ASAP as the design wasn't thought
+out at all.
