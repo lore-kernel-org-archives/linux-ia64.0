@@ -1,59 +1,64 @@
-From: Randy Dunlap <rdunlap@infradead.org>
-Date: Sat, 29 Aug 2020 18:21:15 +0000
-Subject: Re: [PATCH 1/3] ia64: do not typedef struct pal_min_state_area_s
-Message-Id: <4cd59328-03b2-8da1-31fd-750c18a3f2bf@infradead.org>
+From: Nicolin Chen <nicoleotsuka@gmail.com>
+Date: Thu, 20 Aug 2020 23:19:23 +0000
+Subject: [RFT][PATCH 0/7] Avoid overflow at boundary_size
+Message-Id: <20200820231923.23678-1-nicoleotsuka@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200829051524.706585-1-masahiroy@kernel.org>
- <20200829051524.706585-2-masahiroy@kernel.org>
-In-Reply-To: <20200829051524.706585-2-masahiroy@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Masahiro Yamada <masahiroy@kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
-Cc: linux-kbuild@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, Arnd Bergmann <arnd@arndb.de>, Dmitry Safonov <0x7f454c46@gmail.com>, afzal mohammed <afzal.mohd.ma@gmail.com>, linux-kernel@vger.kernel.org
+To: mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, rth@twiddle.net, ink@jurassic.park.msu.ru, mattst88@gmail.com, tony.luck@intel.com, fenghua.yu@intel.com, schnelle@linux.ibm.com, gerald.schaefer@linux.ibm.com, hca@linux.ibm.com, gor@linux.ibm.com, borntraeger@de.ibm.com, davem@davemloft.net, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, x86@kernel.org, hpa@zytor.com, James.Bottomley@HansenPartnership.com, deller@gmx.de
+Cc: sfr@canb.auug.org.au, hch@lst.de, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-parisc@vger.kernel.org
 
-On 8/28/20 10:15 PM, Masahiro Yamada wrote:
-> Documentation/process/coding-style.rst says:
-> 
->   Please don't use things like ``vps_t``.
->   It's a **mistake** to use typedef for structures and pointers.
-> 
-> This commit converts as follows:
-> 
->   struct pal_min_state_area_s  ->  struct pal_min_state_area
->          pal_min_state_area_t  ->  struct pal_min_state_area
-> 
-> My main motivation for this is to slim down the include directives
-> of <asm/mca.h> in the next commit.
-> 
-> Currently, <asm/mca.h> is required to include <asm/pal.h> directly
-> or indirectly due to (pal_min_state_area_t *). Otherwise, it would
-> have no idea what pal_min_state_area_t is.
-> 
-> Replacing it with (struct pal_min_state_area *) will relax the header
-> dependency since it is enough to tell it is a pointer to a structure,
-> and to resolve the size of struct pal_min_state_area. It will make
-> <asm/mca.h> independent of <asm/pal.h>.
-> 
-> <asm/pal.h> typedef's a lot of structures, but it is trivial to
-> convert the others in the same way.
-> 
-> Signed-off-by: Masahiro Yamada <masahiroy@kernel.org>
+We are expending the default DMA segmentation boundary to its
+possible maximum value (ULONG_MAX) to indicate that a device
+doesn't specify a boundary limit. So all dma_get_seg_boundary
+callers should take a precaution with the return values since
+it would easily get overflowed.
 
-Reviewed-by: Randy Dunlap <rdunlap@infradead.org>
+I scanned the entire kernel tree for all the existing callers
+and found that most of callers may get overflowed in two ways:
+either "+ 1" or passing it to ALIGN() that does "+ mask".
 
-> ---
-> 
->  arch/ia64/include/asm/mca.h    |  2 +-
->  arch/ia64/include/asm/pal.h    |  4 ++--
->  arch/ia64/include/asm/sal.h    |  2 +-
->  arch/ia64/kernel/asm-offsets.c | 18 +++++++++---------
->  arch/ia64/kernel/mca.c         |  4 ++--
->  arch/ia64/kernel/mca_drv.c     |  2 +-
->  6 files changed, 16 insertions(+), 16 deletions(-)
-> 
+According to kernel defines:
+    #define ALIGN_MASK(x, mask) (((x) + (mask)) & ~(mask))
+    #define ALIGN(x, a)	ALIGN_MASK(x, (typeof(x))(a) - 1)
 
+We can simplify the logic here:
+  ALIGN(boundary + 1, 1 << shift) >> shift
+= ALIGN_MASK(b + 1, (1 << s) - 1) >> s
+= {[b + 1 + (1 << s) - 1] & ~[(1 << s) - 1]} >> s
+= [b + 1 + (1 << s) - 1] >> s
+= [b + (1 << s)] >> s
+= (b >> s) + 1
 
-thanks.
+So this series of patches fix the potential overflow with this
+overflow-free shortcut.
+
+As I don't think that I have these platforms, marking RFT.
+
+Thanks
+Nic
+
+Nicolin Chen (7):
+  powerpc/iommu: Avoid overflow at boundary_size
+  alpha: Avoid overflow at boundary_size
+  ia64/sba_iommu: Avoid overflow at boundary_size
+  s390/pci_dma: Avoid overflow at boundary_size
+  sparc: Avoid overflow at boundary_size
+  x86/amd_gart: Avoid overflow at boundary_size
+  parisc: Avoid overflow at boundary_size
+
+ arch/alpha/kernel/pci_iommu.c    | 10 ++++------
+ arch/ia64/hp/common/sba_iommu.c  |  4 ++--
+ arch/powerpc/kernel/iommu.c      | 11 +++++------
+ arch/s390/pci/pci_dma.c          |  4 ++--
+ arch/sparc/kernel/iommu-common.c |  9 +++------
+ arch/sparc/kernel/iommu.c        |  4 ++--
+ arch/sparc/kernel/pci_sun4v.c    |  4 ++--
+ arch/x86/kernel/amd_gart_64.c    |  4 ++--
+ drivers/parisc/ccio-dma.c        |  4 ++--
+ drivers/parisc/sba_iommu.c       |  4 ++--
+ 10 files changed, 26 insertions(+), 32 deletions(-)
+
 -- 
-~Randy
+2.17.1
