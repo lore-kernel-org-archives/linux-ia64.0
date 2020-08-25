@@ -1,41 +1,40 @@
-From: Christian Brauner <christian.brauner@ubuntu.com>
-Date: Wed, 19 Aug 2020 10:46:55 +0000
-Subject: [PATCH v2 11/11] sched: remove _do_fork()
-Message-Id: <20200819104655.436656-12-christian.brauner@ubuntu.com>
+From: Joe Perches <joe@perches.com>
+Date: Tue, 25 Aug 2020 04:56:00 +0000
+Subject: [PATCH 03/29] ia64: Avoid comma separated statements
+Message-Id: <be37cf8fdcad19678cd164946252bc67713ddcdf.1598331148.git.joe@perches.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200819104655.436656-1-christian.brauner@ubuntu.com>
-In-Reply-To: <20200819104655.436656-1-christian.brauner@ubuntu.com>
+References: <cover.1598331148.git.joe@perches.com>
+In-Reply-To: <cover.1598331148.git.joe@perches.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-arch@vger.kernel.org, linux-kernel@vger.kernel.org
-Cc: Jonathan Corbet <corbet@lwn.net>, Yoshinori Sato <ysato@users.sourceforge.jp>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Ley Foon Tan <ley.foon.tan@intel.com>, "David S. Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, x86@kernel.org, Arnd Bergmann <arnd@arndb.de>, Steven Rostedt <rostedt@goodmis.org>, Stafford Horne <shorne@gmail.com>, Peter Zijlstra <peterz@infradead.org>, Kars de Jong <jongk@linux-m68k.org>, Kees Cook <keescook@chromium.org>, Greentime Hu <green.hu@gmail.com>, "Eric W. Biederman" <ebiederm@xmission.com>, Mauro Carvalho Chehab <mchehab+huawei@kernel.org>, Alexandre Chartre <alexandre.chartre@oracle.com>, Masami Hiramatsu <mhiramat@kernel.org>, Tom Zanussi <zanussi@kernel.org>, Xiao Yang <yangx.jy@cn.fujitsu.com>, linux-doc@vger.kernel.org, uclinux-h8-devel@lists.sourceforge.jp, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, sparclinux@vger.kernel.org, kgdb-bugreport@lists.sourceforge.net, linux-kselftest@vger.kernel.org, Linus Torvalds <torvalds@linux-foundation.org>, Christoph Hewllig <hch@infradead.org>, Matthew Wilcox <willy@infradead.org>, Christian Brauner <christian.brauner@ubuntu.com>
+To: Jiri Kosina <trivial@kernel.org>, linux-kernel@vger.kernel.org
+Cc: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-Now that all callers of _do_fork() have been switched to kernel_clone() remove
-the _do_fork() helper.
+Use semicolons and braces.
 
-Signed-off-by: Christian Brauner <christian.brauner@ubuntu.com>
+Signed-off-by: Joe Perches <joe@perches.com>
 ---
-/* v2 */
-unchanged
----
- include/linux/sched/task.h | 4 ----
- 1 file changed, 4 deletions(-)
+ arch/ia64/kernel/smpboot.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/sched/task.h b/include/linux/sched/task.h
-index d4428039c3c1..85fb2f34c59b 100644
---- a/include/linux/sched/task.h
-+++ b/include/linux/sched/task.h
-@@ -84,10 +84,6 @@ extern void exit_files(struct task_struct *);
- extern void exit_itimers(struct signal_struct *);
+diff --git a/arch/ia64/kernel/smpboot.c b/arch/ia64/kernel/smpboot.c
+index c29c600d7967..3311b9d21319 100644
+--- a/arch/ia64/kernel/smpboot.c
++++ b/arch/ia64/kernel/smpboot.c
+@@ -224,8 +224,11 @@ get_delta (long *rt, long *master)
+ 		go[SLAVE] = 0;
+ 		t1 = ia64_get_itc();
  
- extern pid_t kernel_clone(struct kernel_clone_args *kargs);
--static inline long _do_fork(struct kernel_clone_args *kargs)
--{
--	return kernel_clone(kargs);
--}
- struct task_struct *fork_idle(int);
- struct mm_struct *copy_init_mm(void);
- extern pid_t kernel_thread(int (*fn)(void *), void *arg, unsigned long flags);
+-		if (t1 - t0 < best_t1 - best_t0)
+-			best_t0 = t0, best_t1 = t1, best_tm = tm;
++		if (t1 - t0 < best_t1 - best_t0) {
++			best_t0 = t0;
++			best_t1 = t1;
++			best_tm = tm;
++		}
+ 	}
+ 
+ 	*rt = best_t1 - best_t0;
 -- 
-2.28.0
+2.26.0
