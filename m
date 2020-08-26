@@ -1,38 +1,81 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Wed, 19 Aug 2020 06:55:54 +0000
-Subject: [PATCH 27/28] nvme-pci: fix PRP pool size
-Message-Id: <20200819065555.1802761-28-hch@lst.de>
+From: Nicholas Piggin <npiggin@gmail.com>
+Date: Wed, 26 Aug 2020 14:52:34 +0000
+Subject: [PATCH v2 08/23] ia64: use asm-generic/mmu_context.h for no-op implementations
+Message-Id: <20200826145249.745432-9-npiggin@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200819065555.1802761-1-hch@lst.de>
-In-Reply-To: <20200819065555.1802761-1-hch@lst.de>
+References: <20200826145249.745432-1-npiggin@gmail.com>
+In-Reply-To: <20200826145249.745432-1-npiggin@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Mauro Carvalho Chehab <mchehab@kernel.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Joonyoung Shim <jy0922.shim@samsung.com>, Seung-Woo Kim <sw0312.kim@samsung.com>, Kyungmin Park <kyungmin.park@samsung.com>, Ben Skeggs <bskeggs@redhat.com>, Pawel Osciak <pawel@osciak.com>, Marek Szyprowski <m.szyprowski@samsung.com>, Matt Porter <mporter@kernel.crashing.org>, iommu@lists.linux-foundation.org
-Cc: Tom Lendacky <thomas.lendacky@amd.com>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-media@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-samsung-soc@vger.kernel.org, nouveau@lists.freedesktop.org, netdev@vger.kernel.org, linux-nvme@lists.infradead.org, linux-scsi@vger.kernel.org, linux-mm@kvack.org, alsa-devel@alsa-project.org
+To: linux-arch@vger.kernel.org
+Cc: Nicholas Piggin <npiggin@gmail.com>, linux-kernel@vger.kernel.org, linux-mm@kvack.org, Arnd Bergmann <arnd@arndb.de>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-All operations are based on the controller, not the host page size.
-Switch the dma pool to use the controller page size as well to avoid
-massive overallocations on large page size systems.
-
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
+Signed-off-by: Nicholas Piggin <npiggin@gmail.com>
 ---
- drivers/nvme/host/pci.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ arch/ia64/include/asm/mmu_context.h | 17 ++++-------------
+ 1 file changed, 4 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/nvme/host/pci.c b/drivers/nvme/host/pci.c
-index ba725ae47305ef..a33adab62acbaf 100644
---- a/drivers/nvme/host/pci.c
-+++ b/drivers/nvme/host/pci.c
-@@ -2460,7 +2460,8 @@ static int nvme_disable_prepare_reset(struct nvme_dev *dev, bool shutdown)
- static int nvme_setup_prp_pools(struct nvme_dev *dev)
- {
- 	dev->prp_page_pool = dma_pool_create("prp list page", dev->dev,
--						PAGE_SIZE, PAGE_SIZE, 0);
-+						NVME_CTRL_PAGE_SIZE,
-+						NVME_CTRL_PAGE_SIZE, 0);
- 	if (!dev->prp_page_pool)
- 		return -ENOMEM;
+diff --git a/arch/ia64/include/asm/mmu_context.h b/arch/ia64/include/asm/mmu_context.h
+index 2da0e2eb036b..87a0d5bc11ef 100644
+--- a/arch/ia64/include/asm/mmu_context.h
++++ b/arch/ia64/include/asm/mmu_context.h
+@@ -49,11 +49,6 @@ DECLARE_PER_CPU(u8, ia64_need_tlb_flush);
+ extern void mmu_context_init (void);
+ extern void wrap_mmu_context (struct mm_struct *mm);
  
+-static inline void
+-enter_lazy_tlb (struct mm_struct *mm, struct task_struct *tsk)
+-{
+-}
+-
+ /*
+  * When the context counter wraps around all TLBs need to be flushed because
+  * an old context number might have been reused. This is signalled by the
+@@ -116,6 +111,7 @@ get_mmu_context (struct mm_struct *mm)
+  * Initialize context number to some sane value.  MM is guaranteed to be a
+  * brand-new address-space, so no TLB flushing is needed, ever.
+  */
++#define init_new_context init_new_context
+ static inline int
+ init_new_context (struct task_struct *p, struct mm_struct *mm)
+ {
+@@ -123,12 +119,6 @@ init_new_context (struct task_struct *p, struct mm_struct *mm)
+ 	return 0;
+ }
+ 
+-static inline void
+-destroy_context (struct mm_struct *mm)
+-{
+-	/* Nothing to do.  */
+-}
+-
+ static inline void
+ reload_context (nv_mm_context_t context)
+ {
+@@ -178,11 +168,10 @@ activate_context (struct mm_struct *mm)
+ 	} while (unlikely(context != mm->context));
+ }
+ 
+-#define deactivate_mm(tsk,mm)	do { } while (0)
+-
+ /*
+  * Switch from address space PREV to address space NEXT.
+  */
++#define activate_mm activate_mm
+ static inline void
+ activate_mm (struct mm_struct *prev, struct mm_struct *next)
+ {
+@@ -196,5 +185,7 @@ activate_mm (struct mm_struct *prev, struct mm_struct *next)
+ 
+ #define switch_mm(prev_mm,next_mm,next_task)	activate_mm(prev_mm, next_mm)
+ 
++#include <asm-generic/mmu_context.h>
++
+ # endif /* ! __ASSEMBLY__ */
+ #endif /* _ASM_IA64_MMU_CONTEXT_H */
 -- 
-2.28.0
+2.23.0
