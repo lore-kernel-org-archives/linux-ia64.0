@@ -1,47 +1,56 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Thu, 20 Aug 2020 05:15:12 +0000
-Subject: Re: [PATCH 19/28] dma-mapping: replace DMA_ATTR_NON_CONSISTENT with dma_{alloc, free}_pages
-Message-Id: <20200820051512.GA5141@lst.de>
+From: Randy Dunlap <rdunlap@infradead.org>
+Date: Sat, 29 Aug 2020 00:01:26 +0000
+Subject: [PATCH] ia64: fix min_low_pfn/max_low_pfn build errors
+Message-Id: <20200829000126.2463-1-rdunlap@infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200819065555.1802761-1-hch@lst.de> <20200819065555.1802761-20-hch@lst.de> <CAAFQd5Bbp-eAVKS1MKS8xtrT4ZoOmBPfZyw9mys=eOmDb6r8Lw@mail.gmail.com>
-In-Reply-To: <CAAFQd5Bbp-eAVKS1MKS8xtrT4ZoOmBPfZyw9mys=eOmDb6r8Lw@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tomasz Figa <tfiga@chromium.org>
-Cc: Christoph Hellwig <hch@lst.de>, Mauro Carvalho Chehab <mchehab@kernel.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Joonyoung Shim <jy0922.shim@samsung.com>, Seung-Woo Kim <sw0312.kim@samsung.com>, Kyungmin Park <kyungmin.park@samsung.com>, Ben Skeggs <bskeggs@redhat.com>, Pawel Osciak <pawel@osciak.com>, Marek Szyprowski <m.szyprowski@samsung.com>, Matt Porter <mporter@kernel.crashing.org>, "list@263.net:IOMMU DRIVERS <iommu@lists.linux-foundation.org>, Joerg
-        Roedel <joro@8bytes.org>," <iommu@lists.linux-foundation.org>, Tom Lendacky <thomas.lendacky@amd.com>, alsa-devel@alsa-project.org, linux-samsung-soc <linux-samsung-soc@vger.kernel.org>, linux-ia64@vger.kernel.org, linux-scsi@vger.kernel.org, linux-parisc@vger.kernel.org, Linux Doc Mailing List <linux-doc@vger.kernel.org>, nouveau@lists.freedesktop.org, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-nvme@lists.infradead.org, linux-mips@vger.kernel.org, linux-mm@kvack.org, netdev@vger.kernel.org, "list@263.net:IOMMU DRIVERS <iommu@lists.linux-foundation.org>, Joerg
-        Roedel <joro@8bytes.org>," <linux-arm-kernel@lists.infradead.org>, Linux Media Mailing List <linux-media@vger.kernel.org>
+To: linux-kernel@vger.kernel.org
+Cc: Randy Dunlap <rdunlap@infradead.org>, kernel test robot <lkp@intel.com>, linux-mm@kvack.org, Andrew Morton <akpm@linux-foundation.org>, David Rientjes <rientjes@google.com>, Mike Rapoport <rppt@linux.ibm.com>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-On Wed, Aug 19, 2020 at 05:03:52PM +0200, Tomasz Figa wrote:
-> >
-> > -Warning: These pieces of the DMA API should not be used in the
-> > -majority of cases, since they cater for unlikely corner cases that
-> > -don't belong in usual drivers.
-> > +These APIs allow to allocate pages that can be used like normal pages
-> > +in the kernel direct mapping, but are guaranteed to be DMA addressable.
-> 
-> Could we elaborate a bit more on what "like normal pages in kernel
-> direct mapping" mean from the driver perspective?
+Fix min_low_pfn/max_low_pfn build errors for arch/ia64/: (e.g.)
 
-It mostly means you can call virt_to_page and then do anything you'd
-do with a page struct.  Unlike dma_alloc_attrs that just return an
-opaque virtual address that the caller is not allowed to poke into.
+ ERROR: "max_low_pfn" [drivers/rpmsg/virtio_rpmsg_bus.ko] undefined!
+ ERROR: "min_low_pfn" [drivers/rpmsg/virtio_rpmsg_bus.ko] undefined!
+ ERROR: "min_low_pfn" [drivers/hwtracing/intel_th/intel_th_msu.ko] undefined!
+ ERROR: "max_low_pfn" [drivers/hwtracing/intel_th/intel_th_msu.ko] undefined!
+ ERROR: "min_low_pfn" [drivers/crypto/cavium/nitrox/n5pf.ko] undefined!
+ ERROR: "max_low_pfn" [drivers/crypto/cavium/nitrox/n5pf.ko] undefined!
+ ERROR: "max_low_pfn" [drivers/md/dm-integrity.ko] undefined!
+ ERROR: "min_low_pfn" [drivers/md/dm-integrity.ko] undefined!
+ ERROR: "max_low_pfn" [crypto/tcrypt.ko] undefined!
+ ERROR: "min_low_pfn" [crypto/tcrypt.ko] undefined!
+ ERROR: "min_low_pfn" [security/keys/encrypted-keys/encrypted-keys.ko] undefined!
+ ERROR: "max_low_pfn" [security/keys/encrypted-keys/encrypted-keys.ko] undefined!
+ ERROR: "min_low_pfn" [arch/ia64/kernel/mca_recovery.ko] undefined!
+ ERROR: "max_low_pfn" [arch/ia64/kernel/mca_recovery.ko] undefined!
 
-> There is one aspect that the existing dma_alloc_attrs() handles, but
-> this new function doesn't: IOMMU support. The function will always
-> allocate a physically-contiguous block memory, which is a costly
-> operation and not even guaranteed to succeed, even if enough free
-> memory is available.
-> 
-> Modern SoCs employ IOMMUs to avoid the need to allocate
-> physically-contiguous memory and those happen to be also the devices
-> that could benefit from non-coherent allocations a lot. One of the
-> tasks of the DMA API was making it possible to allocate suitable
-> memory for a given device, without having the driver know about the
-> SoC integration details, such as the presence of an IOMMU.
+David suggested just exporting min_low_pfn & max_low_pfn in
+mm/memblock.c:
+https://lore.kernel.org/lkml/alpine.DEB.2.22.394.2006291911220.1118534@chino.kir.corp.google.com/
 
-This is completely out of scope for this API exactly because it
-guarantees a page in the direct mapping.  But see my previous mail
-in reply to Robin on how you can implement the funtionality you
-want right now without any help from the dma-mapping subsystem.
+Reported-by: kernel test robot <lkp@intel.com>
+Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
+Cc: linux-mm@kvack.org
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: David Rientjes <rientjes@google.com>
+Cc: Mike Rapoport <rppt@linux.ibm.com>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
+---
+ arch/ia64/kernel/ia64_ksyms.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- linux-next-20200825.orig/arch/ia64/kernel/ia64_ksyms.c
++++ linux-next-20200825/arch/ia64/kernel/ia64_ksyms.c
+@@ -3,7 +3,7 @@
+  * Architecture-specific kernel symbols
+  */
+ 
+-#ifdef CONFIG_VIRTUAL_MEM_MAP
++#if defined(CONFIG_VIRTUAL_MEM_MAP) || defined(CONFIG_DISCONTIGMEM)
+ #include <linux/compiler.h>
+ #include <linux/export.h>
+ #include <linux/memblock.h>
