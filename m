@@ -1,19 +1,28 @@
 From: Nicolin Chen <nicoleotsuka@gmail.com>
-Date: Mon, 31 Aug 2020 20:38:05 +0000
-Subject: [RESEND][PATCH 1/7] powerpc/iommu: Avoid overflow at boundary_size
-Message-Id: <20200831203811.8494-2-nicoleotsuka@gmail.com>
+Date: Mon, 31 Aug 2020 20:38:04 +0000
+Subject: [RESEND][PATCH 0/7] Avoid overflow at boundary_size
+Message-Id: <20200831203811.8494-1-nicoleotsuka@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200831203811.8494-1-nicoleotsuka@gmail.com>
-In-Reply-To: <20200831203811.8494-1-nicoleotsuka@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, rth@twiddle.net, ink@jurassic.park.msu.ru, mattst88@gmail.com, tony.luck@intel.com, fenghua.yu@intel.com, schnelle@linux.ibm.com, gerald.schaefer@linux.ibm.com, hca@linux.ibm.com, gor@linux.ibm.com, borntraeger@de.ibm.com, davem@davemloft.net, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, x86@kernel.org, hpa@zytor.com, James.Bottomley@HansenPartnership.com, deller@gmx.de
 Cc: sfr@canb.auug.org.au, hch@lst.de, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-parisc@vger.kernel.org
 
-The boundary_size might be as large as ULONG_MAX, which means
-that a device has no specific boundary limit. So either "+ 1"
-or passing it to ALIGN() would potentially overflow.
+== For this resend ==
+The original series have not been acked at any patch. So I am
+resending them, being suggested by Niklas.
+
+== Coverletter ==
+We are expending the default DMA segmentation boundary to its
+possible maximum value (ULONG_MAX) to indicate that a device
+doesn't specify a boundary limit. So all dma_get_seg_boundary
+callers should take a precaution with the return values since
+it would easily get overflowed.
+
+I scanned the entire kernel tree for all the existing callers
+and found that most of callers may get overflowed in two ways:
+either "+ 1" or passing it to ALIGN() that does "+ mask".
 
 According to kernel defines:
     #define ALIGN_MASK(x, mask) (((x) + (mask)) & ~(mask))
@@ -27,39 +36,34 @@ We can simplify the logic here:
 = [b + (1 << s)] >> s
 = (b >> s) + 1
 
-So fixing a potential overflow with the safer shortcut.
+So this series of patches fix the potential overflow with this
+overflow-free shortcut.
 
-Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
-Signed-off-by: Nicolin Chen <nicoleotsuka@gmail.com>
-Cc: Christoph Hellwig <hch@lst.de>
----
- arch/powerpc/kernel/iommu.c | 11 +++++------
- 1 file changed, 5 insertions(+), 6 deletions(-)
+As I don't have these platforms, testings/comments are welcome.
 
-diff --git a/arch/powerpc/kernel/iommu.c b/arch/powerpc/kernel/iommu.c
-index 9704f3f76e63..c01ccbf8afdd 100644
---- a/arch/powerpc/kernel/iommu.c
-+++ b/arch/powerpc/kernel/iommu.c
-@@ -236,15 +236,14 @@ static unsigned long iommu_range_alloc(struct device *dev,
- 		}
- 	}
- 
--	if (dev)
--		boundary_size = ALIGN(dma_get_seg_boundary(dev) + 1,
--				      1 << tbl->it_page_shift);
--	else
--		boundary_size = ALIGN(1UL << 32, 1 << tbl->it_page_shift);
- 	/* 4GB boundary for iseries_hv_alloc and iseries_hv_map */
-+	boundary_size = dev ? dma_get_seg_boundary(dev) : U32_MAX;
-+
-+	/* Overflow-free shortcut for: ALIGN(b + 1, 1 << s) >> s */
-+	boundary_size = (boundary_size >> tbl->it_page_shift) + 1;
- 
- 	n = iommu_area_alloc(tbl->it_map, limit, start, npages, tbl->it_offset,
--			     boundary_size >> tbl->it_page_shift, align_mask);
-+			     boundary_size, align_mask);
- 	if (n = -1) {
- 		if (likely(pass = 0)) {
- 			/* First try the pool from the start */
+Thanks
+Nic
+
+Nicolin Chen (7):
+  powerpc/iommu: Avoid overflow at boundary_size
+  alpha: Avoid overflow at boundary_size
+  ia64/sba_iommu: Avoid overflow at boundary_size
+  s390/pci_dma: Avoid overflow at boundary_size
+  sparc: Avoid overflow at boundary_size
+  x86/amd_gart: Avoid overflow at boundary_size
+  parisc: Avoid overflow at boundary_size
+
+ arch/alpha/kernel/pci_iommu.c    | 10 ++++------
+ arch/ia64/hp/common/sba_iommu.c  |  4 ++--
+ arch/powerpc/kernel/iommu.c      | 11 +++++------
+ arch/s390/pci/pci_dma.c          |  4 ++--
+ arch/sparc/kernel/iommu-common.c |  9 +++------
+ arch/sparc/kernel/iommu.c        |  4 ++--
+ arch/sparc/kernel/pci_sun4v.c    |  4 ++--
+ arch/x86/kernel/amd_gart_64.c    |  4 ++--
+ drivers/parisc/ccio-dma.c        |  4 ++--
+ drivers/parisc/sba_iommu.c       |  4 ++--
+ 10 files changed, 26 insertions(+), 32 deletions(-)
+
 -- 
 2.17.1
