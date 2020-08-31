@@ -1,88 +1,54 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Wed, 19 Aug 2020 06:55:45 +0000
-Subject: [PATCH 18/28] dma-mapping: move the dma_declare_coherent_memory documentation
-Message-Id: <20200819065555.1802761-19-hch@lst.de>
+From: Nicolin Chen <nicoleotsuka@gmail.com>
+Date: Mon, 31 Aug 2020 20:38:07 +0000
+Subject: [RESEND][PATCH 3/7] ia64/sba_iommu: Avoid overflow at boundary_size
+Message-Id: <20200831203811.8494-4-nicoleotsuka@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200819065555.1802761-1-hch@lst.de>
-In-Reply-To: <20200819065555.1802761-1-hch@lst.de>
+References: <20200831203811.8494-1-nicoleotsuka@gmail.com>
+In-Reply-To: <20200831203811.8494-1-nicoleotsuka@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Mauro Carvalho Chehab <mchehab@kernel.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Joonyoung Shim <jy0922.shim@samsung.com>, Seung-Woo Kim <sw0312.kim@samsung.com>, Kyungmin Park <kyungmin.park@samsung.com>, Ben Skeggs <bskeggs@redhat.com>, Pawel Osciak <pawel@osciak.com>, Marek Szyprowski <m.szyprowski@samsung.com>, Matt Porter <mporter@kernel.crashing.org>, iommu@lists.linux-foundation.org
-Cc: Tom Lendacky <thomas.lendacky@amd.com>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-media@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-samsung-soc@vger.kernel.org, nouveau@lists.freedesktop.org, netdev@vger.kernel.org, linux-nvme@lists.infradead.org, linux-scsi@vger.kernel.org, linux-mm@kvack.org, alsa-devel@alsa-project.org
+To: mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, rth@twiddle.net, ink@jurassic.park.msu.ru, mattst88@gmail.com, tony.luck@intel.com, fenghua.yu@intel.com, schnelle@linux.ibm.com, gerald.schaefer@linux.ibm.com, hca@linux.ibm.com, gor@linux.ibm.com, borntraeger@de.ibm.com, davem@davemloft.net, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, x86@kernel.org, hpa@zytor.com, James.Bottomley@HansenPartnership.com, deller@gmx.de
+Cc: sfr@canb.auug.org.au, hch@lst.de, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-parisc@vger.kernel.org
 
-dma_declare_coherent_memory should not be in a DMA API guide aimed
-at driver writers (that is consumers of the API).  Move it to a comment
-near the function instead.
+The boundary_size might be as large as ULONG_MAX, which means
+that a device has no specific boundary limit. So either "+ 1"
+or passing it to ALIGN() would potentially overflow.
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+According to kernel defines:
+    #define ALIGN_MASK(x, mask) (((x) + (mask)) & ~(mask))
+    #define ALIGN(x, a)	ALIGN_MASK(x, (typeof(x))(a) - 1)
+
+We can simplify the logic here:
+  ALIGN(boundary + 1, 1 << shift) >> shift
+= ALIGN_MASK(b + 1, (1 << s) - 1) >> s
+= {[b + 1 + (1 << s) - 1] & ~[(1 << s) - 1]} >> s
+= [b + 1 + (1 << s) - 1] >> s
+= [b + (1 << s)] >> s
+= (b >> s) + 1
+
+So fixing a potential overflow with the safer shortcut.
+
+Signed-off-by: Nicolin Chen <nicoleotsuka@gmail.com>
+Cc: Christoph Hellwig <hch@lst.de>
 ---
- Documentation/core-api/dma-api.rst | 24 ------------------------
- kernel/dma/coherent.c              | 17 +++++++++++++++++
- 2 files changed, 17 insertions(+), 24 deletions(-)
+ arch/ia64/hp/common/sba_iommu.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/Documentation/core-api/dma-api.rst b/Documentation/core-api/dma-api.rst
-index 3b3abbbb4b9a6f..90239348b30f6f 100644
---- a/Documentation/core-api/dma-api.rst
-+++ b/Documentation/core-api/dma-api.rst
-@@ -586,30 +586,6 @@ the DMA_ATTR_NON_CONSISTENT flag starting at virtual address vaddr and
- continuing on for size.  Again, you *must* observe the cache line
- boundaries when doing this.
+diff --git a/arch/ia64/hp/common/sba_iommu.c b/arch/ia64/hp/common/sba_iommu.c
+index 656a4888c300..945954903bb0 100644
+--- a/arch/ia64/hp/common/sba_iommu.c
++++ b/arch/ia64/hp/common/sba_iommu.c
+@@ -485,8 +485,8 @@ sba_search_bitmap(struct ioc *ioc, struct device *dev,
+ 	ASSERT(((unsigned long) ioc->res_hint & (sizeof(unsigned long) - 1UL)) = 0);
+ 	ASSERT(res_ptr < res_end);
  
--::
--
--	int
--	dma_declare_coherent_memory(struct device *dev, phys_addr_t phys_addr,
--				    dma_addr_t device_addr, size_t size);
--
--Declare region of memory to be handed out by dma_alloc_coherent() when
--it's asked for coherent memory for this device.
--
--phys_addr is the CPU physical address to which the memory is currently
--assigned (this will be ioremapped so the CPU can access the region).
--
--device_addr is the DMA address the device needs to be programmed
--with to actually address this memory (this will be handed out as the
--dma_addr_t in dma_alloc_coherent()).
--
--size is the size of the area (must be multiples of PAGE_SIZE).
--
--As a simplification for the platforms, only *one* such region of
--memory may be declared per device.
--
--For reasons of efficiency, most platforms choose to track the declared
--region only at the granularity of a page.  For smaller allocations,
--you should use the dma_pool() API.
+-	boundary_size = (unsigned long long)dma_get_seg_boundary(dev) + 1;
+-	boundary_size = ALIGN(boundary_size, 1ULL << iovp_shift) >> iovp_shift;
++	/* Overflow-free shortcut for: ALIGN(b + 1, 1 << s) >> s */
++	boundary_size = (dma_get_seg_boundary(dev) >> iovp_shift) + 1;
  
- Part III - Debug drivers use of the DMA-API
- -------------------------------------------
-diff --git a/kernel/dma/coherent.c b/kernel/dma/coherent.c
-index 2a0c4985f38e41..f85d14bbfcbe03 100644
---- a/kernel/dma/coherent.c
-+++ b/kernel/dma/coherent.c
-@@ -107,6 +107,23 @@ static int dma_assign_coherent_memory(struct device *dev,
- 	return 0;
- }
- 
-+/*
-+ * Declare a region of memory to be handed out by dma_alloc_coherent() when it
-+ * is asked for coherent memory for this device.  This shall only be used
-+ * from platform code, usually based on the device tree description.
-+ * 
-+ * phys_addr is the CPU physical address to which the memory is currently
-+ * assigned (this will be ioremapped so the CPU can access the region).
-+ *
-+ * device_addr is the DMA address the device needs to be programmed with to
-+ * actually address this memory (this will be handed out as the dma_addr_t in
-+ * dma_alloc_coherent()).
-+ *
-+ * size is the size of the area (must be a multiple of PAGE_SIZE).
-+ *
-+ * As a simplification for the platforms, only *one* such region of memory may
-+ * be declared per device.
-+ */
- int dma_declare_coherent_memory(struct device *dev, phys_addr_t phys_addr,
- 				dma_addr_t device_addr, size_t size)
- {
+ 	BUG_ON(ioc->ibase & ~iovp_mask);
+ 	shift = ioc->ibase >> iovp_shift;
 -- 
-2.28.0
+2.17.1
