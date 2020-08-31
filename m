@@ -1,40 +1,54 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Wed, 19 Aug 2020 06:55:28 +0000
-Subject: [PATCH 01/28] mm: turn alloc_pages into an inline function
-Message-Id: <20200819065555.1802761-2-hch@lst.de>
+From: Nicolin Chen <nicoleotsuka@gmail.com>
+Date: Mon, 31 Aug 2020 20:38:10 +0000
+Subject: [RESEND][PATCH 6/7] x86/amd_gart: Avoid overflow at boundary_size
+Message-Id: <20200831203811.8494-7-nicoleotsuka@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200819065555.1802761-1-hch@lst.de>
-In-Reply-To: <20200819065555.1802761-1-hch@lst.de>
+References: <20200831203811.8494-1-nicoleotsuka@gmail.com>
+In-Reply-To: <20200831203811.8494-1-nicoleotsuka@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Mauro Carvalho Chehab <mchehab@kernel.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Joonyoung Shim <jy0922.shim@samsung.com>, Seung-Woo Kim <sw0312.kim@samsung.com>, Kyungmin Park <kyungmin.park@samsung.com>, Ben Skeggs <bskeggs@redhat.com>, Pawel Osciak <pawel@osciak.com>, Marek Szyprowski <m.szyprowski@samsung.com>, Matt Porter <mporter@kernel.crashing.org>, iommu@lists.linux-foundation.org
-Cc: Tom Lendacky <thomas.lendacky@amd.com>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-media@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-samsung-soc@vger.kernel.org, nouveau@lists.freedesktop.org, netdev@vger.kernel.org, linux-nvme@lists.infradead.org, linux-scsi@vger.kernel.org, linux-mm@kvack.org, alsa-devel@alsa-project.org
+To: mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, rth@twiddle.net, ink@jurassic.park.msu.ru, mattst88@gmail.com, tony.luck@intel.com, fenghua.yu@intel.com, schnelle@linux.ibm.com, gerald.schaefer@linux.ibm.com, hca@linux.ibm.com, gor@linux.ibm.com, borntraeger@de.ibm.com, davem@davemloft.net, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, x86@kernel.org, hpa@zytor.com, James.Bottomley@HansenPartnership.com, deller@gmx.de
+Cc: sfr@canb.auug.org.au, hch@lst.de, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-parisc@vger.kernel.org
 
-To prevent a compiler error when a method call alloc_pages is
-added (which I plan to for the dma_map_ops).
+The boundary_size might be as large as ULONG_MAX, which means
+that a device has no specific boundary limit. So either "+ 1"
+or passing it to ALIGN() would potentially overflow.
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+According to kernel defines:
+    #define ALIGN_MASK(x, mask) (((x) + (mask)) & ~(mask))
+    #define ALIGN(x, a)	ALIGN_MASK(x, (typeof(x))(a) - 1)
+
+We can simplify the logic here:
+  ALIGN(boundary + 1, 1 << shift) >> shift
+= ALIGN_MASK(b + 1, (1 << s) - 1) >> s
+= {[b + 1 + (1 << s) - 1] & ~[(1 << s) - 1]} >> s
+= [b + 1 + (1 << s) - 1] >> s
+= [b + (1 << s)] >> s
+= (b >> s) + 1
+
+So fixing a potential overflow with the safer shortcut.
+
+Signed-off-by: Nicolin Chen <nicoleotsuka@gmail.com>
+Cc: Christoph Hellwig <hch@lst.de>
 ---
- include/linux/gfp.h | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ arch/x86/kernel/amd_gart_64.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/include/linux/gfp.h b/include/linux/gfp.h
-index 67a0774e080b98..dd2577c5407112 100644
---- a/include/linux/gfp.h
-+++ b/include/linux/gfp.h
-@@ -550,8 +550,10 @@ extern struct page *alloc_pages_vma(gfp_t gfp_mask, int order,
- #define alloc_hugepage_vma(gfp_mask, vma, addr, order) \
- 	alloc_pages_vma(gfp_mask, order, vma, addr, numa_node_id(), true)
- #else
--#define alloc_pages(gfp_mask, order) \
--		alloc_pages_node(numa_node_id(), gfp_mask, order)
-+static inline struct page *alloc_pages(gfp_t gfp_mask, unsigned int order)
-+{
-+	return alloc_pages_node(numa_node_id(), gfp_mask, order);
-+}
- #define alloc_pages_vma(gfp_mask, order, vma, addr, node, false)\
- 	alloc_pages(gfp_mask, order)
- #define alloc_hugepage_vma(gfp_mask, vma, addr, order) \
+diff --git a/arch/x86/kernel/amd_gart_64.c b/arch/x86/kernel/amd_gart_64.c
+index e89031e9c847..7fa0bb490065 100644
+--- a/arch/x86/kernel/amd_gart_64.c
++++ b/arch/x86/kernel/amd_gart_64.c
+@@ -96,8 +96,8 @@ static unsigned long alloc_iommu(struct device *dev, int size,
+ 
+ 	base_index = ALIGN(iommu_bus_base & dma_get_seg_boundary(dev),
+ 			   PAGE_SIZE) >> PAGE_SHIFT;
+-	boundary_size = ALIGN((u64)dma_get_seg_boundary(dev) + 1,
+-			      PAGE_SIZE) >> PAGE_SHIFT;
++	/* Overflow-free shortcut for: ALIGN(b + 1, 1 << s) >> s */
++	boundary_size = (dma_get_seg_boundary(dev) >> PAGE_SHIFT) + 1;
+ 
+ 	spin_lock_irqsave(&iommu_bitmap_lock, flags);
+ 	offset = iommu_area_alloc(iommu_gart_bitmap, iommu_pages, next_bit,
 -- 
-2.28.0
+2.17.1
