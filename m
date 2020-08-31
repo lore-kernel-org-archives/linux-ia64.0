@@ -1,156 +1,54 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Wed, 19 Aug 2020 06:55:38 +0000
-Subject: [PATCH 11/28] dma-mapping: add (back) arch_dma_mark_clean for ia64
-Message-Id: <20200819065555.1802761-12-hch@lst.de>
+From: Nicolin Chen <nicoleotsuka@gmail.com>
+Date: Mon, 31 Aug 2020 20:38:08 +0000
+Subject: [RESEND][PATCH 4/7] s390/pci_dma: Avoid overflow at boundary_size
+Message-Id: <20200831203811.8494-5-nicoleotsuka@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200819065555.1802761-1-hch@lst.de>
-In-Reply-To: <20200819065555.1802761-1-hch@lst.de>
+References: <20200831203811.8494-1-nicoleotsuka@gmail.com>
+In-Reply-To: <20200831203811.8494-1-nicoleotsuka@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Mauro Carvalho Chehab <mchehab@kernel.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Joonyoung Shim <jy0922.shim@samsung.com>, Seung-Woo Kim <sw0312.kim@samsung.com>, Kyungmin Park <kyungmin.park@samsung.com>, Ben Skeggs <bskeggs@redhat.com>, Pawel Osciak <pawel@osciak.com>, Marek Szyprowski <m.szyprowski@samsung.com>, Matt Porter <mporter@kernel.crashing.org>, iommu@lists.linux-foundation.org
-Cc: Tom Lendacky <thomas.lendacky@amd.com>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-media@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-samsung-soc@vger.kernel.org, nouveau@lists.freedesktop.org, netdev@vger.kernel.org, linux-nvme@lists.infradead.org, linux-scsi@vger.kernel.org, linux-mm@kvack.org, alsa-devel@alsa-project.org
+To: mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, rth@twiddle.net, ink@jurassic.park.msu.ru, mattst88@gmail.com, tony.luck@intel.com, fenghua.yu@intel.com, schnelle@linux.ibm.com, gerald.schaefer@linux.ibm.com, hca@linux.ibm.com, gor@linux.ibm.com, borntraeger@de.ibm.com, davem@davemloft.net, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, x86@kernel.org, hpa@zytor.com, James.Bottomley@HansenPartnership.com, deller@gmx.de
+Cc: sfr@canb.auug.org.au, hch@lst.de, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-parisc@vger.kernel.org
 
-Add back a hook to optimize dcache flushing after reading executable
-code using DMA.  This gets ia64 out of the business of pretending to
-be dma incoherent just for this optimization.
+The boundary_size might be as large as ULONG_MAX, which means
+that a device has no specific boundary limit. So either "+ 1"
+or passing it to ALIGN() would potentially overflow.
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
+According to kernel defines:
+    #define ALIGN_MASK(x, mask) (((x) + (mask)) & ~(mask))
+    #define ALIGN(x, a)	ALIGN_MASK(x, (typeof(x))(a) - 1)
+
+We can simplify the logic here:
+  ALIGN(boundary + 1, 1 << shift) >> shift
+= ALIGN_MASK(b + 1, (1 << s) - 1) >> s
+= {[b + 1 + (1 << s) - 1] & ~[(1 << s) - 1]} >> s
+= [b + 1 + (1 << s) - 1] >> s
+= [b + (1 << s)] >> s
+= (b >> s) + 1
+
+So fixing a potential overflow with the safer shortcut.
+
+Signed-off-by: Nicolin Chen <nicoleotsuka@gmail.com>
+Cc: Christoph Hellwig <hch@lst.de>
 ---
- arch/ia64/Kconfig               |  3 +--
- arch/ia64/kernel/dma-mapping.c  | 14 +-------------
- arch/ia64/mm/init.c             |  3 +--
- include/linux/dma-direct.h      |  3 +++
- include/linux/dma-noncoherent.h |  8 ++++++++
- kernel/dma/Kconfig              |  6 ++++++
- kernel/dma/direct.c             |  3 +++
- 7 files changed, 23 insertions(+), 17 deletions(-)
+ arch/s390/pci/pci_dma.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-index 5b4ec80bf5863a..513ba0c5d33610 100644
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -8,6 +8,7 @@ menu "Processor type and features"
+diff --git a/arch/s390/pci/pci_dma.c b/arch/s390/pci/pci_dma.c
+index 64b1399a73f0..ecb067acc6d5 100644
+--- a/arch/s390/pci/pci_dma.c
++++ b/arch/s390/pci/pci_dma.c
+@@ -263,8 +263,8 @@ static unsigned long __dma_alloc_iommu(struct device *dev,
+ 	struct zpci_dev *zdev = to_zpci(to_pci_dev(dev));
+ 	unsigned long boundary_size;
  
- config IA64
- 	bool
-+	select ARCH_HAS_DMA_MARK_CLEAN
- 	select ARCH_MIGHT_HAVE_PC_PARPORT
- 	select ARCH_MIGHT_HAVE_PC_SERIO
- 	select ACPI
-@@ -32,8 +33,6 @@ config IA64
- 	select TTY
- 	select HAVE_ARCH_TRACEHOOK
- 	select HAVE_VIRT_CPU_ACCOUNTING
--	select DMA_NONCOHERENT_MMAP
--	select ARCH_HAS_SYNC_DMA_FOR_CPU
- 	select VIRT_TO_BUS
- 	select GENERIC_IRQ_PROBE
- 	select GENERIC_PENDING_IRQ if SMP
-diff --git a/arch/ia64/kernel/dma-mapping.c b/arch/ia64/kernel/dma-mapping.c
-index 09ef9ce9988d1f..f640ed6fe1d576 100644
---- a/arch/ia64/kernel/dma-mapping.c
-+++ b/arch/ia64/kernel/dma-mapping.c
-@@ -1,5 +1,5 @@
- // SPDX-License-Identifier: GPL-2.0
--#include <linux/dma-direct.h>
-+#include <linux/dma-mapping.h>
- #include <linux/export.h>
- 
- /* Set this to 1 if there is a HW IOMMU in the system */
-@@ -7,15 +7,3 @@ int iommu_detected __read_mostly;
- 
- const struct dma_map_ops *dma_ops;
- EXPORT_SYMBOL(dma_ops);
--
--void *arch_dma_alloc(struct device *dev, size_t size,
--		dma_addr_t *dma_handle, gfp_t gfp, unsigned long attrs)
--{
--	return dma_direct_alloc_pages(dev, size, dma_handle, gfp, attrs);
--}
--
--void arch_dma_free(struct device *dev, size_t size, void *cpu_addr,
--		dma_addr_t dma_addr, unsigned long attrs)
--{
--	dma_direct_free_pages(dev, size, cpu_addr, dma_addr, attrs);
--}
-diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
-index 0b3fb4c7af2920..02e5aa08294ee0 100644
---- a/arch/ia64/mm/init.c
-+++ b/arch/ia64/mm/init.c
-@@ -73,8 +73,7 @@ __ia64_sync_icache_dcache (pte_t pte)
-  * DMA can be marked as "clean" so that lazy_mmu_prot_update() doesn't have to
-  * flush them when they get mapped into an executable vm-area.
-  */
--void arch_sync_dma_for_cpu(phys_addr_t paddr, size_t size,
--		enum dma_data_direction dir)
-+void arch_dma_mark_clean(phys_addr_t paddr, size_t size)
- {
- 	unsigned long pfn = PHYS_PFN(paddr);
- 
-diff --git a/include/linux/dma-direct.h b/include/linux/dma-direct.h
-index 5a3ce2a2479437..738485b3578062 100644
---- a/include/linux/dma-direct.h
-+++ b/include/linux/dma-direct.h
-@@ -153,6 +153,9 @@ static inline void dma_direct_sync_single_for_cpu(struct device *dev,
- 
- 	if (unlikely(is_swiotlb_buffer(paddr)))
- 		swiotlb_tbl_sync_single(dev, paddr, size, dir, SYNC_FOR_CPU);
-+
-+	if (dir = DMA_FROM_DEVICE)
-+		arch_dma_mark_clean(paddr, size);
- }
- 
- static inline dma_addr_t dma_direct_map_page(struct device *dev,
-diff --git a/include/linux/dma-noncoherent.h b/include/linux/dma-noncoherent.h
-index ca09a4e07d2d3d..b9bc6c557ea46f 100644
---- a/include/linux/dma-noncoherent.h
-+++ b/include/linux/dma-noncoherent.h
-@@ -108,6 +108,14 @@ static inline void arch_dma_prep_coherent(struct page *page, size_t size)
- }
- #endif /* CONFIG_ARCH_HAS_DMA_PREP_COHERENT */
- 
-+#ifdef CONFIG_ARCH_HAS_DMA_MARK_CLEAN
-+void arch_dma_mark_clean(phys_addr_t paddr, size_t size);
-+#else
-+static inline void arch_dma_mark_clean(phys_addr_t paddr, size_t size)
-+{
-+}
-+#endif /* ARCH_HAS_DMA_MARK_CLEAN */
-+
- void *arch_dma_set_uncached(void *addr, size_t size);
- void arch_dma_clear_uncached(void *addr, size_t size);
- 
-diff --git a/kernel/dma/Kconfig b/kernel/dma/Kconfig
-index 847a9d1fa6343d..6cf7f7947ae797 100644
---- a/kernel/dma/Kconfig
-+++ b/kernel/dma/Kconfig
-@@ -43,6 +43,12 @@ config ARCH_HAS_DMA_SET_MASK
- config ARCH_HAS_DMA_WRITE_COMBINE
- 	bool
- 
-+#
-+# Select if the architectures provides the arch_dma_mark_clean hook
-+#
-+config ARCH_HAS_DMA_MARK_CLEAN
-+	bool
-+
- config DMA_DECLARE_COHERENT
- 	bool
- 
-diff --git a/kernel/dma/direct.c b/kernel/dma/direct.c
-index bb0041e9965975..1123e767f4315f 100644
---- a/kernel/dma/direct.c
-+++ b/kernel/dma/direct.c
-@@ -340,6 +340,9 @@ void dma_direct_sync_sg_for_cpu(struct device *dev,
- 		if (unlikely(is_swiotlb_buffer(paddr)))
- 			swiotlb_tbl_sync_single(dev, paddr, sg->length, dir,
- 					SYNC_FOR_CPU);
-+
-+		if (dir = DMA_FROM_DEVICE)
-+			arch_dma_mark_clean(paddr, sg->length);
- 	}
- 
- 	if (!dev_is_dma_coherent(dev))
+-	boundary_size = ALIGN(dma_get_seg_boundary(dev) + 1,
+-			      PAGE_SIZE) >> PAGE_SHIFT;
++	/* Overflow-free shortcut for: ALIGN(b + 1, 1 << s) >> s */
++	boundary_size = (dma_get_seg_boundary(dev) >> PAGE_SHIFT) + 1;
+ 	return iommu_area_alloc(zdev->iommu_bitmap, zdev->iommu_pages,
+ 				start, size, zdev->start_dma >> PAGE_SHIFT,
+ 				boundary_size, 0);
 -- 
-2.28.0
+2.17.1
