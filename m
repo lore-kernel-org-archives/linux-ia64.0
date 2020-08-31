@@ -1,63 +1,92 @@
-From: Masahiro Yamada <masahiroy@kernel.org>
-Date: Sat, 29 Aug 2020 05:15:21 +0000
-Subject: [PATCH 0/3] ia64: clean-up header dependency and build process, fix build warning
-Message-Id: <20200829051524.706585-1-masahiroy@kernel.org>
+From: Nicolin Chen <nicoleotsuka@gmail.com>
+Date: Mon, 31 Aug 2020 20:38:09 +0000
+Subject: [RESEND][PATCH 5/7] sparc: Avoid overflow at boundary_size
+Message-Id: <20200831203811.8494-6-nicoleotsuka@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20200831203811.8494-1-nicoleotsuka@gmail.com>
+In-Reply-To: <20200831203811.8494-1-nicoleotsuka@gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
-Cc: Randy Dunlap <rdunlap@infradead.org>, linux-kbuild@vger.kernel.org, Masahiro Yamada <masahiroy@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Ard Biesheuvel <ardb@kernel.org>, Arnd Bergmann <arnd@arndb.de>, Dmitry Safonov <0x7f454c46@gmail.com>, afzal mohammed <afzal.mohd.ma@gmail.com>, linux-efi@vger.kernel.org, linux-kernel@vger.kernel.org
+To: mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, rth@twiddle.net, ink@jurassic.park.msu.ru, mattst88@gmail.com, tony.luck@intel.com, fenghua.yu@intel.com, schnelle@linux.ibm.com, gerald.schaefer@linux.ibm.com, hca@linux.ibm.com, gor@linux.ibm.com, borntraeger@de.ibm.com, davem@davemloft.net, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, x86@kernel.org, hpa@zytor.com, James.Bottomley@HansenPartnership.com, deller@gmx.de
+Cc: sfr@canb.auug.org.au, hch@lst.de, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-parisc@vger.kernel.org
 
+The boundary_size might be as large as ULONG_MAX, which means
+that a device has no specific boundary limit. So either "+ 1"
+or passing it to ALIGN() would potentially overflow.
 
-Randy Dunlap reports the following warning with CONFIG_IA64_PALINFO=m:
+According to kernel defines:
+    #define ALIGN_MASK(x, mask) (((x) + (mask)) & ~(mask))
+    #define ALIGN(x, a)	ALIGN_MASK(x, (typeof(x))(a) - 1)
 
-../scripts/Makefile.build:68: 'arch/ia64/kernel/palinfo.ko' will not be built even though obj-m is specified.
-../scripts/Makefile.build:69: You cannot use subdir-y/m to visit a module Makefile. Use obj-y/m instead.
+We can simplify the logic here:
+  ALIGN(boundary + 1, 1 << shift) >> shift
+= ALIGN_MASK(b + 1, (1 << s) - 1) >> s
+= {[b + 1 + (1 << s) - 1] & ~[(1 << s) - 1]} >> s
+= [b + 1 + (1 << s) - 1] >> s
+= [b + (1 << s)] >> s
+= (b >> s) + 1
 
-This comes from the fact Kbuild descends into arch/ia64/kernel/ twice.
+So fixing a potential overflow with the safer shortcut.
 
-First, to generate <generated/nr-irqs.h>,
-Second, to build kernel and module objects.
+Signed-off-by: Nicolin Chen <nicoleotsuka@gmail.com>
+Cc: Christoph Hellwig <hch@lst.de>
+---
+ arch/sparc/kernel/iommu-common.c | 9 +++------
+ arch/sparc/kernel/iommu.c        | 4 ++--
+ arch/sparc/kernel/pci_sun4v.c    | 4 ++--
+ 3 files changed, 7 insertions(+), 10 deletions(-)
 
-The warning is emitted in the first descend because it is not the
-intended usage.
-
-I looked into the code closely, and noticed arch/ia64/kernel/nr-irqs.c
-was not needed in the first place.
-
-It was separated out of arch/ia64/kernel/asm-offsets.c just because
-<asm/mca.h> was including too many bogus headers.
-
-IA64 is not actively maintained, and there exists unneeded obsolete code.
-
-The first two patches are the outcome when I played with ARCH=ia64 builds,
-but not prerequisites for 3/3. Anyway I believe they are nice cleanups
-and folded in this patch set.
-
-3/3 is the important one to fix the false positive warning,
-and it is a nice cleanup too.
-
-
-
-Masahiro Yamada (3):
-  ia64: do not typedef struct pal_min_state_area_s
-  ia64: remove unneeded header includes from <asm/mca.h>
-  ia64: remove generated/nr-irqs.h generation to fix build warning
-
- arch/ia64/Makefile             |  6 ------
- arch/ia64/include/asm/irq.h    |  4 +++-
- arch/ia64/include/asm/mca.h    | 11 ++++-------
- arch/ia64/include/asm/pal.h    |  4 ++--
- arch/ia64/include/asm/sal.h    |  2 +-
- arch/ia64/kernel/Makefile      |  5 -----
- arch/ia64/kernel/asm-offsets.c | 18 +++++++++---------
- arch/ia64/kernel/efi.c         |  1 +
- arch/ia64/kernel/mca.c         |  5 +++--
- arch/ia64/kernel/mca_drv.c     |  2 +-
- arch/ia64/kernel/nr-irqs.c     | 22 ----------------------
- 11 files changed, 24 insertions(+), 56 deletions(-)
- delete mode 100644 arch/ia64/kernel/nr-irqs.c
-
+diff --git a/arch/sparc/kernel/iommu-common.c b/arch/sparc/kernel/iommu-common.c
+index 59cb16691322..843e71894d04 100644
+--- a/arch/sparc/kernel/iommu-common.c
++++ b/arch/sparc/kernel/iommu-common.c
+@@ -166,13 +166,10 @@ unsigned long iommu_tbl_range_alloc(struct device *dev,
+ 		}
+ 	}
+ 
+-	if (dev)
+-		boundary_size = ALIGN(dma_get_seg_boundary(dev) + 1,
+-				      1 << iommu->table_shift);
+-	else
+-		boundary_size = ALIGN(1ULL << 32, 1 << iommu->table_shift);
++	boundary_size = dev ? dma_get_seg_boundary(dev) : U32_MAX;
+ 
+-	boundary_size = boundary_size >> iommu->table_shift;
++	/* Overflow-free shortcut for: ALIGN(b + 1, 1 << s) >> s */
++	boundary_size = (boundary_size >> iommu->table_shift) + 1;
+ 	/*
+ 	 * if the skip_span_boundary_check had been set during init, we set
+ 	 * things up so that iommu_is_span_boundary() merely checks if the
+diff --git a/arch/sparc/kernel/iommu.c b/arch/sparc/kernel/iommu.c
+index 4ae7388b1bff..d981c37305ae 100644
+--- a/arch/sparc/kernel/iommu.c
++++ b/arch/sparc/kernel/iommu.c
+@@ -472,8 +472,8 @@ static int dma_4u_map_sg(struct device *dev, struct scatterlist *sglist,
+ 	outs->dma_length = 0;
+ 
+ 	max_seg_size = dma_get_max_seg_size(dev);
+-	seg_boundary_size = ALIGN(dma_get_seg_boundary(dev) + 1,
+-				  IO_PAGE_SIZE) >> IO_PAGE_SHIFT;
++	/* Overflow-free shortcut for: ALIGN(b + 1, 1 << s) >> s */
++	seg_boundary_size = (dma_get_seg_boundary(dev) >> IO_PAGE_SHIFT) + 1;
+ 	base_shift = iommu->tbl.table_map_base >> IO_PAGE_SHIFT;
+ 	for_each_sg(sglist, s, nelems, i) {
+ 		unsigned long paddr, npages, entry, out_entry = 0, slen;
+diff --git a/arch/sparc/kernel/pci_sun4v.c b/arch/sparc/kernel/pci_sun4v.c
+index 14b93c5564e3..233fe8a20cec 100644
+--- a/arch/sparc/kernel/pci_sun4v.c
++++ b/arch/sparc/kernel/pci_sun4v.c
+@@ -508,8 +508,8 @@ static int dma_4v_map_sg(struct device *dev, struct scatterlist *sglist,
+ 	iommu_batch_start(dev, prot, ~0UL);
+ 
+ 	max_seg_size = dma_get_max_seg_size(dev);
+-	seg_boundary_size = ALIGN(dma_get_seg_boundary(dev) + 1,
+-				  IO_PAGE_SIZE) >> IO_PAGE_SHIFT;
++	/* Overflow-free shortcut for: ALIGN(b + 1, 1 << s) >> s */
++	seg_boundary_size = (dma_get_seg_boundary(dev) >> IO_PAGE_SHIFT) + 1;
+ 
+ 	mask = *dev->dma_mask;
+ 	if (!iommu_use_atu(iommu, mask))
 -- 
-2.25.1
+2.17.1
