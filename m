@@ -1,49 +1,32 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Date: Mon, 21 Sep 2020 08:38:41 +0000
-Subject: Re: Build regressions/improvements in v5.9-rc6
-Message-Id: <CAMuHMdXCQ-FgPXHVjnXujMvi_tg12AzXo5i2+i=JAnUmeNci_Q@mail.gmail.com>
+From: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
+Date: Tue, 01 Sep 2020 13:53:04 +0000
+Subject: Re: [PATCH 08/28] MIPS: make dma_sync_*_for_cpu a little less overzealous
+Message-Id: <20200901135304.GC11944@alpha.franken.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200921082716.29247-1-geert@linux-m68k.org>
-In-Reply-To: <20200921082716.29247-1-geert@linux-m68k.org>
+References: <20200819065555.1802761-1-hch@lst.de>
+ <20200819065555.1802761-9-hch@lst.de>
+In-Reply-To: <20200819065555.1802761-9-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-Cc: Jan Kara <jack@suse.cz>, Dan Williams <dan.j.williams@intel.com>, Peter Zijlstra <peterz@infradead.org>, "Paul E . McKenney" <paulmck@kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
+To: Christoph Hellwig <hch@lst.de>
+Cc: Mauro Carvalho Chehab <mchehab@kernel.org>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Joonyoung Shim <jy0922.shim@samsung.com>, Seung-Woo Kim <sw0312.kim@samsung.com>, Kyungmin Park <kyungmin.park@samsung.com>, Ben Skeggs <bskeggs@redhat.com>, Pawel Osciak <pawel@osciak.com>, Marek Szyprowski <m.szyprowski@samsung.com>, Matt Porter <mporter@kernel.crashing.org>, iommu@lists.linux-foundation.org, Tom Lendacky <thomas.lendacky@amd.com>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-media@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-samsung-soc@vger.kernel.org, nouveau@lists.freedesktop.org, netdev@vger.kernel.org, linux-nvme@lists.infradead.org, linux-scsi@vger.kernel.org, linux-mm@kvack.org, alsa-devel@alsa-project.org
 
-On Mon, Sep 21, 2020 at 10:32 AM Geert Uytterhoeven
-<geert@linux-m68k.org> wrote:
-> JFYI, when comparing v5.9-rc6[1] to v5.9-rc5[3], the summaries are:
->   - build errors: +3/-5
+On Wed, Aug 19, 2020 at 08:55:35AM +0200, Christoph Hellwig wrote:
+> When transferring DMA ownership back to the CPU there should never
+> be any writeback from the cache, as the buffer was owned by the
+> device until now.  Instead it should just be invalidated for the
+> mapping directions where the device could have written data.
+> Note that the changes rely on the fact that kmap_atomic is stubbed
+> out for the !HIGHMEM case to simplify the code a bit.
+> 
+> Signed-off-by: Christoph Hellwig <hch@lst.de>
+> ---
+>  arch/mips/mm/dma-noncoherent.c | 44 +++++++++++++++++++++-------------
+>  1 file changed, 28 insertions(+), 16 deletions(-)
 
-  + /kisskb/src/drivers/dax/super.c: error: redefinition of
-'dax_supported':  => 325:6
+Acked-by: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
 
-m68k-defconfig
-sun3_defconfig
-mips-allmodconfig
-sparc-allmodconfig
-sparc64-allmodconfig
-mips-allmodconfig
-powernv_defconfig+THIN
-(many more reported in the wild)
-
-  + error: modpost: "rcu_idle_enter" [drivers/acpi/processor.ko]
-undefined!:  => N/A
-  + error: modpost: "rcu_idle_exit" [drivers/acpi/processor.ko]
-undefined!:  => N/A
-
-ia64-defconfig
-
-> [1] http://kisskb.ellerman.id.au/kisskb/branch/linus/head/ba4f184e126b751d1bffad5897f263108befc780/ (all 192 configs)
-> [3] http://kisskb.ellerman.id.au/kisskb/branch/linus/head/856deb866d16e29bd65952e0289066f6078af773/ (all 192 configs)
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+-- 
+Crap can work. Given enough thrust pigs will fly, but it's not necessarily a
+good idea.                                                [ RFC1925, 2.3 ]
