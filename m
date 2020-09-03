@@ -1,73 +1,118 @@
-From: Robin Murphy <robin.murphy@arm.com>
-Date: Thu, 10 Sep 2020 13:02:01 +0000
-Subject: Re: [PATCH 07/12] dma-direct: lift gfp_t manipulation out of__dma_direct_alloc_pages
-Message-Id: <3658a0b7-c2b7-8b03-86c6-219f77799999@arm.com>
+From: Jonathan Cameron <Jonathan.Cameron@Huawei.com>
+Date: Thu, 03 Sep 2020 12:33:18 +0000
+Subject: Re: [PATCH v3 0/6]  ACPI: Only create NUMA nodes from entries in SRAT or SRAT emulation.
+Message-Id: <20200903133318.000017f5@Huawei.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200908164758.3177341-1-hch@lst.de>
- <20200908164758.3177341-8-hch@lst.de>
-In-Reply-To: <20200908164758.3177341-8-hch@lst.de>
+References: <20200818142430.1156547-1-Jonathan.Cameron@huawei.com>
+In-Reply-To: <20200818142430.1156547-1-Jonathan.Cameron@huawei.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch@lst.de>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, iommu@lists.linux-foundation.org
-Cc: linux-ia64@vger.kernel.org, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mips@vger.kernel.org
+To: linux-mm@kvack.org, linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org, x86@kernel.org
+Cc: Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>, Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org, martin@geanix.com, Ingo Molnar <mingo@redhat.com>, linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Gleixner <tglx@linutronix.de>, linuxarm@huawei.com, Dan Williams <dan.j.williams@intel.com>, Song Bao Hua <song.bao.hua@hisilicon.com>
 
-On 2020-09-08 17:47, Christoph Hellwig wrote:
-> Move the detailed gfp_t setup from __dma_direct_alloc_pages into the
-> caller to clean things up a little.
 
-Other than a mild nitpick that it might be nicer to spend one extra line 
-to keep both gfp adjustments next to each other,
+On Tue, 18 Aug 2020 22:24:24 +0800
+Jonathan Cameron <Jonathan.Cameron@huawei.com> wrote:
 
-Reviewed-by: Robin Murphy <robin.murphy@arm.com>
-
-> Signed-off-by: Christoph Hellwig <hch@lst.de>
-> ---
->   kernel/dma/direct.c | 12 +++++-------
->   1 file changed, 5 insertions(+), 7 deletions(-)
+> This is a trivial rebase and resend of V2 now the merge window has closed.
 > 
-> diff --git a/kernel/dma/direct.c b/kernel/dma/direct.c
-> index 1d564bea58571b..12e9f5f75dfe4b 100644
-> --- a/kernel/dma/direct.c
-> +++ b/kernel/dma/direct.c
-> @@ -108,7 +108,7 @@ static inline bool dma_should_free_from_pool(struct device *dev,
->   }
->   
->   static struct page *__dma_direct_alloc_pages(struct device *dev, size_t size,
-> -		gfp_t gfp, unsigned long attrs)
-> +		gfp_t gfp)
->   {
->   	int node = dev_to_node(dev);
->   	struct page *page = NULL;
-> @@ -116,11 +116,6 @@ static struct page *__dma_direct_alloc_pages(struct device *dev, size_t size,
->   
->   	WARN_ON_ONCE(!PAGE_ALIGNED(size));
->   
-> -	if (attrs & DMA_ATTR_NO_WARN)
-> -		gfp |= __GFP_NOWARN;
-> -
-> -	/* we always manually zero the memory once we are done: */
-> -	gfp &= ~__GFP_ZERO;
->   	gfp |= dma_direct_optimal_gfp_mask(dev, dev->coherent_dma_mask,
->   					   &phys_limit);
->   	page = dma_alloc_contiguous(dev, size, gfp);
-> @@ -164,6 +159,8 @@ void *dma_direct_alloc(struct device *dev, size_t size,
->   		return arch_dma_alloc(dev, size, dma_handle, gfp, attrs);
->   
->   	size = PAGE_ALIGN(size);
-> +	if (attrs & DMA_ATTR_NO_WARN)
-> +		gfp |= __GFP_NOWARN;
->   
->   	if (dma_should_alloc_from_pool(dev, gfp, attrs)) {
->   		u64 phys_mask;
-> @@ -177,7 +174,8 @@ void *dma_direct_alloc(struct device *dev, size_t size,
->   		goto done;
->   	}
->   
-> -	page = __dma_direct_alloc_pages(dev, size, gfp, attrs);
-> +	/* we always manually zero the memory once we are done */
-> +	page = __dma_direct_alloc_pages(dev, size, gfp & ~__GFP_ZERO);
->   	if (!page)
->   		return NULL;
->   
+> Here, I will use the term Proximity Domains for the ACPI description and
+> NUMA Nodes for the in kernel representation.
 > 
+> ACPI 6.3 included a clarification that only Static Resource Allocation
+> Structures in SRAT may define the existence of proximity domains
+> (sec 5.2.16). This clarification closed a possible interpretation that
+> other parts of ACPI (e.g. DSDT _PXM, NFIT etc) could define new proximity
+> domains that were not also mentioned in SRAT structures.
+> 
+> In practice the kernel has never allowed this alternative interpretation as
+> such nodes are only partially initialized. This is architecture specific
+> but to take an example, on x86 alloc_node_data has not been called.
+> Any use of them for node specific allocation, will result in a crash as the
+> infrastructure to fallback to a node with memory is not setup.
+> 
+> We ran into a problem when enabling _PXM handling for PCI devices and found
+> there were boards out there advertising devices in proximity domains that
+> didn't exist [2].
+> 
+> The fix suggested in this series is to replace instances that should not
+> 'create' new nodes with pxm_to_node.  This function needs a some additional
+> hardening against invalid inputs to make sure it is safe for use in these
+> new callers.
+> 
+> Patch 1 Hardens pxm_to_node() against numa_off, and pxm entry being too large.
+> 
+> Patch 2-4 change the various callers not related to SRAT entries so that they
+> set this parameter to false, so do not attempt to initialize a new NUMA node
+> if the relevant one does not already exist.
+> 
+> Patch 5 is a function rename to reflect change in functionality of
+> acpi_map_pxm_to_online_node() as it no longer creates a new map, but just does a
+> lookup of existing maps.
+> 
+> Patch 6 covers the one place we do not allow the full flexibility defined
+> in the ACPI spec.  For SRAT GIC Interrupt Translation Service (ITS) Affinity
+> Structures, on ARM64, the driver currently makes an additional pass of SRAT
+> later in the boot than the one used to identify NUMA domains.
+> Note, this currently means that an ITS placed in a proximity domain that is
+> not defined by another SRAT structure will result in the a crash.
+> 
+> To avoid this crash with minimal changes we do not create new NUMA nodes based
+> on this particular entry type.  Any current platform trying to do this will not
+> boot, so this is an improvement, if perhaps not a perfect solution.
+> 
+> [1] Note in ACPI Specification 6.3 5.2.16 System Resource Affinity Table (SRAT)
+> [2] https://patchwork.kernel.org/patch/10597777/
+
+Looking for input from ARM (Lorenzo?), X86(not sure) and ACPI(Rafael?) people
+on this set. As it also touches NFIT handling perhaps someone who focuses on
+that as well. Please feel free to CC additional people who might be interested.
+
+I'm fairly confident that it should be uncontroversial (famous last words)
+and it closes down a problem that lead to issues with seemingly obvious
+changes in the past. (The whole PCI _PXM issue on some threadripper platforms).
+
+Thanks to Bjorn, Hanjun and Barry for feedback on earlier revisions.
+
+Thanks,
+
+Jonathan
+
+> 
+> Thanks to Bjorn Helgaas for review of v1 and Barry Song for internal reviews that
+> lead to a slightly different approach for this v2.
+> 
+> Changes since v2.
+> * Trivial rebase to v5.9-rc1
+> * Collect up tags.
+> 
+> Changes since v1.
+> * Use pxm_to_node for what was previously the path using acpi_map_pxm_to_node
+>   with create=false. (Barry)
+> * Broke patch up into an initial noop stage followed by patches (Bjorn)
+>   to update each type of case in which partial creation of NUMA nodes is prevented.
+> * Added patch 5 to rename function to reflect change of functionality.
+> * Updated descriptions (now mostly in individual patches) inline with Bjorn's comments.
+> 
+> Jonathan Cameron (6):
+>   ACPI: Add out of bounds and numa_off protections to pxm_to_node
+>   ACPI: Do not create new NUMA domains from ACPI static tables that are
+>     not SRAT
+>   ACPI: Remove side effect of partly creating a node in
+>     acpi_map_pxm_to_online_node
+>   ACPI: Rename acpi_map_pxm_to_online_node to pxm_to_online_node
+>   ACPI: Remove side effect of partly creating a node in acpi_get_node
+>   irq-chip/gic-v3-its: Fix crash if ITS is in a proximity domain without
+>     processor or memory
+> 
+>  drivers/acpi/arm64/iort.c        |  2 +-
+>  drivers/acpi/nfit/core.c         |  6 ++----
+>  drivers/acpi/numa/hmat.c         |  4 ++--
+>  drivers/acpi/numa/srat.c         |  4 ++--
+>  drivers/iommu/intel/dmar.c       |  2 +-
+>  drivers/irqchip/irq-gic-v3-its.c |  7 ++++++-
+>  include/linux/acpi.h             | 15 +++++++--------
+>  7 files changed, 21 insertions(+), 19 deletions(-)
+> 
+
