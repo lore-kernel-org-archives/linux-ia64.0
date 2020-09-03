@@ -1,35 +1,47 @@
-From: Oscar Salvador <osalvador@suse.de>
-Date: Tue, 15 Sep 2020 10:33:27 +0000
-Subject: Re: [PATCH v3 3/3] mm: don't panic when links can't be created in sysfs
-Message-Id: <20200915103327.GC30015@linux>
+From: Mike Rapoport <rppt@kernel.org>
+Date: Thu, 03 Sep 2020 14:54:38 +0000
+Subject: [GIT PULL] Fix min_low_pfn/max_low_pfn build errors on ia64 and microblaze
+Message-Id: <20200903145438.GA1781636@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200915094143.79181-1-ldufour@linux.ibm.com>
- <20200915094143.79181-4-ldufour@linux.ibm.com>
-In-Reply-To: <20200915094143.79181-4-ldufour@linux.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Laurent Dufour <ldufour@linux.ibm.com>
-Cc: akpm@linux-foundation.org, David Hildenbrand <david@redhat.com>, mhocko@suse.com, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-mm@kvack.org, "Rafael J . Wysocki" <rafael@kernel.org>, nathanl@linux.ibm.com, cheloha@linux.ibm.com, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, stable@vger.kernel.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>, David Rientjes <rientjes@google.com>, Fenghua Yu <fenghua.yu@intel.com>, Michal Simek <michal.simek@xilinx.com>, Michal Simek <monstr@monstr.eu>, Randy Dunlap <rdunlap@infradead.org>, Tony Luck <tony.luck@intel.com>, kernel test robot <lkp@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org
 
-On Tue, Sep 15, 2020 at 11:41:43AM +0200, Laurent Dufour wrote:
-> At boot time, or when doing memory hot-add operations, if the links in
-> sysfs can't be created, the system is still able to run, so just report the
-> error in the kernel log rather than BUG_ON and potentially make system
-> unusable because the callpath can be called with locks held.
-> 
-> Since the number of memory blocks managed could be high, the messages are
-> rate limited.
-> 
-> As a consequence, link_mem_sections() has no status to report anymore.
-> 
-> Signed-off-by: Laurent Dufour <ldufour@linux.ibm.com>
-> Acked-by: Michal Hocko <mhocko@suse.com>
-> Acked-by: David Hildenbrand <david@redhat.com>
-> Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Hi Linus,
 
-Reviewed-by: Oscar Salvador <osalvador@suse.de>
+The following changes since commit f75aef392f869018f78cfedf3c320a6b3fcfda6b:
+
+  Linux 5.9-rc3 (2020-08-30 16:01:54 -0700)
+
+are available in the Git repository at:
+
+  https://git.kernel.org/pub/scm/linux/kernel/git/rppt/memblock.git tags/fixes-2020-09-03
+
+for you to fetch changes up to 5f7b81c18366c38446f6eedab570b98dbdc07cff:
+
+  ia64: fix min_low_pfn/max_low_pfn build errors (2020-09-01 19:34:11 +0300)
+
+----------------------------------------------------------------
+Fix min_low_pfn/max_low_pfn build errors on ia64 and microblaze
+
+Some configurations of ia64 and microblaze use min_low_pfn and
+max_low_pfn in pfn_valid(). This causes build failures for modules that
+use pfn_valid().
+
+The fix is to add EXPORT_SYMBOL() for these variables on ia64 and
+microblaze.
+
+----------------------------------------------------------------
+Randy Dunlap (2):
+      microblaze: fix min_low_pfn/max_low_pfn build errors
+      ia64: fix min_low_pfn/max_low_pfn build errors
+
+ arch/ia64/kernel/ia64_ksyms.c | 2 +-
+ arch/microblaze/mm/init.c     | 3 +++
+ 2 files changed, 4 insertions(+), 1 deletion(-)
 
 -- 
-Oscar Salvador
-SUSE L3
+Sincerely yours,
+Mike.
