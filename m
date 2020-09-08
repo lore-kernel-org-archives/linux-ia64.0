@@ -1,85 +1,94 @@
-From: Nicholas Piggin <npiggin@gmail.com>
-Date: Tue, 01 Sep 2020 14:15:24 +0000
-Subject: [PATCH v3 08/23] ia64: use asm-generic/mmu_context.h for no-op implementations
-Message-Id: <20200901141539.1757549-9-npiggin@gmail.com>
+From: Christoph Hellwig <hch@lst.de>
+Date: Tue, 08 Sep 2020 16:47:49 +0000
+Subject: [PATCH 03/12] MIPS/jazzdma: decouple from dma-direct
+Message-Id: <20200908164758.3177341-4-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200901141539.1757549-1-npiggin@gmail.com>
-In-Reply-To: <20200901141539.1757549-1-npiggin@gmail.com>
+References: <20200908164758.3177341-1-hch@lst.de>
+In-Reply-To: <20200908164758.3177341-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-arch@vger.kernel.org
-Cc: Nicholas Piggin <npiggin@gmail.com>, linux-kernel@vger.kernel.org, linux-mm@kvack.org, Arnd Bergmann <arnd@arndb.de>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, iommu@lists.linux-foundation.org
+Cc: Tomasz Figa <tfiga@chromium.org>, Joerg Roedel <joro@8bytes.org>, Robin Murphy <robin.murphy@arm.com>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org
 
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org
-Signed-off-by: Nicholas Piggin <npiggin@gmail.com>
+The jazzdma ops implement support for a very basic IOMMU.  Thus we really
+should not use the dma-direct code that takes physical address limits
+into account.  This survived through the great MIPS DMA ops cleanup mostly
+because I was lazy, but now it is time to fully split the implementations.
+
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+Acked-by: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
 ---
+ arch/mips/jazz/jazzdma.c | 32 +++++++++++++++++++++-----------
+ 1 file changed, 21 insertions(+), 11 deletions(-)
 
-Please ack or nack if you object to this being mered via
-Arnd's tree.
-
- arch/ia64/include/asm/mmu_context.h | 17 ++++-------------
- 1 file changed, 4 insertions(+), 13 deletions(-)
-
-diff --git a/arch/ia64/include/asm/mmu_context.h b/arch/ia64/include/asm/mmu_context.h
-index 2da0e2eb036b..87a0d5bc11ef 100644
---- a/arch/ia64/include/asm/mmu_context.h
-+++ b/arch/ia64/include/asm/mmu_context.h
-@@ -49,11 +49,6 @@ DECLARE_PER_CPU(u8, ia64_need_tlb_flush);
- extern void mmu_context_init (void);
- extern void wrap_mmu_context (struct mm_struct *mm);
- 
--static inline void
--enter_lazy_tlb (struct mm_struct *mm, struct task_struct *tsk)
--{
--}
--
- /*
-  * When the context counter wraps around all TLBs need to be flushed because
-  * an old context number might have been reused. This is signalled by the
-@@ -116,6 +111,7 @@ get_mmu_context (struct mm_struct *mm)
-  * Initialize context number to some sane value.  MM is guaranteed to be a
-  * brand-new address-space, so no TLB flushing is needed, ever.
-  */
-+#define init_new_context init_new_context
- static inline int
- init_new_context (struct task_struct *p, struct mm_struct *mm)
+diff --git a/arch/mips/jazz/jazzdma.c b/arch/mips/jazz/jazzdma.c
+index fe40dbed04c1d6..d0b5a2ba2b1a8a 100644
+--- a/arch/mips/jazz/jazzdma.c
++++ b/arch/mips/jazz/jazzdma.c
+@@ -16,7 +16,6 @@
+ #include <linux/memblock.h>
+ #include <linux/spinlock.h>
+ #include <linux/gfp.h>
+-#include <linux/dma-direct.h>
+ #include <linux/dma-noncoherent.h>
+ #include <asm/mipsregs.h>
+ #include <asm/jazz.h>
+@@ -492,26 +491,38 @@ int vdma_get_enable(int channel)
+ static void *jazz_dma_alloc(struct device *dev, size_t size,
+ 		dma_addr_t *dma_handle, gfp_t gfp, unsigned long attrs)
  {
-@@ -123,12 +119,6 @@ init_new_context (struct task_struct *p, struct mm_struct *mm)
- 	return 0;
- }
++	struct page *page;
+ 	void *ret;
  
--static inline void
--destroy_context (struct mm_struct *mm)
--{
--	/* Nothing to do.  */
--}
--
- static inline void
- reload_context (nv_mm_context_t context)
- {
-@@ -178,11 +168,10 @@ activate_context (struct mm_struct *mm)
- 	} while (unlikely(context != mm->context));
- }
+-	ret = dma_direct_alloc_pages(dev, size, dma_handle, gfp, attrs);
+-	if (!ret)
+-		return NULL;
++	if (attrs & DMA_ATTR_NO_WARN)
++		gfp |= __GFP_NOWARN;
  
--#define deactivate_mm(tsk,mm)	do { } while (0)
--
- /*
-  * Switch from address space PREV to address space NEXT.
-  */
-+#define activate_mm activate_mm
- static inline void
- activate_mm (struct mm_struct *prev, struct mm_struct *next)
- {
-@@ -196,5 +185,7 @@ activate_mm (struct mm_struct *prev, struct mm_struct *next)
- 
- #define switch_mm(prev_mm,next_mm,next_task)	activate_mm(prev_mm, next_mm)
- 
-+#include <asm-generic/mmu_context.h>
+-	*dma_handle = vdma_alloc(virt_to_phys(ret), size);
+-	if (*dma_handle = DMA_MAPPING_ERROR) {
+-		dma_direct_free_pages(dev, size, ret, *dma_handle, attrs);
++	size = PAGE_ALIGN(size);
++	page = alloc_pages(gfp, get_order(size));
++	if (!page)
+ 		return NULL;
+-	}
++	ret = page_address(page);
++	*dma_handle = vdma_alloc(virt_to_phys(ret), size);
++	if (*dma_handle = DMA_MAPPING_ERROR)
++		goto out_free_pages;
 +
- # endif /* ! __ASSEMBLY__ */
- #endif /* _ASM_IA64_MMU_CONTEXT_H */
++	if (attrs & DMA_ATTR_NON_CONSISTENT)
++		return ret;
++	arch_dma_prep_coherent(page, size);
++	return (void *)(UNCAC_BASE + __pa(ret));
+ 
+-	return ret;
++out_free_pages:
++	__free_pages(page, get_order(size));
++	return NULL;
+ }
+ 
+ static void jazz_dma_free(struct device *dev, size_t size, void *vaddr,
+ 		dma_addr_t dma_handle, unsigned long attrs)
+ {
+ 	vdma_free(dma_handle);
+-	dma_direct_free_pages(dev, size, vaddr, dma_handle, attrs);
++	if (!(attrs & DMA_ATTR_NON_CONSISTENT))
++		vaddr = __va(vaddr - UNCAC_BASE);
++	__free_pages(virt_to_page(vaddr), get_order(size));
+ }
+ 
+ static dma_addr_t jazz_dma_map_page(struct device *dev, struct page *page,
+@@ -608,7 +619,6 @@ const struct dma_map_ops jazz_dma_ops = {
+ 	.sync_single_for_device	= jazz_dma_sync_single_for_device,
+ 	.sync_sg_for_cpu	= jazz_dma_sync_sg_for_cpu,
+ 	.sync_sg_for_device	= jazz_dma_sync_sg_for_device,
+-	.dma_supported		= dma_direct_supported,
+ 	.cache_sync		= arch_dma_cache_sync,
+ 	.mmap			= dma_common_mmap,
+ 	.get_sgtable		= dma_common_get_sgtable,
 -- 
-2.23.0
+2.28.0
