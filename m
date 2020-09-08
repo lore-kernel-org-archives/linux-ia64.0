@@ -1,75 +1,158 @@
-From: Nick Terrell <terrelln@fb.com>
-Date: Tue, 15 Sep 2020 06:52:43 +0000
-Subject: Re: vmlinux link failure on ia64 with zstd
-Message-Id: <7A672D9C-A3A7-456D-BF2E-758566DC2A54@fb.com>
+From: Christoph Hellwig <hch@lst.de>
+Date: Tue, 08 Sep 2020 16:47:52 +0000
+Subject: [PATCH 06/12] dma-direct: remove dma_direct_{alloc,free}_pages
+Message-Id: <20200908164758.3177341-7-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <f0a93b2d435252b3878ce821142677754f5e434c.camel@decadent.org.uk>
- <6A76267A-6B60-4428-94DF-E05706EB85FB@fb.com>
- <CAK7LNAToB3n9Y9OPXR55VKbDAkYgm1kUDO8gUu0Ak_+=6AhzCw@mail.gmail.com>
-In-Reply-To: <CAK7LNAToB3n9Y9OPXR55VKbDAkYgm1kUDO8gUu0Ak_+=6AhzCw@mail.gmail.com>
+References: <20200908164758.3177341-1-hch@lst.de>
+In-Reply-To: <20200908164758.3177341-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Masahiro Yamada <masahiroy@kernel.org>
-Cc: Ben Hutchings <ben@decadent.org.uk>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Linux Kbuild mailing list <linux-kbuild@vger.kernel.org>
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, iommu@lists.linux-foundation.org
+Cc: Tomasz Figa <tfiga@chromium.org>, Joerg Roedel <joro@8bytes.org>, Robin Murphy <robin.murphy@arm.com>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org
 
-DQoNCj4gT24gU2VwIDE0LCAyMDIwLCBhdCAxMTo0OCBQTSwgTWFzYWhpcm8gWWFtYWRhIDxtYXNh
-aGlyb3lAa2VybmVsLm9yZz4gd3JvdGU6DQo+IA0KPiBPbiBUdWUsIFNlcCAxNSwgMjAyMCBhdCA0
-OjEyIEFNIE5pY2sgVGVycmVsbCA8dGVycmVsbG5AZmIuY29tPiB3cm90ZToNCj4+IA0KPj4gDQo+
-PiANCj4+PiBPbiBTZXAgMTMsIDIwMjAsIGF0IDEyOjUxIFBNLCBCZW4gSHV0Y2hpbmdzIDxiZW5A
-ZGVjYWRlbnQub3JnLnVrPiB3cm90ZToNCj4+PiANCj4+PiBFbmFibGluZyBDT05GSUdfUkRfWlNU
-RCAod2hpY2ggaXMgZW5hYmxlZCBieSBkZWZhdWx0KSByZXN1bHRlZCBpbiBhDQo+Pj4gbGluayBm
-YWlsdXJlIG9uIGlhNjQ6DQo+Pj4gDQo+Pj4gKyBsZCAtciAtbyB2bWxpbnV4Lm8gLS13aG9sZS1h
-cmNoaXZlIGFyY2gvaWE2NC9rZXJuZWwvaGVhZC5vIGluaXQvYnVpbHQtaW4uYSB1c3IvYnVpbHQt
-aW4uYSBhcmNoL2lhNjQva2VybmVsL2J1aWx0LWluLmEgYXJjaC9pYTY0L21tL2J1aWx0LWluLmEg
-a2VybmVsL2J1aWx0LWluLmEgY2VydHMvYnVpbHQtaW4uYSBtbS9idWlsdC1pbi5hIGZzL2J1aWx0
-LWluLmEgaXBjL2J1aWx0LWluLmEgc2VjdXJpdHkvYnVpbHQtaW4uYSBjcnlwdG8vYnVpbHQtaW4u
-YSBibG9jay9idWlsdC1pbi5hIGxpYi9idWlsdC1pbi5hIGFyY2gvaWE2NC9saWIvYnVpbHQtaW4u
-YSBsaWIvbGliLmEgYXJjaC9pYTY0L2xpYi9saWIuYSBkcml2ZXJzL2J1aWx0LWluLmEgc291bmQv
-YnVpbHQtaW4uYSBuZXQvYnVpbHQtaW4uYSB2aXJ0L2J1aWx0LWluLmEgYXJjaC9pYTY0L3BjaS9i
-dWlsdC1pbi5hIGFyY2gvaWE2NC9ocC9jb21tb24vYnVpbHQtaW4uYSAtLW5vLXdob2xlLWFyY2hp
-dmUgLS1zdGFydC1ncm91cCAtLWVuZC1ncm91cA0KPj4+IGxkOiBsaWIvenN0ZC9lbnRyb3B5X2Nv
-bW1vbi5vOiBsaW5raW5nIGNvbnN0YW50LWdwIGZpbGVzIHdpdGggbm9uLWNvbnN0YW50LWdwIGZp
-bGVzDQo+Pj4gbGQ6IGZhaWxlZCB0byBtZXJnZSB0YXJnZXQgc3BlY2lmaWMgZGF0YSBvZiBmaWxl
-IGxpYi96c3RkL2VudHJvcHlfY29tbW9uLm8NCj4+PiBsZDogbGliL3pzdGQvZnNlX2RlY29tcHJl
-c3MubzogbGlua2luZyBjb25zdGFudC1ncCBmaWxlcyB3aXRoIG5vbi1jb25zdGFudC1ncCBmaWxl
-cw0KPj4+IGxkOiBmYWlsZWQgdG8gbWVyZ2UgdGFyZ2V0IHNwZWNpZmljIGRhdGEgb2YgZmlsZSBs
-aWIvenN0ZC9mc2VfZGVjb21wcmVzcy5vDQo+Pj4gbGQ6IGxpYi96c3RkL3pzdGRfY29tbW9uLm86
-IGxpbmtpbmcgY29uc3RhbnQtZ3AgZmlsZXMgd2l0aCBub24tY29uc3RhbnQtZ3AgZmlsZXMNCj4+
-PiBsZDogZmFpbGVkIHRvIG1lcmdlIHRhcmdldCBzcGVjaWZpYyBkYXRhIG9mIGZpbGUgbGliL3pz
-dGQvenN0ZF9jb21tb24ubw0KPj4gDQo+PiBJ4oCZdmUgbmV2ZXIgc2VlbiBhbnl0aGluZyBsaWtl
-IHRoaXMgZXJyb3IgYmVmb3JlLiBJIGRpZCBzb21lIHNlYXJjaGluZywgYW5kIGZvdW5kIHRoYXQg
-aXQgbWF5IHNob3cgdXAgaWYgYW4gb2JqZWN0IGZpbGUgaXMgZW1wdHkuDQo+PiANCj4+IFRoZXNl
-IHRocmVlIGZpbGVzIGFyZSBhbGwgaW5jbHVkZWQgaW4gYm90aCB0aGUgenN0ZF9jb21wcmVzcyBh
-bmQgdGhlIHpzdGRfZGVjb21wcmVzcyBtb2R1bGVzLiBXZSB1c2VkIHRvIGV4Y2x1ZGUgdGhlc2Ug
-MyBmaWxlcyBmcm9tIHRoZSB6c3RkX2RlY29tcHJlc3MgbW9kdWxlIHdoZW4gYm90aCBtb2R1bGVz
-IGFyZSBidWlsdC1pbi4gQnV0IHRoZW4gY29tbWl0IGRjMzVkYTE2YTJlMiBbMF0gcmVtb3ZlZCB0
-aGF0LCBiZWNhdXNlIEtidWlsZCBpcyBzdXBwb3NlZCB0byBoYW5kbGUgdGhhdCBjYXNlLg0KPj4g
-DQo+PiBJZiB5b3UgcmV2ZXJ0IGNvbW1pdCBkYzM1ZGExNmEyZTIgWzBdIGRvZXMgdGhhdCBmaXgg
-dGhlIGlzc3VlPyBJ4oCZbSBhdHRlbXB0aW5nIHRvIGJ1aWxkIHdpdGggSUE2NCwgYW5kIEnigJls
-bCBsZXQgeW91IGtub3cgaWYgSSBhbSBhYmxlIHRvIHJlcHJvZHVjZSB0aGUgaXNzdWUgYW5kIHRl
-c3QgaWYgdGhpcyBmaXhlcyBpdC4NCj4+IA0KPj4gQ0M6IE1hc2FoaXJvIFlhbWFkYSA8eWFtYWRh
-Lm1hc2FoaXJvQHNvY2lvbmV4dC5jb20+IGF1dGhvciBvZiB0aGUgY29tbWl0IGFuZCB0aGUgbGlu
-dXgta2J1aWxkIG1haWxpbmcgbGlzdC4NCj4+IA0KPj4gWzBdIGh0dHBzOi8vZ2l0aHViLmNvbS90
-b3J2YWxkcy9saW51eC9jb21taXQvZGMzNWRhMTZhMmUyM2RiMDQ4MjJmMDEyOWNkNWIyOGI3YjBl
-NzJiNA0KPiANCj4gDQo+IGRjMzVkYTE2YTJlMiBpcyBtb3JlIHRoYW4gdHdvIHllYXJzIG9sZCAo
-aS5lLiB2NC4xNykNCj4gDQo+IEFyZSB3ZSBkaXNjdXNzaW5nIGEgbG9uZy1zdGFuZGluZyBpc3N1
-ZQ0KPiBvciBzb21ldGhpbmcgdGhhdCBhcm9zZSByZWNlbnRseT8NCg0KSXQgYXJvc2UgcmVjZW50
-bHkgYmVjYXVzZSBJIGJlbGlldmUgdGhhdCB6c3RkIHdhc27igJl0IGVuYWJsZWQgb24gYW55IElB
-NjQgc3lzdGVtcyBiZWZvcmUgcmVjZW50bHkuDQpCdXQsIEkgYmVsaWV2ZSB0aGF0IHRoZSBjYXVz
-ZSBpcyB0aGF0IHNvbWUgb2YgdGhlIG9iamVjdCBmaWxlcyBjb250YWluIG5vIHN5bWJvbHMsIGFu
-ZCBiaW51dGlscyBjYW7igJl0DQpoYW5kbGUgaXQgb24gdGhpcyBhcmNoaXRlY3R1cmUuIEnigJlt
-IG5vdCAxMDAlIHBvc2l0aXZlLCBiZWNhdXNlIEkgaGF2ZW7igJl0IGJlZW4gYWJsZSB0byByZXBy
-b2R1Y2UgdGhlDQppc3N1ZSwgc2luY2UgSSBoYXZlbuKAmXQgeWV0IGJlZW4gYWJsZSB0byBidWls
-ZCB3aXRoIElBNjQuDQoNCi1OaWNrDQoNCj4+IEJlc3QsDQo+PiBOaWNrDQo+PiANCj4+PiBUaGlz
-IGlzIHNlZW4gb24gRGViaWFuIHVuc3RhYmxlLCB3aXRoIGdjYyAxMC4yIGFuZCBiaW51dGlscyAy
-LjM1LiAgQQ0KPj4+IGZ1bGwgYnVpbGQgbG9nIGlzIGF2YWlsYWJsZSBhdDoNCj4+PiBodHRwczov
-L3VybGRlZmVuc2UucHJvb2Zwb2ludC5jb20vdjIvdXJsP3U9aHR0cHMtM0FfX2J1aWxkZC5kZWJp
-YW4ub3JnX3N0YXR1c19mZXRjaC5waHAtM0Zwa2ctM0RsaW51eC0yNmFyY2gtM0RpYTY0LTI2dmVy
-LTNENS45LTdFcmM0LTJEMS03RWV4cDEtMjZzdGFtcC0zRDE1OTk5NTUxNjYtMjZyYXctM0QxJmQ9
-RHdJRmFRJmM9NVZEMFJUdE5sVGgzeWNkNDFiM01VdyZyPUhRTTVJUWRXT0I4V2FNb2lpMmRZVHcm
-bT16cXFBbDV5SWY3WFFWLVFyVlh3Y3U4OGNqcnFMZjlRZWRTTXNnMjE2UlBvJnM9ZHBLdW9RQkZB
-TTFaNHE5WEQ5YlNhU3BLM280V1NFTHF5emU4bk1zeFJnSSZlPSANCj4+PiANCj4+PiBCZW4uDQo+
-Pj4gDQo+Pj4gLS0NCj4+PiBCZW4gSHV0Y2hpbmdzDQo+Pj4gSHVtb3VyIGlzIHRoZSBiZXN0IGFu
-dGlkb3RlIHRvIHJlYWxpdHkuDQo+Pj4gDQo+PiANCj4gDQo+IA0KPiAtLSANCj4gQmVzdCBSZWdh
-cmRzDQo+IE1hc2FoaXJvIFlhbWFkYQ0KDQo
+Just merge these helpers into the main dma_direct_{alloc,free} routines,
+as the additional checks are always false for the two callers.
+
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ arch/x86/kernel/amd_gart_64.c |  6 +++---
+ include/linux/dma-direct.h    |  4 ----
+ kernel/dma/direct.c           | 39 ++++++++++++++---------------------
+ kernel/dma/pool.c             |  2 +-
+ 4 files changed, 19 insertions(+), 32 deletions(-)
+
+diff --git a/arch/x86/kernel/amd_gart_64.c b/arch/x86/kernel/amd_gart_64.c
+index bccc5357bffd6c..153374b996a279 100644
+--- a/arch/x86/kernel/amd_gart_64.c
++++ b/arch/x86/kernel/amd_gart_64.c
+@@ -467,7 +467,7 @@ gart_alloc_coherent(struct device *dev, size_t size, dma_addr_t *dma_addr,
+ {
+ 	void *vaddr;
+ 
+-	vaddr = dma_direct_alloc_pages(dev, size, dma_addr, flag, attrs);
++	vaddr = dma_direct_alloc(dev, size, dma_addr, flag, attrs);
+ 	if (!vaddr ||
+ 	    !force_iommu || dev->coherent_dma_mask <= DMA_BIT_MASK(24))
+ 		return vaddr;
+@@ -479,7 +479,7 @@ gart_alloc_coherent(struct device *dev, size_t size, dma_addr_t *dma_addr,
+ 		goto out_free;
+ 	return vaddr;
+ out_free:
+-	dma_direct_free_pages(dev, size, vaddr, *dma_addr, attrs);
++	dma_direct_free(dev, size, vaddr, *dma_addr, attrs);
+ 	return NULL;
+ }
+ 
+@@ -489,7 +489,7 @@ gart_free_coherent(struct device *dev, size_t size, void *vaddr,
+ 		   dma_addr_t dma_addr, unsigned long attrs)
+ {
+ 	gart_unmap_page(dev, dma_addr, size, DMA_BIDIRECTIONAL, 0);
+-	dma_direct_free_pages(dev, size, vaddr, dma_addr, attrs);
++	dma_direct_free(dev, size, vaddr, dma_addr, attrs);
+ }
+ 
+ static int no_agp;
+diff --git a/include/linux/dma-direct.h b/include/linux/dma-direct.h
+index 95e3e28bd93f47..20eceb2e4f91f8 100644
+--- a/include/linux/dma-direct.h
++++ b/include/linux/dma-direct.h
+@@ -77,10 +77,6 @@ void *dma_direct_alloc(struct device *dev, size_t size, dma_addr_t *dma_handle,
+ 		gfp_t gfp, unsigned long attrs);
+ void dma_direct_free(struct device *dev, size_t size, void *cpu_addr,
+ 		dma_addr_t dma_addr, unsigned long attrs);
+-void *dma_direct_alloc_pages(struct device *dev, size_t size,
+-		dma_addr_t *dma_handle, gfp_t gfp, unsigned long attrs);
+-void dma_direct_free_pages(struct device *dev, size_t size, void *cpu_addr,
+-		dma_addr_t dma_addr, unsigned long attrs);
+ int dma_direct_get_sgtable(struct device *dev, struct sg_table *sgt,
+ 		void *cpu_addr, dma_addr_t dma_addr, size_t size,
+ 		unsigned long attrs);
+diff --git a/kernel/dma/direct.c b/kernel/dma/direct.c
+index 949c1cbf08b2d5..1d564bea58571b 100644
+--- a/kernel/dma/direct.c
++++ b/kernel/dma/direct.c
+@@ -151,13 +151,18 @@ static struct page *__dma_direct_alloc_pages(struct device *dev, size_t size,
+ 	return page;
+ }
+ 
+-void *dma_direct_alloc_pages(struct device *dev, size_t size,
++void *dma_direct_alloc(struct device *dev, size_t size,
+ 		dma_addr_t *dma_handle, gfp_t gfp, unsigned long attrs)
+ {
+ 	struct page *page;
+ 	void *ret;
+ 	int err;
+ 
++	if (!IS_ENABLED(CONFIG_ARCH_HAS_DMA_SET_UNCACHED) &&
++	    !IS_ENABLED(CONFIG_DMA_DIRECT_REMAP) &&
++	    dma_alloc_need_uncached(dev, attrs))
++		return arch_dma_alloc(dev, size, dma_handle, gfp, attrs);
++
+ 	size = PAGE_ALIGN(size);
+ 
+ 	if (dma_should_alloc_from_pool(dev, gfp, attrs)) {
+@@ -256,11 +261,18 @@ void *dma_direct_alloc_pages(struct device *dev, size_t size,
+ 	return NULL;
+ }
+ 
+-void dma_direct_free_pages(struct device *dev, size_t size, void *cpu_addr,
+-		dma_addr_t dma_addr, unsigned long attrs)
++void dma_direct_free(struct device *dev, size_t size,
++		void *cpu_addr, dma_addr_t dma_addr, unsigned long attrs)
+ {
+ 	unsigned int page_order = get_order(size);
+ 
++	if (!IS_ENABLED(CONFIG_ARCH_HAS_DMA_SET_UNCACHED) &&
++	    !IS_ENABLED(CONFIG_DMA_DIRECT_REMAP) &&
++	    dma_alloc_need_uncached(dev, attrs)) {
++		arch_dma_free(dev, size, cpu_addr, dma_addr, attrs);
++		return;
++	}
++
+ 	/* If cpu_addr is not from an atomic pool, dma_free_from_pool() fails */
+ 	if (dma_should_free_from_pool(dev, attrs) &&
+ 	    dma_free_from_pool(dev, cpu_addr, PAGE_ALIGN(size)))
+@@ -284,27 +296,6 @@ void dma_direct_free_pages(struct device *dev, size_t size, void *cpu_addr,
+ 	dma_free_contiguous(dev, dma_direct_to_page(dev, dma_addr), size);
+ }
+ 
+-void *dma_direct_alloc(struct device *dev, size_t size,
+-		dma_addr_t *dma_handle, gfp_t gfp, unsigned long attrs)
+-{
+-	if (!IS_ENABLED(CONFIG_ARCH_HAS_DMA_SET_UNCACHED) &&
+-	    !IS_ENABLED(CONFIG_DMA_DIRECT_REMAP) &&
+-	    dma_alloc_need_uncached(dev, attrs))
+-		return arch_dma_alloc(dev, size, dma_handle, gfp, attrs);
+-	return dma_direct_alloc_pages(dev, size, dma_handle, gfp, attrs);
+-}
+-
+-void dma_direct_free(struct device *dev, size_t size,
+-		void *cpu_addr, dma_addr_t dma_addr, unsigned long attrs)
+-{
+-	if (!IS_ENABLED(CONFIG_ARCH_HAS_DMA_SET_UNCACHED) &&
+-	    !IS_ENABLED(CONFIG_DMA_DIRECT_REMAP) &&
+-	    dma_alloc_need_uncached(dev, attrs))
+-		arch_dma_free(dev, size, cpu_addr, dma_addr, attrs);
+-	else
+-		dma_direct_free_pages(dev, size, cpu_addr, dma_addr, attrs);
+-}
+-
+ #if defined(CONFIG_ARCH_HAS_SYNC_DMA_FOR_DEVICE) || \
+     defined(CONFIG_SWIOTLB)
+ void dma_direct_sync_sg_for_device(struct device *dev,
+diff --git a/kernel/dma/pool.c b/kernel/dma/pool.c
+index 1281c0f0442bc5..fe11643ff9cc7b 100644
+--- a/kernel/dma/pool.c
++++ b/kernel/dma/pool.c
+@@ -115,7 +115,7 @@ static int atomic_pool_expand(struct gen_pool *pool, size_t pool_size,
+ #endif
+ 	/*
+ 	 * Memory in the atomic DMA pools must be unencrypted, the pools do not
+-	 * shrink so no re-encryption occurs in dma_direct_free_pages().
++	 * shrink so no re-encryption occurs in dma_direct_free().
+ 	 */
+ 	ret = set_memory_decrypted((unsigned long)page_to_virt(page),
+ 				   1 << order);
+-- 
+2.28.0
