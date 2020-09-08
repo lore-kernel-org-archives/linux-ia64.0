@@ -1,54 +1,67 @@
-From: Laurent Dufour <ldufour@linux.ibm.com>
-Date: Tue, 15 Sep 2020 07:04:10 +0000
-Subject: Re: [PATCH v2 1/3] mm: replace memmap_context by memplug_context
-Message-Id: <bac8037f-70f6-e7e5-7982-cbfcfef45e01@linux.ibm.com>
+From: Christoph Hellwig <hch@lst.de>
+Date: Tue, 08 Sep 2020 16:47:53 +0000
+Subject: [PATCH 07/12] dma-direct: lift gfp_t manipulation out of__dma_direct_alloc_pages
+Message-Id: <20200908164758.3177341-8-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200914165042.96218-1-ldufour@linux.ibm.com>
- <20200914165042.96218-2-ldufour@linux.ibm.com>
- <d6ade681-2fb1-a1df-5673-bceacd1dfc55@redhat.com>
-In-Reply-To: <d6ade681-2fb1-a1df-5673-bceacd1dfc55@redhat.com>
+References: <20200908164758.3177341-1-hch@lst.de>
+In-Reply-To: <20200908164758.3177341-1-hch@lst.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: David Hildenbrand <david@redhat.com>, akpm@linux-foundation.org, Oscar Salvador <osalvador@suse.de>, mhocko@kernel.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: linux-mm@kvack.org, "Rafael J . Wysocki" <rafael@kernel.org>, nathanl@linux.ibm.com, cheloha@linux.ibm.com, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, stable@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, iommu@lists.linux-foundation.org
+Cc: Tomasz Figa <tfiga@chromium.org>, Joerg Roedel <joro@8bytes.org>, Robin Murphy <robin.murphy@arm.com>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org
 
-Le 14/09/2020 à 19:10, David Hildenbrand a écrit :
-> On 14.09.20 18:50, Laurent Dufour wrote:
->> The memmap_context is used to detect whether a memory operation is due to a
->> hot-add operation or happening at boot time.
->>
->> Make it general to the hotplug operation and rename it at memplug_context.
->>
->> There is no functional change introduced by this patch
->>
->> Suggested-by: David Hildenbrand <david@redhat.com>
->> Signed-off-by: Laurent Dufour <ldufour@linux.ibm.com>
->> ---
->>   arch/ia64/mm/init.c    |  6 +++---
->>   include/linux/mm.h     |  2 +-
->>   include/linux/mmzone.h | 11 ++++++++---
->>   mm/memory_hotplug.c    |  2 +-
->>   mm/page_alloc.c        | 10 +++++-----
->>   5 files changed, 18 insertions(+), 13 deletions(-)
->>
->> diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
->> index 0b3fb4c7af29..b5054b5e77c8 100644
->> --- a/arch/ia64/mm/init.c
->> +++ b/arch/ia64/mm/init.c
->> @@ -538,7 +538,7 @@ virtual_memmap_init(u64 start, u64 end, void *arg)
->>   	if (map_start < map_end)
->>   		memmap_init_zone((unsigned long)(map_end - map_start),
->>   				 args->nid, args->zone, page_to_pfn(map_start),
->> -				 MEMMAP_EARLY, NULL);
->> +				 MEMPLUG_EARLY, NULL);
-> 
-> I am pretty sure that won't compile (MEMINIT_EARLY).
-> 
-> (same at other places)
+Move the detailed gfp_t setup from __dma_direct_alloc_pages into the
+caller to clean things up a little.
 
-Ouch I can't understand what I did at sending time, I did check compile on ia64 
-w and w/o memory hotplug.
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ kernel/dma/direct.c | 12 +++++-------
+ 1 file changed, 5 insertions(+), 7 deletions(-)
 
-Sorry for the noise.
-
+diff --git a/kernel/dma/direct.c b/kernel/dma/direct.c
+index 1d564bea58571b..12e9f5f75dfe4b 100644
+--- a/kernel/dma/direct.c
++++ b/kernel/dma/direct.c
+@@ -108,7 +108,7 @@ static inline bool dma_should_free_from_pool(struct device *dev,
+ }
+ 
+ static struct page *__dma_direct_alloc_pages(struct device *dev, size_t size,
+-		gfp_t gfp, unsigned long attrs)
++		gfp_t gfp)
+ {
+ 	int node = dev_to_node(dev);
+ 	struct page *page = NULL;
+@@ -116,11 +116,6 @@ static struct page *__dma_direct_alloc_pages(struct device *dev, size_t size,
+ 
+ 	WARN_ON_ONCE(!PAGE_ALIGNED(size));
+ 
+-	if (attrs & DMA_ATTR_NO_WARN)
+-		gfp |= __GFP_NOWARN;
+-
+-	/* we always manually zero the memory once we are done: */
+-	gfp &= ~__GFP_ZERO;
+ 	gfp |= dma_direct_optimal_gfp_mask(dev, dev->coherent_dma_mask,
+ 					   &phys_limit);
+ 	page = dma_alloc_contiguous(dev, size, gfp);
+@@ -164,6 +159,8 @@ void *dma_direct_alloc(struct device *dev, size_t size,
+ 		return arch_dma_alloc(dev, size, dma_handle, gfp, attrs);
+ 
+ 	size = PAGE_ALIGN(size);
++	if (attrs & DMA_ATTR_NO_WARN)
++		gfp |= __GFP_NOWARN;
+ 
+ 	if (dma_should_alloc_from_pool(dev, gfp, attrs)) {
+ 		u64 phys_mask;
+@@ -177,7 +174,8 @@ void *dma_direct_alloc(struct device *dev, size_t size,
+ 		goto done;
+ 	}
+ 
+-	page = __dma_direct_alloc_pages(dev, size, gfp, attrs);
++	/* we always manually zero the memory once we are done */
++	page = __dma_direct_alloc_pages(dev, size, gfp & ~__GFP_ZERO);
+ 	if (!page)
+ 		return NULL;
+ 
+-- 
+2.28.0
