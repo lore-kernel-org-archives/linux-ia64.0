@@ -1,140 +1,167 @@
-From: Jonathan Cameron <Jonathan.Cameron@Huawei.com>
-Date: Fri, 18 Sep 2020 12:14:27 +0000
-Subject: Re: [PATCH v3 0/6]  ACPI: Only create NUMA nodes from entries in SRAT or SRAT emulation.
-Message-Id: <20200918131427.0000080f@Huawei.com>
+From: Christoph Hellwig <hch@lst.de>
+Date: Tue, 08 Sep 2020 16:47:57 +0000
+Subject: [PATCH 11/12] dma-mapping: move dma_common_{mmap,get_sgtable} out of mapping.c
+Message-Id: <20200908164758.3177341-12-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200818142430.1156547-1-Jonathan.Cameron@huawei.com>
-        <20200903133318.000017f5@Huawei.com>
-In-Reply-To: <20200903133318.000017f5@Huawei.com>
+References: <20200908164758.3177341-1-hch@lst.de>
+In-Reply-To: <20200908164758.3177341-1-hch@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-mm@kvack.org, linux-acpi@vger.kernel.org, linux-arm-kernel@lists.infradead.org, x86@kernel.org, rafael@kernel.org
-Cc: Fenghua Yu <fenghua.yu@intel.com>, Lorenzo Pieralisi <lorenzo.pieralisi@arm.com>, linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, linux-pci@vger.kernel.org, linuxarm@huawei.com, Ingo Molnar <mingo@redhat.com>, martin@geanix.com, Bjorn Helgaas <bhelgaas@google.com>, Thomas Gleixner <tglx@linutronix.de>, Dan Williams <dan.j.williams@intel.com>
+To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, iommu@lists.linux-foundation.org
+Cc: Tomasz Figa <tfiga@chromium.org>, Joerg Roedel <joro@8bytes.org>, Robin Murphy <robin.murphy@arm.com>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org
 
-On Thu, 3 Sep 2020 13:33:18 +0100
-Jonathan Cameron <Jonathan.Cameron@Huawei.com> wrote:
+Add a new file that contains helpera for misc DMA ops, which is only
+built when CONFIG_DMA_OPS is set.
 
-> On Tue, 18 Aug 2020 22:24:24 +0800
-> Jonathan Cameron <Jonathan.Cameron@huawei.com> wrote:
-> 
-> > This is a trivial rebase and resend of V2 now the merge window has closed.
-> > 
-> > Here, I will use the term Proximity Domains for the ACPI description and
-> > NUMA Nodes for the in kernel representation.
-> > 
-> > ACPI 6.3 included a clarification that only Static Resource Allocation
-> > Structures in SRAT may define the existence of proximity domains
-> > (sec 5.2.16). This clarification closed a possible interpretation that
-> > other parts of ACPI (e.g. DSDT _PXM, NFIT etc) could define new proximity
-> > domains that were not also mentioned in SRAT structures.
-> > 
-> > In practice the kernel has never allowed this alternative interpretation as
-> > such nodes are only partially initialized. This is architecture specific
-> > but to take an example, on x86 alloc_node_data has not been called.
-> > Any use of them for node specific allocation, will result in a crash as the
-> > infrastructure to fallback to a node with memory is not setup.
-> > 
-> > We ran into a problem when enabling _PXM handling for PCI devices and found
-> > there were boards out there advertising devices in proximity domains that
-> > didn't exist [2].
-> > 
-> > The fix suggested in this series is to replace instances that should not
-> > 'create' new nodes with pxm_to_node.  This function needs a some additional
-> > hardening against invalid inputs to make sure it is safe for use in these
-> > new callers.
-> > 
-> > Patch 1 Hardens pxm_to_node() against numa_off, and pxm entry being too large.
-> > 
-> > Patch 2-4 change the various callers not related to SRAT entries so that they
-> > set this parameter to false, so do not attempt to initialize a new NUMA node
-> > if the relevant one does not already exist.
-> > 
-> > Patch 5 is a function rename to reflect change in functionality of
-> > acpi_map_pxm_to_online_node() as it no longer creates a new map, but just does a
-> > lookup of existing maps.
-> > 
-> > Patch 6 covers the one place we do not allow the full flexibility defined
-> > in the ACPI spec.  For SRAT GIC Interrupt Translation Service (ITS) Affinity
-> > Structures, on ARM64, the driver currently makes an additional pass of SRAT
-> > later in the boot than the one used to identify NUMA domains.
-> > Note, this currently means that an ITS placed in a proximity domain that is
-> > not defined by another SRAT structure will result in the a crash.
-> > 
-> > To avoid this crash with minimal changes we do not create new NUMA nodes based
-> > on this particular entry type.  Any current platform trying to do this will not
-> > boot, so this is an improvement, if perhaps not a perfect solution.
-> > 
-> > [1] Note in ACPI Specification 6.3 5.2.16 System Resource Affinity Table (SRAT)
-> > [2] https://patchwork.kernel.org/patch/10597777/  
-> 
-> Looking for input from ARM (Lorenzo?), X86(not sure) and ACPI(Rafael?) people
-> on this set. As it also touches NFIT handling perhaps someone who focuses on
-> that as well. Please feel free to CC additional people who might be interested.
-> 
-> I'm fairly confident that it should be uncontroversial (famous last words)
-> and it closes down a problem that lead to issues with seemingly obvious
-> changes in the past. (The whole PCI _PXM issue on some threadripper platforms).
-> 
-> Thanks to Bjorn, Hanjun and Barry for feedback on earlier revisions.
-> 
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ kernel/dma/Makefile      |  1 +
+ kernel/dma/mapping.c     | 47 +-----------------------------------
+ kernel/dma/ops_helpers.c | 51 ++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 53 insertions(+), 46 deletions(-)
+ create mode 100644 kernel/dma/ops_helpers.c
 
-Hi All,
-
-Still after reviews on this set. If anyone one would like me to resend please
-let me know.  Also any corrections to my suggested set of people to review would
-be welcome.
-
-+CC Rafael who I've managed to drop from this version which won't have helped.
-
-Thanks,
-
-Jonathan
-
-> Thanks,
-> 
-> Jonathan
-> 
-> > 
-> > Thanks to Bjorn Helgaas for review of v1 and Barry Song for internal reviews that
-> > lead to a slightly different approach for this v2.
-> > 
-> > Changes since v2.
-> > * Trivial rebase to v5.9-rc1
-> > * Collect up tags.
-> > 
-> > Changes since v1.
-> > * Use pxm_to_node for what was previously the path using acpi_map_pxm_to_node
-> >   with create=false. (Barry)
-> > * Broke patch up into an initial noop stage followed by patches (Bjorn)
-> >   to update each type of case in which partial creation of NUMA nodes is prevented.
-> > * Added patch 5 to rename function to reflect change of functionality.
-> > * Updated descriptions (now mostly in individual patches) inline with Bjorn's comments.
-> > 
-> > Jonathan Cameron (6):
-> >   ACPI: Add out of bounds and numa_off protections to pxm_to_node
-> >   ACPI: Do not create new NUMA domains from ACPI static tables that are
-> >     not SRAT
-> >   ACPI: Remove side effect of partly creating a node in
-> >     acpi_map_pxm_to_online_node
-> >   ACPI: Rename acpi_map_pxm_to_online_node to pxm_to_online_node
-> >   ACPI: Remove side effect of partly creating a node in acpi_get_node
-> >   irq-chip/gic-v3-its: Fix crash if ITS is in a proximity domain without
-> >     processor or memory
-> > 
-> >  drivers/acpi/arm64/iort.c        |  2 +-
-> >  drivers/acpi/nfit/core.c         |  6 ++----
-> >  drivers/acpi/numa/hmat.c         |  4 ++--
-> >  drivers/acpi/numa/srat.c         |  4 ++--
-> >  drivers/iommu/intel/dmar.c       |  2 +-
-> >  drivers/irqchip/irq-gic-v3-its.c |  7 ++++++-
-> >  include/linux/acpi.h             | 15 +++++++--------
-> >  7 files changed, 21 insertions(+), 19 deletions(-)
-> >   
-> 
-> 
-> _______________________________________________
-> Linuxarm mailing list
-> Linuxarm@huawei.com
-> http://hulk.huawei.com/mailman/listinfo/linuxarm
-
+diff --git a/kernel/dma/Makefile b/kernel/dma/Makefile
+index 32c7c1942bbd6c..dc755ab68aabf9 100644
+--- a/kernel/dma/Makefile
++++ b/kernel/dma/Makefile
+@@ -1,6 +1,7 @@
+ # SPDX-License-Identifier: GPL-2.0
+ 
+ obj-$(CONFIG_HAS_DMA)			+= mapping.o direct.o
++obj-$(CONFIG_DMA_OPS)			+= ops_helpers.o
+ obj-$(CONFIG_DMA_OPS)			+= dummy.o
+ obj-$(CONFIG_DMA_CMA)			+= contiguous.o
+ obj-$(CONFIG_DMA_DECLARE_COHERENT)	+= coherent.o
+diff --git a/kernel/dma/mapping.c b/kernel/dma/mapping.c
+index 0d129421e75fc8..848c95c27d79ff 100644
+--- a/kernel/dma/mapping.c
++++ b/kernel/dma/mapping.c
+@@ -8,7 +8,7 @@
+ #include <linux/memblock.h> /* for max_pfn */
+ #include <linux/acpi.h>
+ #include <linux/dma-direct.h>
+-#include <linux/dma-noncoherent.h>
++#include <linux/dma-mapping.h>
+ #include <linux/export.h>
+ #include <linux/gfp.h>
+ #include <linux/of_device.h>
+@@ -295,22 +295,6 @@ void dma_sync_sg_for_device(struct device *dev, struct scatterlist *sg,
+ }
+ EXPORT_SYMBOL(dma_sync_sg_for_device);
+ 
+-/*
+- * Create scatter-list for the already allocated DMA buffer.
+- */
+-int dma_common_get_sgtable(struct device *dev, struct sg_table *sgt,
+-		 void *cpu_addr, dma_addr_t dma_addr, size_t size,
+-		 unsigned long attrs)
+-{
+-	struct page *page = virt_to_page(cpu_addr);
+-	int ret;
+-
+-	ret = sg_alloc_table(sgt, 1, GFP_KERNEL);
+-	if (!ret)
+-		sg_set_page(sgt->sgl, page, PAGE_ALIGN(size), 0);
+-	return ret;
+-}
+-
+ /*
+  * The whole dma_get_sgtable() idea is fundamentally unsafe - it seems
+  * that the intention is to allow exporting memory allocated via the
+@@ -358,35 +342,6 @@ pgprot_t dma_pgprot(struct device *dev, pgprot_t prot, unsigned long attrs)
+ }
+ #endif /* CONFIG_MMU */
+ 
+-/*
+- * Create userspace mapping for the DMA-coherent memory.
+- */
+-int dma_common_mmap(struct device *dev, struct vm_area_struct *vma,
+-		void *cpu_addr, dma_addr_t dma_addr, size_t size,
+-		unsigned long attrs)
+-{
+-#ifdef CONFIG_MMU
+-	unsigned long user_count = vma_pages(vma);
+-	unsigned long count = PAGE_ALIGN(size) >> PAGE_SHIFT;
+-	unsigned long off = vma->vm_pgoff;
+-	int ret = -ENXIO;
+-
+-	vma->vm_page_prot = dma_pgprot(dev, vma->vm_page_prot, attrs);
+-
+-	if (dma_mmap_from_dev_coherent(dev, vma, cpu_addr, size, &ret))
+-		return ret;
+-
+-	if (off >= count || user_count > count - off)
+-		return -ENXIO;
+-
+-	return remap_pfn_range(vma, vma->vm_start,
+-			page_to_pfn(virt_to_page(cpu_addr)) + vma->vm_pgoff,
+-			user_count << PAGE_SHIFT, vma->vm_page_prot);
+-#else
+-	return -ENXIO;
+-#endif /* CONFIG_MMU */
+-}
+-
+ /**
+  * dma_can_mmap - check if a given device supports dma_mmap_*
+  * @dev: device to check
+diff --git a/kernel/dma/ops_helpers.c b/kernel/dma/ops_helpers.c
+new file mode 100644
+index 00000000000000..e443c69be4299f
+--- /dev/null
++++ b/kernel/dma/ops_helpers.c
+@@ -0,0 +1,51 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Helpers for DMA ops implementations.  These generally rely on the fact that
++ * the allocated memory contains normal pages in the direct kernel mapping.
++ */
++#include <linux/dma-noncoherent.h>
++
++/*
++ * Create scatter-list for the already allocated DMA buffer.
++ */
++int dma_common_get_sgtable(struct device *dev, struct sg_table *sgt,
++		 void *cpu_addr, dma_addr_t dma_addr, size_t size,
++		 unsigned long attrs)
++{
++	struct page *page = virt_to_page(cpu_addr);
++	int ret;
++
++	ret = sg_alloc_table(sgt, 1, GFP_KERNEL);
++	if (!ret)
++		sg_set_page(sgt->sgl, page, PAGE_ALIGN(size), 0);
++	return ret;
++}
++
++/*
++ * Create userspace mapping for the DMA-coherent memory.
++ */
++int dma_common_mmap(struct device *dev, struct vm_area_struct *vma,
++		void *cpu_addr, dma_addr_t dma_addr, size_t size,
++		unsigned long attrs)
++{
++#ifdef CONFIG_MMU
++	unsigned long user_count = vma_pages(vma);
++	unsigned long count = PAGE_ALIGN(size) >> PAGE_SHIFT;
++	unsigned long off = vma->vm_pgoff;
++	int ret = -ENXIO;
++
++	vma->vm_page_prot = dma_pgprot(dev, vma->vm_page_prot, attrs);
++
++	if (dma_mmap_from_dev_coherent(dev, vma, cpu_addr, size, &ret))
++		return ret;
++
++	if (off >= count || user_count > count - off)
++		return -ENXIO;
++
++	return remap_pfn_range(vma, vma->vm_start,
++			page_to_pfn(virt_to_page(cpu_addr)) + vma->vm_pgoff,
++			user_count << PAGE_SHIFT, vma->vm_page_prot);
++#else
++	return -ENXIO;
++#endif /* CONFIG_MMU */
++}
+-- 
+2.28.0
