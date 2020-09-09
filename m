@@ -1,144 +1,89 @@
-From: Laurent Dufour <ldufour@linux.ibm.com>
-Date: Tue, 15 Sep 2020 07:06:59 +0000
-Subject: Re: [PATCH v2 2/3] mm: don't rely on system state to detect hot-plug operations
-Message-Id: <6657eaa7-f27b-ce8e-523d-4447b46b7363@linux.ibm.com>
+From: "Martin K. Petersen" <martin.petersen@oracle.com>
+Date: Wed, 09 Sep 2020 02:09:14 +0000
+Subject: Re: [PATCH 00/29] treewide: Convert comma separated statements
+Message-Id: <159961731707.5787.13988542229153933257.b4-ty@oracle.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200914165042.96218-1-ldufour@linux.ibm.com>
- <20200914165042.96218-3-ldufour@linux.ibm.com>
- <c378a52b-ab7b-0cb9-cd34-68e20a9d02b0@redhat.com>
-In-Reply-To: <c378a52b-ab7b-0cb9-cd34-68e20a9d02b0@redhat.com>
+References: <cover.1598331148.git.joe@perches.com>
+In-Reply-To: <cover.1598331148.git.joe@perches.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: David Hildenbrand <david@redhat.com>, akpm@linux-foundation.org, Oscar Salvador <osalvador@suse.de>, mhocko@kernel.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: linux-mm@kvack.org, "Rafael J . Wysocki" <rafael@kernel.org>, nathanl@linux.ibm.com, cheloha@linux.ibm.com, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, stable@vger.kernel.org, Michal Hocko <mhocko@suse.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linuxppc-dev@lists.ozlabs.org, linux-ide@vger.kernel.org, dri-devel@lists.freedesktop.org, linux-hwmon@vger.kernel.org, Joe Perches <joe@perches.com>, oprofile-list@lists.sf.net, linux-fsdevel@vger.kernel.org, linux-media@vger.kernel.org, linaro-mm-sig@lists.linaro.org, drbd-dev@tron.linbit.com, intel-gfx@lists.freedesktop.org, linux-arm-kernel@lists.infradead.org, linux-input@vger.kernel.org, linux-nfs@vger.kernel.org, netdev@vger.kernel.org, reiserfs-devel@vger.kernel.org, linux-bcache@vger.kernel.org, Jiri Kosina <trivial@kernel.org>
+Cc: "Martin K . Petersen" <martin.petersen@oracle.com>, sparclinux@vger.kernel.org, linux-mtd@lists.infradead.org, linux-s390@vger.kernel.org, linux-doc@vger.kernel.org, linux-block@vger.kernel.org, linux-ia64@vger.kernel.org, linux-pm@vger.kernel.org, linux-kselftest@vger.kernel.org, linux-fbdev@vger.kernel.org, devel@driverdev.osuosl.org, linux-scsi@vger.kernel.org, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Le 14/09/2020 à 19:15, David Hildenbrand a écrit :
->>   arch/ia64/mm/init.c  |  4 +--
->>   drivers/base/node.c  | 86 ++++++++++++++++++++++++++++----------------
->>   include/linux/node.h | 11 +++---
->>   mm/memory_hotplug.c  |  5 +--
->>   4 files changed, 68 insertions(+), 38 deletions(-)
->>
->> diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
->> index b5054b5e77c8..8e7b8c6c576e 100644
->> --- a/arch/ia64/mm/init.c
->> +++ b/arch/ia64/mm/init.c
->> @@ -538,7 +538,7 @@ virtual_memmap_init(u64 start, u64 end, void *arg)
->>   	if (map_start < map_end)
->>   		memmap_init_zone((unsigned long)(map_end - map_start),
->>   				 args->nid, args->zone, page_to_pfn(map_start),
->> -				 MEMPLUG_EARLY, NULL);
->> +				 MEMINIT_EARLY, NULL);
+On Mon, 24 Aug 2020 21:55:57 -0700, Joe Perches wrote:
+
+> There are many comma separated statements in the kernel.
+> See:https://lore.kernel.org/lkml/alpine.DEB.2.22.394.2008201856110.2524@hadrien/
 > 
-> Patch #1.
-
-Sure, this explains why I was able to build on ia64 but that's not the right place.
-
->>   	return 0;
->>   }
->>   
->> @@ -548,7 +548,7 @@ memmap_init (unsigned long size, int nid, unsigned long zone,
->>   {
->>   	if (!vmem_map) {
->>   		memmap_init_zone(size, nid, zone, start_pfn,
->> -				 MEMPLUG_EARLY, NULL);
->> +				 MEMINIT_EARLY, NULL);
-
-I'll fix that too.
-
->>   	} else {
->>   		struct page *start;
->>   		struct memmap_init_callback_data args;
->> diff --git a/drivers/base/node.c b/drivers/base/node.c
->> index 508b80f6329b..01ee73c9d675 100644
->> --- a/drivers/base/node.c
->> +++ b/drivers/base/node.c
->> @@ -761,14 +761,36 @@ static int __ref get_nid_for_pfn(unsigned long pfn)
->>   	return pfn_to_nid(pfn);
->>   }
->>   
->> +static int do_register_memory_block_under_node(int nid,
->> +					       struct memory_block *mem_blk)
->> +{
->> +	int ret;
->> +
->> +	/*
->> +	 * If this memory block spans multiple nodes, we only indicate
->> +	 * the last processed node.
->> +	 */
->> +	mem_blk->nid = nid;
->> +
->> +	ret = sysfs_create_link_nowarn(&node_devices[nid]->dev.kobj,
->> +				       &mem_blk->dev.kobj,
->> +				       kobject_name(&mem_blk->dev.kobj));
->> +	if (ret)
->> +		return ret;
->> +
->> +	return sysfs_create_link_nowarn(&mem_blk->dev.kobj,
->> +				&node_devices[nid]->dev.kobj,
->> +				kobject_name(&node_devices[nid]->dev.kobj));
->> +}
->> +
->>   /* register memory section under specified node if it spans that node */
->> -static int register_mem_sect_under_node(struct memory_block *mem_blk,
->> -					 void *arg)
->> +static int register_mem_block_under_node_early(struct memory_block *mem_blk,
->> +					       void *arg)
->>   {
->>   	unsigned long memory_block_pfns = memory_block_size_bytes() / PAGE_SIZE;
->>   	unsigned long start_pfn = section_nr_to_pfn(mem_blk->start_section_nr);
->>   	unsigned long end_pfn = start_pfn + memory_block_pfns - 1;
->> -	int ret, nid = *(int *)arg;
->> +	int nid = *(int *)arg;
->>   	unsigned long pfn;
->>   
->>   	for (pfn = start_pfn; pfn <= end_pfn; pfn++) {
->> @@ -785,38 +807,34 @@ static int register_mem_sect_under_node(struct memory_block *mem_blk,
->>   		}
->>   
->>   		/*
->> -		 * We need to check if page belongs to nid only for the boot
->> -		 * case, during hotplug we know that all pages in the memory
->> -		 * block belong to the same node.
->> -		 */
->> -		if (system_state = SYSTEM_BOOTING) {
->> -			page_nid = get_nid_for_pfn(pfn);
->> -			if (page_nid < 0)
->> -				continue;
->> -			if (page_nid != nid)
->> -				continue;
->> -		}
->> -
->> -		/*
->> -		 * If this memory block spans multiple nodes, we only indicate
->> -		 * the last processed node.
->> +		 * We need to check if page belongs to nid only at the boot
->> +		 * case because node's ranges can be interleaved.
->>   		 */
->> -		mem_blk->nid = nid;
->> -
->> -		ret = sysfs_create_link_nowarn(&node_devices[nid]->dev.kobj,
->> -					&mem_blk->dev.kobj,
->> -					kobject_name(&mem_blk->dev.kobj));
->> -		if (ret)
->> -			return ret;
->> +		page_nid = get_nid_for_pfn(pfn);
->> +		if (page_nid < 0)
->> +			continue;
->> +		if (page_nid != nid)
->> +			continue;
->>   
->> -		return sysfs_create_link_nowarn(&mem_blk->dev.kobj,
->> -				&node_devices[nid]->dev.kobj,
->> -				kobject_name(&node_devices[nid]->dev.kobj));
->> +		/* The memory block is registered to the first matching node */
+> Convert the comma separated statements that are in if/do/while blocks
+> to use braces and semicolons.
 > 
-> That comment is misleading in that context.
+> Many comma separated statements still exist but those are changes for
+> another day.
 > 
-> A memory block is registered if there is at least a page that belongs to
-> the nid. It's perfectly fine to have a single memory block belong to
-> multiple NUMA nodes (when the split is within a memory block). I'd just
-> drop it.
+> [...]
 
-I agree the comment is not accurate, I'll drop it.
+Applied to 5.10/scsi-queue, thanks!
+
+[01/29] coding-style.rst: Avoid comma statements
+        (no commit info)
+[02/29] alpha: Avoid comma separated statements
+        (no commit info)
+[03/29] ia64: Avoid comma separated statements
+        (no commit info)
+[04/29] sparc: Avoid comma separated statements
+        (no commit info)
+[05/29] ata: Avoid comma separated statements
+        (no commit info)
+[06/29] drbd: Avoid comma separated statements
+        (no commit info)
+[07/29] lp: Avoid comma separated statements
+        (no commit info)
+[08/29] dma-buf: Avoid comma separated statements
+        (no commit info)
+[09/29] drm/gma500: Avoid comma separated statements
+        (no commit info)
+[10/29] drm/i915: Avoid comma separated statements
+        (no commit info)
+[11/29] hwmon: (scmi-hwmon): Avoid comma separated statements
+        (no commit info)
+[12/29] Input: MT - Avoid comma separated statements
+        (no commit info)
+[13/29] bcache: Avoid comma separated statements
+        (no commit info)
+[14/29] media: Avoid comma separated statements
+        (no commit info)
+[15/29] mtd: Avoid comma separated statements
+        (no commit info)
+[16/29] 8390: Avoid comma separated statements
+        (no commit info)
+[17/29] fs_enet: Avoid comma separated statements
+        (no commit info)
+[18/29] wan: sbni: Avoid comma separated statements
+        (no commit info)
+[19/29] s390/tty3270: Avoid comma separated statements
+        (no commit info)
+[20/29] scsi: arm: Avoid comma separated statements
+        https://git.kernel.org/mkp/scsi/c/a08a07326510
+[21/29] media: atomisp: Avoid comma separated statements
+        (no commit info)
+[22/29] video: fbdev: Avoid comma separated statements
+        (no commit info)
+[23/29] fuse: Avoid comma separated statements
+        (no commit info)
+[24/29] reiserfs: Avoid comma separated statements
+        (no commit info)
+[25/29] lib/zlib: Avoid comma separated statements
+        (no commit info)
+[26/29] lib: zstd: Avoid comma separated statements
+        (no commit info)
+[27/29] ipv6: fib6: Avoid comma separated statements
+        (no commit info)
+[28/29] sunrpc: Avoid comma separated statements
+        (no commit info)
+[29/29] tools: Avoid comma separated statements
+        (no commit info)
+
+-- 
+Martin K. Petersen	Oracle Linux Engineering
