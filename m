@@ -1,68 +1,30 @@
-From: Robin Murphy <robin.murphy@arm.com>
-Date: Thu, 10 Sep 2020 12:55:37 +0000
+From: Christoph Hellwig <hch@lst.de>
+Date: Fri, 11 Sep 2020 07:09:50 +0000
 Subject: Re: [PATCH 04/12] dma-mapping: fix DMA_OPS dependencies
-Message-Id: <1e3c7094-62da-6e8c-0a41-0bc63dd3db68@arm.com>
+Message-Id: <20200911070950.GB22394@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200908164758.3177341-1-hch@lst.de>
- <20200908164758.3177341-5-hch@lst.de>
-In-Reply-To: <20200908164758.3177341-5-hch@lst.de>
+References: <20200908164758.3177341-1-hch@lst.de> <20200908164758.3177341-5-hch@lst.de> <1e3c7094-62da-6e8c-0a41-0bc63dd3db68@arm.com>
+In-Reply-To: <1e3c7094-62da-6e8c-0a41-0bc63dd3db68@arm.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch@lst.de>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, iommu@lists.linux-foundation.org
-Cc: Tomasz Figa <tfiga@chromium.org>, Joerg Roedel <joro@8bytes.org>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org
+Content-Type: text/plain; charset="macroman"
+Content-Transfer-Encoding: base64
+To: Robin Murphy <robin.murphy@arm.com>
+Cc: Christoph Hellwig <hch@lst.de>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, iommu@lists.linux-foundation.org, Tomasz Figa <tfiga@chromium.org>, Joerg Roedel <joro@8bytes.org>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org
 
-On 2020-09-08 17:47, Christoph Hellwig wrote:
-> Driver that select DMA_OPS need to depend on HAS_DMA support to
-> work.  The vop driver was missing that dependency, so add it, and also
-> add a nother depends in DMA_OPS itself.  That won't fix the issue due
-> to how the Kconfig dependencies work, but at least produce a warning
-> about unmet dependencies.
-> 
-> Signed-off-by: Christoph Hellwig <hch@lst.de>
-> ---
->   drivers/misc/mic/Kconfig | 1 +
->   kernel/dma/Kconfig       | 1 +
->   2 files changed, 2 insertions(+)
-> 
-> diff --git a/drivers/misc/mic/Kconfig b/drivers/misc/mic/Kconfig
-> index b9bb086785db48..8a7c2c5711d5f4 100644
-> --- a/drivers/misc/mic/Kconfig
-> +++ b/drivers/misc/mic/Kconfig
-> @@ -35,6 +35,7 @@ config SCIF_BUS
->   
->   config VOP_BUS
->   	tristate "VOP Bus Driver"
-> +	depends on HAS_DMA
->   	select DMA_OPS
-
-AFAICS all three of these bus drivers are only proxying a struct 
-dma_map_ops * pointer around, so if they used the set_dma_ops() helper 
-they shouldn't even need these selects at all. Only INTEL_MIC_HOST 
-appears to have a logical dependency on DMA_OPS for actual functionality.
-
-However, I have a vague feeling you might not be fond of those dma_ops 
-helpers, and I have no great objection to this one-liner as-is, so 
-(modulo the couple of commit message typos),
-
-Reviewed-by: Robin Murphy <robin.murphy@arm.com>
-
-(of course the hunk below is unquestionably OK)
-
-Robin.
-
->   	help
->   	  This option is selected by any driver which registers a
-> diff --git a/kernel/dma/Kconfig b/kernel/dma/Kconfig
-> index 0ddfb5510fe45f..e7b801649f6574 100644
-> --- a/kernel/dma/Kconfig
-> +++ b/kernel/dma/Kconfig
-> @@ -9,6 +9,7 @@ config HAS_DMA
->   	default y
->   
->   config DMA_OPS
-> +	depends on HAS_DMA
->   	bool
->   
->   #
-> 
+T24gVGh1LCBTZXAgMTAsIDIwMjAgYXQgMDE6NTU6MzdQTSArMDEwMCwgUm9iaW4gTXVycGh5IHdy
+b3RlOgo+IEFGQUlDUyBhbGwgdGhyZWUgb2YgdGhlc2UgYnVzIGRyaXZlcnMgYXJlIG9ubHkgcHJv
+eHlpbmcgYSBzdHJ1Y3QgCj4gZG1hX21hcF9vcHMgKiBwb2ludGVyIGFyb3VuZCwgc28gaWYgdGhl
+eSB1c2VkIHRoZSBzZXRfZG1hX29wcygpIGhlbHBlciB0aGV5IAo+IHNob3VsZG4ndCBldmVuIG5l
+ZWQgdGhlc2Ugc2VsZWN0cyBhdCBhbGwuIE9ubHkgSU5URUxfTUlDX0hPU1QgYXBwZWFycyB0byAK
+PiBoYXZlIGEgbG9naWNhbCBkZXBlbmRlbmN5IG9uIERNQV9PUFMgZm9yIGFjdHVhbCBmdW5jdGlv
+bmFsaXR5Lgo+Cj4gSG93ZXZlciwgSSBoYXZlIGEgdmFndWUgZmVlbGluZyB5b3UgbWlnaHQgbm90
+IGJlIGZvbmQgb2YgdGhvc2UgZG1hX29wcyAKPiBoZWxwZXJzLCBhbmQgSSBoYXZlIG5vIGdyZWF0
+IG9iamVjdGlvbiB0byB0aGlzIG9uZS1saW5lciBhcy1pcywgc28gKG1vZHVsbyAKPiB0aGUgY291
+cGxlIG9mIGNvbW1pdCBtZXNzYWdlIHR5cG9zKSwKClRoZSBwcm9ibGVtIHdpdGggdGhlc2UgaW5o
+ZXLRlnRhbmNlcyBpcyB0aGF0IHRoZXkgZG9uJ3QgYWN0dWFsbHkgd29yawpmb3IgdGhlIGdlbmVy
+YWwgY2FzZS4gIFlvdSdkIGFsc28gbmVlZCB0byBpbmhlcml0eSB0aGluZ3MgbGlrZSB0aGUKZG1h
+IHJhbmdlcywgdGhlIGJ1cyBsaW1pdHMsIGV0YywgZXRjLiAgU28gd2UgbmVlZCB0byBraWxsIHRo
+ZW0gaW5zdGVhZC4KVGhhdCB3aG9sZSBtaWMvdm9wIGNhc2UgaXMgZXZlbiB3b3JzZSB0aGFuIHRo
+YXQgd2l0aCBpdCdzIHdlaXJkIHNldApvZiBjaGFpbmVkIGRtYSBvcHMgdGhhdCBzZWVtcyB0byBp
+bXBsZW1lbnQgc29tZSBraW5kIG9mIGRldmljZSBzaWRlCmlvbW11IHRoYXQgaXNuJ3QgaW4gc2Nv
+cGUgZm9yIHRoZSBETUEgQVBJIGF0IGFsbC4=
