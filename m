@@ -1,38 +1,122 @@
-From: Christophe Leroy <christophe.leroy@csgroup.eu>
-Date: Thu, 03 Sep 2020 17:53:07 +0000
-Subject: Re: [PATCH 1/2] dma-mapping: introduce dma_get_seg_boundary_nr_pages()
-Message-Id: <7e1c3632-0917-0892-c1ca-8048674a3b05@csgroup.eu>
+From: Christoph Hellwig <hch@lst.de>
+Date: Fri, 11 Sep 2020 09:49:36 +0000
+Subject: [PATCH] ia64: use libata instead of the legacy ide driver in defconfigs
+Message-Id: <20200911094936.1175688-1-hch@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200901221646.26491-1-nicoleotsuka@gmail.com>
- <20200901221646.26491-2-nicoleotsuka@gmail.com>
- <CAHp75VcVJBSnPQ6NfdF8FdEDfM+oQ=Sr+cH5VGX4SrAqrgpf-g@mail.gmail.com>
- <20200903161252.GA24841@lst.de>
-In-Reply-To: <20200903161252.GA24841@lst.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: Christoph Hellwig <hch@lst.de>, Andy Shevchenko <andy.shevchenko@gmail.com>
-Cc: linux-ia64@vger.kernel.org, James Bottomley <James.Bottomley@hansenpartnership.com>, Paul Mackerras <paulus@samba.org>, "H. Peter Anvin" <hpa@zytor.com>, sparclinux@vger.kernel.org, Stephen Rothwell <sfr@canb.auug.org.au>, Helge Deller <deller@gmx.de>, "maintainer:X86 ARCHITECTURE (32-BIT AND 64-BIT)" <x86@kernel.org>, Christian Borntraeger <borntraeger@de.ibm.com>, Ingo Molnar <mingo@redhat.com>, Matt Turner <mattst88@gmail.com>, Fenghua Yu <fenghua.yu@intel.com>, Vasily Gorbik <gor@linux.ibm.com>, schnelle@linux.ibm.com, hca@linux.ibm.com, Nicolin Chen <nicoleotsuka@gmail.com>, ink@jurassic.park.msu.ru, Thomas Gleixner <tglx@linutronix.de>, gerald.schaefer@linux.ibm.com, rth@twiddle.net, Tony Luck <tony.luck@intel.com>, linux-parisc@vger.kernel.org, linux-s390@vger.kernel.org, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-alpha@vger.kernel.org, Borislav Petkov <bp@alien8.de>, "open list:LINUX FOR POWERPC PA SEMI PWRFICIENT" <linuxppc-dev@lists.ozlabs.org>, "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: tony.luck@intel.com, fenghua.yu@intel.com
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
+Switch the ia64 defconfigs to use the modern libata driver instead of
+the soon to be removed legacy ide driver.
 
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+---
+ arch/ia64/configs/bigsur_defconfig    | 7 +++----
+ arch/ia64/configs/generic_defconfig   | 9 ++++-----
+ arch/ia64/configs/gensparse_defconfig | 9 ++++-----
+ arch/ia64/configs/tiger_defconfig     | 9 ++++-----
+ arch/ia64/configs/zx1_defconfig       | 7 +++----
+ 5 files changed, 18 insertions(+), 23 deletions(-)
 
-Le 03/09/2020 à 18:12, Christoph Hellwig a écrit :
-> On Thu, Sep 03, 2020 at 01:57:39PM +0300, Andy Shevchenko wrote:
->>> +{
->>> +       if (!dev)
->>> +               return (U32_MAX >> page_shift) + 1;
->>> +       return (dma_get_seg_boundary(dev) >> page_shift) + 1;
->>
->> Can it be better to do something like
->>    unsigned long boundary = dev ? dma_get_seg_boundary(dev) : U32_MAX;
->>
->>    return (boundary >> page_shift) + 1;
->>
->> ?
-> 
-> I don't really see what that would buy us.
-> 
-
-I guess it would avoid the duplication of    >> page_shift) + 1
-
-Christophe
+diff --git a/arch/ia64/configs/bigsur_defconfig b/arch/ia64/configs/bigsur_defconfig
+index 2ae6d9a32a8d81..cfed5ed8930114 100644
+--- a/arch/ia64/configs/bigsur_defconfig
++++ b/arch/ia64/configs/bigsur_defconfig
+@@ -26,10 +26,9 @@ CONFIG_BLK_DEV_LOOP=m
+ CONFIG_BLK_DEV_CRYPTOLOOP=m
+ CONFIG_BLK_DEV_NBD=m
+ CONFIG_BLK_DEV_RAM=m
+-CONFIG_IDE=m
+-CONFIG_BLK_DEV_IDECD=m
+-CONFIG_BLK_DEV_GENERIC=m
+-CONFIG_BLK_DEV_PIIX=m
++CONFIG_ATA=m
++CONFIG_ATA_GENERIC=m
++CONFIG_ATA_PIIX=m
+ CONFIG_SCSI=y
+ CONFIG_BLK_DEV_SD=y
+ CONFIG_SCSI_CONSTANTS=y
+diff --git a/arch/ia64/configs/generic_defconfig b/arch/ia64/configs/generic_defconfig
+index 19a0809cbacca1..ca0d596c800d80 100644
+--- a/arch/ia64/configs/generic_defconfig
++++ b/arch/ia64/configs/generic_defconfig
+@@ -44,11 +44,10 @@ CONFIG_BLK_DEV_CRYPTOLOOP=m
+ CONFIG_BLK_DEV_NBD=m
+ CONFIG_BLK_DEV_RAM=y
+ CONFIG_SGI_XP=m
+-CONFIG_IDE=y
+-CONFIG_BLK_DEV_IDECD=y
+-CONFIG_BLK_DEV_GENERIC=y
+-CONFIG_BLK_DEV_CMD64X=y
+-CONFIG_BLK_DEV_PIIX=y
++CONFIG_ATA=y
++CONFIG_ATA_GENERIC=y
++CONFIG_PATA_CMD64X=y
++CONFIG_ATA_PIIX=y
+ CONFIG_BLK_DEV_SD=y
+ CONFIG_CHR_DEV_ST=m
+ CONFIG_BLK_DEV_SR=m
+diff --git a/arch/ia64/configs/gensparse_defconfig b/arch/ia64/configs/gensparse_defconfig
+index 69322bf27aa39d..281eb9c544f9ce 100644
+--- a/arch/ia64/configs/gensparse_defconfig
++++ b/arch/ia64/configs/gensparse_defconfig
+@@ -35,12 +35,11 @@ CONFIG_BLK_DEV_LOOP=m
+ CONFIG_BLK_DEV_CRYPTOLOOP=m
+ CONFIG_BLK_DEV_NBD=m
+ CONFIG_BLK_DEV_RAM=y
+-CONFIG_IDE=y
++CONFIG_ATA=y
+ CONFIG_BLK_DEV_IDECD=y
+-CONFIG_IDE_GENERIC=y
+-CONFIG_BLK_DEV_GENERIC=y
+-CONFIG_BLK_DEV_CMD64X=y
+-CONFIG_BLK_DEV_PIIX=y
++CONFIG_ATA_GENERIC=y
++CONFIG_PATA_CMD64X=y
++CONFIG_ATA_PIIX=y
+ CONFIG_SCSI=y
+ CONFIG_BLK_DEV_SD=y
+ CONFIG_CHR_DEV_ST=m
+diff --git a/arch/ia64/configs/tiger_defconfig b/arch/ia64/configs/tiger_defconfig
+index bb510e9cc2f51d..b4f9819a1a45d6 100644
+--- a/arch/ia64/configs/tiger_defconfig
++++ b/arch/ia64/configs/tiger_defconfig
+@@ -40,11 +40,10 @@ CONFIG_BLK_DEV_LOOP=m
+ CONFIG_BLK_DEV_CRYPTOLOOP=m
+ CONFIG_BLK_DEV_NBD=m
+ CONFIG_BLK_DEV_RAM=y
+-CONFIG_IDE=y
+-CONFIG_BLK_DEV_IDECD=y
+-CONFIG_BLK_DEV_GENERIC=y
+-CONFIG_BLK_DEV_CMD64X=y
+-CONFIG_BLK_DEV_PIIX=y
++CONFIG_ATA=y
++CONFIG_ATA_GENERIC=y
++CONFIG_PATA_CMD64X=y
++CONFIG_ATA_PIIX=y
+ CONFIG_SCSI=y
+ CONFIG_BLK_DEV_SD=y
+ CONFIG_CHR_DEV_ST=m
+diff --git a/arch/ia64/configs/zx1_defconfig b/arch/ia64/configs/zx1_defconfig
+index b43acc97854148..629cb9cdf723b3 100644
+--- a/arch/ia64/configs/zx1_defconfig
++++ b/arch/ia64/configs/zx1_defconfig
+@@ -25,10 +25,9 @@ CONFIG_IP_MULTICAST=y
+ CONFIG_NETFILTER=y
+ CONFIG_BLK_DEV_LOOP=y
+ CONFIG_BLK_DEV_RAM=y
+-CONFIG_IDE=y
+-CONFIG_BLK_DEV_IDECD=y
+-CONFIG_BLK_DEV_GENERIC=y
+-CONFIG_BLK_DEV_CMD64X=y
++CONFIG_ATA=y
++CONFIG_ATA_GENERIC=y
++CONFIG_PATA_CMD64X=y
+ CONFIG_SCSI=y
+ CONFIG_BLK_DEV_SD=y
+ CONFIG_CHR_DEV_ST=y
+-- 
+2.28.0
