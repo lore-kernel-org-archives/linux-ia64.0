@@ -1,34 +1,168 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Fri, 11 Sep 2020 07:17:51 +0000
-Subject: Re: [PATCH 12/12] dma-mapping: move the dma_declare_coherent_memory documentation
-Message-Id: <20200911071751.GG22394@lst.de>
+From: Laurent Dufour <ldufour@linux.ibm.com>
+Date: Fri, 11 Sep 2020 13:48:29 +0000
+Subject: [PATCH 1/3] mm: replace memmap_context by memplug_context
+Message-Id: <20200911134831.53258-2-ldufour@linux.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200908164758.3177341-1-hch@lst.de> <20200908164758.3177341-13-hch@lst.de> <07c51b70-fb7d-cf44-b5c3-54e3148c11ae@arm.com>
-In-Reply-To: <07c51b70-fb7d-cf44-b5c3-54e3148c11ae@arm.com>
+References: <20200911134831.53258-1-ldufour@linux.ibm.com>
+In-Reply-To: <20200911134831.53258-1-ldufour@linux.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Robin Murphy <robin.murphy@arm.com>
-Cc: Christoph Hellwig <hch@lst.de>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, iommu@lists.linux-foundation.org, Tomasz Figa <tfiga@chromium.org>, Joerg Roedel <joro@8bytes.org>, linux-doc@vger.kernel.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org
+To: akpm@linux-foundation.org, David Hildenbrand <david@redhat.com>, Oscar Salvador <osalvador@suse.de>, mhocko@kernel.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: linux-mm@kvack.org, "Rafael J . Wysocki" <rafael@kernel.org>, nathanl@linux.ibm.com, cheloha@linux.ibm.com, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Thu, Sep 10, 2020 at 02:51:47PM +0100, Robin Murphy wrote:
-> On 2020-09-08 17:47, Christoph Hellwig wrote:
->> dma_declare_coherent_memory should not be in a DMA API guide aimed
->> at driver writers (that is consumers of the API).  Move it to a comment
->> near the function instead.
->
-> I still think there might be an occasional valid use for device-local 
-> memory outside the scope of platform code without the driver having to go 
-> full ZONE_DEVICE/HMM/TTM, e.g. with stuff like PCIe-based FPGA prototyping 
-> cards, but the kind of driver I'm imagining for that case would never be 
-> upstream anyway (if it were even written, rather than just using hard-coded 
-> hacks), so meh.
+The memmap_context is used to detect whether a memory operation is due to a
+hot-add operation or happening at boot time.
 
-And I'm not sure this would be the right interface for it.  E.g. NVMe
-has the concept of a Controller Memory buffer (and a similar persistent
-variant not supported by Linux), where the device can do this local DMA
-(in a completely broken way that relies on correlating addresses seen
-by the device and those by the host, but that's another disgression).
-But that memory obviously can also be addresses by other devices using
-PCIe P2P transactions which would also be useful for any HMM-ish devices,
-so we'd need to expose it as P2P memory anyay..
+Makes it general to the hotplug operation, renaming it at memplug_context
+and move its define in the corresponding header.
+
+There is no functional change introduced by this patch
+
+Suggested-by: David Hildenbrand <david@redhat.com>
+Signed-off-by: Laurent Dufour <ldufour@linux.ibm.com>
+---
+ arch/ia64/mm/init.c            |  6 +++---
+ include/linux/memory_hotplug.h |  9 +++++++++
+ include/linux/mm.h             |  2 +-
+ include/linux/mmzone.h         |  4 ----
+ mm/memory_hotplug.c            |  2 +-
+ mm/page_alloc.c                | 10 +++++-----
+ 6 files changed, 19 insertions(+), 14 deletions(-)
+
+diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
+index 0b3fb4c7af29..b5054b5e77c8 100644
+--- a/arch/ia64/mm/init.c
++++ b/arch/ia64/mm/init.c
+@@ -538,7 +538,7 @@ virtual_memmap_init(u64 start, u64 end, void *arg)
+ 	if (map_start < map_end)
+ 		memmap_init_zone((unsigned long)(map_end - map_start),
+ 				 args->nid, args->zone, page_to_pfn(map_start),
+-				 MEMMAP_EARLY, NULL);
++				 MEMPLUG_EARLY, NULL);
+ 	return 0;
+ }
+ 
+@@ -547,8 +547,8 @@ memmap_init (unsigned long size, int nid, unsigned long zone,
+ 	     unsigned long start_pfn)
+ {
+ 	if (!vmem_map) {
+-		memmap_init_zone(size, nid, zone, start_pfn, MEMMAP_EARLY,
+-				NULL);
++		memmap_init_zone(size, nid, zone, start_pfn,
++				 MEMPLUG_EARLY, NULL);
+ 	} else {
+ 		struct page *start;
+ 		struct memmap_init_callback_data args;
+diff --git a/include/linux/memory_hotplug.h b/include/linux/memory_hotplug.h
+index 375515803cd8..cd2bd21d3a4d 100644
+--- a/include/linux/memory_hotplug.h
++++ b/include/linux/memory_hotplug.h
+@@ -15,6 +15,15 @@ struct memory_block;
+ struct resource;
+ struct vmem_altmap;
+ 
++/*
++ * Memory plugin context, use to differentiate memory added at boot time and
++ * hot-plugged memory.
++ */
++enum memplug_context {
++	MEMPLUG_EARLY,
++	MEMPLUG_HOTPLUG,
++};
++
+ #ifdef CONFIG_MEMORY_HOTPLUG
+ /*
+  * Return page for the valid pfn only if the page is online. All pfn
+diff --git a/include/linux/mm.h b/include/linux/mm.h
+index 1983e08f5906..4157cc1bd17f 100644
+--- a/include/linux/mm.h
++++ b/include/linux/mm.h
+@@ -2409,7 +2409,7 @@ extern int __meminit __early_pfn_to_nid(unsigned long pfn,
+ 
+ extern void set_dma_reserve(unsigned long new_dma_reserve);
+ extern void memmap_init_zone(unsigned long, int, unsigned long, unsigned long,
+-		enum memmap_context, struct vmem_altmap *);
++		enum memplug_context, struct vmem_altmap *);
+ extern void setup_per_zone_wmarks(void);
+ extern int __meminit init_per_zone_wmark_min(void);
+ extern void mem_init(void);
+diff --git a/include/linux/mmzone.h b/include/linux/mmzone.h
+index 8379432f4f2f..ec254ab793b5 100644
+--- a/include/linux/mmzone.h
++++ b/include/linux/mmzone.h
+@@ -824,10 +824,6 @@ bool zone_watermark_ok(struct zone *z, unsigned int order,
+ 		unsigned int alloc_flags);
+ bool zone_watermark_ok_safe(struct zone *z, unsigned int order,
+ 		unsigned long mark, int highest_zoneidx);
+-enum memmap_context {
+-	MEMMAP_EARLY,
+-	MEMMAP_HOTPLUG,
+-};
+ extern void init_currently_empty_zone(struct zone *zone, unsigned long start_pfn,
+ 				     unsigned long size);
+ 
+diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+index e9d5ab5d3ca0..fc21625e42de 100644
+--- a/mm/memory_hotplug.c
++++ b/mm/memory_hotplug.c
+@@ -729,7 +729,7 @@ void __ref move_pfn_range_to_zone(struct zone *zone, unsigned long start_pfn,
+ 	 * are reserved so nobody should be touching them so we should be safe
+ 	 */
+ 	memmap_init_zone(nr_pages, nid, zone_idx(zone), start_pfn,
+-			MEMMAP_HOTPLUG, altmap);
++			 MEMPLUG_HOTPLUG, altmap);
+ 
+ 	set_zone_contiguous(zone);
+ }
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index fab5e97dc9ca..7f49fcf38b8c 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -5975,7 +5975,7 @@ overlap_memmap_init(unsigned long zone, unsigned long *pfn)
+  * done. Non-atomic initialization, single-pass.
+  */
+ void __meminit memmap_init_zone(unsigned long size, int nid, unsigned long zone,
+-		unsigned long start_pfn, enum memmap_context context,
++		unsigned long start_pfn, enum memplug_context context,
+ 		struct vmem_altmap *altmap)
+ {
+ 	unsigned long pfn, end_pfn = start_pfn + size;
+@@ -6007,7 +6007,7 @@ void __meminit memmap_init_zone(unsigned long size, int nid, unsigned long zone,
+ 		 * There can be holes in boot-time mem_map[]s handed to this
+ 		 * function.  They do not exist on hotplugged memory.
+ 		 */
+-		if (context = MEMMAP_EARLY) {
++		if (context = MEMPLUG_EARLY) {
+ 			if (overlap_memmap_init(zone, &pfn))
+ 				continue;
+ 			if (defer_init(nid, pfn, end_pfn))
+@@ -6016,7 +6016,7 @@ void __meminit memmap_init_zone(unsigned long size, int nid, unsigned long zone,
+ 
+ 		page = pfn_to_page(pfn);
+ 		__init_single_page(page, pfn, zone, nid);
+-		if (context = MEMMAP_HOTPLUG)
++		if (context = MEMPLUG_HOTPLUG)
+ 			__SetPageReserved(page);
+ 
+ 		/*
+@@ -6099,7 +6099,7 @@ void __ref memmap_init_zone_device(struct zone *zone,
+ 		 * check here not to call set_pageblock_migratetype() against
+ 		 * pfn out of zone.
+ 		 *
+-		 * Please note that MEMMAP_HOTPLUG path doesn't clear memmap
++		 * Please note that MEMPLUG_HOTPLUG path doesn't clear memmap
+ 		 * because this is done early in section_activate()
+ 		 */
+ 		if (!(pfn & (pageblock_nr_pages - 1))) {
+@@ -6137,7 +6137,7 @@ void __meminit __weak memmap_init(unsigned long size, int nid,
+ 		if (end_pfn > start_pfn) {
+ 			size = end_pfn - start_pfn;
+ 			memmap_init_zone(size, nid, zone, start_pfn,
+-					 MEMMAP_EARLY, NULL);
++					 MEMPLUG_EARLY, NULL);
+ 		}
+ 	}
+ }
+-- 
+2.28.0
