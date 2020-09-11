@@ -1,66 +1,137 @@
-From: "Paul E. McKenney" <paulmck@kernel.org>
-Date: Tue, 22 Sep 2020 21:56:51 +0000
-Subject: Re: [PATCH] RCU: export rcu_idle_enter/_exit for loadable modules
-Message-Id: <20200922215651.GE29330@paulmck-ThinkPad-P72>
+From: Laurent Dufour <ldufour@linux.ibm.com>
+Date: Fri, 11 Sep 2020 13:48:31 +0000
+Subject: [PATCH 3/3] mm: don't panic when links can't be created in sysfs
+Message-Id: <20200911134831.53258-4-ldufour@linux.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200922214331.26608-1-rdunlap@infradead.org>
-In-Reply-To: <20200922214331.26608-1-rdunlap@infradead.org>
+References: <20200911134831.53258-1-ldufour@linux.ibm.com>
+In-Reply-To: <20200911134831.53258-1-ldufour@linux.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Randy Dunlap <rdunlap@infradead.org>
-Cc: linux-kernel@vger.kernel.org, kernel test robot <lkp@intel.com>, "Rafael J . Wysocki" <rjw@rjwysocki.net>, linux-acpi@vger.kernel.org, Peter Zijlstra <peterz@infradead.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, Josh Triplett <josh@joshtriplett.org>, rcu@vger.kernel.org
+To: akpm@linux-foundation.org, David Hildenbrand <david@redhat.com>, Oscar Salvador <osalvador@suse.de>, mhocko@kernel.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: linux-mm@kvack.org, "Rafael J . Wysocki" <rafael@kernel.org>, nathanl@linux.ibm.com, cheloha@linux.ibm.com, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Tue, Sep 22, 2020 at 02:43:30PM -0700, Randy Dunlap wrote:
-> drivers/acpi/processor.ko uses rcu_idle_enter()/_exit() but
-> they are not exported. This causes build errors on IA64,
-> so export those 2 functions.
-> 
-> ERROR: modpost: "rcu_idle_enter" [drivers/acpi/processor.ko] undefined!
-> ERROR: modpost: "rcu_idle_exit" [drivers/acpi/processor.ko] undefined!
-> 
-> Reported-by: kernel test robot <lkp@intel.com>
-> Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
-> Cc: Rafael J. Wysocki <rjw@rjwysocki.net>
-> Cc: linux-acpi@vger.kernel.org
-> Cc: Peter Zijlstra <peterz@infradead.org>
-> Cc: Tony Luck <tony.luck@intel.com>
-> Cc: Fenghua Yu <fenghua.yu@intel.com>
-> Cc: linux-ia64@vger.kernel.org
-> Cc: "Paul E. McKenney" <paulmck@kernel.org>
-> Cc: Josh Triplett <josh@joshtriplett.org>
-> Cc: rcu@vger.kernel.org
-> ---
-> Is there a problem with exporting these functions for use by
-> loadable modules?  If so, this driver should be modified not
-> to use rcu_idle_enter/exit.
+At boot time, or when doing memory hot-add operations, if the links in
+sysfs can't be created, the system is still able to run, so just report the
+error in the kernel log.
 
-Good catch, but Borislav Petkov beat you to it:
+Since the number of memory blocks managed could be high, the messages are
+rate limited.
 
-https://lore.kernel.org/lkml/20200921103741.GC5901@zn.tnic/
+As a consequence, link_mem_sections() has no status to report anymore.
 
-Rafael has applied Borislav's patch to his cpuidle tree for v5.9-rc7.
+Signed-off-by: Laurent Dufour <ldufour@linux.ibm.com>
+Cc: David Hildenbrand <david@redhat.com>
+---
+ drivers/base/node.c  | 25 +++++++++++++++++--------
+ include/linux/node.h | 17 ++++++++---------
+ mm/memory_hotplug.c  |  5 ++---
+ 3 files changed, 27 insertions(+), 20 deletions(-)
 
-							Thanx, Paul
-
->  kernel/rcu/tree.c |    2 ++
->  1 file changed, 2 insertions(+)
-> 
-> --- lnx-59-rc6.orig/kernel/rcu/tree.c
-> +++ lnx-59-rc6/kernel/rcu/tree.c
-> @@ -673,6 +673,7 @@ void rcu_idle_enter(void)
->  	lockdep_assert_irqs_disabled();
->  	rcu_eqs_enter(false);
->  }
-> +EXPORT_SYMBOL_GPL(rcu_idle_enter);
->  
->  #ifdef CONFIG_NO_HZ_FULL
->  /**
-> @@ -886,6 +887,7 @@ void rcu_idle_exit(void)
->  	rcu_eqs_exit(false);
->  	local_irq_restore(flags);
->  }
-> +EXPORT_SYMBOL_GPL(rcu_idle_exit);
->  
->  #ifdef CONFIG_NO_HZ_FULL
->  /**
+diff --git a/drivers/base/node.c b/drivers/base/node.c
+index 862516c5a5ae..749a1c8ea992 100644
+--- a/drivers/base/node.c
++++ b/drivers/base/node.c
+@@ -811,12 +811,21 @@ static int register_mem_sect_under_node(struct memory_block *mem_blk,
+ 		ret = sysfs_create_link_nowarn(&node_devices[nid]->dev.kobj,
+ 					&mem_blk->dev.kobj,
+ 					kobject_name(&mem_blk->dev.kobj));
+-		if (ret)
+-			return ret;
++		if (ret && ret != -EEXIST)
++			pr_err_ratelimited(
++				"can't create %s to %s link in sysfs (%d)\n",
++				kobject_name(&node_devices[nid]->dev.kobj),
++				kobject_name(&mem_blk->dev.kobj), ret);
+ 
+-		return sysfs_create_link_nowarn(&mem_blk->dev.kobj,
++		ret = sysfs_create_link_nowarn(&mem_blk->dev.kobj,
+ 				&node_devices[nid]->dev.kobj,
+ 				kobject_name(&node_devices[nid]->dev.kobj));
++		if (ret && ret != -EEXIST)
++			pr_err_ratelimited(
++				"can't create %s to %s link in sysfs (%d)\n",
++				kobject_name(&mem_blk->dev.kobj),
++				kobject_name(&node_devices[nid]->dev.kobj),
++				ret);
+ 	}
+ 	/* mem section does not span the specified node */
+ 	return 0;
+@@ -837,17 +846,17 @@ void unregister_memory_block_under_nodes(struct memory_block *mem_blk)
+ 			  kobject_name(&node_devices[mem_blk->nid]->dev.kobj));
+ }
+ 
+-int link_mem_sections(int nid, unsigned long start_pfn, unsigned long end_pfn,
+-		      enum memplug_context context)
++void link_mem_sections(int nid, unsigned long start_pfn, unsigned long end_pfn,
++		       enum memplug_context context)
+ {
+ 	struct rmsun_args args = {
+ 		.nid = nid,
+ 		.context = context,
+ 	};
+ 
+-	return walk_memory_blocks(PFN_PHYS(start_pfn),
+-				  PFN_PHYS(end_pfn - start_pfn), (void *)&args,
+-				  register_mem_sect_under_node);
++	walk_memory_blocks(PFN_PHYS(start_pfn),
++			   PFN_PHYS(end_pfn - start_pfn), (void *)&args,
++			   register_mem_sect_under_node);
+ }
+ 
+ #ifdef CONFIG_HUGETLBFS
+diff --git a/include/linux/node.h b/include/linux/node.h
+index 8ff08520488c..6bdd6f3ed3aa 100644
+--- a/include/linux/node.h
++++ b/include/linux/node.h
+@@ -99,15 +99,14 @@ extern struct node *node_devices[];
+ typedef  void (*node_registration_func_t)(struct node *);
+ 
+ #if defined(CONFIG_MEMORY_HOTPLUG_SPARSE) && defined(CONFIG_NUMA)
+-extern int link_mem_sections(int nid, unsigned long start_pfn,
+-			     unsigned long end_pfn,
+-			     enum memplug_context context);
++void link_mem_sections(int nid, unsigned long start_pfn,
++		       unsigned long end_pfn,
++		       enum memplug_context context);
+ #else
+-static inline int link_mem_sections(int nid, unsigned long start_pfn,
+-				    unsigned long end_pfn,
+-				    enum memplug_context context)
++static inline void link_mem_sections(int nid, unsigned long start_pfn,
++				     unsigned long end_pfn,
++				     enum memplug_context context)
+ {
+-	return 0;
+ }
+ #endif
+ 
+@@ -130,8 +129,8 @@ static inline int register_one_node(int nid)
+ 		if (error)
+ 			return error;
+ 		/* link memory sections under this node */
+-		error = link_mem_sections(nid, start_pfn, end_pfn,
+-					  MEMPLUG_EARLY);
++		link_mem_sections(nid, start_pfn, end_pfn,
++				  MEMPLUG_EARLY);
+ 	}
+ 
+ 	return error;
+diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+index 912d355ca446..668418071a49 100644
+--- a/mm/memory_hotplug.c
++++ b/mm/memory_hotplug.c
+@@ -1080,9 +1080,8 @@ int __ref add_memory_resource(int nid, struct resource *res)
+ 	}
+ 
+ 	/* link memory sections under this node.*/
+-	ret = link_mem_sections(nid, PFN_DOWN(start), PFN_UP(start + size - 1),
+-				MEMPLUG_HOTPLUG);
+-	BUG_ON(ret);
++	link_mem_sections(nid, PFN_DOWN(start), PFN_UP(start + size - 1),
++			  MEMPLUG_HOTPLUG);
+ 
+ 	/* create new memmap entry */
+ 	if (!strcmp(res->name, "System RAM"))
+-- 
+2.28.0
