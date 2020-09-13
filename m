@@ -1,158 +1,68 @@
-From: David Hildenbrand <david@redhat.com>
-Date: Mon, 14 Sep 2020 09:19:04 +0000
-Subject: Re: [PATCH 2/3] mm: don't rely on system state to detect hot-plug operations
-Message-Id: <c7fba55b-8f26-771c-2c23-ae88d1630b91@redhat.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Date: Sun, 13 Sep 2020 19:51:13 +0000
+Subject: vmlinux link failure on ia64 with zstd
+Message-Id: <f0a93b2d435252b3878ce821142677754f5e434c.camel@decadent.org.uk>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="=-R1VkkNmnIse0QTyxO5M/"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200911134831.53258-1-ldufour@linux.ibm.com>
- <20200911134831.53258-3-ldufour@linux.ibm.com>
- <f50fe4ae-faf0-6e03-b87e-45ca8c53960d@redhat.com>
- <20200914081921.GA15113@linux>
- <96736256-a0a6-3126-3810-3380532b9621@redhat.com>
- <9990141a-a4e7-6166-c7aa-e0c1199afa38@linux.ibm.com>
-In-Reply-To: <9990141a-a4e7-6166-c7aa-e0c1199afa38@linux.ibm.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: Laurent Dufour <ldufour@linux.ibm.com>, Oscar Salvador <osalvador@suse.de>
-Cc: akpm@linux-foundation.org, mhocko@kernel.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-mm@kvack.org, "Rafael J . Wysocki" <rafael@kernel.org>, nathanl@linux.ibm.com, cheloha@linux.ibm.com, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, stable@vger.kernel.org, Michal Hocko <mhocko@suse.com>
+To: linux-ia64@vger.kernel.org
 
-On 14.09.20 11:16, Laurent Dufour wrote:
-> Le 14/09/2020 à 10:31, David Hildenbrand a écrit :
->>>> static int register_mem_sect_under_node_hotplug(struct memory_block *mem_blk,
->>>> 						void *arg)
->>>> {
->>>> 	const int nid = *(int *)arg;
->>>> 	int ret;
->>>>
->>>> 	/* Hotplugged memory has no holes and belongs to a single node. */
->>>> 	mem_blk->nid = nid;
->>>> 	ret = sysfs_create_link_nowarn(&node_devices[nid]->dev.kobj,
->>>> 				       &mem_blk->dev.kobj,
->>>> 				       kobject_name(&mem_blk->dev.kobj));
->>>> 	if (ret)
->>>> 		returnr et;
->>>> 	return sysfs_create_link_nowarn(&mem_blk->dev.kobj,
->>>> 					&node_devices[nid]->dev.kobj,
->>>> 					kobject_name(&node_devices[nid]->dev.kobj));
->>>>
->>>> }
->>>>
->>>> Cleaner, right? :) No unnecessary checks.
->>>
->>> I tend to agree here, I like more a simplistic version for hotplug.
->>>
->>
->> ... and while we're at it, we should rename register_mem_sect_under_node
->> to something like "register_memory_block_under_node" - "section" is a
->> legacy leftover here.
->>
->> We could factor out both sysfs_create_link_nowarn() calls into something
->> like "do_register_memory_block_under_node" or similar, to minimize code
->> duplication.
->>
->>>> One could argue if link_mem_section_hotplug() would be better than passing around the context.
->>>
->>> I am not sure if I would duplicate the code there.
->>> We could just pass the pointer of the function we want to call to
->>> link_mem_sections? either register_mem_sect_under_node_hotplug or
->>> register_mem_sect_under_node_early?
->>> Would not that be clean and clear enough?
->>
->> I don't particularly like passing around function pointers where it can
->> be avoided (e.g., here exporting 3 functions now instead 1). Makes the
->> interface harder to get IMHO. But I don't really care about that
->> interface, easy to change later on.
->>
-> 
-> This would lead to the following.
-> 
-> Do everyone agree?
-> 
-> diff --git a/drivers/base/node.c b/drivers/base/node.c
-> index 508b80f6329b..444808a7c9b6 100644
-> --- a/drivers/base/node.c
-> +++ b/drivers/base/node.c
-> @@ -761,9 +761,32 @@ static int __ref get_nid_for_pfn(unsigned long pfn)
->   	return pfn_to_nid(pfn);
->   }
-> 
-> +static int do_register_memory_block_under_node(int nid,
-> +					       struct memory_block *mem_blk)
-> +{
-> +	int ret;
-> +
-> +	/*
-> +	 * If this memory block spans multiple nodes, we only indicate
-> +	 * the last processed node.
-> +	 */
-> +	mem_blk->nid = nid;
-> +
-> +	ret = sysfs_create_link_nowarn(&node_devices[nid]->dev.kobj,
-> +				       &mem_blk->dev.kobj,
-> +				       kobject_name(&mem_blk->dev.kobj));
-> +	if (ret)
-> +		return ret;
-> +
-> +	return sysfs_create_link_nowarn(&mem_blk->dev.kobj,
-> +				&node_devices[nid]->dev.kobj,
-> +				kobject_name(&node_devices[nid]->dev.kobj));
-> +
-> +}
-> +
->   /* register memory section under specified node if it spans that node */
-> -static int register_mem_sect_under_node(struct memory_block *mem_blk,
-> -					 void *arg)
-> +static int register_mem_block_under_node_early(struct memory_block *mem_blk,
-> +					       void *arg)
->   {
->   	unsigned long memory_block_pfns = memory_block_size_bytes() / PAGE_SIZE;
->   	unsigned long start_pfn = section_nr_to_pfn(mem_blk->start_section_nr);
-> @@ -785,38 +808,35 @@ static int register_mem_sect_under_node(struct 
-> memory_block *mem_blk,
->   		}
-> 
->   		/*
-> -		 * We need to check if page belongs to nid only for the boot
-> -		 * case, during hotplug we know that all pages in the memory
-> -		 * block belong to the same node.
-> +		 * We need to check if page belongs to nid only at the boot
-> +		 * case because node's ranges can be interleaved.
->   		 */
-> -		if (system_state = SYSTEM_BOOTING) {
-> -			page_nid = get_nid_for_pfn(pfn);
-> -			if (page_nid < 0)
-> -				continue;
-> -			if (page_nid != nid)
-> -				continue;
-> -		}
-> -
-> -		/*
-> -		 * If this memory block spans multiple nodes, we only indicate
-> -		 * the last processed node.
-> -		 */
-> -		mem_blk->nid = nid;
-> +		page_nid = get_nid_for_pfn(pfn);
-> +		if (page_nid < 0)
-> +			continue;
-> +		if (page_nid != nid)
-> +			continue;
-> 
-> -		ret = sysfs_create_link_nowarn(&node_devices[nid]->dev.kobj,
-> -					&mem_blk->dev.kobj,
-> -					kobject_name(&mem_blk->dev.kobj));
-> +		ret = do_register_memory_block_under_node(nid, mem_blk);
->   		if (ret)
->   			return ret;
 
-You have to do an unconditional
+--=-R1VkkNmnIse0QTyxO5M/
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-return ret;
+Enabling CONFIG_RD_ZSTD (which is enabled by default) resulted in a
+link failure on ia64:
 
-here AFAIKS. For me this looks much better.
++ ld -r -o vmlinux.o --whole-archive arch/ia64/kernel/head.o init/built-in.=
+a usr/built-in.a arch/ia64/kernel/built-in.a arch/ia64/mm/built-in.a kernel=
+/built-in.a certs/built-in.a mm/built-in.a fs/built-in.a ipc/built-in.a sec=
+urity/built-in.a crypto/built-in.a block/built-in.a lib/built-in.a arch/ia6=
+4/lib/built-in.a lib/lib.a arch/ia64/lib/lib.a drivers/built-in.a sound/bui=
+lt-in.a net/built-in.a virt/built-in.a arch/ia64/pci/built-in.a arch/ia64/h=
+p/common/built-in.a --no-whole-archive --start-group --end-group
+ld: lib/zstd/entropy_common.o: linking constant-gp files with non-constant-=
+gp files
+ld: failed to merge target specific data of file lib/zstd/entropy_common.o
+ld: lib/zstd/fse_decompress.o: linking constant-gp files with non-constant-=
+gp files
+ld: failed to merge target specific data of file lib/zstd/fse_decompress.o
+ld: lib/zstd/zstd_common.o: linking constant-gp files with non-constant-gp =
+files
+ld: failed to merge target specific data of file lib/zstd/zstd_common.o
 
-Reviewed-by: David Hildenbrand <david@redhat.com>
+This is seen on Debian unstable, with gcc 10.2 and binutils 2.35.  A
+full build log is available at:
+https://buildd.debian.org/status/fetch.php?pkg=3Dlinux&arch=3Dia64&ver=3D5.=
+9~rc4-1~exp1&stamp=3D1599955166&raw=3D1
 
--- 
-Thanks,
+Ben.
 
-David / dhildenb
+--=20
+Ben Hutchings
+Humour is the best antidote to reality.
+
+
+--=-R1VkkNmnIse0QTyxO5M/
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAABCgAdFiEErCspvTSmr92z9o8157/I7JWGEQkFAl9eeDIACgkQ57/I7JWG
+EQkYAA/9GO3g4U7D4jY2QZKplQclmeu2SQWQpa//cNho69C3NLLq0XFCtTzFxIhJ
+4PQIo7CThVghLOOUuEahDTwQe6xrI9JQOr0rcHs3qKbJGSa0InP+0psi7M5O6faZ
+9qn04cHN1cLThmIBenh4m/E/5oFArCTSy8e8hCU+2wy7rLKcTbd3JeUghbQ4hXBn
+KKqGk4wRWI4kNtcxNKLxVVSrqLd9NVcUze/9wPdXkXnzIZV3+Adv5Q8LodnOBhkf
+q2GTzzFVgvam24hdBxBg3WnkGUTESphw4LUlXJGyFIl8WDBEP/muTE/3snA/HrMQ
+YFMEuXS/uKJVTmqKSarjumlI6ObR+kXB7TKG74a4fpU3p9vHwYyWK1lPLguESlmf
+Bfe2KT1PU7FepwlEDXCqIwBxDqDTDWKdyqEB0XuT+Uu79JfBV+i3c5fKf9FwzzlJ
+pf0x4idFnDzDm+UsMtxLx7O4ZFziO7KQadZ8KnZrq0l3qdRdsydZpvWCyoYy9qDz
+E8VTzuQAqmOO7Oo6IwuSBzxaNK2qTtzSAGC81I0sZQvZcNQCq8N91T51VVQQzps0
+Bbjk73dXsOeEQC9uRxDnJqaCeGQeISVxeVMb5UfIMjqXNwRLjdbg176hESBzlhfw
+YxTTPeULfEwWz/kbh4DS42ZNoZuou+S751rs0/WmPbDPy4qjHZk=
+=BRRp
+-----END PGP SIGNATURE-----
+
+--=-R1VkkNmnIse0QTyxO5M/--
