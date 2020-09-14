@@ -1,7 +1,7 @@
-From: David Hildenbrand <david@redhat.com>
-Date: Mon, 14 Sep 2020 08:31:47 +0000
+From: Laurent Dufour <ldufour@linux.ibm.com>
+Date: Mon, 14 Sep 2020 08:39:49 +0000
 Subject: Re: [PATCH 2/3] mm: don't rely on system state to detect hot-plug operations
-Message-Id: <96736256-a0a6-3126-3810-3380532b9621@redhat.com>
+Message-Id: <678b596a-4d40-be88-daf0-c2edb16dd295@linux.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20200911134831.53258-1-ldufour@linux.ibm.com>
  <20200911134831.53258-3-ldufour@linux.ibm.com>
@@ -9,11 +9,29 @@ References: <20200911134831.53258-1-ldufour@linux.ibm.com>
  <20200914081921.GA15113@linux>
 In-Reply-To: <20200914081921.GA15113@linux>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Oscar Salvador <osalvador@suse.de>
-Cc: Laurent Dufour <ldufour@linux.ibm.com>, akpm@linux-foundation.org, mhocko@kernel.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-mm@kvack.org, "Rafael J . Wysocki" <rafael@kernel.org>, nathanl@linux.ibm.com, cheloha@linux.ibm.com, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, stable@vger.kernel.org, Michal Hocko <mhocko@suse.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: Oscar Salvador <osalvador@suse.de>, David Hildenbrand <david@redhat.com>
+Cc: akpm@linux-foundation.org, mhocko@kernel.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-mm@kvack.org, "Rafael J . Wysocki" <rafael@kernel.org>, nathanl@linux.ibm.com, cheloha@linux.ibm.com, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, stable@vger.kernel.org, Michal Hocko <mhocko@suse.com>
 
+Le 14/09/2020 à 10:19, Oscar Salvador a écrit :
+> On Mon, Sep 14, 2020 at 09:57:46AM +0200, David Hildenbrand wrote:
+>>>   /* register memory section under specified node if it spans that node */
+>>> +struct rmsun_args {
+>>> +	int nid;
+>>> +	enum memplug_context context;
+>>> +};
+> 
+> Uhmf, that is a not so descriptive name.
+
+I do agree, but didn't have a better idea.
+Anyway this will disappear since the choosen direction is to have 2 callbacks.
+
+> 
+>> Instead of handling this in register_mem_sect_under_node(), I
+>> think it would be better two have two separate
+>> register_mem_sect_under_node() implementations.
+>>
 >> static int register_mem_sect_under_node_hotplug(struct memory_block *mem_blk,
 >> 						void *arg)
 >> {
@@ -37,15 +55,6 @@ Cc: Laurent Dufour <ldufour@linux.ibm.com>, akpm@linux-foundation.org, mhocko@ke
 > 
 > I tend to agree here, I like more a simplistic version for hotplug.
 > 
-
-... and while we're at it, we should rename register_mem_sect_under_node
-to something like "register_memory_block_under_node" - "section" is a
-legacy leftover here.
-
-We could factor out both sysfs_create_link_nowarn() calls into something
-like "do_register_memory_block_under_node" or similar, to minimize code
-duplication.
-
 >> One could argue if link_mem_section_hotplug() would be better than passing around the context.
 > 
 > I am not sure if I would duplicate the code there.
@@ -54,12 +63,7 @@ duplication.
 > register_mem_sect_under_node_early?
 > Would not that be clean and clear enough?
 
-I don't particularly like passing around function pointers where it can
-be avoided (e.g., here exporting 3 functions now instead 1). Makes the
-interface harder to get IMHO. But I don't really care about that
-interface, easy to change later on.
+That would expose the register_mem_sect_under_node*() prototype to the caller.
 
--- 
-Thanks,
-
-David / dhildenb
+I'm wondering if that would be cleaner than passing a MEMPLUG_* constant value 
+to link_mem_sections() and let it choose the right callback.
