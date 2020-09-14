@@ -1,38 +1,154 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Tue, 01 Sep 2020 09:11:05 +0000
-Subject: Re: [RESEND][PATCH 0/7] Avoid overflow at boundary_size
-Message-Id: <20200901091105.GA4959@lst.de>
+From: Laurent Dufour <ldufour@linux.ibm.com>
+Date: Mon, 14 Sep 2020 16:50:40 +0000
+Subject: [PATCH v2 1/3] mm: replace memmap_context by memplug_context
+Message-Id: <20200914165042.96218-2-ldufour@linux.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200831203811.8494-1-nicoleotsuka@gmail.com> <20200901073623.GA30418@lst.de> <20200901075401.GA5667@Asurada-Nvidia>
-In-Reply-To: <20200901075401.GA5667@Asurada-Nvidia>
+References: <20200914165042.96218-1-ldufour@linux.ibm.com>
+In-Reply-To: <20200914165042.96218-1-ldufour@linux.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Nicolin Chen <nicoleotsuka@gmail.com>
-Cc: Christoph Hellwig <hch@lst.de>, mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, rth@twiddle.net, ink@jurassic.park.msu.ru, mattst88@gmail.com, tony.luck@intel.com, fenghua.yu@intel.com, schnelle@linux.ibm.com, gerald.schaefer@linux.ibm.com, hca@linux.ibm.com, gor@linux.ibm.com, borntraeger@de.ibm.com, davem@davemloft.net, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, x86@kernel.org, hpa@zytor.com, James.Bottomley@HansenPartnership.com, deller@gmx.de, sfr@canb.auug.org.au, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-parisc@vger.kernel.org
+To: akpm@linux-foundation.org, David Hildenbrand <david@redhat.com>, Oscar Salvador <osalvador@suse.de>, mhocko@kernel.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: linux-mm@kvack.org, "Rafael J . Wysocki" <rafael@kernel.org>, nathanl@linux.ibm.com, cheloha@linux.ibm.com, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, stable@vger.kernel.org
 
-On Tue, Sep 01, 2020 at 12:54:01AM -0700, Nicolin Chen wrote:
-> Hi Christoph,
-> 
-> On Tue, Sep 01, 2020 at 09:36:23AM +0200, Christoph Hellwig wrote:
-> > I really don't like all the open coded smarts in the various drivers.
-> > What do you think about a helper like the one in the untested patch
-> 
-> A helper function will be actually better. I was thinking of
-> one yet not very sure about the naming and where to put it.
-> 
-> > below (on top of your series).  Also please include the original
-> > segment boundary patch with the next resend so that the series has
-> > the full context.
-> 
-> I will use your change instead and resend with the ULONG_MAX
-> change. But in that case, should I make separate changes for
-> different files like this series, or just one single change
-> like yours?
-> 
-> Asking this as I was expecting that those changes would get
-> applied by different maintainers. But now it feels like you
-> will merge it to your tree at once?
+The memmap_context is used to detect whether a memory operation is due to a
+hot-add operation or happening at boot time.
 
-I guess one patch is fine.  I can queue it up in the dma-mapping
-tree as a prep patch for the default boundary change.
+Make it general to the hotplug operation and rename it at memplug_context.
+
+There is no functional change introduced by this patch
+
+Suggested-by: David Hildenbrand <david@redhat.com>
+Signed-off-by: Laurent Dufour <ldufour@linux.ibm.com>
+---
+ arch/ia64/mm/init.c    |  6 +++---
+ include/linux/mm.h     |  2 +-
+ include/linux/mmzone.h | 11 ++++++++---
+ mm/memory_hotplug.c    |  2 +-
+ mm/page_alloc.c        | 10 +++++-----
+ 5 files changed, 18 insertions(+), 13 deletions(-)
+
+diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
+index 0b3fb4c7af29..b5054b5e77c8 100644
+--- a/arch/ia64/mm/init.c
++++ b/arch/ia64/mm/init.c
+@@ -538,7 +538,7 @@ virtual_memmap_init(u64 start, u64 end, void *arg)
+ 	if (map_start < map_end)
+ 		memmap_init_zone((unsigned long)(map_end - map_start),
+ 				 args->nid, args->zone, page_to_pfn(map_start),
+-				 MEMMAP_EARLY, NULL);
++				 MEMPLUG_EARLY, NULL);
+ 	return 0;
+ }
+ 
+@@ -547,8 +547,8 @@ memmap_init (unsigned long size, int nid, unsigned long zone,
+ 	     unsigned long start_pfn)
+ {
+ 	if (!vmem_map) {
+-		memmap_init_zone(size, nid, zone, start_pfn, MEMMAP_EARLY,
+-				NULL);
++		memmap_init_zone(size, nid, zone, start_pfn,
++				 MEMPLUG_EARLY, NULL);
+ 	} else {
+ 		struct page *start;
+ 		struct memmap_init_callback_data args;
+diff --git a/include/linux/mm.h b/include/linux/mm.h
+index 1983e08f5906..e942f91ed155 100644
+--- a/include/linux/mm.h
++++ b/include/linux/mm.h
+@@ -2409,7 +2409,7 @@ extern int __meminit __early_pfn_to_nid(unsigned long pfn,
+ 
+ extern void set_dma_reserve(unsigned long new_dma_reserve);
+ extern void memmap_init_zone(unsigned long, int, unsigned long, unsigned long,
+-		enum memmap_context, struct vmem_altmap *);
++		enum meminit_context, struct vmem_altmap *);
+ extern void setup_per_zone_wmarks(void);
+ extern int __meminit init_per_zone_wmark_min(void);
+ extern void mem_init(void);
+diff --git a/include/linux/mmzone.h b/include/linux/mmzone.h
+index 8379432f4f2f..0f7a4ff4b059 100644
+--- a/include/linux/mmzone.h
++++ b/include/linux/mmzone.h
+@@ -824,10 +824,15 @@ bool zone_watermark_ok(struct zone *z, unsigned int order,
+ 		unsigned int alloc_flags);
+ bool zone_watermark_ok_safe(struct zone *z, unsigned int order,
+ 		unsigned long mark, int highest_zoneidx);
+-enum memmap_context {
+-	MEMMAP_EARLY,
+-	MEMMAP_HOTPLUG,
++/*
++ * Memory initialization context, use to differentiate memory added by
++ * the platform statically or via memory hotplug interface.
++ */
++enum meminit_context {
++	MEMINIT_EARLY,
++	MEMINIT_HOTPLUG,
+ };
++
+ extern void init_currently_empty_zone(struct zone *zone, unsigned long start_pfn,
+ 				     unsigned long size);
+ 
+diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+index e9d5ab5d3ca0..fc21625e42de 100644
+--- a/mm/memory_hotplug.c
++++ b/mm/memory_hotplug.c
+@@ -729,7 +729,7 @@ void __ref move_pfn_range_to_zone(struct zone *zone, unsigned long start_pfn,
+ 	 * are reserved so nobody should be touching them so we should be safe
+ 	 */
+ 	memmap_init_zone(nr_pages, nid, zone_idx(zone), start_pfn,
+-			MEMMAP_HOTPLUG, altmap);
++			 MEMPLUG_HOTPLUG, altmap);
+ 
+ 	set_zone_contiguous(zone);
+ }
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index fab5e97dc9ca..5661fa164f13 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -5975,7 +5975,7 @@ overlap_memmap_init(unsigned long zone, unsigned long *pfn)
+  * done. Non-atomic initialization, single-pass.
+  */
+ void __meminit memmap_init_zone(unsigned long size, int nid, unsigned long zone,
+-		unsigned long start_pfn, enum memmap_context context,
++		unsigned long start_pfn, enum meminit_context context,
+ 		struct vmem_altmap *altmap)
+ {
+ 	unsigned long pfn, end_pfn = start_pfn + size;
+@@ -6007,7 +6007,7 @@ void __meminit memmap_init_zone(unsigned long size, int nid, unsigned long zone,
+ 		 * There can be holes in boot-time mem_map[]s handed to this
+ 		 * function.  They do not exist on hotplugged memory.
+ 		 */
+-		if (context = MEMMAP_EARLY) {
++		if (context = MEMINIT_EARLY) {
+ 			if (overlap_memmap_init(zone, &pfn))
+ 				continue;
+ 			if (defer_init(nid, pfn, end_pfn))
+@@ -6016,7 +6016,7 @@ void __meminit memmap_init_zone(unsigned long size, int nid, unsigned long zone,
+ 
+ 		page = pfn_to_page(pfn);
+ 		__init_single_page(page, pfn, zone, nid);
+-		if (context = MEMMAP_HOTPLUG)
++		if (context = MEMINIT_HOTPLUG)
+ 			__SetPageReserved(page);
+ 
+ 		/*
+@@ -6099,7 +6099,7 @@ void __ref memmap_init_zone_device(struct zone *zone,
+ 		 * check here not to call set_pageblock_migratetype() against
+ 		 * pfn out of zone.
+ 		 *
+-		 * Please note that MEMMAP_HOTPLUG path doesn't clear memmap
++		 * Please note that MEMINIT_HOTPLUG path doesn't clear memmap
+ 		 * because this is done early in section_activate()
+ 		 */
+ 		if (!(pfn & (pageblock_nr_pages - 1))) {
+@@ -6137,7 +6137,7 @@ void __meminit __weak memmap_init(unsigned long size, int nid,
+ 		if (end_pfn > start_pfn) {
+ 			size = end_pfn - start_pfn;
+ 			memmap_init_zone(size, nid, zone, start_pfn,
+-					 MEMMAP_EARLY, NULL);
++					 MEMINIT_EARLY, NULL);
+ 		}
+ 	}
+ }
+-- 
+2.28.0
