@@ -1,241 +1,190 @@
-From: Michal Hocko <mhocko@suse.com>
-Date: Mon, 14 Sep 2020 08:55:44 +0000
+From: Laurent Dufour <ldufour@linux.ibm.com>
+Date: Mon, 14 Sep 2020 09:16:41 +0000
 Subject: Re: [PATCH 2/3] mm: don't rely on system state to detect hot-plug operations
-Message-Id: <20200914085544.GB16999@dhcp22.suse.cz>
+Message-Id: <9990141a-a4e7-6166-c7aa-e0c1199afa38@linux.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20200911134831.53258-1-ldufour@linux.ibm.com>
  <20200911134831.53258-3-ldufour@linux.ibm.com>
-In-Reply-To: <20200911134831.53258-3-ldufour@linux.ibm.com>
+ <f50fe4ae-faf0-6e03-b87e-45ca8c53960d@redhat.com>
+ <20200914081921.GA15113@linux>
+ <96736256-a0a6-3126-3810-3380532b9621@redhat.com>
+In-Reply-To: <96736256-a0a6-3126-3810-3380532b9621@redhat.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
-To: Laurent Dufour <ldufour@linux.ibm.com>
-Cc: akpm@linux-foundation.org, David Hildenbrand <david@redhat.com>, Oscar Salvador <osalvador@suse.de>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-mm@kvack.org, "Rafael J . Wysocki" <rafael@kernel.org>, nathanl@linux.ibm.com, cheloha@linux.ibm.com, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, stable@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: David Hildenbrand <david@redhat.com>, Oscar Salvador <osalvador@suse.de>
+Cc: akpm@linux-foundation.org, mhocko@kernel.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, linux-mm@kvack.org, "Rafael J . Wysocki" <rafael@kernel.org>, nathanl@linux.ibm.com, cheloha@linux.ibm.com, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, stable@vger.kernel.org, Michal Hocko <mhocko@suse.com>
 
-On Fri 11-09-20 15:48:30, Laurent Dufour wrote:
-> In register_mem_sect_under_node() the system_state=E2=80=99s value is che=
-cked to
-> detect whether the operation the call is made during boot time or during =
-an
-> hot-plug operation. Unfortunately, that check against SYSTEM_BOOTING is
-> wrong because regular memory is registered at SYSTEM_SCHEDULING state. In
-> addition memory hot-plug operation can be triggered at this system state
-> too by the ACPI.
+Le 14/09/2020 à 10:31, David Hildenbrand a écrit :
+>>> static int register_mem_sect_under_node_hotplug(struct memory_block *mem_blk,
+>>> 						void *arg)
+>>> {
+>>> 	const int nid = *(int *)arg;
+>>> 	int ret;
+>>>
+>>> 	/* Hotplugged memory has no holes and belongs to a single node. */
+>>> 	mem_blk->nid = nid;
+>>> 	ret = sysfs_create_link_nowarn(&node_devices[nid]->dev.kobj,
+>>> 				       &mem_blk->dev.kobj,
+>>> 				       kobject_name(&mem_blk->dev.kobj));
+>>> 	if (ret)
+>>> 		returnr et;
+>>> 	return sysfs_create_link_nowarn(&mem_blk->dev.kobj,
+>>> 					&node_devices[nid]->dev.kobj,
+>>> 					kobject_name(&node_devices[nid]->dev.kobj));
+>>>
+>>> }
+>>>
+>>> Cleaner, right? :) No unnecessary checks.
+>>
+>> I tend to agree here, I like more a simplistic version for hotplug.
+>>
+> 
+> ... and while we're at it, we should rename register_mem_sect_under_node
+> to something like "register_memory_block_under_node" - "section" is a
+> legacy leftover here.
+> 
+> We could factor out both sysfs_create_link_nowarn() calls into something
+> like "do_register_memory_block_under_node" or similar, to minimize code
+> duplication.
+> 
+>>> One could argue if link_mem_section_hotplug() would be better than passing around the context.
+>>
+>> I am not sure if I would duplicate the code there.
+>> We could just pass the pointer of the function we want to call to
+>> link_mem_sections? either register_mem_sect_under_node_hotplug or
+>> register_mem_sect_under_node_early?
+>> Would not that be clean and clear enough?
+> 
+> I don't particularly like passing around function pointers where it can
+> be avoided (e.g., here exporting 3 functions now instead 1). Makes the
+> interface harder to get IMHO. But I don't really care about that
+> interface, easy to change later on.
+>
 
-Please add
-(an example would be Qemu to replay hot added memory after reboot).
+This would lead to the following.
 
-> So checking against the system state is not enough.
->=20
-> The consequence is that on system with interleaved node's ranges like thi=
-s:
->  Early memory node ranges
->    node   1: [mem 0x0000000000000000-0x000000011fffffff]
->    node   2: [mem 0x0000000120000000-0x000000014fffffff]
->    node   1: [mem 0x0000000150000000-0x00000001ffffffff]
->    node   0: [mem 0x0000000200000000-0x000000048fffffff]
->    node   2: [mem 0x0000000490000000-0x00000007ffffffff]
->=20
-> This can be seen on PowerPC LPAR after multiple memory hot-plug and
-> hot-unplug operations are done. At the next reboot the node's memory rang=
-es
-> can be interleaved and since the call to link_mem_sections() is made in
-> topology_init() while the system is in the SYSTEM_SCHEDULING state, the
-> node's id is not checked, and the sections registered to multiple nodes:
->=20
-> $ ls -l /sys/devices/system/memory/memory21/node*
-> total 0
-> lrwxrwxrwx 1 root root     0 Aug 24 05:27 node1 -> ../../node/node1
-> lrwxrwxrwx 1 root root     0 Aug 24 05:27 node2 -> ../../node/node2
->=20
-> In that case, the system is able to boot but if later one of theses memory
-> block is hot-unplugged and then hot-plugged, the sysfs inconsistency is
-> detected and triggered a BUG_ON():
->=20
-> ------------[ cut here ]------------
-> kernel BUG at /Users/laurent/src/linux-ppc/mm/memory_hotplug.c:1084!
-> Oops: Exception in kernel mode, sig: 5 [#1]
-> LE PAGE_SIZEdK MMU=3DHash SMP NR_CPUS 48 NUMA pSeries
-> Modules linked in: rpadlpar_io rpaphp pseries_rng rng_core vmx_crypto gf1=
-28mul binfmt_misc ip_tables x_tables xfs libcrc32c crc32c_vpmsum autofs4
-> CPU: 8 PID: 10256 Comm: drmgr Not tainted 5.9.0-rc1+ #25
-> NIP:  c000000000403f34 LR: c000000000403f2c CTR: 0000000000000000
-> REGS: c0000004876e3660 TRAP: 0700   Not tainted  (5.9.0-rc1+)
-> MSR:  800000000282b033 <SF,VEC,VSX,EE,FP,ME,IR,DR,RI,LE>  CR: 24000448  X=
-ER: 20040000
-> CFAR: c000000000846d20 IRQMASK: 0
-> GPR00: c000000000403f2c c0000004876e38f0 c0000000012f6f00 ffffffffffffffef
-> GPR04: 0000000000000227 c0000004805ae680 0000000000000000 00000004886f0000
-> GPR08: 0000000000000226 0000000000000003 0000000000000002 fffffffffffffffd
-> GPR12: 0000000088000484 c00000001ec96280 0000000000000000 0000000000000000
-> GPR16: 0000000000000000 0000000000000000 0000000000000004 0000000000000003
-> GPR20: c00000047814ffe0 c0000007ffff7c08 0000000000000010 c0000000013332c8
-> GPR24: 0000000000000000 c0000000011f6cc0 0000000000000000 0000000000000000
-> GPR28: ffffffffffffffef 0000000000000001 0000000150000000 0000000010000000
-> NIP [c000000000403f34] add_memory_resource+0x244/0x340
-> LR [c000000000403f2c] add_memory_resource+0x23c/0x340
-> Call Trace:
-> [c0000004876e38f0] [c000000000403f2c] add_memory_resource+0x23c/0x340 (un=
-reliable)
-> [c0000004876e39c0] [c00000000040408c] __add_memory+0x5c/0xf0
-> [c0000004876e39f0] [c0000000000e2b94] dlpar_add_lmb+0x1b4/0x500
-> [c0000004876e3ad0] [c0000000000e3888] dlpar_memory+0x1f8/0xb80
-> [c0000004876e3b60] [c0000000000dc0d0] handle_dlpar_errorlog+0xc0/0x190
-> [c0000004876e3bd0] [c0000000000dc398] dlpar_store+0x198/0x4a0
-> [c0000004876e3c90] [c00000000072e630] kobj_attr_store+0x30/0x50
-> [c0000004876e3cb0] [c00000000051f954] sysfs_kf_write+0x64/0x90
-> [c0000004876e3cd0] [c00000000051ee40] kernfs_fop_write+0x1b0/0x290
-> [c0000004876e3d20] [c000000000438dd8] vfs_write+0xe8/0x290
-> [c0000004876e3d70] [c0000000004391ac] ksys_write+0xdc/0x130
-> [c0000004876e3dc0] [c000000000034e40] system_call_exception+0x160/0x270
-> [c0000004876e3e20] [c00000000000d740] system_call_common+0xf0/0x27c
-> Instruction dump:
-> 48442e35 60000000 0b030000 3cbe0001 7fa3eb78 7bc48402 38a5fffe 7ca5fa14
-> 78a58402 48442db1 60000000 7c7c1b78 <0b030000> 7f23cb78 4bda371d 60000000
-> ---[ end trace 562fd6c109cd0fb2 ]---
->=20
-> This patch addresses the root cause by not relying on the system_state
-> value to detect whether the call is due to a hot-plug operation. An extra
-> parameter is needed in register_mem_sect_under_node() detailing whether t=
-he
-> operation is due to a hot-plug operation.
+Do everyone agree?
 
-Thanks this description is much more clear!
+diff --git a/drivers/base/node.c b/drivers/base/node.c
+index 508b80f6329b..444808a7c9b6 100644
+--- a/drivers/base/node.c
++++ b/drivers/base/node.c
+@@ -761,9 +761,32 @@ static int __ref get_nid_for_pfn(unsigned long pfn)
+  	return pfn_to_nid(pfn);
+  }
 
-> Fixes: 4fbce633910e ("mm/memory_hotplug.c: make register_mem_sect_under_n=
-ode() a callback of walk_memory_range()")
-> Signed-off-by: Laurent Dufour <ldufour@linux.ibm.com>
-> Cc: stable@vger.kernel.org
-> Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-> Cc: "Rafael J. Wysocki" <rafael@kernel.org>
-> Cc: Andrew Morton <akpm@linux-foundation.org>
-> Cc: Michal Hocko <mhocko@suse.com>
-> Cc: David Hildenbrand <david@redhat.com>
++static int do_register_memory_block_under_node(int nid,
++					       struct memory_block *mem_blk)
++{
++	int ret;
++
++	/*
++	 * If this memory block spans multiple nodes, we only indicate
++	 * the last processed node.
++	 */
++	mem_blk->nid = nid;
++
++	ret = sysfs_create_link_nowarn(&node_devices[nid]->dev.kobj,
++				       &mem_blk->dev.kobj,
++				       kobject_name(&mem_blk->dev.kobj));
++	if (ret)
++		return ret;
++
++	return sysfs_create_link_nowarn(&mem_blk->dev.kobj,
++				&node_devices[nid]->dev.kobj,
++				kobject_name(&node_devices[nid]->dev.kobj));
++
++}
++
+  /* register memory section under specified node if it spans that node */
+-static int register_mem_sect_under_node(struct memory_block *mem_blk,
+-					 void *arg)
++static int register_mem_block_under_node_early(struct memory_block *mem_blk,
++					       void *arg)
+  {
+  	unsigned long memory_block_pfns = memory_block_size_bytes() / PAGE_SIZE;
+  	unsigned long start_pfn = section_nr_to_pfn(mem_blk->start_section_nr);
+@@ -785,38 +808,35 @@ static int register_mem_sect_under_node(struct 
+memory_block *mem_blk,
+  		}
 
-Wrt to the specific implementation I cannot say I would care much.
-Duplicating the code will make the two callers simpler but there will be
-a code duplication. We have that weird intermix for hotplug vs. early
-init at other places. So I would be very lightly prefering this patch
-and do a larger cleanup on top of that. It is at least clear what the
-patch does this way. So
-Acked-by: Michal Hocko <mhocko@suse.com>
+  		/*
+-		 * We need to check if page belongs to nid only for the boot
+-		 * case, during hotplug we know that all pages in the memory
+-		 * block belong to the same node.
++		 * We need to check if page belongs to nid only at the boot
++		 * case because node's ranges can be interleaved.
+  		 */
+-		if (system_state = SYSTEM_BOOTING) {
+-			page_nid = get_nid_for_pfn(pfn);
+-			if (page_nid < 0)
+-				continue;
+-			if (page_nid != nid)
+-				continue;
+-		}
+-
+-		/*
+-		 * If this memory block spans multiple nodes, we only indicate
+-		 * the last processed node.
+-		 */
+-		mem_blk->nid = nid;
++		page_nid = get_nid_for_pfn(pfn);
++		if (page_nid < 0)
++			continue;
++		if (page_nid != nid)
++			continue;
 
-> ---
->  drivers/base/node.c  | 21 ++++++++++++++++-----
->  include/linux/node.h |  9 ++++++---
->  mm/memory_hotplug.c  |  3 ++-
->  3 files changed, 24 insertions(+), 9 deletions(-)
->=20
-> diff --git a/drivers/base/node.c b/drivers/base/node.c
-> index 508b80f6329b..862516c5a5ae 100644
-> --- a/drivers/base/node.c
-> +++ b/drivers/base/node.c
-> @@ -762,14 +762,19 @@ static int __ref get_nid_for_pfn(unsigned long pfn)
->  }
-> =20
->  /* register memory section under specified node if it spans that node */
-> +struct rmsun_args {
-> +	int nid;
-> +	enum memplug_context context;
-> +};
->  static int register_mem_sect_under_node(struct memory_block *mem_blk,
-> -					 void *arg)
-> +					void *args)
->  {
->  	unsigned long memory_block_pfns =3D memory_block_size_bytes() / PAGE_SI=
-ZE;
->  	unsigned long start_pfn =3D section_nr_to_pfn(mem_blk->start_section_nr=
-);
->  	unsigned long end_pfn =3D start_pfn + memory_block_pfns - 1;
-> -	int ret, nid =3D *(int *)arg;
-> +	int ret, nid =3D ((struct rmsun_args *)args)->nid;
->  	unsigned long pfn;
-> +	enum memplug_context context =3D ((struct rmsun_args *)args)->context;
-> =20
->  	for (pfn =3D start_pfn; pfn <=3D end_pfn; pfn++) {
->  		int page_nid;
-> @@ -789,7 +794,7 @@ static int register_mem_sect_under_node(struct memory=
-_block *mem_blk,
->  		 * case, during hotplug we know that all pages in the memory
->  		 * block belong to the same node.
->  		 */
-> -		if (system_state =3D SYSTEM_BOOTING) {
-> +		if (context =3D MEMPLUG_EARLY) {
->  			page_nid =3D get_nid_for_pfn(pfn);
->  			if (page_nid < 0)
->  				continue;
-> @@ -832,10 +837,16 @@ void unregister_memory_block_under_nodes(struct mem=
-ory_block *mem_blk)
->  			  kobject_name(&node_devices[mem_blk->nid]->dev.kobj));
->  }
-> =20
-> -int link_mem_sections(int nid, unsigned long start_pfn, unsigned long en=
-d_pfn)
-> +int link_mem_sections(int nid, unsigned long start_pfn, unsigned long en=
-d_pfn,
-> +		      enum memplug_context context)
->  {
-> +	struct rmsun_args args =3D {
-> +		.nid =3D nid,
-> +		.context =3D context,
-> +	};
-> +
->  	return walk_memory_blocks(PFN_PHYS(start_pfn),
-> -				  PFN_PHYS(end_pfn - start_pfn), (void *)&nid,
-> +				  PFN_PHYS(end_pfn - start_pfn), (void *)&args,
->  				  register_mem_sect_under_node);
->  }
-> =20
-> diff --git a/include/linux/node.h b/include/linux/node.h
-> index 4866f32a02d8..8ff08520488c 100644
-> --- a/include/linux/node.h
-> +++ b/include/linux/node.h
-> @@ -100,10 +100,12 @@ typedef  void (*node_registration_func_t)(struct no=
-de *);
-> =20
->  #if defined(CONFIG_MEMORY_HOTPLUG_SPARSE) && defined(CONFIG_NUMA)
->  extern int link_mem_sections(int nid, unsigned long start_pfn,
-> -			     unsigned long end_pfn);
-> +			     unsigned long end_pfn,
-> +			     enum memplug_context context);
->  #else
->  static inline int link_mem_sections(int nid, unsigned long start_pfn,
-> -				    unsigned long end_pfn)
-> +				    unsigned long end_pfn,
-> +				    enum memplug_context context)
->  {
->  	return 0;
->  }
-> @@ -128,7 +130,8 @@ static inline int register_one_node(int nid)
->  		if (error)
->  			return error;
->  		/* link memory sections under this node */
-> -		error =3D link_mem_sections(nid, start_pfn, end_pfn);
-> +		error =3D link_mem_sections(nid, start_pfn, end_pfn,
-> +					  MEMPLUG_EARLY);
->  	}
-> =20
->  	return error;
-> diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
-> index fc21625e42de..912d355ca446 100644
-> --- a/mm/memory_hotplug.c
-> +++ b/mm/memory_hotplug.c
-> @@ -1080,7 +1080,8 @@ int __ref add_memory_resource(int nid, struct resou=
-rce *res)
->  	}
-> =20
->  	/* link memory sections under this node.*/
-> -	ret =3D link_mem_sections(nid, PFN_DOWN(start), PFN_UP(start + size - 1=
-));
-> +	ret =3D link_mem_sections(nid, PFN_DOWN(start), PFN_UP(start + size - 1=
-),
-> +				MEMPLUG_HOTPLUG);
->  	BUG_ON(ret);
-> =20
->  	/* create new memmap entry */
-> --=20
-> 2.28.0
+-		ret = sysfs_create_link_nowarn(&node_devices[nid]->dev.kobj,
+-					&mem_blk->dev.kobj,
+-					kobject_name(&mem_blk->dev.kobj));
++		ret = do_register_memory_block_under_node(nid, mem_blk);
+  		if (ret)
+  			return ret;
+-
+-		return sysfs_create_link_nowarn(&mem_blk->dev.kobj,
+-				&node_devices[nid]->dev.kobj,
+-				kobject_name(&node_devices[nid]->dev.kobj));
+  	}
+  	/* mem section does not span the specified node */
+  	return 0;
+  }
 
---=20
-Michal Hocko
-SUSE Labs
++/*
++ * During hotplug we know that all pages in the memory block belong to the same
++ * node.
++ */
++static int register_mem_block_under_node_hotplug(struct memory_block *mem_blk,
++						 void *arg)
++{
++	int nid = *(int *)arg;
++
++	return do_register_memory_block_under_node(nid, mem_blk);
++}
++
+  /*
+   * Unregister a memory block device under the node it spans. Memory blocks
+   * with multiple nodes cannot be offlined and therefore also never be removed.
+@@ -832,11 +852,19 @@ void unregister_memory_block_under_nodes(struct 
+memory_block *mem_blk)
+  			  kobject_name(&node_devices[mem_blk->nid]->dev.kobj));
+  }
+
+-int link_mem_sections(int nid, unsigned long start_pfn, unsigned long end_pfn)
++int link_mem_sections(int nid, unsigned long start_pfn, unsigned long end_pfn,
++		      enum memplug_context context)
+  {
++	walk_memory_blocks_func_t func;
++
++	if (context = MEMPLUG_HOTPLUG)
++		func = register_mem_block_under_node_hotplug;
++	else
++		func = register_mem_block_under_node_early;
++
+  	return walk_memory_blocks(PFN_PHYS(start_pfn),
+  				  PFN_PHYS(end_pfn - start_pfn), (void *)&nid,
+-				  register_mem_sect_under_node);
++				  func);
+  }
+
+  #ifdef CONFIG_HUGETLBFS
