@@ -1,39 +1,169 @@
-From: Jessica Yu <jeyu@kernel.org>
-Date: Sat, 19 Sep 2020 10:26:01 +0000
-Subject: Re: [PATCH v2] kbuild: preprocess module linker script
-Message-Id: <20200919102601.GA22693@linux-8ccs>
+From: Laurent Dufour <ldufour@linux.ibm.com>
+Date: Mon, 14 Sep 2020 16:50:42 +0000
+Subject: [PATCH v2 3/3] mm: don't panic when links can't be created in sysfs
+Message-Id: <20200914165042.96218-4-ldufour@linux.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200908042708.2511528-1-masahiroy@kernel.org>
-In-Reply-To: <20200908042708.2511528-1-masahiroy@kernel.org>
+References: <20200914165042.96218-1-ldufour@linux.ibm.com>
+In-Reply-To: <20200914165042.96218-1-ldufour@linux.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Masahiro Yamada <masahiroy@kernel.org>
-Cc: linux-kbuild@vger.kernel.org, Will Deacon <will@kernel.org>, Albert Ou <aou@eecs.berkeley.edu>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Arnd Bergmann <arnd@arndb.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Catalin Marinas <catalin.marinas@arm.com>, Fenghua Yu <fenghua.yu@intel.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Jeff Dike <jdike@addtoit.com>, Michael Ellerman <mpe@ellerman.id.au>, Michal Marek <michal.lkml@markovi.net>, Palmer Dabbelt <palmer@dabbelt.com>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Richard Weinberger <richard@nod.at>, Russell King <linux@armlinux.org.uk>, Tony Luck <tony.luck@intel.com>, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-riscv@lists.infradead.org, linux-um@lists.infradead.org, linuxppc-dev@lists.ozlabs.org
+To: akpm@linux-foundation.org, David Hildenbrand <david@redhat.com>, Oscar Salvador <osalvador@suse.de>, mhocko@kernel.org, Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: linux-mm@kvack.org, "Rafael J . Wysocki" <rafael@kernel.org>, nathanl@linux.ibm.com, cheloha@linux.ibm.com, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, stable@vger.kernel.org, Michal Hocko <mhocko@suse.com>
 
-+++ Masahiro Yamada [08/09/20 13:27 +0900]:
->There was a request to preprocess the module linker script like we
->do for the vmlinux one. (https://lkml.org/lkml/2020/8/21/512)
->
->The difference between vmlinux.lds and module.lds is that the latter
->is needed for external module builds, thus must be cleaned up by
->'make mrproper' instead of 'make clean'. Also, it must be created
->by 'make modules_prepare'.
->
->You cannot put it in arch/$(SRCARCH)/kernel/, which is cleaned up by
->'make clean'. I moved arch/$(SRCARCH)/kernel/module.lds to
->arch/$(SRCARCH)/include/asm/module.lds.h, which is included from
->scripts/module.lds.S.
->
->scripts/module.lds is fine because 'make clean' keeps all the
->build artifacts under scripts/.
->
->You can add arch-specific sections in <asm/module.lds.h>.
->
->Signed-off-by: Masahiro Yamada <masahiroy@kernel.org>
->Tested-by: Jessica Yu <jeyu@kernel.org>
->Acked-by: Will Deacon <will@kernel.org>
+At boot time, or when doing memory hot-add operations, if the links in
+sysfs can't be created, the system is still able to run, so just report the
+error in the kernel log rather than BUG_ON and potentially make system
+unusable because the callpath can be called with locks held.
 
-Acked-by: Jessica Yu <jeyu@kernel.org>
+Since the number of memory blocks managed could be high, the messages are
+rate limited.
 
-Thanks for working on this! 
+As a consequence, link_mem_sections() has no status to report anymore.
+
+Signed-off-by: Laurent Dufour <ldufour@linux.ibm.com>
+Acked-by: Michal Hocko <mhocko@suse.com>
+Cc: David Hildenbrand <david@redhat.com>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+---
+ drivers/base/node.c  | 33 +++++++++++++++++++++------------
+ include/linux/node.h | 16 +++++++---------
+ mm/memory_hotplug.c  |  5 ++---
+ 3 files changed, 30 insertions(+), 24 deletions(-)
+
+diff --git a/drivers/base/node.c b/drivers/base/node.c
+index 01ee73c9d675..249b2ba6dc81 100644
+--- a/drivers/base/node.c
++++ b/drivers/base/node.c
+@@ -761,8 +761,8 @@ static int __ref get_nid_for_pfn(unsigned long pfn)
+ 	return pfn_to_nid(pfn);
+ }
+ 
+-static int do_register_memory_block_under_node(int nid,
+-					       struct memory_block *mem_blk)
++static void do_register_memory_block_under_node(int nid,
++						struct memory_block *mem_blk)
+ {
+ 	int ret;
+ 
+@@ -775,12 +775,19 @@ static int do_register_memory_block_under_node(int nid,
+ 	ret = sysfs_create_link_nowarn(&node_devices[nid]->dev.kobj,
+ 				       &mem_blk->dev.kobj,
+ 				       kobject_name(&mem_blk->dev.kobj));
+-	if (ret)
+-		return ret;
++	if (ret && ret != -EEXIST)
++		dev_err_ratelimited(&node_devices[nid]->dev,
++				    "can't create link to %s in sysfs (%d)\n",
++				    kobject_name(&mem_blk->dev.kobj), ret);
+ 
+-	return sysfs_create_link_nowarn(&mem_blk->dev.kobj,
++	ret = sysfs_create_link_nowarn(&mem_blk->dev.kobj,
+ 				&node_devices[nid]->dev.kobj,
+ 				kobject_name(&node_devices[nid]->dev.kobj));
++	if (ret && ret != -EEXIST)
++		dev_err_ratelimited(&mem_blk->dev,
++				    "can't create link to %s in sysfs (%d)\n",
++				    kobject_name(&node_devices[nid]->dev.kobj),
++				    ret);
+ }
+ 
+ /* register memory section under specified node if it spans that node */
+@@ -817,7 +824,8 @@ static int register_mem_block_under_node_early(struct memory_block *mem_blk,
+ 			continue;
+ 
+ 		/* The memory block is registered to the first matching node */
+-		return do_register_memory_block_under_node(nid, mem_blk);
++		do_register_memory_block_under_node(nid, mem_blk);
++		return 0;
+ 	}
+ 	/* mem section does not span the specified node */
+ 	return 0;
+@@ -832,7 +840,8 @@ static int register_mem_block_under_node_hotplug(struct memory_block *mem_blk,
+ {
+ 	int nid = *(int *)arg;
+ 
+-	return do_register_memory_block_under_node(nid, mem_blk);
++	do_register_memory_block_under_node(nid, mem_blk);
++	return 0;
+ }
+ 
+ /*
+@@ -850,8 +859,8 @@ void unregister_memory_block_under_nodes(struct memory_block *mem_blk)
+ 			  kobject_name(&node_devices[mem_blk->nid]->dev.kobj));
+ }
+ 
+-int link_mem_sections(int nid, unsigned long start_pfn, unsigned long end_pfn,
+-		      enum meminit_context context)
++void link_mem_sections(int nid, unsigned long start_pfn, unsigned long end_pfn,
++		       enum meminit_context context)
+ {
+ 	walk_memory_blocks_func_t func;
+ 
+@@ -860,9 +869,9 @@ int link_mem_sections(int nid, unsigned long start_pfn, unsigned long end_pfn,
+ 	else
+ 		func = register_mem_block_under_node_early;
+ 
+-	return walk_memory_blocks(PFN_PHYS(start_pfn),
+-				  PFN_PHYS(end_pfn - start_pfn), (void *)&nid,
+-				  func);
++	walk_memory_blocks(PFN_PHYS(start_pfn), PFN_PHYS(end_pfn - start_pfn),
++			   (void *)&nid, func);
++	return;
+ }
+ 
+ #ifdef CONFIG_HUGETLBFS
+diff --git a/include/linux/node.h b/include/linux/node.h
+index 014ba3ab2efd..8e5a29897936 100644
+--- a/include/linux/node.h
++++ b/include/linux/node.h
+@@ -99,15 +99,14 @@ extern struct node *node_devices[];
+ typedef  void (*node_registration_func_t)(struct node *);
+ 
+ #if defined(CONFIG_MEMORY_HOTPLUG_SPARSE) && defined(CONFIG_NUMA)
+-int link_mem_sections(int nid, unsigned long start_pfn,
+-		      unsigned long end_pfn,
+-		      enum meminit_context context);
++void link_mem_sections(int nid, unsigned long start_pfn,
++		       unsigned long end_pfn,
++		       enum meminit_context context);
+ #else
+-static inline int link_mem_sections(int nid, unsigned long start_pfn,
+-				    unsigned long end_pfn,
+-				    enum meminit_context context)
++static inline void link_mem_sections(int nid, unsigned long start_pfn,
++				     unsigned long end_pfn,
++				     enum meminit_context context)
+ {
+-	return 0;
+ }
+ #endif
+ 
+@@ -130,8 +129,7 @@ static inline int register_one_node(int nid)
+ 		if (error)
+ 			return error;
+ 		/* link memory sections under this node */
+-		error = link_mem_sections(nid, start_pfn, end_pfn,
+-					  MEMINIT_EARLY);
++		link_mem_sections(nid, start_pfn, end_pfn, MEMINIT_EARLY);
+ 	}
+ 
+ 	return error;
+diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+index 03df20078827..01e01a530d38 100644
+--- a/mm/memory_hotplug.c
++++ b/mm/memory_hotplug.c
+@@ -1080,9 +1080,8 @@ int __ref add_memory_resource(int nid, struct resource *res)
+ 	}
+ 
+ 	/* link memory sections under this node.*/
+-	ret = link_mem_sections(nid, PFN_DOWN(start), PFN_UP(start + size - 1),
+-				MEMINIT_HOTPLUG);
+-	BUG_ON(ret);
++	link_mem_sections(nid, PFN_DOWN(start), PFN_UP(start + size - 1),
++			  MEMINIT_HOTPLUG);
+ 
+ 	/* create new memmap entry */
+ 	if (!strcmp(res->name, "System RAM"))
+-- 
+2.28.0
