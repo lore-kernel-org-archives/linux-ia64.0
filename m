@@ -1,68 +1,75 @@
-From: Masahiro Yamada <masahiroy@kernel.org>
-Date: Tue, 15 Sep 2020 06:48:35 +0000
+From: Nick Terrell <terrelln@fb.com>
+Date: Tue, 15 Sep 2020 06:52:43 +0000
 Subject: Re: vmlinux link failure on ia64 with zstd
-Message-Id: <CAK7LNAToB3n9Y9OPXR55VKbDAkYgm1kUDO8gUu0Ak_+=6AhzCw@mail.gmail.com>
+Message-Id: <7A672D9C-A3A7-456D-BF2E-758566DC2A54@fb.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <f0a93b2d435252b3878ce821142677754f5e434c.camel@decadent.org.uk> <6A76267A-6B60-4428-94DF-E05706EB85FB@fb.com>
-In-Reply-To: <6A76267A-6B60-4428-94DF-E05706EB85FB@fb.com>
+References: <f0a93b2d435252b3878ce821142677754f5e434c.camel@decadent.org.uk>
+ <6A76267A-6B60-4428-94DF-E05706EB85FB@fb.com>
+ <CAK7LNAToB3n9Y9OPXR55VKbDAkYgm1kUDO8gUu0Ak_+=6AhzCw@mail.gmail.com>
+In-Reply-To: <CAK7LNAToB3n9Y9OPXR55VKbDAkYgm1kUDO8gUu0Ak_+=6AhzCw@mail.gmail.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
-To: Nick Terrell <terrelln@fb.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Masahiro Yamada <masahiroy@kernel.org>
 Cc: Ben Hutchings <ben@decadent.org.uk>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Linux Kbuild mailing list <linux-kbuild@vger.kernel.org>
 
-On Tue, Sep 15, 2020 at 4:12 AM Nick Terrell <terrelln@fb.com> wrote:
->
->
->
-> > On Sep 13, 2020, at 12:51 PM, Ben Hutchings <ben@decadent.org.uk> wrote:
-> >
-> > Enabling CONFIG_RD_ZSTD (which is enabled by default) resulted in a
-> > link failure on ia64:
-> >
-> > + ld -r -o vmlinux.o --whole-archive arch/ia64/kernel/head.o init/built-in.a usr/built-in.a arch/ia64/kernel/built-in.a arch/ia64/mm/built-in.a kernel/built-in.a certs/built-in.a mm/built-in.a fs/built-in.a ipc/built-in.a security/built-in.a crypto/built-in.a block/built-in.a lib/built-in.a arch/ia64/lib/built-in.a lib/lib.a arch/ia64/lib/lib.a drivers/built-in.a sound/built-in.a net/built-in.a virt/built-in.a arch/ia64/pci/built-in.a arch/ia64/hp/common/built-in.a --no-whole-archive --start-group --end-group
-> > ld: lib/zstd/entropy_common.o: linking constant-gp files with non-constant-gp files
-> > ld: failed to merge target specific data of file lib/zstd/entropy_common.o
-> > ld: lib/zstd/fse_decompress.o: linking constant-gp files with non-constant-gp files
-> > ld: failed to merge target specific data of file lib/zstd/fse_decompress.o
-> > ld: lib/zstd/zstd_common.o: linking constant-gp files with non-constant-gp files
-> > ld: failed to merge target specific data of file lib/zstd/zstd_common.o
->
-> I’ve never seen anything like this error before. I did some searching, and found that it may show up if an object file is empty.
->
-> These three files are all included in both the zstd_compress and the zstd_decompress modules. We used to exclude these 3 files from the zstd_decompress module when both modules are built-in. But then commit dc35da16a2e2 [0] removed that, because Kbuild is supposed to handle that case.
->
-> If you revert commit dc35da16a2e2 [0] does that fix the issue? I’m attempting to build with IA64, and I’ll let you know if I am able to reproduce the issue and test if this fixes it.
->
-> CC: Masahiro Yamada <yamada.masahiro@socionext.com> author of the commit and the linux-kbuild mailing list.
->
-> [0] https://github.com/torvalds/linux/commit/dc35da16a2e23db04822f0129cd5b28b7b0e72b4
-
-
-dc35da16a2e2 is more than two years old (i.e. v4.17)
-
-Are we discussing a long-standing issue
-or something that arose recently?
-
-
-
-
-> Best,
-> Nick
->
-> > This is seen on Debian unstable, with gcc 10.2 and binutils 2.35.  A
-> > full build log is available at:
-> > https://buildd.debian.org/status/fetch.php?pkg=linux&arch=ia64&ver=5.9~rc4-1~exp1&stamp=1599955166&raw=1
-> >
-> > Ben.
-> >
-> > --
-> > Ben Hutchings
-> > Humour is the best antidote to reality.
-> >
->
-
-
--- 
-Best Regards
-Masahiro Yamada
+DQoNCj4gT24gU2VwIDE0LCAyMDIwLCBhdCAxMTo0OCBQTSwgTWFzYWhpcm8gWWFtYWRhIDxtYXNh
+aGlyb3lAa2VybmVsLm9yZz4gd3JvdGU6DQo+IA0KPiBPbiBUdWUsIFNlcCAxNSwgMjAyMCBhdCA0
+OjEyIEFNIE5pY2sgVGVycmVsbCA8dGVycmVsbG5AZmIuY29tPiB3cm90ZToNCj4+IA0KPj4gDQo+
+PiANCj4+PiBPbiBTZXAgMTMsIDIwMjAsIGF0IDEyOjUxIFBNLCBCZW4gSHV0Y2hpbmdzIDxiZW5A
+ZGVjYWRlbnQub3JnLnVrPiB3cm90ZToNCj4+PiANCj4+PiBFbmFibGluZyBDT05GSUdfUkRfWlNU
+RCAod2hpY2ggaXMgZW5hYmxlZCBieSBkZWZhdWx0KSByZXN1bHRlZCBpbiBhDQo+Pj4gbGluayBm
+YWlsdXJlIG9uIGlhNjQ6DQo+Pj4gDQo+Pj4gKyBsZCAtciAtbyB2bWxpbnV4Lm8gLS13aG9sZS1h
+cmNoaXZlIGFyY2gvaWE2NC9rZXJuZWwvaGVhZC5vIGluaXQvYnVpbHQtaW4uYSB1c3IvYnVpbHQt
+aW4uYSBhcmNoL2lhNjQva2VybmVsL2J1aWx0LWluLmEgYXJjaC9pYTY0L21tL2J1aWx0LWluLmEg
+a2VybmVsL2J1aWx0LWluLmEgY2VydHMvYnVpbHQtaW4uYSBtbS9idWlsdC1pbi5hIGZzL2J1aWx0
+LWluLmEgaXBjL2J1aWx0LWluLmEgc2VjdXJpdHkvYnVpbHQtaW4uYSBjcnlwdG8vYnVpbHQtaW4u
+YSBibG9jay9idWlsdC1pbi5hIGxpYi9idWlsdC1pbi5hIGFyY2gvaWE2NC9saWIvYnVpbHQtaW4u
+YSBsaWIvbGliLmEgYXJjaC9pYTY0L2xpYi9saWIuYSBkcml2ZXJzL2J1aWx0LWluLmEgc291bmQv
+YnVpbHQtaW4uYSBuZXQvYnVpbHQtaW4uYSB2aXJ0L2J1aWx0LWluLmEgYXJjaC9pYTY0L3BjaS9i
+dWlsdC1pbi5hIGFyY2gvaWE2NC9ocC9jb21tb24vYnVpbHQtaW4uYSAtLW5vLXdob2xlLWFyY2hp
+dmUgLS1zdGFydC1ncm91cCAtLWVuZC1ncm91cA0KPj4+IGxkOiBsaWIvenN0ZC9lbnRyb3B5X2Nv
+bW1vbi5vOiBsaW5raW5nIGNvbnN0YW50LWdwIGZpbGVzIHdpdGggbm9uLWNvbnN0YW50LWdwIGZp
+bGVzDQo+Pj4gbGQ6IGZhaWxlZCB0byBtZXJnZSB0YXJnZXQgc3BlY2lmaWMgZGF0YSBvZiBmaWxl
+IGxpYi96c3RkL2VudHJvcHlfY29tbW9uLm8NCj4+PiBsZDogbGliL3pzdGQvZnNlX2RlY29tcHJl
+c3MubzogbGlua2luZyBjb25zdGFudC1ncCBmaWxlcyB3aXRoIG5vbi1jb25zdGFudC1ncCBmaWxl
+cw0KPj4+IGxkOiBmYWlsZWQgdG8gbWVyZ2UgdGFyZ2V0IHNwZWNpZmljIGRhdGEgb2YgZmlsZSBs
+aWIvenN0ZC9mc2VfZGVjb21wcmVzcy5vDQo+Pj4gbGQ6IGxpYi96c3RkL3pzdGRfY29tbW9uLm86
+IGxpbmtpbmcgY29uc3RhbnQtZ3AgZmlsZXMgd2l0aCBub24tY29uc3RhbnQtZ3AgZmlsZXMNCj4+
+PiBsZDogZmFpbGVkIHRvIG1lcmdlIHRhcmdldCBzcGVjaWZpYyBkYXRhIG9mIGZpbGUgbGliL3pz
+dGQvenN0ZF9jb21tb24ubw0KPj4gDQo+PiBJ4oCZdmUgbmV2ZXIgc2VlbiBhbnl0aGluZyBsaWtl
+IHRoaXMgZXJyb3IgYmVmb3JlLiBJIGRpZCBzb21lIHNlYXJjaGluZywgYW5kIGZvdW5kIHRoYXQg
+aXQgbWF5IHNob3cgdXAgaWYgYW4gb2JqZWN0IGZpbGUgaXMgZW1wdHkuDQo+PiANCj4+IFRoZXNl
+IHRocmVlIGZpbGVzIGFyZSBhbGwgaW5jbHVkZWQgaW4gYm90aCB0aGUgenN0ZF9jb21wcmVzcyBh
+bmQgdGhlIHpzdGRfZGVjb21wcmVzcyBtb2R1bGVzLiBXZSB1c2VkIHRvIGV4Y2x1ZGUgdGhlc2Ug
+MyBmaWxlcyBmcm9tIHRoZSB6c3RkX2RlY29tcHJlc3MgbW9kdWxlIHdoZW4gYm90aCBtb2R1bGVz
+IGFyZSBidWlsdC1pbi4gQnV0IHRoZW4gY29tbWl0IGRjMzVkYTE2YTJlMiBbMF0gcmVtb3ZlZCB0
+aGF0LCBiZWNhdXNlIEtidWlsZCBpcyBzdXBwb3NlZCB0byBoYW5kbGUgdGhhdCBjYXNlLg0KPj4g
+DQo+PiBJZiB5b3UgcmV2ZXJ0IGNvbW1pdCBkYzM1ZGExNmEyZTIgWzBdIGRvZXMgdGhhdCBmaXgg
+dGhlIGlzc3VlPyBJ4oCZbSBhdHRlbXB0aW5nIHRvIGJ1aWxkIHdpdGggSUE2NCwgYW5kIEnigJls
+bCBsZXQgeW91IGtub3cgaWYgSSBhbSBhYmxlIHRvIHJlcHJvZHVjZSB0aGUgaXNzdWUgYW5kIHRl
+c3QgaWYgdGhpcyBmaXhlcyBpdC4NCj4+IA0KPj4gQ0M6IE1hc2FoaXJvIFlhbWFkYSA8eWFtYWRh
+Lm1hc2FoaXJvQHNvY2lvbmV4dC5jb20+IGF1dGhvciBvZiB0aGUgY29tbWl0IGFuZCB0aGUgbGlu
+dXgta2J1aWxkIG1haWxpbmcgbGlzdC4NCj4+IA0KPj4gWzBdIGh0dHBzOi8vZ2l0aHViLmNvbS90
+b3J2YWxkcy9saW51eC9jb21taXQvZGMzNWRhMTZhMmUyM2RiMDQ4MjJmMDEyOWNkNWIyOGI3YjBl
+NzJiNA0KPiANCj4gDQo+IGRjMzVkYTE2YTJlMiBpcyBtb3JlIHRoYW4gdHdvIHllYXJzIG9sZCAo
+aS5lLiB2NC4xNykNCj4gDQo+IEFyZSB3ZSBkaXNjdXNzaW5nIGEgbG9uZy1zdGFuZGluZyBpc3N1
+ZQ0KPiBvciBzb21ldGhpbmcgdGhhdCBhcm9zZSByZWNlbnRseT8NCg0KSXQgYXJvc2UgcmVjZW50
+bHkgYmVjYXVzZSBJIGJlbGlldmUgdGhhdCB6c3RkIHdhc27igJl0IGVuYWJsZWQgb24gYW55IElB
+NjQgc3lzdGVtcyBiZWZvcmUgcmVjZW50bHkuDQpCdXQsIEkgYmVsaWV2ZSB0aGF0IHRoZSBjYXVz
+ZSBpcyB0aGF0IHNvbWUgb2YgdGhlIG9iamVjdCBmaWxlcyBjb250YWluIG5vIHN5bWJvbHMsIGFu
+ZCBiaW51dGlscyBjYW7igJl0DQpoYW5kbGUgaXQgb24gdGhpcyBhcmNoaXRlY3R1cmUuIEnigJlt
+IG5vdCAxMDAlIHBvc2l0aXZlLCBiZWNhdXNlIEkgaGF2ZW7igJl0IGJlZW4gYWJsZSB0byByZXBy
+b2R1Y2UgdGhlDQppc3N1ZSwgc2luY2UgSSBoYXZlbuKAmXQgeWV0IGJlZW4gYWJsZSB0byBidWls
+ZCB3aXRoIElBNjQuDQoNCi1OaWNrDQoNCj4+IEJlc3QsDQo+PiBOaWNrDQo+PiANCj4+PiBUaGlz
+IGlzIHNlZW4gb24gRGViaWFuIHVuc3RhYmxlLCB3aXRoIGdjYyAxMC4yIGFuZCBiaW51dGlscyAy
+LjM1LiAgQQ0KPj4+IGZ1bGwgYnVpbGQgbG9nIGlzIGF2YWlsYWJsZSBhdDoNCj4+PiBodHRwczov
+L3VybGRlZmVuc2UucHJvb2Zwb2ludC5jb20vdjIvdXJsP3U9aHR0cHMtM0FfX2J1aWxkZC5kZWJp
+YW4ub3JnX3N0YXR1c19mZXRjaC5waHAtM0Zwa2ctM0RsaW51eC0yNmFyY2gtM0RpYTY0LTI2dmVy
+LTNENS45LTdFcmM0LTJEMS03RWV4cDEtMjZzdGFtcC0zRDE1OTk5NTUxNjYtMjZyYXctM0QxJmQ9
+RHdJRmFRJmM9NVZEMFJUdE5sVGgzeWNkNDFiM01VdyZyPUhRTTVJUWRXT0I4V2FNb2lpMmRZVHcm
+bT16cXFBbDV5SWY3WFFWLVFyVlh3Y3U4OGNqcnFMZjlRZWRTTXNnMjE2UlBvJnM9ZHBLdW9RQkZB
+TTFaNHE5WEQ5YlNhU3BLM280V1NFTHF5emU4bk1zeFJnSSZlPSANCj4+PiANCj4+PiBCZW4uDQo+
+Pj4gDQo+Pj4gLS0NCj4+PiBCZW4gSHV0Y2hpbmdzDQo+Pj4gSHVtb3VyIGlzIHRoZSBiZXN0IGFu
+dGlkb3RlIHRvIHJlYWxpdHkuDQo+Pj4gDQo+PiANCj4gDQo+IA0KPiAtLSANCj4gQmVzdCBSZWdh
+cmRzDQo+IE1hc2FoaXJvIFlhbWFkYQ0KDQo
