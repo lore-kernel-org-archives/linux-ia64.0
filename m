@@ -1,54 +1,68 @@
-From: Nick Terrell <terrelln@fb.com>
-Date: Mon, 14 Sep 2020 19:12:28 +0000
+From: Masahiro Yamada <masahiroy@kernel.org>
+Date: Tue, 15 Sep 2020 06:48:35 +0000
 Subject: Re: vmlinux link failure on ia64 with zstd
-Message-Id: <6A76267A-6B60-4428-94DF-E05706EB85FB@fb.com>
+Message-Id: <CAK7LNAToB3n9Y9OPXR55VKbDAkYgm1kUDO8gUu0Ak_+=6AhzCw@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <f0a93b2d435252b3878ce821142677754f5e434c.camel@decadent.org.uk>
-In-Reply-To: <f0a93b2d435252b3878ce821142677754f5e434c.camel@decadent.org.uk>
+References: <f0a93b2d435252b3878ce821142677754f5e434c.camel@decadent.org.uk> <6A76267A-6B60-4428-94DF-E05706EB85FB@fb.com>
+In-Reply-To: <6A76267A-6B60-4428-94DF-E05706EB85FB@fb.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Ben Hutchings <ben@decadent.org.uk>
-Cc: "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "yamada.masahiro@socionext.com" <yamada.masahiro@socionext.com>, Linux Kbuild mailing list <linux-kbuild@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: Nick Terrell <terrelln@fb.com>
+Cc: Ben Hutchings <ben@decadent.org.uk>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Linux Kbuild mailing list <linux-kbuild@vger.kernel.org>
 
-DQoNCj4gT24gU2VwIDEzLCAyMDIwLCBhdCAxMjo1MSBQTSwgQmVuIEh1dGNoaW5ncyA8YmVuQGRl
-Y2FkZW50Lm9yZy51az4gd3JvdGU6DQo+IA0KPiBFbmFibGluZyBDT05GSUdfUkRfWlNURCAod2hp
-Y2ggaXMgZW5hYmxlZCBieSBkZWZhdWx0KSByZXN1bHRlZCBpbiBhDQo+IGxpbmsgZmFpbHVyZSBv
-biBpYTY0Og0KPiANCj4gKyBsZCAtciAtbyB2bWxpbnV4Lm8gLS13aG9sZS1hcmNoaXZlIGFyY2gv
-aWE2NC9rZXJuZWwvaGVhZC5vIGluaXQvYnVpbHQtaW4uYSB1c3IvYnVpbHQtaW4uYSBhcmNoL2lh
-NjQva2VybmVsL2J1aWx0LWluLmEgYXJjaC9pYTY0L21tL2J1aWx0LWluLmEga2VybmVsL2J1aWx0
-LWluLmEgY2VydHMvYnVpbHQtaW4uYSBtbS9idWlsdC1pbi5hIGZzL2J1aWx0LWluLmEgaXBjL2J1
-aWx0LWluLmEgc2VjdXJpdHkvYnVpbHQtaW4uYSBjcnlwdG8vYnVpbHQtaW4uYSBibG9jay9idWls
-dC1pbi5hIGxpYi9idWlsdC1pbi5hIGFyY2gvaWE2NC9saWIvYnVpbHQtaW4uYSBsaWIvbGliLmEg
-YXJjaC9pYTY0L2xpYi9saWIuYSBkcml2ZXJzL2J1aWx0LWluLmEgc291bmQvYnVpbHQtaW4uYSBu
-ZXQvYnVpbHQtaW4uYSB2aXJ0L2J1aWx0LWluLmEgYXJjaC9pYTY0L3BjaS9idWlsdC1pbi5hIGFy
-Y2gvaWE2NC9ocC9jb21tb24vYnVpbHQtaW4uYSAtLW5vLXdob2xlLWFyY2hpdmUgLS1zdGFydC1n
-cm91cCAtLWVuZC1ncm91cA0KPiBsZDogbGliL3pzdGQvZW50cm9weV9jb21tb24ubzogbGlua2lu
-ZyBjb25zdGFudC1ncCBmaWxlcyB3aXRoIG5vbi1jb25zdGFudC1ncCBmaWxlcw0KPiBsZDogZmFp
-bGVkIHRvIG1lcmdlIHRhcmdldCBzcGVjaWZpYyBkYXRhIG9mIGZpbGUgbGliL3pzdGQvZW50cm9w
-eV9jb21tb24ubw0KPiBsZDogbGliL3pzdGQvZnNlX2RlY29tcHJlc3MubzogbGlua2luZyBjb25z
-dGFudC1ncCBmaWxlcyB3aXRoIG5vbi1jb25zdGFudC1ncCBmaWxlcw0KPiBsZDogZmFpbGVkIHRv
-IG1lcmdlIHRhcmdldCBzcGVjaWZpYyBkYXRhIG9mIGZpbGUgbGliL3pzdGQvZnNlX2RlY29tcHJl
-c3Mubw0KPiBsZDogbGliL3pzdGQvenN0ZF9jb21tb24ubzogbGlua2luZyBjb25zdGFudC1ncCBm
-aWxlcyB3aXRoIG5vbi1jb25zdGFudC1ncCBmaWxlcw0KPiBsZDogZmFpbGVkIHRvIG1lcmdlIHRh
-cmdldCBzcGVjaWZpYyBkYXRhIG9mIGZpbGUgbGliL3pzdGQvenN0ZF9jb21tb24ubw0KDQpJ4oCZ
-dmUgbmV2ZXIgc2VlbiBhbnl0aGluZyBsaWtlIHRoaXMgZXJyb3IgYmVmb3JlLiBJIGRpZCBzb21l
-IHNlYXJjaGluZywgYW5kIGZvdW5kIHRoYXQgaXQgbWF5IHNob3cgdXAgaWYgYW4gb2JqZWN0IGZp
-bGUgaXMgZW1wdHkuDQoNClRoZXNlIHRocmVlIGZpbGVzIGFyZSBhbGwgaW5jbHVkZWQgaW4gYm90
-aCB0aGUgenN0ZF9jb21wcmVzcyBhbmQgdGhlIHpzdGRfZGVjb21wcmVzcyBtb2R1bGVzLiBXZSB1
-c2VkIHRvIGV4Y2x1ZGUgdGhlc2UgMyBmaWxlcyBmcm9tIHRoZSB6c3RkX2RlY29tcHJlc3MgbW9k
-dWxlIHdoZW4gYm90aCBtb2R1bGVzIGFyZSBidWlsdC1pbi4gQnV0IHRoZW4gY29tbWl0IGRjMzVk
-YTE2YTJlMiBbMF0gcmVtb3ZlZCB0aGF0LCBiZWNhdXNlIEtidWlsZCBpcyBzdXBwb3NlZCB0byBo
-YW5kbGUgdGhhdCBjYXNlLg0KDQpJZiB5b3UgcmV2ZXJ0IGNvbW1pdCBkYzM1ZGExNmEyZTIgWzBd
-IGRvZXMgdGhhdCBmaXggdGhlIGlzc3VlPyBJ4oCZbSBhdHRlbXB0aW5nIHRvIGJ1aWxkIHdpdGgg
-SUE2NCwgYW5kIEnigJlsbCBsZXQgeW91IGtub3cgaWYgSSBhbSBhYmxlIHRvIHJlcHJvZHVjZSB0
-aGUgaXNzdWUgYW5kIHRlc3QgaWYgdGhpcyBmaXhlcyBpdC4NCg0KQ0M6IE1hc2FoaXJvIFlhbWFk
-YSA8eWFtYWRhLm1hc2FoaXJvQHNvY2lvbmV4dC5jb20+IGF1dGhvciBvZiB0aGUgY29tbWl0IGFu
-ZCB0aGUgbGludXgta2J1aWxkIG1haWxpbmcgbGlzdC4NCg0KWzBdIGh0dHBzOi8vZ2l0aHViLmNv
-bS90b3J2YWxkcy9saW51eC9jb21taXQvZGMzNWRhMTZhMmUyM2RiMDQ4MjJmMDEyOWNkNWIyOGI3
-YjBlNzJiNA0KDQpCZXN0LA0KTmljaw0KDQo+IFRoaXMgaXMgc2VlbiBvbiBEZWJpYW4gdW5zdGFi
-bGUsIHdpdGggZ2NjIDEwLjIgYW5kIGJpbnV0aWxzIDIuMzUuICBBDQo+IGZ1bGwgYnVpbGQgbG9n
-IGlzIGF2YWlsYWJsZSBhdDoNCj4gaHR0cHM6Ly9idWlsZGQuZGViaWFuLm9yZy9zdGF0dXMvZmV0
-Y2gucGhwP3BrZz1saW51eCZhcmNoPWlhNjQmdmVyPTUuOX5yYzQtMX5leHAxJnN0YW1wPTE1OTk5
-NTUxNjYmcmF3PTENCj4gDQo+IEJlbi4NCj4gDQo+IC0tIA0KPiBCZW4gSHV0Y2hpbmdzDQo+IEh1
-bW91ciBpcyB0aGUgYmVzdCBhbnRpZG90ZSB0byByZWFsaXR5Lg0KPiANCg0K
+On Tue, Sep 15, 2020 at 4:12 AM Nick Terrell <terrelln@fb.com> wrote:
+>
+>
+>
+> > On Sep 13, 2020, at 12:51 PM, Ben Hutchings <ben@decadent.org.uk> wrote:
+> >
+> > Enabling CONFIG_RD_ZSTD (which is enabled by default) resulted in a
+> > link failure on ia64:
+> >
+> > + ld -r -o vmlinux.o --whole-archive arch/ia64/kernel/head.o init/built-in.a usr/built-in.a arch/ia64/kernel/built-in.a arch/ia64/mm/built-in.a kernel/built-in.a certs/built-in.a mm/built-in.a fs/built-in.a ipc/built-in.a security/built-in.a crypto/built-in.a block/built-in.a lib/built-in.a arch/ia64/lib/built-in.a lib/lib.a arch/ia64/lib/lib.a drivers/built-in.a sound/built-in.a net/built-in.a virt/built-in.a arch/ia64/pci/built-in.a arch/ia64/hp/common/built-in.a --no-whole-archive --start-group --end-group
+> > ld: lib/zstd/entropy_common.o: linking constant-gp files with non-constant-gp files
+> > ld: failed to merge target specific data of file lib/zstd/entropy_common.o
+> > ld: lib/zstd/fse_decompress.o: linking constant-gp files with non-constant-gp files
+> > ld: failed to merge target specific data of file lib/zstd/fse_decompress.o
+> > ld: lib/zstd/zstd_common.o: linking constant-gp files with non-constant-gp files
+> > ld: failed to merge target specific data of file lib/zstd/zstd_common.o
+>
+> I’ve never seen anything like this error before. I did some searching, and found that it may show up if an object file is empty.
+>
+> These three files are all included in both the zstd_compress and the zstd_decompress modules. We used to exclude these 3 files from the zstd_decompress module when both modules are built-in. But then commit dc35da16a2e2 [0] removed that, because Kbuild is supposed to handle that case.
+>
+> If you revert commit dc35da16a2e2 [0] does that fix the issue? I’m attempting to build with IA64, and I’ll let you know if I am able to reproduce the issue and test if this fixes it.
+>
+> CC: Masahiro Yamada <yamada.masahiro@socionext.com> author of the commit and the linux-kbuild mailing list.
+>
+> [0] https://github.com/torvalds/linux/commit/dc35da16a2e23db04822f0129cd5b28b7b0e72b4
+
+
+dc35da16a2e2 is more than two years old (i.e. v4.17)
+
+Are we discussing a long-standing issue
+or something that arose recently?
+
+
+
+
+> Best,
+> Nick
+>
+> > This is seen on Debian unstable, with gcc 10.2 and binutils 2.35.  A
+> > full build log is available at:
+> > https://buildd.debian.org/status/fetch.php?pkg=linux&arch=ia64&ver=5.9~rc4-1~exp1&stamp=1599955166&raw=1
+> >
+> > Ben.
+> >
+> > --
+> > Ben Hutchings
+> > Humour is the best antidote to reality.
+> >
+>
+
+
+-- 
+Best Regards
+Masahiro Yamada
