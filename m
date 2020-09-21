@@ -1,49 +1,49 @@
-From: Nicolin Chen <nicoleotsuka@gmail.com>
-Date: Tue, 01 Sep 2020 22:16:46 +0000
-Subject: [PATCH 2/2] dma-mapping: set default segment_boundary_mask to ULONG_MAX
-Message-Id: <20200901221646.26491-3-nicoleotsuka@gmail.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Date: Mon, 21 Sep 2020 08:38:41 +0000
+Subject: Re: Build regressions/improvements in v5.9-rc6
+Message-Id: <CAMuHMdXCQ-FgPXHVjnXujMvi_tg12AzXo5i2+i=JAnUmeNci_Q@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20200901221646.26491-1-nicoleotsuka@gmail.com>
-In-Reply-To: <20200901221646.26491-1-nicoleotsuka@gmail.com>
+References: <20200921082716.29247-1-geert@linux-m68k.org>
+In-Reply-To: <20200921082716.29247-1-geert@linux-m68k.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: hch@lst.de
-Cc: sfr@canb.auug.org.au, mpe@ellerman.id.au, benh@kernel.crashing.org, paulus@samba.org, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org, rth@twiddle.net, ink@jurassic.park.msu.ru, mattst88@gmail.com, linux-alpha@vger.kernel.org, tony.luck@intel.com, fenghua.yu@intel.com, linux-ia64@vger.kernel.org, schnelle@linux.ibm.com, gerald.schaefer@linux.ibm.com, hca@linux.ibm.com, gor@linux.ibm.com, borntraeger@de.ibm.com, linux-s390@vger.kernel.org, davem@davemloft.net, sparclinux@vger.kernel.org, tglx@linutronix.de, mingo@redhat.com, bp@alien8.de, x86@kernel.org, hpa@zytor.com, James.Bottomley@HansenPartnership.com, deller@gmx.de, linux-parisc@vger.kernel.org
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Cc: Jan Kara <jack@suse.cz>, Dan Williams <dan.j.williams@intel.com>, Peter Zijlstra <peterz@infradead.org>, "Paul E . McKenney" <paulmck@kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
 
-The default segment_boundary_mask was set to DMA_BIT_MAKS(32)
-a decade ago by referencing SCSI/block subsystem, as a 32-bit
-mask was good enough for most of the devices.
+On Mon, Sep 21, 2020 at 10:32 AM Geert Uytterhoeven
+<geert@linux-m68k.org> wrote:
+> JFYI, when comparing v5.9-rc6[1] to v5.9-rc5[3], the summaries are:
+>   - build errors: +3/-5
 
-Now more and more drivers set dma_masks above DMA_BIT_MAKS(32)
-while only a handful of them call dma_set_seg_boundary(). This
-means that most drivers have a 4GB segmention boundary because
-DMA API returns a 32-bit default value, though they might not
-really have such a limit.
+  + /kisskb/src/drivers/dax/super.c: error: redefinition of
+'dax_supported':  => 325:6
 
-The default segment_boundary_mask should mean "no limit" since
-the device doesn't explicitly set the mask. But a 32-bit mask
-certainly limits those devices capable of 32+ bits addressing.
+m68k-defconfig
+sun3_defconfig
+mips-allmodconfig
+sparc-allmodconfig
+sparc64-allmodconfig
+mips-allmodconfig
+powernv_defconfig+THIN
+(many more reported in the wild)
 
-So this patch sets default segment_boundary_mask to ULONG_MAX.
+  + error: modpost: "rcu_idle_enter" [drivers/acpi/processor.ko]
+undefined!:  => N/A
+  + error: modpost: "rcu_idle_exit" [drivers/acpi/processor.ko]
+undefined!:  => N/A
 
-Signed-off-by: Nicolin Chen <nicoleotsuka@gmail.com>
----
- include/linux/dma-mapping.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ia64-defconfig
 
-diff --git a/include/linux/dma-mapping.h b/include/linux/dma-mapping.h
-index faab0a8210b9..df0bff2ea750 100644
---- a/include/linux/dma-mapping.h
-+++ b/include/linux/dma-mapping.h
-@@ -629,7 +629,7 @@ static inline unsigned long dma_get_seg_boundary(struct device *dev)
- {
- 	if (dev->dma_parms && dev->dma_parms->segment_boundary_mask)
- 		return dev->dma_parms->segment_boundary_mask;
--	return DMA_BIT_MASK(32);
-+	return ULONG_MAX;
- }
- 
- /**
--- 
-2.17.1
+> [1] http://kisskb.ellerman.id.au/kisskb/branch/linus/head/ba4f184e126b751d1bffad5897f263108befc780/ (all 192 configs)
+> [3] http://kisskb.ellerman.id.au/kisskb/branch/linus/head/856deb866d16e29bd65952e0289066f6078af773/ (all 192 configs)
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
