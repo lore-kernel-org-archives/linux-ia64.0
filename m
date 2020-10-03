@@ -1,81 +1,79 @@
-From: Nathan Chancellor <natechancellor@gmail.com>
-Date: Sun, 04 Oct 2020 07:37:43 +0000
-Subject: Re: [PATCH RFC 1/2] kconfig: use interpreters to invoke scripts
-Message-Id: <20201004073743.GA31645@Ryzen-9-3900X.localdomain>
+From: Ujjwal Kumar <ujjwalkumar0501@gmail.com>
+Date: Sat, 03 Oct 2020 15:31:09 +0000
+Subject: [PATCH RFC 0/2] use interpreters to invoke scripts
+Message-Id: <2b00e566-112c-5657-c10f-7f210d3eae93@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <d398ec09-2146-1fef-c594-643a9c868b06@gmail.com>
-In-Reply-To: <d398ec09-2146-1fef-c594-643a9c868b06@gmail.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Ujjwal Kumar <ujjwalkumar0501@gmail.com>
-Cc: Masahiro Yamada <masahiroy@kernel.org>, Michal Marek <michal.lkml@markovi.net>, Andrew Morton <akpm@linux-foundation.org>, Kees Cook <keescook@chromium.org>, Lukas Bulwahn <lukas.bulwahn@gmail.com>, Nick Desaulniers <ndesaulniers@google.com>, linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, clang-built-linux@googlegroups.com, linux-kernel-mentees@lists.linuxfoundation.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: Masahiro Yamada <masahiroy@kernel.org>, Michal Marek <michal.lkml@markovi.net>
+Cc: Ujjwal Kumar <ujjwalkumar0501@gmail.com>, Andrew Morton <akpm@linux-foundation.org>, Kees Cook <keescook@chromium.org>, Lukas Bulwahn <lukas.bulwahn@gmail.com>, Nathan Chancellor <natechancellor@gmail.com>, Nick Desaulniers <ndesaulniers@google.com>, linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, clang-built-linux@googlegroups.com, linux-kernel-mentees@lists.linuxfoundation.org
 
-On Sat, Oct 03, 2020 at 08:50:10PM +0530, Ujjwal Kumar wrote:
-> We cannot rely on execute bits to be set on files in the repository.
-> The build script should use the explicit interpreter when invoking any
-> script from the repository.
-> 
-> Link: https://lore.kernel.org/lkml/20200830174409.c24c3f67addcce0cea9a9d4c@linux-foundation.org/
-> Link: https://lore.kernel.org/lkml/202008271102.FEB906C88@keescook/
-> 
-> Suggested-by: Andrew Morton <akpm@linux-foundation.org>
-> Suggested-by: Kees Cook <keescook@chromium.org>
-> Suggested-by: Lukas Bulwahn <lukas.bulwahn@gmail.com>
-> Signed-off-by: Ujjwal Kumar <ujjwalkumar0501@gmail.com>
+This patch series aims at removing the dependency on execute=20
+bit of the scripts in the kbuild system.
 
-Reviewed-by: Nathan Chancellor <natechancellor@gmail.com>
+If not working with fresh clone of linux-next, clean the srctree:
+make distclean
+make tools/clean
 
-> ---
->  init/Kconfig | 16 ++++++++--------
->  1 file changed, 8 insertions(+), 8 deletions(-)
-> 
-> diff --git a/init/Kconfig b/init/Kconfig
-> index 91456ac0ef20..524f6b555945 100644
-> --- a/init/Kconfig
-> +++ b/init/Kconfig
-> @@ -30,12 +30,12 @@ config CC_IS_GCC
->  
->  config GCC_VERSION
->  	int
-> -	default $(shell,$(srctree)/scripts/gcc-version.sh $(CC)) if CC_IS_GCC
-> +	default $(shell,$(CONFIG_SHELL) $(srctree)/scripts/gcc-version.sh $(CC)) if CC_IS_GCC
->  	default 0
->  
->  config LD_VERSION
->  	int
-> -	default $(shell,$(LD) --version | $(srctree)/scripts/ld-version.sh)
-> +	default $(shell,$(LD) --version | $(AWK) -f $(srctree)/scripts/ld-version.sh)
->  
->  config CC_IS_CLANG
->  	def_bool $(success,echo "$(CC_VERSION_TEXT)" | grep -q clang)
-> @@ -45,20 +45,20 @@ config LD_IS_LLD
->  
->  config CLANG_VERSION
->  	int
-> -	default $(shell,$(srctree)/scripts/clang-version.sh $(CC))
-> +	default $(shell,$(CONFIG_SHELL) $(srctree)/scripts/clang-version.sh $(CC))
->  
->  config CC_CAN_LINK
->  	bool
-> -	default $(success,$(srctree)/scripts/cc-can-link.sh $(CC) $(CLANG_FLAGS) $(m64-flag)) if 64BIT
-> -	default $(success,$(srctree)/scripts/cc-can-link.sh $(CC) $(CLANG_FLAGS) $(m32-flag))
-> +	default $(success,$(CONFIG_SHELL) $(srctree)/scripts/cc-can-link.sh $(CC) $(CLANG_FLAGS) $(m64-flag)) if 64BIT
-> +	default $(success,$(CONFIG_SHELL) $(srctree)/scripts/cc-can-link.sh $(CC) $(CLANG_FLAGS) $(m32-flag))
->  
->  config CC_CAN_LINK_STATIC
->  	bool
-> -	default $(success,$(srctree)/scripts/cc-can-link.sh $(CC) $(CLANG_FLAGS) $(m64-flag) -static) if 64BIT
-> -	default $(success,$(srctree)/scripts/cc-can-link.sh $(CC) $(CLANG_FLAGS) $(m32-flag) -static)
-> +	default $(success,$(CONFIG_SHELL) $(srctree)/scripts/cc-can-link.sh $(CC) $(CLANG_FLAGS) $(m64-flag) -static) if 64BIT
-> +	default $(success,$(CONFIG_SHELL) $(srctree)/scripts/cc-can-link.sh $(CC) $(CLANG_FLAGS) $(m32-flag) -static)
->  
->  config CC_HAS_ASM_GOTO
-> -	def_bool $(success,$(srctree)/scripts/gcc-goto.sh $(CC))
-> +	def_bool $(success,$(CONFIG_SHELL) $(srctree)/scripts/gcc-goto.sh $(CC))
->  
->  config CC_HAS_ASM_GOTO_OUTPUT
->  	depends on CC_HAS_ASM_GOTO
-> -- 
-> 2.26.2
-> 
+To test the dependency on execute bits, I tried building the=20
+kernel after removing x-bits for all files in the repository.
+Removing execute bits:
+for i in $(find -executable -type f); do chmod -x $i; done
+
+Any attempts to configure (or build) the kernel fail because of=20
+'Permission denied' on scripts with the following error:
+$ make allmodconfig
+sh: ./scripts/gcc-version.sh: Permission denied
+init/Kconfig:34: syntax error
+init/Kconfig:33: invalid statement
+init/Kconfig:34: invalid statement
+sh: ./scripts/ld-version.sh: Permission denied
+init/Kconfig:39: syntax error
+init/Kconfig:38: invalid statement
+sh: ./scripts/clang-version.sh: Permission denied
+init/Kconfig:49: syntax error
+init/Kconfig:48: invalid statement
+make[1]: *** [scripts/kconfig/Makefile:71: allmodconfig] Error 1
+make: *** [Makefile:606: allmodconfig] Error 2
+
+Changes:
+1. Adds specific interpreters (in Kconfig) to invoke=20
+scripts.
+
+After this patch I could successfully do a kernel build=20
+without any errors.
+
+2. Again, adds specific interpreters to other parts of=20
+kbuild system.
+
+I could successfully perform the following make targets after=20
+applying the PATCH 2/2:
+make headerdep
+make kselftest-merge
+make rpm-pkg
+make perf-tar-src-pkg
+make ARCH=3Dia64 defconfig
+ARCH=3Darm64 CROSS_COMPILE=AArch64-linux-gnu- make prepare
+
+Following changes in PATCH 2/2 are not yet tested:
+arch/arm64/kernel/vdso32/Makefile
+arch/nds32/kernel/vdso/Makefile
+scripts/Makefile.build
+
+Ujjwal Kumar (2):
+  kconfig: use interpreters to invoke scripts
+  kbuild: use interpreters to invoke scripts
+
+ Makefile                          |  4 ++--
+ arch/arm64/kernel/vdso/Makefile   |  2 +-
+ arch/arm64/kernel/vdso32/Makefile |  2 +-
+ arch/ia64/Makefile                |  4 ++--
+ arch/nds32/kernel/vdso/Makefile   |  2 +-
+ init/Kconfig                      | 16 ++++++++--------
+ scripts/Makefile.build            |  2 +-
+ scripts/Makefile.package          |  4 ++--
+ 8 files changed, 18 insertions(+), 18 deletions(-)
+
+--=20
+2.26.2
