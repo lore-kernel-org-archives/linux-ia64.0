@@ -1,7 +1,7 @@
-From: Lukas Bulwahn <lukas.bulwahn@gmail.com>
-Date: Sun, 04 Oct 2020 06:54:05 +0000
+From: Nathan Chancellor <natechancellor@gmail.com>
+Date: Sun, 04 Oct 2020 07:37:43 +0000
 Subject: Re: [PATCH RFC 1/2] kconfig: use interpreters to invoke scripts
-Message-Id: <alpine.DEB.2.21.2010040852150.28226@felia>
+Message-Id: <20201004073743.GA31645@Ryzen-9-3900X.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <d398ec09-2146-1fef-c594-643a9c868b06@gmail.com>
 In-Reply-To: <d398ec09-2146-1fef-c594-643a9c868b06@gmail.com>
@@ -9,33 +9,23 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Ujjwal Kumar <ujjwalkumar0501@gmail.com>
-Cc: Masahiro Yamada <masahiroy@kernel.org>, Michal Marek <michal.lkml@markovi.net>, Andrew Morton <akpm@linux-foundation.org>, Kees Cook <keescook@chromium.org>, Lukas Bulwahn <lukas.bulwahn@gmail.com>, Nathan Chancellor <natechancellor@gmail.com>, Nick Desaulniers <ndesaulniers@google.com>, linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, clang-built-linux@googlegroups.com, linux-kernel-mentees@lists.linuxfoundation.org
+Cc: Masahiro Yamada <masahiroy@kernel.org>, Michal Marek <michal.lkml@markovi.net>, Andrew Morton <akpm@linux-foundation.org>, Kees Cook <keescook@chromium.org>, Lukas Bulwahn <lukas.bulwahn@gmail.com>, Nick Desaulniers <ndesaulniers@google.com>, linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, clang-built-linux@googlegroups.com, linux-kernel-mentees@lists.linuxfoundation.org
 
-
-
-On Sat, 3 Oct 2020, Ujjwal Kumar wrote:
-
+On Sat, Oct 03, 2020 at 08:50:10PM +0530, Ujjwal Kumar wrote:
 > We cannot rely on execute bits to be set on files in the repository.
 > The build script should use the explicit interpreter when invoking any
 > script from the repository.
 > 
 > Link: https://lore.kernel.org/lkml/20200830174409.c24c3f67addcce0cea9a9d4c@linux-foundation.org/
 > Link: https://lore.kernel.org/lkml/202008271102.FEB906C88@keescook/
->
-
-Reproduced the setup described in the cover letter on next-20201002.
-
-The issue for make defconfig was resolved with this patch. So:
-
-Tested-by: Lukas Bulwahn <lukas.bulwahn@gmail.com>
-
-
-Lukas
- 
+> 
 > Suggested-by: Andrew Morton <akpm@linux-foundation.org>
 > Suggested-by: Kees Cook <keescook@chromium.org>
 > Suggested-by: Lukas Bulwahn <lukas.bulwahn@gmail.com>
 > Signed-off-by: Ujjwal Kumar <ujjwalkumar0501@gmail.com>
+
+Reviewed-by: Nathan Chancellor <natechancellor@gmail.com>
+
 > ---
 >  init/Kconfig | 16 ++++++++--------
 >  1 file changed, 8 insertions(+), 8 deletions(-)
@@ -88,5 +78,4 @@ Lukas
 >  	depends on CC_HAS_ASM_GOTO
 > -- 
 > 2.26.2
-> 
 > 
