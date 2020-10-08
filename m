@@ -1,114 +1,155 @@
-From: Mike Rapoport <rppt@kernel.org>
-Date: Wed, 28 Oct 2020 18:57:41 +0000
-Subject: Re: [PATCH 11/13] m68k/mm: make node data and node setup depend on CONFIG_DISCONTIGMEM
-Message-Id: <20201028185741.GI1428094@kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Thu, 08 Oct 2020 15:46:44 +0000
+Subject: [PATCH 06/13] m68k: split heartbeat out of timer function
+Message-Id: <20201008154651.1901126-7-arnd@arndb.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20201027112955.14157-1-rppt@kernel.org>
- <20201027112955.14157-12-rppt@kernel.org>
- <CAMuHMdU4r4CJ1kBu7gx1jkputjDn2S8Lqkj7RPfa3XUnM1QOFg@mail.gmail.com>
- <20201028111631.GF1428094@kernel.org>
- <fd55643a-a17b-5a23-4c77-9e832c1e5128@gmail.com>
-In-Reply-To: <fd55643a-a17b-5a23-4c77-9e832c1e5128@gmail.com>
+References: <20201008154651.1901126-1-arnd@arndb.de>
+In-Reply-To: <20201008154651.1901126-1-arnd@arndb.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Michael Schmitz <schmitzmic@gmail.com>
-Cc: Geert Uytterhoeven <geert@linux-m68k.org>, Andrew Morton <akpm@linux-foundation.org>, Alexey Dobriyan <adobriyan@gmail.com>, Catalin Marinas <catalin.marinas@arm.com>, Greg Ungerer <gerg@linux-m68k.org>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, Jonathan Corbet <corbet@lwn.net>, Matt Turner <mattst88@gmail.com>, Meelis Roos <mroos@linux.ee>, Mike Rapoport <rppt@linux.ibm.com>, Russell King <linux@armlinux.org.uk>, Tony Luck <tony.luck@intel.com>, Vineet Gupta <vgupta@synopsys.com>, Will Deacon <will@kernel.org>, alpha <linux-alpha@vger.kernel.org>, Linux ARM <linux-arm-kernel@lists.infradead.org>, "open list:DOCUMENTATION" <linux-doc@vger.kernel.org>, Linux FS Devel <linux-fsdevel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-m68k <linux-m68k@lists.linux-m68k.org>, Linux MM <linux-mm@kvack.org>, arcml <linux-snps-arc@lists.infradead.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-kernel@vger.kernel.org
+Cc: Arnd Bergmann <arnd@arndb.de>, Russell King <linux@armlinux.org.uk>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Greg Ungerer <gerg@linux-m68k.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Finn Thain <fthain@telegraphics.com.au>, Philip Blundell <philb@gnu.org>, Joshua Thompson <funaho@jurai.org>, Sam Creasey <sammy@sammy.net>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Thomas Gleixner <tglx@linutronix.de>, Daniel Lezcano <daniel.lezcano@linaro.org>, John Stultz <john.stultz@linaro.org>, Stephen Boyd <sboyd@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-arm-kernel@lists.infradead.org
 
-On Thu, Oct 29, 2020 at 07:14:38AM +1300, Michael Schmitz wrote:
-> Hi Mike,
->=20
-> On 29/10/20 12:16 AM, Mike Rapoport wrote:
-> > Hi Geert,
-> >=20
-> > On Wed, Oct 28, 2020 at 10:25:49AM +0100, Geert Uytterhoeven wrote:
-> > > Hi Mike,
-> > >=20
-> > > On Tue, Oct 27, 2020 at 12:31 PM Mike Rapoport <rppt@kernel.org> wrot=
-e:
-> > > > From: Mike Rapoport <rppt@linux.ibm.com>
-> > > >=20
-> > > > The pg_data_t node structures and their initialization currently de=
-pends on
-> > > > !CONFIG_SINGLE_MEMORY_CHUNK. Since they are required only for DISCO=
-NTIGMEM
-> > > > make this dependency explicit and replace usage of
-> > > > CONFIG_SINGLE_MEMORY_CHUNK with CONFIG_DISCONTIGMEM where appropria=
-te.
-> > > >=20
-> > > > The CONFIG_SINGLE_MEMORY_CHUNK was implicitly disabled on the ColdF=
-ire MMU
-> > > > variant, although it always presumed a single memory bank. As there=
- is no
-> > > > actual need for DISCONTIGMEM in this case, make sure that ColdFire =
-MMU
-> > > > systems set CONFIG_SINGLE_MEMORY_CHUNK to 'y'.
-> > > >=20
-> > > > Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
-> > > Thanks for your patch!
-> > >=20
-> > > > ---
-> > > >   arch/m68k/Kconfig.cpu           | 6 +++---
-> > > >   arch/m68k/include/asm/page_mm.h | 2 +-
-> > > >   arch/m68k/mm/init.c             | 4 ++--
-> > > >   3 files changed, 6 insertions(+), 6 deletions(-)
-> > > Is there any specific reason you didn't convert the checks for
-> > > CONFIG_SINGLE_MEMORY_CHUNK in arch/m68k/kernel/setup_mm.c
-> > In arch/m68k/kernel/setup_mm.c the CONFIG_SINGLE_MEMORY_CHUNK is needed
-> > for the case when a system has two banks, the kernel is loaded into the
-> > second bank and so the first bank cannot be used as normal memory. It
-> > does not matter what memory model will be used in this case.
->=20
->=20
-> That case used to be detected just fine at run time (by dint of the second
-> memory chunk having an address below the first; the chunk the kernel resi=
-des
-> in is always listed first), even without using CONFIG_SINGLE_MEMORY_CHUNK.
-=20
-Right, CONFIG_SINGLE_MEMORY_CHUNK in arch/m68k/kernel/setup_mm.c is used
-to force using a single bank of memory regardless of run time detection.=20
+The heartbeat functionality is mostly separate from the
+actual timer interrupt handling, and it is only used on
+five platforms.
 
-> Unless you changed that behaviour (and I see nothing in your patch that
-> would indicate that), this is still true.
->=20
-> Converting the check as Geert suggested, without also adding a test for
-> out-of-order memory bank addresses, would implicitly treat DISCONTIGMEM a=
-s=A0
-> SINGLE_MEMORY_CHUNK, regardless of bank ordering. I don't think that is w=
-hat
-> we really want?
+Split it out into a separate function and call that directly
+from the timer irq on those platforms.
 
-It is in a way the case now when !SINGLE_MEMORY_CHUNK =3D DISCONTIGMEM.
-So forcing SIGNLE_MEMORY_CHUNK at compile time would also mean forcing
-FLATMEM.
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ arch/m68k/amiga/config.c        | 1 +
+ arch/m68k/apollo/config.c       | 1 +
+ arch/m68k/atari/time.c          | 2 ++
+ arch/m68k/hp300/time.c          | 1 +
+ arch/m68k/include/asm/machdep.h | 7 +++++++
+ arch/m68k/kernel/time.c         | 7 +++++--
+ arch/m68k/q40/q40ints.c         | 2 ++
+ 7 files changed, 19 insertions(+), 2 deletions(-)
 
-After these changes I think SINGLE_MEMORY_CHUNK is not needed at all.
-
-> Cheers,
->=20
-> =A0=A0=A0 Michael
->=20
->=20
-> >=20
-> > > and arch/m68k/include/asm/virtconvert.h?
-> > I remember I had build errors and troubles with include file
-> > dependencies if I changed it there, but I might be mistaken. I'll
-> > recheck again.
-> >=20
-> > > Gr{oetje,eeting}s,
-> > >=20
-> > >                          Geert
-> > >=20
-> > > --=20
-> > > Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linu=
-x-m68k.org
-> > >=20
-> > > In personal conversations with technical people, I call myself a hack=
-er. But
-> > > when I'm talking to journalists I just say "programmer" or something =
-like that.
-> > >                                  -- Linus Torvalds
-
---=20
-Sincerely yours,
-Mike.
+diff --git a/arch/m68k/amiga/config.c b/arch/m68k/amiga/config.c
+index bee9f240f35d..29f92333119e 100644
+--- a/arch/m68k/amiga/config.c
++++ b/arch/m68k/amiga/config.c
+@@ -480,6 +480,7 @@ static irqreturn_t ciab_timer_handler(int irq, void *dev_id)
+ 	clk_total += jiffy_ticks;
+ 	clk_offset = 0;
+ 	timer_routine(0, NULL);
++	timer_heartbeat();
+ 
+ 	return IRQ_HANDLED;
+ }
+diff --git a/arch/m68k/apollo/config.c b/arch/m68k/apollo/config.c
+index 762da5d7a415..30915f1a8760 100644
+--- a/arch/m68k/apollo/config.c
++++ b/arch/m68k/apollo/config.c
+@@ -173,6 +173,7 @@ irqreturn_t dn_timer_int(int irq, void *dev_id)
+ 	volatile unsigned char x;
+ 
+ 	timer_handler(irq, dev_id);
++	timer_heartbeat();
+ 
+ 	x = *(volatile unsigned char *)(apollo_timer + 3);
+ 	x = *(volatile unsigned char *)(apollo_timer + 5);
+diff --git a/arch/m68k/atari/time.c b/arch/m68k/atari/time.c
+index ce923a523695..ce4a5961ca93 100644
+--- a/arch/m68k/atari/time.c
++++ b/arch/m68k/atari/time.c
+@@ -21,6 +21,7 @@
+ #include <linux/export.h>
+ 
+ #include <asm/atariints.h>
++#include <asm/machdep.h>
+ 
+ DEFINE_SPINLOCK(rtc_lock);
+ EXPORT_SYMBOL_GPL(rtc_lock);
+@@ -49,6 +50,7 @@ static irqreturn_t mfp_timer_c_handler(int irq, void *dev_id)
+ 	} while (last_timer_count = 1);
+ 	clk_total += INT_TICKS;
+ 	timer_routine(0, NULL);
++	timer_heartbeat();
+ 	local_irq_restore(flags);
+ 
+ 	return IRQ_HANDLED;
+diff --git a/arch/m68k/hp300/time.c b/arch/m68k/hp300/time.c
+index bfee13e1d0fe..e3cd938de0f9 100644
+--- a/arch/m68k/hp300/time.c
++++ b/arch/m68k/hp300/time.c
+@@ -65,6 +65,7 @@ static irqreturn_t hp300_tick(int irq, void *dev_id)
+ 	clk_total += INTVAL;
+ 	clk_offset = 0;
+ 	timer_routine(0, NULL);
++	timer_heartbeat();
+ 	local_irq_restore(flags);
+ 
+ 	/* Turn off the network and SCSI leds */
+diff --git a/arch/m68k/include/asm/machdep.h b/arch/m68k/include/asm/machdep.h
+index 49bd3266b4b1..e62a39d01ae4 100644
+--- a/arch/m68k/include/asm/machdep.h
++++ b/arch/m68k/include/asm/machdep.h
+@@ -35,6 +35,13 @@ extern void (*mach_beep) (unsigned int, unsigned int);
+ /* Hardware clock functions */
+ extern void hw_timer_init(irq_handler_t handler);
+ extern unsigned long hw_timer_offset(void);
++#ifdef CONFIG_HEARTBEAT
++extern void timer_heartbeat(void);
++#else
++static inline void timer_heartbeat(void)
++{
++}
++#endif
+ 
+ extern void config_BSP(char *command, int len);
+ 
+diff --git a/arch/m68k/kernel/time.c b/arch/m68k/kernel/time.c
+index c2697a4d4ddd..c05cec21b05f 100644
+--- a/arch/m68k/kernel/time.c
++++ b/arch/m68k/kernel/time.c
+@@ -45,8 +45,12 @@ static irqreturn_t timer_interrupt(int irq, void *dummy)
+ 	xtime_update(1);
+ 	update_process_times(user_mode(get_irq_regs()));
+ 	profile_tick(CPU_PROFILING);
++	return IRQ_HANDLED;
++}
+ 
+ #ifdef CONFIG_HEARTBEAT
++void timer_heartbeat(void)
++{
+ 	/* use power LED as a heartbeat instead -- much more useful
+ 	   for debugging -- based on the version for PReP by Cort */
+ 	/* acts like an actual heart beat -- ie thump-thump-pause... */
+@@ -68,9 +72,8 @@ static irqreturn_t timer_interrupt(int irq, void *dummy)
+ 		dist = period / 4;
+ 	    }
+ 	}
+-#endif /* CONFIG_HEARTBEAT */
+-	return IRQ_HANDLED;
+ }
++#endif /* CONFIG_HEARTBEAT */
+ 
+ #ifdef CONFIG_M68KCLASSIC
+ #if !IS_BUILTIN(CONFIG_RTC_DRV_GENERIC)
+diff --git a/arch/m68k/q40/q40ints.c b/arch/m68k/q40/q40ints.c
+index 1c696906c159..b01b545a2db0 100644
+--- a/arch/m68k/q40/q40ints.c
++++ b/arch/m68k/q40/q40ints.c
+@@ -17,6 +17,7 @@
+ #include <linux/interrupt.h>
+ #include <linux/irq.h>
+ 
++#include <asm/machdep.h>
+ #include <asm/ptrace.h>
+ #include <asm/traps.h>
+ 
+@@ -144,6 +145,7 @@ static irqreturn_t q40_timer_int(int irq, void *dev_id)
+ 
+ 		local_irq_save(flags);
+ 		timer_routine(0, NULL);
++		timer_heartbeat();
+ 		local_irq_restore(flags);
+ 	}
+ 	return IRQ_HANDLED;
+-- 
+2.27.0
