@@ -1,126 +1,99 @@
-From: Masahiro Yamada <masahiroy@kernel.org>
-Date: Tue, 13 Oct 2020 16:16:59 +0000
-Subject: Re: [PATCH v2 1/2] kconfig: use interpreters to invoke scripts
-Message-Id: <CAK7LNAQUXwH0KoNNQo9F1UCkkah2S1gJZKJFB1+91M3ZGSHQSQ@mail.gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Thu, 08 Oct 2020 15:46:39 +0000
+Subject: [PATCH 01/13] timekeeping: add CONFIG_LEGACY_TIMER_TICK
+Message-Id: <20201008154651.1901126-2-arnd@arndb.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20201012170631.1241502-1-ujjwalkumar0501@gmail.com> <20201012170631.1241502-2-ujjwalkumar0501@gmail.com>
-In-Reply-To: <20201012170631.1241502-2-ujjwalkumar0501@gmail.com>
+References: <20201008154651.1901126-1-arnd@arndb.de>
+In-Reply-To: <20201008154651.1901126-1-arnd@arndb.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ujjwal Kumar <ujjwalkumar0501@gmail.com>
-Cc: Michal Marek <michal.lkml@markovi.net>, Andrew Morton <akpm@linux-foundation.org>, Kees Cook <keescook@chromium.org>, Lukas Bulwahn <lukas.bulwahn@gmail.com>, Nathan Chancellor <natechancellor@gmail.com>, Nick Desaulniers <ndesaulniers@google.com>, Linux Kbuild mailing list <linux-kbuild@vger.kernel.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-arm-kernel <linux-arm-kernel@lists.infradead.org>, linux-ia64@vger.kernel.org, clang-built-linux <clang-built-linux@googlegroups.com>, linux-kernel-mentees@lists.linuxfoundation.org
+To: linux-kernel@vger.kernel.org
+Cc: Arnd Bergmann <arnd@arndb.de>, Russell King <linux@armlinux.org.uk>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Greg Ungerer <gerg@linux-m68k.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Finn Thain <fthain@telegraphics.com.au>, Philip Blundell <philb@gnu.org>, Joshua Thompson <funaho@jurai.org>, Sam Creasey <sammy@sammy.net>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Thomas Gleixner <tglx@linutronix.de>, Daniel Lezcano <daniel.lezcano@linaro.org>, John Stultz <john.stultz@linaro.org>, Stephen Boyd <sboyd@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-arm-kernel@lists.infradead.org
 
-On Tue, Oct 13, 2020 at 2:08 AM Ujjwal Kumar <ujjwalkumar0501@gmail.com> wrote:
->
-> We cannot rely on execute bits to be set on files in the repository.
-> The build script should use the explicit interpreter when invoking any
-> script from the repository.
->
-> Link: https://lore.kernel.org/lkml/20200830174409.c24c3f67addcce0cea9a9d4c@linux-foundation.org/
-> Link: https://lore.kernel.org/lkml/202008271102.FEB906C88@keescook/
->
-> Suggested-by: Andrew Morton <akpm@linux-foundation.org>
-> Suggested-by: Kees Cook <keescook@chromium.org>
-> Suggested-by: Lukas Bulwahn <lukas.bulwahn@gmail.com>
-> Signed-off-by: Ujjwal Kumar <ujjwalkumar0501@gmail.com>
-> ---
+All platforms that currently do not use generic clockevents roughly call
+the same set of functions in their timer interrupts: xtime_update(),
+update_process_times() and profile_tick(), sometimes in a different
+sequence.
 
+Add a helper function that performs all three of them, to make the
+callers more uniform and simplify the interface.
 
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ include/linux/timekeeping.h |  1 +
+ kernel/time/Kconfig         |  7 +++++++
+ kernel/time/Makefile        |  1 +
+ kernel/time/tick-legacy.c   | 19 +++++++++++++++++++
+ 4 files changed, 28 insertions(+)
+ create mode 100644 kernel/time/tick-legacy.c
 
-The patch prefix 'kconfig:' should be used for changes
-under scripts/kconfig/.
-
-
-I want to see both prefixed with "kbuild:".
-
-1/2:   kbuild: use interpreters in Kconfig files to invoke scripts
-2/2:   kbuild: use interpreters in Makefiles to invoke scripts
-
-
-More preferably, those two patches should be squashed into a
-single patch titled "kbuild: use interpreters to invoke scripts"
-
-
-
-BTW, I notice some code left unconverted.
-
-For example,
-https://github.com/torvalds/linux/blob/master/init/Kconfig#L68
-https://github.com/torvalds/linux/blob/v5.9/certs/Makefile#L25
-
-Maybe more...
-
-
-
-I know it is difficult to cover everything, but please
-re-check the remaining code.
-
-
-
-
-
-
-
->  init/Kconfig | 16 ++++++++--------
->  1 file changed, 8 insertions(+), 8 deletions(-)
->
-> diff --git a/init/Kconfig b/init/Kconfig
-> index c9446911cf41..8adf3194d26f 100644
-> --- a/init/Kconfig
-> +++ b/init/Kconfig
-> @@ -30,12 +30,12 @@ config CC_IS_GCC
->
->  config GCC_VERSION
->         int
-> -       default $(shell,$(srctree)/scripts/gcc-version.sh $(CC)) if CC_IS_GCC
-> +       default $(shell,$(CONFIG_SHELL) $(srctree)/scripts/gcc-version.sh $(CC)) if CC_IS_GCC
->         default 0
->
->  config LD_VERSION
->         int
-> -       default $(shell,$(LD) --version | $(srctree)/scripts/ld-version.sh)
-> +       default $(shell,$(LD) --version | $(AWK) -f $(srctree)/scripts/ld-version.sh)
->
->  config CC_IS_CLANG
->         def_bool $(success,echo "$(CC_VERSION_TEXT)" | grep -q clang)
-> @@ -45,20 +45,20 @@ config LD_IS_LLD
->
->  config CLANG_VERSION
->         int
-> -       default $(shell,$(srctree)/scripts/clang-version.sh $(CC))
-> +       default $(shell,$(CONFIG_SHELL) $(srctree)/scripts/clang-version.sh $(CC))
->
->  config CC_CAN_LINK
->         bool
-> -       default $(success,$(srctree)/scripts/cc-can-link.sh $(CC) $(CLANG_FLAGS) $(m64-flag)) if 64BIT
-> -       default $(success,$(srctree)/scripts/cc-can-link.sh $(CC) $(CLANG_FLAGS) $(m32-flag))
-> +       default $(success,$(CONFIG_SHELL) $(srctree)/scripts/cc-can-link.sh $(CC) $(CLANG_FLAGS) $(m64-flag)) if 64BIT
-> +       default $(success,$(CONFIG_SHELL) $(srctree)/scripts/cc-can-link.sh $(CC) $(CLANG_FLAGS) $(m32-flag))
->
->  config CC_CAN_LINK_STATIC
->         bool
-> -       default $(success,$(srctree)/scripts/cc-can-link.sh $(CC) $(CLANG_FLAGS) $(m64-flag) -static) if 64BIT
-> -       default $(success,$(srctree)/scripts/cc-can-link.sh $(CC) $(CLANG_FLAGS) $(m32-flag) -static)
-> +       default $(success,$(CONFIG_SHELL) $(srctree)/scripts/cc-can-link.sh $(CC) $(CLANG_FLAGS) $(m64-flag) -static) if 64BIT
-> +       default $(success,$(CONFIG_SHELL) $(srctree)/scripts/cc-can-link.sh $(CC) $(CLANG_FLAGS) $(m32-flag) -static)
->
->  config CC_HAS_ASM_GOTO
-> -       def_bool $(success,$(srctree)/scripts/gcc-goto.sh $(CC))
-> +       def_bool $(success,$(CONFIG_SHELL) $(srctree)/scripts/gcc-goto.sh $(CC))
->
->  config CC_HAS_ASM_GOTO_OUTPUT
->         depends on CC_HAS_ASM_GOTO
-> --
-> 2.25.1
->
-> --
-> You received this message because you are subscribed to the Google Groups "Clang Built Linux" group.
-> To unsubscribe from this group and stop receiving emails from it, send an email to clang-built-linux+unsubscribe@googlegroups.com.
-> To view this discussion on the web visit https://groups.google.com/d/msgid/clang-built-linux/20201012170631.1241502-2-ujjwalkumar0501%40gmail.com.
-
-
-
+diff --git a/include/linux/timekeeping.h b/include/linux/timekeeping.h
+index 7f7e4a3f4394..3670cb1670ff 100644
+--- a/include/linux/timekeeping.h
++++ b/include/linux/timekeeping.h
+@@ -12,6 +12,7 @@ extern int timekeeping_suspended;
+ /* Architecture timer tick functions: */
+ extern void update_process_times(int user);
+ extern void xtime_update(unsigned long ticks);
++extern void legacy_timer_tick(unsigned long ticks);
+ 
+ /*
+  * Get and set timeofday
+diff --git a/kernel/time/Kconfig b/kernel/time/Kconfig
+index a09b1d61df6a..f2b0cfeade47 100644
+--- a/kernel/time/Kconfig
++++ b/kernel/time/Kconfig
+@@ -61,6 +61,13 @@ config POSIX_CPU_TIMERS_TASK_WORK
+ 	bool
+ 	default y if POSIX_TIMERS && HAVE_POSIX_CPU_TIMERS_TASK_WORK
+ 
++config LEGACY_TIMER_TICK
++	bool
++	help
++	  The legacy timer tick helper is used by platforms that
++	  lack support for the generic clockevent framework.
++	  New platforms should use generic clockevents instead.
++
+ if GENERIC_CLOCKEVENTS
+ menu "Timers subsystem"
+ 
+diff --git a/kernel/time/Makefile b/kernel/time/Makefile
+index c8f00168afe8..1fb1c1ef6a19 100644
+--- a/kernel/time/Makefile
++++ b/kernel/time/Makefile
+@@ -16,6 +16,7 @@ ifeq ($(CONFIG_GENERIC_CLOCKEVENTS_BROADCAST),y)
+ endif
+ obj-$(CONFIG_GENERIC_SCHED_CLOCK)		+= sched_clock.o
+ obj-$(CONFIG_TICK_ONESHOT)			+= tick-oneshot.o tick-sched.o
++obj-$(CONFIG_LEGACY_TIMER_TICK)			+= tick-legacy.o
+ obj-$(CONFIG_HAVE_GENERIC_VDSO)			+= vsyscall.o
+ obj-$(CONFIG_DEBUG_FS)				+= timekeeping_debug.o
+ obj-$(CONFIG_TEST_UDELAY)			+= test_udelay.o
+diff --git a/kernel/time/tick-legacy.c b/kernel/time/tick-legacy.c
+new file mode 100644
+index 000000000000..73c5a0af4743
+--- /dev/null
++++ b/kernel/time/tick-legacy.c
+@@ -0,0 +1,19 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Timer tick function for architectures that lack generic clockevents,
++ * consolidated here from m68k/ia64/parisc/arm.
++ */
++
++#include <linux/irq.h>
++#include <linux/profile.h>
++#include <linux/timekeeper_internal.h>
++
++#include "tick-internal.h"
++
++void legacy_timer_tick(unsigned long ticks)
++{
++	if (ticks)
++		xtime_update(ticks);
++	update_process_times(user_mode(get_irq_regs()));
++	profile_tick(CPU_PROFILING);
++}
 -- 
-Best Regards
-Masahiro Yamada
+2.27.0
