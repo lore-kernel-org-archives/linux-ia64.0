@@ -1,40 +1,37 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Sat, 10 Oct 2020 20:31:13 +0000
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Date: Mon, 12 Oct 2020 13:14:27 +0000
 Subject: Re: [PATCH 01/13] timekeeping: add CONFIG_LEGACY_TIMER_TICK
-Message-Id: <CAK8P3a3ZBHJag7MUDNL+hrZQLiJfc8JyZzOtAuarOVwo_GcmmA@mail.gmail.com>
+Message-Id: <CAMuHMdW22uxMj3=Yfyz9uZoofT_aNxL2kV6UERgAYbRcw7yb2w@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20201008154651.1901126-1-arnd@arndb.de> <20201008154651.1901126-2-arnd@arndb.de>
- <alpine.LNX.2.23.453.2010100820110.12@nippy.intranet>
-In-Reply-To: <alpine.LNX.2.23.453.2010100820110.12@nippy.intranet>
+In-Reply-To: <20201008154651.1901126-2-arnd@arndb.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Finn Thain <fthain@telegraphics.com.au>
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Russell King <linux@armlinux.org.uk>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Greg Ungerer <gerg@linux-m68k.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Philip Blundell <philb@gnu.org>, Joshua Thompson <funaho@jurai.org>, Sam Creasey <sammy@sammy.net>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Thomas Gleixner <tglx@linutronix.de>, Daniel Lezcano <daniel.lezcano@linaro.org>, John Stultz <john.stultz@linaro.org>, Stephen Boyd <sboyd@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, linux-ia64@vger.kernel.org, Parisc List <linux-parisc@vger.kernel.org>, linux-m68k <linux-m68k@lists.linux-m68k.org>, Linux ARM <linux-arm-kernel@lists.infradead.org>
+To: Arnd Bergmann <arnd@arndb.de>
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Russell King <linux@armlinux.org.uk>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Greg Ungerer <gerg@linux-m68k.org>, Finn Thain <fthain@telegraphics.com.au>, Philip Blundell <philb@gnu.org>, Joshua Thompson <funaho@jurai.org>, Sam Creasey <sammy@sammy.net>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Thomas Gleixner <tglx@linutronix.de>, Daniel Lezcano <daniel.lezcano@linaro.org>, John Stultz <john.stultz@linaro.org>, Stephen Boyd <sboyd@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Parisc List <linux-parisc@vger.kernel.org>, linux-m68k <linux-m68k@lists.linux-m68k.org>, Linux ARM <linux-arm-kernel@lists.infradead.org>
 
-On Sat, Oct 10, 2020 at 12:18 AM Finn Thain <fthain@telegraphics.com.au> wrote:
-> On Thu, 8 Oct 2020, Arnd Bergmann wrote:
+On Thu, Oct 8, 2020 at 5:47 PM Arnd Bergmann <arnd@arndb.de> wrote:
+> All platforms that currently do not use generic clockevents roughly call
+> the same set of functions in their timer interrupts: xtime_update(),
+> update_process_times() and profile_tick(), sometimes in a different
+> sequence.
 >
-> It's good to see this code refactored in this way because, as well as
-> de-duplication, it reveals the logic that's common to the relevant
-> platforms and may shed some light on the need for that logic.
+> Add a helper function that performs all three of them, to make the
+> callers more uniform and simplify the interface.
 >
-> Yet it's not clear to me that the clockevents framework is able to replace
-> that logic on all of the affected hardware. I suppose it remains to be
-> seen.
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-I suspect that the change I did for one platform in patch 13/13 could be
-duplicated for all 16 platforms, adding lots of trivial clockevent drivers that
-only support periodic ticks, but any platform that can instead support
-oneshot timers should probably do that, or it won't provide any better
-behavior.
+Reviewed-by: Geert Uytterhoeven <geert@linux-m68k.org>
 
-What do others think we should do here?
+Gr{oetje,eeting}s,
 
-> As a corollary, cutting edge ("non-legacy") code is often kept out of open
-> source projects by the owners of the intellectual property rights.
+                        Geert
 
-I'm happy to change the name in any way if you have a suggestion
-that the clock event maintainers (Daniel and Thomas) like.
 
-      Arnd
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
