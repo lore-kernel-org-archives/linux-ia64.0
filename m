@@ -1,7 +1,7 @@
 From: Lukas Bulwahn <lukas.bulwahn@gmail.com>
-Date: Sun, 04 Oct 2020 06:51:36 +0000
+Date: Mon, 12 Oct 2020 13:40:54 +0000
 Subject: Re: [PATCH RFC 0/2] use interpreters to invoke scripts
-Message-Id: <alpine.DEB.2.21.2010040809230.28226@felia>
+Message-Id: <alpine.DEB.2.21.2010121537150.6487@felia>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <2b00e566-112c-5657-c10f-7f210d3eae93@gmail.com>
 In-Reply-To: <2b00e566-112c-5657-c10f-7f210d3eae93@gmail.com>
@@ -17,39 +17,16 @@ On Sat, 3 Oct 2020, Ujjwal Kumar wrote:
 
 > This patch series aims at removing the dependency on execute=20
 > bit of the scripts in the kbuild system.
->
-
-Ujjwal, your setup to send out the patch series created three unrelated=20
-emails rather than the default way, i.e., to have one cover letter=20
-and the patches in reply to the cover letter.
-
-You can see the difference here:
-
-https://lore.kernel.org/linux-kbuild/
-
-The presentation of your patch series looks different than the other=20
-patch series on the list. Use the linux-kernel-mentees list for testing=20
-your setup.
-
-For this version of the patch series, I guess it is okay; but this set up=20
-right for the next patch series.
-=20
+>=20
 > If not working with fresh clone of linux-next, clean the srctree:
 > make distclean
 > make tools/clean
->
-
-I hit an unrelated issue on next-20201002 that make tools/clean fails.
-Other than that, this is all good.
-=20
+>=20
 > To test the dependency on execute bits, I tried building the=20
 > kernel after removing x-bits for all files in the repository.
 > Removing execute bits:
 > for i in $(find -executable -type f); do chmod -x $i; done
->
-
-Okay, I did that.
-=20
+>=20
 > Any attempts to configure (or build) the kernel fail because of=20
 > 'Permission denied' on scripts with the following error:
 > $ make allmodconfig
@@ -65,26 +42,14 @@ Okay, I did that.
 > init/Kconfig:48: invalid statement
 > make[1]: *** [scripts/kconfig/Makefile:71: allmodconfig] Error 1
 > make: *** [Makefile:606: allmodconfig] Error 2
->
-
-I can confirm that these errors are reported on next-20201002.
-=20
+>=20
 > Changes:
 > 1. Adds specific interpreters (in Kconfig) to invoke=20
 > scripts.
 >=20
 > After this patch I could successfully do a kernel build=20
 > without any errors.
->
-
-With this first patch, I could then successfully do:
-
-make allmodconfig && make
-
-So far, so good. I did check the first patch.
-
-Lukas
-
+>=20
 > 2. Again, adds specific interpreters to other parts of=20
 > kbuild system.
 >=20
@@ -105,7 +70,19 @@ Lukas
 > Ujjwal Kumar (2):
 >   kconfig: use interpreters to invoke scripts
 >   kbuild: use interpreters to invoke scripts
->=20
+>
+
+Ujjwal, I suggest that you continue to wait if you get any feedback from=20
+Masahiro-san within the next two weeks (although the merge window) and if
+not, try to rebase to the the next rc1 and resend this patchset with=20
+Nathan's feedback tags added.
+
+The merge window is busy time for maintainers; in the meantime, you might
+look into if the build target 'make tools/clean' works on the current=20
+release and if there are fixes getting merged that fix that.
+
+Lukas
+
 >  Makefile                          |  4 ++--
 >  arch/arm64/kernel/vdso/Makefile   |  2 +-
 >  arch/arm64/kernel/vdso32/Makefile |  2 +-
