@@ -1,74 +1,93 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Date: Mon, 12 Oct 2020 13:15:25 +0000
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Mon, 12 Oct 2020 15:30:49 +0000
 Subject: Re: [PATCH 08/13] m68k: m68328: use legacy_timer_tick()
-Message-Id: <CAMuHMdWtMZaJ8ETb4g+AfaLeSZ1vyi8-POEaRzmdwh3ha=jieA@mail.gmail.com>
+Message-Id: <CAK8P3a1nDZYYwtuniUGxmy=H8LHbOEGSU=Pmi2=LMrLw09x8+w@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20201008154651.1901126-1-arnd@arndb.de> <20201008154651.1901126-9-arnd@arndb.de>
-In-Reply-To: <20201008154651.1901126-9-arnd@arndb.de>
+ <CAMuHMdWtMZaJ8ETb4g+AfaLeSZ1vyi8-POEaRzmdwh3ha=jieA@mail.gmail.com>
+In-Reply-To: <CAMuHMdWtMZaJ8ETb4g+AfaLeSZ1vyi8-POEaRzmdwh3ha=jieA@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Arnd Bergmann <arnd@arndb.de>
+To: Geert Uytterhoeven <geert@linux-m68k.org>
 Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Russell King <linux@armlinux.org.uk>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Greg Ungerer <gerg@linux-m68k.org>, Finn Thain <fthain@telegraphics.com.au>, Philip Blundell <philb@gnu.org>, Joshua Thompson <funaho@jurai.org>, Sam Creasey <sammy@sammy.net>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Thomas Gleixner <tglx@linutronix.de>, Daniel Lezcano <daniel.lezcano@linaro.org>, John Stultz <john.stultz@linaro.org>, Stephen Boyd <sboyd@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Parisc List <linux-parisc@vger.kernel.org>, linux-m68k <linux-m68k@lists.linux-m68k.org>, Linux ARM <linux-arm-kernel@lists.infradead.org>
 
-Hi Arnd,
-
-On Thu, Oct 8, 2020 at 5:48 PM Arnd Bergmann <arnd@arndb.de> wrote:
-> A couple of machines share the m68328 timer code that
-> is based on calling timer_interrupt(). Change these
-> to the new and slightly more generic legacy_timer_tick()
-> helper.
+On Mon, Oct 12, 2020 at 3:15 PM Geert Uytterhoeven <geert@linux-m68k.org> wrote:
 >
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-
-Thanks for your patch!
-
-> --- a/arch/m68k/Kconfig.machine
-> +++ b/arch/m68k/Kconfig.machine
-> @@ -146,6 +146,7 @@ config PILOT
->  config PILOT3
->         bool "Pilot 1000/5000, PalmPilot Personal/Pro, or PalmIII support"
->         depends on M68328
-> +       select LEGACY_TIMER_TICK
->         select PILOT
->         help
->           Support for the Palm Pilot 1000/5000, Personal/Pro and PalmIII.
-> @@ -159,18 +160,21 @@ config XCOPILOT_BUGS
->  config UCSIMM
->         bool "uCsimm module support"
->         depends on M68EZ328
-> +       select LEGACY_TIMER_TICK
->         help
->           Support for the Arcturus Networks uCsimm module.
+> Given this feature is SoC-specific, not platform-specific, perhaps
+> it makes sense to move the selects to the M68{,EZ,VZ}328 symbols?
 >
->  config UCDIMM
->         bool "uDsimm module support"
->         depends on M68VZ328
-> +       select LEGACY_TIMER_TICK
->         help
->           Support for the Arcturus Networks uDsimm module.
->
->  config DRAGEN2
->         bool "DragenEngine II board support"
->         depends on M68VZ328
-> +       select LEGACY_TIMER_TICK
->         help
->           Support for the DragenEngine II board.
+> Regardless:
+> Reviewed-by: Geert Uytterhoeven <geert@linux-m68k.org>
 
-Given this feature is SoC-specific, not platform-specific, perhaps
-it makes sense to move the selects to the M68{,EZ,VZ}328 symbols?
+Ok, folded in the change blow, using one less line. I couldn't figure
+out whether
+it should just be part of the CONFIG_M68000 instead, which doesn't appear
+to have any machine support by itself. The dragonball CPU configuration
+looks really odd, because you have to build exactly one of M68{,EZ,VZ}328
+into the kernel to get a successful compilation, while Kconfig allows
+many other combinations.
 
-Regardless:
-Reviewed-by: Geert Uytterhoeven <geert@linux-m68k.org>
+     Arnd
 
-Gr{oetje,eeting}s,
+diff --git a/arch/m68k/Kconfig.cpu b/arch/m68k/Kconfig.cpu
+index 322a35ef14c6..648054d4f860 100644
+--- a/arch/m68k/Kconfig.cpu
++++ b/arch/m68k/Kconfig.cpu
+@@ -104,6 +104,7 @@ config M68060
+ config M68328
+        bool "MC68328"
+        depends on !MMU
++       select LEGACY_TIMER_TICK
+        select M68000
+        help
+          Motorola 68328 processor support.
+@@ -111,6 +112,7 @@ config M68328
+ config M68EZ328
+        bool "MC68EZ328"
+        depends on !MMU
++       select LEGACY_TIMER_TICK
+        select M68000
+        help
+          Motorola 68EX328 processor support.
+@@ -118,6 +120,7 @@ config M68EZ328
+ config M68VZ328
+        bool "MC68VZ328"
+        depends on !MMU
++       select LEGACY_TIMER_TICK
+        select M68000
+        help
+          Motorola 68VZ328 processor support.
+diff --git a/arch/m68k/Kconfig.machine b/arch/m68k/Kconfig.machine
+index 0ff9338b958e..e3c835440d9a 100644
+--- a/arch/m68k/Kconfig.machine
++++ b/arch/m68k/Kconfig.machine
+@@ -146,7 +146,6 @@ config PILOT
+ config PILOT3
+        bool "Pilot 1000/5000, PalmPilot Personal/Pro, or PalmIII support"
+        depends on M68328
+-       select LEGACY_TIMER_TICK
+        select PILOT
+        help
+          Support for the Palm Pilot 1000/5000, Personal/Pro and PalmIII.
+@@ -160,21 +159,18 @@ config XCOPILOT_BUGS
+ config UCSIMM
+        bool "uCsimm module support"
+        depends on M68EZ328
+-       select LEGACY_TIMER_TICK
+        help
+          Support for the Arcturus Networks uCsimm module.
 
-                        Geert
+ config UCDIMM
+        bool "uDsimm module support"
+        depends on M68VZ328
+-       select LEGACY_TIMER_TICK
+        help
+          Support for the Arcturus Networks uDsimm module.
 
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+ config DRAGEN2
+        bool "DragenEngine II board support"
+        depends on M68VZ328
+-       select LEGACY_TIMER_TICK
+        help
+          Support for the DragenEngine II board.
