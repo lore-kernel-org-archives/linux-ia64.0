@@ -1,94 +1,88 @@
-From: Arnd Bergmann <arnd@kernel.org>
-Date: Fri, 30 Oct 2020 15:17:53 +0000
-Subject: [PATCH v2 10/15] m68k: sun3/sun3c: use legacy_timer_tick
-Message-Id: <20201030151758.1241164-11-arnd@kernel.org>
+From: Ujjwal Kumar <ujjwalkumar0501@gmail.com>
+Date: Mon, 12 Oct 2020 17:18:29 +0000
+Subject: [PATCH v2 0/2] use interpreters to invoke scripts
+Message-Id: <20201012170631.1241502-1-ujjwalkumar0501@gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20201030151758.1241164-1-arnd@kernel.org>
-In-Reply-To: <20201030151758.1241164-1-arnd@kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Thomas Gleixner <tglx@linutronix.de>, Arnd Bergmann <arnd@arndb.de>, Russell King <linux@armlinux.org.uk>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Greg Ungerer <gerg@linux-m68k.org>, Finn Thain <fthain@telegraphics.com.au>, Philip Blundell <philb@gnu.org>, Joshua Thompson <funaho@jurai.org>, Sam Creasey <sammy@sammy.net>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Daniel Lezcano <daniel.lezcano@linaro.org>, John Stultz <john.stultz@linaro.org>, Stephen Boyd <sboyd@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, linux-ia64@vger.kernel.org, Parisc List <linux-parisc@vger.kernel.org>, linux-m68k <linux-m68k@lists.linux-m68k.org>, Linux ARM <linux-arm-kernel@lists.infradead.org>, Geert Uytterhoeven <geert@linux-m68k.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: Masahiro Yamada <masahiroy@kernel.org>, Michal Marek <michal.lkml@markovi.net>
+Cc: Ujjwal Kumar <ujjwalkumar0501@gmail.com>, Andrew Morton <akpm@linux-foundation.org>, Kees Cook <keescook@chromium.org>, Lukas Bulwahn <lukas.bulwahn@gmail.com>, Nathan Chancellor <natechancellor@gmail.com>, Nick Desaulniers <ndesaulniers@google.com>, linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, clang-built-linux@googlegroups.com, linux-kernel-mentees@lists.linuxfoundation.org
 
-From: Arnd Bergmann <arnd@arndb.de>
+This patch series aims at removing the dependency on execute
+bit of the scripts in the kbuild system.
 
-These two are different from all other machines:
+If not working with fresh clone of linux-next, clean the srctree:
+make distclean
+make tools/clean
 
-* sun3 does not call timer_routine() but open-codes it
-  except for the profile_tick() call that appears to
-  be unintentionally missing.
+To test the dependency on execute bits, I tried building the
+kernel after removing x-bits for all files in the repository.
+Removing execute bits:
+for i in $(find -executable -type f); do chmod -x $i; done
 
-* sun3x has a commented-out timer irq handler but no
-  functional timer tick I could find.
+Any attempts to configure (or build) the kernel fail because of
+'Permission denied' on scripts with the following error:
+$ make allmodconfig
+sh: ./scripts/gcc-version.sh: Permission denied
+init/Kconfig:34: syntax error
+init/Kconfig:33: invalid statement
+init/Kconfig:34: invalid statement
+sh: ./scripts/ld-version.sh: Permission denied
+init/Kconfig:39: syntax error
+init/Kconfig:38: invalid statement
+sh: ./scripts/clang-version.sh: Permission denied
+init/Kconfig:49: syntax error
+init/Kconfig:48: invalid statement
+make[1]: *** [scripts/kconfig/Makefile:71: allmodconfig] Error 1
+make: *** [Makefile:606: allmodconfig] Error 2
 
-Change both to calling the new legacy_timer_tick here,
-which includes the call to profile_tick() but does not
-fix sun3x as that is still commented out.
+Changes:
+  - Adds specific interpreters (in Kconfig) to invoke
+    scripts.
 
-Reviewed-by: Geert Uytterhoeven <geert@linux-m68k.org>
-Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
-Reviewed-by: Linus Walleij <linus.walleij@linaro.org>
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+After this patch I could successfully do a kernel build
+without any errors.
+
+  - Again, adds specific interpreters to other parts of
+    kbuild system.
+
+I could successfully perform the following make targets after
+applying the PATCH 2/2:
+make headerdep
+make kselftest-merge
+make rpm-pkg
+make perf-tar-src-pkg
+make ARCH=3Dia64 defconfig
+ARCH=3Darm64 CROSS_COMPILE=AArch64-linux-gnu- make prepare
+
+Following changes in PATCH 2/2 are not yet tested:
+arch/arm64/kernel/vdso32/Makefile
+arch/nds32/kernel/vdso/Makefile
+scripts/Makefile.build
+
 ---
- arch/m68k/Kconfig.machine | 2 ++
- arch/m68k/sun3/sun3ints.c | 3 +--
- arch/m68k/sun3x/time.c    | 3 +--
- 3 files changed, 4 insertions(+), 4 deletions(-)
+Changes in v2:
 
-diff --git a/arch/m68k/Kconfig.machine b/arch/m68k/Kconfig.machine
-index 17e8c3a292d7..e3c835440d9a 100644
---- a/arch/m68k/Kconfig.machine
-+++ b/arch/m68k/Kconfig.machine
-@@ -99,6 +99,7 @@ config HP300
- config SUN3X
- 	bool "Sun3x support"
- 	depends on MMU
-+	select LEGACY_TIMER_TICK
- 	select MMU_MOTOROLA if MMU
- 	select M68030
- 	help
-@@ -126,6 +127,7 @@ config SUN3
- 	depends on MMU
- 	depends on !MMU_MOTOROLA
- 	select MMU_SUN3 if MMU
-+	select LEGACY_TIMER_TICK
- 	select NO_DMA
- 	select M68020
- 	help
-diff --git a/arch/m68k/sun3/sun3ints.c b/arch/m68k/sun3/sun3ints.c
-index a5824abb4a39..41ae422119d3 100644
---- a/arch/m68k/sun3/sun3ints.c
-+++ b/arch/m68k/sun3/sun3ints.c
-@@ -73,8 +73,7 @@ static irqreturn_t sun3_int5(int irq, void *dev_id)
- #ifdef CONFIG_SUN3
- 	intersil_clear();
- #endif
--	xtime_update(1);
--	update_process_times(user_mode(get_irq_regs()));
-+	legacy_timer_tick(1);
- 	cnt = kstat_irqs_cpu(irq, 0);
- 	if (!(cnt % 20))
- 		sun3_leds(led_pattern[cnt % 160 / 20]);
-diff --git a/arch/m68k/sun3x/time.c b/arch/m68k/sun3x/time.c
-index 9163294b0fb6..f6e25fdc008c 100644
---- a/arch/m68k/sun3x/time.c
-+++ b/arch/m68k/sun3x/time.c
-@@ -77,14 +77,13 @@ int sun3x_hwclk(int set, struct rtc_time *t)
- #if 0
- static irqreturn_t sun3x_timer_tick(int irq, void *dev_id)
- {
--	irq_handler_t timer_routine = dev_id;
- 	unsigned long flags;
- 
- 	local_irq_save(flags);
- 	/* Clear the pending interrupt - pulse the enable line low */
- 	disable_irq(5);
- 	enable_irq(5);
--	timer_routine(0, NULL);
-+	legacy_timer_tick(1);
- 	local_irq_restore(flags);
- 
- 	return IRQ_HANDLED;
--- 
-2.27.0
+  - Changes suggested by Masahiro Yamada
+    $($(CONFIG_SHELL)    ->  $(shell $(CONFIG_SHELL)
+
+
+Ujjwal Kumar (2):
+  kconfig: use interpreters to invoke scripts
+  kbuild: use interpreters to invoke scripts
+
+ Makefile                          |  4 ++--
+ arch/arm64/kernel/vdso/Makefile   |  2 +-
+ arch/arm64/kernel/vdso32/Makefile |  2 +-
+ arch/ia64/Makefile                |  4 ++--
+ arch/nds32/kernel/vdso/Makefile   |  2 +-
+ init/Kconfig                      | 16 ++++++++--------
+ scripts/Makefile.build            |  2 +-
+ scripts/Makefile.package          |  4 ++--
+ 8 files changed, 18 insertions(+), 18 deletions(-)
+
+
+base-commit: 2cab4ac556258c14f6ec8d2157654e95556bbb31
+--
+2.25.1
