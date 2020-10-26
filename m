@@ -1,88 +1,126 @@
-From: Ujjwal Kumar <ujjwalkumar0501@gmail.com>
-Date: Mon, 12 Oct 2020 17:18:29 +0000
-Subject: [PATCH v2 0/2] use interpreters to invoke scripts
-Message-Id: <20201012170631.1241502-1-ujjwalkumar0501@gmail.com>
+From: Sasha Levin <sashal@kernel.org>
+Date: Mon, 26 Oct 2020 23:50:42 +0000
+Subject: [PATCH AUTOSEL 5.8 050/132] ia64: kprobes: Use generic kretprobe trampoline handler
+Message-Id: <20201026235205.1023962-50-sashal@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20201026235205.1023962-1-sashal@kernel.org>
+In-Reply-To: <20201026235205.1023962-1-sashal@kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Masahiro Yamada <masahiroy@kernel.org>, Michal Marek <michal.lkml@markovi.net>
-Cc: Ujjwal Kumar <ujjwalkumar0501@gmail.com>, Andrew Morton <akpm@linux-foundation.org>, Kees Cook <keescook@chromium.org>, Lukas Bulwahn <lukas.bulwahn@gmail.com>, Nathan Chancellor <natechancellor@gmail.com>, Nick Desaulniers <ndesaulniers@google.com>, linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, clang-built-linux@googlegroups.com, linux-kernel-mentees@lists.linuxfoundation.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
+Cc: Masami Hiramatsu <mhiramat@kernel.org>, Ingo Molnar <mingo@kernel.org>, Sasha Levin <sashal@kernel.org>, linux-ia64@vger.kernel.org
 
-This patch series aims at removing the dependency on execute
-bit of the scripts in the kbuild system.
+From: Masami Hiramatsu <mhiramat@kernel.org>
 
-If not working with fresh clone of linux-next, clean the srctree:
-make distclean
-make tools/clean
+[ Upstream commit e792ff804f49720ce003b3e4c618b5d996256a18 ]
 
-To test the dependency on execute bits, I tried building the
-kernel after removing x-bits for all files in the repository.
-Removing execute bits:
-for i in $(find -executable -type f); do chmod -x $i; done
+Use the generic kretprobe trampoline handler. Don't use
+framepointer verification.
 
-Any attempts to configure (or build) the kernel fail because of
-'Permission denied' on scripts with the following error:
-$ make allmodconfig
-sh: ./scripts/gcc-version.sh: Permission denied
-init/Kconfig:34: syntax error
-init/Kconfig:33: invalid statement
-init/Kconfig:34: invalid statement
-sh: ./scripts/ld-version.sh: Permission denied
-init/Kconfig:39: syntax error
-init/Kconfig:38: invalid statement
-sh: ./scripts/clang-version.sh: Permission denied
-init/Kconfig:49: syntax error
-init/Kconfig:48: invalid statement
-make[1]: *** [scripts/kconfig/Makefile:71: allmodconfig] Error 1
-make: *** [Makefile:606: allmodconfig] Error 2
-
-Changes:
-  - Adds specific interpreters (in Kconfig) to invoke
-    scripts.
-
-After this patch I could successfully do a kernel build
-without any errors.
-
-  - Again, adds specific interpreters to other parts of
-    kbuild system.
-
-I could successfully perform the following make targets after
-applying the PATCH 2/2:
-make headerdep
-make kselftest-merge
-make rpm-pkg
-make perf-tar-src-pkg
-make ARCH=3Dia64 defconfig
-ARCH=3Darm64 CROSS_COMPILE=AArch64-linux-gnu- make prepare
-
-Following changes in PATCH 2/2 are not yet tested:
-arch/arm64/kernel/vdso32/Makefile
-arch/nds32/kernel/vdso/Makefile
-scripts/Makefile.build
-
+Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
+Signed-off-by: Ingo Molnar <mingo@kernel.org>
+Link: https://lore.kernel.org/r/159870606883.1229682.12331813108378725668.stgit@devnote2
+Signed-off-by: Sasha Levin <sashal@kernel.org>
 ---
-Changes in v2:
+ arch/ia64/kernel/kprobes.c | 77 +-------------------------------------
+ 1 file changed, 2 insertions(+), 75 deletions(-)
 
-  - Changes suggested by Masahiro Yamada
-    $($(CONFIG_SHELL)    ->  $(shell $(CONFIG_SHELL)
-
-
-Ujjwal Kumar (2):
-  kconfig: use interpreters to invoke scripts
-  kbuild: use interpreters to invoke scripts
-
- Makefile                          |  4 ++--
- arch/arm64/kernel/vdso/Makefile   |  2 +-
- arch/arm64/kernel/vdso32/Makefile |  2 +-
- arch/ia64/Makefile                |  4 ++--
- arch/nds32/kernel/vdso/Makefile   |  2 +-
- init/Kconfig                      | 16 ++++++++--------
- scripts/Makefile.build            |  2 +-
- scripts/Makefile.package          |  4 ++--
- 8 files changed, 18 insertions(+), 18 deletions(-)
-
-
-base-commit: 2cab4ac556258c14f6ec8d2157654e95556bbb31
---
+diff --git a/arch/ia64/kernel/kprobes.c b/arch/ia64/kernel/kprobes.c
+index 7a7df944d7986..fc1ff8a4d7de6 100644
+--- a/arch/ia64/kernel/kprobes.c
++++ b/arch/ia64/kernel/kprobes.c
+@@ -396,83 +396,9 @@ static void kretprobe_trampoline(void)
+ {
+ }
+ 
+-/*
+- * At this point the target function has been tricked into
+- * returning into our trampoline.  Lookup the associated instance
+- * and then:
+- *    - call the handler function
+- *    - cleanup by marking the instance as unused
+- *    - long jump back to the original return address
+- */
+ int __kprobes trampoline_probe_handler(struct kprobe *p, struct pt_regs *regs)
+ {
+-	struct kretprobe_instance *ri = NULL;
+-	struct hlist_head *head, empty_rp;
+-	struct hlist_node *tmp;
+-	unsigned long flags, orig_ret_address = 0;
+-	unsigned long trampoline_address -		((struct fnptr *)kretprobe_trampoline)->ip;
+-
+-	INIT_HLIST_HEAD(&empty_rp);
+-	kretprobe_hash_lock(current, &head, &flags);
+-
+-	/*
+-	 * It is possible to have multiple instances associated with a given
+-	 * task either because an multiple functions in the call path
+-	 * have a return probe installed on them, and/or more than one return
+-	 * return probe was registered for a target function.
+-	 *
+-	 * We can handle this because:
+-	 *     - instances are always inserted at the head of the list
+-	 *     - when multiple return probes are registered for the same
+-	 *       function, the first instance's ret_addr will point to the
+-	 *       real return address, and all the rest will point to
+-	 *       kretprobe_trampoline
+-	 */
+-	hlist_for_each_entry_safe(ri, tmp, head, hlist) {
+-		if (ri->task != current)
+-			/* another task is sharing our hash bucket */
+-			continue;
+-
+-		orig_ret_address = (unsigned long)ri->ret_addr;
+-		if (orig_ret_address != trampoline_address)
+-			/*
+-			 * This is the real return address. Any other
+-			 * instances associated with this task are for
+-			 * other calls deeper on the call stack
+-			 */
+-			break;
+-	}
+-
+-	regs->cr_iip = orig_ret_address;
+-
+-	hlist_for_each_entry_safe(ri, tmp, head, hlist) {
+-		if (ri->task != current)
+-			/* another task is sharing our hash bucket */
+-			continue;
+-
+-		if (ri->rp && ri->rp->handler)
+-			ri->rp->handler(ri, regs);
+-
+-		orig_ret_address = (unsigned long)ri->ret_addr;
+-		recycle_rp_inst(ri, &empty_rp);
+-
+-		if (orig_ret_address != trampoline_address)
+-			/*
+-			 * This is the real return address. Any other
+-			 * instances associated with this task are for
+-			 * other calls deeper on the call stack
+-			 */
+-			break;
+-	}
+-	kretprobe_assert(ri, orig_ret_address, trampoline_address);
+-
+-	kretprobe_hash_unlock(current, &flags);
+-
+-	hlist_for_each_entry_safe(ri, tmp, &empty_rp, hlist) {
+-		hlist_del(&ri->hlist);
+-		kfree(ri);
+-	}
++	regs->cr_iip = __kretprobe_trampoline_handler(regs, kretprobe_trampoline, NULL);
+ 	/*
+ 	 * By returning a non-zero value, we are telling
+ 	 * kprobe_handler() that we don't want the post_handler
+@@ -485,6 +411,7 @@ void __kprobes arch_prepare_kretprobe(struct kretprobe_instance *ri,
+ 				      struct pt_regs *regs)
+ {
+ 	ri->ret_addr = (kprobe_opcode_t *)regs->b0;
++	ri->fp = NULL;
+ 
+ 	/* Replace the return addr with trampoline addr */
+ 	regs->b0 = ((struct fnptr *)kretprobe_trampoline)->ip;
+-- 
 2.25.1
