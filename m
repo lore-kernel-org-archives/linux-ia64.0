@@ -1,376 +1,126 @@
-From: Mike Rapoport <rppt@kernel.org>
-Date: Tue, 27 Oct 2020 11:29:51 +0000
-Subject: [PATCH 09/13] arm, arm64: move free_unused_memmap() to generic mm
-Message-Id: <20201027112955.14157-10-rppt@kernel.org>
+From: Sasha Levin <sashal@kernel.org>
+Date: Mon, 26 Oct 2020 23:54:26 +0000
+Subject: [PATCH AUTOSEL 5.4 30/80] ia64: kprobes: Use generic kretprobe trampoline handler
+Message-Id: <20201026235516.1025100-30-sashal@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20201027112955.14157-1-rppt@kernel.org>
-In-Reply-To: <20201027112955.14157-1-rppt@kernel.org>
+References: <20201026235516.1025100-1-sashal@kernel.org>
+In-Reply-To: <20201026235516.1025100-1-sashal@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>
-Cc: Alexey Dobriyan <adobriyan@gmail.com>, Catalin Marinas <catalin.marinas@arm.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, Jonathan Corbet <corbet@lwn.net>, Matt Turner <mattst88@gmail.com>, Meelis Roos <mroos@linux.ee>, Michael Schmitz <schmitzmic@gmail.com>, Mike Rapoport <rppt@kernel.org>, Mike Rapoport <rppt@linux.ibm.com>, Russell King <linux@armlinux.org.uk>, Tony Luck <tony.luck@intel.com>, Vineet Gupta <vgupta@synopsys.com>, Will Deacon <will@kernel.org>, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-doc@vger.kernel.org, linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mm@kvack.org, linux-snps-arc@lists.infradead.org
+To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
+Cc: Masami Hiramatsu <mhiramat@kernel.org>, Ingo Molnar <mingo@kernel.org>, Sasha Levin <sashal@kernel.org>, linux-ia64@vger.kernel.org
 
-From: Mike Rapoport <rppt@linux.ibm.com>
+From: Masami Hiramatsu <mhiramat@kernel.org>
 
-ARM and ARM64 free unused parts of the memory map just before the
-initialization of the page allocator. To allow holes in the memory map both
-architectures overload pfn_valid() and define HAVE_ARCH_PFN_VALID.
+[ Upstream commit e792ff804f49720ce003b3e4c618b5d996256a18 ]
 
-Allowing holes in the memory map for FLATMEM may be useful for small
-machines, such as ARC and m68k and will enable those architectures to cease
-using DISCONTIGMEM and still support more than one memory bank.
+Use the generic kretprobe trampoline handler. Don't use
+framepointer verification.
 
-Move the functions that free unused memory map to generic mm and enable
-them in case HAVE_ARCH_PFN_VALID=y.
-
-Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
+Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
+Signed-off-by: Ingo Molnar <mingo@kernel.org>
+Link: https://lore.kernel.org/r/159870606883.1229682.12331813108378725668.stgit@devnote2
+Signed-off-by: Sasha Levin <sashal@kernel.org>
 ---
- arch/Kconfig         |  3 ++
- arch/arm/Kconfig     |  4 +--
- arch/arm/mm/init.c   | 78 ------------------------------------------
- arch/arm64/Kconfig   |  4 +--
- arch/arm64/mm/init.c | 68 -------------------------------------
- mm/memblock.c        | 80 ++++++++++++++++++++++++++++++++++++++++++++
- 6 files changed, 85 insertions(+), 152 deletions(-)
+ arch/ia64/kernel/kprobes.c | 77 +-------------------------------------
+ 1 file changed, 2 insertions(+), 75 deletions(-)
 
-diff --git a/arch/Kconfig b/arch/Kconfig
-index 56b6ccc0e32d..d715da18a8a9 100644
---- a/arch/Kconfig
-+++ b/arch/Kconfig
-@@ -1028,6 +1028,9 @@ config HAVE_STATIC_CALL_INLINE
- 	bool
- 	depends on HAVE_STATIC_CALL
- 
-+config HAVE_ARCH_PFN_VALID
-+	bool
-+
- source "kernel/gcov/Kconfig"
- 
- source "scripts/gcc-plugins/Kconfig"
-diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
-index 83adc46c1e67..495d42c5ecec 100644
---- a/arch/arm/Kconfig
-+++ b/arch/arm/Kconfig
-@@ -68,6 +68,7 @@ config ARM
- 	select HAVE_ARCH_JUMP_LABEL if !XIP_KERNEL && !CPU_ENDIAN_BE32 && MMU
- 	select HAVE_ARCH_KGDB if !CPU_ENDIAN_BE32 && MMU
- 	select HAVE_ARCH_MMAP_RND_BITS if MMU
-+	select HAVE_ARCH_PFN_VALID
- 	select HAVE_ARCH_SECCOMP
- 	select HAVE_ARCH_SECCOMP_FILTER if AEABI && !OABI_COMPAT
- 	select HAVE_ARCH_THREAD_STRUCT_WHITELIST
-@@ -1488,9 +1489,6 @@ config ARCH_SPARSEMEM_ENABLE
- 	bool
- 	select SPARSEMEM_STATIC if SPARSEMEM
- 
--config HAVE_ARCH_PFN_VALID
--	def_bool y
--
- config HIGHMEM
- 	bool "High Memory Support"
- 	depends on MMU
-diff --git a/arch/arm/mm/init.c b/arch/arm/mm/init.c
-index d57112a276f5..a04ac5ea7641 100644
---- a/arch/arm/mm/init.c
-+++ b/arch/arm/mm/init.c
-@@ -267,83 +267,6 @@ static inline void poison_init_mem(void *s, size_t count)
- 		*p++ = 0xe7fddef0;
+diff --git a/arch/ia64/kernel/kprobes.c b/arch/ia64/kernel/kprobes.c
+index b8356edbde659..b3dc39050c1ad 100644
+--- a/arch/ia64/kernel/kprobes.c
++++ b/arch/ia64/kernel/kprobes.c
+@@ -396,83 +396,9 @@ static void kretprobe_trampoline(void)
+ {
  }
  
--static inline void __init
--free_memmap(unsigned long start_pfn, unsigned long end_pfn)
--{
--	struct page *start_pg, *end_pg;
--	phys_addr_t pg, pgend;
--
--	/*
--	 * Convert start_pfn/end_pfn to a struct page pointer.
--	 */
--	start_pg = pfn_to_page(start_pfn - 1) + 1;
--	end_pg = pfn_to_page(end_pfn - 1) + 1;
--
--	/*
--	 * Convert to physical addresses, and
--	 * round start upwards and end downwards.
--	 */
--	pg = PAGE_ALIGN(__pa(start_pg));
--	pgend = __pa(end_pg) & PAGE_MASK;
--
--	/*
--	 * If there are free pages between these,
--	 * free the section of the memmap array.
--	 */
--	if (pg < pgend)
--		memblock_free_early(pg, pgend - pg);
--}
--
 -/*
-- * The mem_map array can get very big.  Free the unused area of the memory map.
+- * At this point the target function has been tricked into
+- * returning into our trampoline.  Lookup the associated instance
+- * and then:
+- *    - call the handler function
+- *    - cleanup by marking the instance as unused
+- *    - long jump back to the original return address
 - */
--static void __init free_unused_memmap(void)
--{
--	unsigned long start, end, prev_end = 0;
--	int i;
+ int __kprobes trampoline_probe_handler(struct kprobe *p, struct pt_regs *regs)
+ {
+-	struct kretprobe_instance *ri = NULL;
+-	struct hlist_head *head, empty_rp;
+-	struct hlist_node *tmp;
+-	unsigned long flags, orig_ret_address = 0;
+-	unsigned long trampoline_address -		((struct fnptr *)kretprobe_trampoline)->ip;
+-
+-	INIT_HLIST_HEAD(&empty_rp);
+-	kretprobe_hash_lock(current, &head, &flags);
 -
 -	/*
--	 * This relies on each bank being in address order.
--	 * The banks are sorted previously in bootmem_init().
+-	 * It is possible to have multiple instances associated with a given
+-	 * task either because an multiple functions in the call path
+-	 * have a return probe installed on them, and/or more than one return
+-	 * return probe was registered for a target function.
+-	 *
+-	 * We can handle this because:
+-	 *     - instances are always inserted at the head of the list
+-	 *     - when multiple return probes are registered for the same
+-	 *       function, the first instance's ret_addr will point to the
+-	 *       real return address, and all the rest will point to
+-	 *       kretprobe_trampoline
 -	 */
--	for_each_mem_pfn_range(i, MAX_NUMNODES, &start, &end, NULL) {
--#ifdef CONFIG_SPARSEMEM
--		/*
--		 * Take care not to free memmap entries that don't exist
--		 * due to SPARSEMEM sections which aren't present.
--		 */
--		start = min(start,
--				 ALIGN(prev_end, PAGES_PER_SECTION));
--#else
--		/*
--		 * Align down here since the VM subsystem insists that the
--		 * memmap entries are valid from the bank start aligned to
--		 * MAX_ORDER_NR_PAGES.
--		 */
--		start = round_down(start, MAX_ORDER_NR_PAGES);
--#endif
--		/*
--		 * If we had a previous bank, and there is a space
--		 * between the current bank and the previous, free it.
--		 */
--		if (prev_end && prev_end < start)
--			free_memmap(prev_end, start);
+-	hlist_for_each_entry_safe(ri, tmp, head, hlist) {
+-		if (ri->task != current)
+-			/* another task is sharing our hash bucket */
+-			continue;
 -
--		/*
--		 * Align up here since the VM subsystem insists that the
--		 * memmap entries are valid from the bank end aligned to
--		 * MAX_ORDER_NR_PAGES.
--		 */
--		prev_end = ALIGN(end, MAX_ORDER_NR_PAGES);
+-		orig_ret_address = (unsigned long)ri->ret_addr;
+-		if (orig_ret_address != trampoline_address)
+-			/*
+-			 * This is the real return address. Any other
+-			 * instances associated with this task are for
+-			 * other calls deeper on the call stack
+-			 */
+-			break;
 -	}
 -
--#ifdef CONFIG_SPARSEMEM
--	if (!IS_ALIGNED(prev_end, PAGES_PER_SECTION))
--		free_memmap(prev_end,
--			    ALIGN(prev_end, PAGES_PER_SECTION));
--#endif
--}
+-	regs->cr_iip = orig_ret_address;
 -
- static void __init free_highpages(void)
- {
- #ifdef CONFIG_HIGHMEM
-@@ -385,7 +308,6 @@ void __init mem_init(void)
- 	set_max_mapnr(pfn_to_page(max_pfn) - mem_map);
- 
- 	/* this will put all unused low memory onto the freelists */
--	free_unused_memmap();
- 	memblock_free_all();
- 
- #ifdef CONFIG_SA1111
-diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
-index f858c352f72a..b7e6a0c09d12 100644
---- a/arch/arm64/Kconfig
-+++ b/arch/arm64/Kconfig
-@@ -138,6 +138,7 @@ config ARM64
- 	select HAVE_ARCH_KGDB
- 	select HAVE_ARCH_MMAP_RND_BITS
- 	select HAVE_ARCH_MMAP_RND_COMPAT_BITS if COMPAT
-+	select HAVE_ARCH_PFN_VALID
- 	select HAVE_ARCH_PREL32_RELOCATIONS
- 	select HAVE_ARCH_SECCOMP_FILTER
- 	select HAVE_ARCH_STACKLEAK
-@@ -1021,9 +1022,6 @@ config ARCH_SELECT_MEMORY_MODEL
- config ARCH_FLATMEM_ENABLE
- 	def_bool !NUMA
- 
--config HAVE_ARCH_PFN_VALID
--	def_bool y
+-	hlist_for_each_entry_safe(ri, tmp, head, hlist) {
+-		if (ri->task != current)
+-			/* another task is sharing our hash bucket */
+-			continue;
 -
- config HW_PERF_EVENTS
- 	def_bool y
- 	depends on ARM_PMU
-diff --git a/arch/arm64/mm/init.c b/arch/arm64/mm/init.c
-index 095540667f0f..3d8328277bec 100644
---- a/arch/arm64/mm/init.c
-+++ b/arch/arm64/mm/init.c
-@@ -430,71 +430,6 @@ void __init bootmem_init(void)
- 	memblock_dump_all();
- }
- 
--#ifndef CONFIG_SPARSEMEM_VMEMMAP
--static inline void free_memmap(unsigned long start_pfn, unsigned long end_pfn)
--{
--	struct page *start_pg, *end_pg;
--	unsigned long pg, pgend;
+-		if (ri->rp && ri->rp->handler)
+-			ri->rp->handler(ri, regs);
 -
--	/*
--	 * Convert start_pfn/end_pfn to a struct page pointer.
--	 */
--	start_pg = pfn_to_page(start_pfn - 1) + 1;
--	end_pg = pfn_to_page(end_pfn - 1) + 1;
+-		orig_ret_address = (unsigned long)ri->ret_addr;
+-		recycle_rp_inst(ri, &empty_rp);
 -
--	/*
--	 * Convert to physical addresses, and round start upwards and end
--	 * downwards.
--	 */
--	pg = (unsigned long)PAGE_ALIGN(__pa(start_pg));
--	pgend = (unsigned long)__pa(end_pg) & PAGE_MASK;
--
--	/*
--	 * If there are free pages between these, free the section of the
--	 * memmap array.
--	 */
--	if (pg < pgend)
--		memblock_free(pg, pgend - pg);
--}
--
--/*
-- * The mem_map array can get very big. Free the unused area of the memory map.
-- */
--static void __init free_unused_memmap(void)
--{
--	unsigned long start, end, prev_end = 0;
--	int i;
--
--	for_each_mem_pfn_range(i, MAX_NUMNODES, &start, &end, NULL) {
--#ifdef CONFIG_SPARSEMEM
--		/*
--		 * Take care not to free memmap entries that don't exist due
--		 * to SPARSEMEM sections which aren't present.
--		 */
--		start = min(start, ALIGN(prev_end, PAGES_PER_SECTION));
--#endif
--		/*
--		 * If we had a previous bank, and there is a space between the
--		 * current bank and the previous, free it.
--		 */
--		if (prev_end && prev_end < start)
--			free_memmap(prev_end, start);
--
--		/*
--		 * Align up here since the VM subsystem insists that the
--		 * memmap entries are valid from the bank end aligned to
--		 * MAX_ORDER_NR_PAGES.
--		 */
--		prev_end = ALIGN(end, MAX_ORDER_NR_PAGES);
+-		if (orig_ret_address != trampoline_address)
+-			/*
+-			 * This is the real return address. Any other
+-			 * instances associated with this task are for
+-			 * other calls deeper on the call stack
+-			 */
+-			break;
 -	}
+-	kretprobe_assert(ri, orig_ret_address, trampoline_address);
 -
--#ifdef CONFIG_SPARSEMEM
--	if (!IS_ALIGNED(prev_end, PAGES_PER_SECTION))
--		free_memmap(prev_end, ALIGN(prev_end, PAGES_PER_SECTION));
--#endif
--}
--#endif	/* !CONFIG_SPARSEMEM_VMEMMAP */
+-	kretprobe_hash_unlock(current, &flags);
 -
- /*
-  * mem_init() marks the free areas in the mem_map and tells us how much memory
-  * is free.  This is done after various parts of the system have claimed their
-@@ -510,9 +445,6 @@ void __init mem_init(void)
- 
- 	set_max_mapnr(max_pfn - PHYS_PFN_OFFSET);
- 
--#ifndef CONFIG_SPARSEMEM_VMEMMAP
--	free_unused_memmap();
--#endif
- 	/* this will put all unused low memory onto the freelists */
- 	memblock_free_all();
- 
-diff --git a/mm/memblock.c b/mm/memblock.c
-index b68ee86788af..049df4163a97 100644
---- a/mm/memblock.c
-+++ b/mm/memblock.c
-@@ -1926,6 +1926,85 @@ static int __init early_memblock(char *p)
- }
- early_param("memblock", early_memblock);
- 
-+static void __init free_memmap(unsigned long start_pfn, unsigned long end_pfn)
-+{
-+	struct page *start_pg, *end_pg;
-+	phys_addr_t pg, pgend;
-+
-+	/*
-+	 * Convert start_pfn/end_pfn to a struct page pointer.
-+	 */
-+	start_pg = pfn_to_page(start_pfn - 1) + 1;
-+	end_pg = pfn_to_page(end_pfn - 1) + 1;
-+
-+	/*
-+	 * Convert to physical addresses, and round start upwards and end
-+	 * downwards.
-+	 */
-+	pg = PAGE_ALIGN(__pa(start_pg));
-+	pgend = __pa(end_pg) & PAGE_MASK;
-+
-+	/*
-+	 * If there are free pages between these, free the section of the
-+	 * memmap array.
-+	 */
-+	if (pg < pgend)
-+		memblock_free(pg, pgend - pg);
-+}
-+
-+/*
-+ * The mem_map array can get very big.  Free the unused area of the memory map.
-+ */
-+static void __init free_unused_memmap(void)
-+{
-+	unsigned long start, end, prev_end = 0;
-+	int i;
-+
-+	if (!IS_ENABLED(CONFIG_HAVE_ARCH_PFN_VALID) ||
-+	    IS_ENABLED(CONFIG_SPARSEMEM_VMEMMAP))
-+		return;
-+
-+	/*
-+	 * This relies on each bank being in address order.
-+	 * The banks are sorted previously in bootmem_init().
-+	 */
-+	for_each_mem_pfn_range(i, MAX_NUMNODES, &start, &end, NULL) {
-+#ifdef CONFIG_SPARSEMEM
-+		/*
-+		 * Take care not to free memmap entries that don't exist
-+		 * due to SPARSEMEM sections which aren't present.
-+		 */
-+		start = min(start, ALIGN(prev_end, PAGES_PER_SECTION));
-+#else
-+		/*
-+		 * Align down here since the VM subsystem insists that the
-+		 * memmap entries are valid from the bank start aligned to
-+		 * MAX_ORDER_NR_PAGES.
-+		 */
-+		start = round_down(start, MAX_ORDER_NR_PAGES);
-+#endif
-+
-+		/*
-+		 * If we had a previous bank, and there is a space
-+		 * between the current bank and the previous, free it.
-+		 */
-+		if (prev_end && prev_end < start)
-+			free_memmap(prev_end, start);
-+
-+		/*
-+		 * Align up here since the VM subsystem insists that the
-+		 * memmap entries are valid from the bank end aligned to
-+		 * MAX_ORDER_NR_PAGES.
-+		 */
-+		prev_end = ALIGN(end, MAX_ORDER_NR_PAGES);
-+	}
-+
-+#ifdef CONFIG_SPARSEMEM
-+	if (!IS_ALIGNED(prev_end, PAGES_PER_SECTION))
-+		free_memmap(prev_end, ALIGN(prev_end, PAGES_PER_SECTION));
-+#endif
-+}
-+
- static void __init __free_pages_memory(unsigned long start, unsigned long end)
+-	hlist_for_each_entry_safe(ri, tmp, &empty_rp, hlist) {
+-		hlist_del(&ri->hlist);
+-		kfree(ri);
+-	}
++	regs->cr_iip = __kretprobe_trampoline_handler(regs, kretprobe_trampoline, NULL);
+ 	/*
+ 	 * By returning a non-zero value, we are telling
+ 	 * kprobe_handler() that we don't want the post_handler
+@@ -485,6 +411,7 @@ void __kprobes arch_prepare_kretprobe(struct kretprobe_instance *ri,
+ 				      struct pt_regs *regs)
  {
- 	int order;
-@@ -2012,6 +2091,7 @@ unsigned long __init memblock_free_all(void)
- {
- 	unsigned long pages;
+ 	ri->ret_addr = (kprobe_opcode_t *)regs->b0;
++	ri->fp = NULL;
  
-+	free_unused_memmap();
- 	reset_all_zones_managed_pages();
- 
- 	pages = free_low_memory_core_early();
+ 	/* Replace the return addr with trampoline addr */
+ 	regs->b0 = ((struct fnptr *)kretprobe_trampoline)->ip;
 -- 
-2.28.0
+2.25.1
