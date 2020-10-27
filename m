@@ -1,7 +1,7 @@
 From: Mike Rapoport <rppt@kernel.org>
-Date: Tue, 27 Oct 2020 11:29:45 +0000
-Subject: [PATCH 03/13] ia64: remove 'ifdef CONFIG_ZONE_DMA32' statements
-Message-Id: <20201027112955.14157-4-rppt@kernel.org>
+Date: Tue, 27 Oct 2020 11:29:54 +0000
+Subject: [PATCH 12/13] m68k/mm: enable use of generic memory_model.h for !DISCONTIGMEM
+Message-Id: <20201027112955.14157-13-rppt@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20201027112955.14157-1-rppt@kernel.org>
 In-Reply-To: <20201027112955.14157-1-rppt@kernel.org>
@@ -13,46 +13,88 @@ Cc: Alexey Dobriyan <adobriyan@gmail.com>, Catalin Marinas <catalin.marinas@arm.
 
 From: Mike Rapoport <rppt@linux.ibm.com>
 
-After the removal of SN2 platform (commit cf07cb1ff4ea ("ia64: remove
-support for the SGI SN2 platform") IA-64 always has ZONE_DMA32 and there is
-no point to guard code with this configuration option.
-
-Remove ifdefery associated with CONFIG_ZONE_DMA32
+The pg_data_map and pg_data_table arrays as well as page_to_pfn() and
+pfn_to_page() are required only for DISCONTIGMEM. Other memory models can
+use the generic definitions in asm-generic/memory_model.h.
 
 Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
 ---
- arch/ia64/mm/contig.c    | 2 --
- arch/ia64/mm/discontig.c | 2 --
- 2 files changed, 4 deletions(-)
+ arch/m68k/include/asm/page.h        | 2 ++
+ arch/m68k/include/asm/page_mm.h     | 5 +++++
+ arch/m68k/include/asm/virtconvert.h | 2 +-
+ arch/m68k/mm/init.c                 | 6 +++---
+ 4 files changed, 11 insertions(+), 4 deletions(-)
 
-diff --git a/arch/ia64/mm/contig.c b/arch/ia64/mm/contig.c
-index e30e360beef8..2491aaeca90c 100644
---- a/arch/ia64/mm/contig.c
-+++ b/arch/ia64/mm/contig.c
-@@ -177,10 +177,8 @@ paging_init (void)
- 	unsigned long max_zone_pfns[MAX_NR_ZONES];
+diff --git a/arch/m68k/include/asm/page.h b/arch/m68k/include/asm/page.h
+index 2614a1206f2f..6116d7094292 100644
+--- a/arch/m68k/include/asm/page.h
++++ b/arch/m68k/include/asm/page.h
+@@ -62,8 +62,10 @@ extern unsigned long _ramend;
+ #include <asm/page_no.h>
+ #endif
  
- 	memset(max_zone_pfns, 0, sizeof(max_zone_pfns));
--#ifdef CONFIG_ZONE_DMA32
- 	max_dma = virt_to_phys((void *) MAX_DMA_ADDRESS) >> PAGE_SHIFT;
- 	max_zone_pfns[ZONE_DMA32] = max_dma;
--#endif
- 	max_zone_pfns[ZONE_NORMAL] = max_low_pfn;
++#ifdef CONFIG_DISCONTIGMEM
+ #define __phys_to_pfn(paddr)	((unsigned long)((paddr) >> PAGE_SHIFT))
+ #define __pfn_to_phys(pfn)	PFN_PHYS(pfn)
++#endif
  
- #ifdef CONFIG_VIRTUAL_MEM_MAP
-diff --git a/arch/ia64/mm/discontig.c b/arch/ia64/mm/discontig.c
-index dbe829fc5298..d255596f52c6 100644
---- a/arch/ia64/mm/discontig.c
-+++ b/arch/ia64/mm/discontig.c
-@@ -621,9 +621,7 @@ void __init paging_init(void)
- 	}
+ #include <asm-generic/getorder.h>
  
- 	memset(max_zone_pfns, 0, sizeof(max_zone_pfns));
--#ifdef CONFIG_ZONE_DMA32
- 	max_zone_pfns[ZONE_DMA32] = max_dma;
--#endif
- 	max_zone_pfns[ZONE_NORMAL] = max_pfn;
- 	free_area_init(max_zone_pfns);
+diff --git a/arch/m68k/include/asm/page_mm.h b/arch/m68k/include/asm/page_mm.h
+index 0e794051d3bb..7f5912af2a52 100644
+--- a/arch/m68k/include/asm/page_mm.h
++++ b/arch/m68k/include/asm/page_mm.h
+@@ -153,6 +153,7 @@ static inline __attribute_const__ int __virt_to_node_shift(void)
+ 	pfn_to_virt(page_to_pfn(page));					\
+ })
  
++#ifdef CONFIG_DISCONTIGMEM
+ #define pfn_to_page(pfn) ({						\
+ 	unsigned long __pfn = (pfn);					\
+ 	struct pglist_data *pgdat;					\
+@@ -165,6 +166,10 @@ static inline __attribute_const__ int __virt_to_node_shift(void)
+ 	pgdat = &pg_data_map[page_to_nid(__p)];				\
+ 	((__p) - pgdat->node_mem_map) + pgdat->node_start_pfn;		\
+ })
++#else
++#define ARCH_PFN_OFFSET (m68k_memory[0].addr)
++#include <asm-generic/memory_model.h>
++#endif
+ 
+ #define virt_addr_valid(kaddr)	((void *)(kaddr) >= (void *)PAGE_OFFSET && (void *)(kaddr) < high_memory)
+ #define pfn_valid(pfn)		virt_addr_valid(pfn_to_virt(pfn))
+diff --git a/arch/m68k/include/asm/virtconvert.h b/arch/m68k/include/asm/virtconvert.h
+index dfe43083b579..751bb6f4aaf6 100644
+--- a/arch/m68k/include/asm/virtconvert.h
++++ b/arch/m68k/include/asm/virtconvert.h
+@@ -31,7 +31,7 @@ static inline void *phys_to_virt(unsigned long address)
+ /* Permanent address of a page. */
+ #if defined(CONFIG_MMU) && defined(CONFIG_SINGLE_MEMORY_CHUNK)
+ #define page_to_phys(page) \
+-	__pa(PAGE_OFFSET + (((page) - pg_data_map[0].node_mem_map) << PAGE_SHIFT))
++	__pa(PAGE_OFFSET + (((page) - mem_map) << PAGE_SHIFT))
+ #else
+ #define page_to_phys(page)	(page_to_pfn(page) << PAGE_SHIFT)
+ #endif
+diff --git a/arch/m68k/mm/init.c b/arch/m68k/mm/init.c
+index 4b46ceace3d3..14c1e541451c 100644
+--- a/arch/m68k/mm/init.c
++++ b/arch/m68k/mm/init.c
+@@ -42,12 +42,12 @@ EXPORT_SYMBOL(empty_zero_page);
+ 
+ #ifdef CONFIG_MMU
+ 
+-pg_data_t pg_data_map[MAX_NUMNODES];
+-EXPORT_SYMBOL(pg_data_map);
+-
+ int m68k_virt_to_node_shift;
+ 
+ #ifdef CONFIG_DISCONTIGMEM
++pg_data_t pg_data_map[MAX_NUMNODES];
++EXPORT_SYMBOL(pg_data_map);
++
+ pg_data_t *pg_data_table[65];
+ EXPORT_SYMBOL(pg_data_table);
+ #endif
 -- 
 2.28.0
