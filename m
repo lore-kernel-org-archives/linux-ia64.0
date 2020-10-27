@@ -1,89 +1,208 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Thu, 08 Oct 2020 15:46:41 +0000
-Subject: [PATCH 03/13] ARM: rpc: use legacy_timer_tick
-Message-Id: <20201008154651.1901126-4-arnd@arndb.de>
+From: Mike Rapoport <rppt@kernel.org>
+Date: Tue, 27 Oct 2020 11:29:43 +0000
+Subject: [PATCH 01/13] alpha: switch from DISCONTIGMEM to SPARSEMEM
+Message-Id: <20201027112955.14157-2-rppt@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20201008154651.1901126-1-arnd@arndb.de>
-In-Reply-To: <20201008154651.1901126-1-arnd@arndb.de>
+References: <20201027112955.14157-1-rppt@kernel.org>
+In-Reply-To: <20201027112955.14157-1-rppt@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Arnd Bergmann <arnd@arndb.de>, Russell King <linux@armlinux.org.uk>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Greg Ungerer <gerg@linux-m68k.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Finn Thain <fthain@telegraphics.com.au>, Philip Blundell <philb@gnu.org>, Joshua Thompson <funaho@jurai.org>, Sam Creasey <sammy@sammy.net>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Thomas Gleixner <tglx@linutronix.de>, Daniel Lezcano <daniel.lezcano@linaro.org>, John Stultz <john.stultz@linaro.org>, Stephen Boyd <sboyd@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-arm-kernel@lists.infradead.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Alexey Dobriyan <adobriyan@gmail.com>, Catalin Marinas <catalin.marinas@arm.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, Jonathan Corbet <corbet@lwn.net>, Matt Turner <mattst88@gmail.com>, Meelis Roos <mroos@linux.ee>, Michael Schmitz <schmitzmic@gmail.com>, Mike Rapoport <rppt@kernel.org>, Mike Rapoport <rppt@linux.ibm.com>, Russell King <linux@armlinux.org.uk>, Tony Luck <tony.luck@intel.com>, Vineet Gupta <vgupta@synopsys.com>, Will Deacon <will@kernel.org>, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-doc@vger.kernel.org, linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mm@kvack.org, linux-snps-arc@lists.infradead.org
 
-rpc is the only user of the timer_tick() function now, and can
-just call the newly added generic version instead.
+From: Mike Rapoport <rppt@linux.ibm.com>
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Enable SPARSEMEM support on alpha and deprecate DISCONTIGMEM.
+
+The required changes are mostly around moving duplicated definitions of
+page access and address conversion macros to a common place and making sure
+they are available for all memory models.
+
+The DISCONTINGMEM support is marked as BROKEN an will be removed in a
+couple of releases.
+
+Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
 ---
- arch/arm/Kconfig                 |  1 +
- arch/arm/include/asm/mach/time.h |  2 --
- arch/arm/kernel/time.c           | 14 --------------
- arch/arm/mach-rpc/time.c         |  2 +-
- 4 files changed, 2 insertions(+), 17 deletions(-)
+ arch/alpha/Kconfig                 |  8 ++++++++
+ arch/alpha/include/asm/mmzone.h    | 14 ++------------
+ arch/alpha/include/asm/page.h      |  7 ++++---
+ arch/alpha/include/asm/pgtable.h   | 12 +++++-------
+ arch/alpha/include/asm/sparsemem.h | 18 ++++++++++++++++++
+ arch/alpha/kernel/setup.c          |  1 +
+ 6 files changed, 38 insertions(+), 22 deletions(-)
+ create mode 100644 arch/alpha/include/asm/sparsemem.h
 
-diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
-index fe2f17eb2b50..13af8d7a6c17 100644
---- a/arch/arm/Kconfig
-+++ b/arch/arm/Kconfig
-@@ -467,6 +467,7 @@ config ARCH_RPC
- 	select HAVE_IDE
- 	select HAVE_PATA_PLATFORM
- 	select ISA_DMA_API
-+	select LEGACY_TIMER_TICK
- 	select NEED_MACH_IO_H
- 	select NEED_MACH_MEMORY_H
- 	select NO_IOPORT_MAP
-diff --git a/arch/arm/include/asm/mach/time.h b/arch/arm/include/asm/mach/time.h
-index d75d39280db7..5f522916ec99 100644
---- a/arch/arm/include/asm/mach/time.h
-+++ b/arch/arm/include/asm/mach/time.h
-@@ -7,8 +7,6 @@
- #ifndef __ASM_ARM_MACH_TIME_H
- #define __ASM_ARM_MACH_TIME_H
+diff --git a/arch/alpha/Kconfig b/arch/alpha/Kconfig
+index d6e9fc7a7b19..aedf5c296f13 100644
+--- a/arch/alpha/Kconfig
++++ b/arch/alpha/Kconfig
+@@ -40,6 +40,7 @@ config ALPHA
+ 	select CPU_NO_EFFICIENT_FFS if !ALPHA_EV67
+ 	select MMU_GATHER_NO_RANGE
+ 	select SET_FS
++	select SPARSEMEM_EXTREME if SPARSEMEM
+ 	help
+ 	  The Alpha is a 64-bit general-purpose processor designed and
+ 	  marketed by the Digital Equipment Corporation of blessed memory,
+@@ -551,12 +552,19 @@ config NR_CPUS
  
--extern void timer_tick(void);
--
- typedef void (*clock_access_fn)(struct timespec64 *);
- extern int register_persistent_clock(clock_access_fn read_persistent);
+ config ARCH_DISCONTIGMEM_ENABLE
+ 	bool "Discontiguous Memory Support"
++	depends on BROKEN
+ 	help
+ 	  Say Y to support efficient handling of discontiguous physical memory,
+ 	  for architectures which are either NUMA (Non-Uniform Memory Access)
+ 	  or have huge holes in the physical address space for other reasons.
+ 	  See <file:Documentation/vm/numa.rst> for more.
  
-diff --git a/arch/arm/kernel/time.c b/arch/arm/kernel/time.c
-index 09b149b09c43..b3836c94dc74 100644
---- a/arch/arm/kernel/time.c
-+++ b/arch/arm/kernel/time.c
-@@ -60,20 +60,6 @@ unsigned long profile_pc(struct pt_regs *regs)
- EXPORT_SYMBOL(profile_pc);
++config ARCH_SPARSEMEM_ENABLE
++	bool "Sparse Memory Support"
++	help
++	  Say Y to support efficient handling of discontiguous physical memory,
++	  for systems that have huge holes in the physical address space.
++
+ config NUMA
+ 	bool "NUMA Support (EXPERIMENTAL)"
+ 	depends on DISCONTIGMEM && BROKEN
+diff --git a/arch/alpha/include/asm/mmzone.h b/arch/alpha/include/asm/mmzone.h
+index 9b521c857436..86644604d977 100644
+--- a/arch/alpha/include/asm/mmzone.h
++++ b/arch/alpha/include/asm/mmzone.h
+@@ -6,6 +6,8 @@
+ #ifndef _ASM_MMZONE_H_
+ #define _ASM_MMZONE_H_
+ 
++#ifdef CONFIG_DISCONTIGMEM
++
+ #include <asm/smp.h>
+ 
+ /*
+@@ -45,8 +47,6 @@ PLAT_NODE_DATA_LOCALNR(unsigned long p, int n)
+ }
  #endif
  
--#ifndef CONFIG_GENERIC_CLOCKEVENTS
--/*
-- * Kernel system timer support.
-- */
--void timer_tick(void)
--{
--	profile_tick(CPU_PROFILING);
--	xtime_update(1);
--#ifndef CONFIG_SMP
--	update_process_times(user_mode(get_irq_regs()));
--#endif
--}
--#endif
+-#ifdef CONFIG_DISCONTIGMEM
 -
- static void dummy_clock_access(struct timespec64 *ts)
- {
- 	ts->tv_sec = 0;
-diff --git a/arch/arm/mach-rpc/time.c b/arch/arm/mach-rpc/time.c
-index da85cac761ba..9f8edcfe9357 100644
---- a/arch/arm/mach-rpc/time.c
-+++ b/arch/arm/mach-rpc/time.c
-@@ -81,7 +81,7 @@ static irqreturn_t
- ioc_timer_interrupt(int irq, void *dev_id)
- {
- 	ioc_time += RPC_LATCH;
--	timer_tick();
-+	legacy_timer_tick(1);
- 	return IRQ_HANDLED;
+ /*
+  * Following are macros that each numa implementation must define.
+  */
+@@ -68,11 +68,6 @@ PLAT_NODE_DATA_LOCALNR(unsigned long p, int n)
+ /* XXX: FIXME -- nyc */
+ #define kern_addr_valid(kaddr)	(0)
+ 
+-#define virt_to_page(kaddr)	pfn_to_page(__pa(kaddr) >> PAGE_SHIFT)
+-
+-#define pmd_page(pmd)		(pfn_to_page(pmd_val(pmd) >> 32))
+-#define pte_pfn(pte)		(pte_val(pte) >> 32)
+-
+ #define mk_pte(page, pgprot)						     \
+ ({								 	     \
+ 	pte_t pte;                                                           \
+@@ -95,16 +90,11 @@ PLAT_NODE_DATA_LOCALNR(unsigned long p, int n)
+ 	__xx;                                                           \
+ })
+ 
+-#define page_to_pa(page)						\
+-	(page_to_pfn(page) << PAGE_SHIFT)
+-
+ #define pfn_to_nid(pfn)		pa_to_nid(((u64)(pfn) << PAGE_SHIFT))
+ #define pfn_valid(pfn)							\
+ 	(((pfn) - node_start_pfn(pfn_to_nid(pfn))) <			\
+ 	 node_spanned_pages(pfn_to_nid(pfn)))					\
+ 
+-#define virt_addr_valid(kaddr)	pfn_valid((__pa(kaddr) >> PAGE_SHIFT))
+-
+ #endif /* CONFIG_DISCONTIGMEM */
+ 
+ #endif /* _ASM_MMZONE_H_ */
+diff --git a/arch/alpha/include/asm/page.h b/arch/alpha/include/asm/page.h
+index e241bd88880f..268f99b4602b 100644
+--- a/arch/alpha/include/asm/page.h
++++ b/arch/alpha/include/asm/page.h
+@@ -83,12 +83,13 @@ typedef struct page *pgtable_t;
+ 
+ #define __pa(x)			((unsigned long) (x) - PAGE_OFFSET)
+ #define __va(x)			((void *)((unsigned long) (x) + PAGE_OFFSET))
+-#ifndef CONFIG_DISCONTIGMEM
++
+ #define virt_to_page(kaddr)	pfn_to_page(__pa(kaddr) >> PAGE_SHIFT)
++#define virt_addr_valid(kaddr)	pfn_valid((__pa(kaddr) >> PAGE_SHIFT))
+ 
++#ifdef CONFIG_FLATMEM
+ #define pfn_valid(pfn)		((pfn) < max_mapnr)
+-#define virt_addr_valid(kaddr)	pfn_valid(__pa(kaddr) >> PAGE_SHIFT)
+-#endif /* CONFIG_DISCONTIGMEM */
++#endif /* CONFIG_FLATMEM */
+ 
+ #include <asm-generic/memory_model.h>
+ #include <asm-generic/getorder.h>
+diff --git a/arch/alpha/include/asm/pgtable.h b/arch/alpha/include/asm/pgtable.h
+index 660b14ce1317..8d856c62e22a 100644
+--- a/arch/alpha/include/asm/pgtable.h
++++ b/arch/alpha/include/asm/pgtable.h
+@@ -203,10 +203,10 @@ extern unsigned long __zero_page(void);
+  * Conversion functions:  convert a page and protection to a page entry,
+  * and a page entry and page directory to the page they refer to.
+  */
+-#ifndef CONFIG_DISCONTIGMEM
+-#define page_to_pa(page)	(((page) - mem_map) << PAGE_SHIFT)
+-
++#define page_to_pa(page)	(page_to_pfn(page) << PAGE_SHIFT)
+ #define pte_pfn(pte)	(pte_val(pte) >> 32)
++
++#ifndef CONFIG_DISCONTIGMEM
+ #define pte_page(pte)	pfn_to_page(pte_pfn(pte))
+ #define mk_pte(page, pgprot)						\
+ ({									\
+@@ -236,10 +236,8 @@ pmd_page_vaddr(pmd_t pmd)
+ 	return ((pmd_val(pmd) & _PFN_MASK) >> (32-PAGE_SHIFT)) + PAGE_OFFSET;
  }
  
+-#ifndef CONFIG_DISCONTIGMEM
+-#define pmd_page(pmd)	(mem_map + ((pmd_val(pmd) & _PFN_MASK) >> 32))
+-#define pud_page(pud)	(mem_map + ((pud_val(pud) & _PFN_MASK) >> 32))
+-#endif
++#define pmd_page(pmd)	(pfn_to_page(pmd_val(pmd) >> 32))
++#define pud_page(pud)	(pfn_to_page(pud_val(pud) >> 32))
+ 
+ extern inline unsigned long pud_page_vaddr(pud_t pgd)
+ { return PAGE_OFFSET + ((pud_val(pgd) & _PFN_MASK) >> (32-PAGE_SHIFT)); }
+diff --git a/arch/alpha/include/asm/sparsemem.h b/arch/alpha/include/asm/sparsemem.h
+new file mode 100644
+index 000000000000..a0820fd2d4b1
+--- /dev/null
++++ b/arch/alpha/include/asm/sparsemem.h
+@@ -0,0 +1,18 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++#ifndef _ASM_ALPHA_SPARSEMEM_H
++#define _ASM_ALPHA_SPARSEMEM_H
++
++#ifdef CONFIG_SPARSEMEM
++
++#define SECTION_SIZE_BITS	27
++
++/*
++ * According to "Alpha Architecture Reference Manual" physical
++ * addresses are at most 48 bits.
++ * https://download.majix.org/dec/alpha_arch_ref.pdf
++ */
++#define MAX_PHYSMEM_BITS	48
++
++#endif /* CONFIG_SPARSEMEM */
++
++#endif /* _ASM_ALPHA_SPARSEMEM_H */
+diff --git a/arch/alpha/kernel/setup.c b/arch/alpha/kernel/setup.c
+index 916e42d74a86..03dda3beb3bd 100644
+--- a/arch/alpha/kernel/setup.c
++++ b/arch/alpha/kernel/setup.c
+@@ -648,6 +648,7 @@ setup_arch(char **cmdline_p)
+ 	/* Find our memory.  */
+ 	setup_memory(kernel_end);
+ 	memblock_set_bottom_up(true);
++	sparse_init();
+ 
+ 	/* First guess at cpu cache sizes.  Do this before init_arch.  */
+ 	determine_cpu_caches(cpu->type);
 -- 
-2.27.0
+2.28.0
