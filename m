@@ -1,7 +1,7 @@
 From: Mike Rapoport <rppt@kernel.org>
-Date: Tue, 27 Oct 2020 11:29:50 +0000
-Subject: [PATCH 08/13] arm: remove CONFIG_ARCH_HAS_HOLES_MEMORYMODEL
-Message-Id: <20201027112955.14157-9-rppt@kernel.org>
+Date: Tue, 27 Oct 2020 11:29:44 +0000
+Subject: [PATCH 02/13] ia64: remove custom __early_pfn_to_nid()
+Message-Id: <20201027112955.14157-3-rppt@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20201027112955.14157-1-rppt@kernel.org>
 In-Reply-To: <20201027112955.14157-1-rppt@kernel.org>
@@ -13,271 +13,153 @@ Cc: Alexey Dobriyan <adobriyan@gmail.com>, Catalin Marinas <catalin.marinas@arm.
 
 From: Mike Rapoport <rppt@linux.ibm.com>
 
-ARM is the only architecture that defines CONFIG_ARCH_HAS_HOLES_MEMORYMODEL
-which in turn enables memmap_valid_within() function that is intended to
-verify existence  of struct page associated with a pfn when there are holes
-in the memory map.
+The ia64 implementation of __early_pfn_to_nid() essentially relies on the
+same data as the generic implementation.
 
-However, the ARCH_HAS_HOLES_MEMORYMODEL also enables HAVE_ARCH_PFN_VALID
-and arch-specific pfn_valid() implementation that also deals with the holes
-in the memory map.
+The correspondence between memory ranges and nodes is set in memblock
+during early memory initialization in register_active_ranges() function.
 
-The only two users of memmap_valid_within() call this function after
-a call to pfn_valid() so the memmap_valid_within() check becomes redundant.
-
-Remove CONFIG_ARCH_HAS_HOLES_MEMORYMODEL and memmap_valid_within() and rely
-entirely on ARM's implementation of pfn_valid() that is now enabled
-unconditionally.
+The initialization of sparsemem that requires early_pfn_to_nid() happens
+later and it can use the memblock information like the other architectures.
 
 Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
 ---
- Documentation/vm/memory-model.rst |  3 +--
- arch/arm/Kconfig                  |  8 ++------
- arch/arm/mach-bcm/Kconfig         |  1 -
- arch/arm/mach-davinci/Kconfig     |  1 -
- arch/arm/mach-exynos/Kconfig      |  1 -
- arch/arm/mach-highbank/Kconfig    |  1 -
- arch/arm/mach-omap2/Kconfig       |  1 -
- arch/arm/mach-s5pv210/Kconfig     |  1 -
- arch/arm/mach-tango/Kconfig       |  1 -
- fs/proc/kcore.c                   |  2 --
- include/linux/mmzone.h            | 31 -------------------------------
- mm/mmzone.c                       | 14 --------------
- mm/vmstat.c                       |  4 ----
- 13 files changed, 3 insertions(+), 66 deletions(-)
+ arch/ia64/Kconfig      |  3 ---
+ arch/ia64/mm/numa.c    | 30 ------------------------------
+ include/linux/mm.h     |  3 ---
+ include/linux/mmzone.h | 11 -----------
+ mm/page_alloc.c        | 16 ++++++++++++----
+ 5 files changed, 12 insertions(+), 51 deletions(-)
 
-diff --git a/Documentation/vm/memory-model.rst b/Documentation/vm/memory-model.rst
-index 9daadf9faba1..ce398a7dc6cd 100644
---- a/Documentation/vm/memory-model.rst
-+++ b/Documentation/vm/memory-model.rst
-@@ -51,8 +51,7 @@ call :c:func:`free_area_init` function. Yet, the mappings array is not
- usable until the call to :c:func:`memblock_free_all` that hands all the
- memory to the page allocator.
+diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+index 39b25a5a591b..12aae706cb27 100644
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -342,9 +342,6 @@ config HOLES_IN_ZONE
+ 	bool
+ 	default y if VIRTUAL_MEM_MAP
  
--If an architecture enables `CONFIG_ARCH_HAS_HOLES_MEMORYMODEL` option,
--it may free parts of the `mem_map` array that do not cover the
-+An architecture may free parts of the `mem_map` array that do not cover the
- actual physical pages. In such case, the architecture specific
- :c:func:`pfn_valid` implementation should take the holes in the
- `mem_map` into account.
-diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
-index fe2f17eb2b50..83adc46c1e67 100644
---- a/arch/arm/Kconfig
-+++ b/arch/arm/Kconfig
-@@ -25,7 +25,7 @@ config ARM
- 	select ARCH_HAS_TICK_BROADCAST if GENERIC_CLOCKEVENTS_BROADCAST
- 	select ARCH_HAVE_CUSTOM_GPIO_H
- 	select ARCH_HAS_GCOV_PROFILE_ALL
--	select ARCH_KEEP_MEMBLOCK if HAVE_ARCH_PFN_VALID || KEXEC
-+	select ARCH_KEEP_MEMBLOCK
- 	select ARCH_MIGHT_HAVE_PC_PARPORT
- 	select ARCH_NO_SG_CHAIN if !ARM_HAS_SG_CHAIN
- 	select ARCH_OPTIONAL_KERNEL_RWX if ARCH_HAS_STRICT_KERNEL_RWX
-@@ -519,7 +519,6 @@ config ARCH_S3C24XX
- config ARCH_OMAP1
- 	bool "TI OMAP1"
- 	depends on MMU
--	select ARCH_HAS_HOLES_MEMORYMODEL
- 	select ARCH_OMAP
- 	select CLKDEV_LOOKUP
- 	select CLKSRC_MMIO
-@@ -1479,9 +1478,6 @@ config OABI_COMPAT
- 	  UNPREDICTABLE (in fact it can be predicted that it won't work
- 	  at all). If in doubt say N.
- 
--config ARCH_HAS_HOLES_MEMORYMODEL
--	bool
+-config HAVE_ARCH_EARLY_PFN_TO_NID
+-	def_bool NUMA && SPARSEMEM
 -
- config ARCH_SELECT_MEMORY_MODEL
- 	bool
+ config HAVE_ARCH_NODEDATA_EXTENSION
+ 	def_bool y
+ 	depends on NUMA
+diff --git a/arch/ia64/mm/numa.c b/arch/ia64/mm/numa.c
+index f34964271101..46b6e5f3a40f 100644
+--- a/arch/ia64/mm/numa.c
++++ b/arch/ia64/mm/numa.c
+@@ -58,36 +58,6 @@ paddr_to_nid(unsigned long paddr)
+ EXPORT_SYMBOL(paddr_to_nid);
  
-@@ -1493,7 +1489,7 @@ config ARCH_SPARSEMEM_ENABLE
- 	select SPARSEMEM_STATIC if SPARSEMEM
- 
- config HAVE_ARCH_PFN_VALID
--	def_bool ARCH_HAS_HOLES_MEMORYMODEL || !SPARSEMEM
-+	def_bool y
- 
- config HIGHMEM
- 	bool "High Memory Support"
-diff --git a/arch/arm/mach-bcm/Kconfig b/arch/arm/mach-bcm/Kconfig
-index ae790908fc74..9b594ae98153 100644
---- a/arch/arm/mach-bcm/Kconfig
-+++ b/arch/arm/mach-bcm/Kconfig
-@@ -211,7 +211,6 @@ config ARCH_BRCMSTB
- 	select BCM7038_L1_IRQ
- 	select BRCMSTB_L2_IRQ
- 	select BCM7120_L2_IRQ
--	select ARCH_HAS_HOLES_MEMORYMODEL
- 	select ZONE_DMA if ARM_LPAE
- 	select SOC_BRCMSTB
- 	select SOC_BUS
-diff --git a/arch/arm/mach-davinci/Kconfig b/arch/arm/mach-davinci/Kconfig
-index f56ff8c24043..de11030748d0 100644
---- a/arch/arm/mach-davinci/Kconfig
-+++ b/arch/arm/mach-davinci/Kconfig
-@@ -5,7 +5,6 @@ menuconfig ARCH_DAVINCI
- 	depends on ARCH_MULTI_V5
- 	select DAVINCI_TIMER
- 	select ZONE_DMA
--	select ARCH_HAS_HOLES_MEMORYMODEL
- 	select PM_GENERIC_DOMAINS if PM
- 	select PM_GENERIC_DOMAINS_OF if PM && OF
- 	select REGMAP_MMIO
-diff --git a/arch/arm/mach-exynos/Kconfig b/arch/arm/mach-exynos/Kconfig
-index d2d249706ebb..56d272967fc0 100644
---- a/arch/arm/mach-exynos/Kconfig
-+++ b/arch/arm/mach-exynos/Kconfig
-@@ -8,7 +8,6 @@
- menuconfig ARCH_EXYNOS
- 	bool "Samsung Exynos"
- 	depends on ARCH_MULTI_V7
--	select ARCH_HAS_HOLES_MEMORYMODEL
- 	select ARCH_SUPPORTS_BIG_ENDIAN
- 	select ARM_AMBA
- 	select ARM_GIC
-diff --git a/arch/arm/mach-highbank/Kconfig b/arch/arm/mach-highbank/Kconfig
-index 1bc68913d62c..9de38ce8124f 100644
---- a/arch/arm/mach-highbank/Kconfig
-+++ b/arch/arm/mach-highbank/Kconfig
-@@ -2,7 +2,6 @@
- config ARCH_HIGHBANK
- 	bool "Calxeda ECX-1000/2000 (Highbank/Midway)"
- 	depends on ARCH_MULTI_V7
--	select ARCH_HAS_HOLES_MEMORYMODEL
- 	select ARCH_SUPPORTS_BIG_ENDIAN
- 	select ARM_AMBA
- 	select ARM_ERRATA_764369 if SMP
-diff --git a/arch/arm/mach-omap2/Kconfig b/arch/arm/mach-omap2/Kconfig
-index 3ee7bdff86b2..89fe1572c142 100644
---- a/arch/arm/mach-omap2/Kconfig
-+++ b/arch/arm/mach-omap2/Kconfig
-@@ -94,7 +94,6 @@ config SOC_DRA7XX
- config ARCH_OMAP2PLUS
- 	bool
- 	select ARCH_HAS_BANDGAP
--	select ARCH_HAS_HOLES_MEMORYMODEL
- 	select ARCH_HAS_RESET_CONTROLLER
- 	select ARCH_OMAP
- 	select CLKSRC_MMIO
-diff --git a/arch/arm/mach-s5pv210/Kconfig b/arch/arm/mach-s5pv210/Kconfig
-index 95d4e8284866..d644b45bc29d 100644
---- a/arch/arm/mach-s5pv210/Kconfig
-+++ b/arch/arm/mach-s5pv210/Kconfig
-@@ -8,7 +8,6 @@
- config ARCH_S5PV210
- 	bool "Samsung S5PV210/S5PC110"
- 	depends on ARCH_MULTI_V7
--	select ARCH_HAS_HOLES_MEMORYMODEL
- 	select ARM_VIC
- 	select CLKSRC_SAMSUNG_PWM
- 	select COMMON_CLK_SAMSUNG
-diff --git a/arch/arm/mach-tango/Kconfig b/arch/arm/mach-tango/Kconfig
-index 25b2fd434861..a9eeda36aeb1 100644
---- a/arch/arm/mach-tango/Kconfig
-+++ b/arch/arm/mach-tango/Kconfig
-@@ -3,7 +3,6 @@ config ARCH_TANGO
- 	bool "Sigma Designs Tango4 (SMP87xx)"
- 	depends on ARCH_MULTI_V7
- 	# Cortex-A9 MPCore r3p0, PL310 r3p2
--	select ARCH_HAS_HOLES_MEMORYMODEL
- 	select ARM_ERRATA_754322
- 	select ARM_ERRATA_764369 if SMP
- 	select ARM_ERRATA_775420
-diff --git a/fs/proc/kcore.c b/fs/proc/kcore.c
-index e502414b3556..4d2e64e9016c 100644
---- a/fs/proc/kcore.c
-+++ b/fs/proc/kcore.c
-@@ -193,8 +193,6 @@ kclist_add_private(unsigned long pfn, unsigned long nr_pages, void *arg)
- 		return 1;
- 
- 	p = pfn_to_page(pfn);
--	if (!memmap_valid_within(pfn, p, page_zone(p)))
--		return 1;
- 
- 	ent = kmalloc(sizeof(*ent), GFP_KERNEL);
- 	if (!ent)
-diff --git a/include/linux/mmzone.h b/include/linux/mmzone.h
-index 876600a6e891..7385871768d4 100644
---- a/include/linux/mmzone.h
-+++ b/include/linux/mmzone.h
-@@ -1440,37 +1440,6 @@ void sparse_init(void);
- #define pfn_valid_within(pfn) (1)
+ #if defined(CONFIG_SPARSEMEM) && defined(CONFIG_NUMA)
+-/*
+- * Because of holes evaluate on section limits.
+- * If the section of memory exists, then return the node where the section
+- * resides.  Otherwise return node 0 as the default.  This is used by
+- * SPARSEMEM to allocate the SPARSEMEM sectionmap on the NUMA node where
+- * the section resides.
+- */
+-int __meminit __early_pfn_to_nid(unsigned long pfn,
+-					struct mminit_pfnnid_cache *state)
+-{
+-	int i, section = pfn >> PFN_SECTION_SHIFT, ssec, esec;
+-
+-	if (section >= state->last_start && section < state->last_end)
+-		return state->last_nid;
+-
+-	for (i = 0; i < num_node_memblks; i++) {
+-		ssec = node_memblk[i].start_paddr >> PA_SECTION_SHIFT;
+-		esec = (node_memblk[i].start_paddr + node_memblk[i].size +
+-			((1L << PA_SECTION_SHIFT) - 1)) >> PA_SECTION_SHIFT;
+-		if (section >= ssec && section < esec) {
+-			state->last_start = ssec;
+-			state->last_end = esec;
+-			state->last_nid = node_memblk[i].nid;
+-			return node_memblk[i].nid;
+-		}
+-	}
+-
+-	return -1;
+-}
+-
+ void numa_clear_node(int cpu)
+ {
+ 	unmap_cpu_from_node(cpu, NUMA_NO_NODE);
+diff --git a/include/linux/mm.h b/include/linux/mm.h
+index ef360fe70aaf..ac51b07b9021 100644
+--- a/include/linux/mm.h
++++ b/include/linux/mm.h
+@@ -2433,9 +2433,6 @@ static inline int early_pfn_to_nid(unsigned long pfn)
+ #else
+ /* please see mm/page_alloc.c */
+ extern int __meminit early_pfn_to_nid(unsigned long pfn);
+-/* there is a per-arch backend function. */
+-extern int __meminit __early_pfn_to_nid(unsigned long pfn,
+-					struct mminit_pfnnid_cache *state);
  #endif
  
--#ifdef CONFIG_ARCH_HAS_HOLES_MEMORYMODEL
+ extern void set_dma_reserve(unsigned long new_dma_reserve);
+diff --git a/include/linux/mmzone.h b/include/linux/mmzone.h
+index fb3bf696c05e..876600a6e891 100644
+--- a/include/linux/mmzone.h
++++ b/include/linux/mmzone.h
+@@ -1428,17 +1428,6 @@ void sparse_init(void);
+ #define subsection_map_init(_pfn, _nr_pages) do {} while (0)
+ #endif /* CONFIG_SPARSEMEM */
+ 
 -/*
-- * pfn_valid() is meant to be able to tell if a given PFN has valid memmap
-- * associated with it or not. This means that a struct page exists for this
-- * pfn. The caller cannot assume the page is fully initialized in general.
-- * Hotplugable pages might not have been onlined yet. pfn_to_online_page()
-- * will ensure the struct page is fully online and initialized. Special pages
-- * (e.g. ZONE_DEVICE) are never onlined and should be treated accordingly.
-- *
-- * In FLATMEM, it is expected that holes always have valid memmap as long as
-- * there is valid PFNs either side of the hole. In SPARSEMEM, it is assumed
-- * that a valid section has a memmap for the entire section.
-- *
-- * However, an ARM, and maybe other embedded architectures in the future
-- * free memmap backing holes to save memory on the assumption the memmap is
-- * never used. The page_zone linkages are then broken even though pfn_valid()
-- * returns true. A walker of the full memmap must then do this additional
-- * check to ensure the memmap they are looking at is sane by making sure
-- * the zone and PFN linkages are still valid. This is expensive, but walkers
-- * of the full memmap are extremely rare.
+- * During memory init memblocks map pfns to nids. The search is expensive and
+- * this caches recent lookups. The implementation of __early_pfn_to_nid
+- * may treat start/end as pfns or sections.
 - */
--bool memmap_valid_within(unsigned long pfn,
--					struct page *page, struct zone *zone);
--#else
--static inline bool memmap_valid_within(unsigned long pfn,
--					struct page *page, struct zone *zone)
--{
--	return true;
--}
--#endif /* CONFIG_ARCH_HAS_HOLES_MEMORYMODEL */
+-struct mminit_pfnnid_cache {
+-	unsigned long last_start;
+-	unsigned long last_end;
+-	int last_nid;
+-};
 -
- #endif /* !__GENERATING_BOUNDS.H */
- #endif /* !__ASSEMBLY__ */
- #endif /* _LINUX_MMZONE_H */
-diff --git a/mm/mmzone.c b/mm/mmzone.c
-index 4686fdc23bb9..f337831affc2 100644
---- a/mm/mmzone.c
-+++ b/mm/mmzone.c
-@@ -72,20 +72,6 @@ struct zoneref *__next_zones_zonelist(struct zoneref *z,
- 	return z;
- }
+ /*
+  * If it is possible to have holes within a MAX_ORDER_NR_PAGES, then we
+  * need to check pfn validity within that MAX_ORDER_NR_PAGES block.
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index 23f5066bd4a5..1fdbf8da77af 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -1558,14 +1558,23 @@ void __free_pages_core(struct page *page, unsigned int order)
  
--#ifdef CONFIG_ARCH_HAS_HOLES_MEMORYMODEL
--bool memmap_valid_within(unsigned long pfn,
--					struct page *page, struct zone *zone)
--{
--	if (page_to_pfn(page) != pfn)
--		return false;
--
--	if (page_zone(page) != zone)
--		return false;
--
--	return true;
--}
--#endif /* CONFIG_ARCH_HAS_HOLES_MEMORYMODEL */
--
- void lruvec_init(struct lruvec *lruvec)
+ #ifdef CONFIG_NEED_MULTIPLE_NODES
+ 
+-static struct mminit_pfnnid_cache early_pfnnid_cache __meminitdata;
++/*
++ * During memory init memblocks map pfns to nids. The search is expensive and
++ * this caches recent lookups. The implementation of __early_pfn_to_nid
++ * treats start/end as pfns.
++ */
++struct mminit_pfnnid_cache {
++	unsigned long last_start;
++	unsigned long last_end;
++	int last_nid;
++};
+ 
+-#ifndef CONFIG_HAVE_ARCH_EARLY_PFN_TO_NID
++static struct mminit_pfnnid_cache early_pfnnid_cache __meminitdata;
+ 
+ /*
+  * Required by SPARSEMEM. Given a PFN, return what node the PFN is on.
+  */
+-int __meminit __early_pfn_to_nid(unsigned long pfn,
++static int __meminit __early_pfn_to_nid(unsigned long pfn,
+ 					struct mminit_pfnnid_cache *state)
  {
- 	enum lru_list lru;
-diff --git a/mm/vmstat.c b/mm/vmstat.c
-index 698bc0bc18d1..e292e63afebf 100644
---- a/mm/vmstat.c
-+++ b/mm/vmstat.c
-@@ -1503,10 +1503,6 @@ static void pagetypeinfo_showblockcount_print(struct seq_file *m,
- 		if (!page)
- 			continue;
+ 	unsigned long start_pfn, end_pfn;
+@@ -1583,7 +1592,6 @@ int __meminit __early_pfn_to_nid(unsigned long pfn,
  
--		/* Watch for unexpected holes punched in the memmap */
--		if (!memmap_valid_within(pfn, page, zone))
--			continue;
--
- 		if (page_zone(page) != zone)
- 			continue;
+ 	return nid;
+ }
+-#endif /* CONFIG_HAVE_ARCH_EARLY_PFN_TO_NID */
  
+ int __meminit early_pfn_to_nid(unsigned long pfn)
+ {
 -- 
 2.28.0
