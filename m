@@ -1,83 +1,188 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Thu, 08 Oct 2020 15:46:42 +0000
-Subject: [PATCH 04/13] parisc: use legacy_timer_tick
-Message-Id: <20201008154651.1901126-5-arnd@arndb.de>
+From: Mike Rapoport <rppt@kernel.org>
+Date: Tue, 27 Oct 2020 11:29:52 +0000
+Subject: [PATCH 10/13] arc: use FLATMEM with freeing of unused memory map instead of DISCONTIGMEM
+Message-Id: <20201027112955.14157-11-rppt@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20201008154651.1901126-1-arnd@arndb.de>
-In-Reply-To: <20201008154651.1901126-1-arnd@arndb.de>
+References: <20201027112955.14157-1-rppt@kernel.org>
+In-Reply-To: <20201027112955.14157-1-rppt@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Arnd Bergmann <arnd@arndb.de>, Russell King <linux@armlinux.org.uk>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Greg Ungerer <gerg@linux-m68k.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Finn Thain <fthain@telegraphics.com.au>, Philip Blundell <philb@gnu.org>, Joshua Thompson <funaho@jurai.org>, Sam Creasey <sammy@sammy.net>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Thomas Gleixner <tglx@linutronix.de>, Daniel Lezcano <daniel.lezcano@linaro.org>, John Stultz <john.stultz@linaro.org>, Stephen Boyd <sboyd@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-arm-kernel@lists.infradead.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Alexey Dobriyan <adobriyan@gmail.com>, Catalin Marinas <catalin.marinas@arm.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, Jonathan Corbet <corbet@lwn.net>, Matt Turner <mattst88@gmail.com>, Meelis Roos <mroos@linux.ee>, Michael Schmitz <schmitzmic@gmail.com>, Mike Rapoport <rppt@kernel.org>, Mike Rapoport <rppt@linux.ibm.com>, Russell King <linux@armlinux.org.uk>, Tony Luck <tony.luck@intel.com>, Vineet Gupta <vgupta@synopsys.com>, Will Deacon <will@kernel.org>, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-doc@vger.kernel.org, linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mm@kvack.org, linux-snps-arc@lists.infradead.org
 
-parisc has selected CONFIG_GENERIC_CLOCKEVENTS since commit 43b1f6abd590
-("parisc: Switch to generic sched_clock implementation"), but does not
-appear to actually be using it, and instead calls the low-level
-timekeeping functions directly.
+From: Mike Rapoport <rppt@linux.ibm.com>
 
-Remove the GENERIC_CLOCKEVENTS select again, and instead convert to
-the newly added legacy_timer_tick() helper.
+Currently ARC uses DISCONTIGMEM to cope with sparse physical memory address
+space on systems with 2 memory banks. While DISCONTIGMEM avoids wasting
+memory on unpopulated memory map, it adds both memory and CPU overhead
+relatively to FLATMEM. Moreover, DISCONTINGMEM is generally considered
+deprecated.
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+The obvious replacement for DISCONTIGMEM would be SPARSEMEM, but it is also
+less efficient than FLATMEM in pfn_to_page() and page_to_pfn() conversions.
+Besides it requires tuning of SECTION_SIZE which is not trivial for
+possible ARC memory configuration.
+
+Since the memory map for both banks is always allocated from the "lowmem"
+bank, it is possible to use FLATMEM for two-bank configuration and simply
+free the unused hole in the memory map. All is required for that is to
+provide ARC-specific pfn_valid() that will take into account actual
+physical memory configuration and define HAVE_ARCH_PFN_VALID.
+
+The resulting kernel image configured with defconfig + HIGHMEM=y is
+smaller:
+
+$ size a/vmlinux b/vmlinux
+   text    data     bss     dec     hex filename
+4673503 1245456  279756 6198715  5e95bb a/vmlinux
+4658706 1246864  279756 6185326  5e616e b/vmlinux
+
+$ ./scripts/bloat-o-meter a/vmlinux b/vmlinux
+add/remove: 28/30 grow/shrink: 42/399 up/down: 10986/-29025 (-18039)
+...
+Total: BeforeG09315, AfterF91276, chg -0.38%
+
+Booting nSIM with haps_ns.dts results in the following memory usage
+reports:
+
+a:
+Memory: 1559104K/1572864K available (3531K kernel code, 595K rwdata, 752K rodata, 136K init, 275K bss, 13760K reserved, 0K cma-reserved, 1048576K highmem)
+
+b:
+Memory: 1559112K/1572864K available (3519K kernel code, 594K rwdata, 752K rodata, 136K init, 280K bss, 13752K reserved, 0K cma-reserved, 1048576K highmem)
+
+Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
 ---
- Documentation/features/time/clockevents/arch-support.txt | 2 +-
- arch/parisc/Kconfig                                      | 2 +-
- arch/parisc/kernel/time.c                                | 9 +++------
- 3 files changed, 5 insertions(+), 8 deletions(-)
+ arch/arc/Kconfig            |  3 ++-
+ arch/arc/include/asm/page.h | 20 +++++++++++++++++---
+ arch/arc/mm/init.c          | 29 ++++++++++++++++++++++-------
+ 3 files changed, 41 insertions(+), 11 deletions(-)
 
-diff --git a/Documentation/features/time/clockevents/arch-support.txt b/Documentation/features/time/clockevents/arch-support.txt
-index 8287b6aa522e..61a5c9d68c15 100644
---- a/Documentation/features/time/clockevents/arch-support.txt
-+++ b/Documentation/features/time/clockevents/arch-support.txt
-@@ -21,7 +21,7 @@
-     |       nds32: |  ok  |
-     |       nios2: |  ok  |
-     |    openrisc: |  ok  |
--    |      parisc: |  ok  |
-+    |      parisc: | TODO |
-     |     powerpc: |  ok  |
-     |       riscv: |  ok  |
-     |        s390: |  ok  |
-diff --git a/arch/parisc/Kconfig b/arch/parisc/Kconfig
-index b234e8154cbd..78b17621ee4a 100644
---- a/arch/parisc/Kconfig
-+++ b/arch/parisc/Kconfig
-@@ -52,7 +52,7 @@ config PARISC
- 	select HAVE_REGS_AND_STACK_ACCESS_API
- 	select GENERIC_SCHED_CLOCK
- 	select HAVE_UNSTABLE_SCHED_CLOCK if SMP
--	select GENERIC_CLOCKEVENTS
-+	select LEGACY_TIMER_TICK
- 	select CPU_NO_EFFICIENT_FFS
- 	select NEED_DMA_MAP_STATE
- 	select NEED_SG_DMA_LENGTH
-diff --git a/arch/parisc/kernel/time.c b/arch/parisc/kernel/time.c
-index 04508158815c..889aaaa555ea 100644
---- a/arch/parisc/kernel/time.c
-+++ b/arch/parisc/kernel/time.c
-@@ -70,8 +70,6 @@ irqreturn_t __irq_entry timer_interrupt(int irq, void *dev_id)
- 	/* gcc can optimize for "read-only" case with a local clocktick */
- 	unsigned long cpt = clocktick;
+diff --git a/arch/arc/Kconfig b/arch/arc/Kconfig
+index 0a89cc9def65..c874f8ab0341 100644
+--- a/arch/arc/Kconfig
++++ b/arch/arc/Kconfig
+@@ -67,6 +67,7 @@ config GENERIC_CSUM
  
--	profile_tick(CPU_PROFILING);
+ config ARCH_DISCONTIGMEM_ENABLE
+ 	def_bool n
++	depends on BROKEN
+ 
+ config ARCH_FLATMEM_ENABLE
+ 	def_bool y
+@@ -506,7 +507,7 @@ config LINUX_RAM_BASE
+ 
+ config HIGHMEM
+ 	bool "High Memory Support"
+-	select ARCH_DISCONTIGMEM_ENABLE
++	select HAVE_ARCH_PFN_VALID
+ 	help
+ 	  With ARC 2G:2G address split, only upper 2G is directly addressable by
+ 	  kernel. Enable this to potentially allow access to rest of 2G and PAE
+diff --git a/arch/arc/include/asm/page.h b/arch/arc/include/asm/page.h
+index b0dfed0f12be..23e41e890eda 100644
+--- a/arch/arc/include/asm/page.h
++++ b/arch/arc/include/asm/page.h
+@@ -82,11 +82,25 @@ typedef pte_t * pgtable_t;
+  */
+ #define virt_to_pfn(kaddr)	(__pa(kaddr) >> PAGE_SHIFT)
+ 
+-#define ARCH_PFN_OFFSET		virt_to_pfn(CONFIG_LINUX_RAM_BASE)
++/*
++ * When HIGHMEM is enabled we have holes in the memory map so we need
++ * pfn_valid() that takes into account the actual extents of the physical
++ * memory
++ */
++#ifdef CONFIG_HIGHMEM
++
++extern unsigned long arch_pfn_offset;
++#define ARCH_PFN_OFFSET		arch_pfn_offset
++
++extern int pfn_valid(unsigned long pfn);
++#define pfn_valid		pfn_valid
+ 
+-#ifdef CONFIG_FLATMEM
++#else /* CONFIG_HIGHMEM */
++
++#define ARCH_PFN_OFFSET		virt_to_pfn(CONFIG_LINUX_RAM_BASE)
+ #define pfn_valid(pfn)		(((pfn) - ARCH_PFN_OFFSET) < max_mapnr)
+-#endif
++
++#endif /* CONFIG_HIGHMEM */
+ 
+ /*
+  * __pa, __va, virt_to_page (ALERT: deprecated, don't use them)
+diff --git a/arch/arc/mm/init.c b/arch/arc/mm/init.c
+index 3a35b82a718e..ce07e697916c 100644
+--- a/arch/arc/mm/init.c
++++ b/arch/arc/mm/init.c
+@@ -28,6 +28,8 @@ static unsigned long low_mem_sz;
+ static unsigned long min_high_pfn, max_high_pfn;
+ static phys_addr_t high_mem_start;
+ static phys_addr_t high_mem_sz;
++unsigned long arch_pfn_offset;
++EXPORT_SYMBOL(arch_pfn_offset);
+ #endif
+ 
+ #ifdef CONFIG_DISCONTIGMEM
+@@ -98,16 +100,11 @@ void __init setup_arch_memory(void)
+ 	init_mm.brk = (unsigned long)_end;
+ 
+ 	/* first page of system - kernel .vector starts here */
+-	min_low_pfn = ARCH_PFN_OFFSET;
++	min_low_pfn = virt_to_pfn(CONFIG_LINUX_RAM_BASE);
+ 
+ 	/* Last usable page of low mem */
+ 	max_low_pfn = max_pfn = PFN_DOWN(low_mem_start + low_mem_sz);
+ 
+-#ifdef CONFIG_FLATMEM
+-	/* pfn_valid() uses this */
+-	max_mapnr = max_low_pfn - min_low_pfn;
+-#endif
 -
- 	/* Initialize next_tick to the old expected tick time. */
- 	next_tick = cpuinfo->it_value;
+ 	/*------------- bootmem allocator setup -----------------------*/
  
-@@ -86,10 +84,9 @@ irqreturn_t __irq_entry timer_interrupt(int irq, void *dev_id)
- 	cpuinfo->it_value = next_tick;
+ 	/*
+@@ -153,7 +150,9 @@ void __init setup_arch_memory(void)
+ 	 * DISCONTIGMEM in turns requires multiple nodes. node 0 above is
+ 	 * populated with normal memory zone while node 1 only has highmem
+ 	 */
++#ifdef CONFIG_DISCONTIGMEM
+ 	node_set_online(1);
++#endif
  
- 	/* Go do system house keeping. */
--	if (cpu = 0)
--		xtime_update(ticks_elapsed);
--
--	update_process_times(user_mode(get_irq_regs()));
-+	if (cpu != 0)
-+		ticks_elapsed = 0;
-+	legacy_timer_tick(ticks_elapsed);
+ 	min_high_pfn = PFN_DOWN(high_mem_start);
+ 	max_high_pfn = PFN_DOWN(high_mem_start + high_mem_sz);
+@@ -161,8 +160,15 @@ void __init setup_arch_memory(void)
+ 	max_zone_pfn[ZONE_HIGHMEM] = min_low_pfn;
  
- 	/* Skip clockticks on purpose if we know we would miss those.
- 	 * The new CR16 must be "later" than current CR16 otherwise
+ 	high_memory = (void *)(min_high_pfn << PAGE_SHIFT);
++
++	arch_pfn_offset = min(min_low_pfn, min_high_pfn);
+ 	kmap_init();
+-#endif
++
++#else /* CONFIG_HIGHMEM */
++	/* pfn_valid() uses this when FLATMEM=y and HIGHMEM=n */
++	max_mapnr = max_low_pfn - min_low_pfn;
++
++#endif /* CONFIG_HIGHMEM */
+ 
+ 	free_area_init(max_zone_pfn);
+ }
+@@ -190,3 +196,12 @@ void __init mem_init(void)
+ 	highmem_init();
+ 	mem_init_print_info(NULL);
+ }
++
++#ifdef CONFIG_HIGHMEM
++int pfn_valid(unsigned long pfn)
++{
++	return (pfn >= min_high_pfn && pfn <= max_high_pfn) ||
++		(pfn >= min_low_pfn && pfn <= max_low_pfn);
++}
++EXPORT_SYMBOL(pfn_valid);
++#endif
 -- 
-2.27.0
+2.28.0
