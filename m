@@ -1,327 +1,283 @@
-From: =?UTF-8?Q?=C3=89meric_MASCHINO?= <emeric.maschino@gmail.com>
-Date: Sun, 25 Oct 2020 18:27:59 +0000
-Subject: Random failures while loading modules with kernel 5.x
-Message-Id: <CAA9xbM53e89L0bwZim1c_UacbNaxvr8w=wOnYumvBWP90O6aLg@mail.gmail.com>
+From: Mike Rapoport <rppt@kernel.org>
+Date: Tue, 27 Oct 2020 11:29:50 +0000
+Subject: [PATCH 08/13] arm: remove CONFIG_ARCH_HAS_HOLES_MEMORYMODEL
+Message-Id: <20201027112955.14157-9-rppt@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20201027112955.14157-1-rppt@kernel.org>
+In-Reply-To: <20201027112955.14157-1-rppt@kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
-To: linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Alexey Dobriyan <adobriyan@gmail.com>, Catalin Marinas <catalin.marinas@arm.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, Jonathan Corbet <corbet@lwn.net>, Matt Turner <mattst88@gmail.com>, Meelis Roos <mroos@linux.ee>, Michael Schmitz <schmitzmic@gmail.com>, Mike Rapoport <rppt@kernel.org>, Mike Rapoport <rppt@linux.ibm.com>, Russell King <linux@armlinux.org.uk>, Tony Luck <tony.luck@intel.com>, Vineet Gupta <vgupta@synopsys.com>, Will Deacon <will@kernel.org>, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-doc@vger.kernel.org, linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mm@kvack.org, linux-snps-arc@lists.infradead.org
 
-Hi,
+From: Mike Rapoport <rppt@linux.ibm.com>
 
-I'm getting random failures at boot time while loading modules with
-kernel 5.x. I'm dual-booting LTS 4.x kernel (4.19.152 at the moment)
-and never had any issue with the latter.
+ARM is the only architecture that defines CONFIG_ARCH_HAS_HOLES_MEMORYMODEL
+which in turn enables memmap_valid_within() function that is intended to
+verify existence  of struct page associated with a pfn when there are holes
+in the memory map.
 
-Are you experiencing similar problems? I can provide complete dmesg
-outputs if helpful but here are excerpts showing the kind of bugs I'm
-currently facing (various kernels or kernel configurations):
+However, the ARCH_HAS_HOLES_MEMORYMODEL also enables HAVE_ARCH_PFN_VALID
+and arch-specific pfn_valid() implementation that also deals with the holes
+in the memory map.
 
+The only two users of memmap_valid_within() call this function after
+a call to pfn_valid() so the memmap_valid_within() check becomes redundant.
 
-Kernel 5.6.5:
+Remove CONFIG_ARCH_HAS_HOLES_MEMORYMODEL and memmap_valid_within() and rely
+entirely on ARM's implementation of pfn_valid() that is now enabled
+unconditionally.
 
-[   18.599225] systemd-udevd[1690]: NaT consumption 2216203124768 [1]
-[   18.599225] Modules linked in: snd_hwdep snd_rawmidi drm
-snd_seq_device snd_pcm tg3(+) drm_panel_orientation_quirks backlight
-i2c_core snd_timer e100 libphy fm801_gp snd gameport soundcore mii
-hwmon efivarfs configfs fuse nfs lockd grace sunrpc
+Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
+---
+ Documentation/vm/memory-model.rst |  3 +--
+ arch/arm/Kconfig                  |  8 ++------
+ arch/arm/mach-bcm/Kconfig         |  1 -
+ arch/arm/mach-davinci/Kconfig     |  1 -
+ arch/arm/mach-exynos/Kconfig      |  1 -
+ arch/arm/mach-highbank/Kconfig    |  1 -
+ arch/arm/mach-omap2/Kconfig       |  1 -
+ arch/arm/mach-s5pv210/Kconfig     |  1 -
+ arch/arm/mach-tango/Kconfig       |  1 -
+ fs/proc/kcore.c                   |  2 --
+ include/linux/mmzone.h            | 31 -------------------------------
+ mm/mmzone.c                       | 14 --------------
+ mm/vmstat.c                       |  4 ----
+ 13 files changed, 3 insertions(+), 66 deletions(-)
 
-[   18.599225] CPU: 0 PID: 1690 Comm: systemd-udevd Not tainted
-5.6.5-gentoo-ia64 #1
-[   18.599225] Hardware name: hp workstation zx6000              ,
-BIOS 02.31
-03/11/2004
-[   18.599225] psr : 00001210085a6010 ifs : 800000000000152e ip  :
-[<a000000100051281>]    Not tainted (5.6.5-gentoo-ia64)
-[   18.599225] ip is at apply_relocate_add+0x2c1/0x13a0
-[   18.599225] unat: 0000000000000000 pfs : 0000000000001a3c rsc :
-0000000000000003
-[   18.599225] rnat: 0000000000000000 bsps: 0000000000000000 pr  :
-00000001a666a659
-[   18.599225] ldrs: 0000000000000000 ccv : e000004080fe8000 fpsr:
-0009804c8a70433f
-[   18.599225] csd : 0000000000000000 ssd : 0000000000000000
-[   18.599225] b0  : a000000100196e90 b6  : a000000100190380 b7  :
-a00000010000c7a0
-[   18.599225] f6  : 1003e0000000000000b10 f7  : 1003eaaaaaaaaaaaaaaab
-[   18.599225] f8  : 1003e0000000000000760 f9  : 1003e0000000000000000
-[   18.599225] f10 : 1003e0000000000000000 f11 : 1003ecccccccccccccccd
-[   18.599225] r1  : a0000001014029a0 r2  : 0000000000000100 r3  :
-0000000000000000
-[   18.599225] r8  : 0000000000000009 r9  : a0000002000c8000 r10 :
-0000000000000005
-[   18.599225] r11 : 0000000000000810 r12 : e000004080fefd00 r13 :
-e000004080fe8000
-[   18.599225] r14 : 0000000000000810 r15 : 00000000000000ac r16 :
-0000000000000056
-[   18.599225] r17 : 0000000000000102 r18 : 0000000000000005 r19 :
-0000000000000818
-[   18.599225] r20 : 0000000000000076 r21 : 0000000000000028 r22 :
-a000000100e5a830
-[   18.599225] r23 : ffffffffff1f7040 r24 : 0000000000002b5b r25 :
-0000000000400000
-[   18.599225] r26 : 0000000000002b62 r27 : a0000002000cd158 r28 :
-a0000002000c8000
-[   18.599225] r29 : 0000000000002b60 r30 : a0000002000cab60 r31 :
-0000000000000075
-[   18.599225]
-               Call Trace:
-[   18.599225]  [<a000000100015070>] show_stack+0x90/0xc0
-                                               sp=3De000004080fef8c0
-bsp=3De000004080fe9410
-[   18.599225]  [<a000000100015760>] show_regs+0x6c0/0xa20
-                                               sp=3De000004080fefa90
-bsp=3De000004080fe9398
-[   18.599225]  [<a000000100029030>] die+0x1b0/0x4a0
-                                               sp=3De000004080fefab0
-bsp=3De000004080fe9358
-[   18.599225]  [<a00000010002a490>] ia64_fault+0x770/0xd80
-                                               sp=3De000004080fefab0
-bsp=3De000004080fe9308
-[   18.599225]  [<a00000010000cf80>] ia64_leave_kernel+0x0/0x270
-                                               sp=3De000004080fefb30
-bsp=3De000004080fe9308
-[   18.599225]  [<a000000100051280>] apply_relocate_add+0x2c0/0x13a0
-                                               sp=3De000004080fefd00
-bsp=3De000004080fe9190
-[   18.599225]  [<a000000100196e90>] load_module+0x34f0/0x5fc0
-                                               sp=3De000004080fefd10
-bsp=3De000004080fe8fe8
-[   18.599225]  [<a000000100199d30>] __do_sys_finit_module+0x110/0x180
-                                               sp=3De000004080fefd90
-bsp=3De000004080fe8fb8
-[   18.599225]  [<a000000100199e30>] sys_finit_module+0x30/0x80
-                                               sp=3De000004080fefe30
-bsp=3De000004080fe8f60
-[   18.599225]  [<a00000010000ce00>] ia64_ret_from_syscall+0x0/0x20
-                                               sp=3De000004080fefe30
-bsp=3De000004080fe8f58
-[   18.599225] Disabling lock debugging due to kernel taint
-[   18.601537] systemd-udevd[1573]: Worker [1690] terminated by signal 11 (=
-SEGV)
-[   18.601537] systemd-udevd[1573]: 0000:c0:01.0: Worker [1690] failed
-
-
-Kernel 5.9.1:
-
-[   18.881449] kernel BUG at arch/ia64/kernel/module.c:609!
-[   18.881449] systemd-udevd[1705]: bugcheck! 0 [1]
-[   18.881449] Modules linked in: cfbimgblt snd_opl3_lib sysfillrect
-sysimgblt snd_hwdep fb_sys_fops snd_rawmidi cfbcopyarea fb font
-snd_seq_device ttm snd_pcm drm snd_timer snd i2c_core
-drm_panel_orientation_quirks backlight tg3(+) agpgart libphy e100
-fm801_gp soundcore gameport mii hwmon efivarfs configfs fuse nfs lockd
-grace sunrpc
-
-[   18.881449] CPU: 0 PID: 1705 Comm: systemd-udevd Not tainted
-5.9.1-gentoo-ia64 #1
-[   18.881449] Hardware name: hp workstation zx6000              ,
-BIOS 02.31
-03/11/2004
-[   18.881449] psr : 0000101008026010 ifs : 8000000000000309 ip  :
-[<a00000010004c6b0>]    Not tainted (5.9.1-gentoo-ia64)
-[   18.881449] ip is at get_fdesc.isra.0+0x110/0x240
-[   18.881449] unat: 0000000000000000 pfs : 0000000000000309 rsc :
-0000000000000003
-[   18.881449] rnat: 0000000000000000 bsps: 0000000000000000 pr  :
-0000000069665159
-[   18.881449] ldrs: 0000000000000000 ccv : 00000004656c0cc1 fpsr:
-0009804c0270033f
-[   18.881449] csd : 0000000000000000 ssd : 0000000000000000
-[   18.881449] b0  : a00000010004c6b0 b6  : a000000100740e60 b7  :
-a0000001004a4740
-[   18.881449] f6  : 000000000000000000000 f7  : 1003eaaaaaaaaaaaaaaab
-[   18.881449] f8  : 1003e0000000000000020 f9  : 1003e0000000000000000
-[   18.881449] f10 : 1003e0000000000000000 f11 : 1003ecccccccccccccccd
-[   18.881449] r1  : a0000001014c65e0 r2  : a00000010126da10 r3  :
-a00000010126da18
-[   18.881449] r8  : 000000000000002c r9  : 0000000000000001 r10 :
-0000000000000000
-[   18.881449] r11 : 0000000000000000 r12 : e00000408556fd00 r13 :
-e000004085568000
-[   18.881449] r14 : ffffffffffda7430 r15 : a00000010126da18 r16 :
-e0000040fff80000
-[   18.881449] r17 : 0000000000004000 r18 : a000000101259a38 r19 :
-0000000000000003
-[   18.881449] r20 : 0000000000000003 r21 : 0000000000000003 r22 :
-0000000000004000
-[   18.881449] r23 : 0000000000004000 r24 : 0000000000000001 r25 :
-a0000001012f074e
-[   18.881449] r26 : a0000001012f077f r27 : 0000000000009140 r28 :
-a0000001012e7648
-[   18.881449] r29 : 0000000000000001 r30 : 000000000000148e r31 :
-000000000000148e
-[   18.881449]
-               Call Trace:
-[   18.881449]  [<a000000100014df0>] show_stack+0x90/0xc0
-                                               sp=3De00000408556f940
-bsp=3De000004085569420
-[   18.881449]  [<a0000001000154f0>] show_regs+0x6d0/0xa40
-                                               sp=3De00000408556fb10
-bsp=3De0000040855693a8
-[   18.881449]  [<a000000100027610>] die+0x1b0/0x4a0
-                                               sp=3De00000408556fb30
-bsp=3De000004085569368
-[   18.881449]  [<a000000100e2aa60>] ia64_bad_break+0x740/0x760
-                                               sp=3De00000408556fb30
-bsp=3De000004085569338
-[   18.881449]  [<a00000010000cc00>] ia64_leave_kernel+0x0/0x270
-                                               sp=3De00000408556fb30
-bsp=3De000004085569338
-[   18.881449]  [<a00000010004c6b0>] get_fdesc.isra.0+0x110/0x240
-                                               sp=3De00000408556fd00
-bsp=3De0000040855692f0
-[   18.881449]  [<a00000010004e250>] apply_relocate_add+0x310/0x13e0
-                                               sp=3De00000408556fd00
-bsp=3De000004085569198
-[   18.881449]  [<a0000001001a1110>] load_module+0x3c30/0x69e0
-                                               sp=3De00000408556fd10
-bsp=3De000004085568fe0
-[   18.881449]  [<a0000001001a4270>] __do_sys_finit_module+0x110/0x180
-                                               sp=3De00000408556fd90
-bsp=3De000004085568fb0
-[   18.881449]  [<a0000001001a4370>] sys_finit_module+0x30/0x80
-                                               sp=3De00000408556fe30
-bsp=3De000004085568f58
-[   18.881449]  [<a00000010000ca80>] ia64_ret_from_syscall+0x0/0x20
-                                               sp=3De00000408556fe30
-bsp=3De000004085568f50
-
-
-Kernel 5.9.1:
-[   17.836872] ------------[ cut here ]------------
-[   17.836872] WARNING: CPU: 0 PID: 1926 at mm/vmalloc.c:2247
-__vunmap+0x4a0/0x5c0
-[   17.836872] Trying to vfree() bad address (00000000d54cc3f8)
-[   17.836872] Modules linked in: usb_common fm801_gp gameport mii
-hwmon pata_cmd64x efivarfs crc32c_generic msdos fat configfs squashfs
-fuse nfs lockd grace sunrpc ext4 mbcache jbd2 sd_mod mptspi
-scsi_transport_spi mptscsih mptbase libata scsi_mod
-[   17.836872] CPU: 0 PID: 1926 Comm: systemd-udevd Tainted: G
-W         5.9.1-gentoo-ia64 #1
-[   17.836872] Hardware name: hp workstation zx6000              ,
-BIOS 02.31
-03/11/2004
-[   17.836872]
-               Call Trace:
-[   17.836872]  [<a000000100014df0>] show_stack+0x90/0xc0
-                                               sp=3De000004081717b10
-bsp=3De000004081711250
-[   17.836872]  [<a0000001005c5440>] dump_stack+0x120/0x160
-                                               sp=3De000004081717ce0
-bsp=3De0000040817111d0
-[   17.836872]  [<a000000100064360>] __warn+0x190/0x230
-                                               sp=3De000004081717ce0
-bsp=3De000004081711180
-[   17.836872]  [<a0000001000644c0>] warn_slowpath_fmt+0xc0/0xe0
-                                               sp=3De000004081717ce0
-bsp=3De000004081711120
-[   17.836872]  [<a0000001002a7660>] __vunmap+0x4a0/0x5c0
-                                               sp=3De000004081717d10
-bsp=3De0000040817110d0
-[   17.836872]  [<a0000001002a7af0>] vfree+0xd0/0x1e0
-                                               sp=3De000004081717d10
-bsp=3De0000040817110a8
-[   17.836872]  [<a00000010019c210>] module_memfree+0x70/0xa0
-                                               sp=3De000004081717d10
-bsp=3De000004081711088
-[   17.836872]  [<a0000001001a13d0>] load_module+0x3ef0/0x69e0
-                                               sp=3De000004081717d10
-bsp=3De000004081710ed0
-[   17.836872]  [<a0000001001a4270>] __do_sys_finit_module+0x110/0x180
-                                               sp=3De000004081717d90
-bsp=3De000004081710ea0
-[   17.836872]  [<a0000001001a4370>] sys_finit_module+0x30/0x80
-                                               sp=3De000004081717e30
-bsp=3De000004081710e48
-[   17.836872]  [<a00000010000ca80>] ia64_ret_from_syscall+0x0/0x20
-                                               sp=3De000004081717e30
-bsp=3De000004081710e40
-[   17.836872] ---[ end trace d067dd4ef2f6ea79 ]---
-
-
-Kernel 5.9.1:
-
-[   18.110401] Unable to handle kernel NULL pointer dereference
-(address 0000000000000ef0)
-[   18.110401] systemd-udevd[1915]: Oops 8804682956800 [1]
-[   18.110401] Modules linked in: usb_common mii pata_cmd64x(+)
-thermal efivarfs crc32c_generic msdos fat configfs squashfs loop fuse
-nfs lockd grace sunrpc ext4 crc16 mbcache jbd2 sd_mod mptspi
-scsi_transport_spi mptscsih mptbase libata scsi_mod
-
-[   18.110401] CPU: 0 PID: 1915 Comm: systemd-udevd Not tainted
-5.9.1-gentoo-ia64 #1
-[   18.110401] Hardware name: hp workstation zx6000              ,
-BIOS 02.31
-03/11/2004
-[   18.110401] psr : 0000101008026010 ifs : 8000000000001b3e ip  :
-[<a00000010019f940>]    Not tainted (5.9.1-gentoo-ia64)
-[   18.110401] ip is at load_module+0x4c80/0x69e0
-[   18.110401] unat: 0000000000000000 pfs : 0000000000001b3e rsc :
-0000000000000003
-[   18.110401] rnat: 0000000000000000 bsps: 0000000000000000 pr  :
-0000000069666959
-[   18.110401] ldrs: 0000000000000000 ccv : e000004080e08000 fpsr:
-0009804c0270033f
-[   18.110401] csd : 0000000000000000 ssd : 0000000000000000
-[   18.110401] b0  : a00000010019e860 b6  : a000000100196680 b7  :
-a0000002003782a0
-[   18.110401] f6  : 000000000000000000000 f7  : 1003e0000000000000008
-[   18.110401] f8  : 1003e0000000000000520 f9  : 1003e00000000000007b0
-[   18.110401] f10 : 1003eaaaaaaaaaaaaaaab f11 : 1003e0000000000000520
-[   18.110401] r1  : a00000010106c4f0 r2  : a000000200160c90 r3  :
-a000000200160ca8
-[   18.110401] r8  : a000000200160ca0 r9  : 0000000000000000 r10 :
-0000000000000000
-[   18.110401] r11 : 0000000000000000 r12 : e000004080e0fd10 r13 :
-e000004080e08000
-[   18.110401] r14 : 0000000000000000 r15 : a000000200160c90 r16 :
-e000004080e0fdf0
-[   18.110401] r17 : 00000000000007b0 r18 : a000000200160c90 r19 :
-a000000200150ece
-[   18.110401] r20 : a000000200152e28 r21 : a000000200152e38 r22 :
-a000000200150d60
-[   18.110401] r23 : a000000200152e48 r24 : a000000200150ec8 r25 :
-0000000000000055
-[   18.110401] r26 : aaaaaaaaaaaaaaab r27 : a000000200150ece r28 :
-a000000200160c98
-[   18.110401] r29 : 0000000000000052 r30 : 0000000000000023 r31 :
-a0000002001525a8
-[   18.110401]
-               Call Trace:
-[   18.110401]  [<a000000100014df0>] show_stack+0x90/0xc0
-                                               sp=3De000004080e0f940
-bsp=3De000004080e09218
-[   18.110401]  [<a0000001000154f0>] show_regs+0x6d0/0xa40
-                                               sp=3De000004080e0fb10
-bsp=3De000004080e091a0
-[   18.110401]  [<a000000100027610>] die+0x1b0/0x4a0
-                                               sp=3De000004080e0fb30
-bsp=3De000004080e09160
-[   18.110401]  [<a000000100aa7be0>] ia64_do_page_fault+0x6c0/0xc80
-                                               sp=3De000004080e0fb30
-bsp=3De000004080e090c8
-[   18.110401]  [<a00000010000cc00>] ia64_leave_kernel+0x0/0x270
-                                               sp=3De000004080e0fb40
-bsp=3De000004080e090c8
-[   18.110401]  [<a00000010019f940>] load_module+0x4c80/0x69e0
-                                               sp=3De000004080e0fd10
-bsp=3De000004080e08ed0
-[   18.110401]  [<a0000001001a1a50>] __do_sys_finit_module+0x110/0x180
-                                               sp=3De000004080e0fd90
-bsp=3De000004080e08ea0
-[   18.110401]  [<a0000001001a1b50>] sys_finit_module+0x30/0x80
-                                               sp=3De000004080e0fe30
-bsp=3De000004080e08e48
-[   18.110401]  [<a00000010000ca80>] ia64_ret_from_syscall+0x0/0x20
-                                               sp=3De000004080e0fe30
-bsp=3De000004080e08e40
-
-
-Do these remind any code change w.r.t. module loading to someone?
-
-Thanks,
-
-     =C3=89meric
+diff --git a/Documentation/vm/memory-model.rst b/Documentation/vm/memory-model.rst
+index 9daadf9faba1..ce398a7dc6cd 100644
+--- a/Documentation/vm/memory-model.rst
++++ b/Documentation/vm/memory-model.rst
+@@ -51,8 +51,7 @@ call :c:func:`free_area_init` function. Yet, the mappings array is not
+ usable until the call to :c:func:`memblock_free_all` that hands all the
+ memory to the page allocator.
+ 
+-If an architecture enables `CONFIG_ARCH_HAS_HOLES_MEMORYMODEL` option,
+-it may free parts of the `mem_map` array that do not cover the
++An architecture may free parts of the `mem_map` array that do not cover the
+ actual physical pages. In such case, the architecture specific
+ :c:func:`pfn_valid` implementation should take the holes in the
+ `mem_map` into account.
+diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
+index fe2f17eb2b50..83adc46c1e67 100644
+--- a/arch/arm/Kconfig
++++ b/arch/arm/Kconfig
+@@ -25,7 +25,7 @@ config ARM
+ 	select ARCH_HAS_TICK_BROADCAST if GENERIC_CLOCKEVENTS_BROADCAST
+ 	select ARCH_HAVE_CUSTOM_GPIO_H
+ 	select ARCH_HAS_GCOV_PROFILE_ALL
+-	select ARCH_KEEP_MEMBLOCK if HAVE_ARCH_PFN_VALID || KEXEC
++	select ARCH_KEEP_MEMBLOCK
+ 	select ARCH_MIGHT_HAVE_PC_PARPORT
+ 	select ARCH_NO_SG_CHAIN if !ARM_HAS_SG_CHAIN
+ 	select ARCH_OPTIONAL_KERNEL_RWX if ARCH_HAS_STRICT_KERNEL_RWX
+@@ -519,7 +519,6 @@ config ARCH_S3C24XX
+ config ARCH_OMAP1
+ 	bool "TI OMAP1"
+ 	depends on MMU
+-	select ARCH_HAS_HOLES_MEMORYMODEL
+ 	select ARCH_OMAP
+ 	select CLKDEV_LOOKUP
+ 	select CLKSRC_MMIO
+@@ -1479,9 +1478,6 @@ config OABI_COMPAT
+ 	  UNPREDICTABLE (in fact it can be predicted that it won't work
+ 	  at all). If in doubt say N.
+ 
+-config ARCH_HAS_HOLES_MEMORYMODEL
+-	bool
+-
+ config ARCH_SELECT_MEMORY_MODEL
+ 	bool
+ 
+@@ -1493,7 +1489,7 @@ config ARCH_SPARSEMEM_ENABLE
+ 	select SPARSEMEM_STATIC if SPARSEMEM
+ 
+ config HAVE_ARCH_PFN_VALID
+-	def_bool ARCH_HAS_HOLES_MEMORYMODEL || !SPARSEMEM
++	def_bool y
+ 
+ config HIGHMEM
+ 	bool "High Memory Support"
+diff --git a/arch/arm/mach-bcm/Kconfig b/arch/arm/mach-bcm/Kconfig
+index ae790908fc74..9b594ae98153 100644
+--- a/arch/arm/mach-bcm/Kconfig
++++ b/arch/arm/mach-bcm/Kconfig
+@@ -211,7 +211,6 @@ config ARCH_BRCMSTB
+ 	select BCM7038_L1_IRQ
+ 	select BRCMSTB_L2_IRQ
+ 	select BCM7120_L2_IRQ
+-	select ARCH_HAS_HOLES_MEMORYMODEL
+ 	select ZONE_DMA if ARM_LPAE
+ 	select SOC_BRCMSTB
+ 	select SOC_BUS
+diff --git a/arch/arm/mach-davinci/Kconfig b/arch/arm/mach-davinci/Kconfig
+index f56ff8c24043..de11030748d0 100644
+--- a/arch/arm/mach-davinci/Kconfig
++++ b/arch/arm/mach-davinci/Kconfig
+@@ -5,7 +5,6 @@ menuconfig ARCH_DAVINCI
+ 	depends on ARCH_MULTI_V5
+ 	select DAVINCI_TIMER
+ 	select ZONE_DMA
+-	select ARCH_HAS_HOLES_MEMORYMODEL
+ 	select PM_GENERIC_DOMAINS if PM
+ 	select PM_GENERIC_DOMAINS_OF if PM && OF
+ 	select REGMAP_MMIO
+diff --git a/arch/arm/mach-exynos/Kconfig b/arch/arm/mach-exynos/Kconfig
+index d2d249706ebb..56d272967fc0 100644
+--- a/arch/arm/mach-exynos/Kconfig
++++ b/arch/arm/mach-exynos/Kconfig
+@@ -8,7 +8,6 @@
+ menuconfig ARCH_EXYNOS
+ 	bool "Samsung Exynos"
+ 	depends on ARCH_MULTI_V7
+-	select ARCH_HAS_HOLES_MEMORYMODEL
+ 	select ARCH_SUPPORTS_BIG_ENDIAN
+ 	select ARM_AMBA
+ 	select ARM_GIC
+diff --git a/arch/arm/mach-highbank/Kconfig b/arch/arm/mach-highbank/Kconfig
+index 1bc68913d62c..9de38ce8124f 100644
+--- a/arch/arm/mach-highbank/Kconfig
++++ b/arch/arm/mach-highbank/Kconfig
+@@ -2,7 +2,6 @@
+ config ARCH_HIGHBANK
+ 	bool "Calxeda ECX-1000/2000 (Highbank/Midway)"
+ 	depends on ARCH_MULTI_V7
+-	select ARCH_HAS_HOLES_MEMORYMODEL
+ 	select ARCH_SUPPORTS_BIG_ENDIAN
+ 	select ARM_AMBA
+ 	select ARM_ERRATA_764369 if SMP
+diff --git a/arch/arm/mach-omap2/Kconfig b/arch/arm/mach-omap2/Kconfig
+index 3ee7bdff86b2..89fe1572c142 100644
+--- a/arch/arm/mach-omap2/Kconfig
++++ b/arch/arm/mach-omap2/Kconfig
+@@ -94,7 +94,6 @@ config SOC_DRA7XX
+ config ARCH_OMAP2PLUS
+ 	bool
+ 	select ARCH_HAS_BANDGAP
+-	select ARCH_HAS_HOLES_MEMORYMODEL
+ 	select ARCH_HAS_RESET_CONTROLLER
+ 	select ARCH_OMAP
+ 	select CLKSRC_MMIO
+diff --git a/arch/arm/mach-s5pv210/Kconfig b/arch/arm/mach-s5pv210/Kconfig
+index 95d4e8284866..d644b45bc29d 100644
+--- a/arch/arm/mach-s5pv210/Kconfig
++++ b/arch/arm/mach-s5pv210/Kconfig
+@@ -8,7 +8,6 @@
+ config ARCH_S5PV210
+ 	bool "Samsung S5PV210/S5PC110"
+ 	depends on ARCH_MULTI_V7
+-	select ARCH_HAS_HOLES_MEMORYMODEL
+ 	select ARM_VIC
+ 	select CLKSRC_SAMSUNG_PWM
+ 	select COMMON_CLK_SAMSUNG
+diff --git a/arch/arm/mach-tango/Kconfig b/arch/arm/mach-tango/Kconfig
+index 25b2fd434861..a9eeda36aeb1 100644
+--- a/arch/arm/mach-tango/Kconfig
++++ b/arch/arm/mach-tango/Kconfig
+@@ -3,7 +3,6 @@ config ARCH_TANGO
+ 	bool "Sigma Designs Tango4 (SMP87xx)"
+ 	depends on ARCH_MULTI_V7
+ 	# Cortex-A9 MPCore r3p0, PL310 r3p2
+-	select ARCH_HAS_HOLES_MEMORYMODEL
+ 	select ARM_ERRATA_754322
+ 	select ARM_ERRATA_764369 if SMP
+ 	select ARM_ERRATA_775420
+diff --git a/fs/proc/kcore.c b/fs/proc/kcore.c
+index e502414b3556..4d2e64e9016c 100644
+--- a/fs/proc/kcore.c
++++ b/fs/proc/kcore.c
+@@ -193,8 +193,6 @@ kclist_add_private(unsigned long pfn, unsigned long nr_pages, void *arg)
+ 		return 1;
+ 
+ 	p = pfn_to_page(pfn);
+-	if (!memmap_valid_within(pfn, p, page_zone(p)))
+-		return 1;
+ 
+ 	ent = kmalloc(sizeof(*ent), GFP_KERNEL);
+ 	if (!ent)
+diff --git a/include/linux/mmzone.h b/include/linux/mmzone.h
+index 876600a6e891..7385871768d4 100644
+--- a/include/linux/mmzone.h
++++ b/include/linux/mmzone.h
+@@ -1440,37 +1440,6 @@ void sparse_init(void);
+ #define pfn_valid_within(pfn) (1)
+ #endif
+ 
+-#ifdef CONFIG_ARCH_HAS_HOLES_MEMORYMODEL
+-/*
+- * pfn_valid() is meant to be able to tell if a given PFN has valid memmap
+- * associated with it or not. This means that a struct page exists for this
+- * pfn. The caller cannot assume the page is fully initialized in general.
+- * Hotplugable pages might not have been onlined yet. pfn_to_online_page()
+- * will ensure the struct page is fully online and initialized. Special pages
+- * (e.g. ZONE_DEVICE) are never onlined and should be treated accordingly.
+- *
+- * In FLATMEM, it is expected that holes always have valid memmap as long as
+- * there is valid PFNs either side of the hole. In SPARSEMEM, it is assumed
+- * that a valid section has a memmap for the entire section.
+- *
+- * However, an ARM, and maybe other embedded architectures in the future
+- * free memmap backing holes to save memory on the assumption the memmap is
+- * never used. The page_zone linkages are then broken even though pfn_valid()
+- * returns true. A walker of the full memmap must then do this additional
+- * check to ensure the memmap they are looking at is sane by making sure
+- * the zone and PFN linkages are still valid. This is expensive, but walkers
+- * of the full memmap are extremely rare.
+- */
+-bool memmap_valid_within(unsigned long pfn,
+-					struct page *page, struct zone *zone);
+-#else
+-static inline bool memmap_valid_within(unsigned long pfn,
+-					struct page *page, struct zone *zone)
+-{
+-	return true;
+-}
+-#endif /* CONFIG_ARCH_HAS_HOLES_MEMORYMODEL */
+-
+ #endif /* !__GENERATING_BOUNDS.H */
+ #endif /* !__ASSEMBLY__ */
+ #endif /* _LINUX_MMZONE_H */
+diff --git a/mm/mmzone.c b/mm/mmzone.c
+index 4686fdc23bb9..f337831affc2 100644
+--- a/mm/mmzone.c
++++ b/mm/mmzone.c
+@@ -72,20 +72,6 @@ struct zoneref *__next_zones_zonelist(struct zoneref *z,
+ 	return z;
+ }
+ 
+-#ifdef CONFIG_ARCH_HAS_HOLES_MEMORYMODEL
+-bool memmap_valid_within(unsigned long pfn,
+-					struct page *page, struct zone *zone)
+-{
+-	if (page_to_pfn(page) != pfn)
+-		return false;
+-
+-	if (page_zone(page) != zone)
+-		return false;
+-
+-	return true;
+-}
+-#endif /* CONFIG_ARCH_HAS_HOLES_MEMORYMODEL */
+-
+ void lruvec_init(struct lruvec *lruvec)
+ {
+ 	enum lru_list lru;
+diff --git a/mm/vmstat.c b/mm/vmstat.c
+index 698bc0bc18d1..e292e63afebf 100644
+--- a/mm/vmstat.c
++++ b/mm/vmstat.c
+@@ -1503,10 +1503,6 @@ static void pagetypeinfo_showblockcount_print(struct seq_file *m,
+ 		if (!page)
+ 			continue;
+ 
+-		/* Watch for unexpected holes punched in the memmap */
+-		if (!memmap_valid_within(pfn, page, zone))
+-			continue;
+-
+ 		if (page_zone(page) != zone)
+ 			continue;
+ 
+-- 
+2.28.0
