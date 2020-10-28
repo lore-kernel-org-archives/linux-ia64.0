@@ -1,99 +1,52 @@
-From: Mike Rapoport <rppt@kernel.org>
-Date: Tue, 27 Oct 2020 11:29:53 +0000
-Subject: [PATCH 11/13] m68k/mm: make node data and node setup depend on CONFIG_DISCONTIGMEM
-Message-Id: <20201027112955.14157-12-rppt@kernel.org>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Date: Wed, 28 Oct 2020 09:25:49 +0000
+Subject: Re: [PATCH 11/13] m68k/mm: make node data and node setup depend on CONFIG_DISCONTIGMEM
+Message-Id: <CAMuHMdU4r4CJ1kBu7gx1jkputjDn2S8Lqkj7RPfa3XUnM1QOFg@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20201027112955.14157-1-rppt@kernel.org>
-In-Reply-To: <20201027112955.14157-1-rppt@kernel.org>
+References: <20201027112955.14157-1-rppt@kernel.org> <20201027112955.14157-12-rppt@kernel.org>
+In-Reply-To: <20201027112955.14157-12-rppt@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>
-Cc: Alexey Dobriyan <adobriyan@gmail.com>, Catalin Marinas <catalin.marinas@arm.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, Jonathan Corbet <corbet@lwn.net>, Matt Turner <mattst88@gmail.com>, Meelis Roos <mroos@linux.ee>, Michael Schmitz <schmitzmic@gmail.com>, Mike Rapoport <rppt@kernel.org>, Mike Rapoport <rppt@linux.ibm.com>, Russell King <linux@armlinux.org.uk>, Tony Luck <tony.luck@intel.com>, Vineet Gupta <vgupta@synopsys.com>, Will Deacon <will@kernel.org>, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-doc@vger.kernel.org, linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mm@kvack.org, linux-snps-arc@lists.infradead.org
+To: Mike Rapoport <rppt@kernel.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>, Alexey Dobriyan <adobriyan@gmail.com>, Catalin Marinas <catalin.marinas@arm.com>, Greg Ungerer <gerg@linux-m68k.org>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, Jonathan Corbet <corbet@lwn.net>, Matt Turner <mattst88@gmail.com>, Meelis Roos <mroos@linux.ee>, Michael Schmitz <schmitzmic@gmail.com>, Mike Rapoport <rppt@linux.ibm.com>, Russell King <linux@armlinux.org.uk>, Tony Luck <tony.luck@intel.com>, Vineet Gupta <vgupta@synopsys.com>, Will Deacon <will@kernel.org>, alpha <linux-alpha@vger.kernel.org>, Linux ARM <linux-arm-kernel@lists.infradead.org>, "open list:DOCUMENTATION" <linux-doc@vger.kernel.org>, Linux FS Devel <linux-fsdevel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-m68k <linux-m68k@lists.linux-m68k.org>, Linux MM <linux-mm@kvack.org>, arcml <linux-snps-arc@lists.infradead.org>
 
-From: Mike Rapoport <rppt@linux.ibm.com>
+Hi Mike,
 
-The pg_data_t node structures and their initialization currently depends on
-!CONFIG_SINGLE_MEMORY_CHUNK. Since they are required only for DISCONTIGMEM
-make this dependency explicit and replace usage of
-CONFIG_SINGLE_MEMORY_CHUNK with CONFIG_DISCONTIGMEM where appropriate.
+On Tue, Oct 27, 2020 at 12:31 PM Mike Rapoport <rppt@kernel.org> wrote:
+> From: Mike Rapoport <rppt@linux.ibm.com>
+>
+> The pg_data_t node structures and their initialization currently depends on
+> !CONFIG_SINGLE_MEMORY_CHUNK. Since they are required only for DISCONTIGMEM
+> make this dependency explicit and replace usage of
+> CONFIG_SINGLE_MEMORY_CHUNK with CONFIG_DISCONTIGMEM where appropriate.
+>
+> The CONFIG_SINGLE_MEMORY_CHUNK was implicitly disabled on the ColdFire MMU
+> variant, although it always presumed a single memory bank. As there is no
+> actual need for DISCONTIGMEM in this case, make sure that ColdFire MMU
+> systems set CONFIG_SINGLE_MEMORY_CHUNK to 'y'.
+>
+> Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
 
-The CONFIG_SINGLE_MEMORY_CHUNK was implicitly disabled on the ColdFire MMU
-variant, although it always presumed a single memory bank. As there is no
-actual need for DISCONTIGMEM in this case, make sure that ColdFire MMU
-systems set CONFIG_SINGLE_MEMORY_CHUNK to 'y'.
+Thanks for your patch!
 
-Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
----
- arch/m68k/Kconfig.cpu           | 6 +++---
- arch/m68k/include/asm/page_mm.h | 2 +-
- arch/m68k/mm/init.c             | 4 ++--
- 3 files changed, 6 insertions(+), 6 deletions(-)
+> ---
+>  arch/m68k/Kconfig.cpu           | 6 +++---
+>  arch/m68k/include/asm/page_mm.h | 2 +-
+>  arch/m68k/mm/init.c             | 4 ++--
+>  3 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/arch/m68k/Kconfig.cpu b/arch/m68k/Kconfig.cpu
-index 694c4fca9f5d..3af0fca03803 100644
---- a/arch/m68k/Kconfig.cpu
-+++ b/arch/m68k/Kconfig.cpu
-@@ -20,6 +20,7 @@ choice
- 
- config M68KCLASSIC
- 	bool "Classic M68K CPU family support"
-+	select NEED_MULTIPLE_NODES if DISCONTIGMEM
- 
- config COLDFIRE
- 	bool "Coldfire CPU family support"
-@@ -373,8 +374,7 @@ config RMW_INSNS
- config SINGLE_MEMORY_CHUNK
- 	bool "Use one physical chunk of memory only" if ADVANCED && !SUN3
- 	depends on MMU
--	default y if SUN3
--	select NEED_MULTIPLE_NODES
-+	default y if SUN3 || MMU_COLDFIRE
- 	help
- 	  Ignore all but the first contiguous chunk of physical memory for VM
- 	  purposes.  This will save a few bytes kernel size and may speed up
-@@ -406,7 +406,7 @@ config M68K_L2_CACHE
- config NODES_SHIFT
- 	int
- 	default "3"
--	depends on !SINGLE_MEMORY_CHUNK
-+	depends on DISCONTIGMEM
- 
- config CPU_HAS_NO_BITFIELDS
- 	bool
-diff --git a/arch/m68k/include/asm/page_mm.h b/arch/m68k/include/asm/page_mm.h
-index e6b75992192b..0e794051d3bb 100644
---- a/arch/m68k/include/asm/page_mm.h
-+++ b/arch/m68k/include/asm/page_mm.h
-@@ -126,7 +126,7 @@ static inline void *__va(unsigned long x)
- 
- extern int m68k_virt_to_node_shift;
- 
--#ifdef CONFIG_SINGLE_MEMORY_CHUNK
-+#ifndef CONFIG_DISCONTIGMEM
- #define __virt_to_node(addr)	(&pg_data_map[0])
- #else
- extern struct pglist_data *pg_data_table[];
-diff --git a/arch/m68k/mm/init.c b/arch/m68k/mm/init.c
-index 53040857a9ed..4b46ceace3d3 100644
---- a/arch/m68k/mm/init.c
-+++ b/arch/m68k/mm/init.c
-@@ -47,14 +47,14 @@ EXPORT_SYMBOL(pg_data_map);
- 
- int m68k_virt_to_node_shift;
- 
--#ifndef CONFIG_SINGLE_MEMORY_CHUNK
-+#ifdef CONFIG_DISCONTIGMEM
- pg_data_t *pg_data_table[65];
- EXPORT_SYMBOL(pg_data_table);
- #endif
- 
- void __init m68k_setup_node(int node)
- {
--#ifndef CONFIG_SINGLE_MEMORY_CHUNK
-+#ifdef CONFIG_DISCONTIGMEM
- 	struct m68k_mem_info *info = m68k_memory + node;
- 	int i, end;
- 
+Is there any specific reason you didn't convert the checks for
+CONFIG_SINGLE_MEMORY_CHUNK in arch/m68k/kernel/setup_mm.c
+and arch/m68k/include/asm/virtconvert.h?
+
+Gr{oetje,eeting}s,
+
+                        Geert
+
 -- 
-2.28.0
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
