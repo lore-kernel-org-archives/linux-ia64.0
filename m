@@ -1,157 +1,78 @@
-From: Greg Ungerer <gerg@linux-m68k.org>
-Date: Fri, 30 Oct 2020 13:12:29 +0000
-Subject: Re: [RFC 13/13] m68k: mac: convert to generic clockevent
-Message-Id: <580c3542-92cc-7e33-a43d-bf6a68134a46@linux-m68k.org>
+From: Jens Axboe <axboe@kernel.dk>
+Date: Thu, 29 Oct 2020 16:15:00 +0000
+Subject: [PATCH] ia64: add support for TIF_NOTIFY_SIGNAL
+Message-Id: <d3a2aa1e-0fae-1d3f-519f-d32adc608c38@kernel.dk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20201008154651.1901126-1-arnd@arndb.de>
- <20201008154651.1901126-14-arnd@arndb.de>
- <alpine.LNX.2.23.453.2010091900150.12@nippy.intranet>
- <CAK8P3a3rM7gJjdTtcKzr6yi15n6xs-yhEpmSOf3QHfahQwxqkw@mail.gmail.com>
- <alpine.LNX.2.23.453.2010150937430.16@nippy.intranet>
- <CAK8P3a3i6cum_9xGgsbxjXXvbRsP8Po5qLZ0Agb3c4gZTKC9GQ@mail.gmail.com>
- <alpine.LNX.2.23.453.2010241025410.6@nippy.intranet>
-In-Reply-To: <alpine.LNX.2.23.453.2010241025410.6@nippy.intranet>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Finn Thain <fthain@telegraphics.com.au>, Arnd Bergmann <arnd@kernel.org>
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Russell King <linux@armlinux.org.uk>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Philip Blundell <philb@gnu.org>, Joshua Thompson <funaho@jurai.org>, Sam Creasey <sammy@sammy.net>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Thomas Gleixner <tglx@linutronix.de>, Daniel Lezcano <daniel.lezcano@linaro.org>, John Stultz <john.stultz@linaro.org>, Stephen Boyd <sboyd@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, linux-ia64@vger.kernel.org, Parisc List <linux-parisc@vger.kernel.org>, linux-m68k <linux-m68k@lists.linux-m68k.org>, Linux ARM <linux-arm-kernel@lists.infradead.org>
+To: linux-ia64@vger.kernel.org
 
+Wire up TIF_NOTIFY_SIGNAL handling for ia64.
 
-On 30/10/20 10:41 am, Finn Thain wrote:
-> On Fri, 23 Oct 2020, Arnd Bergmann wrote:
->> On Sun, Oct 18, 2020 at 2:55 AM Finn Thain <fthain@telegraphics.com.au>  wrote:
->>> On Thu, 15 Oct 2020, Arnd Bergmann wrote:
->>>> On Thu, Oct 15, 2020 at 3:19 AM Finn Thain <fthain@telegraphics.com.au> wrote:
->>>>> On Sat, 10 Oct 2020, Arnd Bergmann wrote:
->>>
->>> That configuration still produces the same 5 KiB of bloat. I see that
->>> kernel/time/Kconfig has this --
->>>
->>> # Core internal switch. Selected by NO_HZ_COMMON / HIGH_RES_TIMERS. This is
->>> # only related to the tick functionality. Oneshot clockevent devices
->>> # are supported independent of this.
->>> config TICK_ONESHOT
->>>          bool
->>>
->>> But my question was really about both kinds of dead code (oneshot
->>> device support and oneshot tick support). Anyway, after playing with
->>> the code for a bit I don't see any easy way to reduce the growth in
->>> text size.
->>
->> Did you look more deeply into where those 5KB are? Is this just the code
->> in kernel/time/{clockevents,tick-common}.c and the added platform
->> specific bits, or is there something more?
-> 
-> What I did was to list the relevant functions using scripts/bloat-o-meter
-> and tried stubbing out some code related to oneshot clockevent devices. I
-> didn't find any low fruit and don't plan to pursue that without the help
-> of LTO.
-> 
->> I suppose the sysfs interface and the clockevents_update_freq() logic
->> are not really needed on m68k, but it wouldn't make much sense to split
->> those out either.
->>
->> How does the 5KB bloat compare to the average bloat we get from one
->> release to the next? Geert has been collecting statistics for this.
->>
-> 
-> Perhaps that 5 KB is justified by gaining the hrtimers feature... hard to
-> say; it's never been available on these platforms. I can see the value in
-> it though.
-> 
->>>> Yes, makes sense. I think the one remaining problem with the
->>>> periodic mode in this driver is that it can drop timer ticks when
->>>> interrupts are disabled for too long, while in oneshot mode there
->>>> may be a way to know how much time has passed since the last tick as
->>>> long as the counter does not overflow.
->>>
->>> Is there any benefit from adopting a oneshot tick (rather than
->>> periodic) if no clocksource is consulted when calculating the next
->>> interval? (I'm assuming NO_HZ is not in use, for reasons discussed
->>> below.)
->>
->> If the clocksource does not set CLOCK_SOURCE_IS_CONTINOUS, the kernel
->> will keep using periodic timers and not allow hrtimers.
->>
-> 
-> IIUC, when HIGH_RES_TIMERS=y, the kernel will enable hrtimers only if the
-> platform provides both a continuous clocksource device and a oneshot
-> clockevent device. However, the "jiffies" clocksource does not set
-> CLOCK_SOURCE_IS_CONTINOUS and neither does the one in
-> arch/arm/mach-rpc/time.c.
-> 
-> When HIGH_RES_TIMERS=n and NO_HZ_COMMON=n (which is presently the case for
-> all platforms with GENERIC_CLOCKEVENTS=n) there's no use for a oneshot
-> clockevent device, right?
-> 
-> It seems likely that NO_HZ_COMMON=n because the clocksources on these
-> platforms produce a periodic interrupt regardless (e.g.
-> clocksource/i8253.c, arm/rpc, m68k platform timers etc.).
-> 
-> Finally, HIGH_RES_TIMERS=n seems likely if the only clocksource is
-> unreliable (e.g. because it loses time due to interrupt priorities). There
-> may be a few of platforms in this category (Mac, Atari?).
-> 
->>>> I would agree that despite this oneshot mode is probably worse
->>>> overall for timekeeping if the register accesses introduce
->>>> systematic errors.
->>>>
->>>
->>> It probably has to be tried. But consulting a VIA clocksource on every
->>> tick would be expensive on this platform, so if that was the only way
->>> to avoid cumulative errors, I'd probably just stick with the periodic
->>> tick.
->>
->> I'm sure there is a tradeoff somewhere. Without hrtimers, some events
->> will take longer when they have to wait for the next tick, and using
->> NO_HZ_FULL can help help make things faster on some workloads.
->>
-> 
-> Yes, such a tradeoff is discussed in drivers/iio/adc/ep93xx_adc.c.
-> 
-> But OTOH, Documentation/timers/timers-howto.rst says,
-> 
->      On slower systems, (embedded, OR perhaps a speed-stepped PC!) the
->      overhead of setting up the hrtimers for usleep *may* not be worth it
-> 
-> I guess it has to be tried.
-> 
->> ...
->>> The other 11 platforms in that category also have 'synthetic'
->>> clocksources derived from a timer reload interrupt. In 3 cases, the
->>> clocksource read method does not (or can not) check for a pending
->>> counter reload interrupt. For these also, I see no practical
->>> alternative to the approach you've taken in your RFC patch:
->>>
->>> arch/m68k/68000/timers.c
->>> arch/m68k/atari/time.c
->>> arch/m68k/coldfire/timers.c
->>
->> Agreed. It's possible there is a way, but I don't see one either.
->>
-> 
-> For arch/m68k/68000/timers.c, I suppose we may be able to check for the
-> TMR1 bit in the Interrupt Status Register at 0xFFFFF30C or the COMP bit in
-> the Timer Status Register at 0xFFFFF60A. But testing that patch could be
-> difficult.
-> 
-> I expect that equivalent flags are available in Coldfire registers, making
-> it possible to improve upon mcftmr_read_clk() and m68328_read_clk() if
-> need be -- that is, if it turns out that the clocksource interrupt was
-> subject to higher priority IRQs that would slow down the clocksource or
-> defeat its monotonicity.
-> 
-> The other difficulty is a lack of hardware timers. There's only one timer
-> on MC68EZ328. On Atari, for now only Timer C is available though Michael
-> has said that it would be possible to free up Timer D. Some Coldfire chips
-> have only 2 timers and the second timer seems to be allocated to
-> profiling.
+Cc: linux-ia64@vger.kernel.org
+Signed-off-by: Jens Axboe <axboe@kernel.dk>
+---
 
-FWIW, I would have no problem with ditching the profiling clock,
-and using both on ColdFire platforms that have this. I doubt anyone has 
-used that profiling setup in a _very_ long time.
+5.11 has support queued up for TIF_NOTIFY_SIGNAL, see this posting
+for details:
 
-Regards
-Greg
+https://lore.kernel.org/io-uring/20201026203230.386348-1-axboe@kernel.dk/
 
+As part of that work, I'm adding TIF_NOTIFY_SIGNAL support to all archs,
+as that will enable a set of cleanups once all of them support it. I'm
+happy carrying this patch if need be, or it can be funelled through the
+arch tree. Let me know.
+
+ arch/ia64/include/asm/thread_info.h | 4 +++-
+ arch/ia64/kernel/process.c          | 3 ++-
+ 2 files changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/arch/ia64/include/asm/thread_info.h b/arch/ia64/include/asm/thread_info.h
+index 64a1011f6812..759d7d68a5f2 100644
+--- a/arch/ia64/include/asm/thread_info.h
++++ b/arch/ia64/include/asm/thread_info.h
+@@ -104,6 +104,7 @@ struct thread_info {
+ #define TIF_SYSCALL_AUDIT	3	/* syscall auditing active */
+ #define TIF_SINGLESTEP		4	/* restore singlestep on return to user mode */
+ #define TIF_NOTIFY_RESUME	6	/* resumption notification requested */
++#define TIF_NOTIFY_SIGNAL	7	/* signal notification exist */
+ #define TIF_MEMDIE		17	/* is terminating due to OOM killer */
+ #define TIF_MCA_INIT		18	/* this task is processing MCA or INIT */
+ #define TIF_DB_DISABLED		19	/* debug trap disabled for fsyscall */
+@@ -115,6 +116,7 @@ struct thread_info {
+ #define _TIF_SINGLESTEP		(1 << TIF_SINGLESTEP)
+ #define _TIF_SYSCALL_TRACEAUDIT	(_TIF_SYSCALL_TRACE|_TIF_SYSCALL_AUDIT|_TIF_SINGLESTEP)
+ #define _TIF_NOTIFY_RESUME	(1 << TIF_NOTIFY_RESUME)
++#define _TIF_SIGNAL_NOTIFY	(1 << TIF_SIGNAL_NOTIFY)
+ #define _TIF_SIGPENDING		(1 << TIF_SIGPENDING)
+ #define _TIF_NEED_RESCHED	(1 << TIF_NEED_RESCHED)
+ #define _TIF_MCA_INIT		(1 << TIF_MCA_INIT)
+@@ -124,7 +126,7 @@ struct thread_info {
+ 
+ /* "work to do on user-return" bits */
+ #define TIF_ALLWORK_MASK	(_TIF_SIGPENDING|_TIF_NOTIFY_RESUME|_TIF_SYSCALL_AUDIT|\
+-				 _TIF_NEED_RESCHED|_TIF_SYSCALL_TRACE)
++				 _TIF_NEED_RESCHED|_TIF_SYSCALL_TRACE|_TIF_NOTIFY_SIGNAL)
+ /* like TIF_ALLWORK_BITS but sans TIF_SYSCALL_TRACE or TIF_SYSCALL_AUDIT */
+ #define TIF_WORK_MASK		(TIF_ALLWORK_MASK&~(_TIF_SYSCALL_TRACE|_TIF_SYSCALL_AUDIT))
+ 
+diff --git a/arch/ia64/kernel/process.c b/arch/ia64/kernel/process.c
+index 6b61a703bcf5..0e0146daa88d 100644
+--- a/arch/ia64/kernel/process.c
++++ b/arch/ia64/kernel/process.c
+@@ -171,7 +171,8 @@ do_notify_resume_user(sigset_t *unused, struct sigscratch *scr, long in_syscall)
+ 	}
+ 
+ 	/* deal with pending signal delivery */
+-	if (test_thread_flag(TIF_SIGPENDING)) {
++	if (test_thread_flag(TIF_SIGPENDING) ||
++	    test_thread_flags(TIF_NOTIFY_SIGNAL)) {
+ 		local_irq_enable();	/* force interrupt enable */
+ 		ia64_do_signal(scr, in_syscall);
+ 	}
+-- 
+2.29.0
+
+-- 
+Jens Axboe
