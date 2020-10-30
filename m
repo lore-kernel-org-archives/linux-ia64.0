@@ -1,7 +1,7 @@
 From: Arnd Bergmann <arnd@kernel.org>
-Date: Fri, 30 Oct 2020 15:17:54 +0000
-Subject: [PATCH v2 11/15] m68k: m68328: use legacy_timer_tick()
-Message-Id: <20201030151758.1241164-12-arnd@kernel.org>
+Date: Fri, 30 Oct 2020 15:17:57 +0000
+Subject: [PATCH v2 14/15] timekeeping: remove xtime_update
+Message-Id: <20201030151758.1241164-15-arnd@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20201030151758.1241164-1-arnd@kernel.org>
 In-Reply-To: <20201030151758.1241164-1-arnd@kernel.org>
@@ -13,76 +13,106 @@ Cc: Thomas Gleixner <tglx@linutronix.de>, Arnd Bergmann <arnd@arndb.de>, Russell
 
 From: Arnd Bergmann <arnd@arndb.de>
 
-A couple of machines share the m68328 timer code that
-is based on calling timer_interrupt(). Change these
-to the new and slightly more generic legacy_timer_tick()
-helper.
+There are no more users of xtime_update aside from legacy_timer_tick(),
+so fold it into that function and remove the declaration.
+
+update_process_times() is now only called inside of the kernel/time/
+code, so the declaration can be moved there.
 
 Reviewed-by: Geert Uytterhoeven <geert@linux-m68k.org>
+Tested-by: Geert Uytterhoeven <geert@linux-m68k.org>
 Reviewed-by: Linus Walleij <linus.walleij@linaro.org>
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- arch/m68k/68000/timers.c | 5 ++---
- arch/m68k/Kconfig.cpu    | 3 +++
- 2 files changed, 5 insertions(+), 3 deletions(-)
+ include/linux/timekeeping.h |  2 --
+ kernel/time/tick-legacy.c   | 22 ++++++++++++++++++++--
+ kernel/time/timekeeping.c   | 16 ----------------
+ kernel/time/timekeeping.h   |  1 +
+ 4 files changed, 21 insertions(+), 20 deletions(-)
 
-diff --git a/arch/m68k/68000/timers.c b/arch/m68k/68000/timers.c
-index e8dfdd2556a5..3aa006f8e7ea 100644
---- a/arch/m68k/68000/timers.c
-+++ b/arch/m68k/68000/timers.c
-@@ -52,7 +52,6 @@
+diff --git a/include/linux/timekeeping.h b/include/linux/timekeeping.h
+index 3670cb1670ff..d47009611109 100644
+--- a/include/linux/timekeeping.h
++++ b/include/linux/timekeeping.h
+@@ -10,8 +10,6 @@ void timekeeping_init(void);
+ extern int timekeeping_suspended;
+ 
+ /* Architecture timer tick functions: */
+-extern void update_process_times(int user);
+-extern void xtime_update(unsigned long ticks);
+ extern void legacy_timer_tick(unsigned long ticks);
+ 
+ /*
+diff --git a/kernel/time/tick-legacy.c b/kernel/time/tick-legacy.c
+index 73c5a0af4743..af225b32f5b3 100644
+--- a/kernel/time/tick-legacy.c
++++ b/kernel/time/tick-legacy.c
+@@ -10,10 +10,28 @@
+ 
+ #include "tick-internal.h"
+ 
++/**
++ * legacy_timer_tick() - advances the timekeeping infrastructure
++ * @ticks:	number of ticks, that have elapsed since the last call.
++ *
++ * This is used by platforms that have not been converted to
++ * generic clockevents.
++ *
++ * If 'ticks' is zero, the CPU is not handling timekeeping, so
++ * only perform process accounting and profiling.
++ *
++ * Must be called with interrupts disabled.
++ */
+ void legacy_timer_tick(unsigned long ticks)
+ {
+-	if (ticks)
+-		xtime_update(ticks);
++	if (ticks) {
++		raw_spin_lock(&jiffies_lock);
++		write_seqcount_begin(&jiffies_seq);
++		do_timer(ticks);
++		write_seqcount_end(&jiffies_seq);
++		raw_spin_unlock(&jiffies_lock);
++		update_wall_time();
++	}
+ 	update_process_times(user_mode(get_irq_regs()));
+ 	profile_tick(CPU_PROFILING);
+ }
+diff --git a/kernel/time/timekeeping.c b/kernel/time/timekeeping.c
+index 52fff7e9edcd..daa0ff017819 100644
+--- a/kernel/time/timekeeping.c
++++ b/kernel/time/timekeeping.c
+@@ -2438,19 +2438,3 @@ void hardpps(const struct timespec64 *phase_ts, const struct timespec64 *raw_ts)
+ }
+ EXPORT_SYMBOL(hardpps);
+ #endif /* CONFIG_NTP_PPS */
+-
+-/**
+- * xtime_update() - advances the timekeeping infrastructure
+- * @ticks:	number of ticks, that have elapsed since the last call.
+- *
+- * Must be called with interrupts disabled.
+- */
+-void xtime_update(unsigned long ticks)
+-{
+-	raw_spin_lock(&jiffies_lock);
+-	write_seqcount_begin(&jiffies_seq);
+-	do_timer(ticks);
+-	write_seqcount_end(&jiffies_seq);
+-	raw_spin_unlock(&jiffies_lock);
+-	update_wall_time();
+-}
+diff --git a/kernel/time/timekeeping.h b/kernel/time/timekeeping.h
+index 099737f6f10c..d94b69c5b869 100644
+--- a/kernel/time/timekeeping.h
++++ b/kernel/time/timekeeping.h
+@@ -22,6 +22,7 @@ static inline int sched_clock_suspend(void) { return 0; }
+ static inline void sched_clock_resume(void) { }
  #endif
  
- static u32 m68328_tick_cnt;
--static irq_handler_t timer_interrupt;
++extern void update_process_times(int user);
+ extern void do_timer(unsigned long ticks);
+ extern void update_wall_time(void);
  
- /***************************************************************************/
- 
-@@ -62,7 +61,8 @@ static irqreturn_t hw_tick(int irq, void *dummy)
- 	TSTAT &= 0;
- 
- 	m68328_tick_cnt += TICKS_PER_JIFFY;
--	return timer_interrupt(irq, dummy);
-+	legacy_timer_tick(1);
-+	return IRQ_HANDLED;
- }
- 
- /***************************************************************************/
-@@ -113,7 +113,6 @@ void hw_timer_init(irq_handler_t handler)
- 	/* Enable timer 1 */
- 	TCTL |= TCTL_TEN;
- 	clocksource_register_hz(&m68328_clk, TICKS_PER_JIFFY*HZ);
--	timer_interrupt = handler;
- }
- 
- /***************************************************************************/
-diff --git a/arch/m68k/Kconfig.cpu b/arch/m68k/Kconfig.cpu
-index 322a35ef14c6..648054d4f860 100644
---- a/arch/m68k/Kconfig.cpu
-+++ b/arch/m68k/Kconfig.cpu
-@@ -104,6 +104,7 @@ config M68060
- config M68328
- 	bool "MC68328"
- 	depends on !MMU
-+	select LEGACY_TIMER_TICK
- 	select M68000
- 	help
- 	  Motorola 68328 processor support.
-@@ -111,6 +112,7 @@ config M68328
- config M68EZ328
- 	bool "MC68EZ328"
- 	depends on !MMU
-+	select LEGACY_TIMER_TICK
- 	select M68000
- 	help
- 	  Motorola 68EX328 processor support.
-@@ -118,6 +120,7 @@ config M68EZ328
- config M68VZ328
- 	bool "MC68VZ328"
- 	depends on !MMU
-+	select LEGACY_TIMER_TICK
- 	select M68000
- 	help
- 	  Motorola 68VZ328 processor support.
 -- 
 2.27.0
