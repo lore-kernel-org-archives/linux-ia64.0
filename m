@@ -1,76 +1,176 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Date: Sun, 25 Oct 2020 12:45:52 +0000
+From: Finn Thain <fthain@telegraphics.com.au>
+Date: Fri, 30 Oct 2020 00:41:36 +0000
 Subject: Re: [RFC 13/13] m68k: mac: convert to generic clockevent
-Message-Id: <CAMuHMdWoxWGkq_=AbGZxU=UFASBH3qT0ANqgTzLOZxjjjmYqQA@mail.gmail.com>
+Message-Id: <alpine.LNX.2.23.453.2010241025410.6@nippy.intranet>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20201008154651.1901126-1-arnd@arndb.de> <20201008154651.1901126-14-arnd@arndb.de>
- <alpine.LNX.2.23.453.2010091900150.12@nippy.intranet> <CAK8P3a3rM7gJjdTtcKzr6yi15n6xs-yhEpmSOf3QHfahQwxqkw@mail.gmail.com>
- <alpine.LNX.2.23.453.2010150937430.16@nippy.intranet> <CAK8P3a3i6cum_9xGgsbxjXXvbRsP8Po5qLZ0Agb3c4gZTKC9GQ@mail.gmail.com>
- <CAMuHMdUyGH=ORa4yHivMeJZaGQ3kEXi1kr9=P+u1y3QQnC+-4g@mail.gmail.com>
-In-Reply-To: <CAMuHMdUyGH=ORa4yHivMeJZaGQ3kEXi1kr9=P+u1y3QQnC+-4g@mail.gmail.com>
+References: <20201008154651.1901126-1-arnd@arndb.de> <20201008154651.1901126-14-arnd@arndb.de> <alpine.LNX.2.23.453.2010091900150.12@nippy.intranet> <CAK8P3a3rM7gJjdTtcKzr6yi15n6xs-yhEpmSOf3QHfahQwxqkw@mail.gmail.com> <alpine.LNX.2.23.453.2010150937430.16@nippy.intranet>
+ <CAK8P3a3i6cum_9xGgsbxjXXvbRsP8Po5qLZ0Agb3c4gZTKC9GQ@mail.gmail.com>
+In-Reply-To: <CAK8P3a3i6cum_9xGgsbxjXXvbRsP8Po5qLZ0Agb3c4gZTKC9GQ@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Arnd Bergmann <arnd@kernel.org>
-Cc: Finn Thain <fthain@telegraphics.com.au>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Russell King <linux@armlinux.org.uk>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Greg Ungerer <gerg@linux-m68k.org>, Philip Blundell <philb@gnu.org>, Joshua Thompson <funaho@jurai.org>, Sam Creasey <sammy@sammy.net>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Thomas Gleixner <tglx@linutronix.de>, Daniel Lezcano <daniel.lezcano@linaro.org>, John Stultz <john.stultz@linaro.org>, Stephen Boyd <sboyd@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Parisc List <linux-parisc@vger.kernel.org>, linux-m68k <linux-m68k@lists.linux-m68k.org>, Linux ARM <linux-arm-kernel@lists.infradead.org>
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Russell King <linux@armlinux.org.uk>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Greg Ungerer <gerg@linux-m68k.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Philip Blundell <philb@gnu.org>, Joshua Thompson <funaho@jurai.org>, Sam Creasey <sammy@sammy.net>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Thomas Gleixner <tglx@linutronix.de>, Daniel Lezcano <daniel.lezcano@linaro.org>, John Stultz <john.stultz@linaro.org>, Stephen Boyd <sboyd@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, linux-ia64@vger.kernel.org, Parisc List <linux-parisc@vger.kernel.org>, linux-m68k <linux-m68k@lists.linux-m68k.org>, Linux ARM <linux-arm-kernel@lists.infradead.org>
 
-On Fri, Oct 23, 2020 at 11:24 AM Geert Uytterhoeven
-<geert@linux-m68k.org> wrote:
-> On Fri, Oct 23, 2020 at 9:52 AM Arnd Bergmann <arnd@kernel.org> wrote:
-> > On Sun, Oct 18, 2020 at 2:55 AM Finn Thain <fthain@telegraphics.com.au> wrote:
-> > > On Thu, 15 Oct 2020, Arnd Bergmann wrote:
-> > > > On Thu, Oct 15, 2020 at 3:19 AM Finn Thain <fthain@telegraphics.com.au> wrote:
-> > > > > On Sat, 10 Oct 2020, Arnd Bergmann wrote:
-> > >
-> > > That configuration still produces the same 5 KiB of bloat. I see that
-> > > kernel/time/Kconfig has this --
-> > >
-> > > # Core internal switch. Selected by NO_HZ_COMMON / HIGH_RES_TIMERS. This is
-> > > # only related to the tick functionality. Oneshot clockevent devices
-> > > # are supported independent of this.
-> > > config TICK_ONESHOT
-> > >         bool
-> > >
-> > > But my question was really about both kinds of dead code (oneshot device
-> > > support and oneshot tick support). Anyway, after playing with the code for
-> > > a bit I don't see any easy way to reduce the growth in text size.
+On Fri, 23 Oct 2020, Arnd Bergmann wrote:
+
+> On Sun, Oct 18, 2020 at 2:55 AM Finn Thain <fthain@telegraphics.com.au>  wrote:
+> > On Thu, 15 Oct 2020, Arnd Bergmann wrote:
+> > > On Thu, Oct 15, 2020 at 3:19 AM Finn Thain <fthain@telegraphics.com.au> wrote:
+> > > > On Sat, 10 Oct 2020, Arnd Bergmann wrote:
 > >
-> > Did you look more deeply into where those 5KB are? Is this just
-> > the code in kernel/time/{clockevents,tick-common}.c and the
-> > added platform specific bits, or is there something more?
-> > I suppose the sysfs interface and the clockevents_update_freq()
-> > logic are not really needed on m68k, but it wouldn't make much
-> > sense to split those out either.
+> > That configuration still produces the same 5 KiB of bloat. I see that 
+> > kernel/time/Kconfig has this --
 > >
-> > How does the 5KB bloat compare to the average bloat we get
-> > from one release to the next? Geert has been collecting statistics
-> > for this.
->
-> It would be a fair share of the typical increase of ca. 30 KiB per
-> kernel release. Still, it would be lost in the noise of the increase for
-> v5.10-rc1:
->
->     add/remove: 1200/455 grow/shrink: 1419/821 up/down: 468970/-93714 (375256)
->     Function                                     old     new   delta
->     _printk_rb_static_infos                        -  180224 +180224
->     write_buf                                   8192   32768  +24576
->     _printk_rb_static_descs                        -   24576  +24576
->     HUF_decompress4X4_usingDTable_internal         -    5664   +5664
->     HUF_decompress4X2_usingDTable_internal         -    5006   +5006
->     __ext4_ioctl                                   -    4774   +4774
->     sock_ops_convert_ctx_access                 3840    8462   +4622
->     ZSTD_decompressSequences                       -    3100   +3100
+> > # Core internal switch. Selected by NO_HZ_COMMON / HIGH_RES_TIMERS. This is
+> > # only related to the tick functionality. Oneshot clockevent devices
+> > # are supported independent of this.
+> > config TICK_ONESHOT
+> >         bool
+> >
+> > But my question was really about both kinds of dead code (oneshot 
+> > device support and oneshot tick support). Anyway, after playing with 
+> > the code for a bit I don't see any easy way to reduce the growth in 
+> > text size.
+> 
+> Did you look more deeply into where those 5KB are? Is this just the code 
+> in kernel/time/{clockevents,tick-common}.c and the added platform 
+> specific bits, or is there something more?
 
-FTR, 3.9 KiB reclaimed by upgrading from gcc 8.4.0 in Ubuntu 18.04LTS to
-gcc 9.3.0 in Ubuntu 20.04LTS.
+What I did was to list the relevant functions using scripts/bloat-o-meter 
+and tried stubbing out some code related to oneshot clockevent devices. I 
+didn't find any low fruit and don't plan to pursue that without the help 
+of LTO.
 
-Gr{oetje,eeting}s,
+> I suppose the sysfs interface and the clockevents_update_freq() logic 
+> are not really needed on m68k, but it wouldn't make much sense to split 
+> those out either.
+> 
+> How does the 5KB bloat compare to the average bloat we get from one 
+> release to the next? Geert has been collecting statistics for this.
+> 
 
-                        Geert
+Perhaps that 5 KB is justified by gaining the hrtimers feature... hard to 
+say; it's never been available on these platforms. I can see the value in 
+it though.
 
--- 
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+> > > Yes, makes sense. I think the one remaining problem with the 
+> > > periodic mode in this driver is that it can drop timer ticks when 
+> > > interrupts are disabled for too long, while in oneshot mode there 
+> > > may be a way to know how much time has passed since the last tick as 
+> > > long as the counter does not overflow.
+> >
+> > Is there any benefit from adopting a oneshot tick (rather than 
+> > periodic) if no clocksource is consulted when calculating the next 
+> > interval? (I'm assuming NO_HZ is not in use, for reasons discussed 
+> > below.)
+> 
+> If the clocksource does not set CLOCK_SOURCE_IS_CONTINOUS, the kernel 
+> will keep using periodic timers and not allow hrtimers.
+> 
 
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+IIUC, when HIGH_RES_TIMERS=y, the kernel will enable hrtimers only if the 
+platform provides both a continuous clocksource device and a oneshot 
+clockevent device. However, the "jiffies" clocksource does not set 
+CLOCK_SOURCE_IS_CONTINOUS and neither does the one in 
+arch/arm/mach-rpc/time.c.
+
+When HIGH_RES_TIMERS=n and NO_HZ_COMMON=n (which is presently the case for 
+all platforms with GENERIC_CLOCKEVENTS=n) there's no use for a oneshot 
+clockevent device, right?
+
+It seems likely that NO_HZ_COMMON=n because the clocksources on these 
+platforms produce a periodic interrupt regardless (e.g. 
+clocksource/i8253.c, arm/rpc, m68k platform timers etc.).
+
+Finally, HIGH_RES_TIMERS=n seems likely if the only clocksource is 
+unreliable (e.g. because it loses time due to interrupt priorities). There 
+may be a few of platforms in this category (Mac, Atari?).
+
+> > > I would agree that despite this oneshot mode is probably worse 
+> > > overall for timekeeping if the register accesses introduce 
+> > > systematic errors.
+> > >
+> >
+> > It probably has to be tried. But consulting a VIA clocksource on every 
+> > tick would be expensive on this platform, so if that was the only way 
+> > to avoid cumulative errors, I'd probably just stick with the periodic 
+> > tick.
+> 
+> I'm sure there is a tradeoff somewhere. Without hrtimers, some events 
+> will take longer when they have to wait for the next tick, and using 
+> NO_HZ_FULL can help help make things faster on some workloads.
+> 
+
+Yes, such a tradeoff is discussed in drivers/iio/adc/ep93xx_adc.c.
+
+But OTOH, Documentation/timers/timers-howto.rst says,
+
+    On slower systems, (embedded, OR perhaps a speed-stepped PC!) the 
+    overhead of setting up the hrtimers for usleep *may* not be worth it
+
+I guess it has to be tried.
+
+> ...
+> > The other 11 platforms in that category also have 'synthetic' 
+> > clocksources derived from a timer reload interrupt. In 3 cases, the 
+> > clocksource read method does not (or can not) check for a pending 
+> > counter reload interrupt. For these also, I see no practical 
+> > alternative to the approach you've taken in your RFC patch:
+> >
+> > arch/m68k/68000/timers.c
+> > arch/m68k/atari/time.c
+> > arch/m68k/coldfire/timers.c
+> 
+> Agreed. It's possible there is a way, but I don't see one either.
+> 
+
+For arch/m68k/68000/timers.c, I suppose we may be able to check for the 
+TMR1 bit in the Interrupt Status Register at 0xFFFFF30C or the COMP bit in 
+the Timer Status Register at 0xFFFFF60A. But testing that patch could be 
+difficult.
+
+I expect that equivalent flags are available in Coldfire registers, making 
+it possible to improve upon mcftmr_read_clk() and m68328_read_clk() if 
+need be -- that is, if it turns out that the clocksource interrupt was 
+subject to higher priority IRQs that would slow down the clocksource or 
+defeat its monotonicity.
+
+The other difficulty is a lack of hardware timers. There's only one timer 
+on MC68EZ328. On Atari, for now only Timer C is available though Michael 
+has said that it would be possible to free up Timer D. Some Coldfire chips 
+have only 2 timers and the second timer seems to be allocated to 
+profiling.
+
+> > That leaves 8 platforms that have reliable clocksource devices which 
+> > should be able to provide an accurate reading even in the presence of 
+> > a dropped tick (due to drivers disabling interrupts for too long):
+> >
+> > arch/arm/mach-rpc/time.c
+> > arch/m68k/amiga/config.c
+> > arch/m68k/bvme6000/config.c
+> > arch/m68k/coldfire/sltimers.c
+> > arch/m68k/hp300/time.c
+> > arch/m68k/mac/via.c
+> > arch/m68k/mvme147/config.c
+> > arch/m68k/mvme16x/config.c
+> >
+> > But is there any reason to adopt a oneshot tick on any of these platforms,
+> > if NO_HZ won't eliminate the timer interrupt that's needed to run a
+> > 'synthetic' clocksource?
+> 
+> I would expect that these could be changed to behave more like 
+> drivers/clocksource/i8253.c, which does support a clocksource in oneshot 
+> mode.
+> 
+
+I think you meant to write, "... support a clockevent device in oneshot 
+mode". I would agree.
+
+Since Macs do have a spare hardware timer, I will attempt to convert 
+arch/m68k/mac/via.c to a oneshot clockevent, using your 
+GENERIC_CLOCKEVENTS patch series as a basis, and see what effect that has 
+in the NO_HZ_COMMON=n, HIGH_RES_TIMERS=y case.
+
+>      Arnd
+> 
