@@ -1,7 +1,7 @@
 From: Arnd Bergmann <arnd@kernel.org>
-Date: Fri, 30 Oct 2020 15:17:55 +0000
-Subject: [PATCH v2 12/15] m68k: change remaining timers to legacy_timer_tick
-Message-Id: <20201030151758.1241164-13-arnd@kernel.org>
+Date: Fri, 30 Oct 2020 15:17:58 +0000
+Subject: [PATCH v2 15/15] timekeeping: default GENERIC_CLOCKEVENTS to enabled
+Message-Id: <20201030151758.1241164-16-arnd@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20201030151758.1241164-1-arnd@kernel.org>
 In-Reply-To: <20201030151758.1241164-1-arnd@kernel.org>
@@ -13,11 +13,31 @@ Cc: Thomas Gleixner <tglx@linutronix.de>, Arnd Bergmann <arnd@arndb.de>, Russell
 
 From: Arnd Bergmann <arnd@arndb.de>
 
-There are nine more machines that each have their own timer interrupt
-calling the m68k timer_interrupt() function through an indirect pointer.
+Almost all machines use GENERIC_CLOCKEVENTS, so it feels wrong to
+require each one to select that symbol manually.
 
-This function is now the same as legacy_timer_tick, so just call that
-directly and select the corresponding Kconfig symbol.
+Instead, enable it whenever CONFIG_LEGACY_TIMER_TICK is disabled as
+a simplification. It should be possible to select both
+GENERIC_CLOCKEVENTS and LEGACY_TIMER_TICK from an architecture now
+and decide at runtime between the two.
+
+For the clockevents arch-support.txt file, this means that additional
+architectures are marked as TODO when they have at least one machine
+that still uses LEGACY_TIMER_TICK, rather than being marked 'ok' when
+at least one machine has been converted. This means that both m68k and
+arm (for riscpc) revert to TODO.
+
+At this point, we could just always enable CONFIG_GENERIC_CLOCKEVENTS
+rather than leaving it off when not needed. I built an m68k
+defconfig kernel (using gcc-10.1.0) and found that this would add
+around 5.5KB in kernel image size:
+
+   text	   data	    bss	    dec	    hex	filename
+3861936	1092236	 196656	5150828	 4e986c	obj-m68k/vmlinux-no-clockevent
+3866201	1093832	 196184	5156217	 4ead79	obj-m68k/vmlinux-clockevent
+
+On Arm (MACH_RPC), that difference appears to be twice as large,
+around 11KB on top of an 6MB vmlinux.
 
 Reviewed-by: Geert Uytterhoeven <geert@linux-m68k.org>
 Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
@@ -25,350 +45,438 @@ Tested-by: Geert Uytterhoeven <geert@linux-m68k.org>
 Reviewed-by: Linus Walleij <linus.walleij@linaro.org>
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- arch/m68k/Kconfig.machine   | 9 +++++++++
- arch/m68k/amiga/config.c    | 6 ++----
- arch/m68k/apollo/config.c   | 6 ++----
- arch/m68k/atari/time.c      | 5 ++---
- arch/m68k/bvme6000/config.c | 5 ++---
- arch/m68k/hp300/time.c      | 5 ++---
- arch/m68k/mac/via.c         | 6 ++----
- arch/m68k/mvme147/config.c  | 5 ++---
- arch/m68k/mvme16x/config.c  | 5 ++---
- arch/m68k/q40/q40ints.c     | 6 ++----
- 10 files changed, 27 insertions(+), 31 deletions(-)
+ .../features/time/clockevents/arch-support.txt       |  6 +++---
+ arch/alpha/Kconfig                                   |  1 -
+ arch/arc/Kconfig                                     |  1 -
+ arch/arm/Kconfig                                     | 12 ------------
+ arch/arm64/Kconfig                                   |  1 -
+ arch/arm64/Kconfig.platforms                         |  1 -
+ arch/c6x/Kconfig                                     |  1 -
+ arch/csky/Kconfig                                    |  1 -
+ arch/h8300/Kconfig                                   |  1 -
+ arch/hexagon/Kconfig                                 |  1 -
+ arch/m68k/Kconfig.cpu                                |  1 -
+ arch/microblaze/Kconfig                              |  1 -
+ arch/mips/Kconfig                                    |  1 -
+ arch/nds32/Kconfig                                   |  1 -
+ arch/nios2/Kconfig                                   |  1 -
+ arch/openrisc/Kconfig                                |  1 -
+ arch/powerpc/Kconfig                                 |  1 -
+ arch/riscv/Kconfig                                   |  1 -
+ arch/s390/Kconfig                                    |  1 -
+ arch/sh/Kconfig                                      |  1 -
+ arch/sparc/Kconfig                                   |  1 -
+ arch/um/Kconfig                                      |  1 -
+ arch/x86/Kconfig                                     |  1 -
+ arch/xtensa/Kconfig                                  |  1 -
+ kernel/time/Kconfig                                  |  2 +-
+ 25 files changed, 4 insertions(+), 38 deletions(-)
 
-diff --git a/arch/m68k/Kconfig.machine b/arch/m68k/Kconfig.machine
-index e3c835440d9a..b47ac37484fa 100644
---- a/arch/m68k/Kconfig.machine
-+++ b/arch/m68k/Kconfig.machine
-@@ -7,6 +7,7 @@ config AMIGA
- 	bool "Amiga support"
- 	depends on MMU
- 	select MMU_MOTOROLA if MMU
-+	select LEGACY_TIMER_TICK
+diff --git a/Documentation/features/time/clockevents/arch-support.txt b/Documentation/features/time/clockevents/arch-support.txt
+index 61a5c9d68c15..6863a3fbddad 100644
+--- a/Documentation/features/time/clockevents/arch-support.txt
++++ b/Documentation/features/time/clockevents/arch-support.txt
+@@ -1,6 +1,6 @@
+ #
+ # Feature name:          clockevents
+-#         Kconfig:       GENERIC_CLOCKEVENTS
++#         Kconfig:       !LEGACY_TIMER_TICK
+ #         description:   arch support generic clock events
+ #
+     -----------------------
+@@ -8,14 +8,14 @@
+     -----------------------
+     |       alpha: |  ok  |
+     |         arc: |  ok  |
+-    |         arm: |  ok  |
++    |         arm: | TODO |
+     |       arm64: |  ok  |
+     |         c6x: |  ok  |
+     |        csky: |  ok  |
+     |       h8300: |  ok  |
+     |     hexagon: |  ok  |
+     |        ia64: | TODO |
+-    |        m68k: |  ok  |
++    |        m68k: | TODO |
+     |  microblaze: |  ok  |
+     |        mips: |  ok  |
+     |       nds32: |  ok  |
+diff --git a/arch/alpha/Kconfig b/arch/alpha/Kconfig
+index d6e9fc7a7b19..f0a700946cac 100644
+--- a/arch/alpha/Kconfig
++++ b/arch/alpha/Kconfig
+@@ -27,7 +27,6 @@ config ALPHA
+ 	select ARCH_WANT_IPC_PARSE_VERSION
+ 	select ARCH_HAVE_NMI_SAFE_CMPXCHG
+ 	select AUDIT_ARCH
+-	select GENERIC_CLOCKEVENTS
+ 	select GENERIC_CPU_VULNERABILITIES
+ 	select GENERIC_SMP_IDLE_THREAD
+ 	select GENERIC_STRNCPY_FROM_USER
+diff --git a/arch/arc/Kconfig b/arch/arc/Kconfig
+index 0a89cc9def65..061eb8e23739 100644
+--- a/arch/arc/Kconfig
++++ b/arch/arc/Kconfig
+@@ -19,7 +19,6 @@ config ARC
+ 	select COMMON_CLK
+ 	select DMA_DIRECT_REMAP
+ 	select GENERIC_ATOMIC64 if !ISA_ARCV2 || !(ARC_HAS_LL64 && ARC_HAS_LLSC)
+-	select GENERIC_CLOCKEVENTS
+ 	select GENERIC_FIND_FIRST_BIT
+ 	# for now, we don't need GENERIC_IRQ_PROBE, CONFIG_GENERIC_IRQ_CHIP
+ 	select GENERIC_IRQ_SHOW
+diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
+index dbadfa186f72..04a37a4cd9e0 100644
+--- a/arch/arm/Kconfig
++++ b/arch/arm/Kconfig
+@@ -321,7 +321,6 @@ config ARCH_MULTIPLATFORM
+ 	select AUTO_ZRELADDR
+ 	select TIMER_OF
+ 	select COMMON_CLK
+-	select GENERIC_CLOCKEVENTS
+ 	select GENERIC_IRQ_MULTI_HANDLER
+ 	select HAVE_PCI
+ 	select PCI_DOMAINS_GENERIC if PCI
+@@ -336,7 +335,6 @@ config ARM_SINGLE_ARMV7M
+ 	select TIMER_OF
+ 	select COMMON_CLK
+ 	select CPU_V7M
+-	select GENERIC_CLOCKEVENTS
+ 	select NO_IOPORT_MAP
+ 	select SPARSE_IRQ
+ 	select USE_OF
+@@ -351,7 +349,6 @@ config ARCH_EP93XX
+ 	select CLKDEV_LOOKUP
+ 	select CLKSRC_MMIO
+ 	select CPU_ARM920T
+-	select GENERIC_CLOCKEVENTS
+ 	select GPIOLIB
+ 	select HAVE_LEGACY_CLK
  	help
- 	  This option enables support for the Amiga series of computers. If
- 	  you plan to use this kernel on an Amiga, say Y here and browse the
-@@ -17,6 +18,7 @@ config ATARI
- 	depends on MMU
- 	select MMU_MOTOROLA if MMU
- 	select HAVE_ARCH_NVRAM_OPS
-+	select LEGACY_TIMER_TICK
- 	help
- 	  This option enables support for the 68000-based Atari series of
- 	  computers (including the TT, Falcon and Medusa). If you plan to use
-@@ -28,6 +30,7 @@ config MAC
- 	depends on MMU
- 	select MMU_MOTOROLA if MMU
- 	select HAVE_ARCH_NVRAM_OPS
-+	select LEGACY_TIMER_TICK
- 	help
- 	  This option enables support for the Apple Macintosh series of
- 	  computers (yes, there is experimental support now, at least for part
-@@ -40,6 +43,7 @@ config APOLLO
- 	bool "Apollo support"
- 	depends on MMU
- 	select MMU_MOTOROLA if MMU
-+	select LEGACY_TIMER_TICK
- 	help
- 	  Say Y here if you want to run Linux on an MC680x0-based Apollo
- 	  Domain workstation such as the DN3500.
-@@ -58,6 +62,7 @@ config MVME147
- 	bool "MVME147 support"
- 	depends on MMU
- 	depends on VME
-+	select LEGACY_TIMER_TICK
- 	help
- 	  Say Y to include support for early Motorola VME boards.  This will
- 	  build a kernel which can run on MVME147 single-board computers.  If
-@@ -68,6 +73,7 @@ config MVME16x
- 	bool "MVME162, 166 and 167 support"
- 	depends on MMU
- 	depends on VME
-+	select LEGACY_TIMER_TICK
- 	help
- 	  Say Y to include support for Motorola VME boards.  This will build a
- 	  kernel which can run on MVME162, MVME166, MVME167, MVME172, and
-@@ -79,6 +85,7 @@ config BVME6000
- 	bool "BVME4000 and BVME6000 support"
- 	depends on MMU
- 	depends on VME
-+	select LEGACY_TIMER_TICK
- 	help
- 	  Say Y to include support for VME boards from BVM Ltd.  This will
- 	  build a kernel which can run on BVME4000 and BVME6000 boards.  If
-@@ -89,6 +96,7 @@ config HP300
- 	bool "HP9000/300 and HP9000/400 support"
- 	depends on MMU
- 	select MMU_MOTOROLA if MMU
-+	select LEGACY_TIMER_TICK
- 	help
- 	  This option enables support for the HP9000/300 and HP9000/400 series
- 	  of workstations. Support for these machines is still somewhat
-@@ -115,6 +123,7 @@ config Q40
- 	bool "Q40/Q60 support"
- 	depends on MMU
- 	select MMU_MOTOROLA if MMU
-+	select LEGACY_TIMER_TICK
- 	help
- 	  The Q40 is a Motorola 68040-based successor to the Sinclair QL
- 	  manufactured in Germany.  There is an official Q40 home page at
-diff --git a/arch/m68k/amiga/config.c b/arch/m68k/amiga/config.c
-index 29f92333119e..91dc87b86411 100644
---- a/arch/m68k/amiga/config.c
-+++ b/arch/m68k/amiga/config.c
-@@ -475,11 +475,9 @@ static u32 clk_total, clk_offset;
+@@ -361,7 +358,6 @@ config ARCH_FOOTBRIDGE
+ 	bool "FootBridge"
+ 	select CPU_SA110
+ 	select FOOTBRIDGE
+-	select GENERIC_CLOCKEVENTS
+ 	select HAVE_IDE
+ 	select NEED_MACH_IO_H if !MMU
+ 	select NEED_MACH_MEMORY_H
+@@ -389,7 +385,6 @@ config ARCH_IXP4XX
+ 	select ARCH_SUPPORTS_BIG_ENDIAN
+ 	select CPU_XSCALE
+ 	select DMABOUNCE if PCI
+-	select GENERIC_CLOCKEVENTS
+ 	select GENERIC_IRQ_MULTI_HANDLER
+ 	select GPIO_IXP4XX
+ 	select GPIOLIB
+@@ -405,7 +400,6 @@ config ARCH_IXP4XX
+ config ARCH_DOVE
+ 	bool "Marvell Dove"
+ 	select CPU_PJ4
+-	select GENERIC_CLOCKEVENTS
+ 	select GENERIC_IRQ_MULTI_HANDLER
+ 	select GPIOLIB
+ 	select HAVE_PCI
+@@ -429,7 +423,6 @@ config ARCH_PXA
+ 	select CLKSRC_MMIO
+ 	select TIMER_OF
+ 	select CPU_XSCALE if !CPU_XSC3
+-	select GENERIC_CLOCKEVENTS
+ 	select GENERIC_IRQ_MULTI_HANDLER
+ 	select GPIO_PXA
+ 	select GPIOLIB
+@@ -470,7 +463,6 @@ config ARCH_SA1100
+ 	select COMMON_CLK
+ 	select CPU_FREQ
+ 	select CPU_SA1100
+-	select GENERIC_CLOCKEVENTS
+ 	select GENERIC_IRQ_MULTI_HANDLER
+ 	select GPIOLIB
+ 	select HAVE_IDE
+@@ -485,7 +477,6 @@ config ARCH_S3C24XX
+ 	bool "Samsung S3C24XX SoCs"
+ 	select ATAGS
+ 	select CLKSRC_SAMSUNG_PWM
+-	select GENERIC_CLOCKEVENTS
+ 	select GPIO_SAMSUNG
+ 	select GPIOLIB
+ 	select GENERIC_IRQ_MULTI_HANDLER
+@@ -509,7 +500,6 @@ config ARCH_OMAP1
+ 	select ARCH_OMAP
+ 	select CLKDEV_LOOKUP
+ 	select CLKSRC_MMIO
+-	select GENERIC_CLOCKEVENTS
+ 	select GENERIC_IRQ_CHIP
+ 	select GENERIC_IRQ_MULTI_HANDLER
+ 	select GPIOLIB
+@@ -772,7 +762,6 @@ config ARCH_ACORN
  
- static irqreturn_t ciab_timer_handler(int irq, void *dev_id)
- {
--	irq_handler_t timer_routine = dev_id;
--
- 	clk_total += jiffy_ticks;
- 	clk_offset = 0;
--	timer_routine(0, NULL);
-+	legacy_timer_tick(1);
- 	timer_heartbeat();
+ config PLAT_IOP
+ 	bool
+-	select GENERIC_CLOCKEVENTS
  
- 	return IRQ_HANDLED;
-@@ -504,7 +502,7 @@ static void __init amiga_sched_init(irq_handler_t timer_routine)
- 	 * SCSI code. We'll have to take a look at this later
- 	 */
- 	if (request_irq(IRQ_AMIGA_CIAB_TA, ciab_timer_handler, IRQF_TIMER,
--			"timer", timer_routine))
-+			"timer", NULL))
- 		pr_err("Couldn't register timer interrupt\n");
- 	/* start timer */
- 	ciab.cra |= 0x11;
-diff --git a/arch/m68k/apollo/config.c b/arch/m68k/apollo/config.c
-index 30915f1a8760..17d59fa6b25b 100644
---- a/arch/m68k/apollo/config.c
-+++ b/arch/m68k/apollo/config.c
-@@ -168,11 +168,9 @@ void __init config_apollo(void)
+ config PLAT_ORION
+ 	bool
+@@ -1163,7 +1152,6 @@ config HAVE_SMP
+ config SMP
+ 	bool "Symmetric Multi-Processing"
+ 	depends on CPU_V6K || CPU_V7
+-	depends on GENERIC_CLOCKEVENTS
+ 	depends on HAVE_SMP
+ 	depends on MMU || ARM_MPU
+ 	select IRQ_WORK
+diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
+index f858c352f72a..fee87e4104fd 100644
+--- a/arch/arm64/Kconfig
++++ b/arch/arm64/Kconfig
+@@ -101,7 +101,6 @@ config ARM64
+ 	select FRAME_POINTER
+ 	select GENERIC_ALLOCATOR
+ 	select GENERIC_ARCH_TOPOLOGY
+-	select GENERIC_CLOCKEVENTS
+ 	select GENERIC_CLOCKEVENTS_BROADCAST
+ 	select GENERIC_CPU_AUTOPROBE
+ 	select GENERIC_CPU_VULNERABILITIES
+diff --git a/arch/arm64/Kconfig.platforms b/arch/arm64/Kconfig.platforms
+index 6f2494dd6d60..748e6d8c3b94 100644
+--- a/arch/arm64/Kconfig.platforms
++++ b/arch/arm64/Kconfig.platforms
+@@ -256,7 +256,6 @@ config ARCH_TEGRA
+ 	select ARM_GIC_PM
+ 	select CLKSRC_MMIO
+ 	select TIMER_OF
+-	select GENERIC_CLOCKEVENTS
+ 	select GPIOLIB
+ 	select PINCTRL
+ 	select PM
+diff --git a/arch/c6x/Kconfig b/arch/c6x/Kconfig
+index 48d66bf0465d..bdeeac28b1be 100644
+--- a/arch/c6x/Kconfig
++++ b/arch/c6x/Kconfig
+@@ -19,7 +19,6 @@ config C6X
+ 	select IRQ_DOMAIN
+ 	select OF
+ 	select OF_EARLY_FLATTREE
+-	select GENERIC_CLOCKEVENTS
+ 	select MODULES_USE_ELF_RELA
+ 	select MMU_GATHER_NO_RANGE if MMU
+ 	select SET_FS
+diff --git a/arch/csky/Kconfig b/arch/csky/Kconfig
+index 268fad5f51cf..28fdf8303dff 100644
+--- a/arch/csky/Kconfig
++++ b/arch/csky/Kconfig
+@@ -28,7 +28,6 @@ config CSKY
+ 	select GENERIC_LIB_UCMPDI2
+ 	select GENERIC_ALLOCATOR
+ 	select GENERIC_ATOMIC64
+-	select GENERIC_CLOCKEVENTS
+ 	select GENERIC_CPU_DEVICES
+ 	select GENERIC_IRQ_CHIP
+ 	select GENERIC_IRQ_PROBE
+diff --git a/arch/h8300/Kconfig b/arch/h8300/Kconfig
+index 7945de067e9f..3e3e0f16f7e0 100644
+--- a/arch/h8300/Kconfig
++++ b/arch/h8300/Kconfig
+@@ -12,7 +12,6 @@ config H8300
+ 	select FRAME_POINTER
+ 	select GENERIC_CPU_DEVICES
+ 	select MODULES_USE_ELF_RELA
+-	select GENERIC_CLOCKEVENTS
+ 	select COMMON_CLK
+ 	select ARCH_WANT_FRAME_POINTERS
+ 	select OF
+diff --git a/arch/hexagon/Kconfig b/arch/hexagon/Kconfig
+index f2afabbadd43..6e00c16a36b5 100644
+--- a/arch/hexagon/Kconfig
++++ b/arch/hexagon/Kconfig
+@@ -27,7 +27,6 @@ config HEXAGON
+ 	select GENERIC_IOMAP
+ 	select GENERIC_SMP_IDLE_THREAD
+ 	select STACKTRACE_SUPPORT
+-	select GENERIC_CLOCKEVENTS
+ 	select GENERIC_CLOCKEVENTS_BROADCAST
+ 	select MODULES_USE_ELF_RELA
+ 	select GENERIC_CPU_DEVICES
+diff --git a/arch/m68k/Kconfig.cpu b/arch/m68k/Kconfig.cpu
+index 648054d4f860..ce09f993d858 100644
+--- a/arch/m68k/Kconfig.cpu
++++ b/arch/m68k/Kconfig.cpu
+@@ -318,7 +318,6 @@ config M54xx
  
- irqreturn_t dn_timer_int(int irq, void *dev_id)
- {
--	irq_handler_t timer_handler = dev_id;
--
- 	volatile unsigned char x;
+ config COLDFIRE_PIT_TIMER
+ 	bool
+-	select GENERIC_CLOCKEVENTS
  
--	timer_handler(irq, dev_id);
-+	legacy_timer_tick(1);
- 	timer_heartbeat();
+ config COLDFIRE_TIMERS
+ 	bool
+diff --git a/arch/microblaze/Kconfig b/arch/microblaze/Kconfig
+index 33925ffed68f..2f0d3f431faf 100644
+--- a/arch/microblaze/Kconfig
++++ b/arch/microblaze/Kconfig
+@@ -17,7 +17,6 @@ config MICROBLAZE
+ 	select COMMON_CLK
+ 	select DMA_DIRECT_REMAP if MMU
+ 	select GENERIC_ATOMIC64
+-	select GENERIC_CLOCKEVENTS
+ 	select GENERIC_CPU_DEVICES
+ 	select GENERIC_IDLE_POLL_SETUP
+ 	select GENERIC_IRQ_PROBE
+diff --git a/arch/mips/Kconfig b/arch/mips/Kconfig
+index 2000bb2b0220..077c4ae09550 100644
+--- a/arch/mips/Kconfig
++++ b/arch/mips/Kconfig
+@@ -21,7 +21,6 @@ config MIPS
+ 	select CPU_NO_EFFICIENT_FFS if (TARGET_ISA_REV < 1)
+ 	select CPU_PM if CPU_IDLE
+ 	select GENERIC_ATOMIC64 if !64BIT
+-	select GENERIC_CLOCKEVENTS
+ 	select GENERIC_CMOS_UPDATE
+ 	select GENERIC_CPU_AUTOPROBE
+ 	select GENERIC_GETTIMEOFDAY
+diff --git a/arch/nds32/Kconfig b/arch/nds32/Kconfig
+index e8e541fd2267..62313902d75d 100644
+--- a/arch/nds32/Kconfig
++++ b/arch/nds32/Kconfig
+@@ -17,7 +17,6 @@ config NDS32
+ 	select DMA_DIRECT_REMAP
+ 	select GENERIC_ATOMIC64
+ 	select GENERIC_CPU_DEVICES
+-	select GENERIC_CLOCKEVENTS
+ 	select GENERIC_IRQ_CHIP
+ 	select GENERIC_IRQ_SHOW
+ 	select GENERIC_IOREMAP
+diff --git a/arch/nios2/Kconfig b/arch/nios2/Kconfig
+index c7c6ba6bec9d..c24955c81c92 100644
+--- a/arch/nios2/Kconfig
++++ b/arch/nios2/Kconfig
+@@ -10,7 +10,6 @@ config NIOS2
+ 	select COMMON_CLK
+ 	select TIMER_OF
+ 	select GENERIC_ATOMIC64
+-	select GENERIC_CLOCKEVENTS
+ 	select GENERIC_CPU_DEVICES
+ 	select GENERIC_IRQ_PROBE
+ 	select GENERIC_IRQ_SHOW
+diff --git a/arch/openrisc/Kconfig b/arch/openrisc/Kconfig
+index 6233c6293180..591acc5990dc 100644
+--- a/arch/openrisc/Kconfig
++++ b/arch/openrisc/Kconfig
+@@ -24,7 +24,6 @@ config OPENRISC
+ 	select GENERIC_CPU_DEVICES
+ 	select HAVE_UID16
+ 	select GENERIC_ATOMIC64
+-	select GENERIC_CLOCKEVENTS
+ 	select GENERIC_CLOCKEVENTS_BROADCAST
+ 	select GENERIC_STRNCPY_FROM_USER
+ 	select GENERIC_STRNLEN_USER
+diff --git a/arch/powerpc/Kconfig b/arch/powerpc/Kconfig
+index e9f13fe08492..57e2c75f76e9 100644
+--- a/arch/powerpc/Kconfig
++++ b/arch/powerpc/Kconfig
+@@ -163,7 +163,6 @@ config PPC
+ 	select EDAC_ATOMIC_SCRUB
+ 	select EDAC_SUPPORT
+ 	select GENERIC_ATOMIC64			if PPC32
+-	select GENERIC_CLOCKEVENTS
+ 	select GENERIC_CLOCKEVENTS_BROADCAST	if SMP
+ 	select GENERIC_CMOS_UPDATE
+ 	select GENERIC_CPU_AUTOPROBE
+diff --git a/arch/riscv/Kconfig b/arch/riscv/Kconfig
+index 44377fd7860e..3842bbb4fe62 100644
+--- a/arch/riscv/Kconfig
++++ b/arch/riscv/Kconfig
+@@ -37,7 +37,6 @@ config RISCV
+ 	select EDAC_SUPPORT
+ 	select GENERIC_ARCH_TOPOLOGY if SMP
+ 	select GENERIC_ATOMIC64 if !64BIT
+-	select GENERIC_CLOCKEVENTS
+ 	select GENERIC_EARLY_IOREMAP
+ 	select GENERIC_GETTIMEOFDAY if HAVE_GENERIC_VDSO
+ 	select GENERIC_IOREMAP
+diff --git a/arch/s390/Kconfig b/arch/s390/Kconfig
+index 4a2a12be04c9..db246781844d 100644
+--- a/arch/s390/Kconfig
++++ b/arch/s390/Kconfig
+@@ -116,7 +116,6 @@ config S390
+ 	select CLONE_BACKWARDS2
+ 	select DMA_OPS if PCI
+ 	select DYNAMIC_FTRACE if FUNCTION_TRACER
+-	select GENERIC_CLOCKEVENTS
+ 	select GENERIC_CPU_AUTOPROBE
+ 	select GENERIC_CPU_VULNERABILITIES
+ 	select GENERIC_FIND_FIRST_BIT
+diff --git a/arch/sh/Kconfig b/arch/sh/Kconfig
+index 159da4ed578f..5fa580219a86 100644
+--- a/arch/sh/Kconfig
++++ b/arch/sh/Kconfig
+@@ -16,7 +16,6 @@ config SUPERH
+ 	select CPU_NO_EFFICIENT_FFS
+ 	select DMA_DECLARE_COHERENT
+ 	select GENERIC_ATOMIC64
+-	select GENERIC_CLOCKEVENTS
+ 	select GENERIC_CMOS_UPDATE if SH_SH03 || SH_DREAMCAST
+ 	select GENERIC_IDLE_POLL_SETUP
+ 	select GENERIC_IRQ_SHOW
+diff --git a/arch/sparc/Kconfig b/arch/sparc/Kconfig
+index a6ca135442f9..718c51cf2c6c 100644
+--- a/arch/sparc/Kconfig
++++ b/arch/sparc/Kconfig
+@@ -39,7 +39,6 @@ config SPARC
+ 	select HAVE_EBPF_JIT if SPARC64
+ 	select HAVE_DEBUG_BUGVERBOSE
+ 	select GENERIC_SMP_IDLE_THREAD
+-	select GENERIC_CLOCKEVENTS
+ 	select GENERIC_STRNCPY_FROM_USER
+ 	select GENERIC_STRNLEN_USER
+ 	select MODULES_USE_ELF_RELA
+diff --git a/arch/um/Kconfig b/arch/um/Kconfig
+index 4b799fad8b48..43333e36e0ba 100644
+--- a/arch/um/Kconfig
++++ b/arch/um/Kconfig
+@@ -17,7 +17,6 @@ config UML
+ 	select NO_DMA
+ 	select GENERIC_IRQ_SHOW
+ 	select GENERIC_CPU_DEVICES
+-	select GENERIC_CLOCKEVENTS
+ 	select HAVE_GCC_PLUGINS
+ 	select SET_FS
+ 	select TTY # Needed for line.c
+diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
+index f6946b81f74a..0498d7596ccc 100644
+--- a/arch/x86/Kconfig
++++ b/arch/x86/Kconfig
+@@ -108,7 +108,6 @@ config X86
+ 	select DCACHE_WORD_ACCESS
+ 	select EDAC_ATOMIC_SCRUB
+ 	select EDAC_SUPPORT
+-	select GENERIC_CLOCKEVENTS
+ 	select GENERIC_CLOCKEVENTS_BROADCAST	if X86_64 || (X86_32 && X86_LOCAL_APIC)
+ 	select GENERIC_CLOCKEVENTS_MIN_ADJUST
+ 	select GENERIC_CMOS_UPDATE
+diff --git a/arch/xtensa/Kconfig b/arch/xtensa/Kconfig
+index d0dfa50bd0bb..2611ba336af8 100644
+--- a/arch/xtensa/Kconfig
++++ b/arch/xtensa/Kconfig
+@@ -16,7 +16,6 @@ config XTENSA
+ 	select COMMON_CLK
+ 	select DMA_REMAP if MMU
+ 	select GENERIC_ATOMIC64
+-	select GENERIC_CLOCKEVENTS
+ 	select GENERIC_IRQ_SHOW
+ 	select GENERIC_PCI_IOMAP
+ 	select GENERIC_SCHED_CLOCK
+diff --git a/kernel/time/Kconfig b/kernel/time/Kconfig
+index c6867f29d279..9a41848b6ebb 100644
+--- a/kernel/time/Kconfig
++++ b/kernel/time/Kconfig
+@@ -28,7 +28,7 @@ config GENERIC_TIME_VSYSCALL
  
- 	x = *(volatile unsigned char *)(apollo_timer + 3);
-@@ -199,7 +197,7 @@ void dn_sched_init(irq_handler_t timer_routine)
- 		*(volatile unsigned char *)(apollo_timer + 0x3));
- #endif
+ # The generic clock events infrastructure
+ config GENERIC_CLOCKEVENTS
+-	bool
++	def_bool !LEGACY_TIMER_TICK
  
--	if (request_irq(IRQ_APOLLO, dn_timer_int, 0, "time", timer_routine))
-+	if (request_irq(IRQ_APOLLO, dn_timer_int, 0, "time", NULL))
- 		pr_err("Couldn't register timer interrupt\n");
- }
- 
-diff --git a/arch/m68k/atari/time.c b/arch/m68k/atari/time.c
-index ce4a5961ca93..36d811ae09ee 100644
---- a/arch/m68k/atari/time.c
-+++ b/arch/m68k/atari/time.c
-@@ -41,7 +41,6 @@ static u8 last_timer_count;
- 
- static irqreturn_t mfp_timer_c_handler(int irq, void *dev_id)
- {
--	irq_handler_t timer_routine = dev_id;
- 	unsigned long flags;
- 
- 	local_irq_save(flags);
-@@ -49,7 +48,7 @@ static irqreturn_t mfp_timer_c_handler(int irq, void *dev_id)
- 		last_timer_count = st_mfp.tim_dt_c;
- 	} while (last_timer_count = 1);
- 	clk_total += INT_TICKS;
--	timer_routine(0, NULL);
-+	legacy_timer_tick(1);
- 	timer_heartbeat();
- 	local_irq_restore(flags);
- 
-@@ -65,7 +64,7 @@ atari_sched_init(irq_handler_t timer_routine)
-     st_mfp.tim_ct_cd = (st_mfp.tim_ct_cd & 15) | 0x60;
-     /* install interrupt service routine for MFP Timer C */
-     if (request_irq(IRQ_MFP_TIMC, mfp_timer_c_handler, IRQF_TIMER, "timer",
--                    timer_routine))
-+                    NULL))
- 	pr_err("Couldn't register timer interrupt\n");
- 
-     clocksource_register_hz(&atari_clk, INT_CLK);
-diff --git a/arch/m68k/bvme6000/config.c b/arch/m68k/bvme6000/config.c
-index 50f4d01363df..d3f5963021d3 100644
---- a/arch/m68k/bvme6000/config.c
-+++ b/arch/m68k/bvme6000/config.c
-@@ -165,7 +165,6 @@ static u32 clk_total, clk_offset;
- 
- static irqreturn_t bvme6000_timer_int (int irq, void *dev_id)
- {
--    irq_handler_t timer_routine = dev_id;
-     unsigned long flags;
-     volatile RtcPtr_t rtc = (RtcPtr_t)BVME_RTC_BASE;
-     unsigned char msr;
-@@ -175,7 +174,7 @@ static irqreturn_t bvme6000_timer_int (int irq, void *dev_id)
-     rtc->msr = msr | 0x20;		/* Ack the interrupt */
-     clk_total += RTC_TIMER_CYCLES;
-     clk_offset = 0;
--    timer_routine(0, NULL);
-+    legacy_timer_tick(1);
-     local_irq_restore(flags);
- 
-     return IRQ_HANDLED;
-@@ -198,7 +197,7 @@ void bvme6000_sched_init (irq_handler_t timer_routine)
-     rtc->msr = 0;	/* Ensure timer registers accessible */
- 
-     if (request_irq(BVME_IRQ_RTC, bvme6000_timer_int, IRQF_TIMER, "timer",
--                    timer_routine))
-+                    NULL))
- 	panic ("Couldn't register timer int");
- 
-     rtc->t1cr_omr = 0x04;	/* Mode 2, ext clk */
-diff --git a/arch/m68k/hp300/time.c b/arch/m68k/hp300/time.c
-index e3cd938de0f9..011fc2e5a68a 100644
---- a/arch/m68k/hp300/time.c
-+++ b/arch/m68k/hp300/time.c
-@@ -55,7 +55,6 @@ static u32 clk_total, clk_offset;
- 
- static irqreturn_t hp300_tick(int irq, void *dev_id)
- {
--	irq_handler_t timer_routine = dev_id;
- 	unsigned long flags;
- 	unsigned long tmp;
- 
-@@ -64,7 +63,7 @@ static irqreturn_t hp300_tick(int irq, void *dev_id)
- 	asm volatile ("movpw %1@(5),%0" : "=d" (tmp) : "a" (CLOCKBASE));
- 	clk_total += INTVAL;
- 	clk_offset = 0;
--	timer_routine(0, NULL);
-+	legacy_timer_tick(1);
- 	timer_heartbeat();
- 	local_irq_restore(flags);
- 
-@@ -106,7 +105,7 @@ void __init hp300_sched_init(irq_handler_t vector)
- 
-   asm volatile(" movpw %0,%1@(5)" : : "d" (INTVAL), "a" (CLOCKBASE));
- 
--  if (request_irq(IRQ_AUTO_6, hp300_tick, IRQF_TIMER, "timer tick", vector))
-+  if (request_irq(IRQ_AUTO_6, hp300_tick, IRQF_TIMER, "timer tick", NULL))
-     pr_err("Couldn't register timer interrupt\n");
- 
-   out_8(CLOCKBASE + CLKCR2, 0x1);		/* select CR1 */
-diff --git a/arch/m68k/mac/via.c b/arch/m68k/mac/via.c
-index ac77d73af19a..ba444e1774b8 100644
---- a/arch/m68k/mac/via.c
-+++ b/arch/m68k/mac/via.c
-@@ -602,11 +602,9 @@ static u32 clk_total, clk_offset;
- 
- static irqreturn_t via_timer_handler(int irq, void *dev_id)
- {
--	irq_handler_t timer_routine = dev_id;
--
- 	clk_total += VIA_TIMER_CYCLES;
- 	clk_offset = 0;
--	timer_routine(0, NULL);
-+	legacy_timer_tick(1);
- 
- 	return IRQ_HANDLED;
- }
-@@ -614,7 +612,7 @@ static irqreturn_t via_timer_handler(int irq, void *dev_id)
- void __init via_init_clock(irq_handler_t timer_routine)
- {
- 	if (request_irq(IRQ_MAC_TIMER_1, via_timer_handler, IRQF_TIMER, "timer",
--			timer_routine)) {
-+			NULL)) {
- 		pr_err("Couldn't register %s interrupt\n", "timer");
- 		return;
- 	}
-diff --git a/arch/m68k/mvme147/config.c b/arch/m68k/mvme147/config.c
-index 490700aa2212..5dabbc915b8d 100644
---- a/arch/m68k/mvme147/config.c
-+++ b/arch/m68k/mvme147/config.c
-@@ -112,14 +112,13 @@ static u32 clk_total;
- 
- static irqreturn_t mvme147_timer_int (int irq, void *dev_id)
- {
--	irq_handler_t timer_routine = dev_id;
- 	unsigned long flags;
- 
- 	local_irq_save(flags);
- 	m147_pcc->t1_int_cntrl = PCC_TIMER_INT_CLR;
- 	m147_pcc->t1_cntrl = PCC_TIMER_CLR_OVF;
- 	clk_total += PCC_TIMER_CYCLES;
--	timer_routine(0, NULL);
-+	legacy_timer_tick(1);
- 	local_irq_restore(flags);
- 
- 	return IRQ_HANDLED;
-@@ -129,7 +128,7 @@ static irqreturn_t mvme147_timer_int (int irq, void *dev_id)
- void mvme147_sched_init (irq_handler_t timer_routine)
- {
- 	if (request_irq(PCC_IRQ_TIMER1, mvme147_timer_int, IRQF_TIMER,
--			"timer 1", timer_routine))
-+			"timer 1", NULL))
- 		pr_err("Couldn't register timer interrupt\n");
- 
- 	/* Init the clock with a value */
-diff --git a/arch/m68k/mvme16x/config.c b/arch/m68k/mvme16x/config.c
-index 5b86d10e0f84..ae9bb7fda161 100644
---- a/arch/m68k/mvme16x/config.c
-+++ b/arch/m68k/mvme16x/config.c
-@@ -372,14 +372,13 @@ static u32 clk_total;
- 
- static irqreturn_t mvme16x_timer_int (int irq, void *dev_id)
- {
--	irq_handler_t timer_routine = dev_id;
- 	unsigned long flags;
- 
- 	local_irq_save(flags);
- 	out_8(PCCTIC1, in_8(PCCTIC1) | PCCTIC1_INT_CLR);
- 	out_8(PCCTOVR1, PCCTOVR1_OVR_CLR);
- 	clk_total += PCC_TIMER_CYCLES;
--	timer_routine(0, NULL);
-+	legacy_timer_tick(1);
- 	local_irq_restore(flags);
- 
- 	return IRQ_HANDLED;
-@@ -396,7 +395,7 @@ void mvme16x_sched_init (irq_handler_t timer_routine)
-     out_8(PCCTOVR1, in_8(PCCTOVR1) | PCCTOVR1_TIC_EN | PCCTOVR1_COC_EN);
-     out_8(PCCTIC1, PCCTIC1_INT_EN | 6);
-     if (request_irq(MVME16x_IRQ_TIMER, mvme16x_timer_int, IRQF_TIMER, "timer",
--                    timer_routine))
-+                    NULL))
- 	panic ("Couldn't register timer int");
- 
-     clocksource_register_hz(&mvme16x_clk, PCC_TIMER_CLOCK_FREQ);
-diff --git a/arch/m68k/q40/q40ints.c b/arch/m68k/q40/q40ints.c
-index b01b545a2db0..4c6c409053fd 100644
---- a/arch/m68k/q40/q40ints.c
-+++ b/arch/m68k/q40/q40ints.c
-@@ -130,8 +130,6 @@ void q40_mksound(unsigned int hz, unsigned int ticks)
- 
- static irqreturn_t q40_timer_int(int irq, void *dev_id)
- {
--	irq_handler_t timer_routine = dev_id;
--
- 	ql_ticks = ql_ticks ? 0 : 1;
- 	if (sound_ticks) {
- 		unsigned char sval=(sound_ticks & 1) ? 128-SVOL : 128+SVOL;
-@@ -144,7 +142,7 @@ static irqreturn_t q40_timer_int(int irq, void *dev_id)
- 		unsigned long flags;
- 
- 		local_irq_save(flags);
--		timer_routine(0, NULL);
-+		legacy_timer_tick(1);
- 		timer_heartbeat();
- 		local_irq_restore(flags);
- 	}
-@@ -157,7 +155,7 @@ void q40_sched_init (irq_handler_t timer_routine)
- 
- 	timer_irq = Q40_IRQ_FRAME;
- 
--	if (request_irq(timer_irq, q40_timer_int, 0, "timer", timer_routine))
-+	if (request_irq(timer_irq, q40_timer_int, 0, "timer", NULL))
- 		panic("Couldn't register timer int");
- 
- 	master_outb(-1, FRAME_CLEAR_REG);
+ # Architecture can handle broadcast in a driver-agnostic way
+ config ARCH_HAS_TICK_BROADCAST
 -- 
 2.27.0
