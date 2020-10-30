@@ -1,7 +1,7 @@
 From: Arnd Bergmann <arnd@kernel.org>
-Date: Fri, 30 Oct 2020 15:17:47 +0000
-Subject: [PATCH v2 04/15] timekeeping: add CONFIG_LEGACY_TIMER_TICK
-Message-Id: <20201030151758.1241164-5-arnd@kernel.org>
+Date: Fri, 30 Oct 2020 15:17:53 +0000
+Subject: [PATCH v2 10/15] m68k: sun3/sun3c: use legacy_timer_tick
+Message-Id: <20201030151758.1241164-11-arnd@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20201030151758.1241164-1-arnd@kernel.org>
 In-Reply-To: <20201030151758.1241164-1-arnd@kernel.org>
@@ -13,91 +13,82 @@ Cc: Thomas Gleixner <tglx@linutronix.de>, Arnd Bergmann <arnd@arndb.de>, Russell
 
 From: Arnd Bergmann <arnd@arndb.de>
 
-All platforms that currently do not use generic clockevents roughly call
-the same set of functions in their timer interrupts: xtime_update(),
-update_process_times() and profile_tick(), sometimes in a different
-sequence.
+These two are different from all other machines:
 
-Add a helper function that performs all three of them, to make the
-callers more uniform and simplify the interface.
+* sun3 does not call timer_routine() but open-codes it
+  except for the profile_tick() call that appears to
+  be unintentionally missing.
+
+* sun3x has a commented-out timer irq handler but no
+  functional timer tick I could find.
+
+Change both to calling the new legacy_timer_tick here,
+which includes the call to profile_tick() but does not
+fix sun3x as that is still commented out.
 
 Reviewed-by: Geert Uytterhoeven <geert@linux-m68k.org>
+Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
 Reviewed-by: Linus Walleij <linus.walleij@linaro.org>
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- include/linux/timekeeping.h |  1 +
- kernel/time/Kconfig         |  7 +++++++
- kernel/time/Makefile        |  1 +
- kernel/time/tick-legacy.c   | 19 +++++++++++++++++++
- 4 files changed, 28 insertions(+)
- create mode 100644 kernel/time/tick-legacy.c
+ arch/m68k/Kconfig.machine | 2 ++
+ arch/m68k/sun3/sun3ints.c | 3 +--
+ arch/m68k/sun3x/time.c    | 3 +--
+ 3 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/include/linux/timekeeping.h b/include/linux/timekeeping.h
-index 7f7e4a3f4394..3670cb1670ff 100644
---- a/include/linux/timekeeping.h
-+++ b/include/linux/timekeeping.h
-@@ -12,6 +12,7 @@ extern int timekeeping_suspended;
- /* Architecture timer tick functions: */
- extern void update_process_times(int user);
- extern void xtime_update(unsigned long ticks);
-+extern void legacy_timer_tick(unsigned long ticks);
+diff --git a/arch/m68k/Kconfig.machine b/arch/m68k/Kconfig.machine
+index 17e8c3a292d7..e3c835440d9a 100644
+--- a/arch/m68k/Kconfig.machine
++++ b/arch/m68k/Kconfig.machine
+@@ -99,6 +99,7 @@ config HP300
+ config SUN3X
+ 	bool "Sun3x support"
+ 	depends on MMU
++	select LEGACY_TIMER_TICK
+ 	select MMU_MOTOROLA if MMU
+ 	select M68030
+ 	help
+@@ -126,6 +127,7 @@ config SUN3
+ 	depends on MMU
+ 	depends on !MMU_MOTOROLA
+ 	select MMU_SUN3 if MMU
++	select LEGACY_TIMER_TICK
+ 	select NO_DMA
+ 	select M68020
+ 	help
+diff --git a/arch/m68k/sun3/sun3ints.c b/arch/m68k/sun3/sun3ints.c
+index a5824abb4a39..41ae422119d3 100644
+--- a/arch/m68k/sun3/sun3ints.c
++++ b/arch/m68k/sun3/sun3ints.c
+@@ -73,8 +73,7 @@ static irqreturn_t sun3_int5(int irq, void *dev_id)
+ #ifdef CONFIG_SUN3
+ 	intersil_clear();
+ #endif
+-	xtime_update(1);
+-	update_process_times(user_mode(get_irq_regs()));
++	legacy_timer_tick(1);
+ 	cnt = kstat_irqs_cpu(irq, 0);
+ 	if (!(cnt % 20))
+ 		sun3_leds(led_pattern[cnt % 160 / 20]);
+diff --git a/arch/m68k/sun3x/time.c b/arch/m68k/sun3x/time.c
+index 9163294b0fb6..f6e25fdc008c 100644
+--- a/arch/m68k/sun3x/time.c
++++ b/arch/m68k/sun3x/time.c
+@@ -77,14 +77,13 @@ int sun3x_hwclk(int set, struct rtc_time *t)
+ #if 0
+ static irqreturn_t sun3x_timer_tick(int irq, void *dev_id)
+ {
+-	irq_handler_t timer_routine = dev_id;
+ 	unsigned long flags;
  
- /*
-  * Get and set timeofday
-diff --git a/kernel/time/Kconfig b/kernel/time/Kconfig
-index 51d298ccbe05..c6867f29d279 100644
---- a/kernel/time/Kconfig
-+++ b/kernel/time/Kconfig
-@@ -57,6 +57,13 @@ config POSIX_CPU_TIMERS_TASK_WORK
- 	bool
- 	default y if POSIX_TIMERS && HAVE_POSIX_CPU_TIMERS_TASK_WORK
+ 	local_irq_save(flags);
+ 	/* Clear the pending interrupt - pulse the enable line low */
+ 	disable_irq(5);
+ 	enable_irq(5);
+-	timer_routine(0, NULL);
++	legacy_timer_tick(1);
+ 	local_irq_restore(flags);
  
-+config LEGACY_TIMER_TICK
-+	bool
-+	help
-+	  The legacy timer tick helper is used by platforms that
-+	  lack support for the generic clockevent framework.
-+	  New platforms should use generic clockevents instead.
-+
- if GENERIC_CLOCKEVENTS
- menu "Timers subsystem"
- 
-diff --git a/kernel/time/Makefile b/kernel/time/Makefile
-index c8f00168afe8..1fb1c1ef6a19 100644
---- a/kernel/time/Makefile
-+++ b/kernel/time/Makefile
-@@ -16,6 +16,7 @@ ifeq ($(CONFIG_GENERIC_CLOCKEVENTS_BROADCAST),y)
- endif
- obj-$(CONFIG_GENERIC_SCHED_CLOCK)		+= sched_clock.o
- obj-$(CONFIG_TICK_ONESHOT)			+= tick-oneshot.o tick-sched.o
-+obj-$(CONFIG_LEGACY_TIMER_TICK)			+= tick-legacy.o
- obj-$(CONFIG_HAVE_GENERIC_VDSO)			+= vsyscall.o
- obj-$(CONFIG_DEBUG_FS)				+= timekeeping_debug.o
- obj-$(CONFIG_TEST_UDELAY)			+= test_udelay.o
-diff --git a/kernel/time/tick-legacy.c b/kernel/time/tick-legacy.c
-new file mode 100644
-index 000000000000..73c5a0af4743
---- /dev/null
-+++ b/kernel/time/tick-legacy.c
-@@ -0,0 +1,19 @@
-+// SPDX-License-Identifier: GPL-2.0
-+/*
-+ * Timer tick function for architectures that lack generic clockevents,
-+ * consolidated here from m68k/ia64/parisc/arm.
-+ */
-+
-+#include <linux/irq.h>
-+#include <linux/profile.h>
-+#include <linux/timekeeper_internal.h>
-+
-+#include "tick-internal.h"
-+
-+void legacy_timer_tick(unsigned long ticks)
-+{
-+	if (ticks)
-+		xtime_update(ticks);
-+	update_process_times(user_mode(get_irq_regs()));
-+	profile_tick(CPU_PROFILING);
-+}
+ 	return IRQ_HANDLED;
 -- 
 2.27.0
