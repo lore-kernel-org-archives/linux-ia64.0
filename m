@@ -1,7 +1,7 @@
 From: Mike Rapoport <rppt@kernel.org>
-Date: Sun, 01 Nov 2020 17:04:53 +0000
-Subject: [PATCH v2 12/13] m68k/mm: enable use of generic memory_model.h for !DISCONTIGMEM
-Message-Id: <20201101170454.9567-13-rppt@kernel.org>
+Date: Sun, 01 Nov 2020 17:04:45 +0000
+Subject: [PATCH v2 04/13] ia64: discontig: paging_init(): remove local max_pfn calculation
+Message-Id: <20201101170454.9567-5-rppt@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20201101170454.9567-1-rppt@kernel.org>
 In-Reply-To: <20201101170454.9567-1-rppt@kernel.org>
@@ -13,105 +13,43 @@ Cc: Alexey Dobriyan <adobriyan@gmail.com>, Catalin Marinas <catalin.marinas@arm.
 
 From: Mike Rapoport <rppt@linux.ibm.com>
 
-The pg_data_map and pg_data_table arrays as well as page_to_pfn() and
-pfn_to_page() are required only for DISCONTIGMEM. Other memory models can
-use the generic definitions in asm-generic/memory_model.h.
+The maximal PFN in the system is calculated during find_memory() time and
+it is stored at max_low_pfn then.
+
+Use this value in paging_init() and remove the redundant detection of
+max_pfn in that function.
 
 Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
 ---
- arch/m68k/Kconfig.cpu               | 1 -
- arch/m68k/include/asm/page.h        | 2 ++
- arch/m68k/include/asm/page_mm.h     | 5 +++++
- arch/m68k/include/asm/virtconvert.h | 5 -----
- arch/m68k/mm/init.c                 | 6 +++---
- 5 files changed, 10 insertions(+), 9 deletions(-)
+ arch/ia64/mm/discontig.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
 
-diff --git a/arch/m68k/Kconfig.cpu b/arch/m68k/Kconfig.cpu
-index e8ad721e52f6..b8884af365ae 100644
---- a/arch/m68k/Kconfig.cpu
-+++ b/arch/m68k/Kconfig.cpu
-@@ -374,7 +374,6 @@ config SINGLE_MEMORY_CHUNK
- 	bool "Use one physical chunk of memory only" if ADVANCED && !SUN3
- 	depends on MMU
- 	default y if SUN3 || MMU_COLDFIRE
--	select NEED_MULTIPLE_NODES
- 	help
- 	  Ignore all but the first contiguous chunk of physical memory for VM
- 	  purposes.  This will save a few bytes kernel size and may speed up
-diff --git a/arch/m68k/include/asm/page.h b/arch/m68k/include/asm/page.h
-index 2614a1206f2f..6116d7094292 100644
---- a/arch/m68k/include/asm/page.h
-+++ b/arch/m68k/include/asm/page.h
-@@ -62,8 +62,10 @@ extern unsigned long _ramend;
- #include <asm/page_no.h>
+diff --git a/arch/ia64/mm/discontig.c b/arch/ia64/mm/discontig.c
+index d255596f52c6..f41dcf75887b 100644
+--- a/arch/ia64/mm/discontig.c
++++ b/arch/ia64/mm/discontig.c
+@@ -594,7 +594,6 @@ void __init paging_init(void)
+ {
+ 	unsigned long max_dma;
+ 	unsigned long pfn_offset = 0;
+-	unsigned long max_pfn = 0;
+ 	int node;
+ 	unsigned long max_zone_pfns[MAX_NR_ZONES];
+ 
+@@ -616,13 +615,11 @@ void __init paging_init(void)
+ #ifdef CONFIG_VIRTUAL_MEM_MAP
+ 		NODE_DATA(node)->node_mem_map = vmem_map + pfn_offset;
  #endif
+-		if (mem_data[node].max_pfn > max_pfn)
+-			max_pfn = mem_data[node].max_pfn;
+ 	}
  
-+#ifdef CONFIG_DISCONTIGMEM
- #define __phys_to_pfn(paddr)	((unsigned long)((paddr) >> PAGE_SHIFT))
- #define __pfn_to_phys(pfn)	PFN_PHYS(pfn)
-+#endif
+ 	memset(max_zone_pfns, 0, sizeof(max_zone_pfns));
+ 	max_zone_pfns[ZONE_DMA32] = max_dma;
+-	max_zone_pfns[ZONE_NORMAL] = max_pfn;
++	max_zone_pfns[ZONE_NORMAL] = max_low_pfn;
+ 	free_area_init(max_zone_pfns);
  
- #include <asm-generic/getorder.h>
- 
-diff --git a/arch/m68k/include/asm/page_mm.h b/arch/m68k/include/asm/page_mm.h
-index 0e794051d3bb..7f5912af2a52 100644
---- a/arch/m68k/include/asm/page_mm.h
-+++ b/arch/m68k/include/asm/page_mm.h
-@@ -153,6 +153,7 @@ static inline __attribute_const__ int __virt_to_node_shift(void)
- 	pfn_to_virt(page_to_pfn(page));					\
- })
- 
-+#ifdef CONFIG_DISCONTIGMEM
- #define pfn_to_page(pfn) ({						\
- 	unsigned long __pfn = (pfn);					\
- 	struct pglist_data *pgdat;					\
-@@ -165,6 +166,10 @@ static inline __attribute_const__ int __virt_to_node_shift(void)
- 	pgdat = &pg_data_map[page_to_nid(__p)];				\
- 	((__p) - pgdat->node_mem_map) + pgdat->node_start_pfn;		\
- })
-+#else
-+#define ARCH_PFN_OFFSET (m68k_memory[0].addr)
-+#include <asm-generic/memory_model.h>
-+#endif
- 
- #define virt_addr_valid(kaddr)	((void *)(kaddr) >= (void *)PAGE_OFFSET && (void *)(kaddr) < high_memory)
- #define pfn_valid(pfn)		virt_addr_valid(pfn_to_virt(pfn))
-diff --git a/arch/m68k/include/asm/virtconvert.h b/arch/m68k/include/asm/virtconvert.h
-index eb9eb5cb23a6..ca91b32dc6ef 100644
---- a/arch/m68k/include/asm/virtconvert.h
-+++ b/arch/m68k/include/asm/virtconvert.h
-@@ -29,12 +29,7 @@ static inline void *phys_to_virt(unsigned long address)
- }
- 
- /* Permanent address of a page. */
--#if defined(CONFIG_MMU) && !defined(CONFIG_DISCONTIGMEM)
--#define page_to_phys(page) \
--	__pa(PAGE_OFFSET + (((page) - pg_data_map[0].node_mem_map) << PAGE_SHIFT))
--#else
- #define page_to_phys(page)	(page_to_pfn(page) << PAGE_SHIFT)
--#endif
- 
- /*
-  * IO bus memory addresses are 1:1 with the physical address,
-diff --git a/arch/m68k/mm/init.c b/arch/m68k/mm/init.c
-index 4b46ceace3d3..14c1e541451c 100644
---- a/arch/m68k/mm/init.c
-+++ b/arch/m68k/mm/init.c
-@@ -42,12 +42,12 @@ EXPORT_SYMBOL(empty_zero_page);
- 
- #ifdef CONFIG_MMU
- 
--pg_data_t pg_data_map[MAX_NUMNODES];
--EXPORT_SYMBOL(pg_data_map);
--
- int m68k_virt_to_node_shift;
- 
- #ifdef CONFIG_DISCONTIGMEM
-+pg_data_t pg_data_map[MAX_NUMNODES];
-+EXPORT_SYMBOL(pg_data_map);
-+
- pg_data_t *pg_data_table[65];
- EXPORT_SYMBOL(pg_data_table);
- #endif
+ 	zero_page_memmap_ptr = virt_to_page(ia64_imva(empty_zero_page));
 -- 
 2.28.0
