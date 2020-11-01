@@ -1,7 +1,7 @@
 From: Mike Rapoport <rppt@kernel.org>
-Date: Sun, 01 Nov 2020 17:04:54 +0000
-Subject: [PATCH v2 13/13] m68k: deprecate DISCONTIGMEM
-Message-Id: <20201101170454.9567-14-rppt@kernel.org>
+Date: Sun, 01 Nov 2020 17:04:53 +0000
+Subject: [PATCH v2 12/13] m68k/mm: enable use of generic memory_model.h for !DISCONTIGMEM
+Message-Id: <20201101170454.9567-13-rppt@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20201101170454.9567-1-rppt@kernel.org>
 In-Reply-To: <20201101170454.9567-1-rppt@kernel.org>
@@ -13,84 +13,105 @@ Cc: Alexey Dobriyan <adobriyan@gmail.com>, Catalin Marinas <catalin.marinas@arm.
 
 From: Mike Rapoport <rppt@linux.ibm.com>
 
-DISCONTIGMEM was intended to provide more efficient support for systems
-with holes in their physical address space that FLATMEM did.
-
-Yet, it's overhead in terms of the memory consumption seems to overweight
-the savings on the unused memory map.
-
-For a ARAnyM system with 16 MBytes of FastRAM configured, the memory usage
-reported after page allocator initialization is
-
-Memory: 23828K/30720K available (3206K kernel code, 535K rwdata, 936K rodata, 768K init, 193K bss, 6892K reserved, 0K cma-reserved)
-
-and with DISCONTIGMEM disabled and with relatively large hole in the memory
-map it is:
-
-Memory: 23864K/30720K available (3197K kernel code, 516K rwdata, 936K rodata, 764K init, 179K bss, 6856K reserved, 0K cma-reserved)
-
-Moreover, since m68k already has custom pfn_valid() it is possible to
-define HAVE_ARCH_PFN_VALID to enable freeing of unused memory map. The
-minimal size of a hole that can be freed should not be less than
-MAX_ORDER_NR_PAGES so to achieve more substantial memory savings let m68k
-also define custom FORCE_MAX_ZONEORDER.
-
-With FORCE_MAX_ZONEORDER set to 9 memory usage becomes:
-
-Memory: 23880K/30720K available (3197K kernel code, 516K rwdata, 936K rodata, 764K init, 179K bss, 6840K reserved, 0K cma-reserved)
+The pg_data_map and pg_data_table arrays as well as page_to_pfn() and
+pfn_to_page() are required only for DISCONTIGMEM. Other memory models can
+use the generic definitions in asm-generic/memory_model.h.
 
 Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
 ---
- arch/m68k/Kconfig.cpu | 26 +++++++++++++++++++++++++-
- 1 file changed, 25 insertions(+), 1 deletion(-)
+ arch/m68k/Kconfig.cpu               | 1 -
+ arch/m68k/include/asm/page.h        | 2 ++
+ arch/m68k/include/asm/page_mm.h     | 5 +++++
+ arch/m68k/include/asm/virtconvert.h | 5 -----
+ arch/m68k/mm/init.c                 | 6 +++---
+ 5 files changed, 10 insertions(+), 9 deletions(-)
 
 diff --git a/arch/m68k/Kconfig.cpu b/arch/m68k/Kconfig.cpu
-index b8884af365ae..3e70fb7a8d83 100644
+index e8ad721e52f6..b8884af365ae 100644
 --- a/arch/m68k/Kconfig.cpu
 +++ b/arch/m68k/Kconfig.cpu
-@@ -20,6 +20,7 @@ choice
- 
- config M68KCLASSIC
- 	bool "Classic M68K CPU family support"
-+	select HAVE_ARCH_PFN_VALID
- 
- config COLDFIRE
- 	bool "Coldfire CPU family support"
-@@ -377,11 +378,34 @@ config SINGLE_MEMORY_CHUNK
+@@ -374,7 +374,6 @@ config SINGLE_MEMORY_CHUNK
+ 	bool "Use one physical chunk of memory only" if ADVANCED && !SUN3
+ 	depends on MMU
+ 	default y if SUN3 || MMU_COLDFIRE
+-	select NEED_MULTIPLE_NODES
  	help
  	  Ignore all but the first contiguous chunk of physical memory for VM
  	  purposes.  This will save a few bytes kernel size and may speed up
--	  some operations.  Say N if not sure.
-+	  some operations.
-+	  When this option os set to N, you may want to lower "Maximum zone
-+	  order" to save memory that could be wasted for unused memory map.
-+	  Say N if not sure.
+diff --git a/arch/m68k/include/asm/page.h b/arch/m68k/include/asm/page.h
+index 2614a1206f2f..6116d7094292 100644
+--- a/arch/m68k/include/asm/page.h
++++ b/arch/m68k/include/asm/page.h
+@@ -62,8 +62,10 @@ extern unsigned long _ramend;
+ #include <asm/page_no.h>
+ #endif
  
- config ARCH_DISCONTIGMEM_ENABLE
-+	depends on BROKEN
- 	def_bool MMU && !SINGLE_MEMORY_CHUNK
++#ifdef CONFIG_DISCONTIGMEM
+ #define __phys_to_pfn(paddr)	((unsigned long)((paddr) >> PAGE_SHIFT))
+ #define __pfn_to_phys(pfn)	PFN_PHYS(pfn)
++#endif
  
-+config FORCE_MAX_ZONEORDER
-+	int "Maximum zone order" if ADVANCED
-+	depends on !SINGLE_MEMORY_CHUNK
-+	default "11"
-+	help
-+	  The kernel memory allocator divides physically contiguous memory
-+	  blocks into "zones", where each zone is a power of two number of
-+	  pages.  This option selects the largest power of two that the kernel
-+	  keeps in the memory allocator.  If you need to allocate very large
-+	  blocks of physically contiguous memory, then you may need to
-+	  increase this value.
+ #include <asm-generic/getorder.h>
+ 
+diff --git a/arch/m68k/include/asm/page_mm.h b/arch/m68k/include/asm/page_mm.h
+index 0e794051d3bb..7f5912af2a52 100644
+--- a/arch/m68k/include/asm/page_mm.h
++++ b/arch/m68k/include/asm/page_mm.h
+@@ -153,6 +153,7 @@ static inline __attribute_const__ int __virt_to_node_shift(void)
+ 	pfn_to_virt(page_to_pfn(page));					\
+ })
+ 
++#ifdef CONFIG_DISCONTIGMEM
+ #define pfn_to_page(pfn) ({						\
+ 	unsigned long __pfn = (pfn);					\
+ 	struct pglist_data *pgdat;					\
+@@ -165,6 +166,10 @@ static inline __attribute_const__ int __virt_to_node_shift(void)
+ 	pgdat = &pg_data_map[page_to_nid(__p)];				\
+ 	((__p) - pgdat->node_mem_map) + pgdat->node_start_pfn;		\
+ })
++#else
++#define ARCH_PFN_OFFSET (m68k_memory[0].addr)
++#include <asm-generic/memory_model.h>
++#endif
+ 
+ #define virt_addr_valid(kaddr)	((void *)(kaddr) >= (void *)PAGE_OFFSET && (void *)(kaddr) < high_memory)
+ #define pfn_valid(pfn)		virt_addr_valid(pfn_to_virt(pfn))
+diff --git a/arch/m68k/include/asm/virtconvert.h b/arch/m68k/include/asm/virtconvert.h
+index eb9eb5cb23a6..ca91b32dc6ef 100644
+--- a/arch/m68k/include/asm/virtconvert.h
++++ b/arch/m68k/include/asm/virtconvert.h
+@@ -29,12 +29,7 @@ static inline void *phys_to_virt(unsigned long address)
+ }
+ 
+ /* Permanent address of a page. */
+-#if defined(CONFIG_MMU) && !defined(CONFIG_DISCONTIGMEM)
+-#define page_to_phys(page) \
+-	__pa(PAGE_OFFSET + (((page) - pg_data_map[0].node_mem_map) << PAGE_SHIFT))
+-#else
+ #define page_to_phys(page)	(page_to_pfn(page) << PAGE_SHIFT)
+-#endif
+ 
+ /*
+  * IO bus memory addresses are 1:1 with the physical address,
+diff --git a/arch/m68k/mm/init.c b/arch/m68k/mm/init.c
+index 4b46ceace3d3..14c1e541451c 100644
+--- a/arch/m68k/mm/init.c
++++ b/arch/m68k/mm/init.c
+@@ -42,12 +42,12 @@ EXPORT_SYMBOL(empty_zero_page);
+ 
+ #ifdef CONFIG_MMU
+ 
+-pg_data_t pg_data_map[MAX_NUMNODES];
+-EXPORT_SYMBOL(pg_data_map);
+-
+ int m68k_virt_to_node_shift;
+ 
+ #ifdef CONFIG_DISCONTIGMEM
++pg_data_t pg_data_map[MAX_NUMNODES];
++EXPORT_SYMBOL(pg_data_map);
 +
-+	  For systems that have holes in their physical address space this
-+	  value also defines the minimal size of the hole that allows
-+	  freeing unused memory map.
-+
-+	  This config option is actually maximum order plus one. For example,
-+	  a value of 11 means that the largest free memory block is 2^10 pages.
-+
- config 060_WRITETHROUGH
- 	bool "Use write-through caching for 68060 supervisor accesses"
- 	depends on ADVANCED && M68060
+ pg_data_t *pg_data_table[65];
+ EXPORT_SYMBOL(pg_data_table);
+ #endif
 -- 
 2.28.0
