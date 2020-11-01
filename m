@@ -1,169 +1,96 @@
-From: Mauro Carvalho Chehab <mchehab+huawei@kernel.org>
-Date: Mon, 30 Nov 2020 15:36:29 +0000
-Subject: [PATCH 0/6] Add documentation for Documentation/features at the built docs
-Message-Id: <cover.1606748711.git.mchehab+huawei@kernel.org>
+From: Mike Rapoport <rppt@kernel.org>
+Date: Sun, 01 Nov 2020 17:04:54 +0000
+Subject: [PATCH v2 13/13] m68k: deprecate DISCONTIGMEM
+Message-Id: <20201101170454.9567-14-rppt@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20201101170454.9567-1-rppt@kernel.org>
+In-Reply-To: <20201101170454.9567-1-rppt@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linux Doc Mailing List <linux-doc@vger.kernel.org>
-Cc: Mauro Carvalho Chehab <mchehab+huawei@kernel.org>, linux-kernel@vger.kernel.org, Jonathan Corbet <corbet@lwn.net>, "Daniel W. S. Almeida" <dwlsalmeida@gmail.com>, "H. Peter Anvin" <hpa@zytor.com>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, =?UTF-8?q?Jonathan=20Neusch=C3=A4fer?= <j.neuschaefer@gmx.net>, Albert Ou <aou@eecs.berkeley.edu>, Andrew Cooper <andrew.cooper3@citrix.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Borislav Petkov <bp@alien8.de>, Catalin Marinas <catalin.marinas@arm.com>, Christian Borntraeger <borntraeger@de.ibm.com>, Fenghua Yu <fenghua.yu@intel.com>, Greg Kroah-Hartman <gregkh@linuxfoundation.org>, Heiko Carstens <hca@linux.ibm.com>, Helge Deller <deller@gmx.de>, Ingo Molnar <mingo@redhat.com>, Jonas Bonn <jonas@southpole.se>, Kees Cook <keescook@chromium.org>, Masami Hiramatsu <mhiramat@kernel.org>, Michael Ellerman <mpe@ellerman.id.au>, Palmer Dabbelt <palmer@dabbelt.com>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Rich Felker <dalias@libc.org>, Stafford Horne <shorne@gmail.com>, Stefan Kristiansson <stefan.kristiansson@saunalahti.fi>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, Vasily Gorbik <gor@linux.ibm.com>, Will Deacon <will@kernel.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, openrisc@lists.librecores.org, x86@kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Alexey Dobriyan <adobriyan@gmail.com>, Catalin Marinas <catalin.marinas@arm.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Greg Ungerer <gerg@linux-m68k.org>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, Jonathan Corbet <corbet@lwn.net>, Matt Turner <mattst88@gmail.com>, Meelis Roos <mroos@linux.ee>, Michael Schmitz <schmitzmic@gmail.com>, Mike Rapoport <rppt@kernel.org>, Mike Rapoport <rppt@linux.ibm.com>, Russell King <linux@armlinux.org.uk>, Tony Luck <tony.luck@intel.com>, Vineet Gupta <vgupta@synopsys.com>, Will Deacon <will@kernel.org>, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-doc@vger.kernel.org, linux-fsdevel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mm@kvack.org, linux-snps-arc@lists.infradead.org
 
-Hi Jon,
+From: Mike Rapoport <rppt@linux.ibm.com>
 
-This series got already submitted last year:
+DISCONTIGMEM was intended to provide more efficient support for systems
+with holes in their physical address space that FLATMEM did.
 
-   https://lore.kernel.org/lkml/cover.1561222784.git.mchehab+samsung@kernel.org/
+Yet, it's overhead in terms of the memory consumption seems to overweight
+the savings on the unused memory map.
 
-Yet, on that time, there were too many other patches related to ReST
-conversion floating around. So, at the end, I guess this one got missed.
+For a ARAnyM system with 16 MBytes of FastRAM configured, the memory usage
+reported after page allocator initialization is
 
-So, I did a rebase on the top of upstream, and added a few new changes.
+Memory: 23828K/30720K available (3206K kernel code, 535K rwdata, 936K rodata, 768K init, 193K bss, 6892K reserved, 0K cma-reserved)
 
-Patch 1 contains the original implementation back then. It adds a
-get_feat.pl script that parses the contents of Documentation/features.
+and with DISCONTIGMEM disabled and with relatively large hole in the memory
+map it is:
 
-Patch 2 is new: it re-implements the output of the full contents of the
-features table as a set of per-subsystem tables. 
+Memory: 23864K/30720K available (3197K kernel code, 516K rwdata, 936K rodata, 764K init, 179K bss, 6856K reserved, 0K cma-reserved)
 
-Patch 3 replaces the existing Documentation/features/list-arch.sh
-by a call to the new script, in order to avoid having two scripts
-doing the same thing.
+Moreover, since m68k already has custom pfn_valid() it is possible to
+define HAVE_ARCH_PFN_VALID to enable freeing of unused memory map. The
+minimal size of a hole that can be freed should not be less than
+MAX_ORDER_NR_PAGES so to achieve more substantial memory savings let m68k
+also define custom FORCE_MAX_ZONEORDER.
 
-Patch 4 is a sphinx extension to allow generating features output
-via a meta-tag.
+With FORCE_MAX_ZONEORDER set to 9 memory usage becomes:
 
-Patch 5 adds a complete feature list covering all archs at the
-admin guide.
+Memory: 23880K/30720K available (3197K kernel code, 516K rwdata, 936K rodata, 764K init, 179K bss, 6840K reserved, 0K cma-reserved)
 
-Patch 6 adds a per-arch feature list on each architecture book.
+Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
+---
+ arch/m68k/Kconfig.cpu | 26 +++++++++++++++++++++++++-
+ 1 file changed, 25 insertions(+), 1 deletion(-)
 
--
-
-The scripts/get_feat.pl supports several types of output:
-
-- $ scripts/get_feat.pl current
-
-  Outputs the supported feadures by the architecture of the
-  running Kernel, as an ASCII table;
-
-- $  scripts/get_feat.pl list
-
-  Outputs the supported features on an easy to be parsed
-  format. By default, it uses the current architecture as well;
-
-- $  scripts/get_feat.pl rest --feature jump-labels
-
-  Output what architecture supports a given feature
-  (on the above example, "jump-labels" feature)
-
-- $ scripts/get_feat.pl rest --arch um
-
-  Outputs the features support for an specific architecture
-  (on the above example, for "um" architecture.
-
-- $ scripts/get_feat.pl rest
-
-  Outputs a text file with ASCII tables (ReST compatible)
-  with all features, grouped per subsystem.
-
-  E. g. something like:
-	
-        =================        Feature status on all architectures
-        =================        
-        Subsystem: core
-        =======        
-        +---------------------+---------------------------------+-------------------------------------------------------------------------+------------+------+
-        |Feature              |Kconfig                          |Description                                                              |Architecture|Status|
-        +===========+=================+=====================================+======+===+
-        |cBPF-JIT             |HAVE_CBPF_JIT                    |arch supports cBPF JIT optimizations                                     |alpha       |TODO  |
-        |                     |                                 |                                                                         +------------+------+
-        |                     |                                 |                                                                         |arc         |TODO  |
-        |                     |                                 |                                                                         +------------+------+
-        |                     |                                 |                                                                         |arm         |TODO  |
-        |                     |                                 |                                                                         +------------+------+
-        |                     |                                 |                                                                         |arm64       |TODO  |
-        |                     |                                 |                                                                         +------------+------+
-        |                     |                                 |                                                                         |c6x         |TODO  |
-        |                     |                                 |                                                                         +------------+------+
-        |                     |                                 |                                                                         |csky        |TODO  |
-        |                     |                                 |                                                                         +------------+------+
-        |                     |                                 |                                                                         |h8300       |TODO  |
-        |                     |                                 |                                                                         +------------+------+
-        |                     |                                 |                                                                         |hexagon     |TODO  |
-...
-
-Adding those patchsets will basically place the contents of all
-files under Documentation/features (currently, 45 files) at the
-Kernel documentation, which is, IMO, a good thing to do.
-
-Regards,
-Mauro
-
-Mauro Carvalho Chehab (6):
-  scripts: get_feat.pl: add a script to handle Documentation/features
-  scripts: get_feat.pl: improve matrix output
-  scripts: get_feat.pl: use its implementation for list-arch.sh
-  sphinx: kernel_feat.py: add a script to parse feature files
-  docs: admin-guide: add a features list
-  docs: archis: add a per-architecture features list
-
- Documentation/admin-guide/features.rst |   3 +
- Documentation/admin-guide/index.rst    |   1 +
- Documentation/arm/features.rst         |   3 +
- Documentation/arm/index.rst            |   2 +
- Documentation/arm64/features.rst       |   3 +
- Documentation/arm64/index.rst          |   2 +
- Documentation/conf.py                  |   2 +-
- Documentation/features/list-arch.sh    |  17 +-
- Documentation/ia64/features.rst        |   3 +
- Documentation/ia64/index.rst           |   2 +
- Documentation/index.rst                |   2 +-
- Documentation/m68k/features.rst        |   3 +
- Documentation/m68k/index.rst           |   2 +
- Documentation/mips/features.rst        |   3 +
- Documentation/mips/index.rst           |   2 +
- Documentation/nios2/index.rst          |  12 +
- Documentation/openrisc/features.rst    |   3 +
- Documentation/openrisc/index.rst       |   2 +
- Documentation/parisc/features.rst      |   3 +
- Documentation/parisc/index.rst         |   2 +
- Documentation/powerpc/features.rst     |   3 +
- Documentation/powerpc/index.rst        |   2 +
- Documentation/riscv/features.rst       |   3 +
- Documentation/riscv/index.rst          |   2 +
- Documentation/s390/features.rst        |   3 +
- Documentation/s390/index.rst           |   2 +
- Documentation/sh/features.rst          |   3 +
- Documentation/sh/index.rst             |   2 +
- Documentation/sparc/features.rst       |   3 +
- Documentation/sparc/index.rst          |   2 +
- Documentation/sphinx/kernel_feat.py    | 169 ++++++++
- Documentation/x86/features.rst         |   3 +
- Documentation/x86/index.rst            |   1 +
- Documentation/xtensa/features.rst      |   3 +
- Documentation/xtensa/index.rst         |   2 +
- scripts/get_feat.pl                    | 552 +++++++++++++++++++++++++
- 36 files changed, 810 insertions(+), 17 deletions(-)
- create mode 100644 Documentation/admin-guide/features.rst
- create mode 100644 Documentation/arm/features.rst
- create mode 100644 Documentation/arm64/features.rst
- create mode 100644 Documentation/ia64/features.rst
- create mode 100644 Documentation/m68k/features.rst
- create mode 100644 Documentation/mips/features.rst
- create mode 100644 Documentation/nios2/index.rst
- create mode 100644 Documentation/openrisc/features.rst
- create mode 100644 Documentation/parisc/features.rst
- create mode 100644 Documentation/powerpc/features.rst
- create mode 100644 Documentation/riscv/features.rst
- create mode 100644 Documentation/s390/features.rst
- create mode 100644 Documentation/sh/features.rst
- create mode 100644 Documentation/sparc/features.rst
- create mode 100644 Documentation/sphinx/kernel_feat.py
- create mode 100644 Documentation/x86/features.rst
- create mode 100644 Documentation/xtensa/features.rst
- create mode 100755 scripts/get_feat.pl
-
+diff --git a/arch/m68k/Kconfig.cpu b/arch/m68k/Kconfig.cpu
+index b8884af365ae..3e70fb7a8d83 100644
+--- a/arch/m68k/Kconfig.cpu
++++ b/arch/m68k/Kconfig.cpu
+@@ -20,6 +20,7 @@ choice
+ 
+ config M68KCLASSIC
+ 	bool "Classic M68K CPU family support"
++	select HAVE_ARCH_PFN_VALID
+ 
+ config COLDFIRE
+ 	bool "Coldfire CPU family support"
+@@ -377,11 +378,34 @@ config SINGLE_MEMORY_CHUNK
+ 	help
+ 	  Ignore all but the first contiguous chunk of physical memory for VM
+ 	  purposes.  This will save a few bytes kernel size and may speed up
+-	  some operations.  Say N if not sure.
++	  some operations.
++	  When this option os set to N, you may want to lower "Maximum zone
++	  order" to save memory that could be wasted for unused memory map.
++	  Say N if not sure.
+ 
+ config ARCH_DISCONTIGMEM_ENABLE
++	depends on BROKEN
+ 	def_bool MMU && !SINGLE_MEMORY_CHUNK
+ 
++config FORCE_MAX_ZONEORDER
++	int "Maximum zone order" if ADVANCED
++	depends on !SINGLE_MEMORY_CHUNK
++	default "11"
++	help
++	  The kernel memory allocator divides physically contiguous memory
++	  blocks into "zones", where each zone is a power of two number of
++	  pages.  This option selects the largest power of two that the kernel
++	  keeps in the memory allocator.  If you need to allocate very large
++	  blocks of physically contiguous memory, then you may need to
++	  increase this value.
++
++	  For systems that have holes in their physical address space this
++	  value also defines the minimal size of the hole that allows
++	  freeing unused memory map.
++
++	  This config option is actually maximum order plus one. For example,
++	  a value of 11 means that the largest free memory block is 2^10 pages.
++
+ config 060_WRITETHROUGH
+ 	bool "Use write-through caching for 68060 supervisor accesses"
+ 	depends on ADVANCED && M68060
 -- 
 2.28.0
-
