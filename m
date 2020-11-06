@@ -1,35 +1,45 @@
-From: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
-Date: Mon, 30 Nov 2020 12:27:26 +0000
-Subject: Re: vmlinux link failure on ia64 with zstd
-Message-Id: <067e9ef5-7555-6f8d-f744-e6400184d6ef@physik.fu-berlin.de>
+From: Finn Thain <fthain@telegraphics.com.au>
+Date: Fri, 06 Nov 2020 02:52:01 +0000
+Subject: Re: [RFC 13/13] m68k: mac: convert to generic clockevent
+Message-Id: <alpine.LNX.2.23.453.2011061343030.13@nippy.intranet>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <f0a93b2d435252b3878ce821142677754f5e434c.camel@decadent.org.uk>
- <6A76267A-6B60-4428-94DF-E05706EB85FB@fb.com>
- <CAK7LNAToB3n9Y9OPXR55VKbDAkYgm1kUDO8gUu0Ak_+=6AhzCw@mail.gmail.com>
-In-Reply-To: <CAK7LNAToB3n9Y9OPXR55VKbDAkYgm1kUDO8gUu0Ak_+=6AhzCw@mail.gmail.com>
+References: <20201008154651.1901126-1-arnd@arndb.de> <20201008154651.1901126-14-arnd@arndb.de> <alpine.LNX.2.23.453.2010091900150.12@nippy.intranet> <CAK8P3a3rM7gJjdTtcKzr6yi15n6xs-yhEpmSOf3QHfahQwxqkw@mail.gmail.com> <alpine.LNX.2.23.453.2010150937430.16@nippy.intranet>
+ <CAK8P3a3i6cum_9xGgsbxjXXvbRsP8Po5qLZ0Agb3c4gZTKC9GQ@mail.gmail.com> <CAMuHMdUyGH=ORa4yHivMeJZaGQ3kEXi1kr9=P+u1y3QQnC+-4g@mail.gmail.com>
+In-Reply-To: <CAMuHMdUyGH=ORa4yHivMeJZaGQ3kEXi1kr9=P+u1y3QQnC+-4g@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Masahiro Yamada <masahiroy@kernel.org>, Nick Terrell <terrelln@fb.com>
-Cc: Ben Hutchings <ben@decadent.org.uk>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Linux Kbuild mailing list <linux-kbuild@vger.kernel.org>, Tony Luck <tony.luck@intel.com>
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Cc: Arnd Bergmann <arnd@kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, Russell King <linux@armlinux.org.uk>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Greg Ungerer <gerg@linux-m68k.org>, Philip Blundell <philb@gnu.org>, Joshua Thompson <funaho@jurai.org>, Sam Creasey <sammy@sammy.net>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Thomas Gleixner <tglx@linutronix.de>, Daniel Lezcano <daniel.lezcano@linaro.org>, John Stultz <john.stultz@linaro.org>, Stephen Boyd <sboyd@kernel.org>, Linus Walleij <linus.walleij@linaro.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Parisc List <linux-parisc@vger.kernel.org>, linux-m68k <linux-m68k@lists.linux-m68k.org>, Linux ARM <linux-arm-kernel@lists.infradead.org>
 
-Hi Masahiro!
+On Fri, 23 Oct 2020, Geert Uytterhoeven wrote:
 
-On 9/15/20 8:48 AM, Masahiro Yamada wrote:
-> dc35da16a2e2 is more than two years old (i.e. v4.17)
+> > > > The arm/rpc timer seems to be roughly in the same category as most 
+> > > > of the m68k ones or the i8253 counter on a PC. It's possible that 
+> > > > some of them could use the same logic as 
+> > > > drivers/clocksource/i8253.o as long as there is any hardware 
+> > > > oneshot mode.
+> > >
+> > > There appear to be 15 platforms in that category. 4 have no 
+> > > clocksource besides the jiffies clocksource, meaning there's no 
+> > > practical alternative to using a periodic tick, like you did in your 
+> > > RFC patch:
+> > >
+> > > arch/m68k/apollo/config.c
+> > > arch/m68k/q40/q40ints.c
+> > > arch/m68k/sun3/sun3ints.c
+> > > arch/m68k/sun3x/time.c
+> >
+> > Do any of these have users? I'm fairly sure sun3x has never worked in 
+> > mainline, sun3 seems to still need the same few patches it did 20 
+> > years ago. I couldn't find much about Linux on Apollo or q40, the 
+> > information on the web for either of them seems to all be for 
+> > linux-2.4 kernels.
 > 
-> Are we discussing a long-standing issue
-> or something that arose recently?
+> They probably don't have any users.
 
-Kernels up to 5.7.0 built fine on ia64 in Debian [1], but I assume that zstd was
-only recently enabled in Debian's standard kernel.
+I have access to several Sun 3 machines but no time to work on that port, 
+unfortunately.
 
-Adrian
-
-> [1] https://buildd.debian.org/status/logs.php?pkg=linux&arch=ia64
-
--- 
- .''`.  John Paul Adrian Glaubitz
-: :' :  Debian Developer - glaubitz@debian.org
-`. `'   Freie Universitaet Berlin - glaubitz@physik.fu-berlin.de
-  `-    GPG: 62FF 8A75 84E0 2956 9546  0006 7426 3B37 F5B5 F913
+Are these 4 platforms (those with no clocksource besides the "jiffies" 
+clocksource) the only reason for CONFIG_TIME_LOW_RES on m68k?
