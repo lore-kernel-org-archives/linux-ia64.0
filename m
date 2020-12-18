@@ -1,10 +1,10 @@
 From: "Enrico Weigelt, metux IT consult" <info@metux.net>
-Date: Fri, 18 Dec 2020 14:57:34 +0000
-Subject: [PATCH 11/23] arch: sparc: drop misleading warning on spurious IRQ
-Message-Id: <20201218145746.24205-12-info@metux.net>
+Date: Fri, 18 Dec 2020 14:31:07 +0000
+Subject: [PATCH 08/23] arch: powerpc: drop misleading warning on spurious IRQ
+Message-Id: <20201218143122.19459-9-info@metux.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20201218145746.24205-1-info@metux.net>
-In-Reply-To: <20201218145746.24205-1-info@metux.net>
+References: <20201218143122.19459-1-info@metux.net>
+In-Reply-To: <20201218143122.19459-1-info@metux.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -23,37 +23,24 @@ we just don't need to duplicate this in each single arch. So just drop it.
 
 Signed-off-by: Enrico Weigelt, metux IT consult <info@metux.net>
 ---
- arch/sparc/include/asm/hardirq_64.h | 2 +-
- arch/sparc/kernel/irq_64.c          | 5 -----
- 2 files changed, 1 insertion(+), 6 deletions(-)
+ arch/powerpc/include/asm/hardirq.h | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
 
-diff --git a/arch/sparc/include/asm/hardirq_64.h b/arch/sparc/include/asm/hardirq_64.h
-index 75b92bfe04b5..874151f520de 100644
---- a/arch/sparc/include/asm/hardirq_64.h
-+++ b/arch/sparc/include/asm/hardirq_64.h
-@@ -14,6 +14,6 @@
- #define local_softirq_pending_ref \
- 	__cpu_data.__softirq_pending
+diff --git a/arch/powerpc/include/asm/hardirq.h b/arch/powerpc/include/asm/hardirq.h
+index f133b5930ae1..4138193c2367 100644
+--- a/arch/powerpc/include/asm/hardirq.h
++++ b/arch/powerpc/include/asm/hardirq.h
+@@ -27,10 +27,7 @@ DECLARE_PER_CPU_SHARED_ALIGNED(irq_cpustat_t, irq_stat);
+ #define __ARCH_IRQ_STAT
+ #define __ARCH_IRQ_EXIT_IRQS_DISABLED
  
--void ack_bad_irq(unsigned int irq);
+-static inline void ack_bad_irq(unsigned int irq)
+-{
+-	printk(KERN_CRIT "unexpected IRQ trap at vector %02x\n", irq);
+-}
 +#define ack_bad_irq(irq)
  
- #endif /* !(__SPARC64_HARDIRQ_H) */
-diff --git a/arch/sparc/kernel/irq_64.c b/arch/sparc/kernel/irq_64.c
-index 3ec9f1402aad..ea2a52f7fe53 100644
---- a/arch/sparc/kernel/irq_64.c
-+++ b/arch/sparc/kernel/irq_64.c
-@@ -284,11 +284,6 @@ static unsigned int sysino_exists(u32 devhandle, unsigned int devino)
- 	return irq;
- }
- 
--void ack_bad_irq(unsigned int irq)
--{
--	pr_crit("BAD IRQ ack %d\n", irq);
--}
--
- void irq_install_pre_handler(int irq,
- 			     void (*func)(unsigned int, void *, void *),
- 			     void *arg1, void *arg2)
+ extern u64 arch_irq_stat_cpu(unsigned int cpu);
+ #define arch_irq_stat_cpu	arch_irq_stat_cpu
 -- 
 2.11.0
