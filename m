@@ -1,48 +1,65 @@
-From: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
-Date: Sun, 20 Dec 2020 18:41:53 +0000
-Subject: Re: where to start with ia64 kernel
-Message-Id: <202178aa-7f8d-5c77-115d-3390614e7500@physik.fu-berlin.de>
+From: "Enrico Weigelt, metux IT consult" <info@metux.net>
+Date: Fri, 18 Dec 2020 14:31:05 +0000
+Subject: [PATCH 06/23] arch: mips: drop misleading warning on spurious IRQ
+Message-Id: <20201218143122.19459-7-info@metux.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <CADxRZqwfMr9==xFQaaEOk7jYVoROEEyQ_12KpBCtwL3SXoCM-A@mail.gmail.com>
-In-Reply-To: <CADxRZqwfMr9==xFQaaEOk7jYVoROEEyQ_12KpBCtwL3SXoCM-A@mail.gmail.com>
+References: <20201218143122.19459-1-info@metux.net>
+In-Reply-To: <20201218143122.19459-1-info@metux.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: mark.rutland@arm.com, alexander.shishkin@linux.intel.com, jolsa@redhat.com, namhyung@kernel.org, catalin.marinas@arm.com, will@kernel.org, msalter@redhat.com, jacquiot.aurelien@gmail.com, gerg@linux-m68k.org, geert@linux-m68k.org, tsbogend@alpha.franken.de, James.Bottomley@HansenPartnership.com, deller@gmx.de, benh@kernel.crashing.org, paulus@samba.org, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, tglx@linutronix.de, bp@alien8.de, x86@kernel.org, hpa@zytor.com, linus.walleij@linaro.org, bgolaszewski@baylibre.com, maz@kernel.org, tony@atomide.com, arnd@arndb.de, linux-alpha@vger.kernel.org, linux-c6x-dev@linux-c6x.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-gpio@vger.kernel.org, linux-omap@vger.kernel.org, linux-arch@vger.kernel.org
 
-Hi Anatoly!
+The warning in ack_bad_irq() is misleading in several ways:
+* the term "vector" isn't quite correct
+* the printing format isn't consistent across the archs: some print decimal,
+  some hex, some hex w/o 0x prefix.
+* the printed linux irq isn't meaningful in all cases - we actually would
+  want it to print the hw irq.
 
-On 12/20/20 7:13 PM, Anatoly Pugachev wrote:
-> I have Integrity BL870c i4 blade installed with debian sid, somewhat
-> working 4.15/4.14.x kernel series...
-> 
-> 4.16.x kernel (and more recent ones, including latest git) does not boot ...
-> tried to bisect (but some kernel revisions does not even compile - git
-> bisect skip).
+Since all call sites already print out more detailed and correct information,
+we just don't need to duplicate this in each single arch. So just drop it.
 
-Any kernel newer than 4.14.x will not boot on large ia64 NUMA systems due
-to the changes in 543cea9a [1][2]. This bug does not affect systems like
-the RX-2600 which boot Linux 5.9 just fine.
+Signed-off-by: Enrico Weigelt, metux IT consult <info@metux.net>
+---
+ arch/mips/include/asm/hardirq.h | 3 +--
+ arch/mips/kernel/irq.c          | 9 ---------
+ 2 files changed, 1 insertion(+), 11 deletions(-)
 
-There are two minor regressions in 5.10, one has already been bisected [3]
-
-> Does it make sense to try to start reporting bugs and hangs with ia64
-> 4.x kernel series, being 5.10 is out...
-
-Not really as 5.9.0 boots on smaller systems like the RX-2600 and the issue
-with the larger systems has already been bisected to 543cea9a.
-
-The problem with the regression you are seeing is that multiple attempts to
-fix the issue have so far failed and we haven't found a working fix yet.
-
-Adrian
-
-> [1] https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/commit/?idT3cea9accd9804307541cb93d3ed7ec94b07237
-> [2] https://marc.info/?l=linux-ia64&m6144480821712&w=2
-> [3] https://marc.info/?l=linux-arm-kernel&m0832710326221&w=2
-
+diff --git a/arch/mips/include/asm/hardirq.h b/arch/mips/include/asm/hardirq.h
+index c977a86c2c65..75444120e6cb 100644
+--- a/arch/mips/include/asm/hardirq.h
++++ b/arch/mips/include/asm/hardirq.h
+@@ -10,8 +10,7 @@
+ #ifndef _ASM_HARDIRQ_H
+ #define _ASM_HARDIRQ_H
+ 
+-extern void ack_bad_irq(unsigned int irq);
+-#define ack_bad_irq ack_bad_irq
++#define ack_bad_irq(irq)
+ 
+ #include <asm-generic/hardirq.h>
+ 
+diff --git a/arch/mips/kernel/irq.c b/arch/mips/kernel/irq.c
+index 85b6c60f285d..c98be305fab6 100644
+--- a/arch/mips/kernel/irq.c
++++ b/arch/mips/kernel/irq.c
+@@ -27,15 +27,6 @@
+ 
+ void *irq_stack[NR_CPUS];
+ 
+-/*
+- * 'what should we do if we get a hw irq event on an illegal vector'.
+- * each architecture has to answer this themselves.
+- */
+-void ack_bad_irq(unsigned int irq)
+-{
+-	printk("unexpected IRQ # %d\n", irq);
+-}
+-
+ atomic_t irq_err_count;
+ 
+ int arch_show_interrupts(struct seq_file *p, int prec)
 -- 
- .''`.  John Paul Adrian Glaubitz
-: :' :  Debian Developer - glaubitz@debian.org
-`. `'   Freie Universitaet Berlin - glaubitz@physik.fu-berlin.de
-  `-    GPG: 62FF 8A75 84E0 2956 9546  0006 7426 3B37 F5B5 F913
+2.11.0
