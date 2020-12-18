@@ -1,10 +1,10 @@
 From: "Enrico Weigelt, metux IT consult" <info@metux.net>
-Date: Fri, 18 Dec 2020 14:31:16 +0000
+Date: Fri, 18 Dec 2020 14:57:40 +0000
 Subject: [PATCH 17/23] arch: arm: use generic irq error counter
-Message-Id: <20201218143122.19459-18-info@metux.net>
+Message-Id: <20201218145746.24205-18-info@metux.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20201218143122.19459-1-info@metux.net>
-In-Reply-To: <20201218143122.19459-1-info@metux.net>
+References: <20201218145746.24205-1-info@metux.net>
+In-Reply-To: <20201218145746.24205-1-info@metux.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
