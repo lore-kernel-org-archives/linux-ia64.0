@@ -1,42 +1,26 @@
-From: "Enrico Weigelt, metux IT consult" <info@metux.net>
-Date: Fri, 18 Dec 2020 14:57:24 +0000
-Subject: [PATCH 01/23] kernel: irq: irqdescs: warn on spurious IRQ
-Message-Id: <20201218145746.24205-2-info@metux.net>
+From: Andy Shevchenko <andy.shevchenko@gmail.com>
+Date: Fri, 18 Dec 2020 15:55:50 +0000
+Subject: Re: [PATCH 01/23] kernel: irq: irqdescs: warn on spurious IRQ
+Message-Id: <CAHp75VfYz_K2BYOxqmSx0q+1F2F9Lp1eb70RrNYzJHs3FX+quQ@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20201218145746.24205-1-info@metux.net>
-In-Reply-To: <20201218145746.24205-1-info@metux.net>
+References: <20201218143122.19459-1-info@metux.net> <20201218143122.19459-2-info@metux.net>
+In-Reply-To: <20201218143122.19459-2-info@metux.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: mark.rutland@arm.com, alexander.shishkin@linux.intel.com, jolsa@redhat.com, namhyung@kernel.org, catalin.marinas@arm.com, will@kernel.org, msalter@redhat.com, jacquiot.aurelien@gmail.com, gerg@linux-m68k.org, geert@linux-m68k.org, tsbogend@alpha.franken.de, James.Bottomley@HansenPartnership.com, deller@gmx.de, benh@kernel.crashing.org, paulus@samba.org, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, tglx@linutronix.de, bp@alien8.de, x86@kernel.org, hpa@zytor.com, linus.walleij@linaro.org, bgolaszewski@baylibre.com, maz@kernel.org, tony@atomide.com, arnd@arndb.de, linux-alpha@vger.kernel.org, linux-c6x-dev@linux-c6x.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-gpio@vger.kernel.org, linux-omap@vger.kernel.org, linux-arch@vger.kernel.org
+To: "Enrico Weigelt, metux IT consult" <info@metux.net>
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Mark Rutland <mark.rutland@arm.com>, Alexander Shishkin <alexander.shishkin@linux.intel.com>, Jiri Olsa <jolsa@redhat.com>, Namhyung Kim <namhyung@kernel.org>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, msalter@redhat.com, jacquiot.aurelien@gmail.com, gerg@linux-m68k.org, Geert Uytterhoeven <geert@linux-m68k.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, James Bottomley <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, "maintainer:X86 ARCHITECTURE (32-BIT AND 64-BIT)" <x86@kernel.org>, "H. Peter Anvin" <hpa@zytor.com>, Linus Walleij <linus.walleij@linaro.org>, Bartosz Golaszewski <bgolaszewski@baylibre.com>, Marc Zyngier <maz@kernel.org>, Tony Lindgren <tony@atomide.com>, Arnd Bergmann <arnd@arndb.de>, linux-alpha@vger.kernel.org, linux-c6x-dev@linux-c6x.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, "open list:LINUX FOR POWERPC PA SEMI PWRFICIENT" <linuxppc-dev@lists.ozlabs.org>, linux-s390@vger.kernel.org, Linux-SH <linux-sh@vger.kernel.org>, sparclinux@vger.kernel.org, "open list:GPIO SUBSYSTEM" <linux-gpio@vger.kernel.org>, Linux OMAP Mailing List <linux-omap@vger.kernel.org>, Linux-Arch <linux-arch@vger.kernel.org>
 
-Add a warning on spurious IRQs to __handle_domain_irq(), also telling the
-linux IRQ number (if any), the hw IRQ number and the max nr of IRQs.
+On Fri, Dec 18, 2020 at 4:37 PM Enrico Weigelt, metux IT consult
+<info@metux.net> wrote:
 
-That's far more informative than the warnings in (some of) the individual
-arch's ack_bad_irq()'s. These aren't really helpful since either the
-other callers already had printed more detailed information or (when called
-by __handle_domain_irq()) the printout just doesn't tell anything useful.
+> +               if (printk_ratelimit())
+> +                       pr_warn("spurious IRQ: irq=%d hwirq=%d nr_irqs=%d\n",
+> +                               irq, hwirq, nr_irqs);
 
-Signed-off-by: Enrico Weigelt, metux IT consult <info@metux.net>
----
- kernel/irq/irqdesc.c | 3 +++
- 1 file changed, 3 insertions(+)
+Perhaps you missed pr_warn_ratelimit() macro which is already in the
+kernel for a long time.
 
-diff --git a/kernel/irq/irqdesc.c b/kernel/irq/irqdesc.c
-index e810eb9906ea..62a381351775 100644
---- a/kernel/irq/irqdesc.c
-+++ b/kernel/irq/irqdesc.c
-@@ -681,6 +681,9 @@ int __handle_domain_irq(struct irq_domain *domain, unsigned int hwirq,
- 	 * than crashing, do something sensible.
- 	 */
- 	if (unlikely(!irq || irq >= nr_irqs)) {
-+		if (printk_ratelimit())
-+			pr_warn("spurious IRQ: irq=%d hwirq=%d nr_irqs=%d\n",
-+				irq, hwirq, nr_irqs);
- 		ack_bad_irq(irq);
- 		ret = -EINVAL;
- 	} else {
 -- 
-2.11.0
+With Best Regards,
+Andy Shevchenko
