@@ -1,124 +1,45 @@
 From: "Enrico Weigelt, metux IT consult" <info@metux.net>
-Date: Fri, 18 Dec 2020 14:57:37 +0000
-Subject: [PATCH 14/23] kernel: generic counter for interrupt errors
-Message-Id: <20201218145746.24205-15-info@metux.net>
+Date: Fri, 18 Dec 2020 14:31:08 +0000
+Subject: [PATCH 09/23] arch: s390: drop misleading warning on spurious IRQ
+Message-Id: <20201218143122.19459-10-info@metux.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20201218145746.24205-1-info@metux.net>
-In-Reply-To: <20201218145746.24205-1-info@metux.net>
+References: <20201218143122.19459-1-info@metux.net>
+In-Reply-To: <20201218143122.19459-1-info@metux.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-kernel@vger.kernel.org
 Cc: mark.rutland@arm.com, alexander.shishkin@linux.intel.com, jolsa@redhat.com, namhyung@kernel.org, catalin.marinas@arm.com, will@kernel.org, msalter@redhat.com, jacquiot.aurelien@gmail.com, gerg@linux-m68k.org, geert@linux-m68k.org, tsbogend@alpha.franken.de, James.Bottomley@HansenPartnership.com, deller@gmx.de, benh@kernel.crashing.org, paulus@samba.org, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, tglx@linutronix.de, bp@alien8.de, x86@kernel.org, hpa@zytor.com, linus.walleij@linaro.org, bgolaszewski@baylibre.com, maz@kernel.org, tony@atomide.com, arnd@arndb.de, linux-alpha@vger.kernel.org, linux-c6x-dev@linux-c6x.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-gpio@vger.kernel.org, linux-omap@vger.kernel.org, linux-arch@vger.kernel.org
 
-We currently have counters for spurious interrupt spread over all the
-individual architectures. Mostly done in the arch's ack_bad_irq(),
-sometimes also in arch specific drivers.
+The warning in ack_bad_irq() is misleading in several ways:
+* the term "vector" isn't quite correct
+* the printing format isn't consistent across the archs: some print decimal,
+  some hex, some hex w/o 0x prefix.
+* the printed linux irq isn't meaningful in all cases - we actually would
+  want it to print the hw irq.
 
-It's time to consolidate this code duplication:
-
-  * introduce a global counter and inlined accessors
-  * increase the counter in all call sites of ack_bad_irq()
-  * subsequent patches will transform the individual archs one by one
+Since all call sites already print out more detailed and correct information,
+we just don't need to duplicate this in each single arch. So just drop it.
 
 Signed-off-by: Enrico Weigelt, metux IT consult <info@metux.net>
 ---
- include/asm-generic/irq-err.h | 17 +++++++++++++++++
- kernel/irq/dummychip.c        |  2 ++
- kernel/irq/handle.c           |  4 ++++
- kernel/irq/irqdesc.c          |  2 ++
- 4 files changed, 25 insertions(+)
- create mode 100644 include/asm-generic/irq-err.h
+ arch/s390/include/asm/hardirq.h | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
 
-diff --git a/include/asm-generic/irq-err.h b/include/asm-generic/irq-err.h
-new file mode 100644
-index 000000000000..33c75eb50c10
---- /dev/null
-+++ b/include/asm-generic/irq-err.h
-@@ -0,0 +1,17 @@
-+/* SPDX-License-Identifier: GPL-2.0 */
-+#ifndef __ASM_GENERIC_IRQ_ERR_H
-+#define __ASM_GENERIC_IRQ_ERR_H
-+
-+extern atomic_t irq_err_counter;
-+
-+static inline void irq_err_inc(void)
-+{
-+	atomic_inc(&irq_err_counter);
-+}
-+
-+static inline int irq_err_get(void)
-+{
-+	return atomic_read(&irq_err_counter);
-+}
-+
-+#endif /* __ASM_GENERIC_IRQ_ERR_H */
-diff --git a/kernel/irq/dummychip.c b/kernel/irq/dummychip.c
-index 0b0cdf206dc4..93585dab9bd0 100644
---- a/kernel/irq/dummychip.c
-+++ b/kernel/irq/dummychip.c
-@@ -8,6 +8,7 @@
- #include <linux/interrupt.h>
- #include <linux/irq.h>
- #include <linux/export.h>
-+#include <asm-generic/irq-err.h>
+diff --git a/arch/s390/include/asm/hardirq.h b/arch/s390/include/asm/hardirq.h
+index dfbc3c6c0674..56d95fcb310a 100644
+--- a/arch/s390/include/asm/hardirq.h
++++ b/arch/s390/include/asm/hardirq.h
+@@ -21,9 +21,6 @@
+ #define __ARCH_HAS_DO_SOFTIRQ
+ #define __ARCH_IRQ_EXIT_IRQS_DISABLED
  
- #include "internals.h"
+-static inline void ack_bad_irq(unsigned int irq)
+-{
+-	printk(KERN_CRIT "unexpected IRQ trap at vector %02x\n", irq);
+-}
++#define ack_bad_irq(irq)
  
-@@ -20,6 +21,7 @@ static void ack_bad(struct irq_data *data)
- 	struct irq_desc *desc = irq_data_to_desc(data);
- 
- 	print_irq_desc(data->irq, desc);
-+	irq_err_inc();
- 	ack_bad_irq(data->irq);
- }
- 
-diff --git a/kernel/irq/handle.c b/kernel/irq/handle.c
-index 762a928e18f9..ad90f5a56c3a 100644
---- a/kernel/irq/handle.c
-+++ b/kernel/irq/handle.c
-@@ -13,11 +13,14 @@
- #include <linux/sched.h>
- #include <linux/interrupt.h>
- #include <linux/kernel_stat.h>
-+#include <asm-generic/irq-err.h>
- 
- #include <trace/events/irq.h>
- 
- #include "internals.h"
- 
-+atomic_t irq_err_counter;
-+
- #ifdef CONFIG_GENERIC_IRQ_MULTI_HANDLER
- void (*handle_arch_irq)(struct pt_regs *) __ro_after_init;
- #endif
-@@ -34,6 +37,7 @@ void handle_bad_irq(struct irq_desc *desc)
- 
- 	print_irq_desc(irq, desc);
- 	kstat_incr_irqs_this_cpu(desc);
-+	irq_err_inc();
- 	ack_bad_irq(irq);
- }
- EXPORT_SYMBOL_GPL(handle_bad_irq);
-diff --git a/kernel/irq/irqdesc.c b/kernel/irq/irqdesc.c
-index 62a381351775..6192672be4d2 100644
---- a/kernel/irq/irqdesc.c
-+++ b/kernel/irq/irqdesc.c
-@@ -16,6 +16,7 @@
- #include <linux/bitmap.h>
- #include <linux/irqdomain.h>
- #include <linux/sysfs.h>
-+#include <asm-generic/irq-err.h>
- 
- #include "internals.h"
- 
-@@ -684,6 +685,7 @@ int __handle_domain_irq(struct irq_domain *domain, unsigned int hwirq,
- 		if (printk_ratelimit())
- 			pr_warn("spurious IRQ: irq=%d hwirq=%d nr_irqs=%d\n",
- 				irq, hwirq, nr_irqs);
-+		irq_err_inc();
- 		ack_bad_irq(irq);
- 		ret = -EINVAL;
- 	} else {
+ #endif /* __ASM_HARDIRQ_H */
 -- 
 2.11.0
