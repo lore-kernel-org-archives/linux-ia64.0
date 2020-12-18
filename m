@@ -1,77 +1,44 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Date: Fri, 18 Dec 2020 17:19:03 +0000
-Subject: Re: [PATCH] ia64: fix build failure caused by memory model changes
-Message-Id: <20201218171903.GA6466@roeck-us.net>
+From: "Enrico Weigelt, metux IT consult" <info@metux.net>
+Date: Fri, 18 Dec 2020 14:31:11 +0000
+Subject: [PATCH 12/23] arch: x86: drop misleading warning on spurious IRQ
+Message-Id: <20201218143122.19459-13-info@metux.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20201218163550.8838-1-rppt@kernel.org>
-In-Reply-To: <20201218163550.8838-1-rppt@kernel.org>
+References: <20201218143122.19459-1-info@metux.net>
+In-Reply-To: <20201218143122.19459-1-info@metux.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Mike Rapoport <rppt@kernel.org>
-Cc: Andrew Morton <akpm@linux-foundation.org>, Mike Rapoport <rppt@linux.ibm.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: mark.rutland@arm.com, alexander.shishkin@linux.intel.com, jolsa@redhat.com, namhyung@kernel.org, catalin.marinas@arm.com, will@kernel.org, msalter@redhat.com, jacquiot.aurelien@gmail.com, gerg@linux-m68k.org, geert@linux-m68k.org, tsbogend@alpha.franken.de, James.Bottomley@HansenPartnership.com, deller@gmx.de, benh@kernel.crashing.org, paulus@samba.org, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, tglx@linutronix.de, bp@alien8.de, x86@kernel.org, hpa@zytor.com, linus.walleij@linaro.org, bgolaszewski@baylibre.com, maz@kernel.org, tony@atomide.com, arnd@arndb.de, linux-alpha@vger.kernel.org, linux-c6x-dev@linux-c6x.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-gpio@vger.kernel.org, linux-omap@vger.kernel.org, linux-arch@vger.kernel.org
 
-On Fri, Dec 18, 2020 at 06:35:50PM +0200, Mike Rapoport wrote:
-> From: Mike Rapoport <rppt@linux.ibm.com>
-> 
-> The change of ia64's default memory model to SPARSEMEM causes defconfig
-> build to fail:
-> 
->   CC      kernel/async.o
-> In file included from include/linux/numa.h:25,
->                  from include/linux/async.h:13,
->                  from kernel/async.c:47:
-> arch/ia64/include/asm/sparsemem.h:14:40: warning: "PAGE_SHIFT" is not defined, evaluates to 0 [-Wundef]
->    14 | #if ((CONFIG_FORCE_MAX_ZONEORDER - 1 + PAGE_SHIFT) > SECTION_SIZE_BITS)
->       |                                        ^~~~~~~~~~
-> In file included from include/linux/gfp.h:6,
->                  from include/linux/xarray.h:14,
->                  from include/linux/radix-tree.h:19,
->                  from include/linux/idr.h:15,
->                  from include/linux/kernfs.h:13,
->                  from include/linux/sysfs.h:16,
->                  from include/linux/kobject.h:20,
->                  from include/linux/energy_model.h:7,
->                  from include/linux/device.h:16,
->                  from include/linux/async.h:14,
->                  from kernel/async.c:47:
-> include/linux/mmzone.h:1156:2: error: #error Allocator MAX_ORDER exceeds SECTION_SIZE
->  1156 | #error Allocator MAX_ORDER exceeds SECTION_SIZE
->       |  ^~~~~
-> 
-> The error cause is the missing definition of PAGE_SHIFT in the calculation
-> of SECTION_SIZE_BITS.
-> 
-> Add include of <asm/page.h> to arch/ia64/include/asm/sparsemem.h to solve
-> the problem.
-> 
-> Fixes: 214496cb1870 ("ia64: make SPARSEMEM default and disable DISCONTIGMEM")
-> Reported-by: Guenter Roeck <linux@roeck-us.net>
-> Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
+The warning in ack_bad_irq() is misleading in several ways:
+* the term "vector" isn't quite correct
+* the printing format isn't consistent across the archs: some print decimal,
+  some hex, some hex w/o 0x prefix.
+* the printed linux irq isn't meaningful in all cases - we actually would
+  want it to print the hw irq.
 
-Tested-by: Guenter Roeck <linux@roeck-us.net>
+Since all call sites already print out more detailed and correct information,
+we just don't need to duplicate this in each single arch. So just drop it.
 
-> ---
-> 
-> Surprisingly, only Guenter's bot caught this.
-> 
-> @Andrew, if you prefer I can take this via memblock tree.
-> 
->  arch/ia64/include/asm/sparsemem.h | 1 +
->  1 file changed, 1 insertion(+)
-> 
-> diff --git a/arch/ia64/include/asm/sparsemem.h b/arch/ia64/include/asm/sparsemem.h
-> index dd8c166ffd7b..42ed5248fae9 100644
-> --- a/arch/ia64/include/asm/sparsemem.h
-> +++ b/arch/ia64/include/asm/sparsemem.h
-> @@ -3,6 +3,7 @@
->  #define _ASM_IA64_SPARSEMEM_H
->  
->  #ifdef CONFIG_SPARSEMEM
-> +#include <asm/page.h>
->  /*
->   * SECTION_SIZE_BITS            2^N: how big each section will be
->   * MAX_PHYSMEM_BITS             2^N: how much memory we can have in that space
-> -- 
-> 2.28.0
-> 
+Signed-off-by: Enrico Weigelt, metux IT consult <info@metux.net>
+---
+ arch/x86/kernel/irq.c | 3 ---
+ 1 file changed, 3 deletions(-)
+
+diff --git a/arch/x86/kernel/irq.c b/arch/x86/kernel/irq.c
+index c5dd50369e2f..5c66c44b6b60 100644
+--- a/arch/x86/kernel/irq.c
++++ b/arch/x86/kernel/irq.c
+@@ -36,9 +36,6 @@ atomic_t irq_err_count;
+  */
+ void ack_bad_irq(unsigned int irq)
+ {
+-	if (printk_ratelimit())
+-		pr_err("unexpected IRQ trap at vector %02x\n", irq);
+-
+ 	/*
+ 	 * Currently unexpected vectors happen only on SMP and APIC.
+ 	 * We _must_ ack these because every local APIC has only N
+-- 
+2.11.0
