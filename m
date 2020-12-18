@@ -1,10 +1,10 @@
 From: "Enrico Weigelt, metux IT consult" <info@metux.net>
-Date: Fri, 18 Dec 2020 14:57:41 +0000
-Subject: [PATCH 18/23] arch: arm64: use generic irq error counter
-Message-Id: <20201218145746.24205-19-info@metux.net>
+Date: Fri, 18 Dec 2020 14:31:14 +0000
+Subject: [PATCH 15/23] arch: mips: use generic irq error counter
+Message-Id: <20201218143122.19459-16-info@metux.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20201218145746.24205-1-info@metux.net>
-In-Reply-To: <20201218145746.24205-1-info@metux.net>
+References: <20201218143122.19459-1-info@metux.net>
+In-Reply-To: <20201218143122.19459-1-info@metux.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -16,65 +16,176 @@ by all callers of ack_bad_irq(), in order to remove duplicate code.
 
 Signed-off-by: Enrico Weigelt, metux IT consult <info@metux.net>
 ---
- arch/arm64/include/asm/hardirq.h | 9 ++-------
- arch/arm64/kernel/smp.c          | 6 ++----
- 2 files changed, 4 insertions(+), 11 deletions(-)
+ arch/mips/include/asm/hw_irq.h | 4 ----
+ arch/mips/kernel/irq-gt641xx.c | 3 ++-
+ arch/mips/kernel/irq.c         | 7 +++----
+ arch/mips/sni/rm200.c          | 3 ++-
+ arch/mips/vr41xx/common/icu.c  | 3 ++-
+ arch/mips/vr41xx/common/irq.c  | 5 +++--
+ drivers/gpio/gpio-vr41xx.c     | 4 ++--
+ 7 files changed, 14 insertions(+), 15 deletions(-)
 
-diff --git a/arch/arm64/include/asm/hardirq.h b/arch/arm64/include/asm/hardirq.h
-index cbfa7b6f2e09..760922571084 100644
---- a/arch/arm64/include/asm/hardirq.h
-+++ b/arch/arm64/include/asm/hardirq.h
-@@ -13,7 +13,8 @@
- #include <asm/kvm_arm.h>
- #include <asm/sysreg.h>
+diff --git a/arch/mips/include/asm/hw_irq.h b/arch/mips/include/asm/hw_irq.h
+index 9e8ef5994c9c..b75fe2c4377f 100644
+--- a/arch/mips/include/asm/hw_irq.h
++++ b/arch/mips/include/asm/hw_irq.h
+@@ -8,10 +8,6 @@
+ #ifndef __ASM_HW_IRQ_H
+ #define __ASM_HW_IRQ_H
  
--#define ack_bad_irq ack_bad_irq
-+#define ack_bad_irq(irq)
-+
- #include <asm-generic/hardirq.h>
- 
- #define __ARCH_IRQ_EXIT_IRQS_DISABLED	1
-@@ -85,10 +86,4 @@ do {									\
- 		write_sysreg(___hcr, hcr_el2);				\
- } while (0)
- 
--static inline void ack_bad_irq(unsigned int irq)
--{
--	extern unsigned long irq_err_count;
--	irq_err_count++;
--}
+-#include <linux/atomic.h>
 -
- #endif /* __ASM_HARDIRQ_H */
-diff --git a/arch/arm64/kernel/smp.c b/arch/arm64/kernel/smp.c
-index 2499b895efea..0edc565ea735 100644
---- a/arch/arm64/kernel/smp.c
-+++ b/arch/arm64/kernel/smp.c
-@@ -33,7 +33,7 @@
- #include <linux/kernel_stat.h>
- #include <linux/kexec.h>
- #include <linux/kvm_host.h>
+-extern atomic_t irq_err_count;
 -
+ /*
+  * interrupt-retrigger: NOP for now. This may not be appropriate for all
+  * machines, we'll see ...
+diff --git a/arch/mips/kernel/irq-gt641xx.c b/arch/mips/kernel/irq-gt641xx.c
+index 93bcf5736a6f..e2c877287bee 100644
+--- a/arch/mips/kernel/irq-gt641xx.c
++++ b/arch/mips/kernel/irq-gt641xx.c
+@@ -11,6 +11,7 @@
+ #include <linux/types.h>
+ 
+ #include <asm/gt64120.h>
 +#include <asm-generic/irq-err.h>
- #include <asm/alternative.h>
- #include <asm/atomic.h>
- #include <asm/cacheflush.h>
-@@ -798,8 +798,6 @@ static const char *ipi_types[NR_IPI] __tracepoint_string = {
  
- static void smp_cross_call(const struct cpumask *target, unsigned int ipinr);
+ #define GT641XX_IRQ_TO_BIT(irq) (1U << (irq - GT641XX_IRQ_BASE))
  
--unsigned long irq_err_count;
+@@ -97,7 +98,7 @@ void gt641xx_irq_dispatch(void)
+ 		}
+ 	}
+ 
+-	atomic_inc(&irq_err_count);
++	irq_err_inc();
+ }
+ 
+ void __init gt641xx_irq_init(void)
+diff --git a/arch/mips/kernel/irq.c b/arch/mips/kernel/irq.c
+index c98be305fab6..3ea3e4280648 100644
+--- a/arch/mips/kernel/irq.c
++++ b/arch/mips/kernel/irq.c
+@@ -8,6 +8,7 @@
+  * Copyright (C) 1992 Linus Torvalds
+  * Copyright (C) 1994 - 2000 Ralf Baechle
+  */
++#include <asm-generic/irq-err.h>
+ #include <linux/kernel.h>
+ #include <linux/delay.h>
+ #include <linux/init.h>
+@@ -27,17 +28,15 @@
+ 
+ void *irq_stack[NR_CPUS];
+ 
+-atomic_t irq_err_count;
 -
  int arch_show_interrupts(struct seq_file *p, int prec)
  {
- 	unsigned int cpu, i;
-@@ -813,7 +811,7 @@ int arch_show_interrupts(struct seq_file *p, int prec)
- 		seq_printf(p, "      %s\n", ipi_types[i]);
- 	}
- 
--	seq_printf(p, "%*s: %10lu\n", prec, "Err", irq_err_count);
-+	seq_printf(p, "%*s: %10lu\n", prec, "Err", irq_err_get());
+-	seq_printf(p, "%*s: %10u\n", prec, "ERR", atomic_read(&irq_err_count));
++	seq_printf(p, "%*s: %10u\n", prec, "ERR", irq_err_get());
  	return 0;
  }
  
+ asmlinkage void spurious_interrupt(void)
+ {
+-	atomic_inc(&irq_err_count);
++	irq_err_inc();
+ }
+ 
+ void __init init_IRQ(void)
+diff --git a/arch/mips/sni/rm200.c b/arch/mips/sni/rm200.c
+index d84744ca871d..c61d60a4dcc5 100644
+--- a/arch/mips/sni/rm200.c
++++ b/arch/mips/sni/rm200.c
+@@ -21,6 +21,7 @@
+ #include <asm/sni.h>
+ #include <asm/time.h>
+ #include <asm/irq_cpu.h>
++#include <asm-generic/irq-err.h>
+ 
+ #define RM200_I8259A_IRQ_BASE 32
+ 
+@@ -270,7 +271,7 @@ void sni_rm200_mask_and_ack_8259A(struct irq_data *d)
+ 			       "spurious RM200 8259A interrupt: IRQ%d.\n", irq);
+ 			spurious_irq_mask |= irqmask;
+ 		}
+-		atomic_inc(&irq_err_count);
++		irq_err_inc();
+ 		/*
+ 		 * Theoretically we do not have to handle this IRQ,
+ 		 * but in Linux this does not cause problems and is
+diff --git a/arch/mips/vr41xx/common/icu.c b/arch/mips/vr41xx/common/icu.c
+index 7b7f25b4b057..462f559ad978 100644
+--- a/arch/mips/vr41xx/common/icu.c
++++ b/arch/mips/vr41xx/common/icu.c
+@@ -27,6 +27,7 @@
+ #include <asm/io.h>
+ #include <asm/vr41xx/irq.h>
+ #include <asm/vr41xx/vr41xx.h>
++#include <asm-generic/irq-err.h>
+ 
+ static void __iomem *icu1_base;
+ static void __iomem *icu2_base;
+@@ -640,7 +641,7 @@ static int icu_get_irq(unsigned int irq)
+ 
+ 	printk(KERN_ERR "spurious ICU interrupt: %04x,%04x\n", pend1, pend2);
+ 
+-	atomic_inc(&irq_err_count);
++	irq_err_inc();
+ 
+ 	return -1;
+ }
+diff --git a/arch/mips/vr41xx/common/irq.c b/arch/mips/vr41xx/common/irq.c
+index 8f68446ff2d9..b2580de08e25 100644
+--- a/arch/mips/vr41xx/common/irq.c
++++ b/arch/mips/vr41xx/common/irq.c
+@@ -10,6 +10,7 @@
+ 
+ #include <asm/irq_cpu.h>
+ #include <asm/vr41xx/irq.h>
++#include <asm-generic/irq-err.h>
+ 
+ typedef struct irq_cascade {
+ 	int (*get_irq)(unsigned int);
+@@ -46,7 +47,7 @@ static void irq_dispatch(unsigned int irq)
+ 	irq_cascade_t *cascade;
+ 
+ 	if (irq >= NR_IRQS) {
+-		atomic_inc(&irq_err_count);
++		irq_err_inc();
+ 		return;
+ 	}
+ 
+@@ -66,7 +67,7 @@ static void irq_dispatch(unsigned int irq)
+ 		ret = cascade->get_irq(irq);
+ 		irq = ret;
+ 		if (ret < 0)
+-			atomic_inc(&irq_err_count);
++			irq_err_inc();
+ 		else
+ 			irq_dispatch(irq);
+ 		if (!irqd_irq_disabled(idata) && chip->irq_unmask)
+diff --git a/drivers/gpio/gpio-vr41xx.c b/drivers/gpio/gpio-vr41xx.c
+index 98cd715ccc33..c1dbd933d291 100644
+--- a/drivers/gpio/gpio-vr41xx.c
++++ b/drivers/gpio/gpio-vr41xx.c
+@@ -18,7 +18,7 @@
+ #include <linux/platform_device.h>
+ #include <linux/spinlock.h>
+ #include <linux/types.h>
+-
++#include <asm-generic/irq-err.h>
+ #include <asm/vr41xx/giu.h>
+ #include <asm/vr41xx/irq.h>
+ #include <asm/vr41xx/vr41xx.h>
+@@ -217,7 +217,7 @@ static int giu_get_irq(unsigned int irq)
+ 	printk(KERN_ERR "spurious GIU interrupt: %04x(%04x),%04x(%04x)\n",
+ 	       maskl, pendl, maskh, pendh);
+ 
+-	atomic_inc(&irq_err_count);
++	irq_err_inc();
+ 
+ 	return -EINVAL;
+ }
 -- 
 2.11.0
