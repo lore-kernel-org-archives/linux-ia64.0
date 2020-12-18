@@ -1,124 +1,52 @@
-From: Arnd Bergmann <arnd@kernel.org>
-Date: Sat, 19 Dec 2020 09:24:42 +0000
-Subject: [PATCH] ia64: fix timer cleanup regression
-Message-Id: <20201219092516.1364230-1-arnd@kernel.org>
+From: "Enrico Weigelt, metux IT consult" <info@metux.net>
+Date: Fri, 18 Dec 2020 14:57:23 +0000
+Subject: (repost) cleaning up handling of bad IRQs
+Message-Id: <20201218145746.24205-1-info@metux.net>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
-Cc: Arnd Bergmann <arnd@arndb.de>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, John Stultz <john.stultz@linaro.org>, Thomas Gleixner <tglx@linutronix.de>, Stephen Boyd <sboyd@kernel.org>, Frederic Weisbecker <fweisbec@gmail.com>, Linus Walleij <linus.walleij@linaro.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-kernel@vger.kernel.org
+Cc: mark.rutland@arm.com, alexander.shishkin@linux.intel.com, jolsa@redhat.com, namhyung@kernel.org, catalin.marinas@arm.com, will@kernel.org, msalter@redhat.com, jacquiot.aurelien@gmail.com, gerg@linux-m68k.org, geert@linux-m68k.org, tsbogend@alpha.franken.de, James.Bottomley@HansenPartnership.com, deller@gmx.de, benh@kernel.crashing.org, paulus@samba.org, ysato@users.sourceforge.jp, dalias@libc.org, davem@davemloft.net, tglx@linutronix.de, bp@alien8.de, x86@kernel.org, hpa@zytor.com, linus.walleij@linaro.org, bgolaszewski@baylibre.com, maz@kernel.org, tony@atomide.com, arnd@arndb.de, linux-alpha@vger.kernel.org, linux-c6x-dev@linux-c6x.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-gpio@vger.kernel.org, linux-omap@vger.kernel.org, linux-arch@vger.kernel.org
 
-From: Arnd Bergmann <arnd@arndb.de>
+Hello friends,
 
-A cleanup patch from my legacy timer series broke ia64 and led
-to RCU stall errors and a fast system clock:
+ << reposting, since first queue didn't go through completely, due to mailer problem >>
 
-[  909.360108] INFO: task systemd-sysv-ge:200 blocked for more than 127 sec=
-onds.
-[  909.360108]       Not tainted 5.10.0+ #130
-[  909.360108] "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables =
-this message.
-[  909.360108] task:systemd-sysv-ge state:D stack:    0 pid:  200 ppid:   1=
-89 flags:0x00000000
-[  909.364108]
-[  909.364108] Call Trace:
-[  909.364423]  [<a00000010109b210>] __schedule+0x890/0x21e0
-[  909.364423]                                 sp=E0000100487d7b70 bsp=E000=
-0100487d1748
-[  909.368423]  [<a00000010109cc00>] schedule+0xa0/0x240
-[  909.368423]                                 sp=E0000100487d7b90 bsp=E000=
-0100487d16e0
-[  909.368558]  [<a00000010109ce70>] io_schedule+0x70/0xa0
-[  909.368558]                                 sp=E0000100487d7b90 bsp=E000=
-0100487d16c0
-[  909.372290]  [<a00000010109e1c0>] bit_wait_io+0x20/0xe0
-[  909.372290]                                 sp=E0000100487d7b90 bsp=E000=
-0100487d1698
-[  909.374168] rcu: INFO: rcu_sched detected stalls on CPUs/tasks:
-[  909.376290]  [<a00000010109d860>] __wait_on_bit+0xc0/0x1c0
-[  909.376290]                                 sp=E0000100487d7b90 bsp=E000=
-0100487d1648
-[  909.374168] rcu:     3-....: (2 ticks this GP) idle=19e/1/0x400000000000=
-0002 softirq=1581/1581 fqs=3D2
-[  909.374168]  (detected by 0, tV61 jiffies, g=1089, q=3D3)
-[  909.376290]  [<a00000010109da80>] out_of_line_wait_on_bit+0x120/0x140
-[  909.376290]                                 sp=E0000100487d7b90 bsp=E000=
-0100487d1610
-[  909.374168] Task dump for CPU 3:
-[  909.374168] task:khungtaskd      state:R  running task
+here's a patch queue for cleaning up the IRQ handling. Inspired by a
+discussion we had on a previous patch of mine:
 
-Revert most of my patch to make this work again, including the extra
-update_process_times()/profile_tick() and the local_irq_enable() in the
-loop that I expected not to be needed here.
+    "arch: fix 'unexpected IRQ trap at vector' warnings"
+    https://www.spinics.net/lists/kernel/msg3763137.html
 
-I have not found out exactly what goes wrong, and would suggest that
-someone with hardware access tries to convert this code into a singleshot
-clockevent driver, which should give better behavior in all cases.
+Turned out that the whole message, as it is right now, doesn't make much
+sense at at all - not just incorrect wording, but also not quite useful
+information. And the whole ack_bad_irq() thing deserves a cleanup anyways.
 
-Reported-by: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
-Fixes: 2b49ddcef297 ("ia64: convert to legacy_timer_tick")
-Cc: John Stultz <john.stultz@linaro.org>
-Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: Stephen Boyd <sboyd@kernel.org>
-Cc: Frederic Weisbecker <fweisbec@gmail.com>
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- arch/ia64/kernel/time.c | 31 ++++++++++++++++++-------------
- 1 file changed, 18 insertions(+), 13 deletions(-)
+So, I've had a closer look and came to these conclusions:
 
-diff --git a/arch/ia64/kernel/time.c b/arch/ia64/kernel/time.c
-index 9431edb08508..e3d9c8088d56 100644
---- a/arch/ia64/kernel/time.c
-+++ b/arch/ia64/kernel/time.c
-@@ -161,29 +161,34 @@ void vtime_account_idle(struct task_struct *tsk)
- static irqreturn_t
- timer_interrupt (int irq, void *dev_id)
- {
--	unsigned long cur_itm, new_itm, ticks;
-+	unsigned long new_itm;
-=20
- 	if (cpu_is_offline(smp_processor_id())) {
- 		return IRQ_HANDLED;
- 	}
-=20
- 	new_itm =3D local_cpu_data->itm_next;
--	cur_itm =3D ia64_get_itc();
-=20
--	if (!time_after(cur_itm, new_itm)) {
-+	if (!time_after(ia64_get_itc(), new_itm))
- 		printk(KERN_ERR "Oops: timer tick before it's due (itc=3D%lx,itm=3D%lx)\=
-n",
--		       cur_itm, new_itm);
--		ticks =3D 1;
--	} else {
--		ticks =3D DIV_ROUND_UP(cur_itm - new_itm,
--				     local_cpu_data->itm_delta);
--		new_itm +=3D ticks * local_cpu_data->itm_delta;
--	}
-+		       ia64_get_itc(), new_itm);
-+
-+	while (1) {
-+		new_itm +=3D local_cpu_data->itm_delta;
-+
-+		legacy_timer_tick(smp_processor_id() =3D time_keeper_id);
-=20
--	if (smp_processor_id() !=3D time_keeper_id)
--		ticks =3D 0;
-+		local_cpu_data->itm_next =3D new_itm;
-=20
--	legacy_timer_tick(ticks);
-+		if (time_after(new_itm, ia64_get_itc()))
-+			break;
-+
-+		/*
-+		 * Allow IPIs to interrupt the timer loop.
-+		 */
-+		local_irq_enable();
-+		local_irq_disable();
-+	}
-=20
- 	do {
- 		/*
---=20
-2.29.2
+1. The warning message doesn't need to be duplicated in the per architecture
+   ack_bad_irq() functions. All, but one callers already do their own warning.
+   Thus just adding a pr_warn() call there, printing out more useful data
+   like the hardware IRQ number, and dropping all warnings from all the
+   ack_bad_irq() functions.
+
+2. Many of the ack_bad_irq()'s count up the spurious interrupts - lots of
+   duplications over the various archs. Some of them using atomic_t, some
+   just plain ints. Consolidating this by introducing a global counter
+   with inline'd accessors and doing the upcounting in the (currently 3)
+   call sites of ack_bad_irq(). After that, step by step changing all
+   archs to use the new counter.
+
+3. For all but one arch (x86), ack_bad_irq() became a no-op.
+
+   On x86, it's just a call to ack_APIC_irq(), in order to prevent lockups
+   when IRQs missed to be ack'ed on the APIC. Could we perhaps do this in
+   some better place ? In that case, ack_bad_irq() could easily be removed
+   entirely.
+
+have fun,
+
+--mtx
+
+
