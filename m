@@ -1,39 +1,58 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Date: Thu, 28 Jan 2021 08:17:09 +0000
-Subject: Re: [PATCH 12/27] m68k: syscalls: switch to generic syscalltbl.sh
-Message-Id: <CAMuHMdV_AHcnGoVToHLXa95JEd4wcL3eTqYfk6=7Ou0W8VJR5w@mail.gmail.com>
+From: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
+Date: Fri, 01 Jan 2021 14:06:20 +0000
+Subject: Re: [PATCH] sh: add support for TIF_NOTIFY_SIGNAL
+Message-Id: <31b34cfc-8d6e-d3b4-e29f-1ec485f5b368@physik.fu-berlin.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210128005110.2613902-1-masahiroy@kernel.org> <20210128005110.2613902-13-masahiroy@kernel.org>
-In-Reply-To: <20210128005110.2613902-13-masahiroy@kernel.org>
+References: <5fcc82b4-89ae-3bca-10ab-6ad933565cee@kernel.dk>
+ <ae29ab73-ee7a-2bb7-3fd8-3037f40c1cbd@kernel.dk>
+ <5611bde9-67e7-6ff6-defc-9b02ea830fac@physik.fu-berlin.de>
+ <9ea14eb3-d698-5499-ba4c-c6a3c35cd8d4@kernel.dk>
+ <47f79645-53b7-b11c-167a-f5721b53df02@physik.fu-berlin.de>
+ <9d9acec6-1e8c-2d68-5dfa-d58c11cf5cc4@kernel.dk>
+ <070780c4-445e-6373-c8f4-1c72d0f3b4e0@physik.fu-berlin.de>
+ <1047f3e5-4599-c34f-3176-9f41d2e1246b@kernel.dk>
+In-Reply-To: <1047f3e5-4599-c34f-3176-9f41d2e1246b@kernel.dk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Masahiro Yamada <masahiroy@kernel.org>
-Cc: Linux-Arch <linux-arch@vger.kernel.org>, the arch/x86 maintainers <x86@kernel.org>, "open list:TENSILICA XTENSA PORT (xtensa)" <linux-xtensa@linux-xtensa.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Parisc List <linux-parisc@vger.kernel.org>, linux-kbuild <linux-kbuild@vger.kernel.org>, Linux-sh list <linux-sh@vger.kernel.org>, linux-um <linux-um@lists.infradead.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, "open list:BROADCOM NVRAM DRIVER" <linux-mips@vger.kernel.org>, linux-m68k <linux-m68k@lists.linux-m68k.org>, alpha <linux-alpha@vger.kernel.org>, sparclinux <sparclinux@vger.kernel.org>, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, Linux ARM <linux-arm-kernel@lists.infradead.org>
+To: Jens Axboe <axboe@kernel.dk>
+Cc: linux-sh@vger.kernel.org, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
 
-Hi Yamada-san,
+Hi Jens!
 
-On Thu, Jan 28, 2021 at 1:54 AM Masahiro Yamada <masahiroy@kernel.org> wrote:
-> As of v5.11-rc1, 12 architectures duplicate similar shell scripts in
-> order to generate syscall table headers. My goal is to unify them into
-> the single scripts/syscalltbl.sh.
->
-> This commit converts m68k to use scripts/syscalltbl.sh.
->
-> Signed-off-by: Masahiro Yamada <masahiroy@kernel.org>
+On 11/17/20 4:06 PM, Jens Axboe wrote:
+> On 11/16/20 10:26 PM, John Paul Adrian Glaubitz wrote:
+>> Hi Jens!
+>>
+>> On 11/9/20 3:14 PM, Jens Axboe wrote:
+>>>> Sorry for the delay. I'm busy at the moment and my SH board is currently
+>>>> building the Perl 5.32 package for Debian. Will try to test your patches
+>>>> by tomorrow, also ia64.
+>>>
+>>> Thanks, both would be appreciated! Just CC'ed you on the updated patch
+>>> for sh.
+>>
+>> Is this still relevant for testing? I'm ready to test now, much later than
+>> I thought, sorry.
+>>
+>> I'm going to build Linus' latest kernel for my SH and IA64 machines now
+>> and then I can test additional patches on top of it.
+> 
+> Thanks, would definitely still appreciate testing. You can just run
+> linux-next if you want, it's got everything in there. Or apply the
+> separate patches to -git, either approach is fine.
 
-Thanks a lot!
+Apologies for the late reply.
 
-Tested-by: Geert Uytterhoeven <geert@linux-m68k.org>
-Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
+I just pulled Linus' latest tree today with your patch for SH included and
+I'm not seeing any regressions.
 
-Gr{oetje,eeting}s,
+Is there away to test the change itself?
 
-                        Geert
+Adrian
 
 -- 
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+ .''`.  John Paul Adrian Glaubitz
+: :' :  Debian Developer - glaubitz@debian.org
+`. `'   Freie Universitaet Berlin - glaubitz@physik.fu-berlin.de
+  `-    GPG: 62FF 8A75 84E0 2956 9546  0006 7426 3B37 F5B5 F913
