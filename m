@@ -1,19 +1,20 @@
 From: Mike Rapoport <rppt@kernel.org>
-Date: Thu, 14 Jan 2021 12:57:34 +0000
+Date: Thu, 14 Jan 2021 12:58:50 +0000
 Subject: Re: [PATCH] ia64: fix build failure caused by memory model changes
-Message-Id: <20210114125734.GI1106298@kernel.org>
+Message-Id: <20210114125850.GJ1106298@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20201218163550.8838-1-rppt@kernel.org>
 In-Reply-To: <20201218163550.8838-1-rppt@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Tony Luck <tony.luck@intel.com>
-Cc: Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Mike Rapoport <rppt@linux.ibm.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Guenter Roeck <linux@roeck-us.net>, Mike Rapoport <rppt@linux.ibm.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Andrew,
+If there are no objections, I'll take it via the memblock tree.
 
-Would you like me to
+@Tony an ack would be appreciated.
+
 On Fri, Dec 18, 2020 at 06:35:50PM +0200, Mike Rapoport wrote:
 > From: Mike Rapoport <rppt@linux.ibm.com>
 > 
