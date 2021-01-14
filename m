@@ -1,298 +1,262 @@
-From: Sasha Levin <sashal@kernel.org>
-Date: Tue, 05 Jan 2021 00:59:11 +0000
-Subject: [PATCH AUTOSEL 5.10 13/17] local64.h: make <asm/local64.h> mandatory
-Message-Id: <20210105005915.3954208-13-sashal@kernel.org>
+From: Viresh Kumar <viresh.kumar@linaro.org>
+Date: Thu, 14 Jan 2021 11:47:18 +0000
+Subject: [PATCH 05/18] arch: ia64: Remove CONFIG_OPROFILE support
+Message-Id: <f23ce8ae475324c6666cd8a717a49b550e6653a6.1610622251.git.viresh.kumar@linaro.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210105005915.3954208-1-sashal@kernel.org>
-In-Reply-To: <20210105005915.3954208-1-sashal@kernel.org>
+References: <cover.1610622251.git.viresh.kumar@linaro.org>
+In-Reply-To: <cover.1610622251.git.viresh.kumar@linaro.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
-Cc: Randy Dunlap <rdunlap@infradead.org>, Christoph Hellwig <hch@infradead.org>, Masahiro Yamada <masahiroy@kernel.org>, Jens Axboe <axboe@kernel.dk>, Ley Foon Tan <ley.foon.tan@intel.com>, Mark Salter <msalter@redhat.com>, Aurelien Jacquiot <jacquiot.aurelien@gmail.com>, Peter Zijlstra <peterz@infradead.org>, Arnd Bergmann <arnd@arndb.de>, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, Sasha Levin <sashal@kernel.org>, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, uclinux-h8-devel@lists.sourceforge.jp, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org
+To: Linus Torvalds <torvalds@linux-foundation.org>, Robert Richter <rric@kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
+Cc: Viresh Kumar <viresh.kumar@linaro.org>, Vincent Guittot <vincent.guittot@linaro.org>, Arnd Bergmann <arnd@kernel.org>, oprofile-list@lists.sf.net, William Cohen <wcohen@redhat.com>, Alexander Viro <viro@zeniv.linux.org.uk>, anmar.oueja@linaro.org, Christoph Hellwig <hch@infradead.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-From: Randy Dunlap <rdunlap@infradead.org>
+The "oprofile" user-space tools don't use the kernel OPROFILE support
+any more, and haven't in a long time. User-space has been converted to
+the perf interfaces.
 
-[ Upstream commit 87dbc209ea04645fd2351981f09eff5d23f8e2e9 ]
+Also note that ia64 supports oprofile but not perf and profiling
+shouldn't be working anyway currently.
 
-Make <asm-generic/local64.h> mandatory in include/asm-generic/Kbuild and
-remove all arch/*/include/asm/local64.h arch-specific files since they
-only #include <asm-generic/local64.h>.
+Remove the old oprofile's architecture specific support.
 
-This fixes build errors on arch/c6x/ and arch/nios2/ for
-block/blk-iocost.c.
-
-Build-tested on 21 of 25 arch-es.  (tools problems on the others)
-
-Yes, we could even rename <asm-generic/local64.h> to
-<linux/local64.h> and change all #includes to use
-<linux/local64.h> instead.
-
-Link: https://lkml.kernel.org/r/20201227024446.17018-1-rdunlap@infradead.org
-Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
 Suggested-by: Christoph Hellwig <hch@infradead.org>
-Reviewed-by: Masahiro Yamada <masahiroy@kernel.org>
-Cc: Jens Axboe <axboe@kernel.dk>
-Cc: Ley Foon Tan <ley.foon.tan@intel.com>
-Cc: Mark Salter <msalter@redhat.com>
-Cc: Aurelien Jacquiot <jacquiot.aurelien@gmail.com>
-Cc: Peter Zijlstra <peterz@infradead.org>
-Cc: Arnd Bergmann <arnd@arndb.de>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
-Signed-off-by: Sasha Levin <sashal@kernel.org>
+Suggested-by: Linus Torvalds <torvalds@linux-foundation.org>
+Signed-off-by: Viresh Kumar <viresh.kumar@linaro.org>
 ---
- arch/alpha/include/asm/local64.h   | 1 -
- arch/arc/include/asm/Kbuild        | 1 -
- arch/arm/include/asm/Kbuild        | 1 -
- arch/arm64/include/asm/Kbuild      | 1 -
- arch/csky/include/asm/Kbuild       | 1 -
- arch/h8300/include/asm/Kbuild      | 1 -
- arch/hexagon/include/asm/Kbuild    | 1 -
- arch/ia64/include/asm/local64.h    | 1 -
- arch/m68k/include/asm/Kbuild       | 1 -
- arch/microblaze/include/asm/Kbuild | 1 -
- arch/mips/include/asm/Kbuild       | 1 -
- arch/nds32/include/asm/Kbuild      | 1 -
- arch/parisc/include/asm/Kbuild     | 1 -
- arch/powerpc/include/asm/Kbuild    | 1 -
- arch/riscv/include/asm/Kbuild      | 1 -
- arch/s390/include/asm/Kbuild       | 1 -
- arch/sh/include/asm/Kbuild         | 1 -
- arch/sparc/include/asm/Kbuild      | 1 -
- arch/x86/include/asm/local64.h     | 1 -
- arch/xtensa/include/asm/Kbuild     | 1 -
- include/asm-generic/Kbuild         | 1 +
- 21 files changed, 1 insertion(+), 20 deletions(-)
- delete mode 100644 arch/alpha/include/asm/local64.h
- delete mode 100644 arch/ia64/include/asm/local64.h
- delete mode 100644 arch/x86/include/asm/local64.h
+ arch/ia64/Kconfig                  |   1 -
+ arch/ia64/Makefile                 |   1 -
+ arch/ia64/configs/bigsur_defconfig |   1 -
+ arch/ia64/oprofile/Makefile        |  10 ---
+ arch/ia64/oprofile/backtrace.c     | 131 -----------------------------
+ arch/ia64/oprofile/init.c          |  28 ------
+ 6 files changed, 172 deletions(-)
+ delete mode 100644 arch/ia64/oprofile/Makefile
+ delete mode 100644 arch/ia64/oprofile/backtrace.c
+ delete mode 100644 arch/ia64/oprofile/init.c
 
-diff --git a/arch/alpha/include/asm/local64.h b/arch/alpha/include/asm/local64.h
-deleted file mode 100644
-index 36c93b5cc239b..0000000000000
---- a/arch/alpha/include/asm/local64.h
-+++ /dev/null
-@@ -1 +0,0 @@
--#include <asm-generic/local64.h>
-diff --git a/arch/arc/include/asm/Kbuild b/arch/arc/include/asm/Kbuild
-index 81f4edec0c2a9..3c1afa524b9c2 100644
---- a/arch/arc/include/asm/Kbuild
-+++ b/arch/arc/include/asm/Kbuild
-@@ -1,7 +1,6 @@
- # SPDX-License-Identifier: GPL-2.0
- generic-y += extable.h
- generic-y += kvm_para.h
--generic-y += local64.h
- generic-y += mcs_spinlock.h
- generic-y += parport.h
- generic-y += user.h
-diff --git a/arch/arm/include/asm/Kbuild b/arch/arm/include/asm/Kbuild
-index 383635b68763c..f1398b9267c08 100644
---- a/arch/arm/include/asm/Kbuild
-+++ b/arch/arm/include/asm/Kbuild
-@@ -2,7 +2,6 @@
- generic-y += early_ioremap.h
- generic-y += extable.h
- generic-y += flat.h
--generic-y += local64.h
- generic-y += parport.h
- generic-y += seccomp.h
+diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+index eed59ec32657..2ad7a8d29fcc 100644
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -24,7 +24,6 @@ config IA64
+ 	select HAVE_UNSTABLE_SCHED_CLOCK
+ 	select HAVE_EXIT_THREAD
+ 	select HAVE_IDE
+-	select HAVE_OPROFILE
+ 	select HAVE_KPROBES
+ 	select HAVE_KRETPROBES
+ 	select HAVE_FTRACE_MCOUNT_RECORD
+diff --git a/arch/ia64/Makefile b/arch/ia64/Makefile
+index 703b1c4f6d12..33c11fa31192 100644
+--- a/arch/ia64/Makefile
++++ b/arch/ia64/Makefile
+@@ -52,7 +52,6 @@ core-y				+= arch/ia64/kernel/ arch/ia64/mm/
+ core-$(CONFIG_IA64_SGI_UV)	+= arch/ia64/uv/
  
-diff --git a/arch/arm64/include/asm/Kbuild b/arch/arm64/include/asm/Kbuild
-index ff9cbb6312128..07ac208edc894 100644
---- a/arch/arm64/include/asm/Kbuild
-+++ b/arch/arm64/include/asm/Kbuild
-@@ -1,6 +1,5 @@
- # SPDX-License-Identifier: GPL-2.0
- generic-y += early_ioremap.h
--generic-y += local64.h
- generic-y += mcs_spinlock.h
- generic-y += qrwlock.h
- generic-y += qspinlock.h
-diff --git a/arch/csky/include/asm/Kbuild b/arch/csky/include/asm/Kbuild
-index 64876e59e2ef9..2a5a4d94fafad 100644
---- a/arch/csky/include/asm/Kbuild
-+++ b/arch/csky/include/asm/Kbuild
-@@ -2,7 +2,6 @@
- generic-y += asm-offsets.h
- generic-y += gpio.h
- generic-y += kvm_para.h
--generic-y += local64.h
- generic-y += qrwlock.h
- generic-y += seccomp.h
- generic-y += user.h
-diff --git a/arch/h8300/include/asm/Kbuild b/arch/h8300/include/asm/Kbuild
-index ddf04f32b5467..60ee7f0d60a8f 100644
---- a/arch/h8300/include/asm/Kbuild
-+++ b/arch/h8300/include/asm/Kbuild
-@@ -2,7 +2,6 @@
- generic-y += asm-offsets.h
- generic-y += extable.h
- generic-y += kvm_para.h
--generic-y += local64.h
- generic-y += mcs_spinlock.h
- generic-y += parport.h
- generic-y += spinlock.h
-diff --git a/arch/hexagon/include/asm/Kbuild b/arch/hexagon/include/asm/Kbuild
-index 373964bb177e4..3ece3c93fe086 100644
---- a/arch/hexagon/include/asm/Kbuild
-+++ b/arch/hexagon/include/asm/Kbuild
-@@ -2,5 +2,4 @@
- generic-y += extable.h
- generic-y += iomap.h
- generic-y += kvm_para.h
--generic-y += local64.h
- generic-y += mcs_spinlock.h
-diff --git a/arch/ia64/include/asm/local64.h b/arch/ia64/include/asm/local64.h
+ drivers-y			+= arch/ia64/pci/ arch/ia64/hp/common/
+-drivers-$(CONFIG_OPROFILE)	+= arch/ia64/oprofile/
+ 
+ PHONY += compressed check
+ 
+diff --git a/arch/ia64/configs/bigsur_defconfig b/arch/ia64/configs/bigsur_defconfig
+index cfed5ed89301..c409756b5396 100644
+--- a/arch/ia64/configs/bigsur_defconfig
++++ b/arch/ia64/configs/bigsur_defconfig
+@@ -2,7 +2,6 @@ CONFIG_SYSVIPC=y
+ CONFIG_POSIX_MQUEUE=y
+ CONFIG_LOG_BUF_SHIFT
+ CONFIG_PROFILING=y
+-CONFIG_OPROFILE=y
+ CONFIG_MODULES=y
+ CONFIG_MODULE_UNLOAD=y
+ CONFIG_PARTITION_ADVANCED=y
+diff --git a/arch/ia64/oprofile/Makefile b/arch/ia64/oprofile/Makefile
 deleted file mode 100644
-index 36c93b5cc239b..0000000000000
---- a/arch/ia64/include/asm/local64.h
+index fc7944d462f4..000000000000
+--- a/arch/ia64/oprofile/Makefile
 +++ /dev/null
-@@ -1 +0,0 @@
--#include <asm-generic/local64.h>
-diff --git a/arch/m68k/include/asm/Kbuild b/arch/m68k/include/asm/Kbuild
-index 1bff55aa2d54e..0dbf9c5c6faeb 100644
---- a/arch/m68k/include/asm/Kbuild
-+++ b/arch/m68k/include/asm/Kbuild
-@@ -2,6 +2,5 @@
- generated-y += syscall_table.h
- generic-y += extable.h
- generic-y += kvm_para.h
--generic-y += local64.h
- generic-y += mcs_spinlock.h
- generic-y += spinlock.h
-diff --git a/arch/microblaze/include/asm/Kbuild b/arch/microblaze/include/asm/Kbuild
-index 63bce836b9f10..29b0e557aa7c5 100644
---- a/arch/microblaze/include/asm/Kbuild
-+++ b/arch/microblaze/include/asm/Kbuild
-@@ -2,7 +2,6 @@
- generated-y += syscall_table.h
- generic-y += extable.h
- generic-y += kvm_para.h
--generic-y += local64.h
- generic-y += mcs_spinlock.h
- generic-y += parport.h
- generic-y += syscalls.h
-diff --git a/arch/mips/include/asm/Kbuild b/arch/mips/include/asm/Kbuild
-index 198b3bafdac97..95b4fa7bd0d1f 100644
---- a/arch/mips/include/asm/Kbuild
-+++ b/arch/mips/include/asm/Kbuild
-@@ -6,7 +6,6 @@ generated-y += syscall_table_64_n64.h
- generated-y += syscall_table_64_o32.h
- generic-y += export.h
- generic-y += kvm_para.h
--generic-y += local64.h
- generic-y += mcs_spinlock.h
- generic-y += parport.h
- generic-y += qrwlock.h
-diff --git a/arch/nds32/include/asm/Kbuild b/arch/nds32/include/asm/Kbuild
-index ff1e94299317d..82a4453c9c2d5 100644
---- a/arch/nds32/include/asm/Kbuild
-+++ b/arch/nds32/include/asm/Kbuild
-@@ -4,6 +4,5 @@ generic-y += cmpxchg.h
- generic-y += export.h
- generic-y += gpio.h
- generic-y += kvm_para.h
--generic-y += local64.h
- generic-y += parport.h
- generic-y += user.h
-diff --git a/arch/parisc/include/asm/Kbuild b/arch/parisc/include/asm/Kbuild
-index e3ee5c0bfe80f..a1bd2adc63e3a 100644
---- a/arch/parisc/include/asm/Kbuild
-+++ b/arch/parisc/include/asm/Kbuild
-@@ -3,7 +3,6 @@ generated-y += syscall_table_32.h
- generated-y += syscall_table_64.h
- generated-y += syscall_table_c32.h
- generic-y += kvm_para.h
--generic-y += local64.h
- generic-y += mcs_spinlock.h
- generic-y += seccomp.h
- generic-y += user.h
-diff --git a/arch/powerpc/include/asm/Kbuild b/arch/powerpc/include/asm/Kbuild
-index 90cd5c53af666..e1f9b4ea1c537 100644
---- a/arch/powerpc/include/asm/Kbuild
-+++ b/arch/powerpc/include/asm/Kbuild
-@@ -5,7 +5,6 @@ generated-y += syscall_table_c32.h
- generated-y += syscall_table_spu.h
- generic-y += export.h
- generic-y += kvm_types.h
--generic-y += local64.h
- generic-y += mcs_spinlock.h
- generic-y += qrwlock.h
- generic-y += vtime.h
-diff --git a/arch/riscv/include/asm/Kbuild b/arch/riscv/include/asm/Kbuild
-index 59dd7be550054..445ccc97305a5 100644
---- a/arch/riscv/include/asm/Kbuild
-+++ b/arch/riscv/include/asm/Kbuild
-@@ -3,6 +3,5 @@ generic-y += early_ioremap.h
- generic-y += extable.h
- generic-y += flat.h
- generic-y += kvm_para.h
--generic-y += local64.h
- generic-y += user.h
- generic-y += vmlinux.lds.h
-diff --git a/arch/s390/include/asm/Kbuild b/arch/s390/include/asm/Kbuild
-index 319efa0e6d024..1a18d7b82f86d 100644
---- a/arch/s390/include/asm/Kbuild
-+++ b/arch/s390/include/asm/Kbuild
-@@ -7,5 +7,4 @@ generated-y += unistd_nr.h
- generic-y += asm-offsets.h
- generic-y += export.h
- generic-y += kvm_types.h
--generic-y += local64.h
- generic-y += mcs_spinlock.h
-diff --git a/arch/sh/include/asm/Kbuild b/arch/sh/include/asm/Kbuild
-index 7435182ef8465..fc44d9c88b419 100644
---- a/arch/sh/include/asm/Kbuild
-+++ b/arch/sh/include/asm/Kbuild
-@@ -1,6 +1,5 @@
- # SPDX-License-Identifier: GPL-2.0
- generated-y += syscall_table.h
- generic-y += kvm_para.h
--generic-y += local64.h
- generic-y += mcs_spinlock.h
- generic-y += parport.h
-diff --git a/arch/sparc/include/asm/Kbuild b/arch/sparc/include/asm/Kbuild
-index 5269a704801fa..3688fdae50e45 100644
---- a/arch/sparc/include/asm/Kbuild
-+++ b/arch/sparc/include/asm/Kbuild
-@@ -6,5 +6,4 @@ generated-y += syscall_table_64.h
- generated-y += syscall_table_c32.h
- generic-y += export.h
- generic-y += kvm_para.h
--generic-y += local64.h
- generic-y += mcs_spinlock.h
-diff --git a/arch/x86/include/asm/local64.h b/arch/x86/include/asm/local64.h
+@@ -1,10 +0,0 @@
+-# SPDX-License-Identifier: GPL-2.0
+-obj-$(CONFIG_OPROFILE) += oprofile.o
+-
+-DRIVER_OBJS := $(addprefix ../../../drivers/oprofile/, \
+-		oprof.o cpu_buffer.o buffer_sync.o \
+-		event_buffer.o oprofile_files.o \
+-		oprofilefs.o oprofile_stats.o \
+-		timer_int.o )
+-
+-oprofile-y := $(DRIVER_OBJS) init.o backtrace.o
+diff --git a/arch/ia64/oprofile/backtrace.c b/arch/ia64/oprofile/backtrace.c
 deleted file mode 100644
-index 36c93b5cc239b..0000000000000
---- a/arch/x86/include/asm/local64.h
+index 6a219a946050..000000000000
+--- a/arch/ia64/oprofile/backtrace.c
 +++ /dev/null
-@@ -1 +0,0 @@
--#include <asm-generic/local64.h>
-diff --git a/arch/xtensa/include/asm/Kbuild b/arch/xtensa/include/asm/Kbuild
-index c59c42a1221a8..adefb1636f7ae 100644
---- a/arch/xtensa/include/asm/Kbuild
-+++ b/arch/xtensa/include/asm/Kbuild
-@@ -2,7 +2,6 @@
- generated-y += syscall_table.h
- generic-y += extable.h
- generic-y += kvm_para.h
--generic-y += local64.h
- generic-y += mcs_spinlock.h
- generic-y += param.h
- generic-y += qrwlock.h
-diff --git a/include/asm-generic/Kbuild b/include/asm-generic/Kbuild
-index e78bbb9a07e90..d1300c6e0a471 100644
---- a/include/asm-generic/Kbuild
-+++ b/include/asm-generic/Kbuild
-@@ -34,6 +34,7 @@ mandatory-y += kmap_types.h
- mandatory-y += kprobes.h
- mandatory-y += linkage.h
- mandatory-y += local.h
-+mandatory-y += local64.h
- mandatory-y += mm-arch-hooks.h
- mandatory-y += mmiowb.h
- mandatory-y += mmu.h
+@@ -1,131 +0,0 @@
+-/**
+- * @file backtrace.c
+- *
+- * @remark Copyright 2004 Silicon Graphics Inc.  All Rights Reserved.
+- * @remark Read the file COPYING
+- *
+- * @author Greg Banks <gnb@melbourne.sgi.com>
+- * @author Keith Owens <kaos@melbourne.sgi.com>
+- * Based on work done for the ia64 port of the SGI kernprof patch, which is
+- *    Copyright (c) 2003-2004 Silicon Graphics Inc.  All Rights Reserved.
+- */
+-
+-#include <linux/oprofile.h>
+-#include <linux/sched.h>
+-#include <linux/mm.h>
+-#include <asm/ptrace.h>
+-
+-/*
+- * For IA64 we need to perform a complex little dance to get both
+- * the struct pt_regs and a synthetic struct switch_stack in place
+- * to allow the unwind code to work.  This dance requires our unwind
+- * using code to be called from a function called from unw_init_running().
+- * There we only get a single void* data pointer, so use this struct
+- * to hold all the data we need during the unwind.
+- */
+-typedef struct
+-{
+-	unsigned int depth;
+-	struct pt_regs *regs;
+-	struct unw_frame_info frame;
+-	unsigned long *prev_pfs_loc;	/* state for WAR for old spinlock ool code */
+-} ia64_backtrace_t;
+-
+-/* Returns non-zero if the PC is in the Interrupt Vector Table */
+-static __inline__ int in_ivt_code(unsigned long pc)
+-{
+-	extern char ia64_ivt[];
+-	return (pc >= (u_long)ia64_ivt && pc < (u_long)ia64_ivt+32768);
+-}
+-
+-/*
+- * Unwind to next stack frame.
+- */
+-static __inline__ int next_frame(ia64_backtrace_t *bt)
+-{
+-	/*
+-	 * Avoid unsightly console message from unw_unwind() when attempting
+-	 * to unwind through the Interrupt Vector Table which has no unwind
+-	 * information.
+-	 */
+-	if (in_ivt_code(bt->frame.ip))
+-		return 0;
+-
+-	/*
+-	 * WAR for spinlock contention from leaf functions.  ia64_spinlock_contention_pre3_4
+-	 * has ar.pfs = r0.  Leaf functions do not modify ar.pfs so ar.pfs remains
+-	 * as 0, stopping the backtrace.  Record the previous ar.pfs when the current
+-	 * IP is in ia64_spinlock_contention_pre3_4 then unwind, if pfs_loc has not changed
+-	 * after unwind then use pt_regs.ar_pfs which is where the real ar.pfs is for
+-	 * leaf functions.
+-	 */
+-	if (bt->prev_pfs_loc && bt->regs && bt->frame.pfs_loc = bt->prev_pfs_loc)
+-		bt->frame.pfs_loc = &bt->regs->ar_pfs;
+-	bt->prev_pfs_loc = NULL;
+-
+-	return unw_unwind(&bt->frame) = 0;
+-}
+-
+-
+-static void do_ia64_backtrace(struct unw_frame_info *info, void *vdata)
+-{
+-	ia64_backtrace_t *bt = vdata;
+-	struct switch_stack *sw;
+-	int count = 0;
+-	u_long pc, sp;
+-
+-	sw = (struct switch_stack *)(info+1);
+-	/* padding from unw_init_running */
+-	sw = (struct switch_stack *)(((unsigned long)sw + 15) & ~15);
+-
+-	unw_init_frame_info(&bt->frame, current, sw);
+-
+-	/* skip over interrupt frame and oprofile calls */
+-	do {
+-		unw_get_sp(&bt->frame, &sp);
+-		if (sp >= (u_long)bt->regs)
+-			break;
+-		if (!next_frame(bt))
+-			return;
+-	} while (count++ < 200);
+-
+-	/* finally, grab the actual sample */
+-	while (bt->depth-- && next_frame(bt)) {
+-		unw_get_ip(&bt->frame, &pc);
+-		oprofile_add_trace(pc);
+-		if (unw_is_intr_frame(&bt->frame)) {
+-			/*
+-			 * Interrupt received on kernel stack; this can
+-			 * happen when timer interrupt fires while processing
+-			 * a softirq from the tail end of a hardware interrupt
+-			 * which interrupted a system call.  Don't laugh, it
+-			 * happens!  Splice the backtrace into two parts to
+-			 * avoid spurious cycles in the gprof output.
+-			 */
+-			/* TODO: split rather than drop the 2nd half */
+-			break;
+-		}
+-	}
+-}
+-
+-void
+-ia64_backtrace(struct pt_regs * const regs, unsigned int depth)
+-{
+-	ia64_backtrace_t bt;
+-	unsigned long flags;
+-
+-	/*
+-	 * On IA64 there is little hope of getting backtraces from
+-	 * user space programs -- the problems of getting the unwind
+-	 * information from arbitrary user programs are extreme.
+-	 */
+-	if (user_mode(regs))
+-		return;
+-
+-	bt.depth = depth;
+-	bt.regs = regs;
+-	bt.prev_pfs_loc = NULL;
+-	local_irq_save(flags);
+-	unw_init_running(do_ia64_backtrace, &bt);
+-	local_irq_restore(flags);
+-}
+diff --git a/arch/ia64/oprofile/init.c b/arch/ia64/oprofile/init.c
+deleted file mode 100644
+index a692ba16a07b..000000000000
+--- a/arch/ia64/oprofile/init.c
++++ /dev/null
+@@ -1,28 +0,0 @@
+-/**
+- * @file init.c
+- *
+- * @remark Copyright 2002 OProfile authors
+- * @remark Read the file COPYING
+- *
+- * @author John Levon <levon@movementarian.org>
+- */
+-
+-#include <linux/kernel.h>
+-#include <linux/oprofile.h>
+-#include <linux/init.h>
+-#include <linux/errno.h>
+- 
+-extern int perfmon_init(struct oprofile_operations *ops);
+-extern void perfmon_exit(void);
+-extern void ia64_backtrace(struct pt_regs * const regs, unsigned int depth);
+-
+-int __init oprofile_arch_init(struct oprofile_operations *ops)
+-{
+-	ops->backtrace = ia64_backtrace;
+-	return -ENODEV;
+-}
+-
+-
+-void oprofile_arch_exit(void)
+-{
+-}
 -- 
-2.27.0
+2.25.0.rc1.19.g042ed3e048af
