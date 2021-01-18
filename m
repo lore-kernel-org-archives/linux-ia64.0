@@ -1,36 +1,193 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Date: Fri, 15 Jan 2021 22:39:44 +0000
-Subject: RE: [PATCH] Adds a new ioctl32 syscall for backwards compatibility layers
-Message-Id: <313c380c4b1b477fbd09aac66eed4505@AcuMS.aculab.com>
+From: Ard Biesheuvel <ardb@kernel.org>
+Date: Mon, 18 Jan 2021 12:49:13 +0000
+Subject: [PATCH] efi: ia64: move IA64-only declarations to new asm/efi.h header
+Message-Id: <20210118124913.1555-1-ardb@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210106064807.253112-1-Sonicadvance1@gmail.com>
- <20210115070326.294332-1-Sonicadvance1@gmail.com>
- <b15672b1caec4cf980f2753d06b03596@AcuMS.aculab.com>
- <CAK8P3a1gqt-gBCPTdNeY+8SaG8eUGN4zkCrNKSjA=aEL-TkaUQ@mail.gmail.com>
-In-Reply-To: <CAK8P3a1gqt-gBCPTdNeY+8SaG8eUGN4zkCrNKSjA=aEL-TkaUQ@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: 'Arnd Bergmann' <arnd@kernel.org>
-Cc: "sonicadvance1@gmail.com" <sonicadvance1@gmail.com>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Michal Simek <monstr@monstr.eu>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Christian Borntraeger <borntraeger@de.ibm.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Andy Lutomirski <luto@kernel.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, "x86@kernel.org" <x86@kernel.org>, "H. Peter Anvin" <hpa@zytor.com>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, Alexander Viro <viro@zeniv.linux.org.uk>, Arnd Bergmann <arnd@arndb.de>, Andrew Morton <akpm@linux-foundation.org>, Aleksa Sarai <cyphar@cyphar.com>, Xiaoming Ni <nixiaoming@huawei.com>, David Rientjes <rientjes@google.com>, Willem de Bruijn <willemb@google.com>, Christian Brauner <christian.brauner@ubuntu.com>, Miklos Szeredi <mszeredi@redhat.com>, Minchan Kim <minchan@kernel.org>, "Eric W. Biederman" <ebiederm@xmission.com>, Stephen Rothwell <sfr@canb.auug.org.au>, Vincenzo Frascino <vincenzo.frascino@arm.com>, Vlastimil Babka <vbabka@suse.cz>, Oleg Nesterov <oleg@redhat.com>, YueHaibing <yuehaibing@huawei.com>, Suren Baghdasaryan <surenb@google.com>, Nicholas Piggin <npiggin@gmail.com>, Brian Gerst <brgerst@gmail.com>, Dominik Brodowski <linux@dominikbrodowski.net>, Jan Kara <jack@suse.cz>, Arnaldo Carvalho de Melo <acme@redhat.com>, "linux-alpha@vger.kernel.org" <linux-alpha@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-m68k@lists.linux-m68k.org" <linux-m68k@lists.linux-m68k.org>, "linux-mips@vger.kernel.org" <linux-mips@vger.kernel.org>, "linux-parisc@vger.kernel.org" <linux-parisc@vger.kernel.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, "linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>, "linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>, "sparclinux@vger.kernel.org" <sparclinux@vger.kernel.org>, "linux-xtensa@linux-xtensa.org" <linux-xtensa@linux-xtensa.org>, "linux-fsdevel@vger.kernel.org" <linux-fsdevel@vger.kernel.org>, "linux-api@vger.kernel.org" <linux-api@vger.kernel.org>, "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>
+To: linux-efi@vger.kernel.org
+Cc: linux-ia64@vger.kernel.org, Ard Biesheuvel <ardb@kernel.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>
 
-Li4uDQo+IEhlJ3MgYWxyZWFkeSBkb2luZyB0aGUgc3lzdGVtIGNhbGwgZW11bGF0aW9uIGZvciBh
-bGwgdGhlIHN5c3RlbQ0KPiBjYWxscyBvdGhlciB0aGFuIGlvY3RsIGluIHVzZXIgc3BhY2UgdGhv
-dWdoLiBJbiBteSBleHBlcmllbmNlLA0KPiB0aGVyZSBhcmUgYWN0dWFsbHkgZmFpcmx5IGZldyBp
-b2N0bCBjb21tYW5kcyB0aGF0IGFyZSBkaWZmZXJlbnQNCj4gYmV0d2VlbiBhcmNoaXRlY3R1cmVz
-IC0tIG1vc3Qgb2YgdGhlbSBoYXZlIG5vIG1pc2FsaWduZWQNCj4gb3IgYXJjaGl0ZWN0dXJlLWRl
-ZmluZWQgc3RydWN0IG1lbWJlcnMgYXQgYWxsLg0KDQpBcmVuJ3QgdGhlcmUgYWxzbyBzb21lIGlu
-dHJhY3RhYmxlIGlzc3VlcyB3aXRoIHNvY2tldCBvcHRpb25zPw0KSUlSQyB0aGUga2VybmVsIGNv
-ZGUgdGhhdCB0cmllZCB0byBjaGFuZ2UgdGhlbSB0byA2NGJpdCB3YXMNCmhvcnJpYmx5IGJyb2tl
-biBpbiBzb21lIG9ic2N1cmUgY2FzZXMuDQoNClB1c2hpbmcgdGhlIGNvbnZlcnNpb24gZG93biB0
-aGUgc3RhY2sgbm90IG9ubHkgaWRlbnRpZmllZCB0aGUNCmlzc3VlcywgaXQgYWxzbyBtYWRlIHRo
-ZW0gZWFzaWVyIHRvIGZpeC4NCg0KSWYgeW91IGNoYW5nZSB0aGUga2VybmVsIHNvIGEgNjRiaXQg
-cHJvY2VzcyBjYW4gZXhlY3V0ZSAzMmJpdA0Kc3lzdGVtIGNhbGxzIHRoZW4gYSBsb3Qgb2YgdGhl
-IHByb2JsZW1zIGRvIGdvIGF3YXkuDQpUaGlzIGlzIHByb2JhYmx5IGVhc2llc3QgZG9uZSBieSBz
-ZXR0aW5nIGEgaGlnaCBiaXQgb24gdGhlDQpzeXN0ZW0gY2FsbCBudW1iZXIgLSBhcyB4ODZfNjQg
-ZG9lcyBmb3IgeDMyIGNhbGxzLg0KDQpZb3Ugc3RpbGwgaGF2ZSB0byBzb2x2ZSB0aGUgZGlmZmVy
-ZW50IGFsaWdubWVudCBvZiA2NGJpdCBkYXRhDQpvbiBpMzg2Lg0KDQpPZiBjb3Vyc2UgdGhlIHN5
-c3RlbSBjYWxsIG51bWJlcnMgYXJlIGRpZmZlcmVudCAtIGJ1dCB0aGF0IGlzDQpqdXN0IGEgbG9v
-a3VwLg0KDQoJRGF2aWQNCg0KLQ0KUmVnaXN0ZXJlZCBBZGRyZXNzIExha2VzaWRlLCBCcmFtbGV5
-IFJvYWQsIE1vdW50IEZhcm0sIE1pbHRvbiBLZXluZXMsIE1LMSAxUFQsIFVLDQpSZWdpc3RyYXRp
-b24gTm86IDEzOTczODYgKFdhbGVzKQ0K
+Move some EFI related declarations that are only referenced on IA64 to
+a new asm/efi.h arch header.
+
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Signed-off-by: Ard Biesheuvel <ardb@kernel.org>
+---
+ arch/ia64/include/asm/efi.h      | 13 +++++++++++++
+ arch/ia64/kernel/efi.c           |  1 +
+ arch/ia64/kernel/machine_kexec.c |  1 +
+ arch/ia64/kernel/mca.c           |  1 +
+ arch/ia64/kernel/smpboot.c       |  1 +
+ arch/ia64/kernel/time.c          |  1 +
+ arch/ia64/kernel/uncached.c      |  4 +---
+ arch/ia64/mm/contig.c            |  1 +
+ arch/ia64/mm/discontig.c         |  1 +
+ arch/ia64/mm/init.c              |  1 +
+ include/linux/efi.h              |  6 ------
+ 11 files changed, 22 insertions(+), 9 deletions(-)
+ create mode 100644 arch/ia64/include/asm/efi.h
+
+diff --git a/arch/ia64/include/asm/efi.h b/arch/ia64/include/asm/efi.h
+new file mode 100644
+index 000000000000..6a4a50d8f19a
+--- /dev/null
++++ b/arch/ia64/include/asm/efi.h
+@@ -0,0 +1,13 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++#ifndef _ASM_EFI_H
++#define _ASM_EFI_H
++
++typedef int (*efi_freemem_callback_t) (u64 start, u64 end, void *arg);
++
++void *efi_get_pal_addr(void);
++void efi_map_pal_code(void);
++void efi_memmap_walk(efi_freemem_callback_t, void *);
++void efi_memmap_walk_uc(efi_freemem_callback_t, void *);
++void efi_gettimeofday(struct timespec64 *ts);
++
++#endif
+diff --git a/arch/ia64/kernel/efi.c b/arch/ia64/kernel/efi.c
+index f932b25fb817..dd7fd750bb93 100644
+--- a/arch/ia64/kernel/efi.c
++++ b/arch/ia64/kernel/efi.c
+@@ -34,6 +34,7 @@
+ #include <linux/kexec.h>
+ #include <linux/mm.h>
+ 
++#include <asm/efi.h>
+ #include <asm/io.h>
+ #include <asm/kregs.h>
+ #include <asm/meminit.h>
+diff --git a/arch/ia64/kernel/machine_kexec.c b/arch/ia64/kernel/machine_kexec.c
+index efc9b568401c..af310dc8a356 100644
+--- a/arch/ia64/kernel/machine_kexec.c
++++ b/arch/ia64/kernel/machine_kexec.c
+@@ -16,6 +16,7 @@
+ #include <linux/numa.h>
+ #include <linux/mmzone.h>
+ 
++#include <asm/efi.h>
+ #include <asm/numa.h>
+ #include <asm/mmu_context.h>
+ #include <asm/setup.h>
+diff --git a/arch/ia64/kernel/mca.c b/arch/ia64/kernel/mca.c
+index 2703f7795672..0fea266b4d39 100644
+--- a/arch/ia64/kernel/mca.c
++++ b/arch/ia64/kernel/mca.c
+@@ -91,6 +91,7 @@
+ #include <linux/gfp.h>
+ 
+ #include <asm/delay.h>
++#include <asm/efi.h>
+ #include <asm/meminit.h>
+ #include <asm/page.h>
+ #include <asm/ptrace.h>
+diff --git a/arch/ia64/kernel/smpboot.c b/arch/ia64/kernel/smpboot.c
+index 093040f7e626..49b488580939 100644
+--- a/arch/ia64/kernel/smpboot.c
++++ b/arch/ia64/kernel/smpboot.c
+@@ -45,6 +45,7 @@
+ #include <asm/cache.h>
+ #include <asm/current.h>
+ #include <asm/delay.h>
++#include <asm/efi.h>
+ #include <asm/io.h>
+ #include <asm/irq.h>
+ #include <asm/mca.h>
+diff --git a/arch/ia64/kernel/time.c b/arch/ia64/kernel/time.c
+index ed9fc3d057a6..a37f161a66b1 100644
+--- a/arch/ia64/kernel/time.c
++++ b/arch/ia64/kernel/time.c
+@@ -26,6 +26,7 @@
+ #include <linux/sched/cputime.h>
+ 
+ #include <asm/delay.h>
++#include <asm/efi.h>
+ #include <asm/hw_irq.h>
+ #include <asm/ptrace.h>
+ #include <asm/sal.h>
+diff --git a/arch/ia64/kernel/uncached.c b/arch/ia64/kernel/uncached.c
+index 0750f367837d..51883a66aeb5 100644
+--- a/arch/ia64/kernel/uncached.c
++++ b/arch/ia64/kernel/uncached.c
+@@ -20,14 +20,12 @@
+ #include <linux/genalloc.h>
+ #include <linux/gfp.h>
+ #include <linux/pgtable.h>
++#include <asm/efi.h>
+ #include <asm/page.h>
+ #include <asm/pal.h>
+ #include <linux/atomic.h>
+ #include <asm/tlbflush.h>
+ 
+-
+-extern void __init efi_memmap_walk_uc(efi_freemem_callback_t, void *);
+-
+ struct uncached_pool {
+ 	struct gen_pool *pool;
+ 	struct mutex add_chunk_mutex;	/* serialize adding a converted chunk */
+diff --git a/arch/ia64/mm/contig.c b/arch/ia64/mm/contig.c
+index bfc4ecd0a2ab..62fe80a16f42 100644
+--- a/arch/ia64/mm/contig.c
++++ b/arch/ia64/mm/contig.c
+@@ -21,6 +21,7 @@
+ #include <linux/swap.h>
+ #include <linux/sizes.h>
+ 
++#include <asm/efi.h>
+ #include <asm/meminit.h>
+ #include <asm/sections.h>
+ #include <asm/mca.h>
+diff --git a/arch/ia64/mm/discontig.c b/arch/ia64/mm/discontig.c
+index c7311131156e..03b3a02375ff 100644
+--- a/arch/ia64/mm/discontig.c
++++ b/arch/ia64/mm/discontig.c
+@@ -24,6 +24,7 @@
+ #include <linux/efi.h>
+ #include <linux/nodemask.h>
+ #include <linux/slab.h>
++#include <asm/efi.h>
+ #include <asm/tlb.h>
+ #include <asm/meminit.h>
+ #include <asm/numa.h>
+diff --git a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
+index 9b5acf8fb092..24583a39fa1b 100644
+--- a/arch/ia64/mm/init.c
++++ b/arch/ia64/mm/init.c
+@@ -27,6 +27,7 @@
+ #include <linux/swiotlb.h>
+ 
+ #include <asm/dma.h>
++#include <asm/efi.h>
+ #include <asm/io.h>
+ #include <asm/numa.h>
+ #include <asm/patch.h>
+diff --git a/include/linux/efi.h b/include/linux/efi.h
+index b1ca1903b483..a81ff5047859 100644
+--- a/include/linux/efi.h
++++ b/include/linux/efi.h
+@@ -167,8 +167,6 @@ struct capsule_info {
+ 
+ int __efi_capsule_setup_info(struct capsule_info *cap_info);
+ 
+-typedef int (*efi_freemem_callback_t) (u64 start, u64 end, void *arg);
+-
+ /*
+  * Types and defines for Time Services
+  */
+@@ -605,10 +603,6 @@ efi_guid_to_str(efi_guid_t *guid, char *out)
+ }
+ 
+ extern void efi_init (void);
+-extern void *efi_get_pal_addr (void);
+-extern void efi_map_pal_code (void);
+-extern void efi_memmap_walk (efi_freemem_callback_t callback, void *arg);
+-extern void efi_gettimeofday (struct timespec64 *ts);
+ #ifdef CONFIG_EFI
+ extern void efi_enter_virtual_mode (void);	/* switch EFI to virtual mode, if possible */
+ #else
+-- 
+2.17.1
