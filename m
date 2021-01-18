@@ -1,25 +1,38 @@
-From: pr-tracker-bot@kernel.org
-Date: Thu, 28 Jan 2021 18:16:55 +0000
-Subject: Re: [GIT PULL] asm-generic/ia64 fixes, mark as orphaned
-Message-Id: <161185781579.19532.14632163617295027701.pr-tracker-bot@kernel.org>
+From: Mike Rapoport <rppt@kernel.org>
+Date: Mon, 18 Jan 2021 11:34:11 +0000
+Subject: [GIT PULL] ia64: fix build regression
+Message-Id: <20210118113411.GM1106298@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <CAK8P3a2+tvr6O7LxF8M6sJ-e-NmbijAmXt13FPEvOXtY_PSgPQ@mail.gmail.com>
-In-Reply-To: <CAK8P3a2+tvr6O7LxF8M6sJ-e-NmbijAmXt13FPEvOXtY_PSgPQ@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Arnd Bergmann <arnd@kernel.org>
-Cc: Linus Torvalds <torvalds@linux-foundation.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, linux-arch <linux-arch@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-The pull request you sent on Thu, 28 Jan 2021 16:35:55 +0100:
+Hi Linus,
 
-> git://git.kernel.org/pub/scm/linux/kernel/git/arnd/asm-generic.git tags/asm-generic-fixes-v5.11
+The following changes since commit 7c53f6b671f4aba70ff15e1b05148b10d58c2837:
 
-has been merged into torvalds/linux.git:
-https://git.kernel.org/torvalds/c/228345bf98cd78f91d007478a51f9a471489e44a
+  Linux 5.11-rc3 (2021-01-10 14:34:50 -0800)
 
-Thank you!
+are available in the Git repository at:
+
+  https://git.kernel.org/pub/scm/linux/kernel/git/rppt/memblock tags/fixes-2021-01-18
+
+for you to fetch changes up to 32c2bc8f2d855d4415c9a05b727e34649397bfbe:
+
+  ia64: fix build failure caused by memory model changes (2021-01-17 13:31:09 +0200)
+
+----------------------------------------------------------------
+ia64: fix build failure caused by memory model changes
+
+----------------------------------------------------------------
+Mike Rapoport (1):
+      ia64: fix build failure caused by memory model changes
+
+ arch/ia64/include/asm/sparsemem.h | 1 +
+ 1 file changed, 1 insertion(+)
 
 -- 
-Deet-doot-dot, I am a bot.
-https://korg.docs.kernel.org/prtracker.html
+Sincerely yours,
+Mike.
