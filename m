@@ -1,57 +1,180 @@
-From: Jens Axboe <axboe@kernel.dk>
-Date: Fri, 01 Jan 2021 18:22:37 +0000
-Subject: Re: [PATCH] sh: add support for TIF_NOTIFY_SIGNAL
-Message-Id: <4acdfb5b-842f-aba4-0f6c-20b4795ded35@kernel.dk>
+From: Masahiro Yamada <masahiroy@kernel.org>
+Date: Thu, 28 Jan 2021 00:51:00 +0000
+Subject: [PATCH 18/27] parisc: syscalls: switch to generic syscalltbl.sh
+Message-Id: <20210128005110.2613902-19-masahiroy@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <5fcc82b4-89ae-3bca-10ab-6ad933565cee@kernel.dk>
- <ae29ab73-ee7a-2bb7-3fd8-3037f40c1cbd@kernel.dk>
- <5611bde9-67e7-6ff6-defc-9b02ea830fac@physik.fu-berlin.de>
- <9ea14eb3-d698-5499-ba4c-c6a3c35cd8d4@kernel.dk>
- <47f79645-53b7-b11c-167a-f5721b53df02@physik.fu-berlin.de>
- <9d9acec6-1e8c-2d68-5dfa-d58c11cf5cc4@kernel.dk>
- <070780c4-445e-6373-c8f4-1c72d0f3b4e0@physik.fu-berlin.de>
- <1047f3e5-4599-c34f-3176-9f41d2e1246b@kernel.dk>
- <31b34cfc-8d6e-d3b4-e29f-1ec485f5b368@physik.fu-berlin.de>
- <23bf4423-0987-c445-d5cd-1922e1e40820@kernel.dk>
- <f95539e9-506b-c4d9-2861-f288e2d021df@physik.fu-berlin.de>
- <10752e73-ca2a-9ea7-4aa6-35e366e36fb0@kernel.dk>
- <b16ed393-e2bf-deca-d0d9-614d24ee6406@physik.fu-berlin.de>
-In-Reply-To: <b16ed393-e2bf-deca-d0d9-614d24ee6406@physik.fu-berlin.de>
+References: <20210128005110.2613902-1-masahiroy@kernel.org>
+In-Reply-To: <20210128005110.2613902-1-masahiroy@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
-Cc: linux-sh@vger.kernel.org, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
+To: linux-arch@vger.kernel.org, x86@kernel.org
+Cc: linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-sh@vger.kernel.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, Masahiro Yamada <masahiroy@kernel.org>
 
-On 1/1/21 11:16 AM, John Paul Adrian Glaubitz wrote:
-> On 1/1/21 4:35 PM, Jens Axboe wrote:> It's supposed to finish very quickly:
->>
->> axboe@p1 ~> time ./socket-rw                                                             0.000s
->>
->> ________________________________________________________
->> Executed in    1.10 millis    fish           external 
->>    usr time  888.00 micros  278.00 micros  610.00 micros 
->>    sys time   35.00 micros   35.00 micros    0.00 micros 
->>
->> If it doesn't, can you try:
->>
->> # echo 1 > /sys/kernel/debug/tracing/events/io_uring/enable
->>
->> Then run the socket-rw app, and then do:
->>
->> # cat /sys/kernel/debug/tracing/trace
->>
->> and send that output? Might also be useful to include the strace
->> of the socket-rw just in case, so maybe run it ala
->>
->> strace -o foo ./socket-rw
->>
->> and include foo in the reply as well.
-> 
-> Odd, I just ran it through strace and it exited immediately:
+As of v5.11-rc1, 12 architectures duplicate similar shell scripts in
+order to generate syscall table headers. My goal is to unify them into
+the single scripts/syscalltbl.sh.
 
-That looks correct, it sets up a ring, issues and waits for two
-requests. Both of those requests require TWA_SIGNAL processing.
+This commit converts parisc to use scripts/syscalltbl.sh. This also
+unifies syscall_table_64.h and syscall_table_c32.h.
 
+Signed-off-by: Masahiro Yamada <masahiroy@kernel.org>
+---
+
+ arch/parisc/include/asm/Kbuild            |  1 -
+ arch/parisc/kernel/syscall.S              | 16 +++++-----
+ arch/parisc/kernel/syscalls/Makefile      | 19 ++++--------
+ arch/parisc/kernel/syscalls/syscalltbl.sh | 36 -----------------------
+ 4 files changed, 12 insertions(+), 60 deletions(-)
+ delete mode 100644 arch/parisc/kernel/syscalls/syscalltbl.sh
+
+diff --git a/arch/parisc/include/asm/Kbuild b/arch/parisc/include/asm/Kbuild
+index 4406475a2304..e6e7f74c8ac9 100644
+--- a/arch/parisc/include/asm/Kbuild
++++ b/arch/parisc/include/asm/Kbuild
+@@ -1,7 +1,6 @@
+ # SPDX-License-Identifier: GPL-2.0
+ generated-y += syscall_table_32.h
+ generated-y += syscall_table_64.h
+-generated-y += syscall_table_c32.h
+ generic-y += kvm_para.h
+ generic-y += mcs_spinlock.h
+ generic-y += user.h
+diff --git a/arch/parisc/kernel/syscall.S b/arch/parisc/kernel/syscall.S
+index 322503780db6..3f24a0af1e04 100644
+--- a/arch/parisc/kernel/syscall.S
++++ b/arch/parisc/kernel/syscall.S
+@@ -919,24 +919,24 @@ ENTRY(lws_table)
+ END(lws_table)
+ 	/* End of lws table */
+ 
++#ifdef CONFIG_64BIT
++#define __SYSCALL_WITH_COMPAT(nr, native, compat)	__SYSCALL(nr, compat)
++#else
++#define __SYSCALL_WITH_COMPAT(nr, native, compat)	__SYSCALL(nr, native)
++#endif
+ #define __SYSCALL(nr, entry)	ASM_ULONG_INSN entry
+ 	.align 8
+ ENTRY(sys_call_table)
+ 	.export sys_call_table,data
+-#ifdef CONFIG_64BIT
+-#include <asm/syscall_table_c32.h>   /* Compat syscalls */
+-#else
+-#include <asm/syscall_table_32.h>    /* 32-bit native syscalls */
+-#endif
++#include <asm/syscall_table_32.h>    /* 32-bit syscalls */
+ END(sys_call_table)
+ 
+ #ifdef CONFIG_64BIT
+ 	.align 8
+ ENTRY(sys_call_table64)
+-#include <asm/syscall_table_64.h>    /* 64-bit native syscalls */
++#include <asm/syscall_table_64.h>    /* 64-bit syscalls */
+ END(sys_call_table64)
+ #endif
+-#undef __SYSCALL
+ 
+ 	/*
+ 		All light-weight-syscall atomic operations 
+@@ -961,5 +961,3 @@ END(lws_lock_start)
+ 	.previous
+ 
+ .end
+-
+-
+diff --git a/arch/parisc/kernel/syscalls/Makefile b/arch/parisc/kernel/syscalls/Makefile
+index 556fe30a6c8f..77fea5beb9be 100644
+--- a/arch/parisc/kernel/syscalls/Makefile
++++ b/arch/parisc/kernel/syscalls/Makefile
+@@ -7,7 +7,7 @@ _dummy := $(shell [ -d '$(uapi)' ] || mkdir -p '$(uapi)')	\
+ 
+ syscall := $(srctree)/$(src)/syscall.tbl
+ syshdr := $(srctree)/$(src)/syscallhdr.sh
+-systbl := $(srctree)/$(src)/syscalltbl.sh
++systbl := $(srctree)/scripts/syscalltbl.sh
+ 
+ quiet_cmd_syshdr = SYSHDR  $@
+       cmd_syshdr = $(CONFIG_SHELL) '$(syshdr)' '$<' '$@'	\
+@@ -16,10 +16,7 @@ quiet_cmd_syshdr = SYSHDR  $@
+ 		   '$(syshdr_offset_$(basetarget))'
+ 
+ quiet_cmd_systbl = SYSTBL  $@
+-      cmd_systbl = $(CONFIG_SHELL) '$(systbl)' '$<' '$@'	\
+-		   '$(systbl_abis_$(basetarget))'		\
+-		   '$(systbl_abi_$(basetarget))'		\
+-		   '$(systbl_offset_$(basetarget))'
++      cmd_systbl = $(CONFIG_SHELL) $(systbl) $< $@ $(abis)
+ 
+ syshdr_abis_unistd_32 := common,32
+ $(uapi)/unistd_32.h: $(syscall) $(syshdr) FORCE
+@@ -29,23 +26,17 @@ syshdr_abis_unistd_64 := common,64
+ $(uapi)/unistd_64.h: $(syscall) $(syshdr) FORCE
+ 	$(call if_changed,syshdr)
+ 
+-systbl_abis_syscall_table_32 := common,32
++$(kapi)/syscall_table_32.h: abis := common,32
+ $(kapi)/syscall_table_32.h: $(syscall) $(systbl) FORCE
+ 	$(call if_changed,systbl)
+ 
+-systbl_abis_syscall_table_64 := common,64
++$(kapi)/syscall_table_64.h: abis := common,64
+ $(kapi)/syscall_table_64.h: $(syscall) $(systbl) FORCE
+ 	$(call if_changed,systbl)
+ 
+-systbl_abis_syscall_table_c32 := common,32
+-systbl_abi_syscall_table_c32 := c32
+-$(kapi)/syscall_table_c32.h: $(syscall) $(systbl) FORCE
+-	$(call if_changed,systbl)
+-
+ uapisyshdr-y		+= unistd_32.h unistd_64.h
+ kapisyshdr-y		+= syscall_table_32.h		\
+-			   syscall_table_64.h		\
+-			   syscall_table_c32.h
++			   syscall_table_64.h
+ 
+ uapisyshdr-y	:= $(addprefix $(uapi)/, $(uapisyshdr-y))
+ kapisyshdr-y	:= $(addprefix $(kapi)/, $(kapisyshdr-y))
+diff --git a/arch/parisc/kernel/syscalls/syscalltbl.sh b/arch/parisc/kernel/syscalls/syscalltbl.sh
+deleted file mode 100644
+index f7393a7b18aa..000000000000
+--- a/arch/parisc/kernel/syscalls/syscalltbl.sh
++++ /dev/null
+@@ -1,36 +0,0 @@
+-#!/bin/sh
+-# SPDX-License-Identifier: GPL-2.0
+-
+-in="$1"
+-out="$2"
+-my_abis=`echo "($3)" | tr ',' '|'`
+-my_abi="$4"
+-offset="$5"
+-
+-emit() {
+-	t_nxt="$1"
+-	t_nr="$2"
+-	t_entry="$3"
+-
+-	while [ $t_nxt -lt $t_nr ]; do
+-		printf "__SYSCALL(%s,sys_ni_syscall)\n" "${t_nxt}"
+-		t_nxt=$((t_nxt+1))
+-	done
+-	printf "__SYSCALL(%s,%s)\n" "${t_nxt}" "${t_entry}"
+-}
+-
+-grep -E "^[0-9A-Fa-fXx]+[[:space:]]+${my_abis}" "$in" | sort -n | (
+-	nxt=0
+-	if [ -z "$offset" ]; then
+-		offset=0
+-	fi
+-
+-	while read nr abi name entry compat ; do
+-		if [ "$my_abi" = "c32" ] && [ ! -z "$compat" ]; then
+-			emit $((nxt+offset)) $((nr+offset)) $compat
+-		else
+-			emit $((nxt+offset)) $((nr+offset)) $entry
+-		fi
+-		nxt=$((nr+1))
+-	done
+-) > "$out"
 -- 
-Jens Axboe
+2.27.0
