@@ -1,7 +1,7 @@
 From: Masahiro Yamada <masahiroy@kernel.org>
-Date: Thu, 28 Jan 2021 00:50:57 +0000
-Subject: [PATCH 15/27] mips: add missing FORCE and fix 'targets' to make if_changed work
-Message-Id: <20210128005110.2613902-16-masahiroy@kernel.org>
+Date: Thu, 28 Jan 2021 00:51:04 +0000
+Subject: [PATCH 22/27] sparc: add missing FORCE and fix 'targets' to make if_changed work
+Message-Id: <20210128005110.2613902-23-masahiroy@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20210128005110.2613902-1-masahiroy@kernel.org>
 In-Reply-To: <20210128005110.2613902-1-masahiroy@kernel.org>
@@ -23,77 +23,46 @@ Fix all of them so the if_changed rules work correctly.
 Signed-off-by: Masahiro Yamada <masahiroy@kernel.org>
 ---
 
- arch/mips/kernel/syscalls/Makefile | 27 ++++++++++++++-------------
- 1 file changed, 14 insertions(+), 13 deletions(-)
+ arch/sparc/kernel/syscalls/Makefile | 17 +++++++++--------
+ 1 file changed, 9 insertions(+), 8 deletions(-)
 
-diff --git a/arch/mips/kernel/syscalls/Makefile b/arch/mips/kernel/syscalls/Makefile
-index 6efb2f6889a7..f15842bda464 100644
---- a/arch/mips/kernel/syscalls/Makefile
-+++ b/arch/mips/kernel/syscalls/Makefile
-@@ -31,50 +31,50 @@ quiet_cmd_systbl = SYSTBL  $@
+diff --git a/arch/sparc/kernel/syscalls/Makefile b/arch/sparc/kernel/syscalls/Makefile
+index c22a21c39f30..556fe30a6c8f 100644
+--- a/arch/sparc/kernel/syscalls/Makefile
++++ b/arch/sparc/kernel/syscalls/Makefile
+@@ -22,24 +22,24 @@ quiet_cmd_systbl = SYSTBL  $@
  		   '$(systbl_offset_$(basetarget))'
  
- syshdr_offset_unistd_n32 := __NR_Linux
--$(uapi)/unistd_n32.h: $(syscalln32) $(syshdr)
-+$(uapi)/unistd_n32.h: $(syscalln32) $(syshdr) FORCE
+ syshdr_abis_unistd_32 := common,32
+-$(uapi)/unistd_32.h: $(syscall) $(syshdr)
++$(uapi)/unistd_32.h: $(syscall) $(syshdr) FORCE
  	$(call if_changed,syshdr)
  
- syshdr_offset_unistd_n64 := __NR_Linux
--$(uapi)/unistd_n64.h: $(syscalln64) $(syshdr)
-+$(uapi)/unistd_n64.h: $(syscalln64) $(syshdr) FORCE
+ syshdr_abis_unistd_64 := common,64
+-$(uapi)/unistd_64.h: $(syscall) $(syshdr)
++$(uapi)/unistd_64.h: $(syscall) $(syshdr) FORCE
  	$(call if_changed,syshdr)
  
- syshdr_offset_unistd_o32 := __NR_Linux
--$(uapi)/unistd_o32.h: $(syscallo32) $(syshdr)
-+$(uapi)/unistd_o32.h: $(syscallo32) $(syshdr) FORCE
- 	$(call if_changed,syshdr)
- 
- sysnr_pfx_unistd_nr_n32 := N32
- sysnr_offset_unistd_nr_n32 := 6000
--$(uapi)/unistd_nr_n32.h: $(syscalln32) $(sysnr)
-+$(uapi)/unistd_nr_n32.h: $(syscalln32) $(sysnr) FORCE
- 	$(call if_changed,sysnr)
- 
- sysnr_pfx_unistd_nr_n64 := 64
- sysnr_offset_unistd_nr_n64 := 5000
--$(uapi)/unistd_nr_n64.h: $(syscalln64) $(sysnr)
-+$(uapi)/unistd_nr_n64.h: $(syscalln64) $(sysnr) FORCE
- 	$(call if_changed,sysnr)
- 
- sysnr_pfx_unistd_nr_o32 := O32
- sysnr_offset_unistd_nr_o32 := 4000
--$(uapi)/unistd_nr_o32.h: $(syscallo32) $(sysnr)
-+$(uapi)/unistd_nr_o32.h: $(syscallo32) $(sysnr) FORCE
- 	$(call if_changed,sysnr)
- 
- systbl_abi_syscall_table_32_o32 := 32_o32
- systbl_offset_syscall_table_32_o32 := 4000
--$(kapi)/syscall_table_32_o32.h: $(syscallo32) $(systbl)
-+$(kapi)/syscall_table_32_o32.h: $(syscallo32) $(systbl) FORCE
+ systbl_abis_syscall_table_32 := common,32
+-$(kapi)/syscall_table_32.h: $(syscall) $(systbl)
++$(kapi)/syscall_table_32.h: $(syscall) $(systbl) FORCE
  	$(call if_changed,systbl)
  
- systbl_abi_syscall_table_64_n32 := 64_n32
- systbl_offset_syscall_table_64_n32 := 6000
--$(kapi)/syscall_table_64_n32.h: $(syscalln32) $(systbl)
-+$(kapi)/syscall_table_64_n32.h: $(syscalln32) $(systbl) FORCE
+ systbl_abis_syscall_table_64 := common,64
+-$(kapi)/syscall_table_64.h: $(syscall) $(systbl)
++$(kapi)/syscall_table_64.h: $(syscall) $(systbl) FORCE
  	$(call if_changed,systbl)
  
- systbl_abi_syscall_table_64_n64 := 64_n64
- systbl_offset_syscall_table_64_n64 := 5000
--$(kapi)/syscall_table_64_n64.h: $(syscalln64) $(systbl)
-+$(kapi)/syscall_table_64_n64.h: $(syscalln64) $(systbl) FORCE
+ systbl_abis_syscall_table_c32 := common,32
+ systbl_abi_syscall_table_c32 := c32
+-$(kapi)/syscall_table_c32.h: $(syscall) $(systbl)
++$(kapi)/syscall_table_c32.h: $(syscall) $(systbl) FORCE
  	$(call if_changed,systbl)
  
- systbl_abi_syscall_table_64_o32 := 64_o32
- systbl_offset_syscall_table_64_o32 := 4000
--$(kapi)/syscall_table_64_o32.h: $(syscallo32) $(systbl)
-+$(kapi)/syscall_table_64_o32.h: $(syscallo32) $(systbl) FORCE
- 	$(call if_changed,systbl)
- 
- uapisyshdr-y		+= unistd_n32.h			\
-@@ -88,9 +88,10 @@ kapisyshdr-y		+= syscall_table_32_o32.h	\
- 			   syscall_table_64_n64.h	\
- 			   syscall_table_64_o32.h
+ uapisyshdr-y		+= unistd_32.h unistd_64.h
+@@ -47,9 +47,10 @@ kapisyshdr-y		+= syscall_table_32.h		\
+ 			   syscall_table_64.h		\
+ 			   syscall_table_c32.h
  
 -targets	+= $(uapisyshdr-y) $(kapisyshdr-y)
 +uapisyshdr-y	:= $(addprefix $(uapi)/, $(uapisyshdr-y))
