@@ -1,25 +1,70 @@
-From: pr-tracker-bot@kernel.org
-Date: Mon, 18 Jan 2021 21:16:14 +0000
-Subject: Re: [GIT PULL] ia64: fix build regression
-Message-Id: <161100457442.30333.13712326819015812760.pr-tracker-bot@kernel.org>
+From: Masahiro Yamada <masahiroy@kernel.org>
+Date: Thu, 28 Jan 2021 00:50:44 +0000
+Subject: [PATCH 02/27] x86/syscalls: fix -Wmissing-prototypes warnings from COND_SYSCALL()
+Message-Id: <20210128005110.2613902-3-masahiroy@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210118113411.GM1106298@kernel.org>
-In-Reply-To: <20210118113411.GM1106298@kernel.org>
+References: <20210128005110.2613902-1-masahiroy@kernel.org>
+In-Reply-To: <20210128005110.2613902-1-masahiroy@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Mike Rapoport <rppt@kernel.org>
-Cc: Linus Torvalds <torvalds@linux-foundation.org>, Andrew Morton <akpm@linux-foundation.org>, Guenter Roeck <linux@roeck-us.net>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-arch@vger.kernel.org, x86@kernel.org
+Cc: linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-sh@vger.kernel.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, Masahiro Yamada <masahiroy@kernel.org>
 
-The pull request you sent on Mon, 18 Jan 2021 13:34:11 +0200:
+Building kernel/sys_ni.c with W=1 omits tons of -Wmissing-prototypes
+warnings.
 
-> https://git.kernel.org/pub/scm/linux/kernel/git/rppt/memblock tags/fixes-2021-01-18
+$ make W=1 kernel/sys_ni.o
+  [ snip ]
+  CC      kernel/sys_ni.o
+In file included from kernel/sys_ni.c:10:
+./arch/x86/include/asm/syscall_wrapper.h:83:14: warning: no previous prototype for '__x64_sys_io_setup' [-Wmissing-prototypes]
+   83 |  __weak long __##abi##_##name(const struct pt_regs *__unused) \
+      |              ^~
+./arch/x86/include/asm/syscall_wrapper.h:100:2: note: in expansion of macro '__COND_SYSCALL'
+  100 |  __COND_SYSCALL(x64, sys_##name)
+      |  ^~~~~~~~~~~~~~
+./arch/x86/include/asm/syscall_wrapper.h:256:2: note: in expansion of macro '__X64_COND_SYSCALL'
+  256 |  __X64_COND_SYSCALL(name)     \
+      |  ^~~~~~~~~~~~~~~~~~
+kernel/sys_ni.c:39:1: note: in expansion of macro 'COND_SYSCALL'
+   39 | COND_SYSCALL(io_setup);
+      | ^~~~~~~~~~~~
+./arch/x86/include/asm/syscall_wrapper.h:83:14: warning: no previous prototype for '__ia32_sys_io_setup' [-Wmissing-prototypes]
+   83 |  __weak long __##abi##_##name(const struct pt_regs *__unused) \
+      |              ^~
+./arch/x86/include/asm/syscall_wrapper.h:120:2: note: in expansion of macro '__COND_SYSCALL'
+  120 |  __COND_SYSCALL(ia32, sys_##name)
+      |  ^~~~~~~~~~~~~~
+./arch/x86/include/asm/syscall_wrapper.h:257:2: note: in expansion of macro '__IA32_COND_SYSCALL'
+  257 |  __IA32_COND_SYSCALL(name)
+      |  ^~~~~~~~~~~~~~~~~~~
+kernel/sys_ni.c:39:1: note: in expansion of macro 'COND_SYSCALL'
+   39 | COND_SYSCALL(io_setup);
+      | ^~~~~~~~~~~~
+  ...
 
-has been merged into torvalds/linux.git:
-https://git.kernel.org/torvalds/c/b4459f4413c890a35dfcecaff29d37ac65607d76
+__SYS_STUB0() and __SYS_STUBx() defined a few lines above have forward
+declarations. Let's do likewise for __COND_SYSCALL() to fix the
+warnings.
 
-Thank you!
+Signed-off-by: Masahiro Yamada <masahiroy@kernel.org>
+---
 
+ arch/x86/include/asm/syscall_wrapper.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/x86/include/asm/syscall_wrapper.h b/arch/x86/include/asm/syscall_wrapper.h
+index a84333adeef2..80c08c7d5e72 100644
+--- a/arch/x86/include/asm/syscall_wrapper.h
++++ b/arch/x86/include/asm/syscall_wrapper.h
+@@ -80,6 +80,7 @@ extern long __ia32_sys_ni_syscall(const struct pt_regs *regs);
+ 	}
+ 
+ #define __COND_SYSCALL(abi, name)					\
++	__weak long __##abi##_##name(const struct pt_regs *__unused);	\
+ 	__weak long __##abi##_##name(const struct pt_regs *__unused)	\
+ 	{								\
+ 		return sys_ni_syscall();				\
 -- 
-Deet-doot-dot, I am a bot.
-https://korg.docs.kernel.org/prtracker.html
+2.27.0
