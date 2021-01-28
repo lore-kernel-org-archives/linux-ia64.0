@@ -1,7 +1,7 @@
 From: Masahiro Yamada <masahiroy@kernel.org>
-Date: Thu, 28 Jan 2021 00:50:45 +0000
-Subject: [PATCH 03/27] x86/build: add missing FORCE and fix 'targets' to make if_changed work
-Message-Id: <20210128005110.2613902-4-masahiroy@kernel.org>
+Date: Thu, 28 Jan 2021 00:50:49 +0000
+Subject: [PATCH 07/27] alpha: add missing FORCE and fix 'targets' to make if_changed work
+Message-Id: <20210128005110.2613902-8-masahiroy@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20210128005110.2613902-1-masahiroy@kernel.org>
 In-Reply-To: <20210128005110.2613902-1-masahiroy@kernel.org>
@@ -23,69 +23,37 @@ Fix all of them so the if_changed rules work correctly.
 Signed-off-by: Masahiro Yamada <masahiroy@kernel.org>
 ---
 
- arch/x86/entry/syscalls/Makefile | 23 ++++++++++++-----------
- 1 file changed, 12 insertions(+), 11 deletions(-)
+ arch/alpha/kernel/syscalls/Makefile | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/arch/x86/entry/syscalls/Makefile b/arch/x86/entry/syscalls/Makefile
-index 6fb9b57ed5ba..e1c7ddb7546b 100644
---- a/arch/x86/entry/syscalls/Makefile
-+++ b/arch/x86/entry/syscalls/Makefile
-@@ -24,34 +24,34 @@ quiet_cmd_hypercalls = HYPERCALLS $@
-       cmd_hypercalls = $(CONFIG_SHELL) '$<' $@ $(filter-out $<,$^)
+diff --git a/arch/alpha/kernel/syscalls/Makefile b/arch/alpha/kernel/syscalls/Makefile
+index 659faefdcb1d..1c42d2d2926d 100644
+--- a/arch/alpha/kernel/syscalls/Makefile
++++ b/arch/alpha/kernel/syscalls/Makefile
+@@ -21,18 +21,19 @@ quiet_cmd_systbl = SYSTBL  $@
+ 		   '$(systbl_abi_$(basetarget))'		\
+ 		   '$(systbl_offset_$(basetarget))'
  
- syshdr_abi_unistd_32 := i386
--$(uapi)/unistd_32.h: $(syscall32) $(syshdr)
-+$(uapi)/unistd_32.h: $(syscall32) $(syshdr) FORCE
+-$(uapi)/unistd_32.h: $(syscall) $(syshdr)
++$(uapi)/unistd_32.h: $(syscall) $(syshdr) FORCE
  	$(call if_changed,syshdr)
  
- syshdr_abi_unistd_32_ia32 := i386
- syshdr_pfx_unistd_32_ia32 := ia32_
--$(out)/unistd_32_ia32.h: $(syscall32) $(syshdr)
-+$(out)/unistd_32_ia32.h: $(syscall32) $(syshdr) FORCE
- 	$(call if_changed,syshdr)
- 
- syshdr_abi_unistd_x32 := common,x32
- syshdr_offset_unistd_x32 := __X32_SYSCALL_BIT
--$(uapi)/unistd_x32.h: $(syscall64) $(syshdr)
-+$(uapi)/unistd_x32.h: $(syscall64) $(syshdr) FORCE
- 	$(call if_changed,syshdr)
- 
- syshdr_abi_unistd_64 := common,64
--$(uapi)/unistd_64.h: $(syscall64) $(syshdr)
-+$(uapi)/unistd_64.h: $(syscall64) $(syshdr) FORCE
- 	$(call if_changed,syshdr)
- 
- syshdr_abi_unistd_64_x32 := x32
- syshdr_pfx_unistd_64_x32 := x32_
--$(out)/unistd_64_x32.h: $(syscall64) $(syshdr)
-+$(out)/unistd_64_x32.h: $(syscall64) $(syshdr) FORCE
- 	$(call if_changed,syshdr)
- 
--$(out)/syscalls_32.h: $(syscall32) $(systbl)
-+$(out)/syscalls_32.h: $(syscall32) $(systbl) FORCE
- 	$(call if_changed,systbl)
--$(out)/syscalls_64.h: $(syscall64) $(systbl)
-+$(out)/syscalls_64.h: $(syscall64) $(systbl) FORCE
+-$(kapi)/syscall_table.h: $(syscall) $(systbl)
++$(kapi)/syscall_table.h: $(syscall) $(systbl) FORCE
  	$(call if_changed,systbl)
  
--$(out)/xen-hypercalls.h: $(srctree)/scripts/xen-hypercalls.sh
-+$(out)/xen-hypercalls.h: $(srctree)/scripts/xen-hypercalls.sh FORCE
- 	$(call if_changed,hypercalls)
+ uapisyshdr-y		+= unistd_32.h
+ kapisyshdr-y		+= syscall_table.h
  
- $(out)/xen-hypercalls.h: $(srctree)/include/xen/interface/xen*.h
-@@ -62,9 +62,10 @@ syshdr-$(CONFIG_X86_64)		+= unistd_32_ia32.h unistd_64_x32.h
- syshdr-$(CONFIG_X86_64)		+= syscalls_64.h
- syshdr-$(CONFIG_XEN)		+= xen-hypercalls.h
- 
--targets	+= $(uapisyshdr-y) $(syshdr-y)
+-targets	+= $(uapisyshdr-y) $(kapisyshdr-y)
 +uapisyshdr-y	:= $(addprefix $(uapi)/, $(uapisyshdr-y))
-+syshdr-y	:= $(addprefix $(out)/, $(syshdr-y))
-+targets		+= $(addprefix ../../../../, $(uapisyshdr-y) $(syshdr-y))
++kapisyshdr-y	:= $(addprefix $(kapi)/, $(kapisyshdr-y))
++targets		+= $(addprefix ../../../../, $(uapisyshdr-y) $(kapisyshdr-y))
  
  PHONY += all
 -all: $(addprefix $(uapi)/,$(uapisyshdr-y))
--all: $(addprefix $(out)/,$(syshdr-y))
-+all: $(uapisyshdr-y) $(syshdr-y)
+-all: $(addprefix $(kapi)/,$(kapisyshdr-y))
++all: $(uapisyshdr-y) $(kapisyshdr-y)
  	@:
 -- 
 2.27.0
