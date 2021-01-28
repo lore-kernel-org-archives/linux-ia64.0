@@ -1,7 +1,7 @@
 From: Masahiro Yamada <masahiroy@kernel.org>
-Date: Thu, 28 Jan 2021 00:50:47 +0000
-Subject: [PATCH 05/27] x86/syscalls: switch to generic syscalltbl.sh
-Message-Id: <20210128005110.2613902-6-masahiroy@kernel.org>
+Date: Thu, 28 Jan 2021 00:51:05 +0000
+Subject: [PATCH 23/27] sparc: syscalls: switch to generic syscalltbl.sh
+Message-Id: <20210128005110.2613902-24-masahiroy@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20210128005110.2613902-1-masahiroy@kernel.org>
 In-Reply-To: <20210128005110.2613902-1-masahiroy@kernel.org>
@@ -15,257 +15,170 @@ As of v5.11-rc1, 12 architectures duplicate similar shell scripts in
 order to generate syscall table headers. My goal is to unify them into
 the single scripts/syscalltbl.sh.
 
-This commit converts x86 and UML to use scripts/syscalltbl.sh.
-
-Currently, syscall_64.h mixes up x86_64 and x32 syscalls. This commit
-separates syscall_64.h and syscall_x32.h.
+This commit converts sparc to use scripts/syscalltbl.sh. This also
+unifies syscall_table_64.h and syscall_table_c32.h.
 
 Signed-off-by: Masahiro Yamada <masahiroy@kernel.org>
 ---
 
- arch/x86/entry/syscall_32.c           | 12 +++++--
- arch/x86/entry/syscall_64.c           |  9 ++----
- arch/x86/entry/syscall_x32.c          | 15 +++------
- arch/x86/entry/syscalls/Makefile      | 10 ++++--
- arch/x86/entry/syscalls/syscalltbl.sh | 46 ---------------------------
- arch/x86/include/asm/Kbuild           |  1 +
- arch/x86/um/sys_call_table_32.c       |  8 +++--
- arch/x86/um/sys_call_table_64.c       |  9 ++----
- 8 files changed, 34 insertions(+), 76 deletions(-)
- delete mode 100644 arch/x86/entry/syscalls/syscalltbl.sh
+ arch/sparc/include/asm/Kbuild            |  1 -
+ arch/sparc/kernel/syscalls/Makefile      | 19 ++++---------
+ arch/sparc/kernel/syscalls/syscalltbl.sh | 36 ------------------------
+ arch/sparc/kernel/systbls_32.S           |  4 +--
+ arch/sparc/kernel/systbls_64.S           |  8 ++++--
+ 5 files changed, 12 insertions(+), 56 deletions(-)
+ delete mode 100644 arch/sparc/kernel/syscalls/syscalltbl.sh
 
-diff --git a/arch/x86/entry/syscall_32.c b/arch/x86/entry/syscall_32.c
-index 86eb0d89d46f..70bf46e73b1c 100644
---- a/arch/x86/entry/syscall_32.c
-+++ b/arch/x86/entry/syscall_32.c
-@@ -8,12 +8,18 @@
- #include <asm/unistd.h>
- #include <asm/syscall.h>
+diff --git a/arch/sparc/include/asm/Kbuild b/arch/sparc/include/asm/Kbuild
+index aec20406145e..0b9d98ced34a 100644
+--- a/arch/sparc/include/asm/Kbuild
++++ b/arch/sparc/include/asm/Kbuild
+@@ -1,7 +1,6 @@
+ # SPDX-License-Identifier: GPL-2.0
+ generated-y += syscall_table_32.h
+ generated-y += syscall_table_64.h
+-generated-y += syscall_table_c32.h
+ generic-y += export.h
+ generic-y += kvm_para.h
+ generic-y += mcs_spinlock.h
+diff --git a/arch/sparc/kernel/syscalls/Makefile b/arch/sparc/kernel/syscalls/Makefile
+index 556fe30a6c8f..77fea5beb9be 100644
+--- a/arch/sparc/kernel/syscalls/Makefile
++++ b/arch/sparc/kernel/syscalls/Makefile
+@@ -7,7 +7,7 @@ _dummy := $(shell [ -d '$(uapi)' ] || mkdir -p '$(uapi)')	\
  
--#define __SYSCALL_I386(nr, sym) extern long __ia32_##sym(const struct pt_regs *);
-+#ifdef CONFIG_IA32_EMULATION
-+#define __SYSCALL_WITH_COMPAT(nr, native, compat)	__SYSCALL(nr, compat)
-+#else
-+#define __SYSCALL_WITH_COMPAT(nr, native, compat)	__SYSCALL(nr, native)
-+#endif
-+
-+#define __SYSCALL(nr, sym) extern long __ia32_##sym(const struct pt_regs *);
- 
- #include <asm/syscalls_32.h>
--#undef __SYSCALL_I386
-+#undef __SYSCALL
- 
--#define __SYSCALL_I386(nr, sym) [nr] = __ia32_##sym,
-+#define __SYSCALL(nr, sym) [nr] = __ia32_##sym,
- 
- __visible const sys_call_ptr_t ia32_sys_call_table[__NR_ia32_syscall_max+1] = {
- 	/*
-diff --git a/arch/x86/entry/syscall_64.c b/arch/x86/entry/syscall_64.c
-index 1594ec72bcbb..82670bb10931 100644
---- a/arch/x86/entry/syscall_64.c
-+++ b/arch/x86/entry/syscall_64.c
-@@ -8,14 +8,11 @@
- #include <asm/unistd.h>
- #include <asm/syscall.h>
- 
--#define __SYSCALL_X32(nr, sym)
--#define __SYSCALL_COMMON(nr, sym) __SYSCALL_64(nr, sym)
--
--#define __SYSCALL_64(nr, sym) extern long __x64_##sym(const struct pt_regs *);
-+#define __SYSCALL(nr, sym) extern long __x64_##sym(const struct pt_regs *);
- #include <asm/syscalls_64.h>
--#undef __SYSCALL_64
-+#undef __SYSCALL
- 
--#define __SYSCALL_64(nr, sym) [nr] = __x64_##sym,
-+#define __SYSCALL(nr, sym) [nr] = __x64_##sym,
- 
- asmlinkage const sys_call_ptr_t sys_call_table[__NR_syscall_max+1] = {
- 	/*
-diff --git a/arch/x86/entry/syscall_x32.c b/arch/x86/entry/syscall_x32.c
-index 3fea8fb9cd6a..6d2ef887d7b6 100644
---- a/arch/x86/entry/syscall_x32.c
-+++ b/arch/x86/entry/syscall_x32.c
-@@ -8,16 +8,11 @@
- #include <asm/unistd.h>
- #include <asm/syscall.h>
- 
--#define __SYSCALL_64(nr, sym)
-+#define __SYSCALL(nr, sym) extern long __x64_##sym(const struct pt_regs *);
-+#include <asm/syscalls_x32.h>
-+#undef __SYSCALL
- 
--#define __SYSCALL_X32(nr, sym) extern long __x64_##sym(const struct pt_regs *);
--#define __SYSCALL_COMMON(nr, sym) extern long __x64_##sym(const struct pt_regs *);
--#include <asm/syscalls_64.h>
--#undef __SYSCALL_X32
--#undef __SYSCALL_COMMON
--
--#define __SYSCALL_X32(nr, sym) [nr] = __x64_##sym,
--#define __SYSCALL_COMMON(nr, sym) [nr] = __x64_##sym,
-+#define __SYSCALL(nr, sym) [nr] = __x64_##sym,
- 
- asmlinkage const sys_call_ptr_t x32_sys_call_table[__NR_x32_syscall_max+1] = {
- 	/*
-@@ -25,5 +20,5 @@ asmlinkage const sys_call_ptr_t x32_sys_call_table[__NR_x32_syscall_max+1] = {
- 	 * when the & below is removed.
- 	 */
- 	[0 ... __NR_x32_syscall_max] = &__x64_sys_ni_syscall,
--#include <asm/syscalls_64.h>
-+#include <asm/syscalls_x32.h>
- };
-diff --git a/arch/x86/entry/syscalls/Makefile b/arch/x86/entry/syscalls/Makefile
-index e1c7ddb7546b..4409d148af1e 100644
---- a/arch/x86/entry/syscalls/Makefile
-+++ b/arch/x86/entry/syscalls/Makefile
-@@ -10,7 +10,7 @@ syscall32 := $(srctree)/$(src)/syscall_32.tbl
- syscall64 := $(srctree)/$(src)/syscall_64.tbl
- 
+ syscall := $(srctree)/$(src)/syscall.tbl
  syshdr := $(srctree)/$(src)/syscallhdr.sh
 -systbl := $(srctree)/$(src)/syscalltbl.sh
 +systbl := $(srctree)/scripts/syscalltbl.sh
  
  quiet_cmd_syshdr = SYSHDR  $@
-       cmd_syshdr = $(CONFIG_SHELL) '$(syshdr)' '$<' '$@' \
-@@ -18,7 +18,7 @@ quiet_cmd_syshdr = SYSHDR  $@
- 		   '$(syshdr_pfx_$(basetarget))' \
+       cmd_syshdr = $(CONFIG_SHELL) '$(syshdr)' '$<' '$@'	\
+@@ -16,10 +16,7 @@ quiet_cmd_syshdr = SYSHDR  $@
  		   '$(syshdr_offset_$(basetarget))'
+ 
  quiet_cmd_systbl = SYSTBL  $@
--      cmd_systbl = $(CONFIG_SHELL) '$(systbl)' $< $@
+-      cmd_systbl = $(CONFIG_SHELL) '$(systbl)' '$<' '$@'	\
+-		   '$(systbl_abis_$(basetarget))'		\
+-		   '$(systbl_abi_$(basetarget))'		\
+-		   '$(systbl_offset_$(basetarget))'
 +      cmd_systbl = $(CONFIG_SHELL) $(systbl) $< $@ $(abis)
  
- quiet_cmd_hypercalls = HYPERCALLS $@
-       cmd_hypercalls = $(CONFIG_SHELL) '$<' $@ $(filter-out $<,$^)
-@@ -46,10 +46,15 @@ syshdr_pfx_unistd_64_x32 := x32_
- $(out)/unistd_64_x32.h: $(syscall64) $(syshdr) FORCE
+ syshdr_abis_unistd_32 := common,32
+ $(uapi)/unistd_32.h: $(syscall) $(syshdr) FORCE
+@@ -29,23 +26,17 @@ syshdr_abis_unistd_64 := common,64
+ $(uapi)/unistd_64.h: $(syscall) $(syshdr) FORCE
  	$(call if_changed,syshdr)
  
-+$(out)/syscalls_32.h: abis := i386
- $(out)/syscalls_32.h: $(syscall32) $(systbl) FORCE
+-systbl_abis_syscall_table_32 := common,32
++$(kapi)/syscall_table_32.h: abis := common,32
+ $(kapi)/syscall_table_32.h: $(syscall) $(systbl) FORCE
  	$(call if_changed,systbl)
-+$(out)/syscalls_64.h: abis := common,64
- $(out)/syscalls_64.h: $(syscall64) $(systbl) FORCE
- 	$(call if_changed,systbl)
-+$(out)/syscalls_x32.h: abis := common,x32
-+$(out)/syscalls_x32.h: $(syscall64) $(systbl) FORCE
-+	$(call if_changed,systbl)
  
- $(out)/xen-hypercalls.h: $(srctree)/scripts/xen-hypercalls.sh FORCE
- 	$(call if_changed,hypercalls)
-@@ -60,6 +65,7 @@ uapisyshdr-y			+= unistd_32.h unistd_64.h unistd_x32.h
- syshdr-y			+= syscalls_32.h
- syshdr-$(CONFIG_X86_64)		+= unistd_32_ia32.h unistd_64_x32.h
- syshdr-$(CONFIG_X86_64)		+= syscalls_64.h
-+syshdr-$(CONFIG_X86_X32)	+= syscalls_x32.h
- syshdr-$(CONFIG_XEN)		+= xen-hypercalls.h
+-systbl_abis_syscall_table_64 := common,64
++$(kapi)/syscall_table_64.h: abis := common,64
+ $(kapi)/syscall_table_64.h: $(syscall) $(systbl) FORCE
+ 	$(call if_changed,systbl)
+ 
+-systbl_abis_syscall_table_c32 := common,32
+-systbl_abi_syscall_table_c32 := c32
+-$(kapi)/syscall_table_c32.h: $(syscall) $(systbl) FORCE
+-	$(call if_changed,systbl)
+-
+ uapisyshdr-y		+= unistd_32.h unistd_64.h
+ kapisyshdr-y		+= syscall_table_32.h		\
+-			   syscall_table_64.h		\
+-			   syscall_table_c32.h
++			   syscall_table_64.h
  
  uapisyshdr-y	:= $(addprefix $(uapi)/, $(uapisyshdr-y))
-diff --git a/arch/x86/entry/syscalls/syscalltbl.sh b/arch/x86/entry/syscalls/syscalltbl.sh
+ kapisyshdr-y	:= $(addprefix $(kapi)/, $(kapisyshdr-y))
+diff --git a/arch/sparc/kernel/syscalls/syscalltbl.sh b/arch/sparc/kernel/syscalls/syscalltbl.sh
 deleted file mode 100644
-index 929bde120d6b..000000000000
---- a/arch/x86/entry/syscalls/syscalltbl.sh
+index 77cf0143ba19..000000000000
+--- a/arch/sparc/kernel/syscalls/syscalltbl.sh
 +++ /dev/null
-@@ -1,46 +0,0 @@
--#!/bin/bash
+@@ -1,36 +0,0 @@
+-#!/bin/sh
 -# SPDX-License-Identifier: GPL-2.0
 -
 -in="$1"
 -out="$2"
--
--syscall_macro() {
--    local abi="$1"
--    local nr="$2"
--    local entry="$3"
--
--    echo "__SYSCALL_${abi}($nr, $entry)"
--}
+-my_abis=`echo "($3)" | tr ',' '|'`
+-my_abi="$4"
+-offset="$5"
 -
 -emit() {
--    local abi="$1"
--    local nr="$2"
--    local entry="$3"
--    local compat="$4"
+-	t_nxt="$1"
+-	t_nr="$2"
+-	t_entry="$3"
 -
--    if [ "$abi" != "I386" -a -n "$compat" ]; then
--	echo "a compat entry ($abi: $compat) for a 64-bit syscall makes no sense" >&2
--	exit 1
--    fi
--
--    if [ -z "$compat" ]; then
--	if [ -n "$entry" ]; then
--	    syscall_macro "$abi" "$nr" "$entry"
--	fi
--    else
--	echo "#ifdef CONFIG_X86_32"
--	if [ -n "$entry" ]; then
--	    syscall_macro "$abi" "$nr" "$entry"
--	fi
--	echo "#else"
--	syscall_macro "$abi" "$nr" "$compat"
--	echo "#endif"
--    fi
+-	while [ $t_nxt -lt $t_nr ]; do
+-		printf "__SYSCALL(%s, sys_nis_syscall, )\n" "${t_nxt}"
+-		t_nxt=$((t_nxt+1))
+-	done
+-	printf "__SYSCALL(%s, %s, )\n" "${t_nxt}" "${t_entry}"
 -}
 -
--grep '^[0-9]' "$in" | sort -n | (
--    while read nr abi name entry compat; do
--	abi=`echo "$abi" | tr '[a-z]' '[A-Z]'`
--	emit "$abi" "$nr" "$entry" "$compat"
--    done
--) > "$out"
-diff --git a/arch/x86/include/asm/Kbuild b/arch/x86/include/asm/Kbuild
-index b19ec8282d50..1e51650b79d7 100644
---- a/arch/x86/include/asm/Kbuild
-+++ b/arch/x86/include/asm/Kbuild
-@@ -3,6 +3,7 @@
- 
- generated-y += syscalls_32.h
- generated-y += syscalls_64.h
-+generated-y += syscalls_x32.h
- generated-y += unistd_32_ia32.h
- generated-y += unistd_64_x32.h
- generated-y += xen-hypercalls.h
-diff --git a/arch/x86/um/sys_call_table_32.c b/arch/x86/um/sys_call_table_32.c
-index 2ed81e581755..e83619c365dc 100644
---- a/arch/x86/um/sys_call_table_32.c
-+++ b/arch/x86/um/sys_call_table_32.c
-@@ -26,11 +26,13 @@
- 
- #define old_mmap sys_old_mmap
- 
--#define __SYSCALL_I386(nr, sym) extern asmlinkage long sym(unsigned long, unsigned long, unsigned long, unsigned long, unsigned long, unsigned long) ;
-+#define __SYSCALL_WITH_COMPAT(nr, native, compat)	__SYSCALL(nr, native)
-+
-+#define __SYSCALL(nr, sym) extern asmlinkage long sym(unsigned long, unsigned long, unsigned long, unsigned long, unsigned long, unsigned long);
- #include <asm/syscalls_32.h>
- 
--#undef __SYSCALL_I386
--#define __SYSCALL_I386(nr, sym) [ nr ] = sym,
-+#undef __SYSCALL
-+#define __SYSCALL(nr, sym) [ nr ] = sym,
- 
- extern asmlinkage long sys_ni_syscall(unsigned long, unsigned long, unsigned long, unsigned long, unsigned long, unsigned long);
- 
-diff --git a/arch/x86/um/sys_call_table_64.c b/arch/x86/um/sys_call_table_64.c
-index 2e8544dafbb0..6fb75af7cf54 100644
---- a/arch/x86/um/sys_call_table_64.c
-+++ b/arch/x86/um/sys_call_table_64.c
-@@ -36,14 +36,11 @@
- #define stub_execveat sys_execveat
- #define stub_rt_sigreturn sys_rt_sigreturn
- 
--#define __SYSCALL_X32(nr, sym)
--#define __SYSCALL_COMMON(nr, sym) __SYSCALL_64(nr, sym)
+-grep -E "^[0-9A-Fa-fXx]+[[:space:]]+${my_abis}" "$in" | sort -n | (
+-	nxt=0
+-	if [ -z "$offset" ]; then
+-		offset=0
+-	fi
 -
--#define __SYSCALL_64(nr, sym) extern asmlinkage long sym(unsigned long, unsigned long, unsigned long, unsigned long, unsigned long, unsigned long) ;
-+#define __SYSCALL(nr, sym) extern asmlinkage long sym(unsigned long, unsigned long, unsigned long, unsigned long, unsigned long, unsigned long);
- #include <asm/syscalls_64.h>
+-	while read nr abi name entry compat ; do
+-		if [ "$my_abi" = "c32" ] && [ ! -z "$compat" ]; then
+-			emit $((nxt+offset)) $((nr+offset)) $compat
+-		else
+-			emit $((nxt+offset)) $((nr+offset)) $entry
+-		fi
+-		nxt=$((nr+1))
+-	done
+-) > "$out"
+diff --git a/arch/sparc/kernel/systbls_32.S b/arch/sparc/kernel/systbls_32.S
+index ab9e4d57685a..3aaffa017706 100644
+--- a/arch/sparc/kernel/systbls_32.S
++++ b/arch/sparc/kernel/systbls_32.S
+@@ -9,10 +9,10 @@
+  * Copyright (C) 1995 Adrian M. Rodriguez (adrian@remus.rutgers.edu)
+  */
  
--#undef __SYSCALL_64
--#define __SYSCALL_64(nr, sym) [ nr ] = sym,
-+#undef __SYSCALL
-+#define __SYSCALL(nr, sym) [ nr ] = sym,
+-#define __SYSCALL(nr, entry, nargs) .long entry
++#define __SYSCALL_WITH_COMPAT(nr, native, compat)	__SYSCALL(nr, native)
++#define __SYSCALL(nr, entry) .long entry
+ 	.data
+ 	.align 4
+ 	.globl sys_call_table
+ sys_call_table:
+ #include <asm/syscall_table_32.h>	/* 32-bit native syscalls */
+-#undef __SYSCALL
+diff --git a/arch/sparc/kernel/systbls_64.S b/arch/sparc/kernel/systbls_64.S
+index a27394bf7d7f..398fe449dd34 100644
+--- a/arch/sparc/kernel/systbls_64.S
++++ b/arch/sparc/kernel/systbls_64.S
+@@ -10,18 +10,20 @@
+  * Copyright (C) 1995 Adrian M. Rodriguez (adrian@remus.rutgers.edu)
+  */
  
- extern asmlinkage long sys_ni_syscall(unsigned long, unsigned long, unsigned long, unsigned long, unsigned long, unsigned long);
+-#define __SYSCALL(nr, entry, nargs) .word entry
++#define __SYSCALL(nr, entry) .word entry
+ 	.text
+ 	.align	4
+ #ifdef CONFIG_COMPAT
+ 	.globl sys_call_table32
+ sys_call_table32:
+-#include <asm/syscall_table_c32.h>	/* Compat syscalls */
++#define __SYSCALL_WITH_COMPAT(nr, native, compat)	__SYSCALL(nr, compat)
++#include <asm/syscall_table_32.h>	/* Compat syscalls */
++#undef __SYSCALL_WITH_COMPAT
+ #endif /* CONFIG_COMPAT */
  
+ 	.align	4
+ 	.globl sys_call_table64, sys_call_table
+ sys_call_table64:
+ sys_call_table:
++#define __SYSCALL_WITH_COMPAT(nr, native, compat)	__SYSCALL(nr, native)
+ #include <asm/syscall_table_64.h>	/* 64-bit native syscalls */
+-#undef __SYSCALL
 -- 
 2.27.0
