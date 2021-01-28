@@ -1,7 +1,7 @@
 From: Masahiro Yamada <masahiroy@kernel.org>
-Date: Thu, 28 Jan 2021 00:50:49 +0000
-Subject: [PATCH 07/27] alpha: add missing FORCE and fix 'targets' to make if_changed work
-Message-Id: <20210128005110.2613902-8-masahiroy@kernel.org>
+Date: Thu, 28 Jan 2021 00:50:52 +0000
+Subject: [PATCH 10/27] ia64: syscalls: switch to generic syscalltbl.sh
+Message-Id: <20210128005110.2613902-11-masahiroy@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20210128005110.2613902-1-masahiroy@kernel.org>
 In-Reply-To: <20210128005110.2613902-1-masahiroy@kernel.org>
@@ -11,49 +11,105 @@ Content-Transfer-Encoding: 7bit
 To: linux-arch@vger.kernel.org, x86@kernel.org
 Cc: linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-sh@vger.kernel.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, Masahiro Yamada <masahiroy@kernel.org>
 
-The rules in this Makefile cannot detect the command line change because
-the prerequisite 'FORCE' is missing.
+As of v5.11-rc1, 12 architectures duplicate similar shell scripts in
+order to generate syscall table headers. My goal is to unify them into
+the single scripts/syscalltbl.sh.
 
-Adding 'FORCE' will result in the headers being rebuilt every time
-because the 'targets' addition is also wrong; the file paths in
-'targets' must be relative to the current Makefile.
-
-Fix all of them so the if_changed rules work correctly.
+This commit converts ia64 to use scripts/syscalltbl.sh.
 
 Signed-off-by: Masahiro Yamada <masahiroy@kernel.org>
 ---
 
- arch/alpha/kernel/syscalls/Makefile | 11 ++++++-----
- 1 file changed, 6 insertions(+), 5 deletions(-)
+ arch/ia64/kernel/entry.S                |  3 +--
+ arch/ia64/kernel/syscalls/Makefile      |  8 ++-----
+ arch/ia64/kernel/syscalls/syscalltbl.sh | 32 -------------------------
+ 3 files changed, 3 insertions(+), 40 deletions(-)
+ delete mode 100644 arch/ia64/kernel/syscalls/syscalltbl.sh
 
-diff --git a/arch/alpha/kernel/syscalls/Makefile b/arch/alpha/kernel/syscalls/Makefile
-index 659faefdcb1d..1c42d2d2926d 100644
---- a/arch/alpha/kernel/syscalls/Makefile
-+++ b/arch/alpha/kernel/syscalls/Makefile
-@@ -21,18 +21,19 @@ quiet_cmd_systbl = SYSTBL  $@
- 		   '$(systbl_abi_$(basetarget))'		\
- 		   '$(systbl_offset_$(basetarget))'
+diff --git a/arch/ia64/kernel/entry.S b/arch/ia64/kernel/entry.S
+index e98e3dafffd8..5eba3fb2e311 100644
+--- a/arch/ia64/kernel/entry.S
++++ b/arch/ia64/kernel/entry.S
+@@ -1420,10 +1420,9 @@ END(ftrace_stub)
  
--$(uapi)/unistd_32.h: $(syscall) $(syshdr)
-+$(uapi)/unistd_32.h: $(syscall) $(syshdr) FORCE
+ #endif /* CONFIG_FUNCTION_TRACER */
+ 
+-#define __SYSCALL(nr, entry, nargs) data8 entry
++#define __SYSCALL(nr, entry) data8 entry
+ 	.rodata
+ 	.align 8
+ 	.globl sys_call_table
+ sys_call_table:
+ #include <asm/syscall_table.h>
+-#undef __SYSCALL
+diff --git a/arch/ia64/kernel/syscalls/Makefile b/arch/ia64/kernel/syscalls/Makefile
+index b9bfd186295f..3f7e0bfae7e3 100644
+--- a/arch/ia64/kernel/syscalls/Makefile
++++ b/arch/ia64/kernel/syscalls/Makefile
+@@ -7,7 +7,7 @@ _dummy := $(shell [ -d '$(uapi)' ] || mkdir -p '$(uapi)')	\
+ 
+ syscall := $(srctree)/$(src)/syscall.tbl
+ syshdr := $(srctree)/$(src)/syscallhdr.sh
+-systbl := $(srctree)/$(src)/syscalltbl.sh
++systbl := $(srctree)/scripts/syscalltbl.sh
+ 
+ quiet_cmd_syshdr = SYSHDR  $@
+       cmd_syshdr = $(CONFIG_SHELL) '$(syshdr)' '$<' '$@'	\
+@@ -16,16 +16,12 @@ quiet_cmd_syshdr = SYSHDR  $@
+ 		   '$(syshdr_offset_$(basetarget))'
+ 
+ quiet_cmd_systbl = SYSTBL  $@
+-      cmd_systbl = $(CONFIG_SHELL) '$(systbl)' '$<' '$@'	\
+-		   '$(systbl_abis_$(basetarget))'		\
+-		   '$(systbl_abi_$(basetarget))'		\
+-		   '$(systbl_offset_$(basetarget))'
++      cmd_systbl = $(CONFIG_SHELL) $(systbl) $< $@ "" 1024
+ 
+ syshdr_offset_unistd_64 := __NR_Linux
+ $(uapi)/unistd_64.h: $(syscall) $(syshdr) FORCE
  	$(call if_changed,syshdr)
  
--$(kapi)/syscall_table.h: $(syscall) $(systbl)
-+$(kapi)/syscall_table.h: $(syscall) $(systbl) FORCE
+-systbl_offset_syscall_table := 1024
+ $(kapi)/syscall_table.h: $(syscall) $(systbl) FORCE
  	$(call if_changed,systbl)
  
- uapisyshdr-y		+= unistd_32.h
- kapisyshdr-y		+= syscall_table.h
- 
--targets	+= $(uapisyshdr-y) $(kapisyshdr-y)
-+uapisyshdr-y	:= $(addprefix $(uapi)/, $(uapisyshdr-y))
-+kapisyshdr-y	:= $(addprefix $(kapi)/, $(kapisyshdr-y))
-+targets		+= $(addprefix ../../../../, $(uapisyshdr-y) $(kapisyshdr-y))
- 
- PHONY += all
--all: $(addprefix $(uapi)/,$(uapisyshdr-y))
--all: $(addprefix $(kapi)/,$(kapisyshdr-y))
-+all: $(uapisyshdr-y) $(kapisyshdr-y)
- 	@:
+diff --git a/arch/ia64/kernel/syscalls/syscalltbl.sh b/arch/ia64/kernel/syscalls/syscalltbl.sh
+deleted file mode 100644
+index 85d78d9309ad..000000000000
+--- a/arch/ia64/kernel/syscalls/syscalltbl.sh
++++ /dev/null
+@@ -1,32 +0,0 @@
+-#!/bin/sh
+-# SPDX-License-Identifier: GPL-2.0
+-
+-in="$1"
+-out="$2"
+-my_abis=`echo "($3)" | tr ',' '|'`
+-my_abi="$4"
+-offset="$5"
+-
+-emit() {
+-	t_nxt="$1"
+-	t_nr="$2"
+-	t_entry="$3"
+-
+-	while [ $t_nxt -lt $t_nr ]; do
+-		printf "__SYSCALL(%s, sys_ni_syscall, )\n" "${t_nxt}"
+-		t_nxt=$((t_nxt+1))
+-	done
+-	printf "__SYSCALL(%s, %s, )\n" "${t_nxt}" "${t_entry}"
+-}
+-
+-grep -E "^[0-9A-Fa-fXx]+[[:space:]]+${my_abis}" "$in" | sort -n | (
+-	nxt=0
+-	if [ -z "$offset" ]; then
+-		offset=0
+-	fi
+-
+-	while read nr abi name entry ; do
+-		emit $((nxt+offset)) $((nr+offset)) $entry
+-		nxt=$((nr+1))
+-	done
+-) > "$out"
 -- 
 2.27.0
