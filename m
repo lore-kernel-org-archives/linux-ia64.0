@@ -1,82 +1,59 @@
-From: Mike Rapoport <rppt@kernel.org>
-Date: Thu, 14 Jan 2021 12:58:50 +0000
-Subject: Re: [PATCH] ia64: fix build failure caused by memory model changes
-Message-Id: <20210114125850.GJ1106298@kernel.org>
+From: Masahiro Yamada <masahiroy@kernel.org>
+Date: Thu, 28 Jan 2021 00:50:53 +0000
+Subject: [PATCH 11/27] m68k: add missing FORCE and fix 'targets' to make if_changed work
+Message-Id: <20210128005110.2613902-12-masahiroy@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20201218163550.8838-1-rppt@kernel.org>
-In-Reply-To: <20201218163550.8838-1-rppt@kernel.org>
+References: <20210128005110.2613902-1-masahiroy@kernel.org>
+In-Reply-To: <20210128005110.2613902-1-masahiroy@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>
-Cc: Guenter Roeck <linux@roeck-us.net>, Mike Rapoport <rppt@linux.ibm.com>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-arch@vger.kernel.org, x86@kernel.org
+Cc: linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-sh@vger.kernel.org, linux-um@lists.infradead.org, linux-xtensa@linux-xtensa.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, Masahiro Yamada <masahiroy@kernel.org>
 
-If there are no objections, I'll take it via the memblock tree.
+The rules in this Makefile cannot detect the command line change because
+the prerequisite 'FORCE' is missing.
 
-@Tony an ack would be appreciated.
+Adding 'FORCE' will result in the headers being rebuilt every time
+because the 'targets' addition is also wrong; the file paths in
+'targets' must be relative to the current Makefile.
 
-On Fri, Dec 18, 2020 at 06:35:50PM +0200, Mike Rapoport wrote:
-> From: Mike Rapoport <rppt@linux.ibm.com>
-> 
-> The change of ia64's default memory model to SPARSEMEM causes defconfig
-> build to fail:
-> 
->   CC      kernel/async.o
-> In file included from include/linux/numa.h:25,
->                  from include/linux/async.h:13,
->                  from kernel/async.c:47:
-> arch/ia64/include/asm/sparsemem.h:14:40: warning: "PAGE_SHIFT" is not defined, evaluates to 0 [-Wundef]
->    14 | #if ((CONFIG_FORCE_MAX_ZONEORDER - 1 + PAGE_SHIFT) > SECTION_SIZE_BITS)
->       |                                        ^~~~~~~~~~
-> In file included from include/linux/gfp.h:6,
->                  from include/linux/xarray.h:14,
->                  from include/linux/radix-tree.h:19,
->                  from include/linux/idr.h:15,
->                  from include/linux/kernfs.h:13,
->                  from include/linux/sysfs.h:16,
->                  from include/linux/kobject.h:20,
->                  from include/linux/energy_model.h:7,
->                  from include/linux/device.h:16,
->                  from include/linux/async.h:14,
->                  from kernel/async.c:47:
-> include/linux/mmzone.h:1156:2: error: #error Allocator MAX_ORDER exceeds SECTION_SIZE
->  1156 | #error Allocator MAX_ORDER exceeds SECTION_SIZE
->       |  ^~~~~
-> 
-> The error cause is the missing definition of PAGE_SHIFT in the calculation
-> of SECTION_SIZE_BITS.
-> 
-> Add include of <asm/page.h> to arch/ia64/include/asm/sparsemem.h to solve
-> the problem.
-> 
-> Fixes: 214496cb1870 ("ia64: make SPARSEMEM default and disable DISCONTIGMEM")
-> Reported-by: Guenter Roeck <linux@roeck-us.net>
-> Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
-> ---
-> 
-> Surprisingly, only Guenter's bot caught this.
-> 
-> @Andrew, if you prefer I can take this via memblock tree.
-> 
->  arch/ia64/include/asm/sparsemem.h | 1 +
->  1 file changed, 1 insertion(+)
-> 
-> diff --git a/arch/ia64/include/asm/sparsemem.h b/arch/ia64/include/asm/sparsemem.h
-> index dd8c166ffd7b..42ed5248fae9 100644
-> --- a/arch/ia64/include/asm/sparsemem.h
-> +++ b/arch/ia64/include/asm/sparsemem.h
-> @@ -3,6 +3,7 @@
->  #define _ASM_IA64_SPARSEMEM_H
->  
->  #ifdef CONFIG_SPARSEMEM
-> +#include <asm/page.h>
->  /*
->   * SECTION_SIZE_BITS            2^N: how big each section will be
->   * MAX_PHYSMEM_BITS             2^N: how much memory we can have in that space
-> -- 
-> 2.28.0
-> 
+Fix all of them so the if_changed rules work correctly.
 
+Signed-off-by: Masahiro Yamada <masahiroy@kernel.org>
+---
+
+ arch/m68k/kernel/syscalls/Makefile | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
+
+diff --git a/arch/m68k/kernel/syscalls/Makefile b/arch/m68k/kernel/syscalls/Makefile
+index 659faefdcb1d..1c42d2d2926d 100644
+--- a/arch/m68k/kernel/syscalls/Makefile
++++ b/arch/m68k/kernel/syscalls/Makefile
+@@ -21,18 +21,19 @@ quiet_cmd_systbl = SYSTBL  $@
+ 		   '$(systbl_abi_$(basetarget))'		\
+ 		   '$(systbl_offset_$(basetarget))'
+ 
+-$(uapi)/unistd_32.h: $(syscall) $(syshdr)
++$(uapi)/unistd_32.h: $(syscall) $(syshdr) FORCE
+ 	$(call if_changed,syshdr)
+ 
+-$(kapi)/syscall_table.h: $(syscall) $(systbl)
++$(kapi)/syscall_table.h: $(syscall) $(systbl) FORCE
+ 	$(call if_changed,systbl)
+ 
+ uapisyshdr-y		+= unistd_32.h
+ kapisyshdr-y		+= syscall_table.h
+ 
+-targets	+= $(uapisyshdr-y) $(kapisyshdr-y)
++uapisyshdr-y	:= $(addprefix $(uapi)/, $(uapisyshdr-y))
++kapisyshdr-y	:= $(addprefix $(kapi)/, $(kapisyshdr-y))
++targets		+= $(addprefix ../../../../, $(uapisyshdr-y) $(kapisyshdr-y))
+ 
+ PHONY += all
+-all: $(addprefix $(uapi)/,$(uapisyshdr-y))
+-all: $(addprefix $(kapi)/,$(kapisyshdr-y))
++all: $(uapisyshdr-y) $(kapisyshdr-y)
+ 	@:
 -- 
-Sincerely yours,
-Mike.
+2.27.0
