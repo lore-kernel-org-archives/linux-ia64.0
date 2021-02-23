@@ -1,34 +1,35 @@
-From: Masahiro Yamada <masahiroy@kernel.org>
-Date: Sun, 21 Feb 2021 17:14:47 +0000
-Subject: Re: [PATCH 1/2] arch: syscalls: add missing FORCE and fix 'targets' to make if_changed work
-Message-Id: <CAK7LNATvCAyHSUQNTdSck3JM1MfHNFcanjn0i4835okWE9Km5w@mail.gmail.com>
+From: "Ms. Reem" <johnpinto@jvpinto.com>
+Date: Tue, 23 Feb 2021 11:52:34 +0000
+Subject: Hello okay
+Message-Id: <933f089f49b04946b97b7d0f2a305064@RW-EXC1.JVPinto.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210215004823.440102-1-masahiroy@kernel.org>
-In-Reply-To: <20210215004823.440102-1-masahiroy@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linux Kbuild mailing list <linux-kbuild@vger.kernel.org>
-Cc: Geert Uytterhoeven <geert@linux-m68k.org>, Andy Lutomirski <luto@kernel.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Borislav Petkov <bp@alien8.de>, Chris Zankel <chris@zankel.net>, "David S. Miller" <davem@davemloft.net>, Fenghua Yu <fenghua.yu@intel.com>, "H. Peter Anvin" <hpa@zytor.com>, Helge Deller <deller@gmx.de>, Ingo Molnar <mingo@redhat.com>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Matt Turner <mattst88@gmail.com>, Max Filippov <jcmvbkbc@gmail.com>, Michael Ellerman <mpe@ellerman.id.au>, Michal Simek <monstr@monstr.eu>, Paul Mackerras <paulus@samba.org>, Rich Felker <dalias@libc.org>, Richard Henderson <rth@twiddle.net>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-m68k <linux-m68k@lists.linux-m68k.org>, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, Linux-sh list <linux-sh@vger.kernel.org>, "open list:TENSILICA XTENSA PORT (xtensa)" <linux-xtensa@linux-xtensa.org>, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, sparclinux <sparclinux@vger.kernel.org>, X86 ML <x86@kernel.org>
+To: linux-ia64@vger.kernel.org
 
-On Mon, Feb 15, 2021 at 9:50 AM Masahiro Yamada <masahiroy@kernel.org> wrote:
->
-> The rules in these Makefiles cannot detect the command line change
-> because the prerequisite 'FORCE' is missing.
->
-> Adding 'FORCE' will result in the headers being rebuilt every time
-> because the 'targets' additions are also wrong; the file paths in
-> 'targets' must be relative to the current Makefile.
->
-> Fix all of them so the if_changed rules work correctly.
->
-> Signed-off-by: Masahiro Yamada <masahiroy@kernel.org>
-> Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
+Hello,
 
+My name is Ms. Reem Ebrahim Al-Hashimi, I am the "Minister of state
+and Petroleum" also "Minister of State for International Cooperation"
+in UAE. I write to you on behalf of my other "three (3) colleagues"
+who has approved me to solicit for your "partnership in claiming of
+{us$47=Million}" from a Financial Home in Cambodia on their behalf and
+for our "Mutual Benefits".
 
-Both applied to linux-kbuild.
+The Fund {us$47=Million} is our share from the (over-invoiced) Oil/Gas
+deal with Cambodian/Vietnam Government within 2013/2014, however, we
+don't want our government to know about the fund. If this proposal
+interests you, let me know, by sending me an email and I will send to
+you detailed information on how this business would be successfully
+transacted. Be informed that nobody knows about the secret of this
+fund except us, and we know how to carry out the entire transaction.
+So I am compelled to ask, that you will stand on our behalf and
+receive this fund into any account that is solely controlled by you.
 
+We will compensate you with 15% of the total amount involved as
+gratification for being our partner in this transaction. Reply to:
+ms.reem@yandex.com
 
--- 
-Best Regards
-Masahiro Yamada
+Regards,
+Ms. Reem.
