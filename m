@@ -1,48 +1,47 @@
 From: Masahiro Yamada <masahiroy@kernel.org>
-Date: Sun, 14 Feb 2021 17:00:35 +0000
-Subject: Re: [PATCH 21/27] sparc: remove wrong comment from arch/sparc/include/asm/Kbuild
-Message-Id: <CAK7LNAQDcfqSCsCeG9+ytrJNfD5mS8OLS2uZS8WRBuTHRL1qRg@mail.gmail.com>
+Date: Sat, 27 Feb 2021 05:35:12 +0000
+Subject: [PATCH] ia64: add arch/ia64/Kbuild
+Message-Id: <20210227053512.4073366-1-masahiroy@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210128005110.2613902-1-masahiroy@kernel.org> <20210128005110.2613902-22-masahiroy@kernel.org>
-In-Reply-To: <20210128005110.2613902-22-masahiroy@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-arch <linux-arch@vger.kernel.org>, X86 ML <x86@kernel.org>
-Cc: Linux Kbuild mailing list <linux-kbuild@vger.kernel.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-alpha@vger.kernel.org, linux-arm-kernel <linux-arm-kernel@lists.infradead.org>, linux-ia64@vger.kernel.org, linux-m68k <linux-m68k@lists.linux-m68k.org>, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, Linux-sh list <linux-sh@vger.kernel.org>, linux-um@lists.infradead.org, "open list:TENSILICA XTENSA PORT (xtensa)" <linux-xtensa@linux-xtensa.org>, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, sparclinux <sparclinux@vger.kernel.org>
+To: linux-kbuild@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, Masahiro Yamada <masahiroy@kernel.org>, linux-ia64@vger.kernel.org
 
-On Thu, Jan 28, 2021 at 9:52 AM Masahiro Yamada <masahiroy@kernel.org> wrote:
->
-> These are NOT exported to userspace.
->
-> The headers listed in arch/sparc/include/uapi/asm/Kbuild are exported.
->
-> Signed-off-by: Masahiro Yamada <masahiroy@kernel.org>
+Use the standard obj-y form to specify the sub-directories under
+arch/ia64/. No functional change intended.
 
-Applied to linux-kbuild/fixes.
+Signed-off-by: Masahiro Yamada <masahiroy@kernel.org>
+---
 
+ arch/ia64/Kbuild   | 3 +++
+ arch/ia64/Makefile | 3 +--
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+ create mode 100644 arch/ia64/Kbuild
 
-> ---
->
->  arch/sparc/include/asm/Kbuild | 2 --
->  1 file changed, 2 deletions(-)
->
-> diff --git a/arch/sparc/include/asm/Kbuild b/arch/sparc/include/asm/Kbuild
-> index 3688fdae50e4..aec20406145e 100644
-> --- a/arch/sparc/include/asm/Kbuild
-> +++ b/arch/sparc/include/asm/Kbuild
-> @@ -1,6 +1,4 @@
->  # SPDX-License-Identifier: GPL-2.0
-> -# User exported sparc header files
-> -
->  generated-y += syscall_table_32.h
->  generated-y += syscall_table_64.h
->  generated-y += syscall_table_c32.h
-> --
-> 2.27.0
->
-
-
+diff --git a/arch/ia64/Kbuild b/arch/ia64/Kbuild
+new file mode 100644
+index 000000000000..e77cc76d228c
+--- /dev/null
++++ b/arch/ia64/Kbuild
+@@ -0,0 +1,3 @@
++# SPDX-License-Identifier: GPL-2.0-only
++obj-y				+= kernel/ mm/
++obj-$(CONFIG_IA64_SGI_UV)	+= uv/
+diff --git a/arch/ia64/Makefile b/arch/ia64/Makefile
+index 467b7e7f967c..096d5500e6a4 100644
+--- a/arch/ia64/Makefile
++++ b/arch/ia64/Makefile
+@@ -47,8 +47,7 @@ KBUILD_CFLAGS += $(cflags-y)
+ head-y := arch/ia64/kernel/head.o
+ 
+ libs-y				+= arch/ia64/lib/
+-core-y				+= arch/ia64/kernel/ arch/ia64/mm/
+-core-$(CONFIG_IA64_SGI_UV)	+= arch/ia64/uv/
++core-y				+= arch/ia64/
+ 
+ drivers-y			+= arch/ia64/pci/ arch/ia64/hp/common/
+ 
 -- 
-Best Regards
-Masahiro Yamada
+2.27.0
