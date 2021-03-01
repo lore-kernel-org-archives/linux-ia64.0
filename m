@@ -1,65 +1,95 @@
-From: Sergei Trofimovich <slyfox@gentoo.org>
-Date: Tue, 30 Mar 2021 07:19:57 +0000
-Subject: [PATCH v2 2/3] hpsa: fix boot on ia64 (atomic_t alignment)
-Message-Id: <20210330071958.3788214-2-slyfox@gentoo.org>
+From: Masahiro Yamada <masahiroy@kernel.org>
+Date: Mon, 01 Mar 2021 14:19:37 +0000
+Subject: [PATCH 2/2] ia64: syscalls: switch to generic syscallhdr.sh
+Message-Id: <20210301141937.342604-2-masahiroy@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <yq1wntpgxxr.fsf@ca-mkp.ca.oracle.com>
- <20210330071958.3788214-1-slyfox@gentoo.org>
-In-Reply-To: <20210330071958.3788214-1-slyfox@gentoo.org>
+References: <20210301141937.342604-1-masahiroy@kernel.org>
+In-Reply-To: <20210301141937.342604-1-masahiroy@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Martin K. Petersen" <martin.petersen@oracle.com>, Arnd Bergmann <arnd@kernel.org>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, Don Brace <don.brace@microchip.com>, linux-ia64@vger.kernel.org, storagedev@microchip.com, linux-scsi <linux-scsi@vger.kernel.org>, jszczype@redhat.com, Scott Benesh <scott.benesh@microchip.com>, Scott Teel <scott.teel@microchip.com>, thenzl@redhat.com
-Cc: linux-kernel@vger.kernel.org, Sergei Trofimovich <slyfox@gentoo.org>
+To: linux-ia64@vger.kernel.org
+Cc: linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org, Masahiro Yamada <masahiroy@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Max Filippov <jcmvbkbc@gmail.com>, Michal Simek <michal.simek@xilinx.com>, Stefan Asserhall <stefan.asserhall@xilinx.com>
 
-The failure initially observed as boot failure on rx3600 ia64 machine
-with RAID bus controller: Hewlett-Packard Company Smart Array P600:
+Many architectures duplicate similar shell scripts.
 
-    kernel unaligned access to 0xe000000105dd8b95, ip=0xa000000100b87551
-    kernel unaligned access to 0xe000000105dd8e95, ip=0xa000000100b87551
-    hpsa 0000:14:01.0: Controller reports max supported commands of 0 Using 16 instead. Ensure that firmware is up to date.
-    swapper/0[1]: error during unaligned kernel access
+This commit converts ia64 to use scripts/syscallhdr.sh.
 
-Here unaligned access comes from 'struct CommandList' that happens
-to be packed. The change f749d8b7a ("scsi: hpsa: Correct dev cmds
-outstanding for retried cmds") introduced unexpected padding and
-un-aligned atomic_t from natural alignment to something else.
-
-This change removes packing annotation from struct not intended to be
-sent to controller as is. This restores natural `atomic_t` alignment.
-
-The change is tested on the same rx3600 machine.
-
-CC: linux-ia64@vger.kernel.org
-CC: linux-kernel@vger.kernel.org
-CC: storagedev@microchip.com
-CC: linux-scsi@vger.kernel.org
-CC: Joe Szczypek <jszczype@redhat.com>
-CC: Scott Benesh <scott.benesh@microchip.com>
-CC: Scott Teel <scott.teel@microchip.com>
-CC: Tomas Henzl <thenzl@redhat.com>
-CC: "Martin K. Petersen" <martin.petersen@oracle.com>
-CC: Don Brace <don.brace@microchip.com>
-Reported-by: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
-Suggested-by: Don Brace <don.brace@microchip.com>
-Fixes: f749d8b7a "scsi: hpsa: Correct dev cmds outstanding for retried cmds"
-Signed-off-by: Sergei Trofimovich <slyfox@gentoo.org>
+Signed-off-by: Masahiro Yamada <masahiroy@kernel.org>
 ---
- drivers/scsi/hpsa_cmd.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/scsi/hpsa_cmd.h b/drivers/scsi/hpsa_cmd.h
-index 280e933d27e7..885b1f1fb20a 100644
---- a/drivers/scsi/hpsa_cmd.h
-+++ b/drivers/scsi/hpsa_cmd.h
-@@ -452,7 +452,7 @@ struct CommandList {
- 	bool retry_pending;
- 	struct hpsa_scsi_dev_t *device;
- 	atomic_t refcount; /* Must be last to avoid memset in hpsa_cmd_init() */
--} __packed __aligned(COMMANDLIST_ALIGNMENT);
-+} __aligned(COMMANDLIST_ALIGNMENT);
+ arch/ia64/kernel/syscalls/Makefile      |  8 ++----
+ arch/ia64/kernel/syscalls/syscallhdr.sh | 36 -------------------------
+ 2 files changed, 2 insertions(+), 42 deletions(-)
+ delete mode 100644 arch/ia64/kernel/syscalls/syscallhdr.sh
+
+diff --git a/arch/ia64/kernel/syscalls/Makefile b/arch/ia64/kernel/syscalls/Makefile
+index 2d2e420749b0..14f40ecf8b65 100644
+--- a/arch/ia64/kernel/syscalls/Makefile
++++ b/arch/ia64/kernel/syscalls/Makefile
+@@ -6,19 +6,15 @@ _dummy := $(shell [ -d '$(uapi)' ] || mkdir -p '$(uapi)')	\
+ 	  $(shell [ -d '$(kapi)' ] || mkdir -p '$(kapi)')
  
- /* Max S/G elements in I/O accelerator command */
- #define IOACCEL1_MAXSGENTRIES           24
+ syscall := $(src)/syscall.tbl
+-syshdr := $(srctree)/$(src)/syscallhdr.sh
++syshdr := $(srctree)/scripts/syscallhdr.sh
+ systbl := $(srctree)/scripts/syscalltbl.sh
+ 
+ quiet_cmd_syshdr = SYSHDR  $@
+-      cmd_syshdr = $(CONFIG_SHELL) '$(syshdr)' '$<' '$@'	\
+-		   '$(syshdr_abis_$(basetarget))'		\
+-		   '$(syshdr_pfx_$(basetarget))'		\
+-		   '$(syshdr_offset_$(basetarget))'
++      cmd_syshdr = $(CONFIG_SHELL) $(syshdr) --emit-nr --offset __NR_Linux $< $@
+ 
+ quiet_cmd_systbl = SYSTBL  $@
+       cmd_systbl = $(CONFIG_SHELL) $(systbl) $< $@
+ 
+-syshdr_offset_unistd_64 := __NR_Linux
+ $(uapi)/unistd_64.h: $(syscall) $(syshdr) FORCE
+ 	$(call if_changed,syshdr)
+ 
+diff --git a/arch/ia64/kernel/syscalls/syscallhdr.sh b/arch/ia64/kernel/syscalls/syscallhdr.sh
+deleted file mode 100644
+index f407b6e53283..000000000000
+--- a/arch/ia64/kernel/syscalls/syscallhdr.sh
++++ /dev/null
+@@ -1,36 +0,0 @@
+-#!/bin/sh
+-# SPDX-License-Identifier: GPL-2.0
+-
+-in="$1"
+-out="$2"
+-my_abis=`echo "($3)" | tr ',' '|'`
+-prefix="$4"
+-offset="$5"
+-
+-fileguard=_UAPI_ASM_IA64_`basename "$out" | sed \
+-	-e 'y/abcdefghijklmnopqrstuvwxyz/ABCDEFGHIJKLMNOPQRSTUVWXYZ/' \
+-	-e 's/[^A-Z0-9_]/_/g' -e 's/__/_/g'`
+-grep -E "^[0-9A-Fa-fXx]+[[:space:]]+${my_abis}" "$in" | sort -n | (
+-	printf "#ifndef %s\n" "${fileguard}"
+-	printf "#define %s\n" "${fileguard}"
+-	printf "\n"
+-
+-	nxt=0
+-	while read nr abi name entry ; do
+-		if [ -z "$offset" ]; then
+-			printf "#define __NR_%s%s\t%s\n" \
+-				"${prefix}" "${name}" "${nr}"
+-		else
+-			printf "#define __NR_%s%s\t(%s + %s)\n" \
+-				"${prefix}" "${name}" "${offset}" "${nr}"
+-		fi
+-		nxt=$((nr+1))
+-	done
+-
+-	printf "\n"
+-	printf "#ifdef __KERNEL__\n"
+-	printf "#define __NR_syscalls\t%s\n" "${nxt}"
+-	printf "#endif\n"
+-	printf "\n"
+-	printf "#endif /* %s */\n" "${fileguard}"
+-) > "$out"
 -- 
-2.31.1
+2.27.0
