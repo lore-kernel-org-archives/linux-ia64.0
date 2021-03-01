@@ -1,65 +1,111 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Mon, 22 Mar 2021 06:39:55 +0000
-Subject: [PATCH -tip v4 01/12] ia64: kprobes: Fix to pass correct trampoline address to the handler
-Message-Id: <161639519485.895304.12333883738312999681.stgit@devnote2>
+From: Masahiro Yamada <masahiroy@kernel.org>
+Date: Mon, 01 Mar 2021 14:19:36 +0000
+Subject: [PATCH 1/2] ia64: syscalls: switch to generic syscalltbl.sh
+Message-Id: <20210301141937.342604-1-masahiroy@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <161639518354.895304.15627519393073806809.stgit@devnote2>
-In-Reply-To: <161639518354.895304.15627519393073806809.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>
-Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, Josh Poimboeuf <jpoimboe@redhat.com>, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>
+To: linux-ia64@vger.kernel.org
+Cc: linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org, Masahiro Yamada <masahiroy@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Christian Brauner <christian.brauner@ubuntu.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Mike Rapoport <rppt@kernel.org>
 
-Commit e792ff804f49 ("ia64: kprobes: Use generic kretprobe trampoline handler")
-missed to pass the wrong trampoline address (it passes the descriptor address
-instead of function entry address).
-This fixes it to pass correct trampoline address to __kretprobe_trampoline_handler().
-This also changes to use correct symbol dereference function to get the
-function address from the kretprobe_trampoline.
+Many architectures duplicate similar shell scripts.
 
-Fixes: e792ff804f49 ("ia64: kprobes: Use generic kretprobe trampoline handler")
-Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
+This commit converts ia64 to use scripts/syscalltbl.sh.
+
+Signed-off-by: Masahiro Yamada <masahiroy@kernel.org>
 ---
- arch/ia64/kernel/kprobes.c |    9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/arch/ia64/kernel/kprobes.c b/arch/ia64/kernel/kprobes.c
-index fc1ff8a4d7de..006fbc1d7ae9 100644
---- a/arch/ia64/kernel/kprobes.c
-+++ b/arch/ia64/kernel/kprobes.c
-@@ -398,7 +398,8 @@ static void kretprobe_trampoline(void)
+ arch/ia64/kernel/entry.S                |  3 +--
+ arch/ia64/kernel/syscalls/Makefile      |  8 ++-----
+ arch/ia64/kernel/syscalls/syscalltbl.sh | 32 -------------------------
+ 3 files changed, 3 insertions(+), 40 deletions(-)
+ delete mode 100644 arch/ia64/kernel/syscalls/syscalltbl.sh
+
+diff --git a/arch/ia64/kernel/entry.S b/arch/ia64/kernel/entry.S
+index e98e3dafffd8..5eba3fb2e311 100644
+--- a/arch/ia64/kernel/entry.S
++++ b/arch/ia64/kernel/entry.S
+@@ -1420,10 +1420,9 @@ END(ftrace_stub)
  
- int __kprobes trampoline_probe_handler(struct kprobe *p, struct pt_regs *regs)
- {
--	regs->cr_iip = __kretprobe_trampoline_handler(regs, kretprobe_trampoline, NULL);
-+	regs->cr_iip = __kretprobe_trampoline_handler(regs,
-+		dereference_function_descriptor(kretprobe_trampoline), NULL);
- 	/*
- 	 * By returning a non-zero value, we are telling
- 	 * kprobe_handler() that we don't want the post_handler
-@@ -414,7 +415,7 @@ void __kprobes arch_prepare_kretprobe(struct kretprobe_instance *ri,
- 	ri->fp = NULL;
+ #endif /* CONFIG_FUNCTION_TRACER */
  
- 	/* Replace the return addr with trampoline addr */
--	regs->b0 = ((struct fnptr *)kretprobe_trampoline)->ip;
-+	regs->b0 = (unsigned long)dereference_function_descriptor(kretprobe_trampoline);
- }
+-#define __SYSCALL(nr, entry, nargs) data8 entry
++#define __SYSCALL(nr, entry) data8 entry
+ 	.rodata
+ 	.align 8
+ 	.globl sys_call_table
+ sys_call_table:
+ #include <asm/syscall_table.h>
+-#undef __SYSCALL
+diff --git a/arch/ia64/kernel/syscalls/Makefile b/arch/ia64/kernel/syscalls/Makefile
+index bf4bda0f63eb..2d2e420749b0 100644
+--- a/arch/ia64/kernel/syscalls/Makefile
++++ b/arch/ia64/kernel/syscalls/Makefile
+@@ -7,7 +7,7 @@ _dummy := $(shell [ -d '$(uapi)' ] || mkdir -p '$(uapi)')	\
  
- /* Check the instruction in the slot is break */
-@@ -918,14 +919,14 @@ static struct kprobe trampoline_p = {
- int __init arch_init_kprobes(void)
- {
- 	trampoline_p.addr -		(kprobe_opcode_t *)((struct fnptr *)kretprobe_trampoline)->ip;
-+		dereference_function_description(kretprobe_trampoline);
- 	return register_kprobe(&trampoline_p);
- }
+ syscall := $(src)/syscall.tbl
+ syshdr := $(srctree)/$(src)/syscallhdr.sh
+-systbl := $(srctree)/$(src)/syscalltbl.sh
++systbl := $(srctree)/scripts/syscalltbl.sh
  
- int __kprobes arch_trampoline_kprobe(struct kprobe *p)
- {
- 	if (p->addr =
--		(kprobe_opcode_t *)((struct fnptr *)kretprobe_trampoline)->ip)
-+		dereference_function_descriptor(kretprobe_trampoline))
- 		return 1;
+ quiet_cmd_syshdr = SYSHDR  $@
+       cmd_syshdr = $(CONFIG_SHELL) '$(syshdr)' '$<' '$@'	\
+@@ -16,16 +16,12 @@ quiet_cmd_syshdr = SYSHDR  $@
+ 		   '$(syshdr_offset_$(basetarget))'
  
- 	return 0;
+ quiet_cmd_systbl = SYSTBL  $@
+-      cmd_systbl = $(CONFIG_SHELL) '$(systbl)' '$<' '$@'	\
+-		   '$(systbl_abis_$(basetarget))'		\
+-		   '$(systbl_abi_$(basetarget))'		\
+-		   '$(systbl_offset_$(basetarget))'
++      cmd_systbl = $(CONFIG_SHELL) $(systbl) $< $@
+ 
+ syshdr_offset_unistd_64 := __NR_Linux
+ $(uapi)/unistd_64.h: $(syscall) $(syshdr) FORCE
+ 	$(call if_changed,syshdr)
+ 
+-systbl_offset_syscall_table := 1024
+ $(kapi)/syscall_table.h: $(syscall) $(systbl) FORCE
+ 	$(call if_changed,systbl)
+ 
+diff --git a/arch/ia64/kernel/syscalls/syscalltbl.sh b/arch/ia64/kernel/syscalls/syscalltbl.sh
+deleted file mode 100644
+index 85d78d9309ad..000000000000
+--- a/arch/ia64/kernel/syscalls/syscalltbl.sh
++++ /dev/null
+@@ -1,32 +0,0 @@
+-#!/bin/sh
+-# SPDX-License-Identifier: GPL-2.0
+-
+-in="$1"
+-out="$2"
+-my_abis=`echo "($3)" | tr ',' '|'`
+-my_abi="$4"
+-offset="$5"
+-
+-emit() {
+-	t_nxt="$1"
+-	t_nr="$2"
+-	t_entry="$3"
+-
+-	while [ $t_nxt -lt $t_nr ]; do
+-		printf "__SYSCALL(%s, sys_ni_syscall, )\n" "${t_nxt}"
+-		t_nxt=$((t_nxt+1))
+-	done
+-	printf "__SYSCALL(%s, %s, )\n" "${t_nxt}" "${t_entry}"
+-}
+-
+-grep -E "^[0-9A-Fa-fXx]+[[:space:]]+${my_abis}" "$in" | sort -n | (
+-	nxt=0
+-	if [ -z "$offset" ]; then
+-		offset=0
+-	fi
+-
+-	while read nr abi name entry ; do
+-		emit $((nxt+offset)) $((nr+offset)) $entry
+-		nxt=$((nr+1))
+-	done
+-) > "$out"
+-- 
+2.27.0
