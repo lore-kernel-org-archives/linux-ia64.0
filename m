@@ -1,33 +1,109 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Date: Fri, 19 Mar 2021 14:54:29 +0000
-Subject: Re: [PATCH RFC 2/3] mm: remove xlate_dev_kmem_ptr()
-Message-Id: <CAMuHMdVP433iVhyaweDd8G6p3ZCgSDq6M_ACko_BTgm+5m0qnA@mail.gmail.com>
+From: Sergei Trofimovich <slyich@gmail.com>
+Date: Tue, 02 Mar 2021 23:40:31 +0000
+Subject: Re: [PATCH] ia64: fix ia64_syscall_get_set_arguments() for break-based syscalls
+Message-Id: <20210302234024.73bf0c14@sf>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210319143452.25948-1-david@redhat.com> <20210319143452.25948-3-david@redhat.com>
-In-Reply-To: <20210319143452.25948-3-david@redhat.com>
+References: <20210221002554.333076-1-slyfox@gentoo.org>
+In-Reply-To: <20210221002554.333076-1-slyfox@gentoo.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Hildenbrand <david@redhat.com>
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Linux MM <linux-mm@kvack.org>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Russell King <linux@armlinux.org.uk>, Brian Cain <bcain@codeaurora.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Helge Deller <deller@gmx.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Christian Borntraeger <borntraeger@de.ibm.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, "David S. Miller" <davem@davemloft.net>, Arnd Bergmann <arnd@arndb.de>, Andrew Morton <akpm@linux-foundation.org>, Krzysztof Kozlowski <krzk@kernel.org>, Mikulas Patocka <mpatocka@redhat.com>, Luc Van Oostenryck <luc.vanoostenryck@gmail.com>, Mike Rapoport <rppt@kernel.org>, Palmer Dabbelt <palmerdabbelt@google.com>, Luis Chamberlain <mcgrof@kernel.org>, Greentime Hu <green.hu@gmail.com>, Sebastian Andrzej Siewior <bigeasy@linutronix.de>, Randy Dunlap <rdunlap@infradead.org>, Jiaxun Yang <jiaxun.yang@flygoat.com>, "Peter Zijlstra (Intel)" <peterz@infradead.org>, Christophe Leroy <christophe.leroy@csgroup.eu>, Gerald Schaefer <gerald.schaefer@linux.ibm.com>, Niklas Schnelle <schnelle@linux.ibm.com>, Pierre Morel <pmorel@linux.ibm.com>, Ingo Molnar <mingo@kernel.org>, Kuninori Morimoto <kuninori.morimoto.gx@renesas.com>, alpha <linux-alpha@vger.kernel.org>, Linux ARM <linux-arm-kernel@lists.infradead.org>, "open list:QUALCOMM HEXAGON..." <linux-hexagon@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, linux-m68k <linux-m68k@lists.linux-m68k.org>, "open list:BROADCOM NVRAM DRIVER" <linux-mips@vger.kernel.org>, Parisc List <linux-parisc@vger.kernel.org>, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, linux-s390 <linux-s390@vger.kernel.org>, Linux-sh list <linux-sh@vger.kernel.org>, sparclinux <sparclinux@vger.kernel.org>, Linux-Arch <linux-arch@vger.kernel.org>
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: linux-kernel@vger.kernel.org, Oleg Nesterov <oleg@redhat.com>, linux-ia64@vger.kernel.org, "Dmitry V . Levin" <ldv@altlinux.org>
 
-On Fri, Mar 19, 2021 at 3:36 PM David Hildenbrand <david@redhat.com> wrote:
-> Since /dev/kmem has been removed, let's remove the xlate_dev_kmem_ptr()
-> leftovers.
+On Sun, 21 Feb 2021 00:25:53 +0000
+Sergei Trofimovich <slyfox@gentoo.org> wrote:
 
-> Signed-off-by: David Hildenbrand <david@redhat.com>
+> In https://bugs.gentoo.org/769614 Dmitry noticed that
+> `ptrace(PTRACE_GET_SYSCALL_INFO)` does not work for syscalls called
+> via glibc's syscall() wrapper.
+> 
+> ia64 has two ways to call syscalls from userspace: via `break` and via
+> `eps` instructions.
+> 
+> The difference is in stack layout:
+> 
+> 1. `eps` creates simple stack frame: no locals, in{0..7} = out{0..8}
+> 2. `break` uses userspace stack frame: may be locals (glibc provides
+>    one), in{0..7} = out{0..8}.
+> 
+> Both work fine in syscall handling cde itself.
+> 
+> But `ptrace(PTRACE_GET_SYSCALL_INFO)` uses unwind mechanism to
+> re-extract syscall arguments but it does not account for locals.
+> 
+> The change always skips locals registers. It should not change `eps`
+> path as kernel's handler already enforces locals=0 and fixes `break`.
+> 
+> Tested on v5.10 on rx3600 machine (ia64 9040 CPU).
+> 
+> CC: Oleg Nesterov <oleg@redhat.com>
+> CC: linux-ia64@vger.kernel.org
+> CC: linux-kernel@vger.kernel.org
+> CC: Andrew Morton <akpm@linux-foundation.org>
+> Reported-by: Dmitry V. Levin <ldv@altlinux.org>
+> Bug: https://bugs.gentoo.org/769614
+> Signed-off-by: Sergei Trofimovich <slyfox@gentoo.org>
+> ---
+>  arch/ia64/kernel/ptrace.c | 24 ++++++++++++++++++------
+>  1 file changed, 18 insertions(+), 6 deletions(-)
+> 
+> diff --git a/arch/ia64/kernel/ptrace.c b/arch/ia64/kernel/ptrace.c
+> index c3490ee2daa5..e14f5653393a 100644
+> --- a/arch/ia64/kernel/ptrace.c
+> +++ b/arch/ia64/kernel/ptrace.c
+> @@ -2013,27 +2013,39 @@ static void syscall_get_set_args_cb(struct unw_frame_info *info, void *data)
+>  {
+>  	struct syscall_get_set_args *args = data;
+>  	struct pt_regs *pt = args->regs;
+> -	unsigned long *krbs, cfm, ndirty;
+> +	unsigned long *krbs, cfm, ndirty, nlocals, nouts;
+>  	int i, count;
+>  
+>  	if (unw_unwind_to_user(info) < 0)
+>  		return;
+>  
+> +	/*
+> +	 * We get here via a few paths:
+> +	 * - break instruction: cfm is shared with caller.
+> +	 *   syscall args are in out= regs, locals are non-empty.
+> +	 * - epsinstruction: cfm is set by br.call
+> +	 *   locals don't exist.
+> +	 *
+> +	 * For both cases argguments are reachable in cfm.sof - cfm.sol.
+> +	 * CFM: [ ... | sor: 17..14 | sol : 13..7 | sof : 6..0 ]
+> +	 */
+>  	cfm = pt->cr_ifs;
+> +	nlocals = (cfm >> 7) & 0x7f; /* aka sol */
+> +	nouts = (cfm & 0x7f) - nlocals; /* aka sof - sol */
+>  	krbs = (unsigned long *)info->task + IA64_RBS_OFFSET/8;
+>  	ndirty = ia64_rse_num_regs(krbs, krbs + (pt->loadrs >> 19));
+>  
+>  	count = 0;
+>  	if (in_syscall(pt))
+> -		count = min_t(int, args->n, cfm & 0x7f);
+> +		count = min_t(int, args->n, nouts);
+>  
+> +	/* Iterate over outs. */
+>  	for (i = 0; i < count; i++) {
+> +		int j = ndirty + nlocals + i + args->i;
+>  		if (args->rw)
+> -			*ia64_rse_skip_regs(krbs, ndirty + i + args->i) > -				args->args[i];
+> +			*ia64_rse_skip_regs(krbs, j) = args->args[i];
+>  		else
+> -			args->args[i] = *ia64_rse_skip_regs(krbs,
+> -				ndirty + i + args->i);
+> +			args->args[i] = *ia64_rse_skip_regs(krbs, j);
+>  	}
+>  
+>  	if (!args->rw) {
+> -- 
+> 2.30.1
+> 
 
->  arch/m68k/include/asm/io_mm.h   |  5 -----
-
-Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
-
-Gr{oetje,eeting}s,
-
-                        Geert
+Andrew, would it be fine to pass it through misc tree?
+Or should it go through Oleg as it's about ptrace?
 
 -- 
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
 
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+  Sergei
