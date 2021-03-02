@@ -1,43 +1,116 @@
-From: "Martin K. Petersen" <martin.petersen@oracle.com>
-Date: Tue, 30 Mar 2021 03:02:26 +0000
-Subject: Re: [PATCH] hpsa: fix boot on ia64 (atomic_t alignment)
-Message-Id: <yq1wntpgxxr.fsf@ca-mkp.ca.oracle.com>
+From: Anshuman Khandual <anshuman.khandual@arm.com>
+Date: Tue, 02 Mar 2021 05:25:07 +0000
+Subject: [PATCH V2] mm: Generalize HUGETLB_PAGE_SIZE_VARIABLE
+Message-Id: <1614661987-23881-1-git-send-email-anshuman.khandual@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <5532f9ab-7555-d51b-f4d5-f9b72a61f248@redhat.com>
-        <20210312222718.4117508-1-slyfox@gentoo.org>
-        <SN6PR11MB2848C136F6CB4EA66D42FFAEE1639@SN6PR11MB2848.namprd11.prod.outlook.com>
-        <ea49071d-d1e1-97b7-6468-501be0b9b195@physik.fu-berlin.de>
-        <CAK8P3a15jo_qup0W4itY2Fkm=SZ-NuQjmUTpDBPigSCvrF_+Yg@mail.gmail.com>
-In-Reply-To: <CAK8P3a15jo_qup0W4itY2Fkm=SZ-NuQjmUTpDBPigSCvrF_+Yg@mail.gmail.com>
-        (Arnd Bergmann's message of "Mon, 29 Mar 2021 16:22:35 +0200")
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Arnd Bergmann <arnd@kernel.org>
-Cc: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, Don.Brace@microchip.com, Sergei Trofimovich <slyfox@gentoo.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, storagedev@microchip.com, linux-scsi <linux-scsi@vger.kernel.org>, jszczype@redhat.com, Scott.Benesh@microchip.com, Scott.Teel@microchip.com, thenzl@redhat.com, "Martin K. Petersen" <martin.petersen@oracle.com>
+To: linux-mm@kvack.org
+Cc: Anshuman Khandual <anshuman.khandual@arm.com>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Andrew Morton <akpm@linux-foundation.org>, Christoph Hellwig <hch@lst.de>, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org
 
+HUGETLB_PAGE_SIZE_VARIABLE need not be defined for each individual
+platform subscribing it. Instead just make it generic.
 
-Arnd,
+Cc: Michael Ellerman <mpe@ellerman.id.au>
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Christoph Hellwig <hch@lst.de>
+Cc: linux-ia64@vger.kernel.org
+Cc: linuxppc-dev@lists.ozlabs.org
+Cc: linux-mm@kvack.org
+Cc: linux-kernel@vger.kernel.org
+Suggested-by: Christoph Hellwig <hch@lst.de>
+Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
+---
+This change was originally suggested in an earilier discussion. This
+applies on v5.12-rc1 and has been build tested on all applicable
+platforms i.e ia64 and powerpc.
 
-> I think Martin is still waiting for a fixed version of the patch, as
-> the proposed patch from March 12 only solves the immediate symptom,
-> but not the underlying problem of the CommandList structure being
-> marked as unaligned. If it gets fixed, the new version should work on
-> all architectures.
+https://patchwork.kernel.org/project/linux-mm/patch/1613024531-19040-3-git-send-email-anshuman.khandual@arm.com/
 
-Yep.
+Changes in V2:
 
-I unfortunately don't have any hpsa adapters to test with. Was hoping
-somebody with hardware would attempt to fix up the struct properly.
+- Added a description for HUGETLB_PAGE_SIZE_VARIABLE
+- Added HUGETLB_PAGE dependency while selecting HUGETLB_PAGE_SIZE_VARIABLE
 
-Given -rc5 we're running out of time so for 5.12 it's probably best if
-we queue up the workaround. I would prefer an amalgamation of Don's and
-Sergei's patches, though. I do like the assert so we can catch problems
-early.
+Changes in V1:
 
-But really, somebody should fix this. While hpsa may be out of
-commercial support, Linux will support the driver it until there are no
-more users. And the current structure packing is just wrong.
+https://patchwork.kernel.org/project/linux-mm/patch/1614577853-7452-1-git-send-email-anshuman.khandual@arm.com/
 
+ arch/ia64/Kconfig    | 6 +-----
+ arch/powerpc/Kconfig | 6 +-----
+ mm/Kconfig           | 9 +++++++++
+ 3 files changed, 11 insertions(+), 10 deletions(-)
+
+diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+index 2ad7a8d29fcc..dccf5bfebf48 100644
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -32,6 +32,7 @@ config IA64
+ 	select TTY
+ 	select HAVE_ARCH_TRACEHOOK
+ 	select HAVE_VIRT_CPU_ACCOUNTING
++	select HUGETLB_PAGE_SIZE_VARIABLE if HUGETLB_PAGE
+ 	select VIRT_TO_BUS
+ 	select GENERIC_IRQ_PROBE
+ 	select GENERIC_PENDING_IRQ if SMP
+@@ -82,11 +83,6 @@ config STACKTRACE_SUPPORT
+ config GENERIC_LOCKBREAK
+ 	def_bool n
+ 
+-config HUGETLB_PAGE_SIZE_VARIABLE
+-	bool
+-	depends on HUGETLB_PAGE
+-	default y
+-
+ config GENERIC_CALIBRATE_DELAY
+ 	bool
+ 	default y
+diff --git a/arch/powerpc/Kconfig b/arch/powerpc/Kconfig
+index 3778ad17f56a..3fdec3e53256 100644
+--- a/arch/powerpc/Kconfig
++++ b/arch/powerpc/Kconfig
+@@ -232,6 +232,7 @@ config PPC
+ 	select HAVE_HARDLOCKUP_DETECTOR_PERF	if PERF_EVENTS && HAVE_PERF_EVENTS_NMI && !HAVE_HARDLOCKUP_DETECTOR_ARCH
+ 	select HAVE_PERF_REGS
+ 	select HAVE_PERF_USER_STACK_DUMP
++	select HUGETLB_PAGE_SIZE_VARIABLE	if PPC_BOOK3S_64 && HUGETLB_PAGE
+ 	select MMU_GATHER_RCU_TABLE_FREE
+ 	select MMU_GATHER_PAGE_SIZE
+ 	select HAVE_REGS_AND_STACK_ACCESS_API
+@@ -416,11 +417,6 @@ config HIGHMEM
+ 
+ source "kernel/Kconfig.hz"
+ 
+-config HUGETLB_PAGE_SIZE_VARIABLE
+-	bool
+-	depends on HUGETLB_PAGE && PPC_BOOK3S_64
+-	default y
+-
+ config MATH_EMULATION
+ 	bool "Math emulation"
+ 	depends on 4xx || PPC_8xx || PPC_MPC832x || BOOKE
+diff --git a/mm/Kconfig b/mm/Kconfig
+index 24c045b24b95..64f1e0503e4f 100644
+--- a/mm/Kconfig
++++ b/mm/Kconfig
+@@ -274,6 +274,15 @@ config ARCH_ENABLE_HUGEPAGE_MIGRATION
+ config ARCH_ENABLE_THP_MIGRATION
+ 	bool
+ 
++config HUGETLB_PAGE_SIZE_VARIABLE
++	bool "Allows dynamic pageblock_order"
++	def_bool n
++	depends on HUGETLB_PAGE
++	help
++	  Allows the pageblock_order value to be dynamic instead of just standard
++	  HUGETLB_PAGE_ORDER when there are multiple HugeTLB page sizes available
++	  on a platform.
++
+ config CONTIG_ALLOC
+ 	def_bool (MEMORY_ISOLATION && COMPACTION) || CMA
+ 
 -- 
-Martin K. Petersen	Oracle Linux Engineering
+2.20.1
