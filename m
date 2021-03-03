@@ -1,7 +1,7 @@
-From: Sergei Trofimovich <slyich@gmail.com>
-Date: Tue, 02 Mar 2021 23:40:31 +0000
+From: "Dmitry V. Levin" <ldv@altlinux.org>
+Date: Wed, 03 Mar 2021 21:51:07 +0000
 Subject: Re: [PATCH] ia64: fix ia64_syscall_get_set_arguments() for break-based syscalls
-Message-Id: <20210302234024.73bf0c14@sf>
+Message-Id: <20210303215107.GC19445@altlinux.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20210221002554.333076-1-slyfox@gentoo.org>
 In-Reply-To: <20210221002554.333076-1-slyfox@gentoo.org>
@@ -9,11 +9,9 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Andrew Morton <akpm@linux-foundation.org>
-Cc: linux-kernel@vger.kernel.org, Oleg Nesterov <oleg@redhat.com>, linux-ia64@vger.kernel.org, "Dmitry V . Levin" <ldv@altlinux.org>
+Cc: Sergei Trofimovich <slyfox@gentoo.org>, linux-kernel@vger.kernel.org, Oleg Nesterov <oleg@redhat.com>, linux-ia64@vger.kernel.org
 
-On Sun, 21 Feb 2021 00:25:53 +0000
-Sergei Trofimovich <slyfox@gentoo.org> wrote:
-
+On Sun, Feb 21, 2021 at 12:25:53AM +0000, Sergei Trofimovich wrote:
 > In https://bugs.gentoo.org/769614 Dmitry noticed that
 > `ptrace(PTRACE_GET_SYSCALL_INFO)` does not work for syscalls called
 > via glibc's syscall() wrapper.
@@ -69,8 +67,14 @@ Sergei Trofimovich <slyfox@gentoo.org> wrote:
 > +	 *   syscall args are in out= regs, locals are non-empty.
 > +	 * - epsinstruction: cfm is set by br.call
 > +	 *   locals don't exist.
+
+typo: epsinstruction
+
 > +	 *
 > +	 * For both cases argguments are reachable in cfm.sof - cfm.sol.
+
+typo: argguments
+
 > +	 * CFM: [ ... | sor: 17..14 | sol : 13..7 | sof : 6..0 ]
 > +	 */
 >  	cfm = pt->cr_ifs;
@@ -97,13 +101,10 @@ Sergei Trofimovich <slyfox@gentoo.org> wrote:
 >  	}
 >  
 >  	if (!args->rw) {
-> -- 
-> 2.30.1
-> 
 
-Andrew, would it be fine to pass it through misc tree?
-Or should it go through Oleg as it's about ptrace?
+This stuff is too ia64 specific, so I cannot properly review this patch,
+but it definitely fixes ia64 PTRACE_GET_SYSCALL_INFO on entering syscall.
+
 
 -- 
-
-  Sergei
+ldv
