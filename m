@@ -1,87 +1,122 @@
-From: <Don.Brace@microchip.com>
-Date: Fri, 05 Mar 2021 20:45:28 +0000
-Subject: RE: [bisected] 5.12-rc1 hpsa regression: "scsi: hpsa: Correct dev cmds outstanding for retried cmds"
-Message-Id: <BYAPR11MB283776005C6D41BAE51F91BBE1969@BYAPR11MB2837.namprd11.prod.outlook.com>
+From: Anshuman Khandual <anshuman.khandual@arm.com>
+Date: Fri, 05 Mar 2021 03:40:48 +0000
+Subject: [PATCH V3] mm: Generalize HUGETLB_PAGE_SIZE_VARIABLE
+Message-Id: <1614914928-22039-1-git-send-email-anshuman.khandual@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210222230519.73f3e239@sf>
- <cc658b61-530e-90bf-3858-36cc60468a24@kernel.dk>
- <8decdd2e-a380-9951-3ebb-2bc3e48aa1c3@physik.fu-berlin.de>
- <20210223083507.43b5a6dd@sf>
- <51cbf584-07ef-1e62-7a3b-81494a04faa6@physik.fu-berlin.de>
- <9441757f-d4bc-a5b5-5fb0-967c9aaca693@physik.fu-berlin.de>
- <20210223192743.0198d4a9@sf> <20210302222630.5056f243@sf>
- <25dfced0-88b2-b5b3-f1b6-8b8a9931bf90@physik.fu-berlin.de>
- <20210303002236.2f4ec01f@sf> <20210303085533.505b1590@sf>
- <SN6PR11MB284885A5751845EEA290BFCFE1989@SN6PR11MB2848.namprd11.prod.outlook.com>
- <CAMuHMdVLFfSoC-UYW+3sijeZhLf9xt3rqS=7LTYhzX_1RDxpYA@mail.gmail.com>
- <CAK8P3a0EhxvQ3pP6iMwHdR3RwF3CcAaWvfodPnzPip2iW2wBgQ@mail.gmail.com>
-In-Reply-To: <CAK8P3a0EhxvQ3pP6iMwHdR3RwF3CcAaWvfodPnzPip2iW2wBgQ@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: arnd@kernel.org, geert@linux-m68k.org
-Cc: slyich@gmail.com, glaubitz@physik.fu-berlin.de, storagedev@microchip.com, linux-scsi@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, jszczype@redhat.com, Scott.Benesh@microchip.com, Scott.Teel@microchip.com, thenzl@redhat.com, martin.petersen@oracle.com
+To: linux-mm@kvack.org
+Cc: Anshuman Khandual <anshuman.khandual@arm.com>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Andrew Morton <akpm@linux-foundation.org>, Christoph Hellwig <hch@lst.de>, Christophe Leroy <christophe.leroy@csgroup.eu>, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org
 
-LS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCkZyb206IEFybmQgQmVyZ21hbm4gW21haWx0bzph
-cm5kQGtlcm5lbC5vcmddIA0KU2VudDogRnJpZGF5LCBNYXJjaCA1LCAyMDIxIDc6MzIgQU0NClN1
-YmplY3Q6IFJlOiBbYmlzZWN0ZWRdIDUuMTItcmMxIGhwc2EgcmVncmVzc2lvbjogInNjc2k6IGhw
-c2E6IENvcnJlY3QgZGV2IGNtZHMgb3V0c3RhbmRpbmcgZm9yIHJldHJpZWQgY21kcyIgYnJlYWtz
-IGhwc2EgUDYwMA0KDQpPbiBGcmksIE1hciA1LCAyMDIxIGF0IDEwOjI0IEFNIEdlZXJ0IFV5dHRl
-cmhvZXZlbiA8Z2VlcnRAbGludXgtbTY4ay5vcmc+IHdyb3RlOg0KPiBPbiBGcmksIE1hciA1LCAy
-MDIxIGF0IDEyOjI2IEFNIDxEb24uQnJhY2VAbWljcm9jaGlwLmNvbT4gd3JvdGU6DQo+ID4gPiA+
-IE9uIDMvMi8yMSAxMToyNiBQTSwgU2VyZ2VpIFRyb2ZpbW92aWNoIHdyb3RlOg0KPiA+IHN0cnVj
-dCBDb21tYW5kTGlzdCB7DQo+ID4gICAgICAgICBzdHJ1Y3QgQ29tbWFuZExpc3RIZWFkZXIgSGVh
-ZGVyOyAgICAgICAgICAgICAgICAgLyogICAgIDAgICAgMjAgKi8NCj4gPiAgICAgICAgIHN0cnVj
-dCBSZXF1ZXN0QmxvY2sgUmVxdWVzdDsgICAgICAgICAgICAgICAgICAgICAvKiAgICAyMCAgICAy
-MCAqLw0KPiA+ICAgICAgICAgc3RydWN0IEVyckRlc2NyaXB0b3IgRXJyRGVzYzsgICAgICAgICAg
-ICAgICAgICAgIC8qICAgIDQwICAgIDEyICovDQo+ID4gICAgICAgICBzdHJ1Y3QgU0dEZXNjcmlw
-dG9yIFNHWzMyXTsgICAgICAgICAgICAgICAgICAgICAgLyogICAgNTIgICA1MTIgKi8NCj4gPiAg
-ICAgICAgIC8qIC0tLSBjYWNoZWxpbmUgOCBib3VuZGFyeSAoNTEyIGJ5dGVzKSB3YXMgNTIgYnl0
-ZXMgYWdvIC0tLSAqLw0KPiA+ICAgICAgICAgdTMyICAgICAgICAgICAgICAgICAgICAgICAgYnVz
-YWRkcjsgICAgICAgICAgICAgIC8qICAgNTY0ICAgICA0ICovDQo+ID4gICAgICAgICBzdHJ1Y3Qg
-RXJyb3JJbmZvICogICAgICAgICBlcnJfaW5mbzsgICAgICAgICAgICAgLyogICA1NjggICAgIDgg
-Ki8NCj4gPiAgICAgICAgIC8qIC0tLSBjYWNoZWxpbmUgOSBib3VuZGFyeSAoNTc2IGJ5dGVzKSAt
-LS0gKi8NCj4gPiAgICAgICAgIHN0cnVjdCBjdGxyX2luZm8gKiAgICAgICAgIGg7ICAgICAgICAg
-ICAgICAgICAgICAvKiAgIDU3NiAgICAgOCAqLw0KPiA+ICAgICAgICAgaW50ICAgICAgICAgICAg
-ICAgICAgICAgICAgY21kX3R5cGU7ICAgICAgICAgICAgIC8qICAgNTg0ICAgICA0ICovDQo+ID4g
-ICAgICAgICBsb25nIGludCAgICAgICAgICAgICAgICAgICBjbWRpbmRleDsgICAgICAgICAgICAg
-LyogICA1ODggICAgIDggKi8NCj4gPiAgICAgICAgIHN0cnVjdCBjb21wbGV0aW9uICogICAgICAg
-IHdhaXRpbmc7ICAgICAgICAgICAgICAvKiAgIDU5NiAgICAgOCAqLw0KPiA+ICAgICAgICAgc3Ry
-dWN0IHNjc2lfY21uZCAqICAgICAgICAgc2NzaV9jbWQ7ICAgICAgICAgICAgIC8qICAgNjA0ICAg
-ICA4ICovDQo+ID4gICAgICAgICBzdHJ1Y3Qgd29ya19zdHJ1Y3Qgd29yazsgICAgICAgICAgICAg
-ICAgICAgICAgICAgLyogICA2MTIgICAgMzIgKi8NCj4gPiAgICAgICAgIC8qIC0tLSBjYWNoZWxp
-bmUgMTAgYm91bmRhcnkgKDY0MCBieXRlcykgd2FzIDQgYnl0ZXMgYWdvIC0tLSAqLw0KPiA+ICAg
-ICAgICAgc3RydWN0IGhwc2Ffc2NzaV9kZXZfdCAqICAgcGh5c19kaXNrOyAgICAgICAgICAgIC8q
-ICAgNjQ0ICAgICA4ICovDQo+ID4gICAgICAgICBzdHJ1Y3QgaHBzYV9zY3NpX2Rldl90ICogICBk
-ZXZpY2U7ICAgICAgICAgICAgICAgLyogICA2NTIgICAgIDggKi8NCj4gPiAgICAgICAgIGJvb2wg
-ICAgICAgICAgICAgICAgICAgICAgIHJldHJ5X3BlbmRpbmc7ICAgICAgICAvKiAgIDY2MCAgICAg
-MSAqLw0KPiA+ICAgICAgICAgYXRvbWljX3QgICAgICAgICAgICAgICAgICAgcmVmY291bnQ7ICAg
-ICAgICAgICAgIC8qICAgNjYxICAgICA0ICovDQo+DQo+IEhvdyBjb21lIHRoaXMgYXRvbWljX3Qg
-aXMgbm8gbG9uZ2VyIGFsaWduZWQgdG8gaXRzIG5hdHVyYWwgYWxpZ25tZW50Pw0KDQpUaGVyZSBp
-cyBhDQoNCiNwcmFnbWEgcGFjaygxKQ0KDQppbiBsaW51eCAyMDMgb2YgdGhpcyBmaWxlIQ0KDQpJ
-dCBsb29rcyBsaWtlIHNvbWUgb2YgdGhlIG1lbWJlcnMgaW4gc3RydWN0IHJhaWRfbWFwX2RhdGEg
-YW5kIHN0cnVjdCBDb21tYW5kTGlzdEhlYWRlciBuZWVkIHRvIGJlIGFubm90YXRlZCBhcyBwYWNr
-ZWQsIGJ1dCB0aGUgZmlsZSBhY2NpZGVudGFsbHkgcGFja3MgZXZlcnl0aGluZyB1bnRpbCB0aGUg
-JyNwcmFnbWEgcGFjaygpJw0KaW4gbGluZSA4NzUsIGluY2x1ZGluZyB0aGUga2VybmVsLXNpZGUg
-Q29tbWFuZExpc3QgZGF0YSBzdHJ1Y3R1cmUgdGhhdCBjbGVhcmx5IG11c3Qgbm90IGJlIHBhY2tl
-ZC4NCg0KICAgICAgICBBcm5kDQotLS0NCkRvbjoNClRoYW5rcyBmb3IgeW91ciBpbnB1dC4gSXQg
-aGVscHMgYSBsb3QuDQoNClRoZSBwcmFnbWEgc2V0dGluZyBwcmVkYXRlcyBteSB0YWtpbmcgb3Zl
-ciB0aGUgZHJpdmVyLg0KDQpJdCdzIHRydWUgdGhhdCB0aGVyZSBpcyBhIHNlY3Rpb24gb2YgZWFj
-aCBjb21tYW5kIGVudHJ5IHRoYXQgaXMgRE1BZWQgZnJvbSB0aGUgY29udHJvbGxlciAoZnJvbSBz
-dGFydCBvZiB0aGUgQ29tbWFuZExpc3QgdXAgdG8gYnVzYWRkcikgYW5kIHRoZSByZXN0IGlzIGRy
-aXZlciBob3VzZWtlZXBpbmcgaW5mb3JtYXRpb24uIFRoZSB1bnN1cHBvcnRlZCBjb250cm9sbGVy
-cyBzZWVtIHRvIGJlIHVuYWJsZSB0byBoYW5kbGUgdGhlIGNoYW5nZWQgYWxpZ25tZW50LiANCg0K
-SSBoYXZlIGEgcGF0Y2ggSSdsbCBzZW5kIHVwIHNvb24gdG8gY2hhbmdlIHRoZSBhbGlnbm1lbnQg
-YmFjay4uLg0KICAgICAgICBpbnQgICAgICAgICAgICAgICAgICAgICAgICByZXRyeV9wZW5kaW5n
-OyAgICAgICAgLyogICA2NTIgICAgIDQgKi8NCiAgICAgICAgc3RydWN0IGhwc2Ffc2NzaV9kZXZf
-dCAqICAgZGV2aWNlOyAgICAgICAgICAgICAgIC8qICAgNjU2ICAgICA4ICovDQogICAgICAgIGF0
-b21pY190ICAgICAgICAgICAgICAgICAgIHJlZmNvdW50OyAgICAgICAgICAgICAvKiAgIDY2NCAg
-ICAgNCAqLw0KDQogICAgICAgIC8qIHNpemU6IDc2OCwgY2FjaGVsaW5lczogMTIsIG1lbWJlcnM6
-IDE2ICovDQogICAgICAgIC8qIHBhZGRpbmc6IDEwMCAqLw0KfSBfX2F0dHJpYnV0ZV9fKChfX2Fs
-aWduZWRfXygxMjgpKSk7DQoNClNpbmNlIHRoaXMgaXMgYSBtYWludGVuYW5jZSBkcml2ZXIsIEkg
-d291bGQgcmF0aGVyIG5vdCBkbyB0b28gbXVjaCBzdXJnZXJ5IGFuZCBpbnZva2UgcmVncmVzc2lv
-biB0ZXN0cyAoYW5kIHdlIG5vIGxvbmdlciBzdXBwb3J0IHRoZXNlIGNvbnRyb2xsZXJzKS4gSSdk
-IHJhdGhlciBqdXN0IHNlbmQgdXAgYSBwYXRjaCB0byBjb3JyZWN0IHRoZSBpc3N1ZSBvbiB0aGVz
-ZSBsZWdhY3kgY29udHJvbGxlcnMuIEkgaGF2ZSBvbmUgcmVhZHkgdG8gc2VuZCB1cC4NCg0KVGhh
-bmtzIGZvciB5b3VyIG9ic2VydmF0aW9uIGFuZCB5b3VyIGF0dGVudGlvbi4NCkknbGwgc2VuZCB1
-cCB0aGUgcGF0Y2ggc29vbi4NCg0KRG9uDQoNCg0KDQoNCg=
+HUGETLB_PAGE_SIZE_VARIABLE need not be defined for each individual
+platform subscribing it. Instead just make it generic.
+
+Cc: Michael Ellerman <mpe@ellerman.id.au>
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Christoph Hellwig <hch@lst.de>
+Cc: Christophe Leroy <christophe.leroy@csgroup.eu>
+Cc: linux-ia64@vger.kernel.org
+Cc: linuxppc-dev@lists.ozlabs.org
+Cc: linux-mm@kvack.org
+Cc: linux-kernel@vger.kernel.org
+Suggested-by: Christoph Hellwig <hch@lst.de>
+Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
+---
+This change was originally suggested in an earilier discussion. This
+applies on v5.12-rc1 and has been build tested on all applicable
+platforms i.e ia64 and powerpc.
+
+https://patchwork.kernel.org/project/linux-mm/patch/1613024531-19040-3-git-send-email-anshuman.khandual@arm.com/
+
+Changes in V3:
+
+- Dropped the bool desciption that enabled user selection
+- Dropped the dependency on HUGETLB_PAGE for HUGETLB_PAGE_SIZE_VARIABLE
+
+Changes in V2:
+
+https://patchwork.kernel.org/project/linux-mm/patch/1614661987-23881-1-git-send-email-anshuman.khandual@arm.com/
+
+- Added a description for HUGETLB_PAGE_SIZE_VARIABLE
+- Added HUGETLB_PAGE dependency while selecting HUGETLB_PAGE_SIZE_VARIABLE
+
+Changes in V1:
+
+https://patchwork.kernel.org/project/linux-mm/patch/1614577853-7452-1-git-send-email-anshuman.khandual@arm.com/
+
+ arch/ia64/Kconfig    | 6 +-----
+ arch/powerpc/Kconfig | 6 +-----
+ mm/Kconfig           | 7 +++++++
+ 3 files changed, 9 insertions(+), 10 deletions(-)
+
+diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+index 2ad7a8d29fcc..dccf5bfebf48 100644
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -32,6 +32,7 @@ config IA64
+ 	select TTY
+ 	select HAVE_ARCH_TRACEHOOK
+ 	select HAVE_VIRT_CPU_ACCOUNTING
++	select HUGETLB_PAGE_SIZE_VARIABLE if HUGETLB_PAGE
+ 	select VIRT_TO_BUS
+ 	select GENERIC_IRQ_PROBE
+ 	select GENERIC_PENDING_IRQ if SMP
+@@ -82,11 +83,6 @@ config STACKTRACE_SUPPORT
+ config GENERIC_LOCKBREAK
+ 	def_bool n
+ 
+-config HUGETLB_PAGE_SIZE_VARIABLE
+-	bool
+-	depends on HUGETLB_PAGE
+-	default y
+-
+ config GENERIC_CALIBRATE_DELAY
+ 	bool
+ 	default y
+diff --git a/arch/powerpc/Kconfig b/arch/powerpc/Kconfig
+index 386ae12d8523..11fea95a1f2c 100644
+--- a/arch/powerpc/Kconfig
++++ b/arch/powerpc/Kconfig
+@@ -231,6 +231,7 @@ config PPC
+ 	select HAVE_HARDLOCKUP_DETECTOR_PERF	if PERF_EVENTS && HAVE_PERF_EVENTS_NMI && !HAVE_HARDLOCKUP_DETECTOR_ARCH
+ 	select HAVE_PERF_REGS
+ 	select HAVE_PERF_USER_STACK_DUMP
++	select HUGETLB_PAGE_SIZE_VARIABLE	if PPC_BOOK3S_64 && HUGETLB_PAGE
+ 	select MMU_GATHER_RCU_TABLE_FREE
+ 	select MMU_GATHER_PAGE_SIZE
+ 	select HAVE_REGS_AND_STACK_ACCESS_API
+@@ -415,11 +416,6 @@ config HIGHMEM
+ 
+ source "kernel/Kconfig.hz"
+ 
+-config HUGETLB_PAGE_SIZE_VARIABLE
+-	bool
+-	depends on HUGETLB_PAGE && PPC_BOOK3S_64
+-	default y
+-
+ config MATH_EMULATION
+ 	bool "Math emulation"
+ 	depends on 4xx || PPC_8xx || PPC_MPC832x || BOOKE
+diff --git a/mm/Kconfig b/mm/Kconfig
+index 24c045b24b95..4413a69e7850 100644
+--- a/mm/Kconfig
++++ b/mm/Kconfig
+@@ -274,6 +274,13 @@ config ARCH_ENABLE_HUGEPAGE_MIGRATION
+ config ARCH_ENABLE_THP_MIGRATION
+ 	bool
+ 
++config HUGETLB_PAGE_SIZE_VARIABLE
++	def_bool n
++	help
++	  Allows the pageblock_order value to be dynamic instead of just standard
++	  HUGETLB_PAGE_ORDER when there are multiple HugeTLB page sizes available
++	  on a platform.
++
+ config CONTIG_ALLOC
+ 	def_bool (MEMORY_ISOLATION && COMPACTION) || CMA
+ 
+-- 
+2.20.1
