@@ -1,197 +1,241 @@
-From: Masahiro Yamada <masahiroy@kernel.org>
-Date: Mon, 15 Feb 2021 00:48:23 +0000
-Subject: [PATCH 2/2] arch: syscalls: remove $(srctree)/ prefix from syscall tables
-Message-Id: <20210215004823.440102-2-masahiroy@kernel.org>
+From: Anshuman Khandual <anshuman.khandual@arm.com>
+Date: Mon, 08 Mar 2021 06:53:42 +0000
+Subject: [PATCH 3/6] mm: Generalize ARCH_ENABLE_MEMORY_[HOTPLUG|HOTREMOVE]
+Message-Id: <1615185706-24342-4-git-send-email-anshuman.khandual@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210215004823.440102-1-masahiroy@kernel.org>
-In-Reply-To: <20210215004823.440102-1-masahiroy@kernel.org>
+References: <1615185706-24342-1-git-send-email-anshuman.khandual@arm.com>
+In-Reply-To: <1615185706-24342-1-git-send-email-anshuman.khandual@arm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kbuild@vger.kernel.org
-Cc: Masahiro Yamada <masahiroy@kernel.org>, Andy Lutomirski <luto@kernel.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Borislav Petkov <bp@alien8.de>, Chris Zankel <chris@zankel.net>, "David S. Miller" <davem@davemloft.net>, Fenghua Yu <fenghua.yu@intel.com>, Geert Uytterhoeven <geert@linux-m68k.org>, "H. Peter Anvin" <hpa@zytor.com>, Helge Deller <deller@gmx.de>, Ingo Molnar <mingo@redhat.com>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Matt Turner <mattst88@gmail.com>, Max Filippov <jcmvbkbc@gmail.com>, Michael Ellerman <mpe@ellerman.id.au>, Michal Simek <monstr@monstr.eu>, Paul Mackerras <paulus@samba.org>, Rich Felker <dalias@libc.org>, Richard Henderson <rth@twiddle.net>, Russell King <linux@armlinux.org.uk>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Thomas Gleixner <tglx@linutronix.de>, Tony Luck <tony.luck@intel.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linux-sh@vger.kernel.org, linux-xtensa@linux-xtensa.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org, x86@kernel.org
+To: linux-mm@kvack.org
+Cc: Anshuman Khandual <anshuman.khandual@arm.com>, x86@kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Heiko Carstens <hca@linux.ibm.com>, Vasily Gorbik <gor@linux.ibm.com>, Christian Borntraeger <borntraeger@de.ibm.com>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, "H. Peter Anvin" <hpa@zytor.com>, Andrew Morton <akpm@linux-foundation.org>
 
-The 'syscall' variables are not directly used in the commands.
-Remove the $(srctree)/ prefix because we can rely on VPATH.
+ARCH_ENABLE_MEMORY_[HOTPLUG|HOTREMOVE] configs have duplicate definitions
+on platforms that subscribe them. Instead, just make them generic options
+which can be selected on applicable platforms.
 
-Signed-off-by: Masahiro Yamada <masahiroy@kernel.org>
+Cc: Catalin Marinas <catalin.marinas@arm.com>
+Cc: Will Deacon <will@kernel.org>
+Cc: Michael Ellerman <mpe@ellerman.id.au>
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Heiko Carstens <hca@linux.ibm.com>
+Cc: Vasily Gorbik <gor@linux.ibm.com>
+Cc: Christian Borntraeger <borntraeger@de.ibm.com>
+Cc: Yoshinori Sato <ysato@users.sourceforge.jp>
+Cc: Rich Felker <dalias@libc.org>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Ingo Molnar <mingo@redhat.com>
+Cc: x86@kernel.org
+Cc: "H. Peter Anvin" <hpa@zytor.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: linux-arm-kernel@lists.infradead.org
+Cc: linux-ia64@vger.kernel.org
+Cc: linuxppc-dev@lists.ozlabs.org
+Cc: linux-s390@vger.kernel.org
+Cc: linux-sh@vger.kernel.org
+Cc: linux-mm@kvack.org
+Cc: linux-kernel@vger.kernel.org
+Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
 ---
+ arch/arm64/Kconfig   |  8 ++------
+ arch/ia64/Kconfig    |  8 ++------
+ arch/powerpc/Kconfig |  8 ++------
+ arch/s390/Kconfig    |  8 ++------
+ arch/sh/Kconfig      |  2 ++
+ arch/sh/mm/Kconfig   |  8 --------
+ arch/x86/Kconfig     | 10 ++--------
+ mm/Kconfig           |  6 ++++++
+ 8 files changed, 18 insertions(+), 40 deletions(-)
 
- arch/alpha/kernel/syscalls/Makefile      | 2 +-
- arch/arm/tools/Makefile                  | 2 +-
- arch/ia64/kernel/syscalls/Makefile       | 2 +-
- arch/m68k/kernel/syscalls/Makefile       | 2 +-
- arch/microblaze/kernel/syscalls/Makefile | 2 +-
- arch/mips/kernel/syscalls/Makefile       | 6 +++---
- arch/parisc/kernel/syscalls/Makefile     | 2 +-
- arch/powerpc/kernel/syscalls/Makefile    | 2 +-
- arch/sh/kernel/syscalls/Makefile         | 2 +-
- arch/sparc/kernel/syscalls/Makefile      | 2 +-
- arch/x86/entry/syscalls/Makefile         | 4 ++--
- arch/xtensa/kernel/syscalls/Makefile     | 2 +-
- 12 files changed, 15 insertions(+), 15 deletions(-)
-
-diff --git a/arch/alpha/kernel/syscalls/Makefile b/arch/alpha/kernel/syscalls/Makefile
-index 1c42d2d2926d..285aaba832d9 100644
---- a/arch/alpha/kernel/syscalls/Makefile
-+++ b/arch/alpha/kernel/syscalls/Makefile
-@@ -5,7 +5,7 @@ uapi := arch/$(SRCARCH)/include/generated/uapi/asm
- _dummy := $(shell [ -d '$(uapi)' ] || mkdir -p '$(uapi)')	\
- 	  $(shell [ -d '$(kapi)' ] || mkdir -p '$(kapi)')
+diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
+index 68fe3b5bf17a..67e904b0f32a 100644
+--- a/arch/arm64/Kconfig
++++ b/arch/arm64/Kconfig
+@@ -11,6 +11,8 @@ config ARM64
+ 	select ACPI_PPTT if ACPI
+ 	select ARCH_HAS_DEBUG_WX
+ 	select ARCH_BINFMT_ELF_STATE
++	select ARCH_ENABLE_MEMORY_HOTPLUG
++	select ARCH_ENABLE_MEMORY_HOTREMOVE
+ 	select ARCH_HAS_CACHE_LINE_SIZE
+ 	select ARCH_HAS_DEBUG_VIRTUAL
+ 	select ARCH_HAS_DEBUG_VM_PGTABLE
+@@ -305,12 +307,6 @@ config ZONE_DMA32
+ 	bool "Support DMA32 zone" if EXPERT
+ 	default y
  
--syscall := $(srctree)/$(src)/syscall.tbl
-+syscall := $(src)/syscall.tbl
- syshdr := $(srctree)/$(src)/syscallhdr.sh
- systbl := $(srctree)/$(src)/syscalltbl.sh
+-config ARCH_ENABLE_MEMORY_HOTPLUG
+-	def_bool y
+-
+-config ARCH_ENABLE_MEMORY_HOTREMOVE
+-	def_bool y
+-
+ config SMP
+ 	def_bool y
  
-diff --git a/arch/arm/tools/Makefile b/arch/arm/tools/Makefile
-index 27d8beb7c941..3654f979851b 100644
---- a/arch/arm/tools/Makefile
-+++ b/arch/arm/tools/Makefile
-@@ -11,7 +11,7 @@ uapi := $(gen)/uapi/asm
- syshdr := $(srctree)/$(src)/syscallhdr.sh
- sysnr := $(srctree)/$(src)/syscallnr.sh
- systbl := $(srctree)/$(src)/syscalltbl.sh
--syscall := $(srctree)/$(src)/syscall.tbl
-+syscall := $(src)/syscall.tbl
+diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+index 2ad7a8d29fcc..96ce53ad5c9d 100644
+--- a/arch/ia64/Kconfig
++++ b/arch/ia64/Kconfig
+@@ -13,6 +13,8 @@ config IA64
+ 	select ARCH_MIGHT_HAVE_PC_SERIO
+ 	select ACPI
+ 	select ACPI_NUMA if NUMA
++	select ARCH_ENABLE_MEMORY_HOTPLUG
++	select ARCH_ENABLE_MEMORY_HOTREMOVE
+ 	select ARCH_SUPPORTS_ACPI
+ 	select ACPI_SYSTEM_POWER_STATES_SUPPORT if ACPI
+ 	select ARCH_MIGHT_HAVE_ACPI_PDC if ACPI
+@@ -250,12 +252,6 @@ config HOTPLUG_CPU
+ 	  can be controlled through /sys/devices/system/cpu/cpu#.
+ 	  Say N if you want to disable CPU hotplug.
  
- gen-y := $(gen)/calls-oabi.S
- gen-y += $(gen)/calls-eabi.S
-diff --git a/arch/ia64/kernel/syscalls/Makefile b/arch/ia64/kernel/syscalls/Makefile
-index b9bfd186295f..bf4bda0f63eb 100644
---- a/arch/ia64/kernel/syscalls/Makefile
-+++ b/arch/ia64/kernel/syscalls/Makefile
-@@ -5,7 +5,7 @@ uapi := arch/$(SRCARCH)/include/generated/uapi/asm
- _dummy := $(shell [ -d '$(uapi)' ] || mkdir -p '$(uapi)')	\
- 	  $(shell [ -d '$(kapi)' ] || mkdir -p '$(kapi)')
+-config ARCH_ENABLE_MEMORY_HOTPLUG
+-	def_bool y
+-
+-config ARCH_ENABLE_MEMORY_HOTREMOVE
+-	def_bool y
+-
+ config SCHED_SMT
+ 	bool "SMT scheduler support"
+ 	depends on SMP
+diff --git a/arch/powerpc/Kconfig b/arch/powerpc/Kconfig
+index a74c211e55b1..02a05a24659d 100644
+--- a/arch/powerpc/Kconfig
++++ b/arch/powerpc/Kconfig
+@@ -118,6 +118,8 @@ config PPC
+ 	# Please keep this list sorted alphabetically.
+ 	#
+ 	select ARCH_32BIT_OFF_T if PPC32
++	select ARCH_ENABLE_MEMORY_HOTPLUG
++	select ARCH_ENABLE_MEMORY_HOTREMOVE
+ 	select ARCH_HAS_DEBUG_VIRTUAL
+ 	select ARCH_HAS_DEVMEM_IS_ALLOWED
+ 	select ARCH_HAS_ELF_RANDOMIZE
+@@ -515,12 +517,6 @@ config ARCH_CPU_PROBE_RELEASE
+ 	def_bool y
+ 	depends on HOTPLUG_CPU
  
--syscall := $(srctree)/$(src)/syscall.tbl
-+syscall := $(src)/syscall.tbl
- syshdr := $(srctree)/$(src)/syscallhdr.sh
- systbl := $(srctree)/$(src)/syscalltbl.sh
+-config ARCH_ENABLE_MEMORY_HOTPLUG
+-	def_bool y
+-
+-config ARCH_ENABLE_MEMORY_HOTREMOVE
+-	def_bool y
+-
+ config PPC64_SUPPORTS_MEMORY_FAILURE
+ 	bool "Add support for memory hwpoison"
+ 	depends on PPC_BOOK3S_64
+diff --git a/arch/s390/Kconfig b/arch/s390/Kconfig
+index c1ff874e6c2e..f8b356550daa 100644
+--- a/arch/s390/Kconfig
++++ b/arch/s390/Kconfig
+@@ -60,6 +60,8 @@ config S390
+ 	imply IMA_SECURE_AND_OR_TRUSTED_BOOT
+ 	select ARCH_32BIT_USTAT_F_TINODE
+ 	select ARCH_BINFMT_ELF_STATE
++	select ARCH_ENABLE_MEMORY_HOTPLUG if SPARSEMEM
++	select ARCH_ENABLE_MEMORY_HOTREMOVE
+ 	select ARCH_HAS_DEBUG_VM_PGTABLE
+ 	select ARCH_HAS_DEBUG_WX
+ 	select ARCH_HAS_DEVMEM_IS_ALLOWED
+@@ -626,12 +628,6 @@ config ARCH_SPARSEMEM_ENABLE
+ config ARCH_SPARSEMEM_DEFAULT
+ 	def_bool y
  
-diff --git a/arch/m68k/kernel/syscalls/Makefile b/arch/m68k/kernel/syscalls/Makefile
-index 1c42d2d2926d..285aaba832d9 100644
---- a/arch/m68k/kernel/syscalls/Makefile
-+++ b/arch/m68k/kernel/syscalls/Makefile
-@@ -5,7 +5,7 @@ uapi := arch/$(SRCARCH)/include/generated/uapi/asm
- _dummy := $(shell [ -d '$(uapi)' ] || mkdir -p '$(uapi)')	\
- 	  $(shell [ -d '$(kapi)' ] || mkdir -p '$(kapi)')
+-config ARCH_ENABLE_MEMORY_HOTPLUG
+-	def_bool y if SPARSEMEM
+-
+-config ARCH_ENABLE_MEMORY_HOTREMOVE
+-	def_bool y
+-
+ config ARCH_ENABLE_SPLIT_PMD_PTLOCK
+ 	def_bool y
  
--syscall := $(srctree)/$(src)/syscall.tbl
-+syscall := $(src)/syscall.tbl
- syshdr := $(srctree)/$(src)/syscallhdr.sh
- systbl := $(srctree)/$(src)/syscalltbl.sh
+diff --git a/arch/sh/Kconfig b/arch/sh/Kconfig
+index a54b0c5de37b..68129537e350 100644
+--- a/arch/sh/Kconfig
++++ b/arch/sh/Kconfig
+@@ -2,6 +2,8 @@
+ config SUPERH
+ 	def_bool y
+ 	select ARCH_32BIT_OFF_T
++	select ARCH_ENABLE_MEMORY_HOTPLUG if SPARSEMEM && MMU
++	select ARCH_ENABLE_MEMORY_HOTREMOVE if SPARSEMEM && MMU
+ 	select ARCH_HAVE_CUSTOM_GPIO_H
+ 	select ARCH_HAVE_NMI_SAFE_CMPXCHG if (GUSA_RB || CPU_SH4A)
+ 	select ARCH_HAS_BINFMT_FLAT if !MMU
+diff --git a/arch/sh/mm/Kconfig b/arch/sh/mm/Kconfig
+index 77aa2f802d8d..d551a9cac41e 100644
+--- a/arch/sh/mm/Kconfig
++++ b/arch/sh/mm/Kconfig
+@@ -136,14 +136,6 @@ config ARCH_SPARSEMEM_DEFAULT
+ config ARCH_SELECT_MEMORY_MODEL
+ 	def_bool y
  
-diff --git a/arch/microblaze/kernel/syscalls/Makefile b/arch/microblaze/kernel/syscalls/Makefile
-index 1c42d2d2926d..285aaba832d9 100644
---- a/arch/microblaze/kernel/syscalls/Makefile
-+++ b/arch/microblaze/kernel/syscalls/Makefile
-@@ -5,7 +5,7 @@ uapi := arch/$(SRCARCH)/include/generated/uapi/asm
- _dummy := $(shell [ -d '$(uapi)' ] || mkdir -p '$(uapi)')	\
- 	  $(shell [ -d '$(kapi)' ] || mkdir -p '$(kapi)')
+-config ARCH_ENABLE_MEMORY_HOTPLUG
+-	def_bool y
+-	depends on SPARSEMEM && MMU
+-
+-config ARCH_ENABLE_MEMORY_HOTREMOVE
+-	def_bool y
+-	depends on SPARSEMEM && MMU
+-
+ config ARCH_MEMORY_PROBE
+ 	def_bool y
+ 	depends on MEMORY_HOTPLUG
+diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
+index 51d171abb57a..503d8b2e8676 100644
+--- a/arch/x86/Kconfig
++++ b/arch/x86/Kconfig
+@@ -60,6 +60,8 @@ config X86
+ 	select ACPI_SYSTEM_POWER_STATES_SUPPORT	if ACPI
+ 	select ARCH_32BIT_OFF_T			if X86_32
+ 	select ARCH_CLOCKSOURCE_INIT
++	select ARCH_ENABLE_MEMORY_HOTPLUG if X86_64 || (X86_32 && HIGHMEM)
++	select ARCH_ENABLE_MEMORY_HOTREMOVE if MEMORY_HOTPLUG
+ 	select ARCH_HAS_ACPI_TABLE_UPGRADE	if ACPI
+ 	select ARCH_HAS_CACHE_LINE_SIZE
+ 	select ARCH_HAS_DEBUG_VIRTUAL
+@@ -2423,14 +2425,6 @@ config ARCH_HAS_ADD_PAGES
+ 	def_bool y
+ 	depends on X86_64 && ARCH_ENABLE_MEMORY_HOTPLUG
  
--syscall := $(srctree)/$(src)/syscall.tbl
-+syscall := $(src)/syscall.tbl
- syshdr := $(srctree)/$(src)/syscallhdr.sh
- systbl := $(srctree)/$(src)/syscalltbl.sh
+-config ARCH_ENABLE_MEMORY_HOTPLUG
+-	def_bool y
+-	depends on X86_64 || (X86_32 && HIGHMEM)
+-
+-config ARCH_ENABLE_MEMORY_HOTREMOVE
+-	def_bool y
+-	depends on MEMORY_HOTPLUG
+-
+ config USE_PERCPU_NUMA_NODE_ID
+ 	def_bool y
+ 	depends on NUMA
+diff --git a/mm/Kconfig b/mm/Kconfig
+index 1c9a37fc651a..9b58fa08847d 100644
+--- a/mm/Kconfig
++++ b/mm/Kconfig
+@@ -149,6 +149,9 @@ config MEMORY_ISOLATION
+ config HAVE_BOOTMEM_INFO_NODE
+ 	def_bool n
  
-diff --git a/arch/mips/kernel/syscalls/Makefile b/arch/mips/kernel/syscalls/Makefile
-index f15842bda464..ed22b711ccb7 100644
---- a/arch/mips/kernel/syscalls/Makefile
-+++ b/arch/mips/kernel/syscalls/Makefile
-@@ -5,9 +5,9 @@ uapi := arch/$(SRCARCH)/include/generated/uapi/asm
- _dummy := $(shell [ -d '$(uapi)' ] || mkdir -p '$(uapi)')	\
- 	  $(shell [ -d '$(kapi)' ] || mkdir -p '$(kapi)')
++config ARCH_ENABLE_MEMORY_HOTPLUG
++	bool
++
+ # eventually, we can have this option just 'select SPARSEMEM'
+ config MEMORY_HOTPLUG
+ 	bool "Allow for memory hot-add"
+@@ -177,6 +180,9 @@ config MEMORY_HOTPLUG_DEFAULT_ONLINE
+ 	  Say N here if you want the default policy to keep all hot-plugged
+ 	  memory blocks in 'offline' state.
  
--syscalln32 := $(srctree)/$(src)/syscall_n32.tbl
--syscalln64 := $(srctree)/$(src)/syscall_n64.tbl
--syscallo32 := $(srctree)/$(src)/syscall_o32.tbl
-+syscalln32 := $(src)/syscall_n32.tbl
-+syscalln64 := $(src)/syscall_n64.tbl
-+syscallo32 := $(src)/syscall_o32.tbl
- syshdr := $(srctree)/$(src)/syscallhdr.sh
- sysnr := $(srctree)/$(src)/syscallnr.sh
- systbl := $(srctree)/$(src)/syscalltbl.sh
-diff --git a/arch/parisc/kernel/syscalls/Makefile b/arch/parisc/kernel/syscalls/Makefile
-index 556fe30a6c8f..283f64407b07 100644
---- a/arch/parisc/kernel/syscalls/Makefile
-+++ b/arch/parisc/kernel/syscalls/Makefile
-@@ -5,7 +5,7 @@ uapi := arch/$(SRCARCH)/include/generated/uapi/asm
- _dummy := $(shell [ -d '$(uapi)' ] || mkdir -p '$(uapi)')	\
- 	  $(shell [ -d '$(kapi)' ] || mkdir -p '$(kapi)')
- 
--syscall := $(srctree)/$(src)/syscall.tbl
-+syscall := $(src)/syscall.tbl
- syshdr := $(srctree)/$(src)/syscallhdr.sh
- systbl := $(srctree)/$(src)/syscalltbl.sh
- 
-diff --git a/arch/powerpc/kernel/syscalls/Makefile b/arch/powerpc/kernel/syscalls/Makefile
-index d609f0040b2a..9e3be295dbba 100644
---- a/arch/powerpc/kernel/syscalls/Makefile
-+++ b/arch/powerpc/kernel/syscalls/Makefile
-@@ -5,7 +5,7 @@ uapi := arch/$(SRCARCH)/include/generated/uapi/asm
- _dummy := $(shell [ -d '$(uapi)' ] || mkdir -p '$(uapi)')	\
- 	  $(shell [ -d '$(kapi)' ] || mkdir -p '$(kapi)')
- 
--syscall := $(srctree)/$(src)/syscall.tbl
-+syscall := $(src)/syscall.tbl
- syshdr := $(srctree)/$(src)/syscallhdr.sh
- systbl := $(srctree)/$(src)/syscalltbl.sh
- 
-diff --git a/arch/sh/kernel/syscalls/Makefile b/arch/sh/kernel/syscalls/Makefile
-index 1c42d2d2926d..285aaba832d9 100644
---- a/arch/sh/kernel/syscalls/Makefile
-+++ b/arch/sh/kernel/syscalls/Makefile
-@@ -5,7 +5,7 @@ uapi := arch/$(SRCARCH)/include/generated/uapi/asm
- _dummy := $(shell [ -d '$(uapi)' ] || mkdir -p '$(uapi)')	\
- 	  $(shell [ -d '$(kapi)' ] || mkdir -p '$(kapi)')
- 
--syscall := $(srctree)/$(src)/syscall.tbl
-+syscall := $(src)/syscall.tbl
- syshdr := $(srctree)/$(src)/syscallhdr.sh
- systbl := $(srctree)/$(src)/syscalltbl.sh
- 
-diff --git a/arch/sparc/kernel/syscalls/Makefile b/arch/sparc/kernel/syscalls/Makefile
-index 556fe30a6c8f..283f64407b07 100644
---- a/arch/sparc/kernel/syscalls/Makefile
-+++ b/arch/sparc/kernel/syscalls/Makefile
-@@ -5,7 +5,7 @@ uapi := arch/$(SRCARCH)/include/generated/uapi/asm
- _dummy := $(shell [ -d '$(uapi)' ] || mkdir -p '$(uapi)')	\
- 	  $(shell [ -d '$(kapi)' ] || mkdir -p '$(kapi)')
- 
--syscall := $(srctree)/$(src)/syscall.tbl
-+syscall := $(src)/syscall.tbl
- syshdr := $(srctree)/$(src)/syscallhdr.sh
- systbl := $(srctree)/$(src)/syscalltbl.sh
- 
-diff --git a/arch/x86/entry/syscalls/Makefile b/arch/x86/entry/syscalls/Makefile
-index e1c7ddb7546b..cf388e9e8989 100644
---- a/arch/x86/entry/syscalls/Makefile
-+++ b/arch/x86/entry/syscalls/Makefile
-@@ -6,8 +6,8 @@ uapi := arch/$(SRCARCH)/include/generated/uapi/asm
- _dummy := $(shell [ -d '$(out)' ] || mkdir -p '$(out)') \
- 	  $(shell [ -d '$(uapi)' ] || mkdir -p '$(uapi)')
- 
--syscall32 := $(srctree)/$(src)/syscall_32.tbl
--syscall64 := $(srctree)/$(src)/syscall_64.tbl
-+syscall32 := $(src)/syscall_32.tbl
-+syscall64 := $(src)/syscall_64.tbl
- 
- syshdr := $(srctree)/$(src)/syscallhdr.sh
- systbl := $(srctree)/$(src)/syscalltbl.sh
-diff --git a/arch/xtensa/kernel/syscalls/Makefile b/arch/xtensa/kernel/syscalls/Makefile
-index 1c42d2d2926d..285aaba832d9 100644
---- a/arch/xtensa/kernel/syscalls/Makefile
-+++ b/arch/xtensa/kernel/syscalls/Makefile
-@@ -5,7 +5,7 @@ uapi := arch/$(SRCARCH)/include/generated/uapi/asm
- _dummy := $(shell [ -d '$(uapi)' ] || mkdir -p '$(uapi)')	\
- 	  $(shell [ -d '$(kapi)' ] || mkdir -p '$(kapi)')
- 
--syscall := $(srctree)/$(src)/syscall.tbl
-+syscall := $(src)/syscall.tbl
- syshdr := $(srctree)/$(src)/syscallhdr.sh
- systbl := $(srctree)/$(src)/syscalltbl.sh
- 
++config ARCH_ENABLE_MEMORY_HOTREMOVE
++	bool
++
+ config MEMORY_HOTREMOVE
+ 	bool "Allow for memory hot remove"
+ 	select HAVE_BOOTMEM_INFO_NODE if (X86_64 || PPC64)
 -- 
-2.27.0
+2.20.1
