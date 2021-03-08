@@ -1,82 +1,59 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Sun, 21 Mar 2021 12:54:36 +0000
-Subject: Re: [PATCH -tip v3 08/11] kprobes: Setup instruction pointer in __kretprobe_trampoline_handler
-Message-Id: <20210321215436.2e0447bf4fc43471bcecc243@kernel.org>
+From: Anshuman Khandual <anshuman.khandual@arm.com>
+Date: Mon, 08 Mar 2021 06:53:39 +0000
+Subject: [PATCH 0/6] mm: some config cleanups
+Message-Id: <1615185706-24342-1-git-send-email-anshuman.khandual@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <161615650355.306069.17260992641363840330.stgit@devnote2>
-        <161615659174.306069.12736134222759644948.stgit@devnote2>
-In-Reply-To: <161615659174.306069.12736134222759644948.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Masami Hiramatsu <mhiramat@kernel.org>
-Cc: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>, X86 ML <x86@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, Josh Poimboeuf <jpoimboe@redhat.com>, linux-ia64@vger.kernel.org
+To: linux-mm@kvack.org
+Cc: Anshuman Khandual <anshuman.khandual@arm.com>, x86@kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Fri, 19 Mar 2021 21:23:12 +0900
-Masami Hiramatsu <mhiramat@kernel.org> wrote:
+This series contains config cleanup patches which reduces code duplication
+across platforms and also improves maintainability. There is no functional
+change intended with this series. This has been boot tested on arm64 but
+only build tested on some other platforms.
 
-> To simplify the stacktrace with pt_regs from kretprobe handler,
-> set the correct return address to the instruction pointer in
-> the pt_regs before calling kretprobe handlers.
-> 
+This applies on 5.12-rc2
 
-Oops, now I also find this breaks kretprobe for arm. It seems
-not enough registers stores. I need to fix the arm kprobe code
-too.
+Cc: x86@kernel.org
+Cc: linux-ia64@vger.kernel.org
+Cc: linux-s390@vger.kernel.org
+Cc: linux-snps-arc@lists.infradead.org
+Cc: linux-arm-kernel@lists.infradead.org
+Cc: linux-mips@vger.kernel.org
+Cc: linux-parisc@vger.kernel.org
+Cc: linuxppc-dev@lists.ozlabs.org
+Cc: linux-riscv@lists.infradead.org
+Cc: linux-sh@vger.kernel.org
+Cc: linux-fsdevel@vger.kernel.org
+Cc: linux-mm@kvack.org
+Cc: linux-kernel@vger.kernel.org
 
-In arch/arm/include/uapi/asm/ptrace.h,
+Anshuman Khandual (6):
+  mm: Generalize ARCH_HAS_CACHE_LINE_SIZE
+  mm: Generalize SYS_SUPPORTS_HUGETLBFS (rename as ARCH_SUPPORTS_HUGETLBFS)
+  mm: Generalize ARCH_ENABLE_MEMORY_[HOTPLUG|HOTREMOVE]
+  mm: Drop redundant ARCH_ENABLE_[HUGEPAGE|THP]_MIGRATION
+  mm: Drop redundant ARCH_ENABLE_SPLIT_PMD_PTLOCK
+  mm: Drop redundant HAVE_ARCH_TRANSPARENT_HUGEPAGE
 
----
-#define ARM_pc          uregs[15]
----
-
-And in arch/arm/probes/kprobes/core.c,
-
----
-/*
- * When a retprobed function returns, trampoline_handler() is called,
- * calling the kretprobe's handler. We construct a struct pt_regs to
- * give a view of registers r0-r11 to the user return-handler.  This is
- * not a complete pt_regs structure, but that should be plenty sufficient
- * for kretprobe handlers which should normally be interested in r0 only
- * anyway.
- */
-void __naked __kprobes kretprobe_trampoline(void)
-{
-        __asm__ __volatile__ (
-                "stmdb  sp!, {r0 - r11}         \n\t"
----
-
-So, changing regs->ARM_pc will break a stack entry. I need to expand
-it to r15.
-
-Thanks,
-
-> Suggested-by: Josh Poimboeuf <jpoimboe@redhat.com>
-> Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
-> ---
->  Changes in v3:
->   - Cast the correct_ret_addr to unsigned long.
-> ---
->  kernel/kprobes.c |    3 +++
->  1 file changed, 3 insertions(+)
-> 
-> diff --git a/kernel/kprobes.c b/kernel/kprobes.c
-> index cf19edc038e4..4ce3e6f5d28d 100644
-> --- a/kernel/kprobes.c
-> +++ b/kernel/kprobes.c
-> @@ -1914,6 +1914,9 @@ unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
->  		BUG_ON(1);
->  	}
->  
-> +	/* Set the instruction pointer to the correct address */
-> +	instruction_pointer_set(regs, (unsigned long)correct_ret_addr);
-> +
->  	/* Run them. */
->  	first = current->kretprobe_instances.first;
->  	while (first) {
-> 
-
+ arch/arc/Kconfig                       |  9 ++------
+ arch/arm/Kconfig                       | 10 ++-------
+ arch/arm64/Kconfig                     | 30 ++++++--------------------
+ arch/ia64/Kconfig                      |  8 ++-----
+ arch/mips/Kconfig                      |  6 +-----
+ arch/parisc/Kconfig                    |  5 +----
+ arch/powerpc/Kconfig                   | 11 ++--------
+ arch/powerpc/platforms/Kconfig.cputype | 16 +++++---------
+ arch/riscv/Kconfig                     |  5 +----
+ arch/s390/Kconfig                      | 12 +++--------
+ arch/sh/Kconfig                        |  7 +++---
+ arch/sh/mm/Kconfig                     |  8 -------
+ arch/x86/Kconfig                       | 29 ++++++-------------------
+ fs/Kconfig                             |  5 ++++-
+ mm/Kconfig                             |  9 ++++++++
+ 15 files changed, 48 insertions(+), 122 deletions(-)
 
 -- 
-Masami Hiramatsu <mhiramat@kernel.org>
+2.20.1
