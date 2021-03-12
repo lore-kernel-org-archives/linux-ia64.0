@@ -1,51 +1,86 @@
-From: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
-Date: Sun, 28 Mar 2021 12:26:18 +0000
-Subject: Re: Current Linux kernels working on rx2800 again
-Message-Id: <36cea8b5-aee6-0540-a801-4da1a5449d31@physik.fu-berlin.de>
+From: Sergei Trofimovich <slyfox@gentoo.org>
+Date: Fri, 12 Mar 2021 22:27:18 +0000
+Subject: [PATCH] hpsa: fix boot on ia64 (atomic_t alignment)
+Message-Id: <20210312222718.4117508-1-slyfox@gentoo.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <202ad1c0-e9d7-0cdd-d037-5258dfe3e378@physik.fu-berlin.de>
-In-Reply-To: <202ad1c0-e9d7-0cdd-d037-5258dfe3e378@physik.fu-berlin.de>
+References: <5532f9ab-7555-d51b-f4d5-f9b72a61f248@redhat.com>
+In-Reply-To: <5532f9ab-7555-d51b-f4d5-f9b72a61f248@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: Sergei Trofimovich <slyfox@gentoo.org>, linux-ia64@vger.kernel.org, storagedev@microchip.com, linux-scsi@vger.kernel.org, Joe Szczypek <jszczype@redhat.com>, Scott Benesh <scott.benesh@microchip.com>, Scott Teel <scott.teel@microchip.com>, Tomas Henzl <thenzl@redhat.com>, "Martin K. Petersen" <martin.petersen@oracle.com>, Don Brace <don.brace@microchip.com>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
 
-Hello!
+The failure initially observed as boot failure on rx3600 ia64 machine
+with RAID bus controller: Hewlett-Packard Company Smart Array P600:
 
-On 3/23/21 3:49 PM, John Paul Adrian Glaubitz wrote:
-> I have tried a current kernel built from Linus' tree today on one of the
-> BL860c blades we use as buildds in Debian and it turns out with just three
-> fixes applied [1-3], the kernel works just fine:
+    kernel unaligned access to 0xe000000105dd8b95, ip=0xa000000100b87551
+    kernel unaligned access to 0xe000000105dd8e95, ip=0xa000000100b87551
+    hpsa 0000:14:01.0: Controller reports max supported commands of 0 Using 16 instead. Ensure that firmware is up to date.
+    swapper/0[1]: error during unaligned kernel access
 
-Also confirmed to work on an RX2800-i2:
+Here unaligned access comes from 'struct CommandList' that happens
+to be packed. The change f749d8b7a ("scsi: hpsa: Correct dev cmds
+outstanding for retried cmds") introduced unexpected padding and
+un-aligned atomic_t from natural alignment to something else.
 
-root@yttrium:~# dmesg | head -n20
-[    0.000000] Linux version 5.12.0-rc4-00009-g3dc57918efb9 (root@lifshitz) (gcc (Debian 10.2.1-6+b1) 10.2.1 20210110, GNU ld (GNU Binutils for Debian) 2.35.2) #3 SMP Sun Mar 28 11:12:39 UTC 2021
-[    0.000000] efi: EFI v2.10 by HP
-[    0.000000] efi: SALsystab=0xdfdd63a18 ESI=0xdfdd63f18 ACPI 2.0=0x3d3c4014 HCDP=0xdffff8798 SMBIOS=0x3d368000 
-[    0.000000] PCDP: v3 at 0xdffff8798
-[    0.000000] earlycon: uart8250 at I/O port 0x4000 (options '115200n8')
-[    0.000000] printk: bootconsole [uart8250] enabled
-[    0.000000] ACPI: Early table checksum verification disabled
-[    0.000000] ACPI: RSDP 0x000000003D3C4014 000024 (v02 HP    )
-[    0.000000] ACPI: XSDT 0x000000003D3C4580 000124 (v01 HP     RX2800-2 00000001      01000013)
-[    0.000000] ACPI: FACP 0x000000003D3BE000 0000F4 (v03 HP     RX2800-2 00000001 HP   00000001)
-[    0.000000] ACPI BIOS Warning (bug): Invalid length for FADT/Pm1aEventBlock: 16, using default 32 (20210105/tbfadt-669)
-[    0.000000] ACPI BIOS Warning (bug): Invalid length for FADT/Pm1aControlBlock: 32, using default 16 (20210105/tbfadt-669)
-[    0.000000] ACPI: DSDT 0x000000003D3A4000 009E45 (v02 HP     RX2800-2 00000008 INTL 20061109)
-[    0.000000] ACPI: FACS 0x000000003D3C0000 000040
-[    0.000000] ACPI: FACS 0x000000003D3C0000 000040
-[    0.000000] ACPI: APIC 0x000000003D3C2000 00010C (v01 HP     RX2800-2 00000001 HP   00000001)
-[    0.000000] ACPI: SPCR 0x000000003D3BC000 000050 (v01 HP     RX2800-2 00000001 HP   00000001)
-[    0.000000] ACPI: SRAT 0x000000003D3BA000 0001F8 (v02 HP     RX2800-2 00000001 HP   00000001)
-[    0.000000] ACPI: SLIT 0x000000003D3B8000 00003C (v01 HP     RX2800-2 00000001 HP   00000001)
-[    0.000000] ACPI: CPEP 0x000000003D3B6000 000034 (v01 HP     RX2800-2 00000001 HP   00000001)
-root@yttrium:~#
+This change does not remove packing annotation from struct but only
+restores alignment of atomic variable.
 
-Adrian
+The change is tested on the same rx3600 machine.
 
+CC: linux-ia64@vger.kernel.org
+CC: storagedev@microchip.com
+CC: linux-scsi@vger.kernel.org
+CC: Joe Szczypek <jszczype@redhat.com>
+CC: Scott Benesh <scott.benesh@microchip.com>
+CC: Scott Teel <scott.teel@microchip.com>
+CC: Tomas Henzl <thenzl@redhat.com>
+CC: "Martin K. Petersen" <martin.petersen@oracle.com>
+CC: Don Brace <don.brace@microchip.com>
+Reported-by: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
+Suggested-by: Don Brace <don.brace@microchip.com>
+Fixes: f749d8b7a "scsi: hpsa: Correct dev cmds outstanding for retried cmds"
+Signed-off-by: Sergei Trofimovich <slyfox@gentoo.org>
+---
+ drivers/scsi/hpsa_cmd.h | 14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/scsi/hpsa_cmd.h b/drivers/scsi/hpsa_cmd.h
+index d126bb877250..617bdae9a7de 100644
+--- a/drivers/scsi/hpsa_cmd.h
++++ b/drivers/scsi/hpsa_cmd.h
+@@ -20,6 +20,9 @@
+ #ifndef HPSA_CMD_H
+ #define HPSA_CMD_H
+ 
++#include <linux/build_bug.h> /* static_assert */
++#include <linux/stddef.h> /* offsetof */
++
+ /* general boundary defintions */
+ #define SENSEINFOBYTES          32 /* may vary between hbas */
+ #define SG_ENTRIES_IN_CMD	32 /* Max SG entries excluding chain blocks */
+@@ -448,11 +451,20 @@ struct CommandList {
+ 	 */
+ 	struct hpsa_scsi_dev_t *phys_disk;
+ 
+-	bool retry_pending;
++	int retry_pending;
+ 	struct hpsa_scsi_dev_t *device;
+ 	atomic_t refcount; /* Must be last to avoid memset in hpsa_cmd_init() */
+ } __aligned(COMMANDLIST_ALIGNMENT);
+ 
++/*
++ * Make sure our embedded atomic variable is aligned. Otherwise we break atomic
++ * operations on architectures that don't support unaligned atomics like IA64.
++ *
++ * Ideally this header should be cleaned up to only mark individual structs as
++ * packed.
++ */
++static_assert(offsetof(struct CommandList, refcount) % __alignof__(atomic_t) = 0);
++
+ /* Max S/G elements in I/O accelerator command */
+ #define IOACCEL1_MAXSGENTRIES           24
+ #define IOACCEL2_MAXSGENTRIES		28
 -- 
- .''`.  John Paul Adrian Glaubitz
-: :' :  Debian Developer - glaubitz@debian.org
-`. `'   Freie Universitaet Berlin - glaubitz@physik.fu-berlin.de
-  `-    GPG: 62FF 8A75 84E0 2956 9546  0006 7426 3B37 F5B5 F913
+2.30.2
