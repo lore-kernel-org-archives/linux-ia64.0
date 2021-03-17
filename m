@@ -1,10 +1,10 @@
 From: Sasha Levin <sashal@kernel.org>
-Date: Wed, 17 Mar 2021 00:55:34 +0000
-Subject: [PATCH AUTOSEL 5.11 60/61] ia64: fix ia64_syscall_get_set_arguments() for break-based syscalls
-Message-Id: <20210317005536.724046-60-sashal@kernel.org>
+Date: Wed, 17 Mar 2021 00:58:01 +0000
+Subject: [PATCH AUTOSEL 5.4 36/37] ia64: fix ia64_syscall_get_set_arguments() for break-based syscalls
+Message-Id: <20210317005802.725825-36-sashal@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210317005536.724046-1-sashal@kernel.org>
-In-Reply-To: <20210317005536.724046-1-sashal@kernel.org>
+References: <20210317005802.725825-1-sashal@kernel.org>
+In-Reply-To: <20210317005802.725825-1-sashal@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -52,10 +52,10 @@ Signed-off-by: Sasha Levin <sashal@kernel.org>
  1 file changed, 18 insertions(+), 6 deletions(-)
 
 diff --git a/arch/ia64/kernel/ptrace.c b/arch/ia64/kernel/ptrace.c
-index c3490ee2daa5..e14f5653393a 100644
+index bf9c24d9ce84..54e12b0ecebd 100644
 --- a/arch/ia64/kernel/ptrace.c
 +++ b/arch/ia64/kernel/ptrace.c
-@@ -2013,27 +2013,39 @@ static void syscall_get_set_args_cb(struct unw_frame_info *info, void *data)
+@@ -2147,27 +2147,39 @@ static void syscall_get_set_args_cb(struct unw_frame_info *info, void *data)
  {
  	struct syscall_get_set_args *args = data;
  	struct pt_regs *pt = args->regs;
