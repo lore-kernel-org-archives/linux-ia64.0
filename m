@@ -1,10 +1,10 @@
 From: Sasha Levin <sashal@kernel.org>
-Date: Wed, 17 Mar 2021 00:58:02 +0000
-Subject: [PATCH AUTOSEL 5.4 37/37] ia64: fix ptrace(PTRACE_SYSCALL_INFO_EXIT) sign
-Message-Id: <20210317005802.725825-37-sashal@kernel.org>
+Date: Wed, 17 Mar 2021 00:56:53 +0000
+Subject: [PATCH AUTOSEL 5.10 54/54] ia64: fix ptrace(PTRACE_SYSCALL_INFO_EXIT) sign
+Message-Id: <20210317005654.724862-54-sashal@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210317005802.725825-1-sashal@kernel.org>
-In-Reply-To: <20210317005802.725825-1-sashal@kernel.org>
+References: <20210317005654.724862-1-sashal@kernel.org>
+In-Reply-To: <20210317005654.724862-1-sashal@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
