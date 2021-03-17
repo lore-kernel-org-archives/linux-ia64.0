@@ -1,47 +1,48 @@
-From: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
-Date: Wed, 17 Mar 2021 17:28:31 +0000
-Subject: Re: [PATCH] hpsa: fix boot on ia64 (atomic_t alignment)
-Message-Id: <23674602-0f14-0b71-3192-aa0184a34d6e@physik.fu-berlin.de>
+From: <Don.Brace@microchip.com>
+Date: Wed, 17 Mar 2021 19:06:10 +0000
+Subject: RE: [PATCH] hpsa: fix boot on ia64 (atomic_t alignment)
+Message-Id: <SN6PR11MB284874C2DA729D8896D78777E16A9@SN6PR11MB2848.namprd11.prod.outlook.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <5532f9ab-7555-d51b-f4d5-f9b72a61f248@redhat.com>
- <20210312222718.4117508-1-slyfox@gentoo.org>
-In-Reply-To: <20210312222718.4117508-1-slyfox@gentoo.org>
+        <20210312222718.4117508-1-slyfox@gentoo.org>
+        <SN6PR11MB2848561E3D85A8F55EB86977E16B9@SN6PR11MB2848.namprd11.prod.outlook.com>
+        <CAK8P3a3JYmhbN3TXB2cWGfXGKgsUa9Hg=ZvWckTaL_31OMgbtQ@mail.gmail.com>
+ <yq1zgz21rkz.fsf@ca-mkp.ca.oracle.com>
+ <4b2a64d91c4c478f881d9713cac5001b@AcuMS.aculab.com>
+In-Reply-To: <4b2a64d91c4c478f881d9713cac5001b@AcuMS.aculab.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Sergei Trofimovich <slyfox@gentoo.org>, linux-kernel@vger.kernel.org
-Cc: linux-ia64@vger.kernel.org, storagedev@microchip.com, linux-scsi@vger.kernel.org, Joe Szczypek <jszczype@redhat.com>, Scott Benesh <scott.benesh@microchip.com>, Scott Teel <scott.teel@microchip.com>, Tomas Henzl <thenzl@redhat.com>, "Martin K. Petersen" <martin.petersen@oracle.com>, Don Brace <don.brace@microchip.com>
+To: David.Laight@ACULAB.COM, martin.petersen@oracle.com, arnd@kernel.org
+Cc: slyfox@gentoo.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, storagedev@microchip.com, linux-scsi@vger.kernel.org, jszczype@redhat.com, Scott.Benesh@microchip.com, Scott.Teel@microchip.com, thenzl@redhat.com, glaubitz@physik.fu-berlin.de
 
-Hi Sergei!
-
-On 3/12/21 11:27 PM, Sergei Trofimovich wrote:
-> The failure initially observed as boot failure on rx3600 ia64 machine
-> with RAID bus controller: Hewlett-Packard Company Smart Array P600:
-> 
->     kernel unaligned access to 0xe000000105dd8b95, ip=0xa000000100b87551
->     kernel unaligned access to 0xe000000105dd8e95, ip=0xa000000100b87551
->     hpsa 0000:14:01.0: Controller reports max supported commands of 0 Using 16 instead. Ensure that firmware is up to date.
->     swapper/0[1]: error during unaligned kernel access
-> 
-> Here unaligned access comes from 'struct CommandList' that happens
-> to be packed. The change f749d8b7a ("scsi: hpsa: Correct dev cmds
-> outstanding for retried cmds") introduced unexpected padding and
-> un-aligned atomic_t from natural alignment to something else.
-> 
-> This change does not remove packing annotation from struct but only
-> restores alignment of atomic variable.
-> 
-> The change is tested on the same rx3600 machine.
-
-I just gave it a try on my RX2660 and for me, the hpsa driver won't load even
-with your patch.
-
-Can you share your kernel configuration so I can give it a try?
-
-Adrian
-
--- 
- .''`.  John Paul Adrian Glaubitz
-: :' :  Debian Developer - glaubitz@debian.org
-`. `'   Freie Universitaet Berlin - glaubitz@physik.fu-berlin.de
-  `-    GPG: 62FF 8A75 84E0 2956 9546  0006 7426 3B37 F5B5 F913
+LS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCkZyb206IERhdmlkIExhaWdodCBbbWFpbHRvOkRh
+dmlkLkxhaWdodEBBQ1VMQUIuQ09NXSANClN1YmplY3Q6IFJFOiBbUEFUQ0hdIGhwc2E6IGZpeCBi
+b290IG9uIGlhNjQgKGF0b21pY190IGFsaWdubWVudCkNCg0KRnJvbTogTWFydGluIEsuIFBldGVy
+c2VuDQo+IFNlbnQ6IDE3IE1hcmNoIDIwMjEgMDI6MjYNCj4NCj4gQXJuZCwNCj4NCj4gPiBBY3R1
+YWxseSB0aGF0IHN0aWxsIGZlZWxzIHdyb25nOiB0aGUgYW5ub3RhdGlvbiBvZiB0aGUgc3RydWN0
+IGlzIHRvIA0KPiA+IHBhY2sgZXZlcnkgbWVtYmVyLCB3aGljaCBjYXVzZXMgdGhlIGFjY2VzcyB0
+byBiZSBkb25lIGluIGJ5dGUgdW5pdHMgDQo+ID4gb24gYXJjaGl0ZWN0dXJlcyB0aGF0IGRvIG5v
+dCBoYXZlIGhhcmR3YXJlIHVuYWxpZ25lZCBsb2FkL3N0b3JlIA0KPiA+IGluc3RydWN0aW9ucywg
+YXQgbGVhc3QgZm9yIHRoaW5ncyBsaWtlIGF0b21pY19yZWFkKCkgdGhhdCBkb2VzIG5vdCANCj4g
+PiBnbyB0aHJvdWdoIGEgY21weGNoZygpIG9yIGxsL3NjIGN5Y2xlLg0KPg0KPiA+IFRoaXMgY2hh
+bmdlIG1heSBmaXggaXRhbml1bSwgYnV0IGl0J3Mgc3RpbGwgbm90IGNvcnJlY3QuIE90aGVyIA0K
+PiA+IGFyY2hpdGVjdHVyZXMgd291bGQgaGF2ZSBhbHJlYWR5IGJlZW4gYnJva2VuIGJlZm9yZSB0
+aGUgcmVjZW50IA0KPiA+IGNoYW5nZSwgYnV0IHRoYXQncyBub3QgYSByZWFzb24gYWdhaW5zdCBm
+aXhpbmcgdGhlbSBub3cuDQo+DQo+IEkgYWdyZWUuIEkgdW5kZXJzdGFuZCB3aHkgdGhlcmUgYXJl
+IHJlc3RyaWN0aW9ucyBvbiBmaWVsZHMgY29uc3VtZWQgYnkgDQo+IHRoZSBoYXJkd2FyZS4gQnV0
+IGZvciBmaWVsZHMgaW50ZXJuYWwgdG8gdGhlIGRyaXZlciB0aGUgcGFja2luZyANCj4gZG9lc24n
+dCBtYWtlIHNlbnNlIHRvIG1lLg0KDQpKZWVwZXJzIC0tIHRoYXQgZ2xvYmFsICNwcmFnbWEgcGFj
+aygxKSBpcyBib2xsb2Nrcy4NCg0KSSB0aGluayB0aGVyZSBhcmUgYSBjb3VwbGUgb2YgX191NjQg
+dGhhdCBhcmUgMzJiaXQgYWxpZ25lZC4NCkp1c3QgbWFya2luZyB0aG9zZSBmaWVsZCBfX3BhY2tl
+ZCBfX2FsaWduZWQoNCkgc2hvdWxkIGhhdmUgdGhlIGRlc2lyZWQgZWZmZWN0Lg0KT3IgdXNlIGEg
+dHlwZWRlZiBmb3IgJ19fdTY0IHdpdGggMzJiaXQgYWxpZ25tZW50Jy4NCihUaGVyZSBwcm9iYWJs
+eSBvdWdodCB0byBiZSBvbmUgaW4gdHlwZXMuaCkNCg0KVGhlbiBhZGQgY29tcGlsZS10aW1lIGFz
+c2VydHMgdGhhdCBhbnkgbm9uLXRyaXZpYWwgc3RydWN0dXJlcyB0aGUgaGFyZHdhcmUgYWNjZXNz
+ZXMgYXJlIHRoZSByaWdodCBzaXplLg0KDQogICAgICAgIERhdmlkDQoNCkRvbjogTXkgZGlsZW1t
+YSBpcyB0aGF0IGhwc2EgaXMgbm93IGEgbWFpbnRlbmFuY2UgZHJpdmVyIGFuZCBtYWtpbmcgbW9y
+ZSBwYWNraW5nL2FsaWdubWVudCBjaGFuZ2VzIHdvdWxkIHRyaWdnZXIgYSBsb3Qgb2YgcmVncmVz
+c2lvbiB0ZXN0aW5nLiBNeSBsYXN0IHBhdGNoIGFsaWducyB0aGUgc3RydWN0dXJlIHdpdGggd2hh
+dCBoYXMgYmVlbiBpbiBwbGFjZSBmb3IgYSBsb25nIHRpbWUgbm93LiBBbGwgSSBkaWQgd2FzIHJl
+bmFtZSBhbiB1bnVzZWQgdmFyaWFibGUuIFNvIG1ha2luZyBhbnkgbW9yZSBjaGFuZ2VzIGlzIG5v
+dCBoaWdoIG9uIG15IHRvZG8gbGlzdC4uLg0KDQoNCg=
