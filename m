@@ -1,51 +1,79 @@
-From: Sergei Trofimovich <slyfox@gentoo.org>
-Date: Sun, 28 Mar 2021 21:55:49 +0000
-Subject: [PATCH] ia64: mca: always make IA64_MCA_DEBUG an expression
-Message-Id: <20210328215549.830420-1-slyfox@gentoo.org>
+From: Sasha Levin <sashal@kernel.org>
+Date: Wed, 17 Mar 2021 00:58:02 +0000
+Subject: [PATCH AUTOSEL 5.4 37/37] ia64: fix ptrace(PTRACE_SYSCALL_INFO_EXIT) sign
+Message-Id: <20210317005802.725825-37-sashal@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20210317005802.725825-1-sashal@kernel.org>
+In-Reply-To: <20210317005802.725825-1-sashal@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>
-Cc: linux-kernel@vger.kernel.org, Sergei Trofimovich <slyfox@gentoo.org>, linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
+Cc: Sergei Trofimovich <slyfox@gentoo.org>, "Dmitry V . Levin" <ldv@altlinux.org>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, Oleg Nesterov <oleg@redhat.com>, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, Sasha Levin <sashal@kernel.org>, linux-ia64@vger.kernel.org
 
-At least ia64_mca_log_sal_error_record() expects some statement:
+From: Sergei Trofimovich <slyfox@gentoo.org>
 
-    static void ia64_mca_log_sal_error_record(int sal_info_type)
-    {
-        ...
-        if (irq_safe)
-            IA64_MCA_DEBUG("CPU %d: SAL log contains %s error record\n",
-                smp_processor_id(),
-                sal_info_type < ARRAY_SIZE(rec_name) ? rec_name[sal_info_type] : "UNKNOWN");
-        ...
-    }
+[ Upstream commit 61bf318eac2c13356f7bd1c6a05421ef504ccc8a ]
 
-Instead of fixing all callers the change expicitly makes IA64_MCA_DEBUG
-a non-empty expression.
+In https://bugs.gentoo.org/769614 Dmitry noticed that
+`ptrace(PTRACE_GET_SYSCALL_INFO)` does not return error sign properly.
 
-CC: Andrew Morton <akpm@linux-foundation.org>
-CC: linux-ia64@vger.kernel.org
+The bug is in mismatch between get/set errors:
+
+static inline long syscall_get_error(struct task_struct *task,
+                                     struct pt_regs *regs)
+{
+        return regs->r10 = -1 ? regs->r8:0;
+}
+
+static inline long syscall_get_return_value(struct task_struct *task,
+                                            struct pt_regs *regs)
+{
+        return regs->r8;
+}
+
+static inline void syscall_set_return_value(struct task_struct *task,
+                                            struct pt_regs *regs,
+                                            int error, long val)
+{
+        if (error) {
+                /* error < 0, but ia64 uses > 0 return value */
+                regs->r8 = -error;
+                regs->r10 = -1;
+        } else {
+                regs->r8 = val;
+                regs->r10 = 0;
+        }
+}
+
+Tested on v5.10 on rx3600 machine (ia64 9040 CPU).
+
+Link: https://lkml.kernel.org/r/20210221002554.333076-2-slyfox@gentoo.org
+Link: https://bugs.gentoo.org/769614
 Signed-off-by: Sergei Trofimovich <slyfox@gentoo.org>
+Reported-by: Dmitry V. Levin <ldv@altlinux.org>
+Reviewed-by: Dmitry V. Levin <ldv@altlinux.org>
+Cc: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
+Cc: Oleg Nesterov <oleg@redhat.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
 ---
- arch/ia64/kernel/mca.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ arch/ia64/include/asm/syscall.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/ia64/kernel/mca.c b/arch/ia64/kernel/mca.c
-index 79e76712198c..16088c645e2b 100644
---- a/arch/ia64/kernel/mca.c
-+++ b/arch/ia64/kernel/mca.c
-@@ -109,9 +109,9 @@
- #include "irq.h"
+diff --git a/arch/ia64/include/asm/syscall.h b/arch/ia64/include/asm/syscall.h
+index 6c6f16e409a8..0d23c0049301 100644
+--- a/arch/ia64/include/asm/syscall.h
++++ b/arch/ia64/include/asm/syscall.h
+@@ -32,7 +32,7 @@ static inline void syscall_rollback(struct task_struct *task,
+ static inline long syscall_get_error(struct task_struct *task,
+ 				     struct pt_regs *regs)
+ {
+-	return regs->r10 = -1 ? regs->r8:0;
++	return regs->r10 = -1 ? -regs->r8:0;
+ }
  
- #if defined(IA64_MCA_DEBUG_INFO)
--# define IA64_MCA_DEBUG(fmt...)	printk(fmt)
-+# define IA64_MCA_DEBUG(fmt...) printk(fmt)
- #else
--# define IA64_MCA_DEBUG(fmt...)
-+# define IA64_MCA_DEBUG(fmt...) do {} while (0)
- #endif
- 
- #define NOTIFY_INIT(event, regs, arg, spin)				\
+ static inline long syscall_get_return_value(struct task_struct *task,
 -- 
-2.31.1
+2.30.1
