@@ -1,157 +1,104 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Fri, 19 Mar 2021 12:23:34 +0000
-Subject: [PATCH -tip v3 10/11] x86/unwind: Recover kretprobe trampoline entry
-Message-Id: <161615661459.306069.7790897385197866745.stgit@devnote2>
+From: Sasha Levin <sashal@kernel.org>
+Date: Wed, 17 Mar 2021 00:59:46 +0000
+Subject: [PATCH AUTOSEL 4.9 15/16] ia64: fix ia64_syscall_get_set_arguments() for break-based syscalls
+Message-Id: <20210317005948.727250-15-sashal@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <161615650355.306069.17260992641363840330.stgit@devnote2>
-In-Reply-To: <161615650355.306069.17260992641363840330.stgit@devnote2>
+References: <20210317005948.727250-1-sashal@kernel.org>
+In-Reply-To: <20210317005948.727250-1-sashal@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>
-Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, Josh Poimboeuf <jpoimboe@redhat.com>, linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
+Cc: Sergei Trofimovich <slyfox@gentoo.org>, "Dmitry V . Levin" <ldv@altlinux.org>, Oleg Nesterov <oleg@redhat.com>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, Sasha Levin <sashal@kernel.org>, linux-ia64@vger.kernel.org
 
-Since the kretprobe replaces the function return address with
-the kretprobe_trampoline on the stack, x86 unwinders can not
-continue the stack unwinding at that point, or record
-kretprobe_trampoline instead of correct return address.
+From: Sergei Trofimovich <slyfox@gentoo.org>
 
-To fix this issue, find the correct return address from task's
-kretprobe_instances as like as function-graph tracer does.
+[ Upstream commit 0ceb1ace4a2778e34a5414e5349712ae4dc41d85 ]
 
-With this fix, the unwinder can correctly unwind the stack
-from kretprobe event on x86, as below.
+In https://bugs.gentoo.org/769614 Dmitry noticed that
+`ptrace(PTRACE_GET_SYSCALL_INFO)` does not work for syscalls called via
+glibc's syscall() wrapper.
 
-           <...>-135     [003] ...1     6.722338: r_full_proxy_read_0: (vfs_read+0xab/0x1a0 <- full_proxy_read)
-           <...>-135     [003] ...1     6.722377: <stack trace>
- => kretprobe_trace_func+0x209/0x2f0
- => kretprobe_dispatcher+0x4a/0x70
- => __kretprobe_trampoline_handler+0xca/0x150
- => trampoline_handler+0x44/0x70
- => kretprobe_trampoline+0x2a/0x50
- => vfs_read+0xab/0x1a0
- => ksys_read+0x5f/0xe0
- => do_syscall_64+0x33/0x40
- => entry_SYSCALL_64_after_hwframe+0x44/0xae
+ia64 has two ways to call syscalls from userspace: via `break` and via
+`eps` instructions.
 
+The difference is in stack layout:
 
-Reported-by: Daniel Xu <dxu@dxuuu.xyz>
-Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
-Suggested-by: Josh Poimboeuf <jpoimboe@redhat.com>
+1. `eps` creates simple stack frame: no locals, in{0..7} = out{0..8}
+2. `break` uses userspace stack frame: may be locals (glibc provides
+   one), in{0..7} = out{0..8}.
+
+Both work fine in syscall handling cde itself.
+
+But `ptrace(PTRACE_GET_SYSCALL_INFO)` uses unwind mechanism to
+re-extract syscall arguments but it does not account for locals.
+
+The change always skips locals registers. It should not change `eps`
+path as kernel's handler already enforces locals=0 and fixes `break`.
+
+Tested on v5.10 on rx3600 machine (ia64 9040 CPU).
+
+Link: https://lkml.kernel.org/r/20210221002554.333076-1-slyfox@gentoo.org
+Link: https://bugs.gentoo.org/769614
+Signed-off-by: Sergei Trofimovich <slyfox@gentoo.org>
+Reported-by: Dmitry V. Levin <ldv@altlinux.org>
+Cc: Oleg Nesterov <oleg@redhat.com>
+Cc: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
 ---
-  Changes in v3:
-   - Split out the kretprobe side patch
-   - Fix build error when CONFIG_KRETPROBES=n.
-  Changes in v2:
-   - Remove kretprobe wrapper functions from unwind_orc.c
-   - Do not fixup state->ip when unwinding with regs because
-     kretprobe fixup instruction pointer before calling handler.
----
- arch/x86/include/asm/unwind.h  |   17 +++++++++++++++++
- arch/x86/kernel/unwind_frame.c |    4 ++--
- arch/x86/kernel/unwind_guess.c |    3 +--
- arch/x86/kernel/unwind_orc.c   |    6 +++---
- 4 files changed, 23 insertions(+), 7 deletions(-)
+ arch/ia64/kernel/ptrace.c | 24 ++++++++++++++++++------
+ 1 file changed, 18 insertions(+), 6 deletions(-)
 
-diff --git a/arch/x86/include/asm/unwind.h b/arch/x86/include/asm/unwind.h
-index 70fc159ebe69..332aa6174b10 100644
---- a/arch/x86/include/asm/unwind.h
-+++ b/arch/x86/include/asm/unwind.h
-@@ -4,6 +4,7 @@
+diff --git a/arch/ia64/kernel/ptrace.c b/arch/ia64/kernel/ptrace.c
+index 36f660da8124..56007258c014 100644
+--- a/arch/ia64/kernel/ptrace.c
++++ b/arch/ia64/kernel/ptrace.c
+@@ -2144,27 +2144,39 @@ static void syscall_get_set_args_cb(struct unw_frame_info *info, void *data)
+ {
+ 	struct syscall_get_set_args *args = data;
+ 	struct pt_regs *pt = args->regs;
+-	unsigned long *krbs, cfm, ndirty;
++	unsigned long *krbs, cfm, ndirty, nlocals, nouts;
+ 	int i, count;
  
- #include <linux/sched.h>
- #include <linux/ftrace.h>
-+#include <linux/kprobes.h>
- #include <asm/ptrace.h>
- #include <asm/stacktrace.h>
+ 	if (unw_unwind_to_user(info) < 0)
+ 		return;
  
-@@ -15,6 +16,7 @@ struct unwind_state {
- 	unsigned long stack_mask;
- 	struct task_struct *task;
- 	int graph_idx;
-+	struct llist_node *kr_cur;
- 	bool error;
- #if defined(CONFIG_UNWINDER_ORC)
- 	bool signal, full_regs;
-@@ -99,6 +101,21 @@ void unwind_module_init(struct module *mod, void *orc_ip, size_t orc_ip_size,
- 			void *orc, size_t orc_size) {}
- #endif
++	/*
++	 * We get here via a few paths:
++	 * - break instruction: cfm is shared with caller.
++	 *   syscall args are in out= regs, locals are non-empty.
++	 * - epsinstruction: cfm is set by br.call
++	 *   locals don't exist.
++	 *
++	 * For both cases argguments are reachable in cfm.sof - cfm.sol.
++	 * CFM: [ ... | sor: 17..14 | sol : 13..7 | sof : 6..0 ]
++	 */
+ 	cfm = pt->cr_ifs;
++	nlocals = (cfm >> 7) & 0x7f; /* aka sol */
++	nouts = (cfm & 0x7f) - nlocals; /* aka sof - sol */
+ 	krbs = (unsigned long *)info->task + IA64_RBS_OFFSET/8;
+ 	ndirty = ia64_rse_num_regs(krbs, krbs + (pt->loadrs >> 19));
  
-+/* Recover the return address modified by instrumentation (e.g. kretprobe) */
-+static inline
-+unsigned long unwind_recover_ret_addr(struct unwind_state *state,
-+				     unsigned long addr, unsigned long *addr_p)
-+{
-+	unsigned long ret;
-+
-+	ret = ftrace_graph_ret_addr(state->task, &state->graph_idx,
-+				    addr, addr_p);
-+	if (is_kretprobe_trampoline(ret))
-+		ret = kretprobe_find_ret_addr(state->task, addr_p,
-+					      &state->kr_cur);
-+	return ret;
-+}
-+
- /*
-  * This disables KASAN checking when reading a value from another task's stack,
-  * since the other task could be running on another CPU and could have poisoned
-diff --git a/arch/x86/kernel/unwind_frame.c b/arch/x86/kernel/unwind_frame.c
-index d7c44b257f7f..24e33b44b2be 100644
---- a/arch/x86/kernel/unwind_frame.c
-+++ b/arch/x86/kernel/unwind_frame.c
-@@ -3,6 +3,7 @@
- #include <linux/sched/task.h>
- #include <linux/sched/task_stack.h>
- #include <linux/interrupt.h>
-+#include <linux/kprobes.h>
- #include <asm/sections.h>
- #include <asm/ptrace.h>
- #include <asm/bitops.h>
-@@ -240,8 +241,7 @@ static bool update_stack_state(struct unwind_state *state,
- 	else {
- 		addr_p = unwind_get_return_address_ptr(state);
- 		addr = READ_ONCE_TASK_STACK(state->task, *addr_p);
--		state->ip = ftrace_graph_ret_addr(state->task, &state->graph_idx,
--						  addr, addr_p);
-+		state->ip = unwind_recover_ret_addr(state, addr, addr_p);
+ 	count = 0;
+ 	if (in_syscall(pt))
+-		count = min_t(int, args->n, cfm & 0x7f);
++		count = min_t(int, args->n, nouts);
+ 
++	/* Iterate over outs. */
+ 	for (i = 0; i < count; i++) {
++		int j = ndirty + nlocals + i + args->i;
+ 		if (args->rw)
+-			*ia64_rse_skip_regs(krbs, ndirty + i + args->i) -				args->args[i];
++			*ia64_rse_skip_regs(krbs, j) = args->args[i];
+ 		else
+-			args->args[i] = *ia64_rse_skip_regs(krbs,
+-				ndirty + i + args->i);
++			args->args[i] = *ia64_rse_skip_regs(krbs, j);
  	}
  
- 	/* Save the original stack pointer for unwind_dump(): */
-diff --git a/arch/x86/kernel/unwind_guess.c b/arch/x86/kernel/unwind_guess.c
-index c49f10ffd8cd..884d68a6e714 100644
---- a/arch/x86/kernel/unwind_guess.c
-+++ b/arch/x86/kernel/unwind_guess.c
-@@ -15,8 +15,7 @@ unsigned long unwind_get_return_address(struct unwind_state *state)
- 
- 	addr = READ_ONCE_NOCHECK(*state->sp);
- 
--	return ftrace_graph_ret_addr(state->task, &state->graph_idx,
--				     addr, state->sp);
-+	return unwind_recover_ret_addr(state, addr, state->sp);
- }
- EXPORT_SYMBOL_GPL(unwind_get_return_address);
- 
-diff --git a/arch/x86/kernel/unwind_orc.c b/arch/x86/kernel/unwind_orc.c
-index a1202536fc57..839a0698342a 100644
---- a/arch/x86/kernel/unwind_orc.c
-+++ b/arch/x86/kernel/unwind_orc.c
-@@ -2,6 +2,7 @@
- #include <linux/objtool.h>
- #include <linux/module.h>
- #include <linux/sort.h>
-+#include <linux/kprobes.h>
- #include <asm/ptrace.h>
- #include <asm/stacktrace.h>
- #include <asm/unwind.h>
-@@ -534,9 +535,8 @@ bool unwind_next_frame(struct unwind_state *state)
- 		if (!deref_stack_reg(state, ip_p, &state->ip))
- 			goto err;
- 
--		state->ip = ftrace_graph_ret_addr(state->task, &state->graph_idx,
--						  state->ip, (void *)ip_p);
--
-+		state->ip = unwind_recover_ret_addr(state, state->ip,
-+						    (unsigned long *)ip_p);
- 		state->sp = sp;
- 		state->regs = NULL;
- 		state->prev_regs = NULL;
+ 	if (!args->rw) {
+-- 
+2.30.1
