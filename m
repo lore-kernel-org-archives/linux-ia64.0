@@ -1,68 +1,97 @@
-From: Sasha Levin <sashal@kernel.org>
-Date: Mon, 29 Mar 2021 22:23:23 +0000
-Subject: [PATCH AUTOSEL 4.19 12/15] ia64: mca: allocate early mca with GFP_ATOMIC
-Message-Id: <20210329222327.2383533-12-sashal@kernel.org>
+From: Masami Hiramatsu <mhiramat@kernel.org>
+Date: Fri, 19 Mar 2021 12:23:23 +0000
+Subject: [PATCH -tip v3 09/11] x86/kprobes: Push a fake return address at kretprobe_trampoline
+Message-Id: <161615660310.306069.8018914961713221579.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210329222327.2383533-1-sashal@kernel.org>
-In-Reply-To: <20210329222327.2383533-1-sashal@kernel.org>
+References: <161615650355.306069.17260992641363840330.stgit@devnote2>
+In-Reply-To: <161615650355.306069.17260992641363840330.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
-Cc: Sergei Trofimovich <slyfox@gentoo.org>, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, Sasha Levin <sashal@kernel.org>, linux-ia64@vger.kernel.org
+To: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>
+Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, Josh Poimboeuf <jpoimboe@redhat.com>, linux-ia64@vger.kernel.org
 
-From: Sergei Trofimovich <slyfox@gentoo.org>
+This changes x86/kretprobe stack frame on kretprobe_trampoline
+a bit, which now push the kretprobe_trampoline as a fake return
+address at the bottom of the stack frame. With this fix, the ORC
+unwinder will see the kretprobe_trampoline as a return address.
 
-[ Upstream commit f2a419cf495f95cac49ea289318b833477e1a0e2 ]
-
-The sleep warning happens at early boot right at secondary CPU
-activation bootup:
-
-    smp: Bringing up secondary CPUs ...
-    BUG: sleeping function called from invalid context at mm/page_alloc.c:4942
-    in_atomic(): 0, irqs_disabled(): 1, non_block: 0, pid: 0, name: swapper/1
-    CPU: 1 PID: 0 Comm: swapper/1 Not tainted 5.12.0-rc2-00007-g79e228d0b611-dirty #99
-    ..
-    Call Trace:
-      show_stack+0x90/0xc0
-      dump_stack+0x150/0x1c0
-      ___might_sleep+0x1c0/0x2a0
-      __might_sleep+0xa0/0x160
-      __alloc_pages_nodemask+0x1a0/0x600
-      alloc_page_interleave+0x30/0x1c0
-      alloc_pages_current+0x2c0/0x340
-      __get_free_pages+0x30/0xa0
-      ia64_mca_cpu_init+0x2d0/0x3a0
-      cpu_init+0x8b0/0x1440
-      start_secondary+0x60/0x700
-      start_ap+0x750/0x780
-    Fixed BSP b0 value from CPU 1
-
-As I understand interrupts are not enabled yet and system has a lot of
-memory.  There is little chance to sleep and switch to GFP_ATOMIC should
-be a no-op.
-
-Link: https://lkml.kernel.org/r/20210315085045.204414-1-slyfox@gentoo.org
-Signed-off-by: Sergei Trofimovich <slyfox@gentoo.org>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
-Signed-off-by: Sasha Levin <sashal@kernel.org>
+Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
+Suggested-by: Josh Poimboeuf <jpoimboe@redhat.com>
 ---
- arch/ia64/kernel/mca.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ arch/x86/kernel/kprobes/core.c |   31 ++++++++++++++++++++++---------
+ 1 file changed, 22 insertions(+), 9 deletions(-)
 
-diff --git a/arch/ia64/kernel/mca.c b/arch/ia64/kernel/mca.c
-index 6115464d5f03..d7400b2844f1 100644
---- a/arch/ia64/kernel/mca.c
-+++ b/arch/ia64/kernel/mca.c
-@@ -1860,7 +1860,7 @@ ia64_mca_cpu_init(void *cpu_data)
- 			data = mca_bootmem();
- 			first_time = 0;
- 		} else
--			data = (void *)__get_free_pages(GFP_KERNEL,
-+			data = (void *)__get_free_pages(GFP_ATOMIC,
- 							get_order(sz));
- 		if (!data)
- 			panic("Could not allocate MCA memory for cpu %d\n",
--- 
-2.30.1
+diff --git a/arch/x86/kernel/kprobes/core.c b/arch/x86/kernel/kprobes/core.c
+index b31058a152b6..7e7b854e0fdf 100644
+--- a/arch/x86/kernel/kprobes/core.c
++++ b/arch/x86/kernel/kprobes/core.c
+@@ -769,28 +769,31 @@ asm(
+ 	".global kretprobe_trampoline\n"
+ 	".type kretprobe_trampoline, @function\n"
+ 	"kretprobe_trampoline:\n"
+-	/* We don't bother saving the ss register */
+ #ifdef CONFIG_X86_64
+-	"	pushq %rsp\n"
++	/* Push fake return address to tell the unwinder it's a kretprobe */
++	"	pushq $kretprobe_trampoline\n"
+ 	UNWIND_HINT_FUNC
++	/* Save the sp-8, this will be fixed later */
++	"	pushq %rsp\n"
+ 	"	pushfq\n"
+ 	SAVE_REGS_STRING
+ 	"	movq %rsp, %rdi\n"
+ 	"	call trampoline_handler\n"
+-	/* Replace saved sp with true return address. */
+-	"	movq %rax, 19*8(%rsp)\n"
+ 	RESTORE_REGS_STRING
++	"	addq $8, %rsp\n"
+ 	"	popfq\n"
+ #else
+-	"	pushl %esp\n"
++	/* Push fake return address to tell the unwinder it's a kretprobe */
++	"	pushl $kretprobe_trampoline\n"
+ 	UNWIND_HINT_FUNC
++	/* Save the sp-4, this will be fixed later */
++	"	pushl %esp\n"
+ 	"	pushfl\n"
+ 	SAVE_REGS_STRING
+ 	"	movl %esp, %eax\n"
+ 	"	call trampoline_handler\n"
+-	/* Replace saved sp with true return address. */
+-	"	movl %eax, 15*4(%esp)\n"
+ 	RESTORE_REGS_STRING
++	"	addl $4, %esp\n"
+ 	"	popfl\n"
+ #endif
+ 	"	ret\n"
+@@ -802,8 +805,10 @@ NOKPROBE_SYMBOL(kretprobe_trampoline);
+ /*
+  * Called from kretprobe_trampoline
+  */
+-__used __visible void *trampoline_handler(struct pt_regs *regs)
++__used __visible void trampoline_handler(struct pt_regs *regs)
+ {
++	unsigned long *frame_pointer;
++
+ 	/* fixup registers */
+ 	regs->cs = __KERNEL_CS;
+ #ifdef CONFIG_X86_32
+@@ -811,8 +816,16 @@ __used __visible void *trampoline_handler(struct pt_regs *regs)
+ #endif
+ 	regs->ip = (unsigned long)&kretprobe_trampoline;
+ 	regs->orig_ax = ~0UL;
++	regs->sp += sizeof(long);
++	frame_pointer = ((unsigned long *)&regs->sp) + 1;
+ 
+-	return (void *)kretprobe_trampoline_handler(regs, &regs->sp);
++	/* Replace fake return address with real one. */
++	*frame_pointer = kretprobe_trampoline_handler(regs, frame_pointer);
++	/*
++	 * Move flags to sp so that kretprobe_trapmoline can return
++	 * right after popf.
++	 */
++	regs->sp = regs->flags;
+ }
+ NOKPROBE_SYMBOL(trampoline_handler);
+ 
