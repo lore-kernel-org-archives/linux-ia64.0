@@ -1,7 +1,7 @@
-From: Heiko Carstens <hca@linux.ibm.com>
-Date: Tue, 09 Mar 2021 10:12:26 +0000
+From: Catalin Marinas <catalin.marinas@arm.com>
+Date: Fri, 19 Mar 2021 18:35:49 +0000
 Subject: Re: [PATCH 0/6] mm: some config cleanups
-Message-Id: <YEdKCvxlFQa4noI8@osiris>
+Message-Id: <20210319183548.GH6832@arm.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1615278790-18053-1-git-send-email-anshuman.khandual@arm.com>
 In-Reply-To: <1615278790-18053-1-git-send-email-anshuman.khandual@arm.com>
@@ -44,19 +44,7 @@ On Tue, Mar 09, 2021 at 02:03:04PM +0530, Anshuman Khandual wrote:
 >  arch/arc/Kconfig                       |  9 ++------
 >  arch/arm/Kconfig                       | 10 ++-------
 >  arch/arm64/Kconfig                     | 30 ++++++--------------------
->  arch/ia64/Kconfig                      |  8 ++-----
->  arch/mips/Kconfig                      |  6 +-----
->  arch/parisc/Kconfig                    |  5 +----
->  arch/powerpc/Kconfig                   | 11 ++--------
->  arch/powerpc/platforms/Kconfig.cputype | 16 +++++---------
->  arch/riscv/Kconfig                     |  5 +----
->  arch/s390/Kconfig                      | 12 +++--------
->  arch/sh/Kconfig                        |  7 +++---
->  arch/sh/mm/Kconfig                     |  8 -------
->  arch/x86/Kconfig                       | 29 ++++++-------------------
->  fs/Kconfig                             |  5 ++++-
->  mm/Kconfig                             |  9 ++++++++
->  15 files changed, 48 insertions(+), 122 deletions(-)
 
-for the s390 bits:
-Acked-by: Heiko Carstens <hca@linux.ibm.com>
+For arm64:
+
+Acked-by: Catalin Marinas <catalin.marinas@arm.com>
