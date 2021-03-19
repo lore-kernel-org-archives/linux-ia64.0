@@ -1,73 +1,53 @@
-From: Sergei Trofimovich <slyfox@gentoo.org>
-Date: Wed, 31 Mar 2021 08:44:47 +0000
-Subject: [PATCH] ia64: fix user_stack_pointer() for ptrace()
-Message-Id: <20210331084447.2561532-1-slyfox@gentoo.org>
+From: Masami Hiramatsu <mhiramat@kernel.org>
+Date: Fri, 19 Mar 2021 12:23:01 +0000
+Subject: [PATCH -tip v3 07/11] ia64: Add instruction_pointer_set() API
+Message-Id: <161615658087.306069.12036720803234007510.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <161615650355.306069.17260992641363840330.stgit@devnote2>
+In-Reply-To: <161615650355.306069.17260992641363840330.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>
-Cc: linux-kernel@vger.kernel.org, Sergei Trofimovich <slyfox@gentoo.org>, Oleg Nesterov <oleg@redhat.com>, linux-ia64@vger.kernel.org, "Dmitry V . Levin" <ldv@altlinux.org>
+To: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>
+Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, Josh Poimboeuf <jpoimboe@redhat.com>, linux-ia64@vger.kernel.org
 
-ia64 has two stacks:
-- memory stack (or stack), pointed at by by r12
-- register backing store (register stack), pointed at
-  ar.bsp/ar.bspstore with complications around dirty
-  register frame on CPU.
+Add instruction_pointer_set() API for ia64.
 
-In https://bugs.gentoo.org/769614 Dmitry noticed that
-PTRACE_GET_SYSCALL_INFO returns register stack instead
-memory stack.
-
-The bug comes from the fact that user_stack_pointer() and
-current_user_stack_pointer() don't return the same register:
-
-  ulong user_stack_pointer(struct pt_regs *regs) { return regs->ar_bspstore; }
-  #define current_user_stack_pointer() (current_pt_regs()->r12)
-
-The change gets both back in sync.
-
-I think ptrace(PTRACE_GET_SYSCALL_INFO) is the only affected user
-by this bug on ia64.
-
-The change fixes 'rt_sigreturn.gen.test' strace test where
-it was observed initially.
-
-CC: Andrew Morton <akpm@linux-foundation.org>
-CC: Oleg Nesterov <oleg@redhat.com>
-CC: linux-ia64@vger.kernel.org
-Bug: https://bugs.gentoo.org/769614
-Reported-by: Dmitry V. Levin <ldv@altlinux.org>
-Signed-off-by: Sergei Trofimovich <slyfox@gentoo.org>
+Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
 ---
- arch/ia64/include/asm/ptrace.h | 8 +-------
- 1 file changed, 1 insertion(+), 7 deletions(-)
+ arch/ia64/include/asm/ptrace.h |    8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
 
 diff --git a/arch/ia64/include/asm/ptrace.h b/arch/ia64/include/asm/ptrace.h
-index b3aa46090101..08179135905c 100644
+index b3aa46090101..e382f1a6bff3 100644
 --- a/arch/ia64/include/asm/ptrace.h
 +++ b/arch/ia64/include/asm/ptrace.h
-@@ -54,8 +54,7 @@
+@@ -45,6 +45,7 @@
+ #include <asm/current.h>
+ #include <asm/page.h>
  
- static inline unsigned long user_stack_pointer(struct pt_regs *regs)
- {
--	/* FIXME: should this be bspstore + nr_dirty regs? */
--	return regs->ar_bspstore;
-+	return regs->r12;
++# define ia64_psr(regs)			((struct ia64_psr *) &(regs)->cr_ipsr)
+ /*
+  * We use the ia64_psr(regs)->ri to determine which of the three
+  * instructions in bundle (16 bytes) took the sample. Generate
+@@ -71,6 +72,12 @@ static inline long regs_return_value(struct pt_regs *regs)
+ 		return -regs->r8;
  }
  
- static inline int is_syscall_success(struct pt_regs *regs)
-@@ -79,11 +78,6 @@ static inline long regs_return_value(struct pt_regs *regs)
- 	unsigned long __ip = instruction_pointer(regs);			\
- 	(__ip & ~3UL) + ((__ip & 3UL) << 2);				\
- })
--/*
-- * Why not default?  Because user_stack_pointer() on ia64 gives register
-- * stack backing store instead...
-- */
--#define current_user_stack_pointer() (current_pt_regs()->r12)
++static inline void instruction_pointer_set(struct pt_regs *regs, unsigned long val)
++{
++	ia64_psr(regs)->ri = (val & 0xf);
++	regs->cr_iip = (val & ~0xfULL);
++}
++
+ /* Conserve space in histogram by encoding slot bits in address
+  * bits 2 and 3 rather than bits 0 and 1.
+  */
+@@ -87,7 +94,6 @@ static inline long regs_return_value(struct pt_regs *regs)
  
    /* given a pointer to a task_struct, return the user's pt_regs */
  # define task_pt_regs(t)		(((struct pt_regs *) ((char *) (t) + IA64_STK_OFFSET)) - 1)
--- 
-2.31.1
+-# define ia64_psr(regs)			((struct ia64_psr *) &(regs)->cr_ipsr)
+ # define user_mode(regs)		(((struct ia64_psr *) &(regs)->cr_ipsr)->cpl != 0)
+ # define user_stack(task,regs)	((long) regs - (long) task = IA64_STK_OFFSET - sizeof(*regs))
+ # define fsys_mode(task,regs)					\
