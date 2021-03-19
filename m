@@ -1,122 +1,68 @@
-From: Sasha Levin <sashal@kernel.org>
-Date: Mon, 29 Mar 2021 22:21:29 +0000
-Subject: [PATCH AUTOSEL 5.11 34/38] ia64: fix format strings for err_inject
-Message-Id: <20210329222133.2382393-34-sashal@kernel.org>
+From: Masami Hiramatsu <mhiramat@kernel.org>
+Date: Fri, 19 Mar 2021 12:23:45 +0000
+Subject: [PATCH -tip v3 11/11] tracing: Show kretprobe unknown indicator only for kretprobe_trampoline
+Message-Id: <161615662521.306069.3578204343927212072.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210329222133.2382393-1-sashal@kernel.org>
-In-Reply-To: <20210329222133.2382393-1-sashal@kernel.org>
+References: <161615650355.306069.17260992641363840330.stgit@devnote2>
+In-Reply-To: <161615650355.306069.17260992641363840330.stgit@devnote2>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
-Cc: Sergei Trofimovich <slyfox@gentoo.org>, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, Sasha Levin <sashal@kernel.org>, linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>
+Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, Josh Poimboeuf <jpoimboe@redhat.com>, linux-ia64@vger.kernel.org
 
-From: Sergei Trofimovich <slyfox@gentoo.org>
+ftrace shows "[unknown/kretprobe'd]" indicator all addresses in the
+kretprobe_trampoline, but the modified address by kretprobe should
+be only kretprobe_trampoline+0.
 
-[ Upstream commit 95d44a470a6814207d52dd6312203b0f4ef12710 ]
-
-Fix warning with %lx / u64 mismatch:
-
-  arch/ia64/kernel/err_inject.c: In function 'show_resources':
-  arch/ia64/kernel/err_inject.c:62:22: warning:
-    format '%lx' expects argument of type 'long unsigned int',
-    but argument 3 has type 'u64' {aka 'long long unsigned int'}
-     62 |  return sprintf(buf, "%lx", name[cpu]);   \
-        |                      ^~~~~~~
-
-Link: https://lkml.kernel.org/r/20210313104312.1548232-1-slyfox@gentoo.org
-Signed-off-by: Sergei Trofimovich <slyfox@gentoo.org>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
-Signed-off-by: Sasha Levin <sashal@kernel.org>
+Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
 ---
- arch/ia64/kernel/err_inject.c | 22 +++++++++++-----------
- 1 file changed, 11 insertions(+), 11 deletions(-)
+ kernel/trace/trace_output.c |   17 ++++-------------
+ 1 file changed, 4 insertions(+), 13 deletions(-)
 
-diff --git a/arch/ia64/kernel/err_inject.c b/arch/ia64/kernel/err_inject.c
-index 8b5b8e6bc9d9..dd5bfed52031 100644
---- a/arch/ia64/kernel/err_inject.c
-+++ b/arch/ia64/kernel/err_inject.c
-@@ -59,7 +59,7 @@ show_##name(struct device *dev, struct device_attribute *=
-attr,	\
- 		char *buf)						\
- {									\
- 	u32 cpu=DEv->id;						\
--	return sprintf(buf, "%lx\n", name[cpu]);			\
-+	return sprintf(buf, "%llx\n", name[cpu]);			\
+diff --git a/kernel/trace/trace_output.c b/kernel/trace/trace_output.c
+index 61255bad7e01..e12437388686 100644
+--- a/kernel/trace/trace_output.c
++++ b/kernel/trace/trace_output.c
+@@ -8,6 +8,7 @@
+ #include <linux/module.h>
+ #include <linux/mutex.h>
+ #include <linux/ftrace.h>
++#include <linux/kprobes.h>
+ #include <linux/sched/clock.h>
+ #include <linux/sched/mm.h>
+ 
+@@ -346,22 +347,12 @@ int trace_output_call(struct trace_iterator *iter, char *name, char *fmt, ...)
  }
-=20
- #define store(name)							\
-@@ -86,9 +86,9 @@ store_call_start(struct device *dev, struct device_attrib=
-ute *attr,
-=20
- #ifdef ERR_INJ_DEBUG
- 	printk(KERN_DEBUG "pal_mc_err_inject for cpu%d:\n", cpu);
--	printk(KERN_DEBUG "err_type_info=3D%lx,\n", err_type_info[cpu]);
--	printk(KERN_DEBUG "err_struct_info=3D%lx,\n", err_struct_info[cpu]);
--	printk(KERN_DEBUG "err_data_buffer=3D%lx, %lx, %lx.\n",
-+	printk(KERN_DEBUG "err_type_info=3D%llx,\n", err_type_info[cpu]);
-+	printk(KERN_DEBUG "err_struct_info=3D%llx,\n", err_struct_info[cpu]);
-+	printk(KERN_DEBUG "err_data_buffer=3D%llx, %llx, %llx.\n",
- 			  err_data_buffer[cpu].data1,
- 			  err_data_buffer[cpu].data2,
- 			  err_data_buffer[cpu].data3);
-@@ -117,8 +117,8 @@ store_call_start(struct device *dev, struct device_attr=
-ibute *attr,
-=20
- #ifdef ERR_INJ_DEBUG
- 	printk(KERN_DEBUG "Returns: status=3D%d,\n", (int)status[cpu]);
--	printk(KERN_DEBUG "capabilities=3D%lx,\n", capabilities[cpu]);
--	printk(KERN_DEBUG "resources=3D%lx\n", resources[cpu]);
-+	printk(KERN_DEBUG "capabilities=3D%llx,\n", capabilities[cpu]);
-+	printk(KERN_DEBUG "resources=3D%llx\n", resources[cpu]);
- #endif
- 	return size;
- }
-@@ -131,7 +131,7 @@ show_virtual_to_phys(struct device *dev, struct device_=
-attribute *attr,
- 			char *buf)
+ EXPORT_SYMBOL_GPL(trace_output_call);
+ 
+-#ifdef CONFIG_KRETPROBES
+-static inline const char *kretprobed(const char *name)
++static inline const char *kretprobed(const char *name, unsigned long addr)
  {
- 	unsigned int cpu=DEv->id;
--	return sprintf(buf, "%lx\n", phys_addr[cpu]);
-+	return sprintf(buf, "%llx\n", phys_addr[cpu]);
+-	static const char tramp_name[] = "kretprobe_trampoline";
+-	int size = sizeof(tramp_name);
+-
+-	if (strncmp(tramp_name, name, size) = 0)
++	if (is_kretprobe_trampoline(addr))
+ 		return "[unknown/kretprobe'd]";
+ 	return name;
  }
-=20
- static ssize_t
-@@ -145,7 +145,7 @@ store_virtual_to_phys(struct device *dev, struct device=
-_attribute *attr,
- 	ret =3D get_user_pages_fast(virt_addr, 1, FOLL_WRITE, NULL);
- 	if (ret<=3D0) {
- #ifdef ERR_INJ_DEBUG
--		printk("Virtual address %lx is not existing.\n",virt_addr);
-+		printk("Virtual address %llx is not existing.\n", virt_addr);
- #endif
- 		return -EINVAL;
- 	}
-@@ -163,7 +163,7 @@ show_err_data_buffer(struct device *dev,
- {
- 	unsigned int cpu=DEv->id;
-=20
--	return sprintf(buf, "%lx, %lx, %lx\n",
-+	return sprintf(buf, "%llx, %llx, %llx\n",
- 			err_data_buffer[cpu].data1,
- 			err_data_buffer[cpu].data2,
- 			err_data_buffer[cpu].data3);
-@@ -178,13 +178,13 @@ store_err_data_buffer(struct device *dev,
- 	int ret;
-=20
- #ifdef ERR_INJ_DEBUG
--	printk("write err_data_buffer=3D[%lx,%lx,%lx] on cpu%d\n",
-+	printk("write err_data_buffer=3D[%llx,%llx,%llx] on cpu%d\n",
- 		 err_data_buffer[cpu].data1,
- 		 err_data_buffer[cpu].data2,
- 		 err_data_buffer[cpu].data3,
- 		 cpu);
- #endif
--	ret=3Dsscanf(buf, "%lx, %lx, %lx",
-+	ret =3D sscanf(buf, "%llx, %llx, %llx",
- 			&err_data_buffer[cpu].data1,
- 			&err_data_buffer[cpu].data2,
- 			&err_data_buffer[cpu].data3);
---=20
-2.30.1
+-#else
+-static inline const char *kretprobed(const char *name)
+-{
+-	return name;
+-}
+-#endif /* CONFIG_KRETPROBES */
+ 
+ void
+ trace_seq_print_sym(struct trace_seq *s, unsigned long address, bool offset)
+@@ -374,7 +365,7 @@ trace_seq_print_sym(struct trace_seq *s, unsigned long address, bool offset)
+ 		sprint_symbol(str, address);
+ 	else
+ 		kallsyms_lookup(address, NULL, NULL, NULL, str);
+-	name = kretprobed(str);
++	name = kretprobed(str, address);
+ 
+ 	if (name && strlen(name)) {
+ 		trace_seq_puts(s, name);
