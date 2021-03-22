@@ -1,122 +1,65 @@
-From: Sasha Levin <sashal@kernel.org>
-Date: Mon, 29 Mar 2021 22:23:00 +0000
-Subject: [PATCH AUTOSEL 5.4 17/19] ia64: fix format strings for err_inject
-Message-Id: <20210329222303.2383319-17-sashal@kernel.org>
+From: Masami Hiramatsu <mhiramat@kernel.org>
+Date: Mon, 22 Mar 2021 06:39:55 +0000
+Subject: [PATCH -tip v4 01/12] ia64: kprobes: Fix to pass correct trampoline address to the handler
+Message-Id: <161639519485.895304.12333883738312999681.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210329222303.2383319-1-sashal@kernel.org>
-In-Reply-To: <20210329222303.2383319-1-sashal@kernel.org>
+References: <161639518354.895304.15627519393073806809.stgit@devnote2>
+In-Reply-To: <161639518354.895304.15627519393073806809.stgit@devnote2>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
-Cc: Sergei Trofimovich <slyfox@gentoo.org>, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, Sasha Levin <sashal@kernel.org>, linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>
+Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, Josh Poimboeuf <jpoimboe@redhat.com>, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>
 
-From: Sergei Trofimovich <slyfox@gentoo.org>
+Commit e792ff804f49 ("ia64: kprobes: Use generic kretprobe trampoline handler")
+missed to pass the wrong trampoline address (it passes the descriptor address
+instead of function entry address).
+This fixes it to pass correct trampoline address to __kretprobe_trampoline_handler().
+This also changes to use correct symbol dereference function to get the
+function address from the kretprobe_trampoline.
 
-[ Upstream commit 95d44a470a6814207d52dd6312203b0f4ef12710 ]
-
-Fix warning with %lx / u64 mismatch:
-
-  arch/ia64/kernel/err_inject.c: In function 'show_resources':
-  arch/ia64/kernel/err_inject.c:62:22: warning:
-    format '%lx' expects argument of type 'long unsigned int',
-    but argument 3 has type 'u64' {aka 'long long unsigned int'}
-     62 |  return sprintf(buf, "%lx", name[cpu]);   \
-        |                      ^~~~~~~
-
-Link: https://lkml.kernel.org/r/20210313104312.1548232-1-slyfox@gentoo.org
-Signed-off-by: Sergei Trofimovich <slyfox@gentoo.org>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
-Signed-off-by: Sasha Levin <sashal@kernel.org>
+Fixes: e792ff804f49 ("ia64: kprobes: Use generic kretprobe trampoline handler")
+Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
 ---
- arch/ia64/kernel/err_inject.c | 22 +++++++++++-----------
- 1 file changed, 11 insertions(+), 11 deletions(-)
+ arch/ia64/kernel/kprobes.c |    9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/arch/ia64/kernel/err_inject.c b/arch/ia64/kernel/err_inject.c
-index 8b5b8e6bc9d9..dd5bfed52031 100644
---- a/arch/ia64/kernel/err_inject.c
-+++ b/arch/ia64/kernel/err_inject.c
-@@ -59,7 +59,7 @@ show_##name(struct device *dev, struct device_attribute *=
-attr,	\
- 		char *buf)						\
- {									\
- 	u32 cpu=DEv->id;						\
--	return sprintf(buf, "%lx\n", name[cpu]);			\
-+	return sprintf(buf, "%llx\n", name[cpu]);			\
- }
-=20
- #define store(name)							\
-@@ -86,9 +86,9 @@ store_call_start(struct device *dev, struct device_attrib=
-ute *attr,
-=20
- #ifdef ERR_INJ_DEBUG
- 	printk(KERN_DEBUG "pal_mc_err_inject for cpu%d:\n", cpu);
--	printk(KERN_DEBUG "err_type_info=3D%lx,\n", err_type_info[cpu]);
--	printk(KERN_DEBUG "err_struct_info=3D%lx,\n", err_struct_info[cpu]);
--	printk(KERN_DEBUG "err_data_buffer=3D%lx, %lx, %lx.\n",
-+	printk(KERN_DEBUG "err_type_info=3D%llx,\n", err_type_info[cpu]);
-+	printk(KERN_DEBUG "err_struct_info=3D%llx,\n", err_struct_info[cpu]);
-+	printk(KERN_DEBUG "err_data_buffer=3D%llx, %llx, %llx.\n",
- 			  err_data_buffer[cpu].data1,
- 			  err_data_buffer[cpu].data2,
- 			  err_data_buffer[cpu].data3);
-@@ -117,8 +117,8 @@ store_call_start(struct device *dev, struct device_attr=
-ibute *attr,
-=20
- #ifdef ERR_INJ_DEBUG
- 	printk(KERN_DEBUG "Returns: status=3D%d,\n", (int)status[cpu]);
--	printk(KERN_DEBUG "capabilities=3D%lx,\n", capabilities[cpu]);
--	printk(KERN_DEBUG "resources=3D%lx\n", resources[cpu]);
-+	printk(KERN_DEBUG "capabilities=3D%llx,\n", capabilities[cpu]);
-+	printk(KERN_DEBUG "resources=3D%llx\n", resources[cpu]);
- #endif
- 	return size;
- }
-@@ -131,7 +131,7 @@ show_virtual_to_phys(struct device *dev, struct device_=
-attribute *attr,
- 			char *buf)
+diff --git a/arch/ia64/kernel/kprobes.c b/arch/ia64/kernel/kprobes.c
+index fc1ff8a4d7de..006fbc1d7ae9 100644
+--- a/arch/ia64/kernel/kprobes.c
++++ b/arch/ia64/kernel/kprobes.c
+@@ -398,7 +398,8 @@ static void kretprobe_trampoline(void)
+ 
+ int __kprobes trampoline_probe_handler(struct kprobe *p, struct pt_regs *regs)
  {
- 	unsigned int cpu=DEv->id;
--	return sprintf(buf, "%lx\n", phys_addr[cpu]);
-+	return sprintf(buf, "%llx\n", phys_addr[cpu]);
+-	regs->cr_iip = __kretprobe_trampoline_handler(regs, kretprobe_trampoline, NULL);
++	regs->cr_iip = __kretprobe_trampoline_handler(regs,
++		dereference_function_descriptor(kretprobe_trampoline), NULL);
+ 	/*
+ 	 * By returning a non-zero value, we are telling
+ 	 * kprobe_handler() that we don't want the post_handler
+@@ -414,7 +415,7 @@ void __kprobes arch_prepare_kretprobe(struct kretprobe_instance *ri,
+ 	ri->fp = NULL;
+ 
+ 	/* Replace the return addr with trampoline addr */
+-	regs->b0 = ((struct fnptr *)kretprobe_trampoline)->ip;
++	regs->b0 = (unsigned long)dereference_function_descriptor(kretprobe_trampoline);
  }
-=20
- static ssize_t
-@@ -145,7 +145,7 @@ store_virtual_to_phys(struct device *dev, struct device=
-_attribute *attr,
- 	ret =3D get_user_pages_fast(virt_addr, 1, FOLL_WRITE, NULL);
- 	if (ret<=3D0) {
- #ifdef ERR_INJ_DEBUG
--		printk("Virtual address %lx is not existing.\n",virt_addr);
-+		printk("Virtual address %llx is not existing.\n", virt_addr);
- #endif
- 		return -EINVAL;
- 	}
-@@ -163,7 +163,7 @@ show_err_data_buffer(struct device *dev,
+ 
+ /* Check the instruction in the slot is break */
+@@ -918,14 +919,14 @@ static struct kprobe trampoline_p = {
+ int __init arch_init_kprobes(void)
  {
- 	unsigned int cpu=DEv->id;
-=20
--	return sprintf(buf, "%lx, %lx, %lx\n",
-+	return sprintf(buf, "%llx, %llx, %llx\n",
- 			err_data_buffer[cpu].data1,
- 			err_data_buffer[cpu].data2,
- 			err_data_buffer[cpu].data3);
-@@ -178,13 +178,13 @@ store_err_data_buffer(struct device *dev,
- 	int ret;
-=20
- #ifdef ERR_INJ_DEBUG
--	printk("write err_data_buffer=3D[%lx,%lx,%lx] on cpu%d\n",
-+	printk("write err_data_buffer=3D[%llx,%llx,%llx] on cpu%d\n",
- 		 err_data_buffer[cpu].data1,
- 		 err_data_buffer[cpu].data2,
- 		 err_data_buffer[cpu].data3,
- 		 cpu);
- #endif
--	ret=3Dsscanf(buf, "%lx, %lx, %lx",
-+	ret =3D sscanf(buf, "%llx, %llx, %llx",
- 			&err_data_buffer[cpu].data1,
- 			&err_data_buffer[cpu].data2,
- 			&err_data_buffer[cpu].data3);
---=20
-2.30.1
+ 	trampoline_p.addr -		(kprobe_opcode_t *)((struct fnptr *)kretprobe_trampoline)->ip;
++		dereference_function_description(kretprobe_trampoline);
+ 	return register_kprobe(&trampoline_p);
+ }
+ 
+ int __kprobes arch_trampoline_kprobe(struct kprobe *p)
+ {
+ 	if (p->addr =
+-		(kprobe_opcode_t *)((struct fnptr *)kretprobe_trampoline)->ip)
++		dereference_function_descriptor(kretprobe_trampoline))
+ 		return 1;
+ 
+ 	return 0;
