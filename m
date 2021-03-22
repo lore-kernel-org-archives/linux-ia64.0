@@ -1,101 +1,97 @@
-From: Anshuman Khandual <anshuman.khandual@arm.com>
-Date: Tue, 02 Mar 2021 04:13:29 +0000
-Subject: Re: [PATCH] mm: Generalize HUGETLB_PAGE_SIZE_VARIABLE
-Message-Id: <eaa998f0-248f-59d9-c410-873e12a79afe@arm.com>
+From: Masami Hiramatsu <mhiramat@kernel.org>
+Date: Mon, 22 Mar 2021 06:41:40 +0000
+Subject: [PATCH -tip v4 10/12] x86/kprobes: Push a fake return address at kretprobe_trampoline
+Message-Id: <161639530062.895304.16962383429668412873.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1614577853-7452-1-git-send-email-anshuman.khandual@arm.com>
- <202103011736.uYkOLJKy-lkp@intel.com>
-In-Reply-To: <202103011736.uYkOLJKy-lkp@intel.com>
+References: <161639518354.895304.15627519393073806809.stgit@devnote2>
+In-Reply-To: <161639518354.895304.15627519393073806809.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: kernel test robot <lkp@intel.com>, linux-mm@kvack.org
-Cc: kbuild-all@lists.01.org, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Andrew Morton <akpm@linux-foundation.org>, Christoph Hellwig <hch@lst.de>, linux-ia64@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
+To: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>
+Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, Josh Poimboeuf <jpoimboe@redhat.com>, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>
 
+This changes x86/kretprobe stack frame on kretprobe_trampoline
+a bit, which now push the kretprobe_trampoline as a fake return
+address at the bottom of the stack frame. With this fix, the ORC
+unwinder will see the kretprobe_trampoline as a return address.
 
+Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
+Suggested-by: Josh Poimboeuf <jpoimboe@redhat.com>
+---
+ arch/x86/kernel/kprobes/core.c |   31 ++++++++++++++++++++++---------
+ 1 file changed, 22 insertions(+), 9 deletions(-)
 
-On 3/1/21 3:22 PM, kernel test robot wrote:
-> Hi Anshuman,
-> 
-> Thank you for the patch! Yet something to improve:
-> 
-> [auto build test ERROR on powerpc/next]
-> [also build test ERROR on linus/master v5.12-rc1 next-20210301]
-> [cannot apply to hnaz-linux-mm/master]
-> [If your patch is applied to the wrong git tree, kindly drop us a note.
-> And when submitting patch, we suggest to use '--base' as documented in
-> https://git-scm.com/docs/git-format-patch]
-> 
-> url:    https://github.com/0day-ci/linux/commits/Anshuman-Khandual/mm-Generalize-HUGETLB_PAGE_SIZE_VARIABLE/20210301-135205
-> base:   https://git.kernel.org/pub/scm/linux/kernel/git/powerpc/linux.git next
-> config: ia64-randconfig-r003-20210301 (attached as .config)
-> compiler: ia64-linux-gcc (GCC) 9.3.0
-> reproduce (this is a W=1 build):
->         wget https://raw.githubusercontent.com/intel/lkp-tests/master/sbin/make.cross -O ~/bin/make.cross
->         chmod +x ~/bin/make.cross
->         # https://github.com/0day-ci/linux/commit/fe78e3508e5221ac13aa288136e2a6506211be68
->         git remote add linux-review https://github.com/0day-ci/linux
->         git fetch --no-tags linux-review Anshuman-Khandual/mm-Generalize-HUGETLB_PAGE_SIZE_VARIABLE/20210301-135205
->         git checkout fe78e3508e5221ac13aa288136e2a6506211be68
->         # save the attached .config to linux build tree
->         COMPILER_INSTALL_PATH=$HOME/0day COMPILER=gcc-9.3.0 make.cross ARCH=ia64 
-> 
-> If you fix the issue, kindly add following tag as appropriate
-> Reported-by: kernel test robot <lkp@intel.com>
-> 
-> All errors (new ones prefixed by >>):
-> 
->    In file included from arch/ia64/include/asm/pgtable.h:154,
->                     from include/linux/pgtable.h:6,
->                     from include/linux/mm.h:33,
->                     from mm/page_alloc.c:19:
->    arch/ia64/include/asm/mmu_context.h: In function 'reload_context':
->    arch/ia64/include/asm/mmu_context.h:127:41: warning: variable 'old_rr4' set but not used [-Wunused-but-set-variable]
->      127 |  unsigned long rr0, rr1, rr2, rr3, rr4, old_rr4;
->          |                                         ^~~~~~~
->    In file included from include/linux/kconfig.h:7,
->                     from <command-line>:
->    mm/page_alloc.c: At top level:
->>> ./include/generated/autoconf.h:269:36: error: expected identifier or '(' before numeric constant
->      269 | #define CONFIG_FORCE_MAX_ZONEORDER 11
->          |                                    ^~
->    include/linux/mmzone.h:29:19: note: in expansion of macro 'CONFIG_FORCE_MAX_ZONEORDER'
->       29 | #define MAX_ORDER CONFIG_FORCE_MAX_ZONEORDER
->          |                   ^~~~~~~~~~~~~~~~~~~~~~~~~~
->    include/linux/pageblock-flags.h:48:27: note: in expansion of macro 'MAX_ORDER'
->       48 | #define pageblock_order  (MAX_ORDER-1)
->          |                           ^~~~~~~~~
->    mm/page_alloc.c:250:14: note: in expansion of macro 'pageblock_order'
->      250 | unsigned int pageblock_order __read_mostly;
->          |              ^~~~~~~~~~~~~~~
->    mm/page_alloc.c:2618:5: warning: no previous prototype for 'find_suitable_fallback' [-Wmissing-prototypes]
->     2618 | int find_suitable_fallback(struct free_area *area, unsigned int order,
->          |     ^~~~~~~~~~~~~~~~~~~~~~
->    mm/page_alloc.c:3596:15: warning: no previous prototype for 'should_fail_alloc_page' [-Wmissing-prototypes]
->     3596 | noinline bool should_fail_alloc_page(gfp_t gfp_mask, unsigned int order)
->          |               ^~~~~~~~~~~~~~~~~~~~~~
->    mm/page_alloc.c:6257:23: warning: no previous prototype for 'memmap_init' [-Wmissing-prototypes]
->     6257 | void __meminit __weak memmap_init(unsigned long size, int nid,
->          |                       ^~~~~~~~~~~
->    mm/page_alloc.c: In function 'set_pageblock_order':
->>> mm/page_alloc.c:6798:6: error: 'HPAGE_SHIFT' undeclared (first use in this function); did you mean 'PAGE_SHIFT'?
->     6798 |  if (HPAGE_SHIFT > PAGE_SHIFT)
->          |      ^~~~~~~~~~~
->          |      PAGE_SHIFT
->    mm/page_alloc.c:6798:6: note: each undeclared identifier is reported only once for each function it appears in
->>> mm/page_alloc.c:6799:11: error: 'HUGETLB_PAGE_ORDER' undeclared (first use in this function)
->     6799 |   order = HUGETLB_PAGE_ORDER;
->          |           ^~~~~~~~~~~~~~~~~~
->>> mm/page_alloc.c:6808:18: error: lvalue required as left operand of assignment
->     6808 |  pageblock_order = order;
->          |                  ^
-> 
-> Kconfig warnings: (for reference only)
->    WARNING: unmet direct dependencies detected for HUGETLB_PAGE_SIZE_VARIABLE
->    Depends on HUGETLB_PAGE
->    Selected by
->    - IA64
-
-This shows that HUGETLB_PAGE_SIZE_VARIABLE could be selected without HUGETLB_PAGE
-being enabled, which was not intended. The dependency on HUGETLB_PAGE need to be
-explicit for HUGETLB_PAGE_SIZE_VARIABLE.
+diff --git a/arch/x86/kernel/kprobes/core.c b/arch/x86/kernel/kprobes/core.c
+index 23255663c434..d7b90541eda1 100644
+--- a/arch/x86/kernel/kprobes/core.c
++++ b/arch/x86/kernel/kprobes/core.c
+@@ -782,28 +782,31 @@ asm(
+ 	".global kretprobe_trampoline\n"
+ 	".type kretprobe_trampoline, @function\n"
+ 	"kretprobe_trampoline:\n"
+-	/* We don't bother saving the ss register */
+ #ifdef CONFIG_X86_64
+-	"	pushq %rsp\n"
++	/* Push fake return address to tell the unwinder it's a kretprobe */
++	"	pushq $kretprobe_trampoline\n"
+ 	UNWIND_HINT_FUNC
++	/* Save the sp-8, this will be fixed later */
++	"	pushq %rsp\n"
+ 	"	pushfq\n"
+ 	SAVE_REGS_STRING
+ 	"	movq %rsp, %rdi\n"
+ 	"	call trampoline_handler\n"
+-	/* Replace saved sp with true return address. */
+-	"	movq %rax, 19*8(%rsp)\n"
+ 	RESTORE_REGS_STRING
++	"	addq $8, %rsp\n"
+ 	"	popfq\n"
+ #else
+-	"	pushl %esp\n"
++	/* Push fake return address to tell the unwinder it's a kretprobe */
++	"	pushl $kretprobe_trampoline\n"
+ 	UNWIND_HINT_FUNC
++	/* Save the sp-4, this will be fixed later */
++	"	pushl %esp\n"
+ 	"	pushfl\n"
+ 	SAVE_REGS_STRING
+ 	"	movl %esp, %eax\n"
+ 	"	call trampoline_handler\n"
+-	/* Replace saved sp with true return address. */
+-	"	movl %eax, 15*4(%esp)\n"
+ 	RESTORE_REGS_STRING
++	"	addl $4, %esp\n"
+ 	"	popfl\n"
+ #endif
+ 	"	ret\n"
+@@ -814,8 +817,10 @@ NOKPROBE_SYMBOL(kretprobe_trampoline);
+ /*
+  * Called from kretprobe_trampoline
+  */
+-__used __visible void *trampoline_handler(struct pt_regs *regs)
++__used __visible void trampoline_handler(struct pt_regs *regs)
+ {
++	unsigned long *frame_pointer;
++
+ 	/* fixup registers */
+ 	regs->cs = __KERNEL_CS;
+ #ifdef CONFIG_X86_32
+@@ -823,8 +828,16 @@ __used __visible void *trampoline_handler(struct pt_regs *regs)
+ #endif
+ 	regs->ip = (unsigned long)&kretprobe_trampoline;
+ 	regs->orig_ax = ~0UL;
++	regs->sp += sizeof(long);
++	frame_pointer = ((unsigned long *)&regs->sp) + 1;
+ 
+-	return (void *)kretprobe_trampoline_handler(regs, &regs->sp);
++	/* Replace fake return address with real one. */
++	*frame_pointer = kretprobe_trampoline_handler(regs, frame_pointer);
++	/*
++	 * Move flags to sp so that kretprobe_trapmoline can return
++	 * right after popf.
++	 */
++	regs->sp = regs->flags;
+ }
+ NOKPROBE_SYMBOL(trampoline_handler);
+ 
