@@ -1,111 +1,192 @@
-From: Masahiro Yamada <masahiroy@kernel.org>
-Date: Mon, 01 Mar 2021 14:19:36 +0000
-Subject: [PATCH 1/2] ia64: syscalls: switch to generic syscalltbl.sh
-Message-Id: <20210301141937.342604-1-masahiroy@kernel.org>
+From: Masami Hiramatsu <mhiramat@kernel.org>
+Date: Mon, 22 Mar 2021 06:40:30 +0000
+Subject: [PATCH -tip v4 04/12] kprobes: Add kretprobe_find_ret_addr() for searching return address
+Message-Id: <161639522987.895304.1462086540923250943.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <161639518354.895304.15627519393073806809.stgit@devnote2>
+In-Reply-To: <161639518354.895304.15627519393073806809.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
-Cc: linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org, Masahiro Yamada <masahiroy@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Christian Brauner <christian.brauner@ubuntu.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Mike Rapoport <rppt@kernel.org>
+To: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>
+Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, Josh Poimboeuf <jpoimboe@redhat.com>, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>
 
-Many architectures duplicate similar shell scripts.
+Add kretprobe_find_ret_addr() for searching correct return address
+from kretprobe instance list.
 
-This commit converts ia64 to use scripts/syscalltbl.sh.
-
-Signed-off-by: Masahiro Yamada <masahiroy@kernel.org>
+Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
 ---
+ Changes in v3:
+  - Remove generic stacktrace fixup. Instead, it should be solved in
+    each unwinder. This just provide the generic interface.
+ Changes in v2:
+  - Add is_kretprobe_trampoline() for checking address outside of
+    kretprobe_find_ret_addr()
+  - Remove unneeded addr from kretprobe_find_ret_addr()
+  - Rename fixup_kretprobe_tramp_addr() to fixup_kretprobe_trampoline()
+---
+ include/linux/kprobes.h |   22 +++++++++++
+ kernel/kprobes.c        |   90 +++++++++++++++++++++++++++++++++--------------
+ 2 files changed, 86 insertions(+), 26 deletions(-)
 
- arch/ia64/kernel/entry.S                |  3 +--
- arch/ia64/kernel/syscalls/Makefile      |  8 ++-----
- arch/ia64/kernel/syscalls/syscalltbl.sh | 32 -------------------------
- 3 files changed, 3 insertions(+), 40 deletions(-)
- delete mode 100644 arch/ia64/kernel/syscalls/syscalltbl.sh
-
-diff --git a/arch/ia64/kernel/entry.S b/arch/ia64/kernel/entry.S
-index e98e3dafffd8..5eba3fb2e311 100644
---- a/arch/ia64/kernel/entry.S
-+++ b/arch/ia64/kernel/entry.S
-@@ -1420,10 +1420,9 @@ END(ftrace_stub)
+diff --git a/include/linux/kprobes.h b/include/linux/kprobes.h
+index 65dadd4238a2..f530f82a046d 100644
+--- a/include/linux/kprobes.h
++++ b/include/linux/kprobes.h
+@@ -215,6 +215,14 @@ static nokprobe_inline void *kretprobe_trampoline_addr(void)
+ 	return dereference_function_descriptor(kretprobe_trampoline);
+ }
  
- #endif /* CONFIG_FUNCTION_TRACER */
++static nokprobe_inline bool is_kretprobe_trampoline(unsigned long addr)
++{
++	return (void *)addr = kretprobe_trampoline_addr();
++}
++
++unsigned long kretprobe_find_ret_addr(struct task_struct *tsk, void *fp,
++				      struct llist_node **cur);
++
+ /* If the trampoline handler called from a kprobe, use this version */
+ unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
+ 					     void *frame_pointer);
+@@ -514,6 +522,20 @@ static inline bool is_kprobe_optinsn_slot(unsigned long addr)
+ }
+ #endif
  
--#define __SYSCALL(nr, entry, nargs) data8 entry
-+#define __SYSCALL(nr, entry) data8 entry
- 	.rodata
- 	.align 8
- 	.globl sys_call_table
- sys_call_table:
- #include <asm/syscall_table.h>
--#undef __SYSCALL
-diff --git a/arch/ia64/kernel/syscalls/Makefile b/arch/ia64/kernel/syscalls/Makefile
-index bf4bda0f63eb..2d2e420749b0 100644
---- a/arch/ia64/kernel/syscalls/Makefile
-+++ b/arch/ia64/kernel/syscalls/Makefile
-@@ -7,7 +7,7 @@ _dummy := $(shell [ -d '$(uapi)' ] || mkdir -p '$(uapi)')	\
++#if !defined(CONFIG_KRETPROBES)
++static nokprobe_inline bool is_kretprobe_trampoline(unsigned long addr)
++{
++	return false;
++}
++
++static nokprobe_inline
++unsigned long kretprobe_find_ret_addr(struct task_struct *tsk, void *fp,
++				      struct llist_node **cur)
++{
++	return 0;
++}
++#endif
++
+ /* Returns true if kprobes handled the fault */
+ static nokprobe_inline bool kprobe_page_fault(struct pt_regs *regs,
+ 					      unsigned int trap)
+diff --git a/kernel/kprobes.c b/kernel/kprobes.c
+index 75c0a58c19c2..cf19edc038e4 100644
+--- a/kernel/kprobes.c
++++ b/kernel/kprobes.c
+@@ -1858,45 +1858,68 @@ static struct notifier_block kprobe_exceptions_nb = {
  
- syscall := $(src)/syscall.tbl
- syshdr := $(srctree)/$(src)/syscallhdr.sh
--systbl := $(srctree)/$(src)/syscalltbl.sh
-+systbl := $(srctree)/scripts/syscalltbl.sh
+ #ifdef CONFIG_KRETPROBES
  
- quiet_cmd_syshdr = SYSHDR  $@
-       cmd_syshdr = $(CONFIG_SHELL) '$(syshdr)' '$<' '$@'	\
-@@ -16,16 +16,12 @@ quiet_cmd_syshdr = SYSHDR  $@
- 		   '$(syshdr_offset_$(basetarget))'
+-unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
+-					     void *frame_pointer)
++/* This assumes the tsk is current or the task which is not running. */
++static unsigned long __kretprobe_find_ret_addr(struct task_struct *tsk,
++					       struct llist_node **cur)
+ {
+-	kprobe_opcode_t *correct_ret_addr = NULL;
+ 	struct kretprobe_instance *ri = NULL;
+-	struct llist_node *first, *node;
+-	struct kretprobe *rp;
++	struct llist_node *node = *cur;
++
++	if (!node)
++		node = tsk->kretprobe_instances.first;
++	else
++		node = node->next;
  
- quiet_cmd_systbl = SYSTBL  $@
--      cmd_systbl = $(CONFIG_SHELL) '$(systbl)' '$<' '$@'	\
--		   '$(systbl_abis_$(basetarget))'		\
--		   '$(systbl_abi_$(basetarget))'		\
--		   '$(systbl_offset_$(basetarget))'
-+      cmd_systbl = $(CONFIG_SHELL) $(systbl) $< $@
- 
- syshdr_offset_unistd_64 := __NR_Linux
- $(uapi)/unistd_64.h: $(syscall) $(syshdr) FORCE
- 	$(call if_changed,syshdr)
- 
--systbl_offset_syscall_table := 1024
- $(kapi)/syscall_table.h: $(syscall) $(systbl) FORCE
- 	$(call if_changed,systbl)
- 
-diff --git a/arch/ia64/kernel/syscalls/syscalltbl.sh b/arch/ia64/kernel/syscalls/syscalltbl.sh
-deleted file mode 100644
-index 85d78d9309ad..000000000000
---- a/arch/ia64/kernel/syscalls/syscalltbl.sh
-+++ /dev/null
-@@ -1,32 +0,0 @@
--#!/bin/sh
--# SPDX-License-Identifier: GPL-2.0
+-	/* Find all nodes for this frame. */
+-	first = node = current->kretprobe_instances.first;
+ 	while (node) {
+ 		ri = container_of(node, struct kretprobe_instance, llist);
 -
--in="$1"
--out="$2"
--my_abis=`echo "($3)" | tr ',' '|'`
--my_abi="$4"
--offset="$5"
+-		BUG_ON(ri->fp != frame_pointer);
 -
--emit() {
--	t_nxt="$1"
--	t_nr="$2"
--	t_entry="$3"
+ 		if (ri->ret_addr != kretprobe_trampoline_addr()) {
+-			correct_ret_addr = ri->ret_addr;
+-			/*
+-			 * This is the real return address. Any other
+-			 * instances associated with this task are for
+-			 * other calls deeper on the call stack
+-			 */
+-			goto found;
++			*cur = node;
++			return (unsigned long)ri->ret_addr;
+ 		}
 -
--	while [ $t_nxt -lt $t_nr ]; do
--		printf "__SYSCALL(%s, sys_ni_syscall, )\n" "${t_nxt}"
--		t_nxt=$((t_nxt+1))
--	done
--	printf "__SYSCALL(%s, %s, )\n" "${t_nxt}" "${t_entry}"
--}
--
--grep -E "^[0-9A-Fa-fXx]+[[:space:]]+${my_abis}" "$in" | sort -n | (
--	nxt=0
--	if [ -z "$offset" ]; then
--		offset=0
--	fi
--
--	while read nr abi name entry ; do
--		emit $((nxt+offset)) $((nr+offset)) $entry
--		nxt=$((nr+1))
--	done
--) > "$out"
--- 
-2.27.0
+ 		node = node->next;
+ 	}
+-	pr_err("Oops! Kretprobe fails to find correct return address.\n");
+-	BUG_ON(1);
++	return 0;
++}
++NOKPROBE_SYMBOL(__kretprobe_find_ret_addr);
+ 
+-found:
+-	/* Unlink all nodes for this frame. */
+-	current->kretprobe_instances.first = node->next;
+-	node->next = NULL;
++unsigned long kretprobe_find_ret_addr(struct task_struct *tsk, void *fp,
++				      struct llist_node **cur)
++{
++	struct kretprobe_instance *ri = NULL;
++	unsigned long ret;
++
++	do {
++		ret = __kretprobe_find_ret_addr(tsk, cur);
++		if (!ret)
++			return ret;
++		ri = container_of(*cur, struct kretprobe_instance, llist);
++	} while (ri->fp != fp);
++
++	return ret;
++}
++NOKPROBE_SYMBOL(kretprobe_find_ret_addr);
+ 
+-	/* Run them..  */
++unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
++					     void *frame_pointer)
++{
++	kprobe_opcode_t *correct_ret_addr = NULL;
++	struct kretprobe_instance *ri = NULL;
++	struct llist_node *first, *node = NULL;
++	struct kretprobe *rp;
++
++	/* Find correct address and all nodes for this frame. */
++	correct_ret_addr = (void *)__kretprobe_find_ret_addr(current, &node);
++	if (!correct_ret_addr) {
++		pr_err("Oops! Kretprobe fails to find correct return address.\n");
++		BUG_ON(1);
++	}
++
++	/* Run them. */
++	first = current->kretprobe_instances.first;
+ 	while (first) {
+ 		ri = container_of(first, struct kretprobe_instance, llist);
+-		first = first->next;
++
++		BUG_ON(ri->fp != frame_pointer);
+ 
+ 		rp = get_kretprobe(ri);
+ 		if (rp && rp->handler) {
+@@ -1907,6 +1930,21 @@ unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
+ 			rp->handler(ri, regs);
+ 			__this_cpu_write(current_kprobe, prev);
+ 		}
++		if (first = node)
++			break;
++
++		first = first->next;
++	}
++
++	/* Unlink all nodes for this frame. */
++	first = current->kretprobe_instances.first;
++	current->kretprobe_instances.first = node->next;
++	node->next = NULL;
++
++	/* Recycle them.  */
++	while (first) {
++		ri = container_of(first, struct kretprobe_instance, llist);
++		first = first->next;
+ 
+ 		recycle_rp_inst(ri);
+ 	}
