@@ -1,39 +1,64 @@
-From: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
-Date: Tue, 23 Mar 2021 16:28:07 +0000
-Subject: Re: vmlinux link failure on ia64 with zstd
-Message-Id: <bf540b24-6111-6523-17f6-aac21349fd8b@physik.fu-berlin.de>
+From: Sergei Trofimovich <slyfox@gentoo.org>
+Date: Mon, 22 Mar 2021 22:14:41 +0000
+Subject: [PATCH] ia64: fix EFI_DEBUG build
+Message-Id: <20210322221441.3555003-1-slyfox@gentoo.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <f0a93b2d435252b3878ce821142677754f5e434c.camel@decadent.org.uk>
-In-Reply-To: <f0a93b2d435252b3878ce821142677754f5e434c.camel@decadent.org.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Ard Biesheuvel <ardb@kernel.org>, linux-efi@vger.kernel.org
+Cc: Sergei Trofimovich <slyfox@gentoo.org>, linux-ia64@vger.kernel.org
 
-Hi Ben!
+When enabled local debugging via `#define EFI_DEBUG 1` noticed
+build failure:
 
-On 9/13/20 9:51 PM, Ben Hutchings wrote:
-> Enabling CONFIG_RD_ZSTD (which is enabled by default) resulted in a
-> link failure on ia64:
-> 
-> + ld -r -o vmlinux.o --whole-archive arch/ia64/kernel/head.o init/built-in.a usr/built-in.a arch/ia64/kernel/built-in.a arch/ia64/mm/built-in.a kernel/built-in.a certs/built-in.a mm/built-in.a fs/built-in.a ipc/built-in.a security/built-in.a crypto/built-in.a block/built-in.a lib/built-in.a arch/ia64/lib/built-in.a lib/lib.a arch/ia64/lib/lib.a drivers/built-in.a sound/built-in.a net/built-in.a virt/built-in.a arch/ia64/pci/built-in.a arch/ia64/hp/common/built-in.a --no-whole-archive --start-group --end-group
-> ld: lib/zstd/entropy_common.o: linking constant-gp files with non-constant-gp files
-> ld: failed to merge target specific data of file lib/zstd/entropy_common.o
-> ld: lib/zstd/fse_decompress.o: linking constant-gp files with non-constant-gp files
-> ld: failed to merge target specific data of file lib/zstd/fse_decompress.o
-> ld: lib/zstd/zstd_common.o: linking constant-gp files with non-constant-gp files
-> ld: failed to merge target specific data of file lib/zstd/zstd_common.o
+    ia64/kernel/efi.c:564:8: error: 'i' undeclared (first use in this function)
+      564 |   for (i = 0, p = efi_map_start; p < efi_map_end;
+          |        ^
 
-It was suggested on IRC (#debian-ports) that we need to pass "-mconstant-gp" to GCC at
-the right places and it seems this issue existed before in the past [1]. Fix seems
-trivial.
+CC: Ard Biesheuvel <ardb@kernel.org>
+CC: linux-efi@vger.kernel.org
+CC: linux-ia64@vger.kernel.org
+Signed-off-by: Sergei Trofimovich <slyfox@gentoo.org>
+---
+ arch/ia64/kernel/efi.c | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
 
-Adrian
-
-> [1] https://marc.info/?l=linux-kbuild&m3643269731499&w=2
-
+diff --git a/arch/ia64/kernel/efi.c b/arch/ia64/kernel/efi.c
+index c5fe21de46a8..31149e41f9be 100644
+--- a/arch/ia64/kernel/efi.c
++++ b/arch/ia64/kernel/efi.c
+@@ -415,10 +415,10 @@ efi_get_pal_addr (void)
+ 		mask  = ~((1 << IA64_GRANULE_SHIFT) - 1);
+ 
+ 		printk(KERN_INFO "CPU %d: mapping PAL code "
+-                       "[0x%lx-0x%lx) into [0x%lx-0x%lx)\n",
+-                       smp_processor_id(), md->phys_addr,
+-                       md->phys_addr + efi_md_size(md),
+-                       vaddr & mask, (vaddr & mask) + IA64_GRANULE_SIZE);
++			"[0x%llx-0x%llx) into [0x%llx-0x%llx)\n",
++			smp_processor_id(), md->phys_addr,
++			md->phys_addr + efi_md_size(md),
++			vaddr & mask, (vaddr & mask) + IA64_GRANULE_SIZE);
+ #endif
+ 		return __va(md->phys_addr);
+ 	}
+@@ -560,6 +560,7 @@ efi_init (void)
+ 	{
+ 		efi_memory_desc_t *md;
+ 		void *p;
++		unsigned int i;
+ 
+ 		for (i = 0, p = efi_map_start; p < efi_map_end;
+ 		     ++i, p += efi_desc_size)
+@@ -586,7 +587,7 @@ efi_init (void)
+ 			}
+ 
+ 			printk("mem%02d: %s "
+-			       "range=[0x%016lx-0x%016lx) (%4lu%s)\n",
++			       "range=[0x%016llx-0x%016llx) (%4lu%s)\n",
+ 			       i, efi_md_typeattr_format(buf, sizeof(buf), md),
+ 			       md->phys_addr,
+ 			       md->phys_addr + efi_md_size(md), size, unit);
 -- 
- .''`.  John Paul Adrian Glaubitz
-: :' :  Debian Developer - glaubitz@debian.org
-`. `'   Freie Universitaet Berlin - glaubitz@physik.fu-berlin.de
-  `-    GPG: 62FF 8A75 84E0 2956 9546  0006 7426 3B37 F5B5 F913
+2.31.0
