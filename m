@@ -1,7 +1,7 @@
 From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Mon, 22 Mar 2021 06:40:51 +0000
-Subject: [PATCH -tip v4 06/12] ARC: Add instruction_pointer_set() API
-Message-Id: <161639525131.895304.18317148642604879905.stgit@devnote2>
+Date: Mon, 22 Mar 2021 06:41:07 +0000
+Subject: [PATCH -tip v4 07/12] ia64: Add instruction_pointer_set() API
+Message-Id: <161639526755.895304.15567889273226397549.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <161639518354.895304.15627519393073806809.stgit@devnote2>
 In-Reply-To: <161639518354.895304.15627519393073806809.stgit@devnote2>
@@ -11,26 +11,29 @@ Content-Transfer-Encoding: 7bit
 To: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>
 Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, Josh Poimboeuf <jpoimboe@redhat.com>, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>
 
-Add instruction_pointer_set() API for arc.
+Add instruction_pointer_set() API for ia64.
 
 Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
 ---
- arch/arc/include/asm/ptrace.h |    5 +++++
+  Changes in v4:
+   - Make the API macro for avoiding a build error.
+---
+ arch/ia64/include/asm/ptrace.h |    5 +++++
  1 file changed, 5 insertions(+)
 
-diff --git a/arch/arc/include/asm/ptrace.h b/arch/arc/include/asm/ptrace.h
-index 4c3c9be5bd16..cca8d6583e31 100644
---- a/arch/arc/include/asm/ptrace.h
-+++ b/arch/arc/include/asm/ptrace.h
-@@ -149,6 +149,11 @@ static inline long regs_return_value(struct pt_regs *regs)
- 	return (long)regs->r0;
- }
+diff --git a/arch/ia64/include/asm/ptrace.h b/arch/ia64/include/asm/ptrace.h
+index b3aa46090101..4c2f838b2e77 100644
+--- a/arch/ia64/include/asm/ptrace.h
++++ b/arch/ia64/include/asm/ptrace.h
+@@ -51,6 +51,11 @@
+  * the canonical representation by adding to instruction pointer.
+  */
+ # define instruction_pointer(regs) ((regs)->cr_iip + ia64_psr(regs)->ri)
++# define instruction_pointer_set(regs, val)	\
++  ({						\
++	ia64_psr(regs)->ri = (val & 0xf);	\
++	regs->cr_iip = (val & ~0xfULL);		\
++  })
  
-+static inline void instruction_pointer_set(struct pt_regs *regs,
-+					   unsigned long val)
-+{
-+	instruction_pointer(regs) = val;
-+}
- #endif /* !__ASSEMBLY__ */
- 
- #endif /* __ASM_PTRACE_H */
+ static inline unsigned long user_stack_pointer(struct pt_regs *regs)
+ {
