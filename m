@@ -1,50 +1,40 @@
-From: Catalin Marinas <catalin.marinas@arm.com>
-Date: Fri, 19 Mar 2021 18:35:49 +0000
-Subject: Re: [PATCH 0/6] mm: some config cleanups
-Message-Id: <20210319183548.GH6832@arm.com>
+From: Masami Hiramatsu <mhiramat@kernel.org>
+Date: Mon, 22 Mar 2021 06:41:18 +0000
+Subject: [PATCH -tip v4 08/12] arm: kprobes: Make a space for regs->ARM_pc at kretprobe_trampoline
+Message-Id: <161639527851.895304.14313883616251450754.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1615278790-18053-1-git-send-email-anshuman.khandual@arm.com>
-In-Reply-To: <1615278790-18053-1-git-send-email-anshuman.khandual@arm.com>
+References: <161639518354.895304.15627519393073806809.stgit@devnote2>
+In-Reply-To: <161639518354.895304.15627519393073806809.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Anshuman Khandual <anshuman.khandual@arm.com>
-Cc: linux-mm@kvack.org, x86@kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>
+Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, Josh Poimboeuf <jpoimboe@redhat.com>, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>
 
-On Tue, Mar 09, 2021 at 02:03:04PM +0530, Anshuman Khandual wrote:
-> This series contains config cleanup patches which reduces code duplication
-> across platforms and also improves maintainability. There is no functional
-> change intended with this series. This has been boot tested on arm64 but
-> only build tested on some other platforms.
-> 
-> This applies on 5.12-rc2
-> 
-> Cc: x86@kernel.org
-> Cc: linux-ia64@vger.kernel.org
-> Cc: linux-s390@vger.kernel.org
-> Cc: linux-snps-arc@lists.infradead.org
-> Cc: linux-arm-kernel@lists.infradead.org
-> Cc: linux-mips@vger.kernel.org
-> Cc: linux-parisc@vger.kernel.org
-> Cc: linuxppc-dev@lists.ozlabs.org
-> Cc: linux-riscv@lists.infradead.org
-> Cc: linux-sh@vger.kernel.org
-> Cc: linux-fsdevel@vger.kernel.org
-> Cc: linux-mm@kvack.org
-> Cc: linux-kernel@vger.kernel.org
-> 
-> Anshuman Khandual (6):
->   mm: Generalize ARCH_HAS_CACHE_LINE_SIZE
->   mm: Generalize SYS_SUPPORTS_HUGETLBFS (rename as ARCH_SUPPORTS_HUGETLBFS)
->   mm: Generalize ARCH_ENABLE_MEMORY_[HOTPLUG|HOTREMOVE]
->   mm: Drop redundant ARCH_ENABLE_[HUGEPAGE|THP]_MIGRATION
->   mm: Drop redundant ARCH_ENABLE_SPLIT_PMD_PTLOCK
->   mm: Drop redundant HAVE_ARCH_TRANSPARENT_HUGEPAGE
-> 
->  arch/arc/Kconfig                       |  9 ++------
->  arch/arm/Kconfig                       | 10 ++-------
->  arch/arm64/Kconfig                     | 30 ++++++--------------------
+Change kretprobe_trampoline to make a space for regs->ARM_pc so that
+kretprobe_trampoline_handler can call instruction_pointer_set()
+safely.
 
-For arm64:
+Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
+---
+ arch/arm/probes/kprobes/core.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
-Acked-by: Catalin Marinas <catalin.marinas@arm.com>
+diff --git a/arch/arm/probes/kprobes/core.c b/arch/arm/probes/kprobes/core.c
+index 1782b41df095..5f3c2b42787f 100644
+--- a/arch/arm/probes/kprobes/core.c
++++ b/arch/arm/probes/kprobes/core.c
+@@ -397,11 +397,13 @@ int __kprobes kprobe_exceptions_notify(struct notifier_block *self,
+ void __naked __kprobes kretprobe_trampoline(void)
+ {
+ 	__asm__ __volatile__ (
++		"sub	sp, sp, #16		\n\t"
+ 		"stmdb	sp!, {r0 - r11}		\n\t"
+ 		"mov	r0, sp			\n\t"
+ 		"bl	trampoline_handler	\n\t"
+ 		"mov	lr, r0			\n\t"
+ 		"ldmia	sp!, {r0 - r11}		\n\t"
++		"add	sp, sp, #16		\n\t"
+ #ifdef CONFIG_THUMB2_KERNEL
+ 		"bx	lr			\n\t"
+ #else
