@@ -1,102 +1,68 @@
-From: Ard Biesheuvel <ardb@kernel.org>
-Date: Wed, 24 Mar 2021 12:33:40 +0000
-Subject: Re: [PATCH] ia64: fix EFI_DEBUG build
-Message-Id: <CAMj1kXEmuVWR=TAmzXHnvKxbtSn1-Zkhr-0rOWV0BB1OGyx_TQ@mail.gmail.com>
+From: Masami Hiramatsu <mhiramat@kernel.org>
+Date: Mon, 22 Mar 2021 06:42:02 +0000
+Subject: [PATCH -tip v4 12/12] tracing: Show kretprobe unknown indicator only for kretprobe_trampoline
+Message-Id: <161639532235.895304.18329540036405219298.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210322221441.3555003-1-slyfox@gentoo.org> <CAMj1kXF5ufbDPLhBboYav0bU3C1tnn1ZrDesPGGnni=+1N8hjw@mail.gmail.com>
- <YFosKXrTwfqBRLjf@sf>
-In-Reply-To: <YFosKXrTwfqBRLjf@sf>
+References: <161639518354.895304.15627519393073806809.stgit@devnote2>
+In-Reply-To: <161639518354.895304.15627519393073806809.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Sergei Trofimovich <slyfox@gentoo.org>
-Cc: linux-efi <linux-efi@vger.kernel.org>, linux-ia64@vger.kernel.org
+To: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>
+Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, Josh Poimboeuf <jpoimboe@redhat.com>, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>
 
-On Tue, 23 Mar 2021 at 18:58, Sergei Trofimovich <slyfox@gentoo.org> wrote:
->
-> On Tue, Mar 23, 2021 at 09:35:13AM +0100, Ard Biesheuvel wrote:
-> > On Mon, 22 Mar 2021 at 23:16, Sergei Trofimovich <slyfox@gentoo.org> wrote:
-> > >
-> > > When enabled local debugging via `#define EFI_DEBUG 1` noticed
-> > > build failure:
-> > >
-> > >     ia64/kernel/efi.c:564:8: error: 'i' undeclared (first use in this function)
-> > >       564 |   for (i = 0, p = efi_map_start; p < efi_map_end;
-> > >           |        ^
-> > >
-> > > CC: Ard Biesheuvel <ardb@kernel.org>
-> > > CC: linux-efi@vger.kernel.org
-> > > CC: linux-ia64@vger.kernel.org
-> > > Signed-off-by: Sergei Trofimovich <slyfox@gentoo.org>
-> >
-> > What are the other changes for?
->
-> The rest are fixes for format string mismatch in %lx / unsigned long long.
-> Should I resend with updated comment or split it to another commit?
->
-> They all are hiding under EFI_DEBUG and are not visible by default.
->
+ftrace shows "[unknown/kretprobe'd]" indicator all addresses in the
+kretprobe_trampoline, but the modified address by kretprobe should
+be only kretprobe_trampoline+0.
 
-OK, but please describe the purpose of *all* changes in the commit log.
+Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
+---
+ kernel/trace/trace_output.c |   17 ++++-------------
+ 1 file changed, 4 insertions(+), 13 deletions(-)
 
-Also, the breakage seems to be caused by
-
-commit 14fb4209094355928d5a742e35afabdf7b404c17
-Author: Ard Biesheuvel <ardb@kernel.org>
-Date:   Mon Jan 20 10:49:11 2020 +0100
-
-    efi: Merge EFI system table revision and vendor checks
-
-so you can include a line in the signoff area saying
-
-Fixes: 14fb42090943559 ("efi: Merge EFI system table revision and
-vendor checks")
-
-
-> > > ---
-> > >  arch/ia64/kernel/efi.c | 11 ++++++-----
-> > >  1 file changed, 6 insertions(+), 5 deletions(-)
-> > >
-> > > diff --git a/arch/ia64/kernel/efi.c b/arch/ia64/kernel/efi.c
-> > > index c5fe21de46a8..31149e41f9be 100644
-> > > --- a/arch/ia64/kernel/efi.c
-> > > +++ b/arch/ia64/kernel/efi.c
-> > > @@ -415,10 +415,10 @@ efi_get_pal_addr (void)
-> > >                 mask  = ~((1 << IA64_GRANULE_SHIFT) - 1);
-> > >
-> > >                 printk(KERN_INFO "CPU %d: mapping PAL code "
-> > > -                       "[0x%lx-0x%lx) into [0x%lx-0x%lx)\n",
-> > > -                       smp_processor_id(), md->phys_addr,
-> > > -                       md->phys_addr + efi_md_size(md),
-> > > -                       vaddr & mask, (vaddr & mask) + IA64_GRANULE_SIZE);
-> > > +                       "[0x%llx-0x%llx) into [0x%llx-0x%llx)\n",
-> > > +                       smp_processor_id(), md->phys_addr,
-> > > +                       md->phys_addr + efi_md_size(md),
-> > > +                       vaddr & mask, (vaddr & mask) + IA64_GRANULE_SIZE);
-> > >  #endif
-> > >                 return __va(md->phys_addr);
-> > >         }
-> > > @@ -560,6 +560,7 @@ efi_init (void)
-> > >         {
-> > >                 efi_memory_desc_t *md;
-> > >                 void *p;
-> > > +               unsigned int i;
-> > >
-> > >                 for (i = 0, p = efi_map_start; p < efi_map_end;
-> > >                      ++i, p += efi_desc_size)
-> > > @@ -586,7 +587,7 @@ efi_init (void)
-> > >                         }
-> > >
-> > >                         printk("mem%02d: %s "
-> > > -                              "range=[0x%016lx-0x%016lx) (%4lu%s)\n",
-> > > +                              "range=[0x%016llx-0x%016llx) (%4lu%s)\n",
-> > >                                i, efi_md_typeattr_format(buf, sizeof(buf), md),
-> > >                                md->phys_addr,
-> > >                                md->phys_addr + efi_md_size(md), size, unit);
-> > > --
-> > > 2.31.0
-> > >
->
-> --
->
->   Sergei
+diff --git a/kernel/trace/trace_output.c b/kernel/trace/trace_output.c
+index 61255bad7e01..e12437388686 100644
+--- a/kernel/trace/trace_output.c
++++ b/kernel/trace/trace_output.c
+@@ -8,6 +8,7 @@
+ #include <linux/module.h>
+ #include <linux/mutex.h>
+ #include <linux/ftrace.h>
++#include <linux/kprobes.h>
+ #include <linux/sched/clock.h>
+ #include <linux/sched/mm.h>
+ 
+@@ -346,22 +347,12 @@ int trace_output_call(struct trace_iterator *iter, char *name, char *fmt, ...)
+ }
+ EXPORT_SYMBOL_GPL(trace_output_call);
+ 
+-#ifdef CONFIG_KRETPROBES
+-static inline const char *kretprobed(const char *name)
++static inline const char *kretprobed(const char *name, unsigned long addr)
+ {
+-	static const char tramp_name[] = "kretprobe_trampoline";
+-	int size = sizeof(tramp_name);
+-
+-	if (strncmp(tramp_name, name, size) = 0)
++	if (is_kretprobe_trampoline(addr))
+ 		return "[unknown/kretprobe'd]";
+ 	return name;
+ }
+-#else
+-static inline const char *kretprobed(const char *name)
+-{
+-	return name;
+-}
+-#endif /* CONFIG_KRETPROBES */
+ 
+ void
+ trace_seq_print_sym(struct trace_seq *s, unsigned long address, bool offset)
+@@ -374,7 +365,7 @@ trace_seq_print_sym(struct trace_seq *s, unsigned long address, bool offset)
+ 		sprint_symbol(str, address);
+ 	else
+ 		kallsyms_lookup(address, NULL, NULL, NULL, str);
+-	name = kretprobed(str);
++	name = kretprobed(str, address);
+ 
+ 	if (name && strlen(name)) {
+ 		trace_seq_puts(s, name);
