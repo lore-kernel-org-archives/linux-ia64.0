@@ -1,38 +1,28 @@
 From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Fri, 19 Mar 2021 12:21:43 +0000
-Subject: [PATCH -tip v3 00/11] kprobes: Fix stacktrace with kretprobes on x86
-Message-Id: <161615650355.306069.17260992641363840330.stgit@devnote2>
+Date: Mon, 22 Mar 2021 06:39:43 +0000
+Subject: [PATCH -tip v4 00/12] kprobes: Fix stacktrace with kretprobes on x86
+Message-Id: <161639518354.895304.15627519393073806809.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>
-Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, Josh Poimboeuf <jpoimboe@redhat.com>, linux-ia64@vger.kernel.org
+Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, Josh Poimboeuf <jpoimboe@redhat.com>, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>
 
 Hello,
 
-Here is the 3rd version of the series to fix the stacktrace with kretprobe
-on x86.
+Here is the 4th version of the series to fix the stacktrace with kretprobe
+on x86. After merging this, I'll fix other architectures.
 
 The previous version is;
 
-https://lore.kernel.org/bpf/161553130371.1038734.7661319550287837734.stgit@devnote2/
+https://lore.kernel.org/bpf/161615650355.306069.17260992641363840330.stgit@devnote2/
 
-Instead of solving generic stacktrace, this version is focusing on x86
-stack unwinders. Anyway this introduces the generic APIs for the solution,
-other architectures can fix their unwinder with that.
-
-In this version, generic stacktrace fixups in [4/11] is dropped. Instead,
-[4/11] is just providing kretprobe_find_ret_addr(). And previous ORC
-unwinder fix patch is splitted into [9/11] and [10/11].
-[9/11] fixes x86 kretprobe trampoline so that it pushes an additional
-kretprobe_trampoline at the bottom of stackframe as a fake return address
-according to Josh's suggestion. And [10/11] fixes all unwinders in x86
-(guess, frame, and ORC). 
-Finally, [11/11] is renewed to check the kretprobe_trampoline address
-correctly instead of removing all indicator logic, because except for
-the x86, it will see the kretprobe_trampoline in the stack trace until
-it is fixed on each architecture.
+This version fixes some build warnings/errors and a bug on arm. (I think
+arm's kretprobe implementation is a bit odd. anyway, that is off topic.)
+[5/12] fixes objtool warning when CONFIG_FRAME_POINTER=y. [7/12] fixes a
+build error on ia64. And add [8/12] for avoiding stack corruption by
+instruction_pointer_set() in kretprobe_trampoline_handler on arm.
 
 With this series, unwinder can unwind stack correctly from ftrace as below;
 
@@ -82,7 +72,8 @@ the pt_regs passed to kretprobe user handler is correctly set the real return
 address. So user handlers can get it via instruction_pointer() API.
 
 You can also get this series from 
- git://git.kernel.org/pub/scm/linux/kernel/git/mhiramat/linux.git kprobes/kretprobe-stackfix-v3
+ git://git.kernel.org/pub/scm/linux/kernel/git/mhiramat/linux.git kprobes/kretprobe-stackfix-v4
+
 
 Thank you,
 
@@ -91,13 +82,14 @@ Thank you,
 Josh Poimboeuf (1):
       x86/kprobes: Add UNWIND_HINT_FUNC on kretprobe_trampoline code
 
-Masami Hiramatsu (10):
+Masami Hiramatsu (11):
       ia64: kprobes: Fix to pass correct trampoline address to the handler
       kprobes: treewide: Replace arch_deref_entry_point() with dereference_function_descriptor()
       kprobes: treewide: Remove trampoline_address from kretprobe_trampoline_handler()
       kprobes: Add kretprobe_find_ret_addr() for searching return address
       ARC: Add instruction_pointer_set() API
       ia64: Add instruction_pointer_set() API
+      arm: kprobes: Make a space for regs->ARM_pc at kretprobe_trampoline
       kprobes: Setup instruction pointer in __kretprobe_trampoline_handler
       x86/kprobes: Push a fake return address at kretprobe_trampoline
       x86/unwind: Recover kretprobe trampoline entry
@@ -106,10 +98,10 @@ Masami Hiramatsu (10):
 
  arch/arc/include/asm/ptrace.h       |    5 ++
  arch/arc/kernel/kprobes.c           |    2 -
- arch/arm/probes/kprobes/core.c      |    3 -
+ arch/arm/probes/kprobes/core.c      |    5 +-
  arch/arm64/kernel/probes/kprobes.c  |    3 -
  arch/csky/kernel/probes/kprobes.c   |    2 -
- arch/ia64/include/asm/ptrace.h      |    8 ++-
+ arch/ia64/include/asm/ptrace.h      |    5 ++
  arch/ia64/kernel/kprobes.c          |   15 ++---
  arch/mips/kernel/kprobes.c          |    3 -
  arch/parisc/kernel/kprobes.c        |    4 +
@@ -121,7 +113,7 @@ Masami Hiramatsu (10):
  arch/x86/include/asm/kprobes.h      |    1 
  arch/x86/include/asm/unwind.h       |   17 ++++++
  arch/x86/include/asm/unwind_hints.h |    5 ++
- arch/x86/kernel/kprobes/core.c      |   30 ++++++++---
+ arch/x86/kernel/kprobes/core.c      |   44 ++++++++++++----
  arch/x86/kernel/unwind_frame.c      |    4 +
  arch/x86/kernel/unwind_guess.c      |    3 -
  arch/x86/kernel/unwind_orc.c        |    6 +-
@@ -129,7 +121,7 @@ Masami Hiramatsu (10):
  kernel/kprobes.c                    |   99 ++++++++++++++++++++++++-----------
  kernel/trace/trace_output.c         |   17 +-----
  lib/error-inject.c                  |    3 +
- 25 files changed, 187 insertions(+), 105 deletions(-)
+ 25 files changed, 200 insertions(+), 105 deletions(-)
 
 --
 Masami Hiramatsu (Linaro) <mhiramat@kernel.org>
