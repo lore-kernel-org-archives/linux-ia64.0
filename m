@@ -1,44 +1,41 @@
-From: Randy Dunlap <rdunlap@infradead.org>
-Date: Wed, 17 Mar 2021 05:09:53 +0000
-Subject: Re: [PATCH] ia64: hp: common: A typo fix in the file sba_iommu.c
-Message-Id: <41387595-f4d0-40a5-93ff-6f8cc7797dc5@infradead.org>
+From: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
+Date: Tue, 23 Mar 2021 15:02:07 +0000
+Subject: Re: Regression in 543cea9a - was: Re: Kernel problem on rx2800 i2
+Message-Id: <d199ce26-2348-5e2d-8f60-290e6aeff685@physik.fu-berlin.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210317031420.3136958-1-unixbhaskar@gmail.com>
-In-Reply-To: <20210317031420.3136958-1-unixbhaskar@gmail.com>
+References: <1d62aadd-67b6-da13-53cc-4b5213de8937@physik.fu-berlin.de>
+In-Reply-To: <1d62aadd-67b6-da13-53cc-4b5213de8937@physik.fu-berlin.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bhaskar Chowdhury <unixbhaskar@gmail.com>, mpe@ellerman.id.au, huawei@kernel.org, schnelle@linux.ibm.com, nicoleotsuka@gmail.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-On 3/16/21 8:14 PM, Bhaskar Chowdhury wrote:
-> 
-> 
-> s/minium/minimum/
-> 
-> 
-> Signed-off-by: Bhaskar Chowdhury <unixbhaskar@gmail.com>
+Hi!
 
-Acked-by: Randy Dunlap <rdunlap@infradead.org>
-
-> ---
->  arch/ia64/hp/common/sba_iommu.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+On 6/25/19 8:40 AM, John Paul Adrian Glaubitz wrote:
+> On 6/21/19 10:08 PM, Frank Scheiner wrote:
+>> recent testing of a Debian v4.19.37 kernel showed a problem on my rx2800
+>> i2 happening during kernel boot:
+>> (...)
+>> [1]:
+>> https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/commit/?idT3cea9accd9804307541cb93d3ed7ec94b07237
 > 
-> diff --git a/arch/ia64/hp/common/sba_iommu.c b/arch/ia64/hp/common/sba_iommu.c
-> index 9148ddbf02e5..3dcb8c35faad 100644
-> --- a/arch/ia64/hp/common/sba_iommu.c
-> +++ b/arch/ia64/hp/common/sba_iommu.c
-> @@ -828,7 +828,7 @@ mark_clean (void *addr, size_t size)
->   * corresponding IO TLB entry. The PCOM (Purge Command Register)
->   * is to purge stale entries in the IO TLB when unmapping entries.
->   *
-> - * The PCOM register supports purging of multiple pages, with a minium
-> + * The PCOM register supports purging of multiple pages, with a minimum
->   * of 1 page and a maximum of 2GB. Hardware requires the address be
->   * aligned to the size of the range being purged. The size of the range
->   * must be a power of 2. The "Cool perf optimization" in the
-> --
+> Do you have any idea what could be the reason for the issue introduced
+> by your above commit? James Clarke has guess that it might be GFP_DMA32
+> which isn't being set properly anymore for the affected machines.
+> 
+> Do you think we could test a kernel which just sets the flag unconditionally
+> to see whether this is the problem that causes the issues on these machines?
 
+Just as a heads-up: This issue has magically fixed itself and a current kernel
+with some additional minor fixes applied boots fine on these machines again [1].
+
+Adrian
+
+> [1] https://marc.info/?l=linux-ia64&m1651097316856&w=2
 
 -- 
-~Randy
+ .''`.  John Paul Adrian Glaubitz
+: :' :  Debian Developer - glaubitz@debian.org
+`. `'   Freie Universitaet Berlin - glaubitz@physik.fu-berlin.de
+  `-    GPG: 62FF 8A75 84E0 2956 9546  0006 7426 3B37 F5B5 F913
