@@ -1,102 +1,58 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Mon, 22 Mar 2021 00:08:46 +0000
-Subject: Re: [PATCH -tip v3 05/11] x86/kprobes: Add UNWIND_HINT_FUNC on kretprobe_trampoline code
-Message-Id: <20210322090846.515f8c0a9b71acadfc186b7f@kernel.org>
+From: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
+Date: Tue, 23 Mar 2021 14:49:08 +0000
+Subject: Current Linux kernels working on rx2800 again
+Message-Id: <202ad1c0-e9d7-0cdd-d037-5258dfe3e378@physik.fu-berlin.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <161615650355.306069.17260992641363840330.stgit@devnote2>
-        <161615655969.306069.4545805781593088526.stgit@devnote2>
-        <20210320211616.a976fc66d0c51e13d3121e2f@kernel.org>
-        <20210320220543.e1558ce3a351554c6be3ea26@kernel.org>
-        <20210321175203.4kcptzgs6pwxh5oh@treble>
-In-Reply-To: <20210321175203.4kcptzgs6pwxh5oh@treble>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Josh Poimboeuf <jpoimboe@redhat.com>
-Cc: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>, X86 ML <x86@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-On Sun, 21 Mar 2021 12:52:03 -0500
-Josh Poimboeuf <jpoimboe@redhat.com> wrote:
+Hi!
 
-> On Sat, Mar 20, 2021 at 10:05:43PM +0900, Masami Hiramatsu wrote:
-> > On Sat, 20 Mar 2021 21:16:16 +0900
-> > Masami Hiramatsu <mhiramat@kernel.org> wrote:
-> > 
-> > > On Fri, 19 Mar 2021 21:22:39 +0900
-> > > Masami Hiramatsu <mhiramat@kernel.org> wrote:
-> > > 
-> > > > From: Josh Poimboeuf <jpoimboe@redhat.com>
-> > > > 
-> > > > Add UNWIND_HINT_FUNC on kretporbe_trampoline code so that ORC
-> > > > information is generated on the kretprobe_trampoline correctly.
-> > > > 
-> > > 
-> > > Test bot also found a new warning for this.
-> > > 
-> > > > >> arch/x86/kernel/kprobes/core.o: warning: objtool: kretprobe_trampoline()+0x25: call without frame pointer save/setup
-> > > 
-> > > With CONFIG_FRAME_POINTER=y.
-> > > 
-> > > Of course this can be fixed with additional "push %bp; mov %sp, %bp" before calling
-> > > trampoline_handler. But actually we know that this function has a bit special
-> > > stack frame too. 
-> > > 
-> > > Can I recover STACK_FRAME_NON_STANDARD(kretprobe_trampoline) when CONFIG_FRAME_POINTER=y ?
-> > 
-> > So something like this. Does it work?
-> > 
-> > diff --git a/arch/x86/kernel/kprobes/core.c b/arch/x86/kernel/kprobes/core.c
-> > index b31058a152b6..651f337dc880 100644
-> > --- a/arch/x86/kernel/kprobes/core.c
-> > +++ b/arch/x86/kernel/kprobes/core.c
-> > @@ -760,6 +760,10 @@ int kprobe_int3_handler(struct pt_regs *regs)
-> >  }
-> >  NOKPROBE_SYMBOL(kprobe_int3_handler);
-> >  
-> > +#ifdef CONFIG_FRAME_POINTER
-> > +#undef UNWIND_HINT_FUNC
-> > +#define UNWIND_HINT_FUNC
-> > +#endif
-> 
-> This hunk isn't necessary.  The unwind hints don't actually have an
-> effect with frame pointers.
+I have tried a current kernel built from Linus' tree today on one of the
+BL860c blades we use as buildds in Debian and it turns out with just three
+fixes applied [1-3], the kernel works just fine:
 
-Without this, objtool shows the following warning with CONFIG_FRAME_POINTER=y.
+root@lenz:~# dmesg|head -n20
+[    0.000000] Linux version 5.12.0-rc4-00007-g572c09e775f7 (root@lenz) (gcc (Debian 10.2.1-6+b1) 10.2.1 20210110, GNU ld (GNU Binutils for Debian) 2.35.2) #2 SMP Tue Mar 23 14:29:21 UTC 2021
+[    0.000000] efi: EFI v2.30 by HP
+[    0.000000] efi: SALsystab=0xffdbff918 ESI=0xffdbffe18 ACPI 2.0=0x391a8014 HCDP=0xfffff8f18 SMBIOS=0x3914a000 
+[    0.000000] PCDP: v3 at 0xfffff8f18
+[    0.000000] earlycon: uart8250 at I/O port 0x2320 (options '115200n8')
+[    0.000000] printk: bootconsole [uart8250] enabled
+[    0.000000] ACPI: Early table checksum verification disabled
+[    0.000000] ACPI: RSDP 0x00000000391A8014 000024 (v02 HP    )
+[    0.000000] ACPI: XSDT 0x00000000391A8580 000124 (v01 HP     BL860C-4 00000001      01000013)
+[    0.000000] ACPI: FACP 0x00000000391A2000 0000F4 (v03 HP     BL860C-4 00000001 HP   00000001)
+[    0.000000] ACPI BIOS Warning (bug): Invalid length for FADT/Pm1aEventBlock: 16, using default 32 (20210105/tbfadt-669)
+[    0.000000] ACPI BIOS Warning (bug): Invalid length for FADT/Pm1aControlBlock: 32, using default 16 (20210105/tbfadt-669)
+[    0.000000] ACPI: DSDT 0x0000000039188000 009FFD (v02 HP     BL860C-4 00000008 INTL 20061109)
+[    0.000000] ACPI: FACS 0x00000000391A4000 000040
+[    0.000000] ACPI: FACS 0x00000000391A4000 000040
+[    0.000000] ACPI: APIC 0x00000000391A6000 0001CC (v01 HP     BL860C-4 00000001 HP   00000001)
+[    0.000000] ACPI: SPCR 0x00000000391A0000 000050 (v01 HP     BL860C-4 00000001 HP   00000001)
+[    0.000000] ACPI: SRAT 0x000000003919E000 000348 (v02 HP     BL860C-4 00000001 HP   00000001)
+[    0.000000] ACPI: SLIT 0x000000003919C000 00003C (v01 HP     BL860C-4 00000001 HP   00000001)
+[    0.000000] ACPI: CPEP 0x000000003919A000 000034 (v01 HP     BL860C-4 00000001 HP   00000001)
+root@lenz:~#
 
-arch/x86/kernel/kprobes/core.o: warning: objtool: kretprobe_trampoline()+0x1: BUG: why am I validating an ignored function?
+The previously reported regression [4] has magically fixed itself.
 
-It seems to complain about putting UNWIND_HINT on STACK_FRAME_NON_STANDARD function.
+Once the patches [1-3] have been merged - in one form or another - we just need to
+fix the issue Ben Hutchings reported for zstd compression [5] and we can build and
+use regular Debian distribution kernels on all ia64 machines again.
 
-> 
-> >  /*
-> >   * When a retprobed function returns, this code saves registers and
-> >   * calls trampoline_handler() runs, which calls the kretprobe's handler.
-> > @@ -797,7 +801,14 @@ asm(
-> >  	".size kretprobe_trampoline, .-kretprobe_trampoline\n"
-> >  );
-> >  NOKPROBE_SYMBOL(kretprobe_trampoline);
-> > -
-> > +#ifdef CONFIG_FRAME_POINTER
-> > +/*
-> > + * kretprobe_trampoline skips updating frame pointer. The frame pointer
-> > + * saved in trampoline_handler points to the real caller function's
-> > + * frame pointer.
-> > + */
-> > +STACK_FRAME_NON_STANDARD(kretprobe_trampoline);
-> > +#endif
-> >  
-> >  /*
-> >   * Called from kretprobe_trampoline
-> 
-> Ack.
+Adrian
 
-Thank you!
-
-> 
-> -- 
-> Josh
-> 
-
+> [1] https://marc.info/?l=linux-scsi&m1558808505479&w=2
+> [2] https://marc.info/?l=linux-ia64&m1579831530508&w=2
+> [3] https://marc.info/?l=linux-ia64&m1607290522459&w=2
+> [4] https://marc.info/?l=linux-ia64&m6144480821712&w=2
+> [5] https://marc.info/?l=linux-ia64&m0002668711603&w=2
 
 -- 
-Masami Hiramatsu <mhiramat@kernel.org>
+ .''`.  John Paul Adrian Glaubitz
+: :' :  Debian Developer - glaubitz@debian.org
+`. `'   Freie Universitaet Berlin - glaubitz@physik.fu-berlin.de
+  `-    GPG: 62FF 8A75 84E0 2956 9546  0006 7426 3B37 F5B5 F913
