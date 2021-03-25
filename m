@@ -1,54 +1,35 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Wed, 24 Mar 2021 23:47:41 +0000
+From: Steven Rostedt <rostedt@goodmis.org>
+Date: Thu, 25 Mar 2021 00:26:13 +0000
 Subject: Re: [PATCH -tip v4 10/12] x86/kprobes: Push a fake return address at kretprobe_trampoline
-Message-Id: <20210325084741.74bdb2b1d2ed00fe68840cea@kernel.org>
+Message-Id: <20210324202613.7cad6f4f@oasis.local.home>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <161639518354.895304.15627519393073806809.stgit@devnote2>
         <161639530062.895304.16962383429668412873.stgit@devnote2>
         <20210323223007.GG4746@worktop.programming.kicks-ass.net>
         <20210324104058.7c06aaeb0408e24db6ba46f8@kernel.org>
         <20210324160143.wd43zribpeop2czn@treble>
-In-Reply-To: <20210324160143.wd43zribpeop2czn@treble>
+        <20210325084741.74bdb2b1d2ed00fe68840cea@kernel.org>
+In-Reply-To: <20210325084741.74bdb2b1d2ed00fe68840cea@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Josh Poimboeuf <jpoimboe@redhat.com>
-Cc: Peter Zijlstra <peterz@infradead.org>, Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>, X86 ML <x86@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>
+To: Masami Hiramatsu <mhiramat@kernel.org>
+Cc: Josh Poimboeuf <jpoimboe@redhat.com>, Peter Zijlstra <peterz@infradead.org>, Ingo Molnar <mingo@kernel.org>, X86 ML <x86@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>
 
-On Wed, 24 Mar 2021 11:01:43 -0500
-Josh Poimboeuf <jpoimboe@redhat.com> wrote:
+On Thu, 25 Mar 2021 08:47:41 +0900
+Masami Hiramatsu <mhiramat@kernel.org> wrote:
 
-> On Wed, Mar 24, 2021 at 10:40:58AM +0900, Masami Hiramatsu wrote:
-> > On Tue, 23 Mar 2021 23:30:07 +0100
-> > Peter Zijlstra <peterz@infradead.org> wrote:
-> > 
-> > > On Mon, Mar 22, 2021 at 03:41:40PM +0900, Masami Hiramatsu wrote:
-> > > >  	".global kretprobe_trampoline\n"
-> > > >  	".type kretprobe_trampoline, @function\n"
-> > > >  	"kretprobe_trampoline:\n"
-> > > >  #ifdef CONFIG_X86_64
-> > > 
-> > > So what happens if we get an NMI here? That is, after the RET but before
-> > > the push? Then our IP points into the trampoline but we've not done that
-> > > push yet.
-> > 
-> > Not only NMI, but also interrupts can happen. There is no cli/sti here.
-> > 
-> > Anyway, thanks for pointing!
-> > I think in UNWIND_HINT_TYPE_REGS and UNWIND_HINT_TYPE_REGS_PARTIAL cases
-> > ORC unwinder also has to check the state->ip and if it is kretprobe_trampoline,
-> > it should be recovered.
-> > What about this?
+> > I think the REGS and REGS_PARTIAL cases can also be affected by function
+> > graph tracing.  So should they use the generic unwind_recover_ret_addr()
+> > instead of unwind_recover_kretprobe()?  
 > 
-> I think the REGS and REGS_PARTIAL cases can also be affected by function
-> graph tracing.  So should they use the generic unwind_recover_ret_addr()
-> instead of unwind_recover_kretprobe()?
+> Yes, but I'm not sure this parameter can be applied.
+> For example, it passed "state->sp - sizeof(unsigned long)" as where the
+> return address stored address. Is that same on ftrace graph too?
 
-Yes, but I'm not sure this parameter can be applied.
-For example, it passed "state->sp - sizeof(unsigned long)" as where the
-return address stored address. Is that same on ftrace graph too?
+Stack traces on the return side of function graph tracer has never
+worked. It's on my todo list, because that's one of the requirements to
+get right if we every manage to combine kretprobe and function graph
+tracers together.
 
-Thank you,
-
--- 
-Masami Hiramatsu <mhiramat@kernel.org>
+-- Steve
