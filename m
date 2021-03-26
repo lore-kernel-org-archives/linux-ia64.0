@@ -1,55 +1,40 @@
-From: Michael Ellerman <mpe@ellerman.id.au>
-Date: Wed, 10 Mar 2021 05:20:19 +0000
-Subject: Re: [PATCH 2/6] mm: Generalize SYS_SUPPORTS_HUGETLBFS (rename as ARCH_SUPPORTS_HUGETLBFS)
-Message-Id: <874khjr3e4.fsf@mpe.ellerman.id.au>
+From: Masami Hiramatsu <mhiramat@kernel.org>
+Date: Fri, 26 Mar 2021 12:30:00 +0000
+Subject: [PATCH -tip v5 08/12] arm: kprobes: Make a space for regs->ARM_pc at kretprobe_trampoline
+Message-Id: <161676180010.330141.3364405359635711987.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1615185706-24342-1-git-send-email-anshuman.khandual@arm.com>
- <1615185706-24342-3-git-send-email-anshuman.khandual@arm.com>
-In-Reply-To: <1615185706-24342-3-git-send-email-anshuman.khandual@arm.com>
+References: <161676170650.330141.6214727134265514123.stgit@devnote2>
+In-Reply-To: <161676170650.330141.6214727134265514123.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Anshuman Khandual <anshuman.khandual@arm.com>, linux-mm@kvack.org
-Cc: Anshuman Khandual <anshuman.khandual@arm.com>, x86@kernel.org, linux-ia64@vger.kernel.org, linux-s390@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-mips@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-sh@vger.kernel.org, linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org, Russell King <linux@armlinux.org.uk>, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Palmer Dabbelt <palmer@dabbelt.com>, Albert Ou <aou@eecs.berkeley.edu>, Yoshinori Sato <ysato@users.sourceforge.jp>, Rich Felker <dalias@libc.org>, Alexander Viro <viro@zeniv.linux.org.uk>
+To: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>
+Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, Josh Poimboeuf <jpoimboe@redhat.com>, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>
 
-Anshuman Khandual <anshuman.khandual@arm.com> writes:
-> SYS_SUPPORTS_HUGETLBFS config has duplicate definitions on platforms that
-> subscribe it. Instead, just make it a generic option which can be selected
-> on applicable platforms. Also rename it as ARCH_SUPPORTS_HUGETLBFS instead.
-> This reduces code duplication and makes it cleaner.
->
-> Cc: Russell King <linux@armlinux.org.uk>
-> Cc: Catalin Marinas <catalin.marinas@arm.com>
-> Cc: Will Deacon <will@kernel.org>
-> Cc: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
-> Cc: "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>
-> Cc: Helge Deller <deller@gmx.de>
-> Cc: Michael Ellerman <mpe@ellerman.id.au>
-> Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-> Cc: Paul Mackerras <paulus@samba.org>
-> Cc: Paul Walmsley <paul.walmsley@sifive.com>
-> Cc: Palmer Dabbelt <palmer@dabbelt.com>
-> Cc: Albert Ou <aou@eecs.berkeley.edu>
-> Cc: Yoshinori Sato <ysato@users.sourceforge.jp>
-> Cc: Rich Felker <dalias@libc.org>
-> Cc: Alexander Viro <viro@zeniv.linux.org.uk>
-> Cc: linux-arm-kernel@lists.infradead.org
-> Cc: linux-mips@vger.kernel.org
-> Cc: linux-parisc@vger.kernel.org
-> Cc: linuxppc-dev@lists.ozlabs.org
-> Cc: linux-riscv@lists.infradead.org
-> Cc: linux-sh@vger.kernel.org
-> Cc: linux-fsdevel@vger.kernel.org
-> Cc: linux-kernel@vger.kernel.org
-> Signed-off-by: Anshuman Khandual <anshuman.khandual@arm.com>
-> ---
->  arch/arm/Kconfig                       | 5 +----
->  arch/arm64/Kconfig                     | 4 +---
->  arch/mips/Kconfig                      | 6 +-----
->  arch/parisc/Kconfig                    | 5 +----
->  arch/powerpc/Kconfig                   | 3 ---
->  arch/powerpc/platforms/Kconfig.cputype | 6 +++---
+Change kretprobe_trampoline to make a space for regs->ARM_pc so that
+kretprobe_trampoline_handler can call instruction_pointer_set()
+safely.
 
-Acked-by: Michael Ellerman <mpe@ellerman.id.au> (powerpc)
+Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
+---
+ arch/arm/probes/kprobes/core.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
-cheers
+diff --git a/arch/arm/probes/kprobes/core.c b/arch/arm/probes/kprobes/core.c
+index 1782b41df095..5f3c2b42787f 100644
+--- a/arch/arm/probes/kprobes/core.c
++++ b/arch/arm/probes/kprobes/core.c
+@@ -397,11 +397,13 @@ int __kprobes kprobe_exceptions_notify(struct notifier_block *self,
+ void __naked __kprobes kretprobe_trampoline(void)
+ {
+ 	__asm__ __volatile__ (
++		"sub	sp, sp, #16		\n\t"
+ 		"stmdb	sp!, {r0 - r11}		\n\t"
+ 		"mov	r0, sp			\n\t"
+ 		"bl	trampoline_handler	\n\t"
+ 		"mov	lr, r0			\n\t"
+ 		"ldmia	sp!, {r0 - r11}		\n\t"
++		"add	sp, sp, #16		\n\t"
+ #ifdef CONFIG_THUMB2_KERNEL
+ 		"bx	lr			\n\t"
+ #else
