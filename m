@@ -1,104 +1,100 @@
-From: Sasha Levin <sashal@kernel.org>
-Date: Wed, 17 Mar 2021 00:58:01 +0000
-Subject: [PATCH AUTOSEL 5.4 36/37] ia64: fix ia64_syscall_get_set_arguments() for break-based syscalls
-Message-Id: <20210317005802.725825-36-sashal@kernel.org>
+From: Masami Hiramatsu <mhiramat@kernel.org>
+Date: Fri, 26 Mar 2021 12:29:22 +0000
+Subject: [PATCH -tip v5 05/12] x86/kprobes: Add UNWIND_HINT_FUNC on kretprobe_trampoline code
+Message-Id: <161676176212.330141.17845773639362440858.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210317005802.725825-1-sashal@kernel.org>
-In-Reply-To: <20210317005802.725825-1-sashal@kernel.org>
+References: <161676170650.330141.6214727134265514123.stgit@devnote2>
+In-Reply-To: <161676170650.330141.6214727134265514123.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
-Cc: Sergei Trofimovich <slyfox@gentoo.org>, "Dmitry V . Levin" <ldv@altlinux.org>, Oleg Nesterov <oleg@redhat.com>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, Sasha Levin <sashal@kernel.org>, linux-ia64@vger.kernel.org
+To: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>
+Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, Josh Poimboeuf <jpoimboe@redhat.com>, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>
 
-From: Sergei Trofimovich <slyfox@gentoo.org>
+From: Josh Poimboeuf <jpoimboe@redhat.com>
 
-[ Upstream commit 0ceb1ace4a2778e34a5414e5349712ae4dc41d85 ]
+Add UNWIND_HINT_FUNC on kretporbe_trampoline code so that ORC
+information is generated on the kretprobe_trampoline correctly.
 
-In https://bugs.gentoo.org/769614 Dmitry noticed that
-`ptrace(PTRACE_GET_SYSCALL_INFO)` does not work for syscalls called via
-glibc's syscall() wrapper.
+Note that when the CONFIG_FRAME_POINTER=y, since the
+kretprobe_trampoline skips updating frame pointer, the stack frame
+of the kretprobe_trampoline seems non-standard. So this marks it
+is STACK_FRAME_NON_STANDARD() and undefine UNWIND_HINT_FUNC.
+Anyway, with the frame pointer, FP unwinder can unwind the stack
+frame correctly without that hint.
 
-ia64 has two ways to call syscalls from userspace: via `break` and via
-`eps` instructions.
-
-The difference is in stack layout:
-
-1. `eps` creates simple stack frame: no locals, in{0..7} = out{0..8}
-2. `break` uses userspace stack frame: may be locals (glibc provides
-   one), in{0..7} = out{0..8}.
-
-Both work fine in syscall handling cde itself.
-
-But `ptrace(PTRACE_GET_SYSCALL_INFO)` uses unwind mechanism to
-re-extract syscall arguments but it does not account for locals.
-
-The change always skips locals registers. It should not change `eps`
-path as kernel's handler already enforces locals=0 and fixes `break`.
-
-Tested on v5.10 on rx3600 machine (ia64 9040 CPU).
-
-Link: https://lkml.kernel.org/r/20210221002554.333076-1-slyfox@gentoo.org
-Link: https://bugs.gentoo.org/769614
-Signed-off-by: Sergei Trofimovich <slyfox@gentoo.org>
-Reported-by: Dmitry V. Levin <ldv@altlinux.org>
-Cc: Oleg Nesterov <oleg@redhat.com>
-Cc: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
-Signed-off-by: Sasha Levin <sashal@kernel.org>
+Signed-off-by: Josh Poimboeuf <jpoimboe@redhat.com>
+Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
 ---
- arch/ia64/kernel/ptrace.c | 24 ++++++++++++++++++------
- 1 file changed, 18 insertions(+), 6 deletions(-)
+ Changes in v4:
+  - Apply UNWIND_HINT_FUNC only if CONFIG_FRAME_POINTER=n.
+---
+ arch/x86/include/asm/unwind_hints.h |    5 +++++
+ arch/x86/kernel/kprobes/core.c      |   17 +++++++++++++++--
+ 2 files changed, 20 insertions(+), 2 deletions(-)
 
-diff --git a/arch/ia64/kernel/ptrace.c b/arch/ia64/kernel/ptrace.c
-index bf9c24d9ce84..54e12b0ecebd 100644
---- a/arch/ia64/kernel/ptrace.c
-+++ b/arch/ia64/kernel/ptrace.c
-@@ -2147,27 +2147,39 @@ static void syscall_get_set_args_cb(struct unw_frame_info *info, void *data)
- {
- 	struct syscall_get_set_args *args = data;
- 	struct pt_regs *pt = args->regs;
--	unsigned long *krbs, cfm, ndirty;
-+	unsigned long *krbs, cfm, ndirty, nlocals, nouts;
- 	int i, count;
+diff --git a/arch/x86/include/asm/unwind_hints.h b/arch/x86/include/asm/unwind_hints.h
+index 8e574c0afef8..8b33674288ea 100644
+--- a/arch/x86/include/asm/unwind_hints.h
++++ b/arch/x86/include/asm/unwind_hints.h
+@@ -52,6 +52,11 @@
+ 	UNWIND_HINT sp_reg=ORC_REG_SP sp_offset=8 type=UNWIND_HINT_TYPE_FUNC
+ .endm
  
- 	if (unw_unwind_to_user(info) < 0)
- 		return;
++#else
++
++#define UNWIND_HINT_FUNC \
++	UNWIND_HINT(ORC_REG_SP, 8, UNWIND_HINT_TYPE_FUNC, 0)
++
+ #endif /* __ASSEMBLY__ */
  
-+	/*
-+	 * We get here via a few paths:
-+	 * - break instruction: cfm is shared with caller.
-+	 *   syscall args are in out= regs, locals are non-empty.
-+	 * - epsinstruction: cfm is set by br.call
-+	 *   locals don't exist.
-+	 *
-+	 * For both cases argguments are reachable in cfm.sof - cfm.sol.
-+	 * CFM: [ ... | sor: 17..14 | sol : 13..7 | sof : 6..0 ]
-+	 */
- 	cfm = pt->cr_ifs;
-+	nlocals = (cfm >> 7) & 0x7f; /* aka sol */
-+	nouts = (cfm & 0x7f) - nlocals; /* aka sof - sol */
- 	krbs = (unsigned long *)info->task + IA64_RBS_OFFSET/8;
- 	ndirty = ia64_rse_num_regs(krbs, krbs + (pt->loadrs >> 19));
+ #endif /* _ASM_X86_UNWIND_HINTS_H */
+diff --git a/arch/x86/kernel/kprobes/core.c b/arch/x86/kernel/kprobes/core.c
+index 444a7b6b396e..02b602f894e4 100644
+--- a/arch/x86/kernel/kprobes/core.c
++++ b/arch/x86/kernel/kprobes/core.c
+@@ -1019,6 +1019,19 @@ int kprobe_int3_handler(struct pt_regs *regs)
+ }
+ NOKPROBE_SYMBOL(kprobe_int3_handler);
  
- 	count = 0;
- 	if (in_syscall(pt))
--		count = min_t(int, args->n, cfm & 0x7f);
-+		count = min_t(int, args->n, nouts);
++#ifdef CONFIG_FRAME_POINTER
++/*
++ * kretprobe_trampoline skips updating frame pointer. The frame pointer
++ * saved in trampoline_handler points to the real caller function's
++ * frame pointer. Thus the kretprobe_trampoline doesn't seems to have a
++ * standard stack frame with CONFIG_FRAME_POINTER=y.
++ * Let's mark it non-standard function. Anyway, FP unwinder can correctly
++ * unwind without the hint.
++ */
++STACK_FRAME_NON_STANDARD(kretprobe_trampoline);
++#undef UNWIND_HINT_FUNC
++#define UNWIND_HINT_FUNC
++#endif
+ /*
+  * When a retprobed function returns, this code saves registers and
+  * calls trampoline_handler() runs, which calls the kretprobe's handler.
+@@ -1031,6 +1044,7 @@ asm(
+ 	/* We don't bother saving the ss register */
+ #ifdef CONFIG_X86_64
+ 	"	pushq %rsp\n"
++	UNWIND_HINT_FUNC
+ 	"	pushfq\n"
+ 	SAVE_REGS_STRING
+ 	"	movq %rsp, %rdi\n"
+@@ -1041,6 +1055,7 @@ asm(
+ 	"	popfq\n"
+ #else
+ 	"	pushl %esp\n"
++	UNWIND_HINT_FUNC
+ 	"	pushfl\n"
+ 	SAVE_REGS_STRING
+ 	"	movl %esp, %eax\n"
+@@ -1054,8 +1069,6 @@ asm(
+ 	".size kretprobe_trampoline, .-kretprobe_trampoline\n"
+ );
+ NOKPROBE_SYMBOL(kretprobe_trampoline);
+-STACK_FRAME_NON_STANDARD(kretprobe_trampoline);
+-
  
-+	/* Iterate over outs. */
- 	for (i = 0; i < count; i++) {
-+		int j = ndirty + nlocals + i + args->i;
- 		if (args->rw)
--			*ia64_rse_skip_regs(krbs, ndirty + i + args->i) -				args->args[i];
-+			*ia64_rse_skip_regs(krbs, j) = args->args[i];
- 		else
--			args->args[i] = *ia64_rse_skip_regs(krbs,
--				ndirty + i + args->i);
-+			args->args[i] = *ia64_rse_skip_regs(krbs, j);
- 	}
- 
- 	if (!args->rw) {
--- 
-2.30.1
+ /*
+  * Called from kretprobe_trampoline
