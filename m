@@ -1,15 +1,15 @@
 From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Fri, 19 Mar 2021 12:21:55 +0000
-Subject: [PATCH -tip v3 01/11] ia64: kprobes: Fix to pass correct trampoline address to the handler
-Message-Id: <161615651484.306069.13374738532116114679.stgit@devnote2>
+Date: Fri, 26 Mar 2021 12:28:38 +0000
+Subject: [PATCH -tip v5 01/12] ia64: kprobes: Fix to pass correct trampoline address to the handler
+Message-Id: <161676171800.330141.6196229389836286674.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <161615650355.306069.17260992641363840330.stgit@devnote2>
-In-Reply-To: <161615650355.306069.17260992641363840330.stgit@devnote2>
+References: <161676170650.330141.6214727134265514123.stgit@devnote2>
+In-Reply-To: <161676170650.330141.6214727134265514123.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>
-Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, Josh Poimboeuf <jpoimboe@redhat.com>, linux-ia64@vger.kernel.org
+Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, Josh Poimboeuf <jpoimboe@redhat.com>, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>
 
 Commit e792ff804f49 ("ia64: kprobes: Use generic kretprobe trampoline handler")
 missed to pass the wrong trampoline address (it passes the descriptor address
@@ -21,11 +21,14 @@ function address from the kretprobe_trampoline.
 Fixes: e792ff804f49 ("ia64: kprobes: Use generic kretprobe trampoline handler")
 Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
 ---
+ Changes in v5:
+  - Fix a compile error typo.
+---
  arch/ia64/kernel/kprobes.c |    9 +++++----
  1 file changed, 5 insertions(+), 4 deletions(-)
 
 diff --git a/arch/ia64/kernel/kprobes.c b/arch/ia64/kernel/kprobes.c
-index fc1ff8a4d7de..006fbc1d7ae9 100644
+index fc1ff8a4d7de..ca4b4fa45aef 100644
 --- a/arch/ia64/kernel/kprobes.c
 +++ b/arch/ia64/kernel/kprobes.c
 @@ -398,7 +398,8 @@ static void kretprobe_trampoline(void)
@@ -51,7 +54,7 @@ index fc1ff8a4d7de..006fbc1d7ae9 100644
  int __init arch_init_kprobes(void)
  {
  	trampoline_p.addr -		(kprobe_opcode_t *)((struct fnptr *)kretprobe_trampoline)->ip;
-+		dereference_function_description(kretprobe_trampoline);
++		dereference_function_descriptor(kretprobe_trampoline);
  	return register_kprobe(&trampoline_p);
  }
  
