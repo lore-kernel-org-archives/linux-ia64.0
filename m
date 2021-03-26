@@ -1,7 +1,7 @@
 From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Fri, 26 Mar 2021 12:30:20 +0000
-Subject: [PATCH -tip v5 10/12] x86/kprobes: Push a fake return address at kretprobe_trampoline
-Message-Id: <161676182049.330141.1300212263028157733.stgit@devnote2>
+Date: Fri, 26 Mar 2021 12:30:42 +0000
+Subject: [PATCH -tip v5 12/12] tracing: Show kretprobe unknown indicator only for kretprobe_trampoline
+Message-Id: <161676184261.330141.6575911414561853358.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <161676170650.330141.6214727134265514123.stgit@devnote2>
 In-Reply-To: <161676170650.330141.6214727134265514123.stgit@devnote2>
@@ -11,87 +11,59 @@ Content-Transfer-Encoding: 7bit
 To: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>
 Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, Josh Poimboeuf <jpoimboe@redhat.com>, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>
 
-This changes x86/kretprobe stack frame on kretprobe_trampoline
-a bit, which now push the kretprobe_trampoline as a fake return
-address at the bottom of the stack frame. With this fix, the ORC
-unwinder will see the kretprobe_trampoline as a return address.
+ftrace shows "[unknown/kretprobe'd]" indicator all addresses in the
+kretprobe_trampoline, but the modified address by kretprobe should
+be only kretprobe_trampoline+0.
 
 Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
-Suggested-by: Josh Poimboeuf <jpoimboe@redhat.com>
+Acked-by: Steven Rostedt (VMware) <rostedt@goodmis.org>
 ---
- arch/x86/kernel/kprobes/core.c |   31 ++++++++++++++++++++++---------
- 1 file changed, 22 insertions(+), 9 deletions(-)
+ kernel/trace/trace_output.c |   17 ++++-------------
+ 1 file changed, 4 insertions(+), 13 deletions(-)
 
-diff --git a/arch/x86/kernel/kprobes/core.c b/arch/x86/kernel/kprobes/core.c
-index 02b602f894e4..00c5944ae8f6 100644
---- a/arch/x86/kernel/kprobes/core.c
-+++ b/arch/x86/kernel/kprobes/core.c
-@@ -1041,28 +1041,31 @@ asm(
- 	".global kretprobe_trampoline\n"
- 	".type kretprobe_trampoline, @function\n"
- 	"kretprobe_trampoline:\n"
--	/* We don't bother saving the ss register */
- #ifdef CONFIG_X86_64
--	"	pushq %rsp\n"
-+	/* Push fake return address to tell the unwinder it's a kretprobe */
-+	"	pushq $kretprobe_trampoline\n"
- 	UNWIND_HINT_FUNC
-+	/* Save the sp-8, this will be fixed later */
-+	"	pushq %rsp\n"
- 	"	pushfq\n"
- 	SAVE_REGS_STRING
- 	"	movq %rsp, %rdi\n"
- 	"	call trampoline_handler\n"
--	/* Replace saved sp with true return address. */
--	"	movq %rax, 19*8(%rsp)\n"
- 	RESTORE_REGS_STRING
-+	"	addq $8, %rsp\n"
- 	"	popfq\n"
- #else
--	"	pushl %esp\n"
-+	/* Push fake return address to tell the unwinder it's a kretprobe */
-+	"	pushl $kretprobe_trampoline\n"
- 	UNWIND_HINT_FUNC
-+	/* Save the sp-4, this will be fixed later */
-+	"	pushl %esp\n"
- 	"	pushfl\n"
- 	SAVE_REGS_STRING
- 	"	movl %esp, %eax\n"
- 	"	call trampoline_handler\n"
--	/* Replace saved sp with true return address. */
--	"	movl %eax, 15*4(%esp)\n"
- 	RESTORE_REGS_STRING
-+	"	addl $4, %esp\n"
- 	"	popfl\n"
- #endif
- 	"	ret\n"
-@@ -1073,8 +1076,10 @@ NOKPROBE_SYMBOL(kretprobe_trampoline);
- /*
-  * Called from kretprobe_trampoline
-  */
--__used __visible void *trampoline_handler(struct pt_regs *regs)
-+__used __visible void trampoline_handler(struct pt_regs *regs)
- {
-+	unsigned long *frame_pointer;
-+
- 	/* fixup registers */
- 	regs->cs = __KERNEL_CS;
- #ifdef CONFIG_X86_32
-@@ -1082,8 +1087,16 @@ __used __visible void *trampoline_handler(struct pt_regs *regs)
- #endif
- 	regs->ip = (unsigned long)&kretprobe_trampoline;
- 	regs->orig_ax = ~0UL;
-+	regs->sp += sizeof(long);
-+	frame_pointer = ((unsigned long *)&regs->sp) + 1;
+diff --git a/kernel/trace/trace_output.c b/kernel/trace/trace_output.c
+index 61255bad7e01..e12437388686 100644
+--- a/kernel/trace/trace_output.c
++++ b/kernel/trace/trace_output.c
+@@ -8,6 +8,7 @@
+ #include <linux/module.h>
+ #include <linux/mutex.h>
+ #include <linux/ftrace.h>
++#include <linux/kprobes.h>
+ #include <linux/sched/clock.h>
+ #include <linux/sched/mm.h>
  
--	return (void *)kretprobe_trampoline_handler(regs, &regs->sp);
-+	/* Replace fake return address with real one. */
-+	*frame_pointer = kretprobe_trampoline_handler(regs, frame_pointer);
-+	/*
-+	 * Move flags to sp so that kretprobe_trapmoline can return
-+	 * right after popf.
-+	 */
-+	regs->sp = regs->flags;
+@@ -346,22 +347,12 @@ int trace_output_call(struct trace_iterator *iter, char *name, char *fmt, ...)
  }
- NOKPROBE_SYMBOL(trampoline_handler);
+ EXPORT_SYMBOL_GPL(trace_output_call);
  
+-#ifdef CONFIG_KRETPROBES
+-static inline const char *kretprobed(const char *name)
++static inline const char *kretprobed(const char *name, unsigned long addr)
+ {
+-	static const char tramp_name[] = "kretprobe_trampoline";
+-	int size = sizeof(tramp_name);
+-
+-	if (strncmp(tramp_name, name, size) = 0)
++	if (is_kretprobe_trampoline(addr))
+ 		return "[unknown/kretprobe'd]";
+ 	return name;
+ }
+-#else
+-static inline const char *kretprobed(const char *name)
+-{
+-	return name;
+-}
+-#endif /* CONFIG_KRETPROBES */
+ 
+ void
+ trace_seq_print_sym(struct trace_seq *s, unsigned long address, bool offset)
+@@ -374,7 +365,7 @@ trace_seq_print_sym(struct trace_seq *s, unsigned long address, bool offset)
+ 		sprint_symbol(str, address);
+ 	else
+ 		kallsyms_lookup(address, NULL, NULL, NULL, str);
+-	name = kretprobed(str);
++	name = kretprobed(str, address);
+ 
+ 	if (name && strlen(name)) {
+ 		trace_seq_puts(s, name);
