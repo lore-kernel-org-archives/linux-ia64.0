@@ -1,57 +1,124 @@
-From: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
-Date: Wed, 24 Mar 2021 22:57:11 +0000
-Subject: Re: [PATCH] ia64: mca: allocate early mca with GFP_ATOMIC
-Message-Id: <7c2b9840-b1ba-1e5d-1909-5482e8c04ca1@physik.fu-berlin.de>
+From: Masami Hiramatsu <mhiramat@kernel.org>
+Date: Fri, 26 Mar 2021 12:28:26 +0000
+Subject: [PATCH -tip v5 00/12] kprobes: Fix stacktrace with kretprobes on x86
+Message-Id: <161676170650.330141.6214727134265514123.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210315085045.204414-1-slyfox@gentoo.org>
- <f351183c-7d70-359f-eed7-4d1722cf41c5@physik.fu-berlin.de>
- <20210323174724.78b61c02@sf>
- <4f7ccc08-7355-63a0-7239-16a5fb29207f@physik.fu-berlin.de>
- <20210324153934.963ac2cb8f44a4e529016612@linux-foundation.org>
-In-Reply-To: <20210324153934.963ac2cb8f44a4e529016612@linux-foundation.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>
-Cc: Sergei Trofimovich <slyfox@gentoo.org>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>
+Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, Josh Poimboeuf <jpoimboe@redhat.com>, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>
 
-Hi Andrew!
+Hello,
 
-On 3/24/21 11:39 PM, Andrew Morton wrote:
-> On Wed, 24 Mar 2021 11:20:45 +0100 John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de> wrote:
-> 
->>>> #NEXT_PATCHES_START mainline-later (next week, approximately)
->>>> ia64-mca-allocate-early-mca-with-gfp_atomic.patch
->>
->> Great, thanks. We're still missing Valentin's patch for the NUMA enumeration issue
->> though. Should Valentin send the patch again with Andrew CC'ed?
-> 
-> I subscribed to linux-ia64 today, so I can go in there to find things. 
+Here is the 5th version of the series to fix the stacktrace with kretprobe
+on x86. After merging this, I'll fix other architectures.
 
-Good to know, thanks.
+The previous version is;
 
-> But if there's anything presently outstanding, please do resend.
-> 
-> I presently have
-> 
-> module-remove-duplicate-include-in-arch-ia64-kernel-heads.patch
-> ia64-kernel-few-typos-fixed-in-the-file-fsyss.patch
-> ia64-include-asm-minor-typo-fixes-in-the-file-pgtableh.patch
-> ia64-ensure-proper-numa-distance-and-possible-map-initialization.patch
-> ia64-drop-unused-ia64_fw_emu-ifdef.patch
+https://lore.kernel.org/bpf/161639518354.895304.15627519393073806809.stgit@devnote2/
 
-I send two patches today which fix two ia64-related build issues in tools,
-not sure whether you should pick those as well or I should just wait for
-the maintainers that get_maintainers.pl report to answer.
+This version fixes a build error from a typo in [1/12] and the
+case of interrupt happens on kretprobe_trampoline+0 in [11/12].
 
-> https://marc.info/?l=linux-netdev&m1652285123466&w=2
-> https://marc.info/?l=linux-netdev&m1652400124112&w=2
+With this series, unwinder can unwind stack correctly from ftrace as below;
 
-Thanks,
-Adrian
+  # cd /sys/kernel/debug/tracing
+  # echo > trace
+  # echo r vfs_read >> kprobe_events
+  # echo r full_proxy_read >> kprobe_events
+  # echo traceoff:1 > events/kprobes/r_vfs_read_0/trigger
+  # echo stacktrace:1 > events/kprobes/r_full_proxy_read_0/trigger
+  # echo 1 > events/kprobes/enable
+  # echo 1 > options/sym-offset
+  # cat /sys/kernel/debug/kprobes/list
+ffffffff8133b740  r  full_proxy_read+0x0    [FTRACE]
+ffffffff812560b0  r  vfs_read+0x0    [FTRACE]
+  # echo 0 > events/kprobes/enable
+  # cat trace
+# tracer: nop
+#
+# entries-in-buffer/entries-written: 3/3   #P:8
+#
+#                                _-----=> irqs-off
+#                               / _----=> need-resched
+#                              | / _---=> hardirq/softirq
+#                              || / _--=> preempt-depth
+#                              ||| /     delay
+#           TASK-PID     CPU#  ||||   TIMESTAMP  FUNCTION
+#              | |         |   ||||      |         |
+           <...>-135     [005] ...1     9.422114: r_full_proxy_read_0: (vfs_read+0xab/0x1a0 <- full_proxy_read)
+           <...>-135     [005] ...1     9.422158: <stack trace>
+ => kretprobe_trace_func+0x209/0x2f0
+ => kretprobe_dispatcher+0x4a/0x70
+ => __kretprobe_trampoline_handler+0xca/0x150
+ => trampoline_handler+0x44/0x70
+ => kretprobe_trampoline+0x2a/0x50
+ => vfs_read+0xab/0x1a0
+ => ksys_read+0x5f/0xe0
+ => do_syscall_64+0x33/0x40
+ => entry_SYSCALL_64_after_hwframe+0x44/0xae
+ => 0
 
--- 
- .''`.  John Paul Adrian Glaubitz
-: :' :  Debian Developer - glaubitz@debian.org
-`. `'   Freie Universitaet Berlin - glaubitz@physik.fu-berlin.de
-  `-    GPG: 62FF 8A75 84E0 2956 9546  0006 7426 3B37 F5B5 F913
+This shows the double return probes (vfs_read and full_proxy_read) on the stack
+correctly unwinded. (vfs_read was called from ksys_read+0x5f and full_proxy_read
+was called from vfs_read+0xab)
+
+This actually changes the kretprobe behavisor a bit, now the instraction pointer in
+the pt_regs passed to kretprobe user handler is correctly set the real return
+address. So user handlers can get it via instruction_pointer() API.
+
+You can also get this series from 
+ git://git.kernel.org/pub/scm/linux/kernel/git/mhiramat/linux.git kprobes/kretprobe-stackfix-v5
+
+
+Thank you,
+
+---
+
+Josh Poimboeuf (1):
+      x86/kprobes: Add UNWIND_HINT_FUNC on kretprobe_trampoline code
+
+Masami Hiramatsu (11):
+      ia64: kprobes: Fix to pass correct trampoline address to the handler
+      kprobes: treewide: Replace arch_deref_entry_point() with dereference_function_descriptor()
+      kprobes: treewide: Remove trampoline_address from kretprobe_trampoline_handler()
+      kprobes: Add kretprobe_find_ret_addr() for searching return address
+      ARC: Add instruction_pointer_set() API
+      ia64: Add instruction_pointer_set() API
+      arm: kprobes: Make a space for regs->ARM_pc at kretprobe_trampoline
+      kprobes: Setup instruction pointer in __kretprobe_trampoline_handler
+      x86/kprobes: Push a fake return address at kretprobe_trampoline
+      x86/unwind: Recover kretprobe trampoline entry
+      tracing: Show kretprobe unknown indicator only for kretprobe_trampoline
+
+
+ arch/arc/include/asm/ptrace.h       |    5 ++
+ arch/arc/kernel/kprobes.c           |    2 -
+ arch/arm/probes/kprobes/core.c      |    5 +-
+ arch/arm64/kernel/probes/kprobes.c  |    3 -
+ arch/csky/kernel/probes/kprobes.c   |    2 -
+ arch/ia64/include/asm/ptrace.h      |    5 ++
+ arch/ia64/kernel/kprobes.c          |   15 ++---
+ arch/mips/kernel/kprobes.c          |    3 -
+ arch/parisc/kernel/kprobes.c        |    4 +
+ arch/powerpc/kernel/kprobes.c       |   13 -----
+ arch/riscv/kernel/probes/kprobes.c  |    2 -
+ arch/s390/kernel/kprobes.c          |    2 -
+ arch/sh/kernel/kprobes.c            |    2 -
+ arch/sparc/kernel/kprobes.c         |    2 -
+ arch/x86/include/asm/kprobes.h      |    1 
+ arch/x86/include/asm/unwind.h       |   23 ++++++++
+ arch/x86/include/asm/unwind_hints.h |    5 ++
+ arch/x86/kernel/kprobes/core.c      |   44 ++++++++++++----
+ arch/x86/kernel/unwind_frame.c      |    4 +
+ arch/x86/kernel/unwind_guess.c      |    3 -
+ arch/x86/kernel/unwind_orc.c        |   19 +++++--
+ include/linux/kprobes.h             |   41 ++++++++++++--
+ kernel/kprobes.c                    |   99 ++++++++++++++++++++++++-----------
+ kernel/trace/trace_output.c         |   17 +-----
+ lib/error-inject.c                  |    3 +
+ 25 files changed, 218 insertions(+), 106 deletions(-)
+
+--
+Masami Hiramatsu (Linaro) <mhiramat@kernel.org>
