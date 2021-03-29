@@ -1,100 +1,68 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Fri, 26 Mar 2021 12:29:22 +0000
-Subject: [PATCH -tip v5 05/12] x86/kprobes: Add UNWIND_HINT_FUNC on kretprobe_trampoline code
-Message-Id: <161676176212.330141.17845773639362440858.stgit@devnote2>
+From: Sasha Levin <sashal@kernel.org>
+Date: Mon, 29 Mar 2021 22:22:16 +0000
+Subject: [PATCH AUTOSEL 5.10 28/33] ia64: mca: allocate early mca with GFP_ATOMIC
+Message-Id: <20210329222222.2382987-28-sashal@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <161676170650.330141.6214727134265514123.stgit@devnote2>
-In-Reply-To: <161676170650.330141.6214727134265514123.stgit@devnote2>
+References: <20210329222222.2382987-1-sashal@kernel.org>
+In-Reply-To: <20210329222222.2382987-1-sashal@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>
-Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, Josh Poimboeuf <jpoimboe@redhat.com>, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>
+To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
+Cc: Sergei Trofimovich <slyfox@gentoo.org>, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, Sasha Levin <sashal@kernel.org>, linux-ia64@vger.kernel.org
 
-From: Josh Poimboeuf <jpoimboe@redhat.com>
+From: Sergei Trofimovich <slyfox@gentoo.org>
 
-Add UNWIND_HINT_FUNC on kretporbe_trampoline code so that ORC
-information is generated on the kretprobe_trampoline correctly.
+[ Upstream commit f2a419cf495f95cac49ea289318b833477e1a0e2 ]
 
-Note that when the CONFIG_FRAME_POINTER=y, since the
-kretprobe_trampoline skips updating frame pointer, the stack frame
-of the kretprobe_trampoline seems non-standard. So this marks it
-is STACK_FRAME_NON_STANDARD() and undefine UNWIND_HINT_FUNC.
-Anyway, with the frame pointer, FP unwinder can unwind the stack
-frame correctly without that hint.
+The sleep warning happens at early boot right at secondary CPU
+activation bootup:
 
-Signed-off-by: Josh Poimboeuf <jpoimboe@redhat.com>
-Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
+    smp: Bringing up secondary CPUs ...
+    BUG: sleeping function called from invalid context at mm/page_alloc.c:4942
+    in_atomic(): 0, irqs_disabled(): 1, non_block: 0, pid: 0, name: swapper/1
+    CPU: 1 PID: 0 Comm: swapper/1 Not tainted 5.12.0-rc2-00007-g79e228d0b611-dirty #99
+    ..
+    Call Trace:
+      show_stack+0x90/0xc0
+      dump_stack+0x150/0x1c0
+      ___might_sleep+0x1c0/0x2a0
+      __might_sleep+0xa0/0x160
+      __alloc_pages_nodemask+0x1a0/0x600
+      alloc_page_interleave+0x30/0x1c0
+      alloc_pages_current+0x2c0/0x340
+      __get_free_pages+0x30/0xa0
+      ia64_mca_cpu_init+0x2d0/0x3a0
+      cpu_init+0x8b0/0x1440
+      start_secondary+0x60/0x700
+      start_ap+0x750/0x780
+    Fixed BSP b0 value from CPU 1
+
+As I understand interrupts are not enabled yet and system has a lot of
+memory.  There is little chance to sleep and switch to GFP_ATOMIC should
+be a no-op.
+
+Link: https://lkml.kernel.org/r/20210315085045.204414-1-slyfox@gentoo.org
+Signed-off-by: Sergei Trofimovich <slyfox@gentoo.org>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
 ---
- Changes in v4:
-  - Apply UNWIND_HINT_FUNC only if CONFIG_FRAME_POINTER=n.
----
- arch/x86/include/asm/unwind_hints.h |    5 +++++
- arch/x86/kernel/kprobes/core.c      |   17 +++++++++++++++--
- 2 files changed, 20 insertions(+), 2 deletions(-)
+ arch/ia64/kernel/mca.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/x86/include/asm/unwind_hints.h b/arch/x86/include/asm/unwind_hints.h
-index 8e574c0afef8..8b33674288ea 100644
---- a/arch/x86/include/asm/unwind_hints.h
-+++ b/arch/x86/include/asm/unwind_hints.h
-@@ -52,6 +52,11 @@
- 	UNWIND_HINT sp_reg=ORC_REG_SP sp_offset=8 type=UNWIND_HINT_TYPE_FUNC
- .endm
- 
-+#else
-+
-+#define UNWIND_HINT_FUNC \
-+	UNWIND_HINT(ORC_REG_SP, 8, UNWIND_HINT_TYPE_FUNC, 0)
-+
- #endif /* __ASSEMBLY__ */
- 
- #endif /* _ASM_X86_UNWIND_HINTS_H */
-diff --git a/arch/x86/kernel/kprobes/core.c b/arch/x86/kernel/kprobes/core.c
-index 444a7b6b396e..02b602f894e4 100644
---- a/arch/x86/kernel/kprobes/core.c
-+++ b/arch/x86/kernel/kprobes/core.c
-@@ -1019,6 +1019,19 @@ int kprobe_int3_handler(struct pt_regs *regs)
- }
- NOKPROBE_SYMBOL(kprobe_int3_handler);
- 
-+#ifdef CONFIG_FRAME_POINTER
-+/*
-+ * kretprobe_trampoline skips updating frame pointer. The frame pointer
-+ * saved in trampoline_handler points to the real caller function's
-+ * frame pointer. Thus the kretprobe_trampoline doesn't seems to have a
-+ * standard stack frame with CONFIG_FRAME_POINTER=y.
-+ * Let's mark it non-standard function. Anyway, FP unwinder can correctly
-+ * unwind without the hint.
-+ */
-+STACK_FRAME_NON_STANDARD(kretprobe_trampoline);
-+#undef UNWIND_HINT_FUNC
-+#define UNWIND_HINT_FUNC
-+#endif
- /*
-  * When a retprobed function returns, this code saves registers and
-  * calls trampoline_handler() runs, which calls the kretprobe's handler.
-@@ -1031,6 +1044,7 @@ asm(
- 	/* We don't bother saving the ss register */
- #ifdef CONFIG_X86_64
- 	"	pushq %rsp\n"
-+	UNWIND_HINT_FUNC
- 	"	pushfq\n"
- 	SAVE_REGS_STRING
- 	"	movq %rsp, %rdi\n"
-@@ -1041,6 +1055,7 @@ asm(
- 	"	popfq\n"
- #else
- 	"	pushl %esp\n"
-+	UNWIND_HINT_FUNC
- 	"	pushfl\n"
- 	SAVE_REGS_STRING
- 	"	movl %esp, %eax\n"
-@@ -1054,8 +1069,6 @@ asm(
- 	".size kretprobe_trampoline, .-kretprobe_trampoline\n"
- );
- NOKPROBE_SYMBOL(kretprobe_trampoline);
--STACK_FRAME_NON_STANDARD(kretprobe_trampoline);
--
- 
- /*
-  * Called from kretprobe_trampoline
+diff --git a/arch/ia64/kernel/mca.c b/arch/ia64/kernel/mca.c
+index 2703f7795672..bd0a51dc345a 100644
+--- a/arch/ia64/kernel/mca.c
++++ b/arch/ia64/kernel/mca.c
+@@ -1822,7 +1822,7 @@ ia64_mca_cpu_init(void *cpu_data)
+ 			data = mca_bootmem();
+ 			first_time = 0;
+ 		} else
+-			data = (void *)__get_free_pages(GFP_KERNEL,
++			data = (void *)__get_free_pages(GFP_ATOMIC,
+ 							get_order(sz));
+ 		if (!data)
+ 			panic("Could not allocate MCA memory for cpu %d\n",
+-- 
+2.30.1
