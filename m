@@ -1,121 +1,122 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Fri, 19 Mar 2021 12:22:06 +0000
-Subject: [PATCH -tip v3 02/11] kprobes: treewide: Replace arch_deref_entry_point() with dereference_function_
-Message-Id: <161615652603.306069.15801129155904441412.stgit@devnote2>
+From: Sasha Levin <sashal@kernel.org>
+Date: Mon, 29 Mar 2021 22:22:17 +0000
+Subject: [PATCH AUTOSEL 5.10 29/33] ia64: fix format strings for err_inject
+Message-Id: <20210329222222.2382987-29-sashal@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <161615650355.306069.17260992641363840330.stgit@devnote2>
-In-Reply-To: <161615650355.306069.17260992641363840330.stgit@devnote2>
+References: <20210329222222.2382987-1-sashal@kernel.org>
+In-Reply-To: <20210329222222.2382987-1-sashal@kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>
-Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, Josh Poimboeuf <jpoimboe@redhat.com>, linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
+Cc: Sergei Trofimovich <slyfox@gentoo.org>, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, Sasha Levin <sashal@kernel.org>, linux-ia64@vger.kernel.org
 
-Replace arch_deref_entry_point() with dereference_function_descriptor()
-because those are doing same thing.
+From: Sergei Trofimovich <slyfox@gentoo.org>
 
-Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
+[ Upstream commit 95d44a470a6814207d52dd6312203b0f4ef12710 ]
+
+Fix warning with %lx / u64 mismatch:
+
+  arch/ia64/kernel/err_inject.c: In function 'show_resources':
+  arch/ia64/kernel/err_inject.c:62:22: warning:
+    format '%lx' expects argument of type 'long unsigned int',
+    but argument 3 has type 'u64' {aka 'long long unsigned int'}
+     62 |  return sprintf(buf, "%lx", name[cpu]);   \
+        |                      ^~~~~~~
+
+Link: https://lkml.kernel.org/r/20210313104312.1548232-1-slyfox@gentoo.org
+Signed-off-by: Sergei Trofimovich <slyfox@gentoo.org>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
 ---
- arch/ia64/kernel/kprobes.c    |    5 -----
- arch/powerpc/kernel/kprobes.c |   11 -----------
- include/linux/kprobes.h       |    1 -
- kernel/kprobes.c              |    7 +------
- lib/error-inject.c            |    3 ++-
- 5 files changed, 3 insertions(+), 24 deletions(-)
+ arch/ia64/kernel/err_inject.c | 22 +++++++++++-----------
+ 1 file changed, 11 insertions(+), 11 deletions(-)
 
-diff --git a/arch/ia64/kernel/kprobes.c b/arch/ia64/kernel/kprobes.c
-index 006fbc1d7ae9..15871eb170c0 100644
---- a/arch/ia64/kernel/kprobes.c
-+++ b/arch/ia64/kernel/kprobes.c
-@@ -907,11 +907,6 @@ int __kprobes kprobe_exceptions_notify(struct notifier_block *self,
- 	return ret;
+diff --git a/arch/ia64/kernel/err_inject.c b/arch/ia64/kernel/err_inject.c
+index 8b5b8e6bc9d9..dd5bfed52031 100644
+--- a/arch/ia64/kernel/err_inject.c
++++ b/arch/ia64/kernel/err_inject.c
+@@ -59,7 +59,7 @@ show_##name(struct device *dev, struct device_attribute *=
+attr,	\
+ 		char *buf)						\
+ {									\
+ 	u32 cpu=DEv->id;						\
+-	return sprintf(buf, "%lx\n", name[cpu]);			\
++	return sprintf(buf, "%llx\n", name[cpu]);			\
  }
- 
--unsigned long arch_deref_entry_point(void *entry)
--{
--	return ((struct fnptr *)entry)->ip;
--}
--
- static struct kprobe trampoline_p = {
- 	.pre_handler = trampoline_probe_handler
- };
-diff --git a/arch/powerpc/kernel/kprobes.c b/arch/powerpc/kernel/kprobes.c
-index 01ab2163659e..eb0460949e1b 100644
---- a/arch/powerpc/kernel/kprobes.c
-+++ b/arch/powerpc/kernel/kprobes.c
-@@ -539,17 +539,6 @@ int kprobe_fault_handler(struct pt_regs *regs, int trapnr)
+=20
+ #define store(name)							\
+@@ -86,9 +86,9 @@ store_call_start(struct device *dev, struct device_attrib=
+ute *attr,
+=20
+ #ifdef ERR_INJ_DEBUG
+ 	printk(KERN_DEBUG "pal_mc_err_inject for cpu%d:\n", cpu);
+-	printk(KERN_DEBUG "err_type_info=3D%lx,\n", err_type_info[cpu]);
+-	printk(KERN_DEBUG "err_struct_info=3D%lx,\n", err_struct_info[cpu]);
+-	printk(KERN_DEBUG "err_data_buffer=3D%lx, %lx, %lx.\n",
++	printk(KERN_DEBUG "err_type_info=3D%llx,\n", err_type_info[cpu]);
++	printk(KERN_DEBUG "err_struct_info=3D%llx,\n", err_struct_info[cpu]);
++	printk(KERN_DEBUG "err_data_buffer=3D%llx, %llx, %llx.\n",
+ 			  err_data_buffer[cpu].data1,
+ 			  err_data_buffer[cpu].data2,
+ 			  err_data_buffer[cpu].data3);
+@@ -117,8 +117,8 @@ store_call_start(struct device *dev, struct device_attr=
+ibute *attr,
+=20
+ #ifdef ERR_INJ_DEBUG
+ 	printk(KERN_DEBUG "Returns: status=3D%d,\n", (int)status[cpu]);
+-	printk(KERN_DEBUG "capabilities=3D%lx,\n", capabilities[cpu]);
+-	printk(KERN_DEBUG "resources=3D%lx\n", resources[cpu]);
++	printk(KERN_DEBUG "capabilities=3D%llx,\n", capabilities[cpu]);
++	printk(KERN_DEBUG "resources=3D%llx\n", resources[cpu]);
+ #endif
+ 	return size;
  }
- NOKPROBE_SYMBOL(kprobe_fault_handler);
- 
--unsigned long arch_deref_entry_point(void *entry)
--{
--#ifdef PPC64_ELF_ABI_v1
--	if (!kernel_text_address((unsigned long)entry))
--		return ppc_global_function_entry(entry);
--	else
--#endif
--		return (unsigned long)entry;
--}
--NOKPROBE_SYMBOL(arch_deref_entry_point);
--
- static struct kprobe trampoline_p = {
- 	.addr = (kprobe_opcode_t *) &kretprobe_trampoline,
- 	.pre_handler = trampoline_probe_handler
-diff --git a/include/linux/kprobes.h b/include/linux/kprobes.h
-index 1883a4a9f16a..d65c041b5c22 100644
---- a/include/linux/kprobes.h
-+++ b/include/linux/kprobes.h
-@@ -390,7 +390,6 @@ int register_kprobe(struct kprobe *p);
- void unregister_kprobe(struct kprobe *p);
- int register_kprobes(struct kprobe **kps, int num);
- void unregister_kprobes(struct kprobe **kps, int num);
--unsigned long arch_deref_entry_point(void *);
- 
- int register_kretprobe(struct kretprobe *rp);
- void unregister_kretprobe(struct kretprobe *rp);
-diff --git a/kernel/kprobes.c b/kernel/kprobes.c
-index 745f08fdd7a6..2913de07f4a3 100644
---- a/kernel/kprobes.c
-+++ b/kernel/kprobes.c
-@@ -1856,11 +1856,6 @@ static struct notifier_block kprobe_exceptions_nb = {
- 	.priority = 0x7fffffff /* we need to be notified first */
- };
- 
--unsigned long __weak arch_deref_entry_point(void *entry)
--{
--	return (unsigned long)entry;
--}
--
- #ifdef CONFIG_KRETPROBES
- 
- unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
-@@ -2324,7 +2319,7 @@ static int __init populate_kprobe_blacklist(unsigned long *start,
+@@ -131,7 +131,7 @@ show_virtual_to_phys(struct device *dev, struct device_=
+attribute *attr,
+ 			char *buf)
+ {
+ 	unsigned int cpu=DEv->id;
+-	return sprintf(buf, "%lx\n", phys_addr[cpu]);
++	return sprintf(buf, "%llx\n", phys_addr[cpu]);
+ }
+=20
+ static ssize_t
+@@ -145,7 +145,7 @@ store_virtual_to_phys(struct device *dev, struct device=
+_attribute *attr,
+ 	ret =3D get_user_pages_fast(virt_addr, 1, FOLL_WRITE, NULL);
+ 	if (ret<=3D0) {
+ #ifdef ERR_INJ_DEBUG
+-		printk("Virtual address %lx is not existing.\n",virt_addr);
++		printk("Virtual address %llx is not existing.\n", virt_addr);
+ #endif
+ 		return -EINVAL;
+ 	}
+@@ -163,7 +163,7 @@ show_err_data_buffer(struct device *dev,
+ {
+ 	unsigned int cpu=DEv->id;
+=20
+-	return sprintf(buf, "%lx, %lx, %lx\n",
++	return sprintf(buf, "%llx, %llx, %llx\n",
+ 			err_data_buffer[cpu].data1,
+ 			err_data_buffer[cpu].data2,
+ 			err_data_buffer[cpu].data3);
+@@ -178,13 +178,13 @@ store_err_data_buffer(struct device *dev,
  	int ret;
- 
- 	for (iter = start; iter < end; iter++) {
--		entry = arch_deref_entry_point((void *)*iter);
-+		entry = (unsigned long)dereference_function_descriptor((void *)*iter);
- 		ret = kprobe_add_ksym_blacklist(entry);
- 		if (ret = -EINVAL)
- 			continue;
-diff --git a/lib/error-inject.c b/lib/error-inject.c
-index c73651b15b76..f71875ac5f9f 100644
---- a/lib/error-inject.c
-+++ b/lib/error-inject.c
-@@ -8,6 +8,7 @@
- #include <linux/mutex.h>
- #include <linux/list.h>
- #include <linux/slab.h>
-+#include <asm/sections.h>
- 
- /* Whitelist of symbols that can be overridden for error injection. */
- static LIST_HEAD(error_injection_list);
-@@ -64,7 +65,7 @@ static void populate_error_injection_list(struct error_injection_entry *start,
- 
- 	mutex_lock(&ei_mutex);
- 	for (iter = start; iter < end; iter++) {
--		entry = arch_deref_entry_point((void *)iter->addr);
-+		entry = (unsigned long)dereference_function_descriptor((void *)iter->addr);
- 
- 		if (!kernel_text_address(entry) ||
- 		    !kallsyms_lookup_size_offset(entry, &size, &offset)) {
+=20
+ #ifdef ERR_INJ_DEBUG
+-	printk("write err_data_buffer=3D[%lx,%lx,%lx] on cpu%d\n",
++	printk("write err_data_buffer=3D[%llx,%llx,%llx] on cpu%d\n",
+ 		 err_data_buffer[cpu].data1,
+ 		 err_data_buffer[cpu].data2,
+ 		 err_data_buffer[cpu].data3,
+ 		 cpu);
+ #endif
+-	ret=3Dsscanf(buf, "%lx, %lx, %lx",
++	ret =3D sscanf(buf, "%llx, %llx, %llx",
+ 			&err_data_buffer[cpu].data1,
+ 			&err_data_buffer[cpu].data2,
+ 			&err_data_buffer[cpu].data3);
+--=20
+2.30.1
