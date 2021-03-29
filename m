@@ -1,10 +1,10 @@
 From: Sasha Levin <sashal@kernel.org>
-Date: Mon, 29 Mar 2021 22:21:28 +0000
-Subject: [PATCH AUTOSEL 5.11 33/38] ia64: mca: allocate early mca with GFP_ATOMIC
-Message-Id: <20210329222133.2382393-33-sashal@kernel.org>
+Date: Mon, 29 Mar 2021 22:23:59 +0000
+Subject: [PATCH AUTOSEL 4.9 08/10] ia64: mca: allocate early mca with GFP_ATOMIC
+Message-Id: <20210329222401.2383930-8-sashal@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210329222133.2382393-1-sashal@kernel.org>
-In-Reply-To: <20210329222133.2382393-1-sashal@kernel.org>
+References: <20210329222401.2383930-1-sashal@kernel.org>
+In-Reply-To: <20210329222401.2383930-1-sashal@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -52,10 +52,10 @@ Signed-off-by: Sasha Levin <sashal@kernel.org>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/arch/ia64/kernel/mca.c b/arch/ia64/kernel/mca.c
-index 2703f7795672..bd0a51dc345a 100644
+index 9509cc73b9c6..64ae9cde8bdb 100644
 --- a/arch/ia64/kernel/mca.c
 +++ b/arch/ia64/kernel/mca.c
-@@ -1822,7 +1822,7 @@ ia64_mca_cpu_init(void *cpu_data)
+@@ -1858,7 +1858,7 @@ ia64_mca_cpu_init(void *cpu_data)
  			data = mca_bootmem();
  			first_time = 0;
  		} else
