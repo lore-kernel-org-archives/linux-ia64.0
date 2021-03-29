@@ -1,79 +1,68 @@
 From: Sasha Levin <sashal@kernel.org>
-Date: Wed, 17 Mar 2021 00:55:35 +0000
-Subject: [PATCH AUTOSEL 5.11 61/61] ia64: fix ptrace(PTRACE_SYSCALL_INFO_EXIT) sign
-Message-Id: <20210317005536.724046-61-sashal@kernel.org>
+Date: Mon, 29 Mar 2021 22:23:43 +0000
+Subject: [PATCH AUTOSEL 4.14 10/12] ia64: mca: allocate early mca with GFP_ATOMIC
+Message-Id: <20210329222345.2383777-10-sashal@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210317005536.724046-1-sashal@kernel.org>
-In-Reply-To: <20210317005536.724046-1-sashal@kernel.org>
+References: <20210329222345.2383777-1-sashal@kernel.org>
+In-Reply-To: <20210329222345.2383777-1-sashal@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
-Cc: Sergei Trofimovich <slyfox@gentoo.org>, "Dmitry V . Levin" <ldv@altlinux.org>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, Oleg Nesterov <oleg@redhat.com>, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, Sasha Levin <sashal@kernel.org>, linux-ia64@vger.kernel.org
+Cc: Sergei Trofimovich <slyfox@gentoo.org>, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, Sasha Levin <sashal@kernel.org>, linux-ia64@vger.kernel.org
 
 From: Sergei Trofimovich <slyfox@gentoo.org>
 
-[ Upstream commit 61bf318eac2c13356f7bd1c6a05421ef504ccc8a ]
+[ Upstream commit f2a419cf495f95cac49ea289318b833477e1a0e2 ]
 
-In https://bugs.gentoo.org/769614 Dmitry noticed that
-`ptrace(PTRACE_GET_SYSCALL_INFO)` does not return error sign properly.
+The sleep warning happens at early boot right at secondary CPU
+activation bootup:
 
-The bug is in mismatch between get/set errors:
+    smp: Bringing up secondary CPUs ...
+    BUG: sleeping function called from invalid context at mm/page_alloc.c:4942
+    in_atomic(): 0, irqs_disabled(): 1, non_block: 0, pid: 0, name: swapper/1
+    CPU: 1 PID: 0 Comm: swapper/1 Not tainted 5.12.0-rc2-00007-g79e228d0b611-dirty #99
+    ..
+    Call Trace:
+      show_stack+0x90/0xc0
+      dump_stack+0x150/0x1c0
+      ___might_sleep+0x1c0/0x2a0
+      __might_sleep+0xa0/0x160
+      __alloc_pages_nodemask+0x1a0/0x600
+      alloc_page_interleave+0x30/0x1c0
+      alloc_pages_current+0x2c0/0x340
+      __get_free_pages+0x30/0xa0
+      ia64_mca_cpu_init+0x2d0/0x3a0
+      cpu_init+0x8b0/0x1440
+      start_secondary+0x60/0x700
+      start_ap+0x750/0x780
+    Fixed BSP b0 value from CPU 1
 
-static inline long syscall_get_error(struct task_struct *task,
-                                     struct pt_regs *regs)
-{
-        return regs->r10 = -1 ? regs->r8:0;
-}
+As I understand interrupts are not enabled yet and system has a lot of
+memory.  There is little chance to sleep and switch to GFP_ATOMIC should
+be a no-op.
 
-static inline long syscall_get_return_value(struct task_struct *task,
-                                            struct pt_regs *regs)
-{
-        return regs->r8;
-}
-
-static inline void syscall_set_return_value(struct task_struct *task,
-                                            struct pt_regs *regs,
-                                            int error, long val)
-{
-        if (error) {
-                /* error < 0, but ia64 uses > 0 return value */
-                regs->r8 = -error;
-                regs->r10 = -1;
-        } else {
-                regs->r8 = val;
-                regs->r10 = 0;
-        }
-}
-
-Tested on v5.10 on rx3600 machine (ia64 9040 CPU).
-
-Link: https://lkml.kernel.org/r/20210221002554.333076-2-slyfox@gentoo.org
-Link: https://bugs.gentoo.org/769614
+Link: https://lkml.kernel.org/r/20210315085045.204414-1-slyfox@gentoo.org
 Signed-off-by: Sergei Trofimovich <slyfox@gentoo.org>
-Reported-by: Dmitry V. Levin <ldv@altlinux.org>
-Reviewed-by: Dmitry V. Levin <ldv@altlinux.org>
-Cc: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
-Cc: Oleg Nesterov <oleg@redhat.com>
 Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
 Signed-off-by: Sasha Levin <sashal@kernel.org>
 ---
- arch/ia64/include/asm/syscall.h | 2 +-
+ arch/ia64/kernel/mca.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/ia64/include/asm/syscall.h b/arch/ia64/include/asm/syscall.h
-index 6c6f16e409a8..0d23c0049301 100644
---- a/arch/ia64/include/asm/syscall.h
-+++ b/arch/ia64/include/asm/syscall.h
-@@ -32,7 +32,7 @@ static inline void syscall_rollback(struct task_struct *task,
- static inline long syscall_get_error(struct task_struct *task,
- 				     struct pt_regs *regs)
- {
--	return regs->r10 = -1 ? regs->r8:0;
-+	return regs->r10 = -1 ? -regs->r8:0;
- }
- 
- static inline long syscall_get_return_value(struct task_struct *task,
+diff --git a/arch/ia64/kernel/mca.c b/arch/ia64/kernel/mca.c
+index 555b11180156..16a7dae5f770 100644
+--- a/arch/ia64/kernel/mca.c
++++ b/arch/ia64/kernel/mca.c
+@@ -1860,7 +1860,7 @@ ia64_mca_cpu_init(void *cpu_data)
+ 			data = mca_bootmem();
+ 			first_time = 0;
+ 		} else
+-			data = (void *)__get_free_pages(GFP_KERNEL,
++			data = (void *)__get_free_pages(GFP_ATOMIC,
+ 							get_order(sz));
+ 		if (!data)
+ 			panic("Could not allocate MCA memory for cpu %d\n",
 -- 
 2.30.1
