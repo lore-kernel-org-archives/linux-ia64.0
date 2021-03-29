@@ -1,113 +1,68 @@
-From: Sergei Trofimovich <slyfox@gentoo.org>
-Date: Sat, 13 Mar 2021 10:43:12 +0000
-Subject: [PATCH] ia64: fix format strings for err_inject
-Message-Id: <20210313104312.1548232-1-slyfox@gentoo.org>
+From: Sasha Levin <sashal@kernel.org>
+Date: Mon, 29 Mar 2021 22:24:12 +0000
+Subject: [PATCH AUTOSEL 4.4 6/8] ia64: mca: allocate early mca with GFP_ATOMIC
+Message-Id: <20210329222415.2384075-6-sashal@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20210329222415.2384075-1-sashal@kernel.org>
+In-Reply-To: <20210329222415.2384075-1-sashal@kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Andrew Morton <akpm@linux-foundation.org>, linux-kernel@vger.kernel.org
-Cc: Sergei Trofimovich <slyfox@gentoo.org>, linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
+Cc: Sergei Trofimovich <slyfox@gentoo.org>, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, Sasha Levin <sashal@kernel.org>, linux-ia64@vger.kernel.org
 
-Fix warning with %lx / u64 mismatch:
+From: Sergei Trofimovich <slyfox@gentoo.org>
 
-  arch/ia64/kernel/err_inject.c: In function 'show_resources':
-  arch/ia64/kernel/err_inject.c:62:22: warning:
-    format '%lx' expects argument of type 'long unsigned int',
-    but argument 3 has type 'u64' {aka 'long long unsigned int'}
-     62 |  return sprintf(buf, "%lx\n", name[cpu]);   \
-        |                      ^~~~~~~
+[ Upstream commit f2a419cf495f95cac49ea289318b833477e1a0e2 ]
 
-CC: linux-ia64@vger.kernel.org
+The sleep warning happens at early boot right at secondary CPU
+activation bootup:
+
+    smp: Bringing up secondary CPUs ...
+    BUG: sleeping function called from invalid context at mm/page_alloc.c:4942
+    in_atomic(): 0, irqs_disabled(): 1, non_block: 0, pid: 0, name: swapper/1
+    CPU: 1 PID: 0 Comm: swapper/1 Not tainted 5.12.0-rc2-00007-g79e228d0b611-dirty #99
+    ..
+    Call Trace:
+      show_stack+0x90/0xc0
+      dump_stack+0x150/0x1c0
+      ___might_sleep+0x1c0/0x2a0
+      __might_sleep+0xa0/0x160
+      __alloc_pages_nodemask+0x1a0/0x600
+      alloc_page_interleave+0x30/0x1c0
+      alloc_pages_current+0x2c0/0x340
+      __get_free_pages+0x30/0xa0
+      ia64_mca_cpu_init+0x2d0/0x3a0
+      cpu_init+0x8b0/0x1440
+      start_secondary+0x60/0x700
+      start_ap+0x750/0x780
+    Fixed BSP b0 value from CPU 1
+
+As I understand interrupts are not enabled yet and system has a lot of
+memory.  There is little chance to sleep and switch to GFP_ATOMIC should
+be a no-op.
+
+Link: https://lkml.kernel.org/r/20210315085045.204414-1-slyfox@gentoo.org
 Signed-off-by: Sergei Trofimovich <slyfox@gentoo.org>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
 ---
- arch/ia64/kernel/err_inject.c | 22 +++++++++++-----------
- 1 file changed, 11 insertions(+), 11 deletions(-)
+ arch/ia64/kernel/mca.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/ia64/kernel/err_inject.c b/arch/ia64/kernel/err_inject.c
-index 8b5b8e6bc9d9..3d48f8766d78 100644
---- a/arch/ia64/kernel/err_inject.c
-+++ b/arch/ia64/kernel/err_inject.c
-@@ -59,7 +59,7 @@ show_##name(struct device *dev, struct device_attribute *=
-attr,	\
- 		char *buf)						\
- {									\
- 	u32 cpu=DEv->id;						\
--	return sprintf(buf, "%lx\n", name[cpu]);			\
-+	return sprintf(buf, "%llx\n", name[cpu]);			\
- }
-=20
- #define store(name)							\
-@@ -86,9 +86,9 @@ store_call_start(struct device *dev, struct device_attrib=
-ute *attr,
-=20
- #ifdef ERR_INJ_DEBUG
- 	printk(KERN_DEBUG "pal_mc_err_inject for cpu%d:\n", cpu);
--	printk(KERN_DEBUG "err_type_info=3D%lx,\n", err_type_info[cpu]);
--	printk(KERN_DEBUG "err_struct_info=3D%lx,\n", err_struct_info[cpu]);
--	printk(KERN_DEBUG "err_data_buffer=3D%lx, %lx, %lx.\n",
-+	printk(KERN_DEBUG "err_type_info=3D%llx,\n", err_type_info[cpu]);
-+	printk(KERN_DEBUG "err_struct_info=3D%llx,\n", err_struct_info[cpu]);
-+	printk(KERN_DEBUG "err_data_buffer=3D%llx, %llx, %llx.\n",
- 			  err_data_buffer[cpu].data1,
- 			  err_data_buffer[cpu].data2,
- 			  err_data_buffer[cpu].data3);
-@@ -117,8 +117,8 @@ store_call_start(struct device *dev, struct device_attr=
-ibute *attr,
-=20
- #ifdef ERR_INJ_DEBUG
- 	printk(KERN_DEBUG "Returns: status=3D%d,\n", (int)status[cpu]);
--	printk(KERN_DEBUG "capabilities=3D%lx,\n", capabilities[cpu]);
--	printk(KERN_DEBUG "resources=3D%lx\n", resources[cpu]);
-+	printk(KERN_DEBUG "capabilities=3D%llx,\n", capabilities[cpu]);
-+	printk(KERN_DEBUG "resources=3D%llx\n", resources[cpu]);
- #endif
- 	return size;
- }
-@@ -131,7 +131,7 @@ show_virtual_to_phys(struct device *dev, struct device_=
-attribute *attr,
- 			char *buf)
- {
- 	unsigned int cpu=DEv->id;
--	return sprintf(buf, "%lx\n", phys_addr[cpu]);
-+	return sprintf(buf, "%llx\n", phys_addr[cpu]);
- }
-=20
- static ssize_t
-@@ -145,7 +145,7 @@ store_virtual_to_phys(struct device *dev, struct device=
-_attribute *attr,
- 	ret =3D get_user_pages_fast(virt_addr, 1, FOLL_WRITE, NULL);
- 	if (ret<=3D0) {
- #ifdef ERR_INJ_DEBUG
--		printk("Virtual address %lx is not existing.\n",virt_addr);
-+		printk("Virtual address %llx is not existing.\n", virt_addr);
- #endif
- 		return -EINVAL;
- 	}
-@@ -163,7 +163,7 @@ show_err_data_buffer(struct device *dev,
- {
- 	unsigned int cpu=DEv->id;
-=20
--	return sprintf(buf, "%lx, %lx, %lx\n",
-+	return sprintf(buf, "%llx, %llx, %llx\n",
- 			err_data_buffer[cpu].data1,
- 			err_data_buffer[cpu].data2,
- 			err_data_buffer[cpu].data3);
-@@ -178,13 +178,13 @@ store_err_data_buffer(struct device *dev,
- 	int ret;
-=20
- #ifdef ERR_INJ_DEBUG
--	printk("write err_data_buffer=3D[%lx,%lx,%lx] on cpu%d\n",
-+	printk("write err_data_buffer=3D[%llx,%llx,%llx] on cpu%d\n",
- 		 err_data_buffer[cpu].data1,
- 		 err_data_buffer[cpu].data2,
- 		 err_data_buffer[cpu].data3,
- 		 cpu);
- #endif
--	ret=3Dsscanf(buf, "%lx, %lx, %lx",
-+	ret =3D sscanf(buf, "%llx, %llx, %llx",
- 			&err_data_buffer[cpu].data1,
- 			&err_data_buffer[cpu].data2,
- 			&err_data_buffer[cpu].data3);
---=20
-2.30.2
+diff --git a/arch/ia64/kernel/mca.c b/arch/ia64/kernel/mca.c
+index 2889412e03eb..0d5b64ddcdd1 100644
+--- a/arch/ia64/kernel/mca.c
++++ b/arch/ia64/kernel/mca.c
+@@ -1858,7 +1858,7 @@ ia64_mca_cpu_init(void *cpu_data)
+ 			data = mca_bootmem();
+ 			first_time = 0;
+ 		} else
+-			data = (void *)__get_free_pages(GFP_KERNEL,
++			data = (void *)__get_free_pages(GFP_ATOMIC,
+ 							get_order(sz));
+ 		if (!data)
+ 			panic("Could not allocate MCA memory for cpu %d\n",
+-- 
+2.30.1
