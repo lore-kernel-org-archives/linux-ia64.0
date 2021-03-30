@@ -1,64 +1,326 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Sat, 20 Mar 2021 01:04:28 +0000
-Subject: Re: [PATCH -tip v3 07/11] ia64: Add instruction_pointer_set() API
-Message-Id: <20210320100428.7cd2acb7d5c084ce293249d9@kernel.org>
+From: Sergei Trofimovich <slyfox@gentoo.org>
+Date: Tue, 30 Mar 2021 07:19:56 +0000
+Subject: [PATCH v2 1/3] hpsa: use __packed on individual structs, not header-wide
+Message-Id: <20210330071958.3788214-1-slyfox@gentoo.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <161615650355.306069.17260992641363840330.stgit@devnote2>
-        <161615658087.306069.12036720803234007510.stgit@devnote2>
-In-Reply-To: <161615658087.306069.12036720803234007510.stgit@devnote2>
+References: <yq1wntpgxxr.fsf@ca-mkp.ca.oracle.com>
+In-Reply-To: <yq1wntpgxxr.fsf@ca-mkp.ca.oracle.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Masami Hiramatsu <mhiramat@kernel.org>
-Cc: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>, X86 ML <x86@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, Josh Poimboeuf <jpoimboe@redhat.com>, linux-ia64@vger.kernel.org
+To: "Martin K. Petersen" <martin.petersen@oracle.com>, Arnd Bergmann <arnd@kernel.org>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, Don Brace <don.brace@microchip.com>, linux-ia64@vger.kernel.org, storagedev@microchip.com, linux-scsi <linux-scsi@vger.kernel.org>, jszczype@redhat.com, Scott Benesh <scott.benesh@microchip.com>, Scott Teel <scott.teel@microchip.com>, thenzl@redhat.com
+Cc: linux-kernel@vger.kernel.org, Sergei Trofimovich <slyfox@gentoo.org>
 
-On Fri, 19 Mar 2021 21:23:01 +0900
-Masami Hiramatsu <mhiramat@kernel.org> wrote:
+Some of the structs contain `atomic_t` values and are not intended to be
+sent to IO controller as is.
 
-> Add instruction_pointer_set() API for ia64.
-> 
-> Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
-> ---
->  arch/ia64/include/asm/ptrace.h |    8 +++++++-
->  1 file changed, 7 insertions(+), 1 deletion(-)
-> 
-> diff --git a/arch/ia64/include/asm/ptrace.h b/arch/ia64/include/asm/ptrace.h
-> index b3aa46090101..e382f1a6bff3 100644
-> --- a/arch/ia64/include/asm/ptrace.h
-> +++ b/arch/ia64/include/asm/ptrace.h
-> @@ -45,6 +45,7 @@
->  #include <asm/current.h>
->  #include <asm/page.h>
->  
-> +# define ia64_psr(regs)			((struct ia64_psr *) &(regs)->cr_ipsr)
->  /*
->   * We use the ia64_psr(regs)->ri to determine which of the three
->   * instructions in bundle (16 bytes) took the sample. Generate
-> @@ -71,6 +72,12 @@ static inline long regs_return_value(struct pt_regs *regs)
->  		return -regs->r8;
->  }
->  
-> +static inline void instruction_pointer_set(struct pt_regs *regs, unsigned long val)
-> +{
-> +	ia64_psr(regs)->ri = (val & 0xf);
-> +	regs->cr_iip = (val & ~0xfULL);
-> +}
+The change adds __packed to every struct and union in the file.
+Follow-up commits will fix `atomic_t` problems.
 
-Oops, this caused a build error. Thanks for the kernel test bot.
+The commit is a no-op at least on ia64:
+    $ diff -u <(objdump -d -r old.o) <(objdump -d -r new.o)
 
-It seems that all code which accessing to the "struct ia64_psr" in asm/ptrace.h
-has to be a macro, because "struct ia64_psr" is defined in the asm/processor.h
-which includes asm/ptrace.h (for pt_regs?).
-If the code is defined as an inline function, the "struct ia64_psr" is evaluated
-at that point, and caused build error.
+CC: linux-ia64@vger.kernel.org
+CC: storagedev@microchip.com
+CC: linux-scsi@vger.kernel.org
+CC: Joe Szczypek <jszczype@redhat.com>
+CC: Scott Benesh <scott.benesh@microchip.com>
+CC: Scott Teel <scott.teel@microchip.com>
+CC: Tomas Henzl <thenzl@redhat.com>
+CC: "Martin K. Petersen" <martin.petersen@oracle.com>
+CC: Don Brace <don.brace@microchip.com>
+Reported-by: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
+Suggested-by: Don Brace <don.brace@microchip.com>
+Fixes: f749d8b7a "scsi: hpsa: Correct dev cmds outstanding for retried cmds"
+Signed-off-by: Sergei Trofimovich <slyfox@gentoo.org>
+---
+ drivers/scsi/hpsa_cmd.h | 68 ++++++++++++++++++++---------------------
+ 1 file changed, 34 insertions(+), 34 deletions(-)
 
-arch/ia64/include/asm/ptrace.h:77:16: error: dereferencing pointer to incomplete type 'struct ia64_psr'
-
-But macro code evaluation is postponed until it is used...
-
-Let me update it.
-
-Thank you,
-
+diff --git a/drivers/scsi/hpsa_cmd.h b/drivers/scsi/hpsa_cmd.h
+index d126bb877250..280e933d27e7 100644
+--- a/drivers/scsi/hpsa_cmd.h
++++ b/drivers/scsi/hpsa_cmd.h
+@@ -20,6 +20,8 @@
+ #ifndef HPSA_CMD_H
+ #define HPSA_CMD_H
+ 
++#include <linux/compiler.h>
++
+ /* general boundary defintions */
+ #define SENSEINFOBYTES          32 /* may vary between hbas */
+ #define SG_ENTRIES_IN_CMD	32 /* Max SG entries excluding chain blocks */
+@@ -200,12 +202,10 @@ union u64bit {
+ 	MAX_EXT_TARGETS + 1) /* + 1 is for the controller itself */
+ 
+ /* SCSI-3 Commands */
+-#pragma pack(1)
+-
+ #define HPSA_INQUIRY 0x12
+ struct InquiryData {
+ 	u8 data_byte[36];
+-};
++} __packed;
+ 
+ #define HPSA_REPORT_LOG 0xc2    /* Report Logical LUNs */
+ #define HPSA_REPORT_PHYS 0xc3   /* Report Physical LUNs */
+@@ -221,7 +221,7 @@ struct raid_map_disk_data {
+ 	u8    xor_mult[2];            /**< XOR multipliers for this position,
+ 					*  valid for data disks only */
+ 	u8    reserved[2];
+-};
++} __packed;
+ 
+ struct raid_map_data {
+ 	__le32   structure_size;	/* Size of entire structure in bytes */
+@@ -247,14 +247,14 @@ struct raid_map_data {
+ 	__le16   dekindex;		/* Data encryption key index. */
+ 	u8    reserved[16];
+ 	struct raid_map_disk_data data[RAID_MAP_MAX_ENTRIES];
+-};
++} __packed;
+ 
+ struct ReportLUNdata {
+ 	u8 LUNListLength[4];
+ 	u8 extended_response_flag;
+ 	u8 reserved[3];
+ 	u8 LUN[HPSA_MAX_LUN][8];
+-};
++} __packed;
+ 
+ struct ext_report_lun_entry {
+ 	u8 lunid[8];
+@@ -269,20 +269,20 @@ struct ext_report_lun_entry {
+ 	u8 lun_count; /* multi-lun device, how many luns */
+ 	u8 redundant_paths;
+ 	u32 ioaccel_handle; /* ioaccel1 only uses lower 16 bits */
+-};
++} __packed;
+ 
+ struct ReportExtendedLUNdata {
+ 	u8 LUNListLength[4];
+ 	u8 extended_response_flag;
+ 	u8 reserved[3];
+ 	struct ext_report_lun_entry LUN[HPSA_MAX_PHYS_LUN];
+-};
++} __packed;
+ 
+ struct SenseSubsystem_info {
+ 	u8 reserved[36];
+ 	u8 portname[8];
+ 	u8 reserved1[1108];
+-};
++} __packed;
+ 
+ /* BMIC commands */
+ #define BMIC_READ 0x26
+@@ -317,7 +317,7 @@ union SCSI3Addr {
+ 		u8 Targ:6;
+ 		u8 Mode:2;        /* b10 */
+ 	} LogUnit;
+-};
++} __packed;
+ 
+ struct PhysDevAddr {
+ 	u32             TargetId:24;
+@@ -325,20 +325,20 @@ struct PhysDevAddr {
+ 	u32             Mode:2;
+ 	/* 2 level target device addr */
+ 	union SCSI3Addr  Target[2];
+-};
++} __packed;
+ 
+ struct LogDevAddr {
+ 	u32            VolId:30;
+ 	u32            Mode:2;
+ 	u8             reserved[4];
+-};
++} __packed;
+ 
+ union LUNAddr {
+ 	u8               LunAddrBytes[8];
+ 	union SCSI3Addr    SCSI3Lun[4];
+ 	struct PhysDevAddr PhysDev;
+ 	struct LogDevAddr  LogDev;
+-};
++} __packed;
+ 
+ struct CommandListHeader {
+ 	u8              ReplyQueue;
+@@ -346,7 +346,7 @@ struct CommandListHeader {
+ 	__le16          SGTotal;
+ 	__le64		tag;
+ 	union LUNAddr     LUN;
+-};
++} __packed;
+ 
+ struct RequestBlock {
+ 	u8   CDBLen;
+@@ -365,18 +365,18 @@ struct RequestBlock {
+ #define GET_DIR(tad) (((tad) >> 6) & 0x03)
+ 	u16  Timeout;
+ 	u8   CDB[16];
+-};
++} __packed;
+ 
+ struct ErrDescriptor {
+ 	__le64 Addr;
+ 	__le32 Len;
+-};
++} __packed;
+ 
+ struct SGDescriptor {
+ 	__le64 Addr;
+ 	__le32 Len;
+ 	__le32 Ext;
+-};
++} __packed;
+ 
+ union MoreErrInfo {
+ 	struct {
+@@ -390,7 +390,8 @@ union MoreErrInfo {
+ 		u8  offense_num;  /* byte # of offense 0-base */
+ 		u32 offense_value;
+ 	} Invalid_Cmd;
+-};
++} __packed;
++
+ struct ErrorInfo {
+ 	u8               ScsiStatus;
+ 	u8               SenseLen;
+@@ -398,7 +399,7 @@ struct ErrorInfo {
+ 	u32              ResidualCnt;
+ 	union MoreErrInfo  MoreErrInfo;
+ 	u8               SenseInfo[SENSEINFOBYTES];
+-};
++} __packed;
+ /* Command types */
+ #define CMD_IOCTL_PEND  0x01
+ #define CMD_SCSI	0x03
+@@ -451,7 +452,7 @@ struct CommandList {
+ 	bool retry_pending;
+ 	struct hpsa_scsi_dev_t *device;
+ 	atomic_t refcount; /* Must be last to avoid memset in hpsa_cmd_init() */
+-} __aligned(COMMANDLIST_ALIGNMENT);
++} __packed __aligned(COMMANDLIST_ALIGNMENT);
+ 
+ /* Max S/G elements in I/O accelerator command */
+ #define IOACCEL1_MAXSGENTRIES           24
+@@ -489,7 +490,7 @@ struct io_accel1_cmd {
+ 	__le64 host_addr;		/* 0x70 - 0x77 */
+ 	u8  CISS_LUN[8];		/* 0x78 - 0x7F */
+ 	struct SGDescriptor SG[IOACCEL1_MAXSGENTRIES];
+-} __aligned(IOACCEL1_COMMANDLIST_ALIGNMENT);
++} __packed __aligned(IOACCEL1_COMMANDLIST_ALIGNMENT);
+ 
+ #define IOACCEL1_FUNCTION_SCSIIO        0x00
+ #define IOACCEL1_SGLOFFSET              32
+@@ -519,7 +520,7 @@ struct ioaccel2_sg_element {
+ 	u8 chain_indicator;
+ #define IOACCEL2_CHAIN 0x80
+ #define IOACCEL2_LAST_SG 0x40
+-};
++} __packed;
+ 
+ /*
+  * SCSI Response Format structure for IO Accelerator Mode 2
+@@ -559,7 +560,7 @@ struct io_accel2_scsi_response {
+ 	u8 sense_data_len;		/* sense/response data length */
+ 	u8 resid_cnt[4];		/* residual count */
+ 	u8 sense_data_buff[32];		/* sense/response data buffer */
+-};
++} __packed;
+ 
+ /*
+  * Structure for I/O accelerator (mode 2 or m2) commands.
+@@ -592,7 +593,7 @@ struct io_accel2_cmd {
+ 	__le32 tweak_upper;		/* Encryption tweak, upper 4 bytes */
+ 	struct ioaccel2_sg_element sg[IOACCEL2_MAXSGENTRIES];
+ 	struct io_accel2_scsi_response error_data;
+-} __aligned(IOACCEL2_COMMANDLIST_ALIGNMENT);
++} __packed __aligned(IOACCEL2_COMMANDLIST_ALIGNMENT);
+ 
+ /*
+  * defines for Mode 2 command struct
+@@ -618,7 +619,7 @@ struct hpsa_tmf_struct {
+ 	__le64 abort_tag;	/* cciss tag of SCSI cmd or TMF to abort */
+ 	__le64 error_ptr;		/* Error Pointer */
+ 	__le32 error_len;		/* Error Length */
+-} __aligned(IOACCEL2_COMMANDLIST_ALIGNMENT);
++} __packed __aligned(IOACCEL2_COMMANDLIST_ALIGNMENT);
+ 
+ /* Configuration Table Structure */
+ struct HostWrite {
+@@ -626,7 +627,7 @@ struct HostWrite {
+ 	__le32		command_pool_addr_hi;
+ 	__le32		CoalIntDelay;
+ 	__le32		CoalIntCount;
+-};
++} __packed;
+ 
+ #define SIMPLE_MODE     0x02
+ #define PERFORMANT_MODE 0x04
+@@ -675,7 +676,7 @@ struct CfgTable {
+ #define		HPSA_EVENT_NOTIFY_ACCEL_IO_PATH_STATE_CHANGE (1 << 30)
+ #define		HPSA_EVENT_NOTIFY_ACCEL_IO_PATH_CONFIG_CHANGE (1 << 31)
+ 	__le32		clear_event_notify;
+-};
++} __packed;
+ 
+ #define NUM_BLOCKFETCH_ENTRIES 8
+ struct TransTable_struct {
+@@ -686,14 +687,14 @@ struct TransTable_struct {
+ 	__le32		RepQCtrAddrHigh32;
+ #define MAX_REPLY_QUEUES 64
+ 	struct vals32  RepQAddr[MAX_REPLY_QUEUES];
+-};
++} __packed;
+ 
+ struct hpsa_pci_info {
+ 	unsigned char	bus;
+ 	unsigned char	dev_fn;
+ 	unsigned short	domain;
+ 	u32		board_id;
+-};
++} __packed;
+ 
+ struct bmic_identify_controller {
+ 	u8	configured_logical_drive_count;	/* offset 0 */
+@@ -702,7 +703,7 @@ struct bmic_identify_controller {
+ 	u8	pad2[136];
+ 	u8	controller_mode;	/* offset 292 */
+ 	u8	pad3[32];
+-};
++} __packed;
+ 
+ 
+ struct bmic_identify_physical_device {
+@@ -845,7 +846,7 @@ struct bmic_identify_physical_device {
+ 	u8     max_link_rate[256];
+ 	u8     neg_phys_link_rate[256];
+ 	u8     box_conn_name[8];
+-} __attribute((aligned(512)));
++} __packed __attribute((aligned(512)));
+ 
+ struct bmic_sense_subsystem_info {
+ 	u8	primary_slot_number;
+@@ -858,7 +859,7 @@ struct bmic_sense_subsystem_info {
+ 	u8	secondary_array_serial_number[32];
+ 	u8	secondary_cache_serial_number[32];
+ 	u8	pad[332];
+-};
++} __packed;
+ 
+ struct bmic_sense_storage_box_params {
+ 	u8	reserved[36];
+@@ -870,7 +871,6 @@ struct bmic_sense_storage_box_params {
+ 	u8	reserver_3[84];
+ 	u8	phys_connector[2];
+ 	u8	reserved_4[296];
+-};
++} __packed;
+ 
+-#pragma pack()
+ #endif /* HPSA_CMD_H */
 -- 
-Masami Hiramatsu <mhiramat@kernel.org>
+2.31.1
