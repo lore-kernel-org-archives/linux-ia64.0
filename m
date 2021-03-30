@@ -1,68 +1,65 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Fri, 26 Mar 2021 12:28:38 +0000
-Subject: [PATCH -tip v5 01/12] ia64: kprobes: Fix to pass correct trampoline address to the handler
-Message-Id: <161676171800.330141.6196229389836286674.stgit@devnote2>
+From: Sergei Trofimovich <slyfox@gentoo.org>
+Date: Tue, 30 Mar 2021 07:19:57 +0000
+Subject: [PATCH v2 2/3] hpsa: fix boot on ia64 (atomic_t alignment)
+Message-Id: <20210330071958.3788214-2-slyfox@gentoo.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <161676170650.330141.6214727134265514123.stgit@devnote2>
-In-Reply-To: <161676170650.330141.6214727134265514123.stgit@devnote2>
+References: <yq1wntpgxxr.fsf@ca-mkp.ca.oracle.com>
+ <20210330071958.3788214-1-slyfox@gentoo.org>
+In-Reply-To: <20210330071958.3788214-1-slyfox@gentoo.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>
-Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, Josh Poimboeuf <jpoimboe@redhat.com>, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>
+To: "Martin K. Petersen" <martin.petersen@oracle.com>, Arnd Bergmann <arnd@kernel.org>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, Don Brace <don.brace@microchip.com>, linux-ia64@vger.kernel.org, storagedev@microchip.com, linux-scsi <linux-scsi@vger.kernel.org>, jszczype@redhat.com, Scott Benesh <scott.benesh@microchip.com>, Scott Teel <scott.teel@microchip.com>, thenzl@redhat.com
+Cc: linux-kernel@vger.kernel.org, Sergei Trofimovich <slyfox@gentoo.org>
 
-Commit e792ff804f49 ("ia64: kprobes: Use generic kretprobe trampoline handler")
-missed to pass the wrong trampoline address (it passes the descriptor address
-instead of function entry address).
-This fixes it to pass correct trampoline address to __kretprobe_trampoline_handler().
-This also changes to use correct symbol dereference function to get the
-function address from the kretprobe_trampoline.
+The failure initially observed as boot failure on rx3600 ia64 machine
+with RAID bus controller: Hewlett-Packard Company Smart Array P600:
 
-Fixes: e792ff804f49 ("ia64: kprobes: Use generic kretprobe trampoline handler")
-Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
+    kernel unaligned access to 0xe000000105dd8b95, ip=0xa000000100b87551
+    kernel unaligned access to 0xe000000105dd8e95, ip=0xa000000100b87551
+    hpsa 0000:14:01.0: Controller reports max supported commands of 0 Using 16 instead. Ensure that firmware is up to date.
+    swapper/0[1]: error during unaligned kernel access
+
+Here unaligned access comes from 'struct CommandList' that happens
+to be packed. The change f749d8b7a ("scsi: hpsa: Correct dev cmds
+outstanding for retried cmds") introduced unexpected padding and
+un-aligned atomic_t from natural alignment to something else.
+
+This change removes packing annotation from struct not intended to be
+sent to controller as is. This restores natural `atomic_t` alignment.
+
+The change is tested on the same rx3600 machine.
+
+CC: linux-ia64@vger.kernel.org
+CC: linux-kernel@vger.kernel.org
+CC: storagedev@microchip.com
+CC: linux-scsi@vger.kernel.org
+CC: Joe Szczypek <jszczype@redhat.com>
+CC: Scott Benesh <scott.benesh@microchip.com>
+CC: Scott Teel <scott.teel@microchip.com>
+CC: Tomas Henzl <thenzl@redhat.com>
+CC: "Martin K. Petersen" <martin.petersen@oracle.com>
+CC: Don Brace <don.brace@microchip.com>
+Reported-by: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
+Suggested-by: Don Brace <don.brace@microchip.com>
+Fixes: f749d8b7a "scsi: hpsa: Correct dev cmds outstanding for retried cmds"
+Signed-off-by: Sergei Trofimovich <slyfox@gentoo.org>
 ---
- Changes in v5:
-  - Fix a compile error typo.
----
- arch/ia64/kernel/kprobes.c |    9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
+ drivers/scsi/hpsa_cmd.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/ia64/kernel/kprobes.c b/arch/ia64/kernel/kprobes.c
-index fc1ff8a4d7de..ca4b4fa45aef 100644
---- a/arch/ia64/kernel/kprobes.c
-+++ b/arch/ia64/kernel/kprobes.c
-@@ -398,7 +398,8 @@ static void kretprobe_trampoline(void)
+diff --git a/drivers/scsi/hpsa_cmd.h b/drivers/scsi/hpsa_cmd.h
+index 280e933d27e7..885b1f1fb20a 100644
+--- a/drivers/scsi/hpsa_cmd.h
++++ b/drivers/scsi/hpsa_cmd.h
+@@ -452,7 +452,7 @@ struct CommandList {
+ 	bool retry_pending;
+ 	struct hpsa_scsi_dev_t *device;
+ 	atomic_t refcount; /* Must be last to avoid memset in hpsa_cmd_init() */
+-} __packed __aligned(COMMANDLIST_ALIGNMENT);
++} __aligned(COMMANDLIST_ALIGNMENT);
  
- int __kprobes trampoline_probe_handler(struct kprobe *p, struct pt_regs *regs)
- {
--	regs->cr_iip = __kretprobe_trampoline_handler(regs, kretprobe_trampoline, NULL);
-+	regs->cr_iip = __kretprobe_trampoline_handler(regs,
-+		dereference_function_descriptor(kretprobe_trampoline), NULL);
- 	/*
- 	 * By returning a non-zero value, we are telling
- 	 * kprobe_handler() that we don't want the post_handler
-@@ -414,7 +415,7 @@ void __kprobes arch_prepare_kretprobe(struct kretprobe_instance *ri,
- 	ri->fp = NULL;
- 
- 	/* Replace the return addr with trampoline addr */
--	regs->b0 = ((struct fnptr *)kretprobe_trampoline)->ip;
-+	regs->b0 = (unsigned long)dereference_function_descriptor(kretprobe_trampoline);
- }
- 
- /* Check the instruction in the slot is break */
-@@ -918,14 +919,14 @@ static struct kprobe trampoline_p = {
- int __init arch_init_kprobes(void)
- {
- 	trampoline_p.addr -		(kprobe_opcode_t *)((struct fnptr *)kretprobe_trampoline)->ip;
-+		dereference_function_descriptor(kretprobe_trampoline);
- 	return register_kprobe(&trampoline_p);
- }
- 
- int __kprobes arch_trampoline_kprobe(struct kprobe *p)
- {
- 	if (p->addr =
--		(kprobe_opcode_t *)((struct fnptr *)kretprobe_trampoline)->ip)
-+		dereference_function_descriptor(kretprobe_trampoline))
- 		return 1;
- 
- 	return 0;
+ /* Max S/G elements in I/O accelerator command */
+ #define IOACCEL1_MAXSGENTRIES           24
+-- 
+2.31.1
