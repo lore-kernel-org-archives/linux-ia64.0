@@ -1,35 +1,34 @@
-From: "Martin K. Petersen" <martin.petersen@oracle.com>
-Date: Fri, 02 Apr 2021 03:54:48 +0000
-Subject: Re: [PATCH v2 1/3] hpsa: use __packed on individual structs, not header-wide
-Message-Id: <161733538518.31379.13275738935787597303.b4-ty@oracle.com>
+From: <Don.Brace@microchip.com>
+Date: Thu, 15 Apr 2021 18:41:30 +0000
+Subject: RE: [PATCH v2 1/3] hpsa: use __packed on individual structs, not header-wide
+Message-Id: <SN6PR11MB28482BFEF29365BEF742F146E14D9@SN6PR11MB2848.namprd11.prod.outlook.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <yq1wntpgxxr.fsf@ca-mkp.ca.oracle.com> <20210330071958.3788214-1-slyfox@gentoo.org>
-In-Reply-To: <20210330071958.3788214-1-slyfox@gentoo.org>
+References: <yq1wntpgxxr.fsf@ca-mkp.ca.oracle.com>
+ <20210330071958.3788214-1-slyfox@gentoo.org>
+ <161733538518.31379.13275738935787597303.b4-ty@oracle.com>
+In-Reply-To: <161733538518.31379.13275738935787597303.b4-ty@oracle.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Scott Teel <scott.teel@microchip.com>, jszczype@redhat.com, storagedev@microchip.com, Don Brace <don.brace@microchip.com>, Sergei Trofimovich <slyfox@gentoo.org>, John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>, Arnd Bergmann <arnd@kernel.org>, Scott Benesh <scott.benesh@microchip.com>, thenzl@redhat.com, linux-ia64@vger.kernel.org, linux-scsi <linux-scsi@vger.kernel.org>
-Cc: "Martin K . Petersen" <martin.petersen@oracle.com>, linux-kernel@vger.kernel.org
+To: martin.petersen@oracle.com, Scott.Teel@microchip.com, jszczype@redhat.com, storagedev@microchip.com, slyfox@gentoo.org, glaubitz@physik.fu-berlin.de, arnd@kernel.org, Scott.Benesh@microchip.com, thenzl@redhat.com, linux-ia64@vger.kernel.org, linux-scsi@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
 
-On Tue, 30 Mar 2021 08:19:56 +0100, Sergei Trofimovich wrote:
-
-> Some of the structs contain `atomic_t` values and are not intended to be
-> sent to IO controller as is.
-> 
-> The change adds __packed to every struct and union in the file.
-> Follow-up commits will fix `atomic_t` problems.
-> 
-> The commit is a no-op at least on ia64:
->     $ diff -u <(objdump -d -r old.o) <(objdump -d -r new.o)
-
-Applied to 5.12/scsi-fixes, thanks!
-
-[1/3] hpsa: use __packed on individual structs, not header-wide
-      https://git.kernel.org/mkp/scsi/c/5482a9a1a8fd
-[2/3] hpsa: fix boot on ia64 (atomic_t alignment)
-      https://git.kernel.org/mkp/scsi/c/02ec144292bc
-[3/3] hpsa: add an assert to prevent from __packed reintroduction
-      https://git.kernel.org/mkp/scsi/c/e01a00ff62ad
-
--- 
-Martin K. Petersen	Oracle Linux Engineering
+LS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCkZyb206IE1hcnRpbiBLLiBQZXRlcnNlbiBTdWJq
+ZWN0OiBSZTogW1BBVENIIHYyIDEvM10gaHBzYTogdXNlIF9fcGFja2VkIG9uIGluZGl2aWR1YWwg
+c3RydWN0cywgbm90IGhlYWRlci13aWRlDQoNCj4gU29tZSBvZiB0aGUgc3RydWN0cyBjb250YWlu
+IGBhdG9taWNfdGAgdmFsdWVzIGFuZCBhcmUgbm90IGludGVuZGVkIHRvIA0KPiBiZSBzZW50IHRv
+IElPIGNvbnRyb2xsZXIgYXMgaXMuDQo+DQo+IFRoZSBjaGFuZ2UgYWRkcyBfX3BhY2tlZCB0byBl
+dmVyeSBzdHJ1Y3QgYW5kIHVuaW9uIGluIHRoZSBmaWxlLg0KPiBGb2xsb3ctdXAgY29tbWl0cyB3
+aWxsIGZpeCBgYXRvbWljX3RgIHByb2JsZW1zLg0KPg0KPiBUaGUgY29tbWl0IGlzIGEgbm8tb3Ag
+YXQgbGVhc3Qgb24gaWE2NDoNCj4gICAgICQgZGlmZiAtdSA8KG9iamR1bXAgLWQgLXIgb2xkLm8p
+IDwob2JqZHVtcCAtZCAtciBuZXcubykNCg0KQXBwbGllZCB0byA1LjEyL3Njc2ktZml4ZXMsIHRo
+YW5rcyENCg0KRG9uOiBUaGFuay15b3UgZm9yIGFsbCBvZiB5b3VyIGVmZm9ydHMuIEkgYXBwcmVj
+aWF0ZSB0byB3b3JrIHRoYXQgeW91IGhhdmUgZG9uZSBvbiB0aGVzZSBwYXRjaGVzLg0KDQpUaGFu
+a3MsDQpEb24gQnJhY2UNCg0KWzEvM10gaHBzYTogdXNlIF9fcGFja2VkIG9uIGluZGl2aWR1YWwg
+c3RydWN0cywgbm90IGhlYWRlci13aWRlDQogICAgICBodHRwczovL2dpdC5rZXJuZWwub3JnL21r
+cC9zY3NpL2MvNTQ4MmE5YTFhOGZkDQpbMi8zXSBocHNhOiBmaXggYm9vdCBvbiBpYTY0IChhdG9t
+aWNfdCBhbGlnbm1lbnQpDQogICAgICBodHRwczovL2dpdC5rZXJuZWwub3JnL21rcC9zY3NpL2Mv
+MDJlYzE0NDI5MmJjDQpbMy8zXSBocHNhOiBhZGQgYW4gYXNzZXJ0IHRvIHByZXZlbnQgZnJvbSBf
+X3BhY2tlZCByZWludHJvZHVjdGlvbg0KICAgICAgaHR0cHM6Ly9naXQua2VybmVsLm9yZy9ta3Av
+c2NzaS9jL2UwMWEwMGZmNjJhZA0KDQotLQ0KTWFydGluIEsuIFBldGVyc2VuICAgICAgT3JhY2xl
+IExpbnV4IEVuZ2luZWVyaW5nDQo
