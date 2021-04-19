@@ -1,42 +1,80 @@
-From: Randy Dunlap <rdunlap@infradead.org>
-Date: Sun, 11 Apr 2021 02:02:55 +0000
-Subject: [PATCH RESENDbis] ia64: remove duplicate entries in generic_defconfig
-Message-Id: <20210411020255.18052-1-rdunlap@infradead.org>
+From: Sasha Levin <sashal@kernel.org>
+Date: Mon, 19 Apr 2021 20:46:07 +0000
+Subject: [PATCH AUTOSEL 4.4 6/7] ia64: fix discontig.c section mismatches
+Message-Id: <20210419204608.7191-6-sashal@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20210419204608.7191-1-sashal@kernel.org>
+In-Reply-To: <20210419204608.7191-1-sashal@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Randy Dunlap <rdunlap@infradead.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Andrew Morton <akpm@linux-foundation.org>, Christoph Hellwig <hch@lst.de>, Tony Luck <tony.luck@intel.com>, linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
+Cc: Randy Dunlap <rdunlap@infradead.org>, Mike Rapoport <rppt@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, Sasha Levin <sashal@kernel.org>, linux-ia64@vger.kernel.org
 
-Fix ia64 generic_defconfig duplicate entries, as warned by:
+From: Randy Dunlap <rdunlap@infradead.org>
 
-  + arch/ia64/configs/generic_defconfig: warning: override: reassigning to symbol ATA:  => 58
-  + arch/ia64/configs/generic_defconfig: warning: override: reassigning to symbol ATA_PIIX:  => 59
+[ Upstream commit e2af9da4f867a1a54f1252bf3abc1a5c63951778 ]
 
-These 2 symbols still have the same value as in the removed lines.
+Fix IA64 discontig.c Section mismatch warnings.
 
-Fixes: c331649e6371 ("ia64: Use libata instead of the legacy ide driver in defconfigs")
-Reported-by: Geert Uytterhoeven <geert@linux-m68k.org>
+When CONFIG_SPARSEMEM=y and CONFIG_MEMORY_HOTPLUG=y, the functions
+computer_pernodesize() and scatter_node_data() should not be marked as
+__meminit because they are needed after init, on any memory hotplug
+event.  Also, early_nr_cpus_node() is called by compute_pernodesize(),
+so early_nr_cpus_node() cannot be __meminit either.
+
+  WARNING: modpost: vmlinux.o(.text.unlikely+0x1612): Section mismatch in reference from the function arch_alloc_nodedata() to the function .meminit.text:compute_pernodesize()
+  The function arch_alloc_nodedata() references the function __meminit compute_pernodesize().
+  This is often because arch_alloc_nodedata lacks a __meminit annotation or the annotation of compute_pernodesize is wrong.
+
+  WARNING: modpost: vmlinux.o(.text.unlikely+0x1692): Section mismatch in reference from the function arch_refresh_nodedata() to the function .meminit.text:scatter_node_data()
+  The function arch_refresh_nodedata() references the function __meminit scatter_node_data().
+  This is often because arch_refresh_nodedata lacks a __meminit annotation or the annotation of scatter_node_data is wrong.
+
+  WARNING: modpost: vmlinux.o(.text.unlikely+0x1502): Section mismatch in reference from the function compute_pernodesize() to the function .meminit.text:early_nr_cpus_node()
+  The function compute_pernodesize() references the function __meminit early_nr_cpus_node().
+  This is often because compute_pernodesize lacks a __meminit annotation or the annotation of early_nr_cpus_node is wrong.
+
+Link: https://lkml.kernel.org/r/20210411001201.3069-1-rdunlap@infradead.org
 Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: Christoph Hellwig <hch@lst.de>
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: linux-ia64@vger.kernel.org
-Reviewed-by: Christoph Hellwig <hch@lst.de>
-#Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: Mike Rapoport <rppt@kernel.org>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
 ---
- arch/ia64/configs/generic_defconfig |    2 --
- 1 file changed, 2 deletions(-)
+ arch/ia64/mm/discontig.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
---- lnx-511-rc1.orig/arch/ia64/configs/generic_defconfig
-+++ lnx-511-rc1/arch/ia64/configs/generic_defconfig
-@@ -55,8 +55,6 @@ CONFIG_CHR_DEV_SG=m
- CONFIG_SCSI_FC_ATTRS=y
- CONFIG_SCSI_SYM53C8XX_2=y
- CONFIG_SCSI_QLOGIC_1280=y
--CONFIG_ATA=y
--CONFIG_ATA_PIIX=y
- CONFIG_SATA_VITESSE=y
- CONFIG_MD=y
- CONFIG_BLK_DEV_MD=m
+diff --git a/arch/ia64/mm/discontig.c b/arch/ia64/mm/discontig.c
+index 878626805369..3b0c892953ab 100644
+--- a/arch/ia64/mm/discontig.c
++++ b/arch/ia64/mm/discontig.c
+@@ -99,7 +99,7 @@ static int __init build_node_maps(unsigned long start, unsigned long len,
+  * acpi_boot_init() (which builds the node_to_cpu_mask array) hasn't been
+  * called yet.  Note that node 0 will also count all non-existent cpus.
+  */
+-static int __meminit early_nr_cpus_node(int node)
++static int early_nr_cpus_node(int node)
+ {
+ 	int cpu, n = 0;
+ 
+@@ -114,7 +114,7 @@ static int __meminit early_nr_cpus_node(int node)
+  * compute_pernodesize - compute size of pernode data
+  * @node: the node id.
+  */
+-static unsigned long __meminit compute_pernodesize(int node)
++static unsigned long compute_pernodesize(int node)
+ {
+ 	unsigned long pernodesize = 0, cpus;
+ 
+@@ -411,7 +411,7 @@ static void __init reserve_pernode_space(void)
+ 	}
+ }
+ 
+-static void __meminit scatter_node_data(void)
++static void scatter_node_data(void)
+ {
+ 	pg_data_t **dst;
+ 	int node;
+-- 
+2.30.2
