@@ -1,10 +1,10 @@
 From: Sasha Levin <sashal@kernel.org>
-Date: Mon, 19 Apr 2021 20:45:53 +0000
-Subject: [PATCH AUTOSEL 4.9 7/8] ia64: fix discontig.c section mismatches
-Message-Id: <20210419204554.7071-7-sashal@kernel.org>
+Date: Mon, 19 Apr 2021 20:43:39 +0000
+Subject: [PATCH AUTOSEL 5.11 20/23] ia64: fix discontig.c section mismatches
+Message-Id: <20210419204343.6134-20-sashal@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210419204554.7071-1-sashal@kernel.org>
-In-Reply-To: <20210419204554.7071-1-sashal@kernel.org>
+References: <20210419204343.6134-1-sashal@kernel.org>
+In-Reply-To: <20210419204343.6134-1-sashal@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -46,10 +46,10 @@ Signed-off-by: Sasha Levin <sashal@kernel.org>
  1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/arch/ia64/mm/discontig.c b/arch/ia64/mm/discontig.c
-index 878626805369..3b0c892953ab 100644
+index c7311131156e..ba3edb8a04b1 100644
 --- a/arch/ia64/mm/discontig.c
 +++ b/arch/ia64/mm/discontig.c
-@@ -99,7 +99,7 @@ static int __init build_node_maps(unsigned long start, unsigned long len,
+@@ -94,7 +94,7 @@ static int __init build_node_maps(unsigned long start, unsigned long len,
   * acpi_boot_init() (which builds the node_to_cpu_mask array) hasn't been
   * called yet.  Note that node 0 will also count all non-existent cpus.
   */
@@ -58,7 +58,7 @@ index 878626805369..3b0c892953ab 100644
  {
  	int cpu, n = 0;
  
-@@ -114,7 +114,7 @@ static int __meminit early_nr_cpus_node(int node)
+@@ -109,7 +109,7 @@ static int __meminit early_nr_cpus_node(int node)
   * compute_pernodesize - compute size of pernode data
   * @node: the node id.
   */
@@ -67,7 +67,7 @@ index 878626805369..3b0c892953ab 100644
  {
  	unsigned long pernodesize = 0, cpus;
  
-@@ -411,7 +411,7 @@ static void __init reserve_pernode_space(void)
+@@ -366,7 +366,7 @@ static void __init reserve_pernode_space(void)
  	}
  }
  
