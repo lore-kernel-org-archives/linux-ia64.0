@@ -1,74 +1,80 @@
-From: Richard Guy Briggs <rgb@redhat.com>
-Date: Fri, 30 Apr 2021 20:35:20 +0000
-Subject: [PATCH v3 0/3] audit: add support for openat2
-Message-Id: <cover.1619811762.git.rgb@redhat.com>
+From: Sasha Levin <sashal@kernel.org>
+Date: Mon, 19 Apr 2021 20:45:15 +0000
+Subject: [PATCH AUTOSEL 4.19 10/12] ia64: fix discontig.c section mismatches
+Message-Id: <20210419204517.6770-10-sashal@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20210419204517.6770-1-sashal@kernel.org>
+In-Reply-To: <20210419204517.6770-1-sashal@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linux-Audit Mailing List <linux-audit@redhat.com>, LKML <linux-kernel@vger.kernel.org>, linux-fsdevel@vger.kernel.org
-Cc: Paul Moore <paul@paul-moore.com>, Eric Paris <eparis@parisplace.org>, Steve Grubb <sgrubb@redhat.com>, Richard Guy Briggs <rgb@redhat.com>, Alexander Viro <viro@zeniv.linux.org.uk>, Eric Paris <eparis@redhat.com>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, Aleksa Sarai <cyphar@cyphar.com>, Arnd Bergmann <arnd@kernel.org>
+To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
+Cc: Randy Dunlap <rdunlap@infradead.org>, Mike Rapoport <rppt@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, Sasha Levin <sashal@kernel.org>, linux-ia64@vger.kernel.org
 
-The openat2(2) syscall was added in v5.6.  Add support for openat2 to the
-audit syscall classifier and for recording openat2 parameters that cannot
-be captured in the syscall parameters of the SYSCALL record.
+From: Randy Dunlap <rdunlap@infradead.org>
 
-Supporting userspace code can be found in
-https://github.com/rgbriggs/audit-userspace/tree/ghau-openat2
+[ Upstream commit e2af9da4f867a1a54f1252bf3abc1a5c63951778 ]
 
-Supporting test case can be found in
-https://github.com/linux-audit/audit-testsuite/pull/103
+Fix IA64 discontig.c Section mismatch warnings.
 
-Changelog:
-v3:
-- re-add commit descriptions that somehow got dropped
-- add new file to MAINTAINERS
+When CONFIG_SPARSEMEM=y and CONFIG_MEMORY_HOTPLUG=y, the functions
+computer_pernodesize() and scatter_node_data() should not be marked as
+__meminit because they are needed after init, on any memory hotplug
+event.  Also, early_nr_cpus_node() is called by compute_pernodesize(),
+so early_nr_cpus_node() cannot be __meminit either.
 
-v2:
-- add include/linux/auditscm.h for audit syscall class macros due to syscall redefinition warnings:
-        arch/x86/ia32/audit.c:3:
-        ./include/linux/audit.h:12,
-        ./include/linux/sched.h:22,
-        ./include/linux/seccomp.h:21,
-        ./arch/x86/include/asm/seccomp.h:5,
-        ./arch/x86/include/asm/unistd.h:20,
-        ./arch/x86/include/generated/uapi/asm/unistd_64.h:4: warning: "__NR_read" redefined #define __NR_read 0
-	...
-        ./arch/x86/include/generated/uapi/asm/unistd_64.h:338: warning: "__NR_rseq" redefined #define __NR_rseq 334
-    previous:
-        arch/x86/ia32/audit.c:2:
-        ./arch/x86/include/generated/uapi/asm/unistd_32.h:7: note: this is the location of the previous definition #define __NR_read 3                                                                                                      
-	...
-        ./arch/x86/include/generated/uapi/asm/unistd_32.h:386: note: this is the location of the previous definition #define __NR_rseq 386
+  WARNING: modpost: vmlinux.o(.text.unlikely+0x1612): Section mismatch in reference from the function arch_alloc_nodedata() to the function .meminit.text:compute_pernodesize()
+  The function arch_alloc_nodedata() references the function __meminit compute_pernodesize().
+  This is often because arch_alloc_nodedata lacks a __meminit annotation or the annotation of compute_pernodesize is wrong.
 
-Richard Guy Briggs (3):
-  audit: replace magic audit syscall class numbers with macros
-  audit: add support for the openat2 syscall
-  audit: add OPENAT2 record to list how
+  WARNING: modpost: vmlinux.o(.text.unlikely+0x1692): Section mismatch in reference from the function arch_refresh_nodedata() to the function .meminit.text:scatter_node_data()
+  The function arch_refresh_nodedata() references the function __meminit scatter_node_data().
+  This is often because arch_refresh_nodedata lacks a __meminit annotation or the annotation of scatter_node_data is wrong.
 
- MAINTAINERS                        |  1 +
- arch/alpha/kernel/audit.c          | 10 ++++++----
- arch/ia64/kernel/audit.c           | 10 ++++++----
- arch/parisc/kernel/audit.c         | 10 ++++++----
- arch/parisc/kernel/compat_audit.c  | 11 +++++++----
- arch/powerpc/kernel/audit.c        | 12 +++++++-----
- arch/powerpc/kernel/compat_audit.c | 13 ++++++++-----
- arch/s390/kernel/audit.c           | 12 +++++++-----
- arch/s390/kernel/compat_audit.c    | 13 ++++++++-----
- arch/sparc/kernel/audit.c          | 12 +++++++-----
- arch/sparc/kernel/compat_audit.c   | 13 ++++++++-----
- arch/x86/ia32/audit.c              | 13 ++++++++-----
- arch/x86/kernel/audit_64.c         | 10 ++++++----
- fs/open.c                          |  2 ++
- include/linux/audit.h              | 11 +++++++++++
- include/linux/auditscm.h           | 24 +++++++++++++++++++++++
- include/uapi/linux/audit.h         |  1 +
- kernel/audit.h                     |  2 ++
- kernel/auditsc.c                   | 31 ++++++++++++++++++++++++------
- lib/audit.c                        | 14 +++++++++-----
- lib/compat_audit.c                 | 15 ++++++++++-----
- 21 files changed, 169 insertions(+), 71 deletions(-)
- create mode 100644 include/linux/auditscm.h
+  WARNING: modpost: vmlinux.o(.text.unlikely+0x1502): Section mismatch in reference from the function compute_pernodesize() to the function .meminit.text:early_nr_cpus_node()
+  The function compute_pernodesize() references the function __meminit early_nr_cpus_node().
+  This is often because compute_pernodesize lacks a __meminit annotation or the annotation of early_nr_cpus_node is wrong.
 
+Link: https://lkml.kernel.org/r/20210411001201.3069-1-rdunlap@infradead.org
+Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
+Cc: Mike Rapoport <rppt@kernel.org>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
+---
+ arch/ia64/mm/discontig.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/arch/ia64/mm/discontig.c b/arch/ia64/mm/discontig.c
+index 1928d5719e41..db3104c9fac5 100644
+--- a/arch/ia64/mm/discontig.c
++++ b/arch/ia64/mm/discontig.c
+@@ -96,7 +96,7 @@ static int __init build_node_maps(unsigned long start, unsigned long len,
+  * acpi_boot_init() (which builds the node_to_cpu_mask array) hasn't been
+  * called yet.  Note that node 0 will also count all non-existent cpus.
+  */
+-static int __meminit early_nr_cpus_node(int node)
++static int early_nr_cpus_node(int node)
+ {
+ 	int cpu, n = 0;
+ 
+@@ -111,7 +111,7 @@ static int __meminit early_nr_cpus_node(int node)
+  * compute_pernodesize - compute size of pernode data
+  * @node: the node id.
+  */
+-static unsigned long __meminit compute_pernodesize(int node)
++static unsigned long compute_pernodesize(int node)
+ {
+ 	unsigned long pernodesize = 0, cpus;
+ 
+@@ -371,7 +371,7 @@ static void __init reserve_pernode_space(void)
+ 	}
+ }
+ 
+-static void __meminit scatter_node_data(void)
++static void scatter_node_data(void)
+ {
+ 	pg_data_t **dst;
+ 	int node;
 -- 
-2.27.0
+2.30.2
