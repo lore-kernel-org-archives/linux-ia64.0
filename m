@@ -1,48 +1,51 @@
-From: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
-Date: Sun, 04 Apr 2021 20:53:14 +0000
-Subject: Re: [PATCH] ia64: module: fix symbolizer crash on fdescr
-Message-Id: <a83c7df8-5747-9f88-11f8-94834ce36199@physik.fu-berlin.de>
+From: Richard Guy Briggs <rgb@redhat.com>
+Date: Fri, 30 Apr 2021 17:29:34 +0000
+Subject: [PATCH v2 0/3] audit: add support for openat2
+Message-Id: <cover.1619729297.git.rgb@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210403074803.3309096-1-slyfox@gentoo.org>
-In-Reply-To: <20210403074803.3309096-1-slyfox@gentoo.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Sergei Trofimovich <slyfox@gentoo.org>, Andrew Morton <akpm@linux-foundation.org>
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: Linux-Audit Mailing List <linux-audit@redhat.com>, LKML <linux-kernel@vger.kernel.org>, linux-fsdevel@vger.kernel.org
+Cc: Paul Moore <paul@paul-moore.com>, Eric Paris <eparis@parisplace.org>, Steve Grubb <sgrubb@redhat.com>, Richard Guy Briggs <rgb@redhat.com>, Alexander Viro <viro@zeniv.linux.org.uk>, Eric Paris <eparis@redhat.com>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, Aleksa Sarai <cyphar@cyphar.com>
 
-Hi Sergei!
+The openat2(2) syscall was added in v5.6.  Add support for openat2 to the
+audit syscall classifier and for recording openat2 parameters that cannot
+be captured in the syscall parameters of the SYSCALL record.
 
-On 4/3/21 9:48 AM, Sergei Trofimovich wrote:
-> Noticed failure as a crash on ia64 when tried to symbolize all
-> backtraces collected by page_owner=on:
-> 
->     $ cat /sys/kernel/debug/page_owner
->     <oops>
-> 
->     CPU: 1 PID: 2074 Comm: cat Not tainted 5.12.0-rc4 #226
->     Hardware name: hp server rx3600, BIOS 04.03 04/08/2008
->     ip is at dereference_module_function_descriptor+0x41/0x100
-> 
-> Crash happens at dereference_module_function_descriptor() due to
-> use-after-free when dereferencing ".opd" section header.
-> 
-> All section headers are already freed after module is laoded
-> successfully.
-> 
-> To keep symbolizer working the change stores ".opd" address
-> and size after module is relocated to a new place and before
-> section headers are discarded.
-> 
-> To make similar errors less obscure module_finalize() now
-> zeroes out all variables relevant to module loading only.
+Supporting userspace code can be found in
+https://github.com/rgbriggs/audit-userspace/tree/ghau-openat2
 
-Typo: s/zeroes/zero/.
+Supporting test case can be found in
+https://github.com/linux-audit/audit-testsuite/pull/103
 
-Adrian
+Richard Guy Briggs (3):
+  audit: replace magic audit syscall class numbers with macros
+  audit: add support for the openat2 syscall
+  audit: add OPENAT2 record to list how
+
+ arch/alpha/kernel/audit.c          | 10 ++++++----
+ arch/ia64/kernel/audit.c           | 10 ++++++----
+ arch/parisc/kernel/audit.c         | 10 ++++++----
+ arch/parisc/kernel/compat_audit.c  | 11 +++++++----
+ arch/powerpc/kernel/audit.c        | 12 +++++++-----
+ arch/powerpc/kernel/compat_audit.c | 13 ++++++++-----
+ arch/s390/kernel/audit.c           | 12 +++++++-----
+ arch/s390/kernel/compat_audit.c    | 13 ++++++++-----
+ arch/sparc/kernel/audit.c          | 12 +++++++-----
+ arch/sparc/kernel/compat_audit.c   | 13 ++++++++-----
+ arch/x86/ia32/audit.c              | 13 ++++++++-----
+ arch/x86/kernel/audit_64.c         | 10 ++++++----
+ fs/open.c                          |  2 ++
+ include/linux/audit.h              | 11 +++++++++++
+ include/linux/auditscm.h           | 24 +++++++++++++++++++++++
+ include/uapi/linux/audit.h         |  1 +
+ kernel/audit.h                     |  2 ++
+ kernel/auditsc.c                   | 31 ++++++++++++++++++++++++------
+ lib/audit.c                        | 14 +++++++++-----
+ lib/compat_audit.c                 | 15 ++++++++++-----
+ 20 files changed, 168 insertions(+), 71 deletions(-)
+ create mode 100644 include/linux/auditscm.h
 
 -- 
- .''`.  John Paul Adrian Glaubitz
-: :' :  Debian Developer - glaubitz@debian.org
-`. `'   Freie Universitaet Berlin - glaubitz@physik.fu-berlin.de
-  `-    GPG: 62FF 8A75 84E0 2956 9546  0006 7426 3B37 F5B5 F913
+2.27.0
