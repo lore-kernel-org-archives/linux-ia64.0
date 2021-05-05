@@ -1,68 +1,127 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Wed, 26 May 2021 08:02:20 +0000
-Subject: [PATCH -tip v6 01/13] ia64: kprobes: Fix to pass correct trampoline address to the handler
-Message-Id: <162201614019.278331.4298879353454259298.stgit@devnote2>
+From: Sasha Levin <sashal@kernel.org>
+Date: Wed, 05 May 2021 16:31:18 +0000
+Subject: [PATCH AUTOSEL 5.12 110/116] ia64: module: fix symbolizer crash on fdescr
+Message-Id: <20210505163125.3460440-110-sashal@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <162201612941.278331.5293566981784464165.stgit@devnote2>
-In-Reply-To: <162201612941.278331.5293566981784464165.stgit@devnote2>
+References: <20210505163125.3460440-1-sashal@kernel.org>
+In-Reply-To: <20210505163125.3460440-1-sashal@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>
-Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, Josh Poimboeuf <jpoimboe@redhat.com>, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
+To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
+Cc: Sergei Trofimovich <slyfox@gentoo.org>, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, Sasha Levin <sashal@kernel.org>, linux-ia64@vger.kernel.org
 
-Commit e792ff804f49 ("ia64: kprobes: Use generic kretprobe trampoline handler")
-missed to pass the wrong trampoline address (it passes the descriptor address
-instead of function entry address).
-This fixes it to pass correct trampoline address to __kretprobe_trampoline_handler().
-This also changes to use correct symbol dereference function to get the
-function address from the kretprobe_trampoline.
+From: Sergei Trofimovich <slyfox@gentoo.org>
 
-Fixes: e792ff804f49 ("ia64: kprobes: Use generic kretprobe trampoline handler")
-Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
+[ Upstream commit 99e729bd40fb3272fa4b0140839d5e957b58588a ]
+
+Noticed failure as a crash on ia64 when tried to symbolize all backtraces
+collected by page_owner=on:
+
+    $ cat /sys/kernel/debug/page_owner
+    <oops>
+
+    CPU: 1 PID: 2074 Comm: cat Not tainted 5.12.0-rc4 #226
+    Hardware name: hp server rx3600, BIOS 04.03 04/08/2008
+    ip is at dereference_module_function_descriptor+0x41/0x100
+
+Crash happens at dereference_module_function_descriptor() due to
+use-after-free when dereferencing ".opd" section header.
+
+All section headers are already freed after module is laoded successfully.
+
+To keep symbolizer working the change stores ".opd" address and size after
+module is relocated to a new place and before section headers are
+discarded.
+
+To make similar errors less obscure module_finalize() now zeroes out all
+variables relevant to module loading only.
+
+Link: https://lkml.kernel.org/r/20210403074803.3309096-1-slyfox@gentoo.org
+Signed-off-by: Sergei Trofimovich <slyfox@gentoo.org>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
 ---
- Changes in v5:
-  - Fix a compile error typo.
----
- arch/ia64/kernel/kprobes.c |    9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
+ arch/ia64/include/asm/module.h |  6 +++++-
+ arch/ia64/kernel/module.c      | 29 +++++++++++++++++++++++++----
+ 2 files changed, 30 insertions(+), 5 deletions(-)
 
-diff --git a/arch/ia64/kernel/kprobes.c b/arch/ia64/kernel/kprobes.c
-index fc1ff8a4d7de..ca4b4fa45aef 100644
---- a/arch/ia64/kernel/kprobes.c
-+++ b/arch/ia64/kernel/kprobes.c
-@@ -398,7 +398,8 @@ static void kretprobe_trampoline(void)
+diff --git a/arch/ia64/include/asm/module.h b/arch/ia64/include/asm/module.h
+index 5a29652e6def..7271b9c5fc76 100644
+--- a/arch/ia64/include/asm/module.h
++++ b/arch/ia64/include/asm/module.h
+@@ -14,16 +14,20 @@
+ struct elf64_shdr;			/* forward declration */
  
- int __kprobes trampoline_probe_handler(struct kprobe *p, struct pt_regs *regs)
+ struct mod_arch_specific {
++	/* Used only at module load time. */
+ 	struct elf64_shdr *core_plt;	/* core PLT section */
+ 	struct elf64_shdr *init_plt;	/* init PLT section */
+ 	struct elf64_shdr *got;		/* global offset table */
+ 	struct elf64_shdr *opd;		/* official procedure descriptors */
+ 	struct elf64_shdr *unwind;	/* unwind-table section */
+ 	unsigned long gp;		/* global-pointer for module */
++	unsigned int next_got_entry;	/* index of next available got entry */
+ 
++	/* Used at module run and cleanup time. */
+ 	void *core_unw_table;		/* core unwind-table cookie returned by unwinder */
+ 	void *init_unw_table;		/* init unwind-table cookie returned by unwinder */
+-	unsigned int next_got_entry;	/* index of next available got entry */
++	void *opd_addr;			/* symbolize uses .opd to get to actual function */
++	unsigned long opd_size;
+ };
+ 
+ #define ARCH_SHF_SMALL	SHF_IA_64_SHORT
+diff --git a/arch/ia64/kernel/module.c b/arch/ia64/kernel/module.c
+index 00a496cb346f..2cba53c1da82 100644
+--- a/arch/ia64/kernel/module.c
++++ b/arch/ia64/kernel/module.c
+@@ -905,9 +905,31 @@ register_unwind_table (struct module *mod)
+ int
+ module_finalize (const Elf_Ehdr *hdr, const Elf_Shdr *sechdrs, struct module *mod)
  {
--	regs->cr_iip = __kretprobe_trampoline_handler(regs, kretprobe_trampoline, NULL);
-+	regs->cr_iip = __kretprobe_trampoline_handler(regs,
-+		dereference_function_descriptor(kretprobe_trampoline), NULL);
- 	/*
- 	 * By returning a non-zero value, we are telling
- 	 * kprobe_handler() that we don't want the post_handler
-@@ -414,7 +415,7 @@ void __kprobes arch_prepare_kretprobe(struct kretprobe_instance *ri,
- 	ri->fp = NULL;
- 
- 	/* Replace the return addr with trampoline addr */
--	regs->b0 = ((struct fnptr *)kretprobe_trampoline)->ip;
-+	regs->b0 = (unsigned long)dereference_function_descriptor(kretprobe_trampoline);
- }
- 
- /* Check the instruction in the slot is break */
-@@ -918,14 +919,14 @@ static struct kprobe trampoline_p = {
- int __init arch_init_kprobes(void)
- {
- 	trampoline_p.addr -		(kprobe_opcode_t *)((struct fnptr *)kretprobe_trampoline)->ip;
-+		dereference_function_descriptor(kretprobe_trampoline);
- 	return register_kprobe(&trampoline_p);
- }
- 
- int __kprobes arch_trampoline_kprobe(struct kprobe *p)
- {
- 	if (p->addr =
--		(kprobe_opcode_t *)((struct fnptr *)kretprobe_trampoline)->ip)
-+		dereference_function_descriptor(kretprobe_trampoline))
- 		return 1;
- 
++	struct mod_arch_specific *mas = &mod->arch;
++
+ 	DEBUGP("%s: init: entry=%p\n", __func__, mod->init);
+-	if (mod->arch.unwind)
++	if (mas->unwind)
+ 		register_unwind_table(mod);
++
++	/*
++	 * ".opd" was already relocated to the final destination. Store
++	 * it's address for use in symbolizer.
++	 */
++	mas->opd_addr = (void *)mas->opd->sh_addr;
++	mas->opd_size = mas->opd->sh_size;
++
++	/*
++	 * Module relocation was already done at this point. Section
++	 * headers are about to be deleted. Wipe out load-time context.
++	 */
++	mas->core_plt = NULL;
++	mas->init_plt = NULL;
++	mas->got = NULL;
++	mas->opd = NULL;
++	mas->unwind = NULL;
++	mas->gp = 0;
++	mas->next_got_entry = 0;
++
  	return 0;
+ }
+ 
+@@ -926,10 +948,9 @@ module_arch_cleanup (struct module *mod)
+ 
+ void *dereference_module_function_descriptor(struct module *mod, void *ptr)
+ {
+-	Elf64_Shdr *opd = mod->arch.opd;
++	struct mod_arch_specific *mas = &mod->arch;
+ 
+-	if (ptr < (void *)opd->sh_addr ||
+-			ptr >= (void *)(opd->sh_addr + opd->sh_size))
++	if (ptr < mas->opd_addr || ptr >= mas->opd_addr + mas->opd_size)
+ 		return ptr;
+ 
+ 	return dereference_function_descriptor(ptr);
+-- 
+2.30.2
