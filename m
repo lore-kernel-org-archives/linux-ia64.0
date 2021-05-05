@@ -1,98 +1,127 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Thu, 27 May 2021 06:40:39 +0000
-Subject: [PATCH -tip v7 10/13] x86/kprobes: Push a fake return address at kretprobe_trampoline
-Message-Id: <162209763886.436794.6585363781863933939.stgit@devnote2>
+From: Sasha Levin <sashal@kernel.org>
+Date: Wed, 05 May 2021 16:40:04 +0000
+Subject: [PATCH AUTOSEL 4.19 32/32] ia64: module: fix symbolizer crash on fdescr
+Message-Id: <20210505164004.3463707-32-sashal@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <162209754288.436794.3904335049560916855.stgit@devnote2>
-In-Reply-To: <162209754288.436794.3904335049560916855.stgit@devnote2>
+References: <20210505164004.3463707-1-sashal@kernel.org>
+In-Reply-To: <20210505164004.3463707-1-sashal@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>
-Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, Josh Poimboeuf <jpoimboe@redhat.com>, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
+To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
+Cc: Sergei Trofimovich <slyfox@gentoo.org>, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, Sasha Levin <sashal@kernel.org>, linux-ia64@vger.kernel.org
 
-This changes x86/kretprobe stack frame on kretprobe_trampoline
-a bit, which now push the kretprobe_trampoline as a fake return
-address at the bottom of the stack frame. With this fix, the ORC
-unwinder will see the kretprobe_trampoline as a return address.
+From: Sergei Trofimovich <slyfox@gentoo.org>
 
-Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
-Suggested-by: Josh Poimboeuf <jpoimboe@redhat.com>
-Tested-by: Andrii Nakryik <andrii@kernel.org>
+[ Upstream commit 99e729bd40fb3272fa4b0140839d5e957b58588a ]
+
+Noticed failure as a crash on ia64 when tried to symbolize all backtraces
+collected by page_owner=on:
+
+    $ cat /sys/kernel/debug/page_owner
+    <oops>
+
+    CPU: 1 PID: 2074 Comm: cat Not tainted 5.12.0-rc4 #226
+    Hardware name: hp server rx3600, BIOS 04.03 04/08/2008
+    ip is at dereference_module_function_descriptor+0x41/0x100
+
+Crash happens at dereference_module_function_descriptor() due to
+use-after-free when dereferencing ".opd" section header.
+
+All section headers are already freed after module is laoded successfully.
+
+To keep symbolizer working the change stores ".opd" address and size after
+module is relocated to a new place and before section headers are
+discarded.
+
+To make similar errors less obscure module_finalize() now zeroes out all
+variables relevant to module loading only.
+
+Link: https://lkml.kernel.org/r/20210403074803.3309096-1-slyfox@gentoo.org
+Signed-off-by: Sergei Trofimovich <slyfox@gentoo.org>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
 ---
- arch/x86/kernel/kprobes/core.c |   31 ++++++++++++++++++++++---------
- 1 file changed, 22 insertions(+), 9 deletions(-)
+ arch/ia64/include/asm/module.h |  6 +++++-
+ arch/ia64/kernel/module.c      | 29 +++++++++++++++++++++++++----
+ 2 files changed, 30 insertions(+), 5 deletions(-)
 
-diff --git a/arch/x86/kernel/kprobes/core.c b/arch/x86/kernel/kprobes/core.c
-index 9a6763fd066e..4f3567a9974f 100644
---- a/arch/x86/kernel/kprobes/core.c
-+++ b/arch/x86/kernel/kprobes/core.c
-@@ -1041,28 +1041,31 @@ asm(
- 	".global kretprobe_trampoline\n"
- 	".type kretprobe_trampoline, @function\n"
- 	"kretprobe_trampoline:\n"
--	/* We don't bother saving the ss register */
- #ifdef CONFIG_X86_64
--	"	pushq %rsp\n"
-+	/* Push fake return address to tell the unwinder it's a kretprobe */
-+	"	pushq $kretprobe_trampoline\n"
- 	UNWIND_HINT_FUNC
-+	/* Save the sp-8, this will be fixed later */
-+	"	pushq %rsp\n"
- 	"	pushfq\n"
- 	SAVE_REGS_STRING
- 	"	movq %rsp, %rdi\n"
- 	"	call trampoline_handler\n"
--	/* Replace saved sp with true return address. */
--	"	movq %rax, 19*8(%rsp)\n"
- 	RESTORE_REGS_STRING
-+	"	addq $8, %rsp\n"
- 	"	popfq\n"
- #else
--	"	pushl %esp\n"
-+	/* Push fake return address to tell the unwinder it's a kretprobe */
-+	"	pushl $kretprobe_trampoline\n"
- 	UNWIND_HINT_FUNC
-+	/* Save the sp-4, this will be fixed later */
-+	"	pushl %esp\n"
- 	"	pushfl\n"
- 	SAVE_REGS_STRING
- 	"	movl %esp, %eax\n"
- 	"	call trampoline_handler\n"
--	/* Replace saved sp with true return address. */
--	"	movl %eax, 15*4(%esp)\n"
- 	RESTORE_REGS_STRING
-+	"	addl $4, %esp\n"
- 	"	popfl\n"
- #endif
- 	"	ret\n"
-@@ -1073,8 +1076,10 @@ NOKPROBE_SYMBOL(kretprobe_trampoline);
- /*
-  * Called from kretprobe_trampoline
-  */
--__used __visible void *trampoline_handler(struct pt_regs *regs)
-+__used __visible void trampoline_handler(struct pt_regs *regs)
+diff --git a/arch/ia64/include/asm/module.h b/arch/ia64/include/asm/module.h
+index f319144260ce..9fbf32e6e881 100644
+--- a/arch/ia64/include/asm/module.h
++++ b/arch/ia64/include/asm/module.h
+@@ -14,16 +14,20 @@
+ struct elf64_shdr;			/* forward declration */
+ 
+ struct mod_arch_specific {
++	/* Used only at module load time. */
+ 	struct elf64_shdr *core_plt;	/* core PLT section */
+ 	struct elf64_shdr *init_plt;	/* init PLT section */
+ 	struct elf64_shdr *got;		/* global offset table */
+ 	struct elf64_shdr *opd;		/* official procedure descriptors */
+ 	struct elf64_shdr *unwind;	/* unwind-table section */
+ 	unsigned long gp;		/* global-pointer for module */
++	unsigned int next_got_entry;	/* index of next available got entry */
+ 
++	/* Used at module run and cleanup time. */
+ 	void *core_unw_table;		/* core unwind-table cookie returned by unwinder */
+ 	void *init_unw_table;		/* init unwind-table cookie returned by unwinder */
+-	unsigned int next_got_entry;	/* index of next available got entry */
++	void *opd_addr;			/* symbolize uses .opd to get to actual function */
++	unsigned long opd_size;
+ };
+ 
+ #define MODULE_PROC_FAMILY	"ia64"
+diff --git a/arch/ia64/kernel/module.c b/arch/ia64/kernel/module.c
+index 1a42ba885188..ee693c8cec49 100644
+--- a/arch/ia64/kernel/module.c
++++ b/arch/ia64/kernel/module.c
+@@ -905,9 +905,31 @@ register_unwind_table (struct module *mod)
+ int
+ module_finalize (const Elf_Ehdr *hdr, const Elf_Shdr *sechdrs, struct module *mod)
  {
-+	unsigned long *frame_pointer;
++	struct mod_arch_specific *mas = &mod->arch;
 +
- 	/* fixup registers */
- 	regs->cs = __KERNEL_CS;
- #ifdef CONFIG_X86_32
-@@ -1082,8 +1087,16 @@ __used __visible void *trampoline_handler(struct pt_regs *regs)
- #endif
- 	regs->ip = (unsigned long)&kretprobe_trampoline;
- 	regs->orig_ax = ~0UL;
-+	regs->sp += sizeof(long);
-+	frame_pointer = ((unsigned long *)&regs->sp) + 1;
- 
--	return (void *)kretprobe_trampoline_handler(regs, &regs->sp);
-+	/* Replace fake return address with real one. */
-+	*frame_pointer = kretprobe_trampoline_handler(regs, frame_pointer);
+ 	DEBUGP("%s: init: entry=%p\n", __func__, mod->init);
+-	if (mod->arch.unwind)
++	if (mas->unwind)
+ 		register_unwind_table(mod);
++
 +	/*
-+	 * Move flags to sp so that kretprobe_trapmoline can return
-+	 * right after popf.
++	 * ".opd" was already relocated to the final destination. Store
++	 * it's address for use in symbolizer.
 +	 */
-+	regs->sp = regs->flags;
++	mas->opd_addr = (void *)mas->opd->sh_addr;
++	mas->opd_size = mas->opd->sh_size;
++
++	/*
++	 * Module relocation was already done at this point. Section
++	 * headers are about to be deleted. Wipe out load-time context.
++	 */
++	mas->core_plt = NULL;
++	mas->init_plt = NULL;
++	mas->got = NULL;
++	mas->opd = NULL;
++	mas->unwind = NULL;
++	mas->gp = 0;
++	mas->next_got_entry = 0;
++
+ 	return 0;
  }
- NOKPROBE_SYMBOL(trampoline_handler);
  
+@@ -926,10 +948,9 @@ module_arch_cleanup (struct module *mod)
+ 
+ void *dereference_module_function_descriptor(struct module *mod, void *ptr)
+ {
+-	Elf64_Shdr *opd = mod->arch.opd;
++	struct mod_arch_specific *mas = &mod->arch;
+ 
+-	if (ptr < (void *)opd->sh_addr ||
+-			ptr >= (void *)(opd->sh_addr + opd->sh_size))
++	if (ptr < mas->opd_addr || ptr >= mas->opd_addr + mas->opd_size)
+ 		return ptr;
+ 
+ 	return dereference_function_descriptor(ptr);
+-- 
+2.30.2
