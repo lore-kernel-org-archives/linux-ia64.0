@@ -1,171 +1,127 @@
-From: Zi Yan <zi.yan@sent.com>
-Date: Thu, 06 May 2021 15:26:18 +0000
-Subject: [RFC PATCH 2/7] mm: set pageblock_order to the max of HUGETLB_PAGE_ORDER and MAX_ORDER-1
-Message-Id: <20210506152623.178731-3-zi.yan@sent.com>
+From: Sasha Levin <sashal@kernel.org>
+Date: Wed, 05 May 2021 16:34:09 +0000
+Subject: [PATCH AUTOSEL 5.11 100/104] ia64: module: fix symbolizer crash on fdescr
+Message-Id: <20210505163413.3461611-100-sashal@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210506152623.178731-1-zi.yan@sent.com>
-In-Reply-To: <20210506152623.178731-1-zi.yan@sent.com>
+References: <20210505163413.3461611-1-sashal@kernel.org>
+In-Reply-To: <20210505163413.3461611-1-sashal@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Hildenbrand <david@redhat.com>, Oscar Salvador <osalvador@suse.de>
-Cc: Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Thomas Gleixner <tglx@linutronix.de>, x86@kernel.org, Andy Lutomirski <luto@kernel.org>, "Rafael J . Wysocki" <rafael@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Mike Rapoport <rppt@kernel.org>, Anshuman Khandual <anshuman.khandual@arm.com>, Michal Hocko <mhocko@suse.com>, Dan Williams <dan.j.williams@intel.com>, Wei Yang <richard.weiyang@linux.alibaba.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-mm@kvack.org, Zi Yan <ziy@nvidia.com>
+To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
+Cc: Sergei Trofimovich <slyfox@gentoo.org>, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, Sasha Levin <sashal@kernel.org>, linux-ia64@vger.kernel.org
 
-From: Zi Yan <ziy@nvidia.com>
+From: Sergei Trofimovich <slyfox@gentoo.org>
 
-As MAX_ORDER can be increased to larger than hugetlb page orders,
-pageblock_order will be limited at HUGETLB_PAGE_ORDER. It is not
-ideal for anti-fragmentation for allocating pages from buddy allocator
-with MAX_ORDER > HUGETLB_PAGE_ORDER. Make pageblock_order a variable and
-set it to the max of HUGETLB_PAGE_ORDER, MAX_ORDER - 1.
+[ Upstream commit 99e729bd40fb3272fa4b0140839d5e957b58588a ]
 
-Remove HUGETLB_PAGE_SIZE_VARIABLE as HUGETLB_PAGE does the same thing
-now.
+Noticed failure as a crash on ia64 when tried to symbolize all backtraces
+collected by page_owner=on:
 
-Export pageblock_order since virtio-mem module needs it.
+    $ cat /sys/kernel/debug/page_owner
+    <oops>
 
-Signed-off-by: Zi Yan <ziy@nvidia.com>
+    CPU: 1 PID: 2074 Comm: cat Not tainted 5.12.0-rc4 #226
+    Hardware name: hp server rx3600, BIOS 04.03 04/08/2008
+    ip is at dereference_module_function_descriptor+0x41/0x100
+
+Crash happens at dereference_module_function_descriptor() due to
+use-after-free when dereferencing ".opd" section header.
+
+All section headers are already freed after module is laoded successfully.
+
+To keep symbolizer working the change stores ".opd" address and size after
+module is relocated to a new place and before section headers are
+discarded.
+
+To make similar errors less obscure module_finalize() now zeroes out all
+variables relevant to module loading only.
+
+Link: https://lkml.kernel.org/r/20210403074803.3309096-1-slyfox@gentoo.org
+Signed-off-by: Sergei Trofimovich <slyfox@gentoo.org>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
 ---
- arch/ia64/Kconfig               |  1 -
- arch/powerpc/Kconfig            |  1 -
- include/linux/pageblock-flags.h |  9 ---------
- mm/Kconfig                      |  7 -------
- mm/page_alloc.c                 | 13 +++++++------
- mm/sparse.c                     |  2 +-
- 6 files changed, 8 insertions(+), 25 deletions(-)
+ arch/ia64/include/asm/module.h |  6 +++++-
+ arch/ia64/kernel/module.c      | 29 +++++++++++++++++++++++++----
+ 2 files changed, 30 insertions(+), 5 deletions(-)
 
-diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-index 279252e3e0f7..c6a150cde668 100644
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -34,7 +34,6 @@ config IA64
- 	select TTY
- 	select HAVE_ARCH_TRACEHOOK
- 	select HAVE_VIRT_CPU_ACCOUNTING
--	select HUGETLB_PAGE_SIZE_VARIABLE if HUGETLB_PAGE
- 	select VIRT_TO_BUS
- 	select GENERIC_IRQ_PROBE
- 	select GENERIC_PENDING_IRQ if SMP
-diff --git a/arch/powerpc/Kconfig b/arch/powerpc/Kconfig
-index 8926461d25b2..9f27c131ed45 100644
---- a/arch/powerpc/Kconfig
-+++ b/arch/powerpc/Kconfig
-@@ -238,7 +238,6 @@ config PPC
- 	select HAVE_HARDLOCKUP_DETECTOR_PERF	if PERF_EVENTS && HAVE_PERF_EVENTS_NMI && !HAVE_HARDLOCKUP_DETECTOR_ARCH
- 	select HAVE_PERF_REGS
- 	select HAVE_PERF_USER_STACK_DUMP
--	select HUGETLB_PAGE_SIZE_VARIABLE	if PPC_BOOK3S_64 && HUGETLB_PAGE
- 	select MMU_GATHER_RCU_TABLE_FREE
- 	select MMU_GATHER_PAGE_SIZE
- 	select HAVE_REGS_AND_STACK_ACCESS_API
-diff --git a/include/linux/pageblock-flags.h b/include/linux/pageblock-flags.h
-index fff52ad370c1..efab85e2ae1c 100644
---- a/include/linux/pageblock-flags.h
-+++ b/include/linux/pageblock-flags.h
-@@ -30,18 +30,9 @@ enum pageblock_bits {
+diff --git a/arch/ia64/include/asm/module.h b/arch/ia64/include/asm/module.h
+index 5a29652e6def..7271b9c5fc76 100644
+--- a/arch/ia64/include/asm/module.h
++++ b/arch/ia64/include/asm/module.h
+@@ -14,16 +14,20 @@
+ struct elf64_shdr;			/* forward declration */
  
- #ifdef CONFIG_HUGETLB_PAGE
+ struct mod_arch_specific {
++	/* Used only at module load time. */
+ 	struct elf64_shdr *core_plt;	/* core PLT section */
+ 	struct elf64_shdr *init_plt;	/* init PLT section */
+ 	struct elf64_shdr *got;		/* global offset table */
+ 	struct elf64_shdr *opd;		/* official procedure descriptors */
+ 	struct elf64_shdr *unwind;	/* unwind-table section */
+ 	unsigned long gp;		/* global-pointer for module */
++	unsigned int next_got_entry;	/* index of next available got entry */
  
--#ifdef CONFIG_HUGETLB_PAGE_SIZE_VARIABLE
--
- /* Huge page sizes are variable */
- extern unsigned int pageblock_order;
++	/* Used at module run and cleanup time. */
+ 	void *core_unw_table;		/* core unwind-table cookie returned by unwinder */
+ 	void *init_unw_table;		/* init unwind-table cookie returned by unwinder */
+-	unsigned int next_got_entry;	/* index of next available got entry */
++	void *opd_addr;			/* symbolize uses .opd to get to actual function */
++	unsigned long opd_size;
+ };
  
--#else /* CONFIG_HUGETLB_PAGE_SIZE_VARIABLE */
--
--/* Huge pages are a constant size */
--#define pageblock_order		HUGETLB_PAGE_ORDER
--
--#endif /* CONFIG_HUGETLB_PAGE_SIZE_VARIABLE */
--
- #else /* CONFIG_HUGETLB_PAGE */
- 
- /* If huge pages are not used, group by MAX_ORDER_NR_PAGES */
-diff --git a/mm/Kconfig b/mm/Kconfig
-index a8a367c30053..3466c3d09295 100644
---- a/mm/Kconfig
-+++ b/mm/Kconfig
-@@ -284,13 +284,6 @@ config ARCH_ENABLE_HUGEPAGE_MIGRATION
- config ARCH_ENABLE_THP_MIGRATION
- 	bool
- 
--config HUGETLB_PAGE_SIZE_VARIABLE
--	def_bool n
--	help
--	  Allows the pageblock_order value to be dynamic instead of just standard
--	  HUGETLB_PAGE_ORDER when there are multiple HugeTLB page sizes available
--	  on a platform.
--
- config CONTIG_ALLOC
- 	def_bool (MEMORY_ISOLATION && COMPACTION) || CMA
- 
-diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-index a2fe714aed93..72bb4a300e03 100644
---- a/mm/page_alloc.c
-+++ b/mm/page_alloc.c
-@@ -256,8 +256,9 @@ bool pm_suspended_storage(void)
- }
- #endif /* CONFIG_PM_SLEEP */
- 
--#ifdef CONFIG_HUGETLB_PAGE_SIZE_VARIABLE
-+#ifdef CONFIG_HUGETLB_PAGE
- unsigned int pageblock_order __read_mostly;
-+EXPORT_SYMBOL_GPL(pageblock_order);
- #endif
- 
- static void __free_pages_ok(struct page *page, unsigned int order,
-@@ -7057,7 +7058,7 @@ static void __ref setup_usemap(struct zone *zone)
- static inline void setup_usemap(struct zone *zone) {}
- #endif /* CONFIG_SPARSEMEM */
- 
--#ifdef CONFIG_HUGETLB_PAGE_SIZE_VARIABLE
-+#ifdef CONFIG_HUGETLB_PAGE
- 
- /* Initialise the number of pages represented by NR_PAGEBLOCK_BITS */
- void __init set_pageblock_order(void)
-@@ -7068,7 +7069,7 @@ void __init set_pageblock_order(void)
- 	if (pageblock_order)
- 		return;
- 
--	if (HPAGE_SHIFT > PAGE_SHIFT)
-+	if ((HPAGE_SHIFT > PAGE_SHIFT) && (HUGETLB_PAGE_ORDER > (MAX_ORDER - 1)))
- 		order = HUGETLB_PAGE_ORDER;
- 	else
- 		order = MAX_ORDER - 1;
-@@ -7080,10 +7081,10 @@ void __init set_pageblock_order(void)
- 	 */
- 	pageblock_order = order;
- }
--#else /* CONFIG_HUGETLB_PAGE_SIZE_VARIABLE */
-+#else /* CONFIG_HUGETLB_PAGE */
- 
- /*
-- * When CONFIG_HUGETLB_PAGE_SIZE_VARIABLE is not set, set_pageblock_order()
-+ * When CONFIG_HUGETLB_PAGE is not set, set_pageblock_order()
-  * is unused as pageblock_order is set at compile-time. See
-  * include/linux/pageblock-flags.h for the values of pageblock_order based on
-  * the kernel config
-@@ -7092,7 +7093,7 @@ void __init set_pageblock_order(void)
+ #define ARCH_SHF_SMALL	SHF_IA_64_SHORT
+diff --git a/arch/ia64/kernel/module.c b/arch/ia64/kernel/module.c
+index 00a496cb346f..2cba53c1da82 100644
+--- a/arch/ia64/kernel/module.c
++++ b/arch/ia64/kernel/module.c
+@@ -905,9 +905,31 @@ register_unwind_table (struct module *mod)
+ int
+ module_finalize (const Elf_Ehdr *hdr, const Elf_Shdr *sechdrs, struct module *mod)
  {
++	struct mod_arch_specific *mas = &mod->arch;
++
+ 	DEBUGP("%s: init: entry=%p\n", __func__, mod->init);
+-	if (mod->arch.unwind)
++	if (mas->unwind)
+ 		register_unwind_table(mod);
++
++	/*
++	 * ".opd" was already relocated to the final destination. Store
++	 * it's address for use in symbolizer.
++	 */
++	mas->opd_addr = (void *)mas->opd->sh_addr;
++	mas->opd_size = mas->opd->sh_size;
++
++	/*
++	 * Module relocation was already done at this point. Section
++	 * headers are about to be deleted. Wipe out load-time context.
++	 */
++	mas->core_plt = NULL;
++	mas->init_plt = NULL;
++	mas->got = NULL;
++	mas->opd = NULL;
++	mas->unwind = NULL;
++	mas->gp = 0;
++	mas->next_got_entry = 0;
++
+ 	return 0;
  }
  
--#endif /* CONFIG_HUGETLB_PAGE_SIZE_VARIABLE */
-+#endif /* CONFIG_HUGETLB_PAGE */
+@@ -926,10 +948,9 @@ module_arch_cleanup (struct module *mod)
  
- static unsigned long __init calc_memmap_size(unsigned long spanned_pages,
- 						unsigned long present_pages)
-diff --git a/mm/sparse.c b/mm/sparse.c
-index 7637208b8874..1c2957807882 100644
---- a/mm/sparse.c
-+++ b/mm/sparse.c
-@@ -583,7 +583,7 @@ void __init sparse_init(void)
- 	pnum_begin = first_present_section_nr();
- 	nid_begin = sparse_early_nid(__nr_to_section(pnum_begin));
+ void *dereference_module_function_descriptor(struct module *mod, void *ptr)
+ {
+-	Elf64_Shdr *opd = mod->arch.opd;
++	struct mod_arch_specific *mas = &mod->arch;
  
--	/* Setup pageblock_order for HUGETLB_PAGE_SIZE_VARIABLE */
-+	/* Setup pageblock_order for HUGETLB_PAGE */
- 	set_pageblock_order();
+-	if (ptr < (void *)opd->sh_addr ||
+-			ptr >= (void *)(opd->sh_addr + opd->sh_size))
++	if (ptr < mas->opd_addr || ptr >= mas->opd_addr + mas->opd_size)
+ 		return ptr;
  
- 	for_each_present_section_nr(pnum_begin + 1, pnum_end) {
+ 	return dereference_function_descriptor(ptr);
 -- 
 2.30.2
