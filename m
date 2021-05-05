@@ -1,125 +1,127 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Wed, 26 May 2021 08:02:30 +0000
-Subject: [PATCH -tip v6 02/13] kprobes: treewide: Replace arch_deref_entry_point() with dereference_symbol_de
-Message-Id: <162201615027.278331.16343511342536245353.stgit@devnote2>
+From: Sasha Levin <sashal@kernel.org>
+Date: Wed, 05 May 2021 16:36:44 +0000
+Subject: [PATCH AUTOSEL 5.10 81/85] ia64: module: fix symbolizer crash on fdescr
+Message-Id: <20210505163648.3462507-81-sashal@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <162201612941.278331.5293566981784464165.stgit@devnote2>
-In-Reply-To: <162201612941.278331.5293566981784464165.stgit@devnote2>
+References: <20210505163648.3462507-1-sashal@kernel.org>
+In-Reply-To: <20210505163648.3462507-1-sashal@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>
-Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, Josh Poimboeuf <jpoimboe@redhat.com>, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
+To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
+Cc: Sergei Trofimovich <slyfox@gentoo.org>, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, Sasha Levin <sashal@kernel.org>, linux-ia64@vger.kernel.org
 
-Replace arch_deref_entry_point() with dereference_symbol_descriptor()
-because those are doing same thing.
+From: Sergei Trofimovich <slyfox@gentoo.org>
 
-Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
+[ Upstream commit 99e729bd40fb3272fa4b0140839d5e957b58588a ]
+
+Noticed failure as a crash on ia64 when tried to symbolize all backtraces
+collected by page_owner=on:
+
+    $ cat /sys/kernel/debug/page_owner
+    <oops>
+
+    CPU: 1 PID: 2074 Comm: cat Not tainted 5.12.0-rc4 #226
+    Hardware name: hp server rx3600, BIOS 04.03 04/08/2008
+    ip is at dereference_module_function_descriptor+0x41/0x100
+
+Crash happens at dereference_module_function_descriptor() due to
+use-after-free when dereferencing ".opd" section header.
+
+All section headers are already freed after module is laoded successfully.
+
+To keep symbolizer working the change stores ".opd" address and size after
+module is relocated to a new place and before section headers are
+discarded.
+
+To make similar errors less obscure module_finalize() now zeroes out all
+variables relevant to module loading only.
+
+Link: https://lkml.kernel.org/r/20210403074803.3309096-1-slyfox@gentoo.org
+Signed-off-by: Sergei Trofimovich <slyfox@gentoo.org>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+Signed-off-by: Sasha Levin <sashal@kernel.org>
 ---
- Changes in v6:
-  - Use dereference_symbol_descriptor() so that it can handle address in
-    modules correctly.
----
- arch/ia64/kernel/kprobes.c    |    5 -----
- arch/powerpc/kernel/kprobes.c |   11 -----------
- include/linux/kprobes.h       |    1 -
- kernel/kprobes.c              |    7 +------
- lib/error-inject.c            |    3 ++-
- 5 files changed, 3 insertions(+), 24 deletions(-)
+ arch/ia64/include/asm/module.h |  6 +++++-
+ arch/ia64/kernel/module.c      | 29 +++++++++++++++++++++++++----
+ 2 files changed, 30 insertions(+), 5 deletions(-)
 
-diff --git a/arch/ia64/kernel/kprobes.c b/arch/ia64/kernel/kprobes.c
-index ca4b4fa45aef..eaf3c734719b 100644
---- a/arch/ia64/kernel/kprobes.c
-+++ b/arch/ia64/kernel/kprobes.c
-@@ -907,11 +907,6 @@ int __kprobes kprobe_exceptions_notify(struct notifier_block *self,
- 	return ret;
- }
+diff --git a/arch/ia64/include/asm/module.h b/arch/ia64/include/asm/module.h
+index 5a29652e6def..7271b9c5fc76 100644
+--- a/arch/ia64/include/asm/module.h
++++ b/arch/ia64/include/asm/module.h
+@@ -14,16 +14,20 @@
+ struct elf64_shdr;			/* forward declration */
  
--unsigned long arch_deref_entry_point(void *entry)
--{
--	return ((struct fnptr *)entry)->ip;
--}
--
- static struct kprobe trampoline_p = {
- 	.pre_handler = trampoline_probe_handler
- };
-diff --git a/arch/powerpc/kernel/kprobes.c b/arch/powerpc/kernel/kprobes.c
-index 01ab2163659e..eb0460949e1b 100644
---- a/arch/powerpc/kernel/kprobes.c
-+++ b/arch/powerpc/kernel/kprobes.c
-@@ -539,17 +539,6 @@ int kprobe_fault_handler(struct pt_regs *regs, int trapnr)
- }
- NOKPROBE_SYMBOL(kprobe_fault_handler);
+ struct mod_arch_specific {
++	/* Used only at module load time. */
+ 	struct elf64_shdr *core_plt;	/* core PLT section */
+ 	struct elf64_shdr *init_plt;	/* init PLT section */
+ 	struct elf64_shdr *got;		/* global offset table */
+ 	struct elf64_shdr *opd;		/* official procedure descriptors */
+ 	struct elf64_shdr *unwind;	/* unwind-table section */
+ 	unsigned long gp;		/* global-pointer for module */
++	unsigned int next_got_entry;	/* index of next available got entry */
  
--unsigned long arch_deref_entry_point(void *entry)
--{
--#ifdef PPC64_ELF_ABI_v1
--	if (!kernel_text_address((unsigned long)entry))
--		return ppc_global_function_entry(entry);
--	else
--#endif
--		return (unsigned long)entry;
--}
--NOKPROBE_SYMBOL(arch_deref_entry_point);
--
- static struct kprobe trampoline_p = {
- 	.addr = (kprobe_opcode_t *) &kretprobe_trampoline,
- 	.pre_handler = trampoline_probe_handler
-diff --git a/include/linux/kprobes.h b/include/linux/kprobes.h
-index 1883a4a9f16a..d65c041b5c22 100644
---- a/include/linux/kprobes.h
-+++ b/include/linux/kprobes.h
-@@ -390,7 +390,6 @@ int register_kprobe(struct kprobe *p);
- void unregister_kprobe(struct kprobe *p);
- int register_kprobes(struct kprobe **kps, int num);
- void unregister_kprobes(struct kprobe **kps, int num);
--unsigned long arch_deref_entry_point(void *);
- 
- int register_kretprobe(struct kretprobe *rp);
- void unregister_kretprobe(struct kretprobe *rp);
-diff --git a/kernel/kprobes.c b/kernel/kprobes.c
-index 745f08fdd7a6..b2bb572173d4 100644
---- a/kernel/kprobes.c
-+++ b/kernel/kprobes.c
-@@ -1856,11 +1856,6 @@ static struct notifier_block kprobe_exceptions_nb = {
- 	.priority = 0x7fffffff /* we need to be notified first */
++	/* Used at module run and cleanup time. */
+ 	void *core_unw_table;		/* core unwind-table cookie returned by unwinder */
+ 	void *init_unw_table;		/* init unwind-table cookie returned by unwinder */
+-	unsigned int next_got_entry;	/* index of next available got entry */
++	void *opd_addr;			/* symbolize uses .opd to get to actual function */
++	unsigned long opd_size;
  };
  
--unsigned long __weak arch_deref_entry_point(void *entry)
--{
--	return (unsigned long)entry;
--}
--
- #ifdef CONFIG_KRETPROBES
+ #define ARCH_SHF_SMALL	SHF_IA_64_SHORT
+diff --git a/arch/ia64/kernel/module.c b/arch/ia64/kernel/module.c
+index 00a496cb346f..2cba53c1da82 100644
+--- a/arch/ia64/kernel/module.c
++++ b/arch/ia64/kernel/module.c
+@@ -905,9 +905,31 @@ register_unwind_table (struct module *mod)
+ int
+ module_finalize (const Elf_Ehdr *hdr, const Elf_Shdr *sechdrs, struct module *mod)
+ {
++	struct mod_arch_specific *mas = &mod->arch;
++
+ 	DEBUGP("%s: init: entry=%p\n", __func__, mod->init);
+-	if (mod->arch.unwind)
++	if (mas->unwind)
+ 		register_unwind_table(mod);
++
++	/*
++	 * ".opd" was already relocated to the final destination. Store
++	 * it's address for use in symbolizer.
++	 */
++	mas->opd_addr = (void *)mas->opd->sh_addr;
++	mas->opd_size = mas->opd->sh_size;
++
++	/*
++	 * Module relocation was already done at this point. Section
++	 * headers are about to be deleted. Wipe out load-time context.
++	 */
++	mas->core_plt = NULL;
++	mas->init_plt = NULL;
++	mas->got = NULL;
++	mas->opd = NULL;
++	mas->unwind = NULL;
++	mas->gp = 0;
++	mas->next_got_entry = 0;
++
+ 	return 0;
+ }
  
- unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
-@@ -2324,7 +2319,7 @@ static int __init populate_kprobe_blacklist(unsigned long *start,
- 	int ret;
+@@ -926,10 +948,9 @@ module_arch_cleanup (struct module *mod)
  
- 	for (iter = start; iter < end; iter++) {
--		entry = arch_deref_entry_point((void *)*iter);
-+		entry = (unsigned long)dereference_symbol_descriptor((void *)*iter);
- 		ret = kprobe_add_ksym_blacklist(entry);
- 		if (ret = -EINVAL)
- 			continue;
-diff --git a/lib/error-inject.c b/lib/error-inject.c
-index c73651b15b76..2ff5ef689d72 100644
---- a/lib/error-inject.c
-+++ b/lib/error-inject.c
-@@ -8,6 +8,7 @@
- #include <linux/mutex.h>
- #include <linux/list.h>
- #include <linux/slab.h>
-+#include <asm/sections.h>
+ void *dereference_module_function_descriptor(struct module *mod, void *ptr)
+ {
+-	Elf64_Shdr *opd = mod->arch.opd;
++	struct mod_arch_specific *mas = &mod->arch;
  
- /* Whitelist of symbols that can be overridden for error injection. */
- static LIST_HEAD(error_injection_list);
-@@ -64,7 +65,7 @@ static void populate_error_injection_list(struct error_injection_entry *start,
+-	if (ptr < (void *)opd->sh_addr ||
+-			ptr >= (void *)(opd->sh_addr + opd->sh_size))
++	if (ptr < mas->opd_addr || ptr >= mas->opd_addr + mas->opd_size)
+ 		return ptr;
  
- 	mutex_lock(&ei_mutex);
- 	for (iter = start; iter < end; iter++) {
--		entry = arch_deref_entry_point((void *)iter->addr);
-+		entry = (unsigned long)dereference_symbol_descriptor((void *)iter->addr);
- 
- 		if (!kernel_text_address(entry) ||
- 		    !kallsyms_lookup_size_offset(entry, &size, &offset)) {
+ 	return dereference_function_descriptor(ptr);
+-- 
+2.30.2
