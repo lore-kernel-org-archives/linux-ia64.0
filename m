@@ -1,10 +1,10 @@
 From: Sasha Levin <sashal@kernel.org>
-Date: Wed, 05 May 2021 16:34:09 +0000
-Subject: [PATCH AUTOSEL 5.11 100/104] ia64: module: fix symbolizer crash on fdescr
-Message-Id: <20210505163413.3461611-100-sashal@kernel.org>
+Date: Wed, 05 May 2021 16:38:56 +0000
+Subject: [PATCH AUTOSEL 5.4 46/46] ia64: module: fix symbolizer crash on fdescr
+Message-Id: <20210505163856.3463279-46-sashal@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210505163413.3461611-1-sashal@kernel.org>
-In-Reply-To: <20210505163413.3461611-1-sashal@kernel.org>
+References: <20210505163856.3463279-1-sashal@kernel.org>
+In-Reply-To: <20210505163856.3463279-1-sashal@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -48,7 +48,7 @@ Signed-off-by: Sasha Levin <sashal@kernel.org>
  2 files changed, 30 insertions(+), 5 deletions(-)
 
 diff --git a/arch/ia64/include/asm/module.h b/arch/ia64/include/asm/module.h
-index 5a29652e6def..7271b9c5fc76 100644
+index f319144260ce..9fbf32e6e881 100644
 --- a/arch/ia64/include/asm/module.h
 +++ b/arch/ia64/include/asm/module.h
 @@ -14,16 +14,20 @@
@@ -72,9 +72,9 @@ index 5a29652e6def..7271b9c5fc76 100644
 +	unsigned long opd_size;
  };
  
- #define ARCH_SHF_SMALL	SHF_IA_64_SHORT
+ #define MODULE_PROC_FAMILY	"ia64"
 diff --git a/arch/ia64/kernel/module.c b/arch/ia64/kernel/module.c
-index 00a496cb346f..2cba53c1da82 100644
+index 1a42ba885188..ee693c8cec49 100644
 --- a/arch/ia64/kernel/module.c
 +++ b/arch/ia64/kernel/module.c
 @@ -905,9 +905,31 @@ register_unwind_table (struct module *mod)
