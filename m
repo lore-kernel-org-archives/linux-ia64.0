@@ -1,140 +1,84 @@
 From: "Zi Yan" <ziy@nvidia.com>
-Date: Thu, 06 May 2021 15:42:21 +0000
+Date: Thu, 06 May 2021 15:50:08 +0000
 Subject: Re: [RFC PATCH 0/7] Memory hotplug/hotremove at subsection size
-Message-Id: <25C004DA-44C1-4331-B290-F4473A3AF05D@nvidia.com>
+Message-Id: <16962E62-7D1E-4E06-B832-EC91F54CC359@nvidia.com>
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="=_MailMate_09B22BBF-03CA-4BD7-90B5-4F00D05F266E_="
+Content-Type: multipart/mixed; boundary="=_MailMate_EF181C5B-F560-456C-BCA4-7AD984E499FD_="
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20210506152623.178731-1-zi.yan@sent.com>
-In-Reply-To: <20210506152623.178731-1-zi.yan@sent.com>
-To: David Hildenbrand <david@redhat.com>, Oscar Salvador <osalvador@suse.de>
-Cc: Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Thomas Gleixner <tglx@linutronix.de>, x86@kernel.org, Andy Lutomirski <luto@kernel.org>, "Rafael J . Wysocki" <rafael@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Mike Rapoport <rppt@kernel.org>, Anshuman Khandual <anshuman.khandual@arm.com>, Michal Hocko <mhocko@suse.com>, Dan Williams <dan.j.williams@intel.com>, Wei Yang <richard.weiyang@linux.alibaba.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-mm@kvack.org, Zi Yan <ziy@nvidia.com>
+ <fb60eabd-f8ef-2cb1-7338-7725efe3c286@redhat.com>
+ <9D7FD316-988E-4B11-AC1C-64FF790BA79E@nvidia.com>
+ <3a51f564-f3d1-c21f-93b5-1b91639523ec@redhat.com>
+In-Reply-To: <3a51f564-f3d1-c21f-93b5-1b91639523ec@redhat.com>
+To: David Hildenbrand <david@redhat.com>
+Cc: Oscar Salvador <osalvador@suse.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Thomas Gleixner <tglx@linutronix.de>, x86@kernel.org, Andy Lutomirski <luto@kernel.org>, "Rafael J . Wysocki" <rafael@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Mike Rapoport <rppt@kernel.org>, Anshuman Khandual <anshuman.khandual@arm.com>, Michal Hocko <mhocko@suse.com>, Dan Williams <dan.j.williams@intel.com>, Wei Yang <richard.weiyang@linux.alibaba.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-mm@kvack.org
 
---=_MailMate_09B22BBF-03CA-4BD7-90B5-4F00D05F266E_=
+--=_MailMate_EF181C5B-F560-456C-BCA4-7AD984E499FD_=
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-On 6 May 2021, at 11:26, Zi Yan wrote:
+On 6 May 2021, at 11:40, David Hildenbrand wrote:
 
-> From: Zi Yan <ziy@nvidia.com>
+>>>> The last patch increases SECTION_SIZE_BITS to demonstrate the use of=
+ memory
+>>>> hotplug/hotremove subsection, but is not intended to be merged as is=
+=2E It is
+>>>> there in case one wants to try this out and will be removed during t=
+he final
+>>>> submission.
+>>>>
+>>>> Feel free to give suggestions and comments. I am looking forward to =
+your
+>>>> feedback.
+>>>
+>>> Please not like this.
+>>
+>> Do you mind sharing more useful feedback instead of just saying a lot =
+of No?
 >
-> Hi all,
->
-> This patchset tries to remove the restriction on memory hotplug/hotremo=
-ve
-> granularity, which is always greater or equal to memory section size[1]=
-=2E
-> With the patchset, kernel is able to online/offline memory at a size in=
-dependent
-> of memory section size, as small as 2MB (the subsection size).
->
-> The motivation is to increase MAX_ORDER of the buddy allocator and page=
-block
-> size without increasing memory hotplug/hotremove granularity at the sam=
-e time,
-> so that the kernel can allocator 1GB pages using buddy allocator and ut=
-ilizes
-> existing pageblock based anti-fragmentation, paving the road for 1GB TH=
-P
-> support[2].
->
-> The patchset utilizes the existing subsection support[3] and changes th=
-e
-> section size alignment checks to subsection size alignment checks. Ther=
-e are
-> also changes to pageblock code to support partial pageblocks, when page=
-block
-> size is increased along with MAX_ORDER. Increasing pageblock size can e=
-nable
-> kernel to utilize existing anti-fragmentation mechanism for gigantic pa=
-ge
-> allocations.
->
-> The last patch increases SECTION_SIZE_BITS to demonstrate the use of me=
-mory
-> hotplug/hotremove subsection, but is not intended to be merged as is. I=
-t is
-> there in case one wants to try this out and will be removed during the =
-final
-> submission.
->
-> Feel free to give suggestions and comments. I am looking forward to you=
-r
-> feedback.
->
-> Thanks.
+> I remember reasoning about this already in another thread, no? Either y=
+ou're ignoring my previous feedback or my mind is messing with me.
 
-Added the missing references.
+I definitely remember all your suggestions:
 
-[1] https://lore.kernel.org/linux-mm/4b3006cf-3391-6839-904e-b415613198cb=
-@redhat.com/
-[2] https://lore.kernel.org/linux-mm/20200928175428.4110504-1-zi.yan@sent=
-=2Ecom/
-[3] https://patchwork.kernel.org/project/linux-nvdimm/cover/156092349300.=
-979959.17603710711957735135.stgit@dwillia2-desk3.amr.corp.intel.com/
+1. do not use CMA allocation for 1GB THP.
+2. section size defines the minimum size in which we can add_memory(), so=
+ we cannot increase it.
 
->
-> Zi Yan (7):
->   mm: sparse: set/clear subsection bitmap when pages are
->     onlined/offlined.
->   mm: set pageblock_order to the max of HUGETLB_PAGE_ORDER and
->     MAX_ORDER-1
->   mm: memory_hotplug: decouple memory_block size with section size.
->   mm: pageblock: allow set/unset migratetype for partial pageblock
->   mm: memory_hotplug, sparse: enable memory hotplug/hotremove
->     subsections
->   arch: x86: no MAX_ORDER exceeds SECTION_SIZE check for 32bit vdso.
->   [not for merge] mm: increase SECTION_SIZE_BITS to 31
->
->  arch/ia64/Kconfig                |   1 -
->  arch/powerpc/Kconfig             |   1 -
->  arch/x86/Kconfig                 |  15 +++
->  arch/x86/entry/vdso/Makefile     |   1 +
->  arch/x86/include/asm/sparsemem.h |   2 +-
->  drivers/base/memory.c            | 176 +++++++++++++++----------------=
-
->  drivers/base/node.c              |   2 +-
->  include/linux/memory.h           |   8 +-
->  include/linux/mmzone.h           |   2 +
->  include/linux/page-isolation.h   |   8 +-
->  include/linux/pageblock-flags.h  |   9 --
->  mm/Kconfig                       |   7 --
->  mm/memory_hotplug.c              |  22 ++--
->  mm/page_alloc.c                  |  40 ++++---
->  mm/page_isolation.c              |  30 +++---
->  mm/sparse.c                      |  55 ++++++++--
->  16 files changed, 219 insertions(+), 160 deletions(-)
->
-> -- =
-
-> 2.30.2
+I am trying an alternative here. I am not using CMA allocation and not in=
+creasing the minimum size of add_memory() by decoupling the memory block =
+size from section size, so that add_memory() can add a memory block small=
+er (as small as 2MB, the subsection size) than section size. In this way,=
+ section size can be increased freely. I do not see the strong tie betwee=
+n add_memory() and section size, especially we have subsection bitmap sup=
+port.
 
 
 =E2=80=94
 Best Regards,
 Yan Zi
 
---=_MailMate_09B22BBF-03CA-4BD7-90B5-4F00D05F266E_=
+--=_MailMate_EF181C5B-F560-456C-BCA4-7AD984E499FD_=
 Content-Description: OpenPGP digital signature
 Content-Disposition: attachment; filename=signature.asc
 Content-Type: application/pgp-signature; name=signature.asc
 
 -----BEGIN PGP SIGNATURE-----
 
-iQJDBAEBCgAtFiEEh7yFAW3gwjwQ4C9anbJR82th+ooFAmCUDl0PHHppeUBudmlk
-aWEuY29tAAoJEJ2yUfNrYfqKwfIP/j4mtx3y0ccLIUsgx7lvwtos8eCqs2V7JGeD
-jAcbXTqiE2jHoRA2+tIXQ/181PPSnYoWtMHIX8heOBzdIANslGpI96cgMfKFuDpZ
-r0+c7/0LfndyxXEi/avRGsGvdmKwa3gG/cxq69dOxUuG23z4NIYwaSjKMYBS55GV
-ML98nqEGwnQQC0mDc3pcic6LMCHQjeQcff3r/wNMUZL4Mm8MEAbxnHdcPJIdQtLU
-eSNXQCJg0QCrQd0LEokCieDPvmsa9WxPjPjAu5TB85mr0reT9MHb1uac2TLpQTRo
-F36hRpneJnu+4WACSUHPhw2l4rFiwHi00Y83lc8TIOCqK3qAt5h04mNdkTczeMBg
-F9oGPrBLQA6GFtaQoWQ12t79gwTloJEJyVhtsYbrYix9XdQy9SltbrpDHaU5TvYz
-mg4jPZe9CZwYngFHd61GS7chKrK7hVrIevPNTS+khgnCiDDdxs5WJl2pILfbXNDI
-CZHoX6Vvsr6aZeqFYNTv004Q20D+4yH51hEOVZ3Z5KjLY3iHnghk0GvrZkb2wiAr
-mqd1tkWYW3ZVxz8jfF9fpHWDvl8WgPLdXKl2wJtiStfp5qCUr724oQyrsMHx3BiP
-2bPdalSxc+cd+fS4zj0gAWbH+l1M5NhPYM2OphiJcjAmX2Y4v81n59jf6ksvsFf+
-23wXbePJ
-=JdYV
+iQJDBAEBCgAtFiEEh7yFAW3gwjwQ4C9anbJR82th+ooFAmCUEDAPHHppeUBudmlk
+aWEuY29tAAoJEJ2yUfNrYfqKvJMP/0lV2lDuyjt8qAFqOIf+9/FwjaI5D/Zp45sh
+yG07rIN2WsKGzAXTeXMOy2wOZeFkUaYcO7TYTWB2ITMt0AM6ZoBQkHfH93RX1DYx
+SKQuvCEHcA8gIzNidDjoDQxZhIXVFcPWqoe1INChH5YlydqRbxrMaRUEbNXFUkh2
+Uyoa3KmmghZL+hCfTukkMkD0vzFU4kC6C3J61RBk2JulO6QB8BnVS2FhwoHLqKJE
+yfnjvEAxYCjCveV8+L9JS/A4sdWEW+jIeFc9a1Ak0lFBIablXox2vAyyhJHqq9PE
+/zyW8EUl+VrbT6B/xDenQMT5WwY0ggxdsjHzvXe4BcsHWSTZq6jFlW5dhlaqn/Rf
+WhpRQYni21wq/A4zdF0SVp400TYOvmoBsf9haLygjUXT3rVHkJnd6ItZ6wa+QbPJ
+mb3x6lQmNnKRiU5VZt/G8octH7m3O8153e3sT/6ffdE33NhQUC2ncJBCQB+BSflW
+JgsOSizD13RI5TmuliD/JFhi37kMrkj4dCuK7hBWBZyHL8DKzCf6y3Iw1VIgyku1
+6b9jWQCl4OVxSTyh2rrI0ulvjHbJNSCB+P8w+kQ66qEuZVjlOkKmbCCoL/64diDH
+8gR3c2uSEGevWqZzX5Mt0u7C/HYAWqKN0TYpjcuQ0hL9xiYVz8dqdNo/lsfgk4q+
+dXFzUKjn
+=8W9n
 -----END PGP SIGNATURE-----
 
---=_MailMate_09B22BBF-03CA-4BD7-90B5-4F00D05F266E_=--
+--=_MailMate_EF181C5B-F560-456C-BCA4-7AD984E499FD_=--
