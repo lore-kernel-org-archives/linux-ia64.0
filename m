@@ -1,402 +1,392 @@
-From: Valentin Schneider <valentin.schneider@arm.com>
-Date: Wed, 12 May 2021 09:46:36 +0000
-Subject: [PATCH] sched: Initialize the idle task with preemption disabled
-Message-Id: <20210512094636.2958515-1-valentin.schneider@arm.com>
+From: Zi Yan <zi.yan@sent.com>
+Date: Thu, 06 May 2021 15:26:19 +0000
+Subject: [RFC PATCH 3/7] mm: memory_hotplug: decouple memory_block size with section size.
+Message-Id: <20210506152623.178731-4-zi.yan@sent.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20210506152623.178731-1-zi.yan@sent.com>
+In-Reply-To: <20210506152623.178731-1-zi.yan@sent.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, linux-alpha@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-arm-kernel@lists.infradead.org, linux-csky@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mips@vger.kernel.org, openrisc@lists.librecores.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org, linux-arch@vger.kernel.org
-Cc: mingo@kernel.org, peterz@infradead.org, tglx@linutronix.de, Juri Lelli <juri.lelli@redhat.com>, Vincent Guittot <vincent.guittot@linaro.org>, Dietmar Eggemann <dietmar.eggemann@arm.com>, Steven Rostedt <rostedt@goodmis.org>, bristot@redhat.com, yejune.deng@gmail.com
+To: David Hildenbrand <david@redhat.com>, Oscar Salvador <osalvador@suse.de>
+Cc: Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Thomas Gleixner <tglx@linutronix.de>, x86@kernel.org, Andy Lutomirski <luto@kernel.org>, "Rafael J . Wysocki" <rafael@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Mike Rapoport <rppt@kernel.org>, Anshuman Khandual <anshuman.khandual@arm.com>, Michal Hocko <mhocko@suse.com>, Dan Williams <dan.j.williams@intel.com>, Wei Yang <richard.weiyang@linux.alibaba.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-mm@kvack.org, Zi Yan <ziy@nvidia.com>
 
-As pointed out by commit
+From: Zi Yan <ziy@nvidia.com>
 
-  de9b8f5dcbd9 ("sched: Fix crash trying to dequeue/enqueue the idle thread")
+To enable subsection memory online/offline, we need to remove the
+assumption of memory_block size being greater or equal to section size.
 
-init_idle() can and will be invoked more than once on the same idle
-task. At boot time, it is invoked for the boot CPU thread by
-sched_init(). Then smp_init() creates the threads for all the secondary
-CPUs and invokes init_idle() on them.
+The following changes are made:
+1. use (start_pfn, nr_pages) pair to specify memory_block size instead of
+   start_section_nr.
+2. calculate memory_block id using phys / memory_block_size_bytes()
+   instead of section number.
 
-As the hotplug machinery brings the secondaries to life, it will issue
-calls to idle_thread_get(), which itself invokes init_idle() yet again.
-In this case it's invoked twice more per secondary: at _cpu_up(), and at
-bringup_cpu().
+The memory_block minimum size is set to the smaller of 128MB (the old
+x86_64 section size) and section size instead.
 
-Given smp_init() already initializes the idle tasks for all *possible*
-CPUs, no further initialization should be required. Now, removing
-init_idle() from idle_thread_get() exposes some interesting expectations
-with regards to the idle task's preempt_count: the secondary startup always
-issues a preempt_disable(), requiring some reset of the preempt count to 0
-between hot-unplug and hotplug, which is currently served by
-idle_thread_get() -> idle_init().
-
-Given the idle task is supposed to have preemption disabled once and never
-see it re-enabled, it seems that what we actually want is to initialize its
-preempt_count to PREEMPT_DISABLED and leave it there. Do that, and remove
-init_idle() from idle_thread_get().
-
-Secondary startups were patched via coccinelle:
-
-  @begone@
-  @@
-
-  -preempt_disable();
-  ...
-  cpu_startup_entry(CPUHP_AP_ONLINE_IDLE);
-
-Signed-off-by: Valentin Schneider <valentin.schneider@arm.com>
+Signed-off-by: Zi Yan <ziy@nvidia.com>
 ---
- arch/alpha/kernel/smp.c          | 1 -
- arch/arc/kernel/smp.c            | 1 -
- arch/arm/kernel/smp.c            | 1 -
- arch/arm64/include/asm/preempt.h | 2 +-
- arch/arm64/kernel/smp.c          | 1 -
- arch/csky/kernel/smp.c           | 1 -
- arch/ia64/kernel/smpboot.c       | 1 -
- arch/mips/kernel/smp.c           | 1 -
- arch/openrisc/kernel/smp.c       | 2 --
- arch/parisc/kernel/smp.c         | 1 -
- arch/powerpc/kernel/smp.c        | 1 -
- arch/riscv/kernel/smpboot.c      | 1 -
- arch/s390/include/asm/preempt.h  | 4 ++--
- arch/s390/kernel/smp.c           | 1 -
- arch/sh/kernel/smp.c             | 2 --
- arch/sparc/kernel/smp_32.c       | 1 -
- arch/sparc/kernel/smp_64.c       | 3 ---
- arch/x86/include/asm/preempt.h   | 2 +-
- arch/x86/kernel/smpboot.c        | 1 -
- arch/xtensa/kernel/smp.c         | 1 -
- include/asm-generic/preempt.h    | 2 +-
- init/main.c                      | 6 +-----
- kernel/fork.c                    | 2 +-
- kernel/sched/core.c              | 2 +-
- kernel/smpboot.c                 | 1 -
- 25 files changed, 8 insertions(+), 34 deletions(-)
+ drivers/base/memory.c  | 176 ++++++++++++++++++++---------------------
+ drivers/base/node.c    |   2 +-
+ include/linux/memory.h |   8 +-
+ mm/memory_hotplug.c    |   6 +-
+ 4 files changed, 98 insertions(+), 94 deletions(-)
 
-diff --git a/arch/alpha/kernel/smp.c b/arch/alpha/kernel/smp.c
-index f4dd9f3f3001..4b2575f936d4 100644
---- a/arch/alpha/kernel/smp.c
-+++ b/arch/alpha/kernel/smp.c
-@@ -166,7 +166,6 @@ smp_callin(void)
- 	DBGS(("smp_callin: commencing CPU %d current %p active_mm %p\n",
- 	      cpuid, current, current->active_mm));
+diff --git a/drivers/base/memory.c b/drivers/base/memory.c
+index b31b3af5c490..141431eb64a4 100644
+--- a/drivers/base/memory.c
++++ b/drivers/base/memory.c
+@@ -50,19 +50,15 @@ int mhp_online_type_from_str(const char *str)
  
--	preempt_disable();
- 	cpu_startup_entry(CPUHP_AP_ONLINE_IDLE);
+ static int sections_per_block;
+ 
+-static inline unsigned long memory_block_id(unsigned long section_nr)
++static inline unsigned long phys_to_block_id(unsigned long phys)
+ {
+-	return section_nr / sections_per_block;
++	return phys / memory_block_size_bytes();
  }
  
-diff --git a/arch/arc/kernel/smp.c b/arch/arc/kernel/smp.c
-index 52906d314537..db0e104d6835 100644
---- a/arch/arc/kernel/smp.c
-+++ b/arch/arc/kernel/smp.c
-@@ -189,7 +189,6 @@ void start_kernel_secondary(void)
- 	pr_info("## CPU%u LIVE ##: Executing Code...\n", cpu);
- 
- 	local_irq_enable();
--	preempt_disable();
- 	cpu_startup_entry(CPUHP_AP_ONLINE_IDLE);
- }
- 
-diff --git a/arch/arm/kernel/smp.c b/arch/arm/kernel/smp.c
-index 74679240a9d8..c7bb168b0d97 100644
---- a/arch/arm/kernel/smp.c
-+++ b/arch/arm/kernel/smp.c
-@@ -432,7 +432,6 @@ asmlinkage void secondary_start_kernel(void)
- #endif
- 	pr_debug("CPU%u: Booted secondary processor\n", cpu);
- 
--	preempt_disable();
- 	trace_hardirqs_off();
- 
- 	/*
-diff --git a/arch/arm64/include/asm/preempt.h b/arch/arm64/include/asm/preempt.h
-index 80e946b2abee..e83f0982b99c 100644
---- a/arch/arm64/include/asm/preempt.h
-+++ b/arch/arm64/include/asm/preempt.h
-@@ -23,7 +23,7 @@ static inline void preempt_count_set(u64 pc)
- } while (0)
- 
- #define init_idle_preempt_count(p, cpu) do { \
--	task_thread_info(p)->preempt_count = PREEMPT_ENABLED; \
-+	task_thread_info(p)->preempt_count = PREEMPT_DISABLED; \
- } while (0)
- 
- static inline void set_preempt_need_resched(void)
-diff --git a/arch/arm64/kernel/smp.c b/arch/arm64/kernel/smp.c
-index 357590beaabb..48fd89256739 100644
---- a/arch/arm64/kernel/smp.c
-+++ b/arch/arm64/kernel/smp.c
-@@ -223,7 +223,6 @@ asmlinkage notrace void secondary_start_kernel(void)
- 		init_gic_priority_masking();
- 
- 	rcu_cpu_starting(cpu);
--	preempt_disable();
- 	trace_hardirqs_off();
- 
- 	/*
-diff --git a/arch/csky/kernel/smp.c b/arch/csky/kernel/smp.c
-index 0f9f5eef9338..e2993539af8e 100644
---- a/arch/csky/kernel/smp.c
-+++ b/arch/csky/kernel/smp.c
-@@ -281,7 +281,6 @@ void csky_start_secondary(void)
- 	pr_info("CPU%u Online: %s...\n", cpu, __func__);
- 
- 	local_irq_enable();
--	preempt_disable();
- 	cpu_startup_entry(CPUHP_AP_ONLINE_IDLE);
- }
- 
-diff --git a/arch/ia64/kernel/smpboot.c b/arch/ia64/kernel/smpboot.c
-index 49b488580939..d10f780c13b9 100644
---- a/arch/ia64/kernel/smpboot.c
-+++ b/arch/ia64/kernel/smpboot.c
-@@ -441,7 +441,6 @@ start_secondary (void *unused)
- #endif
- 	efi_map_pal_code();
- 	cpu_init();
--	preempt_disable();
- 	smp_callin();
- 
- 	cpu_startup_entry(CPUHP_AP_ONLINE_IDLE);
-diff --git a/arch/mips/kernel/smp.c b/arch/mips/kernel/smp.c
-index ef86fbad8546..d542fb7af3ba 100644
---- a/arch/mips/kernel/smp.c
-+++ b/arch/mips/kernel/smp.c
-@@ -348,7 +348,6 @@ asmlinkage void start_secondary(void)
- 	 */
- 
- 	calibrate_delay();
--	preempt_disable();
- 	cpu = smp_processor_id();
- 	cpu_data[cpu].udelay_val = loops_per_jiffy;
- 
-diff --git a/arch/openrisc/kernel/smp.c b/arch/openrisc/kernel/smp.c
-index 48e1092a64de..415e209732a3 100644
---- a/arch/openrisc/kernel/smp.c
-+++ b/arch/openrisc/kernel/smp.c
-@@ -145,8 +145,6 @@ asmlinkage __init void secondary_start_kernel(void)
- 	set_cpu_online(cpu, true);
- 
- 	local_irq_enable();
+ static inline unsigned long pfn_to_block_id(unsigned long pfn)
+ {
+-	return memory_block_id(pfn_to_section_nr(pfn));
+-}
 -
--	preempt_disable();
- 	/*
- 	 * OK, it's off to the idle thread for us
- 	 */
-diff --git a/arch/parisc/kernel/smp.c b/arch/parisc/kernel/smp.c
-index 10227f667c8a..1405b603b91b 100644
---- a/arch/parisc/kernel/smp.c
-+++ b/arch/parisc/kernel/smp.c
-@@ -302,7 +302,6 @@ void __init smp_callin(unsigned long pdce_proc)
- #endif
- 
- 	smp_cpu_init(slave_id);
--	preempt_disable();
- 
- 	flush_cache_all_local(); /* start with known state */
- 	flush_tlb_all_local(NULL);
-diff --git a/arch/powerpc/kernel/smp.c b/arch/powerpc/kernel/smp.c
-index 5a4d59a1070d..055ca3816eb7 100644
---- a/arch/powerpc/kernel/smp.c
-+++ b/arch/powerpc/kernel/smp.c
-@@ -1505,7 +1505,6 @@ void start_secondary(void *unused)
- 	smp_store_cpu_info(cpu);
- 	set_dec(tb_ticks_per_jiffy);
- 	rcu_cpu_starting(cpu);
--	preempt_disable();
- 	cpu_callin_map[cpu] = 1;
- 
- 	if (smp_ops->setup_cpu)
-diff --git a/arch/riscv/kernel/smpboot.c b/arch/riscv/kernel/smpboot.c
-index 5e276c25646f..1941a6ce86a1 100644
---- a/arch/riscv/kernel/smpboot.c
-+++ b/arch/riscv/kernel/smpboot.c
-@@ -176,7 +176,6 @@ asmlinkage __visible void smp_callin(void)
- 	 * Disable preemption before enabling interrupts, so we don't try to
- 	 * schedule a CPU that hasn't actually started yet.
- 	 */
--	preempt_disable();
- 	local_irq_enable();
- 	cpu_startup_entry(CPUHP_AP_ONLINE_IDLE);
+-static inline unsigned long phys_to_block_id(unsigned long phys)
+-{
+-	return pfn_to_block_id(PFN_DOWN(phys));
++	/* calculate using memory_block_size_bytes() */
++	return phys_to_block_id(PFN_PHYS(pfn));
  }
-diff --git a/arch/s390/include/asm/preempt.h b/arch/s390/include/asm/preempt.h
-index b49e0492842c..23ff51be7e29 100644
---- a/arch/s390/include/asm/preempt.h
-+++ b/arch/s390/include/asm/preempt.h
-@@ -32,7 +32,7 @@ static inline void preempt_count_set(int pc)
- #define init_task_preempt_count(p)	do { } while (0)
  
- #define init_idle_preempt_count(p, cpu)	do { \
--	S390_lowcore.preempt_count = PREEMPT_ENABLED; \
-+	S390_lowcore.preempt_count = PREEMPT_DISABLED; \
- } while (0)
+ static int memory_subsys_online(struct device *dev);
+@@ -118,7 +114,7 @@ static ssize_t phys_index_show(struct device *dev,
+ 	struct memory_block *mem = to_memory_block(dev);
+ 	unsigned long phys_index;
  
- static inline void set_preempt_need_resched(void)
-@@ -91,7 +91,7 @@ static inline void preempt_count_set(int pc)
- #define init_task_preempt_count(p)	do { } while (0)
+-	phys_index = mem->start_section_nr / sections_per_block;
++	phys_index = pfn_to_section_nr(mem->start_pfn);
  
- #define init_idle_preempt_count(p, cpu)	do { \
--	S390_lowcore.preempt_count = PREEMPT_ENABLED; \
-+	S390_lowcore.preempt_count = PREEMPT_DISABLED; \
- } while (0)
+ 	return sysfs_emit(buf, "%08lx\n", phys_index);
+ }
+@@ -171,8 +167,8 @@ int memory_notify(unsigned long val, void *v)
  
- static inline void set_preempt_need_resched(void)
-diff --git a/arch/s390/kernel/smp.c b/arch/s390/kernel/smp.c
-index 58c8afa3da65..d60c7374d807 100644
---- a/arch/s390/kernel/smp.c
-+++ b/arch/s390/kernel/smp.c
-@@ -877,7 +877,6 @@ static void smp_init_secondary(void)
- 	restore_access_regs(S390_lowcore.access_regs_save_area);
- 	cpu_init();
- 	rcu_cpu_starting(cpu);
--	preempt_disable();
- 	init_cpu_timer();
- 	vtime_init();
- 	vdso_getcpu_init();
-diff --git a/arch/sh/kernel/smp.c b/arch/sh/kernel/smp.c
-index 372acdc9033e..65924d9ec245 100644
---- a/arch/sh/kernel/smp.c
-+++ b/arch/sh/kernel/smp.c
-@@ -186,8 +186,6 @@ asmlinkage void start_secondary(void)
+ static int memory_block_online(struct memory_block *mem)
+ {
+-	unsigned long start_pfn = section_nr_to_pfn(mem->start_section_nr);
+-	unsigned long nr_pages = PAGES_PER_SECTION * sections_per_block;
++	unsigned long start_pfn = mem->start_pfn;
++	unsigned long nr_pages = mem->nr_pages;
+ 	unsigned long nr_vmemmap_pages = mem->nr_vmemmap_pages;
+ 	struct zone *zone;
+ 	int ret;
+@@ -212,8 +208,8 @@ static int memory_block_online(struct memory_block *mem)
  
- 	per_cpu_trap_init();
+ static int memory_block_offline(struct memory_block *mem)
+ {
+-	unsigned long start_pfn = section_nr_to_pfn(mem->start_section_nr);
+-	unsigned long nr_pages = PAGES_PER_SECTION * sections_per_block;
++	unsigned long start_pfn = mem->start_pfn;
++	unsigned long nr_pages = mem->nr_pages;
+ 	unsigned long nr_vmemmap_pages = mem->nr_vmemmap_pages;
+ 	struct zone *zone;
+ 	int ret;
+@@ -260,7 +256,7 @@ memory_block_action(struct memory_block *mem, unsigned long action)
+ 		break;
+ 	default:
+ 		WARN(1, KERN_WARNING "%s(%ld, %ld) unknown action: "
+-		     "%ld\n", __func__, mem->start_section_nr, action, action);
++		     "%ld\n", __func__, mem->start_pfn, mem->nr_pages, action);
+ 		ret = -EINVAL;
+ 	}
  
--	preempt_disable();
+@@ -366,7 +362,7 @@ static ssize_t phys_device_show(struct device *dev,
+ 				struct device_attribute *attr, char *buf)
+ {
+ 	struct memory_block *mem = to_memory_block(dev);
+-	unsigned long start_pfn = section_nr_to_pfn(mem->start_section_nr);
++	unsigned long start_pfn = mem->start_pfn;
+ 
+ 	return sysfs_emit(buf, "%d\n",
+ 			  arch_get_memory_phys_device(start_pfn));
+@@ -390,8 +386,8 @@ static ssize_t valid_zones_show(struct device *dev,
+ 				struct device_attribute *attr, char *buf)
+ {
+ 	struct memory_block *mem = to_memory_block(dev);
+-	unsigned long start_pfn = section_nr_to_pfn(mem->start_section_nr);
+-	unsigned long nr_pages = PAGES_PER_SECTION * sections_per_block;
++	unsigned long start_pfn = mem->start_pfn;
++	unsigned long nr_pages = mem->nr_pages;
+ 	struct zone *default_zone;
+ 	int len = 0;
+ 	int nid;
+@@ -575,16 +571,6 @@ static struct memory_block *find_memory_block_by_id(unsigned long block_id)
+ 	return mem;
+ }
+ 
+-/*
+- * Called under device_hotplug_lock.
+- */
+-struct memory_block *find_memory_block(struct mem_section *section)
+-{
+-	unsigned long block_id = memory_block_id(__section_nr(section));
 -
- 	notify_cpu_starting(cpu);
- 
- 	local_irq_enable();
-diff --git a/arch/sparc/kernel/smp_32.c b/arch/sparc/kernel/smp_32.c
-index 50c127ab46d5..22b148e5a5f8 100644
---- a/arch/sparc/kernel/smp_32.c
-+++ b/arch/sparc/kernel/smp_32.c
-@@ -348,7 +348,6 @@ static void sparc_start_secondary(void *arg)
- 	 */
- 	arch_cpu_pre_starting(arg);
- 
--	preempt_disable();
- 	cpu = smp_processor_id();
- 
- 	notify_cpu_starting(cpu);
-diff --git a/arch/sparc/kernel/smp_64.c b/arch/sparc/kernel/smp_64.c
-index e38d8bf454e8..ae5faa1d989d 100644
---- a/arch/sparc/kernel/smp_64.c
-+++ b/arch/sparc/kernel/smp_64.c
-@@ -138,9 +138,6 @@ void smp_callin(void)
- 
- 	set_cpu_online(cpuid, true);
- 
--	/* idle thread is expected to have preempt disabled */
--	preempt_disable();
+-	return find_memory_block_by_id(block_id);
+-}
 -
- 	local_irq_enable();
+ static struct attribute *memory_memblk_attrs[] = {
+ 	&dev_attr_phys_index.attr,
+ 	&dev_attr_state.attr,
+@@ -614,7 +600,7 @@ int register_memory(struct memory_block *memory)
+ 	int ret;
  
- 	cpu_startup_entry(CPUHP_AP_ONLINE_IDLE);
-diff --git a/arch/x86/include/asm/preempt.h b/arch/x86/include/asm/preempt.h
-index f8cb8af4de5c..fe5efbcba824 100644
---- a/arch/x86/include/asm/preempt.h
-+++ b/arch/x86/include/asm/preempt.h
-@@ -44,7 +44,7 @@ static __always_inline void preempt_count_set(int pc)
- #define init_task_preempt_count(p) do { } while (0)
+ 	memory->dev.bus = &memory_subsys;
+-	memory->dev.id = memory->start_section_nr / sections_per_block;
++	memory->dev.id = memory->start_pfn / (memory_block_size_bytes() >> PAGE_SHIFT);
+ 	memory->dev.release = memory_block_release;
+ 	memory->dev.groups = memory_memblk_attr_groups;
+ 	memory->dev.offline = memory->state == MEM_OFFLINE;
+@@ -633,57 +619,89 @@ int register_memory(struct memory_block *memory)
+ 	return ret;
+ }
  
- #define init_idle_preempt_count(p, cpu) do { \
--	per_cpu(__preempt_count, (cpu)) = PREEMPT_ENABLED; \
-+	per_cpu(__preempt_count, (cpu)) = PREEMPT_DISABLED; \
- } while (0)
+-static int init_memory_block(unsigned long block_id, unsigned long state,
++static void unregister_memory(struct memory_block *memory)
++{
++	if (WARN_ON_ONCE(memory->dev.bus != &memory_subsys))
++		return;
++
++	WARN_ON(xa_erase(&memory_blocks, memory->dev.id) == NULL);
++
++	/* drop the ref. we got via find_memory_block() */
++	put_device(&memory->dev);
++	device_unregister(&memory->dev);
++}
++
++static int init_memory_blocks(unsigned long start_pfn, unsigned long num_pages, unsigned long state,
+ 			     unsigned long nr_vmemmap_pages)
+ {
+ 	struct memory_block *mem;
+ 	int ret = 0;
++	unsigned long block_nr_pages = memory_block_size_bytes() / PAGE_SIZE;
++	unsigned long block_start_pfn;
+ 
+-	mem = find_memory_block_by_id(block_id);
+-	if (mem) {
+-		put_device(&mem->dev);
+-		return -EEXIST;
+-	}
+-	mem = kzalloc(sizeof(*mem), GFP_KERNEL);
+-	if (!mem)
+-		return -ENOMEM;
+-
+-	mem->start_section_nr = block_id * sections_per_block;
+-	mem->state = state;
+-	mem->nid = NUMA_NO_NODE;
+-	mem->nr_vmemmap_pages = nr_vmemmap_pages;
++	for (block_start_pfn = start_pfn; num_pages != 0; block_start_pfn += block_nr_pages) {
++		unsigned long block_id = pfn_to_block_id(block_start_pfn);
+ 
+-	ret = register_memory(mem);
+-
+-	return ret;
++		mem = find_memory_block_by_id(block_id);
++		if (mem) {
++			put_device(&mem->dev);
++			return -EEXIST;
++		}
++		mem = kzalloc(sizeof(*mem), GFP_KERNEL);
++		if (!mem)
++			return -ENOMEM;
++
++		mem->start_pfn = block_start_pfn;
++		mem->nr_pages = min(num_pages, block_nr_pages);
++		mem->state = state;
++		mem->nid = NUMA_NO_NODE;
++		mem->nr_vmemmap_pages = nr_vmemmap_pages;
++
++		ret = register_memory(mem);
++
++		if (ret) {
++			unsigned long unregister_block_pfn;
++
++			for (unregister_block_pfn = start_pfn;
++			     unregister_block_pfn < block_start_pfn;
++			     unregister_block_pfn -= block_nr_pages) {
++				block_id = pfn_to_block_id(unregister_block_pfn);
++				mem = find_memory_block_by_id(block_id);
++				if (WARN_ON_ONCE(!mem))
++					continue;
++				unregister_memory(mem);
++			}
++			return -EINVAL;
++		}
++		if (num_pages > block_nr_pages)
++			num_pages -= block_nr_pages;
++		else
++			num_pages = 0;
++	}
++	return 0;
+ }
+ 
+-static int add_memory_block(unsigned long base_section_nr)
++static void add_whole_section_memory_block(unsigned long base_section_nr)
+ {
+-	int section_count = 0;
+-	unsigned long nr;
++	int ret;
++	unsigned long start_pfn = section_nr_to_pfn(base_section_nr);
++	unsigned long nr_pages = 0;
++	struct mem_section *ms = __nr_to_section(base_section_nr);
+ 
+-	for (nr = base_section_nr; nr < base_section_nr + sections_per_block;
+-	     nr++)
+-		if (present_section_nr(nr))
+-			section_count++;
++	if (bitmap_full(ms->usage->subsection_map, SUBSECTIONS_PER_SECTION))
++		nr_pages = PAGES_PER_SECTION;
++	else
++		nr_pages = PAGES_PER_SUBSECTION *
++			bitmap_weight(ms->usage->subsection_map, SUBSECTIONS_PER_SECTION);
+ 
+-	if (section_count == 0)
+-		return 0;
+-	return init_memory_block(memory_block_id(base_section_nr),
+-				 MEM_ONLINE, 0);
+-}
+ 
+-static void unregister_memory(struct memory_block *memory)
+-{
+-	if (WARN_ON_ONCE(memory->dev.bus != &memory_subsys))
++	if (!nr_pages)
+ 		return;
+ 
+-	WARN_ON(xa_erase(&memory_blocks, memory->dev.id) == NULL);
+-
+-	/* drop the ref. we got via find_memory_block() */
+-	put_device(&memory->dev);
+-	device_unregister(&memory->dev);
++	ret = init_memory_blocks(start_pfn, nr_pages, MEM_ONLINE, 0);
++	if (ret)
++		panic("%s() failed to add memory block: %d\n", __func__,
++		      ret);
+ }
  
  /*
-diff --git a/arch/x86/kernel/smpboot.c b/arch/x86/kernel/smpboot.c
-index 16703c35a944..29713d0cf155 100644
---- a/arch/x86/kernel/smpboot.c
-+++ b/arch/x86/kernel/smpboot.c
-@@ -236,7 +236,6 @@ static void notrace start_secondary(void *unused)
- 	cpu_init();
- 	rcu_cpu_starting(raw_smp_processor_id());
- 	x86_cpuinit.early_percpu_clock_init();
--	preempt_disable();
- 	smp_callin();
+@@ -696,31 +714,16 @@ static void unregister_memory(struct memory_block *memory)
+ int create_memory_block_devices(unsigned long start, unsigned long size,
+ 				unsigned long vmemmap_pages)
+ {
+-	const unsigned long start_block_id = pfn_to_block_id(PFN_DOWN(start));
+-	unsigned long end_block_id = pfn_to_block_id(PFN_DOWN(start + size));
+-	struct memory_block *mem;
+-	unsigned long block_id;
++	unsigned long start_pfn = PFN_DOWN(start);
++	unsigned long end_pfn = PFN_DOWN(start + size);
+ 	int ret = 0;
  
- 	enable_start_cpu0 = 0;
-diff --git a/arch/xtensa/kernel/smp.c b/arch/xtensa/kernel/smp.c
-index cd85a7a2722b..1254da07ead1 100644
---- a/arch/xtensa/kernel/smp.c
-+++ b/arch/xtensa/kernel/smp.c
-@@ -145,7 +145,6 @@ void secondary_start_kernel(void)
- 	cpumask_set_cpu(cpu, mm_cpumask(mm));
- 	enter_lazy_tlb(mm, current);
+ 	if (WARN_ON_ONCE(!IS_ALIGNED(start, memory_block_size_bytes()) ||
+ 			 !IS_ALIGNED(size, memory_block_size_bytes())))
+ 		return -EINVAL;
  
--	preempt_disable();
- 	trace_hardirqs_off();
- 
- 	calibrate_delay();
-diff --git a/include/asm-generic/preempt.h b/include/asm-generic/preempt.h
-index d683f5e6d791..b4d43a4af5f7 100644
---- a/include/asm-generic/preempt.h
-+++ b/include/asm-generic/preempt.h
-@@ -29,7 +29,7 @@ static __always_inline void preempt_count_set(int pc)
- } while (0)
- 
- #define init_idle_preempt_count(p, cpu) do { \
--	task_thread_info(p)->preempt_count = PREEMPT_ENABLED; \
-+	task_thread_info(p)->preempt_count = PREEMPT_DISABLED; \
- } while (0)
- 
- static __always_inline void set_preempt_need_resched(void)
-diff --git a/init/main.c b/init/main.c
-index 53b278845b88..d8580323110e 100644
---- a/init/main.c
-+++ b/init/main.c
-@@ -918,11 +918,7 @@ asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
- 	 * time - but meanwhile we still have a functioning scheduler.
- 	 */
- 	sched_init();
--	/*
--	 * Disable preemption - early bootup scheduling is extremely
--	 * fragile until we cpu_idle() for the first time.
--	 */
--	preempt_disable();
+-	for (block_id = start_block_id; block_id != end_block_id; block_id++) {
+-		ret = init_memory_block(block_id, MEM_OFFLINE, vmemmap_pages);
+-		if (ret)
+-			break;
+-	}
+-	if (ret) {
+-		end_block_id = block_id;
+-		for (block_id = start_block_id; block_id != end_block_id;
+-		     block_id++) {
+-			mem = find_memory_block_by_id(block_id);
+-			if (WARN_ON_ONCE(!mem))
+-				continue;
+-			unregister_memory(mem);
+-		}
+-	}
++	ret = init_memory_blocks(start_pfn, end_pfn - start_pfn, MEM_OFFLINE, vmemmap_pages);
 +
- 	if (WARN(!irqs_disabled(),
- 		 "Interrupts were enabled *very* early, fixing it\n"))
- 		local_irq_disable();
-diff --git a/kernel/fork.c b/kernel/fork.c
-index a1a763019bfb..9de7bc40be1d 100644
---- a/kernel/fork.c
-+++ b/kernel/fork.c
-@@ -2406,7 +2406,7 @@ static inline void init_idle_pids(struct task_struct *idle)
+ 	return ret;
+ }
+ 
+@@ -807,10 +810,7 @@ void __init memory_dev_init(void)
+ 	 */
+ 	for (nr = 0; nr <= __highest_present_section_nr;
+ 	     nr += sections_per_block) {
+-		ret = add_memory_block(nr);
+-		if (ret)
+-			panic("%s() failed to add memory block: %d\n", __func__,
+-			      ret);
++		add_whole_section_memory_block(nr);
  	}
  }
  
--struct task_struct *fork_idle(int cpu)
-+struct task_struct * __init fork_idle(int cpu)
+diff --git a/drivers/base/node.c b/drivers/base/node.c
+index 2c36f61d30bc..76d67b8ddf1b 100644
+--- a/drivers/base/node.c
++++ b/drivers/base/node.c
+@@ -809,7 +809,7 @@ static int register_mem_block_under_node_early(struct memory_block *mem_blk,
+ 					       void *arg)
  {
- 	struct task_struct *task;
- 	struct kernel_clone_args args = {
-diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index 4a0668acd876..43b903ae823b 100644
---- a/kernel/sched/core.c
-+++ b/kernel/sched/core.c
-@@ -7433,7 +7433,7 @@ void show_state_filter(unsigned long state_filter)
-  * NOTE: this function does not set the idle thread's NEED_RESCHED
-  * flag, to make booting more robust.
-  */
--void init_idle(struct task_struct *idle, int cpu)
-+void __init init_idle(struct task_struct *idle, int cpu)
- {
- 	struct rq *rq = cpu_rq(cpu);
- 	unsigned long flags;
-diff --git a/kernel/smpboot.c b/kernel/smpboot.c
-index f25208e8df83..e4163042c4d6 100644
---- a/kernel/smpboot.c
-+++ b/kernel/smpboot.c
-@@ -33,7 +33,6 @@ struct task_struct *idle_thread_get(unsigned int cpu)
+ 	unsigned long memory_block_pfns = memory_block_size_bytes() / PAGE_SIZE;
+-	unsigned long start_pfn = section_nr_to_pfn(mem_blk->start_section_nr);
++	unsigned long start_pfn = mem_blk->start_pfn;
+ 	unsigned long end_pfn = start_pfn + memory_block_pfns - 1;
+ 	int nid = *(int *)arg;
+ 	unsigned long pfn;
+diff --git a/include/linux/memory.h b/include/linux/memory.h
+index 97e92e8b556a..e9590c7c6a9e 100644
+--- a/include/linux/memory.h
++++ b/include/linux/memory.h
+@@ -21,10 +21,15 @@
+ #include <linux/mutex.h>
+ #include <linux/notifier.h>
  
- 	if (!tsk)
- 		return ERR_PTR(-ENOMEM);
--	init_idle(tsk, cpu);
- 	return tsk;
- }
++#if SECTION_SIZE_BITS > 27  /* 128MB */
++#define MIN_MEMORY_BLOCK_SIZE     (1UL << 27)
++#else
+ #define MIN_MEMORY_BLOCK_SIZE     (1UL << SECTION_SIZE_BITS)
++#endif
+ 
+ struct memory_block {
+-	unsigned long start_section_nr;
++	unsigned long start_pfn;
++	unsigned long nr_pages;
+ 	unsigned long state;		/* serialized by the dev->lock */
+ 	int online_type;		/* for passing data to online routine */
+ 	int nid;			/* NID for this memory block */
+@@ -90,7 +95,6 @@ int create_memory_block_devices(unsigned long start, unsigned long size,
+ void remove_memory_block_devices(unsigned long start, unsigned long size);
+ extern void memory_dev_init(void);
+ extern int memory_notify(unsigned long val, void *v);
+-extern struct memory_block *find_memory_block(struct mem_section *);
+ typedef int (*walk_memory_blocks_func_t)(struct memory_block *, void *);
+ extern int walk_memory_blocks(unsigned long start, unsigned long size,
+ 			      void *arg, walk_memory_blocks_func_t func);
+diff --git a/mm/memory_hotplug.c b/mm/memory_hotplug.c
+index 70620d0dd923..6e93b0ecc5cb 100644
+--- a/mm/memory_hotplug.c
++++ b/mm/memory_hotplug.c
+@@ -1872,8 +1872,8 @@ static int check_memblock_offlined_cb(struct memory_block *mem, void *arg)
+ 	if (unlikely(ret)) {
+ 		phys_addr_t beginpa, endpa;
+ 
+-		beginpa = PFN_PHYS(section_nr_to_pfn(mem->start_section_nr));
+-		endpa = beginpa + memory_block_size_bytes() - 1;
++		beginpa = PFN_PHYS(mem->start_pfn);
++		endpa = beginpa + mem->nr_pages * PAGE_SIZE - 1;
+ 		pr_warn("removing memory fails, because memory [%pa-%pa] is onlined\n",
+ 			&beginpa, &endpa);
+ 
+@@ -2079,7 +2079,7 @@ static int try_offline_memory_block(struct memory_block *mem, void *arg)
+ 	 * with multiple zones within one memory block will be rejected
+ 	 * by offlining code ... so we don't care about that.
+ 	 */
+-	page = pfn_to_online_page(section_nr_to_pfn(mem->start_section_nr));
++	page = pfn_to_online_page(mem->start_pfn);
+ 	if (page && zone_idx(page_zone(page)) == ZONE_MOVABLE)
+ 		online_type = MMOP_ONLINE_MOVABLE;
  
 -- 
-2.25.1
+2.30.2
