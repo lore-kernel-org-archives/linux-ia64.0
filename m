@@ -1,70 +1,66 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Thu, 27 May 2021 06:40:57 +0000
-Subject: [PATCH -tip v7 12/13] tracing: Show kretprobe unknown indicator only for kretprobe_trampoline
-Message-Id: <162209765751.436794.17923326412681624558.stgit@devnote2>
+From: Zi Yan <zi.yan@sent.com>
+Date: Thu, 06 May 2021 15:26:23 +0000
+Subject: [RFC PATCH 7/7] [not for merge] mm: increase SECTION_SIZE_BITS to 31
+Message-Id: <20210506152623.178731-8-zi.yan@sent.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <162209754288.436794.3904335049560916855.stgit@devnote2>
-In-Reply-To: <162209754288.436794.3904335049560916855.stgit@devnote2>
+References: <20210506152623.178731-1-zi.yan@sent.com>
+In-Reply-To: <20210506152623.178731-1-zi.yan@sent.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>
-Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, Josh Poimboeuf <jpoimboe@redhat.com>, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
+To: David Hildenbrand <david@redhat.com>, Oscar Salvador <osalvador@suse.de>
+Cc: Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Thomas Gleixner <tglx@linutronix.de>, x86@kernel.org, Andy Lutomirski <luto@kernel.org>, "Rafael J . Wysocki" <rafael@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Mike Rapoport <rppt@kernel.org>, Anshuman Khandual <anshuman.khandual@arm.com>, Michal Hocko <mhocko@suse.com>, Dan Williams <dan.j.williams@intel.com>, Wei Yang <richard.weiyang@linux.alibaba.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-mm@kvack.org, Zi Yan <ziy@nvidia.com>
 
-ftrace shows "[unknown/kretprobe'd]" indicator all addresses in the
-kretprobe_trampoline, but the modified address by kretprobe should
-be only kretprobe_trampoline+0.
+From: Zi Yan <ziy@nvidia.com>
 
-Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
-Acked-by: Steven Rostedt (VMware) <rostedt@goodmis.org>
-Tested-by: Andrii Nakryik <andrii@kernel.org>
+This is only used to test onlining/offlining subsection memory in
+a x86_64 system by increasing section size to 2GB and pageblock size to
+1GB when MAX_ORDER is set to 20.
+
+Signed-off-by: Zi Yan <ziy@nvidia.com>
 ---
- kernel/trace/trace_output.c |   17 ++++-------------
- 1 file changed, 4 insertions(+), 13 deletions(-)
+ arch/x86/Kconfig                 | 15 +++++++++++++++
+ arch/x86/include/asm/sparsemem.h |  2 +-
+ 2 files changed, 16 insertions(+), 1 deletion(-)
 
-diff --git a/kernel/trace/trace_output.c b/kernel/trace/trace_output.c
-index d0368a569bfa..e46780670742 100644
---- a/kernel/trace/trace_output.c
-+++ b/kernel/trace/trace_output.c
-@@ -8,6 +8,7 @@
- #include <linux/module.h>
- #include <linux/mutex.h>
- #include <linux/ftrace.h>
-+#include <linux/kprobes.h>
- #include <linux/sched/clock.h>
- #include <linux/sched/mm.h>
+diff --git a/arch/x86/Kconfig b/arch/x86/Kconfig
+index 0045e1b44190..d8faf59fa5ff 100644
+--- a/arch/x86/Kconfig
++++ b/arch/x86/Kconfig
+@@ -1654,6 +1654,21 @@ config X86_PMEM_LEGACY
  
-@@ -346,22 +347,12 @@ int trace_output_call(struct trace_iterator *iter, char *name, char *fmt, ...)
- }
- EXPORT_SYMBOL_GPL(trace_output_call);
+ 	  Say Y if unsure.
  
--#ifdef CONFIG_KRETPROBES
--static inline const char *kretprobed(const char *name)
-+static inline const char *kretprobed(const char *name, unsigned long addr)
- {
--	static const char tramp_name[] = "kretprobe_trampoline";
--	int size = sizeof(tramp_name);
--
--	if (strncmp(tramp_name, name, size) = 0)
-+	if (is_kretprobe_trampoline(addr))
- 		return "[unknown/kretprobe'd]";
- 	return name;
- }
--#else
--static inline const char *kretprobed(const char *name)
--{
--	return name;
--}
--#endif /* CONFIG_KRETPROBES */
++config FORCE_MAX_ZONEORDER
++	int "Maximum zone order"
++	range 11 20
++	default "20"
++	help
++	  The kernel memory allocator divides physically contiguous memory
++	  blocks into "zones", where each zone is a power of two number of
++	  pages.  This option selects the largest power of two that the kernel
++	  keeps in the memory allocator.  If you need to allocate very large
++	  blocks of physically contiguous memory, then you may need to
++	  increase this value.
++
++	  This config option is actually maximum order plus one. For example,
++	  a value of 11 means that the largest free memory block is 2^10 pages.
++
+ config HIGHPTE
+ 	bool "Allocate 3rd-level pagetables from highmem"
+ 	depends on HIGHMEM
+diff --git a/arch/x86/include/asm/sparsemem.h b/arch/x86/include/asm/sparsemem.h
+index 6a9ccc1b2be5..c5a9d498a7e7 100644
+--- a/arch/x86/include/asm/sparsemem.h
++++ b/arch/x86/include/asm/sparsemem.h
+@@ -23,7 +23,7 @@
+ #  define MAX_PHYSMEM_BITS	32
+ # endif
+ #else /* CONFIG_X86_32 */
+-# define SECTION_SIZE_BITS	27 /* matt - 128 is convenient right now */
++# define SECTION_SIZE_BITS	31 /* matt - 128 is convenient right now */
+ # define MAX_PHYSMEM_BITS	(pgtable_l5_enabled() ? 52 : 46)
+ #endif
  
- void
- trace_seq_print_sym(struct trace_seq *s, unsigned long address, bool offset)
-@@ -374,7 +365,7 @@ trace_seq_print_sym(struct trace_seq *s, unsigned long address, bool offset)
- 		sprint_symbol(str, address);
- 	else
- 		kallsyms_lookup(address, NULL, NULL, NULL, str);
--	name = kretprobed(str);
-+	name = kretprobed(str, address);
- 
- 	if (name && strlen(name)) {
- 		trace_seq_puts(s, name);
+-- 
+2.30.2
