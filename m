@@ -1,80 +1,75 @@
-From: Sasha Levin <sashal@kernel.org>
-Date: Mon, 19 Apr 2021 20:45:34 +0000
-Subject: [PATCH AUTOSEL 4.14 09/11] ia64: fix discontig.c section mismatches
-Message-Id: <20210419204536.6924-9-sashal@kernel.org>
+From: Zi Yan <zi.yan@sent.com>
+Date: Thu, 06 May 2021 15:26:16 +0000
+Subject: [RFC PATCH 0/7] Memory hotplug/hotremove at subsection size
+Message-Id: <20210506152623.178731-1-zi.yan@sent.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210419204536.6924-1-sashal@kernel.org>
-In-Reply-To: <20210419204536.6924-1-sashal@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
-Cc: Randy Dunlap <rdunlap@infradead.org>, Mike Rapoport <rppt@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, Sasha Levin <sashal@kernel.org>, linux-ia64@vger.kernel.org
+To: David Hildenbrand <david@redhat.com>, Oscar Salvador <osalvador@suse.de>
+Cc: Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Thomas Gleixner <tglx@linutronix.de>, x86@kernel.org, Andy Lutomirski <luto@kernel.org>, "Rafael J . Wysocki" <rafael@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Mike Rapoport <rppt@kernel.org>, Anshuman Khandual <anshuman.khandual@arm.com>, Michal Hocko <mhocko@suse.com>, Dan Williams <dan.j.williams@intel.com>, Wei Yang <richard.weiyang@linux.alibaba.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-mm@kvack.org, Zi Yan <ziy@nvidia.com>
 
-From: Randy Dunlap <rdunlap@infradead.org>
+From: Zi Yan <ziy@nvidia.com>
 
-[ Upstream commit e2af9da4f867a1a54f1252bf3abc1a5c63951778 ]
+Hi all,
 
-Fix IA64 discontig.c Section mismatch warnings.
+This patchset tries to remove the restriction on memory hotplug/hotremove
+granularity, which is always greater or equal to memory section size[1].
+With the patchset, kernel is able to online/offline memory at a size independent
+of memory section size, as small as 2MB (the subsection size).
 
-When CONFIG_SPARSEMEM=y and CONFIG_MEMORY_HOTPLUG=y, the functions
-computer_pernodesize() and scatter_node_data() should not be marked as
-__meminit because they are needed after init, on any memory hotplug
-event.  Also, early_nr_cpus_node() is called by compute_pernodesize(),
-so early_nr_cpus_node() cannot be __meminit either.
+The motivation is to increase MAX_ORDER of the buddy allocator and pageblock
+size without increasing memory hotplug/hotremove granularity at the same time,
+so that the kernel can allocator 1GB pages using buddy allocator and utilizes
+existing pageblock based anti-fragmentation, paving the road for 1GB THP
+support[2].
 
-  WARNING: modpost: vmlinux.o(.text.unlikely+0x1612): Section mismatch in reference from the function arch_alloc_nodedata() to the function .meminit.text:compute_pernodesize()
-  The function arch_alloc_nodedata() references the function __meminit compute_pernodesize().
-  This is often because arch_alloc_nodedata lacks a __meminit annotation or the annotation of compute_pernodesize is wrong.
+The patchset utilizes the existing subsection support[3] and changes the
+section size alignment checks to subsection size alignment checks. There are
+also changes to pageblock code to support partial pageblocks, when pageblock
+size is increased along with MAX_ORDER. Increasing pageblock size can enable
+kernel to utilize existing anti-fragmentation mechanism for gigantic page
+allocations.
 
-  WARNING: modpost: vmlinux.o(.text.unlikely+0x1692): Section mismatch in reference from the function arch_refresh_nodedata() to the function .meminit.text:scatter_node_data()
-  The function arch_refresh_nodedata() references the function __meminit scatter_node_data().
-  This is often because arch_refresh_nodedata lacks a __meminit annotation or the annotation of scatter_node_data is wrong.
+The last patch increases SECTION_SIZE_BITS to demonstrate the use of memory
+hotplug/hotremove subsection, but is not intended to be merged as is. It is
+there in case one wants to try this out and will be removed during the final
+submission.
 
-  WARNING: modpost: vmlinux.o(.text.unlikely+0x1502): Section mismatch in reference from the function compute_pernodesize() to the function .meminit.text:early_nr_cpus_node()
-  The function compute_pernodesize() references the function __meminit early_nr_cpus_node().
-  This is often because compute_pernodesize lacks a __meminit annotation or the annotation of early_nr_cpus_node is wrong.
+Feel free to give suggestions and comments. I am looking forward to your
+feedback.
 
-Link: https://lkml.kernel.org/r/20210411001201.3069-1-rdunlap@infradead.org
-Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
-Cc: Mike Rapoport <rppt@kernel.org>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
-Signed-off-by: Sasha Levin <sashal@kernel.org>
----
- arch/ia64/mm/discontig.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+Thanks.
 
-diff --git a/arch/ia64/mm/discontig.c b/arch/ia64/mm/discontig.c
-index 9b2d994cddf6..99b59a7ec187 100644
---- a/arch/ia64/mm/discontig.c
-+++ b/arch/ia64/mm/discontig.c
-@@ -100,7 +100,7 @@ static int __init build_node_maps(unsigned long start, unsigned long len,
-  * acpi_boot_init() (which builds the node_to_cpu_mask array) hasn't been
-  * called yet.  Note that node 0 will also count all non-existent cpus.
-  */
--static int __meminit early_nr_cpus_node(int node)
-+static int early_nr_cpus_node(int node)
- {
- 	int cpu, n = 0;
- 
-@@ -115,7 +115,7 @@ static int __meminit early_nr_cpus_node(int node)
-  * compute_pernodesize - compute size of pernode data
-  * @node: the node id.
-  */
--static unsigned long __meminit compute_pernodesize(int node)
-+static unsigned long compute_pernodesize(int node)
- {
- 	unsigned long pernodesize = 0, cpus;
- 
-@@ -412,7 +412,7 @@ static void __init reserve_pernode_space(void)
- 	}
- }
- 
--static void __meminit scatter_node_data(void)
-+static void scatter_node_data(void)
- {
- 	pg_data_t **dst;
- 	int node;
+Zi Yan (7):
+  mm: sparse: set/clear subsection bitmap when pages are
+    onlined/offlined.
+  mm: set pageblock_order to the max of HUGETLB_PAGE_ORDER and
+    MAX_ORDER-1
+  mm: memory_hotplug: decouple memory_block size with section size.
+  mm: pageblock: allow set/unset migratetype for partial pageblock
+  mm: memory_hotplug, sparse: enable memory hotplug/hotremove
+    subsections
+  arch: x86: no MAX_ORDER exceeds SECTION_SIZE check for 32bit vdso.
+  [not for merge] mm: increase SECTION_SIZE_BITS to 31
+
+ arch/ia64/Kconfig                |   1 -
+ arch/powerpc/Kconfig             |   1 -
+ arch/x86/Kconfig                 |  15 +++
+ arch/x86/entry/vdso/Makefile     |   1 +
+ arch/x86/include/asm/sparsemem.h |   2 +-
+ drivers/base/memory.c            | 176 +++++++++++++++----------------
+ drivers/base/node.c              |   2 +-
+ include/linux/memory.h           |   8 +-
+ include/linux/mmzone.h           |   2 +
+ include/linux/page-isolation.h   |   8 +-
+ include/linux/pageblock-flags.h  |   9 --
+ mm/Kconfig                       |   7 --
+ mm/memory_hotplug.c              |  22 ++--
+ mm/page_alloc.c                  |  40 ++++---
+ mm/page_isolation.c              |  30 +++---
+ mm/sparse.c                      |  55 ++++++++--
+ 16 files changed, 219 insertions(+), 160 deletions(-)
+
 -- 
 2.30.2
