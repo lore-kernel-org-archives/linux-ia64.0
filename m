@@ -1,133 +1,235 @@
-From: David Hildenbrand <david@redhat.com>
-Date: Wed, 12 May 2021 16:14:06 +0000
-Subject: Re: [RFC PATCH 0/7] Memory hotplug/hotremove at subsection size
-Message-Id: <e132fdd9-65af-1cad-8a6e-71844ebfe6a2@redhat.com>
+From: Arnd Bergmann <arnd@kernel.org>
+Date: Fri, 07 May 2021 22:07:46 +0000
+Subject: [RFC 01/12] asm-generic: use asm-generic/unaligned.h for most architectures
+Message-Id: <20210507220813.365382-2-arnd@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210506152623.178731-1-zi.yan@sent.com>
- <fb60eabd-f8ef-2cb1-7338-7725efe3c286@redhat.com>
- <YJUqrOacyqI+kiKW@dhcp22.suse.cz>
- <792d73e2-5d63-74a5-5554-20351d5532ff@redhat.com>
- <746780E5-0288-494D-8B19-538049F1B891@nvidia.com>
-In-Reply-To: <746780E5-0288-494D-8B19-538049F1B891@nvidia.com>
+References: <20210507220813.365382-1-arnd@kernel.org>
+In-Reply-To: <20210507220813.365382-1-arnd@kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
-To: Zi Yan <ziy@nvidia.com>, Michal Hocko <mhocko@suse.com>
-Cc: Oscar Salvador <osalvador@suse.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Thomas Gleixner <tglx@linutronix.de>, x86@kernel.org, Andy Lutomirski <luto@kernel.org>, "Rafael J . Wysocki" <rafael@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Mike Rapoport <rppt@kernel.org>, Anshuman Khandual <anshuman.khandual@arm.com>, Dan Williams <dan.j.williams@intel.com>, Wei Yang <richard.weiyang@linux.alibaba.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-mm@kvack.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-arch@vger.kernel.org
+Cc: Linus Torvalds <torvalds@linux-foundation.org>, Vineet Gupta <vgupta@synopsys.com>, Arnd Bergmann <arnd@arndb.de>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Geert Uytterhoeven <geert@linux-m68k.org>, Michal Simek <monstr@monstr.eu>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, "David S. Miller" <davem@davemloft.net>, Thomas Gleixner <tglx@linutronix.de>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-parisc@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org
 
->>
->> As stated somewhere here already, we'll have to look into making alloc_c=
-ontig_range() (and main users CMA and virtio-mem) independent of MAX_ORDER =
-and mainly rely on pageblock_order. The current handling in alloc_contig_ra=
-nge() is far from optimal as we have to isolate a whole MAX_ORDER - 1 page =
--- and on ZONE_NORMAL we'll fail easily if any part contains something unmo=
-vable although we don't even want to allocate that part. I actually have th=
-at on my list (to be able to fully support pageblock_order instead of MAX_O=
-RDER -1 chunks in virtio-mem), however didn't have time to look into it.
->=20
-> So in your mind, for gigantic page allocation (> MAX_ORDER), alloc_contig=
-_range()
-> should be used instead of buddy allocator while pageblock_order is kept a=
-t a small
-> granularity like 2MB. Is that the case? Isn=E2=80=99t it going to have hi=
-gh fail rate
-> when any of the pageblocks within a gigantic page range (like 1GB) become=
-s unmovable?
-> Are you thinking additional mechanism/policy to prevent such thing happen=
-ing as
-> an additional step for gigantic page allocation? Like your ZONE_PREFER_MO=
-VABLE idea?
->=20
+From: Arnd Bergmann <arnd@arndb.de>
 
-I am not fully sure yet where the journey will go , I guess nobody=20
-knows. Ultimately, having buddy support for >=3D current MAX_ORDER (IOW,=20
-increasing MAX_ORDER) will most probably happen, so it would be worth=20
-investigating what has to be done to get that running as a first step.
+There are several architectures that just duplicate the contents
+of asm-generic/unaligned.h, so change those over to use the
+file directly, to make future modifications easier.
 
-Of course, we could temporarily think about wiring it up in the buddy like
+The exceptions are:
 
-if (order < MAX_ORDER)
-	__alloc_pages()...
-else
-	alloc_contig_pages()
+- arm32 sets HAVE_EFFICIENT_UNALIGNED_ACCESS, but wants the
+  unaligned-struct version
 
-but it doesn't really improve the situation IMHO, just an API change.
+- ppc64le disables HAVE_EFFICIENT_UNALIGNED_ACCESS but includes
+  the access-ok version
 
-So I think we should look into increasing MAX_ORDER, seeing what needs=20
-to be done to have that part running while keeping the section size and=20
-the pageblock order as is. I know that at least memory=20
-onlining/offlining, cma, alloc_contig_range(), ... needs tweaking,=20
-especially when we don't increase the section size (but also if we would=20
-due to the way page isolation is currently handled). Having a MAX_ORDER=20
--1 page being partially in different nodes might be another thing to=20
-look into (I heard that it can already happen right now, but I don't=20
-remember the details).
+- m68k (non-dragonball) also uses the access-ok version without
+  setting HAVE_EFFICIENT_UNALIGNED_ACCESS.
 
-The next step after that would then be better fragmentation avoidance=20
-for larger granularity like 1G THP.
+- sh4a has a custom inline asm version
 
->>
->> Further, page onlining / offlining code and early init code most probabl=
-y also needs care if MAX_ORDER - 1 crosses sections. Memory holes we might =
-suddenly have in MAX_ORDER - 1 pages might become a problem and will have t=
-o be handled. Not sure which other code has to be tweaked (compaction? page=
- isolation?).
->=20
-> Can you elaborate it a little more? From what I understand, memory holes =
-mean valid
-> PFNs are not contiguous before and after a hole, so pfn++ will not work, =
-but
-> struct pages are still virtually contiguous assuming SPARSE_VMEMMAP, mean=
-ing page++
-> would still work. So when MAX_ORDER - 1 crosses sections, additional code=
- would be
-> needed instead of simple pfn++. Is there anything I am missing?
+- openrisc is the only one using the memmove version that
+  generally leads to worse code.
 
-I think there are two cases when talking about MAX_ORDER and memory holes:
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ arch/alpha/include/asm/unaligned.h      | 12 ----------
+ arch/ia64/include/asm/unaligned.h       | 12 ----------
+ arch/m68k/include/asm/unaligned.h       |  9 +-------
+ arch/microblaze/include/asm/unaligned.h | 27 -----------------------
+ arch/parisc/include/asm/unaligned.h     |  6 +----
+ arch/sparc/include/asm/unaligned.h      | 11 ----------
+ arch/x86/include/asm/unaligned.h        | 15 -------------
+ arch/xtensa/include/asm/unaligned.h     | 29 -------------------------
+ 8 files changed, 2 insertions(+), 119 deletions(-)
+ delete mode 100644 arch/alpha/include/asm/unaligned.h
+ delete mode 100644 arch/ia64/include/asm/unaligned.h
+ delete mode 100644 arch/microblaze/include/asm/unaligned.h
+ delete mode 100644 arch/sparc/include/asm/unaligned.h
+ delete mode 100644 arch/x86/include/asm/unaligned.h
+ delete mode 100644 arch/xtensa/include/asm/unaligned.h
 
-1. Hole with a valid memmap: the memmap is initialize to PageReserved()
-    and the pages are not given to the buddy. pfn_valid() and
-    pfn_to_page() works as expected.
-2. Hole without a valid memmam: we have that CONFIG_HOLES_IN_ZONE thing
-    already, see include/linux/mmzone.h. pfn_valid_within() checks are
-    required. Doesn't win a beauty contest, but gets the job done in
-    existing setups that seem to care.
-
-"If it is possible to have holes within a MAX_ORDER_NR_PAGES, then we=20
-need to check pfn validity within that MAX_ORDER_NR_PAGES block.=20
-pfn_valid_within() should be used in this case; we optimise this away=20
-when we have no holes within a MAX_ORDER_NR_PAGES block."
-
-CONFIG_HOLES_IN_ZONE is just a bad name for this.
-
-(increasing the section size implies that we waste more memory for the=20
-memmap in holes. increasing MAX_ORDER means that we might have to deal=20
-with holes within MAX_ORDER chunks)
-
-We don't have too many pfn_valid_within() checks. I wonder if we could=20
-add something that is optimized for "holes are a power of two and=20
-properly aligned", because pfn_valid_within() right not deals with holes=20
-of any kind which makes it somewhat inefficient IIRC.
-
->=20
-> BTW, to test a system with memory holes, do you know is there an easy of =
-adding
-> random memory holes to an x86_64 VM, which can help reveal potential miss=
-ing pieces
-> in the code? Changing BIOS-e820 table might be one way, but I have no ide=
-a on
-> how to do it on QEMU.
-
-It might not be very easy that way. But I heard that some arm64 systems=20
-have crazy memory layouts -- maybe there, it's easier to get something=20
-nasty running? :)
-
-https://lkml.kernel.org/r/YJpEwF2cGjS5mKma@kernel.org
-
-I remember there was a way to define the e820 completely on kernel=20
-cmdline, but I might be wrong ...
-
---=20
-Thanks,
-
-David / dhildenb
+diff --git a/arch/alpha/include/asm/unaligned.h b/arch/alpha/include/asm/unaligned.h
+deleted file mode 100644
+index 863c807b66f8..000000000000
+--- a/arch/alpha/include/asm/unaligned.h
++++ /dev/null
+@@ -1,12 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0 */
+-#ifndef _ASM_ALPHA_UNALIGNED_H
+-#define _ASM_ALPHA_UNALIGNED_H
+-
+-#include <linux/unaligned/le_struct.h>
+-#include <linux/unaligned/be_byteshift.h>
+-#include <linux/unaligned/generic.h>
+-
+-#define get_unaligned __get_unaligned_le
+-#define put_unaligned __put_unaligned_le
+-
+-#endif /* _ASM_ALPHA_UNALIGNED_H */
+diff --git a/arch/ia64/include/asm/unaligned.h b/arch/ia64/include/asm/unaligned.h
+deleted file mode 100644
+index 328942e3cbce..000000000000
+--- a/arch/ia64/include/asm/unaligned.h
++++ /dev/null
+@@ -1,12 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0 */
+-#ifndef _ASM_IA64_UNALIGNED_H
+-#define _ASM_IA64_UNALIGNED_H
+-
+-#include <linux/unaligned/le_struct.h>
+-#include <linux/unaligned/be_byteshift.h>
+-#include <linux/unaligned/generic.h>
+-
+-#define get_unaligned	__get_unaligned_le
+-#define put_unaligned	__put_unaligned_le
+-
+-#endif /* _ASM_IA64_UNALIGNED_H */
+diff --git a/arch/m68k/include/asm/unaligned.h b/arch/m68k/include/asm/unaligned.h
+index 98c8930d3d35..84e437337344 100644
+--- a/arch/m68k/include/asm/unaligned.h
++++ b/arch/m68k/include/asm/unaligned.h
+@@ -2,15 +2,8 @@
+ #ifndef _ASM_M68K_UNALIGNED_H
+ #define _ASM_M68K_UNALIGNED_H
+ 
+-
+ #ifdef CONFIG_CPU_HAS_NO_UNALIGNED
+-#include <linux/unaligned/be_struct.h>
+-#include <linux/unaligned/le_byteshift.h>
+-#include <linux/unaligned/generic.h>
+-
+-#define get_unaligned	__get_unaligned_be
+-#define put_unaligned	__put_unaligned_be
+-
++#include <asm-generic/unaligned.h>
+ #else
+ /*
+  * The m68k can do unaligned accesses itself.
+diff --git a/arch/microblaze/include/asm/unaligned.h b/arch/microblaze/include/asm/unaligned.h
+deleted file mode 100644
+index 448299beab69..000000000000
+--- a/arch/microblaze/include/asm/unaligned.h
++++ /dev/null
+@@ -1,27 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0 */
+-/*
+- * Copyright (C) 2008 Michal Simek <monstr@monstr.eu>
+- * Copyright (C) 2006 Atmark Techno, Inc.
+- */
+-
+-#ifndef _ASM_MICROBLAZE_UNALIGNED_H
+-#define _ASM_MICROBLAZE_UNALIGNED_H
+-
+-# ifdef __KERNEL__
+-
+-#  ifdef __MICROBLAZEEL__
+-#   include <linux/unaligned/le_struct.h>
+-#   include <linux/unaligned/be_byteshift.h>
+-#   define get_unaligned	__get_unaligned_le
+-#   define put_unaligned	__put_unaligned_le
+-#  else
+-#   include <linux/unaligned/be_struct.h>
+-#   include <linux/unaligned/le_byteshift.h>
+-#   define get_unaligned	__get_unaligned_be
+-#   define put_unaligned	__put_unaligned_be
+-#  endif
+-
+-# include <linux/unaligned/generic.h>
+-
+-# endif	/* __KERNEL__ */
+-#endif /* _ASM_MICROBLAZE_UNALIGNED_H */
+diff --git a/arch/parisc/include/asm/unaligned.h b/arch/parisc/include/asm/unaligned.h
+index e9029c7c2a69..3bda16773ba6 100644
+--- a/arch/parisc/include/asm/unaligned.h
++++ b/arch/parisc/include/asm/unaligned.h
+@@ -2,11 +2,7 @@
+ #ifndef _ASM_PARISC_UNALIGNED_H
+ #define _ASM_PARISC_UNALIGNED_H
+ 
+-#include <linux/unaligned/be_struct.h>
+-#include <linux/unaligned/le_byteshift.h>
+-#include <linux/unaligned/generic.h>
+-#define get_unaligned	__get_unaligned_be
+-#define put_unaligned	__put_unaligned_be
++#include <asm-generic/unaligned.h>
+ 
+ #ifdef __KERNEL__
+ struct pt_regs;
+diff --git a/arch/sparc/include/asm/unaligned.h b/arch/sparc/include/asm/unaligned.h
+deleted file mode 100644
+index 7971d89d2f54..000000000000
+--- a/arch/sparc/include/asm/unaligned.h
++++ /dev/null
+@@ -1,11 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0 */
+-#ifndef _ASM_SPARC_UNALIGNED_H
+-#define _ASM_SPARC_UNALIGNED_H
+-
+-#include <linux/unaligned/be_struct.h>
+-#include <linux/unaligned/le_byteshift.h>
+-#include <linux/unaligned/generic.h>
+-#define get_unaligned	__get_unaligned_be
+-#define put_unaligned	__put_unaligned_be
+-
+-#endif /* _ASM_SPARC_UNALIGNED_H */
+diff --git a/arch/x86/include/asm/unaligned.h b/arch/x86/include/asm/unaligned.h
+deleted file mode 100644
+index 9c754a7447aa..000000000000
+--- a/arch/x86/include/asm/unaligned.h
++++ /dev/null
+@@ -1,15 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0 */
+-#ifndef _ASM_X86_UNALIGNED_H
+-#define _ASM_X86_UNALIGNED_H
+-
+-/*
+- * The x86 can do unaligned accesses itself.
+- */
+-
+-#include <linux/unaligned/access_ok.h>
+-#include <linux/unaligned/generic.h>
+-
+-#define get_unaligned __get_unaligned_le
+-#define put_unaligned __put_unaligned_le
+-
+-#endif /* _ASM_X86_UNALIGNED_H */
+diff --git a/arch/xtensa/include/asm/unaligned.h b/arch/xtensa/include/asm/unaligned.h
+deleted file mode 100644
+index 8e7ed046bfed..000000000000
+--- a/arch/xtensa/include/asm/unaligned.h
++++ /dev/null
+@@ -1,29 +0,0 @@
+-/*
+- * Xtensa doesn't handle unaligned accesses efficiently.
+- *
+- * This file is subject to the terms and conditions of the GNU General Public
+- * License.  See the file "COPYING" in the main directory of this archive
+- * for more details.
+- *
+- * Copyright (C) 2001 - 2005 Tensilica Inc.
+- */
+-#ifndef _ASM_XTENSA_UNALIGNED_H
+-#define _ASM_XTENSA_UNALIGNED_H
+-
+-#include <asm/byteorder.h>
+-
+-#ifdef __LITTLE_ENDIAN
+-# include <linux/unaligned/le_struct.h>
+-# include <linux/unaligned/be_byteshift.h>
+-# include <linux/unaligned/generic.h>
+-# define get_unaligned	__get_unaligned_le
+-# define put_unaligned	__put_unaligned_le
+-#else
+-# include <linux/unaligned/be_struct.h>
+-# include <linux/unaligned/le_byteshift.h>
+-# include <linux/unaligned/generic.h>
+-# define get_unaligned	__get_unaligned_be
+-# define put_unaligned	__put_unaligned_be
+-#endif
+-
+-#endif	/* _ASM_XTENSA_UNALIGNED_H */
+-- 
+2.29.2
