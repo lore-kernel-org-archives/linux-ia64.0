@@ -1,40 +1,60 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Wed, 26 May 2021 08:03:41 +0000
-Subject: [PATCH -tip v6 09/13] kprobes: Setup instruction pointer in __kretprobe_trampoline_handler
-Message-Id: <162201622111.278331.11505326612383898085.stgit@devnote2>
+From: Randy Dunlap <rdunlap@infradead.org>
+Date: Fri, 07 May 2021 18:48:37 +0000
+Subject: [PATCH v2] ia64: headers: drop duplicated words
+Message-Id: <20210507184837.10754-1-rdunlap@infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <162201612941.278331.5293566981784464165.stgit@devnote2>
-In-Reply-To: <162201612941.278331.5293566981784464165.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>
-Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, Josh Poimboeuf <jpoimboe@redhat.com>, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
+To: linux-kernel@vger.kernel.org
+Cc: Randy Dunlap <rdunlap@infradead.org>, Andrew Morton <akpm@linux-foundation.org>, Tony Luck <tony.luck@intel.com>, Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org
 
-To simplify the stacktrace with pt_regs from kretprobe handler,
-set the correct return address to the instruction pointer in
-the pt_regs before calling kretprobe handlers.
+Delete the repeated words "to" and "the".
 
-Suggested-by: Josh Poimboeuf <jpoimboe@redhat.com>
-Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
+Signed-off-by: Randy Dunlap <rdunlap@infradead.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: linux-ia64@vger.kernel.org
 ---
- Changes in v3:
-  - Cast the correct_ret_addr to unsigned long.
----
- kernel/kprobes.c |    3 +++
- 1 file changed, 3 insertions(+)
+v2: combine 3 patches; drop previous perfmon patches (files have been
+    removed); rebase & resend
 
-diff --git a/kernel/kprobes.c b/kernel/kprobes.c
-index 54e5b89aad67..1598aca375c9 100644
---- a/kernel/kprobes.c
-+++ b/kernel/kprobes.c
-@@ -1914,6 +1914,9 @@ unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
- 		BUG_ON(1);
- 	}
+ arch/ia64/include/asm/pal.h       |    2 +-
+ arch/ia64/include/asm/spinlock.h  |    2 +-
+ arch/ia64/include/asm/uv/uv_hub.h |    2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
+
+--- linux-next-20210507.orig/arch/ia64/include/asm/pal.h
++++ linux-next-20210507/arch/ia64/include/asm/pal.h
+@@ -1086,7 +1086,7 @@ static inline long ia64_pal_freq_base(un
  
-+	/* Set the instruction pointer to the correct address */
-+	instruction_pointer_set(regs, (unsigned long)correct_ret_addr);
-+
- 	/* Run them. */
- 	first = current->kretprobe_instances.first;
- 	while (first) {
+ /*
+  * Get the ratios for processor frequency, bus frequency and interval timer to
+- * to base frequency of the platform
++ * the base frequency of the platform
+  */
+ static inline s64
+ ia64_pal_freq_ratios (struct pal_freq_ratio *proc_ratio, struct pal_freq_ratio *bus_ratio,
+--- linux-next-20210507.orig/arch/ia64/include/asm/spinlock.h
++++ linux-next-20210507/arch/ia64/include/asm/spinlock.h
+@@ -26,7 +26,7 @@
+  * the queue, and the other indicating the current tail. The lock is acquired
+  * by atomically noting the tail and incrementing it by one (thus adding
+  * ourself to the queue and noting our position), then waiting until the head
+- * becomes equal to the the initial value of the tail.
++ * becomes equal to the initial value of the tail.
+  * The pad bits in the middle are used to prevent the next_ticket number
+  * overflowing into the now_serving number.
+  *
+--- linux-next-20210507.orig/arch/ia64/include/asm/uv/uv_hub.h
++++ linux-next-20210507/arch/ia64/include/asm/uv/uv_hub.h
+@@ -257,7 +257,7 @@ static inline int uv_numa_blade_id(void)
+ 	return 0;
+ }
+ 
+-/* Convert a cpu number to the the UV blade number */
++/* Convert a cpu number to the UV blade number */
+ static inline int uv_cpu_to_blade_id(int cpu)
+ {
+ 	return 0;
