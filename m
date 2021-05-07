@@ -1,67 +1,50 @@
-From: David Hildenbrand <david@redhat.com>
-Date: Thu, 06 May 2021 19:38:37 +0000
+From: Michal Hocko <mhocko@suse.com>
+Date: Fri, 07 May 2021 11:55:24 +0000
 Subject: Re: [RFC PATCH 0/7] Memory hotplug/hotremove at subsection size
-Message-Id: <d2e3c89d-a1fe-e7bc-c2ec-586df2073951@redhat.com>
+Message-Id: <YJUqrOacyqI+kiKW@dhcp22.suse.cz>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20210506152623.178731-1-zi.yan@sent.com>
  <fb60eabd-f8ef-2cb1-7338-7725efe3c286@redhat.com>
- <9D7FD316-988E-4B11-AC1C-64FF790BA79E@nvidia.com>
- <3a51f564-f3d1-c21f-93b5-1b91639523ec@redhat.com>
- <16962E62-7D1E-4E06-B832-EC91F54CC359@nvidia.com>
- <f3a2152c-685b-2141-3e33-b2bcab8b6010@redhat.com>
- <3A6D54CF-76F4-4401-A434-84BEB813A65A@nvidia.com>
- <0e850dcb-c69a-188b-7ab9-09e6644af3ab@redhat.com>
- <20210506193026.GE388843@casper.infradead.org>
-In-Reply-To: <20210506193026.GE388843@casper.infradead.org>
+In-Reply-To: <fb60eabd-f8ef-2cb1-7338-7725efe3c286@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Matthew Wilcox <willy@infradead.org>
-Cc: Zi Yan <ziy@nvidia.com>, Oscar Salvador <osalvador@suse.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Thomas Gleixner <tglx@linutronix.de>, x86@kernel.org, Andy Lutomirski <luto@kernel.org>, "Rafael J . Wysocki" <rafael@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Mike Rapoport <rppt@kernel.org>, Anshuman Khandual <anshuman.khandual@arm.com>, Michal Hocko <mhocko@suse.com>, Dan Williams <dan.j.williams@intel.com>, Wei Yang <richard.weiyang@linux.alibaba.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-mm@kvack.org
+To: Zi Yan <ziy@nvidia.com>, David Hildenbrand <david@redhat.com>
+Cc: Oscar Salvador <osalvador@suse.de>, Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Thomas Gleixner <tglx@linutronix.de>, x86@kernel.org, Andy Lutomirski <luto@kernel.org>, "Rafael J . Wysocki" <rafael@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Mike Rapoport <rppt@kernel.org>, Anshuman Khandual <anshuman.khandual@arm.com>, Dan Williams <dan.j.williams@intel.com>, Wei Yang <richard.weiyang@linux.alibaba.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-mm@kvack.org
 
-On 06.05.21 21:30, Matthew Wilcox wrote:
-> On Thu, May 06, 2021 at 09:10:52PM +0200, David Hildenbrand wrote:
->> I have to admit that I am not really a friend of that. I still think our
->> target goal should be to have gigantic THP *in addition to* ordinary THP.
->> Use gigantic THP where enabled and possible, and just use ordinary THP
->> everywhere else. Having one pageblock granularity is a real limitation IMHO
->> and requires us to hack the system to support it to some degree.
+[I haven't read through respective patches due to lack of time but let
+ me comment on the general idea and the underlying justification]
+
+On Thu 06-05-21 17:31:09, David Hildenbrand wrote:
+> On 06.05.21 17:26, Zi Yan wrote:
+> > From: Zi Yan <ziy@nvidia.com>
+> > 
+> > Hi all,
+> > 
+> > This patchset tries to remove the restriction on memory hotplug/hotremove
+> > granularity, which is always greater or equal to memory section size[1].
+> > With the patchset, kernel is able to online/offline memory at a size independent
+> > of memory section size, as small as 2MB (the subsection size).
 > 
-> You're thinking too small with only two THP sizes ;-)  I'm aiming to
+> ... which doesn't make any sense as we can only online/offline whole memory
+> block devices.
 
-Well, I raised in my other mail that we will have multiple different use 
-cases, including multiple different THP e.g., on aarch64 ;)
-
-> support arbitrary power-of-two memory allocations.  I think there's a
-> fruitful discussion to be had about how that works for anonymous memory --
-> with page cache, we have readahead to tell us when our predictions of use
-> are actually fulfilled.  It doesn't tell us what percentage of the pages
-
-Right, and I think we have to think about a better approach than just 
-increasing the pageblock_order.
-
-> allocated were actually used, but it's a hint.  It's a big lift to go from
-> 2MB all the way to 1GB ... if you can look back to see that the previous
-> 1GB was basically fully populated, then maybe jump up from allocating
-> 2MB folios to allocating a 1GB folio, but wow, that's a big step.
+Agreed. The subsection thingy is just a hack to workaround pmem
+alignement problems. For the real memory hotplug it is quite hard to
+argue for reasonable hotplug scenarios for very small physical memory
+ranges wrt. to the existing sparsemem memory model.
+ 
+> > The motivation is to increase MAX_ORDER of the buddy allocator and pageblock
+> > size without increasing memory hotplug/hotremove granularity at the same time,
 > 
-> This goal really does mean that we want to allocate from the page
-> allocator, and so we do want to grow MAX_ORDER.  I suppose we could
-> do somethig ugly like
-> 
-> 	if (order <= MAX_ORDER)
-> 		alloc_page()
-> 	else
-> 		alloc_really_big_page()
-> 
-> but that feels like unnecessary hardship to place on the user.
+> Gah, no. Please no. No.
 
-I had something similar for the sort term in mind, relying on 
-alloc_contig_pages() (and maybe ZONE_MOVABLE to make allocations more 
-likely to succeed). Devil's in the details (page migration, ...).
-
-
+Agreed. Those are completely independent concepts. MAX_ORDER is can be
+really arbitrary irrespective of the section size with vmemmap sparse
+model. The existing restriction is due to old sparse model not being
+able to do page pointer arithmetic across memory sections. Is there any
+reason to stick with that memory model for an advance feature you are
+working on?
 -- 
-Thanks,
-
-David / dhildenb
+Michal Hocko
+SUSE Labs
