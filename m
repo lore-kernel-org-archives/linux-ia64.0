@@ -1,85 +1,86 @@
 From: Paul Moore <paul@paul-moore.com>
-Date: Mon, 24 May 2021 23:04:07 +0000
-Subject: Re: [PATCH v4 2/3] audit: add support for the openat2 syscall
-Message-Id: <CAHC9VhTyAFou=_Xu7ZSZSY+19Yii=hQ1NW1LPisk49Ot9wg7rg@mail.gmail.com>
+Date: Tue, 11 May 2021 01:23:54 +0000
+Subject: Re: [PATCH v3 1/3] audit: replace magic audit syscall class numbers with macros
+Message-Id: <CAHC9VhShi4u26h5OsahveQDNxO_uZ+KgzGOYEp5W7w6foA-uKg@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <cover.1621363275.git.rgb@redhat.com> <f5f1a4d8699613f8c02ce762807228c841c2e26f.1621363275.git.rgb@redhat.com>
- <20210520075842.vnbwbw6yffkybk6z@wittgenstein>
-In-Reply-To: <20210520075842.vnbwbw6yffkybk6z@wittgenstein>
+References: <cover.1619811762.git.rgb@redhat.com> <bda073f2a8b11000ef40cf8b965305409ee88f44.1619811762.git.rgb@redhat.com>
+In-Reply-To: <bda073f2a8b11000ef40cf8b965305409ee88f44.1619811762.git.rgb@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christian Brauner <christian.brauner@ubuntu.com>
-Cc: Richard Guy Briggs <rgb@redhat.com>, Linux-Audit Mailing List <linux-audit@redhat.com>, LKML <linux-kernel@vger.kernel.org>, linux-fsdevel@vger.kernel.org, Eric Paris <eparis@parisplace.org>, Steve Grubb <sgrubb@redhat.com>, Alexander Viro <viro@zeniv.linux.org.uk>, Eric Paris <eparis@redhat.com>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, Aleksa Sarai <cyphar@cyphar.com>, Arnd Bergmann <arnd@kernel.org>
+To: Richard Guy Briggs <rgb@redhat.com>
+Cc: Linux-Audit Mailing List <linux-audit@redhat.com>, LKML <linux-kernel@vger.kernel.org>, linux-fsdevel@vger.kernel.org, Eric Paris <eparis@parisplace.org>, Steve Grubb <sgrubb@redhat.com>, Alexander Viro <viro@zeniv.linux.org.uk>, Eric Paris <eparis@redhat.com>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, Aleksa Sarai <cyphar@cyphar.com>, Arnd Bergmann <arnd@kernel.org>
 
-On Thu, May 20, 2021 at 3:58 AM Christian Brauner
-<christian.brauner@ubuntu.com> wrote:
-> On Wed, May 19, 2021 at 04:00:21PM -0400, Richard Guy Briggs wrote:
-> > The openat2(2) syscall was added in kernel v5.6 with commit fddb5d430ad9
-> > ("open: introduce openat2(2) syscall")
-> >
-> > Add the openat2(2) syscall to the audit syscall classifier.
-> >
-> > Link: https://github.com/linux-audit/audit-kernel/issues/67
-> > Signed-off-by: Richard Guy Briggs <rgb@redhat.com>
-> > Link: https://lore.kernel.org/r/f5f1a4d8699613f8c02ce762807228c841c2e26f.1621363275.git.rgb@redhat.com
-> > ---
-> >  arch/alpha/kernel/audit.c           | 2 ++
-> >  arch/ia64/kernel/audit.c            | 2 ++
-> >  arch/parisc/kernel/audit.c          | 2 ++
-> >  arch/parisc/kernel/compat_audit.c   | 2 ++
-> >  arch/powerpc/kernel/audit.c         | 2 ++
-> >  arch/powerpc/kernel/compat_audit.c  | 2 ++
-> >  arch/s390/kernel/audit.c            | 2 ++
-> >  arch/s390/kernel/compat_audit.c     | 2 ++
-> >  arch/sparc/kernel/audit.c           | 2 ++
-> >  arch/sparc/kernel/compat_audit.c    | 2 ++
-> >  arch/x86/ia32/audit.c               | 2 ++
-> >  arch/x86/kernel/audit_64.c          | 2 ++
-> >  include/linux/auditsc_classmacros.h | 1 +
-> >  kernel/auditsc.c                    | 3 +++
-> >  lib/audit.c                         | 4 ++++
-> >  lib/compat_audit.c                  | 4 ++++
-> >  16 files changed, 36 insertions(+)
+On Fri, Apr 30, 2021 at 4:36 PM Richard Guy Briggs <rgb@redhat.com> wrote:
+>
+> Replace audit syscall class magic numbers with macros.
+>
+> This required putting the macros into new header file
+> include/linux/auditscm.h since the syscall macros were included for both 64
+> bit and 32 bit in any compat code, causing redefinition warnings.
+
+The ifndef/define didn't protect against redeclaration?  Huh.  Maybe
+I'm not thinking about this correctly, or the arch specific code is
+doing something wonky ...
+
+Regardless, assuming that it is necessary, I would prefer if we called
+it auditsc.h instead of auditscm.h; the latter makes me think of
+sockets and not syscalls.
+
+> Signed-off-by: Richard Guy Briggs <rgb@redhat.com>
+> ---
+>  MAINTAINERS                        |  1 +
+>  arch/alpha/kernel/audit.c          |  8 ++++----
+>  arch/ia64/kernel/audit.c           |  8 ++++----
+>  arch/parisc/kernel/audit.c         |  8 ++++----
+>  arch/parisc/kernel/compat_audit.c  |  9 +++++----
+>  arch/powerpc/kernel/audit.c        | 10 +++++-----
+>  arch/powerpc/kernel/compat_audit.c | 11 ++++++-----
+>  arch/s390/kernel/audit.c           | 10 +++++-----
+>  arch/s390/kernel/compat_audit.c    | 11 ++++++-----
+>  arch/sparc/kernel/audit.c          | 10 +++++-----
+>  arch/sparc/kernel/compat_audit.c   | 11 ++++++-----
+>  arch/x86/ia32/audit.c              | 11 ++++++-----
+>  arch/x86/kernel/audit_64.c         |  8 ++++----
+>  include/linux/audit.h              |  1 +
+>  include/linux/auditscm.h           | 23 +++++++++++++++++++++++
+>  kernel/auditsc.c                   | 12 ++++++------
+>  lib/audit.c                        | 10 +++++-----
+>  lib/compat_audit.c                 | 11 ++++++-----
+>  18 files changed, 102 insertions(+), 71 deletions(-)
+>  create mode 100644 include/linux/auditscm.h
 
 ...
 
-> > diff --git a/kernel/auditsc.c b/kernel/auditsc.c
-> > index d775ea16505b..3f59ab209dfd 100644
-> > --- a/kernel/auditsc.c
-> > +++ b/kernel/auditsc.c
-> > @@ -76,6 +76,7 @@
-> >  #include <linux/fsnotify_backend.h>
-> >  #include <uapi/linux/limits.h>
-> >  #include <uapi/linux/netfilter/nf_tables.h>
-> > +#include <uapi/linux/openat2.h>
-> >
-> >  #include "audit.h"
-> >
-> > @@ -196,6 +197,8 @@ static int audit_match_perm(struct audit_context *ctx, int mask)
-> >               return ((mask & AUDIT_PERM_WRITE) && ctx->argv[0] = SYS_BIND);
-> >       case AUDITSC_EXECVE:
-> >               return mask & AUDIT_PERM_EXEC;
-> > +     case AUDITSC_OPENAT2:
-> > +             return mask & ACC_MODE((u32)((struct open_how *)ctx->argv[2])->flags);
->
-> That's a lot of dereferncing, casting and masking all at once. Maybe a
-> small static inline helper would be good for the sake of legibility? Sm
-> like:
->
-> static inline u32 audit_openat2_acc(struct open_how *how, int mask)
-> {
->         u32 flags = how->flags;
->         return mask & ACC_MODE(flags);
-> }
->
-> but not sure. Just seems more legible to me.
-> Otherwise.
-
-I'm on the fence about this.  I understand Christian's concern, but I
-have a bit of hatred towards single caller functions like this.  Since
-this function isn't really high-touch, and I don't expect that to
-change in the near future, let's leave the casting mess as-is.
+> diff --git a/include/linux/auditscm.h b/include/linux/auditscm.h
+> new file mode 100644
+> index 000000000000..1c4f0ead5931
+> --- /dev/null
+> +++ b/include/linux/auditscm.h
+> @@ -0,0 +1,23 @@
+> +/* SPDX-License-Identifier: GPL-2.0-or-later */
+> +/* auditscm.h -- Auditing support syscall macros
+> + *
+> + * Copyright 2021 Red Hat Inc., Durham, North Carolina.
+> + * All Rights Reserved.
+> + *
+> + * Author: Richard Guy Briggs <rgb@redhat.com>
+> + */
+> +#ifndef _LINUX_AUDITSCM_H_
+> +#define _LINUX_AUDITSCM_H_
+> +
+> +enum auditsc_class_t {
+> +       AUDITSC_NATIVE = 0,
+> +       AUDITSC_COMPAT,
+> +       AUDITSC_OPEN,
+> +       AUDITSC_OPENAT,
+> +       AUDITSC_SOCKETCALL,
+> +       AUDITSC_EXECVE,
+> +
+> +       AUDITSC_NVALS /* count */
+> +};
+> +
+> +#endif
 
 -- 
 paul moore
