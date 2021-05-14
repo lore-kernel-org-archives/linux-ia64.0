@@ -1,192 +1,238 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Wed, 26 May 2021 08:04:03 +0000
-Subject: [PATCH -tip v6 11/13] x86/unwind: Recover kretprobe trampoline entry
-Message-Id: <162201624347.278331.4677822345434037169.stgit@devnote2>
+From: Arnd Bergmann <arnd@kernel.org>
+Date: Fri, 14 May 2021 10:00:49 +0000
+Subject: [PATCH v2 01/13] asm-generic: use asm-generic/unaligned.h for most architectures
+Message-Id: <20210514100106.3404011-2-arnd@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <162201612941.278331.5293566981784464165.stgit@devnote2>
-In-Reply-To: <162201612941.278331.5293566981784464165.stgit@devnote2>
+References: <20210514100106.3404011-1-arnd@kernel.org>
+In-Reply-To: <20210514100106.3404011-1-arnd@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>
-Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, Josh Poimboeuf <jpoimboe@redhat.com>, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
+To: linux-arch@vger.kernel.org
+Cc: Linus Torvalds <torvalds@linux-foundation.org>, Vineet Gupta <vgupta@synopsys.com>, Arnd Bergmann <arnd@arndb.de>, Thomas Gleixner <tglx@linutronix.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Richard Henderson <rth@twiddle.net>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Matt Turner <mattst88@gmail.com>, Michal Simek <monstr@monstr.eu>, "James E.J. Bottomley" <James.Bottomley@HansenPartnership.com>, Helge Deller <deller@gmx.de>, "David S. Miller" <davem@davemloft.net>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>, Chris Zankel <chris@zankel.net>, Max Filippov <jcmvbkbc@gmail.com>, linux-alpha@vger.kernel.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-parisc@vger.kernel.org, sparclinux@vger.kernel.org, linux-xtensa@linux-xtensa.org
 
-Since the kretprobe replaces the function return address with
-the kretprobe_trampoline on the stack, x86 unwinders can not
-continue the stack unwinding at that point, or record
-kretprobe_trampoline instead of correct return address.
+From: Arnd Bergmann <arnd@arndb.de>
 
-To fix this issue, find the correct return address from task's
-kretprobe_instances as like as function-graph tracer does.
+There are several architectures that just duplicate the contents
+of asm-generic/unaligned.h, so change those over to use the
+file directly, to make future modifications easier.
 
-With this fix, the unwinder can correctly unwind the stack
-from kretprobe event on x86, as below.
+The exceptions are:
 
-           <...>-135     [003] ...1     6.722338: r_full_proxy_read_0: (vfs_read+0xab/0x1a0 <- full_proxy_read)
-           <...>-135     [003] ...1     6.722377: <stack trace>
- => kretprobe_trace_func+0x209/0x2f0
- => kretprobe_dispatcher+0x4a/0x70
- => __kretprobe_trampoline_handler+0xca/0x150
- => trampoline_handler+0x44/0x70
- => kretprobe_trampoline+0x2a/0x50
- => vfs_read+0xab/0x1a0
- => ksys_read+0x5f/0xe0
- => do_syscall_64+0x33/0x40
- => entry_SYSCALL_64_after_hwframe+0x44/0xae
+- arm32 sets HAVE_EFFICIENT_UNALIGNED_ACCESS, but wants the
+  unaligned-struct version
 
+- ppc64le disables HAVE_EFFICIENT_UNALIGNED_ACCESS but includes
+  the access-ok version
 
-Reported-by: Daniel Xu <dxu@dxuuu.xyz>
-Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
-Suggested-by: Josh Poimboeuf <jpoimboe@redhat.com>
+- most m68k also uses the access-ok version without setting
+  HAVE_EFFICIENT_UNALIGNED_ACCESS.
+
+- sh4a has a custom inline asm version
+
+- openrisc is the only one using the memmove version that
+  generally leads to worse code.
+
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Reviewed-by: Thomas Gleixner <tglx@linutronix.de>
+Reviewed-by: Geert Uytterhoeven <geert@linux-m68k.org>
+Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
 ---
-  Changes in v5:
-   - Fix the case of interrupt happens on kretprobe_trampoline+0.
-  Changes in v3:
-   - Split out the kretprobe side patch
-   - Fix build error when CONFIG_KRETPROBES=n.
-  Changes in v2:
-   - Remove kretprobe wrapper functions from unwind_orc.c
-   - Do not fixup state->ip when unwinding with regs because
-     kretprobe fixup instruction pointer before calling handler.
----
- arch/x86/include/asm/unwind.h  |   23 +++++++++++++++++++++++
- arch/x86/kernel/unwind_frame.c |    4 ++--
- arch/x86/kernel/unwind_guess.c |    3 +--
- arch/x86/kernel/unwind_orc.c   |   19 +++++++++++++++----
- 4 files changed, 41 insertions(+), 8 deletions(-)
+ arch/alpha/include/asm/unaligned.h      | 12 ----------
+ arch/ia64/include/asm/unaligned.h       | 12 ----------
+ arch/m68k/include/asm/unaligned.h       |  9 +-------
+ arch/microblaze/include/asm/unaligned.h | 27 -----------------------
+ arch/parisc/include/asm/unaligned.h     |  6 +----
+ arch/sparc/include/asm/unaligned.h      | 11 ----------
+ arch/x86/include/asm/unaligned.h        | 15 -------------
+ arch/xtensa/include/asm/unaligned.h     | 29 -------------------------
+ 8 files changed, 2 insertions(+), 119 deletions(-)
+ delete mode 100644 arch/alpha/include/asm/unaligned.h
+ delete mode 100644 arch/ia64/include/asm/unaligned.h
+ delete mode 100644 arch/microblaze/include/asm/unaligned.h
+ delete mode 100644 arch/sparc/include/asm/unaligned.h
+ delete mode 100644 arch/x86/include/asm/unaligned.h
+ delete mode 100644 arch/xtensa/include/asm/unaligned.h
 
-diff --git a/arch/x86/include/asm/unwind.h b/arch/x86/include/asm/unwind.h
-index 70fc159ebe69..36d3971c0a2c 100644
---- a/arch/x86/include/asm/unwind.h
-+++ b/arch/x86/include/asm/unwind.h
-@@ -4,6 +4,7 @@
+diff --git a/arch/alpha/include/asm/unaligned.h b/arch/alpha/include/asm/unaligned.h
+deleted file mode 100644
+index 863c807b66f8..000000000000
+--- a/arch/alpha/include/asm/unaligned.h
++++ /dev/null
+@@ -1,12 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0 */
+-#ifndef _ASM_ALPHA_UNALIGNED_H
+-#define _ASM_ALPHA_UNALIGNED_H
+-
+-#include <linux/unaligned/le_struct.h>
+-#include <linux/unaligned/be_byteshift.h>
+-#include <linux/unaligned/generic.h>
+-
+-#define get_unaligned __get_unaligned_le
+-#define put_unaligned __put_unaligned_le
+-
+-#endif /* _ASM_ALPHA_UNALIGNED_H */
+diff --git a/arch/ia64/include/asm/unaligned.h b/arch/ia64/include/asm/unaligned.h
+deleted file mode 100644
+index 328942e3cbce..000000000000
+--- a/arch/ia64/include/asm/unaligned.h
++++ /dev/null
+@@ -1,12 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0 */
+-#ifndef _ASM_IA64_UNALIGNED_H
+-#define _ASM_IA64_UNALIGNED_H
+-
+-#include <linux/unaligned/le_struct.h>
+-#include <linux/unaligned/be_byteshift.h>
+-#include <linux/unaligned/generic.h>
+-
+-#define get_unaligned	__get_unaligned_le
+-#define put_unaligned	__put_unaligned_le
+-
+-#endif /* _ASM_IA64_UNALIGNED_H */
+diff --git a/arch/m68k/include/asm/unaligned.h b/arch/m68k/include/asm/unaligned.h
+index 98c8930d3d35..84e437337344 100644
+--- a/arch/m68k/include/asm/unaligned.h
++++ b/arch/m68k/include/asm/unaligned.h
+@@ -2,15 +2,8 @@
+ #ifndef _ASM_M68K_UNALIGNED_H
+ #define _ASM_M68K_UNALIGNED_H
  
- #include <linux/sched.h>
- #include <linux/ftrace.h>
-+#include <linux/kprobes.h>
- #include <asm/ptrace.h>
- #include <asm/stacktrace.h>
- 
-@@ -15,6 +16,7 @@ struct unwind_state {
- 	unsigned long stack_mask;
- 	struct task_struct *task;
- 	int graph_idx;
-+	struct llist_node *kr_cur;
- 	bool error;
- #if defined(CONFIG_UNWINDER_ORC)
- 	bool signal, full_regs;
-@@ -99,6 +101,27 @@ void unwind_module_init(struct module *mod, void *orc_ip, size_t orc_ip_size,
- 			void *orc, size_t orc_size) {}
- #endif
- 
-+static inline
-+unsigned long unwind_recover_kretprobe(struct unwind_state *state,
-+				       unsigned long addr, unsigned long *addr_p)
-+{
-+	return is_kretprobe_trampoline(addr) ?
-+		kretprobe_find_ret_addr(state->task, addr_p, &state->kr_cur) :
-+		addr;
-+}
-+
-+/* Recover the return address modified by instrumentation (e.g. kretprobe) */
-+static inline
-+unsigned long unwind_recover_ret_addr(struct unwind_state *state,
-+				     unsigned long addr, unsigned long *addr_p)
-+{
-+	unsigned long ret;
-+
-+	ret = ftrace_graph_ret_addr(state->task, &state->graph_idx,
-+				    addr, addr_p);
-+	return unwind_recover_kretprobe(state, ret, addr_p);
-+}
-+
+-
+ #ifdef CONFIG_CPU_HAS_NO_UNALIGNED
+-#include <linux/unaligned/be_struct.h>
+-#include <linux/unaligned/le_byteshift.h>
+-#include <linux/unaligned/generic.h>
+-
+-#define get_unaligned	__get_unaligned_be
+-#define put_unaligned	__put_unaligned_be
+-
++#include <asm-generic/unaligned.h>
+ #else
  /*
-  * This disables KASAN checking when reading a value from another task's stack,
-  * since the other task could be running on another CPU and could have poisoned
-diff --git a/arch/x86/kernel/unwind_frame.c b/arch/x86/kernel/unwind_frame.c
-index d7c44b257f7f..24e33b44b2be 100644
---- a/arch/x86/kernel/unwind_frame.c
-+++ b/arch/x86/kernel/unwind_frame.c
-@@ -3,6 +3,7 @@
- #include <linux/sched/task.h>
- #include <linux/sched/task_stack.h>
- #include <linux/interrupt.h>
-+#include <linux/kprobes.h>
- #include <asm/sections.h>
- #include <asm/ptrace.h>
- #include <asm/bitops.h>
-@@ -240,8 +241,7 @@ static bool update_stack_state(struct unwind_state *state,
- 	else {
- 		addr_p = unwind_get_return_address_ptr(state);
- 		addr = READ_ONCE_TASK_STACK(state->task, *addr_p);
--		state->ip = ftrace_graph_ret_addr(state->task, &state->graph_idx,
--						  addr, addr_p);
-+		state->ip = unwind_recover_ret_addr(state, addr, addr_p);
- 	}
- 
- 	/* Save the original stack pointer for unwind_dump(): */
-diff --git a/arch/x86/kernel/unwind_guess.c b/arch/x86/kernel/unwind_guess.c
-index c49f10ffd8cd..884d68a6e714 100644
---- a/arch/x86/kernel/unwind_guess.c
-+++ b/arch/x86/kernel/unwind_guess.c
-@@ -15,8 +15,7 @@ unsigned long unwind_get_return_address(struct unwind_state *state)
- 
- 	addr = READ_ONCE_NOCHECK(*state->sp);
- 
--	return ftrace_graph_ret_addr(state->task, &state->graph_idx,
--				     addr, state->sp);
-+	return unwind_recover_ret_addr(state, addr, state->sp);
- }
- EXPORT_SYMBOL_GPL(unwind_get_return_address);
- 
-diff --git a/arch/x86/kernel/unwind_orc.c b/arch/x86/kernel/unwind_orc.c
-index a1202536fc57..c70dfeea4552 100644
---- a/arch/x86/kernel/unwind_orc.c
-+++ b/arch/x86/kernel/unwind_orc.c
-@@ -2,6 +2,7 @@
- #include <linux/objtool.h>
- #include <linux/module.h>
- #include <linux/sort.h>
-+#include <linux/kprobes.h>
- #include <asm/ptrace.h>
- #include <asm/stacktrace.h>
- #include <asm/unwind.h>
-@@ -534,9 +535,8 @@ bool unwind_next_frame(struct unwind_state *state)
- 		if (!deref_stack_reg(state, ip_p, &state->ip))
- 			goto err;
- 
--		state->ip = ftrace_graph_ret_addr(state->task, &state->graph_idx,
--						  state->ip, (void *)ip_p);
+  * The m68k can do unaligned accesses itself.
+diff --git a/arch/microblaze/include/asm/unaligned.h b/arch/microblaze/include/asm/unaligned.h
+deleted file mode 100644
+index 448299beab69..000000000000
+--- a/arch/microblaze/include/asm/unaligned.h
++++ /dev/null
+@@ -1,27 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0 */
+-/*
+- * Copyright (C) 2008 Michal Simek <monstr@monstr.eu>
+- * Copyright (C) 2006 Atmark Techno, Inc.
+- */
 -
-+		state->ip = unwind_recover_ret_addr(state, state->ip,
-+						    (unsigned long *)ip_p);
- 		state->sp = sp;
- 		state->regs = NULL;
- 		state->prev_regs = NULL;
-@@ -549,7 +549,15 @@ bool unwind_next_frame(struct unwind_state *state)
- 					 (void *)orig_ip);
- 			goto err;
- 		}
+-#ifndef _ASM_MICROBLAZE_UNALIGNED_H
+-#define _ASM_MICROBLAZE_UNALIGNED_H
 -
-+		/*
-+		 * There is a small chance to interrupt at the entry of
-+		 * kretprobe_trampoline where the ORC info doesn't exist.
-+		 * That point is right after the RET to kretprobe_trampoline
-+		 * which was modified return address. So the @addr_p must
-+		 * be right before the regs->sp.
-+		 */
-+		state->ip = unwind_recover_kretprobe(state, state->ip,
-+				(unsigned long *)(state->sp - sizeof(long)));
- 		state->regs = (struct pt_regs *)sp;
- 		state->prev_regs = NULL;
- 		state->full_regs = true;
-@@ -562,6 +570,9 @@ bool unwind_next_frame(struct unwind_state *state)
- 					 (void *)orig_ip);
- 			goto err;
- 		}
-+		/* See UNWIND_HINT_TYPE_REGS case comment. */
-+		state->ip = unwind_recover_kretprobe(state, state->ip,
-+				(unsigned long *)(state->sp - sizeof(long)));
+-# ifdef __KERNEL__
+-
+-#  ifdef __MICROBLAZEEL__
+-#   include <linux/unaligned/le_struct.h>
+-#   include <linux/unaligned/be_byteshift.h>
+-#   define get_unaligned	__get_unaligned_le
+-#   define put_unaligned	__put_unaligned_le
+-#  else
+-#   include <linux/unaligned/be_struct.h>
+-#   include <linux/unaligned/le_byteshift.h>
+-#   define get_unaligned	__get_unaligned_be
+-#   define put_unaligned	__put_unaligned_be
+-#  endif
+-
+-# include <linux/unaligned/generic.h>
+-
+-# endif	/* __KERNEL__ */
+-#endif /* _ASM_MICROBLAZE_UNALIGNED_H */
+diff --git a/arch/parisc/include/asm/unaligned.h b/arch/parisc/include/asm/unaligned.h
+index e9029c7c2a69..3bda16773ba6 100644
+--- a/arch/parisc/include/asm/unaligned.h
++++ b/arch/parisc/include/asm/unaligned.h
+@@ -2,11 +2,7 @@
+ #ifndef _ASM_PARISC_UNALIGNED_H
+ #define _ASM_PARISC_UNALIGNED_H
  
- 		if (state->full_regs)
- 			state->prev_regs = state->regs;
+-#include <linux/unaligned/be_struct.h>
+-#include <linux/unaligned/le_byteshift.h>
+-#include <linux/unaligned/generic.h>
+-#define get_unaligned	__get_unaligned_be
+-#define put_unaligned	__put_unaligned_be
++#include <asm-generic/unaligned.h>
+ 
+ #ifdef __KERNEL__
+ struct pt_regs;
+diff --git a/arch/sparc/include/asm/unaligned.h b/arch/sparc/include/asm/unaligned.h
+deleted file mode 100644
+index 7971d89d2f54..000000000000
+--- a/arch/sparc/include/asm/unaligned.h
++++ /dev/null
+@@ -1,11 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0 */
+-#ifndef _ASM_SPARC_UNALIGNED_H
+-#define _ASM_SPARC_UNALIGNED_H
+-
+-#include <linux/unaligned/be_struct.h>
+-#include <linux/unaligned/le_byteshift.h>
+-#include <linux/unaligned/generic.h>
+-#define get_unaligned	__get_unaligned_be
+-#define put_unaligned	__put_unaligned_be
+-
+-#endif /* _ASM_SPARC_UNALIGNED_H */
+diff --git a/arch/x86/include/asm/unaligned.h b/arch/x86/include/asm/unaligned.h
+deleted file mode 100644
+index 9c754a7447aa..000000000000
+--- a/arch/x86/include/asm/unaligned.h
++++ /dev/null
+@@ -1,15 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0 */
+-#ifndef _ASM_X86_UNALIGNED_H
+-#define _ASM_X86_UNALIGNED_H
+-
+-/*
+- * The x86 can do unaligned accesses itself.
+- */
+-
+-#include <linux/unaligned/access_ok.h>
+-#include <linux/unaligned/generic.h>
+-
+-#define get_unaligned __get_unaligned_le
+-#define put_unaligned __put_unaligned_le
+-
+-#endif /* _ASM_X86_UNALIGNED_H */
+diff --git a/arch/xtensa/include/asm/unaligned.h b/arch/xtensa/include/asm/unaligned.h
+deleted file mode 100644
+index 8e7ed046bfed..000000000000
+--- a/arch/xtensa/include/asm/unaligned.h
++++ /dev/null
+@@ -1,29 +0,0 @@
+-/*
+- * Xtensa doesn't handle unaligned accesses efficiently.
+- *
+- * This file is subject to the terms and conditions of the GNU General Public
+- * License.  See the file "COPYING" in the main directory of this archive
+- * for more details.
+- *
+- * Copyright (C) 2001 - 2005 Tensilica Inc.
+- */
+-#ifndef _ASM_XTENSA_UNALIGNED_H
+-#define _ASM_XTENSA_UNALIGNED_H
+-
+-#include <asm/byteorder.h>
+-
+-#ifdef __LITTLE_ENDIAN
+-# include <linux/unaligned/le_struct.h>
+-# include <linux/unaligned/be_byteshift.h>
+-# include <linux/unaligned/generic.h>
+-# define get_unaligned	__get_unaligned_le
+-# define put_unaligned	__put_unaligned_le
+-#else
+-# include <linux/unaligned/be_struct.h>
+-# include <linux/unaligned/le_byteshift.h>
+-# include <linux/unaligned/generic.h>
+-# define get_unaligned	__get_unaligned_be
+-# define put_unaligned	__put_unaligned_be
+-#endif
+-
+-#endif	/* _ASM_XTENSA_UNALIGNED_H */
+-- 
+2.29.2
