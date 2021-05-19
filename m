@@ -1,301 +1,261 @@
-From: Masahiro Yamada <masahiroy@kernel.org>
-Date: Wed, 26 May 2021 14:32:22 +0000
-Subject: Re: [PATCH 1/5] kbuild: require all architectures to have arch/$(SRCARCH)/Kbuild
-Message-Id: <CAK7LNAS7cEj9h=Hi0O-AoFjJPg2mxp0zbi8boXj4O9aYt_yg6Q@mail.gmail.com>
+From: Richard Guy Briggs <rgb@redhat.com>
+Date: Wed, 19 May 2021 20:00:21 +0000
+Subject: [PATCH v4 2/3] audit: add support for the openat2 syscall
+Message-Id: <f5f1a4d8699613f8c02ce762807228c841c2e26f.1621363275.git.rgb@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210512075729.60291-1-masahiroy@kernel.org>
-In-Reply-To: <20210512075729.60291-1-masahiroy@kernel.org>
+References: <cover.1621363275.git.rgb@redhat.com>
+In-Reply-To: <cover.1621363275.git.rgb@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linux Kbuild mailing list <linux-kbuild@vger.kernel.org>
-Cc: Albert Ou <aou@eecs.berkeley.edu>, Anton Ivanov <anton.ivanov@cambridgegreys.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Borislav Petkov <bp@alien8.de>, Brian Cain <bcain@codeaurora.org>, Catalin Marinas <catalin.marinas@arm.com>, Chris Zankel <chris@zankel.net>, Christian Borntraeger <borntraeger@de.ibm.com>, "David S. Miller" <davem@davemloft.net>, Greentime Hu <green.hu@gmail.com>, Guo Ren <guoren@kernel.org>, "H. Peter Anvin" <hpa@zytor.com>, Heiko Carstens <hca@linux.ibm.com>, Helge Deller <deller@gmx.de>, Ingo Molnar <mingo@redhat.com>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, "James E.J. Bottomley" <James.Bottomley@hansenpartnership.com>, Jeff Dike <jdike@addtoit.com>, Jonas Bonn <jonas@southpole.se>, Ley Foon Tan <ley.foon.tan@intel.com>, Matt Turner <mattst88@gmail.com>, Max Filippov <jcmvbkbc@gmail.com>, Michael Ellerman <mpe@ellerman.id.au>, Michal Marek <michal.lkml@markovi.net>, Michal Simek <monstr@monstr.eu>, Nick Hu <nickhu@andestech.com>, Palmer Dabbelt <palmer@dabbelt.com>, Paul Mackerras <paulus@samba.org>, Paul Walmsley <paul.walmsley@sifive.com>, Rich Felker <dalias@libc.org>, Richard Henderson <rth@twiddle.net>, Richard Weinberger <richard@nod.at>, Russell King <linux@armlinux.org.uk>, Stafford Horne <shorne@gmail.com>, Stefan Kristiansson <stefan.kristiansson@saunalahti.fi>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, Thomas Gleixner <tglx@linutronix.de>, Vasily Gorbik <gor@linux.ibm.com>, Vincent Chen <deanbo422@gmail.com>, Vineet Gupta <vgupta@synopsys.com>, Will Deacon <will@kernel.org>, Yoshinori Sato <ysato@users.sourceforge.jp>, linux-alpha@vger.kernel.org, linux-arm-kernel <linux-arm-kernel@lists.infradead.org>, linux-csky@vger.kernel.org, linux-hexagon@vger.kernel.org, linux-ia64@vger.kernel.org, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, "open list:BROADCOM NVRAM DRIVER" <linux-mips@vger.kernel.org>, Parisc List <linux-parisc@vger.kernel.org>, "open list:SIFIVE DRIVERS" <linux-riscv@lists.infradead.org>, linux-s390 <linux-s390@vger.kernel.org>, Linux-sh list <linux-sh@vger.kernel.org>, arcml <linux-snps-arc@lists.infradead.org>, linux-um@lists.infradead.org, "open list:TENSILICA XTENSA PORT (xtensa)" <linux-xtensa@linux-xtensa.org>, linuxppc-dev <linuxppc-dev@lists.ozlabs.org>, openrisc@lists.librecores.org, sparclinux <sparclinux@vger.kernel.org>, "moderated list:H8/300 ARCHITECTURE" <uclinux-h8-devel@lists.sourceforge.jp>, X86 ML <x86@kernel.org>
+To: Linux-Audit Mailing List <linux-audit@redhat.com>, LKML <linux-kernel@vger.kernel.org>, linux-fsdevel@vger.kernel.org
+Cc: Paul Moore <paul@paul-moore.com>, Eric Paris <eparis@parisplace.org>, Steve Grubb <sgrubb@redhat.com>, Richard Guy Briggs <rgb@redhat.com>, Alexander Viro <viro@zeniv.linux.org.uk>, Eric Paris <eparis@redhat.com>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, Aleksa Sarai <cyphar@cyphar.com>, Arnd Bergmann <arnd@kernel.org>
 
-On Wed, May 12, 2021 at 5:00 PM Masahiro Yamada <masahiroy@kernel.org> wrote:
->
-> arch/$(SRCARCH)/Kbuild is useful for Makefile cleanups because you can
-> use the obj-y syntax.
->
-> Add an empty file if it is missing in arch/$(SRCARCH)/.
->
-> Signed-off-by: Masahiro Yamada <masahiroy@kernel.org>
-> ---
+The openat2(2) syscall was added in kernel v5.6 with commit fddb5d430ad9
+("open: introduce openat2(2) syscall")
 
+Add the openat2(2) syscall to the audit syscall classifier.
 
-Applied to linux-kbuild.
+Link: https://github.com/linux-audit/audit-kernel/issues/67
+Signed-off-by: Richard Guy Briggs <rgb@redhat.com>
+Link: https://lore.kernel.org/r/f5f1a4d8699613f8c02ce762807228c841c2e26f.1621363275.git.rgb@redhat.com
+---
+ arch/alpha/kernel/audit.c           | 2 ++
+ arch/ia64/kernel/audit.c            | 2 ++
+ arch/parisc/kernel/audit.c          | 2 ++
+ arch/parisc/kernel/compat_audit.c   | 2 ++
+ arch/powerpc/kernel/audit.c         | 2 ++
+ arch/powerpc/kernel/compat_audit.c  | 2 ++
+ arch/s390/kernel/audit.c            | 2 ++
+ arch/s390/kernel/compat_audit.c     | 2 ++
+ arch/sparc/kernel/audit.c           | 2 ++
+ arch/sparc/kernel/compat_audit.c    | 2 ++
+ arch/x86/ia32/audit.c               | 2 ++
+ arch/x86/kernel/audit_64.c          | 2 ++
+ include/linux/auditsc_classmacros.h | 1 +
+ kernel/auditsc.c                    | 3 +++
+ lib/audit.c                         | 4 ++++
+ lib/compat_audit.c                  | 4 ++++
+ 16 files changed, 36 insertions(+)
 
->
->  Makefile               | 2 +-
->  arch/alpha/Kbuild      | 1 +
->  arch/arc/Makefile      | 3 ---
->  arch/arm/Makefile      | 1 -
->  arch/arm64/Makefile    | 1 -
->  arch/csky/Kbuild       | 1 +
->  arch/h8300/Kbuild      | 1 +
->  arch/hexagon/Kbuild    | 1 +
->  arch/ia64/Kbuild       | 1 +
->  arch/microblaze/Kbuild | 1 +
->  arch/mips/Makefile     | 3 ---
->  arch/nds32/Kbuild      | 1 +
->  arch/nios2/Kbuild      | 1 +
->  arch/openrisc/Makefile | 1 -
->  arch/parisc/Kbuild     | 1 +
->  arch/powerpc/Makefile  | 3 ---
->  arch/riscv/Makefile    | 1 -
->  arch/s390/Makefile     | 3 ---
->  arch/sh/Kbuild         | 1 +
->  arch/sparc/Makefile    | 3 ---
->  arch/um/Kbuild         | 1 +
->  arch/x86/Makefile      | 3 ---
->  arch/xtensa/Kbuild     | 1 +
->  23 files changed, 13 insertions(+), 23 deletions(-)
->  create mode 100644 arch/alpha/Kbuild
->  create mode 100644 arch/csky/Kbuild
->  create mode 100644 arch/h8300/Kbuild
->  create mode 100644 arch/hexagon/Kbuild
->  create mode 100644 arch/ia64/Kbuild
->  create mode 100644 arch/microblaze/Kbuild
->  create mode 100644 arch/nds32/Kbuild
->  create mode 100644 arch/nios2/Kbuild
->  create mode 100644 arch/parisc/Kbuild
->  create mode 100644 arch/sh/Kbuild
->  create mode 100644 arch/um/Kbuild
->  create mode 100644 arch/xtensa/Kbuild
->
-> diff --git a/Makefile b/Makefile
-> index 15b6476d0f89..7df040b1b023 100644
-> --- a/Makefile
-> +++ b/Makefile
-> @@ -658,7 +658,7 @@ endif
->
->  ifeq ($(KBUILD_EXTMOD),)
->  # Objects we will link into vmlinux / subdirs we need to visit
-> -core-y         := init/ usr/
-> +core-y         := init/ usr/ arch/$(SRCARCH)/
->  drivers-y      := drivers/ sound/
->  drivers-$(CONFIG_SAMPLES) += samples/
->  drivers-$(CONFIG_NET) += net/
-> diff --git a/arch/alpha/Kbuild b/arch/alpha/Kbuild
-> new file mode 100644
-> index 000000000000..a4e40e534e6a
-> --- /dev/null
-> +++ b/arch/alpha/Kbuild
-> @@ -0,0 +1 @@
-> +# SPDX-License-Identifier: GPL-2.0-only
-> diff --git a/arch/arc/Makefile b/arch/arc/Makefile
-> index 4392c9c189c4..3e6d4b84797f 100644
-> --- a/arch/arc/Makefile
-> +++ b/arch/arc/Makefile
-> @@ -85,9 +85,6 @@ KBUILD_LDFLAGS        += $(ldflags-y)
->
->  head-y         := arch/arc/kernel/head.o
->
-> -# See arch/arc/Kbuild for content of core part of the kernel
-> -core-y         += arch/arc/
-> -
->  # w/o this dtb won't embed into kernel binary
->  core-y         += arch/arc/boot/dts/
->
-> diff --git a/arch/arm/Makefile b/arch/arm/Makefile
-> index 415c3514573a..173da685a52e 100644
-> --- a/arch/arm/Makefile
-> +++ b/arch/arm/Makefile
-> @@ -252,7 +252,6 @@ endif
->
->  export TEXT_OFFSET GZFLAGS MMUEXT
->
-> -core-y                         += arch/arm/
->  # If we have a machine-specific directory, then include it in the build.
->  core-y                         += $(machdirs) $(platdirs)
->
-> diff --git a/arch/arm64/Makefile b/arch/arm64/Makefile
-> index 7ef44478560d..b73c151f3a53 100644
-> --- a/arch/arm64/Makefile
-> +++ b/arch/arm64/Makefile
-> @@ -149,7 +149,6 @@ KBUILD_CFLAGS += -DKASAN_SHADOW_SCALE_SHIFT=$(KASAN_SHADOW_SCALE_SHIFT)
->  KBUILD_CPPFLAGS += -DKASAN_SHADOW_SCALE_SHIFT=$(KASAN_SHADOW_SCALE_SHIFT)
->  KBUILD_AFLAGS += -DKASAN_SHADOW_SCALE_SHIFT=$(KASAN_SHADOW_SCALE_SHIFT)
->
-> -core-y         += arch/arm64/
->  libs-y         := arch/arm64/lib/ $(libs-y)
->  libs-$(CONFIG_EFI_STUB) += $(objtree)/drivers/firmware/efi/libstub/lib.a
->
-> diff --git a/arch/csky/Kbuild b/arch/csky/Kbuild
-> new file mode 100644
-> index 000000000000..a4e40e534e6a
-> --- /dev/null
-> +++ b/arch/csky/Kbuild
-> @@ -0,0 +1 @@
-> +# SPDX-License-Identifier: GPL-2.0-only
-> diff --git a/arch/h8300/Kbuild b/arch/h8300/Kbuild
-> new file mode 100644
-> index 000000000000..a4e40e534e6a
-> --- /dev/null
-> +++ b/arch/h8300/Kbuild
-> @@ -0,0 +1 @@
-> +# SPDX-License-Identifier: GPL-2.0-only
-> diff --git a/arch/hexagon/Kbuild b/arch/hexagon/Kbuild
-> new file mode 100644
-> index 000000000000..a4e40e534e6a
-> --- /dev/null
-> +++ b/arch/hexagon/Kbuild
-> @@ -0,0 +1 @@
-> +# SPDX-License-Identifier: GPL-2.0-only
-> diff --git a/arch/ia64/Kbuild b/arch/ia64/Kbuild
-> new file mode 100644
-> index 000000000000..a4e40e534e6a
-> --- /dev/null
-> +++ b/arch/ia64/Kbuild
-> @@ -0,0 +1 @@
-> +# SPDX-License-Identifier: GPL-2.0-only
-> diff --git a/arch/microblaze/Kbuild b/arch/microblaze/Kbuild
-> new file mode 100644
-> index 000000000000..a4e40e534e6a
-> --- /dev/null
-> +++ b/arch/microblaze/Kbuild
-> @@ -0,0 +1 @@
-> +# SPDX-License-Identifier: GPL-2.0-only
-> diff --git a/arch/mips/Makefile b/arch/mips/Makefile
-> index 258234c35a09..4e942b7ef022 100644
-> --- a/arch/mips/Makefile
-> +++ b/arch/mips/Makefile
-> @@ -332,9 +332,6 @@ head-y := arch/mips/kernel/head.o
->  libs-y                 += arch/mips/lib/
->  libs-$(CONFIG_MIPS_FP_SUPPORT) += arch/mips/math-emu/
->
-> -# See arch/mips/Kbuild for content of core part of the kernel
-> -core-y += arch/mips/
-> -
->  drivers-y                      += arch/mips/crypto/
->
->  # suspend and hibernation support
-> diff --git a/arch/nds32/Kbuild b/arch/nds32/Kbuild
-> new file mode 100644
-> index 000000000000..a4e40e534e6a
-> --- /dev/null
-> +++ b/arch/nds32/Kbuild
-> @@ -0,0 +1 @@
-> +# SPDX-License-Identifier: GPL-2.0-only
-> diff --git a/arch/nios2/Kbuild b/arch/nios2/Kbuild
-> new file mode 100644
-> index 000000000000..a4e40e534e6a
-> --- /dev/null
-> +++ b/arch/nios2/Kbuild
-> @@ -0,0 +1 @@
-> +# SPDX-License-Identifier: GPL-2.0-only
-> diff --git a/arch/openrisc/Makefile b/arch/openrisc/Makefile
-> index 410e7abfac69..c52de526e518 100644
-> --- a/arch/openrisc/Makefile
-> +++ b/arch/openrisc/Makefile
-> @@ -42,7 +42,6 @@ endif
->
->  head-y                 := arch/openrisc/kernel/head.o
->
-> -core-y         += arch/openrisc/
->  libs-y         += $(LIBGCC)
->
->  PHONY += vmlinux.bin
-> diff --git a/arch/parisc/Kbuild b/arch/parisc/Kbuild
-> new file mode 100644
-> index 000000000000..a4e40e534e6a
-> --- /dev/null
-> +++ b/arch/parisc/Kbuild
-> @@ -0,0 +1 @@
-> +# SPDX-License-Identifier: GPL-2.0-only
-> diff --git a/arch/powerpc/Makefile b/arch/powerpc/Makefile
-> index 3212d076ac6a..af669aa75b73 100644
-> --- a/arch/powerpc/Makefile
-> +++ b/arch/powerpc/Makefile
-> @@ -267,9 +267,6 @@ head-$(CONFIG_PPC_FPU)              += arch/powerpc/kernel/fpu.o
->  head-$(CONFIG_ALTIVEC)         += arch/powerpc/kernel/vector.o
->  head-$(CONFIG_PPC_OF_BOOT_TRAMPOLINE)  += arch/powerpc/kernel/prom_init.o
->
-> -# See arch/powerpc/Kbuild for content of core part of the kernel
-> -core-y += arch/powerpc/
-> -
->  # Default to zImage, override when needed
->  all: zImage
->
-> diff --git a/arch/riscv/Makefile b/arch/riscv/Makefile
-> index 3eb9590a0775..c5f359540862 100644
-> --- a/arch/riscv/Makefile
-> +++ b/arch/riscv/Makefile
-> @@ -90,7 +90,6 @@ endif
->
->  head-y := arch/riscv/kernel/head.o
->
-> -core-y += arch/riscv/
->  core-$(CONFIG_RISCV_ERRATA_ALTERNATIVE) += arch/riscv/errata/
->
->  libs-y += arch/riscv/lib/
-> diff --git a/arch/s390/Makefile b/arch/s390/Makefile
-> index e443ed9947bd..37b61645694c 100644
-> --- a/arch/s390/Makefile
-> +++ b/arch/s390/Makefile
-> @@ -128,9 +128,6 @@ OBJCOPYFLAGS        := -O binary
->
->  head-y         := arch/s390/kernel/head64.o
->
-> -# See arch/s390/Kbuild for content of core part of the kernel
-> -core-y         += arch/s390/
-> -
->  libs-y         += arch/s390/lib/
->  drivers-y      += drivers/s390/
->
-> diff --git a/arch/sh/Kbuild b/arch/sh/Kbuild
-> new file mode 100644
-> index 000000000000..a4e40e534e6a
-> --- /dev/null
-> +++ b/arch/sh/Kbuild
-> @@ -0,0 +1 @@
-> +# SPDX-License-Identifier: GPL-2.0-only
-> diff --git a/arch/sparc/Makefile b/arch/sparc/Makefile
-> index bee99e65fe23..4e65245bc755 100644
-> --- a/arch/sparc/Makefile
-> +++ b/arch/sparc/Makefile
-> @@ -58,9 +58,6 @@ endif
->
->  head-y                 := arch/sparc/kernel/head_$(BITS).o
->
-> -# See arch/sparc/Kbuild for the core part of the kernel
-> -core-y                 += arch/sparc/
-> -
->  libs-y                 += arch/sparc/prom/
->  libs-y                 += arch/sparc/lib/
->
-> diff --git a/arch/um/Kbuild b/arch/um/Kbuild
-> new file mode 100644
-> index 000000000000..a4e40e534e6a
-> --- /dev/null
-> +++ b/arch/um/Kbuild
-> @@ -0,0 +1 @@
-> +# SPDX-License-Identifier: GPL-2.0-only
-> diff --git a/arch/x86/Makefile b/arch/x86/Makefile
-> index c77c5d8a7b3e..4307bf48ec53 100644
-> --- a/arch/x86/Makefile
-> +++ b/arch/x86/Makefile
-> @@ -239,9 +239,6 @@ head-y += arch/x86/kernel/platform-quirks.o
->
->  libs-y  += arch/x86/lib/
->
-> -# See arch/x86/Kbuild for content of core part of the kernel
-> -core-y += arch/x86/
-> -
->  # drivers-y are linked after core-y
->  drivers-$(CONFIG_MATH_EMULATION) += arch/x86/math-emu/
->  drivers-$(CONFIG_PCI)            += arch/x86/pci/
-> diff --git a/arch/xtensa/Kbuild b/arch/xtensa/Kbuild
-> new file mode 100644
-> index 000000000000..a4e40e534e6a
-> --- /dev/null
-> +++ b/arch/xtensa/Kbuild
-> @@ -0,0 +1 @@
-> +# SPDX-License-Identifier: GPL-2.0-only
-> --
-> 2.27.0
->
-
-
+diff --git a/arch/alpha/kernel/audit.c b/arch/alpha/kernel/audit.c
+index 81cbd804e375..3ab04709784a 100644
+--- a/arch/alpha/kernel/audit.c
++++ b/arch/alpha/kernel/audit.c
+@@ -42,6 +42,8 @@ int audit_classify_syscall(int abi, unsigned syscall)
+ 		return AUDITSC_OPENAT;
+ 	case __NR_execve:
+ 		return AUDITSC_EXECVE;
++	case __NR_openat2:
++		return AUDITSC_OPENAT2;
+ 	default:
+ 		return AUDITSC_NATIVE;
+ 	}
+diff --git a/arch/ia64/kernel/audit.c b/arch/ia64/kernel/audit.c
+index dba6a74c9ab3..ec61f20ca61f 100644
+--- a/arch/ia64/kernel/audit.c
++++ b/arch/ia64/kernel/audit.c
+@@ -43,6 +43,8 @@ int audit_classify_syscall(int abi, unsigned syscall)
+ 		return AUDITSC_OPENAT;
+ 	case __NR_execve:
+ 		return AUDITSC_EXECVE;
++	case __NR_openat2:
++		return AUDITSC_OPENAT2;
+ 	default:
+ 		return AUDITSC_NATIVE;
+ 	}
+diff --git a/arch/parisc/kernel/audit.c b/arch/parisc/kernel/audit.c
+index 14244e83db75..f420b5552140 100644
+--- a/arch/parisc/kernel/audit.c
++++ b/arch/parisc/kernel/audit.c
+@@ -52,6 +52,8 @@ int audit_classify_syscall(int abi, unsigned syscall)
+ 		return AUDITSC_OPENAT;
+ 	case __NR_execve:
+ 		return AUDITSC_EXECVE;
++	case __NR_openat2:
++		return AUDITSC_OPENAT2;
+ 	default:
+ 		return AUDITSC_NATIVE;
+ 	}
+diff --git a/arch/parisc/kernel/compat_audit.c b/arch/parisc/kernel/compat_audit.c
+index 1d6347d37d92..3ec490c28656 100644
+--- a/arch/parisc/kernel/compat_audit.c
++++ b/arch/parisc/kernel/compat_audit.c
+@@ -36,6 +36,8 @@ int parisc32_classify_syscall(unsigned syscall)
+ 		return AUDITSC_OPENAT;
+ 	case __NR_execve:
+ 		return AUDITSC_EXECVE;
++	case __NR_openat2:
++		return AUDITSC_OPENAT2;
+ 	default:
+ 		return AUDITSC_COMPAT;
+ 	}
+diff --git a/arch/powerpc/kernel/audit.c b/arch/powerpc/kernel/audit.c
+index 6eb18ef77dff..1bcfca5fdf67 100644
+--- a/arch/powerpc/kernel/audit.c
++++ b/arch/powerpc/kernel/audit.c
+@@ -54,6 +54,8 @@ int audit_classify_syscall(int abi, unsigned syscall)
+ 		return AUDITSC_SOCKETCALL;
+ 	case __NR_execve:
+ 		return AUDITSC_EXECVE;
++	case __NR_openat2:
++		return AUDITSC_OPENAT2;
+ 	default:
+ 		return AUDITSC_NATIVE;
+ 	}
+diff --git a/arch/powerpc/kernel/compat_audit.c b/arch/powerpc/kernel/compat_audit.c
+index b1dc2d1c4bad..251abf79d536 100644
+--- a/arch/powerpc/kernel/compat_audit.c
++++ b/arch/powerpc/kernel/compat_audit.c
+@@ -39,6 +39,8 @@ int ppc32_classify_syscall(unsigned syscall)
+ 		return AUDITSC_SOCKETCALL;
+ 	case __NR_execve:
+ 		return AUDITSC_EXECVE;
++	case __NR_openat2:
++		return AUDITSC_OPENAT2;
+ 	default:
+ 		return AUDITSC_COMPAT;
+ 	}
+diff --git a/arch/s390/kernel/audit.c b/arch/s390/kernel/audit.c
+index 7e331e1831d4..02051a596b87 100644
+--- a/arch/s390/kernel/audit.c
++++ b/arch/s390/kernel/audit.c
+@@ -54,6 +54,8 @@ int audit_classify_syscall(int abi, unsigned syscall)
+ 		return AUDITSC_SOCKETCALL;
+ 	case __NR_execve:
+ 		return AUDITSC_EXECVE;
++	case __NR_openat2:
++		return AUDITSC_OPENAT2;
+ 	default:
+ 		return AUDITSC_NATIVE;
+ 	}
+diff --git a/arch/s390/kernel/compat_audit.c b/arch/s390/kernel/compat_audit.c
+index fc3d1c7ad21c..4b3d463e7d97 100644
+--- a/arch/s390/kernel/compat_audit.c
++++ b/arch/s390/kernel/compat_audit.c
+@@ -40,6 +40,8 @@ int s390_classify_syscall(unsigned syscall)
+ 		return AUDITSC_SOCKETCALL;
+ 	case __NR_execve:
+ 		return AUDITSC_EXECVE;
++	case __NR_openat2:
++		return AUDITSC_OPENAT2;
+ 	default:
+ 		return AUDITSC_COMPAT;
+ 	}
+diff --git a/arch/sparc/kernel/audit.c b/arch/sparc/kernel/audit.c
+index 50fab35bdaba..b092274eca79 100644
+--- a/arch/sparc/kernel/audit.c
++++ b/arch/sparc/kernel/audit.c
+@@ -55,6 +55,8 @@ int audit_classify_syscall(int abi, unsigned int syscall)
+ 		return AUDITSC_SOCKETCALL;
+ 	case __NR_execve:
+ 		return AUDITSC_EXECVE;
++	case __NR_openat2:
++		return AUDITSC_OPENAT2;
+ 	default:
+ 		return AUDITSC_NATIVE;
+ 	}
+diff --git a/arch/sparc/kernel/compat_audit.c b/arch/sparc/kernel/compat_audit.c
+index 1c1b6d075421..2a3f71206fc5 100644
+--- a/arch/sparc/kernel/compat_audit.c
++++ b/arch/sparc/kernel/compat_audit.c
+@@ -40,6 +40,8 @@ int sparc32_classify_syscall(unsigned int syscall)
+ 		return AUDITSC_SOCKETCALL;
+ 	case __NR_execve:
+ 		return AUDITSC_EXECVE;
++	case __NR_openat2:
++		return AUDITSC_OPENAT2;
+ 	default:
+ 		return AUDITSC_COMPAT;
+ 	}
+diff --git a/arch/x86/ia32/audit.c b/arch/x86/ia32/audit.c
+index eedc37a1ee13..efc7d832fefb 100644
+--- a/arch/x86/ia32/audit.c
++++ b/arch/x86/ia32/audit.c
+@@ -40,6 +40,8 @@ int ia32_classify_syscall(unsigned syscall)
+ 	case __NR_execve:
+ 	case __NR_execveat:
+ 		return AUDITSC_EXECVE;
++	case __NR_openat2:
++		return AUDITSC_OPENAT2;
+ 	default:
+ 		return AUDITSC_COMPAT;
+ 	}
+diff --git a/arch/x86/kernel/audit_64.c b/arch/x86/kernel/audit_64.c
+index 2a6cc9c9c881..44c3601cfdc4 100644
+--- a/arch/x86/kernel/audit_64.c
++++ b/arch/x86/kernel/audit_64.c
+@@ -53,6 +53,8 @@ int audit_classify_syscall(int abi, unsigned syscall)
+ 	case __NR_execve:
+ 	case __NR_execveat:
+ 		return AUDITSC_EXECVE;
++	case __NR_openat2:
++		return AUDITSC_OPENAT2;
+ 	default:
+ 		return AUDITSC_NATIVE;
+ 	}
+diff --git a/include/linux/auditsc_classmacros.h b/include/linux/auditsc_classmacros.h
+index 18757d270961..dc8e72536dbd 100644
+--- a/include/linux/auditsc_classmacros.h
++++ b/include/linux/auditsc_classmacros.h
+@@ -16,6 +16,7 @@ enum auditsc_class_t {
+ 	AUDITSC_OPENAT,
+ 	AUDITSC_SOCKETCALL,
+ 	AUDITSC_EXECVE,
++	AUDITSC_OPENAT2,
+ 
+ 	AUDITSC_NVALS /* count */
+ };
+diff --git a/kernel/auditsc.c b/kernel/auditsc.c
+index d775ea16505b..3f59ab209dfd 100644
+--- a/kernel/auditsc.c
++++ b/kernel/auditsc.c
+@@ -76,6 +76,7 @@
+ #include <linux/fsnotify_backend.h>
+ #include <uapi/linux/limits.h>
+ #include <uapi/linux/netfilter/nf_tables.h>
++#include <uapi/linux/openat2.h>
+ 
+ #include "audit.h"
+ 
+@@ -196,6 +197,8 @@ static int audit_match_perm(struct audit_context *ctx, int mask)
+ 		return ((mask & AUDIT_PERM_WRITE) && ctx->argv[0] = SYS_BIND);
+ 	case AUDITSC_EXECVE:
+ 		return mask & AUDIT_PERM_EXEC;
++	case AUDITSC_OPENAT2:
++		return mask & ACC_MODE((u32)((struct open_how *)ctx->argv[2])->flags);
+ 	default:
+ 		return 0;
+ 	}
+diff --git a/lib/audit.c b/lib/audit.c
+index 3ec1a94d8d64..738bda22dd39 100644
+--- a/lib/audit.c
++++ b/lib/audit.c
+@@ -60,6 +60,10 @@ int audit_classify_syscall(int abi, unsigned syscall)
+ #endif
+ 	case __NR_execve:
+ 		return AUDITSC_EXECVE;
++#ifdef __NR_openat2
++	case __NR_openat2:
++		return AUDITSC_OPENAT2;
++#endif
+ 	default:
+ 		return AUDITSC_NATIVE;
+ 	}
+diff --git a/lib/compat_audit.c b/lib/compat_audit.c
+index a38b282d353f..e2a0f914d8b6 100644
+--- a/lib/compat_audit.c
++++ b/lib/compat_audit.c
+@@ -46,6 +46,10 @@ int audit_classify_compat_syscall(int abi, unsigned syscall)
+ #endif
+ 	case __NR_execve:
+ 		return AUDITSC_EXECVE;
++#ifdef __NR_openat2
++	case __NR_openat2:
++		return AUDITSC_OPENAT2;
++#endif
+ 	default:
+ 		return AUDITSC_COMPAT;
+ 	}
 -- 
-Best Regards
-Masahiro Yamada
+2.27.0
