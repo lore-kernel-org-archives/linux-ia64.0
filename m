@@ -1,100 +1,77 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Wed, 26 May 2021 08:03:00 +0000
-Subject: [PATCH -tip v6 05/13] x86/kprobes: Add UNWIND_HINT_FUNC on kretprobe_trampoline code
-Message-Id: <162201618061.278331.13571474279522709453.stgit@devnote2>
+From: Richard Guy Briggs <rgb@redhat.com>
+Date: Wed, 19 May 2021 20:00:19 +0000
+Subject: [PATCH v4 0/3] audit: add support for openat2
+Message-Id: <cover.1621363275.git.rgb@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <162201612941.278331.5293566981784464165.stgit@devnote2>
-In-Reply-To: <162201612941.278331.5293566981784464165.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>
-Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, Josh Poimboeuf <jpoimboe@redhat.com>, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
+To: Linux-Audit Mailing List <linux-audit@redhat.com>, LKML <linux-kernel@vger.kernel.org>, linux-fsdevel@vger.kernel.org
+Cc: Paul Moore <paul@paul-moore.com>, Eric Paris <eparis@parisplace.org>, Steve Grubb <sgrubb@redhat.com>, Richard Guy Briggs <rgb@redhat.com>, Alexander Viro <viro@zeniv.linux.org.uk>, Eric Paris <eparis@redhat.com>, x86@kernel.org, linux-alpha@vger.kernel.org, linux-ia64@vger.kernel.org, linux-parisc@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, Aleksa Sarai <cyphar@cyphar.com>, Arnd Bergmann <arnd@kernel.org>
 
-From: Josh Poimboeuf <jpoimboe@redhat.com>
+The openat2(2) syscall was added in v5.6.  Add support for openat2 to the
+audit syscall classifier and for recording openat2 parameters that cannot
+be captured in the syscall parameters of the SYSCALL record.
 
-Add UNWIND_HINT_FUNC on kretporbe_trampoline code so that ORC
-information is generated on the kretprobe_trampoline correctly.
+Supporting userspace code can be found in
+https://github.com/rgbriggs/audit-userspace/tree/ghau-openat2
 
-Note that when the CONFIG_FRAME_POINTER=y, since the
-kretprobe_trampoline skips updating frame pointer, the stack frame
-of the kretprobe_trampoline seems non-standard. So this marks it
-is STACK_FRAME_NON_STANDARD() and undefine UNWIND_HINT_FUNC.
-Anyway, with the frame pointer, FP unwinder can unwind the stack
-frame correctly without that hint.
+Supporting test case can be found in
+https://github.com/linux-audit/audit-testsuite/pull/103
 
-Signed-off-by: Josh Poimboeuf <jpoimboe@redhat.com>
-Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
----
- Changes in v4:
-  - Apply UNWIND_HINT_FUNC only if CONFIG_FRAME_POINTER=n.
----
- arch/x86/include/asm/unwind_hints.h |    5 +++++
- arch/x86/kernel/kprobes/core.c      |   17 +++++++++++++++--
- 2 files changed, 20 insertions(+), 2 deletions(-)
+Changelog:
+v4:
+- change filename include/linux/auditscm.h to auditsc_classmacros.h to avoid socket association
 
-diff --git a/arch/x86/include/asm/unwind_hints.h b/arch/x86/include/asm/unwind_hints.h
-index 8e574c0afef8..8b33674288ea 100644
---- a/arch/x86/include/asm/unwind_hints.h
-+++ b/arch/x86/include/asm/unwind_hints.h
-@@ -52,6 +52,11 @@
- 	UNWIND_HINT sp_reg=ORC_REG_SP sp_offset=8 type=UNWIND_HINT_TYPE_FUNC
- .endm
- 
-+#else
-+
-+#define UNWIND_HINT_FUNC \
-+	UNWIND_HINT(ORC_REG_SP, 8, UNWIND_HINT_TYPE_FUNC, 0)
-+
- #endif /* __ASSEMBLY__ */
- 
- #endif /* _ASM_X86_UNWIND_HINTS_H */
-diff --git a/arch/x86/kernel/kprobes/core.c b/arch/x86/kernel/kprobes/core.c
-index d32b09ca3221..9a6763fd066e 100644
---- a/arch/x86/kernel/kprobes/core.c
-+++ b/arch/x86/kernel/kprobes/core.c
-@@ -1019,6 +1019,19 @@ int kprobe_int3_handler(struct pt_regs *regs)
- }
- NOKPROBE_SYMBOL(kprobe_int3_handler);
- 
-+#ifdef CONFIG_FRAME_POINTER
-+/*
-+ * kretprobe_trampoline skips updating frame pointer. The frame pointer
-+ * saved in trampoline_handler points to the real caller function's
-+ * frame pointer. Thus the kretprobe_trampoline doesn't seems to have a
-+ * standard stack frame with CONFIG_FRAME_POINTER=y.
-+ * Let's mark it non-standard function. Anyway, FP unwinder can correctly
-+ * unwind without the hint.
-+ */
-+STACK_FRAME_NON_STANDARD(kretprobe_trampoline);
-+#undef UNWIND_HINT_FUNC
-+#define UNWIND_HINT_FUNC
-+#endif
- /*
-  * When a retprobed function returns, this code saves registers and
-  * calls trampoline_handler() runs, which calls the kretprobe's handler.
-@@ -1031,6 +1044,7 @@ asm(
- 	/* We don't bother saving the ss register */
- #ifdef CONFIG_X86_64
- 	"	pushq %rsp\n"
-+	UNWIND_HINT_FUNC
- 	"	pushfq\n"
- 	SAVE_REGS_STRING
- 	"	movq %rsp, %rdi\n"
-@@ -1041,6 +1055,7 @@ asm(
- 	"	popfq\n"
- #else
- 	"	pushl %esp\n"
-+	UNWIND_HINT_FUNC
- 	"	pushfl\n"
- 	SAVE_REGS_STRING
- 	"	movl %esp, %eax\n"
-@@ -1054,8 +1069,6 @@ asm(
- 	".size kretprobe_trampoline, .-kretprobe_trampoline\n"
- );
- NOKPROBE_SYMBOL(kretprobe_trampoline);
--STACK_FRAME_NON_STANDARD(kretprobe_trampoline);
--
- 
- /*
-  * Called from kretprobe_trampoline
+v3:
+- re-add commit descriptions that somehow got dropped
+- add new file to MAINTAINERS
+
+v2:
+- add include/linux/auditscm.h for audit syscall class macros due to syscall redefinition warnings:
+        arch/x86/ia32/audit.c:3:
+        ./include/linux/audit.h:12,
+        ./include/linux/sched.h:22,
+        ./include/linux/seccomp.h:21,
+        ./arch/x86/include/asm/seccomp.h:5,
+        ./arch/x86/include/asm/unistd.h:20,
+        ./arch/x86/include/generated/uapi/asm/unistd_64.h:4: warning: "__NR_read" redefined #define __NR_read 0
+	...
+        ./arch/x86/include/generated/uapi/asm/unistd_64.h:338: warning: "__NR_rseq" redefined #define __NR_rseq 334
+    previous:
+        arch/x86/ia32/audit.c:2:
+        ./arch/x86/include/generated/uapi/asm/unistd_32.h:7: note: this is the location of the previous definition #define __NR_read 3                                                                                                      
+	...
+        ./arch/x86/include/generated/uapi/asm/unistd_32.h:386: note: this is the location of the previous definition #define __NR_rseq 386
+
+Richard Guy Briggs (3):
+  audit: replace magic audit syscall class numbers with macros
+  audit: add support for the openat2 syscall
+  audit: add OPENAT2 record to list how
+
+ MAINTAINERS                         |  1 +
+ arch/alpha/kernel/audit.c           | 10 ++++++----
+ arch/ia64/kernel/audit.c            | 10 ++++++----
+ arch/parisc/kernel/audit.c          | 10 ++++++----
+ arch/parisc/kernel/compat_audit.c   | 11 ++++++----
+ arch/powerpc/kernel/audit.c         | 12 ++++++-----
+ arch/powerpc/kernel/compat_audit.c  | 13 +++++++-----
+ arch/s390/kernel/audit.c            | 12 ++++++-----
+ arch/s390/kernel/compat_audit.c     | 13 +++++++-----
+ arch/sparc/kernel/audit.c           | 12 ++++++-----
+ arch/sparc/kernel/compat_audit.c    | 13 +++++++-----
+ arch/x86/ia32/audit.c               | 13 +++++++-----
+ arch/x86/kernel/audit_64.c          | 10 ++++++----
+ fs/open.c                           |  2 ++
+ include/linux/audit.h               | 11 ++++++++++
+ include/linux/auditsc_classmacros.h | 24 ++++++++++++++++++++++
+ include/uapi/linux/audit.h          |  1 +
+ kernel/audit.h                      |  2 ++
+ kernel/auditsc.c                    | 31 +++++++++++++++++++++++------
+ lib/audit.c                         | 14 ++++++++-----
+ lib/compat_audit.c                  | 15 +++++++++-----
+ 21 files changed, 169 insertions(+), 71 deletions(-)
+ create mode 100644 include/linux/auditsc_classmacros.h
+
+-- 
+2.27.0
