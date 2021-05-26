@@ -1,10 +1,10 @@
 From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Thu, 27 May 2021 06:40:48 +0000
-Subject: [PATCH -tip v7 11/13] x86/unwind: Recover kretprobe trampoline entry
-Message-Id: <162209764814.436794.15907711942126944591.stgit@devnote2>
+Date: Wed, 26 May 2021 08:04:03 +0000
+Subject: [PATCH -tip v6 11/13] x86/unwind: Recover kretprobe trampoline entry
+Message-Id: <162201624347.278331.4677822345434037169.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <162209754288.436794.3904335049560916855.stgit@devnote2>
-In-Reply-To: <162209754288.436794.3904335049560916855.stgit@devnote2>
+References: <162201612941.278331.5293566981784464165.stgit@devnote2>
+In-Reply-To: <162201612941.278331.5293566981784464165.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -38,10 +38,7 @@ from kretprobe event on x86, as below.
 Reported-by: Daniel Xu <dxu@dxuuu.xyz>
 Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
 Suggested-by: Josh Poimboeuf <jpoimboe@redhat.com>
-Tested-by: Andrii Nakryik <andrii@kernel.org>
 ---
-  Changes in v7:
-   - Remove superfluous #include <linux/kprobes.h>.
   Changes in v5:
    - Fix the case of interrupt happens on kretprobe_trampoline+0.
   Changes in v3:
@@ -53,10 +50,10 @@ Tested-by: Andrii Nakryik <andrii@kernel.org>
      kretprobe fixup instruction pointer before calling handler.
 ---
  arch/x86/include/asm/unwind.h  |   23 +++++++++++++++++++++++
- arch/x86/kernel/unwind_frame.c |    3 +--
+ arch/x86/kernel/unwind_frame.c |    4 ++--
  arch/x86/kernel/unwind_guess.c |    3 +--
- arch/x86/kernel/unwind_orc.c   |   18 ++++++++++++++----
- 4 files changed, 39 insertions(+), 8 deletions(-)
+ arch/x86/kernel/unwind_orc.c   |   19 +++++++++++++++----
+ 4 files changed, 41 insertions(+), 8 deletions(-)
 
 diff --git a/arch/x86/include/asm/unwind.h b/arch/x86/include/asm/unwind.h
 index 70fc159ebe69..36d3971c0a2c 100644
@@ -107,10 +104,18 @@ index 70fc159ebe69..36d3971c0a2c 100644
   * This disables KASAN checking when reading a value from another task's stack,
   * since the other task could be running on another CPU and could have poisoned
 diff --git a/arch/x86/kernel/unwind_frame.c b/arch/x86/kernel/unwind_frame.c
-index d7c44b257f7f..8e1c50c86e5d 100644
+index d7c44b257f7f..24e33b44b2be 100644
 --- a/arch/x86/kernel/unwind_frame.c
 +++ b/arch/x86/kernel/unwind_frame.c
-@@ -240,8 +240,7 @@ static bool update_stack_state(struct unwind_state *state,
+@@ -3,6 +3,7 @@
+ #include <linux/sched/task.h>
+ #include <linux/sched/task_stack.h>
+ #include <linux/interrupt.h>
++#include <linux/kprobes.h>
+ #include <asm/sections.h>
+ #include <asm/ptrace.h>
+ #include <asm/bitops.h>
+@@ -240,8 +241,7 @@ static bool update_stack_state(struct unwind_state *state,
  	else {
  		addr_p = unwind_get_return_address_ptr(state);
  		addr = READ_ONCE_TASK_STACK(state->task, *addr_p);
@@ -135,10 +140,18 @@ index c49f10ffd8cd..884d68a6e714 100644
  EXPORT_SYMBOL_GPL(unwind_get_return_address);
  
 diff --git a/arch/x86/kernel/unwind_orc.c b/arch/x86/kernel/unwind_orc.c
-index a1202536fc57..ad6a9aece379 100644
+index a1202536fc57..c70dfeea4552 100644
 --- a/arch/x86/kernel/unwind_orc.c
 +++ b/arch/x86/kernel/unwind_orc.c
-@@ -534,9 +534,8 @@ bool unwind_next_frame(struct unwind_state *state)
+@@ -2,6 +2,7 @@
+ #include <linux/objtool.h>
+ #include <linux/module.h>
+ #include <linux/sort.h>
++#include <linux/kprobes.h>
+ #include <asm/ptrace.h>
+ #include <asm/stacktrace.h>
+ #include <asm/unwind.h>
+@@ -534,9 +535,8 @@ bool unwind_next_frame(struct unwind_state *state)
  		if (!deref_stack_reg(state, ip_p, &state->ip))
  			goto err;
  
@@ -150,7 +163,7 @@ index a1202536fc57..ad6a9aece379 100644
  		state->sp = sp;
  		state->regs = NULL;
  		state->prev_regs = NULL;
-@@ -549,7 +548,15 @@ bool unwind_next_frame(struct unwind_state *state)
+@@ -549,7 +549,15 @@ bool unwind_next_frame(struct unwind_state *state)
  					 (void *)orig_ip);
  			goto err;
  		}
@@ -167,7 +180,7 @@ index a1202536fc57..ad6a9aece379 100644
  		state->regs = (struct pt_regs *)sp;
  		state->prev_regs = NULL;
  		state->full_regs = true;
-@@ -562,6 +569,9 @@ bool unwind_next_frame(struct unwind_state *state)
+@@ -562,6 +570,9 @@ bool unwind_next_frame(struct unwind_state *state)
  					 (void *)orig_ip);
  			goto err;
  		}
