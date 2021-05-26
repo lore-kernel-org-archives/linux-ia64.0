@@ -1,196 +1,125 @@
 From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Thu, 27 May 2021 06:39:41 +0000
-Subject: [PATCH -tip v7 04/13] kprobes: Add kretprobe_find_ret_addr() for searching return address
-Message-Id: <162209758165.436794.8504547064098766514.stgit@devnote2>
+Date: Wed, 26 May 2021 08:02:30 +0000
+Subject: [PATCH -tip v6 02/13] kprobes: treewide: Replace arch_deref_entry_point() with dereference_symbol_de
+Message-Id: <162201615027.278331.16343511342536245353.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <162209754288.436794.3904335049560916855.stgit@devnote2>
-In-Reply-To: <162209754288.436794.3904335049560916855.stgit@devnote2>
+References: <162201612941.278331.5293566981784464165.stgit@devnote2>
+In-Reply-To: <162201612941.278331.5293566981784464165.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>
 Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, Josh Poimboeuf <jpoimboe@redhat.com>, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
 
-Add kretprobe_find_ret_addr() for searching correct return address
-from kretprobe instance list.
+Replace arch_deref_entry_point() with dereference_symbol_descriptor()
+because those are doing same thing.
 
 Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
-Tested-by: Andrii Nakryik <andrii@kernel.org>
 ---
  Changes in v6:
-  - Replace BUG_ON() with WARN_ON_ONCE() in __kretprobe_trampoline_handler().
- Changes in v3:
-  - Remove generic stacktrace fixup. Instead, it should be solved in
-    each unwinder. This just provide the generic interface.
- Changes in v2:
-  - Add is_kretprobe_trampoline() for checking address outside of
-    kretprobe_find_ret_addr()
-  - Remove unneeded addr from kretprobe_find_ret_addr()
-  - Rename fixup_kretprobe_tramp_addr() to fixup_kretprobe_trampoline()
+  - Use dereference_symbol_descriptor() so that it can handle address in
+    modules correctly.
 ---
- include/linux/kprobes.h |   22 +++++++++++
- kernel/kprobes.c        |   91 ++++++++++++++++++++++++++++++++++-------------
- 2 files changed, 87 insertions(+), 26 deletions(-)
+ arch/ia64/kernel/kprobes.c    |    5 -----
+ arch/powerpc/kernel/kprobes.c |   11 -----------
+ include/linux/kprobes.h       |    1 -
+ kernel/kprobes.c              |    7 +------
+ lib/error-inject.c            |    3 ++-
+ 5 files changed, 3 insertions(+), 24 deletions(-)
 
+diff --git a/arch/ia64/kernel/kprobes.c b/arch/ia64/kernel/kprobes.c
+index ca4b4fa45aef..eaf3c734719b 100644
+--- a/arch/ia64/kernel/kprobes.c
++++ b/arch/ia64/kernel/kprobes.c
+@@ -907,11 +907,6 @@ int __kprobes kprobe_exceptions_notify(struct notifier_block *self,
+ 	return ret;
+ }
+ 
+-unsigned long arch_deref_entry_point(void *entry)
+-{
+-	return ((struct fnptr *)entry)->ip;
+-}
+-
+ static struct kprobe trampoline_p = {
+ 	.pre_handler = trampoline_probe_handler
+ };
+diff --git a/arch/powerpc/kernel/kprobes.c b/arch/powerpc/kernel/kprobes.c
+index 01ab2163659e..eb0460949e1b 100644
+--- a/arch/powerpc/kernel/kprobes.c
++++ b/arch/powerpc/kernel/kprobes.c
+@@ -539,17 +539,6 @@ int kprobe_fault_handler(struct pt_regs *regs, int trapnr)
+ }
+ NOKPROBE_SYMBOL(kprobe_fault_handler);
+ 
+-unsigned long arch_deref_entry_point(void *entry)
+-{
+-#ifdef PPC64_ELF_ABI_v1
+-	if (!kernel_text_address((unsigned long)entry))
+-		return ppc_global_function_entry(entry);
+-	else
+-#endif
+-		return (unsigned long)entry;
+-}
+-NOKPROBE_SYMBOL(arch_deref_entry_point);
+-
+ static struct kprobe trampoline_p = {
+ 	.addr = (kprobe_opcode_t *) &kretprobe_trampoline,
+ 	.pre_handler = trampoline_probe_handler
 diff --git a/include/linux/kprobes.h b/include/linux/kprobes.h
-index 65dadd4238a2..f530f82a046d 100644
+index 1883a4a9f16a..d65c041b5c22 100644
 --- a/include/linux/kprobes.h
 +++ b/include/linux/kprobes.h
-@@ -215,6 +215,14 @@ static nokprobe_inline void *kretprobe_trampoline_addr(void)
- 	return dereference_function_descriptor(kretprobe_trampoline);
- }
+@@ -390,7 +390,6 @@ int register_kprobe(struct kprobe *p);
+ void unregister_kprobe(struct kprobe *p);
+ int register_kprobes(struct kprobe **kps, int num);
+ void unregister_kprobes(struct kprobe **kps, int num);
+-unsigned long arch_deref_entry_point(void *);
  
-+static nokprobe_inline bool is_kretprobe_trampoline(unsigned long addr)
-+{
-+	return (void *)addr = kretprobe_trampoline_addr();
-+}
-+
-+unsigned long kretprobe_find_ret_addr(struct task_struct *tsk, void *fp,
-+				      struct llist_node **cur);
-+
- /* If the trampoline handler called from a kprobe, use this version */
- unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
- 					     void *frame_pointer);
-@@ -514,6 +522,20 @@ static inline bool is_kprobe_optinsn_slot(unsigned long addr)
- }
- #endif
- 
-+#if !defined(CONFIG_KRETPROBES)
-+static nokprobe_inline bool is_kretprobe_trampoline(unsigned long addr)
-+{
-+	return false;
-+}
-+
-+static nokprobe_inline
-+unsigned long kretprobe_find_ret_addr(struct task_struct *tsk, void *fp,
-+				      struct llist_node **cur)
-+{
-+	return 0;
-+}
-+#endif
-+
- /* Returns true if kprobes handled the fault */
- static nokprobe_inline bool kprobe_page_fault(struct pt_regs *regs,
- 					      unsigned int trap)
+ int register_kretprobe(struct kretprobe *rp);
+ void unregister_kretprobe(struct kretprobe *rp);
 diff --git a/kernel/kprobes.c b/kernel/kprobes.c
-index 1d3087b59522..54e5b89aad67 100644
+index 745f08fdd7a6..b2bb572173d4 100644
 --- a/kernel/kprobes.c
 +++ b/kernel/kprobes.c
-@@ -1858,45 +1858,69 @@ static struct notifier_block kprobe_exceptions_nb = {
+@@ -1856,11 +1856,6 @@ static struct notifier_block kprobe_exceptions_nb = {
+ 	.priority = 0x7fffffff /* we need to be notified first */
+ };
  
+-unsigned long __weak arch_deref_entry_point(void *entry)
+-{
+-	return (unsigned long)entry;
+-}
+-
  #ifdef CONFIG_KRETPROBES
  
--unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
--					     void *frame_pointer)
-+/* This assumes the tsk is current or the task which is not running. */
-+static unsigned long __kretprobe_find_ret_addr(struct task_struct *tsk,
-+					       struct llist_node **cur)
- {
--	kprobe_opcode_t *correct_ret_addr = NULL;
- 	struct kretprobe_instance *ri = NULL;
--	struct llist_node *first, *node;
--	struct kretprobe *rp;
-+	struct llist_node *node = *cur;
-+
-+	if (!node)
-+		node = tsk->kretprobe_instances.first;
-+	else
-+		node = node->next;
+ unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
+@@ -2324,7 +2319,7 @@ static int __init populate_kprobe_blacklist(unsigned long *start,
+ 	int ret;
  
--	/* Find all nodes for this frame. */
--	first = node = current->kretprobe_instances.first;
- 	while (node) {
- 		ri = container_of(node, struct kretprobe_instance, llist);
--
--		BUG_ON(ri->fp != frame_pointer);
--
- 		if (ri->ret_addr != kretprobe_trampoline_addr()) {
--			correct_ret_addr = ri->ret_addr;
--			/*
--			 * This is the real return address. Any other
--			 * instances associated with this task are for
--			 * other calls deeper on the call stack
--			 */
--			goto found;
-+			*cur = node;
-+			return (unsigned long)ri->ret_addr;
- 		}
--
- 		node = node->next;
- 	}
--	pr_err("Oops! Kretprobe fails to find correct return address.\n");
--	BUG_ON(1);
-+	return 0;
-+}
-+NOKPROBE_SYMBOL(__kretprobe_find_ret_addr);
+ 	for (iter = start; iter < end; iter++) {
+-		entry = arch_deref_entry_point((void *)*iter);
++		entry = (unsigned long)dereference_symbol_descriptor((void *)*iter);
+ 		ret = kprobe_add_ksym_blacklist(entry);
+ 		if (ret = -EINVAL)
+ 			continue;
+diff --git a/lib/error-inject.c b/lib/error-inject.c
+index c73651b15b76..2ff5ef689d72 100644
+--- a/lib/error-inject.c
++++ b/lib/error-inject.c
+@@ -8,6 +8,7 @@
+ #include <linux/mutex.h>
+ #include <linux/list.h>
+ #include <linux/slab.h>
++#include <asm/sections.h>
  
--found:
--	/* Unlink all nodes for this frame. */
--	current->kretprobe_instances.first = node->next;
--	node->next = NULL;
-+unsigned long kretprobe_find_ret_addr(struct task_struct *tsk, void *fp,
-+				      struct llist_node **cur)
-+{
-+	struct kretprobe_instance *ri = NULL;
-+	unsigned long ret;
-+
-+	do {
-+		ret = __kretprobe_find_ret_addr(tsk, cur);
-+		if (!ret)
-+			return ret;
-+		ri = container_of(*cur, struct kretprobe_instance, llist);
-+	} while (ri->fp != fp);
-+
-+	return ret;
-+}
-+NOKPROBE_SYMBOL(kretprobe_find_ret_addr);
+ /* Whitelist of symbols that can be overridden for error injection. */
+ static LIST_HEAD(error_injection_list);
+@@ -64,7 +65,7 @@ static void populate_error_injection_list(struct error_injection_entry *start,
  
--	/* Run them..  */
-+unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
-+					     void *frame_pointer)
-+{
-+	kprobe_opcode_t *correct_ret_addr = NULL;
-+	struct kretprobe_instance *ri = NULL;
-+	struct llist_node *first, *node = NULL;
-+	struct kretprobe *rp;
-+
-+	/* Find correct address and all nodes for this frame. */
-+	correct_ret_addr = (void *)__kretprobe_find_ret_addr(current, &node);
-+	if (!correct_ret_addr) {
-+		pr_err("Oops! Kretprobe fails to find correct return address.\n");
-+		BUG_ON(1);
-+	}
-+
-+	/* Run them. */
-+	first = current->kretprobe_instances.first;
- 	while (first) {
- 		ri = container_of(first, struct kretprobe_instance, llist);
--		first = first->next;
-+
-+		if (WARN_ON_ONCE(ri->fp != frame_pointer))
-+			break;
+ 	mutex_lock(&ei_mutex);
+ 	for (iter = start; iter < end; iter++) {
+-		entry = arch_deref_entry_point((void *)iter->addr);
++		entry = (unsigned long)dereference_symbol_descriptor((void *)iter->addr);
  
- 		rp = get_kretprobe(ri);
- 		if (rp && rp->handler) {
-@@ -1907,6 +1931,21 @@ unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
- 			rp->handler(ri, regs);
- 			__this_cpu_write(current_kprobe, prev);
- 		}
-+		if (first = node)
-+			break;
-+
-+		first = first->next;
-+	}
-+
-+	/* Unlink all nodes for this frame. */
-+	first = current->kretprobe_instances.first;
-+	current->kretprobe_instances.first = node->next;
-+	node->next = NULL;
-+
-+	/* Recycle them.  */
-+	while (first) {
-+		ri = container_of(first, struct kretprobe_instance, llist);
-+		first = first->next;
- 
- 		recycle_rp_inst(ri);
- 	}
+ 		if (!kernel_text_address(entry) ||
+ 		    !kallsyms_lookup_size_offset(entry, &size, &offset)) {
