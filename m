@@ -1,36 +1,97 @@
 From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Thu, 27 May 2021 06:40:01 +0000
-Subject: [PATCH -tip v7 06/13] ARC: Add instruction_pointer_set() API
-Message-Id: <162209760094.436794.15311301507503552258.stgit@devnote2>
+Date: Wed, 26 May 2021 08:03:52 +0000
+Subject: [PATCH -tip v6 10/13] x86/kprobes: Push a fake return address at kretprobe_trampoline
+Message-Id: <162201623241.278331.4061034283741994264.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <162209754288.436794.3904335049560916855.stgit@devnote2>
-In-Reply-To: <162209754288.436794.3904335049560916855.stgit@devnote2>
+References: <162201612941.278331.5293566981784464165.stgit@devnote2>
+In-Reply-To: <162201612941.278331.5293566981784464165.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>
 Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, Josh Poimboeuf <jpoimboe@redhat.com>, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
 
-Add instruction_pointer_set() API for arc.
+This changes x86/kretprobe stack frame on kretprobe_trampoline
+a bit, which now push the kretprobe_trampoline as a fake return
+address at the bottom of the stack frame. With this fix, the ORC
+unwinder will see the kretprobe_trampoline as a return address.
 
 Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
+Suggested-by: Josh Poimboeuf <jpoimboe@redhat.com>
 ---
- arch/arc/include/asm/ptrace.h |    5 +++++
- 1 file changed, 5 insertions(+)
+ arch/x86/kernel/kprobes/core.c |   31 ++++++++++++++++++++++---------
+ 1 file changed, 22 insertions(+), 9 deletions(-)
 
-diff --git a/arch/arc/include/asm/ptrace.h b/arch/arc/include/asm/ptrace.h
-index 4c3c9be5bd16..cca8d6583e31 100644
---- a/arch/arc/include/asm/ptrace.h
-+++ b/arch/arc/include/asm/ptrace.h
-@@ -149,6 +149,11 @@ static inline long regs_return_value(struct pt_regs *regs)
- 	return (long)regs->r0;
+diff --git a/arch/x86/kernel/kprobes/core.c b/arch/x86/kernel/kprobes/core.c
+index 9a6763fd066e..4f3567a9974f 100644
+--- a/arch/x86/kernel/kprobes/core.c
++++ b/arch/x86/kernel/kprobes/core.c
+@@ -1041,28 +1041,31 @@ asm(
+ 	".global kretprobe_trampoline\n"
+ 	".type kretprobe_trampoline, @function\n"
+ 	"kretprobe_trampoline:\n"
+-	/* We don't bother saving the ss register */
+ #ifdef CONFIG_X86_64
+-	"	pushq %rsp\n"
++	/* Push fake return address to tell the unwinder it's a kretprobe */
++	"	pushq $kretprobe_trampoline\n"
+ 	UNWIND_HINT_FUNC
++	/* Save the sp-8, this will be fixed later */
++	"	pushq %rsp\n"
+ 	"	pushfq\n"
+ 	SAVE_REGS_STRING
+ 	"	movq %rsp, %rdi\n"
+ 	"	call trampoline_handler\n"
+-	/* Replace saved sp with true return address. */
+-	"	movq %rax, 19*8(%rsp)\n"
+ 	RESTORE_REGS_STRING
++	"	addq $8, %rsp\n"
+ 	"	popfq\n"
+ #else
+-	"	pushl %esp\n"
++	/* Push fake return address to tell the unwinder it's a kretprobe */
++	"	pushl $kretprobe_trampoline\n"
+ 	UNWIND_HINT_FUNC
++	/* Save the sp-4, this will be fixed later */
++	"	pushl %esp\n"
+ 	"	pushfl\n"
+ 	SAVE_REGS_STRING
+ 	"	movl %esp, %eax\n"
+ 	"	call trampoline_handler\n"
+-	/* Replace saved sp with true return address. */
+-	"	movl %eax, 15*4(%esp)\n"
+ 	RESTORE_REGS_STRING
++	"	addl $4, %esp\n"
+ 	"	popfl\n"
+ #endif
+ 	"	ret\n"
+@@ -1073,8 +1076,10 @@ NOKPROBE_SYMBOL(kretprobe_trampoline);
+ /*
+  * Called from kretprobe_trampoline
+  */
+-__used __visible void *trampoline_handler(struct pt_regs *regs)
++__used __visible void trampoline_handler(struct pt_regs *regs)
+ {
++	unsigned long *frame_pointer;
++
+ 	/* fixup registers */
+ 	regs->cs = __KERNEL_CS;
+ #ifdef CONFIG_X86_32
+@@ -1082,8 +1087,16 @@ __used __visible void *trampoline_handler(struct pt_regs *regs)
+ #endif
+ 	regs->ip = (unsigned long)&kretprobe_trampoline;
+ 	regs->orig_ax = ~0UL;
++	regs->sp += sizeof(long);
++	frame_pointer = ((unsigned long *)&regs->sp) + 1;
+ 
+-	return (void *)kretprobe_trampoline_handler(regs, &regs->sp);
++	/* Replace fake return address with real one. */
++	*frame_pointer = kretprobe_trampoline_handler(regs, frame_pointer);
++	/*
++	 * Move flags to sp so that kretprobe_trapmoline can return
++	 * right after popf.
++	 */
++	regs->sp = regs->flags;
  }
+ NOKPROBE_SYMBOL(trampoline_handler);
  
-+static inline void instruction_pointer_set(struct pt_regs *regs,
-+					   unsigned long val)
-+{
-+	instruction_pointer(regs) = val;
-+}
- #endif /* !__ASSEMBLY__ */
- 
- #endif /* __ASM_PTRACE_H */
