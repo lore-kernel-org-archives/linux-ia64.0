@@ -1,58 +1,40 @@
-From: Zi Yan <zi.yan@sent.com>
-Date: Thu, 06 May 2021 15:26:22 +0000
-Subject: [RFC PATCH 6/7] arch: x86: no MAX_ORDER exceeds SECTION_SIZE check for 32bit vdso.
-Message-Id: <20210506152623.178731-7-zi.yan@sent.com>
+From: Masami Hiramatsu <mhiramat@kernel.org>
+Date: Wed, 26 May 2021 08:03:31 +0000
+Subject: [PATCH -tip v6 08/13] arm: kprobes: Make a space for regs->ARM_pc at kretprobe_trampoline
+Message-Id: <162201621112.278331.7300612749929513135.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210506152623.178731-1-zi.yan@sent.com>
-In-Reply-To: <20210506152623.178731-1-zi.yan@sent.com>
+References: <162201612941.278331.5293566981784464165.stgit@devnote2>
+In-Reply-To: <162201612941.278331.5293566981784464165.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Hildenbrand <david@redhat.com>, Oscar Salvador <osalvador@suse.de>
-Cc: Michael Ellerman <mpe@ellerman.id.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Thomas Gleixner <tglx@linutronix.de>, x86@kernel.org, Andy Lutomirski <luto@kernel.org>, "Rafael J . Wysocki" <rafael@kernel.org>, Andrew Morton <akpm@linux-foundation.org>, Mike Rapoport <rppt@kernel.org>, Anshuman Khandual <anshuman.khandual@arm.com>, Michal Hocko <mhocko@suse.com>, Dan Williams <dan.j.williams@intel.com>, Wei Yang <richard.weiyang@linux.alibaba.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-mm@kvack.org, Zi Yan <ziy@nvidia.com>
+To: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>
+Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, Josh Poimboeuf <jpoimboe@redhat.com>, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
 
-From: Zi Yan <ziy@nvidia.com>
+Change kretprobe_trampoline to make a space for regs->ARM_pc so that
+kretprobe_trampoline_handler can call instruction_pointer_set()
+safely.
 
-For x86_64, 32bit vdso is compiled for compatibility reason and 32bit
-SECTION_SIZE_BITS value is used during compilation. It causes
-compilation time error when MAX_ORDER is increased in the 64bit
-environment even if it is OK for 64bit SECTION_SIZE_BITS. Remove the
-check during 32bit vdso compilation. It will be checked when other
-kernel components are compiled.
-
-Signed-off-by: Zi Yan <ziy@nvidia.com>
+Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
 ---
- arch/x86/entry/vdso/Makefile | 1 +
- include/linux/mmzone.h       | 2 ++
- 2 files changed, 3 insertions(+)
+ arch/arm/probes/kprobes/core.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/arch/x86/entry/vdso/Makefile b/arch/x86/entry/vdso/Makefile
-index 05c4abc2fdfd..cad339136ed1 100644
---- a/arch/x86/entry/vdso/Makefile
-+++ b/arch/x86/entry/vdso/Makefile
-@@ -156,6 +156,7 @@ KBUILD_CFLAGS_32 += -fno-stack-protector
- KBUILD_CFLAGS_32 += $(call cc-option, -foptimize-sibling-calls)
- KBUILD_CFLAGS_32 += -fno-omit-frame-pointer
- KBUILD_CFLAGS_32 += -DDISABLE_BRANCH_PROFILING
-+KBUILD_CFLAGS_32 += -DNO_MAX_ORDER_CHECK
- 
- ifdef CONFIG_RETPOLINE
- ifneq ($(RETPOLINE_VDSO_CFLAGS),)
-diff --git a/include/linux/mmzone.h b/include/linux/mmzone.h
-index 965a0cd5eac1..fb5a0c2ab528 100644
---- a/include/linux/mmzone.h
-+++ b/include/linux/mmzone.h
-@@ -1211,9 +1211,11 @@ static inline struct zoneref *first_zones_zonelist(struct zonelist *zonelist,
- #define SECTION_BLOCKFLAGS_BITS \
- 	((1UL << (PFN_SECTION_SHIFT - pageblock_order)) * NR_PAGEBLOCK_BITS)
- 
-+#ifndef NO_MAX_ORDER_CHECK
- #if (MAX_ORDER - 1 + PAGE_SHIFT) > SECTION_SIZE_BITS
- #error Allocator MAX_ORDER exceeds SECTION_SIZE
- #endif
-+#endif
- 
- static inline unsigned long pfn_to_section_nr(unsigned long pfn)
+diff --git a/arch/arm/probes/kprobes/core.c b/arch/arm/probes/kprobes/core.c
+index 1782b41df095..5f3c2b42787f 100644
+--- a/arch/arm/probes/kprobes/core.c
++++ b/arch/arm/probes/kprobes/core.c
+@@ -397,11 +397,13 @@ int __kprobes kprobe_exceptions_notify(struct notifier_block *self,
+ void __naked __kprobes kretprobe_trampoline(void)
  {
--- 
-2.30.2
+ 	__asm__ __volatile__ (
++		"sub	sp, sp, #16		\n\t"
+ 		"stmdb	sp!, {r0 - r11}		\n\t"
+ 		"mov	r0, sp			\n\t"
+ 		"bl	trampoline_handler	\n\t"
+ 		"mov	lr, r0			\n\t"
+ 		"ldmia	sp!, {r0 - r11}		\n\t"
++		"add	sp, sp, #16		\n\t"
+ #ifdef CONFIG_THUMB2_KERNEL
+ 		"bx	lr			\n\t"
+ #else
