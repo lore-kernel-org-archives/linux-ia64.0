@@ -1,7 +1,7 @@
 From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Wed, 26 May 2021 08:03:20 +0000
-Subject: [PATCH -tip v6 07/13] ia64: Add instruction_pointer_set() API
-Message-Id: <162201620051.278331.3631153829513157789.stgit@devnote2>
+Date: Wed, 26 May 2021 08:04:14 +0000
+Subject: [PATCH -tip v6 12/13] tracing: Show kretprobe unknown indicator only for kretprobe_trampoline
+Message-Id: <162201625426.278331.16464105461089821909.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <162201612941.278331.5293566981784464165.stgit@devnote2>
 In-Reply-To: <162201612941.278331.5293566981784464165.stgit@devnote2>
@@ -11,29 +11,59 @@ Content-Transfer-Encoding: 7bit
 To: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>
 Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, Josh Poimboeuf <jpoimboe@redhat.com>, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
 
-Add instruction_pointer_set() API for ia64.
+ftrace shows "[unknown/kretprobe'd]" indicator all addresses in the
+kretprobe_trampoline, but the modified address by kretprobe should
+be only kretprobe_trampoline+0.
 
 Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
+Acked-by: Steven Rostedt (VMware) <rostedt@goodmis.org>
 ---
-  Changes in v4:
-   - Make the API macro for avoiding a build error.
----
- arch/ia64/include/asm/ptrace.h |    5 +++++
- 1 file changed, 5 insertions(+)
+ kernel/trace/trace_output.c |   17 ++++-------------
+ 1 file changed, 4 insertions(+), 13 deletions(-)
 
-diff --git a/arch/ia64/include/asm/ptrace.h b/arch/ia64/include/asm/ptrace.h
-index 08179135905c..a024afbc70e5 100644
---- a/arch/ia64/include/asm/ptrace.h
-+++ b/arch/ia64/include/asm/ptrace.h
-@@ -51,6 +51,11 @@
-  * the canonical representation by adding to instruction pointer.
-  */
- # define instruction_pointer(regs) ((regs)->cr_iip + ia64_psr(regs)->ri)
-+# define instruction_pointer_set(regs, val)	\
-+  ({						\
-+	ia64_psr(regs)->ri = (val & 0xf);	\
-+	regs->cr_iip = (val & ~0xfULL);		\
-+  })
+diff --git a/kernel/trace/trace_output.c b/kernel/trace/trace_output.c
+index d0368a569bfa..e46780670742 100644
+--- a/kernel/trace/trace_output.c
++++ b/kernel/trace/trace_output.c
+@@ -8,6 +8,7 @@
+ #include <linux/module.h>
+ #include <linux/mutex.h>
+ #include <linux/ftrace.h>
++#include <linux/kprobes.h>
+ #include <linux/sched/clock.h>
+ #include <linux/sched/mm.h>
  
- static inline unsigned long user_stack_pointer(struct pt_regs *regs)
+@@ -346,22 +347,12 @@ int trace_output_call(struct trace_iterator *iter, char *name, char *fmt, ...)
+ }
+ EXPORT_SYMBOL_GPL(trace_output_call);
+ 
+-#ifdef CONFIG_KRETPROBES
+-static inline const char *kretprobed(const char *name)
++static inline const char *kretprobed(const char *name, unsigned long addr)
  {
+-	static const char tramp_name[] = "kretprobe_trampoline";
+-	int size = sizeof(tramp_name);
+-
+-	if (strncmp(tramp_name, name, size) = 0)
++	if (is_kretprobe_trampoline(addr))
+ 		return "[unknown/kretprobe'd]";
+ 	return name;
+ }
+-#else
+-static inline const char *kretprobed(const char *name)
+-{
+-	return name;
+-}
+-#endif /* CONFIG_KRETPROBES */
+ 
+ void
+ trace_seq_print_sym(struct trace_seq *s, unsigned long address, bool offset)
+@@ -374,7 +365,7 @@ trace_seq_print_sym(struct trace_seq *s, unsigned long address, bool offset)
+ 		sprint_symbol(str, address);
+ 	else
+ 		kallsyms_lookup(address, NULL, NULL, NULL, str);
+-	name = kretprobed(str);
++	name = kretprobed(str, address);
+ 
+ 	if (name && strlen(name)) {
+ 		trace_seq_puts(s, name);
