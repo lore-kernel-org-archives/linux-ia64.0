@@ -1,127 +1,196 @@
-From: Sasha Levin <sashal@kernel.org>
-Date: Wed, 05 May 2021 16:31:18 +0000
-Subject: [PATCH AUTOSEL 5.12 110/116] ia64: module: fix symbolizer crash on fdescr
-Message-Id: <20210505163125.3460440-110-sashal@kernel.org>
+From: Masami Hiramatsu <mhiramat@kernel.org>
+Date: Thu, 27 May 2021 06:39:41 +0000
+Subject: [PATCH -tip v7 04/13] kprobes: Add kretprobe_find_ret_addr() for searching return address
+Message-Id: <162209758165.436794.8504547064098766514.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210505163125.3460440-1-sashal@kernel.org>
-In-Reply-To: <20210505163125.3460440-1-sashal@kernel.org>
+References: <162209754288.436794.3904335049560916855.stgit@devnote2>
+In-Reply-To: <162209754288.436794.3904335049560916855.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
-Cc: Sergei Trofimovich <slyfox@gentoo.org>, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, Sasha Levin <sashal@kernel.org>, linux-ia64@vger.kernel.org
+To: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>
+Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, Josh Poimboeuf <jpoimboe@redhat.com>, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
 
-From: Sergei Trofimovich <slyfox@gentoo.org>
+Add kretprobe_find_ret_addr() for searching correct return address
+from kretprobe instance list.
 
-[ Upstream commit 99e729bd40fb3272fa4b0140839d5e957b58588a ]
-
-Noticed failure as a crash on ia64 when tried to symbolize all backtraces
-collected by page_owner=on:
-
-    $ cat /sys/kernel/debug/page_owner
-    <oops>
-
-    CPU: 1 PID: 2074 Comm: cat Not tainted 5.12.0-rc4 #226
-    Hardware name: hp server rx3600, BIOS 04.03 04/08/2008
-    ip is at dereference_module_function_descriptor+0x41/0x100
-
-Crash happens at dereference_module_function_descriptor() due to
-use-after-free when dereferencing ".opd" section header.
-
-All section headers are already freed after module is laoded successfully.
-
-To keep symbolizer working the change stores ".opd" address and size after
-module is relocated to a new place and before section headers are
-discarded.
-
-To make similar errors less obscure module_finalize() now zeroes out all
-variables relevant to module loading only.
-
-Link: https://lkml.kernel.org/r/20210403074803.3309096-1-slyfox@gentoo.org
-Signed-off-by: Sergei Trofimovich <slyfox@gentoo.org>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
-Signed-off-by: Sasha Levin <sashal@kernel.org>
+Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
+Tested-by: Andrii Nakryik <andrii@kernel.org>
 ---
- arch/ia64/include/asm/module.h |  6 +++++-
- arch/ia64/kernel/module.c      | 29 +++++++++++++++++++++++++----
- 2 files changed, 30 insertions(+), 5 deletions(-)
+ Changes in v6:
+  - Replace BUG_ON() with WARN_ON_ONCE() in __kretprobe_trampoline_handler().
+ Changes in v3:
+  - Remove generic stacktrace fixup. Instead, it should be solved in
+    each unwinder. This just provide the generic interface.
+ Changes in v2:
+  - Add is_kretprobe_trampoline() for checking address outside of
+    kretprobe_find_ret_addr()
+  - Remove unneeded addr from kretprobe_find_ret_addr()
+  - Rename fixup_kretprobe_tramp_addr() to fixup_kretprobe_trampoline()
+---
+ include/linux/kprobes.h |   22 +++++++++++
+ kernel/kprobes.c        |   91 ++++++++++++++++++++++++++++++++++-------------
+ 2 files changed, 87 insertions(+), 26 deletions(-)
 
-diff --git a/arch/ia64/include/asm/module.h b/arch/ia64/include/asm/module.h
-index 5a29652e6def..7271b9c5fc76 100644
---- a/arch/ia64/include/asm/module.h
-+++ b/arch/ia64/include/asm/module.h
-@@ -14,16 +14,20 @@
- struct elf64_shdr;			/* forward declration */
- 
- struct mod_arch_specific {
-+	/* Used only at module load time. */
- 	struct elf64_shdr *core_plt;	/* core PLT section */
- 	struct elf64_shdr *init_plt;	/* init PLT section */
- 	struct elf64_shdr *got;		/* global offset table */
- 	struct elf64_shdr *opd;		/* official procedure descriptors */
- 	struct elf64_shdr *unwind;	/* unwind-table section */
- 	unsigned long gp;		/* global-pointer for module */
-+	unsigned int next_got_entry;	/* index of next available got entry */
- 
-+	/* Used at module run and cleanup time. */
- 	void *core_unw_table;		/* core unwind-table cookie returned by unwinder */
- 	void *init_unw_table;		/* init unwind-table cookie returned by unwinder */
--	unsigned int next_got_entry;	/* index of next available got entry */
-+	void *opd_addr;			/* symbolize uses .opd to get to actual function */
-+	unsigned long opd_size;
- };
- 
- #define ARCH_SHF_SMALL	SHF_IA_64_SHORT
-diff --git a/arch/ia64/kernel/module.c b/arch/ia64/kernel/module.c
-index 00a496cb346f..2cba53c1da82 100644
---- a/arch/ia64/kernel/module.c
-+++ b/arch/ia64/kernel/module.c
-@@ -905,9 +905,31 @@ register_unwind_table (struct module *mod)
- int
- module_finalize (const Elf_Ehdr *hdr, const Elf_Shdr *sechdrs, struct module *mod)
- {
-+	struct mod_arch_specific *mas = &mod->arch;
-+
- 	DEBUGP("%s: init: entry=%p\n", __func__, mod->init);
--	if (mod->arch.unwind)
-+	if (mas->unwind)
- 		register_unwind_table(mod);
-+
-+	/*
-+	 * ".opd" was already relocated to the final destination. Store
-+	 * it's address for use in symbolizer.
-+	 */
-+	mas->opd_addr = (void *)mas->opd->sh_addr;
-+	mas->opd_size = mas->opd->sh_size;
-+
-+	/*
-+	 * Module relocation was already done at this point. Section
-+	 * headers are about to be deleted. Wipe out load-time context.
-+	 */
-+	mas->core_plt = NULL;
-+	mas->init_plt = NULL;
-+	mas->got = NULL;
-+	mas->opd = NULL;
-+	mas->unwind = NULL;
-+	mas->gp = 0;
-+	mas->next_got_entry = 0;
-+
- 	return 0;
+diff --git a/include/linux/kprobes.h b/include/linux/kprobes.h
+index 65dadd4238a2..f530f82a046d 100644
+--- a/include/linux/kprobes.h
++++ b/include/linux/kprobes.h
+@@ -215,6 +215,14 @@ static nokprobe_inline void *kretprobe_trampoline_addr(void)
+ 	return dereference_function_descriptor(kretprobe_trampoline);
  }
  
-@@ -926,10 +948,9 @@ module_arch_cleanup (struct module *mod)
++static nokprobe_inline bool is_kretprobe_trampoline(unsigned long addr)
++{
++	return (void *)addr = kretprobe_trampoline_addr();
++}
++
++unsigned long kretprobe_find_ret_addr(struct task_struct *tsk, void *fp,
++				      struct llist_node **cur);
++
+ /* If the trampoline handler called from a kprobe, use this version */
+ unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
+ 					     void *frame_pointer);
+@@ -514,6 +522,20 @@ static inline bool is_kprobe_optinsn_slot(unsigned long addr)
+ }
+ #endif
  
- void *dereference_module_function_descriptor(struct module *mod, void *ptr)
++#if !defined(CONFIG_KRETPROBES)
++static nokprobe_inline bool is_kretprobe_trampoline(unsigned long addr)
++{
++	return false;
++}
++
++static nokprobe_inline
++unsigned long kretprobe_find_ret_addr(struct task_struct *tsk, void *fp,
++				      struct llist_node **cur)
++{
++	return 0;
++}
++#endif
++
+ /* Returns true if kprobes handled the fault */
+ static nokprobe_inline bool kprobe_page_fault(struct pt_regs *regs,
+ 					      unsigned int trap)
+diff --git a/kernel/kprobes.c b/kernel/kprobes.c
+index 1d3087b59522..54e5b89aad67 100644
+--- a/kernel/kprobes.c
++++ b/kernel/kprobes.c
+@@ -1858,45 +1858,69 @@ static struct notifier_block kprobe_exceptions_nb = {
+ 
+ #ifdef CONFIG_KRETPROBES
+ 
+-unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
+-					     void *frame_pointer)
++/* This assumes the tsk is current or the task which is not running. */
++static unsigned long __kretprobe_find_ret_addr(struct task_struct *tsk,
++					       struct llist_node **cur)
  {
--	Elf64_Shdr *opd = mod->arch.opd;
-+	struct mod_arch_specific *mas = &mod->arch;
+-	kprobe_opcode_t *correct_ret_addr = NULL;
+ 	struct kretprobe_instance *ri = NULL;
+-	struct llist_node *first, *node;
+-	struct kretprobe *rp;
++	struct llist_node *node = *cur;
++
++	if (!node)
++		node = tsk->kretprobe_instances.first;
++	else
++		node = node->next;
  
--	if (ptr < (void *)opd->sh_addr ||
--			ptr >= (void *)(opd->sh_addr + opd->sh_size))
-+	if (ptr < mas->opd_addr || ptr >= mas->opd_addr + mas->opd_size)
- 		return ptr;
+-	/* Find all nodes for this frame. */
+-	first = node = current->kretprobe_instances.first;
+ 	while (node) {
+ 		ri = container_of(node, struct kretprobe_instance, llist);
+-
+-		BUG_ON(ri->fp != frame_pointer);
+-
+ 		if (ri->ret_addr != kretprobe_trampoline_addr()) {
+-			correct_ret_addr = ri->ret_addr;
+-			/*
+-			 * This is the real return address. Any other
+-			 * instances associated with this task are for
+-			 * other calls deeper on the call stack
+-			 */
+-			goto found;
++			*cur = node;
++			return (unsigned long)ri->ret_addr;
+ 		}
+-
+ 		node = node->next;
+ 	}
+-	pr_err("Oops! Kretprobe fails to find correct return address.\n");
+-	BUG_ON(1);
++	return 0;
++}
++NOKPROBE_SYMBOL(__kretprobe_find_ret_addr);
  
- 	return dereference_function_descriptor(ptr);
--- 
-2.30.2
+-found:
+-	/* Unlink all nodes for this frame. */
+-	current->kretprobe_instances.first = node->next;
+-	node->next = NULL;
++unsigned long kretprobe_find_ret_addr(struct task_struct *tsk, void *fp,
++				      struct llist_node **cur)
++{
++	struct kretprobe_instance *ri = NULL;
++	unsigned long ret;
++
++	do {
++		ret = __kretprobe_find_ret_addr(tsk, cur);
++		if (!ret)
++			return ret;
++		ri = container_of(*cur, struct kretprobe_instance, llist);
++	} while (ri->fp != fp);
++
++	return ret;
++}
++NOKPROBE_SYMBOL(kretprobe_find_ret_addr);
+ 
+-	/* Run them..  */
++unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
++					     void *frame_pointer)
++{
++	kprobe_opcode_t *correct_ret_addr = NULL;
++	struct kretprobe_instance *ri = NULL;
++	struct llist_node *first, *node = NULL;
++	struct kretprobe *rp;
++
++	/* Find correct address and all nodes for this frame. */
++	correct_ret_addr = (void *)__kretprobe_find_ret_addr(current, &node);
++	if (!correct_ret_addr) {
++		pr_err("Oops! Kretprobe fails to find correct return address.\n");
++		BUG_ON(1);
++	}
++
++	/* Run them. */
++	first = current->kretprobe_instances.first;
+ 	while (first) {
+ 		ri = container_of(first, struct kretprobe_instance, llist);
+-		first = first->next;
++
++		if (WARN_ON_ONCE(ri->fp != frame_pointer))
++			break;
+ 
+ 		rp = get_kretprobe(ri);
+ 		if (rp && rp->handler) {
+@@ -1907,6 +1931,21 @@ unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
+ 			rp->handler(ri, regs);
+ 			__this_cpu_write(current_kprobe, prev);
+ 		}
++		if (first = node)
++			break;
++
++		first = first->next;
++	}
++
++	/* Unlink all nodes for this frame. */
++	first = current->kretprobe_instances.first;
++	current->kretprobe_instances.first = node->next;
++	node->next = NULL;
++
++	/* Recycle them.  */
++	while (first) {
++		ri = container_of(first, struct kretprobe_instance, llist);
++		first = first->next;
+ 
+ 		recycle_rp_inst(ri);
+ 	}
