@@ -1,127 +1,70 @@
-From: Sasha Levin <sashal@kernel.org>
-Date: Wed, 05 May 2021 16:38:56 +0000
-Subject: [PATCH AUTOSEL 5.4 46/46] ia64: module: fix symbolizer crash on fdescr
-Message-Id: <20210505163856.3463279-46-sashal@kernel.org>
+From: Masami Hiramatsu <mhiramat@kernel.org>
+Date: Thu, 27 May 2021 06:40:57 +0000
+Subject: [PATCH -tip v7 12/13] tracing: Show kretprobe unknown indicator only for kretprobe_trampoline
+Message-Id: <162209765751.436794.17923326412681624558.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210505163856.3463279-1-sashal@kernel.org>
-In-Reply-To: <20210505163856.3463279-1-sashal@kernel.org>
+References: <162209754288.436794.3904335049560916855.stgit@devnote2>
+In-Reply-To: <162209754288.436794.3904335049560916855.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
-Cc: Sergei Trofimovich <slyfox@gentoo.org>, Andrew Morton <akpm@linux-foundation.org>, Linus Torvalds <torvalds@linux-foundation.org>, Sasha Levin <sashal@kernel.org>, linux-ia64@vger.kernel.org
+To: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>
+Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, Josh Poimboeuf <jpoimboe@redhat.com>, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
 
-From: Sergei Trofimovich <slyfox@gentoo.org>
+ftrace shows "[unknown/kretprobe'd]" indicator all addresses in the
+kretprobe_trampoline, but the modified address by kretprobe should
+be only kretprobe_trampoline+0.
 
-[ Upstream commit 99e729bd40fb3272fa4b0140839d5e957b58588a ]
-
-Noticed failure as a crash on ia64 when tried to symbolize all backtraces
-collected by page_owner=on:
-
-    $ cat /sys/kernel/debug/page_owner
-    <oops>
-
-    CPU: 1 PID: 2074 Comm: cat Not tainted 5.12.0-rc4 #226
-    Hardware name: hp server rx3600, BIOS 04.03 04/08/2008
-    ip is at dereference_module_function_descriptor+0x41/0x100
-
-Crash happens at dereference_module_function_descriptor() due to
-use-after-free when dereferencing ".opd" section header.
-
-All section headers are already freed after module is laoded successfully.
-
-To keep symbolizer working the change stores ".opd" address and size after
-module is relocated to a new place and before section headers are
-discarded.
-
-To make similar errors less obscure module_finalize() now zeroes out all
-variables relevant to module loading only.
-
-Link: https://lkml.kernel.org/r/20210403074803.3309096-1-slyfox@gentoo.org
-Signed-off-by: Sergei Trofimovich <slyfox@gentoo.org>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
-Signed-off-by: Sasha Levin <sashal@kernel.org>
+Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
+Acked-by: Steven Rostedt (VMware) <rostedt@goodmis.org>
+Tested-by: Andrii Nakryik <andrii@kernel.org>
 ---
- arch/ia64/include/asm/module.h |  6 +++++-
- arch/ia64/kernel/module.c      | 29 +++++++++++++++++++++++++----
- 2 files changed, 30 insertions(+), 5 deletions(-)
+ kernel/trace/trace_output.c |   17 ++++-------------
+ 1 file changed, 4 insertions(+), 13 deletions(-)
 
-diff --git a/arch/ia64/include/asm/module.h b/arch/ia64/include/asm/module.h
-index f319144260ce..9fbf32e6e881 100644
---- a/arch/ia64/include/asm/module.h
-+++ b/arch/ia64/include/asm/module.h
-@@ -14,16 +14,20 @@
- struct elf64_shdr;			/* forward declration */
+diff --git a/kernel/trace/trace_output.c b/kernel/trace/trace_output.c
+index d0368a569bfa..e46780670742 100644
+--- a/kernel/trace/trace_output.c
++++ b/kernel/trace/trace_output.c
+@@ -8,6 +8,7 @@
+ #include <linux/module.h>
+ #include <linux/mutex.h>
+ #include <linux/ftrace.h>
++#include <linux/kprobes.h>
+ #include <linux/sched/clock.h>
+ #include <linux/sched/mm.h>
  
- struct mod_arch_specific {
-+	/* Used only at module load time. */
- 	struct elf64_shdr *core_plt;	/* core PLT section */
- 	struct elf64_shdr *init_plt;	/* init PLT section */
- 	struct elf64_shdr *got;		/* global offset table */
- 	struct elf64_shdr *opd;		/* official procedure descriptors */
- 	struct elf64_shdr *unwind;	/* unwind-table section */
- 	unsigned long gp;		/* global-pointer for module */
-+	unsigned int next_got_entry;	/* index of next available got entry */
- 
-+	/* Used at module run and cleanup time. */
- 	void *core_unw_table;		/* core unwind-table cookie returned by unwinder */
- 	void *init_unw_table;		/* init unwind-table cookie returned by unwinder */
--	unsigned int next_got_entry;	/* index of next available got entry */
-+	void *opd_addr;			/* symbolize uses .opd to get to actual function */
-+	unsigned long opd_size;
- };
- 
- #define MODULE_PROC_FAMILY	"ia64"
-diff --git a/arch/ia64/kernel/module.c b/arch/ia64/kernel/module.c
-index 1a42ba885188..ee693c8cec49 100644
---- a/arch/ia64/kernel/module.c
-+++ b/arch/ia64/kernel/module.c
-@@ -905,9 +905,31 @@ register_unwind_table (struct module *mod)
- int
- module_finalize (const Elf_Ehdr *hdr, const Elf_Shdr *sechdrs, struct module *mod)
- {
-+	struct mod_arch_specific *mas = &mod->arch;
-+
- 	DEBUGP("%s: init: entry=%p\n", __func__, mod->init);
--	if (mod->arch.unwind)
-+	if (mas->unwind)
- 		register_unwind_table(mod);
-+
-+	/*
-+	 * ".opd" was already relocated to the final destination. Store
-+	 * it's address for use in symbolizer.
-+	 */
-+	mas->opd_addr = (void *)mas->opd->sh_addr;
-+	mas->opd_size = mas->opd->sh_size;
-+
-+	/*
-+	 * Module relocation was already done at this point. Section
-+	 * headers are about to be deleted. Wipe out load-time context.
-+	 */
-+	mas->core_plt = NULL;
-+	mas->init_plt = NULL;
-+	mas->got = NULL;
-+	mas->opd = NULL;
-+	mas->unwind = NULL;
-+	mas->gp = 0;
-+	mas->next_got_entry = 0;
-+
- 	return 0;
+@@ -346,22 +347,12 @@ int trace_output_call(struct trace_iterator *iter, char *name, char *fmt, ...)
  }
+ EXPORT_SYMBOL_GPL(trace_output_call);
  
-@@ -926,10 +948,9 @@ module_arch_cleanup (struct module *mod)
- 
- void *dereference_module_function_descriptor(struct module *mod, void *ptr)
+-#ifdef CONFIG_KRETPROBES
+-static inline const char *kretprobed(const char *name)
++static inline const char *kretprobed(const char *name, unsigned long addr)
  {
--	Elf64_Shdr *opd = mod->arch.opd;
-+	struct mod_arch_specific *mas = &mod->arch;
+-	static const char tramp_name[] = "kretprobe_trampoline";
+-	int size = sizeof(tramp_name);
+-
+-	if (strncmp(tramp_name, name, size) = 0)
++	if (is_kretprobe_trampoline(addr))
+ 		return "[unknown/kretprobe'd]";
+ 	return name;
+ }
+-#else
+-static inline const char *kretprobed(const char *name)
+-{
+-	return name;
+-}
+-#endif /* CONFIG_KRETPROBES */
  
--	if (ptr < (void *)opd->sh_addr ||
--			ptr >= (void *)(opd->sh_addr + opd->sh_size))
-+	if (ptr < mas->opd_addr || ptr >= mas->opd_addr + mas->opd_size)
- 		return ptr;
+ void
+ trace_seq_print_sym(struct trace_seq *s, unsigned long address, bool offset)
+@@ -374,7 +365,7 @@ trace_seq_print_sym(struct trace_seq *s, unsigned long address, bool offset)
+ 		sprint_symbol(str, address);
+ 	else
+ 		kallsyms_lookup(address, NULL, NULL, NULL, str);
+-	name = kretprobed(str);
++	name = kretprobed(str, address);
  
- 	return dereference_function_descriptor(ptr);
--- 
-2.30.2
+ 	if (name && strlen(name)) {
+ 		trace_seq_puts(s, name);
