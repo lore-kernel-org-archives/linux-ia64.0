@@ -1,40 +1,101 @@
-From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Date: Fri, 21 May 2021 12:02:11 +0000
-Subject: Re: [PATCH v1 1/1] kernel.h: split out panic and oops helpers (ia64 fix)
-Message-Id: <YKehQyAn7rgXL9Bb@smile.fi.intel.com>
+From: Masami Hiramatsu <mhiramat@kernel.org>
+Date: Thu, 27 May 2021 06:39:51 +0000
+Subject: [PATCH -tip v7 05/13] x86/kprobes: Add UNWIND_HINT_FUNC on kretprobe_trampoline code
+Message-Id: <162209759120.436794.6141100557419535307.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210520130557.55277-1-andriy.shevchenko@linux.intel.com>
- <f2420178-53d7-a1e4-eea7-5e1773835411@physik.fu-berlin.de>
- <YKZhcKqomWxH3eph@smile.fi.intel.com>
- <41bbace7-1b09-8464-a082-e4152f07fdb4@physik.fu-berlin.de>
-In-Reply-To: <41bbace7-1b09-8464-a082-e4152f07fdb4@physik.fu-berlin.de>
+References: <162209754288.436794.3904335049560916855.stgit@devnote2>
+In-Reply-To: <162209754288.436794.3904335049560916855.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: John Paul Adrian Glaubitz <glaubitz@physik.fu-berlin.de>
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>, kernel test robot <lkp@intel.com>
+To: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>
+Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, Josh Poimboeuf <jpoimboe@redhat.com>, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
 
-On Fri, May 21, 2021 at 09:24:08AM +0200, John Paul Adrian Glaubitz wrote:
-> On 5/20/21 3:17 PM, Andy Shevchenko wrote:
-> > On Thu, May 20, 2021 at 03:12:24PM +0200, John Paul Adrian Glaubitz wrote:
-> >> On 5/20/21 3:05 PM, Andy Shevchenko wrote:
-> >>> Note, this patch is untested. I have no ia64 compiler at hand.
-> > 
-> >> I can test it later today.
-> > 
-> > Appreciate it, thanks!
-> > 
-> > This is against Linux Next (where Andrew's patches are sitting for a while).
-> 
-> I just pulled linux-next and was able to build a kernel for my RX-2600 without any
-> problems. Since your patch is already in the tree, I assume it's correct.
-> 
-> Do you want me to test anything else? I can test-boot the kernel later, but I want
-> to avoid that now since I don't want to turn on the noisy server while at home :-)
+From: Josh Poimboeuf <jpoimboe@redhat.com>
 
-Nothing is required anymore, thanks for your help with testing!
+Add UNWIND_HINT_FUNC on kretporbe_trampoline code so that ORC
+information is generated on the kretprobe_trampoline correctly.
 
--- 
-With Best Regards,
-Andy Shevchenko
+Note that when the CONFIG_FRAME_POINTER=y, since the
+kretprobe_trampoline skips updating frame pointer, the stack frame
+of the kretprobe_trampoline seems non-standard. So this marks it
+is STACK_FRAME_NON_STANDARD() and undefine UNWIND_HINT_FUNC.
+Anyway, with the frame pointer, FP unwinder can unwind the stack
+frame correctly without that hint.
 
+Signed-off-by: Josh Poimboeuf <jpoimboe@redhat.com>
+Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
+Tested-by: Andrii Nakryik <andrii@kernel.org>
+---
+ Changes in v4:
+  - Apply UNWIND_HINT_FUNC only if CONFIG_FRAME_POINTER=n.
+---
+ arch/x86/include/asm/unwind_hints.h |    5 +++++
+ arch/x86/kernel/kprobes/core.c      |   17 +++++++++++++++--
+ 2 files changed, 20 insertions(+), 2 deletions(-)
+
+diff --git a/arch/x86/include/asm/unwind_hints.h b/arch/x86/include/asm/unwind_hints.h
+index 8e574c0afef8..8b33674288ea 100644
+--- a/arch/x86/include/asm/unwind_hints.h
++++ b/arch/x86/include/asm/unwind_hints.h
+@@ -52,6 +52,11 @@
+ 	UNWIND_HINT sp_reg=ORC_REG_SP sp_offset=8 type=UNWIND_HINT_TYPE_FUNC
+ .endm
+ 
++#else
++
++#define UNWIND_HINT_FUNC \
++	UNWIND_HINT(ORC_REG_SP, 8, UNWIND_HINT_TYPE_FUNC, 0)
++
+ #endif /* __ASSEMBLY__ */
+ 
+ #endif /* _ASM_X86_UNWIND_HINTS_H */
+diff --git a/arch/x86/kernel/kprobes/core.c b/arch/x86/kernel/kprobes/core.c
+index d32b09ca3221..9a6763fd066e 100644
+--- a/arch/x86/kernel/kprobes/core.c
++++ b/arch/x86/kernel/kprobes/core.c
+@@ -1019,6 +1019,19 @@ int kprobe_int3_handler(struct pt_regs *regs)
+ }
+ NOKPROBE_SYMBOL(kprobe_int3_handler);
+ 
++#ifdef CONFIG_FRAME_POINTER
++/*
++ * kretprobe_trampoline skips updating frame pointer. The frame pointer
++ * saved in trampoline_handler points to the real caller function's
++ * frame pointer. Thus the kretprobe_trampoline doesn't seems to have a
++ * standard stack frame with CONFIG_FRAME_POINTER=y.
++ * Let's mark it non-standard function. Anyway, FP unwinder can correctly
++ * unwind without the hint.
++ */
++STACK_FRAME_NON_STANDARD(kretprobe_trampoline);
++#undef UNWIND_HINT_FUNC
++#define UNWIND_HINT_FUNC
++#endif
+ /*
+  * When a retprobed function returns, this code saves registers and
+  * calls trampoline_handler() runs, which calls the kretprobe's handler.
+@@ -1031,6 +1044,7 @@ asm(
+ 	/* We don't bother saving the ss register */
+ #ifdef CONFIG_X86_64
+ 	"	pushq %rsp\n"
++	UNWIND_HINT_FUNC
+ 	"	pushfq\n"
+ 	SAVE_REGS_STRING
+ 	"	movq %rsp, %rdi\n"
+@@ -1041,6 +1055,7 @@ asm(
+ 	"	popfq\n"
+ #else
+ 	"	pushl %esp\n"
++	UNWIND_HINT_FUNC
+ 	"	pushfl\n"
+ 	SAVE_REGS_STRING
+ 	"	movl %esp, %eax\n"
+@@ -1054,8 +1069,6 @@ asm(
+ 	".size kretprobe_trampoline, .-kretprobe_trampoline\n"
+ );
+ NOKPROBE_SYMBOL(kretprobe_trampoline);
+-STACK_FRAME_NON_STANDARD(kretprobe_trampoline);
+-
+ 
+ /*
+  * Called from kretprobe_trampoline
