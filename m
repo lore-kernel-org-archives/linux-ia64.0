@@ -1,198 +1,307 @@
-From: Michal Simek <michal.simek@xilinx.com>
-Date: Mon, 31 May 2021 12:22:21 +0000
-Subject: Re: [PATCH v2] mm: generalize ZONE_[DMA|DMA32]
-Message-Id: <67269724-625f-4e82-7c05-a52879bc94bd@xilinx.com>
+From: Masami Hiramatsu <mhiramat@kernel.org>
+Date: Thu, 27 May 2021 06:39:32 +0000
+Subject: [PATCH -tip v7 03/13] kprobes: treewide: Remove trampoline_address from kretprobe_trampoline_handler
+Message-Id: <162209757191.436794.12654958417415894884.stgit@devnote2>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210527143047.123611-1-wangkefeng.wang@huawei.com>
- <20210528074557.17768-1-wangkefeng.wang@huawei.com>
-In-Reply-To: <20210528074557.17768-1-wangkefeng.wang@huawei.com>
+References: <162209754288.436794.3904335049560916855.stgit@devnote2>
+In-Reply-To: <162209754288.436794.3904335049560916855.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Kefeng Wang <wangkefeng.wang@huawei.com>, Andrew Morton <akpm@linux-foundation.org>
-Cc: linux-alpha@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-ia64@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, sparclinux@vger.kernel.org, linux-mm@kvack.org, Catalin Marinas <catalin.marinas@arm.com>, Will Deacon <will@kernel.org>, Geert Uytterhoeven <geert@linux-m68k.org>, Thomas Bogendoerfer <tsbogend@alpha.franken.de>, "David S. Miller" <davem@davemloft.net>, Ingo Molnar <mingo@redhat.com>, Borislav Petkov <bp@alien8.de>, Palmer Dabbelt <palmer@dabbelt.com>, Richard Henderson <rth@twiddle.net>, Russell King <linux@armlinux.org.uk>, Mike Rapoport <rppt@linux.ibm.com>
+To: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>
+Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, Josh Poimboeuf <jpoimboe@redhat.com>, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
 
+Remove trampoline_address from kretprobe_trampoline_handler().
+Instead of passing the address, kretprobe_trampoline_handler()
+can use new kretprobe_trampoline_addr().
 
+Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
+Tested-by: Andrii Nakryik <andrii@kernel.org>
+---
+ Changes in v3:
+   - Remove wrong kretprobe_trampoline declaration from
+     arch/x86/include/asm/kprobes.h.
+ Changes in v2:
+   - Remove arch_deref_entry_point() from comment.
+---
+ arch/arc/kernel/kprobes.c          |    2 +-
+ arch/arm/probes/kprobes/core.c     |    3 +--
+ arch/arm64/kernel/probes/kprobes.c |    3 +--
+ arch/csky/kernel/probes/kprobes.c  |    2 +-
+ arch/ia64/kernel/kprobes.c         |    5 ++---
+ arch/mips/kernel/kprobes.c         |    3 +--
+ arch/parisc/kernel/kprobes.c       |    4 ++--
+ arch/powerpc/kernel/kprobes.c      |    2 +-
+ arch/riscv/kernel/probes/kprobes.c |    2 +-
+ arch/s390/kernel/kprobes.c         |    2 +-
+ arch/sh/kernel/kprobes.c           |    2 +-
+ arch/sparc/kernel/kprobes.c        |    2 +-
+ arch/x86/include/asm/kprobes.h     |    1 -
+ arch/x86/kernel/kprobes/core.c     |    2 +-
+ include/linux/kprobes.h            |   18 +++++++++++++-----
+ kernel/kprobes.c                   |    3 +--
+ 16 files changed, 29 insertions(+), 27 deletions(-)
 
-On 5/28/21 9:45 AM, Kefeng Wang wrote:
-> ZONE_[DMA|DMA32] configs have duplicate definitions on platforms
-> that subscribe them. Instead, just make them generic options which
-> can be selected on applicable platforms.
-> 
-> Also only x86/arm64 architectures could enable both ZONE_DMA and
-> ZONE_DMA32 if EXPERT, add ARCH_HAS_ZONE_DMA_SET to make dma zone
-> configurable and visible on the two architectures.
-> 
-> Cc: Andrew Morton <akpm@linux-foundation.org>
-> Cc: Catalin Marinas <catalin.marinas@arm.com>
-> Cc: Will Deacon <will@kernel.org>
-> Cc: Geert Uytterhoeven <geert@linux-m68k.org>
-> Cc: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Ingo Molnar <mingo@redhat.com>
-> Cc: Borislav Petkov <bp@alien8.de>
-> Cc: Palmer Dabbelt <palmer@dabbelt.com>
-> Cc: Richard Henderson <rth@twiddle.net>
-> Cc: Russell King <linux@armlinux.org.uk>
-> Acked-by: Catalin Marinas <catalin.marinas@arm.com> # for arm64
-> Acked-by: Geert Uytterhoeven <geert@linux-m68k.org> # for m68k
-> Acked-by: Mike Rapoport <rppt@linux.ibm.com>
-> Signed-off-by: Kefeng Wang <wangkefeng.wang@huawei.com>
-> ---
-> v2:
-> -i386 can't enable ZONE_DMA32, fix it.
-> -make ZONE_DMA default y on X86 as before.
-> -collect ACKs
-> 
->  arch/alpha/Kconfig                     |  5 +----
->  arch/arm/Kconfig                       |  3 ---
->  arch/arm64/Kconfig                     |  9 +--------
->  arch/ia64/Kconfig                      |  4 +---
->  arch/m68k/Kconfig                      |  5 +----
->  arch/microblaze/Kconfig                |  4 +---
->  arch/mips/Kconfig                      |  7 -------
->  arch/powerpc/Kconfig                   |  4 ----
->  arch/powerpc/platforms/Kconfig.cputype |  1 +
->  arch/riscv/Kconfig                     |  5 +----
->  arch/s390/Kconfig                      |  4 +---
->  arch/sparc/Kconfig                     |  5 +----
->  arch/x86/Kconfig                       | 15 ++-------------
->  mm/Kconfig                             | 12 ++++++++++++
->  14 files changed, 23 insertions(+), 60 deletions(-)
-> 
-> diff --git a/arch/alpha/Kconfig b/arch/alpha/Kconfig
-> index 5998106faa60..6a69a14c4825 100644
-> --- a/arch/alpha/Kconfig
-> +++ b/arch/alpha/Kconfig
-> @@ -40,6 +40,7 @@ config ALPHA
->  	select MMU_GATHER_NO_RANGE
->  	select SET_FS
->  	select SPARSEMEM_EXTREME if SPARSEMEM
-> +	select ZONE_DMA
->  	help
->  	  The Alpha is a 64-bit general-purpose processor designed and
->  	  marketed by the Digital Equipment Corporation of blessed memory,
-> @@ -65,10 +66,6 @@ config GENERIC_CALIBRATE_DELAY
->  	bool
->  	default y
->  
-> -config ZONE_DMA
-> -	bool
-> -	default y
-> -
->  config GENERIC_ISA_DMA
->  	bool
->  	default y
-> diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
-> index 24804f11302d..000c3f80b58e 100644
-> --- a/arch/arm/Kconfig
-> +++ b/arch/arm/Kconfig
-> @@ -218,9 +218,6 @@ config GENERIC_CALIBRATE_DELAY
->  config ARCH_MAY_HAVE_PC_FDC
->  	bool
->  
-> -config ZONE_DMA
-> -	bool
-> -
->  config ARCH_SUPPORTS_UPROBES
->  	def_bool y
->  
-> diff --git a/arch/arm64/Kconfig b/arch/arm64/Kconfig
-> index 9f1d8566bbf9..42794474f37f 100644
-> --- a/arch/arm64/Kconfig
-> +++ b/arch/arm64/Kconfig
-> @@ -42,6 +42,7 @@ config ARM64
->  	select ARCH_HAS_SYSCALL_WRAPPER
->  	select ARCH_HAS_TEARDOWN_DMA_OPS if IOMMU_SUPPORT
->  	select ARCH_HAS_TICK_BROADCAST if GENERIC_CLOCKEVENTS_BROADCAST
-> +	select ARCH_HAS_ZONE_DMA_SET if EXPERT
->  	select ARCH_HAVE_ELF_PROT
->  	select ARCH_HAVE_NMI_SAFE_CMPXCHG
->  	select ARCH_INLINE_READ_LOCK if !PREEMPTION
-> @@ -307,14 +308,6 @@ config GENERIC_CSUM
->  config GENERIC_CALIBRATE_DELAY
->  	def_bool y
->  
-> -config ZONE_DMA
-> -	bool "Support DMA zone" if EXPERT
-> -	default y
-> -
-> -config ZONE_DMA32
-> -	bool "Support DMA32 zone" if EXPERT
-> -	default y
-> -
->  config ARCH_MHP_MEMMAP_ON_MEMORY_ENABLE
->  	def_bool y
->  
-> diff --git a/arch/ia64/Kconfig b/arch/ia64/Kconfig
-> index 279252e3e0f7..fd8503a0088a 100644
-> --- a/arch/ia64/Kconfig
-> +++ b/arch/ia64/Kconfig
-> @@ -60,6 +60,7 @@ config IA64
->  	select NUMA if !FLATMEM
->  	select PCI_MSI_ARCH_FALLBACKS if PCI_MSI
->  	select SET_FS
-> +	select ZONE_DMA32
->  	default y
->  	help
->  	  The Itanium Processor Family is Intel's 64-bit successor to
-> @@ -72,9 +73,6 @@ config 64BIT
->  	select ATA_NONSTANDARD if ATA
->  	default y
->  
-> -config ZONE_DMA32
-> -	def_bool y
-> -
->  config MMU
->  	bool
->  	default y
-> diff --git a/arch/m68k/Kconfig b/arch/m68k/Kconfig
-> index 372e4e69c43a..05a729c6ad7f 100644
-> --- a/arch/m68k/Kconfig
-> +++ b/arch/m68k/Kconfig
-> @@ -34,6 +34,7 @@ config M68K
->  	select SET_FS
->  	select UACCESS_MEMCPY if !MMU
->  	select VIRT_TO_BUS
-> +	select ZONE_DMA
->  
->  config CPU_BIG_ENDIAN
->  	def_bool y
-> @@ -62,10 +63,6 @@ config TIME_LOW_RES
->  config NO_IOPORT_MAP
->  	def_bool y
->  
-> -config ZONE_DMA
-> -	bool
-> -	default y
-> -
->  config HZ
->  	int
->  	default 1000 if CLEOPATRA
-> diff --git a/arch/microblaze/Kconfig b/arch/microblaze/Kconfig
-> index 0660f47012bc..14a67a42fcae 100644
-> --- a/arch/microblaze/Kconfig
-> +++ b/arch/microblaze/Kconfig
-> @@ -43,6 +43,7 @@ config MICROBLAZE
->  	select MMU_GATHER_NO_RANGE
->  	select SPARSE_IRQ
->  	select SET_FS
-> +	select ZONE_DMA
->  
->  # Endianness selection
->  choice
-> @@ -60,9 +61,6 @@ config CPU_LITTLE_ENDIAN
->  
->  endchoice
->  
-> -config ZONE_DMA
-> -	def_bool y
-> -
->  config ARCH_HAS_ILOG2_U32
->  	def_bool n
->  
-
-
-Acked-by: Michal Simek <michal.simek@xilinx.com> # for MB
-
-Michal
+diff --git a/arch/arc/kernel/kprobes.c b/arch/arc/kernel/kprobes.c
+index cabef45f11df..3ae01bb5820c 100644
+--- a/arch/arc/kernel/kprobes.c
++++ b/arch/arc/kernel/kprobes.c
+@@ -397,7 +397,7 @@ void __kprobes arch_prepare_kretprobe(struct kretprobe_instance *ri,
+ static int __kprobes trampoline_probe_handler(struct kprobe *p,
+ 					      struct pt_regs *regs)
+ {
+-	regs->ret = __kretprobe_trampoline_handler(regs, &kretprobe_trampoline, NULL);
++	regs->ret = __kretprobe_trampoline_handler(regs, NULL);
+ 
+ 	/* By returning a non zero value, we are telling the kprobe handler
+ 	 * that we don't want the post_handler to run
+diff --git a/arch/arm/probes/kprobes/core.c b/arch/arm/probes/kprobes/core.c
+index a9653117ca0d..1782b41df095 100644
+--- a/arch/arm/probes/kprobes/core.c
++++ b/arch/arm/probes/kprobes/core.c
+@@ -413,8 +413,7 @@ void __naked __kprobes kretprobe_trampoline(void)
+ /* Called from kretprobe_trampoline */
+ static __used __kprobes void *trampoline_handler(struct pt_regs *regs)
+ {
+-	return (void *)kretprobe_trampoline_handler(regs, &kretprobe_trampoline,
+-						    (void *)regs->ARM_fp);
++	return (void *)kretprobe_trampoline_handler(regs, (void *)regs->ARM_fp);
+ }
+ 
+ void __kprobes arch_prepare_kretprobe(struct kretprobe_instance *ri,
+diff --git a/arch/arm64/kernel/probes/kprobes.c b/arch/arm64/kernel/probes/kprobes.c
+index d607c9912025..813794f5636e 100644
+--- a/arch/arm64/kernel/probes/kprobes.c
++++ b/arch/arm64/kernel/probes/kprobes.c
+@@ -413,8 +413,7 @@ int __init arch_populate_kprobe_blacklist(void)
+ 
+ void __kprobes __used *trampoline_probe_handler(struct pt_regs *regs)
+ {
+-	return (void *)kretprobe_trampoline_handler(regs, &kretprobe_trampoline,
+-					(void *)kernel_stack_pointer(regs));
++	return (void *)kretprobe_trampoline_handler(regs, (void *)kernel_stack_pointer(regs));
+ }
+ 
+ void __kprobes arch_prepare_kretprobe(struct kretprobe_instance *ri,
+diff --git a/arch/csky/kernel/probes/kprobes.c b/arch/csky/kernel/probes/kprobes.c
+index 589f090f48b9..cc589bc11904 100644
+--- a/arch/csky/kernel/probes/kprobes.c
++++ b/arch/csky/kernel/probes/kprobes.c
+@@ -404,7 +404,7 @@ int __init arch_populate_kprobe_blacklist(void)
+ 
+ void __kprobes __used *trampoline_probe_handler(struct pt_regs *regs)
+ {
+-	return (void *)kretprobe_trampoline_handler(regs, &kretprobe_trampoline, NULL);
++	return (void *)kretprobe_trampoline_handler(regs, NULL);
+ }
+ 
+ void __kprobes arch_prepare_kretprobe(struct kretprobe_instance *ri,
+diff --git a/arch/ia64/kernel/kprobes.c b/arch/ia64/kernel/kprobes.c
+index eaf3c734719b..0204953a06cf 100644
+--- a/arch/ia64/kernel/kprobes.c
++++ b/arch/ia64/kernel/kprobes.c
+@@ -392,14 +392,13 @@ static void __kprobes set_current_kprobe(struct kprobe *p,
+ 	__this_cpu_write(current_kprobe, p);
+ }
+ 
+-static void kretprobe_trampoline(void)
++void kretprobe_trampoline(void)
+ {
+ }
+ 
+ int __kprobes trampoline_probe_handler(struct kprobe *p, struct pt_regs *regs)
+ {
+-	regs->cr_iip = __kretprobe_trampoline_handler(regs,
+-		dereference_function_descriptor(kretprobe_trampoline), NULL);
++	regs->cr_iip = __kretprobe_trampoline_handler(regs, NULL);
+ 	/*
+ 	 * By returning a non-zero value, we are telling
+ 	 * kprobe_handler() that we don't want the post_handler
+diff --git a/arch/mips/kernel/kprobes.c b/arch/mips/kernel/kprobes.c
+index 54dfba8fa77c..001a2f07ef44 100644
+--- a/arch/mips/kernel/kprobes.c
++++ b/arch/mips/kernel/kprobes.c
+@@ -489,8 +489,7 @@ void __kprobes arch_prepare_kretprobe(struct kretprobe_instance *ri,
+ static int __kprobes trampoline_probe_handler(struct kprobe *p,
+ 						struct pt_regs *regs)
+ {
+-	instruction_pointer(regs) = __kretprobe_trampoline_handler(regs,
+-						kretprobe_trampoline, NULL);
++	instruction_pointer(regs) = __kretprobe_trampoline_handler(regs, NULL);
+ 	/*
+ 	 * By returning a non-zero value, we are telling
+ 	 * kprobe_handler() that we don't want the post_handler
+diff --git a/arch/parisc/kernel/kprobes.c b/arch/parisc/kernel/kprobes.c
+index 6d21a515eea5..4a35ac6e2ca2 100644
+--- a/arch/parisc/kernel/kprobes.c
++++ b/arch/parisc/kernel/kprobes.c
+@@ -175,7 +175,7 @@ int __kprobes parisc_kprobe_ss_handler(struct pt_regs *regs)
+ 	return 1;
+ }
+ 
+-static inline void kretprobe_trampoline(void)
++void kretprobe_trampoline(void)
+ {
+ 	asm volatile("nop");
+ 	asm volatile("nop");
+@@ -193,7 +193,7 @@ static int __kprobes trampoline_probe_handler(struct kprobe *p,
+ {
+ 	unsigned long orig_ret_address;
+ 
+-	orig_ret_address = __kretprobe_trampoline_handler(regs, trampoline_p.addr, NULL);
++	orig_ret_address = __kretprobe_trampoline_handler(regs, NULL);
+ 	instruction_pointer_set(regs, orig_ret_address);
+ 
+ 	return 1;
+diff --git a/arch/powerpc/kernel/kprobes.c b/arch/powerpc/kernel/kprobes.c
+index eb0460949e1b..dfd532c43525 100644
+--- a/arch/powerpc/kernel/kprobes.c
++++ b/arch/powerpc/kernel/kprobes.c
+@@ -399,7 +399,7 @@ static int trampoline_probe_handler(struct kprobe *p, struct pt_regs *regs)
+ {
+ 	unsigned long orig_ret_address;
+ 
+-	orig_ret_address = __kretprobe_trampoline_handler(regs, &kretprobe_trampoline, NULL);
++	orig_ret_address = __kretprobe_trampoline_handler(regs, NULL);
+ 	/*
+ 	 * We get here through one of two paths:
+ 	 * 1. by taking a trap -> kprobe_handler() -> here
+diff --git a/arch/riscv/kernel/probes/kprobes.c b/arch/riscv/kernel/probes/kprobes.c
+index 10b965c34536..a1e4fce1604b 100644
+--- a/arch/riscv/kernel/probes/kprobes.c
++++ b/arch/riscv/kernel/probes/kprobes.c
+@@ -385,7 +385,7 @@ int __init arch_populate_kprobe_blacklist(void)
+ 
+ void __kprobes __used *trampoline_probe_handler(struct pt_regs *regs)
+ {
+-	return (void *)kretprobe_trampoline_handler(regs, &kretprobe_trampoline, NULL);
++	return (void *)kretprobe_trampoline_handler(regs, NULL);
+ }
+ 
+ void __kprobes arch_prepare_kretprobe(struct kretprobe_instance *ri,
+diff --git a/arch/s390/kernel/kprobes.c b/arch/s390/kernel/kprobes.c
+index aae24dc75df6..b149e9169709 100644
+--- a/arch/s390/kernel/kprobes.c
++++ b/arch/s390/kernel/kprobes.c
+@@ -351,7 +351,7 @@ static void __used kretprobe_trampoline_holder(void)
+  */
+ static int trampoline_probe_handler(struct kprobe *p, struct pt_regs *regs)
+ {
+-	regs->psw.addr = __kretprobe_trampoline_handler(regs, &kretprobe_trampoline, NULL);
++	regs->psw.addr = __kretprobe_trampoline_handler(regs, NULL);
+ 	/*
+ 	 * By returning a non-zero value, we are telling
+ 	 * kprobe_handler() that we don't want the post_handler
+diff --git a/arch/sh/kernel/kprobes.c b/arch/sh/kernel/kprobes.c
+index 756100b01e84..48356e81836a 100644
+--- a/arch/sh/kernel/kprobes.c
++++ b/arch/sh/kernel/kprobes.c
+@@ -303,7 +303,7 @@ static void __used kretprobe_trampoline_holder(void)
+  */
+ int __kprobes trampoline_probe_handler(struct kprobe *p, struct pt_regs *regs)
+ {
+-	regs->pc = __kretprobe_trampoline_handler(regs, &kretprobe_trampoline, NULL);
++	regs->pc = __kretprobe_trampoline_handler(regs, NULL);
+ 
+ 	return 1;
+ }
+diff --git a/arch/sparc/kernel/kprobes.c b/arch/sparc/kernel/kprobes.c
+index 217c21a6986a..fa30f9dadff8 100644
+--- a/arch/sparc/kernel/kprobes.c
++++ b/arch/sparc/kernel/kprobes.c
+@@ -468,7 +468,7 @@ static int __kprobes trampoline_probe_handler(struct kprobe *p,
+ {
+ 	unsigned long orig_ret_address = 0;
+ 
+-	orig_ret_address = __kretprobe_trampoline_handler(regs, &kretprobe_trampoline, NULL);
++	orig_ret_address = __kretprobe_trampoline_handler(regs, NULL);
+ 	regs->tpc = orig_ret_address;
+ 	regs->tnpc = orig_ret_address + 4;
+ 
+diff --git a/arch/x86/include/asm/kprobes.h b/arch/x86/include/asm/kprobes.h
+index bd7f5886a789..71ea2eab43d5 100644
+--- a/arch/x86/include/asm/kprobes.h
++++ b/arch/x86/include/asm/kprobes.h
+@@ -49,7 +49,6 @@ extern __visible kprobe_opcode_t optprobe_template_end[];
+ extern const int kretprobe_blacklist_size;
+ 
+ void arch_remove_kprobe(struct kprobe *p);
+-asmlinkage void kretprobe_trampoline(void);
+ 
+ extern void arch_kprobe_override_function(struct pt_regs *regs);
+ 
+diff --git a/arch/x86/kernel/kprobes/core.c b/arch/x86/kernel/kprobes/core.c
+index 7c4d0736a998..d32b09ca3221 100644
+--- a/arch/x86/kernel/kprobes/core.c
++++ b/arch/x86/kernel/kprobes/core.c
+@@ -1070,7 +1070,7 @@ __used __visible void *trampoline_handler(struct pt_regs *regs)
+ 	regs->ip = (unsigned long)&kretprobe_trampoline;
+ 	regs->orig_ax = ~0UL;
+ 
+-	return (void *)kretprobe_trampoline_handler(regs, &kretprobe_trampoline, &regs->sp);
++	return (void *)kretprobe_trampoline_handler(regs, &regs->sp);
+ }
+ NOKPROBE_SYMBOL(trampoline_handler);
+ 
+diff --git a/include/linux/kprobes.h b/include/linux/kprobes.h
+index d65c041b5c22..65dadd4238a2 100644
+--- a/include/linux/kprobes.h
++++ b/include/linux/kprobes.h
+@@ -205,15 +205,23 @@ extern void arch_prepare_kretprobe(struct kretprobe_instance *ri,
+ 				   struct pt_regs *regs);
+ extern int arch_trampoline_kprobe(struct kprobe *p);
+ 
++void kretprobe_trampoline(void);
++/*
++ * Since some architecture uses structured function pointer,
++ * use dereference_function_descriptor() to get real function address.
++ */
++static nokprobe_inline void *kretprobe_trampoline_addr(void)
++{
++	return dereference_function_descriptor(kretprobe_trampoline);
++}
++
+ /* If the trampoline handler called from a kprobe, use this version */
+ unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
+-				void *trampoline_address,
+-				void *frame_pointer);
++					     void *frame_pointer);
+ 
+ static nokprobe_inline
+ unsigned long kretprobe_trampoline_handler(struct pt_regs *regs,
+-				void *trampoline_address,
+-				void *frame_pointer)
++					   void *frame_pointer)
+ {
+ 	unsigned long ret;
+ 	/*
+@@ -222,7 +230,7 @@ unsigned long kretprobe_trampoline_handler(struct pt_regs *regs,
+ 	 * be running at this point.
+ 	 */
+ 	kprobe_busy_begin();
+-	ret = __kretprobe_trampoline_handler(regs, trampoline_address, frame_pointer);
++	ret = __kretprobe_trampoline_handler(regs, frame_pointer);
+ 	kprobe_busy_end();
+ 
+ 	return ret;
+diff --git a/kernel/kprobes.c b/kernel/kprobes.c
+index b2bb572173d4..1d3087b59522 100644
+--- a/kernel/kprobes.c
++++ b/kernel/kprobes.c
+@@ -1859,7 +1859,6 @@ static struct notifier_block kprobe_exceptions_nb = {
+ #ifdef CONFIG_KRETPROBES
+ 
+ unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
+-					     void *trampoline_address,
+ 					     void *frame_pointer)
+ {
+ 	kprobe_opcode_t *correct_ret_addr = NULL;
+@@ -1874,7 +1873,7 @@ unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
+ 
+ 		BUG_ON(ri->fp != frame_pointer);
+ 
+-		if (ri->ret_addr != trampoline_address) {
++		if (ri->ret_addr != kretprobe_trampoline_addr()) {
+ 			correct_ret_addr = ri->ret_addr;
+ 			/*
+ 			 * This is the real return address. Any other
