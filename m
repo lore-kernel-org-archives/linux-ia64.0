@@ -1,153 +1,147 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Mon, 28 Jun 2021 13:50:13 +0000
-Subject: Re: [PATCH -tip v8 00/13] kprobes: Fix stacktrace with kretprobes on x86
-Message-Id: <20210628225013.17e14b4c530478e8cc545259@kernel.org>
+From: Mike Rapoport <rppt@kernel.org>
+Date: Wed, 02 Jun 2021 10:53:45 +0000
+Subject: [PATCH 6/9] arch, mm: remove stale mentions of DISCONIGMEM
+Message-Id: <20210602105348.13387-7-rppt@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <162399992186.506599.8457763707951687195.stgit@devnote2>
-In-Reply-To: <162399992186.506599.8457763707951687195.stgit@devnote2>
+References: <20210602105348.13387-1-rppt@kernel.org>
+In-Reply-To: <20210602105348.13387-1-rppt@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Masami Hiramatsu <mhiramat@kernel.org>
-Cc: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Ingo Molnar <mingo@kernel.org>, X86 ML <x86@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>, Qiang Wang <wangqiang.wq.frank@bytedance.com>, Muchun Song <songmuchun@bytedance.com>
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Jonathan Corbet <corbet@lwn.net>, Matt Turner <mattst88@gmail.com>, Mike Rapoport <rppt@kernel.org>, Mike Rapoport <rppt@linux.ibm.com>, Richard Henderson <rth@twiddle.net>, Vineet Gupta <vgupta@synopsys.com>, kexec@lists.infradead.org, linux-alpha@vger.kernel.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-doc@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-mm@kvack.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-xtensa@linux-xtensa.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org
 
-Hi Ingo and Peter,
+From: Mike Rapoport <rppt@linux.ibm.com>
 
-Can you merge this series to tip tree?
-Josh reviewed the ORC unwinder parts, so I think it is a good time to pick it.
-(And recently I got same effort from Qiang, he thinks this can be a phishing risk *)
+There are several places that mention DISCONIGMEM in comments or have stale
+code guarded by CONFIG_DISCONTIGMEM.
 
-* https://lore.kernel.org/bpf/CAMZfGtWPi4CuVOtmUpy2N9J_mvp+5=gSAFvqV1nmvDKP+CAvQA@mail.gmail.com/
+Remove the dead code and update the comments.
 
-Thank you,
+Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
+---
+ arch/ia64/kernel/topology.c     | 5 ++---
+ arch/ia64/mm/numa.c             | 5 ++---
+ arch/mips/include/asm/mmzone.h  | 6 ------
+ arch/mips/mm/init.c             | 3 ---
+ arch/nds32/include/asm/memory.h | 6 ------
+ arch/xtensa/include/asm/page.h  | 4 ----
+ include/linux/gfp.h             | 4 ++--
+ 7 files changed, 6 insertions(+), 27 deletions(-)
 
-On Fri, 18 Jun 2021 16:05:22 +0900
-Masami Hiramatsu <mhiramat@kernel.org> wrote:
-
-> Hello,
-> 
-> Here is the 8th version of the series to fix the stacktrace with kretprobe on x86.
-> 
-> The previous version is;
-> 
->  https://lore.kernel.org/bpf/162209754288.436794.3904335049560916855.stgit@devnote2/
-> 
-> This version fixes to call appropriate function and drop some unneeded
-> patches.
-> 
-> 
-> Changes from v7:
-> [03/13]: Call dereference_kernel_function_descriptor() for getting the
->   address of kretprobe_trampoline.
-> [09/13]: Update the title and description to explain why it is needed.
-> [10/13][11/13]: Add Josh's Acked-by.
-> 
-> 
-> 
-> With this series, unwinder can unwind stack correctly from ftrace as below;
-> 
->   # cd /sys/kernel/debug/tracing
->   # echo > trace
->   # echo 1 > options/sym-offset
->   # echo r vfs_read >> kprobe_events
->   # echo r full_proxy_read >> kprobe_events
->   # echo traceoff:1 > events/kprobes/r_vfs_read_0/trigger
->   # echo stacktrace:1 > events/kprobes/r_full_proxy_read_0/trigger
->   # echo 1 > events/kprobes/enable
->   # cat /sys/kernel/debug/kprobes/list
-> ffffffff8133b740  r  full_proxy_read+0x0    [FTRACE]
-> ffffffff812560b0  r  vfs_read+0x0    [FTRACE]
->   # echo 0 > events/kprobes/enable
->   # cat trace
-> # tracer: nop
-> #
-> # entries-in-buffer/entries-written: 3/3   #P:8
-> #
-> #                                _-----=> irqs-off
-> #                               / _----=> need-resched
-> #                              | / _---=> hardirq/softirq
-> #                              || / _--=> preempt-depth
-> #                              ||| /     delay
-> #           TASK-PID     CPU#  ||||   TIMESTAMP  FUNCTION
-> #              | |         |   ||||      |         |
->            <...>-134     [007] ...1    16.185877: r_full_proxy_read_0: (vfs_read+0x98/0x180 <- full_proxy_read)
->            <...>-134     [007] ...1    16.185901: <stack trace>
->  => kretprobe_trace_func+0x209/0x300
->  => kretprobe_dispatcher+0x4a/0x70
->  => __kretprobe_trampoline_handler+0xd4/0x170
->  => trampoline_handler+0x43/0x60
->  => kretprobe_trampoline+0x2a/0x50
->  => vfs_read+0x98/0x180
->  => ksys_read+0x5f/0xe0
->  => do_syscall_64+0x37/0x90
->  => entry_SYSCALL_64_after_hwframe+0x44/0xae
->            <...>-134     [007] ...1    16.185902: r_vfs_read_0: (ksys_read+0x5f/0xe0 <- vfs_read)
-> 
-> This shows the double return probes (vfs_read and full_proxy_read) on the stack
-> correctly unwinded. (vfs_read will return to ksys_read+0x5f and full_proxy_read
-> will return to vfs_read+0x98)
-> 
-> This actually changes the kretprobe behavisor a bit, now the instraction pointer in
-> the pt_regs passed to kretprobe user handler is correctly set the real return
-> address. So user handlers can get it via instruction_pointer() API, and can use
-> stack_trace_save_regs().
-> 
-> You can also get this series from 
->  git://git.kernel.org/pub/scm/linux/kernel/git/mhiramat/linux.git kprobes/kretprobe-stackfix-v8
-> 
-> 
-> Thank you,
-> 
-> ---
-> 
-> Josh Poimboeuf (1):
->       x86/kprobes: Add UNWIND_HINT_FUNC on kretprobe_trampoline code
-> 
-> Masami Hiramatsu (12):
->       ia64: kprobes: Fix to pass correct trampoline address to the handler
->       kprobes: treewide: Replace arch_deref_entry_point() with dereference_symbol_descriptor()
->       kprobes: treewide: Remove trampoline_address from kretprobe_trampoline_handler()
->       kprobes: Add kretprobe_find_ret_addr() for searching return address
->       ARC: Add instruction_pointer_set() API
->       ia64: Add instruction_pointer_set() API
->       arm: kprobes: Make a space for regs->ARM_pc at kretprobe_trampoline
->       kprobes: Enable stacktrace from pt_regs in kretprobe handler
->       x86/kprobes: Push a fake return address at kretprobe_trampoline
->       x86/unwind: Recover kretprobe trampoline entry
->       tracing: Show kretprobe unknown indicator only for kretprobe_trampoline
->       x86/kprobes: Fixup return address in generic trampoline handler
-> 
-> 
->  arch/arc/include/asm/ptrace.h       |    5 ++
->  arch/arc/kernel/kprobes.c           |    2 -
->  arch/arm/probes/kprobes/core.c      |    5 +-
->  arch/arm64/kernel/probes/kprobes.c  |    3 -
->  arch/csky/kernel/probes/kprobes.c   |    2 -
->  arch/ia64/include/asm/ptrace.h      |    5 ++
->  arch/ia64/kernel/kprobes.c          |   15 ++---
->  arch/mips/kernel/kprobes.c          |    3 -
->  arch/parisc/kernel/kprobes.c        |    4 +
->  arch/powerpc/kernel/kprobes.c       |   13 ----
->  arch/riscv/kernel/probes/kprobes.c  |    2 -
->  arch/s390/kernel/kprobes.c          |    2 -
->  arch/sh/kernel/kprobes.c            |    2 -
->  arch/sparc/kernel/kprobes.c         |    2 -
->  arch/x86/include/asm/kprobes.h      |    1 
->  arch/x86/include/asm/unwind.h       |   23 +++++++
->  arch/x86/include/asm/unwind_hints.h |    5 ++
->  arch/x86/kernel/kprobes/core.c      |   53 +++++++++++++++--
->  arch/x86/kernel/unwind_frame.c      |    3 -
->  arch/x86/kernel/unwind_guess.c      |    3 -
->  arch/x86/kernel/unwind_orc.c        |   18 +++++-
->  include/linux/kprobes.h             |   44 ++++++++++++--
->  kernel/kprobes.c                    |  108 +++++++++++++++++++++++++----------
->  kernel/trace/trace_output.c         |   17 +-----
->  lib/error-inject.c                  |    3 +
->  25 files changed, 238 insertions(+), 105 deletions(-)
-> 
-> --
-> Masami Hiramatsu (Linaro) <mhiramat@kernel.org>
-
-
+diff --git a/arch/ia64/kernel/topology.c b/arch/ia64/kernel/topology.c
+index 09fc385c2acd..3639e0a7cb3b 100644
+--- a/arch/ia64/kernel/topology.c
++++ b/arch/ia64/kernel/topology.c
+@@ -3,9 +3,8 @@
+  * License.  See the file "COPYING" in the main directory of this archive
+  * for more details.
+  *
+- * This file contains NUMA specific variables and functions which can
+- * be split away from DISCONTIGMEM and are used on NUMA machines with
+- * contiguous memory.
++ * This file contains NUMA specific variables and functions which are used on
++ * NUMA machines with contiguous memory.
+  * 		2002/08/07 Erich Focht <efocht@ess.nec.de>
+  * Populate cpu entries in sysfs for non-numa systems as well
+  *  	Intel Corporation - Ashok Raj
+diff --git a/arch/ia64/mm/numa.c b/arch/ia64/mm/numa.c
+index 46b6e5f3a40f..d6579ec3ea32 100644
+--- a/arch/ia64/mm/numa.c
++++ b/arch/ia64/mm/numa.c
+@@ -3,9 +3,8 @@
+  * License.  See the file "COPYING" in the main directory of this archive
+  * for more details.
+  *
+- * This file contains NUMA specific variables and functions which can
+- * be split away from DISCONTIGMEM and are used on NUMA machines with
+- * contiguous memory.
++ * This file contains NUMA specific variables and functions which are used on
++ * NUMA machines with contiguous memory.
+  * 
+  *                         2002/08/07 Erich Focht <efocht@ess.nec.de>
+  */
+diff --git a/arch/mips/include/asm/mmzone.h b/arch/mips/include/asm/mmzone.h
+index b826b8473e95..7649ab45e80c 100644
+--- a/arch/mips/include/asm/mmzone.h
++++ b/arch/mips/include/asm/mmzone.h
+@@ -20,10 +20,4 @@
+ #define nid_to_addrbase(nid) 0
+ #endif
+ 
+-#ifdef CONFIG_DISCONTIGMEM
+-
+-#define pfn_to_nid(pfn)		pa_to_nid((pfn) << PAGE_SHIFT)
+-
+-#endif /* CONFIG_DISCONTIGMEM */
+-
+ #endif /* _ASM_MMZONE_H_ */
+diff --git a/arch/mips/mm/init.c b/arch/mips/mm/init.c
+index c36358758969..97f6ca341448 100644
+--- a/arch/mips/mm/init.c
++++ b/arch/mips/mm/init.c
+@@ -454,9 +454,6 @@ void __init mem_init(void)
+ 	BUILD_BUG_ON(IS_ENABLED(CONFIG_32BIT) && (_PFN_SHIFT > PAGE_SHIFT));
+ 
+ #ifdef CONFIG_HIGHMEM
+-#ifdef CONFIG_DISCONTIGMEM
+-#error "CONFIG_HIGHMEM and CONFIG_DISCONTIGMEM dont work together yet"
+-#endif
+ 	max_mapnr = highend_pfn ? highend_pfn : max_low_pfn;
+ #else
+ 	max_mapnr = max_low_pfn;
+diff --git a/arch/nds32/include/asm/memory.h b/arch/nds32/include/asm/memory.h
+index 940d32842793..62faafbc28e4 100644
+--- a/arch/nds32/include/asm/memory.h
++++ b/arch/nds32/include/asm/memory.h
+@@ -76,18 +76,12 @@
+  *  virt_to_page(k)	convert a _valid_ virtual address to struct page *
+  *  virt_addr_valid(k)	indicates whether a virtual address is valid
+  */
+-#ifndef CONFIG_DISCONTIGMEM
+-
+ #define ARCH_PFN_OFFSET		PHYS_PFN_OFFSET
+ #define pfn_valid(pfn)		((pfn) >= PHYS_PFN_OFFSET && (pfn) < (PHYS_PFN_OFFSET + max_mapnr))
+ 
+ #define virt_to_page(kaddr)	(pfn_to_page(__pa(kaddr) >> PAGE_SHIFT))
+ #define virt_addr_valid(kaddr)	((unsigned long)(kaddr) >= PAGE_OFFSET && (unsigned long)(kaddr) < (unsigned long)high_memory)
+ 
+-#else /* CONFIG_DISCONTIGMEM */
+-#error CONFIG_DISCONTIGMEM is not supported yet.
+-#endif /* !CONFIG_DISCONTIGMEM */
+-
+ #define page_to_phys(page)	(page_to_pfn(page) << PAGE_SHIFT)
+ 
+ #endif
+diff --git a/arch/xtensa/include/asm/page.h b/arch/xtensa/include/asm/page.h
+index 37ce25ef92d6..493eb7083b1a 100644
+--- a/arch/xtensa/include/asm/page.h
++++ b/arch/xtensa/include/asm/page.h
+@@ -192,10 +192,6 @@ static inline unsigned long ___pa(unsigned long va)
+ #define pfn_valid(pfn) \
+ 	((pfn) >= ARCH_PFN_OFFSET && ((pfn) - ARCH_PFN_OFFSET) < max_mapnr)
+ 
+-#ifdef CONFIG_DISCONTIGMEM
+-# error CONFIG_DISCONTIGMEM not supported
+-#endif
+-
+ #define virt_to_page(kaddr)	pfn_to_page(__pa(kaddr) >> PAGE_SHIFT)
+ #define page_to_virt(page)	__va(page_to_pfn(page) << PAGE_SHIFT)
+ #define virt_addr_valid(kaddr)	pfn_valid(__pa(kaddr) >> PAGE_SHIFT)
+diff --git a/include/linux/gfp.h b/include/linux/gfp.h
+index 11da8af06704..dbe1f5fc901d 100644
+--- a/include/linux/gfp.h
++++ b/include/linux/gfp.h
+@@ -494,8 +494,8 @@ static inline int gfp_zonelist(gfp_t flags)
+  * There are two zonelists per node, one for all zones with memory and
+  * one containing just zones from the node the zonelist belongs to.
+  *
+- * For the normal case of non-DISCONTIGMEM systems the NODE_DATA() gets
+- * optimized to &contig_page_data at compile-time.
++ * For the case of non-NUMA systems the NODE_DATA() gets optimized to
++ * &contig_page_data at compile-time.
+  */
+ static inline struct zonelist *node_zonelist(int nid, gfp_t flags)
+ {
 -- 
-Masami Hiramatsu <mhiramat@kernel.org>
+2.28.0
