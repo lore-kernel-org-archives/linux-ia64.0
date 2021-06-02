@@ -1,148 +1,125 @@
-From: Masami Hiramatsu <masami.hiramatsu@gmail.com>
-Date: Thu, 10 Jun 2021 03:40:52 +0000
-Subject: Re: [PATCH -tip v7 00/13] kprobes: Fix stacktrace with kretprobes on x86
-Message-Id: <20210610124052.486df6a3bcc5337919e21e83@gmail.com>
+From: Mike Rapoport <rppt@kernel.org>
+Date: Wed, 02 Jun 2021 10:53:48 +0000
+Subject: [PATCH 9/9] mm: replace CONFIG_FLAT_NODE_MEM_MAP with CONFIG_FLATMEM
+Message-Id: <20210602105348.13387-10-rppt@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <162209754288.436794.3904335049560916855.stgit@devnote2>
-In-Reply-To: <162209754288.436794.3904335049560916855.stgit@devnote2>
+References: <20210602105348.13387-1-rppt@kernel.org>
+In-Reply-To: <20210602105348.13387-1-rppt@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Masami Hiramatsu <mhiramat@kernel.org>
-Cc: Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>, X86 ML <x86@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, tglx@linutronix.de, kernel-team@fb.com, yhs@fb.com, Josh Poimboeuf <jpoimboe@redhat.com>, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Jonathan Corbet <corbet@lwn.net>, Matt Turner <mattst88@gmail.com>, Mike Rapoport <rppt@kernel.org>, Mike Rapoport <rppt@linux.ibm.com>, Richard Henderson <rth@twiddle.net>, Vineet Gupta <vgupta@synopsys.com>, kexec@lists.infradead.org, linux-alpha@vger.kernel.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-doc@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-mm@kvack.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-xtensa@linux-xtensa.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org
 
-Hi Josh,
+From: Mike Rapoport <rppt@linux.ibm.com>
 
-Would you have any comment on this series?
+After removal of the DISCONTIGMEM memory model the FLAT_NODE_MEM_MAP
+configuration option is equivalent to FLATMEM.
 
-Thank you,
+Drop CONFIG_FLAT_NODE_MEM_MAP and use CONFIG_FLATMEM instead.
 
-On Thu, 27 May 2021 15:39:03 +0900
-Masami Hiramatsu <mhiramat@kernel.org> wrote:
+Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
+---
+ include/linux/mmzone.h | 4 ++--
+ kernel/crash_core.c    | 2 +-
+ mm/Kconfig             | 4 ----
+ mm/page_alloc.c        | 6 +++---
+ mm/page_ext.c          | 2 +-
+ 5 files changed, 7 insertions(+), 11 deletions(-)
 
-> Hello,
-> 
-> Here is the 7th version of the series to fix the stacktrace with kretprobe on x86.
-> 
-> The previous version is;
-> 
->  https://lore.kernel.org/bpf/162201612941.278331.5293566981784464165.stgit@devnote2/
-> 
-> This version is adding Tested-by from Andrii and do minor cleanups to solve some
-> warnings from kernel test bots.
-> 
-> Changes from v6:
-> For x86 and generic patch:
->   - Add Andrii's Tested-by. (Andrii, I think you have tested only x86, is it OK?)
-> [11/13]:
->   - Remove superfluous #include <linux/kprobes.h>.
-> [13/13]:
->   - Add a prototype for arch_kretprobe_fixup_return().
-> 
-> 
-> With this series, unwinder can unwind stack correctly from ftrace as below;
-> 
->   # cd /sys/kernel/debug/tracing
->   # echo > trace
->   # echo 1 > options/sym-offset
->   # echo r vfs_read >> kprobe_events
->   # echo r full_proxy_read >> kprobe_events
->   # echo traceoff:1 > events/kprobes/r_vfs_read_0/trigger
->   # echo stacktrace:1 > events/kprobes/r_full_proxy_read_0/trigger
->   # echo 1 > events/kprobes/enable
->   # cat /sys/kernel/debug/kprobes/list
-> ffffffff8133b740  r  full_proxy_read+0x0    [FTRACE]
-> ffffffff812560b0  r  vfs_read+0x0    [FTRACE]
->   # echo 0 > events/kprobes/enable
->   # cat trace
-> # tracer: nop
-> #
-> # entries-in-buffer/entries-written: 3/3   #P:8
-> #
-> #                                _-----=> irqs-off
-> #                               / _----=> need-resched
-> #                              | / _---=> hardirq/softirq
-> #                              || / _--=> preempt-depth
-> #                              ||| /     delay
-> #           TASK-PID     CPU#  ||||   TIMESTAMP  FUNCTION
-> #              | |         |   ||||      |         |
->            <...>-134     [007] ...1    16.185877: r_full_proxy_read_0: (vfs_read+0x98/0x180 <- full_proxy_read)
->            <...>-134     [007] ...1    16.185901: <stack trace>
->  => kretprobe_trace_func+0x209/0x300
->  => kretprobe_dispatcher+0x4a/0x70
->  => __kretprobe_trampoline_handler+0xd4/0x170
->  => trampoline_handler+0x43/0x60
->  => kretprobe_trampoline+0x2a/0x50
->  => vfs_read+0x98/0x180
->  => ksys_read+0x5f/0xe0
->  => do_syscall_64+0x37/0x90
->  => entry_SYSCALL_64_after_hwframe+0x44/0xae
->            <...>-134     [007] ...1    16.185902: r_vfs_read_0: (ksys_read+0x5f/0xe0 <- vfs_read)
-> 
-> This shows the double return probes (vfs_read and full_proxy_read) on the stack
-> correctly unwinded. (vfs_read will return to ksys_read+0x5f and full_proxy_read
-> will return to vfs_read+0x98)
-> 
-> This actually changes the kretprobe behavisor a bit, now the instraction pointer in
-> the pt_regs passed to kretprobe user handler is correctly set the real return
-> address. So user handlers can get it via instruction_pointer() API.
-> 
-> You can also get this series from 
->  git://git.kernel.org/pub/scm/linux/kernel/git/mhiramat/linux.git kprobes/kretprobe-stackfix-v7
-> 
-> 
-> Thank you,
-> 
-> ---
-> 
-> Josh Poimboeuf (1):
->       x86/kprobes: Add UNWIND_HINT_FUNC on kretprobe_trampoline code
-> 
-> Masami Hiramatsu (12):
->       ia64: kprobes: Fix to pass correct trampoline address to the handler
->       kprobes: treewide: Replace arch_deref_entry_point() with dereference_symbol_descriptor()
->       kprobes: treewide: Remove trampoline_address from kretprobe_trampoline_handler()
->       kprobes: Add kretprobe_find_ret_addr() for searching return address
->       ARC: Add instruction_pointer_set() API
->       ia64: Add instruction_pointer_set() API
->       arm: kprobes: Make a space for regs->ARM_pc at kretprobe_trampoline
->       kprobes: Setup instruction pointer in __kretprobe_trampoline_handler
->       x86/kprobes: Push a fake return address at kretprobe_trampoline
->       x86/unwind: Recover kretprobe trampoline entry
->       tracing: Show kretprobe unknown indicator only for kretprobe_trampoline
->       x86/kprobes: Fixup return address in generic trampoline handler
-> 
-> 
->  arch/arc/include/asm/ptrace.h       |    5 ++
->  arch/arc/kernel/kprobes.c           |    2 -
->  arch/arm/probes/kprobes/core.c      |    5 +-
->  arch/arm64/kernel/probes/kprobes.c  |    3 -
->  arch/csky/kernel/probes/kprobes.c   |    2 -
->  arch/ia64/include/asm/ptrace.h      |    5 ++
->  arch/ia64/kernel/kprobes.c          |   15 ++---
->  arch/mips/kernel/kprobes.c          |    3 -
->  arch/parisc/kernel/kprobes.c        |    4 +
->  arch/powerpc/kernel/kprobes.c       |   13 ----
->  arch/riscv/kernel/probes/kprobes.c  |    2 -
->  arch/s390/kernel/kprobes.c          |    2 -
->  arch/sh/kernel/kprobes.c            |    2 -
->  arch/sparc/kernel/kprobes.c         |    2 -
->  arch/x86/include/asm/kprobes.h      |    1 
->  arch/x86/include/asm/unwind.h       |   23 +++++++
->  arch/x86/include/asm/unwind_hints.h |    5 ++
->  arch/x86/kernel/kprobes/core.c      |   53 +++++++++++++++--
->  arch/x86/kernel/unwind_frame.c      |    3 -
->  arch/x86/kernel/unwind_guess.c      |    3 -
->  arch/x86/kernel/unwind_orc.c        |   18 +++++-
->  include/linux/kprobes.h             |   44 ++++++++++++--
->  kernel/kprobes.c                    |  108 +++++++++++++++++++++++++----------
->  kernel/trace/trace_output.c         |   17 +-----
->  lib/error-inject.c                  |    3 +
->  25 files changed, 238 insertions(+), 105 deletions(-)
-> 
-> --
-> Masami Hiramatsu (Linaro) <mhiramat@kernel.org>
-
-
+diff --git a/include/linux/mmzone.h b/include/linux/mmzone.h
+index ad42f440c704..2698cdbfbf75 100644
+--- a/include/linux/mmzone.h
++++ b/include/linux/mmzone.h
+@@ -775,7 +775,7 @@ typedef struct pglist_data {
+ 	struct zonelist node_zonelists[MAX_ZONELISTS];
+ 
+ 	int nr_zones; /* number of populated zones in this node */
+-#ifdef CONFIG_FLAT_NODE_MEM_MAP	/* means !SPARSEMEM */
++#ifdef CONFIG_FLATMEM	/* means !SPARSEMEM */
+ 	struct page *node_mem_map;
+ #ifdef CONFIG_PAGE_EXTENSION
+ 	struct page_ext *node_page_ext;
+@@ -865,7 +865,7 @@ typedef struct pglist_data {
+ 
+ #define node_present_pages(nid)	(NODE_DATA(nid)->node_present_pages)
+ #define node_spanned_pages(nid)	(NODE_DATA(nid)->node_spanned_pages)
+-#ifdef CONFIG_FLAT_NODE_MEM_MAP
++#ifdef CONFIG_FLATMEM
+ #define pgdat_page_nr(pgdat, pagenr)	((pgdat)->node_mem_map + (pagenr))
+ #else
+ #define pgdat_page_nr(pgdat, pagenr)	pfn_to_page((pgdat)->node_start_pfn + (pagenr))
+diff --git a/kernel/crash_core.c b/kernel/crash_core.c
+index 53eb8bc6026d..2b8446ea7105 100644
+--- a/kernel/crash_core.c
++++ b/kernel/crash_core.c
+@@ -483,7 +483,7 @@ static int __init crash_save_vmcoreinfo_init(void)
+ 	VMCOREINFO_OFFSET(page, compound_head);
+ 	VMCOREINFO_OFFSET(pglist_data, node_zones);
+ 	VMCOREINFO_OFFSET(pglist_data, nr_zones);
+-#ifdef CONFIG_FLAT_NODE_MEM_MAP
++#ifdef CONFIG_FLATMEM
+ 	VMCOREINFO_OFFSET(pglist_data, node_mem_map);
+ #endif
+ 	VMCOREINFO_OFFSET(pglist_data, node_start_pfn);
+diff --git a/mm/Kconfig b/mm/Kconfig
+index bffe4bd859f3..ded98fb859ab 100644
+--- a/mm/Kconfig
++++ b/mm/Kconfig
+@@ -55,10 +55,6 @@ config FLATMEM
+ 	def_bool y
+ 	depends on !SPARSEMEM || FLATMEM_MANUAL
+ 
+-config FLAT_NODE_MEM_MAP
+-	def_bool y
+-	depends on !SPARSEMEM
+-
+ #
+ # SPARSEMEM_EXTREME (which is the default) does some bootmem
+ # allocations when sparse_init() is called.  If this cannot
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index 8f08135d3eb4..f039736541eb 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -6444,7 +6444,7 @@ static void __meminit zone_init_free_lists(struct zone *zone)
+ 	}
+ }
+ 
+-#if !defined(CONFIG_FLAT_NODE_MEM_MAP)
++#if !defined(CONFIG_FLATMEM)
+ /*
+  * Only struct pages that correspond to ranges defined by memblock.memory
+  * are zeroed and initialized by going through __init_single_page() during
+@@ -7241,7 +7241,7 @@ static void __init free_area_init_core(struct pglist_data *pgdat)
+ 	}
+ }
+ 
+-#ifdef CONFIG_FLAT_NODE_MEM_MAP
++#ifdef CONFIG_FLATMEM
+ static void __ref alloc_node_mem_map(struct pglist_data *pgdat)
+ {
+ 	unsigned long __maybe_unused start = 0;
+@@ -7289,7 +7289,7 @@ static void __ref alloc_node_mem_map(struct pglist_data *pgdat)
+ }
+ #else
+ static void __ref alloc_node_mem_map(struct pglist_data *pgdat) { }
+-#endif /* CONFIG_FLAT_NODE_MEM_MAP */
++#endif /* CONFIG_FLATMEM */
+ 
+ #ifdef CONFIG_DEFERRED_STRUCT_PAGE_INIT
+ static inline void pgdat_set_deferred_range(pg_data_t *pgdat)
+diff --git a/mm/page_ext.c b/mm/page_ext.c
+index df6f74aac8e1..293b2685fc48 100644
+--- a/mm/page_ext.c
++++ b/mm/page_ext.c
+@@ -191,7 +191,7 @@ void __init page_ext_init_flatmem(void)
+ 	panic("Out of memory");
+ }
+ 
+-#else /* CONFIG_FLAT_NODE_MEM_MAP */
++#else /* CONFIG_FLATMEM */
+ 
+ struct page_ext *lookup_page_ext(const struct page *page)
+ {
 -- 
-Masami Hiramatsu
+2.28.0
