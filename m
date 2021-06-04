@@ -1,84 +1,51 @@
-From: Josh Poimboeuf <jpoimboe@redhat.com>
-Date: Fri, 18 Jun 2021 01:03:20 +0000
-Subject: Re: [PATCH -tip v7 09/13] kprobes: Setup instruction pointer in __kretprobe_trampoline_handler
-Message-Id: <20210618010320.5pjpmq5dillhlube@treble>
+From: Mike Rapoport <rppt@kernel.org>
+Date: Fri, 04 Jun 2021 06:49:09 +0000
+Subject: [PATCH v2 2/9] arc: update comment about HIGHMEM implementation
+Message-Id: <20210604064916.26580-3-rppt@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210617043909.fgu2lhnkxflmy5mk@treble>
- <20210617044032.txng4enhiduacvt6@treble>
- <20210617234001.54cd2ff60410ff82a39a2020@kernel.org>
- <20210618000239.f95de17418beae6d84ce783d@kernel.org>
- <CAEf4Bzbob_M0aS-GUY5XaqePZr_prxUag3RLHtp=HY8Uu__10g@mail.gmail.com>
- <20210617182159.ka227nkmhe4yu2de@treble>
- <CAEf4BzbQxxAWEvE7BfrBPCPzBjrAEVL9cg-duwbFNzEmbPPW2w@mail.gmail.com>
- <20210617192608.4nt6sdass6gw5ehl@treble>
- <CAEf4BzbGp6aGuv9CY_uAJ9JxeQy9uNDNYRCtgZSksorEcSWp6A@mail.gmail.com>
- <20210618093313.de8528635c61880cccf743d7@kernel.org>
-In-Reply-To: <20210618093313.de8528635c61880cccf743d7@kernel.org>
+References: <20210604064916.26580-1-rppt@kernel.org>
+In-Reply-To: <20210604064916.26580-1-rppt@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Masami Hiramatsu <mhiramat@kernel.org>
-Cc: Andrii Nakryiko <andrii.nakryiko@gmail.com>, Steven Rostedt <rostedt@goodmis.org>, Ingo Molnar <mingo@kernel.org>, X86 ML <x86@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, open list <linux-kernel@vger.kernel.org>, bpf <bpf@vger.kernel.org>, Jakub Kicinski <kuba@kernel.org>, Ingo Molnar <mingo@redhat.com>, Alexei Starovoitov <ast@kernel.org>, Thomas Gleixner <tglx@linutronix.de>, Kernel Team <kernel-team@fb.com>, Yonghong Song <yhs@fb.com>, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Jonathan Corbet <corbet@lwn.net>, Matt Turner <mattst88@gmail.com>, Mike Rapoport <rppt@kernel.org>, Mike Rapoport <rppt@linux.ibm.com>, Richard Henderson <rth@twiddle.net>, Vineet Gupta <vgupta@synopsys.com>, kexec@lists.infradead.org, linux-alpha@vger.kernel.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-doc@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-mm@kvack.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-xtensa@linux-xtensa.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org
 
-On Fri, Jun 18, 2021 at 09:33:13AM +0900, Masami Hiramatsu wrote:
-> On Thu, 17 Jun 2021 12:46:19 -0700
-> Andrii Nakryiko <andrii.nakryiko@gmail.com> wrote:
-> 
-> > On Thu, Jun 17, 2021 at 12:26 PM Josh Poimboeuf <jpoimboe@redhat.com> wrote:
-> > >
-> > > On Thu, Jun 17, 2021 at 11:31:03AM -0700, Andrii Nakryiko wrote:
-> > > > On Thu, Jun 17, 2021 at 11:22 AM Josh Poimboeuf <jpoimboe@redhat.com> wrote:
-> > > > >
-> > > > > On Thu, Jun 17, 2021 at 10:45:41AM -0700, Andrii Nakryiko wrote:
-> > > > > > > > > > I know I suggested this patch, but I believe it would only be useful in
-> > > > > > > > > > combination with the use of UNWIND_HINT_REGS in SAVE_REGS_STRING.  But I
-> > > > > > > > > > think that would be tricky to pull off correctly.  Instead, we have
-> > > > > > > > > > UNWIND_HINT_FUNC, which is working fine.
-> > > > > > > > > >
-> > > > > > > > > > So I'd suggest dropping this patch, as the unwinder isn't actually
-> > > > > > > > > > reading regs->ip after all.
-> > > > > > > > >
-> > > > > > > > > ... and I guess this means patches 6-8 are no longer necessary.
-> > > > > > > >
-> > > > > > > > OK, I also confirmed that dropping those patche does not make any change
-> > > > > > > > on the stacktrace.
-> > > > > > > > Let me update the series without those.
-> > > > > > >
-> > > > > > > Oops, Andrii, can you also test the kernel without this patch?
-> > > > > > > (you don't need to drop patch 6-8)
-> > > > > >
-> > > > > > Hi Masami,
-> > > > > >
-> > > > > > Dropping this patch and leaving all the other in place breaks stack
-> > > > > > traces from kretprobes for BPF. I double checked with and without this
-> > > > > > patch. Without this patch we are back to having broken stack traces. I
-> > > > > > see either
-> > > > > >
-> > > > > >   kretprobe_trampoline+0x0
-> > > > > >
-> > > > > > or
-> > > > > >
-> > > > > >   ftrace_trampoline+0xc8
-> > > > > >   kretprobe_trampoline+0x0
-> > >
-> > > Do the stack traces end there?  Or do they continue normally after that?
-> > 
-> > That's the entire stack trace.
-> 
-> So, there are 2 cases of the stacktrace from inside the kretprobe handler.
-> 
-> 1) Call stack_trace_save() in the handler. This will unwind stack from the
->   handler's context. This is the case of the ftrace dynamic events.
-> 
-> 2) Call stack_trace_save_regs(regs) in the handler with the pt_regs passed
->   by the kretprobe. This is the case of ebpf.
-> 
-> For the case 1, these patches can be dropped because ORC can unwind the
-> stack with UNWIND_HINT_FUNC. For the case 2, regs->ip must be set to the
-> correct (return) address so that ORC can find the correct entry from that
-> ip.
+From: Mike Rapoport <rppt@linux.ibm.com>
 
-Agreed!  I get it now.  Thanks :-)
+Arc does not use DISCONTIGMEM to implement high memory, update the comment
+describing how high memory works to reflect this.
 
+Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
+---
+ arch/arc/mm/init.c | 13 +++++--------
+ 1 file changed, 5 insertions(+), 8 deletions(-)
+
+diff --git a/arch/arc/mm/init.c b/arch/arc/mm/init.c
+index e2ed355438c9..397a201adfe3 100644
+--- a/arch/arc/mm/init.c
++++ b/arch/arc/mm/init.c
+@@ -139,16 +139,13 @@ void __init setup_arch_memory(void)
+ 
+ #ifdef CONFIG_HIGHMEM
+ 	/*
+-	 * Populate a new node with highmem
+-	 *
+ 	 * On ARC (w/o PAE) HIGHMEM addresses are actually smaller (0 based)
+-	 * than addresses in normal ala low memory (0x8000_0000 based).
++	 * than addresses in normal aka low memory (0x8000_0000 based).
+ 	 * Even with PAE, the huge peripheral space hole would waste a lot of
+-	 * mem with single mem_map[]. This warrants a mem_map per region design.
+-	 * Thus HIGHMEM on ARC is imlemented with DISCONTIGMEM.
+-	 *
+-	 * DISCONTIGMEM in turns requires multiple nodes. node 0 above is
+-	 * populated with normal memory zone while node 1 only has highmem
++	 * mem with single contiguous mem_map[].
++	 * Thus when HIGHMEM on ARC is enabled the memory map corresponding
++	 * to the hole is freed and ARC specific version of pfn_valid()
++	 * handles the hole in the memory map.
+ 	 */
+ #ifdef CONFIG_DISCONTIGMEM
+ 	node_set_online(1);
 -- 
-Josh
+2.28.0
