@@ -1,7 +1,7 @@
 From: Mike Rapoport <rppt@kernel.org>
-Date: Fri, 04 Jun 2021 06:49:14 +0000
-Subject: [PATCH v2 7/9] docs: remove description of DISCONTIGMEM
-Message-Id: <20210604064916.26580-8-rppt@kernel.org>
+Date: Fri, 04 Jun 2021 06:49:13 +0000
+Subject: [PATCH v2 6/9] arch, mm: remove stale mentions of DISCONIGMEM
+Message-Id: <20210604064916.26580-7-rppt@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20210604064916.26580-1-rppt@kernel.org>
 In-Reply-To: <20210604064916.26580-1-rppt@kernel.org>
@@ -13,102 +13,135 @@ Cc: Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Iv
 
 From: Mike Rapoport <rppt@linux.ibm.com>
 
-Remove description of DISCONTIGMEM from the "Memory Models" document and
-update VM sysctl description so that it won't mention DISCONIGMEM.
+There are several places that mention DISCONIGMEM in comments or have stale
+code guarded by CONFIG_DISCONTIGMEM.
+
+Remove the dead code and update the comments.
 
 Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
 ---
- Documentation/admin-guide/sysctl/vm.rst | 12 +++----
- Documentation/vm/memory-model.rst       | 45 ++-----------------------
- 2 files changed, 8 insertions(+), 49 deletions(-)
+ arch/ia64/kernel/topology.c     | 5 ++---
+ arch/ia64/mm/numa.c             | 5 ++---
+ arch/mips/include/asm/mmzone.h  | 6 ------
+ arch/mips/mm/init.c             | 3 ---
+ arch/nds32/include/asm/memory.h | 6 ------
+ arch/xtensa/include/asm/page.h  | 4 ----
+ include/linux/gfp.h             | 4 ++--
+ 7 files changed, 6 insertions(+), 27 deletions(-)
 
-diff --git a/Documentation/admin-guide/sysctl/vm.rst b/Documentation/admin-guide/sysctl/vm.rst
-index 586cd4b86428..ddbd71d592e0 100644
---- a/Documentation/admin-guide/sysctl/vm.rst
-+++ b/Documentation/admin-guide/sysctl/vm.rst
-@@ -936,12 +936,12 @@ allocations, THP and hugetlbfs pages.
+diff --git a/arch/ia64/kernel/topology.c b/arch/ia64/kernel/topology.c
+index 09fc385c2acd..3639e0a7cb3b 100644
+--- a/arch/ia64/kernel/topology.c
++++ b/arch/ia64/kernel/topology.c
+@@ -3,9 +3,8 @@
+  * License.  See the file "COPYING" in the main directory of this archive
+  * for more details.
+  *
+- * This file contains NUMA specific variables and functions which can
+- * be split away from DISCONTIGMEM and are used on NUMA machines with
+- * contiguous memory.
++ * This file contains NUMA specific variables and functions which are used on
++ * NUMA machines with contiguous memory.
+  * 		2002/08/07 Erich Focht <efocht@ess.nec.de>
+  * Populate cpu entries in sysfs for non-numa systems as well
+  *  	Intel Corporation - Ashok Raj
+diff --git a/arch/ia64/mm/numa.c b/arch/ia64/mm/numa.c
+index 46b6e5f3a40f..d6579ec3ea32 100644
+--- a/arch/ia64/mm/numa.c
++++ b/arch/ia64/mm/numa.c
+@@ -3,9 +3,8 @@
+  * License.  See the file "COPYING" in the main directory of this archive
+  * for more details.
+  *
+- * This file contains NUMA specific variables and functions which can
+- * be split away from DISCONTIGMEM and are used on NUMA machines with
+- * contiguous memory.
++ * This file contains NUMA specific variables and functions which are used on
++ * NUMA machines with contiguous memory.
+  * 
+  *                         2002/08/07 Erich Focht <efocht@ess.nec.de>
+  */
+diff --git a/arch/mips/include/asm/mmzone.h b/arch/mips/include/asm/mmzone.h
+index b826b8473e95..7649ab45e80c 100644
+--- a/arch/mips/include/asm/mmzone.h
++++ b/arch/mips/include/asm/mmzone.h
+@@ -20,10 +20,4 @@
+ #define nid_to_addrbase(nid) 0
+ #endif
  
- To make it sensible with respect to the watermark_scale_factor
- parameter, the unit is in fractions of 10,000. The default value of
--15,000 on !DISCONTIGMEM configurations means that up to 150% of the high
--watermark will be reclaimed in the event of a pageblock being mixed due
--to fragmentation. The level of reclaim is determined by the number of
--fragmentation events that occurred in the recent past. If this value is
--smaller than a pageblock then a pageblocks worth of pages will be reclaimed
--(e.g.  2MB on 64-bit x86). A boost factor of 0 will disable the feature.
-+15,000 means that up to 150% of the high watermark will be reclaimed in the
-+event of a pageblock being mixed due to fragmentation. The level of reclaim
-+is determined by the number of fragmentation events that occurred in the
-+recent past. If this value is smaller than a pageblock then a pageblocks
-+worth of pages will be reclaimed (e.g.  2MB on 64-bit x86). A boost factor
-+of 0 will disable the feature.
+-#ifdef CONFIG_DISCONTIGMEM
+-
+-#define pfn_to_nid(pfn)		pa_to_nid((pfn) << PAGE_SHIFT)
+-
+-#endif /* CONFIG_DISCONTIGMEM */
+-
+ #endif /* _ASM_MMZONE_H_ */
+diff --git a/arch/mips/mm/init.c b/arch/mips/mm/init.c
+index c36358758969..97f6ca341448 100644
+--- a/arch/mips/mm/init.c
++++ b/arch/mips/mm/init.c
+@@ -454,9 +454,6 @@ void __init mem_init(void)
+ 	BUILD_BUG_ON(IS_ENABLED(CONFIG_32BIT) && (_PFN_SHIFT > PAGE_SHIFT));
  
+ #ifdef CONFIG_HIGHMEM
+-#ifdef CONFIG_DISCONTIGMEM
+-#error "CONFIG_HIGHMEM and CONFIG_DISCONTIGMEM dont work together yet"
+-#endif
+ 	max_mapnr = highend_pfn ? highend_pfn : max_low_pfn;
+ #else
+ 	max_mapnr = max_low_pfn;
+diff --git a/arch/nds32/include/asm/memory.h b/arch/nds32/include/asm/memory.h
+index 940d32842793..62faafbc28e4 100644
+--- a/arch/nds32/include/asm/memory.h
++++ b/arch/nds32/include/asm/memory.h
+@@ -76,18 +76,12 @@
+  *  virt_to_page(k)	convert a _valid_ virtual address to struct page *
+  *  virt_addr_valid(k)	indicates whether a virtual address is valid
+  */
+-#ifndef CONFIG_DISCONTIGMEM
+-
+ #define ARCH_PFN_OFFSET		PHYS_PFN_OFFSET
+ #define pfn_valid(pfn)		((pfn) >= PHYS_PFN_OFFSET && (pfn) < (PHYS_PFN_OFFSET + max_mapnr))
  
- watermark_scale_factor
-diff --git a/Documentation/vm/memory-model.rst b/Documentation/vm/memory-model.rst
-index ce398a7dc6cd..30e8fbed6914 100644
---- a/Documentation/vm/memory-model.rst
-+++ b/Documentation/vm/memory-model.rst
-@@ -14,15 +14,11 @@ for the CPU. Then there could be several contiguous ranges at
- completely distinct addresses. And, don't forget about NUMA, where
- different memory banks are attached to different CPUs.
+ #define virt_to_page(kaddr)	(pfn_to_page(__pa(kaddr) >> PAGE_SHIFT))
+ #define virt_addr_valid(kaddr)	((unsigned long)(kaddr) >= PAGE_OFFSET && (unsigned long)(kaddr) < (unsigned long)high_memory)
  
--Linux abstracts this diversity using one of the three memory models:
--FLATMEM, DISCONTIGMEM and SPARSEMEM. Each architecture defines what
-+Linux abstracts this diversity using one of the two memory models:
-+FLATMEM and SPARSEMEM. Each architecture defines what
- memory models it supports, what the default memory model is and
- whether it is possible to manually override that default.
+-#else /* CONFIG_DISCONTIGMEM */
+-#error CONFIG_DISCONTIGMEM is not supported yet.
+-#endif /* !CONFIG_DISCONTIGMEM */
+-
+ #define page_to_phys(page)	(page_to_pfn(page) << PAGE_SHIFT)
  
--.. note::
--   At time of this writing, DISCONTIGMEM is considered deprecated,
--   although it is still in use by several architectures.
--
- All the memory models track the status of physical page frames using
- struct page arranged in one or more arrays.
+ #endif
+diff --git a/arch/xtensa/include/asm/page.h b/arch/xtensa/include/asm/page.h
+index 37ce25ef92d6..493eb7083b1a 100644
+--- a/arch/xtensa/include/asm/page.h
++++ b/arch/xtensa/include/asm/page.h
+@@ -192,10 +192,6 @@ static inline unsigned long ___pa(unsigned long va)
+ #define pfn_valid(pfn) \
+ 	((pfn) >= ARCH_PFN_OFFSET && ((pfn) - ARCH_PFN_OFFSET) < max_mapnr)
  
-@@ -63,43 +59,6 @@ straightforward: `PFN - ARCH_PFN_OFFSET` is an index to the
- The `ARCH_PFN_OFFSET` defines the first page frame number for
- systems with physical memory starting at address different from 0.
- 
--DISCONTIGMEM
--======
+-#ifdef CONFIG_DISCONTIGMEM
+-# error CONFIG_DISCONTIGMEM not supported
+-#endif
 -
--The DISCONTIGMEM model treats the physical memory as a collection of
--`nodes` similarly to how Linux NUMA support does. For each node Linux
--constructs an independent memory management subsystem represented by
--`struct pglist_data` (or `pg_data_t` for short). Among other
--things, `pg_data_t` holds the `node_mem_map` array that maps
--physical pages belonging to that node. The `node_start_pfn` field of
--`pg_data_t` is the number of the first page frame belonging to that
--node.
--
--The architecture setup code should call :c:func:`free_area_init_node` for
--each node in the system to initialize the `pg_data_t` object and its
--`node_mem_map`.
--
--Every `node_mem_map` behaves exactly as FLATMEM's `mem_map` -
--every physical page frame in a node has a `struct page` entry in the
--`node_mem_map` array. When DISCONTIGMEM is enabled, a portion of the
--`flags` field of the `struct page` encodes the node number of the
--node hosting that page.
--
--The conversion between a PFN and the `struct page` in the
--DISCONTIGMEM model became slightly more complex as it has to determine
--which node hosts the physical page and which `pg_data_t` object
--holds the `struct page`.
--
--Architectures that support DISCONTIGMEM provide :c:func:`pfn_to_nid`
--to convert PFN to the node number. The opposite conversion helper
--:c:func:`page_to_nid` is generic as it uses the node number encoded in
--page->flags.
--
--Once the node number is known, the PFN can be used to index
--appropriate `node_mem_map` array to access the `struct page` and
--the offset of the `struct page` from the `node_mem_map` plus
--`node_start_pfn` is the PFN of that page.
--
- SPARSEMEM
- ==== 
+ #define virt_to_page(kaddr)	pfn_to_page(__pa(kaddr) >> PAGE_SHIFT)
+ #define page_to_virt(page)	__va(page_to_pfn(page) << PAGE_SHIFT)
+ #define virt_addr_valid(kaddr)	pfn_valid(__pa(kaddr) >> PAGE_SHIFT)
+diff --git a/include/linux/gfp.h b/include/linux/gfp.h
+index 11da8af06704..dbe1f5fc901d 100644
+--- a/include/linux/gfp.h
++++ b/include/linux/gfp.h
+@@ -494,8 +494,8 @@ static inline int gfp_zonelist(gfp_t flags)
+  * There are two zonelists per node, one for all zones with memory and
+  * one containing just zones from the node the zonelist belongs to.
+  *
+- * For the normal case of non-DISCONTIGMEM systems the NODE_DATA() gets
+- * optimized to &contig_page_data at compile-time.
++ * For the case of non-NUMA systems the NODE_DATA() gets optimized to
++ * &contig_page_data at compile-time.
+  */
+ static inline struct zonelist *node_zonelist(int nid, gfp_t flags)
+ {
 -- 
 2.28.0
