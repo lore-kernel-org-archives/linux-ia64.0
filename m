@@ -1,180 +1,124 @@
-From: Masami Hiramatsu <mhiramat@kernel.org>
-Date: Fri, 18 Jun 2021 07:07:06 +0000
-Subject: [PATCH -tip v8 11/13] x86/unwind: Recover kretprobe trampoline entry
-Message-Id: <162400002631.506599.2413605639666466945.stgit@devnote2>
+From: Mike Rapoport <rppt@kernel.org>
+Date: Fri, 04 Jun 2021 06:49:07 +0000
+Subject: [PATCH v2 0/9] Remove DISCINTIGMEM memory model
+Message-Id: <20210604064916.26580-1-rppt@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <162399992186.506599.8457763707951687195.stgit@devnote2>
-In-Reply-To: <162399992186.506599.8457763707951687195.stgit@devnote2>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Steven Rostedt <rostedt@goodmis.org>, Josh Poimboeuf <jpoimboe@redhat.com>, Ingo Molnar <mingo@kernel.org>
-Cc: X86 ML <x86@kernel.org>, Masami Hiramatsu <mhiramat@kernel.org>, Daniel Xu <dxu@dxuuu.xyz>, linux-kernel@vger.kernel.org, bpf@vger.kernel.org, kuba@kernel.org, mingo@redhat.com, ast@kernel.org, Thomas Gleixner <tglx@linutronix.de>, Borislav Petkov <bp@alien8.de>, Peter Zijlstra <peterz@infradead.org>, kernel-team@fb.com, yhs@fb.com, linux-ia64@vger.kernel.org, Abhishek Sagar <sagar.abhishek@gmail.com>, Andrii Nakryiko <andrii.nakryiko@gmail.com>
+To: Andrew Morton <akpm@linux-foundation.org>
+Cc: Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Jonathan Corbet <corbet@lwn.net>, Matt Turner <mattst88@gmail.com>, Mike Rapoport <rppt@kernel.org>, Mike Rapoport <rppt@linux.ibm.com>, Richard Henderson <rth@twiddle.net>, Vineet Gupta <vgupta@synopsys.com>, kexec@lists.infradead.org, linux-alpha@vger.kernel.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-doc@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-mm@kvack.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-xtensa@linux-xtensa.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org
 
-Since the kretprobe replaces the function return address with
-the kretprobe_trampoline on the stack, x86 unwinders can not
-continue the stack unwinding at that point, or record
-kretprobe_trampoline instead of correct return address.
+From: Mike Rapoport <rppt@linux.ibm.com>
 
-To fix this issue, find the correct return address from task's
-kretprobe_instances as like as function-graph tracer does.
+Hi,
 
-With this fix, the unwinder can correctly unwind the stack
-from kretprobe event on x86, as below.
+SPARSEMEM memory model was supposed to entirely replace DISCONTIGMEM a
+(long) while ago. The last architectures that used DISCONTIGMEM were
+updated to use other memory models in v5.11 and it is about the time to
+entirely remove DISCONTIGMEM from the kernel.
 
-           <...>-135     [003] ...1     6.722338: r_full_proxy_read_0: (vfs_read+0xab/0x1a0 <- full_proxy_read)
-           <...>-135     [003] ...1     6.722377: <stack trace>
- => kretprobe_trace_func+0x209/0x2f0
- => kretprobe_dispatcher+0x4a/0x70
- => __kretprobe_trampoline_handler+0xca/0x150
- => trampoline_handler+0x44/0x70
- => kretprobe_trampoline+0x2a/0x50
- => vfs_read+0xab/0x1a0
- => ksys_read+0x5f/0xe0
- => do_syscall_64+0x33/0x40
- => entry_SYSCALL_64_after_hwframe+0x44/0xae
+This set removes DISCONTIGMEM from alpha, arc and m68k, simplifies memory
+model selection in mm/Kconfig and replaces usage of redundant
+CONFIG_NEED_MULTIPLE_NODES and CONFIG_FLAT_NODE_MEM_MAP with CONFIG_NUMA
+and CONFIG_FLATMEM respectively. 
+
+I've also removed NUMA support on alpha that was BROKEN for more than 15
+years.
+
+There were also minor updates all over arch/ to remove mentions of
+DISCONTIGMEM in comments and #ifdefs.
+
+v2:
+* Fix build errors reported by kbuild bot
+* Add additional cleanups in m68k as suggested by Geert
+
+v1: Link: https://lore.kernel.org/lkml/20210602105348.13387-1-rppt@kernel.org
+
+Mike Rapoport (9):
+  alpha: remove DISCONTIGMEM and NUMA
+  arc: update comment about HIGHMEM implementation
+  arc: remove support for DISCONTIGMEM
+  m68k: remove support for DISCONTIGMEM
+  mm: remove CONFIG_DISCONTIGMEM
+  arch, mm: remove stale mentions of DISCONIGMEM
+  docs: remove description of DISCONTIGMEM
+  mm: replace CONFIG_NEED_MULTIPLE_NODES with CONFIG_NUMA
+  mm: replace CONFIG_FLAT_NODE_MEM_MAP with CONFIG_FLATMEM
+
+ Documentation/admin-guide/sysctl/vm.rst |  12 +-
+ Documentation/vm/memory-model.rst       |  45 +----
+ arch/alpha/Kconfig                      |  22 ---
+ arch/alpha/include/asm/machvec.h        |   6 -
+ arch/alpha/include/asm/mmzone.h         | 100 -----------
+ arch/alpha/include/asm/pgtable.h        |   4 -
+ arch/alpha/include/asm/topology.h       |  39 -----
+ arch/alpha/kernel/core_marvel.c         |  53 +-----
+ arch/alpha/kernel/core_wildfire.c       |  29 +--
+ arch/alpha/kernel/pci_iommu.c           |  29 ---
+ arch/alpha/kernel/proto.h               |   8 -
+ arch/alpha/kernel/setup.c               |  16 --
+ arch/alpha/kernel/sys_marvel.c          |   5 -
+ arch/alpha/kernel/sys_wildfire.c        |   5 -
+ arch/alpha/mm/Makefile                  |   2 -
+ arch/alpha/mm/init.c                    |   3 -
+ arch/alpha/mm/numa.c                    | 223 ------------------------
+ arch/arc/Kconfig                        |  13 --
+ arch/arc/include/asm/mmzone.h           |  40 -----
+ arch/arc/mm/init.c                      |  21 +--
+ arch/arm64/Kconfig                      |   2 +-
+ arch/ia64/Kconfig                       |   2 +-
+ arch/ia64/kernel/topology.c             |   5 +-
+ arch/ia64/mm/numa.c                     |   5 +-
+ arch/m68k/Kconfig.cpu                   |  10 --
+ arch/m68k/include/asm/mmzone.h          |  10 --
+ arch/m68k/include/asm/page.h            |   2 +-
+ arch/m68k/include/asm/page_mm.h         |  35 ----
+ arch/m68k/mm/init.c                     |  20 ---
+ arch/mips/Kconfig                       |   2 +-
+ arch/mips/include/asm/mmzone.h          |   8 +-
+ arch/mips/include/asm/page.h            |   2 +-
+ arch/mips/mm/init.c                     |   7 +-
+ arch/nds32/include/asm/memory.h         |   6 -
+ arch/powerpc/Kconfig                    |   2 +-
+ arch/powerpc/include/asm/mmzone.h       |   4 +-
+ arch/powerpc/kernel/setup_64.c          |   2 +-
+ arch/powerpc/kernel/smp.c               |   2 +-
+ arch/powerpc/kexec/core.c               |   4 +-
+ arch/powerpc/mm/Makefile                |   2 +-
+ arch/powerpc/mm/mem.c                   |   4 +-
+ arch/riscv/Kconfig                      |   2 +-
+ arch/s390/Kconfig                       |   2 +-
+ arch/sh/include/asm/mmzone.h            |   4 +-
+ arch/sh/kernel/topology.c               |   2 +-
+ arch/sh/mm/Kconfig                      |   2 +-
+ arch/sh/mm/init.c                       |   2 +-
+ arch/sparc/Kconfig                      |   2 +-
+ arch/sparc/include/asm/mmzone.h         |   4 +-
+ arch/sparc/kernel/smp_64.c              |   2 +-
+ arch/sparc/mm/init_64.c                 |  12 +-
+ arch/x86/Kconfig                        |   2 +-
+ arch/x86/kernel/setup_percpu.c          |   6 +-
+ arch/x86/mm/init_32.c                   |   4 +-
+ arch/xtensa/include/asm/page.h          |   4 -
+ include/asm-generic/memory_model.h      |  37 +---
+ include/asm-generic/topology.h          |   2 +-
+ include/linux/gfp.h                     |   4 +-
+ include/linux/memblock.h                |   6 +-
+ include/linux/mm.h                      |   4 +-
+ include/linux/mmzone.h                  |  20 ++-
+ kernel/crash_core.c                     |   4 +-
+ mm/Kconfig                              |  36 +---
+ mm/memblock.c                           |   8 +-
+ mm/page_alloc.c                         |  25 +--
+ mm/page_ext.c                           |   2 +-
+ 66 files changed, 100 insertions(+), 909 deletions(-)
+ delete mode 100644 arch/alpha/include/asm/mmzone.h
+ delete mode 100644 arch/alpha/mm/numa.c
+ delete mode 100644 arch/arc/include/asm/mmzone.h
+ delete mode 100644 arch/m68k/include/asm/mmzone.h
 
 
-Reported-by: Daniel Xu <dxu@dxuuu.xyz>
-Signed-off-by: Masami Hiramatsu <mhiramat@kernel.org>
-Suggested-by: Josh Poimboeuf <jpoimboe@redhat.com>
-Tested-by: Andrii Nakryik <andrii@kernel.org>
-Acked-by: Josh Poimboeuf <jpoimboe@redhat.com>
----
-  Changes in v7:
-   - Remove superfluous #include <linux/kprobes.h>.
-  Changes in v5:
-   - Fix the case of interrupt happens on kretprobe_trampoline+0.
-  Changes in v3:
-   - Split out the kretprobe side patch
-   - Fix build error when CONFIG_KRETPROBES=n.
-  Changes in v2:
-   - Remove kretprobe wrapper functions from unwind_orc.c
-   - Do not fixup state->ip when unwinding with regs because
-     kretprobe fixup instruction pointer before calling handler.
----
- arch/x86/include/asm/unwind.h  |   23 +++++++++++++++++++++++
- arch/x86/kernel/unwind_frame.c |    3 +--
- arch/x86/kernel/unwind_guess.c |    3 +--
- arch/x86/kernel/unwind_orc.c   |   18 ++++++++++++++----
- 4 files changed, 39 insertions(+), 8 deletions(-)
-
-diff --git a/arch/x86/include/asm/unwind.h b/arch/x86/include/asm/unwind.h
-index 70fc159ebe69..36d3971c0a2c 100644
---- a/arch/x86/include/asm/unwind.h
-+++ b/arch/x86/include/asm/unwind.h
-@@ -4,6 +4,7 @@
- 
- #include <linux/sched.h>
- #include <linux/ftrace.h>
-+#include <linux/kprobes.h>
- #include <asm/ptrace.h>
- #include <asm/stacktrace.h>
- 
-@@ -15,6 +16,7 @@ struct unwind_state {
- 	unsigned long stack_mask;
- 	struct task_struct *task;
- 	int graph_idx;
-+	struct llist_node *kr_cur;
- 	bool error;
- #if defined(CONFIG_UNWINDER_ORC)
- 	bool signal, full_regs;
-@@ -99,6 +101,27 @@ void unwind_module_init(struct module *mod, void *orc_ip, size_t orc_ip_size,
- 			void *orc, size_t orc_size) {}
- #endif
- 
-+static inline
-+unsigned long unwind_recover_kretprobe(struct unwind_state *state,
-+				       unsigned long addr, unsigned long *addr_p)
-+{
-+	return is_kretprobe_trampoline(addr) ?
-+		kretprobe_find_ret_addr(state->task, addr_p, &state->kr_cur) :
-+		addr;
-+}
-+
-+/* Recover the return address modified by instrumentation (e.g. kretprobe) */
-+static inline
-+unsigned long unwind_recover_ret_addr(struct unwind_state *state,
-+				     unsigned long addr, unsigned long *addr_p)
-+{
-+	unsigned long ret;
-+
-+	ret = ftrace_graph_ret_addr(state->task, &state->graph_idx,
-+				    addr, addr_p);
-+	return unwind_recover_kretprobe(state, ret, addr_p);
-+}
-+
- /*
-  * This disables KASAN checking when reading a value from another task's stack,
-  * since the other task could be running on another CPU and could have poisoned
-diff --git a/arch/x86/kernel/unwind_frame.c b/arch/x86/kernel/unwind_frame.c
-index d7c44b257f7f..8e1c50c86e5d 100644
---- a/arch/x86/kernel/unwind_frame.c
-+++ b/arch/x86/kernel/unwind_frame.c
-@@ -240,8 +240,7 @@ static bool update_stack_state(struct unwind_state *state,
- 	else {
- 		addr_p = unwind_get_return_address_ptr(state);
- 		addr = READ_ONCE_TASK_STACK(state->task, *addr_p);
--		state->ip = ftrace_graph_ret_addr(state->task, &state->graph_idx,
--						  addr, addr_p);
-+		state->ip = unwind_recover_ret_addr(state, addr, addr_p);
- 	}
- 
- 	/* Save the original stack pointer for unwind_dump(): */
-diff --git a/arch/x86/kernel/unwind_guess.c b/arch/x86/kernel/unwind_guess.c
-index c49f10ffd8cd..884d68a6e714 100644
---- a/arch/x86/kernel/unwind_guess.c
-+++ b/arch/x86/kernel/unwind_guess.c
-@@ -15,8 +15,7 @@ unsigned long unwind_get_return_address(struct unwind_state *state)
- 
- 	addr = READ_ONCE_NOCHECK(*state->sp);
- 
--	return ftrace_graph_ret_addr(state->task, &state->graph_idx,
--				     addr, state->sp);
-+	return unwind_recover_ret_addr(state, addr, state->sp);
- }
- EXPORT_SYMBOL_GPL(unwind_get_return_address);
- 
-diff --git a/arch/x86/kernel/unwind_orc.c b/arch/x86/kernel/unwind_orc.c
-index a1202536fc57..ad6a9aece379 100644
---- a/arch/x86/kernel/unwind_orc.c
-+++ b/arch/x86/kernel/unwind_orc.c
-@@ -534,9 +534,8 @@ bool unwind_next_frame(struct unwind_state *state)
- 		if (!deref_stack_reg(state, ip_p, &state->ip))
- 			goto err;
- 
--		state->ip = ftrace_graph_ret_addr(state->task, &state->graph_idx,
--						  state->ip, (void *)ip_p);
--
-+		state->ip = unwind_recover_ret_addr(state, state->ip,
-+						    (unsigned long *)ip_p);
- 		state->sp = sp;
- 		state->regs = NULL;
- 		state->prev_regs = NULL;
-@@ -549,7 +548,15 @@ bool unwind_next_frame(struct unwind_state *state)
- 					 (void *)orig_ip);
- 			goto err;
- 		}
--
-+		/*
-+		 * There is a small chance to interrupt at the entry of
-+		 * kretprobe_trampoline where the ORC info doesn't exist.
-+		 * That point is right after the RET to kretprobe_trampoline
-+		 * which was modified return address. So the @addr_p must
-+		 * be right before the regs->sp.
-+		 */
-+		state->ip = unwind_recover_kretprobe(state, state->ip,
-+				(unsigned long *)(state->sp - sizeof(long)));
- 		state->regs = (struct pt_regs *)sp;
- 		state->prev_regs = NULL;
- 		state->full_regs = true;
-@@ -562,6 +569,9 @@ bool unwind_next_frame(struct unwind_state *state)
- 					 (void *)orig_ip);
- 			goto err;
- 		}
-+		/* See UNWIND_HINT_TYPE_REGS case comment. */
-+		state->ip = unwind_recover_kretprobe(state, state->ip,
-+				(unsigned long *)(state->sp - sizeof(long)));
- 
- 		if (state->full_regs)
- 			state->prev_regs = state->regs;
+base-commit: c4681547bcce777daf576925a966ffa824edd09d
+-- 
+2.28.0
