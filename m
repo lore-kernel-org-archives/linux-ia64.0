@@ -1,133 +1,80 @@
-From: Mike Rapoport <rppt@kernel.org>
-Date: Fri, 04 Jun 2021 06:49:10 +0000
-Subject: [PATCH v2 3/9] arc: remove support for DISCONTIGMEM
-Message-Id: <20210604064916.26580-4-rppt@kernel.org>
+From: Vineet Gupta <Vineet.Gupta1@synopsys.com>
+Date: Fri, 04 Jun 2021 14:07:39 +0000
+Subject: Re: [PATCH v2 3/9] arc: remove support for DISCONTIGMEM
+Message-Id: <f1616f95-f99c-c387-4ed4-88961457a7c6@synopsys.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20210604064916.26580-1-rppt@kernel.org>
-In-Reply-To: <20210604064916.26580-1-rppt@kernel.org>
+ <20210604064916.26580-4-rppt@kernel.org>
+In-Reply-To: <20210604064916.26580-4-rppt@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@linux-foundation.org>
-Cc: Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Jonathan Corbet <corbet@lwn.net>, Matt Turner <mattst88@gmail.com>, Mike Rapoport <rppt@kernel.org>, Mike Rapoport <rppt@linux.ibm.com>, Richard Henderson <rth@twiddle.net>, Vineet Gupta <vgupta@synopsys.com>, kexec@lists.infradead.org, linux-alpha@vger.kernel.org, linux-arch@vger.kernel.org, linux-arm-kernel@lists.infradead.org, linux-doc@vger.kernel.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linux-m68k@lists.linux-m68k.org, linux-mips@vger.kernel.org, linux-mm@kvack.org, linux-riscv@lists.infradead.org, linux-s390@vger.kernel.org, linux-sh@vger.kernel.org, linux-snps-arc@lists.infradead.org, linux-xtensa@linux-xtensa.org, linuxppc-dev@lists.ozlabs.org, sparclinux@vger.kernel.org
+To: Mike Rapoport <rppt@kernel.org>, Andrew Morton <akpm@linux-foundation.org>
+Cc: Arnd Bergmann <arnd@arndb.de>, Geert Uytterhoeven <geert@linux-m68k.org>, Ivan Kokshaysky <ink@jurassic.park.msu.ru>, Jonathan Corbet <corbet@lwn.net>, Matt Turner <mattst88@gmail.com>, Mike Rapoport <rppt@linux.ibm.com>, Richard Henderson <rth@twiddle.net>, "kexec@lists.infradead.org" <kexec@lists.infradead.org>, "linux-alpha@vger.kernel.org" <linux-alpha@vger.kernel.org>, "linux-arch@vger.kernel.org" <linux-arch@vger.kernel.org>, "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>, "linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>, "linux-m68k@lists.linux-m68k.org" <linux-m68k@lists.linux-m68k.org>, "linux-mips@vger.kernel.org" <linux-mips@vger.kernel.org>, "linux-mm@kvack.org" <linux-mm@kvack.org>, "linux-riscv@lists.infradead.org" <linux-riscv@lists.infradead.org>, "linux-s390@vger.kernel.org" <linux-s390@vger.kernel.org>, "linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>, "linux-snps-arc@lists.infradead.org" <linux-snps-arc@lists.infradead.org>, "linux-xtensa@linux-xtensa.org" <linux-xtensa@linux-xtensa.org>, "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>, "sparclinux@vger.kernel.org" <sparclinux@vger.kernel.org>
 
-From: Mike Rapoport <rppt@linux.ibm.com>
-
-DISCONTIGMEM was replaced by FLATMEM with freeing of the unused memory map
-in v5.11.
-
-Remove the support for DISCONTIGMEM entirely.
-
-Signed-off-by: Mike Rapoport <rppt@linux.ibm.com>
----
- arch/arc/Kconfig              | 13 ------------
- arch/arc/include/asm/mmzone.h | 40 -----------------------------------
- arch/arc/mm/init.c            |  8 -------
- 3 files changed, 61 deletions(-)
- delete mode 100644 arch/arc/include/asm/mmzone.h
-
-diff --git a/arch/arc/Kconfig b/arch/arc/Kconfig
-index 2d98501c0897..d8f51eb8963b 100644
---- a/arch/arc/Kconfig
-+++ b/arch/arc/Kconfig
-@@ -62,10 +62,6 @@ config SCHED_OMIT_FRAME_POINTER
- config GENERIC_CSUM
- 	def_bool y
- 
--config ARCH_DISCONTIGMEM_ENABLE
--	def_bool n
--	depends on BROKEN
--
- config ARCH_FLATMEM_ENABLE
- 	def_bool y
- 
-@@ -344,15 +340,6 @@ config ARC_HUGEPAGE_16M
- 
- endchoice
- 
--config NODES_SHIFT
--	int "Maximum NUMA Nodes (as a power of 2)"
--	default "0" if !DISCONTIGMEM
--	default "1" if DISCONTIGMEM
--	depends on NEED_MULTIPLE_NODES
--	help
--	  Accessing memory beyond 1GB (with or w/o PAE) requires 2 memory
--	  zones.
--
- config ARC_COMPACT_IRQ_LEVELS
- 	depends on ISA_ARCOMPACT
- 	bool "Setup Timer IRQ as high Priority"
-diff --git a/arch/arc/include/asm/mmzone.h b/arch/arc/include/asm/mmzone.h
-deleted file mode 100644
-index b86b9d1e54dc..000000000000
---- a/arch/arc/include/asm/mmzone.h
-+++ /dev/null
-@@ -1,40 +0,0 @@
--/* SPDX-License-Identifier: GPL-2.0-only */
--/*
-- * Copyright (C) 2016 Synopsys, Inc. (www.synopsys.com)
-- */
--
--#ifndef _ASM_ARC_MMZONE_H
--#define _ASM_ARC_MMZONE_H
--
--#ifdef CONFIG_DISCONTIGMEM
--
--extern struct pglist_data node_data[];
--#define NODE_DATA(nid) (&node_data[nid])
--
--static inline int pfn_to_nid(unsigned long pfn)
--{
--	int is_end_low = 1;
--
--	if (IS_ENABLED(CONFIG_ARC_HAS_PAE40))
--		is_end_low = pfn <= virt_to_pfn(0xFFFFFFFFUL);
--
--	/*
--	 * node 0: lowmem:             0x8000_0000   to 0xFFFF_FFFF
--	 * node 1: HIGHMEM w/o  PAE40: 0x0           to 0x7FFF_FFFF
--	 *         HIGHMEM with PAE40: 0x1_0000_0000 to ...
--	 */
--	if (pfn >= ARCH_PFN_OFFSET && is_end_low)
--		return 0;
--
--	return 1;
--}
--
--static inline int pfn_valid(unsigned long pfn)
--{
--	int nid = pfn_to_nid(pfn);
--
--	return (pfn <= node_end_pfn(nid));
--}
--#endif /* CONFIG_DISCONTIGMEM  */
--
--#endif
-diff --git a/arch/arc/mm/init.c b/arch/arc/mm/init.c
-index 397a201adfe3..abfeef7bf6f8 100644
---- a/arch/arc/mm/init.c
-+++ b/arch/arc/mm/init.c
-@@ -32,11 +32,6 @@ unsigned long arch_pfn_offset;
- EXPORT_SYMBOL(arch_pfn_offset);
- #endif
- 
--#ifdef CONFIG_DISCONTIGMEM
--struct pglist_data node_data[MAX_NUMNODES] __read_mostly;
--EXPORT_SYMBOL(node_data);
--#endif
--
- long __init arc_get_mem_sz(void)
- {
- 	return low_mem_sz;
-@@ -147,9 +142,6 @@ void __init setup_arch_memory(void)
- 	 * to the hole is freed and ARC specific version of pfn_valid()
- 	 * handles the hole in the memory map.
- 	 */
--#ifdef CONFIG_DISCONTIGMEM
--	node_set_online(1);
--#endif
- 
- 	min_high_pfn = PFN_DOWN(high_mem_start);
- 	max_high_pfn = PFN_DOWN(high_mem_start + high_mem_sz);
--- 
-2.28.0
+T24gNi8zLzIxIDExOjQ5IFBNLCBNaWtlIFJhcG9wb3J0IHdyb3RlOg0KPiBGcm9tOiBNaWtlIFJh
+cG9wb3J0IDxycHB0QGxpbnV4LmlibS5jb20+DQo+DQo+IERJU0NPTlRJR01FTSB3YXMgcmVwbGFj
+ZWQgYnkgRkxBVE1FTSB3aXRoIGZyZWVpbmcgb2YgdGhlIHVudXNlZCBtZW1vcnkgbWFwDQo+IGlu
+IHY1LjExLg0KPg0KPiBSZW1vdmUgdGhlIHN1cHBvcnQgZm9yIERJU0NPTlRJR01FTSBlbnRpcmVs
+eS4NCj4NCj4gU2lnbmVkLW9mZi1ieTogTWlrZSBSYXBvcG9ydCA8cnBwdEBsaW51eC5pYm0uY29t
+Pg0KDQpMb29rcyBub24gaW50cnVzaXZlLCBidXQgSSdkIHN0aWxsIGxpa2UgdG8gZ2l2ZSB0aGlz
+IGEgc3BpbiBvbiBoYXJkd2FyZSANCi0gY29uc2lkZXJpbmcgaGlnaG1lbSBvbiBBUkMgaGFzIHRl
+bmRlbmN5IHRvIGdvIHNpZGV3YXlzIDstKQ0KQ2FuIHlvdSBwbGVhc2Ugc2hhcmUgYSBicmFuY2gg
+IQ0KDQpBY2tlZC1ieTogVmluZWV0IEd1cHRhIDx2Z3VwdGFAc3lub3BzeXMuY29tPg0KDQpUaHgs
+DQotVmluZWV0DQoNCj4gLS0tDQo+ICAgYXJjaC9hcmMvS2NvbmZpZyAgICAgICAgICAgICAgfCAx
+MyAtLS0tLS0tLS0tLS0NCj4gICBhcmNoL2FyYy9pbmNsdWRlL2FzbS9tbXpvbmUuaCB8IDQwIC0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tDQo+ICAgYXJjaC9hcmMvbW0vaW5pdC5j
+ICAgICAgICAgICAgfCAgOCAtLS0tLS0tDQo+ICAgMyBmaWxlcyBjaGFuZ2VkLCA2MSBkZWxldGlv
+bnMoLSkNCj4gICBkZWxldGUgbW9kZSAxMDA2NDQgYXJjaC9hcmMvaW5jbHVkZS9hc20vbW16b25l
+LmgNCj4NCj4gZGlmZiAtLWdpdCBhL2FyY2gvYXJjL0tjb25maWcgYi9hcmNoL2FyYy9LY29uZmln
+DQo+IGluZGV4IDJkOTg1MDFjMDg5Ny4uZDhmNTFlYjg5NjNiIDEwMDY0NA0KPiAtLS0gYS9hcmNo
+L2FyYy9LY29uZmlnDQo+ICsrKyBiL2FyY2gvYXJjL0tjb25maWcNCj4gQEAgLTYyLDEwICs2Miw2
+IEBAIGNvbmZpZyBTQ0hFRF9PTUlUX0ZSQU1FX1BPSU5URVINCj4gICBjb25maWcgR0VORVJJQ19D
+U1VNDQo+ICAgCWRlZl9ib29sIHkNCj4gICANCj4gLWNvbmZpZyBBUkNIX0RJU0NPTlRJR01FTV9F
+TkFCTEUNCj4gLQlkZWZfYm9vbCBuDQo+IC0JZGVwZW5kcyBvbiBCUk9LRU4NCj4gLQ0KPiAgIGNv
+bmZpZyBBUkNIX0ZMQVRNRU1fRU5BQkxFDQo+ICAgCWRlZl9ib29sIHkNCj4gICANCj4gQEAgLTM0
+NCwxNSArMzQwLDYgQEAgY29uZmlnIEFSQ19IVUdFUEFHRV8xNk0NCj4gICANCj4gICBlbmRjaG9p
+Y2UNCj4gICANCj4gLWNvbmZpZyBOT0RFU19TSElGVA0KPiAtCWludCAiTWF4aW11bSBOVU1BIE5v
+ZGVzIChhcyBhIHBvd2VyIG9mIDIpIg0KPiAtCWRlZmF1bHQgIjAiIGlmICFESVNDT05USUdNRU0N
+Cj4gLQlkZWZhdWx0ICIxIiBpZiBESVNDT05USUdNRU0NCj4gLQlkZXBlbmRzIG9uIE5FRURfTVVM
+VElQTEVfTk9ERVMNCj4gLQloZWxwDQo+IC0JICBBY2Nlc3NpbmcgbWVtb3J5IGJleW9uZCAxR0Ig
+KHdpdGggb3Igdy9vIFBBRSkgcmVxdWlyZXMgMiBtZW1vcnkNCj4gLQkgIHpvbmVzLg0KPiAtDQo+
+ICAgY29uZmlnIEFSQ19DT01QQUNUX0lSUV9MRVZFTFMNCj4gICAJZGVwZW5kcyBvbiBJU0FfQVJD
+T01QQUNUDQo+ICAgCWJvb2wgIlNldHVwIFRpbWVyIElSUSBhcyBoaWdoIFByaW9yaXR5Ig0KPiBk
+aWZmIC0tZ2l0IGEvYXJjaC9hcmMvaW5jbHVkZS9hc20vbW16b25lLmggYi9hcmNoL2FyYy9pbmNs
+dWRlL2FzbS9tbXpvbmUuaA0KPiBkZWxldGVkIGZpbGUgbW9kZSAxMDA2NDQNCj4gaW5kZXggYjg2
+YjlkMWU1NGRjLi4wMDAwMDAwMDAwMDANCj4gLS0tIGEvYXJjaC9hcmMvaW5jbHVkZS9hc20vbW16
+b25lLmgNCj4gKysrIC9kZXYvbnVsbA0KPiBAQCAtMSw0MCArMCwwIEBADQo+IC0vKiBTUERYLUxp
+Y2Vuc2UtSWRlbnRpZmllcjogR1BMLTIuMC1vbmx5ICovDQo+IC0vKg0KPiAtICogQ29weXJpZ2h0
+IChDKSAyMDE2IFN5bm9wc3lzLCBJbmMuICh3d3cuc3lub3BzeXMuY29tKQ0KPiAtICovDQo+IC0N
+Cj4gLSNpZm5kZWYgX0FTTV9BUkNfTU1aT05FX0gNCj4gLSNkZWZpbmUgX0FTTV9BUkNfTU1aT05F
+X0gNCj4gLQ0KPiAtI2lmZGVmIENPTkZJR19ESVNDT05USUdNRU0NCj4gLQ0KPiAtZXh0ZXJuIHN0
+cnVjdCBwZ2xpc3RfZGF0YSBub2RlX2RhdGFbXTsNCj4gLSNkZWZpbmUgTk9ERV9EQVRBKG5pZCkg
+KCZub2RlX2RhdGFbbmlkXSkNCj4gLQ0KPiAtc3RhdGljIGlubGluZSBpbnQgcGZuX3RvX25pZCh1
+bnNpZ25lZCBsb25nIHBmbikNCj4gLXsNCj4gLQlpbnQgaXNfZW5kX2xvdyA9IDE7DQo+IC0NCj4g
+LQlpZiAoSVNfRU5BQkxFRChDT05GSUdfQVJDX0hBU19QQUU0MCkpDQo+IC0JCWlzX2VuZF9sb3cg
+PSBwZm4gPD0gdmlydF90b19wZm4oMHhGRkZGRkZGRlVMKTsNCj4gLQ0KPiAtCS8qDQo+IC0JICog
+bm9kZSAwOiBsb3dtZW06ICAgICAgICAgICAgIDB4ODAwMF8wMDAwICAgdG8gMHhGRkZGX0ZGRkYN
+Cj4gLQkgKiBub2RlIDE6IEhJR0hNRU0gdy9vICBQQUU0MDogMHgwICAgICAgICAgICB0byAweDdG
+RkZfRkZGRg0KPiAtCSAqICAgICAgICAgSElHSE1FTSB3aXRoIFBBRTQwOiAweDFfMDAwMF8wMDAw
+IHRvIC4uLg0KPiAtCSAqLw0KPiAtCWlmIChwZm4gPj0gQVJDSF9QRk5fT0ZGU0VUICYmIGlzX2Vu
+ZF9sb3cpDQo+IC0JCXJldHVybiAwOw0KPiAtDQo+IC0JcmV0dXJuIDE7DQo+IC19DQo+IC0NCj4g
+LXN0YXRpYyBpbmxpbmUgaW50IHBmbl92YWxpZCh1bnNpZ25lZCBsb25nIHBmbikNCj4gLXsNCj4g
+LQlpbnQgbmlkID0gcGZuX3RvX25pZChwZm4pOw0KPiAtDQo+IC0JcmV0dXJuIChwZm4gPD0gbm9k
+ZV9lbmRfcGZuKG5pZCkpOw0KPiAtfQ0KPiAtI2VuZGlmIC8qIENPTkZJR19ESVNDT05USUdNRU0g
+ICovDQo+IC0NCj4gLSNlbmRpZg0KPiBkaWZmIC0tZ2l0IGEvYXJjaC9hcmMvbW0vaW5pdC5jIGIv
+YXJjaC9hcmMvbW0vaW5pdC5jDQo+IGluZGV4IDM5N2EyMDFhZGZlMy4uYWJmZWVmN2JmNmY4IDEw
+MDY0NA0KPiAtLS0gYS9hcmNoL2FyYy9tbS9pbml0LmMNCj4gKysrIGIvYXJjaC9hcmMvbW0vaW5p
+dC5jDQo+IEBAIC0zMiwxMSArMzIsNiBAQCB1bnNpZ25lZCBsb25nIGFyY2hfcGZuX29mZnNldDsN
+Cj4gICBFWFBPUlRfU1lNQk9MKGFyY2hfcGZuX29mZnNldCk7DQo+ICAgI2VuZGlmDQo+ICAgDQo+
+IC0jaWZkZWYgQ09ORklHX0RJU0NPTlRJR01FTQ0KPiAtc3RydWN0IHBnbGlzdF9kYXRhIG5vZGVf
+ZGF0YVtNQVhfTlVNTk9ERVNdIF9fcmVhZF9tb3N0bHk7DQo+IC1FWFBPUlRfU1lNQk9MKG5vZGVf
+ZGF0YSk7DQo+IC0jZW5kaWYNCj4gLQ0KPiAgIGxvbmcgX19pbml0IGFyY19nZXRfbWVtX3N6KHZv
+aWQpDQo+ICAgew0KPiAgIAlyZXR1cm4gbG93X21lbV9zejsNCj4gQEAgLTE0Nyw5ICsxNDIsNiBA
+QCB2b2lkIF9faW5pdCBzZXR1cF9hcmNoX21lbW9yeSh2b2lkKQ0KPiAgIAkgKiB0byB0aGUgaG9s
+ZSBpcyBmcmVlZCBhbmQgQVJDIHNwZWNpZmljIHZlcnNpb24gb2YgcGZuX3ZhbGlkKCkNCj4gICAJ
+ICogaGFuZGxlcyB0aGUgaG9sZSBpbiB0aGUgbWVtb3J5IG1hcC4NCj4gICAJICovDQo+IC0jaWZk
+ZWYgQ09ORklHX0RJU0NPTlRJR01FTQ0KPiAtCW5vZGVfc2V0X29ubGluZSgxKTsNCj4gLSNlbmRp
+Zg0KPiAgIA0KPiAgIAltaW5faGlnaF9wZm4gPSBQRk5fRE9XTihoaWdoX21lbV9zdGFydCk7DQo+
+ICAgCW1heF9oaWdoX3BmbiA9IFBGTl9ET1dOKGhpZ2hfbWVtX3N0YXJ0ICsgaGlnaF9tZW1fc3op
+Ow0KDQo
