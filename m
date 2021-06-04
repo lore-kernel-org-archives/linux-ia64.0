@@ -1,10 +1,10 @@
 From: Mike Rapoport <rppt@kernel.org>
-Date: Tue, 08 Jun 2021 09:13:14 +0000
-Subject: [PATCH v3 7/9] docs: remove description of DISCONTIGMEM
-Message-Id: <20210608091316.3622-8-rppt@kernel.org>
+Date: Fri, 04 Jun 2021 06:49:14 +0000
+Subject: [PATCH v2 7/9] docs: remove description of DISCONTIGMEM
+Message-Id: <20210604064916.26580-8-rppt@kernel.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20210608091316.3622-1-rppt@kernel.org>
-In-Reply-To: <20210608091316.3622-1-rppt@kernel.org>
+References: <20210604064916.26580-1-rppt@kernel.org>
+In-Reply-To: <20210604064916.26580-1-rppt@kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
